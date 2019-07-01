@@ -43,7 +43,7 @@
 
 #include "zebra/rt.h"
 #include "zebra/interface.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/debug.h"
 #include "zebra/kernel_socket.h"
 #include "zebra/rib.h"
@@ -148,7 +148,9 @@ const struct message rtm_type_str[] = {{RTM_ADD, "RTM_ADD"},
 #ifdef RTM_OLDDEL
 				       {RTM_OLDDEL, "RTM_OLDDEL"},
 #endif /* RTM_OLDDEL */
+#ifdef RTM_RESOLVE
 				       {RTM_RESOLVE, "RTM_RESOLVE"},
+#endif	/* RTM_RESOLVE */
 				       {RTM_NEWADDR, "RTM_NEWADDR"},
 				       {RTM_DELADDR, "RTM_DELADDR"},
 				       {RTM_IFINFO, "RTM_IFINFO"},
@@ -278,8 +280,9 @@ size_t _rta_get(caddr_t sap, void *destp, size_t destlen, bool checkaf)
 		}
 
 		if (copylen > destlen) {
-			zlog_warn("%s: destination buffer too small (%lu vs %lu)",
-				  __func__, copylen, destlen);
+			zlog_warn(
+				"%s: destination buffer too small (%zu vs %zu)",
+				__func__, copylen, destlen);
 			memcpy(dest, sap, destlen);
 		} else
 			memcpy(dest, sap, copylen);
@@ -314,8 +317,9 @@ size_t rta_getsdlname(caddr_t sap, void *destp, short *destlen)
 
 	if (copylen > 0 && dest != NULL && sdl->sdl_family == AF_LINK) {
 		if (copylen > IFNAMSIZ) {
-			zlog_warn("%s: destination buffer too small (%lu vs %d)",
-				  __func__, copylen, IFNAMSIZ);
+			zlog_warn(
+				"%s: destination buffer too small (%zu vs %d)",
+				__func__, copylen, IFNAMSIZ);
 			memcpy(dest, sdl->sdl_data, IFNAMSIZ);
 			dest[IFNAMSIZ] = 0;
 			*destlen = IFNAMSIZ;
@@ -622,7 +626,7 @@ int ifm_read(struct if_msghdr *ifm)
 		 * RTA_IFP) is required.
 		 */
 		if (!ifnlen) {
-			zlog_debug("Interface index %d (new) missing ifname\n",
+			zlog_debug("Interface index %d (new) missing ifname",
 				   ifm->ifm_index);
 			return -1;
 		}
@@ -1134,14 +1138,16 @@ void rtm_read(struct rt_msghdr *rtm)
 	 */
 	if (rtm->rtm_type == RTM_CHANGE)
 		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
-			   0, zebra_flags, &p, NULL, NULL, 0, 0, 0, true);
+			   0, zebra_flags, &p, NULL, NULL, RT_TABLE_MAIN,
+			   0, 0, true);
 	if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 	    || rtm->rtm_type == RTM_CHANGE)
 		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL, 0,
-			zebra_flags, &p, NULL, &nh, 0, 0, 0, 0, 0);
+			zebra_flags, &p, NULL, &nh, RT_TABLE_MAIN, 0, 0, 0, 0);
 	else
 		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
-			   0, zebra_flags, &p, NULL, &nh, 0, 0, 0, true);
+			   0, zebra_flags, &p, NULL, &nh, RT_TABLE_MAIN,
+			   0, 0, true);
 }
 
 /* Interface function for the kernel routing table updates.  Support
@@ -1372,7 +1378,7 @@ static int kernel_read(struct thread *thread)
 		return 0;
 	}
 
-	thread_add_read(zebrad.master, kernel_read, NULL, sock, NULL);
+	thread_add_read(zrouter.master, kernel_read, NULL, sock, NULL);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		rtmsg_debug(&buf.r.rtm);
@@ -1445,7 +1451,7 @@ static void routing_socket(struct zebra_ns *zns)
 	  zlog_warn ("Can't set O_NONBLOCK to routing socket");*/
 
 	/* kernel_read needs rewrite. */
-	thread_add_read(zebrad.master, kernel_read, NULL, routing_sock, NULL);
+	thread_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
 }
 
 /* Exported interface function.  This function simply calls

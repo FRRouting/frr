@@ -21,6 +21,10 @@
 #ifndef _QUAGGA_JSON_H
 #define _QUAGGA_JSON_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if defined(HAVE_JSON_C_JSON_H)
 #include <json-c/json.h>
 
@@ -79,6 +83,10 @@ extern void json_object_free(struct json_object *obj);
   * Don't escape forward slashes.
   */
 #define JSON_C_TO_STRING_NOSLASHESCAPE (1<<4)
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif /* _QUAGGA_JSON_H */

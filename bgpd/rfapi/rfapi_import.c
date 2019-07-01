@@ -123,7 +123,7 @@ void rfapiDebugBacktrace(void)
  * Count remote routes and compare with actively-maintained values.
  * Abort if they disagree.
  */
-void rfapiCheckRouteCount()
+void rfapiCheckRouteCount(void)
 {
 	struct bgp *bgp = bgp_get_default();
 	struct rfapi *h;
@@ -509,13 +509,11 @@ static struct bgp_path_info *rfapiBgpInfoCreate(struct attr *attr,
 {
 	struct bgp_path_info *new;
 
-	new = bgp_path_info_new();
-	assert(new);
+	new = info_make(type, sub_type, 0, peer, attr, NULL);
 
-	if (attr) {
-		if (!new->attr)
-			new->attr = bgp_attr_intern(attr);
-	}
+	if (attr)
+		new->attr = bgp_attr_intern(attr);
+
 	bgp_path_info_extra_get(new);
 	if (prd) {
 		new->extra->vnc.import.rd = *prd;
@@ -523,9 +521,7 @@ static struct bgp_path_info *rfapiBgpInfoCreate(struct attr *attr,
 	}
 	if (label)
 		encode_label(*label, &new->extra->label[0]);
-	new->type = type;
-	new->sub_type = sub_type;
-	new->peer = peer;
+
 	peer_lock(peer);
 
 	return new;
@@ -2190,7 +2186,7 @@ static void rfapiItBiIndexDump(struct agg_node *rn)
 			prefix2str(&k->extra->vnc.import.aux_prefix,
 				   buf_aux_pfx, sizeof(buf_aux_pfx));
 		} else
-			strncpy(buf_aux_pfx, "(none)", PREFIX_STRLEN);
+			strlcpy(buf_aux_pfx, "(none)", sizeof(buf_aux_pfx));
 
 		vnc_zlog_debug_verbose("bpi %p, peer %p, rd %s, aux_prefix %s",
 				       k, k->peer, buf, buf_aux_pfx);
@@ -2221,7 +2217,7 @@ static struct bgp_path_info *rfapiItBiIndexSearch(
 			prefix2str(aux_prefix, buf_aux_pfx,
 				   sizeof(buf_aux_pfx));
 		} else
-			strncpy(buf_aux_pfx, "(nil)", sizeof(buf_aux_pfx));
+			strlcpy(buf_aux_pfx, "(nil)", sizeof(buf_aux_pfx));
 
 		vnc_zlog_debug_verbose("%s want prd=%s, peer=%p, aux_prefix=%s",
 				       __func__,
@@ -4285,7 +4281,7 @@ struct rfapi *bgp_rfapi_new(struct bgp *bgp)
 
 	assert(bgp->rfapi_cfg == NULL);
 
-	h = (struct rfapi *)XCALLOC(MTYPE_RFAPI, sizeof(struct rfapi));
+	h = XCALLOC(MTYPE_RFAPI, sizeof(struct rfapi));
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		h->un[afi] = agg_table_init();

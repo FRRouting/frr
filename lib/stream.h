@@ -28,6 +28,10 @@
 #include "mpls.h"
 #include "prefix.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * A stream is an arbitrary buffer, whose contents generally are assumed to
  * be in network order.
@@ -115,9 +119,9 @@ struct stream_fifo {
 	pthread_mutex_t mtx;
 
 	/* number of streams in this fifo */
-	_Atomic size_t count;
+	atomic_size_t count;
 #if defined DEV_BUILD
-	_Atomic size_t max_count;
+	atomic_size_t max_count;
 #endif
 
 	struct stream *head;
@@ -403,5 +407,9 @@ static inline uint8_t *ptr_get_be32(uint8_t *ptr, uint32_t *out)
 		if (!stream_get2((P), (STR), (SIZE)))                          \
 			goto stream_failure;                                   \
 	} while (0)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_STREAM_H */

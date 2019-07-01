@@ -107,7 +107,7 @@ DEFUN (rfp_full_table_download,
 	return CMD_SUCCESS;
 }
 
-static void rfp_vty_install()
+static void rfp_vty_install(void)
 {
 	static int installed = 0;
 	if (installed) /* do this only once */

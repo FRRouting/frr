@@ -21,8 +21,12 @@
 #ifndef __PIM_INSTANCE_H__
 #define __PIM_INSTANCE_H__
 
+#include <mlag.h>
+
 #include "pim_str.h"
 #include "pim_msdp.h"
+#include "pim_assert.h"
+#include "pim_vxlan_instance.h"
 
 #if defined(HAVE_LINUX_MROUTE_H)
 #include <linux/mroute.h>
@@ -35,11 +39,30 @@
 #define MAXVIFS (256)
 #endif
 #endif
-extern struct pim_instance *pimg; // Pim Global Instance
 
 enum pim_spt_switchover {
 	PIM_SPT_IMMEDIATE,
 	PIM_SPT_INFINITY,
+};
+
+struct pim_router {
+	struct thread_master *master;
+
+	uint32_t debugs;
+
+	int t_periodic;
+	struct pim_assert_metric infinite_assert_metric;
+	long rpf_cache_refresh_delay_msec;
+	int32_t register_suppress_time;
+	int packet_process;
+	int32_t register_probe_time;
+
+	/*
+	 * What is the default vrf that we work in
+	 */
+	vrf_id_t vrf_id;
+
+	enum mlag_role role;
 };
 
 /* Per VRF PIM DB */
@@ -88,6 +111,7 @@ struct pim_instance {
 	struct hash *channel_oil_hash;
 
 	struct pim_msdp msdp;
+	struct pim_vxlan_instance vxlan;
 
 	struct list *ssmpingd_list;
 	struct in_addr ssmpingd_group_addr;

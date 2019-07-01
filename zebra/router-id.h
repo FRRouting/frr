@@ -30,11 +30,19 @@
 #include "zclient.h"
 #include "if.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void router_id_add_address(struct connected *);
 extern void router_id_del_address(struct connected *);
 extern void router_id_init(struct zebra_vrf *);
 extern void router_id_cmd_init(void);
 extern void router_id_write(struct vty *);
 extern void router_id_get(struct prefix *, vrf_id_t);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

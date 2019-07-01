@@ -1009,7 +1009,7 @@ enum node_type node_parent(enum node_type node)
 }
 
 /* Execute command by argument vline vector. */
-static int cmd_execute_command_real(vector vline, enum filter_type filter,
+static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 				    struct vty *vty,
 				    const struct cmd_element **cmd)
 {
@@ -1277,8 +1277,7 @@ int cmd_execute(struct vty *vty, const char *cmd,
 
 	hook_call(cmd_execute_done, vty, cmd_exec);
 
-	if (cmd_out)
-		XFREE(MTYPE_TMP, cmd_out);
+	XFREE(MTYPE_TMP, cmd_out);
 
 	return ret;
 }
@@ -1706,12 +1705,16 @@ static int vty_write_config(struct vty *vty)
 	vty_out(vty, "frr defaults %s\n", DFLT_NAME);
 	vty_out(vty, "!\n");
 
-	for (i = 0; i < vector_active(cmdvec); i++)
-		if ((node = vector_slot(cmdvec, i)) && node->func
-		    && (node->vtysh || vty->type != VTY_SHELL)) {
-			if ((*node->func)(vty))
-				vty_out(vty, "!\n");
-		}
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		for (i = 0; i < vector_active(cmdvec); i++)
+			if ((node = vector_slot(cmdvec, i)) && node->func
+			    && (node->vtysh || vty->type != VTY_SHELL)) {
+				if ((*node->func)(vty))
+					vty_out(vty, "!\n");
+			}
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	if (vty->type == VTY_TERM) {
 		vty_out(vty, "end\n");
@@ -2408,8 +2411,7 @@ static int set_log_file(struct vty *vty, const char *fname, int loglevel)
 
 	ret = zlog_set_file(fullpath, loglevel);
 
-	if (p)
-		XFREE(MTYPE_TMP, p);
+	XFREE(MTYPE_TMP, p);
 
 	if (!ret) {
 		if (vty)
@@ -2417,8 +2419,7 @@ static int set_log_file(struct vty *vty, const char *fname, int loglevel)
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (host.logfile)
-		XFREE(MTYPE_HOST, host.logfile);
+	XFREE(MTYPE_HOST, host.logfile);
 
 	host.logfile = XSTRDUP(MTYPE_HOST, fname);
 
@@ -2487,8 +2488,7 @@ static void disable_log_file(void)
 {
 	zlog_reset_file();
 
-	if (host.logfile)
-		XFREE(MTYPE_HOST, host.logfile);
+	XFREE(MTYPE_HOST, host.logfile);
 
 	host.logfile = NULL;
 }
@@ -2637,8 +2637,7 @@ int cmd_banner_motd_file(const char *file)
 		return CMD_ERR_NO_FILE;
 	in = strstr(rpath, SYSCONFDIR);
 	if (in == rpath) {
-		if (host.motdfile)
-			XFREE(MTYPE_HOST, host.motdfile);
+		XFREE(MTYPE_HOST, host.motdfile);
 		host.motdfile = XSTRDUP(MTYPE_HOST, file);
 	} else
 		success = CMD_WARNING_CONFIG_FAILED;
@@ -2723,8 +2722,7 @@ DEFUN(find,
 /* Set config filename.  Called from vty.c */
 void host_config_set(const char *filename)
 {
-	if (host.config)
-		XFREE(MTYPE_HOST, host.config);
+	XFREE(MTYPE_HOST, host.config);
 	host.config = XSTRDUP(MTYPE_HOST, filename);
 }
 
@@ -2881,7 +2879,7 @@ void cmd_init(int terminal)
 #endif
 }
 
-void cmd_terminate()
+void cmd_terminate(void)
 {
 	struct cmd_node *cmd_node;
 
@@ -2904,24 +2902,15 @@ void cmd_terminate()
 		cmdvec = NULL;
 	}
 
-	if (host.name)
-		XFREE(MTYPE_HOST, host.name);
-	if (host.domainname)
-		XFREE(MTYPE_HOST, host.domainname);
-	if (host.password)
-		XFREE(MTYPE_HOST, host.password);
-	if (host.password_encrypt)
-		XFREE(MTYPE_HOST, host.password_encrypt);
-	if (host.enable)
-		XFREE(MTYPE_HOST, host.enable);
-	if (host.enable_encrypt)
-		XFREE(MTYPE_HOST, host.enable_encrypt);
-	if (host.logfile)
-		XFREE(MTYPE_HOST, host.logfile);
-	if (host.motdfile)
-		XFREE(MTYPE_HOST, host.motdfile);
-	if (host.config)
-		XFREE(MTYPE_HOST, host.config);
+	XFREE(MTYPE_HOST, host.name);
+	XFREE(MTYPE_HOST, host.domainname);
+	XFREE(MTYPE_HOST, host.password);
+	XFREE(MTYPE_HOST, host.password_encrypt);
+	XFREE(MTYPE_HOST, host.enable);
+	XFREE(MTYPE_HOST, host.enable_encrypt);
+	XFREE(MTYPE_HOST, host.logfile);
+	XFREE(MTYPE_HOST, host.motdfile);
+	XFREE(MTYPE_HOST, host.config);
 
 	list_delete(&varhandlers);
 	qobj_finish();

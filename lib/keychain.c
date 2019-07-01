@@ -32,7 +32,7 @@ DEFINE_QOBJ_TYPE(keychain)
 DEFINE_QOBJ_TYPE(key)
 
 /* Master list of key chain. */
-struct list *keychain_list;
+static struct list *keychain_list;
 
 static struct keychain *keychain_new(void)
 {
@@ -116,8 +116,7 @@ static struct keychain *keychain_get(const char *name)
 
 static void keychain_delete(struct keychain *keychain)
 {
-	if (keychain->name)
-		XFREE(MTYPE_KEYCHAIN, keychain->name);
+	XFREE(MTYPE_KEYCHAIN, keychain->name);
 
 	list_delete(&keychain->key);
 	listnode_delete(keychain_list, keychain);
@@ -217,8 +216,7 @@ static void key_delete(struct keychain *keychain, struct key *key)
 {
 	listnode_delete(keychain->key, key);
 
-	if (key->string)
-		XFREE(MTYPE_KEY, key->string);
+	XFREE(MTYPE_KEY, key->string);
 	key_free(key);
 }
 
@@ -1040,7 +1038,7 @@ static int keychain_config_write(struct vty *vty)
 	return 0;
 }
 
-void keychain_init()
+void keychain_init(void)
 {
 	keychain_list = list_new();
 

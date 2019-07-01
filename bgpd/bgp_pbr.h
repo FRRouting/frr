@@ -87,12 +87,10 @@ struct bgp_pbr_entry_action {
 
 /* BGP Policy Route structure */
 struct bgp_pbr_entry_main {
+#define BGP_PBR_UNDEFINED	0
+#define BGP_PBR_IPSET		1
+#define BGP_PBR_IPRULE		2
 	uint8_t type;
-	uint16_t instance;
-
-	uint32_t flags;
-
-	uint8_t message;
 
 	/*
 	 * This is an enum but we are going to treat it as a uint8_t
@@ -103,6 +101,7 @@ struct bgp_pbr_entry_main {
 
 #define PREFIX_SRC_PRESENT (1 << 0)
 #define PREFIX_DST_PRESENT (1 << 1)
+	uint8_t match_bitmask_iprule;
 	uint8_t match_bitmask;
 
 	uint8_t match_src_port_num;
@@ -137,14 +136,6 @@ struct bgp_pbr_entry_main {
 	uint16_t action_num;
 	struct bgp_pbr_entry_action actions[ACTIONS_MAX_NUM];
 
-	uint8_t distance;
-
-	uint32_t metric;
-
-	route_tag_t tag;
-
-	uint32_t mtu;
-
 	vrf_id_t vrf_id;
 };
 
@@ -166,6 +157,19 @@ struct bgp_pbr_config {
 };
 
 extern struct bgp_pbr_config *bgp_pbr_cfg;
+
+struct bgp_pbr_rule {
+	uint32_t flags;
+	struct prefix src;
+	struct prefix dst;
+	struct bgp_pbr_action *action;
+	vrf_id_t vrf_id;
+	uint32_t unique;
+	uint32_t priority;
+	bool installed;
+	bool install_in_progress;
+	void *path;
+};
 
 struct bgp_pbr_match {
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
@@ -251,6 +255,9 @@ struct bgp_pbr_action {
 	struct bgp *bgp;
 };
 
+extern struct bgp_pbr_rule *bgp_pbr_rule_lookup(vrf_id_t vrf_id,
+						uint32_t unique);
+
 extern struct bgp_pbr_action *bgp_pbr_action_rule_lookup(vrf_id_t vrf_id,
 							 uint32_t unique);
 
@@ -266,6 +273,9 @@ extern struct bgp_pbr_match *bgp_pbr_match_iptable_lookup(vrf_id_t vrf_id,
 extern void bgp_pbr_cleanup(struct bgp *bgp);
 extern void bgp_pbr_init(struct bgp *bgp);
 
+extern uint32_t bgp_pbr_rule_hash_key(void *arg);
+extern bool bgp_pbr_rule_hash_equal(const void *arg1,
+				   const void *arg2);
 extern uint32_t bgp_pbr_action_hash_key(void *arg);
 extern bool bgp_pbr_action_hash_equal(const void *arg1,
 				     const void *arg2);

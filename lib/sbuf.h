@@ -23,6 +23,10 @@
 #ifndef SBUF_H
 #define SBUF_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * sbuf provides a simple string buffer. One application where this comes
  * in handy is the parsing of binary data: If there is an error in the parsing
@@ -75,5 +79,9 @@ void sbuf_free(struct sbuf *buf);
 #include "lib/log.h"
 void sbuf_push(struct sbuf *buf, int indent, const char *format, ...)
 	PRINTF_ATTRIBUTE(3, 4);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

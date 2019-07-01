@@ -295,7 +295,7 @@ pim_macro_ch_my_assert_metric_eval(const struct pim_ifchannel *ch)
 		}
 	}
 
-	return qpim_infinite_assert_metric;
+	return router->infinite_assert_metric;
 }
 
 /*

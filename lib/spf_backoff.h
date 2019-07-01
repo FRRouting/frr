@@ -26,6 +26,10 @@
 #ifndef _ZEBRA_SPF_BACKOFF_H
 #define _ZEBRA_SPF_BACKOFF_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct spf_backoff;
 struct thread_master;
 struct vty;
@@ -57,5 +61,9 @@ long spf_backoff_short_delay(struct spf_backoff *backoff);
 long spf_backoff_long_delay(struct spf_backoff *backoff);
 long spf_backoff_holddown(struct spf_backoff *backoff);
 long spf_backoff_timetolearn(struct spf_backoff *backoff);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

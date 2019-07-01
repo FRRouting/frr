@@ -24,6 +24,7 @@
 #include "hash.h"
 #include "yang.h"
 #include "yang_translator.h"
+#include "frrstr.h"
 
 DEFINE_MTYPE_STATIC(LIB, YANG_TRANSLATOR, "YANG Translator")
 DEFINE_MTYPE_STATIC(LIB, YANG_TRANSLATOR_MODULE, "YANG Translator Module")
@@ -45,8 +46,6 @@ static struct ly_ctx *ly_translator_ctx;
 static unsigned int
 yang_translator_validate(struct yang_translator *translator);
 static unsigned int yang_module_nodes_count(const struct lys_module *module);
-static void str_replace(char *o_string, const char *s_string,
-			const char *r_string);
 
 struct yang_mapping_node {
 	char xpath_from_canonical[XPATH_MAXLEN];
@@ -108,14 +107,24 @@ static void yang_mapping_add(struct yang_translator *translator, int dir,
 		sizeof(mapping->xpath_from_fmt));
 	strlcpy(mapping->xpath_to_fmt, xpath_to_fmt,
 		sizeof(mapping->xpath_to_fmt));
-	str_replace(mapping->xpath_from_fmt, "KEY1", "%[^']");
-	str_replace(mapping->xpath_from_fmt, "KEY2", "%[^']");
-	str_replace(mapping->xpath_from_fmt, "KEY3", "%[^']");
-	str_replace(mapping->xpath_from_fmt, "KEY4", "%[^']");
-	str_replace(mapping->xpath_to_fmt, "KEY1", "%s");
-	str_replace(mapping->xpath_to_fmt, "KEY2", "%s");
-	str_replace(mapping->xpath_to_fmt, "KEY3", "%s");
-	str_replace(mapping->xpath_to_fmt, "KEY4", "%s");
+
+	const char *keys[] = {"KEY1", "KEY2", "KEY3", "KEY4"};
+	char *xpfmt;
+
+	for (unsigned int i = 0; i < array_size(keys); i++) {
+		xpfmt = frrstr_replace(mapping->xpath_from_fmt, keys[i],
+				       "%[^']");
+		strlcpy(mapping->xpath_from_fmt, xpfmt,
+			sizeof(mapping->xpath_from_fmt));
+		XFREE(MTYPE_TMP, xpfmt);
+	}
+
+	for (unsigned int i = 0; i < array_size(keys); i++) {
+		xpfmt = frrstr_replace(mapping->xpath_to_fmt, keys[i], "%s");
+		strlcpy(mapping->xpath_to_fmt, xpfmt,
+			sizeof(mapping->xpath_to_fmt));
+		XFREE(MTYPE_TMP, xpfmt);
+	}
 }
 
 struct yang_translator *yang_translator_load(const char *path)
@@ -498,28 +507,6 @@ static unsigned int yang_module_nodes_count(const struct lys_module *module)
 				   &total);
 
 	return total;
-}
-
-/* TODO: rewrite this function. */
-static void str_replace(char *o_string, const char *s_string,
-			const char *r_string)
-{
-	char buffer[BUFSIZ];
-	char *ch;
-
-	ch = strstr(o_string, s_string);
-	if (!ch)
-		return;
-
-	strncpy(buffer, o_string, ch - o_string);
-	buffer[ch - o_string] = 0;
-
-	sprintf(buffer + (ch - o_string), "%s%s", r_string,
-		ch + strlen(s_string));
-
-	o_string[0] = 0;
-	strcpy(o_string, buffer);
-	return str_replace(o_string, s_string, r_string);
 }
 
 void yang_translator_init(void)

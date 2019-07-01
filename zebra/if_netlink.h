@@ -23,10 +23,18 @@
 
 #ifdef HAVE_NETLINK
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id,
 				  int startup);
 extern int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int interface_lookup_netlink(struct zebra_ns *zns);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* HAVE_NETLINK */
 

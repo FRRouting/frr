@@ -23,6 +23,10 @@
 #include "prefix.h"
 #include "table.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct agg_table {
 	struct route_table *route_table;
 
@@ -150,4 +154,9 @@ static inline struct agg_table *agg_get_table(struct agg_node *node)
 {
 	return (struct agg_table *)route_table_get_info(node->table);
 }
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

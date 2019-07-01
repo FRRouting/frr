@@ -34,8 +34,8 @@
 
 DEFINE_MTYPE_STATIC(LIB, BFD_INFO, "BFD info")
 
-int bfd_debug = 0;
-struct bfd_gbl bfd_gbl;
+static int bfd_debug = 0;
+static struct bfd_gbl bfd_gbl;
 
 /*
  * bfd_gbl_init - Initialize the BFD global structure

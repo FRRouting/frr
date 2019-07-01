@@ -5,13 +5,12 @@
 dev_RSTFILES = \
 	doc/developer/bgp-typecodes.rst \
 	doc/developer/bgpd.rst \
-	doc/developer/building-frr-for-openwrt.rst \
 	doc/developer/building-frr-for-alpine.rst \
 	doc/developer/building-frr-for-centos6.rst \
 	doc/developer/building-frr-for-centos7.rst \
 	doc/developer/building-frr-for-debian8.rst \
 	doc/developer/building-frr-for-debian9.rst \
-	doc/developer/building-frr-for-fedora24.rst \
+	doc/developer/building-frr-for-fedora.rst \
 	doc/developer/building-frr-for-freebsd10.rst \
 	doc/developer/building-frr-for-freebsd11.rst \
 	doc/developer/building-frr-for-freebsd9.rst \
@@ -19,6 +18,7 @@ dev_RSTFILES = \
 	doc/developer/building-frr-for-netbsd7.rst \
 	doc/developer/building-frr-for-omnios.rst \
 	doc/developer/building-frr-for-openbsd6.rst \
+	doc/developer/building-frr-for-openwrt.rst \
 	doc/developer/building-frr-for-ubuntu1404.rst \
 	doc/developer/building-frr-for-ubuntu1604.rst \
 	doc/developer/building-frr-for-ubuntu1804.rst \
@@ -27,8 +27,10 @@ dev_RSTFILES = \
 	doc/developer/cli.rst \
 	doc/developer/conf.py \
 	doc/developer/hooks.rst \
+	doc/developer/include-compile.rst \
 	doc/developer/index.rst \
 	doc/developer/library.rst \
+	doc/developer/lists.rst \
 	doc/developer/logging.rst \
 	doc/developer/maintainer-release-build.rst \
 	doc/developer/memtypes.rst \
@@ -37,8 +39,12 @@ dev_RSTFILES = \
 	doc/developer/ospf-api.rst \
 	doc/developer/ospf-sr.rst \
 	doc/developer/ospf.rst \
-	doc/developer/packaging.rst \
 	doc/developer/packaging-debian.rst \
+	doc/developer/packaging-redhat.rst \
+	doc/developer/packaging.rst \
+	doc/developer/testing.rst \
+	doc/developer/topotests-snippets.rst \
+	doc/developer/topotests.rst \
 	doc/developer/workflow.rst \
 	doc/developer/zebra.rst \
 	# end

@@ -37,12 +37,12 @@ void pim_static_route_free(struct static_route *s_route)
 	XFREE(MTYPE_PIM_STATIC_ROUTE, s_route);
 }
 
-static struct static_route *static_route_alloc()
+static struct static_route *static_route_alloc(void)
 {
 	return XCALLOC(MTYPE_PIM_STATIC_ROUTE, sizeof(struct static_route));
 }
 
-static struct static_route *static_route_new(unsigned int iif, unsigned int oif,
+static struct static_route *static_route_new(ifindex_t iif, ifindex_t oif,
 					     struct in_addr group,
 					     struct in_addr source)
 {
@@ -76,7 +76,7 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 	ifindex_t iif_index = pim_iif ? pim_iif->mroute_vif_index : 0;
 	ifindex_t oif_index = pim_oif ? pim_oif->mroute_vif_index : 0;
 
-	if (!iif_index || !oif_index) {
+	if (!iif_index || !oif_index || iif_index == -1 || oif_index == -1) {
 		zlog_warn(
 			"%s %s: Unable to add static route: Invalid interface index(iif=%d,oif=%d)",
 			__FILE__, __PRETTY_FUNCTION__, iif_index, oif_index);

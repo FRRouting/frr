@@ -22,6 +22,7 @@
 #include "log.h"
 #include "lib_errors.h"
 #include "command.h"
+#include "debug.h"
 #include "libfrr.h"
 #include "version.h"
 #include "northbound.h"
@@ -32,6 +33,8 @@
 #include <confd_maapi.h>
 
 DEFINE_MTYPE_STATIC(LIB, CONFD, "ConfD module")
+
+static struct debug nb_dbg_client_confd = {0, "Northbound client: ConfD"};
 
 static struct thread_master *master;
 static struct sockaddr confd_addr;
@@ -139,8 +142,8 @@ static int frr_confd_hkeypath_get_list_entry(const confd_hkeypath_t *kp,
 
 		/* Obtain list entry. */
 		if (!CHECK_FLAG(nb_node_list->flags, F_NB_NODE_KEYLESS_LIST)) {
-			*list_entry = nb_node_list->cbs.lookup_entry(
-				*list_entry, &keys);
+			*list_entry = nb_callback_lookup_entry(
+				nb_node, *list_entry, &keys);
 			if (*list_entry == NULL)
 				return -1;
 		} else {
@@ -228,7 +231,7 @@ frr_confd_cdb_diff_iter(confd_hkeypath_t *kp, enum cdb_iter_op cdb_op,
 		nb_op = NB_OP_CREATE;
 		break;
 	case MOP_DELETED:
-		nb_op = NB_OP_DELETE;
+		nb_op = NB_OP_DESTROY;
 		break;
 	case MOP_VALUE_SET:
 		if (nb_operation_is_valid(NB_OP_MODIFY, nb_node->snode))
@@ -286,7 +289,11 @@ static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 	struct cdb_iter_args iter_args;
 	int ret;
 
-	candidate = nb_config_dup(running_config);
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		candidate = nb_config_dup(running_config);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	/* Iterate over all configuration changes. */
 	iter_args.candidate = candidate;
@@ -319,7 +326,7 @@ static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 	 */
 	transaction = NULL;
 	ret = nb_candidate_commit_prepare(candidate, NB_CLIENT_CONFD, NULL,
-					  &transaction);
+					  NULL, &transaction);
 	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
 		enum confd_errcode errcode;
 		const char *errmsg;
@@ -545,9 +552,8 @@ static int frr_confd_init_cdb(void)
 				continue;
 
 			nb_node = snode->priv;
-			if (debug_northbound)
-				zlog_debug("%s: subscribing to '%s'", __func__,
-					   nb_node->xpath);
+			DEBUGD(&nb_dbg_client_confd, "%s: subscribing to '%s'",
+			       __func__, nb_node->xpath);
 
 			spoint = XMALLOC(MTYPE_CONFD, sizeof(*spoint));
 			ret = cdb_subscribe2(
@@ -630,7 +636,7 @@ static int frr_confd_data_get_elem(struct confd_trans_ctx *tctx,
 		return CONFD_OK;
 	}
 
-	data = nb_node->cbs.get_elem(xpath, list_entry);
+	data = nb_callback_get_elem(nb_node, xpath, list_entry);
 	if (data) {
 		if (data->value) {
 			CONFD_SET_STR(&v, data->value);
@@ -670,8 +676,8 @@ static int frr_confd_data_get_next(struct confd_trans_ctx *tctx,
 		return CONFD_OK;
 	}
 
-	nb_next = nb_node->cbs.get_next(parent_list_entry,
-					(next == -1) ? NULL : (void *)next);
+	nb_next = nb_callback_get_next(nb_node, parent_list_entry,
+				       (next == -1) ? NULL : (void *)next);
 	if (!nb_next) {
 		/* End of the list or leaf-list. */
 		confd_data_reply_next_key(tctx, NULL, -1, -1);
@@ -684,7 +690,8 @@ static int frr_confd_data_get_next(struct confd_trans_ctx *tctx,
 			struct yang_list_keys keys;
 
 			memset(&keys, 0, sizeof(keys));
-			if (nb_node->cbs.get_keys(nb_next, &keys) != NB_OK) {
+			if (nb_callback_get_keys(nb_node, nb_next, &keys)
+			    != NB_OK) {
 				flog_warn(EC_LIB_NB_CB_STATE,
 					  "%s: failed to get list keys",
 					  __func__);
@@ -729,7 +736,7 @@ static int frr_confd_data_get_next(struct confd_trans_ctx *tctx,
 		}
 		break;
 	case LYS_LEAFLIST:
-		data = nb_node->cbs.get_elem(xpath, nb_next);
+		data = nb_callback_get_elem(nb_node, xpath, nb_next);
 		if (data) {
 			if (data->value) {
 				CONFD_SET_STR(&v[0], data->value);
@@ -798,7 +805,8 @@ static int frr_confd_data_get_object(struct confd_trans_ctx *tctx,
 
 		snprintf(xpath_child, sizeof(xpath_child), "%s/%s", xpath,
 			 child->name);
-		data = nb_node_child->cbs.get_elem(xpath_child, list_entry);
+		data = nb_callback_get_elem(nb_node_child, xpath_child,
+					    list_entry);
 		if (data) {
 			if (data->value)
 				CONFD_SET_STR(v, data->value);
@@ -866,7 +874,8 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 
 		object = &objects[j];
 
-		nb_next = nb_node->cbs.get_next(parent_list_entry, nb_next);
+		nb_next = nb_callback_get_next(nb_node, parent_list_entry,
+					       nb_next);
 		if (!nb_next)
 			/* End of the list. */
 			break;
@@ -876,7 +885,7 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 		/* Leaf-lists require special handling. */
 		if (nb_node->snode->nodetype == LYS_LEAFLIST) {
 			object->v = XMALLOC(MTYPE_CONFD, sizeof(confd_value_t));
-			data = nb_node->cbs.get_elem(xpath, nb_next);
+			data = nb_callback_get_elem(nb_node, xpath, nb_next);
 			assert(data && data->value);
 			CONFD_SET_STR(object->v, data->value);
 			nvalues++;
@@ -927,8 +936,8 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 
 			snprintf(xpath_child, sizeof(xpath_child), "%s/%s",
 				 xpath, child->name);
-			data = nb_node_child->cbs.get_elem(xpath_child,
-							   nb_next);
+			data = nb_callback_get_elem(nb_node_child, xpath_child,
+						    nb_next);
 			if (data) {
 				if (data->value)
 					CONFD_SET_STR(v, data->value);
@@ -1108,7 +1117,7 @@ static int frr_confd_action_execute(struct confd_user_info *uinfo,
 	}
 
 	/* Execute callback registered for this XPath. */
-	if (nb_node->cbs.rpc(xpath, input, output) != NB_OK) {
+	if (nb_callback_rpc(nb_node, xpath, input, output) != NB_OK) {
 		flog_warn(EC_LIB_NB_CB_RPC, "%s: rpc callback failed: %s",
 			  __func__, xpath);
 		ret = CONFD_ERR;
@@ -1185,9 +1194,9 @@ static int frr_confd_subscribe_state(const struct lys_node *snode, void *arg)
 	if (snode->parent && CHECK_FLAG(snode->parent->flags, LYS_CONFIG_R))
 		return YANG_ITER_CONTINUE;
 
-	if (debug_northbound)
-		zlog_debug("%s: providing data to '%s' (callpoint %s)",
-			   __func__, nb_node->xpath, snode->name);
+	DEBUGD(&nb_dbg_client_confd,
+	       "%s: providing data to '%s' (callpoint %s)", __func__,
+	       nb_node->xpath, snode->name);
 
 	strlcpy(data_cbs->callpoint, snode->name, sizeof(data_cbs->callpoint));
 	if (confd_register_data_cb(dctx, data_cbs) != CONFD_OK)
@@ -1328,6 +1337,54 @@ static void frr_confd_finish_dp(void)
 		confd_release_daemon(dctx);
 }
 
+/* ------------ CLI ------------ */
+
+DEFUN (debug_nb_confd,
+       debug_nb_confd_cmd,
+       "[no] debug northbound client confd",
+       NO_STR
+       DEBUG_STR
+       "Northbound debugging\n"
+       "Client\n"
+       "ConfD\n")
+{
+	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+	bool no = strmatch(argv[0]->text, "no");
+
+	DEBUG_MODE_SET(&nb_dbg_client_confd, mode, !no);
+
+	return CMD_SUCCESS;
+}
+
+static int frr_confd_debug_config_write(struct vty *vty)
+{
+	if (DEBUG_MODE_CHECK(&nb_dbg_client_confd, DEBUG_MODE_CONF))
+		vty_out(vty, "debug northbound client confd\n");
+
+	return 0;
+}
+
+static int frr_confd_debug_set_all(uint32_t flags, bool set)
+{
+	DEBUG_FLAGS_SET(&nb_dbg_client_confd, flags, set);
+
+	/* If all modes have been turned off, don't preserve options. */
+	if (!DEBUG_MODE_CHECK(&nb_dbg_client_confd, DEBUG_MODE_ALL))
+		DEBUG_CLEAR(&nb_dbg_client_confd);
+
+	return 0;
+}
+
+static void frr_confd_cli_init(void)
+{
+	hook_register(nb_client_debug_config_write,
+		      frr_confd_debug_config_write);
+	hook_register(nb_client_debug_set_all, frr_confd_debug_set_all);
+
+	install_element(ENABLE_NODE, &debug_nb_confd_cmd);
+	install_element(CONFIG_NODE, &debug_nb_confd_cmd);
+}
+
 /* ------------ Main ------------ */
 
 static int frr_confd_calculate_snode_hash(const struct lys_node *snode,
@@ -1383,7 +1440,7 @@ error:
 
 static int frr_confd_finish(void)
 {
-	if (confd_connected == false)
+	if (!confd_connected)
 		return 0;
 
 	frr_confd_finish_cdb();
@@ -1407,6 +1464,7 @@ static int frr_confd_module_late_init(struct thread_master *tm)
 	}
 
 	hook_register(frr_fini, frr_confd_finish);
+	frr_confd_cli_init();
 
 	return 0;
 }

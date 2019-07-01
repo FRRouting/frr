@@ -511,8 +511,8 @@ cause may lead to routing instability or oscillation across multiple speakers
 in iBGP topologies. This can occur with full-mesh iBGP, but is particularly
 problematic in non-full-mesh iBGP topologies that further reduce the routing
 information known to each speaker. This has primarily been documented with iBGP
-route-reflection topologies. However, any route-hiding technologies potentially
-could also exacerbate oscillation with MED.
+:ref:`route-reflection <bgp-route-reflector>` topologies. However, any
+route-hiding technologies potentially could also exacerbate oscillation with MED.
 
 This second issue occurs where speakers each have only a subset of routes, and
 there are cycles in the preferences between different combinations of routes -
@@ -826,6 +826,30 @@ Defining Peers
    peers ASN is the same as mine as specified under the :clicmd:`router bgp ASN`
    command the connection will be denied.
 
+.. index:: [no] bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group WORD
+.. clicmd:: [no] bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group WORD
+
+   Accept connections from any peers in the specified prefix. Configuration
+   from the specified peer-group is used to configure these peers.
+
+.. note::
+
+   When using BGP listen ranges, if the associated peer group has TCP MD5
+   authentication configured, your kernel must support this on prefixes. On
+   Linux, this support was added in kernel version 4.14. If your kernel does
+   not support this feature you will get a warning in the log file, and the
+   listen range will only accept connections from peers without MD5 configured.
+
+   Additionally, we have observed that when using this option at scale (several
+   hundred peers) the kernel may hit its option memory limit. In this situation
+   you will see error messages like:
+
+   ``bgpd: sockopt_tcp_signature: setsockopt(23): Cannot allocate memory``
+
+   In this case you need to increase the value of the sysctl
+   ``net.core.optmem_max`` to allow the kernel to allocate the necessary option
+   memory.
+
 .. _bgp-configuring-peers:
 
 Configuring Peers
@@ -918,14 +942,18 @@ Configuring Peers
 .. index:: [no] neighbor PEER maximum-prefix NUMBER
 .. clicmd:: [no] neighbor PEER maximum-prefix NUMBER
 
-.. index:: [no] neighbor PEER local-as AS-NUMBER no-prepend
-.. clicmd:: [no] neighbor PEER local-as AS-NUMBER no-prepend
+   Sets a maximum number of prefixes we can receive from a given peer. If this
+   number is exceeded, the BGP session will be destroyed.
 
-.. index:: [no] neighbor PEER local-as AS-NUMBER no-prepend replace-as
-.. clicmd:: [no] neighbor PEER local-as AS-NUMBER no-prepend replace-as
+   In practice, it is generally preferable to use a prefix-list to limit what
+   prefixes are received from the peer instead of using this knob. Tearing down
+   the BGP session when a limit is exceeded is far more destructive than merely
+   rejecting undesired prefixes. The prefix-list method is also much more
+   granular and offers much smarter matching criterion than number of received
+   prefixes, making it more suited to implementing policy.
 
-.. index:: [no] neighbor PEER local-as AS-NUMBER
-.. clicmd:: [no] neighbor PEER local-as AS-NUMBER
+.. index:: [no] neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
+.. clicmd:: [no] neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
 
    Specify an alternate AS for this BGP process when interacting with the
    specified peer. With no modifiers, the specified local-as is prepended to
@@ -967,6 +995,13 @@ Configuring Peers
    when a link flaps.  `bgp fast-external-failover` is the default
    and will not be displayed as part of a `show run`.  The no form
    of the command turns off this ability.
+
+.. index:: [no] bgp default ipv4-unicast
+.. clicmd:: [no] bgp default ipv4-unicast
+
+   This command allows the user to specify that v4 peering is turned
+   on by default or not.  This command defaults to on and is not displayed.
+   The `no bgp default ipv4-unicast` form of the command is displayed.
 
 .. _bgp-peer-filtering:
 
@@ -1138,7 +1173,7 @@ is 4 octet long. The following format is used to define the community value.
    ``graceful-shutdown`` represents well-known communities value
    ``GRACEFUL_SHUTDOWN`` ``0xFFFF0000`` ``65535:0``. :rfc:`8326` implements
    the purpose Graceful BGP Session Shutdown to reduce the amount of
-   lost traffic when taking BGP sessions down for maintainance. The use
+   lost traffic when taking BGP sessions down for maintenance. The use
    of the community needs to be supported from your peers side to
    actually have any effect.
 
@@ -1169,20 +1204,20 @@ is 4 octet long. The following format is used to define the community value.
 ``llgr-stale``
    ``llgr-stale`` represents well-known communities value ``LLGR_STALE``
    ``0xFFFF0006`` ``65535:6``.
-   Assigned and intented only for use with routers supporting the
+   Assigned and intended only for use with routers supporting the
    Long-lived Graceful Restart Capability  as described in
    [Draft-IETF-uttaro-idr-bgp-persistence]_.
-   Routers recieving routes with this community may (depending on
+   Routers receiving routes with this community may (depending on
    implementation) choose allow to reject or modify routes on the
    presence or absence of this community.
 
 ``no-llgr``
    ``no-llgr`` represents well-known communities value ``NO_LLGR``
    ``0xFFFF0007`` ``65535:7``.
-   Assigned and intented only for use with routers supporting the
+   Assigned and intended only for use with routers supporting the
    Long-lived Graceful Restart Capability  as described in
    [Draft-IETF-uttaro-idr-bgp-persistence]_.
-   Routers recieving routes with this community may (depending on
+   Routers receiving routes with this community may (depending on
    implementation) choose allow to reject or modify routes on the
    presence or absence of this community.
 
@@ -1244,7 +1279,7 @@ UPDATE messages.
 There are two types of community list:
 
 standard
-   This type accepts an explicit value for the atttribute.
+   This type accepts an explicit value for the attribute.
 
 expanded
    This type accepts a regular expression. Because the regex must be
@@ -2233,10 +2268,15 @@ Displaying Routes by AS Path
 Route Reflector
 ===============
 
-.. note:: This documentation is woefully incomplete.
+BGP routers connected inside the same AS through BGP belong to an internal
+BGP session, or IBGP. In order to prevent routing table loops, IBGP does not
+advertise IBGP-learned routes to other routers in the same session. As such,
+IBGP requires a full mesh of all peers. For large networks, this quickly becomes
+unscalable. Introducing route reflectors removes the need for the full-mesh.
 
-.. index:: bgp cluster-id A.B.C.D
-.. clicmd:: bgp cluster-id A.B.C.D
+When route reflectors are configured, these will reflect the routes announced
+by the peers configured as clients. A route reflector client is configured
+with:
 
 .. index:: neighbor PEER route-reflector-client
 .. clicmd:: neighbor PEER route-reflector-client
@@ -2244,6 +2284,13 @@ Route Reflector
 .. index:: no neighbor PEER route-reflector-client
 .. clicmd:: no neighbor PEER route-reflector-client
 
+To avoid single points of failure, multiple route reflectors can be configured.
+
+A cluster is a collection of route reflectors and their clients, and is used
+by route reflectors to avoid looping.
+
+.. index:: bgp cluster-id A.B.C.D
+.. clicmd:: bgp cluster-id A.B.C.D
 
 .. _routing-policy:
 
@@ -2462,7 +2509,7 @@ certainly contains silly mistakes, if not serious flaws.
    route-map rm-no-export permit 20
    !
    route-map rm-blackhole permit 10
-    description blackhole, up-pref and ensure it cant escape this AS
+    description blackhole, up-pref and ensure it cannot escape this AS
     set ip next-hop 127.0.0.1
     set local-preference 10
     set community additive no-export

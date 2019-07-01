@@ -34,13 +34,18 @@ module frr-ripd {
 
   container ripd {
     /*
-     * Global configuration data
+     * Routing instance configuration.
      */
-    container instance {
-      presence "Present if the RIP protocol is enabled.";
+    list instance {
+      key "vrf";
       description
         "RIP routing instance.";
 
+      leaf vrf {
+        type string;
+        description
+          "VRF name.";
+      }
       leaf allow-ecmp {
         type boolean;
         default "false";
@@ -293,83 +298,83 @@ module frr-ripd {
           '(./receive = "2" and ./send = "2") or ' +
           '(./receive = "1-2" and ./send = "2")';
       }
-    }
 
-    /*
-     * Operational data.
-     */
-    container state {
-      config false;
-      description
-        "Operational data.";
-
-      container neighbors {
+      /*
+       * Operational data.
+       */
+      container state {
+        config false;
         description
-          "Neighbor information.";
-        list neighbor {
-          key "address";
+          "Operational data.";
+
+        container neighbors {
           description
-            "A RIP neighbor.";
-          leaf address {
-            type inet:ipv4-address;
+            "Neighbor information.";
+          list neighbor {
+            key "address";
             description
-              "IP address that a RIP neighbor is using as its
-               source address.";
-          }
-          leaf last-update {
-            type yang:date-and-time;
-            description
-              "The time when the most recent RIP update was
-               received from this neighbor.";
-          }
-          leaf bad-packets-rcvd {
-            type yang:counter32;
-            description
-              "The number of RIP invalid packets received from
-               this neighbor which were subsequently discarded
-               for any reason (e.g. a version 0 packet, or an
-               unknown command type).";
-          }
-          leaf bad-routes-rcvd {
-            type yang:counter32;
-            description
-              "The number of routes received from this neighbor,
-               in valid RIP packets, which were ignored for any
-               reason (e.g. unknown address family, or invalid
-               metric).";
+              "A RIP neighbor.";
+            leaf address {
+              type inet:ipv4-address;
+              description
+                "IP address that a RIP neighbor is using as its
+                 source address.";
+            }
+            leaf last-update {
+              type yang:date-and-time;
+              description
+                "The time when the most recent RIP update was
+                 received from this neighbor.";
+            }
+            leaf bad-packets-rcvd {
+              type yang:counter32;
+              description
+                "The number of RIP invalid packets received from
+                 this neighbor which were subsequently discarded
+                 for any reason (e.g. a version 0 packet, or an
+                 unknown command type).";
+            }
+            leaf bad-routes-rcvd {
+              type yang:counter32;
+              description
+                "The number of routes received from this neighbor,
+                 in valid RIP packets, which were ignored for any
+                 reason (e.g. unknown address family, or invalid
+                 metric).";
+            }
           }
         }
-      }
-      container routes {
-        description
-          "Route information.";
-        list route {
-          key "prefix";
+        container routes {
           description
-            "A RIP IPv4 route.";
-          leaf prefix {
-            type inet:ipv4-prefix;
+            "Route information.";
+          list route {
+            key "prefix";
             description
-              "IP address (in the form A.B.C.D) and prefix length,
-               separated by the slash (/) character. The range of
-               values for the prefix-length is 0 to 32.";
-          }
-          leaf next-hop {
-            type inet:ipv4-address;
-            description
-              "Next hop IPv4 address.";
-          }
-          leaf interface {
-            type string;
-            description
-              "The interface that the route uses.";
-          }
-          leaf metric {
-            type uint8 {
-              range "0..16";
+              "A RIP IPv4 route.";
+            leaf prefix {
+              type inet:ipv4-prefix;
+              description
+                "IP address (in the form A.B.C.D) and prefix length,
+                 separated by the slash (/) character. The range of
+                 values for the prefix-length is 0 to 32.";
             }
-            description
-              "Route metric.";
+            leaf next-hop {
+              type inet:ipv4-address;
+              description
+                "Next hop IPv4 address.";
+            }
+            leaf interface {
+              type string;
+              description
+                "The interface that the route uses.";
+            }
+            leaf metric {
+              type uint8 {
+                range "0..16";
+              }
+              description
+                "Route metric.";
+            }
           }
         }
       }
@@ -547,6 +552,19 @@ module frr-ripd {
     description
       "Clears RIP routes from the IP routing table and routes
        redistributed into the RIP protocol.";
+
+    input {
+      leaf vrf {
+        type string;
+        description
+          "VRF name identifying a specific RIP instance.
+           This leaf is optional for the rpc.
+           If it is specified, the rpc will clear all routes in the
+           specified RIP instance;
+           if it is not specified, the rpc will clear all routes in
+           all RIP instances.";
+      }
+    }
   }
 
   /*

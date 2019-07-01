@@ -84,8 +84,8 @@ char *esi2str(struct eth_segment_id *id)
 		return NULL;
 
 	val = id->val;
-	ptr = (char *)XMALLOC(MTYPE_TMP,
-			      (ESI_LEN * 2 + ESI_LEN - 1 + 1) * sizeof(char));
+	ptr = XMALLOC(MTYPE_TMP,
+		      (ESI_LEN * 2 + ESI_LEN - 1 + 1) * sizeof(char));
 
 	snprintf(ptr, (ESI_LEN * 2 + ESI_LEN - 1 + 1),
 		 "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x", val[0],
@@ -106,14 +106,14 @@ char *ecom_mac2str(char *ecom_mac)
 }
 
 /* Fetch router-mac from extended community */
-void bgp_attr_rmac(struct attr *attr, struct ethaddr *rmac)
+bool bgp_attr_rmac(struct attr *attr, struct ethaddr *rmac)
 {
 	int i = 0;
 	struct ecommunity *ecom;
 
 	ecom = attr->ecommunity;
 	if (!ecom || !ecom->size)
-		return;
+		return false;
 
 	/* If there is a router mac extended community, set RMAC in attr */
 	for (i = 0; i < ecom->size; i++) {
@@ -130,7 +130,9 @@ void bgp_attr_rmac(struct attr *attr, struct ethaddr *rmac)
 			continue;
 
 		memcpy(rmac, pnt, ETH_ALEN);
+		return true;
 	}
+	return false;
 }
 
 /*
@@ -267,13 +269,13 @@ extern int bgp_build_evpn_prefix(int evpn_type, uint32_t eth_tag,
 			memcpy(&p_evpn_p->prefix_addr.ip.ipaddr_v4,
 			       &src->u.prefix4,
 			       sizeof(struct in_addr));
-			dst->prefixlen = (uint8_t)PREFIX_LEN_ROUTE_TYPE_5_IPV4;
+			dst->prefixlen = (uint16_t)PREFIX_LEN_ROUTE_TYPE_5_IPV4;
 		} else {
 			SET_IPADDR_V6(&p_evpn_p->prefix_addr.ip);
 			memcpy(&p_evpn_p->prefix_addr.ip.ipaddr_v6,
 			       &src->u.prefix6,
 			       sizeof(struct in6_addr));
-			dst->prefixlen = (uint8_t)PREFIX_LEN_ROUTE_TYPE_5_IPV6;
+			dst->prefixlen = (uint16_t)PREFIX_LEN_ROUTE_TYPE_5_IPV6;
 		}
 	} else
 		return -1;

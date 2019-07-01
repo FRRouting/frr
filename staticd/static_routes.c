@@ -329,6 +329,7 @@ static void static_fixup_vrf(struct static_vrf *svrf,
 				continue;
 
 			si->nh_vrf_id = svrf->vrf->vrf_id;
+			si->nh_registered = false;
 			if (si->ifindex) {
 				ifp = if_lookup_by_name(si->ifname,
 							si->nh_vrf_id);

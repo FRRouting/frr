@@ -276,6 +276,7 @@ sock_set_bindany(int fd, int enable)
 			return (-1);
 		}
 	}
+	return (0);
 #else
 	log_warnx(
 		"%s: missing SO_BINDANY, IP_FREEBIND and IP_BINDANY, unable to bind to a nonlocal IP address",

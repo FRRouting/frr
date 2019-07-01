@@ -22,6 +22,10 @@
 
 #include <zebra.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum ttable_align {
 	LEFT,
 	RIGHT,
@@ -293,5 +297,9 @@ void ttable_rowseps(struct ttable *tt, unsigned int row,
  * @return table in text form
  */
 char *ttable_dump(struct ttable *tt, const char *newline);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _TERMTABLE_H */

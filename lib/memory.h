@@ -22,7 +22,9 @@
 #include <frratomic.h>
 #include "compiler.h"
 
-#define array_size(ar) (sizeof(ar) / sizeof(ar[0]))
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #if defined(HAVE_MALLOC_SIZE) && !defined(HAVE_MALLOC_USABLE_SIZE)
 #define malloc_usable_size(x) malloc_size(x)
@@ -33,12 +35,12 @@
 struct memtype {
 	struct memtype *next, **ref;
 	const char *name;
-	_Atomic size_t n_alloc;
-	_Atomic size_t n_max;
-	_Atomic size_t size;
+	atomic_size_t n_alloc;
+	atomic_size_t n_max;
+	atomic_size_t size;
 #ifdef HAVE_MALLOC_USABLE_SIZE
-	_Atomic size_t total;
-	_Atomic size_t max_size;
+	atomic_size_t total;
+	atomic_size_t max_size;
 #endif
 };
 
@@ -137,7 +139,6 @@ struct memgroup {
 
 DECLARE_MGROUP(LIB)
 DECLARE_MTYPE(TMP)
-DECLARE_MTYPE(PREFIX_FLOWSPEC)
 
 
 extern void *qmalloc(struct memtype *mt, size_t size)
@@ -176,5 +177,9 @@ extern int log_memstats(FILE *fp, const char *);
 #define log_memstats_stderr(prefix) log_memstats(stderr, prefix)
 
 extern void memory_oom(size_t size, const char *name);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _QUAGGA_MEMORY_H */

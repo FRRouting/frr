@@ -283,7 +283,7 @@ struct route_node *route_node_get(struct route_table *const table,
 	struct route_node *node;
 	struct route_node *match;
 	struct route_node *inserted;
-	uint8_t prefixlen = p->prefixlen;
+	uint16_t prefixlen = p->prefixlen;
 	const uint8_t *prefix = &p->u.prefix;
 
 	apply_mask((struct prefix *)p);

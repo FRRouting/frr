@@ -29,6 +29,10 @@
 #include <stdarg.h>
 #include "lib/hook.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Hook for external logging function */
 DECLARE_HOOK(zebra_ext_log, (int priority, const char *format, va_list args),
 	     (priority, format, args));
@@ -90,15 +94,17 @@ extern void zlog_warn(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_info(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_notice(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_debug(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+extern void zlog(int priority, const char *format, ...) PRINTF_ATTRIBUTE(2, 3);
 
 /* For logs which have error codes associated with them */
 #define flog_err(ferr_id, format, ...)                                        \
-	zlog_err("[EC %"PRIu32"] " format, ferr_id, ##__VA_ARGS__)
+	zlog_err("[EC %" PRIu32 "] " format, ferr_id, ##__VA_ARGS__)
 #define flog_err_sys(ferr_id, format, ...)                                     \
 	flog_err(ferr_id, format, ##__VA_ARGS__)
 #define flog_warn(ferr_id, format, ...)                                        \
-	zlog_warn("[EC %"PRIu32"] " format, ferr_id, ##__VA_ARGS__)
-
+	zlog_warn("[EC %" PRIu32 "] " format, ferr_id, ##__VA_ARGS__)
+#define flog(priority, ferr_id, format, ...)                                   \
+	zlog(priority, "[EC %" PRIu32 "] " format, ferr_id, ##__VA_ARGS__)
 
 extern void zlog_thread_info(int log_level);
 
@@ -195,5 +201,9 @@ struct timestamp_control {
 	"Local use\n"                                                          \
 	"Local use\n"                                                          \
 	"Local use\n"
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_LOG_H */

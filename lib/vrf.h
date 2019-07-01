@@ -28,6 +28,10 @@
 #include "vty.h"
 #include "ns.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* The default VRF ID */
 #define VRF_UNKNOWN UINT32_MAX
 
@@ -97,8 +101,9 @@ RB_PROTOTYPE(vrf_name_head, vrf, name_entry, vrf_name_compare)
 DECLARE_QOBJ_TYPE(vrf)
 
 /* Allow VRF with netns as backend */
-#define VRF_BACKEND_VRF_LITE 0
-#define VRF_BACKEND_NETNS    1
+#define VRF_BACKEND_VRF_LITE   0
+#define VRF_BACKEND_NETNS      1
+#define VRF_BACKEND_UNKNOWN    2
 
 extern struct vrf_id_head vrfs_by_id;
 extern struct vrf_name_head vrfs_by_name;
@@ -200,7 +205,7 @@ extern int vrf_bitmap_check(vrf_bitmap_t, vrf_id_t);
  *           the system ( 2 and 3 ) above.
  */
 extern void vrf_init(int (*create)(struct vrf *vrf), int (*enable)(struct vrf *vrf),
-		     int (*disable)(struct vrf *vrf), int (*delete)(struct vrf *vrf),
+		     int (*disable)(struct vrf *vrf), int (*destroy)(struct vrf *vrf),
 		     int (*update)(struct vrf *vrf));
 
 /*
@@ -215,12 +220,12 @@ extern void vrf_terminate(void);
 
 /* Create a socket serving for the given VRF */
 extern int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
-		      char *name);
+		      const char *name);
 
 extern int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
-				char *name);
+				const char *name);
 
-extern int vrf_bind(vrf_id_t vrf_id, int fd, char *name);
+extern int vrf_bind(vrf_id_t vrf_id, int fd, const char *name);
 
 /* VRF ioctl operations */
 extern int vrf_getaddrinfo(const char *node, const char *service,
@@ -291,5 +296,9 @@ extern void vrf_disable(struct vrf *vrf);
 extern int vrf_enable(struct vrf *vrf);
 extern void vrf_delete(struct vrf *vrf);
 extern vrf_id_t vrf_generate_id(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*_ZEBRA_VRF_H*/

@@ -390,7 +390,7 @@ Terminal Mode Commands
 .. index:: find COMMAND...
 .. clicmd:: find COMMAND...
 
-   This commmand performs a simple substring search across all defined commands
+   This command performs a simple substring search across all defined commands
    in all modes. As an example, suppose you're in enable mode and can't
    remember where the command to turn OSPF segment routing on is:
 

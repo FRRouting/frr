@@ -86,10 +86,7 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 	struct ospf6_neighbor *on;
 	char buf[16];
 
-	on = (struct ospf6_neighbor *)XMALLOC(MTYPE_OSPF6_NEIGHBOR,
-					      sizeof(struct ospf6_neighbor));
-
-	memset(on, 0, sizeof(struct ospf6_neighbor));
+	on = XCALLOC(MTYPE_OSPF6_NEIGHBOR, sizeof(struct ospf6_neighbor));
 	inet_ntop(AF_INET, &router_id, buf, sizeof(buf));
 	snprintf(on->name, sizeof(on->name), "%s%%%s", buf,
 		 oi->interface->name);

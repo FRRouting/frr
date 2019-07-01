@@ -122,7 +122,7 @@ static struct vtysh_user *user_lookup(const char *name)
 	return NULL;
 }
 
-void user_config_write()
+void user_config_write(void)
 {
 	struct listnode *node, *nnode;
 	struct vtysh_user *user;
@@ -204,7 +204,7 @@ char *vtysh_get_home(void)
 	struct passwd *passwd;
 	char *homedir;
 
-	if ((homedir = getenv("HOME")) != 0)
+	if ((homedir = getenv("HOME")) != NULL)
 		return homedir;
 
 	/* Fallback if HOME is undefined */

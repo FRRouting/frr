@@ -1,0 +1,412 @@
+//
+// Copyright (C) 2019  NetDEF, Inc.
+//                     Renato Westphal
+//
+// This program is free software; you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+// Software Foundation; either version 2 of the License, or (at your option)
+// any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+// more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program; see the file COPYING; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+//
+
+syntax = "proto3";
+
+package frr;
+
+// Service specification for the FRR northbound interface.
+service Northbound {
+  // Retrieve the capabilities supported by the target.
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse) {}
+
+  // Retrieve configuration data, state data or both from the target.
+  rpc Get(GetRequest) returns (stream GetResponse) {}
+
+  // Create a new candidate configuration and return a reference to it. The
+  // created candidate is a copy of the running configuration.
+  rpc CreateCandidate(CreateCandidateRequest) returns (CreateCandidateResponse) {}
+
+  // Delete a candidate configuration.
+  rpc DeleteCandidate(DeleteCandidateRequest) returns (DeleteCandidateResponse) {}
+
+  // Update a candidate configuration by rebasing the changes on top of the
+  // latest running configuration. Resolve conflicts automatically by giving
+  // preference to the changes done in the candidate configuration.
+  rpc UpdateCandidate(UpdateCandidateRequest) returns (UpdateCandidateResponse) {}
+
+  // Edit a candidate configuration. All changes are discarded if any error
+  // happens.
+  rpc EditCandidate(EditCandidateRequest) returns (EditCandidateResponse) {}
+
+  // Load configuration data into a candidate configuration. Both merge and
+  // replace semantics are supported.
+  rpc LoadToCandidate(LoadToCandidateRequest) returns (LoadToCandidateResponse) {}
+
+  // Create a new configuration transaction using a two-phase commit protocol.
+  rpc Commit(CommitRequest) returns (CommitResponse) {}
+
+  // List the metadata of all configuration transactions recorded in the
+  // transactions database.
+  rpc ListTransactions(ListTransactionsRequest) returns (stream ListTransactionsResponse) {}
+
+  // Fetch a configuration (identified by its transaction ID) from the
+  // transactions database.
+  rpc GetTransaction(GetTransactionRequest) returns (GetTransactionResponse) {}
+
+  // Lock the running configuration, preventing other users from changing it.
+  rpc LockConfig(LockConfigRequest) returns (LockConfigResponse) {}
+
+  // Unlock the running configuration.
+  rpc UnlockConfig(UnlockConfigRequest) returns (UnlockConfigResponse) {}
+
+  // Execute a YANG RPC.
+  rpc Execute(ExecuteRequest) returns (ExecuteResponse) {}
+}
+
+// ----------------------- Parameters and return types -------------------------
+
+//
+// RPC: GetCapabilities()
+//
+message GetCapabilitiesRequest {
+  // Empty.
+}
+
+message GetCapabilitiesResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
+
+  // FRR version.
+  string frr_version = 1;
+
+  // Indicates whether FRR was compiled with support for configuration
+  // rollbacks or not (--enable-config-rollbacks).
+  bool rollback_support = 2;
+
+  // Supported schema modules.
+  repeated ModuleData supported_modules = 3;
+
+  // Supported encodings.
+  repeated Encoding supported_encodings = 4;
+}
+
+//
+// RPC: Get()
+//
+message GetRequest {
+  // Type of elements within the data tree.
+  enum DataType {
+    // All data elements.
+    ALL = 0;
+
+    // Config elements.
+    CONFIG = 1;
+
+    // State elements.
+    STATE = 2;
+  }
+
+  // The type of data being requested.
+  DataType type = 1;
+
+  // Encoding to be used.
+  Encoding encoding = 2;
+
+  // Include implicit default nodes.
+  bool with_defaults = 3;
+
+  // Paths requested by the client.
+  repeated string path = 4;
+}
+
+message GetResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
+  // - grpc::StatusCode::INVALID_ARGUMENT: Invalid YANG data path.
+
+  // Timestamp in nanoseconds since Epoch.
+  int64 timestamp = 1;
+
+  // The requested data.
+  DataTree data = 2;
+}
+
+//
+// RPC: CreateCandidate()
+//
+message CreateCandidateRequest {
+  // Empty.
+}
+
+message CreateCandidateResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
+  // - grpc::StatusCode::RESOURCE_EXHAUSTED: can't create candidate
+  //   configuration.
+
+  // Handle to the new created candidate configuration.
+  uint32 candidate_id = 1;
+}
+
+//
+// RPC: DeleteCandidate()
+//
+message DeleteCandidateRequest {
+  // Candidate configuration to delete.
+  uint32 candidate_id = 1;
+}
+
+message DeleteCandidateResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
+  // - grpc::StatusCode::NOT_FOUND: Candidate wasn't found.
+}
+
+//
+// RPC: UpdateCandidate()
+//
+message UpdateCandidateRequest {
+  // Candidate configuration to update.
+  uint32 candidate_id = 1;
+}
+
+message UpdateCandidateResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
+  // - grpc::StatusCode::NOT_FOUND: Candidate wasn't found.
+}
+
+//
+// RPC: EditCandidate()
+//
+message EditCandidateRequest {
+  // Candidate configuration that is going to be edited.
+  uint32 candidate_id = 1;
+
+  // Data elements to be created or updated.
+  repeated PathValue update = 2;
+
+  // Paths to be deleted from the data tree.
+  repeated PathValue delete = 3;
+}
+
+message EditCandidateResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
+  // - grpc::StatusCode::NOT_FOUND: Candidate wasn't found.
+  // - grpc::StatusCode::INVALID_ARGUMENT: An error occurred while editing the
+  //   candidate configuration.
+}
+
+//
+// RPC: LoadToCandidate()
+//
+message LoadToCandidateRequest {
+  enum LoadType {
+    // Merge the data tree into the candidate configuration.
+    MERGE = 0;
+
+    // Replace the candidate configuration by the provided data tree.
+    REPLACE = 1;
+  }
+
+  // Candidate configuration that is going to be edited.
+  uint32 candidate_id = 1;
+
+  // Load operation to apply.
+  LoadType type = 2;
+
+  // Configuration data.
+  DataTree config = 3;
+}
+
+message LoadToCandidateResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
+  // - grpc::StatusCode::INVALID_ARGUMENT: An error occurred while performing
+  //   the load operation.
+}
+
+//
+// RPC: Commit()
+//
+message CommitRequest {
+  enum Phase {
+    // Validate if the configuration changes are valid (phase 0).
+    VALIDATE = 0;
+
+    // Prepare resources to apply the configuration changes (phase 1).
+    PREPARE = 1;
+
+    // Release previously allocated resources (phase 2).
+    ABORT = 2;
+
+    // Apply the configuration changes (phase 2).
+    APPLY = 3;
+
+    // All of the above (VALIDATE + PREPARE + ABORT/APPLY).
+    //
+    // This option can't be used to implement network-wide transactions,
+    // since they require the manager entity to take into account the results
+    // of the preparation phase of multiple managed devices.
+    ALL = 4;
+  }
+
+  // Candidate configuration that is going to be committed.
+  uint32 candidate_id = 1;
+
+  // Transaction phase.
+  Phase phase = 2;
+
+  // Assign a comment to this commit.
+  string comment = 3;
+}
+
+message CommitResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
+  // - grpc::StatusCode::FAILED_PRECONDITION: misuse of the two-phase commit
+  //   protocol.
+  // - grpc::StatusCode::INVALID_ARGUMENT: Validation error.
+  // - grpc::StatusCode::RESOURCE_EXHAUSTED: Failure to allocate resource.
+
+  // ID of the created configuration transaction (when the phase is APPLY
+  // or ALL).
+  uint32 transaction_id = 1;
+}
+
+//
+// RPC: ListTransactions()
+//
+message ListTransactionsRequest {
+  // Empty.
+}
+
+message ListTransactionsResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
+
+  // Transaction ID.
+  uint32 id = 1;
+
+  // Client that committed the transaction.
+  string client = 2;
+
+  // Date and time the transaction was committed.
+  string date = 3;
+
+  // Comment assigned to the transaction.
+  string comment = 4;
+}
+
+//
+// RPC: GetTransaction()
+//
+message GetTransactionRequest {
+  // Transaction to retrieve.
+  uint32 transaction_id = 1;
+
+  // Encoding to be used.
+  Encoding encoding = 2;
+
+  // Include implicit default nodes.
+  bool with_defaults = 3;
+}
+
+message GetTransactionResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
+  // - grpc::StatusCode::NOT_FOUND: Transaction wasn't found in the transactions
+  //   database.
+
+  DataTree config = 1;
+}
+
+//
+// RPC: LockConfig()
+//
+message LockConfigRequest {
+  // Empty.
+}
+
+message LockConfigResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
+  // - grpc::StatusCode::FAILED_PRECONDITION: Running configuration is
+  //   locked already.
+}
+
+//
+// RPC: UnlockConfig()
+//
+message UnlockConfigRequest {
+  // Empty.
+}
+
+message UnlockConfigResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
+  // - grpc::StatusCode::FAILED_PRECONDITION: Running configuration isn't
+  //   locked.
+}
+
+//
+// RPC: Execute()
+//
+message ExecuteRequest {
+  // Path of the YANG RPC or YANG Action.
+  string path = 1;
+
+  // Input parameters.
+  repeated PathValue input = 2;
+}
+
+message ExecuteResponse {
+  // Return values:
+  // - grpc::StatusCode::OK: Success.
+
+  // Output parameters.
+  repeated PathValue output = 1;
+}
+
+// -------------------------------- Definitions --------------------------------
+
+// YANG module.
+message ModuleData {
+  // Name of the YANG module;
+  string name = 1;
+
+  // Organization publishing the module.
+  string organization = 2;
+
+  // Latest revision of the module;
+  string revision = 3;
+}
+
+// Supported encodings for YANG instance data.
+enum Encoding {
+  JSON = 0;
+  XML = 1;
+}
+
+// Path-value pair representing a data element.
+message PathValue {
+  // YANG data path.
+  string path = 1;
+
+  // Data value.
+  string value = 2;
+}
+
+// YANG instance data.
+message DataTree {
+  Encoding encoding = 1;
+  string data = 2;
+}

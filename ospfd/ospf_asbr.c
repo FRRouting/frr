@@ -79,8 +79,7 @@ struct external_info *ospf_external_info_new(uint8_t type,
 {
 	struct external_info *new;
 
-	new = (struct external_info *)XCALLOC(MTYPE_OSPF_EXTERNAL_INFO,
-					      sizeof(struct external_info));
+	new = XCALLOC(MTYPE_OSPF_EXTERNAL_INFO, sizeof(struct external_info));
 	new->type = type;
 	new->instance = instance;
 

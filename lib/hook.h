@@ -22,6 +22,10 @@
 #include "module.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* type-safe subscribable hook points
  *
  * where "type-safe" applies to the function pointers used for subscriptions
@@ -218,5 +222,9 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 	DEFINE_HOOK_INT(hookname, arglist, passlist, false)
 #define DEFINE_KOOH(hookname, arglist, passlist)                               \
 	DEFINE_HOOK_INT(hookname, arglist, passlist, true)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_HOOK_H */

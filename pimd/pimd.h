@@ -113,129 +113,149 @@
 #define PIM_MASK_PIM_NHT_DETAIL      (1 << 23)
 #define PIM_MASK_PIM_NHT_RP          (1 << 24)
 #define PIM_MASK_MTRACE              (1 << 25)
+#define PIM_MASK_VXLAN               (1 << 26)
 /* Remember 32 bits!!! */
 
 /* PIM error codes */
-#define PIM_SUCCESS                0
-#define PIM_GROUP_BAD_ADDRESS     -2
-#define PIM_GROUP_OVERLAP         -3
-#define PIM_GROUP_PFXLIST_OVERLAP -4
-#define PIM_RP_BAD_ADDRESS        -5
-#define PIM_RP_NO_PATH            -6
-#define PIM_RP_NOT_FOUND          -7
-#define PIM_RP_PFXLIST_IN_USE     -8
-#define PIM_IFACE_NOT_FOUND       -9
-#define PIM_UPDATE_SOURCE_DUP     -10
+#define PIM_SUCCESS                      0
+#define PIM_GROUP_BAD_ADDRESS           -2
+#define PIM_GROUP_OVERLAP               -3
+#define PIM_GROUP_PFXLIST_OVERLAP       -4
+#define PIM_RP_BAD_ADDRESS              -5
+#define PIM_RP_NO_PATH                  -6
+#define PIM_RP_NOT_FOUND                -7
+#define PIM_RP_PFXLIST_IN_USE           -8
+#define PIM_IFACE_NOT_FOUND             -9
+#define PIM_UPDATE_SOURCE_DUP           -10
+#define PIM_GROUP_BAD_ADDR_MASK_COMBO   -11
 
 const char *const PIM_ALL_SYSTEMS;
 const char *const PIM_ALL_ROUTERS;
 const char *const PIM_ALL_PIM_ROUTERS;
 const char *const PIM_ALL_IGMP_ROUTERS;
 
-extern struct thread_master *master;
+extern struct pim_router *router;
 extern struct zebra_privs_t pimd_privs;
-uint32_t qpim_debugs;
 struct in_addr qpim_all_pim_routers_addr;
-int qpim_t_periodic; /* Period between Join/Prune Messages */
-struct pim_assert_metric qpim_infinite_assert_metric;
-long qpim_rpf_cache_refresh_delay_msec;
-extern int qpim_packet_process;
 extern uint8_t qpim_ecmp_enable;
 extern uint8_t qpim_ecmp_rebalance_enable;
 
 #define PIM_DEFAULT_PACKET_PROCESS 3
 
-#define PIM_JP_HOLDTIME (qpim_t_periodic * 7 / 2)
+#define PIM_JP_HOLDTIME (router->t_periodic * 7 / 2)
 
 /*
  * Register-Stop Timer (RST(S,G))
  * Default values
  */
-extern int32_t qpim_register_suppress_time;
-extern int32_t qpim_register_probe_time;
 #define PIM_REGISTER_SUPPRESSION_TIME_DEFAULT      (60)
 #define PIM_REGISTER_PROBE_TIME_DEFAULT            (5)
 
-#define PIM_DEBUG_PIM_EVENTS          (qpim_debugs & PIM_MASK_PIM_EVENTS)
-#define PIM_DEBUG_PIM_EVENTS_DETAIL   (qpim_debugs & PIM_MASK_PIM_EVENTS_DETAIL)
-#define PIM_DEBUG_PIM_PACKETS         (qpim_debugs & PIM_MASK_PIM_PACKETS)
-#define PIM_DEBUG_PIM_PACKETDUMP_SEND (qpim_debugs & PIM_MASK_PIM_PACKETDUMP_SEND)
-#define PIM_DEBUG_PIM_PACKETDUMP_RECV (qpim_debugs & PIM_MASK_PIM_PACKETDUMP_RECV)
-#define PIM_DEBUG_PIM_TRACE           (qpim_debugs & PIM_MASK_PIM_TRACE)
-#define PIM_DEBUG_PIM_TRACE_DETAIL    (qpim_debugs & PIM_MASK_PIM_TRACE_DETAIL)
-#define PIM_DEBUG_IGMP_EVENTS         (qpim_debugs & PIM_MASK_IGMP_EVENTS)
-#define PIM_DEBUG_IGMP_PACKETS        (qpim_debugs & PIM_MASK_IGMP_PACKETS)
-#define PIM_DEBUG_IGMP_TRACE          (qpim_debugs & PIM_MASK_IGMP_TRACE)
-#define PIM_DEBUG_IGMP_TRACE_DETAIL   (qpim_debugs & PIM_MASK_IGMP_TRACE_DETAIL)
-#define PIM_DEBUG_ZEBRA               (qpim_debugs & PIM_MASK_ZEBRA)
-#define PIM_DEBUG_SSMPINGD            (qpim_debugs & PIM_MASK_SSMPINGD)
-#define PIM_DEBUG_MROUTE              (qpim_debugs & PIM_MASK_MROUTE)
-#define PIM_DEBUG_MROUTE_DETAIL       (qpim_debugs & PIM_MASK_MROUTE_DETAIL)
-#define PIM_DEBUG_PIM_HELLO           (qpim_debugs & PIM_MASK_PIM_HELLO)
-#define PIM_DEBUG_PIM_J_P             (qpim_debugs & PIM_MASK_PIM_J_P)
-#define PIM_DEBUG_PIM_REG             (qpim_debugs & PIM_MASK_PIM_REG)
-#define PIM_DEBUG_STATIC              (qpim_debugs & PIM_MASK_STATIC)
-#define PIM_DEBUG_MSDP_EVENTS         (qpim_debugs & PIM_MASK_MSDP_EVENTS)
-#define PIM_DEBUG_MSDP_PACKETS        (qpim_debugs & PIM_MASK_MSDP_PACKETS)
-#define PIM_DEBUG_MSDP_INTERNAL       (qpim_debugs & PIM_MASK_MSDP_INTERNAL)
-#define PIM_DEBUG_PIM_NHT             (qpim_debugs & PIM_MASK_PIM_NHT)
-#define PIM_DEBUG_PIM_NHT_DETAIL      (qpim_debugs & PIM_MASK_PIM_NHT_DETAIL)
-#define PIM_DEBUG_PIM_NHT_RP          (qpim_debugs & PIM_MASK_PIM_NHT_RP)
-#define PIM_DEBUG_MTRACE              (qpim_debugs & PIM_MASK_MTRACE)
+#define PIM_DEBUG_PIM_EVENTS (router->debugs & PIM_MASK_PIM_EVENTS)
+#define PIM_DEBUG_PIM_EVENTS_DETAIL                                            \
+	(router->debugs & PIM_MASK_PIM_EVENTS_DETAIL)
+#define PIM_DEBUG_PIM_PACKETS (router->debugs & PIM_MASK_PIM_PACKETS)
+#define PIM_DEBUG_PIM_PACKETDUMP_SEND                                          \
+	(router->debugs & PIM_MASK_PIM_PACKETDUMP_SEND)
+#define PIM_DEBUG_PIM_PACKETDUMP_RECV                                          \
+	(router->debugs & PIM_MASK_PIM_PACKETDUMP_RECV)
+#define PIM_DEBUG_PIM_TRACE (router->debugs & PIM_MASK_PIM_TRACE)
+#define PIM_DEBUG_PIM_TRACE_DETAIL (router->debugs & PIM_MASK_PIM_TRACE_DETAIL)
+#define PIM_DEBUG_IGMP_EVENTS (router->debugs & PIM_MASK_IGMP_EVENTS)
+#define PIM_DEBUG_IGMP_PACKETS (router->debugs & PIM_MASK_IGMP_PACKETS)
+#define PIM_DEBUG_IGMP_TRACE (router->debugs & PIM_MASK_IGMP_TRACE)
+#define PIM_DEBUG_IGMP_TRACE_DETAIL                                            \
+	(router->debugs & PIM_MASK_IGMP_TRACE_DETAIL)
+#define PIM_DEBUG_ZEBRA (router->debugs & PIM_MASK_ZEBRA)
+#define PIM_DEBUG_SSMPINGD (router->debugs & PIM_MASK_SSMPINGD)
+#define PIM_DEBUG_MROUTE (router->debugs & PIM_MASK_MROUTE)
+#define PIM_DEBUG_MROUTE_DETAIL (router->debugs & PIM_MASK_MROUTE_DETAIL)
+#define PIM_DEBUG_PIM_HELLO (router->debugs & PIM_MASK_PIM_HELLO)
+#define PIM_DEBUG_PIM_J_P (router->debugs & PIM_MASK_PIM_J_P)
+#define PIM_DEBUG_PIM_REG (router->debugs & PIM_MASK_PIM_REG)
+#define PIM_DEBUG_STATIC (router->debugs & PIM_MASK_STATIC)
+#define PIM_DEBUG_MSDP_EVENTS (router->debugs & PIM_MASK_MSDP_EVENTS)
+#define PIM_DEBUG_MSDP_PACKETS (router->debugs & PIM_MASK_MSDP_PACKETS)
+#define PIM_DEBUG_MSDP_INTERNAL (router->debugs & PIM_MASK_MSDP_INTERNAL)
+#define PIM_DEBUG_PIM_NHT (router->debugs & PIM_MASK_PIM_NHT)
+#define PIM_DEBUG_PIM_NHT_DETAIL (router->debugs & PIM_MASK_PIM_NHT_DETAIL)
+#define PIM_DEBUG_PIM_NHT_RP (router->debugs & PIM_MASK_PIM_NHT_RP)
+#define PIM_DEBUG_MTRACE (router->debugs & PIM_MASK_MTRACE)
+#define PIM_DEBUG_VXLAN (router->debugs & PIM_MASK_VXLAN)
 
-#define PIM_DEBUG_EVENTS       (qpim_debugs & (PIM_MASK_PIM_EVENTS | PIM_MASK_IGMP_EVENTS | PIM_MASK_MSDP_EVENTS))
-#define PIM_DEBUG_PACKETS      (qpim_debugs & (PIM_MASK_PIM_PACKETS | PIM_MASK_IGMP_PACKETS | PIM_MASK_MSDP_PACKETS))
-#define PIM_DEBUG_TRACE        (qpim_debugs & (PIM_MASK_PIM_TRACE | PIM_MASK_IGMP_TRACE))
+#define PIM_DEBUG_EVENTS                                                       \
+	(router->debugs                                                        \
+	 & (PIM_MASK_PIM_EVENTS | PIM_MASK_IGMP_EVENTS                         \
+	    | PIM_MASK_MSDP_EVENTS))
+#define PIM_DEBUG_PACKETS                                                      \
+	(router->debugs                                                        \
+	 & (PIM_MASK_PIM_PACKETS | PIM_MASK_IGMP_PACKETS                       \
+	    | PIM_MASK_MSDP_PACKETS))
+#define PIM_DEBUG_TRACE                                                        \
+	(router->debugs & (PIM_MASK_PIM_TRACE | PIM_MASK_IGMP_TRACE))
 
-#define PIM_DO_DEBUG_PIM_EVENTS          (qpim_debugs |= PIM_MASK_PIM_EVENTS)
-#define PIM_DO_DEBUG_PIM_PACKETS         (qpim_debugs |= PIM_MASK_PIM_PACKETS)
-#define PIM_DO_DEBUG_PIM_PACKETDUMP_SEND (qpim_debugs |= PIM_MASK_PIM_PACKETDUMP_SEND)
-#define PIM_DO_DEBUG_PIM_PACKETDUMP_RECV (qpim_debugs |= PIM_MASK_PIM_PACKETDUMP_RECV)
-#define PIM_DO_DEBUG_PIM_TRACE           (qpim_debugs |= PIM_MASK_PIM_TRACE)
-#define PIM_DO_DEBUG_PIM_TRACE_DETAIL    (qpim_debugs |= PIM_MASK_PIM_TRACE_DETAIL)
-#define PIM_DO_DEBUG_IGMP_EVENTS         (qpim_debugs |= PIM_MASK_IGMP_EVENTS)
-#define PIM_DO_DEBUG_IGMP_PACKETS        (qpim_debugs |= PIM_MASK_IGMP_PACKETS)
-#define PIM_DO_DEBUG_IGMP_TRACE          (qpim_debugs |= PIM_MASK_IGMP_TRACE)
-#define PIM_DO_DEBUG_IGMP_TRACE_DETAIL   (qpim_debugs |= PIM_MASK_IGMP_TRACE_DETAIL)
-#define PIM_DO_DEBUG_ZEBRA               (qpim_debugs |= PIM_MASK_ZEBRA)
-#define PIM_DO_DEBUG_SSMPINGD            (qpim_debugs |= PIM_MASK_SSMPINGD)
-#define PIM_DO_DEBUG_MROUTE              (qpim_debugs |= PIM_MASK_MROUTE)
-#define PIM_DO_DEBUG_MROUTE_DETAIL       (qpim_debugs |= PIM_MASK_MROUTE_DETAIL)
-#define PIM_DO_DEBUG_PIM_HELLO           (qpim_debugs |= PIM_MASK_PIM_HELLO)
-#define PIM_DO_DEBUG_PIM_J_P             (qpim_debugs |= PIM_MASK_PIM_J_P)
-#define PIM_DO_DEBUG_PIM_REG             (qpim_debugs |= PIM_MASK_PIM_REG)
-#define PIM_DO_DEBUG_STATIC              (qpim_debugs |= PIM_MASK_STATIC)
-#define PIM_DO_DEBUG_MSDP_EVENTS         (qpim_debugs |= PIM_MASK_MSDP_EVENTS)
-#define PIM_DO_DEBUG_MSDP_PACKETS        (qpim_debugs |= PIM_MASK_MSDP_PACKETS)
-#define PIM_DO_DEBUG_MSDP_INTERNAL       (qpim_debugs |= PIM_MASK_MSDP_INTERNAL)
-#define PIM_DO_DEBUG_PIM_NHT             (qpim_debugs |= PIM_MASK_PIM_NHT)
-#define PIM_DO_DEBUG_PIM_NHT_RP          (qpim_debugs |= PIM_MASK_PIM_NHT_RP)
-#define PIM_DO_DEBUG_MTRACE              (qpim_debugs |= PIM_MASK_MTRACE)
+#define PIM_DO_DEBUG_PIM_EVENTS (router->debugs |= PIM_MASK_PIM_EVENTS)
+#define PIM_DO_DEBUG_PIM_PACKETS (router->debugs |= PIM_MASK_PIM_PACKETS)
+#define PIM_DO_DEBUG_PIM_PACKETDUMP_SEND                                       \
+	(router->debugs |= PIM_MASK_PIM_PACKETDUMP_SEND)
+#define PIM_DO_DEBUG_PIM_PACKETDUMP_RECV                                       \
+	(router->debugs |= PIM_MASK_PIM_PACKETDUMP_RECV)
+#define PIM_DO_DEBUG_PIM_TRACE (router->debugs |= PIM_MASK_PIM_TRACE)
+#define PIM_DO_DEBUG_PIM_TRACE_DETAIL                                          \
+	(router->debugs |= PIM_MASK_PIM_TRACE_DETAIL)
+#define PIM_DO_DEBUG_IGMP_EVENTS (router->debugs |= PIM_MASK_IGMP_EVENTS)
+#define PIM_DO_DEBUG_IGMP_PACKETS (router->debugs |= PIM_MASK_IGMP_PACKETS)
+#define PIM_DO_DEBUG_IGMP_TRACE (router->debugs |= PIM_MASK_IGMP_TRACE)
+#define PIM_DO_DEBUG_IGMP_TRACE_DETAIL                                         \
+	(router->debugs |= PIM_MASK_IGMP_TRACE_DETAIL)
+#define PIM_DO_DEBUG_ZEBRA (router->debugs |= PIM_MASK_ZEBRA)
+#define PIM_DO_DEBUG_SSMPINGD (router->debugs |= PIM_MASK_SSMPINGD)
+#define PIM_DO_DEBUG_MROUTE (router->debugs |= PIM_MASK_MROUTE)
+#define PIM_DO_DEBUG_MROUTE_DETAIL (router->debugs |= PIM_MASK_MROUTE_DETAIL)
+#define PIM_DO_DEBUG_PIM_HELLO (router->debugs |= PIM_MASK_PIM_HELLO)
+#define PIM_DO_DEBUG_PIM_J_P (router->debugs |= PIM_MASK_PIM_J_P)
+#define PIM_DO_DEBUG_PIM_REG (router->debugs |= PIM_MASK_PIM_REG)
+#define PIM_DO_DEBUG_STATIC (router->debugs |= PIM_MASK_STATIC)
+#define PIM_DO_DEBUG_MSDP_EVENTS (router->debugs |= PIM_MASK_MSDP_EVENTS)
+#define PIM_DO_DEBUG_MSDP_PACKETS (router->debugs |= PIM_MASK_MSDP_PACKETS)
+#define PIM_DO_DEBUG_MSDP_INTERNAL (router->debugs |= PIM_MASK_MSDP_INTERNAL)
+#define PIM_DO_DEBUG_PIM_NHT (router->debugs |= PIM_MASK_PIM_NHT)
+#define PIM_DO_DEBUG_PIM_NHT_RP (router->debugs |= PIM_MASK_PIM_NHT_RP)
+#define PIM_DO_DEBUG_MTRACE (router->debugs |= PIM_MASK_MTRACE)
+#define PIM_DO_DEBUG_VXLAN (router->debugs |= PIM_MASK_VXLAN)
 
-#define PIM_DONT_DEBUG_PIM_EVENTS          (qpim_debugs &= ~PIM_MASK_PIM_EVENTS)
-#define PIM_DONT_DEBUG_PIM_PACKETS         (qpim_debugs &= ~PIM_MASK_PIM_PACKETS)
-#define PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND (qpim_debugs &= ~PIM_MASK_PIM_PACKETDUMP_SEND)
-#define PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV (qpim_debugs &= ~PIM_MASK_PIM_PACKETDUMP_RECV)
-#define PIM_DONT_DEBUG_PIM_TRACE           (qpim_debugs &= ~PIM_MASK_PIM_TRACE)
-#define PIM_DONT_DEBUG_PIM_TRACE_DETAIL    (qpim_debugs &= ~PIM_MASK_PIM_TRACE_DETAIL)
-#define PIM_DONT_DEBUG_IGMP_EVENTS         (qpim_debugs &= ~PIM_MASK_IGMP_EVENTS)
-#define PIM_DONT_DEBUG_IGMP_PACKETS        (qpim_debugs &= ~PIM_MASK_IGMP_PACKETS)
-#define PIM_DONT_DEBUG_IGMP_TRACE          (qpim_debugs &= ~PIM_MASK_IGMP_TRACE)
-#define PIM_DONT_DEBUG_IGMP_TRACE_DETAIL   (qpim_debugs &= ~PIM_MASK_IGMP_TRACE_DETAIL)
-#define PIM_DONT_DEBUG_ZEBRA               (qpim_debugs &= ~PIM_MASK_ZEBRA)
-#define PIM_DONT_DEBUG_SSMPINGD            (qpim_debugs &= ~PIM_MASK_SSMPINGD)
-#define PIM_DONT_DEBUG_MROUTE              (qpim_debugs &= ~PIM_MASK_MROUTE)
-#define PIM_DONT_DEBUG_MROUTE_DETAIL       (qpim_debugs &= ~PIM_MASK_MROUTE_DETAIL)
-#define PIM_DONT_DEBUG_PIM_HELLO           (qpim_debugs &= ~PIM_MASK_PIM_HELLO)
-#define PIM_DONT_DEBUG_PIM_J_P             (qpim_debugs &= ~PIM_MASK_PIM_J_P)
-#define PIM_DONT_DEBUG_PIM_REG             (qpim_debugs &= ~PIM_MASK_PIM_REG)
-#define PIM_DONT_DEBUG_STATIC              (qpim_debugs &= ~PIM_MASK_STATIC)
-#define PIM_DONT_DEBUG_MSDP_EVENTS         (qpim_debugs &= ~PIM_MASK_MSDP_EVENTS)
-#define PIM_DONT_DEBUG_MSDP_PACKETS        (qpim_debugs &= ~PIM_MASK_MSDP_PACKETS)
-#define PIM_DONT_DEBUG_MSDP_INTERNAL       (qpim_debugs &= ~PIM_MASK_MSDP_INTERNAL)
-#define PIM_DONT_DEBUG_PIM_NHT             (qpim_debugs &= ~PIM_MASK_PIM_NHT)
-#define PIM_DONT_DEBUG_PIM_NHT_RP          (qpim_debugs &= ~PIM_MASK_PIM_NHT_RP)
-#define PIM_DONT_DEBUG_MTRACE              (qpim_debugs &= ~PIM_MASK_MTRACE)
+#define PIM_DONT_DEBUG_PIM_EVENTS (router->debugs &= ~PIM_MASK_PIM_EVENTS)
+#define PIM_DONT_DEBUG_PIM_PACKETS (router->debugs &= ~PIM_MASK_PIM_PACKETS)
+#define PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND                                     \
+	(router->debugs &= ~PIM_MASK_PIM_PACKETDUMP_SEND)
+#define PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV                                     \
+	(router->debugs &= ~PIM_MASK_PIM_PACKETDUMP_RECV)
+#define PIM_DONT_DEBUG_PIM_TRACE (router->debugs &= ~PIM_MASK_PIM_TRACE)
+#define PIM_DONT_DEBUG_PIM_TRACE_DETAIL                                        \
+	(router->debugs &= ~PIM_MASK_PIM_TRACE_DETAIL)
+#define PIM_DONT_DEBUG_IGMP_EVENTS (router->debugs &= ~PIM_MASK_IGMP_EVENTS)
+#define PIM_DONT_DEBUG_IGMP_PACKETS (router->debugs &= ~PIM_MASK_IGMP_PACKETS)
+#define PIM_DONT_DEBUG_IGMP_TRACE (router->debugs &= ~PIM_MASK_IGMP_TRACE)
+#define PIM_DONT_DEBUG_IGMP_TRACE_DETAIL                                       \
+	(router->debugs &= ~PIM_MASK_IGMP_TRACE_DETAIL)
+#define PIM_DONT_DEBUG_ZEBRA (router->debugs &= ~PIM_MASK_ZEBRA)
+#define PIM_DONT_DEBUG_SSMPINGD (router->debugs &= ~PIM_MASK_SSMPINGD)
+#define PIM_DONT_DEBUG_MROUTE (router->debugs &= ~PIM_MASK_MROUTE)
+#define PIM_DONT_DEBUG_MROUTE_DETAIL (router->debugs &= ~PIM_MASK_MROUTE_DETAIL)
+#define PIM_DONT_DEBUG_PIM_HELLO (router->debugs &= ~PIM_MASK_PIM_HELLO)
+#define PIM_DONT_DEBUG_PIM_J_P (router->debugs &= ~PIM_MASK_PIM_J_P)
+#define PIM_DONT_DEBUG_PIM_REG (router->debugs &= ~PIM_MASK_PIM_REG)
+#define PIM_DONT_DEBUG_STATIC (router->debugs &= ~PIM_MASK_STATIC)
+#define PIM_DONT_DEBUG_MSDP_EVENTS (router->debugs &= ~PIM_MASK_MSDP_EVENTS)
+#define PIM_DONT_DEBUG_MSDP_PACKETS (router->debugs &= ~PIM_MASK_MSDP_PACKETS)
+#define PIM_DONT_DEBUG_MSDP_INTERNAL (router->debugs &= ~PIM_MASK_MSDP_INTERNAL)
+#define PIM_DONT_DEBUG_PIM_NHT (router->debugs &= ~PIM_MASK_PIM_NHT)
+#define PIM_DONT_DEBUG_PIM_NHT_RP (router->debugs &= ~PIM_MASK_PIM_NHT_RP)
+#define PIM_DONT_DEBUG_MTRACE (router->debugs &= ~PIM_MASK_MTRACE)
+#define PIM_DONT_DEBUG_VXLAN (router->debugs &= ~PIM_MASK_VXLAN)
+
+void pim_router_init(void);
+void pim_router_terminate(void);
 
 void pim_init(void);
 void pim_terminate(void);

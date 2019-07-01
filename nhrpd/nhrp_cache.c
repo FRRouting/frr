@@ -345,7 +345,7 @@ struct nhrp_cache_iterator_ctx {
 	void *ctx;
 };
 
-static void nhrp_cache_iterator(struct hash_backet *b, void *ctx)
+static void nhrp_cache_iterator(struct hash_bucket *b, void *ctx)
 {
 	struct nhrp_cache_iterator_ctx *ic = ctx;
 	ic->cb(b->data, ic->ctx);

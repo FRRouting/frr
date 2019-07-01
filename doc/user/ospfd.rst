@@ -26,7 +26,7 @@ Configuring OSPF
 
 .. option:: -a, --apiserver
 
-   Enable the OSPF API server
+   Enable the OSPF API server. This is required to use ``ospfclient``.
 
 *ospfd* must acquire interface information from *zebra* in order to function.
 Therefore *zebra* must be running before invoking *ospfd*. Also, if *zebra* is
@@ -218,7 +218,7 @@ To start OSPF process you have to specify the OSPF router.
    SPF-triggering event occurs within the hold-time of the previous SPF
    calculation.
 
-   This command supercedes the *timers spf* command in previous FRR
+   This command supersedes the *timers spf* command in previous FRR
    releases.
 
 .. index:: max-metric router-lsa [on-startup|on-shutdown] (5-86400)

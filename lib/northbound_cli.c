@@ -26,6 +26,7 @@
 #include "command.h"
 #include "termtable.h"
 #include "db.h"
+#include "debug.h"
 #include "yang_translator.h"
 #include "northbound.h"
 #include "northbound_cli.h"
@@ -34,7 +35,12 @@
 #include "lib/northbound_cli_clippy.c"
 #endif
 
-int debug_northbound;
+struct debug nb_dbg_cbs_config = {0, "Northbound callbacks: configuration"};
+struct debug nb_dbg_cbs_state = {0, "Northbound callbacks: state"};
+struct debug nb_dbg_cbs_rpc = {0, "Northbound callbacks: RPCs"};
+struct debug nb_dbg_notif = {0, "Northbound notifications"};
+struct debug nb_dbg_events = {0, "Northbound events"};
+
 struct nb_config *vty_shared_candidate_config;
 static struct thread_master *master;
 
@@ -179,7 +185,7 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 	/* Do an implicit "commit" when using the classic CLI mode. */
 	if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
 		ret = nb_candidate_commit(vty->candidate_config, NB_CLIENT_CLI,
-					  false, NULL, NULL);
+					  vty, false, NULL, NULL);
 		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
 			vty_out(vty, "%% Configuration failed: %s.\n\n",
 				nb_err_name(ret));
@@ -187,8 +193,13 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 				"Please check the logs for more details.\n");
 
 			/* Regenerate candidate for consistency. */
-			nb_config_replace(vty->candidate_config, running_config,
-					  true);
+			pthread_rwlock_rdlock(&running_config->lock);
+			{
+				nb_config_replace(vty->candidate_config,
+						  running_config, true);
+			}
+			pthread_rwlock_unlock(&running_config->lock);
+
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
@@ -208,7 +219,7 @@ int nb_cli_rpc(const char *xpath, struct list *input, struct list *output)
 		return CMD_WARNING;
 	}
 
-	ret = nb_node->cbs.rpc(xpath, input, output);
+	ret = nb_callback_rpc(nb_node, xpath, input, output);
 	switch (ret) {
 	case NB_OK:
 		return CMD_SUCCESS;
@@ -231,7 +242,7 @@ int nb_cli_confirmed_commit_rollback(struct vty *vty)
 
 	/* Perform the rollback. */
 	ret = nb_candidate_commit(
-		vty->confirmed_commit_rollback, NB_CLIENT_CLI, true,
+		vty->confirmed_commit_rollback, NB_CLIENT_CLI, vty, true,
 		"Rollback to previous configuration - confirmed commit has timed out",
 		&transaction_id);
 	if (ret == NB_OK)
@@ -285,11 +296,6 @@ static int nb_cli_commit(struct vty *vty, bool force,
 		return CMD_SUCCESS;
 	}
 
-	if (vty_exclusive_lock != NULL && vty_exclusive_lock != vty) {
-		vty_out(vty, "%% Configuration is locked by another VTY.\n\n");
-		return CMD_WARNING;
-	}
-
 	/* "force" parameter. */
 	if (!force && nb_candidate_needs_update(vty->candidate_config)) {
 		vty_out(vty,
@@ -301,7 +307,12 @@ static int nb_cli_commit(struct vty *vty, bool force,
 
 	/* "confirm" parameter. */
 	if (confirmed_timeout) {
-		vty->confirmed_commit_rollback = nb_config_dup(running_config);
+		pthread_rwlock_rdlock(&running_config->lock);
+		{
+			vty->confirmed_commit_rollback =
+				nb_config_dup(running_config);
+		}
+		pthread_rwlock_unlock(&running_config->lock);
 
 		vty->t_confirmed_commit_timeout = NULL;
 		thread_add_timer(master, nb_cli_confirmed_commit_timeout, vty,
@@ -309,14 +320,19 @@ static int nb_cli_commit(struct vty *vty, bool force,
 				 &vty->t_confirmed_commit_timeout);
 	}
 
-	ret = nb_candidate_commit(vty->candidate_config, NB_CLIENT_CLI, true,
-				  comment, &transaction_id);
+	ret = nb_candidate_commit(vty->candidate_config, NB_CLIENT_CLI, vty,
+				  true, comment, &transaction_id);
 
 	/* Map northbound return code to CLI return code. */
 	switch (ret) {
 	case NB_OK:
-		nb_config_replace(vty->candidate_config_base, running_config,
-				  true);
+		pthread_rwlock_rdlock(&running_config->lock);
+		{
+			nb_config_replace(vty->candidate_config_base,
+					  running_config, true);
+		}
+		pthread_rwlock_unlock(&running_config->lock);
+
 		vty_out(vty,
 			"%% Configuration committed successfully (Transaction ID #%u).\n\n",
 			transaction_id);
@@ -681,7 +697,12 @@ DEFPY (config_update,
 		return CMD_WARNING;
 	}
 
-	nb_config_replace(vty->candidate_config_base, running_config, true);
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		nb_config_replace(vty->candidate_config_base, running_config,
+				  true);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	vty_out(vty, "%% Candidate configuration updated successfully.\n\n");
 
@@ -781,8 +802,12 @@ DEFPY (show_config_running,
 		}
 	}
 
-	nb_cli_show_config(vty, running_config, format, translator,
-			   !!with_defaults);
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		nb_cli_show_config(vty, running_config, format, translator,
+				   !!with_defaults);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	return CMD_SUCCESS;
 }
@@ -896,57 +921,68 @@ DEFPY (show_config_compare,
 	struct nb_config *config2, *config_transaction2 = NULL;
 	int ret = CMD_WARNING;
 
-	if (c1_candidate)
-		config1 = vty->candidate_config;
-	else if (c1_running)
-		config1 = running_config;
-	else {
-		config_transaction1 = nb_db_transaction_load(c1_tid);
-		if (!config_transaction1) {
-			vty_out(vty, "%% Transaction %u does not exist\n\n",
-				(unsigned int)c1_tid);
-			goto exit;
+	/*
+	 * For simplicity, lock the running configuration regardless if it's
+	 * going to be used or not.
+	 */
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		if (c1_candidate)
+			config1 = vty->candidate_config;
+		else if (c1_running)
+			config1 = running_config;
+		else {
+			config_transaction1 = nb_db_transaction_load(c1_tid);
+			if (!config_transaction1) {
+				vty_out(vty,
+					"%% Transaction %u does not exist\n\n",
+					(unsigned int)c1_tid);
+				goto exit;
+			}
+			config1 = config_transaction1;
 		}
-		config1 = config_transaction1;
-	}
 
-	if (c2_candidate)
-		config2 = vty->candidate_config;
-	else if (c2_running)
-		config2 = running_config;
-	else {
-		config_transaction2 = nb_db_transaction_load(c2_tid);
-		if (!config_transaction2) {
-			vty_out(vty, "%% Transaction %u does not exist\n\n",
-				(unsigned int)c2_tid);
-			goto exit;
+		if (c2_candidate)
+			config2 = vty->candidate_config;
+		else if (c2_running)
+			config2 = running_config;
+		else {
+			config_transaction2 = nb_db_transaction_load(c2_tid);
+			if (!config_transaction2) {
+				vty_out(vty,
+					"%% Transaction %u does not exist\n\n",
+					(unsigned int)c2_tid);
+				goto exit;
+			}
+			config2 = config_transaction2;
 		}
-		config2 = config_transaction2;
-	}
 
-	if (json)
-		format = NB_CFG_FMT_JSON;
-	else if (xml)
-		format = NB_CFG_FMT_XML;
-	else
-		format = NB_CFG_FMT_CMDS;
+		if (json)
+			format = NB_CFG_FMT_JSON;
+		else if (xml)
+			format = NB_CFG_FMT_XML;
+		else
+			format = NB_CFG_FMT_CMDS;
 
-	if (translator_family) {
-		translator = yang_translator_find(translator_family);
-		if (!translator) {
-			vty_out(vty, "%% Module translator \"%s\" not found\n",
-				translator_family);
-			goto exit;
+		if (translator_family) {
+			translator = yang_translator_find(translator_family);
+			if (!translator) {
+				vty_out(vty,
+					"%% Module translator \"%s\" not found\n",
+					translator_family);
+				goto exit;
+			}
 		}
-	}
 
-	ret = nb_cli_show_config_compare(vty, config1, config2, format,
-					 translator);
-exit:
-	if (config_transaction1)
-		nb_config_free(config_transaction1);
-	if (config_transaction2)
-		nb_config_free(config_transaction2);
+		ret = nb_cli_show_config_compare(vty, config1, config2, format,
+						 translator);
+	exit:
+		if (config_transaction1)
+			nb_config_free(config_transaction1);
+		if (config_transaction2)
+			nb_config_free(config_transaction2);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	return ret;
 }
@@ -1297,7 +1333,7 @@ DEFPY (show_yang_operational_data,
 		yang_dnode_free(dnode);
 		return CMD_WARNING;
 	}
-	lyd_validate(&dnode, LYD_OPT_DATA | LYD_OPT_DATA_NO_YANGLIB, ly_ctx);
+	lyd_validate(&dnode, LYD_OPT_GET, ly_ctx);
 
 	/* Display the data. */
 	if (lyd_print_mem(&strp, dnode, format,
@@ -1503,7 +1539,7 @@ static int nb_cli_rollback_configuration(struct vty *vty,
 	snprintf(comment, sizeof(comment), "Rollback to transaction %u",
 		 transaction_id);
 
-	ret = nb_candidate_commit(candidate, NB_CLIENT_CLI, true, comment,
+	ret = nb_candidate_commit(candidate, NB_CLIENT_CLI, vty, true, comment,
 				  NULL);
 	nb_config_free(candidate);
 	switch (ret) {
@@ -1540,36 +1576,90 @@ DEFPY (rollback_config,
 }
 
 /* Debug CLI commands. */
-DEFUN (debug_nb,
+static struct debug *nb_debugs[] = {
+	&nb_dbg_cbs_config, &nb_dbg_cbs_state, &nb_dbg_cbs_rpc,
+	&nb_dbg_notif,      &nb_dbg_events,
+};
+
+static const char *const nb_debugs_conflines[] = {
+	"debug northbound callbacks configuration",
+	"debug northbound callbacks state",
+	"debug northbound callbacks rpc",
+	"debug northbound notifications",
+	"debug northbound events",
+};
+
+DEFINE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set));
+
+static void nb_debug_set_all(uint32_t flags, bool set)
+{
+	for (unsigned int i = 0; i < array_size(nb_debugs); i++) {
+		DEBUG_FLAGS_SET(nb_debugs[i], flags, set);
+
+		/* If all modes have been turned off, don't preserve options. */
+		if (!DEBUG_MODE_CHECK(nb_debugs[i], DEBUG_MODE_ALL))
+			DEBUG_CLEAR(nb_debugs[i]);
+	}
+
+	hook_call(nb_client_debug_set_all, flags, set);
+}
+
+DEFPY (debug_nb,
        debug_nb_cmd,
-       "debug northbound",
+       "[no] debug northbound\
+          [<\
+	    callbacks$cbs [{configuration$cbs_cfg|state$cbs_state|rpc$cbs_rpc}]\
+	    |notifications$notifications\
+	    |events$events\
+          >]",
+       NO_STR
        DEBUG_STR
-       "Northbound Debugging\n")
+       "Northbound debugging\n"
+       "Callbacks\n"
+       "Configuration\n"
+       "State\n"
+       "RPC\n"
+       "Notifications\n"
+       "Events\n")
 {
-	debug_northbound = 1;
+	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+
+	if (cbs) {
+		bool none = (!cbs_cfg && !cbs_state && !cbs_rpc);
+
+		if (none || cbs_cfg)
+			DEBUG_MODE_SET(&nb_dbg_cbs_config, mode, !no);
+		if (none || cbs_state)
+			DEBUG_MODE_SET(&nb_dbg_cbs_state, mode, !no);
+		if (none || cbs_rpc)
+			DEBUG_MODE_SET(&nb_dbg_cbs_rpc, mode, !no);
+	}
+	if (notifications)
+		DEBUG_MODE_SET(&nb_dbg_notif, mode, !no);
+	if (events)
+		DEBUG_MODE_SET(&nb_dbg_events, mode, !no);
+
+	/* no specific debug --> act on all of them */
+	if (strmatch(argv[argc - 1]->text, "northbound"))
+		nb_debug_set_all(mode, !no);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_nb,
-       no_debug_nb_cmd,
-       "no debug northbound",
-       NO_STR DEBUG_STR
-       "Northbound Debugging\n")
-{
-	debug_northbound = 0;
-
-	return CMD_SUCCESS;
-}
+DEFINE_HOOK(nb_client_debug_config_write, (struct vty *vty), (vty));
 
 static int nb_debug_config_write(struct vty *vty)
 {
-	if (debug_northbound)
-		vty_out(vty, "debug northbound\n");
+	for (unsigned int i = 0; i < array_size(nb_debugs); i++)
+		if (DEBUG_MODE_CHECK(nb_debugs[i], DEBUG_MODE_CONF))
+			vty_out(vty, "%s\n", nb_debugs_conflines[i]);
+
+	hook_call(nb_client_debug_config_write, vty);
 
 	return 1;
 }
 
+static struct debug_callbacks nb_dbg_cbs = {.debug_set_all = nb_debug_set_all};
 static struct cmd_node nb_debug_node = {NORTHBOUND_DEBUG_NODE, "", 1};
 
 void nb_cli_install_default(int node)
@@ -1633,11 +1723,10 @@ void nb_cli_init(struct thread_master *tm)
 	vty_shared_candidate_config = nb_config_new(NULL);
 
 	/* Install debug commands */
+	debug_init(&nb_dbg_cbs);
 	install_node(&nb_debug_node, nb_debug_config_write);
 	install_element(ENABLE_NODE, &debug_nb_cmd);
-	install_element(ENABLE_NODE, &no_debug_nb_cmd);
 	install_element(CONFIG_NODE, &debug_nb_cmd);
-	install_element(CONFIG_NODE, &no_debug_nb_cmd);
 
 	/* Install commands specific to the transaction-base mode. */
 	if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL) {

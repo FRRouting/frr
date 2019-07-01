@@ -43,7 +43,6 @@
 #include "network.h"
 #include "sbuf.h"
 
-#include "isisd/dict.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
@@ -58,9 +57,6 @@
 #include "isisd/isis_spf.h"
 #include "isisd/isis_te.h"
 
-/* Global varial for MPLS TE management */
-struct isis_mpls_te isisMplsTE;
-
 const char *mode2text[] = {"Disable", "Area", "AS", "Emulate"};
 
 /*------------------------------------------------------------------------*
@@ -68,7 +64,7 @@ const char *mode2text[] = {"Disable", "Area", "AS", "Emulate"};
  *------------------------------------------------------------------------*/
 
 /* Create new MPLS TE Circuit context */
-struct mpls_te_circuit *mpls_te_circuit_new()
+struct mpls_te_circuit *mpls_te_circuit_new(void)
 {
 	struct mpls_te_circuit *mtc;
 
@@ -624,7 +620,7 @@ void isis_link_params_update(struct isis_circuit *circuit,
 
 /* Finally Update LSP */
 #if 0
-  if (IS_MPLS_TE(isisMplsTE) && circuit->area)
+  if (circuit->area && IS_MPLS_TE(circuit->area->mta))
        lsp_regenerate_schedule (circuit->area, circuit->is_type, 0);
 #endif
 	return;
@@ -646,7 +642,7 @@ void isis_mpls_te_update(struct interface *ifp)
 	isis_link_params_update(circuit, ifp);
 
 	/* ... and LSP */
-	if (IS_MPLS_TE(isisMplsTE) && circuit->area)
+	if (circuit->area && IS_MPLS_TE(circuit->area->mta))
 		lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
 
 	return;
@@ -1058,34 +1054,10 @@ void mpls_te_print_detail(struct sbuf *buf, int indent,
 	return;
 }
 
-/* Specific MPLS TE router parameters write function */
-void isis_mpls_te_config_write_router(struct vty *vty)
-{
-	if (IS_MPLS_TE(isisMplsTE)) {
-		vty_out(vty, "  mpls-te on\n");
-		vty_out(vty, "  mpls-te router-address %s\n",
-			inet_ntoa(isisMplsTE.router_id));
-	}
-
-	return;
-}
-
-
 /*------------------------------------------------------------------------*
  * Followings are vty command functions.
  *------------------------------------------------------------------------*/
 #ifndef FABRICD
-
-/* Search MPLS TE Circuit context from Interface */
-static struct mpls_te_circuit *lookup_mpls_params_by_ifp(struct interface *ifp)
-{
-	struct isis_circuit *circuit;
-
-	if ((circuit = circuit_scan_by_ifp(ifp)) == NULL)
-		return NULL;
-
-	return circuit->mtc;
-}
 
 DEFUN (show_isis_mpls_te_router,
        show_isis_mpls_te_router_cmd,
@@ -1095,84 +1067,73 @@ DEFUN (show_isis_mpls_te_router,
        MPLS_TE_STR
        "Router information\n")
 {
-	if (IS_MPLS_TE(isisMplsTE)) {
-		vty_out(vty, "--- MPLS-TE router parameters ---\n");
 
-		if (ntohs(isisMplsTE.router_id.s_addr) != 0)
-			vty_out(vty, "  Router-Address: %s\n",
-				inet_ntoa(isisMplsTE.router_id));
+	struct listnode *anode;
+	struct isis_area *area;
+
+	if (!isis) {
+		vty_out(vty, "IS-IS Routing Process not enabled\n");
+		return CMD_SUCCESS;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+
+		if (!IS_MPLS_TE(area->mta))
+			continue;
+
+		vty_out(vty, "Area %s:\n", area->area_tag);
+		if (ntohs(area->mta->router_id.s_addr) != 0)
+			vty_out(vty, "  MPLS-TE Router-Address: %s\n",
+				inet_ntoa(area->mta->router_id));
 		else
 			vty_out(vty, "  N/A\n");
-	} else
-		vty_out(vty, "  MPLS-TE is disable on this router\n");
+	}
 
 	return CMD_SUCCESS;
 }
 
-static void show_mpls_te_sub(struct vty *vty, struct interface *ifp)
+static void show_mpls_te_sub(struct vty *vty, char *name,
+			     struct mpls_te_circuit *mtc)
 {
-	struct mpls_te_circuit *mtc;
 	struct sbuf buf;
 
 	sbuf_init(&buf, NULL, 0);
 
-	if ((IS_MPLS_TE(isisMplsTE))
-	    && ((mtc = lookup_mpls_params_by_ifp(ifp)) != NULL)) {
-		/* Continue only if interface is not passive or support Inter-AS
-		 * TEv2 */
-		if (mtc->status != enable) {
-			if (IS_INTER_AS(mtc->type)) {
-				vty_out(vty,
-					"-- Inter-AS TEv2 link parameters for %s --\n",
-					ifp->name);
-			} else {
-				/* MPLS-TE is not activate on this interface */
-				/* or this interface is passive and Inter-AS
-				 * TEv2 is not activate */
-				vty_out(vty,
-					"  %s: MPLS-TE is disabled on this interface\n",
-					ifp->name);
-				return;
-			}
-		} else {
-			vty_out(vty, "-- MPLS-TE link parameters for %s --\n",
-				ifp->name);
-		}
+	if (mtc->status != enable)
+		return;
 
-		sbuf_reset(&buf);
-		print_subtlv_admin_grp(&buf, 4, &mtc->admin_grp);
+	vty_out(vty, "-- MPLS-TE link parameters for %s --\n", name);
 
-		if (SUBTLV_TYPE(mtc->local_ipaddr) != 0)
-			print_subtlv_local_ipaddr(&buf, 4, &mtc->local_ipaddr);
-		if (SUBTLV_TYPE(mtc->rmt_ipaddr) != 0)
-			print_subtlv_rmt_ipaddr(&buf, 4, &mtc->rmt_ipaddr);
+	sbuf_reset(&buf);
+	print_subtlv_admin_grp(&buf, 4, &mtc->admin_grp);
 
-		print_subtlv_max_bw(&buf, 4, &mtc->max_bw);
-		print_subtlv_max_rsv_bw(&buf, 4, &mtc->max_rsv_bw);
-		print_subtlv_unrsv_bw(&buf, 4, &mtc->unrsv_bw);
-		print_subtlv_te_metric(&buf, 4, &mtc->te_metric);
+	if (SUBTLV_TYPE(mtc->local_ipaddr) != 0)
+		print_subtlv_local_ipaddr(&buf, 4, &mtc->local_ipaddr);
+	if (SUBTLV_TYPE(mtc->rmt_ipaddr) != 0)
+		print_subtlv_rmt_ipaddr(&buf, 4, &mtc->rmt_ipaddr);
 
-		if (IS_INTER_AS(mtc->type)) {
-			if (SUBTLV_TYPE(mtc->ras) != 0)
-				print_subtlv_ras(&buf, 4, &mtc->ras);
-			if (SUBTLV_TYPE(mtc->rip) != 0)
-				print_subtlv_rip(&buf, 4, &mtc->rip);
-		}
+	print_subtlv_max_bw(&buf, 4, &mtc->max_bw);
+	print_subtlv_max_rsv_bw(&buf, 4, &mtc->max_rsv_bw);
+	print_subtlv_unrsv_bw(&buf, 4, &mtc->unrsv_bw);
+	print_subtlv_te_metric(&buf, 4, &mtc->te_metric);
 
-		print_subtlv_av_delay(&buf, 4, &mtc->av_delay);
-		print_subtlv_mm_delay(&buf, 4, &mtc->mm_delay);
-		print_subtlv_delay_var(&buf, 4, &mtc->delay_var);
-		print_subtlv_pkt_loss(&buf, 4, &mtc->pkt_loss);
-		print_subtlv_res_bw(&buf, 4, &mtc->res_bw);
-		print_subtlv_ava_bw(&buf, 4, &mtc->ava_bw);
-		print_subtlv_use_bw(&buf, 4, &mtc->use_bw);
-
-		vty_multiline(vty, "", "%s", sbuf_buf(&buf));
-		vty_out(vty, "---------------\n\n");
-	} else {
-		vty_out(vty, "  %s: MPLS-TE is disabled on this interface\n",
-			ifp->name);
+	if (IS_INTER_AS(mtc->type)) {
+		if (SUBTLV_TYPE(mtc->ras) != 0)
+			print_subtlv_ras(&buf, 4, &mtc->ras);
+		if (SUBTLV_TYPE(mtc->rip) != 0)
+			print_subtlv_rip(&buf, 4, &mtc->rip);
 	}
+
+	print_subtlv_av_delay(&buf, 4, &mtc->av_delay);
+	print_subtlv_mm_delay(&buf, 4, &mtc->mm_delay);
+	print_subtlv_delay_var(&buf, 4, &mtc->delay_var);
+	print_subtlv_pkt_loss(&buf, 4, &mtc->pkt_loss);
+	print_subtlv_res_bw(&buf, 4, &mtc->res_bw);
+	print_subtlv_ava_bw(&buf, 4, &mtc->ava_bw);
+	print_subtlv_use_bw(&buf, 4, &mtc->use_bw);
+
+	vty_multiline(vty, "", "%s", sbuf_buf(&buf));
+	vty_out(vty, "---------------\n\n");
 
 	sbuf_free(&buf);
 	return;
@@ -1187,23 +1148,45 @@ DEFUN (show_isis_mpls_te_interface,
        "Interface information\n"
        "Interface name\n")
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	int idx_interface = 4;
+	struct listnode *anode, *cnode;
+	struct isis_area *area;
+	struct isis_circuit *circuit;
 	struct interface *ifp;
+	int idx_interface = 4;
 
-	/* Show All Interfaces. */
-	if (argc == 4) {
-		FOR_ALL_INTERFACES (vrf, ifp)
-			show_mpls_te_sub(vty, ifp);
+	if (!isis) {
+		vty_out(vty, "IS-IS Routing Process not enabled\n");
+		return CMD_SUCCESS;
 	}
-	/* Interface name is specified. */
-	else {
-		if ((ifp = if_lookup_by_name(argv[idx_interface]->arg,
-					     VRF_DEFAULT))
-		    == NULL)
+
+	if (argc == idx_interface) {
+		/* Show All Interfaces. */
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+
+			if (!IS_MPLS_TE(area->mta))
+				continue;
+
+			vty_out(vty, "Area %s:\n", area->area_tag);
+
+			for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode,
+						  circuit))
+				show_mpls_te_sub(vty, circuit->interface->name,
+						 circuit->mtc);
+		}
+	} else {
+		/* Interface name is specified. */
+		ifp = if_lookup_by_name(argv[idx_interface]->arg, VRF_DEFAULT);
+		if (ifp == NULL)
 			vty_out(vty, "No such interface name\n");
-		else
-			show_mpls_te_sub(vty, ifp);
+		else {
+			circuit = circuit_scan_by_ifp(ifp);
+			if (!circuit)
+				vty_out(vty,
+					"ISIS is not enabled on circuit %s\n",
+					ifp->name);
+			else
+				show_mpls_te_sub(vty, ifp->name, circuit->mtc);
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -1213,16 +1196,6 @@ DEFUN (show_isis_mpls_te_interface,
 /* Initialize MPLS_TE */
 void isis_mpls_te_init(void)
 {
-
-	zlog_debug("ISIS MPLS-TE: Initialize");
-
-	/* Initialize MPLS_TE structure */
-	isisMplsTE.status = disable;
-	isisMplsTE.level = 0;
-	isisMplsTE.inter_as = off;
-	isisMplsTE.interas_areaid.s_addr = 0;
-	isisMplsTE.cir_list = list_new();
-	isisMplsTE.router_id.s_addr = 0;
 
 #ifndef FABRICD
 	/* Register new VTY commands */

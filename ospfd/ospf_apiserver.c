@@ -2024,7 +2024,7 @@ int ospf_apiserver_del_if(struct interface *ifp)
 
 	/* zlog_warn for debugging */
 	zlog_warn("ospf_apiserver_del_if");
-	zlog_warn("ifp name=%s status=%d index=%d\n", ifp->name, ifp->status,
+	zlog_warn("ifp name=%s status=%d index=%d", ifp->name, ifp->status,
 		  ifp->ifindex);
 
 	oi = ospf_apiserver_if_lookup_by_ifp(ifp);
@@ -2110,7 +2110,6 @@ void ospf_apiserver_show_info(struct vty *vty, struct ospf_lsa *lsa)
 		for (i = 0; i < opaquelen; i++) {
 			zlog_debug("0x%x ", olsa->data[i]);
 		}
-		zlog_debug("\n");
 	}
 	return;
 }

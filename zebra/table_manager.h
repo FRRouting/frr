@@ -27,6 +27,10 @@
 
 #include "zebra/zserv.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * Table chunk struct
  * Client daemon which the chunk belongs to can be identified by either
@@ -62,5 +66,9 @@ int release_table_chunk(uint8_t proto, uint16_t instance, uint32_t start,
 			uint32_t end);
 int release_daemon_table_chunks(struct zserv *client);
 void table_manager_disable(ns_id_t ns_id);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _TABLE_MANAGER_H */

@@ -422,7 +422,7 @@ bgp_advertise_clean_subgroup(struct update_subgroup *subgrp,
 	struct bgp_advertise *adv;
 	struct bgp_advertise_attr *baa;
 	struct bgp_advertise *next;
-	struct bgp_advertise_fifo *fhead;
+	struct bgp_adv_fifo_head *fhead;
 
 	adv = adj->adv;
 	baa = adv->baa;
@@ -444,7 +444,7 @@ bgp_advertise_clean_subgroup(struct update_subgroup *subgrp,
 
 
 	/* Unlink myself from advertisement FIFO.  */
-	BGP_ADV_FIFO_DEL(fhead, adv);
+	bgp_adv_fifo_del(fhead, adv);
 
 	/* Free memory.  */
 	bgp_advertise_free(adj->adv);
@@ -507,7 +507,7 @@ void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 	 * If the update adv list is empty, trigger the member peers'
 	 * mrai timers so the socket writes can happen.
 	 */
-	if (BGP_ADV_FIFO_EMPTY(&subgrp->sync->update)) {
+	if (!bgp_adv_fifo_count(&subgrp->sync->update)) {
 		struct peer_af *paf;
 
 		SUBGRP_FOREACH_PEER (subgrp, paf) {
@@ -515,7 +515,7 @@ void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 		}
 	}
 
-	BGP_ADV_FIFO_ADD(&subgrp->sync->update, &adv->fifo);
+	bgp_adv_fifo_add_tail(&subgrp->sync->update, adv);
 
 	subgrp->version = max(subgrp->version, rn->version);
 }
@@ -550,11 +550,11 @@ void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
 
 			/* Note if we need to trigger a packet write */
 			trigger_write =
-				BGP_ADV_FIFO_EMPTY(&subgrp->sync->withdraw);
+				!bgp_adv_fifo_count(&subgrp->sync->withdraw);
 
 			/* Add to synchronization entry for withdraw
 			 * announcement.  */
-			BGP_ADV_FIFO_ADD(&subgrp->sync->withdraw, &adv->fifo);
+			bgp_adv_fifo_add_tail(&subgrp->sync->withdraw, adv);
 
 			if (trigger_write)
 				subgroup_trigger_write(subgrp);

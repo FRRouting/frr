@@ -20,6 +20,10 @@
 #ifndef _FRR_YANG_TRANSLATOR_H_
 #define _FRR_YANG_TRANSLATOR_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define YANG_TRANSLATE_TO_NATIVE 0
 #define YANG_TRANSLATE_FROM_NATIVE 1
 #define YANG_TRANSLATE_MAX 2
@@ -140,5 +144,9 @@ extern void yang_translator_init(void);
  * when the daemon is exiting.
  */
 extern void yang_translator_terminate(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_YANG_TRANSLATOR_H_ */

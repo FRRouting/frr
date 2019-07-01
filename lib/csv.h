@@ -70,6 +70,10 @@
 #include <stdarg.h>
 #include <sys/queue.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _csv_field_t_ csv_field_t;
 typedef struct _csv_record_t_ csv_record_t;
 typedef struct _csv_t_ csv_t;
@@ -184,5 +188,9 @@ void csv_clone_record(csv_t *csv, csv_record_t *in_rec, csv_record_t **out_rec);
  * Return number of records
  */
 int csv_num_records(csv_t *csv);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

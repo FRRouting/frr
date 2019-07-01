@@ -27,6 +27,10 @@
 #include "qobj.h"
 #include "hook.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(IF)
 DECLARE_MTYPE(CONNECTED_LABEL)
 
@@ -290,9 +294,9 @@ struct interface {
 };
 
 RB_HEAD(if_name_head, interface);
-RB_PROTOTYPE(if_name_head, interface, name_entry, if_cmp_func);
+RB_PROTOTYPE(if_name_head, interface, name_entry, if_cmp_func)
 RB_HEAD(if_index_head, interface);
-RB_PROTOTYPE(if_index_head, interface, index_entry, if_cmp_func);
+RB_PROTOTYPE(if_index_head, interface, index_entry, if_cmp_func)
 DECLARE_QOBJ_TYPE(interface)
 
 #define IFNAME_RB_INSERT(vrf, ifp)                                             \
@@ -495,16 +499,16 @@ extern void if_delete_retain(struct interface *);
    deletes it from the interface list and frees the structure. */
 extern void if_delete(struct interface *);
 
-extern int if_is_up(struct interface *);
-extern int if_is_running(struct interface *);
-extern int if_is_operative(struct interface *);
-extern int if_is_no_ptm_operative(struct interface *);
-extern int if_is_loopback(struct interface *);
-extern int if_is_vrf(struct interface *ifp);
-extern bool if_is_loopback_or_vrf(struct interface *ifp);
-extern int if_is_broadcast(struct interface *);
-extern int if_is_pointopoint(struct interface *);
-extern int if_is_multicast(struct interface *);
+extern int if_is_up(const struct interface *ifp);
+extern int if_is_running(const struct interface *ifp);
+extern int if_is_operative(const struct interface *ifp);
+extern int if_is_no_ptm_operative(const struct interface *ifp);
+extern int if_is_loopback(const struct interface *ifp);
+extern int if_is_vrf(const struct interface *ifp);
+extern bool if_is_loopback_or_vrf(const struct interface *ifp);
+extern int if_is_broadcast(const struct interface *ifp);
+extern int if_is_pointopoint(const struct interface *ifp);
+extern int if_is_multicast(const struct interface *ifp);
 struct vrf;
 extern void if_terminate(struct vrf *vrf);
 extern void if_dump_all(void);
@@ -544,5 +548,9 @@ void if_link_params_free(struct interface *);
 /* Northbound. */
 extern void if_cmd_init(void);
 extern const struct frr_yang_module_info frr_interface_info;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_IF_H */

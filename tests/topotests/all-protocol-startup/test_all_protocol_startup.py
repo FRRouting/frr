@@ -296,9 +296,52 @@ def test_converge_protocols():
     sleep(60)
 
     # Make sure that all daemons are running
+    failures = 0
     for i in range(1, 2):
         fatal_error = net['r%s' % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
+
+        print("Show that v4 routes are right\n");
+        v4_routesFile = '%s/r%s/ipv4_routes.ref' % (thisDir, i)
+        expected = open(v4_routesFile).read().rstrip()
+        expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
+
+        actual = net['r%s' %i].cmd('vtysh -c "show ip route" | /usr/bin/tail -n +7 | sort 2> /dev/null').rstrip()
+        # Drop time in last update
+        actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
+        actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
+        diff = topotest.get_textdiff(actual, expected,
+                                     title1="Actual IP Routing Table",
+                                     title2="Expected IP RoutingTable")
+        if diff:
+            sys.stderr.write('r%s failed IP Routing table check:\n%s\n' % (i, diff))
+            failures += 1
+        else:
+            print("r%s ok" %i)
+
+        assert failures == 0, "IP Routing table failed for r%s\n%s" % (i, diff)
+
+        failures = 0
+
+        print("Show that v6 routes are right\n")
+        v6_routesFile = '%s/r%s/ipv6_routes.ref' % (thisDir, i)
+        expected = open(v6_routesFile).read().rstrip()
+        expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
+
+        actual = net['r%s' %i].cmd('vtysh -c "show ipv6 route" | /usr/bin/tail -n +7 | sort 2> /dev/null').rstrip()
+        # Drop time in last update
+        actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
+        actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
+        diff = topotest.get_textdiff(actual, expected,
+                                     title1="Actual IPv6 Routing Table",
+                                     title2="Expected IPv6 RoutingTable")
+        if diff:
+            sys.stderr.write('r%s failed IPv6 Routing table check:\n%s\n' % (i, diff))
+            failures += 1
+        else:
+            print("r%s ok" %i)
+
+        assert failures == 0, "IPv6 Routing table failed for r%s\n%s" % (i, diff)
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     ## CLI(net)

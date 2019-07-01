@@ -9,13 +9,13 @@ license="GPL-2.0"
 depends="json-c c-ares ipsec-tools iproute2 python py-ipaddr bash"
 makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
     acct autoconf automake bash
-    binutils binutils-libs bison bsd-compat-headers build-base
+    binutils bison bsd-compat-headers build-base
     c-ares c-ares-dev ca-certificates cryptsetup-libs curl
     device-mapper-libs expat fakeroot flex fortify-headers gdbm
     git gmp isl json-c-dev kmod lddtree libacl libatomic libattr
     libblkid libburn libbz2 libc-dev libcap libcurl libedit libffi libgcc
     libgomp libisoburn libisofs libltdl libressl libssh2
-    libstdc++ libtool libuuid linux-headers lzip lzo m4 make mkinitfs mpc1
+    libstdc++ libtool libuuid libyang-dev linux-headers lzip lzo m4 make mkinitfs mpc1
     mpfr3 mtools musl-dev ncurses-libs ncurses-terminfo ncurses-terminfo-base
     patch pax-utils pcre perl pkgconf python2 python2-dev readline
     readline-dev sqlite-libs squashfs-tools sudo tar texinfo xorriso xz-libs
@@ -23,7 +23,7 @@ makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
 checkdepends="pytest py-setuptools"
 install="$pkgname.pre-install $pkgname.pre-deinstall $pkgname.post-deinstall"
 subpackages="$pkgname-dev $pkgname-doc $pkgname-dbg"
-source="$pkgname-$pkgver.tar.gz docker-start daemons"
+source="$pkgname-$pkgver.tar.gz"
 
 builddir="$srcdir"/$pkgname-$pkgver
 
@@ -60,8 +60,7 @@ package() {
 	cd "$builddir"
 	make DESTDIR="$pkgdir" install
 
-	install -Dm755 "$srcdir"/docker-start "$pkgdir"$_sbindir
-	install -Dm644 "$srcdir"/daemons "$pkgdir"$_sysconfdir
+	install -Dm644 "$builddir"/tools/etc/frr/daemons "$pkgdir"$_sysconfdir
 	install -d "$pkgdir"/etc/init.d
 	ln -s ${_sbindir}/frr "$pkgdir"/etc/init.d/frr
 }

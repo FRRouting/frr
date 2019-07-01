@@ -152,16 +152,42 @@ void frrstr_strvec_free(vector v)
 	vector_free(v);
 }
 
+char *frrstr_replace(const char *str, const char *find, const char *replace)
+{
+	char *ch;
+	char *nustr = XSTRDUP(MTYPE_TMP, str);
+
+	size_t findlen = strlen(find);
+	size_t repllen = strlen(replace);
+
+	while ((ch = strstr(nustr, find))) {
+		if (repllen > findlen) {
+			size_t nusz = strlen(nustr) + repllen - findlen + 1;
+			nustr = XREALLOC(MTYPE_TMP, nustr, nusz);
+			ch = strstr(nustr, find);
+		}
+
+		size_t nustrlen = strlen(nustr);
+		size_t taillen = (nustr + nustrlen) - (ch + findlen);
+
+		memmove(ch + findlen + (repllen - findlen), ch + findlen,
+			taillen + 1);
+		memcpy(ch, replace, repllen);
+	}
+
+	return nustr;
+}
+
 bool begins_with(const char *str, const char *prefix)
 {
 	if (!str || !prefix)
-		return 0;
+		return false;
 
 	size_t lenstr = strlen(str);
 	size_t lenprefix = strlen(prefix);
 
 	if (lenprefix > lenstr)
-		return 0;
+		return false;
 
 	return strncmp(str, prefix, lenprefix) == 0;
 }

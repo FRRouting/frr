@@ -247,7 +247,8 @@ static int if_get_addr(struct interface *ifp, struct sockaddr *addr,
 	 * We need to use the logical interface name / label, if we've been
 	 * given one, in order to get the right address
 	 */
-	strncpy(lifreq.lifr_name, (label ? label : ifp->name), IFNAMSIZ);
+	strlcpy(lifreq.lifr_name, (label ? label : ifp->name),
+		sizeof(lifreq.lifr_name));
 
 	/* Interface's address. */
 	memcpy(&lifreq.lifr_addr, addr, ADDRLEN(addr));

@@ -136,7 +136,7 @@ if [ -z "$TOPOTEST_BUILDCACHE" ]; then
 fi
 
 if [ "${TOPOTEST_PULL:-1}" = "1" ]; then
-	docker pull frrouting/frr:topotests-latest
+	docker pull frrouting/topotests:latest
 fi
 
 set -- --rm -i \
@@ -149,7 +149,7 @@ set -- --rm -i \
 	-e "TOPOTEST_SANITIZER=$TOPOTEST_SANITIZER" \
 	--privileged \
 	$TOPOTEST_OPTIONS \
-	frrouting/frr:topotests-latest "$@"
+	frrouting/topotests:latest "$@"
 
 if [ -t 0 ]; then
 	set -- -t "$@"

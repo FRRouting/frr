@@ -74,8 +74,7 @@ static int config_cmp(struct config *c1, struct config *c2)
 static void config_del(struct config *config)
 {
 	list_delete(&config->line);
-	if (config->name)
-		XFREE(MTYPE_VTYSH_CONFIG_LINE, config->name);
+	XFREE(MTYPE_VTYSH_CONFIG_LINE, config->name);
 	XFREE(MTYPE_VTYSH_CONFIG, config);
 }
 
@@ -516,7 +515,7 @@ int vtysh_read_config(const char *config_default_dir)
  * be edited by hand. So, we handle only "write terminal" case here and
  * integrate vtysh specific conf with conf from daemons.
  */
-void vtysh_config_write()
+void vtysh_config_write(void)
 {
 	char line[81];
 
@@ -539,7 +538,7 @@ void vtysh_config_write()
 	user_config_write();
 }
 
-void vtysh_config_init()
+void vtysh_config_init(void)
 {
 	config_top = list_new();
 	config_top->del = (void (*)(void *))line_del;

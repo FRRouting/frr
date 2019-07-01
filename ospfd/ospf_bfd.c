@@ -141,8 +141,7 @@ static int ospf_bfd_reg_dereg_all_nbr(struct interface *ifp, int command)
  * ospf_bfd_nbr_replay - Replay all the neighbors that have BFD enabled
  *                       to zebra
  */
-static int ospf_bfd_nbr_replay(int command, struct zclient *zclient,
-			       zebra_size_t length, vrf_id_t vrf_id)
+static int ospf_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 {
 	struct listnode *inode, *node, *onode;
 	struct ospf *ospf;
@@ -195,8 +194,7 @@ static int ospf_bfd_nbr_replay(int command, struct zclient *zclient,
  *                                  connectivity if the BFD status changed to
  *                                  down.
  */
-static int ospf_bfd_interface_dest_update(int command, struct zclient *zclient,
-					  zebra_size_t length, vrf_id_t vrf_id)
+static int ospf_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	struct ospf_interface *oi;
@@ -250,6 +248,13 @@ static int ospf_bfd_interface_dest_update(int command, struct zclient *zclient,
 					   inet_ntoa(nbr->address.u.prefix4));
 
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_InactivityTimer);
+		}
+		if ((status == BFD_STATUS_UP)
+		    && (old_status == BFD_STATUS_DOWN)) {
+			if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
+				zlog_debug("NSM[%s:%s]: BFD Up",
+					   IF_NAME(nbr->oi),
+					   inet_ntoa(nbr->address.u.prefix4));
 		}
 	}
 

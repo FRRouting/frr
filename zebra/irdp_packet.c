@@ -58,7 +58,7 @@
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
 #include "zebra/rib.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/redistribute.h"
 #include "zebra/irdp.h"
 #include "zebra/zebra_errors.h"
@@ -166,7 +166,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	case ICMP_ROUTERSOLICIT:
 
 		if (irdp->flags & IF_DEBUG_MESSAGES)
-			zlog_debug("IRDP: RX Solicit on %s from %s\n",
+			zlog_debug("IRDP: RX Solicit on %s from %s",
 				   ifp->name, inet_ntoa(src));
 
 		process_solicit(ifp);
@@ -230,7 +230,7 @@ int irdp_read_raw(struct thread *r)
 
 	int irdp_sock = THREAD_FD(r);
 	t_irdp_raw = NULL;
-	thread_add_read(zebrad.master, irdp_read_raw, NULL, irdp_sock,
+	thread_add_read(zrouter.master, irdp_read_raw, NULL, irdp_sock,
 			&t_irdp_raw);
 
 	ret = irdp_recvmsg(irdp_sock, (uint8_t *)buf, IRDP_RX_BUF, &ifindex);
@@ -253,7 +253,7 @@ int irdp_read_raw(struct thread *r)
 	if (!(irdp->flags & IF_ACTIVE)) {
 
 		if (irdp->flags & IF_DEBUG_MISC)
-			zlog_debug("IRDP: RX ICMP for disabled interface %s\n",
+			zlog_debug("IRDP: RX ICMP for disabled interface %s",
 				   ifp->name);
 		return 0;
 	}

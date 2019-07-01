@@ -339,7 +339,7 @@ static int ssmpingd_sock_read(struct thread *t)
 
 static void ssmpingd_read_on(struct ssmpingd_sock *ss)
 {
-	thread_add_read(master, ssmpingd_sock_read, ss, ss->sock_fd,
+	thread_add_read(router->master, ssmpingd_sock_read, ss, ss->sock_fd,
 			&ss->t_sock_read);
 }
 

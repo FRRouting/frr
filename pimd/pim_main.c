@@ -68,7 +68,7 @@ struct zebra_privs_t pimd_privs = {
 	.vty_group = VTY_GROUP,
 #endif
 	.caps_p = _caps_p,
-	.cap_num_p = sizeof(_caps_p) / sizeof(_caps_p[0]),
+	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
 static const struct frr_yang_module_info *pimd_yang_modules[] = {
@@ -109,7 +109,7 @@ int main(int argc, char **argv, char **envp)
 		}
 	}
 
-	master = frr_init();
+	pim_router_init();
 
 	/*
 	 * Initializations
@@ -157,7 +157,7 @@ int main(int argc, char **argv, char **envp)
 		"PIM_UNEXPECTED_KERNEL_UPCALL: report unexpected kernel upcall");
 #endif
 
-	frr_run(master);
+	frr_run(router->master);
 
 	/* never reached */
 	return 0;

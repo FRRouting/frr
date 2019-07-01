@@ -36,7 +36,8 @@
 struct zclient *zclient = NULL;
 
 /* Send ECMP routes to zebra. */
-static void rip_zebra_ipv4_send(struct route_node *rp, uint8_t cmd)
+static void rip_zebra_ipv4_send(struct rip *rip, struct route_node *rp,
+				uint8_t cmd)
 {
 	struct list *list = (struct list *)rp->info;
 	struct zapi_route api;
@@ -46,7 +47,7 @@ static void rip_zebra_ipv4_send(struct route_node *rp, uint8_t cmd)
 	int count = 0;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id = rip->vrf->vrf_id;
 	api.type = ZEBRA_ROUTE_RIP;
 	api.safi = SAFI_UNICAST;
 
@@ -55,7 +56,7 @@ static void rip_zebra_ipv4_send(struct route_node *rp, uint8_t cmd)
 		if (count >= MULTIPATH_NUM)
 			break;
 		api_nh = &api.nexthops[count];
-		api_nh->vrf_id = VRF_DEFAULT;
+		api_nh->vrf_id = rip->vrf->vrf_id;
 		api_nh->gate = rinfo->nh.gate;
 		api_nh->type = NEXTHOP_TYPE_IPV4;
 		if (cmd == ZEBRA_ROUTE_ADD)
@@ -101,28 +102,29 @@ static void rip_zebra_ipv4_send(struct route_node *rp, uint8_t cmd)
 				   inet_ntoa(rp->p.u.prefix4), rp->p.prefixlen);
 	}
 
-	rip_global_route_changes++;
+	rip->counters.route_changes++;
 }
 
 /* Add/update ECMP routes to zebra. */
-void rip_zebra_ipv4_add(struct route_node *rp)
+void rip_zebra_ipv4_add(struct rip *rip, struct route_node *rp)
 {
-	rip_zebra_ipv4_send(rp, ZEBRA_ROUTE_ADD);
+	rip_zebra_ipv4_send(rip, rp, ZEBRA_ROUTE_ADD);
 }
 
 /* Delete ECMP routes from zebra. */
-void rip_zebra_ipv4_delete(struct route_node *rp)
+void rip_zebra_ipv4_delete(struct rip *rip, struct route_node *rp)
 {
-	rip_zebra_ipv4_send(rp, ZEBRA_ROUTE_DELETE);
+	rip_zebra_ipv4_send(rip, rp, ZEBRA_ROUTE_DELETE);
 }
 
 /* Zebra route add and delete treatment. */
-static int rip_zebra_read_route(int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+static int rip_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
+	struct rip *rip;
 	struct zapi_route api;
 	struct nexthop nh;
 
+	rip = rip_lookup_by_vrf_id(vrf_id);
 	if (!rip)
 		return 0;
 
@@ -135,67 +137,94 @@ static int rip_zebra_read_route(int command, struct zclient *zclient,
 	nh.ifindex = api.nexthops[0].ifindex;
 
 	/* Then fetch IPv4 prefixes. */
-	if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
-		rip_redistribute_add(api.type, RIP_ROUTE_REDISTRIBUTE,
+	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
+		rip_redistribute_add(rip, api.type, RIP_ROUTE_REDISTRIBUTE,
 				     (struct prefix_ipv4 *)&api.prefix, &nh,
 				     api.metric, api.distance, api.tag);
-	else if (command == ZEBRA_REDISTRIBUTE_ROUTE_DEL)
-		rip_redistribute_delete(api.type, RIP_ROUTE_REDISTRIBUTE,
+	else if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_DEL)
+		rip_redistribute_delete(rip, api.type, RIP_ROUTE_REDISTRIBUTE,
 					(struct prefix_ipv4 *)&api.prefix,
 					nh.ifindex);
 
 	return 0;
 }
 
-void rip_redistribute_conf_update(int type)
+void rip_redistribute_conf_update(struct rip *rip, int type)
 {
 	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type,
-			     0, VRF_DEFAULT);
+			     0, rip->vrf->vrf_id);
 }
 
-void rip_redistribute_conf_delete(int type)
+void rip_redistribute_conf_delete(struct rip *rip, int type)
 {
 	if (zclient->sock > 0)
 		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
-					AFI_IP, type, 0, VRF_DEFAULT);
+					AFI_IP, type, 0, rip->vrf->vrf_id);
 
 	/* Remove the routes from RIP table. */
-	rip_redistribute_withdraw(type);
+	rip_redistribute_withdraw(rip, type);
 }
 
-int rip_redistribute_check(int type)
+int rip_redistribute_check(struct rip *rip, int type)
 {
-	return vrf_bitmap_check(zclient->redist[AFI_IP][type], VRF_DEFAULT);
+	return rip->redist[type].enabled;
 }
 
-void rip_redistribute_clean(void)
+void rip_redistribute_enable(struct rip *rip)
 {
 	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (!vrf_bitmap_check(zclient->redist[AFI_IP][i], VRF_DEFAULT))
+		if (!rip_redistribute_check(rip, i))
 			continue;
 
-		if (zclient->sock > 0)
-			zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE,
-						zclient, AFI_IP, i, 0,
-						VRF_DEFAULT);
-
-		vrf_bitmap_unset(zclient->redist[AFI_IP][i], VRF_DEFAULT);
-
-		/* Remove the routes from RIP table. */
-		rip_redistribute_withdraw(i);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
+					i, 0, rip->vrf->vrf_id);
 	}
 }
 
-void rip_show_redistribute_config(struct vty *vty)
+void rip_redistribute_disable(struct rip *rip)
+{
+	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+		if (!rip_redistribute_check(rip, i))
+			continue;
+
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
+					AFI_IP, i, 0, rip->vrf->vrf_id);
+	}
+}
+
+void rip_show_redistribute_config(struct vty *vty, struct rip *rip)
 {
 	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (i == zclient->redist_default
-		    || !vrf_bitmap_check(zclient->redist[AFI_IP][i],
-					 VRF_DEFAULT))
+		    || !rip_redistribute_check(rip, i))
 			continue;
 
 		vty_out(vty, " %s", zebra_route_string(i));
 	}
+}
+
+void rip_zebra_vrf_register(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("%s: register VRF %s(%u) to zebra", __func__,
+			   vrf->name, vrf->vrf_id);
+
+	zclient_send_reg_requests(zclient, vrf->vrf_id);
+}
+
+void rip_zebra_vrf_deregister(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("%s: deregister VRF %s(%u) from zebra.", __func__,
+			   vrf->name, vrf->vrf_id);
+
+	zclient_send_dereg_requests(zclient, vrf->vrf_id);
 }
 
 static void rip_zebra_connected(struct zclient *zclient)
@@ -215,6 +244,7 @@ void rip_zclient_init(struct thread_master *master)
 	zclient->interface_address_delete = rip_interface_address_delete;
 	zclient->interface_up = rip_interface_up;
 	zclient->interface_down = rip_interface_down;
+	zclient->interface_vrf_update = rip_interface_vrf_update;
 	zclient->redistribute_route_add = rip_zebra_read_route;
 	zclient->redistribute_route_del = rip_zebra_read_route;
 }

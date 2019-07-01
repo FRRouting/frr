@@ -401,8 +401,7 @@ void bgp_encap_type_vxlan_to_tlv(
 
 	if (bet == NULL || !bet->vnid)
 		return;
-	if (attr->encap_subtlvs)
-		XFREE(MTYPE_ENCAP_TLV, attr->encap_subtlvs);
+	XFREE(MTYPE_ENCAP_TLV, attr->encap_subtlvs);
 	tlv = XCALLOC(MTYPE_ENCAP_TLV,
 		      sizeof(struct bgp_attr_encap_subtlv) + 12);
 	tlv->type = 1; /* encapsulation type */

@@ -31,6 +31,10 @@ extern const char ZEBRA_PTM_SOCK_NAME[];
 #include "zebra/zserv.h"
 #include "zebra/interface.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Zebra ptm context block */
 struct zebra_ptm_cb {
 	int ptm_sock; /* ptm file descriptor. */
@@ -87,4 +91,9 @@ void zebra_ptm_if_init(struct zebra_if *zebra_ifp);
 void zebra_ptm_if_set_ptm_state(struct interface *ifp,
 				struct zebra_if *zebra_ifp);
 void zebra_ptm_if_write(struct vty *vty, struct zebra_if *zebra_ifp);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

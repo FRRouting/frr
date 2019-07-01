@@ -22,6 +22,7 @@
 #include "log.h"
 #include "lib_errors.h"
 #include "command.h"
+#include "debug.h"
 #include "memory.h"
 #include "libfrr.h"
 #include "version.h"
@@ -32,6 +33,8 @@
 #include <sysrepo/xpath.h>
 
 DEFINE_MTYPE_STATIC(LIB, SYSREPO, "Sysrepo module")
+
+static struct debug nb_dbg_client_sysrepo = {0, "Northbound client: Sysrepo"};
 
 static struct thread_master *master;
 static struct list *sysrepo_threads;
@@ -202,10 +205,10 @@ static int frr_sr_process_change(struct nb_config *candidate,
 		 * notified about the removal of all of its leafs, even the ones
 		 * that are non-optional. We need to ignore these notifications.
 		 */
-		if (!nb_operation_is_valid(NB_OP_DELETE, nb_node->snode))
+		if (!nb_operation_is_valid(NB_OP_DESTROY, nb_node->snode))
 			return NB_OK;
 
-		nb_op = NB_OP_DELETE;
+		nb_op = NB_OP_DESTROY;
 		break;
 	case SR_OP_MOVED:
 		nb_op = NB_OP_MOVE;
@@ -253,7 +256,11 @@ static int frr_sr_config_change_cb_verify(sr_session_ctx_t *session,
 		return ret;
 	}
 
-	candidate = nb_config_dup(running_config);
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		candidate = nb_config_dup(running_config);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	while ((ret = sr_get_change_next(session, it, &sr_op, &sr_old_val,
 					 &sr_new_val))
@@ -279,15 +286,15 @@ static int frr_sr_config_change_cb_verify(sr_session_ctx_t *session,
 		 * single event (SR_EV_ENABLED). This means we need to perform
 		 * the full two-phase commit protocol in one go here.
 		 */
-		ret = nb_candidate_commit(candidate, NB_CLIENT_SYSREPO, true,
-					  NULL, NULL);
+		ret = nb_candidate_commit(candidate, NB_CLIENT_SYSREPO, NULL,
+					  true, NULL, NULL);
 	} else {
 		/*
 		 * Validate the configuration changes and allocate all resources
 		 * required to apply them.
 		 */
 		ret = nb_candidate_commit_prepare(candidate, NB_CLIENT_SYSREPO,
-						  NULL, &transaction);
+						  NULL, NULL, &transaction);
 	}
 
 	/* Map northbound return code to sysrepo return code. */
@@ -371,7 +378,7 @@ static int frr_sr_state_data_iter_cb(const struct lys_node *snode,
 /* Callback for state retrieval. */
 static int frr_sr_state_cb(const char *xpath, sr_val_t **values,
 			   size_t *values_cnt, uint64_t request_id,
-			   void *private_ctx)
+			   const char *original_xpath, void *private_ctx)
 {
 	struct list *elements;
 	struct yang_data *data;
@@ -455,7 +462,7 @@ static int frr_sr_config_rpc_cb(const char *xpath, const sr_val_t *sr_input,
 	}
 
 	/* Execute callback registered for this XPath. */
-	if (nb_node->cbs.rpc(xpath, input, output) != NB_OK) {
+	if (nb_callback_rpc(nb_node, xpath, input, output) != NB_OK) {
 		flog_warn(EC_LIB_NB_CB_RPC, "%s: rpc callback failed: %s",
 			  __func__, xpath);
 		ret = SR_ERR_OPERATION_FAILED;
@@ -701,9 +708,9 @@ static int frr_sr_subscribe_state(const struct lys_node *snode, void *arg)
 		return YANG_ITER_CONTINUE;
 
 	nb_node = snode->priv;
-	if (debug_northbound)
-		zlog_debug("%s: providing data to '%s'", __func__,
-			   nb_node->xpath);
+
+	DEBUGD(&nb_dbg_client_sysrepo, "%s: providing data to '%s'", __func__,
+	       nb_node->xpath);
 
 	ret = sr_dp_get_items_subscribe(
 		session, nb_node->xpath, frr_sr_state_cb, NULL,
@@ -725,9 +732,9 @@ static int frr_sr_subscribe_rpc(const struct lys_node *snode, void *arg)
 		return YANG_ITER_CONTINUE;
 
 	nb_node = snode->priv;
-	if (debug_northbound)
-		zlog_debug("%s: providing RPC to '%s'", __func__,
-			   nb_node->xpath);
+
+	DEBUGD(&nb_dbg_client_sysrepo, "%s: providing RPC to '%s'", __func__,
+	       nb_node->xpath);
 
 	ret = sr_rpc_subscribe(session, nb_node->xpath, frr_sr_config_rpc_cb,
 			       NULL, SR_SUBSCR_CTX_REUSE,
@@ -749,9 +756,9 @@ static int frr_sr_subscribe_action(const struct lys_node *snode, void *arg)
 		return YANG_ITER_CONTINUE;
 
 	nb_node = snode->priv;
-	if (debug_northbound)
-		zlog_debug("%s: providing action to '%s'", __func__,
-			   nb_node->xpath);
+
+	DEBUGD(&nb_dbg_client_sysrepo, "%s: providing action to '%s'", __func__,
+	       nb_node->xpath);
 
 	ret = sr_action_subscribe(session, nb_node->xpath, frr_sr_config_rpc_cb,
 				  NULL, SR_SUBSCR_CTX_REUSE,
@@ -761,6 +768,52 @@ static int frr_sr_subscribe_action(const struct lys_node *snode, void *arg)
 			 sr_strerror(ret));
 
 	return YANG_ITER_CONTINUE;
+}
+
+/* CLI commands. */
+DEFUN (debug_nb_sr,
+       debug_nb_sr_cmd,
+       "[no] debug northbound client sysrepo",
+       NO_STR
+       DEBUG_STR
+       "Northbound debugging\n"
+       "Northbound client\n"
+       "Sysrepo\n")
+{
+	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+	bool no = strmatch(argv[0]->text, "no");
+
+	DEBUG_MODE_SET(&nb_dbg_client_sysrepo, mode, !no);
+
+	return CMD_SUCCESS;
+}
+
+static int frr_sr_debug_config_write(struct vty *vty)
+{
+	if (DEBUG_MODE_CHECK(&nb_dbg_client_sysrepo, DEBUG_MODE_CONF))
+		vty_out(vty, "debug northbound client sysrepo\n");
+
+	return 0;
+}
+
+static int frr_sr_debug_set_all(uint32_t flags, bool set)
+{
+	DEBUG_FLAGS_SET(&nb_dbg_client_sysrepo, flags, set);
+
+	/* If all modes have been turned off, don't preserve options. */
+	if (!DEBUG_MODE_CHECK(&nb_dbg_client_sysrepo, DEBUG_MODE_ALL))
+		DEBUG_CLEAR(&nb_dbg_client_sysrepo);
+
+	return 0;
+}
+
+static void frr_sr_cli_init(void)
+{
+	hook_register(nb_client_debug_config_write, frr_sr_debug_config_write);
+	hook_register(nb_client_debug_set_all, frr_sr_debug_set_all);
+
+	install_element(ENABLE_NODE, &debug_nb_sr_cmd);
+	install_element(CONFIG_NODE, &debug_nb_sr_cmd);
 }
 
 /* FRR's Sysrepo initialization. */
@@ -851,6 +904,7 @@ static int frr_sr_module_late_init(struct thread_master *tm)
 	}
 
 	hook_register(frr_fini, frr_sr_finish);
+	frr_sr_cli_init();
 
 	return 0;
 }

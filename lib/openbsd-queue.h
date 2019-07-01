@@ -35,6 +35,10 @@
 #ifndef _SYS_QUEUE_H_
 #define	_SYS_QUEUE_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * This file defines five types of data structures: singly-linked lists,
  * lists, simple queues, tail queues and XOR simple queues.
@@ -571,5 +575,9 @@
 			TAILQ_INIT((head2));                                   \
 		}                                                              \
 	} while (0)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !_SYS_QUEUE_H_ */

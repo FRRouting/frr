@@ -46,6 +46,10 @@
 #include "prefix.h"
 #include "table.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SRCDEST2STR_BUFFER (2*PREFIX2STR_BUFFER + sizeof(" from "))
 
 /* extended route node for IPv6 srcdest routing */
@@ -84,7 +88,8 @@ static inline int rnode_is_srcnode(struct route_node *rn)
 static inline struct route_table *srcdest_rnode_table(struct route_node *rn)
 {
 	if (rnode_is_srcnode(rn)) {
-		struct route_node *dst_rn = route_table_get_info(rn->table);
+		struct route_node *dst_rn =
+			(struct route_node *)route_table_get_info(rn->table);
 		return dst_rn->table;
 	} else {
 		return rn->table;
@@ -94,5 +99,9 @@ static inline void *srcdest_rnode_table_info(struct route_node *rn)
 {
 	return route_table_get_info(srcdest_rnode_table(rn));
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_SRC_DEST_TABLE_H */

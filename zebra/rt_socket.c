@@ -84,8 +84,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	char prefix_buf[PREFIX_STRLEN];
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
 
-	if (IS_ZEBRA_DEBUG_RIB || IS_ZEBRA_DEBUG_KERNEL)
-		prefix2str(p, prefix_buf, sizeof(prefix_buf));
+	prefix2str(p, prefix_buf, sizeof(prefix_buf));
 
 	/*
 	 * We only have the ability to ADD or DELETE at this point
@@ -93,10 +92,9 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	 */
 	if (cmd != RTM_ADD && cmd != RTM_DELETE) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: %s odd command %s for flags %d",
+			zlog_debug("%s: %s odd command %s",
 				   __func__, prefix_buf,
-				   lookup_msg(rtm_type_str, cmd, NULL),
-				   nexthop->flags);
+				   lookup_msg(rtm_type_str, cmd, NULL));
 		return 0;
 	}
 
@@ -214,10 +212,12 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		}
 
 #ifdef __OpenBSD__
-		if (nexthop->nh_label
-		    && !kernel_rtm_add_labels(nexthop->nh_label, &smpls))
-			continue;
-		smplsp = (union sockunion *)&smpls;
+		if (nexthop->nh_label) {
+			if (kernel_rtm_add_labels(nexthop->nh_label,
+						  &smpls) != 0)
+				continue;
+			smplsp = (union sockunion *)&smpls;
+		}
 #endif
 		error = rtm_write(cmd, &sin_dest, &sin_mask,
 				  gate ? &sin_gate : NULL, smplsp,
@@ -304,34 +304,41 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 {
 	enum zebra_dplane_result res = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	uint32_t type, old_type;
 
 	if (dplane_ctx_get_src(ctx) != NULL) {
 		zlog_err("route add: IPv6 sourcedest routes unsupported!");
-		res = ZEBRA_DPLANE_REQUEST_FAILURE;
-		goto done;
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
+
+	type = dplane_ctx_get_type(ctx);
+	old_type = dplane_ctx_get_old_type(ctx);
 
 	frr_elevate_privs(&zserv_privs) {
 
-		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE)
-			kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
-				   dplane_ctx_get_ng(ctx),
-				   dplane_ctx_get_metric(ctx));
-		else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL)
-			kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
-				   dplane_ctx_get_ng(ctx),
-				   dplane_ctx_get_metric(ctx));
-		else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
+		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE) {
+			if (!RSYSTEM_ROUTE(type))
+				kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
+					   dplane_ctx_get_ng(ctx),
+					   dplane_ctx_get_metric(ctx));
+		} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL) {
+			if (!RSYSTEM_ROUTE(type))
+				kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
+					   dplane_ctx_get_ng(ctx),
+					   dplane_ctx_get_metric(ctx));
+		} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
 			/* Must do delete and add separately -
 			 * no update available
 			 */
-			kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
-				   dplane_ctx_get_old_ng(ctx),
-				   dplane_ctx_get_old_metric(ctx));
+			if (!RSYSTEM_ROUTE(old_type))
+				kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
+					   dplane_ctx_get_old_ng(ctx),
+					   dplane_ctx_get_old_metric(ctx));
 
-			kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
-				   dplane_ctx_get_ng(ctx),
-				   dplane_ctx_get_metric(ctx));
+			if (!RSYSTEM_ROUTE(type))
+				kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
+					   dplane_ctx_get_ng(ctx),
+					   dplane_ctx_get_metric(ctx));
 		} else {
 			zlog_err("Invalid routing socket update op %s (%u)",
 				 dplane_op2str(dplane_ctx_get_op(ctx)),
@@ -340,7 +347,19 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 		}
 	} /* Elevated privs */
 
-done:
+	if (RSYSTEM_ROUTE(type)
+	    && dplane_ctx_get_op(ctx) != DPLANE_OP_ROUTE_DELETE) {
+		struct nexthop *nexthop;
+
+		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+				continue;
+
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+			}
+		}
+	}
 
 	return res;
 }

@@ -27,7 +27,7 @@
 
 DEFINE_MTYPE_STATIC(LIB, GRAPH, "Graph")
 DEFINE_MTYPE_STATIC(LIB, GRAPH_NODE, "Graph Node")
-struct graph *graph_new()
+struct graph *graph_new(void)
 {
 	struct graph *graph = XCALLOC(MTYPE_GRAPH, sizeof(struct graph));
 	graph->nodes = vector_init(VECTOR_MIN_SIZE);

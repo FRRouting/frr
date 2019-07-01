@@ -22,6 +22,10 @@
 #ifndef _ZEBRA_BUFFER_H
 #define _ZEBRA_BUFFER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Create a new buffer.  Memory will be allocated in chunks of the given
    size.  If the argument is 0, the library will supply a reasonable
    default size suitable for buffering socket I/O. */
@@ -98,5 +102,9 @@ extern buffer_status_t buffer_flush_all(struct buffer *, int fd);
 */
 extern buffer_status_t buffer_flush_window(struct buffer *, int fd, int width,
 					   int height, int erase, int no_more);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_BUFFER_H */

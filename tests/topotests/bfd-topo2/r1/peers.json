@@ -1,0 +1,29 @@
+[
+    {
+        "multihop":true,
+        "peer":"2001:db8:4::1",
+        "local":"2001:db8:1::1",
+        "status":"up",
+        "diagnostic":"ok",
+        "remote-diagnostic":"ok",
+        "receive-interval":300,
+        "transmit-interval":300,
+        "echo-interval":0,
+        "remote-receive-interval":300,
+        "remote-transmit-interval":300,
+        "remote-echo-interval":50
+    },
+    {
+        "multihop":false,
+        "interface":"r1-eth0",
+        "status":"up",
+        "diagnostic":"ok",
+        "remote-diagnostic":"ok",
+        "receive-interval":300,
+        "transmit-interval":300,
+        "echo-interval":0,
+        "remote-receive-interval":300,
+        "remote-transmit-interval":300,
+        "remote-echo-interval":50
+    }
+]

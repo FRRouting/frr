@@ -344,8 +344,7 @@ static void vnc_redistribute_withdraw(struct bgp *bgp, afi_t afi, uint8_t type)
  *
  * Assumes 1 nexthop
  */
-static int vnc_zebra_read_route(int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+static int vnc_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 	int add;
@@ -357,7 +356,7 @@ static int vnc_zebra_read_route(int command, struct zclient *zclient,
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
 		return 0;
 
-	add = (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
+	add = (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
 	if (add)
 		vnc_redistribute_add(&api.prefix, api.metric, api.type);
 	else
@@ -608,10 +607,8 @@ static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 					    add);
 	}
 
-	if (nhp_ary)
-		XFREE(MTYPE_TMP, nhp_ary);
-	if (nh_ary)
-		XFREE(MTYPE_TMP, nh_ary);
+	XFREE(MTYPE_TMP, nhp_ary);
+	XFREE(MTYPE_TMP, nh_ary);
 }
 
 void vnc_zebra_add_prefix(struct bgp *bgp,
@@ -789,10 +786,8 @@ static void vnc_zebra_add_del_group_afi(struct bgp *bgp,
 				}
 			}
 		}
-		if (nhp_ary)
-			XFREE(MTYPE_TMP, nhp_ary);
-		if (nh_ary)
-			XFREE(MTYPE_TMP, nh_ary);
+		XFREE(MTYPE_TMP, nhp_ary);
+		XFREE(MTYPE_TMP, nh_ary);
 	}
 }
 

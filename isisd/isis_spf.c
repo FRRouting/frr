@@ -39,7 +39,6 @@
 #include "isis_constants.h"
 #include "isis_common.h"
 #include "isis_flags.h"
-#include "dict.h"
 #include "isisd.h"
 #include "isis_misc.h"
 #include "isis_adjacency.h"
@@ -313,7 +312,7 @@ static struct isis_lsp *isis_root_system_lsp(struct isis_area *area, int level,
 	memcpy(lspid, sysid, ISIS_SYS_ID_LEN);
 	LSP_PSEUDO_ID(lspid) = 0;
 	LSP_FRAGMENT(lspid) = 0;
-	lsp = lsp_search(lspid, area->lspdb[level - 1]);
+	lsp = lsp_search(&area->lspdb[level - 1], lspid);
 	if (lsp && lsp->hdr.rem_lifetime != 0)
 		return lsp;
 	return NULL;
@@ -352,10 +351,10 @@ static struct isis_vertex *isis_spf_add_root(struct isis_spftree *spftree,
 	return vertex;
 }
 
-static void vertex_add_parent_firsthop(struct hash_backet *backet, void *arg)
+static void vertex_add_parent_firsthop(struct hash_bucket *bucket, void *arg)
 {
 	struct isis_vertex *vertex = arg;
-	struct isis_vertex *hop = backet->data;
+	struct isis_vertex *hop = bucket->data;
 
 	hash_get(vertex->firsthops, hop, hash_alloc_intern);
 }
@@ -870,10 +869,8 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 							[spftree->level - 1],
 						parent);
 					lsp = lsp_search(
-						lsp_id,
-						spftree->area
-							->lspdb[spftree->level
-								- 1]);
+						&spftree->area->lspdb[spftree->level- 1],
+						lsp_id);
 					if (lsp == NULL
 					    || lsp->hdr.rem_lifetime == 0)
 						zlog_warn(
@@ -923,8 +920,8 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 				continue;
 			}
 			lsp = lsp_search(
-				lsp_id,
-				spftree->area->lspdb[spftree->level - 1]);
+				&spftree->area->lspdb[spftree->level - 1],
+				lsp_id);
 			if (lsp == NULL || lsp->hdr.rem_lifetime == 0) {
 				zlog_warn(
 					"ISIS-Spf: No lsp (%p) found from root "
@@ -1471,7 +1468,7 @@ DEFUN (show_isis_topology,
 	return CMD_SUCCESS;
 }
 
-void isis_spf_cmds_init()
+void isis_spf_cmds_init(void)
 {
 	install_element(VIEW_NODE, &show_isis_topology_cmd);
 }

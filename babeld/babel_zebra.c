@@ -56,8 +56,7 @@ static struct {
 
 /* Zebra route add and delete treatment. */
 static int
-babel_zebra_read_route (int command, struct zclient *zclient,
-		        zebra_size_t length, vrf_id_t vrf)
+babel_zebra_read_route (ZAPI_CALLBACK_ARGS)
 {
     struct zapi_route api;
 
@@ -68,7 +67,7 @@ babel_zebra_read_route (int command, struct zclient *zclient,
     if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
         return 0;
 
-    if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
+    if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
         babel_route_add(&api);
     } else {
         babel_route_delete(&api);

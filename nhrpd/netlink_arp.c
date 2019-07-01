@@ -122,7 +122,7 @@ static int netlink_route_recv(struct thread *t)
 
 	zbuf_init(&zb, buf, sizeof(buf), 0);
 	while (zbuf_recv(&zb, fd) > 0) {
-		while ((n = znl_nlmsg_pull(&zb, &payload)) != 0) {
+		while ((n = znl_nlmsg_pull(&zb, &payload)) != NULL) {
 			debugf(NHRP_DEBUG_KERNEL,
 			       "Netlink: Received msg_type %u, msg_flags %u",
 			       n->nlmsg_type, n->nlmsg_flags);
@@ -217,7 +217,7 @@ static int netlink_log_recv(struct thread *t)
 
 	zbuf_init(&zb, buf, sizeof(buf), 0);
 	while (zbuf_recv(&zb, fd) > 0) {
-		while ((n = znl_nlmsg_pull(&zb, &payload)) != 0) {
+		while ((n = znl_nlmsg_pull(&zb, &payload)) != NULL) {
 			debugf(NHRP_DEBUG_KERNEL,
 			       "Netlink-log: Received msg_type %u, msg_flags %u",
 			       n->nlmsg_type, n->nlmsg_flags);

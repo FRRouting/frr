@@ -25,6 +25,12 @@
 #include "prefix.h"
 #include "vty.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE } rnh_type_t;
+
 /* Nexthop structure. */
 struct rnh {
 	uint8_t flags;
@@ -35,6 +41,12 @@ struct rnh {
 
 	/* VRF identifier. */
 	vrf_id_t vrf_id;
+
+	afi_t afi;
+
+	rnh_type_t type;
+
+	uint32_t seqno;
 
 	struct route_entry *state;
 	struct prefix resolved_route;
@@ -50,8 +62,6 @@ struct rnh {
 	 */
 	int filtered[ZEBRA_ROUTE_MAX];
 };
-
-typedef enum { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE } rnh_type_t;
 
 extern int zebra_rnh_ip_default_route;
 extern int zebra_rnh_ipv6_default_route;
@@ -72,16 +82,20 @@ extern struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid,
 extern struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid,
 				    rnh_type_t type);
 extern void zebra_free_rnh(struct rnh *rnh);
-extern void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type);
 extern void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 				 rnh_type_t type, vrf_id_t vrfid);
 extern void zebra_register_rnh_pseudowire(vrf_id_t, struct zebra_pw *);
 extern void zebra_deregister_rnh_pseudowire(vrf_id_t, struct zebra_pw *);
 extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
 				    rnh_type_t type);
-extern void zebra_evaluate_rnh(struct zebra_vrf *zvrf, int family, int force,
+extern void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 			       rnh_type_t type, struct prefix *p);
-extern void zebra_print_rnh_table(vrf_id_t vrfid, int family, struct vty *vty,
-				  rnh_type_t);
+extern void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
+				  rnh_type_t type, struct prefix *p);
 extern char *rnh_str(struct rnh *rnh, char *buf, int size);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /*_ZEBRA_RNH_H */

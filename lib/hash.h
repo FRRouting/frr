@@ -24,6 +24,10 @@
 #include "memory.h"
 #include "frratomic.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(HASH)
 DECLARE_MTYPE(HASH_BACKET)
 
@@ -35,15 +39,20 @@ DECLARE_MTYPE(HASH_BACKET)
 #define HASHWALK_CONTINUE 0
 #define HASHWALK_ABORT -1
 
-struct hash_backet {
+#if CONFDATE > 20200225
+CPP_NOTICE("hash.h: time to remove hash_backet #define")
+#endif
+#define hash_backet hash_bucket
+
+struct hash_bucket {
 	/*
-	 * if this backet is the head of the linked listed, len denotes the
+	 * if this bucket is the head of the linked listed, len denotes the
 	 * number of elements in the list
 	 */
 	int len;
 
 	/* Linked list.  */
-	struct hash_backet *next;
+	struct hash_bucket *next;
 
 	/* Hash key. */
 	unsigned int key;
@@ -54,14 +63,14 @@ struct hash_backet {
 
 struct hashstats {
 	/* number of empty hash buckets */
-	_Atomic uint_fast32_t empty;
+	atomic_uint_fast32_t empty;
 	/* sum of squares of bucket length */
-	_Atomic uint_fast32_t ssq;
+	atomic_uint_fast32_t ssq;
 };
 
 struct hash {
-	/* Hash backet. */
-	struct hash_backet **index;
+	/* Hash bucket. */
+	struct hash_bucket **index;
 
 	/* Hash table size. Must be power of 2 */
 	unsigned int size;
@@ -168,9 +177,9 @@ hash_create_size(unsigned int size, unsigned int (*hash_key)(void *),
  *    hash table to operate on
  *
  * data
- *    data to insert or retrieve - A hash backet will not be created if
+ *    data to insert or retrieve - A hash bucket will not be created if
  *    the alloc_func returns a NULL pointer and nothing will be added to
- *    the hash.  As such backet->data will always be non-NULL.
+ *    the hash.  As such bucket->data will always be non-NULL.
  *
  * alloc_func
  *    function to call if the item is not found in the hash table. This
@@ -239,7 +248,7 @@ extern void *hash_release(struct hash *hash, void *data);
  * during the walk will cause undefined behavior in that some new entries
  * will be walked and some will not.  So do not do this.
  *
- * The backet passed to func will have a non-NULL data pointer.
+ * The bucket passed to func will have a non-NULL data pointer.
  *
  * hash
  *    hash table to operate on
@@ -251,7 +260,7 @@ extern void *hash_release(struct hash *hash, void *data);
  *    arbitrary argument passed as the second parameter in each call to 'func'
  */
 extern void hash_iterate(struct hash *hash,
-			 void (*func)(struct hash_backet *, void *), void *arg);
+			 void (*func)(struct hash_bucket *, void *), void *arg);
 
 /*
  * Iterate over the elements in a hash table, stopping on condition.
@@ -261,7 +270,7 @@ extern void hash_iterate(struct hash *hash,
  * during the walk will cause undefined behavior in that some new entries
  * will be walked and some will not.  So do not do this.
  *
- * The backet passed to func will have a non-NULL data pointer.
+ * The bucket passed to func will have a non-NULL data pointer.
  *
  * hash
  *    hash table to operate on
@@ -274,7 +283,7 @@ extern void hash_iterate(struct hash *hash,
  *    arbitrary argument passed as the second parameter in each call to 'func'
  */
 extern void hash_walk(struct hash *hash,
-		      int (*func)(struct hash_backet *, void *), void *arg);
+		      int (*func)(struct hash_bucket *, void *), void *arg);
 
 /*
  * Remove all elements from a hash table.
@@ -324,5 +333,9 @@ extern unsigned int string_hash_make(const char *);
  * Install CLI commands for viewing global hash table statistics.
  */
 extern void hash_cmd_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_HASH_H */

@@ -32,7 +32,7 @@ DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE, "Distribute list")
 DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_IFNAME, "Dist-list ifname")
 DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_NAME, "Dist-list name")
 
-struct list *dist_ctx_list;
+static struct list *dist_ctx_list;
 
 static struct distribute *distribute_new(void)
 {
@@ -44,16 +44,15 @@ static void distribute_free(struct distribute *dist)
 {
 	int i = 0;
 
-	if (dist->ifname)
-		XFREE(MTYPE_DISTRIBUTE_IFNAME, dist->ifname);
+	XFREE(MTYPE_DISTRIBUTE_IFNAME, dist->ifname);
 
-	for (i = 0; i < DISTRIBUTE_MAX; i++)
-		if (dist->list[i])
-			XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[i]);
+	for (i = 0; i < DISTRIBUTE_MAX; i++) {
+		XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[i]);
+	}
 
-	for (i = 0; i < DISTRIBUTE_MAX; i++)
-		if (dist->prefix[i])
-			XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[i]);
+	for (i = 0; i < DISTRIBUTE_MAX; i++) {
+		XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[i]);
+	}
 
 	XFREE(MTYPE_DISTRIBUTE, dist);
 }
@@ -83,8 +82,7 @@ struct distribute *distribute_lookup(struct distribute_ctx *ctx,
 
 	dist = hash_lookup(ctx->disthash, &key);
 
-	if (key.ifname)
-		XFREE(MTYPE_DISTRIBUTE_IFNAME, key.ifname);
+	XFREE(MTYPE_DISTRIBUTE_IFNAME, key.ifname);
 
 	return dist;
 }
@@ -128,8 +126,7 @@ static struct distribute *distribute_get(struct distribute_ctx *ctx,
 	ret = hash_get(ctx->disthash, &key,
 		       (void *(*)(void *))distribute_hash_alloc);
 
-	if (key.ifname)
-		XFREE(MTYPE_DISTRIBUTE_IFNAME, key.ifname);
+	XFREE(MTYPE_DISTRIBUTE_IFNAME, key.ifname);
 
 	return ret;
 }
@@ -163,8 +160,7 @@ static void distribute_list_set(struct distribute_ctx *ctx,
 
 	dist = distribute_get(ctx, ifname);
 
-	if (dist->list[type])
-		XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[type]);
+	XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[type]);
 	dist->list[type] = XSTRDUP(MTYPE_DISTRIBUTE_NAME, alist_name);
 
 	/* Apply this distribute-list to the interface. */
@@ -210,8 +206,7 @@ static void distribute_list_prefix_set(struct distribute_ctx *ctx,
 
 	dist = distribute_get(ctx, ifname);
 
-	if (dist->prefix[type])
-		XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[type]);
+	XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[type]);
 	dist->prefix[type] = XSTRDUP(MTYPE_DISTRIBUTE_NAME, plist_name);
 
 	/* Apply this distribute-list to the interface. */
@@ -409,7 +404,7 @@ int config_show_distribute(struct vty *vty, struct distribute_ctx *dist_ctxt)
 {
 	unsigned int i;
 	int has_print = 0;
-	struct hash_backet *mp;
+	struct hash_bucket *mp;
 	struct distribute *dist;
 
 	/* Output filter configuration. */
@@ -512,7 +507,7 @@ int config_write_distribute(struct vty *vty,
 	unsigned int i;
 	int j;
 	int output, v6;
-	struct hash_backet *mp;
+	struct hash_bucket *mp;
 	int write = 0;
 
 	for (i = 0; i < dist_ctxt->disthash->size; i++)

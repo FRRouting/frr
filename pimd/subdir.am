@@ -60,6 +60,7 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_vty.c \
 	pimd/pim_zebra.c \
 	pimd/pim_zlookup.c \
+	pimd/pim_vxlan.c \
 	pimd/pimd.c \
 	# end
 
@@ -110,10 +111,15 @@ noinst_HEADERS += \
 	pimd/pim_vty.h \
 	pimd/pim_zebra.h \
 	pimd/pim_zlookup.h \
+	pimd/pim_vxlan.h \
+	pimd/pim_vxlan_instance.h \
 	pimd/pimd.h \
 	pimd/mtracebis_netlink.h \
 	pimd/mtracebis_routeget.h \
 	# end
+
+pimd/pim_cmd_clippy.c: $(CLIPPY_DEPS)
+pimd/pim_cmd.$(OBJEXT): pimd/pim_cmd_clippy.c
 
 pimd_pimd_LDADD = pimd/libpim.a lib/libfrr.la $(LIBCAP)
 pimd_pimd_SOURCES = pimd/pim_main.c

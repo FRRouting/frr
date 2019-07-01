@@ -28,7 +28,7 @@ static const struct debug_callbacks *callbacks;
 DEFUN_NOSH(debug_all, debug_all_cmd, "[no] debug all",
 	   NO_STR DEBUG_STR "Toggle all debugging output\n")
 {
-	bool set = strmatch(argv[0]->text, "no");
+	bool set = !strmatch(argv[0]->text, "no");
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
 
 	if (callbacks->debug_set_all)

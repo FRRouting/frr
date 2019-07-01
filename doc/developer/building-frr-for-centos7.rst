@@ -1,9 +1,8 @@
 CentOS 7
 ========================================
 
-(As an alternative to this installation, you may prefer to create a FRR
-rpm package yourself and install that package instead. See instructions
-in redhat/README.rpm\_build.md on how to build a rpm package)
+This document describes installation from source. If you want to build an RPM,
+see :ref:`packaging-redhat`.
 
 CentOS 7 restrictions:
 ----------------------
@@ -19,7 +18,7 @@ Add packages:
 
 ::
 
-    sudo yum install git autoconf automake libtool make gawk \
+    sudo yum install git autoconf automake libtool make \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel bison flex pytest c-ares-devel \
       python-devel systemd-devel python-sphinx
@@ -127,7 +126,7 @@ following content:
     net.ipv4.conf.all.forwarding=1
     net.ipv6.conf.all.forwarding=1
 
-Load the modifed sysctl's on the system:
+Load the modified sysctl's on the system:
 
 ::
 

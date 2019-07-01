@@ -57,7 +57,7 @@ struct zlog *zlog_default = NULL;
 bool zlog_startup_stderr = true;
 
 /* lock protecting zlog_default for mt-safe zlog */
-pthread_mutex_t loglock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t loglock = PTHREAD_MUTEX_INITIALIZER;
 
 const char *zlog_priority[] = {
 	"emergencies",   "alerts",	"critical",  "errors", "warnings",
@@ -851,8 +851,7 @@ void closezlog(void)
 	if (zl->fp != NULL)
 		fclose(zl->fp);
 
-	if (zl->filename != NULL)
-		XFREE(MTYPE_ZLOG, zl->filename);
+	XFREE(MTYPE_ZLOG, zl->filename);
 
 	XFREE(MTYPE_ZLOG, zl);
 	zlog_default = NULL;
@@ -911,8 +910,7 @@ int zlog_reset_file(void)
 	logfile_fd = -1;
 	zl->maxlvl[ZLOG_DEST_FILE] = ZLOG_DISABLED;
 
-	if (zl->filename)
-		XFREE(MTYPE_ZLOG, zl->filename);
+	XFREE(MTYPE_ZLOG, zl->filename);
 	zl->filename = NULL;
 
 	pthread_mutex_unlock(&loglock);
@@ -993,6 +991,7 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_ROUTER_ID_DELETE),
 	DESC_ENTRY(ZEBRA_ROUTER_ID_UPDATE),
 	DESC_ENTRY(ZEBRA_HELLO),
+	DESC_ENTRY(ZEBRA_CAPABILITIES),
 	DESC_ENTRY(ZEBRA_NEXTHOP_REGISTER),
 	DESC_ENTRY(ZEBRA_NEXTHOP_UNREGISTER),
 	DESC_ENTRY(ZEBRA_NEXTHOP_UPDATE),
@@ -1014,6 +1013,7 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_VRF_LABEL),
 	DESC_ENTRY(ZEBRA_INTERFACE_VRF_UPDATE),
 	DESC_ENTRY(ZEBRA_BFD_CLIENT_REGISTER),
+	DESC_ENTRY(ZEBRA_BFD_CLIENT_DEREGISTER),
 	DESC_ENTRY(ZEBRA_INTERFACE_ENABLE_RADV),
 	DESC_ENTRY(ZEBRA_INTERFACE_DISABLE_RADV),
 	DESC_ENTRY(ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB),
@@ -1025,8 +1025,12 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_LABEL_MANAGER_CONNECT_ASYNC),
 	DESC_ENTRY(ZEBRA_GET_LABEL_CHUNK),
 	DESC_ENTRY(ZEBRA_RELEASE_LABEL_CHUNK),
+	DESC_ENTRY(ZEBRA_FEC_REGISTER),
+	DESC_ENTRY(ZEBRA_FEC_UNREGISTER),
+	DESC_ENTRY(ZEBRA_FEC_UPDATE),
 	DESC_ENTRY(ZEBRA_ADVERTISE_ALL_VNI),
 	DESC_ENTRY(ZEBRA_ADVERTISE_DEFAULT_GW),
+	DESC_ENTRY(ZEBRA_ADVERTISE_SVI_MACIP),
 	DESC_ENTRY(ZEBRA_ADVERTISE_SUBNET),
 	DESC_ENTRY(ZEBRA_LOCAL_ES_ADD),
 	DESC_ENTRY(ZEBRA_LOCAL_ES_DEL),
@@ -1058,7 +1062,14 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_IPSET_DESTROY),
 	DESC_ENTRY(ZEBRA_IPSET_ENTRY_ADD),
 	DESC_ENTRY(ZEBRA_IPSET_ENTRY_DELETE),
+	DESC_ENTRY(ZEBRA_IPSET_NOTIFY_OWNER),
+	DESC_ENTRY(ZEBRA_IPSET_ENTRY_NOTIFY_OWNER),
+	DESC_ENTRY(ZEBRA_IPTABLE_ADD),
+	DESC_ENTRY(ZEBRA_IPTABLE_DELETE),
+	DESC_ENTRY(ZEBRA_IPTABLE_NOTIFY_OWNER),
 	DESC_ENTRY(ZEBRA_VXLAN_FLOOD_CONTROL),
+	DESC_ENTRY(ZEBRA_VXLAN_SG_ADD),
+	DESC_ENTRY(ZEBRA_VXLAN_SG_DEL),
 };
 #undef DESC_ENTRY
 

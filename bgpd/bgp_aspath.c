@@ -212,6 +212,9 @@ static struct assegment *assegment_append_asns(struct assegment *seg,
 {
 	as_t *newas;
 
+	if (!seg)
+		return seg;
+
 	newas = XREALLOC(MTYPE_AS_SEG_DATA, seg->as,
 			 ASSEGMENT_DATA_SIZE(seg->length + num, 1));
 
@@ -309,8 +312,7 @@ void aspath_free(struct aspath *aspath)
 		return;
 	if (aspath->segments)
 		assegment_free_all(aspath->segments);
-	if (aspath->str)
-		XFREE(MTYPE_AS_STR, aspath->str);
+	XFREE(MTYPE_AS_STR, aspath->str);
 
 	if (aspath->json) {
 		json_object_free(aspath->json);
@@ -620,8 +622,7 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 
 void aspath_str_update(struct aspath *as, bool make_json)
 {
-	if (as->str)
-		XFREE(MTYPE_AS_STR, as->str);
+	XFREE(MTYPE_AS_STR, as->str);
 
 	if (as->json) {
 		json_object_free(as->json);
@@ -1372,7 +1373,8 @@ static struct aspath *aspath_merge(struct aspath *as1, struct aspath *as2)
 	while (last && last->next)
 		last = last->next;
 
-	last->next = as2->segments;
+	if (last)
+		last->next = as2->segments;
 	as2->segments = new;
 	aspath_str_update(as2, false);
 	return as2;
@@ -1447,7 +1449,8 @@ struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 		 * bypass the merged seg2, and attach any chain after it
 		 * to chain descending from as2's head
 		 */
-		as2segtail->next = as2seghead->next;
+		if (as2segtail)
+			as2segtail->next = as2seghead->next;
 
 		/* as2->segments is now referenceless and useless */
 		assegment_free(as2seghead);
@@ -2077,14 +2080,14 @@ void aspath_print_vty(struct vty *vty, const char *format, struct aspath *as,
 		vty_out(vty, "%s", suffix);
 }
 
-static void aspath_show_all_iterator(struct hash_backet *backet,
+static void aspath_show_all_iterator(struct hash_bucket *bucket,
 				     struct vty *vty)
 {
 	struct aspath *as;
 
-	as = (struct aspath *)backet->data;
+	as = (struct aspath *)bucket->data;
 
-	vty_out(vty, "[%p:%u] (%ld) ", (void *)backet, backet->key, as->refcnt);
+	vty_out(vty, "[%p:%u] (%ld) ", (void *)bucket, bucket->key, as->refcnt);
 	vty_out(vty, "%s\n", as->str);
 }
 
@@ -2092,7 +2095,114 @@ static void aspath_show_all_iterator(struct hash_backet *backet,
    `show [ip] bgp paths' command. */
 void aspath_print_all_vty(struct vty *vty)
 {
-	hash_iterate(ashash, (void (*)(struct hash_backet *,
+	hash_iterate(ashash, (void (*)(struct hash_bucket *,
 				       void *))aspath_show_all_iterator,
 		     vty);
+}
+
+static struct aspath *bgp_aggr_aspath_lookup(struct bgp_aggregate *aggregate,
+					     struct aspath *aspath)
+{
+	return hash_lookup(aggregate->aspath_hash, aspath);
+}
+
+static void *bgp_aggr_aspath_hash_alloc(void *p)
+{
+	struct aspath *ref = (struct aspath *)p;
+	struct aspath *aspath = NULL;
+
+	aspath = aspath_dup(ref);
+	return aspath;
+}
+
+static void bgp_aggr_aspath_prepare(struct hash_backet *hb, void *arg)
+{
+	struct aspath *asmerge = NULL;
+	struct aspath *hb_aspath = hb->data;
+	struct aspath **aggr_aspath = arg;
+
+	if (*aggr_aspath) {
+		asmerge = aspath_aggregate(*aggr_aspath, hb_aspath);
+		aspath_free(*aggr_aspath);
+		*aggr_aspath = asmerge;
+	} else
+		*aggr_aspath = aspath_dup(hb_aspath);
+}
+
+void bgp_aggr_aspath_remove(void *arg)
+{
+	struct aspath *aspath = arg;
+
+	aspath_free(aspath);
+}
+
+void bgp_compute_aggregate_aspath(struct bgp_aggregate *aggregate,
+				  struct aspath *aspath)
+{
+	struct aspath *aggr_aspath = NULL;
+
+	if ((aggregate == NULL) || (aspath == NULL))
+		return;
+
+	/* Create hash if not already created.
+	 */
+	if (aggregate->aspath_hash == NULL)
+		aggregate->aspath_hash = hash_create(
+					aspath_key_make, aspath_cmp,
+					"BGP Aggregator as-path hash");
+
+	aggr_aspath = bgp_aggr_aspath_lookup(aggregate, aspath);
+	if (aggr_aspath == NULL) {
+		/* Insert as-path into hash.
+		 */
+		aggr_aspath = hash_get(aggregate->aspath_hash, aspath,
+				       bgp_aggr_aspath_hash_alloc);
+
+		/* Compute aggregate's as-path.
+		 */
+		hash_iterate(aggregate->aspath_hash,
+			     bgp_aggr_aspath_prepare,
+			     &aggregate->aspath);
+	}
+
+	/* Increment refernce counter.
+	 */
+	aggr_aspath->refcnt++;
+}
+
+void bgp_remove_aspath_from_aggregate(struct bgp_aggregate *aggregate,
+				      struct aspath *aspath)
+{
+	struct aspath *aggr_aspath = NULL;
+	struct aspath *ret_aspath = NULL;
+
+	if ((aggregate == NULL) || (aspath == NULL))
+		return;
+
+	if (aggregate->aspath_hash == NULL)
+		return;
+
+	/* Look-up the aspath in the hash.
+	 */
+	aggr_aspath = bgp_aggr_aspath_lookup(aggregate, aspath);
+	if (aggr_aspath) {
+		aggr_aspath->refcnt--;
+
+		if (aggr_aspath->refcnt == 0) {
+			ret_aspath = hash_release(aggregate->aspath_hash,
+						  aggr_aspath);
+			aspath_free(ret_aspath);
+
+			/* Remove aggregate's old as-path.
+			 */
+			aspath_free(aggregate->aspath);
+			aggregate->aspath = NULL;
+
+			/* Compute aggregate's as-path.
+			 */
+			hash_iterate(aggregate->aspath_hash,
+				     bgp_aggr_aspath_prepare,
+				     &aggregate->aspath);
+		}
+	}
 }

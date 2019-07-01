@@ -20,6 +20,10 @@
 #ifndef __WHEEL_H__
 #define __WHEEL_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct timer_wheel {
 	char *name;
 	struct thread_master *master;
@@ -114,5 +118,9 @@ int wheel_add_item(struct timer_wheel *wheel, void *item);
  * possibly change next time pop.
  */
 int wheel_remove_item(struct timer_wheel *wheel, void *item);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

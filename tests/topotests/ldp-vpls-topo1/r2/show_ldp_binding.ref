@@ -4,7 +4,6 @@
       "addressFamily":"ipv4",
       "prefix":"1.1.1.1/32",
       "neighborId":"1.1.1.1",
-      "localLabel":"17",
       "remoteLabel":"imp-null",
       "inUse":1
     },
@@ -12,8 +11,6 @@
       "addressFamily":"ipv4",
       "prefix":"1.1.1.1/32",
       "neighborId":"3.3.3.3",
-      "localLabel":"17",
-      "remoteLabel":"16",
       "inUse":0
     },
     {
@@ -21,7 +18,6 @@
       "prefix":"2.2.2.2/32",
       "neighborId":"1.1.1.1",
       "localLabel":"imp-null",
-      "remoteLabel":"17",
       "inUse":0
     },
     {
@@ -29,22 +25,18 @@
       "prefix":"2.2.2.2/32",
       "neighborId":"3.3.3.3",
       "localLabel":"imp-null",
-      "remoteLabel":"17",
       "inUse":0
     },
     {
       "addressFamily":"ipv4",
       "prefix":"3.3.3.3/32",
       "neighborId":"1.1.1.1",
-      "localLabel":"18",
-      "remoteLabel":"18",
       "inUse":0
     },
     {
       "addressFamily":"ipv4",
       "prefix":"3.3.3.3/32",
       "neighborId":"3.3.3.3",
-      "localLabel":"18",
       "remoteLabel":"imp-null",
       "inUse":1
     }

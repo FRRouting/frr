@@ -1,3 +1,5 @@
+.. _packaging-debian:
+
 Packaging Debian
 ================
 

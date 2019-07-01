@@ -88,7 +88,7 @@ end destination.
 
    When a incoming packet matches the destination prefix specified, take the
    packet and forward according to the nexthops specified.  This command accepts
-   both v4 and v6 prefixes.  This command is used in conjuction of the
+   both v4 and v6 prefixes.  This command is used in conjunction of the
    :clicmd:`match src-ip PREFIX` command for matching.
 
 .. clicmd:: set nexthop-group NAME

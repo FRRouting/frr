@@ -116,10 +116,11 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
-			"Tx %s family %s IF %s(%u) Pref %u Src %s Dst %s Table %u",
+			"Tx %s family %s IF %s(%u) Pref %u Fwmark %u Src %s Dst %s Table %u",
 			nl_msg_type_to_str(cmd), nl_family_to_str(family),
 			rule->ifp ? rule->ifp->name : "Unknown",
 			rule->ifp ? rule->ifp->ifindex : 0, rule->rule.priority,
+			rule->rule.filter.fwmark,
 			prefix2str(&rule->rule.filter.src_ip, buf1,
 				   sizeof(buf1)),
 			prefix2str(&rule->rule.filter.dst_ip, buf2,
@@ -184,7 +185,7 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	struct rtattr *tb[FRA_MAX + 1];
 	int len;
 	char *ifname;
-	struct zebra_pbr_rule rule;
+	struct zebra_pbr_rule rule = {};
 	char buf1[PREFIX_STRLEN];
 	char buf2[PREFIX_STRLEN];
 
@@ -229,7 +230,6 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (!rule.ifp)
 		return 0;
 
-	memset(&rule, 0, sizeof(rule));
 	if (tb[FRA_PRIORITY])
 		rule.rule.priority = *(uint32_t *)RTA_DATA(tb[FRA_PRIORITY]);
 

@@ -38,7 +38,7 @@
 
 
 /* master signals descriptor struct */
-struct quagga_sigevent_master_t {
+static struct quagga_sigevent_master_t {
 	struct thread *t;
 
 	struct quagga_signal_t *signals;

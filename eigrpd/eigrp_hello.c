@@ -248,7 +248,7 @@ static void eigrp_peer_termination_decode(struct eigrp_neighbor *nbr,
 	struct TLV_Peer_Termination_type *param =
 		(struct TLV_Peer_Termination_type *)tlv;
 
-	uint32_t my_ip = nbr->ei->address->u.prefix4.s_addr;
+	uint32_t my_ip = nbr->ei->address.u.prefix4.s_addr;
 	uint32_t received_ip = param->neighbor_ip;
 
 	if (my_ip == received_ip) {
@@ -577,8 +577,6 @@ static uint16_t eigrp_next_sequence_encode(struct stream *s)
 static uint16_t eigrp_hello_parameter_encode(struct eigrp_interface *ei,
 					     struct stream *s, uint8_t flags)
 {
-	uint16_t length = EIGRP_TLV_PARAMETER_LEN;
-
 	// add in the parameters TLV
 	stream_putw(s, EIGRP_TLV_PARAMETER);
 	stream_putw(s, EIGRP_TLV_PARAMETER_LEN);
@@ -605,7 +603,7 @@ static uint16_t eigrp_hello_parameter_encode(struct eigrp_interface *ei,
 	// and set hold time value..
 	stream_putw(s, ei->params.v_wait);
 
-	return length;
+	return EIGRP_TLV_PARAMETER_LEN;
 }
 
 /**

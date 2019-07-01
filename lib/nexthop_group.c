@@ -25,6 +25,7 @@
 #include <nexthop_group.h>
 #include <vty.h>
 #include <command.h>
+#include <jhash.h>
 
 #ifndef VTYSH_EXTRACT_PL
 #include "lib/nexthop_group_clippy.c"
@@ -49,13 +50,37 @@ nexthop_group_cmd_compare(const struct nexthop_group_cmd *nhgc1,
 RB_GENERATE(nhgc_entry_head, nexthop_group_cmd, nhgc_entry,
 	    nexthop_group_cmd_compare)
 
-struct nhgc_entry_head nhgc_entries;
+static struct nhgc_entry_head nhgc_entries;
 
 static inline int
 nexthop_group_cmd_compare(const struct nexthop_group_cmd *nhgc1,
 			  const struct nexthop_group_cmd *nhgc2)
 {
 	return strcmp(nhgc1->name, nhgc2->name);
+}
+
+uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+	uint8_t num = 0;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nhop))
+		num++;
+
+	return num;
+}
+
+uint8_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+	uint8_t num = 0;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nhop)) {
+		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
+			num++;
+	}
+
+	return num;
 }
 
 struct nexthop *nexthop_exists(struct nexthop_group *nhg, struct nexthop *nh)
@@ -118,11 +143,11 @@ void nexthop_del(struct nexthop_group *nhg, struct nexthop *nh)
 	nh->next = NULL;
 }
 
-void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
+void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 		   struct nexthop *rparent)
 {
 	struct nexthop *nexthop;
-	struct nexthop *nh1;
+	const struct nexthop *nh1;
 
 	for (nh1 = nh; nh1; nh1 = nh1->next) {
 		nexthop = nexthop_new();
@@ -145,6 +170,21 @@ void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
 			copy_nexthops(&nexthop->resolved, nh1->resolved,
 				      nexthop);
 	}
+}
+
+uint32_t nexthop_group_hash(const struct nexthop_group *nhg)
+{
+	struct nexthop *nh;
+	uint32_t key = 0;
+
+	/*
+	 * We are not interested in hashing over any recursively
+	 * resolved nexthops
+	 */
+	for (nh = nhg->nexthop; nh; nh = nh->next)
+		key = jhash_1word(nexthop_hash(nh), key);
+
+	return key;
 }
 
 static void nhgc_delete_nexthops(struct nexthop_group_cmd *nhgc)
@@ -188,11 +228,25 @@ static int nhgc_cmp_helper(const char *a, const char *b)
 	return strcmp(a, b);
 }
 
+static int nhgc_addr_cmp_helper(const union sockunion *a, const union sockunion *b)
+{
+	if (!a && !b)
+		return 0;
+
+	if (a && !b)
+		return -1;
+
+	if (!a && b)
+		return 1;
+
+	return sockunion_cmp(a, b);
+}
+
 static int nhgl_cmp(struct nexthop_hold *nh1, struct nexthop_hold *nh2)
 {
 	int ret;
 
-	ret = sockunion_cmp(&nh1->addr, &nh2->addr);
+	ret = nhgc_addr_cmp_helper(nh1->addr, nh2->addr);
 	if (ret)
 		return ret;
 
@@ -205,11 +259,12 @@ static int nhgl_cmp(struct nexthop_hold *nh1, struct nexthop_hold *nh2)
 
 static void nhgl_delete(struct nexthop_hold *nh)
 {
-	if (nh->intf)
-		XFREE(MTYPE_TMP, nh->intf);
+	XFREE(MTYPE_TMP, nh->intf);
 
-	if (nh->nhvrf_name)
-		XFREE(MTYPE_TMP, nh->nhvrf_name);
+	XFREE(MTYPE_TMP, nh->nhvrf_name);
+
+	if (nh->addr)
+		sockunion_free(nh->addr);
 
 	XFREE(MTYPE_TMP, nh);
 }
@@ -294,8 +349,8 @@ static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 		nh->nhvrf_name = XSTRDUP(MTYPE_TMP, nhvrf_name);
 	if (intf)
 		nh->intf = XSTRDUP(MTYPE_TMP, intf);
-
-	nh->addr = *addr;
+	if (addr)
+		nh->addr = sockunion_dup(addr);
 
 	listnode_add_sort(nhgc->nhg_list, nh);
 }
@@ -310,7 +365,7 @@ static void nexthop_group_unsave_nhop(struct nexthop_group_cmd *nhgc,
 
 	for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_list, node, nh)) {
 		if (nhgc_cmp_helper(nhvrf_name, nh->nhvrf_name) == 0 &&
-		    sockunion_cmp(addr, &nh->addr) == 0 &&
+		    nhgc_addr_cmp_helper(addr, nh->addr) == 0 &&
 		    nhgc_cmp_helper(intf, nh->intf) == 0)
 			break;
 	}
@@ -322,13 +377,7 @@ static void nexthop_group_unsave_nhop(struct nexthop_group_cmd *nhgc,
 		return;
 
 	list_delete_node(nhgc->nhg_list, node);
-
-	if (nh->nhvrf_name)
-		XFREE(MTYPE_TMP, nh->nhvrf_name);
-	if (nh->intf)
-		XFREE(MTYPE_TMP, nh->intf);
-
-	XFREE(MTYPE_TMP, nh);
+	nhgl_delete(nh);
 }
 
 static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
@@ -349,35 +398,44 @@ static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 
 	nhop->vrf_id = vrf->vrf_id;
 
-	if (addr->sa.sa_family == AF_INET) {
-		nhop->gate.ipv4.s_addr = addr->sin.sin_addr.s_addr;
-		if (intf) {
-			nhop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-			nhop->ifindex = ifname2ifindex(intf, vrf->vrf_id);
-			if (nhop->ifindex == IFINDEX_INTERNAL)
-				return false;
-		} else
-			nhop->type = NEXTHOP_TYPE_IPV4;
-	} else {
-		memcpy(&nhop->gate.ipv6, &addr->sin6.sin6_addr, 16);
-		if (intf) {
-			nhop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
-			nhop->ifindex = ifname2ifindex(intf, vrf->vrf_id);
-			if (nhop->ifindex == IFINDEX_INTERNAL)
-				return false;
-		} else
-			nhop->type = NEXTHOP_TYPE_IPV6;
+	if (intf) {
+		nhop->ifindex = ifname2ifindex(intf, vrf->vrf_id);
+		if (nhop->ifindex == IFINDEX_INTERNAL)
+			return false;
 	}
+
+	if (addr) {
+		if (addr->sa.sa_family == AF_INET) {
+			nhop->gate.ipv4.s_addr = addr->sin.sin_addr.s_addr;
+			if (intf)
+				nhop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+			else
+				nhop->type = NEXTHOP_TYPE_IPV4;
+		} else {
+			nhop->gate.ipv6 = addr->sin6.sin6_addr;
+			if (intf)
+				nhop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			else
+				nhop->type = NEXTHOP_TYPE_IPV6;
+		}
+	} else
+		nhop->type = NEXTHOP_TYPE_IFINDEX;
 
 	return true;
 }
 
 DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
-      "[no] nexthop <A.B.C.D|X:X::X:X>$addr [INTERFACE]$intf [nexthop-vrf NAME$name]",
+      "[no] nexthop\
+        <\
+	  <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf]\
+	  |INTERFACE$intf\
+	>\
+	[nexthop-vrf NAME$name]",
       NO_STR
       "Specify one of the nexthops in this ECMP group\n"
       "v4 Address\n"
       "v6 Address\n"
+      "Interface to use\n"
       "Interface to use\n"
       "If the nexthop is in a different vrf tell us\n"
       "The nexthop-vrf Name\n")
@@ -386,13 +444,6 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	struct nexthop nhop;
 	struct nexthop *nh;
 	bool legal;
-
-	/*
-	 * This is impossible to happen as that the cli parser refuses
-	 * to let you get here without an addr, but the SA system
-	 * does not understand this intricacy
-	 */
-	assert(addr);
 
 	legal = nexthop_group_parse_nexthop(&nhop, addr, intf, name);
 
@@ -482,9 +533,10 @@ static void nexthop_group_write_nexthop_internal(struct vty *vty,
 {
 	char buf[100];
 
-	vty_out(vty, "nexthop ");
+	vty_out(vty, "nexthop");
 
-	vty_out(vty, "%s", sockunion2str(&nh->addr, buf, sizeof(buf)));
+	if (nh->addr)
+		vty_out(vty, " %s", sockunion2str(nh->addr, buf, sizeof(buf)));
 
 	if (nh->intf)
 		vty_out(vty, " %s", nh->intf);
@@ -506,7 +558,7 @@ static int nexthop_group_write(struct vty *vty)
 		vty_out(vty, "nexthop-group %s\n", nhgc->name);
 
 		for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_list, node, nh)) {
-			vty_out(vty, "  ");
+			vty_out(vty, " ");
 			nexthop_group_write_nexthop_internal(vty, nh);
 		}
 
@@ -528,7 +580,7 @@ void nexthop_group_enable_vrf(struct vrf *vrf)
 			struct nexthop nhop;
 			struct nexthop *nh;
 
-			if (!nexthop_group_parse_nexthop(&nhop, &nhh->addr,
+			if (!nexthop_group_parse_nexthop(&nhop, nhh->addr,
 							 nhh->intf,
 							 nhh->nhvrf_name))
 				continue;
@@ -564,7 +616,7 @@ void nexthop_group_disable_vrf(struct vrf *vrf)
 			struct nexthop nhop;
 			struct nexthop *nh;
 
-			if (!nexthop_group_parse_nexthop(&nhop, &nhh->addr,
+			if (!nexthop_group_parse_nexthop(&nhop, nhh->addr,
 							 nhh->intf,
 							 nhh->nhvrf_name))
 				continue;
@@ -602,7 +654,7 @@ void nexthop_group_interface_state_change(struct interface *ifp,
 				struct nexthop nhop;
 
 				if (!nexthop_group_parse_nexthop(
-					    &nhop, &nhh->addr, nhh->intf,
+					    &nhop, nhh->addr, nhh->intf,
 					    nhh->nhvrf_name))
 					continue;
 

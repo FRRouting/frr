@@ -268,14 +268,6 @@ Link Parameters Commands
    for InterASv2 link in OSPF (RFC5392).  Note that this option is not yet
    supported for ISIS (RFC5316).
 
-.. index:: table TABLENO
-.. clicmd:: table TABLENO
-
-   Select the primary kernel routing table to be used. This only works for
-   kernels supporting multiple routing tables (like GNU/Linux 2.2.x and later).
-   After setting TABLENO with this command, static routes defined after this
-   are added to the specified table.
-
 .. index:: ip nht resolve-via-default
 .. clicmd:: ip nht resolve-via-default
 
@@ -380,7 +372,7 @@ At startup, FRR detects the presence of that file. It detects that the file
 statistics information matches the same file statistics information as
 `/proc/self/ns/net` ( through stat() function). As statistics information
 matches, then `vrf0` stands for the new default namespace name.
-Consequently, the VRF naming `Default` will be overriden by the new discovered
+Consequently, the VRF naming `Default` will be overridden by the new discovered
 namespace name `vrf0`.
 
 For those who don't use VRF backend with *Linux network namespace*, it is
@@ -422,7 +414,7 @@ in routing entry, and can be configured like a route:
 .. index:: [no] ip route NETWORK MASK GATEWAY|INTERFACE label LABEL
 .. clicmd:: [no] ip route NETWORK MASK GATEWAY|INTERFACE label LABEL
 
-   NETWORK ans MASK stand for the IP prefix entry to be added as static
+   NETWORK and MASK stand for the IP prefix entry to be added as static
    route entry.
    GATEWAY is the gateway IP address to reach, in order to reach the prefix.
    INTERFACE is the interface behind which the prefix is located.
@@ -693,6 +685,40 @@ replaces the information sent in the first message.
 If the connection to the FPM goes down for some reason, zebra sends
 the FPM a complete copy of the forwarding table(s) when it reconnects.
 
+.. _zebra-dplane:
+
+Dataplane Commands
+==================
+
+The zebra dataplane subsystem provides a framework for FIB
+programming. Zebra uses the dataplane to program the local kernel as
+it makes changes to objects such as IP routes, MPLS LSPs, and
+interface IP addresses. The dataplane runs in its own pthread, in
+order to off-load work from the main zebra pthread.
+
+
+.. index:: show zebra dplane [detailed]
+.. clicmd:: show zebra dplane [detailed]
+
+   Display statistics about the updates and events passing through the
+   dataplane subsystem.
+
+
+.. index:: show zebra dplane providers
+.. clicmd:: show zebra dplane providers
+
+   Display information about the running dataplane plugins that are
+   providing updates to a FIB. By default, the local kernel plugin is
+   present.
+
+
+.. index:: zebra dplane limit [NUMBER]
+.. clicmd:: zebra dplane limit [NUMBER]
+
+   Configure the limit on the number of pending updates that are
+   waiting to be processed by the dataplane pthread.
+
+
 zebra Terminal Mode Commands
 ============================
 
@@ -745,6 +771,22 @@ zebra Terminal Mode Commands
 
    Display various statistics related to the installation and deletion
    of routes, neighbor updates, and LSP's into the kernel.
+
+.. index:: show zebra client [summary]
+.. clicmd:: show zebra client [summary]
+
+   Display statistics about clients that are connected to zebra.  This is
+   useful for debugging and seeing how much data is being passed between
+   zebra and it's clients.  If the summary form of the command is choosen
+   a table is displayed with shortened information.
+
+.. index:: show zebra router table summary
+.. clicmd:: show zebra router table summary
+
+   Display summarized data about tables created, their afi/safi/tableid
+   and how many routes each table contains.  Please note this is the
+   total number of route nodes in the table.  Which will be higher than
+   the actual number of routes that are held.
 
 .. index:: show zebra fpm stats
 .. clicmd:: show zebra fpm stats

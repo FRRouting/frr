@@ -99,8 +99,10 @@ struct work_queue *work_queue_new(struct thread_master *m,
 	return new;
 }
 
-void work_queue_free_original(struct work_queue *wq)
+void work_queue_free_and_null(struct work_queue **wqp)
 {
+	struct work_queue *wq = *wqp;
+
 	if (wq->thread != NULL)
 		thread_cancel(wq->thread);
 
@@ -114,13 +116,8 @@ void work_queue_free_original(struct work_queue *wq)
 
 	XFREE(MTYPE_WORK_QUEUE_NAME, wq->name);
 	XFREE(MTYPE_WORK_QUEUE, wq);
-	return;
-}
 
-void work_queue_free_and_null(struct work_queue **wq)
-{
-	work_queue_free_original(*wq);
-	*wq = NULL;
+	*wqp = NULL;
 }
 
 bool work_queue_is_scheduled(struct work_queue *wq)
@@ -277,13 +274,13 @@ int work_queue_run(struct thread *thread)
 		wq->cycles.granularity = WORK_QUEUE_MIN_GRANULARITY;
 
 	STAILQ_FOREACH_SAFE (item, &wq->items, wq, titem) {
-		assert(item && item->data);
+		assert(item->data);
 
 		/* dont run items which are past their allowed retries */
 		if (item->ran > wq->spec.max_retries) {
 			/* run error handler, if any */
 			if (wq->spec.errorfunc)
-				wq->spec.errorfunc(wq, item->data);
+				wq->spec.errorfunc(wq, item);
 			work_queue_item_remove(wq, item);
 			continue;
 		}

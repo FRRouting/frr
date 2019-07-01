@@ -67,8 +67,6 @@ extern void ls_prefix_set(struct prefix_ls *lp, struct ospf_lsa *lsa);
 extern void ospf_lsdb_add(struct ospf_lsdb *, struct ospf_lsa *);
 extern void ospf_lsdb_delete(struct ospf_lsdb *, struct ospf_lsa *);
 extern void ospf_lsdb_delete_all(struct ospf_lsdb *);
-/* Set all stats to -1 (LSA_SPF_NOT_EXPLORED). */
-extern void ospf_lsdb_clean_stat(struct ospf_lsdb *lsdb);
 extern struct ospf_lsa *ospf_lsdb_lookup(struct ospf_lsdb *, struct ospf_lsa *);
 extern struct ospf_lsa *ospf_lsdb_lookup_by_id(struct ospf_lsdb *, uint8_t,
 					       struct in_addr, struct in_addr);

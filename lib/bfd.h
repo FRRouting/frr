@@ -26,6 +26,10 @@
 #include "lib/json.h"
 #include "lib/zclient.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define BFD_DEF_MIN_RX 300
 #define BFD_MIN_MIN_RX 50
 #define BFD_MAX_MIN_RX 60000
@@ -103,5 +107,9 @@ extern void bfd_client_sendmsg(struct zclient *zclient, int command);
 extern void bfd_gbl_init(void);
 
 extern void bfd_gbl_exit(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_BFD_H */

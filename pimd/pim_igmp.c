@@ -250,8 +250,8 @@ void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp)
 			other_querier_present_interval_msec % 1000);
 	}
 
-	thread_add_timer_msec(master, pim_igmp_other_querier_expire, igmp,
-			      other_querier_present_interval_msec,
+	thread_add_timer_msec(router->master, pim_igmp_other_querier_expire,
+			      igmp, other_querier_present_interval_msec,
 			      &igmp->t_other_querier_timer);
 }
 
@@ -603,8 +603,8 @@ void pim_igmp_general_query_on(struct igmp_sock *igmp)
 			startup_mode ? "startup" : "non-startup", igmp->fd);
 	}
 	igmp->t_igmp_query_timer = NULL;
-	thread_add_timer(master, pim_igmp_general_query, igmp, query_interval,
-			 &igmp->t_igmp_query_timer);
+	thread_add_timer(router->master, pim_igmp_general_query, igmp,
+			 query_interval, &igmp->t_igmp_query_timer);
 }
 
 void pim_igmp_general_query_off(struct igmp_sock *igmp)
@@ -940,7 +940,7 @@ static void igmp_read_on(struct igmp_sock *igmp)
 			   igmp->fd);
 	}
 	igmp->t_igmp_read = NULL;
-	thread_add_read(master, pim_igmp_read, igmp, igmp->fd,
+	thread_add_read(router->master, pim_igmp_read, igmp, igmp->fd,
 			&igmp->t_igmp_read);
 }
 
@@ -1067,8 +1067,8 @@ void igmp_group_timer_on(struct igmp_group *group, long interval_msec,
 	*/
 	zassert(group->group_filtermode_isexcl);
 
-	thread_add_timer_msec(master, igmp_group_timer, group, interval_msec,
-			      &group->t_group_timer);
+	thread_add_timer_msec(router->master, igmp_group_timer, group,
+			      interval_msec, &group->t_group_timer);
 }
 
 struct igmp_group *find_group_by_addr(struct igmp_sock *igmp,

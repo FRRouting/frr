@@ -25,6 +25,10 @@
 #include "if.h"
 #include "filter.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Disctirubte list types. */
 enum distribute_type {
 	DISTRIBUTE_V4_IN,
@@ -80,5 +84,9 @@ extern enum filter_type distribute_apply_in(struct interface *,
 					    struct prefix *);
 extern enum filter_type distribute_apply_out(struct interface *,
 					     struct prefix *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_DISTRIBUTE_H */

@@ -326,8 +326,7 @@ static void prefix_list_delete(struct prefix_list *plist)
 	else
 		list->head = plist->next;
 
-	if (plist->desc)
-		XFREE(MTYPE_TMP, plist->desc);
+	XFREE(MTYPE_TMP, plist->desc);
 
 	/* Make sure master's recent changed prefix-list information is
 	   cleared. */
@@ -338,8 +337,7 @@ static void prefix_list_delete(struct prefix_list *plist)
 	if (master->delete_hook)
 		(*master->delete_hook)(plist);
 
-	if (plist->name)
-		XFREE(MTYPE_MPREFIX_LIST_STR, plist->name);
+	XFREE(MTYPE_MPREFIX_LIST_STR, plist->name);
 
 	XFREE(MTYPE_PREFIX_LIST_TRIE, plist->trie);
 
@@ -1000,21 +998,35 @@ static int vty_prefix_list_uninstall(struct vty *vty, afi_t afi,
 		return CMD_SUCCESS;
 	}
 
-	/* We must have, at a minimum, both the type and prefix here */
-	if ((typestr == NULL) || (prefix == NULL)) {
-		vty_out(vty, "%% Both prefix and type required\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	/* Check sequence number. */
 	if (seq)
 		seqnum = (int64_t)atol(seq);
+
+	/* Sequence number specified, but nothing else. */
+	if (seq && typestr == NULL && prefix == NULL && ge == NULL
+	    && le == NULL) {
+		pentry = prefix_seq_check(plist, seqnum);
+
+		if (pentry == NULL) {
+			vty_out(vty,
+				"%% Can't find prefix-list %s with sequence number %lu\n",
+				name, seqnum);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		prefix_list_entry_delete(plist, pentry, 1);
+		return CMD_SUCCESS;
+	}
 
 	/* ge and le number */
 	if (ge)
 		genum = atoi(ge);
 	if (le)
 		lenum = atoi(le);
+
+	/* We must have, at a minimum, both the type and prefix here */
+	if ((typestr == NULL) || (prefix == NULL))
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Check of filter type. */
 	if (strncmp("permit", typestr, 1) == 0)
@@ -1375,6 +1387,17 @@ DEFPY (no_ip_prefix_list,
 {
 	return vty_prefix_list_uninstall(vty, AFI_IP, prefix_list, seq_str,
 					 action, dest, ge_str, le_str);
+}
+
+DEFPY(no_ip_prefix_list_seq, no_ip_prefix_list_seq_cmd,
+      "no ip prefix-list WORD seq (1-4294967295)",
+      NO_STR IP_STR PREFIX_LIST_STR
+      "Name of a prefix list\n"
+      "sequence number of an entry\n"
+      "Sequence number\n")
+{
+	return vty_prefix_list_uninstall(vty, AFI_IP, prefix_list, seq_str,
+					 NULL, NULL, NULL, NULL);
 }
 
 DEFPY (no_ip_prefix_list_all,
@@ -2061,6 +2084,7 @@ static void prefix_list_init_ipv4(void)
 
 	install_element(CONFIG_NODE, &ip_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ip_prefix_list_cmd);
+	install_element(CONFIG_NODE, &no_ip_prefix_list_seq_cmd);
 	install_element(CONFIG_NODE, &no_ip_prefix_list_all_cmd);
 
 	install_element(CONFIG_NODE, &ip_prefix_list_description_cmd);
@@ -2111,7 +2135,7 @@ static void prefix_list_init_ipv6(void)
 	install_element(ENABLE_NODE, &clear_ipv6_prefix_list_cmd);
 }
 
-void prefix_list_init()
+void prefix_list_init(void)
 {
 	cmd_variable_handler_register(plist_var_handlers);
 
@@ -2119,7 +2143,7 @@ void prefix_list_init()
 	prefix_list_init_ipv6();
 }
 
-void prefix_list_reset()
+void prefix_list_reset(void)
 {
 	prefix_list_reset_afi(AFI_IP, 0);
 	prefix_list_reset_afi(AFI_IP6, 0);

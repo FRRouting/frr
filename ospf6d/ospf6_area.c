@@ -138,11 +138,11 @@ static void ospf6_area_stub_update(struct ospf6_area *area)
 
 	if (IS_AREA_STUB(area)) {
 		if (IS_OSPF6_DEBUG_ORIGINATE(ROUTER))
-			zlog_debug("Stubbing out area for if %s\n", area->name);
+			zlog_debug("Stubbing out area for if %s", area->name);
 		OSPF6_OPT_CLEAR(area->options, OSPF6_OPT_E);
 	} else if (IS_AREA_ENABLED(area)) {
 		if (IS_OSPF6_DEBUG_ORIGINATE(ROUTER))
-			zlog_debug("Normal area for if %s\n", area->name);
+			zlog_debug("Normal area for if %s", area->name);
 		OSPF6_OPT_SET(area->options, OSPF6_OPT_E);
 		ospf6_asbr_send_externals_to_area(area);
 	}
@@ -450,7 +450,7 @@ DEFUN (area_range,
 
 	range->path.u.cost_config = cost;
 
-	zlog_debug("%s: for prefix %s, flag = %x\n", __func__,
+	zlog_debug("%s: for prefix %s, flag = %x", __func__,
 		   argv[idx_ipv6_prefixlen]->arg, range->flag);
 	if (range->rnode == NULL) {
 		ospf6_route_add(range, oa->range_table);

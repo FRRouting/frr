@@ -333,6 +333,12 @@ static struct log_ref ferr_lib_err[] = {
 		.suggestion = "Open an Issue with all relevant log files and restart FRR"
 	},
 	{
+		.code = EC_LIB_GRPC_INIT,
+		.title = "gRPC initialization error",
+		.description = "Upon startup FRR failed to properly initialize and startup the gRPC northbound plugin",
+		.suggestion = "Check if the gRPC libraries are installed correctly in the system.",
+	},
+	{
 		.code = EC_LIB_NB_CB_CONFIG_ABORT,
 		.title = "A northbound configuration callback has failed in the ABORT phase",
 		.description = "A callback used to process a configuration change has returned an error while trying to abort a change",

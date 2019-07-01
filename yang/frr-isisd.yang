@@ -179,25 +179,23 @@ module frr-isisd {
   grouping redistribute-attributes {
     description
       "Common optional attributes of any redistribute entry.";
-    choice attribute {
-      leaf route-map {
-        type string {
-          length "1..max";
-        }
-        description
-          "Applies the conditions of the specified route-map to routes that
-           are redistributed into this routing instance.";
+    leaf route-map {
+      type string {
+        length "1..max";
       }
+      description
+        "Applies the conditions of the specified route-map to routes that
+         are redistributed into this routing instance.";
+    }
 
-      leaf metric {
-        type uint32 {
-          range "0..16777215";
-        }
-        default "0";
-        description
-          "Metric used for the redistributed route. If 0,
-           the default-metric attribute is used instead.";
+    leaf metric {
+      type uint32 {
+        range "0..16777215";
       }
+      default "0";
+      description
+        "Metric used for the redistributed route. If 0,
+         the default-metric attribute is used instead.";
     }
   }
 
@@ -709,16 +707,16 @@ module frr-isisd {
         description
           "Log changes to the IS-IS adjacencies in this area.";
       }
-    }
 
-    container mpls-te {
-      presence "Present if MPLS-TE is enabled.";
-      description
-        "Enable MPLS-TE functionality.";
-      leaf router-address {
-        type inet:ipv4-address;
+      container mpls-te {
+        presence "Present if MPLS-TE is enabled.";
         description
-          "Stable IP address of the advertising router.";
+          "Enable MPLS-TE functionality.";
+        leaf router-address {
+          type inet:ipv4-address;
+          description
+            "Stable IP address of the advertising router.";
+        }
       }
     }
   }
@@ -737,13 +735,6 @@ module frr-isisd {
           "Area-tag associated to this circuit.";
       }
 
-      leaf circuit-type {
-        type level;
-        default "level-1-2";
-        description
-          "IS-type of this circuit.";
-      }
-
       leaf ipv4-routing {
         type boolean;
         default "false";
@@ -756,6 +747,13 @@ module frr-isisd {
         default "false";
         description
           "Routing IS-IS IPv6 traffic over this circuit.";
+      }
+
+      leaf circuit-type {
+        type level;
+        default "level-1-2";
+        description
+          "IS-type of this circuit.";
       }
 
       container csnp-interval {

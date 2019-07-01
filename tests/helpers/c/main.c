@@ -26,7 +26,7 @@
 #include "memory.h"
 #include "memory_vty.h"
 
-extern void test_init();
+extern void test_init(void);
 
 struct thread_master *master;
 
@@ -56,12 +56,12 @@ static int test_timer(struct thread *thread)
 	return 0;
 }
 
-static void test_timer_init()
+static void test_timer_init(void)
 {
 	thread_add_timer(master, test_timer, &timer_count, 10, NULL);
 }
 
-static void test_vty_init()
+static void test_vty_init(void)
 {
 	install_element(VIEW_NODE, &daemon_exit_cmd);
 }

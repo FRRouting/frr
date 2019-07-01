@@ -665,7 +665,18 @@ fi
 
 
 %changelog
-* Wed May  8 2019 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Mon Jun 17 2019 David Lamparter <equinox@opensourcerouting.org> - %{version}
+- TBD
+
+* Mon Jun 17 2019 David Lamparter <equinox@opensourcerouting.org> - 7.1
+- gRPC northbound plugin
+- "table NNN" removed from zebra
+- more dataplane MT work
+- EVPN in non-default VRFs
+- RFC 8212 (default deny policy for eBGP)
+- RFC 8106 (IPv6 RA DNS options)
+
+* Wed May  8 2019 Martin Winter <mwinter@opensourcerouting.org> - 7.0.1
 - bgp:
 -   Don't send Updates with BGP Max-Prefix Overflow
 -   Make sure `next-hop-self all` backward compatible with force

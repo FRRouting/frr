@@ -24,6 +24,10 @@
 #include "stream.h"
 #include "prefix.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define PBR_STR "Policy Based Routing\n"
 
 /*
@@ -120,5 +124,9 @@ struct pbr_rule {
 
 extern int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s,
 				struct pbr_rule *zrule);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _PBR_H */

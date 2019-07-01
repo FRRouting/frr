@@ -29,6 +29,10 @@
 
 #include "yang_wrappers.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(YANG_MODULE)
 DECLARE_MTYPE(YANG_DATA)
 
@@ -399,51 +403,6 @@ extern bool yang_dnode_is_default_recursive(const struct lyd_node *dnode);
 extern void yang_dnode_change_leaf(struct lyd_node *dnode, const char *value);
 
 /*
- * Set the libyang private pointer to a user pointer. Can only be used on YANG
- * lists and containers.
- *
- * dnode
- *    libyang data node to operate on.
- *
- * entry
- *    Arbitrary user-specified pointer.
- */
-extern void yang_dnode_set_entry(const struct lyd_node *dnode, void *entry);
-
-/*
- * Find the user pointer associated to the given libyang data node.
- *
- * The data node is traversed by following the parent pointers until an user
- * pointer is found or until the root node is reached.
- *
- * dnode
- *    libyang data node to operate on.
- *
- * abort_if_not_found
- *    When set to true, abort the program if no user pointer is found.
- *
- *    As a rule of thumb, this parameter should be set to true in the following
- *    scenarios:
- *    - Calling this function from any northbound configuration callback during
- *      the NB_EV_APPLY phase.
- *    - Calling this function from a 'delete' northbound configuration callback
- *      during any phase.
- *
- *    In both the above cases, the libyang data node should contain an user
- *    pointer except when there's a bug in the code, in which case it's better
- *    to abort the program right away and eliminate the need for unnecessary
- *    NULL checks.
- *
- *    In all other cases, this parameter should be set to false and the caller
- *    should check if the function returned NULL or not.
- *
- * Returns:
- *    User pointer if found, NULL otherwise.
- */
-extern void *yang_dnode_get_entry(const struct lyd_node *dnode,
-				  bool abort_if_not_found);
-
-/*
  * Create a new libyang data node.
  *
  * ly_ctx
@@ -510,6 +469,21 @@ extern void yang_data_free(struct yang_data *data);
 extern struct list *yang_data_list_new(void);
 
 /*
+ * Find the yang_data structure corresponding to an XPath in a list.
+ *
+ * list
+ *    list of yang_data structures to operate on.
+ *
+ * xpath_fmt
+ *    XPath to search for (format string).
+ *
+ * Returns:
+ *    Pointer to yang_data if found, NULL otherwise.
+ */
+extern struct yang_data *yang_data_list_find(const struct list *list,
+					     const char *xpath_fmt, ...);
+
+/*
  * Create and set up a libyang context (for use by the translator)
  */
 extern struct ly_ctx *yang_ctx_new_setup(void);
@@ -525,5 +499,9 @@ extern void yang_init(void);
  * is exiting.
  */
 extern void yang_terminate(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_YANG_H_ */

@@ -1,0 +1,16 @@
+[
+  {
+    "status": "up",
+    "transmit-interval": 300,
+    "remote-receive-interval": 300,
+    "echo-interval": 0,
+    "diagnostic": "ok",
+    "multihop": false,
+    "interface": "r3-eth0",
+    "remote-transmit-interval": 300,
+    "receive-interval": 300,
+    "remote-echo-interval": 50,
+    "remote-diagnostic": "ok",
+    "peer": "10.0.3.2"
+  }
+]

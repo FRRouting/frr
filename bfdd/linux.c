@@ -29,64 +29,6 @@
 /*
  * Definitions.
  */
-int ptm_bfd_fetch_ifindex(const char *ifname)
-{
-	struct ifreq ifr;
-
-	if (strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name))
-	    > sizeof(ifr.ifr_name))
-		log_error("interface-to-index: name truncated ('%s' -> '%s')",
-			  ifr.ifr_name, ifname);
-
-	if (ioctl(bglobal.bg_shop, SIOCGIFINDEX, &ifr) == -1) {
-		log_error("interface-to-index: %s translation failed: %s",
-			  ifname, strerror(errno));
-		return -1;
-	}
-
-	return ifr.ifr_ifindex;
-}
-
-void ptm_bfd_fetch_local_mac(const char *ifname, uint8_t *mac)
-{
-	struct ifreq ifr;
-
-	if (strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name))
-	    > sizeof(ifr.ifr_name))
-		log_error("interface-mac: name truncated ('%s' -> '%s')",
-			  ifr.ifr_name, ifname);
-
-	if (ioctl(bglobal.bg_shop, SIOCGIFHWADDR, &ifr) == -1) {
-		log_error("interface-mac: %s MAC retrieval failed: %s", ifname,
-			  strerror(errno));
-		return;
-	}
-
-	memcpy(mac, ifr.ifr_hwaddr.sa_data, ETHERNET_ADDRESS_LENGTH);
-}
-
-
-/* Was _fetch_portname_from_ifindex() */
-void fetch_portname_from_ifindex(int ifindex, char *ifname, size_t ifnamelen)
-{
-	struct ifreq ifr;
-
-	ifname[0] = 0;
-
-	memset(&ifr, 0, sizeof(ifr));
-	ifr.ifr_ifindex = ifindex;
-
-	if (ioctl(bglobal.bg_shop, SIOCGIFNAME, &ifr) == -1) {
-		log_error("index-to-interface: index %d failure: %s", ifindex,
-			  strerror(errno));
-		return;
-	}
-
-	if (strlcpy(ifname, ifr.ifr_name, ifnamelen) >= ifnamelen)
-		log_debug("index-to-interface: name truncated '%s' -> '%s'",
-			  ifr.ifr_name, ifname);
-}
-
 int bp_bind_dev(int sd __attribute__((__unused__)),
 		const char *dev __attribute__((__unused__)))
 {

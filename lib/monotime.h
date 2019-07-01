@@ -21,6 +21,10 @@
 #include <time.h>
 #include <sys/time.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef TIMESPEC_TO_TIMEVAL
 /* should be in sys/time.h on BSD & Linux libcs */
 #define TIMESPEC_TO_TIMEVAL(tv, ts)                                            \
@@ -90,5 +94,9 @@ static inline char *time_to_string(time_t ts)
 
 	return ctime(&tbuf);
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_MONOTIME_H */

@@ -40,7 +40,6 @@
 #include "srcdest_table.h"
 #include "lib_errors.h"
 
-#include "isisd/dict.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
@@ -63,41 +62,38 @@ static int lsp_refresh(struct thread *thread);
 static int lsp_l1_refresh_pseudo(struct thread *thread);
 static int lsp_l2_refresh_pseudo(struct thread *thread);
 
+static void lsp_destroy(struct isis_lsp *lsp);
+
 int lsp_id_cmp(uint8_t *id1, uint8_t *id2)
 {
 	return memcmp(id1, id2, ISIS_SYS_ID_LEN + 2);
 }
 
-dict_t *lsp_db_init(void)
+int lspdb_compare(const struct isis_lsp *a, const struct isis_lsp *b)
 {
-	dict_t *dict;
-
-	dict = dict_create(DICTCOUNT_T_MAX, (dict_comp_t)lsp_id_cmp);
-
-	return dict;
+	return memcmp(a->hdr.lsp_id, b->hdr.lsp_id, sizeof(a->hdr.lsp_id));
 }
 
-struct isis_lsp *lsp_search(uint8_t *id, dict_t *lspdb)
+void lsp_db_init(struct lspdb_head *head)
 {
-	dnode_t *node;
+	lspdb_init(head);
+}
 
-#ifdef EXTREME_DEBUG
-	dnode_t *dn;
+void lsp_db_fini(struct lspdb_head *head)
+{
+	struct isis_lsp *lsp;
 
-	zlog_debug("searching db");
-	for (dn = dict_first(lspdb); dn; dn = dict_next(lspdb, dn)) {
-		zlog_debug("%s\t%pX",
-			   rawlspid_print((uint8_t *)dnode_getkey(dn)),
-			   dnode_get(dn));
-	}
-#endif /* EXTREME DEBUG */
+	while ((lsp = lspdb_pop(head)))
+		lsp_destroy(lsp);
+	lspdb_fini(head);
+}
 
-	node = dict_lookup(lspdb, id);
+struct isis_lsp *lsp_search(struct lspdb_head *head, const uint8_t *id)
+{
+	struct isis_lsp searchfor;
+	memcpy(searchfor.hdr.lsp_id, id, sizeof(searchfor.hdr.lsp_id));
 
-	if (node)
-		return (struct isis_lsp *)dnode_get(node);
-
-	return NULL;
+	return lspdb_find(head, &searchfor);
 }
 
 static void lsp_clear_data(struct isis_lsp *lsp)
@@ -109,7 +105,7 @@ static void lsp_clear_data(struct isis_lsp *lsp)
 	lsp->tlvs = NULL;
 }
 
-static void lsp_remove_frags(struct list *frags, dict_t *lspdb);
+static void lsp_remove_frags(struct lspdb_head *head, struct list *frags);
 
 static void lsp_destroy(struct isis_lsp *lsp)
 {
@@ -128,8 +124,8 @@ static void lsp_destroy(struct isis_lsp *lsp)
 
 	if (!LSP_FRAGMENT(lsp->hdr.lsp_id)) {
 		if (lsp->lspu.frags) {
-			lsp_remove_frags(lsp->lspu.frags,
-					 lsp->area->lspdb[lsp->level - 1]);
+			lsp_remove_frags(&lsp->area->lspdb[lsp->level - 1],
+					lsp->lspu.frags);
 			list_delete(&lsp->lspu.frags);
 		}
 	} else {
@@ -148,56 +144,34 @@ static void lsp_destroy(struct isis_lsp *lsp)
 	XFREE(MTYPE_ISIS_LSP, lsp);
 }
 
-void lsp_db_destroy(dict_t *lspdb)
-{
-	dnode_t *dnode, *next;
-	struct isis_lsp *lsp;
-
-	dnode = dict_first(lspdb);
-	while (dnode) {
-		next = dict_next(lspdb, dnode);
-		lsp = dnode_get(dnode);
-		lsp_destroy(lsp);
-		dict_delete_free(lspdb, dnode);
-		dnode = next;
-	}
-
-	dict_free(lspdb);
-
-	return;
-}
-
 /*
  * Remove all the frags belonging to the given lsp
  */
-static void lsp_remove_frags(struct list *frags, dict_t *lspdb)
+static void lsp_remove_frags(struct lspdb_head *head, struct list *frags)
 {
-	dnode_t *dnode;
 	struct listnode *lnode, *lnnode;
 	struct isis_lsp *lsp;
 
 	for (ALL_LIST_ELEMENTS(frags, lnode, lnnode, lsp)) {
-		dnode = dict_lookup(lspdb, lsp->hdr.lsp_id);
+		lsp = lsp_search(head, lsp->hdr.lsp_id);
+		lspdb_del(head, lsp);
 		lsp_destroy(lsp);
-		dnode_destroy(dict_delete(lspdb, dnode));
 	}
 }
 
-void lsp_search_and_destroy(uint8_t *id, dict_t *lspdb)
+void lsp_search_and_destroy(struct lspdb_head *head, const uint8_t *id)
 {
-	dnode_t *node;
 	struct isis_lsp *lsp;
 
-	node = dict_lookup(lspdb, id);
-	if (node) {
-		node = dict_delete(lspdb, node);
-		lsp = dnode_get(node);
+	lsp = lsp_search(head, id);
+	if (lsp) {
+		lspdb_del(head, lsp);
 		/*
 		 * If this is a zero lsp, remove all the frags now
 		 */
 		if (LSP_FRAGMENT(lsp->hdr.lsp_id) == 0) {
 			if (lsp->lspu.frags)
-				lsp_remove_frags(lsp->lspu.frags, lspdb);
+				lsp_remove_frags(head, lsp->lspu.frags);
 		} else {
 			/*
 			 * else just remove this frag, from the zero lsps' frag
@@ -209,7 +183,6 @@ void lsp_search_and_destroy(uint8_t *id, dict_t *lspdb)
 						lsp);
 		}
 		lsp_destroy(lsp);
-		dnode_destroy(node);
 	}
 }
 
@@ -514,7 +487,7 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 
 		memcpy(lspid, lsp->hdr.lsp_id, ISIS_SYS_ID_LEN + 1);
 		LSP_FRAGMENT(lspid) = 0;
-		lsp0 = lsp_search(lspid, area->lspdb[level - 1]);
+		lsp0 = lsp_search(&area->lspdb[level - 1], lspid);
 		if (lsp0)
 			lsp_link_fragment(lsp, lsp0);
 	}
@@ -582,9 +555,9 @@ struct isis_lsp *lsp_new(struct isis_area *area, uint8_t *lsp_id,
 	return lsp;
 }
 
-void lsp_insert(struct isis_lsp *lsp, dict_t *lspdb)
+void lsp_insert(struct lspdb_head *head, struct isis_lsp *lsp)
 {
-	dict_alloc_insert(lspdb, lsp->hdr.lsp_id, lsp);
+	lspdb_add(head, lsp);
 	if (lsp->hdr.seqno)
 		isis_spf_schedule(lsp->area, lsp->level);
 }
@@ -592,13 +565,16 @@ void lsp_insert(struct isis_lsp *lsp, dict_t *lspdb)
 /*
  * Build a list of LSPs with non-zero ht bounded by start and stop ids
  */
-void lsp_build_list_nonzero_ht(uint8_t *start_id, uint8_t *stop_id,
-			       struct list *list, dict_t *lspdb)
+void lsp_build_list_nonzero_ht(struct lspdb_head *head, const uint8_t *start_id,
+			       const uint8_t *stop_id, struct list *list)
 {
-	for (dnode_t *curr = dict_lower_bound(lspdb, start_id);
-	     curr; curr = dict_next(lspdb, curr)) {
-		struct isis_lsp *lsp = curr->dict_data;
+	struct isis_lsp searchfor;
+	struct isis_lsp *lsp, *start;
 
+	memcpy(&searchfor.hdr.lsp_id, start_id, sizeof(searchfor.hdr.lsp_id));
+
+	start = lspdb_find_gteq(head, &searchfor);
+	for_each_from (lspdb, head, lsp, start) {
 		if (memcmp(lsp->hdr.lsp_id, stop_id,
 			   ISIS_SYS_ID_LEN + 2) > 0)
 			break;
@@ -699,26 +675,20 @@ void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost)
 }
 
 /* print all the lsps info in the local lspdb */
-int lsp_print_all(struct vty *vty, dict_t *lspdb, char detail, char dynhost)
+int lsp_print_all(struct vty *vty, struct lspdb_head *head, char detail,
+		  char dynhost)
 {
-
-	dnode_t *node = dict_first(lspdb), *next;
+	struct isis_lsp *lsp;
 	int lsp_count = 0;
 
 	if (detail == ISIS_UI_LEVEL_BRIEF) {
-		while (node != NULL) {
-			/* I think it is unnecessary, so I comment it out */
-			/* dict_contains (lspdb, node); */
-			next = dict_next(lspdb, node);
-			lsp_print(dnode_get(node), vty, dynhost);
-			node = next;
+		for_each (lspdb, head, lsp) {
+			lsp_print(lsp, vty, dynhost);
 			lsp_count++;
 		}
 	} else if (detail == ISIS_UI_LEVEL_DETAIL) {
-		while (node != NULL) {
-			next = dict_next(lspdb, node);
-			lsp_print_detail(dnode_get(node), vty, dynhost);
-			node = next;
+		for_each (lspdb, head, lsp) {
+			lsp_print_detail(lsp, vty, dynhost);
 			lsp_count++;
 		}
 	}
@@ -847,7 +817,7 @@ static struct isis_lsp *lsp_next_frag(uint8_t frag_num, struct isis_lsp *lsp0,
 	memcpy(frag_id, lsp0->hdr.lsp_id, ISIS_SYS_ID_LEN + 1);
 	LSP_FRAGMENT(frag_id) = frag_num;
 
-	lsp = lsp_search(frag_id, area->lspdb[level - 1]);
+	lsp = lsp_search(&area->lspdb[level - 1], frag_id);
 	if (lsp) {
 		lsp_clear_data(lsp);
 		if (!lsp->lspu.zero_lsp)
@@ -860,7 +830,7 @@ static struct isis_lsp *lsp_next_frag(uint8_t frag_num, struct isis_lsp *lsp0,
 					area->attached_bit),
 		      0, lsp0, level);
 	lsp->own_lsp = 1;
-	lsp_insert(lsp, area->lspdb[level - 1]);
+	lsp_insert(&area->lspdb[level - 1], lsp);
 	return lsp;
 }
 
@@ -1070,7 +1040,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 						uint8_t subtlvs[256];
 						uint8_t subtlv_len;
 
-						if (IS_MPLS_TE(isisMplsTE)
+						if (IS_MPLS_TE(area->mta)
 						    && circuit->interface
 						    && HAS_LINK_PARAMS(
 							       circuit->interface))
@@ -1112,7 +1082,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 					uint8_t subtlvs[256];
 					uint8_t subtlv_len;
 
-					if (IS_MPLS_TE(isisMplsTE)
+					if (IS_MPLS_TE(area->mta)
 					    && circuit->interface != NULL
 					    && HAS_LINK_PARAMS(
 						       circuit->interface))
@@ -1228,12 +1198,12 @@ int lsp_generate(struct isis_area *area, int level)
 	memcpy(&lspid, isis->sysid, ISIS_SYS_ID_LEN);
 
 	/* only builds the lsp if the area shares the level */
-	oldlsp = lsp_search(lspid, area->lspdb[level - 1]);
+	oldlsp = lsp_search(&area->lspdb[level - 1], lspid);
 	if (oldlsp) {
 		/* FIXME: we should actually initiate a purge */
 		seq_num = oldlsp->hdr.seqno;
-		lsp_search_and_destroy(oldlsp->hdr.lsp_id,
-				       area->lspdb[level - 1]);
+		lsp_search_and_destroy(&area->lspdb[level - 1],
+				       oldlsp->hdr.lsp_id);
 	}
 	rem_lifetime = lsp_rem_lifetime(area, level);
 	newlsp =
@@ -1243,7 +1213,7 @@ int lsp_generate(struct isis_area *area, int level)
 	newlsp->area = area;
 	newlsp->own_lsp = 1;
 
-	lsp_insert(newlsp, area->lspdb[level - 1]);
+	lsp_insert(&area->lspdb[level - 1], newlsp);
 	/* build_lsp_data (newlsp, area); */
 	lsp_build(newlsp, area);
 	/* time to calculate our checksum */
@@ -1288,7 +1258,7 @@ int lsp_generate(struct isis_area *area, int level)
  */
 static int lsp_regenerate(struct isis_area *area, int level)
 {
-	dict_t *lspdb;
+	struct lspdb_head *head;
 	struct isis_lsp *lsp, *frag;
 	struct listnode *node;
 	uint8_t lspid[ISIS_SYS_ID_LEN + 2];
@@ -1297,12 +1267,12 @@ static int lsp_regenerate(struct isis_area *area, int level)
 	if ((area == NULL) || (area->is_type & level) != level)
 		return ISIS_ERROR;
 
-	lspdb = area->lspdb[level - 1];
+	head = &area->lspdb[level - 1];
 
 	memset(lspid, 0, ISIS_SYS_ID_LEN + 2);
 	memcpy(lspid, isis->sysid, ISIS_SYS_ID_LEN);
 
-	lsp = lsp_search(lspid, lspdb);
+	lsp = lsp_search(head, lspid);
 
 	if (!lsp) {
 		flog_err(EC_LIB_DEVELOPMENT,
@@ -1445,7 +1415,7 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 			continue;
 		}
 
-		lsp = lsp_search(id, area->lspdb[lvl - 1]);
+		lsp = lsp_search(&area->lspdb[lvl - 1], id);
 		if (!lsp) {
 			sched_debug(
 				"ISIS (%s): We do not have any LSPs to regenerate, nothing todo.",
@@ -1597,7 +1567,7 @@ static void lsp_build_pseudo(struct isis_lsp *lsp, struct isis_circuit *circuit,
 
 int lsp_generate_pseudo(struct isis_circuit *circuit, int level)
 {
-	dict_t *lspdb = circuit->area->lspdb[level - 1];
+	struct lspdb_head *head = &circuit->area->lspdb[level - 1];
 	struct isis_lsp *lsp;
 	uint8_t lsp_id[ISIS_SYS_ID_LEN + 2];
 	uint16_t rem_lifetime, refresh_time;
@@ -1615,7 +1585,7 @@ int lsp_generate_pseudo(struct isis_circuit *circuit, int level)
 	/*
 	 * If for some reason have a pseudo LSP in the db already -> regenerate
 	 */
-	if (lsp_search(lsp_id, lspdb))
+	if (lsp_search(head, lsp_id))
 		return lsp_regenerate_schedule_pseudo(circuit, level);
 
 	rem_lifetime = lsp_rem_lifetime(circuit->area, level);
@@ -1628,7 +1598,7 @@ int lsp_generate_pseudo(struct isis_circuit *circuit, int level)
 	lsp_build_pseudo(lsp, circuit, level);
 	lsp_pack_pdu(lsp);
 	lsp->own_lsp = 1;
-	lsp_insert(lsp, lspdb);
+	lsp_insert(head, lsp);
 	lsp_flood(lsp, NULL);
 
 	refresh_time = lsp_refresh_time(lsp, rem_lifetime);
@@ -1659,7 +1629,7 @@ int lsp_generate_pseudo(struct isis_circuit *circuit, int level)
 
 static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 {
-	dict_t *lspdb = circuit->area->lspdb[level - 1];
+	struct lspdb_head *head = &circuit->area->lspdb[level - 1];
 	struct isis_lsp *lsp;
 	uint8_t lsp_id[ISIS_SYS_ID_LEN + 2];
 	uint16_t rem_lifetime, refresh_time;
@@ -1674,7 +1644,7 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 	LSP_PSEUDO_ID(lsp_id) = circuit->circuit_id;
 	LSP_FRAGMENT(lsp_id) = 0;
 
-	lsp = lsp_search(lsp_id, lspdb);
+	lsp = lsp_search(head, lsp_id);
 
 	if (!lsp) {
 		flog_err(EC_LIB_DEVELOPMENT,
@@ -1813,7 +1783,7 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 			continue;
 		}
 
-		lsp = lsp_search(lsp_id, circuit->area->lspdb[lvl - 1]);
+		lsp = lsp_search(&circuit->area->lspdb[lvl - 1], lsp_id);
 		if (!lsp) {
 			sched_debug(
 				"ISIS (%s): Pseudonode LSP does not exist yet, nothing to regenerate.",
@@ -1869,7 +1839,6 @@ int lsp_tick(struct thread *thread)
 {
 	struct isis_area *area;
 	struct isis_lsp *lsp;
-	dnode_t *dnode, *dnode_next;
 	int level;
 	uint16_t rem_lifetime;
 	bool fabricd_sync_incomplete = false;
@@ -1885,83 +1854,69 @@ int lsp_tick(struct thread *thread)
 	 * Remove LSPs which have aged out
 	 */
 	for (level = 0; level < ISIS_LEVELS; level++) {
-		if (area->lspdb[level] && dict_count(area->lspdb[level]) > 0) {
-			for (dnode = dict_first(area->lspdb[level]);
-			     dnode != NULL; dnode = dnode_next) {
-				dnode_next =
-					dict_next(area->lspdb[level], dnode);
-				lsp = dnode_get(dnode);
+		struct isis_lsp *next = lspdb_first(&area->lspdb[level]);
+		for_each_from (lspdb, &area->lspdb[level], lsp, next) {
+			/*
+			 * The lsp rem_lifetime is kept at 0 for MaxAge
+			 * or
+			 * ZeroAgeLifetime depending on explicit purge
+			 * or
+			 * natural age out. So schedule spf only once
+			 * when
+			 * the first time rem_lifetime becomes 0.
+			 */
+			rem_lifetime = lsp->hdr.rem_lifetime;
+			lsp_set_time(lsp);
 
-				/*
-				 * The lsp rem_lifetime is kept at 0 for MaxAge
-				 * or
-				 * ZeroAgeLifetime depending on explicit purge
-				 * or
-				 * natural age out. So schedule spf only once
-				 * when
-				 * the first time rem_lifetime becomes 0.
+			/*
+			 * Schedule may run spf which should be done
+			 * only after
+			 * the lsp rem_lifetime becomes 0 for the first
+			 * time.
+			 * ISO 10589 - 7.3.16.4 first paragraph.
+			 */
+			if (rem_lifetime == 1 && lsp->hdr.seqno != 0) {
+				/* 7.3.16.4 a) set SRM flags on all */
+				/* 7.3.16.4 b) retain only the header */
+				if (lsp->area->purge_originator)
+					lsp_purge(lsp, lsp->level, NULL);
+				else
+					lsp_flood(lsp, NULL);
+				/* 7.3.16.4 c) record the time to purge
+				 * FIXME */
+				isis_spf_schedule(lsp->area, lsp->level);
+			}
+
+			if (lsp->age_out == 0) {
+				zlog_debug(
+					"ISIS-Upd (%s): L%u LSP %s seq "
+					"0x%08" PRIx32 " aged out",
+					area->area_tag, lsp->level,
+					rawlspid_print(lsp->hdr.lsp_id),
+					lsp->hdr.seqno);
+
+				/* if we're aging out fragment 0, lsp_destroy()
+				 * below will delete all other fragments too,
+				 * so we need to skip over those
 				 */
-				rem_lifetime = lsp->hdr.rem_lifetime;
-				lsp_set_time(lsp);
+				if (!LSP_FRAGMENT(lsp->hdr.lsp_id))
+					while (next &&
+						!memcmp(next->hdr.lsp_id,
+							lsp->hdr.lsp_id,
+							ISIS_SYS_ID_LEN + 1))
+						next = lspdb_next(
+							&area->lspdb[level],
+							next);
 
-				/*
-				 * Schedule may run spf which should be done
-				 * only after
-				 * the lsp rem_lifetime becomes 0 for the first
-				 * time.
-				 * ISO 10589 - 7.3.16.4 first paragraph.
-				 */
-				if (rem_lifetime == 1 && lsp->hdr.seqno != 0) {
-					/* 7.3.16.4 a) set SRM flags on all */
-					/* 7.3.16.4 b) retain only the header */
-					if (lsp->area->purge_originator)
-						lsp_purge(lsp, lsp->level, NULL);
-					else
-						lsp_flood(lsp, NULL);
-					/* 7.3.16.4 c) record the time to purge
-					 * FIXME */
-					isis_spf_schedule(lsp->area, lsp->level);
-				}
+				lspdb_del(&area->lspdb[level], lsp);
+				lsp_destroy(lsp);
+				lsp = NULL;
+			}
 
-				if (lsp->age_out == 0) {
-					zlog_debug(
-						"ISIS-Upd (%s): L%u LSP %s seq "
-						"0x%08" PRIx32 " aged out",
-						area->area_tag, lsp->level,
-						rawlspid_print(lsp->hdr.lsp_id),
-						lsp->hdr.seqno);
-
-					/* if we're aging out fragment 0,
-					 * lsp_destroy() below will delete all
-					 * other fragments too, so we need to
-					 * skip over those
-					 */
-					while (!LSP_FRAGMENT(lsp->hdr.lsp_id)
-							&& dnode_next) {
-						struct isis_lsp *nextlsp;
-
-						nextlsp = dnode_get(dnode_next);
-						if (memcmp(nextlsp->hdr.lsp_id,
-							   lsp->hdr.lsp_id,
-							   ISIS_SYS_ID_LEN + 1))
-							break;
-
-						dnode_next = dict_next(
-							area->lspdb[level],
-							dnode_next);
-					}
-
-					lsp_destroy(lsp);
-					lsp = NULL;
-					dict_delete_free(area->lspdb[level],
-							 dnode);
-				}
-
-				if (fabricd_init_c && lsp) {
-					fabricd_sync_incomplete |=
-						ISIS_CHECK_FLAG(lsp->SSNflags,
-								fabricd_init_c);
-				}
+			if (fabricd_init_c && lsp) {
+				fabricd_sync_incomplete |=
+					ISIS_CHECK_FLAG(lsp->SSNflags,
+							fabricd_init_c);
 			}
 		}
 	}
@@ -1979,7 +1934,7 @@ void lsp_purge_pseudo(uint8_t *id, struct isis_circuit *circuit, int level)
 {
 	struct isis_lsp *lsp;
 
-	lsp = lsp_search(id, circuit->area->lspdb[level - 1]);
+	lsp = lsp_search(&circuit->area->lspdb[level - 1], id);
 	if (!lsp)
 		return;
 
@@ -2012,7 +1967,7 @@ void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
 
 	lsp_pack_pdu(lsp);
 
-	lsp_insert(lsp, area->lspdb[lsp->level - 1]);
+	lsp_insert(&area->lspdb[lsp->level - 1], lsp);
 	lsp_flood(lsp, NULL);
 
 	return;

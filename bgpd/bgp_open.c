@@ -49,7 +49,7 @@
 
    So there is many configurable point.  First of all we want set each
    peer whether we send capability negotiation to the peer or not.
-   Next, if we send capability to the peer we want to set my capabilty
+   Next, if we send capability to the peer we want to set my capability
    inforation at each peer. */
 
 void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,

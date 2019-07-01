@@ -24,6 +24,10 @@
 
 #include "if.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Maximum ACL name length */
 #define ACL_NAMSIZ                128
 
@@ -61,5 +65,9 @@ extern void access_list_delete_hook(void (*func)(struct access_list *));
 extern struct access_list *access_list_lookup(afi_t, const char *);
 extern enum filter_type access_list_apply(struct access_list *access,
 					  const void *object);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_FILTER_H */

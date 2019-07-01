@@ -238,7 +238,7 @@ satisfy_request(const unsigned char *prefix, unsigned char plen,
 }
 
 void
-expire_resend()
+expire_resend(void)
 {
     struct resend *current, *previous;
     int recompute = 0;
@@ -267,7 +267,7 @@ expire_resend()
 }
 
 void
-recompute_resend_time()
+recompute_resend_time(void)
 {
     struct resend *request;
     struct timeval resend = {0, 0};
@@ -286,7 +286,7 @@ recompute_resend_time()
 }
 
 void
-do_resend()
+do_resend(void)
 {
     struct resend *resend;
 

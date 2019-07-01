@@ -518,16 +518,14 @@ struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header)
 	lsa_size = ntohs(header->length); /* XXX vulnerable */
 
 	/* allocate memory for this LSA */
-	new_header = (struct ospf6_lsa_header *)XMALLOC(MTYPE_OSPF6_LSA_HEADER,
-							lsa_size);
+	new_header = XMALLOC(MTYPE_OSPF6_LSA_HEADER, lsa_size);
 
 	/* copy LSA from original header */
 	memcpy(new_header, header, lsa_size);
 
 	/* LSA information structure */
 	/* allocate memory */
-	lsa = (struct ospf6_lsa *)XCALLOC(MTYPE_OSPF6_LSA,
-					  sizeof(struct ospf6_lsa));
+	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
 
 	lsa->header = (struct ospf6_lsa_header *)new_header;
 
@@ -546,16 +544,15 @@ struct ospf6_lsa *ospf6_lsa_create_headeronly(struct ospf6_lsa_header *header)
 	struct ospf6_lsa_header *new_header = NULL;
 
 	/* allocate memory for this LSA */
-	new_header = (struct ospf6_lsa_header *)XMALLOC(
-		MTYPE_OSPF6_LSA_HEADER, sizeof(struct ospf6_lsa_header));
+	new_header = XMALLOC(MTYPE_OSPF6_LSA_HEADER,
+			     sizeof(struct ospf6_lsa_header));
 
 	/* copy LSA from original header */
 	memcpy(new_header, header, sizeof(struct ospf6_lsa_header));
 
 	/* LSA information structure */
 	/* allocate memory */
-	lsa = (struct ospf6_lsa *)XCALLOC(MTYPE_OSPF6_LSA,
-					  sizeof(struct ospf6_lsa));
+	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
 
 	lsa->header = (struct ospf6_lsa_header *)new_header;
 	SET_FLAG(lsa->flag, OSPF6_LSA_HEADERONLY);

@@ -38,6 +38,7 @@
 #include "lib_errors.h"
 #include "db.h"
 #include "northbound_cli.h"
+#include "northbound_db.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 DEFINE_KOOH(frr_early_fini, (), ())
@@ -61,7 +62,7 @@ static char dbfile_default[512];
 #endif
 static char vtypath_default[256];
 
-bool debug_memstats_at_exit = 0;
+bool debug_memstats_at_exit = false;
 static bool nodetach_term, nodetach_daemon;
 
 static char comb_optstr[256];
@@ -654,6 +655,10 @@ struct thread_master *frr_init(void)
 
 	yang_init();
 	nb_init(master, di->yang_modules, di->n_yang_modules);
+	if (nb_db_init() != NB_OK)
+		flog_warn(EC_LIB_NB_DATABASE,
+			  "%s: failed to initialize northbound database",
+			  __func__);
 
 	return master;
 }
@@ -825,7 +830,12 @@ static int frr_config_read_in(struct thread *t)
 	/*
 	 * Update the shared candidate after reading the startup configuration.
 	 */
-	nb_config_replace(vty_shared_candidate_config, running_config, true);
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		nb_config_replace(vty_shared_candidate_config, running_config,
+				  true);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	return 0;
 }

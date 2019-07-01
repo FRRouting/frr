@@ -21,6 +21,8 @@
 #ifndef _QUAGGA_BGP_ECOMMUNITY_H
 #define _QUAGGA_BGP_ECOMMUNITY_H
 
+#include "bgpd/bgp_route.h"
+
 /* High-order octet of the Extended Communities type field.  */
 #define ECOMMUNITY_ENCODE_AS                0x00
 #define ECOMMUNITY_ENCODE_IP                0x01
@@ -183,5 +185,13 @@ extern int ecommunity_del_val(struct ecommunity *ecom,
 struct bgp_pbr_entry_action;
 extern int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
 			       struct bgp_pbr_entry_action *api);
+
+extern void bgp_compute_aggregate_ecommunity(
+					struct bgp_aggregate *aggregate,
+					struct ecommunity *ecommunity);
+extern void bgp_remove_ecommunity_from_aggregate(
+					struct bgp_aggregate *aggregate,
+					struct ecommunity *ecommunity);
+extern void bgp_aggr_ecommunity_remove(void *arg);
 
 #endif /* _QUAGGA_BGP_ECOMMUNITY_H */

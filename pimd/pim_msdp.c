@@ -1256,8 +1256,7 @@ static void pim_msdp_mg_free(struct pim_instance *pim)
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		zlog_debug("MSDP mesh-group %s deleted", mg->mesh_group_name);
 	}
-	if (mg->mesh_group_name)
-		XFREE(MTYPE_PIM_MSDP_MG_NAME, mg->mesh_group_name);
+	XFREE(MTYPE_PIM_MSDP_MG_NAME, mg->mesh_group_name);
 
 	if (mg->mbr_list)
 		list_delete(&mg->mbr_list);
@@ -1523,8 +1522,8 @@ enum pim_msdp_err pim_msdp_mg_src_add(struct pim_instance *pim,
 }
 
 /*********************** MSDP feature APIs *********************************/
-int pim_msdp_config_write_helper(struct pim_instance *pim, struct vty *vty,
-				 const char *spaces)
+int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
+			  const char *spaces)
 {
 	struct listnode *mbrnode;
 	struct pim_msdp_mg_mbr *mbr;
@@ -1551,11 +1550,6 @@ int pim_msdp_config_write_helper(struct pim_instance *pim, struct vty *vty,
 		++count;
 	}
 	return count;
-}
-
-int pim_msdp_config_write(struct vty *vty)
-{
-	return pim_msdp_config_write_helper(pimg, vty, "");
 }
 
 /* Enable feature including active/periodic timers etc. on the first peer

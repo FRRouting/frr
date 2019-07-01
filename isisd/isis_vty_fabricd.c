@@ -161,13 +161,14 @@ DEFUN (show_lsp_flooding,
 	struct isis_area *area;
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-		dict_t *lspdb = area->lspdb[ISIS_LEVEL2 - 1];
+		struct lspdb_head *head = &area->lspdb[ISIS_LEVEL2 - 1];
+		struct isis_lsp *lsp;
 
 		vty_out(vty, "Area %s:\n", area->area_tag ?
 			area->area_tag : "null");
 
 		if (lspid) {
-			struct isis_lsp *lsp = lsp_for_arg(lspid, lspdb);
+			struct isis_lsp *lsp = lsp_for_arg(head, lspid);
 
 			if (lsp)
 				lsp_print_flooding(vty, lsp);
@@ -175,9 +176,8 @@ DEFUN (show_lsp_flooding,
 			continue;
 		}
 
-		for (dnode_t *dnode = dict_first(lspdb); dnode;
-		     dnode = dict_next(lspdb, dnode)) {
-			lsp_print_flooding(vty, dnode_get(dnode));
+		for_each (lspdb, head, lsp) {
+			lsp_print_flooding(vty, lsp);
 			vty_out(vty, "\n");
 		}
 	}

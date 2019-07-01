@@ -21,16 +21,11 @@
 #ifndef _QUAGGA_BGP_ADVERTISE_H
 #define _QUAGGA_BGP_ADVERTISE_H
 
-#include <lib/fifo.h>
+#include "lib/typesafe.h"
+
+PREDECL_DLIST(bgp_adv_fifo)
 
 struct update_subgroup;
-
-/* BGP advertise FIFO.  */
-struct bgp_advertise_fifo {
-	struct bgp_advertise *next;
-	struct bgp_advertise *prev;
-	uint32_t count;
-};
 
 /* BGP advertise attribute.  */
 struct bgp_advertise_attr {
@@ -46,7 +41,7 @@ struct bgp_advertise_attr {
 
 struct bgp_advertise {
 	/* FIFO for advertisement.  */
-	struct bgp_advertise_fifo fifo;
+	struct bgp_adv_fifo_item fifo;
 
 	/* Link list for same attribute advertise.  */
 	struct bgp_advertise *next;
@@ -64,6 +59,8 @@ struct bgp_advertise {
 	/* BGP info.  */
 	struct bgp_path_info *pathi;
 };
+
+DECLARE_DLIST(bgp_adv_fifo, struct bgp_advertise, fifo)
 
 /* BGP adjacency out.  */
 struct bgp_adj_out {
@@ -110,9 +107,9 @@ struct bgp_adj_in {
 
 /* BGP advertisement list.  */
 struct bgp_synchronize {
-	struct bgp_advertise_fifo update;
-	struct bgp_advertise_fifo withdraw;
-	struct bgp_advertise_fifo withdraw_low;
+	struct bgp_adv_fifo_head update;
+	struct bgp_adv_fifo_head withdraw;
+	struct bgp_adv_fifo_head withdraw_low;
 };
 
 /* BGP adjacency linked list.  */
@@ -137,36 +134,6 @@ struct bgp_synchronize {
 
 #define BGP_ADJ_IN_ADD(N, A) BGP_PATH_INFO_ADD(N, A, adj_in)
 #define BGP_ADJ_IN_DEL(N, A) BGP_PATH_INFO_DEL(N, A, adj_in)
-
-#define BGP_ADV_FIFO_ADD(F, N)                                                 \
-	do {                                                                   \
-		FIFO_ADD((F), (N));                                            \
-		(F)->count++;                                                  \
-	} while (0)
-
-#define BGP_ADV_FIFO_DEL(F, N)                                                 \
-	do {                                                                   \
-		FIFO_DEL((N));                                                 \
-		(F)->count--;                                                  \
-	} while (0)
-
-#define BGP_ADV_FIFO_INIT(F)                                                   \
-	do {                                                                   \
-		FIFO_INIT((F));                                                \
-		(F)->count = 0;                                                \
-	} while (0)
-
-#define BGP_ADV_FIFO_COUNT(F) (F)->count
-
-#define BGP_ADV_FIFO_EMPTY(F)                                                  \
-	(((struct bgp_advertise_fifo *)(F))->next                              \
-	 == (struct bgp_advertise *)(F))
-
-#define BGP_ADV_FIFO_HEAD(F)                                                   \
-	((((struct bgp_advertise_fifo *)(F))->next                             \
-	  == (struct bgp_advertise *)(F))                                      \
-		 ? NULL                                                        \
-		 : (F)->next)
 
 /* Prototypes.  */
 extern int bgp_adj_out_lookup(struct peer *, struct bgp_node *, uint32_t);

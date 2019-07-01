@@ -79,7 +79,7 @@ static int pim_msdp_sock_accept(struct thread *thread)
 		return -1;
 	}
 	pim->msdp.listener.thread = NULL;
-	thread_add_read(master, pim_msdp_sock_accept, pim, accept_sock,
+	thread_add_read(router->master, pim_msdp_sock_accept, pim, accept_sock,
 			&pim->msdp.listener.thread);
 
 	/* accept client connection. */

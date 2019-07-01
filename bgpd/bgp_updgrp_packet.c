@@ -65,12 +65,11 @@
 /********************
  * PUBLIC FUNCTIONS
  ********************/
-struct bpacket *bpacket_alloc()
+struct bpacket *bpacket_alloc(void)
 {
 	struct bpacket *pkt;
 
-	pkt = (struct bpacket *)XCALLOC(MTYPE_BGP_PACKET,
-					sizeof(struct bpacket));
+	pkt = XCALLOC(MTYPE_BGP_PACKET, sizeof(struct bpacket));
 
 	return pkt;
 }
@@ -665,11 +664,11 @@ int subgroup_packets_to_build(struct update_subgroup *subgrp)
 	if (!subgrp)
 		return 0;
 
-	adv = BGP_ADV_FIFO_HEAD(&subgrp->sync->withdraw);
+	adv = bgp_adv_fifo_first(&subgrp->sync->withdraw);
 	if (adv)
 		return 1;
 
-	adv = BGP_ADV_FIFO_HEAD(&subgrp->sync->update);
+	adv = bgp_adv_fifo_first(&subgrp->sync->update);
 	if (adv)
 		return 1;
 
@@ -726,7 +725,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	addpath_encode = bgp_addpath_encode_tx(peer, afi, safi);
 	addpath_overhead = addpath_encode ? BGP_ADDPATH_ID_LEN : 0;
 
-	adv = BGP_ADV_FIFO_HEAD(&subgrp->sync->update);
+	adv = bgp_adv_fifo_first(&subgrp->sync->update);
 	while (adv) {
 		assert(adv->rn);
 		rn = adv->rn;
@@ -967,7 +966,7 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 	addpath_encode = bgp_addpath_encode_tx(peer, afi, safi);
 	addpath_overhead = addpath_encode ? BGP_ADDPATH_ID_LEN : 0;
 
-	while ((adv = BGP_ADV_FIFO_HEAD(&subgrp->sync->withdraw)) != NULL) {
+	while ((adv = bgp_adv_fifo_first(&subgrp->sync->withdraw)) != NULL) {
 		assert(adv->rn);
 		adj = adv->adj;
 		rn = adv->rn;

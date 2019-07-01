@@ -19,6 +19,10 @@
 #ifndef _FRR_QUEUE_H
 #define _FRR_QUEUE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if defined(__OpenBSD__) && !defined(STAILQ_HEAD)
 #include "openbsd-queue.h"
 
@@ -83,6 +87,10 @@
 			(head)->tqh_last = &TAILQ_FIRST(head);                 \
 		TAILQ_FIRST(head) = TAILQ_NEXT((_elm), field);                 \
 	}; _elm; })
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif /* _FRR_QUEUE_H */

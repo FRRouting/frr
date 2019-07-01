@@ -538,10 +538,8 @@ int generic_match_delete(struct vty *vty, struct route_map_index *index,
 		break;
 	}
 
-	if (dep_name)
-		XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
-	if (rmap_name)
-		XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
+	XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
+	XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
 
 	return retval;
 }
@@ -1007,6 +1005,34 @@ static int vty_show_route_map(struct vty *vty, const char *name)
 	return CMD_SUCCESS;
 }
 
+/* Unused route map details */
+static int vty_show_unused_route_map(struct vty *vty)
+{
+	struct list *maplist = list_new();
+	struct listnode *ln;
+	struct route_map *map;
+
+	for (map = route_map_master.head; map; map = map->next) {
+		/* If use_count is zero, No protocol is using this routemap.
+		 * so adding to the list.
+		 */
+		if (!map->use_count)
+			listnode_add(maplist, map);
+	}
+
+	if (maplist->count > 0) {
+		vty_out(vty, "\n%s:\n", frr_protonameinst);
+		list_sort(maplist, sort_route_map);
+
+		for (ALL_LIST_ELEMENTS_RO(maplist, ln, map))
+			vty_show_route_map_entry(vty, map);
+	} else {
+		vty_out(vty, "\n%s: None\n", frr_protonameinst);
+	}
+
+	list_delete(&maplist);
+	return CMD_SUCCESS;
+}
 
 /* New route map allocation. Please note route map's name must be
    specified. */
@@ -1047,8 +1073,7 @@ static void route_map_index_delete(struct route_map_index *index, int notify)
 		index->map->head = index->next;
 
 	/* Free 'char *nextrm' if not NULL */
-	if (index->nextrm)
-		XFREE(MTYPE_ROUTE_MAP_NAME, index->nextrm);
+	XFREE(MTYPE_ROUTE_MAP_NAME, index->nextrm);
 
 	/* Execute event hook. */
 	if (route_map_master.event_hook && notify) {
@@ -1203,8 +1228,7 @@ static void route_map_rule_delete(struct route_map_rule_list *list,
 	if (rule->cmd->func_free)
 		(*rule->cmd->func_free)(rule->value);
 
-	if (rule->rule_str)
-		XFREE(MTYPE_ROUTE_MAP_RULE_STR, rule->rule_str);
+	XFREE(MTYPE_ROUTE_MAP_RULE_STR, rule->rule_str);
 
 	if (rule->next)
 		rule->next->prev = rule->prev;
@@ -1284,6 +1308,16 @@ int route_map_add_match(struct route_map_index *index, const char *match_name,
 	for (rule = index->match_list.head; rule; rule = next) {
 		next = rule->next;
 		if (rule->cmd == cmd) {
+			/* If the configured route-map match rule is exactly
+			 * the same as the existing configuration then,
+			 * ignore the duplicate configuration.
+			 */
+			if (strcmp(match_arg, rule->rule_str) == 0) {
+				if (cmd->func_free)
+					(*cmd->func_free)(compile);
+				return RMAP_COMPILE_SUCCESS;
+			}
+
 			route_map_rule_delete(&index->match_list, rule);
 			replaced = 1;
 		}
@@ -1636,9 +1670,9 @@ static bool route_map_dep_hash_cmp(const void *p1, const void *p2)
 		== 0);
 }
 
-static void route_map_clear_reference(struct hash_backet *backet, void *arg)
+static void route_map_clear_reference(struct hash_bucket *bucket, void *arg)
 {
-	struct route_map_dep *dep = (struct route_map_dep *)backet->data;
+	struct route_map_dep *dep = (struct route_map_dep *)bucket->data;
 	char *rmap_name;
 
 	if (arg) {
@@ -1692,9 +1726,9 @@ static unsigned int route_map_dep_hash_make_key(void *p)
 	return (string_hash_make((char *)p));
 }
 
-static void route_map_print_dependency(struct hash_backet *backet, void *data)
+static void route_map_print_dependency(struct hash_bucket *bucket, void *data)
 {
-	char *rmap_name = (char *)backet->data;
+	char *rmap_name = (char *)bucket->data;
 	char *dep_name = (char *)data;
 
 	zlog_debug("%s: Dependency for %s: %s", __FUNCTION__, dep_name,
@@ -1751,8 +1785,7 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 		}
 
 		ret_map_name = (char *)hash_release(dep->dep_rmap_hash, rname);
-		if (ret_map_name)
-			XFREE(MTYPE_ROUTE_MAP_NAME, ret_map_name);
+		XFREE(MTYPE_ROUTE_MAP_NAME, ret_map_name);
 
 		if (!dep->dep_rmap_hash->count) {
 			dep = hash_release(dephash, dname);
@@ -1805,6 +1838,8 @@ static struct hash *route_map_get_dep_hash(route_map_event_t event)
 		break;
 	case RMAP_EVENT_CALL_ADDED:
 	case RMAP_EVENT_CALL_DELETED:
+	case RMAP_EVENT_MATCH_ADDED:
+	case RMAP_EVENT_MATCH_DELETED:
 		upd8_hash = route_map_dep_hash[ROUTE_MAP_DEP_RMAP];
 		break;
 	case RMAP_EVENT_FILTER_ADDED:
@@ -1818,9 +1853,9 @@ static struct hash *route_map_get_dep_hash(route_map_event_t event)
 	return (upd8_hash);
 }
 
-static void route_map_process_dependency(struct hash_backet *backet, void *data)
+static void route_map_process_dependency(struct hash_bucket *bucket, void *data)
 {
-	char *rmap_name = (char *)backet->data;
+	char *rmap_name = (char *)bucket->data;
 	route_map_event_t type = (route_map_event_t)(ptrdiff_t)data;
 
 	if (rmap_debug)
@@ -2759,6 +2794,15 @@ DEFUN (rmap_show_name,
 	return vty_show_route_map(vty, name);
 }
 
+DEFUN (rmap_show_unused,
+       rmap_show_unused_cmd,
+       "show route-map-unused",
+       SHOW_STR
+       "unused route-map information\n")
+{
+	return vty_show_unused_route_map(vty);
+}
+
 DEFUN (rmap_call,
        rmap_call_cmd,
        "call WORD",
@@ -2770,6 +2814,13 @@ DEFUN (rmap_call,
 	const char *rmap = argv[idx_word]->arg;
 
 	assert(index);
+
+	/* If "call" is invoked with the same route-map name as
+	 * the one previously configured then, ignore the duplicate
+	 * configuration.
+	 */
+	if (index->nextrm && (strcmp(index->nextrm, rmap) == 0))
+		return CMD_SUCCESS;
 
 	if (index->nextrm) {
 		route_map_upd8_dependency(RMAP_EVENT_CALL_DELETED,
@@ -2949,6 +3000,23 @@ static void rmap_autocomplete(vector comps, struct cmd_token *token)
 		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, map->name));
 }
 
+/* Increment the use_count counter while attaching the route map */
+void route_map_counter_increment(struct route_map *map)
+{
+	if (map)
+		map->use_count++;
+}
+
+/* Decrement the use_count counter while detaching the route map. */
+void route_map_counter_decrement(struct route_map *map)
+{
+	if (map) {
+		if (map->use_count <= 0)
+			return;
+		map->use_count--;
+	}
+}
+
 static const struct cmd_variable_handler rmap_var_handlers[] = {
 	{/* "route-map WORD" */
 	 .varname = "route_map",
@@ -3006,6 +3074,7 @@ void route_map_init(void)
 
 	/* Install show command */
 	install_element(ENABLE_NODE, &rmap_show_name_cmd);
+	install_element(ENABLE_NODE, &rmap_show_unused_cmd);
 
 	install_element(RMAP_NODE, &match_interface_cmd);
 	install_element(RMAP_NODE, &no_match_interface_cmd);

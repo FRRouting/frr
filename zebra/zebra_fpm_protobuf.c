@@ -176,7 +176,7 @@ static Fpm__AddRoute *create_add_route_message(qpb_allocator_t *allocator,
 		if (num_nhs >= multipath_num)
 			break;
 
-		if (num_nhs >= ZEBRA_NUM_OF(nexthops))
+		if (num_nhs >= array_size(nexthops))
 			break;
 
 		if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {

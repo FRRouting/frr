@@ -150,7 +150,7 @@ int ospf_lsa_checksum_valid(struct lsa_header *lsa)
 
 
 /* Create OSPF LSA. */
-struct ospf_lsa *ospf_lsa_new()
+struct ospf_lsa *ospf_lsa_new(void)
 {
 	struct ospf_lsa *new;
 
@@ -1499,12 +1499,6 @@ struct in_addr ospf_get_nssa_ip(struct ospf_area *area)
 	return fwd;
 }
 
-#define DEFAULT_DEFAULT_METRIC	             20
-#define DEFAULT_DEFAULT_ORIGINATE_METRIC     10
-#define DEFAULT_DEFAULT_ALWAYS_METRIC	      1
-
-#define DEFAULT_METRIC_TYPE		     EXTERNAL_METRIC_TYPE_2
-
 int metric_type(struct ospf *ospf, uint8_t src, unsigned short instance)
 {
 	struct ospf_redist *red;
@@ -2246,6 +2240,22 @@ void ospf_external_lsa_refresh_default(struct ospf *ospf)
 			ospf_refresher_unregister_lsa(ospf, lsa);
 			ospf_lsa_flush_as(ospf, lsa);
 		}
+	}
+}
+
+void ospf_default_originate_lsa_update(struct ospf *ospf)
+{
+	struct prefix_ipv4 p;
+	struct ospf_lsa *lsa;
+
+	p.family = AF_INET;
+	p.prefixlen = 0;
+	p.prefix.s_addr = 0;
+
+	lsa = ospf_external_info_find_lsa(ospf, &p);
+	if (lsa && IS_LSA_MAXAGE(lsa)) {
+		ospf_discard_from_db(ospf, lsa->lsdb, lsa);
+		ospf_lsdb_delete(lsa->lsdb, lsa);
 	}
 }
 
@@ -3636,8 +3646,8 @@ void ospf_refresher_unregister_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 			list_delete(&refresh_list);
 			ospf->lsa_refresh_queue.qs[lsa->refresh_list] = NULL;
 		}
-		ospf_lsa_unlock(&lsa); /* lsa_refresh_queue */
 		lsa->refresh_list = -1;
+		ospf_lsa_unlock(&lsa); /* lsa_refresh_queue */
 	}
 }
 

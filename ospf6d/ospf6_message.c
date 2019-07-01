@@ -1505,10 +1505,8 @@ int ospf6_iobuf_size(unsigned int size)
 	recvnew = XMALLOC(MTYPE_OSPF6_MESSAGE, size);
 	sendnew = XMALLOC(MTYPE_OSPF6_MESSAGE, size);
 
-	if (recvbuf)
-		XFREE(MTYPE_OSPF6_MESSAGE, recvbuf);
-	if (sendbuf)
-		XFREE(MTYPE_OSPF6_MESSAGE, sendbuf);
+	XFREE(MTYPE_OSPF6_MESSAGE, recvbuf);
+	XFREE(MTYPE_OSPF6_MESSAGE, sendbuf);
 	recvbuf = recvnew;
 	sendbuf = sendnew;
 	iobuflen = size;

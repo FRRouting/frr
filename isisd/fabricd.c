@@ -559,18 +559,18 @@ static void move_to_queue(struct isis_lsp *lsp, struct neighbor_entry *n,
 	listnode_add(lsp->flooding_neighbors[type], neighbor_id);
 }
 
-static void mark_neighbor_as_present(struct hash_backet *backet, void *arg)
+static void mark_neighbor_as_present(struct hash_bucket *bucket, void *arg)
 {
-	struct neighbor_entry *n = backet->data;
+	struct neighbor_entry *n = bucket->data;
 
 	n->present = true;
 }
 
-static void handle_firsthops(struct hash_backet *backet, void *arg)
+static void handle_firsthops(struct hash_bucket *bucket, void *arg)
 {
 	struct isis_lsp *lsp = arg;
 	struct fabricd *f = lsp->area->fabricd;
-	struct isis_vertex *vertex = backet->data;
+	struct isis_vertex *vertex = bucket->data;
 
 	struct neighbor_entry *n;
 

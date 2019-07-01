@@ -380,12 +380,10 @@ static int ism_interface_up(struct ospf_interface *oi)
 
 static int ism_loop_ind(struct ospf_interface *oi)
 {
-	int ret = 0;
-
 	/* call ism_interface_down. */
 	/* ret = ism_interface_down (oi); */
 
-	return ret;
+	return 0;
 }
 
 /* Interface down event handler. */

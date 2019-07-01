@@ -168,7 +168,6 @@ extern int bgp_debug_update(struct peer *peer, struct prefix *p,
 extern int bgp_debug_bestpath(struct prefix *p);
 extern int bgp_debug_zebra(struct prefix *p);
 
-extern int bgp_debug_count(void);
 extern const char *bgp_debug_rdpfxpath2str(afi_t, safi_t, struct prefix_rd *,
 					   union prefixconstptr, mpls_label_t *,
 					   uint32_t, int, uint32_t, char *,

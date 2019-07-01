@@ -99,6 +99,17 @@
 
 /* RIP structure. */
 struct rip {
+	RB_ENTRY(rip) entry;
+
+	/* VRF this routing instance is associated with. */
+	char *vrf_name;
+
+	/* VRF backpointer (might be NULL if the VRF doesn't exist). */
+	struct vrf *vrf;
+
+	/* Status of the routing instance. */
+	bool enabled;
+
 	/* RIP socket. */
 	int sock;
 
@@ -112,8 +123,11 @@ struct rip {
 	/* RIP routing information base. */
 	struct route_table *table;
 
-	/* RIP neighbor. */
+	/* RIP static neighbors. */
 	struct route_table *neighbor;
+
+	/* Linked list of RIP peers. */
+	struct list *peer_list;
 
 	/* RIP threads. */
 	struct thread *t_read;
@@ -144,17 +158,46 @@ struct rip {
 	/* Are we in passive-interface default mode? */
 	bool passive_default;
 
-	/* For redistribute route map. */
+	/* RIP enabled interfaces. */
+	vector enable_interface;
+
+	/* RIP enabled networks. */
+	struct route_table *enable_network;
+
+	/* Vector to store passive-interface name. */
+	vector passive_nondefault;
+
+	/* RIP offset-lists. */
+	struct list *offset_list_master;
+
+	/* RIP redistribute configuration. */
 	struct {
-		char *name;
-		struct route_map *map;
+		bool enabled;
+		struct {
+			char *name;
+			struct route_map *map;
+		} route_map;
 		bool metric_config;
 		uint8_t metric;
-	} route_map[ZEBRA_ROUTE_MAX];
+	} redist[ZEBRA_ROUTE_MAX];
 
 	/* For distribute-list container */
 	struct distribute_ctx *distribute_ctx;
+
+	/* For if_rmap container */
+	struct if_rmap_ctx *if_rmap_ctx;
+
+	/* Counters for SNMP. */
+	struct {
+		/* RIP route changes. */
+		long route_changes;
+
+		/* RIP queries. */
+		long queries;
+	} counters;
 };
+RB_HEAD(rip_instance_head, rip);
+RB_PROTOTYPE(rip_instance_head, rip, entry, rip_instance_compare)
 
 /* RIP routing table entry which belong to rip_packet. */
 struct rte {
@@ -222,11 +265,6 @@ struct rip_info {
 	struct route_node *rp;
 
 	uint8_t distance;
-
-#ifdef NEW_RIP_TABLE
-	struct rip_info *next;
-	struct rip_info *prev;
-#endif /* NEW_RIP_TABLE */
 };
 
 typedef enum {
@@ -237,6 +275,9 @@ typedef enum {
 
 /* RIP specific interface configuration. */
 struct rip_interface {
+	/* Parent routing instance. */
+	struct rip *rip;
+
 	/* RIP is enabled on this interface. */
 	int enable_network;
 	int enable_interface;
@@ -294,6 +335,9 @@ struct rip_interface {
 
 /* RIP peer information. */
 struct rip_peer {
+	/* Parent routing instance. */
+	struct rip *rip;
+
 	/* Peer address. */
 	struct in_addr addr;
 
@@ -366,6 +410,9 @@ enum rip_event {
 #define RIP_OFFSET_LIST_MAX 2
 
 struct rip_offset_list {
+	/* Parent routing instance. */
+	struct rip *rip;
+
 	char *ifname;
 
 	struct {
@@ -377,104 +424,114 @@ struct rip_offset_list {
 
 /* Prototypes. */
 extern void rip_init(void);
-extern void rip_clean(void);
-extern void rip_clean_network(void);
-extern void rip_interfaces_clean(void);
-extern int rip_passive_nondefault_set(const char *ifname);
-extern int rip_passive_nondefault_unset(const char *ifname);
-extern void rip_passive_nondefault_clean(void);
+extern void rip_clean(struct rip *rip);
+extern void rip_clean_network(struct rip *rip);
+extern void rip_interfaces_clean(struct rip *rip);
+extern int rip_passive_nondefault_set(struct rip *rip, const char *ifname);
+extern int rip_passive_nondefault_unset(struct rip *rip, const char *ifname);
+extern void rip_passive_nondefault_clean(struct rip *rip);
 extern void rip_if_init(void);
-extern void rip_if_down_all(void);
 extern void rip_route_map_init(void);
+extern void rip_zebra_vrf_register(struct vrf *vrf);
+extern void rip_zebra_vrf_deregister(struct vrf *vrf);
 extern void rip_zclient_init(struct thread_master *);
 extern void rip_zclient_stop(void);
-extern int if_check_address(struct in_addr addr);
-extern int rip_create(int socket);
+extern int if_check_address(struct rip *rip, struct in_addr addr);
+extern struct rip *rip_lookup_by_vrf_id(vrf_id_t vrf_id);
+extern struct rip *rip_lookup_by_vrf_name(const char *vrf_name);
+extern struct rip *rip_create(const char *vrf_name, struct vrf *vrf,
+			      int socket);
 
 extern int rip_request_send(struct sockaddr_in *, struct interface *, uint8_t,
 			    struct connected *);
-extern int rip_neighbor_lookup(struct sockaddr_in *);
-extern int rip_neighbor_add(struct prefix_ipv4 *p);
-extern int rip_neighbor_delete(struct prefix_ipv4 *p);
+extern int rip_neighbor_lookup(struct rip *rip, struct sockaddr_in *from);
+extern int rip_neighbor_add(struct rip *rip, struct prefix_ipv4 *p);
+extern int rip_neighbor_delete(struct rip *rip, struct prefix_ipv4 *p);
 
-extern int rip_enable_network_add(struct prefix *p);
-extern int rip_enable_network_delete(struct prefix *p);
-extern int rip_enable_if_add(const char *ifname);
-extern int rip_enable_if_delete(const char *ifname);
+extern int rip_enable_network_add(struct rip *rip, struct prefix *p);
+extern int rip_enable_network_delete(struct rip *rip, struct prefix *p);
+extern int rip_enable_if_add(struct rip *rip, const char *ifname);
+extern int rip_enable_if_delete(struct rip *rip, const char *ifname);
 
-extern void rip_event(enum rip_event, int);
-extern void rip_ecmp_disable(void);
+extern void rip_event(struct rip *rip, enum rip_event event, int sock);
+extern void rip_ecmp_disable(struct rip *rip);
 
-extern int rip_create_socket(void);
+extern int rip_create_socket(struct vrf *vrf);
 
-extern int rip_redistribute_check(int);
-extern void rip_redistribute_conf_update(int type);
-extern void rip_redistribute_conf_delete(int type);
-extern void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
-				 struct nexthop *nh, unsigned int metric,
-				 unsigned char distance, route_tag_t tag);
-extern void rip_redistribute_delete(int, int, struct prefix_ipv4 *, ifindex_t);
-extern void rip_redistribute_withdraw(int);
-extern void rip_zebra_ipv4_add(struct route_node *);
-extern void rip_zebra_ipv4_delete(struct route_node *);
+extern int rip_redistribute_check(struct rip *rip, int type);
+extern void rip_redistribute_conf_update(struct rip *rip, int type);
+extern void rip_redistribute_conf_delete(struct rip *rip, int type);
+extern void rip_redistribute_add(struct rip *rip, int type, int sub_type,
+				 struct prefix_ipv4 *p, struct nexthop *nh,
+				 unsigned int metric, unsigned char distance,
+				 route_tag_t tag);
+extern void rip_redistribute_delete(struct rip *rip, int type, int sub_type,
+				    struct prefix_ipv4 *p, ifindex_t ifindex);
+extern void rip_redistribute_withdraw(struct rip *rip, int type);
+extern void rip_zebra_ipv4_add(struct rip *rip, struct route_node *rp);
+extern void rip_zebra_ipv4_delete(struct rip *rip, struct route_node *rp);
 extern void rip_interface_multicast_set(int, struct connected *);
 extern void rip_distribute_update_interface(struct interface *);
-extern void rip_if_rmap_update_interface(struct interface *);
+extern void rip_if_rmap_update_interface(struct interface *ifp);
 
-extern int rip_show_network_config(struct vty *);
-extern void rip_show_redistribute_config(struct vty *);
+extern int rip_show_network_config(struct vty *vty, struct rip *rip);
+extern void rip_show_redistribute_config(struct vty *vty, struct rip *rip);
 
-extern void rip_peer_init(void);
-extern void rip_peer_update(struct sockaddr_in *, uint8_t);
-extern void rip_peer_bad_route(struct sockaddr_in *);
-extern void rip_peer_bad_packet(struct sockaddr_in *);
-extern void rip_peer_display(struct vty *);
-extern struct rip_peer *rip_peer_lookup(struct in_addr *);
-extern struct rip_peer *rip_peer_lookup_next(struct in_addr *);
+extern void rip_peer_update(struct rip *rip, struct sockaddr_in *from,
+			    uint8_t version);
+extern void rip_peer_bad_route(struct rip *rip, struct sockaddr_in *from);
+extern void rip_peer_bad_packet(struct rip *rip, struct sockaddr_in *from);
+extern void rip_peer_display(struct vty *vty, struct rip *rip);
+extern struct rip_peer *rip_peer_lookup(struct rip *rip, struct in_addr *addr);
+extern struct rip_peer *rip_peer_lookup_next(struct rip *rip,
+					     struct in_addr *addr);
+extern int rip_peer_list_cmp(struct rip_peer *p1, struct rip_peer *p2);
+extern void rip_peer_list_del(void *arg);
 
 extern void rip_info_free(struct rip_info *);
+extern struct rip *rip_info_get_instance(const struct rip_info *rinfo);
 extern struct rip_distance *rip_distance_new(void);
 extern void rip_distance_free(struct rip_distance *rdistance);
-extern uint8_t rip_distance_apply(struct rip_info *);
-extern void rip_redistribute_clean(void);
+extern uint8_t rip_distance_apply(struct rip *rip, struct rip_info *rinfo);
+extern void rip_redistribute_enable(struct rip *rip);
+extern void rip_redistribute_disable(struct rip *rip);
 
 extern int rip_route_rte(struct rip_info *rinfo);
-extern struct rip_info *rip_ecmp_add(struct rip_info *);
-extern struct rip_info *rip_ecmp_replace(struct rip_info *);
-extern struct rip_info *rip_ecmp_delete(struct rip_info *);
+extern struct rip_info *rip_ecmp_add(struct rip *rip,
+				     struct rip_info *rinfo_new);
+extern struct rip_info *rip_ecmp_replace(struct rip *rip,
+					 struct rip_info *rinfo_new);
+extern struct rip_info *rip_ecmp_delete(struct rip *rip,
+					struct rip_info *rinfo);
 
-extern struct rip_offset_list *rip_offset_list_new(const char *ifname);
+extern struct rip_offset_list *rip_offset_list_new(struct rip *rip,
+						   const char *ifname);
 extern void offset_list_del(struct rip_offset_list *offset);
-extern struct rip_offset_list *rip_offset_list_lookup(const char *ifname);
+extern void offset_list_free(struct rip_offset_list *offset);
+extern struct rip_offset_list *rip_offset_list_lookup(struct rip *rip,
+						      const char *ifname);
 extern int rip_offset_list_apply_in(struct prefix_ipv4 *, struct interface *,
 				    uint32_t *);
 extern int rip_offset_list_apply_out(struct prefix_ipv4 *, struct interface *,
 				     uint32_t *);
-extern void rip_offset_init(void);
-extern void rip_offset_clean(void);
+extern int offset_list_cmp(struct rip_offset_list *o1,
+			   struct rip_offset_list *o2);
+
+extern void rip_vrf_init(void);
+extern void rip_vrf_terminate(void);
 
 /* YANG notifications */
 extern void ripd_notif_send_auth_type_failure(const char *ifname);
 extern void ripd_notif_send_auth_failure(const char *ifname);
 
-/* There is only one rip strucutre. */
-extern struct rip *rip;
-
 extern struct zebra_privs_t ripd_privs;
+extern struct rip_instance_head rip_instances;
 
 /* Master thread strucutre. */
 extern struct thread_master *master;
 
-/* RIP statistics for SNMP. */
-extern long rip_global_route_changes;
-extern long rip_global_queries;
-
 DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc))
 DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc))
-
-extern struct list *peer_list;
-extern struct route_table *rip_distance_table;
-extern vector Vrip_passive_nondefault;
 
 /* Northbound. */
 extern void rip_cli_init(void);

@@ -27,8 +27,13 @@
 #include "yang.h"
 #include "yang_translator.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Forward declaration(s). */
 struct vty;
+struct debug;
 
 /* Northbound events. */
 enum nb_event {
@@ -65,7 +70,7 @@ enum nb_event {
 enum nb_operation {
 	NB_OP_CREATE,
 	NB_OP_MODIFY,
-	NB_OP_DELETE,
+	NB_OP_DESTROY,
 	NB_OP_MOVE,
 	NB_OP_APPLY_FINISH,
 	NB_OP_GET_ELEM,
@@ -168,7 +173,7 @@ struct nb_callbacks {
 	 *    - NB_ERR_INCONSISTENCY when an inconsistency was detected.
 	 *    - NB_ERR for other errors.
 	 */
-	int (*delete)(enum nb_event event, const struct lyd_node *dnode);
+	int (*destroy)(enum nb_event event, const struct lyd_node *dnode);
 
 	/*
 	 * Configuration callback.
@@ -409,15 +414,28 @@ enum nb_error {
 
 /* Northbound clients. */
 enum nb_client {
-	NB_CLIENT_CLI = 0,
+	NB_CLIENT_NONE = 0,
+	NB_CLIENT_CLI,
 	NB_CLIENT_CONFD,
 	NB_CLIENT_SYSREPO,
+	NB_CLIENT_GRPC,
 };
 
 /* Northbound configuration. */
 struct nb_config {
+	/* Configuration data. */
 	struct lyd_node *dnode;
+
+	/* Configuration version. */
 	uint32_t version;
+
+	/*
+	 * Lock protecting this structure. The use of this lock is always
+	 * necessary when reading or modifying the global running configuration.
+	 * For candidate configurations, use of this lock is optional depending
+	 * on the threading scheme of the northbound plugin.
+	 */
+	pthread_rwlock_t lock;
 };
 
 /* Northbound configuration callback. */
@@ -454,11 +472,37 @@ typedef int (*nb_oper_data_cb)(const struct lys_node *snode,
 /* Iterate over direct child nodes only. */
 #define NB_OPER_DATA_ITER_NORECURSE 0x0001
 
+/* Hooks. */
 DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 	     (xpath, arguments))
+DECLARE_HOOK(nb_client_debug_config_write, (struct vty *vty), (vty))
+DECLARE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set))
 
-extern int debug_northbound;
+/* Northbound debugging records */
+extern struct debug nb_dbg_cbs_config;
+extern struct debug nb_dbg_cbs_state;
+extern struct debug nb_dbg_cbs_rpc;
+extern struct debug nb_dbg_notif;
+extern struct debug nb_dbg_events;
+
+/* Global running configuration. */
 extern struct nb_config *running_config;
+
+/* Wrappers for the northbound callbacks. */
+extern struct yang_data *nb_callback_get_elem(const struct nb_node *nb_node,
+					      const char *xpath,
+					      const void *list_entry);
+extern const void *nb_callback_get_next(const struct nb_node *nb_node,
+					const void *parent_list_entry,
+					const void *list_entry);
+extern int nb_callback_get_keys(const struct nb_node *nb_node,
+				const void *list_entry,
+				struct yang_list_keys *keys);
+extern const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
+					    const void *parent_list_entry,
+					    const struct yang_list_keys *keys);
+extern int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
+			   const struct list *input, struct list *output);
 
 /*
  * Create a northbound node for all YANG schema nodes.
@@ -631,6 +675,9 @@ extern int nb_candidate_validate(struct nb_config *candidate);
  * client
  *    Northbound client performing the commit.
  *
+ * user
+ *    Northbound user performing the commit (can be NULL).
+ *
  * comment
  *    Optional comment describing the commit.
  *
@@ -651,7 +698,7 @@ extern int nb_candidate_validate(struct nb_config *candidate);
  *    - NB_ERR for other errors.
  */
 extern int nb_candidate_commit_prepare(struct nb_config *candidate,
-				       enum nb_client client,
+				       enum nb_client client, const void *user,
 				       const char *comment,
 				       struct nb_transaction **transaction);
 
@@ -696,6 +743,9 @@ extern void nb_candidate_commit_apply(struct nb_transaction *transaction,
  * client
  *    Northbound client performing the commit.
  *
+ * user
+ *    Northbound user performing the commit (can be NULL).
+ *
  * save_transaction
  *    Specify whether the transaction should be recorded in the transactions log
  *    or not.
@@ -717,11 +767,57 @@ extern void nb_candidate_commit_apply(struct nb_transaction *transaction,
  *    - NB_ERR for other errors.
  */
 extern int nb_candidate_commit(struct nb_config *candidate,
-			       enum nb_client client, bool save_transaction,
-			       const char *comment, uint32_t *transaction_id);
+			       enum nb_client client, const void *user,
+			       bool save_transaction, const char *comment,
+			       uint32_t *transaction_id);
 
 /*
- * Iterate over operetional data.
+ * Lock the running configuration.
+ *
+ * client
+ *    Northbound client.
+ *
+ * user
+ *    Northbound user (can be NULL).
+ *
+ * Returns:
+ *    0 on success, -1 when the running configuration is already locked.
+ */
+extern int nb_running_lock(enum nb_client client, const void *user);
+
+/*
+ * Unlock the running configuration.
+ *
+ * client
+ *    Northbound client.
+ *
+ * user
+ *    Northbound user (can be NULL).
+ *
+ * Returns:
+ *    0 on success, -1 when the running configuration is already unlocked or
+ *    locked by another client/user.
+ */
+extern int nb_running_unlock(enum nb_client client, const void *user);
+
+/*
+ * Check if the running configuration is locked or not for the given
+ * client/user.
+ *
+ * client
+ *    Northbound client.
+ *
+ * user
+ *    Northbound user (can be NULL).
+ *
+ * Returns:
+ *    0 if the running configuration is unlocked or if the client/user owns the
+ *    lock, -1 otherwise.
+ */
+extern int nb_running_lock_check(enum nb_client client, const void *user);
+
+/*
+ * Iterate over operational data.
  *
  * xpath
  *    Data path of the YANG data we want to iterate over.
@@ -775,6 +871,75 @@ extern bool nb_operation_is_valid(enum nb_operation operation,
  *    NB_OK on success, NB_ERR otherwise.
  */
 extern int nb_notification_send(const char *xpath, struct list *arguments);
+
+/*
+ * Associate a user pointer to a configuration node.
+ *
+ * This should be called by northbound 'create' callbacks in the NB_EV_APPLY
+ * phase only.
+ *
+ * dnode
+ *    libyang data node - only its XPath is used.
+ *
+ * entry
+ *    Arbitrary user-specified pointer.
+ */
+extern void nb_running_set_entry(const struct lyd_node *dnode, void *entry);
+
+/*
+ * Unset the user pointer associated to a configuration node.
+ *
+ * This should be called by northbound 'destroy' callbacks in the NB_EV_APPLY
+ * phase only.
+ *
+ * dnode
+ *    libyang data node - only its XPath is used.
+ *
+ * Returns:
+ *    The user pointer that was unset.
+ */
+extern void *nb_running_unset_entry(const struct lyd_node *dnode);
+
+/*
+ * Find the user pointer (if any) associated to a configuration node.
+ *
+ * The XPath associated to the configuration node can be provided directly or
+ * indirectly through a libyang data node.
+ *
+ * If an user point is not found, this function follows the parent nodes in the
+ * running configuration until an user pointer is found or until the root node
+ * is reached.
+ *
+ * dnode
+ *    libyang data node - only its XPath is used (can be NULL if 'xpath' is
+ *    provided).
+ *
+ * xpath
+ *    XPath of the configuration node (can be NULL if 'dnode' is provided).
+ *
+ * abort_if_not_found
+ *    When set to true, abort the program if no user pointer is found.
+ *
+ *    As a rule of thumb, this parameter should be set to true in the following
+ *    scenarios:
+ *    - Calling this function from any northbound configuration callback during
+ *      the NB_EV_APPLY phase.
+ *    - Calling this function from a 'delete' northbound configuration callback
+ *      during any phase.
+ *
+ *    In both the above cases, the given configuration node should contain an
+ *    user pointer except when there's a bug in the code, in which case it's
+ *    better to abort the program right away and eliminate the need for
+ *    unnecessary NULL checks.
+ *
+ *    In all other cases, this parameter should be set to false and the caller
+ *    should check if the function returned NULL or not.
+ *
+ * Returns:
+ *    User pointer if found, NULL otherwise.
+ */
+extern void *nb_running_get_entry(const struct lyd_node *dnode, const char *xpath,
+				  bool abort_if_not_found);
 
 /*
  * Return a human-readable string representing a northbound event.
@@ -838,5 +1003,9 @@ extern void nb_init(struct thread_master *tm, const struct frr_yang_module_info 
  * is exiting.
  */
 extern void nb_terminate(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_NORTHBOUND_H_ */

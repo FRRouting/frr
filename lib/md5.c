@@ -375,13 +375,8 @@ static void md5_calc(const uint8_t *b64, md5_ctxt *ctxt)
 }
 
 /* From RFC 2104 */
-void hmac_md5(text, text_len, key, key_len,
-	      digest) unsigned char *text; /* pointer to data stream */
-int text_len;				   /* length of data stream */
-unsigned char *key;			   /* pointer to authentication key */
-int key_len;				   /* length of authentication key */
-uint8_t *digest;			   /* caller digest to be filled in */
-
+void hmac_md5(unsigned char *text, int text_len, unsigned char *key,
+	      int key_len, uint8_t *digest)
 {
 	MD5_CTX context;
 	unsigned char k_ipad[65]; /* inner padding -

@@ -504,7 +504,9 @@ check_status()
 
 # Load configuration
 . "$C_PATH/daemons"
-. "$C_PATH/daemons.conf"
+if [ -e "$C_PATH/daemons.conf" ]; then
+	. "$C_PATH/daemons.conf"
+fi
 
 # Read configuration variable file if it is present
 [ -r /etc/default/frr ] && . /etc/default/frr

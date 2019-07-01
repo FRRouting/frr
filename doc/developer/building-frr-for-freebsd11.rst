@@ -11,12 +11,12 @@ FreeBSD 11 restrictions:
 Install required packages
 -------------------------
 
-Add packages: (Allow the install of the package managment tool if this
+Add packages: (Allow the install of the package management tool if this
 is first package install and asked)
 
 .. code-block:: shell
 
-   pkg install git autoconf automake libtool gmake gawk json-c pkgconf \
+   pkg install git autoconf automake libtool gmake json-c pkgconf \
       bison flex py27-pytest c-ares python3 py36-sphinx texinfo
 
 Make sure there is no /usr/bin/flex preinstalled (and use the newly

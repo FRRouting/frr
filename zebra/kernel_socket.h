@@ -22,6 +22,10 @@
 #ifndef __ZEBRA_KERNEL_SOCKET_H
 #define __ZEBRA_KERNEL_SOCKET_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Error codes of zebra. */
 #define ZEBRA_ERR_NOERROR                0
 #define ZEBRA_ERR_RTEXIST               -1
@@ -37,5 +41,9 @@ extern int rtm_write(int, union sockunion *, union sockunion *,
 		     union sockunion *, union sockunion *, unsigned int,
 		     enum blackhole_type, int);
 extern const struct message rtm_type_str[];
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __ZEBRA_KERNEL_SOCKET_H */

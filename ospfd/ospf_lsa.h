@@ -24,6 +24,12 @@
 
 #include "stream.h"
 
+/* OSPF LSA Default metric values */
+#define DEFAULT_DEFAULT_METRIC 20
+#define DEFAULT_DEFAULT_ORIGINATE_METRIC 10
+#define DEFAULT_DEFAULT_ALWAYS_METRIC 1
+#define DEFAULT_METRIC_TYPE EXTERNAL_METRIC_TYPE_2
+
 /* OSPF LSA Range definition. */
 #define OSPF_MIN_LSA		1  /* begin range here */
 #define OSPF_MAX_LSA           12
@@ -63,6 +69,8 @@ struct lsa_header {
 	uint16_t length;
 };
 
+struct vertex;
+
 /* OSPF LSA. */
 struct ospf_lsa {
 	/* LSA origination flag. */
@@ -89,10 +97,7 @@ struct ospf_lsa {
 	int lock;
 
 	/* Flags for the SPF calculation. */
-	int stat;
-#define LSA_SPF_NOT_EXPLORED -1
-#define LSA_SPF_IN_SPFTREE -2
-	/* If stat >= 0, stat is LSA position in candidates heap. */
+	struct vertex *stat;
 
 	/* References to this LSA in neighbor retransmission lists*/
 	int retransmit_counter;
@@ -296,6 +301,7 @@ extern int ospf_lsa_maxage_walker(struct thread *);
 extern struct ospf_lsa *ospf_lsa_refresh(struct ospf *, struct ospf_lsa *);
 
 extern void ospf_external_lsa_refresh_default(struct ospf *);
+extern void ospf_default_originate_lsa_update(struct ospf *ospf);
 
 extern void ospf_external_lsa_refresh_type(struct ospf *, uint8_t,
 					   unsigned short, int);

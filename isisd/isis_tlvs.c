@@ -405,7 +405,7 @@ static int pack_subtlvs(struct isis_subtlvs *subtlvs, struct stream *s)
 
 static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len,
 		       struct stream *stream, struct sbuf *log, void *dest,
-		       int indent);
+		       int indent, bool *unpacked_known_tlvs);
 
 /* Functions related to TLVs 1 Area Addresses */
 
@@ -796,7 +796,7 @@ static int unpack_item_extended_reach(uint16_t mtid, uint8_t len,
 		size_t subtlv_start = stream_get_getp(s);
 
 		if (unpack_tlvs(ISIS_CONTEXT_SUBTLV_NE_REACH, subtlv_len, s,
-				log, NULL, indent + 4)) {
+				log, NULL, indent + 4, NULL)) {
 			goto out;
 		}
 
@@ -1386,9 +1386,15 @@ static int unpack_item_extended_ip_reach(uint16_t mtid, uint8_t len,
 		}
 
 		rv->subtlvs = isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_IP_REACH);
+		bool unpacked_known_tlvs = false;
+
 		if (unpack_tlvs(ISIS_CONTEXT_SUBTLV_IP_REACH, subtlv_len, s,
-				log, rv->subtlvs, indent + 4)) {
+				log, rv->subtlvs, indent + 4, &unpacked_known_tlvs)) {
 			goto out;
+		}
+		if (!unpacked_known_tlvs) {
+			isis_free_subtlvs(rv->subtlvs);
+			rv->subtlvs = NULL;
 		}
 	}
 
@@ -1865,9 +1871,15 @@ static int unpack_item_ipv6_reach(uint16_t mtid, uint8_t len, struct stream *s,
 		}
 
 		rv->subtlvs = isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_IPV6_REACH);
+		bool unpacked_known_tlvs = false;
+
 		if (unpack_tlvs(ISIS_CONTEXT_SUBTLV_IPV6_REACH, subtlv_len, s,
-				log, rv->subtlvs, indent + 4)) {
+				log, rv->subtlvs, indent + 4, &unpacked_known_tlvs)) {
 			goto out;
+		}
+		if (!unpacked_known_tlvs) {
+			isis_free_subtlvs(rv->subtlvs);
+			rv->subtlvs = NULL;
 		}
 	}
 
@@ -1913,7 +1925,7 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i,
 	default:
 		sbuf_push(buf, indent, "  Unknown (%" PRIu8 ")\n", auth->type);
 		break;
-	};
+	}
 }
 
 static void free_item_auth(struct isis_item *i)
@@ -2966,7 +2978,7 @@ static int unpack_tlv_unknown(enum isis_tlv_context context, uint8_t tlv_type,
 
 static int unpack_tlv(enum isis_tlv_context context, size_t avail_len,
 		      struct stream *stream, struct sbuf *log, void *dest,
-		      int indent)
+		      int indent, bool *unpacked_known_tlvs)
 {
 	uint8_t tlv_type, tlv_len;
 	const struct tlv_ops *ops;
@@ -2997,6 +3009,8 @@ static int unpack_tlv(enum isis_tlv_context context, size_t avail_len,
 
 	ops = tlv_table[context][tlv_type];
 	if (ops && ops->unpack) {
+		if (unpacked_known_tlvs)
+			*unpacked_known_tlvs = true;
 		return ops->unpack(context, tlv_type, tlv_len, stream, log,
 				   dest, indent + 2);
 	}
@@ -3007,7 +3021,7 @@ static int unpack_tlv(enum isis_tlv_context context, size_t avail_len,
 
 static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len,
 		       struct stream *stream, struct sbuf *log, void *dest,
-		       int indent)
+		       int indent, bool *unpacked_known_tlvs)
 {
 	int rv;
 	size_t tlv_start, tlv_pos;
@@ -3020,7 +3034,7 @@ static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len,
 
 	while (tlv_pos < avail_len) {
 		rv = unpack_tlv(context, avail_len - tlv_pos, stream, log, dest,
-				indent + 2);
+				indent + 2, unpacked_known_tlvs);
 		if (rv)
 			return rv;
 
@@ -3052,7 +3066,7 @@ int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
 
 	result = isis_alloc_tlvs();
 	rv = unpack_tlvs(ISIS_CONTEXT_LSP, avail_len, stream, &logbuf, result,
-			 indent);
+			 indent, NULL);
 
 	*log = sbuf_buf(&logbuf);
 	*dest = result;
@@ -3202,8 +3216,7 @@ void isis_tlvs_set_protocols_supported(struct isis_tlvs *tlvs,
 				       struct nlpids *nlpids)
 {
 	tlvs->protocols_supported.count = nlpids->count;
-	if (tlvs->protocols_supported.protocols)
-		XFREE(MTYPE_ISIS_TLV, tlvs->protocols_supported.protocols);
+	XFREE(MTYPE_ISIS_TLV, tlvs->protocols_supported.protocols);
 	if (nlpids->count) {
 		tlvs->protocols_supported.protocols =
 			XCALLOC(MTYPE_ISIS_TLV, nlpids->count);
@@ -3253,13 +3266,18 @@ void isis_tlvs_add_ipv6_addresses(struct isis_tlvs *tlvs,
 {
 	struct listnode *node;
 	struct prefix_ipv6 *ip_addr;
+	unsigned int addr_count = 0;
 
 	for (ALL_LIST_ELEMENTS_RO(addresses, node, ip_addr)) {
+		if (addr_count >= 15)
+			break;
+
 		struct isis_ipv6_address *a =
 			XCALLOC(MTYPE_ISIS_TLV, sizeof(*a));
 
 		a->addr = ip_addr->prefix;
 		append_item(&tlvs->ipv6_address, (struct isis_item *)a);
+		addr_count++;
 	}
 }
 
@@ -3523,26 +3541,24 @@ void isis_tlvs_add_lsp_entry(struct isis_tlvs *tlvs, struct isis_lsp *lsp)
 
 void isis_tlvs_add_csnp_entries(struct isis_tlvs *tlvs, uint8_t *start_id,
 				uint8_t *stop_id, uint16_t num_lsps,
-				dict_t *lspdb, struct isis_lsp **last_lsp)
+				struct lspdb_head *head,
+				struct isis_lsp **last_lsp)
 {
-	dnode_t *first = dict_lower_bound(lspdb, start_id);
+	struct isis_lsp searchfor;
+	struct isis_lsp *first, *lsp;
+
+	memcpy(&searchfor.hdr.lsp_id, start_id, sizeof(searchfor.hdr.lsp_id));
+	first = lspdb_find_gteq(head, &searchfor);
 	if (!first)
 		return;
 
-	dnode_t *last = dict_upper_bound(lspdb, stop_id);
-	dnode_t *curr = first;
-
-	isis_tlvs_add_lsp_entry(tlvs, first->dict_data);
-	*last_lsp = first->dict_data;
-
-	while (curr) {
-		curr = dict_next(lspdb, curr);
-		if (curr) {
-			isis_tlvs_add_lsp_entry(tlvs, curr->dict_data);
-			*last_lsp = curr->dict_data;
-		}
-		if (curr == last || tlvs->lsp_entries.count == num_lsps)
+	for_each_from (lspdb, head, lsp, first) {
+		if (memcmp(lsp->hdr.lsp_id, stop_id, sizeof(lsp->hdr.lsp_id))
+			> 0 || tlvs->lsp_entries.count == num_lsps)
 			break;
+
+		isis_tlvs_add_lsp_entry(tlvs, lsp);
+		*last_lsp = lsp;
 	}
 }
 

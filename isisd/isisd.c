@@ -38,7 +38,6 @@
 #include "spf_backoff.h"
 #include "lib/northbound_cli.h"
 
-#include "isisd/dict.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
@@ -95,7 +94,6 @@ void isis_new(unsigned long process_id)
 	 * uncomment the next line for full debugs
 	 */
 	/* isis->debugs = 0xFFFF; */
-	isisMplsTE.status = disable; /* Only support TE metric */
 
 	QOBJ_REG(isis, isis);
 }
@@ -122,12 +120,10 @@ struct isis_area *isis_area_create(const char *area_tag)
 	/*
 	 * intialize the databases
 	 */
-	if (area->is_type & IS_LEVEL_1) {
-		area->lspdb[0] = lsp_db_init();
-	}
-	if (area->is_type & IS_LEVEL_2) {
-		area->lspdb[1] = lsp_db_init();
-	}
+	if (area->is_type & IS_LEVEL_1)
+		lsp_db_init(&area->lspdb[0]);
+	if (area->is_type & IS_LEVEL_2)
+		lsp_db_init(&area->lspdb[1]);
 
 	spftree_area_init(area);
 
@@ -258,6 +254,10 @@ int isis_area_destroy(const char *area_tag)
 	if (fabricd)
 		fabricd_finish(area->fabricd);
 
+	/* Disable MPLS if necessary before flooding LSP */
+	if (IS_MPLS_TE(area->mta))
+		area->mta->status = disable;
+
 	if (area->circuit_list) {
 		for (ALL_LIST_ELEMENTS(area->circuit_list, node, nnode,
 				       circuit)) {
@@ -268,17 +268,11 @@ int isis_area_destroy(const char *area_tag)
 		list_delete(&area->circuit_list);
 	}
 
-	if (area->lspdb[0] != NULL) {
-		lsp_db_destroy(area->lspdb[0]);
-		area->lspdb[0] = NULL;
-	}
-	if (area->lspdb[1] != NULL) {
-		lsp_db_destroy(area->lspdb[1]);
-		area->lspdb[1] = NULL;
-	}
+	lsp_db_fini(&area->lspdb[0]);
+	lsp_db_fini(&area->lspdb[1]);
 
 	/* invalidate and verify to delete all routes from zebra */
-	isis_area_invalidate_routes(area, ISIS_LEVEL1 & ISIS_LEVEL2);
+	isis_area_invalidate_routes(area, area->is_type);
 	isis_area_verify_routes(area);
 
 	spftree_area_del(area);
@@ -1341,7 +1335,7 @@ DEFUN (show_isis_summary,
 	return CMD_SUCCESS;
 }
 
-struct isis_lsp *lsp_for_arg(const char *argv, dict_t *lspdb)
+struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv)
 {
 	char sysid[255] = {0};
 	uint8_t number[3];
@@ -1363,7 +1357,7 @@ struct isis_lsp *lsp_for_arg(const char *argv, dict_t *lspdb)
 	 * xxxx.xxxx.xxxx
 	 */
 	if (argv)
-		strncpy(sysid, argv, 254);
+		strlcpy(sysid, argv, sizeof(sysid));
 	if (argv && strlen(argv) > 3) {
 		pos = argv + strlen(argv) - 3;
 		if (strncmp(pos, "-", 1) == 0) {
@@ -1389,13 +1383,13 @@ struct isis_lsp *lsp_for_arg(const char *argv, dict_t *lspdb)
 	 * hostname.<pseudo-id>-<fragment>
 	 */
 	if (sysid2buff(lspid, sysid)) {
-		lsp = lsp_search(lspid, lspdb);
+		lsp = lsp_search(head, lspid);
 	} else if ((dynhn = dynhn_find_by_name(sysid))) {
 		memcpy(lspid, dynhn->id, ISIS_SYS_ID_LEN);
-		lsp = lsp_search(lspid, lspdb);
+		lsp = lsp_search(head, lspid);
 	} else if (strncmp(cmd_hostname_get(), sysid, 15) == 0) {
 		memcpy(lspid, isis->sysid, ISIS_SYS_ID_LEN);
-		lsp = lsp_search(lspid, lspdb);
+		lsp = lsp_search(head, lspid);
 	}
 
 	return lsp;
@@ -1432,9 +1426,8 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level)
 			area->area_tag ? area->area_tag : "null");
 
 		for (level = 0; level < ISIS_LEVELS; level++) {
-			if (area->lspdb[level]
-			    && dict_count(area->lspdb[level]) > 0) {
-				lsp = lsp_for_arg(argv, area->lspdb[level]);
+			if (lspdb_count(&area->lspdb[level]) > 0) {
+				lsp = lsp_for_arg(&area->lspdb[level], argv);
 
 				if (lsp != NULL || argv == NULL) {
 					vty_out(vty,
@@ -1456,7 +1449,7 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level)
 							  area->dynhostname);
 				} else if (argv == NULL) {
 					lsp_count = lsp_print_all(
-						vty, area->lspdb[level],
+						vty, &area->lspdb[level],
 						ui_level, area->dynhostname);
 
 					vty_out(vty, "    %u LSPs\n\n",
@@ -1639,7 +1632,8 @@ static int isis_area_passwd_set(struct isis_area *area, int level,
 			return -1;
 
 		modified.len = len;
-		strncpy((char *)modified.passwd, passwd, 255);
+		strlcpy((char *)modified.passwd, passwd,
+			sizeof(modified.passwd));
 		modified.type = passwd_type;
 		modified.snp_auth = snp_auth;
 	}
@@ -1695,10 +1689,7 @@ static void area_resign_level(struct isis_area *area, int level)
 	isis_area_invalidate_routes(area, level);
 	isis_area_verify_routes(area);
 
-	if (area->lspdb[level - 1]) {
-		lsp_db_destroy(area->lspdb[level - 1]);
-		area->lspdb[level - 1] = NULL;
-	}
+	lsp_db_fini(&area->lspdb[level - 1]);
 
 	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
 		if (area->spftree[tree][level - 1]) {
@@ -1734,8 +1725,7 @@ void isis_area_is_type_set(struct isis_area *area, int is_type)
 		if (is_type == IS_LEVEL_2)
 			area_resign_level(area, IS_LEVEL_1);
 
-		if (area->lspdb[1] == NULL)
-			area->lspdb[1] = lsp_db_init();
+		lsp_db_init(&area->lspdb[1]);
 		break;
 
 	case IS_LEVEL_1_AND_2:
@@ -1749,8 +1739,7 @@ void isis_area_is_type_set(struct isis_area *area, int is_type)
 		if (is_type == IS_LEVEL_1)
 			area_resign_level(area, IS_LEVEL_2);
 
-		if (area->lspdb[0] == NULL)
-			area->lspdb[0] = lsp_db_init();
+		lsp_db_init(&area->lspdb[0]);
 		break;
 
 	default:
@@ -2136,7 +2125,6 @@ int isis_config_write(struct vty *vty)
 			write += area_write_mt_settings(area, vty);
 			write += fabricd_write_settings(area, vty);
 		}
-		isis_mpls_te_config_write_router(vty);
 	}
 
 	return write;
@@ -2161,7 +2149,7 @@ int isis_config_write(struct vty *vty)
 
 struct cmd_node router_node = {ROUTER_NODE, "%s(config-router)# ", 1};
 
-void isis_init()
+void isis_init(void)
 {
 	/* Install IS-IS top node */
 	install_node(&router_node, isis_config_write);

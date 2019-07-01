@@ -26,11 +26,13 @@
 
 #include <zebra.h>
 
-#include <zebra.h>
-
 #include "if.h"
 #include "linklist.h"
 #include "zebra_vxlan.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define ERR_STR_SZ 256
 
@@ -50,6 +52,10 @@ struct zebra_vtep_t_ {
 	/* Remote IP. */
 	/* NOTE: Can only be IPv4 right now. */
 	struct in_addr vtep_ip;
+	/* Flood mode (one of enum vxlan_flood_control) based on the PMSI
+	 * tunnel type advertised by the remote VTEP
+	 */
+	int flood_control;
 
 	/* Links. */
 	struct zebra_vtep_t_ *next;
@@ -70,6 +76,9 @@ struct zebra_vni_t_ {
 	/* Flag for advertising gw macip */
 	uint8_t advertise_gw_macip;
 
+	/* Flag for advertising svi macip */
+	uint8_t advertise_svi_macip;
+
 	/* Flag for advertising gw macip */
 	uint8_t advertise_subnet;
 
@@ -81,6 +90,9 @@ struct zebra_vni_t_ {
 
 	/* Local IP */
 	struct in_addr local_vtep_ip;
+
+	/* PIM-SM MDT group for BUM flooding */
+	struct in_addr mcast_grp;
 
 	/* tenant VRF, if any */
 	vrf_id_t vrf_id;
@@ -313,11 +325,9 @@ struct rmac_walk_ctx {
 	struct json_object *json;
 };
 
-enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
+#define IS_ZEBRA_NEIGH_ACTIVE(n) (n->state == ZEBRA_NEIGH_ACTIVE)
 
-#define IS_ZEBRA_NEIGH_ACTIVE(n) n->state == ZEBRA_NEIGH_ACTIVE
-
-#define IS_ZEBRA_NEIGH_INACTIVE(n) n->state == ZEBRA_NEIGH_INACTIVE
+#define IS_ZEBRA_NEIGH_INACTIVE(n) (n->state == ZEBRA_NEIGH_INACTIVE)
 
 #define ZEBRA_NEIGH_SET_ACTIVE(n) n->state = ZEBRA_NEIGH_ACTIVE
 
@@ -419,5 +429,31 @@ struct nh_walk_ctx {
 	struct vty *vty;
 	struct json_object *json;
 };
+
+#ifdef __cplusplus
+}
+#endif
+
+/*
+ * Multicast hash table.
+ *
+ * This table contains -
+ * 1. The (S, G) entries used for encapsulating and forwarding BUM traffic.
+ *    S is the local VTEP-IP and G is a BUM mcast group address.
+ * 2. The (X, G) entries used for terminating a BUM flow.
+ * Multiple L2-VNIs can share the same MDT hence the need to maintain
+ * an aggregated table that pimd can consume without much
+ * re-interpretation.
+ */
+typedef struct zebra_vxlan_sg_ {
+	struct zebra_vrf *zvrf;
+
+	struct prefix_sg sg;
+	char sg_str[PREFIX_SG_STR_LEN];
+
+	/* For SG - num of L2 VNIs using this entry for sending BUM traffic */
+	/* For XG - num of SG using this as parent */
+	uint32_t ref_cnt;
+} zebra_vxlan_sg_t;
 
 #endif /* _ZEBRA_VXLAN_PRIVATE_H */

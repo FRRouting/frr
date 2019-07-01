@@ -31,7 +31,7 @@
 #include "ospfd/ospf_lsa.h"
 #include "ospfd/ospf_lsdb.h"
 
-struct ospf_lsdb *ospf_lsdb_new()
+struct ospf_lsdb *ospf_lsdb_new(void)
 {
 	struct ospf_lsdb *new;
 
@@ -166,21 +166,6 @@ void ospf_lsdb_delete_all(struct ospf_lsdb *lsdb)
 		for (rn = route_top(table); rn; rn = route_next(rn))
 			if (rn->info != NULL)
 				ospf_lsdb_delete_entry(lsdb, rn);
-	}
-}
-
-void ospf_lsdb_clean_stat(struct ospf_lsdb *lsdb)
-{
-	struct route_table *table;
-	struct route_node *rn;
-	struct ospf_lsa *lsa;
-	int i;
-
-	for (i = OSPF_MIN_LSA; i < OSPF_MAX_LSA; i++) {
-		table = lsdb->type[i].db;
-		for (rn = route_top(table); rn; rn = route_next(rn))
-			if ((lsa = (rn->info)) != NULL)
-				lsa->stat = LSA_SPF_NOT_EXPLORED;
 	}
 }
 

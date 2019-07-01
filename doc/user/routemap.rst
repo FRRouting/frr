@@ -38,11 +38,12 @@ to four distinct sets of clauses:
       the ordered entry in the route-map. See below.
 
    Call Action
-      Call to another route-map, after any :term:`Set Actions` have been carried out.
-      If the route-map called returns `deny` then processing of the route-map
-      finishes and the route is denied, regardless of the :term:Matching Policy` or
-      the :term:`Exit Policy`. If the called route-map returns `permit`, then
-      :term:`Matching Policy` and :term:`Exit Policy` govern further behaviour, as normal.
+      Call to another route-map, after any :term:`Set Actions` have been
+      carried out.  If the route-map called returns `deny` then processing of
+      the route-map finishes and the route is denied, regardless of the
+      :term:`Matching Policy` or the :term:`Exit Policy`. If the called
+      route-map returns `permit`, then :term:`Matching Policy` and :term:`Exit
+      Policy` govern further behaviour, as normal.
 
    Exit Policy
       An entry may, optionally, specify an alternative :dfn:`Exit Policy` to

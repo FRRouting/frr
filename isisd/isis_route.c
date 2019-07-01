@@ -38,7 +38,6 @@
 #include "isis_constants.h"
 #include "isis_common.h"
 #include "isis_flags.h"
-#include "dict.h"
 #include "isisd.h"
 #include "isis_misc.h"
 #include "isis_adjacency.h"
@@ -544,7 +543,8 @@ void isis_route_verify_merge(struct isis_area *area,
 						ISIS_ROUTE_FLAG_ZEBRA_SYNCED
 					);
 					continue;
-				} else {
+				} else if (CHECK_FLAG(rinfo->flag,
+						      ISIS_ROUTE_FLAG_ACTIVE)) {
 					/* Clear the ZEBRA_SYNCED flag on the L1
 					 * route when L2 wins, otherwise L1
 					 * won't get reinstalled when it
@@ -554,6 +554,11 @@ void isis_route_verify_merge(struct isis_area *area,
 						mrinfo->flag,
 						ISIS_ROUTE_FLAG_ZEBRA_SYNCED
 					);
+				} else if (
+					CHECK_FLAG(
+						mrinfo->flag,
+						ISIS_ROUTE_FLAG_ZEBRA_SYNCED)) {
+					continue;
 				}
 			}
 			mrnode->info = rnode->info;

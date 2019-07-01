@@ -43,6 +43,7 @@
 #include "pim_join.h"
 #include "pim_util.h"
 #include "pim_ssm.h"
+#include "pim_vxlan.h"
 
 struct thread *send_test_packet_timer = NULL;
 
@@ -60,6 +61,7 @@ void pim_register_join(struct pim_upstream *up)
 	pim_channel_add_oif(up->channel_oil, pim->regiface,
 			    PIM_OIF_FLAG_PROTO_PIM);
 	up->reg_state = PIM_REG_JOIN;
+	pim_vxlan_update_sg_reg_state(pim, up, TRUE /*reg_join*/);
 }
 
 void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
@@ -97,7 +99,7 @@ void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
 	pinfo = (struct pim_interface *)ifp->info;
 	if (!pinfo) {
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug("%s: No pinfo!\n", __PRETTY_FUNCTION__);
+			zlog_debug("%s: No pinfo!", __PRETTY_FUNCTION__);
 		return;
 	}
 	if (pim_msg_send(pinfo->pim_sock_fd, src, originator, buffer,
@@ -145,6 +147,8 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 		pim_channel_del_oif(upstream->channel_oil, pim->regiface,
 				    PIM_OIF_FLAG_PROTO_PIM);
 		pim_upstream_start_register_stop_timer(upstream, 0);
+		pim_vxlan_update_sg_reg_state(pim, upstream,
+			FALSE /*reg_join*/);
 		break;
 	case PIM_REG_JOIN_PENDING:
 		upstream->reg_state = PIM_REG_PRUNE;
@@ -189,8 +193,8 @@ void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 
 	if (PIM_DEBUG_PIM_REG) {
 		char rp_str[INET_ADDRSTRLEN];
-		strncpy(rp_str, inet_ntoa(rpg->rpf_addr.u.prefix4),
-			INET_ADDRSTRLEN - 1);
+		strlcpy(rp_str, inet_ntoa(rpg->rpf_addr.u.prefix4),
+			sizeof(rp_str));
 		zlog_debug("%s: Sending %s %sRegister Packet to %s on %s",
 			   __PRETTY_FUNCTION__, up->sg_str,
 			   null_register ? "NULL " : "", rp_str, ifp->name);
@@ -217,6 +221,54 @@ void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 		}
 		return;
 	}
+}
+
+void pim_null_register_send(struct pim_upstream *up)
+{
+	struct ip ip_hdr;
+	struct pim_interface *pim_ifp;
+	struct pim_rpf *rpg;
+	struct in_addr src;
+
+	pim_ifp = up->rpf.source_nexthop.interface->info;
+	if (!pim_ifp) {
+		if (PIM_DEBUG_TRACE)
+			zlog_debug(
+				"%s: Cannot send null-register for %s no valid iif",
+				__PRETTY_FUNCTION__, up->sg_str);
+		return;
+	}
+
+	rpg = RP(pim_ifp->pim, up->sg.grp);
+	if (!rpg) {
+		if (PIM_DEBUG_TRACE)
+			zlog_debug(
+				"%s: Cannot send null-register for %s no RPF to the RP",
+				__PRETTY_FUNCTION__, up->sg_str);
+		return;
+	}
+
+	memset(&ip_hdr, 0, sizeof(struct ip));
+	ip_hdr.ip_p = PIM_IP_PROTO_PIM;
+	ip_hdr.ip_hl = 5;
+	ip_hdr.ip_v = 4;
+	ip_hdr.ip_src = up->sg.src;
+	ip_hdr.ip_dst = up->sg.grp;
+	ip_hdr.ip_len = htons(20);
+
+	/* checksum is broken */
+	src = pim_ifp->primary_address;
+	if (PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(up->flags)) {
+		if (!pim_vxlan_get_register_src(pim_ifp->pim, up, &src)) {
+			if (PIM_DEBUG_TRACE)
+				zlog_debug(
+					"%s: Cannot send null-register for %s vxlan-aa PIP unavailable",
+					__PRETTY_FUNCTION__, up->sg_str);
+			return;
+		}
+	}
+	pim_register_send((uint8_t *)&ip_hdr, sizeof(struct ip),
+			src, rpg, 1, up);
 }
 
 /*
@@ -279,14 +331,13 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
 	ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
 
-	if (!pim_rp_check_is_my_ip_address(pim_ifp->pim, ip_hdr->ip_dst,
-					   dest_addr)) {
+	if (!pim_rp_check_is_my_ip_address(pim_ifp->pim, dest_addr)) {
 		if (PIM_DEBUG_PIM_REG) {
 			char dest[INET_ADDRSTRLEN];
 
 			pim_inet4_dump("<dst?>", dest_addr, dest, sizeof(dest));
 			zlog_debug(
-				"%s: Received Register message for %s that I do not own",
+				"%s: Received Register message for destination address: %s that I do not own",
 				__func__, dest);
 		}
 		return 0;
@@ -330,9 +381,8 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		char src_str[INET_ADDRSTRLEN];
 
 		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-		zlog_debug(
-			"Received Register message(%s) from %s on %s, rp: %d",
-			pim_str_sg_dump(&sg), src_str, ifp->name, i_am_rp);
+		zlog_debug("Received Register message%s from %s on %s, rp: %d",
+			   pim_str_sg_dump(&sg), src_str, ifp->name, i_am_rp);
 	}
 
 	if (i_am_rp

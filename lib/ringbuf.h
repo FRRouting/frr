@@ -25,6 +25,10 @@
 
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct ringbuf {
 	size_t size;
 	ssize_t start;
@@ -121,5 +125,9 @@ void ringbuf_reset(struct ringbuf *buf);
  * @param buf
  */
 void ringbuf_wipe(struct ringbuf *buf);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_RINGBUF_H_ */

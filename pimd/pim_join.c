@@ -439,9 +439,6 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 	size_t packet_size = 0;
 	size_t group_size = 0;
 
-	on_trace(__PRETTY_FUNCTION__, rpf->source_nexthop.interface,
-		 rpf->rpf_addr.u.prefix4);
-
 	if (rpf->source_nexthop.interface)
 		pim_ifp = rpf->source_nexthop.interface->info;
 	else {
@@ -449,6 +446,9 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			  __PRETTY_FUNCTION__);
 		return -1;
 	}
+
+	on_trace(__PRETTY_FUNCTION__, rpf->source_nexthop.interface,
+		rpf->rpf_addr.u.prefix4);
 
 	if (!pim_ifp) {
 		zlog_warn("%s: multicast not enabled on interface %s",

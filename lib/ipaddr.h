@@ -25,6 +25,10 @@
 
 #include <zebra.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * Generic IP address - union of IPv4 and IPv6 address.
  */
@@ -111,5 +115,9 @@ static inline void ipv4_mapped_ipv6_to_ipv4(struct in6_addr *in6,
 	memset(in, 0, sizeof(struct in_addr));
 	memcpy(in, (char *)in6 + 12, sizeof(struct in_addr));
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __IPADDR_H__ */

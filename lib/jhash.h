@@ -20,6 +20,10 @@
 #ifndef _QUAGGA_JHASH_H
 #define _QUAGGA_JHASH_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* The most generic version, hashes an arbitrary sequence
  * of bytes.  No alignment or length assumptions are made about
  * the input key.
@@ -41,5 +45,9 @@ extern uint32_t jhash_3words(uint32_t a, uint32_t b, uint32_t c,
 			     uint32_t initval);
 extern uint32_t jhash_2words(uint32_t a, uint32_t b, uint32_t initval);
 extern uint32_t jhash_1word(uint32_t a, uint32_t initval);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _QUAGGA_JHASH_H */

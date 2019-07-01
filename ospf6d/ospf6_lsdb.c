@@ -39,10 +39,6 @@ struct ospf6_lsdb *ospf6_lsdb_create(void *data)
 	struct ospf6_lsdb *lsdb;
 
 	lsdb = XCALLOC(MTYPE_OSPF6_LSDB, sizeof(struct ospf6_lsdb));
-	if (lsdb == NULL) {
-		zlog_warn("Can't malloc lsdb");
-		return NULL;
-	}
 	memset(lsdb, 0, sizeof(struct ospf6_lsdb));
 
 	lsdb->data = data;

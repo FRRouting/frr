@@ -1112,7 +1112,7 @@ DEFPY (rpki_cache,
 		vty_out(vty,
 			"ssh sockets are not supported. "
 			"Please recompile rtrlib and frr with ssh support. "
-			"If you want to use it");
+			"If you want to use it\n");
 #endif
 	} else { // use tcp connection
 		return_value = add_tcp_cache(cache, tcpport, preference);
@@ -1253,6 +1253,7 @@ DEFUN (show_rpki_cache_server,
 				cache->tr_config.tcp_config->host,
 				cache->tr_config.tcp_config->port);
 
+#if defined(FOUND_SSH)
 		} else if (cache->type == SSH) {
 			vty_out(vty,
 				"host: %s port: %d username: %s "
@@ -1264,6 +1265,7 @@ DEFUN (show_rpki_cache_server,
 					->server_hostkey_path,
 				cache->tr_config.ssh_config
 					->client_privkey_path);
+#endif
 		}
 	}
 
@@ -1472,7 +1474,7 @@ static void install_cli_commands(void)
 	install_default(RPKI_NODE);
 	overwrite_exit_commands();
 	install_element(CONFIG_NODE, &rpki_cmd);
-	install_element(VIEW_NODE, &rpki_cmd);
+	install_element(ENABLE_NODE, &rpki_cmd);
 
 	install_element(ENABLE_NODE, &bgp_rpki_start_cmd);
 	install_element(ENABLE_NODE, &bgp_rpki_stop_cmd);
@@ -1505,10 +1507,10 @@ static void install_cli_commands(void)
 	install_element(RPKI_NODE, &no_rpki_cache_cmd);
 
 	/* Install show commands */
-	install_element(ENABLE_NODE, &show_rpki_prefix_table_cmd);
-	install_element(ENABLE_NODE, &show_rpki_cache_connection_cmd);
-	install_element(ENABLE_NODE, &show_rpki_cache_server_cmd);
-	install_element(ENABLE_NODE, &show_rpki_prefix_cmd);
+	install_element(VIEW_NODE, &show_rpki_prefix_table_cmd);
+	install_element(VIEW_NODE, &show_rpki_cache_connection_cmd);
+	install_element(VIEW_NODE, &show_rpki_cache_server_cmd);
+	install_element(VIEW_NODE, &show_rpki_prefix_cmd);
 
 	/* Install debug commands */
 	install_element(CONFIG_NODE, &debug_rpki_cmd);

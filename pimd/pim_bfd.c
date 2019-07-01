@@ -208,8 +208,7 @@ void pim_bfd_if_param_set(struct interface *ifp, uint32_t min_rx,
  *                                  connectivity if the BFD status changed to
  *                                  down.
  */
-static int pim_bfd_interface_dest_update(int command, struct zclient *zclient,
-					 zebra_size_t length, vrf_id_t vrf_id)
+static int pim_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp = NULL;
 	struct pim_interface *pim_ifp = NULL;
@@ -288,8 +287,7 @@ static int pim_bfd_interface_dest_update(int command, struct zclient *zclient,
  * pim_bfd_nbr_replay - Replay all the neighbors that have BFD enabled
  *                       to zebra
  */
-static int pim_bfd_nbr_replay(int command, struct zclient *zclient,
-			      zebra_size_t length, vrf_id_t vrf_id)
+static int pim_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp = NULL;
 	struct pim_interface *pim_ifp = NULL;

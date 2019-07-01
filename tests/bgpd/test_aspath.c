@@ -1074,7 +1074,7 @@ static int validate(struct aspath *as, const struct test_spec *sp)
 	return fails;
 }
 
-static void empty_get_test()
+static void empty_get_test(void)
 {
 	struct aspath *as = aspath_empty_get();
 	struct test_spec sp = {"", "", 0, 0, 0, 0, 0, 0};
@@ -1219,7 +1219,7 @@ static void aggregate_test(struct tests *t)
 }
 
 /* cmp_left tests  */
-static void cmp_test()
+static void cmp_test(void)
 {
 	unsigned int i;
 #define CMP_TESTS_MAX (sizeof(left_compare) / sizeof(struct compare_tests))

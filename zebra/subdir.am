@@ -10,6 +10,7 @@ vtysh_scan += \
 	$(top_srcdir)/zebra/interface.c \
 	$(top_srcdir)/zebra/router-id.c \
 	$(top_srcdir)/zebra/rtadv.c \
+	$(top_srcdir)/zebra/zebra_mlag.c \
 	$(top_srcdir)/zebra/zebra_mpls_vty.c \
 	$(top_srcdir)/zebra/zebra_ptm.c \
 	$(top_srcdir)/zebra/zebra_pw.c \
@@ -64,6 +65,7 @@ zebra_zebra_SOURCES = \
 	zebra/rtread_sysctl.c \
 	zebra/rule_netlink.c \
 	zebra/rule_socket.c \
+	zebra/zebra_mlag.c \
 	zebra/zebra_l2.c \
 	zebra/zebra_memory.c \
 	zebra/zebra_dplane.c \
@@ -93,9 +95,16 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_errors.c \
 	# end
 
-zebra/zebra_vty_clippy.c: $(CLIPPY_DEPS)
-zebra/zebra_vty.$(OBJEXT): zebra/zebra_vty_clippy.c
+zebra/debug_clippy.c: $(CLIPPY_DEPS)
+zebra/debug.$(OBJEXT): zebra/debug_clippy.c
 
+zebra/zebra_mlag_clippy.c: $(CLIPPY_DEPS)
+zebra/zebra_mlag.$(OBJEXT): zebra/zebra_mlag_clippy.c
+
+zebra/zebra_vty_clippy.c: $(CLIPPY_DEPS)
+zebra/interface_clippy.c: $(CLIPPY_DEPS)
+zebra/interface.$(OBJEXT): zebra/interface_clippy.c
+zebra/zebra_vty.$(OBJEXT): zebra/zebra_vty_clippy.c
 
 zebra/zebra_routemap_clippy.c: $(CLIPPY_DEPS)
 zebra/zebra_routemap.$(OBJEXT): zebra/zebra_routemap_clippy.c
@@ -119,6 +128,7 @@ noinst_HEADERS += \
 	zebra/rt_netlink.h \
 	zebra/rtadv.h \
 	zebra/rule_netlink.h \
+	zebra/zebra_mlag.h \
 	zebra/zebra_fpm_private.h \
 	zebra/zebra_l2.h \
 	zebra/zebra_dplane.h \

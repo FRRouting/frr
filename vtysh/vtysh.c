@@ -1305,6 +1305,7 @@ DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
 	return CMD_SUCCESS;
 }
 
+#ifdef KEEP_OLD_VPN_COMMANDS
 DEFUNSH(VTYSH_BGPD, address_family_vpnv4, address_family_vpnv4_cmd,
 	"address-family vpnv4 [unicast]",
 	"Enter Address Family command mode\n"
@@ -1324,6 +1325,7 @@ DEFUNSH(VTYSH_BGPD, address_family_vpnv6, address_family_vpnv6_cmd,
 	vty->node = BGP_VPNV6_NODE;
 	return CMD_SUCCESS;
 }
+#endif /* KEEP_OLD_VPN_COMMANDS */
 
 DEFUNSH(VTYSH_BGPD, address_family_ipv4, address_family_ipv4_cmd,
 	"address-family ipv4 [unicast]",
@@ -1519,15 +1521,15 @@ DEFUNSH(VTYSH_KEYS, key, key_cmd, "key (0-2147483647)",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_RIPD, router_rip, router_rip_cmd, "router rip",
-	ROUTER_STR "RIP\n")
+DEFUNSH(VTYSH_RIPD, router_rip, router_rip_cmd, "router rip [vrf NAME]",
+	ROUTER_STR "RIP\n" VRF_CMD_HELP_STR)
 {
 	vty->node = RIP_NODE;
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_RIPNGD, router_ripng, router_ripng_cmd, "router ripng",
-	ROUTER_STR "RIPng\n")
+DEFUNSH(VTYSH_RIPNGD, router_ripng, router_ripng_cmd, "router ripng [vrf NAME]",
+	ROUTER_STR "RIPng\n" VRF_CMD_HELP_STR)
 {
 	vty->node = RIPNG_NODE;
 	return CMD_SUCCESS;
@@ -2170,7 +2172,7 @@ DEFUNSH(VTYSH_VRF, vtysh_quit_vrf, vtysh_quit_vrf_cmd, "quit",
 	return vtysh_exit_vrf(self, vty, argc, argv);
 }
 
-DEFUNSH(VTYSH_PBRD, vtysh_exit_nexthop_group, vtysh_exit_nexthop_group_cmd,
+DEFUNSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_exit_nexthop_group, vtysh_exit_nexthop_group_cmd,
 	"exit", "Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit(vty);
@@ -3330,7 +3332,7 @@ static void vtysh_client_sorted_insert(struct vtysh_client *head_client,
 
 #define MAXIMUM_INSTANCES 10
 
-static void vtysh_update_all_insances(struct vtysh_client *head_client)
+static void vtysh_update_all_instances(struct vtysh_client *head_client)
 {
 	struct vtysh_client *client;
 	DIR *dir;
@@ -3373,7 +3375,7 @@ static int vtysh_connect_all_instances(struct vtysh_client *head_client)
 	struct vtysh_client *client;
 	int rc = 0;
 
-	vtysh_update_all_insances(head_client);
+	vtysh_update_all_instances(head_client);
 
 	client = head_client->next;
 	while (client) {
@@ -3464,7 +3466,7 @@ static const struct cmd_variable_handler vtysh_var_handler[] = {
 	 .completions = vtysh_autocomplete},
 	{.completions = NULL}};
 
-void vtysh_uninit()
+void vtysh_uninit(void)
 {
 	if (vty->of != stdout)
 		fclose(vty->of);
@@ -3735,8 +3737,10 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &router_isis_cmd);
 	install_element(CONFIG_NODE, &router_openfabric_cmd);
 	install_element(CONFIG_NODE, &router_bgp_cmd);
+#ifdef KEEP_OLD_VPN_COMMANDS
 	install_element(BGP_NODE, &address_family_vpnv4_cmd);
 	install_element(BGP_NODE, &address_family_vpnv6_cmd);
+#endif /* KEEP_OLD_VPN_COMMANDS */
 #if defined(ENABLE_BGP_VNC)
 	install_element(BGP_NODE, &vnc_vrf_policy_cmd);
 	install_element(BGP_NODE, &vnc_defaults_cmd);

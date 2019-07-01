@@ -22,7 +22,9 @@
 #include "libfrr.h"
 #include "log.h"
 #include "lib_errors.h"
+#include "hash.h"
 #include "command.h"
+#include "debug.h"
 #include "db.h"
 #include "northbound.h"
 #include "northbound_cli.h"
@@ -30,9 +32,28 @@
 
 DEFINE_MTYPE_STATIC(LIB, NB_NODE, "Northbound Node")
 DEFINE_MTYPE_STATIC(LIB, NB_CONFIG, "Northbound Configuration")
+DEFINE_MTYPE_STATIC(LIB, NB_CONFIG_ENTRY, "Northbound Configuration Entry")
 
 /* Running configuration - shouldn't be modified directly. */
 struct nb_config *running_config;
+
+/* Hash table of user pointers associated with configuration entries. */
+static struct hash *running_config_entries;
+
+/* Management lock for the running configuration. */
+static struct {
+	/* Mutex protecting this structure. */
+	pthread_mutex_t mtx;
+
+	/* Actual lock. */
+	bool locked;
+
+	/* Northbound client who owns this lock. */
+	enum nb_client owner_client;
+
+	/* Northbound user who owns this lock. */
+	const void *owner_user;
+} running_config_mgmt_lock;
 
 /*
  * Global lock used to prevent multiple configuration transactions from
@@ -40,11 +61,12 @@ struct nb_config *running_config;
  */
 static bool transaction_in_progress;
 
-static int nb_configuration_callback(const enum nb_event event,
+static int nb_callback_configuration(const enum nb_event event,
 				     struct nb_config_change *change);
 static struct nb_transaction *nb_transaction_new(struct nb_config *config,
 						 struct nb_config_cbs *changes,
 						 enum nb_client client,
+						 const void *user,
 						 const char *comment);
 static void nb_transaction_free(struct nb_transaction *transaction);
 static int nb_transaction_process(enum nb_event event,
@@ -184,8 +206,8 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 				     !!nb_node->cbs.create, false);
 	error += nb_node_validate_cb(nb_node, NB_OP_MODIFY,
 				     !!nb_node->cbs.modify, false);
-	error += nb_node_validate_cb(nb_node, NB_OP_DELETE,
-				     !!nb_node->cbs.delete, false);
+	error += nb_node_validate_cb(nb_node, NB_OP_DESTROY,
+				     !!nb_node->cbs.destroy, false);
 	error += nb_node_validate_cb(nb_node, NB_OP_MOVE, !!nb_node->cbs.move,
 				     false);
 	error += nb_node_validate_cb(nb_node, NB_OP_APPLY_FINISH,
@@ -242,6 +264,7 @@ struct nb_config *nb_config_new(struct lyd_node *dnode)
 	else
 		config->dnode = yang_dnode_new(ly_native_ctx, true);
 	config->version = 0;
+	pthread_rwlock_init(&config->lock, NULL);
 
 	return config;
 }
@@ -250,6 +273,7 @@ void nb_config_free(struct nb_config *config)
 {
 	if (config->dnode)
 		yang_dnode_free(config->dnode);
+	pthread_rwlock_destroy(&config->lock);
 	XFREE(MTYPE_NB_CONFIG, config);
 }
 
@@ -260,6 +284,7 @@ struct nb_config *nb_config_dup(const struct nb_config *config)
 	dup = XCALLOC(MTYPE_NB_CONFIG, sizeof(*dup));
 	dup->dnode = yang_dnode_dup(config->dnode);
 	dup->version = config->version;
+	pthread_rwlock_init(&dup->lock, NULL);
 
 	return dup;
 }
@@ -348,39 +373,58 @@ static void nb_config_diff_del_changes(struct nb_config_cbs *changes)
  * configurations. Given a new subtree, calculate all new YANG data nodes,
  * excluding default leafs and leaf-lists. This is a recursive function.
  */
-static void nb_config_diff_new_subtree(const struct lyd_node *dnode,
-				       struct nb_config_cbs *changes)
+static void nb_config_diff_created(const struct lyd_node *dnode,
+				   struct nb_config_cbs *changes)
 {
+	enum nb_operation operation;
 	struct lyd_node *child;
 
-	LY_TREE_FOR (dnode->child, child) {
-		enum nb_operation operation;
-
-		switch (child->schema->nodetype) {
-		case LYS_LEAF:
-		case LYS_LEAFLIST:
-			if (lyd_wd_default((struct lyd_node_leaf_list *)child))
-				break;
-
-			if (nb_operation_is_valid(NB_OP_CREATE, child->schema))
-				operation = NB_OP_CREATE;
-			else if (nb_operation_is_valid(NB_OP_MODIFY,
-						       child->schema))
-				operation = NB_OP_MODIFY;
-			else
-				continue;
-
-			nb_config_diff_add_change(changes, operation, child);
+	switch (dnode->schema->nodetype) {
+	case LYS_LEAF:
+	case LYS_LEAFLIST:
+		if (lyd_wd_default((struct lyd_node_leaf_list *)dnode))
 			break;
-		case LYS_CONTAINER:
-		case LYS_LIST:
-			if (nb_operation_is_valid(NB_OP_CREATE, child->schema))
-				nb_config_diff_add_change(changes, NB_OP_CREATE,
-							  child);
-			nb_config_diff_new_subtree(child, changes);
-			break;
-		default:
-			break;
+
+		if (nb_operation_is_valid(NB_OP_CREATE, dnode->schema))
+			operation = NB_OP_CREATE;
+		else if (nb_operation_is_valid(NB_OP_MODIFY, dnode->schema))
+			operation = NB_OP_MODIFY;
+		else
+			return;
+
+		nb_config_diff_add_change(changes, operation, dnode);
+		break;
+	case LYS_CONTAINER:
+	case LYS_LIST:
+		if (nb_operation_is_valid(NB_OP_CREATE, dnode->schema))
+			nb_config_diff_add_change(changes, NB_OP_CREATE, dnode);
+
+		/* Process child nodes recursively. */
+		LY_TREE_FOR (dnode->child, child) {
+			nb_config_diff_created(child, changes);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+static void nb_config_diff_deleted(const struct lyd_node *dnode,
+				   struct nb_config_cbs *changes)
+{
+	if (nb_operation_is_valid(NB_OP_DESTROY, dnode->schema))
+		nb_config_diff_add_change(changes, NB_OP_DESTROY, dnode);
+	else if (CHECK_FLAG(dnode->schema->nodetype, LYS_CONTAINER)) {
+		struct lyd_node *child;
+
+		/*
+		 * Non-presence containers need special handling since they
+		 * don't have "destroy" callbacks. In this case, what we need to
+		 * do is to call the "destroy" callbacks of their child nodes
+		 * when applicable (i.e. optional nodes).
+		 */
+		LY_TREE_FOR (dnode->child, child) {
+			nb_config_diff_deleted(child, changes);
 		}
 	}
 }
@@ -399,42 +443,27 @@ static void nb_config_diff(const struct nb_config *config1,
 	for (int i = 0; diff->type[i] != LYD_DIFF_END; i++) {
 		LYD_DIFFTYPE type;
 		struct lyd_node *dnode;
-		enum nb_operation operation;
 
 		type = diff->type[i];
 
 		switch (type) {
 		case LYD_DIFF_CREATED:
 			dnode = diff->second[i];
-
-			if (nb_operation_is_valid(NB_OP_CREATE, dnode->schema))
-				operation = NB_OP_CREATE;
-			else if (nb_operation_is_valid(NB_OP_MODIFY,
-						       dnode->schema))
-				operation = NB_OP_MODIFY;
-			else
-				continue;
+			nb_config_diff_created(dnode, changes);
 			break;
 		case LYD_DIFF_DELETED:
 			dnode = diff->first[i];
-			operation = NB_OP_DELETE;
+			nb_config_diff_deleted(dnode, changes);
 			break;
 		case LYD_DIFF_CHANGED:
 			dnode = diff->second[i];
-			operation = NB_OP_MODIFY;
+			nb_config_diff_add_change(changes, NB_OP_MODIFY, dnode);
 			break;
 		case LYD_DIFF_MOVEDAFTER1:
 		case LYD_DIFF_MOVEDAFTER2:
 		default:
 			continue;
 		}
-
-		nb_config_diff_add_change(changes, operation, dnode);
-
-		if (type == LYD_DIFF_CREATED
-		    && CHECK_FLAG(dnode->schema->nodetype,
-				  LYS_CONTAINER | LYS_LIST))
-			nb_config_diff_new_subtree(dnode, changes);
 	}
 
 	lyd_free_diff(diff);
@@ -448,13 +477,6 @@ int nb_candidate_edit(struct nb_config *candidate,
 {
 	struct lyd_node *dnode;
 	char xpath_edit[XPATH_MAXLEN];
-
-	if (!nb_operation_is_valid(operation, nb_node->snode)) {
-		flog_warn(EC_LIB_NB_CANDIDATE_EDIT_ERROR,
-			  "%s: %s operation not valid for %s", __func__,
-			  nb_operation_name(operation), xpath);
-		return NB_ERR;
-	}
 
 	/* Use special notation for leaf-lists (RFC 6020, section 9.13.5). */
 	if (nb_node->snode->nodetype == LYS_LEAFLIST)
@@ -485,7 +507,7 @@ int nb_candidate_edit(struct nb_config *candidate,
 			lyd_validate(&dnode, LYD_OPT_CONFIG, ly_native_ctx);
 		}
 		break;
-	case NB_OP_DELETE:
+	case NB_OP_DESTROY:
 		dnode = yang_dnode_get(candidate->dnode, xpath_edit);
 		if (!dnode)
 			/*
@@ -510,55 +532,34 @@ int nb_candidate_edit(struct nb_config *candidate,
 
 bool nb_candidate_needs_update(const struct nb_config *candidate)
 {
-	if (candidate->version < running_config->version)
-		return true;
+	bool ret = false;
 
-	return false;
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		if (candidate->version < running_config->version)
+			ret = true;
+	}
+	pthread_rwlock_unlock(&running_config->lock);
+
+	return ret;
 }
 
 int nb_candidate_update(struct nb_config *candidate)
 {
 	struct nb_config *updated_config;
 
-	updated_config = nb_config_dup(running_config);
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		updated_config = nb_config_dup(running_config);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
+
 	if (nb_config_merge(updated_config, candidate, true) != NB_OK)
 		return NB_ERR;
 
 	nb_config_replace(candidate, updated_config, false);
 
 	return NB_OK;
-}
-
-/*
- * The northbound configuration callbacks use the 'priv' pointer present in the
- * libyang lyd_node structure to store pointers to FRR internal variables
- * associated to YANG lists and presence containers. Before commiting a
- * candidate configuration, we must restore the 'priv' pointers stored in the
- * running configuration since they might be lost while editing the candidate.
- */
-static void nb_candidate_restore_priv_pointers(struct nb_config *candidate)
-{
-	struct lyd_node *root, *next, *dnode_iter;
-
-	LY_TREE_FOR (running_config->dnode, root) {
-		LY_TREE_DFS_BEGIN (root, next, dnode_iter) {
-			struct lyd_node *dnode_candidate;
-			char xpath[XPATH_MAXLEN];
-
-			if (!dnode_iter->priv)
-				goto next;
-
-			yang_dnode_get_path(dnode_iter, xpath, sizeof(xpath));
-			dnode_candidate =
-				yang_dnode_get(candidate->dnode, xpath);
-			if (dnode_candidate)
-				yang_dnode_set_entry(dnode_candidate,
-						     dnode_iter->priv);
-
-		next:
-			LY_TREE_DFS_END(root, next, dnode_iter);
-		}
-	}
 }
 
 /*
@@ -583,12 +584,11 @@ static int nb_candidate_validate_changes(struct nb_config *candidate,
 {
 	struct nb_config_cb *cb;
 
-	nb_candidate_restore_priv_pointers(candidate);
 	RB_FOREACH (cb, nb_config_cbs, changes) {
 		struct nb_config_change *change = (struct nb_config_change *)cb;
 		int ret;
 
-		ret = nb_configuration_callback(NB_EV_VALIDATE, change);
+		ret = nb_callback_configuration(NB_EV_VALIDATE, change);
 		if (ret != NB_OK)
 			return NB_ERR_VALIDATION;
 	}
@@ -605,15 +605,20 @@ int nb_candidate_validate(struct nb_config *candidate)
 		return NB_ERR_VALIDATION;
 
 	RB_INIT(nb_config_cbs, &changes);
-	nb_config_diff(running_config, candidate, &changes);
-	ret = nb_candidate_validate_changes(candidate, &changes);
-	nb_config_diff_del_changes(&changes);
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		nb_config_diff(running_config, candidate, &changes);
+		ret = nb_candidate_validate_changes(candidate, &changes);
+		nb_config_diff_del_changes(&changes);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	return ret;
 }
 
 int nb_candidate_commit_prepare(struct nb_config *candidate,
-				enum nb_client client, const char *comment,
+				enum nb_client client, const void *user,
+				const char *comment,
 				struct nb_transaction **transaction)
 {
 	struct nb_config_cbs changes;
@@ -626,25 +631,36 @@ int nb_candidate_commit_prepare(struct nb_config *candidate,
 	}
 
 	RB_INIT(nb_config_cbs, &changes);
-	nb_config_diff(running_config, candidate, &changes);
-	if (RB_EMPTY(nb_config_cbs, &changes))
-		return NB_ERR_NO_CHANGES;
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		nb_config_diff(running_config, candidate, &changes);
+		if (RB_EMPTY(nb_config_cbs, &changes)) {
+			pthread_rwlock_unlock(&running_config->lock);
+			return NB_ERR_NO_CHANGES;
+		}
 
-	if (nb_candidate_validate_changes(candidate, &changes) != NB_OK) {
-		flog_warn(EC_LIB_NB_CANDIDATE_INVALID,
-			  "%s: failed to validate candidate configuration",
-			  __func__);
-		nb_config_diff_del_changes(&changes);
-		return NB_ERR_VALIDATION;
-	}
+		if (nb_candidate_validate_changes(candidate, &changes)
+		    != NB_OK) {
+			flog_warn(
+				EC_LIB_NB_CANDIDATE_INVALID,
+				"%s: failed to validate candidate configuration",
+				__func__);
+			nb_config_diff_del_changes(&changes);
+			pthread_rwlock_unlock(&running_config->lock);
+			return NB_ERR_VALIDATION;
+		}
 
-	*transaction = nb_transaction_new(candidate, &changes, client, comment);
-	if (*transaction == NULL) {
-		flog_warn(EC_LIB_NB_TRANSACTION_CREATION_FAILED,
-			  "%s: failed to create transaction", __func__);
-		nb_config_diff_del_changes(&changes);
-		return NB_ERR_LOCKED;
+		*transaction = nb_transaction_new(candidate, &changes, client,
+						  user, comment);
+		if (*transaction == NULL) {
+			flog_warn(EC_LIB_NB_TRANSACTION_CREATION_FAILED,
+				  "%s: failed to create transaction", __func__);
+			nb_config_diff_del_changes(&changes);
+			pthread_rwlock_unlock(&running_config->lock);
+			return NB_ERR_LOCKED;
+		}
 	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	return nb_transaction_process(NB_EV_PREPARE, *transaction);
 }
@@ -663,7 +679,11 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 
 	/* Replace running by candidate. */
 	transaction->config->version++;
-	nb_config_replace(running_config, transaction->config, true);
+	pthread_rwlock_wrlock(&running_config->lock);
+	{
+		nb_config_replace(running_config, transaction->config, true);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	/* Record transaction. */
 	if (save_transaction
@@ -675,13 +695,13 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 }
 
 int nb_candidate_commit(struct nb_config *candidate, enum nb_client client,
-			bool save_transaction, const char *comment,
-			uint32_t *transaction_id)
+			const void *user, bool save_transaction,
+			const char *comment, uint32_t *transaction_id)
 {
 	struct nb_transaction *transaction = NULL;
 	int ret;
 
-	ret = nb_candidate_commit_prepare(candidate, client, comment,
+	ret = nb_candidate_commit_prepare(candidate, client, user, comment,
 					  &transaction);
 	/*
 	 * Apply the changes if the preparation phase succeeded. Otherwise abort
@@ -692,6 +712,60 @@ int nb_candidate_commit(struct nb_config *candidate, enum nb_client client,
 					  transaction_id);
 	else if (transaction != NULL)
 		nb_candidate_commit_abort(transaction);
+
+	return ret;
+}
+
+int nb_running_lock(enum nb_client client, const void *user)
+{
+	int ret = -1;
+
+	pthread_mutex_lock(&running_config_mgmt_lock.mtx);
+	{
+		if (!running_config_mgmt_lock.locked) {
+			running_config_mgmt_lock.locked = true;
+			running_config_mgmt_lock.owner_client = client;
+			running_config_mgmt_lock.owner_user = user;
+			ret = 0;
+		}
+	}
+	pthread_mutex_unlock(&running_config_mgmt_lock.mtx);
+
+	return ret;
+}
+
+int nb_running_unlock(enum nb_client client, const void *user)
+{
+	int ret = -1;
+
+	pthread_mutex_lock(&running_config_mgmt_lock.mtx);
+	{
+		if (running_config_mgmt_lock.locked
+		    && running_config_mgmt_lock.owner_client == client
+		    && running_config_mgmt_lock.owner_user == user) {
+			running_config_mgmt_lock.locked = false;
+			running_config_mgmt_lock.owner_client = NB_CLIENT_NONE;
+			running_config_mgmt_lock.owner_user = NULL;
+			ret = 0;
+		}
+	}
+	pthread_mutex_unlock(&running_config_mgmt_lock.mtx);
+
+	return ret;
+}
+
+int nb_running_lock_check(enum nb_client client, const void *user)
+{
+	int ret = -1;
+
+	pthread_mutex_lock(&running_config_mgmt_lock.mtx);
+	{
+		if (!running_config_mgmt_lock.locked
+		    || (running_config_mgmt_lock.owner_client == client
+			&& running_config_mgmt_lock.owner_user == user))
+			ret = 0;
+	}
+	pthread_mutex_unlock(&running_config_mgmt_lock.mtx);
 
 	return ret;
 }
@@ -710,7 +784,7 @@ static void nb_log_callback(const enum nb_event event,
  * Call the northbound configuration callback associated to a given
  * configuration change.
  */
-static int nb_configuration_callback(const enum nb_event event,
+static int nb_callback_configuration(const enum nb_event event,
 				     struct nb_config_change *change)
 {
 	enum nb_operation operation = change->cb.operation;
@@ -720,7 +794,7 @@ static int nb_configuration_callback(const enum nb_event event,
 	union nb_resource *resource;
 	int ret = NB_ERR;
 
-	if (debug_northbound) {
+	if (DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL)) {
 		const char *value = "(none)";
 
 		if (dnode && !yang_snode_is_typeless_data(dnode->schema))
@@ -741,58 +815,120 @@ static int nb_configuration_callback(const enum nb_event event,
 	case NB_OP_MODIFY:
 		ret = (*nb_node->cbs.modify)(event, dnode, resource);
 		break;
-	case NB_OP_DELETE:
-		ret = (*nb_node->cbs.delete)(event, dnode);
+	case NB_OP_DESTROY:
+		ret = (*nb_node->cbs.destroy)(event, dnode);
 		break;
 	case NB_OP_MOVE:
 		ret = (*nb_node->cbs.move)(event, dnode);
 		break;
 	default:
-		break;
+		flog_err(EC_LIB_DEVELOPMENT,
+			 "%s: unknown operation (%u) [xpath %s]", __func__,
+			 operation, xpath);
+		exit(1);
 	}
 
 	if (ret != NB_OK) {
-		enum lib_log_refs ref = 0;
+		int priority;
+		enum lib_log_refs ref;
 
 		switch (event) {
 		case NB_EV_VALIDATE:
+			priority = LOG_WARNING;
 			ref = EC_LIB_NB_CB_CONFIG_VALIDATE;
 			break;
 		case NB_EV_PREPARE:
+			priority = LOG_WARNING;
 			ref = EC_LIB_NB_CB_CONFIG_PREPARE;
 			break;
 		case NB_EV_ABORT:
+			priority = LOG_WARNING;
 			ref = EC_LIB_NB_CB_CONFIG_ABORT;
 			break;
 		case NB_EV_APPLY:
+			priority = LOG_ERR;
 			ref = EC_LIB_NB_CB_CONFIG_APPLY;
 			break;
+		default:
+			flog_err(EC_LIB_DEVELOPMENT,
+				 "%s: unknown event (%u) [xpath %s]",
+				 __func__, event, xpath);
+			exit(1);
 		}
-		if (event == NB_EV_VALIDATE || event == NB_EV_PREPARE)
-			flog_warn(
-				ref,
-				"%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
-				__func__, nb_err_name(ret),
-				nb_event_name(event),
-				nb_operation_name(operation), xpath);
-		else
-			flog_err(
-				ref,
-				"%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
-				__func__, nb_err_name(ret),
-				nb_event_name(event),
-				nb_operation_name(operation), xpath);
+
+		flog(priority, ref,
+		     "%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
+		     __func__, nb_err_name(ret), nb_event_name(event),
+		     nb_operation_name(operation), xpath);
 	}
 
 	return ret;
 }
 
-static struct nb_transaction *nb_transaction_new(struct nb_config *config,
-						 struct nb_config_cbs *changes,
-						 enum nb_client client,
-						 const char *comment)
+struct yang_data *nb_callback_get_elem(const struct nb_node *nb_node,
+				       const char *xpath,
+				       const void *list_entry)
+{
+	DEBUGD(&nb_dbg_cbs_state,
+	       "northbound callback (get_elem): xpath [%s] list_entry [%p]",
+	       xpath, list_entry);
+
+	return nb_node->cbs.get_elem(xpath, list_entry);
+}
+
+const void *nb_callback_get_next(const struct nb_node *nb_node,
+				 const void *parent_list_entry,
+				 const void *list_entry)
+{
+	DEBUGD(&nb_dbg_cbs_state,
+	       "northbound callback (get_next): node [%s] parent_list_entry [%p] list_entry [%p]",
+	       nb_node->xpath, parent_list_entry, list_entry);
+
+	return nb_node->cbs.get_next(parent_list_entry, list_entry);
+}
+
+int nb_callback_get_keys(const struct nb_node *nb_node, const void *list_entry,
+			 struct yang_list_keys *keys)
+{
+	DEBUGD(&nb_dbg_cbs_state,
+	       "northbound callback (get_keys): node [%s] list_entry [%p]",
+	       nb_node->xpath, list_entry);
+
+	return nb_node->cbs.get_keys(list_entry, keys);
+}
+
+const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
+				     const void *parent_list_entry,
+				     const struct yang_list_keys *keys)
+{
+	DEBUGD(&nb_dbg_cbs_state,
+	       "northbound callback (lookup_entry): node [%s] parent_list_entry [%p]",
+	       nb_node->xpath, parent_list_entry);
+
+	return nb_node->cbs.lookup_entry(parent_list_entry, keys);
+}
+
+int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
+		    const struct list *input, struct list *output)
+{
+	DEBUGD(&nb_dbg_cbs_rpc, "northbound RPC: %s", xpath);
+
+	return nb_node->cbs.rpc(xpath, input, output);
+}
+
+static struct nb_transaction *
+nb_transaction_new(struct nb_config *config, struct nb_config_cbs *changes,
+		   enum nb_client client, const void *user, const char *comment)
 {
 	struct nb_transaction *transaction;
+
+	if (nb_running_lock_check(client, user)) {
+		flog_warn(
+			EC_LIB_NB_TRANSACTION_CREATION_FAILED,
+			"%s: running configuration is locked by another client",
+			__func__);
+		return NULL;
+	}
 
 	if (transaction_in_progress) {
 		flog_warn(
@@ -827,40 +963,52 @@ static int nb_transaction_process(enum nb_event event,
 {
 	struct nb_config_cb *cb;
 
-	RB_FOREACH (cb, nb_config_cbs, &transaction->changes) {
-		struct nb_config_change *change = (struct nb_config_change *)cb;
-		int ret;
+	/*
+	 * Need to lock the running configuration since transaction->changes
+	 * can contain pointers to data nodes from the running configuration.
+	 */
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		RB_FOREACH (cb, nb_config_cbs, &transaction->changes) {
+			struct nb_config_change *change =
+				(struct nb_config_change *)cb;
+			int ret;
 
-		/*
-		 * Only try to release resources that were allocated
-		 * successfully.
-		 */
-		if (event == NB_EV_ABORT && change->prepare_ok == false)
-			break;
-
-		/* Call the appropriate callback. */
-		ret = nb_configuration_callback(event, change);
-		switch (event) {
-		case NB_EV_PREPARE:
-			if (ret != NB_OK)
-				return ret;
-			change->prepare_ok = true;
-			break;
-		case NB_EV_ABORT:
-		case NB_EV_APPLY:
 			/*
-			 * At this point it's not possible to reject the
-			 * transaction anymore, so any failure here can lead to
-			 * inconsistencies and should be treated as a bug.
-			 * Operations prone to errors, like validations and
-			 * resource allocations, should be performed during the
-			 * 'prepare' phase.
+			 * Only try to release resources that were allocated
+			 * successfully.
 			 */
-			break;
-		default:
-			break;
+			if (event == NB_EV_ABORT && change->prepare_ok == false)
+				break;
+
+			/* Call the appropriate callback. */
+			ret = nb_callback_configuration(event, change);
+			switch (event) {
+			case NB_EV_PREPARE:
+				if (ret != NB_OK) {
+					pthread_rwlock_unlock(
+						&running_config->lock);
+					return ret;
+				}
+				change->prepare_ok = true;
+				break;
+			case NB_EV_ABORT:
+			case NB_EV_APPLY:
+				/*
+				 * At this point it's not possible to reject the
+				 * transaction anymore, so any failure here can
+				 * lead to inconsistencies and should be treated
+				 * as a bug. Operations prone to errors, like
+				 * validations and resource allocations, should
+				 * be performed during the 'prepare' phase.
+				 */
+				break;
+			default:
+				break;
+			}
 		}
 	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	return NB_OK;
 }
@@ -912,7 +1060,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 		 * (the 'apply_finish' callbacks from the node ancestors should
 		 * be called though).
 		 */
-		if (change->cb.operation == NB_OP_DELETE) {
+		if (change->cb.operation == NB_OP_DESTROY) {
 			char xpath[XPATH_MAXLEN];
 
 			dnode = dnode->parent;
@@ -954,7 +1102,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 
 	/* Call the 'apply_finish' callbacks, sorted by their priorities. */
 	RB_FOREACH (cb, nb_config_cbs, &cbs) {
-		if (debug_northbound)
+		if (DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL))
 			nb_log_callback(NB_EV_APPLY, NB_OP_APPLY_FINISH,
 					cb->xpath, NULL);
 
@@ -1006,7 +1154,7 @@ static int nb_oper_data_iter_leaf(const struct nb_node *nb_node,
 	if (lys_is_key((struct lys_node_leaf *)nb_node->snode, NULL))
 		return NB_OK;
 
-	data = nb_node->cbs.get_elem(xpath, list_entry);
+	data = nb_callback_get_elem(nb_node, xpath, list_entry);
 	if (data == NULL)
 		/* Leaf of type "empty" is not present. */
 		return NB_OK;
@@ -1030,7 +1178,7 @@ static int nb_oper_data_iter_container(const struct nb_node *nb_node,
 		struct yang_data *data;
 		int ret;
 
-		data = nb_node->cbs.get_elem(xpath, list_entry);
+		data = nb_callback_get_elem(nb_node, xpath, list_entry);
 		if (data == NULL)
 			/* Presence container is not present. */
 			return NB_OK;
@@ -1062,13 +1210,13 @@ nb_oper_data_iter_leaflist(const struct nb_node *nb_node, const char *xpath,
 		struct yang_data *data;
 		int ret;
 
-		list_entry =
-			nb_node->cbs.get_next(parent_list_entry, list_entry);
+		list_entry = nb_callback_get_next(nb_node, parent_list_entry,
+						  list_entry);
 		if (!list_entry)
 			/* End of the list. */
 			break;
 
-		data = nb_node->cbs.get_elem(xpath, list_entry);
+		data = nb_callback_get_elem(nb_node, xpath, list_entry);
 		if (data == NULL)
 			continue;
 
@@ -1101,15 +1249,16 @@ static int nb_oper_data_iter_list(const struct nb_node *nb_node,
 		int ret;
 
 		/* Obtain list entry. */
-		list_entry =
-			nb_node->cbs.get_next(parent_list_entry, list_entry);
+		list_entry = nb_callback_get_next(nb_node, parent_list_entry,
+						  list_entry);
 		if (!list_entry)
 			/* End of the list. */
 			break;
 
 		if (!CHECK_FLAG(nb_node->flags, F_NB_NODE_KEYLESS_LIST)) {
 			/* Obtain the list entry keys. */
-			if (nb_node->cbs.get_keys(list_entry, &list_keys)
+			if (nb_callback_get_keys(nb_node, list_entry,
+						 &list_keys)
 			    != NB_OK) {
 				flog_warn(EC_LIB_NB_CB_STATE,
 					  "%s: failed to get list keys",
@@ -1287,7 +1436,8 @@ int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 
 		/* Find the list entry pointer. */
 		nn = dn->schema->priv;
-		list_entry = nn->cbs.lookup_entry(list_entry, &list_keys);
+		list_entry =
+			nb_callback_lookup_entry(nn, list_entry, &list_keys);
 		if (list_entry == NULL) {
 			list_delete(&list_dnodes);
 			yang_dnode_free(dnode);
@@ -1359,7 +1509,7 @@ bool nb_operation_is_valid(enum nb_operation operation,
 			return false;
 		}
 		return true;
-	case NB_OP_DELETE:
+	case NB_OP_DESTROY:
 		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
 			return false;
 
@@ -1481,6 +1631,8 @@ int nb_notification_send(const char *xpath, struct list *arguments)
 {
 	int ret;
 
+	DEBUGD(&nb_dbg_notif, "northbound notification: %s", xpath);
+
 	ret = hook_call(nb_notification_send, xpath, arguments);
 	if (arguments)
 		list_delete(&arguments);
@@ -1488,6 +1640,116 @@ int nb_notification_send(const char *xpath, struct list *arguments)
 	return ret;
 }
 
+/* Running configuration user pointers management. */
+struct nb_config_entry {
+	char xpath[XPATH_MAXLEN];
+	void *entry;
+};
+
+static bool running_config_entry_cmp(const void *value1, const void *value2)
+{
+	const struct nb_config_entry *c1 = value1;
+	const struct nb_config_entry *c2 = value2;
+
+	return strmatch(c1->xpath, c2->xpath);
+}
+
+static unsigned int running_config_entry_key_make(void *value)
+{
+	return string_hash_make(value);
+}
+
+static void *running_config_entry_alloc(void *p)
+{
+	struct nb_config_entry *new, *key = p;
+
+	new = XCALLOC(MTYPE_NB_CONFIG_ENTRY, sizeof(*new));
+	strlcpy(new->xpath, key->xpath, sizeof(new->xpath));
+
+	return new;
+}
+
+static void running_config_entry_free(void *arg)
+{
+	XFREE(MTYPE_NB_CONFIG_ENTRY, arg);
+}
+
+void nb_running_set_entry(const struct lyd_node *dnode, void *entry)
+{
+	struct nb_config_entry *config, s;
+
+	yang_dnode_get_path(dnode, s.xpath, sizeof(s.xpath));
+	config = hash_get(running_config_entries, &s,
+			  running_config_entry_alloc);
+	config->entry = entry;
+}
+
+static void *nb_running_unset_entry_helper(const struct lyd_node *dnode)
+{
+	struct nb_config_entry *config, s;
+	struct lyd_node *child;
+	void *entry = NULL;
+
+	yang_dnode_get_path(dnode, s.xpath, sizeof(s.xpath));
+	config = hash_release(running_config_entries, &s);
+	if (config) {
+		entry = config->entry;
+		running_config_entry_free(config);
+	}
+
+	/* Unset user pointers from the child nodes. */
+	if (CHECK_FLAG(dnode->schema->nodetype, LYS_LIST | LYS_CONTAINER)) {
+		LY_TREE_FOR (dnode->child, child) {
+			(void)nb_running_unset_entry_helper(child);
+		}
+	}
+
+	return entry;
+}
+
+void *nb_running_unset_entry(const struct lyd_node *dnode)
+{
+	void *entry;
+
+	entry = nb_running_unset_entry_helper(dnode);
+	assert(entry);
+
+	return entry;
+}
+
+void *nb_running_get_entry(const struct lyd_node *dnode, const char *xpath,
+			   bool abort_if_not_found)
+{
+	const struct lyd_node *orig_dnode = dnode;
+	char xpath_buf[XPATH_MAXLEN];
+
+	assert(dnode || xpath);
+
+	if (!dnode)
+		dnode = yang_dnode_get(running_config->dnode, xpath);
+
+	while (dnode) {
+		struct nb_config_entry *config, s;
+
+		yang_dnode_get_path(dnode, s.xpath, sizeof(s.xpath));
+		config = hash_lookup(running_config_entries, &s);
+		if (config)
+			return config->entry;
+
+		dnode = dnode->parent;
+	}
+
+	if (!abort_if_not_found)
+		return NULL;
+
+	yang_dnode_get_path(orig_dnode, xpath_buf, sizeof(xpath_buf));
+	flog_err(EC_LIB_YANG_DNODE_NOT_FOUND,
+		 "%s: failed to find entry [xpath %s]", __func__, xpath_buf);
+	zlog_backtrace(LOG_ERR);
+	abort();
+}
+
+/* Logging functions. */
 const char *nb_event_name(enum nb_event event)
 {
 	switch (event) {
@@ -1511,8 +1773,8 @@ const char *nb_operation_name(enum nb_operation operation)
 		return "create";
 	case NB_OP_MODIFY:
 		return "modify";
-	case NB_OP_DELETE:
-		return "delete";
+	case NB_OP_DESTROY:
+		return "destroy";
 	case NB_OP_MOVE:
 		return "move";
 	case NB_OP_APPLY_FINISH:
@@ -1565,6 +1827,8 @@ const char *nb_client_name(enum nb_client client)
 		return "ConfD";
 	case NB_CLIENT_SYSREPO:
 		return "Sysrepo";
+	case NB_CLIENT_GRPC:
+		return "gRPC";
 	default:
 		return "unknown";
 	}
@@ -1617,14 +1881,12 @@ void nb_init(struct thread_master *tm,
 		exit(1);
 	}
 
-	/* Initialize the northbound database (used for the rollback log). */
-	if (nb_db_init() != NB_OK)
-		flog_warn(EC_LIB_NB_DATABASE,
-			  "%s: failed to initialize northbound database",
-			  __func__);
-
 	/* Create an empty running configuration. */
 	running_config = nb_config_new(NULL);
+	running_config_entries = hash_create(running_config_entry_key_make,
+					     running_config_entry_cmp,
+					     "Running Configuration Entries");
+	pthread_mutex_init(&running_config_mgmt_lock.mtx, NULL);
 
 	/* Initialize the northbound CLI. */
 	nb_cli_init(tm);
@@ -1639,5 +1901,8 @@ void nb_terminate(void)
 	nb_nodes_delete();
 
 	/* Delete the running configuration. */
+	hash_clean(running_config_entries, running_config_entry_free);
+	hash_free(running_config_entries);
 	nb_config_free(running_config);
+	pthread_mutex_destroy(&running_config_mgmt_lock.mtx);
 }

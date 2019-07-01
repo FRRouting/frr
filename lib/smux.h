@@ -26,6 +26,10 @@
 
 #include "thread.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Structures here are mostly compatible with UCD SNMP 4.1.1 */
 #define MATCH_FAILED     (-1)
 #define MATCH_SUCCEEDED  0
@@ -102,5 +106,9 @@ extern int oid_compare(const oid *, int, const oid *, int);
 extern void oid2in_addr(oid[], int, struct in_addr *);
 extern void *oid_copy(void *, const void *, size_t);
 extern void oid_copy_addr(oid[], struct in_addr *, int);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_SNMP_H */

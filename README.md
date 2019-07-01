@@ -18,6 +18,8 @@ FRR currently supports the following protocols:
 * LDP
 * BFD
 * Babel
+* PBR
+* OpenFabric
 * EIGRP (alpha)
 * NHRP (alpha)
 
@@ -49,8 +51,9 @@ lists:
 | Users & Operators | frog@lists.frrouting.org     |
 | Announcements     | announce@lists.frrouting.org |
 
-For chat, we currently use [Slack](https://frrouting.slack.com). Please email
-the mailing list to request an invite as we do not issue automatic invites.
+For chat, we currently use [Slack](https://frrouting.slack.com). You can join
+by clicking the "Slack" link under the
+[Participate](https://frrouting.org/#participate) section of our website.
 
 
 Contributing

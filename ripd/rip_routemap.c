@@ -518,7 +518,7 @@ static struct route_map_rule_cmd route_set_tag_cmd = {
 #define SET_STR "Set values in destination routing protocol\n"
 
 /* Route-map init */
-void rip_route_map_init()
+void rip_route_map_init(void)
 {
 	route_map_init();
 

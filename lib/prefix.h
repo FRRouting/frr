@@ -35,6 +35,10 @@
 #include "ipaddr.h"
 #include "compiler.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef ETH_ALEN
 #define ETH_ALEN 6
 #endif
@@ -151,7 +155,7 @@ struct flowspec_prefix {
 /* FRR generic prefix structure. */
 struct prefix {
 	uint8_t family;
-	uint8_t prefixlen;
+	uint16_t prefixlen;
 	union {
 		uint8_t prefix;
 		struct in_addr prefix4;
@@ -162,6 +166,7 @@ struct prefix {
 		} lp;
 		struct ethaddr prefix_eth; /* AF_ETHERNET */
 		uint8_t val[16];
+		uint32_t val32[4];
 		uintptr_t ptr;
 		struct evpn_addr prefix_evpn; /* AF_EVPN */
 		struct flowspec_prefix prefix_flowspec; /* AF_FLOWSPEC */
@@ -171,20 +176,20 @@ struct prefix {
 /* IPv4 prefix structure. */
 struct prefix_ipv4 {
 	uint8_t family;
-	uint8_t prefixlen;
+	uint16_t prefixlen;
 	struct in_addr prefix __attribute__((aligned(8)));
 };
 
 /* IPv6 prefix structure. */
 struct prefix_ipv6 {
 	uint8_t family;
-	uint8_t prefixlen;
+	uint16_t prefixlen;
 	struct in6_addr prefix __attribute__((aligned(8)));
 };
 
 struct prefix_ls {
 	uint8_t family;
-	uint8_t prefixlen;
+	uint16_t prefixlen;
 	struct in_addr id __attribute__((aligned(8)));
 	struct in_addr adv_router;
 };
@@ -192,21 +197,21 @@ struct prefix_ls {
 /* Prefix for routing distinguisher. */
 struct prefix_rd {
 	uint8_t family;
-	uint8_t prefixlen;
+	uint16_t prefixlen;
 	uint8_t val[8] __attribute__((aligned(8)));
 };
 
 /* Prefix for ethernet. */
 struct prefix_eth {
 	uint8_t family;
-	uint8_t prefixlen;
+	uint16_t prefixlen;
 	struct ethaddr eth_addr __attribute__((aligned(8))); /* AF_ETHERNET */
 };
 
 /* EVPN prefix structure. */
 struct prefix_evpn {
 	uint8_t family;
-	uint8_t prefixlen;
+	uint16_t prefixlen;
 	struct evpn_addr prefix __attribute__((aligned(8)));
 };
 
@@ -252,20 +257,20 @@ static inline int is_evpn_prefix_ipaddr_v6(const struct prefix_evpn *evp)
 /* Prefix for a generic pointer */
 struct prefix_ptr {
 	uint8_t family;
-	uint8_t prefixlen;
+	uint16_t prefixlen;
 	uintptr_t prefix __attribute__((aligned(8)));
 };
 
 /* Prefix for a Flowspec entry */
 struct prefix_fs {
 	uint8_t family;
-	uint8_t prefixlen; /* unused */
+	uint16_t prefixlen; /* unused */
 	struct flowspec_prefix  prefix __attribute__((aligned(8)));
 };
 
 struct prefix_sg {
 	uint8_t family;
-	uint8_t prefixlen;
+	uint16_t prefixlen;
 	struct in_addr src __attribute__((aligned(8)));
 	struct in_addr grp;
 };
@@ -275,20 +280,29 @@ struct prefix_sg {
  * side, which strips type safety since the cast will accept any pointer
  * type.)
  */
+#ifndef __cplusplus
+#define prefixtype(uname, typename, fieldname) \
+	typename *fieldname;
+#else
+#define prefixtype(uname, typename, fieldname) \
+	typename *fieldname; \
+	uname(typename *x) { this->fieldname = x; }
+#endif
+
 union prefixptr {
-	struct prefix *p;
-	struct prefix_ipv4 *p4;
-	struct prefix_ipv6 *p6;
-	struct prefix_evpn *evp;
-	const struct prefix_fs *fs;
+	prefixtype(prefixptr, struct prefix,      p)
+	prefixtype(prefixptr, struct prefix_ipv4, p4)
+	prefixtype(prefixptr, struct prefix_ipv6, p6)
+	prefixtype(prefixptr, struct prefix_evpn, evp)
+	prefixtype(prefixptr, struct prefix_fs,   fs)
 } __attribute__((transparent_union));
 
 union prefixconstptr {
-	const struct prefix *p;
-	const struct prefix_ipv4 *p4;
-	const struct prefix_ipv6 *p6;
-	const struct prefix_evpn *evp;
-	const struct prefix_fs *fs;
+	prefixtype(prefixconstptr, const struct prefix,      p)
+	prefixtype(prefixconstptr, const struct prefix_ipv4, p4)
+	prefixtype(prefixconstptr, const struct prefix_ipv6, p6)
+	prefixtype(prefixconstptr, const struct prefix_evpn, evp)
+	prefixtype(prefixconstptr, const struct prefix_fs,   fs)
 } __attribute__((transparent_union));
 
 #ifndef INET_ADDRSTRLEN
@@ -296,15 +310,25 @@ union prefixconstptr {
 #endif /* INET_ADDRSTRLEN */
 
 #ifndef INET6_ADDRSTRLEN
+/* dead:beef:dead:beef:dead:beef:dead:beef + \0 */
 #define INET6_ADDRSTRLEN 46
 #endif /* INET6_ADDRSTRLEN */
 
 #ifndef INET6_BUFSIZ
-#define INET6_BUFSIZ 51
+#define INET6_BUFSIZ 53
 #endif /* INET6_BUFSIZ */
 
-/* Maximum prefix string length (IPv6) */
-#define PREFIX_STRLEN 51
+/* Maximum string length of the result of prefix2str */
+#define PREFIX_STRLEN 80
+
+/*
+ * Longest possible length of a (S,G) string is 36 bytes
+ * 123.123.123.123 = 15 * 2
+ * (,) = 3
+ * NULL Character at end = 1
+ * (123.123.123.123,123.123.123.123)
+ */
+#define PREFIX_SG_STR_LEN 34
 
 /* Max bit/byte length of IPv4 address. */
 #define IPV4_MAX_BYTELEN    4
@@ -367,9 +391,9 @@ extern const char *safi2str(safi_t safi);
 extern const char *afi2str(afi_t afi);
 
 /* Check bit of the prefix. */
-extern unsigned int prefix_bit(const uint8_t *prefix, const uint8_t prefixlen);
+extern unsigned int prefix_bit(const uint8_t *prefix, const uint16_t prefixlen);
 extern unsigned int prefix6_bit(const struct in6_addr *prefix,
-				const uint8_t prefixlen);
+				const uint16_t prefixlen);
 
 extern struct prefix *prefix_new(void);
 extern void prefix_free(struct prefix *);
@@ -379,6 +403,9 @@ extern int str2prefix(const char *, struct prefix *);
 
 #define PREFIX2STR_BUFFER  PREFIX_STRLEN
 
+extern void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
+				char *buf, int buf_size);
+extern const char *prefix_sg2str(const struct prefix_sg *sg, char *str);
 extern const char *prefix2str(union prefixconstptr, char *, int);
 extern int prefix_match(const struct prefix *, const struct prefix *);
 extern int prefix_match_network_statement(const struct prefix *,
@@ -495,4 +522,22 @@ static inline int is_host_route(struct prefix *p)
 		return (p->prefixlen == IPV6_MAX_BITLEN);
 	return 0;
 }
+
+static inline int is_default_host_route(struct prefix *p)
+{
+	if (p->family == AF_INET) {
+		return (p->u.prefix4.s_addr == INADDR_ANY &&
+			p->prefixlen == IPV4_MAX_BITLEN);
+	} else if (p->family == AF_INET6) {
+		return ((!memcmp(&p->u.prefix6, &in6addr_any,
+				 sizeof(struct in6_addr))) &&
+			p->prefixlen == IPV6_MAX_BITLEN);
+	}
+	return 0;
+}
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* _ZEBRA_PREFIX_H */

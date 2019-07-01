@@ -24,13 +24,18 @@
 #ifndef _ZEBRA_ISIS_LSP_H
 #define _ZEBRA_ISIS_LSP_H
 
+#include "lib/typesafe.h"
 #include "isisd/isis_pdu.h"
+
+PREDECL_RBTREE_UNIQ(lspdb)
 
 /* Structure for isis_lsp, this structure will only support the fixed
  * System ID (Currently 6) (atleast for now). In order to support more
  * We will have to split the header into two parts, and for readability
  * sake it should better be avoided */
 struct isis_lsp {
+	struct lspdb_item dbe;
+
 	struct isis_lsp_hdr hdr;
 	struct stream *pdu; /* full pdu lsp */
 	union {
@@ -54,8 +59,11 @@ struct isis_lsp {
 	bool flooding_circuit_scoped;
 };
 
-dict_t *lsp_db_init(void);
-void lsp_db_destroy(dict_t *lspdb);
+extern int lspdb_compare(const struct isis_lsp *a, const struct isis_lsp *b);
+DECLARE_RBTREE_UNIQ(lspdb, struct isis_lsp, dbe, lspdb_compare)
+
+void lsp_db_init(struct lspdb_head *head);
+void lsp_db_fini(struct lspdb_head *head);
 int lsp_tick(struct thread *thread);
 
 int lsp_generate(struct isis_area *area, int level);
@@ -76,14 +84,16 @@ struct isis_lsp *lsp_new_from_recv(struct isis_lsp_hdr *hdr,
 				   struct isis_tlvs *tlvs,
 				   struct stream *stream, struct isis_lsp *lsp0,
 				   struct isis_area *area, int level);
-void lsp_insert(struct isis_lsp *lsp, dict_t *lspdb);
-struct isis_lsp *lsp_search(uint8_t *id, dict_t *lspdb);
+void lsp_insert(struct lspdb_head *head, struct isis_lsp *lsp);
+struct isis_lsp *lsp_search(struct lspdb_head *head, const uint8_t *id);
 
-void lsp_build_list(uint8_t *start_id, uint8_t *stop_id, uint8_t num_lsps,
-		    struct list *list, dict_t *lspdb);
-void lsp_build_list_nonzero_ht(uint8_t *start_id, uint8_t *stop_id,
-			       struct list *list, dict_t *lspdb);
-void lsp_search_and_destroy(uint8_t *id, dict_t *lspdb);
+void lsp_build_list(struct lspdb_head *head, const uint8_t *start_id,
+		    const uint8_t *stop_id, uint8_t num_lsps,
+		    struct list *list);
+void lsp_build_list_nonzero_ht(struct lspdb_head *head,
+			       const uint8_t *start_id,
+			       const uint8_t *stop_id, struct list *list);
+void lsp_search_and_destroy(struct lspdb_head *head, const uint8_t *id);
 void lsp_purge_pseudo(uint8_t *id, struct isis_circuit *circuit, int level);
 void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
 			 struct isis_area *area);
@@ -108,7 +118,8 @@ void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno);
 void lspid_print(uint8_t *lsp_id, char *dest, char dynhost, char frag);
 void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost);
 void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost);
-int lsp_print_all(struct vty *vty, dict_t *lspdb, char detail, char dynhost);
+int lsp_print_all(struct vty *vty, struct lspdb_head *head, char detail,
+		  char dynhost);
 /* sets SRMflags for all active circuits of an lsp */
 void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set);
 

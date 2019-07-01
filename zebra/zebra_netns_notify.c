@@ -36,7 +36,7 @@
 #include "memory.h"
 #include "lib_errors.h"
 
-#include "zserv.h"
+#include "zebra_router.h"
 #include "zebra_memory.h"
 #endif /* defined(HAVE_NETLINK) */
 
@@ -121,7 +121,7 @@ static int zebra_ns_continue_read(struct zebra_netns_info *zns_info,
 		XFREE(MTYPE_NETNS_MISC, zns_info);
 		return 0;
 	}
-	thread_add_timer_msec(zebrad.master, zebra_ns_ready_read,
+	thread_add_timer_msec(zrouter.master, zebra_ns_ready_read,
 			      (void *)zns_info, ZEBRA_NS_POLLING_INTERVAL_MSEC,
 			      NULL);
 	return 0;
@@ -242,7 +242,7 @@ static int zebra_ns_notify_read(struct thread *t)
 	ssize_t len;
 
 	zebra_netns_notify_current = thread_add_read(
-		zebrad.master, zebra_ns_notify_read, NULL, fd_monitor, NULL);
+		zrouter.master, zebra_ns_notify_read, NULL, fd_monitor, NULL);
 	len = read(fd_monitor, buf, sizeof(buf));
 	if (len < 0) {
 		flog_err_sys(EC_ZEBRA_NS_NOTIFY_READ,
@@ -284,7 +284,7 @@ static int zebra_ns_notify_read(struct thread *t)
 				    sizeof(struct zebra_netns_info));
 		netnsinfo->retries = ZEBRA_NS_POLLING_MAX_RETRIES;
 		netnsinfo->netnspath = netnspath;
-		thread_add_timer_msec(zebrad.master, zebra_ns_ready_read,
+		thread_add_timer_msec(zrouter.master, zebra_ns_ready_read,
 				      (void *)netnsinfo, 0, NULL);
 	}
 	return 0;
@@ -355,7 +355,7 @@ void zebra_ns_notify_init(void)
 			     safe_strerror(errno));
 	}
 	zebra_netns_notify_current = thread_add_read(
-		zebrad.master, zebra_ns_notify_read, NULL, fd_monitor, NULL);
+		zrouter.master, zebra_ns_notify_read, NULL, fd_monitor, NULL);
 }
 
 void zebra_ns_notify_close(void)

@@ -31,6 +31,10 @@
 #ifndef _ZEBRA_SKIPLIST_H
 #define _ZEBRA_SKIPLIST_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SKIPLIST_0TIMER_DEBUG 1
 
 /*
@@ -121,5 +125,9 @@ extern unsigned int skiplist_count(register struct skiplist *l); /* in */
 extern void skiplist_debug(struct vty *vty, struct skiplist *l);
 
 extern void skiplist_test(struct vty *vty);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_SKIPLIST_H */

@@ -22,7 +22,7 @@
         "mappings": [
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']",
-            "native": "/frr-ripd:ripd/instance"
+            "native": "/frr-ripd:ripd/instance[vrf='default']"
           }
         ]
       },
@@ -32,31 +32,31 @@
         "mappings": [
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/default-metric",
-            "native": "/frr-ripd:ripd/instance/default-metric"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/default-metric"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/distance",
-            "native": "/frr-ripd:ripd/instance/distance/default"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/distance/default"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/originate-default-route/enabled",
-            "native": "/frr-ripd:ripd/instance/default-information-originate"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/default-information-originate"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/timers/update-interval",
-            "native": "/frr-ripd:ripd/instance/timers/update-interval"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/timers/update-interval"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/timers/holddown-interval",
-            "native": "/frr-ripd:ripd/instance/timers/holddown-interval"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/timers/holddown-interval"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/timers/flush-interval",
-            "native": "/frr-ripd:ripd/instance/timers/flush-interval"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/timers/flush-interval"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/interfaces/interface[interface='KEY1']",
-            "native": "/frr-ripd:ripd/instance/interface[.='KEY1']"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/interface[.='KEY1']"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/interfaces/interface[interface='KEY1']/split-horizon",
@@ -64,43 +64,43 @@
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/ipv4/neighbors/neighbor[ipv4-address='KEY1']",
-            "native": "/frr-ripd:ripd/state/neighbors/neighbor[address='KEY1']"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/state/neighbors/neighbor[address='KEY1']"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/ipv4/neighbors/neighbor[ipv4-address='KEY1']/ipv4-address",
-            "native": "/frr-ripd:ripd/state/neighbors/neighbor[address='KEY1']/address"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/state/neighbors/neighbor[address='KEY1']/address"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/ipv4/neighbors/neighbor[ipv4-address='KEY1']/last-update",
-            "native": "/frr-ripd:ripd/state/neighbors/neighbor[address='KEY1']/last-update"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/state/neighbors/neighbor[address='KEY1']/last-update"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/ipv4/neighbors/neighbor[ipv4-address='KEY1']/bad-packets-rcvd",
-            "native": "/frr-ripd:ripd/state/neighbors/neighbor[address='KEY1']/bad-packets-rcvd"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/state/neighbors/neighbor[address='KEY1']/bad-packets-rcvd"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/ipv4/neighbors/neighbor[ipv4-address='KEY1']/bad-routes-rcvd",
-            "native": "/frr-ripd:ripd/state/neighbors/neighbor[address='KEY1']/bad-routes-rcvd"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/state/neighbors/neighbor[address='KEY1']/bad-routes-rcvd"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/ipv4/routes/route[ipv4-prefix='KEY1']",
-            "native": "/frr-ripd:ripd/state/routes/route[prefix='KEY1']"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/state/routes/route[prefix='KEY1']"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/ipv4/routes/route[ipv4-prefix='KEY1']/ipv4-prefix",
-            "native": "/frr-ripd:ripd/state/routes/route[prefix='KEY1']/prefix"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/state/routes/route[prefix='KEY1']/prefix"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/ipv4/routes/route[ipv4-prefix='KEY1']/next-hop",
-            "native": "/frr-ripd:ripd/state/routes/route[prefix='KEY1']/next-hop"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/state/routes/route[prefix='KEY1']/next-hop"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/ipv4/routes/route[ipv4-prefix='KEY1']/interface",
-            "native": "/frr-ripd:ripd/state/routes/route[prefix='KEY1']/interface"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/state/routes/route[prefix='KEY1']/interface"
           },
           {
             "custom": "/ietf-routing:routing/control-plane-protocols/control-plane-protocol[type='ietf-rip:ripv2'][name='main']/ietf-rip:rip/ipv4/routes/route[ipv4-prefix='KEY1']/metric",
-            "native": "/frr-ripd:ripd/state/routes/route[prefix='KEY1']/metric"
+            "native": "/frr-ripd:ripd/instance[vrf='default']/state/routes/route[prefix='KEY1']/metric"
           },
           {
             "custom": "/ietf-rip:clear-rip-route",

@@ -20,6 +20,8 @@
 
 #include <zebra.h>
 
+#include "filter.h"
+
 #include "bfd.h"
 #include "lib/version.h"
 
@@ -32,6 +34,7 @@ DEFINE_MTYPE(BFDD, BFDD_TMP, "short-lived temporary memory");
 DEFINE_MTYPE(BFDD, BFDD_CONFIG, "long-lived configuration memory");
 DEFINE_MTYPE(BFDD, BFDD_LABEL, "long-lived label memory");
 DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory");
+DEFINE_MTYPE(BFDD, BFDD_SESSION_OBSERVER, "Session observer");
 DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data");
 
 /* Master of threads. */
@@ -153,6 +156,7 @@ struct bfd_state_str_list state_list[] = {
 static void bg_init(void)
 {
 	TAILQ_INIT(&bglobal.bg_bcslist);
+	TAILQ_INIT(&bglobal.bg_obslist);
 
 	bglobal.bg_shop = bp_udp_shop();
 	bglobal.bg_mhop = bp_udp_mhop();
@@ -205,6 +209,8 @@ int main(int argc, char *argv[])
 
 	/* Initialize BFD data structures. */
 	bfd_initialize();
+
+	access_list_init();
 
 	/* Initialize zebra connection. */
 	bfdd_zclient_init(&bfdd_privs);

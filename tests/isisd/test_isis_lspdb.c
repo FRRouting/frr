@@ -28,21 +28,22 @@ static void test_lsp_build_list_nonzero_ht(void)
 
 	area->lsp_mtu = 1500;
 
-	dict_t *lspdb = lsp_db_init();
+	struct lspdb_head _lspdb, *lspdb = &_lspdb;
+	lsp_db_init(&_lspdb);
 
 	struct isis_lsp *lsp1 = lsp_new(area, lsp_id1, 6000, 0, 0, 0, NULL,
 					ISIS_LEVEL2);
 
-	lsp_insert(lsp1, lspdb);
+	lsp_insert(lspdb, lsp1);
 
 	struct isis_lsp *lsp2 = lsp_new(area, lsp_id2, 6000, 0, 0, 0, NULL,
 					ISIS_LEVEL2);
 
-	lsp_insert(lsp2, lspdb);
+	lsp_insert(lspdb, lsp2);
 
 	struct list *list = list_new();
 
-	lsp_build_list_nonzero_ht(lsp_id1, lsp_id_end, list, lspdb);
+	lsp_build_list_nonzero_ht(lspdb, lsp_id1, lsp_id_end, list);
 	assert(list->count == 1);
 	assert(listgetdata(listhead(list)) == lsp1);
 	list_delete_all_node(list);
@@ -50,7 +51,7 @@ static void test_lsp_build_list_nonzero_ht(void)
 	lsp_id_end[5] = 0x03;
 	lsp_id_end[6] = 0x00;
 
-	lsp_build_list_nonzero_ht(lsp_id1, lsp_id_end, list, lspdb);
+	lsp_build_list_nonzero_ht(lspdb, lsp_id1, lsp_id_end, list);
 	assert(list->count == 2);
 	assert(listgetdata(listhead(list)) == lsp1);
 	assert(listgetdata(listtail(list)) == lsp2);
@@ -58,7 +59,7 @@ static void test_lsp_build_list_nonzero_ht(void)
 
 	memcpy(lsp_id1, lsp_id2, sizeof(lsp_id1));
 
-	lsp_build_list_nonzero_ht(lsp_id1, lsp_id_end, list, lspdb);
+	lsp_build_list_nonzero_ht(lspdb, lsp_id1, lsp_id_end, list);
 	assert(list->count == 1);
 	assert(listgetdata(listhead(list)) == lsp2);
 	list_delete_all_node(list);
@@ -66,13 +67,13 @@ static void test_lsp_build_list_nonzero_ht(void)
 	lsp_id1[5] = 0x03;
 	lsp_id_end[5] = 0x04;
 
-	lsp_build_list_nonzero_ht(lsp_id1, lsp_id_end, list, lspdb);
+	lsp_build_list_nonzero_ht(lspdb, lsp_id1, lsp_id_end, list);
 	assert(list->count == 0);
 	list_delete_all_node(list);
 
 	lsp_id1[5] = 0x00;
 
-	lsp_build_list_nonzero_ht(lsp_id1, lsp_id_end, list, lspdb);
+	lsp_build_list_nonzero_ht(lspdb, lsp_id1, lsp_id_end, list);
 	assert(list->count == 2);
 	assert(listgetdata(listhead(list)) == lsp1);
 	assert(listgetdata(listtail(list)) == lsp2);

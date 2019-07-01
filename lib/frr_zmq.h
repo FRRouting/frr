@@ -23,6 +23,10 @@
 #include "thread.h"
 #include <zmq.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* linking/packaging note:  this is a separate library that needs to be
  * linked into any daemon/library/module that wishes to use its
  * functionality.  The purpose of this is to encapsulate the libzmq
@@ -123,5 +127,9 @@ extern void frrzmq_thread_cancel(struct frrzmq_cb **cb, struct cb_core *core);
  */
 extern void frrzmq_check_events(struct frrzmq_cb **cbp, struct cb_core *core,
 				int event);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRRZMQ_H */
