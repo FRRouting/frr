@@ -91,11 +91,11 @@ int pim_macro_chisin_joins(const struct pim_ifchannel *ch)
 
    lost_assert(S,G) =
        { all interfaces I such that
-	 lost_assert(S,G,I) == TRUE }
+	 lost_assert(S,G,I) == true }
 
      bool lost_assert(S,G,I) {
        if ( RPF_interface(S) == I ) {
-	  return FALSE
+	  return false
        } else {
 	  return ( AssertWinner(S,G,I) != NULL AND
 		   AssertWinner(S,G,I) != me  AND
@@ -150,7 +150,7 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
 
    pim_include(S,G) =
        { all interfaces I such that:
-	 ( (I_am_DR( I ) AND lost_assert(S,G,I) == FALSE )
+	 ( (I_am_DR( I ) AND lost_assert(S,G,I) == false )
 	   OR AssertWinner(S,G,I) == me )
 	  AND  local_receiver_include(S,G,I) }
 
@@ -178,7 +178,7 @@ int pim_macro_chisin_pim_include(const struct pim_ifchannel *ch)
 	return (
 		/* I_am_DR( I ) ? */
 		PIM_I_am_DR(pim_ifp) &&
-		/* lost_assert(S,G,I) == FALSE ? */
+		/* lost_assert(S,G,I) == false ? */
 		(!pim_macro_ch_lost_assert(ch)));
 }
 
@@ -228,7 +228,7 @@ int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
 		return 0; /* false */
 	}
 
-	/* SPTbit(S,G) == TRUE */
+	/* SPTbit(S,G) == true */
 	if (ch->upstream->sptbit == PIM_UPSTREAM_SPTBIT_FALSE)
 		return 0; /* false */
 
@@ -272,9 +272,9 @@ struct pim_assert_metric pim_macro_spt_assert_metric(const struct pim_rpf *rpf,
    following pseudocode:
 
   assert_metric  my_assert_metric(S,G,I) {
-    if( CouldAssert(S,G,I) == TRUE ) {
+    if( CouldAssert(S,G,I) == true ) {
       return spt_assert_metric(S,I)
-    } else if( CouldAssert(*,G,I) == TRUE ) {
+    } else if( CouldAssert(*,G,I) == true ) {
       return rpt_assert_metric(G,I)
     } else {
       return infinite_assert_metric()
@@ -365,11 +365,11 @@ int pim_macro_chisin_oiflist(const struct pim_ifchannel *ch)
 	(+) ( pim_include(*,G) (-) pim_exclude(S,G) )
 	(-) lost_assert(*,G)
 	(+) joins(S,G) ) )
-     OR (local_receiver_include(S,G,I) == TRUE
+     OR (local_receiver_include(S,G,I) == true
 	 AND (I_am_DR(I) OR (AssertWinner(S,G,I) == me)))
-     OR ((RPF_interface(S) == I) AND (JoinDesired(S,G) == TRUE))
-     OR ((RPF_interface(RP(G)) == I) AND (JoinDesired(*,G) == TRUE)
-	 AND (SPTbit(S,G) == FALSE))
+     OR ((RPF_interface(S) == I) AND (JoinDesired(S,G) == true))
+     OR ((RPF_interface(RP(G)) == I) AND (JoinDesired(*,G) == true)
+	 AND (SPTbit(S,G) == false))
 
   AssertTrackingDesired(S,G,I) is true on any interface in which an
   (S,G) assert might affect our behavior.

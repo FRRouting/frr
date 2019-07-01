@@ -2695,11 +2695,11 @@ route_set_ipv6_nexthop_prefer_global(void *rule, const struct prefix *prefix,
 		    && peer->su_remote
 		    && sockunion_family(peer->su_remote) == AF_INET6) {
 			/* Set next hop preference to global */
-			path->attr->mp_nexthop_prefer_global = TRUE;
+			path->attr->mp_nexthop_prefer_global = true;
 			SET_FLAG(path->attr->rmap_change_flags,
 				 BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
 		} else {
-			path->attr->mp_nexthop_prefer_global = FALSE;
+			path->attr->mp_nexthop_prefer_global = false;
 			SET_FLAG(path->attr->rmap_change_flags,
 				 BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
 		}

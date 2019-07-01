@@ -500,7 +500,7 @@ static inline void rib_tables_iter_init(rib_tables_iter_t *iter)
 /*
  * rib_tables_iter_started
  *
- * Returns TRUE if this iterator has started iterating over the set of
+ * Returns true if this iterator has started iterating over the set of
  * tables.
  */
 static inline int rib_tables_iter_started(rib_tables_iter_t *iter)

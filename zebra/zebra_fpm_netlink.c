@@ -195,7 +195,7 @@ typedef struct netlink_route_info_t_ {
  * Add information about the given nexthop to the given route info
  * structure.
  *
- * Returns TRUE if a nexthop was added, FALSE otherwise.
+ * Returns true if a nexthop was added, false otherwise.
  */
 static int netlink_route_info_add_nh(netlink_route_info_t *ri,
 				     struct nexthop *nexthop,
@@ -278,7 +278,7 @@ static uint8_t netlink_proto_from_route_type(int type)
  *
  * Fill out the route information object from the given route.
  *
- * Returns TRUE on success and FALSE on failure.
+ * Returns true on success and false on failure.
  */
 static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 				   rib_dest_t *dest, struct route_entry *re)

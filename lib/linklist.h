@@ -316,7 +316,7 @@ extern void list_add_list(struct list *list, struct list *add);
  * list
  *    list to operate on
  * cond
- *    function pointer which takes node data as input and return TRUE or FALSE
+ *    function pointer which takes node data as input and return true or false
  */
 
 extern void list_filter_out_nodes(struct list *list, bool (*cond)(void *data));

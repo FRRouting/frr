@@ -314,7 +314,7 @@ static inline struct route_node *route_table_iter_next(route_table_iter_t *iter)
 /*
  * route_table_iter_is_done
  *
- * Returns TRUE if the iteration is complete.
+ * Returns true if the iteration is complete.
  */
 static inline int route_table_iter_is_done(route_table_iter_t *iter)
 {
@@ -324,7 +324,7 @@ static inline int route_table_iter_is_done(route_table_iter_t *iter)
 /*
  * route_table_iter_started
  *
- * Returns TRUE if this iterator has started iterating over the tree.
+ * Returns true if this iterator has started iterating over the tree.
  */
 static inline int route_table_iter_started(route_table_iter_t *iter)
 {
