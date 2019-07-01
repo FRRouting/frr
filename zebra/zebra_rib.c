@@ -1170,7 +1170,7 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 /*
  * rib_can_delete_dest
  *
- * Returns TRUE if the given dest can be deleted from the table.
+ * Returns true if the given dest can be deleted from the table.
  */
 static int rib_can_delete_dest(rib_dest_t *dest)
 {
@@ -1287,7 +1287,7 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
  * Garbage collect the rib dest corresponding to the given route node
  * if appropriate.
  *
- * Returns TRUE if the dest was deleted, FALSE otherwise.
+ * Returns true if the dest was deleted, false otherwise.
  */
 int rib_gc_dest(struct route_node *rn)
 {
@@ -3428,7 +3428,7 @@ void rib_init(void)
  *
  * Get the first vrf id that is greater than the given vrf id if any.
  *
- * Returns TRUE if a vrf id was found, FALSE otherwise.
+ * Returns true if a vrf id was found, false otherwise.
  */
 static inline int vrf_id_get_next(vrf_id_t vrf_id, vrf_id_t *next_id_p)
 {

@@ -32,9 +32,6 @@
 extern "C" {
 #endif
 
-#define TRUE 1
-#define FALSE 0
-
 /* ICMP Messages */
 #ifndef ICMP_ROUTERADVERT
 #define ICMP_ROUTERADVERT 9

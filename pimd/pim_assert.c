@@ -734,7 +734,7 @@ void assert_action_a5(struct pim_ifchannel *ch)
 	  winner metric as AssertWinnerMetric(S,G,I).
 	  Set Assert Timer to Assert_Time.
 	  If (I is RPF_interface(S)) AND (UpstreamJPState(S,G) == true)
-	  set SPTbit(S,G) to TRUE.
+	  set SPTbit(S,G) to true.
 */
 static void assert_action_a6(struct pim_ifchannel *ch,
 			     struct pim_assert_metric winner_metric)
@@ -743,7 +743,7 @@ static void assert_action_a6(struct pim_ifchannel *ch,
 
 	/*
 	  If (I is RPF_interface(S)) AND (UpstreamJPState(S,G) == true) set
-	  SPTbit(S,G) to TRUE.
+	  SPTbit(S,G) to true.
 	*/
 	if (ch->upstream->rpf.source_nexthop.interface == ch->interface)
 		if (ch->upstream->join_state == PIM_UPSTREAM_JOINED)

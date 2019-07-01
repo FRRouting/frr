@@ -32,8 +32,6 @@
 #ifndef _ZEBRA_EIGRP_CONST_H_
 #define _ZEBRA_EIGRP_CONST_H_
 
-#define FALSE 0
-
 #define EIGRP_NEIGHBOR_DOWN           0
 #define EIGRP_NEIGHBOR_PENDING        1
 #define EIGRP_NEIGHBOR_UP             2
