@@ -1835,6 +1835,7 @@ static void zebra_rib_fixup_system(struct route_node *rn)
 			continue;
 
 		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+		UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
 
 		for (ALL_NEXTHOPS(re->ng, nhop)) {
 			if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_RECURSIVE))

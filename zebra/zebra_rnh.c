@@ -462,6 +462,7 @@ zebra_rnh_resolve_import_entry(struct zebra_vrf *zvrf, afi_t afi,
 	RNODE_FOREACH_RE (rn, re) {
 		if (!CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)
 		    && CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)
+		    && !CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED)
 		    && (re->type != ZEBRA_ROUTE_BGP))
 			break;
 	}
@@ -720,6 +721,14 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 					zlog_debug(
 						"\tRoute Entry %s !selected",
+						zebra_route_string(re->type));
+				continue;
+			}
+
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED)) {
+				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+					zlog_debug(
+						"\tRoute Entry %s queued",
 						zebra_route_string(re->type));
 				continue;
 			}
