@@ -273,7 +273,7 @@ void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 	}
 }
 
-uint32_t nexthop_group_hash(const struct nexthop_group *nhg)
+uint32_t nexthop_group_hash_no_recurse(const struct nexthop_group *nhg)
 {
 	struct nexthop *nh;
 	uint32_t key = 0;
@@ -283,6 +283,17 @@ uint32_t nexthop_group_hash(const struct nexthop_group *nhg)
 	 * resolved nexthops
 	 */
 	for (nh = nhg->nexthop; nh; nh = nh->next)
+		key = jhash_1word(nexthop_hash(nh), key);
+
+	return key;
+}
+
+uint32_t nexthop_group_hash(const struct nexthop_group *nhg)
+{
+	struct nexthop *nh;
+	uint32_t key = 0;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nh))
 		key = jhash_1word(nexthop_hash(nh), key);
 
 	return key;
