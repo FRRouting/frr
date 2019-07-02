@@ -2346,9 +2346,11 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 	afi = (rn->p.family == AF_INET)
 		      ? AFI_IP
 		      : (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
-	if (is_zebra_import_table_enabled(afi, re->table)) {
+	if (is_zebra_import_table_enabled(afi, re->vrf_id, re->table)) {
+		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+
 		rmap_name = zebra_get_import_table_route_map(afi, re->table);
-		zebra_add_import_table_entry(rn, re, rmap_name);
+		zebra_add_import_table_entry(zvrf, rn, re, rmap_name);
 	} else if (process)
 		rib_queue_add(rn);
 }
@@ -2414,8 +2416,10 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 	afi = (rn->p.family == AF_INET)
 		      ? AFI_IP
 		      : (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
-	if (is_zebra_import_table_enabled(afi, re->table)) {
-		zebra_del_import_table_entry(rn, re);
+	if (is_zebra_import_table_enabled(afi, re->vrf_id, re->table)) {
+		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+
+		zebra_del_import_table_entry(zvrf, rn, re);
 		/* Just clean up if non main table */
 		if (IS_ZEBRA_DEBUG_RIB) {
 			char buf[SRCDEST2STR_BUFFER];
@@ -2741,11 +2745,14 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		else
 			src_buf[0] = '\0';
 
-		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("%u:%s%s%s doesn't exist in rib", vrf_id,
-				   dst_buf,
+		if (IS_ZEBRA_DEBUG_RIB) {
+			struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+			zlog_debug("%s[%d]:%s%s%s doesn't exist in rib",
+				   vrf->name, table_id, dst_buf,
 				   (src_buf[0] != '\0') ? " from " : "",
 				   src_buf);
+		}
 		return;
 	}
 

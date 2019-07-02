@@ -150,6 +150,9 @@ static inline int zebra2proto(int proto)
 	case ZEBRA_ROUTE_OPENFABRIC:
 		proto = RTPROT_OPENFABRIC;
 		break;
+	case ZEBRA_ROUTE_TABLE:
+		proto = RTPROT_ZEBRA;
+		break;
 	default:
 		/*
 		 * When a user adds a new protocol this will show up

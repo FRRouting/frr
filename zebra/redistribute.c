@@ -52,7 +52,7 @@
 static int zebra_import_table_used[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 static uint32_t zebra_import_table_distance[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
-int is_zebra_import_table_enabled(afi_t afi, uint32_t table_id)
+int is_zebra_import_table_enabled(afi_t afi, vrf_id_t vrf_id, uint32_t table_id)
 {
 	/*
 	 * Make sure that what we are called with actualy makes sense
@@ -568,8 +568,8 @@ void zebra_interface_vrf_update_add(struct interface *ifp, vrf_id_t old_vrf_id)
 	}
 }
 
-int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
-				 const char *rmap_name)
+int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
+				 struct route_entry *re, const char *rmap_name)
 {
 	struct route_entry *newre;
 	struct route_entry *same;
@@ -581,11 +581,11 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 	if (rmap_name)
 		ret = zebra_import_table_route_map_check(
 			afi, re->type, re->instance, &rn->p, re->ng.nexthop,
-			re->vrf_id, re->tag, rmap_name);
+			zvrf->vrf->vrf_id, re->tag, rmap_name);
 
 	if (ret != RMAP_MATCH) {
 		UNSET_FLAG(re->flags, ZEBRA_FLAG_SELECTED);
-		zebra_del_import_table_entry(rn, re);
+		zebra_del_import_table_entry(zvrf, rn, re);
 		return 0;
 	}
 
@@ -603,7 +603,7 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 
 	if (same) {
 		UNSET_FLAG(same->flags, ZEBRA_FLAG_SELECTED);
-		zebra_del_import_table_entry(rn, same);
+		zebra_del_import_table_entry(zvrf, rn, same);
 	}
 
 	newre = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
@@ -612,7 +612,7 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 	newre->flags = re->flags;
 	newre->metric = re->metric;
 	newre->mtu = re->mtu;
-	newre->table = 0;
+	newre->table = zvrf->table_id;
 	newre->nexthop_num = 0;
 	newre->uptime = monotime(NULL);
 	newre->instance = re->table;
@@ -623,7 +623,8 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 	return 0;
 }
 
-int zebra_del_import_table_entry(struct route_node *rn, struct route_entry *re)
+int zebra_del_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
+				 struct route_entry *re)
 {
 	struct prefix p;
 	afi_t afi;
@@ -631,20 +632,21 @@ int zebra_del_import_table_entry(struct route_node *rn, struct route_entry *re)
 	afi = family2afi(rn->p.family);
 	prefix_copy(&p, &rn->p);
 
-	rib_delete(afi, SAFI_UNICAST, re->vrf_id, ZEBRA_ROUTE_TABLE, re->table,
-		   re->flags, &p, NULL, re->ng.nexthop, 0, re->metric,
-		   re->distance, false);
+	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_TABLE,
+		   re->table, re->flags, &p, NULL, re->ng.nexthop,
+		   zvrf->table_id, re->metric, re->distance, false);
 
 	return 0;
 }
 
 /* Assuming no one calls this with the main routing table */
-int zebra_import_table(afi_t afi, uint32_t table_id, uint32_t distance,
-		       const char *rmap_name, int add)
+int zebra_import_table(afi_t afi, vrf_id_t vrf_id, uint32_t table_id,
+		       uint32_t distance, const char *rmap_name, int add)
 {
 	struct route_table *table;
 	struct route_entry *re;
 	struct route_node *rn;
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(vrf_id);
 
 	if (!is_zebra_valid_kernel_table(table_id)
 	    || (table_id == RT_TABLE_MAIN))
@@ -653,8 +655,8 @@ int zebra_import_table(afi_t afi, uint32_t table_id, uint32_t distance,
 	if (afi >= AFI_MAX)
 		return (-1);
 
-	table = zebra_vrf_table_with_table_id(afi, SAFI_UNICAST,
-					      table_id, VRF_DEFAULT);
+	table = zebra_vrf_table_with_table_id(afi, SAFI_UNICAST, vrf_id,
+					      table_id);
 	if (table == NULL) {
 		return 0;
 	} else if (IS_ZEBRA_DEBUG_RIB) {
@@ -708,15 +710,16 @@ int zebra_import_table(afi_t afi, uint32_t table_id, uint32_t distance,
 		if (((afi == AFI_IP) && (rn->p.family == AF_INET))
 		    || ((afi == AFI_IP6) && (rn->p.family == AF_INET6))) {
 			if (add)
-				zebra_add_import_table_entry(rn, re, rmap_name);
+				zebra_add_import_table_entry(zvrf, rn, re,
+							     rmap_name);
 			else
-				zebra_del_import_table_entry(rn, re);
+				zebra_del_import_table_entry(zvrf, rn, re);
 		}
 	}
 	return 0;
 }
 
-int zebra_import_table_config(struct vty *vty)
+int zebra_import_table_config(struct vty *vty, vrf_id_t vrf_id)
 {
 	int i;
 	afi_t afi;
@@ -726,7 +729,7 @@ int zebra_import_table_config(struct vty *vty)
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 1; i < ZEBRA_KERNEL_TABLE_MAX; i++) {
-			if (!is_zebra_import_table_enabled(afi, i))
+			if (!is_zebra_import_table_enabled(afi, vrf_id, i))
 				continue;
 
 			if (zebra_import_table_distance[afi][i]
@@ -751,61 +754,84 @@ int zebra_import_table_config(struct vty *vty)
 	return write;
 }
 
-void zebra_import_table_rm_update(const char *rmap)
+static void zebra_import_table_rm_update_vrf_afi(struct zebra_vrf *zvrf,
+						 afi_t afi, int table_id,
+						 const char *rmap)
 {
-	afi_t afi;
-	int i;
 	struct route_table *table;
 	struct route_entry *re;
 	struct route_node *rn;
 	const char *rmap_name;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (i = 1; i < ZEBRA_KERNEL_TABLE_MAX; i++) {
-			if (!is_zebra_import_table_enabled(afi, i))
+	rmap_name = zebra_get_import_table_route_map(afi, table_id);
+	if ((!rmap_name) || (strcmp(rmap_name, rmap) != 0))
+		return;
+
+	table = zebra_vrf_table_with_table_id(afi, SAFI_UNICAST,
+					      zvrf->vrf->vrf_id, table_id);
+	if (!table) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			zlog_debug("%s: Table id=%d not found", __func__,
+				   table_id);
+		return;
+	}
+
+	for (rn = route_top(table); rn; rn = route_next(rn)) {
+		/*
+		 * For each entry in the non-default routing table,
+		 * add the entry in the main table
+		 */
+		if (!rn->info)
+			continue;
+
+		RNODE_FOREACH_RE (rn, re) {
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 				continue;
-
-			rmap_name = zebra_get_import_table_route_map(afi, i);
-			if ((!rmap_name) || (strcmp(rmap_name, rmap) != 0))
-				continue;
-			table = zebra_vrf_table_with_table_id(afi, SAFI_UNICAST,
-							      i, VRF_DEFAULT);
-			if (!table) {
-				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-					zlog_debug("%s: Table id=%d not found",
-						   __func__, i);
-				continue;
-			}
-
-			for (rn = route_top(table); rn; rn = route_next(rn)) {
-				/* For each entry in the non-default
-				 * routing table,
-				 * add the entry in the main table
-				 */
-				if (!rn->info)
-					continue;
-
-				RNODE_FOREACH_RE (rn, re) {
-					if (CHECK_FLAG(re->status,
-						       ROUTE_ENTRY_REMOVED))
-						continue;
-					break;
-				}
-
-				if (!re)
-					continue;
-
-				if (((afi == AFI_IP)
-				     && (rn->p.family == AF_INET))
-				    || ((afi == AFI_IP6)
-					&& (rn->p.family == AF_INET6)))
-					zebra_add_import_table_entry(rn, re,
-								     rmap_name);
-			}
+			break;
 		}
+
+		if (!re)
+			continue;
+
+		if (((afi == AFI_IP) && (rn->p.family == AF_INET))
+		    || ((afi == AFI_IP6) && (rn->p.family == AF_INET6)))
+			zebra_add_import_table_entry(zvrf, rn, re, rmap_name);
 	}
 
 	return;
+}
+
+static void zebra_import_table_rm_update_vrf(struct zebra_vrf *zvrf,
+					     const char *rmap)
+{
+	afi_t afi;
+	int i;
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		for (i = 1; i < ZEBRA_KERNEL_TABLE_MAX; i++) {
+			if (!is_zebra_import_table_enabled(
+				    afi, zvrf->vrf->vrf_id, i))
+				continue;
+
+			zebra_import_table_rm_update_vrf_afi(zvrf, afi, i,
+							     rmap);
+		}
+	}
+}
+
+void zebra_import_table_rm_update(const char *rmap)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		zvrf = vrf->info;
+
+		if (!zvrf)
+			continue;
+
+		zebra_import_table_rm_update_vrf(zvrf, rmap);
+	}
 }
 
 /* Interface parameters update */
