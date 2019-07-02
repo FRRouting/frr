@@ -1447,9 +1447,12 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 int zebra_nhg_re_update_ref(struct route_entry *re, struct nhg_hash_entry *new)
 {
 	struct nhg_hash_entry *old = NULL;
+	int ret = 0;
 
-	if (!new)
-		return -1;
+	if (new == NULL) {
+		re->ng = NULL;
+		goto done;
+	}
 
 	if (re->nhe_id != new->id) {
 		old = zebra_nhg_lookup_id(re->nhe_id);
@@ -1462,7 +1465,8 @@ int zebra_nhg_re_update_ref(struct route_entry *re, struct nhg_hash_entry *new)
 			zebra_nhg_decrement_ref(old);
 	}
 
-	return 0;
+done:
+	return ret;
 }
 
 /* Convert a nhe into a group array */
