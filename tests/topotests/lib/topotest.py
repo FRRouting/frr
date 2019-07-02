@@ -1202,7 +1202,7 @@ class Router(Node):
             "pathd": 0,
             "snmpd": 0,
         }
-        self.daemons_options = {"zebra": ""}
+        self.daemons_options = {"zebra": "", "bfdd": ""}
         self.reportCores = True
         self.version = None
 
