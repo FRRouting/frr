@@ -663,9 +663,8 @@ static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi)
 }
 
 /* Rib-side, you get a nexthop group struct */
-struct nhg_hash_entry *zebra_nhg_rib_find(uint32_t id,
-					  struct nexthop_group *nhg,
-					  vrf_id_t rt_vrf_id, afi_t rt_afi)
+struct nhg_hash_entry *
+zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 {
 	struct nhg_hash_entry *nhe = NULL;
 	struct nhg_hash_entry *depend = NULL;
@@ -673,7 +672,7 @@ struct nhg_hash_entry *zebra_nhg_rib_find(uint32_t id,
 
 	/* Defualt the nhe to the afi and vrf of the route */
 	afi_t nhg_afi = rt_afi;
-	vrf_id_t nhg_vrf_id = rt_vrf_id;
+	vrf_id_t nhg_vrf_id = nhg->nexthop->vrf_id;
 
 	if (!nhg) {
 		flog_err(EC_ZEBRA_TABLE_LOOKUP_FAILED,
@@ -695,15 +694,6 @@ struct nhg_hash_entry *zebra_nhg_rib_find(uint32_t id,
 		/* change the afi/vrf_id since its a group */
 		nhg_afi = AFI_UNSPEC;
 		nhg_vrf_id = 0;
-	} else {
-		/*
-		 * If the vrf_id on the nexthop does not match
-		 * the route one, use it instead.
-		 */
-		vrf_id_t nh_vrf_id = nhg->nexthop->vrf_id;
-
-		if (nh_vrf_id && nh_vrf_id != rt_vrf_id)
-			nhg_vrf_id = nh_vrf_id;
 	}
 
 	if (!zebra_nhg_find(&nhe, id, nhg, &nhg_depends, nhg_vrf_id, nhg_afi,
@@ -1413,7 +1403,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 		struct nhg_hash_entry *new_nhe = NULL;
 		// TODO: Add proto type here
 
-		new_nhe = zebra_nhg_rib_find(0, &new_grp, re->vrf_id, rt_afi);
+		new_nhe = zebra_nhg_rib_find(0, &new_grp, rt_afi);
 
 		zebra_nhg_re_update_ref(re, new_nhe);
 	}

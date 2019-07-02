@@ -212,10 +212,8 @@ extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
 				 vrf_id_t vrf_id, afi_t afi);
 
 /* Find via route creation */
-extern struct nhg_hash_entry *zebra_nhg_rib_find(uint32_t id,
-						 struct nexthop_group *nhg,
-						 vrf_id_t rt_vrf_id,
-						 afi_t rt_afi);
+extern struct nhg_hash_entry *
+zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi);
 
 
 void zebra_nhg_free_members(struct nhg_hash_entry *nhe);

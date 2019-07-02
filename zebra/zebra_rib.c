@@ -2739,7 +2739,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 			return -1;
 		}
 	} else {
-		nhe = zebra_nhg_rib_find(0, re->ng, re->vrf_id, afi);
+		nhe = zebra_nhg_rib_find(0, re->ng, afi);
 
 		/*
 		 * The nexthops got copied over into an nhe,
