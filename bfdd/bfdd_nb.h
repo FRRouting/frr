@@ -18,6 +18,9 @@ int bfdd_bfd_profile_create(struct nb_cb_create_args *args);
 int bfdd_bfd_profile_destroy(struct nb_cb_destroy_args *args);
 int bfdd_bfd_profile_detection_multiplier_modify(
 	struct nb_cb_modify_args *args);
+int bfdd_bfd_profile_notify_string_modify(
+	struct nb_cb_modify_args *args);
+int bfdd_bfd_profile_notify_string_destroy(struct nb_cb_destroy_args *args);
 int bfdd_bfd_profile_desired_transmission_interval_modify(
 	struct nb_cb_modify_args *args);
 int bfdd_bfd_profile_required_receive_interval_modify(
@@ -48,6 +51,9 @@ int bfdd_bfd_sessions_single_hop_detection_multiplier_modify(
 	struct nb_cb_modify_args *args);
 int bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify(
 	struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_notify_string_modify(
+	struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_notify_string_destroy(struct nb_cb_destroy_args *args);
 int bfdd_bfd_sessions_single_hop_required_receive_interval_modify(
 	struct nb_cb_modify_args *args);
 int bfdd_bfd_sessions_single_hop_administrative_down_modify(
@@ -209,5 +215,7 @@ void bfd_cli_show_passive(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults);
 void bfd_cli_show_minimum_ttl(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults);
+void bfd_cli_show_notify_string(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults);
 
 #endif /* _FRR_BFDD_NB_H_ */
