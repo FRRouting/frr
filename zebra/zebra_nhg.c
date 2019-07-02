@@ -1364,13 +1364,12 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 				/* Add new resolved */
 				zebra_nhg_depends_add(nhe, new_resolved);
 				zebra_nhg_dependents_add(new_resolved, nhe);
-				/*
-				 * In case the new == old, we increment
-				 * first and then decrement
-				 */
-				zebra_nhg_increment_ref(new_resolved);
-				if (old_resolved)
-					zebra_nhg_decrement_ref(old_resolved);
+
+				if (old_resolved && new_resolved->id != old_resolved->id) {
+					new_resolved->refcnt+=nhe->refcnt;
+					old_resolved->refcnt-=nhe->refcnt;
+				} else if (!old_resolved)
+					zebra_nhg_increment_ref(new_resolved);
 
 				SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE);
 			} else
