@@ -999,6 +999,8 @@ DEFUN_NOSH (router_bgp,
 		if (is_new_bgp && inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			vpn_leak_postchange_all();
 
+		if (inst_type == BGP_INSTANCE_TYPE_VRF)
+			bgp_vpn_leak_export(bgp);
 		/* Pending: handle when user tries to change a view to vrf n vv.
 		 */
 	}
@@ -1080,6 +1082,9 @@ DEFUN (no_router_bgp,
 			}
 		}
 	}
+
+	if (bgp_vpn_leak_unimport(bgp, vty))
+		return CMD_WARNING_CONFIG_FAILED;
 
 	bgp_delete(bgp);
 
@@ -11313,15 +11318,19 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 				json_object_array_add(json_import_vrfs,
 						json_object_new_string(vname));
 
+			json_object_object_add(json, "importFromVrfs",
+						       json_import_vrfs);
 			dir = BGP_VPN_POLICY_DIR_FROMVPN;
-			ecom_str = ecommunity_ecom2str(
+			if (bgp->vpn_policy[afi].rtlist[dir]) {
+				ecom_str = ecommunity_ecom2str(
 					bgp->vpn_policy[afi].rtlist[dir],
 					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-			json_object_object_add(json, "importFromVrfs",
-					       json_import_vrfs);
-			json_object_string_add(json, "importRts", ecom_str);
-
-			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+				json_object_string_add(json, "importRts",
+						       ecom_str);
+				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+			} else
+				json_object_string_add(json, "importRts",
+						       "none");
 		}
 
 		if (!CHECK_FLAG(bgp->af_flags[afi][safi],
@@ -11345,12 +11354,16 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 						 buf1, RD_ADDRSTRLEN));
 
 			dir = BGP_VPN_POLICY_DIR_TOVPN;
-			ecom_str = ecommunity_ecom2str(
+			if (bgp->vpn_policy[afi].rtlist[dir]) {
+				ecom_str = ecommunity_ecom2str(
 					       bgp->vpn_policy[afi].rtlist[dir],
 					       ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-			json_object_string_add(json, "exportRts", ecom_str);
-
-			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+				json_object_string_add(json, "exportRts",
+						       ecom_str);
+				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+			} else
+				json_object_string_add(json, "exportRts",
+						       "none");
 		}
 
 		if (use_json) {
@@ -11383,12 +11396,16 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 				vty_out(vty, "  %s\n", vname);
 
 			dir = BGP_VPN_POLICY_DIR_FROMVPN;
-			ecom_str = ecommunity_ecom2str(
+			ecom_str = NULL;
+			if (bgp->vpn_policy[afi].rtlist[dir]) {
+				ecom_str = ecommunity_ecom2str(
 					       bgp->vpn_policy[afi].rtlist[dir],
 					       ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-			vty_out(vty, "Import RT(s): %s\n", ecom_str);
+				vty_out(vty, "Import RT(s): %s\n", ecom_str);
 
-			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+			} else
+				vty_out(vty, "Import RT(s):\n");
 		}
 
 		if (!CHECK_FLAG(bgp->af_flags[afi][safi],
@@ -11411,11 +11428,14 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 					      buf1, RD_ADDRSTRLEN));
 
 			dir = BGP_VPN_POLICY_DIR_TOVPN;
-			ecom_str = ecommunity_ecom2str(
+			if (bgp->vpn_policy[afi].rtlist[dir]) {
+				ecom_str = ecommunity_ecom2str(
 					bgp->vpn_policy[afi].rtlist[dir],
 					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-			vty_out(vty, "Export RT: %s\n", ecom_str);
-			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+				vty_out(vty, "Export RT: %s\n", ecom_str);
+				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+			} else
+				vty_out(vty, "Import RT(s):\n");
 		}
 	}
 
