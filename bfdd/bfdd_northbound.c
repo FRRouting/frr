@@ -28,20 +28,10 @@
 #include "bfd.h"
 
 /*
- * Prototypes.
- */
-void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
-			 struct bfd_key *bk);
-int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
-		       union nb_resource *resource, bool mhop);
-int bfd_session_destroy(enum nb_event event, const struct lyd_node *dnode,
-			bool mhop);
-
-/*
  * Helpers.
  */
-void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
-			 struct bfd_key *bk)
+static void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
+				struct bfd_key *bk)
 {
 	const char *ifname = NULL, *vrfname = NULL;
 	struct sockaddr_any psa, lsa;
@@ -64,8 +54,8 @@ void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
 	gen_bfd_key(bk, &psa, &lsa, mhop, ifname, vrfname);
 }
 
-int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
-		       union nb_resource *resource, bool mhop)
+static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
+			      union nb_resource *resource, bool mhop)
 {
 	struct bfd_session *bs;
 	struct bfd_key bk;
@@ -126,8 +116,8 @@ int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 	return NB_OK;
 }
 
-int bfd_session_destroy(enum nb_event event, const struct lyd_node *dnode,
-			bool mhop)
+static int bfd_session_destroy(enum nb_event event,
+			       const struct lyd_node *dnode, bool mhop)
 {
 	struct bfd_session *bs;
 	struct bfd_key bk;
