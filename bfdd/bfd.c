@@ -1289,8 +1289,6 @@ static unsigned int bfd_key_hash_do(const void *p);
 
 static void _bfd_free(struct hash_bucket *hb,
 		      void *arg __attribute__((__unused__)));
-int _bfd_session_next(struct hash_bucket *hb, void *arg);
-void _bfd_session_remove_manual(struct hash_bucket *hb, void *arg);
 
 /* BFD hash for our discriminator. */
 static unsigned int bfd_id_hash_do(const void *p)
@@ -1343,9 +1341,10 @@ struct bfd_key_walk_partial_lookup {
 };
 
 /* ignore some parameters */
-static int bfd_key_lookup_ignore_partial_walker(struct hash_bucket *b, void *data)
+static int bfd_key_lookup_ignore_partial_walker(struct hash_bucket *b,
+						void *data)
 {
-	struct bfd_key_walk_partial_lookup  *ctx =
+	struct bfd_key_walk_partial_lookup *ctx =
 		(struct bfd_key_walk_partial_lookup *)data;
 	struct bfd_session *given = ctx->given;
 	struct bfd_session *parsed = b->data;
@@ -1354,7 +1353,8 @@ static int bfd_key_lookup_ignore_partial_walker(struct hash_bucket *b, void *dat
 		return HASHWALK_CONTINUE;
 	if (given->key.mhop != parsed->key.mhop)
 		return HASHWALK_CONTINUE;
-	if (memcmp(&given->key.peer, &parsed->key.peer, sizeof(struct in6_addr)))
+	if (memcmp(&given->key.peer, &parsed->key.peer,
+		   sizeof(struct in6_addr)))
 		return HASHWALK_CONTINUE;
 	if (memcmp(given->key.vrfname, parsed->key.vrfname, MAXNAMELEN))
 		return HASHWALK_CONTINUE;
@@ -1538,7 +1538,7 @@ struct bfd_session_iterator {
 	const struct bfd_session *bsi_bs;
 };
 
-int _bfd_session_next(struct hash_bucket *hb, void *arg)
+static int _bfd_session_next(struct hash_bucket *hb, void *arg)
 {
 	struct bfd_session_iterator *bsi = arg;
 	struct bfd_session *bs = hb->data;
@@ -1588,8 +1588,8 @@ const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
 	return bsi.bsi_bs;
 }
 
-void _bfd_session_remove_manual(struct hash_bucket *hb,
-				void *arg __attribute__((__unused__)))
+static void _bfd_session_remove_manual(struct hash_bucket *hb,
+				       void *arg __attribute__((__unused__)))
 {
 	struct bfd_session *bs = hb->data;
 
