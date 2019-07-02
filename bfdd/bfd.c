@@ -29,6 +29,7 @@
 
 #include "lib/jhash.h"
 #include "lib/network.h"
+#include "lib/hook.h"
 
 #include "bfd.h"
 
@@ -36,6 +37,12 @@ DEFINE_MTYPE_STATIC(BFDD, BFDD_CONFIG, "long-lived configuration memory");
 DEFINE_MTYPE_STATIC(BFDD, BFDD_PROFILE, "long-lived profile memory");
 DEFINE_MTYPE_STATIC(BFDD, BFDD_SESSION_OBSERVER, "Session observer");
 DEFINE_MTYPE_STATIC(BFDD, BFDD_VRF, "BFD VRF");
+
+DEFINE_HOOK(bfd_tracking_new_session,
+	    (const struct bfd_session *pm), (pm));
+DEFINE_HOOK(bfd_tracking_release_session,
+	    (const struct bfd_session *pm), (pm));
+
 
 /*
  * Prototypes
@@ -843,6 +850,8 @@ void bfd_session_free(struct bfd_session *bs)
 	/* Remove session from data plane if any. */
 	bfd_dplane_delete_session(bs);
 
+	hook_call(bfd_tracking_release_session, bs);
+
 	bfd_key_delete(bs->key);
 	bfd_id_delete(bs->discrs.my_discr);
 
@@ -953,6 +962,8 @@ struct bfd_session *bs_registrate(struct bfd_session *bfd)
 
 	if (bglobal.debug_peer_event)
 		zlog_debug("session-new: %s", bs_to_string(bfd));
+
+	hook_call(bfd_tracking_new_session, bfd);
 
 	control_notify_config(BCM_NOTIFY_CONFIG_ADD, bfd);
 

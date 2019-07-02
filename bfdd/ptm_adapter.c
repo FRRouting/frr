@@ -25,10 +25,15 @@
 #include "lib/stream.h"
 #include "lib/zclient.h"
 #include "lib/printfrr.h"
+#include "lib/hook.h"
 
 #include "lib/bfd.h"
 
 #include "bfd.h"
+
+DEFINE_HOOK(bfd_tracking_notify_filename,
+	    (const struct bfd_session *pm),
+	    (pm));
 
 /*
  * Data structures
@@ -193,6 +198,8 @@ static int _ptm_msg_address(struct stream *msg, int family, const void *addr)
 int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 {
 	struct stream *msg;
+
+	hook_call(bfd_tracking_notify_filename, bs);
 
 	bs->stats.znotification++;
 

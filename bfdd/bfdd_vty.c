@@ -25,12 +25,19 @@
 #include "lib/log.h"
 #include "lib/northbound_cli.h"
 #include "lib/vty.h"
+#include "lib/hook.h"
 
 #include "bfd.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "bfdd/bfdd_vty_clippy.c"
 #endif
+
+DEFINE_HOOK(bfd_tracking_show_extra_info,
+	    (const struct bfd_session *bs,
+	     struct vty *vty,
+	     struct json_object *jo),
+	    (bs, vty, jo));
 
 /*
  * Commands help string definitions.
@@ -100,6 +107,7 @@ static void _display_peer_header(struct vty *vty, struct bfd_session *bs)
 
 	if (bs->pl)
 		vty_out(vty, "\t\tlabel: %s\n", bs->pl->pl_label);
+	hook_call(bfd_tracking_show_extra_info, bs, vty, NULL);
 }
 
 static void _display_peer(struct vty *vty, struct bfd_session *bs)
@@ -210,7 +218,7 @@ static struct json_object *_peer_json_header(struct bfd_session *bs)
 
 	if (bs->pl)
 		json_object_string_add(jo, "label", bs->pl->pl_label);
-
+	hook_call(bfd_tracking_show_extra_info, bs, NULL, jo);
 	return jo;
 }
 

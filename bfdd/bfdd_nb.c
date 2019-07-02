@@ -56,6 +56,14 @@ const struct frr_yang_module_info frr_bfdd_info = {
 				.cli_show = bfd_cli_show_mult,
                         }
                 },
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/notify-string",
+			.cbs = {
+				.modify = bfdd_bfd_profile_notify_string_modify,
+				.cli_show = bfd_cli_show_notify_string,
+				.destroy = bfdd_bfd_profile_notify_string_destroy
+			}
+		},
                 {
                         .xpath = "/frr-bfdd:bfdd/bfd/profile/desired-transmission-interval",
                         .cbs = {
@@ -194,6 +202,14 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			.cbs = {
 				.modify = bfdd_bfd_sessions_single_hop_required_echo_receive_interval_modify,
 				.cli_show = bfd_cli_show_required_echo_receive_interval,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/notify-string",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_notify_string_modify,
+				.cli_show = bfd_cli_show_notify_string,
+				.destroy = bfdd_bfd_sessions_notify_string_destroy,
 			}
 		},
 		{
@@ -485,6 +501,14 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/stats/negotiated-echo-transmission-interval",
 			.cbs = {
 				.get_elem = bfdd_bfd_sessions_single_hop_stats_negotiated_echo_transmission_interval_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/notify-string",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_notify_string_modify,
+				.cli_show = bfd_cli_show_notify_string,
+				.destroy = bfdd_bfd_sessions_notify_string_destroy,
 			}
 		},
 		{

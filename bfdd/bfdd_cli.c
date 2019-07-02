@@ -25,6 +25,7 @@
 #include "lib/command.h"
 #include "lib/log.h"
 #include "lib/northbound_cli.h"
+#include "lib/hook.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "bfdd/bfdd_cli_clippy.c"
@@ -32,6 +33,10 @@
 
 #include "bfd.h"
 #include "bfdd_nb.h"
+
+DEFINE_HOOK(bfd_tracking_show_notify_string,
+	    (struct vty *vty, const char *notify_string),
+	    (vty, notify_string));
 
 /*
  * Definitions.
@@ -501,6 +506,18 @@ DEFPY_YANG(
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+void bfd_cli_show_notify_string(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults)
+{
+	const char *notify_string;
+
+	if (show_defaults)
+		return;
+	notify_string = yang_dnode_get_string(dnode, NULL);
+	hook_call(bfd_tracking_show_notify_string, vty, notify_string);
+}
+
 
 void bfd_cli_show_desired_echo_transmission_interval(struct vty *vty,
 	struct lyd_node *dnode, bool show_defaults)

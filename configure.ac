@@ -725,6 +725,9 @@ AC_ARG_ENABLE([version-build-config],
 AC_ARG_ENABLE(wrap_script,
   AS_HELP_STRING([--enable-wrap-script], [enable Usage of Script Wrapping Layer]))
 
+AC_ARG_ENABLE(bfd_tracking,
+  AS_HELP_STRING([--enable-bfd-tracking], [enable Usage of bfd tracking]))
+
 #if openssl, else use the internal
 AS_IF([test "$with_crypto" = "openssl"], [
 AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
@@ -2595,6 +2598,7 @@ AM_CONDITIONAL([FPM], [test "$enable_fpm" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
 AM_CONDITIONAL([WRAP_SCRIPT], [test "x$enable_wrap_script" = "xyes"])
+AM_CONDITIONAL([BFD_TRACKING], [test "x$enable_bfd_tracking" = "xyes"])
 dnl PCEP plugin
 AS_IF([test "$enable_pathd" != "no"], [
        AC_SUBST([PATHD_PCEP_LIBS], ["pceplib/libpcep_pcc.la"])

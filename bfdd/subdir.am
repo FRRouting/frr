@@ -7,8 +7,13 @@ noinst_LIBRARIES += bfdd/libbfd.a
 sbin_PROGRAMS += bfdd/bfdd
 vtysh_scan += bfdd/bfdd_vty.c
 vtysh_scan += bfdd/bfdd_cli.c
+vtysh_scan += bfdd/bfd_tracking.c
 vtysh_daemons += bfdd
 man8 += $(MANBUILD)/frr-bfdd.8
+endif
+
+if BFD_TRACKING
+module_LTLIBRARIES += bfdd/bfd_tracking.la
 endif
 
 bfdd_libbfd_a_SOURCES = \
@@ -38,6 +43,11 @@ clippy_scan += \
 	bfdd/bfdd_vty.c \
 	# end
 
+if BFD_TRACKING
+bfdd/bfd_tracking_clippy.c: $(CLIPPY_DEPS)
+bfdd/bfd_tracking.lo: bfdd/bfd_tracking_clippy.c
+endif
+
 noinst_HEADERS += \
 	bfdd/bfdctl.h \
 	bfdd/bfdd_nb.h \
@@ -50,3 +60,8 @@ nodist_bfdd_bfdd_SOURCES = \
 
 bfdd_bfdd_SOURCES = bfdd/bfdd.c
 bfdd_bfdd_LDADD = bfdd/libbfd.a lib/libfrr.la
+
+if BFD_TRACKING
+bfdd_bfd_tracking_la_SOURCES = bfdd/bfd_tracking.c
+bfdd_bfd_tracking_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+endif

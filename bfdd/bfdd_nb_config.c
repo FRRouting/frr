@@ -24,9 +24,16 @@
 
 #include "lib/log.h"
 #include "lib/northbound.h"
+#include "lib/json.h"
 
 #include "bfd.h"
+#include "bfd_tracking.h"
 #include "bfdd_nb.h"
+
+DEFINE_HOOK(bfd_tracking_set_notify_string,
+	    (const struct bfd_session *bs,
+	     const char *notify_string),
+	    (bs, notify_string));
 
 /*
  * Helpers.
@@ -323,6 +330,21 @@ int bfdd_bfd_profile_detection_multiplier_modify(struct nb_cb_modify_args *args)
 	bp->detection_multiplier = yang_dnode_get_uint8(args->dnode, NULL);
 	bfd_profile_update(bp);
 
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/profile/notify-string
+ */
+int bfdd_bfd_profile_notify_string_modify(struct nb_cb_modify_args *args)
+{
+	/* not implemented */
+	return NB_OK;
+}
+
+int bfdd_bfd_profile_notify_string_destroy(struct nb_cb_destroy_args *args)
+{
+	/* not implemented */
 	return NB_OK;
 }
 
@@ -869,6 +891,44 @@ int bfdd_bfd_sessions_single_hop_echo_mode_modify(
 	bs->peer_profile.echo_mode = echo;
 	bfd_session_apply(bs);
 
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-bfdd:bfdd/bfd/sessions/single-hop/notify-string
+ * /frr-bfdd:bfdd/bfd/sessions/multi-hop/notify-string
+ */
+int bfdd_bfd_sessions_notify_string_modify(
+	struct nb_cb_modify_args *args)
+{
+	const char *notify_string;
+	struct bfd_session *bs;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+
+	notify_string = yang_dnode_get_string(args->dnode, NULL);
+
+	hook_call(bfd_tracking_set_notify_string, bs, notify_string);
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-bfdd:bfdd/bfd/sessions/single-hop/notify-string
+ * /frr-bfdd:bfdd/bfd/sessions/multi-hop/notify-string
+ */
+int bfdd_bfd_sessions_notify_string_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bfd_session *bs;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+
+	hook_call(bfd_tracking_set_notify_string, bs, NULL);
 	return NB_OK;
 }
 

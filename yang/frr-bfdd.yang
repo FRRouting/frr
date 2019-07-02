@@ -169,6 +169,13 @@ module frr-bfdd {
       description "Local session detection multiplier";
     }
 
+    leaf notify-string {
+      type string {
+          length "0..256";
+      }
+      description "filename with absolute path used for notifications";
+    }
+
     leaf desired-transmission-interval {
       type uint32;
       units microseconds;
