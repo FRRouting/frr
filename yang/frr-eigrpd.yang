@@ -100,11 +100,12 @@ module frr-eigrpd {
       }
 
       leaf active-time {
-        description "ACTIVE time limit in minutes (0 disables limit)";
-        units minutes;
+        description "ACTIVE time limit in seconds (0 disables limit)";
         type uint16 {
           range "0..65535";
         }
+        units seconds;
+        default 180;
       }
 
       leaf variance {
