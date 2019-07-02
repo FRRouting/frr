@@ -1318,14 +1318,14 @@ int pim_upstream_is_sg_rpt(struct pim_upstream *up)
  *   void
  *   Update_SPTbit(S,G,iif) {
  *     if ( iif == RPF_interface(S)
- *           AND JoinDesired(S,G) == TRUE
- *           AND ( DirectlyConnected(S) == TRUE
+ *           AND JoinDesired(S,G) == true
+ *           AND ( DirectlyConnected(S) == true
  *                 OR RPF_interface(S) != RPF_interface(RP(G))
  *                 OR inherited_olist(S,G,rpt) == NULL
  *                 OR ( ( RPF'(S,G) == RPF'(*,G) ) AND
  *                      ( RPF'(S,G) != NULL ) )
  *                 OR ( I_Am_Assert_Loser(S,G,iif) ) {
- *        Set SPTbit(S,G) to TRUE
+ *        Set SPTbit(S,G) to true
  *     }
  *   }
  */
@@ -1344,7 +1344,7 @@ void pim_upstream_set_sptbit(struct pim_upstream *up,
 		return;
 	}
 
-	// AND JoinDesired(S,G) == TRUE
+	// AND JoinDesired(S,G) == true
 	if (!pim_upstream_evaluate_join_desired(up->channel_oil->pim, up)) {
 		if (PIM_DEBUG_TRACE)
 			zlog_debug("%s: %s Join is not Desired",
@@ -1352,7 +1352,7 @@ void pim_upstream_set_sptbit(struct pim_upstream *up,
 		return;
 	}
 
-	// DirectlyConnected(S) == TRUE
+	// DirectlyConnected(S) == true
 	if (pim_if_connected_to_source(up->rpf.source_nexthop.interface,
 				       up->sg.src)) {
 		if (PIM_DEBUG_TRACE)
@@ -1456,7 +1456,7 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 		up->reg_state = PIM_REG_JOIN;
 		pim_channel_add_oif(up->channel_oil, pim->regiface,
 				    PIM_OIF_FLAG_PROTO_PIM);
-		pim_vxlan_update_sg_reg_state(pim, up, TRUE /*reg_join*/);
+		pim_vxlan_update_sg_reg_state(pim, up, true /*reg_join*/);
 		break;
 	case PIM_REG_JOIN:
 		break;
@@ -1690,7 +1690,7 @@ bool pim_upstream_equal(const void *arg1, const void *arg2)
 /* rfc4601:section-4.2:"Data Packet Forwarding Rules" defines
  * the cases where kat has to be restarted on rxing traffic -
  *
- * if( DirectlyConnected(S) == TRUE AND iif == RPF_interface(S) ) {
+ * if( DirectlyConnected(S) == true AND iif == RPF_interface(S) ) {
  * set KeepaliveTimer(S,G) to Keepalive_Period
  * # Note: a register state transition or UpstreamJPState(S,G)
  * # transition may happen as a result of restarting

@@ -248,9 +248,9 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 
 	/* EVPN uses router id in RD, withdraw them */
 	if (is_evpn_enabled())
-		bgp_evpn_handle_router_id_update(bgp, TRUE);
+		bgp_evpn_handle_router_id_update(bgp, true);
 
-	vpn_handle_router_id_update(bgp, TRUE, is_config);
+	vpn_handle_router_id_update(bgp, true, is_config);
 
 	IPV4_ADDR_COPY(&bgp->router_id, id);
 
@@ -267,9 +267,9 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 
 	/* EVPN uses router id in RD, update them */
 	if (is_evpn_enabled())
-		bgp_evpn_handle_router_id_update(bgp, FALSE);
+		bgp_evpn_handle_router_id_update(bgp, false);
 
-	vpn_handle_router_id_update(bgp, FALSE, is_config);
+	vpn_handle_router_id_update(bgp, false, is_config);
 
 	return 0;
 }
@@ -303,7 +303,7 @@ void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *router_id)
 					if (BGP_DEBUG(zebra, ZEBRA))
 						zlog_debug("RID change : vrf %u, RTR ID %s",
 					bgp->vrf_id, inet_ntoa(*addr));
-					bgp_router_id_set(bgp, addr, FALSE);
+					bgp_router_id_set(bgp, addr, false);
 				}
 			}
 		}
@@ -323,7 +323,7 @@ void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *router_id)
 					if (BGP_DEBUG(zebra, ZEBRA))
 						zlog_debug("RID change : vrf %u, RTR ID %s",
 					bgp->vrf_id, inet_ntoa(*addr));
-					bgp_router_id_set(bgp, addr, FALSE);
+					bgp_router_id_set(bgp, addr, false);
 				}
 			}
 
@@ -335,7 +335,7 @@ int bgp_router_id_static_set(struct bgp *bgp, struct in_addr id)
 {
 	bgp->router_id_static = id;
 	bgp_router_id_set(bgp, id.s_addr ? &id : &bgp->router_id_zebra,
-			  TRUE /* is config */);
+			  true /* is config */);
 	return 0;
 }
 
@@ -3133,7 +3133,7 @@ int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
 		/*
 		 * suppress vrf socket
 		 */
-		if (create == FALSE) {
+		if (create == false) {
 			bgp_close_vrf_socket(bgp);
 			return 0;
 		}
@@ -3189,7 +3189,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	bgp = bgp_create(as, name, inst_type);
 	if (bgp_option_check(BGP_OPT_NO_ZEBRA) && name)
 		bgp->vrf_id = vrf_generate_id();
-	bgp_router_id_set(bgp, &bgp->router_id_zebra, TRUE);
+	bgp_router_id_set(bgp, &bgp->router_id_zebra, true);
 	bgp_address_init(bgp);
 	bgp_tip_hash_init(bgp);
 	bgp_scan_init(bgp);
@@ -6922,8 +6922,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	struct peer *g_peer = NULL;
 	char buf[SU_ADDRSTRLEN];
 	char *addr;
-	int if_pg_printed = FALSE;
-	int if_ras_printed = FALSE;
+	int if_pg_printed = false;
+	int if_ras_printed = false;
 
 	/* Skip dynamic neighbors. */
 	if (peer_dynamic_neighbor(peer))
@@ -6945,16 +6945,16 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 
 		if (peer_group_active(peer)) {
 			vty_out(vty, " peer-group %s", peer->group->name);
-			if_pg_printed = TRUE;
+			if_pg_printed = true;
 		} else if (peer->as_type == AS_SPECIFIED) {
 			vty_out(vty, " remote-as %u", peer->as);
-			if_ras_printed = TRUE;
+			if_ras_printed = true;
 		} else if (peer->as_type == AS_INTERNAL) {
 			vty_out(vty, " remote-as internal");
-			if_ras_printed = TRUE;
+			if_ras_printed = true;
 		} else if (peer->as_type == AS_EXTERNAL) {
 			vty_out(vty, " remote-as external");
-			if_ras_printed = TRUE;
+			if_ras_printed = true;
 		}
 
 		vty_out(vty, "\n");

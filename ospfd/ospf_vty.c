@@ -3252,7 +3252,7 @@ DEFUN (show_ip_ospf,
 	bool uj = use_json(argc, argv);
 	struct listnode *node = NULL;
 	char *vrf_name = NULL;
-	bool all_vrf = FALSE;
+	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
 	int idx_vrf = 0;
@@ -3269,7 +3269,7 @@ DEFUN (show_ip_ospf,
 
 	/* vrf input is provided could be all or specific vrf*/
 	if (vrf_name) {
-		bool ospf_output = FALSE;
+		bool ospf_output = false;
 
 		use_vrf = 1;
 
@@ -3277,7 +3277,7 @@ DEFUN (show_ip_ospf,
 			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 				if (!ospf->oi_running)
 					continue;
-				ospf_output = TRUE;
+				ospf_output = true;
 				ret = show_ip_ospf_common(vty, ospf, json,
 							  use_vrf);
 			}
@@ -3942,7 +3942,7 @@ DEFUN (show_ip_ospf_interface,
 	bool uj = use_json(argc, argv);
 	struct listnode *node = NULL;
 	char *vrf_name = NULL, *intf_name = NULL;
-	bool all_vrf = FALSE;
+	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
 	int idx_vrf = 0, idx_intf = 0;
@@ -4082,7 +4082,7 @@ DEFUN (show_ip_ospf_interface_traffic,
 	struct ospf *ospf = NULL;
 	struct listnode *node = NULL;
 	char *vrf_name = NULL, *intf_name = NULL;
-	bool all_vrf = FALSE;
+	bool all_vrf = false;
 	int inst = 0;
 	int idx_vrf = 0, idx_intf = 0;
 	bool uj = use_json(argc, argv);
@@ -4337,7 +4337,7 @@ DEFUN (show_ip_ospf_neighbor,
 	bool uj = use_json(argc, argv);
 	struct listnode *node = NULL;
 	char *vrf_name = NULL;
-	bool all_vrf = FALSE;
+	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
 	int idx_vrf = 0;
@@ -4563,7 +4563,7 @@ DEFUN (show_ip_ospf_neighbor_all,
 	bool uj = use_json(argc, argv);
 	struct listnode *node = NULL;
 	char *vrf_name = NULL;
-	bool all_vrf = FALSE;
+	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
 	int idx_vrf = 0;
@@ -5257,7 +5257,7 @@ DEFUN (show_ip_ospf_neighbor_detail,
 	bool uj = use_json(argc, argv);
 	struct listnode *node = NULL;
 	char *vrf_name = NULL;
-	bool all_vrf = FALSE;
+	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
 	int idx_vrf = 0;
@@ -5446,7 +5446,7 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
 	bool uj = use_json(argc, argv);
 	struct listnode *node = NULL;
 	char *vrf_name = NULL;
-	bool all_vrf = FALSE;
+	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
 	int idx_vrf = 0;
@@ -5626,12 +5626,12 @@ DEFUN (show_ip_ospf_neighbor_int_detail,
 	bool uj = use_json(argc, argv);
 	struct listnode *node = NULL;
 	int ret = CMD_SUCCESS;
-	bool ospf_output = FALSE;
+	bool ospf_output = false;
 
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 		if (!ospf->oi_running)
 			continue;
-		ospf_output = TRUE;
+		ospf_output = true;
 		ret = show_ip_ospf_neighbor_int_detail_common(vty, ospf, 0,
 							      argv, uj);
 	}
@@ -6334,7 +6334,7 @@ DEFUN (show_ip_ospf_database_max,
 	struct ospf *ospf = NULL;
 	struct listnode *node = NULL;
 	char *vrf_name = NULL;
-	bool all_vrf = FALSE;
+	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
 	int idx_vrf = 0;
@@ -6343,7 +6343,7 @@ DEFUN (show_ip_ospf_database_max,
 	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	if (vrf_name) {
-		bool ospf_output = FALSE;
+		bool ospf_output = false;
 
 		use_vrf = 1;
 
@@ -6351,7 +6351,7 @@ DEFUN (show_ip_ospf_database_max,
 			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 				if (!ospf->oi_running)
 					continue;
-				ospf_output = TRUE;
+				ospf_output = true;
 				ret = show_ip_ospf_database_common(
 					vty, ospf, idx_vrf ? 2 : 0, argc, argv,
 					use_vrf);
@@ -6403,7 +6403,7 @@ DEFUN (show_ip_ospf_instance_database,
 	unsigned short instance = 0;
 	struct listnode *node = NULL;
 	char *vrf_name = NULL;
-	bool all_vrf = FALSE;
+	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
 	int idx = 0;
@@ -6561,7 +6561,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 	unsigned short instance = 0;
 	struct listnode *node = NULL;
 	char *vrf_name = NULL;
-	bool all_vrf = FALSE;
+	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
 	int idx = 0, idx_vrf = 0;
@@ -6584,7 +6584,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	if (vrf_name) {
-		bool ospf_output = FALSE;
+		bool ospf_output = false;
 
 		use_vrf = 1;
 
@@ -6592,7 +6592,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 				if (!ospf->oi_running)
 					continue;
-				ospf_output = TRUE;
+				ospf_output = true;
 				ret = show_ip_ospf_database_type_adv_router_common(
 					vty, ospf, idx ? 1 : 0, argc, argv,
 					use_vrf);
@@ -9372,7 +9372,7 @@ DEFUN (show_ip_ospf_border_routers,
 	struct ospf *ospf = NULL;
 	struct listnode *node = NULL;
 	char *vrf_name = NULL;
-	bool all_vrf = FALSE;
+	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
 	int idx_vrf = 0;
@@ -9381,7 +9381,7 @@ DEFUN (show_ip_ospf_border_routers,
 	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	if (vrf_name) {
-		bool ospf_output = FALSE;
+		bool ospf_output = false;
 
 		use_vrf = 1;
 
@@ -9390,7 +9390,7 @@ DEFUN (show_ip_ospf_border_routers,
 				if (!ospf->oi_running)
 					continue;
 
-				ospf_output = TRUE;
+				ospf_output = true;
 				ret = show_ip_ospf_border_routers_common(
 					vty, ospf, use_vrf);
 			}
@@ -9510,7 +9510,7 @@ DEFUN (show_ip_ospf_route,
 	struct ospf *ospf = NULL;
 	struct listnode *node = NULL;
 	char *vrf_name = NULL;
-	bool all_vrf = FALSE;
+	bool all_vrf = false;
 	int ret = CMD_SUCCESS;
 	int inst = 0;
 	int idx_vrf = 0;
@@ -9525,7 +9525,7 @@ DEFUN (show_ip_ospf_route,
 
 	/* vrf input is provided could be all or specific vrf*/
 	if (vrf_name) {
-		bool ospf_output = FALSE;
+		bool ospf_output = false;
 
 		use_vrf = 1;
 
@@ -9533,7 +9533,7 @@ DEFUN (show_ip_ospf_route,
 			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 				if (!ospf->oi_running)
 					continue;
-				ospf_output = TRUE;
+				ospf_output = true;
 				ret = show_ip_ospf_route_common(vty, ospf, json,
 								use_vrf);
 			}

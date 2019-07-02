@@ -1218,10 +1218,10 @@ void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch)
 	}
 
 	if (new_couldassert) {
-		/* CouldAssert(S,G,I) switched from FALSE to TRUE */
+		/* CouldAssert(S,G,I) switched from false to true */
 		PIM_IF_FLAG_SET_COULD_ASSERT(ch->flags);
 	} else {
-		/* CouldAssert(S,G,I) switched from TRUE to FALSE */
+		/* CouldAssert(S,G,I) switched from true to false */
 		PIM_IF_FLAG_UNSET_COULD_ASSERT(ch->flags);
 
 		if (ch->ifassert_state == PIM_IFASSERT_I_AM_WINNER) {
@@ -1301,10 +1301,10 @@ void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch)
 	}
 
 	if (new_atd) {
-		/* AssertTrackingDesired(S,G,I) switched from FALSE to TRUE */
+		/* AssertTrackingDesired(S,G,I) switched from false to true */
 		PIM_IF_FLAG_SET_ASSERT_TRACKING_DESIRED(ch->flags);
 	} else {
-		/* AssertTrackingDesired(S,G,I) switched from TRUE to FALSE */
+		/* AssertTrackingDesired(S,G,I) switched from true to false */
 		PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(ch->flags);
 
 		if (ch->ifassert_state == PIM_IFASSERT_I_AM_LOSER) {

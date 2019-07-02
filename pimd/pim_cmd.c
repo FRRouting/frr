@@ -9843,7 +9843,7 @@ static void pim_show_vxlan_sg_entry(struct pim_vxlan_sg *vxlan_sg,
 	char src_str[INET_ADDRSTRLEN];
 	char grp_str[INET_ADDRSTRLEN];
 	json_object *json_row;
-	bool installed = (vxlan_sg->up)?TRUE:FALSE;
+	bool installed = (vxlan_sg->up) ? true : false;
 	const char *iif_name = vxlan_sg->iif?vxlan_sg->iif->name:"-";
 	const char *oif_name;
 
@@ -9941,7 +9941,7 @@ static void pim_show_vxlan_sg_match_addr(struct pim_instance *pim,
 
 	cwd.vty = vty;
 	cwd.json = json;
-	cwd.addr_match = TRUE;
+	cwd.addr_match = true;
 	hash_iterate(pim->vxlan.sg_hash, pim_show_vxlan_sg_hash_entry, &cwd);
 
 	if (uj) {
@@ -9982,7 +9982,7 @@ static void pim_show_vxlan_sg_one(struct pim_instance *pim,
 
 	vxlan_sg = pim_vxlan_sg_find(pim, &sg);
 	if (vxlan_sg) {
-		installed = (vxlan_sg->up)?TRUE:FALSE;
+		installed = (vxlan_sg->up) ? true : false;
 		iif_name = vxlan_sg->iif?vxlan_sg->iif->name:"-";
 
 		if (pim_vxlan_is_orig_mroute(vxlan_sg))
@@ -10118,8 +10118,8 @@ DEFUN_HIDDEN (no_ip_pim_mlag,
 	struct in_addr addr;
 
 	addr.s_addr = 0;
-	pim_vxlan_mlag_update(TRUE /*mlag_enable*/,
-		FALSE /*peer_state*/, PIM_VXLAN_MLAG_ROLE_SECONDARY,
+	pim_vxlan_mlag_update(true/*mlag_enable*/,
+		false/*peer_state*/, PIM_VXLAN_MLAG_ROLE_SECONDARY,
 		NULL/*peerlink*/, &addr);
 
 	return CMD_SUCCESS;
@@ -10169,9 +10169,9 @@ DEFUN_HIDDEN (ip_pim_mlag,
 
 	idx += 2;
 	if (!strcmp(argv[idx]->arg, "up")) {
-		peer_state = TRUE;
+		peer_state = true;
 	} else if (strcmp(argv[idx]->arg, "down")) {
-		peer_state = FALSE;
+		peer_state = false;
 	} else {
 		vty_out(vty, "unknown MLAG state %s\n", argv[idx]->arg);
 		return CMD_WARNING;
@@ -10185,7 +10185,7 @@ DEFUN_HIDDEN (ip_pim_mlag,
 			errno, safe_strerror(errno));
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-	pim_vxlan_mlag_update(TRUE, peer_state, role, ifp, &reg_addr);
+	pim_vxlan_mlag_update(true, peer_state, role, ifp, &reg_addr);
 
 	return CMD_SUCCESS;
 }
