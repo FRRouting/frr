@@ -953,6 +953,7 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_VXLAN_FLOOD_CONTROL),
 	DESC_ENTRY(ZEBRA_VXLAN_SG_ADD),
 	DESC_ENTRY(ZEBRA_VXLAN_SG_DEL),
+	DESC_ENTRY(ZEBRA_VXLAN_SG_REPLAY),
 };
 #undef DESC_ENTRY
 

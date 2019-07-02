@@ -176,6 +176,7 @@ typedef enum {
 	ZEBRA_VXLAN_FLOOD_CONTROL,
 	ZEBRA_VXLAN_SG_ADD,
 	ZEBRA_VXLAN_SG_DEL,
+	ZEBRA_VXLAN_SG_REPLAY,
 } zebra_message_types_t;
 
 struct redist_proto {
