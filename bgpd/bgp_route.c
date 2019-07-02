@@ -10992,7 +10992,7 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
 	if (!peer)
 		return CMD_WARNING;
 
-	return bgp_peer_counts(vty, peer, AFI_IP, SAFI_UNICAST, uj);
+	return bgp_peer_counts(vty, peer, afi, safi, uj);
 }
 
 #ifdef KEEP_OLD_VPN_COMMANDS
