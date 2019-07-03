@@ -163,7 +163,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 			afi = BGP_ATTR_NEXTHOP_AFI_IP6(pi->attr) ? AFI_IP6
 								 : AFI_IP;
 
-		/* This will return TRUE if the global IPv6 NH is a link local
+		/* This will return true if the global IPv6 NH is a link local
 		 * addr */
 		if (make_prefix(afi, pi, &p) < 0)
 			return 1;

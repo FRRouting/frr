@@ -781,7 +781,7 @@ done:
 /*
  * zfpm_writes_pending
  *
- * Returns TRUE if we may have something to write to the FPM.
+ * Returns true if we may have something to write to the FPM.
  */
 static int zfpm_writes_pending(void)
 {
@@ -1210,7 +1210,7 @@ static void zfpm_start_connect_timer(const char *reason)
 /*
  * zfpm_is_enabled
  *
- * Returns TRUE if the zebra FPM module has been enabled.
+ * Returns true if the zebra FPM module has been enabled.
  */
 static inline int zfpm_is_enabled(void)
 {
@@ -1220,7 +1220,7 @@ static inline int zfpm_is_enabled(void)
 /*
  * zfpm_conn_is_up
  *
- * Returns TRUE if the connection to the FPM is up.
+ * Returns true if the connection to the FPM is up.
  */
 static inline int zfpm_conn_is_up(void)
 {
@@ -1575,10 +1575,10 @@ static struct cmd_node zebra_node = {ZEBRA_NODE, "", 1};
  * One-time initialization of the Zebra FPM module.
  *
  * @param[in] port port at which FPM is running.
- * @param[in] enable TRUE if the zebra FPM module should be enabled
+ * @param[in] enable true if the zebra FPM module should be enabled
  * @param[in] format to use to talk to the FPM. Can be 'netink' or 'protobuf'.
  *
- * Returns TRUE on success.
+ * Returns true on success.
  */
 static int zfpm_init(struct thread_master *master)
 {

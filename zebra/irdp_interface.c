@@ -352,7 +352,7 @@ static void irdp_if_no_shutdown(struct interface *ifp)
 
 	irdp->flags &= ~IF_SHUTDOWN;
 
-	irdp_if_start(ifp, irdp->flags & IF_BROADCAST ? FALSE : TRUE, FALSE);
+	irdp_if_start(ifp, irdp->flags & IF_BROADCAST ? false : true, false);
 }
 
 
@@ -407,7 +407,7 @@ DEFUN (ip_irdp_multicast,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	irdp_if_get(ifp);
 
-	irdp_if_start(ifp, TRUE, TRUE);
+	irdp_if_start(ifp, true, true);
 	return CMD_SUCCESS;
 }
 
@@ -421,7 +421,7 @@ DEFUN (ip_irdp_broadcast,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	irdp_if_get(ifp);
 
-	irdp_if_start(ifp, FALSE, TRUE);
+	irdp_if_start(ifp, false, true);
 	return CMD_SUCCESS;
 }
 
