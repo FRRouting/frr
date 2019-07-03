@@ -286,6 +286,21 @@ lib_libfrrsnmp_la_SOURCES = \
 	# end
 
 #
+# c-ares support
+#
+if CARES
+lib_LTLIBRARIES += lib/libfrrcares.la
+pkginclude_HEADERS += lib/resolver.h
+endif
+
+lib_libfrrcares_la_CFLAGS = $(WERROR) $(CARES_CFLAGS)
+lib_libfrrcares_la_LDFLAGS = -version-info 0:0:0
+lib_libfrrcares_la_LIBADD = $(CARES_LIBS)
+lib_libfrrcares_la_SOURCES = \
+	lib/resolver.c \
+	#end
+
+#
 # ZeroMQ support
 #
 if ZEROMQ
