@@ -46,6 +46,15 @@ DECLARE_HOOK(bfd_tracking_show_notify_string,
 	     (struct vty *vty, const char *notify_string),
 	     (vty, notify_string));
 
+DECLARE_HOOK(bfd_tracking_set_label_string,
+	     (const struct bfd_session *bs,
+	      const char *label_string),
+	     (bs, label_string));
+
+DECLARE_HOOK(bfd_tracking_show_label_string,
+	     (struct vty *vty, const char *label_string),
+	     (vty, label_string));
+
 DECLARE_HOOK(bfd_tracking_show_extra_info,
 	     (const struct bfd_session *bs,
 	      struct vty *vty,

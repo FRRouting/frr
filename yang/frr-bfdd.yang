@@ -177,6 +177,11 @@ module frr-bfdd {
       description "filename with absolute path used for notifications";
     }
 
+    leaf label {
+      type string;
+      description "label arbitrary value used for identifying sessions";
+    }
+
     leaf desired-transmission-interval {
       type uint32 {
           range "10000..60000000";
