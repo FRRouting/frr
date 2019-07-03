@@ -519,7 +519,7 @@ void log_multiline(int priority, const char *prefix, const char *format, ...)
 	char *p;
 
 	va_start(ap, format);
-	p = asnprintfrr(MTYPE_TMP, shortbuf, sizeof(shortbuf), format, ap);
+	p = vasnprintfrr(MTYPE_TMP, shortbuf, sizeof(shortbuf), format, ap);
 	va_end(ap);
 
 	if (!p)
@@ -542,7 +542,7 @@ void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 	char *p;
 
 	va_start(ap, format);
-	p = asnprintfrr(MTYPE_TMP, shortbuf, sizeof(shortbuf), format, ap);
+	p = vasnprintfrr(MTYPE_TMP, shortbuf, sizeof(shortbuf), format, ap);
 	va_end(ap);
 
 	if (!p)
