@@ -48,6 +48,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, NHG_CTX, "Nexthop Group Context");
 
 static int nhg_connected_cmp(const struct nhg_connected *dep1,
 			     const struct nhg_connected *dep2);
+static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi);
 
 RB_GENERATE(nhg_connected_head, nhg_connected, nhg_entry, nhg_connected_cmp);
 
@@ -471,11 +472,30 @@ static bool zebra_nhg_find_nexthop(struct nhg_hash_entry **nhe, uint32_t id,
 				   bool is_kernel_nh)
 {
 	struct nexthop_group nhg = {};
+	struct nhg_connected_head nhg_depends = {};
+	bool created = true;
 
 	_nexthop_group_add_sorted(&nhg, nh);
 
-	return zebra_nhg_find(nhe, id, &nhg, NULL, nh->vrf_id, afi,
-			      is_kernel_nh);
+	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
+		struct nhg_hash_entry *depend = NULL;
+
+		nhg_connected_head_init(&nhg_depends);
+
+		depend = depends_find(nh->resolved, afi);
+		nhg_connected_head_add(&nhg_depends, depend);
+	}
+
+	if (!zebra_nhg_find(nhe, id, &nhg, &nhg_depends, nh->vrf_id, afi,
+			      is_kernel_nh)) {
+		created = false;
+		nhg_connected_head_free(&nhg_depends);
+	} else {
+		if (zebra_nhg_depends_count(*nhe))
+			SET_FLAG((*nhe)->flags, NEXTHOP_GROUP_RECURSIVE);
+	}
+
+	return created;
 }
 
 static struct nhg_ctx *nhg_ctx_new()
@@ -650,14 +670,20 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 
 static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi)
 {
-	struct nexthop lookup = {0};
+	struct nexthop *lookup = NULL;
 	struct nhg_hash_entry *nhe = NULL;
 
-	lookup = *nh;
+	copy_nexthops(&lookup, nh, NULL);
+
 	/* Clear it, in case its a group */
-	lookup.next = NULL;
-	lookup.prev = NULL;
-	zebra_nhg_find_nexthop(&nhe, 0, &lookup, afi, false);
+	nexthops_free(lookup->next);
+	nexthops_free(lookup->prev);
+	lookup->next = NULL;
+	lookup->prev = NULL;
+
+	zebra_nhg_find_nexthop(&nhe, 0, lookup, afi, false);
+
+	nexthops_free(lookup);
 
 	return nhe;
 }
@@ -731,7 +757,8 @@ static void zebra_nhg_release(struct nhg_hash_entry *nhe)
 	if (nhe->ifp)
 		if_nhg_dependents_del(nhe->ifp, nhe);
 
-	hash_release(zrouter.nhgs, nhe);
+	if(!hash_release(zrouter.nhgs, nhe))
+		zlog_debug("Failed release");
 	hash_release(zrouter.nhgs_id, nhe);
 
 	zebra_nhg_free(nhe);
@@ -918,48 +945,6 @@ static bool nexthop_valid_resolve(const struct nexthop *nexthop,
 	return true;
 }
 
-static bool zebra_nhg_set_resolved(struct nhg_hash_entry *nhe,
-				   struct nhg_hash_entry *resolved)
-{
-	bool new = true;
-	struct nhg_hash_entry *old_resolved = NULL;
-	struct nexthop *nh = NULL;
-
-	assert(!CHECK_FLAG(resolved->flags, NEXTHOP_GROUP_RECURSIVE));
-
-	/* If this was already resolved, get its resolved nhe */
-	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
-		old_resolved = zebra_nhg_resolve(nhe);
-
-	/*
-	 * We are going to do what is done in nexthop_active
-	 * and clear whatever resolved nexthop may already be
-	 * there.
-	 */
-	zebra_nhg_depends_release(nhe);
-	nhg_connected_head_free(&nhe->nhg_depends);
-
-	/* Add new resolved */
-	zebra_nhg_depends_add(nhe, resolved);
-	zebra_nhg_dependents_add(resolved, nhe);
-
-	if (old_resolved && resolved->id != old_resolved->id) {
-		resolved->refcnt += nhe->refcnt;
-		old_resolved->refcnt -= nhe->refcnt;
-	} else if (!old_resolved)
-		zebra_nhg_increment_ref(resolved);
-	else
-		new = false; /* Same one that was there */
-
-	for (nh = resolved->nhg->nexthop; nh; nh = nh->next)
-		nexthop_set_resolved(nhe->afi, nhe->nhg->nexthop, nh);
-
-	SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE);
-
-	return new;
-}
-
-
 /*
  * Given a nexthop we need to properly recursively resolve
  * the route.  As such, do a table lookup to find and match
@@ -967,8 +952,7 @@ static bool zebra_nhg_set_resolved(struct nhg_hash_entry *nhe,
  * as appropriate
  */
 static int nexthop_active(afi_t afi, struct route_entry *re,
-			  struct nexthop *nexthop, struct route_node *top,
-			  struct nhg_hash_entry **resolved_nhe)
+			  struct nexthop *nexthop, struct route_node *top)
 {
 	struct prefix p;
 	struct route_table *table;
@@ -983,6 +967,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	if ((nexthop->type == NEXTHOP_TYPE_IPV4)
 	    || nexthop->type == NEXTHOP_TYPE_IPV6)
 		nexthop->ifindex = 0;
+
 
 	UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
 	nexthops_free(nexthop->resolved);
@@ -1142,12 +1127,9 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				nexthop_set_resolved(afi, newhop, nexthop);
 				resolved = 1;
 			}
-			if (resolved) {
+			if (resolved)
 				re->nexthop_mtu = match->mtu;
-				zebra_nhg_find_nexthop(resolved_nhe, 0,
-						       nexthop->resolved, afi,
-						       false);
-			}
+
 			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug("\t%s: Recursion failed to find",
 					   __PRETTY_FUNCTION__);
@@ -1166,12 +1148,9 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				nexthop_set_resolved(afi, newhop, nexthop);
 				resolved = 1;
 			}
-			if (resolved) {
+			if (resolved)
 				re->nexthop_mtu = match->mtu;
-				zebra_nhg_find_nexthop(resolved_nhe, 0,
-						       nexthop->resolved, afi,
-						       false);
-			}
+
 			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"\t%s: Static route unable to resolve",
@@ -1210,8 +1189,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
  */
 static unsigned nexthop_active_check(struct route_node *rn,
 				     struct route_entry *re,
-				     struct nexthop *nexthop,
-				     struct nhg_hash_entry **resolved_nhe)
+				     struct nexthop *nexthop)
 {
 	struct interface *ifp;
 	route_map_result_t ret = RMAP_PERMITMATCH;
@@ -1239,14 +1217,14 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		family = AFI_IP;
-		if (nexthop_active(AFI_IP, re, nexthop, rn, resolved_nhe))
+		if (nexthop_active(AFI_IP, re, nexthop, rn))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 		family = AFI_IP6;
-		if (nexthop_active(AFI_IP6, re, nexthop, rn, resolved_nhe))
+		if (nexthop_active(AFI_IP6, re, nexthop, rn))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -1263,8 +1241,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 			else
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		} else {
-			if (nexthop_active(AFI_IP6, re, nexthop, rn,
-					   resolved_nhe))
+			if (nexthop_active(AFI_IP6, re, nexthop, rn))
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 			else
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -1344,7 +1321,6 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	unsigned int prev_active, new_active;
 	ifindex_t prev_index;
 	uint8_t curr_active = 0;
-	bool new_resolve = false;
 
 	afi_t rt_afi = family2afi(rn->p.family);
 
@@ -1354,8 +1330,6 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	nexthop_group_copy(&new_grp, re->ng);
 
 	for (nexthop = new_grp.nexthop; nexthop; nexthop = nexthop->next) {
-		struct nhg_hash_entry *nhe = NULL;
-		struct nhg_hash_entry *resolved_nhe = NULL;
 
 		/* No protocol daemon provides src and so we're skipping
 		 * tracking it */
@@ -1369,7 +1343,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 		 * decision point.
 		 */
 		new_active =
-			nexthop_active_check(rn, re, nexthop, &resolved_nhe);
+			nexthop_active_check(rn, re, nexthop);
 
 		if (new_active
 		    && nexthop_group_active_nexthop_num(&new_grp)
@@ -1391,26 +1365,11 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 			 && nexthop->type < NEXTHOP_TYPE_BLACKHOLE)
 			&& !(IPV6_ADDR_SAME(&prev_src.ipv6,
 					    &nexthop->rmap_src.ipv6)))
-		    || CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED)) {
+		    || CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED))
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
-
-			/*
-			 * Create the individual nexthop hash entries
-			 * for the nexthops in the group
-			 */
-
-			nhe = depends_find(nexthop, rt_afi);
-
-			if (resolved_nhe)
-				new_resolve = zebra_nhg_set_resolved(
-					nhe, resolved_nhe);
-
-			if (nhe && new_active)
-				SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
-		}
 	}
 
-	if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED) || new_resolve) {
+	if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)) {
 		struct nhg_hash_entry *new_nhe = NULL;
 		// TODO: Add proto type here
 
@@ -1528,6 +1487,7 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
 
 void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe)
 {
+	zlog_debug("Uninstalling NHE ID: %u", nhe->id);
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)) {
 		int ret = dplane_nexthop_delete(nhe);
 
