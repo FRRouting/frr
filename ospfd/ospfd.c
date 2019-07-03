@@ -766,7 +766,7 @@ static void ospf_finish_final(struct ospf *ospf)
 		if (!ext_list)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
+		for (ALL_LIST_ELEMENTS(ext_list, node, nnode, ext)) {
 			if (ext->external_info)
 				for (rn = route_top(ext->external_info); rn;
 				     rn = route_next(rn)) {
