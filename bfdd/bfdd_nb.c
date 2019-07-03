@@ -64,6 +64,14 @@ const struct frr_yang_module_info frr_bfdd_info = {
 				.destroy = bfdd_bfd_profile_notify_string_destroy
 			}
 		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/profile/label",
+			.cbs = {
+				.modify = bfdd_bfd_profile_label_modify,
+				.cli_show = bfd_cli_show_label,
+				.destroy = bfdd_bfd_profile_label_destroy
+			}
+		},
                 {
                         .xpath = "/frr-bfdd:bfdd/bfd/profile/desired-transmission-interval",
                         .cbs = {
@@ -148,6 +156,14 @@ const struct frr_yang_module_info frr_bfdd_info = {
 				.cli_show = bfd_cli_peer_profile_show,
                         }
                 },
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/label",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_label_modify,
+				.destroy = bfdd_bfd_sessions_label_destroy,
+				.cli_show = bfd_cli_show_label,
+			}
+		},
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/detection-multiplier",
 			.cbs = {
@@ -352,6 +368,14 @@ const struct frr_yang_module_info frr_bfdd_info = {
 				.cli_show = bfd_cli_peer_profile_show,
                         }
                 },
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/label",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_label_modify,
+				.destroy = bfdd_bfd_sessions_label_destroy,
+				.cli_show = bfd_cli_show_label,
+			}
+		},
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/detection-multiplier",
 			.cbs = {

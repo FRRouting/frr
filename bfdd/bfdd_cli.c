@@ -38,6 +38,10 @@ DEFINE_HOOK(bfd_tracking_show_notify_string,
 	    (struct vty *vty, const char *notify_string),
 	    (vty, notify_string));
 
+DEFINE_HOOK(bfd_tracking_show_label_string,
+	    (struct vty *vty, const char *label_string),
+	    (vty, label_string));
+
 /*
  * Definitions.
  */
@@ -506,6 +510,18 @@ DEFPY_YANG(
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+void bfd_cli_show_label(struct vty *vty, struct lyd_node *dnode,
+			bool show_defaults)
+{
+	const char *label_string;
+
+	if (show_defaults)
+		return;
+	label_string = yang_dnode_get_string(dnode, NULL);
+	hook_call(bfd_tracking_show_label_string, vty, label_string);
+}
+
 
 void bfd_cli_show_notify_string(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults)

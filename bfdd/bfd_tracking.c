@@ -43,11 +43,16 @@
 #endif
 
 DEFINE_MTYPE_STATIC(BFDD, BFD_TRACKING, "Tracking Information");
+DEFINE_MTYPE_STATIC(BFDD, BFD_LABEL, "BFD Label");
 
 static int bfd_tracking_call_notify_filename(const struct bfd_session *bs);
 
 static int bfd_tracking_call_set_notify_string(const struct bfd_session *bs,
 					       const char *notify_string);
+
+
+static int bfd_tracking_call_set_label_string(const struct bfd_session *pm,
+					      const char *label_string);
 
 static int bfd_tracking_call_release_session(const struct bfd_session *bs);
 
@@ -58,6 +63,9 @@ static int bfd_tracking_call_display(struct vty *vty,
 
 static int bfd_tracking_call_show_extra_info(const struct bfd_session *bs,
 					     struct vty *vty, struct json_object *jo);
+
+static int bfd_tracking_call_display_label(struct vty *vty,
+					   const char *label_string);
 
 static int bfd_tracking_init(struct thread_master *t);
 
@@ -74,8 +82,12 @@ static int bfd_tracking_module_init(void)
 		      bfd_tracking_call_display);
 	hook_register(bfd_tracking_set_notify_string,
 		      bfd_tracking_call_set_notify_string);
+	hook_register(bfd_tracking_set_label_string,
+		      bfd_tracking_call_set_label_string);
 	hook_register(bfd_tracking_show_extra_info,
 		      bfd_tracking_call_show_extra_info);
+	hook_register(bfd_tracking_show_label_string,
+		      bfd_tracking_call_display_label);
 	return 0;
 }
 
@@ -93,6 +105,7 @@ struct bfd_tracking_ctx {
 	union sockunion gateway;
 	union sockunion alternate;
 	char notify_path[PATH_MAX];
+	char *label;
 };
 
 static struct bfd_tracking_ctx *bfd_tracking_lookup_from_bs(const struct bfd_session *bs)
@@ -175,12 +188,26 @@ static int bfd_tracking_notify_call(const char *pathname,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(
+	bfd_tracking_descr, bfd_tracking_descr_cmd,
+	"[no] label [<NAME$name>]",
+	NO_STR
+	"Configure tracking name description\n"
+	"Description field\n")
+{
+	if (no || !name)
+		nb_cli_enqueue_change(vty, "./label", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./label", NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG (bfd_tracking_notify,
-       bfd_tracking_notify_cmd,
-       "[no] notify [<NAME$path>]",
-       NO_STR
-       "Define notification path name to notify changes to\n"
-       "Filename with absolute path\n")
+	    bfd_tracking_notify_cmd,
+	    "[no] notify [<NAME$path>]",
+	    NO_STR
+	    "Define notification path name to notify changes to\n"
+	    "Filename with absolute path\n")
 {
 	if (no)
 		return bfd_tracking_notify_call(NULL, vty);
@@ -228,6 +255,22 @@ static int bfd_tracking_call_set_notify_string(const struct bfd_session *bs,
 	return 1;
 }
 
+static int bfd_tracking_call_set_label_string(const struct bfd_session *bs,
+					      const char *label_string)
+{
+	struct bfd_tracking_ctx *ctx;
+
+	ctx = bfd_tracking_lookup_from_bs(bs);
+	if (!ctx)
+		return 0;
+	if (ctx->label)
+		XFREE(MTYPE_BFD_LABEL, ctx->label);
+	ctx->label = NULL;
+	if (label_string)
+		ctx->label = XSTRDUP(MTYPE_BFD_LABEL, label_string);
+	return 1;
+}
+
 static int bfd_tracking_call_show_extra_info(const struct bfd_session *bs,
 					     struct vty *vty, struct json_object *jo)
 {
@@ -240,11 +283,17 @@ static int bfd_tracking_call_show_extra_info(const struct bfd_session *bs,
 		if (ctx->notify_path[0])
 			vty_out(vty, "\t\tNotification-string: %s\n",
 				ctx->notify_path);
+		if (ctx->label)
+			vty_out(vty, "\t\tLabel: %s\n",
+				ctx->label);
 	}
 	if (jo) {
 		if (ctx->notify_path[0])
 			json_object_string_add(jo, "notification-string",
 					       ctx->notify_path);
+		if (ctx->label)
+			json_object_string_add(jo, "label",
+					       ctx->label);
 	}
 	return 1;
 }
@@ -256,6 +305,17 @@ static int bfd_tracking_call_display(struct vty *vty,
 		if (vty)
 			vty_out(vty, "  notify %s\n",
 				notify_string);
+	}
+	return 1;
+}
+
+static int bfd_tracking_call_display_label(struct vty *vty,
+					   const char *label_string)
+{
+	if (label_string) {
+		if (vty)
+			vty_out(vty, "  label %s\n",
+				label_string);
 	}
 	return 1;
 }
@@ -290,5 +350,6 @@ static int bfd_tracking_init(struct thread_master *t)
 						  "Tracking Hash");
 
 	install_element(BFD_PEER_NODE, &bfd_tracking_notify_cmd);
+	install_element(BFD_PEER_NODE, &bfd_tracking_descr_cmd);
 	return 0;
 }

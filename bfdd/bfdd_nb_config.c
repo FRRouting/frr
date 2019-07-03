@@ -35,6 +35,11 @@ DEFINE_HOOK(bfd_tracking_set_notify_string,
 	     const char *notify_string),
 	    (bs, notify_string));
 
+DEFINE_HOOK(bfd_tracking_set_label_string,
+	    (const struct bfd_session *bs,
+	     const char *label_string),
+	    (bs, label_string));
+
 /*
  * Helpers.
  */
@@ -343,6 +348,21 @@ int bfdd_bfd_profile_notify_string_modify(struct nb_cb_modify_args *args)
 }
 
 int bfdd_bfd_profile_notify_string_destroy(struct nb_cb_destroy_args *args)
+{
+	/* not implemented */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/profile/label
+ */
+int bfdd_bfd_profile_label_modify(struct nb_cb_modify_args *args)
+{
+	/* not implemented */
+	return NB_OK;
+}
+
+int bfdd_bfd_profile_label_destroy(struct nb_cb_destroy_args *args)
 {
 	/* not implemented */
 	return NB_OK;
@@ -701,7 +721,36 @@ int bfdd_bfd_sessions_single_hop_profile_destroy(
 
 	bs = nb_running_get_entry(args->dnode, NULL, true);
 	bfd_profile_remove(bs);
+	return NB_OK;
+}
 
+/* * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop/label
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/multi-hop/label
+ */
+int bfdd_bfd_sessions_label_modify(struct nb_cb_modify_args *args)
+{
+	const char *label_string;
+	struct bfd_session *bs;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+
+	label_string = yang_dnode_get_string(args->dnode, NULL);
+	hook_call(bfd_tracking_set_label_string, bs, label_string);
+
+	return NB_OK;
+}
+
+int bfdd_bfd_sessions_label_destroy(struct nb_cb_destroy_args *args)
+{
+	const struct bfd_session *bs;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+
+	hook_call(bfd_tracking_set_label_string, bs, NULL);
 	return NB_OK;
 }
 
