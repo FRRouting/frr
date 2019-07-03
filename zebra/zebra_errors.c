@@ -381,14 +381,6 @@ static struct log_ref ferr_zebra_err[] = {
 			"If you wish to receive the messages, change your IRDP settings accordingly.",
 	},
 	{
-		.code = EC_ZEBRA_IRDP_BAD_TYPE,
-		.title =
-			"Zebra received IRDP packet with bad type",
-		.description =
-			"THIS IS BULLSHIT REMOVE ME",
-		.suggestion = "asdf",
-	},
-	{
 		.code = EC_ZEBRA_RNH_NO_TABLE,
 		.title =
 			"Zebra could not find table for next hop",
