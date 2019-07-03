@@ -152,6 +152,12 @@ extern const char *nexthop2str(const struct nexthop *nexthop,
 			       char *str, int size);
 extern struct nexthop *nexthop_next(struct nexthop *nexthop);
 extern unsigned int nexthop_level(struct nexthop *nexthop);
+/* Copies to an already allocated nexthop struct */
+extern void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
+			 struct nexthop *rparent);
+/* Duplicates a nexthop and returns the newly allocated nexthop */
+extern struct nexthop *nexthop_dup(const struct nexthop *nexthop,
+				   struct nexthop *rparent);
 
 #ifdef __cplusplus
 }

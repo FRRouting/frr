@@ -425,6 +425,32 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 	return key;
 }
 
+void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
+		  struct nexthop *rparent)
+{
+	copy->vrf_id = nexthop->vrf_id;
+	copy->ifindex = nexthop->ifindex;
+	copy->type = nexthop->type;
+	copy->flags = nexthop->flags;
+	memcpy(&copy->gate, &nexthop->gate, sizeof(nexthop->gate));
+	memcpy(&copy->src, &nexthop->src, sizeof(nexthop->src));
+	memcpy(&copy->rmap_src, &nexthop->rmap_src, sizeof(nexthop->rmap_src));
+	copy->rparent = rparent;
+	if (nexthop->nh_label)
+		nexthop_add_labels(copy, nexthop->nh_label_type,
+				   nexthop->nh_label->num_labels,
+				   &nexthop->nh_label->label[0]);
+}
+
+struct nexthop *nexthop_dup(const struct nexthop *nexthop,
+			    struct nexthop *rparent)
+{
+	struct nexthop *new = nexthop_new();
+
+	nexthop_copy(new, nexthop, rparent);
+	return new;
+}
+
 /*
  * nexthop printing variants:
  *	%pNHvv

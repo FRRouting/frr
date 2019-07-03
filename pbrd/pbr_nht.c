@@ -21,7 +21,8 @@
 
 #include <log.h>
 #include <nexthop.h>
-#include <nexthop_group.h>
+#include "nexthop_group.h"
+#include "nexthop_group_private.h"
 #include <hash.h>
 #include <jhash.h>
 #include <vty.h>
@@ -576,7 +577,7 @@ void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
 
 	hash_release(pbr_nhg_hash, pnhgc);
 
-	nexthop_del(pbrms->nhg, nh);
+	_nexthop_del(pbrms->nhg, nh);
 	nexthop_free(nh);
 	nexthop_group_delete(&pbrms->nhg);
 	XFREE(MTYPE_TMP, pbrms->internal_nhg_name);
@@ -723,7 +724,7 @@ static void pbr_nexthop_group_cache_iterate_to_group(struct hash_bucket *b,
 
 	copy_nexthops(&nh, pnhc->nexthop, NULL);
 
-	nexthop_add(&nhg->nexthop, nh);
+	_nexthop_add(&nhg->nexthop, nh);
 }
 
 static void
