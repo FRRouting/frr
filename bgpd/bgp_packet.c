@@ -63,6 +63,16 @@
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_flowspec.h"
 
+DEFINE_HOOK(bgp_packet_dump,
+		(struct peer *peer, uint8_t type, bgp_size_t size,
+			struct stream *s),
+		(peer, type, size, s))
+
+DEFINE_HOOK(bgp_packet_send,
+		(struct peer *peer, uint8_t type, bgp_size_t size,
+			struct stream *s),
+		(peer, type, size, s))
+
 /**
  * Sets marker and type fields for a BGP message.
  *
@@ -542,6 +552,7 @@ void bgp_open_send(struct peer *peer)
 
 	/* Dump packet if debug option is set. */
 	/* bgp_packet_dump (s); */
+	hook_call(bgp_packet_send, peer, BGP_MSG_OPEN, stream_get_endp(s), s);
 
 	/* Add packet to the peer. */
 	bgp_packet_add(peer, s);
@@ -681,9 +692,9 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 	 * in place because we are sometimes called with a doppelganger peer,
 	 * who tends to have a plethora of fields nulled out.
 	 */
-	if (peer->curr && peer->last_reset_cause_size) {
+	if (peer->curr) {
 		size_t packetsize = stream_get_endp(peer->curr);
-		assert(packetsize <= peer->last_reset_cause_size);
+		assert(packetsize <= sizeof(peer->last_reset_cause));
 		memcpy(peer->last_reset_cause, peer->curr->data, packetsize);
 		peer->last_reset_cause_size = packetsize;
 	}
@@ -1518,6 +1529,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	    || BGP_DEBUG(update, UPDATE_PREFIX)) {
 		ret = bgp_dump_attr(&attr, peer->rcvd_attr_str, BUFSIZ);
 
+		peer->stat_upd_7606++;
+
 		if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW)
 			flog_err(
 				EC_BGP_UPDATE_RCV,
@@ -2240,8 +2253,7 @@ int bgp_process_packet(struct thread *thread)
 		size = stream_getw(peer->curr);
 		type = stream_getc(peer->curr);
 
-		/* BGP packet dump function. */
-		bgp_dump_packet(peer, type, peer->curr);
+		hook_call(bgp_packet_dump, peer, type, size, peer->curr);
 
 		/* adjust size to exclude the marker + length + type */
 		size -= BGP_HEADER_SIZE;

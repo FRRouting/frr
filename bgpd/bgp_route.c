@@ -107,6 +107,12 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 
 #define VRFID_NONE_STR "-"
 
+DEFINE_HOOK(bgp_process,
+		(struct bgp *bgp, afi_t afi, safi_t safi,
+			struct bgp_node *bn, struct peer *peer, bool withdraw),
+		(bgp, afi, safi, bn, peer, withdraw))
+
+
 struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 				  safi_t safi, struct prefix *p,
 				  struct prefix_rd *prd)
@@ -2819,6 +2825,8 @@ void bgp_rib_remove(struct bgp_node *rn, struct bgp_path_info *pi,
 	if (!CHECK_FLAG(pi->flags, BGP_PATH_HISTORY))
 		bgp_path_info_delete(rn, pi); /* keep historical info */
 
+	hook_call(bgp_process, peer->bgp, afi, safi, rn, peer, true);
+
 	bgp_process(peer->bgp, rn, afi, safi);
 }
 
@@ -3068,6 +3076,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 
 		if (aspath_loop_check(attr->aspath, peer->change_local_as)
 		    > aspath_loop_count) {
+			peer->stat_pfx_aspath_loop++;
 			reason = "as-path contains our own AS;";
 			goto filtered;
 		}
@@ -3088,6 +3097,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		    || (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)
 			&& aspath_loop_check(attr->aspath, bgp->confed_id)
 				   > peer->allowas_in[afi][safi])) {
+			peer->stat_pfx_aspath_loop++;
 			reason = "as-path contains our own AS;";
 			goto filtered;
 		}
@@ -3096,18 +3106,21 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	/* Route reflector originator ID check.  */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)
 	    && IPV4_ADDR_SAME(&bgp->router_id, &attr->originator_id)) {
+		peer->stat_pfx_originator_loop++;
 		reason = "originator is us;";
 		goto filtered;
 	}
 
 	/* Route reflector cluster ID check.  */
 	if (bgp_cluster_filter(peer, attr)) {
+		peer->stat_pfx_cluster_loop++;
 		reason = "reflected from the same cluster;";
 		goto filtered;
 	}
 
 	/* Apply incoming filter.  */
 	if (bgp_input_filter(peer, p, attr, afi, safi) == FILTER_DENY) {
+		peer->stat_pfx_filter++;
 		reason = "filter;";
 		goto filtered;
 	}
@@ -3138,6 +3151,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	 * the attr (which takes over the memory references) */
 	if (bgp_input_modifier(peer, p, &new_attr, afi, safi, NULL)
 	    == RMAP_DENY) {
+		peer->stat_pfx_filter++;
 		reason = "route-map;";
 		bgp_attr_flush(&new_attr);
 		goto filtered;
@@ -3163,12 +3177,14 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	/* next hop check.  */
 	if (!CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD)
 	    && bgp_update_martian_nexthop(bgp, afi, safi, &new_attr)) {
+		peer->stat_pfx_nh_invalid++;
 		reason = "martian or self next-hop;";
 		bgp_attr_flush(&new_attr);
 		goto filtered;
 	}
 
 	if (bgp_mac_entry_exists(p) || bgp_mac_exist(&attr->rmac)) {
+		peer->stat_pfx_nh_invalid++;
 		reason = "self mac;";
 		goto filtered;
 	}
@@ -3179,6 +3195,8 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	if (pi) {
 		pi->uptime = bgp_clock();
 		same_attr = attrhash_cmp(pi->attr, attr_new);
+
+		hook_call(bgp_process, bgp, afi, safi, rn, peer, true);
 
 		/* Same attribute comes in. */
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)
@@ -3608,6 +3626,8 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	if (safi == SAFI_EVPN)
 		bgp_evpn_import_route(bgp, afi, safi, p, new);
 
+	hook_call(bgp_process, bgp, afi, safi, rn, peer, false);
+
 	/* Process change. */
 	bgp_process(bgp, rn, afi, safi);
 
@@ -3639,6 +3659,8 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 /* This BGP update is filtered.  Log the reason then update BGP
    entry.  */
 filtered:
+	hook_call(bgp_process, bgp, afi, safi, rn, peer, true);
+
 	if (bgp_debug_update(peer, p, NULL, 1)) {
 		if (!peer->rcvd_attr_printed) {
 			zlog_debug("%s rcvd UPDATE w/ attr: %s", peer->host,
@@ -3727,6 +3749,8 @@ int bgp_withdraw(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)
 	    && peer != bgp->peer_self)
 		if (!bgp_adj_in_unset(rn, peer, addpath_id)) {
+			peer->stat_pfx_dup_withdraw++;
+
 			if (bgp_debug_update(peer, p, NULL, 1)) {
 				bgp_debug_rdpfxpath2str(
 					afi, safi, prd, p, label, num_labels,

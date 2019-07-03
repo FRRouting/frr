@@ -24,6 +24,7 @@
 #include "qobj.h"
 #include <pthread.h>
 
+#include "hook.h"
 #include "frr_pthread.h"
 #include "lib/json.h"
 #include "vrf.h"
@@ -572,6 +573,11 @@ struct bgp {
 };
 DECLARE_QOBJ_TYPE(bgp)
 
+DECLARE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp))
+DECLARE_HOOK(bgp_inst_config_write,
+		(struct bgp *bgp, struct vty *vty),
+		(bgp, vty))
+
 #define BGP_ROUTE_ADV_HOLD(bgp) (bgp->main_peers_update_hold)
 
 #define IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)                                        \
@@ -1077,6 +1083,14 @@ struct peer {
 	_Atomic uint32_t dynamic_cap_in;  /* Dynamic Capability input count.  */
 	_Atomic uint32_t dynamic_cap_out; /* Dynamic Capability output count. */
 
+	uint32_t stat_pfx_filter;
+	uint32_t stat_pfx_aspath_loop;
+	uint32_t stat_pfx_originator_loop;
+	uint32_t stat_pfx_cluster_loop;
+	uint32_t stat_pfx_nh_invalid;
+	uint32_t stat_pfx_dup_withdraw;
+	uint32_t stat_upd_7606;  /* RFC7606: treat-as-withdraw */
+
 	/* BGP state count */
 	uint32_t established; /* Established */
 	uint32_t dropped;     /* Dropped */
@@ -1153,7 +1167,7 @@ struct peer {
 	unsigned long weight[AFI_MAX][SAFI_MAX];
 
 	/* peer reset cause */
-	char last_reset;
+	uint8_t last_reset;
 #define PEER_DOWN_RID_CHANGE             1 /* bgp router-id command */
 #define PEER_DOWN_REMOTE_AS_CHANGE       2 /* neighbor remote-as command */
 #define PEER_DOWN_LOCAL_AS_CHANGE        3 /* neighbor local-as command */
@@ -1180,7 +1194,7 @@ struct peer {
 #define PEER_DOWN_BFD_DOWN              24 /* BFD down */
 #define PEER_DOWN_IF_DOWN               25 /* Interface down */
 #define PEER_DOWN_NBR_ADDR_DEL          26 /* Peer address lost */
-	unsigned long last_reset_cause_size;
+	size_t last_reset_cause_size;
 	uint8_t last_reset_cause[BGP_MAX_PACKET_SIZE];
 
 	/* The kind of route-map Flags.*/

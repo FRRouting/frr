@@ -21,6 +21,18 @@
 #ifndef _QUAGGA_BGP_PACKET_H
 #define _QUAGGA_BGP_PACKET_H
 
+#include "hook.h"
+
+DECLARE_HOOK(bgp_packet_dump,
+		(struct peer *peer, uint8_t type, bgp_size_t size,
+			struct stream *s),
+		(peer, type, size, s))
+
+DECLARE_HOOK(bgp_packet_send,
+		(struct peer *peer, uint8_t type, bgp_size_t size,
+			struct stream *s),
+		(peer, type, size, s))
+
 #define BGP_NLRI_LENGTH       1U
 #define BGP_TOTAL_ATTR_LEN    2U
 #define BGP_UNFEASIBLE_LEN    2U
