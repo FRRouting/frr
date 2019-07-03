@@ -346,9 +346,11 @@ if __name__ == '__main__':
         if args.show:
             dumpfd = sys.stderr
 
+    basepath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
     macros = Macros()
     macros.load('lib/route_types.h')
-    macros.load('lib/command.h')
+    macros.load(os.path.join(basepath, 'lib/command.h'))
     # sigh :(
     macros['PROTO_REDIST_STR'] = 'FRR_REDIST_STR_ISISD'
 
