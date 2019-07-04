@@ -5332,8 +5332,6 @@ static void process_remote_macip_add(vni_t vni,
 			if (ipa_len)
 				SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 		} else {
-			const char *mac_type;
-
 			/* When host moves but changes its (MAC,IP)
 			 * binding, BGP may install a MACIP entry that
 			 * corresponds to "older" location of the host
@@ -5342,16 +5340,14 @@ static void process_remote_macip_add(vni_t vni,
 			 * the sequence number and ignore this update
 			 * if appropriate.
 			 */
-			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
+			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
 				tmp_seq = mac->loc_seq;
-				mac_type = "local";
-			} else {
+			else
 				tmp_seq = mac->rem_seq;
-				mac_type = "remote";
-			}
+
 			if (seq < tmp_seq) {
 				if (IS_ZEBRA_DEBUG_VXLAN)
-					zlog_debug("Ignore remote MACIP ADD VNI %u MAC %s%s%s as existing %s MAC has higher seq %u",
+					zlog_debug("Ignore remote MACIP ADD VNI %u MAC %s%s%s as existing MAC has higher seq %u flags 0x%x",
 					vni,
 					prefix_mac2str(macaddr,
 						       buf, sizeof(buf)),
@@ -5359,8 +5355,7 @@ static void process_remote_macip_add(vni_t vni,
 					ipa_len ?
 					ipaddr2str(ipaddr,
 						   buf1, sizeof(buf1)) : "",
-					mac_type,
-					tmp_seq);
+					tmp_seq, mac->flags);
 				return;
 			}
 		}
@@ -7672,9 +7667,10 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("DEL MAC %s intf %s(%u) VID %u -> VNI %u flags 0x%x",
+		zlog_debug("DEL MAC %s intf %s(%u) VID %u -> VNI %u seq %u flags 0x%x nbr count %u",
 			   prefix_mac2str(macaddr, buf, sizeof(buf)), ifp->name,
-			   ifp->ifindex, vid, zvni->vni, mac->flags);
+			   ifp->ifindex, vid, zvni->vni, mac->loc_seq,
+			   mac->flags, listcount(mac->neigh_list));
 
 	/* Update all the neigh entries associated with this mac */
 	zvni_process_neigh_on_local_mac_del(zvni, mac);
