@@ -601,12 +601,55 @@ int bfdd_bfd_sessions_single_hop_destroy(struct nb_cb_destroy_args *args)
 int bfdd_bfd_sessions_single_hop_source_addr_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct bfd_session *bs;
+	struct sockaddr_any lsa;
+	const char *src_addr;
+	int ret;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		/* check local address */
+		memset(&lsa, 0, sizeof(lsa));
+		src_addr = yang_dnode_get_string(args->dnode, NULL);
+		ret = strtosa(src_addr, &lsa);
+		if (ret == -1)
+			return NB_ERR_VALIDATION;
+		return NB_OK;
+
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+
+	case NB_EV_APPLY:
+		bs = nb_running_get_entry(args->dnode, NULL, true);
+		if (bs == NULL)
+			return NB_ERR_VALIDATION;
+		memset(&lsa, 0, sizeof(lsa));
+		src_addr = yang_dnode_get_string(args->dnode, NULL);
+		strtosa(src_addr, &lsa);
+		if (lsa.sa_sin.sin_family == AF_INET)
+			memcpy(&bs->key.local, &lsa.sa_sin.sin_addr,
+			       sizeof(struct in_addr));
+		else if (lsa.sa_sin.sin_family == AF_INET6)
+			memcpy(&bs->key.local, &lsa.sa_sin6.sin6_addr,
+			       sizeof(struct in6_addr));
+		bs_observer_update_local(bs);
+		break;
+	}
 	return NB_OK;
 }
 
 int bfdd_bfd_sessions_single_hop_source_addr_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct bfd_session *bs;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	memset(&bs->key.local, 0, sizeof(struct in6_addr));
+	bfd_session_apply(bs);
 	return NB_OK;
 }
 

@@ -301,7 +301,6 @@ int bfd_session_enable(struct bfd_session *bs)
 {
 	struct interface *ifp = NULL;
 	struct vrf *vrf = NULL;
-	int psock;
 
 	/* We are using data plane, we don't need software. */
 	if (bs->bdc)
@@ -379,12 +378,12 @@ int bfd_session_enable(struct bfd_session *bs)
 	 * port we wouldn't need a socket per session.
 	 */
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6) == 0) {
-		psock = bp_peer_socket(bs);
-		if (psock == -1)
+		bs->sock = bp_peer_socket(bs);
+		if (bs->sock == -1)
 			return 0;
 	} else {
-		psock = bp_peer_socketv6(bs);
-		if (psock == -1)
+		bs->sock = bp_peer_socketv6(bs);
+		if (bs->sock == -1)
 			return 0;
 	}
 
@@ -392,7 +391,6 @@ int bfd_session_enable(struct bfd_session *bs)
 	 * We've got a valid socket, lets start the timers and the
 	 * protocol.
 	 */
-	bs->sock = psock;
 
 	/* Only start timers if we are using active mode. */
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE) == 0) {
@@ -1567,6 +1565,25 @@ const char *bs_to_string(const struct bfd_session *bs)
 	(void)pos;
 
 	return buf;
+}
+
+void bs_observer_update_local(struct bfd_session *bs)
+{
+	struct bfd_session_observer *bso;
+
+	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
+		if (bso->bso_bs != bs)
+			continue;
+
+		break;
+	}
+	bso->bso_addr.family = bs->key.family;
+	memcpy(&bso->bso_addr.u.prefix, &bs->key.local,
+	       sizeof(bs->key.local));
+	if (bs->sock != -1) {
+		bfd_session_disable(bs);
+	}
+	bfd_session_enable(bs);
 }
 
 int bs_observer_add(struct bfd_session *bs)

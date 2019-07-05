@@ -617,6 +617,7 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen);
 const char *bs_to_string(const struct bfd_session *bs);
 
 int bs_observer_add(struct bfd_session *bs);
+void bs_observer_update_local(struct bfd_session *bs);
 void bs_observer_del(struct bfd_session_observer *bso);
 
 void bs_to_bpc(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
