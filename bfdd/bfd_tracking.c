@@ -334,24 +334,54 @@ static int bfd_tracking_call_display_label(struct vty *vty,
 
 static unsigned int bfd_tracking_hash_key(const void *arg)
 {
-	const struct bfd_tracking_ctx *ctx = arg;
+	const struct bfd_tracking_ctx *bs = arg;
+	struct bfd_key key = bs->key;
 
-	return jhash(&ctx->key, sizeof(struct bfd_key), 0);
+	/*
+	 * Local address and interface name are optional and
+	 * can be filled any time after session creation.
+	 * Hash key should not depend on these fields.
+	 */
+	memset(&key.local, 0, sizeof(key.local));
+	memset(key.ifname, 0, sizeof(key.ifname));
+
+	return jhash(&key, sizeof(key), 0);
 }
 
 static bool bfd_tracking_hash_cmp(const void *n1, const void *n2)
 {
-	const struct bfd_tracking_ctx *a1 = n1;
-	const struct bfd_tracking_ctx *a2 = n2;
+	const struct bfd_tracking_ctx *bs1 = n1, *bs2 = n2;
 
-	if (memcmp(&a1->key.peer, &a2->key.peer, sizeof(union sockunion)))
+	if (bs1->key.family != bs2->key.family)
 		return false;
-	if (memcmp(&a1->key.local, &a2->key.local,  sizeof(union sockunion)))
+	if (bs1->key.mhop != bs2->key.mhop)
 		return false;
-	if (memcmp(&a1->key.ifname, &a2->key.ifname, MAXNAMELEN))
+	if (memcmp(&bs1->key.peer, &bs2->key.peer, sizeof(bs1->key.peer)))
 		return false;
-	if (memcmp(&a1->key.vrfname, &a2->key.vrfname, MAXNAMELEN))
+	if (memcmp(bs1->key.vrfname, bs2->key.vrfname,
+		   sizeof(bs1->key.vrfname)))
 		return false;
+
+	/*
+	 * Local address is optional and can be empty.
+	 * If both addresses are not empty and different,
+	 * then the keys are different.
+	 */
+	if (memcmp(&bs1->key.local, &zero_addr, sizeof(bs1->key.local))
+	    && memcmp(&bs2->key.local, &zero_addr, sizeof(bs2->key.local))
+	    && memcmp(&bs1->key.local, &bs2->key.local, sizeof(bs1->key.local)))
+		return false;
+
+	/*
+	 * Interface name is optional and can be empty.
+	 * If both names are not empty and different,
+	 * then the keys are different.
+	 */
+	if (bs1->key.ifname[0] && bs2->key.ifname[0]
+	    && memcmp(bs1->key.ifname, bs2->key.ifname,
+		      sizeof(bs1->key.ifname)))
+		return false;
+
 	return true;
 }
 
