@@ -4991,8 +4991,8 @@ DEFUN (show_ip_pim_bsm_db,
        SHOW_STR
        IP_STR
        PIM_STR
-       VRF_CMD_HELP_STR
        "PIM cached bsm packets information\n"
+       VRF_CMD_HELP_STR
        JSON_STR)
 {
 	int idx = 2;
@@ -5012,8 +5012,8 @@ DEFUN (show_ip_pim_bsrp,
        SHOW_STR
        IP_STR
        PIM_STR
-       VRF_CMD_HELP_STR
        "PIM cached group-rp mappings information\n"
+       VRF_CMD_HELP_STR
        JSON_STR)
 {
 	int idx = 2;
@@ -5030,13 +5030,13 @@ DEFUN (show_ip_pim_bsrp,
 
 DEFUN (show_ip_pim_statistics,
        show_ip_pim_statistics_cmd,
-       "show ip pim [vrf NAME] statistics  [interface WORD] [json]",
+       "show ip pim [vrf NAME] statistics [interface WORD] [json]",
        SHOW_STR
        IP_STR
        PIM_STR
        VRF_CMD_HELP_STR
        "PIM statistics\n"
-       "interface\n"
+       INTERFACE_STR
        "PIM interface\n"
        JSON_STR)
 {
