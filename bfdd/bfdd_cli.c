@@ -108,8 +108,8 @@ DEFPY_NOSH(
 	VRF_NAME_STR)
 {
 	int ret, slen;
-	char xpath[XPATH_MAXLEN];
 	char source_str[INET6_ADDRSTRLEN];
+	char xpath[XPATH_MAXLEN], xpath_srcaddr[XPATH_MAXLEN + 32];
 
 	if (multihop)
 		snprintf(source_str, sizeof(source_str), "[source-addr='%s']",
@@ -134,6 +134,12 @@ DEFPY_NOSH(
 			 VRF_DEFAULT_NAME);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	if (multihop == NULL && local_address_str != NULL) {
+		snprintf(xpath_srcaddr, sizeof(xpath_srcaddr),
+			 "%s/source-addr", xpath);
+		nb_cli_enqueue_change(vty, xpath_srcaddr, NB_OP_MODIFY,
+				      local_address_str);
+	}
 
 	/* Apply settings immediately. */
 	ret = nb_cli_apply_changes(vty, NULL);
