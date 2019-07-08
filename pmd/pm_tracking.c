@@ -42,7 +42,8 @@
 #include "pmd/pm_tracking_clippy.c"
 #endif
 
-DEFINE_MTYPE_STATIC(PMD, PM_TRACKING, "Tracking Information")
+DEFINE_MTYPE_STATIC(PMD, PM_TRACKING, "Tracking Information");
+DEFINE_MTYPE_STATIC(PMD, PM_TRACK_LABEL, "Tracking Label Information");
 
 static int pm_tracking_call_update_param(struct pm_session *pm);
 
@@ -103,6 +104,7 @@ struct pm_tracking_ctx {
 	union sockunion gateway;
 	union sockunion alternate;
 	char notify_path[PATH_MAX];
+	char *label;
 };
 
 static struct pm_tracking_ctx *pm_tracking_lookup_from_pm(struct pm_session *pm)
@@ -137,6 +139,10 @@ static int pm_tracking_call_write_config(struct pm_session *pm, struct vty *vty)
 		vty_out(vty, "  alternate %s\n",
 			sockunion2str(&ctx->alternate,
 					   buf, sizeof(buf)));
+	}
+	if (ctx->label) {
+		vty_out(vty, "  label %s\n",
+			ctx->label);
 	}
 	return 1;
 }
@@ -292,6 +298,25 @@ DEFPY (pm_tracking_gateway_ip,
 	return pm_tracking_gateway_call(pm, gw_str, vty);
 }
 
+static int pm_tracking_label_call(struct pm_session *pm,
+				  const char *label,
+				  struct vty *vty)
+{
+	static struct pm_tracking_ctx *ctx;
+
+	ctx = pm_tracking_lookup_from_pm(pm);
+	if (!ctx)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (ctx->label)
+		XFREE(MTYPE_PM_TRACK_LABEL, ctx->label);
+	if (label)
+		ctx->label = XSTRDUP(MTYPE_PM_TRACK_LABEL, label);
+	else
+		ctx->label = NULL;
+	return CMD_SUCCESS;
+}
+
 static int pm_tracking_notify_call(struct pm_session *pm,
 				   const char *pathname,
 				   struct vty *vty)
@@ -311,6 +336,21 @@ static int pm_tracking_notify_call(struct pm_session *pm,
 	}
 	snprintf(ctx->notify_path, sizeof(ctx->notify_path), "%s", tmp_name);
 	return CMD_SUCCESS;
+}
+
+DEFPY(
+      pm_tracking_label, pm_tracking_label_cmd,
+      "[no] label [<NAME$name>]",
+	NO_STR
+	"Configure tracking name description\n"
+	"Description field\n")
+{
+	struct pm_session *pm;
+
+	pm = VTY_GET_CONTEXT(pm_session);
+	if (no)
+		return pm_tracking_label_call(pm, NULL, vty);
+	return pm_tracking_label_call(pm, name, vty);
 }
 
 DEFPY (pm_tracking_notify,
@@ -335,6 +375,9 @@ static int pm_tracking_call_release_session(struct pm_session *pm)
 	ctx = pm_tracking_lookup_from_pm(pm);
 	if (!ctx)
 		return 0;
+	if (ctx->label)
+		XFREE(MTYPE_PM_TRACK_LABEL, ctx->label);
+	ctx->label = NULL;
 	hash_release(pm_tracking_list, &ctx);
 	return 1;
 }
@@ -426,6 +469,13 @@ static int pm_tracking_call_display(struct pm_session *pm,
 			json_object_string_add(jo, "dst-ip",
 					    buf);
 	}
+	if (ctx->label) {
+		if (vty)
+			vty_out(vty, "\tlabel %s\n", ctx->label);
+		if (jo)
+			json_object_string_add(jo, "label",
+					       ctx->label);
+	}
 	return 1;
 }
 
@@ -461,5 +511,6 @@ static int pm_tracking_init(struct thread_master *t)
 	install_element(PM_SESSION_NODE, &pm_tracking_gateway_ip_cmd);
 	install_element(PM_SESSION_NODE, &pm_tracking_notify_cmd);
 	install_element(PM_SESSION_NODE, &pm_tracking_alternate_cmd);
+	install_element(PM_SESSION_NODE, &pm_tracking_label_cmd);
 	return 0;
 }
