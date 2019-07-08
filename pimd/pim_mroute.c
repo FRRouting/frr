@@ -238,7 +238,8 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 		vif_index = pim_if_find_vifindex_by_ifindex(
 			pim_ifp->pim,
 			up->rpf.source_nexthop.interface->ifindex);
-		up->channel_oil->oil.mfcc_parent = vif_index;
+		pim_channel_oil_change_iif(pim_ifp->pim, up->channel_oil,
+					   vif_index, __PRETTY_FUNCTION__);
 	}
 	pim_register_join(up);
 
