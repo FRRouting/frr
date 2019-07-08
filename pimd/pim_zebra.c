@@ -1231,14 +1231,15 @@ void pim_forward_start(struct pim_ifchannel *ch)
 					__FILE__, __PRETTY_FUNCTION__,
 					source_str);
 			}
-			up->channel_oil = pim_channel_oil_add(
-				pim, &up->sg, MAXVIFS, __PRETTY_FUNCTION__);
+			pim_channel_oil_change_iif(pim, up->channel_oil,
+						   MAXVIFS,
+						   __PRETTY_FUNCTION__);
 		}
 
 		else
-			up->channel_oil = pim_channel_oil_add(
-				pim, &up->sg, input_iface_vif_index,
-				__PRETTY_FUNCTION__);
+			pim_channel_oil_change_iif(pim, up->channel_oil,
+						   input_iface_vif_index,
+						   __PRETTY_FUNCTION__);
 
 		if (PIM_DEBUG_TRACE) {
 			struct interface *in_intf = pim_if_find_by_vif_index(
@@ -1249,10 +1250,6 @@ void pim_forward_start(struct pim_ifchannel *ch)
 				in_intf ? in_intf->name : "Unknown",
 				input_iface_vif_index, up->sg_str);
 		}
-
-		up->channel_oil =
-			pim_channel_oil_add(pim, &up->sg, input_iface_vif_index,
-					    __PRETTY_FUNCTION__);
 	}
 
 	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
