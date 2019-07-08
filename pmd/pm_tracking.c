@@ -162,13 +162,27 @@ static int pm_tracking_call_update_param(struct pm_session *pm)
 	return 1;
 }
 
+static int pm_tracking_notify_update_status(char *path, int status)
+{
+	FILE *fp;
 
+	fp = fopen(path, "w+");
+	if (!fp) {
+		zlog_info("%s: could not open %s",
+			  __func__, path);
+		return -1;
+	}
+	fprintf(fp, "%d", status);
+	fclose(fp);
+	return 1;
+}
 
 static int pm_tracking_call_notify_filename(struct pm_session *pm)
 {
 	struct pm_tracking_ctx *ctx;
 	int status = 0;
-	FILE *fp;
+	int ret;
+
 
 	ctx = pm_tracking_lookup_from_pm(pm);
 	if (!ctx)
@@ -185,15 +199,12 @@ static int pm_tracking_call_notify_filename(struct pm_session *pm)
 		return 0;
 	if (!ctx->notify_path[0])
 		return 0;
-	fp = fopen(ctx->notify_path, "w+");
-	if (!fp)
-		return 0;
-	zlog_info("tracker %pSU, notifying %s to %s",
-		  &ctx->key.peer, pm->ses_state == PM_UP ?
-		  "UP" : "DOWN", ctx->notify_path);
-	fprintf(fp, "%d", status);
-	fclose(fp);
-	return 1;
+	ret = pm_tracking_notify_update_status(ctx->notify_path, status);
+	if (ret > 0)
+		zlog_info("tracker %pSU, notifying %s to %s",
+			  &ctx->key.peer, pm->ses_state == PM_UP ?
+			  "UP" : "DOWN", ctx->notify_path);
+	return ret;
 }
 
 static int pm_tracking_alternate_call(struct pm_session *pm,
@@ -361,6 +372,8 @@ static int pm_tracking_call_release_session(struct pm_session *pm)
 	ctx = pm_tracking_lookup_from_pm(pm);
 	if (!ctx)
 		return 0;
+	if (ctx->notify_path[0])
+		pm_tracking_notify_update_status(ctx->notify_path, 0);
 	if (ctx->label)
 		XFREE(MTYPE_PM_TRACK_LABEL, ctx->label);
 	ctx->label = NULL;
