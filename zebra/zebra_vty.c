@@ -984,6 +984,44 @@ DEFPY (show_route_table_vrf,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_route_all_table_vrf,
+       show_route_all_table_vrf_cmd,
+       "show <ip$ipv4|ipv6$ipv6> route [vrf <NAME$vrf_name|all$vrf_all>] tables [json$json]",
+       SHOW_STR
+       IP_STR
+       IP6_STR
+       "IP routing table\n"
+       "Display all tables\n"
+       VRF_FULL_CMD_HELP_STR
+       JSON_STR)
+{
+	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
+	struct zebra_vrf *zvrf = NULL;
+	vrf_id_t vrf_id = VRF_DEFAULT;
+	struct zebra_router_table *zrt;
+
+	if (vrf_name)
+		VRF_GET_ID(vrf_id, vrf_name, !!json);
+
+	if (!vrf_all)
+		zvrf = zebra_vrf_lookup_by_id(vrf_id);
+
+	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
+		rib_table_info_t *info = route_table_get_info(zrt->table);
+
+		if (zvrf && zvrf != info->zvrf)
+			continue;
+		if (zrt->afi != afi || zrt->safi != SAFI_UNICAST)
+			continue;
+		if (zrt->table) {
+			do_show_route_helper(vty, info->zvrf, zrt->table, afi,
+					     false, 0, false, false,
+					     0, 0, !!json);
+		}
+	}
+	return CMD_SUCCESS;
+}
+
 DEFPY (show_ip_nht,
        show_ip_nht_cmd,
        "show <ip$ipv4|ipv6$ipv6> <nht|import-check>$type [<A.B.C.D|X:X::X:X>$addr|vrf NAME$vrf_name <A.B.C.D|X:X::X:X>$addr|vrf all$vrf_all]",
@@ -2989,6 +3027,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_route_table_cmd);
 	if (vrf_is_backend_netns())
 		install_element(VIEW_NODE, &show_route_table_vrf_cmd);
+	install_element(VIEW_NODE, &show_route_all_table_vrf_cmd);
 	install_element(VIEW_NODE, &show_route_detail_cmd);
 	install_element(VIEW_NODE, &show_route_summary_cmd);
 	install_element(VIEW_NODE, &show_ip_nht_cmd);
