@@ -34,6 +34,7 @@
 #include "bgpd/bgp_labelpool.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
+#include "bgpd/bgp_route.h"
 
 /*
  * Definitions and external declarations.
