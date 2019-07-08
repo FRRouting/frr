@@ -129,11 +129,26 @@ static void *bfd_tracking_alloc(void *arg)
 	return ctx_to_allocate;
 }
 
+static int bfd_tracking_notify_update_status(char *path, int status)
+{
+	FILE *fp;
+
+	fp = fopen(path, "w+");
+	if (!fp) {
+		zlog_info("%s: could not open %s",
+			  __func__, path);
+		return -1;
+	}
+	fprintf(fp, "%d", status);
+	fclose(fp);
+	return 1;
+}
+
 static int bfd_tracking_call_notify_filename(const struct bfd_session *bs)
 {
 	struct bfd_tracking_ctx *ctx;
 	int status = 0;
-	FILE *fp;
+	int ret;
 	char buf[INET6_ADDRSTRLEN];
 
 	ctx = bfd_tracking_lookup_from_bs(bs);
@@ -151,20 +166,15 @@ static int bfd_tracking_call_notify_filename(const struct bfd_session *bs)
 		return 0;
 	if (!ctx->notify_path[0])
 		return 0;
-	fp = fopen(ctx->notify_path, "w+");
-	if (!fp) {
-		zlog_info("%s: could not open %s",
-			  __func__, ctx->notify_path);
-		return 0;
+	ret = bfd_tracking_notify_update_status(ctx->notify_path, status);
+	if (ret > 0) {
+		inet_ntop(ctx->key.family, &ctx->key.peer, buf,
+			  sizeof(buf));
+		zlog_info("tracker %s, notifying %s to %s",
+			  buf, bs->ses_state == PTM_BFD_UP ?
+			  "UP" : "DOWN", ctx->notify_path);
 	}
-	inet_ntop(ctx->key.family, &ctx->key.peer, buf,
-		  sizeof(buf));
-	zlog_info("tracker %s, notifying %s to %s",
-		  buf, bs->ses_state == PTM_BFD_UP ?
-		  "UP" : "DOWN", ctx->notify_path);
-	fprintf(fp, "%d", status);
-	fclose(fp);
-	return 1;
+	return ret;
 }
 
 static int bfd_tracking_notify_call(const char *pathname,
@@ -221,6 +231,8 @@ static int bfd_tracking_call_release_session(const struct bfd_session *bs)
 	ctx = bfd_tracking_lookup_from_bs(bs);
 	if (!ctx)
 		return 0;
+	if (ctx->notify_path[0])
+		bfd_tracking_notify_update_status(ctx->notify_path, 0);
 	hash_release(bfd_tracking_list, &ctx);
 	return 1;
 }
