@@ -86,14 +86,14 @@ static uint16_t vrrp_pkt_checksum(struct vrrp_pkt *pkt, size_t pktsize,
 		ph.src = src->ipaddr_v6;
 		inet_pton(AF_INET6, VRRP_MCASTV6_GROUP_STR, &ph.dst);
 		ph.ulpl = htons(pktsize);
-		ph.next_hdr = 112;
+		ph.next_hdr = IPPROTO_VRRP;
 		chksum = in_cksum_with_ph6(&ph, pkt, pktsize);
 	} else if (!v6 && ((pkt->hdr.vertype >> 4) == 3)) {
 		struct ipv4_ph ph = {};
 
 		ph.src = src->ipaddr_v4;
 		inet_pton(AF_INET, VRRP_MCASTV4_GROUP_STR, &ph.dst);
-		ph.proto = 112;
+		ph.proto = IPPROTO_VRRP;
 		ph.len = htons(pktsize);
 		chksum = in_cksum_with_ph4(&ph, pkt, pktsize);
 	} else if (!v6 && ((pkt->hdr.vertype >> 4) == 2)) {
