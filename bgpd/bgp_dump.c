@@ -877,4 +877,5 @@ void bgp_dump_finish(void)
 
 	stream_free(bgp_dump_obuf);
 	bgp_dump_obuf = NULL;
+	hook_unregister(bgp_packet_dump, bgp_dump_packet);
 }
