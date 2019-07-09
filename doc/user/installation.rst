@@ -331,22 +331,6 @@ options to the configuration script.
    Look for YANG modules in `dir` [`prefix`/share/yang]. Note that the FRR
    YANG modules will be installed here.
 
-.. option:: --with-libyang-pluginsdir <dir>
-
-   Look for libyang plugins in `dir` [`prefix`/lib/frr/libyang_plugins].
-   Note that the FRR libyang plugins will be installed here.
-
-   This option is meaningless with libyang 0.16.74 or newer and will be
-   removed once support for older libyang versions is dropped.
-
-When it's desired to run FRR without installing it in the system, it's possible
-to configure it as follows to look for YANG modules and libyang plugins in the
-compile directory:
-.. code-block:: shell
-
-   ./configure --with-libyang-pluginsdir="`pwd`/yang/libyang_plugins/.libs" \
-               --with-yangmodelsdir="`pwd`/yang"
-
 Python dependency, documentation and tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

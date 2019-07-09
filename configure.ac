@@ -139,13 +139,6 @@ AC_ARG_WITH([yangmodelsdir], [AS_HELP_STRING([--with-yangmodelsdir=DIR], [yang m
 ])
 AC_SUBST([yangmodelsdir])
 
-AC_ARG_WITH([libyang_pluginsdir], [AS_HELP_STRING([--with-libyang-pluginsdir=DIR], [yangmodule plugins directory (${libdir}/frr/libyang_plugins)])], [
-	libyang_pluginsdir="$withval"
-], [
-   libyang_pluginsdir="\${libdir}/frr/libyang_plugins"
-])
-AC_SUBST([libyang_pluginsdir])
-
 AC_ARG_ENABLE(tcmalloc,
 	AS_HELP_STRING([--enable-tcmalloc], [Turn on tcmalloc]),
 [case "${enableval}" in
@@ -1608,8 +1601,8 @@ AC_SUBST([SNMP_CFLAGS])
 dnl ---------------
 dnl libyang
 dnl ---------------
-PKG_CHECK_MODULES([LIBYANG], [libyang >= 0.16.7], , [
-  AC_MSG_ERROR([libyang (>= 0.16.7) was not found on your system.])
+PKG_CHECK_MODULES([LIBYANG], [libyang >= 0.16.105], , [
+  AC_MSG_ERROR([libyang (>= 0.16.105) was not found on your system.])
 ])
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
@@ -2166,24 +2159,20 @@ CFG_SBIN="$sbindir"
 CFG_STATE="$frr_statedir"
 CFG_MODULE="$moduledir"
 CFG_YANGMODELS="$yangmodelsdir"
-CFG_LIBYANG_PLUGINS="$libyang_pluginsdir"
 for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
 	eval CFG_SBIN="\"$CFG_SBIN\""
 	eval CFG_STATE="\"$CFG_STATE\""
 	eval CFG_MODULE="\"$CFG_MODULE\""
 	eval CFG_YANGMODELS="\"$CFG_YANGMODELS\""
-	eval CFG_LIBYANG_PLUGINS="\"$CFG_LIBYANG_PLUGINS\""
 done
 AC_SUBST([CFG_SYSCONF])
 AC_SUBST([CFG_SBIN])
 AC_SUBST([CFG_STATE])
 AC_SUBST([CFG_MODULE])
 AC_SUBST([CFG_YANGMODELS])
-AC_SUBST([CFG_LIBYANG_PLUGINS])
 AC_DEFINE_UNQUOTED([MODULE_PATH], ["$CFG_MODULE"], [path to modules])
 AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
-AC_DEFINE_UNQUOTED([LIBYANG_PLUGINS_PATH], ["$CFG_LIBYANG_PLUGINS"], [path to libyang plugins])
 AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
 
 dnl various features
