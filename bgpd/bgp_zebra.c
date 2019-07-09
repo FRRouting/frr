@@ -1499,6 +1499,11 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_path_info *info,
 	api.safi = safi;
 	api.prefix = *p;
 
+	if (info->attr->rmap_table_id) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
+		api.tableid = info->attr->rmap_table_id;
+	}
+
 	/* If the route's source is EVPN, flag as such. */
 	if (is_route_parent_evpn(info))
 		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE);

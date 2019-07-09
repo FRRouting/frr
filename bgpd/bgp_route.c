@@ -3165,6 +3165,13 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		goto filtered;
 	}
 
+	if (pi && pi->attr &&
+	    pi->attr->rmap_table_id != new_attr.rmap_table_id) {
+		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+			/* remove from RIB previous entry */
+			bgp_zebra_withdraw(p, pi, bgp, safi);
+	}
+
 	if (peer->sort == BGP_PEER_EBGP) {
 
 		/* If we receive the graceful-shutdown community from an eBGP
