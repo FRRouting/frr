@@ -382,6 +382,17 @@ static int bgp_accept(struct thread *thread)
 		return -1;
 	}
 
+	/* Check whether max prefix restart timer is set for the peer */
+	if (peer1->t_pmax_restart) {
+		if (bgp_debug_neighbor_events(peer1))
+			zlog_debug(
+				"%s - incoming conn rejected - "
+				"peer max prefix timer is active",
+				peer1->host);
+		close(bgp_sock);
+		return -1;
+	}
+
 	if (bgp_debug_neighbor_events(peer1))
 		zlog_debug("[Event] BGP connection from host %s fd %d",
 			   inet_sutop(&su, buf), bgp_sock);
