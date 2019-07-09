@@ -3251,8 +3251,10 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring",
-			.cbs.modify = lib_interface_isis_bfd_monitoring_modify,
-			.cbs.cli_show = cli_show_ip_isis_bfd_monitoring,
+			.cbs = {
+				.modify = lib_interface_isis_bfd_monitoring_modify,
+				.cli_show = cli_show_ip_isis_bfd_monitoring,
+			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/csnp-interval",
