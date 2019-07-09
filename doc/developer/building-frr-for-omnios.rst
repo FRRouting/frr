@@ -60,7 +60,7 @@ Add pytest:
 
 ::
 
-    pip install pytest
+    pip install "pytest<5"
 
 Install Sphinx:::
 
