@@ -9926,6 +9926,10 @@ static int bgp_show_lcommunity_list(struct vty *vty, struct bgp *bgp,
 			list, uj);
 }
 
+#if CONFDATE > 20200725
+CPP_NOTICE(
+	"bgpd: Add deprecation warning for `show [ip] bgp [large-]community-list <arg>`")
+#endif
 DEFUN (show_ip_bgp_large_community_list,
        show_ip_bgp_large_community_list_cmd,
        "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] large-community-list <(1-500)|WORD> [exact-match] [json]",
@@ -9968,7 +9972,14 @@ DEFUN (show_ip_bgp_large_community_list,
 		return CMD_WARNING;
 	}
 
-	argv_find(argv, argc, "large-community-list", &idx);
+	if (argv_find(argv, argc, "large-community-list", &idx)) {
+		vty_out(vty,
+			"This config option is deprecated, and is scheduled for removal\n");
+		vty_out(vty,
+			"If you are using this please consider using 'show bgp large-community' instead.\n");
+		zlog_warn(
+			"Deprecated option: 'show bgp large-community-list <(1-500)|WORD>");
+	}
 
 	const char *clist_number_or_name = argv[++idx]->arg;
 
@@ -10033,6 +10044,10 @@ static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
 			   safi_t safi);
 
 
+#if CONFDATE > 20200725
+CPP_NOTICE(
+	"bgpd: Add deprecation warning for `show [ip] bgp [large-]community-list <arg>`")
+#endif
 /* BGP route print out function without JSON */
 DEFUN (show_ip_bgp,
        show_ip_bgp_cmd,
@@ -10102,6 +10117,13 @@ DEFUN (show_ip_bgp,
 					  safi, bgp_show_type_route_map);
 
 	if (argv_find(argv, argc, "community-list", &idx)) {
+		vty_out(vty,
+			"This config option is deprecated, and is scheduled for removal.\n");
+		vty_out(vty,
+			"If you are using this please consider using 'show bgp community' instead.\n");
+		zlog_warn(
+			"Deprecated option: 'show bgp community-list <(1-500)|WORD>");
+
 		const char *clist_number_or_name = argv[++idx]->arg;
 		if (++idx < argc && strmatch(argv[idx]->text, "exact-match"))
 			exact_match = 1;
