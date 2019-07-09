@@ -60,6 +60,8 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_vty.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_pbr.h"
+#include "bgpd/bgp_flowspec_util.h"
 
 #if ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
@@ -569,24 +571,67 @@ struct route_map_rule_cmd route_match_ip_route_source_cmd = {
 	"ip route-source", route_match_ip_route_source,
 	route_match_ip_route_source_compile, route_match_ip_route_source_free};
 
+static route_map_result_t route_match_prefix_list_flowspec(afi_t afi,
+							   struct prefix_list *plist,
+							   const struct prefix *p)
+{
+	int ret;
+	struct bgp_pbr_entry_main api;
+
+	memset(&api, 0, sizeof(api));
+
+	/* extract match from flowspec entries */
+	ret = bgp_flowspec_match_rules_fill(
+					    (uint8_t *)p->u.prefix_flowspec.ptr,
+					    p->u.prefix_flowspec.prefixlen, &api);
+	if (ret < 0)
+		return RMAP_NOMATCH;
+	if (api.match_bitmask & PREFIX_DST_PRESENT ||
+	    api.match_bitmask_iprule & PREFIX_DST_PRESENT) {
+		if (family2afi((&api.dst_prefix)->family) != afi)
+			return RMAP_NOMATCH;
+		return prefix_list_apply(plist, &api.dst_prefix) == PREFIX_DENY
+			? RMAP_NOMATCH
+			: RMAP_MATCH;
+	} else if (api.match_bitmask & PREFIX_SRC_PRESENT ||
+		   api.match_bitmask_iprule & PREFIX_SRC_PRESENT) {
+		if (family2afi((&api.src_prefix)->family) != afi)
+			return RMAP_NOMATCH;
+		return (prefix_list_apply(plist, &api.src_prefix) == PREFIX_DENY
+			? RMAP_NOMATCH
+			: RMAP_MATCH);
+	}
+	return RMAP_NOMATCH;
+}
+
 /* `match ip address prefix-list PREFIX_LIST' */
+static route_map_result_t
+route_match_address_prefix_list(void *rule, afi_t afi,
+				const struct prefix *prefix,
+				route_map_object_t type, void *object)
+{
+	struct prefix_list *plist;
+
+	if (type != RMAP_BGP)
+		return RMAP_NOMATCH;
+
+	plist = prefix_list_lookup(afi, (char *)rule);
+	if (plist == NULL)
+		return RMAP_NOMATCH;
+
+	if (prefix->family == AF_FLOWSPEC)
+		return route_match_prefix_list_flowspec(afi, plist,
+							prefix);
+	return (prefix_list_apply(plist, prefix) == PREFIX_DENY ? RMAP_NOMATCH
+								: RMAP_MATCH);
+}
 
 static route_map_result_t
 route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
 				   route_map_object_t type, void *object)
 {
-	struct prefix_list *plist;
-
-	if (type == RMAP_BGP && prefix->family == AF_INET) {
-		plist = prefix_list_lookup(AFI_IP, (char *)rule);
-		if (plist == NULL)
-			return RMAP_NOMATCH;
-
-		return (prefix_list_apply(plist, prefix) == PREFIX_DENY
-				? RMAP_NOMATCH
-				: RMAP_MATCH);
-	}
-	return RMAP_NOMATCH;
+	return route_match_address_prefix_list(rule, AFI_IP, prefix, type,
+					       object);
 }
 
 static void *route_match_ip_address_prefix_list_compile(const char *arg)
@@ -2540,18 +2585,8 @@ static route_map_result_t
 route_match_ipv6_address_prefix_list(void *rule, const struct prefix *prefix,
 				     route_map_object_t type, void *object)
 {
-	struct prefix_list *plist;
-
-	if (type == RMAP_BGP && prefix->family == AF_INET6) {
-		plist = prefix_list_lookup(AFI_IP6, (char *)rule);
-		if (plist == NULL)
-			return RMAP_NOMATCH;
-
-		return (prefix_list_apply(plist, prefix) == PREFIX_DENY
-				? RMAP_NOMATCH
-				: RMAP_MATCH);
-	}
-	return RMAP_NOMATCH;
+	return route_match_address_prefix_list(rule, AFI_IP6, prefix, type,
+					       object);
 }
 
 static void *route_match_ipv6_address_prefix_list_compile(const char *arg)
