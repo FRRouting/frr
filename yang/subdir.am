@@ -24,6 +24,10 @@ dist_yangmodels_DATA += yang/frr-test-module.yang
 dist_yangmodels_DATA += yang/frr-interface.yang
 dist_yangmodels_DATA += yang/frr-route-types.yang
 
+if BFDD
+dist_yangmodels_DATA += yang/frr-bfdd.yang
+endif
+
 if RIPD
 dist_yangmodels_DATA += yang/frr-ripd.yang
 endif

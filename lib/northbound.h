@@ -337,6 +337,27 @@ struct nb_callbacks {
 	 */
 	void (*cli_show)(struct vty *vty, struct lyd_node *dnode,
 			 bool show_defaults);
+
+	/*
+	 * Optional callback to show the CLI node end for lists or containers.
+	 *
+	 * vty
+	 *    The vty terminal to dump the configuration to.
+	 *
+	 * dnode
+	 *    libyang data node that should be shown in the form of a CLI
+	 *    command.
+	 *
+	 * show_defaults
+	 *    Specify whether to display default configuration values or not.
+	 *    This parameter can be ignored most of the time since the
+	 *    northbound doesn't call this callback for default leaves or
+	 *    non-presence containers that contain only default child nodes.
+	 *    The exception are commands associated to multiple configuration
+	 *    nodes, in which case it might be desirable to hide one or more
+	 *    parts of the command when this parameter is set to false.
+	 */
+	void (*cli_show_end)(struct vty *vty, struct lyd_node *dnode);
 };
 
 /*
