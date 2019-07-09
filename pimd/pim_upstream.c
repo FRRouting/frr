@@ -737,13 +737,18 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	if (up->sg.src.s_addr != INADDR_ANY)
 		wheel_add_item(pim->upstream_sg_wheel, up);
 
-	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)) {
+	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)
+	    || PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags)) {
 		pim_upstream_fill_static_iif(up, incoming);
 		pim_ifp = up->rpf.source_nexthop.interface->info;
 		assert(pim_ifp);
 		pim_channel_oil_change_iif(pim, up->channel_oil,
 					   pim_ifp->mroute_vif_index,
 					   __PRETTY_FUNCTION__);
+
+		if (PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags))
+			pim_upstream_keep_alive_timer_start(
+				up, pim->keep_alive_time);
 	} else if (up->upstream_addr.s_addr != INADDR_ANY) {
 		rpf_result = pim_rpf_update(pim, up, NULL);
 		if (rpf_result == PIM_RPF_FAILURE) {
@@ -1179,6 +1184,13 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 		if (!pim_upstream_del(pim, up, __PRETTY_FUNCTION__))
 			return NULL;
 	}
+	if (PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags)) {
+		PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(up->flags);
+
+		if (!pim_upstream_del(pim, up, __PRETTY_FUNCTION__))
+			return NULL;
+	}
+
 	/* upstream reference would have been added to track the local
 	 * membership if it is LHR. We have to clear it when KAT expires.
 	 * Otherwise would result in stale entry with uncleared ref count.
