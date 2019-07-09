@@ -1425,7 +1425,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	re->flags = api.flags;
 	re->uptime = monotime(NULL);
 	re->vrf_id = vrf_id;
-	if (api.tableid && vrf_id == VRF_DEFAULT)
+	if (api.tableid)
 		re->table = api.tableid;
 	else
 		re->table = zvrf->table_id;
@@ -1624,7 +1624,7 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
 		src_p = &api.src_prefix;
 
-	if (api.vrf_id == VRF_DEFAULT && api.tableid != 0)
+	if (api.tableid)
 		table_id = api.tableid;
 	else
 		table_id = zvrf->table_id;
