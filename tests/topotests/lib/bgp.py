@@ -904,8 +904,9 @@ def clear_bgp_and_verify(tgen, topo, router):
 
         # To find neighbor ip type
         bgp_addr_type = topo["routers"][router]["bgp"]["address_family"]
+        total_peer = 0
         for addr_type in bgp_addr_type.keys():
-            total_peer = 0
+
             if not check_address_types(addr_type):
                 continue
 
@@ -914,17 +915,16 @@ def clear_bgp_and_verify(tgen, topo, router):
             for bgp_neighbor in bgp_neighbors:
                 total_peer += len(bgp_neighbors[bgp_neighbor]["dest_link"])
 
+        no_of_peer = 0
         for addr_type in bgp_addr_type:
             bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
-            no_of_peer = 0
 
             for bgp_neighbor, peer_data in bgp_neighbors.iteritems():
                 for dest_link, peer_dict in peer_data["dest_link"].iteritems():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
-                        neighbor_ip = data[dest_link][addr_type].split(
-                            "/")[0]
+                        neighbor_ip = data[dest_link][addr_type].split("/")[0]
                         if addr_type == "ipv4":
                             ipv4_data = show_bgp_json["ipv4Unicast"][
                                 "peers"]
@@ -984,9 +984,8 @@ def clear_bgp_and_verify(tgen, topo, router):
 
         # To find neighbor ip type
         bgp_addr_type = topo["routers"][router]["bgp"]["address_family"]
-
+        total_peer = 0
         for addr_type in bgp_addr_type.keys():
-            total_peer = 0
             if not check_address_types(addr_type):
                 continue
 
@@ -995,16 +994,16 @@ def clear_bgp_and_verify(tgen, topo, router):
             for bgp_neighbor in bgp_neighbors:
                 total_peer += len(bgp_neighbors[bgp_neighbor]["dest_link"])
 
+        no_of_peer = 0
         for addr_type in bgp_addr_type:
             bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
-            no_of_peer = 0
 
             for bgp_neighbor, peer_data in bgp_neighbors.iteritems():
                 for dest_link, peer_dict in peer_data["dest_link"].iteritems():
                     data = topo["routers"][bgp_neighbor]["links"]
 
                     if dest_link in data:
-                        neighbor_ip = data[dest_link][addr_type]. \
+                        neighbor_ip = data[dest_link][addr_type].\
                             split("/")[0]
                         if addr_type == "ipv4":
                             ipv4_data = show_bgp_json["ipv4Unicast"][

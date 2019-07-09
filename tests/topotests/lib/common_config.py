@@ -21,6 +21,8 @@
 from collections import OrderedDict
 from datetime import datetime
 from time import sleep
+from subprocess import call
+from subprocess import STDOUT as SUB_STDOUT
 import StringIO
 import os
 import ConfigParser
@@ -233,7 +235,7 @@ def reset_config_on_routers(tgen, routerName=None):
         command = "/usr/lib/frr/frr-reload.py  --input {}/{}/frr.sav" \
                   " --test {}/{}/frr_json_initial.conf > {}". \
             format(TMPDIR, rname, TMPDIR, rname, dname)
-        result = os.system(command)
+        result = call(command, shell=True, stderr=SUB_STDOUT)
 
         # Assert if command fail
         if result > 0:
@@ -358,7 +360,6 @@ def start_topology(tgen):
                 os.system('chmod -R go+rw {}'.format(rname))
                 os.chdir('{}/{}'.format(TMPDIR, rname))
                 os.system('touch zebra.conf bgpd.conf')
-
 
         except IOError as (errno, strerror):
             logger.error("I/O error({0}): {1}".format(errno, strerror))
