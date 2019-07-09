@@ -326,7 +326,7 @@ DEFUN (eigrp_timers_active,
        "timers active-time <(1-65535)|disabled>",
        "Adjust routing timers\n"
        "Time limit for active state\n"
-       "Active state time limit in minutes\n"
+       "Active state time limit in seconds\n"
        "Disable time limit for active state\n")
 {
 	// struct eigrp *eigrp = vty->index;
@@ -341,7 +341,7 @@ DEFUN (no_eigrp_timers_active,
        NO_STR
        "Adjust routing timers\n"
        "Time limit for active state\n"
-       "Active state time limit in minutes\n"
+       "Active state time limit in seconds\n"
        "Disable time limit for active state\n")
 {
 	// struct eigrp *eigrp = vty->index;
