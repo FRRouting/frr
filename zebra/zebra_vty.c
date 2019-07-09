@@ -1003,14 +1003,13 @@ DEFPY (show_route_all_table_vrf,
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	struct zebra_vrf *zvrf = NULL;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	vrf_id_t vrf_id = VRF_UNKNOWN;
 	struct zebra_router_table *zrt;
 
-	if (vrf_name)
+	if (vrf_name) {
 		VRF_GET_ID(vrf_id, vrf_name, !!json);
-
-	if (!vrf_all)
 		zvrf = zebra_vrf_lookup_by_id(vrf_id);
+	}
 
 	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
 		rib_table_info_t *info = route_table_get_info(zrt->table);
