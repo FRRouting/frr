@@ -35,11 +35,11 @@ struct pm_gbl {
 #define PM_STATUS_DOWN    (1 << 1) /* PM session status is down */
 #define PM_STATUS_UP      (1 << 2) /* PM session status is up */
 
-#define PM_DEF_INTERVAL 5000
+#define PM_DEF_INTERVAL 500
 #define PM_DEF_PACKET_SIZE 100
 #define PM_DEF_IPV6_PACKET_SIZE 100
 #define PM_DEF_TOS_VAL 0xc0  /* Inter Network Control */
-#define PM_DEF_TIMEOUT 5000
+#define PM_DEF_TIMEOUT 500
 
 struct pm_info {
 	uint16_t flags;
