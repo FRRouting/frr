@@ -147,6 +147,7 @@ void		 lde_imsg_compose_parent_sync(int, pid_t, void *, uint16_t);
 int		 lde_imsg_compose_ldpe(int, uint32_t, pid_t, void *, uint16_t);
 int		 lde_acl_check(char *, int, union ldpd_addr *, uint8_t);
 uint32_t	 lde_update_label(struct fec_node *);
+void		 lde_free_label(uint32_t label);
 void		 lde_send_change_klabel(struct fec_node *, struct fec_nh *);
 void		 lde_send_delete_klabel(struct fec_node *, struct fec_nh *);
 void		 lde_fec2map(struct fec *, struct map *);
