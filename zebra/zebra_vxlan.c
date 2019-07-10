@@ -732,6 +732,7 @@ static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 	bool flags_present = false;
 	struct zebra_vrf *zvrf = NULL;
 	struct timeval detect_start_time = {0, 0};
+	char timebuf[MONOTIME_STRLEN];
 
 	zvrf = zebra_vrf_get_evpn();
 	if (!zvrf)
@@ -786,19 +787,17 @@ static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 
 		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE)) {
 			vty_out(vty, " Duplicate, detected at %s",
-				time_to_string(n->dad_dup_detect_time));
+				time_to_string(n->dad_dup_detect_time,
+					       timebuf));
 		} else if (n->dad_count) {
 			monotime_since(&n->detect_start_time,
 				       &detect_start_time);
 			if (detect_start_time.tv_sec <= zvrf->dad_time) {
-				char *buf = time_to_string(
-						n->detect_start_time.tv_sec);
-				char tmp_buf[30];
-
-				strlcpy(tmp_buf, buf, sizeof(tmp_buf));
+				time_to_string(n->detect_start_time.tv_sec,
+					       timebuf);
 				vty_out(vty,
 					" Duplicate detection started at %s, detection count %u\n",
-					tmp_buf, n->dad_count);
+					timebuf, n->dad_count);
 			}
 		}
 	} else {
@@ -1179,6 +1178,7 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 	char buf2[INET6_ADDRSTRLEN];
 	struct zebra_vrf *zvrf;
 	struct timeval detect_start_time = {0, 0};
+	char timebuf[MONOTIME_STRLEN];
 
 	zvrf = zebra_vrf_get_evpn();
 	if (!zvrf)
@@ -1309,19 +1309,17 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE)) {
 			vty_out(vty, " Duplicate, detected at %s",
-				time_to_string(mac->dad_dup_detect_time));
+				time_to_string(mac->dad_dup_detect_time,
+					       timebuf));
 		} else if (mac->dad_count) {
 			monotime_since(&mac->detect_start_time,
 			       &detect_start_time);
 			if (detect_start_time.tv_sec <= zvrf->dad_time) {
-				char *buf = time_to_string(
-						mac->detect_start_time.tv_sec);
-				char tmp_buf[30];
-
-				strlcpy(tmp_buf, buf, sizeof(tmp_buf));
+				time_to_string(mac->detect_start_time.tv_sec,
+					       timebuf);
 				vty_out(vty,
 					" Duplicate detection started at %s, detection count %u\n",
-					tmp_buf, mac->dad_count);
+					timebuf, mac->dad_count);
 			}
 		}
 
