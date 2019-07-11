@@ -84,7 +84,10 @@ static inline int64_t monotime_until(const struct timeval *ref,
 	return (int64_t)tv.tv_sec * 1000000LL + tv.tv_usec;
 }
 
-static inline char *time_to_string(time_t ts)
+/* Char buffer size for time-to-string api */
+#define MONOTIME_STRLEN 32
+
+static inline char *time_to_string(time_t ts, char *buf)
 {
 	struct timeval tv;
 	time_t tbuf;
@@ -92,7 +95,7 @@ static inline char *time_to_string(time_t ts)
 	monotime(&tv);
 	tbuf = time(NULL) - (tv.tv_sec - ts);
 
-	return ctime(&tbuf);
+	return ctime_r(&tbuf, buf);
 }
 
 #ifdef __cplusplus
