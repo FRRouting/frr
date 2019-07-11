@@ -1157,7 +1157,7 @@ def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
                 else:
                     command = "show ipv6 route json"
 
-            sleep(2)
+            sleep(10)
             logger.info("Checking router %s RIB:", router)
             rib_routes_json = rnode.vtysh_cmd(command, isjson=True)
 
