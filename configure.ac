@@ -572,6 +572,20 @@ AC_ARG_ENABLE([thread-sanitizer],
   AS_HELP_STRING([--enable-thread-sanitizer], [enable ThreadSanitizer support for detecting data races]))
 AC_ARG_ENABLE([memory-sanitizer],
   AS_HELP_STRING([--enable-memory-sanitizer], [enable MemorySanitizer support for detecting uninitialized memory reads]))
+AC_ARG_WITH([crypto],
+  AS_HELP_STRING([--with-crypto=<internal|openssl>], [choose between different implementations of cryptographic functions(default value is --with-crypto=internal)]))
+
+#if openssl, else use the internal
+AS_IF([test x"${with_crypto}" = x"openssl"], [
+AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
+if test $ac_cv_lib_crypto_EVP_DigestInit = no; then
+  AC_MSG_ERROR([build with openssl has been specified but openssl library was not found on your system])
+else
+  AC_DEFINE([CRYPTO_OPENSSL], [1], [Compile with openssl support])
+fi
+], [test x"${with_crypto}" = x"internal" || test x"${with_crypto}" = x"" ], [AC_DEFINE([CRYPTO_INTERNAL], [1], [Compile with internal cryptographic implementation])
+], [AC_MSG_ERROR([Unknown value for --with-crypto])]
+)
 
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS([json-c/json.h])
