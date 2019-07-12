@@ -1721,18 +1721,10 @@ static int lib_interface_isis_bfd_monitoring_modify(enum nb_event event,
 	bfd_monitoring = yang_dnode_get_bool(dnode, NULL);
 
 	if (bfd_monitoring) {
-		/* Sanity check: BFD session is already registered. */
-		if (circuit->bfd_info != NULL)
-			return NB_OK;
-
 		isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX,
 					   BFD_DEF_MIN_TX, BFD_DEF_DETECT_MULT,
 					   true);
 	} else {
-		/* Sanity check: no BFD session was registered. */
-		if (circuit->bfd_info == NULL)
-			return NB_OK;
-
 		isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_DEREGISTER);
 		bfd_info_free(&circuit->bfd_info);
 	}
