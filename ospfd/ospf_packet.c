@@ -660,6 +660,14 @@ static int ospf_write(struct thread *thread)
 	struct in_pktinfo *pi;
 #endif
 
+	if (ospf->fd < 0 || ospf->oi_running == 0) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug(
+				"ospf_write failed to send, fd %d, instance %u"
+				,ospf->fd, ospf->oi_running);
+		return -1;
+	}
+
 	ospf->t_write = NULL;
 
 	node = listhead(ospf->oi_write_q);
