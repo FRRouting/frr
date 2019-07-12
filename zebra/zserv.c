@@ -535,28 +535,6 @@ static int zserv_process_messages(struct thread *thread)
 
 int zserv_send_message(struct zserv *client, struct stream *msg)
 {
-	/*
-	 * This is a somewhat poorly named variable added with Zebra's portion
-	 * of the label manager. That component does not use the regular
-	 * zserv/zapi_msg interface for handling its messages, as the client
-	 * itself runs in-process. Instead it uses synchronous writes on the
-	 * zserv client's socket directly in the zread* handlers for its
-	 * message types. Furthermore, it cannot handle the usual messages
-	 * Zebra sends (such as those for interface changes) and so has added
-	 * this flag and check here as a hack to suppress all messages that it
-	 * does not explicitly know about.
-	 *
-	 * In any case this needs to be cleaned up at some point.
-	 *
-	 * See also:
-	 *    zread_label_manager_request
-	 *    zsend_label_manager_connect_response
-	 *    zsend_assign_label_chunk_response
-	 *    ...
-	 */
-	if (client->is_synchronous)
-		return 0;
-
 	pthread_mutex_lock(&client->obuf_mtx);
 	{
 		stream_fifo_push(client->obuf_fifo, msg);
@@ -709,9 +687,6 @@ static struct zserv *zserv_client_create(int sock)
 		client->redist_default[afi] = vrf_bitmap_init();
 	}
 	client->ridinfo = vrf_bitmap_init();
-
-	/* by default, it's not a synchronous client */
-	client->is_synchronous = 0;
 
 	/* Add this client to linked list. */
 	listnode_add(zrouter.client_list, client);

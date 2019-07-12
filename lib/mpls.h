@@ -54,6 +54,7 @@ extern "C" {
 #define MPLS_LABEL_RESERVED_MAX            15
 #define MPLS_LABEL_UNRESERVED_MIN          16
 #define MPLS_LABEL_UNRESERVED_MAX          1048575
+#define MPLS_LABEL_BASE_ANY                0
 
 /* Default min and max SRGB label range */
 /* Even if the SRGB allows to manage different Label space between routers,

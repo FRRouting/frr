@@ -92,7 +92,6 @@ struct option longopts[] = {
 	{"keep_kernel", no_argument, NULL, 'k'},
 	{"socket", required_argument, NULL, 'z'},
 	{"ecmp", required_argument, NULL, 'e'},
-	{"label_socket", no_argument, NULL, 'l'},
 	{"retain", no_argument, NULL, 'r'},
 	{"vrfdefaultname", required_argument, NULL, 'o'},
 	{"graceful_restart", required_argument, NULL, 'K'},
@@ -252,8 +251,6 @@ int main(int argc, char **argv)
 	// int batch_mode = 0;
 	char *zserv_path = NULL;
 	char *vrf_default_name_configured = NULL;
-	/* Socket to external label manager */
-	char *lblmgr_path = NULL;
 	struct sockaddr_storage dummy;
 	socklen_t dummylen;
 #if defined(HANDLE_ZAPI_FUZZING)
@@ -270,7 +267,7 @@ int main(int argc, char **argv)
 	frr_preinit(&zebra_di, argc, argv);
 
 	frr_opt_add(
-		"baz:e:l:o:rK:"
+		"baz:e:o:rK:"
 #ifdef HAVE_NETLINK
 		"s:n"
 #endif
@@ -286,7 +283,6 @@ int main(int argc, char **argv)
 		"  -a, --allow_delete       Allow other processes to delete zebra routes\n"
 		"  -z, --socket             Set path of zebra socket\n"
 		"  -e, --ecmp               Specify ECMP to use.\n"
-		"  -l, --label_socket       Socket to external label manager\n"
 		"  -r, --retain             When program terminates, retain added route by zebra.\n"
 		"  -o, --vrfdefaultname     Set default VRF name.\n"
 		"  -K, --graceful_restart   Graceful restart at the kernel level, timer in seconds for expiration\n"
@@ -340,9 +336,6 @@ int main(int argc, char **argv)
 					optarg);
 				exit(1);
 			}
-			break;
-		case 'l':
-			lblmgr_path = optarg;
 			break;
 		case 'r':
 			retain_mode = 1;
@@ -451,7 +444,7 @@ int main(int argc, char **argv)
 	zserv_start(zserv_path);
 
 	/* Init label manager */
-	label_manager_init(lblmgr_path);
+	label_manager_init();
 
 	/* RNH init */
 	zebra_rnh_init();

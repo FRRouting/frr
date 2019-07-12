@@ -57,7 +57,6 @@
 #include "zebra/rtadv.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_mroute.h"
-#include "zebra/label_manager.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/rt.h"
 #include "zebra/zebra_pbr.h"
@@ -928,20 +927,20 @@ int zsend_pw_update(struct zserv *client, struct zebra_pw *pw)
 }
 
 /* Send response to a get label chunk request to client */
-static int zsend_assign_label_chunk_response(struct zserv *client,
-					     vrf_id_t vrf_id,
-					     struct label_manager_chunk *lmc)
+int zsend_assign_label_chunk_response(struct zserv *client, vrf_id_t vrf_id,
+				      uint8_t proto, uint16_t instance,
+				      struct label_manager_chunk *lmc)
 {
 	int ret;
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_GET_LABEL_CHUNK, vrf_id);
+	/* proto */
+	stream_putc(s, proto);
+	/* instance */
+	stream_putw(s, instance);
 
 	if (lmc) {
-		/* proto */
-		stream_putc(s, lmc->proto);
-		/* instance */
-		stream_putw(s, lmc->instance);
 		/* keep */
 		stream_putc(s, lmc->keep);
 		/* start and end labels */
@@ -958,9 +957,8 @@ static int zsend_assign_label_chunk_response(struct zserv *client,
 }
 
 /* Send response to a label manager connect request to client */
-static int zsend_label_manager_connect_response(struct zserv *client,
-						vrf_id_t vrf_id,
-						unsigned short result)
+int zsend_label_manager_connect_response(struct zserv *client, vrf_id_t vrf_id,
+					 unsigned short result)
 {
 	int ret;
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
@@ -1896,27 +1894,16 @@ static void zread_label_manager_connect(struct zserv *client,
 		flog_err(EC_ZEBRA_TM_WRONG_PROTO,
 			 "client %d has wrong protocol %s", client->sock,
 			 zebra_route_string(proto));
-		if (client->is_synchronous)
-			zsend_label_manager_connect_response(client, vrf_id, 1);
+		zsend_label_manager_connect_response(client, vrf_id, 1);
 		return;
 	}
-	zlog_notice("client %d with vrf %u instance %u connected as %s",
-		    client->sock, vrf_id, instance, zebra_route_string(proto));
+
+	/* recall proto and instance in this socket */
 	client->proto = proto;
 	client->instance = instance;
 
-	/*
-	 * Release previous labels of same protocol and instance.
-	 * This is done in case it restarted from an unexpected shutdown.
-	 */
-	release_daemon_label_chunks(client);
-
-	zlog_debug(
-		" Label Manager client connected: sock %d, proto %s, vrf %u instance %u",
-		client->sock, zebra_route_string(proto), vrf_id, instance);
-	/* send response back */
-	if (client->is_synchronous)
-		zsend_label_manager_connect_response(client, vrf_id, 0);
+	/* call hook for connection using wrapper */
+	lm_client_connect_call(proto, instance, vrf_id);
 
 stream_failure:
 	return;
@@ -1927,8 +1914,8 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 {
 	struct stream *s;
 	uint8_t keep;
-	uint32_t size;
-	struct label_manager_chunk *lmc;
+	uint32_t size, base;
+	struct label_manager_chunk *lmc = NULL;
 	uint8_t proto;
 	unsigned short instance;
 
@@ -1940,8 +1927,11 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 	STREAM_GETW(s, instance);
 	STREAM_GETC(s, keep);
 	STREAM_GETL(s, size);
+	STREAM_GETL(s, base);
 
-	lmc = assign_label_chunk(proto, instance, keep, size);
+	/* call hook to get a chunk using wrapper */
+	lm_get_chunk_call(&lmc, proto, instance, keep, size, base, vrf_id);
+
 	if (!lmc)
 		flog_err(
 			EC_ZEBRA_LM_CANNOT_ASSIGN_CHUNK,
@@ -1951,8 +1941,6 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 		zlog_debug("Assigned Label Chunk %u - %u to %s instance %u",
 			   lmc->start, lmc->end,
 			   zebra_route_string(proto), instance);
-	/* send response back */
-	zsend_assign_label_chunk_response(client, vrf_id, lmc);
 
 stream_failure:
 	return;
@@ -1974,33 +1962,23 @@ static void zread_release_label_chunk(struct zserv *client, struct stream *msg)
 	STREAM_GETL(s, start);
 	STREAM_GETL(s, end);
 
-	release_label_chunk(proto, instance, start, end);
+	/* call hook to release a chunk using wrapper */
+	lm_release_chunk_call(proto, instance, start, end);
 
 stream_failure:
 	return;
 }
+
 static void zread_label_manager_request(ZAPI_HANDLER_ARGS)
 {
-	/* to avoid sending other messages like ZERBA_INTERFACE_UP */
-	client->is_synchronous = hdr->command ==
-				 ZEBRA_LABEL_MANAGER_CONNECT;
-
-	/* external label manager */
-	if (lm_is_external)
-		zread_relay_label_manager_request(hdr->command, client, msg,
-						  zvrf_id(zvrf));
-	/* this is a label manager */
+	if (hdr->command == ZEBRA_LABEL_MANAGER_CONNECT
+	    || hdr->command == ZEBRA_LABEL_MANAGER_CONNECT_ASYNC)
+		zread_label_manager_connect(client, msg, zvrf_id(zvrf));
 	else {
-		if (hdr->command == ZEBRA_LABEL_MANAGER_CONNECT ||
-		    hdr->command == ZEBRA_LABEL_MANAGER_CONNECT_ASYNC)
-			zread_label_manager_connect(client, msg, zvrf_id(zvrf));
-		else {
-			if (hdr->command == ZEBRA_GET_LABEL_CHUNK)
-				zread_get_label_chunk(client, msg,
-						      zvrf_id(zvrf));
-			else if (hdr->command == ZEBRA_RELEASE_LABEL_CHUNK)
-				zread_release_label_chunk(client, msg);
-		}
+		if (hdr->command == ZEBRA_GET_LABEL_CHUNK)
+			zread_get_label_chunk(client, msg, zvrf_id(zvrf));
+		else if (hdr->command == ZEBRA_RELEASE_LABEL_CHUNK)
+			zread_release_label_chunk(client, msg);
 	}
 }
 
