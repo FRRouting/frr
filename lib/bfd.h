@@ -31,13 +31,13 @@ extern "C" {
 #endif
 
 #define BFD_DEF_MIN_RX 300
-#define BFD_MIN_MIN_RX 50
-#define BFD_MAX_MIN_RX 60000
+#define BFD_MIN_MIN_RX 0
+#define BFD_MAX_MIN_RX 4294967
 #define BFD_DEF_MIN_TX 300
-#define BFD_MIN_MIN_TX 50
-#define BFD_MAX_MIN_TX 60000
+#define BFD_MIN_MIN_TX 10
+#define BFD_MAX_MIN_TX 4294967
 #define BFD_DEF_DETECT_MULT 3
-#define BFD_MIN_DETECT_MULT 2
+#define BFD_MIN_DETECT_MULT 1
 #define BFD_MAX_DETECT_MULT 255
 
 #define BFD_STATUS_UNKNOWN    (1 << 0) /* BFD session status never received */

@@ -765,6 +765,8 @@ int bfdd_bfd_sessions_single_hop_detection_multiplier_modify(
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if (detection_multiplier == 0)
+			return NB_ERR_VALIDATION;
 		break;
 
 	case NB_EV_PREPARE:
@@ -796,7 +798,7 @@ int bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify(
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (tx_interval < 10000 || tx_interval > 60000000)
+		if (tx_interval < 10000)
 			return NB_ERR_VALIDATION;
 		break;
 
@@ -832,8 +834,6 @@ int bfdd_bfd_sessions_single_hop_required_receive_interval_modify(
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (rx_interval < 10000 || rx_interval > 60000000)
-			return NB_ERR_VALIDATION;
 		break;
 
 	case NB_EV_PREPARE:
@@ -993,8 +993,6 @@ int bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify(
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (echo_interval < 10000 || echo_interval > 60000000)
-			return NB_ERR_VALIDATION;
 		break;
 
 	case NB_EV_PREPARE:
