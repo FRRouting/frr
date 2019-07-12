@@ -139,7 +139,7 @@ Peer / Profile Configuration
 
 BFD peers and profiles share the same BFD session configuration commands.
 
-.. clicmd:: detect-multiplier (2-255)
+.. clicmd:: detect-multiplier (1-255)
 
    Configures the detection multiplier to determine packet loss. The
    remote transmission interval will be multiplied by this value to
@@ -151,23 +151,23 @@ BFD peers and profiles share the same BFD session configuration commands.
    detect failures only after 900 milliseconds without receiving
    packets.
 
-.. clicmd:: receive-interval (10-60000)
+.. clicmd:: receive-interval (10-4294967)
 
    Configures the minimum interval that this system is capable of
    receiving control packets. The default value is 300 milliseconds.
 
-.. clicmd:: transmit-interval (10-60000)
+.. clicmd:: transmit-interval (10-4294967)
 
    The minimum transmission interval (less jitter) that this system
    wants to use to send BFD control packets. Defaults to 300ms.
 
-.. clicmd:: echo receive-interval <disabled|(10-60000)>
+.. clicmd:: echo receive-interval <disabled|(10-4294967)>
 
    Configures the minimum interval that this system is capable of
    receiving echo packets. Disabled means that this system doesn't want
    to receive echo packets. The default value is 50 milliseconds.
 
-.. clicmd:: echo transmit-interval (10-60000)
+.. clicmd:: echo transmit-interval (10-4294967)
 
    The minimum transmission interval (less jitter) that this system
    wants to use to send BFD echo packets. Defaults to 50ms.
