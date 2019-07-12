@@ -346,8 +346,10 @@ DEFPY(isis_bfd,
 
 	dnode = yang_dnode_get(vty->candidate_config->dnode,
 			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
-	if (dnode == NULL)
+	if (dnode == NULL) {
+		vty_out(vty, "ISIS is not enabled on this circuit\n");
 		return CMD_SUCCESS;
+	}
 
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/bfd-monitoring",
 			      NB_OP_MODIFY, no ? "false" : "true");
@@ -358,11 +360,10 @@ DEFPY(isis_bfd,
 void cli_show_ip_isis_bfd_monitoring(struct vty *vty, struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	if (show_defaults == false)
-		vty_out(vty, " %s" PROTO_NAME " bfd\n",
-			yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
-	else
-		vty_out(vty, " no " PROTO_NAME " bfd\n");
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, "isis bfd\n");
 }
 
 /*
