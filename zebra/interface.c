@@ -69,6 +69,7 @@ static int if_zebra_speed_update(struct thread *thread)
 	struct interface *ifp = THREAD_ARG(thread);
 	struct zebra_if *zif = ifp->info;
 	uint32_t new_speed;
+	bool changed = false;
 
 	zif->speed_update = NULL;
 
@@ -79,8 +80,12 @@ static int if_zebra_speed_update(struct thread *thread)
 			  new_speed);
 		ifp->speed = new_speed;
 		if_add_update(ifp);
+		changed = true;
 	}
 
+	if (changed || new_speed == UINT32_MAX)
+		thread_add_timer(zrouter.master, if_zebra_speed_update, ifp, 5,
+				 &zif->speed_update);
 	return 1;
 }
 
