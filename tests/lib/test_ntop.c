@@ -81,7 +81,6 @@ int main(int argc, char **argv)
 
 		assert(inet_pton(AF_INET6, buf1, &i6check));
 		assert(!memcmp(&i6, &i6check, sizeof(i6)));
-		assert(strlen(buf1) <= strlen(buf2));
 	}
 	return 0;
 }
