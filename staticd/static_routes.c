@@ -39,7 +39,7 @@ static void static_install_route(struct route_node *rn,
 	struct static_route *si;
 
 	for (si = rn->info; si; si = si->next)
-		static_zebra_nht_register(si, true);
+		static_zebra_nht_register(rn, si, true);
 
 	si = rn->info;
 	if (si)
@@ -242,7 +242,7 @@ int static_delete_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 		return 0;
 	}
 
-	static_zebra_nht_register(si, false);
+	static_zebra_nht_register(rn, si, false);
 
 	/* Unlink static route from linked list. */
 	if (si->prev)

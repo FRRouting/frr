@@ -210,7 +210,7 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 	if (nhtd) {
 		nhtd->nh_num = nhr.nexthop_num;
 
-		static_nht_update(&nhr.prefix, nhr.nexthop_num, afi,
+		static_nht_update(NULL, &nhr.prefix, nhr.nexthop_num, afi,
 				  nhtd->nh_vrf_id);
 	} else
 		zlog_err("No nhtd?");
@@ -267,7 +267,8 @@ static void static_nht_hash_free(void *data)
 	XFREE(MTYPE_TMP, nhtd);
 }
 
-void static_zebra_nht_register(struct static_route *si, bool reg)
+void static_zebra_nht_register(struct route_node *rn,
+			       struct static_route *si, bool reg)
 {
 	struct static_nht_data *nhtd, lookup;
 	uint32_t cmd;
@@ -316,7 +317,7 @@ void static_zebra_nht_register(struct static_route *si, bool reg)
 		nhtd->refcount++;
 
 		if (nhtd->refcount > 1) {
-			static_nht_update(nhtd->nh, nhtd->nh_num,
+			static_nht_update(&rn->p, nhtd->nh, nhtd->nh_num,
 					  afi, si->nh_vrf_id);
 			return;
 		}
