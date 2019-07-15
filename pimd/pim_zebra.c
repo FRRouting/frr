@@ -580,6 +580,23 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static void pim_zebra_vxlan_replay(void)
+{
+	struct stream *s = NULL;
+
+	/* Check socket. */
+	if (!zclient || zclient->sock < 0)
+		return;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_VXLAN_SG_REPLAY, VRF_DEFAULT);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zclient_send_message(zclient);
+}
+
 void pim_scan_individual_oil(struct channel_oil *c_oil, int in_vif_index)
 {
 	struct in_addr vif_source;
@@ -783,6 +800,9 @@ static void pim_zebra_connected(struct zclient *zclient)
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, router->vrf_id);
 
 	zclient_send_reg_requests(zclient, router->vrf_id);
+
+	/* request for VxLAN BUM group addresses */
+	pim_zebra_vxlan_replay();
 }
 
 static void pim_zebra_capabilities(struct zclient_capabilities *cap)

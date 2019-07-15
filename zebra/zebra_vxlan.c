@@ -9481,14 +9481,18 @@ static int zebra_vxlan_dad_mac_auto_recovery_exp(struct thread *t)
 
 /************************** vxlan SG cache management ************************/
 /* Inform PIM about the mcast group */
-static int zebra_vxlan_sg_send(struct prefix_sg *sg,
-			char *sg_str, uint16_t cmd)
+static int zebra_vxlan_sg_send(struct zebra_vrf *zvrf,
+		struct prefix_sg *sg,
+		char *sg_str, uint16_t cmd)
 {
 	struct zserv *client = NULL;
 	struct stream *s = NULL;
 
 	client = zserv_find_client(ZEBRA_ROUTE_PIM, 0);
 	if (!client)
+		return 0;
+
+	if (!CHECK_FLAG(zvrf->flags, ZEBRA_PIM_SEND_VXLAN_SG))
 		return 0;
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
@@ -9590,7 +9594,8 @@ static zebra_vxlan_sg_t *zebra_vxlan_sg_add(struct zebra_vrf *zvrf,
 		return vxlan_sg;
 	}
 
-	zebra_vxlan_sg_send(sg, vxlan_sg->sg_str, ZEBRA_VXLAN_SG_ADD);
+	zebra_vxlan_sg_send(zvrf, sg, vxlan_sg->sg_str,
+			ZEBRA_VXLAN_SG_ADD);
 
 	return vxlan_sg;
 }
@@ -9612,8 +9617,8 @@ static void zebra_vxlan_sg_del(zebra_vxlan_sg_t *vxlan_sg)
 		zebra_vxlan_sg_do_deref(zvrf, sip, vxlan_sg->sg.grp);
 	}
 
-	zebra_vxlan_sg_send(&vxlan_sg->sg, vxlan_sg->sg_str,
-		ZEBRA_VXLAN_SG_DEL);
+	zebra_vxlan_sg_send(zvrf, &vxlan_sg->sg,
+			vxlan_sg->sg_str, ZEBRA_VXLAN_SG_DEL);
 
 	hash_release(vxlan_sg->zvrf->vxlan_sg_table, vxlan_sg);
 
@@ -9695,6 +9700,31 @@ static void zebra_vxlan_sg_cleanup(struct hash_backet *backet, void *arg)
 	zebra_vxlan_sg_t *vxlan_sg = (zebra_vxlan_sg_t *)backet->data;
 
 	zebra_vxlan_sg_del(vxlan_sg);
+}
+
+static void zebra_vxlan_sg_replay_send(struct hash_backet *backet, void *arg)
+{
+	zebra_vxlan_sg_t *vxlan_sg = (zebra_vxlan_sg_t *)backet->data;
+
+	zebra_vxlan_sg_send(vxlan_sg->zvrf, &vxlan_sg->sg,
+			vxlan_sg->sg_str, ZEBRA_VXLAN_SG_ADD);
+}
+
+/* Handle message from client to replay vxlan SG entries */
+void zebra_vxlan_sg_replay(ZAPI_HANDLER_ARGS)
+{
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("VxLAN SG updates to PIM, start");
+
+	SET_FLAG(zvrf->flags, ZEBRA_PIM_SEND_VXLAN_SG);
+
+	if (!EVPN_ENABLED(zvrf)) {
+		zlog_debug("VxLAN SG replay request on unexpected vrf %d",
+			zvrf->vrf->vrf_id);
+		return;
+	}
+
+	hash_iterate(zvrf->vxlan_sg_table, zebra_vxlan_sg_replay_send, NULL);
 }
 
 /************************** EVPN BGP config management ************************/
@@ -9804,19 +9834,40 @@ static void zebra_evpn_vrf_cfg_cleanup(struct zebra_vrf *zvrf)
 }
 
 /* Cleanup BGP EVPN configuration upon client disconnect */
-static int zebra_evpn_cfg_clean_up(struct zserv *client)
+static int zebra_evpn_bgp_cfg_clean_up(struct zserv *client)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
-
-	if (client->proto != ZEBRA_ROUTE_BGP)
-		return 0;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		zvrf = vrf->info;
 		if (zvrf)
 			zebra_evpn_vrf_cfg_cleanup(zvrf);
 	}
+
+	return 0;
+}
+
+static int zebra_evpn_pim_cfg_clean_up(struct zserv *client)
+{
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+
+	if (CHECK_FLAG(zvrf->flags, ZEBRA_PIM_SEND_VXLAN_SG)) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VxLAN SG updates to PIM, stop");
+		UNSET_FLAG(zvrf->flags, ZEBRA_PIM_SEND_VXLAN_SG);
+	}
+
+	return 0;
+}
+
+static int zebra_evpn_cfg_clean_up(struct zserv *client)
+{
+	if (client->proto == ZEBRA_ROUTE_BGP)
+		return zebra_evpn_bgp_cfg_clean_up(client);
+
+	if (client->proto == ZEBRA_ROUTE_PIM)
+		return zebra_evpn_pim_cfg_clean_up(client);
 
 	return 0;
 }
