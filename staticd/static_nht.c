@@ -23,18 +23,47 @@
 #include "table.h"
 #include "vrf.h"
 #include "nexthop.h"
+#include "srcdest_table.h"
 
 #include "static_vrf.h"
 #include "static_routes.h"
 #include "static_zebra.h"
 #include "static_nht.h"
 
-static void static_nht_update_safi(struct prefix *p, uint32_t nh_num,
-				   afi_t afi, safi_t safi, struct vrf *vrf,
-				   vrf_id_t nh_vrf_id)
+static void static_nht_update_rn(struct route_node *rn,
+				 struct prefix *nhp, uint32_t nh_num,
+				 vrf_id_t nh_vrf_id, struct vrf *vrf,
+				 safi_t safi)
+{
+	struct static_route *si;
+
+	for (si = rn->info; si; si = si->next) {
+		if (si->nh_vrf_id != nh_vrf_id)
+			continue;
+
+		if (si->type != STATIC_IPV4_GATEWAY
+		    && si->type != STATIC_IPV4_GATEWAY_IFNAME
+		    && si->type != STATIC_IPV6_GATEWAY
+		    && si->type != STATIC_IPV6_GATEWAY_IFNAME)
+			continue;
+
+		if (nhp->family == AF_INET
+		    && nhp->u.prefix4.s_addr == si->addr.ipv4.s_addr)
+			si->nh_valid = !!nh_num;
+
+		if (nhp->family == AF_INET6
+		    && memcmp(&nhp->u.prefix6, &si->addr.ipv6, 16) == 0)
+			si->nh_valid = !!nh_num;
+
+		static_zebra_route_add(rn, si, vrf->vrf_id, safi, true);
+	}
+}
+
+static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
+				   uint32_t nh_num, afi_t afi, safi_t safi,
+				   struct vrf *vrf, vrf_id_t nh_vrf_id)
 {
 	struct route_table *stable;
-	struct static_route *si;
 	struct static_vrf *svrf;
 	struct route_node *rn;
 
@@ -46,40 +75,31 @@ static void static_nht_update_safi(struct prefix *p, uint32_t nh_num,
 	if (!stable)
 		return;
 
-	for (rn = route_top(stable); rn; rn = route_next(rn)) {
-		for (si = rn->info; si; si = si->next) {
-			if (si->nh_vrf_id != nh_vrf_id)
-				continue;
-
-			if (si->type != STATIC_IPV4_GATEWAY
-			    && si->type != STATIC_IPV4_GATEWAY_IFNAME
-			    && si->type != STATIC_IPV6_GATEWAY
-			    && si->type != STATIC_IPV6_GATEWAY_IFNAME)
-				continue;
-
-			if (p->family == AF_INET
-			    && p->u.prefix4.s_addr == si->addr.ipv4.s_addr)
-				si->nh_valid = !!nh_num;
-
-			if (p->family == AF_INET6
-			    && memcmp(&p->u.prefix6, &si->addr.ipv6, 16) == 0)
-				si->nh_valid = !!nh_num;
-
-			static_zebra_route_add(rn, si, vrf->vrf_id, safi, true);
+	if (sp) {
+		rn = srcdest_rnode_lookup(stable, sp, NULL);
+		if (rn) {
+			static_nht_update_rn(rn, nhp, nh_num, nh_vrf_id,
+					     vrf, safi);
+			route_unlock_node(rn);
 		}
+		return;
 	}
+
+	for (rn = route_top(stable); rn; rn = route_next(rn))
+		static_nht_update_rn(rn, nhp, nh_num, nh_vrf_id, vrf, safi);
+
 }
 
-void static_nht_update(struct prefix *p, uint32_t nh_num, afi_t afi,
-		       vrf_id_t nh_vrf_id)
+void static_nht_update(struct prefix *sp, struct prefix *nhp,
+		       uint32_t nh_num, afi_t afi, vrf_id_t nh_vrf_id)
 {
 
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		static_nht_update_safi(p, nh_num, afi, SAFI_UNICAST,
+		static_nht_update_safi(sp, nhp, nh_num, afi, SAFI_UNICAST,
 				       vrf, nh_vrf_id);
-		static_nht_update_safi(p, nh_num, afi, SAFI_MULTICAST,
+		static_nht_update_safi(sp, nhp, nh_num, afi, SAFI_MULTICAST,
 				       vrf, nh_vrf_id);
 	}
 }
