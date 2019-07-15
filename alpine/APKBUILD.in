@@ -19,7 +19,7 @@ makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
     mpfr3 mtools musl-dev ncurses-libs ncurses-terminfo ncurses-terminfo-base
     patch pax-utils pcre perl pkgconf python2 python2-dev readline
     readline-dev sqlite-libs squashfs-tools sudo tar texinfo xorriso xz-libs
-    py-sphinx"
+    py-sphinx rtrlib rtrlib-dev"
 checkdepends="pytest py-setuptools"
 install="$pkgname.pre-install $pkgname.pre-deinstall $pkgname.post-deinstall"
 subpackages="$pkgname-dev $pkgname-doc $pkgname-dbg"
@@ -42,6 +42,7 @@ build() {
 		--libdir=$_libdir \
 		--localstatedir=$_localstatedir \
 		--enable-systemd=no \
+		--enable-rpki \
 		--enable-vtysh \
 		--enable-multipath=64 \
 		--enable-vty-group=frrvty \
