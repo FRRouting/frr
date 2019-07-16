@@ -34,4 +34,17 @@
  */
 extern void static_nht_update(struct prefix *sp, struct prefix *nhp,
 			      uint32_t nh_num, afi_t afi, vrf_id_t vrf_id);
+
+/*
+ * For the given tracked nexthop, nhp, mark all routes that use
+ * this route as in starting state again.
+ */
+extern void static_nht_reset_start(struct prefix *nhp, afi_t afi,
+				   vrf_id_t nh_vrf_id);
+
+/*
+ * For the given prefix, sp, mark it as in a particular state
+ */
+extern void static_nht_mark_state(struct prefix *sp, vrf_id_t vrf_id,
+				  enum static_install_states state);
 #endif
