@@ -183,7 +183,7 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 
 	/* check whether interface exists in system & install if it does */
 	if (!ifname)
-		static_install_route(rn, si, safi);
+		static_zebra_nht_register(rn, si, true);
 	else {
 		struct interface *ifp;
 
