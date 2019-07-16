@@ -55,7 +55,8 @@ static void static_nht_update_rn(struct route_node *rn,
 		    && memcmp(&nhp->u.prefix6, &si->addr.ipv6, 16) == 0)
 			si->nh_valid = !!nh_num;
 
-		static_zebra_route_add(rn, si, vrf->vrf_id, safi, true);
+		if (si->state == STATIC_START)
+			static_zebra_route_add(rn, si, vrf->vrf_id, safi, true);
 	}
 }
 
@@ -102,4 +103,102 @@ void static_nht_update(struct prefix *sp, struct prefix *nhp,
 		static_nht_update_safi(sp, nhp, nh_num, afi, SAFI_MULTICAST,
 				       vrf, nh_vrf_id);
 	}
+}
+
+static void static_nht_reset_start_safi(struct prefix *nhp, afi_t afi,
+					safi_t safi, struct vrf *vrf,
+					vrf_id_t nh_vrf_id)
+{
+	struct static_vrf *svrf;
+	struct route_table *stable;
+	struct static_route *si;
+	struct route_node *rn;
+
+	svrf = vrf->info;
+	if (!svrf)
+		return;
+
+	stable = static_vrf_static_table(afi, safi, svrf);
+	if (!stable)
+		return;
+
+	for (rn = route_top(stable); rn; rn = route_next(rn)) {
+		for (si = rn->info; si; si = si->next) {
+			if (si->nh_vrf_id != nh_vrf_id)
+				continue;
+
+			if (nhp->family == AF_INET
+			    && nhp->u.prefix4.s_addr != si->addr.ipv4.s_addr)
+				continue;
+
+			if (nhp->family == AF_INET6
+			    && memcmp(&nhp->u.prefix6, &si->addr.ipv6, 16) != 0)
+				continue;
+
+			/*
+			 * We've been told that a nexthop we depend
+			 * on has changed in some manner, so reset
+			 * the state machine to allow us to start
+			 * over.
+			 */
+			si->state = STATIC_START;
+		}
+	}
+}
+
+void static_nht_reset_start(struct prefix *nhp, afi_t afi, vrf_id_t nh_vrf_id)
+{
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		static_nht_reset_start_safi(nhp, afi, SAFI_UNICAST,
+					    vrf, nh_vrf_id);
+		static_nht_reset_start_safi(nhp, afi, SAFI_MULTICAST,
+					    vrf, nh_vrf_id);
+	}
+}
+
+static void static_nht_mark_state_safi(struct prefix *sp, afi_t afi,
+				       safi_t safi, struct vrf *vrf,
+				       enum static_install_states state)
+{
+	struct static_vrf *svrf;
+	struct route_table *stable;
+	struct static_route *si;
+	struct route_node *rn;
+
+	svrf = vrf->info;
+	if (!svrf)
+		return;
+
+	stable = static_vrf_static_table(afi, safi, svrf);
+	if (!stable)
+		return;
+
+	rn = srcdest_rnode_lookup(stable, sp, NULL);
+	if (!rn)
+		return;
+
+	for (si = rn->info; si; si = si->next)
+		si->state = state;
+
+	route_unlock_node(rn);
+}
+
+void static_nht_mark_state(struct prefix *sp, vrf_id_t vrf_id,
+			   enum static_install_states state)
+{
+	struct vrf *vrf;
+
+	afi_t afi = AFI_IP;
+
+	if (sp->family == AF_INET6)
+		afi = AFI_IP6;
+
+	vrf = vrf_lookup_by_id(vrf_id);
+	if (!vrf || !vrf->info)
+		return;
+
+	static_nht_mark_state_safi(sp, afi, SAFI_UNICAST, vrf, state);
+	static_nht_mark_state_safi(sp, afi, SAFI_MULTICAST, vrf, state);
 }
