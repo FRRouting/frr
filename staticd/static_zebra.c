@@ -156,18 +156,23 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 
 	switch (note) {
 	case ZAPI_ROUTE_FAIL_INSTALL:
+		static_nht_mark_state(&p, vrf_id, STATIC_NOT_INSTALLED);
 		zlog_warn("%s: Route %s failed to install for table: %u",
 			  __PRETTY_FUNCTION__, buf, table_id);
 		break;
 	case ZAPI_ROUTE_BETTER_ADMIN_WON:
+		static_nht_mark_state(&p, vrf_id, STATIC_NOT_INSTALLED);
 		zlog_warn("%s: Route %s over-ridden by better route for table: %u",
 			  __PRETTY_FUNCTION__, buf, table_id);
 		break;
 	case ZAPI_ROUTE_INSTALLED:
+		static_nht_mark_state(&p, vrf_id, STATIC_INSTALLED);
 		break;
 	case ZAPI_ROUTE_REMOVED:
+		static_nht_mark_state(&p, vrf_id, STATIC_NOT_INSTALLED);
 		break;
 	case ZAPI_ROUTE_REMOVE_FAIL:
+		static_nht_mark_state(&p, vrf_id, STATIC_INSTALLED);
 		zlog_warn("%s: Route %s failure to remove for table: %u",
 			  __PRETTY_FUNCTION__, buf, table_id);
 		break;
@@ -212,6 +217,7 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 	if (nhtd) {
 		nhtd->nh_num = nhr.nexthop_num;
 
+		static_nht_reset_start(&nhr.prefix, afi, nhtd->nh_vrf_id);
 		static_nht_update(NULL, &nhr.prefix, nhr.nexthop_num, afi,
 				  nhtd->nh_vrf_id);
 	} else
@@ -394,6 +400,8 @@ extern void static_zebra_route_add(struct route_node *rn,
 
 		api_nh->vrf_id = si->nh_vrf_id;
 		api_nh->onlink = si->onlink;
+
+		si->state = STATIC_SENT_TO_ZEBRA;
 
 		switch (si->type) {
 		case STATIC_IFNAME:
