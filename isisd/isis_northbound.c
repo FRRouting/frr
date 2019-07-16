@@ -25,6 +25,8 @@
 #include "libfrr.h"
 #include "linklist.h"
 #include "log.h"
+#include "lib/bfd.h"
+#include "isisd/isis_bfd.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
@@ -1703,6 +1705,34 @@ static int lib_interface_isis_ipv6_routing_modify(enum nb_event event,
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring
+ */
+static int lib_interface_isis_bfd_monitoring_modify(enum nb_event event,
+						    const struct lyd_node *dnode,
+						    union nb_resource *resource)
+{
+	struct isis_circuit *circuit;
+	bool bfd_monitoring;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(dnode, NULL, true);
+	bfd_monitoring = yang_dnode_get_bool(dnode, NULL);
+
+	if (bfd_monitoring) {
+		isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX,
+					   BFD_DEF_MIN_TX, BFD_DEF_DETECT_MULT,
+					   true);
+	} else {
+		isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_DEREGISTER);
+		bfd_info_free(&circuit->bfd_info);
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/csnp-interval/level-1
  */
 static int
@@ -3210,6 +3240,13 @@ const struct frr_yang_module_info frr_isisd_info = {
 				.cli_show = cli_show_ip_isis_ipv6,
 				.modify = lib_interface_isis_ipv6_routing_modify,
 			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring",
+			.cbs = {
+				.modify = lib_interface_isis_bfd_monitoring_modify,
+				.cli_show = cli_show_ip_isis_bfd_monitoring,
+			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/csnp-interval",
