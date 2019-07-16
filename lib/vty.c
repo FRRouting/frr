@@ -2308,6 +2308,7 @@ static void vty_read_file(struct nb_config *config, FILE *confp)
 	vty->wfd = STDERR_FILENO;
 	vty->type = VTY_FILE;
 	vty->node = CONFIG_NODE;
+	vty->config = true;
 	if (config)
 		vty->candidate_config = config;
 	else {
