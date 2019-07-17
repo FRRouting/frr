@@ -1431,12 +1431,10 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 
 	if (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)
 	    || api.nexthop_num == 0) {
-		char buf_prefix[PREFIX_STRLEN];
-
-		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
 		flog_warn(EC_ZEBRA_RX_ROUTE_NO_NEXTHOPS,
-			  "%s: received a route without nexthops for prefix %s",
-			  __func__, buf_prefix);
+			  "%s: received a route without nexthops for prefix %pFX from client %s",
+			  __func__, &api.prefix,
+			  zebra_route_string(client->proto));
 		XFREE(MTYPE_RE, re);
 		return;
 	}
