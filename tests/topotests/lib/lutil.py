@@ -37,7 +37,7 @@ class lUtil:
     base_log_dir = '.'
     fout_name = 'output.log'
     fsum_name = 'summary.txt'
-    l_level = 6
+    l_level = 666
     CallOnFail = False
 
     l_total = 0
