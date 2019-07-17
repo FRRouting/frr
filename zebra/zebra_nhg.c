@@ -135,6 +135,25 @@ void nhg_connected_head_add(struct nhg_connected_head *head,
 		RB_INSERT(nhg_connected_head, head, new);
 }
 
+static void nhg_connected_head_decrement_ref(struct nhg_connected_head *head)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+	struct nhg_connected *tmp = NULL;
+
+	RB_FOREACH_SAFE (rb_node_dep, nhg_connected_head, head, tmp) {
+		zebra_nhg_decrement_ref(rb_node_dep->nhe);
+	}
+}
+
+static void nhg_connected_head_increment_ref(struct nhg_connected_head *head)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+
+	RB_FOREACH (rb_node_dep, nhg_connected_head, head) {
+		zebra_nhg_increment_ref(rb_node_dep->nhe);
+	}
+}
+
 struct nhg_hash_entry *zebra_nhg_resolve(struct nhg_hash_entry *nhe)
 {
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE)
@@ -768,15 +787,8 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 {
 	nhe->refcnt--;
 
-	if (!zebra_nhg_depends_is_empty(nhe)) {
-		struct nhg_connected *rb_node_dep = NULL;
-		struct nhg_connected *tmp = NULL;
-
-		RB_FOREACH_SAFE (rb_node_dep, nhg_connected_head,
-				 &nhe->nhg_depends, tmp) {
-			zebra_nhg_decrement_ref(rb_node_dep->nhe);
-		}
-	}
+	if (!zebra_nhg_depends_is_empty(nhe))
+		nhg_connected_head_decrement_ref(&nhe->nhg_depends);
 
 	if (!nhe->is_kernel_nh && nhe->refcnt <= 0)
 		zebra_nhg_uninstall_kernel(nhe);
@@ -786,14 +798,8 @@ void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 {
 	nhe->refcnt++;
 
-	if (!zebra_nhg_depends_is_empty(nhe)) {
-		struct nhg_connected *rb_node_dep = NULL;
-
-		RB_FOREACH (rb_node_dep, nhg_connected_head,
-			    &nhe->nhg_depends) {
-			zebra_nhg_increment_ref(rb_node_dep->nhe);
-		}
-	}
+	if (!zebra_nhg_depends_is_empty(nhe))
+		nhg_connected_head_increment_ref(&nhe->nhg_depends);
 }
 
 void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe)
