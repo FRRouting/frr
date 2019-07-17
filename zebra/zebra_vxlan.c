@@ -9719,8 +9719,9 @@ void zebra_vxlan_sg_replay(ZAPI_HANDLER_ARGS)
 	SET_FLAG(zvrf->flags, ZEBRA_PIM_SEND_VXLAN_SG);
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("VxLAN SG replay request on unexpected vrf %d",
-			zvrf->vrf->vrf_id);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VxLAN SG replay request on unexpected vrf %d",
+				   zvrf->vrf->vrf_id);
 		return;
 	}
 
