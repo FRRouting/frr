@@ -3215,6 +3215,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	/* Nexthop attribute. */
 	if (afi == AFI_IP && safi == SAFI_UNICAST
 	    && !peer_cap_enhe(peer, afi, safi)) {
+		afi_t nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->mp_nexthop_len);
+
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
 			stream_putc(s, BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_NEXT_HOP);
@@ -3222,17 +3224,18 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 						     attr);
 			stream_putc(s, 4);
 			stream_put_ipv4(s, attr->nexthop.s_addr);
-		} else if (peer_cap_enhe(from, afi, safi)) {
+		} else if (peer_cap_enhe(from, afi, safi)
+			   || (nh_afi == AFI_IP6)) {
 			/*
 			 * Likely this is the case when an IPv4 prefix was
-			 * received with
-			 * Extended Next-hop capability and now being advertised
-			 * to
-			 * non-ENHE peers.
+			 * received with Extended Next-hop capability in this
+			 * or another vrf and is now being advertised to
+			 * non-ENHE peers. Since peer_cap_enhe only checks
+			 * peers in this vrf, also check the nh_afi to catch
+			 * the case where the originator was in another vrf.
 			 * Setting the mandatory (ipv4) next-hop attribute here
-			 * to enable
-			 * implicit next-hop self with correct (ipv4 address
-			 * family).
+			 * to enable implicit next-hop self with correct A-F
+			 * (ipv4 address family).
 			 */
 			stream_putc(s, BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_NEXT_HOP);
