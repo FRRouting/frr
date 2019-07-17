@@ -514,18 +514,14 @@ static bool zebra_nhg_find_nexthop(struct nhg_hash_entry **nhe, uint32_t id,
 	_nexthop_group_add_sorted(&nhg, nh);
 
 	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
-		struct nhg_hash_entry *depend = NULL;
-
 		nhg_connected_head_init(&nhg_depends);
-
-		depend = depends_find(nh->resolved, afi);
-		nhg_connected_head_add(&nhg_depends, depend);
+		handle_recursive_depend(&nhg_depends, nh->resolved, afi);
 	}
 
 	if (!zebra_nhg_find(nhe, id, &nhg, &nhg_depends, nh->vrf_id, afi,
 			      is_kernel_nh)) {
 		created = false;
-		nhg_connected_head_free(&nhg_depends);
+		depends_decrement_free(&nhg_depends);
 	} else {
 		if (zebra_nhg_depends_count(*nhe))
 			SET_FLAG((*nhe)->flags, NEXTHOP_GROUP_RECURSIVE);
@@ -752,7 +748,6 @@ struct nhg_hash_entry *
 zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 {
 	struct nhg_hash_entry *nhe = NULL;
-	struct nhg_hash_entry *depend = NULL;
 	struct nhg_connected_head nhg_depends = {};
 
 	/* Defualt the nhe to the afi and vrf of the route */
@@ -771,10 +766,8 @@ zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 		/* If its a group, create a dependency tree */
 		struct nexthop *nh = NULL;
 
-		for (nh = nhg->nexthop; nh; nh = nh->next) {
-			depend = depends_find(nh, rt_afi);
-			nhg_connected_head_add(&nhg_depends, depend);
-		}
+		for (nh = nhg->nexthop; nh; nh = nh->next)
+			depends_find_add(&nhg_depends, nh, rt_afi);
 
 		/* change the afi/vrf_id since its a group */
 		nhg_afi = AFI_UNSPEC;
@@ -783,7 +776,7 @@ zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 
 	if (!zebra_nhg_find(&nhe, id, nhg, &nhg_depends, nhg_vrf_id, nhg_afi,
 			    false))
-		nhg_connected_head_free(&nhg_depends);
+		depends_decrement_free(&nhg_depends);
 
 	return nhe;
 }
@@ -791,6 +784,8 @@ zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 void zebra_nhg_free_members(struct nhg_hash_entry *nhe)
 {
 	nexthop_group_free_delete(&nhe->nhg);
+	/* Decrement to remove connection ref */
+	nhg_connected_head_decrement_ref(&nhe->nhg_depends);
 	nhg_connected_head_free(&nhe->nhg_depends);
 	nhg_connected_head_free(&nhe->nhg_dependents);
 }
