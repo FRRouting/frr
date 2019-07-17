@@ -101,6 +101,9 @@ struct bgp_adj_in {
 	/* Received attribute.  */
 	struct attr *attr;
 
+	/* timestamp (monotime) */
+	time_t uptime;
+
 	/* Addpath identifier */
 	uint32_t addpath_rx_id;
 };
