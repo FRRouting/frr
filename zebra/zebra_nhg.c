@@ -772,6 +772,10 @@ zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 		/* change the afi/vrf_id since its a group */
 		nhg_afi = AFI_UNSPEC;
 		nhg_vrf_id = 0;
+	} else if (CHECK_FLAG(nhg->nexthop->flags, NEXTHOP_FLAG_RECURSIVE)) {
+		nhg_connected_head_init(&nhg_depends);
+		handle_recursive_depend(&nhg_depends, nhg->nexthop->resolved,
+					rt_afi);
 	}
 
 	if (!zebra_nhg_find(&nhe, id, nhg, &nhg_depends, nhg_vrf_id, nhg_afi,
