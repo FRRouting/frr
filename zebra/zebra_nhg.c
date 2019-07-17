@@ -49,6 +49,11 @@ DEFINE_MTYPE_STATIC(ZEBRA, NHG_CTX, "Nexthop Group Context");
 static int nhg_connected_cmp(const struct nhg_connected *dep1,
 			     const struct nhg_connected *dep2);
 static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi);
+static void depends_add(struct nhg_connected_head *head,
+			struct nhg_hash_entry *depend);
+static void depends_find_add(struct nhg_connected_head *head,
+			     struct nexthop *nh, afi_t afi);
+static void depends_decrement_free(struct nhg_connected_head *head);
 
 RB_GENERATE(nhg_connected_head, nhg_connected, nhg_entry, nhg_connected_cmp);
 
@@ -485,6 +490,18 @@ static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
 	return created;
 }
 
+static void handle_recursive_depend(struct nhg_connected_head *nhg_depends,
+				    struct nexthop *nh, afi_t afi)
+{
+	struct nhg_hash_entry *depend = NULL;
+	struct nexthop_group resolved_ng = {};
+
+	_nexthop_group_add_sorted(&resolved_ng, nh);
+
+	depend = zebra_nhg_rib_find(0, &resolved_ng, afi);
+	depends_add(nhg_depends, depend);
+}
+
 /* Find/create a single nexthop */
 static bool zebra_nhg_find_nexthop(struct nhg_hash_entry **nhe, uint32_t id,
 				   struct nexthop *nh, afi_t afi,
@@ -687,6 +704,7 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 	return 0;
 }
 
+/* Some dependency helper functions */
 static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi)
 {
 	struct nexthop *lookup = NULL;
@@ -705,6 +723,28 @@ static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi)
 	nexthops_free(lookup);
 
 	return nhe;
+}
+
+static void depends_add(struct nhg_connected_head *head,
+			struct nhg_hash_entry *depend)
+{
+	nhg_connected_head_add(head, depend);
+	zebra_nhg_increment_ref(depend);
+}
+
+static void depends_find_add(struct nhg_connected_head *head,
+			     struct nexthop *nh, afi_t afi)
+{
+	struct nhg_hash_entry *depend = NULL;
+
+	depend = depends_find(nh, afi);
+	depends_add(head, depend);
+}
+
+static void depends_decrement_free(struct nhg_connected_head *head)
+{
+	nhg_connected_head_decrement_ref(head);
+	nhg_connected_head_free(head);
 }
 
 /* Rib-side, you get a nexthop group struct */
