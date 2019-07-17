@@ -227,7 +227,6 @@ void pbr_nhgroup_add_cb(const char *name)
 	DEBUGD(&pbr_dbg_nht, "%s: Added nexthop-group %s", __PRETTY_FUNCTION__,
 	       name);
 
-	pbr_nht_install_nexthop_group(pnhgc, nhgc->nhg);
 	pbr_map_check_nh_group_change(name);
 }
 
