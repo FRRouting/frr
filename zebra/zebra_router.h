@@ -106,11 +106,6 @@ struct zebra_router {
 #define ZEBRA_RIB_PROCESS_RETRY_TIME 1
 	struct work_queue *ribq;
 
-	/* The nexthop group work queue */
-#define ZEBRA_NHG_PROCESS_HOLD_TIME 1
-#define ZEBRA_NHG_PROCESS_RETRY_TIME 10
-	struct work_queue *nhgq;
-
 	/* Meta Queue Information */
 	struct meta_queue *mq;
 
