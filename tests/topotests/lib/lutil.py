@@ -243,22 +243,25 @@ Total %-4d                                                           %-4d %d\n\
             return js
         return ret
 
-    def wait(self, target, command, regexp, op, result, wait, returnJson):
-        self.log('%s:%s WAIT:%s:%s:%s:%s:%s:%s:' % \
-                 (self.l_filename, self.l_line, target, command, regexp, op, result,wait))
+    def wait(self, target, command, regexp, op, result, wait, returnJson, wait_time=0.5):
+        self.log('%s:%s WAIT:%s:%s:%s:%s:%s:%s:%s:' % \
+                 (self.l_filename, self.l_line, target, command, regexp, op, result,wait,wait_time))
         found = False
         n = 0
         startt = time.time()
 
         # Calculate the amount of `sleep`s we are going to peform.
-        wait_count = int(math.ceil(wait / 0.5))
+        wait_count = int(math.ceil(wait / wait_time)) + 1
 
-        while wait_count > 0 and found is False:
+        while wait_count > 0:
+            n += 1
             found = self.command(target, command, regexp, op, result, returnJson)
+            if found is not False:
+                break
+
             wait_count -= 1
-            n+=1
-            if wait_count > 0 and found is False:
-                time.sleep (0.5)
+            if wait_count > 0:
+                time.sleep(wait_time)
 
         delta = time.time() - startt
         self.log('Done after %d loops, time=%s, Found=%s' % (n, delta, found))
@@ -286,11 +289,11 @@ def luStart(baseScriptDir='.', baseLogDir='.', net='',
     LUtil.l_dotall_experiment = False
     LUtil.l_dotall_experiment = True
 
-def luCommand(target, command, regexp='.', op='none', result='', time=10, returnJson=False):
+def luCommand(target, command, regexp='.', op='none', result='', time=10, returnJson=False, wait_time=0.5):
     if op != 'wait':
         return LUtil.command(target, command, regexp, op, result, returnJson)
     else:
-        return LUtil.wait(target, command, regexp, op, result, time, returnJson)
+        return LUtil.wait(target, command, regexp, op, result, time, returnJson, wait_time)
 
 def luLast(usenl=False):
     if usenl:
