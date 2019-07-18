@@ -22,6 +22,7 @@ import sys
 import time
 import datetime
 import json
+import math
 from topolog import logger
 from mininet.net import Mininet
 
@@ -248,14 +249,18 @@ Total %-4d                                                           %-4d %d\n\
         found = False
         n = 0
         startt = time.time()
-        delta = time.time() - startt
-        while delta < wait and found is False:
+
+        # Calculate the amount of `sleep`s we are going to peform.
+        wait_count = int(math.ceil(wait / 0.5))
+
+        while wait_count > 0 and found is False:
             found = self.command(target, command, regexp, op, result, returnJson)
+            wait_count -= 1
             n+=1
-            delta = time.time() - startt
-            self.log('\tFound: %s n: %s delta: %s and wait: %s' % (found, n, delta, wait))
-            if delta < wait and found is False:
+            if wait_count > 0 and found is False:
                 time.sleep (0.5)
+
+        delta = time.time() - startt
         self.log('Done after %d loops, time=%s, Found=%s' % (n, delta, found))
         found = self.command(target, command, regexp, 'pass', '%s +%4.2f secs' % (result, delta), returnJson)
         return found
