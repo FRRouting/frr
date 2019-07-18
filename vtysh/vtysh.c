@@ -851,11 +851,15 @@ int vtysh_mark_file(const char *filename)
 			return CMD_ERR_INCOMPLETE;
 		case CMD_SUCCESS:
 			vty_out(vty, "%s", vty->buf);
+			if (strmatch(vty_buf_trimmed, "exit-vrf"))
+				vty_out(vty, "end\n");
 			break;
 		case CMD_SUCCESS_DAEMON: {
 			int cmd_stat;
 
 			vty_out(vty, "%s", vty->buf);
+			if (strmatch(vty_buf_trimmed, "exit-vrf"))
+				vty_out(vty, "end\n");
 			cmd_stat = vtysh_client_execute(&vtysh_client[0],
 							vty->buf);
 			if (cmd_stat != CMD_SUCCESS)
