@@ -797,6 +797,7 @@ struct community *community_list_match_delete(struct community *com,
 	/* Delete all of the communities we flagged for deletion */
 	for (i = delete_index - 1; i >= 0; i--) {
 		val = community_val_get(com, com_index_to_delete[i]);
+		val = htonl(val);
 		community_del_val(com, &val);
 	}
 
