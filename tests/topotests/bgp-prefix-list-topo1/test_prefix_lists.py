@@ -385,7 +385,7 @@ def test_ip_prefix_lists_out_permit(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result)
 
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result)
     write_test_footer(tc_name)
@@ -496,7 +496,7 @@ def test_ip_prefix_lists_in_deny_and_permit_any(request):
     # Verifying RIB routes
     dut = "r3"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result)
 
@@ -713,7 +713,7 @@ def test_ip_prefix_lists_out_deny_and_permit_any(request):
     # Verifying RIB routes
     dut = "r4"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result)
 
@@ -858,7 +858,7 @@ def test_modify_prefix_lists_in_permit_to_deny(request):
     # Verifying RIB routes
     dut = "r3"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result)
 
@@ -971,7 +971,7 @@ def test_modify_prefix_lists_in_deny_to_permit(request):
     # Verifying RIB routes
     dut = "r3"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result)
 
@@ -1151,7 +1151,7 @@ def test_modify_prefix_lists_out_permit_to_deny(request):
     # Verifying RIB routes
     dut = "r4"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result)
 
@@ -1264,7 +1264,7 @@ def test_modify_prefix_lists_out_deny_to_permit(request):
     # Verifying RIB routes
     dut = "r4"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result)
 
@@ -1438,7 +1438,7 @@ def test_ip_prefix_lists_implicit_deny(request):
     # Verifying RIB routes
     dut = "r4"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict_1, protocol=protocol)
+    result = verify_rib(tgen, "ipv4", dut, input_dict_1, protocol=protocol, expected=False)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result)
 
