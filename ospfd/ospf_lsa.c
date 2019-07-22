@@ -331,6 +331,33 @@ void lsa_header_set(struct stream *s, uint8_t options, uint8_t type,
 	stream_forward_endp(s, OSPF_LSA_HEADER_SIZE);
 }
 
+static bool ospf_lsa_header_same(const struct lsa_header *a,
+				 const struct lsa_header *b)
+{
+	return a->options == b->options &&
+		a->type == b->type &&
+		a->id.s_addr == b->id.s_addr &&
+		a->adv_router.s_addr == b->adv_router.s_addr &&
+		a->length == b->length;
+}
+
+static bool ospf_lsa_same(const struct ospf_lsa *a,
+			  const struct ospf_lsa *b)
+{
+	const struct lsa_header *x = a->data;
+	const struct lsa_header *y = b->data;
+	bool same;
+
+	same = ospf_lsa_header_same(x, y);
+	if (same) {
+		same = !memcmp((uint8_t *)x + OSPF_LSA_HEADER_SIZE,
+			       (uint8_t *)y + OSPF_LSA_HEADER_SIZE,
+			       ntohs(x->length) - OSPF_LSA_HEADER_SIZE);
+	}
+
+	return same;
+}
+
 
 /* router-LSA related functions. */
 /* Get router-LSA flags. */
@@ -855,12 +882,6 @@ static struct ospf_lsa *ospf_router_lsa_refresh(struct ospf_lsa *lsa)
 	/* Sanity check. */
 	assert(lsa->data);
 
-	/* Delete LSA from neighbor retransmit-list. */
-	ospf_ls_retransmit_delete_nbr_area(area, lsa);
-
-	/* Unregister LSA from refresh-list */
-	ospf_refresher_unregister_lsa(area->ospf, lsa);
-
 	/* Create new router-LSA instance. */
 	if ((new = ospf_router_lsa_new(area)) == NULL) {
 		zlog_err("%s: ospf_router_lsa_new returned NULL", __func__);
@@ -868,6 +889,23 @@ static struct ospf_lsa *ospf_router_lsa_refresh(struct ospf_lsa *lsa)
 	}
 
 	new->data->ls_seqnum = lsa_seqnum_increment(lsa);
+
+	/* Check if any content actually changed */
+	if (LS_AGE(lsa) < OSPF_LS_REFRESH_TIME - (2 * OSPF_LS_REFRESH_JITTER) &&
+	    ospf_lsa_same(lsa, new)) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				   "LSA[Type%d:%s]: Not refreshed, redundant",
+				   lsa->data->type, inet_ntoa(lsa->data->id));
+		ospf_lsa_discard(new);
+		return NULL;
+	}
+
+	/* Delete LSA from neighbor retransmit-list. */
+	ospf_ls_retransmit_delete_nbr_area(area, lsa);
+
+	/* Unregister LSA from refresh-list */
+	ospf_refresher_unregister_lsa(area->ospf, lsa);
 
 	ospf_lsa_install(area->ospf, NULL, new);
 
@@ -2322,12 +2360,6 @@ struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *ospf,
 		return NULL;
 	}
 
-	/* Delete LSA from neighbor retransmit-list. */
-	ospf_ls_retransmit_delete_nbr_as(ospf, lsa);
-
-	/* Unregister AS-external-LSA from refresh-list. */
-	ospf_refresher_unregister_lsa(ospf, lsa);
-
 	new = ospf_external_lsa_new(ospf, ei, &lsa->data->id);
 
 	if (new == NULL) {
@@ -2338,6 +2370,23 @@ struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *ospf,
 	}
 
 	new->data->ls_seqnum = lsa_seqnum_increment(lsa);
+
+	/* Check if any content actually changed */
+	if (LS_AGE(lsa) < OSPF_LS_REFRESH_TIME - (2 * OSPF_LS_REFRESH_JITTER) &&
+	    ospf_lsa_same(lsa, new)) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				   "LSA[Type%d:%s]: Not refreshed, redundant",
+				   lsa->data->type, inet_ntoa(lsa->data->id));
+		ospf_lsa_discard(new);
+		return NULL;
+	}
+
+	/* Delete LSA from neighbor retransmit-list. */
+	ospf_ls_retransmit_delete_nbr_as(ospf, lsa);
+
+	/* Unregister AS-external-LSA from refresh-list. */
+	ospf_refresher_unregister_lsa(ospf, lsa);
 
 	ospf_lsa_install(ospf, NULL, new); /* As type-5. */
 
