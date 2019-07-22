@@ -47,7 +47,8 @@ build() {
 		--enable-multipath=64 \
 		--enable-vty-group=frrvty \
 		--enable-user=$_user \
-		--enable-group=$_user
+		--enable-group=$_user \
+		--disable-ntop-override
 	make
 }
 

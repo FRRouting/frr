@@ -572,6 +572,8 @@ AC_ARG_ENABLE([thread-sanitizer],
   AS_HELP_STRING([--enable-thread-sanitizer], [enable ThreadSanitizer support for detecting data races]))
 AC_ARG_ENABLE([memory-sanitizer],
   AS_HELP_STRING([--enable-memory-sanitizer], [enable MemorySanitizer support for detecting uninitialized memory reads]))
+AC_ARG_ENABLE([ntop-override],
+  AS_HELP_STRING([--disable-ntop-override], [disable libc inet ntop override]))
 
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS([json-c/json.h])
@@ -1716,6 +1718,13 @@ AC_SEARCH_LIBS([dlopen], [dl dld], [], [
   AC_MSG_ERROR([unable to find the dlopen()])
 ])
 
+dnl ------------------------------------
+dnl INET NTOP Override
+dnl ------------------------------------
+if test "${disable_ntop_override}" = "yes"; then
+  AC_DEFINE([INET_NTOP_NO_OVERRIDE], [1], [Disable libc INET NTOP implementation override])
+fi
+
 AC_CHECK_HEADERS([link.h])
 
 AC_CACHE_CHECK([for dlinfo(RTLD_DI_ORIGIN)], [frr_cv_rtld_di_origin], [
@@ -2178,6 +2187,7 @@ AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to w
 dnl various features
 AM_CONDITIONAL([SUPPORT_REALMS], [test "${enable_realms}" = "yes"])
 AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
+AM_CONDITIONAL([INET_NTOP_NO_OVERRIDE], [test "x${disable_ntop_override}" = "xyes"])
 dnl northbound
 AM_CONDITIONAL([SQLITE3], [$SQLITE3])
 AM_CONDITIONAL([CONFD], [test "x$enable_confd" != "x"])
