@@ -252,6 +252,54 @@ def run_and_expect(func, what, count=20, wait=3):
     return (False, result)
 
 
+def run_and_expect_type(func, etype, count=20, wait=3, avalue=None):
+    """
+    Run `func` and compare the result with `etype`. Do it for `count` times
+    waiting `wait` seconds between tries. By default it tries 20 times with
+    3 seconds delay between tries.
+
+    This function is used when you want to test the return type and,
+    optionally, the return value.
+
+    Returns (True, func-return) on success or
+    (False, func-return) on failure.
+    """
+    start_time = time.time()
+    func_name = "<unknown>"
+    if func.__class__ == functools.partial:
+        func_name = func.func.__name__
+    else:
+        func_name = func.__name__
+
+    logger.info(
+        "'{}' polling started (interval {} secs, maximum wait {} secs)".format(
+            func_name, wait, int(wait * count)))
+
+    while count > 0:
+        result = func()
+        if not isinstance(result, etype):
+            logger.debug("Expected result type '{}' got '{}' instead".format(etype, type(result)))
+            time.sleep(wait)
+            count -= 1
+            continue
+
+        if etype != type(None) and avalue != None and result != avalue:
+            logger.debug("Expected value '{}' got '{}' instead".format(avalue, result))
+            time.sleep(wait)
+            count -= 1
+            continue
+
+        end_time = time.time()
+        logger.info("'{}' succeeded after {:.2f} seconds".format(
+            func_name, end_time - start_time))
+        return (True, result)
+
+    end_time = time.time()
+    logger.error("'{}' failed after {:.2f} seconds".format(
+        func_name, end_time - start_time))
+    return (False, result)
+
+
 def int2dpid(dpid):
     "Converting Integer to DPID"
 
