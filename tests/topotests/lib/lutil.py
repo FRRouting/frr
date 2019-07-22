@@ -245,7 +245,6 @@ Total %-4d                                                           %-4d %d\n\
     def wait(self, target, command, regexp, op, result, wait, returnJson):
         self.log('%s:%s WAIT:%s:%s:%s:%s:%s:%s:' % \
                  (self.l_filename, self.l_line, target, command, regexp, op, result,wait))
-        llevel = LUtil.l_level
         found = False
         n = 0
         startt = time.time()
@@ -253,11 +252,10 @@ Total %-4d                                                           %-4d %d\n\
         while delta < wait and found is False:
             found = self.command(target, command, regexp, op, result, returnJson)
             n+=1
-            LUtil.l_level = 0
             delta = time.time() - startt
+            self.log('\tFound: %s n: %s delta: %s and wait: %s' % (found, n, delta, wait))
             if delta < wait and found is False:
                 time.sleep (0.5)
-        LUtil.l_level = llevel
         self.log('Done after %d loops, time=%s, Found=%s' % (n, delta, found))
         found = self.command(target, command, regexp, 'pass', '%s +%4.2f secs' % (result, delta), returnJson)
         return found
