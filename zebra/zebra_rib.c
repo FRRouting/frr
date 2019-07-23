@@ -1680,20 +1680,15 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	 * info.
 	 */
 	RNODE_FOREACH_RE(rn, rib) {
-
-		if (re == NULL) {
-			if (rib_route_match_ctx(rib, ctx, false))
-				re = rib;
-		}
-
+		if (re == NULL && rib_route_match_ctx(rib, ctx, false))
+			re = rib;
 		/* Check for old route match */
-		if (is_update && (old_re == NULL)) {
-			if (rib_route_match_ctx(rib, ctx, true /*is_update*/))
-				old_re = rib;
-		}
+		else if (is_update && old_re == NULL &&
+			 rib_route_match_ctx(rib, ctx, true /*is_update*/))
+			old_re = rib;
 
 		/* Have we found the routes we need to work on? */
-		if (re && ((!is_update || old_re)))
+		if (re && (!is_update || old_re))
 			break;
 	}
 
