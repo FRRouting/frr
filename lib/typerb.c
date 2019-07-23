@@ -333,9 +333,10 @@ color:
 	return (old);
 }
 
-void typed_rb_remove(struct rbt_tree *rbt, struct rb_entry *rbe)
+struct typed_rb_entry *typed_rb_remove(struct rbt_tree *rbt,
+				       struct rb_entry *rbe)
 {
-	rbe_remove(rbt, rbe);
+	return rbe_remove(rbt, rbe);
 }
 
 struct typed_rb_entry *typed_rb_insert(struct rbt_tree *rbt,
