@@ -1239,6 +1239,9 @@ static void rib_process(struct route_node *rn)
 	else if (old_fib)
 		rib_process_del_fib(zvrf, rn, old_fib);
 
+	if (old_fib && CHECK_FLAG(old_fib->status, ROUTE_ENTRY_REMOVED))
+		UNSET_FLAG(old_fib->status, ROUTE_ENTRY_INSTALLED);
+
 	/* Update SELECTED entry */
 	if (old_selected != new_selected || selected_changed) {
 
@@ -1256,22 +1259,6 @@ static void rib_process(struct route_node *rn)
 					   ZEBRA_FLAG_SELECTED);
 		}
 	}
-
-	/* Remove all RE entries queued for removal */
-	RNODE_FOREACH_RE_SAFE (rn, re, next) {
-		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
-			if (IS_ZEBRA_DEBUG_RIB) {
-				rnode_debug(rn, vrf_id, "rn %p, removing re %p",
-					    (void *)rn, (void *)re);
-			}
-			rib_unlink(rn, re);
-		}
-	}
-
-	/*
-	 * Check if the dest can be deleted now.
-	 */
-	rib_gc_dest(rn);
 }
 
 static void zebra_rib_evaluate_mpls(struct route_node *rn)
@@ -1739,6 +1726,8 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_ROUTE_INSTALL:
 	case DPLANE_OP_ROUTE_UPDATE:
 		if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
+			struct route_entry *prev_re = NULL;
+
 			if (re) {
 				UNSET_FLAG(re->status, ROUTE_ENTRY_FAILED);
 				SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
@@ -1753,6 +1742,9 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			 * more than knowing whom to contact if necessary.
 			 */
 			if (old_re && old_re != re) {
+				if (CHECK_FLAG(old_re->status, ROUTE_ENTRY_REMOVED))
+					prev_re = old_re;
+
 				UNSET_FLAG(old_re->status, ROUTE_ENTRY_FAILED);
 				UNSET_FLAG(old_re->status,
 					   ROUTE_ENTRY_INSTALLED);
@@ -1775,7 +1767,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 
 				/* Redistribute */
 				redistribute_update(dest_pfx, src_pfx,
-						    re, NULL);
+						    re, prev_re);
 			}
 
 			/*
@@ -1859,8 +1851,31 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	zebra_rib_evaluate_mpls(rn);
 done:
 
-	if (rn)
+	if (rn) {
+		bool removed = false;
+
 		route_unlock_node(rn);
+
+		/* Remove all RE entries queued for removal */
+		RNODE_FOREACH_RE_SAFE (rn, re, rib) {
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
+				if (IS_ZEBRA_DEBUG_RIB) {
+					rnode_debug(rn, dplane_ctx_get_vrf(ctx),
+						    "rn %p, removing re %p",
+						    (void *)rn, (void *)re);
+				}
+				rib_unlink(rn, re);
+				removed = true;
+			}
+		}
+
+		if (removed) {
+			/*
+			 * Check if the dest can be deleted now.
+			 */
+			rib_gc_dest(rn);
+		}
+	}
 
 	/* Return context to dataplane module */
 	dplane_ctx_fini(&ctx);
