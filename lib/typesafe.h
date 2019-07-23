@@ -109,17 +109,18 @@ macro_inline void prefix ## _add_after(struct prefix##_head *h,                \
 	typesafe_list_add(&h->sh, nextp, &item->field.si);                     \
 }                                                                              \
 /* TODO: del_hint */                                                           \
-macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
+macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 {                                                                              \
 	struct slist_item **iter = &h->sh.first;                               \
 	while (*iter && *iter != &item->field.si)                              \
 		iter = &(*iter)->next;                                         \
 	if (!*iter)                                                            \
-		return;                                                        \
+		return NULL;                                                   \
 	h->sh.count--;                                                         \
 	*iter = item->field.si.next;                                           \
 	if (!item->field.si.next)                                              \
 		h->sh.last_next = iter;                                        \
+	return item;                                                           \
 }                                                                              \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 {                                                                              \
@@ -212,13 +213,14 @@ macro_inline void prefix ## _add_after(struct prefix##_head *h,                \
 	prev = after ? &after->field.di : &h->dh.hitem;                        \
 	typesafe_dlist_add(&h->dh, prev, &item->field.di);                     \
 }                                                                              \
-macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
+macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 {                                                                              \
 	struct dlist_item *ditem = &item->field.di;                            \
 	ditem->prev->next = ditem->next;                                       \
 	ditem->next->prev = ditem->prev;                                       \
 	h->dh.count--;                                                         \
 	ditem->prev = ditem->next = NULL;                                      \
+	return item;                                                           \
 }                                                                              \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 {                                                                              \
@@ -308,7 +310,7 @@ macro_inline type *prefix ## _add(struct prefix##_head *h, type *item)         \
 	h->hh.count++;                                                         \
 	return NULL;                                                           \
 }                                                                              \
-macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
+macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 {                                                                              \
 	struct heap_item *other;                                               \
 	uint32_t index = item->field.hi.index;                                 \
@@ -321,6 +323,7 @@ macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
 		typesafe_heap_pushdown(&h->hh, index, other, prefix ## __cmp); \
 	if (HEAP_RESIZE_TRESH_DN(h))                                           \
 		typesafe_heap_resize(&h->hh, false);                           \
+	return item;                                                           \
 }                                                                              \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 {                                                                              \
@@ -449,15 +452,16 @@ macro_inline type *prefix ## _find_lt(struct prefix##_head *h,                 \
 	return container_of_null(prev, type, field.si);                        \
 }                                                                              \
 /* TODO: del_hint */                                                           \
-macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
+macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 {                                                                              \
 	struct ssort_item **iter = &h->sh.first;                               \
 	while (*iter && *iter != &item->field.si)                              \
 		iter = &(*iter)->next;                                         \
 	if (!*iter)                                                            \
-		return;                                                        \
+		return NULL;                                                   \
 	h->sh.count--;                                                         \
 	*iter = item->field.si.next;                                           \
+	return item;                                                           \
 }                                                                              \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 {                                                                              \
@@ -617,10 +621,10 @@ macro_inline type *prefix ## _find(struct prefix##_head *h, const type *item)  \
 	}                                                                      \
 	return NULL;                                                           \
 }                                                                              \
-macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
+macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 {                                                                              \
 	if (!h->hh.tabshift)                                                   \
-		return;                                                        \
+		return NULL;                                                   \
 	uint32_t hval = item->field.hi.hashval, hbits = HASH_KEY(h->hh, hval); \
 	struct thash_item **np = &h->hh.entries[hbits];                        \
 	while (*np && (*np)->hashval < hval)                                   \
@@ -628,12 +632,13 @@ macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
 	while (*np && *np != &item->field.hi && (*np)->hashval == hval)        \
 		np = &(*np)->next;                                             \
 	if (*np != &item->field.hi)                                            \
-		return;                                                        \
+		return NULL;                                                   \
 	*np = item->field.hi.next;                                             \
 	item->field.hi.next = NULL;                                            \
 	h->hh.count--;                                                         \
 	if (HASH_SHRINK_THRESHOLD(h->hh))                                      \
 		typesafe_hash_shrink(&h->hh);                                  \
+	return item;                                                           \
 }                                                                              \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 {                                                                              \
@@ -751,9 +756,11 @@ macro_inline type *prefix ## _find_lt(struct prefix##_head *h,                 \
 			&item->field.si, cmpfn_nuq);                           \
 	return container_of_null(sitem, type, field.si);                       \
 }                                                                              \
-macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
+macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 {                                                                              \
-	typesafe_skiplist_del(&h->sh, &item->field.si, cmpfn_uq);              \
+	struct sskip_item *sitem = typesafe_skiplist_del(&h->sh,               \
+			&item->field.si, cmpfn_uq);                            \
+	return container_of_null(sitem, type, field.si);                       \
 }                                                                              \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 {                                                                              \
@@ -848,8 +855,8 @@ extern struct sskip_item *typesafe_skiplist_find_lt(struct sskip_head *head,
 		const struct sskip_item *item, int (*cmpfn)(
 			const struct sskip_item *a,
 			const struct sskip_item *b));
-extern void typesafe_skiplist_del(struct sskip_head *head,
-		struct sskip_item *item, int (*cmpfn)(
+extern struct sskip_item *typesafe_skiplist_del(
+		struct sskip_head *head, struct sskip_item *item, int (*cmpfn)(
 			const struct sskip_item *a,
 			const struct sskip_item *b));
 extern struct sskip_item *typesafe_skiplist_pop(struct sskip_head *head);

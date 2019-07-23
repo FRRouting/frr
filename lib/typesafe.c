@@ -341,13 +341,14 @@ struct sskip_item *typesafe_skiplist_find_lt(struct sskip_head *head,
 	return best;
 }
 
-void typesafe_skiplist_del(struct sskip_head *head, struct sskip_item *item,
-		int (*cmpfn)(const struct sskip_item *a,
-				const struct sskip_item *b))
+struct sskip_item *typesafe_skiplist_del(
+	struct sskip_head *head, struct sskip_item *item,
+	int (*cmpfn)(const struct sskip_item *a, const struct sskip_item *b))
 {
 	size_t level = SKIPLIST_MAXDEPTH;
 	struct sskip_item *prev = &head->hitem, *next;
 	int cmpval;
+	bool found = false;
 
 	while (level) {
 		next = sl_level_get(prev, level - 1);
@@ -359,6 +360,7 @@ void typesafe_skiplist_del(struct sskip_head *head, struct sskip_item *item,
 			sl_level_set(prev, level - 1,
 				sl_level_get(item, level - 1));
 			level--;
+			found = true;
 			continue;
 		}
 		cmpval = cmpfn(next, item);
@@ -368,6 +370,9 @@ void typesafe_skiplist_del(struct sskip_head *head, struct sskip_item *item,
 		}
 		level--;
 	}
+
+	if (!found)
+		return NULL;
 
 	/* TBD: assert when trying to remove non-existing item? */
 	head->count--;
@@ -379,6 +384,8 @@ void typesafe_skiplist_del(struct sskip_head *head, struct sskip_item *item,
 		XFREE(MTYPE_SKIPLIST_OFLOW, oflow);
 	}
 	memset(item, 0, sizeof(*item));
+
+	return item;
 }
 
 struct sskip_item *typesafe_skiplist_pop(struct sskip_head *head)
