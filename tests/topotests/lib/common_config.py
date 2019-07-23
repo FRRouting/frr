@@ -30,6 +30,9 @@ import traceback
 import socket
 import ipaddr
 
+from lib import topotest
+
+from functools import partial
 from lib.topolog import logger, logger_config
 from lib.topogen import TopoRouter
 
@@ -1089,7 +1092,7 @@ def create_route_maps(tgen, input_dict, build=False):
 #############################################
 # Verification APIs
 #############################################
-def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
+def _verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
     """
     Data will be read from input_dict or input JSON file, API will generate
     same prefixes, which were redistributed by either create_static_routes() or
@@ -1256,6 +1259,26 @@ def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
 
     logger.info("Exiting lib API: verify_rib()")
     return True
+
+
+def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None, expected=True):
+    """
+    Wrapper function for `_verify_rib` that tries multiple time to get results.
+
+    When the expected result is `False` we actually should expect for an string instead.
+    """
+
+    # Use currying to hide the parameters and create a test function.
+    test_func = partial(_verify_rib, tgen, addr_type, dut, input_dict, next_hop, protocol)
+
+    # Call the test function and expect it to return True, otherwise try it again.
+    if expected is True:
+        _, result = topotest.run_and_expect(test_func, True, count=20, wait=6)
+    else:
+        _, result = topotest.run_and_expect_type(test_func, str, count=20, wait=6)
+
+    # Return as normal.
+    return result
 
 
 def verify_admin_distance_for_static_routes(tgen, input_dict):
