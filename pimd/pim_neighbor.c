@@ -424,9 +424,10 @@ struct pim_neighbor *pim_neighbor_find_by_secondary(struct interface *ifp,
 	struct pim_neighbor *neigh;
 	struct prefix *p;
 
-	pim_ifp = ifp->info;
-	if (!pim_ifp)
+	if (!ifp || !ifp->info)
 		return NULL;
+
+	pim_ifp = ifp->info;
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, node, neigh)) {
 		for (ALL_LIST_ELEMENTS_RO(neigh->prefix_list, pnode, p)) {
