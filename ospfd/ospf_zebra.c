@@ -983,7 +983,8 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		char buf_prefix[PREFIX_STRLEN];
 		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
 
-		zlog_debug("%s: from client %s: vrf_id %d, p %s", __func__,
+		zlog_debug("%s: cmd %s from client %s: vrf_id %d, p %s",
+			   __func__, zserv_command_string(cmd),
 			   zebra_route_string(api.type), vrf_id, buf_prefix);
 	}
 
