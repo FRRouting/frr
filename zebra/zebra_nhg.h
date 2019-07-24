@@ -39,6 +39,7 @@ struct nh_grp {
 	uint8_t weight;
 };
 
+PREDECL_RBTREE_UNIQ(nhg_connected_tree);
 
 struct nhg_hash_entry {
 	uint32_t id;
@@ -69,7 +70,7 @@ struct nhg_hash_entry {
 	 * Using a rb tree here to make lookups
 	 * faster with ID's.
 	 */
-	RB_HEAD(nhg_connected_head, nhg_connected) nhg_depends, nhg_dependents;
+	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.
  * What is fully resolved?  It's a nexthop that is either self contained
@@ -96,11 +97,18 @@ struct nhg_hash_entry {
 
 /* Abstraction for connected trees */
 struct nhg_connected {
-	RB_ENTRY(nhg_connected) nhg_entry;
+	struct nhg_connected_tree_item tree_item;
 	struct nhg_hash_entry *nhe;
 };
 
-RB_PROTOTYPE(nhg_connected_head, nhg_connected, nhg_entry, nhg_connected_cmp);
+static int nhg_connected_cmp(const struct nhg_connected *con1,
+			     const struct nhg_connected *con2)
+{
+	return (con1->nhe->id - con2->nhe->id);
+}
+
+DECLARE_RBTREE_UNIQ(nhg_connected_tree, struct nhg_connected, tree_item,
+		    nhg_connected_cmp);
 
 
 enum nhg_ctx_op_e {
@@ -150,17 +158,16 @@ extern void nhg_connected_free(struct nhg_connected *dep);
 extern struct nhg_connected *nhg_connected_new(struct nhg_hash_entry *nhe);
 
 /* nhg connected tree direct access functions */
-extern void nhg_connected_head_init(struct nhg_connected_head *head);
-extern unsigned int
-nhg_connected_head_count(const struct nhg_connected_head *head);
-extern void nhg_connected_head_free(struct nhg_connected_head *head);
-extern bool nhg_connected_head_is_empty(const struct nhg_connected_head *head);
+extern void nhg_connected_tree_init(struct nhg_connected_tree_head *head);
+extern void nhg_connected_tree_free(struct nhg_connected_tree_head *head);
+extern bool
+nhg_connected_tree_is_empty(const struct nhg_connected_tree_head *head);
 extern struct nhg_connected *
-nhg_connected_head_root(const struct nhg_connected_head *head);
-extern void nhg_connected_head_del(struct nhg_connected_head *head,
-				   struct nhg_hash_entry *nhe);
-extern void nhg_connected_head_add(struct nhg_connected_head *head,
-				   struct nhg_hash_entry *nhe);
+nhg_connected_tree_root(struct nhg_connected_tree_head *head);
+extern void nhg_connected_tree_del_nhe(struct nhg_connected_tree_head *head,
+				       struct nhg_hash_entry *nhe);
+extern void nhg_connected_tree_add_nhe(struct nhg_connected_tree_head *head,
+				       struct nhg_hash_entry *nhe);
 
 /**
  * NHE abstracted tree functions.

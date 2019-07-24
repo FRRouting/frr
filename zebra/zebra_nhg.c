@@ -46,16 +46,12 @@ DEFINE_MTYPE_STATIC(ZEBRA, NHG, "Nexthop Group Entry");
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_CONNECTED, "Nexthop Group Connected");
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_CTX, "Nexthop Group Context");
 
-static int nhg_connected_cmp(const struct nhg_connected *dep1,
-			     const struct nhg_connected *dep2);
 static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi);
-static void depends_add(struct nhg_connected_head *head,
+static void depends_add(struct nhg_connected_tree_head *head,
 			struct nhg_hash_entry *depend);
-static void depends_find_add(struct nhg_connected_head *head,
+static void depends_find_add(struct nhg_connected_tree_head *head,
 			     struct nexthop *nh, afi_t afi);
-static void depends_decrement_free(struct nhg_connected_head *head);
-
-RB_GENERATE(nhg_connected_head, nhg_connected, nhg_entry, nhg_connected_cmp);
+static void depends_decrement_free(struct nhg_connected_tree_head *head);
 
 
 void nhg_connected_free(struct nhg_connected *dep)
@@ -73,48 +69,31 @@ struct nhg_connected *nhg_connected_new(struct nhg_hash_entry *nhe)
 	return new;
 }
 
-void nhg_connected_head_init(struct nhg_connected_head *head)
-{
-	RB_INIT(nhg_connected_head, head);
-}
-
-void nhg_connected_head_free(struct nhg_connected_head *head)
+void nhg_connected_tree_free(struct nhg_connected_tree_head *head)
 {
 	struct nhg_connected *rb_node_dep = NULL;
-	struct nhg_connected *tmp = NULL;
 
-	if (!nhg_connected_head_is_empty(head)) {
-		RB_FOREACH_SAFE (rb_node_dep, nhg_connected_head, head, tmp) {
-			RB_REMOVE(nhg_connected_head, head, rb_node_dep);
+	if (!nhg_connected_tree_is_empty(head)) {
+		frr_each_safe (nhg_connected_tree, head, rb_node_dep) {
+			nhg_connected_tree_del(head, rb_node_dep);
 			nhg_connected_free(rb_node_dep);
 		}
 	}
 }
 
-unsigned int nhg_connected_head_count(const struct nhg_connected_head *head)
+bool nhg_connected_tree_is_empty(const struct nhg_connected_tree_head *head)
 {
-	struct nhg_connected *rb_node_dep = NULL;
-	unsigned int i = 0;
-
-	RB_FOREACH (rb_node_dep, nhg_connected_head, head) {
-		i++;
-	}
-	return i;
-}
-
-bool nhg_connected_head_is_empty(const struct nhg_connected_head *head)
-{
-	return RB_EMPTY(nhg_connected_head, head);
+	return (nhg_connected_tree_count(head) ? false : true);
 }
 
 struct nhg_connected *
-nhg_connected_head_root(const struct nhg_connected_head *head)
+nhg_connected_tree_root(struct nhg_connected_tree_head *head)
 {
-	return RB_ROOT(nhg_connected_head, head);
+	return nhg_connected_tree_first(head);
 }
 
-void nhg_connected_head_del(struct nhg_connected_head *head,
-			    struct nhg_hash_entry *depend)
+void nhg_connected_tree_del_nhe(struct nhg_connected_tree_head *head,
+				struct nhg_hash_entry *depend)
 {
 	struct nhg_connected lookup = {};
 	struct nhg_connected *remove = NULL;
@@ -122,39 +101,40 @@ void nhg_connected_head_del(struct nhg_connected_head *head,
 	lookup.nhe = depend;
 
 	/* Lookup to find the element, then remove it */
-	remove = RB_FIND(nhg_connected_head, head, &lookup);
-	remove = RB_REMOVE(nhg_connected_head, head, remove);
+	remove = nhg_connected_tree_find(head, &lookup);
+	remove = nhg_connected_tree_del(head, remove);
 
 	if (remove)
 		nhg_connected_free(remove);
 }
 
-void nhg_connected_head_add(struct nhg_connected_head *head,
-			    struct nhg_hash_entry *depend)
+void nhg_connected_tree_add_nhe(struct nhg_connected_tree_head *head,
+				struct nhg_hash_entry *depend)
 {
 	struct nhg_connected *new = NULL;
 
 	new = nhg_connected_new(depend);
 
 	if (new)
-		RB_INSERT(nhg_connected_head, head, new);
+		nhg_connected_tree_add(head, new);
 }
 
-static void nhg_connected_head_decrement_ref(struct nhg_connected_head *head)
+static void
+nhg_connected_tree_decrement_ref(struct nhg_connected_tree_head *head)
 {
 	struct nhg_connected *rb_node_dep = NULL;
-	struct nhg_connected *tmp = NULL;
 
-	RB_FOREACH_SAFE (rb_node_dep, nhg_connected_head, head, tmp) {
+	frr_each_safe (nhg_connected_tree, head, rb_node_dep) {
 		zebra_nhg_decrement_ref(rb_node_dep->nhe);
 	}
 }
 
-static void nhg_connected_head_increment_ref(struct nhg_connected_head *head)
+static void
+nhg_connected_tree_increment_ref(struct nhg_connected_tree_head *head)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 
-	RB_FOREACH (rb_node_dep, nhg_connected_head, head) {
+	frr_each (nhg_connected_tree, head, rb_node_dep) {
 		zebra_nhg_increment_ref(rb_node_dep->nhe);
 	}
 }
@@ -163,7 +143,7 @@ struct nhg_hash_entry *zebra_nhg_resolve(struct nhg_hash_entry *nhe)
 {
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE)
 	    && !zebra_nhg_depends_is_empty(nhe)) {
-		nhe = nhg_connected_head_root(&nhe->nhg_depends)->nhe;
+		nhe = nhg_connected_tree_root(&nhe->nhg_depends)->nhe;
 		return zebra_nhg_resolve(nhe);
 	}
 
@@ -192,29 +172,29 @@ uint32_t zebra_nhg_get_resolved_id(uint32_t id)
 
 unsigned int zebra_nhg_depends_count(const struct nhg_hash_entry *nhe)
 {
-	return nhg_connected_head_count(&nhe->nhg_depends);
+	return nhg_connected_tree_count(&nhe->nhg_depends);
 }
 
 bool zebra_nhg_depends_is_empty(const struct nhg_hash_entry *nhe)
 {
-	return nhg_connected_head_is_empty(&nhe->nhg_depends);
+	return nhg_connected_tree_is_empty(&nhe->nhg_depends);
 }
 
 void zebra_nhg_depends_del(struct nhg_hash_entry *from,
 			   struct nhg_hash_entry *depend)
 {
-	nhg_connected_head_del(&from->nhg_depends, depend);
+	nhg_connected_tree_del_nhe(&from->nhg_depends, depend);
 }
 
 void zebra_nhg_depends_add(struct nhg_hash_entry *to,
 			   struct nhg_hash_entry *depend)
 {
-	nhg_connected_head_add(&to->nhg_depends, depend);
+	nhg_connected_tree_add_nhe(&to->nhg_depends, depend);
 }
 
 void zebra_nhg_depends_init(struct nhg_hash_entry *nhe)
 {
-	nhg_connected_head_init(&nhe->nhg_depends);
+	nhg_connected_tree_init(&nhe->nhg_depends);
 }
 
 /* Release this nhe from anything that it depends on */
@@ -222,10 +202,9 @@ static void zebra_nhg_depends_release(struct nhg_hash_entry *nhe)
 {
 	if (!zebra_nhg_depends_is_empty(nhe)) {
 		struct nhg_connected *rb_node_dep = NULL;
-		struct nhg_connected *tmp = NULL;
 
-		RB_FOREACH_SAFE (rb_node_dep, nhg_connected_head,
-				 &nhe->nhg_depends, tmp) {
+		frr_each_safe (nhg_connected_tree, &nhe->nhg_depends,
+			       rb_node_dep) {
 			zebra_nhg_dependents_del(rb_node_dep->nhe, nhe);
 		}
 	}
@@ -233,29 +212,29 @@ static void zebra_nhg_depends_release(struct nhg_hash_entry *nhe)
 
 unsigned int zebra_nhg_dependents_count(const struct nhg_hash_entry *nhe)
 {
-	return nhg_connected_head_count(&nhe->nhg_dependents);
+	return nhg_connected_tree_count(&nhe->nhg_dependents);
 }
 
 bool zebra_nhg_dependents_is_empty(const struct nhg_hash_entry *nhe)
 {
-	return nhg_connected_head_is_empty(&nhe->nhg_dependents);
+	return nhg_connected_tree_is_empty(&nhe->nhg_dependents);
 }
 
 void zebra_nhg_dependents_del(struct nhg_hash_entry *from,
 			      struct nhg_hash_entry *dependent)
 {
-	nhg_connected_head_del(&from->nhg_dependents, dependent);
+	nhg_connected_tree_del_nhe(&from->nhg_dependents, dependent);
 }
 
 void zebra_nhg_dependents_add(struct nhg_hash_entry *to,
 			      struct nhg_hash_entry *dependent)
 {
-	nhg_connected_head_add(&to->nhg_dependents, dependent);
+	nhg_connected_tree_add_nhe(&to->nhg_dependents, dependent);
 }
 
 void zebra_nhg_dependents_init(struct nhg_hash_entry *nhe)
 {
-	nhg_connected_head_init(&nhe->nhg_dependents);
+	nhg_connected_tree_init(&nhe->nhg_dependents);
 }
 
 /* Release this nhe from anything depending on it */
@@ -263,10 +242,9 @@ static void zebra_nhg_dependents_release(struct nhg_hash_entry *nhe)
 {
 	if (!zebra_nhg_dependents_is_empty(nhe)) {
 		struct nhg_connected *rb_node_dep = NULL;
-		struct nhg_connected *tmp = NULL;
 
-		RB_FOREACH_SAFE (rb_node_dep, nhg_connected_head,
-				 &nhe->nhg_dependents, tmp) {
+		frr_each_safe (nhg_connected_tree, &nhe->nhg_dependents,
+			       rb_node_dep) {
 			zebra_nhg_depends_del(rb_node_dep->nhe, nhe);
 		}
 	}
@@ -319,8 +297,7 @@ static void *zebra_nhg_alloc(void *arg)
 	/* Attach backpointer to anything that it depends on */
 	zebra_nhg_dependents_init(nhe);
 	if (!zebra_nhg_depends_is_empty(nhe)) {
-		RB_FOREACH (rb_node_dep, nhg_connected_head,
-			    &nhe->nhg_depends) {
+		frr_each (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 			zebra_nhg_dependents_add(rb_node_dep->nhe, nhe);
 		}
 	}
@@ -401,17 +378,11 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
 	return nhe1->id == nhe2->id;
 }
 
-static int nhg_connected_cmp(const struct nhg_connected *con1,
-			     const struct nhg_connected *con2)
-{
-	return (con1->nhe->id - con2->nhe->id);
-}
-
 static void zebra_nhg_process_grp(struct nexthop_group *nhg,
-				  struct nhg_connected_head *depends,
+				  struct nhg_connected_tree_head *depends,
 				  struct nh_grp *grp, uint8_t count)
 {
-	nhg_connected_head_init(depends);
+	nhg_connected_tree_init(depends);
 
 	for (int i = 0; i < count; i++) {
 		struct nhg_hash_entry *depend = NULL;
@@ -422,7 +393,7 @@ static void zebra_nhg_process_grp(struct nexthop_group *nhg,
 		 */
 		depend = zebra_nhg_lookup_id(grp[i].id);
 		if (depend) {
-			nhg_connected_head_add(depends, depend);
+			nhg_connected_tree_add_nhe(depends, depend);
 			/*
 			 * If this is a nexthop with its own group
 			 * dependencies, add them as well. Not sure its
@@ -444,7 +415,7 @@ static void zebra_nhg_process_grp(struct nexthop_group *nhg,
 
 static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
 			   struct nexthop_group *nhg,
-			   struct nhg_connected_head *nhg_depends,
+			   struct nhg_connected_tree_head *nhg_depends,
 			   vrf_id_t vrf_id, afi_t afi, bool is_kernel_nh)
 {
 	/* id counter to keep in sync with kernel */
@@ -490,7 +461,7 @@ static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
 	return created;
 }
 
-static void handle_recursive_depend(struct nhg_connected_head *nhg_depends,
+static void handle_recursive_depend(struct nhg_connected_tree_head *nhg_depends,
 				    struct nexthop *nh, afi_t afi)
 {
 	struct nhg_hash_entry *depend = NULL;
@@ -508,13 +479,13 @@ static bool zebra_nhg_find_nexthop(struct nhg_hash_entry **nhe, uint32_t id,
 				   bool is_kernel_nh)
 {
 	struct nexthop_group nhg = {};
-	struct nhg_connected_head nhg_depends = {};
+	struct nhg_connected_tree_head nhg_depends = {};
 	bool created = true;
 
 	_nexthop_group_add_sorted(&nhg, nh);
 
 	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
-		nhg_connected_head_init(&nhg_depends);
+		nhg_connected_tree_init(&nhg_depends);
 		handle_recursive_depend(&nhg_depends, nh->resolved, afi);
 	}
 
@@ -567,7 +538,7 @@ static enum nhg_ctx_op_e nhg_ctx_get_op(const struct nhg_ctx *ctx)
 static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 {
 	struct nexthop_group *nhg = NULL;
-	struct nhg_connected_head nhg_depends = {};
+	struct nhg_connected_tree_head nhg_depends = {};
 	struct nhg_hash_entry *nhe = NULL;
 
 	if (ctx->count) {
@@ -576,13 +547,13 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 				      ctx->count);
 		if (!zebra_nhg_find(&nhe, ctx->id, nhg, &nhg_depends,
 				    ctx->vrf_id, ctx->afi, true))
-			nhg_connected_head_free(&nhg_depends);
+			nhg_connected_tree_free(&nhg_depends);
 
 		/* These got copied over in zebra_nhg_alloc() */
 		nexthop_group_free_delete(&nhg);
 	} else if (!zebra_nhg_find_nexthop(&nhe, ctx->id, &ctx->u.nh, ctx->afi,
 					   ctx->is_kernel_nh))
-		nhg_connected_head_free(&nhg_depends);
+		nhg_connected_tree_free(&nhg_depends);
 
 	if (nhe) {
 		if (ctx->id != nhe->id)
@@ -721,14 +692,14 @@ static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi)
 	return nhe;
 }
 
-static void depends_add(struct nhg_connected_head *head,
+static void depends_add(struct nhg_connected_tree_head *head,
 			struct nhg_hash_entry *depend)
 {
-	nhg_connected_head_add(head, depend);
+	nhg_connected_tree_add_nhe(head, depend);
 	zebra_nhg_increment_ref(depend);
 }
 
-static void depends_find_add(struct nhg_connected_head *head,
+static void depends_find_add(struct nhg_connected_tree_head *head,
 			     struct nexthop *nh, afi_t afi)
 {
 	struct nhg_hash_entry *depend = NULL;
@@ -737,10 +708,10 @@ static void depends_find_add(struct nhg_connected_head *head,
 	depends_add(head, depend);
 }
 
-static void depends_decrement_free(struct nhg_connected_head *head)
+static void depends_decrement_free(struct nhg_connected_tree_head *head)
 {
-	nhg_connected_head_decrement_ref(head);
-	nhg_connected_head_free(head);
+	nhg_connected_tree_decrement_ref(head);
+	nhg_connected_tree_free(head);
 }
 
 /* Rib-side, you get a nexthop group struct */
@@ -748,7 +719,7 @@ struct nhg_hash_entry *
 zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 {
 	struct nhg_hash_entry *nhe = NULL;
-	struct nhg_connected_head nhg_depends = {};
+	struct nhg_connected_tree_head nhg_depends = {};
 
 	/* Defualt the nhe to the afi and vrf of the route */
 	afi_t nhg_afi = rt_afi;
@@ -761,7 +732,7 @@ zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 	}
 
 	if (nhg->nexthop->next) {
-		nhg_connected_head_init(&nhg_depends);
+		nhg_connected_tree_init(&nhg_depends);
 
 		/* If its a group, create a dependency tree */
 		struct nexthop *nh = NULL;
@@ -773,7 +744,7 @@ zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 		nhg_afi = AFI_UNSPEC;
 		nhg_vrf_id = 0;
 	} else if (CHECK_FLAG(nhg->nexthop->flags, NEXTHOP_FLAG_RECURSIVE)) {
-		nhg_connected_head_init(&nhg_depends);
+		nhg_connected_tree_init(&nhg_depends);
 		handle_recursive_depend(&nhg_depends, nhg->nexthop->resolved,
 					rt_afi);
 	}
@@ -791,9 +762,9 @@ void zebra_nhg_free_members(struct nhg_hash_entry *nhe)
 {
 	nexthop_group_free_delete(&nhe->nhg);
 	/* Decrement to remove connection ref */
-	nhg_connected_head_decrement_ref(&nhe->nhg_depends);
-	nhg_connected_head_free(&nhe->nhg_depends);
-	nhg_connected_head_free(&nhe->nhg_dependents);
+	nhg_connected_tree_decrement_ref(&nhe->nhg_depends);
+	nhg_connected_tree_free(&nhe->nhg_depends);
+	nhg_connected_tree_free(&nhe->nhg_dependents);
 }
 
 void zebra_nhg_free(void *arg)
@@ -826,7 +797,7 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 	nhe->refcnt--;
 
 	if (!zebra_nhg_depends_is_empty(nhe))
-		nhg_connected_head_decrement_ref(&nhe->nhg_depends);
+		nhg_connected_tree_decrement_ref(&nhe->nhg_depends);
 
 	if (!nhe->is_kernel_nh && nhe->refcnt <= 0)
 		zebra_nhg_uninstall_kernel(nhe);
@@ -837,7 +808,7 @@ void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 	nhe->refcnt++;
 
 	if (!zebra_nhg_depends_is_empty(nhe))
-		nhg_connected_head_increment_ref(&nhe->nhg_depends);
+		nhg_connected_tree_increment_ref(&nhe->nhg_depends);
 }
 
 void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe)
@@ -847,8 +818,8 @@ void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe)
 		struct nhg_connected *rb_node_dep = NULL;
 
 		/* If anthing else in the group is valid, the group is valid */
-		RB_FOREACH (rb_node_dep, nhg_connected_head,
-			    &nhe->nhg_dependents) {
+		frr_each (nhg_connected_tree, &nhe->nhg_dependents,
+			  rb_node_dep) {
 			if (CHECK_FLAG(rb_node_dep->nhe->flags,
 				       NEXTHOP_GROUP_VALID))
 				return;
@@ -862,8 +833,8 @@ void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe)
 	if (!zebra_nhg_dependents_is_empty(nhe)) {
 		struct nhg_connected *rb_node_dep = NULL;
 
-		RB_FOREACH (rb_node_dep, nhg_connected_head,
-			    &nhe->nhg_dependents) {
+		frr_each (nhg_connected_tree, &nhe->nhg_dependents,
+			  rb_node_dep) {
 			zebra_nhg_set_invalid(rb_node_dep->nhe);
 		}
 	}
@@ -1480,7 +1451,7 @@ uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe)
 	struct nhg_hash_entry *depend = NULL;
 	uint8_t i = 0;
 
-	RB_FOREACH (rb_node_dep, nhg_connected_head, &nhe->nhg_depends) {
+	frr_each (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 		depend = rb_node_dep->nhe;
 
 		/*

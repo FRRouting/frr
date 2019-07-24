@@ -1122,16 +1122,15 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 	if (!zebra_nhg_depends_is_empty(nhe)) {
 
 		vty_out(vty, "\tDepends:");
-		RB_FOREACH (rb_node_dep, nhg_connected_head,
-			    &nhe->nhg_depends) {
+		frr_each (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 			vty_out(vty, " (%u)", rb_node_dep->nhe->id);
 		}
 		vty_out(vty, "\n");
 	}
 	if (!zebra_nhg_dependents_is_empty(nhe)) {
 		vty_out(vty, "\tDependents:");
-		RB_FOREACH (rb_node_dep, nhg_connected_head,
-			    &nhe->nhg_dependents) {
+		frr_each (nhg_connected_tree, &nhe->nhg_dependents,
+			  rb_node_dep) {
 			vty_out(vty, " (%u)", rb_node_dep->nhe->id);
 		}
 		vty_out(vty, "\n");
@@ -1189,8 +1188,8 @@ static void if_nexthop_group_dump_vty(struct vty *vty, struct interface *ifp)
 	if (!if_nhg_dependents_is_empty(ifp)) {
 		vty_out(vty, "Interface %s:\n", ifp->name);
 
-		RB_FOREACH (rb_node_dep, nhg_connected_head,
-			    &zebra_if->nhg_dependents) {
+		frr_each (nhg_connected_tree, &zebra_if->nhg_dependents,
+			  rb_node_dep) {
 			vty_out(vty, "   ");
 			show_nexthop_group_out(vty, rb_node_dep->nhe);
 		}

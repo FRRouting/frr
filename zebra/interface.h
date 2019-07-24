@@ -285,7 +285,7 @@ struct zebra_if {
 	 * we will use this list to update the nexthops
 	 * pointing to it with that info.
 	 */
-	struct nhg_connected_head nhg_dependents;
+	struct nhg_connected_tree_head nhg_dependents;
 
 	/* Information about up/down changes */
 	unsigned int up_count;

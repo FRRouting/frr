@@ -109,12 +109,12 @@ static void zebra_if_node_destroy(route_table_delegate_t *delegate,
 
 static void zebra_if_nhg_dependents_free(struct zebra_if *zebra_if)
 {
-	nhg_connected_head_free(&zebra_if->nhg_dependents);
+	nhg_connected_tree_free(&zebra_if->nhg_dependents);
 }
 
 static void zebra_if_nhg_dependents_init(struct zebra_if *zebra_if)
 {
-	nhg_connected_head_init(&zebra_if->nhg_dependents);
+	nhg_connected_tree_init(&zebra_if->nhg_dependents);
 }
 
 
@@ -195,8 +195,8 @@ static void if_nhg_dependents_release(struct interface *ifp)
 		struct nhg_connected *rb_node_dep = NULL;
 		struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
-		RB_FOREACH (rb_node_dep, nhg_connected_head,
-			    &zif->nhg_dependents) {
+		frr_each (nhg_connected_tree, &zif->nhg_dependents,
+			  rb_node_dep) {
 			rb_node_dep->nhe->ifp = NULL;
 			zebra_nhg_set_invalid(rb_node_dep->nhe);
 		}
@@ -962,7 +962,7 @@ void if_nhg_dependents_add(struct interface *ifp, struct nhg_hash_entry *nhe)
 	if (ifp->info) {
 		struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
-		nhg_connected_head_add(&zif->nhg_dependents, nhe);
+		nhg_connected_tree_add_nhe(&zif->nhg_dependents, nhe);
 	}
 }
 
@@ -971,7 +971,7 @@ void if_nhg_dependents_del(struct interface *ifp, struct nhg_hash_entry *nhe)
 	if (ifp->info) {
 		struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
-		nhg_connected_head_del(&zif->nhg_dependents, nhe);
+		nhg_connected_tree_del_nhe(&zif->nhg_dependents, nhe);
 	}
 }
 
@@ -980,7 +980,7 @@ unsigned int if_nhg_dependents_count(const struct interface *ifp)
 	if (ifp->info) {
 		struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
-		return nhg_connected_head_count(&zif->nhg_dependents);
+		return nhg_connected_tree_count(&zif->nhg_dependents);
 	}
 
 	return 0;
@@ -992,7 +992,7 @@ bool if_nhg_dependents_is_empty(const struct interface *ifp)
 	if (ifp->info) {
 		struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
-		return nhg_connected_head_is_empty(&zif->nhg_dependents);
+		return nhg_connected_tree_is_empty(&zif->nhg_dependents);
 	}
 
 	return false;
@@ -1004,8 +1004,8 @@ static void if_down_nhg_dependents(const struct interface *ifp)
 		struct nhg_connected *rb_node_dep = NULL;
 		struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
-		RB_FOREACH (rb_node_dep, nhg_connected_head,
-			    &zif->nhg_dependents) {
+		frr_each (nhg_connected_tree, &zif->nhg_dependents,
+			  rb_node_dep) {
 			zebra_nhg_set_invalid(rb_node_dep->nhe);
 		}
 	}
