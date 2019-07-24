@@ -117,6 +117,10 @@ static void pm_session_write_config_walker(struct hash_bucket *b, void *data)
 	    || pm->retries_consecutive_up != PM_PACKET_RETRIES_CONSECUTIVE_UP_DEFAULT)
 		vty_out(vty, "  retries up-count %u down-count %u\n",
 			pm->retries_consecutive_up, pm->retries_consecutive_down);
+	if (pm->retries_threshold != PM_PACKET_RETRIES_THRESHOLD_DEFAULT
+	    || pm->retries_total != PM_PACKET_RETRIES_TOTAL_DEFAULT)
+		vty_out(vty, "  retries threshold %u total %u\n",
+			pm->retries_threshold, pm->retries_total);
 
 	if (pm->flags & PM_SESS_FLAG_SHUTDOWN)
 		vty_out(vty, "  shutdown\n");
@@ -313,6 +317,45 @@ DEFPY(pm_packet_timeout, pm_packet_timeout_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(pm_packet_threshold, pm_packet_threshold_cmd,
+      "[no] retries [threshold (1-255)$threshold] [total (1-255)$total]",
+      NO_STR
+      "Configure retries before considering peer as reachable\n"
+      "Number of successfull pings among <total> to consider peer as reachable\n"
+      "Number of successfull pings (default 5)\n"
+      "Total Number of pings performed\n"
+      "Total Number of pings performed (default 10)\n")
+{
+	struct pm_session *pm;
+	int local_total;
+
+	pm = VTY_GET_CONTEXT(pm_session);
+
+	if (no) {
+		pm->retries_threshold = PM_PACKET_RETRIES_THRESHOLD_DEFAULT;
+		pm->retries_total = PM_PACKET_RETRIES_TOTAL_DEFAULT;
+	} else {
+		if (total)
+			local_total = total;
+		else
+			local_total = pm->retries_total;
+		if (threshold && threshold > local_total) {
+			vty_out(vty, "%% Invalid threshold value %d greater than total value %d\n",
+				(int)threshold, (int)local_total);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		/* force retries consecutive to be invalidated */
+		pm->retries_consecutive_up = PM_PACKET_RETRIES_CONSECUTIVE_UP_DEFAULT;
+		pm->retries_consecutive_down = PM_PACKET_RETRIES_CONSECUTIVE_DOWN_DEFAULT;
+		if (threshold)
+			pm->retries_threshold = threshold;
+		if (total)
+			pm->retries_total = total;
+		pm_try_run(vty, pm);
+	}
+	return CMD_SUCCESS;
+}
+
 DEFPY(pm_packet_retries, pm_packet_retries_cmd,
       "[no] retries [up-count (1-255)$retriesup] [down-count (1-255)$retriesdown]",
       NO_STR
@@ -330,6 +373,9 @@ DEFPY(pm_packet_retries, pm_packet_retries_cmd,
 		pm->retries_consecutive_up = PM_PACKET_RETRIES_CONSECUTIVE_UP_DEFAULT;
 		pm->retries_consecutive_down = PM_PACKET_RETRIES_CONSECUTIVE_DOWN_DEFAULT;
 	} else {
+		/* force retries threshold to be invalidated */
+		pm->retries_threshold = 0;
+		pm->retries_total = 0;
 		if (retriesup)
 			pm->retries_consecutive_up = retriesup;
 		if (retriesdown)
@@ -458,6 +504,10 @@ static struct json_object *__display_session_json(struct pm_session *pm,
 			    pm->retries_consecutive_up);
 	json_object_int_add(jo, "retries_down",
 			    pm->retries_consecutive_down);
+	json_object_int_add(jo, "retries_threshold",
+			    pm->retries_threshold);
+	json_object_int_add(jo, "retries_total",
+			    pm->retries_total);
 	json_object_int_add(jo, "tos_val",
 			    pm->tos_val);
 	json_object_int_add(jo, "packet-size",
@@ -510,6 +560,8 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 		pm->tos_val, pm->packet_size);
 	vty_out(vty, ", interval %u, timeout %u\n",
 		pm->interval, pm->timeout);
+	vty_out(vty, "\tretries threshold %u total %u\n",
+		pm->retries_threshold, pm->retries_total);
 	vty_out(vty, "\tretries up-count %u down-count %u\n",
 		pm->retries_consecutive_up, pm->retries_consecutive_down);
 	hook_call(pm_tracking_display, pm, vty, NULL);
@@ -647,6 +699,7 @@ void pm_vty_init(void)
 	install_element(PM_SESSION_NODE, &pm_packet_timeout_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_interval_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_retries_cmd);
+	install_element(PM_SESSION_NODE, &pm_packet_threshold_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_size_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_tos_cmd);
 }

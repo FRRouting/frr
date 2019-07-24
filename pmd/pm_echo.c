@@ -78,6 +78,81 @@ static void _pm_echo_remove(struct pm_echo *pme)
 	XFREE(MTYPE_PM_ECHO, pme);
 }
 
+static void pm_reset_retries(struct pm_echo *pme)
+{
+	pme->retry.retry_count = 0;
+	pme->retry.retry_up_in_progress = false;
+	pme->retry.retry_down_in_progress = false;
+}
+
+static void pm_check_retries_common(struct pm_echo *pme)
+{
+	if (pme->retry.retry_already_counted)
+		pme->retry.retry_already_counted = false;
+	else {
+		pme->retry.retry_already_counted = true;
+		pme->retry.retry_count++;
+	}
+}
+
+static bool pm_check_retries_threshold(struct pm_echo *pme, bool retry_up)
+{
+	bool ret = false;
+
+	if (pme->retries_threshold == 0 || pme->retries_total == 0)
+		return ret;
+	pm_check_retries_common(pme);
+	/* if table is overriden, update the numbef of successful
+	 * pings in global couter
+	 */
+	if (pme->retry.retry_table[pme->retry.retry_table_iterator] !=
+	    PM_ECHO_RETRY_INIT)
+		pme->retry.retry_table_count_good -=
+			pme->retry.retry_table[pme->retry.retry_table_iterator];
+	/* according to result, update global counter, and table
+	 * also increments iterator
+	 */
+	if (retry_up) {
+		pme->retry.retry_table_count_good++;
+		pme->retry.retry_table[pme->retry.retry_table_iterator++] =
+			PM_ECHO_RETRY_SUCCESSFULL;
+	} else {
+		pme->retry.retry_table[pme->retry.retry_table_iterator++] =
+			PM_ECHO_RETRY_NOK;
+	}
+	/* handle case wrapping occurs because of total value reached */
+	if (pme->retry.retry_table_iterator == pme->retries_total)
+		pme->retry.retry_table_iterator = 0;
+
+	if (pme->retry.retry_table_count_good >= pme->retries_threshold) {
+		THREAD_OFF(pme->t_echo_tmo);
+		ret = false;
+		if (pm_debug_echo)
+			zlog_debug("%s: %d / %d, threshold",
+				   __func__, pme->retry.retry_table_count_good,
+				   pme->retries_threshold);
+		if (retry_up)
+			return ret;
+		/* even when timeout or packet did not arrive in time,
+		 * the session is still up. do not change status
+		 */
+		return true;
+	}
+	/* the number of successful pings is below the limit */
+	ret = false;
+	THREAD_OFF(pme->t_echo_tmo);
+	if (pm_debug_echo)
+		zlog_debug("%s: %d / %d, threshold is not reached",
+				   __func__, pme->retry.retry_table_count_good,
+				   pme->retries_threshold);
+	if (!retry_up)
+		return ret;
+	/* even when success,
+	 * the session is still down. do not change status
+	 */
+	return true;
+}
+
 static bool pm_check_retries_consecutive(struct pm_echo *pme, uint8_t counter,
 					bool retry_up)
 {
@@ -105,12 +180,7 @@ static bool pm_check_retries_consecutive(struct pm_echo *pme, uint8_t counter,
 			pme->retry.retry_down_in_progress = true;
 		}
 	}
-	if (pme->retry.retry_already_counted)
-		pme->retry.retry_already_counted = false;
-	else {
-		pme->retry.retry_already_counted = true;
-		pme->retry.retry_count++;
-	}
+	pm_check_retries_common(pme);
 	/* check down or up context */
 	if (pme->retry.retry_count < counter) {
 		THREAD_OFF(pme->t_echo_tmo);
@@ -135,10 +205,10 @@ int pm_echo_tmo(struct thread *thread)
 	pme->stats_rx_timeout++;
 	if (pm_check_retries_consecutive(pme, pme->retries_consecutive_down, false))
 		return 0;
+	if (pm_check_retries_threshold(pme, false))
+		return 0;
 	/* reset pme retries context */
-	pme->retry.retry_count = 0;
-	pme->retry.retry_down_in_progress = false;
-	pme->retry.retry_up_in_progress = false;
+	pm_reset_retries(pme);
 	pm_echo_trigger_down_event(pm);
 	return 0;
 }
@@ -298,10 +368,14 @@ int pm_echo_receive(struct thread *thread)
 			pme->stats_rx_timeout++;
 		if (pm_check_retries_consecutive(pme, pme->retries_consecutive_down, false))
 			return 0;
+		if (pm_check_retries_threshold(pme, false))
+			return 0;
 		pm_echo_trigger_down_event(pm);
 		return 0;
 	}
 	if (pm_check_retries_consecutive(pme, pme->retries_consecutive_up, true))
+		return 0;
+	if (pm_check_retries_threshold(pme, true))
 		return 0;
 	if (pme->last_alarm != PM_ECHO_OK) {
 		zlog_info("echo packet to %s OK",
@@ -311,9 +385,7 @@ int pm_echo_receive(struct thread *thread)
 	pme->last_alarm = PM_ECHO_OK;
 	pme->oper_receive = true;
 	/* reset pme retries contexts */
-	pme->retry.retry_count = 0;
-	pme->retry.retry_up_in_progress = false;
-	pme->retry.retry_down_in_progress = false;
+	pm_reset_retries(pme);
 	THREAD_OFF(pme->t_echo_tmo);
 	return 0;
 }
@@ -725,6 +797,7 @@ int pm_echo(struct pm_session *pm, char *errormsg, int errormsg_len)
 	struct pm_echo pme;
 	struct pm_echo *pme_ptr;
 	union sockunion peer, gw;
+	int i;
 
 	pm_initialise(pm, true, errormsg, errormsg_len);
 	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_VALIDATE))
@@ -748,6 +821,15 @@ int pm_echo(struct pm_session *pm, char *errormsg, int errormsg_len)
 	pme_ptr->peer = peer;
 	pme_ptr->retries_consecutive_up = pm->retries_consecutive_up;
 	pme_ptr->retries_consecutive_down = pm->retries_consecutive_down;
+	pme_ptr->retries_threshold = pm->retries_threshold;
+	pme_ptr->retries_total = pm->retries_total;
+	pm_reset_retries(pme_ptr);
+	if (pme_ptr->retries_threshold || pme_ptr->retries_total) {
+		for (i = 0; i < PM_ECHO_MAX_RETRY_COUNT; i++)
+			pme_ptr->retry.retry_table[i] = PM_ECHO_RETRY_INIT;
+		pme_ptr->retry.retry_table_count_good = 0;
+		pme_ptr->retry.retry_table_iterator = 0;
+	}
 	pme_ptr->rtt_stats = pm_rtt_allocate_ctx();
 	pme_ptr->gw = gw;
 	pme_ptr->oper_connect = false;
