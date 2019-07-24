@@ -1894,7 +1894,7 @@ DEFUNSH(VTYSH_BGPD, rpki_quit, rpki_quit_cmd, "quit",
 	return rpki_exit(self, vty, argc, argv);
 }
 
-DEFUNSH(VTYSH_PIMD|VTYSH_ZEBRA, exit_vrf_config, exit_vrf_config_cmd, "exit-vrf",
+DEFUNSH(VTYSH_VRF, exit_vrf_config, exit_vrf_config_cmd, "exit-vrf",
 	"Exit from VRF configuration mode\n")
 {
 	if (vty->node == VRF_NODE)
