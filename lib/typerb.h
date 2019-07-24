@@ -38,30 +38,30 @@ struct typed_rb_root {
 	size_t count;
 };
 
-struct typed_rb_entry *typed_rb_insert(struct typed_rb_root *,
+struct typed_rb_entry *typed_rb_insert(struct typed_rb_root *rbt,
 		struct typed_rb_entry *rbe,
 		int (*cmpfn)(
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b));
-struct typed_rb_entry *typed_rb_remove(struct typed_rb_root *,
+struct typed_rb_entry *typed_rb_remove(struct typed_rb_root *rbt,
 				       struct typed_rb_entry *rbe);
-struct typed_rb_entry *typed_rb_find(struct typed_rb_root *,
+struct typed_rb_entry *typed_rb_find(struct typed_rb_root *rbt,
 		const struct typed_rb_entry *rbe,
 		int (*cmpfn)(
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b));
-struct typed_rb_entry *typed_rb_find_gteq(struct typed_rb_root *,
+struct typed_rb_entry *typed_rb_find_gteq(struct typed_rb_root *rbt,
 		const struct typed_rb_entry *rbe,
 		int (*cmpfn)(
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b));
-struct typed_rb_entry *typed_rb_find_lt(struct typed_rb_root *,
+struct typed_rb_entry *typed_rb_find_lt(struct typed_rb_root *rbt,
 		const struct typed_rb_entry *rbe,
 		int (*cmpfn)(
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b));
-struct typed_rb_entry *typed_rb_min(struct typed_rb_root *);
-struct typed_rb_entry *typed_rb_next(struct typed_rb_entry *);
+struct typed_rb_entry *typed_rb_min(struct typed_rb_root *rbt);
+struct typed_rb_entry *typed_rb_next(struct typed_rb_entry *rbe);
 
 #define _PREDECL_RBTREE(prefix)                                                \
 struct prefix ## _head { struct typed_rb_root rr; };                           \
