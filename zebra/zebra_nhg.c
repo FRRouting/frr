@@ -781,6 +781,8 @@ zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 	if (!zebra_nhg_find(&nhe, id, nhg, &nhg_depends, nhg_vrf_id, nhg_afi,
 			    false))
 		depends_decrement_free(&nhg_depends);
+	else if (CHECK_FLAG(nhg->nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+		SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE);
 
 	return nhe;
 }
