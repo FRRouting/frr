@@ -78,11 +78,14 @@ static void _pm_echo_remove(struct pm_echo *pme)
 	XFREE(MTYPE_PM_ECHO, pme);
 }
 
-static bool pm_check_retries(struct pm_echo *pme, uint8_t counter,
-			     bool retry_up)
+static bool pm_check_retries_consecutive(struct pm_echo *pme, uint8_t counter,
+					bool retry_up)
 {
 	struct pm_session *pm = (struct pm_session *)pme->back_ptr;
 
+	/* retry disabled - counter set to 0 - */
+	if (!counter)
+		return false;
 	/* if status is already down and check is for down
 	 * or if status is already up and check is for up
 	 * then do not increment
@@ -130,7 +133,7 @@ int pm_echo_tmo(struct thread *thread)
 		return 0;
 	}
 	pme->stats_rx_timeout++;
-	if (pm_check_retries(pme, pme->retries_down, false))
+	if (pm_check_retries_consecutive(pme, pme->retries_consecutive_down, false))
 		return 0;
 	/* reset pme retries context */
 	pme->retry.retry_count = 0;
@@ -293,12 +296,12 @@ int pm_echo_receive(struct thread *thread)
 	     (pme->last_rtt.tv_usec > 0))) {
 		if (!pme->oper_receive)
 			pme->stats_rx_timeout++;
-		if (pm_check_retries(pme, pme->retries_down, false))
+		if (pm_check_retries_consecutive(pme, pme->retries_consecutive_down, false))
 			return 0;
 		pm_echo_trigger_down_event(pm);
 		return 0;
 	}
-	if (pm_check_retries(pme, pme->retries_up, true))
+	if (pm_check_retries_consecutive(pme, pme->retries_consecutive_up, true))
 		return 0;
 	if (pme->last_alarm != PM_ECHO_OK) {
 		zlog_info("echo packet to %s OK",
@@ -743,8 +746,8 @@ int pm_echo(struct pm_session *pm, char *errormsg, int errormsg_len)
 	pme_ptr->interval = pm->interval;
 	pme_ptr->packet_size = pm->packet_size;
 	pme_ptr->peer = peer;
-	pme_ptr->retries_up = pm->retries_up;
-	pme_ptr->retries_down = pm->retries_down;
+	pme_ptr->retries_consecutive_up = pm->retries_consecutive_up;
+	pme_ptr->retries_consecutive_down = pm->retries_consecutive_down;
 	pme_ptr->rtt_stats = pm_rtt_allocate_ctx();
 	pme_ptr->gw = gw;
 	pme_ptr->oper_connect = false;

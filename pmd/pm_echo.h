@@ -64,8 +64,8 @@ struct pm_echo {
 	int timeout;
 	int interval;
 	int packet_size;
-	uint8_t retries_up;
-	uint8_t retries_down;
+	uint8_t retries_consecutive_up;
+	uint8_t retries_consecutive_down;
 
 	union sockunion peer;
 	union sockunion gw;

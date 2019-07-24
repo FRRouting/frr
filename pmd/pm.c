@@ -302,8 +302,8 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 		pm->interval = PM_INTERVAL_DEFAULT;
 		pm->packet_size = pm_get_default_packet_size(pm);
 		pm->tos_val = PM_PACKET_TOS_DEFAULT;
-		pm->retries_up = PM_PACKET_RETRIES_UP_DEFAULT;
-		pm->retries_down = PM_PACKET_RETRIES_DOWN_DEFAULT;
+		pm->retries_consecutive_up = PM_PACKET_RETRIES_CONSECUTIVE_UP_DEFAULT;
+		pm->retries_consecutive_down = PM_PACKET_RETRIES_CONSECUTIVE_DOWN_DEFAULT;
 	}
 
 	/* check if consistent */

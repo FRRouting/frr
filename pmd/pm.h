@@ -63,10 +63,10 @@ struct pm_session {
 	int interval;
 #define PM_PACKET_TOS_DEFAULT PM_DEF_TOS_VAL
 	uint8_t tos_val;
-#define PM_PACKET_RETRIES_DOWN_DEFAULT 1
-	uint8_t retries_down;
-#define PM_PACKET_RETRIES_UP_DEFAULT 1
-	uint8_t retries_up;
+#define PM_PACKET_RETRIES_CONSECUTIVE_DOWN_DEFAULT 0
+	uint8_t retries_consecutive_down;
+#define PM_PACKET_RETRIES_CONSECUTIVE_UP_DEFAULT 0
+	uint8_t retries_consecutive_up;
 #define PM_TIMEOUT_DEFAULT PM_DEF_TIMEOUT
 	int timeout;
 
