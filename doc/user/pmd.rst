@@ -104,6 +104,11 @@ Session Configurations
    received in time. That value can not be greater than
    interval value. Default value is set to 5000 ms.
 
+.. index:: [no] retries mode <consecutive|threshold>
+.. clicmd:: [no] retries mode <consecutive|threshold>
+
+   Chooses the retry mode between threshold and consecutive
+   retries algorithms. Default mode is threshold mode.
 
 .. index:: [no] retries down-count (1-255) up-count (1-255)
 .. clicmd:: [no] retries down-count (1-255) up-count (1-255)
@@ -114,8 +119,16 @@ Session Configurations
    However, it is possible to make more flexible the flip-
    flap algorithm by increasing the retry timers. Those timers
    permit to consider the session to go up or down, only after
-   a defined amount of received or non received retries.
+   a defined amount of successive received or non received
+   retries. The retry timers are unset by default.
 
+.. index:: [no] retries threshold (1-255) total (1-255)
+.. clicmd:: [no] retries threshold (1-255) total (1-255)
+
+   The decision to consider a session alive can be based on a
+   series of pings. If a certain number of those pings is
+   successful, then session is considered as up. By default,
+   a threshold of 5 success pings out of 10 trials is setup.
 
 .. index:: [no] shutdown
 .. clicmd:: [no] shutdown
