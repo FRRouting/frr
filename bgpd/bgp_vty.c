@@ -7287,6 +7287,9 @@ DEFUN (clear_ip_bgp_all,
 	} else if (argv_find(argv, argc, "PGNAME", &idx)) {
 		clr_sort = clear_peer;
 		clr_arg = argv[idx]->arg;
+	} else if (argv_find(argv, argc, "WORD", &idx)) {
+		clr_sort = clear_peer;
+		clr_arg = argv[idx]->arg;
 	} else if (argv_find(argv, argc, "(1-4294967295)", &idx)) {
 		clr_sort = clear_as;
 		clr_arg = argv[idx]->arg;
