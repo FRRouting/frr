@@ -113,6 +113,8 @@ static void pm_session_write_config_walker(struct hash_bucket *b, void *data)
 		vty_out(vty, "  packet-size %u\n", pm->packet_size);
 	if (pm->timeout != PM_TIMEOUT_DEFAULT)
 		vty_out(vty, "  timeout %u\n", pm->timeout);
+	if (pm->retries_mode != PM_RETRIES_MODE_THRESHOLD)
+		vty_out(vty, "  retries mode consecutive\n");
 	if (pm->retries_consecutive_down != PM_PACKET_RETRIES_CONSECUTIVE_DOWN_DEFAULT
 	    || pm->retries_consecutive_up != PM_PACKET_RETRIES_CONSECUTIVE_UP_DEFAULT)
 		vty_out(vty, "  retries up-count %u down-count %u\n",
@@ -344,15 +346,38 @@ DEFPY(pm_packet_threshold, pm_packet_threshold_cmd,
 				(int)threshold, (int)local_total);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		/* force retries consecutive to be invalidated */
-		pm->retries_consecutive_up = PM_PACKET_RETRIES_CONSECUTIVE_UP_DEFAULT;
-		pm->retries_consecutive_down = PM_PACKET_RETRIES_CONSECUTIVE_DOWN_DEFAULT;
 		if (threshold)
 			pm->retries_threshold = threshold;
 		if (total)
 			pm->retries_total = total;
-		pm_try_run(vty, pm);
 	}
+	if (pm->retries_mode == PM_RETRIES_MODE_THRESHOLD)
+		pm_try_run(vty, pm);
+	return CMD_SUCCESS;
+}
+
+DEFPY(pm_packet_retries_mode, pm_packet_retries_mode_cmd,
+      "[no] retries mode <consecutive|threshold>$retries_mode_str",
+      NO_STR
+      "Configure retry model\n"
+      "Operating mode\n"
+      "Retry based on consecutive retries\n"
+      "Retry based on a threshold\n")
+{
+	struct pm_session *pm;
+	uint8_t retries_mode;
+
+	pm = VTY_GET_CONTEXT(pm_session);
+	if (no)
+		retries_mode = PM_RETRIES_MODE_THRESHOLD;
+	else if (!strcmp(retries_mode_str, "consecutive"))
+		retries_mode = PM_RETRIES_MODE_CONSECUTIVE;
+	else
+		retries_mode = PM_RETRIES_MODE_THRESHOLD;
+	if (pm->retries_mode == retries_mode)
+		return CMD_SUCCESS;
+	pm->retries_mode = retries_mode;
+	pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
 
@@ -373,15 +398,13 @@ DEFPY(pm_packet_retries, pm_packet_retries_cmd,
 		pm->retries_consecutive_up = PM_PACKET_RETRIES_CONSECUTIVE_UP_DEFAULT;
 		pm->retries_consecutive_down = PM_PACKET_RETRIES_CONSECUTIVE_DOWN_DEFAULT;
 	} else {
-		/* force retries threshold to be invalidated */
-		pm->retries_threshold = 0;
-		pm->retries_total = 0;
 		if (retriesup)
 			pm->retries_consecutive_up = retriesup;
 		if (retriesdown)
 			pm->retries_consecutive_down = retriesdown;
-		pm_try_run(vty, pm);
 	}
+	if (pm->retries_mode == PM_RETRIES_MODE_CONSECUTIVE)
+		pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
 
@@ -508,6 +531,9 @@ static struct json_object *__display_session_json(struct pm_session *pm,
 			    pm->retries_threshold);
 	json_object_int_add(jo, "retries_total",
 			    pm->retries_total);
+	json_object_string_add(jo, "retries_mode",
+			       pm->retries_mode == PM_RETRIES_MODE_THRESHOLD ?
+			       "threshold" : "consecutive");
 	json_object_int_add(jo, "tos_val",
 			    pm->tos_val);
 	json_object_int_add(jo, "packet-size",
@@ -560,6 +586,9 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 		pm->tos_val, pm->packet_size);
 	vty_out(vty, ", interval %u, timeout %u\n",
 		pm->interval, pm->timeout);
+	vty_out(vty, "\tretries mode %s\n",
+		pm->retries_mode == PM_RETRIES_MODE_THRESHOLD ?
+		"threshold" : "consecutive");
 	vty_out(vty, "\tretries threshold %u total %u\n",
 		pm->retries_threshold, pm->retries_total);
 	vty_out(vty, "\tretries up-count %u down-count %u\n",
@@ -700,6 +729,7 @@ void pm_vty_init(void)
 	install_element(PM_SESSION_NODE, &pm_packet_interval_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_retries_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_threshold_cmd);
+	install_element(PM_SESSION_NODE, &pm_packet_retries_mode_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_size_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_tos_cmd);
 }

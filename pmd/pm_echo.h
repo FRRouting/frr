@@ -39,7 +39,7 @@ struct pm_echo_retry {
 	int  retry_table_iterator;
 	int  retry_table_count_good;
 #define PM_ECHO_RETRY_NOK         0
-#define PM_ECHO_RETRY_SUCCESSFULL 1
+#define PM_ECHO_RETRY_SUCCESSFUL  1
 #define PM_ECHO_RETRY_INIT        2
 #define PM_ECHO_MAX_RETRY_COUNT   255
 	uint8_t retry_table[PM_ECHO_MAX_RETRY_COUNT];
@@ -71,6 +71,7 @@ struct pm_echo {
 	int timeout;
 	int interval;
 	int packet_size;
+	uint8_t retries_mode;
 	uint8_t retries_consecutive_up;
 	uint8_t retries_consecutive_down;
 	uint8_t retries_threshold;

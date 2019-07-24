@@ -306,6 +306,7 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 		pm->retries_consecutive_down = PM_PACKET_RETRIES_CONSECUTIVE_DOWN_DEFAULT;
 		pm->retries_threshold = PM_PACKET_RETRIES_THRESHOLD_DEFAULT;
 		pm->retries_total = PM_PACKET_RETRIES_TOTAL_DEFAULT;
+		pm->retries_mode = PM_RETRIES_MODE_THRESHOLD;
 	}
 
 	/* check if consistent */

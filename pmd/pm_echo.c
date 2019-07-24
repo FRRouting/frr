@@ -99,10 +99,10 @@ static bool pm_check_retries_threshold(struct pm_echo *pme, bool retry_up)
 {
 	bool ret = false;
 
-	if (pme->retries_threshold == 0 || pme->retries_total == 0)
-		return ret;
+	if (pme->retries_mode != PM_RETRIES_MODE_THRESHOLD)
+		return false;
 	pm_check_retries_common(pme);
-	/* if table is overriden, update the numbef of successful
+	/* if table is overriden, update the number of successful
 	 * pings in global couter
 	 */
 	if (pme->retry.retry_table[pme->retry.retry_table_iterator] !=
@@ -115,7 +115,7 @@ static bool pm_check_retries_threshold(struct pm_echo *pme, bool retry_up)
 	if (retry_up) {
 		pme->retry.retry_table_count_good++;
 		pme->retry.retry_table[pme->retry.retry_table_iterator++] =
-			PM_ECHO_RETRY_SUCCESSFULL;
+			PM_ECHO_RETRY_SUCCESSFUL;
 	} else {
 		pme->retry.retry_table[pme->retry.retry_table_iterator++] =
 			PM_ECHO_RETRY_NOK;
@@ -158,8 +158,7 @@ static bool pm_check_retries_consecutive(struct pm_echo *pme, uint8_t counter,
 {
 	struct pm_session *pm = (struct pm_session *)pme->back_ptr;
 
-	/* retry disabled - counter set to 0 - */
-	if (!counter)
+	if (pme->retries_mode != PM_RETRIES_MODE_CONSECUTIVE)
 		return false;
 	/* if status is already down and check is for down
 	 * or if status is already up and check is for up
@@ -819,6 +818,7 @@ int pm_echo(struct pm_session *pm, char *errormsg, int errormsg_len)
 	pme_ptr->interval = pm->interval;
 	pme_ptr->packet_size = pm->packet_size;
 	pme_ptr->peer = peer;
+	pme_ptr->retries_mode = pm->retries_mode;
 	pme_ptr->retries_consecutive_up = pm->retries_consecutive_up;
 	pme_ptr->retries_consecutive_down = pm->retries_consecutive_down;
 	pme_ptr->retries_threshold = pm->retries_threshold;

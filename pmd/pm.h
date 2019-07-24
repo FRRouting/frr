@@ -63,9 +63,12 @@ struct pm_session {
 	int interval;
 #define PM_PACKET_TOS_DEFAULT PM_DEF_TOS_VAL
 	uint8_t tos_val;
-#define PM_PACKET_RETRIES_CONSECUTIVE_DOWN_DEFAULT 0
+#define PM_RETRIES_MODE_CONSECUTIVE 1
+#define PM_RETRIES_MODE_THRESHOLD   2
+	uint8_t retries_mode;
+#define PM_PACKET_RETRIES_CONSECUTIVE_DOWN_DEFAULT 1
 	uint8_t retries_consecutive_down;
-#define PM_PACKET_RETRIES_CONSECUTIVE_UP_DEFAULT 0
+#define PM_PACKET_RETRIES_CONSECUTIVE_UP_DEFAULT 1
 	uint8_t retries_consecutive_up;
 #define PM_PACKET_RETRIES_THRESHOLD_DEFAULT 5
 	uint8_t retries_threshold;
