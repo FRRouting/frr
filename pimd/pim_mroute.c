@@ -190,8 +190,6 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	sg.grp = msg->im_dst;
 
 	if (!(PIM_I_am_DR(pim_ifp))) {
-		struct channel_oil *c_oil;
-
 		if (PIM_DEBUG_MROUTE_DETAIL)
 			zlog_debug("%s: Interface is not the DR blackholing incoming traffic for %s",
 				   __PRETTY_FUNCTION__, pim_str_sg_dump(&sg));
@@ -206,10 +204,10 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 		 * that I see no way to get rid of.  Just noting
 		 * this for future reference.
 		 */
-		c_oil = pim_channel_oil_add(pim_ifp->pim, &sg,
-					    pim_ifp->mroute_vif_index,
-					    __PRETTY_FUNCTION__);
-		pim_mroute_add(c_oil, __PRETTY_FUNCTION__);
+		up = pim_upstream_find_or_add(
+			&sg, ifp, PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE,
+			__PRETTY_FUNCTION__);
+		pim_mroute_add(up->channel_oil, __PRETTY_FUNCTION__);
 
 		return 0;
 	}
@@ -238,7 +236,8 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 		vif_index = pim_if_find_vifindex_by_ifindex(
 			pim_ifp->pim,
 			up->rpf.source_nexthop.interface->ifindex);
-		up->channel_oil->oil.mfcc_parent = vif_index;
+		pim_channel_oil_change_iif(pim_ifp->pim, up->channel_oil,
+					   vif_index, __PRETTY_FUNCTION__);
 	}
 	pim_register_join(up);
 
@@ -453,7 +452,6 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 	struct pim_upstream *up;
 	struct prefix_sg star_g;
 	struct prefix_sg sg;
-	struct channel_oil *oil;
 
 	pim_ifp = ifp->info;
 
@@ -517,11 +515,7 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 						       up->upstream_register);
 				up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
 			}
-			if (!up->channel_oil)
-				up->channel_oil = pim_channel_oil_add(
-					pim_ifp->pim, &sg,
-					pim_ifp->mroute_vif_index,
-					__PRETTY_FUNCTION__);
+
 			pim_upstream_inherited_olist(pim_ifp->pim, up);
 			if (!up->channel_oil->installed)
 				pim_mroute_add(up->channel_oil,
@@ -546,10 +540,6 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 	}
 
 	pim_ifp = ifp->info;
-	oil = pim_channel_oil_add(pim_ifp->pim, &sg, pim_ifp->mroute_vif_index,
-				  __PRETTY_FUNCTION__);
-	if (!oil->installed)
-		pim_mroute_add(oil, __PRETTY_FUNCTION__);
 	if (pim_if_connected_to_source(ifp, sg.src)) {
 		up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
 				      PIM_UPSTREAM_FLAG_MASK_FHR,
@@ -564,13 +554,18 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 		PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 		pim_upstream_keep_alive_timer_start(
 			up, pim_ifp->pim->keep_alive_time);
-		up->channel_oil = oil;
 		up->channel_oil->cc.pktcnt++;
 		pim_register_join(up);
 		pim_upstream_inherited_olist(pim_ifp->pim, up);
 
 		// Send the packet to the RP
 		pim_mroute_msg_wholepkt(fd, ifp, buf);
+	} else {
+		up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
+				      PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE,
+				      __PRETTY_FUNCTION__, NULL);
+		if (!up->channel_oil->installed)
+			pim_mroute_add(up->channel_oil, __PRETTY_FUNCTION__);
 	}
 
 	return 0;

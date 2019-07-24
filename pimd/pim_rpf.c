@@ -307,11 +307,11 @@ void pim_upstream_rpf_clear(struct pim_instance *pim,
 			    struct pim_upstream *up)
 {
 	if (up->rpf.source_nexthop.interface) {
-		if (up->channel_oil) {
-			up->channel_oil->oil.mfcc_parent = MAXVIFS;
-			pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
+		if (up->channel_oil)
+			pim_channel_oil_change_iif(pim, up->channel_oil,
+						   MAXVIFS,
+						   __PRETTY_FUNCTION__);
 
-		}
 		pim_upstream_switch(pim, up, PIM_UPSTREAM_NOTJOINED);
 		up->rpf.source_nexthop.interface = NULL;
 		up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =

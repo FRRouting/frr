@@ -716,7 +716,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->join_state = PIM_UPSTREAM_NOTJOINED;
 	up->reg_state = PIM_REG_NOINFO;
 	up->state_transition = pim_time_monotonic_sec();
-	up->channel_oil = NULL;
+	up->channel_oil =
+		pim_channel_oil_add(pim, &up->sg, MAXVIFS, __PRETTY_FUNCTION__);
 	up->sptbit = PIM_UPSTREAM_SPTBIT_FALSE;
 
 	up->rpf.source_nexthop.interface = NULL;
@@ -736,52 +737,34 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	if (up->sg.src.s_addr != INADDR_ANY)
 		wheel_add_item(pim->upstream_sg_wheel, up);
 
-	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)) {
+	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)
+	    || PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags)) {
 		pim_upstream_fill_static_iif(up, incoming);
 		pim_ifp = up->rpf.source_nexthop.interface->info;
 		assert(pim_ifp);
-		up->channel_oil = pim_channel_oil_add(pim, &up->sg,
-						      pim_ifp->mroute_vif_index,
-						      __PRETTY_FUNCTION__);
-	} else if (up->upstream_addr.s_addr == INADDR_ANY) {
-		/* Create a dummmy channel oil with incoming ineterface MAXVIFS,
-		 * since RP is not configured
-		 */
-		up->channel_oil = pim_channel_oil_add(pim, &up->sg, MAXVIFS,
-						      __PRETTY_FUNCTION__);
+		pim_channel_oil_change_iif(pim, up->channel_oil,
+					   pim_ifp->mroute_vif_index,
+					   __PRETTY_FUNCTION__);
 
-	} else {
+		if (PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags))
+			pim_upstream_keep_alive_timer_start(
+				up, pim->keep_alive_time);
+	} else if (up->upstream_addr.s_addr != INADDR_ANY) {
 		rpf_result = pim_rpf_update(pim, up, NULL);
 		if (rpf_result == PIM_RPF_FAILURE) {
 			if (PIM_DEBUG_TRACE)
 				zlog_debug(
 					"%s: Attempting to create upstream(%s), Unable to RPF for source",
 					__PRETTY_FUNCTION__, up->sg_str);
-			/* Create a dummmy channel oil with incoming ineterface
-			 * MAXVIFS, since RP is not reachable
-			 */
-			up->channel_oil = pim_channel_oil_add(
-				pim, &up->sg, MAXVIFS, __PRETTY_FUNCTION__);
 		}
 
 		if (up->rpf.source_nexthop.interface) {
 			pim_ifp = up->rpf.source_nexthop.interface->info;
 			if (pim_ifp)
-				up->channel_oil = pim_channel_oil_add(
-					pim, &up->sg, pim_ifp->mroute_vif_index,
+				pim_channel_oil_change_iif(
+					pim, up->channel_oil,
+					pim_ifp->mroute_vif_index,
 					__PRETTY_FUNCTION__);
-			else {
-				/*
-				 * Yeah this should not happen
-				 * but let's be sure that we are not
-				 * doing something stupid, all paths
-				 * through upstream creation will
-				 * create a channel oil
-				 */
-				up->channel_oil = pim_channel_oil_add(
-					pim, &up->sg, MAXVIFS,
-					__PRETTY_FUNCTION__);
-			}
 		}
 	}
 
@@ -1201,6 +1184,13 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 		if (!pim_upstream_del(pim, up, __PRETTY_FUNCTION__))
 			return NULL;
 	}
+	if (PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags)) {
+		PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(up->flags);
+
+		if (!pim_upstream_del(pim, up, __PRETTY_FUNCTION__))
+			return NULL;
+	}
+
 	/* upstream reference would have been added to track the local
 	 * membership if it is LHR. We have to clear it when KAT expires.
 	 * Otherwise would result in stale entry with uncleared ref count.
@@ -1526,22 +1516,14 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 					struct pim_upstream *up)
 {
 	struct interface *ifp;
-	struct pim_interface *pim_ifp = NULL;
 	struct pim_ifchannel *ch, *starch;
 	struct pim_upstream *starup = up->parent;
 	int output_intf = 0;
 
-	if (up->rpf.source_nexthop.interface)
-		pim_ifp = up->rpf.source_nexthop.interface->info;
-	else {
+	if (!up->rpf.source_nexthop.interface)
 		if (PIM_DEBUG_TRACE)
 			zlog_debug("%s: up %s RPF is not present",
 				   __PRETTY_FUNCTION__, up->sg_str);
-	}
-	if (pim_ifp && !up->channel_oil)
-		up->channel_oil = pim_channel_oil_add(pim, &up->sg,
-						      pim_ifp->mroute_vif_index,
-						      __PRETTY_FUNCTION__);
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		if (!ifp->info)
