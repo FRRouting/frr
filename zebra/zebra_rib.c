@@ -519,7 +519,6 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
 	const struct prefix *p, *src_p;
 	enum zebra_dplane_result ret;
-	struct nhg_hash_entry *nhe;
 
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
@@ -549,9 +548,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	/*
 	 * Install the resolved nexthop object first.
 	 */
-	nhe = zebra_nhg_resolve(zebra_nhg_lookup_id(re->nhe_id));
-	if (!nhe->is_kernel_nh)
-		zebra_nhg_install_kernel(nhe);
+	zebra_nhg_install_kernel(zebra_nhg_lookup_id(re->nhe_id));
 
 	/*
 	 * If this is a replace to a new RE let the originator of the RE

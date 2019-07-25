@@ -1475,6 +1475,16 @@ uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe)
 
 void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
 {
+	struct nhg_connected *rb_node_dep = NULL;
+
+	/* Resolve it first */
+	nhe = zebra_nhg_resolve(nhe);
+
+	/* Make sure all depends are installed/queued */
+	frr_each (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
+		zebra_nhg_install_kernel(rb_node_dep->nhe);
+	}
+
 	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)
 	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
 		nhe->is_kernel_nh = false;
