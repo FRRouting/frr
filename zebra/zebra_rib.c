@@ -2769,7 +2769,13 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		}
 	}
 
-	/* Attach the re to the nhe's nexthop group */
+	/*
+	 * Attach the re to the nhe's nexthop group.
+	 *
+	 * TODO: This will need to change when we start getting IDs from upper
+	 * level protocols, as the refcnt might be wrong, since it checks
+	 * if old_id != new_id.
+	 */
 	zebra_nhg_re_update_ref(re, nhe);
 
 	/* Make it sure prefixlen is applied to the prefix. */
