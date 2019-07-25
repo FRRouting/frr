@@ -1398,12 +1398,9 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 
 		nhe = zebra_nhg_lookup_id(re->nhe_id);
 
-		if (nhe) {
+		if (nhe)
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
-			if (!nhe->is_kernel_nh
-			    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
-				zebra_nhg_install_kernel(nhe);
-		} else
+		else
 			flog_err(
 				EC_ZEBRA_TABLE_LOOKUP_FAILED,
 				"Active update on NHE id=%u that we do not have in our tables",
