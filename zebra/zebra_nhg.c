@@ -720,6 +720,7 @@ zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 {
 	struct nhg_hash_entry *nhe = NULL;
 	struct nhg_connected_tree_head nhg_depends = {};
+	bool recursive = false;
 
 	/* Defualt the nhe to the afi and vrf of the route */
 	afi_t nhg_afi = rt_afi;
@@ -747,12 +748,13 @@ zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 		nhg_connected_tree_init(&nhg_depends);
 		handle_recursive_depend(&nhg_depends, nhg->nexthop->resolved,
 					rt_afi);
+		recursive = true;
 	}
 
 	if (!zebra_nhg_find(&nhe, id, nhg, &nhg_depends, nhg_vrf_id, nhg_afi,
 			    false))
 		depends_decrement_free(&nhg_depends);
-	else if (CHECK_FLAG(nhg->nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+	else if (recursive)
 		SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE);
 
 	return nhe;
