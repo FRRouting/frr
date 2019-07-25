@@ -1588,6 +1588,7 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 		case DPLANE_OP_NH_INSTALL:
 		case DPLANE_OP_NH_UPDATE:
 			if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
+				SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 				SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 			} else {
 				flog_err(
