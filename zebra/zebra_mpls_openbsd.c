@@ -369,7 +369,7 @@ static enum zebra_dplane_result kmpw_install(struct zebra_dplane_ctx *ctx)
 
 	/* ioctl */
 	memset(&ifr, 0, sizeof(ifr));
-	strlcpy(ifr.ifr_name, dplane_ctx_get_pw_ifname(ctx),
+	strlcpy(ifr.ifr_name, dplane_ctx_get_ifname(ctx),
 		sizeof(ifr.ifr_name));
 	ifr.ifr_data = (caddr_t)&imr;
 	if (ioctl(kr_state.ioctl_fd, SIOCSETMPWCFG, &ifr) == -1) {
@@ -388,7 +388,7 @@ static enum zebra_dplane_result kmpw_uninstall(struct zebra_dplane_ctx *ctx)
 
 	memset(&ifr, 0, sizeof(ifr));
 	memset(&imr, 0, sizeof(imr));
-	strlcpy(ifr.ifr_name, dplane_ctx_get_pw_ifname(ctx),
+	strlcpy(ifr.ifr_name, dplane_ctx_get_ifname(ctx),
 		sizeof(ifr.ifr_name));
 	ifr.ifr_data = (caddr_t)&imr;
 	if (ioctl(kr_state.ioctl_fd, SIOCSETMPWCFG, &ifr) == -1) {

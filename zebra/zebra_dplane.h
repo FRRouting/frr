@@ -180,6 +180,8 @@ const char *dplane_op2str(enum dplane_op_e op);
 const struct prefix *dplane_ctx_get_dest(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_dest(struct zebra_dplane_ctx *ctx,
 			 const struct prefix *dest);
+const char *dplane_ctx_get_ifname(const struct zebra_dplane_ctx *ctx);
+ifindex_t dplane_ctx_get_ifindex(const struct zebra_dplane_ctx *ctx);
 
 /* Retrieve last/current provider id */
 uint32_t dplane_ctx_get_provider(const struct zebra_dplane_ctx *ctx);
@@ -262,7 +264,6 @@ const zebra_nhlfe_t *dplane_ctx_set_best_nhlfe(struct zebra_dplane_ctx *ctx,
 uint32_t dplane_ctx_get_lsp_num_ecmp(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for pseudowire information */
-const char *dplane_ctx_get_pw_ifname(const struct zebra_dplane_ctx *ctx);
 mpls_label_t dplane_ctx_get_pw_local_label(const struct zebra_dplane_ctx *ctx);
 mpls_label_t dplane_ctx_get_pw_remote_label(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_get_pw_type(const struct zebra_dplane_ctx *ctx);
@@ -277,8 +278,6 @@ const struct nexthop_group *dplane_ctx_get_pw_nhg(
 	const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for interface information */
-const char *dplane_ctx_get_ifname(const struct zebra_dplane_ctx *ctx);
-ifindex_t dplane_ctx_get_ifindex(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_intf_metric(const struct zebra_dplane_ctx *ctx);
 /* Is interface addr p2p? */
 bool dplane_ctx_intf_is_connected(const struct zebra_dplane_ctx *ctx);
