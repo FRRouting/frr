@@ -6,6 +6,9 @@ module frr-route-map {
   import ietf-inet-types {
     prefix inet;
   }
+  import frr-filter {
+    prefix filter;
+  }
 
   organization "Free Range Routing";
   contact
@@ -168,18 +171,14 @@ module frr-route-map {
             when "./condition = 'ipv4-address-list' or
                   ./condition = 'ipv4-next-hop-list'";
             leaf access-list-num {
-              type uint8 {
-                range "1..199";
-              }
+              type filter:access-list-standard;
             }
           }
           case access-list-num-extended {
             when "./condition = 'ipv4-address-list' or
                   ./condition = 'ipv4-next-hop-list'";
             leaf access-list-num-extended {
-              type uint16 {
-                range "1300..2699";
-              }
+              type filter:access-list-extended;
             }
           }
           case list-name {
@@ -190,7 +189,7 @@ module frr-route-map {
                   ./condition = 'ipv6-address-list' or
                   ./condition = 'ipv6-prefix-list'";
             leaf list-name {
-              type string;
+              type filter:access-list-name;
             }
           }
           case ipv6-address {
