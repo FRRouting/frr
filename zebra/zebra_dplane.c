@@ -109,8 +109,6 @@ struct dplane_route_info {
  * Pseudowire info for the dataplane
  */
 struct dplane_pw_info {
-	char ifname[IF_NAMESIZE];
-	ifindex_t ifindex;
 	int type;
 	int af;
 	int status;
@@ -129,9 +127,6 @@ struct dplane_pw_info {
  * Interface/prefix info for the dataplane
  */
 struct dplane_intf_info {
-
-	char ifname[INTERFACE_NAMSIZ];
-	ifindex_t ifindex;
 
 	uint32_t metric;
 	uint32_t flags;
@@ -187,6 +182,9 @@ struct zebra_dplane_ctx {
 
 	vrf_id_t zd_vrf_id;
 	uint32_t zd_table_id;
+
+	char zd_ifname[INTERFACE_NAMSIZ];
+	ifindex_t zd_ifindex;
 
 	/* Support info for different kinds of updates */
 	union {
@@ -744,6 +742,19 @@ void dplane_ctx_set_notif_provider(struct zebra_dplane_ctx *ctx,
 
 	ctx->zd_notif_provider = id;
 }
+const char *dplane_ctx_get_ifname(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->zd_ifname;
+}
+
+ifindex_t dplane_ctx_get_ifindex(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->zd_ifindex;
+}
 
 void dplane_ctx_set_type(struct zebra_dplane_ctx *ctx, int type)
 {
@@ -1030,13 +1041,6 @@ uint32_t dplane_ctx_get_lsp_num_ecmp(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.lsp.num_ecmp;
 }
 
-const char *dplane_ctx_get_pw_ifname(const struct zebra_dplane_ctx *ctx)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	return ctx->u.pw.ifname;
-}
-
 mpls_label_t dplane_ctx_get_pw_local_label(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -1104,20 +1108,6 @@ dplane_ctx_get_pw_nhg(const struct zebra_dplane_ctx *ctx)
 }
 
 /* Accessors for interface information */
-const char *dplane_ctx_get_ifname(const struct zebra_dplane_ctx *ctx)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	return ctx->u.intf.ifname;
-}
-
-ifindex_t dplane_ctx_get_ifindex(const struct zebra_dplane_ctx *ctx)
-{
-	DPLANE_CTX_VALID(ctx);
-
-	return ctx->u.intf.ifindex;
-}
-
 uint32_t dplane_ctx_get_intf_metric(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -1422,10 +1412,10 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 	memset(&ctx->u.pw, 0, sizeof(ctx->u.pw));
 
 	/* This name appears to be c-string, so we use string copy. */
-	strlcpy(ctx->u.pw.ifname, pw->ifname, sizeof(ctx->u.pw.ifname));
+	strlcpy(ctx->zd_ifname, pw->ifname, sizeof(ctx->zd_ifname));
 
 	ctx->zd_vrf_id = pw->vrf_id;
-	ctx->u.pw.ifindex = pw->ifindex;
+	ctx->zd_ifindex = pw->ifindex;
 	ctx->u.pw.type = pw->type;
 	ctx->u.pw.af = pw->af;
 	ctx->u.pw.local_label = pw->local_label;
@@ -1967,8 +1957,8 @@ static enum zebra_dplane_result intf_addr_update_internal(
 	/* Init the interface-addr-specific area */
 	memset(&ctx->u.intf, 0, sizeof(ctx->u.intf));
 
-	strlcpy(ctx->u.intf.ifname, ifp->name, sizeof(ctx->u.intf.ifname));
-	ctx->u.intf.ifindex = ifp->ifindex;
+	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
+	ctx->zd_ifindex = ifp->ifindex;
 	ctx->u.intf.prefix = *(ifc->address);
 
 	if (if_is_broadcast(ifp))
@@ -2374,7 +2364,7 @@ kernel_dplane_pw_update(struct zebra_dplane_ctx *ctx)
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug("Dplane pw %s: op %s af %d loc: %u rem: %u",
-			   dplane_ctx_get_pw_ifname(ctx),
+			   dplane_ctx_get_ifname(ctx),
 			   dplane_op2str(ctx->zd_op),
 			   dplane_ctx_get_pw_af(ctx),
 			   dplane_ctx_get_pw_local_label(ctx),
