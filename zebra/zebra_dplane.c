@@ -1527,17 +1527,16 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 
 #ifdef HAVE_NETLINK
 	if (re->nhe_id && zns->supports_nh) {
-		ctx->u.rinfo.nhe.id = zebra_nhg_get_resolved_id(re->nhe_id);
+		struct nhg_hash_entry *nhe =
+			zebra_nhg_resolve(zebra_nhg_lookup_id(re->nhe_id));
 
+		ctx->u.rinfo.nhe.id = nhe->id;
 		/*
-		 * It checks if the nhe is even installed
-		 * before trying to uninstall it. If the
-		 * nexthop is uninstalled and the kernel
-		 * is using nexthop objects, this route
-		 * has already been uninstalled.
+		 * Check if the nhe is installed/queued before doing anything
+		 * with this route.
 		 */
-		if (!CHECK_FLAG(zebra_nhg_lookup_id(ctx->u.rinfo.nhe.id)->flags,
-				NEXTHOP_GROUP_INSTALLED)) {
+		if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)
+		    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
 			ret = ENOENT;
 			goto done;
 		}
