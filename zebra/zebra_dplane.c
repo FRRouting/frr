@@ -1589,8 +1589,8 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 	/* If its a group, convert it to a grp array of ids */
 	if (!zebra_nhg_depends_is_empty(nhe)
 	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
-		ctx->u.rinfo.nhe.nh_grp_count =
-			zebra_nhg_nhe2grp(ctx->u.rinfo.nhe.nh_grp, nhe);
+		ctx->u.rinfo.nhe.nh_grp_count = zebra_nhg_nhe2grp(
+			ctx->u.rinfo.nhe.nh_grp, nhe, MULTIPATH_NUM);
 
 	zns = ((struct zebra_vrf *)vrf_info_lookup(nhe->vrf_id))->zns;
 

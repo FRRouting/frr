@@ -236,8 +236,8 @@ extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
 extern int zebra_nhg_re_update_ref(struct route_entry *re,
 				   struct nhg_hash_entry *nhe);
 
-extern uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp,
-				 struct nhg_hash_entry *nhe);
+extern uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
+				 int size);
 
 void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe);
 void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe);
