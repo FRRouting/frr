@@ -2383,7 +2383,7 @@ DEFUN (show_pbr_iptable,
 
 DEFPY (clear_evpn_dup_addr,
        clear_evpn_dup_addr_cmd,
-       "clear evpn dup-addr vni <all$vni_all |" CMD_VNI_RANGE"$vni [mac M:A:C$mac_val | ip <A.B.C.D|X:X::X:X>]>",
+       "clear evpn dup-addr vni <all$vni_all |" CMD_VNI_RANGE"$vni [mac X:X:X:X:X:X | ip <A.B.C.D|X:X::X:X>]>",
        CLEAR_STR
        "EVPN\n"
        "Duplicate address \n"
@@ -2398,16 +2398,14 @@ DEFPY (clear_evpn_dup_addr,
 {
 	struct zebra_vrf *zvrf;
 	struct ipaddr host_ip = {.ipa_type = IPADDR_NONE };
-	struct ethaddr mac_addr;
 	int ret = CMD_SUCCESS;
 
 	zvrf = zebra_vrf_get_evpn();
 	if (vni_str) {
-		if (mac_val) {
-			prefix_str2mac(mac_val, &mac_addr);
+		if (mac) {
 			ret = zebra_vxlan_clear_dup_detect_vni_mac(vty, zvrf,
 								   vni,
-								   &mac_addr);
+								   &mac->eth_addr);
 	        } else if (ip) {
 			if (sockunion_family(ip) == AF_INET) {
 				host_ip.ipa_type = IPADDR_V4;
