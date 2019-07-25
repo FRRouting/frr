@@ -1388,7 +1388,6 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 
 	if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)) {
 		struct nhg_hash_entry *new_nhe = NULL;
-		// TODO: Add proto type here
 
 		new_nhe = zebra_nhg_rib_find(0, &new_grp, rt_afi);
 

@@ -1577,6 +1577,7 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->u.rinfo.zd_type = ZEBRA_ROUTE_TABLE;
 
 	/* Copy over nhe info */
 	ctx->u.rinfo.nhe.id = nhe->id;
