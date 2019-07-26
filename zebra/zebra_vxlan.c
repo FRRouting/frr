@@ -3403,6 +3403,39 @@ static int zvni_mac_del(zebra_vni_t *zvni, zebra_mac_t *mac)
 	return 0;
 }
 
+static bool zvni_check_mac_del_from_db(struct mac_walk_ctx *wctx,
+				       zebra_mac_t *mac)
+{
+	if ((wctx->flags & DEL_LOCAL_MAC) &&
+	    (mac->flags & ZEBRA_MAC_LOCAL))
+		return true;
+	else if ((wctx->flags & DEL_REMOTE_MAC) &&
+		 (mac->flags & ZEBRA_MAC_REMOTE))
+		return true;
+	else if ((wctx->flags & DEL_REMOTE_MAC_FROM_VTEP) &&
+		 (mac->flags & ZEBRA_MAC_REMOTE) &&
+		 IPV4_ADDR_SAME(&mac->fwd_info.r_vtep_ip, &wctx->r_vtep_ip))
+		return true;
+	else if ((wctx->flags & DEL_LOCAL_MAC) &&
+		 (mac->flags & ZEBRA_MAC_AUTO) &&
+		 !listcount(mac->neigh_list)) {
+		if (IS_ZEBRA_DEBUG_VXLAN) {
+			char buf[ETHER_ADDR_STRLEN];
+
+			zlog_debug("%s: Del MAC %s flags 0x%x",
+				   __PRETTY_FUNCTION__,
+				   prefix_mac2str(&mac->macaddr,
+						  buf, sizeof(buf)),
+				   mac->flags);
+		}
+		wctx->uninstall = 0;
+
+		return true;
+	}
+
+	return false;
+}
+
 /*
  * Free MAC hash entry (callback)
  */
@@ -3411,18 +3444,11 @@ static void zvni_mac_del_hash_entry(struct hash_bucket *bucket, void *arg)
 	struct mac_walk_ctx *wctx = arg;
 	zebra_mac_t *mac = bucket->data;
 
-	if (((wctx->flags & DEL_LOCAL_MAC) && (mac->flags & ZEBRA_MAC_LOCAL))
-	    || ((wctx->flags & DEL_REMOTE_MAC)
-		&& (mac->flags & ZEBRA_MAC_REMOTE))
-	    || ((wctx->flags & DEL_REMOTE_MAC_FROM_VTEP)
-		&& (mac->flags & ZEBRA_MAC_REMOTE)
-		&& IPV4_ADDR_SAME(&mac->fwd_info.r_vtep_ip,
-				  &wctx->r_vtep_ip))) {
+	if (zvni_check_mac_del_from_db(wctx, mac)) {
 		if (wctx->upd_client && (mac->flags & ZEBRA_MAC_LOCAL)) {
 			zvni_mac_send_del_to_client(wctx->zvni->vni,
 						    &mac->macaddr);
 		}
-
 		if (wctx->uninstall)
 			zvni_mac_uninstall(wctx->zvni, mac);
 
@@ -7269,8 +7295,13 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 	 * of a VxLAN bridge.
 	 */
 	zvni = zvni_from_svi(ifp, link_if);
-	if (!zvni)
+	if (!zvni) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: Del neighbor %s VNI is not present for interface %s",
+				   __PRETTY_FUNCTION__,
+				   ipaddr2str(ip, buf, sizeof(buf)), ifp->name);
 		return 0;
+	}
 
 	if (!zvni->vxlan_if) {
 		zlog_debug(
