@@ -25,6 +25,7 @@
 #include "lib/nexthop.h"
 #include "lib/nexthop_group.h"
 #include "lib/queue.h"
+#include "lib/vlan.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -124,6 +125,10 @@ enum dplane_op_e {
 	/* Interface address update */
 	DPLANE_OP_ADDR_INSTALL,
 	DPLANE_OP_ADDR_UNINSTALL,
+
+	/* MAC address update */
+	DPLANE_OP_MAC_INSTALL,
+	DPLANE_OP_MAC_DELETE,
 };
 
 /* Enable system route notifications */
@@ -291,6 +296,14 @@ const struct prefix *dplane_ctx_get_intf_dest(
 bool dplane_ctx_intf_has_label(const struct zebra_dplane_ctx *ctx);
 const char *dplane_ctx_get_intf_label(const struct zebra_dplane_ctx *ctx);
 
+/* Accessors for MAC information */
+vlanid_t dplane_ctx_mac_get_vlan(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_mac_is_sticky(const struct zebra_dplane_ctx *ctx);
+const struct ethaddr *dplane_ctx_mac_get_addr(
+	const struct zebra_dplane_ctx *ctx);
+const struct in_addr *dplane_ctx_mac_get_vtep_ip(
+	const struct zebra_dplane_ctx *ctx);
+
 /* Namespace info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
 	const struct zebra_dplane_ctx *ctx);
@@ -352,6 +365,19 @@ enum zebra_dplane_result dplane_intf_addr_set(const struct interface *ifp,
 enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
 						const struct connected *ifc);
 
+/*
+ * Enqueue evpn mac operations for the dataplane.
+ */
+enum zebra_dplane_result dplane_mac_add(const struct interface *ifp,
+					vlanid_t vid,
+					const struct ethaddr *mac,
+					struct in_addr vtep_ip,
+					bool sticky);
+
+enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
+					vlanid_t vid,
+					const struct ethaddr *mac,
+					struct in_addr vtep_ip);
 
 /* Retrieve the limit on the number of pending, unprocessed updates. */
 uint32_t dplane_get_in_queue_limit(void);
