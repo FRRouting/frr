@@ -148,6 +148,17 @@ struct dplane_intf_info {
 };
 
 /*
+ * MAC address info for the dataplane.
+ */
+struct dplane_mac_info {
+	vlanid_t vid;
+	struct ethaddr mac;
+	struct in_addr vtep_ip;
+	bool is_sticky;
+
+};
+
+/*
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
  * dataplane layer (and pthread).
@@ -192,6 +203,7 @@ struct zebra_dplane_ctx {
 		zebra_lsp_t lsp;
 		struct dplane_pw_info pw;
 		struct dplane_intf_info intf;
+		struct dplane_mac_info macinfo;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -306,6 +318,9 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_intf_addrs_in;
 	_Atomic uint32_t dg_intf_addr_errors;
 
+	_Atomic uint32_t dg_macs_in;
+	_Atomic uint32_t dg_mac_errors;
+
 	_Atomic uint32_t dg_update_yields;
 
 	/* Dataplane pthread */
@@ -346,6 +361,10 @@ static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
 static enum zebra_dplane_result intf_addr_update_internal(
 	const struct interface *ifp, const struct connected *ifc,
 	enum dplane_op_e op);
+static enum zebra_dplane_result mac_update_internal(
+	enum dplane_op_e op, const struct interface *ifp,
+	vlanid_t vid, const struct ethaddr *mac,
+	struct in_addr vtep_ip,	bool sticky);
 
 /*
  * Public APIs
@@ -464,6 +483,8 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 		}
 		break;
 
+	case DPLANE_OP_MAC_INSTALL:
+	case DPLANE_OP_MAC_DELETE:
 	case DPLANE_OP_NONE:
 		break;
 	}
@@ -624,6 +645,12 @@ const char *dplane_op2str(enum dplane_op_e op)
 		ret = "ADDR_UNINSTALL";
 		break;
 
+	case DPLANE_OP_MAC_INSTALL:
+		ret = "MAC_INSTALL";
+		break;
+	case DPLANE_OP_MAC_DELETE:
+		ret = "MAC_DELETE";
+		break;
 	}
 
 	return ret;
@@ -1175,6 +1202,33 @@ const char *dplane_ctx_get_intf_label(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.intf.label;
+}
+
+/* Accessors for MAC information */
+vlanid_t dplane_ctx_mac_get_vlan(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.macinfo.vid;
+}
+
+bool dplane_ctx_mac_is_sticky(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.macinfo.is_sticky;
+}
+
+const struct ethaddr *dplane_ctx_mac_get_addr(
+	const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &(ctx->u.macinfo.mac);
+}
+
+const struct in_addr *dplane_ctx_mac_get_vtep_ip(
+	const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &(ctx->u.macinfo.vtep_ip);
 }
 
 /*
@@ -2005,6 +2059,94 @@ static enum zebra_dplane_result intf_addr_update_internal(
 		/* Error counter */
 		atomic_fetch_add_explicit(&zdplane_info.dg_intf_addr_errors,
 					  1, memory_order_relaxed);
+		dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
+/*
+ * Enqueue vxlan/evpn mac add (or update).
+ */
+enum zebra_dplane_result dplane_mac_add(const struct interface *ifp,
+					vlanid_t vid,
+					const struct ethaddr *mac,
+					struct in_addr vtep_ip,
+					bool sticky)
+{
+	enum zebra_dplane_result result;
+
+	/* Use common helper api */
+	result = mac_update_internal(DPLANE_OP_MAC_INSTALL, ifp, vid,
+				     mac, vtep_ip, sticky);
+	return result;
+}
+
+/*
+ * Enqueue vxlan/evpn mac delete.
+ */
+enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
+					vlanid_t vid,
+					const struct ethaddr *mac,
+					struct in_addr vtep_ip)
+{
+	enum zebra_dplane_result result;
+
+	/* Use common helper api */
+	result = mac_update_internal(DPLANE_OP_MAC_DELETE, ifp, vid, mac,
+				     vtep_ip, false);
+	return result;
+}
+
+/*
+ * Common helper api for MAC address/vxlan updates
+ */
+static enum zebra_dplane_result
+mac_update_internal(enum dplane_op_e op,
+		    const struct interface *ifp,
+		    vlanid_t vid,
+		    const struct ethaddr *mac,
+		    struct in_addr vtep_ip,
+		    bool sticky)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret;
+	struct zebra_dplane_ctx *ctx = NULL;
+	struct zebra_ns *zns;
+
+	ctx = dplane_ctx_alloc();
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_vrf_id = ifp->vrf_id;
+
+	zns = zebra_ns_lookup(ifp->vrf_id);
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
+	ctx->zd_ifindex = ifp->ifindex;
+
+	/* Init the mac-specific data area */
+	memset(&ctx->u.macinfo, 0, sizeof(ctx->u.macinfo));
+
+	ctx->u.macinfo.vtep_ip = vtep_ip;
+	ctx->u.macinfo.mac = *mac;
+	ctx->u.macinfo.vid = vid;
+	ctx->u.macinfo.is_sticky = sticky;
+
+	/* Enqueue for processing on the dplane pthread */
+	ret = dplane_update_enqueue(ctx);
+
+	/* Increment counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_macs_in, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		/* Error counter */
+		atomic_fetch_add_explicit(&zdplane_info.dg_mac_errors, 1,
+					  memory_order_relaxed);
 		dplane_ctx_free(&ctx);
 	}
 
