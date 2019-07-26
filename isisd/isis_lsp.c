@@ -55,6 +55,7 @@
 #include "isisd/isis_mt.h"
 #include "isisd/isis_tlvs.h"
 #include "isisd/isis_te.h"
+#include "isisd/isis_sr.h"
 #include "isisd/fabricd.h"
 #include "isisd/isis_tx_queue.h"
 
@@ -762,9 +763,13 @@ static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 		if (area->oldmetric)
 			isis_tlvs_add_oldstyle_ip_reach(lsp->tlvs, ipv4,
 							metric);
-		if (area->newmetric)
+		if (area->newmetric) {
+			struct sr_prefix *srp;
+			srp = isis_sr_prefix_find(area, (struct prefix *)ipv4);
+
 			isis_tlvs_add_extended_ip_reach(lsp->tlvs, ipv4,
-							metric);
+							metric, srp);
+		}
 	}
 }
 
@@ -791,9 +796,12 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 			metric = MAX_WIDE_PATH_METRIC;
 
 		if (!src_p || !src_p->prefixlen) {
+			struct sr_prefix *srp;
+			srp = isis_sr_prefix_find(area, (struct prefix *)p);
+
 			isis_tlvs_add_ipv6_reach(lsp->tlvs,
 						 isis_area_ipv6_topology(area),
-						 p, metric);
+						 p, metric, srp);
 		} else if (isis_area_ipv6_dstsrc_enabled(area)) {
 			isis_tlvs_add_ipv6_dstsrc_reach(lsp->tlvs,
 							ISIS_MT_IPV6_DSTSRC,
@@ -909,6 +917,15 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			  area->area_tag);
 	}
 
+	/* Add Router Capability TLV if Segment Routing is enable */
+	if (IS_SR(area) && isis->router_id != 0) {
+		struct in_addr id = {.s_addr = isis->router_id};
+
+		isis_tlvs_set_router_capability(lsp->tlvs, id, &area->srdb);
+		lsp_debug("ISIS (%s): Adding Router Capabilities information",
+			  area->area_tag);
+	}
+
 	/* IPv4 address and TE router ID TLVs.
 	 * In case of the first one we don't follow "C" vendor,
 	 * but "J" vendor behavior - one IPv4 address is put
@@ -995,13 +1012,16 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 				}
 
 				if (area->newmetric) {
+					struct sr_prefix *srp;
 					lsp_debug(
 						"ISIS (%s): Adding te-style IP reachability for %s",
 						area->area_tag,
 						prefix2str(ipv4, buf,
 							   sizeof(buf)));
+					srp = isis_sr_prefix_find(
+						area, (struct prefix *)ipv4);
 					isis_tlvs_add_extended_ip_reach(
-						lsp->tlvs, ipv4, metric);
+						lsp->tlvs, ipv4, metric, srp);
 				}
 			}
 		}
@@ -1010,6 +1030,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		    && circuit->ipv6_non_link->count > 0) {
 			struct listnode *ipnode;
 			struct prefix_ipv6 *ipv6;
+			struct sr_prefix *srp;
 
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link,
 						  ipnode, ipv6)) {
@@ -1017,10 +1038,12 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 					"ISIS (%s): Adding IPv6 reachability for %s",
 					area->area_tag,
 					prefix2str(ipv6, buf, sizeof(buf)));
+				srp = isis_sr_prefix_find(
+					area, (struct prefix *)ipv6);
 				isis_tlvs_add_ipv6_reach(
 					lsp->tlvs,
 					isis_area_ipv6_topology(area), ipv6,
-					metric);
+					metric, srp);
 			}
 		}
 

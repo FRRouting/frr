@@ -43,6 +43,7 @@
 #include "isisd/isis_pdu.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_te.h"
+#include "isisd/isis_sr.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_TLV, "ISIS TLVs")
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SUBTLV, "ISIS Sub-TLVs")
@@ -4416,6 +4417,13 @@ static void tlvs_ipv4_addresses_to_adj(struct isis_tlvs *tlvs,
 				       struct isis_adjacency *adj,
 				       bool *changed)
 {
+	bool ipv4_enabled = false;
+
+	if (adj->ipv4_address_count == 0 && tlvs->ipv4_address.count > 0)
+		ipv4_enabled = true;
+	else if (adj->ipv4_address_count > 0 && tlvs->ipv4_address.count == 0)
+		isis_sr_update_adj(adj, AF_INET, false);
+
 	if (adj->ipv4_address_count != tlvs->ipv4_address.count) {
 		*changed = true;
 		adj->ipv4_address_count = tlvs->ipv4_address.count;
@@ -4439,12 +4447,22 @@ static void tlvs_ipv4_addresses_to_adj(struct isis_tlvs *tlvs,
 		*changed = true;
 		adj->ipv4_addresses[i] = addr->addr;
 	}
+
+	if (ipv4_enabled)
+		isis_sr_update_adj(adj, AF_INET, true);
 }
 
 static void tlvs_ipv6_addresses_to_adj(struct isis_tlvs *tlvs,
 				       struct isis_adjacency *adj,
 				       bool *changed)
 {
+	bool ipv6_enabled = false;
+
+	if (adj->ipv6_address_count == 0 && tlvs->ipv6_address.count > 0)
+		ipv6_enabled = true;
+	else if (adj->ipv6_address_count > 0 && tlvs->ipv6_address.count == 0)
+		isis_sr_update_adj(adj, AF_INET6, false);
+
 	if (adj->ipv6_address_count != tlvs->ipv6_address.count) {
 		*changed = true;
 		adj->ipv6_address_count = tlvs->ipv6_address.count;
@@ -4468,6 +4486,9 @@ static void tlvs_ipv6_addresses_to_adj(struct isis_tlvs *tlvs,
 		*changed = true;
 		adj->ipv6_addresses[i] = addr->addr;
 	}
+
+	if (ipv6_enabled)
+		isis_sr_update_adj(adj, AF_INET6, true);
 }
 
 void isis_tlvs_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj,
@@ -4604,24 +4625,44 @@ void isis_tlvs_del_lan_adj_sid(struct isis_ext_subtlvs *exts,
 }
 
 void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
-				     struct prefix_ipv4 *dest, uint32_t metric)
+				     struct prefix_ipv4 *dest, uint32_t metric,
+				     struct sr_prefix *srp)
 {
 	struct isis_extended_ip_reach *r = XCALLOC(MTYPE_ISIS_TLV, sizeof(*r));
 
 	r->metric = metric;
 	memcpy(&r->prefix, dest, sizeof(*dest));
 	apply_mask_ipv4(&r->prefix);
+	if (srp) {
+		struct isis_prefix_sid *psid =
+			XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*psid));
+
+		memcpy(psid, &srp->sid, sizeof(struct isis_prefix_sid));
+
+		r->subtlvs = isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_IP_REACH);
+		append_item(&r->subtlvs->prefix_sids, (struct isis_item *)psid);
+	}
 	append_item(&tlvs->extended_ip_reach, (struct isis_item *)r);
 }
 
 void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
-			      struct prefix_ipv6 *dest, uint32_t metric)
+			      struct prefix_ipv6 *dest, uint32_t metric,
+			      struct sr_prefix *srp)
 {
 	struct isis_ipv6_reach *r = XCALLOC(MTYPE_ISIS_TLV, sizeof(*r));
 
 	r->metric = metric;
 	memcpy(&r->prefix, dest, sizeof(*dest));
 	apply_mask_ipv6(&r->prefix);
+	if (srp) {
+		struct isis_prefix_sid *psid =
+			XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*psid));
+
+		memcpy(psid, &srp->sid, sizeof(struct isis_prefix_sid));
+
+		r->subtlvs = isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_IP_REACH);
+		append_item(&r->subtlvs->prefix_sids, (struct isis_item *)psid);
+	}
 
 	struct isis_item_list *l;
 	l = (mtid == ISIS_MT_IPV4_UNICAST)
@@ -4635,7 +4676,7 @@ void isis_tlvs_add_ipv6_dstsrc_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 				     struct prefix_ipv6 *src,
 				     uint32_t metric)
 {
-	isis_tlvs_add_ipv6_reach(tlvs, mtid, dest, metric);
+	isis_tlvs_add_ipv6_reach(tlvs, mtid, dest, metric, NULL);
 	struct isis_item_list *l = isis_get_mt_items(&tlvs->mt_ipv6_reach,
 						     mtid);
 

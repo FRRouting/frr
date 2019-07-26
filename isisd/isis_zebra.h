@@ -28,6 +28,7 @@ void isis_zebra_init(struct thread_master *);
 void isis_zebra_stop(void);
 
 struct isis_route_info;
+struct isis_area;
 
 void isis_zebra_route_add_route(struct prefix *prefix,
 				struct prefix_ipv6 *src_p,
@@ -38,5 +39,8 @@ void isis_zebra_route_del_route(struct prefix *prefix,
 int isis_distribute_list_update(int routetype);
 void isis_zebra_redistribute_set(afi_t afi, int type);
 void isis_zebra_redistribute_unset(afi_t afi, int type);
+int isis_zebra_request_label_range(uint32_t base, uint32_t chunk_size);
+void isis_zebra_release_label_range(uint32_t start, uint32_t end);
+mpls_label_t isis_zebra_request_dynamic_label(void);
 
 #endif /* _ZEBRA_ISIS_ZEBRA_H */

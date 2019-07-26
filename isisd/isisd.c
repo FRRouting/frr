@@ -56,6 +56,7 @@
 #include "isisd/isis_events.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
+#include "isisd/isis_sr.h"
 #include "isisd/fabricd.h"
 
 struct isis *isis = NULL;
@@ -162,6 +163,10 @@ struct isis_area *isis_area_create(const char *area_tag)
 	area->lsp_frag_threshold = 90; /* not currently configurable */
 	area->lsp_mtu =
 		yang_get_default_uint16("/frr-isisd:isis/instance/lsp/mtu");
+
+	/* initialize Segment Routing */
+	isis_sr_create(area);
+
 #else
 	area->max_lsp_lifetime[0] = DEFAULT_LSP_LIFETIME;    /* 1200 */
 	area->max_lsp_lifetime[1] = DEFAULT_LSP_LIFETIME;    /* 1200 */
@@ -273,6 +278,10 @@ int isis_area_destroy(const char *area_tag)
 	/* invalidate and verify to delete all routes from zebra */
 	isis_area_invalidate_routes(area, area->is_type);
 	isis_area_verify_routes(area);
+
+#ifndef FRABRICD
+	isis_sr_destroy(area);
+#endif
 
 	spftree_area_del(area);
 
@@ -768,6 +777,8 @@ void print_debug(struct vty *vty, int flags, int onoff)
 		vty_out(vty, "IS-IS Flooding debugging is %s\n", onoffs);
 	if (flags & DEBUG_BFD)
 		vty_out(vty, "IS-IS BFD debugging is %s\n", onoffs);
+	if (flags & DEBUG_SR_EVENTS)
+		vty_out(vty, "IS-IS Segment Routing debugging is %s\n", onoffs);
 }
 
 DEFUN_NOSH (show_debugging,
@@ -839,6 +850,10 @@ static int config_write_debug(struct vty *vty)
 	}
 	if (flags & DEBUG_BFD) {
 		vty_out(vty, "debug " PROTO_NAME " bfd\n");
+		write++;
+	}
+	if (flags & DEBUG_SR_EVENTS) {
+		vty_out(vty, "debug " PROTO_NAME " sr-events\n");
 		write++;
 	}
 	write += spf_backoff_write_config(vty);
@@ -1166,6 +1181,33 @@ DEFUN (no_debug_isis_bfd,
 {
 	isis->debugs &= ~DEBUG_BFD;
 	print_debug(vty, DEBUG_BFD, 0);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (debug_isis_srevents,
+       debug_isis_srevents_cmd,
+       "debug " PROTO_NAME " sr-events",
+       DEBUG_STR
+       PROTO_HELP
+       PROTO_NAME " interaction with Segment Routing\n")
+{
+	isis->debugs |= DEBUG_SR_EVENTS;
+	print_debug(vty, DEBUG_SR_EVENTS, 1);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_isis_srevents,
+       no_debug_isis_srevents_cmd,
+       "no debug " PROTO_NAME " sr-events",
+       NO_STR
+       UNDEBUG_STR
+       PROTO_HELP
+       PROTO_NAME " interaction with Segment Routing\n")
+{
+	isis->debugs &= ~DEBUG_SR_EVENTS;
+	print_debug(vty, DEBUG_SR_EVENTS, 0);
 
 	return CMD_SUCCESS;
 }
@@ -2194,6 +2236,8 @@ void isis_init(void)
 	install_element(ENABLE_NODE, &no_debug_isis_lsp_sched_cmd);
 	install_element(ENABLE_NODE, &debug_isis_bfd_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_bfd_cmd);
+	install_element(ENABLE_NODE, &debug_isis_srevents_cmd);
+	install_element(ENABLE_NODE, &no_debug_isis_srevents_cmd);
 
 	install_element(CONFIG_NODE, &debug_isis_adj_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_adj_cmd);
@@ -2219,6 +2263,8 @@ void isis_init(void)
 	install_element(CONFIG_NODE, &no_debug_isis_lsp_sched_cmd);
 	install_element(CONFIG_NODE, &debug_isis_bfd_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_bfd_cmd);
+	install_element(CONFIG_NODE, &debug_isis_srevents_cmd);
+	install_element(CONFIG_NODE, &no_debug_isis_srevents_cmd);
 
 	install_default(ROUTER_NODE);
 

@@ -580,9 +580,11 @@ void isis_tlvs_set_te_router_id(struct isis_tlvs *tlvs,
 void isis_tlvs_add_oldstyle_ip_reach(struct isis_tlvs *tlvs,
 				     struct prefix_ipv4 *dest, uint8_t metric);
 void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
-				     struct prefix_ipv4 *dest, uint32_t metric);
+				     struct prefix_ipv4 *dest, uint32_t metric,
+				     struct sr_prefix *srp);
 void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
-			      struct prefix_ipv6 *dest, uint32_t metric);
+			      struct prefix_ipv6 *dest, uint32_t metric,
+			      struct sr_prefix *srp);
 void isis_tlvs_add_ipv6_dstsrc_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 				     struct prefix_ipv6 *dest,
 				     struct prefix_ipv6 *src,
