@@ -511,8 +511,8 @@ static uint16_t *circuit_bcast_mt_set(struct isis_circuit *circuit, int level,
 
 static void tlvs_add_mt_set(struct isis_area *area, struct isis_tlvs *tlvs,
 			    unsigned int mt_count, uint16_t *mt_set,
-			    uint8_t *id, uint32_t metric, uint8_t *subtlvs,
-			    uint8_t subtlv_len)
+			    uint8_t *id, uint32_t metric,
+			    struct isis_ext_subtlvs *ext)
 {
 	for (unsigned int i = 0; i < mt_count; i++) {
 		uint16_t mtid = mt_set[i];
@@ -527,30 +527,27 @@ static void tlvs_add_mt_set(struct isis_area *area, struct isis_tlvs *tlvs,
 				area->area_tag, sysid_print(id),
 				LSP_PSEUDO_ID(id), isis_mtid2str(mtid));
 		}
-		isis_tlvs_add_extended_reach(tlvs, mtid, id, metric, subtlvs,
-					     subtlv_len);
+		isis_tlvs_add_extended_reach(tlvs, mtid, id, metric, ext);
 	}
 }
 
 void tlvs_add_mt_bcast(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
-		       int level, uint8_t *id, uint32_t metric,
-		       uint8_t *subtlvs, uint8_t subtlv_len)
+		       int level, uint8_t *id, uint32_t metric)
 {
 	unsigned int mt_count;
 	uint16_t *mt_set = circuit_bcast_mt_set(circuit, level, &mt_count);
 
 	tlvs_add_mt_set(circuit->area, tlvs, mt_count, mt_set, id, metric,
-			subtlvs, subtlv_len);
+			circuit->ext);
 }
 
 void tlvs_add_mt_p2p(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
-		     uint8_t *id, uint32_t metric, uint8_t *subtlvs,
-		     uint8_t subtlv_len)
+		     uint8_t *id, uint32_t metric)
 {
 	struct isis_adjacency *adj = circuit->u.p2p.neighbor;
 
 	tlvs_add_mt_set(circuit->area, tlvs, adj->mt_count, adj->mt_set, id,
-			metric, subtlvs, subtlv_len);
+			metric, circuit->ext);
 }
 
 void mt_init(void)

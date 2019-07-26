@@ -121,7 +121,7 @@ struct isis_circuit {
 	uint16_t psnp_interval[2];    /* psnp-interval in seconds */
 	uint8_t metric[2];
 	uint32_t te_metric[2];
-	struct mpls_te_circuit *mtc; /* MPLS-TE parameters */
+	struct isis_ext_subtlvs *ext; /* Extended parameters (TE + Adj SID */
 	int ip_router;  /* Route IP ? */
 	int is_passive; /* Is Passive ? */
 	struct list *mt_settings;   /* IS-IS MT Settings */
