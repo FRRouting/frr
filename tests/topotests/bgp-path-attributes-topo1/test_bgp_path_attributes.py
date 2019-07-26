@@ -218,11 +218,8 @@ def test_next_hop_attribute(request):
     # Verifying RIB routes
     dut = "r1"
     protocol = "bgp"
-    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
-    try:
-        assert result is True
-    except AssertionError:
-        logger.info("Expected behaviour: %s", result)
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
+    assert result is not True
 
     # Configure next-hop-self to bgp neighbor
     input_dict_1 = {
