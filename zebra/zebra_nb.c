@@ -763,6 +763,20 @@ const struct frr_yang_module_info frr_zebra_info = {
 				.destroy = lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_lifetime_destroy,
 			}
 		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/pref64/pref64-prefix",
+			.cbs = {
+				.create = lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_create,
+				.destroy = lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/pref64/pref64-prefix/lifetime",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_lifetime_modify,
+				.destroy = lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_lifetime_destroy,
+			}
+		},
 #endif /* defined(HAVE_RTADV) */
 #if HAVE_BFDD == 0
 		{

@@ -195,6 +195,16 @@ module frr-zebra {
       "Type for VTEP flood type.";
   }
 
+  /* PREF64 only accepts specific prefix lengths */
+  typedef pref64-prefix {
+    type inet:ipv6-prefix {
+      /* rely on inet:ipv6-prefix enforcing validity already */
+      pattern '.*/(96|64|56|48|40|32)';
+    }
+    description
+      "An IPv6 prefix suitable for PREF64 announcement";
+  }
+
   /*
    * Common route data, shared by v4 and v6 routes.
    */
@@ -2826,6 +2836,31 @@ module frr-zebra {
                 "The value that is placed in the Lifetime field in the
                 DNSSL option.  The designated value of all 1's
                 (0xffffffff) represents infinity.";
+            }
+          }
+        }
+        container pref64 {
+          description
+            "A list of NAT64 prefixes that are placed in the PREF64 option in
+            Router Advertisement messages sent from the interface.";
+          reference
+            "RFC 8781: Discovering PREF64 in Router Advertisements";
+          list pref64-prefix {
+            key "prefix";
+            description
+              "NAT64 prefix details";
+            leaf prefix {
+              type pref64-prefix;
+              description
+                "NAT64 prefix, typically 64:ff9b::/96";
+            }
+            leaf lifetime {
+              type uint16;
+              units "seconds";
+              description
+                "Lifetime of the NAT64 prefix to be placed in RAs.
+		If omitted, the lifetime will be calculated automatically as
+		MaxRtrAdvInterval * 3";
             }
           }
         }
