@@ -69,6 +69,10 @@ DEFINE_MTYPE_STATIC(ZEBRA, RTADV_PREFIX, "Router Advertisement Prefix")
 
 DEFINE_MTYPE_STATIC(ZEBRA, RTADV_RDNSS, "Router Advertisement RDNSS")
 DEFINE_MTYPE_STATIC(ZEBRA, RTADV_DNSSL, "Router Advertisement DNSSL")
+DEFINE_MTYPE_STATIC(ZEBRA, RTADV_PREF64, "Router Advertisement NAT64 Prefix")
+
+static int pref64_cmp(const struct pref64_adv *a, const struct pref64_adv *b);
+DECLARE_SORTLIST_UNIQ(pref64_advs, struct pref64_adv, itm, pref64_cmp)
 
 /* Order is intentional.  Matches RFC4191.  This array is also used for
    command matching, so only modify with care. */
@@ -434,6 +438,36 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 		/* Zero-pad to 8-octet boundary */
 		while (len % 8)
 			buf[len++] = '\0';
+	}
+
+	struct pref64_adv *pref64_adv;
+
+	frr_each (pref64_advs, &zif->rtadv.pref64_advs, pref64_adv) {
+		size_t opt_len = (pref64_adv->p.prefixlen == 96) ? 16 : 24;
+
+		if (len + opt_len > max_len) {
+			zlog_warn(
+				"%s(%u): Tx RA: NAT64 option would exceed MTU, omitting it",
+				ifp->name, ifp->ifindex);
+			goto no_more_opts;
+		}
+
+		struct nd_opt_pref64 *opt = (struct nd_opt_pref64 *)(buf + len);
+		memset(opt, 0, opt_len);
+
+		opt->nd_opt_pref64_type = ND_OPT_PREF64;
+		opt->nd_opt_pref64_len = opt_len / 8;
+		opt->nd_opt_pref64_lifetime = htons(pref64_adv->lifetime);
+		if (pref64_adv->p.prefixlen == 96)
+			memcpy(opt->nd_opt_pref64_prefix,
+			       &pref64_adv->p.prefix, 96 / 8);
+		else {
+			memcpy(opt->nd_opt_pref64_prefix,
+			       &pref64_adv->p.prefix, 128 / 8);
+			opt->nd_opt_pref64_prefixlen = pref64_adv->p.prefixlen;
+		}
+
+		len += opt_len;
 	}
 
 no_more_opts:
@@ -995,6 +1029,10 @@ void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS)
 {
 	zebra_interface_radv_set(client, hdr, msg, zvrf, 1);
 }
+
+#ifndef VTYSH_EXTRACT_PL
+#include "rtadv_clippy.c"
+#endif
 
 DEFUN (ipv6_nd_suppress_ra,
        ipv6_nd_suppress_ra_cmd,
@@ -1923,6 +1961,62 @@ DEFUN(no_ipv6_nd_dnssl,
 	return CMD_SUCCESS;
 }
 
+static int pref64_cmp(const struct pref64_adv *a, const struct pref64_adv *b)
+{
+	return prefix_cmp(&a->p, &b->p);
+}
+
+DEFPY(ipv6_nd_pref64,
+      ipv6_nd_pref64_cmd,
+      "[no] ipv6 nd nat64 X:X::X:X/M [lifetime (0-65535)]",
+      NO_STR
+      "Interface IPv6 config commands\n"
+      "Neighbor discovery\n"
+      "NAT64 prefix advertisement (pref64)\n"
+      "Specify validity lifetime\n"
+      "Valid lifetime in seconds\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zif = ifp->info;
+	struct pref64_adv dummy, *item;
+
+	prefix_copy(&dummy.p, nat64);
+	apply_mask_ipv6(&dummy.p);
+	item = pref64_advs_find(&zif->rtadv.pref64_advs, &dummy);
+
+	if (no) {
+		if (!item) {
+			vty_out(vty, "Cannot find advertisement to be deleted\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		pref64_advs_del(&zif->rtadv.pref64_advs, item);
+		XFREE(MTYPE_RTADV_PREF64, item);
+		return CMD_SUCCESS;
+	}
+
+	if (!item) {
+		unsigned dflt_lifetime;
+
+		dflt_lifetime = (zif->rtadv.MaxRtrAdvInterval * 3) + 999;
+		dflt_lifetime /= 1000;
+		if (dflt_lifetime > 65535)
+			dflt_lifetime = 65535;
+
+		item = XCALLOC(MTYPE_RTADV_PREF64, sizeof(*item));
+		prefix_copy(&item->p, &dummy.p);
+		if (lifetime_str)
+			item->lifetime = lifetime;
+		else
+			item->lifetime = dflt_lifetime;
+
+		pref64_advs_add(&zif->rtadv.pref64_advs, item);
+	} else if (lifetime_str)
+		item->lifetime = lifetime;
+
+	return CMD_SUCCESS;
+}
+
 
 /* Dump interface ND information to vty. */
 static int nd_dump_vty(struct vty *vty, struct interface *ifp)
@@ -2000,6 +2094,7 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 	struct rtadv_prefix *rprefix;
 	struct rtadv_rdnss *rdnss;
 	struct rtadv_dnssl *dnssl;
+	struct pref64_adv *pref64_adv;
 	char buf[PREFIX_STRLEN];
 	int interval;
 
@@ -2104,6 +2199,9 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 		}
 		vty_out(vty, "\n");
 	}
+	frr_each (pref64_advs, &zif->rtadv.pref64_advs, pref64_adv)
+		vty_out(vty, " ipv6 nd nat64 %pFX lifetime %u\n",
+			&pref64_adv->p, pref64_adv->lifetime);
 	return 0;
 }
 
@@ -2211,6 +2309,7 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &no_ipv6_nd_rdnss_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_dnssl_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_dnssl_cmd);
+	install_element(INTERFACE_NODE, &ipv6_nd_pref64_cmd);
 }
 
 static int if_join_all_router(int sock, struct interface *ifp)

@@ -101,6 +101,9 @@ struct nd_opt_homeagent_info { /* Home Agent info */
 #ifndef ND_OPT_DNSSL
 #define ND_OPT_DNSSL 31
 #endif
+#ifndef ND_OPT_PREF64
+#define ND_OPT_PREF64 253 /* XXX FIXME XXX*/
+#endif
 
 #ifndef HAVE_STRUCT_ND_OPT_RDNSS
 struct nd_opt_rdnss { /* Recursive DNS server option [RFC8106 5.1] */
@@ -126,7 +129,25 @@ struct nd_opt_dnssl { /* DNS search list option [RFC8106 5.2] */
 } __attribute__((__packed__));
 #endif
 
+#if 1 /* not in a system header yet */
+struct nd_opt_pref64 {
+	uint8_t nd_opt_pref64_type;
+	uint8_t nd_opt_pref64_len;
+	uint16_t nd_opt_pref64_lifetime;
+	uint8_t nd_opt_pref64_prefix[16];
+	uint8_t nd_opt_pref64_prefixlen;
+	uint8_t nd_opt_pref64_padding[3];
+} __attribute__((__packed__));
+#endif
+
 extern const char *rtadv_pref_strs[];
+
+struct pref64_adv {
+	struct pref64_advs_item itm;
+
+	struct prefix_ipv6 p;
+	uint16_t lifetime;
+};
 
 #endif /* HAVE_RTADV */
 

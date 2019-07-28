@@ -22,6 +22,7 @@
 #ifndef _ZEBRA_INTERFACE_H
 #define _ZEBRA_INTERFACE_H
 
+#include "typesafe.h"
 #include "redistribute.h"
 #include "vrf.h"
 #include "hook.h"
@@ -42,6 +43,9 @@ extern "C" {
 #define IF_ZEBRA_SHUTDOWN_ON     1
 
 #if defined(HAVE_RTADV)
+
+PREDECL_SORTLIST_UNIQ(pref64_advs)
+
 /* Router advertisement parameter.  From RFC4861, RFC6275 and RFC4191. */
 struct rtadvconf {
 	/* A flag indicating whether or not the router sends periodic Router
@@ -187,6 +191,11 @@ struct rtadvconf {
 	 * Default: empty list; do not emit DNSSL option
 	 */
 	struct list *AdvDNSSLList;
+
+	/* NAT64 prefix advertisements
+	 * [https://tools.ietf.org/html/draft-ietf-6man-ra-pref64-03]
+	 */
+	struct pref64_advs_head pref64_advs;
 
 	uint8_t inFastRexmit; /* True if we're rexmits faster than usual */
 
