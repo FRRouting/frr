@@ -410,10 +410,10 @@ extern const char *prefix2str(union prefixconstptr, char *, int);
 extern int prefix_match(const struct prefix *, const struct prefix *);
 extern int prefix_match_network_statement(const struct prefix *,
 					  const struct prefix *);
-extern int prefix_same(const struct prefix *, const struct prefix *);
-extern int prefix_cmp(const struct prefix *, const struct prefix *);
+extern int prefix_same(union prefixconstptr, union prefixconstptr);
+extern int prefix_cmp(union prefixconstptr, union prefixconstptr);
 extern int prefix_common_bits(const struct prefix *, const struct prefix *);
-extern void prefix_copy(struct prefix *dest, const struct prefix *src);
+extern void prefix_copy(union prefixptr, union prefixconstptr);
 extern void apply_mask(struct prefix *);
 
 extern struct prefix *sockunion2prefix(const union sockunion *dest,

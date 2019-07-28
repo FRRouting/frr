@@ -628,8 +628,11 @@ int prefix_match_network_statement(const struct prefix *n,
 	return 1;
 }
 
-void prefix_copy(struct prefix *dest, const struct prefix *src)
+void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 {
+	struct prefix *dest = udest.p;
+	const struct prefix *src = usrc.p;
+
 	dest->family = src->family;
 	dest->prefixlen = src->prefixlen;
 
@@ -674,8 +677,11 @@ void prefix_copy(struct prefix *dest, const struct prefix *src)
  * the same.  Note that this routine has the same return value sense
  * as '==' (which is different from prefix_cmp).
  */
-int prefix_same(const struct prefix *p1, const struct prefix *p2)
+int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 {
+	const struct prefix *p1 = up1.p;
+	const struct prefix *p2 = up2.p;
+
 	if ((p1 && !p2) || (!p1 && p2))
 		return 0;
 
@@ -722,8 +728,10 @@ int prefix_same(const struct prefix *p1, const struct prefix *p2)
  * this routine has the same return sense as strcmp (which is different
  * from prefix_same).
  */
-int prefix_cmp(const struct prefix *p1, const struct prefix *p2)
+int prefix_cmp(union prefixconstptr up1, union prefixconstptr up2)
 {
+	const struct prefix *p1 = up1.p;
+	const struct prefix *p2 = up2.p;
 	int offset;
 	int shift;
 	int i;
