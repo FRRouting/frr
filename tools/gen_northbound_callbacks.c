@@ -238,17 +238,20 @@ static int generate_nb_nodes(const struct lys_node *snode, void *arg)
 			printf("\t\t{\n"
 			       "\t\t\t.xpath = \"%s\",\n",
 			       xpath);
+			printf("\t\t\t.cbs = {\n");
 			first = false;
 		}
 
 		generate_callback_name((struct lys_node *)snode, cb->operation,
 				       cb_name, sizeof(cb_name));
-		printf("\t\t\t.cbs.%s = %s,\n",
-		       nb_operation_name(cb->operation), cb_name);
+		printf("\t\t\t\t.%s = %s,\n", nb_operation_name(cb->operation),
+		       cb_name);
 	}
 
-	if (!first)
+	if (!first) {
+		printf("\t\t\t}\n");
 		printf("\t\t},\n");
+	}
 
 	return YANG_ITER_CONTINUE;
 }
