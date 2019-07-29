@@ -798,15 +798,6 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	/* Install connected routes (in new VRF). */
 	if (if_is_operative(ifp))
 		if_install_connected(ifp);
-
-	/* Due to connected route change, schedule RIB processing for both old
-	 * and new VRF.
-	 */
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%u: IF %s VRF change, scheduling RIB processing",
-			   ifp->vrf_id, ifp->name);
-	rib_update(old_vrf_id, RIB_UPDATE_IF_CHANGE);
-	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 }
 
 static void ipv6_ll_address_to_mac(struct in6_addr *address, uint8_t *mac)
@@ -949,11 +940,6 @@ void if_up(struct interface *ifp)
 	/* Install connected routes to the kernel. */
 	if_install_connected(ifp);
 
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%u: IF %s up, scheduling RIB processing",
-			   ifp->vrf_id, ifp->name);
-	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
-
 	/* Handle interface up for specific types for EVPN. Non-VxLAN interfaces
 	 * are checked to see if (remote) neighbor entries need to be installed
 	 * on them for ARP suppression.
@@ -1006,11 +992,6 @@ void if_down(struct interface *ifp)
 
 	/* Uninstall connected routes from the kernel. */
 	if_uninstall_connected(ifp);
-
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%u: IF %s down, scheduling RIB processing",
-			   ifp->vrf_id, ifp->name);
-	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
 	if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
 
