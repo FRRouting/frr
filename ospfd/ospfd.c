@@ -91,7 +91,6 @@ void ospf_router_id_update(struct ospf *ospf)
 	struct ospf_interface *oi;
 	struct interface *ifp;
 	struct listnode *node;
-	int type;
 
 	if (!ospf->oi_running) {
 		if (IS_DEBUG_OSPF_EVENT)
@@ -133,24 +132,6 @@ void ospf_router_id_update(struct ospf *ospf)
 			 * !(virtual | ptop) links
 			 */
 			ospf_nbr_self_reset(oi, router_id);
-		}
-
-		/* If AS-external-LSA is queued, then flush those LSAs. */
-		if (router_id_old.s_addr == 0 && ospf->external_origin) {
-			/* Originate each redistributed external route. */
-			for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
-				if (ospf->external_origin & (1 << type))
-					thread_add_event(
-						master,
-						ospf_external_lsa_originate_timer,
-						ospf, type, NULL);
-			/* Originate Deafult. */
-			if (ospf->external_origin & (1 << ZEBRA_ROUTE_MAX))
-				thread_add_event(master,
-						 ospf_default_originate_timer,
-						 ospf, 0, NULL);
-
-			ospf->external_origin = 0;
 		}
 
 		/* Flush (inline) all external LSAs based on the OSPF_LSA_SELF
@@ -196,20 +177,14 @@ void ospf_router_id_update(struct ospf *ospf)
 			}
 		}
 
-		/* Originate each redistributed external route. */
-		for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
-			thread_add_event(master,
-					 ospf_external_lsa_originate_timer,
-					 ospf, type, NULL);
-		thread_add_event(master, ospf_default_originate_timer, ospf, 0,
-				 NULL);
-
 		/* update router-lsa's for each area */
 		ospf_router_lsa_update(ospf);
 
 		/* update ospf_interface's */
 		FOR_ALL_INTERFACES (vrf, ifp)
 			ospf_if_update(ospf, ifp);
+
+		ospf_external_lsa_rid_change(ospf);
 	}
 }
 

@@ -202,7 +202,6 @@ struct ospf {
 	struct ospf_lsdb *lsdb;
 
 	/* Flags. */
-	int external_origin; /* AS-external-LSA origin flag. */
 	int ase_calc;	/* ASE calculation flag. */
 
 	struct list *opaque_lsa_self; /* Type-11 Opaque-LSAs */
