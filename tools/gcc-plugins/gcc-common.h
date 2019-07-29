@@ -165,8 +165,10 @@ void dump_gimple_stmt(pretty_printer *, gimple, int, int);
 #define TYPE_NAME_POINTER(node) IDENTIFIER_POINTER(TYPE_NAME(node))
 #define TYPE_NAME_LENGTH(node) IDENTIFIER_LENGTH(TYPE_NAME(node))
 
+#if BUILDING_GCC_VERSION < 9000
 /* should come from c-tree.h if only it were installed for gcc 4.5... */
 #define C_TYPE_FIELDS_READONLY(TYPE) TREE_LANG_FLAG_1(TYPE)
+#endif
 
 static inline tree build_const_char_string(int len, const char *str)
 {

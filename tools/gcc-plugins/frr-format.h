@@ -105,6 +105,23 @@ struct format_length_info
 };
 
 
+struct kernel_ext_fmt
+{
+	const char *suffix;
+
+	/* RECORD_TYPE, UNION_TYPE, ENUMERAL_TYPE, or NULL for typedef */
+	tree_code type_code;
+	int ptrlevel;
+	bool t_const;
+	bool warned;
+
+	const char *type_str;
+	GTY(()) tree type;
+
+	location_t origin_loc;
+};
+
+
 /* Structure describing the combination of a conversion specifier
    (or a set of specifiers which act identically) and a length modifier.  */
 struct format_type_detail
@@ -167,6 +184,8 @@ struct format_char_info
      arguments, only POINTER_COUNT, TYPES, and the "c", "R", and "W" flags
      in FLAGS2 are used.  */
   const struct format_char_info *chain;
+
+  struct kernel_ext_fmt *kernel_ext;
 };
 
 
@@ -271,6 +290,10 @@ struct format_kind_info
 #define T_LL	&long_long_integer_type_node
 #define T9L_LL	{ STD_C9L, NULL, T_LL }
 #define TEX_LL	{ STD_EXT, NULL, T_LL }
+#define T_U64	&local_uint64_t_node
+#define TEX_U64	{ STD_EXT, "uint64_t", T_U64 }
+#define T_S64	&local_int64_t_node
+#define TEX_S64	{ STD_EXT, "int64_t", T_S64 }
 #define T_S	&short_integer_type_node
 #define T89_S	{ STD_C89, NULL, T_S }
 #define T_UI	&unsigned_type_node
@@ -307,10 +330,10 @@ struct format_kind_info
 #define T_WI	&wint_type_node
 #define T94_WI	{ STD_C94, "wint_t", T_WI }
 #define TEX_WI	{ STD_EXT, "wint_t", T_WI }
-#define T_ST    &size_type_node
+#define T_ST    &local_size_t_node
 #define T99_ST	{ STD_C99, "size_t", T_ST }
-#define T_SST   &signed_size_type_node
-#define T99_SST	{ STD_C99, "signed size_t", T_SST }
+#define T_SST   &local_ssize_t_node
+#define T99_SST	{ STD_C99, "ssize_t", T_SST }
 #define T_PD    &ptrdiff_type_node
 #define T99_PD	{ STD_C99, "ptrdiff_t", T_PD }
 #define T_UPD   &unsigned_ptrdiff_type_node
