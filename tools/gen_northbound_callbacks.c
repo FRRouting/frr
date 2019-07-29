@@ -28,7 +28,8 @@
 
 static void __attribute__((noreturn)) usage(int status)
 {
-	fprintf(stderr, "usage: gen_northbound_callbacks [-h] MODULE\n");
+	extern const char *__progname;
+	fprintf(stderr, "usage: %s [-h] [-p path] MODULE\n", __progname);
 	exit(status);
 }
 
@@ -254,15 +255,32 @@ static int generate_nb_nodes(const struct lys_node *snode, void *arg)
 
 int main(int argc, char *argv[])
 {
+	const char *search_path = NULL;
 	struct yang_module *module;
 	char module_name_underscores[64];
+	struct stat st;
 	int opt;
 
-	while ((opt = getopt(argc, argv, "h")) != -1) {
+	while ((opt = getopt(argc, argv, "hp:")) != -1) {
 		switch (opt) {
 		case 'h':
 			usage(EXIT_SUCCESS);
 			/* NOTREACHED */
+		case 'p':
+			if (stat(optarg, &st) == -1) {
+				fprintf(stderr,
+				    "error: invalid search path '%s': %s\n",
+				    optarg, strerror(errno));
+				exit(EXIT_FAILURE);
+			}
+			if (S_ISDIR(st.st_mode) == 0) {
+				fprintf(stderr,
+				    "error: search path is not directory");
+				exit(EXIT_FAILURE);
+			}
+
+			search_path = optarg;
+			break;
 		default:
 			usage(EXIT_FAILURE);
 			/* NOTREACHED */
@@ -274,6 +292,9 @@ int main(int argc, char *argv[])
 		usage(EXIT_FAILURE);
 
 	yang_init();
+
+	if (search_path)
+		ly_ctx_set_searchdir(ly_native_ctx, search_path);
 
 	/* Load all FRR native models to ensure all augmentations are loaded. */
 	yang_module_load_all();
