@@ -2404,12 +2404,14 @@ DEFUN (vtysh_show_error_code,
 	if (arg < LIB_FERR_START || arg > LIB_FERR_END) {
 		char *fcmd = argv_concat(argv, argc, 0);
 		char cmd[256];
+
 		snprintf(cmd, sizeof(cmd), "do %s", fcmd);
 		show_per_daemon(cmd, "");
 		XFREE(MTYPE_TMP, fcmd);
 		/* Otherwise, print it ourselves to avoid duplication */
 	} else {
 		bool json = strmatch(argv[argc - 1]->text, "json");
+
 		if (!strmatch(argv[2]->text, "all"))
 			arg = strtoul(argv[2]->arg, NULL, 10);
 
