@@ -859,10 +859,8 @@ static void zebra_rnh_clear_nhc_flag(struct zebra_vrf *zvrf, afi_t afi,
 		re = zebra_rnh_resolve_nexthop_entry(zvrf, afi, nrn, rnh,
 						     &prn);
 
-	if (re) {
-		UNSET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
+	if (re)
 		UNSET_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED);
-	}
 }
 
 /* Evaluate all tracked entries (nexthops or routes for import into BGP)

@@ -272,8 +272,6 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 				SET_FLAG(nexthop->flags,
 					 NEXTHOP_FLAG_RECURSIVE);
-				SET_FLAG(re->status,
-					 ROUTE_ENTRY_NEXTHOPS_CHANGED);
 				nexthop_set_resolved(afi, newhop, nexthop);
 				resolved = 1;
 			}
@@ -501,10 +499,8 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 			 && nexthop->type < NEXTHOP_TYPE_BLACKHOLE)
 			&& !(IPV6_ADDR_SAME(&prev_src.ipv6,
 					    &nexthop->rmap_src.ipv6)))
-		    || CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED)) {
+		    || CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED))
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
-			SET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
-		}
 	}
 
 	return re->nexthop_active_num;
