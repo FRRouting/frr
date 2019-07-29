@@ -260,16 +260,6 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
 		0, 0, &p, NULL, &nh, zvrf->table_id, metric, 0, 0, 0);
 
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
-		char buf[PREFIX_STRLEN];
-
-		zlog_debug(
-			"%u: IF %s address %s add/up, scheduling RIB processing",
-			ifp->vrf_id, ifp->name,
-			prefix2str(&p, buf, sizeof(buf)));
-	}
-	rib_update(zvrf->vrf->vrf_id, RIB_UPDATE_IF_CHANGE);
-
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
 		if (IS_ZEBRA_DEBUG_MPLS) {
@@ -433,17 +423,6 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
 		   0, 0, &p, NULL, &nh, zvrf->table_id, 0, 0, false);
 
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
-		char buf[PREFIX_STRLEN];
-
-		zlog_debug(
-			"%u: IF %s IP %s address down, scheduling RIB processing",
-			zvrf->vrf->vrf_id, ifp->name,
-			prefix2str(&p, buf, sizeof(buf)));
-	}
-
-	rib_update(zvrf->vrf->vrf_id, RIB_UPDATE_IF_CHANGE);
-
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
 		if (IS_ZEBRA_DEBUG_MPLS) {
@@ -467,16 +446,6 @@ static void connected_delete_helper(struct connected *ifc, struct prefix *p)
 	ifp = ifc->ifp;
 
 	connected_withdraw(ifc);
-
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
-		char buf[PREFIX_STRLEN];
-
-		zlog_debug(
-			"%u: IF %s IP %s address del, scheduling RIB processing",
-			ifp->vrf_id, ifp->name,
-			prefix2str(p, buf, sizeof(buf)));
-	}
-	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (ifp->vrf_id == VRF_DEFAULT) {
