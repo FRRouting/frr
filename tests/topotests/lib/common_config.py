@@ -34,12 +34,14 @@ import ConfigParser
 import traceback
 import socket
 import ipaddr
+import re
 
 from lib import topotest
 
 from functools import partial
 from lib.topolog import logger, logger_config
 from lib.topogen import TopoRouter
+from lib.topotest import interface_set_status
 
 
 FRRCFG_FILE = "frr_json.conf"
@@ -513,27 +515,31 @@ def validate_ip_address(ip_address):
                                          " address" % ip_address)
 
 
-def check_address_types(addr_type):
+def check_address_types(addr_type=None):
     """
     Checks environment variable set and compares with the current address type
     """
-    global ADDRESS_TYPES
-    if ADDRESS_TYPES is None:
-        ADDRESS_TYPES = "dual"
 
-    if ADDRESS_TYPES == "dual":
-        ADDRESS_TYPES = ["ipv4", "ipv6"]
-    elif ADDRESS_TYPES == "ipv4":
-        ADDRESS_TYPES = ["ipv4"]
-    elif ADDRESS_TYPES == "ipv6":
-        ADDRESS_TYPES = ["ipv6"]
+    addr_types_env = os.environ.get("ADDRESS_TYPES")
+    if not addr_types_env:
+        addr_types_env = "dual"
 
-    if addr_type not in ADDRESS_TYPES:
+    if addr_types_env == "dual":
+        addr_types = ["ipv4", "ipv6"]
+    elif addr_types_env == "ipv4":
+        addr_types = ["ipv4"]
+    elif addr_types_env == "ipv6":
+        addr_types = ["ipv6"]
+
+    if addr_type is None:
+        return addr_types
+
+    if addr_type not in addr_types:
         logger.error("{} not in supported/configured address types {}".
-                     format(addr_type, ADDRESS_TYPES))
+                     format(addr_type, addr_types))
         return False
 
-    return ADDRESS_TYPES
+    return True
 
 
 def generate_ips(network, no_of_ips):
@@ -627,6 +633,54 @@ def write_test_footer(tc_name):
     logger.info("="*(len(tc_name)+count))
 
 
+def interface_status(tgen, topo, input_dict):
+    """
+    Delete ip route maps from device
+
+    * `tgen`  : Topogen object
+    * `topo`  : json file data
+    * `input_dict` :  for which router, route map has to be deleted
+
+    Usage
+    -----
+    input_dict = {
+        "r3": {
+            "interface_list": ['eth1-r1-r2', 'eth2-r1-r3'],
+            "status": "down"
+        }
+    }
+    Returns
+    -------
+    errormsg(str) or True
+    """
+    logger.debug("Entering lib API: interface_status()")
+
+    try:
+        global frr_cfg
+        for router in input_dict.keys():
+
+            interface_list = input_dict[router]['interface_list']
+            status = input_dict[router].setdefault('status', 'up')
+            for intf in interface_list:
+                rnode = tgen.routers()[router]
+                interface_set_status(rnode, intf, status)
+
+            # Load config to router
+            load_config_to_router(tgen, router)
+
+    except Exception as e:
+        # handle any exception
+        logger.error("Error %s occured. Arguments %s.", e.message, e.args)
+
+        # Traceback
+        errormsg = traceback.format_exc()
+        logger.error(errormsg)
+        return errormsg
+
+    logger.debug("Exiting lib API: interface_status()")
+    return True
+
+
 def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0):
     """
     Retries function execution, if return is an errormsg or exception
@@ -682,6 +736,62 @@ def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0):
     return _retry
 
 
+def disable_v6_link_local(tgen, router, intf_name=None):
+    """
+    Disables ipv6 link local addresses for a particular interface or
+    all interfaces
+
+    * `tgen`: tgen onject
+    * `router` : router for which hightest interface should be
+                 calculated
+    * `intf_name` : Interface name for which v6 link local needs to
+                    be disabled
+    """
+
+    router_list = tgen.routers()
+    for rname, rnode in router_list.iteritems():
+        if rname != router:
+            continue
+
+        linklocal = []
+
+        ifaces = router_list[router].run('ip -6 address')
+
+        # Fix newlines (make them all the same)
+        ifaces = ('\n'.join(ifaces.splitlines()) + '\n').splitlines()
+
+        interface = None
+        ll_per_if_count = 0
+        for line in ifaces:
+            # Interface name
+            m = re.search('[0-9]+: ([^:]+)[@if0-9:]+ <', line)
+            if m:
+                interface = m.group(1).split("@")[0]
+                ll_per_if_count = 0
+
+            # Interface ip
+            m = re.search('inet6 (fe80::[0-9a-f]+:[0-9a-f]+:[0-9a-f]+'
+                          ':[0-9a-f]+[/0-9]*) scope link', line)
+            if m:
+                local = m.group(1)
+                ll_per_if_count += 1
+                if ll_per_if_count > 1:
+                    linklocal += [["%s-%s" % (interface, ll_per_if_count), local]]
+                else:
+                    linklocal += [[interface, local]]
+
+        if len(linklocal[0]) > 1:
+            link_local_dict = {item[0]: item[1] for item in linklocal}
+
+            for lname, laddr in link_local_dict.items():
+
+                if intf_name is not None and lname != intf_name:
+                    continue
+
+                cmd = "ip addr del {} dev {}".format(laddr, lname)
+                router_list[router].run(cmd)
+
+
 #############################################
 # These APIs,  will used by testcase
 #############################################
@@ -711,6 +821,8 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     interface_name = destRouterLink
                 else:
                     interface_name = data["interface"]
+                    if "ipv6" in data:
+                        disable_v6_link_local(tgen, c_router, interface_name)
                 interface_data.append("interface {}".format(
                     str(interface_name)
                 ))
@@ -724,6 +836,7 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     interface_data.append("ipv6 address {}".format(
                         intf_addr
                     ))
+
             result = create_common_configuration(tgen, c_router,
                                                  interface_data,
                                                  "interface_config",
@@ -1303,7 +1416,7 @@ def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
                     if "no_of_ip" in static_route:
                         no_of_ip = static_route["no_of_ip"]
                     else:
-                        no_of_ip = 0
+                        no_of_ip = 1
 
                     # Generating IPs for verification
                     ip_list = generate_ips(network, no_of_ip)
@@ -1321,9 +1434,9 @@ def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
                                 found_hops = [rib_r["ip"] for rib_r in
                                               rib_routes_json[st_rt][0][
                                                   "nexthops"]]
-                                for nh in next_hop:
+                                for nh in found_hops:
                                     nh_found = False
-                                    if nh and nh in found_hops:
+                                    if nh and nh in next_hop:
                                         nh_found = True
                                     else:
                                         errormsg = ("Nexthop {} is Missing for {}"
