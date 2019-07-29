@@ -153,6 +153,36 @@ static void generate_callback_name(struct lys_node *snode,
 	replace_hyphens_by_underscores(buffer);
 }
 
+static void generate_callback(const struct nb_callback_info *ncinfo,
+			      const char *cb_name)
+{
+	printf("static %s%s(%s)\n{\n",
+	       ncinfo->return_type, cb_name, ncinfo->arguments);
+
+	switch (ncinfo->operation) {
+	case NB_OP_CREATE:
+	case NB_OP_MODIFY:
+	case NB_OP_DESTROY:
+	case NB_OP_MOVE:
+		printf("\tswitch (event) {\n"
+		       "\tcase NB_EV_VALIDATE:\n"
+		       "\tcase NB_EV_PREPARE:\n"
+		       "\tcase NB_EV_ABORT:\n"
+		       "\tcase NB_EV_APPLY:\n"
+		       "\t\t/* TODO: implement me. */\n"
+		       "\t\tbreak;\n"
+		       "\t}\n\n"
+		       );
+		break;
+
+	default:
+		printf("\t/* TODO: implement me. */\n");
+		break;
+	}
+
+	printf("\treturn %s;\n}\n\n", ncinfo->return_value);
+}
+
 static int generate_callbacks(const struct lys_node *snode, void *arg)
 {
 	bool first = true;
@@ -192,14 +222,7 @@ static int generate_callbacks(const struct lys_node *snode, void *arg)
 
 		generate_callback_name((struct lys_node *)snode, cb->operation,
 				       cb_name, sizeof(cb_name));
-		printf("static %s%s(%s)\n"
-		       "{\n"
-		       "\t/* TODO: implement me. */\n"
-		       "\treturn %s;\n"
-		       "}\n\n",
-		       nb_callbacks[cb->operation].return_type, cb_name,
-		       nb_callbacks[cb->operation].arguments,
-		       nb_callbacks[cb->operation].return_value);
+		generate_callback(cb, cb_name);
 	}
 
 	return YANG_ITER_CONTINUE;
