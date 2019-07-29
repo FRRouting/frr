@@ -1979,6 +1979,13 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 
 	   */
 
+	if (ospf->router_id.s_addr == 0) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("LSA[Type5:%pI4]: deferring AS-external-LSA origination, router ID is zero",
+				   &ei->p.prefix);
+		return NULL;
+	}
+
 	/* Check the AS-external-LSA should be originated. */
 	if (!ospf_redistribute_check(ospf, ei, NULL))
 		return NULL;
