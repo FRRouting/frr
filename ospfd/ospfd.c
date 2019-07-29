@@ -608,7 +608,7 @@ static void ospf_finish_final(struct ospf *ospf)
 			ospf_redist_del(ospf, i, red->instance);
 		}
 	}
-	ospf_redistribute_default_unset(ospf);
+	ospf_redistribute_default_set(ospf, DEFAULT_ORIGINATE_NONE, 0, 0);
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area))
 		ospf_remove_vls_through_area(ospf, area);
