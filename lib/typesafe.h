@@ -434,7 +434,7 @@ macro_inline type *prefix ## _find_gteq(struct prefix##_head *h,               \
 	struct ssort_item *sitem = h->sh.first;                                \
 	int cmpval = 0;                                                        \
 	while (sitem && (cmpval = cmpfn_nuq(                                   \
-			container_of(sitem, type, field.si), item) < 0))       \
+			container_of(sitem, type, field.si), item)) < 0)       \
 		sitem = sitem->next;                                           \
 	return container_of_null(sitem, type, field.si);                       \
 }                                                                              \
@@ -444,7 +444,7 @@ macro_inline type *prefix ## _find_lt(struct prefix##_head *h,                 \
 	struct ssort_item *prev = NULL, *sitem = h->sh.first;                  \
 	int cmpval = 0;                                                        \
 	while (sitem && (cmpval = cmpfn_nuq(                                   \
-			container_of(sitem, type, field.si), item) < 0))       \
+			container_of(sitem, type, field.si), item)) < 0)       \
 		sitem = (prev = sitem)->next;                                  \
 	return container_of_null(prev, type, field.si);                        \
 }                                                                              \
@@ -499,7 +499,7 @@ macro_inline type *prefix ## _find(struct prefix##_head *h, const type *item)  \
 	struct ssort_item *sitem = h->sh.first;                                \
 	int cmpval = 0;                                                        \
 	while (sitem && (cmpval = cmpfn(                                       \
-			container_of(sitem, type, field.si), item) < 0))       \
+			container_of(sitem, type, field.si), item)) < 0)       \
 		sitem = sitem->next;                                           \
 	if (!sitem || cmpval > 0)                                              \
 		return NULL;                                                   \

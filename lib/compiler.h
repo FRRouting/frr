@@ -165,6 +165,13 @@ extern "C" {
 		_min_a < _min_b ? _min_a : _min_b;                             \
 	})
 
+#define numcmp(a, b)                                                           \
+	({                                                                     \
+		typeof(a) _cmp_a = (a);                                        \
+		typeof(b) _cmp_b = (b);                                        \
+		(_cmp_a < _cmp_b) ? -1 : ((_cmp_a > _cmp_b) ? 1 : 0);          \
+	})
+
 #ifndef offsetof
 #ifdef __compiler_offsetof
 #define offsetof(TYPE, MEMBER) __compiler_offsetof(TYPE,MEMBER)
