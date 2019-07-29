@@ -416,6 +416,14 @@ extern int prefix_common_bits(const struct prefix *, const struct prefix *);
 extern void prefix_copy(union prefixptr, union prefixconstptr);
 extern void apply_mask(struct prefix *);
 
+#ifdef __clang_analyzer__
+/* clang-SA doesn't understand transparent unions, making it think that the
+ * target of prefix_copy is uninitialized.  So just memset the target.
+ * cf. https://bugs.llvm.org/show_bug.cgi?id=42811
+ */
+#define prefix_copy(a, b) ({ memset(a, 0, sizeof(*a)); prefix_copy(a, b); })
+#endif
+
 extern struct prefix *sockunion2prefix(const union sockunion *dest,
 				       const union sockunion *mask);
 extern struct prefix *sockunion2hostprefix(const union sockunion *,

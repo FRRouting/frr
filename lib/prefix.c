@@ -628,6 +628,10 @@ int prefix_match_network_statement(const struct prefix *n,
 	return 1;
 }
 
+#ifdef __clang_analyzer__
+#undef prefix_copy	/* cf. prefix.h */
+#endif
+
 void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 {
 	struct prefix *dest = udest.p;
