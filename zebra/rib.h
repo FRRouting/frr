@@ -303,7 +303,6 @@ typedef struct rib_tables_iter_t_ {
 
 /* Events/reasons triggering a RIB update. */
 typedef enum {
-	RIB_UPDATE_IF_CHANGE,
 	RIB_UPDATE_RMAP_CHANGE,
 	RIB_UPDATE_OTHER
 } rib_update_event_t;
