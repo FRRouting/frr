@@ -765,8 +765,6 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 			metric_type(ospf, DEFAULT_ROUTE, 0),
 			metric_value(ospf, DEFAULT_ROUTE, 0));
 
-		if (ospf->router_id.s_addr == 0)
-			ospf->external_origin |= (1 << DEFAULT_ROUTE);
 		if ((originate == DEFAULT_ORIGINATE_ALWAYS)
 			  && (ospf->router_id.s_addr)) {
 
@@ -1067,11 +1065,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 			/* Nothing has changed, so nothing to do; return */
 			return 0;
 		}
-		if (ospf->router_id.s_addr == 0)
-			/* Set flags to generate AS-external-LSA originate event
-			   for each redistributed protocols later. */
-			ospf->external_origin |= (1 << rt_type);
-		else {
+		if (ospf->router_id.s_addr != 0) {
 			if (ei) {
 				if (is_prefix_default(&p))
 					ospf_external_lsa_refresh_default(ospf);
