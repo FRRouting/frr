@@ -9,7 +9,7 @@
             "distance": 20,
             "metric": 0,
             "installed": true,
-            "internalStatus": 34,
+            "internalStatus": 16,
             "internalFlags": 8,
             "nexthops": [
                 {
@@ -33,7 +33,7 @@
             "distance": 0,
             "metric": 0,
             "installed": true,
-            "internalStatus": 32,
+            "internalStatus": 16,
             "internalFlags": 8,
             "nexthops": [
                 {

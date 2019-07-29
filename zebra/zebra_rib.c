@@ -1128,8 +1128,6 @@ static void rib_process(struct route_node *rn)
 				re->status, re->flags, re->distance,
 				re->metric);
 
-		UNSET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
-
 		/* Currently selected re. */
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
 			assert(old_selected == NULL);
