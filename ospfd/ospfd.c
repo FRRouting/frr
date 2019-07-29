@@ -702,7 +702,6 @@ static void ospf_finish_final(struct ospf *ospf)
 	/* Cancel all timers. */
 	OSPF_TIMER_OFF(ospf->t_read);
 	OSPF_TIMER_OFF(ospf->t_write);
-	OSPF_TIMER_OFF(ospf->t_external_lsa);
 	OSPF_TIMER_OFF(ospf->t_spf_calc);
 	OSPF_TIMER_OFF(ospf->t_ase_calc);
 	OSPF_TIMER_OFF(ospf->t_maxage);

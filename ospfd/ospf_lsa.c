@@ -2031,8 +2031,6 @@ int ospf_external_lsa_originate_timer(struct thread *thread)
 	struct listnode *node;
 	struct ospf_external *ext;
 
-	ospf->t_external_lsa = NULL;
-
 	ext_list = ospf->external[type];
 	if (!ext_list)
 		return 0;
