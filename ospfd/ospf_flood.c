@@ -91,7 +91,7 @@ struct external_info *ospf_external_info_check(struct ospf *ospf,
 	p.prefix = lsa->data->id;
 	p.prefixlen = ip_masklen(al->mask);
 
-	for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
+	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
 		int redist_on = 0;
 
 		redist_on =
