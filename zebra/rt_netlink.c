@@ -1833,6 +1833,19 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 		if (p->family == AF_INET || v6_rr_semantics) {
 			/* Single 'replace' operation */
 			cmd = RTM_NEWROUTE;
+
+			/*
+			 * With route replace semantics in place
+			 * for v4 routes and the new route is a system
+			 * route we do not install anything.
+			 * The problem here is that the new system
+			 * route should cause us to withdraw from
+			 * the kernel the old non-system route
+			 */
+			if (RSYSTEM_ROUTE(dplane_ctx_get_type(ctx)) &&
+			    !RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx)))
+				(void)netlink_route_multipath(RTM_DELROUTE,
+							      ctx);
 		} else {
 			/*
 			 * So v6 route replace semantics are not in
