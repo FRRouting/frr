@@ -845,14 +845,20 @@ int ospf_redistribute_default_unset(struct ospf *ospf)
 			return CMD_SUCCESS;
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
 				 zclient, AFI_IP, ospf->vrf_id);
+	} else if (ospf->default_originate == DEFAULT_ORIGINATE_ALWAYS) {
+		struct prefix_ipv4 p;
+
+		p.family = AF_INET;
+		p.prefix.s_addr = 0;
+		p.prefixlen = 0;
+
+		ospf_external_info_delete(ospf, DEFAULT_ROUTE, 0, &p);
 	}
 
 	ospf->default_originate = DEFAULT_ORIGINATE_NONE;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
 		zlog_debug("Redistribute[DEFAULT]: Stop");
-
-	// Pending: how does the external_info cleanup work in this case?
 
 	ospf_asbr_status_update(ospf, --ospf->redistribute);
 
