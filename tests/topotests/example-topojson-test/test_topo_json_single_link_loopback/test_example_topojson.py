@@ -178,7 +178,7 @@ def test_static_routes(request):
     # Static routes are created as part of initial configuration,
     # verifying RIB
     dut = 'r3'
-    next_hop = '10.0.0.1'
+    next_hop = ['10.0.0.1', '10.0.0.5']
     input_dict = {
         "r1": {
             "static_routes": [
