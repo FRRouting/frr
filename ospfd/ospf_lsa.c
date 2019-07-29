@@ -2202,28 +2202,20 @@ void ospf_external_lsa_refresh_default(struct ospf *ospf)
 	ei = ospf_default_external_info(ospf);
 	lsa = ospf_external_info_find_lsa(ospf, &p);
 
-	if (ei) {
-		if (lsa) {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"LSA[Type5:0.0.0.0]: Refresh AS-external-LSA %p",
-					(void *)lsa);
-			ospf_external_lsa_refresh(ospf, lsa, ei,
-						  LSA_REFRESH_FORCE);
-		} else {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"LSA[Type5:0.0.0.0]: Originate AS-external-LSA");
-			ospf_external_lsa_originate(ospf, ei);
-		}
-	} else {
-		if (lsa) {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"LSA[Type5:0.0.0.0]: Flush AS-external-LSA");
-			ospf_refresher_unregister_lsa(ospf, lsa);
-			ospf_lsa_flush_as(ospf, lsa);
-		}
+	if (ei && lsa) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("LSA[Type5:0.0.0.0]: Refresh AS-external-LSA %p",
+				   (void *)lsa);
+		ospf_external_lsa_refresh(ospf, lsa, ei, LSA_REFRESH_FORCE);
+	} else if (ei && !lsa) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug(
+				"LSA[Type5:0.0.0.0]: Originate AS-external-LSA");
+		ospf_external_lsa_originate(ospf, ei);
+	} else if (lsa) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("LSA[Type5:0.0.0.0]: Flush AS-external-LSA");
+		ospf_external_lsa_flush(ospf, DEFAULT_ROUTE, &p, 0);
 	}
 }
 

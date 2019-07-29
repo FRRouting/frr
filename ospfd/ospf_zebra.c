@@ -744,10 +744,10 @@ int ospf_redistribute_unset(struct ospf *ospf, int type,
 int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 				  int mvalue)
 {
-	struct ospf_external *ext;
 	struct prefix_ipv4 p;
 	struct in_addr nexthop;
 	int cur_originate = ospf->default_originate;
+	const char *type_str = NULL;
 
 	nexthop.s_addr = 0;
 	p.family = AF_INET;
@@ -756,39 +756,7 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 
 	ospf->default_originate = originate;
 
-	ospf_external_add(ospf, DEFAULT_ROUTE, 0);
-
-	if (cur_originate == DEFAULT_ORIGINATE_NONE) {
-		/* First time configuration */
-		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
-			zlog_debug("Redistribute[DEFAULT]: Start Type[%d], Metric[%d]",
-			metric_type(ospf, DEFAULT_ROUTE, 0),
-			metric_value(ospf, DEFAULT_ROUTE, 0));
-
-		if ((originate == DEFAULT_ORIGINATE_ALWAYS)
-			  && (ospf->router_id.s_addr)) {
-
-			/* always , so originate lsa even it doesn't
-			 * exist in RIB.
-			 */
-			ospf_external_info_add(ospf, DEFAULT_ROUTE, 0,
-						 p, 0, nexthop, 0);
-			ospf_external_lsa_refresh_default(ospf);
-
-		} else if (originate == DEFAULT_ORIGINATE_ZEBRA) {
-			/* Send msg to Zebra to validate default route
-			 * existance.
-			 */
-			zclient_redistribute_default(
-				ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient, AFI_IP,
-				ospf->vrf_id);
-		}
-
-		ospf_asbr_status_update(ospf, ++ospf->redistribute);
-		return CMD_SUCCESS;
-
-
-	} else if (originate == cur_originate) {
+	if (cur_originate == originate) {
 		/* Refresh the lsa since metric might different */
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
 			zlog_debug(
@@ -798,70 +766,51 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 				metric_value(ospf, DEFAULT_ROUTE, 0));
 
 		ospf_external_lsa_refresh_default(ospf);
-
-	} else {
-		/* "default-info originate always" configured now,
-		 * where "default-info originate" configured previoulsly.
-		 */
-		if (originate == DEFAULT_ORIGINATE_ALWAYS) {
-
-			zclient_redistribute_default(
-					ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
-					zclient, AFI_IP, ospf->vrf_id);
-			/* here , ex-info should be added since ex-info might
-			 * have not updated earlier if def route is not exist.
-			 * If ex-iinfo ex-info already exist , it will return
-			 * smoothly.
-			 */
-			ospf_external_info_add(ospf, DEFAULT_ROUTE, 0,
-						 p, 0, nexthop, 0);
-			ospf_external_lsa_refresh_default(ospf);
-
-		} else {
-			/* "default-info originate" configured now,where
-			 * "default-info originate always" configured
-			 * previoulsy.
-			 */
-
-			ospf_external_lsa_flush(ospf, DEFAULT_ROUTE, &p, 0);
-
-			ext = ospf_external_lookup(ospf, DEFAULT_ROUTE, 0);
-			if (ext && EXTERNAL_INFO(ext))
-				ospf_external_info_delete(ospf,
-						 DEFAULT_ROUTE, 0, p);
-
-			zclient_redistribute_default(
-					ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
-					zclient, AFI_IP, ospf->vrf_id);
-		}
+		return CMD_SUCCESS;
 	}
 
-	return CMD_SUCCESS;
-}
-int ospf_redistribute_default_unset(struct ospf *ospf)
-{
-	if (ospf->default_originate == DEFAULT_ORIGINATE_ZEBRA) {
-		if (!ospf_is_type_redistributed(ospf, DEFAULT_ROUTE, 0))
-			return CMD_SUCCESS;
+	switch (cur_originate) {
+	case DEFAULT_ORIGINATE_NONE:
+		break;
+	case DEFAULT_ORIGINATE_ZEBRA:
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
 				 zclient, AFI_IP, ospf->vrf_id);
-	} else if (ospf->default_originate == DEFAULT_ORIGINATE_ALWAYS) {
-		struct prefix_ipv4 p;
-
-		p.family = AF_INET;
-		p.prefix.s_addr = 0;
-		p.prefixlen = 0;
-
-		ospf_external_info_delete(ospf, DEFAULT_ROUTE, 0, &p);
+		ospf->redistribute--;
+		break;
+	case DEFAULT_ORIGINATE_ALWAYS:
+		ospf_external_info_delete(ospf, DEFAULT_ROUTE, 0, p);
+		ospf_external_del(ospf, DEFAULT_ROUTE, 0);
+		ospf->redistribute--;
+		break;
 	}
 
-	ospf->default_originate = DEFAULT_ORIGINATE_NONE;
+	switch (originate) {
+	case DEFAULT_ORIGINATE_NONE:
+		type_str = "none";
+		break;
+	case DEFAULT_ORIGINATE_ZEBRA:
+		type_str = "normal";
+		ospf->redistribute++;
+		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
+					     zclient, AFI_IP, ospf->vrf_id);
+		break;
+	case DEFAULT_ORIGINATE_ALWAYS:
+		type_str = "always";
+		ospf->redistribute++;
+		ospf_external_add(ospf, DEFAULT_ROUTE, 0);
+		ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0, nexthop,
+				       0);
+		break;
+	}
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
-		zlog_debug("Redistribute[DEFAULT]: Stop");
+		zlog_debug("Redistribute[DEFAULT]: %s Type[%d], Metric[%d]",
+		type_str,
+		metric_type(ospf, DEFAULT_ROUTE, 0),
+		metric_value(ospf, DEFAULT_ROUTE, 0));
 
-	ospf_asbr_status_update(ospf, --ospf->redistribute);
-
+	ospf_external_lsa_refresh_default(ospf);
+	ospf_asbr_status_update(ospf, ospf->redistribute);
 	return CMD_SUCCESS;
 }
 
