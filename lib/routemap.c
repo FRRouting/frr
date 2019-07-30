@@ -927,19 +927,31 @@ static const char *route_map_type_str(enum route_map_type type)
 	return "";
 }
 
-static const char *route_map_result_str(route_map_result_t res)
+static const char *route_map_cmd_result_str(enum route_map_cmd_result_t res)
 {
 	switch (res) {
 	case RMAP_MATCH:
 		return "match";
-	case RMAP_DENYMATCH:
-		return "deny";
 	case RMAP_NOMATCH:
 		return "no match";
+	case RMAP_NOOP:
+		return "noop";
 	case RMAP_ERROR:
 		return "error";
 	case RMAP_OKAY:
 		return "okay";
+	}
+
+	return "invalid";
+}
+
+static const char *route_map_result_str(route_map_result_t res)
+{
+	switch (res) {
+	case RMAP_DENYMATCH:
+		return "deny";
+	case RMAP_PERMITMATCH:
+		return "permit";
 	}
 
 	return "invalid";
@@ -1558,20 +1570,98 @@ int route_map_delete_set(struct route_map_index *index, const char *set_name,
 	return 1;
 }
 
+static enum route_map_cmd_result_t
+route_map_apply_match(struct route_map_rule_list *match_list,
+		      const struct prefix *prefix, route_map_object_t type,
+		      void *object)
+{
+	enum route_map_cmd_result_t ret = RMAP_NOMATCH;
+	struct route_map_rule *match;
+	bool is_matched = false;
+
+
+	/* Check all match rule and if there is no match rule, go to the
+	   set statement. */
+	if (!match_list->head)
+		ret = RMAP_MATCH;
+	else {
+		for (match = match_list->head; match; match = match->next) {
+			/*
+			 * Try each match statement. If any match does not
+			 * return RMAP_MATCH or RMAP_NOOP, return.
+			 * Otherwise continue on to next match statement.
+			 * All match statements must MATCH for
+			 * end-result to be a match.
+			 * (Exception:If match stmts result in a mix of
+			 * MATCH/NOOP, then also end-result is a match)
+			 * If all result in NOOP, end-result is NOOP.
+			 */
+			ret = (*match->cmd->func_apply)(match->value, prefix,
+							type, object);
+
+			/*
+			 * If the consolidated result of func_apply is:
+			 *   -----------------------------------------------
+			 *   |  MATCH  | NOMATCH  |  NOOP   |  Final Result |
+			 *   ------------------------------------------------
+			 *   |   yes   |   yes    |  yes    |     NOMATCH   |
+			 *   |   no    |   no     |  yes    |     NOOP      |
+			 *   |   yes   |   no     |  yes    |     MATCH     |
+			 *   |   no    |   yes    |  yes    |     NOMATCH   |
+			 *   |-----------------------------------------------
+			 *
+			 *  Traditionally, all rules within route-map
+			 *  should match for it to MATCH.
+			 *  If there are noops within the route-map rules,
+			 *  it follows the above matrix.
+			 *
+			 *   Eg: route-map rm1 permit 10
+			 *         match rule1
+			 *         match rule2
+			 *         match rule3
+			 *         ....
+			 *       route-map rm1 permit 20
+			 *         match ruleX
+			 *         match ruleY
+			 *         ...
+			 */
+
+			switch (ret) {
+			case RMAP_MATCH:
+				is_matched = true;
+				break;
+
+			case RMAP_NOMATCH:
+				return ret;
+
+			case RMAP_NOOP:
+				if (is_matched)
+					ret = RMAP_MATCH;
+				break;
+
+			default:
+				break;
+			}
+
+		}
+	}
+	return ret;
+}
+
 /* Apply route map's each index to the object.
 
    The matrix for a route-map looks like this:
    (note, this includes the description for the "NEXT"
    and "GOTO" frobs now
 
-	      Match   |   No Match
-		      |
-    permit    action  |     cont
-		      |
-    ------------------+---------------
-		      |
-    deny      deny    |     cont
-		      |
+	   |   Match   |   No Match   | No op
+	   |-----------|--------------|-------
+    permit |   action  |     cont     | cont.
+	   |           | default:deny | default:permit
+    -------------------+-----------------------
+	   |   deny    |     cont     | cont.
+    deny   |           | default:deny | default:permit
+	   |-----------|--------------|--------
 
    action)
       -Apply Set statements, accept route
@@ -1604,45 +1694,13 @@ int route_map_delete_set(struct route_map_index *index, const char *set_name,
 
    We need to make sure our route-map processing matches the above
 */
-
-static route_map_result_t
-route_map_apply_match(struct route_map_rule_list *match_list,
-		      const struct prefix *prefix, route_map_object_t type,
-		      void *object)
-{
-	route_map_result_t ret = RMAP_NOMATCH;
-	struct route_map_rule *match;
-
-
-	/* Check all match rule and if there is no match rule, go to the
-	   set statement. */
-	if (!match_list->head)
-		ret = RMAP_MATCH;
-	else {
-		for (match = match_list->head; match; match = match->next) {
-			/* Try each match statement in turn, If any do not
-			   return
-			   RMAP_MATCH, return, otherwise continue on to next
-			   match
-			   statement. All match statements must match for
-			   end-result
-			   to be a match. */
-			ret = (*match->cmd->func_apply)(match->value, prefix,
-							type, object);
-			if (ret != RMAP_MATCH)
-				return ret;
-		}
-	}
-	return ret;
-}
-
-/* Apply route map to the object. */
 route_map_result_t route_map_apply(struct route_map *map,
 				   const struct prefix *prefix,
 				   route_map_object_t type, void *object)
 {
 	static int recursion = 0;
-	int ret = 0;
+	enum route_map_cmd_result_t match_ret = RMAP_NOMATCH;
+	route_map_result_t ret = RMAP_PERMITMATCH;
 	struct route_map_index *index;
 	struct route_map_rule *set;
 	char buf[PREFIX_STRLEN];
@@ -1656,7 +1714,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 		return RMAP_DENYMATCH;
 	}
 
-	if (map == NULL) {
+	if (map == NULL || map->head == NULL) {
 		ret = RMAP_DENYMATCH;
 		goto route_map_apply_end;
 	}
@@ -1665,29 +1723,64 @@ route_map_result_t route_map_apply(struct route_map *map,
 	for (index = map->head; index; index = index->next) {
 		/* Apply this index. */
 		index->applied++;
-		ret = route_map_apply_match(&index->match_list, prefix, type,
-					    object);
+		match_ret = route_map_apply_match(&index->match_list, prefix,
+						  type, object);
 
 		if (rmap_debug) {
 			zlog_debug("Route-map: %s, sequence: %d, prefix: %s, result: %s",
 				   map->name, index->pref,
 				   prefix2str(prefix, buf, sizeof(buf)),
-				   route_map_result_str(ret));
+				   route_map_cmd_result_str(match_ret));
 		}
 
 		/* Now we apply the matrix from above */
-		if (ret == RMAP_NOMATCH)
-			/* 'cont' from matrix - continue to next route-map
-			 * sequence */
+		if (match_ret == RMAP_NOOP)
+			/*
+			 * Do not change the return value. Retain the previous
+			 * return value. Previous values can be:
+			 * 1)permitmatch (if a nomatch was never
+			 * seen before in this route-map.)
+			 * 2)denymatch (if a nomatch was seen earlier in one
+			 * of the previous sequences)
+			 */
+
+			/*
+			 * 'cont' from matrix - continue to next route-map
+			 * sequence
+			 */
 			continue;
-		else if (ret == RMAP_MATCH) {
+		else if (match_ret == RMAP_NOMATCH) {
+
+			/*
+			 * The return value is now changed to denymatch.
+			 * So from here on out, even if we see more noops,
+			 * we retain this return value and return this
+			 * eventually if there are no matches.
+			 */
+			ret = RMAP_DENYMATCH;
+
+			/*
+			 * 'cont' from matrix - continue to next route-map
+			 * sequence
+			 */
+			continue;
+		} else if (match_ret == RMAP_MATCH) {
 			if (index->type == RMAP_PERMIT)
 			/* 'action' */
 			{
+				/* Match succeeded, rmap is of type permit */
+				ret = RMAP_PERMITMATCH;
+
 				/* permit+match must execute sets */
 				for (set = index->set_list.head; set;
 				     set = set->next)
-					ret = (*set->cmd->func_apply)(
+					/*
+					 * set cmds return RMAP_OKAY or
+					 * RMAP_ERROR. We do not care if
+					 * set succeeded or not. So, ignore
+					 * return code.
+					 */
+					(void) (*set->cmd->func_apply)(
 						set->value, prefix, type,
 						object);
 
@@ -1741,8 +1834,6 @@ route_map_result_t route_map_apply(struct route_map *map,
 			}
 		}
 	}
-	/* Finally route-map does not match at all. */
-	ret = RMAP_DENYMATCH;
 
 route_map_apply_end:
 	if (rmap_debug) {

@@ -136,9 +136,9 @@ static int zebra_route_match_delete(struct vty *vty, const char *command,
 /* 'match tag TAG'
  * Match function return 1 if match is success else return 0
  */
-static route_map_result_t route_match_tag(void *rule,
-					  const struct prefix *prefix,
-					  route_map_object_t type, void *object)
+static enum route_map_cmd_result_t
+route_match_tag(void *rule, const struct prefix *prefix,
+		route_map_object_t type, void *object)
 {
 	route_tag_t *tag;
 	struct nh_rmap_obj *nh_data;
@@ -162,10 +162,9 @@ static struct route_map_rule_cmd route_match_tag_cmd = {
 
 /* `match interface IFNAME' */
 /* Match function return 1 if match is success else return zero. */
-static route_map_result_t route_match_interface(void *rule,
-						const struct prefix *prefix,
-						route_map_object_t type,
-						void *object)
+static enum route_map_cmd_result_t
+route_match_interface(void *rule, const struct prefix *prefix,
+		      route_map_object_t type, void *object)
 {
 	struct nh_rmap_obj *nh_data;
 	char *ifname = rule;
@@ -1025,10 +1024,9 @@ DEFPY (show_ipv6_protocol_nht,
 /* `match ip next-hop IP_ACCESS_LIST' */
 
 /* Match function return 1 if match is success else return zero. */
-static route_map_result_t route_match_ip_next_hop(void *rule,
-						  const struct prefix *prefix,
-						  route_map_object_t type,
-						  void *object)
+static enum route_map_cmd_result_t
+route_match_ip_next_hop(void *rule, const struct prefix *prefix,
+			route_map_object_t type, void *object)
 {
 	struct access_list *alist;
 	struct nh_rmap_obj *nh_data;
@@ -1037,7 +1035,7 @@ static route_map_result_t route_match_ip_next_hop(void *rule,
 	if (type == RMAP_ZEBRA) {
 		nh_data = object;
 		if (!nh_data)
-			return RMAP_DENYMATCH;
+			return RMAP_NOMATCH;
 
 		switch (nh_data->nexthop->type) {
 		case NEXTHOP_TYPE_IFINDEX:
@@ -1083,7 +1081,7 @@ static struct route_map_rule_cmd route_match_ip_next_hop_cmd = {
 
 /* `match ip next-hop prefix-list PREFIX_LIST' */
 
-static route_map_result_t
+static enum route_map_cmd_result_t
 route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 				    route_map_object_t type, void *object)
 {
@@ -1094,7 +1092,7 @@ route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 	if (type == RMAP_ZEBRA) {
 		nh_data = (struct nh_rmap_obj *)object;
 		if (!nh_data)
-			return RMAP_DENYMATCH;
+			return RMAP_NOMATCH;
 
 		switch (nh_data->nexthop->type) {
 		case NEXTHOP_TYPE_IFINDEX:
@@ -1139,10 +1137,9 @@ static struct route_map_rule_cmd route_match_ip_next_hop_prefix_list_cmd = {
 
 /* Match function should return 1 if match is success else return
    zero. */
-static route_map_result_t route_match_address(afi_t afi, void *rule,
-					      const struct prefix *prefix,
-					      route_map_object_t type,
-					      void *object)
+static enum route_map_cmd_result_t
+route_match_address(afi_t afi, void *rule, const struct prefix *prefix,
+		    route_map_object_t type, void *object)
 {
 	struct access_list *alist;
 
@@ -1158,19 +1155,16 @@ static route_map_result_t route_match_address(afi_t afi, void *rule,
 	return RMAP_NOMATCH;
 }
 
-static route_map_result_t route_match_ip_address(void *rule,
-						 const struct prefix *prefix,
-						 route_map_object_t type,
-						 void *object)
+static enum route_map_cmd_result_t
+route_match_ip_address(void *rule, const struct prefix *prefix,
+		       route_map_object_t type, void *object)
 {
 	return route_match_address(AFI_IP, rule, prefix, type, object);
 }
 
-static route_map_result_t route_match_ipv6_address(void *rule,
-						   const struct prefix *prefix,
-						   route_map_object_t type,
-						   void *object)
-
+static enum route_map_cmd_result_t
+route_match_ipv6_address(void *rule, const struct prefix *prefix,
+			 route_map_object_t type, void *object)
 {
 	return route_match_address(AFI_IP6, rule, prefix, type, object);
 }
@@ -1200,7 +1194,7 @@ static struct route_map_rule_cmd route_match_ipv6_address_cmd = {
 
 /* `match ip address prefix-list PREFIX_LIST' */
 
-static route_map_result_t
+static enum route_map_cmd_result_t
 route_match_address_prefix_list(void *rule, const struct prefix *prefix,
 			route_map_object_t type, void *object, afi_t afi)
 {
@@ -1218,7 +1212,7 @@ route_match_address_prefix_list(void *rule, const struct prefix *prefix,
 	return RMAP_NOMATCH;
 }
 
-static route_map_result_t
+static enum route_map_cmd_result_t
 route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
 				   route_map_object_t type, void *object)
 {
@@ -1241,7 +1235,7 @@ static struct route_map_rule_cmd route_match_ip_address_prefix_list_cmd = {
 	route_match_address_prefix_list_compile,
 	route_match_address_prefix_list_free};
 
-static route_map_result_t
+static enum route_map_cmd_result_t
 route_match_ipv6_address_prefix_list(void *rule, const struct prefix *prefix,
 					route_map_object_t type, void *object)
 {
@@ -1256,7 +1250,7 @@ static struct route_map_rule_cmd route_match_ipv6_address_prefix_list_cmd = {
 
 /* `match ipv6 next-hop type <TYPE>' */
 
-static route_map_result_t
+static enum route_map_cmd_result_t
 route_match_ipv6_next_hop_type(void *rule, const struct prefix *prefix,
 			       route_map_object_t type, void *object)
 {
@@ -1265,7 +1259,7 @@ route_match_ipv6_next_hop_type(void *rule, const struct prefix *prefix,
 	if (type == RMAP_ZEBRA && prefix->family == AF_INET6) {
 		nh_data = (struct nh_rmap_obj *)object;
 		if (!nh_data)
-			return RMAP_DENYMATCH;
+			return RMAP_NOMATCH;
 
 		if (nh_data->nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
 			return RMAP_MATCH;
@@ -1290,7 +1284,7 @@ struct route_map_rule_cmd route_match_ipv6_next_hop_type_cmd = {
 
 /* `match ip address prefix-len PREFIXLEN' */
 
-static route_map_result_t
+static enum route_map_cmd_result_t
 route_match_address_prefix_len(void *rule, const struct prefix *prefix,
 			       route_map_object_t type, void *object)
 {
@@ -1341,7 +1335,7 @@ static struct route_map_rule_cmd route_match_ipv6_address_prefix_len_cmd = {
 
 /* `match ip nexthop prefix-len PREFIXLEN' */
 
-static route_map_result_t
+static enum route_map_cmd_result_t
 route_match_ip_nexthop_prefix_len(void *rule, const struct prefix *prefix,
 				  route_map_object_t type, void *object)
 {
@@ -1352,7 +1346,7 @@ route_match_ip_nexthop_prefix_len(void *rule, const struct prefix *prefix,
 	if (type == RMAP_ZEBRA) {
 		nh_data = (struct nh_rmap_obj *)object;
 		if (!nh_data || !nh_data->nexthop)
-			return RMAP_DENYMATCH;
+			return RMAP_NOMATCH;
 
 		switch (nh_data->nexthop->type) {
 		case NEXTHOP_TYPE_IFINDEX:
@@ -1381,7 +1375,7 @@ static struct route_map_rule_cmd route_match_ip_nexthop_prefix_len_cmd = {
 
 /* `match ip next-hop type <blackhole>' */
 
-static route_map_result_t
+static enum route_map_cmd_result_t
 route_match_ip_next_hop_type(void *rule, const struct prefix *prefix,
 			     route_map_object_t type, void *object)
 {
@@ -1390,7 +1384,7 @@ route_match_ip_next_hop_type(void *rule, const struct prefix *prefix,
 	if (type == RMAP_ZEBRA && prefix->family == AF_INET) {
 		nh_data = (struct nh_rmap_obj *)object;
 		if (!nh_data)
-			return RMAP_DENYMATCH;
+			return RMAP_NOMATCH;
 
 		if (nh_data->nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
 			return RMAP_MATCH;
@@ -1415,10 +1409,9 @@ static struct route_map_rule_cmd route_match_ip_next_hop_type_cmd = {
 
 /* `match source-protocol PROTOCOL' */
 
-static route_map_result_t route_match_source_protocol(void *rule,
-						      const struct prefix *p,
-						      route_map_object_t type,
-						      void *object)
+static enum route_map_cmd_result_t
+route_match_source_protocol(void *rule, const struct prefix *p,
+			    route_map_object_t type, void *object)
 {
 	uint32_t *rib_type = (uint32_t *)rule;
 	struct nh_rmap_obj *nh_data;
@@ -1426,7 +1419,7 @@ static route_map_result_t route_match_source_protocol(void *rule,
 	if (type == RMAP_ZEBRA) {
 		nh_data = (struct nh_rmap_obj *)object;
 		if (!nh_data)
-			return RMAP_DENYMATCH;
+			return RMAP_NOMATCH;
 
 		return ((nh_data->source_protocol == *rib_type) ? RMAP_MATCH
 								: RMAP_NOMATCH);
@@ -1457,10 +1450,9 @@ static struct route_map_rule_cmd route_match_source_protocol_cmd = {
 	route_match_source_protocol_compile, route_match_source_protocol_free};
 
 /* `source-instance` */
-static route_map_result_t route_match_source_instance(void *rule,
-						      const struct prefix *p,
-						      route_map_object_t type,
-						      void *object)
+static enum route_map_cmd_result_t
+route_match_source_instance(void *rule, const struct prefix *p,
+			    route_map_object_t type, void *object)
 {
 	uint8_t *instance = (uint8_t *)rule;
 	struct nh_rmap_obj *nh_data;
@@ -1470,7 +1462,7 @@ static route_map_result_t route_match_source_instance(void *rule,
 
 	nh_data = (struct nh_rmap_obj *)object;
 	if (!nh_data)
-		return RMAP_DENYMATCH;
+		return RMAP_NOMATCH;
 
 	return (nh_data->instance == *instance) ? RMAP_MATCH : RMAP_NOMATCH;
 }
@@ -1500,8 +1492,9 @@ static struct route_map_rule_cmd route_match_source_instance_cmd = {
 /* `set src A.B.C.D' */
 
 /* Set src. */
-static route_map_result_t route_set_src(void *rule, const struct prefix *prefix,
-					route_map_object_t type, void *object)
+static enum route_map_cmd_result_t
+route_set_src(void *rule, const struct prefix *prefix, route_map_object_t type,
+	      void *object)
 {
 	struct nh_rmap_obj *nh_data;
 
@@ -1767,7 +1760,7 @@ zebra_route_map_check(int family, int rib_type, uint8_t instance,
 		      struct zebra_vrf *zvrf, route_tag_t tag)
 {
 	struct route_map *rmap = NULL;
-	route_map_result_t ret = RMAP_MATCH;
+	route_map_result_t ret = RMAP_PERMITMATCH;
 	struct nh_rmap_obj nh_obj;
 
 	nh_obj.nexthop = nexthop;
@@ -1839,7 +1832,7 @@ route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,
 					     struct nexthop *nexthop)
 {
 	struct route_map *rmap = NULL;
-	route_map_result_t ret = RMAP_MATCH;
+	route_map_result_t ret = RMAP_PERMITMATCH;
 	struct nh_rmap_obj nh_obj;
 
 	nh_obj.nexthop = nexthop;

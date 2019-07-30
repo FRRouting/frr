@@ -1243,10 +1243,12 @@ static int bgp_cluster_filter(struct peer *peer, struct attr *attr)
 
 static int bgp_input_modifier(struct peer *peer, struct prefix *p,
 			      struct attr *attr, afi_t afi, safi_t safi,
-			      const char *rmap_name)
+			      const char *rmap_name, mpls_label_t *label,
+			      uint32_t num_labels)
 {
 	struct bgp_filter *filter;
-	struct bgp_path_info rmap_path;
+	struct bgp_path_info rmap_path = { 0 };
+	struct bgp_path_info_extra extra = { 0 };
 	route_map_result_t ret;
 	struct route_map *rmap = NULL;
 
@@ -1276,6 +1278,11 @@ static int bgp_input_modifier(struct peer *peer, struct prefix *p,
 		/* Duplicate current value to new strucutre for modification. */
 		rmap_path.peer = peer;
 		rmap_path.attr = attr;
+		rmap_path.extra = &extra;
+		extra.num_labels = num_labels;
+		if (label && num_labels && num_labels <= BGP_MAX_LABELS)
+			memcpy(extra.label, label,
+				num_labels * sizeof(mpls_label_t));
 
 		SET_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN);
 
@@ -1465,7 +1472,7 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 	struct bgp *bgp;
 	struct attr *piattr;
 	char buf[PREFIX_STRLEN];
-	int ret;
+	route_map_result_t ret;
 	int transparent;
 	int reflect;
 	afi_t afi;
@@ -2544,12 +2551,12 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 
 			/* apply the route-map */
 			if (bgp->adv_cmd_rmap[afi][safi].map) {
-				int ret = 0;
+				route_map_result_t ret;
 
 				ret = route_map_apply(
 					bgp->adv_cmd_rmap[afi][safi].map,
 					&rn->p, RMAP_BGP, new_select);
-				if (ret == RMAP_MATCH)
+				if (ret == RMAP_PERMITMATCH)
 					bgp_evpn_advertise_type5_route(
 						bgp, &rn->p, new_select->attr,
 						afi, safi);
@@ -3149,8 +3156,8 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	 * commands, so we need bgp_attr_flush in the error paths, until we
 	 * intern
 	 * the attr (which takes over the memory references) */
-	if (bgp_input_modifier(peer, p, &new_attr, afi, safi, NULL)
-	    == RMAP_DENY) {
+	if (bgp_input_modifier(peer, p, &new_attr, afi, safi, NULL,
+		label, num_labels) == RMAP_DENY) {
 		peer->stat_pfx_filter++;
 		reason = "route-map;";
 		bgp_attr_flush(&new_attr);
@@ -4593,7 +4600,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 	struct bgp_path_info rmap_path;
 	struct attr attr;
 	struct attr *attr_new;
-	int ret;
+	route_map_result_t ret;
 #if ENABLE_BGP_VNC
 	int vnc_implicit_withdraw = 0;
 #endif
@@ -4941,7 +4948,7 @@ static void bgp_static_update_safi(struct bgp *bgp, struct prefix *p,
 	if (bgp_static->rmap.name) {
 		struct attr attr_tmp = attr;
 		struct bgp_path_info rmap_path;
-		int ret;
+		route_map_result_t ret;
 
 		rmap_path.peer = bgp->peer_self;
 		rmap_path.attr = &attr_tmp;
@@ -6620,7 +6627,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 	struct attr attr;
 	struct attr *new_attr;
 	afi_t afi;
-	int ret;
+	route_map_result_t ret;
 	struct bgp_redist *red;
 
 	/* Make default attribute. */
@@ -9139,7 +9146,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				struct route_map *rmap = output_arg;
 				struct bgp_path_info path;
 				struct attr dummy_attr;
-				int ret;
+				route_map_result_t ret;
 
 				bgp_attr_dup(&dummy_attr, pi->attr);
 
@@ -11284,7 +11291,7 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 
 				/* Filter prefix using route-map */
 				ret = bgp_input_modifier(peer, &rn->p, &attr,
-							afi, safi, rmap_name);
+						afi, safi, rmap_name, NULL, 0);
 
 				if (type == bgp_show_adj_route_filtered &&
 					!route_filtered && ret != RMAP_DENY) {
