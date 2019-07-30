@@ -2114,6 +2114,16 @@ mac_update_internal(enum dplane_op_e op,
 	struct zebra_dplane_ctx *ctx = NULL;
 	struct zebra_ns *zns;
 
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		char buf1[ETHER_ADDR_STRLEN], buf2[PREFIX_STRLEN];
+
+		zlog_debug("init mac ctx %s: mac %s, ifp %s, vtep %s",
+			   dplane_op2str(op),
+			   prefix_mac2str(mac, buf1, sizeof(buf1)),
+			   ifp->name,
+			   inet_ntop(AF_INET, &vtep_ip, buf2, sizeof(buf2)));
+	}
+
 	ctx = dplane_ctx_alloc();
 
 	ctx->zd_op = op;
@@ -2560,7 +2570,6 @@ kernel_dplane_address_update(struct zebra_dplane_ctx *ctx)
 {
 	enum zebra_dplane_result res;
 
-
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
 		char dest_str[PREFIX_STRLEN];
 
@@ -2576,6 +2585,34 @@ kernel_dplane_address_update(struct zebra_dplane_ctx *ctx)
 
 	if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
 		atomic_fetch_add_explicit(&zdplane_info.dg_intf_addr_errors,
+					  1, memory_order_relaxed);
+
+	return res;
+}
+
+/*
+ * Handler for kernel-facing MAC address updates
+ */
+static enum zebra_dplane_result
+kernel_dplane_mac_update(struct zebra_dplane_ctx *ctx)
+{
+	enum zebra_dplane_result res;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		char buf[ETHER_ADDR_STRLEN];
+
+		prefix_mac2str(dplane_ctx_mac_get_addr(ctx), buf,
+			       sizeof(buf));
+
+		zlog_debug("Dplane %s, mac %s, ifindex %u",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   buf, dplane_ctx_get_ifindex(ctx));
+	}
+
+	res = kernel_mac_update_ctx(ctx);
+
+	if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+		atomic_fetch_add_explicit(&zdplane_info.dg_mac_errors,
 					  1, memory_order_relaxed);
 
 	return res;
@@ -2633,6 +2670,11 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 		case DPLANE_OP_ADDR_INSTALL:
 		case DPLANE_OP_ADDR_UNINSTALL:
 			res = kernel_dplane_address_update(ctx);
+			break;
+
+		case DPLANE_OP_MAC_INSTALL:
+		case DPLANE_OP_MAC_DELETE:
+			res = kernel_dplane_mac_update(ctx);
 			break;
 
 		/* Ignore 'notifications' - no-op */
