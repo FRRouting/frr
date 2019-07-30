@@ -126,10 +126,8 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 
 	if (code) {
 		ref = log_ref_get(code);
-		if (!ref) {
-			vty_out(vty, "Code %"PRIu32" - Unknown\n", code);
+		if (!ref)
 			return;
-		}
 		listnode_add(errlist, ref);
 	}
 
@@ -197,8 +195,6 @@ void log_ref_init(void)
 				   "Error Reference Texts");
 	}
 	pthread_mutex_unlock(&refs_mtx);
-
-	install_element(VIEW_NODE, &show_error_code_cmd);
 }
 
 void log_ref_fini(void)
@@ -211,6 +207,12 @@ void log_ref_fini(void)
 	}
 	pthread_mutex_unlock(&refs_mtx);
 }
+
+void log_ref_vty_init(void)
+{
+	install_element(VIEW_NODE, &show_error_code_cmd);
+}
+
 
 const struct ferr *ferr_get_last(ferr_r errval)
 {
