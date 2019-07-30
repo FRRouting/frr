@@ -131,6 +131,7 @@ struct quagga_signal_t eigrp_signals[] = {
 };
 
 static const struct frr_yang_module_info *eigrpd_yang_modules[] = {
+	&frr_eigrpd_info,
 	&frr_interface_info,
 };
 
@@ -187,7 +188,7 @@ int main(int argc, char **argv, char **envp)
 	eigrp_vty_init();
 	keychain_init();
 	eigrp_vty_show_init();
-	eigrp_vty_if_init();
+	eigrp_cli_init();
 
 #ifdef HAVE_SNMP
 	eigrp_snmp_init();

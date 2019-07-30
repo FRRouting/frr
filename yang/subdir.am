@@ -28,6 +28,10 @@ if BFDD
 dist_yangmodels_DATA += yang/frr-bfdd.yang
 endif
 
+if EIGRPD
+dist_yangmodels_DATA += yang/frr-eigrpd.yang
+endif
+
 if RIPD
 dist_yangmodels_DATA += yang/frr-ripd.yang
 endif
