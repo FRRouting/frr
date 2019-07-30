@@ -2292,33 +2292,70 @@ int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 
 	return ret;
 }
-static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
-				 struct ethaddr *mac, struct in_addr vtep_ip,
-				 int cmd, bool sticky)
+
+/*
+ * Netlink-specific handler for MAC updates using dataplane context object.
+ */
+static enum zebra_dplane_result
+netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx)
 {
-	struct zebra_ns *zns;
 	struct {
 		struct nlmsghdr n;
 		struct ndmsg ndm;
 		char buf[256];
 	} req;
+	int ret;
 	int dst_alen;
 	struct zebra_if *zif;
 	struct interface *br_if;
 	struct zebra_if *br_zif;
-	char buf[ETHER_ADDR_STRLEN];
 	int vid_present = 0;
 	char vid_buf[20];
-	char dst_buf[30];
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	struct zebra_ns *zns;
+	struct interface *ifp;
+	int cmd;
+	struct in_addr vtep_ip;
+	vlanid_t vid;
 
-	zns = zvrf->zns;
+	if (dplane_ctx_get_op(ctx) == DPLANE_OP_MAC_INSTALL)
+		cmd = RTM_NEWNEIGH;
+	else
+		cmd = RTM_DELNEIGH;
+
+	/* Locate zebra ns and interface objects from context data */
+	zns = zebra_ns_lookup(dplane_ctx_get_ns(ctx)->ns_id);
+	if (zns == NULL) {
+		/* Nothing to be done */
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("MAC %s on IF %s(%u) - zebra ns unknown",
+				   (cmd == RTM_NEWNEIGH) ? "add" : "del",
+				   dplane_ctx_get_ifname(ctx),
+				   dplane_ctx_get_ifindex(ctx));
+
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
+	}
+
+	ifp = if_lookup_by_index_per_ns(zns, dplane_ctx_get_ifindex(ctx));
+	if (ifp == NULL) {
+		/* Nothing to be done */
+		/* Nothing to be done */
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("MAC %s on IF %s(%u) - interface unknown",
+				   (cmd == RTM_NEWNEIGH) ? "add" : "del",
+				   dplane_ctx_get_ifname(ctx),
+				   dplane_ctx_get_ifindex(ctx));
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
+	}
+
+	vid = dplane_ctx_mac_get_vlan(ctx);
+
 	zif = ifp->info;
 	if ((br_if = zif->brslave_info.br_if) == NULL) {
-		zlog_debug("MAC %s on IF %s(%u) - no mapping to bridge",
-			   (cmd == RTM_NEWNEIGH) ? "add" : "del", ifp->name,
-			   ifp->ifindex);
-		return -1;
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("MAC %s on IF %s(%u) - no mapping to bridge",
+				   (cmd == RTM_NEWNEIGH) ? "add" : "del",
+				   ifp->name, ifp->ifindex);
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
 	memset(&req, 0, sizeof(req));
@@ -2332,16 +2369,19 @@ static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 	req.ndm.ndm_flags |= NTF_SELF | NTF_MASTER;
 	req.ndm.ndm_state = NUD_REACHABLE;
 
-	if (sticky)
+	if (dplane_ctx_mac_is_sticky(ctx))
 		req.ndm.ndm_state |= NUD_NOARP;
 	else
 		req.ndm.ndm_flags |= NTF_EXT_LEARNED;
 
-	addattr_l(&req.n, sizeof(req), NDA_LLADDR, mac, 6);
+	addattr_l(&req.n, sizeof(req), NDA_LLADDR,
+		  dplane_ctx_mac_get_addr(ctx), 6);
 	req.ndm.ndm_ifindex = ifp->ifindex;
+
 	dst_alen = 4; // TODO: hardcoded
+	vtep_ip = *(dplane_ctx_mac_get_vtep_ip(ctx));
 	addattr_l(&req.n, sizeof(req), NDA_DST, &vtep_ip, dst_alen);
-	sprintf(dst_buf, " dst %s", inet_ntoa(vtep_ip));
+
 	br_zif = (struct zebra_if *)br_if->info;
 	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) && vid > 0) {
 		addattr16(&req.n, sizeof(req), NDA_VLAN, vid);
@@ -2350,16 +2390,29 @@ static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 	}
 	addattr32(&req.n, sizeof(req), NDA_MASTER, br_if->ifindex);
 
-	if (IS_ZEBRA_DEBUG_KERNEL)
+	if (IS_ZEBRA_DEBUG_KERNEL) {
+		char ipbuf[PREFIX_STRLEN];
+		char buf[ETHER_ADDR_STRLEN];
+		char dst_buf[PREFIX_STRLEN + 10];
+
+		inet_ntop(AF_INET, &vtep_ip, ipbuf, sizeof(ipbuf));
+		snprintf(dst_buf, sizeof(dst_buf), " dst %s", ipbuf);
+		prefix_mac2str(dplane_ctx_mac_get_addr(ctx), buf, sizeof(buf));
+
 		zlog_debug("Tx %s family %s IF %s(%u)%s %sMAC %s%s",
 			   nl_msg_type_to_str(cmd),
 			   nl_family_to_str(req.ndm.ndm_family), ifp->name,
 			   ifp->ifindex, vid_present ? vid_buf : "",
-			   sticky ? "sticky " : "",
-			   prefix_mac2str(mac, buf, sizeof(buf)), dst_buf);
+			   dplane_ctx_mac_is_sticky(ctx) ? "sticky " : "",
+			   buf, dst_buf);
+	}
 
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    0);
+	ret = netlink_talk_info(netlink_talk_filter, &req.n,
+				dplane_ctx_get_ns(ctx), 0);
+	if (ret == 0)
+		return ZEBRA_DPLANE_REQUEST_SUCCESS;
+	else
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
 }
 
 /*
@@ -2772,17 +2825,12 @@ static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
 			    0);
 }
 
-int kernel_add_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
-		   struct in_addr vtep_ip, bool sticky)
+/*
+ * Update MAC, using dataplane context object.
+ */
+enum zebra_dplane_result kernel_mac_update_ctx(struct zebra_dplane_ctx *ctx)
 {
-	return netlink_macfdb_update(ifp, vid, mac, vtep_ip, RTM_NEWNEIGH,
-				     sticky);
-}
-
-int kernel_del_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
-		   struct in_addr vtep_ip)
-{
-	return netlink_macfdb_update(ifp, vid, mac, vtep_ip, RTM_DELNEIGH, 0);
+	return netlink_macfdb_update_ctx(ctx);
 }
 
 int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,

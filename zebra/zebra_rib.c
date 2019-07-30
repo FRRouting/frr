@@ -3270,6 +3270,11 @@ static int rib_process_dplane_results(struct thread *thread)
 				dplane_ctx_fini(&ctx);
 				break;
 
+			case DPLANE_OP_MAC_INSTALL:
+			case DPLANE_OP_MAC_DELETE:
+				zebra_vxlan_handle_result(ctx);
+				break;
+
 			default:
 				/* Don't expect this: just return the struct? */
 				dplane_ctx_fini(&ctx);

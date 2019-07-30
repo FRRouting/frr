@@ -3733,13 +3733,14 @@ static struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
 }
 
 /*
- * Install remote MAC into the kernel.
+ * Install remote MAC into the forwarding plane.
  */
 static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac)
 {
 	struct zebra_if *zif;
 	struct zebra_l2info_vxlan *vxl;
 	bool sticky;
+	enum zebra_dplane_result res;
 
 	if (!(mac->flags & ZEBRA_MAC_REMOTE))
 		return 0;
@@ -3752,12 +3753,16 @@ static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac)
 	sticky = !!CHECK_FLAG(mac->flags,
 			 (ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW));
 
-	return kernel_add_mac(zvni->vxlan_if, vxl->access_vlan, &mac->macaddr,
-			      mac->fwd_info.r_vtep_ip, sticky);
+	res = dplane_mac_add(zvni->vxlan_if, vxl->access_vlan, &mac->macaddr,
+			     mac->fwd_info.r_vtep_ip, sticky);
+	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
+		return 0;
+	else
+		return -1;
 }
 
 /*
- * Uninstall remote MAC from the kernel.
+ * Uninstall remote MAC from the forwarding plane.
  */
 static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac)
 {
@@ -3765,6 +3770,7 @@ static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac)
 	struct zebra_l2info_vxlan *vxl;
 	struct in_addr vtep_ip;
 	struct interface *ifp;
+	enum zebra_dplane_result res;
 
 	if (!(mac->flags & ZEBRA_MAC_REMOTE))
 		return 0;
@@ -3783,7 +3789,11 @@ static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac)
 	ifp = zvni->vxlan_if;
 	vtep_ip = mac->fwd_info.r_vtep_ip;
 
-	return kernel_del_mac(ifp, vxl->access_vlan, &mac->macaddr, vtep_ip);
+	res = dplane_mac_del(ifp, vxl->access_vlan, &mac->macaddr, vtep_ip);
+	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
+		return 0;
+	else
+		return -1;
 }
 
 /*
@@ -4470,12 +4480,13 @@ static int zl3vni_rmac_del(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 }
 
 /*
- * Install remote RMAC into the kernel.
+ * Install remote RMAC into the forwarding plane.
  */
 static int zl3vni_rmac_install(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 {
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
+	enum zebra_dplane_result res;
 
 	if (!(CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE))
 	    || !(CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE_RMAC)))
@@ -4487,18 +4498,23 @@ static int zl3vni_rmac_install(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 
 	vxl = &zif->l2info.vxl;
 
-	return kernel_add_mac(zl3vni->vxlan_if, vxl->access_vlan,
-			      &zrmac->macaddr, zrmac->fwd_info.r_vtep_ip, 0);
+	res = dplane_mac_add(zl3vni->vxlan_if, vxl->access_vlan,
+			     &zrmac->macaddr, zrmac->fwd_info.r_vtep_ip, 0);
+	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
+		return 0;
+	else
+		return -1;
 }
 
 /*
- * Uninstall remote RMAC from the kernel.
+ * Uninstall remote RMAC from the forwarding plane.
  */
 static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 {
 	char buf[ETHER_ADDR_STRLEN];
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
+	enum zebra_dplane_result res;
 
 	if (!(CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE))
 	    || !(CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE_RMAC)))
@@ -4518,8 +4534,12 @@ static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 
 	vxl = &zif->l2info.vxl;
 
-	return kernel_del_mac(zl3vni->vxlan_if, vxl->access_vlan,
-			      &zrmac->macaddr, zrmac->fwd_info.r_vtep_ip);
+	res = dplane_mac_del(zl3vni->vxlan_if, vxl->access_vlan,
+			     &zrmac->macaddr, zrmac->fwd_info.r_vtep_ip);
+	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
+		return 0;
+	else
+		return -1;
 }
 
 /* handle rmac add */
@@ -9911,6 +9931,15 @@ static int zebra_evpn_cfg_clean_up(struct zserv *client)
 		return zebra_evpn_pim_cfg_clean_up(client);
 
 	return 0;
+}
+
+/*
+ * Handle results for vxlan dataplane operations.
+ */
+extern void zebra_vxlan_handle_result(struct zebra_dplane_ctx *ctx)
+{
+	/* TODO -- anything other than freeing the context? */
+	dplane_ctx_fini(&ctx);
 }
 
 /* Cleanup BGP EVPN configuration upon client disconnect */

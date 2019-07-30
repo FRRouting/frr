@@ -41,7 +41,7 @@ extern "C" {
 	((RKERNEL_ROUTE(type)) || (type) == ZEBRA_ROUTE_CONNECT)
 
 /*
- * Update or delete a route, LSP, or pseudowire from the kernel,
+ * Update or delete a route, LSP, pseudowire, or vxlan MAC from the kernel,
  * using info from a dataplane context.
  */
 extern enum zebra_dplane_result kernel_route_update(
@@ -54,6 +54,8 @@ enum zebra_dplane_result kernel_pw_update(struct zebra_dplane_ctx *ctx);
 
 enum zebra_dplane_result kernel_address_update_ctx(
 	struct zebra_dplane_ctx *ctx);
+
+enum zebra_dplane_result kernel_mac_update_ctx(struct zebra_dplane_ctx *ctx);
 
 extern int kernel_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 			       int llalen, ns_id_t ns_id);
@@ -68,12 +70,6 @@ extern int kernel_add_vtep(vni_t vni, struct interface *ifp,
 			   struct in_addr *vtep_ip);
 extern int kernel_del_vtep(vni_t vni, struct interface *ifp,
 			   struct in_addr *vtep_ip);
-extern int kernel_add_mac(struct interface *ifp, vlanid_t vid,
-			  struct ethaddr *mac, struct in_addr vtep_ip,
-			  bool sticky);
-extern int kernel_del_mac(struct interface *ifp, vlanid_t vid,
-			  struct ethaddr *mac, struct in_addr vtep_ip);
-
 extern int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
 			    struct ethaddr *mac, uint8_t flags);
 extern int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip);
