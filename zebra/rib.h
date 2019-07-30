@@ -124,18 +124,16 @@ struct route_entry {
 	/* RIB internal status */
 	uint32_t status;
 #define ROUTE_ENTRY_REMOVED          0x1
-/* to simplify NHT logic when NHs change, instead of doing a NH by NH cmp */
-#define ROUTE_ENTRY_NEXTHOPS_CHANGED 0x2
 /* The Route Entry has changed */
-#define ROUTE_ENTRY_CHANGED          0x4
+#define ROUTE_ENTRY_CHANGED          0x2
 /* The Label has changed on the Route entry */
-#define ROUTE_ENTRY_LABELS_CHANGED   0x8
+#define ROUTE_ENTRY_LABELS_CHANGED   0x4
 /* Route is queued for Installation into the Data Plane */
-#define ROUTE_ENTRY_QUEUED   0x10
+#define ROUTE_ENTRY_QUEUED   0x8
 /* Route is installed into the Data Plane */
-#define ROUTE_ENTRY_INSTALLED        0x20
+#define ROUTE_ENTRY_INSTALLED        0x10
 /* Route has Failed installation into the Data Plane in some manner */
-#define ROUTE_ENTRY_FAILED           0x40
+#define ROUTE_ENTRY_FAILED           0x20
 
 	/* Nexthop information. */
 	uint8_t nexthop_num;
@@ -303,7 +301,6 @@ typedef struct rib_tables_iter_t_ {
 
 /* Events/reasons triggering a RIB update. */
 typedef enum {
-	RIB_UPDATE_IF_CHANGE,
 	RIB_UPDATE_RMAP_CHANGE,
 	RIB_UPDATE_OTHER
 } rib_update_event_t;
