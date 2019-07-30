@@ -361,6 +361,12 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    will dump the routing table ``TABLENO`` of the *Linux network namespace*
    ``VRF``.
 
+.. index:: show ip route vrf VRF tables
+.. clicmd:: show ip route vrf VRF tables
+
+   This command will dump the routing tables within the vrf scope. If `vrf all`
+   is executed, all routing tables will be dumped.
+
 By using the :option:`-n` option, the *Linux network namespace* will be mapped
 over the *Zebra* VRF. One nice feature that is possible by handling *Linux
 network namespace* is the ability to name default VRF. At startup, *Zebra*

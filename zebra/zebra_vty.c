@@ -448,6 +448,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		if (re->tag)
 			json_object_int_add(json_route, "tag", re->tag);
 
+		if (re->table)
+			json_object_int_add(json_route, "table", re->table);
+
 		json_object_int_add(json_route, "internalStatus",
 				    re->status);
 		json_object_int_add(json_route, "internalFlags",
@@ -804,7 +807,8 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 				 bool use_fib, route_tag_t tag,
 				 const struct prefix *longer_prefix_p,
 				 bool supernets_only, int type,
-				 unsigned short ospf_instance_id, bool use_json)
+				 unsigned short ospf_instance_id, bool use_json,
+				 uint32_t tableid)
 {
 	struct route_node *rn;
 	struct route_entry *re;
@@ -867,10 +871,12 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 						vty_out(vty,
 							SHOW_ROUTE_V6_HEADER);
 
-					if (zvrf_id(zvrf) != VRF_DEFAULT)
+					if (tableid && tableid != RT_TABLE_MAIN)
+						vty_out(vty, "\nVRF %s table %u:\n",
+							zvrf_name(zvrf), tableid);
+					else if (zvrf_id(zvrf) != VRF_DEFAULT)
 						vty_out(vty, "\nVRF %s:\n",
 							zvrf_name(zvrf));
-
 					first = 0;
 				}
 			}
@@ -927,7 +933,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 
 	do_show_route_helper(vty, zvrf, table, afi, use_fib, tag,
 			     longer_prefix_p, supernets_only, type,
-			     ospf_instance_id, use_json);
+			     ospf_instance_id, use_json, 0);
 
 	return CMD_SUCCESS;
 }
@@ -950,7 +956,7 @@ DEFPY (show_route_table,
 	t = zebra_router_find_table(zvrf, table, afi, SAFI_UNICAST);
 	if (t)
 		do_show_route_helper(vty, zvrf, t, afi, false, 0, false, false,
-				     0, 0, !!json);
+				     0, 0, !!json, table);
 
 	return CMD_SUCCESS;
 }
@@ -979,8 +985,44 @@ DEFPY (show_route_table_vrf,
 	t = zebra_router_find_table(zvrf, table, afi, SAFI_UNICAST);
 	if (t)
 		do_show_route_helper(vty, zvrf, t, afi, false, 0, false, false,
-				     0, 0, !!json);
+				     0, 0, !!json, table);
 
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_route_all_table_vrf,
+       show_route_all_table_vrf_cmd,
+       "show <ip$ipv4|ipv6$ipv6> route [vrf <NAME$vrf_name|all$vrf_all>] tables [json$json]",
+       SHOW_STR
+       IP_STR
+       IP6_STR
+       "IP routing table\n"
+       "Display all tables\n"
+       VRF_FULL_CMD_HELP_STR
+       JSON_STR)
+{
+	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
+	struct zebra_vrf *zvrf = NULL;
+	vrf_id_t vrf_id = VRF_UNKNOWN;
+	struct zebra_router_table *zrt;
+
+	if (vrf_name) {
+		VRF_GET_ID(vrf_id, vrf_name, !!json);
+		zvrf = zebra_vrf_lookup_by_id(vrf_id);
+	}
+
+	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
+		rib_table_info_t *info = route_table_get_info(zrt->table);
+
+		if (zvrf && zvrf != info->zvrf)
+			continue;
+		if (zrt->afi != afi || zrt->safi != SAFI_UNICAST)
+			continue;
+		if (zrt->table)
+			do_show_route_helper(vty, info->zvrf, zrt->table, afi,
+					     false, 0, false, false,
+					     0, 0, !!json, zrt->tableid);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -2989,6 +3031,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_route_table_cmd);
 	if (vrf_is_backend_netns())
 		install_element(VIEW_NODE, &show_route_table_vrf_cmd);
+	install_element(VIEW_NODE, &show_route_all_table_vrf_cmd);
 	install_element(VIEW_NODE, &show_route_detail_cmd);
 	install_element(VIEW_NODE, &show_route_summary_cmd);
 	install_element(VIEW_NODE, &show_ip_nht_cmd);
