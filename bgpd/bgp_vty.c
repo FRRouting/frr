@@ -13271,20 +13271,44 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_neighbor_nexthop_self_all_hidden_cmd);
 	install_element(BGP_IPV4_NODE, &neighbor_nexthop_self_force_cmd);
 	install_element(BGP_IPV4_NODE, &no_neighbor_nexthop_self_force_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_nexthop_self_all_hidden_cmd);
+	install_element(BGP_IPV4_NODE,
+			&no_neighbor_nexthop_self_all_hidden_cmd);
 	install_element(BGP_IPV4M_NODE, &neighbor_nexthop_self_force_cmd);
 	install_element(BGP_IPV4M_NODE, &no_neighbor_nexthop_self_force_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_nexthop_self_all_hidden_cmd);
+	install_element(BGP_IPV4M_NODE,
+			&no_neighbor_nexthop_self_all_hidden_cmd);
 	install_element(BGP_IPV4L_NODE, &neighbor_nexthop_self_force_cmd);
 	install_element(BGP_IPV4L_NODE, &no_neighbor_nexthop_self_force_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_nexthop_self_all_hidden_cmd);
+	install_element(BGP_IPV4L_NODE,
+			&no_neighbor_nexthop_self_all_hidden_cmd);
 	install_element(BGP_IPV6_NODE, &neighbor_nexthop_self_force_cmd);
 	install_element(BGP_IPV6_NODE, &no_neighbor_nexthop_self_force_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_nexthop_self_all_hidden_cmd);
+	install_element(BGP_IPV6_NODE,
+			&no_neighbor_nexthop_self_all_hidden_cmd);
 	install_element(BGP_IPV6M_NODE, &neighbor_nexthop_self_force_cmd);
 	install_element(BGP_IPV6M_NODE, &no_neighbor_nexthop_self_force_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_nexthop_self_all_hidden_cmd);
+	install_element(BGP_IPV6M_NODE,
+			&no_neighbor_nexthop_self_all_hidden_cmd);
 	install_element(BGP_IPV6L_NODE, &neighbor_nexthop_self_force_cmd);
 	install_element(BGP_IPV6L_NODE, &no_neighbor_nexthop_self_force_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_nexthop_self_all_hidden_cmd);
+	install_element(BGP_IPV6L_NODE,
+			&no_neighbor_nexthop_self_all_hidden_cmd);
 	install_element(BGP_VPNV4_NODE, &neighbor_nexthop_self_force_cmd);
 	install_element(BGP_VPNV4_NODE, &no_neighbor_nexthop_self_force_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_nexthop_self_all_hidden_cmd);
+	install_element(BGP_VPNV4_NODE,
+			&no_neighbor_nexthop_self_all_hidden_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_nexthop_self_force_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_nexthop_self_force_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_nexthop_self_all_hidden_cmd);
+	install_element(BGP_VPNV6_NODE,
+			&no_neighbor_nexthop_self_all_hidden_cmd);
 
 	/* "neighbor as-override" commands. */
 	install_element(BGP_NODE, &neighbor_as_override_hidden_cmd);
