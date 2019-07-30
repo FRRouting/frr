@@ -69,7 +69,7 @@ The instance number should be specified in the config when addressing a particul
 .. code-block:: frr
 
    router ospf 5
-      router-id 1.2.3.4
+      ospf router-id 1.2.3.4
       area 0.0.0.0 authentication message-digest
       ...
 
