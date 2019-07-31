@@ -39,14 +39,15 @@
 #endif
 
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
-      "sharp watch [vrf NAME$name] <nexthop$n|import$import> X:X::X:X$nhop [connected$connected]",
+      "sharp watch [vrf NAME$name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
       "The NAME of the vrf\n"
       "Watch for nexthop changes\n"
-      "Watch for import check changes\n"
       "The v6 nexthop to signal for watching\n"
+      "Watch for import check changes\n"
+      "The v6 prefix to signal for watching\n"
       "Should the route be connected\n")
 {
 	struct vrf *vrf;
@@ -62,16 +63,17 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 		return CMD_WARNING;
 	}
 
-	if (n)
-		type_import = false;
-	else
-		type_import = true;
-
 	memset(&p, 0, sizeof(p));
 
-	p.prefixlen = 128;
-	memcpy(&p.u.prefix6, &nhop, 16);
-	p.family = AF_INET6;
+	if (n) {
+		type_import = false;
+		p.prefixlen = 128;
+		memcpy(&p.u.prefix6, &nhop, 16);
+		p.family = AF_INET6;
+	} else {
+		type_import = true;
+		p = *(const struct prefix *)inhop;
+	}
 
 	sharp_nh_tracker_get(&p);
 	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
@@ -81,14 +83,15 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 }
 
 DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
-      "sharp watch [vrf NAME$name] <nexthop$n|import$import> A.B.C.D$nhop [connected$connected]",
+      "sharp watch [vrf NAME$name] <nexthop$n A.B.C.D$nhop|import$import A.B.C.D/M$inhop> [connected$connected]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
       "The NAME of the vrf\n"
       "Watch for nexthop changes\n"
+      "The v4 address to signal for watching\n"
       "Watch for import check changes\n"
-      "The v4 nexthop to signal for watching\n"
+      "The v4 prefix for import check to watch\n"
       "Should the route be connected\n")
 {
 	struct vrf *vrf;
@@ -106,14 +109,16 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 
 	memset(&p, 0, sizeof(p));
 
-	if (n)
+	if (n) {
 		type_import = false;
-	else
+		p.prefixlen = 32;
+		p.u.prefix4 = nhop;
+		p.family = AF_INET;
+	}
+	else {
 		type_import = true;
-
-	p.prefixlen = 32;
-	p.u.prefix4 = nhop;
-	p.family = AF_INET;
+		p = *(const struct prefix *)inhop;
+	}
 
 	sharp_nh_tracker_get(&p);
 	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
