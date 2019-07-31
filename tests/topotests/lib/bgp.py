@@ -932,7 +932,7 @@ def clear_bgp_and_verify(tgen, topo, router):
 
                             # Peer up time dictionary
                             peer_uptime_before_clear_bgp[bgp_neighbor] = \
-                                ipv4_data[neighbor_ip]["peerUptime"]
+                                ipv4_data[neighbor_ip]["peerUptimeEstablishedEpoch"]
                         else:
                             ipv6_data = show_bgp_json["ipv6Unicast"][
                                 "peers"]
@@ -940,7 +940,7 @@ def clear_bgp_and_verify(tgen, topo, router):
 
                             # Peer up time dictionary
                             peer_uptime_before_clear_bgp[bgp_neighbor] = \
-                                ipv6_data[neighbor_ip]["peerUptime"]
+                                ipv6_data[neighbor_ip]["peerUptimeEstablishedEpoch"]
 
                         if nh_state == "Established":
                             no_of_peer += 1
@@ -953,6 +953,7 @@ def clear_bgp_and_verify(tgen, topo, router):
             logger.warning("BGP is not yet Converged for router %s "
                            "before bgp clear", router)
 
+    logger.info(peer_uptime_before_clear_bgp)
     # Clearing BGP
     logger.info("Clearing BGP neighborship for router %s..", router)
     for addr_type in bgp_addr_type.keys():
@@ -1010,14 +1011,14 @@ def clear_bgp_and_verify(tgen, topo, router):
                                 "peers"]
                             nh_state = ipv4_data[neighbor_ip]["state"]
                             peer_uptime_after_clear_bgp[bgp_neighbor] = \
-                                ipv4_data[neighbor_ip]["peerUptime"]
+                                ipv4_data[neighbor_ip]["peerUptimeEstablishedEpoch"]
                         else:
                             ipv6_data = show_bgp_json["ipv6Unicast"][
                                 "peers"]
                             nh_state = ipv6_data[neighbor_ip]["state"]
                             # Peer up time dictionary
                             peer_uptime_after_clear_bgp[bgp_neighbor] = \
-                                ipv6_data[neighbor_ip]["peerUptime"]
+                                ipv6_data[neighbor_ip]["peerUptimeEstablishedEpoch"]
 
                         if nh_state == "Established":
                             no_of_peer += 1
@@ -1030,7 +1031,8 @@ def clear_bgp_and_verify(tgen, topo, router):
             logger.warning("BGP is not yet Converged for router %s after"
                            " bgp clear", router)
 
-    # Compariung peerUptime dictionaries
+    logger.info(peer_uptime_after_clear_bgp)
+    # Comparing peerUptimeEstablishedEpoch dictionaries
     if peer_uptime_before_clear_bgp != peer_uptime_after_clear_bgp:
         logger.info("BGP neighborship is reset after clear BGP on router %s",
                     router)
