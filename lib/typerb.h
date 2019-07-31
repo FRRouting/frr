@@ -133,7 +133,7 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 	re = item ? typed_rb_next(&item->field.re) : NULL;                     \
 	return container_of_null(re, type, field.re);                          \
 }                                                                              \
-macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
+macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->rr.count;                                                    \
 }                                                                              \
