@@ -153,8 +153,8 @@ Route Map Match Command
 
    Matches the specified `ipv4_addr`.
 
-.. index:: match aspath AS_PATH
-.. clicmd:: match aspath AS_PATH
+.. index:: match as-path AS_PATH
+.. clicmd:: match as-path AS_PATH
 
    Matches the specified `as_path`.
 
