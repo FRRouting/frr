@@ -71,7 +71,7 @@ keyword. At present, no sharp commands will be preserved in the config.
    be used for pop and forward operations when the specified label is seen.
 
 .. index:: sharp watch
-.. clicmd:: [no] sharp watch <nexthop|import> <A.B.C.D|X:X::X:X> [connected]
+.. clicmd:: [no] sharp watch <nexthop <A.B.C.D|X:X::X:X>|import <A.B.C.D/M:X:X::X:X/M> [connected]
 
    Instruct zebra to monitor and notify sharp when the specified nexthop is
    changed. The notification from zebra is written into the debug log.
