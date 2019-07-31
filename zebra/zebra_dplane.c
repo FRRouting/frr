@@ -2196,7 +2196,35 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 	vty_out(vty, "Route update queue limit: %"PRIu64"\n", limit);
 	vty_out(vty, "Route update queue depth: %"PRIu64"\n", queued);
 	vty_out(vty, "Route update queue max:   %"PRIu64"\n", queue_max);
-	vty_out(vty, "Dplane update yields:      %"PRIu64"\n", yields);
+	vty_out(vty, "Dplane update yields:     %"PRIu64"\n", yields);
+
+	incoming = atomic_load_explicit(&zdplane_info.dg_lsps_in,
+					memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_lsp_errors,
+				    memory_order_relaxed);
+	vty_out(vty, "LSP updates:              %"PRIu64"\n", incoming);
+	vty_out(vty, "LSP update errors:        %"PRIu64"\n", errs);
+
+	incoming = atomic_load_explicit(&zdplane_info.dg_pws_in,
+					memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_pw_errors,
+				    memory_order_relaxed);
+	vty_out(vty, "PW updates:               %"PRIu64"\n", incoming);
+	vty_out(vty, "PW update errors:         %"PRIu64"\n", errs);
+
+	incoming = atomic_load_explicit(&zdplane_info.dg_intf_addrs_in,
+					memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_intf_addr_errors,
+				    memory_order_relaxed);
+	vty_out(vty, "Intf addr updates:        %"PRIu64"\n", incoming);
+	vty_out(vty, "Intf addr errors:         %"PRIu64"\n", errs);
+
+	incoming = atomic_load_explicit(&zdplane_info.dg_macs_in,
+					memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_mac_errors,
+				    memory_order_relaxed);
+	vty_out(vty, "EVPN MAC updates:         %"PRIu64"\n", incoming);
+	vty_out(vty, "EVPN MAC errors:          %"PRIu64"\n", errs);
 
 	return CMD_SUCCESS;
 }
