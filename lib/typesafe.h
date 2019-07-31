@@ -150,7 +150,7 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 	sitem = &item->field.si;                                               \
 	return container_of_null(sitem->next, type, field.si);                 \
 }                                                                              \
-macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
+macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->sh.count;                                                    \
 }                                                                              \
@@ -252,7 +252,7 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 		return NULL;                                                   \
 	return prefix ## _next(h, item);                                       \
 }                                                                              \
-macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
+macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->dh.count;                                                    \
 }                                                                              \
@@ -357,7 +357,7 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 		return NULL;                                                   \
 	return prefix ## _next(h, item);                                       \
 }                                                                              \
-macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
+macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->hh.count;                                                    \
 }                                                                              \
@@ -489,7 +489,7 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 	sitem = &item->field.si;                                               \
 	return container_of_null(sitem->next, type, field.si);                 \
 }                                                                              \
-macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
+macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->sh.count;                                                    \
 }                                                                              \
@@ -680,7 +680,7 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 		return NULL;                                                   \
 	return prefix ## _next(h, item);                                       \
 }                                                                              \
-macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
+macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->hh.count;                                                    \
 }                                                                              \
@@ -783,7 +783,7 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 	next = item ? item->field.si.next[0] : NULL;                           \
 	return container_of_null(next, type, field.si);                        \
 }                                                                              \
-macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
+macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->sh.count;                                                    \
 }                                                                              \
