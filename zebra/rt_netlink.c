@@ -1942,6 +1942,10 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct nhmsg));
 	req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
+
+	if (cmd == RTM_NEWNEXTHOP)
+		req.n.nlmsg_flags |= NLM_F_REPLACE;
+
 	req.n.nlmsg_type = cmd;
 	req.n.nlmsg_pid = dplane_ctx_get_ns(ctx)->nls.snl.nl_pid;
 
@@ -2287,10 +2291,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	struct nh_grp grp[MULTIPATH_NUM] = {};
 	/* Count of nexthops in group array */
 	uint8_t grp_count = 0;
-	/* struct that goes into our tables */
-	struct nhg_hash_entry *nhe = NULL;
 	struct rtattr *tb[NHA_MAX + 1] = {};
-
 
 	nhm = NLMSG_DATA(h);
 
@@ -2367,41 +2368,12 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			vrf_id = nh.vrf_id;
 		}
 
-		// TODO: Apparently we don't want changes
-		// to already created one in our table.
-		// They should be immutable...
-		// Gotta figure that one out.
-
-
 		if (zebra_nhg_kernel_find(id, &nh, grp, grp_count, vrf_id, afi,
 					  type, startup))
 			return -1;
 
-
-	} else if (h->nlmsg_type == RTM_DELNEXTHOP) {
-		// TODO: Add new function in nhgc to handle del
-		nhe = zebra_nhg_lookup_id(id);
-		if (!nhe) {
-			flog_warn(
-				EC_ZEBRA_BAD_NHG_MESSAGE,
-				"Kernel delete message received for nexthop group ID (%u) that we do not have in our ID table",
-				id);
-			return -1;
-		}
-
-		zebra_nhg_set_invalid(nhe);
-
-		// TODO: Probably won't need this if we expect
-		// upper level protocol to fix it.
-		if (nhe->refcnt) {
-			flog_err(
-				EC_ZEBRA_NHG_SYNC,
-				"Kernel deleted a nexthop group with ID (%u) that we are still using for a route, sending it back down",
-				nhe->id);
-			zebra_nhg_install_kernel(nhe);
-		} else
-			zebra_nhg_set_invalid(nhe);
-	}
+	} else if (h->nlmsg_type == RTM_DELNEXTHOP)
+		zebra_nhg_kernel_del(id);
 
 	return 0;
 }

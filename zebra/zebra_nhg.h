@@ -230,6 +230,8 @@ extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
 				 struct nh_grp *grp, uint8_t count,
 				 vrf_id_t vrf_id, afi_t afi, int type,
 				 int startup);
+/* Del via kernel */
+extern int zebra_nhg_kernel_del(uint32_t id);
 
 /* Find via route creation */
 extern struct nhg_hash_entry *

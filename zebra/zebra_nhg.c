@@ -458,7 +458,7 @@ static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
 
 	lookup.afi = afi;
 	lookup.vrf_id = vrf_id;
-	lookup.type = type;
+	lookup.type = type ? type : ZEBRA_ROUTE_NHG;
 	lookup.nhg = nhg;
 
 	if (nhg_depends)
@@ -576,11 +576,77 @@ static void zebra_nhg_set_dup(struct nhg_hash_entry *nhe)
 		  nhe->id);
 }
 
+/*
+ * Release from the non-ID hash'd table.
+ *
+ * Basically, we are saying don't let routes use this anymore,
+ * because we are removing it.
+ */
+static void zebra_nhg_release_no_id(struct nhg_hash_entry *nhe)
+{
+	/* Remove it from any lists it may be on */
+	zebra_nhg_depends_release(nhe);
+	zebra_nhg_dependents_release(nhe);
+	if (nhe->ifp)
+		if_nhg_dependents_del(nhe->ifp, nhe);
+
+	/*
+	 * If its a dup, we didn't store it here and have to be
+	 * sure we don't clear one thats actually being used.
+	 */
+	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE))
+		hash_release(zrouter.nhgs, nhe);
+}
+
+static void zebra_nhg_release_id(struct nhg_hash_entry *nhe)
+{
+	hash_release(zrouter.nhgs_id, nhe);
+}
+
+
+static void zebra_nhg_handle_uninstall(struct nhg_hash_entry *nhe)
+{
+	zebra_nhg_release_id(nhe);
+	zebra_nhg_free(nhe);
+}
+
+/*
+ * The kernel/other program has changed the state of a nexthop object we are
+ * using.
+ */
+static void zebra_nhg_handle_kernel_state_change(struct nhg_hash_entry *nhe,
+						 bool is_delete)
+{
+	if (nhe->refcnt) {
+		flog_err(
+			EC_ZEBRA_NHG_SYNC,
+			"Kernel %s a nexthop group with ID (%u) that we are still using for a route, sending it back down",
+			(is_delete ? "deleted" : "updated"), nhe->id);
+
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+		zebra_nhg_install_kernel(nhe);
+	} else {
+		zebra_nhg_release_no_id(nhe);
+		zebra_nhg_handle_uninstall(nhe);
+	}
+}
+
 static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 {
 	struct nexthop_group *nhg = NULL;
 	struct nhg_connected_tree_head nhg_depends = {};
+	struct nhg_hash_entry *lookup = NULL;
 	struct nhg_hash_entry *nhe = NULL;
+
+	lookup = zebra_nhg_lookup_id(ctx->id);
+
+	if (lookup) {
+		/* This is already present in our table, hence an update
+		 * that we did not initate.
+		 */
+		zebra_nhg_handle_kernel_state_change(lookup, false);
+		return 0;
+	}
 
 	if (ctx->count) {
 		nhg = nexthop_group_new();
@@ -640,6 +706,25 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	return 0;
 }
 
+static int nhg_ctx_process_del(struct nhg_ctx *ctx)
+{
+	struct nhg_hash_entry *nhe = NULL;
+
+	nhe = zebra_nhg_lookup_id(ctx->id);
+
+	if (!nhe) {
+		flog_warn(
+			EC_ZEBRA_BAD_NHG_MESSAGE,
+			"Kernel delete message received for nexthop group ID (%u) that we do not have in our ID table",
+			ctx->id);
+		return 0;
+	}
+
+	zebra_nhg_handle_kernel_state_change(nhe, true);
+
+	return 0;
+}
+
 static void nhg_ctx_process_finish(struct nhg_ctx *ctx)
 {
 	/*
@@ -660,6 +745,7 @@ int nhg_ctx_process(struct nhg_ctx *ctx)
 		ret = nhg_ctx_process_new(ctx);
 		break;
 	case NHG_CTX_OP_DEL:
+		ret = nhg_ctx_process_del(ctx);
 	case NHG_CTX_OP_NONE:
 		break;
 	}
@@ -692,11 +778,6 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 			  uint8_t count, vrf_id_t vrf_id, afi_t afi, int type,
 			  int startup)
 {
-	// TODO: Can probably put table lookup
-	// here before queueing? And if deleted, re-send to kernel?
-	// ... Well, if changing the flags it probably needs to be queued
-	// still...
-
 	struct nhg_ctx *ctx = NULL;
 
 	if (id > id_counter)
@@ -727,6 +808,25 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 	 */
 	if (startup)
 		return nhg_ctx_process(ctx);
+
+	if (queue_add(ctx)) {
+		nhg_ctx_process_finish(ctx);
+		return -1;
+	}
+
+	return 0;
+}
+
+/* Kernel-side, received delete message */
+int zebra_nhg_kernel_del(uint32_t id)
+{
+	struct nhg_ctx *ctx = NULL;
+
+	ctx = nhg_ctx_new();
+
+	ctx->id = id;
+
+	nhg_ctx_set_op(ctx, NHG_CTX_OP_DEL);
 
 	if (queue_add(ctx)) {
 		nhg_ctx_process_finish(ctx);
@@ -860,33 +960,6 @@ void zebra_nhg_free(void *arg)
 	zebra_nhg_free_members(nhe);
 
 	XFREE(MTYPE_NHG, nhe);
-}
-
-/*
- * Release from the non-ID hash'd table.
- *
- * Basically, we are saying don't let routes use this anymore,
- * because we are removing it.
- */
-static void zebra_nhg_release_no_id(struct nhg_hash_entry *nhe)
-{
-	/* Remove it from any lists it may be on */
-	zebra_nhg_depends_release(nhe);
-	zebra_nhg_dependents_release(nhe);
-	if (nhe->ifp)
-		if_nhg_dependents_del(nhe->ifp, nhe);
-
-	/*
-	 * If its a dup, we didn't store it here and have to be
-	 * sure we don't clear one thats actually being used.
-	 */
-	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE))
-		hash_release(zrouter.nhgs, nhe);
-}
-
-static void zebra_nhg_release_id(struct nhg_hash_entry *nhe)
-{
-	hash_release(zrouter.nhgs_id, nhe);
 }
 
 void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
@@ -1627,13 +1700,6 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
 	}
 }
 
-static void zebra_nhg_handle_uninstall(struct nhg_hash_entry *nhe)
-{
-	zlog_debug("Freeing nhe_id=%u", nhe->id);
-	zebra_nhg_release_id(nhe);
-	zebra_nhg_free(nhe);
-}
-
 void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe)
 {
 	/* Release from the non-ID hash'd table so nothing tries to use it */
@@ -1642,6 +1708,8 @@ void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe)
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)) {
 		int ret = dplane_nexthop_delete(nhe);
 
+		/* Change its type to us since we are installing it */
+		nhe->type = ZEBRA_ROUTE_NHG;
 		switch (ret) {
 		case ZEBRA_DPLANE_REQUEST_QUEUED:
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
