@@ -1635,7 +1635,7 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 		table_id = zvrf->table_id;
 
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &api.prefix, src_p, NULL, table_id, api.metric,
+		   api.flags, &api.prefix, src_p, NULL, 0, table_id, api.metric,
 		   api.distance, false);
 
 	/* Stats */
