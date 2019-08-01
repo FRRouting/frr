@@ -197,8 +197,19 @@ static struct vrrp_vrouter *vrrp_lookup_by_if_mvl(struct interface *mvl_ifp)
 	struct interface *p;
 
 	if (!mvl_ifp || !mvl_ifp->link_ifindex
-	    || !vrrp_ifp_has_vrrp_mac(mvl_ifp))
+	    || !vrrp_ifp_has_vrrp_mac(mvl_ifp)) {
+		if (!mvl_ifp->link_ifindex)
+			DEBUGD(&vrrp_dbg_zebra,
+			       VRRP_LOGPFX
+			       "Interface %s has no parent ifindex; disregarding",
+			       mvl_ifp->name);
+		if (!vrrp_ifp_has_vrrp_mac(mvl_ifp))
+			DEBUGD(&vrrp_dbg_zebra,
+			       VRRP_LOGPFX
+			       "Interface %s has a non-VRRP MAC; disregarding",
+			       mvl_ifp->name);
 		return NULL;
+	}
 
 	p = if_lookup_by_index(mvl_ifp->link_ifindex, VRF_DEFAULT);
 	uint8_t vrid = mvl_ifp->hw_addr[5];
@@ -2028,9 +2039,19 @@ static void vrrp_bind_pending(struct interface *mvl_ifp)
 {
 	struct vrrp_vrouter *vr;
 
+	DEBUGD(&vrrp_dbg_zebra,
+	       VRRP_LOGPFX
+	       "Searching for instances that could use interface %s",
+	       mvl_ifp->name);
+
 	vr = vrrp_lookup_by_if_mvl(mvl_ifp);
 
 	if (vr) {
+		DEBUGD(&vrrp_dbg_zebra,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "<-- This instance can probably use interface %s",
+		       vr->vrid, mvl_ifp->name);
+
 		if (mvl_ifp->hw_addr[4] == 0x01 && !vr->v4->mvl_ifp)
 			vrrp_attach_interface(vr->v4);
 		else if (mvl_ifp->hw_addr[4] == 0x02 && !vr->v6->mvl_ifp)

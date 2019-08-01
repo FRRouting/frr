@@ -38,9 +38,11 @@ static void vrrp_zebra_debug_if_state(struct interface *ifp, vrf_id_t vrf_id,
 				      const char *func)
 {
 	DEBUGD(&vrrp_dbg_zebra,
-	       "%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-	       func, ifp->name, ifp->ifindex, vrf_id, (long)ifp->flags,
-	       ifp->metric, ifp->mtu, if_is_operative(ifp));
+	       "%s: %s index %d(%u) parent %d mac %02x:%02x:%02x:%02x:%02x:%02x flags %ld metric %d mtu %d operative %d",
+	       func, ifp->name, vrf_id, ifp->link_ifindex, ifp->ifindex,
+	       ifp->hw_addr[0], ifp->hw_addr[1], ifp->hw_addr[2],
+	       ifp->hw_addr[3], ifp->hw_addr[4], ifp->hw_addr[5],
+	       (long)ifp->flags, ifp->metric, ifp->mtu, if_is_operative(ifp));
 }
 
 static void vrrp_zebra_debug_if_dump_address(struct interface *ifp,
