@@ -74,6 +74,8 @@
 
 static vlanid_t filter_vlan = 0;
 
+static bool supports_nh = false;
+
 struct gw_family_t {
 	uint16_t filler;
 	uint16_t family;
@@ -1644,7 +1646,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 			  RTA_PAYLOAD(rta));
 	}
 
-	if (dplane_ctx_get_nhe_id(ctx)) {
+	if (supports_nh) {
 		/* Kernel supports nexthop objects */
 		addattr32(&req.n, sizeof(req), RTA_NH_ID,
 			  dplane_ctx_get_nhe_id(ctx));
@@ -1937,6 +1939,10 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 		struct nhmsg nhm;
 		char buf[NL_PKT_BUF_SIZE];
 	} req;
+
+	/* Nothing to do if the kernel doesn't support nexthop objects */
+	if (!supports_nh)
+		return 0;
 
 	memset(&req, 0, sizeof(req));
 
@@ -2424,6 +2430,15 @@ int netlink_nexthop_read(struct zebra_ns *zns)
 		return ret;
 	ret = netlink_parse_info(netlink_nexthop_change, &zns->netlink_cmd,
 				 &dp_info, 0, 1);
+
+	if (!ret)
+		/* If we succesfully read in nexthop objects,
+		 * this kernel must support them.
+		 */
+		supports_nh = true;
+	else if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("Nexthop objects not supported on this kernel");
+
 	return ret;
 }
 

@@ -1526,7 +1526,7 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_ROUTE_UPDATE));
 
 #ifdef HAVE_NETLINK
-	if (re->nhe_id && zns->supports_nh) {
+	if (re->nhe_id) {
 		struct nhg_hash_entry *nhe =
 			zebra_nhg_resolve(zebra_nhg_lookup_id(re->nhe_id));
 
@@ -1593,11 +1593,6 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 			ctx->u.rinfo.nhe.nh_grp, nhe, MULTIPATH_NUM);
 
 	zns = ((struct zebra_vrf *)vrf_info_lookup(nhe->vrf_id))->zns;
-
-	if (!zns->supports_nh) {
-		ret = EOPNOTSUPP;
-		goto done;
-	}
 
 	/*
 	 * TODO: Might not need to mark this as an update, since
@@ -1896,12 +1891,8 @@ done:
 	if (ret == AOK)
 		result = ZEBRA_DPLANE_REQUEST_QUEUED;
 	else {
-		if (ret == EOPNOTSUPP)
-			result = ZEBRA_DPLANE_REQUEST_SUCCESS;
-		else
-			atomic_fetch_add_explicit(
-				&zdplane_info.dg_nexthop_errors, 1,
-				memory_order_relaxed);
+		atomic_fetch_add_explicit(&zdplane_info.dg_nexthop_errors, 1,
+					  memory_order_relaxed);
 		if (ctx)
 			dplane_ctx_free(&ctx);
 	}
@@ -2078,6 +2069,8 @@ enum zebra_dplane_result dplane_nexthop_add(struct nhg_hash_entry *nhe)
 
 /*
  * Enqueue a nexthop update for the dataplane.
+ *
+ * Might not need this func since zebra's nexthop objects should be immutable?
  */
 enum zebra_dplane_result dplane_nexthop_update(struct nhg_hash_entry *nhe)
 {

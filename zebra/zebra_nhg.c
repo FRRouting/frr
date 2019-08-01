@@ -553,6 +553,29 @@ static enum nhg_ctx_op_e nhg_ctx_get_op(const struct nhg_ctx *ctx)
 	return ctx->op;
 }
 
+static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
+				    struct nh_grp *grp, vrf_id_t vrf_id,
+				    afi_t afi, int type, uint8_t count)
+{
+	struct nhg_ctx *ctx = NULL;
+
+	ctx = nhg_ctx_new();
+
+	ctx->id = id;
+	ctx->vrf_id = vrf_id;
+	ctx->afi = afi;
+	ctx->type = type;
+	ctx->count = count;
+
+	if (count)
+		/* Copy over the array */
+		memcpy(&ctx->u.grp, grp, count * sizeof(struct nh_grp));
+	else if (nh)
+		ctx->u.nh = *nh;
+
+	return ctx;
+}
+
 static bool zebra_nhg_contains_dup(struct nhg_hash_entry *nhe)
 {
 	struct nhg_connected *rb_node_dep = NULL;
@@ -717,7 +740,7 @@ static int nhg_ctx_process_del(struct nhg_ctx *ctx)
 			EC_ZEBRA_BAD_NHG_MESSAGE,
 			"Kernel delete message received for nexthop group ID (%u) that we do not have in our ID table",
 			ctx->id);
-		return 0;
+		return -1;
 	}
 
 	zebra_nhg_handle_kernel_state_change(nhe, true);
@@ -786,20 +809,7 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 		 */
 		id_counter = id;
 
-	ctx = nhg_ctx_new();
-
-	ctx->id = id;
-	ctx->vrf_id = vrf_id;
-	ctx->afi = afi;
-	ctx->type = type;
-	ctx->count = count;
-
-	if (count)
-		/* Copy over the array */
-		memcpy(&ctx->u.grp, grp, count * sizeof(struct nh_grp));
-	else
-		ctx->u.nh = *nh;
-
+	ctx = nhg_ctx_init(id, nh, grp, vrf_id, afi, type, count);
 	nhg_ctx_set_op(ctx, NHG_CTX_OP_NEW);
 
 	/* Under statup conditions, we need to handle them immediately
@@ -822,9 +832,7 @@ int zebra_nhg_kernel_del(uint32_t id)
 {
 	struct nhg_ctx *ctx = NULL;
 
-	ctx = nhg_ctx_new();
-
-	ctx->id = id;
+	ctx = nhg_ctx_init(id, NULL, NULL, 0, 0, 0, 0);
 
 	nhg_ctx_set_op(ctx, NHG_CTX_OP_DEL);
 
