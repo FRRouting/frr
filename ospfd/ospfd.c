@@ -293,11 +293,6 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	new->oi_write_q = list_new();
 	new->write_oi_count = OSPF_WRITE_INTERFACE_COUNT_DEFAULT;
 
-/* Enable "log-adjacency-changes" */
-#if DFLT_OSPF_LOG_ADJACENCY_CHANGES
-	SET_FLAG(new->config, OSPF_LOG_ADJACENCY_CHANGES);
-#endif
-
 	QOBJ_REG(new, ospf);
 
 	new->fd = -1;
@@ -368,7 +363,7 @@ struct ospf *ospf_lookup_by_inst_name(unsigned short instance, const char *name)
 	return NULL;
 }
 
-struct ospf *ospf_get(unsigned short instance, const char *name)
+struct ospf *ospf_get(unsigned short instance, const char *name, bool *created)
 {
 	struct ospf *ospf;
 
@@ -379,6 +374,7 @@ struct ospf *ospf_get(unsigned short instance, const char *name)
 	else
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 
+	*created = (ospf == NULL);
 	if (ospf == NULL) {
 		ospf = ospf_new(instance, name);
 		ospf_add(ospf);
@@ -392,11 +388,12 @@ struct ospf *ospf_get(unsigned short instance, const char *name)
 	return ospf;
 }
 
-struct ospf *ospf_get_instance(unsigned short instance)
+struct ospf *ospf_get_instance(unsigned short instance, bool *created)
 {
 	struct ospf *ospf;
 
 	ospf = ospf_lookup_instance(instance);
+	*created = (ospf == NULL);
 	if (ospf == NULL) {
 		ospf = ospf_new(instance, NULL /* VRF_DEFAULT*/);
 		ospf_add(ospf);
@@ -574,7 +571,6 @@ static void ospf_finish_final(struct ospf *ospf)
 	struct ospf_vl_data *vl_data;
 	struct listnode *node, *nnode;
 	int i;
-	unsigned short instance = 0;
 
 	QOBJ_UNREG(ospf);
 
@@ -745,9 +741,6 @@ static void ospf_finish_final(struct ospf *ospf)
 	ospf_distance_reset(ospf);
 	route_table_finish(ospf->distance_table);
 
-	if (!CHECK_FLAG(om->options, OSPF_MASTER_SHUTDOWN))
-		instance = ospf->instance;
-
 	list_delete(&ospf->areas);
 	list_delete(&ospf->oi_write_q);
 
@@ -768,9 +761,6 @@ static void ospf_finish_final(struct ospf *ospf)
 	}
 
 	XFREE(MTYPE_OSPF_TOP, ospf);
-
-	if (!CHECK_FLAG(om->options, OSPF_MASTER_SHUTDOWN))
-		ospf_get_instance(instance);
 }
 
 
