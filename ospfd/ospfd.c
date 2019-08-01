@@ -401,18 +401,8 @@ struct ospf *ospf_get_instance(unsigned short instance)
 		ospf = ospf_new(instance, NULL /* VRF_DEFAULT*/);
 		ospf_add(ospf);
 
-		if (ospf->router_id_static.s_addr == 0) {
-			if (vrf_lookup_by_id(ospf->vrf_id))
-				ospf_router_id_update(ospf);
-			else {
-				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug(
-						"%s: ospf VRF (id %d) is not active yet, skip router id update",
-						__PRETTY_FUNCTION__,
-						ospf->vrf_id);
-			}
+		if (ospf->router_id_static.s_addr == 0)
 			ospf_router_id_update(ospf);
-		}
 
 		ospf_opaque_type11_lsa_init(ospf);
 	}
