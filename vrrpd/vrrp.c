@@ -2133,9 +2133,13 @@ void vrrp_if_down(struct interface *ifp)
 	struct listnode *ln;
 	struct list *vrs;
 
+	vrrp_bind_pending(ifp);
+
 	vrs = vrrp_lookup_by_if_any(ifp);
 
 	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
+		vrrp_check_start(vr);
+
 		if (vr->ifp == ifp || vr->v4->mvl_ifp == ifp
 		    || vr->v6->mvl_ifp == ifp) {
 			DEBUGD(&vrrp_dbg_auto,
