@@ -2444,7 +2444,7 @@ DEFPY (clear_evpn_dup_addr,
 
 	zvrf = zebra_vrf_get_evpn();
 	if (vni_str) {
-		if (mac) {
+		if (!is_zero_mac(&mac->eth_addr)) {
 			ret = zebra_vxlan_clear_dup_detect_vni_mac(vty, zvrf,
 								   vni,
 								   &mac->eth_addr);
