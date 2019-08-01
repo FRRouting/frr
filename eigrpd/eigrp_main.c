@@ -90,10 +90,16 @@ struct option longopts[] = {{0}};
 /* Master of threads. */
 struct thread_master *master;
 
+/* Forward declaration of daemon info structure. */
+static struct frr_daemon_info eigrpd_di;
+
 /* SIGHUP handler. */
 static void sighup(void)
 {
 	zlog_info("SIGHUP received");
+
+	/* Reload config file. */
+	vty_read_config(NULL, eigrpd_di.config_file, config_default);
 }
 
 /* SIGINT / SIGTERM handler. */
