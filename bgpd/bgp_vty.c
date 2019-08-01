@@ -72,6 +72,35 @@
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
 
+FRR_CFG_DEFAULT_BOOL(BGP_IMPORT_CHECK,
+	{ .val_long = true, .match_profile = "datacenter", },
+	{ .val_long = false },
+)
+FRR_CFG_DEFAULT_BOOL(BGP_SHOW_HOSTNAME,
+	{ .val_long = true, .match_profile = "datacenter", },
+	{ .val_long = false },
+)
+FRR_CFG_DEFAULT_BOOL(BGP_LOG_NEIGHBOR_CHANGES,
+	{ .val_long = true, .match_profile = "datacenter", },
+	{ .val_long = false },
+)
+FRR_CFG_DEFAULT_BOOL(BGP_DETERMINISTIC_MED,
+	{ .val_long = true, .match_profile = "datacenter", },
+	{ .val_long = false },
+)
+FRR_CFG_DEFAULT_ULONG(BGP_CONNECT_RETRY,
+	{ .val_ulong = 10, .match_profile = "datacenter", },
+	{ .val_ulong = 120 },
+)
+FRR_CFG_DEFAULT_ULONG(BGP_HOLDTIME,
+	{ .val_ulong = 9, .match_profile = "datacenter", },
+	{ .val_ulong = 180 },
+)
+FRR_CFG_DEFAULT_ULONG(BGP_KEEPALIVE,
+	{ .val_ulong = 3, .match_profile = "datacenter", },
+	{ .val_ulong = 60 },
+)
+
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty))
@@ -352,6 +381,29 @@ int argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index,
 		ret = 1;
 		if (safi)
 			*safi = SAFI_FLOWSPEC;
+	}
+	return ret;
+}
+
+int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
+		enum bgp_instance_type inst_type)
+{
+	int ret = bgp_get(bgp, as, name, inst_type);
+
+	if (ret == BGP_CREATED) {
+		bgp_timers_set(*bgp, DFLT_BGP_KEEPALIVE, DFLT_BGP_HOLDTIME,
+			       DFLT_BGP_CONNECT_RETRY);
+
+		if (DFLT_BGP_IMPORT_CHECK)
+			bgp_flag_set(*bgp, BGP_FLAG_IMPORT_CHECK);
+		if (DFLT_BGP_SHOW_HOSTNAME)
+			bgp_flag_set(*bgp, BGP_FLAG_SHOW_HOSTNAME);
+		if (DFLT_BGP_LOG_NEIGHBOR_CHANGES)
+			bgp_flag_set(*bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+		if (DFLT_BGP_DETERMINISTIC_MED)
+			bgp_flag_set(*bgp, BGP_FLAG_DETERMINISTIC_MED);
+
+		ret = BGP_SUCCESS;
 	}
 	return ret;
 }
@@ -1077,7 +1129,7 @@ DEFUN_NOSH (router_bgp,
 		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			is_new_bgp = (bgp_lookup(as, name) == NULL);
 
-		ret = bgp_get(&bgp, &as, name, inst_type);
+		ret = bgp_get_vty(&bgp, &as, name, inst_type);
 		switch (ret) {
 		case BGP_ERR_AS_MISMATCH:
 			vty_out(vty, "BGP is already running; AS is %u\n", as);
@@ -1830,7 +1882,7 @@ DEFUN (bgp_timers,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	bgp_timers_set(bgp, keepalive, holdtime);
+	bgp_timers_set(bgp, keepalive, holdtime, DFLT_BGP_CONNECT_RETRY);
 
 	return CMD_SUCCESS;
 }
@@ -1845,7 +1897,8 @@ DEFUN (no_bgp_timers,
        "Holdtime\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_timers_unset(bgp);
+	bgp_timers_set(bgp, DFLT_BGP_KEEPALIVE, DFLT_BGP_HOLDTIME,
+		       DFLT_BGP_CONNECT_RETRY);
 
 	return CMD_SUCCESS;
 }
@@ -6965,8 +7018,8 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 		as_t as = bgp->as;
 
 		/* Auto-create assuming the same AS */
-		ret = bgp_get(&bgp_default, &as, NULL,
-			      BGP_INSTANCE_TYPE_DEFAULT);
+		ret = bgp_get_vty(&bgp_default, &as, NULL,
+				  BGP_INSTANCE_TYPE_DEFAULT);
 
 		if (ret) {
 			vty_out(vty,
@@ -7051,8 +7104,8 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 	bgp_default = bgp_get_default();
 	if (!bgp_default) {
 		/* Auto-create assuming the same AS */
-		ret = bgp_get(&bgp_default, &as, NULL,
-			      BGP_INSTANCE_TYPE_DEFAULT);
+		ret = bgp_get_vty(&bgp_default, &as, NULL,
+				  BGP_INSTANCE_TYPE_DEFAULT);
 
 		if (ret) {
 			vty_out(vty,
@@ -7067,7 +7120,7 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 			vrf_bgp = bgp_default;
 		else
 			/* Auto-create assuming the same AS */
-			ret = bgp_get(&vrf_bgp, &as, import_name, bgp_type);
+			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type);
 
 		if (ret) {
 			vty_out(vty,
@@ -9734,9 +9787,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				json_neigh,
 				"bgpTimerConfiguredKeepAliveIntervalMsecs",
 				p->keepalive * 1000);
-		} else if ((bgp->default_holdtime != BGP_DEFAULT_HOLDTIME)
-			   || (bgp->default_keepalive
-			       != BGP_DEFAULT_KEEPALIVE)) {
+		} else if ((bgp->default_holdtime != SAVE_BGP_HOLDTIME)
+			   || (bgp->default_keepalive != SAVE_BGP_KEEPALIVE)) {
 			json_object_int_add(json_neigh,
 					    "bgpTimerConfiguredHoldTimeMsecs",
 					    bgp->default_holdtime);
@@ -9798,9 +9850,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				p->holdtime);
 			vty_out(vty, ", keepalive interval is %d seconds\n",
 				p->keepalive);
-		} else if ((bgp->default_holdtime != BGP_DEFAULT_HOLDTIME)
-			   || (bgp->default_keepalive
-			       != BGP_DEFAULT_KEEPALIVE)) {
+		} else if ((bgp->default_holdtime != SAVE_BGP_HOLDTIME)
+			   || (bgp->default_keepalive != SAVE_BGP_KEEPALIVE)) {
 			vty_out(vty, "  Configured hold time is %d",
 				bgp->default_holdtime);
 			vty_out(vty, ", keepalive interval is %d seconds\n",
@@ -13297,6 +13348,14 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	if (peergroup_flag_check(peer, PEER_FLAG_TIMER_CONNECT))
 		vty_out(vty, " neighbor %s timers connect %u\n", addr,
 			peer->connect);
+	/* need special-case handling for changed default values due to
+	 * config profile / version (because there is no "timers bgp connect"
+	 * command, we need to save this per-peer :/)
+	 */
+	else if (!peer_group_active(peer) && !peer->connect &&
+		 peer->bgp->default_connect_retry != SAVE_BGP_CONNECT_RETRY)
+		vty_out(vty, " neighbor %s timers connect %u\n", addr,
+			peer->bgp->default_connect_retry);
 
 	/* capability dynamic */
 	if (peergroup_flag_check(peer, PEER_FLAG_DYNAMIC_CAPABILITY))
@@ -13739,7 +13798,7 @@ int bgp_config_write(struct vty *vty)
 
 		/* BGP log-neighbor-changes. */
 		if (!!bgp_flag_check(bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)
-		    != DFLT_BGP_LOG_NEIGHBOR_CHANGES)
+		    != SAVE_BGP_LOG_NEIGHBOR_CHANGES)
 			vty_out(vty, " %sbgp log-neighbor-changes\n",
 				bgp_flag_check(bgp,
 					       BGP_FLAG_LOG_NEIGHBOR_CHANGES)
@@ -13770,7 +13829,7 @@ int bgp_config_write(struct vty *vty)
 
 		/* BGP default show-hostname */
 		if (!!bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME)
-		    != DFLT_BGP_SHOW_HOSTNAME)
+		    != SAVE_BGP_SHOW_HOSTNAME)
 			vty_out(vty, " %sbgp default show-hostname\n",
 				bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME)
 					? ""
@@ -13815,7 +13874,7 @@ int bgp_config_write(struct vty *vty)
 
 		/* BGP deterministic-med. */
 		if (!!bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)
-		    != DFLT_BGP_DETERMINISTIC_MED)
+		    != SAVE_BGP_DETERMINISTIC_MED)
 			vty_out(vty, " %sbgp deterministic-med\n",
 				bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)
 					? ""
@@ -13904,15 +13963,15 @@ int bgp_config_write(struct vty *vty)
 
 		/* BGP network import check. */
 		if (!!bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
-		    != DFLT_BGP_IMPORT_CHECK)
+		    != SAVE_BGP_IMPORT_CHECK)
 			vty_out(vty, " %sbgp network import-check\n",
 				bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
 					? ""
 					: "no ");
 
 		/* BGP timers configuration. */
-		if (bgp->default_keepalive != BGP_DEFAULT_KEEPALIVE
-		    && bgp->default_holdtime != BGP_DEFAULT_HOLDTIME)
+		if (bgp->default_keepalive != SAVE_BGP_KEEPALIVE
+		    && bgp->default_holdtime != SAVE_BGP_HOLDTIME)
 			vty_out(vty, " timers bgp %u %u\n",
 				bgp->default_keepalive, bgp->default_holdtime);
 

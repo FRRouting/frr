@@ -21,6 +21,8 @@
 #ifndef _QUAGGA_BGP_VTY_H
 #define _QUAGGA_BGP_VTY_H
 
+#include "bgpd/bgpd.h"
+
 struct bgp;
 
 #define BGP_INSTANCE_HELP_STR "BGP view\nBGP VRF\nView/VRF name\n"
@@ -46,6 +48,8 @@ struct bgp;
 
 extern void bgp_vty_init(void);
 extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
+extern int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
+		       enum bgp_instance_type inst_type);
 extern void bgp_config_write_update_delay(struct vty *vty, struct bgp *bgp);
 extern void bgp_config_write_wpkt_quanta(struct vty *vty, struct bgp *bgp);
 extern void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp);

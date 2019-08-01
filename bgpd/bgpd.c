@@ -404,19 +404,23 @@ time_t bgp_clock(void)
 }
 
 /* BGP timer configuration.  */
-int bgp_timers_set(struct bgp *bgp, uint32_t keepalive, uint32_t holdtime)
+int bgp_timers_set(struct bgp *bgp, uint32_t keepalive, uint32_t holdtime,
+		   uint32_t connect_retry)
 {
 	bgp->default_keepalive =
 		(keepalive < holdtime / 3 ? keepalive : holdtime / 3);
 	bgp->default_holdtime = holdtime;
+	bgp->default_connect_retry = connect_retry;
 
 	return 0;
 }
 
+/* mostly for completeness - CLI uses its own defaults */
 int bgp_timers_unset(struct bgp *bgp)
 {
 	bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
 	bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
+	bgp->default_connect_retry = BGP_DEFAULT_CONNECT_RETRY;
 
 	return 0;
 }
@@ -1118,7 +1122,7 @@ struct peer *peer_new(struct bgp *bgp)
 	/* Set default value. */
 	peer->fd = -1;
 	peer->v_start = BGP_INIT_START_TIMER;
-	peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
+	peer->v_connect = bgp->default_connect_retry;
 	peer->status = Idle;
 	peer->ostatus = Idle;
 	peer->cur_event = peer->last_event = peer->last_major_event = 0;
@@ -2417,7 +2421,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 		if (CHECK_FLAG(conf->flags, PEER_FLAG_TIMER_CONNECT))
 			peer->v_connect = conf->connect;
 		else
-			peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
+			peer->v_connect = peer->bgp->default_connect_retry;
 	}
 
 	/* advertisement-interval apply */
@@ -2904,26 +2908,13 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
 	bgp->default_subgroup_pkt_queue_max =
 		BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX;
-	bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
-	bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
+	bgp_timers_unset(bgp);
 	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 	bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
 	bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
 	bgp->dynamic_neighbors_count = 0;
 	bgp->ebgp_requires_policy = DEFAULT_EBGP_POLICY_DISABLED;
 	bgp->reject_as_sets = BGP_REJECT_AS_SETS_DISABLED;
-#if DFLT_BGP_IMPORT_CHECK
-	bgp_flag_set(bgp, BGP_FLAG_IMPORT_CHECK);
-#endif
-#if DFLT_BGP_SHOW_HOSTNAME
-	bgp_flag_set(bgp, BGP_FLAG_SHOW_HOSTNAME);
-#endif
-#if DFLT_BGP_LOG_NEIGHBOR_CHANGES
-	bgp_flag_set(bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
-#endif
-#if DFLT_BGP_DETERMINISTIC_MED
-	bgp_flag_set(bgp, BGP_FLAG_DETERMINISTIC_MED);
-#endif
 	bgp_addpath_init_bgp_data(&bgp->tx_addpath);
 
 	bgp->as = *as;
@@ -3176,7 +3167,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 		bgp_zebra_instance_register(bgp);
 	}
 
-	return BGP_SUCCESS;
+	return BGP_CREATED;
 }
 
 /*
@@ -4980,7 +4971,7 @@ int peer_timers_connect_unset(struct peer *peer)
 	if (peer->connect)
 		peer->v_connect = peer->connect;
 	else
-		peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
+		peer->v_connect = peer->bgp->default_connect_retry;
 
 	/* Skip peer-group mechanics for regular peers. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
@@ -4998,7 +4989,7 @@ int peer_timers_connect_unset(struct peer *peer)
 		/* Remove flag and configuration on peer-group member. */
 		UNSET_FLAG(member->flags, PEER_FLAG_TIMER_CONNECT);
 		member->connect = 0;
-		member->v_connect = BGP_DEFAULT_CONNECT_RETRY;
+		member->v_connect = peer->bgp->default_connect_retry;
 	}
 
 	return 0;
