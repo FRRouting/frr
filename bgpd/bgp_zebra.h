@@ -32,10 +32,6 @@ extern void bgp_zebra_destroy(void);
 extern int bgp_zebra_get_table_range(uint32_t chunk_size,
 				     uint32_t *start, uint32_t *end);
 extern int bgp_if_update_all(void);
-extern void bgp_config_write_maxpaths(struct vty *, struct bgp *, afi_t,
-				      safi_t);
-extern void bgp_config_write_redistribute(struct vty *, struct bgp *, afi_t,
-					  safi_t);
 extern void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			       struct bgp_path_info *path, struct bgp *bgp,
 			       afi_t afi, safi_t safi);
