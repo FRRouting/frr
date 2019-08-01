@@ -107,23 +107,17 @@ module frr-filter {
            Extended access list: source value to match.";
         mandatory true;
 
-        case host {
-          leaf host {
-            description "Host to match";
-            type inet:ipv4-address;
-          }
+        leaf host {
+          description "Host to match";
+          type inet:ipv4-address;
         }
-        case network {
-          leaf network {
-            description "Network to match";
-            type inet:ipv4-prefix;
-          }
+        leaf network {
+          description "Network to match";
+          type inet:ipv4-prefix;
         }
-        case any {
-          leaf any {
-            description "Match any";
-            type empty;
-          }
+        leaf any {
+          description "Match any";
+          type empty;
         }
       }
 
@@ -132,23 +126,17 @@ module frr-filter {
               ./sequence >= 2000 and ./sequence <= 2699";
         description "Destination value to match";
 
-        case destination-host {
-          leaf destination-host {
-            description "Host to match";
-            type inet:ipv4-address;
-          }
+        leaf destination-host {
+          description "Host to match";
+          type inet:ipv4-address;
         }
-        case destination-network {
-          leaf destination-network {
-            description "Network to match";
-            type inet:ipv4-prefix;
-          }
+        leaf destination-network {
+          description "Network to match";
+          type inet:ipv4-prefix;
         }
-        case destination-any {
-          leaf destination-any {
-            description "Match any";
-            type empty;
-          }
+        leaf destination-any {
+          description "Match any";
+          type empty;
         }
       }
     }
