@@ -919,6 +919,9 @@ lde_gc_timer(struct thread *thread)
 		    !RB_EMPTY(lde_map_head, &fn->upstream))
 			continue;
 
+		if (fn->local_label != NO_LABEL)
+			lde_free_label(fn->local_label);
+
 		fec_remove(&ft, &fn->fec);
 		free(fn);
 		count++;
