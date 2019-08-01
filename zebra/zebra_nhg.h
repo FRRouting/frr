@@ -45,7 +45,7 @@ struct nhg_hash_entry {
 	uint32_t id;
 	afi_t afi;
 	vrf_id_t vrf_id;
-	bool is_kernel_nh;
+	int type;
 
 	struct nexthop_group *nhg;
 
@@ -77,23 +77,31 @@ struct nhg_hash_entry {
  * and correct( ie no recursive pointer ) or a nexthop that is recursively
  * resolved and correct.
  */
-#define NEXTHOP_GROUP_VALID 0x1
+#define NEXTHOP_GROUP_VALID (1 << 0)
 /*
  * Has this nexthop group been installed?  At this point in time, this
  * means that the data-plane has been told about this nexthop group
  * and it's possible usage by a route entry.
  */
-#define NEXTHOP_GROUP_INSTALLED 0x2
+#define NEXTHOP_GROUP_INSTALLED (1 << 1)
 /*
  * Has the nexthop group been queued to be send to the FIB?
  * The NEXTHOP_GROUP_VALID flag should also be set by this point.
  */
-#define NEXTHOP_GROUP_QUEUED 0x4
+#define NEXTHOP_GROUP_QUEUED (1 << 2)
 /*
  * Is this a nexthop that is recursively resolved?
  */
-#define NEXTHOP_GROUP_RECURSIVE 0x8
+#define NEXTHOP_GROUP_RECURSIVE (1 << 3)
+/*
+ * This is a duplicate nexthop we got from the kernel, we are only tracking
+ * it in our ID hash table, it is unusable by our routes.
+ */
+#define NEXTHOP_GROUP_DUPLICATE (1 << 4)
 };
+
+/* Was this one we created, either this session or previously? */
+#define ZEBRA_NHG_CREATED(NHE) ((NHE->type) == ZEBRA_ROUTE_NHG)
 
 /* Abstraction for connected trees */
 struct nhg_connected {
@@ -135,7 +143,11 @@ struct nhg_ctx {
 
 	vrf_id_t vrf_id;
 	afi_t afi;
-	bool is_kernel_nh;
+	/*
+	 * This should only every be ZEBRA_ROUTE_NHG unless we get a a kernel
+	 * created nexthop not made by us.
+	 */
+	int type;
 
 	/* If its a group array, how many? */
 	uint8_t count;
@@ -216,7 +228,8 @@ extern int nhg_ctx_process(struct nhg_ctx *ctx);
 /* Find via kernel nh creation */
 extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
 				 struct nh_grp *grp, uint8_t count,
-				 vrf_id_t vrf_id, afi_t afi);
+				 vrf_id_t vrf_id, afi_t afi, int type,
+				 int startup);
 
 /* Find via route creation */
 extern struct nhg_hash_entry *
@@ -242,9 +255,11 @@ extern uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
 void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe);
 void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe);
 
-void zebra_nhg_cleanup_tables(void);
+void zebra_nhg_cleanup_tables(struct hash *hash);
 
 /* Forward ref of dplane update context type */
 struct zebra_dplane_ctx;
 void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx);
+
+void zebra_nhg_sweep_table(struct hash *hash);
 #endif

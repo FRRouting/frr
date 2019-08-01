@@ -188,7 +188,7 @@ static inline int zebra2proto(int proto)
 		proto = RTPROT_OPENFABRIC;
 		break;
 	case ZEBRA_ROUTE_TABLE:
-	case ZEBRA_NHG:
+	case ZEBRA_ROUTE_NHG:
 		proto = RTPROT_ZEBRA;
 		break;
 	default:
@@ -208,7 +208,7 @@ static inline int zebra2proto(int proto)
 	return proto;
 }
 
-static inline int proto2zebra(int proto, int family)
+static inline int proto2zebra(int proto, int family, bool is_nexthop)
 {
 	switch (proto) {
 	case RTPROT_BABEL:
@@ -252,6 +252,12 @@ static inline int proto2zebra(int proto, int family)
 	case RTPROT_OPENFABRIC:
 		proto = ZEBRA_ROUTE_OPENFABRIC;
 		break;
+	case RTPROT_ZEBRA:
+		if (is_nexthop) {
+			proto = ZEBRA_ROUTE_NHG;
+			break;
+		}
+		/* Intentional fall thru */
 	default:
 		/*
 		 * When a user adds a new protocol this will show up
@@ -589,7 +595,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	/* Route which inserted by Zebra. */
 	if (is_selfroute(rtm->rtm_protocol)) {
 		flags |= ZEBRA_FLAG_SELFROUTE;
-		proto = proto2zebra(rtm->rtm_protocol, rtm->rtm_family);
+		proto = proto2zebra(rtm->rtm_protocol, rtm->rtm_family, false);
 	}
 	if (tb[RTA_OIF])
 		index = *(int *)RTA_DATA(tb[RTA_OIF]);
@@ -2001,7 +2007,7 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 			// TODO: Handle Encap
 		}
 
-		req.nhm.nh_protocol = zebra2proto(dplane_ctx_get_type(ctx));
+		req.nhm.nh_protocol = zebra2proto(dplane_ctx_get_nhe_type(ctx));
 
 	} else if (cmd != RTM_DELNEXTHOP) {
 		flog_err(
@@ -2243,10 +2249,12 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 		return count;
 	}
 
+#if 0
 	// TODO: Need type for something?
 	zlog_debug("Nexthop group type: %d",
 		   *((uint16_t *)RTA_DATA(tb[NHA_GROUP_TYPE])));
 
+#endif
 
 	for (int i = 0; i < count; i++) {
 		z_grp[i].id = n_grp[i].id;
@@ -2270,6 +2278,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	/* nexthop group id */
 	uint32_t id;
 	unsigned char family;
+	int type;
 	afi_t afi = AFI_UNSPEC;
 	vrf_id_t vrf_id = 0;
 	struct interface *ifp = NULL;
@@ -2311,8 +2320,9 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	id = *((uint32_t *)RTA_DATA(tb[NHA_ID]));
 
 	family = nhm->nh_family;
-
 	afi = family2afi(family);
+
+	type = proto2zebra(nhm->nh_protocol, 0, true);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("%s ID (%u) %s NS %u",
@@ -2363,7 +2373,8 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		// Gotta figure that one out.
 
 
-		if (zebra_nhg_kernel_find(id, &nh, grp, grp_count, vrf_id, afi))
+		if (zebra_nhg_kernel_find(id, &nh, grp, grp_count, vrf_id, afi,
+					  type, startup))
 			return -1;
 
 

@@ -154,6 +154,11 @@ void zebra_router_sweep_route(void)
 	}
 }
 
+void zebra_router_sweep_nhgs(void)
+{
+	zebra_nhg_sweep_table(zrouter.nhgs_id);
+}
+
 static void zebra_router_free_table(struct zebra_router_table *zrt)
 {
 	void *table_info;
@@ -275,5 +280,5 @@ void zebra_router_init(void)
  */
 void zebra_router_cleanup(void)
 {
-	zebra_nhg_cleanup_tables();
+	zebra_nhg_cleanup_tables(zrouter.nhgs_id);
 }

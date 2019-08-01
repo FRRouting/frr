@@ -73,7 +73,7 @@ struct dplane_nexthop_info {
 	uint32_t id;
 	afi_t afi;
 	vrf_id_t vrf_id;
-	bool is_kernel_nh;
+	int type;
 
 	struct nexthop_group ng;
 	struct nh_grp nh_grp[MULTIPATH_NUM];
@@ -1077,10 +1077,10 @@ vrf_id_t dplane_ctx_get_nhe_vrf_id(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rinfo.nhe.vrf_id;
 }
 
-bool dplane_ctx_get_nhe_is_kernel_nh(const struct zebra_dplane_ctx *ctx)
+int dplane_ctx_get_nhe_type(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
-	return ctx->u.rinfo.nhe.is_kernel_nh;
+	return ctx->u.rinfo.nhe.type;
 }
 
 const struct nexthop_group *
@@ -1577,13 +1577,12 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->u.rinfo.zd_type = ZEBRA_ROUTE_TABLE;
 
 	/* Copy over nhe info */
 	ctx->u.rinfo.nhe.id = nhe->id;
 	ctx->u.rinfo.nhe.afi = nhe->afi;
 	ctx->u.rinfo.nhe.vrf_id = nhe->vrf_id;
-	ctx->u.rinfo.nhe.is_kernel_nh = nhe->is_kernel_nh;
+	ctx->u.rinfo.nhe.type = nhe->type;
 
 	nexthop_group_copy(&(ctx->u.rinfo.nhe.ng), nhe->nhg);
 

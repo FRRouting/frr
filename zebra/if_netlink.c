@@ -1489,9 +1489,8 @@ void interface_list(struct zebra_ns *zns)
 		 */
 		zlog_debug("Nexthop objects disabled on this kernel");
 		zns->supports_nh = false;
-	} else {
+	} else
 		zns->supports_nh = true;
-	}
 
 	interface_addr_lookup_netlink(zns);
 }

@@ -3374,6 +3374,7 @@ int rib_sweep_route(struct thread *t)
 	}
 
 	zebra_router_sweep_route();
+	zebra_router_sweep_nhgs();
 
 	return 0;
 }
