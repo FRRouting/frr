@@ -129,6 +129,10 @@ enum dplane_op_e {
 	/* MAC address update */
 	DPLANE_OP_MAC_INSTALL,
 	DPLANE_OP_MAC_DELETE,
+
+	/* EVPN neighbor updates */
+	DPLANE_OP_NEIGH_INSTALL,
+	DPLANE_OP_NEIGH_DELETE,
 };
 
 /* Enable system route notifications */
@@ -378,6 +382,16 @@ enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
 					vlanid_t vid,
 					const struct ethaddr *mac,
 					struct in_addr vtep_ip);
+
+/*
+ * Enqueue evpn neighbor updates for the dataplane.
+ */
+enum zebra_dplane_result dplane_neigh_add(const struct interface *ifp,
+					  const struct ipaddr *ip,
+					  const struct ethaddr *mac,
+					  int32_t flags);
+enum zebra_dplane_result dplane_neigh_del(const struct interface *ifp,
+					  const struct ipaddr *ip);
 
 /* Retrieve the limit on the number of pending, unprocessed updates. */
 uint32_t dplane_get_in_queue_limit(void);
