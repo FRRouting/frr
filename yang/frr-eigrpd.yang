@@ -57,7 +57,7 @@ module frr-eigrpd {
         value 2;
       }
 
-      enum hmac-sha2 {
+      enum hmac-sha-256 {
         description "HMAC SHA256 algorithm";
         value 3;
       }
