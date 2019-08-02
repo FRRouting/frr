@@ -387,10 +387,8 @@ void vzlog(int priority, const char *format, va_list args)
 
 	/* If it doesn't match on a filter, do nothing with the debug log */
 	if ((priority == LOG_DEBUG) && zlog_filter_count
-	    && vzlog_filter(zl, &tsctl, proto_str, priority, msg)) {
-		pthread_mutex_unlock(&loglock);
+	    && vzlog_filter(zl, &tsctl, proto_str, priority, msg))
 		goto out;
-	}
 
 	/* call external hook */
 	hook_call(zebra_ext_log, priority, format, args);
