@@ -485,6 +485,8 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 
 	case DPLANE_OP_MAC_INSTALL:
 	case DPLANE_OP_MAC_DELETE:
+	case DPLANE_OP_NEIGH_INSTALL:
+	case DPLANE_OP_NEIGH_DELETE:
 	case DPLANE_OP_NONE:
 		break;
 	}
@@ -650,6 +652,13 @@ const char *dplane_op2str(enum dplane_op_e op)
 		break;
 	case DPLANE_OP_MAC_DELETE:
 		ret = "MAC_DELETE";
+		break;
+
+	case DPLANE_OP_NEIGH_INSTALL:
+		ret = "NEIGH_INSTALL";
+		break;
+	case DPLANE_OP_NEIGH_DELETE:
+		ret = "NEIGH_DELETE";
 		break;
 	}
 
