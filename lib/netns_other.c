@@ -82,7 +82,7 @@ const char *ns_get_name(struct ns *ns)
 }
 
 /* only called from vrf ( when removing netns from vrf)
- * or at VRF or logical router termination
+ * or at VRF termination
  */
 void ns_delete(struct ns *ns)
 {

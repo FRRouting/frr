@@ -98,7 +98,6 @@ enum node_type {
 	AAA_NODE,		 /* AAA node. */
 	KEYCHAIN_NODE,		 /* Key-chain node. */
 	KEYCHAIN_KEY_NODE,       /* Key-chain key node. */
-	LOGICALROUTER_NODE,      /* Logical-Router node. */
 	IP_NODE,		 /* Static ip route node. */
 	VRF_NODE,		 /* VRF mode node. */
 	INTERFACE_NODE,		 /* Interface mode node. */

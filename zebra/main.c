@@ -34,7 +34,6 @@
 #include "privs.h"
 #include "sigevent.h"
 #include "vrf.h"
-#include "logicalrouter.h"
 #include "libfrr.h"
 #include "routemap.h"
 #include "frr_pthread.h"
@@ -262,7 +261,6 @@ int main(int argc, char **argv)
 
 	graceful_restart = 0;
 	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
-	logicalrouter_configure_backend(LOGICALROUTER_BACKEND_NETNS);
 
 	frr_preinit(&zebra_di, argc, argv);
 
@@ -349,8 +347,6 @@ int main(int argc, char **argv)
 			break;
 		case 'n':
 			vrf_configure_backend(VRF_BACKEND_NETNS);
-			logicalrouter_configure_backend(
-				LOGICALROUTER_BACKEND_OFF);
 			break;
 		case OPTION_V6_RR_SEMANTICS:
 			v6_rr_semantics = true;

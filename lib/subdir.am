@@ -95,7 +95,6 @@ lib_libfrr_la_SOURCES = \
 	lib/yang_translator.c \
 	lib/yang_wrappers.c \
 	lib/zclient.c \
-	lib/logicalrouter.c \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
 	lib/printf/glue.c \
@@ -113,7 +112,6 @@ vtysh_scan += \
 	$(top_srcdir)/lib/if.c \
 	$(top_srcdir)/lib/if_rmap.c \
 	$(top_srcdir)/lib/keychain.c \
-	$(top_srcdir)/lib/logicalrouter.c \
 	$(top_srcdir)/lib/nexthop_group.c \
 	$(top_srcdir)/lib/plist.c \
 	$(top_srcdir)/lib/routemap.c \
@@ -241,7 +239,6 @@ pkginclude_HEADERS += \
 	lib/zassert.h \
 	lib/zclient.h \
 	lib/zebra.h \
-	lib/logicalrouter.h \
 	lib/pbr.h \
 	# end
 
