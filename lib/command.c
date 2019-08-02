@@ -89,7 +89,6 @@ const char *node_names[] = {
 	"aaa",			    // AAA_NODE,
 	"keychain",		    // KEYCHAIN_NODE,
 	"keychain key",		    // KEYCHAIN_KEY_NODE,
-	"logical-router",	   // LOGICALROUTER_NODE,
 	"static ip",		    // IP_NODE,
 	"vrf",			    // VRF_NODE,
 	"interface",		    // INTERFACE_NODE,
@@ -1456,7 +1455,6 @@ void cmd_exit(struct vty *vty)
 		break;
 	case INTERFACE_NODE:
 	case PW_NODE:
-	case LOGICALROUTER_NODE:
 	case VRF_NODE:
 	case NH_GROUP_NODE:
 	case ZEBRA_NODE:

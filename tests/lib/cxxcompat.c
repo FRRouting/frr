@@ -55,7 +55,6 @@
 #include "lib/libospf.h"
 #include "lib/linklist.h"
 #include "lib/log.h"
-#include "lib/logicalrouter.h"
 #include "lib/md5.h"
 #include "lib/memory.h"
 #include "lib/memory_vty.h"
