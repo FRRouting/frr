@@ -125,6 +125,8 @@ struct zebra_l3vni_t_ {
 	/* SVI interface corresponding to the l3vni */
 	struct interface *svi_if;
 
+	struct interface *mac_vlan_if;
+
 	/* list of L2 VNIs associated with the L3 VNI */
 	struct list *l2vnis;
 
@@ -215,7 +217,8 @@ static inline vrf_id_t zl3vni_vrf_id(zebra_l3vni_t *zl3vni)
 	return zl3vni->vrf_id;
 }
 
-static inline void zl3vni_get_rmac(zebra_l3vni_t *zl3vni, struct ethaddr *rmac)
+static inline void zl3vni_get_svi_rmac(zebra_l3vni_t *zl3vni,
+				       struct ethaddr *rmac)
 {
 	if (!zl3vni)
 		return;
@@ -433,6 +436,7 @@ struct nh_walk_ctx {
 extern zebra_l3vni_t *zl3vni_from_vrf(vrf_id_t vrf_id);
 extern struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni);
 extern struct interface *zl3vni_map_to_svi_if(zebra_l3vni_t *zl3vni);
+extern struct interface *zl3vni_map_to_mac_vlan_if(zebra_l3vni_t *zl3vni);
 
 DECLARE_HOOK(zebra_rmac_update, (zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
 	     bool delete, const char *reason), (rmac, zl3vni, delete, reason))
