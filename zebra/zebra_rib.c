@@ -1774,7 +1774,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 
 				/* Redistribute */
 				redistribute_update(dest_pfx, src_pfx,
-						    re, NULL);
+						    re, old_re);
 			}
 
 			/*
