@@ -201,6 +201,10 @@ extern struct nexthop *nexthop_dup(const struct nexthop *nexthop,
 extern struct nexthop *nexthop_dup_no_recurse(const struct nexthop *nexthop,
 					      struct nexthop *rparent);
 
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pNH"  (struct nexthop *)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

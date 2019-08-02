@@ -112,7 +112,7 @@ static const struct {
 	/* no entry/default: 150 */
 };
 
-static void __attribute__((format(printf, 5, 6)))
+static void PRINTFRR(5, 6)
 _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
 	    int priority, const char *msgfmt, ...)
 {

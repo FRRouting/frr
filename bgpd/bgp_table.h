@@ -448,4 +448,8 @@ static inline const struct prefix *bgp_node_get_prefix(struct bgp_node *node)
 	return &node->p;
 }
 
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pRN"  (struct bgp_node *)
+#endif
+
 #endif /* _QUAGGA_BGP_TABLE_H */

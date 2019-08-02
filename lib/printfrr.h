@@ -31,7 +31,7 @@ struct fbuf {
 };
 
 #define at(a, b) \
-	__attribute__((format(printf, a, b)))
+	PRINTFRR(a, b)
 #define atn(a, b) \
 	at(a, b) __attribute__((nonnull(1) _RET_NONNULL))
 #define atm(a, b) \
@@ -75,6 +75,7 @@ char  *asnprintfrr(struct memtype *mt, char *out, size_t sz,
 
 #undef at
 #undef atm
+#undef atn
 
 /* extension specs must start with a capital letter (this is a restriction
  * for both performance's and human understanding's sake.)

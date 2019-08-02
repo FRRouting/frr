@@ -161,6 +161,10 @@ agg_node_get_prefix(const struct agg_node *node)
 	return &node->p;
 }
 
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pRN"  (struct agg_node *)
+#endif
+
 #ifdef __cplusplus
 }
 #endif
