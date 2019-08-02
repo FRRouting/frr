@@ -3403,6 +3403,39 @@ static int zvni_mac_del(zebra_vni_t *zvni, zebra_mac_t *mac)
 	return 0;
 }
 
+static bool zvni_check_mac_del_from_db(struct mac_walk_ctx *wctx,
+				       zebra_mac_t *mac)
+{
+	if ((wctx->flags & DEL_LOCAL_MAC) &&
+	    (mac->flags & ZEBRA_MAC_LOCAL))
+		return true;
+	else if ((wctx->flags & DEL_REMOTE_MAC) &&
+		 (mac->flags & ZEBRA_MAC_REMOTE))
+		return true;
+	else if ((wctx->flags & DEL_REMOTE_MAC_FROM_VTEP) &&
+		 (mac->flags & ZEBRA_MAC_REMOTE) &&
+		 IPV4_ADDR_SAME(&mac->fwd_info.r_vtep_ip, &wctx->r_vtep_ip))
+		return true;
+	else if ((wctx->flags & DEL_LOCAL_MAC) &&
+		 (mac->flags & ZEBRA_MAC_AUTO) &&
+		 !listcount(mac->neigh_list)) {
+		if (IS_ZEBRA_DEBUG_VXLAN) {
+			char buf[ETHER_ADDR_STRLEN];
+
+			zlog_debug("%s: Del MAC %s flags 0x%x",
+				   __PRETTY_FUNCTION__,
+				   prefix_mac2str(&mac->macaddr,
+						  buf, sizeof(buf)),
+				   mac->flags);
+		}
+		wctx->uninstall = 0;
+
+		return true;
+	}
+
+	return false;
+}
+
 /*
  * Free MAC hash entry (callback)
  */
@@ -3411,18 +3444,11 @@ static void zvni_mac_del_hash_entry(struct hash_bucket *bucket, void *arg)
 	struct mac_walk_ctx *wctx = arg;
 	zebra_mac_t *mac = bucket->data;
 
-	if (((wctx->flags & DEL_LOCAL_MAC) && (mac->flags & ZEBRA_MAC_LOCAL))
-	    || ((wctx->flags & DEL_REMOTE_MAC)
-		&& (mac->flags & ZEBRA_MAC_REMOTE))
-	    || ((wctx->flags & DEL_REMOTE_MAC_FROM_VTEP)
-		&& (mac->flags & ZEBRA_MAC_REMOTE)
-		&& IPV4_ADDR_SAME(&mac->fwd_info.r_vtep_ip,
-				  &wctx->r_vtep_ip))) {
+	if (zvni_check_mac_del_from_db(wctx, mac)) {
 		if (wctx->upd_client && (mac->flags & ZEBRA_MAC_LOCAL)) {
 			zvni_mac_send_del_to_client(wctx->zvni->vni,
 						    &mac->macaddr);
 		}
-
 		if (wctx->uninstall)
 			zvni_mac_uninstall(wctx->zvni, mac);
 
@@ -5332,8 +5358,6 @@ static void process_remote_macip_add(vni_t vni,
 			if (ipa_len)
 				SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 		} else {
-			const char *mac_type;
-
 			/* When host moves but changes its (MAC,IP)
 			 * binding, BGP may install a MACIP entry that
 			 * corresponds to "older" location of the host
@@ -5342,16 +5366,14 @@ static void process_remote_macip_add(vni_t vni,
 			 * the sequence number and ignore this update
 			 * if appropriate.
 			 */
-			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
+			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
 				tmp_seq = mac->loc_seq;
-				mac_type = "local";
-			} else {
+			else
 				tmp_seq = mac->rem_seq;
-				mac_type = "remote";
-			}
+
 			if (seq < tmp_seq) {
 				if (IS_ZEBRA_DEBUG_VXLAN)
-					zlog_debug("Ignore remote MACIP ADD VNI %u MAC %s%s%s as existing %s MAC has higher seq %u",
+					zlog_debug("Ignore remote MACIP ADD VNI %u MAC %s%s%s as existing MAC has higher seq %u flags 0x%x",
 					vni,
 					prefix_mac2str(macaddr,
 						       buf, sizeof(buf)),
@@ -5359,8 +5381,7 @@ static void process_remote_macip_add(vni_t vni,
 					ipa_len ?
 					ipaddr2str(ipaddr,
 						   buf1, sizeof(buf1)) : "",
-					mac_type,
-					tmp_seq);
+					tmp_seq, mac->flags);
 				return;
 			}
 		}
@@ -7274,8 +7295,13 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 	 * of a VxLAN bridge.
 	 */
 	zvni = zvni_from_svi(ifp, link_if);
-	if (!zvni)
+	if (!zvni) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: Del neighbor %s VNI is not present for interface %s",
+				   __PRETTY_FUNCTION__,
+				   ipaddr2str(ip, buf, sizeof(buf)), ifp->name);
 		return 0;
+	}
 
 	if (!zvni->vxlan_if) {
 		zlog_debug(
@@ -7672,9 +7698,10 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("DEL MAC %s intf %s(%u) VID %u -> VNI %u flags 0x%x",
+		zlog_debug("DEL MAC %s intf %s(%u) VID %u -> VNI %u seq %u flags 0x%x nbr count %u",
 			   prefix_mac2str(macaddr, buf, sizeof(buf)), ifp->name,
-			   ifp->ifindex, vid, zvni->vni, mac->flags);
+			   ifp->ifindex, vid, zvni->vni, mac->loc_seq,
+			   mac->flags, listcount(mac->neigh_list));
 
 	/* Update all the neigh entries associated with this mac */
 	zvni_process_neigh_on_local_mac_del(zvni, mac);
