@@ -188,7 +188,7 @@ static void handle_repeated(bool installed)
 					   sg.r.inst, sg.r.total_routes);
 	}
 
-	if (installed) {
+	if (!installed) {
 		sg.r.installed_routes = 0;
 		sharp_install_routes_helper(&p, sg.r.vrf_id, sg.r.inst,
 					    &sg.r.nhop_group,
