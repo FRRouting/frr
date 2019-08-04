@@ -11,6 +11,7 @@ vtysh_scan += \
 	$(top_srcdir)/isisd/isis_redist.c \
 	$(top_srcdir)/isisd/isis_spf.c \
 	$(top_srcdir)/isisd/isis_te.c \
+	$(top_srcdir)/isisd/isis_sr.c \
 	$(top_srcdir)/isisd/isis_vty_fabricd.c \
 	$(top_srcdir)/isisd/isisd.c \
 	# end
@@ -48,6 +49,7 @@ noinst_HEADERS += \
 	isisd/isis_routemap.h \
 	isisd/isis_spf.h \
 	isisd/isis_spf_private.h \
+	isisd/isis_sr.h \
 	isisd/isis_te.h \
 	isisd/isis_tlvs.h \
 	isisd/isis_tx_queue.h \
@@ -77,6 +79,7 @@ LIBISIS_SOURCES = \
 	isisd/isis_route.c \
 	isisd/isis_routemap.c \
 	isisd/isis_spf.c \
+	isisd/isis_sr.c \
 	isisd/isis_te.c \
 	isisd/isis_tlvs.c \
 	isisd/isis_tx_queue.c \
