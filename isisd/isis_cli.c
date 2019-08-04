@@ -1480,7 +1480,7 @@ DEFPY (isis_sr_prefix_sid,
        isis_sr_prefix_sid_cmd,
        "segment-routing prefix\
           <A.B.C.D/M|X:X::X:X/M>$prefix\
-	  <absolute$sid_type (16000-1048575)$sid_value|index$sid_type (0-65535)$sid_value>\
+	  <absolute$sid_type (16-1048575)$sid_value|index$sid_type (0-65535)$sid_value>\
 	  [<no-php-flag|explicit-null>$lh_behavior]",
        SR_STR
        "Prefix SID\n"
@@ -1518,7 +1518,7 @@ DEFPY (isis_sr_prefix_sid,
 DEFPY (no_isis_sr_prefix_sid,
        no_isis_sr_prefix_sid_cmd,
        "no segment-routing prefix <A.B.C.D/M|X:X::X:X/M>$prefix\
-         [<absolute$sid_type (16000-1048575)|index (0-65535)> [<no-php-flag|explicit-null>]]",
+         [<absolute$sid_type (16-1048575)|index (0-65535)> [<no-php-flag|explicit-null>]]",
        NO_STR
        SR_STR
        "Prefix SID\n"

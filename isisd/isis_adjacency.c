@@ -93,6 +93,7 @@ struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 				.last_dis_change = time(NULL);
 		}
 	}
+	adj->adj_sids = list_new();
 
 	return adj;
 }
@@ -122,6 +123,44 @@ struct isis_adjacency *isis_adj_lookup_snpa(const uint8_t *ssnpa,
 	return NULL;
 }
 
+bool isis_adj_exists(const struct isis_area *area, int level,
+		     const uint8_t *sysid)
+{
+	struct isis_circuit *circuit;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+		struct isis_adjacency *adj;
+		struct listnode *anode;
+		struct list *adjdb;
+
+		switch (circuit->circ_type) {
+		case CIRCUIT_T_BROADCAST:
+			adjdb = circuit->u.bc.adjdb[level - 1];
+			if (!adjdb)
+				continue;
+
+			for (ALL_LIST_ELEMENTS_RO(adjdb, anode, adj)) {
+				if (!memcmp(adj->sysid, sysid, ISIS_SYS_ID_LEN))
+					return true;
+			}
+			break;
+		case CIRCUIT_T_P2P:
+			adj = circuit->u.p2p.neighbor;
+			if (!adj)
+				break;
+
+			if (!memcmp(adj->sysid, sysid, ISIS_SYS_ID_LEN))
+				return true;
+			break;
+		default:
+			break;
+		}
+	}
+
+	return false;
+}
+
 DEFINE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj))
 
 void isis_delete_adj(void *arg)
@@ -145,6 +184,7 @@ void isis_delete_adj(void *arg)
 	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ipv6_addresses);
 
 	adj_mt_finish(adj);
+	list_delete(&adj->adj_sids);
 
 	XFREE(MTYPE_ISIS_ADJACENCY, adj);
 	return;
@@ -442,6 +482,9 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 	}
 
 	if (detail == ISIS_UI_LEVEL_DETAIL) {
+		struct sr_adjacency *sra;
+		struct listnode *anode;
+
 		level = adj->level;
 		vty_out(vty, "\n");
 		if (adj->circuit)
@@ -529,6 +572,31 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 					  buf, sizeof(buf));
 				vty_out(vty, "      %s\n", buf);
 			}
+		}
+		for (ALL_LIST_ELEMENTS_RO(adj->adj_sids, anode, sra)) {
+			const char *adj_type;
+			const char *backup;
+			uint32_t sid;
+
+			switch (sra->adj->circuit->circ_type) {
+			case CIRCUIT_T_BROADCAST:
+				adj_type = "LAN Adjacency-SID";
+				sid = sra->u.ladj_sid->sid;
+				break;
+			case CIRCUIT_T_P2P:
+				adj_type = "Adjacency-SID";
+				sid = sra->u.adj_sid->sid;
+				break;
+			default:
+				continue;
+			}
+			backup = (sra->type == ISIS_SR_LAN_BACKUP) ? " (backup)"
+								   : "";
+
+			vty_out(vty, "    %s %s%s: %u\n",
+				(sra->nexthop.family == AF_INET) ? "IPv4"
+								 : "IPv6",
+				adj_type, backup, sid);
 		}
 		vty_out(vty, "\n");
 	}

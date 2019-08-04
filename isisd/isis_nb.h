@@ -422,6 +422,10 @@ struct yang_data *
 lib_interface_isis_event_counters_authentication_fails_get_elem(
 	const char *xpath, const void *list_entry);
 
+/* Optional 'pre_validate' callbacks. */
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate(
+	const struct lyd_node *dnode);
+
 /* Optional 'apply_finish' callbacks. */
 void ietf_backoff_delay_apply_finish(const struct lyd_node *dnode);
 void area_password_apply_finish(const struct lyd_node *dnode);
@@ -432,6 +436,10 @@ void default_info_origin_ipv6_apply_finish(const struct lyd_node *dnode);
 void redistribute_apply_finish(const struct lyd_node *dnode, int family);
 void redistribute_ipv4_apply_finish(const struct lyd_node *dnode);
 void redistribute_ipv6_apply_finish(const struct lyd_node *dnode);
+void isis_instance_segment_routing_srgb_apply_finish(
+	const struct lyd_node *dnode);
+void isis_instance_segment_routing_prefix_sid_map_prefix_sid_apply_finish(
+	const struct lyd_node *dnode);
 
 /* Optional 'cli_show' callbacks. */
 void cli_show_router_isis(struct vty *vty, struct lyd_node *dnode,
