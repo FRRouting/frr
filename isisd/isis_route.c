@@ -70,6 +70,7 @@ static struct isis_nexthop *isis_nexthop_create(int family, union g_addr *ip,
 	nexthop->family = family;
 	nexthop->ifindex = ifindex;
 	nexthop->ip = *ip;
+	isis_sr_nexthop_reset(&nexthop->sr);
 
 	return nexthop;
 }
@@ -129,6 +130,7 @@ static void adjinfo2nexthop(int family, struct list *nexthops,
 				nh = isis_nexthop_create(
 					AF_INET, &ip,
 					adj->circuit->interface->ifindex);
+				nh->adj = adj;
 				listnode_add(nexthops, nh);
 				break;
 			}
@@ -143,6 +145,7 @@ static void adjinfo2nexthop(int family, struct list *nexthops,
 				nh = isis_nexthop_create(
 					AF_INET6, &ip,
 					adj->circuit->interface->ifindex);
+				nh->adj = adj;
 				listnode_add(nexthops, nh);
 				break;
 			}

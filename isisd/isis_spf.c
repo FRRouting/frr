@@ -1224,6 +1224,8 @@ static int isis_run_spf_cb(struct thread *thread)
 
 	isis_area_verify_routes(area);
 
+	isis_area_verify_sr(area);
+
 	/* walk all circuits and reset any spf specific flags */
 	struct listnode *node;
 	struct isis_circuit *circuit;
