@@ -5581,9 +5581,12 @@ static void link_l2vni_hash_to_l3vni(struct hash_bucket *bucket,
 		bgpevpn_link_to_l3vni(vpn);
 }
 
-int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *rmac,
+int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
+			     struct ethaddr *svi_rmac,
+			     struct ethaddr *vrr_rmac,
 			     struct in_addr originator_ip, int filter,
-			     ifindex_t svi_ifindex)
+			     ifindex_t svi_ifindex,
+			     bool is_anycast_mac)
 {
 	struct bgp *bgp_vrf = NULL; /* bgp VRF instance */
 	struct bgp *bgp_evpn = NULL; /* EVPN bgp instance */
@@ -5630,10 +5633,35 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *rmac,
 
 	/* associate the vrf with l3vni and related parameters */
 	bgp_vrf->l3vni = l3vni;
-	memcpy(&bgp_vrf->rmac, rmac, sizeof(struct ethaddr));
 	bgp_vrf->originator_ip = originator_ip;
 	bgp_vrf->l3vni_svi_ifindex = svi_ifindex;
+	bgp_vrf->evpn_info->is_anycast_mac = is_anycast_mac;
 
+	/* copy anycast MAC from VRR MAC */
+	memcpy(&bgp_vrf->rmac, vrr_rmac, ETH_ALEN);
+	/* copy sys RMAC from SVI MAC */
+	memcpy(&bgp_vrf->evpn_info->pip_rmac_zebra, svi_rmac, ETH_ALEN);
+	/* PIP user configured mac is not present use svi mac as sys mac */
+	if (is_zero_mac(&bgp_vrf->evpn_info->pip_rmac_static))
+		memcpy(&bgp_vrf->evpn_info->pip_rmac, svi_rmac, ETH_ALEN);
+
+	if (bgp_debug_zebra(NULL)) {
+		char buf[ETHER_ADDR_STRLEN];
+		char buf1[ETHER_ADDR_STRLEN];
+		char buf2[ETHER_ADDR_STRLEN];
+
+		zlog_debug("VRF %s vni %u pip %s RMAC %s sys RMAC %s static RMAC %s is_anycast_mac %s",
+			   vrf_id_to_name(bgp_vrf->vrf_id),
+			   bgp_vrf->l3vni,
+			   bgp_vrf->evpn_info->advertise_pip ? "enable"
+			   : "disable",
+			   prefix_mac2str(&bgp_vrf->rmac, buf, sizeof(buf)),
+			   prefix_mac2str(&bgp_vrf->evpn_info->pip_rmac,
+					  buf1, sizeof(buf1)),
+			   prefix_mac2str(&bgp_vrf->evpn_info->pip_rmac_static,
+					  buf2, sizeof(buf2)),
+			   is_anycast_mac ? "Enable" : "Disable");
+	}
 	/* set the right filter - are we using l3vni only for prefix routes? */
 	if (filter)
 		SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY);
@@ -5714,6 +5742,10 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 
 	/* remove the Rmac from the BGP vrf */
 	memset(&bgp_vrf->rmac, 0, sizeof(struct ethaddr));
+	memset(&bgp_vrf->evpn_info->pip_rmac_zebra, 0, ETH_ALEN);
+	if (is_zero_mac(&bgp_vrf->evpn_info->pip_rmac_static) &&
+	    !is_zero_mac(&bgp_vrf->evpn_info->pip_rmac))
+		memset(&bgp_vrf->evpn_info->pip_rmac, 0, ETH_ALEN);
 
 	/* remove default import RT or Unmap non-default import RT */
 	if (!list_isempty(bgp_vrf->vrf_import_rtl)) {
