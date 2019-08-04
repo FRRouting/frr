@@ -476,6 +476,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/segment-routing/srgb",
 			.cbs = {
+				.apply_finish = isis_instance_segment_routing_srgb_apply_finish,
 				.cli_show = cli_show_isis_srgb,
 			},
 		},
@@ -504,6 +505,8 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.cbs = {
 				.create = isis_instance_segment_routing_prefix_sid_map_prefix_sid_create,
 				.destroy = isis_instance_segment_routing_prefix_sid_map_prefix_sid_destroy,
+				.pre_validate = isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate,
+				.apply_finish = isis_instance_segment_routing_prefix_sid_map_prefix_sid_apply_finish,
 				.cli_show = cli_show_isis_prefix_sid,
 			},
 		},
