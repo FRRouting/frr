@@ -28,8 +28,11 @@
 #include "openbsd-tree.h"
 #include "prefix.h"
 
+DECLARE_MTYPE(ISIS_SUBTLV)
+
 struct lspdb_head;
 struct isis_subtlvs;
+struct sr_prefix_cfg;
 
 struct isis_area_address;
 struct isis_area_address {
@@ -580,9 +583,11 @@ void isis_tlvs_set_te_router_id(struct isis_tlvs *tlvs,
 void isis_tlvs_add_oldstyle_ip_reach(struct isis_tlvs *tlvs,
 				     struct prefix_ipv4 *dest, uint8_t metric);
 void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
-				     struct prefix_ipv4 *dest, uint32_t metric);
+				     struct prefix_ipv4 *dest, uint32_t metric,
+				     bool external, struct sr_prefix_cfg *pcfg);
 void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
-			      struct prefix_ipv6 *dest, uint32_t metric);
+			      struct prefix_ipv6 *dest, uint32_t metric,
+			      bool external, struct sr_prefix_cfg *pcfg);
 void isis_tlvs_add_ipv6_dstsrc_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 				     struct prefix_ipv6 *dest,
 				     struct prefix_ipv6 *src,

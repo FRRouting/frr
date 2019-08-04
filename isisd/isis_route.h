@@ -31,6 +31,8 @@ struct isis_nexthop {
 	ifindex_t ifindex;
 	int family;
 	union g_addr ip;
+	uint8_t sysid[ISIS_SYS_ID_LEN];
+	struct sr_nexthop_info sr;
 };
 
 struct isis_route_info {
