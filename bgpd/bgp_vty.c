@@ -7770,7 +7770,7 @@ static void bgp_show_bestpath_json(struct bgp *bgp, json_object *json)
 
 /* Show BGP peer's summary information. */
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
-			    bool use_json, json_object *json)
+			    bool use_json)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
@@ -7781,6 +7781,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	int len;
 	int max_neighbor_width = 0;
 	int pfx_rcd_safi;
+	json_object *json = NULL;
 	json_object *json_peer = NULL;
 	json_object *json_peers = NULL;
 	struct peer_af *paf;
@@ -7795,9 +7796,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		pfx_rcd_safi = safi;
 
 	if (use_json) {
-		if (json == NULL)
-			json = json_object_new_object();
-
+		json = json_object_new_object();
 		json_peers = json_object_new_object();
 	} else {
 		/* Loop over all neighbors that will be displayed to determine
@@ -8209,7 +8208,6 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 	int safi_wildcard = (safi == SAFI_MAX);
 	int is_wildcard = (afi_wildcard || safi_wildcard);
 	bool nbr_output = false;
-	json_object *json = NULL;
 
 	if (use_json && is_wildcard)
 		vty_out(vty, "{\n");
@@ -8221,9 +8219,6 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 		while (safi < SAFI_MAX) {
 			if (bgp_afi_safi_peer_exists(bgp, afi, safi)) {
 				nbr_output = true;
-
-				if (use_json)
-					json = json_object_new_object();
 
 				if (is_wildcard) {
 					/*
@@ -8247,8 +8242,7 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 								       safi));
 					}
 				}
-				bgp_show_summary(vty, bgp, afi, safi, use_json,
-						 json);
+				bgp_show_summary(vty, bgp, afi, safi, use_json);
 			}
 			safi++;
 			if (!safi_wildcard)
