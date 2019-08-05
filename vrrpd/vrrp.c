@@ -196,14 +196,14 @@ static struct vrrp_vrouter *vrrp_lookup_by_if_mvl(struct interface *mvl_ifp)
 {
 	struct interface *p;
 
-	if (!mvl_ifp || !mvl_ifp->link_ifindex
+	if (!mvl_ifp || mvl_ifp->link_ifindex == 0
 	    || !vrrp_ifp_has_vrrp_mac(mvl_ifp)) {
-		if (!mvl_ifp->link_ifindex)
+		if (mvl_ifp && mvl_ifp->link_ifindex == 0)
 			DEBUGD(&vrrp_dbg_zebra,
 			       VRRP_LOGPFX
 			       "Interface %s has no parent ifindex; disregarding",
 			       mvl_ifp->name);
-		if (!vrrp_ifp_has_vrrp_mac(mvl_ifp))
+		if (mvl_ifp && !vrrp_ifp_has_vrrp_mac(mvl_ifp))
 			DEBUGD(&vrrp_dbg_zebra,
 			       VRRP_LOGPFX
 			       "Interface %s has a non-VRRP MAC; disregarding",
