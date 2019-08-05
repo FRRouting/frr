@@ -1926,6 +1926,9 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 		goto done;
 	}
 
+	/* Ensure we clear the QUEUED flag */
+	UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
+
 	/* Is this a notification that ... matters? We only really care about
 	 * the route that is currently selected for installation.
 	 */
@@ -1990,7 +1993,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 				   dplane_ctx_get_vrf(ctx), dest_str);
 
 		/* We expect this to be the selected route, so we want
-		 * to tell others about this transistion.
+		 * to tell others about this transition.
 		 */
 		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 
