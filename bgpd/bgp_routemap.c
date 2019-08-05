@@ -2091,11 +2091,18 @@ route_set_lcommunity_delete(void *rule, const struct prefix *pfx,
 static void *route_set_lcommunity_delete_compile(const char *arg)
 {
 	struct rmap_community *rcom;
+	char **splits;
+	int num;
+
+	frrstr_split(arg, " ", &splits, &num);
 
 	rcom = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_community));
-
-	rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+	rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, splits[0]);
 	rcom->name_hash = bgp_clist_hash_key(rcom->name);
+
+	for (int i = 0; i < num; i++)
+		XFREE(MTYPE_TMP, splits[i]);
+	XFREE(MTYPE_TMP, splits);
 
 	return rcom;
 }
