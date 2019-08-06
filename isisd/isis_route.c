@@ -174,7 +174,6 @@ static void adjinfo2nexthop(struct list *nexthops, struct isis_adjacency *adj)
 				   adj->circuit->interface->ifindex)) {
 			nh = isis_nexthop_create(
 				ipv4_addr, adj->circuit->interface->ifindex);
-			nh->router_address = adj->router_address;
 			listnode_add(nexthops, nh);
 			return;
 		}
@@ -191,7 +190,6 @@ static void adjinfo2nexthop6(struct list *nexthops6, struct isis_adjacency *adj)
 				    adj->circuit->interface->ifindex)) {
 			nh6 = isis_nexthop6_create(
 				ipv6_addr, adj->circuit->interface->ifindex);
-			nh6->router_address6 = adj->router_address6;
 			listnode_add(nexthops6, nh6);
 			return;
 		}

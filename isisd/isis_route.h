@@ -28,14 +28,12 @@
 struct isis_nexthop6 {
 	ifindex_t ifindex;
 	struct in6_addr ip6;
-	struct in6_addr router_address6;
 	unsigned int lock;
 };
 
 struct isis_nexthop {
 	ifindex_t ifindex;
 	struct in_addr ip;
-	struct in_addr router_address;
 	unsigned int lock;
 };
 
