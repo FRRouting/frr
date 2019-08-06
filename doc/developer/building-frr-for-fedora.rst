@@ -14,7 +14,7 @@ Installing Dependencies
    sudo dnf install git autoconf automake libtool make \
      readline-devel texinfo net-snmp-devel groff pkgconfig json-c-devel \
      pam-devel python3-pytest bison flex c-ares-devel python3-devel \
-     python3-sphinx perl-core patch systemd-devel
+     python3-sphinx perl-core patch systemd-devel libcap-devel
 
 .. include:: building-libyang.rst
 
