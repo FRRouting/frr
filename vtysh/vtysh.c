@@ -1188,10 +1188,6 @@ static struct cmd_node pw_node = {
 	PW_NODE, "%s(config-pw)# ",
 };
 
-static struct cmd_node logicalrouter_node = {
-	LOGICALROUTER_NODE, "%s(config-logical-router)# ",
-};
-
 static struct cmd_node vrf_node = {
 	VRF_NODE, "%s(config-vrf)# ",
 };
@@ -1798,7 +1794,6 @@ static int vtysh_exit(struct vty *vty)
 		break;
 	case INTERFACE_NODE:
 	case PW_NODE:
-	case LOGICALROUTER_NODE:
 	case VRF_NODE:
 	case NH_GROUP_NODE:
 	case ZEBRA_NODE:
@@ -2128,24 +2123,6 @@ DEFUNSH(VTYSH_ZEBRA, vtysh_pseudowire, vtysh_pseudowire_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_ZEBRA, vtysh_logicalrouter, vtysh_logicalrouter_cmd,
-	"logical-router (1-65535) ns NAME",
-	"Enable a logical-router\n"
-	"Specify the logical-router indentifier\n"
-	"The Name Space\n"
-	"The file name in " NS_RUN_DIR ", or a full pathname\n")
-{
-	vty->node = LOGICALROUTER_NODE;
-	return CMD_SUCCESS;
-}
-
-DEFSH(VTYSH_ZEBRA, vtysh_no_logicalrouter_cmd,
-      "no logical-router (1-65535) ns NAME", NO_STR
-      "Enable a Logical-Router\n"
-      "Specify the Logical-Router identifier\n"
-      "The Name Space\n"
-      "The file name in " NS_RUN_DIR ", or a full pathname\n")
-
 DEFUNSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_nexthop_group, vtysh_nexthop_group_cmd,
 	"nexthop-group NHGNAME",
 	"Nexthop Group configuration\n"
@@ -2179,20 +2156,6 @@ DEFSH(VTYSH_ZEBRA, vtysh_no_vrf_netns_cmd,
       NO_STR
       "Detach VRF from a Namespace\n"
       "The file name in " NS_RUN_DIR ", or a full pathname\n")
-
-DEFUNSH(VTYSH_NS, vtysh_exit_logicalrouter,
-	vtysh_exit_logicalrouter_cmd, "exit",
-	"Exit current mode and down to previous mode\n")
-{
-	return vtysh_exit(vty);
-}
-
-DEFUNSH(VTYSH_NS, vtysh_quit_logicalrouter,
-	vtysh_quit_logicalrouter_cmd, "quit",
-	"Exit current mode and down to previous mode\n")
-{
-	return vtysh_exit_logicalrouter(self, vty, argc, argv);
-}
 
 DEFUNSH(VTYSH_VRF, vtysh_exit_vrf, vtysh_exit_vrf_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
@@ -3609,7 +3572,6 @@ void vtysh_init_vty(void)
 	install_node(&interface_node, NULL);
 	install_node(&pw_node, NULL);
 	install_node(&link_params_node, NULL);
-	install_node(&logicalrouter_node, NULL);
 	install_node(&vrf_node, NULL);
 	install_node(&nh_group_node, NULL);
 	install_node(&rmap_node, NULL);
@@ -3818,13 +3780,6 @@ void vtysh_init_vty(void)
 	install_element(PW_NODE, &vtysh_end_all_cmd);
 	install_element(PW_NODE, &vtysh_exit_interface_cmd);
 	install_element(PW_NODE, &vtysh_quit_interface_cmd);
-
-	install_element(LOGICALROUTER_NODE, &vtysh_end_all_cmd);
-
-	install_element(CONFIG_NODE, &vtysh_logicalrouter_cmd);
-	install_element(CONFIG_NODE, &vtysh_no_logicalrouter_cmd);
-	install_element(LOGICALROUTER_NODE, &vtysh_exit_logicalrouter_cmd);
-	install_element(LOGICALROUTER_NODE, &vtysh_quit_logicalrouter_cmd);
 
 	install_element(CONFIG_NODE, &vtysh_nexthop_group_cmd);
 	install_element(NH_GROUP_NODE, &vtysh_end_all_cmd);
