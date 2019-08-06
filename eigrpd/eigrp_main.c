@@ -90,10 +90,16 @@ struct option longopts[] = {{0}};
 /* Master of threads. */
 struct thread_master *master;
 
+/* Forward declaration of daemon info structure. */
+static struct frr_daemon_info eigrpd_di;
+
 /* SIGHUP handler. */
 static void sighup(void)
 {
 	zlog_info("SIGHUP received");
+
+	/* Reload config file. */
+	vty_read_config(NULL, eigrpd_di.config_file, config_default);
 }
 
 /* SIGINT / SIGTERM handler. */
@@ -131,6 +137,7 @@ struct quagga_signal_t eigrp_signals[] = {
 };
 
 static const struct frr_yang_module_info *eigrpd_yang_modules[] = {
+	&frr_eigrpd_info,
 	&frr_interface_info,
 };
 
@@ -187,7 +194,7 @@ int main(int argc, char **argv, char **envp)
 	eigrp_vty_init();
 	keychain_init();
 	eigrp_vty_show_init();
-	eigrp_vty_if_init();
+	eigrp_cli_init();
 
 #ifdef HAVE_SNMP
 	eigrp_snmp_init();
