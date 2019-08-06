@@ -48,18 +48,18 @@
 #include "isis_route.h"
 #include "isis_zebra.h"
 
+static struct isis_nexthop *
+nexthoplookup(struct list *nexthops, struct in_addr *ip, ifindex_t ifindex);
+static struct isis_nexthop6 *
+nexthop6lookup(struct list *nexthops6, struct in6_addr *ip6, ifindex_t ifindex);
+
 static struct isis_nexthop *isis_nexthop_create(struct in_addr *ip,
 						ifindex_t ifindex)
 {
-	struct listnode *node;
 	struct isis_nexthop *nexthop;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->nexthops, node, nexthop)) {
-		if (nexthop->ifindex != ifindex)
-			continue;
-		if (memcmp(&nexthop->ip, ip, sizeof(struct in_addr)) != 0)
-			continue;
-
+	nexthop = nexthoplookup(isis->nexthops, ip, ifindex);
+	if (nexthop) {
 		nexthop->lock++;
 		return nexthop;
 	}
@@ -85,8 +85,8 @@ static void isis_nexthop_delete(struct isis_nexthop *nexthop)
 	return;
 }
 
-static int nexthoplookup(struct list *nexthops, struct in_addr *ip,
-			 ifindex_t ifindex)
+static struct isis_nexthop *nexthoplookup(struct list *nexthops,
+					  struct in_addr *ip, ifindex_t ifindex)
 {
 	struct listnode *node;
 	struct isis_nexthop *nh;
@@ -94,10 +94,10 @@ static int nexthoplookup(struct list *nexthops, struct in_addr *ip,
 	for (ALL_LIST_ELEMENTS_RO(nexthops, node, nh)) {
 		if (!(memcmp(ip, &nh->ip, sizeof(struct in_addr)))
 		    && ifindex == nh->ifindex)
-			return 1;
+			return nh;
 	}
 
-	return 0;
+	return NULL;
 }
 
 static struct isis_nexthop6 *isis_nexthop6_new(struct in6_addr *ip6,
@@ -117,15 +117,10 @@ static struct isis_nexthop6 *isis_nexthop6_new(struct in6_addr *ip6,
 static struct isis_nexthop6 *isis_nexthop6_create(struct in6_addr *ip6,
 						  ifindex_t ifindex)
 {
-	struct listnode *node;
 	struct isis_nexthop6 *nexthop6;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->nexthops6, node, nexthop6)) {
-		if (nexthop6->ifindex != ifindex)
-			continue;
-		if (memcmp(&nexthop6->ip6, ip6, sizeof(struct in6_addr)) != 0)
-			continue;
-
+	nexthop6 = nexthop6lookup(isis->nexthops6, ip6, ifindex);
+	if (nexthop6) {
 		nexthop6->lock++;
 		return nexthop6;
 	}
@@ -147,8 +142,8 @@ static void isis_nexthop6_delete(struct isis_nexthop6 *nexthop6)
 	return;
 }
 
-static int nexthop6lookup(struct list *nexthops6, struct in6_addr *ip6,
-			  ifindex_t ifindex)
+static struct isis_nexthop6 *
+nexthop6lookup(struct list *nexthops6, struct in6_addr *ip6, ifindex_t ifindex)
 {
 	struct listnode *node;
 	struct isis_nexthop6 *nh6;
@@ -156,10 +151,10 @@ static int nexthop6lookup(struct list *nexthops6, struct in6_addr *ip6,
 	for (ALL_LIST_ELEMENTS_RO(nexthops6, node, nh6)) {
 		if (!(memcmp(ip6, &nh6->ip6, sizeof(struct in6_addr)))
 		    && ifindex == nh6->ifindex)
-			return 1;
+			return nh6;
 	}
 
-	return 0;
+	return NULL;
 }
 
 static void adjinfo2nexthop(struct list *nexthops, struct isis_adjacency *adj)
@@ -291,13 +286,13 @@ static int isis_route_info_same(struct isis_route_info *new,
 		for (ALL_LIST_ELEMENTS_RO(new->nexthops, node, nexthop))
 			if (nexthoplookup(old->nexthops, &nexthop->ip,
 					  nexthop->ifindex)
-			    == 0)
+			    == NULL)
 				return 0;
 
 		for (ALL_LIST_ELEMENTS_RO(old->nexthops, node, nexthop))
 			if (nexthoplookup(new->nexthops, &nexthop->ip,
 					  nexthop->ifindex)
-			    == 0)
+			    == NULL)
 				return 0;
 	} else if (family == AF_INET6) {
 		for (ALL_LIST_ELEMENTS_RO(new->nexthops6, node, nexthop6))
