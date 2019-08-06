@@ -337,7 +337,8 @@ void vty_hello(struct vty *vty)
 				/* work backwards to ignore trailling isspace()
 				 */
 				for (s = buf + strlen(buf);
-				     (s > buf) && isspace((int)*(s - 1)); s--)
+				     (s > buf) && isspace((unsigned char)s[-1]);
+				     s--)
 					;
 				*s = '\0';
 				vty_out(vty, "%s\n", buf);
@@ -468,7 +469,7 @@ static int vty_command(struct vty *vty, char *buf)
 		cp = buf;
 	if (cp != NULL) {
 		/* Skip white spaces. */
-		while (isspace((int)*cp) && *cp != '\0')
+		while (isspace((unsigned char)*cp) && *cp != '\0')
 			cp++;
 	}
 	if (cp != NULL && *cp != '\0') {
@@ -892,7 +893,7 @@ static void vty_complete_command(struct vty *vty)
 		return;
 
 	/* In case of 'help \t'. */
-	if (isspace((int)vty->buf[vty->length - 1]))
+	if (isspace((unsigned char)vty->buf[vty->length - 1]))
 		vector_set(vline, NULL);
 
 	matched = cmd_complete_command(vline, vty, &ret);
@@ -1006,7 +1007,7 @@ static void vty_describe_command(struct vty *vty)
 	if (vline == NULL) {
 		vline = vector_init(1);
 		vector_set(vline, NULL);
-	} else if (isspace((int)vty->buf[vty->length - 1]))
+	} else if (isspace((unsigned char)vty->buf[vty->length - 1]))
 		vector_set(vline, NULL);
 
 	describe = cmd_describe_command(vline, vty, &ret);

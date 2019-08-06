@@ -1269,6 +1269,7 @@ void zlog_hexdump(const void *mem, unsigned int len)
 	size_t bs = ((len / 8) + 1) * 53 + 1;
 	char buf[bs];
 	char *s = buf;
+	const unsigned char *memch = mem;
 
 	memset(buf, 0, sizeof(buf));
 
@@ -1277,12 +1278,11 @@ void zlog_hexdump(const void *mem, unsigned int len)
 		/* print offset */
 		if (i % columns == 0)
 			s += snprintf(s, bs - (s - buf),
-				      "0x%016lx: ", (unsigned long)mem + i);
+				      "0x%016lx: ", (unsigned long)memch + i);
 
 		/* print hex data */
 		if (i < len)
-			s += snprintf(s, bs - (s - buf), "%02x ",
-				      0xFF & ((const char *)mem)[i]);
+			s += snprintf(s, bs - (s - buf), "%02x ", memch[i]);
 
 		/* end of block, just aligning for ASCII dump */
 		else
@@ -1294,10 +1294,9 @@ void zlog_hexdump(const void *mem, unsigned int len)
 				/* end of block not really printing */
 				if (j >= len)
 					s += snprintf(s, bs - (s - buf), " ");
-				else if (isprint((int)((const char *)mem)[j]))
-					s += snprintf(
-						s, bs - (s - buf), "%c",
-						0xFF & ((const char *)mem)[j]);
+				else if (isprint(memch[j]))
+					s += snprintf(s, bs - (s - buf), "%c",
+						      memch[j]);
 				else /* other char */
 					s += snprintf(s, bs - (s - buf), ".");
 			}

@@ -1885,7 +1885,7 @@ static const char *aspath_gettoken(const char *buf, enum as_token *token,
 	const char *p = buf;
 
 	/* Skip seperators (space for sequences, ',' for sets). */
-	while (isspace((int)*p) || *p == ',')
+	while (isspace((unsigned char)*p) || *p == ',')
 		p++;
 
 	/* Check the end of the string and type specify characters
@@ -1920,14 +1920,14 @@ static const char *aspath_gettoken(const char *buf, enum as_token *token,
 	}
 
 	/* Check actual AS value. */
-	if (isdigit((int)*p)) {
+	if (isdigit((unsigned char)*p)) {
 		as_t asval;
 
 		*token = as_token_asval;
 		asval = (*p - '0');
 		p++;
 
-		while (isdigit((int)*p)) {
+		while (isdigit((unsigned char)*p)) {
 			asval *= 10;
 			asval += (*p - '0');
 			p++;

@@ -359,7 +359,7 @@ static const char *lcommunity_gettoken(const char *str,
 	const char *p = str;
 
 	/* Skip white space. */
-	while (isspace((int)*p)) {
+	while (isspace((unsigned char)*p)) {
 		p++;
 		str++;
 	}
@@ -369,14 +369,14 @@ static const char *lcommunity_gettoken(const char *str,
 		return NULL;
 
 	/* Community value. */
-	if (isdigit((int)*p)) {
+	if (isdigit((unsigned char)*p)) {
 		int separator = 0;
 		int digit = 0;
 		uint32_t globaladmin = 0;
 		uint32_t localdata1 = 0;
 		uint32_t localdata2 = 0;
 
-		while (isdigit((int)*p) || *p == ':') {
+		while (isdigit((unsigned char)*p) || *p == ':') {
 			if (*p == ':') {
 				if (separator == 2) {
 					*token = lcommunity_token_unknown;

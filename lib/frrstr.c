@@ -209,7 +209,7 @@ bool frrstr_endswith(const char *str, const char *suffix)
 int all_digit(const char *str)
 {
 	for (; *str != '\0'; str++)
-		if (!isdigit((int)*str))
+		if (!isdigit((unsigned char)*str))
 			return 0;
 	return 1;
 }
