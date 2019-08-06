@@ -1350,7 +1350,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				} else {
 					if (IS_ZEBRA_DEBUG_KERNEL)
 						zlog_debug(
-							"Intf %s(%u) has gone DOW",
+							"Intf %s(%u) has gone DOWN",
 							name, ifp->ifindex);
 					if_down(ifp);
 				}
