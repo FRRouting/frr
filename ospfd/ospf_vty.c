@@ -8487,21 +8487,7 @@ DEFUN (no_ospf_default_information_originate,
        "Pointer to route-map entries\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	struct prefix_ipv4 p;
-	struct ospf_external *ext;
 	struct ospf_redist *red;
-
-	p.family = AF_INET;
-	p.prefix.s_addr = 0;
-	p.prefixlen = 0;
-
-	ospf_external_lsa_flush(ospf, DEFAULT_ROUTE, &p, 0);
-
-	ext = ospf_external_lookup(ospf, DEFAULT_ROUTE, 0);
-	if (ext && EXTERNAL_INFO(ext)) {
-		ospf_external_info_delete(ospf, DEFAULT_ROUTE, 0, p);
-		ospf_external_del(ospf, DEFAULT_ROUTE, 0);
-	}
 
 	red = ospf_redist_lookup(ospf, DEFAULT_ROUTE, 0);
 	if (!red)
@@ -8510,7 +8496,8 @@ DEFUN (no_ospf_default_information_originate,
 	ospf_routemap_unset(red);
 	ospf_redist_del(ospf, DEFAULT_ROUTE, 0);
 
-	return ospf_redistribute_default_unset(ospf);
+	return ospf_redistribute_default_set(ospf, DEFAULT_ORIGINATE_NONE,
+					     0, 0);
 }
 
 DEFUN (ospf_default_metric,

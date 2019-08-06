@@ -616,8 +616,6 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 	struct ospf_interface *oi = nbr->oi;
 	struct ospf_area *vl_area = NULL;
 	uint8_t old_state;
-	int x;
-	int force = 1;
 
 	/* Preserve old status. */
 	old_state = nbr->state;
@@ -664,32 +662,6 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 			if (oi->type == OSPF_IFTYPE_VIRTUALLINK && vl_area)
 				if (++vl_area->full_vls == 1)
 					ospf_schedule_abr_task(oi->ospf);
-
-			/* kevinm: refresh any redistributions */
-			for (x = ZEBRA_ROUTE_SYSTEM; x < ZEBRA_ROUTE_MAX; x++) {
-				struct list *red_list;
-				struct listnode *node;
-				struct ospf_redist *red;
-
-				if (x == ZEBRA_ROUTE_OSPF6)
-					continue;
-
-				red_list = oi->ospf->redist[x];
-				if (!red_list)
-					continue;
-
-				for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
-					ospf_external_lsa_refresh_type(
-						oi->ospf, x, red->instance,
-						force);
-			}
-			/* XXX: Clearly some thing is wrong with refresh of
-			 * external LSAs
-			 * this added to hack around defaults not refreshing
-			 * after a timer
-			 * jump.
-			 */
-			ospf_external_lsa_refresh_default(oi->ospf);
 		} else {
 			oi->full_nbrs--;
 			oi->area->full_nbrs--;

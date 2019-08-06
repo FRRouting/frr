@@ -1979,6 +1979,13 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 
 	   */
 
+	if (ospf->router_id.s_addr == 0) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("LSA[Type5:%pI4]: deferring AS-external-LSA origination, router ID is zero",
+				   &ei->p.prefix);
+		return NULL;
+	}
+
 	/* Check the AS-external-LSA should be originated. */
 	if (!ospf_redistribute_check(ospf, ei, NULL))
 		return NULL;
@@ -2017,50 +2024,6 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 	}
 
 	return new;
-}
-
-/* Originate AS-external-LSA from external info with initial flag. */
-int ospf_external_lsa_originate_timer(struct thread *thread)
-{
-	struct ospf *ospf = THREAD_ARG(thread);
-	struct route_node *rn;
-	struct external_info *ei;
-	struct route_table *rt;
-	int type = THREAD_VAL(thread);
-	struct list *ext_list;
-	struct listnode *node;
-	struct ospf_external *ext;
-
-	ospf->t_external_lsa = NULL;
-
-	ext_list = ospf->external[type];
-	if (!ext_list)
-		return 0;
-
-	for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
-		/* Originate As-external-LSA from all type of distribute source.
-		 */
-		rt = ext->external_info;
-		if (!rt)
-			continue;
-
-		for (rn = route_top(rt); rn; rn = route_next(rn)) {
-			ei = rn->info;
-
-			if (!ei)
-				continue;
-
-			if (is_prefix_default((struct prefix_ipv4 *)&ei->p))
-				continue;
-
-			if (!ospf_external_lsa_originate(ospf, ei))
-				flog_warn(
-					EC_OSPF_LSA_INSTALL_FAILURE,
-					"LSA: AS-external-LSA was not originated.");
-		}
-	}
-
-	return 0;
 }
 
 static struct external_info *ospf_default_external_info(struct ospf *ospf)
@@ -2102,31 +2065,52 @@ static struct external_info *ospf_default_external_info(struct ospf *ospf)
 	return NULL;
 }
 
-int ospf_default_originate_timer(struct thread *thread)
+void ospf_external_lsa_rid_change(struct ospf *ospf)
 {
-	struct prefix_ipv4 p;
-	struct in_addr nexthop;
 	struct external_info *ei;
-	struct ospf *ospf;
+	int type;
 
-	ospf = THREAD_ARG(thread);
+	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		struct route_node *rn;
+		struct route_table *rt;
+		struct list *ext_list;
+		struct listnode *node;
+		struct ospf_external *ext;
 
-	p.family = AF_INET;
-	p.prefix.s_addr = 0;
-	p.prefixlen = 0;
+		ext_list = ospf->external[type];
+		if (!ext_list)
+			continue;
 
-	if (ospf->default_originate == DEFAULT_ORIGINATE_ALWAYS) {
-		/* If there is no default route via redistribute,
-		   then originate AS-external-LSA with nexthop 0 (self). */
-		nexthop.s_addr = 0;
-		ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0, nexthop,
-				       0);
+		for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
+			/* Originate As-external-LSA from all type of
+			 * distribute source.
+			 */
+			rt = ext->external_info;
+			if (!rt)
+				continue;
+
+			for (rn = route_top(rt); rn; rn = route_next(rn)) {
+				ei = rn->info;
+
+				if (!ei)
+					continue;
+
+				if (is_prefix_default(
+						(struct prefix_ipv4 *)&ei->p))
+					continue;
+
+				if (!ospf_external_lsa_originate(ospf, ei))
+					flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
+						"LSA: AS-external-LSA was not originated.");
+			}
+		}
 	}
 
-	if ((ei = ospf_default_external_info(ospf)))
-		ospf_external_lsa_originate(ospf, ei);
-
-	return 0;
+	ei = ospf_default_external_info(ospf);
+	if (ei && !ospf_external_lsa_originate(ospf, ei)) {
+		flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
+			"LSA: AS-external-LSA for default route was not originated.");
+	}
 }
 
 /* Flush any NSSA LSAs for given prefix */
@@ -2218,44 +2202,20 @@ void ospf_external_lsa_refresh_default(struct ospf *ospf)
 	ei = ospf_default_external_info(ospf);
 	lsa = ospf_external_info_find_lsa(ospf, &p);
 
-	if (ei) {
-		if (lsa) {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"LSA[Type5:0.0.0.0]: Refresh AS-external-LSA %p",
-					(void *)lsa);
-			ospf_external_lsa_refresh(ospf, lsa, ei,
-						  LSA_REFRESH_FORCE);
-		} else {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"LSA[Type5:0.0.0.0]: Originate AS-external-LSA");
-			ospf_external_lsa_originate(ospf, ei);
-		}
-	} else {
-		if (lsa) {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"LSA[Type5:0.0.0.0]: Flush AS-external-LSA");
-			ospf_refresher_unregister_lsa(ospf, lsa);
-			ospf_lsa_flush_as(ospf, lsa);
-		}
-	}
-}
-
-void ospf_default_originate_lsa_update(struct ospf *ospf)
-{
-	struct prefix_ipv4 p;
-	struct ospf_lsa *lsa;
-
-	p.family = AF_INET;
-	p.prefixlen = 0;
-	p.prefix.s_addr = 0;
-
-	lsa = ospf_external_info_find_lsa(ospf, &p);
-	if (lsa && IS_LSA_MAXAGE(lsa)) {
-		ospf_discard_from_db(ospf, lsa->lsdb, lsa);
-		ospf_lsdb_delete(lsa->lsdb, lsa);
+	if (ei && lsa) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("LSA[Type5:0.0.0.0]: Refresh AS-external-LSA %p",
+				   (void *)lsa);
+		ospf_external_lsa_refresh(ospf, lsa, ei, LSA_REFRESH_FORCE);
+	} else if (ei && !lsa) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug(
+				"LSA[Type5:0.0.0.0]: Originate AS-external-LSA");
+		ospf_external_lsa_originate(ospf, ei);
+	} else if (lsa) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("LSA[Type5:0.0.0.0]: Flush AS-external-LSA");
+		ospf_external_lsa_flush(ospf, DEFAULT_ROUTE, &p, 0);
 	}
 }
 
