@@ -132,10 +132,12 @@ struct nexthop *nexthop_exists(const struct nexthop_group *nhg,
 	return NULL;
 }
 
+/* This assumes ordered */
 bool nexthop_group_equal(const struct nexthop_group *nhg1,
 			 const struct nexthop_group *nhg2)
 {
-	struct nexthop *nh = NULL;
+	struct nexthop *nh1 = NULL;
+	struct nexthop *nh2 = NULL;
 
 	if (nhg1 && !nhg2)
 		return false;
@@ -147,8 +149,9 @@ bool nexthop_group_equal(const struct nexthop_group *nhg1,
 	    != nexthop_group_nexthop_num_no_recurse(nhg2))
 		return false;
 
-	for (nh = nhg1->nexthop; nh; nh = nh->next) {
-		if (!nexthop_exists(nhg2, nh))
+	for (nh1 = nhg1->nexthop, nh2 = nhg2->nexthop; nh1 && nh2;
+	     nh1 = nh1->next, nh2 = nh2->next) {
+		if (!nexthop_same(nh1, nh2))
 			return false;
 	}
 
