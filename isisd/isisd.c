@@ -88,7 +88,6 @@ void isis_new(unsigned long process_id)
 	isis->init_circ_list = list_new();
 	isis->uptime = time(NULL);
 	isis->nexthops = list_new();
-	isis->nexthops6 = list_new();
 	dyn_cache_init();
 	/*
 	 * uncomment the next line for full debugs
