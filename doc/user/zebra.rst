@@ -193,18 +193,25 @@ Standard Commands
 Link Parameters Commands
 ------------------------
 
+.. note::
+
+   At this time, FRR offers partial support for some of the routing
+   protocol extensions that can be used with MPLS-TE. FRR does not
+   support a complete RSVP-TE solution currently.
+
 .. index:: link-params
 .. clicmd:: link-params
 
 .. index:: no link-param
 .. clicmd:: no link-param
 
-   Enter into the link parameters sub node. At least 'enable' must be set to
-   activate the link parameters, and consequently Traffic Engineering on this
-   interface. MPLS-TE must be enable at the OSPF
-   (:ref:`ospf-traffic-engineering`) or ISIS (:ref:`isis-traffic-engineering`)
-   router level in complement to this.  Disable link parameters for this
-   interface.
+   Enter into the link parameters sub node. At least 'enable' must be
+   set to activate the link parameters, and consequently routing
+   information that could be used as part of Traffic Engineering on
+   this interface. MPLS-TE must be enable at the OSPF
+   (:ref:`ospf-traffic-engineering`) or ISIS
+   (:ref:`isis-traffic-engineering`) router level in complement to
+   this.  Disable link parameters for this interface.
 
    Under link parameter statement, the following commands set the different TE values:
 

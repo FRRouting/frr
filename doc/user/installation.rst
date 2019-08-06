@@ -149,6 +149,11 @@ options from the list below.
    Turn off building of pimd.  On some BSD platforms pimd will not build properly due
    to lack of kernel support.
 
+.. option:: --disable-vrrpd
+
+   Turn off building of vrrpd. Linux is required for vrrpd support;
+   other platforms are not supported.
+
 .. option:: --disable-pbrd
 
    Turn off building of pbrd.  This daemon currently requires linux in order to function
@@ -194,11 +199,6 @@ options from the list below.
 
    Disable building of the example OSPF-API client.
 
-.. option:: --disable-ospf-ri
-
-   Disable support for OSPF Router Information (RFC4970 & RFC5088) this
-   requires support for Opaque LSAs and Traffic Engineering.
-
 .. option:: --disable-isisd
 
    Do not build isisd.
@@ -210,10 +210,6 @@ options from the list below.
 .. option:: --enable-isis-topology
 
    Enable IS-IS topology generator.
-
-.. option:: --enable-isis-te
-
-   Enable Traffic Engineering Extension for ISIS (RFC5305)
 
 .. option:: --enable-realms
 
