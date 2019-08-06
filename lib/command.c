@@ -290,7 +290,7 @@ vector cmd_make_strvec(const char *string)
 	const char *copy = string;
 
 	/* skip leading whitespace */
-	while (isspace((int)*copy) && *copy != '\0')
+	while (isspace((unsigned char)*copy) && *copy != '\0')
 		copy++;
 
 	/* if the entire string was whitespace or a comment, return */
@@ -1936,7 +1936,7 @@ DEFUN(config_domainname,
 {
 	struct cmd_token *word = argv[1];
 
-	if (!isalpha((int)word->arg[0])) {
+	if (!isalpha((unsigned char)word->arg[0])) {
 		vty_out(vty, "Please specify string starting with alphabet\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -1970,7 +1970,7 @@ DEFUN (config_hostname,
 {
 	struct cmd_token *word = argv[1];
 
-	if (!isalnum((int)word->arg[0])) {
+	if (!isalnum((unsigned char)word->arg[0])) {
 		vty_out(vty,
 		    "Please specify string starting with alphabet or number\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -2018,7 +2018,7 @@ DEFUN (config_password,
 		return CMD_SUCCESS;
 	}
 
-	if (!isalnum((int)argv[idx_8]->arg[0])) {
+	if (!isalnum((unsigned char)argv[idx_8]->arg[0])) {
 		vty_out(vty,
 			"Please specify string starting with alphanumeric\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -2098,7 +2098,7 @@ DEFUN (config_enable_password,
 		}
 	}
 
-	if (!isalnum((int)argv[idx_8]->arg[0])) {
+	if (!isalnum((unsigned char)argv[idx_8]->arg[0])) {
 		vty_out(vty,
 			"Please specify string starting with alphanumeric\n");
 		return CMD_WARNING_CONFIG_FAILED;

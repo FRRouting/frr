@@ -651,7 +651,7 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 	const char *p = buf;
 
 	/* Skip white space. */
-	while (isspace((int)*p))
+	while (isspace((unsigned char)*p))
 		p++;
 
 	/* Check the end of the line. */
@@ -659,7 +659,7 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 		return NULL;
 
 	/* Well known community string check. */
-	if (isalpha((int)*p)) {
+	if (isalpha((unsigned char)*p)) {
 		if (strncmp(p, "internet", strlen("internet")) == 0) {
 			*val = COMMUNITY_INTERNET;
 			*token = community_token_no_export;
@@ -770,13 +770,13 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 	}
 
 	/* Community value. */
-	if (isdigit((int)*p)) {
+	if (isdigit((unsigned char)*p)) {
 		int separator = 0;
 		int digit = 0;
 		uint32_t community_low = 0;
 		uint32_t community_high = 0;
 
-		while (isdigit((int)*p) || *p == ':') {
+		while (isdigit((unsigned char)*p) || *p == ':') {
 			if (*p == ':') {
 				if (separator) {
 					*token = community_token_unknown;

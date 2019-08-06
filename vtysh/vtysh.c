@@ -668,11 +668,11 @@ static char *trim(char *s)
 		return s;
 
 	end = s + size - 1;
-	while (end >= s && isspace((int)*end))
+	while (end >= s && isspace((unsigned char)*end))
 		end--;
 	*(end + 1) = '\0';
 
-	while (*s && isspace((int)*s))
+	while (*s && isspace((unsigned char)*s))
 		s++;
 
 	return s;
@@ -979,7 +979,7 @@ static int vtysh_process_questionmark(const char *input, int input_len)
 	if (vline == NULL) {
 		vline = vector_init(1);
 		vector_set(vline, NULL);
-	} else if (input_len && isspace((int)input[input_len - 1]))
+	} else if (input_len && isspace((unsigned char)input[input_len - 1]))
 		vector_set(vline, NULL);
 
 	describe = cmd_describe_command(vline, vty, &ret);
@@ -1127,7 +1127,8 @@ static char *command_generator(const char *text, int state)
 		if (vline == NULL)
 			return NULL;
 
-		if (rl_end && isspace((int)rl_line_buffer[rl_end - 1]))
+		if (rl_end &&
+		    isspace((unsigned char)rl_line_buffer[rl_end - 1]))
 			vector_set(vline, NULL);
 
 		matched = cmd_complete_command(vline, vty, &complete_status);

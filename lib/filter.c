@@ -273,7 +273,7 @@ static struct access_list *access_list_insert(afi_t afi, const char *name)
 	/* If name is made by all digit character.  We treat it as
 	   number. */
 	for (number = 0, i = 0; i < strlen(name); i++) {
-		if (isdigit((int)name[i]))
+		if (isdigit((unsigned char)name[i]))
 			number = (number * 10) + (name[i] - '0');
 		else
 			break;
