@@ -117,7 +117,8 @@ int dotformat2buff(uint8_t *buff, const char *dotted)
 			break;
 		}
 
-		if ((isxdigit((int)*pos)) && (isxdigit((int)*(pos + 1)))) {
+		if ((isxdigit((unsigned char)*pos)) &&
+		    (isxdigit((unsigned char)*(pos + 1)))) {
 			memcpy(number, pos, 2);
 			pos += 2;
 		} else {
@@ -157,7 +158,8 @@ int sysid2buff(uint8_t *buff, const char *dotted)
 			pos++;
 			continue;
 		}
-		if ((isxdigit((int)*pos)) && (isxdigit((int)*(pos + 1)))) {
+		if ((isxdigit((unsigned char)*pos)) &&
+		    (isxdigit((unsigned char)*(pos + 1)))) {
 			memcpy(number, pos, 2);
 			pos += 2;
 		} else {

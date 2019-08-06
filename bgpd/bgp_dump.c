@@ -584,7 +584,7 @@ static unsigned int bgp_dump_parse_time(const char *str)
 	len = strlen(str);
 
 	for (i = 0; i < len; i++) {
-		if (isdigit((int)str[i])) {
+		if (isdigit((unsigned char)str[i])) {
 			time *= 10;
 			time += str[i] - '0';
 		} else if (str[i] == 'H' || str[i] == 'h') {
