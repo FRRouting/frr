@@ -57,7 +57,7 @@ static struct isis_nexthop *isis_nexthop_create(struct in_addr *ip,
 	for (ALL_LIST_ELEMENTS_RO(isis->nexthops, node, nexthop)) {
 		if (nexthop->ifindex != ifindex)
 			continue;
-		if (ip && memcmp(&nexthop->ip, ip, sizeof(struct in_addr)) != 0)
+		if (memcmp(&nexthop->ip, ip, sizeof(struct in_addr)) != 0)
 			continue;
 
 		nexthop->lock++;
@@ -123,9 +123,7 @@ static struct isis_nexthop6 *isis_nexthop6_create(struct in6_addr *ip6,
 	for (ALL_LIST_ELEMENTS_RO(isis->nexthops6, node, nexthop6)) {
 		if (nexthop6->ifindex != ifindex)
 			continue;
-		if (ip6
-		    && memcmp(&nexthop6->ip6, ip6, sizeof(struct in6_addr))
-			       != 0)
+		if (memcmp(&nexthop6->ip6, ip6, sizeof(struct in6_addr)) != 0)
 			continue;
 
 		nexthop6->lock++;
