@@ -396,7 +396,7 @@ extern int kernel_interface_set_master(struct interface *master,
 	return 0;
 }
 
-uint32_t kernel_get_speed(struct interface *ifp)
+uint32_t kernel_get_speed(struct interface *ifp, int *error)
 {
 	return ifp->speed;
 }

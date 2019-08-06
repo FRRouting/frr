@@ -70,10 +70,19 @@ static int if_zebra_speed_update(struct thread *thread)
 	struct zebra_if *zif = ifp->info;
 	uint32_t new_speed;
 	bool changed = false;
+	int error = 0;
 
 	zif->speed_update = NULL;
 
-	new_speed = kernel_get_speed(ifp);
+	new_speed = kernel_get_speed(ifp, &error);
+
+	/* error may indicate vrf not available or
+	 * interfaces not available.
+	 * note that loopback & virtual interfaces can return 0 as speed
+	 */
+	if (error < 0)
+		return 1;
+
 	if (new_speed != ifp->speed) {
 		zlog_info("%s: %s old speed: %u new speed: %u",
 			  __PRETTY_FUNCTION__, ifp->name, ifp->speed,
