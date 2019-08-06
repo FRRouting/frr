@@ -25,15 +25,12 @@
 #ifndef _ZEBRA_ISIS_ROUTE_H
 #define _ZEBRA_ISIS_ROUTE_H
 
-struct isis_nexthop6 {
-	ifindex_t ifindex;
-	struct in6_addr ip6;
-	unsigned int lock;
-};
+#include "lib/nexthop.h"
 
 struct isis_nexthop {
 	ifindex_t ifindex;
-	struct in_addr ip;
+	int family;
+	union g_addr ip;
 	unsigned int lock;
 };
 
@@ -45,7 +42,6 @@ struct isis_route_info {
 	uint32_t cost;
 	uint32_t depth;
 	struct list *nexthops;
-	struct list *nexthops6;
 };
 
 struct isis_route_info *isis_route_create(struct prefix *prefix,
