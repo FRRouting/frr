@@ -2956,7 +2956,8 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 				       addpath_encode, addpath_tx_id);
 	} else if (safi == SAFI_LABELED_UNICAST) {
 		/* Prefix write with label. */
-		stream_put_labeled_prefix(s, p, label);
+		stream_put_labeled_prefix(s, p, label, addpath_encode,
+					  addpath_tx_id);
 	} else if (safi == SAFI_FLOWSPEC) {
 		if (PSIZE (p->prefixlen)+2 < FLOWSPEC_NLRI_SIZELIMIT)
 			stream_putc(s, PSIZE (p->prefixlen)+2);
