@@ -365,7 +365,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 	}
 }
 
-static int get_iflink_speed(struct interface *interface)
+static int get_iflink_speed(struct interface *interface, int *error)
 {
 	struct ifreq ifdata;
 	struct ethtool_cmd ecmd;
@@ -373,6 +373,8 @@ static int get_iflink_speed(struct interface *interface)
 	int rc;
 	const char *ifname = interface->name;
 
+	if (error)
+		*error = 0;
 	/* initialize struct */
 	memset(&ifdata, 0, sizeof(ifdata));
 
@@ -393,6 +395,9 @@ static int get_iflink_speed(struct interface *interface)
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug("Failure to read interface %s speed: %d %s",
 					   ifname, errno, safe_strerror(errno));
+			/* no vrf socket creation may probably mean vrf issue */
+			if (error)
+				*error = -1;
 			return 0;
 		}
 	/* Get the current link state for the interface */
@@ -404,6 +409,9 @@ static int get_iflink_speed(struct interface *interface)
 			zlog_debug(
 				"IOCTL failure to read interface %s speed: %d %s",
 				ifname, errno, safe_strerror(errno));
+		/* no device means interface unreachable */
+		if (errno == ENODEV && error)
+			*error = -1;
 		ecmd.speed_hi = 0;
 		ecmd.speed = 0;
 	}
@@ -413,9 +421,9 @@ static int get_iflink_speed(struct interface *interface)
 	return (ecmd.speed_hi << 16) | ecmd.speed;
 }
 
-uint32_t kernel_get_speed(struct interface *ifp)
+uint32_t kernel_get_speed(struct interface *ifp, int *error)
 {
-	return get_iflink_speed(ifp);
+	return get_iflink_speed(ifp, error);
 }
 
 static int netlink_extract_bridge_info(struct rtattr *link_data,
@@ -696,7 +704,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifp->flags = ifi->ifi_flags & 0x0000fffff;
 	ifp->mtu6 = ifp->mtu = *(uint32_t *)RTA_DATA(tb[IFLA_MTU]);
 	ifp->metric = 0;
-	ifp->speed = get_iflink_speed(ifp);
+	ifp->speed = get_iflink_speed(ifp, NULL);
 	ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 
 	/* Set zebra interface type */
