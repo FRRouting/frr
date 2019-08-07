@@ -118,6 +118,10 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 			       struct isis_threeway_adj *tw_adj,
 			       enum isis_adj_usage adj_usage);
 DECLARE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj))
+DECLARE_HOOK(isis_adj_ip_enabled_hook,
+	     (struct isis_adjacency *adj, int family), (adj, family))
+DECLARE_HOOK(isis_adj_ip_disabled_hook,
+	     (struct isis_adjacency *adj, int family), (adj, family))
 void isis_adj_state_change(struct isis_adjacency *adj,
 			   enum isis_adj_state state, const char *reason);
 void isis_adj_print(struct isis_adjacency *adj);
