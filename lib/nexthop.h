@@ -119,6 +119,8 @@ void nexthops_free(struct nexthop *nexthop);
 
 void nexthop_add_labels(struct nexthop *, enum lsp_types_t, uint8_t,
 			mpls_label_t *);
+void nexthop_append_labels(struct nexthop *, enum lsp_types_t, uint8_t,
+			   mpls_label_t *);
 void nexthop_del_labels(struct nexthop *);
 
 /*

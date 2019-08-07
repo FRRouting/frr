@@ -299,6 +299,36 @@ void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t type,
 	nexthop->nh_label = nh_label;
 }
 
+void nexthop_append_labels(struct nexthop *nexthop, enum lsp_types_t type,
+			   uint8_t num_labels, mpls_label_t *label)
+{
+	struct mpls_label_stack *nh_label;
+	int i, j;
+	uint8_t old_num_labels =
+		(nexthop->nh_label ? nexthop->nh_label->num_labels : 0);
+
+	nh_label =
+		XCALLOC(MTYPE_NH_LABEL, sizeof(struct mpls_label_stack)
+						+ ((old_num_labels + num_labels)
+						   * sizeof(mpls_label_t)));
+	nh_label->num_labels = old_num_labels + num_labels;
+
+	for (i = 0; i < old_num_labels; i++)
+		nh_label->label[i] = nexthop->nh_label->label[i];
+
+	for (i = old_num_labels, j = 0; i < nh_label->num_labels; i++, j++)
+		nh_label->label[i] = *(label + j);
+
+	/* Free up old stack */
+	nexthop_del_labels(nexthop);
+
+	/*
+	 * Yes, we are overwriting the type already there with the new one.
+	 */
+	nexthop->nh_label_type = type;
+	nexthop->nh_label = nh_label;
+}
+
 /* Free label information of nexthop, if present. */
 void nexthop_del_labels(struct nexthop *nexthop)
 {
