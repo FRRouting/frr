@@ -302,6 +302,24 @@ uint32_t nexthop_group_hash(const struct nexthop_group *nhg)
 	return key;
 }
 
+void nexthop_group_mark_duplicates(struct nexthop_group *nhg)
+{
+	struct nexthop *nexthop, *prev;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
+		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE);
+		for (ALL_NEXTHOPS_PTR(nhg, prev)) {
+			if (prev == nexthop)
+				break;
+			if (nexthop_same_firsthop(nexthop, prev)) {
+				SET_FLAG(nexthop->flags,
+					 NEXTHOP_FLAG_DUPLICATE);
+				break;
+			}
+		}
+	}
+}
+
 static void nhgc_delete_nexthops(struct nexthop_group_cmd *nhgc)
 {
 	struct nexthop *nexthop;

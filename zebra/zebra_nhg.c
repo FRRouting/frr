@@ -346,6 +346,10 @@ static void *zebra_nhg_hash_alloc(void *arg)
 	struct nhg_hash_entry *copy = arg;
 
 	nhe = zebra_nhg_copy(copy, copy->id);
+
+	/* Mark duplicate nexthops in a group at creation time. */
+	nexthop_group_mark_duplicates(nhe->nhg);
+
 	zebra_nhg_connect_depends(nhe, copy->nhg_depends);
 	zebra_nhg_insert_id(nhe);
 

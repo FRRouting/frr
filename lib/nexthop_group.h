@@ -50,6 +50,7 @@ void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 
 uint32_t nexthop_group_hash_no_recurse(const struct nexthop_group *nhg);
 uint32_t nexthop_group_hash(const struct nexthop_group *nhg);
+void nexthop_group_mark_duplicates(struct nexthop_group *nhg);
 
 /* The following for loop allows to iterate over the nexthop
  * structure of routes.

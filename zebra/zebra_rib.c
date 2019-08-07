@@ -528,22 +528,8 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 		for (ALL_NEXTHOPS_PTR(re->ng, nexthop))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		return;
-	} else {
-		struct nexthop *prev;
-
-		for (ALL_NEXTHOPS_PTR(re->ng, nexthop)) {
-			UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_DUPLICATE);
-			for (ALL_NEXTHOPS_PTR(re->ng, prev)) {
-				if (prev == nexthop)
-					break;
-				if (nexthop_same_firsthop(nexthop, prev)) {
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_DUPLICATE);
-					break;
-				}
-			}
-		}
 	}
+
 
 	/*
 	 * Install the resolved nexthop object first.
