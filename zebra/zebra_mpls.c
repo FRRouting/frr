@@ -1112,6 +1112,7 @@ static char *nhlfe2str(zebra_nhlfe_t *nhlfe, char *buf, int size)
 		inet_ntop(AF_INET, &nexthop->gate.ipv4, buf, size);
 		break;
 	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf, size);
 		break;
 	case NEXTHOP_TYPE_IFINDEX:
