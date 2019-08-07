@@ -487,11 +487,11 @@ extern struct interface *if_create_name(const char *name, vrf_id_t vrf_id);
 extern struct interface *if_create_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index_all_vrf(ifindex_t);
-extern struct interface *if_lookup_exact_address(void *matchaddr, int family,
-						 vrf_id_t vrf_id);
-extern struct connected *if_lookup_address(void *matchaddr, int family,
+extern struct interface *if_lookup_exact_address(const void *matchaddr,
+						 int family, vrf_id_t vrf_id);
+extern struct connected *if_lookup_address(const void *matchaddr, int family,
 					   vrf_id_t vrf_id);
-extern struct interface *if_lookup_prefix(struct prefix *prefix,
+extern struct interface *if_lookup_prefix(const struct prefix *prefix,
 					  vrf_id_t vrf_id);
 size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 			   struct interface ***result, vrf_id_t vrf_id);
@@ -550,9 +550,9 @@ connected_add_by_prefix(struct interface *, struct prefix *, struct prefix *);
 extern struct connected *connected_delete_by_prefix(struct interface *,
 						    struct prefix *);
 extern struct connected *connected_lookup_prefix(struct interface *,
-						 struct prefix *);
+						 const struct prefix *);
 extern struct connected *connected_lookup_prefix_exact(struct interface *,
-						       struct prefix *);
+						       const struct prefix *);
 extern unsigned int connected_count_by_family(struct interface *, int family);
 extern struct nbr_connected *nbr_connected_new(void);
 extern void nbr_connected_free(struct nbr_connected *);
