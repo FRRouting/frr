@@ -29,9 +29,12 @@ void isis_zebra_stop(void);
 
 struct isis_route_info;
 
-void isis_zebra_route_update(struct prefix *prefix,
-			     struct prefix_ipv6 *src_p,
-			     struct isis_route_info *route_info);
+void isis_zebra_route_add_route(struct prefix *prefix,
+				struct prefix_ipv6 *src_p,
+				struct isis_route_info *route_info);
+void isis_zebra_route_del_route(struct prefix *prefix,
+				struct prefix_ipv6 *src_p,
+				struct isis_route_info *route_info);
 int isis_distribute_list_update(int routetype);
 void isis_zebra_redistribute_set(afi_t afi, int type);
 void isis_zebra_redistribute_unset(afi_t afi, int type);
