@@ -1019,33 +1019,28 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 	label_buf[0] = '\0';
 
 	assert(nexthop);
-	for (const struct nexthop *nh = nexthop; nh; nh = nh->rparent) {
-		char label_buf1[20];
+	char label_buf1[20];
 
-		nh_label = nh->nh_label;
-		if (!nh_label || !nh_label->num_labels)
+	nh_label = nexthop->nh_label;
+
+	for (int i = 0; nh_label && i < nh_label->num_labels; i++) {
+		if (nh_label->label[i] == MPLS_LABEL_IMPLICIT_NULL)
 			continue;
 
-		for (int i = 0; i < nh_label->num_labels; i++) {
-			if (nh_label->label[i] == MPLS_LABEL_IMPLICIT_NULL)
-				continue;
-
-			if (IS_ZEBRA_DEBUG_KERNEL) {
-				if (!num_labels)
-					sprintf(label_buf, "label %u",
-						nh_label->label[i]);
-				else {
-					sprintf(label_buf1, "/%u",
-						nh_label->label[i]);
-					strlcat(label_buf, label_buf1,
-						sizeof(label_buf));
-				}
+		if (IS_ZEBRA_DEBUG_KERNEL) {
+			if (!num_labels)
+				sprintf(label_buf, "label %u",
+					nh_label->label[i]);
+			else {
+				sprintf(label_buf1, "/%u", nh_label->label[i]);
+				strlcat(label_buf, label_buf1,
+					sizeof(label_buf));
 			}
-
-			out_lse[num_labels] =
-				mpls_lse_encode(nh_label->label[i], 0, 0, 0);
-			num_labels++;
 		}
+
+		out_lse[num_labels] =
+			mpls_lse_encode(nh_label->label[i], 0, 0, 0);
+		num_labels++;
 	}
 
 	if (num_labels) {
@@ -1210,33 +1205,28 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 	label_buf[0] = '\0';
 
 	assert(nexthop);
-	for (const struct nexthop *nh = nexthop; nh; nh = nh->rparent) {
-		char label_buf1[20];
+	char label_buf1[20];
 
-		nh_label = nh->nh_label;
-		if (!nh_label || !nh_label->num_labels)
+	nh_label = nexthop->nh_label;
+
+	for (int i = 0; nh_label && i < nh_label->num_labels; i++) {
+		if (nh_label->label[i] == MPLS_LABEL_IMPLICIT_NULL)
 			continue;
 
-		for (int i = 0; i < nh_label->num_labels; i++) {
-			if (nh_label->label[i] == MPLS_LABEL_IMPLICIT_NULL)
-				continue;
-
-			if (IS_ZEBRA_DEBUG_KERNEL) {
-				if (!num_labels)
-					sprintf(label_buf, "label %u",
-						nh_label->label[i]);
-				else {
-					sprintf(label_buf1, "/%u",
-						nh_label->label[i]);
-					strlcat(label_buf, label_buf1,
-						sizeof(label_buf));
-				}
+		if (IS_ZEBRA_DEBUG_KERNEL) {
+			if (!num_labels)
+				sprintf(label_buf, "label %u",
+					nh_label->label[i]);
+			else {
+				sprintf(label_buf1, "/%u", nh_label->label[i]);
+				strlcat(label_buf, label_buf1,
+					sizeof(label_buf));
 			}
-
-			out_lse[num_labels] =
-				mpls_lse_encode(nh_label->label[i], 0, 0, 0);
-			num_labels++;
 		}
+
+		out_lse[num_labels] =
+			mpls_lse_encode(nh_label->label[i], 0, 0, 0);
+		num_labels++;
 	}
 
 	if (num_labels) {

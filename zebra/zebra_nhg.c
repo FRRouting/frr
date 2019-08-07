@@ -100,6 +100,16 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 				   newhop->nh_label->num_labels,
 				   &newhop->nh_label->label[0]);
 
+	/* Append labels of parent as well.
+	 * We have to do this since nexthop objects being
+	 * installed need all of them. We can't iterate up the tree
+	 * when we install the route like we used to.
+	 */
+	if (nexthop->nh_label)
+		nexthop_append_labels(resolved_hop, nexthop->nh_label_type,
+				      nexthop->nh_label->num_labels,
+				      &nexthop->nh_label->label[0]);
+
 	resolved_hop->rparent = nexthop;
 	_nexthop_add(&nexthop->resolved, resolved_hop);
 }
