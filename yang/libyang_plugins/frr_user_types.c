@@ -99,6 +99,21 @@ static int ipv6_prefix_store_clb(const char *type_name, const char *value_str,
 	return 0;
 }
 
+static int ip_prefix_store_clb(const char *type_name, const char *value_str,
+			       lyd_val *value, char **err_msg)
+{
+	value->ptr = malloc(sizeof(struct prefix));
+	if (!value->ptr)
+		return 1;
+
+	if (str2prefix(value_str, value->ptr) == 0) {
+		free(value->ptr);
+		return 1;
+	}
+
+	return 0;
+}
+
 struct lytype_plugin_list frr_user_types[] = {
 	{"ietf-inet-types", "2013-07-15", "ipv4-address",
 	 ipv4_address_store_clb, free},
@@ -113,6 +128,8 @@ struct lytype_plugin_list frr_user_types[] = {
 	{"ietf-inet-types", "2013-07-15", "ipv4-prefix", ipv4_prefix_store_clb,
 	 free},
 	{"ietf-inet-types", "2013-07-15", "ipv6-prefix", ipv6_prefix_store_clb,
+	 free},
+	{"ietf-inet-types", "2013-07-15", "ip-prefix", ip_prefix_store_clb,
 	 free},
 	{NULL, NULL, NULL, NULL, NULL} /* terminating item */
 };
