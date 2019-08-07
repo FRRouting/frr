@@ -395,7 +395,7 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	    != nexthop_group_active_nexthop_num_no_recurse(nhe2->nhg))
 		return false;
 
-	if (!nexthop_group_equal(nhe1->nhg, nhe2->nhg))
+	if (!nexthop_group_equal_no_recurse(nhe1->nhg, nhe2->nhg))
 		return false;
 
 	return true;
