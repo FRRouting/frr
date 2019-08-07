@@ -364,6 +364,19 @@ struct nexthop *nexthop_next(struct nexthop *nexthop)
 	return NULL;
 }
 
+/* Return the next nexthop in the tree that is resolved and active */
+struct nexthop *nexthop_next_active_resolved(struct nexthop *nexthop)
+{
+	struct nexthop *next = nexthop_next(nexthop);
+
+	while (next
+	       && (CHECK_FLAG(next->flags, NEXTHOP_FLAG_RECURSIVE)
+		   || !CHECK_FLAG(next->flags, NEXTHOP_FLAG_ACTIVE)))
+		next = nexthop_next(next);
+
+	return next;
+}
+
 unsigned int nexthop_level(struct nexthop *nexthop)
 {
 	unsigned int rv = 0;

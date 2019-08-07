@@ -1421,76 +1421,20 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 	 * status.
 	 */
 
-	/*
-	 * First check the fib nexthop-group, if it's present. The comparison
-	 * here is quite strict: we require that the fib sets match exactly.
+	/* Check both fib group and notif group for equivalence.
+	 *
+	 * Let's assume the nexthops are ordered here to save time.
 	 */
-	matched = false;
-	do {
-		if (re->fib_ng.nexthop == NULL)
-			break;
+	if (nexthop_group_equal(&re->fib_ng, dplane_ctx_get_ng(ctx)) == false) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+			zlog_debug(
+				"%u:%s update_from_ctx: notif nh and fib nh mismatch",
+				re->vrf_id, dest_str);
+		}
 
+		matched = false;
+	} else
 		matched = true;
-
-		/* First check the route's fib nexthops */
-		for (ALL_NEXTHOPS(re->fib_ng, nexthop)) {
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-				continue;
-
-			ctx_nexthop = NULL;
-			for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
-					      ctx_nexthop)) {
-				if (nexthop_same(ctx_nexthop, nexthop))
-					break;
-			}
-
-			if (ctx_nexthop == NULL) {
-				/* Nexthop not in the new installed set */
-				if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
-					nexthop2str(nexthop, nh_str,
-						    sizeof(nh_str));
-					zlog_debug("update_from_ctx: no match for fib nh %s",
-						   nh_str);
-				}
-
-				matched = false;
-				break;
-			}
-		}
-
-		if (!matched)
-			break;
-
-		/* Check the new installed set */
-		ctx_nexthop = NULL;
-		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), ctx_nexthop)) {
-
-			if (CHECK_FLAG(ctx_nexthop->flags,
-				       NEXTHOP_FLAG_RECURSIVE))
-				continue;
-
-			/* Compare with the current group's nexthops */
-			nexthop = NULL;
-			for (ALL_NEXTHOPS(re->fib_ng, nexthop)) {
-				if (nexthop_same(nexthop, ctx_nexthop))
-					break;
-			}
-
-			if (nexthop == NULL) {
-				/* Nexthop not in the old installed set */
-				if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
-					nexthop2str(ctx_nexthop, nh_str,
-						    sizeof(nh_str));
-					zlog_debug("update_from_ctx: no fib match for notif nh %s",
-						   nh_str);
-				}
-				matched = false;
-				break;
-			}
-		}
-
-	} while (0);
 
 	/* If the new FIB set matches the existing FIB set, we're done. */
 	if (matched) {
@@ -1523,8 +1467,21 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 	 * walk the RIB group, looking for the 'installable' candidate
 	 * nexthops, and then check those against the set
 	 * that is actually installed.
+	 *
+	 * Assume nexthops are ordered here as well.
 	 */
 	matched = true;
+
+	ctx_nexthop = dplane_ctx_get_ng(ctx)->nexthop;
+
+	/* Get the first `installed` one to check against.
+	 * If the dataplane doesn't set these to be what was actually installed,
+	 * it will just be whatever was in re->ng?
+	 */
+	if (CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_RECURSIVE)
+	    || !CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+		ctx_nexthop = nexthop_next_active_resolved(ctx_nexthop);
+
 	for (ALL_NEXTHOPS_PTR(re->ng, nexthop)) {
 
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
@@ -1534,20 +1491,15 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 			continue;
 
 		/* Check for a FIB nexthop corresponding to the RIB nexthop */
-		ctx_nexthop = NULL;
-		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), ctx_nexthop)) {
-			if (nexthop_same(ctx_nexthop, nexthop))
-				break;
-		}
-
-		/* If the FIB doesn't know about the nexthop,
-		 * it's not installed
-		 */
-		if (ctx_nexthop == NULL) {
+		if (nexthop_same(ctx_nexthop, nexthop) == false) {
+			/* If the FIB doesn't know about the nexthop,
+			 * it's not installed
+			 */
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 				nexthop2str(nexthop, nh_str, sizeof(nh_str));
-				zlog_debug("update_from_ctx: no notif match for rib nh %s",
-					   nh_str);
+				zlog_debug(
+					"update_from_ctx: no notif match for rib nh %s",
+					nh_str);
 			}
 			matched = false;
 
@@ -1571,6 +1523,8 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		}
+
+		ctx_nexthop = nexthop_next_active_resolved(ctx_nexthop);
 	}
 
 	/* If all nexthops were processed, we're done */
