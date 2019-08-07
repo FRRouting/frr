@@ -1137,6 +1137,107 @@ module frr-isisd {
             "Stable IP address of the advertising router.";
         }
       }
+
+      container segment-routing {
+        description
+          "Segment Routing global configuration.";
+        leaf enabled {
+          type boolean;
+          default "false";
+          description
+            "Enables segment-routing protocol extensions.";
+        }
+        container srgb {
+          description
+            "Global blocks to be advertised.";
+          must "./upper-bound > ./lower-bound";
+          leaf lower-bound {
+              type uint32;
+              default "16000";
+              description
+                "Lower value in the label range.";
+          }
+          leaf upper-bound {
+              type uint32;
+              default "23999";
+              description
+                "Upper value in the label range.";
+          }
+        }
+        container msd {
+          description
+            "MSD configuration.";
+          leaf node-msd {
+            type uint8;
+            description
+              "Node MSD is the lowest MSD supported by the node.";
+          }
+        }
+        container prefix-sid-map {
+          description
+            "Prefix SID configuration.";
+          list prefix-sid {
+            key "prefix";
+            unique "sid-value-type sid-value";
+            description
+              "List of prefix SID mapped to IPv4/IPv6
+               local prefixes.";
+            leaf prefix {
+              type inet:ip-prefix;
+              description
+                "Connected prefix sid.";
+            }
+            leaf sid-value-type {
+              type enumeration {
+                enum "index" {
+                  value 0;
+                  description
+                    "The value will be interpreted as an index.";
+                }
+                enum "absolute" {
+                  value 1;
+                  description
+                    "The value will become interpreted as an absolute
+                     value.";
+                }
+              }
+              default "index";
+              description
+                "This leaf defines how value must be interpreted.";
+            }
+            leaf sid-value {
+              type uint32;
+              mandatory true;
+              description
+                "Value associated with prefix. The value must be
+                 interpreted in the context of sid-value-type.";
+            }
+            leaf last-hop-behavior {
+              type enumeration {
+                enum "explicit-null" {
+                  value 0;
+                  description
+                    "Use explicit-null for the SID.";
+                }
+                enum "no-php" {
+                  value 1;
+                  description
+                    "Do not use Penultimate Hop Popping (PHP)
+                     for the SID.";
+                }
+                enum "php" {
+                  value 2;
+                  description
+                    "Use PHP for the SID.";
+                }
+              }
+              default "php";
+              description
+                "Configure last hop behavior.";
+            }
+          }
+        }
+      }
     }
   }
 
