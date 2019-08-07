@@ -172,6 +172,28 @@ int lib_interface_isis_ipv4_routing_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_ipv6_routing_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_bfd_monitoring_modify(struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_enabled_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_enabled_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_srgb_lower_bound_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_srgb_upper_bound_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_msd_node_msd_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_msd_node_msd_destroy(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_create(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_destroy(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_type_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_last_hop_behavior_modify(
+	struct nb_cb_modify_args *args);
 int lib_interface_isis_csnp_interval_level_1_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_csnp_interval_level_2_modify(
