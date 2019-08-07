@@ -496,6 +496,14 @@ void cli_show_isis_mt_ipv6_mgmt(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults);
 void cli_show_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
 				  bool show_defaults);
+void cli_show_isis_sr_enabled(struct vty *vty, struct lyd_node *dnode,
+			      bool show_defaults);
+void cli_show_isis_srgb(struct vty *vty, struct lyd_node *dnode,
+			bool show_defaults);
+void cli_show_isis_node_msd(struct vty *vty, struct lyd_node *dnode,
+			    bool show_defaults);
+void cli_show_isis_prefix_sid(struct vty *vty, struct lyd_node *dnode,
+			      bool show_defaults);
 void cli_show_ip_isis_passive(struct vty *vty, struct lyd_node *dnode,
 			      bool show_defaults);
 void cli_show_ip_isis_password(struct vty *vty, struct lyd_node *dnode,

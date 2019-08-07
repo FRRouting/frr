@@ -1285,6 +1285,215 @@ void cli_show_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/segment-routing/enabled
+ */
+DEFPY (isis_sr_enable,
+       isis_sr_enable_cmd,
+       "segment-routing on",
+       SR_STR
+       "Enable Segment Routing\n")
+{
+	nb_cli_enqueue_change(vty, "./segment-routing/enabled", NB_OP_MODIFY,
+			      "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY (no_isis_sr_enable,
+       no_isis_sr_enable_cmd,
+       "no segment-routing [on]",
+       NO_STR
+       SR_STR
+       "Disable Segment Routing\n")
+{
+	nb_cli_enqueue_change(vty, "./segment-routing/enabled", NB_OP_MODIFY,
+			      "false");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_sr_enabled(struct vty *vty, struct lyd_node *dnode,
+			      bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " segment-routing on\n");
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing/srgb
+ */
+DEFPY (isis_sr_global_block_label_range,
+       isis_sr_global_block_label_range_cmd,
+       "segment-routing global-block (16-1048575)$lower_bound (16-1048575)$upper_bound",
+       SR_STR
+       "Segment Routing Global Block label range\n"
+       "The lower bound of SRGB (16-1048575)\n"
+       "The upper bound of SRGB (16-1048575)\n")
+{
+	nb_cli_enqueue_change(vty, "./segment-routing/srgb/lower-bound",
+			      NB_OP_MODIFY, lower_bound_str);
+	nb_cli_enqueue_change(vty, "./segment-routing/srgb/upper-bound",
+			      NB_OP_MODIFY, upper_bound_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY (no_isis_sr_global_block_label_range,
+       no_isis_sr_global_block_label_range_cmd,
+       "no segment-routing global-block [(0-1048575) (0-1048575)]",
+       NO_STR
+       SR_STR
+       "Segment Routing Global Block label range\n"
+       "The lower bound of SRGB (16-1048575)\n"
+       "The upper bound of SRGB (block size may not exceed 65535)\n")
+{
+	nb_cli_enqueue_change(vty, "./segment-routing/srgb/lower-bound",
+			      NB_OP_MODIFY, NULL);
+	nb_cli_enqueue_change(vty, "./segment-routing/srgb/upper-bound",
+			      NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_srgb(struct vty *vty, struct lyd_node *dnode,
+			bool show_defaults)
+{
+	vty_out(vty, " segment-routing global-block %s %s\n",
+		yang_dnode_get_string(dnode, "./lower-bound"),
+		yang_dnode_get_string(dnode, "./upper-bound"));
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing/msd/node-msd
+ */
+DEFPY (isis_sr_node_msd,
+       isis_sr_node_msd_cmd,
+       "segment-routing node-msd (1-16)$msd",
+       SR_STR
+       "Maximum Stack Depth for this router\n"
+       "Maximum number of label that can be stack (1-16)\n")
+{
+	nb_cli_enqueue_change(vty, "./segment-routing/msd/node-msd",
+			      NB_OP_MODIFY, msd_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY (no_isis_sr_node_msd,
+       no_isis_sr_node_msd_cmd,
+       "no segment-routing node-msd [(1-16)]",
+       NO_STR
+       SR_STR
+       "Maximum Stack Depth for this router\n"
+       "Maximum number of label that can be stack (1-16)\n")
+{
+	nb_cli_enqueue_change(vty, "./segment-routing/msd/node-msd",
+			      NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_node_msd(struct vty *vty, struct lyd_node *dnode,
+			    bool show_defaults)
+{
+	vty_out(vty, " segment-routing node-msd %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid
+ */
+DEFPY (isis_sr_prefix_sid,
+       isis_sr_prefix_sid_cmd,
+       "segment-routing prefix\
+          <A.B.C.D/M|X:X::X:X/M>$prefix\
+	  <absolute$sid_type (16000-1048575)$sid_value|index$sid_type (0-65535)$sid_value>\
+	  [<no-php-flag|explicit-null>$lh_behavior]",
+       SR_STR
+       "Prefix SID\n"
+       "IPv4 Prefix\n"
+       "IPv6 Prefix\n"
+       "Specify the absolute value of Prefix Segement ID\n"
+       "The Prefix Segment ID value\n"
+       "Specify the index of Prefix Segement ID\n"
+       "The Prefix Segment ID index\n"
+       "Don't request Penultimate Hop Popping (PHP)\n"
+       "Upstream neighbor must replace prefix-sid with explicit null label\n")
+{
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./sid-value-type", NB_OP_MODIFY, sid_type);
+	nb_cli_enqueue_change(vty, "./sid-value", NB_OP_MODIFY, sid_value_str);
+	if (lh_behavior) {
+		const char *value;
+
+		if (strmatch(lh_behavior, "no-php-flag"))
+			value = "no-php";
+		else
+			value = "explicit-null";
+
+		nb_cli_enqueue_change(vty, "./last-hop-behavior", NB_OP_MODIFY,
+				      value);
+	} else
+		nb_cli_enqueue_change(vty, "./last-hop-behavior", NB_OP_MODIFY,
+				      NULL);
+
+	return nb_cli_apply_changes(
+		vty, "./segment-routing/prefix-sid-map/prefix-sid[prefix='%s']",
+		prefix_str);
+}
+
+DEFPY (no_isis_sr_prefix_sid,
+       no_isis_sr_prefix_sid_cmd,
+       "no segment-routing prefix <A.B.C.D/M|X:X::X:X/M>$prefix\
+         [<absolute$sid_type (16000-1048575)|index (0-65535)> [<no-php-flag|explicit-null>]]",
+       NO_STR
+       SR_STR
+       "Prefix SID\n"
+       "IPv4 Prefix\n"
+       "IPv6 Prefix\n"
+       "Specify the absolute value of Prefix Segement ID\n"
+       "The Prefix Segment ID value\n"
+       "Specify the index of Prefix Segement ID\n"
+       "The Prefix Segment ID index\n"
+       "Don't request Penultimate Hop Popping (PHP)\n"
+       "Upstream neighbor must replace prefix-sid with explicit null label\n")
+{
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(
+		vty, "./segment-routing/prefix-sid-map/prefix-sid[prefix='%s']",
+		prefix_str);
+}
+
+void cli_show_isis_prefix_sid(struct vty *vty, struct lyd_node *dnode,
+			      bool show_defaults)
+{
+	const char *prefix;
+	const char *lh_behavior;
+	const char *sid_value_type;
+	const char *sid_value;
+
+	prefix = yang_dnode_get_string(dnode, "./prefix");
+	lh_behavior = yang_dnode_get_string(dnode, "./last-hop-behavior");
+	sid_value_type = yang_dnode_get_string(dnode, "./sid-value-type");
+	sid_value = yang_dnode_get_string(dnode, "./sid-value");
+
+	vty_out(vty, " segment-routing prefix %s", prefix);
+	if (strmatch(sid_value_type, "absolute"))
+		vty_out(vty, " absolute");
+	else
+		vty_out(vty, " index");
+	vty_out(vty, " %s", sid_value);
+	if (strmatch(lh_behavior, "no-php"))
+		vty_out(vty, " no-php-flag");
+	else if (strmatch(lh_behavior, "explicit-null"))
+		vty_out(vty, " explicit-null");
+	vty_out(vty, "\n");
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/passive
  */
 DEFPY(isis_passive, isis_passive_cmd, "[no] isis passive",
@@ -2021,6 +2230,15 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &isis_redistribute_cmd);
 
 	install_element(ISIS_NODE, &isis_topology_cmd);
+
+	install_element(ISIS_NODE, &isis_sr_enable_cmd);
+	install_element(ISIS_NODE, &no_isis_sr_enable_cmd);
+	install_element(ISIS_NODE, &isis_sr_global_block_label_range_cmd);
+	install_element(ISIS_NODE, &no_isis_sr_global_block_label_range_cmd);
+	install_element(ISIS_NODE, &isis_sr_node_msd_cmd);
+	install_element(ISIS_NODE, &no_isis_sr_node_msd_cmd);
+	install_element(ISIS_NODE, &isis_sr_prefix_sid_cmd);
+	install_element(ISIS_NODE, &no_isis_sr_prefix_sid_cmd);
 
 	install_element(INTERFACE_NODE, &isis_passive_cmd);
 
