@@ -467,6 +467,56 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/enabled",
+			.cbs = {
+				.modify = isis_instance_segment_routing_enabled_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/srgb/lower-bound",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srgb_lower_bound_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/srgb/upper-bound",
+			.cbs = {
+				.modify = isis_instance_segment_routing_srgb_upper_bound_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/msd/node-msd",
+			.cbs = {
+				.modify = isis_instance_segment_routing_msd_node_msd_modify,
+				.destroy = isis_instance_segment_routing_msd_node_msd_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid",
+			.cbs = {
+				.create = isis_instance_segment_routing_prefix_sid_map_prefix_sid_create,
+				.destroy = isis_instance_segment_routing_prefix_sid_map_prefix_sid_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid/sid-value-type",
+			.cbs = {
+				.modify = isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_type_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid/sid-value",
+			.cbs = {
+				.modify = isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid/last-hop-behavior",
+			.cbs = {
+				.modify = isis_instance_segment_routing_prefix_sid_map_prefix_sid_last_hop_behavior_modify,
+			},
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis",
 			.cbs = {
 				.create = lib_interface_isis_create,

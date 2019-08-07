@@ -248,6 +248,37 @@ int isis_instance_mpls_te_router_address_modify(enum nb_event event,
 						union nb_resource *resource);
 int isis_instance_mpls_te_router_address_destroy(enum nb_event event,
 						 const struct lyd_node *dnode);
+int isis_instance_segment_routing_enabled_modify(enum nb_event event,
+						 const struct lyd_node *dnode,
+						 union nb_resource *resource);
+int isis_instance_segment_routing_enabled_modify(enum nb_event event,
+						 const struct lyd_node *dnode,
+						 union nb_resource *resource);
+int isis_instance_segment_routing_srgb_lower_bound_modify(
+	enum nb_event event, const struct lyd_node *dnode,
+	union nb_resource *resource);
+int isis_instance_segment_routing_srgb_upper_bound_modify(
+	enum nb_event event, const struct lyd_node *dnode,
+	union nb_resource *resource);
+int isis_instance_segment_routing_msd_node_msd_modify(
+	enum nb_event event, const struct lyd_node *dnode,
+	union nb_resource *resource);
+int isis_instance_segment_routing_msd_node_msd_destroy(
+	enum nb_event event, const struct lyd_node *dnode);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_create(
+	enum nb_event event, const struct lyd_node *dnode,
+	union nb_resource *resource);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_destroy(
+	enum nb_event event, const struct lyd_node *dnode);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_type_modify(
+	enum nb_event event, const struct lyd_node *dnode,
+	union nb_resource *resource);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_modify(
+	enum nb_event event, const struct lyd_node *dnode,
+	union nb_resource *resource);
+int isis_instance_segment_routing_prefix_sid_map_prefix_sid_last_hop_behavior_modify(
+	enum nb_event event, const struct lyd_node *dnode,
+	union nb_resource *resource);
 int lib_interface_isis_create(enum nb_event event, const struct lyd_node *dnode,
 			      union nb_resource *resource);
 int lib_interface_isis_destroy(enum nb_event event,
