@@ -853,7 +853,7 @@ void prefix_ipv4_free(struct prefix_ipv4 *p)
 	prefix_free((struct prefix *)p);
 }
 
-/* When string format is invalid return 0. */
+/* If given string is valid return 1 else return 0 */
 int str2prefix_ipv4(const char *str, struct prefix_ipv4 *p)
 {
 	int ret;
@@ -1025,7 +1025,7 @@ void prefix_ipv6_free(struct prefix_ipv6 *p)
 	prefix_free((struct prefix *)p);
 }
 
-/* If given string is valid return pin6 else return NULL */
+/* If given string is valid return 1 else return 0 */
 int str2prefix_ipv6(const char *str, struct prefix_ipv6 *p)
 {
 	char *pnt;
