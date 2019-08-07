@@ -133,8 +133,8 @@ struct nexthop *nexthop_exists(const struct nexthop_group *nhg,
 }
 
 /* This assumes ordered */
-bool nexthop_group_equal(const struct nexthop_group *nhg1,
-			 const struct nexthop_group *nhg2)
+bool nexthop_group_equal_no_recurse(const struct nexthop_group *nhg1,
+				    const struct nexthop_group *nhg2)
 {
 	struct nexthop *nh1 = NULL;
 	struct nexthop *nh2 = NULL;
@@ -149,7 +149,7 @@ bool nexthop_group_equal(const struct nexthop_group *nhg1,
 	    != nexthop_group_nexthop_num_no_recurse(nhg2))
 		return false;
 
-	for (nh1 = nhg1->nexthop, nh2 = nhg2->nexthop; nh1 && nh2;
+	for (nh1 = nhg1->nexthop, nh2 = nhg2->nexthop; nh1 || nh2;
 	     nh1 = nh1->next, nh2 = nh2->next) {
 		if (!nexthop_same(nh1, nh2))
 			return false;
@@ -158,6 +158,30 @@ bool nexthop_group_equal(const struct nexthop_group *nhg1,
 	return true;
 }
 
+/* This assumes ordered */
+bool nexthop_group_equal(const struct nexthop_group *nhg1,
+			 const struct nexthop_group *nhg2)
+{
+	struct nexthop *nh1 = NULL;
+	struct nexthop *nh2 = NULL;
+
+	if (nhg1 && !nhg2)
+		return false;
+
+	if (!nhg1 && !nhg2)
+		return false;
+
+	if (nexthop_group_nexthop_num(nhg1) != nexthop_group_nexthop_num(nhg2))
+		return false;
+
+	for (nh1 = nhg1->nexthop, nh2 = nhg2->nexthop; nh1 || nh2;
+	     nh1 = nexthop_next(nh1), nh2 = nexthop_next(nh2)) {
+		if (!nexthop_same(nh1, nh2))
+			return false;
+	}
+
+	return true;
+}
 struct nexthop_group *nexthop_group_new(void)
 {
 	return XCALLOC(MTYPE_NEXTHOP_GROUP, sizeof(struct nexthop_group));

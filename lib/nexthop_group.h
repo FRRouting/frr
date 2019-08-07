@@ -115,6 +115,11 @@ void nexthop_group_interface_state_change(struct interface *ifp,
 
 extern struct nexthop *nexthop_exists(const struct nexthop_group *nhg,
 				      const struct nexthop *nh);
+/* This assumes ordered */
+extern bool nexthop_group_equal_no_recurse(const struct nexthop_group *nhg1,
+					   const struct nexthop_group *nhg2);
+
+/* This assumes ordered */
 extern bool nexthop_group_equal(const struct nexthop_group *nhg1,
 				const struct nexthop_group *nhg2);
 
