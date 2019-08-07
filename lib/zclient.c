@@ -325,8 +325,9 @@ int zclient_read_header(struct stream *s, int sock, uint16_t *size,
 	if (*size && stream_read(s, sock, *size) != *size)
 		return -1;
 
-stream_failure:
 	return 0;
+stream_failure:
+	return -1;
 }
 
 bool zapi_parse_header(struct stream *zmsg, struct zmsghdr *hdr)
@@ -1056,8 +1057,9 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TABLEID))
 		STREAM_GETL(s, api->tableid);
 
-stream_failure:
 	return 0;
+stream_failure:
+	return -1;
 }
 
 static void zapi_encode_prefix(struct stream *s, struct prefix *p,
@@ -2254,7 +2256,7 @@ int tm_table_manager_connect(struct zclient *zclient)
 
 	return (int)result;
 stream_failure:
-	return 0;
+	return -1;
 }
 
 /**
@@ -2321,8 +2323,9 @@ int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 	if (zclient_debug)
 		zlog_debug("Table Chunk assign: %u - %u ", *start, *end);
 
-stream_failure:
 	return 0;
+stream_failure:
+	return -1;
 }
 
 /**
