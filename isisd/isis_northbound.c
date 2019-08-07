@@ -3799,6 +3799,13 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/segment-routing/enabled",
 			.cbs = {
 				.modify = isis_instance_segment_routing_enabled_modify,
+				.cli_show = cli_show_isis_sr_enabled,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/srgb",
+			.cbs = {
+				.cli_show = cli_show_isis_srgb,
 			},
 		},
 		{
@@ -3818,6 +3825,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.cbs = {
 				.modify = isis_instance_segment_routing_msd_node_msd_modify,
 				.destroy = isis_instance_segment_routing_msd_node_msd_destroy,
+				.cli_show = cli_show_isis_node_msd,
 			},
 		},
 		{
@@ -3825,6 +3833,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.cbs = {
 				.create = isis_instance_segment_routing_prefix_sid_map_prefix_sid_create,
 				.destroy = isis_instance_segment_routing_prefix_sid_map_prefix_sid_destroy,
+				.cli_show = cli_show_isis_prefix_sid,
 			},
 		},
 		{
