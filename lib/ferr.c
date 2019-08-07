@@ -170,7 +170,7 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 
 DEFUN_NOSH(show_error_code,
 	   show_error_code_cmd,
-	   "show error <(1-4294967296)|all> [json]",
+	   "show error <(1-4294967295)|all> [json]",
 	   SHOW_STR
 	   "Information on errors\n"
 	   "Error code to get info about\n"
