@@ -881,8 +881,10 @@ int str2prefix_ipv4(const char *str, struct prefix_ipv4 *p)
 		cp = XMALLOC(MTYPE_TMP, (pnt - str) + 1);
 		memcpy(cp, str, pnt - str);
 		*(cp + (pnt - str)) = '\0';
-		ret = inet_aton(cp, &p->prefix);
+		ret = inet_pton(AF_INET, cp, &p->prefix);
 		XFREE(MTYPE_TMP, cp);
+		if (ret == 0)
+			return 0;
 
 		/* Get prefix length. */
 		plen = (uint8_t)atoi(++pnt);
