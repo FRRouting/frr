@@ -528,7 +528,7 @@ static inline int is_default_prefix(const struct prefix *p)
 	return 0;
 }
 
-static inline int is_host_route(struct prefix *p)
+static inline int is_host_route(const struct prefix *p)
 {
 	if (p->family == AF_INET)
 		return (p->prefixlen == IPV4_MAX_BITLEN);

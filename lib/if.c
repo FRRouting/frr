@@ -403,7 +403,7 @@ struct interface *if_lookup_by_index_all_vrf(ifindex_t ifindex)
 }
 
 /* Lookup interface by IP address. */
-struct interface *if_lookup_exact_address(void *src, int family,
+struct interface *if_lookup_exact_address(const void *src, int family,
 					  vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
@@ -435,7 +435,7 @@ struct interface *if_lookup_exact_address(void *src, int family,
 }
 
 /* Lookup interface by IP address. */
-struct connected *if_lookup_address(void *matchaddr, int family,
+struct connected *if_lookup_address(const void *matchaddr, int family,
 				    vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
@@ -472,7 +472,7 @@ struct connected *if_lookup_address(void *matchaddr, int family,
 }
 
 /* Lookup interface by prefix */
-struct interface *if_lookup_prefix(struct prefix *prefix, vrf_id_t vrf_id)
+struct interface *if_lookup_prefix(const struct prefix *prefix, vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct listnode *cnode;
@@ -958,7 +958,8 @@ nbr_connected_log(struct nbr_connected *connected, char *str)
 }
 
 /* If two connected address has same prefix return 1. */
-static int connected_same_prefix(struct prefix *p1, struct prefix *p2)
+static int connected_same_prefix(const struct prefix *p1,
+				 const struct prefix *p2)
 {
 	if (p1->family == p2->family) {
 		if (p1->family == AF_INET
@@ -986,7 +987,7 @@ unsigned int connected_count_by_family(struct interface *ifp, int family)
 }
 
 struct connected *connected_lookup_prefix_exact(struct interface *ifp,
-						struct prefix *p)
+						const struct prefix *p)
 {
 	struct listnode *node;
 	struct listnode *next;
@@ -1025,7 +1026,7 @@ struct connected *connected_delete_by_prefix(struct interface *ifp,
 /* Find the address on our side that will be used when packets
    are sent to dst. */
 struct connected *connected_lookup_prefix(struct interface *ifp,
-					  struct prefix *addr)
+					  const struct prefix *addr)
 {
 	struct listnode *cnode;
 	struct connected *c;
