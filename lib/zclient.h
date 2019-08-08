@@ -396,14 +396,22 @@ struct zapi_route {
 };
 
 struct zapi_labels {
+	uint8_t message;
+#define ZAPI_LABELS_FTN      0x01
 	enum lsp_types_t type;
-	struct prefix prefix;
-	union g_addr nexthop;
-	ifindex_t ifindex;
-	uint8_t route_type;
-	unsigned short route_instance;
 	mpls_label_t local_label;
-	mpls_label_t remote_label;
+	struct {
+		struct prefix prefix;
+		uint8_t type;
+		unsigned short instance;
+	} route;
+	struct {
+		enum nexthop_types_t type;
+		int family;
+		union g_addr address;
+		ifindex_t ifindex;
+		mpls_label_t label;
+	} nexthop;
 };
 
 struct zapi_pw {

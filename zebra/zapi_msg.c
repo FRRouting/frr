@@ -1753,7 +1753,6 @@ static void zread_mpls_labels(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	struct zapi_labels zl;
-	enum nexthop_types_t gtype;
 
 	/* Get input stream.  */
 	s = msg;
@@ -1764,38 +1763,27 @@ static void zread_mpls_labels(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	switch (zl.prefix.family) {
-	case AF_INET:
-		if (zl.ifindex)
-			gtype = NEXTHOP_TYPE_IPV4_IFINDEX;
-		else
-			gtype = NEXTHOP_TYPE_IPV4;
-		break;
-	case AF_INET6:
-		if (zl.ifindex)
-			gtype = NEXTHOP_TYPE_IPV6_IFINDEX;
-		else
-			gtype = NEXTHOP_TYPE_IPV6;
-		break;
-	default:
-		return;
-	}
-
 	if (!mpls_enabled)
 		return;
 
 	if (hdr->command == ZEBRA_MPLS_LABELS_ADD) {
-		mpls_lsp_install(zvrf, zl.type, zl.local_label, zl.remote_label,
-				 gtype, &zl.nexthop, zl.ifindex);
-		mpls_ftn_update(1, zvrf, zl.type, &zl.prefix, gtype,
-				&zl.nexthop, zl.ifindex, zl.route_type,
-				zl.route_instance, zl.remote_label);
+		mpls_lsp_install(zvrf, zl.type, zl.local_label,
+				 zl.nexthop.label, zl.nexthop.type,
+				 &zl.nexthop.address, zl.nexthop.ifindex);
+		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
+			mpls_ftn_update(1, zvrf, zl.type, &zl.route.prefix,
+					zl.nexthop.type, &zl.nexthop.address,
+					zl.nexthop.ifindex, zl.route.type,
+					zl.route.instance, zl.nexthop.label);
 	} else if (hdr->command == ZEBRA_MPLS_LABELS_DELETE) {
-		mpls_lsp_uninstall(zvrf, zl.type, zl.local_label, gtype,
-				   &zl.nexthop, zl.ifindex);
-		mpls_ftn_update(0, zvrf, zl.type, &zl.prefix, gtype,
-				&zl.nexthop, zl.ifindex, zl.route_type,
-				zl.route_instance, zl.remote_label);
+		mpls_lsp_uninstall(zvrf, zl.type, zl.local_label,
+				   zl.nexthop.type, &zl.nexthop.address,
+				   zl.nexthop.ifindex);
+		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
+			mpls_ftn_update(0, zvrf, zl.type, &zl.route.prefix,
+					zl.nexthop.type, &zl.nexthop.address,
+					zl.nexthop.ifindex, zl.route.type,
+					zl.route.instance, zl.nexthop.label);
 	}
 }
 
