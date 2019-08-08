@@ -842,6 +842,14 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 			}
 
 			if (!ifp->info) {
+				/*
+				 * Though Multicast is not enabled on this
+				 * Interface store it in database otheriwse we
+				 * may miss this update and this will not cause
+				 * any issue, because while choosing the path we
+				 * are ommitting the Interfaces which are not
+				 * multicast enabled
+				 */
 				if (PIM_DEBUG_PIM_NHT) {
 					char buf[NEXTHOP_STRLEN];
 
@@ -853,8 +861,6 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 						nexthop2str(nexthop, buf,
 							    sizeof(buf)));
 				}
-				nexthop_free(nexthop);
-				continue;
 			}
 
 			if (nhlist_tail) {
