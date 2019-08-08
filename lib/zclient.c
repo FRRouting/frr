@@ -2451,6 +2451,91 @@ int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 	return zclient_send_message(zclient);
 }
 
+int zebra_send_mpls_labels(struct zclient *zclient, int cmd,
+			   struct zapi_labels *zl)
+{
+	if (zapi_labels_encode(zclient->obuf, cmd, zl) < 0)
+		return -1;
+	return zclient_send_message(zclient);
+}
+
+int zapi_labels_encode(struct stream *s, int cmd, struct zapi_labels *zl)
+{
+	stream_reset(s);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_putc(s, zl->type);
+	stream_putw(s, zl->prefix.family);
+	stream_put_prefix(s, &zl->prefix);
+	switch (zl->prefix.family) {
+	case AF_INET:
+		stream_put_in_addr(s, &zl->nexthop.ipv4);
+		break;
+	case AF_INET6:
+		stream_write(s, (uint8_t *)&zl->nexthop.ipv6, 16);
+		break;
+	default:
+		flog_err(EC_LIB_ZAPI_ENCODE, "%s: unknown af", __func__);
+		return -1;
+	}
+	stream_putl(s, zl->ifindex);
+	stream_putc(s, zl->distance);
+	stream_putl(s, zl->local_label);
+	stream_putl(s, zl->remote_label);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return 0;
+}
+
+int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
+{
+	size_t psize;
+
+	memset(zl, 0, sizeof(*zl));
+
+	/* Get data. */
+	STREAM_GETC(s, zl->type);
+	STREAM_GETW(s, zl->prefix.family);
+	STREAM_GETC(s, zl->prefix.prefixlen);
+	psize = PSIZE(zl->prefix.prefixlen);
+
+	switch (zl->prefix.family) {
+	case AF_INET:
+		if (zl->prefix.prefixlen > IPV4_MAX_BITLEN) {
+			zlog_debug(
+				"%s: Specified prefix length %d is greater than a v4 address can support",
+				__PRETTY_FUNCTION__, zl->prefix.prefixlen);
+			return -1;
+		}
+		STREAM_GET(&zl->prefix.u.prefix4.s_addr, s, psize);
+		STREAM_GET(&zl->nexthop.ipv4.s_addr, s, IPV4_MAX_BYTELEN);
+		break;
+	case AF_INET6:
+		if (zl->prefix.prefixlen > IPV6_MAX_BITLEN) {
+			zlog_debug(
+				"%s: Specified prefix length %d is greater than a v6 address can support",
+				__PRETTY_FUNCTION__, zl->prefix.prefixlen);
+			return -1;
+		}
+		STREAM_GET(&zl->prefix.u.prefix6, s, psize);
+		STREAM_GET(&zl->nexthop.ipv6, s, 16);
+		break;
+	default:
+		zlog_debug("%s: Specified AF %d is not supported for this call",
+			   __PRETTY_FUNCTION__, zl->prefix.family);
+		return -1;
+	}
+	STREAM_GETL(s, zl->ifindex);
+	STREAM_GETC(s, zl->distance);
+	STREAM_GETL(s, zl->local_label);
+	STREAM_GETL(s, zl->remote_label);
+
+	return 0;
+stream_failure:
+	return -1;
+}
 
 int zebra_send_pw(struct zclient *zclient, int command, struct zapi_pw *pw)
 {
