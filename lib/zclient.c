@@ -2479,7 +2479,8 @@ int zapi_labels_encode(struct stream *s, int cmd, struct zapi_labels *zl)
 		return -1;
 	}
 	stream_putl(s, zl->ifindex);
-	stream_putc(s, zl->distance);
+	stream_putc(s, zl->route_type);
+	stream_putw(s, zl->route_instance);
 	stream_putl(s, zl->local_label);
 	stream_putl(s, zl->remote_label);
 
@@ -2528,7 +2529,8 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 		return -1;
 	}
 	STREAM_GETL(s, zl->ifindex);
-	STREAM_GETC(s, zl->distance);
+	STREAM_GETC(s, zl->route_type);
+	STREAM_GETW(s, zl->route_instance);
 	STREAM_GETL(s, zl->local_label);
 	STREAM_GETL(s, zl->remote_label);
 

@@ -27,9 +27,6 @@
 #ifndef _FRR_OSPF_SR_H
 #define _FRR_OSPF_SR_H
 
-/* Default Route priority for OSPF Segment Routing */
-#define OSPF_SR_PRIORITY_DEFAULT	10
-
 /* macros and constants for segment routing */
 #define SET_RANGE_SIZE_MASK             0xffffff00
 #define GET_RANGE_SIZE_MASK             0x00ffffff

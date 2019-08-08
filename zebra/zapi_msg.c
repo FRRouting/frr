@@ -1788,14 +1788,14 @@ static void zread_mpls_labels(ZAPI_HANDLER_ARGS)
 		mpls_lsp_install(zvrf, zl.type, zl.local_label, zl.remote_label,
 				 gtype, &zl.nexthop, zl.ifindex);
 		mpls_ftn_update(1, zvrf, zl.type, &zl.prefix, gtype,
-				&zl.nexthop, zl.ifindex, zl.distance,
-				zl.remote_label);
+				&zl.nexthop, zl.ifindex, zl.route_type,
+				zl.route_instance, zl.remote_label);
 	} else if (hdr->command == ZEBRA_MPLS_LABELS_DELETE) {
 		mpls_lsp_uninstall(zvrf, zl.type, zl.local_label, gtype,
 				   &zl.nexthop, zl.ifindex);
 		mpls_ftn_update(0, zvrf, zl.type, &zl.prefix, gtype,
-				&zl.nexthop, zl.ifindex, zl.distance,
-				zl.remote_label);
+				&zl.nexthop, zl.ifindex, zl.route_type,
+				zl.route_instance, zl.remote_label);
 	}
 }
 

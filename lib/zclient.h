@@ -400,7 +400,8 @@ struct zapi_labels {
 	struct prefix prefix;
 	union g_addr nexthop;
 	ifindex_t ifindex;
-	uint8_t distance;
+	uint8_t route_type;
+	unsigned short route_instance;
 	mpls_label_t local_label;
 	mpls_label_t remote_label;
 };
