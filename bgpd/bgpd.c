@@ -8047,3 +8047,61 @@ void bgp_terminate(void)
 
 	bgp_mac_finish();
 }
+
+struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
+				 const char *ip_str, bool use_json)
+{
+	int ret;
+	struct peer *peer;
+	union sockunion su;
+
+	/* Get peer sockunion. */
+	ret = str2sockunion(ip_str, &su);
+	if (ret < 0) {
+		peer = peer_lookup_by_conf_if(bgp, ip_str);
+		if (!peer) {
+			peer = peer_lookup_by_hostname(bgp, ip_str);
+
+			if (!peer) {
+				if (use_json) {
+					json_object *json_no = NULL;
+					json_no = json_object_new_object();
+					json_object_string_add(
+						json_no,
+						"malformedAddressOrName",
+						ip_str);
+					vty_out(vty, "%s\n",
+						json_object_to_json_string_ext(
+							json_no,
+							JSON_C_TO_STRING_PRETTY));
+					json_object_free(json_no);
+				} else
+					vty_out(vty,
+						"%% Malformed address or name: %s\n",
+						ip_str);
+				return NULL;
+			}
+		}
+		return peer;
+	}
+
+	/* Peer structure lookup. */
+	peer = peer_lookup(bgp, &su);
+	if (!peer) {
+		if (use_json) {
+			json_object *json_no = NULL;
+			json_no = json_object_new_object();
+			json_object_string_add(json_no, "warning",
+					       "No such neighbor in this view/vrf");
+			vty_out(vty, "%s\n",
+				json_object_to_json_string_ext(
+					json_no, JSON_C_TO_STRING_PRETTY));
+			json_object_free(json_no);
+		} else
+			vty_out(vty, "No such neighbor in this view/vrf\n");
+		return NULL;
+	}
+
+	return peer;
+}
+
