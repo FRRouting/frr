@@ -2787,27 +2787,40 @@ static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 
 	/* Set "local" forwarding info. */
 	SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
-	SET_FLAG(n->flags, ZEBRA_NEIGH_DEF_GW);
 	ZEBRA_NEIGH_SET_ACTIVE(n);
-	/* Set Router flag (R-bit) */
-	if (ip->ipa_type == IPADDR_V6)
-		SET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
 	memcpy(&n->emac, macaddr, ETH_ALEN);
 	n->ifindex = ifp->ifindex;
 
 	/* Only advertise in BGP if the knob is enabled */
-	if (!advertise_gw_macip_enabled(zvni))
-		return 0;
+	if (advertise_gw_macip_enabled(zvni)) {
 
-	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug(
+		SET_FLAG(mac->flags, ZEBRA_MAC_DEF_GW);
+		SET_FLAG(n->flags, ZEBRA_NEIGH_DEF_GW);
+		/* Set Router flag (R-bit) */
+		if (ip->ipa_type == IPADDR_V6)
+			SET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
+
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
 			"SVI %s(%u) L2-VNI %u, sending GW MAC %s IP %s add to BGP with flags 0x%x",
 			ifp->name, ifp->ifindex, zvni->vni,
 			prefix_mac2str(macaddr, buf, sizeof(buf)),
 			ipaddr2str(ip, buf2, sizeof(buf2)), n->flags);
 
-	zvni_neigh_send_add_to_client(zvni->vni, ip, macaddr,
-				      n->flags, n->loc_seq);
+		zvni_neigh_send_add_to_client(zvni->vni, ip, macaddr,
+					      n->flags, n->loc_seq);
+	} else if (advertise_svi_macip_enabled(zvni)) {
+
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+			"SVI %s(%u) L2-VNI %u, sending SVI MAC %s IP %s add to BGP with flags 0x%x",
+			ifp->name, ifp->ifindex, zvni->vni,
+			prefix_mac2str(macaddr, buf, sizeof(buf)),
+			ipaddr2str(ip, buf2, sizeof(buf2)), n->flags);
+
+		zvni_neigh_send_add_to_client(zvni->vni, ip, macaddr,
+					      n->flags, n->loc_seq);
+	}
 
 	return 0;
 }
@@ -9015,7 +9028,7 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("EVPN SVI-MACIP Adv %s, currently %s",
 				   advertise ? "enabled" : "disabled",
-				   advertise_gw_macip_enabled(NULL)
+				   advertise_svi_macip_enabled(NULL)
 					   ? "enabled"
 					   : "disabled");
 
