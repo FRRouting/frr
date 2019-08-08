@@ -269,8 +269,8 @@ void zebra_mpls_print_fec(struct vty *vty, struct zebra_vrf *zvrf,
  */
 int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 		    struct prefix *prefix, enum nexthop_types_t gtype,
-		    union g_addr *gate, ifindex_t ifindex, uint8_t distance,
-		    mpls_label_t out_label);
+		    union g_addr *gate, ifindex_t ifindex, uint8_t route_type,
+		    unsigned short route_instance, mpls_label_t out_label);
 
 /*
  * Install/update a NHLFE for an LSP in the forwarding table. This may be

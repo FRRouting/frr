@@ -136,7 +136,8 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 		fatalx("kr_change: unknown af");
 	}
 	zl.ifindex = kr->ifindex;
-	zl.distance = kr->priority;
+	zl.route_type = kr->route_type;
+	zl.route_instance = kr->route_instance;
 	zl.local_label = kr->local_label;
 	zl.remote_label = kr->remote_label;
 
@@ -398,7 +399,8 @@ ldp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		break;
 	}
 	kr.prefixlen = api.prefix.prefixlen;
-	kr.priority = api.distance;
+	kr.route_type = api.type;
+	kr.route_instance = api.instance;
 
 	switch (api.type) {
 	case ZEBRA_ROUTE_CONNECT:

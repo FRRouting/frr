@@ -31,7 +31,7 @@ static int		 lde_nbr_is_nexthop(struct fec_node *,
 static void		 fec_free(void *);
 static struct fec_node	*fec_add(struct fec *fec);
 static struct fec_nh	*fec_nh_add(struct fec_node *, int, union ldpd_addr *,
-			    ifindex_t, uint8_t);
+			    ifindex_t, uint8_t, unsigned short);
 static void		 fec_nh_del(struct fec_nh *);
 
 RB_GENERATE(fec_tree, fec, entry, fec_compare)
@@ -275,7 +275,7 @@ fec_add(struct fec *fec)
 
 struct fec_nh *
 fec_nh_find(struct fec_node *fn, int af, union ldpd_addr *nexthop,
-    ifindex_t ifindex, uint8_t priority)
+    ifindex_t ifindex, uint8_t route_type, unsigned short route_instance)
 {
 	struct fec_nh	*fnh;
 
@@ -283,7 +283,8 @@ fec_nh_find(struct fec_node *fn, int af, union ldpd_addr *nexthop,
 		if (fnh->af == af &&
 		    ldp_addrcmp(af, &fnh->nexthop, nexthop) == 0 &&
 		    fnh->ifindex == ifindex &&
-		    fnh->priority == priority)
+		    fnh->route_type == route_type &&
+		    fnh->route_instance == route_instance)
 			return (fnh);
 
 	return (NULL);
@@ -291,7 +292,7 @@ fec_nh_find(struct fec_node *fn, int af, union ldpd_addr *nexthop,
 
 static struct fec_nh *
 fec_nh_add(struct fec_node *fn, int af, union ldpd_addr *nexthop,
-    ifindex_t ifindex, uint8_t priority)
+    ifindex_t ifindex, uint8_t route_type, unsigned short route_instance)
 {
 	struct fec_nh	*fnh;
 
@@ -303,7 +304,8 @@ fec_nh_add(struct fec_node *fn, int af, union ldpd_addr *nexthop,
 	fnh->nexthop = *nexthop;
 	fnh->ifindex = ifindex;
 	fnh->remote_label = NO_LABEL;
-	fnh->priority = priority;
+	fnh->route_type = route_type;
+	fnh->route_instance = route_instance;
 	LIST_INSERT_HEAD(&fn->nexthops, fnh, entry);
 
 	return (fnh);
@@ -318,7 +320,8 @@ fec_nh_del(struct fec_nh *fnh)
 
 void
 lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
-    ifindex_t ifindex, uint8_t priority, int connected, void *data)
+    ifindex_t ifindex, uint8_t route_type, unsigned short route_instance,
+    int connected, void *data)
 {
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
@@ -329,9 +332,10 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 	if (data)
 		fn->data = data;
 
-	fnh = fec_nh_find(fn, af, nexthop, ifindex, priority);
+	fnh = fec_nh_find(fn, af, nexthop, ifindex, route_type, route_instance);
 	if (fnh == NULL)
-		fnh = fec_nh_add(fn, af, nexthop, ifindex, priority);
+		fnh = fec_nh_add(fn, af, nexthop, ifindex, route_type,
+		    route_instance);
 	fnh->flags |= F_FEC_NH_NEW;
 	if (connected)
 		fnh->flags |= F_FEC_NH_CONNECTED;
@@ -339,7 +343,7 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 
 void
 lde_kernel_remove(struct fec *fec, int af, union ldpd_addr *nexthop,
-    ifindex_t ifindex, uint8_t priority)
+    ifindex_t ifindex, uint8_t route_type, unsigned short route_instance)
 {
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
@@ -348,7 +352,7 @@ lde_kernel_remove(struct fec *fec, int af, union ldpd_addr *nexthop,
 	if (fn == NULL)
 		/* route lost */
 		return;
-	fnh = fec_nh_find(fn, af, nexthop, ifindex, priority);
+	fnh = fec_nh_find(fn, af, nexthop, ifindex, route_type, route_instance);
 	if (fnh == NULL)
 		/* route lost */
 		return;

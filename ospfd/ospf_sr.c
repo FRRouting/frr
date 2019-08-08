@@ -623,7 +623,8 @@ static int ospf_zebra_send_mpls_labels(int cmd, struct sr_nhlfe nhlfe)
 	zl.prefix.u.prefix4 = nhlfe.prefv4.prefix;
 	zl.nexthop.ipv4 = nhlfe.nexthop;
 	zl.ifindex = nhlfe.ifindex;
-	zl.distance = OSPF_SR_PRIORITY_DEFAULT;
+	zl.route_type = ZEBRA_ROUTE_OSPF;
+	zl.route_instance = 0;
 	zl.local_label = nhlfe.label_in;
 	zl.remote_label = nhlfe.label_out;
 
