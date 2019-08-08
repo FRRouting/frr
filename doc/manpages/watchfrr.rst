@@ -35,6 +35,22 @@ OPTIONS
 
    Set the VTY socket directory (the default value is "/var/run/frr").
 
+.. option:: -N <name>, --pathspace <name>
+
+   Insert the given name into paths used by the FRR daemons.  This is appended
+   to the VTY socket directory and passed to the daemons which also add it to
+   their paths in /etc.
+
+.. option:: --netns[=<name>]
+
+   (Linux only.)  Switch network namespaces when starting watchfrr.  The name
+   defaults to the value passed with -N (which it should be used in conjunction
+   with.)  If the name is not specified, the option has no effect.
+
+   If the network namespace does not exist, it is created in a manner
+   compatible with iproute2.  Network namespaces are not removed by FRR, this
+   must be done with "ip netns delete".
+
 .. option:: -l <level>, --loglevel <level>
 
    Set the logging level (the default value is "6"). The value should range from 0 (LOG_EMERG) to 7 (LOG_DEBUG), but higher number can be supplied if extra debugging messages are required.
