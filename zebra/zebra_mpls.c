@@ -125,6 +125,9 @@ static zebra_snhlfe_t *snhlfe_add(zebra_slsp_t *slsp,
 static int snhlfe_del(zebra_snhlfe_t *snhlfe);
 static int snhlfe_del_all(zebra_slsp_t *slsp);
 static char *snhlfe2str(zebra_snhlfe_t *snhlfe, char *buf, int size);
+static void mpls_lsp_uninstall_all_type(struct hash_bucket *bucket, void *ctxt);
+static void mpls_ftn_uninstall_all(struct zebra_vrf *zvrf,
+				   int afi, enum lsp_types_t lsp_type);
 
 
 /* Static functions */
@@ -2296,6 +2299,40 @@ static int zebra_mpls_cleanup_fecs_for_client(struct zserv *client)
 	return 0;
 }
 
+struct lsp_uninstall_args {
+	struct hash *lsp_table;
+	enum lsp_types_t type;
+};
+
+/*
+ * Cleanup MPLS labels registered by this client.
+ */
+static int zebra_mpls_cleanup_zclient_labels(struct zserv *client)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		struct lsp_uninstall_args args;
+
+		zvrf = vrf->info;
+		if (!zvrf)
+			continue;
+
+		/* Cleanup LSPs. */
+		args.lsp_table = zvrf->lsp_table;
+		args.type = lsp_type_from_re_type(client->proto);
+		hash_iterate(zvrf->lsp_table, mpls_lsp_uninstall_all_type,
+			     &args);
+
+		/* Cleanup FTNs. */
+		mpls_ftn_uninstall_all(zvrf, AFI_IP, client->proto);
+		mpls_ftn_uninstall_all(zvrf, AFI_IP6, client->proto);
+	}
+
+	return 0;
+}
+
 /*
  * Return FEC (if any) to which this label is bound.
  * Note: Only works for per-prefix binding and when the label is not
@@ -2752,11 +2789,12 @@ int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 }
 
 /*
- * Uninstall all LDP NHLFEs for a particular LSP forwarding entry.
+ * Uninstall all NHLFEs for a particular LSP forwarding entry.
  * If no other NHLFEs exist, the entry would be deleted.
  */
-void mpls_ldp_lsp_uninstall_all(struct hash_bucket *bucket, void *ctxt)
+static void mpls_lsp_uninstall_all_type(struct hash_bucket *bucket, void *ctxt)
 {
+	struct lsp_uninstall_args *args = ctxt;
 	zebra_lsp_t *lsp;
 	struct hash *lsp_table;
 
@@ -2764,17 +2802,19 @@ void mpls_ldp_lsp_uninstall_all(struct hash_bucket *bucket, void *ctxt)
 	if (!lsp->nhlfe_list)
 		return;
 
-	lsp_table = ctxt;
+	lsp_table = args->lsp_table;
 	if (!lsp_table)
 		return;
 
-	mpls_lsp_uninstall_all(lsp_table, lsp, ZEBRA_LSP_LDP);
+	mpls_lsp_uninstall_all(lsp_table, lsp, args->type);
 }
 
 /*
- * Uninstall all LDP FEC-To-NHLFE (FTN) bindings of the given address-family.
+ * Uninstall all FEC-To-NHLFE (FTN) bindings of the given address-family and
+ * LSP type.
  */
-void mpls_ldp_ftn_uninstall_all(struct zebra_vrf *zvrf, int afi)
+static void mpls_ftn_uninstall_all(struct zebra_vrf *zvrf,
+				   int afi, enum lsp_types_t lsp_type)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -2792,7 +2832,7 @@ void mpls_ldp_ftn_uninstall_all(struct zebra_vrf *zvrf, int afi)
 		RNODE_FOREACH_RE (rn, re) {
 			for (nexthop = re->ng.nexthop; nexthop;
 			     nexthop = nexthop->next) {
-				if (nexthop->nh_label_type != ZEBRA_LSP_LDP)
+				if (nexthop->nh_label_type != lsp_type)
 					continue;
 
 				nexthop_del_labels(nexthop);
@@ -3300,4 +3340,5 @@ void zebra_mpls_init(void)
 		mpls_enabled = 1;
 
 	hook_register(zserv_client_close, zebra_mpls_cleanup_fecs_for_client);
+	hook_register(zserv_client_close, zebra_mpls_cleanup_zclient_labels);
 }

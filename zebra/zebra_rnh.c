@@ -1198,13 +1198,6 @@ static int zebra_client_cleanup_rnh(struct zserv *client)
 						 RNH_IMPORT_CHECK_TYPE);
 			zebra_cleanup_rnh_client(zvrf_id(zvrf), AFI_IP6, client,
 						 RNH_IMPORT_CHECK_TYPE);
-			if (client->proto == ZEBRA_ROUTE_LDP) {
-				hash_iterate(zvrf->lsp_table,
-					     mpls_ldp_lsp_uninstall_all,
-					     zvrf->lsp_table);
-				mpls_ldp_ftn_uninstall_all(zvrf, AFI_IP);
-				mpls_ldp_ftn_uninstall_all(zvrf, AFI_IP6);
-			}
 		}
 	}
 
