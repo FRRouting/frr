@@ -617,7 +617,7 @@ static int ospf_zebra_send_mpls_labels(int cmd, struct sr_nhlfe nhlfe)
 			   inet_ntoa(nhlfe.prefv4.prefix),
 			   nhlfe.prefv4.prefixlen, nhlfe.ifindex);
 
-	zl.type = ZEBRA_LSP_SR;
+	zl.type = ZEBRA_LSP_OSPF_SR;
 	zl.prefix.family = nhlfe.prefv4.family;
 	zl.prefix.prefixlen = nhlfe.prefv4.prefixlen;
 	zl.prefix.u.prefix4 = nhlfe.prefv4.prefix;
