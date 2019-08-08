@@ -464,6 +464,50 @@ Traffic Engineering
 
 .. _debugging-isis:
 
+Segment Routing
+===============
+
+This is an EXPERIMENTAL support of Segment Routing as per draft
+`draft-ietf-isis-segment-routing-extensions-25.txt` for MPLS dataplane.
+It supports IPv4, IPv6 and ECMP and has been tested against Cisco & Juniper
+routers.
+
+Known limitations:
+ - No support for level redistribution (L1 to L2 or L2 to L1)
+ - No support for binding SID
+ - No support for SRMS
+
+.. index:: [no] segment-routing on
+.. clicmd:: [no] segment-routing on
+
+   Enable Segment Routing.
+
+.. index:: [no] segment-routing global-block (0-1048575) (0-1048575)
+.. clicmd:: [no] segment-routing global-block (0-1048575) (0-1048575)
+
+   Seet the Segment Routing Global Block i.e. the label range used by MPLS
+   to store label in the MPLS FIB.
+
+.. index:: [no] segment-routing node-msd (1-16)
+.. clicmd:: [no] segment-routing node-msd (1-16)
+
+   Set the Maximum Stack Depth supported by the router. The value depend of the
+   MPLS dataplane. E.g. for Linux kernel, since version 4.13 it is 32.
+
+.. index:: [no] segment-routing prefix <A.B.C.D/M|X:X::X:X/M> <absolute (16000-1048575)|index (0-65535)> [no-php-flag|explicit-null]
+.. clicmd:: [no] segment-routing prefix <A.B.C.D/M|X:X::X:X/M> <absolute (16000-1048575)|index (0-65535) [no-php-flag|explicit-null]
+
+   Set the Segment Routing index or absolute label value for the specified
+   prefix. The 'no-php-flag' means NO Penultimate Hop Popping that allows SR
+   node to request to its neighbor to not pop the label. The 'explicit-null'
+   flag allows SR node to request to its neighbor to send IP packet with the
+   EXPLICIT-NULL label.
+
+.. index:: show isis segment-routing prefix-sids
+.. clicmd:: show isis segment-routing prefix-sids
+
+   Show detailed information about all learned Segment Routing Prefix-SIDs.
+
 Debugging ISIS
 ==============
 
@@ -559,6 +603,14 @@ Debugging ISIS
 .. clicmd:: no debug isis update-packets
 
    Update related packets.
+
+.. index:: debug isis sr-events
+.. clicmd:: debug isis sr-events
+
+.. index:: no debug isis sr-events
+.. clicmd:: no debug isis sr-events
+
+   IS-IS Segment Routing events.
 
 .. index:: show debugging isis
 .. clicmd:: show debugging isis
