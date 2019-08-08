@@ -1,0 +1,243 @@
+html, body {
+	margin:0;
+	padding:0;
+	border:0;
+
+	font-family: Fira Sans;
+}
+
+#filters {
+	position:fixed;
+	top:0;
+	width:100%;
+	padding:2pt 5pt;
+
+	background-color:#ffe;
+	color:#000;
+	border-bottom:1px solid #000;
+}
+#main {
+	margin:6em 2em 6em 2em;
+}
+
+.fblock {
+	float:left;
+}
+.ftitle {
+	display:inline-block;
+	border-right:1px solid #fb6;
+	width:8em;
+	text-align: right;
+}
+.fitems {
+	display:inline-block;
+}
+
+.e_raw {
+	position:absolute;
+	z-index: 1;
+
+	background-color:#333;
+	color:#ccc;
+	padding:6pt 4pt;
+	border:2px dotted #ff0;
+	border-radius:3pt;
+	margin:0;
+	text-align:left;
+
+	font-family:monospace;
+}
+.e_exp {
+	float: right;
+	padding: 0;
+	border: 1px solid #8a8;
+	background-color: #aca;
+	position: relative;
+	height:5pt;
+	width:5pt;
+	margin-left:3pt;
+}
+
+.e_hide {
+	display:none;
+}
+.e_show {
+	display:block;
+}
+
+.r_cont > .r_line::after {
+	content:"›";
+	color:#f00;
+	font-weight:bold;
+}
+.r_line {
+	white-space:pre-wrap;
+}
+
+.item,
+.timetable {
+	display:contents;
+}
+.nodeid {
+	grid-column-start: 1;
+	grid-column-end:span 7;
+	font-size:16pt;
+	padding-top:20pt;
+	padding-bottom:2pt;
+	border-bottom:3px solid #000;
+}
+
+/*.timetable {*/
+.items {
+	display: grid;
+	/* grid-template-columns: max-content max-content 17em 3em; */
+	grid-auto-columns: max-content;
+	grid-template-columns: repeat(6, max-content) 1fr;
+	grid-row-gap: 0; /*5pt;*/
+	grid-column-gap: 0; /*2pt;*/
+
+	font-family:Fira Sans;
+
+	width:max-content;
+}
+.rtrname {
+	grid-column-start: 2;
+}
+.dmnname {
+	grid-column-start: 3;
+}
+.clicmd .dmnname {
+	grid-column-end: span 2;
+}
+
+.logmsg {
+	display: contents;
+}
+.logmsg > span.logmeta {
+	grid-column-start: 4;
+	font-family: Input Mono Narrow;
+	font-size:7.5pt;
+	align-items: end;
+	display: flex;
+	padding-bottom:2.5pt;
+}
+.logmeta a,
+.logmeta a:hover,
+.logmeta a:focus,
+.logmeta a:active,
+.logmeta a:visited {
+	text-decoration:none;
+	color: #005;
+}
+.logprio {
+	grid-column-start: 5;
+}
+.logtext {
+	grid-column-start: 6;
+	grid-column-end: span 2;
+}
+.logmsg.prio-error > span {
+	background-color: #fba;
+	font-weight: 500;
+}
+.logmsg.prio-error .logtext {
+}
+.logmsg.prio-warn > span {
+	background-color: #fca;
+	font-weight: 500;
+}
+.logmsg.prio-notif > span {
+	background-color: #e0e6d6;
+}
+.logmsg.prio-info > span {
+	background-color: #d4ddd4;
+}
+.logmsg.prio-debug > span {
+	background-color: #d0d7dd;
+	font-weight: 300;
+}
+
+.clicmd {
+	display: contents;
+}
+.clicmdtext {
+	grid-column-start: 6;
+	grid-column-end: span 2;
+
+	font-family: Fira Mono;
+	white-space:pre-wrap;
+}
+
+.pkt {
+	display: contents;
+}
+
+.pktcol,
+.logmsg > span,
+.clicmd > span {
+	border-bottom: 1px solid #aaa;
+	background-color:#eee;
+	/* border-radius: 3pt; */
+	padding: 2pt 3pt;
+}
+.clicmd > span {
+	color:#080;
+	background-color:#ddd;
+}
+.clicmd.cli-same > span {
+	background-color:#f9f9f9;
+	color:#8a8;
+}
+.clicmd.cli-same > span.clicmdtext::after {
+	content:"⇡";
+	color:#444;
+	font-weight:bold;
+}
+
+.tstamp {
+	grid-column-start: 1;
+	font-family: Fira Mono;
+	text-align: right;
+}
+.iface {
+	grid-column-start: 2;
+}
+.p-eth {
+	grid-column-start: 3;
+	grid-column-end: span 2;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+}
+.l-3 {
+	grid-column-start: 5;
+	text-align: center;
+}
+.p-arp,
+.p-pim {
+	grid-column-end: span 2;
+	text-align: left;
+	padding-left: 4pt;
+}
+.l-4 {
+	grid-column-start: 6;
+}
+.l-5 {
+	grid-column-start: 7;
+}
+.l-6 {
+	grid-column-start: 8;
+}
+
+.p-ospf,
+.p-pim,
+.p-ldp,
+.p-bgp,
+.p-bfd {
+	background-color:#ffeeaa;
+	border-color:#fa0;
+}
+
+.log {
+	height:auto;
+}

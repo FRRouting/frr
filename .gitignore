@@ -1,0 +1,6 @@
+/results*
+/network.dot
+/network.png
+/assets/
+*.pcapng
+*.pcap
