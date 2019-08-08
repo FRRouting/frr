@@ -273,6 +273,13 @@ int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 		    unsigned short route_instance, mpls_label_t out_label);
 
 /*
+ * Uninstall all NHLFEs bound to a single FEC.
+ */
+int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
+		       struct prefix *prefix, uint8_t route_type,
+		       unsigned short route_instance);
+
+/*
  * Install/update a NHLFE for an LSP in the forwarding table. This may be
  * a new LSP entry or a new NHLFE for an existing in-label or an update of
  * the out-label for an existing NHLFE (update case).
@@ -291,10 +298,10 @@ int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		       union g_addr *gate, ifindex_t ifindex);
 
 /*
- * Uninstall all LDP NHLFEs for a particular LSP forwarding entry.
- * If no other NHLFEs exist, the entry would be deleted.
+ * Uninstall all NHLFEs for a particular LSP forwarding entry.
  */
-void mpls_ldp_lsp_uninstall_all(struct hash_bucket *bucket, void *ctxt);
+int mpls_lsp_uninstall_all_vrf(struct zebra_vrf *zvrf, enum lsp_types_t type,
+			       mpls_label_t in_label);
 
 /*
  * Uninstall all Segment Routing NHLFEs for a particular LSP forwarding entry.

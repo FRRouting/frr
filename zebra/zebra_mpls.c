@@ -2656,6 +2656,42 @@ int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 	return 0;
 }
 
+int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
+		       struct prefix *prefix, uint8_t route_type,
+		       unsigned short route_instance)
+{
+	struct route_table *table;
+	struct route_node *rn;
+	struct route_entry *re;
+	struct nexthop *nexthop;
+
+	/* Lookup table.  */
+	table = zebra_vrf_table(family2afi(prefix->family), SAFI_UNICAST,
+				zvrf_id(zvrf));
+	if (!table)
+		return -1;
+
+	/* Lookup existing route */
+	rn = route_node_get(table, prefix);
+	RNODE_FOREACH_RE (rn, re) {
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
+			continue;
+		if (re->type == route_type && re->instance == route_instance)
+			break;
+	}
+	if (re == NULL)
+		return -1;
+
+	for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
+		nexthop_del_labels(nexthop);
+
+	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
+	SET_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED);
+	rib_queue_add(rn);
+
+	return 0;
+}
+
 /*
  * Install/update a NHLFE for an LSP in the forwarding table. This may be
  * a new LSP entry or a new NHLFE for an existing in-label or an update of
@@ -2786,6 +2822,27 @@ int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		}
 	}
 	return 0;
+}
+
+int mpls_lsp_uninstall_all_vrf(struct zebra_vrf *zvrf, enum lsp_types_t type,
+			       mpls_label_t in_label)
+{
+	struct hash *lsp_table;
+	zebra_ile_t tmp_ile;
+	zebra_lsp_t *lsp;
+
+	/* Lookup table. */
+	lsp_table = zvrf->lsp_table;
+	if (!lsp_table)
+		return -1;
+
+	/* If entry is not present, exit. */
+	tmp_ile.in_label = in_label;
+	lsp = hash_lookup(lsp_table, &tmp_ile);
+	if (!lsp)
+		return 0;
+
+	return mpls_lsp_uninstall_all(lsp_table, lsp, type);
 }
 
 /*
