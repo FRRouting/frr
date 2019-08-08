@@ -1752,62 +1752,27 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 static void zread_mpls_labels(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
-	enum lsp_types_t type;
-	struct prefix prefix;
+	struct zapi_labels zl;
 	enum nexthop_types_t gtype;
-	union g_addr gate;
-	ifindex_t ifindex;
-	mpls_label_t in_label, out_label;
-	uint8_t distance;
 
 	/* Get input stream.  */
 	s = msg;
-
-	/* Get data. */
-	STREAM_GETC(s, type);
-	STREAM_GETL(s, prefix.family);
-	switch (prefix.family) {
-	case AF_INET:
-		STREAM_GET(&prefix.u.prefix4.s_addr, s, IPV4_MAX_BYTELEN);
-		STREAM_GETC(s, prefix.prefixlen);
-		if (prefix.prefixlen > IPV4_MAX_BITLEN) {
-			zlog_debug(
-				"%s: Specified prefix length %d is greater than a v4 address can support",
-				__PRETTY_FUNCTION__, prefix.prefixlen);
-			return;
-		}
-		STREAM_GET(&gate.ipv4.s_addr, s, IPV4_MAX_BYTELEN);
-		break;
-	case AF_INET6:
-		STREAM_GET(&prefix.u.prefix6, s, 16);
-		STREAM_GETC(s, prefix.prefixlen);
-		if (prefix.prefixlen > IPV6_MAX_BITLEN) {
-			zlog_debug(
-				"%s: Specified prefix length %d is greater than a v6 address can support",
-				__PRETTY_FUNCTION__, prefix.prefixlen);
-			return;
-		}
-		STREAM_GET(&gate.ipv6, s, 16);
-		break;
-	default:
-		zlog_debug("%s: Specified AF %d is not supported for this call",
-			   __PRETTY_FUNCTION__, prefix.family);
+	if (zapi_labels_decode(s, &zl) < 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Unable to decode zapi_labels sent",
+				   __PRETTY_FUNCTION__);
 		return;
 	}
-	STREAM_GETL(s, ifindex);
-	STREAM_GETC(s, distance);
-	STREAM_GETL(s, in_label);
-	STREAM_GETL(s, out_label);
 
-	switch (prefix.family) {
+	switch (zl.prefix.family) {
 	case AF_INET:
-		if (ifindex)
+		if (zl.ifindex)
 			gtype = NEXTHOP_TYPE_IPV4_IFINDEX;
 		else
 			gtype = NEXTHOP_TYPE_IPV4;
 		break;
 	case AF_INET6:
-		if (ifindex)
+		if (zl.ifindex)
 			gtype = NEXTHOP_TYPE_IPV6_IFINDEX;
 		else
 			gtype = NEXTHOP_TYPE_IPV6;
@@ -1820,17 +1785,18 @@ static void zread_mpls_labels(ZAPI_HANDLER_ARGS)
 		return;
 
 	if (hdr->command == ZEBRA_MPLS_LABELS_ADD) {
-		mpls_lsp_install(zvrf, type, in_label, out_label, gtype, &gate,
-				 ifindex);
-		mpls_ftn_update(1, zvrf, type, &prefix, gtype, &gate, ifindex,
-				distance, out_label);
+		mpls_lsp_install(zvrf, zl.type, zl.local_label, zl.remote_label,
+				 gtype, &zl.nexthop, zl.ifindex);
+		mpls_ftn_update(1, zvrf, zl.type, &zl.prefix, gtype,
+				&zl.nexthop, zl.ifindex, zl.distance,
+				zl.remote_label);
 	} else if (hdr->command == ZEBRA_MPLS_LABELS_DELETE) {
-		mpls_lsp_uninstall(zvrf, type, in_label, gtype, &gate, ifindex);
-		mpls_ftn_update(0, zvrf, type, &prefix, gtype, &gate, ifindex,
-				distance, out_label);
+		mpls_lsp_uninstall(zvrf, zl.type, zl.local_label, gtype,
+				   &zl.nexthop, zl.ifindex);
+		mpls_ftn_update(0, zvrf, zl.type, &zl.prefix, gtype,
+				&zl.nexthop, zl.ifindex, zl.distance,
+				zl.remote_label);
 	}
-stream_failure:
-	return;
 }
 
 /* Send response to a table manager connect request to client */
