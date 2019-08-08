@@ -1105,30 +1105,142 @@ DEFUN (ip_nht_default_route,
 
 static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 {
-	struct nexthop *nhop = NULL;
+	struct nexthop *nexthop = NULL;
 	struct nhg_connected *rb_node_dep = NULL;
+	char buf[SRCDEST2STR_BUFFER];
+
+	struct vrf *nhe_vrf = vrf_lookup_by_id(nhe->vrf_id);
 
 	vty_out(vty, "ID: %u\n", nhe->id);
-	vty_out(vty, "\tRefCnt: %d\n", nhe->refcnt);
+	vty_out(vty, "     RefCnt: %d\n", nhe->refcnt);
+
+	if (nhe_vrf)
+		vty_out(vty, "     VRF: %s\n", nhe_vrf->name);
+	else
+		vty_out(vty, "     VRF: UNKNOWN\n");
+
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE)) {
+		vty_out(vty, "     Duplicate - from kernel not hashable\n");
+	}
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
-		vty_out(vty, "\tValid");
+		vty_out(vty, "     Valid");
 		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED))
 			vty_out(vty, ", Installed");
 		vty_out(vty, "\n");
 	}
 	if (nhe->ifp)
-		vty_out(vty, "\tInterface Index: %d\n", nhe->ifp->ifindex);
+		vty_out(vty, "     Interface Index: %d\n", nhe->ifp->ifindex);
 
 	if (!zebra_nhg_depends_is_empty(nhe)) {
-
-		vty_out(vty, "\tDepends:");
+		vty_out(vty, "     Depends:");
 		frr_each (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 			vty_out(vty, " (%u)", rb_node_dep->nhe->id);
 		}
 		vty_out(vty, "\n");
 	}
+
+	for (ALL_NEXTHOPS_PTR(nhe->nhg, nexthop)) {
+		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+			vty_out(vty, "          ");
+		else
+			/* Make recursive nexthops a bit more clear */
+			vty_out(vty, "       ");
+
+		switch (nexthop->type) {
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			vty_out(vty, " %s", inet_ntoa(nexthop->gate.ipv4));
+			if (nexthop->ifindex)
+				vty_out(vty, ", %s",
+					ifindex2ifname(nexthop->ifindex,
+						       nexthop->vrf_id));
+			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			vty_out(vty, " %s",
+				inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
+					  sizeof buf));
+			if (nexthop->ifindex)
+				vty_out(vty, ", %s",
+					ifindex2ifname(nexthop->ifindex,
+						       nexthop->vrf_id));
+			break;
+
+		case NEXTHOP_TYPE_IFINDEX:
+			vty_out(vty, " directly connected %s",
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			vty_out(vty, " unreachable");
+			switch (nexthop->bh_type) {
+			case BLACKHOLE_REJECT:
+				vty_out(vty, " (ICMP unreachable)");
+				break;
+			case BLACKHOLE_ADMINPROHIB:
+				vty_out(vty, " (ICMP admin-prohibited)");
+				break;
+			case BLACKHOLE_NULL:
+				vty_out(vty, " (blackhole)");
+				break;
+			case BLACKHOLE_UNSPEC:
+				break;
+			}
+			break;
+		default:
+			break;
+		}
+
+		struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
+
+		if (vrf)
+			vty_out(vty, " (vrf %s)", vrf->name);
+		else
+			vty_out(vty, " (vrf UNKNOWN)");
+
+		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+			vty_out(vty, " inactive");
+
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
+			vty_out(vty, " onlink");
+
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+			vty_out(vty, " (recursive)");
+
+		switch (nexthop->type) {
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			if (nexthop->src.ipv4.s_addr) {
+				if (inet_ntop(AF_INET, &nexthop->src.ipv4, buf,
+					      sizeof buf))
+					vty_out(vty, ", src %s", buf);
+			}
+			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any)) {
+				if (inet_ntop(AF_INET6, &nexthop->src.ipv6, buf,
+					      sizeof buf))
+					vty_out(vty, ", src %s", buf);
+			}
+			break;
+		default:
+			break;
+		}
+
+		/* Label information */
+		if (nexthop->nh_label && nexthop->nh_label->num_labels) {
+			vty_out(vty, ", label %s",
+				mpls_label2str(nexthop->nh_label->num_labels,
+					       nexthop->nh_label->label, buf,
+					       sizeof buf, 1));
+		}
+
+		vty_out(vty, "\n");
+	}
+
 	if (!zebra_nhg_dependents_is_empty(nhe)) {
-		vty_out(vty, "\tDependents:");
+		vty_out(vty, "     Dependents:");
 		frr_each (nhg_connected_tree, &nhe->nhg_dependents,
 			  rb_node_dep) {
 			vty_out(vty, " (%u)", rb_node_dep->nhe->id);
@@ -1136,10 +1248,6 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 		vty_out(vty, "\n");
 	}
 
-	for (ALL_NEXTHOPS_PTR(nhe->nhg, nhop)) {
-		vty_out(vty, "\t");
-		nexthop_group_write_nexthop(vty, nhop);
-	}
 }
 
 static int show_nexthop_group_id_cmd_helper(struct vty *vty, uint32_t id)
