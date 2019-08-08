@@ -260,6 +260,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				tm->tm_hour);
 		vty_out(vty, " ago\n");
 
+		vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
 		for (ALL_NEXTHOPS_PTR(re->ng, nexthop)) {
 			char addrstr[32];
 
