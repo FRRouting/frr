@@ -2845,17 +2845,22 @@ DEFUNSH(VTYSH_ALL, no_vtysh_config_enable_password,
 
 DEFUN (vtysh_write_terminal,
        vtysh_write_terminal_cmd,
-       "write terminal ["DAEMONS_LIST"]",
+       "write terminal ["DAEMONS_LIST"] [no-header]",
        "Write running configuration to memory, network, or terminal\n"
        "Write to terminal\n"
-       DAEMONS_STR)
+       DAEMONS_STR
+       "Skip \"Building configuration...\" header\n")
 {
 	unsigned int i;
 	char line[] = "do write terminal\n";
 
-	vty_out(vty, "Building configuration...\n");
-	vty_out(vty, "\nCurrent configuration:\n");
-	vty_out(vty, "!\n");
+	if (!strcmp(argv[argc - 1]->arg, "no-header"))
+		argc--;
+	else {
+		vty_out(vty, "Building configuration...\n");
+		vty_out(vty, "\nCurrent configuration:\n");
+		vty_out(vty, "!\n");
+	}
 
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if ((argc < 3)
@@ -2874,10 +2879,11 @@ DEFUN (vtysh_write_terminal,
 
 DEFUN (vtysh_show_running_config,
        vtysh_show_running_config_cmd,
-       "show running-config ["DAEMONS_LIST"]",
+       "show running-config ["DAEMONS_LIST"] [no-header]",
        SHOW_STR
        "Current operating configuration\n"
-       DAEMONS_STR)
+       DAEMONS_STR
+       "Skip \"Building configuration...\" header\n")
 {
 	return vtysh_write_terminal(self, vty, argc, argv);
 }
