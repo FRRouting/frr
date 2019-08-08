@@ -133,18 +133,29 @@ int frr_pthread_set_name(struct frr_pthread *fpt)
 	return ret;
 }
 
+static void *frr_pthread_inner(void *arg)
+{
+	struct frr_pthread *fpt = arg;
+
+	rcu_thread_start(fpt->rcu_thread);
+	return fpt->attr.start(fpt);
+}
+
 int frr_pthread_run(struct frr_pthread *fpt, const pthread_attr_t *attr)
 {
 	int ret;
 
-	ret = pthread_create(&fpt->thread, attr, fpt->attr.start, fpt);
+	fpt->rcu_thread = rcu_thread_prepare();
+	ret = pthread_create(&fpt->thread, attr, frr_pthread_inner, fpt);
 
 	/*
 	 * Per pthread_create(3), the contents of fpt->thread are undefined if
 	 * pthread_create() did not succeed. Reset this value to zero.
 	 */
-	if (ret < 0)
+	if (ret < 0) {
+		rcu_thread_unprepare(fpt->rcu_thread);
 		memset(&fpt->thread, 0x00, sizeof(fpt->thread));
+	}
 
 	return ret;
 }

@@ -23,6 +23,7 @@
 #include <pthread.h>
 #include "frratomic.h"
 #include "memory.h"
+#include "frrcu.h"
 #include "thread.h"
 
 #ifdef __cplusplus
@@ -49,6 +50,8 @@ struct frr_pthread {
 
 	/* pthread id */
 	pthread_t thread;
+
+	struct rcu_thread *rcu_thread;
 
 	/* thread master for this pthread's thread.c event loop */
 	struct thread_master *master;
