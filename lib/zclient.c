@@ -2464,25 +2464,31 @@ int zapi_labels_encode(struct stream *s, int cmd, struct zapi_labels *zl)
 	stream_reset(s);
 
 	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_putc(s, zl->message);
 	stream_putc(s, zl->type);
-	stream_putw(s, zl->prefix.family);
-	stream_put_prefix(s, &zl->prefix);
-	switch (zl->prefix.family) {
+	stream_putl(s, zl->local_label);
+
+	if (CHECK_FLAG(zl->message, ZAPI_LABELS_FTN)) {
+		stream_putw(s, zl->route.prefix.family);
+		stream_put_prefix(s, &zl->route.prefix);
+		stream_putc(s, zl->route.type);
+		stream_putw(s, zl->route.instance);
+	}
+
+	stream_putc(s, zl->nexthop.type);
+	stream_putw(s, zl->nexthop.family);
+	switch (zl->nexthop.family) {
 	case AF_INET:
-		stream_put_in_addr(s, &zl->nexthop.ipv4);
+		stream_put_in_addr(s, &zl->nexthop.address.ipv4);
 		break;
 	case AF_INET6:
-		stream_write(s, (uint8_t *)&zl->nexthop.ipv6, 16);
+		stream_write(s, (uint8_t *)&zl->nexthop.address.ipv6, 16);
 		break;
 	default:
-		flog_err(EC_LIB_ZAPI_ENCODE, "%s: unknown af", __func__);
-		return -1;
+		break;
 	}
-	stream_putl(s, zl->ifindex);
-	stream_putc(s, zl->route_type);
-	stream_putw(s, zl->route_instance);
-	stream_putl(s, zl->local_label);
-	stream_putl(s, zl->remote_label);
+	stream_putl(s, zl->nexthop.ifindex);
+	stream_putl(s, zl->nexthop.label);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -2492,47 +2498,67 @@ int zapi_labels_encode(struct stream *s, int cmd, struct zapi_labels *zl)
 
 int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 {
-	size_t psize;
-
 	memset(zl, 0, sizeof(*zl));
 
 	/* Get data. */
+	STREAM_GETC(s, zl->message);
 	STREAM_GETC(s, zl->type);
-	STREAM_GETW(s, zl->prefix.family);
-	STREAM_GETC(s, zl->prefix.prefixlen);
-	psize = PSIZE(zl->prefix.prefixlen);
+	STREAM_GETL(s, zl->local_label);
 
-	switch (zl->prefix.family) {
-	case AF_INET:
-		if (zl->prefix.prefixlen > IPV4_MAX_BITLEN) {
-			zlog_debug(
-				"%s: Specified prefix length %d is greater than a v4 address can support",
-				__PRETTY_FUNCTION__, zl->prefix.prefixlen);
+	if (CHECK_FLAG(zl->message, ZAPI_LABELS_FTN)) {
+		size_t psize;
+
+		STREAM_GETW(s, zl->route.prefix.family);
+		STREAM_GETC(s, zl->route.prefix.prefixlen);
+
+		psize = PSIZE(zl->route.prefix.prefixlen);
+		switch (zl->route.prefix.family) {
+		case AF_INET:
+			if (zl->route.prefix.prefixlen > IPV4_MAX_BITLEN) {
+				zlog_debug(
+					"%s: Specified prefix length %d is greater than a v4 address can support",
+					__PRETTY_FUNCTION__,
+					zl->route.prefix.prefixlen);
+				return -1;
+			}
+			STREAM_GET(&zl->route.prefix.u.prefix4.s_addr, s,
+				   psize);
+			break;
+		case AF_INET6:
+			if (zl->route.prefix.prefixlen > IPV6_MAX_BITLEN) {
+				zlog_debug(
+					"%s: Specified prefix length %d is greater than a v6 address can support",
+					__PRETTY_FUNCTION__,
+					zl->route.prefix.prefixlen);
+				return -1;
+			}
+			STREAM_GET(&zl->route.prefix.u.prefix6, s, psize);
+			break;
+		default:
+			flog_err(EC_LIB_ZAPI_ENCODE,
+				 "%s: Specified family %u is not v4 or v6",
+				 __PRETTY_FUNCTION__, zl->route.prefix.family);
 			return -1;
 		}
-		STREAM_GET(&zl->prefix.u.prefix4.s_addr, s, psize);
-		STREAM_GET(&zl->nexthop.ipv4.s_addr, s, IPV4_MAX_BYTELEN);
+
+		STREAM_GETC(s, zl->route.type);
+		STREAM_GETW(s, zl->route.instance);
+	}
+
+	STREAM_GETC(s, zl->nexthop.type);
+	STREAM_GETW(s, zl->nexthop.family);
+	switch (zl->nexthop.family) {
+	case AF_INET:
+		STREAM_GET(&zl->nexthop.address.ipv4.s_addr, s, IPV4_MAX_BYTELEN);
 		break;
 	case AF_INET6:
-		if (zl->prefix.prefixlen > IPV6_MAX_BITLEN) {
-			zlog_debug(
-				"%s: Specified prefix length %d is greater than a v6 address can support",
-				__PRETTY_FUNCTION__, zl->prefix.prefixlen);
-			return -1;
-		}
-		STREAM_GET(&zl->prefix.u.prefix6, s, psize);
-		STREAM_GET(&zl->nexthop.ipv6, s, 16);
+		STREAM_GET(&zl->nexthop.address.ipv6, s, 16);
 		break;
 	default:
-		zlog_debug("%s: Specified AF %d is not supported for this call",
-			   __PRETTY_FUNCTION__, zl->prefix.family);
-		return -1;
+		break;
 	}
-	STREAM_GETL(s, zl->ifindex);
-	STREAM_GETC(s, zl->route_type);
-	STREAM_GETW(s, zl->route_instance);
-	STREAM_GETL(s, zl->local_label);
-	STREAM_GETL(s, zl->remote_label);
+	STREAM_GETL(s, zl->nexthop.ifindex);
+	STREAM_GETL(s, zl->nexthop.label);
 
 	return 0;
 stream_failure:

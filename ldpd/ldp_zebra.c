@@ -121,25 +121,48 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 	    (cmd == ZEBRA_MPLS_LABELS_ADD) ? "add" : "delete");
 
 	zl.type = ZEBRA_LSP_LDP;
-	zl.prefix.family = kr->af;
-	zl.prefix.prefixlen = kr->prefixlen;
+	zl.local_label = kr->local_label;
+
+	/* Set prefix. */
+	SET_FLAG(zl.message, ZAPI_LABELS_FTN);
+	zl.route.prefix.family = kr->af;
 	switch (kr->af) {
 	case AF_INET:
-		zl.prefix.u.prefix4 = kr->prefix.v4;
-		zl.nexthop.ipv4 = kr->nexthop.v4;
+		zl.route.prefix.u.prefix4 = kr->prefix.v4;
 		break;
 	case AF_INET6:
-		zl.prefix.u.prefix6 = kr->prefix.v6;
-		zl.nexthop.ipv6 = kr->nexthop.v6;
+		zl.route.prefix.u.prefix6 = kr->prefix.v6;
 		break;
 	default:
-		fatalx("kr_change: unknown af");
+		fatalx("ldp_zebra_send_mpls_labels: unknown af");
 	}
-	zl.ifindex = kr->ifindex;
-	zl.route_type = kr->route_type;
-	zl.route_instance = kr->route_instance;
-	zl.local_label = kr->local_label;
-	zl.remote_label = kr->remote_label;
+	zl.route.prefix.prefixlen = kr->prefixlen;
+	zl.route.type = kr->route_type;
+	zl.route.instance = kr->route_instance;
+
+	/* Set nexthop. */
+	switch (kr->af) {
+	case AF_INET:
+		zl.nexthop.family = AF_INET;
+		zl.nexthop.address.ipv4 = kr->nexthop.v4;
+		if (kr->ifindex)
+			zl.nexthop.type = NEXTHOP_TYPE_IPV4_IFINDEX;
+		else
+			zl.nexthop.type = NEXTHOP_TYPE_IPV4;
+		break;
+	case AF_INET6:
+		zl.nexthop.family = AF_INET6;
+		zl.nexthop.address.ipv6 = kr->nexthop.v6;
+		if (kr->ifindex)
+			zl.nexthop.type = NEXTHOP_TYPE_IPV6_IFINDEX;
+		else
+			zl.nexthop.type = NEXTHOP_TYPE_IPV6;
+		break;
+	default:
+		break;
+	}
+	zl.nexthop.ifindex = kr->ifindex;
+	zl.nexthop.label = kr->remote_label;
 
 	return zebra_send_mpls_labels(zclient, cmd, &zl);
 }

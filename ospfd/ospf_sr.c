@@ -618,15 +618,20 @@ static int ospf_zebra_send_mpls_labels(int cmd, struct sr_nhlfe nhlfe)
 			   nhlfe.prefv4.prefixlen, nhlfe.ifindex);
 
 	zl.type = ZEBRA_LSP_OSPF_SR;
-	zl.prefix.family = nhlfe.prefv4.family;
-	zl.prefix.prefixlen = nhlfe.prefv4.prefixlen;
-	zl.prefix.u.prefix4 = nhlfe.prefv4.prefix;
-	zl.nexthop.ipv4 = nhlfe.nexthop;
-	zl.ifindex = nhlfe.ifindex;
-	zl.route_type = ZEBRA_ROUTE_OSPF;
-	zl.route_instance = 0;
 	zl.local_label = nhlfe.label_in;
-	zl.remote_label = nhlfe.label_out;
+
+	SET_FLAG(zl.message, ZAPI_LABELS_FTN);
+	zl.route.prefix.family = nhlfe.prefv4.family;
+	zl.route.prefix.prefixlen = nhlfe.prefv4.prefixlen;
+	zl.route.prefix.u.prefix4 = nhlfe.prefv4.prefix;
+	zl.route.type = ZEBRA_ROUTE_OSPF;
+	zl.route.instance = 0;
+
+	zl.nexthop.type = NEXTHOP_TYPE_IPV4_IFINDEX;
+	zl.nexthop.family = AF_INET;
+	zl.nexthop.address.ipv4 = nhlfe.nexthop;
+	zl.nexthop.ifindex = nhlfe.ifindex;
+	zl.nexthop.label = nhlfe.label_out;
 
 	return zebra_send_mpls_labels(zclient, cmd, &zl);
 }
