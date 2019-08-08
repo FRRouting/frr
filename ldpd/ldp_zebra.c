@@ -109,6 +109,7 @@ static int
 ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 {
 	struct zapi_labels zl = {};
+	struct zapi_nexthop_label *znh;
 
 	if (kr->local_label < MPLS_LABEL_RESERVED_MAX ||
 	    kr->remote_label == NO_LABEL)
@@ -141,28 +142,30 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 	zl.route.instance = kr->route_instance;
 
 	/* Set nexthop. */
+	zl.nexthop_num = 1;
+	znh = &zl.nexthops[0];
 	switch (kr->af) {
 	case AF_INET:
-		zl.nexthop.family = AF_INET;
-		zl.nexthop.address.ipv4 = kr->nexthop.v4;
+		znh->family = AF_INET;
+		znh->address.ipv4 = kr->nexthop.v4;
 		if (kr->ifindex)
-			zl.nexthop.type = NEXTHOP_TYPE_IPV4_IFINDEX;
+			znh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 		else
-			zl.nexthop.type = NEXTHOP_TYPE_IPV4;
+			znh->type = NEXTHOP_TYPE_IPV4;
 		break;
 	case AF_INET6:
-		zl.nexthop.family = AF_INET6;
-		zl.nexthop.address.ipv6 = kr->nexthop.v6;
+		znh->family = AF_INET6;
+		znh->address.ipv6 = kr->nexthop.v6;
 		if (kr->ifindex)
-			zl.nexthop.type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			znh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 		else
-			zl.nexthop.type = NEXTHOP_TYPE_IPV6;
+			znh->type = NEXTHOP_TYPE_IPV6;
 		break;
 	default:
 		break;
 	}
-	zl.nexthop.ifindex = kr->ifindex;
-	zl.nexthop.label = kr->remote_label;
+	znh->ifindex = kr->ifindex;
+	znh->label = kr->remote_label;
 
 	return zebra_send_mpls_labels(zclient, cmd, &zl);
 }
