@@ -238,7 +238,7 @@ static int netlink_route_info_add_nh(netlink_route_info_t *ri,
 	if (re && CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE)) {
 		nhi.encap_info.encap_type = FPM_NH_ENCAP_VXLAN;
 
-		zl3vni = zl3vni_from_vrf(ri->rtm_table);
+		zl3vni = zl3vni_from_vrf(nexthop->vrf_id);
 		if (zl3vni && is_l3vni_oper_up(zl3vni)) {
 
 			/* Add VNI to VxLAN encap info */
