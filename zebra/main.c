@@ -36,7 +36,6 @@
 #include "vrf.h"
 #include "libfrr.h"
 #include "routemap.h"
-#include "frr_pthread.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"
@@ -374,9 +373,6 @@ int main(int argc, char **argv)
 	}
 
 	zrouter.master = frr_init();
-
-	/* Initialize pthread library */
-	frr_pthread_init();
 
 	/* Zebra related initialize. */
 	zebra_router_init();
