@@ -51,12 +51,13 @@ void frr_pthread_init(void)
 {
 	frr_with_mutex(&frr_pthread_list_mtx) {
 		frr_pthread_list = list_new();
-		frr_pthread_list->del = (void (*)(void *))&frr_pthread_destroy;
 	}
 }
 
 void frr_pthread_finish(void)
 {
+	frr_pthread_stop_all();
+
 	frr_with_mutex(&frr_pthread_list_mtx) {
 		list_delete(&frr_pthread_list);
 	}
@@ -99,8 +100,11 @@ struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
 
 void frr_pthread_destroy(struct frr_pthread *fpt)
 {
-	thread_master_free(fpt->master);
+	frr_with_mutex(&frr_pthread_list_mtx) {
+		listnode_delete(frr_pthread_list, fpt);
+	}
 
+	thread_master_free(fpt->master);
 	pthread_mutex_destroy(&fpt->mtx);
 	pthread_mutex_destroy(fpt->running_cond_mtx);
 	pthread_cond_destroy(fpt->running_cond);
@@ -183,8 +187,11 @@ void frr_pthread_stop_all(void)
 	frr_with_mutex(&frr_pthread_list_mtx) {
 		struct listnode *n;
 		struct frr_pthread *fpt;
-		for (ALL_LIST_ELEMENTS_RO(frr_pthread_list, n, fpt))
-			frr_pthread_stop(fpt, NULL);
+		for (ALL_LIST_ELEMENTS_RO(frr_pthread_list, n, fpt)) {
+			if (atomic_load_explicit(&fpt->running,
+						 memory_order_relaxed))
+				frr_pthread_stop(fpt, NULL);
+		}
 	}
 }
 
