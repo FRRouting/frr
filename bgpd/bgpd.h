@@ -1931,4 +1931,7 @@ extern struct peer *peer_new(struct bgp *bgp);
 extern struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 					const char *ip_str, bool use_json);
 
+/* Hooks */
+DECLARE_HOOK(peer_status_changed, (struct peer * peer), (peer))
+
 #endif /* _QUAGGA_BGPD_H */
