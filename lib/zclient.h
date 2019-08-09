@@ -490,6 +490,7 @@ enum zapi_iptable_notify_owner {
 #define ZEBRA_MACIP_TYPE_GW                    0x02 /* gateway (SVI) mac*/
 #define ZEBRA_MACIP_TYPE_ROUTER_FLAG           0x04 /* Router Flag - proxy NA */
 #define ZEBRA_MACIP_TYPE_OVERRIDE_FLAG         0x08 /* Override Flag */
+#define ZEBRA_MACIP_TYPE_SVI_IP                0x10 /* SVI MAC-IP */
 
 enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
 

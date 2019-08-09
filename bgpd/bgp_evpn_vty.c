@@ -3767,7 +3767,17 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 	}
 
 	if (is_evpn_enabled()) {
+		struct listnode *node = NULL;
+		struct bgpevpn *vpn = NULL;
+
 		update_advertise_vrf_routes(bgp_vrf);
+
+		/* Update (svi) type-2 routes */
+		for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn)) {
+			if (!bgp_evpn_is_svi_macip_enabled(vpn))
+				continue;
+			update_routes_for_vni(bgp_evpn, vpn);
+		}
 	}
 
 	return CMD_SUCCESS;

@@ -366,6 +366,7 @@ struct zebra_neigh_t_ {
 #define ZEBRA_NEIGH_DEF_GW    0x08
 #define ZEBRA_NEIGH_ROUTER_FLAG 0x10
 #define ZEBRA_NEIGH_DUPLICATE 0x20
+#define ZEBRA_NEIGH_SVI_IP 0x40
 
 	enum zebra_neigh_state state;
 
