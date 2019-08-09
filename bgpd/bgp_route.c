@@ -5933,7 +5933,7 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 			/* Compute aggregate route's extended community.
 			 */
 			if (pi->attr->ecommunity)
-				bgp_compute_aggregate_ecommunity(
+				bgp_compute_aggregate_ecommunity_hash(
 							aggregate,
 							pi->attr->ecommunity);
 
@@ -5949,6 +5949,7 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	}
 	if (aggregate->as_set) {
 		bgp_compute_aggregate_community_val(aggregate);
+		bgp_compute_aggregate_ecommunity_val(aggregate);
 		bgp_compute_aggregate_lcommunity_val(aggregate);
 	}
 
@@ -6047,7 +6048,7 @@ static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 				if (pi->attr->ecommunity)
 					/* Remove ecommunity from aggregate.
 					 */
-					bgp_remove_ecommunity_from_aggregate(
+					bgp_remove_ecomm_from_aggregate_hash(
 							aggregate,
 							pi->attr->ecommunity);
 
@@ -6068,6 +6069,8 @@ static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 	if (aggregate->as_set) {
 		if (aggregate->community)
 			community_free(&aggregate->community);
+		if (aggregate->ecommunity)
+			ecommunity_free(&aggregate->ecommunity);
 		if (aggregate->lcommunity)
 			lcommunity_free(&aggregate->lcommunity);
 	}
