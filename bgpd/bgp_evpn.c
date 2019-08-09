@@ -505,7 +505,9 @@ static void unmap_vni_from_rt(struct bgp *bgp, struct bgpevpn *vpn,
 static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl)
 {
 	struct ecommunity_val eval;
-	struct ecommunity *ecomadd;
+	struct ecommunity *ecomadd, *ecom;
+	bool ecom_found = false;
+	struct listnode *node;
 
 	if (bgp->advertise_autort_rfc8365)
 		vni |= EVPN_AUTORT_VXLAN;
@@ -513,7 +515,12 @@ static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl)
 
 	ecomadd = ecommunity_new();
 	ecommunity_add_val(ecomadd, &eval);
-	listnode_add_sort(rtl, ecomadd);
+	for (ALL_LIST_ELEMENTS_RO(rtl, node, ecom))
+		if (ecommunity_cmp(ecomadd, ecom))
+			ecom_found = true;
+
+	if (!ecom_found)
+		listnode_add_sort(rtl, ecomadd);
 }
 
 /*
