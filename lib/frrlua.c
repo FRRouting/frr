@@ -27,23 +27,6 @@
 #include "log.h"
 
 /*
- * Lua -> FRR function bindings.
- *
- * This section defines functions exportable into Lua environments.
- */
-
-static int lua_zlog_debug(lua_State *L)
-{
-	int debug_lua = 1;
-	const char *string = lua_tostring(L, 1);
-
-	if (debug_lua)
-		zlog_debug("%s", string);
-
-	return 0;
-}
-
-/*
  * FRR convenience functions.
  *
  * This section has convenience functions used to make interacting with the Lua
@@ -126,6 +109,67 @@ void frrlua_newtable_interface(lua_State *L, const struct interface *ifp)
 	lua_setfield(L, -2, "linklayer_type");
 }
 
+/*
+ * Logging.
+ *
+ * Lua-compatible wrappers for FRR logging functions.
+ */
+static const char *frrlua_log_thunk(lua_State *L)
+{
+	int nargs;
+
+	nargs = lua_gettop(L);
+	assert(nargs == 1);
+
+	return lua_tostring(L, 1);
+}
+
+static int frrlua_log_debug(lua_State *L)
+{
+	zlog_debug("%s", frrlua_log_thunk(L));
+	return 0;
+}
+
+static int frrlua_log_info(lua_State *L)
+{
+	zlog_info("%s", frrlua_log_thunk(L));
+	return 0;
+}
+
+static int frrlua_log_notice(lua_State *L)
+{
+	zlog_notice("%s", frrlua_log_thunk(L));
+	return 0;
+}
+
+static int frrlua_log_warn(lua_State *L)
+{
+	zlog_warn("%s", frrlua_log_thunk(L));
+	return 0;
+}
+
+static int frrlua_log_error(lua_State *L)
+{
+	zlog_err("%s", frrlua_log_thunk(L));
+	return 0;
+}
+
+static const luaL_Reg log_funcs[] = {
+	{"debug", frrlua_log_debug},
+	{"info", frrlua_log_info},
+	{"notice", frrlua_log_notice},
+	{"warn", frrlua_log_warn},
+	{"error", frrlua_log_error},
+	{},
+};
+
+void frrlua_export_logging(lua_State *L)
+{
+	lua_newtable(L);
+	luaL_setfuncs(L, log_funcs, 0);
+	lua_setfield(L, -2, "log");
+}
+
 
 /*
  * Experimental.
@@ -169,9 +213,7 @@ lua_State *frrlua_initialize(const char *file)
 	int status;
 	lua_State *L = lua_newstate(frrlua_alloc, NULL);
 
-	zlog_debug("Newstate: %p", L);
 	luaL_openlibs(L);
-	zlog_debug("Opened lib");
 	if (file) {
 		status = luaL_loadfile(L, file);
 		if (status) {
@@ -182,11 +224,8 @@ lua_State *frrlua_initialize(const char *file)
 		lua_pcall(L, 0, LUA_MULTRET, 0);
 	}
 
-	zlog_debug("Setting global function");
-	lua_pushcfunction(L, lua_zlog_debug);
-	lua_setglobal(L, "zlog_debug");
-
 	return L;
 }
+
 
 #endif

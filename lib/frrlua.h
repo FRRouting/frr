@@ -98,6 +98,21 @@ const char *frrlua_table_get_string(lua_State *L, const char *key);
  */
 int frrlua_table_get_integer(lua_State *L, const char *key);
 
+/*
+ * Exports a new table containing bindings to FRR zlog functions into the
+ * global namespace.
+ *
+ * From Lua, these functions may be accessed as:
+ *
+ * - log.debug()
+ * - log.info()
+ * - log.warn()
+ * - log.error()
+ *
+ * They take a single string argument.
+ */
+void frrlua_export_logging(lua_State *L);
+
 #ifdef __cplusplus
 }
 #endif
