@@ -5940,13 +5940,16 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 			/* Compute aggregate route's large community.
 			 */
 			if (pi->attr->lcommunity)
-				bgp_compute_aggregate_lcommunity(
+				bgp_compute_aggregate_lcommunity_hash(
 							aggregate,
 							pi->attr->lcommunity);
 		}
 		if (match)
 			bgp_process(bgp, rn, afi, safi);
 	}
+	if (aggregate->as_set)
+		bgp_compute_aggregate_lcommunity_val(aggregate);
+
 	bgp_unlock_node(top);
 
 
@@ -6048,7 +6051,7 @@ static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 				if (pi->attr->lcommunity)
 					/* Remove lcommunity from aggregate.
 					 */
-					bgp_remove_lcommunity_from_aggregate(
+					bgp_remove_lcomm_from_aggregate_hash(
 							aggregate,
 							pi->attr->lcommunity);
 			}
@@ -6059,6 +6062,11 @@ static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 		if (match)
 			bgp_process(bgp, rn, afi, safi);
 	}
+	if (aggregate->as_set) {
+		if (aggregate->lcommunity)
+			lcommunity_free(&aggregate->lcommunity);
+	}
+
 	bgp_unlock_node(top);
 }
 
