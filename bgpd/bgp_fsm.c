@@ -57,7 +57,7 @@
 #include "bgpd/bgp_zebra.h"
 
 DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
-DEFINE_HOOK(peer_established, (struct peer * peer), (peer))
+DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer))
 
 /* Definition of display strings corresponding to FSM events. This should be
  * kept consistent with the events defined in bgpd.h
@@ -962,8 +962,6 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 	struct bgp *bgp;
 	uint32_t peer_count;
 
-	bgp_dump_state(peer, peer->status, status);
-
 	bgp = peer->bgp;
 	peer_count = bgp->established_peers;
 
@@ -1024,6 +1022,9 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 
 	/* Save event that caused status change. */
 	peer->last_major_event = peer->cur_event;
+
+	/* Operations after status change */
+	hook_call(peer_status_changed, peer);
 
 	if (status == Established)
 		UNSET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
@@ -1656,8 +1657,6 @@ static int bgp_establish(struct peer *peer)
 			zlog_debug("%s graceful restart timer stopped",
 				   peer->host);
 	}
-
-	hook_call(peer_established, peer);
 
 	/* Reset uptime, turn on keepalives, send current table. */
 	if (!peer->v_holdtime)
