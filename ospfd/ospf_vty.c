@@ -3442,6 +3442,9 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			else
 				vty_out(vty, "  This interface is UNNUMBERED,");
 		} else {
+			struct in_addr dest;
+			const char *dstr;
+
 			/* Show OSPF interface information. */
 			if (use_json) {
 				json_object_string_add(
@@ -3455,46 +3458,40 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 					inet_ntoa(oi->address->u.prefix4),
 					oi->address->prefixlen);
 
-			if (oi->connected->destination
-			    || oi->type == OSPF_IFTYPE_VIRTUALLINK) {
-				struct in_addr *dest;
-				const char *dstr;
+			/* For Vlinks, showing the peer address is
+			 * probably more informative than the local
+			 * interface that is being used */
+			if (oi->type == OSPF_IFTYPE_VIRTUALLINK) {
+				dstr = "Peer";
+				dest = oi->vl_data->peer_addr;
+			} else if (CONNECTED_PEER(oi->connected)
+					 && oi->connected->destination) {
+				dstr = "Peer";
+				dest = oi->connected->destination->u.prefix4;
+			} else {
+				dstr = "Broadcast";
+				dest.s_addr = ipv4_broadcast_addr(
+						oi->connected->address->u.prefix4.s_addr,
+						oi->connected->address->prefixlen);
+			}
 
-				if (CONNECTED_PEER(oi->connected)
-				    || oi->type == OSPF_IFTYPE_VIRTUALLINK)
-					dstr = "Peer";
-				else
-					dstr = "Broadcast";
-
-				/* For Vlinks, showing the peer address is
-		   * probably more
-		   *  *  *  *                * informative than the local
-		   * interface that is being used
-		   *   *   *   *                               */
+			if (use_json) {
+				json_object_string_add(
+					json_interface_sub,
+					"ospfIfType", dstr);
 				if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
-					dest = &oi->vl_data->peer_addr;
-				else
-					dest = &oi->connected->destination->u
-							.prefix4;
-
-				if (use_json) {
 					json_object_string_add(
 						json_interface_sub,
-						"ospfIfType", dstr);
-					if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
-						json_object_string_add(
-							json_interface_sub,
-							"vlinkPeer",
-							inet_ntoa(*dest));
-					else
-						json_object_string_add(
-							json_interface_sub,
-							"localIfUsed",
-							inet_ntoa(*dest));
-				} else
-					vty_out(vty, " %s %s,", dstr,
-						inet_ntoa(*dest));
-			}
+						"vlinkPeer",
+						inet_ntoa(dest));
+				else
+					json_object_string_add(
+						json_interface_sub,
+						"localIfUsed",
+						inet_ntoa(dest));
+			} else
+				vty_out(vty, " %s %s,", dstr,
+					inet_ntoa(dest));
 		}
 		if (use_json) {
 			json_object_string_add(json_interface_sub, "area",

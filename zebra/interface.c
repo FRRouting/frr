@@ -1081,12 +1081,10 @@ static void connected_dump_vty(struct vty *vty, struct connected *connected)
 	vty_out(vty, "/%d", p->prefixlen);
 
 	/* If there is destination address, print it. */
-	if (connected->destination) {
-		vty_out(vty,
-			(CONNECTED_PEER(connected) ? " peer " : " broadcast "));
+	if (CONNECTED_PEER(connected) && connected->destination) {
+		vty_out(vty, " peer ");
 		prefix_vty_out(vty, connected->destination);
-		if (CONNECTED_PEER(connected))
-			vty_out(vty, "/%d", connected->destination->prefixlen);
+		vty_out(vty, "/%d", connected->destination->prefixlen);
 	}
 
 	if (CHECK_FLAG(connected->flags, ZEBRA_IFA_SECONDARY))
@@ -2674,12 +2672,6 @@ static int ip_address_install(struct vty *vty, struct interface *ifp,
 			SET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 			p = prefix_ipv4_new();
 			*p = pp;
-			ifc->destination = (struct prefix *)p;
-		} else if (p->prefixlen <= IPV4_MAX_PREFIXLEN - 2) {
-			p = prefix_ipv4_new();
-			*p = lp;
-			p->prefix.s_addr = ipv4_broadcast_addr(p->prefix.s_addr,
-							       p->prefixlen);
 			ifc->destination = (struct prefix *)p;
 		}
 

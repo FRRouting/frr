@@ -139,7 +139,7 @@ struct dplane_intf_info {
 #define DPLANE_INTF_CONNECTED   (1 << 0) /* Connected peer, p2p */
 #define DPLANE_INTF_SECONDARY   (1 << 1)
 #define DPLANE_INTF_BROADCAST   (1 << 2)
-#define DPLANE_INTF_HAS_DEST    (1 << 3)
+#define DPLANE_INTF_HAS_DEST    DPLANE_INTF_CONNECTED
 #define DPLANE_INTF_HAS_LABEL   (1 << 4)
 
 	/* Interface address/prefix */
@@ -1978,9 +1978,6 @@ static enum zebra_dplane_result intf_addr_update_internal(
 		ctx->u.intf.dest_prefix = *(ifc->destination);
 		ctx->u.intf.flags |=
 			(DPLANE_INTF_CONNECTED | DPLANE_INTF_HAS_DEST);
-	} else if (ifc->destination) {
-		ctx->u.intf.dest_prefix = *(ifc->destination);
-		ctx->u.intf.flags |= DPLANE_INTF_HAS_DEST;
 	}
 
 	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
