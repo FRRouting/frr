@@ -537,6 +537,26 @@ void log_multiline(int priority, const char *prefix, const char *format, ...)
 		XFREE(MTYPE_TMP, p);
 }
 
+char *log_uptime(time_t uptime, char *buf, size_t nbuf)
+{
+	struct tm *tm;
+	time_t difftime = time(NULL);
+	difftime -= uptime;
+	tm = gmtime(&difftime);
+
+	if (difftime < ONE_DAY_SECOND)
+		snprintf(buf, nbuf, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
+			 tm->tm_sec);
+	else if (difftime < ONE_WEEK_SECOND)
+		snprintf(buf, nbuf, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
+			 tm->tm_min);
+	else
+		snprintf(buf, nbuf, "%02dw%dd%02dh", tm->tm_yday / 7,
+			 tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
+
+	return buf;
+}
+
 void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 {
 	char shortbuf[256];
@@ -562,19 +582,7 @@ void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 
 void vty_out_timestr(struct vty *vty, time_t uptime)
 {
-	struct tm *tm;
-	time_t difftime = time(NULL);
-	difftime -= uptime;
-	tm = gmtime(&difftime);
+	static char buf[BUFSIZ];
 
-	if (difftime < ONE_DAY_SECOND)
-		vty_out(vty, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-			tm->tm_sec);
-	else if (difftime < ONE_WEEK_SECOND)
-		vty_out(vty, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-			tm->tm_min);
-	else
-		vty_out(vty, "%02dw%dd%02dh", tm->tm_yday / 7,
-			tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
-	vty_out(vty, " ago");
+	vty_out(vty, "%s ago", log_uptime(uptime, buf, sizeof(buf)));
 }
