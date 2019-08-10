@@ -1927,4 +1927,8 @@ extern void bgp_unset_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
 
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);
+
+extern struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
+					const char *ip_str, bool use_json);
+
 #endif /* _QUAGGA_BGPD_H */
