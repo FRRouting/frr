@@ -5332,6 +5332,13 @@ static void bgp_purge_af_static_redist_routes(struct bgp *bgp, afi_t afi,
 	struct bgp_node *rn;
 	struct bgp_path_info *pi;
 
+	/* Do not install the aggregate route if BGP is in the
+	 * process of termination.
+	 */
+	if (bgp_flag_check(bgp, BGP_FLAG_DELETE_IN_PROGRESS) ||
+	    (bgp->peer_self == NULL))
+		return;
+
 	table = bgp->rib[afi][safi];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
 		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
