@@ -32,31 +32,6 @@ extern "C" {
 #endif
 
 /*
- * Status enum for Lua routemap processing results
- */
-enum frrlua_rm_status {
-	/*
-	 * Script function run failure.  This will translate into a
-	 * deny
-	 */
-	LUA_RM_FAILURE = 0,
-	/*
-	 * No Match was found for the route map function
-	 */
-	LUA_RM_NOMATCH,
-	/*
-	 * Match was found but no changes were made to the
-	 * incoming data.
-	 */
-	LUA_RM_MATCH,
-	/*
-	 * Match was found and data was modified, so
-	 * figure out what changed
-	 */
-	LUA_RM_MATCH_AND_CHANGE,
-};
-
-/*
  * Pushes a new table containing relevant fields from a prefix structure.
  *
  * Additionally sets the global variable "prefix" to point at this table.
@@ -67,11 +42,6 @@ void frrlua_newtable_prefix(lua_State *L, const struct prefix *prefix);
  * Pushes a new table containing relevant fields from an interface structure.
  */
 void frrlua_newtable_interface(lua_State *L, const struct interface *ifp);
-
-/*
- * Runs a routemap rule or something
- */
-enum frrlua_rm_status frrlua_run_rm_rule(lua_State *L, const char *rule);
 
 /*
  * Retrieve a string from table on the top of the stack.

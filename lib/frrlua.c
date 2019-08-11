@@ -170,28 +170,4 @@ void frrlua_export_logging(lua_State *L)
 	lua_setfield(L, -2, "log");
 }
 
-
-/*
- * Experimental.
- *
- * This section has experimental Lua functionality that doesn't belong
- * elsewhere.
- */
-
-enum frrlua_rm_status frrlua_run_rm_rule(lua_State *L, const char *rule)
-{
-	int status;
-
-	lua_getglobal(L, rule);
-	status = lua_pcall(L, 0, 1, 0);
-	if (status) {
-		zlog_debug("Executing Failure with function: %s: %d",
-			   rule, status);
-		return LUA_RM_FAILURE;
-	}
-
-	status = lua_tonumber(L, -1);
-	return status;
-}
-
 #endif

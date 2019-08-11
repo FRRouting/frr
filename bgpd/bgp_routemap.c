@@ -338,6 +338,45 @@ static const struct route_map_rule_cmd route_match_peer_cmd = {
 };
 
 #if defined(HAVE_LUA)
+
+enum frrlua_rm_status {
+	/*
+	 * Script function run failure.  This will translate into a
+	 * deny
+	 */
+	LUA_RM_FAILURE = 0,
+	/*
+	 * No Match was found for the route map function
+	 */
+	LUA_RM_NOMATCH,
+	/*
+	 * Match was found but no changes were made to the
+	 * incoming data.
+	 */
+	LUA_RM_MATCH,
+	/*
+	 * Match was found and data was modified, so
+	 * figure out what changed
+	 */
+	LUA_RM_MATCH_AND_CHANGE,
+};
+
+static enum frrlua_rm_status frrlua_run_rm_rule(lua_State *L, const char *rule)
+{
+	int status;
+
+	lua_getglobal(L, rule);
+	status = lua_pcall(L, 0, 1, 0);
+	if (status) {
+		zlog_debug("Executing Failure with function: %s: %d",
+			   rule, status);
+		return LUA_RM_FAILURE;
+	}
+
+	status = lua_tonumber(L, -1);
+	return status;
+}
+
 static enum route_map_cmd_result_t
 route_match_command(void *rule, const struct prefix *prefix, void *object)
 {
