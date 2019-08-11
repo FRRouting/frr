@@ -3406,31 +3406,34 @@ int bgp_route_map_update_timer(struct thread *thread)
 
 static void bgp_route_map_mark_update(const char *rmap_name)
 {
-	if (bm->t_rmap_update == NULL) {
-		struct listnode *node, *nnode;
-		struct bgp *bgp;
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
 
-		/* rmap_update_timer of 0 means don't do route updates */
-		if (bm->rmap_update_timer) {
-			bm->t_rmap_update = NULL;
-			thread_add_timer(bm->master, bgp_route_map_update_timer,
-					 NULL, bm->rmap_update_timer,
-					 &bm->t_rmap_update);
+	/* If new update is received before the current timer timed out,
+	 * turn it off and start a new timer.
+	 */
+	if (bm->t_rmap_update != NULL)
+		THREAD_OFF(bm->t_rmap_update);
 
-			/* Signal the groups that a route-map update event has
-			 * started */
-			for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
-				update_group_policy_update(bgp,
-							   BGP_POLICY_ROUTE_MAP,
-							   rmap_name, 1, 1);
-		} else {
-			for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
-				bgp_route_map_process_update(bgp, rmap_name, 0);
+	/* rmap_update_timer of 0 means don't do route updates */
+	if (bm->rmap_update_timer) {
+		thread_add_timer(bm->master, bgp_route_map_update_timer,
+				 NULL, bm->rmap_update_timer,
+				 &bm->t_rmap_update);
+
+		/* Signal the groups that a route-map update event has
+		 * started */
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+			update_group_policy_update(bgp,
+						   BGP_POLICY_ROUTE_MAP,
+						   rmap_name, 1, 1);
+	} else {
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+			bgp_route_map_process_update(bgp, rmap_name, 0);
 #if ENABLE_BGP_VNC
-			zlog_debug("%s: calling vnc_routemap_update", __func__);
-			vnc_routemap_update(bgp, __func__);
+		zlog_debug("%s: calling vnc_routemap_update", __func__);
+		vnc_routemap_update(bgp, __func__);
 #endif
-		}
 	}
 }
 
