@@ -439,7 +439,8 @@ struct lcommunity *lcommunity_str2com(const char *str)
 	enum lcommunity_token token = lcommunity_token_unknown;
 	struct lcommunity_val lval;
 
-	while ((str = lcommunity_gettoken(str, &lval, &token))) {
+	do {
+		str = lcommunity_gettoken(str, &lval, &token);
 		switch (token) {
 		case lcommunity_token_val:
 			if (lcom == NULL)
@@ -452,7 +453,8 @@ struct lcommunity *lcommunity_str2com(const char *str)
 				lcommunity_free(&lcom);
 			return NULL;
 		}
-	}
+	} while (str);
+
 	return lcom;
 }
 
