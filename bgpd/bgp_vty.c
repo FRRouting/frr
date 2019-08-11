@@ -14632,28 +14632,6 @@ CPP_NOTICE("bgpd: remove deprecated 'ip large-community-list <(1-99)|(100-500)|s
 #endif
 DEFUN (lcommunity_list_standard,
        bgp_lcommunity_list_standard_cmd,
-       "bgp large-community-list (1-99) <deny|permit>",
-       BGP_STR
-       LCOMMUNITY_LIST_STR
-       "Large Community list number (standard)\n"
-       "Specify large community to reject\n"
-       "Specify large community to accept\n")
-{
-	return lcommunity_list_set_vty(vty, argc, argv,
-				       LARGE_COMMUNITY_LIST_STANDARD, 0);
-}
-
-ALIAS (lcommunity_list_standard,
-       ip_lcommunity_list_standard_cmd,
-       "ip large-community-list (1-99) <deny|permit>",
-       IP_STR
-       LCOMMUNITY_LIST_STR
-       "Large Community list number (standard)\n"
-       "Specify large community to reject\n"
-       "Specify large community to accept\n")
-
-DEFUN (lcommunity_list_standard1,
-       bgp_lcommunity_list_standard1_cmd,
        "bgp large-community-list (1-99) <deny|permit> AA:BB:CC...",
        BGP_STR
        LCOMMUNITY_LIST_STR
@@ -14666,8 +14644,8 @@ DEFUN (lcommunity_list_standard1,
 				       LARGE_COMMUNITY_LIST_STANDARD, 0);
 }
 
-ALIAS (lcommunity_list_standard1,
-       ip_lcommunity_list_standard1_cmd,
+ALIAS (lcommunity_list_standard,
+       ip_lcommunity_list_standard_cmd,
        "ip large-community-list (1-99) <deny|permit> AA:BB:CC...",
        IP_STR
        LCOMMUNITY_LIST_STR
@@ -14702,30 +14680,6 @@ ALIAS (lcommunity_list_expanded,
 
 DEFUN (lcommunity_list_name_standard,
        bgp_lcommunity_list_name_standard_cmd,
-       "bgp large-community-list standard WORD <deny|permit>",
-       BGP_STR
-       LCOMMUNITY_LIST_STR
-       "Specify standard large-community-list\n"
-       "Large Community list name\n"
-       "Specify large community to reject\n"
-       "Specify large community to accept\n")
-{
-	return lcommunity_list_set_vty(vty, argc, argv,
-				       LARGE_COMMUNITY_LIST_STANDARD, 1);
-}
-
-ALIAS (lcommunity_list_name_standard,
-       ip_lcommunity_list_name_standard_cmd,
-       "ip large-community-list standard WORD <deny|permit>",
-       IP_STR
-       LCOMMUNITY_LIST_STR
-       "Specify standard large-community-list\n"
-       "Large Community list name\n"
-       "Specify large community to reject\n"
-       "Specify large community to accept\n")
-
-DEFUN (lcommunity_list_name_standard1,
-       bgp_lcommunity_list_name_standard1_cmd,
        "bgp large-community-list standard WORD <deny|permit> AA:BB:CC...",
        BGP_STR
        LCOMMUNITY_LIST_STR
@@ -14739,8 +14693,8 @@ DEFUN (lcommunity_list_name_standard1,
 				       LARGE_COMMUNITY_LIST_STANDARD, 1);
 }
 
-ALIAS (lcommunity_list_name_standard1,
-       ip_lcommunity_list_name_standard1_cmd,
+ALIAS (lcommunity_list_name_standard,
+       ip_lcommunity_list_name_standard_cmd,
        "ip large-community-list standard WORD <deny|permit> AA:BB:CC...",
        IP_STR
        LCOMMUNITY_LIST_STR
@@ -15566,10 +15520,8 @@ static void community_list_vty(void)
 
 	/* Large Community List */
 	install_element(CONFIG_NODE, &bgp_lcommunity_list_standard_cmd);
-	install_element(CONFIG_NODE, &bgp_lcommunity_list_standard1_cmd);
 	install_element(CONFIG_NODE, &bgp_lcommunity_list_expanded_cmd);
 	install_element(CONFIG_NODE, &bgp_lcommunity_list_name_standard_cmd);
-	install_element(CONFIG_NODE, &bgp_lcommunity_list_name_standard1_cmd);
 	install_element(CONFIG_NODE, &bgp_lcommunity_list_name_expanded_cmd);
 	install_element(CONFIG_NODE, &no_bgp_lcommunity_list_standard_all_cmd);
 	install_element(CONFIG_NODE,
@@ -15581,10 +15533,8 @@ static void community_list_vty(void)
 	install_element(VIEW_NODE, &show_bgp_lcommunity_list_cmd);
 	install_element(VIEW_NODE, &show_bgp_lcommunity_list_arg_cmd);
 	install_element(CONFIG_NODE, &ip_lcommunity_list_standard_cmd);
-	install_element(CONFIG_NODE, &ip_lcommunity_list_standard1_cmd);
 	install_element(CONFIG_NODE, &ip_lcommunity_list_expanded_cmd);
 	install_element(CONFIG_NODE, &ip_lcommunity_list_name_standard_cmd);
-	install_element(CONFIG_NODE, &ip_lcommunity_list_name_standard1_cmd);
 	install_element(CONFIG_NODE, &ip_lcommunity_list_name_expanded_cmd);
 	install_element(CONFIG_NODE, &no_ip_lcommunity_list_standard_all_cmd);
 	install_element(CONFIG_NODE,
