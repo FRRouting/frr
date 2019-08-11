@@ -346,7 +346,8 @@ route_match_command(void *rule, const struct prefix *prefix, void *object)
 	u_int32_t newlocpref = 0;
 	enum frrlua_rm_status lrm_status;
 	struct bgp_path_info *path = (struct bgp_path_info *)object;
-	lua_State *L = frrlua_initialize("/etc/frr/lua.scr");
+	lua_State *L = luaL_newstate();;
+	luaL_openlibs(L);
 
 	if (L == NULL)
 		return status;

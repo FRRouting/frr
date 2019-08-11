@@ -57,15 +57,6 @@ enum frrlua_rm_status {
 };
 
 /*
- * Creates a new Lua state, loads all libraries, and if a script is provided,
- * runs it.
- *
- * Returns:
- *    The new Lua state.
- */
-lua_State *frrlua_initialize(const char *file);
-
-/*
  * Pushes a new table containing relevant fields from a prefix structure.
  *
  * Additionally sets the global variable "prefix" to point at this table.

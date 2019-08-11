@@ -194,38 +194,4 @@ enum frrlua_rm_status frrlua_run_rm_rule(lua_State *L, const char *rule)
 	return status;
 }
 
-/* Initialization */
-
-static void *frrlua_alloc(void *ud, void *ptr, size_t osize, size_t nsize)
-{
-	(void)ud;
-	(void)osize; /* not used */
-
-	if (nsize == 0) {
-		free(ptr);
-		return NULL;
-	} else
-		return realloc(ptr, nsize);
-}
-
-lua_State *frrlua_initialize(const char *file)
-{
-	int status;
-	lua_State *L = lua_newstate(frrlua_alloc, NULL);
-
-	luaL_openlibs(L);
-	if (file) {
-		status = luaL_loadfile(L, file);
-		if (status) {
-			zlog_debug("Failure to open %s %d", file, status);
-			lua_close(L);
-			return NULL;
-		}
-		lua_pcall(L, 0, LUA_MULTRET, 0);
-	}
-
-	return L;
-}
-
-
 #endif
