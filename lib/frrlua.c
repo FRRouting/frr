@@ -25,6 +25,7 @@
 #include "prefix.h"
 #include "frrlua.h"
 #include "log.h"
+#include "buffer.h"
 
 /*
  * FRR convenience functions.
@@ -168,6 +169,51 @@ void frrlua_export_logging(lua_State *L)
 	lua_newtable(L);
 	luaL_setfuncs(L, log_funcs, 0);
 	lua_setfield(L, -2, "log");
+}
+
+/*
+ * Debugging.
+ */
+
+char *frrlua_stackdump(lua_State *L)
+{
+	int top = lua_gettop(L);
+
+	char tmpbuf[64];
+	struct buffer *buf = buffer_new(4098);
+
+	for (int i = 1; i <= top; i++) {
+		int t = lua_type(L, i);
+
+		switch (t) {
+		case LUA_TSTRING: /* strings */
+			snprintf(tmpbuf, sizeof(tmpbuf), "\"%s\"\n",
+				 lua_tostring(L, i));
+			buffer_putstr(buf, tmpbuf);
+			break;
+		case LUA_TBOOLEAN: /* booleans */
+			snprintf(tmpbuf, sizeof(tmpbuf), "%s\n",
+				 lua_toboolean(L, i) ? "true" : "false");
+			buffer_putstr(buf, tmpbuf);
+			break;
+		case LUA_TNUMBER: /* numbers */
+			snprintf(tmpbuf, sizeof(tmpbuf), "%g\n",
+				 lua_tonumber(L, i));
+			buffer_putstr(buf, tmpbuf);
+			break;
+		default: /* other values */
+			snprintf(tmpbuf, sizeof(tmpbuf), "%s\n",
+				 lua_typename(L, t));
+			buffer_putstr(buf, tmpbuf);
+			break;
+		}
+	}
+
+	char *result = XSTRDUP(MTYPE_TMP, buffer_getstr(buf));
+
+	buffer_free(buf);
+
+	return result;
 }
 
 #endif

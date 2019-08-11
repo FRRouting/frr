@@ -74,6 +74,13 @@ int frrlua_table_get_integer(lua_State *L, const char *key);
  */
 void frrlua_export_logging(lua_State *L);
 
+/*
+ * Dump Lua stack to a string.
+ *
+ * Return value must be freed with XFREE(MTYPE_TMP, ...);
+ */
+char *frrlua_stackdump(lua_State *L);
+
 #ifdef __cplusplus
 }
 #endif
