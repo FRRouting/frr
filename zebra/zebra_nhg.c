@@ -820,11 +820,21 @@ static int nhg_ctx_process_del(struct nhg_ctx *ctx)
 
 static void nhg_ctx_process_finish(struct nhg_ctx *ctx)
 {
+	struct nexthop *nh;
+
 	/*
 	 * Just freeing for now, maybe do something more in the future
 	 * based on flag.
 	 */
 
+	if (nhg_ctx_get_count(ctx))
+		goto done;
+
+	nh = nhg_ctx_get_nh(ctx);
+
+	nexthop_del_labels(nh);
+
+done:
 	if (ctx)
 		nhg_ctx_free(ctx);
 }
