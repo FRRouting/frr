@@ -387,28 +387,13 @@ unsigned int nexthop_level(struct nexthop *nexthop)
 	return rv;
 }
 
-#define GATE_SIZE 4 /* Number of uint32_t words in struct g_addr */
-
-uint32_t nexthop_hash(const struct nexthop *nexthop)
+/* Only hash word-sized things, let cmp do the rest. */
+uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 {
-
 	uint32_t key = 0x45afe398;
-	uint32_t gate_src_rmap_raw[GATE_SIZE * 3] = {};
 
 	key = jhash_3words(nexthop->type, nexthop->vrf_id,
 			   nexthop->nh_label_type, key);
-
-	assert(((sizeof(nexthop->gate) + sizeof(nexthop->src)
-		 + sizeof(nexthop->rmap_src))
-		/ 3)
-	       == (GATE_SIZE * sizeof(uint32_t)));
-
-	memcpy(gate_src_rmap_raw, &nexthop->gate, GATE_SIZE);
-	memcpy(gate_src_rmap_raw + GATE_SIZE, &nexthop->src, GATE_SIZE);
-	memcpy(gate_src_rmap_raw + (2 * GATE_SIZE), &nexthop->rmap_src,
-	       GATE_SIZE);
-
-	key = jhash2(gate_src_rmap_raw, (GATE_SIZE * 3), key);
 
 	if (nexthop->nh_label) {
 		int labels = nexthop->nh_label->num_labels;
@@ -438,6 +423,31 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 	key = jhash_2words(nexthop->ifindex,
 			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK),
 			   key);
+
+	return key;
+}
+
+
+#define GATE_SIZE 4 /* Number of uint32_t words in struct g_addr */
+
+/* For a more granular hash */
+uint32_t nexthop_hash(const struct nexthop *nexthop)
+{
+	uint32_t gate_src_rmap_raw[GATE_SIZE * 3] = {};
+	/* Get all the quick stuff */
+	uint32_t key = nexthop_hash_quick(nexthop);
+
+	assert(((sizeof(nexthop->gate) + sizeof(nexthop->src)
+		 + sizeof(nexthop->rmap_src))
+		/ 3)
+	       == (GATE_SIZE * sizeof(uint32_t)));
+
+	memcpy(gate_src_rmap_raw, &nexthop->gate, GATE_SIZE);
+	memcpy(gate_src_rmap_raw + GATE_SIZE, &nexthop->src, GATE_SIZE);
+	memcpy(gate_src_rmap_raw + (2 * GATE_SIZE), &nexthop->rmap_src,
+	       GATE_SIZE);
+
+	key = jhash2(gate_src_rmap_raw, (GATE_SIZE * 3), key);
 
 	return key;
 }

@@ -137,6 +137,14 @@ void nexthop_del_labels(struct nexthop *);
  *    32-bit hash of nexthop
  */
 uint32_t nexthop_hash(const struct nexthop *nexthop);
+/*
+ * Hash a nexthop only on word-sized attributes:
+ * - vrf_id
+ * - ifindex
+ * - type
+ * - (some) flags
+ */
+uint32_t nexthop_hash_quick(const struct nexthop *nexthop);
 
 extern bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2);
 extern bool nexthop_same_no_labels(const struct nexthop *nh1,
