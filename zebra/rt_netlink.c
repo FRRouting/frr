@@ -1074,6 +1074,35 @@ static void _netlink_route_rta_add_gateway_info(uint8_t route_family,
 	}
 }
 
+static int build_label_stack(struct mpls_label_stack *nh_label,
+			     mpls_lse_t *out_lse, char *label_buf,
+			     size_t label_buf_size)
+{
+	char label_buf1[20];
+	int num_labels = 0;
+
+	for (int i = 0; nh_label && i < nh_label->num_labels; i++) {
+		if (nh_label->label[i] == MPLS_LABEL_IMPLICIT_NULL)
+			continue;
+
+		if (IS_ZEBRA_DEBUG_KERNEL) {
+			if (!num_labels)
+				sprintf(label_buf, "label %u",
+					nh_label->label[i]);
+			else {
+				sprintf(label_buf1, "/%u", nh_label->label[i]);
+				strlcat(label_buf, label_buf1, label_buf_size);
+			}
+		}
+
+		out_lse[num_labels] =
+			mpls_lse_encode(nh_label->label[i], 0, 0, 0);
+		num_labels++;
+	}
+
+	return num_labels;
+}
+
 /* This function takes a nexthop as argument and adds
  * the appropriate netlink attributes to an existing
  * netlink message.
@@ -1091,10 +1120,12 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 					    struct rtmsg *rtmsg,
 					    size_t req_size, int cmd)
 {
-	struct mpls_label_stack *nh_label;
+
 	mpls_lse_t out_lse[MPLS_MAX_LABELS];
-	int num_labels = 0;
 	char label_buf[256];
+	int num_labels = 0;
+
+	assert(nexthop);
 
 	/*
 	 * label_buf is *only* currently used within debugging.
@@ -1104,30 +1135,8 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 	 */
 	label_buf[0] = '\0';
 
-	assert(nexthop);
-	char label_buf1[20];
-
-	nh_label = nexthop->nh_label;
-
-	for (int i = 0; nh_label && i < nh_label->num_labels; i++) {
-		if (nh_label->label[i] == MPLS_LABEL_IMPLICIT_NULL)
-			continue;
-
-		if (IS_ZEBRA_DEBUG_KERNEL) {
-			if (!num_labels)
-				sprintf(label_buf, "label %u",
-					nh_label->label[i]);
-			else {
-				sprintf(label_buf1, "/%u", nh_label->label[i]);
-				strlcat(label_buf, label_buf1,
-					sizeof(label_buf));
-			}
-		}
-
-		out_lse[num_labels] =
-			mpls_lse_encode(nh_label->label[i], 0, 0, 0);
-		num_labels++;
-	}
+	num_labels = build_label_stack(nexthop->nh_label, out_lse, label_buf,
+				       sizeof(label_buf));
 
 	if (num_labels) {
 		/* Set the BoS bit */
@@ -1272,15 +1281,16 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 					   struct rtmsg *rtmsg,
 					   const union g_addr **src)
 {
-	struct mpls_label_stack *nh_label;
 	mpls_lse_t out_lse[MPLS_MAX_LABELS];
-	int num_labels = 0;
 	char label_buf[256];
+	int num_labels = 0;
 
 	rtnh->rtnh_len = sizeof(*rtnh);
 	rtnh->rtnh_flags = 0;
 	rtnh->rtnh_hops = 0;
 	rta->rta_len += rtnh->rtnh_len;
+
+	assert(nexthop);
 
 	/*
 	 * label_buf is *only* currently used within debugging.
@@ -1290,30 +1300,8 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 	 */
 	label_buf[0] = '\0';
 
-	assert(nexthop);
-	char label_buf1[20];
-
-	nh_label = nexthop->nh_label;
-
-	for (int i = 0; nh_label && i < nh_label->num_labels; i++) {
-		if (nh_label->label[i] == MPLS_LABEL_IMPLICIT_NULL)
-			continue;
-
-		if (IS_ZEBRA_DEBUG_KERNEL) {
-			if (!num_labels)
-				sprintf(label_buf, "label %u",
-					nh_label->label[i]);
-			else {
-				sprintf(label_buf1, "/%u", nh_label->label[i]);
-				strlcat(label_buf, label_buf1,
-					sizeof(label_buf));
-			}
-		}
-
-		out_lse[num_labels] =
-			mpls_lse_encode(nh_label->label[i], 0, 0, 0);
-		num_labels++;
-	}
+	num_labels = build_label_stack(nexthop->nh_label, out_lse, label_buf,
+				       sizeof(label_buf));
 
 	if (num_labels) {
 		/* Set the BoS bit */
