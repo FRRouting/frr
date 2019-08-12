@@ -3023,7 +3023,7 @@ void zebra_dplane_start(void)
 	/* Start dataplane pthread */
 
 	zdplane_info.dg_pthread = frr_pthread_new(&pattr, "Zebra dplane thread",
-						  "Zebra dplane");
+						  "zebra_dplane");
 
 	zdplane_info.dg_master = zdplane_info.dg_pthread->master;
 
