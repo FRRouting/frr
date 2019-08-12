@@ -37,7 +37,9 @@
 #include "if_rmap.h"
 #include "plist.h"
 #include "distribute.h"
+#ifdef CRYPTO_INTERNAL
 #include "md5.h"
+#endif
 #include "keychain.h"
 #include "privs.h"
 #include "lib_errors.h"
@@ -870,7 +872,11 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 	struct rip_md5_data *md5data;
 	struct keychain *keychain;
 	struct key *key;
+#ifdef CRYPTO_OPENSSL
+	EVP_MD_CTX *ctx;
+#elif CRYPTO_INTERNAL
 	MD5_CTX ctx;
+#endif
 	uint8_t digest[RIP_AUTH_MD5_SIZE];
 	uint16_t packet_len;
 	char auth_str[RIP_AUTH_MD5_SIZE] = {};
@@ -934,11 +940,21 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 		return 0;
 
 	/* MD5 digest authentication. */
+#ifdef CRYPTO_OPENSSL
+	unsigned int md5_size = RIP_AUTH_MD5_SIZE;
+	ctx = EVP_MD_CTX_new();
+	EVP_DigestInit(ctx, EVP_md5());
+	EVP_DigestUpdate(ctx, packet, packet_len + RIP_HEADER_SIZE);
+	EVP_DigestUpdate(ctx, auth_str, RIP_AUTH_MD5_SIZE);
+	EVP_DigestFinal(ctx, digest, &md5_size);
+	EVP_MD_CTX_free(ctx);
+#elif CRYPTO_INTERNAL
 	memset(&ctx, 0, sizeof(ctx));
 	MD5Init(&ctx);
 	MD5Update(&ctx, packet, packet_len + RIP_HEADER_SIZE);
 	MD5Update(&ctx, auth_str, RIP_AUTH_MD5_SIZE);
 	MD5Final(digest, &ctx);
+#endif
 
 	if (memcmp(md5data->digest, digest, RIP_AUTH_MD5_SIZE) == 0)
 		return packet_len;
@@ -1063,7 +1079,11 @@ static void rip_auth_md5_set(struct stream *s, struct rip_interface *ri,
 			     size_t doff, char *auth_str, int authlen)
 {
 	unsigned long len;
+#ifdef CRYPTO_OPENSSL
+	EVP_MD_CTX *ctx;
+#elif CRYPTO_INTERNAL
 	MD5_CTX ctx;
+#endif
 	unsigned char digest[RIP_AUTH_MD5_SIZE];
 
 	/* Make it sure this interface is configured as MD5
@@ -1092,11 +1112,21 @@ static void rip_auth_md5_set(struct stream *s, struct rip_interface *ri,
 	stream_putw(s, RIP_AUTH_DATA);
 
 	/* Generate a digest for the RIP packet. */
+#ifdef CRYPTO_OPENSSL
+	unsigned int md5_size = RIP_AUTH_MD5_SIZE;
+	ctx = EVP_MD_CTX_new();
+	EVP_DigestInit(ctx, EVP_md5());
+	EVP_DigestUpdate(ctx, STREAM_DATA(s), stream_get_endp(s));
+	EVP_DigestUpdate(ctx, auth_str, RIP_AUTH_MD5_SIZE);
+	EVP_DigestFinal(ctx, digest, &md5_size);
+	EVP_MD_CTX_free(ctx);
+#elif CRYPTO_INTERNAL
 	memset(&ctx, 0, sizeof(ctx));
 	MD5Init(&ctx);
 	MD5Update(&ctx, STREAM_DATA(s), stream_get_endp(s));
 	MD5Update(&ctx, auth_str, RIP_AUTH_MD5_SIZE);
 	MD5Final(digest, &ctx);
+#endif
 
 	/* Copy the digest to the packet. */
 	stream_write(s, digest, RIP_AUTH_MD5_SIZE);

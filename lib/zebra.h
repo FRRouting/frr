@@ -134,6 +134,10 @@ typedef unsigned char uint8_t;
 #endif
 #endif
 
+#ifdef CRYPTO_OPENSSL
+#include <openssl/evp.h>
+#endif
+
 #include "openbsd-tree.h"
 
 #include <netinet/in.h>

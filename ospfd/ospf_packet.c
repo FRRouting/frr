@@ -33,7 +33,9 @@
 #include "log.h"
 #include "sockopt.h"
 #include "checksum.h"
+#ifdef CRYPTO_INTERNAL
 #include "md5.h"
+#endif
 #include "vrf.h"
 #include "lib_errors.h"
 
@@ -332,7 +334,11 @@ static unsigned int ospf_packet_max(struct ospf_interface *oi)
 static int ospf_check_md5_digest(struct ospf_interface *oi,
 				 struct ospf_header *ospfh)
 {
+#ifdef CRYPTO_OPENSSL
+	EVP_MD_CTX *ctx;
+#elif CRYPTO_INTERNAL
 	MD5_CTX ctx;
+#endif
 	unsigned char digest[OSPF_AUTH_MD5_SIZE];
 	struct crypt_key *ck;
 	struct ospf_neighbor *nbr;
@@ -361,11 +367,21 @@ static int ospf_check_md5_digest(struct ospf_interface *oi,
 	}
 
 	/* Generate a digest for the ospf packet - their digest + our digest. */
+#ifdef CRYPTO_OPENSSL
+	unsigned int md5_size = OSPF_AUTH_MD5_SIZE;
+	ctx = EVP_MD_CTX_new();
+	EVP_DigestInit(ctx, EVP_md5());
+	EVP_DigestUpdate(ctx, ospfh, length);
+	EVP_DigestUpdate(ctx, ck->auth_key, OSPF_AUTH_MD5_SIZE);
+	EVP_DigestFinal(ctx, digest, &md5_size);
+	EVP_MD_CTX_free(ctx);
+#elif CRYPTO_INTERNAL
 	memset(&ctx, 0, sizeof(ctx));
 	MD5Init(&ctx);
 	MD5Update(&ctx, ospfh, length);
 	MD5Update(&ctx, ck->auth_key, OSPF_AUTH_MD5_SIZE);
 	MD5Final(digest, &ctx);
+#endif
 
 	/* compare the two */
 	if (memcmp((caddr_t)ospfh + length, digest, OSPF_AUTH_MD5_SIZE)) {
@@ -389,7 +405,11 @@ static int ospf_make_md5_digest(struct ospf_interface *oi,
 {
 	struct ospf_header *ospfh;
 	unsigned char digest[OSPF_AUTH_MD5_SIZE] = {0};
+#ifdef CRYPTO_OPENSSL
+	EVP_MD_CTX *ctx;
+#elif CRYPTO_INTERNAL
 	MD5_CTX ctx;
+#endif
 	void *ibuf;
 	uint32_t t;
 	struct crypt_key *ck;
@@ -422,11 +442,21 @@ static int ospf_make_md5_digest(struct ospf_interface *oi,
 	}
 
 	/* Generate a digest for the entire packet + our secret key. */
+#ifdef CRYPTO_OPENSSL
+	unsigned int md5_size = OSPF_AUTH_MD5_SIZE;
+	ctx = EVP_MD_CTX_new();
+	EVP_DigestInit(ctx, EVP_md5());
+	EVP_DigestUpdate(ctx, ibuf, ntohs(ospfh->length));
+	EVP_DigestUpdate(ctx, auth_key, OSPF_AUTH_MD5_SIZE);
+	EVP_DigestFinal(ctx, digest, &md5_size);
+	EVP_MD_CTX_free(ctx);
+#elif CRYPTO_INTERNAL
 	memset(&ctx, 0, sizeof(ctx));
 	MD5Init(&ctx);
 	MD5Update(&ctx, ibuf, ntohs(ospfh->length));
 	MD5Update(&ctx, auth_key, OSPF_AUTH_MD5_SIZE);
 	MD5Final(digest, &ctx);
+#endif
 
 	/* Append md5 digest to the end of the stream. */
 	stream_put(op->s, digest, OSPF_AUTH_MD5_SIZE);
