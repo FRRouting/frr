@@ -596,12 +596,61 @@ static void bgp_clear_vty_error(struct vty *vty, struct peer *peer, afi_t afi,
 	}
 }
 
+static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
+			  struct listnode *nnode, enum bgp_clear_type stype)
+{
+	int ret = 0;
+
+	/* if afi/.safi not specified, spin thru all of them */
+	if ((afi == AFI_UNSPEC) && (safi == SAFI_UNSPEC)) {
+		afi_t tmp_afi;
+		safi_t tmp_safi;
+
+		FOREACH_AFI_SAFI (tmp_afi, tmp_safi) {
+			if (!peer->afc[tmp_afi][tmp_safi])
+				continue;
+
+			if (stype == BGP_CLEAR_SOFT_NONE)
+				ret = peer_clear(peer, &nnode);
+			else
+				ret = peer_clear_soft(peer, tmp_afi, tmp_safi,
+						      stype);
+		}
+	/* if afi specified and safi not, spin thru safis on this afi */
+	} else if (safi == SAFI_UNSPEC) {
+		safi_t tmp_safi;
+
+		for (tmp_safi = SAFI_UNICAST;
+		     tmp_safi < SAFI_MAX; tmp_safi++) {
+			if (!peer->afc[afi][tmp_safi])
+				continue;
+
+			if (stype == BGP_CLEAR_SOFT_NONE)
+				ret = peer_clear(peer, &nnode);
+			else
+				ret = peer_clear_soft(peer, afi,
+						      tmp_safi, stype);
+		}
+	/* both afi/safi specified, let the caller know if not defined */
+	} else {
+		if (!peer->afc[afi][safi])
+			return 1;
+
+		if (stype == BGP_CLEAR_SOFT_NONE)
+			ret = peer_clear(peer, &nnode);
+		else
+			ret = peer_clear_soft(peer, afi, safi, stype);
+	}
+
+	return ret;
+}
+
 /* `clear ip bgp' functions. */
 static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		     enum clear_sort sort, enum bgp_clear_type stype,
 		     const char *arg)
 {
-	int ret;
+	int ret = 0;
 	bool found = false;
 	struct peer *peer;
 	struct listnode *node, *nnode;
@@ -614,13 +663,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	 */
 	if (sort == clear_all) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (!peer->afc[afi][safi])
-				continue;
-
-			if (stype == BGP_CLEAR_SOFT_NONE)
-				ret = peer_clear(peer, &nnode);
-			else
-				ret = peer_clear_soft(peer, afi, safi, stype);
+			ret = bgp_peer_clear(peer, afi, safi, nnode,
+							  stype);
 
 			if (ret < 0)
 				bgp_clear_vty_error(vty, peer, afi, safi, ret);
@@ -660,12 +704,11 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			}
 		}
 
-		if (!peer->afc[afi][safi])
+		ret = bgp_peer_clear(peer, afi, safi, NULL, stype);
+
+		/* if afi/safi not defined for this peer, let caller know */
+		if (ret == 1)
 			ret = BGP_ERR_AF_UNCONFIGURED;
-		else if (stype == BGP_CLEAR_SOFT_NONE)
-			ret = peer_clear(peer, NULL);
-		else
-			ret = peer_clear_soft(peer, afi, safi, stype);
 
 		if (ret < 0)
 			bgp_clear_vty_error(vty, peer, afi, safi, ret);
@@ -684,13 +727,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		}
 
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			if (!peer->afc[afi][safi])
-				continue;
-
-			if (stype == BGP_CLEAR_SOFT_NONE)
-				ret = peer_clear(peer, NULL);
-			else
-				ret = peer_clear_soft(peer, afi, safi, stype);
+			ret = bgp_peer_clear(peer, afi, safi, nnode, stype);
 
 			if (ret < 0)
 				bgp_clear_vty_error(vty, peer, afi, safi, ret);
@@ -712,13 +749,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			if (peer->sort == BGP_PEER_IBGP)
 				continue;
 
-			if (!peer->afc[afi][safi])
-				continue;
-
-			if (stype == BGP_CLEAR_SOFT_NONE)
-				ret = peer_clear(peer, &nnode);
-			else
-				ret = peer_clear_soft(peer, afi, safi, stype);
+			ret = bgp_peer_clear(peer, afi, safi, nnode, stype);
 
 			if (ret < 0)
 				bgp_clear_vty_error(vty, peer, afi, safi, ret);
@@ -742,12 +773,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			if (peer->as != as)
 				continue;
 
-			if (!peer->afc[afi][safi])
-				ret = BGP_ERR_AF_UNCONFIGURED;
-			else if (stype == BGP_CLEAR_SOFT_NONE)
-				ret = peer_clear(peer, &nnode);
-			else
-				ret = peer_clear_soft(peer, afi, safi, stype);
+			ret = bgp_peer_clear(peer, afi, safi, nnode, stype);
 
 			if (ret < 0)
 				bgp_clear_vty_error(vty, peer, afi, safi, ret);
@@ -7238,8 +7264,8 @@ DEFUN (clear_ip_bgp_all,
 {
 	char *vrf = NULL;
 
-	afi_t afi = AFI_IP6;
-	safi_t safi = SAFI_UNICAST;
+	afi_t afi = AFI_UNSPEC;
+	safi_t safi = SAFI_UNSPEC;
 	enum clear_sort clr_sort = clear_peer;
 	enum bgp_clear_type clr_type;
 	char *clr_arg = NULL;
