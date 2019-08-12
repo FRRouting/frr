@@ -916,6 +916,7 @@ int main(void)
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 
+	frr_pthread_init();
 	bgp_pthreads_init();
 	bgp_pth_ka->running = true;
 
