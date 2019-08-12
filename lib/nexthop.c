@@ -435,19 +435,9 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 			key = jhash_1word(nexthop->nh_label->label[i], key);
 	}
 
-	switch (nexthop->type) {
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
-	case NEXTHOP_TYPE_IFINDEX:
-		key = jhash_1word(nexthop->ifindex, key);
-		break;
-	case NEXTHOP_TYPE_BLACKHOLE:
-	case NEXTHOP_TYPE_IPV4:
-	case NEXTHOP_TYPE_IPV6:
-		break;
-	}
-
-	key = jhash_1word(CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK), key);
+	key = jhash_2words(nexthop->ifindex,
+			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK),
+			   key);
 
 	return key;
 }
