@@ -561,6 +561,11 @@ static void nhg_ctx_free(struct nhg_ctx *ctx)
 	XFREE(MTYPE_NHG_CTX, ctx);
 }
 
+static uint32_t nhg_ctx_get_id(const struct nhg_ctx *ctx)
+{
+	return ctx->id;
+}
+
 static void nhg_ctx_set_status(struct nhg_ctx *ctx, enum nhg_ctx_result status)
 {
 	ctx->status = status;
@@ -579,6 +584,36 @@ static void nhg_ctx_set_op(struct nhg_ctx *ctx, enum nhg_ctx_op_e op)
 static enum nhg_ctx_op_e nhg_ctx_get_op(const struct nhg_ctx *ctx)
 {
 	return ctx->op;
+}
+
+static vrf_id_t nhg_ctx_get_vrf_id(const struct nhg_ctx *ctx)
+{
+	return ctx->vrf_id;
+}
+
+static int nhg_ctx_get_type(const struct nhg_ctx *ctx)
+{
+	return ctx->type;
+}
+
+static int nhg_ctx_get_afi(const struct nhg_ctx *ctx)
+{
+	return ctx->afi;
+}
+
+static struct nexthop *nhg_ctx_get_nh(struct nhg_ctx *ctx)
+{
+	return &ctx->u.nh;
+}
+
+static uint8_t nhg_ctx_get_count(const struct nhg_ctx *ctx)
+{
+	return ctx->count;
+}
+
+static struct nh_grp *nhg_ctx_get_grp(struct nhg_ctx *ctx)
+{
+	return ctx->u.grp;
 }
 
 static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
@@ -689,7 +724,13 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	struct nhg_hash_entry *lookup = NULL;
 	struct nhg_hash_entry *nhe = NULL;
 
-	lookup = zebra_nhg_lookup_id(ctx->id);
+	uint32_t id = nhg_ctx_get_id(ctx);
+	uint8_t count = nhg_ctx_get_count(ctx);
+	vrf_id_t vrf_id = nhg_ctx_get_vrf_id(ctx);
+	int type = nhg_ctx_get_type(ctx);
+	afi_t afi = nhg_ctx_get_afi(ctx);
+
+	lookup = zebra_nhg_lookup_id(id);
 
 	if (lookup) {
 		/* This is already present in our table, hence an update
@@ -699,22 +740,22 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 		return 0;
 	}
 
-	if (ctx->count) {
+	if (nhg_ctx_get_count(ctx)) {
 		nhg = nexthop_group_new();
-		zebra_nhg_process_grp(nhg, &nhg_depends, ctx->u.grp,
-				      ctx->count);
-		if (!zebra_nhg_find(&nhe, ctx->id, nhg, &nhg_depends,
-				    ctx->vrf_id, ctx->type, ctx->afi))
+		zebra_nhg_process_grp(nhg, &nhg_depends, nhg_ctx_get_grp(ctx),
+				      count);
+		if (!zebra_nhg_find(&nhe, id, nhg, &nhg_depends, vrf_id, type,
+				    afi))
 			depends_decrement_free(&nhg_depends);
 
 		/* These got copied over in zebra_nhg_alloc() */
 		nexthop_group_free_delete(&nhg);
 	} else
-		nhe = zebra_nhg_find_nexthop(ctx->id, &ctx->u.nh, ctx->afi,
-					     ctx->type);
+		nhe = zebra_nhg_find_nexthop(id, nhg_ctx_get_nh(ctx), afi,
+					     type);
 
 	if (nhe) {
-		if (ctx->id != nhe->id) {
+		if (id != nhe->id) {
 			struct nhg_hash_entry *kernel_nhe = NULL;
 
 			/* Duplicate but with different ID from
@@ -731,7 +772,7 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 			 * track them.
 			 */
 
-			kernel_nhe = zebra_nhg_copy(nhe, ctx->id);
+			kernel_nhe = zebra_nhg_copy(nhe, id);
 			zebra_nhg_insert_id(kernel_nhe);
 			zebra_nhg_set_dup(kernel_nhe);
 		} else if (zebra_nhg_contains_dup(nhe)) {
@@ -750,7 +791,7 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 		flog_err(
 			EC_ZEBRA_TABLE_LOOKUP_FAILED,
 			"Zebra failed to find or create a nexthop hash entry for ID (%u)",
-			ctx->id);
+			id);
 		return -1;
 	}
 
@@ -760,14 +801,15 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 static int nhg_ctx_process_del(struct nhg_ctx *ctx)
 {
 	struct nhg_hash_entry *nhe = NULL;
+	uint32_t id = nhg_ctx_get_id(ctx);
 
-	nhe = zebra_nhg_lookup_id(ctx->id);
+	nhe = zebra_nhg_lookup_id(id);
 
 	if (!nhe) {
 		flog_warn(
 			EC_ZEBRA_BAD_NHG_MESSAGE,
 			"Kernel delete message received for nexthop group ID (%u) that we do not have in our ID table",
-			ctx->id);
+			id);
 		return -1;
 	}
 
