@@ -2138,20 +2138,40 @@ Dumping Messages and Routing Tables
 Other BGP Commands
 ------------------
 
+.. index:: clear bgp \*
+.. clicmd:: clear bgp \*
+
+   Clear all peers.
+
 .. index:: clear bgp ipv4|ipv6 \*
 .. clicmd:: clear bgp ipv4|ipv6 \*
 
-   Clear all address family peers.
+   Clear all peers with this address-family activated.
+
+.. index:: clear bgp ipv4|ipv6 unicast \*
+.. clicmd:: clear bgp ipv4|ipv6 unicast \*
+
+   Clear all peers with this address-family and sub-address-family activated.
 
 .. index:: clear bgp ipv4|ipv6 PEER
 .. clicmd:: clear bgp ipv4|ipv6 PEER
 
-   Clear peers which have addresses of X.X.X.X
+   Clear peers with address of X.X.X.X and this address-family activated.
 
-.. index:: clear bgp ipv4|ipv6 PEER soft in
-.. clicmd:: clear bgp ipv4|ipv6 PEER soft in
+.. index:: clear bgp ipv4|ipv6 unicast PEER
+.. clicmd:: clear bgp ipv4|ipv6 unicast PEER
 
-   Clear peer using soft reconfiguration.
+   Clear peer with address of X.X.X.X and this address-family and sub-address-family activated.
+
+.. index:: clear bgp ipv4|ipv6 PEER soft|in|out
+.. clicmd:: clear bgp ipv4|ipv6 PEER soft|in|out
+
+   Clear peer using soft reconfiguration in this address-family.
+
+.. index:: clear bgp ipv4|ipv6 unicast PEER soft|in|out
+.. clicmd:: clear bgp ipv4|ipv6 unicast PEER soft|in|out
+
+   Clear peer using soft reconfiguration in this address-family and sub-address-family.
 
 
 .. _bgp-displaying-bgp-information:

@@ -360,6 +360,7 @@ typedef enum {
 
 /* Subsequent Address Family Identifier. */
 typedef enum {
+	SAFI_UNSPEC = 0,
 	SAFI_UNICAST = 1,
 	SAFI_MULTICAST = 2,
 	SAFI_MPLS_VPN = 3,
