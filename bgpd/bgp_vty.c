@@ -14478,12 +14478,13 @@ ALIAS (show_community_list,
 
 DEFUN (show_community_list_arg,
        show_bgp_community_list_arg_cmd,
-       "show bgp community-list <(1-500)|WORD>",
+       "show bgp community-list <(1-500)|WORD> detail",
        SHOW_STR
        BGP_STR
        "List community-list\n"
        "Community-list number\n"
-       "Community-list name\n")
+       "Community-list name\n"
+       "Detailed information on community-list\n")
 {
 	int idx_comm_list = 3;
 	struct community_list *list;
@@ -14492,8 +14493,8 @@ DEFUN (show_community_list_arg,
 	if (argv_find(argv, argc, "ip", &idx)) {
 		vty_out(vty, "This config option is deprecated, and is scheduled for removal.\n");
 		vty_out(vty, "if you are using this please migrate to the below command.\n");
-		vty_out(vty, "'show bgp community-list <(1-500)|WORD>'\n");
-		zlog_warn("Deprecated option: 'ip show community-list <(1-500)|WORD>' being used");
+		vty_out(vty, "'show bgp community-list <(1-500)|WORD> detail'\n");
+		zlog_warn("Deprecated option: 'show ip community-list <(1-500)|WORD>' being used");
 	}
 	list = community_list_lookup(bgp_clist, argv[idx_comm_list]->arg, 0,
 				     COMMUNITY_LIST_MASTER);
@@ -14957,12 +14958,13 @@ ALIAS (show_lcommunity_list,
 
 DEFUN (show_lcommunity_list_arg,
        show_bgp_lcommunity_list_arg_cmd,
-       "show bgp large-community-list <(1-500)|WORD>",
+       "show bgp large-community-list <(1-500)|WORD> detail",
        SHOW_STR
        BGP_STR
        "List large-community list\n"
-       "large-community-list number\n"
-       "large-community-list name\n")
+       "Large-community-list number\n"
+       "Large-community-list name\n"
+       "Detailed information on large-community-list\n")
 {
 	struct community_list *list;
 	int idx = 0;
@@ -14970,14 +14972,14 @@ DEFUN (show_lcommunity_list_arg,
 	if (argv_find(argv, argc, "ip", &idx)) {
 		vty_out(vty, "This config option is deprecated, and is scheduled for removal.\n");
 		vty_out(vty, "if you are using this please migrate to the below command.\n");
-		vty_out(vty, "'show bgp large-community-list <(1-500)|WORD>'\n");
-		zlog_warn("Deprecated option: 'ip show large-community-list <(1-500)|WORD>' being used");
+		vty_out(vty, "'show bgp large-community-list <(1-500)|WORD> detail'\n");
+		zlog_warn("Deprecated option: 'show ip large-community-list <(1-500)|WORD>' being used");
 	}
 
 	list = community_list_lookup(bgp_clist, argv[3]->arg, 0,
 				     LARGE_COMMUNITY_LIST_MASTER);
 	if (!list) {
-		vty_out(vty, "%% Can't find extcommunity-list\n");
+		vty_out(vty, "%% Can't find large-community-list\n");
 		return CMD_WARNING;
 	}
 
@@ -15358,12 +15360,13 @@ ALIAS (show_extcommunity_list,
 
 DEFUN (show_extcommunity_list_arg,
        show_bgp_extcommunity_list_arg_cmd,
-       "show bgp extcommunity-list <(1-500)|WORD>",
+       "show bgp extcommunity-list <(1-500)|WORD> detail",
        SHOW_STR
        BGP_STR
        "List extended-community list\n"
        "Extcommunity-list number\n"
-       "Extcommunity-list name\n")
+       "Extcommunity-list name\n"
+       "Detailed information on extcommunity-list\n")
 {
 	int idx_comm_list = 3;
 	struct community_list *list;
@@ -15372,8 +15375,8 @@ DEFUN (show_extcommunity_list_arg,
 	if (argv_find(argv, argc, "ip", &idx)) {
 		vty_out(vty, "This config option is deprecated, and is scheduled for removal.\n");
 		vty_out(vty, "if you are using this please migrate to the below command.\n");
-		vty_out(vty, "'show bgp extcommunity-list <(1-500)|WORD>'\n");
-		zlog_warn("Deprecated option: 'ip show extcommunity-list <(1-500)|WORD>' being used");
+		vty_out(vty, "'show bgp extcommunity-list <(1-500)|WORD> detail'\n");
+		zlog_warn("Deprecated option: 'show ip extcommunity-list <(1-500)|WORD>' being used");
 	}
 	list = community_list_lookup(bgp_clist, argv[idx_comm_list]->arg, 0,
 				     EXTCOMMUNITY_LIST_MASTER);
