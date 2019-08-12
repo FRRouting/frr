@@ -50,6 +50,7 @@
 #include "vty.h"
 #include "mpls.h"
 #include "vxlan.h"
+#include "printfrr.h"
 
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_ns.h"
@@ -1895,19 +1896,20 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	return suc;
 }
 
-/**
- * _netlink_nexthop_build_group() - Build a nexthop_grp struct for a nlmsg
- *
- * @n:			Netlink message header struct
- * @req_size:		Size allocated for this message
- * @z_grp:		Array of nh_grp structs
- * @count:		How many depencies there are
- */
+/* Char length to debug ID with */
+#define ID_LENGTH 10
+
 static void _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
+					 uint32_t id,
 					 const struct nh_grp *z_grp,
 					 const uint8_t count)
 {
 	struct nexthop_grp grp[count];
+	/* Need space for max group size, "/", and null term */
+	char buf[(MULTIPATH_NUM * (ID_LENGTH + 1)) + 1];
+	char buf1[ID_LENGTH + 2];
+
+	buf[0] = '\0';
 
 	memset(grp, 0, sizeof(grp));
 
@@ -1915,9 +1917,23 @@ static void _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
 		for (int i = 0; i < count; i++) {
 			grp[i].id = z_grp[i].id;
 			grp[i].weight = z_grp[i].weight;
+
+			if (IS_ZEBRA_DEBUG_KERNEL) {
+				if (i == 0)
+					snprintf(buf, sizeof(buf1), "group %u",
+						 grp[i].id);
+				else {
+					snprintf(buf1, sizeof(buf1), "/%u",
+						 grp[i].id);
+					strlcat(buf, buf1, sizeof(buf));
+				}
+			}
 		}
 		addattr_l(n, req_size, NHA_GROUP, grp, count * sizeof(*grp));
 	}
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s: ID (%u): %s", __func__, id, buf);
 }
 
 /**
@@ -1935,11 +1951,18 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 		char buf[NL_PKT_BUF_SIZE];
 	} req;
 
+	mpls_lse_t out_lse[MPLS_MAX_LABELS];
+	char label_buf[256];
+	int num_labels = 0;
+	size_t req_size = sizeof(req);
+
 	/* Nothing to do if the kernel doesn't support nexthop objects */
 	if (!supports_nh)
 		return 0;
 
-	memset(&req, 0, sizeof(req));
+	label_buf[0] = '\0';
+
+	memset(&req, 0, req_size);
 
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct nhmsg));
 	req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
@@ -1962,12 +1985,12 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 		return -1;
 	}
 
-	addattr32(&req.n, sizeof(req), NHA_ID, id);
+	addattr32(&req.n, req_size, NHA_ID, id);
 
 	if (cmd == RTM_NEWNEXTHOP) {
 		if (dplane_ctx_get_nhe_nh_grp_count(ctx))
 			_netlink_nexthop_build_group(
-				&req.n, sizeof(req),
+				&req.n, req_size, id,
 				dplane_ctx_get_nhe_nh_grp(ctx),
 				dplane_ctx_get_nhe_nh_grp_count(ctx));
 		else {
@@ -1983,20 +2006,20 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 			switch (nh->type) {
 			case NEXTHOP_TYPE_IPV4:
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
-				addattr_l(&req.n, sizeof(req), NHA_GATEWAY,
+				addattr_l(&req.n, req_size, NHA_GATEWAY,
 					  &nh->gate.ipv4, IPV4_MAX_BYTELEN);
 				break;
 			case NEXTHOP_TYPE_IPV6:
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
-				addattr_l(&req.n, sizeof(req), NHA_GATEWAY,
+				addattr_l(&req.n, req_size, NHA_GATEWAY,
 					  &nh->gate.ipv6, IPV6_MAX_BYTELEN);
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
-				// TODO: Handle this, Can't have OIF/Encap with
-				// it
-				addattr_l(&req.n, sizeof(req), NHA_BLACKHOLE,
-					  NULL, 0);
-				break;
+				addattr_l(&req.n, req_size, NHA_BLACKHOLE, NULL,
+					  0);
+				/* Blackhole shouldn't have anymore attributes
+				 */
+				goto nexthop_done;
 			case NEXTHOP_TYPE_IFINDEX:
 				/* Don't need anymore info for this */
 				break;
@@ -2009,8 +2032,53 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 				return -1;
 			}
 
-			addattr32(&req.n, sizeof(req), NHA_OIF, nh->ifindex);
-			// TODO: Handle Encap
+			addattr32(&req.n, req_size, NHA_OIF, nh->ifindex);
+
+			num_labels =
+				build_label_stack(nh->nh_label, out_lse,
+						  label_buf, sizeof(label_buf));
+
+			if (num_labels) {
+				/* Set the BoS bit */
+				out_lse[num_labels - 1] |=
+					htonl(1 << MPLS_LS_S_SHIFT);
+
+				/*
+				 * TODO: MPLS unsupported for now in kernel.
+				 */
+				if (req.nhm.nh_family == AF_MPLS)
+					goto nexthop_done;
+#if 0
+					addattr_l(&req.n, req_size, NHA_NEWDST,
+						  &out_lse,
+						  num_labels
+							  * sizeof(mpls_lse_t));
+#endif
+				else {
+					struct rtattr *nest;
+					uint16_t encap = LWTUNNEL_ENCAP_MPLS;
+
+					addattr_l(&req.n, req_size,
+						  NHA_ENCAP_TYPE, &encap,
+						  sizeof(uint16_t));
+					nest = addattr_nest(&req.n, req_size,
+							    NHA_ENCAP);
+					addattr_l(&req.n, req_size,
+						  MPLS_IPTUNNEL_DST, &out_lse,
+						  num_labels
+							  * sizeof(mpls_lse_t));
+					addattr_nest_end(&req.n, nest);
+				}
+			}
+
+		nexthop_done:
+			if (IS_ZEBRA_DEBUG_KERNEL) {
+				char buf[NEXTHOP_STRLEN];
+
+				snprintfrr(buf, sizeof(buf), "%pNHv", nh);
+				zlog_debug("%s: ID (%u): %s (%u) %s ", __func__,
+					   id, buf, nh->vrf_id, label_buf);
+			}
 		}
 
 		req.nhm.nh_protocol = zebra2proto(dplane_ctx_get_nhe_type(ctx));
