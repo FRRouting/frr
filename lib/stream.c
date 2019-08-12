@@ -904,18 +904,28 @@ int stream_put_prefix(struct stream *s, struct prefix *p)
 
 /* Put NLRI with label */
 int stream_put_labeled_prefix(struct stream *s, struct prefix *p,
-			      mpls_label_t *label)
+			      mpls_label_t *label, int addpath_encode,
+			      uint32_t addpath_tx_id)
 {
 	size_t psize;
+	size_t psize_with_addpath;
 	uint8_t *label_pnt = (uint8_t *)label;
 
 	STREAM_VERIFY_SANE(s);
 
 	psize = PSIZE(p->prefixlen);
+	psize_with_addpath = psize + (addpath_encode ? 4 : 0);
 
-	if (STREAM_WRITEABLE(s) < (psize + 3)) {
+	if (STREAM_WRITEABLE(s) < (psize_with_addpath + 3)) {
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
+	}
+
+	if (addpath_encode) {
+		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 24);
+		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 16);
+		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 8);
+		s->data[s->endp++] = (uint8_t)addpath_tx_id;
 	}
 
 	stream_putc(s, (p->prefixlen + 24));

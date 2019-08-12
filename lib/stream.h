@@ -199,7 +199,8 @@ extern int stream_put_prefix_addpath(struct stream *, struct prefix *,
 				     uint32_t addpath_tx_id);
 extern int stream_put_prefix(struct stream *, struct prefix *);
 extern int stream_put_labeled_prefix(struct stream *, struct prefix *,
-				     mpls_label_t *);
+				     mpls_label_t *, int addpath_encode,
+				     uint32_t addpath_tx_id);
 extern void stream_get(void *, struct stream *, size_t);
 extern bool stream_get2(void *data, struct stream *s, size_t size);
 extern void stream_get_from(void *, struct stream *, size_t, size_t);
