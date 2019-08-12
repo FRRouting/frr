@@ -5920,8 +5920,8 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 			 */
 			/* Compute aggregate route's as-path.
 			 */
-			bgp_compute_aggregate_aspath(aggregate,
-						     pi->attr->aspath);
+			bgp_compute_aggregate_aspath_hash(aggregate,
+							  pi->attr->aspath);
 
 			/* Compute aggregate route's community.
 			 */
@@ -5948,6 +5948,7 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 			bgp_process(bgp, rn, afi, safi);
 	}
 	if (aggregate->as_set) {
+		bgp_compute_aggregate_aspath_val(aggregate);
 		bgp_compute_aggregate_community_val(aggregate);
 		bgp_compute_aggregate_ecommunity_val(aggregate);
 		bgp_compute_aggregate_lcommunity_val(aggregate);
@@ -6034,7 +6035,7 @@ static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 			if (aggregate->as_set) {
 				/* Remove as-path from aggregate.
 				 */
-				bgp_remove_aspath_from_aggregate(
+				bgp_remove_aspath_from_aggregate_hash(
 							aggregate,
 							pi->attr->aspath);
 
@@ -6067,6 +6068,8 @@ static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 			bgp_process(bgp, rn, afi, safi);
 	}
 	if (aggregate->as_set) {
+		aspath_free(aggregate->aspath);
+		aggregate->aspath = NULL;
 		if (aggregate->community)
 			community_free(&aggregate->community);
 		if (aggregate->ecommunity)
