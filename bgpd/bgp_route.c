@@ -8165,20 +8165,25 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 		json_nexthop_global = json_object_new_object();
 	}
 
-	if (!json_paths && safi == SAFI_EVPN) {
+	if (!json_paths && path->extra) {
 		char tag_buf[30];
 
-		bgp_evpn_route2str((struct prefix_evpn *)&bn->p,
-				   buf2, sizeof(buf2));
-		vty_out(vty, "  Route %s", buf2);
+		buf2[0] = '\0';
 		tag_buf[0] = '\0';
 		if (path->extra && path->extra->num_labels) {
 			bgp_evpn_label2str(path->extra->label,
 					   path->extra->num_labels, tag_buf,
 					   sizeof(tag_buf));
-			vty_out(vty, " VNI %s", tag_buf);
 		}
-		vty_out(vty, "\n");
+		if (safi == SAFI_EVPN) {
+			bgp_evpn_route2str((struct prefix_evpn *)&bn->p,
+					   buf2, sizeof(buf2));
+			vty_out(vty, "  Route %s", buf2);
+			if (tag_buf[0] != '\0')
+				vty_out(vty, " VNI %s", tag_buf);
+			vty_out(vty, "\n");
+		}
+
 		if (path->extra && path->extra->parent) {
 			struct bgp_path_info *parent_ri;
 			struct bgp_node *rn, *prn;
@@ -8187,11 +8192,14 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 			rn = parent_ri->net;
 			if (rn && rn->prn) {
 				prn = rn->prn;
-				vty_out(vty, "  Imported from %s:%s\n",
-					prefix_rd2str(
-						(struct prefix_rd *)&prn->p,
-						buf1, sizeof(buf1)),
-					buf2);
+				prefix_rd2str((struct prefix_rd *)&prn->p,
+					      buf1, sizeof(buf1));
+				if (is_pi_family_evpn(parent_ri)) {
+					bgp_evpn_route2str((struct prefix_evpn *)&rn->p,
+							   buf2, sizeof(buf2));
+					vty_out(vty, "  Imported from %s:%s, VNI %s\n", buf1, buf2, tag_buf);
+				} else
+					vty_out(vty, "  Imported from %s:%s\n", buf1, buf2);
 			}
 		}
 	}
