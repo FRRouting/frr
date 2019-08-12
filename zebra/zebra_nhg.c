@@ -362,9 +362,8 @@ uint32_t zebra_nhg_hash_key(const void *arg)
 
 	uint32_t key = 0x5a351234;
 
-	key = jhash_2words(nhe->vrf_id, nhe->afi, key);
-
-	key = jhash_1word(nexthop_group_hash(nhe->nhg), key);
+	key = jhash_3words(nhe->vrf_id, nhe->afi, nexthop_group_hash(nhe->nhg),
+			   key);
 
 	return key;
 }
