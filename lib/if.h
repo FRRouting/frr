@@ -478,7 +478,9 @@ extern int if_cmp_name_func(const char *p1, const char *p2);
  */
 extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
 extern struct interface *if_create(const char *name, vrf_id_t vrf_id);
+extern struct interface *if_create_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_index_all_vrf(ifindex_t);
 extern struct interface *if_lookup_exact_address(void *matchaddr, int family,
 						 vrf_id_t vrf_id);
 extern struct connected *if_lookup_address(void *matchaddr, int family,
@@ -493,6 +495,7 @@ size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
 extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
+extern struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
 extern void if_set_index(struct interface *ifp, ifindex_t ifindex);
 
 /* Delete the interface, but do not free the structure, and leave it in the

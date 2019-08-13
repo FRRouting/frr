@@ -132,18 +132,26 @@ static int if_cmp_index_func(const struct interface *ifp1,
 }
 
 /* Create new interface structure. */
-struct interface *if_create(const char *name, vrf_id_t vrf_id)
+static struct interface *if_create_backend(const char *name, ifindex_t ifindex,
+					   vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_get(vrf_id, NULL);
 	struct interface *ifp;
 
 	ifp = XCALLOC(MTYPE_IF, sizeof(struct interface));
-	ifp->ifindex = IFINDEX_INTERNAL;
-
-	assert(name);
-	strlcpy(ifp->name, name, sizeof(ifp->name));
 	ifp->vrf_id = vrf_id;
-	IFNAME_RB_INSERT(vrf, ifp);
+
+	if (name) {
+		strlcpy(ifp->name, name, sizeof(ifp->name));
+		IFNAME_RB_INSERT(vrf, ifp);
+	} else
+		ifp->name[0] = '\0';
+
+	if (ifindex != IFINDEX_INTERNAL)
+		if_set_index(ifp, ifindex);
+	else
+		ifp->ifindex = ifindex; /* doesn't add it to the list */
+
 	ifp->connected = list_new();
 	ifp->connected->del = (void (*)(void *))connected_free;
 
@@ -156,6 +164,16 @@ struct interface *if_create(const char *name, vrf_id_t vrf_id)
 	QOBJ_REG(ifp, interface);
 	hook_call(if_add, ifp);
 	return ifp;
+}
+
+struct interface *if_create(const char *name, vrf_id_t vrf_id)
+{
+	return if_create_backend(name, IFINDEX_INTERNAL, vrf_id);
+}
+
+struct interface *if_create_ifindex(ifindex_t ifindex, vrf_id_t vrf_id)
+{
+	return if_create_backend(NULL, ifindex, vrf_id);
 }
 
 /* Create new interface structure. */
@@ -295,6 +313,23 @@ struct interface *if_lookup_by_name_all_vrf(const char *name)
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		ifp = if_lookup_by_name(name, vrf->vrf_id);
+		if (ifp)
+			return ifp;
+	}
+
+	return NULL;
+}
+
+struct interface *if_lookup_by_index_all_vrf(ifindex_t ifindex)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	if (ifindex == IFINDEX_INTERNAL)
+		return NULL;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		ifp = if_lookup_by_index(ifindex, vrf->vrf_id);
 		if (ifp)
 			return ifp;
 	}
@@ -442,6 +477,34 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)
 			return ifp;
 		}
 		return if_create(name, vrf_id);
+	}
+
+	return NULL;
+}
+
+struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id)
+{
+	struct interface *ifp;
+
+	switch (vrf_get_backend()) {
+	case VRF_BACKEND_UNKNOWN:
+	case VRF_BACKEND_NETNS:
+		ifp = if_lookup_by_index(ifindex, vrf_id);
+		if (ifp)
+			return ifp;
+		return if_create_ifindex(ifindex, vrf_id);
+	case VRF_BACKEND_VRF_LITE:
+		ifp = if_lookup_by_index_all_vrf(ifindex);
+		if (ifp) {
+			if (ifp->vrf_id == vrf_id)
+				return ifp;
+			/* If it came from the kernel or by way of zclient,
+			 * believe it and update the ifp accordingly.
+			 */
+			if_update_to_new_vrf(ifp, vrf_id);
+			return ifp;
+		}
+		return if_create_ifindex(ifindex, vrf_id);
 	}
 
 	return NULL;

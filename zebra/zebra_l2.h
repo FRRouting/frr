@@ -81,7 +81,7 @@ extern void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave);
 extern void
 zebra_l2_unmap_slave_from_bridge(struct zebra_l2info_brslave *br_slave);
 extern void
-zebra_l2_map_slave_to_bond(struct zebra_l2info_bondslave *bond_slave);
+zebra_l2_map_slave_to_bond(struct zebra_l2info_bondslave *bond_slave, vrf_id_t);
 extern void
 zebra_l2_unmap_slave_from_bond(struct zebra_l2info_bondslave *bond_slave);
 extern void zebra_l2_bridge_add_update(struct interface *ifp,
