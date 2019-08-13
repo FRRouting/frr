@@ -385,7 +385,7 @@ static int get_iflink_speed(struct interface *interface)
 	ifdata.ifr_data = (caddr_t)&ecmd;
 
 	/* use ioctl to get IP address of an interface */
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
 				interface->vrf_id,
 				NULL);

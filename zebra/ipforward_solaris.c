@@ -83,7 +83,7 @@ static int solaris_nd(const int cmd, const char *parameter, const int value)
 	strioctl.ic_len = ND_BUFFER_SIZE;
 	strioctl.ic_dp = nd_buf;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		if ((fd = open(device, O_RDWR)) < 0) {
 			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "failed to open device %s - %s", device,

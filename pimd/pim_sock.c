@@ -46,7 +46,7 @@ int pim_socket_raw(int protocol)
 {
 	int fd;
 
-	frr_elevate_privs(&pimd_privs) {
+	frr_with_privs(&pimd_privs) {
 
 		fd = socket(AF_INET, SOCK_RAW, protocol);
 
@@ -65,7 +65,7 @@ void pim_socket_ip_hdr(int fd)
 {
 	const int on = 1;
 
-	frr_elevate_privs(&pimd_privs) {
+	frr_with_privs(&pimd_privs) {
 
 		if (setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)))
 			zlog_err("%s: Could not turn on IP_HDRINCL option: %s",
@@ -83,7 +83,7 @@ int pim_socket_bind(int fd, struct interface *ifp)
 	int ret = 0;
 #ifdef SO_BINDTODEVICE
 
-	frr_elevate_privs(&pimd_privs) {
+	frr_with_privs(&pimd_privs) {
 
 		ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifp->name,
 				 strlen(ifp->name));

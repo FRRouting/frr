@@ -66,7 +66,7 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 	int ret;
 	int err;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 
 		sock = socket(AF_INET, SOCK_DGRAM, 0);
 		if (sock < 0) {
@@ -96,7 +96,7 @@ int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 	int ret;
 	int err;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 
 		sock = socket(AF_INET6, SOCK_DGRAM, 0);
 		if (sock < 0) {

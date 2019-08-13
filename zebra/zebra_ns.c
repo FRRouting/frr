@@ -180,7 +180,7 @@ int zebra_ns_init(const char *optional_default_name)
 
 	dzns = zebra_ns_alloc();
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		ns_id = zebra_ns_id_get_default();
 	}
 	ns_id_external = ns_map_nsid_with_external(ns_id, true);

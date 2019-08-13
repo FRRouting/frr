@@ -1395,7 +1395,7 @@ int rip_create_socket(struct vrf *vrf)
 	/* Make datagram socket. */
 	if (vrf->vrf_id != VRF_DEFAULT)
 		vrf_dev = vrf->name;
-	frr_elevate_privs(&ripd_privs) {
+	frr_with_privs(&ripd_privs) {
 		sock = vrf_socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, vrf->vrf_id,
 				  vrf_dev);
 		if (sock < 0) {
@@ -1415,7 +1415,7 @@ int rip_create_socket(struct vrf *vrf)
 #endif
 	setsockopt_so_recvbuf(sock, RIP_UDP_RCV_BUF);
 
-	frr_elevate_privs(&ripd_privs) {
+	frr_with_privs(&ripd_privs) {
 		if ((ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr)))
 		    < 0) {
 			zlog_err("%s: Can't bind socket %d to %s port %d: %s",

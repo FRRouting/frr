@@ -1065,8 +1065,7 @@ static int vrrp_socket(struct vrrp_router *r)
 	int ret;
 	bool failed = false;
 
-	frr_elevate_privs(&vrrp_privs)
-	{
+	frr_with_privs(&vrrp_privs) {
 		r->sock_rx = socket(r->family, SOCK_RAW, IPPROTO_VRRP);
 		r->sock_tx = socket(r->family, SOCK_RAW, IPPROTO_VRRP);
 	}
@@ -1102,8 +1101,7 @@ static int vrrp_socket(struct vrrp_router *r)
 		setsockopt_ipv4_multicast_loop(r->sock_tx, 0);
 
 		/* Bind Rx socket to exact interface */
-		frr_elevate_privs(&vrrp_privs)
-		{
+		frr_with_privs(&vrrp_privs) {
 			ret = setsockopt(r->sock_rx, SOL_SOCKET,
 					 SO_BINDTODEVICE, r->vr->ifp->name,
 					 strlen(r->vr->ifp->name));
@@ -1213,8 +1211,7 @@ static int vrrp_socket(struct vrrp_router *r)
 		setsockopt_ipv6_multicast_loop(r->sock_tx, 0);
 
 		/* Bind Rx socket to exact interface */
-		frr_elevate_privs(&vrrp_privs)
-		{
+		frr_with_privs(&vrrp_privs) {
 			ret = setsockopt(r->sock_rx, SOL_SOCKET,
 					 SO_BINDTODEVICE, r->vr->ifp->name,
 					 strlen(r->vr->ifp->name));
