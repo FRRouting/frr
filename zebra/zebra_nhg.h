@@ -125,9 +125,10 @@ enum nhg_ctx_op_e {
 	NHG_CTX_OP_DEL,
 };
 
-enum nhg_ctx_result {
+enum nhg_ctx_status {
 	NHG_CTX_NONE = 0,
 	NHG_CTX_QUEUED,
+	NHG_CTX_REQUEUED,
 	NHG_CTX_SUCCESS,
 	NHG_CTX_FAILURE,
 };
@@ -159,7 +160,7 @@ struct nhg_ctx {
 	} u;
 
 	enum nhg_ctx_op_e op;
-	enum nhg_ctx_result status;
+	enum nhg_ctx_status status;
 };
 
 
