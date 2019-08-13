@@ -87,7 +87,7 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
 		resolved_hop->type = NEXTHOP_TYPE_BLACKHOLE;
-		resolved_hop->bh_type = nexthop->bh_type;
+		resolved_hop->bh_type = newhop->bh_type;
 		break;
 	}
 
