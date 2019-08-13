@@ -120,8 +120,7 @@ int ripng_make_socket(struct vrf *vrf)
 	/* Make datagram socket. */
 	if (vrf->vrf_id != VRF_DEFAULT)
 		vrf_dev = vrf->name;
-	frr_elevate_privs(&ripngd_privs)
-	{
+	frr_with_privs(&ripngd_privs) {
 		sock = vrf_socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP,
 				  vrf->vrf_id, vrf_dev);
 		if (sock < 0) {
@@ -160,7 +159,7 @@ int ripng_make_socket(struct vrf *vrf)
 #endif /* SIN6_LEN */
 	ripaddr.sin6_port = htons(RIPNG_PORT_DEFAULT);
 
-	frr_elevate_privs(&ripngd_privs) {
+	frr_with_privs(&ripngd_privs) {
 		ret = bind(sock, (struct sockaddr *)&ripaddr, sizeof(ripaddr));
 		if (ret < 0) {
 			zlog_err("Can't bind ripng socket: %s.",

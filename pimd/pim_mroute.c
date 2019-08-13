@@ -57,7 +57,7 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 	 * We need to create the VRF table for the pim mroute_socket
 	 */
 	if (pim->vrf_id != VRF_DEFAULT) {
-		frr_elevate_privs(&pimd_privs) {
+		frr_with_privs(&pimd_privs) {
 
 			data = pim->vrf->data.l.table_id;
 			err = setsockopt(pim->mroute_socket, IPPROTO_IP,
@@ -75,7 +75,7 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 		}
 	}
 
-	frr_elevate_privs(&pimd_privs) {
+	frr_with_privs(&pimd_privs) {
 		opt = enable ? MRT_INIT : MRT_DONE;
 		/*
 		 * *BSD *cares* about what value we pass down
@@ -735,7 +735,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 {
 	int fd;
 
-	frr_elevate_privs(&pimd_privs) {
+	frr_with_privs(&pimd_privs) {
 
 		fd = socket(AF_INET, SOCK_RAW, IPPROTO_IGMP);
 

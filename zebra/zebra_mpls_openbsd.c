@@ -119,7 +119,7 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 			hdr.rtm_mpls = MPLS_OP_SWAP;
 	}
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		ret = writev(kr_state.fd, iov, iovcnt);
 	}
 
@@ -226,7 +226,7 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 			hdr.rtm_mpls = MPLS_OP_SWAP;
 	}
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		ret = writev(kr_state.fd, iov, iovcnt);
 	}
 

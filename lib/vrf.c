@@ -755,7 +755,7 @@ DEFUN_NOSH (vrf_netns,
 	if (!pathname)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	frr_elevate_privs(vrf_daemon_privs) {
+	frr_with_privs(vrf_daemon_privs) {
 		ret = vrf_netns_handler_create(vty, vrf, pathname,
 					       NS_UNKNOWN, NS_UNKNOWN);
 	}

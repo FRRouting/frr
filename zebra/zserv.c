@@ -782,7 +782,7 @@ void zserv_start(char *path)
 	setsockopt_so_recvbuf(zsock, 1048576);
 	setsockopt_so_sendbuf(zsock, 1048576);
 
-	frr_elevate_privs((sa.ss_family != AF_UNIX) ? &zserv_privs : NULL) {
+	frr_with_privs((sa.ss_family != AF_UNIX) ? &zserv_privs : NULL) {
 		ret = bind(zsock, (struct sockaddr *)&sa, sa_len);
 	}
 	if (ret < 0) {

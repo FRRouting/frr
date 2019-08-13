@@ -61,7 +61,7 @@ int eigrp_sock_init(struct vrf *vrf)
 	int hincl = 1;
 #endif
 
-	frr_elevate_privs(&eigrpd_privs) {
+	frr_with_privs(&eigrpd_privs) {
 		eigrp_sock = vrf_socket(
 			AF_INET, SOCK_RAW, IPPROTO_EIGRPIGP, vrf->vrf_id,
 			vrf->vrf_id != VRF_DEFAULT ? vrf->name : NULL);

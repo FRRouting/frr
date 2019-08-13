@@ -760,7 +760,7 @@ static int rtadv_make_socket(ns_id_t ns_id)
 	int ret = 0;
 	struct icmp6_filter filter;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 
 		sock = ns_socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6, ns_id);
 
