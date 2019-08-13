@@ -120,10 +120,6 @@ struct connected *connected_check_ptp(struct interface *ifp,
 	struct connected *ifc;
 	struct listnode *node;
 
-	/* ignore broadcast addresses */
-	if (p->prefixlen != IPV4_MAX_PREFIXLEN)
-		d = NULL;
-
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		if (!prefix_same(ifc->address, p))
 			continue;

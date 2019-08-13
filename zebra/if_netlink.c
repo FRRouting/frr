@@ -1058,7 +1058,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		else
 			connected_delete_ipv4(
 				ifp, flags, (struct in_addr *)addr,
-				ifa->ifa_prefixlen, (struct in_addr *)broad);
+				ifa->ifa_prefixlen, NULL);
 	}
 	if (ifa->ifa_family == AF_INET6) {
 		if (ifa->ifa_prefixlen > IPV6_MAX_BITLEN) {
@@ -1084,8 +1084,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 						   metric);
 		} else
 			connected_delete_ipv6(ifp, (struct in6_addr *)addr,
-					      (struct in6_addr *)broad,
-					      ifa->ifa_prefixlen);
+					      NULL, ifa->ifa_prefixlen);
 	}
 
 	return 0;
