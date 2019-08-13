@@ -99,15 +99,18 @@ void zebra_l2_unmap_slave_from_bridge(struct zebra_l2info_brslave *br_slave)
 	br_slave->br_if = NULL;
 }
 
-void zebra_l2_map_slave_to_bond(struct zebra_l2info_bondslave *bond_slave)
+void zebra_l2_map_slave_to_bond(struct zebra_l2info_bondslave *bond_slave,
+				vrf_id_t vrf_id)
 {
 	struct interface *bond_if;
 
 	/* TODO: Handle change of master */
-	bond_if = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
-					    bond_slave->bond_ifindex);
+	bond_if = if_lookup_by_index_all_vrf(bond_slave->bond_ifindex);
 	if (bond_if)
 		bond_slave->bond_if = bond_if;
+	else
+		bond_slave->bond_if = if_create_ifindex(bond_slave->bond_ifindex,
+							vrf_id);
 }
 
 void zebra_l2_unmap_slave_from_bond(struct zebra_l2info_bondslave *bond_slave)
@@ -282,7 +285,7 @@ void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex)
 
 	/* Set up or remove link with master */
 	if (bond_ifindex != IFINDEX_INTERNAL)
-		zebra_l2_map_slave_to_bond(&zif->bondslave_info);
+		zebra_l2_map_slave_to_bond(&zif->bondslave_info, ifp->vrf_id);
 	else if (old_bond_ifindex != IFINDEX_INTERNAL)
 		zebra_l2_unmap_slave_from_bond(&zif->bondslave_info);
 }
