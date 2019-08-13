@@ -16,6 +16,7 @@ sbin_SCRIPTS += \
 	\
 	tools/frrcommon.sh \
 	tools/frrinit.sh \
+	tools/generate_support_bundle.py \
 	tools/watchfrr.sh \
 	# end
 
@@ -35,6 +36,7 @@ EXTRA_DIST += \
 	tools/frr-reload \
 	tools/frr-reload.py \
 	tools/frr.service \
+	tools/generate_support_bundle.py \
 	tools/multiple-bgpd.sh \
 	tools/rrcheck.pl \
 	tools/rrlookup.pl \

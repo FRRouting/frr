@@ -656,6 +656,9 @@ fi
 
 
 %files pythontools
+%{_sbindir}/generate_support_bundle.py
+%{_sbindir}/generate_support_bundle.pyc
+%{_sbindir}/generate_support_bundle.pyo
 %{_sbindir}/frr-reload.py
 %{_sbindir}/frr-reload.pyc
 %{_sbindir}/frr-reload.pyo
