@@ -767,6 +767,28 @@ ways that can be unexpected for the original implementor. As such debugs
 ability to turn on/off debugs from the CLI and it is expected that the
 developer will use this convention to allow control of their debugs.
 
+Custom syntax-like block macros
+-------------------------------
+
+FRR uses some macros that behave like the ``for`` or ``if`` C keywords.  These
+macros follow these patterns:
+
+- loop-style macros are named ``frr_each_*`` (and ``frr_each``)
+- single run macros are named ``frr_with_*``
+- to avoid confusion, ``frr_with_*`` macros must always use a ``{ ... }``
+  block even if the block only contains one statement.  The ``frr_each``
+  constructs are assumed to be well-known enough to use normal ``for`` rules.
+- ``break``, ``return`` and ``goto`` all work correctly.  For loop-style
+  macros, ``continue`` works correctly too.
+
+Both the ``each`` and ``with`` keywords are inspired by other (more
+higher-level) programming languages that provide these constructs.
+
+There are also some older iteration macros, e.g. ``ALL_LIST_ELEMENTS`` and
+``FOREACH_AFI_SAFI``.  These macros in some cases do **not** fulfill the above
+pattern (e.g. ``break`` does not work in ``FOREACH_AFI_SAFI`` because it
+expands to 2 nested loops.)
+
 Static Analysis and Sanitizers
 ------------------------------
 Clang/LLVM and GCC come with a variety of tools that can be used to help find
