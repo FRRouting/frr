@@ -43,7 +43,9 @@ endif
 if RPKI
 module_LTLIBRARIES += bgpd/bgpd_rpki.la
 endif
+if BGP_BMP
 module_LTLIBRARIES += bgpd/bgpd_bmp.la
+endif
 man8 += $(MANBUILD)/bgpd.8
 endif
 
