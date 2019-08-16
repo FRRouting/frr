@@ -363,7 +363,7 @@ void cli_show_ip_isis_bfd_monitoring(struct vty *vty, struct lyd_node *dnode,
 	if (!yang_dnode_get_bool(dnode, NULL))
 		vty_out(vty, " no");
 
-	vty_out(vty, "isis bfd\n");
+	vty_out(vty, " isis bfd\n");
 }
 
 /*
