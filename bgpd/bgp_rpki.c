@@ -140,7 +140,6 @@ static struct rtr_mgr_config *rtr_config;
 static struct list *cache_list;
 static int rtr_is_running;
 static int rtr_is_stopping;
-static int rtr_is_starting;
 static _Atomic int rtr_update_overflow;
 static int rpki_debug;
 static unsigned int polling_period;
@@ -467,7 +466,7 @@ static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
 				    const struct pfx_record rec,
 				    const bool added __attribute__((unused)))
 {
-	if (rtr_is_stopping || rtr_is_starting
+	if (rtr_is_stopping
 	    || atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst))
 		return;
 
@@ -559,11 +558,9 @@ static int bgp_rpki_module_init(void)
 
 static int start(void)
 {
-	unsigned int waiting_time = 0;
 	int ret;
 
 	rtr_is_stopping = 0;
-	rtr_is_starting = 1;
 	rtr_update_overflow = 0;
 
 	if (list_isempty(cache_list)) {
@@ -592,23 +589,6 @@ static int start(void)
 		return ERROR;
 	}
 	rtr_is_running = 1;
-	RPKI_DEBUG("Waiting for rtr connection to synchronize.");
-	while (waiting_time++ <= initial_synchronisation_timeout) {
-		if (rtr_mgr_conf_in_sync(rtr_config))
-			break;
-
-		sleep(1);
-	}
-	if (rtr_mgr_conf_in_sync(rtr_config)) {
-		RPKI_DEBUG("Got synchronisation with at least one RPKI cache!");
-		RPKI_DEBUG("Forcing revalidation.");
-		rtr_is_starting = 0;
-		revalidate_all_routes();
-	} else {
-		RPKI_DEBUG(
-			"Timeout expired! Proceeding without RPKI validation data.");
-		rtr_is_starting = 0;
-	}
 
 	XFREE(MTYPE_BGP_RPKI_CACHE_GROUP, groups);
 
