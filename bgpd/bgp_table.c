@@ -156,8 +156,10 @@ void bgp_table_range_lookup(const struct bgp_table *table, struct prefix *p,
 	struct bgp_node *node = bgp_node_from_rnode(table->route_table->top);
 	struct bgp_node *matched = NULL;
 
-	while (node && node->p.prefixlen <= p->prefixlen
-	       && prefix_match(&node->p, p)) {
+	if (node == NULL)
+		return;
+
+	while (node->p.prefixlen <= p->prefixlen && prefix_match(&node->p, p)) {
 		if (bgp_node_has_bgp_path_info_data(node)
 		    && node->p.prefixlen == p->prefixlen) {
 			matched = node;
@@ -167,10 +169,10 @@ void bgp_table_range_lookup(const struct bgp_table *table, struct prefix *p,
 			&p->u.prefix, node->p.prefixlen)]);
 	}
 
-	if (node == NULL)
-		return;
-
-	if ((matched == NULL && node->p.prefixlen > maxlen) || !node->parent)
+	if (matched == NULL && node->p.prefixlen <= maxlen
+	    && prefix_match(p, &node->p) && node->parent == NULL)
+		matched = node;
+	else if ((matched == NULL && node->p.prefixlen > maxlen) || !node->parent)
 		return;
 	else if (matched == NULL)
 		matched = node = bgp_node_from_rnode(node->parent);
