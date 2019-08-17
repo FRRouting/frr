@@ -1382,26 +1382,35 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		struct zebra_l2info_brslave *br_slave;
 
 		br_slave = &zebra_if->brslave_info;
-		if (br_slave->bridge_ifindex != IFINDEX_INTERNAL)
-			vty_out(vty, "  Master (bridge) ifindex %u\n",
-				br_slave->bridge_ifindex);
+		if (br_slave->bridge_ifindex != IFINDEX_INTERNAL) {
+			if (br_slave->br_if)
+				vty_out(vty, "  Master interface: %s\n",
+					br_slave->br_if->name);
+			else
+				vty_out(vty, "  Master ifindex: %u\n",
+					br_slave->bridge_ifindex);
+		}
 	}
 
 	if (IS_ZEBRA_IF_BOND_SLAVE(ifp)) {
 		struct zebra_l2info_bondslave *bond_slave;
 
 		bond_slave = &zebra_if->bondslave_info;
-		if (bond_slave->bond_ifindex != IFINDEX_INTERNAL)
-			vty_out(vty, "  Master (bond) ifindex %u\n",
-				bond_slave->bond_ifindex);
+		if (bond_slave->bond_ifindex != IFINDEX_INTERNAL) {
+			if (bond_slave->bond_if)
+				vty_out(vty, "  Master interface: %s\n",
+					bond_slave->bond_if->name);
+			else
+				vty_out(vty, "  Master ifindex: %u\n",
+					bond_slave->bond_ifindex);
+		}
 	}
 
 	if (zebra_if->link_ifindex != IFINDEX_INTERNAL) {
-		vty_out(vty, "  Link ifindex %u", zebra_if->link_ifindex);
 		if (zebra_if->link)
-			vty_out(vty, "(%s)\n", zebra_if->link->name);
+			vty_out(vty, "  Parent interface: %s\n", zebra_if->link->name);
 		else
-			vty_out(vty, "(Unknown)\n");
+			vty_out(vty, "  Parent ifindex: %d\n", zebra_if->link_ifindex);
 	}
 
 	if (HAS_LINK_PARAMS(ifp)) {
