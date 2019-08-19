@@ -659,7 +659,7 @@ static struct log_ref ferr_zebra_err[] = {
 	{
 		.code = EC_ZEBRA_RTM_VERSION_MISMATCH,
 		.title =
-			"Zebra received kernel message with uknown version",
+			"Zebra received kernel message with unknown version",
 		.description =
 			"Zebra received a message from the kernel with a message version that does not match Zebra's internal version. Depending on version compatibility, this may cause issues sending and receiving messages to the kernel.",
 		.suggestion =

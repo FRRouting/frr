@@ -1466,7 +1466,7 @@ struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 	/* Not reached */
 }
 
-/* Iterate over AS_PATH segments and wipe all occurences of the
+/* Iterate over AS_PATH segments and wipe all occurrences of the
  * listed AS numbers. Hence some segments may lose some or even
  * all data on the way, the operation is implemented as a smarter
  * version of aspath_dup(), which allocates memory to hold the new

@@ -264,22 +264,22 @@ module frr-bfdd {
 
     leaf session-down-count {
       type uint32;
-      description "Amount of times the session went down";
+      description "Number of times the session went down";
     }
 
     leaf session-up-count {
       type uint32;
-      description "Amount of times the session went up";
+      description "Number of times the session went up";
     }
 
     leaf control-packet-input-count {
       type uint64;
-      description "Amount of control packets received";
+      description "Number of control packets received";
     }
 
     leaf control-packet-output-count {
       type uint64;
-      description "Amount of control packets sent";
+      description "Number of control packets sent";
     }
 
     /*
@@ -296,12 +296,12 @@ module frr-bfdd {
      */
     leaf echo-packet-input-count {
       type uint64;
-      description "Amount of echo packets received";
+      description "Number of echo packets received";
     }
 
     leaf echo-packet-output-count {
       type uint64;
-      description "Amount of echo packets sent";
+      description "Number of echo packets sent";
     }
   }
 

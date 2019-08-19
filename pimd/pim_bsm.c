@@ -711,11 +711,11 @@ static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
 	/* MTU  passed here is PIM MTU (IP MTU less IP Hdr) */
 	if (pim_mtu < (PIM_MIN_BSM_LEN)) {
 		zlog_warn(
-			"%s: mtu(pim mtu: %d) size less than minimum bootsrap len",
+			"%s: mtu(pim mtu: %d) size less than minimum bootstrap len",
 			__PRETTY_FUNCTION__, pim_mtu);
 		if (PIM_DEBUG_BSM)
 			zlog_debug(
-				"%s: mtu (pim mtu:%d) less than minimum bootsrap len",
+				"%s: mtu (pim mtu:%d) less than minimum bootstrap len",
 				__PRETTY_FUNCTION__, pim_mtu);
 		return false;
 	}
