@@ -766,6 +766,92 @@ int zclient_route_send(uint8_t cmd, struct zclient *zclient,
 	return zclient_send_message(zclient);
 }
 
+static int zapi_nexthop_labels_cmp(const struct zapi_nexthop *next1,
+				   const struct zapi_nexthop *next2)
+{
+	if (next1->label_num > next2->label_num)
+		return 1;
+
+	if (next1->label_num < next2->label_num)
+		return -1;
+
+	return memcmp(next1->labels, next2->labels, next1->label_num);
+}
+
+static int zapi_nexthop_cmp_no_labels(const struct zapi_nexthop *next1,
+				      const struct zapi_nexthop *next2)
+{
+	int ret = 0;
+
+	if (next1->vrf_id < next2->vrf_id)
+		return -1;
+
+	if (next1->vrf_id > next2->vrf_id)
+		return 1;
+
+	if (next1->type < next2->type)
+		return -1;
+
+	if (next1->type > next2->type)
+		return 1;
+
+	switch (next1->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV6:
+		ret = nexthop_g_addr_cmp(next1->type, &next1->gate,
+					 &next2->gate);
+		if (ret != 0)
+			return ret;
+		break;
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		ret = nexthop_g_addr_cmp(next1->type, &next1->gate,
+					 &next2->gate);
+		if (ret != 0)
+			return ret;
+		/* Intentional Fall-Through */
+	case NEXTHOP_TYPE_IFINDEX:
+		if (next1->ifindex < next2->ifindex)
+			return -1;
+
+		if (next1->ifindex > next2->ifindex)
+			return 1;
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		if (next1->bh_type < next2->bh_type)
+			return -1;
+
+		if (next1->bh_type > next2->bh_type)
+			return 1;
+		break;
+	}
+
+	return 0;
+}
+
+static int zapi_nexthop_cmp(const void *item1, const void *item2)
+{
+	int ret = 0;
+
+	const struct zapi_nexthop *next1 = item1;
+	const struct zapi_nexthop *next2 = item2;
+
+	ret = zapi_nexthop_cmp_no_labels(next1, next2);
+	if (ret != 0)
+		return ret;
+
+	ret = zapi_nexthop_labels_cmp(next1, next2);
+
+	return ret;
+}
+
+static void zapi_nexthop_group_sort(struct zapi_nexthop *nh_grp,
+				    uint16_t nexthop_num)
+{
+	qsort(nh_grp, nexthop_num, sizeof(struct zapi_nexthop),
+	      &zapi_nexthop_cmp);
+}
+
 int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 {
 	struct zapi_nexthop *api_nh;
@@ -820,6 +906,8 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 				__func__, buf, api->nexthop_num, MULTIPATH_NUM);
 			return -1;
 		}
+
+		zapi_nexthop_group_sort(api->nexthops, api->nexthop_num);
 
 		stream_putw(s, api->nexthop_num);
 
