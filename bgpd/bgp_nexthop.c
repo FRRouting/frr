@@ -680,17 +680,23 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail,
 			continue;
 		for (rn = bgp_table_top(table[afi]); rn;
 		     rn = bgp_route_next(rn)) {
+			struct peer *peer;
+
 			bnc = bgp_node_get_bgp_nexthop_info(rn);
 			if (!bnc)
 				continue;
+			peer = (struct peer *)bnc->nht_info;
 
 			if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)) {
 				vty_out(vty,
-					" %s valid [IGP metric %d], #paths %d\n",
+					" %s valid [IGP metric %d], #paths %d",
 					inet_ntop(rn->p.family,
 						  &rn->p.u.prefix, buf,
 						  sizeof(buf)),
 					bnc->metric, bnc->path_count);
+				if (peer)
+					vty_out(vty, ", peer %s", peer->host);
+				vty_out(vty, "\n");
 
 				if (!detail)
 					continue;
@@ -698,10 +704,13 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail,
 				bgp_show_nexthops_detail(vty, bgp, bnc);
 
 			} else {
-				vty_out(vty, " %s invalid\n",
+				vty_out(vty, " %s invalid",
 					inet_ntop(rn->p.family,
 						  &rn->p.u.prefix, buf,
 						  sizeof(buf)));
+				if (peer)
+					vty_out(vty, ", peer %s", peer->host);
+				vty_out(vty, "\n");
 				if (CHECK_FLAG(bnc->flags,
 					       BGP_NEXTHOP_CONNECTED))
 					vty_out(vty, "  Must be Connected\n");
