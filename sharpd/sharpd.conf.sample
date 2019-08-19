@@ -1,3 +1,6 @@
+! Default sharpd configuration sample
 !
+! There are no `default` configuration commands for sharpd
+! all commands are at the view or enable level.
 !
 log stdout

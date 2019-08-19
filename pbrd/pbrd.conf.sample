@@ -1,3 +1,19 @@
+! Sample pbrd configuration file
+!
+! A quick example of what a pbr configuration might look like
 !
 !
 log stdout
+!
+! nexthop-group TEST
+!   nexthop 4.5.6.7
+!   nexthop 5.6.7.8
+! !
+! pbr-map BLUE seq 100
+!   match dst-ip 9.9.9.0/24
+!   match src-ip 10.10.10.0/24
+!   set nexthop-group TEST
+! !
+! int swp1
+!   pbr-policy BLUE
+!

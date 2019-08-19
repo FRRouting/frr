@@ -1,3 +1,5 @@
-!
+! Default staticd configuration sample
 !
 log stdout
+!
+! ip route 4.5.6.7/32 10.10.10.10
