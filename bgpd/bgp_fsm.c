@@ -96,6 +96,21 @@ static int bgp_holdtime_timer(struct thread *);
 /* BGP FSM functions. */
 static int bgp_start(struct peer *);
 
+/* Register peer with NHT */
+static int bgp_peer_reg_with_nht(struct peer *peer)
+{
+	int connected = 0;
+
+	if (peer->sort == BGP_PEER_EBGP && peer->ttl == 1
+	    && !CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
+	    && !bgp_flag_check(peer->bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+		connected = 1;
+
+	return bgp_find_or_add_nexthop(
+		peer->bgp, peer->bgp, family2afi(peer->su.sa.sa_family),
+		NULL, peer, connected);
+}
+
 static void peer_xfer_stats(struct peer *peer_dst, struct peer *peer_src)
 {
 	/* Copy stats over. These are only the pre-established state stats */
@@ -292,6 +307,11 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	// Note: peer_xfer_stats() must be called with I/O turned OFF
 	if (from_peer)
 		peer_xfer_stats(peer, from_peer);
+
+	/* Register peer for NHT. This is to allow RAs to be enabled when
+	 * needed, even on a passive connection.
+	 */
+	bgp_peer_reg_with_nht(peer);
 
 	bgp_reads_on(peer);
 	bgp_writes_on(peer);
@@ -1382,7 +1402,6 @@ static int bgp_connect_fail(struct peer *peer)
 int bgp_start(struct peer *peer)
 {
 	int status;
-	int connected = 0;
 
 	bgp_peer_conf_if_to_su_update(peer);
 
@@ -1439,17 +1458,10 @@ int bgp_start(struct peer *peer)
 		return -1;
 	}
 
-	/* Register to be notified on peer up */
-	if (peer->sort == BGP_PEER_EBGP && peer->ttl == 1
-	    && !CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
-	    && !bgp_flag_check(peer->bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
-		connected = 1;
-	else
-		connected = 0;
-
-	if (!bgp_find_or_add_nexthop(peer->bgp, peer->bgp,
-				     family2afi(peer->su.sa.sa_family), NULL,
-				     peer, connected)) {
+	/* Register peer for NHT. If next hop is already resolved, proceed
+	 * with connection setup, else wait.
+	 */
+	if (!bgp_peer_reg_with_nht(peer)) {
 		if (bgp_zebra_num_connects()) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%s [FSM] Waiting for NHT",
