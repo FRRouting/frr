@@ -237,6 +237,8 @@ struct pim_upstream {
 	struct channel_oil *channel_oil;
 	struct list *sources;
 	struct list *ifchannels;
+	/* Counter for Dual active ifchannels*/
+	uint32_t dualactive_ifchannel_count;
 
 	enum pim_upstream_state join_state;
 	enum pim_reg_state reg_state;

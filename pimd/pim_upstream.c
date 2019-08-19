@@ -141,6 +141,18 @@ static struct pim_upstream *pim_upstream_find_parent(struct pim_instance *pim,
 		if (up)
 			listnode_add(up->sources, child);
 
+		/*
+		 * In case parent is MLAG entry copy the data to child
+		 */
+		if (up && PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags)) {
+			PIM_UPSTREAM_FLAG_SET_MLAG_INTERFACE(child->flags);
+			if (PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->flags))
+				PIM_UPSTREAM_FLAG_SET_MLAG_NON_DF(child->flags);
+			else
+				PIM_UPSTREAM_FLAG_UNSET_MLAG_NON_DF(
+					child->flags);
+		}
+
 		return up;
 	}
 
@@ -903,7 +915,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	/* XXX - duplicate send is possible here if pim_rpf_update
 	 * successfully resolved the nexthop
 	 */
-	if (pim_up_mlag_is_local(up))
+	if (pim_up_mlag_is_local(up)
+	    || PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags))
 		pim_mlag_up_local_add(pim, up);
 
 	if (PIM_DEBUG_PIM_TRACE) {
@@ -918,7 +931,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 
 uint32_t pim_up_mlag_local_cost(struct pim_upstream *up)
 {
-	if (!(pim_up_mlag_is_local(up)))
+	if (!(pim_up_mlag_is_local(up))
+	    && !(up->flags & PIM_UPSTREAM_FLAG_MASK_MLAG_INTERFACE))
 		return router->infinite_assert_metric.route_metric;
 
 	if ((up->rpf.source_nexthop.interface ==
@@ -1752,6 +1766,7 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 				   up->sg_str);
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp;
 		if (!ifp->info)
 			continue;
 
@@ -1765,6 +1780,12 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 		if (!ch && !starch)
 			continue;
 
+		pim_ifp = ifp->info;
+		if (PIM_I_am_DualActive(pim_ifp)
+		    && PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags)
+		    && (PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->flags)
+			|| !PIM_UPSTREAM_FLAG_TEST_MLAG_PEER(up->flags)))
+			continue;
 		if (pim_upstream_evaluate_join_desired_interface(up, ch,
 								 starch)) {
 			int flag = PIM_OIF_FLAG_PROTO_PIM;
