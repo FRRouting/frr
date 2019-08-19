@@ -6772,7 +6772,7 @@ int zebra_vxlan_clear_dup_detect_vni_ip(struct vty *vty,
 
 	if (!CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE)) {
 		vty_out(vty,
-			"%% Requsted host IP %s is not duplicate detected\n",
+			"%% Requested host IP %s is not duplicate detected\n",
 			buf);
 		return CMD_WARNING;
 	}
