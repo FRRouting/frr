@@ -479,7 +479,7 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 		zlog_debug("%s: NHT upstream %s(%s) old ifp %s new ifp %s",
 			__PRETTY_FUNCTION__, up->sg_str, pim->vrf->name,
 			old.source_nexthop.interface
-			? old.source_nexthop.interface->name : "Unknwon",
+			? old.source_nexthop.interface->name : "Unknown",
 			up->rpf.source_nexthop.interface->name);
 	}
 

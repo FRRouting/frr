@@ -410,7 +410,7 @@ static int frr_opt(int opt)
 		}
 		if (di->zpathspace)
 			fprintf(stderr,
-				"-N option overriden by -z for zebra named socket path\n");
+				"-N option overridden by -z for zebra named socket path\n");
 
 		if (strchr(optarg, '/') || strchr(optarg, '.')) {
 			fprintf(stderr,

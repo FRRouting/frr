@@ -1,6 +1,6 @@
 # configure options
 #
-# Some can be overriden on rpmbuild commandline with:
+# Some can be overridden on rpmbuild commandline with:
 # rpmbuild --define 'variable value'
 #   (use any value, ie 1 for flag "with_XXXX" definitions)
 #

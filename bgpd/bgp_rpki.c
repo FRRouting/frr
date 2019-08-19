@@ -1180,7 +1180,7 @@ DEFPY (show_rpki_prefix,
 {
 
 	if (!is_synchronized()) {
-		vty_out(vty, "No Conection to RPKI cache server.\n");
+		vty_out(vty, "No Connection to RPKI cache server.\n");
 		return CMD_WARNING;
 	}
 
