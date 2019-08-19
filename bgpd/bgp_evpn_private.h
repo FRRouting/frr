@@ -275,6 +275,11 @@ static inline int is_vni_live(struct bgpevpn *vpn)
 	return (CHECK_FLAG(vpn->flags, VNI_FLAG_LIVE));
 }
 
+static inline int is_l3vni_live(struct bgp *bgp_vrf)
+{
+	return (bgp_vrf->l3vni && bgp_vrf->l3vni_svi_ifindex);
+}
+
 static inline int is_rd_configured(struct bgpevpn *vpn)
 {
 	return (CHECK_FLAG(vpn->flags, VNI_FLAG_RD_CFGD));
