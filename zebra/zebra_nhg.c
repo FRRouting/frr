@@ -481,7 +481,29 @@ static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
 		lookup.afi = AFI_UNSPEC;
 		lookup.vrf_id = 0;
 	} else {
-		lookup.afi = afi;
+		switch (lookup.nhg->nexthop->type) {
+		case (NEXTHOP_TYPE_IFINDEX):
+		case (NEXTHOP_TYPE_BLACKHOLE):
+			/*
+			 * This switch case handles setting the afi different
+			 * for ipv4/v6 routes. Ifindex/blackhole nexthop
+			 * objects cannot be ambiguous, they must be Address
+			 * Family specific. If we get here, we will either use
+			 * the AF of the route, or the one we got passed from
+			 * here from the kernel.
+			 */
+			lookup.afi = afi;
+			break;
+		case (NEXTHOP_TYPE_IPV4_IFINDEX):
+		case (NEXTHOP_TYPE_IPV4):
+			lookup.afi = AFI_IP;
+			break;
+		case (NEXTHOP_TYPE_IPV6_IFINDEX):
+		case (NEXTHOP_TYPE_IPV6):
+			lookup.afi = AFI_IP6;
+			break;
+		}
+
 		lookup.vrf_id = vrf_id;
 	}
 
