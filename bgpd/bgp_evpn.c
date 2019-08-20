@@ -5808,6 +5808,9 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	   It needs to be conveyed again to zebra */
 	bgp_zebra_advertise_gw_macip(bgp, vpn->advertise_gw_macip, vpn->vni);
 
+	/* advertise svi mac-ip knob to zebra */
+	bgp_zebra_advertise_svi_macip(bgp, vpn->advertise_svi_macip, vpn->vni);
+
 	return 0;
 }
 
