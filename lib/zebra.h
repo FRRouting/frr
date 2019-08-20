@@ -136,6 +136,7 @@ typedef unsigned char uint8_t;
 
 #ifdef CRYPTO_OPENSSL
 #include <openssl/evp.h>
+#include <openssl/hmac.h>
 #endif
 
 #include "openbsd-tree.h"
