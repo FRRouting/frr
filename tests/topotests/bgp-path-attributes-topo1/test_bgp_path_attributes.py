@@ -219,7 +219,8 @@ def test_next_hop_attribute(request):
     dut = "r1"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True
+    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
+                               " present in RIB".format(tc_name)
 
     # Configure next-hop-self to bgp neighbor
     input_dict_1 = {
@@ -484,7 +485,7 @@ def test_localpref_attribute(request):
                             "neighbor": {
                                 "r1": {
                                     "dest_link": {
-                                        "r3": {
+                                        "r2": {
                                             "route_maps": [
                                                 {"name": "RMAP_LOCAL_PREF",
                                                  "direction": "in"}
@@ -499,6 +500,7 @@ def test_localpref_attribute(request):
             }
         }
     }
+
     result = create_router_bgp(tgen, topo, input_dict_4)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result)

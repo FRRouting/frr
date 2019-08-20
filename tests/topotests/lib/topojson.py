@@ -20,6 +20,7 @@
 
 from collections import OrderedDict
 from json import dumps as json_dumps
+from re import search as re_search
 import ipaddr
 import pytest
 
@@ -38,6 +39,9 @@ from lib.common_config import (
 
 from lib.bgp import create_router_bgp
 
+ROUTER_LIST = []
+
+
 def build_topo_from_json(tgen, topo):
     """
     Reads configuration from JSON file. Adds routers, creates interface
@@ -48,13 +52,15 @@ def build_topo_from_json(tgen, topo):
     * `topo`: json file data
     """
 
-    listRouters = []
-    for routerN in sorted(topo['routers'].iteritems()):
-        logger.info('Topo: Add router {}'.format(routerN[0]))
-        tgen.add_router(routerN[0])
-        listRouters.append(routerN[0])
+    ROUTER_LIST = sorted(topo['routers'].keys(),
+        key=lambda x: int(re_search('\d+', x).group(0)))
 
-    listRouters.sort()
+    listRouters = ROUTER_LIST[:]
+    for routerN in ROUTER_LIST:
+        logger.info('Topo: Add router {}'.format(routerN))
+        tgen.add_router(routerN)
+        listRouters.append(routerN)
+
     if 'ipv4base' in topo:
         ipv4Next = ipaddr.IPv4Address(topo['link_ip_start']['ipv4'])
         ipv4Step = 2 ** (32 - topo['link_ip_start']['v4mask'])
@@ -78,7 +84,7 @@ def build_topo_from_json(tgen, topo):
                 elif 'link' in x:
                     return int(x.split('-link')[1])
                 else:
-                    return int(x.split('r')[1])
+                    return int(re_search('\d+', x).group(0))
             for destRouterLink, data in sorted(topo['routers'][curRouter]['links']. \
                                                iteritems(),
                                                key=lambda x: link_sort(x[0])):
@@ -179,12 +185,13 @@ def build_config_from_json(tgen, topo, save_bkup=True):
 
     data = topo["routers"]
     for func_type in func_dict.keys():
-        logger.info('Building configuration for {}'.format(func_type))
+        logger.info('Checking for {} configuration in input data'.format(
+            func_type))
 
         func_dict.get(func_type)(tgen, data, build=True)
 
     for router in sorted(topo['routers'].keys()):
-        logger.info('Configuring router {}...'.format(router))
+        logger.debug('Configuring router {}...'.format(router))
 
         result = load_config_to_router(tgen, router, save_bkup)
         if not result:
