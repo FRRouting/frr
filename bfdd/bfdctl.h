@@ -41,7 +41,8 @@ struct sockaddr_any {
 };
 
 #ifndef MAXNAMELEN
-#define MAXNAMELEN 32
+/* aligned with VRF_NAMSIZ + 1 defined in vrf.h */
+#define MAXNAMELEN 37
 #endif
 
 #define BPC_DEF_DETECTMULTIPLIER 3
