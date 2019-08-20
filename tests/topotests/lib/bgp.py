@@ -32,7 +32,8 @@ from lib.common_config import (create_common_configuration,
                                load_config_to_router,
                                check_address_types,
                                generate_ips,
-                               find_interface_with_greater_ip)
+                               find_interface_with_greater_ip,
+                               run_frr_cmd, retry)
 
 BGP_CONVERGENCE_TIMEOUT = 10
 
@@ -116,8 +117,8 @@ def create_router_bgp(tgen, topo, input_dict=None, build=False):
             logger.debug("Router %s: 'bgp' not present in input_dict", router)
             continue
 
-        result = __create_bgp_global(tgen, input_dict, router, build)
-        if result is True:
+        data_all_bgp = __create_bgp_global(tgen, input_dict, router, build)
+        if data_all_bgp:
             bgp_data = input_dict[router]["bgp"]
 
             bgp_addr_data = bgp_data.setdefault("address_family", {})
@@ -134,8 +135,18 @@ def create_router_bgp(tgen, topo, input_dict=None, build=False):
                     or ipv6_data.setdefault("unicast", {}) else False
 
                 if neigh_unicast:
-                    result = __create_bgp_unicast_neighbor(
-                        tgen, topo, input_dict, router, build)
+                    data_all_bgp = __create_bgp_unicast_neighbor(
+                        tgen, topo, input_dict, router,
+                        config_data=data_all_bgp)
+
+        try:
+            result = create_common_configuration(tgen, router, data_all_bgp,
+                                                 "bgp", build)
+        except InvalidCLIError:
+            # Traceback
+            errormsg = traceback.format_exc()
+            logger.error(errormsg)
+            return errormsg
 
     logger.debug("Exiting lib API: create_router_bgp()")
     return result
@@ -157,77 +168,66 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
     True or False
     """
 
-    result = False
     logger.debug("Entering lib API: __create_bgp_global()")
-    try:
 
-        bgp_data = input_dict[router]["bgp"]
-        del_bgp_action = bgp_data.setdefault("delete", False)
-        if del_bgp_action:
-            config_data = ["no router bgp"]
-            result = create_common_configuration(tgen, router, config_data,
-                                                 "bgp", build=build)
-            return result
+    bgp_data = input_dict[router]["bgp"]
+    del_bgp_action = bgp_data.setdefault("delete", False)
+    if del_bgp_action:
+        config_data = ["no router bgp"]
 
-        config_data = []
+        return config_data
 
-        if "local_as" not in bgp_data and build:
-            logger.error("Router %s: 'local_as' not present in input_dict"
-                         "for BGP", router)
-            return False
+    config_data = []
 
-        local_as = bgp_data.setdefault("local_as", "")
-        cmd = "router bgp {}".format(local_as)
-        vrf_id = bgp_data.setdefault("vrf", None)
-        if vrf_id:
-            cmd = "{} vrf {}".format(cmd, vrf_id)
+    if "local_as" not in bgp_data and build:
+        logger.error("Router %s: 'local_as' not present in input_dict"
+                     "for BGP", router)
+        return False
 
-        config_data.append(cmd)
+    local_as = bgp_data.setdefault("local_as", "")
+    cmd = "router bgp {}".format(local_as)
+    vrf_id = bgp_data.setdefault("vrf", None)
+    if vrf_id:
+        cmd = "{} vrf {}".format(cmd, vrf_id)
 
-        router_id = bgp_data.setdefault("router_id", None)
-        del_router_id = bgp_data.setdefault("del_router_id", False)
-        if del_router_id:
-            config_data.append("no bgp router-id")
-        if router_id:
-            config_data.append("bgp router-id {}".format(
-                router_id))
+    config_data.append(cmd)
 
-        aggregate_address = bgp_data.setdefault("aggregate_address",
-                                                {})
-        if aggregate_address:
-            network = aggregate_address.setdefault("network", None)
-            if not network:
-                logger.error("Router %s: 'network' not present in "
-                             "input_dict for BGP", router)
-            else:
-                cmd = "aggregate-address {}".format(network)
+    router_id = bgp_data.setdefault("router_id", None)
+    del_router_id = bgp_data.setdefault("del_router_id", False)
+    if del_router_id:
+        config_data.append("no bgp router-id")
+    if router_id:
+        config_data.append("bgp router-id {}".format(
+            router_id))
 
-                as_set = aggregate_address.setdefault("as_set", False)
-                summary = aggregate_address.setdefault("summary", False)
-                del_action = aggregate_address.setdefault("delete", False)
-                if as_set:
-                    cmd = "{} {}".format(cmd, "as-set")
-                if summary:
-                    cmd = "{} {}".format(cmd, "summary")
+    aggregate_address = bgp_data.setdefault("aggregate_address",
+                                            {})
+    if aggregate_address:
+        network = aggregate_address.setdefault("network", None)
+        if not network:
+            logger.error("Router %s: 'network' not present in "
+                         "input_dict for BGP", router)
+        else:
+            cmd = "aggregate-address {}".format(network)
 
-                if del_action:
-                    cmd = "no {}".format(cmd)
+            as_set = aggregate_address.setdefault("as_set", False)
+            summary = aggregate_address.setdefault("summary", False)
+            del_action = aggregate_address.setdefault("delete", False)
+            if as_set:
+                cmd = "{} {}".format(cmd, "as-set")
+            if summary:
+                cmd = "{} {}".format(cmd, "summary")
 
-                config_data.append(cmd)
+            if del_action:
+                cmd = "no {}".format(cmd)
 
-        result = create_common_configuration(tgen, router, config_data,
-                                             "bgp", build=build)
-    except InvalidCLIError:
-        # Traceback
-        errormsg = traceback.format_exc()
-        logger.error(errormsg)
-        return errormsg
+            config_data.append(cmd)
 
-    logger.debug("Exiting lib API: create_bgp_global()")
-    return result
+    return config_data
 
 
-def __create_bgp_unicast_neighbor(tgen, topo, input_dict, router, build=False):
+def __create_bgp_unicast_neighbor(tgen, topo, input_dict, router,
+                                  config_data=None):
     """
     Helper API to create configuration for address-family unicast
 
@@ -240,124 +240,118 @@ def __create_bgp_unicast_neighbor(tgen, topo, input_dict, router, build=False):
     * `build` : Only for initial setup phase this is set as True.
     """
 
-    result = False
     logger.debug("Entering lib API: __create_bgp_unicast_neighbor()")
-    try:
-        config_data = ["router bgp"]
-        bgp_data = input_dict[router]["bgp"]["address_family"]
 
-        for addr_type, addr_dict in bgp_data.iteritems():
-            if not addr_dict:
-                continue
+    add_neigh = True
+    if "router bgp "in config_data:
+        add_neigh = False
+    bgp_data = input_dict[router]["bgp"]["address_family"]
 
-            if not check_address_types(addr_type):
-                continue
+    for addr_type, addr_dict in bgp_data.iteritems():
+        if not addr_dict:
+            continue
 
+        if not check_address_types(addr_type):
+            continue
+
+        addr_data = addr_dict["unicast"]
+        if addr_data:
             config_data.append("address-family {} unicast".format(
                 addr_type
             ))
-            addr_data = addr_dict["unicast"]
-            advertise_network = addr_data.setdefault("advertise_networks",
-                                                     [])
-            for advertise_network_dict in advertise_network:
-                network = advertise_network_dict["network"]
-                if type(network) is not list:
-                    network = [network]
+        advertise_network = addr_data.setdefault("advertise_networks",
+                                                 [])
+        for advertise_network_dict in advertise_network:
+            network = advertise_network_dict["network"]
+            if type(network) is not list:
+                network = [network]
 
-                if "no_of_network" in advertise_network_dict:
-                    no_of_network = advertise_network_dict["no_of_network"]
+            if "no_of_network" in advertise_network_dict:
+                no_of_network = advertise_network_dict["no_of_network"]
+            else:
+                no_of_network = 1
+
+            del_action = advertise_network_dict.setdefault("delete",
+                                                           False)
+
+            # Generating IPs for verification
+            prefix = str(
+                ipaddr.IPNetwork(unicode(network[0])).prefixlen)
+            network_list = generate_ips(network, no_of_network)
+            for ip in network_list:
+                ip = str(ipaddr.IPNetwork(unicode(ip)).network)
+
+                cmd = "network {}/{}".format(ip, prefix)
+                if del_action:
+                    cmd = "no {}".format(cmd)
+
+                config_data.append(cmd)
+
+        max_paths = addr_data.setdefault("maximum_paths", {})
+        if max_paths:
+            ibgp = max_paths.setdefault("ibgp", None)
+            ebgp = max_paths.setdefault("ebgp", None)
+            if ibgp:
+                config_data.append("maximum-paths ibgp {}".format(
+                    ibgp
+                ))
+            if ebgp:
+                config_data.append("maximum-paths {}".format(
+                    ebgp
+                ))
+
+        aggregate_address = addr_data.setdefault("aggregate_address",
+                                                 {})
+        if aggregate_address:
+            ip = aggregate_address("network", None)
+            attribute = aggregate_address("attribute", None)
+            if ip:
+                cmd = "aggregate-address {}".format(ip)
+                if attribute:
+                    cmd = "{} {}".format(cmd, attribute)
+
+                config_data.append(cmd)
+
+        redistribute_data = addr_data.setdefault("redistribute", {})
+        if redistribute_data:
+            for redistribute in redistribute_data:
+                if "redist_type" not in redistribute:
+                    logger.error("Router %s: 'redist_type' not present in "
+                                 "input_dict", router)
                 else:
-                    no_of_network = 1
-
-                del_action = advertise_network_dict.setdefault("delete",
-                                                               False)
-
-                # Generating IPs for verification
-                prefix = str(
-                    ipaddr.IPNetwork(unicode(network[0])).prefixlen)
-                network_list = generate_ips(network, no_of_network)
-                for ip in network_list:
-                    ip = str(ipaddr.IPNetwork(unicode(ip)).network)
-
-                    cmd = "network {}/{}\n".format(ip, prefix)
+                    cmd = "redistribute {}".format(
+                        redistribute["redist_type"])
+                    redist_attr = redistribute.setdefault("attribute",
+                                                          None)
+                    if redist_attr:
+                        cmd = "{} {}".format(cmd, redist_attr)
+                    del_action = redistribute.setdefault("delete", False)
                     if del_action:
                         cmd = "no {}".format(cmd)
-
                     config_data.append(cmd)
 
-            max_paths = addr_data.setdefault("maximum_paths", {})
-            if max_paths:
-                ibgp = max_paths.setdefault("ibgp", None)
-                ebgp = max_paths.setdefault("ebgp", None)
-                if ibgp:
-                    config_data.append("maximum-paths ibgp {}".format(
-                        ibgp
-                    ))
-                if ebgp:
-                    config_data.append("maximum-paths {}".format(
-                        ebgp
-                    ))
+        if "neighbor" in addr_data:
+            neigh_data = __create_bgp_neighbor(topo, input_dict,
+                                               router, addr_type, add_neigh)
+            config_data.extend(neigh_data)
 
-            aggregate_address = addr_data.setdefault("aggregate_address",
-                                                     {})
-            if aggregate_address:
-                ip = aggregate_address("network", None)
-                attribute = aggregate_address("attribute", None)
-                if ip:
-                    cmd = "aggregate-address {}".format(ip)
-                    if attribute:
-                        cmd = "{} {}".format(cmd, attribute)
+    for addr_type, addr_dict in bgp_data.iteritems():
+        if not addr_dict or not check_address_types(addr_type):
+            continue
 
-                    config_data.append(cmd)
+        addr_data = addr_dict["unicast"]
+        if "neighbor" in addr_data:
+            neigh_addr_data = __create_bgp_unicast_address_family(
+                topo, input_dict, router, addr_type, add_neigh)
 
-            redistribute_data = addr_data.setdefault("redistribute", {})
-            if redistribute_data:
-                for redistribute in redistribute_data:
-                    if "redist_type" not in redistribute:
-                        logger.error("Router %s: 'redist_type' not present in "
-                                     "input_dict", router)
-                    else:
-                        cmd = "redistribute {}".format(
-                            redistribute["redist_type"])
-                        redist_attr = redistribute.setdefault("attribute",
-                                                              None)
-                        if redist_attr:
-                            cmd = "{} {}".format(cmd, redist_attr)
-                        del_action = redistribute.setdefault("delete", False)
-                        if del_action:
-                            cmd = "no {}".format(cmd)
-                        config_data.append(cmd)
+            config_data.extend(neigh_addr_data)
 
-            if "neighbor" in addr_data:
-                neigh_data = __create_bgp_neighbor(topo, input_dict,
-                                                   router, addr_type)
-                config_data.extend(neigh_data)
-
-        for addr_type, addr_dict in bgp_data.iteritems():
-            if not addr_dict or not check_address_types(addr_type):
-                continue
-
-            addr_data = addr_dict["unicast"]
-            if "neighbor" in addr_data:
-                neigh_addr_data = __create_bgp_unicast_address_family(
-                    topo, input_dict, router, addr_type)
-
-                config_data.extend(neigh_addr_data)
-
-        result = create_common_configuration(tgen, router, config_data,
-                                             None, build=build)
-
-    except InvalidCLIError:
-        # Traceback
-        errormsg = traceback.format_exc()
-        logger.error(errormsg)
-        return errormsg
 
     logger.debug("Exiting lib API: __create_bgp_unicast_neighbor()")
-    return result
+    return config_data
 
 
-def __create_bgp_neighbor(topo, input_dict, router, addr_type):
+def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
     """
     Helper API to create neighbor specific configuration
 
@@ -391,7 +385,8 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type):
 
             neigh_cxt = "neighbor {}".format(ip_addr)
 
-            config_data.append("{} remote-as {}".format(neigh_cxt, remote_as))
+            if add_neigh:
+                config_data.append("{} remote-as {}".format(neigh_cxt, remote_as))
             if addr_type == "ipv6":
                 config_data.append("address-family ipv6 unicast")
                 config_data.append("{} activate".format(neigh_cxt))
@@ -429,7 +424,8 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type):
     return config_data
 
 
-def __create_bgp_unicast_address_family(topo, input_dict, router, addr_type):
+def __create_bgp_unicast_address_family(topo, input_dict, router, addr_type,
+                                        add_neigh=True):
     """
     API prints bgp global config to bgp_json file.
 
@@ -474,9 +470,9 @@ def __create_bgp_unicast_address_family(topo, input_dict, router, addr_type):
                             dest_link]["ipv6"].split("/")[0]
 
             neigh_cxt = "neighbor {}".format(ip_addr)
-            config_data.append("address-family {} unicast".format(
-                addr_type
-            ))
+            #config_data.append("address-family {} unicast".format(
+            #    addr_type
+            #))
             if deactivate:
                 config_data.append(
                     "no neighbor {} activate".format(deactivate))
@@ -531,6 +527,7 @@ def __create_bgp_unicast_address_family(topo, input_dict, router, addr_type):
 #############################################
 # Verification APIs
 #############################################
+@retry(attempts=3, wait=2, return_is_str=True)
 def verify_router_id(tgen, topo, input_dict):
     """
     Running command "show ip bgp json" for DUT and reading router-id
@@ -565,7 +562,7 @@ def verify_router_id(tgen, topo, input_dict):
     errormsg(str) or True
     """
 
-    logger.info("Entering lib API: verify_router_id()")
+    logger.debug("Entering lib API: verify_router_id()")
     for router in input_dict.keys():
         if router not in tgen.routers():
             continue
@@ -576,9 +573,9 @@ def verify_router_id(tgen, topo, input_dict):
             "del_router_id", False)
 
         logger.info("Checking router %s router-id", router)
-        show_bgp_json = rnode.vtysh_cmd("show ip bgp json",
+        show_bgp_json = run_frr_cmd(rnode, "show bgp summary json",
                                         isjson=True)
-        router_id_out = show_bgp_json["routerId"]
+        router_id_out = show_bgp_json["ipv4Unicast"]["routerId"]
         router_id_out = ipaddr.IPv4Address(unicode(router_id_out))
 
         # Once router-id is deleted, highest interface ip should become
@@ -598,100 +595,84 @@ def verify_router_id(tgen, topo, input_dict):
                                                  router_id_out)
             return errormsg
 
-    logger.info("Exiting lib API: verify_router_id()")
+    logger.debug("Exiting lib API: verify_router_id()")
     return True
 
 
+@retry(attempts=20, wait=2, return_is_str=True)
 def verify_bgp_convergence(tgen, topo):
     """
     API will verify if BGP is converged with in the given time frame.
     Running "show bgp summary json" command and verify bgp neighbor
     state is established,
-
     Parameters
     ----------
     * `tgen`: topogen object
     * `topo`: input json file data
     * `addr_type`: ip_type, ipv4/ipv6
-
     Usage
     -----
     # To veriry is BGP is converged for all the routers used in
     topology
     results = verify_bgp_convergence(tgen, topo, "ipv4")
-
     Returns
     -------
     errormsg(str) or True
     """
 
-    logger.info("Entering lib API: verify_bgp_confergence()")
+    logger.debug("Entering lib API: verify_bgp_convergence()")
     for router, rnode in tgen.routers().iteritems():
-        logger.info("Verifying BGP Convergence on router %s:", router)
+        logger.info("Verifying BGP Convergence on router %s", router)
+        show_bgp_json = run_frr_cmd(rnode, "show bgp summary json",
+                                    isjson=True)
+        # Verifying output dictionary show_bgp_json is empty or not
+        if not bool(show_bgp_json):
+            errormsg = "BGP is not running"
+            return errormsg
 
-        for retry in range(1, 11):
-            show_bgp_json = rnode.vtysh_cmd("show bgp summary json",
-                                            isjson=True)
-            # Verifying output dictionary show_bgp_json is empty or not
-            if not bool(show_bgp_json):
-                errormsg = "BGP is not running"
-                return errormsg
-
-            # To find neighbor ip type
+        # To find neighbor ip type
+        bgp_addr_type = topo["routers"][router]["bgp"]["address_family"]
+        for addr_type in bgp_addr_type.keys():
+            if not check_address_types(addr_type):
+                continue
             total_peer = 0
 
-            bgp_addr_type = topo["routers"][router]["bgp"]["address_family"]
-            for addr_type in bgp_addr_type.keys():
-                if not check_address_types(addr_type):
-                    continue
+            bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
 
-                bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
+            for bgp_neighbor in bgp_neighbors:
+                total_peer += len(bgp_neighbors[bgp_neighbor]["dest_link"])
 
-                for bgp_neighbor in bgp_neighbors:
-                    total_peer += len(bgp_neighbors[bgp_neighbor]["dest_link"])
+        for addr_type in bgp_addr_type.keys():
+            if not check_address_types(addr_type):
+                continue
+            bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
 
-            for addr_type in bgp_addr_type.keys():
-                bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
+            no_of_peer = 0
+            for bgp_neighbor, peer_data in bgp_neighbors.iteritems():
+                for dest_link in peer_data["dest_link"].keys():
+                    data = topo["routers"][bgp_neighbor]["links"]
+                    if dest_link in data:
+                        neighbor_ip = \
+                            data[dest_link][addr_type].split("/")[0]
+                        if addr_type == "ipv4":
+                            ipv4_data = show_bgp_json["ipv4Unicast"][
+                                "peers"]
+                            nh_state = ipv4_data[neighbor_ip]["state"]
+                        else:
+                            ipv6_data = show_bgp_json["ipv6Unicast"][
+                                "peers"]
+                            nh_state = ipv6_data[neighbor_ip]["state"]
 
-                no_of_peer = 0
-                for bgp_neighbor, peer_data in bgp_neighbors.iteritems():
-                    for dest_link in peer_data["dest_link"].keys():
-                        data = topo["routers"][bgp_neighbor]["links"]
-                        if dest_link in data:
-                            neighbor_ip = \
-                                data[dest_link][addr_type].split("/")[0]
-                            if addr_type == "ipv4":
-                                ipv4_data = show_bgp_json["ipv4Unicast"][
-                                    "peers"]
-                                nh_state = ipv4_data[neighbor_ip]["state"]
-                            else:
-                                ipv6_data = show_bgp_json["ipv6Unicast"][
-                                    "peers"]
-                                nh_state = ipv6_data[neighbor_ip]["state"]
+                        if nh_state == "Established":
+                            no_of_peer += 1
+        if no_of_peer == total_peer:
+            logger.info("BGP is Converged for router %s", router)
+        else:
+            errormsg = "BGP is not converged for router {}".format(
+                router)
+            return errormsg
 
-                            if nh_state == "Established":
-                                no_of_peer += 1
-            if no_of_peer == total_peer:
-                logger.info("BGP is Converged for router %s", router)
-                break
-            else:
-                logger.warning("BGP is not yet Converged for router %s",
-                               router)
-                sleeptime = 2 * retry
-                if sleeptime <= BGP_CONVERGENCE_TIMEOUT:
-                    # Waiting for BGP to converge
-                    logger.info("Waiting for %s sec for BGP to converge on"
-                                " router %s...", sleeptime, router)
-                    sleep(sleeptime)
-                else:
-                    show_bgp_summary = rnode.vtysh_cmd("show bgp summary")
-                    errormsg = "TIMEOUT!! BGP is not converged in {} " \
-                               "seconds  for router {} \n {}".format(
-                                   BGP_CONVERGENCE_TIMEOUT, router,
-                                   show_bgp_summary)
-                    return errormsg
-
-    logger.info("Exiting API: verify_bgp_confergence()")
+    logger.debug("Exiting API: verify_bgp_convergence()")
     return True
 
 
@@ -723,7 +704,7 @@ def modify_as_number(tgen, topo, input_dict):
     errormsg(str) or True
     """
 
-    logger.info("Entering lib API: modify_as_number()")
+    logger.debug("Entering lib API: modify_as_number()")
     try:
 
         new_topo = deepcopy(topo["routers"])
@@ -757,11 +738,12 @@ def modify_as_number(tgen, topo, input_dict):
         logger.error(errormsg)
         return errormsg
 
-    logger.info("Exiting lib API: modify_as_number()")
+    logger.debug("Exiting lib API: modify_as_number()")
 
     return True
 
 
+@retry(attempts=3, wait=2, return_is_str=True)
 def verify_as_numbers(tgen, topo, input_dict):
     """
     This API is to verify AS numbers for given DUT by running
@@ -791,7 +773,7 @@ def verify_as_numbers(tgen, topo, input_dict):
     errormsg(str) or True
     """
 
-    logger.info("Entering lib API: verify_as_numbers()")
+    logger.debug("Entering lib API: verify_as_numbers()")
     for router in input_dict.keys():
         if router not in tgen.routers():
             continue
@@ -800,7 +782,7 @@ def verify_as_numbers(tgen, topo, input_dict):
 
         logger.info("Verifying AS numbers for  dut %s:", router)
 
-        show_ip_bgp_neighbor_json = rnode.vtysh_cmd(
+        show_ip_bgp_neighbor_json = run_frr_cmd(rnode,
             "show ip bgp neighbor json", isjson=True)
         local_as = input_dict[router]["bgp"]["local_as"]
         bgp_addr_type = topo["routers"][router]["bgp"]["address_family"]
@@ -846,7 +828,7 @@ def verify_as_numbers(tgen, topo, input_dict):
                                     "neighbor %s, found expected: %s",
                                     router, bgp_neighbor, remote_as)
 
-    logger.info("Exiting lib API: verify_AS_numbers()")
+    logger.debug("Exiting lib API: verify_AS_numbers()")
     return True
 
 
@@ -873,7 +855,7 @@ def clear_bgp_and_verify(tgen, topo, router):
     errormsg(str) or True
     """
 
-    logger.info("Entering lib API: clear_bgp_and_verify()")
+    logger.debug("Entering lib API: clear_bgp_and_verify()")
 
     if router not in tgen.routers():
         return False
@@ -883,20 +865,14 @@ def clear_bgp_and_verify(tgen, topo, router):
     peer_uptime_before_clear_bgp = {}
     # Verifying BGP convergence before bgp clear command
     for retry in range(1, 11):
-        sleeptime = 2 * retry
-        if sleeptime <= BGP_CONVERGENCE_TIMEOUT:
-            # Waiting for BGP to converge
-            logger.info("Waiting for %s sec for BGP to converge on router"
-                        " %s...", sleeptime, router)
-            sleep(sleeptime)
-        else:
-            errormsg = "TIMEOUT!! BGP is not converged in {} seconds for" \
-                       " router {}".format(BGP_CONVERGENCE_TIMEOUT, router)
-            return errormsg
+        sleeptime = 3
+        # Waiting for BGP to converge
+        logger.info("Waiting for %s sec for BGP to converge on router"
+                    " %s...", sleeptime, router)
+        sleep(sleeptime)
 
-        show_bgp_json = rnode.vtysh_cmd("show bgp summary json",
+        show_bgp_json = run_frr_cmd(rnode, "show bgp summary json",
                                         isjson=True)
-        logger.info(show_bgp_json)
         # Verifying output dictionary show_bgp_json is empty or not
         if not bool(show_bgp_json):
             errormsg = "BGP is not running"
@@ -950,33 +926,33 @@ def clear_bgp_and_verify(tgen, topo, router):
                         " clear", router)
             break
         else:
-            logger.warning("BGP is not yet Converged for router %s "
-                           "before bgp clear", router)
+            logger.info("BGP is not yet Converged for router %s "
+                        "before bgp clear", router)
+    else:
+        errormsg = "TIMEOUT!! BGP is not converged in 30 seconds for" \
+                   " router {}".format(router)
+        return errormsg
 
     logger.info(peer_uptime_before_clear_bgp)
     # Clearing BGP
     logger.info("Clearing BGP neighborship for router %s..", router)
     for addr_type in bgp_addr_type.keys():
         if addr_type == "ipv4":
-            rnode.vtysh_cmd("clear ip bgp *")
+            run_frr_cmd(rnode, "clear ip bgp *")
         elif addr_type == "ipv6":
-            rnode.vtysh_cmd("clear bgp ipv6 *")
+            run_frr_cmd(rnode, "clear bgp ipv6 *")
 
     peer_uptime_after_clear_bgp = {}
     # Verifying BGP convergence after bgp clear command
-    for retry in range(1, 11):
-        sleeptime = 2 * retry
-        if sleeptime <= BGP_CONVERGENCE_TIMEOUT:
-            # Waiting for BGP to converge
-            logger.info("Waiting for %s sec for BGP to converge on router"
-                        " %s...", sleeptime, router)
-            sleep(sleeptime)
-        else:
-            errormsg = "TIMEOUT!! BGP is not converged in {} seconds for" \
-                       " router {}".format(BGP_CONVERGENCE_TIMEOUT, router)
-            return errormsg
+    for retry in range(11):
+        sleeptime = 3
+        # Waiting for BGP to converge
+        logger.info("Waiting for %s sec for BGP to converge on router"
+                    " %s...", sleeptime, router)
+        sleep(sleeptime)
 
-        show_bgp_json = rnode.vtysh_cmd("show bgp summary json",
+
+        show_bgp_json = run_frr_cmd(rnode, "show bgp summary json",
                                         isjson=True)
         # Verifying output dictionary show_bgp_json is empty or not
         if not bool(show_bgp_json):
@@ -1028,9 +1004,12 @@ def clear_bgp_and_verify(tgen, topo, router):
                         router)
             break
         else:
-            logger.warning("BGP is not yet Converged for router %s after"
-                           " bgp clear", router)
-
+            logger.info("BGP is not yet Converged for router %s after"
+                        " bgp clear", router)
+    else:
+        errormsg = "TIMEOUT!! BGP is not converged in 30 seconds for" \
+                   " router {}".format(router)
+        return errormsg
     logger.info(peer_uptime_after_clear_bgp)
     # Comparing peerUptimeEstablishedEpoch dictionaries
     if peer_uptime_before_clear_bgp != peer_uptime_after_clear_bgp:
@@ -1041,7 +1020,7 @@ def clear_bgp_and_verify(tgen, topo, router):
                    " {}".format(router)
         return errormsg
 
-    logger.info("Exiting lib API: clear_bgp_and_verify()")
+    logger.debug("Exiting lib API: clear_bgp_and_verify()")
     return True
 
 
@@ -1077,7 +1056,7 @@ def verify_bgp_timers_and_functionality(tgen, topo, input_dict):
     errormsg(str) or True
     """
 
-    logger.info("Entering lib API: verify_bgp_timers_and_functionality()")
+    logger.debug("Entering lib API: verify_bgp_timers_and_functionality()")
     sleep(5)
     router_list = tgen.routers()
     for router in input_dict.keys():
@@ -1090,7 +1069,7 @@ def verify_bgp_timers_and_functionality(tgen, topo, input_dict):
                     router)
 
         show_ip_bgp_neighbor_json = \
-            rnode.vtysh_cmd("show ip bgp neighbor json", isjson=True)
+            run_frr_cmd(rnode, "show ip bgp neighbor json", isjson=True)
 
         bgp_addr_type = input_dict[router]["bgp"]["address_family"]
 
@@ -1178,7 +1157,7 @@ def verify_bgp_timers_and_functionality(tgen, topo, input_dict):
                     sleep(keepalivetimer)
                     sleep(2)
                     show_bgp_json = \
-                        rnode.vtysh_cmd("show bgp summary json",
+                        run_frr_cmd(rnode, "show bgp summary json",
                                         isjson=True)
 
                     if addr_type == "ipv4":
@@ -1192,17 +1171,13 @@ def verify_bgp_timers_and_functionality(tgen, topo, input_dict):
                             (holddowntimer - keepalivetimer):
                         if nh_state != "Established":
                             errormsg = "BGP neighborship has not  gone " \
-                                       "down in {} sec for neighbor {}\n" \
-                                       "show_bgp_json: \n {} ".format(
-                                timer, bgp_neighbor,
-                                show_bgp_json)
+                                       "down in {} sec for neighbor {}" \
+                                .format(timer, bgp_neighbor)
                             return errormsg
                         else:
                             logger.info("BGP neighborship is intact in %s"
-                                        " sec for neighbor %s \n "
-                                        "show_bgp_json : \n %s",
-                                        timer, bgp_neighbor,
-                                        show_bgp_json)
+                                        " sec for neighbor %s",
+                                        timer, bgp_neighbor)
 
                 ####################
                 # Shutting down peer interface and verifying that BGP
@@ -1229,7 +1204,7 @@ def verify_bgp_timers_and_functionality(tgen, topo, input_dict):
                     sleep(keepalivetimer)
                     sleep(2)
                     show_bgp_json = \
-                        rnode.vtysh_cmd("show bgp summary json",
+                        run_frr_cmd(rnode, "show bgp summary json",
                                         isjson=True)
 
                     if addr_type == "ipv4":
@@ -1242,22 +1217,19 @@ def verify_bgp_timers_and_functionality(tgen, topo, input_dict):
                     if timer == holddowntimer:
                         if nh_state == "Established":
                             errormsg = "BGP neighborship has not gone " \
-                                       "down in {} sec for neighbor {}\n" \
-                                       "show_bgp_json: \n {} ".format(
-                                timer, bgp_neighbor,
-                                show_bgp_json)
+                                       "down in {} sec for neighbor {}" \
+                                .format(timer, bgp_neighbor)
                             return errormsg
                         else:
                             logger.info("BGP neighborship has gone down in"
-                                        " %s sec for neighbor %s \n"
-                                        "show_bgp_json : \n %s",
-                                        timer, bgp_neighbor,
-                                        show_bgp_json)
+                                        " %s sec for neighbor %s",
+                                        timer, bgp_neighbor)
 
-    logger.info("Exiting lib API: verify_bgp_timers_and_functionality()")
+    logger.debug("Exiting lib API: verify_bgp_timers_and_functionality()")
     return True
 
 
+@retry(attempts=3, wait=2, return_is_str=True)
 def verify_best_path_as_per_bgp_attribute(tgen, addr_type, router, input_dict,
                                           attribute):
     """
@@ -1319,7 +1291,7 @@ def verify_best_path_as_per_bgp_attribute(tgen, addr_type, router, input_dict,
 
     sleep(2)
     logger.info("Verifying router %s RIB for best path:", router)
-    sh_ip_bgp_json = rnode.vtysh_cmd(command, isjson=True)
+    sh_ip_bgp_json = run_frr_cmd(rnode, command, isjson=True)
 
     for route_val in input_dict.values():
         net_data = route_val["bgp"]["address_family"]["ipv4"]["unicast"]
@@ -1380,7 +1352,7 @@ def verify_best_path_as_per_bgp_attribute(tgen, addr_type, router, input_dict,
             else:
                 command = "show ipv6 route json"
 
-            rib_routes_json = rnode.vtysh_cmd(command, isjson=True)
+            rib_routes_json = run_frr_cmd(rnode, command, isjson=True)
 
             # Verifying output dictionary rib_routes_json is not empty
             if not bool(rib_routes_json):
@@ -1417,6 +1389,7 @@ def verify_best_path_as_per_bgp_attribute(tgen, addr_type, router, input_dict,
     return True
 
 
+@retry(attempts=3, wait=2, return_is_str=True)
 def verify_best_path_as_per_admin_distance(tgen, addr_type, router, input_dict,
                                            attribute):
     """
@@ -1451,7 +1424,7 @@ def verify_best_path_as_per_admin_distance(tgen, addr_type, router, input_dict,
     errormsg(str) or True
     """
 
-    logger.info("Entering lib API: verify_best_path_as_per_admin_distance()")
+    logger.debug("Entering lib API: verify_best_path_as_per_admin_distance()")
     router_list = tgen.routers()
     if router not in router_list:
         return False
@@ -1490,7 +1463,7 @@ def verify_best_path_as_per_admin_distance(tgen, addr_type, router, input_dict,
             compare = "LOWEST"
 
         # Show ip route
-        rib_routes_json = rnode.vtysh_cmd(command, isjson=True)
+        rib_routes_json = run_frr_cmd(rnode, command, isjson=True)
 
         # Verifying output dictionary rib_routes_json is not empty
         if not bool(rib_routes_json):

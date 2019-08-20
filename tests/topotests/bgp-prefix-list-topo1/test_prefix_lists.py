@@ -386,8 +386,8 @@ def test_ip_prefix_lists_out_permit(request):
         tc_name, result)
 
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
+                               " present in RIB".format(tc_name)
     write_test_footer(tc_name)
 
 
@@ -497,8 +497,8 @@ def test_ip_prefix_lists_in_deny_and_permit_any(request):
     dut = "r3"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
+                               " present in RIB".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -542,7 +542,6 @@ def test_delete_prefix_lists(request):
     result = verify_prefix_lists(tgen, input_dict_2)
     assert result is not True, "Testcase {} : Failed \n Error: {}".format(
         tc_name, result)
-    logger.info(result)
 
     # Delete prefix list
     input_dict_2 = {
@@ -714,9 +713,8 @@ def test_ip_prefix_lists_out_deny_and_permit_any(request):
     dut = "r4"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
-
+    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
+                               " present in RIB".format(tc_name)
     write_test_footer(tc_name)
 
 
@@ -859,8 +857,8 @@ def test_modify_prefix_lists_in_permit_to_deny(request):
     dut = "r3"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
+                               " present in RIB".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -972,8 +970,8 @@ def test_modify_prefix_lists_in_deny_to_permit(request):
     dut = "r3"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
+                               " present in RIB".format(tc_name)
 
     # Modify  ip prefix list
     input_dict_1 = {
@@ -1152,8 +1150,8 @@ def test_modify_prefix_lists_out_permit_to_deny(request):
     dut = "r4"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
+                               " present in RIB".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -1265,8 +1263,8 @@ def test_modify_prefix_lists_out_deny_to_permit(request):
     dut = "r4"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
+                               " present in RIB".format(tc_name)
 
     # Modify ip prefix list
     input_dict_1 = {
@@ -1439,8 +1437,8 @@ def test_ip_prefix_lists_implicit_deny(request):
     dut = "r4"
     protocol = "bgp"
     result = verify_rib(tgen, "ipv4", dut, input_dict_1, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is not True, "Testcase {} : Failed \n Error: Routes still" \
+                               " present in RIB".format(tc_name)
 
     write_test_footer(tc_name)
 
