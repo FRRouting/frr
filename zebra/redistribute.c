@@ -172,6 +172,13 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 			  __FUNCTION__);
 		return;
 	}
+	if (!zebra_check_addr(p)) {
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("Redist update filter prefix %s",
+				   prefix2str(p, buf, sizeof(buf)));
+		return;
+	}
+
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		send_redistribute = 0;
@@ -243,6 +250,13 @@ void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
 			  "%s: Unknown AFI/SAFI prefix received\n",
 			  __FUNCTION__);
+		return;
+	}
+
+	if (!zebra_check_addr(p)) {
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("Redist delete filter prefix %s",
+				   prefix2str(p, buf, sizeof(buf)));
 		return;
 	}
 
