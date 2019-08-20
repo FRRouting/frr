@@ -22,7 +22,9 @@
  */
 #include <zebra.h>
 
+#ifdef CRYPTO_INTERNAL
 #include "md5.h"
+#endif
 #include "memory.h"
 #include "stream.h"
 #include "sbuf.h"
@@ -2770,8 +2772,16 @@ static void update_auth_hmac_md5(struct isis_auth *auth, struct stream *s,
 		safe_auth_md5(s, &checksum, &rem_lifetime);
 
 	memset(STREAM_DATA(s) + auth->offset, 0, 16);
+#ifdef CRYPTO_OPENSSL
+	uint8_t *result = (uint8_t *)HMAC(EVP_md5(), auth->passwd,
+					  auth->plength, STREAM_DATA(s),
+					  stream_get_endp(s), NULL, NULL);
+
+	memcpy(digest, result, 16);
+#elif CRYPTO_INTERNAL
 	hmac_md5(STREAM_DATA(s), stream_get_endp(s), auth->passwd,
 		 auth->plength, digest);
+#endif
 	memcpy(auth->value, digest, 16);
 	memcpy(STREAM_DATA(s) + auth->offset, digest, 16);
 
@@ -3310,8 +3320,16 @@ static bool auth_validator_hmac_md5(struct isis_passwd *passwd,
 		safe_auth_md5(stream, &checksum, &rem_lifetime);
 
 	memset(STREAM_DATA(stream) + auth->offset, 0, 16);
+#ifdef CRYPTO_OPENSSL
+	uint8_t *result = (uint8_t *)HMAC(EVP_md5(), passwd->passwd,
+					  passwd->len, STREAM_DATA(stream),
+					  stream_get_endp(stream), NULL, NULL);
+
+	memcpy(digest, result, 16);
+#elif CRYPTO_INTERNAL
 	hmac_md5(STREAM_DATA(stream), stream_get_endp(stream), passwd->passwd,
 		 passwd->len, digest);
+#endif
 	memcpy(STREAM_DATA(stream) + auth->offset, auth->value, 16);
 
 	bool rv = !memcmp(digest, auth->value, 16);
