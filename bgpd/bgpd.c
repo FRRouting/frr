@@ -2047,7 +2047,7 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 	    && !bgp->allocate_mpls_labels[afi][SAFI_UNICAST]) {
 
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_info(
+			zlog_debug(
 				"peer(s) are now active for labeled-unicast, allocate MPLS labels");
 
 		bgp->allocate_mpls_labels[afi][SAFI_UNICAST] = 1;
@@ -2150,7 +2150,7 @@ int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
 	    && !bgp_afi_safi_peer_exists(bgp, afi, safi)) {
 
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_info(
+			zlog_debug(
 				"peer(s) are no longer active for labeled-unicast, deallocate MPLS labels");
 
 		bgp->allocate_mpls_labels[afi][SAFI_UNICAST] = 0;
