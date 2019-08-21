@@ -1031,7 +1031,7 @@ as_t peek_for_as4_capability(struct peer *peer, uint8_t length)
 	as_t as4 = 0;
 
 	if (BGP_DEBUG(as4, AS4))
-		zlog_info(
+		zlog_debug(
 			"%s [AS4] rcv OPEN w/ OPTION parameter len: %u,"
 			" peeking for as4",
 			peer->host, length);
@@ -1075,7 +1075,7 @@ as_t peek_for_as4_capability(struct peer *peer, uint8_t length)
 
 				if (hdr.code == CAPABILITY_CODE_AS4) {
 					if (BGP_DEBUG(as4, AS4))
-						zlog_info(
+						zlog_debug(
 							"[AS4] found AS4 capability, about to parse");
 					as4 = bgp_capability_as4(peer, &hdr);
 
