@@ -5704,6 +5704,8 @@ static struct bgp_aggregate *bgp_aggregate_new(void)
 
 static void bgp_aggregate_free(struct bgp_aggregate *aggregate)
 {
+	XFREE(MTYPE_ROUTE_MAP_NAME, aggregate->rmap.name);
+	route_map_counter_decrement(aggregate->rmap.map);
 	XFREE(MTYPE_BGP_AGGREGATE, aggregate);
 }
 
@@ -5754,6 +5756,7 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 	struct bgp_node *rn;
 	struct bgp_table *table;
 	struct bgp_path_info *pi, *orig, *new;
+	struct attr *attr;
 
 	table = bgp->rib[afi][safi];
 
@@ -5791,14 +5794,18 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (pi)
 			bgp_path_info_delete(rn, pi);
 
+		attr = bgp_attr_aggregate_intern(
+			bgp, origin, aspath, community, ecommunity, lcommunity,
+			aggregate, atomic_aggregate, p);
+
+		if (!attr) {
+			bgp_aggregate_delete(bgp, p, afi, safi, aggregate);
+			return;
+		}
+
 		new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_AGGREGATE, 0,
-				bgp->peer_self,
-				bgp_attr_aggregate_intern(bgp, origin, aspath,
-							  community, ecommunity,
-							  lcommunity,
-							  aggregate->as_set,
-							  atomic_aggregate),
-				rn);
+				bgp->peer_self, attr, rn);
+
 		SET_FLAG(new->flags, BGP_PATH_VALID);
 
 		bgp_path_info_add(rn, new);
@@ -5821,7 +5828,7 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 }
 
 /* Update an aggregate as routes are added/removed from the BGP table */
-static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
+void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 				afi_t afi, safi_t safi,
 				struct bgp_aggregate *aggregate)
 {
@@ -5982,7 +5989,7 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 			      aggregate);
 }
 
-static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
+void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 				 safi_t safi, struct bgp_aggregate *aggregate)
 {
 	struct bgp_table *table;
@@ -6426,7 +6433,8 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 }
 
 static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
-			     safi_t safi, uint8_t summary_only, uint8_t as_set)
+			     safi_t safi, const char *rmap, uint8_t summary_only,
+			     uint8_t as_set)
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
@@ -6451,8 +6459,9 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 
 	/* Old configuration check. */
 	rn = bgp_node_get(bgp->aggregate[afi][safi], &p);
+	aggregate = bgp_node_get_bgp_aggregate_info(rn);
 
-	if (bgp_node_has_bgp_path_info_data(rn)) {
+	if (aggregate) {
 		vty_out(vty, "There is already same aggregate network.\n");
 		/* try to remove the old entry */
 		ret = bgp_aggregate_unset(vty, prefix_str, afi, safi);
@@ -6468,6 +6477,15 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	aggregate->summary_only = summary_only;
 	aggregate->as_set = as_set;
 	aggregate->safi = safi;
+
+	if (rmap) {
+		XFREE(MTYPE_ROUTE_MAP_NAME, aggregate->rmap.name);
+		route_map_counter_decrement(aggregate->rmap.map);
+		aggregate->rmap.name =
+			XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
+		aggregate->rmap.map = route_map_lookup_by_name(rmap);
+		route_map_counter_increment(aggregate->rmap.map);
+	}
 	bgp_node_set_bgp_aggregate_info(rn, aggregate);
 
 	/* Aggregate address insert into BGP routing table. */
@@ -6478,17 +6496,20 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 
 DEFUN (aggregate_address,
        aggregate_address_cmd,
-       "aggregate-address A.B.C.D/M [<as-set [summary-only]|summary-only [as-set]>]",
+       "aggregate-address A.B.C.D/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD]",
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n"
        "Generate AS set path information\n"
        "Filter more specific routes from updates\n"
        "Filter more specific routes from updates\n"
-       "Generate AS set path information\n")
+       "Generate AS set path information\n"
+       "Apply route map to aggregate network\n"
+       "Name of route map\n")
 {
 	int idx = 0;
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
 	char *prefix = argv[idx]->arg;
+	char *rmap = NULL;
 	int as_set =
 		argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET : 0;
 	idx = 0;
@@ -6496,31 +6517,43 @@ DEFUN (aggregate_address,
 				   ? AGGREGATE_SUMMARY_ONLY
 				   : 0;
 
+	idx = 0;
+	argv_find(argv, argc, "WORD", &idx);
+	if (idx)
+		rmap = argv[idx]->arg;
+
 	return bgp_aggregate_set(vty, prefix, AFI_IP, bgp_node_safi(vty),
-				 summary_only, as_set);
+				 rmap, summary_only, as_set);
 }
 
 DEFUN (aggregate_address_mask,
        aggregate_address_mask_cmd,
-       "aggregate-address A.B.C.D A.B.C.D [<as-set [summary-only]|summary-only [as-set]>]",
+       "aggregate-address A.B.C.D A.B.C.D [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD]",
        "Configure BGP aggregate entries\n"
        "Aggregate address\n"
        "Aggregate mask\n"
        "Generate AS set path information\n"
        "Filter more specific routes from updates\n"
        "Filter more specific routes from updates\n"
-       "Generate AS set path information\n")
+       "Generate AS set path information\n"
+       "Apply route map to aggregate network\n"
+       "Name of route map\n")
 {
 	int idx = 0;
 	argv_find(argv, argc, "A.B.C.D", &idx);
 	char *prefix = argv[idx]->arg;
 	char *mask = argv[idx + 1]->arg;
+	char *rmap = NULL;
 	int as_set =
 		argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET : 0;
 	idx = 0;
 	int summary_only = argv_find(argv, argc, "summary-only", &idx)
 				   ? AGGREGATE_SUMMARY_ONLY
 				   : 0;
+
+	argv_find(argv, argc, "WORD", &idx);
+	if (idx)
+		rmap = argv[idx]->arg;
 
 	char prefix_str[BUFSIZ];
 	int ret = netmask_str2prefix_str(prefix, mask, prefix_str);
@@ -6531,7 +6564,7 @@ DEFUN (aggregate_address_mask,
 	}
 
 	return bgp_aggregate_set(vty, prefix_str, AFI_IP, bgp_node_safi(vty),
-				 summary_only, as_set);
+				 rmap, summary_only, as_set);
 }
 
 DEFUN (no_aggregate_address,
@@ -6581,17 +6614,20 @@ DEFUN (no_aggregate_address_mask,
 
 DEFUN (ipv6_aggregate_address,
        ipv6_aggregate_address_cmd,
-       "aggregate-address X:X::X:X/M [<as-set [summary-only]|summary-only [as-set]>]",
+       "aggregate-address X:X::X:X/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD]",
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n"
        "Generate AS set path information\n"
        "Filter more specific routes from updates\n"
        "Filter more specific routes from updates\n"
-       "Generate AS set path information\n")
+       "Generate AS set path information\n"
+       "Apply route map to aggregate network\n"
+       "Name of route map\n")
 {
 	int idx = 0;
 	argv_find(argv, argc, "X:X::X:X/M", &idx);
 	char *prefix = argv[idx]->arg;
+	char *rmap = NULL;
 	int as_set =
 		argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET : 0;
 
@@ -6599,8 +6635,13 @@ DEFUN (ipv6_aggregate_address,
 	int sum_only = argv_find(argv, argc, "summary-only", &idx)
 			       ? AGGREGATE_SUMMARY_ONLY
 			       : 0;
-	return bgp_aggregate_set(vty, prefix, AFI_IP6, SAFI_UNICAST, sum_only,
-				 as_set);
+
+	argv_find(argv, argc, "WORD", &idx);
+	if (idx)
+		rmap = argv[idx]->arg;
+
+	return bgp_aggregate_set(vty, prefix, AFI_IP6, SAFI_UNICAST, rmap,
+				 sum_only, as_set);
 }
 
 DEFUN (no_ipv6_aggregate_address,
@@ -12466,6 +12507,9 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 		if (bgp_aggregate->summary_only)
 			vty_out(vty, " summary-only");
+
+		if (bgp_aggregate->rmap.name)
+			vty_out(vty, " route-map %s", bgp_aggregate->rmap.name);
 
 		vty_out(vty, "\n");
 	}
