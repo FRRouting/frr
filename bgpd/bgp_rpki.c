@@ -1156,11 +1156,11 @@ DEFPY (no_rpki_cache,
 		return CMD_WARNING;
 	}
 
-	if (rtr_is_running) {
+	if (rtr_is_running && listcount(cache_list) == 1) {
+		stop();
+	} else if (rtr_is_running) {
 		if (rtr_mgr_remove_group(rtr_config, preference) == RTR_ERROR) {
 			vty_out(vty, "Could not remove cache %ld", preference);
-			if (listcount(cache_list) == 1)
-				vty_out(vty, " because it is the last cache");
 
 			vty_out(vty, "\n");
 			return CMD_WARNING;
