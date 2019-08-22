@@ -441,7 +441,7 @@ void prefix_hexdump(const struct prefix *p)
 	zlog_hexdump(p, sizeof(struct prefix));
 }
 
-int is_zero_mac(struct ethaddr *mac)
+int is_zero_mac(const struct ethaddr *mac)
 {
 	int i = 0;
 
