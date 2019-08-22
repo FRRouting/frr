@@ -186,14 +186,6 @@ size_t stream_resize_inplace(struct stream **sptr, size_t newsize)
 	return orig->size;
 }
 
-size_t __attribute__((deprecated))stream_resize_orig(struct stream *s,
-						     size_t newsize)
-{
-	assert("stream_resize: Switch code to use stream_resize_inplace" == NULL);
-
-	return stream_resize_inplace(&s, newsize);
-}
-
 size_t stream_get_getp(struct stream *s)
 {
 	STREAM_VERIFY_SANE(s);
