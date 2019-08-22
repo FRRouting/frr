@@ -756,8 +756,6 @@ static int add_cache(struct cache *cache)
 	group.sockets_len = 1;
 	group.sockets = &cache->rtr_socket;
 
-	listnode_add(cache_list, cache);
-
 	if (rtr_is_running) {
 		init_tr_socket(cache);
 
@@ -766,6 +764,8 @@ static int add_cache(struct cache *cache)
 			return ERROR;
 		}
 	}
+
+	listnode_add(cache_list, cache);
 
 	return SUCCESS;
 }
@@ -793,7 +793,12 @@ static int add_tcp_cache(const char *host, const char *port,
 	cache->rtr_socket = rtr_socket;
 	cache->preference = preference;
 
-	return add_cache(cache);
+	int ret = add_cache(cache);
+	if (ret != SUCCESS) {
+		free_cache(cache);
+	}
+
+	return ret;
 }
 
 #if defined(FOUND_SSH)
@@ -829,7 +834,12 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 	cache->rtr_socket = rtr_socket;
 	cache->preference = preference;
 
-	return add_cache(cache);
+	int ret = add_cache(cache);
+	if (ret != SUCCESS) {
+		free_cache(cache);
+	}
+
+	return ret;
 }
 #endif
 
