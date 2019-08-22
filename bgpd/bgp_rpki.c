@@ -76,8 +76,6 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group")
 #define POLLING_PERIOD_DEFAULT 3600
 #define EXPIRE_INTERVAL_DEFAULT 7200
 #define RETRY_INTERVAL_DEFAULT 600
-#define TIMEOUT_DEFAULT 600
-#define INITIAL_SYNCHRONISATION_TIMEOUT_DEFAULT 30
 
 #define RPKI_DEBUG(...)                                                        \
 	if (rpki_debug) {                                                      \
@@ -147,8 +145,6 @@ static int rpki_debug;
 static unsigned int polling_period;
 static unsigned int expire_interval;
 static unsigned int retry_interval;
-static unsigned int timeout;
-static unsigned int initial_synchronisation_timeout;
 static int rpki_sync_socket_rtr;
 static int rpki_sync_socket_bgpd;
 
@@ -538,9 +534,6 @@ static int bgp_rpki_init(struct thread_master *master)
 	polling_period = POLLING_PERIOD_DEFAULT;
 	expire_interval = EXPIRE_INTERVAL_DEFAULT;
 	retry_interval = RETRY_INTERVAL_DEFAULT;
-	timeout = TIMEOUT_DEFAULT;
-	initial_synchronisation_timeout =
-		INITIAL_SYNCHRONISATION_TIMEOUT_DEFAULT;
 	install_cli_commands();
 	rpki_init_sync_socket();
 	return 0;
@@ -879,9 +872,6 @@ static int config_write(struct vty *vty)
 		vty_out(vty, "!\n");
 		vty_out(vty, "rpki\n");
 		vty_out(vty, "  rpki polling_period %d\n", polling_period);
-		vty_out(vty, "  rpki timeout %d\n", timeout);
-		vty_out(vty, "  rpki initial-synchronisation-timeout %d\n",
-			initial_synchronisation_timeout);
 		for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
 			switch (cache->type) {
 				struct tr_tcp_config *tcp_config;
@@ -1030,48 +1020,64 @@ DEFUN (no_rpki_retry_interval,
 	return CMD_SUCCESS;
 }
 
-DEFPY (rpki_timeout,
+#if (CONFDATE > 20200901)
+CPP_NOTICE("bgpd: time to remove rpki timeout")
+CPP_NOTICE("bgpd: this includes rpki_timeout and rpki_synchronisation_timeout")
+#endif
+
+DEFPY_HIDDEN (rpki_timeout,
        rpki_timeout_cmd,
        "rpki timeout (1-4294967295)$to_arg",
        RPKI_OUTPUT_STRING
        "Set timeout\n"
        "Timeout value\n")
 {
-	timeout = to_arg;
+	vty_out(vty,
+		"This config option is deprecated, and is scheduled for removal.\n");
+	vty_out(vty,
+		"This functionality has also already been removed because it caused bugs and was pointless\n");
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_rpki_timeout,
+DEFUN_HIDDEN (no_rpki_timeout,
        no_rpki_timeout_cmd,
        "no rpki timeout",
        NO_STR
        RPKI_OUTPUT_STRING
        "Set timeout back to default\n")
 {
-	timeout = TIMEOUT_DEFAULT;
+	vty_out(vty,
+		"This config option is deprecated, and is scheduled for removal.\n");
+	vty_out(vty,
+		"This functionality has also already been removed because it caused bugs and was pointless\n");
 	return CMD_SUCCESS;
 }
 
-DEFPY (rpki_synchronisation_timeout,
+DEFPY_HIDDEN (rpki_synchronisation_timeout,
        rpki_synchronisation_timeout_cmd,
        "rpki initial-synchronisation-timeout (1-4294967295)$ito_arg",
        RPKI_OUTPUT_STRING
        "Set a timeout for the initial synchronisation of prefix validation data\n"
        "Timeout value\n")
 {
-	initial_synchronisation_timeout = ito_arg;
+	vty_out(vty,
+		"This config option is deprecated, and is scheduled for removal.\n");
+	vty_out(vty,
+		"This functionality has also already been removed because it caused bugs and was pointless\n");
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_rpki_synchronisation_timeout,
+DEFUN_HIDDEN (no_rpki_synchronisation_timeout,
        no_rpki_synchronisation_timeout_cmd,
        "no rpki initial-synchronisation-timeout",
        NO_STR
        RPKI_OUTPUT_STRING
        "Set the initial synchronisation timeout back to default (30 sec.)\n")
 {
-	initial_synchronisation_timeout =
-		INITIAL_SYNCHRONISATION_TIMEOUT_DEFAULT;
+	vty_out(vty,
+		"This config option is deprecated, and is scheduled for removal.\n");
+	vty_out(vty,
+		"This functionality has also already been removed because it caused bugs and was pointless\n");
 	return CMD_SUCCESS;
 }
 
