@@ -3178,7 +3178,7 @@ static int handle_pw_result(struct zebra_dplane_ctx *ctx)
 
 	if (dplane_ctx_get_status(ctx) != ZEBRA_DPLANE_REQUEST_SUCCESS) {
 		vrf = zebra_vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
-		pw = zebra_pw_find(vrf, dplane_ctx_get_pw_ifname(ctx));
+		pw = zebra_pw_find(vrf, dplane_ctx_get_ifname(ctx));
 		if (pw)
 			zebra_pw_install_failure(pw);
 	}
@@ -3268,6 +3268,11 @@ static int rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_SYS_ROUTE_DELETE:
 				/* No further processing in zebra for these. */
 				dplane_ctx_fini(&ctx);
+				break;
+
+			case DPLANE_OP_MAC_INSTALL:
+			case DPLANE_OP_MAC_DELETE:
+				zebra_vxlan_handle_result(ctx);
 				break;
 
 			default:

@@ -35,6 +35,7 @@
 #include "lib/json.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_dplane.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -213,6 +214,8 @@ extern int zebra_vxlan_clear_dup_detect_vni_all(struct vty *vty,
 extern int zebra_vxlan_clear_dup_detect_vni(struct vty *vty,
 					    struct zebra_vrf *zvrf,
 					    vni_t vni);
+extern void zebra_vxlan_handle_result(struct zebra_dplane_ctx *ctx);
+
 extern void zebra_evpn_init(void);
 
 #ifdef __cplusplus
