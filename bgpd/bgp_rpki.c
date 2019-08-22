@@ -1083,6 +1083,18 @@ DEFPY (rpki_cache,
        "Preference value\n")
 {
 	int return_value;
+	struct listnode *cache_node;
+	struct cache *current_cache;
+
+	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, current_cache)) {
+		if (current_cache->preference == preference) {
+			vty_out(vty,
+				"Cache with preference %ld is already configured\n",
+				preference);
+			return CMD_WARNING;
+		}
+	}
+
 
 	// use ssh connection
 	if (ssh_uname) {
