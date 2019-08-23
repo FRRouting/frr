@@ -92,7 +92,7 @@ static int zebra_vrf_new(struct vrf *vrf)
 	struct zebra_vrf *zvrf;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_info("VRF %s created, id %u", vrf->name, vrf->vrf_id);
+		zlog_debug("VRF %s created, id %u", vrf->name, vrf->vrf_id);
 
 	zvrf = zebra_vrf_alloc();
 	vrf->info = zvrf;
