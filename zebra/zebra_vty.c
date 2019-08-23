@@ -455,6 +455,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				    re->status);
 		json_object_int_add(json_route, "internalFlags",
 				    re->flags);
+		json_object_int_add(json_route, "internalNextHopNum",
+				    re->nexthop_num);
+		json_object_int_add(json_route, "internalNextHopActiveNum",
+				    re->nexthop_active_num);
 		if (uptime < ONE_DAY_SECOND)
 			sprintf(buf, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
 				tm->tm_sec);
