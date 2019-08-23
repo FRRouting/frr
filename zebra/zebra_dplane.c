@@ -159,6 +159,16 @@ struct dplane_mac_info {
 };
 
 /*
+ * EVPN neighbor info for the dataplane
+ */
+struct dplane_neigh_info {
+	struct ipaddr ip_addr;
+	struct ethaddr mac;
+	uint32_t flags;
+	uint16_t state;
+};
+
+/*
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
  * dataplane layer (and pthread).
@@ -204,6 +214,7 @@ struct zebra_dplane_ctx {
 		struct dplane_pw_info pw;
 		struct dplane_intf_info intf;
 		struct dplane_mac_info macinfo;
+		struct dplane_neigh_info neigh;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -321,6 +332,9 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_macs_in;
 	_Atomic uint32_t dg_mac_errors;
 
+	_Atomic uint32_t dg_neighs_in;
+	_Atomic uint32_t dg_neigh_errors;
+
 	_Atomic uint32_t dg_update_yields;
 
 	/* Dataplane pthread */
@@ -365,6 +379,12 @@ static enum zebra_dplane_result mac_update_internal(
 	enum dplane_op_e op, const struct interface *ifp,
 	vlanid_t vid, const struct ethaddr *mac,
 	struct in_addr vtep_ip,	bool sticky);
+static enum zebra_dplane_result neigh_update_internal(
+	enum dplane_op_e op,
+	const struct interface *ifp,
+	const struct ethaddr *mac,
+	const struct ipaddr *ip,
+	uint32_t flags, uint16_t state);
 
 /*
  * Public APIs
@@ -486,6 +506,7 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 	case DPLANE_OP_MAC_INSTALL:
 	case DPLANE_OP_MAC_DELETE:
 	case DPLANE_OP_NEIGH_INSTALL:
+	case DPLANE_OP_NEIGH_UPDATE:
 	case DPLANE_OP_NEIGH_DELETE:
 	case DPLANE_OP_NONE:
 		break;
@@ -656,6 +677,9 @@ const char *dplane_op2str(enum dplane_op_e op)
 
 	case DPLANE_OP_NEIGH_INSTALL:
 		ret = "NEIGH_INSTALL";
+		break;
+	case DPLANE_OP_NEIGH_UPDATE:
+		ret = "NEIGH_UPDATE";
 		break;
 	case DPLANE_OP_NEIGH_DELETE:
 		ret = "NEIGH_DELETE";
@@ -1238,6 +1262,33 @@ const struct in_addr *dplane_ctx_mac_get_vtep_ip(
 {
 	DPLANE_CTX_VALID(ctx);
 	return &(ctx->u.macinfo.vtep_ip);
+}
+
+/* Accessors for neighbor information */
+const struct ipaddr *dplane_ctx_neigh_get_ipaddr(
+	const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &(ctx->u.neigh.ip_addr);
+}
+
+const struct ethaddr *dplane_ctx_neigh_get_mac(
+	const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &(ctx->u.neigh.mac);
+}
+
+uint32_t dplane_ctx_neigh_get_flags(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.neigh.flags;
+}
+
+uint16_t dplane_ctx_neigh_get_state(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.neigh.state;
 }
 
 /*
@@ -2170,6 +2221,116 @@ mac_update_internal(enum dplane_op_e op,
 }
 
 /*
+ * Enqueue evpn neighbor add for the dataplane.
+ */
+enum zebra_dplane_result dplane_neigh_add(const struct interface *ifp,
+					  const struct ipaddr *ip,
+					  const struct ethaddr *mac,
+					  uint32_t flags)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	result = neigh_update_internal(DPLANE_OP_NEIGH_INSTALL,
+				       ifp, mac, ip, flags, 0);
+
+	return result;
+}
+
+/*
+ * Enqueue evpn neighbor update for the dataplane.
+ */
+enum zebra_dplane_result dplane_neigh_update(const struct interface *ifp,
+					     const struct ipaddr *ip,
+					     const struct ethaddr *mac)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	result = neigh_update_internal(DPLANE_OP_NEIGH_UPDATE,
+				       ifp, mac, ip, 0, DPLANE_NUD_PROBE);
+
+	return result;
+}
+
+/*
+ * Enqueue evpn neighbor delete for the dataplane.
+ */
+enum zebra_dplane_result dplane_neigh_delete(const struct interface *ifp,
+					     const struct ipaddr *ip)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	result = neigh_update_internal(DPLANE_OP_NEIGH_DELETE,
+				       ifp, NULL, ip, 0, 0);
+
+	return result;
+}
+
+/*
+ * Common helper api for evpn neighbor updates
+ */
+static enum zebra_dplane_result
+neigh_update_internal(enum dplane_op_e op,
+		      const struct interface *ifp,
+		      const struct ethaddr *mac,
+		      const struct ipaddr *ip,
+		      uint32_t flags, uint16_t state)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret;
+	struct zebra_dplane_ctx *ctx = NULL;
+	struct zebra_ns *zns;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		char buf1[ETHER_ADDR_STRLEN], buf2[PREFIX_STRLEN];
+
+		zlog_debug("init neigh ctx %s: ifp %s, mac %s, ip %s",
+			   dplane_op2str(op),
+			   prefix_mac2str(mac, buf1, sizeof(buf1)),
+			   ifp->name,
+			   ipaddr2str(ip, buf2, sizeof(buf2)));
+	}
+
+	ctx = dplane_ctx_alloc();
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_vrf_id = ifp->vrf_id;
+
+	zns = zebra_ns_lookup(ifp->vrf_id);
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
+	ctx->zd_ifindex = ifp->ifindex;
+
+	/* Init the neighbor-specific data area */
+	memset(&ctx->u.neigh, 0, sizeof(ctx->u.neigh));
+
+	ctx->u.neigh.ip_addr = *ip;
+	if (mac)
+		ctx->u.neigh.mac = *mac;
+	ctx->u.neigh.flags = flags;
+	ctx->u.neigh.state = state;
+
+	/* Enqueue for processing on the dplane pthread */
+	ret = dplane_update_enqueue(ctx);
+
+	/* Increment counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_neighs_in, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		/* Error counter */
+		atomic_fetch_add_explicit(&zdplane_info.dg_neigh_errors, 1,
+					  memory_order_relaxed);
+		dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
+/*
  * Handler for 'show dplane'
  */
 int dplane_show_helper(struct vty *vty, bool detailed)
@@ -2231,6 +2392,13 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 				    memory_order_relaxed);
 	vty_out(vty, "EVPN MAC updates:         %"PRIu64"\n", incoming);
 	vty_out(vty, "EVPN MAC errors:          %"PRIu64"\n", errs);
+
+	incoming = atomic_load_explicit(&zdplane_info.dg_neighs_in,
+					memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_neigh_errors,
+				    memory_order_relaxed);
+	vty_out(vty, "EVPN neigh updates:       %"PRIu64"\n", incoming);
+	vty_out(vty, "EVPN neigh errors:        %"PRIu64"\n", errs);
 
 	return CMD_SUCCESS;
 }
@@ -2625,7 +2793,7 @@ kernel_dplane_address_update(struct zebra_dplane_ctx *ctx)
 }
 
 /*
- * Handler for kernel-facing MAC address updates
+ * Handler for kernel-facing EVPN MAC address updates
  */
 static enum zebra_dplane_result
 kernel_dplane_mac_update(struct zebra_dplane_ctx *ctx)
@@ -2647,6 +2815,34 @@ kernel_dplane_mac_update(struct zebra_dplane_ctx *ctx)
 
 	if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
 		atomic_fetch_add_explicit(&zdplane_info.dg_mac_errors,
+					  1, memory_order_relaxed);
+
+	return res;
+}
+
+/*
+ * Handler for kernel-facing EVPN neighbor updates
+ */
+static enum zebra_dplane_result
+kernel_dplane_neigh_update(struct zebra_dplane_ctx *ctx)
+{
+	enum zebra_dplane_result res;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		char buf[PREFIX_STRLEN];
+
+		ipaddr2str(dplane_ctx_neigh_get_ipaddr(ctx), buf,
+			   sizeof(buf));
+
+		zlog_debug("Dplane %s, ip %s, ifindex %u",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   buf, dplane_ctx_get_ifindex(ctx));
+	}
+
+	res = kernel_neigh_update_ctx(ctx);
+
+	if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+		atomic_fetch_add_explicit(&zdplane_info.dg_neigh_errors,
 					  1, memory_order_relaxed);
 
 	return res;
@@ -2709,6 +2905,12 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 		case DPLANE_OP_MAC_INSTALL:
 		case DPLANE_OP_MAC_DELETE:
 			res = kernel_dplane_mac_update(ctx);
+			break;
+
+		case DPLANE_OP_NEIGH_INSTALL:
+		case DPLANE_OP_NEIGH_UPDATE:
+		case DPLANE_OP_NEIGH_DELETE:
+			res = kernel_dplane_neigh_update(ctx);
 			break;
 
 		/* Ignore 'notifications' - no-op */
