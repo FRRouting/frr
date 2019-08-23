@@ -711,7 +711,6 @@ static void zfpm_connection_down(const char *detail)
 	 * Start thread to clean up state after the connection goes down.
 	 */
 	assert(!zfpm_g->t_conn_down);
-	zfpm_debug("Starting conn_down thread");
 	zfpm_rnodes_iter_init(&zfpm_g->t_conn_down_state.iter);
 	zfpm_g->t_conn_down = NULL;
 	thread_add_timer_msec(zfpm_g->master, zfpm_conn_down_thread_cb, NULL, 0,
@@ -805,8 +804,6 @@ static int zfpm_read_cb(struct thread *thread)
 		if (nbyte != (ssize_t)(msg_len - already))
 			goto done;
 	}
-
-	zfpm_debug("Read out a full fpm message");
 
 	/*
 	 * Just throw it away for now.
@@ -1249,7 +1246,7 @@ static int zfpm_connect_cb(struct thread *t)
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
-		zfpm_debug("Failed to create socket for connect(): %s",
+		zlog_err("Failed to create socket for connect(): %s",
 			   strerror(errno));
 		zfpm_g->stats.connect_no_sock++;
 		return 0;

@@ -119,7 +119,7 @@ static void zebra_redistribute(struct zserv *client, int type,
 
 			srcdest_rnode_prefixes(rn, &dst_p, &src_p);
 
-			if (IS_ZEBRA_DEBUG_EVENT)
+			if (IS_ZEBRA_DEBUG_RIB)
 				zlog_debug(
 					"%s: client %s %s(%u) checking: selected=%d, type=%d, distance=%d, metric=%d zebra_check_addr=%d",
 					__func__,
@@ -201,7 +201,7 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 			send_redistribute = 1;
 
 		if (send_redistribute) {
-			if (IS_ZEBRA_DEBUG_EVENT) {
+			if (IS_ZEBRA_DEBUG_RIB) {
 				zlog_debug(
 					   "%s: client %s %s(%u), type=%d, distance=%d, metric=%d",
 					   __func__,

@@ -385,7 +385,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 			return;
 		break;
 	default:
-		zlog_info("Unknown AFI: %s", afi2str(afi));
+		zlog_warn("Unknown AFI: %s", afi2str(afi));
 		break;
 	}
 
