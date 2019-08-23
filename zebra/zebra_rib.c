@@ -3275,10 +3275,17 @@ static int rib_process_dplane_results(struct thread *thread)
 				zebra_vxlan_handle_result(ctx);
 				break;
 
-			default:
+			/* Some op codes not handled here */
+			case DPLANE_OP_ADDR_INSTALL:
+			case DPLANE_OP_ADDR_UNINSTALL:
+			case DPLANE_OP_NEIGH_INSTALL:
+			case DPLANE_OP_NEIGH_UPDATE:
+			case DPLANE_OP_NEIGH_DELETE:
+			case DPLANE_OP_NONE:
 				/* Don't expect this: just return the struct? */
 				dplane_ctx_fini(&ctx);
 				break;
+
 			} /* Dispatch by op code */
 
 			ctx = dplane_ctx_dequeue(&ctxlist);
