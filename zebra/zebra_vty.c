@@ -64,7 +64,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 			    bool supernets_only, int type,
 			    unsigned short ospf_instance_id);
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
-				     int mcast, bool use_fib);
+				     int mcast, bool use_fib, bool show_ng);
 static void vty_show_ip_route_summary(struct vty *vty,
 				      struct route_table *table);
 static void vty_show_ip_route_summary_prefix(struct vty *vty,
@@ -156,7 +156,7 @@ DEFUN (show_ip_rpf_addr,
 	re = rib_match_ipv4_multicast(VRF_DEFAULT, addr, &rn);
 
 	if (re)
-		vty_show_ip_route_detail(vty, rn, 1, false);
+		vty_show_ip_route_detail(vty, rn, 1, false, false);
 	else
 		vty_out(vty, "%% No match for RPF lookup\n");
 
@@ -188,7 +188,7 @@ static char re_status_output_char(struct route_entry *re, struct nexthop *nhop)
 
 /* New RIB.  Detailed information for IPv4 route. */
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
-				     int mcast, bool use_fib)
+				     int mcast, bool use_fib, bool show_ng)
 {
 	struct route_entry *re;
 	struct nexthop *nexthop;
@@ -260,7 +260,9 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				tm->tm_hour);
 		vty_out(vty, " ago\n");
 
-		vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
+		if (show_ng)
+			vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
+
 		for (ALL_NEXTHOPS_PTR(re->ng, nexthop)) {
 			char addrstr[32];
 
@@ -1557,7 +1559,7 @@ DEFPY (show_route_detail,
 	   |X:X::X:X/M$prefix\
 	  >\
 	 >\
-	 [json$json]",
+	 [json$json] [nexthop-group$ng]",
        SHOW_STR
        IP_STR
        "IPv6 forwarding table\n"
@@ -1571,7 +1573,8 @@ DEFPY (show_route_detail,
        VRF_FULL_CMD_HELP_STR
        "IPv6 Address\n"
        "IPv6 prefix\n"
-       JSON_STR)
+       JSON_STR
+       "Nexthop Group Information\n")
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	struct route_table *table;
@@ -1580,6 +1583,7 @@ DEFPY (show_route_detail,
 	bool use_fib = !!fib;
 	rib_dest_t *dest;
 	bool network_found = false;
+	bool show_ng = !!ng;
 
 	if (address_str)
 		prefix_str = address_str;
@@ -1613,10 +1617,10 @@ DEFPY (show_route_detail,
 
 			network_found = true;
 			if (json)
-				vty_show_ip_route_detail_json(vty, rn,
-								use_fib);
+				vty_show_ip_route_detail_json(vty, rn, use_fib);
 			else
-				vty_show_ip_route_detail(vty, rn, 0, use_fib);
+				vty_show_ip_route_detail(vty, rn, 0, use_fib,
+							 show_ng);
 
 			route_unlock_node(rn);
 		}
@@ -1668,7 +1672,7 @@ DEFPY (show_route_detail,
 		if (json)
 			vty_show_ip_route_detail_json(vty, rn, use_fib);
 		else
-			vty_show_ip_route_detail(vty, rn, 0, use_fib);
+			vty_show_ip_route_detail(vty, rn, 0, use_fib, show_ng);
 
 		route_unlock_node(rn);
 	}
