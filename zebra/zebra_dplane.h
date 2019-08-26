@@ -134,6 +134,10 @@ enum dplane_op_e {
 	DPLANE_OP_NEIGH_INSTALL,
 	DPLANE_OP_NEIGH_UPDATE,
 	DPLANE_OP_NEIGH_DELETE,
+
+	/* EVPN VTEP updates */
+	DPLANE_OP_VTEP_ADD,
+	DPLANE_OP_VTEP_DELETE,
 };
 
 /*
@@ -420,6 +424,17 @@ enum zebra_dplane_result dplane_neigh_update(const struct interface *ifp,
 					     const struct ethaddr *mac);
 enum zebra_dplane_result dplane_neigh_delete(const struct interface *ifp,
 					     const struct ipaddr *ip);
+
+/*
+ * Enqueue evpn VTEP updates for the dataplane.
+ */
+enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp,
+					 const struct in_addr *ip,
+					 vni_t vni);
+enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
+					    const struct in_addr *ip,
+					    vni_t vni);
+
 
 /* Retrieve the limit on the number of pending, unprocessed updates. */
 uint32_t dplane_get_in_queue_limit(void);

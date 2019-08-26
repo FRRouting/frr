@@ -1927,19 +1927,17 @@ int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
  * Add remote VTEP to the flood list for this VxLAN interface (VNI). This
  * is done by adding an FDB entry with a MAC of 00:00:00:00:00:00.
  */
-static int netlink_vxlan_flood_list_update(struct interface *ifp,
-					   struct in_addr *vtep_ip, int cmd)
+static int netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx,
+					  int cmd)
 {
-	struct zebra_ns *zns;
 	struct {
 		struct nlmsghdr n;
 		struct ndmsg ndm;
 		char buf[256];
 	} req;
 	uint8_t dst_mac[6] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	const struct ipaddr *addr;
 
-	zns = zvrf->zns;
 	memset(&req, 0, sizeof(req));
 
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
@@ -1953,39 +1951,14 @@ static int netlink_vxlan_flood_list_update(struct interface *ifp,
 
 
 	addattr_l(&req.n, sizeof(req), NDA_LLADDR, &dst_mac, 6);
-	req.ndm.ndm_ifindex = ifp->ifindex;
-	addattr_l(&req.n, sizeof(req), NDA_DST, &vtep_ip->s_addr, 4);
+	req.ndm.ndm_ifindex = dplane_ctx_get_ifindex(ctx);
 
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    0);
-}
+	addr = dplane_ctx_neigh_get_ipaddr(ctx);
 
-/*
- * Add remote VTEP for this VxLAN interface (VNI). In Linux, this involves
- * adding
- * a "flood" MAC FDB entry.
- */
-int kernel_add_vtep(vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
-{
-	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Install %s into flood list for VNI %u intf %s(%u)",
-			   inet_ntoa(*vtep_ip), vni, ifp->name, ifp->ifindex);
+	addattr_l(&req.n, sizeof(req), NDA_DST, &(addr->ipaddr_v4), 4);
 
-	return netlink_vxlan_flood_list_update(ifp, vtep_ip, RTM_NEWNEIGH);
-}
-
-/*
- * Remove remote VTEP for this VxLAN interface (VNI). In Linux, this involves
- * deleting the "flood" MAC FDB entry.
- */
-int kernel_del_vtep(vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
-{
-	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug(
-			"Uninstall %s from flood list for VNI %u intf %s(%u)",
-			inet_ntoa(*vtep_ip), vni, ifp->name, ifp->ifindex);
-
-	return netlink_vxlan_flood_list_update(ifp, vtep_ip, RTM_DELNEIGH);
+	return netlink_talk_info(netlink_talk_filter, &req.n,
+				 dplane_ctx_get_ns(ctx), 0);
 }
 
 #ifndef NDA_RTA
@@ -2882,6 +2855,12 @@ enum zebra_dplane_result kernel_neigh_update_ctx(struct zebra_dplane_ctx *ctx)
 		break;
 	case DPLANE_OP_NEIGH_DELETE:
 		ret = netlink_neigh_update_ctx(ctx, RTM_DELNEIGH);
+		break;
+	case DPLANE_OP_VTEP_ADD:
+		ret = netlink_vxlan_flood_update_ctx(ctx, RTM_NEWNEIGH);
+		break;
+	case DPLANE_OP_VTEP_DELETE:
+		ret = netlink_vxlan_flood_update_ctx(ctx, RTM_DELNEIGH);
 		break;
 	default:
 		break;
