@@ -39,4 +39,10 @@ extern void pim_mlag_register(void);
 
 extern void pim_mlag_deregister(void);
 
+extern int pim_zebra_mlag_process_up(void);
+
+extern int pim_zebra_mlag_process_down(void);
+
+extern int pim_zebra_mlag_handle_msg(struct stream *msg, int len);
+
 #endif
