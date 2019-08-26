@@ -2004,7 +2004,8 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 					  &nh->gate.ipv6, IPV6_MAX_BYTELEN);
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
-				// TODO: Handle this
+				// TODO: Handle this, Can't have OIF/Encap with
+				// it
 				addattr_l(&req.n, sizeof(req), NHA_BLACKHOLE,
 					  NULL, 0);
 				break;
@@ -2237,6 +2238,7 @@ static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
 	if (tb[NHA_ENCAP] && tb[NHA_ENCAP_TYPE]) {
 		uint16_t encap_type = *(uint16_t *)RTA_DATA(tb[NHA_ENCAP_TYPE]);
 		int num_labels = 0;
+
 		mpls_label_t labels[MPLS_MAX_LABELS] = {0};
 
 		if (encap_type == LWTUNNEL_ENCAP_MPLS)
