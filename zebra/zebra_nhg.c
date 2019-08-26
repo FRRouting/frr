@@ -439,48 +439,6 @@ static void zebra_nhg_process_grp(struct nexthop_group *nhg,
 	}
 }
 
-
-static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
-			   struct nexthop_group *nhg,
-			   struct nhg_connected_tree_head *nhg_depends,
-			   vrf_id_t vrf_id, afi_t afi, int type)
-{
-	struct nhg_hash_entry lookup = {};
-
-	uint32_t old_id_counter = id_counter;
-
-	bool created = false;
-
-	/*
-	 * If it has an id at this point, we must have gotten it from the kernel
-	 */
-	lookup.id = id ? id : ++id_counter;
-
-	lookup.afi = afi;
-	lookup.vrf_id = vrf_id;
-	lookup.type = type ? type : ZEBRA_ROUTE_NHG;
-	lookup.nhg = nhg;
-
-	if (nhg_depends)
-		lookup.nhg_depends = *nhg_depends;
-
-	if (id)
-		(*nhe) = zebra_nhg_lookup_id(id);
-	else
-		(*nhe) = hash_lookup(zrouter.nhgs, &lookup);
-
-	/* If it found an nhe in our tables, this new ID is unused */
-	if (*nhe)
-		id_counter = old_id_counter;
-
-	if (!(*nhe)) {
-		(*nhe) = hash_get(zrouter.nhgs, &lookup, zebra_nhg_hash_alloc);
-		created = true;
-	}
-
-	return created;
-}
-
 static void handle_recursive_depend(struct nhg_connected_tree_head *nhg_depends,
 				    struct nexthop *nh, afi_t afi)
 {
@@ -493,30 +451,97 @@ static void handle_recursive_depend(struct nhg_connected_tree_head *nhg_depends,
 	depends_add(nhg_depends, depend);
 }
 
-/* Find/create a single nexthop */
-static bool zebra_nhg_find_nexthop(struct nhg_hash_entry **nhe, uint32_t id,
-				   struct nexthop *nh, afi_t afi, int type)
+static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
+			   struct nexthop_group *nhg,
+			   struct nhg_connected_tree_head *nhg_depends,
+			   vrf_id_t vrf_id, afi_t afi, int type)
 {
+	struct nhg_hash_entry lookup = {};
+
+	uint32_t old_id_counter = id_counter;
+
+	bool created = false;
+	bool recursive = false;
+
+	/*
+	 * If it has an id at this point, we must have gotten it from the kernel
+	 */
+	lookup.id = id ? id : ++id_counter;
+
+	lookup.type = type ? type : ZEBRA_ROUTE_NHG;
+	lookup.nhg = nhg;
+
+	if (lookup.nhg->nexthop->next) {
+		/* Groups can have all vrfs and AF's in them */
+		lookup.afi = AFI_UNSPEC;
+		lookup.vrf_id = 0;
+	} else {
+		lookup.afi = afi;
+		lookup.vrf_id = vrf_id;
+	}
+
+	if (id)
+		(*nhe) = zebra_nhg_lookup_id(id);
+	else
+		(*nhe) = hash_lookup(zrouter.nhgs, &lookup);
+
+	/* If it found an nhe in our tables, this new ID is unused */
+	if (*nhe)
+		id_counter = old_id_counter;
+
+	if (!(*nhe)) {
+		/* Only hash/lookup the depends if the first lookup
+		 * fails to find something. This should hopefully save a
+		 * lot of cycles for larger ecmp sizes.
+		 */
+		if (nhg_depends)
+			/* If you don't want to hash on each nexthop in the
+			 * nexthop group struct you can pass the depends
+			 * directly. Kernel-side we do this since it just looks
+			 * them up via IDs.
+			 */
+			lookup.nhg_depends = *nhg_depends;
+		else {
+			if (nhg->nexthop->next) {
+				nhg_connected_tree_init(&lookup.nhg_depends);
+
+				/* If its a group, create a dependency tree */
+				struct nexthop *nh = NULL;
+
+				for (nh = nhg->nexthop; nh; nh = nh->next)
+					depends_find_add(&lookup.nhg_depends,
+							 nh, afi);
+			} else if (CHECK_FLAG(nhg->nexthop->flags,
+					      NEXTHOP_FLAG_RECURSIVE)) {
+				nhg_connected_tree_init(&lookup.nhg_depends);
+				handle_recursive_depend(&lookup.nhg_depends,
+							nhg->nexthop->resolved,
+							afi);
+				recursive = true;
+			}
+		}
+
+		(*nhe) = hash_get(zrouter.nhgs, &lookup, zebra_nhg_hash_alloc);
+		created = true;
+
+		if (recursive)
+			SET_FLAG((*nhe)->flags, NEXTHOP_GROUP_RECURSIVE);
+	}
+	return created;
+}
+
+/* Find/create a single nexthop */
+static struct nhg_hash_entry *
+zebra_nhg_find_nexthop(uint32_t id, struct nexthop *nh, afi_t afi, int type)
+{
+	struct nhg_hash_entry *nhe = NULL;
 	struct nexthop_group nhg = {};
-	struct nhg_connected_tree_head nhg_depends = {};
-	bool created = true;
 
 	_nexthop_group_add_sorted(&nhg, nh);
 
-	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
-		nhg_connected_tree_init(&nhg_depends);
-		handle_recursive_depend(&nhg_depends, nh->resolved, afi);
-	}
+	zebra_nhg_find(&nhe, id, &nhg, NULL, nh->vrf_id, afi, 0);
 
-	if (!zebra_nhg_find(nhe, id, &nhg, &nhg_depends, nh->vrf_id, afi, 0)) {
-		created = false;
-		depends_decrement_free(&nhg_depends);
-	} else {
-		if (zebra_nhg_depends_count(*nhe))
-			SET_FLAG((*nhe)->flags, NEXTHOP_GROUP_RECURSIVE);
-	}
-
-	return created;
+	return nhe;
 }
 
 static struct nhg_ctx *nhg_ctx_new()
@@ -682,8 +707,8 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 		/* These got copied over in zebra_nhg_alloc() */
 		nexthop_group_free_delete(&nhg);
 	} else
-		zebra_nhg_find_nexthop(&nhe, ctx->id, &ctx->u.nh, ctx->afi,
-				       ctx->type);
+		nhe = zebra_nhg_find_nexthop(ctx->id, &ctx->u.nh, ctx->afi,
+					     ctx->type);
 
 	if (nhe) {
 		if (ctx->id != nhe->id) {
@@ -858,7 +883,7 @@ static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi)
 	lookup->next = NULL;
 	lookup->prev = NULL;
 
-	zebra_nhg_find_nexthop(&nhe, 0, lookup, afi, 0);
+	nhe = zebra_nhg_find_nexthop(0, lookup, afi, 0);
 
 	nexthops_free(lookup);
 
@@ -906,11 +931,7 @@ struct nhg_hash_entry *
 zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 {
 	struct nhg_hash_entry *nhe = NULL;
-	struct nhg_connected_tree_head nhg_depends = {};
-	bool recursive = false;
 
-	/* Defualt the nhe to the afi and vrf of the route */
-	afi_t nhg_afi = rt_afi;
 	vrf_id_t nhg_vrf_id = nhg->nexthop->vrf_id;
 
 	if (!nhg) {
@@ -919,30 +940,7 @@ zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 		return NULL;
 	}
 
-	if (nhg->nexthop->next) {
-		nhg_connected_tree_init(&nhg_depends);
-
-		/* If its a group, create a dependency tree */
-		struct nexthop *nh = NULL;
-
-		for (nh = nhg->nexthop; nh; nh = nh->next)
-			depends_find_add(&nhg_depends, nh, rt_afi);
-
-		/* change the afi/vrf_id since its a group */
-		nhg_afi = AFI_UNSPEC;
-		nhg_vrf_id = 0;
-	} else if (CHECK_FLAG(nhg->nexthop->flags, NEXTHOP_FLAG_RECURSIVE)) {
-		nhg_connected_tree_init(&nhg_depends);
-		handle_recursive_depend(&nhg_depends, nhg->nexthop->resolved,
-					rt_afi);
-		recursive = true;
-	}
-
-	if (!zebra_nhg_find(&nhe, id, nhg, &nhg_depends, nhg_vrf_id, nhg_afi,
-			    0))
-		depends_decrement_free(&nhg_depends);
-	else if (recursive)
-		SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE);
+	zebra_nhg_find(&nhe, id, nhg, NULL, nhg_vrf_id, rt_afi, 0);
 
 	return nhe;
 }
