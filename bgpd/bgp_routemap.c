@@ -4158,6 +4158,18 @@ DEFUN (no_set_aspath_prepend,
 	return ret;
 }
 
+DEFUN (no_set_aspath_prepend_lastas,
+       no_set_aspath_prepend_lastas_cmd,
+       "no set as-path prepend last-as [(1-10)]",
+       NO_STR
+       SET_STR
+       "Transform BGP AS_PATH attribute\n"
+       "Prepend to the as-path\n"
+       "Use the peers AS-number\n"
+       "Number of times to insert\n")
+{
+	return no_set_aspath_prepend(self, vty, argc, argv);
+}
 
 DEFUN (set_aspath_exclude,
        set_aspath_exclude_cmd,
@@ -5123,6 +5135,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_aspath_prepend_lastas_cmd);
 	install_element(RMAP_NODE, &set_aspath_exclude_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_prepend_cmd);
+	install_element(RMAP_NODE, &no_set_aspath_prepend_lastas_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_exclude_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_exclude_all_cmd);
 	install_element(RMAP_NODE, &set_origin_cmd);
