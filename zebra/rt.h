@@ -68,10 +68,6 @@ extern int mpls_kernel_init(void);
 
 extern uint32_t kernel_get_speed(struct interface *ifp);
 extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute);
-extern int kernel_add_vtep(vni_t vni, struct interface *ifp,
-			   struct in_addr *vtep_ip);
-extern int kernel_del_vtep(vni_t vni, struct interface *ifp,
-			   struct in_addr *vtep_ip);
 
 /*
  * Southbound Initialization routines to get initial starting

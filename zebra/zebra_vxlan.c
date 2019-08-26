@@ -4290,9 +4290,13 @@ static int zvni_vtep_del_all(zebra_vni_t *zvni, int uninstall)
 static int zvni_vtep_install(zebra_vni_t *zvni, zebra_vtep_t *zvtep)
 {
 	if (is_vxlan_flooding_head_end() &&
-			(zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL))
-		return kernel_add_vtep(zvni->vni, zvni->vxlan_if,
-				&zvtep->vtep_ip);
+	    (zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL)) {
+		if (ZEBRA_DPLANE_REQUEST_FAILURE ==
+		    dplane_vtep_add(zvni->vxlan_if,
+				    &zvtep->vtep_ip, zvni->vni))
+			return -1;
+	}
+
 	return 0;
 }
 
@@ -4307,7 +4311,11 @@ static int zvni_vtep_uninstall(zebra_vni_t *zvni, struct in_addr *vtep_ip)
 		return -1;
 	}
 
-	return kernel_del_vtep(zvni->vni, zvni->vxlan_if, vtep_ip);
+	if (ZEBRA_DPLANE_REQUEST_FAILURE ==
+	    dplane_vtep_delete(zvni->vxlan_if, vtep_ip, zvni->vni))
+		return -1;
+
+	return 0;
 }
 
 /*

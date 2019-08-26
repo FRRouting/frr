@@ -148,7 +148,7 @@ struct dplane_intf_info {
 };
 
 /*
- * MAC address info for the dataplane.
+ * EVPN MAC address info for the dataplane.
  */
 struct dplane_mac_info {
 	vlanid_t vid;
@@ -508,6 +508,8 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 	case DPLANE_OP_NEIGH_INSTALL:
 	case DPLANE_OP_NEIGH_UPDATE:
 	case DPLANE_OP_NEIGH_DELETE:
+	case DPLANE_OP_VTEP_ADD:
+	case DPLANE_OP_VTEP_DELETE:
 	case DPLANE_OP_NONE:
 		break;
 	}
@@ -683,6 +685,12 @@ const char *dplane_op2str(enum dplane_op_e op)
 		break;
 	case DPLANE_OP_NEIGH_DELETE:
 		ret = "NEIGH_DELETE";
+		break;
+	case DPLANE_OP_VTEP_ADD:
+		ret = "VTEP_ADD";
+		break;
+	case DPLANE_OP_VTEP_DELETE:
+		ret = "VTEP_DELETE";
 		break;
 	}
 
@@ -2243,7 +2251,7 @@ enum zebra_dplane_result dplane_neigh_update(const struct interface *ifp,
 					     const struct ipaddr *ip,
 					     const struct ethaddr *mac)
 {
-	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	enum zebra_dplane_result result;
 
 	result = neigh_update_internal(DPLANE_OP_NEIGH_UPDATE,
 				       ifp, mac, ip, 0, DPLANE_NUD_PROBE);
@@ -2257,10 +2265,59 @@ enum zebra_dplane_result dplane_neigh_update(const struct interface *ifp,
 enum zebra_dplane_result dplane_neigh_delete(const struct interface *ifp,
 					     const struct ipaddr *ip)
 {
-	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	enum zebra_dplane_result result;
 
 	result = neigh_update_internal(DPLANE_OP_NEIGH_DELETE,
 				       ifp, NULL, ip, 0, 0);
+
+	return result;
+}
+
+/*
+ * Enqueue evpn VTEP add for the dataplane.
+ */
+enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp,
+					 const struct in_addr *ip,
+					 vni_t vni)
+{
+	enum zebra_dplane_result result;
+	struct ethaddr mac = { {0, 0, 0, 0, 0, 0} };
+	struct ipaddr addr;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("Install %s into flood list for VNI %u intf %s(%u)",
+			   inet_ntoa(*ip), vni, ifp->name, ifp->ifindex);
+
+	SET_IPADDR_V4(&addr);
+	addr.ipaddr_v4 = *ip;
+
+	result = neigh_update_internal(DPLANE_OP_VTEP_ADD,
+				       ifp, &mac, &addr, 0, 0);
+
+	return result;
+}
+
+/*
+ * Enqueue evpn VTEP add for the dataplane.
+ */
+enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
+					    const struct in_addr *ip,
+					    vni_t vni)
+{
+	enum zebra_dplane_result result;
+	struct ethaddr mac = { {0, 0, 0, 0, 0, 0} };
+	struct ipaddr addr;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug(
+			"Uninstall %s from flood list for VNI %u intf %s(%u)",
+			inet_ntoa(*ip), vni, ifp->name, ifp->ifindex);
+
+	SET_IPADDR_V4(&addr);
+	addr.ipaddr_v4 = *ip;
+
+	result = neigh_update_internal(DPLANE_OP_VTEP_DELETE,
+				       ifp, &mac, &addr, 0, 0);
 
 	return result;
 }
@@ -2910,6 +2967,8 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 		case DPLANE_OP_NEIGH_INSTALL:
 		case DPLANE_OP_NEIGH_UPDATE:
 		case DPLANE_OP_NEIGH_DELETE:
+		case DPLANE_OP_VTEP_ADD:
+		case DPLANE_OP_VTEP_DELETE:
 			res = kernel_dplane_neigh_update(ctx);
 			break;
 
