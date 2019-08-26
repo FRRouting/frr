@@ -45,6 +45,8 @@ DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED, "Neighbor Connected")
 DEFINE_MTYPE(LIB, CONNECTED_LABEL, "Connected interface label")
 DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS, "Informational Link Parameters")
 
+static struct interface *if_lookup_by_ifindex(ifindex_t ifindex,
+					      vrf_id_t vrf_id);
 static int if_cmp_func(const struct interface *, const struct interface *);
 static int if_cmp_index_func(const struct interface *ifp1,
 			     const struct interface *ifp2);
@@ -257,8 +259,9 @@ void if_delete(struct interface *ifp)
 	XFREE(MTYPE_IF, ifp);
 }
 
-/* Interface existance check by index. */
-struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
+/* Used only internally to check within VRF only */
+static struct interface *if_lookup_by_ifindex(ifindex_t ifindex,
+					      vrf_id_t vrf_id)
 {
 	struct vrf *vrf;
 	struct interface if_tmp;
@@ -269,6 +272,19 @@ struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 
 	if_tmp.ifindex = ifindex;
 	return RB_FIND(if_index_head, &vrf->ifaces_by_index, &if_tmp);
+}
+
+/* Interface existance check by index. */
+struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
+{
+	switch (vrf_get_backend()) {
+	case VRF_BACKEND_UNKNOWN:
+	case VRF_BACKEND_NETNS:
+		return(if_lookup_by_ifindex(ifindex, vrf_id));
+	case VRF_BACKEND_VRF_LITE:
+		return(if_lookup_by_index_all_vrf(ifindex));
+	}
+	return NULL;
 }
 
 const char *ifindex2ifname(ifindex_t ifindex, vrf_id_t vrf_id)
@@ -329,7 +345,7 @@ struct interface *if_lookup_by_index_all_vrf(ifindex_t ifindex)
 		return NULL;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		ifp = if_lookup_by_index(ifindex, vrf->vrf_id);
+		ifp = if_lookup_by_ifindex(ifindex, vrf->vrf_id);
 		if (ifp)
 			return ifp;
 	}
@@ -489,7 +505,7 @@ struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id)
 	switch (vrf_get_backend()) {
 	case VRF_BACKEND_UNKNOWN:
 	case VRF_BACKEND_NETNS:
-		ifp = if_lookup_by_index(ifindex, vrf_id);
+		ifp = if_lookup_by_ifindex(ifindex, vrf_id);
 		if (ifp)
 			return ifp;
 		return if_create_ifindex(ifindex, vrf_id);
