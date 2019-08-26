@@ -64,6 +64,17 @@ struct pim_router {
 	vrf_id_t vrf_id;
 
 	enum mlag_role role;
+	uint32_t pim_mlag_intf_cnt;
+	/* if true we have registered with MLAG */
+	bool mlag_process_register;
+	/* if true local MLAG process reported that it is connected
+	 * with the peer MLAG process
+	 */
+	bool connected_to_mlag;
+	/* Holds the client data(unencoded) that need to be pushed to MCLAGD*/
+	struct stream_fifo *mlag_fifo;
+	struct stream *mlag_stream;
+	struct thread *zpthread_mlag_write;
 };
 
 /* Per VRF PIM DB */
@@ -122,6 +133,9 @@ struct pim_instance {
 
 	bool ecmp_enable;
 	bool ecmp_rebalance_enable;
+	/* No. of Dual active I/fs in pim_instance */
+	uint32_t inst_mlag_intf_cnt;
+
 	/* Bsm related */
 	struct bsm_scope global_scope;
 	uint64_t bsm_rcvd;

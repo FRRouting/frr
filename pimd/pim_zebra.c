@@ -50,7 +50,7 @@
 #undef PIM_DEBUG_IFADDR_DUMP
 #define PIM_DEBUG_IFADDR_DUMP
 
-static struct zclient *zclient = NULL;
+struct zclient *zclient;
 
 
 /* Router-id update message from zebra. */

@@ -1,4 +1,4 @@
-/* mlag header.
+/* PIM mlag header.
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *                    Donald Sharp
  *
@@ -19,44 +19,24 @@
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
  * 02111-1307, USA.
  */
-#ifndef __MLAG_H__
-#define __MLAG_H__
+#ifndef __PIM_MLAG_H__
+#define __PIM_MLAG_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "mlag.h"
+#include "pim_iface.h"
 
-#define MLAG_BUF_LIMIT 2048
+extern void pim_mlag_init(void);
 
-enum mlag_role {
-	MLAG_ROLE_NONE,
-	MLAG_ROLE_PRIMARY,
-	MLAG_ROLE_SECONDARY
-};
+extern void pim_instance_mlag_init(struct pim_instance *pim);
 
-/*
- * This message definition should match mlag.proto
- * Beacuse mesasge registartion is based on this
- */
-enum mlag_msg_type {
-	MLAG_MSG_NONE = 0,
-	MLAG_REGISTER = 1,
-	MLAG_DEREGISTER = 2,
-	MLAG_STATUS_UPDATE = 3,
-	MLAG_MROUTE_ADD = 4,
-	MLAG_MROUTE_DEL = 5,
-	MLAG_DUMP = 6,
-	MLAG_MROUTE_ADD_BULK = 7,
-	MLAG_MROUTE_DEL_BULK = 8,
-	MLAG_PIM_CFG_DUMP = 10,
-	MLAG_VXLAN_UPDATE = 11,
-	MLAG_PEER_FRR_STATUS = 12,
-};
+extern void pim_instance_mlag_terminate(struct pim_instance *pim);
 
-extern char *mlag_role2str(enum mlag_role role, char *buf, size_t size);
+extern void pim_if_configure_mlag_dualactive(struct pim_interface *pim_ifp);
 
-#ifdef __cplusplus
-}
-#endif
+extern void pim_if_unconfigure_mlag_dualactive(struct pim_interface *pim_ifp);
+
+extern void pim_mlag_register(void);
+
+extern void pim_mlag_deregister(void);
 
 #endif
