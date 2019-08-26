@@ -337,7 +337,7 @@ struct interface *if_lookup_by_index_all_vrf(ifindex_t ifindex)
 	return NULL;
 }
 
-/* Lookup interface by IPv4 address. */
+/* Lookup interface by IP address. */
 struct interface *if_lookup_exact_address(void *src, int family,
 					  vrf_id_t vrf_id)
 {
@@ -369,7 +369,7 @@ struct interface *if_lookup_exact_address(void *src, int family,
 	return NULL;
 }
 
-/* Lookup interface by IPv4 address. */
+/* Lookup interface by IP address. */
 struct connected *if_lookup_address(void *matchaddr, int family,
 				    vrf_id_t vrf_id)
 {

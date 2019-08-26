@@ -757,7 +757,7 @@ DEFPY (config_load,
        "configuration load\
           <\
 	    file [<json$json|xml$xml> [translate WORD$translator_family]] FILENAME$filename\
-	    |transaction (1-4294967296)$tid\
+	    |transaction (1-4294967295)$tid\
 	  >\
 	  [replace$replace]",
        "Configuration related settings\n"
@@ -923,12 +923,12 @@ DEFPY (show_config_compare,
           <\
 	    candidate$c1_candidate\
 	    |running$c1_running\
-	    |transaction (1-4294967296)$c1_tid\
+	    |transaction (1-4294967295)$c1_tid\
 	  >\
           <\
 	    candidate$c2_candidate\
 	    |running$c2_running\
-	    |transaction (1-4294967296)$c2_tid\
+	    |transaction (1-4294967295)$c2_tid\
 	  >\
 	  [<json$json|xml$xml> [translate WORD$translator_family]]",
        SHOW_STR
@@ -1029,11 +1029,11 @@ ALIAS (show_config_compare,
        "show configuration compare\
           <\
 	    running$c1_running\
-	    |transaction (1-4294967296)$c1_tid\
+	    |transaction (1-4294967295)$c1_tid\
 	  >\
           <\
 	    running$c2_running\
-	    |transaction (1-4294967296)$c2_tid\
+	    |transaction (1-4294967295)$c2_tid\
 	  >\
 	 [<json$json|xml$xml> [translate WORD$translator_family]]",
        SHOW_STR
@@ -1192,7 +1192,7 @@ DEFPY (show_config_transaction,
        show_config_transaction_cmd,
        "show configuration transaction\
           [\
-	    (1-4294967296)$transaction_id\
+	    (1-4294967295)$transaction_id\
 	    [<json$json|xml$xml> [translate WORD$translator_family]]\
             [<\
 	      with-defaults$with_defaults\
@@ -1593,7 +1593,7 @@ static int nb_cli_rollback_configuration(struct vty *vty,
 
 DEFPY (rollback_config,
        rollback_config_cmd,
-       "rollback configuration (1-4294967296)$transaction_id",
+       "rollback configuration (1-4294967295)$transaction_id",
        "Rollback to a previous state\n"
        "Running configuration\n"
        "Transaction ID\n")
