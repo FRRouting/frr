@@ -164,9 +164,10 @@ static int vtysh_reconnect(struct vtysh_client *vclient);
 static void vclient_close(struct vtysh_client *vclient)
 {
 	if (vclient->fd >= 0) {
-		vty_out(vty,
-			"Warning: closing connection to %s because of an I/O error!\n",
-			vclient->name);
+		if (vty->of)
+			vty_out(vty,
+				"Warning: closing connection to %s because of an I/O error!\n",
+				vclient->name);
 		close(vclient->fd);
 		/* indicate as candidate for reconnect */
 		vclient->fd = VTYSH_WAS_ACTIVE;
@@ -237,8 +238,11 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 			continue;
 
 		if (nread <= 0) {
-			vty_out(vty, "vtysh: error reading from %s: %s (%d)",
-				vclient->name, safe_strerror(errno), errno);
+			if (vty->of)
+				vty_out(vty,
+					"vtysh: error reading from %s: %s (%d)",
+					vclient->name, safe_strerror(errno),
+					errno);
 			goto out_err;
 		}
 
@@ -383,7 +387,7 @@ static int vtysh_client_run_all(struct vtysh_client *head_client,
 			rc_all = rc;
 		}
 	}
-	if (wrong_instance && !correct_instance) {
+	if (wrong_instance && !correct_instance && vty->of) {
 		vty_out(vty,
 			"%% [%s]: command ignored as it targets an instance that is not running\n",
 			head_client->name);
