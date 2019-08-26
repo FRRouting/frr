@@ -66,6 +66,7 @@ zebra_zebra_SOURCES = \
 	zebra/rule_netlink.c \
 	zebra/rule_socket.c \
 	zebra/zebra_mlag.c \
+	zebra/zebra_mlag_private.c \
 	zebra/zebra_l2.c \
 	zebra/zebra_memory.c \
 	zebra/zebra_dplane.c \
