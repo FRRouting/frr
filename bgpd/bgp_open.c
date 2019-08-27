@@ -503,7 +503,7 @@ static int bgp_capability_restart(struct peer *peer,
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
 					"%s Address family %s is%spreserved",
-					peer->host, afi_safi_print(afi, safi),
+					peer->host, get_afi_safi_str(afi, safi, false),
 					CHECK_FLAG(
 						peer->af_cap[afi][safi],
 						PEER_CAP_RESTART_AF_PRESERVE_RCV)
