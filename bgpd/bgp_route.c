@@ -2750,7 +2750,7 @@ int bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 		zlog_info(
 			"%%MAXPFXEXCEED: No. of %s prefix received from %s %ld exceed, "
 			"limit %ld",
-			afi_safi_print(afi, safi), peer->host,
+			get_afi_safi_str(afi, safi, false), peer->host,
 			peer->pcount[afi][safi], peer->pmax[afi][safi]);
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_LIMIT);
 
@@ -2811,7 +2811,7 @@ int bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 
 		zlog_info(
 			"%%MAXPFX: No. of %s prefix received from %s reaches %ld, max %ld",
-			afi_safi_print(afi, safi), peer->host,
+			get_afi_safi_str(afi, safi, false), peer->host,
 			peer->pcount[afi][safi], peer->pmax[afi][safi]);
 		SET_FLAG(peer->af_sflags[afi][safi],
 			 PEER_STATUS_PREFIX_THRESHOLD);
@@ -10696,7 +10696,7 @@ static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
 		return CMD_WARNING;
 	}
 
-	vty_out(vty, "BGP %s RIB statistics\n", afi_safi_print(afi, safi));
+	vty_out(vty, "BGP %s RIB statistics\n", get_afi_safi_str(afi, safi, false));
 
 	/* labeled-unicast routes live in the unicast table */
 	if (safi == SAFI_LABELED_UNICAST)
@@ -10895,7 +10895,7 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 	if (use_json) {
 		json_object_string_add(json, "prefixCountsFor", peer->host);
 		json_object_string_add(json, "multiProtocol",
-				       afi_safi_print(afi, safi));
+				       get_afi_safi_str(afi, safi, true));
 		json_object_int_add(json, "pfxCounter",
 				    peer->pcount[afi][safi]);
 
@@ -10921,10 +10921,10 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 		    && bgp_flag_check(peer->bgp, BGP_FLAG_SHOW_HOSTNAME)) {
 			vty_out(vty, "Prefix counts for %s/%s, %s\n",
 				peer->hostname, peer->host,
-				afi_safi_print(afi, safi));
+				get_afi_safi_str(afi, safi, false));
 		} else {
 			vty_out(vty, "Prefix counts for %s, %s\n", peer->host,
-				afi_safi_print(afi, safi));
+				get_afi_safi_str(afi, safi, false));
 		}
 
 		vty_out(vty, "PfxCt: %ld\n", peer->pcount[afi][safi]);
@@ -11552,7 +11552,7 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
 	if (count) {
 		if (!uj)
 			vty_out(vty, "Address Family: %s\n",
-				afi_safi_print(afi, safi));
+				get_afi_safi_str(afi, safi, false));
 		prefix_bgp_show_prefix_list(vty, afi, name, uj);
 	} else {
 		if (uj)

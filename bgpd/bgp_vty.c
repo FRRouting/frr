@@ -22,6 +22,7 @@
 
 #include "command.h"
 #include "lib/json.h"
+#include "lib_errors.h"
 #include "lib/zclient.h"
 #include "prefix.h"
 #include "plist.h"
@@ -128,6 +129,80 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 
 	// Impossible to happen
 	return BGP_IPV4_NODE;
+}
+
+static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
+{
+	if (afi == AFI_IP && safi == SAFI_UNICAST)
+		return "IPv4 Unicast";
+	else if (afi == AFI_IP && safi == SAFI_MULTICAST)
+		return "IPv4 Multicast";
+	else if (afi == AFI_IP && safi == SAFI_LABELED_UNICAST)
+		return "IPv4 Labeled Unicast";
+	else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
+		return "IPv4 VPN";
+	else if (afi == AFI_IP && safi == SAFI_ENCAP)
+		return "IPv4 Encap";
+	else if (afi == AFI_IP && safi == SAFI_FLOWSPEC)
+		return "IPv4 Flowspec";
+	else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
+		return "IPv6 Unicast";
+	else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
+		return "IPv6 Multicast";
+	else if (afi == AFI_IP6 && safi == SAFI_LABELED_UNICAST)
+		return "IPv6 Labeled Unicast";
+	else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
+		return "IPv6 VPN";
+	else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
+		return "IPv6 Encap";
+	else if (afi == AFI_IP6 && safi == SAFI_FLOWSPEC)
+		return "IPv6 Flowspec";
+	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
+		return "L2VPN EVPN";
+	else {
+		flog_err(EC_LIB_DEVELOPMENT, "New afi/safi that needs to be taken care of?");
+		return "Unknown";
+	}
+}
+
+/*
+ * Please note that we have intentionally camelCased
+ * the return strings here.  So if you want
+ * to use this function, please ensure you
+ * are doing this within json output
+ */
+static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
+{
+	if (afi == AFI_IP && safi == SAFI_UNICAST)
+		return "ipv4Unicast";
+	else if (afi == AFI_IP && safi == SAFI_MULTICAST)
+		return "ipv4Multicast";
+	else if (afi == AFI_IP && safi == SAFI_LABELED_UNICAST)
+		return "ipv4LabeledUnicast";
+	else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
+		return "ipv4Vpn";
+	else if (afi == AFI_IP && safi == SAFI_ENCAP)
+		return "ipv4Encap";
+	else if (afi == AFI_IP && safi == SAFI_FLOWSPEC)
+		return "ipv4Flowspec";
+	else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
+		return "ipv6Unicast";
+	else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
+		return "ipv6Multicast";
+	else if (afi == AFI_IP6 && safi == SAFI_LABELED_UNICAST)
+		return "ipv6LabeledUnicast";
+	else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
+		return "ipv6Vpn";
+	else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
+		return "ipv6Encap";
+	else if (afi == AFI_IP6 && safi == SAFI_FLOWSPEC)
+		return "ipv6Flowspec";
+	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
+		return "l2VpnEvpn";
+	else {
+		flog_err(EC_LIB_DEVELOPMENT, "New afi/safi that needs to be taken care of?");
+		return "Unknown";
+	}
 }
 
 /* Utility function to get address family from current node.  */
@@ -584,7 +659,7 @@ static void bgp_clear_vty_error(struct vty *vty, struct peer *peer, afi_t afi,
 	case BGP_ERR_AF_UNCONFIGURED:
 		vty_out(vty,
 			"%%BGP: Enable %s address family for the neighbor %s\n",
-			afi_safi_print(afi, safi), peer->host);
+			get_afi_safi_str(afi, safi, false), peer->host);
 		break;
 	case BGP_ERR_SOFT_RECONFIG_UNCONFIGURED:
 		vty_out(vty,
@@ -738,7 +813,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		if (!found)
 			vty_out(vty,
 				"%%BGP: No %s peer belonging to peer-group %s is configured\n",
-				afi_safi_print(afi, safi), arg);
+				get_afi_safi_str(afi, safi, false), arg);
 
 		return CMD_SUCCESS;
 	}
@@ -760,7 +835,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		if (!found)
 			vty_out(vty,
 				"%%BGP: No external %s peer is configured\n",
-				afi_safi_print(afi, safi));
+				get_afi_safi_str(afi, safi, false));
 
 		return CMD_SUCCESS;
 	}
@@ -784,7 +859,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		if (!found)
 			vty_out(vty,
 				"%%BGP: No %s peer is configured with AS %s\n",
-				afi_safi_print(afi, safi), arg);
+				get_afi_safi_str(afi, safi, false), arg);
 
 		return CMD_SUCCESS;
 	}
@@ -8213,7 +8288,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			vty_out(vty, "\nTotal number of neighbors %d\n", count);
 		else {
 			vty_out(vty, "No %s neighbor is configured\n",
-				afi_safi_print(afi, safi));
+				get_afi_safi_str(afi, safi, false));
 		}
 
 		if (dn_count) {
@@ -8260,12 +8335,14 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 							is_first = 0;
 
 						vty_out(vty, "\"%s\":",
-							afi_safi_json(afi,
-								      safi));
+							get_afi_safi_str(afi,
+									 safi,
+									 true));
 					} else {
 						vty_out(vty, "\n%s Summary:\n",
-							afi_safi_print(afi,
-								       safi));
+							get_afi_safi_str(afi,
+									 safi,
+									 false));
 					}
 				}
 				bgp_show_summary(vty, bgp, afi, safi, use_json);
@@ -8410,74 +8487,12 @@ DEFUN (show_ip_bgp_summary,
 	return bgp_show_summary_vty(vty, vrf, afi, safi, uj);
 }
 
-const char *afi_safi_print(afi_t afi, safi_t safi)
+const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json)
 {
-	if (afi == AFI_IP && safi == SAFI_UNICAST)
-		return "IPv4 Unicast";
-	else if (afi == AFI_IP && safi == SAFI_MULTICAST)
-		return "IPv4 Multicast";
-	else if (afi == AFI_IP && safi == SAFI_LABELED_UNICAST)
-		return "IPv4 Labeled Unicast";
-	else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
-		return "IPv4 VPN";
-	else if (afi == AFI_IP && safi == SAFI_ENCAP)
-		return "IPv4 Encap";
-	else if (afi == AFI_IP && safi == SAFI_FLOWSPEC)
-		return "IPv4 Flowspec";
-	else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
-		return "IPv6 Unicast";
-	else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
-		return "IPv6 Multicast";
-	else if (afi == AFI_IP6 && safi == SAFI_LABELED_UNICAST)
-		return "IPv6 Labeled Unicast";
-	else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
-		return "IPv6 VPN";
-	else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
-		return "IPv6 Encap";
-	else if (afi == AFI_IP6 && safi == SAFI_FLOWSPEC)
-		return "IPv6 Flowspec";
-	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-		return "L2VPN EVPN";
+	if (for_json)
+		return get_afi_safi_json_str(afi, safi);
 	else
-		return "Unknown";
-}
-
-/*
- * Please note that we have intentionally camelCased
- * the return strings here.  So if you want
- * to use this function, please ensure you
- * are doing this within json output
- */
-const char *afi_safi_json(afi_t afi, safi_t safi)
-{
-	if (afi == AFI_IP && safi == SAFI_UNICAST)
-		return "ipv4Unicast";
-	else if (afi == AFI_IP && safi == SAFI_MULTICAST)
-		return "ipv4Multicast";
-	else if (afi == AFI_IP && safi == SAFI_LABELED_UNICAST)
-		return "ipv4LabeledUnicast";
-	else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
-		return "ipv4Vpn";
-	else if (afi == AFI_IP && safi == SAFI_ENCAP)
-		return "ipv4Encap";
-	else if (afi == AFI_IP && safi == SAFI_FLOWSPEC)
-		return "ipv4Flowspec";
-	else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
-		return "ipv6Unicast";
-	else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
-		return "ipv6Multicast";
-	else if (afi == AFI_IP6 && safi == SAFI_LABELED_UNICAST)
-		return "ipv6LabeledUnicast";
-	else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
-		return "ipv6Vpn";
-	else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
-		return "ipv6Encap";
-	else if (afi == AFI_IP6 && safi == SAFI_FLOWSPEC)
-		return "ipv6Flowspec";
-	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-		return "l2VpnEvpn";
-	else
-		return "Unknown";
+		return get_afi_safi_vty_str(afi, safi);
 }
 
 /* Show BGP peer's information. */
@@ -8855,14 +8870,14 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 					"prefixAllowedRestartIntervalMsecs",
 					p->pmax_restart[afi][safi] * 60000);
 		}
-		json_object_object_add(json_neigh, afi_safi_print(afi, safi),
+		json_object_object_add(json_neigh, get_afi_safi_str(afi, safi, true),
 				       json_addr);
 
 	} else {
 		filter = &p->filter[afi][safi];
 
 		vty_out(vty, " For address family: %s\n",
-			afi_safi_print(afi, safi));
+			get_afi_safi_str(afi, safi, false));
 
 		if (peer_group_active(p))
 			vty_out(vty, "  %s peer-group member\n",
@@ -9569,8 +9584,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						json_object *json_sub = NULL;
 						json_sub =
 							json_object_new_object();
-						print_store = afi_safi_print(
-							afi, safi);
+						print_store = get_afi_safi_str(
+							afi, safi, true);
 
 						if (CHECK_FLAG(
 							    p->af_cap[afi]
@@ -9748,9 +9763,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 									    [AFI_IP]
 									    [safi],
 								    PEER_CAP_ENHE_AF_RCV)) {
-								print_store = afi_safi_print(
+								print_store = get_afi_safi_str(
 									AFI_IP,
-									safi);
+									safi, true);
 								json_object_string_add(
 									json_nxt,
 									print_store,
@@ -9850,8 +9865,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 						json_object_object_add(
 							json_multi,
-							afi_safi_print(afi,
-								       safi),
+							get_afi_safi_str(afi,
+									 safi,
+									 true),
 							json_exten);
 					}
 				}
@@ -9957,9 +9973,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 								restart_af_count++;
 								json_object_object_add(
 									json_restart,
-									afi_safi_print(
+									get_afi_safi_str(
 										afi,
-										safi),
+										safi,
+										true),
 									json_sub);
 							}
 						}
@@ -10018,9 +10035,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 							       PEER_CAP_ADDPATH_AF_TX_RCV)) {
 							vty_out(vty,
 								"      %s: TX ",
-								afi_safi_print(
+								get_afi_safi_str(
 									afi,
-									safi));
+									safi,
+									false));
 
 							if (CHECK_FLAG(
 								    p->af_cap
@@ -10029,9 +10047,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 								    PEER_CAP_ADDPATH_AF_TX_ADV))
 								vty_out(vty,
 									"advertised %s",
-									afi_safi_print(
+									get_afi_safi_str(
 										afi,
-										safi));
+										safi,
+										false));
 
 							if (CHECK_FLAG(
 								    p->af_cap
@@ -10061,9 +10080,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 							       PEER_CAP_ADDPATH_AF_RX_RCV)) {
 							vty_out(vty,
 								"      %s: RX ",
-								afi_safi_print(
+								get_afi_safi_str(
 									afi,
-									safi));
+									safi,
+									false));
 
 							if (CHECK_FLAG(
 								    p->af_cap
@@ -10072,9 +10092,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 								    PEER_CAP_ADDPATH_AF_RX_ADV))
 								vty_out(vty,
 									"advertised %s",
-									afi_safi_print(
+									get_afi_safi_str(
 										afi,
-										safi));
+										safi,
+										false));
 
 							if (CHECK_FLAG(
 								    p->af_cap
@@ -10145,9 +10166,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 								    PEER_CAP_ENHE_AF_RCV))
 								vty_out(vty,
 									"           %s\n",
-									afi_safi_print(
+									get_afi_safi_str(
 										AFI_IP,
-										safi));
+										safi,
+										false));
 					}
 				}
 
@@ -10194,8 +10216,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					    || p->afc_recv[afi][safi]) {
 						vty_out(vty,
 							"    Address Family %s:",
-							afi_safi_print(afi,
-								       safi));
+							get_afi_safi_str(
+								   afi,
+								   safi,
+								   false));
 						if (p->afc_adv[afi][safi])
 							vty_out(vty,
 								" advertised");
@@ -10280,9 +10304,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 									restart_af_count
 										? ", "
 										: "",
-									afi_safi_print(
+									get_afi_safi_str(
 										afi,
-										safi),
+										safi,
+										false),
 									CHECK_FLAG(
 										p->af_cap
 											[afi]
@@ -10321,8 +10346,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						       PEER_STATUS_EOR_SEND)) {
 						json_object_boolean_true_add(
 							json_grace_send,
-							afi_safi_print(afi,
-								       safi));
+							get_afi_safi_str(afi,
+									 safi,
+									 true));
 						eor_send_af_count++;
 					}
 				}
@@ -10332,8 +10358,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						    PEER_STATUS_EOR_RECEIVED)) {
 						json_object_boolean_true_add(
 							json_grace_recv,
-							afi_safi_print(afi,
-								       safi));
+							get_afi_safi_str(afi,
+									 safi,
+									 true));
 						eor_receive_af_count++;
 					}
 				}
@@ -10371,8 +10398,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						vty_out(vty, "%s%s",
 							eor_send_af_count ? ", "
 									  : "",
-							afi_safi_print(afi,
-								       safi));
+							get_afi_safi_str(afi,
+								         safi,
+									 false));
 						eor_send_af_count++;
 					}
 				}
@@ -10386,8 +10414,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 							eor_receive_af_count
 								? ", "
 								: "",
-							afi_safi_print(afi,
-								       safi));
+							get_afi_safi_str(afi,
+									 safi,
+									 false));
 						eor_receive_af_count++;
 					}
 				}
@@ -11319,7 +11348,7 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 		/* Provide context for the block */
 		json_object_string_add(json, "vrf", name ? name : "default");
 		json_object_string_add(json, "afiSafi",
-				       afi_safi_print(afi, safi));
+				       get_afi_safi_str(afi, safi, true));
 
 		if (!CHECK_FLAG(bgp->af_flags[afi][safi],
 				BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
@@ -11400,11 +11429,11 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 				BGP_CONFIG_VRF_TO_VRF_IMPORT))
 			vty_out(vty,
 		     "This VRF is not importing %s routes from any other VRF\n",
-		      afi_safi_print(afi, safi));
+		      get_afi_safi_str(afi, safi, false));
 		else {
 			vty_out(vty,
 		   "This VRF is importing %s routes from the following VRFs:\n",
-		    afi_safi_print(afi, safi));
+		    get_afi_safi_str(afi, safi, false));
 
 			for (ALL_LIST_ELEMENTS_RO(
 						bgp->vpn_policy[afi].import_vrf,
@@ -11428,11 +11457,11 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 				BGP_CONFIG_VRF_TO_VRF_EXPORT))
 			vty_out(vty,
 		       "This VRF is not exporting %s routes to any other VRF\n",
-			afi_safi_print(afi, safi));
+			get_afi_safi_str(afi, safi, false));
 		else {
 			vty_out(vty,
 		       "This VRF is exporting %s routes to the following VRFs:\n",
-			afi_safi_print(afi, safi));
+			get_afi_safi_str(afi, safi, false));
 
 			for (ALL_LIST_ELEMENTS_RO(
 						bgp->vpn_policy[afi].export_vrf,
@@ -11809,7 +11838,7 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (conf->afc[afi][safi]) {
 			af_cfgd = 1;
-			vty_out(vty, " %s;", afi_safi_print(afi, safi));
+			vty_out(vty, " %s;", get_afi_safi_str(afi, safi, false));
 		}
 	}
 	if (!af_cfgd)

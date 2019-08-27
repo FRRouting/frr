@@ -140,7 +140,7 @@ static struct stream *bgp_update_packet_eor(struct peer *peer, afi_t afi,
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("send End-of-RIB for %s to %s",
-			   afi_safi_print(afi, safi), peer->host);
+			   get_afi_safi_str(afi, safi, false), peer->host);
 
 	s = stream_new(BGP_MAX_PACKET_SIZE);
 
@@ -1660,7 +1660,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 				bgp_clear_stale_route(peer, afi, safi);
 
 			zlog_info("%%NOTIFICATION: rcvd End-of-RIB for %s from %s in vrf %s",
-				  afi_safi_print(afi, safi), peer->host,
+				  get_afi_safi_str(afi, safi, false), peer->host,
 				  vrf ? vrf->name : VRF_DEFAULT_NAME);
 		}
 	}
