@@ -1385,7 +1385,7 @@ DEFUN (match_rpki,
        "Prefix not found\n")
 {
 	VTY_DECLVAR_CONTEXT(route_map_index, index);
-	int ret;
+	enum rmap_compile_rets ret;
 
 	ret = route_map_add_match(index, "rpki", argv[2]->arg,
 				  RMAP_EVENT_MATCH_ADDED);
@@ -1397,6 +1397,12 @@ DEFUN (match_rpki,
 		case RMAP_COMPILE_ERROR:
 			vty_out(vty, "%% BGP Argument is malformed.\n");
 			return CMD_WARNING_CONFIG_FAILED;
+		case RMAP_COMPILE_SUCCESS:
+		case RMAP_DUPLICATE_RULE:
+			/*
+			 * Intentionally doing nothing here
+			 */
+			break;
 		}
 	}
 	return CMD_SUCCESS;
@@ -1413,7 +1419,7 @@ DEFUN (no_match_rpki,
        "Prefix not found\n")
 {
 	VTY_DECLVAR_CONTEXT(route_map_index, index);
-	int ret;
+	enum rmap_compile_rets ret;
 
 	ret = route_map_delete_match(index, "rpki", argv[3]->arg);
 	if (ret) {
@@ -1423,6 +1429,12 @@ DEFUN (no_match_rpki,
 			break;
 		case RMAP_COMPILE_ERROR:
 			vty_out(vty, "%% BGP Argument is malformed.\n");
+			break;
+		case RMAP_COMPILE_SUCCESS:
+		case RMAP_DUPLICATE_RULE:
+			/*
+			 * Nothing to do here
+			 */
 			break;
 		}
 		return CMD_WARNING_CONFIG_FAILED;

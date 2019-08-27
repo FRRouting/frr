@@ -135,7 +135,8 @@ void eigrp_rmap_update(const char *notused)
 static int eigrp_route_match_add(struct vty *vty, struct route_map_index *index,
 				 const char *command, const char *arg)
 {
-	int ret;
+	enum rmap_compile_rets ret;
+
 	ret = route_map_add_match(index, command, arg, type);
 	switch (ret) {
 	case RMAP_RULE_MISSING:
@@ -147,6 +148,10 @@ static int eigrp_route_match_add(struct vty *vty, struct route_map_index *index,
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
+	case RMAP_DUPLICATE_RULE:
+		/*
+		 * Intentionally not handling these cases
+		 */
 		break;
 	}
 
@@ -158,7 +163,8 @@ static int eigrp_route_match_delete(struct vty *vty,
 				    struct route_map_index *index,
 				    const char *command, const char *arg)
 {
-	int ret;
+	enum rmap_compile_rets ret;
+
 	ret = route_map_delete_match(index, command, arg);
 	switch (ret) {
 	case RMAP_RULE_MISSING:
@@ -170,6 +176,10 @@ static int eigrp_route_match_delete(struct vty *vty,
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
+	case RMAP_DUPLICATE_RULE:
+		/*
+		 * These cases intentionally ignored
+		 */
 		break;
 	}
 
@@ -180,7 +190,7 @@ static int eigrp_route_match_delete(struct vty *vty,
 static int eigrp_route_set_add(struct vty *vty, struct route_map_index *index,
 			       const char *command, const char *arg)
 {
-	int ret;
+	enum rmap_compile_rets ret;
 
 	ret = route_map_add_set(index, command, arg);
 	switch (ret) {
@@ -201,6 +211,10 @@ static int eigrp_route_set_add(struct vty *vty, struct route_map_index *index,
 		}
 		break;
 	case RMAP_COMPILE_SUCCESS:
+	case RMAP_DUPLICATE_RULE:
+		/*
+		 * These cases intentionally left blank here
+		 */
 		break;
 	}
 
@@ -212,7 +226,7 @@ static int eigrp_route_set_delete(struct vty *vty,
 				  struct route_map_index *index,
 				  const char *command, const char *arg)
 {
-	int ret;
+	enum rmap_compile_rets ret;
 
 	ret = route_map_delete_set(index, command, arg);
 	switch (ret) {
@@ -225,6 +239,10 @@ static int eigrp_route_set_delete(struct vty *vty,
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
+	case RMAP_DUPLICATE_RULE:
+		/*
+		 * These cases intentionally not handled
+		 */
 		break;
 	}
 

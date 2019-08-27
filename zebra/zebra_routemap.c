@@ -64,7 +64,7 @@ static int zebra_route_match_add(struct vty *vty, const char *command,
 				 const char *arg, route_map_event_t type)
 {
 	VTY_DECLVAR_CONTEXT(route_map_index, index);
-	int ret;
+	enum rmap_compile_rets ret;
 	int retval = CMD_SUCCESS;
 
 	ret = route_map_add_match(index, command, arg, type);
@@ -82,6 +82,11 @@ static int zebra_route_match_add(struct vty *vty, const char *command,
 			route_map_upd8_dependency(type, arg, index->map->name);
 		}
 		break;
+	case RMAP_DUPLICATE_RULE:
+		/*
+		 * Nothing to do here
+		 */
+		break;
 	}
 
 	return retval;
@@ -92,7 +97,7 @@ static int zebra_route_match_delete(struct vty *vty, const char *command,
 				    const char *arg, route_map_event_t type)
 {
 	VTY_DECLVAR_CONTEXT(route_map_index, index);
-	int ret;
+	enum rmap_compile_rets ret;
 	int retval = CMD_SUCCESS;
 	char *dep_name = NULL;
 	const char *tmpstr;
@@ -124,6 +129,11 @@ static int zebra_route_match_delete(struct vty *vty, const char *command,
 	case RMAP_COMPILE_SUCCESS:
 		if (type != RMAP_EVENT_MATCH_DELETED && dep_name)
 			route_map_upd8_dependency(type, dep_name, rmap_name);
+		break;
+	case RMAP_DUPLICATE_RULE:
+		/*
+		 * Nothing to do here
+		 */
 		break;
 	}
 
