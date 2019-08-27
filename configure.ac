@@ -1061,6 +1061,7 @@ case "$host_os" in
     AC_CHECK_LIB([nsl], [main])
     AC_CHECK_LIB([umem], [main])
     SOLARIS="solaris"
+    AC_MSG_WARN([--Solaris support is being considered for deprecation, please let us know if you are still using this--])
     ;;
   linux*)
     AC_MSG_RESULT([Linux])
