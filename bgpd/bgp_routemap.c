@@ -1210,10 +1210,26 @@ static void route_match_community_free(void *rule)
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom);
 }
 
+/*
+ * In routemap processing there is a need to add the
+ * name as a rule_key in the dependency table. Routemap
+ * lib is unaware of rule_key when exact-match clause
+ * is in use. routemap lib uses the compiled output to
+ * get the rule_key value.
+ */
+static void *route_match_get_community_key(void *rule)
+{
+	struct rmap_community *rcom;
+
+	rcom = rule;
+	return rcom->name;
+}
+
+
 /* Route map commands for community matching. */
 struct route_map_rule_cmd route_match_community_cmd = {
 	"community", route_match_community, route_match_community_compile,
-	route_match_community_free};
+	route_match_community_free, route_match_get_community_key};
 
 /* Match function for lcommunity match. */
 static enum route_map_cmd_result_t
@@ -1284,7 +1300,8 @@ static void route_match_lcommunity_free(void *rule)
 /* Route map commands for community matching. */
 struct route_map_rule_cmd route_match_lcommunity_cmd = {
 	"large-community", route_match_lcommunity,
-	route_match_lcommunity_compile, route_match_lcommunity_free};
+	route_match_lcommunity_compile, route_match_lcommunity_free,
+	route_match_get_community_key};
 
 
 /* Match function for extcommunity match. */
@@ -3076,11 +3093,6 @@ static int bgp_route_match_add(struct vty *vty, const char *command,
 		retval = CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
-		if (type != RMAP_EVENT_MATCH_ADDED) {
-			route_map_upd8_dependency(type, arg, index->map->name);
-		}
-		break;
-	case RMAP_DUPLICATE_RULE:
 		/*
 		 * Intentionally doing nothing here.
 		 */
@@ -3114,7 +3126,7 @@ static int bgp_route_match_delete(struct vty *vty, const char *command,
 		rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, index->map->name);
 	}
 
-	ret = route_map_delete_match(index, command, dep_name);
+	ret = route_map_delete_match(index, command, dep_name, type);
 	switch (ret) {
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% BGP Can't find rule.\n");
@@ -3125,10 +3137,6 @@ static int bgp_route_match_delete(struct vty *vty, const char *command,
 		retval = CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
-		if (type != RMAP_EVENT_MATCH_DELETED && dep_name)
-			route_map_upd8_dependency(type, dep_name, rmap_name);
-		break;
-	case RMAP_DUPLICATE_RULE:
 		/*
 		 * Nothing to do here
 		 */

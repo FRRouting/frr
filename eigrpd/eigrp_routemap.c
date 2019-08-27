@@ -148,7 +148,6 @@ static int eigrp_route_match_add(struct vty *vty, struct route_map_index *index,
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
-	case RMAP_DUPLICATE_RULE:
 		/*
 		 * Intentionally not handling these cases
 		 */
@@ -165,7 +164,7 @@ static int eigrp_route_match_delete(struct vty *vty,
 {
 	enum rmap_compile_rets ret;
 
-	ret = route_map_delete_match(index, command, arg);
+	ret = route_map_delete_match(index, command, arg, type);
 	switch (ret) {
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% Can't find rule.\n");
@@ -176,7 +175,6 @@ static int eigrp_route_match_delete(struct vty *vty,
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
-	case RMAP_DUPLICATE_RULE:
 		/*
 		 * These cases intentionally ignored
 		 */
@@ -211,7 +209,6 @@ static int eigrp_route_set_add(struct vty *vty, struct route_map_index *index,
 		}
 		break;
 	case RMAP_COMPILE_SUCCESS:
-	case RMAP_DUPLICATE_RULE:
 		/*
 		 * These cases intentionally left blank here
 		 */
@@ -239,7 +236,6 @@ static int eigrp_route_set_delete(struct vty *vty,
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
-	case RMAP_DUPLICATE_RULE:
 		/*
 		 * These cases intentionally not handled
 		 */
