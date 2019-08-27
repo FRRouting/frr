@@ -3641,6 +3641,41 @@ static int rip_vrf_enable(struct vrf *vrf)
 	int socket;
 
 	rip = rip_lookup_by_vrf_name(vrf->name);
+	if (!rip) {
+		char *old_vrf_name = NULL;
+
+		rip = (struct rip *)vrf->info;
+		if (!rip)
+			return 0;
+		/* update vrf name */
+		if (rip->vrf_name)
+			old_vrf_name = rip->vrf_name;
+		rip->vrf_name = XSTRDUP(MTYPE_RIP_VRF_NAME, vrf->name);
+		/*
+		 * HACK: Change the RIP VRF in the running configuration directly,
+		 * bypassing the northbound layer. This is necessary to avoid deleting
+		 * the RIP and readding it in the new VRF, which would have
+		 * several implications.
+		 */
+		if (yang_module_find("frr-ripd") && old_vrf_name) {
+			struct lyd_node *rip_dnode;
+
+			pthread_rwlock_wrlock(&running_config->lock);
+			{
+				rip_dnode = yang_dnode_get(
+						   running_config->dnode,
+						   "/frr-ripd:ripd/instance[vrf='%s']/vrf",
+						   old_vrf_name);
+				if (rip_dnode) {
+					yang_dnode_change_leaf(rip_dnode, vrf->name);
+					running_config->version++;
+				}
+			}
+			pthread_rwlock_unlock(&running_config->lock);
+		}
+		if (old_vrf_name)
+			XFREE(MTYPE_RIP_VRF_NAME, old_vrf_name);
+	}
 	if (!rip || rip->enabled)
 		return 0;
 
