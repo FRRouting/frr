@@ -81,7 +81,7 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 
-	if (PIM_DEBUG_MROUTE_DETAIL) {
+	if (PIM_DEBUG_MROUTE_DETAIL_ONLY) {
 		vty_out(vty, "debug mroute detail\n");
 		++writes;
 	}
@@ -107,7 +107,7 @@ int pim_debug_config_write(struct vty *vty)
 		vty_out(vty, "debug pim trace\n");
 		++writes;
 	}
-	if (PIM_DEBUG_PIM_TRACE_DETAIL) {
+	if (PIM_DEBUG_PIM_TRACE_DETAIL_ONLY) {
 		vty_out(vty, "debug pim trace detail\n");
 		++writes;
 	}
