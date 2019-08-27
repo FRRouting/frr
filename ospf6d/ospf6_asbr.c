@@ -1593,7 +1593,6 @@ static int route_map_command_status(struct vty *vty, enum rmap_compile_rets ret)
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
-	case RMAP_DUPLICATE_RULE:
 		break;
 	}
 

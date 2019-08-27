@@ -123,6 +123,9 @@ struct route_map_rule_cmd {
 
 	/* Free allocated value by func_compile (). */
 	void (*func_free)(void *);
+
+	/** To get the rule key after Compilation **/
+	void *(*func_get_rmap_rule_key)(void *val);
 };
 
 /* Route map apply error. */
@@ -135,8 +138,6 @@ enum rmap_compile_rets {
 	/* Route map rule can't compile */
 	RMAP_COMPILE_ERROR,
 
-	/* Route map rule is duplicate */
-	RMAP_DUPLICATE_RULE
 };
 
 /* Route map rule list. */
@@ -228,7 +229,8 @@ extern enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 /* Delete specified route match rule. */
 extern enum rmap_compile_rets
 route_map_delete_match(struct route_map_index *index,
-		       const char *match_name, const char *match_arg);
+		       const char *match_name, const char *match_arg,
+		       route_map_event_t type);
 
 extern const char *route_map_get_match_arg(struct route_map_index *index,
 					   const char *match_name);
