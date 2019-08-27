@@ -38,6 +38,9 @@ man8 += $(MANBUILD)/zebra.8
 endif
 
 zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP)
+if HAVE_PROTOBUF
+zebra_zebra_LDADD += mlag/libmlag_pb.la $(PROTOBUF_C_LIBS)
+endif
 zebra_zebra_SOURCES = \
 	zebra/connected.c \
 	zebra/debug.c \
@@ -131,6 +134,7 @@ noinst_HEADERS += \
 	zebra/rtadv.h \
 	zebra/rule_netlink.h \
 	zebra/zebra_mlag.h \
+	zebra/zebra_mlag_private.h \
 	zebra/zebra_fpm_private.h \
 	zebra/zebra_l2.h \
 	zebra/zebra_dplane.h \

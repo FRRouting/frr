@@ -26,6 +26,10 @@
 #include "zclient.h"
 #include "zebra/zserv.h"
 
+#ifdef HAVE_PROTOBUF
+#include "mlag/mlag.pb-c.h"
+#endif
+
 #define ZEBRA_MLAG_BUF_LIMIT 2048
 #define ZEBRA_MLAG_LEN_SIZE 4
 
