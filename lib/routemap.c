@@ -1472,7 +1472,7 @@ int route_map_delete_match(struct route_map_index *index,
 
 	cmd = route_map_lookup_match(match_name);
 	if (cmd == NULL)
-		return 1;
+		return RMAP_RULE_MISSING;
 
 	for (rule = index->match_list.head; rule; rule = rule->next)
 		if (rule->cmd == cmd && (rulecmp(rule->rule_str, match_arg) == 0
@@ -1485,10 +1485,10 @@ int route_map_delete_match(struct route_map_index *index,
 					index->map->name,
 					RMAP_EVENT_CALL_ADDED);
 			}
-			return 0;
+			return RMAP_COMPILE_SUCCESS;
 		}
 	/* Can't find matched rule. */
-	return 1;
+	return RMAP_RULE_MISSING;
 }
 
 /* Add route-map set statement to the route map. */
@@ -1551,7 +1551,7 @@ int route_map_delete_set(struct route_map_index *index, const char *set_name,
 
 	cmd = route_map_lookup_set(set_name);
 	if (cmd == NULL)
-		return 1;
+		return RMAP_RULE_MISSING;
 
 	for (rule = index->set_list.head; rule; rule = rule->next)
 		if ((rule->cmd == cmd) && (rulecmp(rule->rule_str, set_arg) == 0
@@ -1564,10 +1564,10 @@ int route_map_delete_set(struct route_map_index *index, const char *set_name,
 					index->map->name,
 					RMAP_EVENT_CALL_ADDED);
 			}
-			return 0;
+			return RMAP_COMPILE_SUCCESS;
 		}
 	/* Can't find matched rule. */
-	return 1;
+	return RMAP_RULE_MISSING;
 }
 
 static enum route_map_cmd_result_t
