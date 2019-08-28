@@ -2449,6 +2449,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	return 0;
 }
 
+#if 0 /* Force off kernel nexthop group installs for now */
 /**
  * netlink_request_nexthop() - Request nextop information from the kernel
  * @zns:	Zebra namespace
@@ -2473,6 +2474,7 @@ static int netlink_request_nexthop(struct zebra_ns *zns, int family, int type)
 
 	return netlink_request(&zns->netlink_cmd, &req.n);
 }
+
 
 /**
  * netlink_nexthop_read() - Nexthop read function using netlink interface
@@ -2506,6 +2508,12 @@ int netlink_nexthop_read(struct zebra_ns *zns)
 
 	return ret;
 }
+#else
+int netlink_nexthop_read(struct zebra_ns *zns)
+{
+	return 0;
+}
+#endif
 
 
 int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
