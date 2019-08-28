@@ -307,6 +307,7 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 		pm->retries_threshold = PM_PACKET_RETRIES_THRESHOLD_DEFAULT;
 		pm->retries_total = PM_PACKET_RETRIES_TOTAL_DEFAULT;
 		pm->retries_mode = PM_RETRIES_MODE_THRESHOLD;
+		pm->ifindex_out = IFINDEX_INTERNAL;
 	}
 
 	/* check if consistent */
@@ -419,12 +420,12 @@ void pm_try_run(struct vty *vty, struct pm_session *pm)
 	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID)) {
 		if (vty)
 			vty_out(vty, "%% session to %s could not be started:"
-				"nexthop not resolved\n",
+				" peer or gateway not resolved\n",
 				sockunion2str(&pm->key.peer,
 					      buf, sizeof(buf)));
 		else
 			zlog_err("%% session to %s could not be started:"
-				 "nexthop not resolved",
+				 " peer or gateway not resolved",
 				 sockunion2str(&pm->key.peer,
 					       buf, sizeof(buf)));
 		return;
@@ -466,6 +467,7 @@ struct pm_nht_ctx {
 	vrf_id_t vrf_id;
 	union sockunion peer;
 	uint32_t nh_num;
+	ifindex_t idx;
 	struct vty *vty;
 };
 
@@ -488,7 +490,8 @@ static int pm_nht_update_walkcb(struct hash_bucket *backet, void *arg)
 		return HASHWALK_CONTINUE;
 	if (vrf->vrf_id != pnc->vrf_id)
 		return HASHWALK_CONTINUE;
-	if (!sockunion_same(&pm->key.peer, &pnc->peer))
+	if (!sockunion_same(&pm->key.peer, &pnc->peer) &&
+	    !sockunion_same(&pm->nh, &pnc->peer))
 		return HASHWALK_CONTINUE;
 	orig = PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID);
 	new = !!pnc->nh_num;
@@ -503,9 +506,11 @@ static int pm_nht_update_walkcb(struct hash_bucket *backet, void *arg)
 			PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID);
 			PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_RUN);
 			pm_echo_trigger_down_event(pm);
+			pm->ifindex_out = IFINDEX_INTERNAL;
 			/* because nexthop failed, stop emitting */
 			pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
 		} else {
+			pm->ifindex_out = pnc->idx;
 			zlog_info("PMD: session to %s, NHT OK",
 				  sockunion2str(&pm->key.peer,
 						buf, sizeof(buf)));
@@ -517,7 +522,7 @@ static int pm_nht_update_walkcb(struct hash_bucket *backet, void *arg)
 }
 
 void pm_nht_update(struct prefix *p, uint32_t nh_num, afi_t afi,
-		   vrf_id_t nh_vrf_id, struct vty *vty)
+		   vrf_id_t nh_vrf_id, struct vty *vty, ifindex_t idx)
 {
 	struct pm_nht_ctx pnc;
 
@@ -531,7 +536,7 @@ void pm_nht_update(struct prefix *p, uint32_t nh_num, afi_t afi,
 		       sizeof(struct in6_addr));
 	pnc.vrf_id = nh_vrf_id;
 	pnc.nh_num = nh_num;
-
+	pnc.idx = idx;
 	hash_walk(pm_session_list, pm_nht_update_walkcb, &pnc);
 }
 

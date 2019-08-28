@@ -488,8 +488,17 @@ static struct json_object *__display_session_json(struct pm_session *pm,
 	char buf[256];
 	struct pm_echo *pme = pm->oper_ctxt;
 
-	if (operational)
+	if (operational) {
+		char buf2[INET6_ADDRSTRLEN];
+
+		if (sockunion_family(&pme->src) == AF_INET ||
+		    sockunion_family(&pme->src) == AF_INET6) {
+			sockunion2str(&pme->src, buf2, sizeof(buf2));
+			json_object_string_add(jo, "source-ip",
+					       buf2);
+		}
 		return jo;
+	}
 	if (!pme) {
 		json_object_int_add(jo, "id", 0);
 		if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID))

@@ -86,6 +86,10 @@ struct pm_session {
 #define PM_INIT 2
 #define PM_UP 3
 	uint8_t ses_state;
+	/* in case no source IP mentioned,
+	 * the source IP will be picked up from that interface
+	 */
+	ifindex_t ifindex_out;
 
 	QOBJ_FIELDS;
 
@@ -174,7 +178,7 @@ extern void pm_sessions_change_interface(struct interface *ifp, bool ret);
 extern int pm_get_default_packet_size(struct pm_session *pm);
 extern char *pm_get_state_str(struct pm_session *pm, char *buf, size_t len);
 extern void pm_nht_update(struct prefix *p, uint32_t nh_num, afi_t afi,
-			  vrf_id_t nh_vrf_id, struct vty *vty);
+			  vrf_id_t nh_vrf_id, struct vty *vty, ifindex_t idx);
 
 extern void pm_get_peer(struct pm_session *pm, union sockunion *peer);
 extern void pm_get_gw(struct pm_session *pm, union sockunion *gw);

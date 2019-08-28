@@ -72,6 +72,7 @@ struct pm_nht_data {
 
 	uint32_t refcount;
 	uint8_t nh_num;
+	ifindex_t idx;
 };
 
 struct pm_client_notification {
@@ -867,9 +868,12 @@ static int pm_nexthop_update(int command, struct zclient *zclient,
 
 	if (nhtd) {
 		nhtd->nh_num = nhr.nexthop_num;
-
+		if (nhr.nexthop_num)
+			nhtd->idx = nhr.nexthops[0].ifindex;
+		else
+			nhtd->idx = IFINDEX_INTERNAL;
 		pm_nht_update(&nhr.prefix, nhr.nexthop_num, afi,
-			      nhtd->nh_vrf_id, NULL);
+			      nhtd->nh_vrf_id, NULL, nhtd->idx);
 	} else
 		zlog_err("No nhtd?");
 
@@ -934,7 +938,18 @@ void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 		return;
 
 	memset(&p, 0, sizeof(p));
-	if (sockunion_family(&pm->key.peer) == AF_INET) {
+	if (sockunion_family(&pm->nh) == AF_INET) {
+		p.family = AF_INET;
+		p.prefixlen = IPV4_MAX_BITLEN;
+		p.u.prefix4 = pm->nh.sin.sin_addr;
+		afi = AFI_IP;
+	} else if (sockunion_family(&pm->nh) == AF_INET6) {
+		p.family = AF_INET6;
+		p.prefixlen = IPV6_MAX_BITLEN;
+		p.u.prefix6 = pm->nh.sin6.sin6_addr;
+		afi = AFI_IP6;
+	}
+	else if (sockunion_family(&pm->key.peer) == AF_INET) {
 		p.family = AF_INET;
 		p.prefixlen = IPV4_MAX_BITLEN;
 		p.u.prefix4 = pm->key.peer.sin.sin_addr;
@@ -968,7 +983,8 @@ void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 
 		if (nhtd->refcount > 1) {
 			pm_nht_update(nhtd->nh, nhtd->nh_num,
-				      afi, nhtd->nh_vrf_id, vty);
+				      afi, nhtd->nh_vrf_id, vty,
+				      nhtd->idx);
 			return;
 		}
 	} else {
