@@ -1090,10 +1090,10 @@ DEFUN (ip_nht_default_route,
 	if (!zvrf)
 		return CMD_WARNING;
 
-	if (zebra_rnh_ip_default_route)
+	if (zvrf->zebra_rnh_ip_default_route)
 		return CMD_SUCCESS;
 
-	zebra_rnh_ip_default_route = 1;
+	zvrf->zebra_rnh_ip_default_route = 1;
 
 	zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
@@ -1112,10 +1112,10 @@ DEFUN (no_ip_nht_default_route,
 	if (!zvrf)
 		return CMD_WARNING;
 
-	if (!zebra_rnh_ip_default_route)
+	if (!zvrf->zebra_rnh_ip_default_route)
 		return CMD_SUCCESS;
 
-	zebra_rnh_ip_default_route = 0;
+	zvrf->zebra_rnh_ip_default_route = 0;
 	zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
@@ -1132,10 +1132,10 @@ DEFUN (ipv6_nht_default_route,
 	if (!zvrf)
 		return CMD_WARNING;
 
-	if (zebra_rnh_ipv6_default_route)
+	if (zvrf->zebra_rnh_ipv6_default_route)
 		return CMD_SUCCESS;
 
-	zebra_rnh_ipv6_default_route = 1;
+	zvrf->zebra_rnh_ipv6_default_route = 1;
 	zebra_evaluate_rnh(zvrf, AFI_IP6, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
@@ -1154,10 +1154,10 @@ DEFUN (no_ipv6_nht_default_route,
 	if (!zvrf)
 		return CMD_WARNING;
 
-	if (!zebra_rnh_ipv6_default_route)
+	if (!zvrf->zebra_rnh_ipv6_default_route)
 		return CMD_SUCCESS;
 
-	zebra_rnh_ipv6_default_route = 0;
+	zvrf->zebra_rnh_ipv6_default_route = 0;
 	zebra_evaluate_rnh(zvrf, AFI_IP6, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
@@ -2628,12 +2628,6 @@ static int config_write_protocol(struct vty *vty)
 {
 	if (allow_delete)
 		vty_out(vty, "allow-external-route-update\n");
-
-	if (zebra_rnh_ip_default_route)
-		vty_out(vty, "ip nht resolve-via-default\n");
-
-	if (zebra_rnh_ipv6_default_route)
-		vty_out(vty, "ipv6 nht resolve-via-default\n");
 
 	if (zrouter.ribq->spec.hold != ZEBRA_RIB_PROCESS_HOLD_TIME)
 		vty_out(vty, "zebra work-queue %u\n", zrouter.ribq->spec.hold);

@@ -62,9 +62,6 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 static void print_rnh(struct route_node *rn, struct vty *vty);
 static int zebra_client_cleanup_rnh(struct zserv *client);
 
-int zebra_rnh_ip_default_route = 0;
-int zebra_rnh_ipv6_default_route = 0;
-
 void zebra_rnh_init(void)
 {
 	hook_register(zserv_client_close, zebra_client_cleanup_rnh);
@@ -656,7 +653,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 		 * match route to be exact if so specified
 		 */
 		if (is_default_prefix(&rn->p)
-		    && !rnh_resolve_via_default(rn->p.family)) {
+		    && !rnh_resolve_via_default(zvrf, rn->p.family)) {
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 				zlog_debug(
 					"\tNot allowed to resolve through default prefix");
@@ -1212,4 +1209,13 @@ static int zebra_client_cleanup_rnh(struct zserv *client)
 	}
 
 	return 0;
+}
+
+int rnh_resolve_via_default(struct zebra_vrf *zvrf, int family)
+{
+	if (((family == AF_INET) && zvrf->zebra_rnh_ip_default_route)
+	    || ((family == AF_INET6) && zvrf->zebra_rnh_ipv6_default_route))
+		return 1;
+	else
+		return 0;
 }
