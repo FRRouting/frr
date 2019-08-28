@@ -25,6 +25,7 @@
 #include "lib/nexthop.h"
 #include "lib/nexthop_group_private.h"
 #include "lib/routemap.h"
+#include "lib/mpls.h"
 
 #include "zebra/connected.h"
 #include "zebra/debug.h"
@@ -38,6 +39,10 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 				 struct nexthop *nexthop)
 {
 	struct nexthop *resolved_hop;
+	uint8_t num_labels = 0;
+	mpls_label_t labels[MPLS_MAX_LABELS];
+	enum lsp_types_t label_type = ZEBRA_LSP_NONE;
+	int i = 0;
 
 	resolved_hop = nexthop_new();
 	SET_FLAG(resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -94,11 +99,24 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 	if (newhop->flags & NEXTHOP_FLAG_ONLINK)
 		resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
 
-	/* Copy labels of the resolved route */
-	if (newhop->nh_label)
-		nexthop_add_labels(resolved_hop, newhop->nh_label_type,
-				   newhop->nh_label->num_labels,
-				   &newhop->nh_label->label[0]);
+	/* Copy labels of the resolved route and the parent resolving to it */
+	if (newhop->nh_label) {
+		for (i = 0; i < newhop->nh_label->num_labels; i++)
+			labels[num_labels++] = newhop->nh_label->label[i];
+		label_type = newhop->nh_label_type;
+	}
+
+	if (nexthop->nh_label) {
+		for (i = 0; i < nexthop->nh_label->num_labels; i++)
+			labels[num_labels++] = nexthop->nh_label->label[i];
+
+		/* If the parent has labels, use its type */
+		label_type = nexthop->nh_label_type;
+	}
+
+	if (num_labels)
+		nexthop_add_labels(resolved_hop, label_type, num_labels,
+				   labels);
 
 	resolved_hop->rparent = nexthop;
 	_nexthop_add(&nexthop->resolved, resolved_hop);
