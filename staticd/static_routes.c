@@ -100,7 +100,8 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 			     && IPV4_ADDR_SAME(&gate->ipv4, &si->addr.ipv4))
 			    || (afi == AFI_IP6
 				&& IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
-		    && (!strcmp(ifname ? ifname : "", si->ifname))) {
+		    && (!strcmp(ifname ? ifname : "", si->ifname))
+		    && nh_svrf->vrf->vrf_id == si->nh_vrf_id) {
 			if ((distance == si->distance) && (tag == si->tag)
 			    && (table_id == si->table_id)
 			    && !memcmp(&si->snh_label, snh_label,
