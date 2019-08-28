@@ -79,6 +79,7 @@ struct pm_echo {
 
 	union sockunion peer;
 	union sockunion gw;
+	union sockunion src;
 
 	/* operational context */
 	struct pm_echo_retry retry;

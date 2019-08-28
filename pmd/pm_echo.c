@@ -438,23 +438,29 @@ static union g_addr *pm_echo_choose_src_ip(struct pm_session *pm)
 		return NULL;
 	if (pm->key.ifname[0])
 		ifp = if_lookup_by_name(pm->key.ifname, vrf->vrf_id);
-	if (!ifp) {
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			src_ip = pm_echo_choose_src_ip_interface(ifp,
-					 sockunion_family(&pm->key.peer),
-					 ipv6_link_local);
-			/* stop at first address found */
-			if (src_ip)
-				return src_ip;
-		}
-		return NULL;
-	}
+	/* look at interface used by pm->key.peer or pm->key.gateway */
+	if (!ifp && (pm->ifindex_out != IFINDEX_INTERNAL))
+		ifp = if_lookup_by_index(pm->ifindex_out, vrf->vrf_id);
 	if ((sockunion_family(&pm->key.peer) == AF_INET6) &&
 	    IN6_IS_ADDR_LINKLOCAL(&pm->key.peer.sin6))
 		ipv6_link_local = true;
-	return pm_echo_choose_src_ip_interface(ifp,
-				       sockunion_family(&pm->key.peer),
-				       ipv6_link_local);
+	if (ifp) {
+		src_ip = pm_echo_choose_src_ip_interface(ifp,
+					 sockunion_family(&pm->key.peer),
+					 ipv6_link_local);
+		if (src_ip)
+			return src_ip;
+		/* interface not found - fallback to other interfaces */
+	}
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		src_ip = pm_echo_choose_src_ip_interface(ifp,
+					 sockunion_family(&pm->key.peer),
+					 ipv6_link_local);
+		/* stop at first address found */
+		if (src_ip)
+			return src_ip;
+	}
+	return NULL;
 }
 
 /* close if necessary previous socket
@@ -621,6 +627,8 @@ void pm_echo_send(struct event *event)
 			goto label_end_tried_sending;
 		} else
 			iph->saddr = src_ip->ipv4.s_addr;
+		pme->src.sin.sin_family = AF_INET;
+		pme->src.sin.sin_addr.s_addr = src_ip->ipv4.s_addr;
 		iph->check = in_cksum((void *)iph, sizeof(struct iphdr));
 		siz = sizeof(struct sockaddr_in);
 		icmp->type = ICMP_ECHO;
@@ -646,6 +654,9 @@ void pm_echo_send(struct event *event)
 		} else
 			memcpy(&p_ip6h->saddr, &src_ip->ipv6.s6_addr,
 			       sizeof(struct in6_addr));
+		pme->src.sin6.sin6_family = AF_INET6;
+		memcpy(&pme->src.sin6.sin6_addr, &src_ip->ipv6.s6_addr,
+		       sizeof(struct in6_addr));
 		p_ip6h->upper_layer_packet_length = htonl(pme->packet_size
 					  - sizeof(struct ipv6header));
 		p_ip6h->proto = IPPROTO_ICMPV6;
@@ -790,6 +801,10 @@ void pm_echo_dump(struct vty *vty, struct pm_session *pm)
 
 	if (!pme)
 		return;
+
+	if (sockunion_family(&pme->src) == AF_INET ||
+	    sockunion_family(&pme->src) == AF_INET6)
+		vty_out(vty, "\tsource-ip %pSU\n", &pme->src);
 	vty_out(vty, "\tpacket-size %u, interval %u",
 		pme->packet_size, pme->interval);
 	vty_out(vty, ", timeout %u\n", pm->timeout);
