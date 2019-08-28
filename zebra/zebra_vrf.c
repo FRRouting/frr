@@ -488,6 +488,11 @@ static int vrf_config_write(struct vty *vty)
 		if (zvrf_id(zvrf) == VRF_DEFAULT) {
 			if (zvrf->l3vni)
 				vty_out(vty, "vni %u\n", zvrf->l3vni);
+			if (zvrf->zebra_rnh_ip_default_route)
+				vty_out(vty, "ip nht resolve-via-default\n");
+
+			if (zvrf->zebra_rnh_ipv6_default_route)
+				vty_out(vty, "ipv6 nht resolve-via-default\n");
 		} else {
 			vty_frame(vty, "vrf %s\n", zvrf_name(zvrf));
 			if (zvrf->l3vni)
@@ -497,7 +502,13 @@ static int vrf_config_write(struct vty *vty)
 						? " prefix-routes-only"
 						: "");
 			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
+			if (zvrf->zebra_rnh_ip_default_route)
+				vty_out(vty, " ip nht resolve-via-default\n");
+
+			if (zvrf->zebra_rnh_ipv6_default_route)
+				vty_out(vty, " ipv6 nht resolve-via-default\n");
 		}
+
 
 		zebra_routemap_config_write_protocol(vty, zvrf);
 

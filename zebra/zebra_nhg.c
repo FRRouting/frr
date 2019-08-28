@@ -120,6 +120,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	struct nexthop *newhop;
 	struct interface *ifp;
 	rib_dest_t *dest;
+	struct zebra_vrf *zvrf;
 
 	if ((nexthop->type == NEXTHOP_TYPE_IPV4)
 	    || nexthop->type == NEXTHOP_TYPE_IPV6)
@@ -194,7 +195,9 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	}
 	/* Lookup table.  */
 	table = zebra_vrf_table(afi, SAFI_UNICAST, nexthop->vrf_id);
-	if (!table) {
+	/* get zvrf */
+	zvrf = zebra_vrf_lookup_by_id(nexthop->vrf_id);
+	if (!table || !zvrf) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug("\t%s: Table not found",
 				   __PRETTY_FUNCTION__);
@@ -224,7 +227,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		/* However, do not resolve over default route unless explicitly
 		 * allowed. */
 		if (is_default_prefix(&rn->p)
-		    && !rnh_resolve_via_default(p.family)) {
+		    && !rnh_resolve_via_default(zvrf, p.family)) {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"\t:%s: Resolved against default route",
