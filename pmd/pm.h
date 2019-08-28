@@ -70,9 +70,9 @@ struct pm_session {
 	uint8_t retries_consecutive_down;
 #define PM_PACKET_RETRIES_CONSECUTIVE_UP_DEFAULT 1
 	uint8_t retries_consecutive_up;
-#define PM_PACKET_RETRIES_THRESHOLD_DEFAULT 5
+#define PM_PACKET_RETRIES_THRESHOLD_DEFAULT 1
 	uint8_t retries_threshold;
-#define PM_PACKET_RETRIES_TOTAL_DEFAULT 10
+#define PM_PACKET_RETRIES_TOTAL_DEFAULT 1
 	uint8_t retries_total;
 #define PM_TIMEOUT_DEFAULT PM_DEF_TIMEOUT
 	int timeout;
