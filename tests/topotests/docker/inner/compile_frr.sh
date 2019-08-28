@@ -84,6 +84,7 @@ if [ ! -e Makefile ]; then
 		--enable-static-bin \
 		--enable-static \
 		--enable-shared \
+		--enable-dev-build \
 		--with-moduledir=/usr/lib/frr/modules \
 		--prefix=/usr \
 		--localstatedir=/var/run/frr \
