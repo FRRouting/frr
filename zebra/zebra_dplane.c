@@ -1534,8 +1534,13 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 		/*
 		 * Check if the nhe is installed/queued before doing anything
 		 * with this route.
+		 *
+		 * If its a delete we only use the prefix anyway, so this only
+		 * matters for INSTALL/UPDATE.
 		 */
-		if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)
+		if (((op == DPLANE_OP_ROUTE_INSTALL)
+		     || (op == DPLANE_OP_ROUTE_UPDATE))
+		    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)
 		    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
 			ret = ENOENT;
 			goto done;
