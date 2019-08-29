@@ -1535,13 +1535,13 @@ case "$host_os" in
       no)
         ;;
       yes)
-        if [ "$c_ares_found" != "true" ]; then
+        if test "$c_ares_found" != "true" ; then
           AC_MSG_ERROR([nhrpd requires libcares.  Please install c-ares and its -dev headers.])
         fi
         NHRPD="nhrpd"
         ;;
       *)
-        if [ "$c_ares_found" = "true" ]; then
+        if test "$c_ares_found" = "true" ; then
           NHRPD="nhrpd"
         fi
         ;;
@@ -1584,13 +1584,13 @@ case "${enable_bmp}" in
   no)
     ;;
   yes)
-    if [ "$c_ares_found" != "true" ]; then
+    if test "$c_ares_found" != "true" ; then
       AC_MSG_ERROR([BMP support requires libcares.  Please install c-ares and its -dev headers.])
     fi
     bgpd_bmp=true
     ;;
   *)
-    if [ "$c_ares_found" = "true" ]; then
+    if test "$c_ares_found" = "true" ; then
       bgpd_bmp=true
     fi
     ;;
