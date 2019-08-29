@@ -27,7 +27,7 @@ struct resolver_query {
 };
 
 void resolver_init(struct thread_master *tm);
-void resolver_resolve(struct resolver_query *query, int af,
+void resolver_resolve(struct resolver_query *query, int af, vrf_id_t vrf_id,
 		      const char *hostname, void (*cb)(struct resolver_query *,
 						       const char *, int,
 						       union sockunion *));

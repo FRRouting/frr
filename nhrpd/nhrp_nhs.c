@@ -331,7 +331,7 @@ static int nhrp_nhs_resolve(struct thread *t)
 {
 	struct nhrp_nhs *nhs = THREAD_ARG(t);
 
-	resolver_resolve(&nhs->dns_resolve, AF_INET, nhs->nbma_fqdn,
+	resolver_resolve(&nhs->dns_resolve, AF_INET, VRF_DEFAULT, nhs->nbma_fqdn,
 			 nhrp_nhs_resolve_cb);
 
 	return 0;

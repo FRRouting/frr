@@ -20,6 +20,7 @@
 #include "resolver.h"
 #include "command.h"
 #include "xref.h"
+#include "vrf.h"
 
 XREF_SETUP();
 
@@ -198,7 +199,7 @@ static int resolver_cb_literal(struct thread *t)
 	return 0;
 }
 
-void resolver_resolve(struct resolver_query *query, int af,
+void resolver_resolve(struct resolver_query *query, int af, vrf_id_t vrf_id,
 		      const char *hostname,
 		      void (*callback)(struct resolver_query *, const char *,
 				       int, union sockunion *))
@@ -233,7 +234,9 @@ void resolver_resolve(struct resolver_query *query, int af,
 	if (resolver_debug)
 		zlog_debug("[%p] Resolving '%s'", query, hostname);
 
+	vrf_switch_to_netns(vrf_id);
 	ares_gethostbyname(state.channel, hostname, af, ares_address_cb, query);
+	vrf_switchback_to_initial();
 	resolver_update_timeouts(&state);
 }
 

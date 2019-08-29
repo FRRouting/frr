@@ -1853,8 +1853,8 @@ static int bmp_active_thread(struct thread *t)
 	ba->last_err = NULL;
 
 	if (ba->socket == -1) {
-		resolver_resolve(&ba->resq, AF_UNSPEC, ba->hostname,
-				 bmp_active_resolved);
+		resolver_resolve(&ba->resq, AF_UNSPEC, VRF_DEFAULT,
+				 ba->hostname, bmp_active_resolved);
 		return 0;
 	}
 
