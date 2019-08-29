@@ -4459,7 +4459,8 @@ void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
 					  struct ecommunity *ecomadd)
 {
 	/* uninstall routes from vrf */
-	uninstall_routes_for_vrf(bgp_vrf);
+	if (is_l3vni_live(bgp_vrf))
+		uninstall_routes_for_vrf(bgp_vrf);
 
 	/* Cleanup the RT to VRF mapping */
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
@@ -4471,11 +4472,11 @@ void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
 	listnode_add_sort(bgp_vrf->vrf_import_rtl, ecomadd);
 	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD);
 
-	/* map VRF to its RTs */
-	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
-
-	/* install routes matching the new VRF */
-	install_routes_for_vrf(bgp_vrf);
+	/* map VRF to its RTs and install routes matching the new RTs */
+	if (is_l3vni_live(bgp_vrf)) {
+		bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
+		install_routes_for_vrf(bgp_vrf);
+	}
 }
 
 void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
@@ -4485,7 +4486,8 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 	struct ecommunity *ecom = NULL;
 
 	/* uninstall routes from vrf */
-	uninstall_routes_for_vrf(bgp_vrf);
+	if (is_l3vni_live(bgp_vrf))
+		uninstall_routes_for_vrf(bgp_vrf);
 
 	/* Cleanup the RT to VRF mapping */
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
@@ -4509,11 +4511,11 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 		evpn_auto_rt_import_add_for_vrf(bgp_vrf);
 	}
 
-	/* map VRFs to its RTs */
-	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
-
-	/* install routes matching this new RT */
-	install_routes_for_vrf(bgp_vrf);
+	/* map VRFs to its RTs and install routes matching this new RT */
+	if (is_l3vni_live(bgp_vrf)) {
+		bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
+		install_routes_for_vrf(bgp_vrf);
+	}
 }
 
 void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
