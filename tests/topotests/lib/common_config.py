@@ -23,6 +23,11 @@ from datetime import datetime
 from time import sleep
 from subprocess import call
 from subprocess import STDOUT as SUB_STDOUT
+from subprocess import PIPE as SUB_PIPE
+from subprocess import Popen
+from functools import wraps
+from re import search as re_search
+
 import StringIO
 import os
 import ConfigParser
@@ -41,6 +46,7 @@ FRRCFG_FILE = "frr_json.conf"
 FRRCFG_BKUP_FILE = "frr_json_initial.conf"
 
 ERROR_LIST = ["Malformed", "Failure", "Unknown"]
+ROUTER_LIST = []
 
 ####
 CD = os.path.dirname(os.path.realpath(__file__))
@@ -142,6 +148,35 @@ class InvalidCLIError(Exception):
     pass
 
 
+def run_frr_cmd(rnode, cmd, isjson=False):
+    """
+    Execute frr show commands in priviledged mode
+
+    * `rnode`: router node on which commands needs to executed
+    * `cmd`: Command to be executed on frr
+    * `isjson`: If command is to get json data or not
+
+    :return str:
+    """
+
+    if cmd:
+        ret_data = rnode.vtysh_cmd(cmd, isjson=isjson)
+
+        if True:
+            if isjson:
+                logger.debug(ret_data)
+                print_data = rnode.vtysh_cmd(cmd.rstrip("json"), isjson=False)
+            else:
+                print_data = ret_data
+
+            logger.info('Output for command [ %s] on router %s:\n%s',
+                        cmd.rstrip("json"), rnode.name, print_data)
+        return ret_data
+
+    else:
+        raise InvalidCLIError('No actual cmd passed')
+
+
 def create_common_configuration(tgen, router, data, config_type=None,
                                 build=False):
     """
@@ -186,6 +221,7 @@ def create_common_configuration(tgen, router, data, config_type=None,
             frr_cfg_fd.write(config_map[config_type])
         for line in data:
             frr_cfg_fd.write("{} \n".format(str(line)))
+        frr_cfg_fd.write("\n")
 
     except IOError as err:
         logger.error("Unable to open FRR Config File. error(%s): %s" %
@@ -215,10 +251,13 @@ def reset_config_on_routers(tgen, routerName=None):
     logger.debug("Entering API: reset_config_on_routers")
 
     router_list = tgen.routers()
-    for rname, router in router_list.iteritems():
+    for rname in ROUTER_LIST:
         if routerName and routerName != rname:
             continue
 
+        router = router_list[rname]
+        logger.info("Configuring router %s to initial test configuration",
+                    rname)
         cfg = router.run("vtysh -c 'show running'")
         fname = "{}/{}/frr.sav".format(TMPDIR, rname)
         dname = "{}/{}/delta.conf".format(TMPDIR, rname)
@@ -235,16 +274,35 @@ def reset_config_on_routers(tgen, routerName=None):
 
         f.close()
 
-        command = "/usr/lib/frr/frr-reload.py  --input {}/{}/frr.sav" \
-                  " --test {}/{}/frr_json_initial.conf > {}". \
-            format(TMPDIR, rname, TMPDIR, rname, dname)
-        result = call(command, shell=True, stderr=SUB_STDOUT)
+        run_cfg_file = "{}/{}/frr.sav".format(TMPDIR, rname)
+        init_cfg_file = "{}/{}/frr_json_initial.conf".format(TMPDIR, rname)
+        command = "/usr/lib/frr/frr-reload.py  --input {} --test {} > {}". \
+            format(run_cfg_file, init_cfg_file, dname)
+        result = call(command, shell=True, stderr=SUB_STDOUT,
+                      stdout=SUB_PIPE)
 
         # Assert if command fail
         if result > 0:
-            errormsg = ("Command:{} is failed due to non-zero exit"
-                        " code".format(command))
-            return errormsg
+            logger.error("Delta file creation failed. Command executed %s",
+                         command)
+            with open(run_cfg_file, 'r') as fd:
+                logger.info('Running configuration saved in %s is:\n%s',
+                             run_cfg_file, fd.read())
+            with open(init_cfg_file, 'r') as fd:
+                logger.info('Test configuration saved in %s is:\n%s',
+                             init_cfg_file, fd.read())
+
+            err_cmd = ['/usr/bin/vtysh', '-m', '-f', run_cfg_file]
+            result = Popen(err_cmd, stdout=SUB_PIPE, stderr=SUB_PIPE)
+            output = result.communicate()
+            for out_data in output:
+                temp_data = out_data.decode('utf-8').lower()
+                for out_err in ERROR_LIST:
+                    if out_err.lower() in temp_data:
+                        logger.error("Found errors while validating data in"
+                                     " %s", run_cfg_file)
+                        raise InvalidCLIError(out_data)
+            raise InvalidCLIError("Unknown error in %s", output)
 
         f = open(dname, "r")
         delta = StringIO.StringIO()
@@ -264,7 +322,7 @@ def reset_config_on_routers(tgen, routerName=None):
         delta.write("end\n")
         output = router.vtysh_multicmd(delta.getvalue(),
                                        pretty_output=False)
-        logger.info("New configuration for router {}:".format(rname))
+
         delta.close()
         delta = StringIO.StringIO()
         cfg = router.run("vtysh -c 'show running'")
@@ -276,6 +334,8 @@ def reset_config_on_routers(tgen, routerName=None):
         # Router current configuration to log file or console if
         # "show_router_config" is defined in "pytest.ini"
         if show_router_config:
+            logger.info("Configuration on router {} after config reset:".
+                        format(rname))
             logger.info(delta.getvalue())
         delta.close()
 
@@ -297,34 +357,39 @@ def load_config_to_router(tgen, routerName, save_bkup=False):
     logger.debug("Entering API: load_config_to_router")
 
     router_list = tgen.routers()
-    for rname, router in router_list.iteritems():
-        if rname == routerName:
-            try:
-                frr_cfg_file = "{}/{}/{}".format(TMPDIR, rname, FRRCFG_FILE)
-                frr_cfg_bkup = "{}/{}/{}".format(TMPDIR, rname,
-                                                 FRRCFG_BKUP_FILE)
-                with open(frr_cfg_file, "r") as cfg:
-                    data = cfg.read()
-                    if save_bkup:
-                        with open(frr_cfg_bkup, "w") as bkup:
-                            bkup.write(data)
+    for rname in ROUTER_LIST:
+        if routerName and routerName != rname:
+            continue
 
-                    output = router.vtysh_multicmd(data, pretty_output=False)
-                    for out_err in ERROR_LIST:
-                        if out_err.lower() in output.lower():
-                            raise InvalidCLIError("%s" % output)
-            except IOError as err:
-                errormsg = ("Unable to open config File. error(%s):"
-                            "  %s", (err.errno, err.strerror))
-                return errormsg
+        router = router_list[rname]
+        try:
+            frr_cfg_file = "{}/{}/{}".format(TMPDIR, rname, FRRCFG_FILE)
+            frr_cfg_bkup = "{}/{}/{}".format(TMPDIR, rname,
+                                             FRRCFG_BKUP_FILE)
+            with open(frr_cfg_file, "r+") as cfg:
+                data = cfg.read()
+                logger.info("Applying following configuration on router"
+                            " {}:\n{}".format(rname, data))
+                if save_bkup:
+                    with open(frr_cfg_bkup, "w") as bkup:
+                        bkup.write(data)
 
-            logger.info("New configuration for router {}:".format(rname))
+                output = router.vtysh_multicmd(data, pretty_output=False)
+                for out_err in ERROR_LIST:
+                    if out_err.lower() in output.lower():
+                        raise InvalidCLIError("%s" % output)
+
+                cfg.truncate(0)
+        except IOError as err:
+            errormsg = ("Unable to open config File. error(%s):"
+                        "  %s", (err.errno, err.strerror))
+            return errormsg
+
+        # Router current configuration to log file or console if
+        # "show_router_config" is defined in "pytest.ini"
+        if show_router_config:
             new_config = router.run("vtysh -c 'show running'")
-
-            # Router current configuration to log file or console if
-            # "show_router_config" is defined in "pytest.ini"
-            if show_router_config:
-                logger.info(new_config)
+            logger.info(new_config)
 
     logger.debug("Exting API: load_config_to_router")
     return True
@@ -337,21 +402,25 @@ def start_topology(tgen):
     * `tgen`  : topogen object
     """
 
-    global TMPDIR
+    global TMPDIR, ROUTER_LIST
     # Starting topology
     tgen.start_topology()
 
     # Starting deamons
+
     router_list = tgen.routers()
+    ROUTER_LIST = sorted(router_list.keys(),
+                         key=lambda x: int(re_search('\d+', x).group(0)))
     TMPDIR = os.path.join(LOGDIR, tgen.modname)
 
-    for rname, router in router_list.iteritems():
+    router_list = tgen.routers()
+    for rname in ROUTER_LIST:
+        router = router_list[rname]
         try:
             os.chdir(TMPDIR)
 
-            # Creating rouer named dir and empty zebra.conf bgpd.conf files
+            # Creating router named dir and empty zebra.conf bgpd.conf files
             # inside the current directory
-
             if os.path.isdir('{}'.format(rname)):
                 os.system("rm -rf {}".format(rname))
                 os.mkdir('{}'.format(rname))
@@ -371,13 +440,11 @@ def start_topology(tgen):
         router.load_config(
             TopoRouter.RD_ZEBRA,
             '{}/{}/zebra.conf'.format(TMPDIR, rname)
-            # os.path.join(tmpdir, '{}/zebra.conf'.format(rname))
         )
         # Loading empty bgpd.conf file to router, to start the bgp deamon
         router.load_config(
             TopoRouter.RD_BGP,
             '{}/{}/bgpd.conf'.format(TMPDIR, rname)
-            # os.path.join(tmpdir, '{}/bgpd.conf'.format(rname))
         )
 
         # Starting routers
@@ -548,7 +615,7 @@ def write_test_header(tc_name):
     """ Display message at beginning of test case"""
     count = 20
     logger.info("*"*(len(tc_name)+count))
-    logger.info("START -> Testcase : %s", tc_name)
+    logger.info("START -> Testcase : %s" % tc_name)
     logger.info("*"*(len(tc_name)+count))
 
 
@@ -556,8 +623,63 @@ def write_test_footer(tc_name):
     """ Display message at end of test case"""
     count = 21
     logger.info("="*(len(tc_name)+count))
-    logger.info("PASSED -> Testcase : %s", tc_name)
+    logger.info("Testcase : %s -> PASSED", tc_name)
     logger.info("="*(len(tc_name)+count))
+
+
+def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0):
+    """
+    Retries function execution, if return is an errormsg or exception
+
+    * `attempts`: Number of attempts to make
+    * `wait`: Number of seconds to wait between each attempt
+    * `return_is_str`: Return val is an errormsg in case of failure
+    * `initial_wait`: Sleeps for this much seconds before executing function
+
+    """
+
+    def _retry(func):
+
+        @wraps(func)
+        def func_retry(*args, **kwargs):
+            _wait = kwargs.pop('wait', wait)
+            _attempts = kwargs.pop('attempts', attempts)
+            _attempts = int(_attempts)
+            if _attempts < 0:
+                raise ValueError("attempts must be 0 or greater")
+
+            if initial_wait > 0:
+                logger.info("Waiting for [%s]s as initial delay", initial_wait)
+                sleep(initial_wait)
+
+            _return_is_str = kwargs.pop('return_is_str', return_is_str)
+            for i in range(1, _attempts + 1):
+                try:
+                    _expected = kwargs.setdefault('expected', True)
+                    kwargs.pop('expected')
+                    ret = func(*args, **kwargs)
+                    logger.debug("Function returned %s" % ret)
+                    if return_is_str and isinstance(ret, bool):
+                        return ret
+                    elif return_is_str and _expected is False:
+                        return ret
+
+                    if _attempts == i:
+                        return ret
+                except Exception as err:
+                    if _attempts == i:
+                        logger.info("Max number of attempts (%r) reached",
+                                    _attempts)
+                        raise
+                    else:
+                        logger.info("Function returned %s", err)
+                if i < _attempts:
+                    logger.info("Retry [#%r] after sleeping for %ss"
+                                % (i, _wait))
+                    sleep(_wait)
+        func_retry._original = func
+        return func_retry
+    return _retry
 
 
 #############################################
@@ -589,17 +711,17 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     interface_name = destRouterLink
                 else:
                     interface_name = data["interface"]
-                interface_data.append("interface {}\n".format(
+                interface_data.append("interface {}".format(
                     str(interface_name)
                 ))
                 if "ipv4" in data:
                     intf_addr = c_data["links"][destRouterLink]["ipv4"]
-                    interface_data.append("ip address {}\n".format(
+                    interface_data.append("ip address {}".format(
                         intf_addr
                     ))
                 if "ipv6" in data:
                     intf_addr = c_data["links"][destRouterLink]["ipv6"]
-                    interface_data.append("ipv6 address {}\n".format(
+                    interface_data.append("ipv6 address {}".format(
                         intf_addr
                     ))
             result = create_common_configuration(tgen, c_router,
@@ -662,7 +784,7 @@ def create_static_routes(tgen, input_dict, build=False):
         for router in input_dict.keys():
             if "static_routes" not in input_dict[router]:
                 errormsg = "static_routes not present in input_dict"
-                logger.info(errormsg)
+                logger.debug(errormsg)
                 continue
 
             static_routes_list = []
@@ -768,7 +890,7 @@ def create_prefix_lists(tgen, input_dict, build=False):
         for router in input_dict.keys():
             if "prefix_lists" not in input_dict[router]:
                 errormsg = "prefix_lists not present in input_dict"
-                logger.info(errormsg)
+                logger.debug(errormsg)
                 continue
 
             config_data = []
@@ -922,7 +1044,7 @@ def create_route_maps(tgen, input_dict, build=False):
         for router in input_dict.keys():
             if "route_maps" not in input_dict[router]:
                 errormsg = "route_maps not present in input_dict"
-                logger.info(errormsg)
+                logger.debug(errormsg)
                 continue
             rmap_data = []
             for rmap_name, rmap_value in \
@@ -1014,7 +1136,7 @@ def create_route_maps(tgen, input_dict, build=False):
 
                         # Weight
                         if weight:
-                            rmap_data.append("set weight {} \n".format(
+                            rmap_data.append("set weight {}".format(
                                 weight))
 
                     # Adding MATCH and SET sequence to RMAP if defined
@@ -1092,7 +1214,8 @@ def create_route_maps(tgen, input_dict, build=False):
 #############################################
 # Verification APIs
 #############################################
-def _verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
+@retry(attempts=10, return_is_str=True, initial_wait=2)
+def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
     """
     Data will be read from input_dict or input JSON file, API will generate
     same prefixes, which were redistributed by either create_static_routes() or
@@ -1140,7 +1263,7 @@ def _verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
     errormsg(str) or True
     """
 
-    logger.info("Entering lib API: verify_rib()")
+    logger.debug("Entering lib API: verify_rib()")
 
     router_list = tgen.routers()
     for routerInput in input_dict.keys():
@@ -1160,9 +1283,8 @@ def _verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
                 else:
                     command = "show ipv6 route json"
 
-            sleep(10)
             logger.info("Checking router %s RIB:", router)
-            rib_routes_json = rnode.vtysh_cmd(command, isjson=True)
+            rib_routes_json = run_frr_cmd(rnode, command, isjson=True)
 
             # Verifying output dictionary rib_routes_json is not empty
             if bool(rib_routes_json) is False:
@@ -1257,28 +1379,8 @@ def _verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
                 logger.info("Verified routes in router %s RIB, found routes"
                             " are: %s", dut, found_routes)
 
-    logger.info("Exiting lib API: verify_rib()")
+    logger.debug("Exiting lib API: verify_rib()")
     return True
-
-
-def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None, expected=True):
-    """
-    Wrapper function for `_verify_rib` that tries multiple time to get results.
-
-    When the expected result is `False` we actually should expect for an string instead.
-    """
-
-    # Use currying to hide the parameters and create a test function.
-    test_func = partial(_verify_rib, tgen, addr_type, dut, input_dict, next_hop, protocol)
-
-    # Call the test function and expect it to return True, otherwise try it again.
-    if expected is True:
-        _, result = topotest.run_and_expect(test_func, True, count=20, wait=6)
-    else:
-        _, result = topotest.run_and_expect_type(test_func, str, count=20, wait=6)
-
-    # Return as normal.
-    return result
 
 
 def verify_admin_distance_for_static_routes(tgen, input_dict):
@@ -1311,7 +1413,7 @@ def verify_admin_distance_for_static_routes(tgen, input_dict):
     errormsg(str) or True
     """
 
-    logger.info("Entering lib API: verify_admin_distance_for_static_routes()")
+    logger.debug("Entering lib API: verify_admin_distance_for_static_routes()")
 
     for router in input_dict.keys():
         if router not in tgen.routers():
@@ -1326,7 +1428,7 @@ def verify_admin_distance_for_static_routes(tgen, input_dict):
                 command = "show ip route json"
             else:
                 command = "show ipv6 route json"
-            show_ip_route_json = rnode.vtysh_cmd(command, isjson=True)
+            show_ip_route_json = run_frr_cmd(rnode, command, isjson=True)
 
             logger.info("Verifying admin distance for static route %s"
                         " under dut %s:", static_route, router)
@@ -1356,7 +1458,7 @@ def verify_admin_distance_for_static_routes(tgen, input_dict):
                             format(network, router))
                 return errormsg
 
-    logger.info("Exiting lib API: verify_admin_distance_for_static_routes()")
+    logger.debug("Exiting lib API: verify_admin_distance_for_static_routes()")
     return True
 
 
@@ -1384,7 +1486,7 @@ def verify_prefix_lists(tgen, input_dict):
     errormsg(str) or True
     """
 
-    logger.info("Entering lib API: verify_prefix_lists()")
+    logger.debug("Entering lib API: verify_prefix_lists()")
 
     for router in input_dict.keys():
         if router not in tgen.routers():
@@ -1393,7 +1495,7 @@ def verify_prefix_lists(tgen, input_dict):
         rnode = tgen.routers()[router]
 
         # Show ip prefix list
-        show_prefix_list = rnode.vtysh_cmd("show ip prefix-list")
+        show_prefix_list = run_frr_cmd(rnode, "show ip prefix-list")
 
         # Verify Prefix list is deleted
         prefix_lists_addr = input_dict[router]["prefix_lists"]
@@ -1403,12 +1505,12 @@ def verify_prefix_lists(tgen, input_dict):
 
             for prefix_list in prefix_lists_addr[addr_type].keys():
                 if prefix_list in show_prefix_list:
-                    errormsg = ("Prefix list {} is not deleted from router"
+                    errormsg = ("Prefix list {} is/are present in the router"
                                 " {}".format(prefix_list, router))
                     return errormsg
 
-                logger.info("Prefix list %s is/are deleted successfully"
+                logger.info("Prefix list %s is/are not present in the router"
                             " from router %s", prefix_list, router)
 
-    logger.info("Exiting lib API: verify_prefix_lissts()")
+    logger.debug("Exiting lib API: verify_prefix_lissts()")
     return True
