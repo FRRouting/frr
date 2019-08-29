@@ -45,7 +45,7 @@ noinst_HEADERS += \
 	# end
 
 pmd_pmd_SOURCES = pmd/pm_main.c
-pmd_pmd_LDADD = pmd/libpm.a lib/libfrr.la $(LIBCAP)
+pmd_pmd_LDADD = pmd/libpm.a lib/libfrr.la lib/libfrrcares.la $(LIBCAP)
 
 if PM_TRACKING
 pmd_pm_tracking_la_SOURCES = pmd/pm_tracking.c

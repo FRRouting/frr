@@ -474,7 +474,14 @@ static struct json_object *_session_json_header(struct pm_session *pm)
 		json_object_string_add(jo, "vrf", pm->key.vrfname);
 	if (pm->key.ifname[0])
 		json_object_string_add(jo, "interface", pm->key.ifname);
-
+	ret = str2sockunion(pm->key.peer, &peer);
+	if (ret) {
+		if (sockunion_family(&pm->peer) == AF_INET ||
+		    sockunion_family(&pm->peer) == AF_INET6) {
+			sockunion2str(&pm->peer, addr_buf, sizeof(addr_buf));
+			json_object_string_add(jo, "peer-resolved", addr_buf);
+		}
+	}
 	return jo;
 }
 
@@ -560,6 +567,8 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 	char buf2[256];
 	struct pm_session *pm = (struct pm_session *)b->data;
 	struct json_object *jo = NULL;
+	union sockunion peer;
+	int ret;
 
 	if (psd->vrfname) {
 		if (!pm->key.vrfname[0] ||
@@ -576,6 +585,14 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 		return;
 	}
 	vty_out(vty, " session %s", pm->key.peer);
+	ret = str2sockunion(pm->key.peer, &peer);
+	if (ret) {
+		if (sockunion_family(&pm->peer) == AF_INET ||
+		    sockunion_family(&pm->peer) == AF_INET6) {
+			sockunion2str(&pm->peer, buf, sizeof(buf));
+			vty_out(vty, " (resolved to %s)", buf);
+		}
+	}
 	if (sockunion_family(&pm->key.local) == AF_INET ||
 	    sockunion_family(&pm->key.local) == AF_INET6)
 		vty_out(vty, " local-address %s",

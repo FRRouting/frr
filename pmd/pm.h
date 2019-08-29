@@ -26,6 +26,7 @@
 #include "lib/sockunion.h"
 #include "lib/pm_lib.h"
 #include "lib/command.h"
+#include "lib/resolver.h"
 
 #define MAXNAMELEN 36
 
@@ -54,7 +55,12 @@ struct pm_session {
 #define PM_SESS_FLAG_RUN           (1 << 3)
 #define PM_SESS_FLAG_NH_VALID      (1 << 4)
 #define PM_SESS_FLAG_NH_REGISTERED (1 << 5)
+#define PM_SESS_FLAG_RESOLUTION_ON (1 << 6)
 	uint32_t flags;
+	union sockunion peer;
+	struct resolver_query dns_resolve;
+	struct thread *t_resolve;
+	afi_t afi_resolve;
 	union sockunion nh;
 	enum pm_probe_type type;
 #define PM_PACKET_SIZE_DEFAULT PM_DEF_PACKET_SIZE

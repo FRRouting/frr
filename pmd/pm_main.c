@@ -168,6 +168,8 @@ int main(int argc, char **argv, char **envp)
 	pm_init();
 
 	pm_vrf_init();
+
+	resolver_init(master);
 	/* Get configuration file. */
 	pm_vty_init();
 

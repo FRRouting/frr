@@ -61,6 +61,9 @@ DEFINE_HOOK(pm_tracking_get_gateway_address,
 static int pm_sessions_change_ifp_walkcb(struct hash_bucket *backet,
 					 void *arg);
 
+static void pm_session_peer_resolver_cb(struct resolver_query *q, const char *errstr,
+					int n, union sockunion *addrs);
+
 static unsigned int pm_id_list_hash_do(const void *p)
 {
 	const struct pm_echo *pme = p;
@@ -276,6 +279,60 @@ static bool pm_check_local_address(union sockunion *loc, struct vrf *vrf)
 	}
 	return false;
 }
+static int pm_session_peer_resolve(struct thread *t)
+{
+	struct pm_session *pm = THREAD_ARG(t);
+	struct vrf *vrf;
+
+	if (pm->key.vrfname[0])
+		vrf = vrf_lookup_by_name(pm->key.vrfname);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (!vrf)
+		return 0;
+	resolver_resolve(&pm->dns_resolve, pm->afi_resolve, vrf->vrf_id,
+			 pm->key.peer,
+			 pm_session_peer_resolver_cb);
+	return 0;
+}
+
+static void pm_session_peer_resolver_cb(struct resolver_query *q, const char *errstr,
+					int n, union sockunion *addrs)
+{
+	struct pm_session *pm = container_of(q, struct pm_session, dns_resolve);
+	char buf[SU_ADDRSTRLEN];
+	int i;
+
+	pm->t_resolve = NULL;
+	if (n < 0) {
+		if (pm->afi_resolve == AF_INET6 &&
+		    sockunion_family(&pm->key.local) != AF_INET &&
+		    sockunion_family(&pm->key.local) != AF_INET6) {
+			zlog_warn("%% session to %s, IPv6 resolve failed (%s), trying with IPv4 in 5 sec",
+				  pm->key.peer, errstr);
+			pm->afi_resolve = AF_INET;
+		}
+		/* Failed, retry in a moment */
+		thread_add_timer(master, pm_session_peer_resolve, pm, 5,
+				 &pm->t_resolve);
+		return;
+	}
+	thread_add_timer(master, pm_session_peer_resolve, pm, 2 * 60 * 60,
+			 &pm->t_resolve);
+	for (i = 0; i < n; i++) {
+		/* no change */
+		if (sockunion_same(&addrs[i], &pm->peer))
+			break;
+		/* update IP address */
+		memcpy(&pm->peer, &addrs[i], sizeof(union sockunion));
+		zlog_info("%% session to %s, resolution to %s ok, polling in 7200 sec",
+			  pm->key.peer,
+			  sockunion2str(&pm->peer, buf, sizeof(buf)));
+		pm_zebra_nht_register(pm, true, NULL);
+		pm_try_run(NULL, pm);
+		break;
+	}
+}
 
 void pm_initialise(struct pm_session *pm, bool validate_only,
 		   char *ebuf, size_t ebuflen)
@@ -315,15 +372,33 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 		return;
 	}
 
-	str2sockunion(pm->key.peer, &peer);
-	if (sockunion_family(&peer) != AF_INET &&
-	    sockunion_family(&peer) != AF_INET6) {
-		snprintf(ebuf, ebuflen, "session to %s, peer can not be resolved",
-			 pm->key.peer);
-		return;
+	ret = str2sockunion(pm->key.peer, &peer);
+	/* it may be an hostname - try with ipv6 resolution */
+	if (ret) {
+		if (sockunion_family(&pm->peer) != AF_INET &&
+		    sockunion_family(&pm->peer) != AF_INET6) {
+			if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_RESOLUTION_ON)) {
+				snprintf(ebuf, ebuflen,
+					 "session to %s, resolution in progress",
+					 pm->key.peer);
+				return;
+			}
+			pm->afi_resolve = AF_INET6;
+			if (sockunion_family(&pm->key.local) == AF_INET ||
+			    sockunion_family(&pm->key.local) == AF_INET6)
+				pm->afi_resolve = sockunion_family(&pm->key.local);
+			snprintf(ebuf, ebuflen,
+				 "session to %s, trying to resolve IP",
+				 pm->key.peer);
+			pm->flags |= PM_SESS_FLAG_RESOLUTION_ON;
+			thread_add_timer(master, pm_session_peer_resolve, pm, 0,
+					 &pm->t_resolve);
+			return;
+		}
+	} else {
+		memcpy(&pm->peer, &peer, sizeof(union sockunion));
+		pm_zebra_nht_register(pm, true, NULL);
 	}
-	memcpy(&pm->peer, &peer, sizeof(union sockunion));
-	pm_zebra_nht_register(pm, true, NULL);
 	/* Validate address families. */
 	if (sockunion_family(&pm->key.local) == AF_INET ||
 	    sockunion_family(&pm->key.local) == AF_INET6) {
@@ -401,7 +476,7 @@ static void pm_session_free_walker(struct hash_bucket *b, void *data)
 
 	QOBJ_UNREG(pm);
 	pm_echo_stop(pm, errormsg, sizeof(errormsg), true);
-
+	THREAD_OFF(pm->t_resolve);
 	hash_release(pm_session_list, pm);
 	XFREE(MTYPE_PM_SESSION, pm);
 }
