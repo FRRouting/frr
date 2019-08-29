@@ -470,7 +470,7 @@ static int pm_tracking_call_display(struct pm_session *pm,
 				ctx->notify_path);
 		if (jo)
 			json_object_string_add(jo, "notify-path",
-					    buf);
+					       ctx->notify_path);
 	}
 	if (sockunion_family(&ctx->alternate) == AF_INET ||
 	    sockunion_family(&ctx->alternate) == AF_INET6) {
