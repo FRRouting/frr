@@ -100,6 +100,8 @@ static void pc_free(struct pm_client *pc);
 
 static int _pm_msg_address(struct stream *msg, union sockunion *peer);
 
+static void pm_zebra_nht_update_address(struct connected *ifc, bool add);
+
 #ifdef PM_DEBUG
 static void debug_printbpc(const char *func, unsigned int line,
 			   struct pm_peer_cfg *bpc);
@@ -318,6 +320,7 @@ static int interface_address_add(int command, struct zclient *zclient,
 	ifc = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
 	if (!ifc)
 		return 0;
+	pm_zebra_nht_update_address(ifc, true);
 	pm_sessions_update();
 	return 0;
 }
@@ -332,6 +335,7 @@ static int interface_address_delete(int command, struct zclient *zclient,
 	if (!c)
 		return 0;
 
+	pm_zebra_nht_update_address(c, false);
 	connected_free(&c);
 	return 0;
 }
@@ -917,6 +921,44 @@ static void pm_zebra_fake_nht_register(struct pm_session *pm,
 	}
 }
 
+static void pm_zebra_nht_update_address(struct connected *ifc, bool add)
+{
+	struct pm_nht_data *nhtd, lookup;
+	vrf_id_t vrf_id;
+	struct prefix p;
+
+	if (!ifc->ifp || !ifc->address)
+		return;
+	vrf_id = ifc->ifp->vrf_id;
+
+	memset(&lookup, 0, sizeof(lookup));
+	p = *(ifc->address);
+	lookup.nh = &p;
+	/* local host resolution. reduce prefix len size to host */
+	if (ifc->address->family == AF_INET)
+		p.prefixlen = IPV4_MAX_BITLEN;
+	else
+		p.prefixlen = IPV6_MAX_BITLEN;
+	lookup.nh_vrf_id = vrf_id;
+
+	nhtd = hash_lookup(pm_nht_hash, &lookup);
+	if (!nhtd)
+		return;
+	nhtd->idx = ifc->ifp->ifindex;
+	if (add)
+		pm_nht_update(nhtd->nh, 1,
+			      family2afi(ifc->address->family),
+			      nhtd->nh_vrf_id, NULL,
+			      nhtd->idx);
+	else
+		pm_nht_update(nhtd->nh, 0,
+			      family2afi(ifc->address->family),
+			      nhtd->nh_vrf_id, NULL,
+			      nhtd->idx);
+	return;
+
+}
+
 void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 {
 	struct pm_nht_data *nhtd, lookup;
@@ -924,6 +966,8 @@ void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 	struct prefix p;
 	afi_t afi = AFI_IP;
 	struct vrf *vrf;
+	struct interface *ifp;
+	void *src = NULL;
 
 	if (pm_nht_not_used) {
 		pm_zebra_fake_nht_register(pm, reg, vty);
@@ -943,23 +987,29 @@ void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 		p.prefixlen = IPV4_MAX_BITLEN;
 		p.u.prefix4 = pm->nh.sin.sin_addr;
 		afi = AFI_IP;
+		src = &p.u.prefix4;
 	} else if (sockunion_family(&pm->nh) == AF_INET6) {
 		p.family = AF_INET6;
 		p.prefixlen = IPV6_MAX_BITLEN;
 		p.u.prefix6 = pm->nh.sin6.sin6_addr;
 		afi = AFI_IP6;
+		src = &p.u.prefix6;
 	}
 	else if (sockunion_family(&pm->key.peer) == AF_INET) {
 		p.family = AF_INET;
 		p.prefixlen = IPV4_MAX_BITLEN;
 		p.u.prefix4 = pm->key.peer.sin.sin_addr;
 		afi = AFI_IP;
+		src = &p.u.prefix4;
 	} else if (sockunion_family(&pm->key.peer) == AF_INET6) {
 		p.family = AF_INET6;
 		p.prefixlen = IPV6_MAX_BITLEN;
 		p.u.prefix6 = pm->key.peer.sin6.sin6_addr;
 		afi = AFI_IP6;
+		src = &p.u.prefix6;
 	}
+	if (!src)
+		return;
 	if (pm->key.vrfname[0])
 		vrf = vrf_lookup_by_name(pm->key.vrfname);
 	else
@@ -1000,6 +1050,16 @@ void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 		pm_nht_hash_free(nhtd);
 	}
 
+	ifp =  if_lookup_exact_address(src, sockunion_family(&pm->key.peer),
+				       vrf->vrf_id);
+	/* peer or gateway is owned by us */
+	if (ifp) {
+		nhtd->idx = ifp->ifindex;
+		pm_nht_update(nhtd->nh, 1,
+			      afi, vrf->vrf_id, vty,
+			      nhtd->idx);
+		return;
+	}
 	if (zclient_send_rnh(zclient, cmd, &p, false,
 			     vrf->vrf_id) < 0)
 		zlog_warn("%s: Failure to send nexthop to zebra",
