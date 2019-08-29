@@ -19,6 +19,7 @@
 #include "lib_errors.h"
 #include "resolver.h"
 #include "command.h"
+#include "vrf.h"
 
 struct resolver_state {
 	ares_channel channel;
@@ -180,7 +181,7 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 	callback(query, i, &addr[0]);
 }
 
-void resolver_resolve(struct resolver_query *query, int af,
+void resolver_resolve(struct resolver_query *query, int af, vrf_id_t vrf_id,
 		      const char *hostname,
 		      void (*callback)(struct resolver_query *, int,
 				       union sockunion *))
@@ -197,7 +198,9 @@ void resolver_resolve(struct resolver_query *query, int af,
 		zlog_debug("[%p] Resolving '%s'", query, hostname);
 
 	query->callback = callback;
+	vrf_switch_to_netns(vrf_id);
 	ares_gethostbyname(state.channel, hostname, af, ares_address_cb, query);
+	vrf_switchback_to_initial();
 	resolver_update_timeouts(&state);
 }
 
