@@ -459,6 +459,7 @@ struct pm_session_dump {
 static struct json_object *_session_json_header(struct pm_session *pm)
 {
 	struct json_object *jo = json_object_new_object();
+	union sockunion peer;
 
 	json_object_string_add(jo, "peer", pm->key.peer);
 	if (sockunion_family(&pm->key.local) == AF_INET ||
@@ -470,6 +471,11 @@ static struct json_object *_session_json_header(struct pm_session *pm)
 		json_object_string_add(jo, "vrf", pm->key.vrfname);
 	if (pm->key.ifname[0])
 		json_object_string_add(jo, "interface", pm->key.ifname);
+
+	if (str2sockunion(pm->key.peer, &peer) &&
+			(sockunion_family(&pm->peer) == AF_INET ||
+		    sockunion_family(&pm->peer) == AF_INET6))
+		json_object_string_addf(jo, "peer-resolved", "%pSU", &pm->peer);
 
 	return jo;
 }
@@ -545,6 +551,7 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 	struct vty *vty = psd->vty;
 	struct pm_session *pm = (struct pm_session *)b->data;
 	struct json_object *jo = NULL;
+	union sockunion peer;
 
 	if (psd->vrfname) {
 		if (!pm->key.vrfname[0] ||
@@ -561,6 +568,10 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 		return;
 	}
 	vty_out(vty, " session %s", pm->key.peer);
+	if (str2sockunion(pm->key.peer, &peer) &&
+			(sockunion_family(&pm->peer) == AF_INET ||
+		     sockunion_family(&pm->peer) == AF_INET6))
+		vty_out(vty, " (resolved to %pSU)", &pm->peer);
 	if (sockunion_family(&pm->key.local) == AF_INET ||
 	    sockunion_family(&pm->key.local) == AF_INET6)
 		vty_out(vty, " local-address %pSU", &pm->key.local);
