@@ -86,7 +86,7 @@ static bool pm_session_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct pm_session *a1 = arg1, *a2 = arg2;
 
-	if (memcmp(&a1->key.peer, &a2->key.peer, sizeof(union sockunion)))
+	if (!strmatch(a1->key.peer, a2->key.peer))
 		return false;
 	if (memcmp(&a1->key.local, &a2->key.local,  sizeof(union sockunion)))
 		return false;
@@ -110,9 +110,9 @@ static void *pm_session_alloc_intern(void *arg)
 
 int pm_get_default_packet_size(struct pm_session *pm)
 {
-	if (sockunion_family(&pm->key.peer) == AF_INET6)
-		return PM_PACKET_SIZE_DEFAULT_IPV6;
-	return PM_PACKET_SIZE_DEFAULT;
+	if (sockunion_family(&pm->peer) == AF_INET)
+		return PM_PACKET_SIZE_DEFAULT;
+	return PM_PACKET_SIZE_DEFAULT_IPV6;
 }
 
 struct pm_search_ctx {
@@ -125,7 +125,7 @@ static int pm_lookup_unique_walker(struct hash_bucket *b, void *data)
 	struct pm_search_ctx *psc = data;
 	struct pm_session *pm = b->data;
 
-	if (!sockunion_same(&pm->key.peer, &psc->pm_to_search->key.peer))
+	if (!strmatch(pm->key.peer, psc->pm_to_search->key.peer))
 		return HASHWALK_CONTINUE;
 	/* relax if session to search has no input local param
 	 * and session configured has local param
@@ -145,7 +145,7 @@ static int pm_lookup_unique_walker(struct hash_bucket *b, void *data)
 	return HASHWALK_ABORT;
 }
 
-struct pm_session *pm_create_session(union sockunion *peer,
+struct pm_session *pm_create_session(const char *peer,
 				     const char *local,
 				     const char *ifname,
 				     const char *vrfname)
@@ -161,7 +161,8 @@ struct pm_session *pm_create_session(union sockunion *peer,
 
 	/* forge key */
 	memset(&pm, 0, sizeof(struct pm_session));
-	memcpy(&pm.key.peer, peer, sizeof(union sockunion));
+	snprintf(pm.key.peer, sizeof(pm.key.peer), "%s", peer);
+	str2sockunion(pm.key.peer, &pm.peer);
 	if (lsap)
 		memcpy(&pm.key.local, lsap, sizeof(union sockunion));
 	if (ifname)
@@ -177,7 +178,7 @@ struct pm_session *pm_create_session(union sockunion *peer,
 	return pm_created;
 }
 
-struct pm_session *pm_lookup_session(union sockunion *peer,
+struct pm_session *pm_lookup_session(const char *peer,
 				     const char *local,
 				     const char *ifname,
 				     const char *vrfname,
@@ -195,16 +196,8 @@ struct pm_session *pm_lookup_session(union sockunion *peer,
 	} else
 		lsap = NULL;
 
-	/* Validate address families. */
-	if (sockunion_family(peer) != AF_INET &&
-	    sockunion_family(peer) != AF_INET6) {
-		snprintf(ebuf, ebuflen, "invalid peer address family");
-		return NULL;
-	}
-	if (lsap && sockunion_family(peer) !=
-	    sockunion_family(lsap)) {
-		snprintf(ebuf, ebuflen,
-			 "local and peer address families not consistent");
+	if (strlen(peer) > HOSTNAME_LEN) {
+		snprintf(ebuf, ebuflen, "invalid peer length");
 		return NULL;
 	}
 	if (vrfname) {
@@ -222,7 +215,7 @@ struct pm_session *pm_lookup_session(union sockunion *peer,
 	}
 	/* forge key */
 	memset(&pm, 0, sizeof(struct pm_session));
-	memcpy(&pm.key.peer, peer, sizeof(union sockunion));
+	snprintf(pm.key.peer, sizeof(pm.key.peer), "%s", peer);
 	if (lsap)
 		memcpy(&pm.key.local, lsap, sizeof(union sockunion));
 	if (ifname)
@@ -290,8 +283,9 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 	struct vrf *vrf;
 	struct interface *ifp = NULL;
 	char buf[SU_ADDRSTRLEN];
+	int ret;
+	union sockunion peer;
 
-	sockunion2str(&pm->key.peer, buf, sizeof(buf));
 	if (!validate_only) {
 		/* initialise - config by default */
 		PM_SET_FLAG(pm->flags, PM_SESS_FLAG_CONFIG);
@@ -317,15 +311,35 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	if (!vrf) {
 		snprintf(ebuf, ebuflen, "session to %s, vrf %s not available",
-			 buf, pm->key.vrfname);
+			 pm->key.peer, pm->key.vrfname);
 		return;
+	}
+
+	str2sockunion(pm->key.peer, &peer);
+	if (sockunion_family(&peer) != AF_INET &&
+	    sockunion_family(&peer) != AF_INET6) {
+		snprintf(ebuf, ebuflen, "session to %s, peer can not be resolved",
+			 pm->key.peer);
+		return;
+	}
+	memcpy(&pm->peer, &peer, sizeof(union sockunion));
+	pm_zebra_nht_register(pm, true, NULL);
+	/* Validate address families. */
+	if (sockunion_family(&pm->key.local) == AF_INET ||
+	    sockunion_family(&pm->key.local) == AF_INET6) {
+		if (sockunion_family(&pm->key.local) !=
+		    sockunion_family(&pm->peer)) {
+			snprintf(ebuf, ebuflen,
+				 "local and peer address families not consistent");
+			return;
+		}
 	}
 	if (pm->key.ifname[0]) {
 		ifp = if_lookup_by_name_vrf(pm->key.ifname, vrf);
 		if (!ifp) {
 			snprintf(ebuf, ebuflen,
 				 "session to %s, interface %s not available",
-				 buf, pm->key.ifname);
+				 pm->key.peer, pm->key.ifname);
 			return;
 		}
 	}
@@ -334,7 +348,7 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 		if (!pm_check_local_address(&pm->key.local, vrf)) {
 			snprintf(ebuf, ebuflen,
 				 "session to %s, local address not available",
-				 buf);
+				 pm->key.peer);
 			return;
 		}
 	}
@@ -417,19 +431,7 @@ void pm_try_run(struct vty *vty, struct pm_session *pm)
 
 	if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_SHUTDOWN))
 		return;
-	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID)) {
-		if (vty)
-			vty_out(vty, "%% session to %s could not be started:"
-				" peer or gateway not resolved\n",
-				sockunion2str(&pm->key.peer,
-					      buf, sizeof(buf)));
-		else
-			zlog_err("%% session to %s could not be started:"
-				 " peer or gateway not resolved",
-				 sockunion2str(&pm->key.peer,
-					       buf, sizeof(buf)));
-		return;
-	}
+
 	/* check config is consistent */
 	pm_initialise(pm, true, errormsg, sizeof(errormsg));
 	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_VALIDATE)) {
@@ -441,6 +443,23 @@ void pm_try_run(struct vty *vty, struct pm_session *pm)
 				 errormsg);
 		return;
 	}
+
+	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID)) {
+		if (vty)
+			vty_out(vty, "%% session to %s (%s) could not be started:"
+				" peer or gateway not resolved via nht\n",
+				sockunion2str(&pm->peer,
+					      buf, sizeof(buf)),
+				pm->key.peer);
+		else
+			zlog_err("%% session to %s (%s) could not be started:"
+				 " peer or gateway not resolved via nht",
+				 sockunion2str(&pm->peer,
+					       buf, sizeof(buf)),
+				 pm->key.peer);
+		return;
+	}
+
 	/* flush previous context if necessary */
 	pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
 	/* rerun it */
@@ -456,11 +475,13 @@ void pm_try_run(struct vty *vty, struct pm_session *pm)
 	}
 	PM_SET_FLAG(pm->flags, PM_SESS_FLAG_RUN);
 	if (vty)
-		vty_out(vty, "%% session to %s runs now\n",
-			sockunion2str(&pm->key.peer, buf, sizeof(buf)));
+		vty_out(vty, "%% session to %s(%s) runs now\n",
+			sockunion2str(&pm->peer, buf, sizeof(buf)),
+			pm->key.peer);
 	else
-		zlog_info("%% session to %s runs now",
-			sockunion2str(&pm->key.peer, buf, sizeof(buf)));
+		zlog_info("%% session to %s(%s) runs now",
+			  sockunion2str(&pm->peer, buf, sizeof(buf)),
+			  pm->key.peer);
 }
 
 struct pm_nht_ctx {
@@ -490,7 +511,7 @@ static int pm_nht_update_walkcb(struct hash_bucket *backet, void *arg)
 		return HASHWALK_CONTINUE;
 	if (vrf->vrf_id != pnc->vrf_id)
 		return HASHWALK_CONTINUE;
-	if (!sockunion_same(&pm->key.peer, &pnc->peer) &&
+	if (!sockunion_same(&pm->peer, &pnc->peer) &&
 	    !sockunion_same(&pm->nh, &pnc->peer))
 		return HASHWALK_CONTINUE;
 	orig = PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID);
@@ -501,7 +522,7 @@ static int pm_nht_update_walkcb(struct hash_bucket *backet, void *arg)
 		if (!new) {
 			zlog_info("PMD: session to %s,"
 				  "NHT fails to reach address",
-				  sockunion2str(&pm->key.peer,
+				  sockunion2str(&pm->peer,
 						buf, sizeof(buf)));
 			PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID);
 			PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_RUN);
@@ -512,7 +533,7 @@ static int pm_nht_update_walkcb(struct hash_bucket *backet, void *arg)
 		} else {
 			pm->ifindex_out = pnc->idx;
 			zlog_info("PMD: session to %s, NHT OK",
-				  sockunion2str(&pm->key.peer,
+				  sockunion2str(&pm->peer,
 						buf, sizeof(buf)));
 			PM_SET_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID);
 			pm_try_run(vty, pm);
@@ -697,7 +718,7 @@ void pm_get_peer(struct pm_session *pm, union sockunion *peer)
 	memset(peer, 0, sizeof(union sockunion));
 	ret = hook_call(pm_tracking_get_dest_address, pm, peer);
 	if (!ret)
-		memcpy(peer, &pm->key.peer, sizeof(union sockunion));
+		memcpy(peer, &pm->peer, sizeof(union sockunion));
 }
 
 void pm_get_gw(struct pm_session *pm, union sockunion *gw)

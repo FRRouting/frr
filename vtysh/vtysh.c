@@ -2239,6 +2239,7 @@ DEFUNSH(VTYSH_PMD, pm_enter, pm_enter_cmd, "pm", "Configure Path Monitoring sess
 #define SESSION_STR "Configure session\n"
 #define SESSION_IPV4_STR "IPv4 peer address\n"
 #define SESSION_IPV6_STR "IPv6 peer address\n"
+#define SESSION_FQDN_STR "Server IP address\n"
 #define REMOTE_STR "Configure remote address\n"
 #define LOCAL_STR "Configure local address\n"
 #define LOCAL_IPV4_STR "IPv4 local address\n"
@@ -2248,8 +2249,8 @@ DEFUNSH(VTYSH_PMD, pm_enter, pm_enter_cmd, "pm", "Configure Path Monitoring sess
 #define VRF_NAME_STR "Configure VRF name\n"
 
 DEFUNSH(VTYSH_PMD, pm_session_enter, pm_session_enter_cmd,
-	"session <A.B.C.D|X:X::X:X> [{local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
-	SESSION_STR SESSION_IPV4_STR SESSION_IPV6_STR
+	"session <A.B.C.D|X:X::X:X|WORD> [{local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
+	SESSION_STR SESSION_IPV4_STR SESSION_IPV6_STR SESSION_FQDN_STR
 	LOCAL_STR LOCAL_IPV4_STR LOCAL_IPV6_STR
 	INTERFACE_STR
 	LOCAL_INTF_STR

@@ -395,8 +395,14 @@ char *pm_echo_get_alarm_str(struct pm_session *pm, char *buf, size_t len)
 
 	memset(buf, 0, len);
 
-	if (!pme)
+	if (!pme) {
+		if (sockunion_family(&pm->peer) != AF_INET &&
+		    sockunion_family(&pm->peer) != AF_INET6)
+			snprintf(buf, len, "resolution nok");
+		else if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID))
+			snprintf(buf, len, "unreachable");
 		return buf;
+	}
 	switch (pme->last_alarm) {
 	case PM_ECHO_NONE:
 		snprintf(buf, len, "echo none");
@@ -479,12 +485,12 @@ static union g_addr *pm_echo_choose_src_ip(struct pm_session *pm)
 	/* look at interface used by pm->key.peer or pm->key.gateway */
 	if (!ifp && (pm->ifindex_out != IFINDEX_INTERNAL))
 		ifp = if_lookup_by_index(pm->ifindex_out, vrf->vrf_id);
-	if ((sockunion_family(&pm->key.peer) == AF_INET6) &&
-	    IN6_IS_ADDR_LINKLOCAL(&pm->key.peer.sin6))
+	if ((sockunion_family(&pm->peer) == AF_INET6) &&
+	    IN6_IS_ADDR_LINKLOCAL(&pm->peer.sin6))
 		ipv6_link_local = true;
 	if (ifp) {
 		src_ip = pm_echo_choose_src_ip_interface(ifp,
-					 sockunion_family(&pm->key.peer),
+					 sockunion_family(&pm->peer),
 					 ipv6_link_local);
 		if (src_ip)
 			return src_ip;
@@ -492,7 +498,7 @@ static union g_addr *pm_echo_choose_src_ip(struct pm_session *pm)
 	}
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		src_ip = pm_echo_choose_src_ip_interface(ifp,
-					 sockunion_family(&pm->key.peer),
+					 sockunion_family(&pm->peer),
 					 ipv6_link_local);
 		/* stop at first address found */
 		if (src_ip)
@@ -522,7 +528,7 @@ static int pm_echo_reset_socket(struct pm_echo *pme)
 	else if (pm->key.vrfname[0])
 		bind_interface = (char *)pm->key.vrfname;
 
-	if (sockunion_family(&pm->key.peer) == AF_INET) {
+	if (sockunion_family(&pm->peer) == AF_INET) {
 		family = AF_INET;
 		ip_proto = IPPROTO_ICMP; /* ICMP */
 	} else {

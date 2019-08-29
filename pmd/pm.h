@@ -25,11 +25,12 @@
 #include "lib/qobj.h"
 #include "lib/sockunion.h"
 #include "lib/pm_lib.h"
+#include "lib/command.h"
 
 #define MAXNAMELEN 36
 
 struct pm_session_key {
-	union sockunion peer;
+	char peer[HOSTNAME_LEN];
 	union sockunion local;
 	char ifname[MAXNAMELEN];
 	char vrfname[MAXNAMELEN];
@@ -146,13 +147,13 @@ extern void pm_initialise(struct pm_session *pm, bool validate_only,
 			  char *ebuf, size_t size);
 extern void pm_set_sess_state(struct pm_session *pm, uint8_t ses_state);
 
-extern struct pm_session *pm_lookup_session(union sockunion *peer,
+extern struct pm_session *pm_lookup_session(const char *peer,
 					    const char *local,
 					    const char *ifname,
 					    const char *vrfname,
 					    bool create,
 					    char *ebuf, size_t ebuflen);
-extern struct pm_session *pm_create_session(union sockunion *peer,
+extern struct pm_session *pm_create_session(const char *peer,
 					    const char *local,
 					    const char *ifname,
 					    const char *vrfname);

@@ -48,6 +48,7 @@
 #define SESSION_STR "Configure session\n"
 #define SESSION_IPV4_STR "IPv4 peer address\n"
 #define SESSION_IPV6_STR "IPv6 peer address\n"
+#define SESSION_FQDN_STR "Server IP address\n"
 #define REMOTE_STR "Configure remote address\n"
 #define LOCAL_STR "Configure local address\n"
 #define LOCAL_IPV4_STR "IPv4 local address\n"
@@ -95,7 +96,7 @@ static void pm_session_write_config_walker(struct hash_bucket *b, void *data)
 
 	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_CONFIG))
 		return;
-	vty_out(vty, " session %s", sockunion2str(&pm->key.peer, buf, sizeof(buf)));
+	vty_out(vty, " session %s", pm->key.peer);
 	if (sockunion_family(&pm->key.local) == AF_INET ||
 	    sockunion_family(&pm->key.local) == AF_INET6)
 		vty_out(vty, " local-address %s",
@@ -155,8 +156,8 @@ DEFUN_NOSH(pm_enter, pm_enter_cmd, "pm", "Configure Path Monitoring sessions\n")
 
 DEFUN_NOSH(
 	pm_peer_enter, pm_peer_enter_cmd,
-	"session <A.B.C.D|X:X::X:X> [{local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
-	SESSION_STR SESSION_IPV4_STR SESSION_IPV6_STR
+	"session <A.B.C.D|X:X::X:X|NAME> [{local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
+	SESSION_STR SESSION_IPV4_STR SESSION_IPV6_STR SESSION_FQDN_STR
 	LOCAL_STR LOCAL_IPV4_STR LOCAL_IPV6_STR
 	INTERFACE_STR
 	LOCAL_INTF_STR
@@ -166,7 +167,6 @@ DEFUN_NOSH(
 	const char *peer = argv[1]->arg;
 	int idx;
 	const char *ifname = NULL, *local = NULL, *vrfname = NULL;
-	union sockunion psa;
 	char errormsg[128];
 
 	idx = 0;
@@ -181,8 +181,7 @@ DEFUN_NOSH(
 	if (argv_find(argv, argc, "vrf", &idx))
 		vrfname = argv[idx + 1]->arg;
 
-	str2sockunion(peer, &psa);
-	pm = pm_lookup_session(&psa, local, ifname, vrfname, false,
+	pm = pm_lookup_session(peer, local, ifname, vrfname, false,
 			       errormsg, sizeof(errormsg));
 	if (pm) {
 		if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_CONFIG)) {
@@ -193,7 +192,7 @@ DEFUN_NOSH(
 		VTY_PUSH_CONTEXT(PM_SESSION_NODE, pm);
 		return CMD_SUCCESS;
 	}
-	pm = pm_lookup_session(&psa, local, ifname, vrfname, true,
+	pm = pm_lookup_session(peer, local, ifname, vrfname, true,
 			       errormsg, sizeof(errormsg));
 	if (!pm) {
 		vty_out(vty, "%% Invalid session configuration: %s\n",
@@ -201,7 +200,6 @@ DEFUN_NOSH(
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	pm_initialise(pm, false, errormsg, sizeof(errormsg));
-	pm_zebra_nht_register(pm, true, vty);
 	VTY_PUSH_CONTEXT(PM_SESSION_NODE, pm);
 	return CMD_SUCCESS;
 }
@@ -220,20 +218,18 @@ DEFPY(pm_set_nht, pm_set_nht_cmd,
 
 DEFPY(
       pm_remove_session, pm_remove_session_cmd,
-      "no session <A.B.C.D|X:X::X:X>$peer [{local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]",
+      "no session <A.B.C.D|X:X::X:X|WORD>$peer [{local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]",
       NO_STR
-      SESSION_STR SESSION_IPV4_STR SESSION_IPV6_STR
+      SESSION_STR SESSION_IPV4_STR SESSION_IPV6_STR SESSION_FQDN_STR
       LOCAL_STR LOCAL_IPV4_STR LOCAL_IPV6_STR
       INTERFACE_STR
       LOCAL_INTF_STR
       VRF_STR VRF_NAME_STR)
 {
-	union sockunion psa;
 	struct pm_session *pm = NULL;
 	char errormsg[128];
 
-	str2sockunion(peer_str, &psa);
-	pm = pm_lookup_session(&psa, local_str, ifname, vrfname, false,
+	pm = pm_lookup_session(peer, local_str, ifname, vrfname, false,
 			       errormsg, sizeof(errormsg));
 	if (!pm) {
 		vty_out(vty, "%% Invalid session configuration: %s\n",
@@ -455,7 +451,7 @@ struct pm_session_dump {
 	struct vty *vty;
 	bool oper;
 	char *vrfname;
-	union sockunion *psa;
+	char *psa;
 	bool use_json;
 	struct json_object *jo;
 };
@@ -464,9 +460,10 @@ static struct json_object *_session_json_header(struct pm_session *pm)
 {
 	struct json_object *jo = json_object_new_object();
 	char addr_buf[INET6_ADDRSTRLEN];
+	union sockunion peer;
+	int ret;
 
-	sockunion2str(&pm->key.peer, addr_buf, sizeof(addr_buf));
-	json_object_string_add(jo, "peer", addr_buf);
+	json_object_string_add(jo, "peer", pm->key.peer);
 	if (sockunion_family(&pm->key.local) == AF_INET ||
 	    sockunion_family(&pm->key.local) == AF_INET6) {
 		sockunion2str(&pm->key.local, addr_buf, sizeof(addr_buf));
@@ -501,7 +498,11 @@ static struct json_object *__display_session_json(struct pm_session *pm,
 	}
 	if (!pme) {
 		json_object_int_add(jo, "id", 0);
-		if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID))
+		if (sockunion_family(&pm->peer) != AF_INET &&
+		    sockunion_family(&pm->peer) != AF_INET6) {
+			json_object_string_add(jo, "diagnostic",
+					       "resolution nok");
+		} else if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID))
 			json_object_string_add(jo, "diagnostic",
 					       "echo unreachable");
 		else
@@ -566,8 +567,7 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 			return;
 	}
 	if (psd->psa) {
-		if (!sockunion_same((const union sockunion *)&pm->key.peer,
-				    (const union sockunion *)psd->psa))
+		if (!strmatch(pm->key.peer, psd->psa))
 			return;
 	}
 	if (psd->use_json) {
@@ -575,8 +575,7 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 		json_object_array_add(psd->jo, jo);
 		return;
 	}
-	vty_out(vty, " session %s", sockunion2str(&pm->key.peer,
-						  buf, sizeof(buf)));
+	vty_out(vty, " session %s", pm->key.peer);
 	if (sockunion_family(&pm->key.local) == AF_INET ||
 	    sockunion_family(&pm->key.local) == AF_INET6)
 		vty_out(vty, " local-address %s",
@@ -656,11 +655,11 @@ DEFPY(show_pmd_sessions,
 
 DEFPY(show_pmd_session,
       show_pmd_session_cmd,
-      "show pm [vrf <NAME>] session <A.B.C.D|X:X::X:X>$peer [operational] [json]",
+      "show pm [vrf <NAME>] session <A.B.C.D|X:X::X:X|NAME>$peer [operational] [json]",
       SHOW_STR
       "Path Monitoring\n"
       VRF_CMD_HELP_STR
-      SESSION_STR SESSION_IPV4_STR SESSION_IPV6_STR
+      SESSION_STR SESSION_IPV4_STR SESSION_IPV6_STR SESSION_FQDN_STR
       "Operational\n"
       JSON_STR)
 {
@@ -668,9 +667,6 @@ DEFPY(show_pmd_session,
 	int oper, idx = 0;
 	char *vrfname = NULL;
 	int idx_vrf = 0;
-	union sockunion psa;
-
-	str2sockunion(peer_str, &psa);
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf))
 		vrfname = argv[idx_vrf + 1]->arg;
@@ -680,7 +676,7 @@ DEFPY(show_pmd_session,
 	memset(&psd, 0, sizeof(struct pm_session_dump));
 	psd.vty = vty;
 	psd.vrfname = vrfname;
-	psd.psa = &psa;
+	psd.psa = (char *)peer;
 	if (oper)
 		psd.oper = true;
 	else
