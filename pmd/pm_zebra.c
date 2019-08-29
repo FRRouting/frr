@@ -528,6 +528,9 @@ static struct pm_session *pm_peer_auto(struct pm_peer_cfg *cfg,
 	const char *bpc_local;
 	struct pm_session *pm;
 	char addr_buf[INET6_ADDRSTRLEN];
+	char peer_str[SU_ADDRSTRLEN];
+
+	sockunion2str(&cfg->bpc_peer, peer_str, sizeof(peer_str));
 
 	if (cfg->bpc_has_localif)
 		ifname = cfg->bpc_localif;
@@ -544,16 +547,16 @@ static struct pm_session *pm_peer_auto(struct pm_peer_cfg *cfg,
 		vrfname = cfg->bpc_vrfname;
 	else
 		vrfname = NULL;
-	pm = pm_lookup_session(&cfg->bpc_peer, bpc_local, ifname,
+	pm = pm_lookup_session(peer_str, bpc_local, ifname,
 			       vrfname, false,
 			       ebuf, sizeof(ebuf));
 	if (!pm)/* search without ifname */
-		pm = pm_lookup_session(&cfg->bpc_peer, bpc_local, NULL,
+		pm = pm_lookup_session(peer_str, bpc_local, NULL,
 				       vrfname, false,
 				       ebuf, sizeof(ebuf));
 	/* create */
 	if (create && !pm)
-		pm = pm_create_session(&cfg->bpc_peer, bpc_local, ifname,
+		pm = pm_create_session(peer_str, bpc_local, ifname,
 				       vrfname);
 	if (pm) {
 		if (cfg->bpc_nexthop.sa.sa_family == AF_INET ||
@@ -593,8 +596,8 @@ static const char *pm_to_string(const struct pm_session *pm)
 	static char buf[256];
 	int pos;
 
-	pos = snprintf(buf, sizeof(buf), " peer:%pSU",
-		       &pm->key.peer);
+	pos = snprintf(buf, sizeof(buf), " peer:%s",
+		       pm->key.peer);
 	pos += snprintf(buf + pos, sizeof(buf) - pos, " local:%pSU",
 			&pm->key.local);
 	if (pm->key.vrfname[0])
@@ -880,8 +883,8 @@ static zclient_handler *const pm_handlers[] = {
 static void pm_zebra_fake_nht_register(struct pm_session *pm,
 				       bool reg, struct vty *vty)
 {
-	zlog_info("PMD: session to %pSU, NHT ignored",
-		  &pm->key.peer);
+	zlog_info("PMD: session to %s(%pSU), NHT ignored",
+		  pm->key.peer, &pm->peer);
 
 	if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_REGISTERED) && reg)
 		return;
@@ -972,16 +975,16 @@ void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 		afi = AFI_IP6;
 		src = &p.u.prefix6;
 	}
-	else if (sockunion_family(&pm->key.peer) == AF_INET) {
+	else if (sockunion_family(&pm->peer) == AF_INET) {
 		p.family = AF_INET;
 		p.prefixlen = IPV4_MAX_BITLEN;
-		p.u.prefix4 = pm->key.peer.sin.sin_addr;
+		p.u.prefix4 = pm->peer.sin.sin_addr;
 		afi = AFI_IP;
 		src = &p.u.prefix4;
-	} else if (sockunion_family(&pm->key.peer) == AF_INET6) {
+	} else if (sockunion_family(&pm->peer) == AF_INET6) {
 		p.family = AF_INET6;
 		p.prefixlen = IPV6_MAX_BITLEN;
-		p.u.prefix6 = pm->key.peer.sin6.sin6_addr;
+		p.u.prefix6 = pm->peer.sin6.sin6_addr;
 		afi = AFI_IP6;
 		src = &p.u.prefix6;
 	}
@@ -1027,7 +1030,7 @@ void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 		pm_nht_hash_free(nhtd);
 	}
 
-	ifp =  if_lookup_address_local(src, sockunion_family(&pm->key.peer),
+	ifp =  if_lookup_address_local(src, sockunion_family(&pm->peer),
 				       vrf->vrf_id);
 	/* peer or gateway is owned by us */
 	if (ifp) {
@@ -1127,8 +1130,9 @@ int pm_zebra_notify(struct pm_session *pm)
 	stream_putl(msg, idx);
 
 	/* PM destination prefix information. */
-	_pm_msg_address(msg, &pm_to_fill.key.peer);
-
+	_pm_msg_address(msg, &pm_to_fill.peer);
+	sockunion2str(&pm_to_fill.peer, pm_to_fill.key.peer,
+		      sizeof(pm_to_fill.key.peer));
 	/* PM status */
 	switch (pm->ses_state) {
 	case PM_UP:

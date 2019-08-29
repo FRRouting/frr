@@ -25,9 +25,10 @@
 #include "lib/qobj.h"
 #include "lib/sockunion.h"
 #include "lib/pm_lib.h"
+#include "lib/command.h"
 
 struct pm_session_key {
-	union sockunion peer;
+	char peer[HOSTNAME_LEN];
 	union sockunion local;
 	char ifname[IFNAMSIZ];
 	char vrfname[IFNAMSIZ];
@@ -52,6 +53,7 @@ struct pm_session {
 #define PM_SESS_FLAG_NH_VALID      (1 << 4)
 #define PM_SESS_FLAG_NH_REGISTERED (1 << 5)
 	uint32_t flags;
+	union sockunion peer;
 	union sockunion nh;
 	enum pm_probe_type type;
 #define PM_PACKET_SIZE_DEFAULT PM_DEF_PACKET_SIZE
@@ -144,13 +146,13 @@ extern void pm_initialise(struct pm_session *pm, bool validate_only,
 			  char *ebuf, size_t size);
 extern void pm_set_sess_state(struct pm_session *pm, uint8_t ses_state);
 
-extern struct pm_session *pm_lookup_session(union sockunion *peer,
+extern struct pm_session *pm_lookup_session(const char *peer,
 					    const char *local,
 					    const char *ifname,
 					    const char *vrfname,
 					    bool create,
 					    char *ebuf, size_t ebuflen);
-extern struct pm_session *pm_create_session(union sockunion *peer,
+extern struct pm_session *pm_create_session(const char *peer,
 					    const char *local,
 					    const char *ifname,
 					    const char *vrfname);

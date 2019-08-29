@@ -183,7 +183,6 @@ static int pm_tracking_call_notify_filename(struct pm_session *pm)
 	int status = 0;
 	int ret;
 
-
 	ctx = pm_tracking_lookup_from_pm(pm);
 	if (!ctx)
 		return 0;
@@ -201,8 +200,8 @@ static int pm_tracking_call_notify_filename(struct pm_session *pm)
 		return 0;
 	ret = pm_tracking_notify_update_status(ctx->notify_path, status);
 	if (ret > 0)
-		zlog_info("tracker %pSU, notifying %s to %s",
-			  &ctx->key.peer, pm->ses_state == PM_UP ?
+		zlog_info("tracker %s, notifying %s to %s",
+			  ctx->key.peer, pm->ses_state == PM_UP ?
 			  "UP" : "DOWN", ctx->notify_path);
 	return ret;
 }
@@ -485,7 +484,7 @@ static bool pm_tracking_hash_cmp(const void *n1, const void *n2)
 	const struct pm_tracking_ctx *a1 = n1;
 	const struct pm_tracking_ctx *a2 = n2;
 
-	if (memcmp(&a1->key.peer, &a2->key.peer, sizeof(union sockunion)))
+	if (!strmatch(a1->key.peer, a2->key.peer))
 		return false;
 	if (memcmp(&a1->key.local, &a2->key.local,  sizeof(union sockunion)))
 		return false;
