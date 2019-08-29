@@ -1835,7 +1835,7 @@ dplane_route_update_internal(struct route_node *rn,
 			 * We'll need these to do per-nexthop deletes.
 			 */
 			copy_nexthops(&(ctx->u.rinfo.zd_old_ng.nexthop),
-				      old_re->ng.nexthop, NULL);
+				      old_re->ng->nexthop, NULL);
 #endif	/* !HAVE_NETLINK */
 		}
 
