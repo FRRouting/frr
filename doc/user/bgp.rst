@@ -1131,19 +1131,24 @@ AS path access list is user defined AS path.
 Using AS Path in Route Map
 --------------------------
 
-.. index:: match as-path WORD
-.. clicmd:: match as-path WORD
+.. index:: [no] match as-path WORD
+.. clicmd:: [no] match as-path WORD
 
+   For a given as-path, WORD, match it on the BGP as-path given for the prefix
+   and if it matches do normal route-map actions.  The no form of the command
+   removes this match from the route-map.
 
-.. index:: set as-path prepend AS-PATH
-.. clicmd:: set as-path prepend AS-PATH
+.. index:: [no] set as-path prepend AS-PATH
+.. clicmd:: [no] set as-path prepend AS-PATH
 
-   Prepend the given string of AS numbers to the AS_PATH.
+   Prepend the given string of AS numbers to the AS_PATH of the BGP path's NLRI.
+   The no form of this command removes this set operation from the route-map.
 
-.. index:: set as-path prepend last-as NUM
-.. clicmd:: set as-path prepend last-as NUM
+.. index:: [no] set as-path prepend last-as NUM
+.. clicmd:: [no] set as-path prepend last-as NUM
 
    Prepend the existing last AS number (the leftmost ASN) to the AS_PATH.
+   The no form of this command removes this set operation from the route-map.
 
 .. _bgp-communities-attribute:
 
