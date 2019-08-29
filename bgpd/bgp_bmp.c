@@ -1833,6 +1833,7 @@ static int bmp_active_thread(struct thread *t)
 	socklen_t slen;
 	int status, ret;
 	char buf[SU_ADDRSTRLEN];
+	vrf_id_t vrf_id;
 
 	/* all 3 end up here, though only timer or read+write are active
 	 * at a time */
@@ -1843,7 +1844,12 @@ static int bmp_active_thread(struct thread *t)
 	ba->last_err = NULL;
 
 	if (ba->socket == -1) {
-		resolver_resolve(&ba->resq, AF_UNSPEC, ba->hostname,
+		/* get vrf_id */
+		if (!ba->targets || !ba->targets->bgp)
+			vrf_id = VRF_DEFAULT;
+		else
+			vrf_id = ba->targets->bgp->vrf_id;
+		resolver_resolve(&ba->resq, AF_UNSPEC, vrf_id, ba->hostname,
 				 bmp_active_resolved);
 		return 0;
 	}

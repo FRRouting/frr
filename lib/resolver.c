@@ -21,6 +21,7 @@
 #include "resolver.h"
 #include "command.h"
 #include "xref.h"
+#include "vrf.h"
 
 XREF_SETUP();
 
@@ -244,7 +245,7 @@ static int resolver_cb_literal(struct thread *t)
 	return 0;
 }
 
-void resolver_resolve(struct resolver_query *query, int af,
+void resolver_resolve(struct resolver_query *query, int af, vrf_id_t vrf_id,
 		      const char *hostname,
 		      void (*callback)(struct resolver_query *, const char *,
 				       int, union sockunion *))
@@ -279,7 +280,18 @@ void resolver_resolve(struct resolver_query *query, int af,
 	if (resolver_debug)
 		zlog_debug("[%p] Resolving '%s'", query, hostname);
 
+	ret = vrf_switch_to_netns(vrf_id);
+	if (ret < 0) {
+		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
+			     __func__, vrf_id, safe_strerror(errno));
+		return;
+	}
 	ares_gethostbyname(state.channel, hostname, af, ares_address_cb, query);
+	ret = vrf_switchback_to_initial();
+	if (ret < 0)
+		flog_err_sys(EC_LIB_SOCKET,
+			     "%s: Can't switchback from VRF %u (%s)", __func__,
+			     vrf_id, safe_strerror(errno));
 	resolver_update_timeouts(&state);
 }
 

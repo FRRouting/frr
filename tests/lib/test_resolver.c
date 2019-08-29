@@ -63,7 +63,7 @@ DEFUN (test_resolve,
        "DNS resolver\n"
        "Name to resolve\n")
 {
-	resolver_resolve(&query, AF_UNSPEC, argv[1]->arg, resolver_result);
+	resolver_resolve(&query, AF_UNSPEC, 0, argv[1]->arg, resolver_result);
 	return CMD_SUCCESS;
 }
 
