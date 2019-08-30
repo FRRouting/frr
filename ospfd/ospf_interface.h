@@ -285,7 +285,6 @@ extern void ospf_if_update_params(struct interface *, struct in_addr);
 
 extern int ospf_if_new_hook(struct interface *);
 extern void ospf_if_init(void);
-extern void ospf_if_stream_set(struct ospf_interface *);
 extern void ospf_if_stream_unset(struct ospf_interface *);
 extern void ospf_if_reset_variables(struct ospf_interface *);
 extern int ospf_if_is_enable(struct ospf_interface *);

@@ -225,11 +225,13 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 {
 	struct ospf_interface *oi;
 
-	if ((oi = ospf_if_table_lookup(ifp, p)) == NULL) {
-		oi = XCALLOC(MTYPE_OSPF_IF, sizeof(struct ospf_interface));
-		memset(oi, 0, sizeof(struct ospf_interface));
-	} else
+	oi = ospf_if_table_lookup(ifp, p);
+	if (oi)
 		return oi;
+
+	oi = XCALLOC(MTYPE_OSPF_IF, sizeof(struct ospf_interface));
+
+	oi->obuf = ospf_fifo_new();
 
 	/* Set zebra interface pointer. */
 	oi->ifp = ifp;
@@ -263,8 +265,6 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 	ospf_opaque_type9_lsa_init(oi);
 
 	oi->ospf = ospf;
-
-	ospf_if_stream_set(oi);
 
 	QOBJ_REG(oi, ospf_interface);
 
@@ -325,8 +325,7 @@ void ospf_if_free(struct ospf_interface *oi)
 {
 	ospf_if_down(oi);
 
-	if (oi->obuf)
-		ospf_fifo_free(oi->obuf);
+	ospf_fifo_free(oi->obuf);
 
 	assert(oi->state == ISM_Down);
 
@@ -490,29 +489,20 @@ static void ospf_if_reset_stats(struct ospf_interface *oi)
 	oi->ls_ack_in = oi->ls_ack_out = 0;
 }
 
-void ospf_if_stream_set(struct ospf_interface *oi)
-{
-	/* set output fifo queue. */
-	if (oi->obuf == NULL)
-		oi->obuf = ospf_fifo_new();
-}
-
 void ospf_if_stream_unset(struct ospf_interface *oi)
 {
 	struct ospf *ospf = oi->ospf;
 
-	if (oi->obuf) {
-		/* flush the interface packet queue */
-		ospf_fifo_flush(oi->obuf);
-		/*reset protocol stats */
-		ospf_if_reset_stats(oi);
+	/* flush the interface packet queue */
+	ospf_fifo_flush(oi->obuf);
+	/*reset protocol stats */
+	ospf_if_reset_stats(oi);
 
-		if (oi->on_write_q) {
-			listnode_delete(ospf->oi_write_q, oi);
-			if (list_isempty(ospf->oi_write_q))
-				OSPF_TIMER_OFF(ospf->t_write);
-			oi->on_write_q = 0;
-		}
+	if (oi->on_write_q) {
+		listnode_delete(ospf->oi_write_q, oi);
+		if (list_isempty(ospf->oi_write_q))
+			OSPF_TIMER_OFF(ospf->t_write);
+		oi->on_write_q = 0;
 	}
 }
 
@@ -902,8 +892,6 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	ospf_nbr_self_reset(voi, voi->ospf->router_id);
 
 	ospf_area_add_if(voi->area, voi);
-
-	ospf_if_stream_set(voi);
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospf_vl_new(): Stop");
