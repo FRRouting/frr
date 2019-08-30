@@ -233,20 +233,6 @@ void ospf_fifo_free(struct ospf_fifo *fifo)
 
 static void ospf_packet_add(struct ospf_interface *oi, struct ospf_packet *op)
 {
-	if (!oi->obuf) {
-		flog_err(
-			EC_OSPF_PKT_PROCESS,
-			"ospf_packet_add(interface %s in state %d [%s], packet type %s, "
-			"destination %s) called with NULL obuf, ignoring "
-			"(please report this bug)!\n",
-			IF_NAME(oi), oi->state,
-			lookup_msg(ospf_ism_state_msg, oi->state, NULL),
-			lookup_msg(ospf_packet_type_str,
-				   stream_getc_from(op->s, 1), NULL),
-			inet_ntoa(op->dst));
-		return;
-	}
-
 	/* Add packet to end of queue. */
 	ospf_fifo_push(oi->obuf, op);
 
@@ -257,20 +243,6 @@ static void ospf_packet_add(struct ospf_interface *oi, struct ospf_packet *op)
 static void ospf_packet_add_top(struct ospf_interface *oi,
 				struct ospf_packet *op)
 {
-	if (!oi->obuf) {
-		flog_err(
-			EC_OSPF_PKT_PROCESS,
-			"ospf_packet_add(interface %s in state %d [%s], packet type %s, "
-			"destination %s) called with NULL obuf, ignoring "
-			"(please report this bug)!\n",
-			IF_NAME(oi), oi->state,
-			lookup_msg(ospf_ism_state_msg, oi->state, NULL),
-			lookup_msg(ospf_packet_type_str,
-				   stream_getc_from(op->s, 1), NULL),
-			inet_ntoa(op->dst));
-		return;
-	}
-
 	/* Add packet to head of queue. */
 	ospf_fifo_push_head(oi->obuf, op);
 
