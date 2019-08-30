@@ -3288,14 +3288,65 @@ DEFUN (no_vtysh_output_file,
 
 DEFUN(find,
       find_cmd,
-      "find COMMAND...",
-      "Find CLI command containing text\n"
-      "Text to search for\n")
+      "find REGEX",
+      "Find CLI command matching a regular expression\n"
+      "Search pattern (POSIX regex)\n")
 {
-	char *text = argv_concat(argv, argc, 1);
+	char *pattern = argv[1]->arg;
 	const struct cmd_node *node;
 	const struct cmd_element *cli;
 	vector clis;
+
+	regex_t exp = {};
+
+	int cr = regcomp(&exp, pattern, REG_NOSUB | REG_EXTENDED);
+
+	if (cr != 0) {
+		switch (cr) {
+		case REG_BADBR:
+			vty_out(vty, "%% Invalid \\{...\\} expression\n");
+			break;
+		case REG_BADRPT:
+			vty_out(vty, "%% Bad repetition operator\n");
+			break;
+		case REG_BADPAT:
+			vty_out(vty, "%% Regex syntax error\n");
+			break;
+		case REG_ECOLLATE:
+			vty_out(vty, "%% Invalid collating element\n");
+			break;
+		case REG_ECTYPE:
+			vty_out(vty, "%% Invalid character class name\n");
+			break;
+		case REG_EESCAPE:
+			vty_out(vty,
+				"%% Regex ended with escape character (\\)\n");
+			break;
+		case REG_ESUBREG:
+			vty_out(vty,
+				"%% Invalid number in \\digit construction\n");
+			break;
+		case REG_EBRACK:
+			vty_out(vty, "%% Unbalanced square brackets\n");
+			break;
+		case REG_EPAREN:
+			vty_out(vty, "%% Unbalanced parentheses\n");
+			break;
+		case REG_EBRACE:
+			vty_out(vty, "%% Unbalanced braces\n");
+			break;
+		case REG_ERANGE:
+			vty_out(vty,
+				"%% Invalid endpoint in range expression\n");
+			break;
+		case REG_ESPACE:
+			vty_out(vty, "%% Failed to compile (out of memory)\n");
+			break;
+		}
+
+		goto done;
+	}
+
 
 	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {
 		node = vector_slot(cmdvec, i);
@@ -3304,14 +3355,15 @@ DEFUN(find,
 		clis = node->cmd_vector;
 		for (unsigned int j = 0; j < vector_active(clis); j++) {
 			cli = vector_slot(clis, j);
-			if (strcasestr(cli->string, text))
+
+			if (regexec(&exp, cli->string, 0, NULL, 0) == 0)
 				vty_out(vty, "  (%s)  %s\n",
 					node_names[node->node], cli->string);
 		}
 	}
 
-	XFREE(MTYPE_TMP, text);
-
+done:
+	regfree(&exp);
 	return CMD_SUCCESS;
 }
 
