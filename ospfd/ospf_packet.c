@@ -132,7 +132,7 @@ static int ospf_auth_type(struct ospf_interface *oi)
 	return auth_type;
 }
 
-struct ospf_packet *ospf_packet_new(size_t size)
+static struct ospf_packet *ospf_packet_new(size_t size)
 {
 	struct ospf_packet *new;
 
@@ -231,7 +231,7 @@ void ospf_fifo_free(struct ospf_fifo *fifo)
 	XFREE(MTYPE_OSPF_FIFO, fifo);
 }
 
-void ospf_packet_add(struct ospf_interface *oi, struct ospf_packet *op)
+static void ospf_packet_add(struct ospf_interface *oi, struct ospf_packet *op)
 {
 	if (!oi->obuf) {
 		flog_err(
@@ -278,7 +278,7 @@ static void ospf_packet_add_top(struct ospf_interface *oi,
 	/* ospf_fifo_debug (oi->obuf); */
 }
 
-void ospf_packet_delete(struct ospf_interface *oi)
+static void ospf_packet_delete(struct ospf_interface *oi)
 {
 	struct ospf_packet *op;
 
@@ -288,7 +288,7 @@ void ospf_packet_delete(struct ospf_interface *oi)
 		ospf_packet_free(op);
 }
 
-struct ospf_packet *ospf_packet_dup(struct ospf_packet *op)
+static struct ospf_packet *ospf_packet_dup(struct ospf_packet *op)
 {
 	struct ospf_packet *new;
 
