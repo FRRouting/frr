@@ -27,6 +27,7 @@
 #include "command.h"
 #include "memory.h"
 #include "log.h"
+#include "lib_errors.h"
 #include "if.h"
 #include "network.h"
 #include "prefix.h"
@@ -225,7 +226,6 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
 	struct isis_nexthop *nexthop;
-	struct isis_nexthop6 *nexthop6;
 	struct listnode *node;
 	int count = 0;
 
@@ -250,47 +250,41 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 #endif
 
 	/* Nexthops */
-	switch (prefix->family) {
-	case AF_INET:
-		for (ALL_LIST_ELEMENTS_RO(route_info->nexthops, node,
-					  nexthop)) {
-			if (count >= MULTIPATH_NUM)
-				break;
-			api_nh = &api.nexthops[count];
-			if (fabricd)
-				api_nh->onlink = true;
-			api_nh->vrf_id = VRF_DEFAULT;
+	for (ALL_LIST_ELEMENTS_RO(route_info->nexthops, node, nexthop)) {
+		if (count >= MULTIPATH_NUM)
+			break;
+		api_nh = &api.nexthops[count];
+		if (fabricd)
+			api_nh->onlink = true;
+		api_nh->vrf_id = VRF_DEFAULT;
+
+		switch (nexthop->family) {
+		case AF_INET:
 			/* FIXME: can it be ? */
-			if (nexthop->ip.s_addr != INADDR_ANY) {
+			if (nexthop->ip.ipv4.s_addr != INADDR_ANY) {
 				api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-				api_nh->gate.ipv4 = nexthop->ip;
+				api_nh->gate.ipv4 = nexthop->ip.ipv4;
 			} else {
 				api_nh->type = NEXTHOP_TYPE_IFINDEX;
 			}
-			api_nh->ifindex = nexthop->ifindex;
-			count++;
-		}
-		break;
-	case AF_INET6:
-		for (ALL_LIST_ELEMENTS_RO(route_info->nexthops6, node,
-					  nexthop6)) {
-			if (count >= MULTIPATH_NUM)
-				break;
-			if (!IN6_IS_ADDR_LINKLOCAL(&nexthop6->ip6)
-			    && !IN6_IS_ADDR_UNSPECIFIED(&nexthop6->ip6)) {
+			break;
+		case AF_INET6:
+			if (!IN6_IS_ADDR_LINKLOCAL(&nexthop->ip.ipv6)
+			    && !IN6_IS_ADDR_UNSPECIFIED(&nexthop->ip.ipv6)) {
 				continue;
 			}
-
-			api_nh = &api.nexthops[count];
-			if (fabricd)
-				api_nh->onlink = true;
-			api_nh->vrf_id = VRF_DEFAULT;
-			api_nh->gate.ipv6 = nexthop6->ip6;
-			api_nh->ifindex = nexthop6->ifindex;
+			api_nh->gate.ipv6 = nexthop->ip.ipv6;
 			api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
-			count++;
+			break;
+		default:
+			flog_err(EC_LIB_DEVELOPMENT,
+				 "%s: unknown address family [%d]", __func__,
+				 nexthop->family);
+			exit(1);
 		}
-		break;
+
+		api_nh->ifindex = nexthop->ifindex;
+		count++;
 	}
 	if (!count)
 		return;
