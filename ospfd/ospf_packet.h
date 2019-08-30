@@ -131,8 +131,6 @@ struct ospf_ls_update {
 #define IS_SET_DD_ALL(X)        ((X) & OSPF_DD_FLAG_ALL)
 
 /* Prototypes. */
-extern void ospf_output_forward(struct stream *, int);
-extern struct ospf_packet *ospf_packet_new(size_t);
 extern void ospf_packet_free(struct ospf_packet *);
 extern struct ospf_fifo *ospf_fifo_new(void);
 extern void ospf_fifo_push(struct ospf_fifo *, struct ospf_packet *);
@@ -140,10 +138,6 @@ extern struct ospf_packet *ospf_fifo_pop(struct ospf_fifo *);
 extern struct ospf_packet *ospf_fifo_head(struct ospf_fifo *);
 extern void ospf_fifo_flush(struct ospf_fifo *);
 extern void ospf_fifo_free(struct ospf_fifo *);
-extern void ospf_packet_add(struct ospf_interface *, struct ospf_packet *);
-extern void ospf_packet_delete(struct ospf_interface *);
-extern struct stream *ospf_stream_dup(struct stream *);
-extern struct ospf_packet *ospf_packet_dup(struct ospf_packet *);
 
 extern int ospf_read(struct thread *);
 extern void ospf_hello_send(struct ospf_interface *);
