@@ -698,12 +698,9 @@ static int ospf_write(struct thread *thread)
 		return -1;
 	}
 
-	ospf->t_write = NULL;
-
 	node = listhead(ospf->oi_write_q);
 	assert(node);
 	oi = listgetdata(node);
-	assert(oi);
 
 #ifdef WANT_OSPF_WRITE_FRAGMENT
 	/* seed ipid static with low order bits of time */
@@ -906,9 +903,7 @@ static int ospf_write(struct thread *thread)
 		/* Setup to service from the head of the queue again */
 		if (!list_isempty(ospf->oi_write_q)) {
 			node = listhead(ospf->oi_write_q);
-			assert(node);
 			oi = listgetdata(node);
-			assert(oi);
 		}
 	}
 
@@ -4062,6 +4057,23 @@ static void ospf_ls_upd_queue_send(struct ospf_interface *oi,
 			oi->on_write_q = 1;
 		}
 		ospf_write(&os_packet_thd);
+		/*
+		 * We are fake calling ospf_write with a fake
+		 * thread.  Imagine that we have oi_a already
+		 * enqueued and we have turned on the write
+		 * thread(t_write).
+		 * Now this function calls this for oi_b
+		 * so the on_write_q has oi_a and oi_b on
+		 * it, ospf_write runs and clears the packets
+		 * for both oi_a and oi_b.  Removing them from
+		 * the on_write_q.  After this thread of execution
+		 * finishes we will execute the t_write thread
+		 * with nothing in the on_write_q causing an
+		 * assert.  So just make sure that the t_write
+		 * is actually turned off.
+		 */
+		if (list_isempty(oi->ospf->oi_write_q))
+			OSPF_TIMER_OFF(oi->ospf->t_write);
 	} else {
 		/* Hook thread to write packet. */
 		OSPF_ISM_WRITE_ON(oi->ospf);
