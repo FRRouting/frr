@@ -244,6 +244,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	from_peer->last_event = last_evt;
 	from_peer->last_major_event = last_maj_evt;
 	peer->remote_id = from_peer->remote_id;
+	peer->last_reset = from_peer->last_reset;
 
 	if (from_peer->hostname != NULL) {
 		if (peer->hostname) {
@@ -551,7 +552,10 @@ const char *peer_down_str[] = {"",
 			       "Intf peering v6only config change",
 			       "BFD down received",
 			       "Interface down",
-			       "Neighbor address lost"};
+			       "Neighbor address lost"
+			       "Waiting for NHT",
+			       "Waiting for Peer IPv6 Addr",
+			       "Waiting for VRF to be initialized"};
 
 static int bgp_graceful_restart_timer_expire(struct thread *thread)
 {
@@ -1410,6 +1414,7 @@ int bgp_start(struct peer *peer)
 			zlog_debug(
 				"%s [FSM] Unable to get neighbor's IP address, waiting...",
 				peer->host);
+		peer->last_reset = PEER_DOWN_NBR_ADDR;
 		return -1;
 	}
 
@@ -1455,6 +1460,7 @@ int bgp_start(struct peer *peer)
 				EC_BGP_FSM,
 				"%s [FSM] In a VRF that is not initialised yet",
 				peer->host);
+		peer->last_reset = PEER_DOWN_VRF_UNINIT;
 		return -1;
 	}
 
@@ -1466,7 +1472,7 @@ int bgp_start(struct peer *peer)
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%s [FSM] Waiting for NHT",
 					   peer->host);
-
+			peer->last_reset = PEER_DOWN_WAITING_NHT;
 			BGP_EVENT_ADD(peer, TCP_connection_open_failed);
 			return 0;
 		}

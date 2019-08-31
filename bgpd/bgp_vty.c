@@ -7869,9 +7869,143 @@ static void bgp_show_bestpath_json(struct bgp *bgp, json_object *json)
 	json_object_object_add(json, "bestPath", bestpath);
 }
 
+/* Print the error code/subcode for why the peer is down */
+static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
+				json_object *json_peer, bool use_json)
+{
+	const char *code_str;
+	const char *subcode_str;
+
+	if (use_json) {
+		if (peer->last_reset == PEER_DOWN_NOTIFY_SEND
+		    || peer->last_reset == PEER_DOWN_NOTIFY_RECEIVED) {
+			char errorcodesubcode_hexstr[5];
+			char errorcodesubcode_str[256];
+
+			code_str = bgp_notify_code_str(peer->notify.code);
+			subcode_str = bgp_notify_subcode_str(
+					 peer->notify.code,
+					 peer->notify.subcode);
+
+			sprintf(errorcodesubcode_hexstr, "%02X%02X",
+				peer->notify.code, peer->notify.subcode);
+			json_object_string_add(json_peer,
+					       "lastErrorCodeSubcode",
+					       errorcodesubcode_hexstr);
+			snprintf(errorcodesubcode_str, 255, "%s%s",
+				 code_str, subcode_str);
+			json_object_string_add(json_peer,
+					       "lastNotificationReason",
+					       errorcodesubcode_str);
+			if (peer->last_reset == PEER_DOWN_NOTIFY_RECEIVED
+			    && peer->notify.code == BGP_NOTIFY_CEASE
+			    && (peer->notify.subcode
+				== BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN
+				|| peer->notify.subcode
+				== BGP_NOTIFY_CEASE_ADMIN_RESET)
+			    && peer->notify.length) {
+				char msgbuf[1024];
+				const char *msg_str;
+
+				msg_str = bgp_notify_admin_message(
+					     msgbuf, sizeof(msgbuf),
+					     (uint8_t *)peer->notify.data,
+					     peer->notify.length);
+				if (msg_str)
+					json_object_string_add(
+					   json_peer,
+					   "lastShutdownDescription",
+					   msg_str);
+			}
+
+		} 
+		json_object_string_add(json_peer, "lastResetDueTo",
+				       peer_down_str[(int)peer->last_reset]);
+	} else {
+		if (peer->last_reset == PEER_DOWN_NOTIFY_SEND
+		    || peer->last_reset == PEER_DOWN_NOTIFY_RECEIVED) {
+			code_str = bgp_notify_code_str(peer->notify.code);
+			subcode_str =
+				bgp_notify_subcode_str(peer->notify.code,
+						       peer->notify.subcode);
+			vty_out(vty, "  Notification %s (%s%s)\n",
+				peer->last_reset == PEER_DOWN_NOTIFY_SEND
+				? "sent"
+				: "received",
+				code_str, subcode_str);
+		} else {
+			vty_out(vty, "  %s\n",
+				peer_down_str[(int)peer->last_reset]);
+		}
+	}
+}
+
+static inline bool bgp_has_peer_failed(struct peer *peer, afi_t afi,
+				       safi_t safi)
+{
+	return ((peer->status != Established) ||
+		!peer->afc_recv[afi][safi]);
+}
+
+static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
+				    struct peer *peer, json_object *json_peer,
+				    int max_neighbor_width, bool use_json)
+{
+	char timebuf[BGP_UPTIME_LEN], dn_flag[2];
+	int len;
+
+	if (use_json) {
+		if (peer_dynamic_neighbor(peer))
+			json_object_boolean_true_add(json_peer,
+						     "dynamicPeer");
+		if (peer->hostname)
+			json_object_string_add(json_peer, "hostname",
+					       peer->hostname);
+
+		if (peer->domainname)
+			json_object_string_add(json_peer, "domainname",
+					       peer->domainname);
+		json_object_int_add(json_peer, "connectionsEstablished",
+				    peer->established);
+		json_object_int_add(json_peer, "connectionsDropped",
+				    peer->dropped);
+		peer_uptime(peer->uptime, timebuf, BGP_UPTIME_LEN,
+			    use_json, json_peer);
+		if (peer->status == Established)
+			json_object_string_add(json_peer, "lastResetDueTo",
+					       "AFI/SAFI Not Negotiated");
+		else
+			bgp_show_peer_reset(NULL, peer, json_peer, true);
+	} else {
+		dn_flag[1] = '\0';
+		dn_flag[0] = peer_dynamic_neighbor(peer) ? '*' : '\0';
+		if (peer->hostname
+		    && bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
+			len = vty_out(vty, "%s%s(%s)", dn_flag,
+				      peer->hostname, peer->host);
+		else
+			len = vty_out(vty, "%s%s", dn_flag, peer->host);
+
+		/* pad the neighbor column with spaces */
+		if (len < max_neighbor_width)
+			vty_out(vty, "%*s", max_neighbor_width - len,
+				" ");
+		vty_out(vty, "%7d %7d %8s", peer->established,
+			peer->dropped,
+			peer_uptime(peer->uptime, timebuf,
+				    BGP_UPTIME_LEN, 0, NULL));
+		if (peer->status == Established)
+			vty_out(vty, "  AFI/SAFI Not Negotiated\n");
+		else
+			bgp_show_peer_reset(vty, peer, NULL,
+					    false);
+	}
+}
+				 
+
 /* Show BGP peer's summary information. */
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
-			    bool use_json)
+			    bool show_failed, bool use_json)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
@@ -7879,7 +8013,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	char timebuf[BGP_UPTIME_LEN], dn_flag[2];
 	char neighbor_buf[VTY_BUFSIZ];
 	int neighbor_col_default_width = 16;
-	int len;
+	int len, failed_count = 0;
 	int max_neighbor_width = 0;
 	int pfx_rcd_safi;
 	json_object *json = NULL;
@@ -7891,6 +8025,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	 * to
 	 * display the correct PfxRcd value we must look at SAFI_UNICAST
 	 */
+
 	if (safi == SAFI_LABELED_UNICAST)
 		pfx_rcd_safi = SAFI_UNICAST;
 	else
@@ -7899,6 +8034,20 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	if (use_json) {
 		json = json_object_new_object();
 		json_peers = json_object_new_object();
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+				continue;
+
+			if (peer->afc[afi][safi]) {
+				/* See if we have at least a single failed peer */
+				if (bgp_has_peer_failed(peer, afi, safi))
+					failed_count++;
+				count++;
+			}
+			if (peer_dynamic_neighbor(peer))
+				dn_count++;
+		}
+				
 	} else {
 		/* Loop over all neighbors that will be displayed to determine
 		 * how many
@@ -7927,6 +8076,11 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 				if (len > max_neighbor_width)
 					max_neighbor_width = len;
+				
+				/* See if we have at least a single failed peer */
+				if (bgp_has_peer_failed(peer, afi, safi))
+					failed_count++;
+				count++;
 			}
 		}
 
@@ -7937,6 +8091,23 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			max_neighbor_width = neighbor_col_default_width;
 	}
 
+	if (show_failed && !failed_count) {
+		if (use_json) {
+			json_object_int_add(json, "failedPeersCount", 0);
+			json_object_int_add(json, "dynamicPeers", dn_count);
+			json_object_int_add(json, "totalPeers", count);			
+
+			vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+			json_object_free(json);
+		} else {
+			vty_out(vty, "%% No failed BGP neighbors found\n");
+			vty_out(vty, "\nTotal number of neighbors %d\n", count);
+		}
+		return CMD_SUCCESS;
+	}
+		
+	count = 0;		/* Reset the value as its used again */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
 			continue;
@@ -8138,78 +8309,93 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				vty_out(vty, "Neighbor");
 				vty_out(vty, "%*s", max_neighbor_width - 8,
 					" ");
-				vty_out(vty,
+				if (show_failed)
+					vty_out(vty, "EstdCnt DropCnt ResetTime Reason\n");
+				else
+					vty_out(vty,
 					"V         AS MsgRcvd MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd\n");
 			}
 		}
 
 		count++;
+		/* Works for both failed & successful cases */
+		if (peer_dynamic_neighbor(peer))
+			dn_count++;
 
 		if (use_json) {
-			json_peer = json_object_new_object();
+			json_peer = NULL;
 
-			if (peer_dynamic_neighbor(peer)) {
-				dn_count++;
-				json_object_boolean_true_add(json_peer,
-							     "dynamicPeer");
+			if (show_failed &&
+			    bgp_has_peer_failed(peer, afi, safi)) {
+				json_peer = json_object_new_object();
+				bgp_show_failed_summary(vty, bgp, peer,
+							json_peer, 0, use_json);
+			} else if (!show_failed) {
+				json_peer = json_object_new_object();
+				if (peer_dynamic_neighbor(peer)) {
+					json_object_boolean_true_add(json_peer,
+								     "dynamicPeer");
+				}
+
+				if (peer->hostname)
+					json_object_string_add(json_peer, "hostname",
+							       peer->hostname);
+
+				if (peer->domainname)
+					json_object_string_add(json_peer, "domainname",
+							       peer->domainname);
+
+				json_object_int_add(json_peer, "remoteAs", peer->as);
+				json_object_int_add(json_peer, "version", 4);
+				json_object_int_add(json_peer, "msgRcvd",
+						    PEER_TOTAL_RX(peer));
+				json_object_int_add(json_peer, "msgSent",
+						    PEER_TOTAL_TX(peer));
+
+				json_object_int_add(json_peer, "tableVersion",
+						    peer->version[afi][safi]);
+				json_object_int_add(json_peer, "outq",
+						    peer->obuf->count);
+				json_object_int_add(json_peer, "inq", 0);
+				peer_uptime(peer->uptime, timebuf, BGP_UPTIME_LEN,
+					    use_json, json_peer);
+
+				/*
+				 * Adding "pfxRcd" field to match with the corresponding
+				 * CLI. "prefixReceivedCount" will be deprecated in
+				 * future.
+				 */
+				json_object_int_add(json_peer, "prefixReceivedCount",
+						    peer->pcount[afi][pfx_rcd_safi]);
+				json_object_int_add(json_peer, "pfxRcd",
+						    peer->pcount[afi][pfx_rcd_safi]);
+
+				paf = peer_af_find(peer, afi, pfx_rcd_safi);
+				if (paf && PAF_SUBGRP(paf))
+					json_object_int_add(json_peer,
+							    "pfxSnt",
+							    (PAF_SUBGRP(paf))->scount);
+				if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+					json_object_string_add(json_peer, "state",
+							       "Idle (Admin)");
+				else if (peer->afc_recv[afi][safi])
+					json_object_string_add(
+							       json_peer, "state",
+							       lookup_msg(bgp_status_msg, peer->status,
+									  NULL));
+				else if (CHECK_FLAG(peer->sflags,
+						    PEER_STATUS_PREFIX_OVERFLOW))
+					json_object_string_add(json_peer, "state",
+							       "Idle (PfxCt)");
+				else
+					json_object_string_add(
+							       json_peer, "state",
+							       lookup_msg(bgp_status_msg, peer->status,
+									  NULL));
 			}
-
-			if (peer->hostname)
-				json_object_string_add(json_peer, "hostname",
-						       peer->hostname);
-
-			if (peer->domainname)
-				json_object_string_add(json_peer, "domainname",
-						       peer->domainname);
-
-			json_object_int_add(json_peer, "remoteAs", peer->as);
-			json_object_int_add(json_peer, "version", 4);
-			json_object_int_add(json_peer, "msgRcvd",
-					    PEER_TOTAL_RX(peer));
-			json_object_int_add(json_peer, "msgSent",
-					    PEER_TOTAL_TX(peer));
-
-			json_object_int_add(json_peer, "tableVersion",
-					    peer->version[afi][safi]);
-			json_object_int_add(json_peer, "outq",
-					    peer->obuf->count);
-			json_object_int_add(json_peer, "inq", 0);
-			peer_uptime(peer->uptime, timebuf, BGP_UPTIME_LEN,
-				    use_json, json_peer);
-
-			/*
-			 * Adding "pfxRcd" field to match with the corresponding
-			 * CLI. "prefixReceivedCount" will be deprecated in
-			 * future.
-			 */
-			json_object_int_add(json_peer, "prefixReceivedCount",
-					    peer->pcount[afi][pfx_rcd_safi]);
-			json_object_int_add(json_peer, "pfxRcd",
-					peer->pcount[afi][pfx_rcd_safi]);
-
-			paf = peer_af_find(peer, afi, pfx_rcd_safi);
-			if (paf && PAF_SUBGRP(paf))
-				json_object_int_add(json_peer,
-						"pfxSnt",
-						(PAF_SUBGRP(paf))->scount);
-
-			if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
-				json_object_string_add(json_peer, "state",
-						       "Idle (Admin)");
-			else if (peer->afc_recv[afi][safi])
-				json_object_string_add(
-					json_peer, "state",
-					lookup_msg(bgp_status_msg, peer->status,
-						   NULL));
-			else if (CHECK_FLAG(peer->sflags,
-					    PEER_STATUS_PREFIX_OVERFLOW))
-				json_object_string_add(json_peer, "state",
-						       "Idle (PfxCt)");
-			else
-				json_object_string_add(
-					json_peer, "state",
-					lookup_msg(bgp_status_msg, peer->status,
-						   NULL));
+			/* Avoid creating empty peer dicts in JSON */
+			if (json_peer == NULL)
+				continue;
 
 			if (peer->conf_if)
 				json_object_string_add(json_peer, "idType",
@@ -8220,65 +8406,72 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			else if (peer->su.sa.sa_family == AF_INET6)
 				json_object_string_add(json_peer, "idType",
 						       "ipv6");
-
 			json_object_object_add(json_peers, peer->host,
 					       json_peer);
 		} else {
-			memset(dn_flag, '\0', sizeof(dn_flag));
-			if (peer_dynamic_neighbor(peer)) {
-				dn_count++;
-				dn_flag[0] = '*';
+			if (show_failed &&
+			    bgp_has_peer_failed(peer, afi, safi)) {
+				bgp_show_failed_summary(vty, bgp, peer, NULL,
+							max_neighbor_width,
+							use_json);
+			} else if (!show_failed) {
+				memset(dn_flag, '\0', sizeof(dn_flag));
+				if (peer_dynamic_neighbor(peer)) {
+					dn_flag[0] = '*';
+				}
+
+				if (peer->hostname
+				    && bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
+					len = vty_out(vty, "%s%s(%s)", dn_flag,
+						      peer->hostname, peer->host);
+				else
+					len = vty_out(vty, "%s%s", dn_flag, peer->host);
+
+				/* pad the neighbor column with spaces */
+				if (len < max_neighbor_width)
+					vty_out(vty, "%*s", max_neighbor_width - len,
+						" ");
+
+				vty_out(vty, "4 %10u %7u %7u %8" PRIu64 " %4d %4zd %8s",
+					peer->as, PEER_TOTAL_RX(peer),
+					PEER_TOTAL_TX(peer), peer->version[afi][safi],
+					0, peer->obuf->count,
+					peer_uptime(peer->uptime, timebuf,
+						    BGP_UPTIME_LEN, 0, NULL));
+
+				if (peer->status == Established)
+					if (peer->afc_recv[afi][safi])
+						vty_out(vty, " %12ld",
+							peer->pcount[afi]
+							[pfx_rcd_safi]);
+					else
+						vty_out(vty, " NoNeg");
+				else {
+					if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+						vty_out(vty, " Idle (Admin)");
+					else if (CHECK_FLAG(
+							    peer->sflags,
+							    PEER_STATUS_PREFIX_OVERFLOW))
+						vty_out(vty, " Idle (PfxCt)");
+					else
+						vty_out(vty, " %12s",
+							lookup_msg(bgp_status_msg,
+								   peer->status, NULL));
+				}
+				vty_out(vty, "\n");
 			}
 
-			if (peer->hostname
-			    && bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
-				len = vty_out(vty, "%s%s(%s)", dn_flag,
-					      peer->hostname, peer->host);
-			else
-				len = vty_out(vty, "%s%s", dn_flag, peer->host);
-
-			/* pad the neighbor column with spaces */
-			if (len < max_neighbor_width)
-				vty_out(vty, "%*s", max_neighbor_width - len,
-					" ");
-
-			vty_out(vty, "4 %10u %7u %7u %8" PRIu64 " %4d %4zd %8s",
-				peer->as, PEER_TOTAL_RX(peer),
-				PEER_TOTAL_TX(peer), peer->version[afi][safi],
-				0, peer->obuf->count,
-				peer_uptime(peer->uptime, timebuf,
-					    BGP_UPTIME_LEN, 0, NULL));
-
-			if (peer->status == Established)
-				if (peer->afc_recv[afi][safi])
-					vty_out(vty, " %12ld",
-						peer->pcount[afi]
-							    [pfx_rcd_safi]);
-				else
-					vty_out(vty, " NoNeg");
-			else {
-				if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
-					vty_out(vty, " Idle (Admin)");
-				else if (CHECK_FLAG(
-						 peer->sflags,
-						 PEER_STATUS_PREFIX_OVERFLOW))
-					vty_out(vty, " Idle (PfxCt)");
-				else
-					vty_out(vty, " %12s",
-						lookup_msg(bgp_status_msg,
-							   peer->status, NULL));
-			}
-			vty_out(vty, "\n");
 		}
 	}
 
 	if (use_json) {
 		json_object_object_add(json, "peers", json_peers);
-
+		json_object_int_add(json, "failedPeers", failed_count);
 		json_object_int_add(json, "totalPeers", count);
 		json_object_int_add(json, "dynamicPeers", dn_count);
 
-		bgp_show_bestpath_json(bgp, json);
+		if (!show_failed)
+			bgp_show_bestpath_json(bgp, json);
 
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
 					     json, JSON_C_TO_STRING_PRETTY));
@@ -8302,7 +8495,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 }
 
 static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
-				      int safi, bool use_json)
+				      int safi, bool show_failed, bool use_json)
 {
 	int is_first = 1;
 	int afi_wildcard = (afi == AFI_MAX);
@@ -8345,7 +8538,8 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 									 false));
 					}
 				}
-				bgp_show_summary(vty, bgp, afi, safi, use_json);
+				bgp_show_summary(vty, bgp, afi, safi, show_failed,
+						 use_json);
 			}
 			safi++;
 			if (!safi_wildcard)
@@ -8367,7 +8561,8 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 }
 
 static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
-					       safi_t safi, bool use_json)
+					       safi_t safi, bool show_failed,
+					       bool use_json)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
@@ -8395,7 +8590,8 @@ static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
 					? VRF_DEFAULT_NAME
 					: bgp->name);
 		}
-		bgp_show_summary_afi_safi(vty, bgp, afi, safi, use_json);
+		bgp_show_summary_afi_safi(vty, bgp, afi, safi, show_failed,
+					  use_json);
 	}
 
 	if (use_json)
@@ -8405,13 +8601,14 @@ static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
 }
 
 int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
-			 safi_t safi, bool use_json)
+			 safi_t safi, bool show_failed, bool use_json)
 {
 	struct bgp *bgp;
 
 	if (name) {
 		if (strmatch(name, "all")) {
 			bgp_show_all_instances_summary_vty(vty, afi, safi,
+							   show_failed,
 							   use_json);
 			return CMD_SUCCESS;
 		} else {
@@ -8427,7 +8624,7 @@ int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 			}
 
 			bgp_show_summary_afi_safi(vty, bgp, afi, safi,
-						  use_json);
+						  show_failed, use_json);
 			return CMD_SUCCESS;
 		}
 	}
@@ -8435,7 +8632,8 @@ int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 	bgp = bgp_get_default();
 
 	if (bgp)
-		bgp_show_summary_afi_safi(vty, bgp, afi, safi, use_json);
+		bgp_show_summary_afi_safi(vty, bgp, afi, safi, show_failed,
+					  use_json);
 	else {
 		if (use_json)
 			vty_out(vty, "{}\n");
@@ -8450,7 +8648,7 @@ int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 /* `show [ip] bgp summary' commands. */
 DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] summary [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] summary [failed] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8458,11 +8656,13 @@ DEFUN (show_ip_bgp_summary,
        BGP_AFI_HELP_STR
        BGP_SAFI_WITH_LABEL_HELP_STR
        "Summary of BGP neighbor status\n"
+       "Show only sessions not in Established state\n"
        JSON_STR)
 {
 	char *vrf = NULL;
 	afi_t afi = AFI_MAX;
 	safi_t safi = SAFI_MAX;
+	bool show_failed = false;
 
 	int idx = 0;
 
@@ -8482,9 +8682,12 @@ DEFUN (show_ip_bgp_summary,
 		argv_find_and_parse_safi(argv, argc, &idx, &safi);
 	}
 
+	if (argv_find(argv, argc, "failed", &idx))
+		show_failed = true;
+
 	bool uj = use_json(argc, argv);
 
-	return bgp_show_summary_vty(vty, vrf, afi, safi, uj);
+	return bgp_show_summary_vty(vty, vrf, afi, safi, show_failed, uj);
 }
 
 const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json)
@@ -9165,8 +9368,6 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	char buf1[PREFIX2STR_BUFFER], buf[SU_ADDRSTRLEN];
 	char timebuf[BGP_UPTIME_LEN];
 	char dn_flag[2];
-	const char *subcode_str;
-	const char *code_str;
 	afi_t afi;
 	safi_t safi;
 	uint16_t i;
@@ -10602,88 +10803,13 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					    (tm->tm_sec * 1000)
 						    + (tm->tm_min * 60000)
 						    + (tm->tm_hour * 3600000));
-			json_object_string_add(
-				json_neigh, "lastResetDueTo",
-				peer_down_str[(int)p->last_reset]);
-			if (p->last_reset == PEER_DOWN_NOTIFY_SEND
-			    || p->last_reset == PEER_DOWN_NOTIFY_RECEIVED) {
-				char errorcodesubcode_hexstr[5];
-				char errorcodesubcode_str[256];
-
-				code_str = bgp_notify_code_str(p->notify.code);
-				subcode_str = bgp_notify_subcode_str(
-					p->notify.code, p->notify.subcode);
-
-				sprintf(errorcodesubcode_hexstr, "%02X%02X",
-					p->notify.code, p->notify.subcode);
-				json_object_string_add(json_neigh,
-						       "lastErrorCodeSubcode",
-						       errorcodesubcode_hexstr);
-				snprintf(errorcodesubcode_str, 255, "%s%s",
-					 code_str, subcode_str);
-				json_object_string_add(json_neigh,
-						       "lastNotificationReason",
-						       errorcodesubcode_str);
-				if (p->last_reset == PEER_DOWN_NOTIFY_RECEIVED
-				    && p->notify.code == BGP_NOTIFY_CEASE
-				    && (p->notify.subcode
-						== BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN
-					|| p->notify.subcode
-						   == BGP_NOTIFY_CEASE_ADMIN_RESET)
-				    && p->notify.length) {
-					char msgbuf[1024];
-					const char *msg_str;
-
-					msg_str = bgp_notify_admin_message(
-						msgbuf, sizeof(msgbuf),
-						(uint8_t *)p->notify.data,
-						p->notify.length);
-					if (msg_str)
-						json_object_string_add(
-							json_neigh,
-							"lastShutdownDescription",
-							msg_str);
-				}
-			}
+			bgp_show_peer_reset(NULL, p, json_neigh, true);
 		} else {
 			vty_out(vty, "  Last reset %s, ",
 				peer_uptime(p->resettime, timebuf,
 					    BGP_UPTIME_LEN, 0, NULL));
 
-			if (p->last_reset == PEER_DOWN_NOTIFY_SEND
-			    || p->last_reset == PEER_DOWN_NOTIFY_RECEIVED) {
-				code_str = bgp_notify_code_str(p->notify.code);
-				subcode_str = bgp_notify_subcode_str(
-					p->notify.code, p->notify.subcode);
-				vty_out(vty, "due to NOTIFICATION %s (%s%s)\n",
-					p->last_reset == PEER_DOWN_NOTIFY_SEND
-						? "sent"
-						: "received",
-					code_str, subcode_str);
-				if (p->last_reset == PEER_DOWN_NOTIFY_RECEIVED
-				    && p->notify.code == BGP_NOTIFY_CEASE
-				    && (p->notify.subcode
-						== BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN
-					|| p->notify.subcode
-						   == BGP_NOTIFY_CEASE_ADMIN_RESET)
-				    && p->notify.length) {
-					char msgbuf[1024];
-					const char *msg_str;
-
-					msg_str = bgp_notify_admin_message(
-						msgbuf, sizeof(msgbuf),
-						(uint8_t *)p->notify.data,
-						p->notify.length);
-					if (msg_str)
-						vty_out(vty,
-							"    Message: \"%s\"\n",
-							msg_str);
-				}
-			} else {
-				vty_out(vty, "due to %s\n",
-					peer_down_str[(int)p->last_reset]);
-			}
-
+			bgp_show_peer_reset(vty, p, NULL, false);
 			if (p->last_reset_cause_size) {
 				msg = p->last_reset_cause;
 				vty_out(vty,
