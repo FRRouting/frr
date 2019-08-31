@@ -367,6 +367,7 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 
 	unsigned int idx;
 	for (idx = 0; idx < vector_active(vline) && next->count > 0; idx++) {
+		struct cmd_token *token;
 		list_delete(&current);
 		current = next;
 		next = list_new();
@@ -375,13 +376,18 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 		input_token = vector_slot(vline, idx);
 
 		int exact_match_exists = 0;
+		int exact_match_with_wrd_tkn = 0;
 		for (ALL_LIST_ELEMENTS_RO(current, node, gstack))
-			if (!exact_match_exists)
-				exact_match_exists =
-					(match_token(gstack[0]->data,
-						     input_token)
-					 == exact_match);
-			else
+			if (!exact_match_with_wrd_tkn) {
+				token = gstack[0]->data;
+				if(match_token(token, input_token)
+					== exact_match) {
+					exact_match_exists = 1;
+					exact_match_with_wrd_tkn =
+						(token->type ==
+						WORD_TKN) ? 1 : 0;
+				}
+			} else
 				break;
 
 		for (ALL_LIST_ELEMENTS_RO(current, node, gstack)) {
@@ -426,9 +432,18 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 					 */
 					newstack[0] = gstack[0];
 					listnode_add(next, newstack);
-				} else if (matchtype >= minmatch)
+				} else if (matchtype >= minmatch) {
+					/*
+					 * Give higher priority to WORD_TKN
+					 * match when there is a clash
+					 * between WORD_TKN and VARIABLE_TKN
+					 */
+					if (exact_match_with_wrd_tkn &&
+						token->type != WORD_TKN)
+						break;
 					add_nexthops(next, gstack[0], gstack,
 						     idx + 1);
+				}
 				break;
 			default:
 				trace_matcher("no_match\n");
