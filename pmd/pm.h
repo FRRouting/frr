@@ -56,6 +56,7 @@ struct pm_session {
 #define PM_SESS_FLAG_NH_VALID      (1 << 4)
 #define PM_SESS_FLAG_NH_REGISTERED (1 << 5)
 #define PM_SESS_FLAG_RESOLUTION_ON (1 << 6)
+#define PM_SESS_FLAG_TRACKING_CFG_ERROR  (1 << 7)
 	uint32_t flags;
 	union sockunion peer;
 	struct resolver_query dns_resolve;

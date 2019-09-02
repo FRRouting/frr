@@ -396,8 +396,10 @@ char *pm_echo_get_alarm_str(struct pm_session *pm, char *buf, size_t len)
 	memset(buf, 0, len);
 
 	if (!pme) {
-		if (sockunion_family(&pm->peer) != AF_INET &&
-		    sockunion_family(&pm->peer) != AF_INET6)
+		if ((sockunion_family(&pm->peer) != AF_INET &&
+		     sockunion_family(&pm->peer) != AF_INET6) ||
+		    PM_CHECK_FLAG(pm->flags,
+				  PM_SESS_FLAG_TRACKING_CFG_ERROR))
 			snprintf(buf, len, "resolution nok");
 		else if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID))
 			snprintf(buf, len, "unreachable");

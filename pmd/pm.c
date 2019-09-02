@@ -57,6 +57,11 @@ DEFINE_HOOK(pm_tracking_get_dest_address,
 DEFINE_HOOK(pm_tracking_get_gateway_address,
 	    (struct pm_session *pm,
 	     union sockunion *gw), (pm, gw));
+DEFINE_HOOK(pm_tracking_check_param,
+	    (struct pm_session *pm,
+	     int *ret,
+	     void (*callback)(struct vty *, struct pm_session *)),
+	    (pm, ret, callback));
 
 static int pm_sessions_change_ifp_walkcb(struct hash_bucket *backet,
 					 void *arg);
@@ -301,7 +306,7 @@ static void pm_session_peer_resolver_cb(struct resolver_query *q, const char *er
 {
 	struct pm_session *pm = container_of(q, struct pm_session, dns_resolve);
 	char buf[SU_ADDRSTRLEN];
-	int i;
+	int i, ret = 0;
 
 	pm->t_resolve = NULL;
 	if (n < 0) {
@@ -328,6 +333,15 @@ static void pm_session_peer_resolver_cb(struct resolver_query *q, const char *er
 		zlog_info("%% session to %s, resolution to %s ok, polling in 7200 sec",
 			  pm->key.peer,
 			  sockunion2str(&pm->peer, buf, sizeof(buf)));
+		memcpy(&pm->peer, &addrs[i], sizeof(union sockunion));
+		hook_call(pm_tracking_check_param, pm, &ret, pm_try_run);
+		if (ret) {
+			PM_SET_FLAG(pm->flags,
+				    PM_SESS_FLAG_TRACKING_CFG_ERROR);
+				return;
+		} else
+			PM_UNSET_FLAG(pm->flags,
+				      PM_SESS_FLAG_TRACKING_CFG_ERROR);
 		pm_zebra_nht_register(pm, true, NULL);
 		pm_try_run(NULL, pm);
 		break;
@@ -397,8 +411,20 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 		}
 	} else {
 		memcpy(&pm->peer, &peer, sizeof(union sockunion));
-		pm_zebra_nht_register(pm, true, NULL);
 	}
+	hook_call(pm_tracking_check_param, pm, &ret, pm_try_run);
+	if (ret) {
+		PM_SET_FLAG(pm->flags,
+			    PM_SESS_FLAG_TRACKING_CFG_ERROR);
+		snprintf(ebuf, ebuflen,
+			 "session to %s, trying to resolve tracking gw IP",
+			 pm->key.peer);
+		return;
+	} else
+		PM_UNSET_FLAG(pm->flags,
+			      PM_SESS_FLAG_TRACKING_CFG_ERROR);
+	pm_zebra_nht_register(pm, true, NULL);
+
 	/* Validate address families. */
 	if (sockunion_family(&pm->key.local) == AF_INET ||
 	    sockunion_family(&pm->key.local) == AF_INET6) {
@@ -576,6 +602,7 @@ static int pm_nht_update_walkcb(struct hash_bucket *backet, void *arg)
 	bool orig, new;
 	bool reinstall = false;
 	char buf[SU_ADDRSTRLEN];
+	char buf2[SU_ADDRSTRLEN];
 	char errormsg[128];
 
 	if (pm->key.vrfname[0])
@@ -607,9 +634,11 @@ static int pm_nht_update_walkcb(struct hash_bucket *backet, void *arg)
 			pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
 		} else {
 			pm->ifindex_out = pnc->idx;
-			zlog_info("PMD: session to %s, NHT OK",
+			zlog_info("PMD: session to %s, NHT %s OK",
 				  sockunion2str(&pm->peer,
-						buf, sizeof(buf)));
+						buf, sizeof(buf)),
+				  sockunion2str(&pnc->peer,
+						buf2, sizeof(buf2)));
 			PM_SET_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID);
 			pm_try_run(vty, pm);
 		}

@@ -60,4 +60,10 @@ DECLARE_HOOK(pm_tracking_display,
 	      struct json_object *jo),
 	     (pm, vty, jo));
 
+DECLARE_HOOK(pm_tracking_check_param,
+	     (struct pm_session *pm,
+	      int *ret,
+	      void (*callback)(struct vty *, struct pm_session *)),
+	     (pm, ret, callback));
+
 #endif /* _PM_TRACKING_H */
