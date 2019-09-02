@@ -328,6 +328,7 @@ static void pm_session_peer_resolver_cb(struct resolver_query *q, const char *er
 		/* no change */
 		if (sockunion_same(&addrs[i], &pm->peer))
 			break;
+		pm_zebra_nht_register(pm, false, NULL);
 		/* update IP address */
 		memcpy(&pm->peer, &addrs[i], sizeof(union sockunion));
 		zlog_info("%% session to %s, resolution to %s ok, polling in 7200 sec",
@@ -356,6 +357,7 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 	char buf[SU_ADDRSTRLEN];
 	int ret;
 	union sockunion peer;
+	union sockunion gw;
 
 	if (!validate_only) {
 		/* initialise - config by default */
@@ -420,9 +422,21 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 			 "session to %s, trying to resolve tracking gw IP",
 			 pm->key.peer);
 		return;
-	} else
+	}
+	if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_TRACKING_CFG_ERROR)) {
+
+		memset(&gw, 0, sizeof(union sockunion));
 		PM_UNSET_FLAG(pm->flags,
 			      PM_SESS_FLAG_TRACKING_CFG_ERROR);
+	}
+	ret = hook_call(pm_tracking_get_gateway_address, pm, &gw);
+	if (ret &&
+	    (sockunion_family(&gw) == AF_INET ||
+	     sockunion_family(&gw) == AF_INET6) &&
+	    !sockunion_same(&gw, &pm->nh)) {
+		pm_zebra_nht_register(pm, false, NULL);
+		memcpy(&pm->nh, &gw, sizeof(union sockunion));
+	}
 	pm_zebra_nht_register(pm, true, NULL);
 
 	/* Validate address families. */
