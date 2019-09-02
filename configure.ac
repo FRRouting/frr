@@ -2007,6 +2007,20 @@ if test "${enable_capabilities}" != "no"; then
        -o x"${frr_ac_lcaps}" = x"yes"; then
     AC_DEFINE([HAVE_CAPABILITIES], [1], [capabilities])
   fi
+
+  case "$host_os" in
+  linux*)
+    if test "$frr_ac_lcaps" != "yes"; then
+      AC_MSG_ERROR([libcap and/or its headers were not found.  Running FRR without libcap support built in causes a huge performance penalty.])
+    fi
+    ;;
+  esac
+else
+  case "$host_os" in
+  linux*)
+    AC_MSG_WARN([Running FRR without libcap support built in causes a huge performance penalty.])
+    ;;
+  esac
 fi
 AC_SUBST([LIBCAP])
 
