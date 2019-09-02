@@ -801,6 +801,11 @@ int pm_echo(struct pm_session *pm, char *errormsg, int errormsg_len)
 	event_add_timer(master, pm_echo_send, pme_ptr, 0,
 			 &pme_ptr->t_echo_send);
 	pm->oper_ctxt = (void *)pme_ptr;
+
+	if (pm->key.vrfname[0])
+		pme_ptr->vrf = vrf_lookup_by_name(pm->key.vrfname);
+	else
+		pme_ptr->vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	return 0;
 }
 
@@ -812,8 +817,22 @@ void pm_echo_dump(struct vty *vty, struct pm_session *pm)
 		return;
 
 	if (sockunion_family(&pme->src) == AF_INET ||
-	    sockunion_family(&pme->src) == AF_INET6)
+	    sockunion_family(&pme->src) == AF_INET6) {
 		vty_out(vty, "\tsource-ip %pSU\n", &pme->src);
+	}
+	if (pm->ifindex_out != IFINDEX_INTERNAL && pme->vrf &&
+	    !pm->key.ifname[0]) {
+		struct interface *ifp;
+
+		ifp = if_lookup_by_index(pm->ifindex_out, pme->vrf->vrf_id);
+		if (ifp)
+			vty_out(vty, "\tinterface %s\n", ifp->name);
+	} else if (pm->key.ifname[0])
+		vty_out(vty, "\tinterface %s\n", pm->key.ifname);
+	if (sockunion_family(&pme->gw) == AF_INET ||
+	    sockunion_family(&pme->gw) == AF_INET6) {
+		vty_out(vty, "\tnexthop %pSU\n", &pme->gw);
+	}
 	vty_out(vty, "\tpacket-size %u, interval %u",
 		pme->packet_size, pme->interval);
 	vty_out(vty, ", timeout %u\n", pm->timeout);

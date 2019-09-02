@@ -485,12 +485,21 @@ static struct json_object *__display_session_json(struct pm_session *pm,
 {
 	struct json_object *jo = _session_json_header(pm);
 	struct pm_echo *pme = pm->oper_ctxt;
+	struct interface *ifp;
 
 	if (operational) {
 		if (sockunion_family(&pme->src) == AF_INET ||
 		    sockunion_family(&pme->src) == AF_INET6)
-			json_object_string_addf(jo, "source-ip", "%pSU",
-					&pme->src);
+			json_object_string_addf(jo, "source-ip", "%pSU", &pme->src);
+		if (pm->ifindex_out != IFINDEX_INTERNAL && pme->vrf) {
+			ifp = if_lookup_by_index(pm->ifindex_out, pme->vrf->vrf_id);
+			if (ifp)
+				json_object_string_add(jo, "interface", ifp->name);
+		} else if (pm->key.ifname[0])
+			json_object_string_add(jo, "interface", pm->key.ifname);
+		if (sockunion_family(&pme->gw) == AF_INET ||
+		    sockunion_family(&pme->gw) == AF_INET6)
+			json_object_string_addf(jo, "nexthop", "%pSU", &pme->gw);
 		return jo;
 	}
 	if (!pme) {
