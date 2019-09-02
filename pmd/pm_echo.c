@@ -338,6 +338,7 @@ void pm_echo_receive(struct event *event)
 		pm_echo_trigger_down_event(pm);
 		return;
 	}
+	EVENT_OFF(pme->t_echo_tmo);
 	if (pm_check_retries_consecutive(pme, pme->retries_consecutive_up, true))
 		return;
 
@@ -354,8 +355,6 @@ void pm_echo_receive(struct event *event)
 
 	/* reset pme retries contexts */
 	pm_reset_retries(pme);
-
-	EVENT_OFF(pme->t_echo_tmo);
 }
 
 const char *pm_echo_get_alarm_str(struct pm_session *pm)
