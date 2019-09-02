@@ -8392,6 +8392,10 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 							       json_peer, "state",
 							       lookup_msg(bgp_status_msg, peer->status,
 									  NULL));
+				json_object_int_add(json_peer, "connectionsEstablished",
+						    peer->established);
+				json_object_int_add(json_peer, "connectionsDropped",
+						    peer->dropped);
 			}
 			/* Avoid creating empty peer dicts in JSON */
 			if (json_peer == NULL)
