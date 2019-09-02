@@ -38,6 +38,8 @@ DEFINE_MTYPE_STATIC(PMD, PM_TRACK_LABEL, "Tracking Label Information");
 
 static int pm_tracking_call_update_param(struct pm_session *pm);
 
+static int pm_tracking_call_check_param(struct pm_session *pm, int *ret,
+					void (*callback)(struct vty *, struct pm_session *));
 static int pm_tracking_call_notify_filename(struct pm_session *pm);
 
 static int pm_tracking_call_write_config(struct pm_session *pm,
@@ -59,11 +61,18 @@ static int pm_tracking_call_display(struct pm_session *pm,
 
 static int pm_tracking_init(struct event_loop *t);
 
+static void pm_tracking_gateway_resolver_cb(struct resolver_query *q, const char *errstr,
+					    int n, union sockunion *addrs);
+
+static void pm_tracking_gateway_resolve(struct event *t);
+
 static int pm_tracking_module_init(void)
 {
 	hook_register(frr_late_init, pm_tracking_init);
 	hook_register(pm_tracking_update_param,
 		      pm_tracking_call_update_param);
+	hook_register(pm_tracking_check_param,
+		      pm_tracking_call_check_param);
 	hook_register(pm_tracking_notify_filename,
 		      pm_tracking_call_notify_filename);
 	hook_register(pm_tracking_write_config,
@@ -92,10 +101,18 @@ struct hash *pm_tracking_list;
 
 struct pm_tracking_ctx {
 	struct pm_session_key key;
-	union sockunion gateway;
+	char gateway[HOSTNAME_LEN];
+	struct resolver_query dns_resolve;
+	struct event *t_resolve;
+	afi_t afi_resolve;
+	union sockunion gw;
 	union sockunion alternate;
 	char notify_path[PATH_MAX];
+#define PM_TRACKING_GATEWAY_RESOLUTION_ON (1 << 1)
 	char *label;
+	int flags;
+	void (*check_callback)(struct vty *, struct pm_session *);
+	struct pm_session *pm;
 };
 
 static struct pm_tracking_ctx *pm_tracking_lookup_from_pm(struct pm_session *pm)
@@ -114,11 +131,9 @@ static int pm_tracking_call_write_config(struct pm_session *pm, struct vty *vty)
 	ctx = pm_tracking_lookup_from_pm(pm);
 	if (!ctx)
 		return 0;
-	if (sockunion_family(&ctx->gateway) == AF_INET ||
-	    sockunion_family(&ctx->gateway) == AF_INET6) {
-		vty_out(vty, "  gateway %pSU\n",
-			&ctx->gateway);
-	}
+	if (ctx->gateway[0])
+		vty_out(vty, "  gateway %s\n",
+			ctx->gateway);
 	if (ctx->notify_path[0]) {
 		vty_out(vty, "  notify %s\n",
 			ctx->notify_path);
@@ -147,6 +162,45 @@ static void *pm_tracking_alloc(void *arg)
 	return ctx_to_allocate;
 }
 
+static int pm_tracking_call_check_param(struct pm_session *pm, int *ret,
+					void (*callback)(struct vty *, struct pm_session *))
+{
+	struct pm_tracking_ctx *ctx;
+
+	ctx = pm_tracking_lookup_from_pm(pm);
+	if (!ctx)
+		return 0;
+	ctx->check_callback = callback;
+	ctx->pm = pm;
+	/* not resolved yet */
+	if (ctx->gateway[0] &&
+	    sockunion_family(&ctx->gw) != AF_INET6 &&
+	    sockunion_family(&ctx->gw) != AF_INET) {
+		if (PM_CHECK_FLAG(ctx->flags, PM_TRACKING_GATEWAY_RESOLUTION_ON)) {
+			zlog_debug("%% tracking gw %s, resolution in progress",
+				   ctx->gateway);
+			*ret = 1;
+			/* enter registration function */
+			return 1;
+		}
+		/* call registration */
+		ctx->afi_resolve = AF_INET6;
+		if (sockunion_family(&ctx->key.local) == AF_INET ||
+		    sockunion_family(&ctx->key.local) == AF_INET6)
+			ctx->afi_resolve = sockunion_family(&ctx->key.local);
+		zlog_debug("tracking gw %s, trying to resolve IP",
+			   ctx->gateway);
+		PM_SET_FLAG(ctx->flags, PM_TRACKING_GATEWAY_RESOLUTION_ON);
+		event_add_timer(master, pm_tracking_gateway_resolve, ctx, 0,
+				 &ctx->t_resolve);
+		*ret = 1;
+	} else if (sockunion_family(&ctx->gw) == AF_INET6 ||
+		   sockunion_family(&ctx->gw) == AF_INET) {
+		*ret = 0;
+	}
+	return 1;
+}
+
 static int pm_tracking_call_update_param(struct pm_session *pm)
 {
 	struct pm_tracking_ctx *ctx;
@@ -154,10 +208,15 @@ static int pm_tracking_call_update_param(struct pm_session *pm)
 	ctx = pm_tracking_lookup_from_pm(pm);
 	if (!ctx)
 		return 0;
+	/* not resolved yet. ignore */
+	if (ctx->gateway[0] &&
+	    sockunion_family(&ctx->gw) != AF_INET6 &&
+	    sockunion_family(&ctx->gw) != AF_INET)
+		return 0;
 	/* overwrite params */
-	if ((sockunion_family(&ctx->gateway) == AF_INET) ||
-	    (sockunion_family(&ctx->gateway) == AF_INET6))
-		memcpy(&pm->nh, &ctx->gateway,
+	if (sockunion_family(&ctx->gw) == AF_INET6 ||
+	    sockunion_family(&ctx->gw) == AF_INET)
+		memcpy(&pm->nh, &ctx->gw,
 		       sizeof(union sockunion));
 	return 1;
 }
@@ -250,29 +309,113 @@ DEFPY (pm_tracking_alternate,
 	return pm_tracking_alternate_call(pm, alternate_str, vty);
 }
 
+static void pm_tracking_gateway_resolve(struct event *t)
+{
+	struct pm_tracking_ctx *ctx = EVENT_ARG(t);
+	struct vrf *vrf;
+
+	if (ctx->key.vrfname[0])
+		vrf = vrf_lookup_by_name(ctx->key.vrfname);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (!vrf)
+		return;
+	resolver_resolve(&ctx->dns_resolve, ctx->afi_resolve, vrf->vrf_id,
+			 ctx->gateway, pm_tracking_gateway_resolver_cb);
+	return;
+}
+
+static void pm_tracking_gateway_resolver_cb(struct resolver_query *q, const char *errstr,
+					    int n, union sockunion *addrs)
+{
+	struct pm_tracking_ctx *ctx = container_of(q, struct pm_tracking_ctx, dns_resolve);
+	int i;
+
+	ctx->t_resolve = NULL;
+	if (n < 0) {
+		if (ctx->afi_resolve == AF_INET6 &&
+		    sockunion_family(&ctx->key.local) != AF_INET &&
+		    sockunion_family(&ctx->key.local) != AF_INET6) {
+			zlog_warn("%% tracking gw %s, IPv6 resolve failed, trying with IPv4 in 5 sec",
+				  ctx->gateway);
+			ctx->afi_resolve = AF_INET;
+		}
+		/* Failed, retry in a moment */
+		event_add_timer(master, pm_tracking_gateway_resolve, ctx, 5,
+				 &ctx->t_resolve);
+		return;
+	}
+	event_add_timer(master, pm_tracking_gateway_resolve, ctx, 2 * 60 * 60,
+			 &ctx->t_resolve);
+	for (i = 0; i < n; i++) {
+		/* no change */
+		if (sockunion_same(&addrs[i], &ctx->gw))
+			break;
+		/* update IP address */
+		memcpy(&ctx->gw, &addrs[i], sizeof(union sockunion));
+		zlog_info("%% tracking gw to %s, resolution to %pSU ok, polling in 7200 sec",
+			  ctx->gateway,
+			  &ctx->gw);
+		if (ctx->check_callback && ctx->pm)
+			ctx->check_callback(NULL, ctx->pm);
+		break;
+	}
+}
+
 static int pm_tracking_gateway_call(struct pm_session *pm,
 				    const char *gw,
 				    struct vty *vty)
 {
 	struct pm_tracking_ctx *ctx;
 	union sockunion gateway;
+	struct vrf *vrf;
 	int ret;
 
 	ctx = pm_tracking_lookup_from_pm(pm);
 	if (!ctx)
-		return 0;
-	if (gw) {
-		ret = str2sockunion(gw, &gateway);
-		if (ret != 0) {
-			vty_out(vty,
-				"%% invalid source address %s. cancel\n",
-				gw);
-			return CMD_WARNING_CONFIG_FAILED;
+		return CMD_SUCCESS;
+	if (!gw) {
+		memset(ctx->gateway, 0,
+		       sizeof(ctx->gateway));
+		return CMD_SUCCESS;
+	}
+	if (strlen(gw) >= sizeof(ctx->gateway)) {
+		vty_out(vty,
+			"%% gateway address too long, %s. cancel\n",
+			gw);
+		return CMD_SUCCESS;
+	}
+	snprintf(ctx->gateway, sizeof(ctx->gateway), "%s", gw);
+	ret = str2sockunion(gw, &gateway);
+	/* it may be an hostname - try with ipv6 resolution */
+	if (ret) {
+		if (sockunion_family(&ctx->gw) != AF_INET &&
+		    sockunion_family(&ctx->gw) != AF_INET6) {
+			if (PM_CHECK_FLAG(ctx->flags, PM_TRACKING_GATEWAY_RESOLUTION_ON)) {
+				vty_out(vty, "tracking gw %s, resolution in progress",
+					ctx->gateway);
+				return CMD_SUCCESS;
+			}
+			ctx->afi_resolve = AF_INET6;
+			if (sockunion_family(&ctx->key.local) == AF_INET ||
+			    sockunion_family(&ctx->key.local) == AF_INET6)
+				ctx->afi_resolve = sockunion_family(&ctx->key.local);
+			vty_out(vty, "tracking gw %s, trying to resolve IP",
+				 ctx->gateway);
+
+			if (ctx->key.vrfname[0])
+				vrf = vrf_lookup_by_name(ctx->key.vrfname);
+			else
+				vrf = vrf_lookup_by_id(VRF_DEFAULT);
+			if (!vrf)
+				return CMD_SUCCESS;
+			PM_SET_FLAG(ctx->flags, PM_TRACKING_GATEWAY_RESOLUTION_ON);
+			event_add_timer(master, pm_tracking_gateway_resolve, ctx, 0,
+						       &ctx->t_resolve);
+			return CMD_SUCCESS;
 		}
-		memcpy(&ctx->gateway, &gateway,
-		       sizeof(union sockunion));
 	} else {
-		memset(&ctx->gateway, 0,
+		memcpy(&ctx->gw, &gateway,
 		       sizeof(union sockunion));
 	}
 	return CMD_SUCCESS;
@@ -280,18 +423,19 @@ static int pm_tracking_gateway_call(struct pm_session *pm,
 
 DEFPY (pm_tracking_gateway_ip,
        pm_tracking_gateway_ip_cmd,
-       "[no$no] gateway <A.B.C.D|X:X::X:X>$gw",
+       "[no$no] gateway <A.B.C.D|X:X::X:X|WORD>$gw",
        NO_STR
        "Define gateway to send packet to\n"
        "IPv4 address\n"
-       "IPv6 address\n")
+       "IPv6 address\n"
+       "Server IP address\n")
 {
 	struct pm_session *pm;
 
 	pm = VTY_GET_CONTEXT(pm_session);
 	if (no)
 		return pm_tracking_gateway_call(pm, NULL, vty);
-	return pm_tracking_gateway_call(pm, gw_str, vty);
+	return pm_tracking_gateway_call(pm, gw, vty);
 }
 
 static int pm_tracking_label_call(struct pm_session *pm,
@@ -303,7 +447,7 @@ static int pm_tracking_label_call(struct pm_session *pm,
 	ctx = pm_tracking_lookup_from_pm(pm);
 	if (!ctx)
 		return CMD_WARNING_CONFIG_FAILED;
-
+	EVENT_OFF(ctx->t_resolve);
 	if (ctx->label)
 		XFREE(MTYPE_PM_TRACK_LABEL, ctx->label);
 	if (label)
@@ -419,9 +563,13 @@ static int pm_tracking_call_get_gateway_address(struct pm_session *pm,
 	ctx = pm_tracking_lookup_from_pm(pm);
 	if (!ctx)
 		return 0;
-	if (sockunion_family(&ctx->gateway) == AF_INET ||
-	    sockunion_family(&ctx->gateway) == AF_INET6) {
-		memcpy(gw, &ctx->gateway,
+	if (ctx->gateway[0] &&
+	    sockunion_family(&ctx->gw) != AF_INET6 &&
+	    sockunion_family(&ctx->gw) != AF_INET)
+		return -1;
+	if (sockunion_family(&ctx->gw) == AF_INET ||
+	    sockunion_family(&ctx->gw) == AF_INET6) {
+		memcpy(gw, &ctx->gw,
 		       sizeof(union sockunion));
 		return 1;
 	}
@@ -433,18 +581,34 @@ static int pm_tracking_call_display(struct pm_session *pm,
 				    struct json_object *jo)
 {
 	struct pm_tracking_ctx *ctx;
+	char buf[SU_ADDRSTRLEN];
 
+	memset(buf, 0, sizeof(buf));
 	ctx = pm_tracking_lookup_from_pm(pm);
 	if (!ctx)
 		return 0;
 
-	if (sockunion_family(&ctx->gateway) == AF_INET ||
-	    sockunion_family(&ctx->gateway) == AF_INET6) {
-		if (vty)
-			vty_out(vty, "\tnext-hop %pSU\n", &ctx->gateway);
-		if (jo)
-			json_object_string_addf(jo, "next-hop", "%pSU",
-					&ctx->gateway);
+	if (ctx->gateway[0]) {
+		if ((sockunion_family(&ctx->gw) == AF_INET ||
+		     sockunion_family(&ctx->gw) == AF_INET6) &&
+		    PM_CHECK_FLAG(ctx->flags, PM_TRACKING_GATEWAY_RESOLUTION_ON)) {
+			    sockunion2str(&ctx->gw,
+					  buf, sizeof(buf));
+		}
+		if (vty) {
+			vty_out(vty, "\tnext-hop %s",
+				ctx->gateway);
+			if (buf[0])
+				vty_out(vty, " (resolved to %s)", buf);
+			vty_out(vty, "\n");
+		}
+		if (jo) {
+			json_object_string_add(jo, "next-hop",
+					       ctx->gateway);
+			if (buf[0])
+				json_object_string_add(jo, "next-hop-resolved",
+						       buf);
+		}
 	}
 	if (ctx->notify_path[0]) {
 		if (vty)

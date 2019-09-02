@@ -363,8 +363,10 @@ const char *pm_echo_get_alarm_str(struct pm_session *pm)
 	struct pm_echo *pme = pm->oper_ctxt;
 
 	if (!pme) {
-		if (sockunion_family(&pm->peer) != AF_INET &&
-		    sockunion_family(&pm->peer) != AF_INET6)
+		if ((sockunion_family(&pm->peer) != AF_INET &&
+		     sockunion_family(&pm->peer) != AF_INET6) ||
+		    PM_CHECK_FLAG(pm->flags,
+				  PM_SESS_FLAG_TRACKING_CFG_ERROR))
 			return "resolution nok";
 		else if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID))
 			return "unreachable";
