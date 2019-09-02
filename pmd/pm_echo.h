@@ -93,6 +93,7 @@ struct pm_echo {
 	uint32_t stats_rx_timeout;
 
 	struct pm_session *back_ptr;
+	struct vrf *vrf;
 };
 
 extern int pm_debug_echo;
