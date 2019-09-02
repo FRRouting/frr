@@ -372,6 +372,7 @@ int pm_echo_receive(struct thread *thread)
 		pm_echo_trigger_down_event(pm);
 		return 0;
 	}
+	THREAD_OFF(pme->t_echo_tmo);
 	if (pm_check_retries_consecutive(pme, pme->retries_consecutive_up, true))
 		return 0;
 	if (pm_check_retries_threshold(pme, true))
@@ -385,7 +386,6 @@ int pm_echo_receive(struct thread *thread)
 	pme->oper_receive = true;
 	/* reset pme retries contexts */
 	pm_reset_retries(pme);
-	THREAD_OFF(pme->t_echo_tmo);
 	return 0;
 }
 
