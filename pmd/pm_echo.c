@@ -649,10 +649,12 @@ int pm_echo_send(struct thread *thread)
 
 	if (pme->oper_connect == false) {
 		/* XXX issues when using connect() with RAW ICMPV6 socket */
-		if (sockunion_family(&pme->gw) == AF_INET)
+		if (sockunion_family(&pme->gw) == AF_INET &&
+		    sockunion_same(&pme->gw, &pme->peer)) {
 			ret = connect(pme->echofd,
 				      (struct sockaddr *)&pme->peer,
 				      sizeof(struct sockaddr_in));
+		}
 		if (ret < 0) {
 			char buf[SU_ADDRSTRLEN];
 
