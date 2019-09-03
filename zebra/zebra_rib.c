@@ -2865,27 +2865,30 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 			same = re;
 			break;
 		}
+
 		/* Make sure that the route found has the same gateway. */
-		else if (nhe_id && re->nhe_id == nhe_id) {
+		if (nhe_id && re->nhe_id == nhe_id) {
 			same = re;
 			break;
-		} else {
-			if (nh == NULL) {
+		}
+
+		if (nh == NULL) {
+			same = re;
+			break;
+		}
+		for (ALL_NEXTHOPS_PTR(re->ng, rtnh)) {
+			/*
+			 * No guarantee all kernel send nh with labels
+			 * on delete.
+			 */
+			if (nexthop_same_no_labels(rtnh, nh)) {
 				same = re;
 				break;
 			}
-			for (ALL_NEXTHOPS_PTR(re->ng, rtnh))
-				/*
-				 * No guarantee all kernel send nh with labels
-				 * on delete.
-				 */
-				if (nexthop_same_no_labels(rtnh, nh)) {
-					same = re;
-					break;
-				}
-			if (same)
-				break;
 		}
+
+		if (same)
+			break;
 	}
 	/* If same type of route can't be found and this message is from
 	   kernel. */

@@ -195,7 +195,7 @@ static void if_nhg_dependents_release(struct interface *ifp)
 		struct nhg_connected *rb_node_dep = NULL;
 		struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
-		frr_each (nhg_connected_tree, &zif->nhg_dependents,
+		frr_each(nhg_connected_tree, &zif->nhg_dependents,
 			  rb_node_dep) {
 			rb_node_dep->nhe->ifp = NULL;
 			zebra_nhg_set_invalid(rb_node_dep->nhe);
@@ -1004,7 +1004,7 @@ static void if_down_nhg_dependents(const struct interface *ifp)
 		struct nhg_connected *rb_node_dep = NULL;
 		struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
-		frr_each (nhg_connected_tree, &zif->nhg_dependents,
+		frr_each(nhg_connected_tree, &zif->nhg_dependents,
 			  rb_node_dep) {
 			zebra_nhg_set_invalid(rb_node_dep->nhe);
 		}

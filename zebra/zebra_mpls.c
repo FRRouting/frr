@@ -2669,7 +2669,7 @@ int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 
 	nexthops_free(new_grp.nexthop);
 
-	return (found ? 0 : -1);
+	return found ? 0 : -1;
 }
 
 int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,

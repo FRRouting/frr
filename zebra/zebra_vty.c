@@ -1122,9 +1122,9 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 	else
 		vty_out(vty, "     VRF: UNKNOWN\n");
 
-	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE)) {
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE))
 		vty_out(vty, "     Duplicate - from kernel not hashable\n");
-	}
+
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
 		vty_out(vty, "     Valid");
 		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED))
@@ -1136,7 +1136,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 
 	if (!zebra_nhg_depends_is_empty(nhe)) {
 		vty_out(vty, "     Depends:");
-		frr_each (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
+		frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 			vty_out(vty, " (%u)", rb_node_dep->nhe->id);
 		}
 		vty_out(vty, "\n");
@@ -1162,7 +1162,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			vty_out(vty, " %s",
 				inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
-					  sizeof buf));
+					  sizeof(buf)));
 			if (nexthop->ifindex)
 				vty_out(vty, ", %s",
 					ifindex2ifname(nexthop->ifindex,
@@ -1215,7 +1215,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			if (nexthop->src.ipv4.s_addr) {
 				if (inet_ntop(AF_INET, &nexthop->src.ipv4, buf,
-					      sizeof buf))
+					      sizeof(buf)))
 					vty_out(vty, ", src %s", buf);
 			}
 			break;
@@ -1223,7 +1223,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any)) {
 				if (inet_ntop(AF_INET6, &nexthop->src.ipv6, buf,
-					      sizeof buf))
+					      sizeof(buf)))
 					vty_out(vty, ", src %s", buf);
 			}
 			break;
@@ -1236,7 +1236,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 			vty_out(vty, ", label %s",
 				mpls_label2str(nexthop->nh_label->num_labels,
 					       nexthop->nh_label->label, buf,
-					       sizeof buf, 1));
+					       sizeof(buf), 1));
 		}
 
 		vty_out(vty, "\n");
@@ -1244,7 +1244,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 
 	if (!zebra_nhg_dependents_is_empty(nhe)) {
 		vty_out(vty, "     Dependents:");
-		frr_each (nhg_connected_tree, &nhe->nhg_dependents,
+		frr_each(nhg_connected_tree, &nhe->nhg_dependents,
 			  rb_node_dep) {
 			vty_out(vty, " (%u)", rb_node_dep->nhe->id);
 		}
@@ -1299,7 +1299,7 @@ static void if_nexthop_group_dump_vty(struct vty *vty, struct interface *ifp)
 	if (!if_nhg_dependents_is_empty(ifp)) {
 		vty_out(vty, "Interface %s:\n", ifp->name);
 
-		frr_each (nhg_connected_tree, &zebra_if->nhg_dependents,
+		frr_each(nhg_connected_tree, &zebra_if->nhg_dependents,
 			  rb_node_dep) {
 			vty_out(vty, "   ");
 			show_nexthop_group_out(vty, rb_node_dep->nhe);
