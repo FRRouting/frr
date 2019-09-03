@@ -2097,7 +2097,7 @@ static int ospf_vrf_enable(struct vrf *vrf)
 				old_vrf_id);
 
 		if (old_vrf_id != ospf->vrf_id) {
-			frr_elevate_privs(&ospfd_privs) {
+			frr_with_privs(&ospfd_privs) {
 				/* stop zebra redist to us for old vrf */
 				zclient_send_dereg_requests(zclient,
 							    old_vrf_id);

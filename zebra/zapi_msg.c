@@ -2507,7 +2507,7 @@ static void zserv_write_incoming(struct stream *orig, uint16_t command)
 
 	snprintf(fname, MAXPATHLEN, "%s/%u", frr_vtydir, command);
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		fd = open(fname, O_CREAT | O_WRONLY | O_EXCL, 0644);
 	}
 	stream_flush(copy, fd);

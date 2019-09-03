@@ -75,7 +75,7 @@ static int ripng_multicast_join(struct interface *ifp, int sock)
 		 * While this is bogus, privs are available and easy to use
 		 * for this call as a workaround.
 		 */
-		frr_elevate_privs(&ripngd_privs) {
+		frr_with_privs(&ripngd_privs) {
 
 			ret = setsockopt(sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
 					 (char *)&mreq, sizeof(mreq));

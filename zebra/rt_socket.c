@@ -314,7 +314,7 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 	type = dplane_ctx_get_type(ctx);
 	old_type = dplane_ctx_get_old_type(ctx);
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 
 		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE) {
 			if (!RSYSTEM_ROUTE(type))

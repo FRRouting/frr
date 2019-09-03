@@ -215,6 +215,54 @@ void frr_pthread_stop_all(void);
 #define pthread_condattr_setclock(A, B)
 #endif
 
+/* mutex auto-lock/unlock */
+
+/* variant 1:
+ * (for short blocks, multiple mutexes supported)
+ * break & return can be used for aborting the block
+ *
+ * frr_with_mutex(&mtx, &mtx2) {
+ *    if (error)
+ *       break;
+ *    ...
+ * }
+ */
+#define _frr_with_mutex(mutex)                                                 \
+	*NAMECTR(_mtx_) __attribute__((                                        \
+		unused, cleanup(_frr_mtx_unlock))) = _frr_mtx_lock(mutex),     \
+	/* end */
+
+#define frr_with_mutex(...)                                                    \
+	for (pthread_mutex_t MACRO_REPEAT(_frr_with_mutex, ##__VA_ARGS__)      \
+	     *_once = NULL; _once == NULL; _once = (void *)1)                  \
+	/* end */
+
+/* variant 2:
+ * (more suitable for long blocks, no extra indentation)
+ *
+ * frr_mutex_lock_autounlock(&mtx);
+ * ...
+ */
+#define frr_mutex_lock_autounlock(mutex)                                       \
+	pthread_mutex_t *NAMECTR(_mtx_)                                        \
+		__attribute__((unused, cleanup(_frr_mtx_unlock))) =            \
+				    _frr_mtx_lock(mutex)                       \
+	/* end */
+
+static inline pthread_mutex_t *_frr_mtx_lock(pthread_mutex_t *mutex)
+{
+	pthread_mutex_lock(mutex);
+	return mutex;
+}
+
+static inline void _frr_mtx_unlock(pthread_mutex_t **mutex)
+{
+	if (!*mutex)
+		return;
+	pthread_mutex_unlock(*mutex);
+	*mutex = NULL;
+}
+
 #ifdef __cplusplus
 }
 #endif

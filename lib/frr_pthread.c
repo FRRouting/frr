@@ -49,21 +49,17 @@ static struct list *frr_pthread_list;
 
 void frr_pthread_init(void)
 {
-	pthread_mutex_lock(&frr_pthread_list_mtx);
-	{
+	frr_with_mutex(&frr_pthread_list_mtx) {
 		frr_pthread_list = list_new();
 		frr_pthread_list->del = (void (*)(void *))&frr_pthread_destroy;
 	}
-	pthread_mutex_unlock(&frr_pthread_list_mtx);
 }
 
 void frr_pthread_finish(void)
 {
-	pthread_mutex_lock(&frr_pthread_list_mtx);
-	{
+	frr_with_mutex(&frr_pthread_list_mtx) {
 		list_delete(&frr_pthread_list);
 	}
-	pthread_mutex_unlock(&frr_pthread_list_mtx);
 }
 
 struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
@@ -94,11 +90,9 @@ struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
 	pthread_mutex_init(fpt->running_cond_mtx, NULL);
 	pthread_cond_init(fpt->running_cond, NULL);
 
-	pthread_mutex_lock(&frr_pthread_list_mtx);
-	{
+	frr_with_mutex(&frr_pthread_list_mtx) {
 		listnode_add(frr_pthread_list, fpt);
 	}
-	pthread_mutex_unlock(&frr_pthread_list_mtx);
 
 	return fpt;
 }
@@ -162,23 +156,19 @@ int frr_pthread_run(struct frr_pthread *fpt, const pthread_attr_t *attr)
 
 void frr_pthread_wait_running(struct frr_pthread *fpt)
 {
-	pthread_mutex_lock(fpt->running_cond_mtx);
-	{
+	frr_with_mutex(fpt->running_cond_mtx) {
 		while (!fpt->running)
 			pthread_cond_wait(fpt->running_cond,
 					  fpt->running_cond_mtx);
 	}
-	pthread_mutex_unlock(fpt->running_cond_mtx);
 }
 
 void frr_pthread_notify_running(struct frr_pthread *fpt)
 {
-	pthread_mutex_lock(fpt->running_cond_mtx);
-	{
+	frr_with_mutex(fpt->running_cond_mtx) {
 		fpt->running = true;
 		pthread_cond_signal(fpt->running_cond);
 	}
-	pthread_mutex_unlock(fpt->running_cond_mtx);
 }
 
 int frr_pthread_stop(struct frr_pthread *fpt, void **result)
@@ -190,14 +180,12 @@ int frr_pthread_stop(struct frr_pthread *fpt, void **result)
 
 void frr_pthread_stop_all(void)
 {
-	pthread_mutex_lock(&frr_pthread_list_mtx);
-	{
+	frr_with_mutex(&frr_pthread_list_mtx) {
 		struct listnode *n;
 		struct frr_pthread *fpt;
 		for (ALL_LIST_ELEMENTS_RO(frr_pthread_list, n, fpt))
 			frr_pthread_stop(fpt, NULL);
 	}
-	pthread_mutex_unlock(&frr_pthread_list_mtx);
 }
 
 /*

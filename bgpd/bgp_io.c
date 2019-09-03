@@ -132,12 +132,10 @@ static int bgp_process_writes(struct thread *thread)
 
 	struct frr_pthread *fpt = bgp_pth_io;
 
-	pthread_mutex_lock(&peer->io_mtx);
-	{
+	frr_with_mutex(&peer->io_mtx) {
 		status = bgp_write(peer);
 		reschedule = (stream_fifo_head(peer->obuf) != NULL);
 	}
-	pthread_mutex_unlock(&peer->io_mtx);
 
 	/* no problem */
 	if (CHECK_FLAG(status, BGP_IO_TRANS_ERR)) {
@@ -184,11 +182,9 @@ static int bgp_process_reads(struct thread *thread)
 
 	struct frr_pthread *fpt = bgp_pth_io;
 
-	pthread_mutex_lock(&peer->io_mtx);
-	{
+	frr_with_mutex(&peer->io_mtx) {
 		status = bgp_read(peer);
 	}
-	pthread_mutex_unlock(&peer->io_mtx);
 
 	/* error checking phase */
 	if (CHECK_FLAG(status, BGP_IO_TRANS_ERR)) {
@@ -237,11 +233,9 @@ static int bgp_process_reads(struct thread *thread)
 			assert(ringbuf_get(ibw, pktbuf, pktsize) == pktsize);
 			stream_put(pkt, pktbuf, pktsize);
 
-			pthread_mutex_lock(&peer->io_mtx);
-			{
+			frr_with_mutex(&peer->io_mtx) {
 				stream_fifo_push(peer->ibuf, pkt);
 			}
-			pthread_mutex_unlock(&peer->io_mtx);
 
 			added_pkt = true;
 		} else

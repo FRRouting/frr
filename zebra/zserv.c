@@ -231,13 +231,11 @@ static int zserv_write(struct thread *thread)
 
 	cache = stream_fifo_new();
 
-	pthread_mutex_lock(&client->obuf_mtx);
-	{
+	frr_with_mutex(&client->obuf_mtx) {
 		while (stream_fifo_head(client->obuf_fifo))
 			stream_fifo_push(cache,
 					 stream_fifo_pop(client->obuf_fifo));
 	}
-	pthread_mutex_unlock(&client->obuf_mtx);
 
 	if (cache->tail) {
 		msg = cache->tail;
@@ -427,13 +425,11 @@ static int zserv_read(struct thread *thread)
 				      memory_order_relaxed);
 
 		/* publish read packets on client's input queue */
-		pthread_mutex_lock(&client->ibuf_mtx);
-		{
+		frr_with_mutex(&client->ibuf_mtx) {
 			while (cache->head)
 				stream_fifo_push(client->ibuf_fifo,
 						 stream_fifo_pop(cache));
 		}
-		pthread_mutex_unlock(&client->ibuf_mtx);
 
 		/* Schedule job to process those packets */
 		zserv_event(client, ZSERV_PROCESS_MESSAGES);
@@ -499,8 +495,7 @@ static int zserv_process_messages(struct thread *thread)
 	uint32_t p2p = zrouter.packets_to_process;
 	bool need_resched = false;
 
-	pthread_mutex_lock(&client->ibuf_mtx);
-	{
+	frr_with_mutex(&client->ibuf_mtx) {
 		uint32_t i;
 		for (i = 0; i < p2p && stream_fifo_head(client->ibuf_fifo);
 		     ++i) {
@@ -516,7 +511,6 @@ static int zserv_process_messages(struct thread *thread)
 		if (stream_fifo_head(client->ibuf_fifo))
 			need_resched = true;
 	}
-	pthread_mutex_unlock(&client->ibuf_mtx);
 
 	while (stream_fifo_head(cache)) {
 		msg = stream_fifo_pop(cache);
@@ -535,11 +529,9 @@ static int zserv_process_messages(struct thread *thread)
 
 int zserv_send_message(struct zserv *client, struct stream *msg)
 {
-	pthread_mutex_lock(&client->obuf_mtx);
-	{
+	frr_with_mutex(&client->obuf_mtx) {
 		stream_fifo_push(client->obuf_fifo, msg);
 	}
-	pthread_mutex_unlock(&client->obuf_mtx);
 
 	zserv_client_event(client, ZSERV_CLIENT_WRITE);
 
@@ -790,7 +782,7 @@ void zserv_start(char *path)
 	setsockopt_so_recvbuf(zsock, 1048576);
 	setsockopt_so_sendbuf(zsock, 1048576);
 
-	frr_elevate_privs((sa.ss_family != AF_UNIX) ? &zserv_privs : NULL) {
+	frr_with_privs((sa.ss_family != AF_UNIX) ? &zserv_privs : NULL) {
 		ret = bind(zsock, (struct sockaddr *)&sa, sa_len);
 	}
 	if (ret < 0) {

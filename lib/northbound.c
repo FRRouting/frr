@@ -26,6 +26,7 @@
 #include "command.h"
 #include "debug.h"
 #include "db.h"
+#include "frr_pthread.h"
 #include "northbound.h"
 #include "northbound_cli.h"
 #include "northbound_db.h"
@@ -723,8 +724,7 @@ int nb_running_lock(enum nb_client client, const void *user)
 {
 	int ret = -1;
 
-	pthread_mutex_lock(&running_config_mgmt_lock.mtx);
-	{
+	frr_with_mutex(&running_config_mgmt_lock.mtx) {
 		if (!running_config_mgmt_lock.locked) {
 			running_config_mgmt_lock.locked = true;
 			running_config_mgmt_lock.owner_client = client;
@@ -732,7 +732,6 @@ int nb_running_lock(enum nb_client client, const void *user)
 			ret = 0;
 		}
 	}
-	pthread_mutex_unlock(&running_config_mgmt_lock.mtx);
 
 	return ret;
 }
@@ -741,8 +740,7 @@ int nb_running_unlock(enum nb_client client, const void *user)
 {
 	int ret = -1;
 
-	pthread_mutex_lock(&running_config_mgmt_lock.mtx);
-	{
+	frr_with_mutex(&running_config_mgmt_lock.mtx) {
 		if (running_config_mgmt_lock.locked
 		    && running_config_mgmt_lock.owner_client == client
 		    && running_config_mgmt_lock.owner_user == user) {
@@ -752,7 +750,6 @@ int nb_running_unlock(enum nb_client client, const void *user)
 			ret = 0;
 		}
 	}
-	pthread_mutex_unlock(&running_config_mgmt_lock.mtx);
 
 	return ret;
 }
@@ -761,14 +758,12 @@ int nb_running_lock_check(enum nb_client client, const void *user)
 {
 	int ret = -1;
 
-	pthread_mutex_lock(&running_config_mgmt_lock.mtx);
-	{
+	frr_with_mutex(&running_config_mgmt_lock.mtx) {
 		if (!running_config_mgmt_lock.locked
 		    || (running_config_mgmt_lock.owner_client == client
 			&& running_config_mgmt_lock.owner_user == user))
 			ret = 0;
 	}
-	pthread_mutex_unlock(&running_config_mgmt_lock.mtx);
 
 	return ret;
 }

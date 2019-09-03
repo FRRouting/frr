@@ -31,6 +31,7 @@
 #include "lib_errors.h"
 #include "lib/hook.h"
 #include "printfrr.h"
+#include "frr_pthread.h"
 
 #ifndef SUNOS_5
 #include <sys/un.h>
@@ -83,89 +84,70 @@ static int zlog_filter_lookup(const char *lookup)
 
 void zlog_filter_clear(void)
 {
-	pthread_mutex_lock(&loglock);
-	zlog_filter_count = 0;
-	pthread_mutex_unlock(&loglock);
+	frr_with_mutex(&loglock) {
+		zlog_filter_count = 0;
+	}
 }
 
 int zlog_filter_add(const char *filter)
 {
-	pthread_mutex_lock(&loglock);
+	frr_with_mutex(&loglock) {
+		if (zlog_filter_count >= ZLOG_FILTERS_MAX)
+			return 1;
 
-	int ret = 0;
+		if (zlog_filter_lookup(filter) != -1)
+			/* Filter already present */
+			return -1;
 
-	if (zlog_filter_count >= ZLOG_FILTERS_MAX) {
-		ret = 1;
-		goto done;
+		strlcpy(zlog_filters[zlog_filter_count], filter,
+			sizeof(zlog_filters[0]));
+
+		if (zlog_filters[zlog_filter_count][0] == '\0')
+			/* Filter was either empty or didn't get copied
+			 * correctly
+			 */
+			return -1;
+
+		zlog_filter_count++;
 	}
-
-	if (zlog_filter_lookup(filter) != -1) {
-		/* Filter already present */
-		ret = -1;
-		goto done;
-	}
-
-	strlcpy(zlog_filters[zlog_filter_count], filter,
-		sizeof(zlog_filters[0]));
-
-	if (zlog_filters[zlog_filter_count][0] == '\0') {
-		/* Filter was either empty or didn't get copied correctly */
-		ret = -1;
-		goto done;
-	}
-
-	zlog_filter_count++;
-
-done:
-	pthread_mutex_unlock(&loglock);
-	return ret;
+	return 0;
 }
 
 int zlog_filter_del(const char *filter)
 {
-	pthread_mutex_lock(&loglock);
+	frr_with_mutex(&loglock) {
+		int found_idx = zlog_filter_lookup(filter);
+		int last_idx = zlog_filter_count - 1;
 
-	int found_idx = zlog_filter_lookup(filter);
-	int last_idx = zlog_filter_count - 1;
-	int ret = 0;
+		if (found_idx == -1)
+			/* Didn't find the filter to delete */
+			return -1;
 
-	if (found_idx == -1) {
-		/* Didn't find the filter to delete */
-		ret = -1;
-		goto done;
+		/* Adjust the filter array */
+		memmove(zlog_filters[found_idx], zlog_filters[found_idx + 1],
+			(last_idx - found_idx) * sizeof(zlog_filters[0]));
+
+		zlog_filter_count--;
 	}
-
-	/* Adjust the filter array */
-	memmove(zlog_filters[found_idx], zlog_filters[found_idx + 1],
-		(last_idx - found_idx) * sizeof(zlog_filters[0]));
-
-	zlog_filter_count--;
-
-done:
-	pthread_mutex_unlock(&loglock);
-	return ret;
+	return 0;
 }
 
 /* Dump all filters to buffer, delimited by new line */
 int zlog_filter_dump(char *buf, size_t max_size)
 {
-	pthread_mutex_lock(&loglock);
-
-	int ret = 0;
 	int len = 0;
 
-	for (int i = 0; i < zlog_filter_count; i++) {
-		ret = snprintf(buf + len, max_size - len, " %s\n",
-			       zlog_filters[i]);
-		len += ret;
-		if ((ret < 0) || ((size_t)len >= max_size)) {
-			len = -1;
-			goto done;
+	frr_with_mutex(&loglock) {
+		for (int i = 0; i < zlog_filter_count; i++) {
+			int ret;
+			ret = snprintf(buf + len, max_size - len, " %s\n",
+				       zlog_filters[i]);
+			len += ret;
+			if ((ret < 0) || ((size_t)len >= max_size))
+				return -1;
 		}
 	}
 
-done:
-	pthread_mutex_unlock(&loglock);
 	return len;
 }
 
@@ -363,7 +345,7 @@ search:
 /* va_list version of zlog. */
 void vzlog(int priority, const char *format, va_list args)
 {
-	pthread_mutex_lock(&loglock);
+	frr_mutex_lock_autounlock(&loglock);
 
 	char proto_str[32] = "";
 	int original_errno = errno;
@@ -430,36 +412,31 @@ out:
 	if (msg != buf)
 		XFREE(MTYPE_TMP, msg);
 	errno = original_errno;
-	pthread_mutex_unlock(&loglock);
 }
 
 int vzlog_test(int priority)
 {
-	pthread_mutex_lock(&loglock);
-
-	int ret = 0;
+	frr_mutex_lock_autounlock(&loglock);
 
 	struct zlog *zl = zlog_default;
 
 	/* When zlog_default is also NULL, use stderr for logging. */
 	if (zl == NULL)
-		ret = 1;
+		return 1;
 	/* Syslog output */
 	else if (priority <= zl->maxlvl[ZLOG_DEST_SYSLOG])
-		ret = 1;
+		return 1;
 	/* File output. */
 	else if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
-		ret = 1;
+		return 1;
 	/* stdout output. */
 	else if (priority <= zl->maxlvl[ZLOG_DEST_STDOUT])
-		ret = 1;
+		return 1;
 	/* Terminal monitor. */
 	else if (priority <= zl->maxlvl[ZLOG_DEST_MONITOR])
-		ret = 1;
+		return 1;
 
-	pthread_mutex_unlock(&loglock);
-
-	return ret;
+	return 0;
 }
 
 /*
@@ -870,9 +847,9 @@ void openzlog(const char *progname, const char *protoname,
 
 	openlog(progname, syslog_flags, zl->facility);
 
-	pthread_mutex_lock(&loglock);
-	zlog_default = zl;
-	pthread_mutex_unlock(&loglock);
+	frr_with_mutex(&loglock) {
+		zlog_default = zl;
+	}
 
 #ifdef HAVE_GLIBC_BACKTRACE
 	/* work around backtrace() using lazily resolved dynamically linked
@@ -889,7 +866,8 @@ void openzlog(const char *progname, const char *protoname,
 
 void closezlog(void)
 {
-	pthread_mutex_lock(&loglock);
+	frr_mutex_lock_autounlock(&loglock);
+
 	struct zlog *zl = zlog_default;
 
 	closelog();
@@ -901,15 +879,14 @@ void closezlog(void)
 
 	XFREE(MTYPE_ZLOG, zl);
 	zlog_default = NULL;
-	pthread_mutex_unlock(&loglock);
 }
 
 /* Called from command.c. */
 void zlog_set_level(zlog_dest_t dest, int log_level)
 {
-	pthread_mutex_lock(&loglock);
-	zlog_default->maxlvl[dest] = log_level;
-	pthread_mutex_unlock(&loglock);
+	frr_with_mutex(&loglock) {
+		zlog_default->maxlvl[dest] = log_level;
+	}
 }
 
 int zlog_set_file(const char *filename, int log_level)
@@ -929,15 +906,15 @@ int zlog_set_file(const char *filename, int log_level)
 	if (fp == NULL) {
 		ret = 0;
 	} else {
-		pthread_mutex_lock(&loglock);
-		zl = zlog_default;
+		frr_with_mutex(&loglock) {
+			zl = zlog_default;
 
-		/* Set flags. */
-		zl->filename = XSTRDUP(MTYPE_ZLOG, filename);
-		zl->maxlvl[ZLOG_DEST_FILE] = log_level;
-		zl->fp = fp;
-		logfile_fd = fileno(fp);
-		pthread_mutex_unlock(&loglock);
+			/* Set flags. */
+			zl->filename = XSTRDUP(MTYPE_ZLOG, filename);
+			zl->maxlvl[ZLOG_DEST_FILE] = log_level;
+			zl->fp = fp;
+			logfile_fd = fileno(fp);
+		}
 	}
 
 	return ret;
@@ -946,7 +923,7 @@ int zlog_set_file(const char *filename, int log_level)
 /* Reset opend file. */
 int zlog_reset_file(void)
 {
-	pthread_mutex_lock(&loglock);
+	frr_mutex_lock_autounlock(&loglock);
 
 	struct zlog *zl = zlog_default;
 
@@ -958,8 +935,6 @@ int zlog_reset_file(void)
 
 	XFREE(MTYPE_ZLOG, zl->filename);
 	zl->filename = NULL;
-
-	pthread_mutex_unlock(&loglock);
 
 	return 1;
 }
