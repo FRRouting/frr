@@ -1033,15 +1033,13 @@ zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 {
 	struct nhg_hash_entry *nhe = NULL;
 
-	vrf_id_t nhg_vrf_id = nhg->nexthop->vrf_id;
-
-	if (!nhg) {
+	if (!(nhg && nhg->nexthop)) {
 		flog_err(EC_ZEBRA_TABLE_LOOKUP_FAILED,
 			 "No nexthop passed to %s", __func__);
 		return NULL;
 	}
 
-	zebra_nhg_find(&nhe, id, nhg, NULL, nhg_vrf_id, rt_afi, 0);
+	zebra_nhg_find(&nhe, id, nhg, NULL, nhg->nexthop->vrf_id, rt_afi, 0);
 
 	return nhe;
 }
