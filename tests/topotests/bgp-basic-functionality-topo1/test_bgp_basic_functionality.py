@@ -375,7 +375,7 @@ def test_static_routes(request):
     # Verifying RIB routes
     dut = 'r3'
     protocol = 'bgp'
-    next_hop = '10.0.0.2'
+    next_hop = ['10.0.0.2', '10.0.0.5']
     result = verify_rib(tgen, 'ipv4', dut, input_dict, next_hop=next_hop,
                         protocol=protocol)
     assert result is True, "Testcase {} :Failed \n Error: {}". \
