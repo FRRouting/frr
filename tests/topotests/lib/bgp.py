@@ -470,9 +470,9 @@ def __create_bgp_unicast_address_family(topo, input_dict, router, addr_type,
                             dest_link]["ipv6"].split("/")[0]
 
             neigh_cxt = "neighbor {}".format(ip_addr)
-            #config_data.append("address-family {} unicast".format(
-            #    addr_type
-            #))
+            config_data.append("address-family {} unicast".format(
+                addr_type
+            ))
             if deactivate:
                 config_data.append(
                     "no neighbor {} activate".format(deactivate))
