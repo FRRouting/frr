@@ -285,7 +285,7 @@ void eigrp_if_update(struct interface *ifp)
 {
 	struct listnode *node, *nnode;
 	struct route_node *rn;
-	struct eigrp *eigrp  = eigrp_lookup(ifp->vrf_id);
+	struct eigrp *eigrp;
 
 	/*
 	 * In the event there are multiple eigrp autonymnous systems running,
