@@ -125,12 +125,12 @@ static void pm_session_write_config_walker(struct hash_bucket *b, void *data)
 		vty_out(vty, "  retries threshold %u total %u\n",
 			pm->retries_threshold, pm->retries_total);
 
+	hook_call(pm_tracking_write_config, pm, vty);
+
 	if (pm->flags & PM_SESS_FLAG_SHUTDOWN)
 		vty_out(vty, "  shutdown\n");
 	else
 		vty_out(vty, "  no shutdown\n");
-
-	hook_call(pm_tracking_write_config, pm, vty);
 
 	vty_out(vty, " !\n");
 	return;
