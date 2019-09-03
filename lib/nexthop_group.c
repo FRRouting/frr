@@ -142,7 +142,7 @@ bool nexthop_group_equal_no_recurse(const struct nexthop_group *nhg1,
 	if (nhg1 && !nhg2)
 		return false;
 
-	if (!nhg1 && !nhg2)
+	if (!nhg1 && nhg2)
 		return false;
 
 	if (nexthop_group_nexthop_num_no_recurse(nhg1)
@@ -168,7 +168,7 @@ bool nexthop_group_equal(const struct nexthop_group *nhg1,
 	if (nhg1 && !nhg2)
 		return false;
 
-	if (!nhg1 && !nhg2)
+	if (!nhg1 && nhg2)
 		return false;
 
 	if (nexthop_group_nexthop_num(nhg1) != nexthop_group_nexthop_num(nhg2))
