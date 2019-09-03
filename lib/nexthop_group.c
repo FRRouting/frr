@@ -132,13 +132,12 @@ struct nexthop *nexthop_exists(const struct nexthop_group *nhg,
 	return NULL;
 }
 
-/* This assumes ordered */
-bool nexthop_group_equal_no_recurse(const struct nexthop_group *nhg1,
-				    const struct nexthop_group *nhg2)
+static bool
+nexthop_group_equal_common(const struct nexthop_group *nhg1,
+			   const struct nexthop_group *nhg2,
+			   uint8_t (*nexthop_group_nexthop_num_func)(
+				   const struct nexthop_group *nhg))
 {
-	struct nexthop *nh1 = NULL;
-	struct nexthop *nh2 = NULL;
-
 	if (nhg1 && !nhg2)
 		return false;
 
@@ -148,8 +147,22 @@ bool nexthop_group_equal_no_recurse(const struct nexthop_group *nhg1,
 	if (nhg1 == nhg2)
 		return true;
 
-	if (nexthop_group_nexthop_num_no_recurse(nhg1)
-	    != nexthop_group_nexthop_num_no_recurse(nhg2))
+	if (nexthop_group_nexthop_num_func(nhg1)
+	    != nexthop_group_nexthop_num_func(nhg2))
+		return false;
+
+	return true;
+}
+
+/* This assumes ordered */
+bool nexthop_group_equal_no_recurse(const struct nexthop_group *nhg1,
+				    const struct nexthop_group *nhg2)
+{
+	struct nexthop *nh1 = NULL;
+	struct nexthop *nh2 = NULL;
+
+	if (!nexthop_group_equal_common(nhg1, nhg2,
+					&nexthop_group_nexthop_num_no_recurse))
 		return false;
 
 	for (nh1 = nhg1->nexthop, nh2 = nhg2->nexthop; nh1 || nh2;
@@ -172,16 +185,7 @@ bool nexthop_group_equal(const struct nexthop_group *nhg1,
 	struct nexthop *nh1 = NULL;
 	struct nexthop *nh2 = NULL;
 
-	if (nhg1 && !nhg2)
-		return false;
-
-	if (!nhg1 && nhg2)
-		return false;
-
-	if (nhg1 == nhg2)
-		return true;
-
-	if (nexthop_group_nexthop_num(nhg1) != nexthop_group_nexthop_num(nhg2))
+	if (!nexthop_group_equal_common(nhg1, nhg2, &nexthop_group_nexthop_num))
 		return false;
 
 	for (nh1 = nhg1->nexthop, nh2 = nhg2->nexthop; nh1 || nh2;
