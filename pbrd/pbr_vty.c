@@ -172,6 +172,33 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(pbr_map_match_mark, pbr_map_match_mark_cmd,
+	"[no] match mark (1-4294967295)$mark",
+	NO_STR
+	"Match the rest of the command\n"
+	"Choose the mark value to use\n"
+	"mark\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+#ifndef GNU_LINUX
+	vty_out(vty, "pbr marks are not supported on this platform");
+	return CMD_WARNING_CONFIG_FAILED;
+#endif
+
+	if (!no) {
+		if (pbrms->mark == (uint32_t) mark)
+			return CMD_SUCCESS;
+		pbrms->mark = (uint32_t) mark;
+	} else {
+		pbrms->mark = 0;
+	}
+
+	pbr_map_check(pbrms);
+
+	return CMD_SUCCESS;
+ }
+
 DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
 	"[no] set nexthop-group NHGNAME$name",
 	NO_STR
@@ -453,6 +480,8 @@ DEFPY (show_pbr_map,
 				vty_out(vty, "\tDST Match: %s\n",
 					prefix2str(pbrms->dst, buf,
 						   sizeof(buf)));
+			if (pbrms->mark)
+				vty_out(vty, "\tMARK Match: %u\n", pbrms->mark);
 
 			if (pbrms->nhgrp_name) {
 				vty_out(vty,
@@ -632,6 +661,9 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 		vty_out(vty, " match dst-ip %s\n",
 			prefix2str(pbrms->dst, buff, sizeof(buff)));
 
+	if (pbrms->mark)
+		vty_out(vty, " match mark %u\n", pbrms->mark);
+
 	if (pbrms->nhgrp_name)
 		vty_out(vty, " set nexthop-group %s\n", pbrms->nhgrp_name);
 
@@ -704,6 +736,7 @@ void pbr_vty_init(void)
 	install_element(INTERFACE_NODE, &pbr_policy_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_src_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_dst_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_match_mark_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_group_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_cmd);
 	install_element(VIEW_NODE, &show_pbr_cmd);
