@@ -1582,6 +1582,12 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	}
 
 	active = peer_active(peer);
+	if (!active) {
+		if (peer->su.sa.sa_family == AF_UNSPEC)
+			peer->last_reset = PEER_DOWN_NBR_ADDR;
+		else
+			peer->last_reset = PEER_DOWN_NOAFI_ACTIVATED;
+	}
 
 	/* Last read and reset time set */
 	peer->readtime = peer->resettime = bgp_clock();
