@@ -126,7 +126,7 @@ struct route_map_rule_cmd {
 };
 
 /* Route map apply error. */
-enum {
+enum rmap_compile_rets {
 	RMAP_COMPILE_SUCCESS,
 
 	/* Route map rule is missing. */
@@ -220,25 +220,28 @@ extern void route_map_init(void);
 extern void route_map_finish(void);
 
 /* Add match statement to route map. */
-extern int route_map_add_match(struct route_map_index *index,
-			       const char *match_name, const char *match_arg,
-			       route_map_event_t type);
+extern enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
+						  const char *match_name,
+						  const char *match_arg,
+						  route_map_event_t type);
 
 /* Delete specified route match rule. */
-extern int route_map_delete_match(struct route_map_index *index,
-				  const char *match_name,
-				  const char *match_arg);
+extern enum rmap_compile_rets
+route_map_delete_match(struct route_map_index *index,
+		       const char *match_name, const char *match_arg);
 
 extern const char *route_map_get_match_arg(struct route_map_index *index,
 					   const char *match_name);
 
 /* Add route-map set statement to the route map. */
-extern int route_map_add_set(struct route_map_index *index,
-			     const char *set_name, const char *set_arg);
+extern enum rmap_compile_rets route_map_add_set(struct route_map_index *index,
+						const char *set_name,
+						const char *set_arg);
 
 /* Delete route map set rule. */
-extern int route_map_delete_set(struct route_map_index *index,
-				const char *set_name, const char *set_arg);
+extern enum rmap_compile_rets
+route_map_delete_set(struct route_map_index *index,
+		     const char *set_name, const char *set_arg);
 
 /* Install rule command to the match list. */
 extern void route_map_install_match(struct route_map_rule_cmd *cmd);
