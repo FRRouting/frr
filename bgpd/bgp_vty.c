@@ -7921,6 +7921,8 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 		} 
 		json_object_string_add(json_peer, "lastResetDueTo",
 				       peer_down_str[(int)peer->last_reset]);
+		json_object_int_add(json_peer, "lastResetCode",
+				    peer->last_reset);
 	} else {
 		if (peer->last_reset == PEER_DOWN_NOTIFY_SEND
 		    || peer->last_reset == PEER_DOWN_NOTIFY_RECEIVED) {
