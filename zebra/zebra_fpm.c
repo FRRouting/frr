@@ -1927,6 +1927,9 @@ static inline void zfpm_init_message_format(const char *format)
 				"FPM protobuf message format is not available");
 			return;
 		}
+		flog_warn(EC_ZEBRA_PROTOBUF_NOT_AVAILABLE,
+			  "FPM protobuf message format is deprecated and scheduled to be removed. "
+			  "Please convert to using netlink format or contact dev@lists.frrouting.org with your use case.");
 		zfpm_g->message_format = ZFPM_MSG_FORMAT_PROTOBUF;
 		return;
 	}
