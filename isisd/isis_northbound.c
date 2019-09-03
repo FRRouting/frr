@@ -1561,21 +1561,8 @@ static int lib_interface_isis_destroy(enum nb_event event,
 	circuit = nb_running_unset_entry(dnode);
 	if (!circuit)
 		return NB_ERR_INCONSISTENCY;
-	/* delete circuit through csm changes */
-	switch (circuit->state) {
-	case C_STATE_UP:
-		isis_csm_state_change(IF_DOWN_FROM_Z, circuit,
-				      circuit->interface);
+	if (circuit->state == C_STATE_UP || circuit->state == C_STATE_CONF)
 		isis_csm_state_change(ISIS_DISABLE, circuit, circuit->area);
-		break;
-	case C_STATE_CONF:
-		isis_csm_state_change(ISIS_DISABLE, circuit, circuit->area);
-		break;
-	case C_STATE_INIT:
-		isis_csm_state_change(IF_DOWN_FROM_Z, circuit,
-				      circuit->interface);
-		break;
-	}
 
 	return NB_OK;
 }
