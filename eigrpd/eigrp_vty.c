@@ -83,12 +83,31 @@ static void eigrp_vty_display_prefix_entry(struct vty *vty,
 	}
 }
 
+static struct eigrp *eigrp_vty_get_eigrp(struct vty *vty, const char *vrf_name)
+{
+	struct vrf *vrf;
+
+	if (vrf_name)
+		vrf = vrf_lookup_by_name(vrf_name);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!vrf) {
+		vty_out(vty, "VRF %s specified does not exist",
+			vrf_name ? vrf_name : VRF_DEFAULT_NAME);
+		return NULL;
+	}
+
+	return eigrp_lookup(vrf->vrf_id);
+}
+
 DEFPY (show_ip_eigrp_topology_all,
        show_ip_eigrp_topology_all_cmd,
-       "show ip eigrp topology [all-links$all]",
+       "show ip eigrp [vrf NAME] topology [all-links$all]",
        SHOW_STR
        IP_STR
        "IP-EIGRP show commands\n"
+       VRF_CMD_HELP_STR
        "IP-EIGRP topology\n"
        "Show all links in topology table\n")
 {
@@ -96,7 +115,7 @@ DEFPY (show_ip_eigrp_topology_all,
 	struct eigrp_prefix_entry *tn;
 	struct route_node *rn;
 
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_vty_get_eigrp(vty, vrf);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
@@ -119,10 +138,11 @@ DEFPY (show_ip_eigrp_topology_all,
 
 DEFPY (show_ip_eigrp_topology,
        show_ip_eigrp_topology_cmd,
-       "show ip eigrp topology <A.B.C.D$address|A.B.C.D/M$prefix>",
+       "show ip eigrp [vrf NAME] topology <A.B.C.D$address|A.B.C.D/M$prefix>",
        SHOW_STR
        IP_STR
        "IP-EIGRP show commands\n"
+       VRF_CMD_HELP_STR
        "IP-EIGRP topology\n"
        "For a specific address\n"
        "For a specific prefix\n")
@@ -132,7 +152,7 @@ DEFPY (show_ip_eigrp_topology,
 	struct route_node *rn;
 	struct prefix cmp;
 
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_vty_get_eigrp(vty, vrf);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
@@ -167,12 +187,13 @@ DEFPY (show_ip_eigrp_topology,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_eigrp_interfaces,
+DEFPY (show_ip_eigrp_interfaces,
        show_ip_eigrp_interfaces_cmd,
-       "show ip eigrp interfaces [IFNAME] [detail]",
+       "show ip eigrp [vrf NAME] interfaces [IFNAME] [detail]$detail",
        SHOW_STR
        IP_STR
        "IP-EIGRP show commands\n"
+       VRF_CMD_HELP_STR
        "IP-EIGRP interfaces\n"
        "Interface name to look at\n"
        "Detailed information\n")
@@ -180,21 +201,12 @@ DEFUN (show_ip_eigrp_interfaces,
 	struct eigrp_interface *ei;
 	struct eigrp *eigrp;
 	struct listnode *node;
-	int idx = 0;
-	bool detail = false;
-	const char *ifname = NULL;
 
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_vty_get_eigrp(vty, vrf);
 	if (eigrp == NULL) {
 		vty_out(vty, "EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
-
-	if (argv_find(argv, argc, "IFNAME", &idx))
-		ifname = argv[idx]->arg;
-
-	if (argv_find(argv, argc, "detail", &idx))
-		detail = true;
 
 	if (!ifname)
 		show_ip_eigrp_interface_header(vty, eigrp);
@@ -210,12 +222,13 @@ DEFUN (show_ip_eigrp_interfaces,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_eigrp_neighbors,
+DEFPY (show_ip_eigrp_neighbors,
        show_ip_eigrp_neighbors_cmd,
-       "show ip eigrp neighbors [IFNAME] [detail]",
+       "show ip eigrp [vrf NAME] neighbors [IFNAME] [detail]$detail",
        SHOW_STR
        IP_STR
        "IP-EIGRP show commands\n"
+       VRF_CMD_HELP_STR
        "IP-EIGRP neighbors\n"
        "Interface to show on\n"
        "Detailed Information\n")
@@ -224,20 +237,12 @@ DEFUN (show_ip_eigrp_neighbors,
 	struct eigrp_interface *ei;
 	struct listnode *node, *node2, *nnode2;
 	struct eigrp_neighbor *nbr;
-	bool detail = false;
-	int idx = 0;
-	const char *ifname = NULL;
 
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_vty_get_eigrp(vty, vrf);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
-
-	if (argv_find(argv, argc, "IFNAME", &idx))
-		ifname = argv[idx]->arg;
-
-	detail = (argv_find(argv, argc, "detail", &idx));
 
 	show_ip_eigrp_neighbor_header(vty, eigrp);
 
@@ -246,7 +251,7 @@ DEFUN (show_ip_eigrp_neighbors,
 			for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
 				if (detail || (nbr->state == EIGRP_NEIGHBOR_UP))
 					show_ip_eigrp_neighbor_sub(vty, nbr,
-								   detail);
+								   !!detail);
 			}
 		}
 	}
@@ -257,12 +262,13 @@ DEFUN (show_ip_eigrp_neighbors,
 /*
  * Execute hard restart for all neighbors
  */
-DEFUN (clear_ip_eigrp_neighbors,
+DEFPY (clear_ip_eigrp_neighbors,
        clear_ip_eigrp_neighbors_cmd,
-       "clear ip eigrp neighbors",
+       "clear ip eigrp [vrf NAME] neighbors",
        CLEAR_STR
        IP_STR
        "Clear IP-EIGRP\n"
+       VRF_CMD_HELP_STR
        "Clear IP-EIGRP neighbors\n")
 {
 	struct eigrp *eigrp;
@@ -271,7 +277,7 @@ DEFUN (clear_ip_eigrp_neighbors,
 	struct eigrp_neighbor *nbr;
 
 	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_vty_get_eigrp(vty, vrf);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
@@ -289,13 +295,13 @@ DEFUN (clear_ip_eigrp_neighbors,
 					"Neighbor %s (%s) is down: manually cleared",
 					inet_ntoa(nbr->src),
 					ifindex2ifname(nbr->ei->ifp->ifindex,
-						       VRF_DEFAULT));
+						       eigrp->vrf_id));
 				vty_time_print(vty, 0);
 				vty_out(vty,
 					"Neighbor %s (%s) is down: manually cleared\n",
 					inet_ntoa(nbr->src),
 					ifindex2ifname(nbr->ei->ifp->ifindex,
-						       VRF_DEFAULT));
+						       eigrp->vrf_id));
 
 				/* set neighbor to DOWN */
 				nbr->state = EIGRP_NEIGHBOR_DOWN;
@@ -311,12 +317,13 @@ DEFUN (clear_ip_eigrp_neighbors,
 /*
  * Execute hard restart for all neighbors on interface
  */
-DEFUN (clear_ip_eigrp_neighbors_int,
+DEFPY (clear_ip_eigrp_neighbors_int,
        clear_ip_eigrp_neighbors_int_cmd,
-       "clear ip eigrp neighbors IFNAME",
+       "clear ip eigrp [vrf NAME] neighbors IFNAME",
        CLEAR_STR
        IP_STR
        "Clear IP-EIGRP\n"
+       VRF_CMD_HELP_STR
        "Clear IP-EIGRP neighbors\n"
        "Interface's name\n")
 {
@@ -324,20 +331,18 @@ DEFUN (clear_ip_eigrp_neighbors_int,
 	struct eigrp_interface *ei;
 	struct listnode *node2, *nnode2;
 	struct eigrp_neighbor *nbr;
-	int idx = 0;
 
 	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_vty_get_eigrp(vty, vrf);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
 
 	/* lookup interface by specified name */
-	argv_find(argv, argc, "IFNAME", &idx);
-	ei = eigrp_if_lookup_by_name(eigrp, argv[idx]->arg);
+	ei = eigrp_if_lookup_by_name(eigrp, ifname);
 	if (ei == NULL) {
-		vty_out(vty, " Interface (%s) doesn't exist\n", argv[idx]->arg);
+		vty_out(vty, " Interface (%s) doesn't exist\n", ifname);
 		return CMD_WARNING;
 	}
 
@@ -350,13 +355,13 @@ DEFUN (clear_ip_eigrp_neighbors_int,
 			zlog_debug("Neighbor %s (%s) is down: manually cleared",
 				   inet_ntoa(nbr->src),
 				   ifindex2ifname(nbr->ei->ifp->ifindex,
-						  VRF_DEFAULT));
+						  eigrp->vrf_id));
 			vty_time_print(vty, 0);
 			vty_out(vty,
 				"Neighbor %s (%s) is down: manually cleared\n",
 				inet_ntoa(nbr->src),
 				ifindex2ifname(nbr->ei->ifp->ifindex,
-					       VRF_DEFAULT));
+					       eigrp->vrf_id));
 
 			/* set neighbor to DOWN */
 			nbr->state = EIGRP_NEIGHBOR_DOWN;
@@ -371,26 +376,21 @@ DEFUN (clear_ip_eigrp_neighbors_int,
 /*
  * Execute hard restart for neighbor specified by IP
  */
-DEFUN (clear_ip_eigrp_neighbors_IP,
+DEFPY (clear_ip_eigrp_neighbors_IP,
        clear_ip_eigrp_neighbors_IP_cmd,
-       "clear ip eigrp neighbors A.B.C.D",
+       "clear ip eigrp [vrf NAME] neighbors A.B.C.D$nbr_addr",
        CLEAR_STR
        IP_STR
        "Clear IP-EIGRP\n"
+       VRF_CMD_HELP_STR
        "Clear IP-EIGRP neighbors\n"
        "IP-EIGRP neighbor address\n")
 {
 	struct eigrp *eigrp;
 	struct eigrp_neighbor *nbr;
-	struct in_addr nbr_addr;
-
-	if (!inet_aton(argv[4]->arg, &nbr_addr)) {
-		vty_out(vty, "Unable to parse %s", argv[4]->arg);
-		return CMD_WARNING;
-	}
 
 	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_vty_get_eigrp(vty, vrf);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
@@ -414,19 +414,20 @@ DEFUN (clear_ip_eigrp_neighbors_IP,
 /*
  * Execute graceful restart for all neighbors
  */
-DEFUN (clear_ip_eigrp_neighbors_soft,
+DEFPY (clear_ip_eigrp_neighbors_soft,
        clear_ip_eigrp_neighbors_soft_cmd,
-       "clear ip eigrp neighbors soft",
+       "clear ip eigrp [vrf NAME] neighbors soft",
        CLEAR_STR
        IP_STR
        "Clear IP-EIGRP\n"
+       VRF_CMD_HELP_STR
        "Clear IP-EIGRP neighbors\n"
        "Resync with peers without adjacency reset\n")
 {
 	struct eigrp *eigrp;
 
 	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_vty_get_eigrp(vty, vrf);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
@@ -441,12 +442,13 @@ DEFUN (clear_ip_eigrp_neighbors_soft,
 /*
  * Execute graceful restart for all neighbors on interface
  */
-DEFUN (clear_ip_eigrp_neighbors_int_soft,
+DEFPY (clear_ip_eigrp_neighbors_int_soft,
        clear_ip_eigrp_neighbors_int_soft_cmd,
-       "clear ip eigrp neighbors IFNAME soft",
+       "clear ip eigrp [vrf NAME] neighbors IFNAME soft",
        CLEAR_STR
        IP_STR
        "Clear IP-EIGRP\n"
+       VRF_CMD_HELP_STR
        "Clear IP-EIGRP neighbors\n"
        "Interface's name\n"
        "Resync with peer without adjacency reset\n")
@@ -455,14 +457,14 @@ DEFUN (clear_ip_eigrp_neighbors_int_soft,
 	struct eigrp_interface *ei;
 
 	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_vty_get_eigrp(vty, vrf);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
 	}
 
 	/* lookup interface by specified name */
-	ei = eigrp_if_lookup_by_name(eigrp, argv[4]->arg);
+	ei = eigrp_if_lookup_by_name(eigrp, ifname);
 	if (ei == NULL) {
 		vty_out(vty, " Interface (%s) doesn't exist\n", argv[4]->arg);
 		return CMD_WARNING;
@@ -476,27 +478,23 @@ DEFUN (clear_ip_eigrp_neighbors_int_soft,
 /*
  * Execute graceful restart for neighbor specified by IP
  */
-DEFUN (clear_ip_eigrp_neighbors_IP_soft,
+DEFPY (clear_ip_eigrp_neighbors_IP_soft,
        clear_ip_eigrp_neighbors_IP_soft_cmd,
-       "clear ip eigrp neighbors A.B.C.D soft",
+       "clear ip eigrp [vrf NAME] neighbors A.B.C.D$nbr_addr soft",
        CLEAR_STR
        IP_STR
        "Clear IP-EIGRP\n"
+       VRF_CMD_HELP_STR
        "Clear IP-EIGRP neighbors\n"
        "IP-EIGRP neighbor address\n"
        "Resync with peer without adjacency reset\n")
 {
 	struct eigrp *eigrp;
 	struct eigrp_neighbor *nbr;
-	struct in_addr nbr_addr;
 
-	if (!inet_aton(argv[4]->arg, &nbr_addr)) {
-		vty_out(vty, "Unable to parse: %s", argv[4]->arg);
-		return CMD_WARNING;
-	}
 
 	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_vty_get_eigrp(vty, vrf);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;

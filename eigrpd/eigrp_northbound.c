@@ -79,13 +79,18 @@ static int eigrpd_instance_create(enum nb_event event,
 				  union nb_resource *resource)
 {
 	struct eigrp *eigrp;
+	const char *vrf;
+	vrf_id_t vrfid;
 
 	switch (event) {
 	case NB_EV_VALIDATE:
 		/* NOTHING */
 		break;
 	case NB_EV_PREPARE:
-		eigrp = eigrp_get(yang_dnode_get_string(dnode, "./asn"));
+		vrf = yang_dnode_get_string(dnode, "./vrf");
+		vrfid = vrf_name_to_id(vrf);
+
+		eigrp = eigrp_get(yang_dnode_get_uint16(dnode, "./asn"), vrfid);
 		resource->ptr = eigrp;
 		break;
 	case NB_EV_ABORT:
@@ -745,14 +750,17 @@ static int eigrpd_instance_redistribute_create(enum nb_event event,
 					       union nb_resource *resource)
 {
 	struct eigrp_metrics metrics;
+	const char *vrfname;
 	struct eigrp *eigrp;
 	uint32_t proto;
+	vrf_id_t vrfid;
 
 	switch (event) {
 	case NB_EV_VALIDATE:
 		proto = yang_dnode_get_enum(dnode, "./protocol");
-		if (vrf_bitmap_check(zclient->redist[AFI_IP][proto],
-				     VRF_DEFAULT))
+		vrfname = yang_dnode_get_string(dnode, "../vrf");
+		vrfid = vrf_name_to_id(vrfname);
+		if (vrf_bitmap_check(zclient->redist[AFI_IP][proto], vrfid))
 			return NB_ERR_INCONSISTENCY;
 		break;
 	case NB_EV_PREPARE:
@@ -1181,7 +1189,8 @@ static int lib_interface_eigrp_instance_create(enum nb_event event,
 			break;
 		}
 
-		eigrp = eigrp_get(yang_dnode_get_string(dnode, "./asn"));
+		eigrp = eigrp_get(yang_dnode_get_uint16(dnode, "./asn"),
+				  ifp->vrf_id);
 		eif = eigrp_interface_lookup(eigrp, ifp->name);
 		if (eif == NULL)
 			return NB_ERR_INCONSISTENCY;
@@ -1192,7 +1201,8 @@ static int lib_interface_eigrp_instance_create(enum nb_event event,
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(dnode, NULL, true);
-		eigrp = eigrp_get(yang_dnode_get_string(dnode, "./asn"));
+		eigrp = eigrp_get(yang_dnode_get_uint16(dnode, "./asn"),
+				  ifp->vrf_id);
 		eif = eigrp_interface_lookup(eigrp, ifp->name);
 		if (eif == NULL)
 			return NB_ERR_INCONSISTENCY;

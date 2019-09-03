@@ -69,6 +69,8 @@ struct eigrp_metrics {
 };
 
 struct eigrp {
+	vrf_id_t vrf_id;
+
 	uint16_t AS;	 /* Autonomous system number */
 	uint16_t vrid;       /* Virtual Router ID */
 	uint8_t k_values[6]; /*Array for K values configuration*/
@@ -85,7 +87,7 @@ struct eigrp {
 	struct list *eiflist;		  /* eigrp interfaces */
 	uint8_t passive_interface_default; /* passive-interface default */
 
-	unsigned int fd;
+	int fd;
 	unsigned int maxsndbuflen;
 
 	uint32_t sequence_number; /*Global EIGRP sequence number*/

@@ -40,17 +40,18 @@
 DEFPY_NOSH(
 	router_eigrp,
 	router_eigrp_cmd,
-	"router eigrp (1-65535)$as",
+	"router eigrp (1-65535)$as [vrf NAME]",
 	ROUTER_STR
 	EIGRP_STR
-	AS_STR)
+	AS_STR
+	VRF_CMD_HELP_STR)
 {
 	char xpath[XPATH_MAXLEN];
 	int rv;
 
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-eigrpd:eigrpd/instance[asn='%s'][vrf='']",
-		 as_str);
+		 "/frr-eigrpd:eigrpd/instance[asn='%s'][vrf='%s']",
+		 as_str, vrf ? vrf : VRF_DEFAULT_NAME);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	rv = nb_cli_apply_changes(vty, NULL);
@@ -60,20 +61,21 @@ DEFPY_NOSH(
 	return rv;
 }
 
-DEFPY_NOSH(
+DEFPY(
 	no_router_eigrp,
 	no_router_eigrp_cmd,
-	"no router eigrp (1-65535)$as",
+	"no router eigrp (1-65535)$as [vrf NAME]",
 	NO_STR
 	ROUTER_STR
 	EIGRP_STR
-	AS_STR)
+	AS_STR
+	VRF_CMD_HELP_STR)
 {
 	char xpath[XPATH_MAXLEN];
 
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-eigrpd:eigrpd/instance[asn='%s'][vrf='']",
-		 as_str);
+		 "/frr-eigrpd:eigrpd/instance[asn='%s'][vrf='%s']",
+		 as_str, vrf ? vrf : VRF_DEFAULT_NAME);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
@@ -83,8 +85,12 @@ void eigrp_cli_show_header(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	const char *asn = yang_dnode_get_string(dnode, "./asn");
+	const char *vrf = yang_dnode_get_string(dnode, "./vrf");
 
-	vty_out(vty, "router eigrp %s\n", asn);
+	vty_out(vty, "router eigrp %s", asn);
+	if (strcmp(vrf, VRF_DEFAULT_NAME))
+		vty_out(vty, " vrf %s", vrf);
+	vty_out(vty, "\n");
 }
 
 void eigrp_cli_show_end_header(struct vty *vty, struct lyd_node *dnode)
