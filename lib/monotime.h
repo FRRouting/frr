@@ -84,6 +84,20 @@ static inline int64_t monotime_until(const struct timeval *ref,
 	return (int64_t)tv.tv_sec * 1000000LL + tv.tv_usec;
 }
 
+static inline time_t monotime_to_realtime(const struct timeval *mono,
+					  struct timeval *realout)
+{
+	struct timeval delta, real;
+
+	monotime_since(mono, &delta);
+	gettimeofday(&real, NULL);
+
+	timersub(&real, &delta, &real);
+	if (realout)
+		*realout = real;
+	return real.tv_sec;
+}
+
 /* Char buffer size for time-to-string api */
 #define MONOTIME_STRLEN 32
 

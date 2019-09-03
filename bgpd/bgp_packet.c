@@ -41,6 +41,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_dump.h"
+#include "bgpd/bgp_bmp.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"

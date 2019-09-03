@@ -479,12 +479,14 @@ AC_ARG_ENABLE([staticd],
   AS_HELP_STRING([--disable-staticd], [do not build staticd]))
 AC_ARG_ENABLE([fabricd],
   AS_HELP_STRING([--disable-fabricd], [do not build fabricd]))
-AC_ARG_ENABLE([bgp-announce],
-  AS_HELP_STRING([--disable-bgp-announce,], [turn off BGP route announcement]))
 AC_ARG_ENABLE([vrrpd],
   AS_HELP_STRING([--disable-vrrpd], [do not build vrrpd]))
+AC_ARG_ENABLE([bgp-announce],
+  AS_HELP_STRING([--disable-bgp-announce,], [turn off BGP route announcement]))
 AC_ARG_ENABLE([bgp-vnc],
   AS_HELP_STRING([--disable-bgp-vnc],[turn off BGP VNC support]))
+AC_ARG_ENABLE([bgp-bmp],
+  AS_HELP_STRING([--disable-bgp-bmp],[turn off BGP BMP support]))
 AC_ARG_ENABLE([snmp],
   AS_HELP_STRING([--enable-snmp], [enable SNMP support for agentx]))
 AC_ARG_ENABLE([config_rollbacks],
@@ -1450,6 +1452,16 @@ if test "x$enable_pcreposix" = "xyes"; then
 fi
 AC_SUBST([HAVE_LIBPCREPOSIX])
 
+dnl ------------------
+dnl check C-Ares library
+dnl ------------------
+PKG_CHECK_MODULES([CARES], [libcares], [
+  c_ares_found=true
+],[
+  c_ares_found=false
+])
+AM_CONDITIONAL([CARES], [$c_ares_found])
+
 dnl ##########################################################################
 dnl test "${enable_clippy_only}" != "yes"
 fi
@@ -1519,9 +1531,21 @@ fi
 NHRPD=""
 case "$host_os" in
   linux*)
-    if test "${enable_nhrpd}" != "no"; then
-      NHRPD="nhrpd"
-    fi
+    case "${enable_nhrpd}" in
+      no)
+        ;;
+      yes)
+        if test "$c_ares_found" != "true" ; then
+          AC_MSG_ERROR([nhrpd requires libcares.  Please install c-ares and its -dev headers.])
+        fi
+        NHRPD="nhrpd"
+        ;;
+      *)
+        if test "$c_ares_found" = "true" ; then
+          NHRPD="nhrpd"
+        fi
+        ;;
+    esac
     ;;
   *)
     if test "${enable_nhrpd}" = "yes"; then
@@ -1555,20 +1579,27 @@ if test "${enable_bgp_vnc}" != "no";then
   AC_DEFINE([ENABLE_BGP_VNC], [1], [Enable BGP VNC support])
 fi
 
+bgpd_bmp=false
+case "${enable_bmp}" in
+  no)
+    ;;
+  yes)
+    if test "$c_ares_found" != "true" ; then
+      AC_MSG_ERROR([BMP support requires libcares.  Please install c-ares and its -dev headers.])
+    fi
+    bgpd_bmp=true
+    ;;
+  *)
+    if test "$c_ares_found" = "true" ; then
+      bgpd_bmp=true
+    fi
+    ;;
+esac
+
 dnl ##########################################################################
 dnl LARGE if block
 if test "${enable_clippy_only}" != "yes"; then
 dnl ##########################################################################
-
-dnl ------------------
-dnl check C-Ares library
-dnl ------------------
-if test "${NHRPD}" != ""; then
-  PKG_CHECK_MODULES([CARES], [libcares], ,[
-    AC_MSG_ERROR([trying to build nhrpd, but libcares not found. install c-ares and its -dev headers.])
-  ])
-fi
-AM_CONDITIONAL([CARES], [test "${NHRPD}" != ""])
 
 dnl ------------------
 dnl check Net-SNMP library
@@ -2193,6 +2224,7 @@ AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to w
 dnl various features
 AM_CONDITIONAL([SUPPORT_REALMS], [test "${enable_realms}" = "yes"])
 AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
+AM_CONDITIONAL([BGP_BMP], [$bgpd_bmp])
 dnl northbound
 AM_CONDITIONAL([SQLITE3], [$SQLITE3])
 AM_CONDITIONAL([CONFD], [test "x$enable_confd" != "x"])

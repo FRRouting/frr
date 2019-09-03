@@ -1260,6 +1260,8 @@ static struct cmd_node bgp_vrf_policy_node = {BGP_VRF_POLICY_NODE,
 static struct cmd_node bgp_vnc_l2_group_node = {
 	BGP_VNC_L2_GROUP_NODE, "%s(config-router-vnc-l2-group)# "};
 
+static struct cmd_node bmp_node = {BMP_NODE, "%s(config-bgp-bmp)# "};
+
 static struct cmd_node ospf_node = {OSPF_NODE, "%s(config-router)# "};
 
 static struct cmd_node eigrp_node = {EIGRP_NODE, "%s(config-router)# "};
@@ -1335,7 +1337,7 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 }
 
 DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
-	"router bgp [(1-4294967295) [<view|vrf> WORD]]",
+	"router bgp [(1-4294967295)$instasn [<view|vrf> WORD]]",
 	ROUTER_STR BGP_STR AS_STR
 	"BGP view\nBGP VRF\n"
 	"View/VRF name\n")
@@ -1475,6 +1477,18 @@ DEFUNSH(VTYSH_BGPD,
 	"Enable rpki and enter rpki configuration mode\n")
 {
 	vty->node = RPKI_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD,
+	bmp_targets,
+	bmp_targets_cmd,
+	"bmp targets BMPTARGETS",
+	"BGP Monitoring Protocol\n"
+	"Create BMP target group\n"
+	"Name of the BMP target group\n")
+{
+	vty->node = BMP_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -1842,6 +1856,7 @@ static int vtysh_exit(struct vty *vty)
 	case BGP_VNC_DEFAULTS_NODE:
 	case BGP_VNC_NVE_GROUP_NODE:
 	case BGP_VNC_L2_GROUP_NODE:
+	case BMP_NODE:
 		vty->node = BGP_NODE;
 		break;
 	case BGP_EVPN_VNI_NODE:
@@ -1930,6 +1945,19 @@ DEFUNSH(VTYSH_BGPD, rpki_quit, rpki_quit_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
 {
 	return rpki_exit(self, vty, argc, argv);
+}
+
+DEFUNSH(VTYSH_BGPD, bmp_exit, bmp_exit_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	vtysh_exit(vty);
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, bmp_quit, bmp_quit_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+{
+	return bmp_exit(self, vty, argc, argv);
 }
 
 DEFUNSH(VTYSH_VRF, exit_vrf_config, exit_vrf_config_cmd, "exit-vrf",
@@ -3620,6 +3648,7 @@ void vtysh_init_vty(void)
 	install_node(&openfabric_node, NULL);
 	install_node(&vty_node, NULL);
 	install_node(&rpki_node, NULL);
+	install_node(&bmp_node, NULL);
 #if HAVE_BFDD > 0
 	install_node(&bfd_node, NULL);
 	install_node(&bfd_peer_node, NULL);
@@ -3852,6 +3881,11 @@ void vtysh_init_vty(void)
 	install_element(BGP_IPV6L_NODE, &exit_address_family_cmd);
 	install_element(BGP_FLOWSPECV4_NODE, &exit_address_family_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &exit_address_family_cmd);
+
+	install_element(BGP_NODE, &bmp_targets_cmd);
+	install_element(BMP_NODE, &bmp_exit_cmd);
+	install_element(BMP_NODE, &bmp_quit_cmd);
+	install_element(BMP_NODE, &vtysh_end_all_cmd);
 
 	install_element(CONFIG_NODE, &rpki_cmd);
 	install_element(RPKI_NODE, &rpki_exit_cmd);
