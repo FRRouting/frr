@@ -1706,6 +1706,8 @@ static int bfd_vrf_disable(struct vrf *vrf)
 	socket_close(&bvrf->bg_mhop);
 	socket_close(&bvrf->bg_shop6);
 	socket_close(&bvrf->bg_mhop6);
+	socket_close(&bvrf->bg_echo);
+	socket_close(&bvrf->bg_echov6);
 
 	/* free context */
 	XFREE(MTYPE_BFDD_VRF, bvrf);
