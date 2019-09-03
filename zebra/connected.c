@@ -235,7 +235,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 			return;
 		break;
 	case AFI_IP6:
-#ifndef LINUX
+#ifndef GNU_LINUX
 		/* XXX: It is already done by rib_bogus_ipv6 within rib_add */
 		if (IN6_IS_ADDR_UNSPECIFIED(&p.u.prefix6))
 			return;
