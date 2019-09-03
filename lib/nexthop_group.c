@@ -145,12 +145,19 @@ bool nexthop_group_equal_no_recurse(const struct nexthop_group *nhg1,
 	if (!nhg1 && nhg2)
 		return false;
 
+	if (nhg1 == nhg2)
+		return true;
+
 	if (nexthop_group_nexthop_num_no_recurse(nhg1)
 	    != nexthop_group_nexthop_num_no_recurse(nhg2))
 		return false;
 
 	for (nh1 = nhg1->nexthop, nh2 = nhg2->nexthop; nh1 || nh2;
 	     nh1 = nh1->next, nh2 = nh2->next) {
+		if (nh1 && !nh2)
+			return false;
+		if (!nh1 && nh2)
+			return false;
 		if (!nexthop_same(nh1, nh2))
 			return false;
 	}
@@ -171,11 +178,18 @@ bool nexthop_group_equal(const struct nexthop_group *nhg1,
 	if (!nhg1 && nhg2)
 		return false;
 
+	if (nhg1 == nhg2)
+		return true;
+
 	if (nexthop_group_nexthop_num(nhg1) != nexthop_group_nexthop_num(nhg2))
 		return false;
 
 	for (nh1 = nhg1->nexthop, nh2 = nhg2->nexthop; nh1 || nh2;
 	     nh1 = nexthop_next(nh1), nh2 = nexthop_next(nh2)) {
+		if (nh1 && !nh2)
+			return false;
+		if (!nh1 && nh2)
+			return false;
 		if (!nexthop_same(nh1, nh2))
 			return false;
 	}
