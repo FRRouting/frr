@@ -1194,6 +1194,9 @@ struct peer {
 #define PEER_DOWN_BFD_DOWN              24 /* BFD down */
 #define PEER_DOWN_IF_DOWN               25 /* Interface down */
 #define PEER_DOWN_NBR_ADDR_DEL          26 /* Peer address lost */
+#define PEER_DOWN_WAITING_NHT           27 /* Waiting for NHT to resolve */
+#define PEER_DOWN_NBR_ADDR              28 /* Waiting for peer IPv6 IP Addr */
+#define PEER_DOWN_VRF_UNINIT            29 /* Associated VRF is not init yet */
 	size_t last_reset_cause_size;
 	uint8_t last_reset_cause[BGP_MAX_PACKET_SIZE];
 
