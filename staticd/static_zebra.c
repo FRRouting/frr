@@ -130,6 +130,7 @@ static int interface_state_up(ZAPI_CALLBACK_ARGS)
 
 		/* Install any static reliant on this interface coming up */
 		static_install_intf_nh(ifp);
+		static_ifindex_update(ifp, true);
 	}
 
 	return 0;
@@ -137,7 +138,12 @@ static int interface_state_up(ZAPI_CALLBACK_ARGS)
 
 static int interface_state_down(ZAPI_CALLBACK_ARGS)
 {
-	zebra_interface_state_read(zclient->ibuf, vrf_id);
+	struct interface *ifp;
+
+	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
+
+	if (ifp)
+		static_ifindex_update(ifp, false);
 
 	return 0;
 }
