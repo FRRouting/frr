@@ -123,6 +123,7 @@ struct pm_tracking_ctx {
 	int flags;
 	void (*check_callback)(struct vty *, struct pm_session *);
 	struct pm_session *pm;
+	uint8_t resolve_immediately;
 };
 
 static struct pm_tracking_ctx *pm_tracking_lookup_from_pm(struct pm_session *pm)
@@ -347,12 +348,32 @@ static void pm_tracking_gateway_resolver_cb(struct resolver_query *q, const char
 
 	ctx->t_resolve = NULL;
 	if (n < 0) {
-		if (ctx->afi_resolve == AF_INET6 &&
-		    sockunion_family(&ctx->key.local) != AF_INET &&
+		if (sockunion_family(&ctx->key.local) != AF_INET &&
 		    sockunion_family(&ctx->key.local) != AF_INET6) {
-			zlog_warn("%% tracking gw %s, IPv6 resolve failed, trying with IPv4 in 5 sec",
-				  ctx->gateway);
-			ctx->afi_resolve = AF_INET;
+			if (ctx->afi_resolve == AF_INET6) {
+				ctx->resolve_immediately =
+					!ctx->resolve_immediately;
+				zlog_warn("%% tracking gw %s, IPv6 resolve failed,"
+					  " trying with IPv4 in %u sec",
+					  ctx->gateway,
+					  ctx->resolve_immediately ? 0 : 5);
+				ctx->afi_resolve = AF_INET;
+			} else {
+				ctx->resolve_immediately =
+					!ctx->resolve_immediately;
+				zlog_warn("%% tracking gw %s, IPv4 resolve failed,"
+					  " trying with IPv6 in %u sec",
+					  ctx->gateway,
+					  ctx->resolve_immediately ? 0 : 5);
+				ctx->afi_resolve = AF_INET6;
+			}
+		} else {
+			ctx->resolve_immediately = 0;
+			ctx->afi_resolve = sockunion_family(&ctx->key.local);
+			zlog_warn("%% tracking gw %s, %s resolve failed,"
+				  " retrying in 5 sec",
+				  ctx->gateway, ctx->afi_resolve == AF_INET ?
+				  "IPv4" : "IPv6");
 		}
 		/* Failed, retry in a moment */
 		thread_add_timer(master, pm_tracking_gateway_resolve, ctx, 5,
@@ -367,6 +388,7 @@ static void pm_tracking_gateway_resolver_cb(struct resolver_query *q, const char
 			break;
 		/* update IP address */
 		memcpy(&ctx->gw, &addrs[i], sizeof(union sockunion));
+		ctx->afi_resolve = sockunion_family(&ctx->gw);
 		zlog_info("%% tracking gw to %s, resolution to %s ok, polling in 7200 sec",
 			  ctx->gateway,
 			  sockunion2str(&ctx->gw, buf, sizeof(buf)));
