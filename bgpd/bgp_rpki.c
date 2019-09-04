@@ -51,12 +51,6 @@
 #include "lib/thread.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "rtrlib/rtrlib.h"
-#include "rtrlib/rtr_mgr.h"
-#include "rtrlib/lib/ip.h"
-#include "rtrlib/transport/tcp/tcp_transport.h"
-#if defined(FOUND_SSH)
-#include "rtrlib/transport/ssh/ssh_transport.h"
-#endif
 #endif
 #include "hook.h"
 #include "libfrr.h"
@@ -76,8 +70,6 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group")
 #define POLLING_PERIOD_DEFAULT 3600
 #define EXPIRE_INTERVAL_DEFAULT 7200
 #define RETRY_INTERVAL_DEFAULT 600
-#define TIMEOUT_DEFAULT 600
-#define INITIAL_SYNCHRONISATION_TIMEOUT_DEFAULT 30
 
 #define RPKI_DEBUG(...)                                                        \
 	if (rpki_debug) {                                                      \
@@ -147,8 +139,6 @@ static int rpki_debug;
 static unsigned int polling_period;
 static unsigned int expire_interval;
 static unsigned int retry_interval;
-static unsigned int timeout;
-static unsigned int initial_synchronisation_timeout;
 static int rpki_sync_socket_rtr;
 static int rpki_sync_socket_bgpd;
 
@@ -538,9 +528,6 @@ static int bgp_rpki_init(struct thread_master *master)
 	polling_period = POLLING_PERIOD_DEFAULT;
 	expire_interval = EXPIRE_INTERVAL_DEFAULT;
 	retry_interval = RETRY_INTERVAL_DEFAULT;
-	timeout = TIMEOUT_DEFAULT;
-	initial_synchronisation_timeout =
-		INITIAL_SYNCHRONISATION_TIMEOUT_DEFAULT;
 	install_cli_commands();
 	rpki_init_sync_socket();
 	return 0;
@@ -756,8 +743,6 @@ static int add_cache(struct cache *cache)
 	group.sockets_len = 1;
 	group.sockets = &cache->rtr_socket;
 
-	listnode_add(cache_list, cache);
-
 	if (rtr_is_running) {
 		init_tr_socket(cache);
 
@@ -766,6 +751,8 @@ static int add_cache(struct cache *cache)
 			return ERROR;
 		}
 	}
+
+	listnode_add(cache_list, cache);
 
 	return SUCCESS;
 }
@@ -793,7 +780,12 @@ static int add_tcp_cache(const char *host, const char *port,
 	cache->rtr_socket = rtr_socket;
 	cache->preference = preference;
 
-	return add_cache(cache);
+	int ret = add_cache(cache);
+	if (ret != SUCCESS) {
+		free_cache(cache);
+	}
+
+	return ret;
 }
 
 #if defined(FOUND_SSH)
@@ -829,7 +821,12 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 	cache->rtr_socket = rtr_socket;
 	cache->preference = preference;
 
-	return add_cache(cache);
+	int ret = add_cache(cache);
+	if (ret != SUCCESS) {
+		free_cache(cache);
+	}
+
+	return ret;
 }
 #endif
 
@@ -869,9 +866,6 @@ static int config_write(struct vty *vty)
 		vty_out(vty, "!\n");
 		vty_out(vty, "rpki\n");
 		vty_out(vty, "  rpki polling_period %d\n", polling_period);
-		vty_out(vty, "  rpki timeout %d\n", timeout);
-		vty_out(vty, "  rpki initial-synchronisation-timeout %d\n",
-			initial_synchronisation_timeout);
 		for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
 			switch (cache->type) {
 				struct tr_tcp_config *tcp_config;
@@ -1020,48 +1014,64 @@ DEFUN (no_rpki_retry_interval,
 	return CMD_SUCCESS;
 }
 
-DEFPY (rpki_timeout,
+#if (CONFDATE > 20200901)
+CPP_NOTICE("bgpd: time to remove rpki timeout")
+CPP_NOTICE("bgpd: this includes rpki_timeout and rpki_synchronisation_timeout")
+#endif
+
+DEFPY_HIDDEN (rpki_timeout,
        rpki_timeout_cmd,
        "rpki timeout (1-4294967295)$to_arg",
        RPKI_OUTPUT_STRING
        "Set timeout\n"
        "Timeout value\n")
 {
-	timeout = to_arg;
+	vty_out(vty,
+		"This config option is deprecated, and is scheduled for removal.\n");
+	vty_out(vty,
+		"This functionality has also already been removed because it caused bugs and was pointless\n");
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_rpki_timeout,
+DEFUN_HIDDEN (no_rpki_timeout,
        no_rpki_timeout_cmd,
        "no rpki timeout",
        NO_STR
        RPKI_OUTPUT_STRING
        "Set timeout back to default\n")
 {
-	timeout = TIMEOUT_DEFAULT;
+	vty_out(vty,
+		"This config option is deprecated, and is scheduled for removal.\n");
+	vty_out(vty,
+		"This functionality has also already been removed because it caused bugs and was pointless\n");
 	return CMD_SUCCESS;
 }
 
-DEFPY (rpki_synchronisation_timeout,
+DEFPY_HIDDEN (rpki_synchronisation_timeout,
        rpki_synchronisation_timeout_cmd,
        "rpki initial-synchronisation-timeout (1-4294967295)$ito_arg",
        RPKI_OUTPUT_STRING
        "Set a timeout for the initial synchronisation of prefix validation data\n"
        "Timeout value\n")
 {
-	initial_synchronisation_timeout = ito_arg;
+	vty_out(vty,
+		"This config option is deprecated, and is scheduled for removal.\n");
+	vty_out(vty,
+		"This functionality has also already been removed because it caused bugs and was pointless\n");
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_rpki_synchronisation_timeout,
+DEFUN_HIDDEN (no_rpki_synchronisation_timeout,
        no_rpki_synchronisation_timeout_cmd,
        "no rpki initial-synchronisation-timeout",
        NO_STR
        RPKI_OUTPUT_STRING
        "Set the initial synchronisation timeout back to default (30 sec.)\n")
 {
-	initial_synchronisation_timeout =
-		INITIAL_SYNCHRONISATION_TIMEOUT_DEFAULT;
+	vty_out(vty,
+		"This config option is deprecated, and is scheduled for removal.\n");
+	vty_out(vty,
+		"This functionality has also already been removed because it caused bugs and was pointless\n");
 	return CMD_SUCCESS;
 }
 
@@ -1083,6 +1093,18 @@ DEFPY (rpki_cache,
        "Preference value\n")
 {
 	int return_value;
+	struct listnode *cache_node;
+	struct cache *current_cache;
+
+	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, current_cache)) {
+		if (current_cache->preference == preference) {
+			vty_out(vty,
+				"Cache with preference %ld is already configured\n",
+				preference);
+			return CMD_WARNING;
+		}
+	}
+
 
 	// use ssh connection
 	if (ssh_uname) {
@@ -1128,11 +1150,11 @@ DEFPY (no_rpki_cache,
 		return CMD_WARNING;
 	}
 
-	if (rtr_is_running) {
+	if (rtr_is_running && listcount(cache_list) == 1) {
+		stop();
+	} else if (rtr_is_running) {
 		if (rtr_mgr_remove_group(rtr_config, preference) == RTR_ERROR) {
 			vty_out(vty, "Could not remove cache %ld", preference);
-			if (listcount(cache_list) == 1)
-				vty_out(vty, " because it is the last cache");
 
 			vty_out(vty, "\n");
 			return CMD_WARNING;
