@@ -91,6 +91,12 @@ end destination.
    both v4 and v6 prefixes.  This command is used in conjunction of the
    :clicmd:`match src-ip PREFIX` command for matching.
 
+.. clicmd:: match mark (1-4294967295)
+
+   Select the mark to match.  This is a linux only command and if attempted
+   on another platform it will be denied.  This mark translates to the
+   underlying `ip rule .... fwmark XXXX` command.
+
 .. clicmd:: set nexthop-group NAME
 
    Use the nexthop-group NAME as the place to forward packets when the match
