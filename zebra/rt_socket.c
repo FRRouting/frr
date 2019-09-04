@@ -382,16 +382,6 @@ extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute)
 	return 0;
 }
 
-int kernel_add_vtep(vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
-{
-	return 0;
-}
-
-int kernel_del_vtep(vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
-{
-	return 0;
-}
-
 /*
  * Update MAC, using dataplane context object. No-op here for now.
  */
