@@ -1197,6 +1197,7 @@ struct peer {
 #define PEER_DOWN_WAITING_NHT           27 /* Waiting for NHT to resolve */
 #define PEER_DOWN_NBR_ADDR              28 /* Waiting for peer IPv6 IP Addr */
 #define PEER_DOWN_VRF_UNINIT            29 /* Associated VRF is not init yet */
+#define PEER_DOWN_NOAFI_ACTIVATED       30 /* No AFI/SAFI activated for peer */
 	size_t last_reset_cause_size;
 	uint8_t last_reset_cause[BGP_MAX_PACKET_SIZE];
 
