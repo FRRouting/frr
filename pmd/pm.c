@@ -437,6 +437,7 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 	} else {
 		memcpy(&pm->peer, &peer, sizeof(union sockunion));
 	}
+	ret = 0;
 	hook_call(pm_tracking_check_param, pm, &ret, pm_try_run);
 	if (ret) {
 		PM_SET_FLAG(pm->flags,
