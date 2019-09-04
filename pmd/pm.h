@@ -62,6 +62,7 @@ struct pm_session {
 	struct resolver_query dns_resolve;
 	struct thread *t_resolve;
 	afi_t afi_resolve;
+	uint8_t resolve_immediately;
 	union sockunion nh;
 	enum pm_probe_type type;
 #define PM_PACKET_SIZE_DEFAULT PM_DEF_PACKET_SIZE

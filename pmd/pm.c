@@ -310,15 +310,36 @@ static void pm_session_peer_resolver_cb(struct resolver_query *q, const char *er
 
 	pm->t_resolve = NULL;
 	if (n < 0) {
-		if (pm->afi_resolve == AF_INET6 &&
-		    sockunion_family(&pm->key.local) != AF_INET &&
+		if (sockunion_family(&pm->key.local) != AF_INET &&
 		    sockunion_family(&pm->key.local) != AF_INET6) {
-			zlog_warn("%% session to %s, IPv6 resolve failed (%s), trying with IPv4 in 5 sec",
-				  pm->key.peer, errstr);
-			pm->afi_resolve = AF_INET;
+			if (pm->afi_resolve == AF_INET6) {
+				pm->resolve_immediately =
+					!pm->resolve_immediately;
+				zlog_warn("%% session to %s, IPv6 resolve failed (%s),"
+					  " trying with IPv4 in %u sec",
+					  pm->key.peer, errstr,
+					  pm->resolve_immediately ? 0 : 5);
+				pm->afi_resolve = AF_INET;
+			} else {
+				pm->resolve_immediately =
+					!pm->resolve_immediately;
+				zlog_warn("%% session to %s, IPv4 resolve failed (%s),"
+					  " trying with IPv6 in %u sec",
+					  pm->key.peer, errstr,
+					  pm->resolve_immediately ? 0 : 5);
+				pm->afi_resolve = AF_INET6;
+			}
+		} else {
+			pm->afi_resolve = sockunion_family(&pm->key.local);
+			pm->resolve_immediately = 0;
+			zlog_warn("%% session to %s, %s resolve failed (%s),"
+				  " retrying in 5 sec",
+				  pm->key.peer, pm->afi_resolve == AF_INET ?
+				  "IPv4" : "IPv6", errstr);
 		}
 		/* Failed, retry in a moment */
-		thread_add_timer(master, pm_session_peer_resolve, pm, 5,
+		thread_add_timer(master, pm_session_peer_resolve, pm,
+				 pm->resolve_immediately == 1 ? 0 : 5,
 				 &pm->t_resolve);
 		return;
 	}
@@ -335,6 +356,7 @@ static void pm_session_peer_resolver_cb(struct resolver_query *q, const char *er
 			  pm->key.peer,
 			  sockunion2str(&pm->peer, buf, sizeof(buf)));
 		memcpy(&pm->peer, &addrs[i], sizeof(union sockunion));
+		pm->afi_resolve = sockunion_family(&pm->peer);
 		hook_call(pm_tracking_check_param, pm, &ret, pm_try_run);
 		if (ret) {
 			PM_SET_FLAG(pm->flags,
@@ -399,6 +421,7 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 					 pm->key.peer);
 				return;
 			}
+			/* first resolution always IPv6 */
 			pm->afi_resolve = AF_INET6;
 			if (sockunion_family(&pm->key.local) == AF_INET ||
 			    sockunion_family(&pm->key.local) == AF_INET6)
