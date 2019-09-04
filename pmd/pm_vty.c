@@ -518,8 +518,10 @@ static struct json_object *__display_session_json(struct pm_session *pm,
 	}
 	if (!pme) {
 		json_object_int_add(jo, "id", 0);
-		if (sockunion_family(&pm->peer) != AF_INET &&
-		    sockunion_family(&pm->peer) != AF_INET6) {
+		if ((sockunion_family(&pm->peer) != AF_INET &&
+		     sockunion_family(&pm->peer) != AF_INET6) ||
+		    PM_CHECK_FLAG(pm->flags,
+				  PM_SESS_FLAG_TRACKING_CFG_ERROR)) {
 			json_object_string_add(jo, "diagnostic",
 					       "resolution nok");
 		} else if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID))
