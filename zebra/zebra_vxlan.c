@@ -2515,9 +2515,7 @@ static int zvni_neigh_install(zebra_vni_t *zvni, zebra_neigh_t *n)
 	struct zebra_if *zif;
 	struct zebra_l2info_vxlan *vxl;
 	struct interface *vlan_if;
-#ifdef GNU_LINUX
-	uint8_t flags;
-#endif
+	int flags;
 	int ret = 0;
 
 	if (!(n->flags & ZEBRA_NEIGH_REMOTE))
@@ -2531,13 +2529,14 @@ static int zvni_neigh_install(zebra_vni_t *zvni, zebra_neigh_t *n)
 	vlan_if = zvni_map_to_svi(vxl->access_vlan, zif->brslave_info.br_if);
 	if (!vlan_if)
 		return -1;
-#ifdef GNU_LINUX
-	flags = NTF_EXT_LEARNED;
+
+	flags = DPLANE_NTF_EXT_LEARNED;
 	if (n->flags & ZEBRA_NEIGH_ROUTER_FLAG)
-		flags |= NTF_ROUTER;
+		flags |= DPLANE_NTF_ROUTER;
 	ZEBRA_NEIGH_SET_ACTIVE(n);
-	ret = kernel_add_neigh(vlan_if, &n->ip, &n->emac, flags);
-#endif
+
+	dplane_neigh_add(vlan_if, &n->ip, &n->emac, flags);
+
 	return ret;
 }
 
@@ -2569,7 +2568,10 @@ static int zvni_neigh_uninstall(zebra_vni_t *zvni, zebra_neigh_t *n)
 
 	ZEBRA_NEIGH_SET_INACTIVE(n);
 	n->loc_seq = 0;
-	return kernel_del_neigh(vlan_if, &n->ip);
+
+	dplane_neigh_delete(vlan_if, &n->ip);
+
+	return 0;
 }
 
 /*
@@ -2590,12 +2592,9 @@ static int zvni_neigh_probe(zebra_vni_t *zvni, zebra_neigh_t *n)
 	if (!vlan_if)
 		return -1;
 
-#ifdef GNU_LINUX
-	return kernel_upd_neigh(vlan_if, &n->ip, &n->emac,
-				0, NUD_PROBE);
-#else
+	dplane_neigh_update(vlan_if, &n->ip, &n->emac);
+
 	return 0;
-#endif
 }
 
 /*
@@ -4678,9 +4677,7 @@ static int zl3vni_nh_del(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
  */
 static int zl3vni_nh_install(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
 {
-#ifdef GNU_LINUX
 	uint8_t flags;
-#endif
 	int ret = 0;
 
 	if (!is_l3vni_oper_up(zl3vni))
@@ -4689,12 +4686,13 @@ static int zl3vni_nh_install(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
 	if (!(n->flags & ZEBRA_NEIGH_REMOTE)
 	    || !(n->flags & ZEBRA_NEIGH_REMOTE_NH))
 		return 0;
-#ifdef GNU_LINUX
-	flags = NTF_EXT_LEARNED;
+
+	flags = DPLANE_NTF_EXT_LEARNED;
 	if (n->flags & ZEBRA_NEIGH_ROUTER_FLAG)
-		flags |= NTF_ROUTER;
-	ret = kernel_add_neigh(zl3vni->svi_if, &n->ip, &n->emac, flags);
-#endif
+		flags |= DPLANE_NTF_ROUTER;
+
+	dplane_neigh_add(zl3vni->svi_if, &n->ip, &n->emac, flags);
+
 	return ret;
 }
 
@@ -4710,7 +4708,9 @@ static int zl3vni_nh_uninstall(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
 	if (!zl3vni->svi_if || !if_is_operative(zl3vni->svi_if))
 		return 0;
 
-	return kernel_del_neigh(zl3vni->svi_if, &n->ip);
+	dplane_neigh_delete(zl3vni->svi_if, &n->ip);
+
+	return 0;
 }
 
 /* add remote vtep as a neigh entry */

@@ -129,7 +129,28 @@ enum dplane_op_e {
 	/* MAC address update */
 	DPLANE_OP_MAC_INSTALL,
 	DPLANE_OP_MAC_DELETE,
+
+	/* EVPN neighbor updates */
+	DPLANE_OP_NEIGH_INSTALL,
+	DPLANE_OP_NEIGH_UPDATE,
+	DPLANE_OP_NEIGH_DELETE,
 };
+
+/*
+ * The vxlan/evpn neighbor management code needs some values to use
+ * when programming neighbor changes. Offer some platform-neutral values
+ * here for use within the dplane apis and plugins.
+ */
+
+/* Neighbor cache flags */
+#define DPLANE_NTF_EXT_LEARNED    0x01
+#define DPLANE_NTF_ROUTER         0x02
+
+/* Neighbor cache states */
+#define DPLANE_NUD_REACHABLE      0x01
+#define DPLANE_NUD_STALE          0x02
+#define DPLANE_NUD_NOARP          0x04
+#define DPLANE_NUD_PROBE          0x08
 
 /* Enable system route notifications */
 void dplane_enable_sys_route_notifs(void);
@@ -304,6 +325,14 @@ const struct ethaddr *dplane_ctx_mac_get_addr(
 const struct in_addr *dplane_ctx_mac_get_vtep_ip(
 	const struct zebra_dplane_ctx *ctx);
 
+/* Accessors for neighbor information */
+const struct ipaddr *dplane_ctx_neigh_get_ipaddr(
+	const struct zebra_dplane_ctx *ctx);
+const struct ethaddr *dplane_ctx_neigh_get_mac(
+	const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_neigh_get_flags(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_neigh_get_state(const struct zebra_dplane_ctx *ctx);
+
 /* Namespace info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
 	const struct zebra_dplane_ctx *ctx);
@@ -378,6 +407,19 @@ enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
 					vlanid_t vid,
 					const struct ethaddr *mac,
 					struct in_addr vtep_ip);
+
+/*
+ * Enqueue evpn neighbor updates for the dataplane.
+ */
+enum zebra_dplane_result dplane_neigh_add(const struct interface *ifp,
+					  const struct ipaddr *ip,
+					  const struct ethaddr *mac,
+					  uint32_t flags);
+enum zebra_dplane_result dplane_neigh_update(const struct interface *ifp,
+					     const struct ipaddr *ip,
+					     const struct ethaddr *mac);
+enum zebra_dplane_result dplane_neigh_delete(const struct interface *ifp,
+					     const struct ipaddr *ip);
 
 /* Retrieve the limit on the number of pending, unprocessed updates. */
 uint32_t dplane_get_in_queue_limit(void);
