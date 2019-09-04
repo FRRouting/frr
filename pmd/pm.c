@@ -630,6 +630,14 @@ static int pm_nht_update_walkcb(struct hash_bucket *backet, void *arg)
 	if (!sockunion_same(&pm->peer, &pnc->peer) &&
 	    !sockunion_same(&pm->nh, &pnc->peer))
 		return HASHWALK_CONTINUE;
+	/* if nexthop is used, but nh tracks peer
+	 * and nh and peer different, then
+	 * ignore the nh event
+	 */
+	if ((sockunion_family(&pm->nh) == AF_INET ||
+	     sockunion_family(&pm->nh) == AF_INET6) &&
+	    !sockunion_same(&pm->nh, &pnc->peer))
+		return HASHWALK_CONTINUE;
 	orig = PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID);
 	new = !!pnc->nh_num;
 	if (orig != new)
