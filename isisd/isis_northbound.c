@@ -1524,28 +1524,63 @@ static int lib_interface_isis_create(enum nb_event event,
 	struct interface *ifp;
 	struct isis_circuit *circuit;
 	const char *area_tag = yang_dnode_get_string(dnode, "./area-tag");
+	uint32_t min_mtu, actual_mtu;
 
-	if (event != NB_EV_APPLY)
-		return NB_OK;
+	switch (event) {
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_VALIDATE:
+		/* check if interface mtu is sufficient. If the area has not
+		 * been created yet, assume default MTU for the area
+		 */
+		ifp = nb_running_get_entry(dnode, NULL, true);
+		/* zebra might not know yet about the MTU - nothing we can do */
+		if (ifp->mtu == 0)
+			break;
+		actual_mtu =
+			if_is_broadcast(ifp) ? ifp->mtu - LLC_LEN : ifp->mtu;
+		area = isis_area_lookup(area_tag);
+		if (area)
+			min_mtu = area->lsp_mtu;
+		else
+#ifndef FABRICD
+			min_mtu = yang_get_default_uint16(
+				"/frr-isisd:isis/instance/lsp/mtu");
+#else
+			min_mtu = DEFAULT_LSP_MTU;
+#endif /* ifndef FABRICD */
+		if (actual_mtu < min_mtu) {
+			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
+				  "Interface %s has MTU %" PRIu32
+				  ", minimum MTU for the area is %" PRIu32 "",
+				  ifp->name, actual_mtu, min_mtu);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_APPLY:
+		area = isis_area_lookup(area_tag);
+		/* The area should have already be created. We are
+		 * setting the priority of the global isis area creation
+		 * slightly lower, so it should be executed first, but I
+		 * cannot rely on that so here I have to check.
+		 */
+		if (!area) {
+			flog_err(
+				EC_LIB_NB_CB_CONFIG_APPLY,
+				"%s: attempt to create circuit for area %s before the area has been created",
+				__func__, area_tag);
+			abort();
+		}
 
-	area = isis_area_lookup(area_tag);
-	/* The area should have already be created. We are
-	 * setting the priority of the global isis area creation
-	 * slightly lower, so it should be executed first, but I
-	 * cannot rely on that so here I have to check.
-	 */
-	if (!area) {
-		flog_err(
-			EC_LIB_NB_CB_CONFIG_APPLY,
-			"%s: attempt to create circuit for area %s before the area has been created",
-			__func__, area_tag);
-		abort();
+		ifp = nb_running_get_entry(dnode, NULL, true);
+		circuit = isis_circuit_create(area, ifp);
+		assert(circuit
+		       && (circuit->state == C_STATE_CONF
+			   || circuit->state == C_STATE_UP));
+		nb_running_set_entry(dnode, circuit);
+		break;
 	}
-
-	ifp = nb_running_get_entry(dnode, NULL, true);
-	circuit = isis_circuit_create(area, ifp);
-	assert(circuit->state == C_STATE_CONF || circuit->state == C_STATE_UP);
-	nb_running_set_entry(dnode, circuit);
 
 	return NB_OK;
 }
