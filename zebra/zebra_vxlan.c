@@ -2553,8 +2553,9 @@ static int zvni_neigh_uninstall(zebra_vni_t *zvni, zebra_neigh_t *n)
 		return 0;
 
 	if (!zvni->vxlan_if) {
-		zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
-			   zvni->vni, zvni);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
+				   zvni->vni, zvni);
 		return -1;
 	}
 
@@ -2843,9 +2844,12 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 	/* mac entry should be present */
 	mac = zvni_mac_lookup(zvni, &n->emac);
 	if (!mac) {
-		zlog_debug("MAC %s doesn't exist for neigh %s on VNI %u",
-			   prefix_mac2str(&n->emac, buf1, sizeof(buf1)),
-			   ipaddr2str(ip, buf2, sizeof(buf2)), zvni->vni);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("MAC %s doesn't exist for neigh %s on VNI %u",
+				   prefix_mac2str(&n->emac,
+						  buf1, sizeof(buf1)),
+				   ipaddr2str(ip, buf2, sizeof(buf2)),
+				   zvni->vni);
 		return -1;
 	}
 
@@ -3775,8 +3779,9 @@ static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac)
 		return 0;
 
 	if (!zvni->vxlan_if) {
-		zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
-			   zvni->vni, zvni);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
+				   zvni->vni, zvni);
 		return -1;
 	}
 
@@ -4528,10 +4533,12 @@ static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 		return 0;
 
 	if (!zl3vni->vxlan_if) {
-		zlog_debug(
-			"RMAC %s on L3-VNI %u hash %p couldn't be uninstalled - no vxlan_if",
-			prefix_mac2str(&zrmac->macaddr, buf, sizeof(buf)),
-			zl3vni->vni, zl3vni);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"RMAC %s on L3-VNI %u hash %p couldn't be uninstalled - no vxlan_if",
+				prefix_mac2str(&zrmac->macaddr,
+					       buf, sizeof(buf)),
+				zl3vni->vni, zl3vni);
 		return -1;
 	}
 
