@@ -152,6 +152,7 @@ struct dplane_intf_info {
  */
 struct dplane_mac_info {
 	vlanid_t vid;
+	ifindex_t br_ifindex;
 	struct ethaddr mac;
 	struct in_addr vtep_ip;
 	bool is_sticky;
@@ -377,6 +378,7 @@ static enum zebra_dplane_result intf_addr_update_internal(
 	enum dplane_op_e op);
 static enum zebra_dplane_result mac_update_internal(
 	enum dplane_op_e op, const struct interface *ifp,
+	const struct interface *br_ifp,
 	vlanid_t vid, const struct ethaddr *mac,
 	struct in_addr vtep_ip,	bool sticky);
 static enum zebra_dplane_result neigh_update_internal(
@@ -1272,6 +1274,12 @@ const struct in_addr *dplane_ctx_mac_get_vtep_ip(
 	return &(ctx->u.macinfo.vtep_ip);
 }
 
+ifindex_t dplane_ctx_mac_get_br_ifindex(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.macinfo.br_ifindex;
+}
+
 /* Accessors for neighbor information */
 const struct ipaddr *dplane_ctx_neigh_get_ipaddr(
 	const struct zebra_dplane_ctx *ctx)
@@ -2134,6 +2142,7 @@ static enum zebra_dplane_result intf_addr_update_internal(
  * Enqueue vxlan/evpn mac add (or update).
  */
 enum zebra_dplane_result dplane_mac_add(const struct interface *ifp,
+					const struct interface *bridge_ifp,
 					vlanid_t vid,
 					const struct ethaddr *mac,
 					struct in_addr vtep_ip,
@@ -2142,8 +2151,8 @@ enum zebra_dplane_result dplane_mac_add(const struct interface *ifp,
 	enum zebra_dplane_result result;
 
 	/* Use common helper api */
-	result = mac_update_internal(DPLANE_OP_MAC_INSTALL, ifp, vid,
-				     mac, vtep_ip, sticky);
+	result = mac_update_internal(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp,
+				     vid, mac, vtep_ip, sticky);
 	return result;
 }
 
@@ -2151,6 +2160,7 @@ enum zebra_dplane_result dplane_mac_add(const struct interface *ifp,
  * Enqueue vxlan/evpn mac delete.
  */
 enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
+					const struct interface *bridge_ifp,
 					vlanid_t vid,
 					const struct ethaddr *mac,
 					struct in_addr vtep_ip)
@@ -2158,8 +2168,8 @@ enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
 	enum zebra_dplane_result result;
 
 	/* Use common helper api */
-	result = mac_update_internal(DPLANE_OP_MAC_DELETE, ifp, vid, mac,
-				     vtep_ip, false);
+	result = mac_update_internal(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp,
+				     vid, mac, vtep_ip, false);
 	return result;
 }
 
@@ -2169,6 +2179,7 @@ enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
 static enum zebra_dplane_result
 mac_update_internal(enum dplane_op_e op,
 		    const struct interface *ifp,
+		    const struct interface *br_ifp,
 		    vlanid_t vid,
 		    const struct ethaddr *mac,
 		    struct in_addr vtep_ip,
@@ -2204,6 +2215,7 @@ mac_update_internal(enum dplane_op_e op,
 	/* Init the mac-specific data area */
 	memset(&ctx->u.macinfo, 0, sizeof(ctx->u.macinfo));
 
+	ctx->u.macinfo.br_ifindex = br_ifp->ifindex;
 	ctx->u.macinfo.vtep_ip = vtep_ip;
 	ctx->u.macinfo.mac = *mac;
 	ctx->u.macinfo.vid = vid;
