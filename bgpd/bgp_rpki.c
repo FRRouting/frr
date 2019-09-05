@@ -7,6 +7,7 @@
  * Hamburg
  * Copyright (C) 2017-2018 Marcel Röthke (marcel.roethke@haw-hamburg.de),
  * for HAW Hamburg
+ * Copyright (C) 2019 6WIND
  *
  * This file is part of FRRouting.
  *
@@ -854,6 +855,9 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 	ssh_config->bindaddr = NULL;
 
 	ssh_config->username = XSTRDUP(MTYPE_BGP_RPKI_CACHE, username);
+	/* public key path is derived from private key path
+	 * by appending '.pub' to the private key name
+	 */
 	ssh_config->client_privkey_path =
 		XSTRDUP(MTYPE_BGP_RPKI_CACHE, client_privkey_path);
 	ssh_config->server_hostkey_path =
@@ -1141,6 +1145,7 @@ DEFPY (rpki_cache,
 	int return_value;
 	struct listnode *cache_node;
 	struct cache *current_cache;
+	char *pub = NULL;
 
 	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, current_cache)) {
 		if (current_cache->preference == preference) {
@@ -1155,9 +1160,22 @@ DEFPY (rpki_cache,
 	// use ssh connection
 	if (ssh_uname) {
 #if defined(FOUND_SSH)
+		if (ssh_privkey && ssh_pubkey) {
+			pub =  XCALLOC(MTYPE_BGP_RPKI_CACHE,
+					     strlen(ssh_privkey) + 5);
+			snprintf(pub, strlen(ssh_privkey) + 5, "%s.pub",
+				 ssh_privkey);
+			if (!strmatch(pub, ssh_pubkey)) {
+				vty_out(vty,
+					"ssh public key overriden: %s.pub\n",
+					ssh_privkey);
+			}
+		}
 		return_value =
 			add_ssh_cache(cache, sshport, ssh_uname, ssh_privkey,
-				      ssh_pubkey, server_pubkey, preference);
+				      pub, server_pubkey, preference);
+		if (pub)
+			XFREE(MTYPE_BGP_RPKI_CACHE, pub);
 #else
 		return_value = SUCCESS;
 		vty_out(vty,
