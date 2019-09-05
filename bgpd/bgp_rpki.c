@@ -937,7 +937,7 @@ static int config_write(struct vty *vty)
 					ssh_config->server_hostkey_path != NULL
 						? ssh_config
 							  ->server_hostkey_path
-						: " ");
+						: "");
 				break;
 #endif
 			default:
