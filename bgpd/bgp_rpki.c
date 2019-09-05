@@ -1088,7 +1088,7 @@ static int config_write(struct vty *vty)
 				ssh_config->client_privkey_path,
 				ssh_config->server_hostkey_path != NULL
 					? ssh_config->server_hostkey_path
-					: " ");
+					: "");
 			if (ssh_config->bindaddr)
 				vty_out(vty, "source %s ",
 					ssh_config->bindaddr);
