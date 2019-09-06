@@ -391,6 +391,16 @@ Administrative Distance Metrics
 
    Sets the administrative distance for a particular route.
 
+.. _bgp-requires-policy:
+
+Require policy on EBGP
+-------------------------------
+
+.. index:: [no] bgp ebgp-requires-policy
+.. clicmd:: [no] bgp ebgp-requires-policy
+
+   This command requires incoming and outgoing filters to be applied for eBGP sessions. Without the incoming filter, no routes will be accepted. Without the outgoing filter, no routes will be announced.
+
 .. _bgp-route-flap-dampening:
 
 Route Flap Dampening
