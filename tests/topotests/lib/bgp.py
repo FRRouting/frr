@@ -864,7 +864,7 @@ def clear_bgp_and_verify(tgen, topo, router):
 
     peer_uptime_before_clear_bgp = {}
     # Verifying BGP convergence before bgp clear command
-    for retry in range(1, 11):
+    for retry in range(31):
         sleeptime = 3
         # Waiting for BGP to converge
         logger.info("Waiting for %s sec for BGP to converge on router"
@@ -944,7 +944,7 @@ def clear_bgp_and_verify(tgen, topo, router):
 
     peer_uptime_after_clear_bgp = {}
     # Verifying BGP convergence after bgp clear command
-    for retry in range(11):
+    for retry in range(31):
         sleeptime = 3
         # Waiting for BGP to converge
         logger.info("Waiting for %s sec for BGP to converge on router"
