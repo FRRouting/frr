@@ -89,7 +89,6 @@ void isis_new(unsigned long process_id, vrf_id_t vrf_id)
 	isis->area_list = list_new();
 	isis->init_circ_list = list_new();
 	isis->uptime = time(NULL);
-	isis->nexthops = list_new();
 	dyn_cache_init();
 	/*
 	 * uncomment the next line for full debugs

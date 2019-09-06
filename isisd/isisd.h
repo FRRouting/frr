@@ -69,7 +69,6 @@ struct isis {
 	uint32_t router_id;		/* Router ID from zebra */
 	struct list *area_list;	/* list of IS-IS areas */
 	struct list *init_circ_list;
-	struct list *nexthops;		  /* IP next hops from this IS */
 	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
 	struct area_addr *man_area_addrs; /* manualAreaAddresses */
 	uint32_t debugs;		  /* bitmap for debug */
