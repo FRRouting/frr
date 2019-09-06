@@ -2553,8 +2553,9 @@ static int zvni_neigh_uninstall(zebra_vni_t *zvni, zebra_neigh_t *n)
 		return 0;
 
 	if (!zvni->vxlan_if) {
-		zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
-			   zvni->vni, zvni);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
+				   zvni->vni, zvni);
 		return -1;
 	}
 
@@ -2843,9 +2844,12 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 	/* mac entry should be present */
 	mac = zvni_mac_lookup(zvni, &n->emac);
 	if (!mac) {
-		zlog_debug("MAC %s doesn't exist for neigh %s on VNI %u",
-			   prefix_mac2str(&n->emac, buf1, sizeof(buf1)),
-			   ipaddr2str(ip, buf2, sizeof(buf2)), zvni->vni);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("MAC %s doesn't exist for neigh %s on VNI %u",
+				   prefix_mac2str(&n->emac,
+						  buf1, sizeof(buf1)),
+				   ipaddr2str(ip, buf2, sizeof(buf2)),
+				   zvni->vni);
 		return -1;
 	}
 
@@ -3736,10 +3740,12 @@ static struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
  */
 static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac)
 {
-	struct zebra_if *zif;
-	struct zebra_l2info_vxlan *vxl;
+	const struct zebra_if *zif, *br_zif;
+	const struct zebra_l2info_vxlan *vxl;
 	bool sticky;
 	enum zebra_dplane_result res;
+	const struct interface *br_ifp;
+	vlanid_t vid;
 
 	if (!(mac->flags & ZEBRA_MAC_REMOTE))
 		return 0;
@@ -3747,13 +3753,25 @@ static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac)
 	zif = zvni->vxlan_if->info;
 	if (!zif)
 		return -1;
+
+	br_ifp = zif->brslave_info.br_if;
+	if (br_ifp == NULL)
+		return -1;
+
 	vxl = &zif->l2info.vxl;
 
 	sticky = !!CHECK_FLAG(mac->flags,
 			 (ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW));
 
-	res = dplane_mac_add(zvni->vxlan_if, vxl->access_vlan, &mac->macaddr,
-			     mac->fwd_info.r_vtep_ip, sticky);
+	br_zif = (const struct zebra_if *)(br_ifp->info);
+
+	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
+		vid = vxl->access_vlan;
+	else
+		vid = 0;
+
+	res = dplane_mac_add(zvni->vxlan_if, br_ifp, vid,
+			     &mac->macaddr, mac->fwd_info.r_vtep_ip, sticky);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
 	else
@@ -3765,30 +3783,44 @@ static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac)
  */
 static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac)
 {
-	struct zebra_if *zif;
-	struct zebra_l2info_vxlan *vxl;
+	const struct zebra_if *zif, *br_zif;
+	const struct zebra_l2info_vxlan *vxl;
 	struct in_addr vtep_ip;
-	struct interface *ifp;
+	const struct interface *ifp, *br_ifp;
+	vlanid_t vid;
 	enum zebra_dplane_result res;
 
 	if (!(mac->flags & ZEBRA_MAC_REMOTE))
 		return 0;
 
 	if (!zvni->vxlan_if) {
-		zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
-			   zvni->vni, zvni);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
+				   zvni->vni, zvni);
 		return -1;
 	}
 
 	zif = zvni->vxlan_if->info;
 	if (!zif)
 		return -1;
+
+	br_ifp = zif->brslave_info.br_if;
+	if (br_ifp == NULL)
+		return -1;
+
 	vxl = &zif->l2info.vxl;
+
+	br_zif = (const struct zebra_if *)br_ifp->info;
+
+	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
+		vid = vxl->access_vlan;
+	else
+		vid = 0;
 
 	ifp = zvni->vxlan_if;
 	vtep_ip = mac->fwd_info.r_vtep_ip;
 
-	res = dplane_mac_del(ifp, vxl->access_vlan, &mac->macaddr, vtep_ip);
+	res = dplane_mac_del(ifp, br_ifp, vid, &mac->macaddr, vtep_ip);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
 	else
@@ -4491,9 +4523,11 @@ static int zl3vni_rmac_del(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
  */
 static int zl3vni_rmac_install(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 {
-	struct zebra_if *zif = NULL;
-	struct zebra_l2info_vxlan *vxl = NULL;
+	const struct zebra_if *zif = NULL, *br_zif = NULL;
+	const struct zebra_l2info_vxlan *vxl = NULL;
+	const struct interface *br_ifp;
 	enum zebra_dplane_result res;
+	vlanid_t vid;
 
 	if (!(CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE))
 	    || !(CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE_RMAC)))
@@ -4503,9 +4537,20 @@ static int zl3vni_rmac_install(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 	if (!zif)
 		return -1;
 
+	br_ifp = zif->brslave_info.br_if;
+	if (br_ifp == NULL)
+		return -1;
+
 	vxl = &zif->l2info.vxl;
 
-	res = dplane_mac_add(zl3vni->vxlan_if, vxl->access_vlan,
+	br_zif = (const struct zebra_if *)br_ifp->info;
+
+	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
+		vid = vxl->access_vlan;
+	else
+		vid = 0;
+
+	res = dplane_mac_add(zl3vni->vxlan_if, br_ifp, vid,
 			     &zrmac->macaddr, zrmac->fwd_info.r_vtep_ip, 0);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
@@ -4519,8 +4564,10 @@ static int zl3vni_rmac_install(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 {
 	char buf[ETHER_ADDR_STRLEN];
-	struct zebra_if *zif = NULL;
-	struct zebra_l2info_vxlan *vxl = NULL;
+	const struct zebra_if *zif = NULL, *br_zif;
+	const struct zebra_l2info_vxlan *vxl = NULL;
+	const struct interface *br_ifp;
+	vlanid_t vid;
 	enum zebra_dplane_result res;
 
 	if (!(CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE))
@@ -4528,10 +4575,12 @@ static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 		return 0;
 
 	if (!zl3vni->vxlan_if) {
-		zlog_debug(
-			"RMAC %s on L3-VNI %u hash %p couldn't be uninstalled - no vxlan_if",
-			prefix_mac2str(&zrmac->macaddr, buf, sizeof(buf)),
-			zl3vni->vni, zl3vni);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"RMAC %s on L3-VNI %u hash %p couldn't be uninstalled - no vxlan_if",
+				prefix_mac2str(&zrmac->macaddr,
+					       buf, sizeof(buf)),
+				zl3vni->vni, zl3vni);
 		return -1;
 	}
 
@@ -4539,9 +4588,19 @@ static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 	if (!zif)
 		return -1;
 
+	br_ifp = zif->brslave_info.br_if;
+	if (br_ifp == NULL)
+		return -1;
+
 	vxl = &zif->l2info.vxl;
 
-	res = dplane_mac_del(zl3vni->vxlan_if, vxl->access_vlan,
+	br_zif = (const struct zebra_if *)br_ifp->info;
+	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
+		vid = vxl->access_vlan;
+	else
+		vid = 0;
+
+	res = dplane_mac_del(zl3vni->vxlan_if, br_ifp, vid,
 			     &zrmac->macaddr, zrmac->fwd_info.r_vtep_ip);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
