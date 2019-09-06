@@ -1061,8 +1061,10 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 			vty->num_cfg_changes = 0;
 			memset(&vty->cfg_changes, 0, sizeof(vty->cfg_changes));
 
-			/* Regenerate candidate configuration. */
-			if (frr_get_cli_mode() == FRR_CLI_CLASSIC)
+			/* Regenerate candidate configuration if necessary. */
+			if (frr_get_cli_mode() == FRR_CLI_CLASSIC
+			    && running_config->version
+				       > vty->candidate_config->version)
 				nb_config_replace(vty->candidate_config,
 						  running_config, true);
 		}
