@@ -8563,6 +8563,67 @@ int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
 }
 
 /*
+ * Handle MAC-VLAN interface going down.
+ * L3VNI: When MAC-VLAN interface goes down,
+ * find its associated SVI and update type2/type-5 routes
+ * with SVI as RMAC
+ */
+void zebra_vxlan_macvlan_down(struct interface *ifp)
+{
+	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_if *zif, *link_zif;
+	struct interface *link_ifp, *link_if;
+
+	zif = ifp->info;
+	assert(zif);
+	link_ifp = zif->link;
+	link_zif = link_ifp->info;
+	assert(link_zif);
+
+	link_if = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
+					    link_zif->link_ifindex);
+
+	zl3vni = zl3vni_from_svi(link_ifp, link_if);
+	if (zl3vni) {
+		zl3vni->mac_vlan_if = NULL;
+		if (is_l3vni_oper_up(zl3vni))
+			zebra_vxlan_process_l3vni_oper_up(zl3vni);
+	}
+}
+
+/*
+ * Handle MAC-VLAN interface going up.
+ * L3VNI: When MAC-VLAN interface comes up,
+ * find its associated SVI and update type-2 routes
+ * with MAC-VLAN's MAC as RMAC and for type-5 routes
+ * use SVI's MAC as RMAC.
+ */
+void zebra_vxlan_macvlan_up(struct interface *ifp)
+{
+	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_if *zif, *link_zif;
+	struct interface *link_ifp, *link_if;
+
+	zif = ifp->info;
+	assert(zif);
+	link_ifp = zif->link;
+	link_zif = link_ifp->info;
+	assert(link_zif);
+
+	link_if = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
+					    link_zif->link_ifindex);
+	zl3vni = zl3vni_from_svi(link_ifp, link_if);
+	if (zl3vni) {
+		/* associate with macvlan (VRR) interface */
+		zl3vni->mac_vlan_if = ifp;
+
+		/* process oper-up */
+		if (is_l3vni_oper_up(zl3vni))
+			zebra_vxlan_process_l3vni_oper_up(zl3vni);
+	}
+}
+
+/*
  * Handle VxLAN interface down
  */
 int zebra_vxlan_if_down(struct interface *ifp)

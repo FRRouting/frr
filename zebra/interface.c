@@ -1060,7 +1060,9 @@ void if_up(struct interface *ifp)
 						    zif->link_ifindex);
 		if (link_if)
 			zebra_vxlan_svi_up(ifp, link_if);
-	}
+	} else if (IS_ZEBRA_IF_MACVLAN(ifp))
+		zebra_vxlan_macvlan_up(ifp);
+
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -1092,7 +1094,8 @@ void if_down(struct interface *ifp)
 						    zif->link_ifindex);
 		if (link_if)
 			zebra_vxlan_svi_down(ifp, link_if);
-	}
+	} else if (IS_ZEBRA_IF_MACVLAN(ifp))
+		zebra_vxlan_macvlan_down(ifp);
 
 
 	/* Notify to the protocol daemons. */
