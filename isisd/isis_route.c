@@ -65,32 +65,18 @@ static struct isis_nexthop *isis_nexthop_create(int family, union g_addr *ip,
 {
 	struct isis_nexthop *nexthop;
 
-	nexthop = nexthoplookup(isis->nexthops, family, ip, ifindex);
-	if (nexthop) {
-		nexthop->lock++;
-		return nexthop;
-	}
-
 	nexthop = XCALLOC(MTYPE_ISIS_NEXTHOP, sizeof(struct isis_nexthop));
 
 	nexthop->family = family;
 	nexthop->ifindex = ifindex;
 	nexthop->ip = *ip;
-	listnode_add(isis->nexthops, nexthop);
-	nexthop->lock++;
 
 	return nexthop;
 }
 
 static void isis_nexthop_delete(struct isis_nexthop *nexthop)
 {
-	nexthop->lock--;
-	if (nexthop->lock == 0) {
-		listnode_delete(isis->nexthops, nexthop);
-		XFREE(MTYPE_ISIS_NEXTHOP, nexthop);
-	}
-
-	return;
+	XFREE(MTYPE_ISIS_NEXTHOP, nexthop);
 }
 
 static struct isis_nexthop *nexthoplookup(struct list *nexthops, int family,
