@@ -1384,35 +1384,37 @@ DEFPY (show_route_detail,
 
 DEFPY (show_route_summary,
        show_route_summary_cmd,
-       "show\
-         <\
-          ip$ipv4 route [vrf <NAME$vrf_name|all$vrf_all>]\
-            summary [prefix$prefix]\
-          |ipv6$ipv6 route [vrf <NAME$vrf_name|all$vrf_all>]\
-	    summary [prefix$prefix]\
-	 >",
+       "show <ip$ipv4|ipv6$ipv6> route [vrf <NAME$vrf_name|all$vrf_all>] \
+            summary [table (1-4294967295)$table_id] [prefix$prefix]",
        SHOW_STR
        IP_STR
-       "IP routing table\n"
-       VRF_FULL_CMD_HELP_STR
-       "Summary of all routes\n"
-       "Prefix routes\n"
        IP6_STR
        "IP routing table\n"
        VRF_FULL_CMD_HELP_STR
        "Summary of all routes\n"
+       "Table to display summary for\n"
+       "The table number\n"
        "Prefix routes\n")
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	struct route_table *table;
+
+	if (table_id == 0)
+		table_id = RT_TABLE_MAIN;
 
 	if (vrf_all) {
 		struct vrf *vrf;
 		struct zebra_vrf *zvrf;
 
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-			if ((zvrf = vrf->info) == NULL
-			    || (table = zvrf->table[afi][SAFI_UNICAST]) == NULL)
+			if ((zvrf = vrf->info) == NULL)
+				continue;
+
+			table = zebra_vrf_table_with_table_id(afi,
+							      SAFI_UNICAST,
+							      zvrf->vrf->vrf_id,
+							      table_id);
+			if (!table)
 				continue;
 
 			if (prefix)
@@ -1426,7 +1428,9 @@ DEFPY (show_route_summary,
 		if (vrf_name)
 			VRF_GET_ID(vrf_id, vrf_name, false);
 
-		table = zebra_vrf_table(afi, SAFI_UNICAST, vrf_id);
+		table = zebra_vrf_table_with_table_id(afi,
+						      SAFI_UNICAST,
+						      vrf_id, table_id);
 		if (!table)
 			return CMD_SUCCESS;
 
