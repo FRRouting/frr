@@ -19,6 +19,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         libpython-dev \
         libreadline-dev \
         libc-ares-dev \
+        libcap-dev \
         man \
         mininet \
         pkg-config \
