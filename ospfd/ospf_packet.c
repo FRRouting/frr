@@ -1362,11 +1362,12 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 	case NSM_Down:
 	case NSM_Attempt:
 	case NSM_TwoWay:
-		flog_warn(
-			EC_OSPF_PACKET,
-			"Packet[DD]: Neighbor %s state is %s, packet discarded.",
-			inet_ntoa(nbr->router_id),
-			lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
+		if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
+			zlog_info(
+				"Packet[DD]: Neighbor %s state is %s, packet discarded.",
+				inet_ntoa(nbr->router_id),
+				lookup_msg(ospf_nsm_state_msg, nbr->state,
+					   NULL));
 		break;
 	case NSM_Init:
 		OSPF_NSM_EVENT_EXECUTE(nbr, NSM_TwoWayReceived);
