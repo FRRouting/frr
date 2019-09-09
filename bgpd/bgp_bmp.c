@@ -663,6 +663,11 @@ static int bmp_peer_established(struct peer *peer)
 	if (!bmpbgp)
 		return 0;
 
+	/* Check if this peer just went to Established */
+	if ((peer->last_major_event != OpenConfirm) ||
+	    !(peer_established(peer)))
+		return 0;
+
 	if (peer->doppelganger && (peer->doppelganger->status != Deleted)) {
 		struct bmp_bgp_peer *bbpeer, *bbdopp;
 
@@ -2226,7 +2231,7 @@ static int bgp_bmp_module_init(void)
 {
 	hook_register(bgp_packet_dump, bmp_mirror_packet);
 	hook_register(bgp_packet_send, bmp_outgoing_packet);
-	hook_register(peer_established, bmp_peer_established);
+	hook_register(peer_status_changed, bmp_peer_established);
 	hook_register(peer_backward_transition, bmp_peer_backward);
 	hook_register(bgp_process, bmp_process);
 	hook_register(bgp_inst_config_write, bmp_config_write);
