@@ -27,6 +27,11 @@ module frr-isisd {
   description
     "This module defines a model for managing FRR isisd daemon.";
 
+  revision 2019-09-09 {
+    description
+      "Changed interface references to use
+      frr-interface:interface-ref typedef";
+  }
   revision 2018-07-26 {
     description
       "Initial revision.";
@@ -296,7 +301,7 @@ module frr-isisd {
     description
       "Interface specific IS-IS notification data grouping";
     leaf interface-name {
-      type string;
+      type frr-interface:interface-ref;
       description
         "IS-IS interface name";
     }
