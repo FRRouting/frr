@@ -1,0 +1,212 @@
+module frr-vrrpd {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/vrrpd";
+  prefix frr-vrrpd;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  revision 2019-09-09 {
+    description
+      "Initial revision.";
+  }
+
+  grouping ip-vrrp-ipv6-config {
+    description
+      "IPv6-specific configuration data for VRRP on IPv6
+       interfaces";
+    leaf virtual-link-local {
+      type inet:ip-address;
+      description
+        "For VRRP on IPv6 interfaces, sets the virtual link local
+         address";
+    }
+  }
+
+  grouping ip-vrrp-ipv6-state {
+    description
+      "IPv6-specific operational state for VRRP on IPv6 interfaces";
+    uses ip-vrrp-ipv6-config;
+  }
+
+  grouping ip-vrrp-tracking-config {
+    description
+      "Configuration data for tracking interfaces
+       in a VRRP group";
+    leaf-list track-interface {
+      type frr-interface:interface-ref;
+      description
+        "Sets a list of one or more interfaces that should
+         be tracked for up/down events to dynamically change the
+         priority state of the VRRP group, and potentially
+         change the mastership if the tracked interface going
+         down lowers the priority sufficiently. Any of the tracked
+         interfaces going down will cause the priority to be lowered.
+         Some implementations may only support a single
+         tracked interface.";
+    }
+
+    leaf priority-decrement {
+      type uint8 {
+        range "0..254";
+      }
+      default "0";
+      description
+        "Set the value to subtract from priority when
+         the tracked interface goes down";
+    }
+  }
+
+  grouping ip-vrrp-tracking-state {
+    description
+      "Operational state data for tracking interfaces in a VRRP
+       group";
+  }
+
+  grouping ip-vrrp-tracking-top {
+    description
+      "Top-level grouping for VRRP interface tracking";
+    container interface-tracking {
+      description
+        "Top-level container for VRRP interface tracking";
+      container config {
+        description
+          "Configuration data for VRRP interface tracking";
+        uses ip-vrrp-tracking-config;
+      }
+
+      container state {
+        config false;
+        description
+          "Operational state data for VRRP interface tracking";
+        uses ip-vrrp-tracking-config;
+
+        uses ip-vrrp-tracking-state;
+      }
+    }
+  }
+
+  grouping ip-vrrp-config {
+    description
+      "Configuration data for VRRP on IP interfaces";
+    leaf virtual-router-id {
+      type uint8 {
+        range "1..255";
+      }
+      description
+        "Set the virtual router id for use by the VRRP group. This
+         usually also determines the virtual MAC address that is
+         generated for the VRRP group";
+    }
+
+    leaf-list virtual-address {
+      type inet:ip-address;
+      description
+        "Configure one or more virtual addresses for the
+         VRRP group";
+    }
+
+    leaf priority {
+      type uint8 {
+        range "1..254";
+      }
+      default "100";
+      description
+        "Specifies the sending VRRP interface's priority
+         for the virtual router. Higher values equal higher
+         priority";
+    }
+
+    leaf preempt {
+      type boolean;
+      default "true";
+      description
+        "When set to true, enables preemption by a higher
+         priority backup router of a lower priority master router";
+    }
+
+    leaf accept-mode {
+      type boolean;
+      default "true";
+      description
+        "Configure whether packets destined for
+         virtual addresses are accepted even when the virtual
+         address is not owned by the router interface";
+    }
+
+    leaf advertisement-interval {
+      type uint16 {
+        range "1..4095";
+      }
+      units "centiseconds";
+      default "100";
+      description
+        "Sets the interval between successive VRRP
+         advertisements -- RFC 5798 defines this as a 12-bit
+         value expressed as 0.1 seconds, with default 100, i.e.,
+         1 second. Several implementation express this in units of
+         seconds";
+    }
+  }
+
+  grouping ip-vrrp-state {
+    description
+      "Operational state data for VRRP on IP interfaces";
+    leaf current-priority {
+      type uint8;
+      description
+        "Operational value of the priority for the
+         interface in the VRRP group";
+    }
+  }
+
+  grouping ip-vrrp-top {
+    description
+      "Top-level grouping for Virtual Router Redundancy Protocol";
+    container vrrp {
+      description
+        "Enclosing container for VRRP groups handled by this
+         IP interface";
+      reference
+        "RFC 5798 - Virtual Router Redundancy Protocol
+         (VRRP) Version 3 for IPv4 and IPv6";
+      list vrrp-group {
+        key "virtual-router-id";
+        description
+          "List of VRRP groups, keyed by virtual router id";
+        leaf virtual-router-id {
+          type leafref {
+            path "../config/virtual-router-id";
+          }
+          description
+            "References the configured virtual router id for this
+             VRRP group";
+        }
+
+        container config {
+          description
+            "Configuration data for the VRRP group";
+          uses ip-vrrp-config;
+        }
+
+        container state {
+          config false;
+          description
+            "Operational state data for the VRRP group";
+          uses ip-vrrp-config;
+
+          uses ip-vrrp-state;
+        }
+      }
+    }
+  }
+
+  augment "/frr-interface:lib/frr-interface:interface" {
+    uses ip-vrrp-top;
+  }
+}
