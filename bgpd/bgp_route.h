@@ -313,7 +313,10 @@ struct bgp_aggregate {
 	uint8_t as_set;
 
 	/* Route-map for aggregated route. */
-	struct route_map *map;
+	struct {
+		char *name;
+		struct route_map *map;
+	} rmap;
 
 	/* Suppress-count. */
 	unsigned long count;
@@ -545,6 +548,10 @@ extern void bgp_config_write_network(struct vty *, struct bgp *, afi_t, safi_t);
 extern void bgp_config_write_distance(struct vty *, struct bgp *, afi_t,
 				      safi_t);
 
+extern void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
+				 safi_t safi, struct bgp_aggregate *aggregate);
+extern void bgp_aggregate_route(struct bgp *bgp, struct prefix *p, afi_t afi,
+				safi_t safi, struct bgp_aggregate *aggregate);
 extern void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 				    struct bgp_path_info *path, afi_t afi,
 				    safi_t safi);

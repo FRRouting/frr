@@ -724,10 +724,13 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 				       struct community *community,
 				       struct ecommunity *ecommunity,
 				       struct lcommunity *lcommunity,
-				       int as_set, uint8_t atomic_aggregate)
+				       struct bgp_aggregate *aggregate,
+				       uint8_t atomic_aggregate,
+				       struct prefix *p)
 {
 	struct attr attr;
 	struct attr *new;
+	int ret;
 
 	memset(&attr, 0, sizeof(struct attr));
 
@@ -778,7 +781,7 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 	attr.label = MPLS_INVALID_LABEL;
 	attr.weight = BGP_ATTR_DEFAULT_WEIGHT;
 	attr.mp_nexthop_len = IPV6_MAX_BYTELEN;
-	if (!as_set || atomic_aggregate)
+	if (!aggregate->as_set || atomic_aggregate)
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE);
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR);
 	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
@@ -789,7 +792,42 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 	attr.label_index = BGP_INVALID_LABEL_INDEX;
 	attr.label = MPLS_INVALID_LABEL;
 
-	new = bgp_attr_intern(&attr);
+	/* Apply route-map */
+	if (aggregate->rmap.name) {
+		struct attr attr_tmp = attr;
+		struct bgp_path_info rmap_path;
+
+		memset(&rmap_path, 0, sizeof(struct bgp_path_info));
+		rmap_path.peer = bgp->peer_self;
+		rmap_path.attr = &attr_tmp;
+
+		SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_AGGREGATE);
+
+		ret = route_map_apply(aggregate->rmap.map, p, RMAP_BGP,
+				      &rmap_path);
+
+		bgp->peer_self->rmap_type = 0;
+
+		if (ret == RMAP_DENYMATCH) {
+			/* Free uninterned attribute. */
+			bgp_attr_flush(&attr_tmp);
+
+			/* Unintern original. */
+			aspath_unintern(&attr.aspath);
+			return NULL;
+		}
+
+		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+			bgp_attr_add_gshut_community(&attr_tmp);
+
+		new = bgp_attr_intern(&attr_tmp);
+	} else {
+
+		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+			bgp_attr_add_gshut_community(&attr);
+
+		new = bgp_attr_intern(&attr);
+	}
 
 	aspath_unintern(&new->aspath);
 	return new;
