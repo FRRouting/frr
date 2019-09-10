@@ -292,6 +292,62 @@ Link Parameters Commands
 
 .. _zebra-vrf:
 
+Administrative Distance
+=======================
+
+Administrative distance allows FRR to make decisions about what routes
+should be installed in the rib based upon the originating protocol.
+The lowest Admin Distance is the route selected.  This is purely a
+subjective decision about ordering and care has been taken to choose
+the same distances that other routing suites have choosen.
+
++------------+-----------+
+| Protocol   | Distance  |
++------------+-----------+
+| System     | 0         |
++------------+-----------+
+| Kernel     | 0         |
++------------+-----------+
+| Connect    | 0         |
++------------+-----------+
+| Static     | 1         |
++------------+-----------+
+| NHRP       | 10        |
++------------+-----------+
+| EBGP       | 20        |
++------------+-----------+
+| EIGRP      | 90        |
++------------+-----------+
+| BABEL      | 100       |
++------------+-----------+
+| OSPF       | 110       |
++------------+-----------+
+| ISIS       | 115       |
++------------+-----------+
+| OPENFABRIC | 115       |
++------------+-----------+
+| RIP        | 120       |
++------------+-----------+
+| Table      | 150       |
++------------+-----------+
+| SHARP      | 150       |
++------------+-----------+
+| IBGP       | 200       |
++------------+-----------+
+| PBR        | 200       |
++------------+-----------+
+
+An admin distance of 255 indicates to Zebra that the route should not be
+installed into the Data Plane.  Additionally routes with an admin distance
+of 255 will not be redistributed.
+
+Zebra does treat Kernel routes as special case for the purposes of Admin
+Distance.  Upon learning about a route that is not originated by FRR
+we read the metric value as a uint32_t.  The top byte of the value
+is interpreted as the Administrative Distance and the low three bytes
+are read in as the metric.  This special case is to facilitate VRF
+default routes.
+
 Virtual Routing and Forwarding
 ==============================
 
