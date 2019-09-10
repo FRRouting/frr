@@ -259,11 +259,11 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	curr += offset;
 	curr_size -= offset;
 
-	if (curr_size != 8) {
+	if (curr_size < 8) {
 		char src_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
 		zlog_warn(
-			"%s: preference/metric size is not 8: size=%d from %s on interface %s",
+			"%s: preference/metric size is less than 8 bytes: size=%d from %s on interface %s",
 			__PRETTY_FUNCTION__, curr_size, src_str, ifp->name);
 		return -3;
 	}
