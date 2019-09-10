@@ -122,6 +122,33 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 	_nexthop_add(&nexthop->resolved, resolved_hop);
 }
 
+/* Checks if nexthop we are trying to resolve to is valid */
+static bool nexthop_valid_resolve(const struct nexthop *nexthop,
+				  const struct nexthop *resolved)
+{
+	/* Can't resolve to a recursive nexthop */
+	if (CHECK_FLAG(resolved->flags, NEXTHOP_FLAG_RECURSIVE))
+		return false;
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		/* If the nexthop we are resolving to does not match the
+		 * ifindex for the nexthop the route wanted, its not valid.
+		 */
+		if (nexthop->ifindex != resolved->ifindex)
+			return false;
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
+		break;
+	}
+
+	return true;
+}
+
 /*
  * Given a nexthop we need to properly recursively resolve
  * the route.  As such, do a table lookup to find and match
@@ -287,8 +314,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				if (!CHECK_FLAG(match->status,
 						ROUTE_ENTRY_INSTALLED))
 					continue;
-				if (CHECK_FLAG(newhop->flags,
-					       NEXTHOP_FLAG_RECURSIVE))
+				if (!nexthop_valid_resolve(nexthop, newhop))
 					continue;
 
 				SET_FLAG(nexthop->flags,
@@ -308,8 +334,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				if (!CHECK_FLAG(match->status,
 						ROUTE_ENTRY_INSTALLED))
 					continue;
-				if (CHECK_FLAG(newhop->flags,
-					       NEXTHOP_FLAG_RECURSIVE))
+				if (!nexthop_valid_resolve(nexthop, newhop))
 					continue;
 
 				SET_FLAG(nexthop->flags,
