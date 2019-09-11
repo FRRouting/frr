@@ -364,6 +364,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 	struct ecommunity *ecom;
 	json_object *json_import_rtl = NULL;
 	json_object *json_export_rtl = NULL;
+	char buf2[ETHER_ADDR_STRLEN];
 
 	json_import_rtl = json_export_rtl = 0;
 
@@ -382,6 +383,17 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		json_object_string_add(json, "advertiseSviMacip", "n/a");
 		json_object_to_json_string_ext(json,
 					       JSON_C_TO_STRING_NOSLASHESCAPE);
+		json_object_string_add(json, "advertisePip",
+				       bgp_vrf->evpn_info->advertise_pip ?
+				       "Enabled" : "Disabled");
+		json_object_string_add(json, "sysIP",
+				       inet_ntoa(bgp_vrf->evpn_info->pip_ip));
+		json_object_string_add(json, "sysMac",
+				prefix_mac2str(&bgp_vrf->evpn_info->pip_rmac,
+					       buf2, sizeof(buf2)));
+		json_object_string_add(json, "rmac",
+				prefix_mac2str(&bgp_vrf->rmac,
+					       buf2, sizeof(buf2)));
 	} else {
 		vty_out(vty, "VNI: %d", bgp_vrf->l3vni);
 		vty_out(vty, " (known to the kernel)");
@@ -396,6 +408,16 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 			inet_ntoa(bgp_vrf->originator_ip));
 		vty_out(vty, "  Advertise-gw-macip : %s\n", "n/a");
 		vty_out(vty, "  Advertise-svi-macip : %s\n", "n/a");
+		vty_out(vty, "  Advertise-pip: %s\n",
+			bgp_vrf->evpn_info->advertise_pip ? "Yes" : "No");
+		vty_out(vty, "  System-IP: %s\n",
+			inet_ntoa(bgp_vrf->evpn_info->pip_ip));
+		vty_out(vty, "  System-MAC: %s\n",
+				prefix_mac2str(&bgp_vrf->evpn_info->pip_rmac,
+					       buf2, sizeof(buf2)));
+		vty_out(vty, "  Router-MAC: %s\n",
+				prefix_mac2str(&bgp_vrf->rmac,
+					       buf2, sizeof(buf2)));
 	}
 
 	if (!json)
