@@ -654,12 +654,12 @@ void vrrp_vrouter_destroy(struct vrrp_vrouter *vr)
 	XFREE(MTYPE_VRRP_RTR, vr);
 }
 
-struct vrrp_vrouter *vrrp_lookup(struct interface *ifp, uint8_t vrid)
+struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid)
 {
 	struct vrrp_vrouter vr;
 
 	vr.vrid = vrid;
-	vr.ifp = ifp;
+	vr.ifp = (struct interface *)ifp;
 
 	return hash_lookup(vrrp_vrouters_hash, &vr);
 }
