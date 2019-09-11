@@ -340,7 +340,7 @@ void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
 /*
  * Add an IPvX address to a VRRP Virtual Router.
  *
- * r
+ * vr
  *    Virtual Router to add IPvx address to
  *
  * ip
@@ -354,7 +354,7 @@ void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
  *    -1 on error
  *     0 otherwise
  */
-int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip);
+int vrrp_add_ip(struct vrrp_vrouter *vr, struct ipaddr *ip);
 
 /*
  * Add an IPv4 address to a VRRP Virtual Router.
@@ -397,7 +397,7 @@ int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
 /*
  * Remove an IP address from a VRRP Virtual Router.
  *
- * r
+ * vr
  *    Virtual Router to remove IP address from
  *
  * ip
@@ -413,7 +413,7 @@ int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
  *    -1 on error
  *     0 otherwise
  */
-int vrrp_del_ip(struct vrrp_router *r, struct ipaddr *ip);
+int vrrp_del_ip(struct vrrp_vrouter *vr, struct ipaddr *ip);
 
 /*
  * Remove an IPv4 address from a VRRP Virtual Router.

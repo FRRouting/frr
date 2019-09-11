@@ -397,9 +397,10 @@ static bool vrrp_has_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 	return false;
 }
 
-int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip)
+int vrrp_add_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 {
-	int af = (ip->ipa_type == IPADDR_V6) ? AF_INET6 : AF_INET;
+	struct vrrp_router *r = IS_IPADDR_V4(ip) ? vr->v4 : vr->v6;
+	int af = r->family;
 
 	assert(r->family == af);
 	assert(!(r->vr->version == 2 && ip->ipa_type == IPADDR_V6));
@@ -443,7 +444,7 @@ int vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
 
 	ip.ipa_type = IPADDR_V4;
 	ip.ipaddr_v4 = v4;
-	return vrrp_add_ip(vr->v4, &ip);
+	return vrrp_add_ip(vr, &ip);
 }
 
 int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
@@ -454,14 +455,18 @@ int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
 
 	ip.ipa_type = IPADDR_V6;
 	ip.ipaddr_v6 = v6;
-	return vrrp_add_ip(vr->v6, &ip);
+	return vrrp_add_ip(vr, &ip);
 }
 
-int vrrp_del_ip(struct vrrp_router *r, struct ipaddr *ip)
+
+
+int vrrp_del_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 {
 	struct listnode *ln, *nn;
 	struct ipaddr *iter;
 	int ret = 0;
+
+	struct vrrp_router *r = IS_IPADDR_V4(ip) ? vr->v4 : vr->v6;
 
 	if (!vrrp_has_ip(r->vr, ip))
 		return 0;
@@ -488,7 +493,7 @@ int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
 
 	ip.ipa_type = IPADDR_V6;
 	ip.ipaddr_v6 = v6;
-	return vrrp_del_ip(vr->v6, &ip);
+	return vrrp_del_ip(vr, &ip);
 }
 
 int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
@@ -497,7 +502,7 @@ int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
 
 	ip.ipa_type = IPADDR_V4;
 	ip.ipaddr_v4 = v4;
-	return vrrp_del_ip(vr->v4, &ip);
+	return vrrp_del_ip(vr, &ip);
 }
 
 
