@@ -15,6 +15,7 @@ vrrpd_libvrrp_a_SOURCES = \
 	vrrpd/vrrp_arp.c \
 	vrrpd/vrrp_debug.c \
 	vrrpd/vrrp_ndisc.c \
+	vrrpd/vrrp_northbound.c \
 	vrrpd/vrrp_packet.c \
 	vrrpd/vrrp_vty.c \
 	vrrpd/vrrp_zebra.c \
@@ -35,3 +36,6 @@ vrrpd/vrrp_vty.$(OBJEXT): vrrpd/vrrp_vty_clippy.c
 
 vrrpd_vrrpd_SOURCES = vrrpd/vrrp_main.c
 vrrpd_vrrpd_LDADD = vrrpd/libvrrp.a lib/libfrr.la @LIBCAP@
+nodist_vrrpd_vrrpd_SOURCES = \
+	yang/frr-vrrpd.yang.c \
+	# end

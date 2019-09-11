@@ -28,6 +28,7 @@
 #include "lib/hook.h"
 #include "lib/if.h"
 #include "lib/linklist.h"
+#include "lib/northbound.h"
 #include "lib/privs.h"
 #include "lib/stream.h"
 #include "lib/thread.h"
@@ -46,6 +47,8 @@
 #define VRRP_LOGPFX_FAM "[%s] "
 
 /* Default defaults */
+#define VRRP_XPATH_FULL "/frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group"
+#define VRRP_XPATH "./frr-vrrpd:vrrp/vrrp-group"
 #define VRRP_DEFAULT_PRIORITY 100
 #define VRRP_DEFAULT_ADVINT 100
 #define VRRP_DEFAULT_PREEMPT true
@@ -57,8 +60,12 @@
 
 DECLARE_MGROUP(VRRPD)
 
+/* Northbound */
+extern const struct frr_yang_module_info frr_vrrpd_info;
+
 /* Configured defaults */
 struct vrrp_defaults {
+	uint8_t version;
 	uint8_t priority;
 	uint16_t advertisement_interval;
 	bool preempt_mode;

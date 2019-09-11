@@ -2337,6 +2337,7 @@ int vrrp_config_write_global(struct vty *vty)
 		vty_out(vty, "vrrp autoconfigure%s\n",
 			vrrp_autoconfig_version == 2 ? " version 2" : "");
 
+	/* FIXME: needs to be udpated for full YANG conversion. */
 	if (vd.priority != VRRP_DEFAULT_PRIORITY && ++writes)
 		vty_out(vty, "vrrp default priority %" PRIu8 "\n", vd.priority);
 
@@ -2386,10 +2387,13 @@ static bool vrrp_hash_cmp(const void *arg1, const void *arg2)
 void vrrp_init(void)
 {
 	/* Set default defaults */
-	vd.priority = VRRP_DEFAULT_PRIORITY;
-	vd.advertisement_interval = VRRP_DEFAULT_ADVINT;
-	vd.preempt_mode = VRRP_DEFAULT_PREEMPT;
-	vd.accept_mode = VRRP_DEFAULT_ACCEPT;
+	vd.version = yang_get_default_uint8("%s/version", VRRP_XPATH_FULL);
+	vd.priority = yang_get_default_uint8("%s/priority", VRRP_XPATH_FULL);
+	vd.advertisement_interval = yang_get_default_uint16(
+		"%s/advertisement-interval", VRRP_XPATH_FULL);
+	vd.preempt_mode = yang_get_default_bool("%s/preempt", VRRP_XPATH_FULL);
+	vd.accept_mode =
+		yang_get_default_bool("%s/accept-mode", VRRP_XPATH_FULL);
 	vd.shutdown = VRRP_DEFAULT_SHUTDOWN;
 
 	vrrp_autoconfig_version = 3;
