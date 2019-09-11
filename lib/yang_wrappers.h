@@ -154,4 +154,12 @@ extern void yang_dnode_get_ipv6p(union prefixptr prefix,
 extern void yang_get_default_ipv6p(union prefixptr var, const char *xpath_fmt,
 				   ...);
 
+/* ip */
+extern void yang_str2ip(const char *value, struct ipaddr *addr);
+extern struct yang_data *yang_data_new_ip(const char *xpath,
+					  const struct ipaddr *addr);
+extern void yang_dnode_get_ip(struct ipaddr *addr, const struct lyd_node *dnode,
+			      const char *xpath_fmt, ...);
+extern void yang_get_default_ip(struct ipaddr *var, const char *xpath_fmt, ...);
+
 #endif /* _FRR_NORTHBOUND_WRAPPERS_H_ */
