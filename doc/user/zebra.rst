@@ -430,6 +430,14 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    This command will dump the routing tables within the vrf scope. If `vrf all`
    is executed, all routing tables will be dumped.
 
+.. index:: show <ip|ipv6> route summary [vrf VRF] [table TABLENO] [prefix]
+.. clicmd:: show <ip|ipv6> route summary [vrf VRF] [table TABLENO] [prefix]
+
+   This command will dump a summary output of the specified VRF and TABLENO
+   combination.  If neither VRF or TABLENO is specified FRR defaults to
+   the default vrf and default table.  If prefix is specified dump the
+   number of prefix routes.
+
 By using the :option:`-n` option, the *Linux network namespace* will be mapped
 over the *Zebra* VRF. One nice feature that is possible by handling *Linux
 network namespace* is the ability to name default VRF. At startup, *Zebra*
