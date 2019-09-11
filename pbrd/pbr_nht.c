@@ -682,6 +682,108 @@ struct pbr_nht_individual {
 	uint32_t valid;
 };
 
+static bool
+pbr_nht_individual_nexthop_gw_update(struct pbr_nexthop_cache *pnhc,
+				     const struct pbr_nht_individual *pnhi)
+{
+	bool is_valid = pnhc->valid;
+
+	if (!pnhi->nhr) /* It doesn't care about non-nexthop updates */
+		goto done;
+
+	switch (pnhi->nhr->prefix.family) {
+	case AF_INET:
+		if (pnhc->nexthop->gate.ipv4.s_addr
+		    != pnhi->nhr->prefix.u.prefix4.s_addr)
+			goto done; /* Unrelated change */
+		break;
+	case AF_INET6:
+		if (memcmp(&pnhc->nexthop->gate.ipv6,
+			   &pnhi->nhr->prefix.u.prefix6, 16)
+		    != 0)
+			goto done; /* Unrelated change */
+		break;
+	}
+
+	if (!pnhi->nhr->nexthop_num) {
+		is_valid = false;
+		goto done;
+	}
+
+	if (pnhc->nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX
+	    || pnhc->nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
+
+		/* GATEWAY_IFINDEX type shouldn't resolve to group */
+		if (pnhi->nhr->nexthop_num > 1) {
+			is_valid = false;
+			goto done;
+		}
+
+		/* If whatever we resolved to wasn't on the interface we
+		 * specified. (i.e. not a connected route), its invalid.
+		 */
+		if (pnhi->nhr->nexthops[0].ifindex != pnhc->nexthop->ifindex) {
+			is_valid = false;
+			goto done;
+		}
+	}
+
+	is_valid = true;
+
+done:
+	pnhc->valid = is_valid;
+
+	return pnhc->valid;
+}
+
+static bool pbr_nht_individual_nexthop_interface_update(
+	struct pbr_nexthop_cache *pnhc, const struct pbr_nht_individual *pnhi)
+{
+	bool is_valid = pnhc->valid;
+
+	if (!pnhi->ifp) /* It doesn't care about non-interface updates */
+		goto done;
+
+	if (pnhc->nexthop->ifindex
+	    != pnhi->ifp->ifindex) /* Un-related interface */
+		goto done;
+
+	is_valid = !!if_is_up(pnhi->ifp);
+
+done:
+	pnhc->valid = is_valid;
+
+	return pnhc->valid;
+}
+
+/* Given this update either from interface or nexthop tracking, re-validate this
+ * nexthop.
+ *
+ * If the update is un-related, the subroutines shoud just return their cached
+ * valid state.
+ */
+static void
+pbr_nht_individual_nexthop_update(struct pbr_nexthop_cache *pnhc,
+				  const struct pbr_nht_individual *pnhi)
+{
+	assert(pnhi->nhr || pnhi->ifp); /* Either nexthop or interface update */
+
+	switch (pnhc->nexthop->type) {
+	case NEXTHOP_TYPE_IFINDEX:
+		pbr_nht_individual_nexthop_interface_update(pnhc, pnhi);
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		pbr_nht_individual_nexthop_gw_update(pnhc, pnhi);
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		pnhc->valid = true;
+		break;
+	}
+}
+
 static void pbr_nht_individual_nexthop_update_lookup(struct hash_bucket *b,
 						     void *data)
 {
@@ -692,19 +794,7 @@ static void pbr_nht_individual_nexthop_update_lookup(struct hash_bucket *b,
 
 	old_valid = pnhc->valid;
 
-	switch (pnhi->nhr->prefix.family) {
-	case AF_INET:
-		if (pnhc->nexthop->gate.ipv4.s_addr
-		    == pnhi->nhr->prefix.u.prefix4.s_addr)
-			pnhc->valid = !!pnhi->nhr->nexthop_num;
-		break;
-	case AF_INET6:
-		if (memcmp(&pnhc->nexthop->gate.ipv6,
-			   &pnhi->nhr->prefix.u.prefix6, 16)
-		    == 0)
-			pnhc->valid = !!pnhi->nhr->nexthop_num;
-		break;
-	}
+	pbr_nht_individual_nexthop_update(pnhc, pnhi);
 
 	DEBUGD(&pbr_dbg_nht, "\tFound %s: old: %d new: %d",
 	       prefix2str(&pnhi->nhr->prefix, buf, sizeof(buf)), old_valid,
@@ -736,7 +826,7 @@ pbr_nexthop_group_cache_to_nexthop_group(struct nexthop_group *nhg,
 static void pbr_nht_nexthop_update_lookup(struct hash_bucket *b, void *data)
 {
 	struct pbr_nexthop_group_cache *pnhgc = b->data;
-	struct pbr_nht_individual pnhi;
+	struct pbr_nht_individual pnhi = {};
 	struct nexthop_group nhg = {};
 	bool old_valid;
 
@@ -778,9 +868,7 @@ pbr_nht_individual_nexthop_interface_update_lookup(struct hash_backet *b,
 
 	old_valid = pnhc->valid;
 
-	if (pnhc->nexthop->type == NEXTHOP_TYPE_IFINDEX
-	    && pnhc->nexthop->ifindex == pnhi->ifp->ifindex)
-		pnhc->valid = !!if_is_up(pnhi->ifp);
+	pbr_nht_individual_nexthop_update(pnhc, pnhi);
 
 	DEBUGD(&pbr_dbg_nht, "\tFound %s: old: %d new: %d", pnhi->ifp->name,
 	       old_valid, pnhc->valid);
@@ -793,7 +881,7 @@ static void pbr_nht_nexthop_interface_update_lookup(struct hash_backet *b,
 						    void *data)
 {
 	struct pbr_nexthop_group_cache *pnhgc = b->data;
-	struct pbr_nht_individual pnhi;
+	struct pbr_nht_individual pnhi = {};
 	bool old_valid;
 
 	old_valid = pnhgc->valid;
