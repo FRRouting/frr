@@ -159,6 +159,7 @@ module frr-vrrpd {
       "Operational state data for VRRP on IP interfaces";
     leaf current-priority {
       type uint8;
+      config false;
       description
         "Operational value of the priority for the
          interface in the VRRP group";
@@ -179,29 +180,9 @@ module frr-vrrpd {
         key "virtual-router-id";
         description
           "List of VRRP groups, keyed by virtual router id";
-        leaf virtual-router-id {
-          type leafref {
-            path "../config/virtual-router-id";
-          }
-          description
-            "References the configured virtual router id for this
-             VRRP group";
-        }
 
-        container config {
-          description
-            "Configuration data for the VRRP group";
-          uses ip-vrrp-config;
-        }
-
-        container state {
-          config false;
-          description
-            "Operational state data for the VRRP group";
-          uses ip-vrrp-config;
-
-          uses ip-vrrp-state;
-        }
+        uses ip-vrrp-config;
+        uses ip-vrrp-state;
       }
     }
   }
