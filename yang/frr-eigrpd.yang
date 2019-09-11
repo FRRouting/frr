@@ -23,6 +23,11 @@ module frr-eigrpd {
   description
     "This module defines a model for managing FRR eigrpd daemon.";
 
+  revision 2019-09-09 {
+    description
+      "Changed interface references to use
+      frr-interface:interface-ref typedef";
+  }
   revision 2019-06-19 {
     description "Initial revision.";
     reference
@@ -94,9 +99,7 @@ module frr-eigrpd {
 
       leaf-list passive-interface {
         description "List of suppressed interfaces";
-        type string {
-          length "1..16";
-        }
+        type frr-interface:interface-ref;
       }
 
       leaf active-time {

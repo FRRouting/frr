@@ -11,6 +11,10 @@ module frr-interface {
   description
     "This module defines a model for managing FRR interfaces.";
 
+  revision 2019-09-09 {
+    description
+      "Added interface-ref typedef";
+  }
   revision 2018-03-28 {
     description
       "Initial revision.";
@@ -42,5 +46,14 @@ module frr-interface {
           "Interface description.";
       }
     }
+  }
+
+  typedef interface-ref {
+    type leafref {
+      require-instance false;
+      path "/frr-interface:lib/frr-interface:interface/frr-interface:name";
+    }
+    description
+      "Reference to an interface";
   }
 }
