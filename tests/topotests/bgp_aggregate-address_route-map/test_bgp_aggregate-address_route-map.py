@@ -92,7 +92,7 @@ def test_bgp_maximum_prefix_invalid():
         while True:
             output = json.loads(tgen.gears[router].vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
             if output['192.168.255.1']['bgpState'] == 'Established':
-                if output['192.168.255.1']['addressFamilyInfo']['IPv4 Unicast']['acceptedPrefixCounter'] == 3:
+                if output['192.168.255.1']['addressFamilyInfo']['ipv4Unicast']['acceptedPrefixCounter'] == 3:
                     return True
 
     def _bgp_aggregate_address_has_metric(router):
