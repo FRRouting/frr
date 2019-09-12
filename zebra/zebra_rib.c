@@ -691,7 +691,7 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 
 		srcdest_rnode_prefixes(rn, &p, &src_p);
 
-		redistribute_delete(p, src_p, re);
+		redistribute_delete(p, src_p, re, NULL);
 		UNSET_FLAG(re->flags, ZEBRA_FLAG_SELECTED);
 	}
 }
@@ -1248,8 +1248,17 @@ static void rib_process(struct route_node *rn)
 			SET_FLAG(new_selected->flags, ZEBRA_FLAG_SELECTED);
 
 		if (old_selected) {
-			if (!new_selected)
-				redistribute_delete(p, src_p, old_selected);
+			/*
+			 * If we're removing the old entry, we should tell
+			 * redist subscribers about that *if* they aren't
+			 * going to see a redist for the new entry.
+			 */
+			if (!new_selected || CHECK_FLAG(old_selected->status,
+							ROUTE_ENTRY_REMOVED))
+				redistribute_delete(p, src_p,
+						    old_selected,
+						    new_selected);
+
 			if (old_selected != new_selected)
 				UNSET_FLAG(old_selected->flags,
 					   ZEBRA_FLAG_SELECTED);
@@ -2026,7 +2035,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 		dplane_route_notif_update(rn, re, DPLANE_OP_ROUTE_DELETE, ctx);
 
 		/* Redistribute, lsp, and nht update */
-		redistribute_delete(dest_pfx, src_pfx, re);
+		redistribute_delete(dest_pfx, src_pfx, re, NULL);
 
 		zebra_rib_evaluate_rn_nexthops(
 			rn, zebra_router_get_next_sequence());
