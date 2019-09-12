@@ -39,6 +39,7 @@ import sys
 import json
 import time
 import pytest
+import functools
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, '../'))
@@ -88,21 +89,42 @@ def test_bgp_maximum_prefix_invalid():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    router = tgen.gears['r2']
+
     def _bgp_converge(router):
-        while True:
-            output = json.loads(tgen.gears[router].vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
-            if output['192.168.255.1']['bgpState'] == 'Established':
-                if output['192.168.255.1']['addressFamilyInfo']['ipv4Unicast']['acceptedPrefixCounter'] == 3:
-                    return True
+        output = json.loads(router.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
+        expected = {
+            '192.168.255.1': {
+                'bgpState': 'Established',
+                'addressFamilyInfo': {
+                    'ipv4Unicast': {
+                        'acceptedPrefixCounter': 3
+                    }
+                }
+            }
+        }
+        return topotest.json_cmp(output, expected)
 
     def _bgp_aggregate_address_has_metric(router):
-        output = json.loads(tgen.gears[router].vtysh_cmd("show ip bgp 172.16.255.0/24 json"))
-        if output['paths'][0]['med'] == 123:
-            return True
-        return False
+        output = json.loads(router.vtysh_cmd("show ip bgp 172.16.255.0/24 json"))
+        expected = {
+            'paths': [
+                {
+                    'med': 123
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
 
-    if _bgp_converge('r2'):
-        assert _bgp_aggregate_address_has_metric('r2') == True
+    test_func = functools.partial(_bgp_converge, router)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+
+    assert result is None, 'Failed to see bgp convergence in "{}"'.format(router)
+
+    test_func = functools.partial(_bgp_aggregate_address_has_metric, router)
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+
+    assert result is None, 'Failed to see applied metric for aggregated prefix in "{}"'.format(router)
 
 if __name__ == '__main__':
     args = ["-s"] + sys.argv[1:]
