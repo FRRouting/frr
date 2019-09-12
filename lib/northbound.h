@@ -72,6 +72,7 @@ enum nb_operation {
 	NB_OP_MODIFY,
 	NB_OP_DESTROY,
 	NB_OP_MOVE,
+	NB_OP_PRE_VALIDATE,
 	NB_OP_APPLY_FINISH,
 	NB_OP_GET_ELEM,
 	NB_OP_GET_NEXT,
@@ -195,6 +196,19 @@ struct nb_callbacks {
 	 *    - NB_ERR for other errors.
 	 */
 	int (*move)(enum nb_event event, const struct lyd_node *dnode);
+
+	/*
+	 * Optional configuration callback.
+	 *
+	 * This callback can be used to validate subsections of the
+	 * configuration being committed before validating the configuration
+	 * changes themselves. It's useful to perform more complex validations
+	 * that depend on the relationship between multiple nodes.
+	 *
+	 * dnode
+	 *    libyang data node associated with the 'pre_validate' callback.
+	 */
+	int (*pre_validate)(const struct lyd_node *dnode);
 
 	/*
 	 * Optional configuration callback.
