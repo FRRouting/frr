@@ -564,6 +564,16 @@
                     "ipv6": "auto"
                 }
             },
+            "route_maps": {
+                "rmap_global": [{
+                    "action": "permit",
+                    "set": {
+                        "ipv6": {
+                            "nexthop": "prefer-global"
+                        }
+                    }
+                }]
+            },
             "bgp": {
                 "local_as": "300",
                 "address_family": {
@@ -620,38 +630,198 @@
                             "neighbor": {
                                 "r2": {
                                     "dest_link": {
-                                        "r3-link1": {},
-                                        "r3-link2": {},
-                                        "r3-link3": {},
-                                        "r3-link4": {},
-                                        "r3-link5": {},
-                                        "r3-link6": {},
-                                        "r3-link7": {},
-                                        "r3-link8": {},
-                                        "r3-link9": {},
-                                        "r3-link10": {},
-                                        "r3-link11": {},
-                                        "r3-link12": {},
-                                        "r3-link13": {},
-                                        "r3-link14": {},
-                                        "r3-link15": {},
-                                        "r3-link16": {},
-                                        "r3-link17": {},
-                                        "r3-link18": {},
-                                        "r3-link19": {},
-                                        "r3-link20": {},
-                                        "r3-link21": {},
-                                        "r3-link22": {},
-                                        "r3-link23": {},
-                                        "r3-link24": {},
-                                        "r3-link25": {},
-                                        "r3-link26": {},
-                                        "r3-link27": {},
-                                        "r3-link28": {},
-                                        "r3-link29": {},
-                                        "r3-link30": {},
-                                        "r3-link31": {},
-                                        "r3-link32": {}
+                                        "r3-link1": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link2": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link3": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link4": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link5": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link6": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link7": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link8": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link9": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link10": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link11": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link12": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link13": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link14": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link15": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link16": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link17": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link18": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link19": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link20": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link21": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link22": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link23": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link24": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link25": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link26": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link27": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link28": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link29": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link30": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link31": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link32": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        }
                                     }
                                 }
                             }
