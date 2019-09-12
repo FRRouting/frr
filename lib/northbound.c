@@ -64,6 +64,9 @@ static bool transaction_in_progress;
 
 static int nb_callback_configuration(const enum nb_event event,
 				     struct nb_config_change *change);
+static void nb_log_callback(const enum nb_event event,
+			    enum nb_operation operation, const char *xpath,
+			    const char *value);
 static struct nb_transaction *nb_transaction_new(struct nb_config *config,
 						 struct nb_config_cbs *changes,
 						 enum nb_client client,
@@ -211,6 +214,8 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 				     !!nb_node->cbs.destroy, false);
 	error += nb_node_validate_cb(nb_node, NB_OP_MOVE, !!nb_node->cbs.move,
 				     false);
+	error += nb_node_validate_cb(nb_node, NB_OP_PRE_VALIDATE,
+				     !!nb_node->cbs.pre_validate, true);
 	error += nb_node_validate_cb(nb_node, NB_OP_APPLY_FINISH,
 				     !!nb_node->cbs.apply_finish, true);
 	error += nb_node_validate_cb(nb_node, NB_OP_GET_ELEM,
@@ -583,14 +588,45 @@ static int nb_candidate_validate_yang(struct nb_config *candidate)
 }
 
 /* Perform code-level validation using the northbound callbacks. */
-static int nb_candidate_validate_changes(struct nb_config *candidate,
-					 struct nb_config_cbs *changes)
+static int nb_candidate_validate_code(struct nb_config *candidate,
+				      struct nb_config_cbs *changes)
 {
 	struct nb_config_cb *cb;
+	struct lyd_node *root, *next, *child;
+	int ret;
 
+	/* First validate the candidate as a whole. */
+	LY_TREE_FOR (candidate->dnode, root) {
+		LY_TREE_DFS_BEGIN (root, next, child) {
+			struct nb_node *nb_node;
+
+			nb_node = child->schema->priv;
+			if (!nb_node->cbs.pre_validate)
+				goto next;
+
+			if (DEBUG_MODE_CHECK(&nb_dbg_cbs_config,
+					     DEBUG_MODE_ALL)) {
+				char xpath[XPATH_MAXLEN];
+
+				yang_dnode_get_path(child, xpath,
+						    sizeof(xpath));
+				nb_log_callback(NB_EV_VALIDATE,
+						NB_OP_PRE_VALIDATE, xpath,
+						NULL);
+			}
+
+			ret = (*nb_node->cbs.pre_validate)(child);
+			if (ret != NB_OK)
+				return NB_ERR_VALIDATION;
+
+		next:
+			LY_TREE_DFS_END(root, next, child);
+		}
+	}
+
+	/* Now validate the configuration changes. */
 	RB_FOREACH (cb, nb_config_cbs, changes) {
 		struct nb_config_change *change = (struct nb_config_change *)cb;
-		int ret;
 
 		ret = nb_callback_configuration(NB_EV_VALIDATE, change);
 		if (ret != NB_OK)
@@ -612,7 +648,7 @@ int nb_candidate_validate(struct nb_config *candidate)
 	pthread_rwlock_rdlock(&running_config->lock);
 	{
 		nb_config_diff(running_config, candidate, &changes);
-		ret = nb_candidate_validate_changes(candidate, &changes);
+		ret = nb_candidate_validate_code(candidate, &changes);
 		nb_config_diff_del_changes(&changes);
 	}
 	pthread_rwlock_unlock(&running_config->lock);
@@ -643,8 +679,7 @@ int nb_candidate_commit_prepare(struct nb_config *candidate,
 			return NB_ERR_NO_CHANGES;
 		}
 
-		if (nb_candidate_validate_changes(candidate, &changes)
-		    != NB_OK) {
+		if (nb_candidate_validate_code(candidate, &changes) != NB_OK) {
 			flog_warn(
 				EC_LIB_NB_CANDIDATE_INVALID,
 				"%s: failed to validate candidate configuration",
@@ -1550,6 +1585,7 @@ bool nb_operation_is_valid(enum nb_operation operation,
 			return false;
 		}
 		return true;
+	case NB_OP_PRE_VALIDATE:
 	case NB_OP_APPLY_FINISH:
 		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
 			return false;
@@ -1768,6 +1804,8 @@ const char *nb_operation_name(enum nb_operation operation)
 		return "destroy";
 	case NB_OP_MOVE:
 		return "move";
+	case NB_OP_PRE_VALIDATE:
+		return "pre_validate";
 	case NB_OP_APPLY_FINISH:
 		return "apply_finish";
 	case NB_OP_GET_ELEM:
