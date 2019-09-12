@@ -445,10 +445,10 @@ def __create_bgp_unicast_address_family(topo, input_dict, router, addr_type,
     bgp_data = input_dict[router]["bgp"]["address_family"]
     neigh_data = bgp_data[addr_type]["unicast"]["neighbor"]
 
-    for name, peer_dict in deepcopy(neigh_data).iteritems():
+    for peer_name, peer_dict in deepcopy(neigh_data).iteritems():
         for dest_link, peer in peer_dict["dest_link"].iteritems():
             deactivate = None
-            nh_details = topo[name]
+            nh_details = topo[peer_name]
             # Loopback interface
             if "source_link" in peer and peer["source_link"] == "lo":
                 for destRouterLink, data in sorted(nh_details["links"].

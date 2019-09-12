@@ -1240,13 +1240,15 @@ def create_route_maps(tgen, input_dict, build=False):
 
                         # Weight
                         if weight:
-                            rmap_data.append("set weight {} \n".format(
+                            rmap_data.append("set weight {}".format(
                                 weight))
                         if ipv6_data:
-                            nexthop = ipv6_data.setdefault("nexthop",None)
+                            nexthop = ipv6_data.setdefault("nexthop", None)
                             if nexthop:
-                                rmap_data.append("set ipv6 next-hop \
-                                        {}".format(nexthop))
+                                rmap_data.append("set ipv6 next-hop {}".format(
+                                    nexthop
+                                ))
+
                     # Adding MATCH and SET sequence to RMAP if defined
                     if "match" in rmap_dict:
                         match_data = rmap_dict["match"]
