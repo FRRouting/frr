@@ -16,22 +16,15 @@ module frr-vrrpd {
       "Initial revision.";
   }
 
-  grouping ip-vrrp-ipv6-config {
+  grouping ip-vrrp-ipv6-state {
     description
-      "IPv6-specific configuration data for VRRP on IPv6
-       interfaces";
+      "IPv6-specific operational state for VRRP on IPv6 interfaces";
     leaf virtual-link-local {
       type inet:ip-address;
       description
         "For VRRP on IPv6 interfaces, sets the virtual link local
          address";
     }
-  }
-
-  grouping ip-vrrp-ipv6-state {
-    description
-      "IPv6-specific operational state for VRRP on IPv6 interfaces";
-    uses ip-vrrp-ipv6-config;
   }
 
   grouping ip-vrrp-tracking-config {
@@ -104,10 +97,34 @@ module frr-vrrpd {
          generated for the VRRP group";
     }
 
-    leaf-list virtual-address {
-      type inet:ip-address;
+    leaf version {
+      type enumeration {
+        enum "2" {
+          value 2;
+          description
+            "VRRP version 2.";
+        }
+        enum "3" {
+          value 3;
+          description
+            "VRRP version 3.";
+        }
+      }
+      default "3";
+    }
+
+    leaf-list ipv4-virtual-address {
+      type inet:ipv4-address;
       description
-        "Configure one or more virtual addresses for the
+        "Configure one or more IPv4 virtual addresses for the
+         VRRP group";
+    }
+
+    leaf-list ipv6-virtual-address {
+      when "../version = 3";
+      type inet:ipv6-address;
+      description
+        "Configure one or more IPv6 virtual addresses for the
          VRRP group";
     }
 
@@ -152,6 +169,13 @@ module frr-vrrpd {
          1 second. Several implementation express this in units of
          seconds";
     }
+
+    leaf shutdown {
+      type boolean;
+      default "false";
+      description
+        "Administrative shutdown for this VRRP group.";
+    }
   }
 
   grouping ip-vrrp-state {
@@ -180,9 +204,19 @@ module frr-vrrpd {
         key "virtual-router-id";
         description
           "List of VRRP groups, keyed by virtual router id";
-
         uses ip-vrrp-config;
-        uses ip-vrrp-state;
+
+        container v4 {
+          config false;
+          uses ip-vrrp-state;
+        }
+
+        container v6 {
+          config false;
+          uses ip-vrrp-state;
+
+          uses ip-vrrp-ipv6-state;
+        }
       }
     }
   }
