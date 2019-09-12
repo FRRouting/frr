@@ -2731,10 +2731,8 @@ route_set_ipv6_nexthop_prefer_global(void *rule, const struct prefix *prefix,
 		path = object;
 		peer = path->peer;
 
-		if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN)
-		     || CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IMPORT))
-		    && peer->su_remote
-		    && sockunion_family(peer->su_remote) == AF_INET6) {
+		if (CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN)
+		    || CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IMPORT)) {
 			/* Set next hop preference to global */
 			path->attr->mp_nexthop_prefer_global = true;
 			SET_FLAG(path->attr->rmap_change_flags,
