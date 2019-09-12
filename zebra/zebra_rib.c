@@ -1547,7 +1547,9 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 				changed_p = true;
 
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-			break;
+
+			/* Keep checking nexthops */
+			continue;
 		}
 
 		if (CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_FIB)) {
@@ -1983,6 +1985,9 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	 * not-installed; or not-installed to installed.
 	 */
 	if (start_count > 0 && end_count > 0) {
+		if (debug_p)
+			zlog_debug("%u:%s applied nexthop changes from dplane notification",
+				   dplane_ctx_get_vrf(ctx), dest_str);
 
 		/* Changed nexthops - update kernel/others */
 		dplane_route_notif_update(rn, re,
