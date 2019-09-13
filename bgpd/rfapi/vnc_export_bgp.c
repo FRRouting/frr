@@ -86,13 +86,13 @@ static void encap_attr_export_ce(struct attr *new, struct attr *orig,
 	switch (use_nexthop->family) {
 	case AF_INET:
 		new->nexthop = use_nexthop->u.prefix4;
-		new->mp_nexthop_len = 4; /* bytes */
+		new->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4; /* bytes */
 		new->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 		break;
 
 	case AF_INET6:
 		new->mp_nexthop_global = use_nexthop->u.prefix6;
-		new->mp_nexthop_len = 16; /* bytes */
+		new->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL; /* bytes */
 		break;
 
 	default:
@@ -624,13 +624,13 @@ encap_attr_export(struct attr *new, struct attr *orig,
 	switch (use_nexthop->family) {
 	case AF_INET:
 		new->nexthop = use_nexthop->u.prefix4;
-		new->mp_nexthop_len = 4; /* bytes */
+		new->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4; /* bytes */
 		new->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 		break;
 
 	case AF_INET6:
 		new->mp_nexthop_global = use_nexthop->u.prefix6;
-		new->mp_nexthop_len = 16; /* bytes */
+		new->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL; /* bytes */
 		break;
 
 	default:
