@@ -2856,12 +2856,15 @@ route_set_ipv6_nexthop_peer(void *rule, const struct prefix *pfx,
 			/* Set next hop value and length in attribute. */
 			if (IN6_IS_ADDR_LINKLOCAL(&peer_address)) {
 				path->attr->mp_nexthop_local = peer_address;
-				if (path->attr->mp_nexthop_len != 32)
-					path->attr->mp_nexthop_len = 32;
+				if (path->attr->mp_nexthop_len
+				    != BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+					path->attr->mp_nexthop_len =
+						BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
 			} else {
 				path->attr->mp_nexthop_global = peer_address;
 				if (path->attr->mp_nexthop_len == 0)
-					path->attr->mp_nexthop_len = 16;
+					path->attr->mp_nexthop_len =
+						BGP_ATTR_NHLEN_IPV6_GLOBAL;
 			}
 
 		} else if (CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_OUT)) {
@@ -2926,7 +2929,7 @@ route_set_vpnv4_nexthop(void *rule, const struct prefix *prefix,
 
 		/* Set next hop value. */
 		path->attr->mp_nexthop_global_in = *address;
-		path->attr->mp_nexthop_len = 4;
+		path->attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 	}
 
 	return RMAP_OKAY;

@@ -7269,7 +7269,8 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 
 			/* We display both LL & GL if both have been
 			 * received */
-			if ((attr->mp_nexthop_len == 32)
+			if ((attr->mp_nexthop_len
+			     == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
 			    || (path->peer->conf_if)) {
 				json_nexthop_ll = json_object_new_object();
 				json_object_string_add(
@@ -7301,7 +7302,8 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 		} else {
 			/* Display LL if LL/Global both in table unless
 			 * prefer-global is set */
-			if (((attr->mp_nexthop_len == 32)
+			if (((attr->mp_nexthop_len
+			      == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
 			     && !attr->mp_nexthop_prefer_global)
 			    || (path->peer->conf_if)) {
 				if (path->peer->conf_if) {
