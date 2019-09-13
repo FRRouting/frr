@@ -2043,8 +2043,10 @@ if test "${enable_capabilities}" != "no"; then
 
   case "$host_os" in
   linux*)
+    if test "${enable_clippy_only}" != "yes"; then
     if test "$frr_ac_lcaps" != "yes"; then
       AC_MSG_ERROR([libcap and/or its headers were not found.  Running FRR without libcap support built in causes a huge performance penalty.])
+    fi
     fi
     ;;
   esac
