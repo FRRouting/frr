@@ -880,12 +880,12 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		attr.nexthop.s_addr = nexthop->addr.v4.s_addr;
 
 		attr.mp_nexthop_global_in = nexthop->addr.v4;
-		attr.mp_nexthop_len = 4;
+		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 		break;
 
 	case AF_INET6:
 		attr.mp_nexthop_global = nexthop->addr.v6;
-		attr.mp_nexthop_len = 16;
+		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 		break;
 
 	default:
