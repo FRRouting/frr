@@ -37,7 +37,7 @@
 static void	 ifp2kif(struct interface *, struct kif *);
 static void	 ifc2kaddr(struct interface *, struct connected *,
 		    struct kaddr *);
-static int	 zebra_send_mpls_labels(int, struct kroute *);
+static int	 ldp_zebra_send_mpls_labels(int, struct kroute *);
 static int	 ldp_router_id_update(ZAPI_CALLBACK_ARGS);
 static int	 ldp_interface_add(ZAPI_CALLBACK_ARGS);
 static int	 ldp_interface_delete(ZAPI_CALLBACK_ARGS);
@@ -106,9 +106,10 @@ pw2zpw(struct l2vpn_pw *pw, struct zapi_pw *zpw)
 }
 
 static int
-zebra_send_mpls_labels(int cmd, struct kroute *kr)
+ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 {
-	struct stream		*s;
+	struct zapi_labels zl = {};
+	struct zapi_nexthop_label *znh;
 
 	if (kr->local_label < MPLS_LABEL_RESERVED_MAX ||
 	    kr->remote_label == NO_LABEL)
@@ -120,48 +121,65 @@ zebra_send_mpls_labels(int cmd, struct kroute *kr)
 	    log_label(kr->local_label), log_label(kr->remote_label),
 	    (cmd == ZEBRA_MPLS_LABELS_ADD) ? "add" : "delete");
 
-	/* Reset stream. */
-	s = zclient->obuf;
-	stream_reset(s);
+	zl.type = ZEBRA_LSP_LDP;
+	zl.local_label = kr->local_label;
 
-	zclient_create_header(s, cmd, VRF_DEFAULT);
-	stream_putc(s, ZEBRA_LSP_LDP);
-	stream_putl(s, kr->af);
+	/* Set prefix. */
+	SET_FLAG(zl.message, ZAPI_LABELS_FTN);
+	zl.route.prefix.family = kr->af;
 	switch (kr->af) {
 	case AF_INET:
-		stream_put_in_addr(s, &kr->prefix.v4);
-		stream_putc(s, kr->prefixlen);
-		stream_put_in_addr(s, &kr->nexthop.v4);
+		zl.route.prefix.u.prefix4 = kr->prefix.v4;
 		break;
 	case AF_INET6:
-		stream_write(s, (uint8_t *)&kr->prefix.v6, 16);
-		stream_putc(s, kr->prefixlen);
-		stream_write(s, (uint8_t *)&kr->nexthop.v6, 16);
+		zl.route.prefix.u.prefix6 = kr->prefix.v6;
 		break;
 	default:
-		fatalx("kr_change: unknown af");
+		fatalx("ldp_zebra_send_mpls_labels: unknown af");
 	}
-	stream_putl(s, kr->ifindex);
-	stream_putc(s, kr->priority);
-	stream_putl(s, kr->local_label);
-	stream_putl(s, kr->remote_label);
+	zl.route.prefix.prefixlen = kr->prefixlen;
+	zl.route.type = kr->route_type;
+	zl.route.instance = kr->route_instance;
 
-	/* Put length at the first point of the stream. */
-	stream_putw_at(s, 0, stream_get_endp(s));
+	/* Set nexthop. */
+	zl.nexthop_num = 1;
+	znh = &zl.nexthops[0];
+	switch (kr->af) {
+	case AF_INET:
+		znh->family = AF_INET;
+		znh->address.ipv4 = kr->nexthop.v4;
+		if (kr->ifindex)
+			znh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+		else
+			znh->type = NEXTHOP_TYPE_IPV4;
+		break;
+	case AF_INET6:
+		znh->family = AF_INET6;
+		znh->address.ipv6 = kr->nexthop.v6;
+		if (kr->ifindex)
+			znh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+		else
+			znh->type = NEXTHOP_TYPE_IPV6;
+		break;
+	default:
+		break;
+	}
+	znh->ifindex = kr->ifindex;
+	znh->label = kr->remote_label;
 
-	return (zclient_send_message(zclient));
+	return zebra_send_mpls_labels(zclient, cmd, &zl);
 }
 
 int
 kr_change(struct kroute *kr)
 {
-	return (zebra_send_mpls_labels(ZEBRA_MPLS_LABELS_ADD, kr));
+	return (ldp_zebra_send_mpls_labels(ZEBRA_MPLS_LABELS_ADD, kr));
 }
 
 int
 kr_delete(struct kroute *kr)
 {
-	return (zebra_send_mpls_labels(ZEBRA_MPLS_LABELS_DELETE, kr));
+	return (ldp_zebra_send_mpls_labels(ZEBRA_MPLS_LABELS_DELETE, kr));
 }
 
 int
@@ -407,7 +425,8 @@ ldp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		break;
 	}
 	kr.prefixlen = api.prefix.prefixlen;
-	kr.priority = api.distance;
+	kr.route_type = api.type;
+	kr.route_instance = api.instance;
 
 	switch (api.type) {
 	case ZEBRA_ROUTE_CONNECT:

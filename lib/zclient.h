@@ -126,6 +126,7 @@ typedef enum {
 	ZEBRA_INTERFACE_LINK_PARAMS,
 	ZEBRA_MPLS_LABELS_ADD,
 	ZEBRA_MPLS_LABELS_DELETE,
+	ZEBRA_MPLS_LABELS_REPLACE,
 	ZEBRA_IPMR_ROUTE_STATS,
 	ZEBRA_LABEL_MANAGER_CONNECT,
 	ZEBRA_LABEL_MANAGER_CONNECT_ASYNC,
@@ -395,6 +396,28 @@ struct zapi_route {
 	uint32_t tableid;
 };
 
+struct zapi_nexthop_label {
+	enum nexthop_types_t type;
+	int family;
+	union g_addr address;
+	ifindex_t ifindex;
+	mpls_label_t label;
+};
+
+struct zapi_labels {
+	uint8_t message;
+#define ZAPI_LABELS_FTN      0x01
+	enum lsp_types_t type;
+	mpls_label_t local_label;
+	struct {
+		struct prefix prefix;
+		uint8_t type;
+		unsigned short instance;
+	} route;
+	uint16_t nexthop_num;
+	struct zapi_nexthop_label nexthops[MULTIPATH_NUM];
+};
+
 struct zapi_pw {
 	char ifname[IF_NAMESIZE];
 	ifindex_t ifindex;
@@ -624,6 +647,12 @@ extern int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 			      uint32_t *start, uint32_t *end);
 extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
+
+extern int zebra_send_mpls_labels(struct zclient *zclient, int cmd,
+				  struct zapi_labels *zl);
+extern int zapi_labels_encode(struct stream *s, int cmd,
+			      struct zapi_labels *zl);
+extern int zapi_labels_decode(struct stream *s, struct zapi_labels *zl);
 
 extern int zebra_send_pw(struct zclient *zclient, int command,
 			 struct zapi_pw *pw);

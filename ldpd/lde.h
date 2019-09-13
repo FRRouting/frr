@@ -108,7 +108,8 @@ struct fec_nh {
 	union ldpd_addr		 nexthop;
 	ifindex_t		 ifindex;
 	uint32_t		 remote_label;
-	uint8_t			 priority;
+	uint8_t			 route_type;
+	unsigned short		 route_instance;
 	uint8_t			 flags;
 };
 #define F_FEC_NH_NEW		0x01
@@ -193,11 +194,11 @@ void		 rt_dump(pid_t);
 void		 fec_snap(struct lde_nbr *);
 void		 fec_tree_clear(void);
 struct fec_nh	*fec_nh_find(struct fec_node *, int, union ldpd_addr *,
-		    ifindex_t, uint8_t);
+		    ifindex_t, uint8_t, unsigned short);
 void		 lde_kernel_insert(struct fec *, int, union ldpd_addr *,
-		    ifindex_t, uint8_t, int, void *);
+		    ifindex_t, uint8_t, unsigned short, int, void *);
 void		 lde_kernel_remove(struct fec *, int, union ldpd_addr *,
-		    ifindex_t, uint8_t);
+		    ifindex_t, uint8_t, unsigned short);
 void		 lde_kernel_update(struct fec *);
 void		 lde_check_mapping(struct map *, struct lde_nbr *);
 void		 lde_check_request(struct map *, struct lde_nbr *);
