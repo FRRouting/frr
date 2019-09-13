@@ -1683,6 +1683,30 @@ struct route_map_rule_cmd route_set_weight_cmd = {
 	"weight", route_set_weight, route_value_compile, route_value_free,
 };
 
+/* `set distance DISTANCE */
+static enum route_map_cmd_result_t
+route_set_distance(void *rule, const struct prefix *prefix,
+		   route_map_object_t type, void *object)
+{
+	struct bgp_path_info *path = object;
+	struct rmap_value *rv = rule;
+
+	if (type != RMAP_BGP)
+		return RMAP_OKAY;
+
+	path->attr->distance = rv->value;
+
+	return RMAP_OKAY;
+}
+
+/* set distance rule structure */
+struct route_map_rule_cmd route_set_distance_cmd = {
+	"distance",
+	route_set_distance,
+	route_value_compile,
+	route_value_free,
+};
+
 /* `set metric METRIC' */
 
 /* Set metric to attribute. */
@@ -4064,6 +4088,29 @@ DEFUN (set_ip_nexthop_unchanged,
 		    "unchanged");
 }
 
+DEFUN (set_distance,
+       set_distance_cmd,
+       "set distance (0-255)",
+       SET_STR
+       "BGP Administrative Distance to use\n"
+       "Distance value\n")
+{
+	int idx_number = 2;
+
+	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
+			       "distance", argv[idx_number]->arg);
+}
+
+DEFUN (no_set_distance,
+       no_set_distance_cmd,
+       "no set distance [(0-255)]",
+       NO_STR SET_STR
+       "BGP Administrative Distance to use\n"
+       "Distance value\n")
+{
+	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
+				  "distance", NULL);
+}
 
 DEFUN (set_local_pref,
        set_local_pref_cmd,
@@ -5119,6 +5166,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_weight_cmd);
 	route_map_install_set(&route_set_label_index_cmd);
 	route_map_install_set(&route_set_metric_cmd);
+	route_map_install_set(&route_set_distance_cmd);
 	route_map_install_set(&route_set_aspath_prepend_cmd);
 	route_map_install_set(&route_set_aspath_exclude_cmd);
 	route_map_install_set(&route_set_origin_cmd);
@@ -5172,6 +5220,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_ip_nexthop_peer_cmd);
 	install_element(RMAP_NODE, &set_ip_nexthop_unchanged_cmd);
 	install_element(RMAP_NODE, &set_local_pref_cmd);
+	install_element(RMAP_NODE, &set_distance_cmd);
+	install_element(RMAP_NODE, &no_set_distance_cmd);
 	install_element(RMAP_NODE, &no_set_local_pref_cmd);
 	install_element(RMAP_NODE, &set_weight_cmd);
 	install_element(RMAP_NODE, &set_label_index_cmd);

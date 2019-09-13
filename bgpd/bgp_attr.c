@@ -519,8 +519,7 @@ unsigned int attrhash_key_make(const void *p)
 	MIX(attr->mp_nexthop_len);
 	key = jhash(attr->mp_nexthop_global.s6_addr, IPV6_MAX_BYTELEN, key);
 	key = jhash(attr->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
-	MIX(attr->nh_ifindex);
-	MIX(attr->nh_lla_ifindex);
+	MIX3(attr->nh_ifindex, attr->nh_lla_ifindex, attr->distance);
 
 	return key;
 }
@@ -562,7 +561,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 				      &attr2->originator_id)
 		    && overlay_index_same(attr1, attr2)
 		    && attr1->nh_ifindex == attr2->nh_ifindex
-		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex)
+		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex
+		    && attr1->distance == attr2->distance)
 			return true;
 	}
 
