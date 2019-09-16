@@ -19,3 +19,6 @@ watchfrr_watchfrr_SOURCES = \
 	watchfrr/watchfrr_errors.c \
 	watchfrr/watchfrr_vty.c \
 	# end
+
+watchfrr/watchfrr_vty_clippy.c: $(CLIPPY_DEPS)
+watchfrr/watchfrr_vty.$(OBJEXT): watchfrr/watchfrr_vty_clippy.c
