@@ -43,6 +43,7 @@ user_RSTFILES = \
 	doc/user/zebra.rst \
 	doc/user/bfd.rst \
 	doc/user/flowspec.rst \
+	doc/user/watchfrr.rst \
 	# end
 
 EXTRA_DIST += \
