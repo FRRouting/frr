@@ -134,6 +134,23 @@ DEFUN (show_watchfrr,
 	return CMD_SUCCESS;
 }
 
+#ifndef VTYSH_EXTRACT_PL
+#include "watchfrr/watchfrr_vty_clippy.c"
+#endif
+
+DEFPY (watchfrr_ignore_daemon,
+       watchfrr_ignore_daemon_cmd,
+       "[no] watchfrr ignore DAEMON$dname",
+       NO_STR
+       "Watchfrr Specific sub-command\n"
+       "Ignore a specified daemon when it does not respond to echo request\n"
+       "The daemon to ignore\n")
+{
+	watchfrr_set_ignore_daemon(vty, dname, no ? false : true );
+
+	return CMD_SUCCESS;
+}
+
 void integrated_write_sigchld(int status)
 {
 	uint8_t reply[4] = {0, 0, 0, CMD_WARNING};
@@ -168,6 +185,9 @@ void watchfrr_vty_init(void)
 	integrated_write_pid = -1;
 	install_element(ENABLE_NODE, &config_write_integrated_cmd);
 	install_element(ENABLE_NODE, &show_debugging_watchfrr_cmd);
+
+	install_element(ENABLE_NODE, &watchfrr_ignore_daemon_cmd);
+
 	install_element(CONFIG_NODE, &show_debugging_watchfrr_cmd);
 	install_element(VIEW_NODE, &show_watchfrr_cmd);
 }
