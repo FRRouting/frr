@@ -2088,14 +2088,6 @@ static unsigned int process_subq(struct list *subq, uint8_t qindex)
 	return 1;
 }
 
-
-/*
- * Perform next-hop tracking processing after RIB updates.
- */
-static void do_nht_processing(void)
-{
-}
-
 /* Dispatch the meta queue by picking, processing and unlocking the next RN from
  * a non-empty sub-queue with lowest priority. wq is equal to zebra->ribq and
  * data
@@ -3293,9 +3285,6 @@ static int rib_process_dplane_results(struct thread *thread)
 		}
 
 	} while (1);
-
-	/* Check for nexthop tracking processing after finishing with results */
-	do_nht_processing();
 
 	return 0;
 }
