@@ -561,7 +561,9 @@ static int wakeup_init(struct thread *t_wakeup)
 static void restart_done(struct daemon *dmn)
 {
 	if (dmn->state != DAEMON_DOWN) {
-		zlog_warn("wtf?");
+		zlog_warn(
+			"Daemon: %s: is in %s state but expected it to be in DAEMON_DOWN state",
+			dmn->name, state_str[dmn->state]);
 		return;
 	}
 	if (dmn->t_wakeup)
