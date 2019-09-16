@@ -97,11 +97,18 @@ static void peer_process(struct hash_bucket *hb, void *arg)
 
 	static struct timeval tolerance = {0, 100000};
 
+	uint32_t v_ka = atomic_load_explicit(&pkat->peer->v_keepalive,
+					     memory_order_relaxed);
+
+	/* 0 keepalive timer means no keepalives */
+	if (v_ka == 0)
+		return;
+
 	/* calculate elapsed time since last keepalive */
 	monotime_since(&pkat->last, &elapsed);
 
 	/* calculate difference between elapsed time and configured time */
-	ka.tv_sec = pkat->peer->v_keepalive;
+	ka.tv_sec = v_ka;
 	timersub(&ka, &elapsed, &diff);
 
 	int send_keepalive =
