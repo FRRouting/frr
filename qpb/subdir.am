@@ -10,9 +10,12 @@ qpb_libfrr_pb_la_SOURCES = \
 	qpb/qpb.c \
 	qpb/qpb_allocator.c \
 	# end
+
+if HAVE_PROTOBUF
 nodist_qpb_libfrr_pb_la_SOURCES = \
 	qpb/qpb.pb-c.c \
 	# end
+endif
 
 noinst_HEADERS += \
 	qpb/linear_allocator.h \
