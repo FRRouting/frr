@@ -47,6 +47,7 @@ extern "C" {
 #define MPLS_LABEL_OAM_ALERT           14      /* [RFC3429] */
 #define MPLS_LABEL_EXTENSION           15      /* [RFC7274] */
 #define MPLS_LABEL_MAX                 1048575
+#define MPLS_LABEL_VALUE_MASK          0x000FFFFF
 #define MPLS_LABEL_NONE                0xFFFFFFFF /* for internal use only */
 
 /* Minimum and maximum label values */
