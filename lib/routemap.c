@@ -478,11 +478,6 @@ int generic_match_add(struct vty *vty, struct route_map_index *index,
 
 	ret = route_map_add_match(index, command, arg, type);
 	switch (ret) {
-	case RMAP_COMPILE_SUCCESS:
-		if (type != RMAP_EVENT_MATCH_ADDED) {
-			route_map_upd8_dependency(type, arg, index->map->name);
-		}
-		break;
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
 		return CMD_WARNING_CONFIG_FAILED;
@@ -493,7 +488,7 @@ int generic_match_add(struct vty *vty, struct route_map_index *index,
 			frr_protonameinst);
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
-	case RMAP_DUPLICATE_RULE:
+	case RMAP_COMPILE_SUCCESS:
 		/*
 		 * Nothing to do here move along
 		 */
@@ -526,7 +521,7 @@ int generic_match_delete(struct vty *vty, struct route_map_index *index,
 		rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, index->map->name);
 	}
 
-	ret = route_map_delete_match(index, command, dep_name);
+	ret = route_map_delete_match(index, command, dep_name, type);
 	switch (ret) {
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
@@ -539,10 +534,6 @@ int generic_match_delete(struct vty *vty, struct route_map_index *index,
 		retval = CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
-		if (type != RMAP_EVENT_MATCH_DELETED && dep_name)
-			route_map_upd8_dependency(type, dep_name, rmap_name);
-		break;
-	case RMAP_DUPLICATE_RULE:
 		/*
 		 * Nothing to do here
 		 */
@@ -573,7 +564,6 @@ int generic_set_add(struct vty *vty, struct route_map_index *index,
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
-	case RMAP_DUPLICATE_RULE:
 		break;
 	}
 
@@ -598,7 +588,6 @@ int generic_set_delete(struct vty *vty, struct route_map_index *index,
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
-	case RMAP_DUPLICATE_RULE:
 		break;
 	}
 
@@ -1410,6 +1399,7 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 	struct route_map_rule_cmd *cmd;
 	void *compile;
 	int8_t delete_rmap_event_type = 0;
+	const char *rule_key;
 
 	/* First lookup rule for add match statement. */
 	cmd = route_map_lookup_match(match_name);
@@ -1423,6 +1413,12 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 			return RMAP_COMPILE_ERROR;
 	} else
 		compile = NULL;
+	/* use the compiled results if applicable */
+	if (compile && cmd->func_get_rmap_rule_key)
+		rule_key = (*cmd->func_get_rmap_rule_key)
+			   (compile);
+	else
+		rule_key = match_arg;
 
 	/* If argument is completely same ignore it. */
 	for (rule = index->match_list.head; rule; rule = next) {
@@ -1436,7 +1432,7 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 				if (cmd->func_free)
 					(*cmd->func_free)(compile);
 
-				return RMAP_DUPLICATE_RULE;
+				return RMAP_COMPILE_SUCCESS;
 			}
 
 			/* Remove the dependency of the route-map on the rule
@@ -1447,7 +1443,7 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 					get_route_map_delete_event(type);
 				route_map_upd8_dependency(
 							delete_rmap_event_type,
-							rule->rule_str,
+							rule_key,
 							index->map->name);
 			}
 
@@ -1473,6 +1469,8 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 		route_map_notify_dependencies(index->map->name,
 					      RMAP_EVENT_CALL_ADDED);
 	}
+	if (type != RMAP_EVENT_MATCH_ADDED)
+		route_map_upd8_dependency(type, rule_key, index->map->name);
 
 	return RMAP_COMPILE_SUCCESS;
 }
@@ -1480,10 +1478,12 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 /* Delete specified route match rule. */
 enum rmap_compile_rets route_map_delete_match(struct route_map_index *index,
 					      const char *match_name,
-					      const char *match_arg)
+					      const char *match_arg,
+					      route_map_event_t type)
 {
 	struct route_map_rule *rule;
 	struct route_map_rule_cmd *cmd;
+	const char *rule_key;
 
 	cmd = route_map_lookup_match(match_name);
 	if (cmd == NULL)
@@ -1492,7 +1492,6 @@ enum rmap_compile_rets route_map_delete_match(struct route_map_index *index,
 	for (rule = index->match_list.head; rule; rule = rule->next)
 		if (rule->cmd == cmd && (rulecmp(rule->rule_str, match_arg) == 0
 					 || match_arg == NULL)) {
-			route_map_rule_delete(&index->match_list, rule);
 			/* Execute event hook. */
 			if (route_map_master.event_hook) {
 				(*route_map_master.event_hook)(index->map->name);
@@ -1500,6 +1499,17 @@ enum rmap_compile_rets route_map_delete_match(struct route_map_index *index,
 					index->map->name,
 					RMAP_EVENT_CALL_ADDED);
 			}
+			if (cmd->func_get_rmap_rule_key)
+				rule_key = (*cmd->func_get_rmap_rule_key)
+					   (rule->value);
+			else
+				rule_key = match_arg;
+
+			if (type != RMAP_EVENT_MATCH_DELETED && rule_key)
+				route_map_upd8_dependency(type, rule_key,
+						index->map->name);
+
+			route_map_rule_delete(&index->match_list, rule);
 			return RMAP_COMPILE_SUCCESS;
 		}
 	/* Can't find matched rule. */

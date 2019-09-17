@@ -1420,7 +1420,6 @@ DEFUN (match_rpki,
 			vty_out(vty, "%% BGP Argument is malformed.\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		case RMAP_COMPILE_SUCCESS:
-		case RMAP_DUPLICATE_RULE:
 			/*
 			 * Intentionally doing nothing here
 			 */
@@ -1443,7 +1442,8 @@ DEFUN (no_match_rpki,
 	VTY_DECLVAR_CONTEXT(route_map_index, index);
 	enum rmap_compile_rets ret;
 
-	ret = route_map_delete_match(index, "rpki", argv[3]->arg);
+	ret = route_map_delete_match(index, "rpki", argv[3]->arg,
+				     RMAP_EVENT_MATCH_DELETED);
 	if (ret) {
 		switch (ret) {
 		case RMAP_RULE_MISSING:
@@ -1453,7 +1453,6 @@ DEFUN (no_match_rpki,
 			vty_out(vty, "%% BGP Argument is malformed.\n");
 			break;
 		case RMAP_COMPILE_SUCCESS:
-		case RMAP_DUPLICATE_RULE:
 			/*
 			 * Nothing to do here
 			 */
