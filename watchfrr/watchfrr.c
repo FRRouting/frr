@@ -159,6 +159,15 @@ struct daemon {
 	struct thread *t_write;
 	struct daemon *next;
 	struct restart_info restart;
+
+	/*
+	 * For a given daemon, if we've turned on ignore timeouts
+	 * ignore the timeout value and assume everything is ok
+	 * This is for daemon debugging w/ gdb after we have started
+	 * FRR and realize we have something that needs to be looked
+	 * at
+	 */
+	bool ignore_timeout;
 };
 
 #define OPTION_MINRESTART 2000
@@ -191,6 +200,25 @@ static void phase_check(void);
 static void restart_done(struct daemon *dmn);
 
 static const char *progname;
+
+void watchfrr_set_ignore_daemon(struct vty *vty, const char *dname, bool ignore)
+{
+	struct daemon *dmn;
+
+	for (dmn = gs.daemons; dmn; dmn = dmn->next) {
+		if (strncmp(dmn->name, dname, strlen(dmn->name)) == 0)
+			break;
+	}
+
+	if (dmn) {
+		dmn->ignore_timeout = ignore;
+		vty_out(vty, "%s switching to %s\n", dmn->name,
+			ignore ? "ignore" : "watch");
+	} else
+		vty_out(vty, "%s is not configured for running at the moment",
+			dname);
+}
+
 static void printhelp(FILE *target)
 {
 	fprintf(target,
@@ -533,7 +561,9 @@ static int wakeup_init(struct thread *t_wakeup)
 static void restart_done(struct daemon *dmn)
 {
 	if (dmn->state != DAEMON_DOWN) {
-		zlog_warn("wtf?");
+		zlog_warn(
+			"Daemon: %s: is in %s state but expected it to be in DAEMON_DOWN state",
+			dmn->name, state_str[dmn->state]);
 		return;
 	}
 	if (dmn->t_wakeup)
@@ -961,6 +991,8 @@ static int wakeup_no_answer(struct thread *t_wakeup)
 
 	dmn->t_wakeup = NULL;
 	dmn->state = DAEMON_UNRESPONSIVE;
+	if (dmn->ignore_timeout)
+		return 0;
 	flog_err(EC_WATCHFRR_CONNECTION,
 		 "%s state -> unresponsive : no response yet to ping "
 		 "sent %ld seconds ago",
@@ -1014,7 +1046,8 @@ void watchfrr_status(struct vty *vty)
 			(long)gs.restart.pid);
 
 	for (dmn = gs.daemons; dmn; dmn = dmn->next) {
-		vty_out(vty, "  %-20s %s\n", dmn->name, state_str[dmn->state]);
+		vty_out(vty, "  %-20s %s%s", dmn->name, state_str[dmn->state],
+			dmn->ignore_timeout ? "/Ignoring Timeout\n" : "\n");
 		if (dmn->restart.pid)
 			vty_out(vty, "      restart running, pid %ld\n",
 				(long)dmn->restart.pid);

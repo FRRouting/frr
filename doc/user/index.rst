@@ -58,6 +58,7 @@ Protocols
    vnc
    vrrp
    bmp
+   watchfrr
 
 ########
 Appendix
