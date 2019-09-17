@@ -216,16 +216,6 @@ int main(int argc, char **argv)
 	/* OSPF errors init */
 	ospf_error_init();
 
-	/* Need to initialize the default ospf structure, so the interface mode
-	   commands can be duly processed if they are received before 'router
-	   ospf',
-	   when quagga(ospfd) is restarted */
-	if (!ospf_get_instance(instance)) {
-		flog_err(EC_OSPF_INIT_FAIL, "OSPF instance init failed: %s",
-			 strerror(errno));
-		exit(1);
-	}
-
 	frr_config_fork();
 	frr_run(master);
 

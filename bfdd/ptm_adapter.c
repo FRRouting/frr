@@ -376,6 +376,9 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 			log_error("ptm-read: vrf id %u could not be identified", vrf_id);
 			return -1;
 		}
+	} else {
+		bpc->bpc_has_vrfname = true;
+		strlcpy(bpc->bpc_vrfname, VRF_DEFAULT_NAME, sizeof(bpc->bpc_vrfname));
 	}
 
 	STREAM_GETC(msg, bpc->bpc_cbit);
@@ -627,6 +630,11 @@ void bfdd_sessions_enable_vrf(struct vrf *vrf)
 	/* it may affect configs without interfaces */
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
 		bs = bso->bso_bs;
+		/* update name */
+		if (bs->vrf && bs->vrf == vrf) {
+			if (!strmatch(bs->key.vrfname, vrf->name))
+				bfd_session_update_vrf_name(bs, vrf);
+		}
 		if (bs->vrf)
 			continue;
 		if (bs->key.vrfname[0] &&
