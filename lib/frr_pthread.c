@@ -35,6 +35,9 @@ DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives")
 static void *fpt_run(void *arg);
 static int fpt_halt(struct frr_pthread *fpt, void **res);
 
+/* misc sigs */
+static void frr_pthread_destroy_nolock(struct frr_pthread *fpt);
+
 /* default frr_pthread attributes */
 struct frr_pthread_attr frr_pthread_attr_default = {
 	.start = fpt_run,
@@ -59,6 +62,14 @@ void frr_pthread_finish(void)
 	frr_pthread_stop_all();
 
 	frr_with_mutex(&frr_pthread_list_mtx) {
+		struct listnode *n, *nn;
+		struct frr_pthread *fpt;
+
+		for (ALL_LIST_ELEMENTS(frr_pthread_list, n, nn, fpt)) {
+			listnode_delete(frr_pthread_list, fpt);
+			frr_pthread_destroy_nolock(fpt);
+		}
+
 		list_delete(&frr_pthread_list);
 	}
 }
@@ -98,12 +109,8 @@ struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
 	return fpt;
 }
 
-void frr_pthread_destroy(struct frr_pthread *fpt)
+static void frr_pthread_destroy_nolock(struct frr_pthread *fpt)
 {
-	frr_with_mutex(&frr_pthread_list_mtx) {
-		listnode_delete(frr_pthread_list, fpt);
-	}
-
 	thread_master_free(fpt->master);
 	pthread_mutex_destroy(&fpt->mtx);
 	pthread_mutex_destroy(fpt->running_cond_mtx);
@@ -112,6 +119,15 @@ void frr_pthread_destroy(struct frr_pthread *fpt)
 	XFREE(MTYPE_PTHREAD_PRIM, fpt->running_cond_mtx);
 	XFREE(MTYPE_PTHREAD_PRIM, fpt->running_cond);
 	XFREE(MTYPE_FRR_PTHREAD, fpt);
+}
+
+void frr_pthread_destroy(struct frr_pthread *fpt)
+{
+	frr_with_mutex(&frr_pthread_list_mtx) {
+		listnode_delete(frr_pthread_list, fpt);
+	}
+
+	frr_pthread_destroy_nolock(fpt);
 }
 
 int frr_pthread_set_name(struct frr_pthread *fpt)
