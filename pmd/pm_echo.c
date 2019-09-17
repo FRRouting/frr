@@ -252,6 +252,17 @@ void pm_echo_receive(struct event *event)
 	if (sockunion_family(&pme->peer) == AF_INET) {
 		ip = (struct iphdr *)pme->rx_buf;
 		hlen = ip->ihl << 2;
+		icmp = (struct icmphdr *)(pme->rx_buf + hlen);
+		if (ret < hlen + ICMP_MINLEN) {
+			zlog_err("PMD: packet too short. retrying");
+			return;
+		}
+		if (icmp->type != ICMP_ECHOREPLY) {
+			if (pm_debug_echo)
+				zlog_err("PMD: ICMP from %pI4 to %pI4 ECHO REPLY expected (type %u)",
+					 &pme->peer.sin.sin_addr, &ip->daddr, icmp->type);
+			return;
+		}
 		/* check that destination address matches
 		 * our local address configured
 		 */
@@ -266,17 +277,6 @@ void pm_echo_receive(struct event *event)
 			if (pm_debug_echo)
 				zlog_err("PMD: wrong dst address %pI4, expected %pI4. retrying",
 					&ip->daddr, &pm->key.local.sin.sin_addr);
-			return;
-		}
-		icmp = (struct icmphdr *)(pme->rx_buf + hlen);
-		if (ret < hlen + ICMP_MINLEN) {
-			zlog_err("PMD: packet too short. retrying");
-			return;
-		}
-		if (icmp->type != ICMP_ECHOREPLY) {
-			if (pm_debug_echo)
-				zlog_err("PMD: ICMP from %pI4 to %pI4 ECHO REPLY expected (type %u)",
-						&pme->peer.sin.sin_addr, &ip->daddr, icmp->type);
 			return;
 		}
 		if (icmp->un.echo.id != (pme->discriminator_id & 0xffff)) {
