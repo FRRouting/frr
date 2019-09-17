@@ -27,14 +27,15 @@ FRR currently supports the following protocols:
 Installation & Use
 ------------------
 
-Packages are available for various distributions on our
+For source tarballs, see the
 [releases page](https://github.com/FRRouting/frr/releases).
 
-Snaps are also available [here](https://snapcraft.io/frr).
+For Debian and its derivatives, use the APT repository at
+[https://deb.frrouting.org/](https://deb.frrouting.org/).
 
 Instructions on building and installing from source for supported platforms may
-be found
-[here](http://docs.frrouting.org/projects/dev-guide/en/latest/building.html).
+be found in the
+[developer docs](http://docs.frrouting.org/projects/dev-guide/en/latest/building.html).
 
 Once installed, please refer to the [user guide](http://docs.frrouting.org/)
 for instructions on use.
