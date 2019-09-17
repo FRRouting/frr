@@ -206,6 +206,9 @@ struct attr {
 
 	/* EVPN local router-mac */
 	struct ethaddr rmac;
+
+	/* Distance as applied by Route map */
+	uint8_t distance;
 };
 
 /* rmap_change_flags definition */

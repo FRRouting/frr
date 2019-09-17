@@ -270,6 +270,12 @@ Route Map Set Command
 
    Set the BGP local preference to `local_pref`.
 
+.. index:: [no] set distance DISTANCE
+.. clicmd:: [no] set distance DISTANCE
+
+   Set the Administrative distance to DISTANCE to use for the route.
+   This is only locally significant and will not be dispersed to peers.
+
 .. index:: set weight WEIGHT
 .. clicmd:: set weight WEIGHT
 
