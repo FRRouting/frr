@@ -772,8 +772,7 @@ int interface_up(struct thread *thread)
 	}
 
 	/* decide next interface state */
-	if ((if_is_pointopoint(oi->interface))
-	    || (oi->type == OSPF_IFTYPE_POINTOPOINT)) {
+	if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
 		ospf6_interface_state_change(OSPF6_INTERFACE_POINTTOPOINT, oi);
 	} else if (oi->priority == 0)
 		ospf6_interface_state_change(OSPF6_INTERFACE_DROTHER, oi);
