@@ -355,8 +355,6 @@ void ospf6_interface_state_update(struct interface *ifp)
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		return;
-	if (oi->area == NULL)
-		return;
 	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE))
 		return;
 
