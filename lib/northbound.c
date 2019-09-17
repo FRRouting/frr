@@ -1302,9 +1302,27 @@ static int nb_oper_data_iter_node(const struct lys_node *snode,
 
 	/* Update XPath. */
 	strlcpy(xpath, xpath_parent, sizeof(xpath));
-	if (!first && snode->nodetype != LYS_USES)
-		snprintf(xpath + strlen(xpath), sizeof(xpath) - strlen(xpath),
-			 "/%s", snode->name);
+	if (!first && snode->nodetype != LYS_USES) {
+		struct lys_node *parent;
+
+		/* Get the real parent. */
+		parent = snode->parent;
+		while (parent && parent->nodetype == LYS_USES)
+			parent = parent->parent;
+
+		/*
+		 * When necessary, include the namespace of the augmenting
+		 * module.
+		 */
+		if (parent && parent->nodetype == LYS_AUGMENT)
+			snprintf(xpath + strlen(xpath),
+				 sizeof(xpath) - strlen(xpath), "/%s:%s",
+				 snode->module->name, snode->name);
+		else
+			snprintf(xpath + strlen(xpath),
+				 sizeof(xpath) - strlen(xpath), "/%s",
+				 snode->name);
+	}
 
 	nb_node = snode->priv;
 	switch (snode->nodetype) {
