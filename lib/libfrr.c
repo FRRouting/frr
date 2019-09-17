@@ -868,12 +868,7 @@ static int frr_config_read_in(struct thread *t)
 	/*
 	 * Update the shared candidate after reading the startup configuration.
 	 */
-	pthread_rwlock_rdlock(&running_config->lock);
-	{
-		nb_config_replace(vty_shared_candidate_config, running_config,
-				  true);
-	}
-	pthread_rwlock_unlock(&running_config->lock);
+	nb_config_replace(vty_shared_candidate_config, running_config, true);
 
 	return 0;
 }

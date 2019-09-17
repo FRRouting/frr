@@ -2795,18 +2795,14 @@ static int ripng_vrf_enable(struct vrf *vrf)
 		if (yang_module_find("frr-ripngd") && old_vrf_name) {
 			struct lyd_node *ripng_dnode;
 
-			pthread_rwlock_wrlock(&running_config->lock);
-			{
-				ripng_dnode = yang_dnode_get(
-						   running_config->dnode,
-						   "/frr-ripngd:ripngd/instance[vrf='%s']/vrf",
-						   old_vrf_name);
-				if (ripng_dnode) {
-					yang_dnode_change_leaf(ripng_dnode, vrf->name);
-					running_config->version++;
-				}
+			ripng_dnode = yang_dnode_get(
+				running_config->dnode,
+				"/frr-ripngd:ripngd/instance[vrf='%s']/vrf",
+				old_vrf_name);
+			if (ripng_dnode) {
+				yang_dnode_change_leaf(ripng_dnode, vrf->name);
+				running_config->version++;
 			}
-			pthread_rwlock_unlock(&running_config->lock);
 		}
 		if (old_vrf_name)
 			XFREE(MTYPE_RIPNG_VRF_NAME, old_vrf_name);
