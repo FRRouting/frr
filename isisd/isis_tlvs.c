@@ -186,10 +186,10 @@ static int unpack_item_prefix_sid(uint16_t mtid, uint8_t len, struct stream *s,
 	}
 
 	sid.flags = stream_getc(s);
-	if ((sid.flags & ISIS_PREFIX_SID_VALUE)
-	    != (sid.flags & ISIS_PREFIX_SID_LOCAL)) {
+	if (!!(sid.flags & ISIS_PREFIX_SID_VALUE)
+	    != !!(sid.flags & ISIS_PREFIX_SID_LOCAL)) {
 		sbuf_push(log, indent, "Flags inplausible: Local Flag needs to match Value Flag\n");
-		return 0;
+		return 1;
 	}
 
 	sid.algorithm = stream_getc(s);

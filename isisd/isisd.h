@@ -58,7 +58,6 @@ extern struct zebra_privs_t isisd_privs;
 
 /* uncomment if you are a developer in bug hunt */
 /* #define EXTREME_DEBUG  */
-/* #define EXTREME_DICT_DEBUG */
 
 struct fabricd;
 
