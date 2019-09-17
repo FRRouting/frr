@@ -7931,8 +7931,6 @@ static void bgp_pthreads_init(void)
 	assert(!bgp_pth_io);
 	assert(!bgp_pth_ka);
 
-	frr_pthread_init();
-
 	struct frr_pthread_attr io = {
 		.start = frr_pthread_attr_default.start,
 		.stop = frr_pthread_attr_default.stop,
@@ -7958,7 +7956,6 @@ void bgp_pthreads_run(void)
 void bgp_pthreads_finish(void)
 {
 	frr_pthread_stop_all();
-	frr_pthread_finish();
 }
 
 void bgp_init(unsigned short instance)

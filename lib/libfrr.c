@@ -42,6 +42,7 @@
 #include "northbound_db.h"
 #include "debug.h"
 #include "frrcu.h"
+#include "frr_pthread.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 DEFINE_KOOH(frr_early_fini, (), ())
@@ -681,6 +682,8 @@ struct thread_master *frr_init(void)
 	memory_init();
 	log_filter_cmd_init();
 
+	frr_pthread_init();
+
 	log_ref_init();
 	log_ref_vty_init();
 	lib_error_init();
@@ -1076,6 +1079,7 @@ void frr_fini(void)
 	db_close();
 #endif
 	log_ref_fini();
+	frr_pthread_finish();
 	zprivs_terminate(di->privs);
 	/* signal_init -> nothing needed */
 	thread_master_free(master);
