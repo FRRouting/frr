@@ -1324,7 +1324,7 @@ static int bgp_connect_check(struct thread *thread)
 
 	/* If getsockopt is fail, this is fatal error. */
 	if (ret < 0) {
-		zlog_info("can't get sockopt for nonblocking connect: %d(%s)",
+		zlog_err("can't get sockopt for nonblocking connect: %d(%s)",
 			  errno, safe_strerror(errno));
 		BGP_EVENT_ADD(peer, TCP_fatal_error);
 		return -1;
