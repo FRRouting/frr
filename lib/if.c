@@ -1458,6 +1458,60 @@ static int lib_interface_destroy(enum nb_event event,
 }
 
 /*
+ * XPath: /frr-interface:lib/interface
+ */
+static const void *lib_interface_get_next(const void *parent_list_entry,
+					  const void *list_entry)
+{
+	struct vrf *vrf;
+	struct interface *pif = (struct interface *)list_entry;
+
+	if (list_entry == NULL) {
+		vrf = RB_MIN(vrf_name_head, &vrfs_by_name);
+		assert(vrf);
+		pif = RB_MIN(if_name_head, &vrf->ifaces_by_name);
+	} else {
+		vrf = vrf_lookup_by_id(pif->vrf_id);
+		pif = RB_NEXT(if_name_head, pif);
+		/* if no more interfaces, switch to next vrf */
+		while (pif == NULL) {
+			vrf = RB_NEXT(vrf_name_head, vrf);
+			if (!vrf)
+				return NULL;
+			pif = RB_MIN(if_name_head, &vrf->ifaces_by_name);
+		}
+	}
+
+	return pif;
+}
+
+static int lib_interface_get_keys(const void *list_entry,
+				  struct yang_list_keys *keys)
+{
+	const struct interface *ifp = list_entry;
+
+	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
+	assert(vrf);
+
+	keys->num = 2;
+	strlcpy(keys->key[0], ifp->name, sizeof(keys->key[0]));
+	strlcpy(keys->key[1], vrf->name, sizeof(keys->key[1]));
+
+	return NB_OK;
+}
+
+static const void *lib_interface_lookup_entry(const void *parent_list_entry,
+					      const struct yang_list_keys *keys)
+{
+	const char *ifname = keys->key[0];
+	const char *vrfname = keys->key[1];
+	struct vrf *vrf = vrf_lookup_by_name(vrfname);
+
+	return if_lookup_by_name(ifname, vrf->vrf_id);
+}
+
+/*
  * XPath: /frr-interface:lib/interface/description
  */
 static int lib_interface_description_modify(enum nb_event event,
@@ -1502,6 +1556,9 @@ const struct frr_yang_module_info frr_interface_info = {
 				.create = lib_interface_create,
 				.destroy = lib_interface_destroy,
 				.cli_show = cli_show_interface,
+				.get_next = lib_interface_get_next,
+				.get_keys = lib_interface_get_keys,
+				.lookup_entry = lib_interface_lookup_entry,
 			},
 		},
 		{
