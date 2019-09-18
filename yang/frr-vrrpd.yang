@@ -7,6 +7,10 @@ module frr-vrrpd {
     prefix inet;
   }
 
+  import ietf-yang-types {
+    prefix yang;
+  }
+
   import frr-interface {
     prefix frr-interface;
   }
@@ -14,17 +18,6 @@ module frr-vrrpd {
   revision 2019-09-09 {
     description
       "Initial revision.";
-  }
-
-  grouping ip-vrrp-ipv6-state {
-    description
-      "IPv6-specific operational state for VRRP on IPv6 interfaces";
-    leaf virtual-link-local {
-      type inet:ip-address;
-      description
-        "For VRRP on IPv6 interfaces, sets the virtual link local
-         address";
-    }
   }
 
   grouping ip-vrrp-tracking-config {
@@ -113,21 +106,6 @@ module frr-vrrpd {
       default "3";
     }
 
-    leaf-list ipv4-virtual-address {
-      type inet:ipv4-address;
-      description
-        "Configure one or more IPv4 virtual addresses for the
-         VRRP group";
-    }
-
-    leaf-list ipv6-virtual-address {
-      when "../version = 3";
-      type inet:ipv6-address;
-      description
-        "Configure one or more IPv6 virtual addresses for the
-         VRRP group";
-    }
-
     leaf priority {
       type uint8 {
         range "1..254";
@@ -180,13 +158,88 @@ module frr-vrrpd {
 
   grouping ip-vrrp-state {
     description
-      "Operational state data for VRRP on IP interfaces";
+      "Grouping for operational state data for a virtual router";
     leaf current-priority {
       type uint8;
       config false;
       description
         "Operational value of the priority for the
-         interface in the VRRP group";
+         interface in the VRRP group.";
+    }
+
+    leaf vrrp-interface {
+      type frr-interface:interface-ref;
+      config false;
+      description
+        "The interface used to transmit VRRP traffic.";
+    }
+
+    leaf source-address {
+      type inet:ip-address;
+      config false;
+      description
+        "The source IP address used for VRRP advertisements.";
+    }
+
+    leaf state {
+      type enumeration {
+        enum "Initialize" {
+          description
+            "State when virtual router is waiting for a Startup event.";
+        }
+        enum "Master" {
+          description
+            "State when virtual router is functioning as the forwarding router
+             for the virtual addresses.";
+        }
+        enum "Backup" {
+          description
+            "State when virtual router is monitoring the availability and state
+             of the Master router.";
+        }
+      }
+      config false;
+    }
+
+    leaf master-advertisement-interval {
+      type uint16 {
+        range "0..4095";
+      }
+      config false;
+      description
+        "Advertisement interval contained in advertisements received from the Master, in milliseconds.";
+    }
+
+    leaf skew-time {
+      type uint16;
+      config false;
+      description
+        "Time to skew Master_Down_Interval, in milliseconds.";
+    }
+
+    container counter {
+      config false;
+      leaf state-transition {
+        type yang:zero-based-counter32;
+        description
+          "Number of state transitions the virtual router has experienced.";
+      }
+
+      container tx {
+        leaf advertisement {
+          type yang:zero-based-counter32;
+          description
+            "Number of sent VRRP advertisements.";
+        }
+      }
+
+      container rx {
+        leaf advertisement {
+          type yang:zero-based-counter32;
+          description
+            "Number of received VRRP advertisements.";
+        }
+      }
     }
   }
 
@@ -207,15 +260,42 @@ module frr-vrrpd {
         uses ip-vrrp-config;
 
         container v4 {
-          config false;
-          uses ip-vrrp-state;
+          leaf-list virtual-address {
+            type inet:ipv4-address;
+            description
+              "Configure one or more IPv4 virtual addresses for the
+               VRRP group";
+          }
+
+          uses ip-vrrp-state {
+            augment "./counter/tx" {
+              leaf gratuitous-arp {
+                type yang:zero-based-counter32;
+                description
+                  "Number of sent gratuitous ARP requests.";
+              }
+            }
+          }
         }
 
         container v6 {
-          config false;
-          uses ip-vrrp-state;
+          when "../version = 3";
+          leaf-list virtual-address {
+            type inet:ipv6-address;
+            description
+              "Configure one or more IPv6 virtual addresses for the
+               VRRP group";
+          }
 
-          uses ip-vrrp-ipv6-state;
+          uses ip-vrrp-state {
+            augment "./counter/tx" {
+              leaf neighbor-advertisement {
+                type yang:zero-based-counter32;
+                description
+                  "Number of sent unsolicited Neighbor Advertisements.";
+              }
+            }
+          }
         }
       }
     }
