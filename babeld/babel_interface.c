@@ -1260,6 +1260,26 @@ DEFUN (show_babel_parameters,
     return CMD_SUCCESS;
 }
 
+int babel_ifp_create(struct interface *ifp)
+{
+	return 0;
+}
+
+int babel_ifp_up(struct interface *ifp)
+{
+	return 0;
+}
+
+int babel_ifp_down(struct interface *ifp)
+{
+	return 0;
+}
+
+int babel_ifp_destroy(struct interface *ifp)
+{
+	return 0;
+}
+
 void
 babel_if_init(void)
 {

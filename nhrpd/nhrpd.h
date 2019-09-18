@@ -319,6 +319,10 @@ void nhrp_interface_notify_del(struct interface *ifp, struct notifier_block *n);
 void nhrp_interface_set_protection(struct interface *ifp, const char *profile,
 				   const char *fallback_profile);
 void nhrp_interface_set_source(struct interface *ifp, const char *ifname);
+extern int nhrp_ifp_create(struct interface *ifp);
+extern int nhrp_ifp_up(struct interface *ifp);
+extern int nhrp_ifp_down(struct interface *ifp);
+extern int nhrp_ifp_destroy(struct interface *ifp);
 
 int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 		 const char *nbma_fqdn);

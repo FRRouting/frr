@@ -1946,11 +1946,33 @@ static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1 /* VTYSH */
 };
 
+static int ospf6_ifp_create(struct interface *ifp)
+{
+	return 0;
+}
+
+static int ospf6_ifp_up(struct interface *ifp)
+{
+	return 0;
+}
+
+static int ospf6_ifp_down(struct interface *ifp)
+{
+	return 0;
+}
+
+static int ospf6_ifp_destroy(struct interface *ifp)
+{
+	return 0;
+}
+
 void ospf6_interface_init(void)
 {
 	/* Install interface node. */
 	install_node(&interface_node, config_write_ospf6_interface);
 	if_cmd_init();
+	if_zapi_callbacks(ospf6_ifp_create, ospf6_ifp_up,
+			  ospf6_ifp_down, ospf6_ifp_destroy);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_prefix_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_ifname_cmd);

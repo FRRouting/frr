@@ -392,11 +392,34 @@ static int sharp_nexthop_update(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static int sharp_ifp_create(struct interface *ifp)
+{
+	return 0;
+}
+
+static int sharp_ifp_up(struct interface *ifp)
+{
+	return 0;
+}
+
+static int sharp_ifp_down(struct interface *ifp)
+{
+	return 0;
+}
+
+static int sharp_ifp_destroy(struct interface *ifp)
+{
+	return 0;
+}
+
 extern struct zebra_privs_t sharp_privs;
 
 void sharp_zebra_init(void)
 {
 	struct zclient_options opt = {.receive_notify = true};
+
+	if_zapi_callbacks(sharp_ifp_create, sharp_ifp_up,
+			  sharp_ifp_down, sharp_ifp_destroy);
 
 	zclient = zclient_new(master, &opt);
 

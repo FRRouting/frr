@@ -532,9 +532,32 @@ ldp_zebra_connected(struct zclient *zclient)
 
 extern struct zebra_privs_t ldpd_privs;
 
+static int ldp_ifp_create(struct interface *ifp)
+{
+	return 0;
+}
+
+static int ldp_ifp_up(struct interface *ifp)
+{
+	return 0;
+}
+
+static int ldp_ifp_down(struct interface *ifp)
+{
+	return 0;
+}
+
+static int ldp_ifp_destroy(struct interface *ifp)
+{
+	return 0;
+}
+
 void
 ldp_zebra_init(struct thread_master *master)
 {
+	if_zapi_callbacks(ldp_ifp_create, ldp_ifp_up,
+			  ldp_ifp_down, ldp_ifp_destroy);
+
 	/* Set default values. */
 	zclient = zclient_new(master, &zclient_options_default);
 	zclient_init(zclient, ZEBRA_ROUTE_LDP, 0, &ldpd_privs);

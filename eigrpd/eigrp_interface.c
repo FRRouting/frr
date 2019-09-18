@@ -122,10 +122,32 @@ int eigrp_if_delete_hook(struct interface *ifp)
 	return 0;
 }
 
+static int eigrp_ifp_create(struct interface *ifp)
+{
+	return 0;
+}
+
+static int eigrp_ifp_up(struct interface *ifp)
+{
+	return 0;
+}
+
+static int eigrp_ifp_down(struct interface *ifp)
+{
+	return 0;
+}
+
+static int eigrp_ifp_destroy(struct interface *ifp)
+{
+	return 0;
+}
+
 struct list *eigrp_iflist;
 
 void eigrp_if_init(void)
 {
+	if_zapi_callbacks(eigrp_ifp_create, eigrp_ifp_up,
+			  eigrp_ifp_down, eigrp_ifp_destroy);
 	/* Initialize Zebra interface data structure. */
 	// hook_register_prio(if_add, 0, eigrp_if_new);
 	hook_register_prio(if_del, 0, eigrp_if_delete_hook);

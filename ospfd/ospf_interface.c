@@ -1218,8 +1218,31 @@ uint8_t ospf_default_iftype(struct interface *ifp)
 		return OSPF_IFTYPE_BROADCAST;
 }
 
+static int ospf_ifp_create(struct interface *ifp)
+{
+	return 0;
+}
+
+static int ospf_ifp_up(struct interface *ifp)
+{
+	return 0;
+}
+
+static int ospf_ifp_down(struct interface *ifp)
+{
+	return 0;
+}
+
+static int ospf_ifp_destroy(struct interface *ifp)
+{
+	return 0;
+}
+
 void ospf_if_init(void)
 {
+	if_zapi_callbacks(ospf_ifp_create, ospf_ifp_up,
+			  ospf_ifp_down, ospf_ifp_destroy);
+
 	/* Initialize Zebra interface data structure. */
 	hook_register_prio(if_add, 0, ospf_if_new_hook);
 	hook_register_prio(if_del, 0, ospf_if_delete_hook);

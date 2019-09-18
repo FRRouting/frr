@@ -579,3 +579,23 @@ void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 
 	zclient_send_message(zclient);
 }
+
+int pbr_ifp_create(struct interface *ifp)
+{
+	return 0;
+}
+
+int pbr_ifp_up(struct interface *ifp)
+{
+	return 0;
+}
+
+int pbr_ifp_down(struct interface *ifp)
+{
+	return 0;
+}
+
+int pbr_ifp_destroy(struct interface *ifp)
+{
+	return 0;
+}

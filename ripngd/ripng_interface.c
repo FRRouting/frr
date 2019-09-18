@@ -989,6 +989,26 @@ static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1 /* VTYSH */
 };
 
+static int ripng_ifp_create(struct interface *ifp)
+{
+	return 0;
+}
+
+static int ripng_ifp_up(struct interface *ifp)
+{
+	return 0;
+}
+
+static int ripng_ifp_down(struct interface *ifp)
+{
+	return 0;
+}
+
+static int ripng_ifp_destroy(struct interface *ifp)
+{
+	return 0;
+}
+
 /* Initialization of interface. */
 void ripng_if_init(void)
 {
@@ -999,4 +1019,6 @@ void ripng_if_init(void)
 	/* Install interface node. */
 	install_node(&interface_node, interface_config_write);
 	if_cmd_init();
+	if_zapi_callbacks(ripng_ifp_create, ripng_ifp_up,
+			  ripng_ifp_down, ripng_ifp_destroy);
 }
