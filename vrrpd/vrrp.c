@@ -1415,7 +1415,7 @@ static void vrrp_change_state_initialize(struct vrrp_router *r)
 	r->ndisc_pending = false;
 
 	/* Disable ND Router Advertisements */
-	if (r->family == AF_INET6)
+	if (r->family == AF_INET6 && r->mvl_ifp)
 		vrrp_zebra_radv_set(r, false);
 }
 
@@ -1623,7 +1623,8 @@ static int vrrp_shutdown(struct vrrp_router *r)
 	THREAD_OFF(r->t_write);
 
 	/* Protodown macvlan */
-	vrrp_zclient_send_interface_protodown(r->mvl_ifp, true);
+	if (r->mvl_ifp)
+		vrrp_zclient_send_interface_protodown(r->mvl_ifp, true);
 
 	/* Throw away our source address */
 	memset(&r->src, 0x00, sizeof(r->src));
