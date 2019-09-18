@@ -782,6 +782,60 @@ void yang_get_default_string_buf(char *buf, size_t size, const char *xpath_fmt,
 }
 
 /*
+ * Derived type: IP prefix.
+ */
+void yang_str2prefix(const char *value, union prefixptr prefix)
+{
+	(void)str2prefix(value, prefix.p);
+	apply_mask(prefix.p);
+}
+
+struct yang_data *yang_data_new_prefix(const char *xpath,
+				       union prefixconstptr prefix)
+{
+	char value_str[PREFIX2STR_BUFFER];
+
+	(void)prefix2str(prefix.p, value_str, sizeof(value_str));
+	return yang_data_new(xpath, value_str);
+}
+
+void yang_dnode_get_prefix(union prefixptr prefix, const struct lyd_node *dnode,
+			   const char *xpath_fmt, ...)
+{
+	const struct lyd_node_leaf_list *dleaf;
+
+	assert(dnode);
+	if (xpath_fmt) {
+		va_list ap;
+		char xpath[XPATH_MAXLEN];
+
+		va_start(ap, xpath_fmt);
+		vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+		va_end(ap);
+		dnode = yang_dnode_get(dnode, xpath);
+		YANG_DNODE_GET_ASSERT(dnode, xpath);
+	}
+
+	dleaf = (const struct lyd_node_leaf_list *)dnode;
+	assert(dleaf->value_type == LY_TYPE_STRING);
+	(void)str2prefix(dleaf->value_str, prefix.p);
+}
+
+void yang_get_default_prefix(union prefixptr var, const char *xpath_fmt, ...)
+{
+	char xpath[XPATH_MAXLEN];
+	const char *value;
+	va_list ap;
+
+	va_start(ap, xpath_fmt);
+	vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+	va_end(ap);
+
+	value = yang_get_default_value(xpath);
+	yang_str2prefix(value, var);
+}
+
+/*
  * Derived type: ipv4.
  */
 void yang_str2ipv4(const char *value, struct in_addr *addr)

@@ -1791,16 +1791,11 @@ void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf)
 		snprintf(xpath + slen, sizeof(xpath) - slen, "[vrf='%s']/vrf",
 			 bs->key.vrfname);
 
-		pthread_rwlock_wrlock(&running_config->lock);
-		{
-			bfd_dnode = yang_dnode_get(
-						   running_config->dnode,
-						   xpath, bs->key.vrfname);
-			if (bfd_dnode) {
-				yang_dnode_change_leaf(bfd_dnode, vrf->name);
-				running_config->version++;
-			}
-			pthread_rwlock_unlock(&running_config->lock);
+		bfd_dnode = yang_dnode_get(running_config->dnode, xpath,
+					   bs->key.vrfname);
+		if (bfd_dnode) {
+			yang_dnode_change_leaf(bfd_dnode, vrf->name);
+			running_config->version++;
 		}
 	}
 	memset(bs->key.vrfname, 0, sizeof(bs->key.vrfname));

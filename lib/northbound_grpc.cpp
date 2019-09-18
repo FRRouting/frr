@@ -702,15 +702,10 @@ class NorthboundImpl final : public frr::Northbound::Service
 	{
 		struct lyd_node *dnode;
 
-		pthread_rwlock_rdlock(&running_config->lock);
-		{
-			dnode = yang_dnode_get(running_config->dnode,
-					       path.empty() ? NULL
-							    : path.c_str());
-			if (dnode)
-				dnode = yang_dnode_dup(dnode);
-		}
-		pthread_rwlock_unlock(&running_config->lock);
+		dnode = yang_dnode_get(running_config->dnode,
+				       path.empty() ? NULL : path.c_str());
+		if (dnode)
+			dnode = yang_dnode_dup(dnode);
 
 		return dnode;
 	}
@@ -817,11 +812,7 @@ class NorthboundImpl final : public frr::Northbound::Service
 
 		struct candidate *candidate = &_candidates[candidate_id];
 		candidate->id = candidate_id;
-		pthread_rwlock_rdlock(&running_config->lock);
-		{
-			candidate->config = nb_config_dup(running_config);
-		}
-		pthread_rwlock_unlock(&running_config->lock);
+		candidate->config = nb_config_dup(running_config);
 		candidate->transaction = NULL;
 
 		return candidate;
