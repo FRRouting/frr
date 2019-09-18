@@ -2326,8 +2326,10 @@ static int zebra_mpls_cleanup_zclient_labels(struct zserv *client)
 			     &args);
 
 		/* Cleanup FTNs. */
-		mpls_ftn_uninstall_all(zvrf, AFI_IP, client->proto);
-		mpls_ftn_uninstall_all(zvrf, AFI_IP6, client->proto);
+		mpls_ftn_uninstall_all(zvrf, AFI_IP,
+				       lsp_type_from_re_type(client->proto));
+		mpls_ftn_uninstall_all(zvrf, AFI_IP6,
+				       lsp_type_from_re_type(client->proto));
 	}
 
 	return 0;
