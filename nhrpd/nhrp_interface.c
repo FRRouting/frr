@@ -436,3 +436,23 @@ void nhrp_interface_set_source(struct interface *ifp, const char *ifname)
 
 	nhrp_interface_update_nbma(ifp);
 }
+
+int nhrp_ifp_create(struct interface *ifp)
+{
+	return 0;
+}
+
+int nhrp_ifp_up(struct interface *ifp)
+{
+	return 0;
+}
+
+int nhrp_ifp_down(struct interface *ifp)
+{
+	return 0;
+}
+
+int nhrp_ifp_destroy(struct interface *ifp)
+{
+	return 0;
+}

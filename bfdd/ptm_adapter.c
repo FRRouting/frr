@@ -756,8 +756,19 @@ static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static int bfd_ifp_create(struct interface *ifp)
+{
+	return 0;
+}
+
+static int bfd_ifp_destroy(struct interface *ifp)
+{
+	return 0;
+}
+
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 {
+	if_zapi_callbacks(bfd_ifp_create, NULL, NULL, bfd_ifp_destroy);
 	zclient = zclient_new(master, &zclient_options_default);
 	assert(zclient != NULL);
 	zclient_init(zclient, ZEBRA_ROUTE_BFD, 0, bfdd_priv);

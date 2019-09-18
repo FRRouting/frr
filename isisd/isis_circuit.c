@@ -1389,6 +1389,26 @@ int isis_if_delete_hook(struct interface *ifp)
 	return 0;
 }
 
+static int isis_ifp_create(struct interface *ifp)
+{
+	return 0;
+}
+
+static int isis_ifp_up(struct interface *ifp)
+{
+	return 0;
+}
+
+static int isis_ifp_down(struct interface *ifp)
+{
+	return 0;
+}
+
+static int isis_ifp_destroy(struct interface *ifp)
+{
+	return 0;
+}
+
 void isis_circuit_init(void)
 {
 	/* Initialize Zebra interface data structure */
@@ -1398,4 +1418,6 @@ void isis_circuit_init(void)
 	/* Install interface node */
 	install_node(&interface_node, isis_interface_config_write);
 	if_cmd_init();
+	if_zapi_callbacks(isis_ifp_create, isis_ifp_up,
+			  isis_ifp_down, isis_ifp_destroy);
 }

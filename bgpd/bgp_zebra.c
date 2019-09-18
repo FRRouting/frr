@@ -2721,9 +2721,32 @@ stream_failure:		/* for STREAM_GETX */
 
 extern struct zebra_privs_t bgpd_privs;
 
+static int bgp_ifp_create(struct interface *ifp)
+{
+	return 0;
+}
+
+static int bgp_ifp_up(struct interface *ifp)
+{
+	return 0;
+}
+
+static int bgp_ifp_down(struct interface *ifp)
+{
+	return 0;
+}
+
+static int bgp_ifp_destroy(struct interface *ifp)
+{
+	return 0;
+}
+
 void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 {
 	zclient_num_connects = 0;
+
+	if_zapi_callbacks(bgp_ifp_create, bgp_ifp_up,
+			  bgp_ifp_down, bgp_ifp_destroy);
 
 	/* Set default values. */
 	zclient = zclient_new(master, &zclient_options_default);

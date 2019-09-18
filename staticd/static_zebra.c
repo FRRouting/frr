@@ -504,9 +504,33 @@ extern void static_zebra_route_add(struct route_node *rn,
 			   ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
 			   zclient, &api);
 }
+
+static int static_ifp_create(struct interface *ifp)
+{
+	return 0;
+}
+
+static int static_ifp_up(struct interface *ifp)
+{
+	return 0;
+}
+
+static int static_ifp_down(struct interface *ifp)
+{
+	return 0;
+}
+
+static int static_ifp_destroy(struct interface *ifp)
+{
+	return 0;
+}
+
 void static_zebra_init(void)
 {
 	struct zclient_options opt = { .receive_notify = true };
+
+	if_zapi_callbacks(static_ifp_create, static_ifp_up,
+			  static_ifp_down, static_ifp_destroy);
 
 	zclient = zclient_new(master, &opt);
 

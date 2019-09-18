@@ -1526,3 +1526,23 @@ int pim_if_ifchannel_count(struct pim_interface *pim_ifp)
 
 	return count;
 }
+
+int pim_ifp_create(struct interface *ifp)
+{
+	return 0;
+}
+
+int pim_ifp_up(struct interface *ifp)
+{
+	return 0;
+}
+
+int pim_ifp_down(struct interface *ifp)
+{
+	return 0;
+}
+
+int pim_ifp_destroy(struct interface *ifp)
+{
+	return 0;
+}

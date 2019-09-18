@@ -58,6 +58,13 @@ DEFINE_QOBJ_TYPE(interface)
 DEFINE_HOOK(if_add, (struct interface * ifp), (ifp))
 DEFINE_KOOH(if_del, (struct interface * ifp), (ifp))
 
+struct interface_master{
+	int (*create_hook)(struct interface *ifp);
+	int (*up_hook)(struct interface *ifp);
+	int (*down_hook)(struct interface *ifp);
+	int (*destroy_hook)(struct interface *ifp);
+} ifp_master = { 0, };
+
 /* Compare interface names, returning an integer greater than, equal to, or
  * less than 0, (following the strcmp convention), according to the
  * relationship between ifp1 and ifp2.  Interface names consist of an
@@ -1365,6 +1372,17 @@ void if_cmd_init(void)
 	install_default(INTERFACE_NODE);
 	install_element(INTERFACE_NODE, &interface_desc_cmd);
 	install_element(INTERFACE_NODE, &no_interface_desc_cmd);
+}
+
+void if_zapi_callbacks(int (*create)(struct interface *ifp),
+		       int (*up)(struct interface *ifp),
+		       int (*down)(struct interface *ifp),
+		       int (*destroy)(struct interface *ifp))
+{
+	ifp_master.create_hook = create;
+	ifp_master.up_hook = up;
+	ifp_master.down_hook = down;
+	ifp_master.destroy_hook = destroy;
 }
 
 /* ------- Northbound callbacks ------- */
