@@ -406,7 +406,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				       == 0
 			    || strncmp(line, "frr", strlen("frr")) == 0
 			    || strncmp(line, "agentx", strlen("agentx")) == 0
-			    || strncmp(line, "no log", strlen("no log")) == 0)
+			    || strncmp(line, "no log", strlen("no log")) == 0
+			    || strncmp(line, "no ip prefix-list", strlen("no ip prefix-list")) == 0
+			    || strncmp(line, "no ipv6 prefix-list", strlen("no ipv6 prefix-list")) == 0)
 				config_add_line_uniq(config_top, line);
 			else
 				config_add_line(config_top, line);
