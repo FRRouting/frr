@@ -65,7 +65,8 @@ extern int zsend_interface_update(int cmd, struct zserv *client,
 extern int zsend_redistribute_route(int cmd, struct zserv *zclient,
 				    const struct prefix *p,
 				    const struct prefix *src_p,
-				    struct route_entry *re);
+				    const struct route_entry *re);
+
 extern int zsend_router_id_update(struct zserv *zclient, struct prefix *p,
 				  vrf_id_t vrf_id);
 extern int zsend_interface_vrf_update(struct zserv *zclient,
