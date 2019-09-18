@@ -1423,6 +1423,8 @@ static int lib_interface_create(enum nb_event event,
 #else
 		ifp = if_get_by_name(ifname, vrf->vrf_id);
 #endif /* SUNOS_5 */
+
+		ifp->configured = true;
 		nb_running_set_entry(dnode, ifp);
 		break;
 	}
@@ -1450,6 +1452,8 @@ static int lib_interface_destroy(enum nb_event event,
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_unset_entry(dnode);
+
+		ifp->configured = false;
 		if_delete(ifp);
 		break;
 	}
