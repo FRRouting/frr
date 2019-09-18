@@ -183,7 +183,18 @@ static int nb_node_validate_cb(const struct nb_node *nb_node,
 
 	valid = nb_operation_is_valid(operation, nb_node->snode);
 
-	if (!valid && callback_implemented)
+	/*
+	 * Add an exception for operational data callbacks. A rw list usually
+	 * doesn't need any associated operational data callbacks. But if this
+	 * rw list is augmented by another module which adds state nodes under
+	 * it, then this list will need to have the 'get_next()', 'get_keys()'
+	 * and 'lookup_entry()' callbacks. As such, never log a warning when
+	 * these callbacks are implemented when they are not needed, since this
+	 * depends on context (e.g. some daemons might augment "frr-interface"
+	 * while others don't).
+	 */
+	if (!valid && callback_implemented && operation != NB_OP_GET_NEXT
+	    && operation != NB_OP_GET_KEYS && operation != NB_OP_LOOKUP_ENTRY)
 		flog_warn(EC_LIB_NB_CB_UNNEEDED,
 			  "unneeded '%s' callback for '%s'",
 			  nb_operation_name(operation), nb_node->xpath);
