@@ -293,6 +293,12 @@ struct interface {
 	struct route_node *node;
 	vrf_id_t vrf_id;
 
+	/*
+	 * Has the end users entered `interface XXXX` from the cli in some
+	 * fashion?
+	 */
+	bool configured;
+
 	QOBJ_FIELDS
 };
 

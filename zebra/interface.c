@@ -778,6 +778,13 @@ void if_delete_update(struct interface *ifp)
 		memset(&zif->brslave_info, 0,
 		       sizeof(struct zebra_l2info_brslave));
 	}
+
+	if (!ifp->configured) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("interface %s is being deleted from the system",
+				   ifp->name);
+		if_delete(ifp);
+	}
 }
 
 /* VRF change for an interface */
