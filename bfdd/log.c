@@ -95,6 +95,18 @@ void log_debug(const char *fmt, ...)
 	va_end(vl);
 }
 
+void log_debug_info(const char *fmt, ...)
+{
+	va_list vl;
+
+	if (!BFD_DEBUG())
+		return;
+
+	va_start(vl, fmt);
+	log_msg(BLOG_DEBUG, fmt, vl);
+	va_end(vl);
+}
+
 void log_error(const char *fmt, ...)
 {
 	va_list vl;

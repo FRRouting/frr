@@ -234,6 +234,18 @@ static uint32_t ptm_bfd_gen_ID(void)
 	return session_id;
 }
 
+void bfd_clear_stored_pkt (struct bfd_session *bs)
+{
+	if (true == bs->bfd_tx_pkt_stored) {
+		memset (&(bs->bfd_tx_pkt), 0, sizeof(struct bfd_pkt));
+		bs->bfd_tx_pkt_stored = false;
+
+		log_debug_info("clear-packet: session-id: %d",bs->discrs.my_discr);
+	}
+
+	return;
+}
+
 void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo)
 {
 	uint64_t jitter, xmt_TO;
@@ -269,6 +281,9 @@ static void ptm_bfd_echo_xmt_TO(struct bfd_session *bfd)
 
 void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit)
 {
+	if (fbit)
+		bfd_clear_stored_pkt (bfd);
+
 	/* Send the scheduled control packet */
 	ptm_bfd_snd(bfd, fbit);
 
@@ -307,7 +322,7 @@ void ptm_bfd_sess_up(struct bfd_session *bfd)
 	/* Start sending control packets with poll bit immediately. */
 	ptm_bfd_snd(bfd, 0);
 
-	control_notify(bfd);
+	control_notify(bfd, bfd->ses_state);
 
 	if (old_state != bfd->ses_state) {
 		bfd->stats.session_up++;
@@ -317,8 +332,9 @@ void ptm_bfd_sess_up(struct bfd_session *bfd)
 	}
 }
 
-void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
+void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag, uint8_t peer_state)
 {
+	uint8_t notify_state = PTM_BFD_DOWN;
 	int old_state = bfd->ses_state;
 
 	bfd->local_diag = diag;
@@ -328,14 +344,20 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 	bfd->demand_mode = 0;
 	monotime(&bfd->downtime);
 
+	bfd_clear_stored_pkt(bfd);
+
 	ptm_bfd_snd(bfd, 0);
 
 	/* Slow down the control packets, the connection is down. */
 	bs_set_slow_timers(bfd);
 
 	/* only signal clients when going from up->down state */
-	if (old_state == PTM_BFD_UP)
-		control_notify(bfd);
+	if (old_state == PTM_BFD_UP) {
+		if (peer_state == PTM_BFD_ADM_DOWN)
+			notify_state = peer_state;
+
+		control_notify(bfd, notify_state);
+	}
 
 	/* Stop echo packet transmission if they are active */
 	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
@@ -428,7 +450,7 @@ int bfd_recvtimer_cb(struct thread *t)
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
-		ptm_bfd_sess_dn(bs, BD_CONTROL_EXPIRED);
+		ptm_bfd_sess_dn(bs, BD_CONTROL_EXPIRED, PTM_BFD_UP);
 		bfd_recvtimer_update(bs);
 		break;
 
@@ -451,7 +473,7 @@ int bfd_echo_recvtimer_cb(struct thread *t)
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
-		ptm_bfd_sess_dn(bs, BD_ECHO_FAILED);
+		ptm_bfd_sess_dn(bs, BD_ECHO_FAILED, PTM_BFD_UP);
 		break;
 	}
 
@@ -482,6 +504,8 @@ struct bfd_session *bfd_session_new(void)
 	monotime(&bs->uptime);
 	bs->downtime = bs->uptime;
 
+	bs->bfd_tx_pkt_stored = false;
+	
 	return bs;
 }
 
@@ -570,7 +594,7 @@ skip_echo:
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_ADM_DOWN;
-		control_notify(bs);
+		control_notify(bs, bs->ses_state);
 
 		/* Don't try to send packets with a disabled session. */
 		if (bs->sock != -1)
@@ -584,7 +608,7 @@ skip_echo:
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_DOWN;
-		control_notify(bs);
+		control_notify(bs, bs->ses_state);
 
 		/* Enable all timers. */
 		bfd_recvtimer_update(bs);
@@ -740,7 +764,7 @@ struct bfd_session *bs_registrate(struct bfd_session *bfd)
 	return bfd;
 }
 
-int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc)
+int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc, char *ebuf, size_t ebuflen)
 {
 	struct bfd_session *bs;
 
@@ -751,6 +775,14 @@ int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc)
 
 	/* This pointer is being referenced, don't let it be deleted. */
 	if (bs->refcount > 0) {
+		if (NULL != ebuf) {
+			snprintf(ebuf, ebuflen,"peer associated to an application");
+
+			if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG)) {
+				BFD_UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+			}
+		}
+
 		log_error("session-delete: refcount failure: %" PRIu64
 			  " references",
 			  bs->refcount);
@@ -778,6 +810,8 @@ void bfd_set_polling(struct bfd_session *bs)
 	 * RFC 5880, Section 6.8.3.
 	 */
 	bs->polling = 1;
+
+	bfd_clear_stored_pkt (bs);
 }
 
 /*
@@ -862,7 +896,7 @@ static void bs_up_handler(struct bfd_session *bs, int nstate)
 	case PTM_BFD_ADM_DOWN:
 	case PTM_BFD_DOWN:
 		/* Peer lost or asked to shutdown connection. */
-		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN);
+		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN, nstate);
 		break;
 
 	case PTM_BFD_INIT:
@@ -1432,7 +1466,7 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 	if (ctx.result) {
 		bsp = ctx.result;
 		log_debug(" peer %s found, but ifp"
-			  " and/or loc-addr params ignored");
+			  " and/or loc-addr params ignored", peer_buf);
 	}
 	return bsp;
 }
@@ -1806,4 +1840,9 @@ void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf)
 	memset(bs->key.vrfname, 0, sizeof(bs->key.vrfname));
 	strlcpy(bs->key.vrfname, vrf->name, sizeof(bs->key.vrfname));
 	hash_get(bfd_key_hash, bs, hash_alloc_intern);
+}
+
+unsigned long bfd_get_session_count(void)
+{
+	return bfd_key_hash->count;
 }

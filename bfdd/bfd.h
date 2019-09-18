@@ -242,6 +242,8 @@ struct bfd_session {
 	/* BFD session flags */
 	enum bfd_session_flags flags;
 
+	bool bfd_tx_pkt_stored; /* Flag to indicate if Tx packet is filled in below structure */
+	struct bfd_pkt bfd_tx_pkt; /* Stored packet for Tx in Async mode */
 	struct bfd_session_stats stats;
 
 	struct timeval uptime;   /* last up time */
@@ -315,6 +317,10 @@ TAILQ_HEAD(obslist, bfd_session_observer);
 #define BFD_DEF_ECHO_PORT 3785
 #define BFD_DEF_MHOP_DEST_PORT 4784
 
+
+#define BFD_ADDRANY 0
+/* Start of CLASS D address in network byte order */
+#define BFD_CLASSDADDR_START 0xe0
 /*
  * control.c
  *
@@ -369,10 +375,11 @@ TAILQ_HEAD(bcslist, bfd_control_socket);
 
 int control_init(const char *path);
 void control_shutdown(void);
-int control_notify(struct bfd_session *bs);
+int control_notify(struct bfd_session *bs, uint8_t notify_state);
 int control_notify_config(const char *op, struct bfd_session *bs);
 int control_accept(struct thread *t);
 
+void bfd_clear_stored_pkt (struct bfd_session *bs);
 
 /*
  * bfdd.c
@@ -449,6 +456,7 @@ void log_init(int foreground, enum blog_level level,
 	      struct frr_daemon_info *fdi);
 void log_info(const char *fmt, ...);
 void log_debug(const char *fmt, ...);
+void log_debug_info(const char *fmt, ...);
 void log_warning(const char *fmt, ...);
 void log_error(const char *fmt, ...);
 void log_fatal(const char *fmt, ...);
@@ -511,8 +519,8 @@ void bfd_echo_xmttimer_assign(struct bfd_session *bs, bfd_ev_cb cb);
 int bfd_session_enable(struct bfd_session *bs);
 void bfd_session_disable(struct bfd_session *bs);
 struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc);
-int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc);
-void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag);
+int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc, char *ebuf, size_t ebuflen);
+void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag, uint8_t peer_state);
 void ptm_bfd_sess_up(struct bfd_session *bfd);
 void ptm_bfd_echo_stop(struct bfd_session *bfd);
 void ptm_bfd_echo_start(struct bfd_session *bfd);
@@ -570,6 +578,8 @@ bool bfd_key_insert(struct bfd_session *bs);
 typedef void (*hash_iter_func)(struct hash_bucket *hb, void *arg);
 void bfd_id_iterate(hash_iter_func hif, void *arg);
 void bfd_key_iterate(hash_iter_func hif, void *arg);
+
+unsigned long bfd_get_session_count(void);
 
 /* Export callback functions for `event.c`. */
 extern struct thread_master *master;
@@ -632,7 +642,7 @@ void bfdd_sessions_enable_vrf(struct vrf *vrf);
 void bfdd_sessions_disable_vrf(struct vrf *vrf);
 void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf);
 
-int ptm_bfd_notify(struct bfd_session *bs);
+int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state);
 
 
 /*
@@ -641,5 +651,35 @@ int ptm_bfd_notify(struct bfd_session *bs);
  * BFD northbound callbacks.
  */
 extern const struct frr_yang_module_info frr_bfdd_info;
+
+/* bfd_debug.c*/
+/* Prototypes. */
+extern void bfd_debug_init(void);
+
+extern bool conf_bfd_debug;
+
+extern bool term_bfd_debug;
+
+
+#define BFD_CONF_DEBUG_ON() (conf_bfd_debug = true)
+#define BFD_CONF_DEBUG_OFF()    (conf_bfd_debug = false)
+
+#define BFD_TERM_DEBUG_ON() (term_bfd_debug = true)
+#define BFD_TERM_DEBUG_OFF()    (term_bfd_debug = false)
+
+#define BFD_DEBUG_ON()                                                         \
+    do {                                                                   \
+        BFD_CONF_DEBUG_ON();                                           \
+        BFD_TERM_DEBUG_ON();                                           \
+    } while (0)
+#define BFD_DEBUG_OFF()                                                        \
+    do {                                                                   \
+        BFD_CONF_DEBUG_OFF();                                          \
+        BFD_TERM_DEBUG_OFF();                                          \
+    } while (0)
+
+#define BFD_DEBUG()     (true == term_bfd_debug)
+#define CONF_BFD_DEBUG()    (true == conf_bfd_debug)
+
 
 #endif /* _BFD_H_ */
