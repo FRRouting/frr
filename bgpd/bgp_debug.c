@@ -32,6 +32,7 @@
 #include "memory.h"
 #include "queue.h"
 #include "filter.h"
+#include "hook.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
@@ -49,6 +50,9 @@
 #include "bgpd/bgp_evpn_vty.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_flowspec.h"
+
+DEFINE_HOOK(bgp_hook_config_write_debug, (struct vty *vty, bool running),
+	    (vty, running));
 
 unsigned long conf_bgp_debug_as4;
 unsigned long conf_bgp_debug_neighbor_events;
@@ -2260,6 +2264,7 @@ DEFUN_NOSH (show_debugging_bgp,
 	if (BGP_DEBUG(bfd, BFD_LIB))
 		vty_out(vty, "  BGP BFD library debugging is on\n");
 
+	hook_call(bgp_hook_config_write_debug, vty, false);
 	vty_out(vty, "\n");
 	return CMD_SUCCESS;
 }
@@ -2390,6 +2395,8 @@ static int bgp_config_write_debug(struct vty *vty)
 		write++;
 	}
 
+	if (hook_call(bgp_hook_config_write_debug, vty, true))
+		write++;
 	return write;
 }
 
