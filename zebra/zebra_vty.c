@@ -394,6 +394,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	json_object *json_labels = NULL;
 	time_t uptime;
 	struct tm *tm;
+	struct vrf *vrf = NULL;
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 	struct nexthop_group *nhg;
 
@@ -422,9 +423,13 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			json_object_int_add(json_route, "instance",
 					    re->instance);
 
-		if (re->vrf_id)
+		if (re->vrf_id) {
 			json_object_int_add(json_route, "vrfId", re->vrf_id);
+			vrf = vrf_lookup_by_id(re->vrf_id);
+			json_object_string_add(json_route, "vrfName",
+					       vrf->name);
 
+		}
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			json_object_boolean_true_add(json_route, "selected");
 
@@ -565,9 +570,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 			if ((nexthop->vrf_id != re->vrf_id)
 			     && (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)) {
-				struct vrf *vrf =
-					vrf_lookup_by_id(nexthop->vrf_id);
-
+				vrf = vrf_lookup_by_id(nexthop->vrf_id);
 				json_object_string_add(json_nexthop, "vrf",
 						       vrf->name);
 			}
