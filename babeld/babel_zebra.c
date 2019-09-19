@@ -240,7 +240,6 @@ void babelz_zebra_init(void)
     zclient_init(zclient, ZEBRA_ROUTE_BABEL, 0, &babeld_privs);
 
     zclient->zebra_connected = babel_zebra_connected;
-    zclient->interface_add = babel_interface_add;
     zclient->interface_delete = babel_interface_delete;
     zclient->interface_up = babel_interface_up;
     zclient->interface_down = babel_interface_down;

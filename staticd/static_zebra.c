@@ -61,16 +61,10 @@ static struct interface *zebra_interface_if_lookup(struct stream *s)
 }
 
 /* Inteface addition message from zebra. */
-static int interface_add(ZAPI_CALLBACK_ARGS)
+static int static_ifp_create(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-
-	if (!ifp)
-		return 0;
-
 	static_ifindex_update(ifp, true);
+
 	return 0;
 }
 
@@ -505,11 +499,6 @@ extern void static_zebra_route_add(struct route_node *rn,
 			   zclient, &api);
 }
 
-static int static_ifp_create(struct interface *ifp)
-{
-	return 0;
-}
-
 static int static_ifp_up(struct interface *ifp)
 {
 	return 0;
@@ -537,7 +526,6 @@ void static_zebra_init(void)
 	zclient_init(zclient, ZEBRA_ROUTE_STATIC, 0, &static_privs);
 	zclient->zebra_capabilities = static_zebra_capabilities;
 	zclient->zebra_connected = zebra_connected;
-	zclient->interface_add = interface_add;
 	zclient->interface_delete = interface_delete;
 	zclient->interface_up = interface_state_up;
 	zclient->interface_down = interface_state_down;

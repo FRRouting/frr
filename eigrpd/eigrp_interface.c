@@ -124,6 +124,15 @@ int eigrp_if_delete_hook(struct interface *ifp)
 
 static int eigrp_ifp_create(struct interface *ifp)
 {
+	struct eigrp_interface *ei = ifp->info;
+
+	if (!ei)
+		return 0;
+
+	ei->params.type = eigrp_default_iftype(ifp);
+
+	eigrp_if_update(ifp);
+
 	return 0;
 }
 

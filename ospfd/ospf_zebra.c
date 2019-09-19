@@ -55,7 +55,6 @@ DEFINE_MTYPE_STATIC(OSPFD, OSPF_EXTERNAL, "OSPF External route table")
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute")
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_DIST_ARGS, "OSPF Distribute arguments")
 
-DEFINE_HOOK(ospf_if_update, (struct interface * ifp), (ifp))
 DEFINE_HOOK(ospf_if_delete, (struct interface * ifp), (ifp))
 
 /* Zebra structure to hold current status. */
@@ -94,45 +93,6 @@ static int ospf_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 				ospf_vrf_id_to_name(vrf_id), vrf_id, buf);
 		}
 	}
-	return 0;
-}
-
-/* Inteface addition message from zebra. */
-static int ospf_interface_add(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp = NULL;
-	struct ospf *ospf = NULL;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-	if (ifp == NULL)
-		return 0;
-
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug(
-			"Zebra: interface add %s vrf %s[%u] index %d flags %llx metric %d mtu %d speed %u",
-			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
-			ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu,
-			ifp->speed);
-
-	assert(ifp->info);
-
-	if (IF_DEF_PARAMS(ifp)
-	    && !OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp), type)) {
-		SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
-		IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
-	}
-
-	ospf = ospf_lookup_by_vrf_id(vrf_id);
-	if (!ospf)
-		return 0;
-
-	ospf_if_recalculate_output_cost(ifp);
-
-	ospf_if_update(ospf, ifp);
-
-	hook_call(ospf_if_update, ifp);
-
 	return 0;
 }
 
@@ -283,7 +243,7 @@ static int ospf_interface_address_add(ZAPI_CALLBACK_ARGS)
 
 	ospf_if_update(ospf, c->ifp);
 
-	hook_call(ospf_if_update, c->ifp);
+	ospf_if_interface(c->ifp);
 
 	return 0;
 }
@@ -325,7 +285,7 @@ static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	/* Call interface hook functions to clean up */
 	ospf_if_free(oi);
 
-	hook_call(ospf_if_update, c->ifp);
+	ospf_if_interface(c->ifp);
 
 	connected_free(c);
 
@@ -1524,7 +1484,6 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient_init(zclient, ZEBRA_ROUTE_OSPF, instance, &ospfd_privs);
 	zclient->zebra_connected = ospf_zebra_connected;
 	zclient->router_id_update = ospf_router_id_update_zebra;
-	zclient->interface_add = ospf_interface_add;
 	zclient->interface_delete = ospf_interface_delete;
 	zclient->interface_up = ospf_interface_state_up;
 	zclient->interface_down = ospf_interface_state_down;

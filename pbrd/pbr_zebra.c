@@ -59,15 +59,8 @@ struct pbr_interface *pbr_if_new(struct interface *ifp)
 }
 
 /* Inteface addition message from zebra. */
-static int interface_add(ZAPI_CALLBACK_ARGS)
+int pbr_ifp_create(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-
-	if (!ifp)
-		return 0;
-
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s", __PRETTY_FUNCTION__, ifp->name);
 
@@ -447,7 +440,6 @@ void pbr_zebra_init(void)
 
 	zclient_init(zclient, ZEBRA_ROUTE_PBR, 0, &pbr_privs);
 	zclient->zebra_connected = zebra_connected;
-	zclient->interface_add = interface_add;
 	zclient->interface_delete = interface_delete;
 	zclient->interface_up = interface_state_up;
 	zclient->interface_down = interface_state_down;
@@ -578,11 +570,6 @@ void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	zclient_send_message(zclient);
-}
-
-int pbr_ifp_create(struct interface *ifp)
-{
-	return 0;
 }
 
 int pbr_ifp_up(struct interface *ifp)

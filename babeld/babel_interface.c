@@ -104,23 +104,14 @@ babel_interface_down (ZAPI_CALLBACK_ARGS)
     return 0;
 }
 
-int
-babel_interface_add (ZAPI_CALLBACK_ARGS)
+int babel_ifp_create (struct interface *ifp)
 {
-    struct interface *ifp = NULL;
-
     debugf(BABEL_DEBUG_IF, "receive a 'interface add'");
 
-    /* read and add the interface in the iflist. */
-    ifp = zebra_interface_add_read (zclient->ibuf, vrf_id);
-
-    if (ifp == NULL) {
-        return 0;
-    }
-
     interface_recalculate(ifp);
-    return 0;
-}
+    
+     return 0;
+ }
 
 int
 babel_interface_delete (ZAPI_CALLBACK_ARGS)
@@ -1258,11 +1249,6 @@ DEFUN (show_babel_parameters,
         config_show_distribute(vty, babel_ctx->distribute_ctx);
     }
     return CMD_SUCCESS;
-}
-
-int babel_ifp_create(struct interface *ifp)
-{
-	return 0;
 }
 
 int babel_ifp_up(struct interface *ifp)

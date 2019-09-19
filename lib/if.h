@@ -563,6 +563,8 @@ extern void if_zapi_callbacks(int (*create)(struct interface *ifp),
 			      int (*down)(struct interface *ifp),
 			      int (*destroy)(struct interface *ifp));
 
+extern void if_new_via_zapi(struct interface *ifp);
+
 extern const struct frr_yang_module_info frr_interface_info;
 
 #ifdef __cplusplus

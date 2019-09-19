@@ -97,19 +97,6 @@ void ospf6_zebra_no_redistribute(int type)
 					AFI_IP6, type, 0, VRF_DEFAULT);
 }
 
-/* Inteface addition message from zebra. */
-static int ospf6_zebra_if_add(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
-		zlog_debug("Zebra Interface add: %s index %d mtu %d", ifp->name,
-			   ifp->ifindex, ifp->mtu6);
-	ospf6_interface_if_add(ifp);
-	return 0;
-}
-
 static int ospf6_zebra_if_del(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
@@ -583,7 +570,6 @@ void ospf6_zebra_init(struct thread_master *master)
 	zclient_init(zclient, ZEBRA_ROUTE_OSPF6, 0, &ospf6d_privs);
 	zclient->zebra_connected = ospf6_zebra_connected;
 	zclient->router_id_update = ospf6_router_id_update_zebra;
-	zclient->interface_add = ospf6_zebra_if_add;
 	zclient->interface_delete = ospf6_zebra_if_del;
 	zclient->interface_up = ospf6_zebra_if_state_update;
 	zclient->interface_down = ospf6_zebra_if_state_update;

@@ -175,6 +175,12 @@ static struct interface *if_create_backend(const char *name, ifindex_t ifindex,
 	return ifp;
 }
 
+void if_new_via_zapi(struct interface *ifp)
+{
+	if (ifp_master.create_hook)
+		(*ifp_master.create_hook)(ifp);
+}
+
 struct interface *if_create(const char *name, vrf_id_t vrf_id)
 {
 	return if_create_backend(name, IFINDEX_INTERNAL, vrf_id);

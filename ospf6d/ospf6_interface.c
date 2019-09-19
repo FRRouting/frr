@@ -42,6 +42,7 @@
 #include "ospf6_spf.h"
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
+#include "ospf6_zebra.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, CFG_PLIST_NAME, "configured prefix list names")
 DEFINE_QOBJ_TYPE(ospf6_interface)
@@ -1948,6 +1949,11 @@ static struct cmd_node interface_node = {
 
 static int ospf6_ifp_create(struct interface *ifp)
 {
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+		zlog_debug("Zebra Interface add: %s index %d mtu %d", ifp->name,
+			   ifp->ifindex, ifp->mtu6);
+	ospf6_interface_if_add(ifp);
+
 	return 0;
 }
 

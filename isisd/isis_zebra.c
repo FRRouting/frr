@@ -53,8 +53,6 @@
 
 struct zclient *zclient = NULL;
 
-DEFINE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp))
-
 /* Router-id update message from zebra. */
 static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
@@ -70,21 +68,6 @@ static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
 		if (listcount(area->area_addrs) > 0)
 			lsp_regenerate_schedule(area, area->is_type, 0);
-
-	return 0;
-}
-
-static int isis_zebra_if_add(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-
-	if (if_is_operative(ifp))
-		isis_csm_state_change(IF_UP_FROM_Z, circuit_scan_by_ifp(ifp),
-				      ifp);
-
-	hook_call(isis_if_new_hook, ifp);
 
 	return 0;
 }
@@ -388,7 +371,6 @@ void isis_zebra_init(struct thread_master *master)
 	zclient_init(zclient, PROTO_TYPE, 0, &isisd_privs);
 	zclient->zebra_connected = isis_zebra_connected;
 	zclient->router_id_update = isis_router_id_update_zebra;
-	zclient->interface_add = isis_zebra_if_add;
 	zclient->interface_delete = isis_zebra_if_del;
 	zclient->interface_up = isis_zebra_if_state_up;
 	zclient->interface_down = isis_zebra_if_state_down;

@@ -61,6 +61,8 @@
 
 DEFINE_QOBJ_TYPE(isis_circuit)
 
+DEFINE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp))
+
 /*
  * Prototypes.
  */
@@ -1391,6 +1393,12 @@ int isis_if_delete_hook(struct interface *ifp)
 
 static int isis_ifp_create(struct interface *ifp)
 {
+	if (if_is_operative(ifp))
+		isis_csm_state_change(IF_UP_FROM_Z, circuit_scan_by_ifp(ifp),
+				      ifp);
+
+	hook_call(isis_if_new_hook, ifp);
+
 	return 0;
 }
 
