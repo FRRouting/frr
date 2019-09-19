@@ -1667,6 +1667,16 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6_labeled_unicast,
 }
 
 DEFUNSH(VTYSH_BGPD,
+	no_rpki,
+	no_rpki_cmd,
+	"no rpki",
+	NO_STR
+	"rpki\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD,
 	rpki,
 	rpki_cmd,
 	"rpki",
@@ -4070,7 +4080,9 @@ void vtysh_init_vty(void)
 	install_element(BMP_NODE, &vtysh_end_all_cmd);
 
 	install_element(CONFIG_NODE, &rpki_cmd);
+	install_element(CONFIG_NODE, &no_rpki_cmd);
 	install_element(VRF_NODE, &rpki_cmd);
+	install_element(VRF_NODE, &no_rpki_cmd);
 	install_element(RPKI_NODE, &rpki_exit_cmd);
 	install_element(RPKI_NODE, &rpki_quit_cmd);
 	install_element(RPKI_NODE, &vtysh_end_all_cmd);
