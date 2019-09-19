@@ -70,6 +70,8 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group")
 #define RPKI_NOTFOUND   2
 #define RPKI_INVALID    3
 
+#define STR_SEPARATOR 10
+
 #define POLLING_PERIOD_DEFAULT 3600
 #define EXPIRE_INTERVAL_DEFAULT 7200
 #define RETRY_INTERVAL_DEFAULT 600
@@ -120,6 +122,8 @@ struct rpki_vrf {
 
 static struct rpki_vrf *find_rpki_vrf(const char *vrfname);
 static int bgp_rpki_vrf_update(struct vrf *vrf, bool enabled);
+static int bgp_rpki_write_vrf(struct vty *vty, struct vrf *vrf);
+static int bgp_rpki_hook_write_vrf(struct vty *vty, struct vrf *vrf);
 static int bgp_rpki_write_debug(struct vty *vty, bool running);
 static int start(struct rpki_vrf *rpki_vrf);
 static void stop(struct rpki_vrf *rpki_vrf);
@@ -784,6 +788,7 @@ static int bgp_rpki_module_init(void)
 	hook_register(frr_early_fini, &bgp_rpki_fini);
 	hook_register(bgp_hook_config_write_debug, &bgp_rpki_write_debug);
 	hook_register(bgp_hook_vrf_update, &bgp_rpki_vrf_update);
+	hook_register(bgp_hook_config_write_vrf, &bgp_rpki_hook_write_vrf);
 
 	return 0;
 }
@@ -1298,65 +1303,101 @@ static int bgp_rpki_write_debug(struct vty *vty, bool running)
 	return 0;
 }
 
-static int config_write(struct vty *vty)
+static int bgp_rpki_hook_write_vrf(struct vty *vty, struct vrf *vrf)
+{
+	int ret;
+
+	ret = bgp_rpki_write_vrf(vty, vrf);
+	if (ret == ERROR)
+		return 0;
+	return ret;
+}
+
+static int bgp_rpki_write_vrf(struct vty *vty, struct vrf *vrf)
 {
 	struct listnode *cache_node;
 	struct cache *cache;
-	struct rpki_vrf *rpki_vrf;
-	struct list *cache_list;
+	struct rpki_vrf *rpki_vrf = NULL;
+	char sep[STR_SEPARATOR];
+	vrf_id_t vrf_id = VRF_DEFAULT;
+	char *host_key_pub = NULL;
+	int len_host_key_pub;
 
-	rpki_vrf = find_rpki_vrf(NULL);
+	if (!vrf) {
+		rpki_vrf = find_rpki_vrf(NULL);
+		snprintf(sep, sizeof(sep), "%s", "");
+	} else if (vrf->vrf_id != VRF_DEFAULT) {
+		rpki_vrf = find_rpki_vrf(vrf->name);
+		snprintf(sep, sizeof(sep), "%s", " ");
+		vrf_id = vrf->vrf_id;
+	} else
+		return ERROR;
 	if (!rpki_vrf)
 		return ERROR;
-	if (config_changed(rpki_vrf)) {
-		vty_out(vty, "!\n");
-		vty_out(vty, "rpki\n");
-		if (rpki_vrf->polling_period != POLLING_PERIOD_DEFAULT)
-			vty_out(vty, "  rpki polling_period %d\n",
-				rpki_vrf->polling_period);
-		if (rpki_vrf->retry_interval != RETRY_INTERVAL_DEFAULT)
-			vty_out(vty, "  rpki retry-interval %d\n",
-				rpki_vrf->retry_interval);
-		if (rpki_vrf->expire_interval != EXPIRE_INTERVAL_DEFAULT)
-			vty_out(vty, "  rpki expire_interval %d\n",
-				rpki_vrf->expire_interval);
-
-		for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
-			switch (cache->type) {
-				struct tr_tcp_config *tcp_config;
-#if defined(FOUND_SSH)
-				struct tr_ssh_config *ssh_config;
-#endif
-			case TCP:
-				tcp_config = cache->tr_config.tcp_config;
-				vty_out(vty, "  rpki cache %s %s ",
-					tcp_config->host, tcp_config->port);
-				break;
-#if defined(FOUND_SSH)
-			case SSH:
-				ssh_config = cache->tr_config.ssh_config;
-				vty_out(vty, "  rpki cache %s %u %s %s %s ",
-					ssh_config->host,
-					ssh_config->port,
-					ssh_config->username,
-					ssh_config->client_privkey_path,
-					ssh_config->server_hostkey_path != NULL
-						? ssh_config
-							->server_hostkey_path
-						: "");
-				break;
-#endif
-			default:
-				break;
-			}
-
-			vty_out(vty, "preference %hhu\n", cache->preference);
-		}
-		vty_out(vty, "  exit\n");
-		return 1;
-	} else {
+	if (!config_changed(rpki_vrf))
 		return 0;
+	if (vrf_id == VRF_DEFAULT)
+		vty_out(vty, "%s!\n", sep);
+	vty_out(vty, "%srpki\n", sep);
+	if (rpki_vrf->polling_period != POLLING_PERIOD_DEFAULT)
+		vty_out(vty, "%s rpki polling_period %d\n",
+			sep, rpki_vrf->polling_period);
+	if (rpki_vrf->retry_interval != RETRY_INTERVAL_DEFAULT)
+		vty_out(vty, "%s rpki retry-interval %d\n",
+			sep, rpki_vrf->retry_interval);
+	if (rpki_vrf->expire_interval != EXPIRE_INTERVAL_DEFAULT)
+		vty_out(vty, "%s rpki expire_interval %d\n",
+			sep, rpki_vrf->expire_interval);
+
+	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node, cache)) {
+		switch (cache->type) {
+			struct tr_tcp_config *tcp_config;
+#if defined(FOUND_SSH)
+			struct tr_ssh_config *ssh_config;
+#endif
+		case TCP:
+			tcp_config = cache->tr_config.tcp_config;
+			vty_out(vty, "%s rpki cache %s %s ", sep,
+				tcp_config->host, tcp_config->port);
+			break;
+#if defined(FOUND_SSH)
+		case SSH:
+			ssh_config = cache->tr_config.ssh_config;
+			if (ssh_config->client_privkey_path) {
+				len_host_key_pub = strlen(ssh_config->client_privkey_path) + 4 /* strlen(".pub")*/ + 1;
+				host_key_pub = XCALLOC(MTYPE_BGP_RPKI_CACHE, len_host_key_pub);
+				snprintf(host_key_pub, len_host_key_pub, "%s.pub", ssh_config->client_privkey_path);
+			}
+			vty_out(vty, "%s rpki cache %s %u %s %s %s %s ",
+				sep, ssh_config->host,
+				ssh_config->port,
+				ssh_config->username,
+				ssh_config->client_privkey_path,
+				host_key_pub ? host_key_pub : "",
+				ssh_config->server_hostkey_path != NULL
+				? ssh_config
+				->server_hostkey_path
+				: "");
+			if (host_key_pub) {
+				XFREE(MTYPE_BGP_RPKI_CACHE, host_key_pub);
+				host_key_pub = NULL;
+			}
+			break;
+#endif
+		default:
+			break;
+		}
+
+		vty_out(vty, "preference %hhu\n", cache->preference);
 	}
+	vty_out(vty, "%s exit\n%s", sep,
+		vrf_id == VRF_DEFAULT ? "!\n" : "");
+	return 1;
+}
+
+static int config_write(struct vty *vty)
+{
+	return bgp_rpki_write_vrf(vty, NULL);
 }
 
 DEFUN_NOSH (rpki,

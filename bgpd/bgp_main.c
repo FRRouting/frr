@@ -61,6 +61,9 @@
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_errors.h"
 
+DEFINE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
+	    (vty, vrf))
+
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
@@ -362,10 +365,30 @@ static int bgp_vrf_disable(struct vrf *vrf)
 	return 0;
 }
 
+static int bgp_vrf_config_write(struct vty *vty)
+{
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (vrf->vrf_id == VRF_DEFAULT) {
+			vty_out(vty, "!\n");
+			continue;
+		}
+		vty_out(vty, "vrf %s\n", vrf->name);
+
+		hook_call(bgp_hook_config_write_vrf, vty, vrf);
+
+		vty_out(vty, " exit-vrf\n!\n");
+	}
+
+	return 0;
+}
+
 static void bgp_vrf_init(void)
 {
 	vrf_init(bgp_vrf_new, bgp_vrf_enable, bgp_vrf_disable,
 		 bgp_vrf_delete, bgp_vrf_enable);
+	vrf_cmd_init(bgp_vrf_config_write, &bgpd_privs);
 }
 
 static void bgp_vrf_terminate(void)
