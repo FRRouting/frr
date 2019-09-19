@@ -1434,7 +1434,7 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 	if (ctx.result) {
 		bsp = ctx.result;
 		log_debug(" peer %s found, but ifp"
-			  " and/or loc-addr params ignored");
+			  " and/or loc-addr params ignored", peer_buf);
 	}
 	return bsp;
 }
