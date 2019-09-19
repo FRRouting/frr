@@ -441,6 +441,16 @@ static void _display_peers_counter(struct vty *vty, char *vrfname, bool use_json
 	json_object_free(jo);
 }
 
+static void _clear_peer_counter(struct bfd_session *bs) 
+{
+	/* Clear only pkt stats, intention is not to loose system
+	   events counters */
+	bs->stats.rx_ctrl_pkt = 0;
+	bs->stats.tx_ctrl_pkt = 0;
+	bs->stats.rx_echo_pkt = 0;
+	bs->stats.tx_echo_pkt = 0;
+}
+
 static struct bfd_session *
 _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 		    const char *label, const char *peer_str,
@@ -602,6 +612,35 @@ DEFPY(bfd_show_peers_counters, bfd_show_peers_counters_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(bfd_clear_peer_counters, bfd_clear_peer_counters_cmd,
+      "clear bfd [vrf <NAME$vrfname>] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> counters",
+      SHOW_STR
+      "Bidirection Forwarding Detection\n"
+      VRF_CMD_HELP_STR
+      "BFD peers status\n"
+      "Peer label\n"
+      PEER_IPV4_STR
+      PEER_IPV6_STR
+      MHOP_STR
+      LOCAL_STR
+      LOCAL_IPV4_STR
+      LOCAL_IPV6_STR
+      INTERFACE_STR
+      LOCAL_INTF_STR
+      "clear BFD peer counters information\n")
+{
+	struct bfd_session *bs;
+
+	/* Look up the BFD peer. */
+	bs = _find_peer_or_error(vty, argc, argv, label, peer_str, local_str,
+				ifname, vrfname);
+	if (bs == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+    
+	_clear_peer_counter(bs);
+
+	return CMD_SUCCESS;
+}
 
 /*
  * Function definitions.
@@ -741,6 +780,7 @@ void bfdd_vty_init(void)
 {
 	install_element(ENABLE_NODE, &bfd_show_peers_counters_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peer_counters_cmd);
+	install_element(ENABLE_NODE, &bfd_clear_peer_counters_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peers_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peer_cmd);
 	install_element(ENABLE_NODE, &show_debugging_bfd_cmd);
