@@ -181,6 +181,12 @@ void if_new_via_zapi(struct interface *ifp)
 		(*ifp_master.create_hook)(ifp);
 }
 
+void if_up_via_zapi(struct interface *ifp)
+{
+	if (ifp_master.up_hook)
+		(*ifp_master.up_hook)(ifp);
+}
+
 struct interface *if_create(const char *name, vrf_id_t vrf_id)
 {
 	return if_create_backend(name, IFINDEX_INTERNAL, vrf_id);

@@ -1592,6 +1592,19 @@ struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 	return ifp;
 }
 
+static void zclient_interface_up(struct zclient *zclient, vrf_id_t vrf_id)
+{
+	struct interface *ifp;
+	struct stream *s = zclient->ibuf;
+
+	ifp = zebra_interface_state_read(s, vrf_id);
+
+	if (!ifp)
+		return;
+
+	if_up_via_zapi(ifp);
+}
+
 static void link_params_set_value(struct stream *s, struct if_link_params *iflp)
 {
 
@@ -2822,9 +2835,7 @@ static int zclient_read(struct thread *thread)
 				command, zclient, length, vrf_id);
 		break;
 	case ZEBRA_INTERFACE_UP:
-		if (zclient->interface_up)
-			(*zclient->interface_up)(command, zclient, length,
-						 vrf_id);
+		zclient_interface_up(zclient, vrf_id);
 		break;
 	case ZEBRA_INTERFACE_DOWN:
 		if (zclient->interface_down)

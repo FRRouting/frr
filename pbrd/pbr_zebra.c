@@ -126,12 +126,8 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int interface_state_up(ZAPI_CALLBACK_ARGS)
+int pbr_ifp_up(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s is up", __PRETTY_FUNCTION__, ifp->name);
 
@@ -441,7 +437,6 @@ void pbr_zebra_init(void)
 	zclient_init(zclient, ZEBRA_ROUTE_PBR, 0, &pbr_privs);
 	zclient->zebra_connected = zebra_connected;
 	zclient->interface_delete = interface_delete;
-	zclient->interface_up = interface_state_up;
 	zclient->interface_down = interface_state_down;
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
@@ -570,11 +565,6 @@ void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	zclient_send_message(zclient);
-}
-
-int pbr_ifp_up(struct interface *ifp)
-{
-	return 0;
 }
 
 int pbr_ifp_down(struct interface *ifp)

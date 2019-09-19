@@ -126,74 +126,6 @@ static int ospf_interface_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static struct interface *zebra_interface_if_lookup(struct stream *s,
-						   vrf_id_t vrf_id)
-{
-	char ifname_tmp[INTERFACE_NAMSIZ];
-
-	/* Read interface name. */
-	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
-
-	/* And look it up. */
-	return if_lookup_by_name(ifname_tmp, vrf_id);
-}
-
-static int ospf_interface_state_up(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct ospf_interface *oi;
-	struct route_node *rn;
-
-	ifp = zebra_interface_if_lookup(zclient->ibuf, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	/* Interface is already up. */
-	if (if_is_operative(ifp)) {
-		/* Temporarily keep ifp values. */
-		struct interface if_tmp;
-		memcpy(&if_tmp, ifp, sizeof(struct interface));
-
-		zebra_interface_if_set_value(zclient->ibuf, ifp);
-
-		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-			zlog_debug(
-				"Zebra: Interface[%s] state update speed %u -> %u, bw  %d -> %d",
-				ifp->name, if_tmp.speed, ifp->speed,
-				if_tmp.bandwidth, ifp->bandwidth);
-
-		ospf_if_recalculate_output_cost(ifp);
-
-		if (if_tmp.mtu != ifp->mtu) {
-			if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-				zlog_debug(
-					"Zebra: Interface[%s] MTU change %u -> %u.",
-					ifp->name, if_tmp.mtu, ifp->mtu);
-
-			/* Must reset the interface (simulate down/up) when MTU
-			 * changes. */
-			ospf_if_reset(ifp);
-		}
-		return 0;
-	}
-
-	zebra_interface_if_set_value(zclient->ibuf, ifp);
-
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("Zebra: Interface[%s] state change to up.",
-			   ifp->name);
-
-	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
-		if ((oi = rn->info) == NULL)
-			continue;
-
-		ospf_if_up(oi);
-	}
-
-	return 0;
-}
-
 static int ospf_interface_state_down(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
@@ -1485,7 +1417,6 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->zebra_connected = ospf_zebra_connected;
 	zclient->router_id_update = ospf_router_id_update_zebra;
 	zclient->interface_delete = ospf_interface_delete;
-	zclient->interface_up = ospf_interface_state_up;
 	zclient->interface_down = ospf_interface_state_down;
 	zclient->interface_address_add = ospf_interface_address_add;
 	zclient->interface_address_delete = ospf_interface_address_delete;

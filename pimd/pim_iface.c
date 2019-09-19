@@ -1581,6 +1581,59 @@ int pim_ifp_create(struct interface *ifp)
 
 int pim_ifp_up(struct interface *ifp)
 {
+	struct pim_instance *pim;
+	uint32_t table_id;
+
+	if (PIM_DEBUG_ZEBRA) {
+		zlog_debug(
+			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
+			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex,
+			ifp->vrf_id, (long)ifp->flags, ifp->metric, ifp->mtu,
+			if_is_operative(ifp));
+	}
+
+	pim = pim_get_pim_instance(ifp->vrf_id);
+	if (if_is_operative(ifp)) {
+		struct pim_interface *pim_ifp;
+
+		pim_ifp = ifp->info;
+		/*
+		 * If we have a pim_ifp already and this is an if_add
+		 * that means that we probably have a vrf move event
+		 * If that is the case, set the proper vrfness.
+		 */
+		if (pim_ifp)
+			pim_ifp->pim = pim;
+
+		/*
+		  pim_if_addr_add_all() suffices for bringing up both IGMP and
+		  PIM
+		*/
+		pim_if_addr_add_all(ifp);
+	}
+
+	/*
+	 * If we have a pimreg device callback and it's for a specific
+	 * table set the master appropriately
+	 */
+	if (sscanf(ifp->name, "pimreg%" SCNu32, &table_id) == 1) {
+		struct vrf *vrf;
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			if ((table_id == vrf->data.l.table_id)
+			    && (ifp->vrf_id != vrf->vrf_id)) {
+				struct interface *master = if_lookup_by_name(
+					vrf->name, vrf->vrf_id);
+
+				if (!master) {
+					zlog_debug(
+						"%s: Unable to find Master interface for %s",
+						__PRETTY_FUNCTION__, vrf->name);
+					return 0;
+				}
+				pim_zebra_interface_set_master(master, ifp);
+			}
+		}
+	}
 	return 0;
 }
 

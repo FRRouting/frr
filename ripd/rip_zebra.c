@@ -241,7 +241,6 @@ void rip_zclient_init(struct thread_master *master)
 	zclient->interface_delete = rip_interface_delete;
 	zclient->interface_address_add = rip_interface_address_add;
 	zclient->interface_address_delete = rip_interface_address_delete;
-	zclient->interface_up = rip_interface_up;
 	zclient->interface_down = rip_interface_down;
 	zclient->interface_vrf_update = rip_interface_vrf_update;
 	zclient->redistribute_route_add = rip_zebra_read_route;

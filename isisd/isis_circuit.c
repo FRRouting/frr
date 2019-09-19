@@ -1404,6 +1404,8 @@ static int isis_ifp_create(struct interface *ifp)
 
 static int isis_ifp_up(struct interface *ifp)
 {
+	isis_csm_state_change(IF_UP_FROM_Z, circuit_scan_by_ifp(ifp), ifp);
+
 	return 0;
 }
 

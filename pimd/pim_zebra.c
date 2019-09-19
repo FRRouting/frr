@@ -92,74 +92,6 @@ static int pim_zebra_if_del(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int pim_zebra_if_state_up(ZAPI_CALLBACK_ARGS)
-{
-	struct pim_instance *pim;
-	struct interface *ifp;
-	uint32_t table_id;
-
-	/*
-	  zebra api notifies interface up/down events by using the same call
-	  zebra_interface_state_read below, see comments in lib/zclient.c
-	*/
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-	if (!ifp)
-		return 0;
-
-	if (PIM_DEBUG_ZEBRA) {
-		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
-	}
-
-	pim = pim_get_pim_instance(vrf_id);
-	if (if_is_operative(ifp)) {
-		struct pim_interface *pim_ifp;
-
-		pim_ifp = ifp->info;
-		/*
-		 * If we have a pim_ifp already and this is an if_add
-		 * that means that we probably have a vrf move event
-		 * If that is the case, set the proper vrfness.
-		 */
-		if (pim_ifp)
-			pim_ifp->pim = pim;
-
-		/*
-		  pim_if_addr_add_all() suffices for bringing up both IGMP and
-		  PIM
-		*/
-		pim_if_addr_add_all(ifp);
-	}
-
-	/*
-	 * If we have a pimreg device callback and it's for a specific
-	 * table set the master appropriately
-	 */
-	if (sscanf(ifp->name, "pimreg%" SCNu32, &table_id) == 1) {
-		struct vrf *vrf;
-		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-			if ((table_id == vrf->data.l.table_id)
-			    && (ifp->vrf_id != vrf->vrf_id)) {
-				struct interface *master = if_lookup_by_name(
-					vrf->name, vrf->vrf_id);
-
-				if (!master) {
-					zlog_debug(
-						"%s: Unable to find Master interface for %s",
-						__PRETTY_FUNCTION__, vrf->name);
-					return 0;
-				}
-				zclient_interface_set_master(zclient, master,
-							     ifp);
-			}
-		}
-	}
-	return 0;
-}
-
 static int pim_zebra_if_state_down(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
@@ -723,7 +655,6 @@ void pim_zebra_init(void)
 	zclient->zebra_connected = pim_zebra_connected;
 	zclient->router_id_update = pim_router_id_update_zebra;
 	zclient->interface_delete = pim_zebra_if_del;
-	zclient->interface_up = pim_zebra_if_state_up;
 	zclient->interface_down = pim_zebra_if_state_down;
 	zclient->interface_address_add = pim_zebra_if_address_add;
 	zclient->interface_address_delete = pim_zebra_if_address_del;
@@ -1173,4 +1104,10 @@ struct zclient *pim_zebra_zclient_get(void)
 		return zclient;
 	else
 		return NULL;
+}
+
+void pim_zebra_interface_set_master(struct interface *vrf,
+				    struct interface *ifp)
+{
+	zclient_interface_set_master(zclient, vrf, ifp);
 }
