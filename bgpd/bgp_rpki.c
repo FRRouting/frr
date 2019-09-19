@@ -899,12 +899,25 @@ static void free_cache(struct cache *cache)
 	XFREE(MTYPE_BGP_RPKI_CACHE, cache);
 }
 
+
+/* return true if config changed from default */
+static bool config_changed(void)
+{
+	if (polling_period != POLLING_PERIOD_DEFAULT)
+		return true;
+	if (retry_interval != RETRY_INTERVAL_DEFAULT)
+		return true;
+	if (expire_interval != EXPIRE_INTERVAL_DEFAULT)
+		return true;
+	return false;
+}
+
 static int config_write(struct vty *vty)
 {
 	struct listnode *cache_node;
 	struct cache *cache;
 
-	if (!listcount(cache_list))
+	if (!listcount(cache_list) && !config_changed())
 		return 0;
 
 	if (rpki_debug)
@@ -912,9 +925,12 @@ static int config_write(struct vty *vty)
 
 	vty_out(vty, "!\n");
 	vty_out(vty, "rpki\n");
-	vty_out(vty, " rpki polling_period %d\n", polling_period);
-	vty_out(vty, " rpki retry-interval %d\n", retry_interval);
-	vty_out(vty, " rpki expire_interval %d\n", expire_interval)
+	if (polling_period != POLLING_PERIOD_DEFAULT)
+		vty_out(vty, " rpki polling_period %d\n", polling_period);
+	if (retry_interval != RETRY_INTERVAL_DEFAULT)
+		vty_out(vty, " rpki retry-interval %d\n", retry_interval);
+	if (expire_interval != EXPIRE_INTERVAL_DEFAULT)
+		vty_out(vty, " rpki expire_interval %d\n", expire_interval);
 	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
 		switch (cache->type) {
 			struct tr_tcp_config *tcp_config;
@@ -1347,6 +1363,25 @@ DEFUN (show_rpki_cache_connection,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_rpki_configuration,
+       show_rpki_configuration_cmd,
+       "show rpki configuration",
+       SHOW_STR
+       RPKI_OUTPUT_STRING
+       "Show RPKI configuration\n")
+{
+	vty_out(vty, "rpki is %s",
+		listcount(cache_list) ? "Enabled" : "Disabled");
+	if (!listcount(cache_list))
+		return CMD_SUCCESS;
+	vty_out(vty, " (%d cache servers configured)", listcount(cache_list));
+	vty_out(vty, "\n");
+	vty_out(vty, "\tpolling period %d\n", polling_period);
+	vty_out(vty, "\tretry interval %d\n", retry_interval);
+	vty_out(vty, "\texpire interval %d\n", expire_interval);
+	return CMD_SUCCESS;
+}
+
 static int config_on_exit(struct vty *vty)
 {
 	reset(false);
@@ -1457,6 +1492,7 @@ static void install_cli_commands(void)
 	install_element(VIEW_NODE, &show_rpki_cache_server_cmd);
 	install_element(VIEW_NODE, &show_rpki_prefix_cmd);
 	install_element(VIEW_NODE, &show_rpki_as_number_cmd);
+	install_element(VIEW_NODE, &show_rpki_configuration_cmd);
 
 	/* Install debug commands */
 	install_element(CONFIG_NODE, &debug_rpki_cmd);
