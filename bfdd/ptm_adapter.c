@@ -673,18 +673,9 @@ void bfdd_sessions_disable_vrf(struct vrf *vrf)
 	}
 }
 
-static int bfdd_interface_update(ZAPI_CALLBACK_ARGS)
+static int bfd_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	/* Update interface information. */
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-	if (ifp == NULL)
-		return 0;
-
 	bfdd_sessions_disable_interface(ifp);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	return 0;
 }
@@ -749,11 +740,6 @@ static int bfd_ifp_create(struct interface *ifp)
 	return 0;
 }
 
-static int bfd_ifp_destroy(struct interface *ifp)
-{
-	return 0;
-}
-
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 {
 	if_zapi_callbacks(bfd_ifp_create, NULL, NULL, bfd_ifp_destroy);
@@ -770,9 +756,6 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 
 	/* Send replay request on zebra connect. */
 	zclient->zebra_connected = bfdd_zebra_connected;
-
-	/* Learn interfaces from zebra instead of the OS. */
-	zclient->interface_delete = bfdd_interface_update;
 
 	/* Learn about interface VRF. */
 	zclient->interface_vrf_update = bfdd_interface_vrf_update;

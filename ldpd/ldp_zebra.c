@@ -39,7 +39,6 @@ static void	 ifc2kaddr(struct interface *, struct connected *,
 		    struct kaddr *);
 static int	 ldp_zebra_send_mpls_labels(int, struct kroute *);
 static int	 ldp_router_id_update(ZAPI_CALLBACK_ARGS);
-static int	 ldp_interface_delete(ZAPI_CALLBACK_ARGS);
 static int	 ldp_interface_address_add(ZAPI_CALLBACK_ARGS);
 static int	 ldp_interface_address_delete(ZAPI_CALLBACK_ARGS);
 static int	 ldp_zebra_read_route(ZAPI_CALLBACK_ARGS);
@@ -276,22 +275,12 @@ ldp_ifp_create(struct interface *ifp)
 }
 
 static int
-ldp_interface_delete(ZAPI_CALLBACK_ARGS)
+ldp_ifp_destroy(struct interface *ifp)
 {
-	struct interface	*ifp;
 	struct kif		 kif;
-
-	/* zebra_interface_state_read() updates interface structure in iflist */
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-	if (ifp == NULL)
-		return (0);
 
 	debug_zebra_in("interface delete %s index %d mtu %d", ifp->name,
 	    ifp->ifindex, ifp->mtu);
-
-	/* To support pseudo interface do not free interface structure.  */
-	/* if_delete(ifp); */
-	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	ifp2kif(ifp, &kif);
 	main_imsg_compose_both(IMSG_IFSTATUS, &kif, sizeof(kif));
@@ -529,11 +518,6 @@ ldp_zebra_connected(struct zclient *zclient)
 
 extern struct zebra_privs_t ldpd_privs;
 
-static int ldp_ifp_destroy(struct interface *ifp)
-{
-	return 0;
-}
-
 void
 ldp_zebra_init(struct thread_master *master)
 {
@@ -547,7 +531,6 @@ ldp_zebra_init(struct thread_master *master)
 	/* set callbacks */
 	zclient->zebra_connected = ldp_zebra_connected;
 	zclient->router_id_update = ldp_router_id_update;
-	zclient->interface_delete = ldp_interface_delete;
 	zclient->interface_address_add = ldp_interface_address_add;
 	zclient->interface_address_delete = ldp_interface_address_delete;
 	zclient->redistribute_route_add = ldp_zebra_read_route;

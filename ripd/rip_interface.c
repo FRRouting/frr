@@ -411,19 +411,8 @@ static int rip_ifp_create(struct interface *ifp)
 	return 0;
 }
 
-int rip_interface_delete(ZAPI_CALLBACK_ARGS)
+static int rip_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-	struct stream *s;
-
-
-	s = zclient->ibuf;
-	/* zebra_interface_state_read() updates interface structure in iflist */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
 	rip_interface_sync(ifp);
 	if (if_is_up(ifp)) {
 		rip_if_down(ifp);
@@ -433,10 +422,6 @@ int rip_interface_delete(ZAPI_CALLBACK_ARGS)
 		"interface delete %s vrf %u index %d flags %#llx metric %d mtu %d",
 		ifp->name, ifp->vrf_id, ifp->ifindex,
 		(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
-
-	/* To support pseudo interface do not free interface structure.  */
-	/* if_delete(ifp); */
-	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	return 0;
 }
@@ -1226,11 +1211,6 @@ static int rip_interface_delete_hook(struct interface *ifp)
 	rip_interface_reset(ifp->info);
 	XFREE(MTYPE_RIP_INTERFACE, ifp->info);
 	ifp->info = NULL;
-	return 0;
-}
-
-static int rip_ifp_destroy(struct interface *ifp)
-{
 	return 0;
 }
 

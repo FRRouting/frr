@@ -51,6 +51,7 @@ DEFINE_QOBJ_TYPE(ospf_interface)
 DEFINE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd))
 DEFINE_HOOK(ospf_vl_delete, (struct ospf_vl_data * vd), (vd))
 DEFINE_HOOK(ospf_if_update, (struct interface * ifp), (ifp))
+DEFINE_HOOK(ospf_if_delete, (struct interface * ifp), (ifp))
 
 int ospf_interface_neighbor_count(struct ospf_interface *oi)
 {
@@ -1323,6 +1324,21 @@ static int ospf_ifp_down(struct interface *ifp)
 
 static int ospf_ifp_destroy(struct interface *ifp)
 {
+	struct route_node *rn;
+
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+		zlog_debug(
+			"Zebra: interface delete %s vrf %s[%u] index %d flags %llx metric %d mtu %d",
+			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
+			ifp->vrf_id, ifp->ifindex,
+			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
+
+	hook_call(ospf_if_delete, ifp);
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn))
+		if (rn->info)
+			ospf_if_free((struct ospf_interface *)rn->info);
+
 	return 0;
 }
 

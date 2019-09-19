@@ -55,8 +55,6 @@ DEFINE_MTYPE_STATIC(OSPFD, OSPF_EXTERNAL, "OSPF External route table")
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute")
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_DIST_ARGS, "OSPF Distribute arguments")
 
-DEFINE_HOOK(ospf_if_delete, (struct interface * ifp), (ifp))
-
 /* Zebra structure to hold current status. */
 struct zclient *zclient = NULL;
 
@@ -93,36 +91,6 @@ static int ospf_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 				ospf_vrf_id_to_name(vrf_id), vrf_id, buf);
 		}
 	}
-	return 0;
-}
-
-static int ospf_interface_delete(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct stream *s;
-	struct route_node *rn;
-
-	s = zclient->ibuf;
-	/* zebra_interface_state_read() updates interface structure in iflist */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug(
-			"Zebra: interface delete %s vrf %s[%u] index %d flags %llx metric %d mtu %d",
-			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
-			ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
-
-	hook_call(ospf_if_delete, ifp);
-
-	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn))
-		if (rn->info)
-			ospf_if_free((struct ospf_interface *)rn->info);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
 	return 0;
 }
 
@@ -1392,7 +1360,6 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient_init(zclient, ZEBRA_ROUTE_OSPF, instance, &ospfd_privs);
 	zclient->zebra_connected = ospf_zebra_connected;
 	zclient->router_id_update = ospf_router_id_update_zebra;
-	zclient->interface_delete = ospf_interface_delete;
 	zclient->interface_address_add = ospf_interface_address_add;
 	zclient->interface_address_delete = ospf_interface_address_delete;
 	zclient->interface_link_params = ospf_interface_link_params;

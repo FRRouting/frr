@@ -52,27 +52,13 @@ static int sharp_ifp_create(struct interface *ifp)
 	return 0;
 }
 
-static int interface_delete(ZAPI_CALLBACK_ARGS)
+static int sharp_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	/* zebra_interface_state_read () updates interface structure in iflist
-	 */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
-
 	return 0;
 }
 
 static int interface_address_add(ZAPI_CALLBACK_ARGS)
 {
-
 	zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	return 0;
@@ -368,11 +354,6 @@ static int sharp_nexthop_update(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int sharp_ifp_destroy(struct interface *ifp)
-{
-	return 0;
-}
-
 extern struct zebra_privs_t sharp_privs;
 
 void sharp_zebra_init(void)
@@ -386,7 +367,6 @@ void sharp_zebra_init(void)
 
 	zclient_init(zclient, ZEBRA_ROUTE_SHARP, 0, &sharp_privs);
 	zclient->zebra_connected = zebra_connected;
-	zclient->interface_delete = interface_delete;
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
 	zclient->route_notify_owner = route_notify_owner;

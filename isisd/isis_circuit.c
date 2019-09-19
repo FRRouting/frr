@@ -1423,6 +1423,16 @@ static int isis_ifp_down(struct interface *ifp)
 
 static int isis_ifp_destroy(struct interface *ifp)
 {
+	if (if_is_operative(ifp))
+		zlog_warn("Zebra: got delete of %s, but interface is still up",
+			  ifp->name);
+
+	isis_csm_state_change(IF_DOWN_FROM_Z, circuit_scan_by_ifp(ifp), ifp);
+
+	/* Cannot call if_delete because we should retain the pseudo interface
+	   in case there is configuration info attached to it. */
+	if_delete_retain(ifp);
+
 	return 0;
 }
 

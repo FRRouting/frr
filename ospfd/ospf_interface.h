@@ -327,4 +327,6 @@ DECLARE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd))
 DECLARE_HOOK(ospf_vl_delete, (struct ospf_vl_data * vd), (vd))
 
 DECLARE_HOOK(ospf_if_update, (struct interface * ifp), (ifp))
+DECLARE_HOOK(ospf_if_delete, (struct interface * ifp), (ifp))
+
 #endif /* _ZEBRA_OSPF_INTERFACE_H */

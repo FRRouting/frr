@@ -1673,5 +1673,22 @@ int pim_ifp_down(struct interface *ifp)
 
 int pim_ifp_destroy(struct interface *ifp)
 {
+	struct pim_instance *pim;
+
+	if (PIM_DEBUG_ZEBRA) {
+		zlog_debug(
+			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
+			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex,
+			ifp->vrf_id, (long)ifp->flags, ifp->metric, ifp->mtu,
+			if_is_operative(ifp));
+	}
+
+	if (!if_is_operative(ifp))
+		pim_if_addr_del_all(ifp);
+
+	pim = pim_get_pim_instance(ifp->vrf_id);
+	if (pim && pim->vxlan.term_if == ifp)
+		pim_vxlan_del_term_dev(pim);
+
 	return 0;
 }

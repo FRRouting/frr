@@ -72,32 +72,6 @@ static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int isis_zebra_if_del(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (!ifp)
-		return 0;
-
-	if (if_is_operative(ifp))
-		zlog_warn("Zebra: got delete of %s, but interface is still up",
-			  ifp->name);
-
-	isis_csm_state_change(IF_DOWN_FROM_Z, circuit_scan_by_ifp(ifp), ifp);
-
-	/* Cannot call if_delete because we should retain the pseudo interface
-	   in case there is configuration info attached to it. */
-	if_delete_retain(ifp);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
-
-	return 0;
-}
-
 static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
@@ -339,7 +313,6 @@ void isis_zebra_init(struct thread_master *master)
 	zclient_init(zclient, PROTO_TYPE, 0, &isisd_privs);
 	zclient->zebra_connected = isis_zebra_connected;
 	zclient->router_id_update = isis_router_id_update_zebra;
-	zclient->interface_delete = isis_zebra_if_del;
 	zclient->interface_address_add = isis_zebra_if_address_add;
 	zclient->interface_address_delete = isis_zebra_if_address_del;
 	zclient->interface_link_params = isis_zebra_link_params;

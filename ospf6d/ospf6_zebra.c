@@ -97,25 +97,6 @@ void ospf6_zebra_no_redistribute(int type)
 					AFI_IP6, type, 0, VRF_DEFAULT);
 }
 
-static int ospf6_zebra_if_del(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-
-	if (!(ifp = zebra_interface_state_read(zclient->ibuf, vrf_id)))
-		return 0;
-
-	if (if_is_up(ifp))
-		zlog_warn("Zebra: got delete of %s, but interface is still up",
-			  ifp->name);
-
-	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
-		zlog_debug("Zebra Interface delete: %s index %d mtu %d",
-			   ifp->name, ifp->ifindex, ifp->mtu6);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
-	return 0;
-}
-
 static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
@@ -551,7 +532,6 @@ void ospf6_zebra_init(struct thread_master *master)
 	zclient_init(zclient, ZEBRA_ROUTE_OSPF6, 0, &ospf6d_privs);
 	zclient->zebra_connected = ospf6_zebra_connected;
 	zclient->router_id_update = ospf6_router_id_update_zebra;
-	zclient->interface_delete = ospf6_zebra_if_del;
 	zclient->interface_address_add = ospf6_zebra_if_address_update_add;
 	zclient->interface_address_delete =
 		ospf6_zebra_if_address_update_delete;
