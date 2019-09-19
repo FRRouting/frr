@@ -126,30 +126,6 @@ static int ospf_interface_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int ospf_interface_state_down(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct ospf_interface *oi;
-	struct route_node *node;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("Zebra: Interface[%s] state change to down.",
-			   ifp->name);
-
-	for (node = route_top(IF_OIFS(ifp)); node; node = route_next(node)) {
-		if ((oi = node->info) == NULL)
-			continue;
-		ospf_if_down(oi);
-	}
-
-	return 0;
-}
-
 static int ospf_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
@@ -1417,7 +1393,6 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->zebra_connected = ospf_zebra_connected;
 	zclient->router_id_update = ospf_router_id_update_zebra;
 	zclient->interface_delete = ospf_interface_delete;
-	zclient->interface_down = ospf_interface_state_down;
 	zclient->interface_address_add = ospf_interface_address_add;
 	zclient->interface_address_delete = ospf_interface_address_delete;
 	zclient->interface_link_params = ospf_interface_link_params;

@@ -56,7 +56,6 @@
 static int eigrp_interface_delete(ZAPI_CALLBACK_ARGS);
 static int eigrp_interface_address_add(ZAPI_CALLBACK_ARGS);
 static int eigrp_interface_address_delete(ZAPI_CALLBACK_ARGS);
-static int eigrp_interface_state_down(ZAPI_CALLBACK_ARGS);
 
 static int eigrp_zebra_read_route(ZAPI_CALLBACK_ARGS);
 
@@ -111,7 +110,6 @@ void eigrp_zebra_init(void)
 	zclient->zebra_connected = eigrp_zebra_connected;
 	zclient->router_id_update = eigrp_router_id_update_zebra;
 	zclient->interface_delete = eigrp_interface_delete;
-	zclient->interface_down = eigrp_interface_state_down;
 	zclient->interface_address_add = eigrp_interface_address_add;
 	zclient->interface_address_delete = eigrp_interface_address_delete;
 	zclient->redistribute_route_add = eigrp_zebra_read_route;
@@ -224,25 +222,6 @@ static int eigrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		eigrp_if_free(ei, INTERFACE_DOWN_BY_ZEBRA);
 
 	connected_free(c);
-
-	return 0;
-}
-
-static int eigrp_interface_state_down(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-		zlog_debug("Zebra: Interface[%s] state change to down.",
-			   ifp->name);
-
-	if (ifp->info)
-		eigrp_if_down(ifp->info);
 
 	return 0;
 }

@@ -1305,6 +1305,19 @@ static int ospf_ifp_up(struct interface *ifp)
 
 static int ospf_ifp_down(struct interface *ifp)
 {
+	struct ospf_interface *oi;
+	struct route_node *node;
+
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+		zlog_debug("Zebra: Interface[%s] state change to down.",
+			   ifp->name);
+
+	for (node = route_top(IF_OIFS(ifp)); node; node = route_next(node)) {
+		if ((oi = node->info) == NULL)
+			continue;
+		ospf_if_down(oi);
+	}
+
 	return 0;
 }
 

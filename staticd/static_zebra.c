@@ -112,14 +112,9 @@ static int static_ifp_up(struct interface *ifp)
 	return 0;
 }
 
-static int interface_state_down(ZAPI_CALLBACK_ARGS)
+static int static_ifp_down(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (ifp)
-		static_ifindex_update(ifp, false);
+	static_ifindex_update(ifp, false);
 
 	return 0;
 }
@@ -481,11 +476,6 @@ extern void static_zebra_route_add(struct route_node *rn,
 			   zclient, &api);
 }
 
-static int static_ifp_down(struct interface *ifp)
-{
-	return 0;
-}
-
 static int static_ifp_destroy(struct interface *ifp)
 {
 	return 0;
@@ -504,7 +494,6 @@ void static_zebra_init(void)
 	zclient->zebra_capabilities = static_zebra_capabilities;
 	zclient->zebra_connected = zebra_connected;
 	zclient->interface_delete = interface_delete;
-	zclient->interface_down = interface_state_down;
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
 	zclient->route_notify_owner = route_notify_owner;
