@@ -16,6 +16,7 @@
 #include "memory.h"
 #include "queue.h"
 #include "filter.h"
+#include "hook.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
@@ -36,6 +37,9 @@
 #include "bgpd/bgp_packet.h"
 
 #include "bgpd/bgp_debug_clippy.c"
+
+DEFINE_HOOK(bgp_hook_config_write_debug, (struct vty *vty, bool running),
+	    (vty, running));
 
 unsigned long conf_bgp_debug_as4;
 unsigned long conf_bgp_debug_neighbor_events;
@@ -2245,6 +2249,8 @@ DEFUN_NOSH (show_debugging_bgp,
 
 	cmd_show_lib_debugs(vty);
 
+	hook_call(bgp_hook_config_write_debug, vty, false);
+
 	return CMD_SUCCESS;
 }
 
@@ -2378,6 +2384,9 @@ static int bgp_config_write_debug(struct vty *vty)
 		vty_out(vty, "debug bgp conditional-advertisement\n");
 		write++;
 	}
+
+	if (hook_call(bgp_hook_config_write_debug, vty, true))
+		write++;
 
 	return write;
 }
