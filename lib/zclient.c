@@ -49,6 +49,9 @@ enum event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };
 /* Prototype for event manager. */
 static void zclient_event(enum event, struct zclient *);
 
+static void zebra_interface_if_set_value(struct stream *s,
+					 struct interface *ifp);
+
 struct zclient_options zclient_options_default = {.receive_notify = false};
 
 struct sockaddr_storage zclient_addr;
@@ -1696,7 +1699,8 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 	return ifp;
 }
 
-void zebra_interface_if_set_value(struct stream *s, struct interface *ifp)
+static void zebra_interface_if_set_value(struct stream *s,
+					 struct interface *ifp)
 {
 	uint8_t link_params_status = 0;
 	ifindex_t old_ifindex;
