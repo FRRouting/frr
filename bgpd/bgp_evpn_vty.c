@@ -358,6 +358,9 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		json_object_string_add(json, "originatorIp",
 				       inet_ntoa(bgp_vrf->originator_ip));
 		json_object_string_add(json, "advertiseGatewayMacip", "n/a");
+		json_object_string_add(json, "advertiseSviMacip", "n/a");
+		json_object_to_json_string_ext(json,
+					       JSON_C_TO_STRING_NOSLASHESCAPE);
 	} else {
 		vty_out(vty, "VNI: %d", bgp_vrf->l3vni);
 		vty_out(vty, " (known to the kernel)");
@@ -371,6 +374,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		vty_out(vty, "  Originator IP: %s\n",
 			inet_ntoa(bgp_vrf->originator_ip));
 		vty_out(vty, "  Advertise-gw-macip : %s\n", "n/a");
+		vty_out(vty, "  Advertise-svi-macip : %s\n", "n/a");
 	}
 
 	if (!json)
@@ -477,6 +481,8 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 				inet_ntoa(vpn->mcast_grp));
 		json_object_string_add(json, "advertiseGatewayMacip",
 				       vpn->advertise_gw_macip ? "Yes" : "No");
+		json_object_string_add(json, "advertiseSviMacip",
+				       vpn->advertise_svi_macip ? "Yes" : "No");
 	} else {
 		vty_out(vty, "VNI: %d", vpn->vni);
 		if (is_vni_live(vpn))
@@ -3587,6 +3593,9 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 					       bgp_evpn->advertise_gw_macip
 						       ? "Enabled"
 						       : "Disabled");
+			json_object_string_add(json, "advertiseSviMacip",
+					bgp_evpn->evpn_info->advertise_svi_macip
+					? "Enabled" : "Disabled");
 			json_object_string_add(json, "advertiseAllVnis",
 					       is_evpn_enabled() ? "Enabled"
 								 : "Disabled");
