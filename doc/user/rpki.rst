@@ -60,8 +60,9 @@ Enabling RPKI
    This command enables the RPKI configuration mode. Most commands that start
    with *rpki* can only be used in this mode.
 
-   When it is used in a telnet session, leaving of this mode cause rpki to be
-   initialized.
+   This command is available either in *configure node* for default *vrf* or
+   in *vrf node* for specific *vrf*. When it is used in a telnet session,
+   leaving of this mode cause rpki to be initialized.
 
    Executing this command alone does not activate prefix validation. You need
    to configure at least one reachable cache server. See section
@@ -91,6 +92,9 @@ Examples of the error::
    router(config)# rpki
    % [BGP] Unknown command: rpki
 
+   router(config-vrf)# rpki
+   % [BGP] Unknown command: rpki
+
 Note that the RPKI commands will be available in vtysh when running
 ``find rpki`` regardless of whether the module is loaded.
 
@@ -99,7 +103,14 @@ Note that the RPKI commands will be available in vtysh when running
 Configuring RPKI/RTR Cache Servers
 ----------------------------------
 
-The following commands are independent of a specific cache server.
+RPKI/RTR can be configured independently, either in configure node, or in *vrf*
+sub context. If configured in configure node, the core *bgp* instance of default
+*vrf* is impacted by the configuration.
+
+Each RPKI/RTR context is mapped to a *vrf* and can be made up of a specific list
+of cache-servers, and specific settings.
+
+The following commands are available for independent of a specific cache server.
 
 .. index:: rpki polling_period (1-3600)
 .. clicmd:: rpki polling_period (1-3600)
@@ -200,27 +211,27 @@ Debugging
 Displaying RPKI
 ---------------
 
-.. index:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)]
-.. clicmd:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)]
+.. index:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)] [vrf NAME]
+.. clicmd:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)] [vrf NAME]
 
    Display validated prefixes received from the cache servers filtered
    by the specified prefix.
 
-.. index:: show rpki as-number ASN
-.. clicmd:: show rpki as-number ASN
+.. index:: show rpki as-number ASN [vrf NAME]
+.. clicmd:: show rpki as-number ASN [vrf NAME]
 
    Display validated prefixes received from the cache servers filtered
    by ASN.
 
-.. index:: show rpki prefix-table
-.. clicmd:: show rpki prefix-table
+.. index:: show rpki prefix-table [vrf NAME]
+.. clicmd:: show rpki prefix-table [vrf NAME]
 
    Display all validated prefix to origin AS mappings/records which have been
    received from the cache servers and stored in the router. Based on this data,
    the router validates BGP Updates.
 
-.. index:: show rpki cache-connection
-.. clicmd:: show rpki cache-connection
+.. index:: show rpki cache-connection [vrf NAME]
+.. clicmd:: show rpki cache-connection [vrf NAME]
 
    Display all configured cache servers, whether active or not.
 
@@ -246,6 +257,55 @@ RPKI Configuration Example
      exit
    !
    router bgp 60001
+    bgp router-id 141.22.28.223
+    network 192.168.0.0/16
+    neighbor 123.123.123.0 remote-as 60002
+    neighbor 123.123.123.0 route-map rpki in
+   !
+    address-family ipv6
+     neighbor 123.123.123.0 activate
+      neighbor 123.123.123.0 route-map rpki in
+    exit-address-family
+   !
+   route-map rpki permit 10
+    match rpki invalid
+    set local-preference 10
+   !
+   route-map rpki permit 20
+    match rpki notfound
+    set local-preference 20
+   !
+   route-map rpki permit 30
+    match rpki valid
+    set local-preference 30
+   !
+   route-map rpki permit 40
+   !
+
+RPKI Configuration Example with VRF
+-----------------------------------
+
+.. code-block:: frr
+
+   hostname bgpd1
+   password zebra
+   ! log stdout
+   debug bgp updates
+   debug bgp keepalives
+   debug rpki
+   !
+   vrf vrf_connect
+    rpki
+     rpki polling_period 1000
+     rpki timeout 10
+      ! SSH Example:
+      rpki cache example.com 22 rtr-ssh ./ssh_key/id_rsa ./ssh_key/id_rsa.pub preference 1
+      ! TCP Example:
+      rpki cache rpki-validator.realmv6.org 8282 preference 2
+      exit
+    !
+    exit-vrf
+   router bgp 60001 vrf vrf_connect
     bgp router-id 141.22.28.223
     network 192.168.0.0/16
     neighbor 123.123.123.0 remote-as 60002
