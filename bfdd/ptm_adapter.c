@@ -465,6 +465,8 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 	    BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
 		return;
 
+	bfd_clear_stored_pkt(bs);
+
 	bs->ses_state = PTM_BFD_ADM_DOWN;
 	ptm_bfd_snd(bs, 0);
 

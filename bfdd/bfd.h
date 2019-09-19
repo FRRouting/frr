@@ -242,6 +242,11 @@ struct bfd_session {
 	/* BFD session flags */
 	enum bfd_session_flags flags;
 
+	/* Flag to indicate if Tx packet is filled in below structure */
+	bool bfd_tx_pkt_stored;
+	/* Stored packet for Tx in Async mode */
+	struct bfd_pkt bfd_tx_pkt;
+
 	struct bfd_session_stats stats;
 
 	struct timeval uptime;   /* last up time */
@@ -369,6 +374,7 @@ int control_notify(struct bfd_session *bs, uint8_t notify_state);
 int control_notify_config(const char *op, struct bfd_session *bs);
 int control_accept(struct thread *t);
 
+void bfd_clear_stored_pkt(struct bfd_session *bs);
 
 /*
  * bfdd.c
@@ -567,6 +573,8 @@ typedef void (*hash_iter_func)(struct hash_bucket *hb, void *arg);
 void bfd_id_iterate(hash_iter_func hif, void *arg);
 void bfd_key_iterate(hash_iter_func hif, void *arg);
 
+unsigned long bfd_get_session_count(void);
+
 /* Export callback functions for `event.c`. */
 extern struct thread_master *master;
 
@@ -593,6 +601,28 @@ void bfdd_vty_init(void);
  */
 void bfdd_cli_init(void);
 
+void bfd_cli_show_header(struct vty *vty, struct lyd_node *dnode,
+			 bool show_defaults);
+void bfd_cli_show_header_end(struct vty *vty, struct lyd_node *dnode);
+void bfd_cli_show_single_hop_peer(struct vty *vty,
+				  struct lyd_node *dnode,
+				  bool show_defaults);
+void bfd_cli_show_multi_hop_peer(struct vty *vty,
+				 struct lyd_node *dnode,
+				 bool show_defaults);
+void bfd_cli_show_peer_end(struct vty *vty, struct lyd_node *dnode);
+void bfd_cli_show_mult(struct vty *vty, struct lyd_node *dnode,
+		       bool show_defaults);
+void bfd_cli_show_tx(struct vty *vty, struct lyd_node *dnode,
+		     bool show_defaults);
+void bfd_cli_show_rx(struct vty *vty, struct lyd_node *dnode,
+		     bool show_defaults);
+void bfd_cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
+			   bool show_defaults);
+void bfd_cli_show_echo(struct vty *vty, struct lyd_node *dnode,
+			   bool show_defaults);
+void bfd_cli_show_echo_interval(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults);
 
 /*
  * ptm_adapter.c

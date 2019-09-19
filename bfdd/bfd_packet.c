@@ -215,51 +215,67 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 {
 	struct bfd_pkt cp;
+	struct bfd_pkt *pst_bfd_pkt = NULL;
 
-	/* Set fields according to section 6.5.7 */
-	cp.diag = bfd->local_diag;
-	BFD_SETVER(cp.diag, BFD_VERSION);
-	cp.flags = 0;
-	BFD_SETSTATE(cp.flags, bfd->ses_state);
-
-	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_CBIT))
-		BFD_SETCBIT(cp.flags, BFD_CBIT);
-
-	BFD_SETDEMANDBIT(cp.flags, BFD_DEF_DEMAND);
-
-	/*
-	 * Polling and Final can't be set at the same time.
-	 *
-	 * RFC 5880, Section 6.5.
-	 */
-	BFD_SETFBIT(cp.flags, fbit);
-	if (fbit == 0)
-		BFD_SETPBIT(cp.flags, bfd->polling);
-
-	cp.detect_mult = bfd->detect_mult;
-	cp.len = BFD_PKT_LEN;
-	cp.discrs.my_discr = htonl(bfd->discrs.my_discr);
-	cp.discrs.remote_discr = htonl(bfd->discrs.remote_discr);
-	if (bfd->polling) {
-		cp.timers.desired_min_tx =
-			htonl(bfd->timers.desired_min_tx);
-		cp.timers.required_min_rx =
-			htonl(bfd->timers.required_min_rx);
+	if ((true == bfd->bfd_tx_pkt_stored) &&
+		(bfd->ses_state == PTM_BFD_UP) && (!bfd->polling) && (!fbit)) {
+		pst_bfd_pkt = &(bfd->bfd_tx_pkt);
 	} else {
-		/*
-		 * We can only announce current setting on poll, this
-		 * avoids timing mismatch with our peer and give it
-		 * the oportunity to learn. See `bs_final_handler` for
-		 * more information.
-		 */
-		cp.timers.desired_min_tx =
-			htonl(bfd->cur_timers.desired_min_tx);
-		cp.timers.required_min_rx =
-			htonl(bfd->cur_timers.required_min_rx);
-	}
-	cp.timers.required_min_echo = htonl(bfd->timers.required_min_echo);
+		/* Set fields according to section 6.5.7 */
+		cp.diag = bfd->local_diag;
+		BFD_SETVER(cp.diag, BFD_VERSION);
+		cp.flags = 0;
+		BFD_SETSTATE(cp.flags, bfd->ses_state);
 
-	if (_ptm_bfd_send(bfd, NULL, &cp, BFD_PKT_LEN) != 0)
+		if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_CBIT))
+			BFD_SETCBIT(cp.flags, BFD_CBIT);
+
+		BFD_SETDEMANDBIT(cp.flags, BFD_DEF_DEMAND);
+
+		/*
+		 * Polling and Final can't be set at the same time.
+		 *
+		 * RFC 5880, Section 6.5.
+		 */
+		BFD_SETFBIT(cp.flags, fbit);
+		if (fbit == 0)
+			BFD_SETPBIT(cp.flags, bfd->polling);
+
+		cp.detect_mult = bfd->detect_mult;
+		cp.len = BFD_PKT_LEN;
+		cp.discrs.my_discr = htonl(bfd->discrs.my_discr);
+		cp.discrs.remote_discr = htonl(bfd->discrs.remote_discr);
+		if (bfd->polling) {
+			cp.timers.desired_min_tx =
+				htonl(bfd->timers.desired_min_tx);
+			cp.timers.required_min_rx =
+				htonl(bfd->timers.required_min_rx);
+		} else {
+			/*
+			 * We can only announce current setting on poll, this
+			 * avoids timing mismatch with our peer and give it
+			 * the oportunity to learn. See `bs_final_handler` for
+			 * more information.
+			 */
+			cp.timers.desired_min_tx =
+				htonl(bfd->cur_timers.desired_min_tx);
+			cp.timers.required_min_rx =
+				htonl(bfd->cur_timers.required_min_rx);
+		}
+
+		cp.timers.required_min_echo = htonl(bfd->timers.required_min_echo);
+
+		pst_bfd_pkt = &cp;
+
+		if ((BFD_GETSTATE(cp.flags) == PTM_BFD_UP) &&
+				(!bfd->polling) && !(fbit)) {
+			memcpy(&(bfd->bfd_tx_pkt), pst_bfd_pkt,
+			       sizeof(struct bfd_pkt));
+			bfd->bfd_tx_pkt_stored = true;
+		}
+	}
+
+	if (_ptm_bfd_send(bfd, NULL, pst_bfd_pkt, BFD_PKT_LEN) != 0)
 		return;
 
 	bfd->stats.tx_ctrl_pkt++;
@@ -431,7 +447,8 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 				local->sa_sin6.sin6_family = AF_INET6;
 				local->sa_sin6.sin6_addr = pi6->ipi6_addr;
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
-				local->sa_sin6.sin6_len = sizeof(local->sa_sin6);
+				local->sa_sin6.sin6_len =
+						sizeof(local->sa_sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 
 				*ifindex = pi6->ipi6_ifindex;
@@ -442,7 +459,8 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 					peer->sa_sin6.sin6_scope_id = *ifindex;
 				if (IN6_IS_ADDR_LINKLOCAL(
 					    &local->sa_sin6.sin6_addr))
-					local->sa_sin6.sin6_scope_id = *ifindex;
+					local->sa_sin6.sin6_scope_id =
+								*ifindex;
 			}
 		}
 	}
