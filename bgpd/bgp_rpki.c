@@ -33,6 +33,7 @@
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_rpki.h"
+#include "bgpd/bgp_debug.h"
 #include "northbound_cli.h"
 
 #include "lib/network.h"
@@ -56,7 +57,7 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_REVALIDATE, "BGP RPKI Revalidation");
 static struct event *t_rpki_sync;
 
 #define RPKI_DEBUG(...)                                                        \
-	if (rpki_debug) {                                                      \
+	if (rpki_debug_conf || rpki_debug_term) {                              \
 		zlog_debug("RPKI: " __VA_ARGS__);                              \
 	}
 
@@ -88,6 +89,7 @@ struct rpki_for_each_record_arg {
 	enum asnotation_mode asnotation;
 };
 
+static int bgp_rpki_write_debug(struct vty *vty, bool running);
 static int start(void);
 static void stop(void);
 static int reset(bool force);
@@ -129,7 +131,7 @@ static bool rtr_is_running;
 static bool rtr_is_stopping;
 static bool rtr_is_synced;
 static _Atomic int rtr_update_overflow;
-static bool rpki_debug;
+static bool rpki_debug_conf, rpki_debug_term;
 static unsigned int polling_period;
 static unsigned int expire_interval;
 static unsigned int retry_interval;
@@ -598,7 +600,8 @@ err:
 
 static int bgp_rpki_init(struct event_loop *master)
 {
-	rpki_debug = false;
+	rpki_debug_conf = false;
+	rpki_debug_term = false;
 	rtr_is_running = false;
 	rtr_is_stopping = false;
 	rtr_is_synced = false;
@@ -632,6 +635,7 @@ static int bgp_rpki_module_init(void)
 	hook_register(bgp_rpki_prefix_status, rpki_validate_prefix);
 	hook_register(frr_late_init, bgp_rpki_init);
 	hook_register(frr_early_fini, bgp_rpki_fini);
+	hook_register(bgp_hook_config_write_debug, &bgp_rpki_write_debug);
 
 	return 0;
 }
@@ -1047,6 +1051,19 @@ static void free_cache(struct cache *cache)
 	XFREE(MTYPE_BGP_RPKI_CACHE, cache);
 }
 
+static int bgp_rpki_write_debug(struct vty *vty, bool running)
+{
+	if (rpki_debug_conf && running) {
+		vty_out(vty, "debug rpki\n");
+		return 1;
+	}
+	if ((rpki_debug_conf || rpki_debug_term) && !running) {
+		vty_out(vty, "  BGP RPKI debugging is on\n");
+		return 1;
+	}
+	return 0;
+}
+
 static int config_write(struct vty *vty)
 {
 	struct listnode *cache_node;
@@ -1058,9 +1075,6 @@ static int config_write(struct vty *vty)
 	    expire_interval == EXPIRE_INTERVAL_DEFAULT)
 		/* do not display the default config values */
 		return 0;
-
-	if (rpki_debug)
-		vty_out(vty, "debug rpki\n");
 
 	vty_out(vty, "!\n");
 	vty_out(vty, "rpki\n");
@@ -1763,7 +1777,10 @@ DEFUN (debug_rpki,
        DEBUG_STR
        "Enable debugging for rpki\n")
 {
-	rpki_debug = true;
+	if (vty->node == CONFIG_NODE)
+		rpki_debug_conf = true;
+	else
+		rpki_debug_term = true;
 	return CMD_SUCCESS;
 }
 
@@ -1774,7 +1791,10 @@ DEFUN (no_debug_rpki,
        DEBUG_STR
        "Disable debugging for rpki\n")
 {
-	rpki_debug = false;
+	if (vty->node == CONFIG_NODE)
+		rpki_debug_conf = false;
+	else
+		rpki_debug_term = false;
 	return CMD_SUCCESS;
 }
 
