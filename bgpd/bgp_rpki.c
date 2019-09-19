@@ -1510,6 +1510,23 @@ static int config_write(struct vty *vty)
 	return 1;
 }
 
+static struct rpki_vrf *get_rpki_vrf(const char *vrfname)
+{
+	struct rpki_vrf *rpki_vrf = NULL;
+	struct vrf *vrf = NULL;
+
+	if (vrfname && !strmatch(vrfname, VRF_DEFAULT_NAME)) {
+		vrf = vrf_lookup_by_name(vrfname);
+		if (!vrf)
+			return NULL;
+		rpki_vrf = find_rpki_vrf(vrf->name);
+	} else
+		/* default VRF */
+		rpki_vrf = find_rpki_vrf(NULL);
+
+	return rpki_vrf;
+}
+
 DEFUN_NOSH (rpki,
 	    rpki_cmd,
 	    "rpki",
@@ -1550,20 +1567,23 @@ DEFPY (no_rpki,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_rpki_start,
+DEFPY (bgp_rpki_start,
        bgp_rpki_start_cmd,
-       "rpki start",
+       "rpki start [vrf NAME$vrfname]",
        RPKI_OUTPUT_STRING
-       "start rpki support\n")
+       "start rpki support\n"
+       VRF_CMD_HELP_STR)
 {
 	struct list *cache_list = NULL;
 	struct rpki_vrf *rpki_vrf;
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
-	if (rpki_vrf)
-		cache_list = rpki_vrf->cache_list;
-	if (!rpki_vrf || !cache_list || listcount(cache_list) == 0)
+	rpki_vrf = get_rpki_vrf(vrfname);
+
+	if (!rpki_vrf)
+		return CMD_WARNING;
+
+	cache_list = rpki_vrf->cache_list;
+	if (!cache_list || listcount(cache_list) == 0)
 		vty_out(vty,
 			"Could not start rpki because no caches are configured\n");
 
@@ -1576,16 +1596,17 @@ DEFUN (bgp_rpki_start,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_rpki_stop,
+DEFPY (bgp_rpki_stop,
        bgp_rpki_stop_cmd,
-       "rpki stop",
+       "rpki stop [vrf NAME$vrfname]",
        RPKI_OUTPUT_STRING
-       "start rpki support\n")
+       "start rpki support\n"
+       VRF_CMD_HELP_STR)
 {
 	struct rpki_vrf *rpki_vrf;
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	rpki_vrf = get_rpki_vrf(vrfname);
+
 	if (rpki_vrf && is_running(rpki_vrf))
 		stop(rpki_vrf);
 
@@ -1794,10 +1815,11 @@ DEFPY (no_rpki_cache,
 
 DEFPY (show_rpki_prefix_table,
        show_rpki_prefix_table_cmd,
-       "show rpki prefix-table [json$uj]",
+       "show rpki prefix-table [vrf NAME$vrfname] [json$uj]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Show validated prefixes which were received from RPKI Cache\n"
+       VRF_CMD_HELP_STR
        JSON_STR)
 {
 	struct json_object *json = NULL;
@@ -1806,8 +1828,12 @@ DEFPY (show_rpki_prefix_table,
 	if (uj)
 		json = json_object_new_object();
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	rpki_vrf = get_rpki_vrf(vrfname);
+	if (!rpki_vrf) {
+		if (uj)
+			vty_json(vty, json);
+		return CMD_SUCCESS;
+	}
 
 	if (!is_synchronized(rpki_vrf)) {
 		if (json) {
@@ -1824,11 +1850,12 @@ DEFPY (show_rpki_prefix_table,
 
 DEFPY (show_rpki_as_number,
        show_rpki_as_number_cmd,
-       "show rpki as-number ASNUM$by_asn [json$uj]",
+       "show rpki as-number ASNUM$by_asn [vrf NAME$vrfname] [json$uj]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Lookup by ASN in prefix table\n"
        "AS Number\n"
+       VRF_CMD_HELP_STR
        JSON_STR)
 {
 	struct json_object *json = NULL;
@@ -1837,8 +1864,12 @@ DEFPY (show_rpki_as_number,
 	if (uj)
 		json = json_object_new_object();
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	rpki_vrf = get_rpki_vrf(vrfname);
+	if (!rpki_vrf) {
+		if (uj)
+			vty_json(vty, json);
+		return CMD_SUCCESS;
+	}
 
 	if (!is_synchronized(rpki_vrf)) {
 		if (json) {
@@ -1855,13 +1886,14 @@ DEFPY (show_rpki_as_number,
 
 DEFPY (show_rpki_prefix,
        show_rpki_prefix_cmd,
-       "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [ASNUM$asn] [json$uj]",
+       "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [ASNUM$asn] [vrf NAME$vrfname] [json$uj]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Lookup IP prefix and optionally ASN in prefix table\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "AS Number\n"
+       VRF_CMD_HELP_STR
        JSON_STR)
 {
 	json_object *json = NULL;
@@ -1872,8 +1904,7 @@ DEFPY (show_rpki_prefix,
 	if (uj)
 		json = json_object_new_object();
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	rpki_vrf = get_rpki_vrf(vrfname);
 
 	if (!rpki_vrf || !is_synchronized(rpki_vrf)) {
 		if (json) {
@@ -1943,10 +1974,11 @@ DEFPY (show_rpki_prefix,
 
 DEFPY (show_rpki_cache_server,
        show_rpki_cache_server_cmd,
-       "show rpki cache-server [json$uj]",
+       "show rpki cache-server [vrf NAME$vrfname] [json$uj]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Show configured cache server\n"
+       VRF_CMD_HELP_STR
        JSON_STR)
 {
 	struct json_object *json = NULL;
@@ -1962,8 +1994,7 @@ DEFPY (show_rpki_cache_server,
 		json_object_object_add(json, "servers", json_servers);
 	}
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	rpki_vrf = get_rpki_vrf(vrfname);
 	if (!rpki_vrf) {
 		if (json)
 			vty_json(vty, json);
@@ -2045,10 +2076,11 @@ DEFPY (show_rpki_cache_server,
 
 DEFPY (show_rpki_cache_connection,
        show_rpki_cache_connection_cmd,
-       "show rpki cache-connection [json$uj]",
+       "show rpki cache-connection [vrf NAME$vrfname] [json$uj]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Show to which RPKI Cache Servers we have a connection\n"
+       VRF_CMD_HELP_STR
        JSON_STR)
 {
 	struct json_object *json = NULL;
@@ -2062,8 +2094,7 @@ DEFPY (show_rpki_cache_connection,
 	if (uj)
 		json = json_object_new_object();
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	rpki_vrf = get_rpki_vrf(vrfname);
 	if (!rpki_vrf) {
 		if (json)
 			vty_json(vty, json);
@@ -2181,9 +2212,10 @@ DEFPY (show_rpki_cache_connection,
 }
 
 DEFPY(show_rpki_configuration, show_rpki_configuration_cmd,
-      "show rpki configuration [json$uj]",
+      "show rpki configuration [vrf NAME$vrfname] [json$uj]",
       SHOW_STR RPKI_OUTPUT_STRING
       "Show RPKI configuration\n"
+      VRF_CMD_HELP_STR
       JSON_STR)
 {
 	struct json_object *json = NULL;
@@ -2192,8 +2224,7 @@ DEFPY(show_rpki_configuration, show_rpki_configuration_cmd,
 	if (uj)
 		json = json_object_new_object();
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	rpki_vrf = find_rpki_vrf(vrfname);
 	if (!rpki_vrf) {
 		if (uj)
 			vty_json(vty, json);
