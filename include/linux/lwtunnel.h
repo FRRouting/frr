@@ -1,5 +1,6 @@
-#ifndef _LWTUNNEL_H_
-#define _LWTUNNEL_H_
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+#ifndef _UAPI_LWTUNNEL_H_
+#define _UAPI_LWTUNNEL_H_
 
 #include <linux/types.h>
 
@@ -67,4 +68,4 @@ enum {
 
 #define LWT_BPF_MAX_HEADROOM 256
 
-#endif /* _LWTUNNEL_H_ */
+#endif /* _UAPI_LWTUNNEL_H_ */

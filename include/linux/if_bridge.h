@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0+ WITH Linux-syscall-note */
 /*
  *	Linux ethernet bridge
  *
@@ -10,8 +11,8 @@
  *	2 of the License, or (at your option) any later version.
  */
 
-#ifndef _LINUX_IF_BRIDGE_H
-#define _LINUX_IF_BRIDGE_H
+#ifndef _UAPI_LINUX_IF_BRIDGE_H
+#define _UAPI_LINUX_IF_BRIDGE_H
 
 #include <linux/types.h>
 #include <linux/if_ether.h>
@@ -96,7 +97,7 @@ struct __fdb_entry {
 	__u32 ageing_timer_value;
 	__u8 port_hi;
 	__u8 pad0;
-	__u16 unused;
+	__u16 vlan;
 };
 
 /* Bridge Flags */
@@ -236,6 +237,7 @@ struct br_mdb_entry {
 #define MDB_PERMANENT 1
 	__u8 state;
 #define MDB_FLAGS_OFFLOAD	(1 << 0)
+#define MDB_FLAGS_FAST_LEAVE	(1 << 1)
 	__u8 flags;
 	__u16 vid;
 	struct {
@@ -291,4 +293,4 @@ struct br_mcast_stats {
 	__u64 mcast_bytes[BR_MCAST_DIR_SIZE];
 	__u64 mcast_packets[BR_MCAST_DIR_SIZE];
 };
-#endif /* _LINUX_IF_BRIDGE_H */
+#endif /* _UAPI_LINUX_IF_BRIDGE_H */
