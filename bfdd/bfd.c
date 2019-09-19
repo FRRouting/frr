@@ -234,6 +234,16 @@ static uint32_t ptm_bfd_gen_ID(void)
 	return session_id;
 }
 
+void bfd_clear_stored_pkt(struct bfd_session *bs)
+{
+	if (true == bs->bfd_tx_pkt_stored) {
+		memset(&(bs->bfd_tx_pkt), 0, sizeof(struct bfd_pkt));
+		bs->bfd_tx_pkt_stored = false;
+
+		log_debug_info("clear-packet: session-id: %d", bs->discrs.my_discr);
+	}
+}
+
 void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo)
 {
 	uint64_t jitter, xmt_TO;
@@ -269,6 +279,9 @@ static void ptm_bfd_echo_xmt_TO(struct bfd_session *bfd)
 
 void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit)
 {
+	if (fbit)
+		bfd_clear_stored_pkt(bfd);
+
 	/* Send the scheduled control packet */
 	ptm_bfd_snd(bfd, fbit);
 
@@ -327,6 +340,8 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 	bfd->polling = 0;
 	bfd->demand_mode = 0;
 	monotime(&bfd->downtime);
+
+	bfd_clear_stored_pkt(bfd);
 
 	ptm_bfd_snd(bfd, 0);
 
@@ -481,6 +496,8 @@ struct bfd_session *bfd_session_new(void)
 	bs->sock = -1;
 	monotime(&bs->uptime);
 	bs->downtime = bs->uptime;
+
+	bs->bfd_tx_pkt_stored = false;
 
 	return bs;
 }
@@ -778,6 +795,8 @@ void bfd_set_polling(struct bfd_session *bs)
 	 * RFC 5880, Section 6.8.3.
 	 */
 	bs->polling = 1;
+
+	bfd_clear_stored_pkt(bs);
 }
 
 /*

@@ -242,6 +242,11 @@ struct bfd_session {
 	/* BFD session flags */
 	enum bfd_session_flags flags;
 
+	/* Flag to indicate if Tx packet is filled in below structure */
+	bool bfd_tx_pkt_stored;
+	/* Stored packet for Tx in Async mode */
+	struct bfd_pkt bfd_tx_pkt;
+
 	struct bfd_session_stats stats;
 
 	struct timeval uptime;   /* last up time */
@@ -373,6 +378,7 @@ int control_notify(struct bfd_session *bs);
 int control_notify_config(const char *op, struct bfd_session *bs);
 int control_accept(struct thread *t);
 
+void bfd_clear_stored_pkt (struct bfd_session *bs);
 
 /*
  * bfdd.c
