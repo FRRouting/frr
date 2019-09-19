@@ -260,7 +260,7 @@ static void _display_peer_json(struct vty *vty, struct bfd_session *bs)
 }
 
 struct bfd_vrf_tuple {
-	char *vrfname;
+	const char *vrfname;
 	struct vty *vty;
 	struct json_object *jo;
 };
@@ -449,6 +449,81 @@ static void _clear_peer_counter(struct bfd_session *bs)
 	bs->stats.tx_ctrl_pkt = 0;
 	bs->stats.rx_echo_pkt = 0;
 	bs->stats.tx_echo_pkt = 0;
+}
+
+static void _display_peer_brief(struct vty *vty, struct bfd_session *bs)
+{
+	char addr_buf[INET6_ADDRSTRLEN];
+
+	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
+		vty_out(vty, "%-10u", bs->discrs.my_discr);
+		inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
+		vty_out(vty, " %-40s", addr_buf);
+		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
+		vty_out(vty, " %-40s", addr_buf);
+		vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
+	} else {
+		vty_out(vty, "%-10u", bs->discrs.my_discr);
+		vty_out(vty, " %-40s", satostr(&bs->local_address));
+		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
+		vty_out(vty, " %-40s", addr_buf);
+
+		vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
+	}
+}
+
+static void _display_peer_brief_iter(struct hash_backet *hb, void *arg)
+{
+	struct bfd_vrf_tuple *bvt = arg;
+	struct vty *vty;
+	struct bfd_session *bs = hb->data;
+
+	if (!bvt)
+		return;
+	vty = bvt->vty;
+
+	if (bvt->vrfname) {
+		if (!bs->key.vrfname[0] ||
+			!strmatch(bs->key.vrfname, bvt->vrfname))
+		return;
+	}
+
+	_display_peer_brief(vty, bs);
+}
+
+static void _display_peers_brief(struct vty *vty, const char *vrfname, bool use_json)
+{
+	struct json_object *jo;
+	struct bfd_vrf_tuple bvt;
+
+	memset(&bvt, 0, sizeof(struct bfd_vrf_tuple));
+	bvt.vrfname = vrfname;
+
+	if (use_json == false) {
+		bvt.vty = vty;
+
+		vty_out(vty, "Session count: %lu\n", bfd_get_session_count());
+		vty_out(vty, "%-10s", "SessionId");
+		vty_out(vty, " %-40s", "LocalAddress");
+		vty_out(vty, " %-40s", "PeerAddress");
+		vty_out(vty, "%-15s\n", "Status");
+
+		vty_out(vty, "%-10s", "=========");
+		vty_out(vty, " %-40s", "============");
+		vty_out(vty, " %-40s", "===========");
+		vty_out(vty, "%-15s\n", "======");
+
+		bfd_id_iterate(_display_peer_brief_iter, &bvt);
+		return;
+	}
+
+	jo = json_object_new_array();
+	bvt.jo = jo;
+
+	bfd_id_iterate(_display_peer_json_iter, &bvt);
+
+	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
+	json_object_free(jo);
 }
 
 static struct bfd_session *
@@ -642,6 +717,20 @@ DEFPY(bfd_clear_peer_counters, bfd_clear_peer_counters_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(bfd_show_peers_brief, bfd_show_peers_brief_cmd,
+      "show bfd [vrf <NAME$vrfname>] peers brief [json]",
+      SHOW_STR
+      "Bidirection Forwarding Detection\n"
+      VRF_CMD_HELP_STR
+      "BFD peers status\n"
+      "Show BFD peer information in tabular form\n"
+      JSON_STR)
+{
+	_display_peers_brief(vty, vrfname, use_json(argc, argv));
+
+	return CMD_SUCCESS;
+}
+
 /*
  * Function definitions.
  */
@@ -783,6 +872,7 @@ void bfdd_vty_init(void)
 	install_element(ENABLE_NODE, &bfd_clear_peer_counters_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peers_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peer_cmd);
+	install_element(ENABLE_NODE, &bfd_show_peers_brief_cmd);
 	install_element(ENABLE_NODE, &show_debugging_bfd_cmd);
 
 	/* Install BFD node and commands. */

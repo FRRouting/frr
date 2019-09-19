@@ -567,6 +567,8 @@ typedef void (*hash_iter_func)(struct hash_bucket *hb, void *arg);
 void bfd_id_iterate(hash_iter_func hif, void *arg);
 void bfd_key_iterate(hash_iter_func hif, void *arg);
 
+unsigned long bfd_get_session_count(void);
+
 /* Export callback functions for `event.c`. */
 extern struct thread_master *master;
 
