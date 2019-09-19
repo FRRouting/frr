@@ -1376,6 +1376,13 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp) || was_bond_slave)
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex);
 		}
+
+		zif = ifp->info;
+		if (zif) {
+			XFREE(MTYPE_TMP, zif->desc);
+			if (desc)
+				zif->desc = XSTRDUP(MTYPE_TMP, desc);
+		}
 	} else {
 		/* Delete interface notification from kernel */
 		if (ifp == NULL) {
@@ -1400,13 +1407,6 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 		if (!IS_ZEBRA_IF_VRF(ifp))
 			if_delete_update(ifp);
-	}
-
-	zif = ifp->info;
-	if (zif) {
-		XFREE(MTYPE_TMP, zif->desc);
-		if (desc)
-			zif->desc = XSTRDUP(MTYPE_TMP, desc);
 	}
 
 	return 0;
