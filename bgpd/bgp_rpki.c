@@ -1386,18 +1386,29 @@ DEFUN_NOSH (no_rpki,
 
 DEFUN (bgp_rpki_start,
        bgp_rpki_start_cmd,
-       "rpki start",
+       "rpki start [vrf NAME]",
        RPKI_OUTPUT_STRING
-       "start rpki support\n")
+       "start rpki support\n"
+       VRF_CMD_HELP_STR)
 {
 	struct list *cache_list = NULL;
 	struct rpki_vrf *rpki_vrf;
+	int idx_vrf = 3;
+	struct vrf *vrf;
+	char *vrfname = NULL;
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
-	if (rpki_vrf)
-		cache_list = rpki_vrf->cache_list;
-	if (!rpki_vrf || !cache_list || listcount(cache_list) == 0)
+	if (argc == 4) {
+		vrf = vrf_lookup_by_name(argv[idx_vrf]->arg);
+		if (!vrf)
+			return CMD_SUCCESS;
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vrfname = vrf->name;
+	}
+	rpki_vrf = find_rpki_vrf(vrfname);
+	if (!rpki_vrf)
+		return CMD_SUCCESS;
+	cache_list = rpki_vrf->cache_list;
+	if (!cache_list || listcount(cache_list) == 0)
 		vty_out(vty, "Could not start rpki"
 			" because no caches are configured\n");
 
@@ -1412,14 +1423,24 @@ DEFUN (bgp_rpki_start,
 
 DEFUN (bgp_rpki_stop,
        bgp_rpki_stop_cmd,
-       "rpki stop",
+       "rpki stop [vrf NAME]",
        RPKI_OUTPUT_STRING
-       "start rpki support\n")
+       "start rpki support\n"
+       VRF_CMD_HELP_STR)
 {
+	int idx_vrf = 3;
+	struct vrf *vrf;
+	char *vrfname = NULL;
 	struct rpki_vrf *rpki_vrf;
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	if (argc == 4) {
+		vrf = vrf_lookup_by_name(argv[idx_vrf]->arg);
+		if (!vrf)
+			return CMD_SUCCESS;
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vrfname = vrf->name;
+	}
+	rpki_vrf = find_rpki_vrf(vrfname);
 	if (rpki_vrf && is_running(rpki_vrf))
 		stop(rpki_vrf);
 
@@ -1689,17 +1710,28 @@ DEFPY (no_rpki_cache,
 
 DEFUN (show_rpki_prefix_table,
        show_rpki_prefix_table_cmd,
-       "show rpki prefix-table",
+       "show rpki prefix-table [vrf NAME]",
        SHOW_STR
        RPKI_OUTPUT_STRING
-       "Show validated prefixes which were received from RPKI Cache\n")
+       "Show validated prefixes which were received from RPKI Cache\n"
+       VRF_CMD_HELP_STR)
 {
 	struct listnode *cache_node;
 	struct cache *cache;
 	struct rpki_vrf *rpki_vrf;
+	int idx_vrf = 4;
+	struct vrf *vrf;
+	char *vrfname = NULL;
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	if (argc == 5) {
+		vrf = vrf_lookup_by_name(argv[idx_vrf]->arg);
+		if (!vrf)
+			return CMD_SUCCESS;
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vrfname = vrf->name;
+	}
+
+	rpki_vrf = find_rpki_vrf(vrfname);
 	if (!rpki_vrf)
 		return CMD_SUCCESS;
 	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node, cache)) {
@@ -1721,15 +1753,23 @@ DEFUN (show_rpki_prefix_table,
 }
 
 DEFPY(show_rpki_as_number, show_rpki_as_number_cmd,
-      "show rpki as-number (1-4294967295)$by_asn",
+      "show rpki as-number (1-4294967295)$by_asn [vrf NAME$vrfname]",
       SHOW_STR RPKI_OUTPUT_STRING
       "Lookup by ASN in prefix table\n"
       "AS Number\n")
 {
 	struct rpki_vrf *rpki_vrf;
+	char *vrf_name = NULL;
+	struct vrf *vrf;
 
+	if (vrfname && !strmatch(vrfname, VRF_DEFAULT_NAME)) {
+		vrf = vrf_lookup_by_name(vrfname);
+		if (!vrf)
+			return CMD_SUCCESS;
+		vrf_name = vrf->name;
+	}
 	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	rpki_vrf = find_rpki_vrf(vrf_name);
 
 	if (!is_synchronized(rpki_vrf)) {
 		vty_out(vty, "No Connection to RPKI cache server.\n");
@@ -1742,18 +1782,27 @@ DEFPY(show_rpki_as_number, show_rpki_as_number_cmd,
 
 DEFPY (show_rpki_prefix,
        show_rpki_prefix_cmd,
-       "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)$asn]",
+       "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)$asn] [vrf NAME$vrfname]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Lookup IP prefix and optionally ASN in prefix table\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
-       "AS Number\n")
+       "AS Number\n"
+       VRF_CMD_HELP_STR)
 {
 	struct rpki_vrf *rpki_vrf;
+	struct vrf *vrf;
+	char *vrf_name = NULL;
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	if (vrfname && !strmatch(vrfname, VRF_DEFAULT_NAME)) {
+		vrf = vrf_lookup_by_name(vrfname);
+		if (!vrf)
+			return CMD_SUCCESS;
+		vrf_name = vrf->name;
+	}
+
+	rpki_vrf = find_rpki_vrf(vrf_name);
 
 	if (!rpki_vrf || !is_synchronized(rpki_vrf)) {
 		vty_out(vty, "No Connection to RPKI cache server.\n");
@@ -1800,17 +1849,28 @@ DEFPY (show_rpki_prefix,
 
 DEFUN (show_rpki_cache_server,
        show_rpki_cache_server_cmd,
-       "show rpki cache-server",
+       "show rpki cache-server [vrf NAME]",
        SHOW_STR
        RPKI_OUTPUT_STRING
-       "SHOW configured cache server\n")
+       "SHOW configured cache server\n"
+       VRF_CMD_HELP_STR)
 {
 	struct listnode *cache_node;
 	struct cache *cache;
 	struct rpki_vrf *rpki_vrf;
+	int idx_vrf = 4;
+	struct vrf *vrf;
+	char *vrfname = NULL;
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	if (argc == 5) {
+		vrf = vrf_lookup_by_name(argv[idx_vrf]->arg);
+		if (!vrf)
+			return CMD_SUCCESS;
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vrfname = vrf->name;
+	}
+
+	rpki_vrf = find_rpki_vrf(vrfname);
 	if (!rpki_vrf)
 		return CMD_SUCCESS;
 
@@ -1841,15 +1901,26 @@ DEFUN (show_rpki_cache_server,
 
 DEFUN (show_rpki_cache_connection,
        show_rpki_cache_connection_cmd,
-       "show rpki cache-connection",
+       "show rpki cache-connection [vrf NAME]",
        SHOW_STR
        RPKI_OUTPUT_STRING
-       "Show to which RPKI Cache Servers we have a connection\n")
+       "Show to which RPKI Cache Servers we have a connection\n"
+       VRF_CMD_HELP_STR)
 {
 	struct rpki_vrf *rpki_vrf;
+	int idx_vrf = 4;
+	struct vrf *vrf;
+	char *vrfname = NULL;
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	if (argc == 5) {
+		vrf = vrf_lookup_by_name(argv[idx_vrf]->arg);
+		if (!vrf)
+			return CMD_SUCCESS;
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vrfname = vrf->name;
+	}
+
+	rpki_vrf = find_rpki_vrf(vrfname);
 	if (!rpki_vrf)
 		return CMD_SUCCESS;
 
@@ -1908,15 +1979,26 @@ DEFUN (show_rpki_cache_connection,
 
 DEFUN (show_rpki_configuration,
        show_rpki_configuration_cmd,
-       "show rpki configuration",
+       "show rpki configuration [vrf NAME]",
        SHOW_STR
        RPKI_OUTPUT_STRING
-       "Show RPKI configuration\n")
+       "Show RPKI configuration\n"
+       VRF_CMD_HELP_STR)
 {
 	struct rpki_vrf *rpki_vrf;
+	int idx_vrf = 4;
+	struct vrf *vrf;
+	char *vrfname = NULL;
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	if (argc == 5) {
+		vrf = vrf_lookup_by_name(argv[idx_vrf]->arg);
+		if (!vrf)
+			return CMD_SUCCESS;
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vrfname = vrf->name;
+	}
+
+	rpki_vrf = find_rpki_vrf(vrfname);
 	if (!rpki_vrf)
 		return CMD_SUCCESS;
 	vty_out(vty, "rpki is %s",
