@@ -1529,6 +1529,53 @@ int pim_if_ifchannel_count(struct pim_interface *pim_ifp)
 
 int pim_ifp_create(struct interface *ifp)
 {
+	struct pim_instance *pim;
+
+	pim = pim_get_pim_instance(ifp->vrf_id);
+	if (PIM_DEBUG_ZEBRA) {
+		zlog_debug(
+			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
+			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex,
+			ifp->vrf_id, (long)ifp->flags, ifp->metric, ifp->mtu,
+			if_is_operative(ifp));
+	}
+
+	if (if_is_operative(ifp)) {
+		struct pim_interface *pim_ifp;
+
+		pim_ifp = ifp->info;
+		/*
+		 * If we have a pim_ifp already and this is an if_add
+		 * that means that we probably have a vrf move event
+		 * If that is the case, set the proper vrfness.
+		 */
+		if (pim_ifp)
+			pim_ifp->pim = pim;
+		pim_if_addr_add_all(ifp);
+	}
+
+	/*
+	 * If we are a vrf device that is up, open up the pim_socket for
+	 * listening
+	 * to incoming pim messages irrelevant if the user has configured us
+	 * for pim or not.
+	 */
+	if (pim_if_is_vrf_device(ifp)) {
+		struct pim_interface *pim_ifp;
+
+		if (!ifp->info) {
+			pim_ifp = pim_if_new(ifp, false, false, false,
+					     false /*vxlan_term*/);
+			ifp->info = pim_ifp;
+		}
+
+		pim_sock_add(ifp);
+	}
+
+	if (!strncmp(ifp->name, PIM_VXLAN_TERM_DEV_NAME,
+		     sizeof(PIM_VXLAN_TERM_DEV_NAME)))
+		pim_vxlan_add_term_dev(pim, ifp);
+
 	return 0;
 }
 

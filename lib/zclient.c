@@ -1547,10 +1547,11 @@ static void zclient_vrf_delete(struct zclient *zclient, vrf_id_t vrf_id)
 	vrf_delete(vrf);
 }
 
-struct interface *zebra_interface_add_read(struct stream *s, vrf_id_t vrf_id)
+static void zclient_interface_add(struct zclient *zclient, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 	char ifname_tmp[INTERFACE_NAMSIZ];
+	struct stream *s = zclient->ibuf;
 
 	/* Read interface name. */
 	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
@@ -1560,15 +1561,14 @@ struct interface *zebra_interface_add_read(struct stream *s, vrf_id_t vrf_id)
 
 	zebra_interface_if_set_value(s, ifp);
 
-	return ifp;
+	if_new_via_zapi(ifp);
 }
 
 /*
  * Read interface up/down msg (ZEBRA_INTERFACE_UP/ZEBRA_INTERFACE_DOWN)
  * from zebra server.  The format of this message is the same as
- * that sent for ZEBRA_INTERFACE_ADD/ZEBRA_INTERFACE_DELETE (see
- * comments for zebra_interface_add_read), except that no sockaddr_dl
- * is sent at the tail of the message.
+ * that sent for ZEBRA_INTERFACE_ADD/ZEBRA_INTERFACE_DELETE,
+ * except that no sockaddr_dl is sent at the tail of the message.
  */
 struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 {
@@ -2789,9 +2789,7 @@ static int zclient_read(struct thread *thread)
 		zclient_vrf_delete(zclient, vrf_id);
 		break;
 	case ZEBRA_INTERFACE_ADD:
-		if (zclient->interface_add)
-			(*zclient->interface_add)(command, zclient, length,
-						  vrf_id);
+		zclient_interface_add(zclient, vrf_id);
 		break;
 	case ZEBRA_INTERFACE_DELETE:
 		if (zclient->interface_delete)

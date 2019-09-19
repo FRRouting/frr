@@ -405,11 +405,8 @@ int rip_interface_up(ZAPI_CALLBACK_ARGS)
 }
 
 /* Inteface addition message from zebra. */
-int rip_interface_add(ZAPI_CALLBACK_ARGS)
+static int rip_ifp_create(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
 	rip_interface_sync(ifp);
 
 	if (IS_RIP_DEBUG_ZEBRA)
@@ -1250,11 +1247,6 @@ static int rip_interface_delete_hook(struct interface *ifp)
 	rip_interface_reset(ifp->info);
 	XFREE(MTYPE_RIP_INTERFACE, ifp->info);
 	ifp->info = NULL;
-	return 0;
-}
-
-static int rip_ifp_create(struct interface *ifp)
-{
 	return 0;
 }
 

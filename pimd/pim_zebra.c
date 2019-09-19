@@ -63,82 +63,11 @@ static int pim_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int pim_zebra_if_add(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct pim_instance *pim;
-
-	/*
-	  zebra api adds/dels interfaces using the same call
-	  interface_add_read below, see comments in lib/zclient.c
-	*/
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-	if (!ifp)
-		return 0;
-
-	pim = pim_get_pim_instance(vrf_id);
-	if (PIM_DEBUG_ZEBRA) {
-		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
-	}
-
-	if (if_is_operative(ifp)) {
-		struct pim_interface *pim_ifp;
-
-		pim_ifp = ifp->info;
-		/*
-		 * If we have a pim_ifp already and this is an if_add
-		 * that means that we probably have a vrf move event
-		 * If that is the case, set the proper vrfness.
-		 */
-		if (pim_ifp)
-			pim_ifp->pim = pim;
-		pim_if_addr_add_all(ifp);
-	}
-
-	/*
-	 * If we are a vrf device that is up, open up the pim_socket for
-	 * listening
-	 * to incoming pim messages irrelevant if the user has configured us
-	 * for pim or not.
-	 */
-	if (pim_if_is_vrf_device(ifp)) {
-		struct pim_interface *pim_ifp;
-
-		if (!ifp->info) {
-			pim_ifp = pim_if_new(ifp, false, false, false,
-					false /*vxlan_term*/);
-			ifp->info = pim_ifp;
-		}
-
-		pim_sock_add(ifp);
-	}
-
-	if (!strncmp(ifp->name, PIM_VXLAN_TERM_DEV_NAME,
-				sizeof(PIM_VXLAN_TERM_DEV_NAME)))
-		pim_vxlan_add_term_dev(pim, ifp);
-
-	return 0;
-}
-
 static int pim_zebra_if_del(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	struct pim_instance *pim;
 
-	/*
-	  zebra api adds/dels interfaces using the same call
-	  interface_add_read below, see comments in lib/zclient.c
-
-	  comments in lib/zclient.c seem to indicate that calling
-	  zebra_interface_add_read is the correct call, but that
-	  results in an attemted out of bounds read which causes
-	  pimd to assert. Other clients use zebra_interface_state_read
-	  and it appears to work just fine.
-	*/
 	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
 	if (!ifp)
 		return 0;
@@ -793,7 +722,6 @@ void pim_zebra_init(void)
 	zclient->zebra_capabilities = pim_zebra_capabilities;
 	zclient->zebra_connected = pim_zebra_connected;
 	zclient->router_id_update = pim_router_id_update_zebra;
-	zclient->interface_add = pim_zebra_if_add;
 	zclient->interface_delete = pim_zebra_if_del;
 	zclient->interface_up = pim_zebra_if_state_up;
 	zclient->interface_down = pim_zebra_if_state_down;

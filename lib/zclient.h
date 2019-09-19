@@ -240,7 +240,6 @@ struct zclient {
 	void (*zebra_connected)(struct zclient *);
 	void (*zebra_capabilities)(struct zclient_capabilities *cap);
 	int (*router_id_update)(ZAPI_CALLBACK_ARGS);
-	int (*interface_add)(ZAPI_CALLBACK_ARGS);
 	int (*interface_delete)(ZAPI_CALLBACK_ARGS);
 	int (*interface_up)(ZAPI_CALLBACK_ARGS);
 	int (*interface_down)(ZAPI_CALLBACK_ARGS);
@@ -617,7 +616,6 @@ extern bool zapi_parse_header(struct stream *zmsg, struct zmsghdr *hdr);
 extern void zclient_interface_set_master(struct zclient *client,
 					 struct interface *master,
 					 struct interface *slave);
-extern struct interface *zebra_interface_add_read(struct stream *, vrf_id_t);
 extern struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t);
 extern struct connected *zebra_interface_address_read(int, struct stream *,
 						      vrf_id_t);

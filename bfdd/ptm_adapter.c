@@ -677,20 +677,6 @@ static int bfdd_interface_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 
-	/*
-	 * `zebra_interface_add_read` will handle the interface creation
-	 * on `lib/if.c`. We'll use that data structure instead of
-	 * rolling our own.
-	 */
-	if (cmd == ZEBRA_INTERFACE_ADD) {
-		ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-		if (ifp == NULL)
-			return 0;
-
-		bfdd_sessions_enable_interface(ifp);
-		return 0;
-	}
-
 	/* Update interface information. */
 	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
 	if (ifp == NULL)
@@ -758,6 +744,8 @@ static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 
 static int bfd_ifp_create(struct interface *ifp)
 {
+	bfdd_sessions_enable_interface(ifp);
+
 	return 0;
 }
 
@@ -784,7 +772,6 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 	zclient->zebra_connected = bfdd_zebra_connected;
 
 	/* Learn interfaces from zebra instead of the OS. */
-	zclient->interface_add = bfdd_interface_update;
 	zclient->interface_delete = bfdd_interface_update;
 
 	/* Learn about interface VRF. */

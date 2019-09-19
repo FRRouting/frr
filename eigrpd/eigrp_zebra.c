@@ -53,7 +53,6 @@
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
 
-static int eigrp_interface_add(ZAPI_CALLBACK_ARGS);
 static int eigrp_interface_delete(ZAPI_CALLBACK_ARGS);
 static int eigrp_interface_address_add(ZAPI_CALLBACK_ARGS);
 static int eigrp_interface_address_delete(ZAPI_CALLBACK_ARGS);
@@ -114,7 +113,6 @@ void eigrp_zebra_init(void)
 	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);
 	zclient->zebra_connected = eigrp_zebra_connected;
 	zclient->router_id_update = eigrp_router_id_update_zebra;
-	zclient->interface_add = eigrp_interface_add;
 	zclient->interface_delete = eigrp_interface_delete;
 	zclient->interface_up = eigrp_interface_state_up;
 	zclient->interface_down = eigrp_interface_state_down;
@@ -147,26 +145,6 @@ static int eigrp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	} else /* if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_DEL) */
 	{
 	}
-
-	return 0;
-}
-
-/* Inteface addition message from zebra. */
-static int eigrp_interface_add(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct eigrp_interface *ei;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-
-	if (!ifp->info)
-		return 0;
-
-	ei = ifp->info;
-
-	ei->params.type = eigrp_default_iftype(ifp);
-
-	eigrp_if_update(ifp);
 
 	return 0;
 }

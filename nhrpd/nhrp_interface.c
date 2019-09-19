@@ -296,15 +296,8 @@ void nhrp_interface_update(struct interface *ifp)
 	}
 }
 
-int nhrp_interface_add(ZAPI_CALLBACK_ARGS)
+int nhrp_ifp_create(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	/* read and add the interface in the iflist. */
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-	if (ifp == NULL)
-		return 0;
-
 	debugf(NHRP_DEBUG_IF, "if-add: %s, ifindex: %u, hw_type: %d %s",
 	       ifp->name, ifp->ifindex, ifp->ll_type,
 	       if_link_type_str(ifp->ll_type));
@@ -435,11 +428,6 @@ void nhrp_interface_set_source(struct interface *ifp, const char *ifname)
 	nifp->source = ifname ? strdup(ifname) : NULL;
 
 	nhrp_interface_update_nbma(ifp);
-}
-
-int nhrp_ifp_create(struct interface *ifp)
-{
-	return 0;
 }
 
 int nhrp_ifp_up(struct interface *ifp)

@@ -50,6 +50,7 @@
 DEFINE_QOBJ_TYPE(ospf_interface)
 DEFINE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd))
 DEFINE_HOOK(ospf_vl_delete, (struct ospf_vl_data * vd), (vd))
+DEFINE_HOOK(ospf_if_update, (struct interface * ifp), (ifp))
 
 int ospf_interface_neighbor_count(struct ospf_interface *oi)
 {
@@ -1218,8 +1219,41 @@ uint8_t ospf_default_iftype(struct interface *ifp)
 		return OSPF_IFTYPE_BROADCAST;
 }
 
+void ospf_if_interface(struct interface *ifp)
+{
+	hook_call(ospf_if_update, ifp);
+}
+
 static int ospf_ifp_create(struct interface *ifp)
 {
+	struct ospf *ospf = NULL;
+
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+		zlog_debug(
+			"Zebra: interface add %s vrf %s[%u] index %d flags %llx metric %d mtu %d speed %u",
+			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
+			ifp->vrf_id, ifp->ifindex,
+			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu,
+			ifp->speed);
+
+	assert(ifp->info);
+
+	if (IF_DEF_PARAMS(ifp)
+	    && !OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp), type)) {
+		SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
+		IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
+	}
+
+	ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
+	if (!ospf)
+		return 0;
+
+	ospf_if_recalculate_output_cost(ifp);
+
+	ospf_if_update(ospf, ifp);
+
+	hook_call(ospf_if_update, ifp);
+
 	return 0;
 }
 

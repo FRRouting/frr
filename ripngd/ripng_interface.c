@@ -256,11 +256,8 @@ int ripng_interface_down(ZAPI_CALLBACK_ARGS)
 }
 
 /* Inteface addition message from zebra. */
-int ripng_interface_add(ZAPI_CALLBACK_ARGS)
+static int ripng_ifp_create(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
 	ripng_interface_sync(ifp);
 
 	if (IS_RIPNG_DEBUG_ZEBRA)
@@ -988,11 +985,6 @@ static int interface_config_write(struct vty *vty)
 static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1 /* VTYSH */
 };
-
-static int ripng_ifp_create(struct interface *ifp)
-{
-	return 0;
-}
 
 static int ripng_ifp_up(struct interface *ifp)
 {
