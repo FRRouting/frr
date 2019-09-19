@@ -1440,6 +1440,7 @@ static void _netlink_mpls_debug(int cmd, uint32_t label, const char *routedesc)
 static int netlink_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 				int llalen, ns_id_t ns_id)
 {
+	uint8_t protocol = RTPROT_ZEBRA;
 	struct {
 		struct nlmsghdr n;
 		struct ndmsg ndm;
@@ -1460,6 +1461,8 @@ static int netlink_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 	req.ndm.ndm_ifindex = ifindex;
 	req.ndm.ndm_type = RTN_UNICAST;
 
+	addattr_l(&req.n, sizeof(req),
+		  NDA_PROTOCOL, &protocol, sizeof(protocol));
 	addattr_l(&req.n, sizeof(req), NDA_DST, &addr, 4);
 	addattr_l(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
 
@@ -1930,6 +1933,7 @@ int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
 static int netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx,
 					  int cmd)
 {
+	uint8_t protocol = RTPROT_ZEBRA;
 	struct {
 		struct nlmsghdr n;
 		struct ndmsg ndm;
@@ -1950,6 +1954,8 @@ static int netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx,
 	req.ndm.ndm_flags |= NTF_SELF; // Handle by "self", not "master"
 
 
+	addattr_l(&req.n, sizeof(req),
+		  NDA_PROTOCOL, &protocol, sizeof(protocol));
 	addattr_l(&req.n, sizeof(req), NDA_LLADDR, &dst_mac, 6);
 	req.ndm.ndm_ifindex = dplane_ctx_get_ifindex(ctx);
 
@@ -2297,6 +2303,7 @@ int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 static enum zebra_dplane_result
 netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx)
 {
+	uint8_t protocol = RTPROT_ZEBRA;
 	struct {
 		struct nlmsghdr n;
 		struct ndmsg ndm;
@@ -2330,6 +2337,8 @@ netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx)
 	else
 		req.ndm.ndm_flags |= NTF_EXT_LEARNED;
 
+	addattr_l(&req.n, sizeof(req),
+		  NDA_PROTOCOL, &protocol, sizeof(protocol));
 	addattr_l(&req.n, sizeof(req), NDA_LLADDR,
 		  dplane_ctx_mac_get_addr(ctx), 6);
 	req.ndm.ndm_ifindex = dplane_ctx_get_ifindex(ctx);
@@ -2748,6 +2757,7 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 static int netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 				    int cmd)
 {
+	uint8_t protocol = RTPROT_ZEBRA;
 	struct {
 		struct nlmsghdr n;
 		struct ndmsg ndm;
@@ -2782,6 +2792,8 @@ static int netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 	req.ndm.ndm_type = RTN_UNICAST;
 	req.ndm.ndm_flags = flags;
 
+	addattr_l(&req.n, sizeof(req),
+		  NDA_PROTOCOL, &protocol, sizeof(protocol));
 	ipa_len = IS_IPADDR_V4(ip) ? IPV4_MAX_BYTELEN : IPV6_MAX_BYTELEN;
 	addattr_l(&req.n, sizeof(req), NDA_DST, &ip->ip.addr, ipa_len);
 	if (mac)
