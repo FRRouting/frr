@@ -892,6 +892,9 @@ enum node_type node_parent(enum node_type node)
 	case PCEP_PCC_NODE:
 		ret = PCEP_NODE;
 		break;
+	case RPKI_VRF_NODE:
+		ret = VRF_NODE;
+		break;
 	default:
 		ret = CONFIG_NODE;
 		break;

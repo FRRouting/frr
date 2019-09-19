@@ -1559,6 +1559,14 @@ static struct cmd_node rpki_node = {
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-rpki)# ",
 };
+
+static struct cmd_node rpki_vrf_node = {
+	.name = "rpki",
+	.node = RPKI_VRF_NODE,
+	.parent_node = VRF_NODE,
+	.prompt = "%s(config-vrf-rpki)# ",
+};
+
 #endif /* HAVE_BGPD */
 
 #if HAVE_BFDD > 0
@@ -1749,7 +1757,10 @@ DEFUNSH(VTYSH_BGPD,
 	"rpki",
 	"Enable rpki and enter rpki configuration mode\n")
 {
-	vty->node = RPKI_NODE;
+	if (vty->node == CONFIG_NODE)
+		vty->node = RPKI_NODE;
+	else
+		vty->node = RPKI_VRF_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -3996,6 +4007,7 @@ void vtysh_init_vty(void)
 	install_element(BGP_VNC_NVE_GROUP_NODE, &exit_vnc_config_cmd);
 
 	install_node(&bgp_vnc_l2_group_node);
+
 	install_element(BGP_NODE, &vnc_l2_group_cmd);
 	install_element(BGP_VNC_L2_GROUP_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_VNC_L2_GROUP_NODE, &vtysh_quit_bgpd_cmd);
@@ -4025,6 +4037,14 @@ void vtysh_init_vty(void)
 	install_element(RPKI_NODE, &rpki_exit_cmd);
 	install_element(RPKI_NODE, &rpki_quit_cmd);
 	install_element(RPKI_NODE, &vtysh_end_all_cmd);
+
+	install_node(&vrf_node);
+
+	install_node(&rpki_vrf_node);
+	install_element(VRF_NODE, &rpki_cmd);
+	install_element(RPKI_VRF_NODE, &rpki_exit_cmd);
+	install_element(RPKI_VRF_NODE, &rpki_quit_cmd);
+	install_element(RPKI_VRF_NODE, &vtysh_end_all_cmd);
 
 	install_node(&bmp_node);
 	install_element(BGP_NODE, &bmp_targets_cmd);
@@ -4286,7 +4306,6 @@ void vtysh_init_vty(void)
 	install_element(PW_NODE, &vtysh_exit_pseudowire_cmd);
 	install_element(PW_NODE, &vtysh_quit_pseudowire_cmd);
 
-	install_node(&vrf_node);
 	install_element(CONFIG_NODE, &vtysh_vrf_cmd);
 	install_element(VRF_NODE, &vtysh_vrf_netns_cmd);
 	install_element(VRF_NODE, &vtysh_no_vrf_netns_cmd);
@@ -4306,7 +4325,6 @@ void vtysh_init_vty(void)
 	install_element(VTY_NODE, &vtysh_exit_line_vty_cmd);
 	install_element(VTY_NODE, &vtysh_quit_line_vty_cmd);
 	install_element(VTY_NODE, &vtysh_end_all_cmd);
-
 
 	struct cmd_node *node;
 	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {

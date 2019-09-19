@@ -170,6 +170,7 @@ enum node_type {
 	VRRP_NODE,		 /* VRRP node */
 	BMP_NODE,		/* BMP config under router bgp */
 	WRAP_SCRIPT_NODE,	/* Wrap Script Config commands */
+	RPKI_VRF_NODE,  /* RPKI node for VRF */
 	NODE_TYPE_MAX, /* maximum */
 };
 
