@@ -1785,7 +1785,6 @@ static void install_cli_commands(void)
 	install_node(&rpki_node);
 	install_default(RPKI_NODE);
 	install_element(CONFIG_NODE, &rpki_cmd);
-	install_element(ENABLE_NODE, &rpki_cmd);
 
 	install_element(ENABLE_NODE, &bgp_rpki_start_cmd);
 	install_element(ENABLE_NODE, &bgp_rpki_stop_cmd);
