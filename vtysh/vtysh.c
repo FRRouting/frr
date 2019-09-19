@@ -1625,6 +1625,14 @@ static struct cmd_node rpki_node = {
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-rpki)# ",
 };
+
+static struct cmd_node rpki_vrf_node = {
+	.name = "rpki",
+	.node = RPKI_VRF_NODE,
+	.parent_node = VRF_NODE,
+	.prompt = "%s(config-vrf-rpki)# ",
+};
+
 #endif /* HAVE_BGPD */
 
 #if HAVE_BFDD > 0
@@ -1855,7 +1863,10 @@ DEFUNSH(VTYSH_BGPD,
 	"rpki",
 	"Enable rpki and enter rpki configuration mode\n")
 {
-	vty->node = RPKI_NODE;
+	if (vty->node == CONFIG_NODE)
+		vty->node = RPKI_NODE;
+	else
+		vty->node = RPKI_VRF_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -5070,6 +5081,12 @@ void vtysh_init_vty(void)
 	install_element(VRF_NODE, &vtysh_end_all_cmd);
 	install_element(VRF_NODE, &vtysh_exit_vrf_cmd);
 	install_element(VRF_NODE, &vtysh_quit_vrf_cmd);
+
+	install_node(&rpki_vrf_node);
+	install_element(VRF_NODE, &rpki_cmd);
+	install_element(RPKI_VRF_NODE, &rpki_exit_cmd);
+	install_element(RPKI_VRF_NODE, &rpki_quit_cmd);
+	install_element(RPKI_VRF_NODE, &vtysh_end_all_cmd);
 
 	install_element(CONFIG_NODE, &vtysh_affinity_map_cmd);
 	install_element(CONFIG_NODE, &vtysh_no_affinity_map_cmd);

@@ -164,6 +164,16 @@ static struct cmd_node rpki_node = {
 	.config_write = config_write,
 	.node_exit = config_on_exit,
 };
+
+static struct cmd_node rpki_vrf_node = {
+	.name = "rpki",
+	.node = RPKI_VRF_NODE,
+	.parent_node = VRF_NODE,
+	.prompt = "%s(config-vrf-rpki)# ",
+	.config_write = NULL,
+	.node_exit = config_on_exit,
+};
+
 static const struct route_map_rule_cmd route_match_rpki_cmd = {
 	"rpki", route_match, route_match_compile, route_match_free};
 
@@ -1533,17 +1543,28 @@ DEFUN_NOSH (rpki,
 	    "Enable rpki and enter rpki configuration mode\n")
 {
 	struct rpki_vrf *rpki_vrf;
+	char *vrfname = NULL;
 
-	vty->node = RPKI_NODE;
+	if (vty->node == CONFIG_NODE)
+		vty->node = RPKI_NODE;
+	else {
+		struct vrf *vrf = VTY_GET_CONTEXT(vrf);
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+		vty->node = RPKI_VRF_NODE;
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vrfname = vrf->name;
+	}
+
+	rpki_vrf = find_rpki_vrf(vrfname);
 	if (!rpki_vrf) {
-		rpki_vrf = bgp_rpki_allocate(NULL);
+		rpki_vrf = bgp_rpki_allocate(vrfname);
 
 		rpki_init_sync_socket(rpki_vrf);
 	}
-	VTY_PUSH_CONTEXT(RPKI_NODE, rpki_vrf);
+	if (vty->node == RPKI_VRF_NODE)
+		VTY_PUSH_CONTEXT_SUB(vty->node, rpki_vrf);
+	else
+		VTY_PUSH_CONTEXT(vty->node, rpki_vrf);
 	return CMD_SUCCESS;
 }
 
@@ -1554,9 +1575,16 @@ DEFPY (no_rpki,
        "Enable rpki and enter rpki configuration mode\n")
 {
 	struct rpki_vrf *rpki_vrf;
+	char *vrfname = NULL;
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
+	if (vty->node == VRF_NODE) {
+		VTY_DECLVAR_CONTEXT(vrf, vrf);
+
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vrfname = vrf->name;
+	}
+
+	rpki_vrf = find_rpki_vrf(vrfname);
 
 	rpki_delete_all_cache_nodes(rpki_vrf);
 	stop(rpki_vrf);
@@ -1620,7 +1648,12 @@ DEFPY (rpki_polling_period,
        "Set polling period\n"
        "Polling period value\n")
 {
-	VTY_DECLVAR_CONTEXT(rpki_vrf, rpki_vrf);
+	struct rpki_vrf *rpki_vrf;
+
+	if (vty->node == RPKI_VRF_NODE)
+		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
+	else
+		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
 	rpki_vrf->polling_period = pp;
 	return CMD_SUCCESS;
@@ -1634,7 +1667,12 @@ DEFUN (no_rpki_polling_period,
        "Set polling period back to default\n"
        "Polling period value\n")
 {
-	VTY_DECLVAR_CONTEXT(rpki_vrf, rpki_vrf);
+	struct rpki_vrf *rpki_vrf;
+
+	if (vty->node == RPKI_VRF_NODE)
+		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
+	else
+		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
 	rpki_vrf->polling_period = POLLING_PERIOD_DEFAULT;
 	return CMD_SUCCESS;
@@ -1647,7 +1685,12 @@ DEFPY (rpki_expire_interval,
        "Set expire interval\n"
        "Expire interval value\n")
 {
-	VTY_DECLVAR_CONTEXT(rpki_vrf, rpki_vrf);
+	struct rpki_vrf *rpki_vrf;
+
+	if (vty->node == RPKI_VRF_NODE)
+		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
+	else
+		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
 	if ((unsigned int)tmp >= rpki_vrf->polling_period) {
 		rpki_vrf->expire_interval = tmp;
@@ -1666,7 +1709,12 @@ DEFUN (no_rpki_expire_interval,
        "Set expire interval back to default\n"
        "Expire interval value\n")
 {
-	VTY_DECLVAR_CONTEXT(rpki_vrf, rpki_vrf);
+	struct rpki_vrf *rpki_vrf;
+
+	if (vty->node == RPKI_VRF_NODE)
+		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
+	else
+		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
 	rpki_vrf->expire_interval = rpki_vrf->polling_period * 2;
 	return CMD_SUCCESS;
@@ -1679,7 +1727,12 @@ DEFPY (rpki_retry_interval,
        "Set retry interval\n"
        "retry interval value\n")
 {
-	VTY_DECLVAR_CONTEXT(rpki_vrf, rpki_vrf);
+	struct rpki_vrf *rpki_vrf;
+
+	if (vty->node == RPKI_VRF_NODE)
+		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
+	else
+		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
 	rpki_vrf->retry_interval = tmp;
 	return CMD_SUCCESS;
@@ -1693,7 +1746,12 @@ DEFUN (no_rpki_retry_interval,
        "Set retry interval back to default\n"
        "retry interval value\n")
 {
-	VTY_DECLVAR_CONTEXT(rpki_vrf, rpki_vrf);
+	struct rpki_vrf *rpki_vrf;
+
+	if (vty->node == RPKI_VRF_NODE)
+		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
+	else
+		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
 	rpki_vrf->retry_interval = RETRY_INTERVAL_DEFAULT;
 	return CMD_SUCCESS;
@@ -1718,9 +1776,13 @@ DEFPY(rpki_cache, rpki_cache_cmd,
 	int return_value;
 	struct listnode *cache_node;
 	struct cache *current_cache;
+	struct rpki_vrf *rpki_vrf;
 	bool init;
 
-	VTY_DECLVAR_CONTEXT(rpki_vrf, rpki_vrf);
+	if (vty->node == RPKI_VRF_NODE)
+		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
+	else
+		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
 	if (!rpki_vrf || !rpki_vrf->cache_list)
 		return CMD_WARNING;
@@ -1784,8 +1846,12 @@ DEFPY (no_rpki_cache,
 {
 	struct cache *cache_p;
 	struct list *cache_list = NULL;
+	struct rpki_vrf *rpki_vrf;
 
-	VTY_DECLVAR_CONTEXT(rpki_vrf, rpki_vrf);
+	if (vty->node == RPKI_VRF_NODE)
+		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
+	else
+		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 
 	cache_list = rpki_vrf->cache_list;
 	cache_p = find_cache(preference, cache_list);
@@ -2268,24 +2334,44 @@ DEFPY(show_rpki_configuration, show_rpki_configuration_cmd,
 
 static int config_on_exit(struct vty *vty)
 {
-	VTY_DECLVAR_CONTEXT(rpki_vrf, rpki_vrf);
+	struct rpki_vrf *rpki_vrf;
 
+	if (vty->node == RPKI_VRF_NODE)
+		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
+	else
+		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 	reset(false, rpki_vrf);
 	return 1;
 }
 
-DEFUN (rpki_reset,
+DEFPY(rpki_reset,
        rpki_reset_cmd,
+       "rpki reset [vrf NAME$vrfname]",
+       RPKI_OUTPUT_STRING
+       "reset rpki\n"
+       VRF_CMD_HELP_STR)
+{
+	struct rpki_vrf *rpki_vrf;
+
+	rpki_vrf = find_rpki_vrf(vrfname);
+	if (!rpki_vrf)
+		return CMD_WARNING;
+
+	return reset(true, rpki_vrf) == SUCCESS ? CMD_SUCCESS : CMD_WARNING;
+}
+
+DEFPY (rpki_reset_config_mode,
+       rpki_reset_config_mode_cmd,
        "rpki reset",
        RPKI_OUTPUT_STRING
        "reset rpki\n")
 {
 	struct rpki_vrf *rpki_vrf;
 
-	/* assume default vrf */
-	rpki_vrf = find_rpki_vrf(NULL);
-	if (!rpki_vrf)
-		return CMD_SUCCESS;
+	if (vty->node == RPKI_VRF_NODE)
+		rpki_vrf = VTY_GET_CONTEXT_SUB(rpki_vrf);
+	else
+		rpki_vrf = VTY_GET_CONTEXT(rpki_vrf);
 	return reset(true, rpki_vrf) == SUCCESS ? CMD_SUCCESS : CMD_WARNING;
 }
 
@@ -2359,6 +2445,8 @@ static void install_cli_commands(void)
 	// TODO: make config write work
 	install_node(&rpki_node);
 	install_default(RPKI_NODE);
+	install_node(&rpki_vrf_node);
+	install_default(RPKI_VRF_NODE);
 	install_element(CONFIG_NODE, &rpki_cmd);
 	install_element(CONFIG_NODE, &no_rpki_cmd);
 
@@ -2368,7 +2456,7 @@ static void install_cli_commands(void)
 
 	/* Install rpki reset command */
 	install_element(ENABLE_NODE, &rpki_reset_cmd);
-	install_element(RPKI_NODE, &rpki_reset_cmd);
+	install_element(RPKI_NODE, &rpki_reset_config_mode_cmd);
 
 	/* Install rpki polling period commands */
 	install_element(RPKI_NODE, &rpki_polling_period_cmd);
@@ -2385,6 +2473,28 @@ static void install_cli_commands(void)
 	/* Install rpki cache commands */
 	install_element(RPKI_NODE, &rpki_cache_cmd);
 	install_element(RPKI_NODE, &no_rpki_cache_cmd);
+
+	/* RPKI_VRF_NODE commands */
+	install_element(VRF_NODE, &rpki_cmd);
+	install_element(VRF_NODE, &no_rpki_cmd);
+	/* Install rpki reset command */
+	install_element(RPKI_VRF_NODE, &rpki_reset_config_mode_cmd);
+
+	/* Install rpki polling period commands */
+	install_element(RPKI_VRF_NODE, &rpki_polling_period_cmd);
+	install_element(RPKI_VRF_NODE, &no_rpki_polling_period_cmd);
+
+	/* Install rpki expire interval commands */
+	install_element(RPKI_VRF_NODE, &rpki_expire_interval_cmd);
+	install_element(RPKI_VRF_NODE, &no_rpki_expire_interval_cmd);
+
+	/* Install rpki retry interval commands */
+	install_element(RPKI_VRF_NODE, &rpki_retry_interval_cmd);
+	install_element(RPKI_VRF_NODE, &no_rpki_retry_interval_cmd);
+
+	/* Install rpki cache commands */
+	install_element(RPKI_VRF_NODE, &rpki_cache_cmd);
+	install_element(RPKI_VRF_NODE, &no_rpki_cache_cmd);
 
 	/* Install show commands */
 	install_element(VIEW_NODE, &show_rpki_prefix_table_cmd);
