@@ -142,8 +142,12 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 
 	vty_out(vty, "\t\tDiagnostics: %s\n", diag2str(bs->local_diag));
 	vty_out(vty, "\t\tRemote diagnostics: %s\n", diag2str(bs->remote_diag));
+	vty_out(vty, "\t\tPeer Type: %s\n",
+		BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) ? "configured" : "dynamic");
 
 	vty_out(vty, "\t\tLocal timers:\n");
+	vty_out(vty, "\t\t\tDetect-multiplier: %" PRIu32 "\n",
+		bs->detect_mult);
 	vty_out(vty, "\t\t\tReceive interval: %" PRIu32 "ms\n",
 		bs->timers.required_min_rx / 1000);
 	vty_out(vty, "\t\t\tTransmission interval: %" PRIu32 "ms\n",
@@ -152,6 +156,8 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 		bs->timers.required_min_echo / 1000);
 
 	vty_out(vty, "\t\tRemote timers:\n");
+	vty_out(vty, "\t\t\tDetect-multiplier: %" PRIu32 "\n",
+		bs->remote_detect_mult);
 	vty_out(vty, "\t\t\tReceive interval: %" PRIu32 "ms\n",
 		bs->remote_timers.required_min_rx / 1000);
 	vty_out(vty, "\t\t\tTransmission interval: %" PRIu32 "ms\n",
