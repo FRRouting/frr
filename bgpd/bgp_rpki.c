@@ -585,33 +585,53 @@ err:
 
 }
 
+static struct rpki_vrf *bgp_rpki_allocate(const char *vrfname)
+{
+	struct rpki_vrf *rpki_vrf;
+
+	rpki_vrf =  XCALLOC(MTYPE_BGP_RPKI_CACHE,
+				sizeof(struct rpki_vrf));
+
+	rpki_vrf->rtr_is_running = 0;
+	rpki_vrf->rtr_is_stopping = 0;
+	rpki_vrf->cache_list = list_new();
+	rpki_vrf->cache_list->del = (void (*)(void *)) & free_cache;
+	rpki_vrf->polling_period = POLLING_PERIOD_DEFAULT;
+	rpki_vrf->expire_interval = EXPIRE_INTERVAL_DEFAULT;
+	rpki_vrf->retry_interval = RETRY_INTERVAL_DEFAULT;
+
+	if (vrfname && !strmatch(vrfname, VRF_DEFAULT_NAME))
+		rpki_vrf->vrfname = XSTRDUP(MTYPE_BGP_RPKI_CACHE,
+						vrfname);
+	QOBJ_REG(rpki_vrf, rpki_vrf);
+	listnode_add(rpki_vrf_list, rpki_vrf);
+	return rpki_vrf;
+}
+
 static int bgp_rpki_init(struct thread_master *master)
 {
-	struct rpki_vrf *def_rpki_vrf;
-
 	rpki_debug_conf = 0;
 	rpki_debug_term = 0;
 
 	rpki_vrf_list = list_new();
-	/* initialise default vrf cache list */
-	def_rpki_vrf =  XCALLOC(MTYPE_BGP_RPKI_CACHE,
-				sizeof(struct rpki_vrf));
-	listnode_add(rpki_vrf_list, def_rpki_vrf);
-
-	def_rpki_vrf->rtr_is_running = 0;
-	def_rpki_vrf->rtr_is_stopping = 0;
-	def_rpki_vrf->cache_list = list_new();
-	def_rpki_vrf->cache_list->del = (void (*)(void *)) & free_cache;
-	def_rpki_vrf->polling_period = POLLING_PERIOD_DEFAULT;
-	def_rpki_vrf->expire_interval = EXPIRE_INTERVAL_DEFAULT;
-	def_rpki_vrf->retry_interval = RETRY_INTERVAL_DEFAULT;
-
-	QOBJ_REG(def_rpki_vrf, rpki_vrf);
-
 	install_cli_commands();
 
-	rpki_init_sync_socket(def_rpki_vrf);
 	return 0;
+}
+
+static void bgp_rpki_finish(struct rpki_vrf *rpki_vrf)
+{
+	stop(rpki_vrf);
+	list_delete(&rpki_vrf->cache_list);
+
+	close(rpki_vrf->rpki_sync_socket_rtr);
+	close(rpki_vrf->rpki_sync_socket_bgpd);
+
+	listnode_delete(rpki_vrf_list, rpki_vrf);
+	QOBJ_UNREG(rpki_vrf);
+	if (rpki_vrf->vrfname)
+		XFREE(MTYPE_BGP_RPKI_CACHE, rpki_vrf->vrfname);
+	XFREE(MTYPE_BGP_RPKI_CACHE, rpki_vrf);
 }
 
 static int bgp_rpki_fini(void)
@@ -622,12 +642,7 @@ static int bgp_rpki_fini(void)
 	rpki_vrf = find_rpki_vrf(NULL);
 	if (!rpki_vrf)
 		return 0;
-
-	stop(rpki_vrf);
-	list_delete(&rpki_vrf->cache_list);
-
-	close(rpki_vrf->rpki_sync_socket_rtr);
-	close(rpki_vrf->rpki_sync_socket_bgpd);
+	bgp_rpki_finish(rpki_vrf);
 
 	return 0;
 }
@@ -1115,8 +1130,28 @@ DEFUN_NOSH (rpki,
 	vty->node = RPKI_NODE;
 	/* assume default vrf */
 	rpki_vrf = find_rpki_vrf(NULL);
+	if (!rpki_vrf) {
+		rpki_vrf = bgp_rpki_allocate(NULL);
+
+		rpki_init_sync_socket(rpki_vrf);
+	}
+	VTY_PUSH_CONTEXT(RPKI_NODE, rpki_vrf);
+	return CMD_SUCCESS;
+}
+
+DEFUN_NOSH (no_rpki,
+	    no_rpki_cmd,
+	    "no rpki",
+	    NO_STR
+	    "Enable rpki and enter rpki configuration mode\n")
+{
+	struct rpki_vrf *rpki_vrf;
+
+	/* assume default vrf */
+	rpki_vrf = find_rpki_vrf(NULL);
+
 	if (rpki_vrf)
-		VTY_PUSH_CONTEXT(RPKI_NODE, rpki_vrf);
+		bgp_rpki_finish(rpki_vrf);
 	return CMD_SUCCESS;
 }
 
@@ -1785,6 +1820,7 @@ static void install_cli_commands(void)
 	install_node(&rpki_node);
 	install_default(RPKI_NODE);
 	install_element(CONFIG_NODE, &rpki_cmd);
+	install_element(CONFIG_NODE, &no_rpki_cmd);
 
 	install_element(ENABLE_NODE, &bgp_rpki_start_cmd);
 	install_element(ENABLE_NODE, &bgp_rpki_stop_cmd);
