@@ -181,6 +181,14 @@ void if_new_via_zapi(struct interface *ifp)
 		(*ifp_master.create_hook)(ifp);
 }
 
+void if_destroy_via_zapi(struct interface *ifp)
+{
+	if (ifp_master.destroy_hook)
+		(*ifp_master.destroy_hook)(ifp);
+
+	if_set_index(ifp, IFINDEX_INTERNAL);
+}
+
 void if_up_via_zapi(struct interface *ifp)
 {
 	if (ifp_master.up_hook)

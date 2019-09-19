@@ -63,35 +63,6 @@ static int pim_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int pim_zebra_if_del(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct pim_instance *pim;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-	if (!ifp)
-		return 0;
-
-	if (PIM_DEBUG_ZEBRA) {
-		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
-	}
-
-	if (!if_is_operative(ifp))
-		pim_if_addr_del_all(ifp);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
-
-	pim = pim_get_pim_instance(vrf_id);
-	if (pim && pim->vxlan.term_if == ifp)
-		pim_vxlan_del_term_dev(pim);
-
-	return 0;
-}
-
 static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
@@ -610,7 +581,6 @@ void pim_zebra_init(void)
 	zclient->zebra_capabilities = pim_zebra_capabilities;
 	zclient->zebra_connected = pim_zebra_connected;
 	zclient->router_id_update = pim_router_id_update_zebra;
-	zclient->interface_delete = pim_zebra_if_del;
 	zclient->interface_address_add = pim_zebra_if_address_add;
 	zclient->interface_address_delete = pim_zebra_if_address_del;
 	zclient->interface_vrf_update = pim_zebra_interface_vrf_update;

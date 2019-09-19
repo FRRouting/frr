@@ -53,7 +53,6 @@
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
 
-static int eigrp_interface_delete(ZAPI_CALLBACK_ARGS);
 static int eigrp_interface_address_add(ZAPI_CALLBACK_ARGS);
 static int eigrp_interface_address_delete(ZAPI_CALLBACK_ARGS);
 
@@ -109,7 +108,6 @@ void eigrp_zebra_init(void)
 	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);
 	zclient->zebra_connected = eigrp_zebra_connected;
 	zclient->router_id_update = eigrp_router_id_update_zebra;
-	zclient->interface_delete = eigrp_interface_delete;
 	zclient->interface_address_add = eigrp_interface_address_add;
 	zclient->interface_address_delete = eigrp_interface_address_delete;
 	zclient->redistribute_route_add = eigrp_zebra_read_route;
@@ -140,36 +138,6 @@ static int eigrp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	{
 	}
 
-	return 0;
-}
-
-static int eigrp_interface_delete(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	/* zebra_interface_state_read () updates interface structure in iflist
-	 */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	if (if_is_up(ifp))
-		zlog_warn("Zebra: got delete of %s, but interface is still up",
-			  ifp->name);
-
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-		zlog_debug(
-			"Zebra: interface delete %s index %d flags %llx metric %d mtu %d",
-			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
-			ifp->metric, ifp->mtu);
-
-	if (ifp->info)
-		eigrp_if_free(ifp->info, INTERFACE_DOWN_BY_ZEBRA);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
 	return 0;
 }
 

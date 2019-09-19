@@ -89,21 +89,11 @@ int vrrp_ifp_create(struct interface *ifp)
 	return 0;
 }
 
-static int vrrp_zebra_if_del(int command, struct zclient *zclient,
-			     zebra_size_t length, vrf_id_t vrf_id)
+int vrrp_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (!ifp)
-		return 0;
-
-	vrrp_zebra_debug_if_state(ifp, vrf_id, __func__);
+	vrrp_zebra_debug_if_state(ifp, ifp->vrf_id, __func__);
 
 	vrrp_if_del(ifp);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	return 0;
 }
@@ -199,11 +189,6 @@ int vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
 						down);
 }
 
-int vrrp_ifp_destroy(struct interface *ifp)
-{
-	return 0;
-}
-
 void vrrp_zebra_init(void)
 {
 	if_zapi_callbacks(vrrp_ifp_create, vrrp_ifp_up,
@@ -214,7 +199,6 @@ void vrrp_zebra_init(void)
 
 	zclient->zebra_connected = vrrp_zebra_connected;
 	zclient->router_id_update = vrrp_router_id_update_zebra;
-	zclient->interface_delete = vrrp_zebra_if_del;
 	zclient->interface_address_add = vrrp_zebra_if_address_add;
 	zclient->interface_address_delete = vrrp_zebra_if_address_del;
 

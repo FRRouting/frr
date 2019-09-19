@@ -72,23 +72,10 @@ int pbr_ifp_create(struct interface *ifp)
 	return 0;
 }
 
-static int interface_delete(ZAPI_CALLBACK_ARGS)
+int pbr_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	/* zebra_interface_state_read () updates interface structure in iflist
-	 */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s", __PRETTY_FUNCTION__, ifp->name);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	return 0;
 }
@@ -432,7 +419,6 @@ void pbr_zebra_init(void)
 
 	zclient_init(zclient, ZEBRA_ROUTE_PBR, 0, &pbr_privs);
 	zclient->zebra_connected = zebra_connected;
-	zclient->interface_delete = interface_delete;
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
 	zclient->route_notify_owner = route_notify_owner;
@@ -560,9 +546,4 @@ void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	zclient_send_message(zclient);
-}
-
-int pbr_ifp_destroy(struct interface *ifp)
-{
-	return 0;
 }

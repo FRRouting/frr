@@ -240,7 +240,6 @@ struct zclient {
 	void (*zebra_connected)(struct zclient *);
 	void (*zebra_capabilities)(struct zclient_capabilities *cap);
 	int (*router_id_update)(ZAPI_CALLBACK_ARGS);
-	int (*interface_delete)(ZAPI_CALLBACK_ARGS);
 	int (*interface_address_add)(ZAPI_CALLBACK_ARGS);
 	int (*interface_address_delete)(ZAPI_CALLBACK_ARGS);
 	int (*interface_link_params)(ZAPI_CALLBACK_ARGS);

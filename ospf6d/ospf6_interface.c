@@ -1987,6 +1987,14 @@ static int ospf6_ifp_down(struct interface *ifp)
 
 static int ospf6_ifp_destroy(struct interface *ifp)
 {
+	if (if_is_up(ifp))
+		zlog_warn("Zebra: got delete of %s, but interface is still up",
+			  ifp->name);
+
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+		zlog_debug("Zebra Interface delete: %s index %d mtu %d",
+			   ifp->name, ifp->ifindex, ifp->mtu6);
+
 	return 0;
 }
 

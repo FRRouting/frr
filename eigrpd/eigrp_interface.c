@@ -196,6 +196,19 @@ static int eigrp_ifp_down(struct interface *ifp)
 
 static int eigrp_ifp_destroy(struct interface *ifp)
 {
+	if (if_is_up(ifp))
+		zlog_warn("Zebra: got delete of %s, but interface is still up",
+			  ifp->name);
+
+	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+		zlog_debug(
+			"Zebra: interface delete %s index %d flags %llx metric %d mtu %d",
+			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu);
+
+	if (ifp->info)
+		eigrp_if_free(ifp->info, INTERFACE_DOWN_BY_ZEBRA);
+
 	return 0;
 }
 

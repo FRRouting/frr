@@ -307,21 +307,11 @@ int nhrp_ifp_create(struct interface *ifp)
 	return 0;
 }
 
-int nhrp_interface_delete(ZAPI_CALLBACK_ARGS)
+int nhrp_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	ifp = zebra_interface_state_read(s, vrf_id);
-	if (ifp == NULL)
-		return 0;
-
 	debugf(NHRP_DEBUG_IF, "if-delete: %s", ifp->name);
 
 	nhrp_interface_update(ifp);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	return 0;
 }
@@ -417,9 +407,4 @@ void nhrp_interface_set_source(struct interface *ifp, const char *ifname)
 	nifp->source = ifname ? strdup(ifname) : NULL;
 
 	nhrp_interface_update_nbma(ifp);
-}
-
-int nhrp_ifp_destroy(struct interface *ifp)
-{
-	return 0;
 }
