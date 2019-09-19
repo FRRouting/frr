@@ -346,7 +346,6 @@ void nhrp_zebra_init(void)
 	zclient = zclient_new(master, &zclient_options_default);
 	zclient->zebra_connected = nhrp_zebra_connected;
 	zclient->interface_delete = nhrp_interface_delete;
-	zclient->interface_up = nhrp_interface_up;
 	zclient->interface_down = nhrp_interface_down;
 	zclient->interface_address_add = nhrp_interface_address_add;
 	zclient->interface_address_delete = nhrp_interface_address_delete;

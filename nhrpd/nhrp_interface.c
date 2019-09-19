@@ -326,14 +326,8 @@ int nhrp_interface_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-int nhrp_interface_up(ZAPI_CALLBACK_ARGS)
+int nhrp_ifp_up(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-	if (ifp == NULL)
-		return 0;
-
 	debugf(NHRP_DEBUG_IF, "if-up: %s", ifp->name);
 	nhrp_interface_update_nbma(ifp);
 
@@ -428,11 +422,6 @@ void nhrp_interface_set_source(struct interface *ifp, const char *ifname)
 	nifp->source = ifname ? strdup(ifname) : NULL;
 
 	nhrp_interface_update_nbma(ifp);
-}
-
-int nhrp_ifp_up(struct interface *ifp)
-{
-	return 0;
 }
 
 int nhrp_ifp_down(struct interface *ifp)

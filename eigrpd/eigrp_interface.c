@@ -54,6 +54,7 @@
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_memory.h"
 #include "eigrpd/eigrp_fsm.h"
+#include "eigrpd/eigrp_dump.h"
 
 struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 				     struct prefix *p)
@@ -138,6 +139,46 @@ static int eigrp_ifp_create(struct interface *ifp)
 
 static int eigrp_ifp_up(struct interface *ifp)
 {
+	/* Interface is already up. */
+	if (if_is_operative(ifp)) {
+		/* Temporarily keep ifp values. */
+		struct interface if_tmp;
+		memcpy(&if_tmp, ifp, sizeof(struct interface));
+
+		if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+			zlog_debug("Zebra: Interface[%s] state update.",
+				   ifp->name);
+
+		if (if_tmp.bandwidth != ifp->bandwidth) {
+			if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+				zlog_debug(
+					"Zebra: Interface[%s] bandwidth change %d -> %d.",
+					ifp->name, if_tmp.bandwidth,
+					ifp->bandwidth);
+
+			//          eigrp_if_recalculate_output_cost (ifp);
+		}
+
+		if (if_tmp.mtu != ifp->mtu) {
+			if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+				zlog_debug(
+					"Zebra: Interface[%s] MTU change %u -> %u.",
+					ifp->name, if_tmp.mtu, ifp->mtu);
+
+			/* Must reset the interface (simulate down/up) when MTU
+			 * changes. */
+			eigrp_if_reset(ifp);
+		}
+		return 0;
+	}
+
+	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+		zlog_debug("Zebra: Interface[%s] state change to up.",
+			   ifp->name);
+
+	if (ifp->info)
+		eigrp_if_up(ifp->info);
+
 	return 0;
 }
 

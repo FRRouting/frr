@@ -1259,6 +1259,47 @@ static int ospf_ifp_create(struct interface *ifp)
 
 static int ospf_ifp_up(struct interface *ifp)
 {
+	struct ospf_interface *oi;
+	struct route_node *rn;
+
+	/* Interface is already up. */
+	if (if_is_operative(ifp)) {
+		/* Temporarily keep ifp values. */
+		struct interface if_tmp;
+		memcpy(&if_tmp, ifp, sizeof(struct interface));
+
+		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+			zlog_debug(
+				"Zebra: Interface[%s] state update speed %u -> %u, bw  %d -> %d",
+				ifp->name, if_tmp.speed, ifp->speed,
+				if_tmp.bandwidth, ifp->bandwidth);
+
+		ospf_if_recalculate_output_cost(ifp);
+
+		if (if_tmp.mtu != ifp->mtu) {
+			if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+				zlog_debug(
+					"Zebra: Interface[%s] MTU change %u -> %u.",
+					ifp->name, if_tmp.mtu, ifp->mtu);
+
+			/* Must reset the interface (simulate down/up) when MTU
+			 * changes. */
+			ospf_if_reset(ifp);
+		}
+		return 0;
+	}
+
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+		zlog_debug("Zebra: Interface[%s] state change to up.",
+			   ifp->name);
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		if ((oi = rn->info) == NULL)
+			continue;
+
+		ospf_if_up(oi);
+	}
+
 	return 0;
 }
 

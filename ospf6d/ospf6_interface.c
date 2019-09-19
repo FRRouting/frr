@@ -1948,6 +1948,15 @@ static int ospf6_ifp_create(struct interface *ifp)
 
 static int ospf6_ifp_up(struct interface *ifp)
 {
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+		zlog_debug(
+			"Zebra Interface state change: "
+			"%s index %d flags %llx metric %d mtu %d bandwidth %d",
+			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu6, ifp->bandwidth);
+
+	ospf6_interface_state_update(ifp);
+
 	return 0;
 }
 

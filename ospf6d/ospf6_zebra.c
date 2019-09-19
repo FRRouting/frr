@@ -571,7 +571,6 @@ void ospf6_zebra_init(struct thread_master *master)
 	zclient->zebra_connected = ospf6_zebra_connected;
 	zclient->router_id_update = ospf6_router_id_update_zebra;
 	zclient->interface_delete = ospf6_zebra_if_del;
-	zclient->interface_up = ospf6_zebra_if_state_update;
 	zclient->interface_down = ospf6_zebra_if_state_update;
 	zclient->interface_address_add = ospf6_zebra_if_address_update_add;
 	zclient->interface_address_delete =
