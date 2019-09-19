@@ -916,6 +916,7 @@ static int config_write(struct vty *vty)
 		vty_out(vty, "!\n");
 		vty_out(vty, "rpki\n");
 		vty_out(vty, "  rpki polling_period %d\n", polling_period);
+		vty_out(vty, "  rpki retry-interval %d\n", retry_interval);
 		for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
 			switch (cache->type) {
 				struct tr_tcp_config *tcp_config;
