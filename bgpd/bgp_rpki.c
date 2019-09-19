@@ -1052,6 +1052,13 @@ static int config_write(struct vty *vty)
 	struct listnode *cache_node;
 	struct cache *cache;
 
+	if (list_isempty(cache_list) &&
+	    polling_period == POLLING_PERIOD_DEFAULT &&
+	    retry_interval == RETRY_INTERVAL_DEFAULT &&
+	    expire_interval == EXPIRE_INTERVAL_DEFAULT)
+		/* do not display the default config values */
+		return 0;
+
 	if (rpki_debug)
 		vty_out(vty, "debug rpki\n");
 
@@ -1693,6 +1700,48 @@ DEFPY (show_rpki_cache_connection,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_rpki_configuration, show_rpki_configuration_cmd,
+      "show rpki configuration [json$uj]",
+      SHOW_STR RPKI_OUTPUT_STRING
+      "Show RPKI configuration\n"
+      JSON_STR)
+{
+	struct json_object *json = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_boolean_add(json, "enabled",
+					!!listcount(cache_list));
+		json_object_int_add(json, "serversCount", listcount(cache_list));
+		json_object_int_add(json, "pollingPeriodSeconds",
+				    polling_period);
+		json_object_int_add(json, "retryIntervalSeconds",
+				    retry_interval);
+		json_object_int_add(json, "expireIntervalSeconds",
+				    expire_interval);
+
+		vty_json(vty, json);
+
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "rpki is %s",
+		listcount(cache_list) ? "Enabled" : "Disabled");
+
+	if (list_isempty(cache_list)) {
+		vty_out(vty, "\n");
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, " (%d cache servers configured)", listcount(cache_list));
+	vty_out(vty, "\n");
+	vty_out(vty, "\tpolling period %d\n", polling_period);
+	vty_out(vty, "\tretry interval %d\n", retry_interval);
+	vty_out(vty, "\texpire interval %d\n", expire_interval);
+
+	return CMD_SUCCESS;
+}
+
 static int config_on_exit(struct vty *vty)
 {
 	reset(false);
@@ -1806,6 +1855,7 @@ static void install_cli_commands(void)
 	install_element(VIEW_NODE, &show_rpki_cache_server_cmd);
 	install_element(VIEW_NODE, &show_rpki_prefix_cmd);
 	install_element(VIEW_NODE, &show_rpki_as_number_cmd);
+	install_element(VIEW_NODE, &show_rpki_configuration_cmd);
 
 	/* Install debug commands */
 	install_element(CONFIG_NODE, &debug_rpki_cmd);
