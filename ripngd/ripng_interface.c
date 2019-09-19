@@ -219,19 +219,8 @@ static int ripng_ifp_up(struct interface *ifp)
 }
 
 /* Inteface link down message processing. */
-int ripng_interface_down(ZAPI_CALLBACK_ARGS)
+static int ripng_ifp_down(struct interface *ifp)
 {
-	struct stream *s;
-	struct interface *ifp;
-
-	/* zebra_interface_state_read() updates interface structure in iflist.
-	 */
-	s = zclient->ibuf;
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
 	ripng_interface_sync(ifp);
 	ripng_if_down(ifp);
 
@@ -974,11 +963,6 @@ static int interface_config_write(struct vty *vty)
 static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1 /* VTYSH */
 };
-
-static int ripng_ifp_down(struct interface *ifp)
-{
-	return 0;
-}
 
 static int ripng_ifp_destroy(struct interface *ifp)
 {

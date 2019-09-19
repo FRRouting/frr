@@ -184,6 +184,13 @@ static int eigrp_ifp_up(struct interface *ifp)
 
 static int eigrp_ifp_down(struct interface *ifp)
 {
+	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+		zlog_debug("Zebra: Interface[%s] state change to down.",
+			   ifp->name);
+
+	if (ifp->info)
+		eigrp_if_down(ifp->info);
+
 	return 0;
 }
 

@@ -253,27 +253,20 @@ static int bgp_ifp_up(struct interface *ifp)
 	return 0;
 }
 
-static int bgp_interface_down(ZAPI_CALLBACK_ARGS)
+static int bgp_ifp_down(struct interface *ifp)
 {
-	struct stream *s;
-	struct interface *ifp;
 	struct connected *c;
 	struct nbr_connected *nc;
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
 	struct peer *peer;
 
-	bgp = bgp_lookup_by_vrf_id(vrf_id);
-
-	s = zclient->ibuf;
-	ifp = zebra_interface_state_read(s, vrf_id);
-	if (!ifp)
-		return 0;
+	bgp = bgp_lookup_by_vrf_id(ifp->vrf_id);
 
 	bgp_mac_del_mac_entry(ifp);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx Intf down VRF %u IF %s", vrf_id, ifp->name);
+		zlog_debug("Rx Intf down VRF %u IF %s", ifp->vrf_id, ifp->name);
 
 	if (!bgp)
 		return 0;
@@ -2707,11 +2700,6 @@ static int bgp_ifp_create(struct interface *ifp)
 	return 0;
 }
 
-static int bgp_ifp_down(struct interface *ifp)
-{
-	return 0;
-}
-
 static int bgp_ifp_destroy(struct interface *ifp)
 {
 	return 0;
@@ -2738,7 +2726,6 @@ void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->interface_vrf_update = bgp_interface_vrf_update;
 	zclient->redistribute_route_add = zebra_read_route;
 	zclient->redistribute_route_del = zebra_read_route;
-	zclient->interface_down = bgp_interface_down;
 	zclient->nexthop_update = bgp_read_nexthop_update;
 	zclient->import_check_update = bgp_read_import_check_update;
 	zclient->fec_update = bgp_read_fec_update;

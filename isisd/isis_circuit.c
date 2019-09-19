@@ -1411,6 +1411,13 @@ static int isis_ifp_up(struct interface *ifp)
 
 static int isis_ifp_down(struct interface *ifp)
 {
+	struct isis_circuit *circuit;
+
+	circuit = isis_csm_state_change(IF_DOWN_FROM_Z,
+					circuit_scan_by_ifp(ifp), ifp);
+	if (circuit)
+		SET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);
+
 	return 0;
 }
 

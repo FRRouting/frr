@@ -346,20 +346,8 @@ int if_check_address(struct rip *rip, struct in_addr addr)
 }
 
 /* Inteface link down message processing. */
-int rip_interface_down(ZAPI_CALLBACK_ARGS)
+static int rip_ifp_down(struct interface *ifp)
 {
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-
-	/* zebra_interface_state_read() updates interface structure in
-	   iflist. */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
 	rip_interface_sync(ifp);
 	rip_if_down(ifp);
 
@@ -1238,11 +1226,6 @@ static int rip_interface_delete_hook(struct interface *ifp)
 	rip_interface_reset(ifp->info);
 	XFREE(MTYPE_RIP_INTERFACE, ifp->info);
 	ifp->info = NULL;
-	return 0;
-}
-
-static int rip_ifp_down(struct interface *ifp)
-{
 	return 0;
 }
 

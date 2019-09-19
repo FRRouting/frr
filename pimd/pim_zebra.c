@@ -92,50 +92,6 @@ static int pim_zebra_if_del(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int pim_zebra_if_state_down(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-
-	/*
-	  zebra api notifies interface up/down events by using the same call
-	  zebra_interface_state_read below, see comments in lib/zclient.c
-	*/
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-	if (!ifp)
-		return 0;
-
-	if (PIM_DEBUG_ZEBRA) {
-		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
-	}
-
-	if (!if_is_operative(ifp)) {
-		pim_ifchannel_delete_all(ifp);
-		/*
-		  pim_if_addr_del_all() suffices for shutting down IGMP,
-		  but not for shutting down PIM
-		*/
-		pim_if_addr_del_all(ifp);
-
-		/*
-		  pim_sock_delete() closes the socket, stops read and timer
-		  threads,
-		  and kills all neighbors.
-		*/
-		if (ifp->info) {
-			pim_sock_delete(ifp, "link down");
-		}
-	}
-
-	if (ifp->info)
-		pim_if_del_vif(ifp);
-
-	return 0;
-}
-
 static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
@@ -655,7 +611,6 @@ void pim_zebra_init(void)
 	zclient->zebra_connected = pim_zebra_connected;
 	zclient->router_id_update = pim_router_id_update_zebra;
 	zclient->interface_delete = pim_zebra_if_del;
-	zclient->interface_down = pim_zebra_if_state_down;
 	zclient->interface_address_add = pim_zebra_if_address_add;
 	zclient->interface_address_delete = pim_zebra_if_address_del;
 	zclient->interface_vrf_update = pim_zebra_interface_vrf_update;

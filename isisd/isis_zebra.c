@@ -98,24 +98,6 @@ static int isis_zebra_if_del(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int isis_zebra_if_state_down(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct isis_circuit *circuit;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	circuit = isis_csm_state_change(IF_DOWN_FROM_Z,
-					circuit_scan_by_ifp(ifp), ifp);
-	if (circuit)
-		SET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);
-
-	return 0;
-}
-
 static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
@@ -358,7 +340,6 @@ void isis_zebra_init(struct thread_master *master)
 	zclient->zebra_connected = isis_zebra_connected;
 	zclient->router_id_update = isis_router_id_update_zebra;
 	zclient->interface_delete = isis_zebra_if_del;
-	zclient->interface_down = isis_zebra_if_state_down;
 	zclient->interface_address_add = isis_zebra_if_address_add;
 	zclient->interface_address_delete = isis_zebra_if_address_del;
 	zclient->interface_link_params = isis_zebra_link_params;
