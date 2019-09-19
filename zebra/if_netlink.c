@@ -1032,7 +1032,8 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	/* addr is primary key, SOL if we don't have one */
 	if (addr == NULL) {
-		zlog_debug("%s: NULL address", __func__);
+		zlog_debug("%s: Local Interface Address is NULL for %s",
+			   __func__, ifp->name);
 		return -1;
 	}
 
