@@ -663,19 +663,30 @@ kernel.
 .. clicmd:: ip protocol PROTOCOL route-map ROUTEMAP
 
    Apply a route-map filter to routes for the specified protocol. PROTOCOL can
-   be **any** or one of
+   be: 
 
-   - system,
-   - kernel,
+   - any,
+   - babel,
+   - bgp,
    - connected,
-   - static,
-   - rip,
-   - ripng,
+   - eigrp,
+   - isis,
+   - kernel,
+   - nhrp,
+   - openfabric,
    - ospf,
    - ospf6,
-   - isis,
-   - bgp,
-   - hsls.
+   - rip,
+   - sharp,
+   - static,
+   - ripng,
+   - table,
+   - vnc.
+
+   If you choose any as the option that will cause all protocols that are sending
+   routes to zebra.  You can specify a :dfn:`ip protocol PROTOCOL route-map ROUTEMAP`
+   on a per vrf basis, by entering this command under vrf mode for the vrf you
+   want to apply the route-map against.
 
 .. index:: set src ADDRESS
 .. clicmd:: set src ADDRESS
