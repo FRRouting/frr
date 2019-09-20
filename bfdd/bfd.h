@@ -378,7 +378,7 @@ int control_notify(struct bfd_session *bs);
 int control_notify_config(const char *op, struct bfd_session *bs);
 int control_accept(struct thread *t);
 
-void bfd_clear_stored_pkt (struct bfd_session *bs);
+void bfd_clear_stored_pkt(struct bfd_session *bs);
 
 /*
  * bfdd.c
