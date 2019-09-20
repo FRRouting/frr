@@ -241,6 +241,8 @@ static int ospf_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 
 		old_status = bfd_info->status;
 		bfd_info->status = status;
+		if (status == BFD_STATUS_ADMIN_DOWN)
+			bfd_info->status = BFD_STATUS_DOWN;
 		monotime(&tv);
 		bfd_info->last_update = tv.tv_sec;
 

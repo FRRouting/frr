@@ -374,7 +374,7 @@ TAILQ_HEAD(bcslist, bfd_control_socket);
 
 int control_init(const char *path);
 void control_shutdown(void);
-int control_notify(struct bfd_session *bs);
+int control_notify(struct bfd_session *bs, uint8_t notify_state);
 int control_notify_config(const char *op, struct bfd_session *bs);
 int control_accept(struct thread *t);
 
@@ -518,7 +518,7 @@ int bfd_session_enable(struct bfd_session *bs);
 void bfd_session_disable(struct bfd_session *bs);
 struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc);
 int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc);
-void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag);
+void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag, uint8_t peer_state);
 void ptm_bfd_sess_up(struct bfd_session *bfd);
 void ptm_bfd_echo_stop(struct bfd_session *bfd);
 void ptm_bfd_echo_start(struct bfd_session *bfd);
@@ -638,7 +638,7 @@ void bfdd_sessions_enable_vrf(struct vrf *vrf);
 void bfdd_sessions_disable_vrf(struct vrf *vrf);
 void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf);
 
-int ptm_bfd_notify(struct bfd_session *bs);
+int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state);
 
 
 /*

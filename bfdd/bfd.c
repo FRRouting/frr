@@ -318,7 +318,7 @@ void ptm_bfd_sess_up(struct bfd_session *bfd)
 	/* Start sending control packets with poll bit immediately. */
 	ptm_bfd_snd(bfd, 0);
 
-	control_notify(bfd);
+	control_notify(bfd, bfd->ses_state);
 
 	if (old_state != bfd->ses_state) {
 		bfd->stats.session_up++;
@@ -328,8 +328,9 @@ void ptm_bfd_sess_up(struct bfd_session *bfd)
 	}
 }
 
-void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
+void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag, uint8_t peer_state)
 {
+	uint8_t notify_state = PTM_BFD_DOWN;
 	int old_state = bfd->ses_state;
 
 	bfd->local_diag = diag;
@@ -347,8 +348,12 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 	bs_set_slow_timers(bfd);
 
 	/* only signal clients when going from up->down state */
-	if (old_state == PTM_BFD_UP)
-		control_notify(bfd);
+	if (old_state == PTM_BFD_UP) {
+		if (peer_state == PTM_BFD_ADM_DOWN)
+			notify_state = peer_state;
+
+		control_notify(bfd, notify_state);
+	}
 
 	/* Stop echo packet transmission if they are active */
 	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
@@ -441,7 +446,7 @@ int bfd_recvtimer_cb(struct thread *t)
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
-		ptm_bfd_sess_dn(bs, BD_CONTROL_EXPIRED);
+		ptm_bfd_sess_dn(bs, BD_CONTROL_EXPIRED, PTM_BFD_UP);
 		bfd_recvtimer_update(bs);
 		break;
 
@@ -464,7 +469,7 @@ int bfd_echo_recvtimer_cb(struct thread *t)
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
-		ptm_bfd_sess_dn(bs, BD_ECHO_FAILED);
+		ptm_bfd_sess_dn(bs, BD_ECHO_FAILED, PTM_BFD_UP);
 		break;
 	}
 
@@ -585,7 +590,7 @@ skip_echo:
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_ADM_DOWN;
-		control_notify(bs);
+		control_notify(bs, bs->ses_state);
 
 		/* Don't try to send packets with a disabled session. */
 		if (bs->sock != -1)
@@ -599,7 +604,7 @@ skip_echo:
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_DOWN;
-		control_notify(bs);
+		control_notify(bs, bs->ses_state);
 
 		/* Enable all timers. */
 		bfd_recvtimer_update(bs);
@@ -879,7 +884,7 @@ static void bs_up_handler(struct bfd_session *bs, int nstate)
 	case PTM_BFD_ADM_DOWN:
 	case PTM_BFD_DOWN:
 		/* Peer lost or asked to shutdown connection. */
-		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN);
+		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN, nstate);
 		break;
 
 	case PTM_BFD_INIT:
