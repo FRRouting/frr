@@ -1269,14 +1269,20 @@ bgp_attr_nexthop_valid(struct peer *peer, struct attr *attr)
 	if ((IPV4_NET0(nexthop_h) || IPV4_NET127(nexthop_h)
 	     || IPV4_CLASS_DE(nexthop_h))
 	    && !BGP_DEBUG(allow_martians, ALLOW_MARTIANS)) {
+		uint8_t data[7]; /* type(2) + length(1) + nhop(4) */
 		char buf[INET_ADDRSTRLEN];
 
 		inet_ntop(AF_INET, &attr->nexthop.s_addr, buf,
 			  INET_ADDRSTRLEN);
 		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %s",
 			 buf);
-		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
-				BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP);
+		data[0] = BGP_ATTR_FLAG_TRANS;
+		data[1] = BGP_ATTR_NEXT_HOP;
+		data[2] = BGP_ATTR_NHLEN_IPV4;
+		memcpy(&data[3], &attr->nexthop.s_addr, BGP_ATTR_NHLEN_IPV4);
+		bgp_notify_send_with_data(peer, BGP_NOTIFY_UPDATE_ERR,
+					  BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP,
+					  data, 7);
 		return BGP_ATTR_PARSE_ERROR;
 	}
 
