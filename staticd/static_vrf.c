@@ -27,6 +27,7 @@
 #include "static_memory.h"
 #include "static_vrf.h"
 #include "static_routes.h"
+#include "static_zebra.h"
 #include "static_vty.h"
 
 static void zebra_stable_node_cleanup(struct route_table *table,
@@ -76,6 +77,8 @@ static int static_vrf_new(struct vrf *vrf)
 
 static int static_vrf_enable(struct vrf *vrf)
 {
+	static_zebra_vrf_register(vrf);
+
 	static_fixup_vrf_ids(vrf->info);
 
 	/*
@@ -89,6 +92,7 @@ static int static_vrf_enable(struct vrf *vrf)
 
 static int static_vrf_disable(struct vrf *vrf)
 {
+	static_zebra_vrf_unregister(vrf);
 	return 0;
 }
 
