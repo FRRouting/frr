@@ -272,9 +272,6 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 			(!bfd->polling) && !(fbit)) {
 			memcpy(&(bfd->bfd_tx_pkt), pst_bfd_pkt, sizeof(struct bfd_pkt));
 			bfd->bfd_tx_pkt_stored = true;
-
-			log_debug_info("storing-packet: session-id: %d",
-							bfd->discrs.my_discr);
 		}
 	}
 
