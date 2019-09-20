@@ -263,7 +263,7 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 				htonl(bfd->cur_timers.required_min_rx);
 		}
 
-		cp.timers.required_min_echo = 
+		cp.timers.required_min_echo =
 					htonl(bfd->timers.required_min_echo);
 
 		pst_bfd_pkt = &cp;
@@ -450,7 +450,7 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 				local->sa_sin6.sin6_family = AF_INET6;
 				local->sa_sin6.sin6_addr = pi6->ipi6_addr;
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
-				local->sa_sin6.sin6_len = 
+				local->sa_sin6.sin6_len =
 						sizeof(local->sa_sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 
