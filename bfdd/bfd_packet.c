@@ -214,7 +214,7 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 {
-	struct bfd_pkt cp = {0};
+	struct bfd_pkt cp;
 	struct bfd_pkt *pst_bfd_pkt = NULL;
 
 	if ((bfd->bfd_tx_pkt_stored) &&
