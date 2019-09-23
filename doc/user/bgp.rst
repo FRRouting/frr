@@ -2056,6 +2056,61 @@ address-family:
    the VPN RIB as intermediary.
 
 
+.. _bgp-evpn:
+
+Ethernet Virtual Network - EVPN
+-------------------------------
+
+.. _bgp-evpn-advertise-pip:
+
+EVPN advertise-PIP
+^^^^^^^^^^^^^^^^^^
+
+In a EVPN symmetric routing MLAG deployment, all EVPN routes advertised
+with anycast-IP as next-hop IP and anycast MAC as the Router MAC (RMAC - in
+BGP EVPN Extended-Community).
+EVPN picks up the next-hop IP from the VxLAN interface's local tunnel IP and
+the RMAC is obtained from the MAC of the L3VNI's SVI interface.
+Note: Next-hop IP is used for EVPN routes whether symmetric routing is
+deployed or not but the RMAC is only relevant for symmetric routing scenario.
+
+Current behavior is not ideal for Prefix (type-5) and self (type-2)
+routes. This is because the traffic from remote VTEPs routed sub optimally
+if they land on the system where the route does not belong.
+
+The advertise-pip feature advertises Prefix (type-5) and self (type-2)
+routes with system's individual (primary) IP as the next-hop and individual
+(system) MAC as Router-MAC (RMAC), while leaving the behavior unchanged for
+other EVPN routes.
+
+To support this feature there needs to have ability to co-exist a
+(system-MAC, system-IP) pair with a (anycast-MAC, anycast-IP) pair with the
+ability to terminate VxLAN-encapsulated packets received for either pair on
+the same L3VNI (i.e associated VLAN). This capability is need per tenant
+VRF instance.
+
+To derive the system-MAC and the anycast MAC, there needs to have a
+separate/additional MAC-VLAN interface corresponding to L3VNI’s SVI.
+The SVI interface’s MAC address can be interpreted as system-MAC
+and MAC-VLAN interface's MAC as anycast MAC.
+
+To derive system-IP and anycast-IP, the default BGP instance's router-id is used
+as system-IP and the VxLAN interface’s local tunnel IP as the anycast-IP.
+
+User has an option to configure the system-IP and/or system-MAC value if the
+auto derived value is not preferred.
+
+Note: By default, advertise-pip feature is enabled and user has an option to
+disable the feature via configuration CLI. Once the feature is disable under
+bgp vrf instance or MAC-VLAN interface is not configured, all the routes follow
+the same behavior of using same next-hop and RMAC values.
+
+.. index:: [no] advertise-pip [ip <addr> [mac <addr>]]
+.. clicmd:: [no] advertise-pip [ip <addr> [mac <addr>]]
+
+Enables or disables advertise-pip feature, specifiy system-IP and/or system-MAC
+parameters.
+
 .. _bgp-cisco-compatibility:
 
 Cisco Compatibility
