@@ -61,6 +61,13 @@ module frr-isisd {
       "This type defines IS-IS level of an object.";
   }
 
+  typedef extended-circuit-id {
+    type uint32;
+    description
+      "This type defines the extended circuit ID
+       associated with an interface.";
+  }
+
   typedef network-type {
     type enumeration {
       enum "unknown" {
@@ -93,6 +100,20 @@ module frr-isisd {
     description
       "This type defines the IS-IS LSP ID format using a
        pattern, An example LSP ID is 0143.0438.AeF0.02-01";
+  }
+
+  typedef snpa {
+    type string {
+      length "0 .. 20";
+    }
+    description
+      "This type defines the Subnetwork Point
+       of Attachment (SNPA) format.
+       The SNPA should be encoded according to the rules
+       specified for the particular type of subnetwork
+       being used. As an example, for an ethernet subnetwork,
+       the SNPA is encoded as a MAC address like
+       '00aa.bbcc.ddee'.";
   }
 
   typedef system-id {
@@ -544,6 +565,70 @@ module frr-isisd {
     }
   }
 
+  grouping adjacency-state {
+    container adjacencies {
+      config false;
+      list adjacency {
+        leaf neighbor-sys-type {
+          type level;
+          description
+            "Level capability of neighboring system";
+        }
+        leaf neighbor-sysid {
+          type system-id;
+          description
+            "The system-id of the neighbor";
+        }
+        leaf neighbor-extended-circuit-id {
+          type extended-circuit-id;
+          description
+            "Circuit ID of the neighbor";
+        }
+        leaf neighbor-snpa {
+          type snpa;
+          description
+            "SNPA of the neighbor";
+        }
+        leaf hold-timer {
+          type uint16;
+          units seconds;
+          description
+            "The holding time in seconds for this
+             adjacency. This value is based on
+             received hello PDUs and the elapsed
+             time since receipt.";
+        }
+        leaf neighbor-priority {
+          type uint8 {
+            range "0 .. 127";
+          }
+          description
+            "Priority of the neighboring IS for becoming
+             the DIS.";
+        }
+        leaf state {
+          type adj-state-type;
+          description
+            "This leaf describes the state of the interface.";
+        }
+
+        description
+          "List of operational adjacencies.";
+      }
+      description
+        "This container lists the adjacencies of
+         the local node.";
+    }
+    description
+      "Adjacency state";
+  }
+
+  grouping interface-state {
+    description
+      "IS-IS interface operational state.";
+    uses adjacency-state;
+  }
+
   grouping notification-instance-hdr {
     description
       "Instance specific IS-IS notification data grouping";
@@ -582,7 +667,7 @@ module frr-isisd {
     }
 
     leaf extended-circuit-id {
-      type uint32;
+      type extended-circuit-id;
       description
         "Eextended circuit-id of the interface.";
     }
@@ -1003,6 +1088,7 @@ module frr-isisd {
       description
         "IS-IS interface parameters.";
       uses interface-config;
+      uses interface-state;
     }
   }
 
