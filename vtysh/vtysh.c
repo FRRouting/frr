@@ -2548,10 +2548,11 @@ DEFUNSH(VTYSH_ALL, vtysh_log_facility, vtysh_log_facility_cmd,
 }
 
 DEFUNSH(VTYSH_ALL, no_vtysh_log_facility, no_vtysh_log_facility_cmd,
-	"no log facility [FACILITY]", NO_STR
+	"no log facility [<kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>]",
+	NO_STR
 	"Logging control\n"
 	"Reset syslog facility to default (daemon)\n"
-	"Syslog facility\n")
+	LOG_FACILITY_DESC)
 {
 	return CMD_SUCCESS;
 }
