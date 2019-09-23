@@ -240,7 +240,8 @@ void bfd_clear_stored_pkt(struct bfd_session *bs)
 		memset(&(bs->bfd_tx_pkt), 0, sizeof(struct bfd_pkt));
 		bs->bfd_tx_pkt_stored = false;
 
-		log_debug_info("clear-packet: session-id: %d", bs->discrs.my_discr);
+		log_debug_info("clear-packet: session-id: %d",
+						bs->discrs.my_discr);
 	}
 }
 

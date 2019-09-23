@@ -107,11 +107,11 @@ static void debug_printbpc(const char *func, unsigned int line,
 		snprintf(addr[2], sizeof(addr[2]), " vrf:%s", bpc->bpc_vrfname);
 
 	if (bpc->bpc_has_recvinterval)
-		snprintf(timers[0], sizeof(timers[0]), " rx:%lu",
+		snprintf(timers[0], sizeof(timers[0]), " rx:%llu",
 			 bpc->bpc_recvinterval);
 
 	if (bpc->bpc_has_txinterval)
-		snprintf(timers[1], sizeof(timers[1]), " tx:%lu",
+		snprintf(timers[1], sizeof(timers[1]), " tx:%llu",
 			 bpc->bpc_recvinterval);
 
 	if (bpc->bpc_has_detectmultiplier)
