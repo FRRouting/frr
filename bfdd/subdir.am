@@ -8,6 +8,7 @@ sbin_PROGRAMS += bfdd/bfdd
 dist_examples_DATA += bfdd/bfdd.conf.sample
 vtysh_scan += $(top_srcdir)/bfdd/bfdd_vty.c
 vtysh_scan += $(top_srcdir)/bfdd/bfdd_cli.c
+vtysh_scan += $(top_srcdir)/bfdd/bfd_debug.c
 man8 += $(MANBUILD)/bfdd.8
 endif
 
@@ -22,6 +23,7 @@ bfdd_libbfd_a_SOURCES = \
 	bfdd/event.c \
 	bfdd/log.c \
 	bfdd/ptm_adapter.c \
+	bfdd/bfd_debug.c \
 	# end
 
 bfdd/bfdd_vty_clippy.c: $(CLIPPY_DEPS)

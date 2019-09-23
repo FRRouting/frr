@@ -272,6 +272,9 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 			(!bfd->polling) && !(fbit)) {
 			memcpy(&(bfd->bfd_tx_pkt), pst_bfd_pkt, sizeof(struct bfd_pkt));
 			bfd->bfd_tx_pkt_stored = true;
+
+			log_debug_info("storing-packet: session-id: %d",
+							bfd->discrs.my_discr);
 		}
 	}
 
@@ -621,8 +624,9 @@ int bfd_recv_cb(struct thread *t)
 	/* Find the session that this packet belongs. */
 	bfd = ptm_bfd_sess_find(cp, &peer, &local, ifindex, vrfid, is_mhop);
 	if (bfd == NULL) {
-		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
-			 "no session found");
+		if (BFD_DEBUG())
+			cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
+				"no session found");
 		return 0;
 	}
 

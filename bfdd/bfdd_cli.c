@@ -409,4 +409,6 @@ bfdd_cli_init(void)
 	install_element(BFD_PEER_NODE, &bfd_peer_tx_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_interval_cmd);
+
+	bfd_debug_init();
 }

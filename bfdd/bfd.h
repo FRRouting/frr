@@ -455,6 +455,7 @@ void log_init(int foreground, enum blog_level level,
 	      struct frr_daemon_info *fdi);
 void log_info(const char *fmt, ...);
 void log_debug(const char *fmt, ...);
+void log_debug_info(const char *fmt, ...);
 void log_warning(const char *fmt, ...);
 void log_error(const char *fmt, ...);
 void log_fatal(const char *fmt, ...);
@@ -647,5 +648,35 @@ int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state);
  * BFD northbound callbacks.
  */
 extern const struct frr_yang_module_info frr_bfdd_info;
+
+/* bfd_debug.c*/
+/* Prototypes. */
+extern void bfd_debug_init(void);
+
+extern bool conf_bfd_debug;
+
+extern bool term_bfd_debug;
+
+
+#define BFD_CONF_DEBUG_ON() (conf_bfd_debug = true)
+#define BFD_CONF_DEBUG_OFF()    (conf_bfd_debug = false)
+
+#define BFD_TERM_DEBUG_ON() (term_bfd_debug = true)
+#define BFD_TERM_DEBUG_OFF()    (term_bfd_debug = false)
+
+#define BFD_DEBUG_ON()                                                         \
+    do {                                                                   \
+        BFD_CONF_DEBUG_ON();                                           \
+        BFD_TERM_DEBUG_ON();                                           \
+    } while (0)
+#define BFD_DEBUG_OFF()                                                        \
+    do {                                                                   \
+        BFD_CONF_DEBUG_OFF();                                          \
+        BFD_TERM_DEBUG_OFF();                                          \
+    } while (0)
+
+#define BFD_DEBUG()     (true == term_bfd_debug)
+#define CONF_BFD_DEBUG()    (true == conf_bfd_debug)
+
 
 #endif /* _BFD_H_ */
