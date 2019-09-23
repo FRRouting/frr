@@ -2422,6 +2422,28 @@ DEFUN (vtysh_show_error_code,
 	return CMD_SUCCESS;
 }
 
+/* Northbound. */
+DEFUNSH(VTYSH_ALL, debug_nb,
+	debug_nb_cmd,
+	"[no] debug northbound\
+	   [<\
+	    callbacks$cbs [{configuration$cbs_cfg|state$cbs_state|rpc$cbs_rpc}]\
+	    |notifications$notifications\
+	    |events$events\
+	   >]",
+	NO_STR
+	DEBUG_STR
+	"Northbound debugging\n"
+	"Callbacks\n"
+	"Configuration\n"
+	"State\n"
+	"RPC\n"
+	"Notifications\n"
+	"Events\n")
+{
+	return CMD_SUCCESS;
+}
+
 /* Memory */
 DEFUN (vtysh_show_memory,
        vtysh_show_memory_cmd,
@@ -4016,6 +4038,10 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_debug_all_cmd);
 	install_element(ENABLE_NODE, &vtysh_debug_memstats_cmd);
 	install_element(CONFIG_NODE, &vtysh_debug_memstats_cmd);
+
+	/* northbound */
+	install_element(ENABLE_NODE, &debug_nb_cmd);
+	install_element(CONFIG_NODE, &debug_nb_cmd);
 
 	/* misc lib show commands */
 	install_element(VIEW_NODE, &vtysh_show_memory_cmd);
