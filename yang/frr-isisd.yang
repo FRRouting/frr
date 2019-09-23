@@ -275,6 +275,275 @@ module frr-isisd {
     }
   }
 
+  grouping interface-config {
+    description "Interface configuration grouping";
+
+    leaf area-tag {
+      type string;
+      mandatory true;
+      description
+        "Area-tag associated to this circuit.";
+    }
+
+    leaf ipv4-routing {
+      type boolean;
+      default "false";
+      description
+        "Routing IS-IS IPv4 traffic over this circuit.";
+    }
+
+    leaf ipv6-routing {
+      type boolean;
+      default "false";
+      description
+        "Routing IS-IS IPv6 traffic over this circuit.";
+    }
+
+    leaf circuit-type {
+      type level;
+      default "level-1-2";
+      description
+        "IS-type of this circuit.";
+    }
+
+    leaf bfd-monitoring {
+      type boolean;
+      default false;
+      description "Monitor IS-IS peers on this circuit.";
+    }
+
+    container csnp-interval {
+      description
+        "Complete Sequence Number PDU (CSNP) generation interval.";
+      leaf level-1 {
+        type uint16 {
+          range "1..600";
+        }
+        units "seconds";
+        default "10";
+        description
+          "CNSP interval for level-1";
+      }
+
+      leaf level-2 {
+        type uint16 {
+          range "1..600";
+        }
+        units "seconds";
+        default "10";
+        description
+          "CNSP interval for level-2";
+      }
+    }
+
+    container psnp-interval {
+      description
+        "Partial Sequence Number PDU (PSNP) generation interval.";
+      leaf level-1 {
+        type uint16 {
+          range "1..120";
+        }
+        units "seconds";
+        default "2";
+        description
+          "PNSP interval for level-1";
+      }
+
+      leaf level-2 {
+        type uint16 {
+          range "1..120";
+        }
+        units "seconds";
+        default "2";
+        description
+          "PCNSP interval for level-2";
+      }
+    }
+
+    container hello {
+      description
+        "Parameters related to IS-IS hello PDUs.";
+      leaf padding {
+        type boolean;
+        default "true";
+        description
+          "Add padding to IS-IS hello PDUs.";
+      }
+
+      container interval {
+        description
+          "Interval between consecutive hello messages.";
+        leaf level-1 {
+          type uint32 {
+            range "1..600";
+          }
+          units "seconds";
+          default "3";
+          description
+            "Holding time for level-1; interval will depend on multiplier.";
+        }
+
+        leaf level-2 {
+          type uint32 {
+            range "1..600";
+          }
+          units "seconds";
+          default "3";
+          description
+            "Holding time for level-2; interval will depend on multiplier.";
+        }
+      }
+
+      container multiplier {
+        description
+          "Multiplier for the hello messages holding time.";
+        leaf level-1 {
+          type uint16 {
+            range "2..100";
+          }
+          default "10";
+          description
+            "Multiplier for the hello holding time.";
+        }
+
+        leaf level-2 {
+          type uint16 {
+            range "2..100";
+          }
+          default "10";
+          description
+            "Multiplier for the hello holding time.";
+        }
+      }
+    }
+
+    container metric {
+      description
+        "Default metric for this IS-IS circuit.";
+      leaf level-1 {
+        type uint32 {
+          range "0..16777215";
+        }
+        must ". < 64 or /frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style = 'wide'";
+        default "10";
+        description
+          "Default level-1 metric for this IS-IS circuit.";
+      }
+
+      leaf level-2 {
+        type uint32 {
+          range "0..16777215";
+        }
+        must ". < 64 or /frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style = 'wide'";
+        default "10";
+        description
+          "Default level-2 metric for this IS-IS circuit.";
+      }
+    }
+
+    container priority {
+      description
+        "Priority for Designated Router election.";
+      leaf level-1 {
+        type uint8 {
+          range "0..127";
+        }
+        default "64";
+        description
+          "Level-1 priority for this IS-IS circuit.";
+      }
+
+      leaf level-2 {
+        type uint8 {
+          range "0..127";
+        }
+        default "64";
+        description
+          "Level-2 priority for this IS-IS circuit.";
+      }
+    }
+
+    leaf network-type {
+      type network-type;
+      default "broadcast";
+      must "(. = \"point-to-point\") or (. = \"broadcast\")";
+      description
+        "Explicitly configured type of IS-IS circuit (broadcast or point-to-point).";
+    }
+
+    leaf passive {
+      type boolean;
+      default "false";
+      description
+        "Interface is in passive mode.";
+    }
+
+    container password {
+      presence "Present if a password is set for this IS interface.";
+      uses isis-password;
+    }
+
+    leaf disable-three-way-handshake {
+      type boolean;
+      default "false";
+      description
+        "Disables three-way handshake when creating new adjacencies.";
+    }
+
+    container multi-topology {
+      description
+        "IS-IS topologies configured on this circuit.";
+      leaf ipv4-unicast {
+        type boolean;
+        default "true";
+        description
+          "IPv4 unicast topology.";
+      }
+
+      leaf ipv4-multicast {
+        type boolean;
+        default "true";
+        description
+          "IPv4 multicast topology.";
+      }
+
+      leaf ipv4-management {
+        type boolean;
+        default "true";
+        description
+          "IPv4 management topology.";
+      }
+
+      leaf ipv6-unicast {
+        type boolean;
+        default "true";
+        description
+          "IPv6 unicast topology.";
+      }
+
+      leaf ipv6-multicast {
+        type boolean;
+        default "true";
+        description
+          "IPv6 multicast topology.";
+      }
+
+      leaf ipv6-management {
+        type boolean;
+        default "true";
+        description
+          "IPv6 management topology.";
+      }
+
+      leaf ipv6-dstsrc {
+        type boolean;
+        default "true";
+        description
+          "IPv6 destination-source topology.";
+      }
+    }
+  }
+
   grouping notification-instance-hdr {
     description
       "Instance specific IS-IS notification data grouping";
@@ -733,270 +1002,7 @@ module frr-isisd {
       presence "Present if an IS-IS circuit is defined for this interface.";
       description
         "IS-IS interface parameters.";
-      leaf area-tag {
-        type string;
-        mandatory true;
-        description
-          "Area-tag associated to this circuit.";
-      }
-
-      leaf ipv4-routing {
-        type boolean;
-        default "false";
-        description
-          "Routing IS-IS IPv4 traffic over this circuit.";
-      }
-
-      leaf ipv6-routing {
-        type boolean;
-        default "false";
-        description
-          "Routing IS-IS IPv6 traffic over this circuit.";
-      }
-
-      leaf circuit-type {
-        type level;
-        default "level-1-2";
-        description
-          "IS-type of this circuit.";
-      }
-
-      leaf bfd-monitoring {
-        type boolean;
-        default false;
-        description "Monitor IS-IS peers on this circuit.";
-      }
-
-      container csnp-interval {
-        description
-          "Complete Sequence Number PDU (CSNP) generation interval.";
-        leaf level-1 {
-          type uint16 {
-            range "1..600";
-          }
-          units "seconds";
-          default "10";
-          description
-            "CNSP interval for level-1";
-        }
-
-        leaf level-2 {
-          type uint16 {
-            range "1..600";
-          }
-          units "seconds";
-          default "10";
-          description
-            "CNSP interval for level-2";
-        }
-      }
-
-      container psnp-interval {
-        description
-          "Partial Sequence Number PDU (PSNP) generation interval.";
-        leaf level-1 {
-          type uint16 {
-            range "1..120";
-          }
-          units "seconds";
-          default "2";
-          description
-            "PNSP interval for level-1";
-        }
-
-        leaf level-2 {
-          type uint16 {
-            range "1..120";
-          }
-          units "seconds";
-          default "2";
-          description
-            "PCNSP interval for level-2";
-        }
-      }
-
-      container hello {
-        description
-          "Parameters related to IS-IS hello PDUs.";
-        leaf padding {
-          type boolean;
-          default "true";
-          description
-            "Add padding to IS-IS hello PDUs.";
-        }
-
-        container interval {
-          description
-            "Interval between consecutive hello messages.";
-          leaf level-1 {
-            type uint32 {
-              range "1..600";
-            }
-            units "seconds";
-            default "3";
-            description
-              "Holding time for level-1; interval will depend on multiplier.";
-          }
-
-          leaf level-2 {
-            type uint32 {
-              range "1..600";
-            }
-            units "seconds";
-            default "3";
-            description
-              "Holding time for level-2; interval will depend on multiplier.";
-          }
-        }
-
-        container multiplier {
-          description
-            "Multiplier for the hello messages holding time.";
-          leaf level-1 {
-            type uint16 {
-              range "2..100";
-            }
-            default "10";
-            description
-              "Multiplier for the hello holding time.";
-          }
-
-          leaf level-2 {
-            type uint16 {
-              range "2..100";
-            }
-            default "10";
-            description
-              "Multiplier for the hello holding time.";
-          }
-        }
-      }
-
-      container metric {
-        description
-          "Default metric for this IS-IS circuit.";
-        leaf level-1 {
-          type uint32 {
-            range "0..16777215";
-          }
-          must ". < 64 or /frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style = 'wide'";
-          default "10";
-          description
-            "Default level-1 metric for this IS-IS circuit.";
-        }
-
-        leaf level-2 {
-          type uint32 {
-            range "0..16777215";
-          }
-          must ". < 64 or /frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style = 'wide'";
-          default "10";
-          description
-            "Default level-2 metric for this IS-IS circuit.";
-        }
-      }
-
-      container priority {
-        description
-          "Priority for Designated Router election.";
-        leaf level-1 {
-          type uint8 {
-            range "0..127";
-          }
-          default "64";
-          description
-            "Level-1 priority for this IS-IS circuit.";
-        }
-
-        leaf level-2 {
-          type uint8 {
-            range "0..127";
-          }
-          default "64";
-          description
-            "Level-2 priority for this IS-IS circuit.";
-        }
-      }
-
-      leaf network-type {
-        type network-type;
-        default "broadcast";
-        must "(. = \"point-to-point\") or (. = \"broadcast\")";
-        description
-          "Explicitly configured type of IS-IS circuit (broadcast or point-to-point).";
-      }
-
-      leaf passive {
-        type boolean;
-        default "false";
-        description
-          "Interface is in passive mode.";
-      }
-
-      container password {
-        presence "Present if a password is set for this IS interface.";
-        uses isis-password;
-      }
-
-      leaf disable-three-way-handshake {
-        type boolean;
-        default "false";
-        description
-          "Disables three-way handshake when creating new adjacencies.";
-      }
-
-      container multi-topology {
-        description
-          "IS-IS topologies configured on this circuit.";
-        leaf ipv4-unicast {
-          type boolean;
-          default "true";
-          description
-            "IPv4 unicast topology.";
-        }
-
-        leaf ipv4-multicast {
-          type boolean;
-          default "true";
-          description
-            "IPv4 multicast topology.";
-        }
-
-        leaf ipv4-management {
-          type boolean;
-          default "true";
-          description
-            "IPv4 management topology.";
-        }
-
-        leaf ipv6-unicast {
-          type boolean;
-          default "true";
-          description
-            "IPv6 unicast topology.";
-        }
-
-        leaf ipv6-multicast {
-          type boolean;
-          default "true";
-          description
-            "IPv6 multicast topology.";
-        }
-
-        leaf ipv6-management {
-          type boolean;
-          default "true";
-          description
-            "IPv6 management topology.";
-        }
-
-        leaf ipv6-dstsrc {
-          type boolean;
-          default "true";
-          description
-            "IPv6 destination-source topology.";
-        }
-      }
+      uses interface-config;
     }
   }
 
