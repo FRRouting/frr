@@ -144,6 +144,13 @@ struct isis_circuit {
 	uint32_t
 		desig_changes[2]; /* lanLxDesignatedIntermediateSystemChanges */
 	uint32_t rej_adjacencies; /* rejectedAdjacencies */
+	/*
+	 * Counters as in ietf-isis@2019-09-09.yang
+	 */
+	uint32_t id_len_mismatches; /* id-len-mismatch */
+	uint32_t max_area_addr_mismatches; /* max-area-addresses-mismatch */
+	uint32_t auth_type_failures; /*authentication-type-fails */
+	uint32_t auth_failures; /* authentication-fails */
 
 	QOBJ_FIELDS
 };

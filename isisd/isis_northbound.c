@@ -2484,6 +2484,205 @@ lib_interface_isis_adjacencies_adjacency_state_get_elem(const char *xpath,
 }
 
 /*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-changes
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_adjacency_changes_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	return yang_data_new_uint32(xpath, circuit->adj_state_changes);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-number
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_adjacency_number_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+	struct isis_adjacency *adj;
+	struct listnode *node;
+	uint32_t total = 0;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	/*
+	 * TODO: keep track of the number of adjacencies instead of calculating
+	 * it on demand.
+	 */
+	switch (circuit->circ_type) {
+	case CIRCUIT_T_BROADCAST:
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
+			for (ALL_LIST_ELEMENTS_RO(
+				     circuit->u.bc.adjdb[level - 1], node, adj))
+				total++;
+		}
+		break;
+	case CIRCUIT_T_P2P:
+		adj = circuit->u.p2p.neighbor;
+		if (adj)
+			total = 1;
+		break;
+	default:
+		break;
+	}
+
+	return yang_data_new_uint32(xpath, total);
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/event-counters/init-fails
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_init_fails_get_elem(const char *xpath,
+						      const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	return yang_data_new_uint32(xpath, circuit->init_failures);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-rejects
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_adjacency_rejects_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	return yang_data_new_uint32(xpath, circuit->rej_adjacencies);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/event-counters/id-len-mismatch
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_id_len_mismatch_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	return yang_data_new_uint32(xpath, circuit->id_len_mismatches);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/event-counters/max-area-addresses-mismatch
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_max_area_addresses_mismatch_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	return yang_data_new_uint32(xpath, circuit->max_area_addr_mismatches);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/event-counters/authentication-type-fails
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_authentication_type_fails_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	return yang_data_new_uint32(xpath, circuit->auth_type_failures);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/event-counters/authentication-fails
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_authentication_fails_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	return yang_data_new_uint32(xpath, circuit->auth_failures);
+}
+
+/*
  * NOTIFICATIONS
  */
 static void notif_prep_instance_hdr(const char *xpath,
@@ -3697,6 +3896,54 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/state",
 			.cbs = {
 				.get_elem = lib_interface_isis_adjacencies_adjacency_state_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-changes",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_adjacency_changes_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-number",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_adjacency_number_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/init-fails",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_init_fails_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-rejects",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_adjacency_rejects_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/id-len-mismatch",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_id_len_mismatch_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/max-area-addresses-mismatch",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_max_area_addresses_mismatch_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/authentication-type-fails",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_authentication_type_fails_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/authentication-fails",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_authentication_fails_get_elem,
 			}
 		},
 		{
