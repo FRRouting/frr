@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /* Copyright (c) 2015 6WIND S.A.
  * Author: Nicolas Dichtel <nicolas.dichtel@6wind.com>
  *
@@ -5,8 +6,8 @@
  * under the terms and conditions of the GNU General Public License,
  * version 2, as published by the Free Software Foundation.
  */
-#ifndef _LINUX_NET_NAMESPACE_H_
-#define _LINUX_NET_NAMESPACE_H_
+#ifndef _UAPI_LINUX_NET_NAMESPACE_H_
+#define _UAPI_LINUX_NET_NAMESPACE_H_
 
 /* Attributes of RTM_NEWNSID/RTM_GETNSID messages */
 enum {
@@ -20,4 +21,4 @@ enum {
 
 #define NETNSA_MAX		(__NETNSA_MAX - 1)
 
-#endif /* _LINUX_NET_NAMESPACE_H_ */
+#endif /* _UAPI_LINUX_NET_NAMESPACE_H_ */

@@ -54,6 +54,7 @@
  */
 static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 {
+	uint8_t protocol = RTPROT_ZEBRA;
 	int family;
 	int bytelen;
 	struct {
@@ -77,6 +78,9 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 
 	req.frh.family = family;
 	req.frh.action = FR_ACT_TO_TBL;
+
+	addattr_l(&req.n, sizeof(req),
+		  FRA_PROTOCOL, &protocol, sizeof(protocol));
 
 	/* rule's pref # */
 	addattr32(&req.n, sizeof(req), FRA_PRIORITY, rule->rule.priority);
