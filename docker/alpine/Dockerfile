@@ -9,7 +9,8 @@ RUN source /src/alpine/APKBUILD.in \
 		--no-cache \
 		--update-cache \
 		$makedepends \
-		gzip
+		gzip \
+	&& pip install pytest
 
 COPY . /src
 ARG PKGVER
