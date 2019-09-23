@@ -29,6 +29,8 @@ RUN echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/reposit
 		abuild \
 		alpine-conf \
 		alpine-sdk \
+		py-pip \
+	&& pip install pytest \
 	&& setup-apkcache /var/cache/apk \
 	&& mkdir -p /pkgs/apk \
 	&& echo 'builder ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
