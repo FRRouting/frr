@@ -623,10 +623,70 @@ module frr-isisd {
       "Adjacency state";
   }
 
+  grouping event-counters {
+    container event-counters {
+      config false;
+      leaf adjacency-changes {
+        type uint32;
+        description
+          "The number of times an adjacency state change has
+           occurred on this interface.";
+      }
+      leaf adjacency-number {
+        type uint32;
+        description
+          "The number of adjacencies on this interface.";
+      }
+      leaf init-fails {
+        type uint32;
+        description
+          "The number of times initialization of this
+           interface has failed. This counts events such
+           as PPP NCP failures. Failures to form an
+           adjacency are counted by adjacency-rejects.";
+      }
+      leaf adjacency-rejects {
+        type uint32;
+        description
+          "The number of times an adjacency has been
+           rejected on this interface.";
+      }
+      leaf id-len-mismatch {
+        type uint32;
+        description
+          "The number of times an IS-IS PDU with an ID
+           field length different from that for this
+           system has been received on this interface.";
+      }
+      leaf max-area-addresses-mismatch {
+        type uint32;
+        description
+          "The number of times an IS-IS PDU has been
+           received on this interface with the
+           max area address field differing from that of
+           this system.";
+      }
+      leaf authentication-type-fails {
+        type uint32;
+        description
+          "Number of authentication type mismatches.";
+      }
+      leaf authentication-fails {
+        type uint32;
+        description
+          "Number of authentication key failures.";
+      }
+      description "IS-IS interface event counters.";
+    }
+    description
+      "Grouping for IS-IS interface event counters";
+  }
+
   grouping interface-state {
     description
       "IS-IS interface operational state.";
     uses adjacency-state;
+    uses event-counters;
   }
 
   grouping notification-instance-hdr {
