@@ -570,8 +570,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 	vty_out(vty, "  Created: %s", timestamp_string(updgrp->uptime));
 	filter = &updgrp->conf->filter[updgrp->afi][updgrp->safi];
 	if (filter->map[RMAP_OUT].name)
-		vty_out(vty, "  Outgoing route map: %s%s\n",
-			filter->map[RMAP_OUT].map ? "X" : "",
+		vty_out(vty, "  Outgoing route map: %s\n",
 			filter->map[RMAP_OUT].name);
 	vty_out(vty, "  MRAI value (seconds): %d\n", updgrp->conf->v_routeadv);
 	if (updgrp->conf->change_local_as)
