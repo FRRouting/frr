@@ -612,6 +612,9 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 			subgrp->peer_refreshes_combined);
 		vty_out(vty, "    Merge checks triggered: %u\n",
 			subgrp->merge_checks_triggered);
+		vty_out(vty, "    Coalesce Time: %u%s\n",
+			(UPDGRP_INST(subgrp->update_group))->coalesce_time,
+			subgrp->t_coalesce ? "(Running)" : "");
 		vty_out(vty, "    Version: %" PRIu64 "\n", subgrp->version);
 		vty_out(vty, "    Packet queue length: %d\n",
 			bpacket_queue_length(SUBGRP_PKTQ(subgrp)));
