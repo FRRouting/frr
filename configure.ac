@@ -1452,6 +1452,12 @@ if test "x$enable_pcreposix" = "xyes"; then
 fi
 AC_SUBST([HAVE_LIBPCREPOSIX])
 
+dnl ##########################################################################
+dnl test "${enable_clippy_only}" != "yes"
+fi
+dnl END OF LARGE if block
+dnl ##########################################################################
+
 dnl ------------------
 dnl check C-Ares library
 dnl ------------------
@@ -1461,12 +1467,6 @@ PKG_CHECK_MODULES([CARES], [libcares], [
   c_ares_found=false
 ])
 AM_CONDITIONAL([CARES], [$c_ares_found])
-
-dnl ##########################################################################
-dnl test "${enable_clippy_only}" != "yes"
-fi
-dnl END OF LARGE if block
-dnl ##########################################################################
 
 
 dnl ----------------------------------------------------------------------------
@@ -1535,9 +1535,11 @@ case "$host_os" in
       no)
         ;;
       yes)
+	if test "${enable_clippy_only}" != "yes"; then
         if test "$c_ares_found" != "true" ; then
           AC_MSG_ERROR([nhrpd requires libcares.  Please install c-ares and its -dev headers.])
         fi
+	fi
         NHRPD="nhrpd"
         ;;
       *)
@@ -2041,8 +2043,10 @@ if test "${enable_capabilities}" != "no"; then
 
   case "$host_os" in
   linux*)
+    if test "${enable_clippy_only}" != "yes"; then
     if test "$frr_ac_lcaps" != "yes"; then
       AC_MSG_ERROR([libcap and/or its headers were not found.  Running FRR without libcap support built in causes a huge performance penalty.])
+    fi
     fi
     ;;
   esac
