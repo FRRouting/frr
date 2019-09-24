@@ -1567,7 +1567,7 @@ struct cmd_node interface_node = {INTERFACE_NODE, "%s(config-if)# ", 1};
 #endif
 /* Show all interfaces to vty. */
 DEFPY(show_interface, show_interface_cmd,
-      "show interface [vrf NAME$name] [brief$brief]",
+      "show interface [vrf NAME$vrf_name] [brief$brief]",
       SHOW_STR
       "Interface status and configuration\n"
       VRF_CMD_HELP_STR
@@ -1579,8 +1579,8 @@ DEFPY(show_interface, show_interface_cmd,
 
 	interface_update_stats();
 
-	if (name)
-		VRF_GET_ID(vrf_id, name, false);
+	if (vrf_name)
+		VRF_GET_ID(vrf_id, vrf_name, false);
 
 	/* All interface print. */
 	vrf = vrf_lookup_by_id(vrf_id);
