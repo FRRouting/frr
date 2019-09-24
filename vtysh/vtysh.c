@@ -2422,6 +2422,53 @@ DEFUN (vtysh_show_error_code,
 	return CMD_SUCCESS;
 }
 
+/* Northbound. */
+DEFUN (show_yang_operational_data,
+       show_yang_operational_data_cmd,
+       "show yang operational-data XPATH$xpath\
+         [{\
+	   format <json$json|xml$xml>\
+	   |translate WORD$translator_family\
+	 }]" DAEMONS_LIST,
+       SHOW_STR
+       "YANG information\n"
+       "Show YANG operational data\n"
+       "XPath expression specifying the YANG data path\n"
+       "Set the output format\n"
+       "JavaScript Object Notation\n"
+       "Extensible Markup Language\n"
+       "Translate operational data\n"
+       "YANG module translator\n"
+       DAEMONS_STR)
+{
+	int idx_protocol = argc - 1;
+	char *fcmd = argv_concat(argv, argc - 1, 0);
+	int ret = vtysh_client_execute_name(argv[idx_protocol]->text, fcmd);
+	XFREE(MTYPE_TMP, fcmd);
+	return ret;
+}
+
+DEFUNSH(VTYSH_ALL, debug_nb,
+	debug_nb_cmd,
+	"[no] debug northbound\
+	   [<\
+	    callbacks$cbs [{configuration$cbs_cfg|state$cbs_state|rpc$cbs_rpc}]\
+	    |notifications$notifications\
+	    |events$events\
+	   >]",
+	NO_STR
+	DEBUG_STR
+	"Northbound debugging\n"
+	"Callbacks\n"
+	"Configuration\n"
+	"State\n"
+	"RPC\n"
+	"Notifications\n"
+	"Events\n")
+{
+	return CMD_SUCCESS;
+}
+
 /* Memory */
 DEFUN (vtysh_show_memory,
        vtysh_show_memory_cmd,
@@ -4017,6 +4064,11 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_debug_all_cmd);
 	install_element(ENABLE_NODE, &vtysh_debug_memstats_cmd);
 	install_element(CONFIG_NODE, &vtysh_debug_memstats_cmd);
+
+	/* northbound */
+	install_element(VIEW_NODE, &show_yang_operational_data_cmd);
+	install_element(ENABLE_NODE, &debug_nb_cmd);
+	install_element(CONFIG_NODE, &debug_nb_cmd);
 
 	/* misc lib show commands */
 	install_element(VIEW_NODE, &vtysh_show_memory_cmd);
