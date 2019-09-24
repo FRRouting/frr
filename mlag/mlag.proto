@@ -154,6 +154,10 @@ message ZebraMlagMrouteAdd {
     string   vrf_name = 1;
     uint32   source_ip = 2;
     uint32   group_ip = 3;
+    /*
+     * This is the IGP Cost to reach Configured RP in case of (*,G) or
+     * Cost to the source in case of (S,G) entry
+     */
     uint32   cost_to_rp = 4;
     uint32   owner_id = 5;
     bool     am_i_DR = 6;

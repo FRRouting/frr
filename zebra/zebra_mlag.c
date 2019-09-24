@@ -1,5 +1,5 @@
 /* Zebra Mlag Code.
- * Copyright (C) 2018 Cumulus Networks, Inc.
+ * Copyright (C) 2019 Cumulus Networks, Inc.
  *                    Donald Sharp
  *
  * This file is part of FRR.
@@ -39,6 +39,7 @@
 
 #define ZEBRA_MLAG_METADATA_LEN 4
 #define ZEBRA_MLAG_MSG_BCAST 0xFFFFFFFF
+#define MAXCH_LEN 80
 
 uint8_t mlag_wr_buffer[ZEBRA_MLAG_BUF_LIMIT];
 uint8_t mlag_rd_buffer[ZEBRA_MLAG_BUF_LIMIT];
@@ -153,6 +154,7 @@ static int zebra_mlag_thread_handler(struct thread *event)
 	struct stream *s;
 	uint32_t wr_count = 0;
 	uint32_t msg_type = 0;
+	uint32_t max_count = 0;
 	int len = 0;
 
 	wr_count = stream_fifo_count_safe(zrouter.mlag_info.mlag_fifo);
@@ -160,12 +162,13 @@ static int zebra_mlag_thread_handler(struct thread *event)
 		zlog_debug(":%s: Processing MLAG write, %d messages in queue",
 			   __func__, wr_count);
 
+	pthread_mutex_lock(&zrouter.mlag_info.mlag_th_mtx);
 	zrouter.mlag_info.t_write = NULL;
-	for (wr_count = 0; wr_count < ZEBRA_MLAG_POST_LIMIT; wr_count++) {
-		/* FIFO is empty,wait for teh message to be add */
-		if (stream_fifo_count_safe(zrouter.mlag_info.mlag_fifo) == 0)
-			break;
+	pthread_mutex_unlock(&zrouter.mlag_info.mlag_th_mtx);
 
+	max_count = MIN(wr_count, ZEBRA_MLAG_POST_LIMIT);
+
+	for (wr_count = 0; wr_count < max_count; wr_count++) {
 		s = stream_fifo_pop_safe(zrouter.mlag_info.mlag_fifo);
 		if (!s) {
 			zlog_debug(":%s: Got a NULL Messages, some thing wrong",
@@ -173,7 +176,6 @@ static int zebra_mlag_thread_handler(struct thread *event)
 			break;
 		}
 
-		zebra_mlag_reset_write_buffer();
 		/*
 		 * Encode the data now
 		 */
@@ -182,17 +184,19 @@ static int zebra_mlag_thread_handler(struct thread *event)
 		/*
 		 * write to MCLAGD
 		 */
-		if (len > 0)
+		if (len > 0) {
 			zebra_mlag_private_write_data(mlag_wr_buffer, len);
 
-		/*
-		 * If mesasge type is De-register, send a signal to main thread,
-		 * sothat necessary cleanup will be done by main thread.
-		 */
-		if (msg_type == MLAG_DEREGISTER) {
-			thread_add_event(zrouter.master,
-					 zebra_mlag_terminate_pthread, NULL, 0,
-					 NULL);
+			/*
+			 * If mesasge type is De-register, send a signal to main
+			 * thread, sothat necessary cleanup will be done by main
+			 * thread.
+			 */
+			if (msg_type == MLAG_DEREGISTER) {
+				thread_add_event(zrouter.master,
+						 zebra_mlag_terminate_pthread,
+						 NULL, 0, NULL);
+			}
 		}
 
 		stream_free(s);
@@ -246,6 +250,7 @@ void zebra_mlag_handle_process_state(enum zebra_mlag_state state)
  */
 static int zebra_mlag_signal_write_thread(void)
 {
+	pthread_mutex_lock(&zrouter.mlag_info.mlag_th_mtx);
 	if (zrouter.mlag_info.zebra_pth_mlag) {
 		if (IS_ZEBRA_DEBUG_MLAG)
 			zlog_debug(":%s: Scheduling MLAG write", __func__);
@@ -253,6 +258,7 @@ static int zebra_mlag_signal_write_thread(void)
 				 zebra_mlag_thread_handler, NULL, 0,
 				 &zrouter.mlag_info.t_write);
 	}
+	pthread_mutex_unlock(&zrouter.mlag_info.mlag_th_mtx);
 	return 0;
 }
 
@@ -588,7 +594,7 @@ DEFUN_HIDDEN (show_mlag,
 	      ZEBRA_STR
 	      "The mlag role on this machine\n")
 {
-	char buf[80];
+	char buf[MAXCH_LEN];
 
 	vty_out(vty, "MLag is configured to: %s\n",
 		mlag_role2str(zrouter.mlag_info.role, buf, sizeof(buf)));
@@ -790,7 +796,7 @@ DEFPY(test_mlag, test_mlag_cmd,
       "Mlag is setup to be the secondary\n")
 {
 	enum mlag_role orig = zrouter.mlag_info.role;
-	char buf1[80], buf2[80];
+	char buf1[MAXCH_LEN], buf2[MAXCH_LEN];
 
 	if (none)
 		zrouter.mlag_info.role = MLAG_ROLE_NONE;
@@ -894,8 +900,8 @@ void zebra_mlag_init(void)
 	zrouter.mlag_info.t_read = NULL;
 	zrouter.mlag_info.t_write = NULL;
 	test_mlag_in_progress = false;
-	zebra_mlag_reset_write_buffer();
 	zebra_mlag_reset_read_buffer();
+	pthread_mutex_init(&zrouter.mlag_info.mlag_th_mtx, NULL);
 }
 
 void zebra_mlag_terminate(void)
@@ -920,7 +926,7 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 	int len = 0;
 	int n_len = 0;
 	int rc = 0;
-	char buf[80];
+	char buf[MAXCH_LEN];
 
 	if (IS_ZEBRA_DEBUG_MLAG)
 		zlog_debug("%s: Entering..", __func__);
@@ -933,12 +939,10 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 		zlog_debug("%s: Decoded msg length:%d..", __func__,
 			   mlag_msg.data_len);
 
-	memset(tmp_buf, 0, ZEBRA_MLAG_BUF_LIMIT);
-
 	if (IS_ZEBRA_DEBUG_MLAG)
 		zlog_debug("%s: Mlag ProtoBuf encoding of message:%s", __func__,
 			   zebra_mlag_lib_msgid_to_str(mlag_msg.msg_type, buf,
-						       80));
+						       sizeof(buf)));
 	*msg_type = mlag_msg.msg_type;
 	switch (mlag_msg.msg_type) {
 	case MLAG_MROUTE_ADD: {
@@ -1138,17 +1142,15 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 	}
 
 	if (IS_ZEBRA_DEBUG_MLAG)
-		zlog_debug(
-			"%s: length of Mlag ProtoBuf encoded message:%s, %d",
-			__func__,
-			zebra_mlag_lib_msgid_to_str(mlag_msg.msg_type, buf, 80),
-			len);
+		zlog_debug("%s: length of Mlag ProtoBuf encoded message:%s, %d",
+			   __func__,
+			   zebra_mlag_lib_msgid_to_str(mlag_msg.msg_type, buf,
+						       sizeof(buf)),
+			   len);
 	hdr.type = (ZebraMlagHeader__MessageType)mlag_msg.msg_type;
 	if (len != 0) {
 		hdr.data.len = len;
 		hdr.data.data = XMALLOC(MTYPE_MLAG_PBUF, len);
-		if (hdr.data.data == NULL)
-			return -1;
 		memcpy(hdr.data.data, tmp_buf, len);
 	}
 
@@ -1173,7 +1175,8 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 		zlog_debug(
 			"%s: length of Mlag ProtoBuf message:%s with Header  %d",
 			__func__,
-			zebra_mlag_lib_msgid_to_str(mlag_msg.msg_type, buf, 80),
+			zebra_mlag_lib_msgid_to_str(mlag_msg.msg_type, buf,
+						    sizeof(buf)),
 			len);
 	if (hdr.data.data)
 		XFREE(MTYPE_MLAG_PBUF, hdr.data.data);
@@ -1188,7 +1191,7 @@ int zebra_mlag_protobuf_decode_message(struct stream **s, uint8_t *data,
 {
 	uint32_t msg_type;
 	ZebraMlagHeader *hdr = NULL;
-	char buf[80];
+	char buf[MAXCH_LEN];
 
 	if (IS_ZEBRA_DEBUG_MLAG)
 		zlog_debug("%s: Entering..", __func__);
@@ -1205,7 +1208,8 @@ int zebra_mlag_protobuf_decode_message(struct stream **s, uint8_t *data,
 
 	if (IS_ZEBRA_DEBUG_MLAG)
 		zlog_debug("%s: Mlag ProtoBuf decoding of message:%s", __func__,
-			   zebra_mlag_lib_msgid_to_str(msg_type, buf, 80));
+			   zebra_mlag_lib_msgid_to_str(msg_type, buf,
+						       sizeof(buf)));
 
 	/*
 	 * Internal MLAG Message-types & MLAG.proto message types should

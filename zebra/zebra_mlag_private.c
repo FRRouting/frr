@@ -1,5 +1,5 @@
 /* Zebra Mlag Code.
- * Copyright (C) 2018 Cumulus Networks, Inc.
+ * Copyright (C) 2019 Cumulus Networks, Inc.
  *                    Donald Sharp
  *
  * This file is part of FRR.
@@ -68,8 +68,10 @@ int zebra_mlag_private_write_data(uint8_t *data, uint32_t len)
 
 static void zebra_mlag_sched_read(void)
 {
+	pthread_mutex_lock(&zrouter.mlag_info.mlag_th_mtx);
 	thread_add_read(zmlag_master, zebra_mlag_read, NULL, mlag_socket,
 			&zrouter.mlag_info.t_read);
+	pthread_mutex_unlock(&zrouter.mlag_info.mlag_th_mtx);
 }
 
 static int zebra_mlag_read(struct thread *thread)
@@ -78,7 +80,9 @@ static int zebra_mlag_read(struct thread *thread)
 	uint32_t h_msglen;
 	uint32_t tot_len, curr_len = mlag_rd_buf_offset;
 
+	pthread_mutex_lock(&zrouter.mlag_info.mlag_th_mtx);
 	zrouter.mlag_info.t_read = NULL;
+	pthread_mutex_unlock(&zrouter.mlag_info.mlag_th_mtx);
 
 	/*
 	 * Received message in sock_stream looks like below

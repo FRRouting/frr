@@ -1,5 +1,5 @@
 /* Zebra mlag header.
- * Copyright (C) 2018 Cumulus Networks, Inc.
+ * Copyright (C) 2019 Cumulus Networks, Inc.
  *                    Donald Sharp
  *
  * This file is part of FRR.
@@ -37,14 +37,8 @@ extern uint8_t mlag_wr_buffer[ZEBRA_MLAG_BUF_LIMIT];
 extern uint8_t mlag_rd_buffer[ZEBRA_MLAG_BUF_LIMIT];
 extern uint32_t mlag_rd_buf_offset;
 
-static inline void zebra_mlag_reset_write_buffer(void)
-{
-	memset(mlag_wr_buffer, 0, ZEBRA_MLAG_BUF_LIMIT);
-}
-
 static inline void zebra_mlag_reset_read_buffer(void)
 {
-	memset(mlag_rd_buffer, 0, ZEBRA_MLAG_BUF_LIMIT);
 	mlag_rd_buf_offset = 0;
 }
 
