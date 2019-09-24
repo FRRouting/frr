@@ -711,7 +711,7 @@ pbr_nht_individual_nexthop_gw_update(struct pbr_nexthop_cache *pnhc,
 	}
 
 	if (pnhc->nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX
-	    || pnhc->nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
+	    || pnhc->nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
 
 		/* GATEWAY_IFINDEX type shouldn't resolve to group */
 		if (pnhi->nhr->nexthop_num > 1) {
