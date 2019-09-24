@@ -2396,6 +2396,23 @@ Displaying Routes by AS Path
 
    Print a summary of neighbor connections for the specified AFI/SAFI combination.
 
+Displaying Update Group Information
+-----------------------------------
+
+..index:: show bgp update-groups SUBGROUP-ID [advertise-queue|advertised-routes|packet-queue]
+..clicmd:: show bgp update-groups [advertise-queue|advertised-routes|packet-queue]
+
+   Display Information about each individual update-group being used.
+   If SUBGROUP-ID is specified only display about that particular group.  If
+   advertise-queue is specified the list of routes that need to be sent
+   to the peers in the update-group is displayed, advertised-routes means
+   the list of routes we have sent to the peers in the update-group and 
+   packet-queue specifies the list of packets in the queue to be sent.
+
+..index:: show bgp update-groups statistics
+..clicmd:: show bgp update-groups statistics
+
+   Display Information about update-group events in FRR.
 
 .. _bgp-route-reflector:
 
