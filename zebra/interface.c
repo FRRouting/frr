@@ -1556,56 +1556,40 @@ struct cmd_node interface_node = {INTERFACE_NODE, "%s(config-if)# ", 1};
 #endif
 /* Show all interfaces to vty. */
 DEFPY(show_interface, show_interface_cmd,
-      "show interface [vrf NAME$vrf_name] [brief$brief]",
+      "show interface [{vrf <NAME$vrf_name|all$vrf_all>|brief$brief}]",
       SHOW_STR
       "Interface status and configuration\n"
-      VRF_CMD_HELP_STR
+      VRF_FULL_CMD_HELP_STR
       "Interface status and configuration summary\n")
 {
 	struct vrf *vrf;
 	struct interface *ifp;
-	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	interface_update_stats();
 
-	if (vrf_name)
-		VRF_GET_ID(vrf_id, vrf_name, false);
-
-	/* All interface print. */
-	vrf = vrf_lookup_by_id(vrf_id);
-	if (brief) {
-		ifs_dump_brief_vty(vty, vrf);
-	} else {
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			if_dump_vty(vty, ifp);
+	if (vrf_all) {
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			if (brief) {
+				ifs_dump_brief_vty(vty, vrf);
+			} else {
+				FOR_ALL_INTERFACES (vrf, ifp)
+					if_dump_vty(vty, ifp);
+			}
 		}
-	}
+	} else {
+		vrf_id_t vrf_id = VRF_DEFAULT;
 
-	return CMD_SUCCESS;
-}
+		if (vrf_name)
+			VRF_GET_ID(vrf_id, vrf_name, false);
 
-
-/* Show all interfaces to vty. */
-DEFPY (show_interface_vrf_all,
-       show_interface_vrf_all_cmd,
-       "show interface vrf all [brief$brief]",
-       SHOW_STR
-       "Interface status and configuration\n"
-       VRF_ALL_CMD_HELP_STR
-       "Interface status and configuration summary\n")
-{
-	struct vrf *vrf;
-	struct interface *ifp;
-
-	interface_update_stats();
-
-	/* All interface print. */
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		/* All interface print. */
+		vrf = vrf_lookup_by_id(vrf_id);
 		if (brief) {
 			ifs_dump_brief_vty(vty, vrf);
 		} else {
-			FOR_ALL_INTERFACES (vrf, ifp)
+			FOR_ALL_INTERFACES (vrf, ifp) {
 				if_dump_vty(vty, ifp);
+			}
 		}
 	}
 
@@ -3197,7 +3181,6 @@ void zebra_if_init(void)
 	if_cmd_init();
 
 	install_element(VIEW_NODE, &show_interface_cmd);
-	install_element(VIEW_NODE, &show_interface_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_interface_name_vrf_cmd);
 	install_element(VIEW_NODE, &show_interface_name_vrf_all_cmd);
 
