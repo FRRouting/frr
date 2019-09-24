@@ -618,7 +618,7 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on)
 	snprintf(deadtime, sizeof(deadtime), "%02ld:%02ld:%02ld", h, m, s);
 
 	/* Neighbor State */
-	if (if_is_pointopoint(on->ospf6_if->interface))
+	if (on->ospf6_if->type == OSPF_IFTYPE_POINTOPOINT)
 		snprintf(nstate, sizeof(nstate), "PointToPoint");
 	else {
 		if (on->router_id == on->drouter)

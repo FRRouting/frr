@@ -1130,9 +1130,9 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 			return SNMP_INTEGER(ntohl(oi->area->area_id));
 		break;
 	case OSPFv3IFTYPE:
-		if (if_is_broadcast(oi->interface))
+		if (oi->type == OSPF_IFTYPE_BROADCAST)
 			return SNMP_INTEGER(1);
-		else if (if_is_pointopoint(oi->interface))
+		else if (oi->type == OSPF_IFTYPE_POINTOPOINT)
 			return SNMP_INTEGER(3);
 		else
 			break; /* Unknown, don't put anything */
