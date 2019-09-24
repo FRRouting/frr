@@ -1202,7 +1202,7 @@ struct peer {
 	uint8_t last_reset_cause[BGP_MAX_PACKET_SIZE];
 
 	/* The kind of route-map Flags.*/
-	uint8_t rmap_type;
+	uint16_t rmap_type;
 #define PEER_RMAP_TYPE_IN             (1 << 0) /* neighbor route-map in */
 #define PEER_RMAP_TYPE_OUT            (1 << 1) /* neighbor route-map out */
 #define PEER_RMAP_TYPE_NETWORK        (1 << 2) /* network route-map */
