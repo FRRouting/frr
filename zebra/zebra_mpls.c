@@ -2698,7 +2698,7 @@ int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	if (re == NULL)
 		return -1;
 
-	for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
+	for (nexthop = re->ng->nexthop; nexthop; nexthop = nexthop->next)
 		nexthop_del_labels(nexthop);
 
 	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
