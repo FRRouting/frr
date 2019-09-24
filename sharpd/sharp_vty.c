@@ -39,7 +39,7 @@
 #endif
 
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
-      "sharp watch [vrf NAME$name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected]",
+      "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
@@ -54,12 +54,12 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 	struct prefix p;
 	bool type_import;
 
-	if (!name)
-		name = VRF_DEFAULT_NAME;
-	vrf = vrf_lookup_by_name(name);
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
+	vrf = vrf_lookup_by_name(vrf_name);
 	if (!vrf) {
 		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
-			name);
+			vrf_name);
 		return CMD_WARNING;
 	}
 
@@ -83,7 +83,7 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 }
 
 DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
-      "sharp watch [vrf NAME$name] <nexthop$n A.B.C.D$nhop|import$import A.B.C.D/M$inhop> [connected$connected]",
+      "sharp watch [vrf NAME$vrf_name] <nexthop$n A.B.C.D$nhop|import$import A.B.C.D/M$inhop> [connected$connected]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
@@ -98,12 +98,12 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 	struct prefix p;
 	bool type_import;
 
-	if (!name)
-		name = VRF_DEFAULT_NAME;
-	vrf = vrf_lookup_by_name(name);
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
+	vrf = vrf_lookup_by_name(vrf_name);
 	if (!vrf) {
 		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
-			name);
+			vrf_name);
 		return CMD_WARNING;
 	}
 
@@ -162,7 +162,7 @@ DEFPY (install_routes_data_dump,
 
 DEFPY (install_routes,
        install_routes_cmd,
-       "sharp install routes [vrf NAME$name] <A.B.C.D$start4|X:X::X:X$start6> <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|nexthop-group NHGNAME$nexthop_group> (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
+       "sharp install routes [vrf NAME$vrf_name] <A.B.C.D$start4|X:X::X:X$start6> <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|nexthop-group NHGNAME$nexthop_group> (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
@@ -209,13 +209,13 @@ DEFPY (install_routes,
 	}
 	sg.r.orig_prefix = prefix;
 
-	if (!name)
-		name = VRF_DEFAULT_NAME;
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
 
-	vrf = vrf_lookup_by_name(name);
+	vrf = vrf_lookup_by_name(vrf_name);
 	if (!vrf) {
 		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
-			name);
+			vrf_name);
 		return CMD_WARNING;
 	}
 
@@ -252,7 +252,7 @@ DEFPY (install_routes,
 }
 
 DEFPY(vrf_label, vrf_label_cmd,
-      "sharp label <ip$ipv4|ipv6$ipv6> vrf NAME$name label (0-100000)$label",
+      "sharp label <ip$ipv4|ipv6$ipv6> vrf NAME$vrf_name label (0-100000)$label",
       "Sharp Routing Protocol\n"
       "Give a vrf a label\n"
       "Pop and forward for IPv4\n"
@@ -264,10 +264,10 @@ DEFPY(vrf_label, vrf_label_cmd,
 	struct vrf *vrf;
 	afi_t afi = (ipv4) ? AFI_IP : AFI_IP6;
 
-	if (strcmp(name, "default") == 0)
+	if (strcmp(vrf_name, "default") == 0)
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	else
-		vrf = vrf_lookup_by_name(name);
+		vrf = vrf_lookup_by_name(vrf_name);
 
 	if (!vrf) {
 		vty_out(vty, "Unable to find vrf you silly head");
@@ -283,7 +283,7 @@ DEFPY(vrf_label, vrf_label_cmd,
 
 DEFPY (remove_routes,
        remove_routes_cmd,
-       "sharp remove routes [vrf NAME$name] <A.B.C.D$start4|X:X::X:X$start6> (1-1000000)$routes [instance (0-255)$instance]",
+       "sharp remove routes [vrf NAME$vrf_name] <A.B.C.D$start4|X:X::X:X$start6> (1-1000000)$routes [instance (0-255)$instance]",
        "Sharp Routing Protocol\n"
        "Remove some routes\n"
        "Routes to remove\n"
@@ -314,10 +314,10 @@ DEFPY (remove_routes,
 		prefix.u.prefix6 = start6;
 	}
 
-	vrf = vrf_lookup_by_name(name ? name : VRF_DEFAULT_NAME);
+	vrf = vrf_lookup_by_name(vrf_name ? vrf_name : VRF_DEFAULT_NAME);
 	if (!vrf) {
 		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
-			name ? name : VRF_DEFAULT_NAME);
+			vrf_name ? vrf_name : VRF_DEFAULT_NAME);
 		return CMD_WARNING;
 	}
 
