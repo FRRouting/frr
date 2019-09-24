@@ -555,15 +555,13 @@ static void *bgp_aggr_lcommunty_hash_alloc(void *p)
 
 static void bgp_aggr_lcommunity_prepare(struct hash_backet *hb, void *arg)
 {
-	struct lcommunity *lcommerge = NULL;
 	struct lcommunity *hb_lcommunity = hb->data;
 	struct lcommunity **aggr_lcommunity = arg;
 
-	if (*aggr_lcommunity) {
-		lcommerge = lcommunity_merge(*aggr_lcommunity, hb_lcommunity);
-		*aggr_lcommunity = lcommunity_uniq_sort(lcommerge);
-		lcommunity_free(&lcommerge);
-	} else
+	if (*aggr_lcommunity)
+		*aggr_lcommunity = lcommunity_merge(*aggr_lcommunity,
+						    hb_lcommunity);
+	else
 		*aggr_lcommunity = lcommunity_dup(hb_lcommunity);
 }
 
@@ -577,6 +575,15 @@ void bgp_aggr_lcommunity_remove(void *arg)
 void bgp_compute_aggregate_lcommunity(struct bgp_aggregate *aggregate,
 				      struct lcommunity *lcommunity)
 {
+
+	bgp_compute_aggregate_lcommunity_hash(aggregate, lcommunity);
+	bgp_compute_aggregate_lcommunity_val(aggregate);
+}
+
+void bgp_compute_aggregate_lcommunity_hash(struct bgp_aggregate *aggregate,
+					   struct lcommunity *lcommunity)
+{
+
 	struct lcommunity *aggr_lcommunity = NULL;
 
 	if ((aggregate == NULL) || (lcommunity == NULL))
@@ -596,20 +603,34 @@ void bgp_compute_aggregate_lcommunity(struct bgp_aggregate *aggregate,
 		aggr_lcommunity = hash_get(aggregate->lcommunity_hash,
 					   lcommunity,
 					   bgp_aggr_lcommunty_hash_alloc);
+	}
 
-		/* Re-compute aggregate's lcommunity.
-		 */
-		if (aggregate->lcommunity)
-			lcommunity_free(&aggregate->lcommunity);
+	/* Increment reference counter.
+	 */
+	aggr_lcommunity->refcnt++;
+}
 
+void bgp_compute_aggregate_lcommunity_val(struct bgp_aggregate *aggregate)
+{
+	struct lcommunity *lcommerge = NULL;
+
+	if (aggregate == NULL)
+		return;
+
+	/* Re-compute aggregate's lcommunity.
+	 */
+	if (aggregate->lcommunity)
+		lcommunity_free(&aggregate->lcommunity);
+	if (aggregate->lcommunity_hash &&
+	    aggregate->lcommunity_hash->count) {
 		hash_iterate(aggregate->lcommunity_hash,
 			     bgp_aggr_lcommunity_prepare,
 			     &aggregate->lcommunity);
+		lcommerge = aggregate->lcommunity;
+		aggregate->lcommunity = lcommunity_uniq_sort(lcommerge);
+		if (lcommerge)
+			lcommunity_free(&lcommerge);
 	}
-
-	/* Increment refernce counter.
-	 */
-	aggr_lcommunity->refcnt++;
 }
 
 void bgp_remove_lcommunity_from_aggregate(struct bgp_aggregate *aggregate,
@@ -618,10 +639,9 @@ void bgp_remove_lcommunity_from_aggregate(struct bgp_aggregate *aggregate,
 	struct lcommunity *aggr_lcommunity = NULL;
 	struct lcommunity *ret_lcomm = NULL;
 
-	if ((aggregate == NULL) || (lcommunity == NULL))
-		return;
-
-	if (aggregate->lcommunity_hash == NULL)
+	if ((!aggregate)
+	    || (!aggregate->lcommunity_hash)
+	    || (!lcommunity))
 		return;
 
 	/* Look-up the lcommunity in the hash.
@@ -635,13 +655,33 @@ void bgp_remove_lcommunity_from_aggregate(struct bgp_aggregate *aggregate,
 						 aggr_lcommunity);
 			lcommunity_free(&ret_lcomm);
 
-			lcommunity_free(&aggregate->lcommunity);
+			bgp_compute_aggregate_lcommunity_val(aggregate);
 
-			/* Compute aggregate's lcommunity.
-			 */
-			hash_iterate(aggregate->lcommunity_hash,
-				     bgp_aggr_lcommunity_prepare,
-				     &aggregate->lcommunity);
+		}
+	}
+}
+
+void bgp_remove_lcomm_from_aggregate_hash(struct bgp_aggregate *aggregate,
+					  struct lcommunity *lcommunity)
+{
+	struct lcommunity *aggr_lcommunity = NULL;
+	struct lcommunity *ret_lcomm = NULL;
+
+	if ((!aggregate)
+	    || (!aggregate->lcommunity_hash)
+	    || (!lcommunity))
+		return;
+
+	/* Look-up the lcommunity in the hash.
+	 */
+	aggr_lcommunity = bgp_aggr_lcommunity_lookup(aggregate, lcommunity);
+	if (aggr_lcommunity) {
+		aggr_lcommunity->refcnt--;
+
+		if (aggr_lcommunity->refcnt == 0) {
+			ret_lcomm = hash_release(aggregate->lcommunity_hash,
+						 aggr_lcommunity);
+			lcommunity_free(&ret_lcomm);
 		}
 	}
 }
