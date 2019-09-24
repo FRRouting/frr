@@ -1488,6 +1488,17 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		if (vxlan_info->mcast_grp.s_addr != INADDR_ANY)
 			vty_out(vty, "  Mcast Group %s",
 					inet_ntoa(vxlan_info->mcast_grp));
+		if (vxlan_info->ifindex_link &&
+		    (vxlan_info->link_nsid != NS_UNKNOWN)) {
+				struct interface *ifp;
+
+				ifp = if_lookup_by_index_per_ns(
+					zebra_ns_lookup(vxlan_info->link_nsid),
+					vxlan_info->ifindex_link);
+				vty_out(vty, " Link Interface %s",
+					ifp == NULL ? "Unknown" :
+					ifp->name);
+		}
 		vty_out(vty, "\n");
 	}
 
