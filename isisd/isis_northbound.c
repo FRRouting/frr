@@ -1559,9 +1559,9 @@ static int lib_interface_isis_create(enum nb_event event,
 		/* check if interface mtu is sufficient. If the area has not
 		 * been created yet, assume default MTU for the area
 		 */
-		ifp = nb_running_get_entry(dnode, NULL, true);
+		ifp = nb_running_get_entry(dnode, NULL, false);
 		/* zebra might not know yet about the MTU - nothing we can do */
-		if (ifp->mtu == 0)
+		if (!ifp || ifp->mtu == 0)
 			break;
 		actual_mtu =
 			if_is_broadcast(ifp) ? ifp->mtu - LLC_LEN : ifp->mtu;
