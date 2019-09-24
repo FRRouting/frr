@@ -9153,6 +9153,11 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 		if (zvni->advertise_svi_macip == advertise)
 			return;
 
+		/* Store flag even though SVI is not present.
+		 * Once SVI comes up triggers self MAC-IP route add.
+		 */
+		zvni->advertise_svi_macip = advertise;
+
 		ifp = zvni->vxlan_if;
 		if (!ifp)
 			return;
@@ -9164,20 +9169,17 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 			return;
 
 		zl2_info = zif->l2info.vxl;
-
 		vlan_if = zvni_map_to_svi(zl2_info.access_vlan,
 					  zif->brslave_info.br_if);
 		if (!vlan_if)
 			return;
 
 		if (advertise) {
-			zvni->advertise_svi_macip = advertise;
 			/* Add primary SVI MAC-IP */
 			zvni_add_macip_for_intf(vlan_if, zvni);
 		} else {
-			/* Del primary MAC-IP */
+			/* Del primary SVI MAC-IP */
 			zvni_del_macip_for_intf(vlan_if, zvni);
-			zvni->advertise_svi_macip = advertise;
 		}
 	}
 
