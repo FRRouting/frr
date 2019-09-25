@@ -475,7 +475,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	  <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf]\
 	  |INTERFACE$intf\
 	>\
-	[nexthop-vrf NAME$name]",
+	[nexthop-vrf NAME$vrf_name]",
       NO_STR
       "Specify one of the nexthops in this ECMP group\n"
       "v4 Address\n"
@@ -490,7 +490,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	struct nexthop *nh;
 	bool legal;
 
-	legal = nexthop_group_parse_nexthop(&nhop, addr, intf, name);
+	legal = nexthop_group_parse_nexthop(&nhop, addr, intf, vrf_name);
 
 	if (nhop.type == NEXTHOP_TYPE_IPV6
 	    && IN6_IS_ADDR_LINKLOCAL(&nhop.gate.ipv6)) {
@@ -502,7 +502,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	nh = nexthop_exists(&nhgc->nhg, &nhop);
 
 	if (no) {
-		nexthop_group_unsave_nhop(nhgc, name, addr, intf);
+		nexthop_group_unsave_nhop(nhgc, vrf_name, addr, intf);
 		if (nh) {
 			_nexthop_del(&nhgc->nhg, nh);
 
@@ -520,7 +520,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 			_nexthop_add(&nhgc->nhg.nexthop, nh);
 		}
 
-		nexthop_group_save_nhop(nhgc, name, addr, intf);
+		nexthop_group_save_nhop(nhgc, vrf_name, addr, intf);
 
 		if (legal && nhg_hooks.add_nexthop)
 			nhg_hooks.add_nexthop(nhgc, nh);
