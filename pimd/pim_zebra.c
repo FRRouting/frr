@@ -1180,12 +1180,6 @@ void pim_forward_start(struct pim_ifchannel *ch)
 {
 	struct pim_upstream *up = ch->upstream;
 	uint32_t mask = PIM_OIF_FLAG_PROTO_PIM;
-	int input_iface_vif_index = 0;
-	struct pim_instance *pim;
-	struct pim_interface *pim_ifp;
-
-	pim_ifp = ch->interface->info;
-	pim = pim_ifp->pim;
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		char source_str[INET_ADDRSTRLEN];
@@ -1201,55 +1195,6 @@ void pim_forward_start(struct pim_ifchannel *ch)
 		zlog_debug("%s: (S,G)=(%s,%s) oif=%s (%s)", __PRETTY_FUNCTION__,
 			   source_str, group_str, ch->interface->name,
 			   inet_ntoa(up->upstream_addr));
-	}
-
-	/* Resolve IIF for upstream as mroute_del sets mfcc_parent to MAXVIFS,
-	   as part of mroute_del called by pim_forward_stop.
-	*/
-	if ((up->upstream_addr.s_addr != INADDR_ANY) && (!up->channel_oil)) {
-		struct prefix src, grp;
-
-		grp.family = AF_INET;
-		grp.prefixlen = IPV4_MAX_BITLEN;
-		grp.u.prefix4 = up->sg.grp;
-		src.family = AF_INET;
-		src.prefixlen = IPV4_MAX_BITLEN;
-		src.u.prefix4 = up->sg.src;
-
-		if (pim_ecmp_nexthop_lookup(pim, &up->rpf.source_nexthop, &src,
-					    &grp, 0))
-			input_iface_vif_index = pim_if_find_vifindex_by_ifindex(
-				pim, up->rpf.source_nexthop.interface->ifindex);
-
-		if (input_iface_vif_index < 1) {
-			if (PIM_DEBUG_PIM_TRACE) {
-				char source_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<source?>", up->sg.src,
-					       source_str, sizeof(source_str));
-				zlog_debug(
-					"%s %s: could not find input interface for source %s",
-					__FILE__, __PRETTY_FUNCTION__,
-					source_str);
-			}
-			pim_channel_oil_change_iif(pim, up->channel_oil,
-						   MAXVIFS,
-						   __PRETTY_FUNCTION__);
-		}
-
-		else
-			pim_channel_oil_change_iif(pim, up->channel_oil,
-						   input_iface_vif_index,
-						   __PRETTY_FUNCTION__);
-
-		if (PIM_DEBUG_TRACE) {
-			struct interface *in_intf = pim_if_find_by_vif_index(
-				pim, input_iface_vif_index);
-			zlog_debug(
-				"%s: Update channel_oil IIF %s VIFI %d entry %s ",
-				__PRETTY_FUNCTION__,
-				in_intf ? in_intf->name : "Unknown",
-				input_iface_vif_index, up->sg_str);
-		}
 	}
 
 	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
