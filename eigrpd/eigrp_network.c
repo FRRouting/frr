@@ -55,11 +55,14 @@ static void eigrp_network_run_interface(struct eigrp *, struct prefix *,
 
 int eigrp_sock_init(struct vrf *vrf)
 {
-	int eigrp_sock;
+	int eigrp_sock = -1;
 	int ret;
 #ifdef IP_HDRINCL
 	int hincl = 1;
 #endif
+
+	if (!vrf)
+		return eigrp_sock;
 
 	frr_with_privs(&eigrpd_privs) {
 		eigrp_sock = vrf_socket(
