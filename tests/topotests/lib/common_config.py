@@ -1544,6 +1544,46 @@ def create_bgp_community_lists(tgen, input_dict, build=False):
     return result
 
 
+def shutdown_bringup_interface(tgen, dut, intf_name, ifaceaction=False):
+    """
+    Shutdown or bringup router's interface "
+
+    * `tgen`  : Topogen object
+    * `dut`  : Device under test
+    * `intf_name`  : Interface name to be shut/no shut
+    * `ifaceaction` :  Action, to shut/no shut interface,
+                       by default is False
+
+    Usage
+    -----
+    dut = "r3"
+    intf = "r3-r1-eth0"
+    # Shut down ineterface
+    shutdown_bringup_interface(tgen, dut, intf, False)
+
+    # Bring up ineterface
+    shutdown_bringup_interface(tgen, dut, intf, True)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    from topotest import interface_set_status
+    router_list = tgen.routers()
+    if ifaceaction:
+        logger.info("Bringing up interface : {}".format(intf_name))
+    else:
+        logger.info("Shutting down interface : {}".format(intf_name))
+
+    interface_set_status(router_list[dut], intf_name,
+                                  ifaceaction)
+
+    if ifaceaction:
+        # Disabling v6 link local once interfac comes up back
+        disable_v6_link_local(tgen, dut, intf_name=intf_name)
+
+
 #############################################
 # Verification APIs
 #############################################
