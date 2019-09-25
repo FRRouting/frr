@@ -21,6 +21,7 @@
 from collections import OrderedDict
 from datetime import datetime
 from time import sleep
+from copy import deepcopy
 from subprocess import call
 from subprocess import STDOUT as SUB_STDOUT
 from subprocess import PIPE as SUB_PIPE
@@ -208,6 +209,7 @@ def create_common_configuration(tgen, router, data, config_type=None,
         "interface_config": "! Interfaces Config\n",
         "static_route": "! Static Route Config\n",
         "prefix_list": "! Prefix List Config\n",
+        "bgp_community_list": "! Community List Config\n",
         "route_maps": "! Route Maps Config\n",
         "bgp": "! BGP Config\n"
     })
@@ -547,13 +549,11 @@ def generate_ips(network, no_of_ips):
     Returns list of IPs.
     based on start_ip and no_of_ips
 
-    * `network`  : from here the ip will start generating, start_ip will be
-                    first ip
+    * `network`  : from here the ip will start generating,
+                   start_ip will be
     * `no_of_ips` : these many IPs will be generated
-
-    Limitation: It will generate IPs only for ip_mask 32
-
     """
+
     ipaddress_list = []
     if type(network) is not list:
         network = [network]
@@ -893,6 +893,7 @@ def create_static_routes(tgen, input_dict, build=False):
     """
     result = False
     logger.debug("Entering lib API: create_static_routes()")
+    input_dict = deepcopy(input_dict)
     try:
         for router in input_dict.keys():
             if "static_routes" not in input_dict[router]:
@@ -918,16 +919,21 @@ def create_static_routes(tgen, input_dict, build=False):
 
                 next_hop = static_route["next_hop"]
                 network = static_route["network"]
-                ip_list = generate_ips([network], no_of_ip)
+                if type(network) is not list:
+                    network = [network]
+
+                ip_list = generate_ips(network, no_of_ip)
                 for ip in ip_list:
                     addr_type = validate_ip_address(ip)
+
                     if addr_type == "ipv4":
                         cmd = "ip route {} {}".format(ip, next_hop)
                     else:
                         cmd = "ipv6 route {} {}".format(ip, next_hop)
 
                     if tag:
-                        cmd = "{} {}".format(cmd, str(tag))
+                        cmd = "{} tag {}".format(cmd, str(tag))
+
                     if admin_distance:
                         cmd = "{} {}".format(cmd, admin_distance)
 
@@ -1112,11 +1118,11 @@ def create_route_maps(tgen, input_dict, build=False):
                                 "prefix_list": "pf_list_1"
                             }
 
-                            "large-community-list": "{
+                            "large-community-list": {
                                 "id": "community_1",
                                 "exact_match": True
                             }
-                            "community": {
+                            "community_list": {
                                 "id": "community_2",
                                 "exact_match": True
                             }
@@ -1152,12 +1158,11 @@ def create_route_maps(tgen, input_dict, build=False):
 
     result = False
     logger.debug("Entering lib API: create_route_maps()")
-
+    input_dict = deepcopy(input_dict)
     try:
         for router in input_dict.keys():
             if "route_maps" not in input_dict[router]:
-                errormsg = "route_maps not present in input_dict"
-                logger.debug(errormsg)
+                logger.debug("route_maps not present in input_dict")
                 continue
             rmap_data = []
             for rmap_name, rmap_value in \
@@ -1187,10 +1192,41 @@ def create_route_maps(tgen, input_dict, build=False):
                         rmap_name, rmap_action, seq_id
                     ))
 
+                    if "continue" in rmap_dict:
+                        continue_to = rmap_dict["continue"]
+                        if continue_to:
+                            rmap_data.append("on-match goto {}".
+                                             format(continue_to))
+                        else:
+                            logger.error("In continue, 'route-map entry "
+                                         "sequence number' is not provided")
+                            return False
+
+                    if "goto" in rmap_dict:
+                        go_to = rmap_dict["goto"]
+                        if go_to:
+                            rmap_data.append("on-match goto {}".
+                                             format(go_to))
+                        else:
+                            logger.error("In goto, 'Goto Clause number' is not"
+                                         " provided")
+                            return False
+
+                    if "call" in rmap_dict:
+                        call_rmap = rmap_dict["call"]
+                        if call_rmap:
+                            rmap_data.append("call {}".
+                                             format(call_rmap))
+                        else:
+                            logger.error("In call, 'destination Route-Map' is"
+                                         " not provided")
+                            return False
+
                     # Verifying if SET criteria is defined
                     if "set" in rmap_dict:
                         set_data = rmap_dict["set"]
-
+                        ipv4_data = set_data.setdefault("ipv4", {})
+                        ipv6_data = set_data.setdefault("ipv6", {})
                         local_preference = set_data.setdefault("localpref",
                                                                None)
                         metric = set_data.setdefault("med", None)
@@ -1199,7 +1235,10 @@ def create_route_maps(tgen, input_dict, build=False):
                         community = set_data.setdefault("community", {})
                         large_community = set_data.setdefault(
                             "large_community", {})
+                        large_comm_list = set_data.setdefault(
+                            "large_comm_list", {})
                         set_action = set_data.setdefault("set_action", None)
+                        nexthop = set_data.setdefault("nexthop", None)
 
                         # Local Preference
                         if local_preference:
@@ -1243,42 +1282,84 @@ def create_route_maps(tgen, input_dict, build=False):
 
                                 rmap_data.append(cmd)
                             else:
-                                logger.errror("In large_community, AS Num not"
-                                              " provided")
+                                logger.error("In large_community, AS Num not"
+                                             " provided")
+                                return False
+                        if large_comm_list:
+                            id = large_comm_list.setdefault("id", None)
+                            del_comm = large_comm_list.setdefault("delete",
+                                                                     None)
+                            if id:
+                                cmd = "set large-comm-list {}".format(id)
+                                if del_comm:
+                                    cmd = "{} delete".format(cmd)
+
+                                rmap_data.append(cmd)
+                            else:
+                                logger.error("In large_comm_list 'id' not"
+                                             " provided")
                                 return False
 
                         # Weight
                         if weight:
-                            rmap_data.append("set weight {}".format(
+                            rmap_data.append("set weight {} \n".format(
                                 weight))
-
+                        if ipv6_data:
+                            nexthop = ipv6_data.setdefault("nexthop",None)
+                            if nexthop:
+                                rmap_data.append("set ipv6 next-hop \
+                                        {}".format(nexthop))
                     # Adding MATCH and SET sequence to RMAP if defined
                     if "match" in rmap_dict:
                         match_data = rmap_dict["match"]
                         ipv4_data = match_data.setdefault("ipv4", {})
                         ipv6_data = match_data.setdefault("ipv6", {})
-                        community = match_data.setdefault("community-list",
-                                                          {})
+                        community = match_data.setdefault(
+                            "community_list",{})
                         large_community = match_data.setdefault(
-                            "large-community-list", {}
+                            "large_community", {}
                         )
-                        tag = match_data.setdefault("tag", None)
+                        large_community_list = match_data.setdefault(
+                            "large_community_list", {}
+                        )
 
                         if ipv4_data:
-                            prefix_name = ipv4_data.setdefault("prefix_lists",
-                                                               None)
+                            # fetch prefix list data from rmap
+                            prefix_name = \
+                                ipv4_data.setdefault("prefix_lists",
+                                                      None)
                             if prefix_name:
-                                rmap_data.append("match ip address prefix-list"
-                                                 " {}".format(prefix_name))
+                                rmap_data.append("match ip address"
+                                    " prefix-list {}".format(prefix_name))
+
+                            # fetch tag data from rmap
+                            tag = ipv4_data.setdefault("tag", None)
+                            if tag:
+                                rmap_data.append("match tag {}".format(tag))
+
+                            # fetch large community data from rmap
+                            large_community_list = ipv4_data.setdefault(
+                                "large_community_list",{})
+                            large_community = match_data.setdefault(
+                                "large_community", {})
+
                         if ipv6_data:
                             prefix_name = ipv6_data.setdefault("prefix_lists",
                                                                None)
                             if prefix_name:
-                                rmap_data.append("match ipv6 address "
-                                                 "prefix-list {}".
-                                                 format(prefix_name))
-                        if tag:
-                            rmap_data.append("match tag {}".format(tag))
+                                rmap_data.append("match ipv6 address"
+                                        " prefix-list {}".format(prefix_name))
+
+                            # fetch tag data from rmap
+                            tag = ipv6_data.setdefault("tag", None)
+                            if tag:
+                                rmap_data.append("match tag {}".format(tag))
+
+                            # fetch large community data from rmap
+                            large_community_list = ipv6_data.setdefault(
+                                "large_community_list",{})
+                            large_community = match_data.setdefault(
+                                "large_community", {})
 
                         if community:
                             if "id" not in community:
@@ -1293,10 +1374,9 @@ def create_route_maps(tgen, input_dict, build=False):
                                 cmd = "{} exact-match".format(cmd)
 
                             rmap_data.append(cmd)
-
                         if large_community:
                             if "id" not in large_community:
-                                logger.error("'num' is mandatory for "
+                                logger.error("'id' is mandatory for "
                                              "large-community-list in match "
                                              "criteria")
                                 return False
@@ -1306,7 +1386,19 @@ def create_route_maps(tgen, input_dict, build=False):
                                 "exact_match", False)
                             if exact_match:
                                 cmd = "{} exact-match".format(cmd)
-
+                            rmap_data.append(cmd)
+                        if large_community_list:
+                            if "id" not in large_community_list:
+                                logger.error("'id' is mandatory for "
+                                             "large-community-list in match "
+                                             "criteria")
+                                return False
+                            cmd = "match large-community {}".format(
+                                large_community_list["id"])
+                            exact_match = large_community_list.setdefault(
+                                "exact_match", False)
+                            if exact_match:
+                                cmd = "{} exact-match".format(cmd)
                             rmap_data.append(cmd)
 
             result = create_common_configuration(tgen, router,
@@ -1320,8 +1412,47 @@ def create_route_maps(tgen, input_dict, build=False):
         logger.error(errormsg)
         return errormsg
 
-    logger.debug("Exiting lib API: create_prefix_lists()")
+    logger.debug("Exiting lib API: create_route_maps()")
     return result
+
+
+def delete_route_maps(tgen, input_dict):
+    """
+    Delete ip route maps from device
+
+    * `tgen`  : Topogen object
+    * `input_dict` :  for which router,
+                      route map has to be deleted
+
+    Usage
+    -----
+    # Delete route-map rmap_1 and rmap_2 from router r1
+    input_dict = {
+        "r1": {
+            "route_maps": ["rmap_1", "rmap__2"]
+        }
+    }
+    result = delete_route_maps("ipv4", input_dict)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+    logger.info("Entering lib API: delete_route_maps()")
+
+    for router in input_dict.keys():
+        route_maps = input_dict[router]["route_maps"][:]
+        rmap_data = input_dict[router]
+        rmap_data["route_maps"] = {}
+        for route_map_name in route_maps:
+            rmap_data["route_maps"].update({
+                route_map_name:
+                    [{
+                        "delete": True
+                    }]
+            })
+
+    return create_route_maps(tgen, input_dict)
 
 
 #############################################
@@ -1625,5 +1756,5 @@ def verify_prefix_lists(tgen, input_dict):
                 logger.info("Prefix list %s is/are not present in the router"
                             " from router %s", prefix_list, router)
 
-    logger.debug("Exiting lib API: verify_prefix_lissts()")
+    logger.debug("Exiting lib API: verify_prefix_lists()")
     return True
