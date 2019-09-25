@@ -261,8 +261,10 @@ struct interface *if_lookup_by_name_per_ns(struct zebra_ns *ns,
 
 	for (rn = route_top(ns->if_table); rn; rn = route_next(rn)) {
 		ifp = (struct interface *)rn->info;
-		if (ifp && strcmp(ifp->name, ifname) == 0)
+		if (ifp && strcmp(ifp->name, ifname) == 0) {
+			route_unlock_node(rn);
 			return (ifp);
+		}
 	}
 
 	return NULL;
