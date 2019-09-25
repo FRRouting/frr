@@ -1455,6 +1455,95 @@ def delete_route_maps(tgen, input_dict):
     return create_route_maps(tgen, input_dict)
 
 
+def create_bgp_community_lists(tgen, input_dict, build=False):
+    """
+    Create bgp community-list or large-community-list on the devices as per
+    the arguments passed. Takes list of communities in input.
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `input_dict` : Input dict data, required when configuring from testcase
+    * `build` : Only for initial setup phase this is set as True.
+    Usage
+    -----
+    input_dict_1 = {
+        "r3": {
+            "bgp_community_lists": [
+                {
+                    "community_type": "standard",
+                    "action": "permit",
+                    "name": "rmap_lcomm_{}".format(addr_type),
+                    "value": "1:1:1 1:2:3 2:1:1 2:2:2",
+                    "large": True
+                    }
+                ]
+            }
+        }
+    }
+    result = create_bgp_community_lists(tgen, input_dict_1)
+    """
+
+    result = False
+    logger.debug("Entering lib API: create_bgp_community_lists()")
+    input_dict = deepcopy(input_dict)
+    try:
+        for router in input_dict.keys():
+            if "bgp_community_lists" not in input_dict[router]:
+                errormsg = "bgp_community_lists not present in input_dict"
+                logger.debug(errormsg)
+                continue
+
+            config_data = []
+
+            community_list = input_dict[router]["bgp_community_lists"]
+            for community_dict in community_list:
+                del_action = community_dict.setdefault("delete", False)
+                community_type = community_dict.setdefault("community_type",
+                                                           None)
+                action = community_dict.setdefault("action", None)
+                value = community_dict.setdefault("value", '')
+                large = community_dict.setdefault("large", None)
+                name = community_dict.setdefault("name", None)
+                if large:
+                    cmd = "bgp large-community-list"
+                else:
+                    cmd = "bgp community-list"
+
+                if not large and not (community_type and action and value):
+                    errormsg = "community_type, action and value are " \
+                               "required in bgp_community_list"
+                    logger.error(errormsg)
+                    return False
+
+                try:
+                    community_type = int(community_type)
+                    cmd = "{} {} {} {}".format(cmd, community_type, action,
+                                               value)
+                except ValueError:
+
+                    cmd = "{} {} {} {} {}".format(
+                        cmd, community_type, name, action, value)
+
+                if del_action:
+                    cmd = "no {}".format(cmd)
+
+                config_data.append(cmd)
+
+            result = create_common_configuration(tgen, router, config_data,
+                                                 "bgp_community_list",
+                                                 build=build)
+
+    except InvalidCLIError:
+        # Traceback
+        errormsg = traceback.format_exc()
+        logger.error(errormsg)
+        return errormsg
+
+    logger.debug("Exiting lib API: create_bgp_community_lists()")
+    return result
+
+
 #############################################
 # Verification APIs
 #############################################
