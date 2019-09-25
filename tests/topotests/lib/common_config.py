@@ -1847,3 +1847,131 @@ def verify_prefix_lists(tgen, input_dict):
 
     logger.debug("Exiting lib API: verify_prefix_lists()")
     return True
+
+
+@retry(attempts=2, wait=4, return_is_str=True, initial_wait=2)
+def verify_route_maps(tgen, input_dict):
+    """
+    Running "show route-map" command and verifying given route-map
+    is present in router.
+    Parameters
+    ----------
+    * `tgen` : topogen object
+    * `input_dict`: data to verify prefix lists
+    Usage
+    -----
+    # To verify rmap_1 and rmap_2 are present in router r1
+    input_dict = {
+        "r1": {
+            "route_maps": ["rmap_1", "rmap_2"]
+        }
+    }
+    result = verify_route_maps(tgen, input_dict)
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: verify_route_maps()")
+
+    for router in input_dict.keys():
+        if router not in tgen.routers():
+            continue
+
+        rnode = tgen.routers()[router]
+        # Show ip route-map
+        show_route_maps = rnode.vtysh_cmd("show route-map")
+
+        # Verify route-map is deleted
+        route_maps = input_dict[router]["route_maps"]
+        for route_map in route_maps:
+            if route_map in show_route_maps:
+                errormsg = ("Route map {} is not deleted from router"
+                            " {}".format(route_map, router))
+                return errormsg
+
+        logger.info("Route map %s is/are deleted successfully from"
+                    " router %s", route_maps, router)
+
+    logger.debug("Exiting lib API: verify_route_maps()")
+    return True
+
+
+@retry(attempts=3, wait=4, return_is_str=True)
+def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
+    """
+    API to veiryf BGP large community is attached in route for any given
+    DUT by running "show bgp ipv4/6 {route address} json" command.
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `addr_type` : ip type, ipv4/ipv6
+    * `dut`: Device Under Test
+    * `network`: network for which set criteria needs to be verified
+    * `input_dict`: having details like - for which router, community and
+            values needs to be verified
+    Usage
+    -----
+    networks = ["200.50.2.0/32"]
+    input_dict = {
+        "largeCommunity": "2:1:1 2:2:2 2:3:3 2:4:4 2:5:5"
+    }
+    result = verify_bgp_community(tgen, "ipv4", dut, network, input_dict=None)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.info("Entering lib API: verify_bgp_community()")
+    if router not in tgen.routers():
+        return False
+
+    rnode = tgen.routers()[router]
+
+    logger.debug("Verifying BGP community attributes on dut %s: for %s "
+                "network %s", router, addr_type, network)
+
+    for net in network:
+        cmd = "show bgp {} {} json".format(addr_type, net)
+        show_bgp_json = rnode.vtysh_cmd(cmd, isjson=True)
+        logger.info(show_bgp_json)
+        if "paths" not in show_bgp_json:
+            return "Prefix {} not found in BGP table of router: {}". \
+                format(net, router)
+
+        as_paths = show_bgp_json["paths"]
+        found = False
+        for i in range(len(as_paths)):
+            if "largeCommunity" in show_bgp_json["paths"][i] or \
+                    "community" in show_bgp_json["paths"][i]:
+                found = True
+                logger.info("Large Community attribute is found for route:"
+                            " %s in router: %s", net, router)
+                if input_dict is not None:
+                    for criteria, comm_val in input_dict.items():
+                        show_val = show_bgp_json["paths"][i][criteria][
+                            "string"]
+                        if comm_val == show_val:
+                            logger.info("Verifying BGP %s for prefix: %s"
+                                        " in router: %s, found expected"
+                                        " value: %s", criteria, net, router,
+                                        comm_val)
+                        else:
+                            errormsg = "Failed: Verifying BGP attribute" \
+                                       " {} for route: {} in router: {}" \
+                                       ", expected  value: {} but found" \
+                                       ": {}".format(
+                                           criteria, net, router, comm_val,
+                                           show_val)
+                            return errormsg
+
+        if not found:
+            errormsg = (
+                "Large Community attribute is not found for route: "
+                "{} in router: {} ".format(net, router))
+            return errormsg
+
+    logger.debug("Exiting lib API: verify_bgp_community()")
+    return True
