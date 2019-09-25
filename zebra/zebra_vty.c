@@ -2651,6 +2651,10 @@ static int config_write_protocol(struct vty *vty)
 								      == MCAST_MIX_DISTANCE
 							      ? "lower-distance"
 							      : "longer-prefix");
+
+	/* Include dataplane info */
+	dplane_config_write_helper(vty);
+
 	return 1;
 }
 
