@@ -2511,6 +2511,18 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 }
 
 /*
+ * Helper for 'show run' etc.
+ */
+int dplane_config_write_helper(struct vty *vty)
+{
+	if (zdplane_info.dg_max_queued_updates != DPLANE_DEFAULT_MAX_QUEUED)
+		vty_out(vty, "zebra dplane limit %u\n",
+			zdplane_info.dg_max_queued_updates);
+
+	return 0;
+}
+
+/*
  * Provider registration
  */
 int dplane_provider_register(const char *name,
