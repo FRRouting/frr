@@ -1546,7 +1546,8 @@ def compare_context_objects(newconf, running):
             # running but not in newconf.
             if "router bgp" in running_ctx_keys[0] and len(running_ctx_keys) == 1:
                 delete_bgpd = True
-                restart_frr = True
+                if "vrf" not in running_ctx_keys[0]:
+                    restart_frr = True
                 lines_to_del.append((running_ctx_keys, None))
 
             # We cannot do 'no interface' or 'no vrf' in FRR, and so deal with it
