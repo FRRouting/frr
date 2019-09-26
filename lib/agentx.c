@@ -55,12 +55,28 @@ static int agentx_timeout(struct thread *t)
 static int agentx_read(struct thread *t)
 {
 	fd_set fds;
+	int flags;
+	int nonblock = false;
 	struct listnode *ln = THREAD_ARG(t);
 	list_delete_node(events, ln);
+
+	/* fix for non blocking socket */
+	flags = fcntl(THREAD_FD(t), F_GETFL, 0);
+	if (-1 == flags)
+		return -1;
+
+	if (flags & O_NONBLOCK)
+		nonblock = true;
+	else
+		fcntl(THREAD_FD(t), F_SETFL, flags | O_NONBLOCK);
 
 	FD_ZERO(&fds);
 	FD_SET(THREAD_FD(t), &fds);
 	snmp_read(&fds);
+
+	/* Reset the flag */
+	if (!nonblock)
+		fcntl(THREAD_FD(t), F_SETFL, flags);
 
 	netsnmp_check_outstanding_agent_requests();
 	agentx_events_update();
