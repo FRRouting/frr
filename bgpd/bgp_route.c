@@ -6589,14 +6589,16 @@ DEFUN (aggregate_address_mask,
 
 DEFUN (no_aggregate_address,
        no_aggregate_address_cmd,
-       "no aggregate-address A.B.C.D/M [<as-set [summary-only]|summary-only [as-set]>]",
+       "no aggregate-address A.B.C.D/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD]",
        NO_STR
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n"
        "Generate AS set path information\n"
        "Filter more specific routes from updates\n"
        "Filter more specific routes from updates\n"
-       "Generate AS set path information\n")
+       "Generate AS set path information\n"
+       "Apply route map to aggregate network\n"
+       "Name of route map\n")
 {
 	int idx = 0;
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
@@ -6606,7 +6608,7 @@ DEFUN (no_aggregate_address,
 
 DEFUN (no_aggregate_address_mask,
        no_aggregate_address_mask_cmd,
-       "no aggregate-address A.B.C.D A.B.C.D [<as-set [summary-only]|summary-only [as-set]>]",
+       "no aggregate-address A.B.C.D A.B.C.D [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD]",
        NO_STR
        "Configure BGP aggregate entries\n"
        "Aggregate address\n"
@@ -6614,7 +6616,9 @@ DEFUN (no_aggregate_address_mask,
        "Generate AS set path information\n"
        "Filter more specific routes from updates\n"
        "Filter more specific routes from updates\n"
-       "Generate AS set path information\n")
+       "Generate AS set path information\n"
+       "Apply route map to aggregate network\n"
+       "Name of route map\n")
 {
 	int idx = 0;
 	argv_find(argv, argc, "A.B.C.D", &idx);
@@ -6667,14 +6671,16 @@ DEFUN (ipv6_aggregate_address,
 
 DEFUN (no_ipv6_aggregate_address,
        no_ipv6_aggregate_address_cmd,
-       "no aggregate-address X:X::X:X/M [<as-set [summary-only]|summary-only [as-set]>]",
+       "no aggregate-address X:X::X:X/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD]",
        NO_STR
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n"
        "Generate AS set path information\n"
        "Filter more specific routes from updates\n"
        "Filter more specific routes from updates\n"
-       "Generate AS set path information\n")
+       "Generate AS set path information\n"
+       "Apply route map to aggregate network\n"
+       "Name of route map\n")
 {
 	int idx = 0;
 	argv_find(argv, argc, "X:X::X:X/M", &idx);
