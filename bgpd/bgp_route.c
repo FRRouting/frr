@@ -6543,6 +6543,7 @@ DEFUN (aggregate_address_mask,
 	argv_find(argv, argc, "A.B.C.D", &idx);
 	char *prefix = argv[idx]->arg;
 	char *mask = argv[idx + 1]->arg;
+	bool rmap_found;
 	char *rmap = NULL;
 	int as_set =
 		argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET : 0;
@@ -6551,8 +6552,8 @@ DEFUN (aggregate_address_mask,
 				   ? AGGREGATE_SUMMARY_ONLY
 				   : 0;
 
-	argv_find(argv, argc, "WORD", &idx);
-	if (idx)
+	rmap_found = argv_find(argv, argc, "WORD", &idx);
+	if (rmap_found)
 		rmap = argv[idx]->arg;
 
 	char prefix_str[BUFSIZ];
