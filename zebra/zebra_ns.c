@@ -229,3 +229,25 @@ int zebra_ns_config_write(struct vty *vty, struct ns *ns)
 		vty_out(vty, " netns %s\n", ns->name);
 	return 0;
 }
+
+void zebra_ns_list_walk(int (*exec_for_each_zns)(struct zebra_ns *zns,
+						 void *param_in,
+						 void **param_out),
+			void *param_in,
+			void **param_out)
+{
+	struct ns *ns;
+	struct zebra_ns *zns;
+	int ret;
+
+	RB_FOREACH (ns, ns_head, &ns_tree) {
+		zns = (struct zebra_ns *)ns->info;
+		if (!zns && ns->ns_id == NS_DEFAULT)
+			zns = zebra_ns_lookup(ns->ns_id);
+		if (!zns)
+			continue;
+		ret = exec_for_each_zns(zns, param_in, param_out);
+		if (ret == ZNS_WALK_STOP)
+			return;
+	}
+}

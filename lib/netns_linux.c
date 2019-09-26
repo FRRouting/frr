@@ -51,7 +51,7 @@ static struct ns *ns_lookup_name_internal(const char *name);
 
 RB_GENERATE(ns_head, ns, entry, ns_compare)
 
-static struct ns_head ns_tree = RB_INITIALIZER(&ns_tree);
+struct ns_head ns_tree = RB_INITIALIZER(&ns_tree);
 
 static struct ns *default_ns;
 static int ns_current_ns_fd;

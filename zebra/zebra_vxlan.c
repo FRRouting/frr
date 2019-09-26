@@ -852,18 +852,21 @@ static int zebra_evpn_vxlan_del(zebra_evpn_t *zevpn)
 
 	return zebra_evpn_del(zevpn);
 }
-/*
- * Build the VNI hash table by going over the VxLAN interfaces. This
- * is called when EVPN (advertise-all-vni) is enabled.
- */
-static void zevpn_build_hash_table(void)
+
+static int zevpn_build_hash_table_zns(struct zebra_ns *zns,
+				     void *param_in __attribute__((unused)),
+				     void **param_out __attribute__((unused)))
 {
-	struct zebra_ns *zns;
 	struct route_node *rn;
 	struct interface *ifp;
+	struct zebra_vrf *zvrf;
+
+	zvrf = zebra_vrf_get_evpn();
+
+	if (!zvrf)
+		return ZNS_WALK_STOP;
 
 	/* Walk VxLAN interfaces and create EVPN hash. */
-	zns = zebra_ns_lookup(NS_DEFAULT);
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 		vni_t vni;
 		zebra_evpn_t *zevpn = NULL;
@@ -880,7 +883,15 @@ static void zevpn_build_hash_table(void)
 
 		vxl = &zif->l2info.vxl;
 		vni = vxl->vni;
-
+		/* link of VXLAN interface should be in zebra_evpn_vrf */
+		if (zvrf->zns->ns_id != vxl->link_nsid) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug(
+					"Intf %s(%u) VNI %u, link not in same "
+					"namespace than BGP EVPN core instance ",
+					ifp->name, ifp->ifindex, vni);
+			continue;
+		}
 		/* L3-VNI and L2-VNI are handled seperately */
 		zl3vni = zl3vni_lookup(vni);
 		if (zl3vni) {
@@ -949,7 +960,7 @@ static void zevpn_build_hash_table(void)
 					zlog_debug(
 						"Failed to add EVPN hash, IF %s(%u) L2-VNI %u",
 						ifp->name, ifp->ifindex, vni);
-					return;
+					return ZNS_WALK_CONTINUE;
 				}
 
 				if (zevpn->local_vtep_ip.s_addr !=
@@ -991,6 +1002,19 @@ static void zevpn_build_hash_table(void)
 			}
 		}
 	}
+	return ZNS_WALK_CONTINUE;
+}
+
+/*
+ * Build the VNI hash table by going over the VxLAN interfaces. This
+ * is called when EVPN (advertise-all-vni) is enabled.
+ */
+
+static void zevpn_build_hash_table(void)
+{
+	zebra_ns_list_walk(zevpn_build_hash_table_zns,
+			   (void *)NULL,
+			   (void **)NULL);
 }
 
 /*
@@ -1623,14 +1647,21 @@ static int zl3vni_del(zebra_l3vni_t *zl3vni)
 	return 0;
 }
 
-struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni)
+static int zl3vni_map_to_vxlan_if_zns(struct zebra_ns *zns,
+				      void *_zl3vni,
+				      void **_pifp)
 {
-	struct zebra_ns *zns = NULL;
+	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)_zl3vni;
 	struct route_node *rn = NULL;
 	struct interface *ifp = NULL;
+	struct zebra_vrf *zvrf;
+
+	zvrf = zebra_vrf_get_evpn();
+
+	if (!zvrf)
+		return ZNS_WALK_STOP;
 
 	/* loop through all vxlan-interface */
-	zns = zebra_ns_lookup(NS_DEFAULT);
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 
 		struct zebra_if *zif = NULL;
@@ -1645,13 +1676,39 @@ struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni)
 			continue;
 
 		vxl = &zif->l2info.vxl;
-		if (vxl->vni == zl3vni->vni) {
-			zl3vni->local_vtep_ip = vxl->vtep_ip;
-			return ifp;
+		if (vxl->vni != zl3vni->vni)
+			continue;
+
+		/* link of VXLAN interface should be in zebra_evpn_vrf */
+		if (zvrf->zns->ns_id != vxl->link_nsid) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug(
+					"Intf %s(%u) VNI %u, link not in same "
+					"namespace than BGP EVPN core instance ",
+					ifp->name, ifp->ifindex, vxl->vni);
+			continue;
 		}
+
+
+		zl3vni->local_vtep_ip = vxl->vtep_ip;
+		if (_pifp)
+			*_pifp = (void *)ifp;
+		return ZNS_WALK_STOP;
 	}
 
-	return NULL;
+	return ZNS_WALK_CONTINUE;
+}
+
+struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni)
+{
+	struct interface **p_ifp;
+	struct interface *ifp = NULL;
+
+	p_ifp = &ifp;
+
+	zebra_ns_list_walk(zl3vni_map_to_vxlan_if_zns,
+			   (void *)zl3vni, (void **)p_ifp);
+	return ifp;
 }
 
 struct interface *zl3vni_map_to_svi_if(zebra_l3vni_t *zl3vni)
