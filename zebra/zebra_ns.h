@@ -72,6 +72,14 @@ int zebra_ns_final_shutdown(struct ns *ns);
 
 int zebra_ns_config_write(struct vty *vty, struct ns *ns);
 
+#define ZNS_WALK_CONTINUE 0
+#define ZNS_WALK_STOP 1
+void zebra_ns_list_walk(int (*exec_for_each_zns)(struct zebra_ns *zns,
+						 void *param_in,
+						 void **param_out),
+			void *param_in,
+			void **param_out);
+
 #ifdef __cplusplus
 }
 #endif
