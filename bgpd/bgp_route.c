@@ -6647,6 +6647,7 @@ DEFUN (ipv6_aggregate_address,
 	argv_find(argv, argc, "X:X::X:X/M", &idx);
 	char *prefix = argv[idx]->arg;
 	char *rmap = NULL;
+	bool rmap_found;
 	int as_set =
 		argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET : 0;
 
@@ -6655,8 +6656,8 @@ DEFUN (ipv6_aggregate_address,
 			       ? AGGREGATE_SUMMARY_ONLY
 			       : 0;
 
-	argv_find(argv, argc, "WORD", &idx);
-	if (idx)
+	rmap_found = argv_find(argv, argc, "WORD", &idx);
+	if (rmap_found)
 		rmap = argv[idx]->arg;
 
 	return bgp_aggregate_set(vty, prefix, AFI_IP6, SAFI_UNICAST, rmap,
