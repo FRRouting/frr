@@ -1199,7 +1199,7 @@ void if_link_params_free(struct interface *ifp)
  */
 DEFPY_NOSH (interface,
        interface_cmd,
-       "interface IFNAME [vrf NAME$vrfname]",
+       "interface IFNAME [vrf NAME$vrf_name]",
        "Select an interface to configure\n"
        "Interface's name\n"
        VRF_CMD_HELP_STR)
@@ -1209,8 +1209,8 @@ DEFPY_NOSH (interface,
 	struct interface *ifp;
 	int ret;
 
-	if (!vrfname)
-		vrfname = VRF_DEFAULT_NAME;
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
 
 	/*
 	 * This command requires special handling to maintain backward
@@ -1219,7 +1219,7 @@ DEFPY_NOSH (interface,
 	 * interface is found, then a new one should be created on the default
 	 * VRF.
 	 */
-	VRF_GET_ID(vrf_id, vrfname, false);
+	VRF_GET_ID(vrf_id, vrf_name, false);
 	ifp = if_lookup_by_name_all_vrf(ifname);
 	if (ifp && ifp->vrf_id != vrf_id) {
 		struct vrf *vrf;
@@ -1230,24 +1230,24 @@ DEFPY_NOSH (interface,
 		 */
 		if (vrf_id != VRF_DEFAULT) {
 			vty_out(vty, "%% interface %s not in %s vrf\n", ifname,
-				vrfname);
+				vrf_name);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
 		/*
 		 * Special case 2: a VRF name was *not* specified, and the found
 		 * interface is associated to a VRF other than the default one.
-		 * Update vrf_id and vrfname to account for that.
+		 * Update vrf_id and vrf_name to account for that.
 		 */
 		vrf = vrf_lookup_by_id(ifp->vrf_id);
 		assert(vrf);
 		vrf_id = ifp->vrf_id;
-		vrfname = vrf->name;
+		vrf_name = vrf->name;
 	}
 
 	snprintf(xpath_list, sizeof(xpath_list),
 		 "/frr-interface:lib/interface[name='%s'][vrf='%s']", ifname,
-		 vrfname);
+		 vrf_name);
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 	ret = nb_cli_apply_changes(vty, xpath_list);
@@ -1270,20 +1270,20 @@ DEFPY_NOSH (interface,
 
 DEFPY (no_interface,
        no_interface_cmd,
-       "no interface IFNAME [vrf NAME$vrfname]",
+       "no interface IFNAME [vrf NAME$vrf_name]",
        NO_STR
        "Delete a pseudo interface's configuration\n"
        "Interface's name\n"
        VRF_CMD_HELP_STR)
 {
-	if (!vrfname)
-		vrfname = VRF_DEFAULT_NAME;
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(
 		vty, "/frr-interface:lib/interface[name='%s'][vrf='%s']",
-		ifname, vrfname);
+		ifname, vrf_name);
 }
 
 static void cli_show_interface(struct vty *vty, struct lyd_node *dnode,
