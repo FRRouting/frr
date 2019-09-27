@@ -142,6 +142,9 @@ static void sigint(void)
 
 	zlog_notice("Terminating on signal");
 
+	atomic_store_explicit(&zrouter.in_shutdown, true,
+			      memory_order_relaxed);
+
 	frr_early_fini();
 
 	zebra_dplane_pre_finish();

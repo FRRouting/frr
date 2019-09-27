@@ -74,6 +74,8 @@ struct zebra_mlag_info {
 };
 
 struct zebra_router {
+	atomic_bool in_shutdown;
+
 	/* Thread master */
 	struct thread_master *master;
 
