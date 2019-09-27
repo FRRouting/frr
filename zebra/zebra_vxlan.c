@@ -5522,6 +5522,21 @@ stream_failure:
 	return;
 }
 
+static int macfdb_read_zns(struct zebra_ns *zns,
+			     void *_in_param __attribute__((unused)),
+			     void **out_param __attribute__((unused)))
+{
+	macfdb_read(zns);
+	return ZNS_WALK_CONTINUE;
+}
+
+static int neigh_read_zns(struct zebra_ns *zns,
+			  void *_in_param __attribute__((unused)),
+			  void **out_param __attribute__((unused)))
+{
+	neigh_read(zns);
+	return ZNS_WALK_CONTINUE;
+}
 
 /*
  * Handle message from client to learn (or stop learning) about VNIs and MACs.
@@ -5574,10 +5589,10 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 			     zebra_evpn_gw_macip_add_for_evpn_hash, NULL);
 
 		/* Read the MAC FDB */
-		macfdb_read(zvrf->zns);
+		zebra_ns_list_walk(macfdb_read_zns, NULL, NULL);
 
 		/* Read neighbors */
-		neigh_read(zvrf->zns);
+		zebra_ns_list_walk(neigh_read_zns, NULL, NULL);
 	} else {
 		/* Cleanup VTEPs for all EVPNs - uninstall from
 		 * kernel and free entries.
