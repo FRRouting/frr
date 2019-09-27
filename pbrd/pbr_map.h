@@ -22,6 +22,8 @@
 
 #include <bitfield.h>
 
+#include "pbr_vrf.h"
+
 struct pbr_map {
 	/*
 	 * RB Tree of the pbr_maps
@@ -95,6 +97,21 @@ struct pbr_map_sequence {
 	unsigned char family;
 
 	/*
+	 * Use interface's vrf.
+	 */
+	bool vrf_unchanged;
+
+	/*
+	 * The vrf to lookup in was directly configured.
+	 */
+	bool vrf_lookup;
+
+	/*
+	 * VRF to lookup.
+	 */
+	char vrf_name[VRF_NAMSIZ + 1];
+
+	/*
 	 * The nexthop group we auto create
 	 * for when the user specifies a individual
 	 * nexthop
@@ -122,12 +139,13 @@ struct pbr_map_sequence {
 	 * A reason of 0 means we think the pbr_map_sequence is good to go
 	 * We can accumuluate multiple failure states
 	 */
-#define PBR_MAP_VALID_SEQUENCE_NUMBER  0
-#define PBR_MAP_INVALID_NEXTHOP_GROUP  (1 << 0)
-#define PBR_MAP_INVALID_NEXTHOP        (1 << 1)
-#define PBR_MAP_INVALID_NO_NEXTHOPS    (1 << 2)
-#define PBR_MAP_INVALID_BOTH_NHANDGRP  (1 << 3)
-#define PBR_MAP_INVALID_EMPTY          (1 << 4)
+#define PBR_MAP_VALID_SEQUENCE_NUMBER    0
+#define PBR_MAP_INVALID_NEXTHOP_GROUP    (1 << 0)
+#define PBR_MAP_INVALID_NEXTHOP          (1 << 1)
+#define PBR_MAP_INVALID_NO_NEXTHOPS      (1 << 2)
+#define PBR_MAP_INVALID_BOTH_NHANDGRP    (1 << 3)
+#define PBR_MAP_INVALID_EMPTY            (1 << 4)
+#define PBR_MAP_INVALID_VRF              (1 << 5)
 	uint64_t reason;
 
 	QOBJ_FIELDS
@@ -144,12 +162,21 @@ pbrms_lookup_unique(uint32_t unique, ifindex_t ifindex,
 
 extern struct pbr_map *pbrm_find(const char *name);
 extern void pbr_map_delete(struct pbr_map_sequence *pbrms);
-extern void pbr_map_delete_nexthop_group(struct pbr_map_sequence *pbrms);
+extern void pbr_map_delete_nexthops(struct pbr_map_sequence *pbrms);
+extern void pbr_map_delete_vrf(struct pbr_map_sequence *pbrms);
 extern void pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp);
 extern void pbr_map_interface_delete(struct pbr_map *pbrm,
 				     struct interface *ifp);
+
+/* Update maps installed on interface */
+extern void pbr_map_policy_interface_update(const struct interface *ifp,
+					    bool state_up);
+
 extern void pbr_map_final_interface_deletion(struct pbr_map *pbrm,
 					     struct pbr_map_interface *pmi);
+
+extern void pbr_map_vrf_update(const struct pbr_vrf *pbr_vrf);
+
 extern void pbr_map_write_interfaces(struct vty *vty, struct interface *ifp);
 extern void pbr_map_init(void);
 

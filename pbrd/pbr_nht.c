@@ -548,20 +548,10 @@ void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
 	struct pbr_nexthop_group_cache find;
 	struct pbr_nexthop_cache *pnhc;
 	struct pbr_nexthop_cache lup;
-	struct pbr_map *pbrm = pbrms->parent;
-	struct listnode *node;
-	struct pbr_map_interface *pmi;
 	struct nexthop *nh;
 	enum nexthop_types_t nh_type = 0;
 
-	if (pbrm->valid && pbrms->nhs_installed && pbrm->incoming->count) {
-		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, node, pmi))
-			pbr_send_pbr_map(pbrms, pmi, false);
-	}
-
-	pbrm->valid = false;
-	pbrms->nhs_installed = false;
-	pbrms->reason |= PBR_MAP_INVALID_NO_NEXTHOPS;
+	pbr_map_delete_nexthops(pbrms);
 
 	memset(&find, 0, sizeof(find));
 	snprintf(find.name, sizeof(find.name), "%s", pbrms->internal_nhg_name);

@@ -107,6 +107,14 @@ end destination.
    Use this individual nexthop as the place to forward packets when the match
    commands have matched a packet.
 
+.. clicmd:: set vrf unchanged|NAME
+
+   If unchanged is set, the rule will use the vrf table the interface is in
+   as its lookup. If NAME is specified, the rule will use that vrf table as
+   its lookup.
+
+   Not supported with NETNS VRF backend.
+
 .. _pbr-policy:
 
 PBR Policy

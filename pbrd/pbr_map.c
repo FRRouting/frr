@@ -35,6 +35,7 @@
 #include "pbr_zebra.h"
 #include "pbr_memory.h"
 #include "pbr_debug.h"
+#include "pbr_vrf.h"
 
 DEFINE_MTYPE_STATIC(PBRD, PBR_MAP, "PBR Map")
 DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_SEQNO, "PBR Map Sequence")
@@ -42,6 +43,7 @@ DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_INTERFACE, "PBR Map Interface")
 
 static uint32_t pbr_map_sequence_unique;
 
+static bool pbr_map_check_valid_internal(struct pbr_map *pbrm);
 static inline int pbr_map_compare(const struct pbr_map *pbrmap1,
 				  const struct pbr_map *pbrmap2);
 
@@ -98,9 +100,55 @@ static void pbr_map_interface_list_delete(struct pbr_map_interface *pmi)
 	}
 }
 
+static bool pbr_map_interface_is_valid(const struct pbr_map_interface *pmi)
+{
+	/* Don't install rules without a real ifindex on the incoming interface.
+	 *
+	 * This can happen when we have config for an interface that does not
+	 * exist or when an interface is changing vrfs.
+	 */
+	if (pmi->ifp && pmi->ifp->ifindex != IFINDEX_INTERNAL)
+		return true;
+
+	return false;
+}
+
+static void pbr_map_pbrms_update_common(struct pbr_map_sequence *pbrms,
+					bool install)
+{
+	struct pbr_map *pbrm;
+	struct listnode *node;
+	struct pbr_map_interface *pmi;
+
+	pbrm = pbrms->parent;
+
+	if (pbrms->nhs_installed && pbrm->incoming->count) {
+		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, node, pmi)) {
+			if (!pmi->ifp)
+				continue;
+
+			if (install && !pbr_map_interface_is_valid(pmi))
+				continue;
+
+			pbr_send_pbr_map(pbrms, pmi, install);
+		}
+	}
+}
+
+static void pbr_map_pbrms_install(struct pbr_map_sequence *pbrms)
+{
+	pbr_map_pbrms_update_common(pbrms, true);
+}
+
+static void pbr_map_pbrms_uninstall(struct pbr_map_sequence *pbrms)
+{
+	pbr_map_pbrms_update_common(pbrms, false);
+}
+
 static const char *pbr_map_reason_str[] = {
 	"Invalid NH-group",     "Invalid NH",	 "No Nexthops",
-	"Both NH and NH-Group", "Invalid Src or Dst", "Deleting Sequence",
+	"Both NH and NH-Group", "Invalid Src or Dst", "Invalid VRF",
+	"Deleting Sequence",
 };
 
 void pbr_map_reason_string(unsigned int reason, char *buf, int size)
@@ -168,6 +216,93 @@ void pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp_add)
 		pbr_map_install(pbrm);
 }
 
+static int
+pbr_map_policy_interface_update_common(const struct interface *ifp,
+				       struct pbr_interface **pbr_ifp,
+				       struct pbr_map **pbrm)
+{
+	if (!ifp->info) {
+		DEBUGD(&pbr_dbg_map, "%s: %s has no pbr_interface info",
+		       __func__, ifp->name);
+		return -1;
+	}
+
+	*pbr_ifp = ifp->info;
+
+	*pbrm = pbrm_find((*pbr_ifp)->mapname);
+
+	if (!*pbrm) {
+		DEBUGD(&pbr_dbg_map, "%s: applied PBR-MAP(%s) does not exist?",
+		       __func__, (*pbr_ifp)->mapname);
+		return -1;
+	}
+
+	return 0;
+}
+
+void pbr_map_policy_interface_update(const struct interface *ifp, bool state_up)
+{
+	struct pbr_interface *pbr_ifp;
+	struct pbr_map_sequence *pbrms;
+	struct pbr_map *pbrm;
+	struct listnode *node, *inode;
+	struct pbr_map_interface *pmi;
+
+	if (pbr_map_policy_interface_update_common(ifp, &pbr_ifp, &pbrm))
+		return;
+
+	DEBUGD(&pbr_dbg_map, "%s: %s %s rules on interface %s", __func__,
+	       pbr_ifp->mapname, (state_up ? "installing" : "removing"),
+	       ifp->name);
+
+	/*
+	 * Walk the list and install/remove maps on the interface.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
+		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi))
+			if (pmi->ifp == ifp && pbr_map_interface_is_valid(pmi))
+				pbr_send_pbr_map(pbrms, pmi, state_up);
+}
+
+static void pbrms_vrf_update(struct pbr_map_sequence *pbrms,
+			     const struct pbr_vrf *pbr_vrf)
+{
+	const char *vrf_name = pbr_vrf_name(pbr_vrf);
+
+	if (pbrms->vrf_lookup
+	    && (strncmp(vrf_name, pbrms->vrf_name, sizeof(pbrms->vrf_name))
+		== 0)) {
+		DEBUGD(&pbr_dbg_map, "\tSeq %u uses vrf %s (%u), updating map",
+		       pbrms->seqno, vrf_name, pbr_vrf_id(pbr_vrf));
+
+		pbr_map_check(pbrms);
+	}
+}
+
+/* Vrf enabled/disabled */
+void pbr_map_vrf_update(const struct pbr_vrf *pbr_vrf)
+{
+	struct pbr_map *pbrm;
+	struct pbr_map_sequence *pbrms;
+	struct listnode *node;
+
+	if (!pbr_vrf)
+		return;
+
+	bool enabled = pbr_vrf_is_enabled(pbr_vrf);
+
+	DEBUGD(&pbr_dbg_map, "%s: %s (%u) %s, updating pbr maps", __func__,
+	       pbr_vrf_name(pbr_vrf), pbr_vrf_id(pbr_vrf),
+	       enabled ? "enabled" : "disabled");
+
+	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
+		DEBUGD(&pbr_dbg_map, "%s: Looking at %s", __PRETTY_FUNCTION__,
+		       pbrm->name);
+		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
+			pbrms_vrf_update(pbrms, pbr_vrf);
+	}
+}
+
 void pbr_map_write_interfaces(struct vty *vty, struct interface *ifp)
 {
 	struct pbr_interface *pbr_ifp = ifp->info;
@@ -210,21 +345,26 @@ extern void pbr_map_delete(struct pbr_map_sequence *pbrms)
 	}
 }
 
-void pbr_map_delete_nexthop_group(struct pbr_map_sequence *pbrms)
+static void pbr_map_delete_common(struct pbr_map_sequence *pbrms)
 {
 	struct pbr_map *pbrm = pbrms->parent;
-	struct listnode *node;
-	struct pbr_map_interface *pmi;
 
-	if (pbrm->valid && pbrms->nhs_installed && pbrm->incoming->count) {
-		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, node, pmi))
-			pbr_send_pbr_map(pbrms, pmi, false);
-	}
+	pbr_map_pbrms_uninstall(pbrms);
 
 	pbrm->valid = false;
 	pbrms->nhs_installed = false;
 	pbrms->reason |= PBR_MAP_INVALID_NO_NEXTHOPS;
 	pbrms->nhgrp_name = NULL;
+}
+
+void pbr_map_delete_nexthops(struct pbr_map_sequence *pbrms)
+{
+	pbr_map_delete_common(pbrms);
+}
+
+void pbr_map_delete_vrf(struct pbr_map_sequence *pbrms)
+{
+	pbr_map_delete_common(pbrms);
 }
 
 struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique, ifindex_t ifindex,
@@ -318,6 +458,7 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 		pbrms->reason =
 			PBR_MAP_INVALID_EMPTY |
 			PBR_MAP_INVALID_NO_NEXTHOPS;
+		pbrms->vrf_name[0] = '\0';
 
 		QOBJ_REG(pbrms, pbr_map_sequence);
 		listnode_add_sort(pbrm->seqnumbers, pbrms);
@@ -329,12 +470,36 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 static void
 pbr_map_sequence_check_nexthops_valid(struct pbr_map_sequence *pbrms)
 {
+	/* Check if any are present first */
+	if (!pbrms->vrf_unchanged && !pbrms->vrf_lookup && !pbrms->nhg
+	    && !pbrms->nhgrp_name) {
+		pbrms->reason |= PBR_MAP_INVALID_NO_NEXTHOPS;
+		return;
+	}
+
+	/*
+	 * Check validness of vrf.
+	 */
+
+	/* This one can be considered always valid */
+	if (pbrms->vrf_unchanged)
+		pbrms->nhs_installed = true;
+
+	if (pbrms->vrf_lookup) {
+		struct pbr_vrf *pbr_vrf =
+			pbr_vrf_lookup_by_name(pbrms->vrf_name);
+
+		if (pbr_vrf && pbr_vrf_is_valid(pbr_vrf))
+			pbrms->nhs_installed = true;
+		else
+			pbrms->reason |= PBR_MAP_INVALID_VRF;
+	}
+
 	/*
 	 * Check validness of the nexthop or nexthop-group
 	 */
-	if (!pbrms->nhg && !pbrms->nhgrp_name)
-		pbrms->reason |= PBR_MAP_INVALID_NO_NEXTHOPS;
 
+	/* Only nexthop or nexthop group allowed */
 	if (pbrms->nhg && pbrms->nhgrp_name)
 		pbrms->reason |= PBR_MAP_INVALID_BOTH_NHANDGRP;
 
@@ -458,11 +623,13 @@ void pbr_map_policy_install(const char *name)
 		       __PRETTY_FUNCTION__, name, pbrms->seqno, pbrm->valid,
 		       pbrms->nhs_installed);
 
-		if (pbrm->valid && pbrms->nhs_installed && pbrm->incoming->count) {
-			DEBUGD(&pbr_dbg_map, "\tInstalling %s %u",
-			       pbrm->name, pbrms->seqno);
+		if (pbrm->valid && pbrms->nhs_installed
+		    && pbrm->incoming->count) {
+			DEBUGD(&pbr_dbg_map, "\tInstalling %s %u", pbrm->name,
+			       pbrms->seqno);
 			for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi))
-				pbr_send_pbr_map(pbrms, pmi, true);
+				if (pbr_map_interface_is_valid(pmi))
+					pbr_send_pbr_map(pbrms, pmi, true);
 		}
 	}
 }
@@ -525,8 +692,6 @@ void pbr_map_check_nh_group_change(const char *nh_group)
 void pbr_map_check(struct pbr_map_sequence *pbrms)
 {
 	struct pbr_map *pbrm;
-	struct listnode *inode;
-	struct pbr_map_interface *pmi;
 	bool install;
 
 	pbrm = pbrms->parent;
@@ -551,23 +716,22 @@ void pbr_map_check(struct pbr_map_sequence *pbrms)
 		       pbrms->seqno, pbrms->reason);
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi)) {
-		pbr_send_pbr_map(pbrms, pmi, install);
-	}
+	if (install)
+		pbr_map_pbrms_install(pbrms);
+	else
+		pbr_map_pbrms_uninstall(pbrms);
 }
 
 void pbr_map_install(struct pbr_map *pbrm)
 {
-	struct listnode *node, *inode;
 	struct pbr_map_sequence *pbrms;
-	struct pbr_map_interface *pmi;
+	struct listnode *node;
 
 	if (!pbrm->incoming->count)
 		return;
 
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
-		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi))
-			pbr_send_pbr_map(pbrms, pmi, true);
+		pbr_map_pbrms_install(pbrms);
 }
 
 void pbr_map_init(void)

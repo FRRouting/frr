@@ -39,6 +39,7 @@
 #include "pbr_memory.h"
 #include "pbr_zebra.h"
 #include "pbr_debug.h"
+#include "pbr_vrf.h"
 
 DEFINE_MTYPE_STATIC(PBRD, PBR_INTERFACE, "PBR Interface")
 
@@ -67,7 +68,10 @@ int pbr_ifp_create(struct interface *ifp)
 	if (!ifp->info)
 		pbr_if_new(ifp);
 
+	/* Update nexthops tracked from a `set nexthop` command */
 	pbr_nht_nexthop_interface_update(ifp);
+
+	pbr_map_policy_interface_update(ifp, true);
 
 	return 0;
 }
@@ -76,6 +80,8 @@ int pbr_ifp_destroy(struct interface *ifp)
 {
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s", __PRETTY_FUNCTION__, ifp->name);
+
+	pbr_map_policy_interface_update(ifp, false);
 
 	return 0;
 }
@@ -129,6 +135,29 @@ int pbr_ifp_down(struct interface *ifp)
 	       "%s: %s is down", __PRETTY_FUNCTION__, ifp->name);
 
 	pbr_nht_nexthop_interface_update(ifp);
+
+	return 0;
+}
+
+static int interface_vrf_update(ZAPI_CALLBACK_ARGS)
+{
+	struct interface *ifp;
+	vrf_id_t new_vrf_id;
+
+	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
+					      &new_vrf_id);
+
+	if (!ifp) {
+		DEBUGD(&pbr_dbg_zebra, "%s: VRF change interface not found",
+		       __func__);
+
+		return 0;
+	}
+
+	DEBUGD(&pbr_dbg_zebra, "%s: %s VRF change %u -> %u", __func__,
+	       ifp->name, vrf_id, new_vrf_id);
+
+	if_update_to_new_vrf(ifp, new_vrf_id);
 
 	return 0;
 }
@@ -421,6 +450,7 @@ void pbr_zebra_init(void)
 	zclient->zebra_connected = zebra_connected;
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
+	zclient->interface_vrf_update = interface_vrf_update;
 	zclient->route_notify_owner = route_notify_owner;
 	zclient->rule_notify_owner = rule_notify_owner;
 	zclient->nexthop_update = pbr_zebra_nexthop_update;
@@ -483,6 +513,26 @@ static void pbr_encode_pbr_map_sequence_prefix(struct stream *s,
 	stream_put(s, &p->u.prefix, prefix_blen(p));
 }
 
+static void
+pbr_encode_pbr_map_sequence_vrf(struct stream *s,
+				const struct pbr_map_sequence *pbrms,
+				const struct interface *ifp)
+{
+	struct pbr_vrf *pbr_vrf;
+
+	if (pbrms->vrf_unchanged)
+		pbr_vrf = pbr_vrf_lookup_by_id(ifp->vrf_id);
+	else
+		pbr_vrf = pbr_vrf_lookup_by_name(pbrms->vrf_name);
+
+	if (!pbr_vrf) {
+		DEBUGD(&pbr_dbg_zebra, "%s: VRF not found", __func__);
+		return;
+	}
+
+	stream_putl(s, pbr_vrf->vrf->data.l.table_id);
+}
+
 static void pbr_encode_pbr_map_sequence(struct stream *s,
 					struct pbr_map_sequence *pbrms,
 					struct interface *ifp)
@@ -501,7 +551,10 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 	pbr_encode_pbr_map_sequence_prefix(s, pbrms->dst, family);
 	stream_putw(s, 0);  /* dst port */
 	stream_putl(s, pbrms->mark);
-	if (pbrms->nhgrp_name)
+
+	if (pbrms->vrf_unchanged || pbrms->vrf_lookup)
+		pbr_encode_pbr_map_sequence_vrf(s, pbrms, ifp);
+	else if (pbrms->nhgrp_name)
 		stream_putl(s, pbr_nht_get_table(pbrms->nhgrp_name));
 	else if (pbrms->nhg)
 		stream_putl(s, pbr_nht_get_table(pbrms->internal_nhg_name));
