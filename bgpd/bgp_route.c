@@ -7517,7 +7517,7 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 	json_object *json_status = NULL;
 	json_object *json_net = NULL;
 	char buff[BUFSIZ];
-	char buf2[BUFSIZ];
+
 	/* Route status display. */
 	if (use_json) {
 		json_status = json_object_new_object();
@@ -7530,12 +7530,18 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 
 	/* print prefix and mask */
 	if (use_json) {
-		json_object_string_add(
-			json_net, "addrPrefix",
-			inet_ntop(p->family, &p->u.prefix, buff, BUFSIZ));
-		json_object_int_add(json_net, "prefixLen", p->prefixlen);
-		prefix2str(p, buf2, PREFIX_STRLEN);
-		json_object_string_add(json_net, "network", buf2);
+		if (safi == SAFI_EVPN)
+			bgp_evpn_route2json((struct prefix_evpn *)p, json_net);
+		else if (p->family == AF_INET || p->family == AF_INET6) {
+			json_object_string_add(
+				json_net, "addrPrefix",
+				inet_ntop(p->family, &p->u.prefix, buff,
+				BUFSIZ));
+			json_object_int_add(json_net, "prefixLen",
+				p->prefixlen);
+			prefix2str(p, buff, PREFIX_STRLEN);
+			json_object_string_add(json_net, "network", buff);
+		}
 	} else
 		route_vty_out_route(p, vty, NULL);
 
@@ -7544,10 +7550,8 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 		if (use_json) {
 			if (p->family == AF_INET
 			    && (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
-				|| safi == SAFI_EVPN
 				|| !BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
-				if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
-				    || safi == SAFI_EVPN)
+				if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
 					json_object_string_add(
 						json_net, "nextHop",
 						inet_ntoa(
@@ -7565,7 +7569,11 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 					inet_ntop(AF_INET6,
 						  &attr->mp_nexthop_global, buf,
 						  BUFSIZ));
-			}
+			} else if (p->family == AF_EVPN &&
+				   !BGP_ATTR_NEXTHOP_AFI_IP6(attr))
+				json_object_string_add(json_net,
+					"nextHop", inet_ntoa(
+					attr->mp_nexthop_global_in));
 
 			if (attr->flag
 			    & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
@@ -7659,10 +7667,9 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 		json_object_boolean_true_add(json_status, ">");
 		json_object_object_add(json_net, "appliedStatusSymbols",
 				       json_status);
-		char buf_cut[BUFSIZ];
 
-		prefix2str(p, buf_cut, PREFIX_STRLEN);
-		json_object_object_add(json_ar, buf_cut, json_net);
+		prefix2str(p, buff, PREFIX_STRLEN);
+		json_object_object_add(json_ar, buff, json_net);
 	} else
 		vty_out(vty, "\n");
 }
