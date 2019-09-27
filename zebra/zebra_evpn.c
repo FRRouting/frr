@@ -675,13 +675,6 @@ zebra_evpn_t *zebra_evpn_map_vlan(struct interface *ifp,
 	return zevpn;
 }
 
-struct zevpn_from_svi_param {
-	struct interface *br_if;
-	struct zebra_if *zif;
-	uint8_t bridge_vlan_aware;
-	vlanid_t vid;
-};
-
 static int zebra_evpn_from_svi_zns(struct zebra_ns *zns,
 				   void *_in_param,
 				   void **_p_zevpn)
@@ -693,8 +686,8 @@ static int zebra_evpn_from_svi_zns(struct zebra_ns *zns,
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
 	struct zebra_l2info_vxlan *vxl = NULL;
-	struct zevpn_from_svi_param *in_param =
-		(struct zevpn_from_svi_param *)_in_param;
+	struct zebra_from_svi_param *in_param =
+		(struct zebra_from_svi_param *)_in_param;
 	int found = 0;
 
 	if (!in_param)
@@ -745,7 +738,7 @@ zebra_evpn_t *zebra_evpn_from_svi(struct interface *ifp,
 	zebra_evpn_t *zevpn = NULL;
 	zebra_evpn_t **p_zevpn;
 	struct zebra_if *zif;
-	struct zevpn_from_svi_param in_param;
+	struct zebra_from_svi_param in_param;
 
 	if (!br_if)
 		return NULL;

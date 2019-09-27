@@ -123,6 +123,14 @@ struct zebra_evpn_t_ {
 	struct list *local_es_evi_list;
 };
 
+/* for parsing evpn and vni contexts */
+struct zebra_from_svi_param {
+	struct interface *br_if;
+	struct zebra_if *zif;
+	uint8_t bridge_vlan_aware;
+	vlanid_t vid;
+};
+
 struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if);
 
 static inline struct interface *zevpn_map_to_svi(zebra_evpn_t *zevpn)

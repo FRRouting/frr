@@ -782,6 +782,42 @@ static void zl3vni_print_hash_detail(struct hash_bucket *bucket, void *data)
 		vty_out(vty, "\n");
 }
 
+static int zvni_map_to_svi_ns(struct zebra_ns *zns,
+			      void *_in_param,
+			      void **_p_ifp)
+{
+	struct route_node *rn;
+	struct zebra_from_svi_param *in_param =
+		(struct zebra_from_svi_param *)_in_param;
+	struct zebra_l2info_vlan *vl;
+	struct interface *tmp_if = NULL;
+	struct interface **p_ifp = (struct interface **)_p_ifp;
+	struct zebra_if *zif;
+
+	if (!in_param)
+		return ZNS_WALK_STOP;
+
+	/* TODO: Optimize with a hash. */
+	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
+		tmp_if = (struct interface *)rn->info;
+		/* Check oper status of the SVI. */
+		if (!tmp_if || !if_is_operative(tmp_if))
+			continue;
+		zif = tmp_if->info;
+		if (!zif || zif->zif_type != ZEBRA_IF_VLAN
+		    || zif->link != in_param->br_if)
+			continue;
+		vl = (struct zebra_l2info_vlan *)&zif->l2info.vl;
+
+		if (vl->vid == in_param->vid) {
+			if (p_ifp)
+				*p_ifp = tmp_if;
+			return ZNS_WALK_STOP;
+		}
+	}
+	return ZNS_WALK_CONTINUE;
+}
+
 /* Map to SVI on bridge corresponding to specified VLAN. This can be one
  * of two cases:
  * (a) In the case of a VLAN-aware bridge, the SVI is a L3 VLAN interface
@@ -791,15 +827,11 @@ static void zl3vni_print_hash_detail(struct hash_bucket *bucket, void *data)
  */
 struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
 {
-	struct zebra_ns *zns;
-	struct route_node *rn;
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
 	struct zebra_l2info_bridge *br;
-	struct zebra_l2info_vlan *vl;
-	uint8_t bridge_vlan_aware;
-	int found = 0;
-
+	struct zebra_from_svi_param in_param;
+	struct interface **p_ifp;
 	/* Defensive check, caller expected to invoke only with valid bridge. */
 	if (!br_if)
 		return NULL;
@@ -808,33 +840,19 @@ struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
 	zif = br_if->info;
 	assert(zif);
 	br = &zif->l2info.br;
-	bridge_vlan_aware = br->vlan_aware;
-
+	in_param.bridge_vlan_aware = br->vlan_aware;
 	/* Check oper status of the SVI. */
-	if (!bridge_vlan_aware)
+	if (!in_param.bridge_vlan_aware)
 		return if_is_operative(br_if) ? br_if : NULL;
 
+	in_param.vid = vid;
+	in_param.br_if = br_if;
+	in_param.zif = NULL;
+	p_ifp = &tmp_if;
 	/* Identify corresponding VLAN interface. */
-	/* TODO: Optimize with a hash. */
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
-		tmp_if = (struct interface *)rn->info;
-		/* Check oper status of the SVI. */
-		if (!tmp_if || !if_is_operative(tmp_if))
-			continue;
-		zif = tmp_if->info;
-		if (!zif || zif->zif_type != ZEBRA_IF_VLAN
-		    || zif->link != br_if)
-			continue;
-		vl = &zif->l2info.vl;
-
-		if (vl->vid == vid) {
-			found = 1;
-			break;
-		}
-	}
-
-	return found ? tmp_if : NULL;
+	zebra_ns_list_walk(zvni_map_to_svi_ns, (void *)&in_param,
+			   (void **)p_ifp);
+	return tmp_if;
 }
 
 static int zebra_evpn_vxlan_del(zebra_evpn_t *zevpn)
