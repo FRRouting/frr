@@ -1012,6 +1012,7 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 	int header = 1;
 	char rd_str[BUFSIZ];
 	char buf[BUFSIZ];
+	int no_display;
 
 	unsigned long output_count = 0;
 	unsigned long total_count = 0;
@@ -1049,6 +1050,11 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 		tbl_ver = table->version;
 
 		for (rm = bgp_table_top(table); rm; rm = bgp_route_next(rm)) {
+			pi = bgp_node_get_bgp_path_info(rm);
+			if (pi == NULL)
+				continue;
+
+			no_display = 0;
 			if (use_json) {
 				json_array = json_object_new_array();
 				json_prefix_info = json_object_new_object();
@@ -1065,8 +1071,7 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 					json_nroute = json_object_new_object();
 			}
 
-			for (pi = bgp_node_get_bgp_path_info(rm); pi;
-			     pi = pi->next) {
+			for (; pi; pi = pi->next) {
 				total_count++;
 				if (type == bgp_show_type_neighbor) {
 				        struct peer *peer = output_arg;
@@ -1101,16 +1106,7 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 							vty_out(vty,
 								V4_HEADER_OVERLAY);
 						else {
-							vty_out(vty,
-								"BGP table version is %" PRIu64 ", local router ID is %s\n",
-								tbl_ver,
-								inet_ntoa(
-									bgp->router_id));
-							vty_out(vty,
-								"Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
-							vty_out(vty,
-								"Origin codes: i - IGP, e - EGP, ? - incomplete\n\n");
-							vty_out(vty, V4_HEADER);
+							bgp_evpn_show_route_header(vty, bgp, tbl_ver, NULL);
 						}
 					}
 					header = 0;
@@ -1172,18 +1168,23 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 				}
 
 				if (option == SHOW_DISPLAY_TAGS)
-					route_vty_out_tag(vty, &rm->p, pi, 0,
-							  SAFI_EVPN,
+					route_vty_out_tag(vty, &rm->p, pi,
+							  no_display, SAFI_EVPN,
 							  json_array);
 				else if (option == SHOW_DISPLAY_OVERLAY)
 					route_vty_out_overlay(vty, &rm->p, pi,
-							      0, json_array);
+							      no_display,
+							      json_array);
 				else
-					route_vty_out(vty, &rm->p, pi, 0,
-						      SAFI_EVPN, json_array);
-				output_count++;
+					route_vty_out(vty, &rm->p, pi,
+						      no_display, SAFI_EVPN,
+						      json_array);
+				no_display = 1;
 			}
-			rd_header = 0;
+
+			if (no_display)
+				output_count++;
+
 			if (use_json) {
 				json_object_object_add(json_prefix_info,
 					"paths", json_array);
