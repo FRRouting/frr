@@ -1067,7 +1067,7 @@ DEFUN (show_babel_route_prefix,
       vty_out (vty, "%% Malformed address\n");
       return CMD_WARNING;
     }
-        
+
     routes = route_stream(0);
     if(routes) {
         while(1) {

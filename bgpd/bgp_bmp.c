@@ -1632,7 +1632,7 @@ static void bmp_active_connect(struct bmp_active *ba)
 				  ba->hostname);
 			continue;
 		}
-		
+
 		set_nonblocking(ba->socket);
 		res = sockunion_connect(ba->socket, &ba->addrs[ba->addrpos],
 				      htons(ba->port), 0);
