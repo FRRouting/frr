@@ -50,178 +50,7 @@ static vector route_match_vec;
 /* Vector for route set rules. */
 static vector route_set_vec;
 
-struct route_map_match_set_hooks {
-	/* match interface */
-	int (*match_interface)(struct vty *vty, struct route_map_index *index,
-			       const char *command, const char *arg,
-			       route_map_event_t type);
-
-	/* no match interface */
-	int (*no_match_interface)(struct vty *vty,
-				  struct route_map_index *index,
-				  const char *command, const char *arg,
-				  route_map_event_t type);
-
-	/* match ip address */
-	int (*match_ip_address)(struct vty *vty, struct route_map_index *index,
-				const char *command, const char *arg,
-				route_map_event_t type);
-
-	/* no match ip address */
-	int (*no_match_ip_address)(struct vty *vty,
-				   struct route_map_index *index,
-				   const char *command, const char *arg,
-				   route_map_event_t type);
-
-	/* match ip address prefix list */
-	int (*match_ip_address_prefix_list)(struct vty *vty,
-					    struct route_map_index *index,
-					    const char *command,
-					    const char *arg,
-					    route_map_event_t type);
-
-	/* no match ip address prefix list */
-	int (*no_match_ip_address_prefix_list)(struct vty *vty,
-					       struct route_map_index *index,
-					       const char *command,
-					       const char *arg,
-					       route_map_event_t type);
-
-	/* match ip next hop */
-	int (*match_ip_next_hop)(struct vty *vty, struct route_map_index *index,
-				 const char *command, const char *arg,
-				 route_map_event_t type);
-
-	/* no match ip next hop */
-	int (*no_match_ip_next_hop)(struct vty *vty,
-				    struct route_map_index *index,
-				    const char *command, const char *arg,
-				    route_map_event_t type);
-
-	/* match ip next hop prefix list */
-	int (*match_ip_next_hop_prefix_list)(struct vty *vty,
-					     struct route_map_index *index,
-					     const char *command,
-					     const char *arg,
-					     route_map_event_t type);
-
-	/* no match ip next hop prefix list */
-	int (*no_match_ip_next_hop_prefix_list)(struct vty *vty,
-						struct route_map_index *index,
-						const char *command,
-						const char *arg,
-						route_map_event_t type);
-
-	/* match ip next-hop type */
-	int (*match_ip_next_hop_type)(struct vty *vty,
-					     struct route_map_index *index,
-					     const char *command,
-					     const char *arg,
-					     route_map_event_t type);
-
-	/* no match ip next-hop type */
-	int (*no_match_ip_next_hop_type)(struct vty *vty,
-						struct route_map_index *index,
-						const char *command,
-						const char *arg,
-						route_map_event_t type);
-
-	/* match ipv6 address */
-	int (*match_ipv6_address)(struct vty *vty,
-				  struct route_map_index *index,
-				  const char *command, const char *arg,
-				  route_map_event_t type);
-
-	/* no match ipv6 address */
-	int (*no_match_ipv6_address)(struct vty *vty,
-				     struct route_map_index *index,
-				     const char *command, const char *arg,
-				     route_map_event_t type);
-
-
-	/* match ipv6 address prefix list */
-	int (*match_ipv6_address_prefix_list)(struct vty *vty,
-					      struct route_map_index *index,
-					      const char *command,
-					      const char *arg,
-					      route_map_event_t type);
-
-	/* no match ipv6 address prefix list */
-	int (*no_match_ipv6_address_prefix_list)(struct vty *vty,
-						 struct route_map_index *index,
-						 const char *command,
-						 const char *arg,
-						 route_map_event_t type);
-
-	/* match ipv6 next-hop type */
-	int (*match_ipv6_next_hop_type)(struct vty *vty,
-					      struct route_map_index *index,
-					      const char *command,
-					      const char *arg,
-					      route_map_event_t type);
-
-	/* no match ipv6 next-hop type */
-	int (*no_match_ipv6_next_hop_type)(struct vty *vty,
-					   struct route_map_index *index,
-					   const char *command, const char *arg,
-					   route_map_event_t type);
-
-	/* match metric */
-	int (*match_metric)(struct vty *vty, struct route_map_index *index,
-			    const char *command, const char *arg,
-			    route_map_event_t type);
-
-	/* no match metric */
-	int (*no_match_metric)(struct vty *vty, struct route_map_index *index,
-			       const char *command, const char *arg,
-			       route_map_event_t type);
-
-	/* match tag */
-	int (*match_tag)(struct vty *vty, struct route_map_index *index,
-			 const char *command, const char *arg,
-			 route_map_event_t type);
-
-	/* no match tag */
-	int (*no_match_tag)(struct vty *vty, struct route_map_index *index,
-			    const char *command, const char *arg,
-			    route_map_event_t type);
-
-	/* set ip nexthop */
-	int (*set_ip_nexthop)(struct vty *vty, struct route_map_index *index,
-			      const char *command, const char *arg);
-
-	/* no set ip nexthop */
-	int (*no_set_ip_nexthop)(struct vty *vty, struct route_map_index *index,
-				 const char *command, const char *arg);
-
-	/* set ipv6 nexthop local */
-	int (*set_ipv6_nexthop_local)(struct vty *vty,
-				      struct route_map_index *index,
-				      const char *command, const char *arg);
-
-	/* no set ipv6 nexthop local */
-	int (*no_set_ipv6_nexthop_local)(struct vty *vty,
-					 struct route_map_index *index,
-					 const char *command, const char *arg);
-
-	/* set metric */
-	int (*set_metric)(struct vty *vty, struct route_map_index *index,
-			  const char *command, const char *arg);
-
-	/* no set metric */
-	int (*no_set_metric)(struct vty *vty, struct route_map_index *index,
-			     const char *command, const char *arg);
-
-	/* set tag */
-	int (*set_tag)(struct vty *vty, struct route_map_index *index,
-		       const char *command, const char *arg);
-
-	/* no set tag */
-	int (*no_set_tag)(struct vty *vty, struct route_map_index *index,
-			  const char *command, const char *arg);
-};
-
-static struct route_map_match_set_hooks rmap_match_set_hook;
+struct route_map_match_set_hooks rmap_match_set_hook;
 
 /* match interface */
 void route_map_match_interface_hook(int (*func)(
@@ -595,35 +424,9 @@ int generic_set_delete(struct vty *vty, struct route_map_index *index,
 }
 
 
-/* Route map rule. This rule has both `match' rule and `set' rule. */
-struct route_map_rule {
-	/* Rule type. */
-	const struct route_map_rule_cmd *cmd;
-
-	/* For pretty printing. */
-	char *rule_str;
-
-	/* Pre-compiled match rule. */
-	void *value;
-
-	/* Linked list. */
-	struct route_map_rule *next;
-	struct route_map_rule *prev;
-};
-
-/* Making route map list. */
-struct route_map_list {
-	struct route_map *head;
-	struct route_map *tail;
-
-	void (*add_hook)(const char *);
-	void (*delete_hook)(const char *);
-	void (*event_hook)(const char *);
-};
-
 /* Master list of route map. */
-static struct route_map_list route_map_master = {NULL, NULL, NULL, NULL, NULL};
-static struct hash *route_map_master_hash = NULL;
+struct route_map_list route_map_master = {NULL, NULL, NULL, NULL, NULL};
+struct hash *route_map_master_hash = NULL;
 
 static unsigned int route_map_hash_key_make(const void *p)
 {
@@ -690,8 +493,6 @@ static void route_map_clear_all_references(char *rmap_name);
 static void route_map_rule_delete(struct route_map_rule_list *,
 				  struct route_map_rule *);
 static bool rmap_debug;
-
-static void route_map_index_delete(struct route_map_index *, int);
 
 /* New route map allocation. Please note route map's name must be
    specified. */
@@ -784,7 +585,7 @@ static void route_map_free_map(struct route_map *map)
 }
 
 /* Route map delete from list. */
-static void route_map_delete(struct route_map *map)
+void route_map_delete(struct route_map *map)
 {
 	struct route_map_index *index;
 	char *name;
@@ -883,7 +684,7 @@ static int route_map_clear_updated(struct route_map *map)
 
 /* Lookup route map.  If there isn't route map create one and return
    it. */
-static struct route_map *route_map_get(const char *name)
+struct route_map *route_map_get(const char *name)
 {
 	struct route_map *map;
 
@@ -1097,7 +898,7 @@ static struct route_map_index *route_map_index_new(void)
 }
 
 /* Free route map index. */
-static void route_map_index_delete(struct route_map_index *index, int notify)
+void route_map_index_delete(struct route_map_index *index, int notify)
 {
 	struct route_map_rule *rule;
 
@@ -1202,7 +1003,7 @@ route_map_index_add(struct route_map *map, enum route_map_type type, int pref)
 }
 
 /* Get route map index. */
-static struct route_map_index *
+struct route_map_index *
 route_map_index_get(struct route_map *map, enum route_map_type type, int pref)
 {
 	struct route_map_index *index;
