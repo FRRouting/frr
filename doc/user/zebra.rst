@@ -839,8 +839,11 @@ zebra Terminal Mode Commands
 .. index:: show ipv6 route
 .. clicmd:: show ipv6 route
 
-.. index:: show interface
-.. clicmd:: show interface
+.. index:: show interface [{vrf VRF|brief}]
+.. clicmd:: show interface [{vrf VRF|brief}]
+
+.. index:: show interface [{vrf all|brief}]
+.. clicmd:: show interface [{vrf all|brief}]
 
 .. index:: show ip prefix-list [NAME]
 .. clicmd:: show ip prefix-list [NAME]
