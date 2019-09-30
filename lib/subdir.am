@@ -71,6 +71,7 @@ lib_libfrr_la_SOURCES = \
 	lib/qobj.c \
 	lib/ringbuf.c \
 	lib/routemap.c \
+	lib/routemap_northbound.c \
 	lib/sbuf.c \
 	lib/seqlock.c \
 	lib/sha256.c \
@@ -105,6 +106,7 @@ lib_libfrr_la_SOURCES = \
 
 nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-interface.yang.c \
+	yang/frr-route-map.yang.c \
 	yang/frr-route-types.yang.c \
 	yang/ietf/ietf-routing-types.yang.c \
 	yang/frr-module-translator.yang.c \
