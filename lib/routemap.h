@@ -666,7 +666,26 @@ int lib_route_map_entry_match_destroy(enum nb_event event,
 				      const struct lyd_node *dnode);
 int lib_route_map_entry_set_destroy(enum nb_event event,
 				    const struct lyd_node *dnode);
+
 extern const struct frr_yang_module_info frr_route_map_info;
+
+/* routemap_cli.c */
+extern void route_map_instance_show(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults);
+extern void route_map_instance_show_end(struct vty *vty,
+					struct lyd_node *dnode);
+extern void route_map_condition_show(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults);
+extern void route_map_action_show(struct vty *vty, struct lyd_node *dnode,
+				  bool show_defaults);
+extern void route_map_exit_policy_show(struct vty *vty, struct lyd_node *dnode,
+				       bool show_defaults);
+extern void route_map_call_show(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults);
+extern void route_map_description_show(struct vty *vty,
+				       struct lyd_node *dnode,
+				       bool show_defaults);
+extern void route_map_cli_init(void);
 
 #ifdef __cplusplus
 }
