@@ -80,83 +80,36 @@ static int vrrp_router_id_update_zebra(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int vrrp_zebra_if_add(int command, struct zclient *zclient,
-			     zebra_size_t length, vrf_id_t vrf_id)
+int vrrp_ifp_create(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	/*
-	 * zebra api adds/dels interfaces using the same call
-	 * interface_add_read below, see comments in lib/zclient.c
-	 */
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-
-	if (!ifp)
-		return 0;
-
-	vrrp_zebra_debug_if_state(ifp, vrf_id, __func__);
+	vrrp_zebra_debug_if_state(ifp, ifp->vrf_id, __func__);
 
 	vrrp_if_add(ifp);
 
 	return 0;
 }
 
-static int vrrp_zebra_if_del(int command, struct zclient *zclient,
-			     zebra_size_t length, vrf_id_t vrf_id)
+int vrrp_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (!ifp)
-		return 0;
-
-	vrrp_zebra_debug_if_state(ifp, vrf_id, __func__);
+	vrrp_zebra_debug_if_state(ifp, ifp->vrf_id, __func__);
 
 	vrrp_if_del(ifp);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	return 0;
 }
 
-static int vrrp_zebra_if_state_up(int command, struct zclient *zclient,
-				  zebra_size_t length, vrf_id_t vrf_id)
+int vrrp_ifp_up(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	/*
-	 * zebra api notifies interface up/down events by using the same call
-	 * zebra_interface_state_read below, see comments in lib/zclient.c ifp =
-	 * zebra_interface_state_read(zclient->ibuf, vrf_id);
-	 */
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (!ifp)
-		return 0;
-
-	vrrp_zebra_debug_if_state(ifp, vrf_id, __func__);
+	vrrp_zebra_debug_if_state(ifp, ifp->vrf_id, __func__);
 
 	vrrp_if_up(ifp);
 
 	return 0;
 }
 
-static int vrrp_zebra_if_state_down(int command, struct zclient *zclient,
-				    zebra_size_t length, vrf_id_t vrf_id)
+int vrrp_ifp_down(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	/*
-	 * zebra api notifies interface up/down events by using the same call
-	 * zebra_interface_state_read below, see comments in lib/zclient.c
-	 */
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (!ifp)
-		return 0;
-
-	vrrp_zebra_debug_if_state(ifp, vrf_id, __func__);
+	vrrp_zebra_debug_if_state(ifp, ifp->vrf_id, __func__);
 
 	vrrp_if_down(ifp);
 
@@ -238,15 +191,14 @@ int vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
 
 void vrrp_zebra_init(void)
 {
+	if_zapi_callbacks(vrrp_ifp_create, vrrp_ifp_up,
+			  vrrp_ifp_down, vrrp_ifp_destroy);
+
 	/* Socket for receiving updates from Zebra daemon */
 	zclient = zclient_new(master, &zclient_options_default);
 
 	zclient->zebra_connected = vrrp_zebra_connected;
 	zclient->router_id_update = vrrp_router_id_update_zebra;
-	zclient->interface_add = vrrp_zebra_if_add;
-	zclient->interface_delete = vrrp_zebra_if_del;
-	zclient->interface_up = vrrp_zebra_if_state_up;
-	zclient->interface_down = vrrp_zebra_if_state_down;
 	zclient->interface_address_add = vrrp_zebra_if_address_add;
 	zclient->interface_address_delete = vrrp_zebra_if_address_del;
 

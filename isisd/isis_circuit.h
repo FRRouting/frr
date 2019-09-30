@@ -32,6 +32,8 @@
 #include "isis_constants.h"
 #include "isis_common.h"
 
+DECLARE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp));
+
 struct isis_lsp;
 
 struct password {

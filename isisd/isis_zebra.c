@@ -53,8 +53,6 @@
 
 struct zclient *zclient = NULL;
 
-DEFINE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp))
-
 /* Router-id update message from zebra. */
 static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
@@ -70,79 +68,6 @@ static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
 		if (listcount(area->area_addrs) > 0)
 			lsp_regenerate_schedule(area, area->is_type, 0);
-
-	return 0;
-}
-
-static int isis_zebra_if_add(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-
-	if (if_is_operative(ifp))
-		isis_csm_state_change(IF_UP_FROM_Z, circuit_scan_by_ifp(ifp),
-				      ifp);
-
-	hook_call(isis_if_new_hook, ifp);
-
-	return 0;
-}
-
-static int isis_zebra_if_del(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (!ifp)
-		return 0;
-
-	if (if_is_operative(ifp))
-		zlog_warn("Zebra: got delete of %s, but interface is still up",
-			  ifp->name);
-
-	isis_csm_state_change(IF_DOWN_FROM_Z, circuit_scan_by_ifp(ifp), ifp);
-
-	/* Cannot call if_delete because we should retain the pseudo interface
-	   in case there is configuration info attached to it. */
-	if_delete_retain(ifp);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
-
-	return 0;
-}
-
-static int isis_zebra_if_state_up(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	isis_csm_state_change(IF_UP_FROM_Z, circuit_scan_by_ifp(ifp), ifp);
-
-	return 0;
-}
-
-static int isis_zebra_if_state_down(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct isis_circuit *circuit;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	circuit = isis_csm_state_change(IF_DOWN_FROM_Z,
-					circuit_scan_by_ifp(ifp), ifp);
-	if (circuit)
-		SET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);
 
 	return 0;
 }
@@ -388,10 +313,6 @@ void isis_zebra_init(struct thread_master *master)
 	zclient_init(zclient, PROTO_TYPE, 0, &isisd_privs);
 	zclient->zebra_connected = isis_zebra_connected;
 	zclient->router_id_update = isis_router_id_update_zebra;
-	zclient->interface_add = isis_zebra_if_add;
-	zclient->interface_delete = isis_zebra_if_del;
-	zclient->interface_up = isis_zebra_if_state_up;
-	zclient->interface_down = isis_zebra_if_state_down;
 	zclient->interface_address_add = isis_zebra_if_address_add;
 	zclient->interface_address_delete = isis_zebra_if_address_del;
 	zclient->interface_link_params = isis_zebra_link_params;

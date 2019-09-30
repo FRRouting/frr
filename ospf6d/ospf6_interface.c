@@ -42,6 +42,7 @@
 #include "ospf6_spf.h"
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
+#include "ospf6_zebra.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, CFG_PLIST_NAME, "configured prefix list names")
 DEFINE_QOBJ_TYPE(ospf6_interface)
@@ -1946,11 +1947,64 @@ static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1 /* VTYSH */
 };
 
+static int ospf6_ifp_create(struct interface *ifp)
+{
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+		zlog_debug("Zebra Interface add: %s index %d mtu %d", ifp->name,
+			   ifp->ifindex, ifp->mtu6);
+	ospf6_interface_if_add(ifp);
+
+	return 0;
+}
+
+static int ospf6_ifp_up(struct interface *ifp)
+{
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+		zlog_debug(
+			"Zebra Interface state change: "
+			"%s index %d flags %llx metric %d mtu %d bandwidth %d",
+			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu6, ifp->bandwidth);
+
+	ospf6_interface_state_update(ifp);
+
+	return 0;
+}
+
+static int ospf6_ifp_down(struct interface *ifp)
+{
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+		zlog_debug(
+			"Zebra Interface state change: "
+			"%s index %d flags %llx metric %d mtu %d bandwidth %d",
+			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu6, ifp->bandwidth);
+
+	ospf6_interface_state_update(ifp);
+
+	return 0;
+}
+
+static int ospf6_ifp_destroy(struct interface *ifp)
+{
+	if (if_is_up(ifp))
+		zlog_warn("Zebra: got delete of %s, but interface is still up",
+			  ifp->name);
+
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+		zlog_debug("Zebra Interface delete: %s index %d mtu %d",
+			   ifp->name, ifp->ifindex, ifp->mtu6);
+
+	return 0;
+}
+
 void ospf6_interface_init(void)
 {
 	/* Install interface node. */
 	install_node(&interface_node, config_write_ospf6_interface);
 	if_cmd_init();
+	if_zapi_callbacks(ospf6_ifp_create, ospf6_ifp_up,
+			  ospf6_ifp_down, ospf6_ifp_destroy);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_prefix_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_ifname_cmd);

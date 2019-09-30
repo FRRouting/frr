@@ -58,6 +58,13 @@ DEFINE_QOBJ_TYPE(interface)
 DEFINE_HOOK(if_add, (struct interface * ifp), (ifp))
 DEFINE_KOOH(if_del, (struct interface * ifp), (ifp))
 
+struct interface_master{
+	int (*create_hook)(struct interface *ifp);
+	int (*up_hook)(struct interface *ifp);
+	int (*down_hook)(struct interface *ifp);
+	int (*destroy_hook)(struct interface *ifp);
+} ifp_master = { 0, };
+
 /* Compare interface names, returning an integer greater than, equal to, or
  * less than 0, (following the strcmp convention), according to the
  * relationship between ifp1 and ifp2.  Interface names consist of an
@@ -166,6 +173,34 @@ static struct interface *if_create_backend(const char *name, ifindex_t ifindex,
 	QOBJ_REG(ifp, interface);
 	hook_call(if_add, ifp);
 	return ifp;
+}
+
+void if_new_via_zapi(struct interface *ifp)
+{
+	if (ifp_master.create_hook)
+		(*ifp_master.create_hook)(ifp);
+}
+
+void if_destroy_via_zapi(struct interface *ifp)
+{
+	if (ifp_master.destroy_hook)
+		(*ifp_master.destroy_hook)(ifp);
+
+	if_set_index(ifp, IFINDEX_INTERNAL);
+	if (!ifp->configured)
+		if_delete(ifp);
+}
+
+void if_up_via_zapi(struct interface *ifp)
+{
+	if (ifp_master.up_hook)
+		(*ifp_master.up_hook)(ifp);
+}
+
+void if_down_via_zapi(struct interface *ifp)
+{
+	if (ifp_master.down_hook)
+		(*ifp_master.down_hook)(ifp);
 }
 
 struct interface *if_create(const char *name, vrf_id_t vrf_id)
@@ -1367,6 +1402,17 @@ void if_cmd_init(void)
 	install_element(INTERFACE_NODE, &no_interface_desc_cmd);
 }
 
+void if_zapi_callbacks(int (*create)(struct interface *ifp),
+		       int (*up)(struct interface *ifp),
+		       int (*down)(struct interface *ifp),
+		       int (*destroy)(struct interface *ifp))
+{
+	ifp_master.create_hook = create;
+	ifp_master.up_hook = up;
+	ifp_master.down_hook = down;
+	ifp_master.destroy_hook = destroy;
+}
+
 /* ------- Northbound callbacks ------- */
 
 /*
@@ -1423,6 +1469,8 @@ static int lib_interface_create(enum nb_event event,
 #else
 		ifp = if_get_by_name(ifname, vrf->vrf_id);
 #endif /* SUNOS_5 */
+
+		ifp->configured = true;
 		nb_running_set_entry(dnode, ifp);
 		break;
 	}
@@ -1450,6 +1498,8 @@ static int lib_interface_destroy(enum nb_event event,
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_unset_entry(dnode);
+
+		ifp->configured = false;
 		if_delete(ifp);
 		break;
 	}

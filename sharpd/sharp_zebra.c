@@ -46,51 +46,19 @@ struct zclient *zclient = NULL;
 /* For registering threads. */
 extern struct thread_master *master;
 
-static struct interface *zebra_interface_if_lookup(struct stream *s)
-{
-	char ifname_tmp[INTERFACE_NAMSIZ];
-
-	/* Read interface name. */
-	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
-
-	/* And look it up. */
-	return if_lookup_by_name(ifname_tmp, VRF_DEFAULT);
-}
-
 /* Inteface addition message from zebra. */
-static int interface_add(ZAPI_CALLBACK_ARGS)
+static int sharp_ifp_create(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-
-	if (!ifp->info)
-		return 0;
-
 	return 0;
 }
 
-static int interface_delete(ZAPI_CALLBACK_ARGS)
+static int sharp_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	/* zebra_interface_state_read () updates interface structure in iflist
-	 */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
-
 	return 0;
 }
 
 static int interface_address_add(ZAPI_CALLBACK_ARGS)
 {
-
 	zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	return 0;
@@ -109,19 +77,13 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int interface_state_up(ZAPI_CALLBACK_ARGS)
+static int sharp_ifp_up(struct interface *ifp)
 {
-
-	zebra_interface_if_lookup(zclient->ibuf);
-
 	return 0;
 }
 
-static int interface_state_down(ZAPI_CALLBACK_ARGS)
+static int sharp_ifp_down(struct interface *ifp)
 {
-
-	zebra_interface_state_read(zclient->ibuf, vrf_id);
-
 	return 0;
 }
 
@@ -398,14 +360,13 @@ void sharp_zebra_init(void)
 {
 	struct zclient_options opt = {.receive_notify = true};
 
+	if_zapi_callbacks(sharp_ifp_create, sharp_ifp_up,
+			  sharp_ifp_down, sharp_ifp_destroy);
+
 	zclient = zclient_new(master, &opt);
 
 	zclient_init(zclient, ZEBRA_ROUTE_SHARP, 0, &sharp_privs);
 	zclient->zebra_connected = zebra_connected;
-	zclient->interface_add = interface_add;
-	zclient->interface_delete = interface_delete;
-	zclient->interface_up = interface_state_up;
-	zclient->interface_down = interface_state_down;
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
 	zclient->route_notify_owner = route_notify_owner;

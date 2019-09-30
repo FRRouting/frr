@@ -49,46 +49,16 @@ bool debug;
 struct zclient *zclient;
 static struct hash *static_nht_hash;
 
-static struct interface *zebra_interface_if_lookup(struct stream *s)
-{
-	char ifname_tmp[INTERFACE_NAMSIZ];
-
-	/* Read interface name. */
-	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
-
-	/* And look it up. */
-	return if_lookup_by_name(ifname_tmp, VRF_DEFAULT);
-}
-
 /* Inteface addition message from zebra. */
-static int interface_add(ZAPI_CALLBACK_ARGS)
+static int static_ifp_create(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-
-	if (!ifp)
-		return 0;
-
 	static_ifindex_update(ifp, true);
+
 	return 0;
 }
 
-static int interface_delete(ZAPI_CALLBACK_ARGS)
+static int static_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	/* zebra_interface_state_read () updates interface structure in iflist
-	 */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
-
 	static_ifindex_update(ifp, false);
 	return 0;
 }
@@ -113,37 +83,25 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int interface_state_up(ZAPI_CALLBACK_ARGS)
+static int static_ifp_up(struct interface *ifp)
 {
-	struct interface *ifp;
+	if (if_is_vrf(ifp)) {
+		struct static_vrf *svrf = static_vrf_lookup_by_id(ifp->vrf_id);
 
-	ifp = zebra_interface_if_lookup(zclient->ibuf);
-
-	if (ifp) {
-		if (if_is_vrf(ifp)) {
-			struct static_vrf *svrf =
-					static_vrf_lookup_by_id(vrf_id);
-
-			static_fixup_vrf_ids(svrf);
-			static_config_install_delayed_routes(svrf);
-		}
-
-		/* Install any static reliant on this interface coming up */
-		static_install_intf_nh(ifp);
-		static_ifindex_update(ifp, true);
+		static_fixup_vrf_ids(svrf);
+		static_config_install_delayed_routes(svrf);
 	}
+
+	/* Install any static reliant on this interface coming up */
+	static_install_intf_nh(ifp);
+	static_ifindex_update(ifp, true);
 
 	return 0;
 }
 
-static int interface_state_down(ZAPI_CALLBACK_ARGS)
+static int static_ifp_down(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (ifp)
-		static_ifindex_update(ifp, false);
+	static_ifindex_update(ifp, false);
 
 	return 0;
 }
@@ -504,19 +462,19 @@ extern void static_zebra_route_add(struct route_node *rn,
 			   ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
 			   zclient, &api);
 }
+
 void static_zebra_init(void)
 {
 	struct zclient_options opt = { .receive_notify = true };
+
+	if_zapi_callbacks(static_ifp_create, static_ifp_up,
+			  static_ifp_down, static_ifp_destroy);
 
 	zclient = zclient_new(master, &opt);
 
 	zclient_init(zclient, ZEBRA_ROUTE_STATIC, 0, &static_privs);
 	zclient->zebra_capabilities = static_zebra_capabilities;
 	zclient->zebra_connected = zebra_connected;
-	zclient->interface_add = interface_add;
-	zclient->interface_delete = interface_delete;
-	zclient->interface_up = interface_state_up;
-	zclient->interface_down = interface_state_down;
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
 	zclient->route_notify_owner = route_notify_owner;

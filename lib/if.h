@@ -293,6 +293,12 @@ struct interface {
 	struct route_node *node;
 	vrf_id_t vrf_id;
 
+	/*
+	 * Has the end users entered `interface XXXX` from the cli in some
+	 * fashion?
+	 */
+	bool configured;
+
 	QOBJ_FIELDS
 };
 
@@ -552,6 +558,16 @@ void if_link_params_free(struct interface *);
 
 /* Northbound. */
 extern void if_cmd_init(void);
+extern void if_zapi_callbacks(int (*create)(struct interface *ifp),
+			      int (*up)(struct interface *ifp),
+			      int (*down)(struct interface *ifp),
+			      int (*destroy)(struct interface *ifp));
+
+extern void if_new_via_zapi(struct interface *ifp);
+extern void if_up_via_zapi(struct interface *ifp);
+extern void if_down_via_zapi(struct interface *ifp);
+extern void if_destroy_via_zapi(struct interface *ifp);
+
 extern const struct frr_yang_module_info frr_interface_info;
 
 #ifdef __cplusplus
