@@ -106,6 +106,7 @@ lib_libfrr_la_SOURCES = \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \
+	yang/frr-filter.yang.c \
 	yang/frr-interface.yang.c \
 	yang/frr-route-map.yang.c \
 	yang/frr-route-types.yang.c \
