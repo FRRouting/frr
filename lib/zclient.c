@@ -1829,7 +1829,7 @@ struct interface *zebra_interface_vrf_update_read(struct stream *s,
 	}
 
 	/* Fetch new VRF Id. */
-	new_id = stream_getw(s);
+	new_id = stream_getl(s);
 
 	*new_vrf_id = new_id;
 	return ifp;
