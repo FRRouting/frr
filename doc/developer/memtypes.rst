@@ -52,6 +52,12 @@ Definition
    a function taking a ``struct memtype *`` argument can be called with an
    ``MTYPE_name`` argument (as opposed to ``&MTYPE_name``.)
 
+   .. note::
+
+      As ``MTYPE_name`` is a variable assigned from ``&_mt_name`` and not a
+      constant expression, it cannot be used as initializer for static
+      variables. In the case please fall back to ``&_mt_name``.
+
 .. c:macro:: DECLARE_MGROUP(name)
 
    This macro forward-declares a memory group and should be placed in a
