@@ -46,6 +46,9 @@ DEFPY_NOSH(
 	ROUTE_MAP_OP_CMD_STR
 	ROUTE_MAP_SEQUENCE_CMD_STR)
 {
+	struct route_map_index *rmi;
+	struct route_map *rm;
+	int action_type;
 	char xpath_action[XPATH_MAXLEN + 64];
 	char xpath_index[XPATH_MAXLEN + 32];
 	char xpath[XPATH_MAXLEN];
@@ -63,8 +66,15 @@ DEFPY_NOSH(
 	nb_cli_enqueue_change(vty, xpath_action, NB_OP_MODIFY, action);
 
 	rv = nb_cli_apply_changes(vty, NULL);
-	if (rv == CMD_SUCCESS)
+	if (rv == CMD_SUCCESS) {
 		VTY_PUSH_XPATH(RMAP_NODE, xpath_index);
+
+		/* Add support for non-migrated route map users. */
+		rm = route_map_get(name);
+		action_type = (action[0] == 'p') ? RMAP_PERMIT : RMAP_DENY;
+		rmi = route_map_index_get(rm, action_type, sequence);
+		VTY_PUSH_CONTEXT(RMAP_NODE, rmi);
+	}
 
 	return rv;
 }
@@ -105,11 +115,55 @@ DEFPY(
 void route_map_instance_show(struct vty *vty, struct lyd_node *dnode,
 			     bool show_defaults)
 {
+	const struct route_map_rule *rmr;
+	const struct route_map_index *rmi;
 	const char *name = yang_dnode_get_string(dnode, "../name");
 	const char *action = yang_dnode_get_string(dnode, "./action");
 	const char *sequence = yang_dnode_get_string(dnode, "./sequence");
 
 	vty_out(vty, "route-map %s %s %s\n", name, action, sequence);
+
+	rmi = nb_running_get_entry(dnode, NULL, false);
+	if (rmi == NULL) {
+		/*
+		 * We can't have outdated rules if route map hasn't
+		 * been created yet.
+		 */
+		return;
+	}
+
+#define SKIP_RULE(name) if (strcmp((name), rmr->cmd->str) == 0) continue
+
+	/* Print route map `match` for old CLI users. */
+	for (rmr = rmi->match_list.head; rmr; rmr = rmr->next) {
+		/* Skip all matches implemented by northbound. */
+		SKIP_RULE("interface");
+		SKIP_RULE("ip address");
+		SKIP_RULE("ip address prefix-list");
+		SKIP_RULE("ip next-hop");
+		SKIP_RULE("ip next-hop prefix-list");
+		SKIP_RULE("ip next-hop type");
+		SKIP_RULE("ipv6 address");
+		SKIP_RULE("ipv6 address prefix-list");
+		SKIP_RULE("ipv6 next-hop type");
+		SKIP_RULE("metric");
+		SKIP_RULE("tag");
+
+		vty_out(vty, " match %s %s\n", rmr->cmd->str,
+			rmr->rule_str ? rmr->rule_str : "");
+	}
+
+	/* Print route map `set` for old CLI users. */
+	for (rmr = rmi->set_list.head; rmr; rmr = rmr->next) {
+		/* Skip all sets implemented by northbound. */
+		SKIP_RULE("metric");
+		SKIP_RULE("tag");
+
+		vty_out(vty, " set %s %s\n", rmr->cmd->str,
+			rmr->rule_str ? rmr->rule_str : "");
+	}
+
+#undef SKIP_RULE
 }
 
 void route_map_instance_show_end(struct vty *vty, struct lyd_node *dnode)
