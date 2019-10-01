@@ -74,3 +74,9 @@ def pytest_runtest_makereport(item, call):
     parent._previousfailed = item
     logger.error('assert failed at "{}/{}": {}'.format(
         modname, item.name, call.excinfo.value))
+
+    # (topogen) Set topology error to avoid advancing in the test.
+    tgen = get_topogen()
+    if tgen is not None:
+        # This will cause topogen to report error on `routers_have_failure`.
+        tgen.set_error('{}/{}'.format(modname, item.name))
