@@ -48,7 +48,7 @@ Definition
    should be used to create these, but in some cases it is useful to pass a
    ``struct memtype *`` pointer to some helper function.
 
-   The ``MTYPE_name`` created by the macros is declared as an array, i.e.
+   The ``MTYPE_name`` created by the macros is declared as a pointer, i.e.
    a function taking a ``struct memtype *`` argument can be called with an
    ``MTYPE_name`` argument (as opposed to ``&MTYPE_name``.)
 
