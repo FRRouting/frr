@@ -83,12 +83,14 @@ static void map_slaves_to_bridge(struct interface *br_if, int link)
 }
 
 /* Public functions */
-void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave)
+void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave,
+				  struct zebra_ns *zns)
 {
 	struct interface *br_if;
 
 	/* TODO: Handle change of master */
-	br_if = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
+	assert(zns);
+	br_if = if_lookup_by_index_per_ns(zebra_ns_lookup(zns->ns_id),
 					  br_slave->bridge_ifindex);
 	if (br_if)
 		br_slave->br_if = br_if;
@@ -241,19 +243,23 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 {
 	struct zebra_if *zif;
 	ifindex_t old_bridge_ifindex;
+	struct zebra_vrf *zvrf;
 
 	zif = ifp->info;
 	assert(zif);
+
+	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	if (!zvrf)
+		return;
 
 	old_bridge_ifindex = zif->brslave_info.bridge_ifindex;
 	if (old_bridge_ifindex == bridge_ifindex)
 		return;
 
 	zif->brslave_info.bridge_ifindex = bridge_ifindex;
-
 	/* Set up or remove link with master */
 	if (bridge_ifindex != IFINDEX_INTERNAL) {
-		zebra_l2_map_slave_to_bridge(&zif->brslave_info);
+		zebra_l2_map_slave_to_bridge(&zif->brslave_info, zvrf->zns);
 		/* In the case of VxLAN, invoke the handler for EVPN. */
 		if (zif->zif_type == ZEBRA_IF_VXLAN)
 			zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
