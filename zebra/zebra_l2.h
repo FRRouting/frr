@@ -85,7 +85,8 @@ union zebra_l2if_info {
 
 #define IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif) ((zif)->l2info.br.vlan_aware == 1)
 
-extern void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave);
+extern void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave,
+					 struct zebra_ns *zns);
 extern void
 zebra_l2_unmap_slave_from_bridge(struct zebra_l2info_brslave *br_slave);
 extern void zebra_l2_bridge_add_update(struct interface *ifp,
