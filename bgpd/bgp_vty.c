@@ -7918,7 +7918,7 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 					   msg_str);
 			}
 
-		} 
+		}
 		json_object_string_add(json_peer, "lastResetDueTo",
 				       peer_down_str[(int)peer->last_reset]);
 		json_object_int_add(json_peer, "lastResetCode",
@@ -8003,7 +8003,7 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 					    false);
 	}
 }
-				 
+
 
 /* Show BGP peer's summary information. */
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
@@ -8049,7 +8049,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			if (peer_dynamic_neighbor(peer))
 				dn_count++;
 		}
-				
+
 	} else {
 		/* Loop over all neighbors that will be displayed to determine
 		 * how many
@@ -8078,7 +8078,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 				if (len > max_neighbor_width)
 					max_neighbor_width = len;
-				
+
 				/* See if we have at least a single failed peer */
 				if (bgp_has_peer_failed(peer, afi, safi))
 					failed_count++;
@@ -8097,7 +8097,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		if (use_json) {
 			json_object_int_add(json, "failedPeersCount", 0);
 			json_object_int_add(json, "dynamicPeers", dn_count);
-			json_object_int_add(json, "totalPeers", count);			
+			json_object_int_add(json, "totalPeers", count);
 
 			vty_out(vty, "%s\n", json_object_to_json_string_ext(
 					     json, JSON_C_TO_STRING_PRETTY));
@@ -8108,7 +8108,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		}
 		return CMD_SUCCESS;
 	}
-		
+
 	count = 0;		/* Reset the value as its used again */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))

@@ -51,7 +51,7 @@ extern "C" {
 #endif /* INADDR_ALLRTRS_GROUP */
 
 /* Default irdp packet interval */
-#define IRDP_DEFAULT_INTERVAL 300 
+#define IRDP_DEFAULT_INTERVAL 300
 
 /* Router constants from RFC1256 */
 #define MAX_INITIAL_ADVERT_INTERVAL 16
@@ -123,10 +123,10 @@ struct irdp_interface {
 #define IF_ACTIVE               (1<<0) /* ICMP Active */
 #define IF_BROADCAST            (1<<1) /* 255.255.255.255 */
 #define IF_SOLICIT              (1<<2) /* Solicit active */
-#define IF_DEBUG_MESSAGES       (1<<3) 
-#define IF_DEBUG_PACKET         (1<<4) 
-#define IF_DEBUG_MISC           (1<<5) 
-#define IF_SHUTDOWN             (1<<6) 
+#define IF_DEBUG_MESSAGES       (1<<3)
+#define IF_DEBUG_PACKET         (1<<4)
+#define IF_DEBUG_MISC           (1<<5)
+#define IF_SHUTDOWN             (1<<6)
 
 	struct interface *ifp;
 	struct thread *t_advertise;

@@ -551,7 +551,7 @@ static uint8_t *rip2PeerTable(struct variable *v, oid name[], size_t *length,
 		return (uint8_t *)&domain;
 
 	case RIP2PEERLASTUPDATE:
-#if 0 
+#if 0
       /* We don't know the SNMP agent startup time. We have two choices here:
        * - assume ripd startup time equals SNMP agent startup time
        * - don't support this variable, at all

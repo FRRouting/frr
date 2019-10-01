@@ -2361,7 +2361,7 @@ DEFUN (show_ipv6_protocols,
     return CMD_SUCCESS;
 
   vty_out (vty, "Routing Protocol is \"ripng\"\n");
-  
+
   vty_out (vty, "Sending updates every %ld seconds, next due in %d seconds\n",
 	   ripng->update_time, 0);
 
