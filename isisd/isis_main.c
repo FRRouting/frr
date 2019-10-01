@@ -39,6 +39,7 @@
 #include "vrf.h"
 #include "qobj.h"
 #include "libfrr.h"
+#include "routemap.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -166,6 +167,7 @@ static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 #ifndef FABRICD
 	&frr_isisd_info,
 #endif /* ifndef FABRICD */
+	&frr_route_map_info,
 };
 
 #ifdef FABRICD

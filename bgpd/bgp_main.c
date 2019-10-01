@@ -360,6 +360,8 @@ static void bgp_vrf_terminate(void)
 }
 
 static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
+	&frr_interface_info,
+	&frr_route_map_info,
 };
 
 FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
