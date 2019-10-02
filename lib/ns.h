@@ -53,6 +53,11 @@ struct ns {
 	/* Identifier, mapped on the NSID value */
 	ns_id_t internal_ns_id;
 
+	/* Identifier, value of NSID of default netns,
+	 * relative value in that local netns
+	 */
+	ns_id_t relative_default_ns;
+
 	/* Name */
 	char *name;
 
