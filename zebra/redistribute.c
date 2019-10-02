@@ -263,8 +263,11 @@ void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 	}
 
 	/* Add DISTANCE_INFINITY check. */
-	if (old_re && (old_re->distance == DISTANCE_INFINITY))
+	if (old_re && (old_re->distance == DISTANCE_INFINITY)) {
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("\tSkipping due to Infinite Distance");
 		return;
+	}
 
 	afi = family2afi(p->family);
 	if (!afi) {
@@ -310,14 +313,14 @@ void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 
 		/* Send a delete for the 'old' re to any subscribed client. */
 		if (old_re
-		    && ((old_re->instance
-			 && redist_check_instance(
-				 &client->mi_redist[afi]
-				 [old_re->type],
-				 old_re->instance))
-			|| vrf_bitmap_check(
-				client->redist[afi][old_re->type],
-				old_re->vrf_id))) {
+		    && (vrf_bitmap_check(client->redist[afi][ZEBRA_ROUTE_ALL],
+					 old_re->vrf_id)
+			|| (old_re->instance
+			    && redist_check_instance(
+				       &client->mi_redist[afi][old_re->type],
+				       old_re->instance))
+			|| vrf_bitmap_check(client->redist[afi][old_re->type],
+					    old_re->vrf_id))) {
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_DEL,
 						 client, p, src_p, old_re);
 		}
