@@ -590,3 +590,9 @@ ns_id_t ns_get_default_id(void)
 		return default_ns->ns_id;
 	return NS_DEFAULT_INTERNAL;
 }
+
+struct ns *ns_get_default(void)
+{
+	return default_ns;
+}
+

@@ -72,7 +72,8 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 	char *netnspath = ns_netns_pathname(NULL, name);
 	struct vrf *vrf;
 	int ret;
-	ns_id_t ns_id, ns_id_external;
+	ns_id_t ns_id, ns_id_external, ns_id_relative = NS_UNKNOWN;
+	struct ns *default_ns;
 
 	if (netnspath == NULL)
 		return;
@@ -82,6 +83,15 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 	}
 	if (ns_id == NS_UNKNOWN)
 		return;
+	default_ns = ns_get_default();
+	if (default_ns && default_ns->internal_ns_id != ns_id) {
+		frr_with_privs(&zserv_privs) {
+			ns_id_relative =
+				zebra_ns_id_get_relative_value(
+							default_ns->internal_ns_id,
+							ns_id);
+		}
+	}
 	ns_id_external = ns_map_nsid_with_external(ns_id, true);
 	/* if VRF with NS ID already present */
 	vrf = vrf_lookup_by_id((vrf_id_t)ns_id_external);
