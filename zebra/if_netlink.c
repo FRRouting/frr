@@ -832,8 +832,10 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (tb[IFLA_LINK])
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
-	if (tb[IFLA_LINK_NETNSID])
+	if (tb[IFLA_LINK_NETNSID]) {
 		link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
+		link_nsid = ns_id_get_absolute(ns_id, link_nsid);
+	}
 
 	/* Add interface.
 	 * We add by index first because in some cases such as the master
@@ -1384,9 +1386,10 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (tb[IFLA_LINK])
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
-	if (tb[IFLA_LINK_NETNSID])
+	if (tb[IFLA_LINK_NETNSID]) {
 		link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
-
+		link_nsid = ns_id_get_absolute(ns_id, link_nsid);
+	}
 	if (tb[IFLA_IFALIAS]) {
 		desc = (char *)RTA_DATA(tb[IFLA_IFALIAS]);
 	}
