@@ -652,7 +652,8 @@ int vrf_handler_create(struct vty *vty, const char *vrfname,
 }
 
 int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
-			     ns_id_t ns_id, ns_id_t internal_ns_id)
+			     ns_id_t ns_id, ns_id_t internal_ns_id,
+			     ns_id_t rel_def_ns_id)
 {
 	struct ns *ns = NULL;
 
@@ -700,6 +701,7 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 	}
 	ns = ns_get_created(ns, pathname, ns_id);
 	ns->internal_ns_id = internal_ns_id;
+	ns->relative_default_ns = rel_def_ns_id;
 	ns->vrf_ctxt = (void *)vrf;
 	vrf->ns_ctxt = (void *)ns;
 	/* update VRF netns NAME */
@@ -797,7 +799,9 @@ DEFUN_NOSH (vrf_netns,
 
 	frr_with_privs(vrf_daemon_privs) {
 		ret = vrf_netns_handler_create(vty, vrf, pathname,
-					       NS_UNKNOWN, NS_UNKNOWN);
+					       NS_UNKNOWN,
+					       NS_UNKNOWN,
+					       NS_UNKNOWN);
 	}
 	return ret;
 }
