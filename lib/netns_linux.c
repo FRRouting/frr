@@ -584,6 +584,24 @@ int ns_socket(int domain, int type, int protocol, ns_id_t ns_id)
 	return ret;
 }
 
+/* if relative link_nsid matches default netns,
+ * then return default absolute netns value
+ * otherwise, return NS_UNKNOWN
+ */
+ns_id_t ns_id_get_absolute(ns_id_t ns_id_reference, ns_id_t link_nsid)
+{
+	struct ns *ns;
+
+	ns = ns_lookup(ns_id_reference);
+	if (!ns)
+		return NS_UNKNOWN;
+	if (ns->relative_default_ns != link_nsid)
+		return NS_UNKNOWN;
+	ns = ns_get_default();
+	assert(ns);
+	return ns->ns_id;
+}
+
 ns_id_t ns_get_default_id(void)
 {
 	if (default_ns)
