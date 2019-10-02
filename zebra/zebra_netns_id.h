@@ -26,6 +26,8 @@ extern "C" {
 
 extern ns_id_t zebra_ns_id_get(const char *netnspath);
 extern ns_id_t zebra_ns_id_get_default(void);
+extern ns_id_t zebra_ns_id_get_relative_value(ns_id_t ns_read,
+					      ns_id_t target_nsid);
 
 #ifdef __cplusplus
 }
