@@ -62,25 +62,21 @@ static int agentx_read(struct thread *t)
 
 	/* fix for non blocking socket */
 	flags = fcntl(THREAD_FD(t), F_GETFL, 0);
-	if (-1 == flags){
+	if (-1 == flags)
 		return -1;
-	}
 
-	if (flags & O_NONBLOCK){
+	if (flags & O_NONBLOCK)
 		nonblock = true;
-	}
-	else{
+	else
 		fcntl(THREAD_FD(t), F_SETFL, flags | O_NONBLOCK);
-	}
 
 	FD_ZERO(&fds);
 	FD_SET(THREAD_FD(t), &fds);
 	snmp_read(&fds);
 
 	/* Reset the flag */
-	if (!nonblock){
+	if (!nonblock)
 		fcntl(THREAD_FD(t), F_SETFL, flags);
-	}
 
 	netsnmp_check_outstanding_agent_requests();
 	agentx_events_update();
