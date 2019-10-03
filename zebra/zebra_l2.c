@@ -54,7 +54,13 @@ static void map_slaves_to_bridge(struct interface *br_if, int link)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
+	struct zebra_vrf *zvrf;
+	struct zebra_ns *zns;
 
+	zvrf = zebra_vrf_lookup_by_id(br_if->vrf_id);
+	assert(zvrf);
+	zns = zvrf->zns;
+	assert(zns);
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct zebra_if *zif;
@@ -73,7 +79,8 @@ static void map_slaves_to_bridge(struct interface *br_if, int link)
 			br_slave = &zif->brslave_info;
 
 			if (link) {
-				if (br_slave->bridge_ifindex == br_if->ifindex)
+				if (br_slave->bridge_ifindex == br_if->ifindex &&
+				    br_slave->ns_id == zns->ns_id)
 					br_slave->br_if = br_if;
 			} else {
 				if (br_slave->br_if == br_if)
@@ -250,10 +257,12 @@ void zebra_l2_vxlanif_del(struct interface *ifp)
  * from a bridge before it can be mapped to another bridge.
  */
 void zebra_l2if_update_bridge_slave(struct interface *ifp,
-				    ifindex_t bridge_ifindex)
+				    ifindex_t bridge_ifindex,
+				    ns_id_t ns_id)
 {
 	struct zebra_if *zif;
 	ifindex_t old_bridge_ifindex;
+	ns_id_t old_ns_id;
 	struct zebra_vrf *zvrf;
 
 	zif = ifp->info;
@@ -264,9 +273,12 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 		return;
 
 	old_bridge_ifindex = zif->brslave_info.bridge_ifindex;
-	if (old_bridge_ifindex == bridge_ifindex)
+	old_ns_id = zif->brslave_info.ns_id;
+	if (old_bridge_ifindex == bridge_ifindex &&
+	    old_ns_id == zif->brslave_info.ns_id)
 		return;
 
+	zif->brslave_info.ns_id = ns_id;
 	zif->brslave_info.bridge_ifindex = bridge_ifindex;
 	/* Set up or remove link with master */
 	if (bridge_ifindex != IFINDEX_INTERNAL) {
