@@ -209,7 +209,7 @@ static int bgp_ifp_destroy(struct interface *ifp)
 	bgp = bgp_lookup_by_vrf_id(ifp->vrf_id);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx Intf del VRF %u IF %s", bgp->vrf_id, ifp->name);
+		zlog_debug("Rx Intf del VRF %u IF %s", ifp->vrf_id, ifp->name);
 
 	if (bgp)
 		bgp_update_interface_nbrs(bgp, ifp, NULL);
