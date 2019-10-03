@@ -774,7 +774,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	netlink_interface_update_l2info(ifp, linkinfo[IFLA_INFO_DATA],
 					1, link_nsid);
 	if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
-		zebra_l2if_update_bridge_slave(ifp, bridge_ifindex);
+		zebra_l2if_update_bridge_slave(ifp, bridge_ifindex, ns_id);
 	else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 		zebra_l2if_update_bond_slave(ifp, bond_ifindex);
 
@@ -1351,7 +1351,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				1, link_nsid);
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
 				zebra_l2if_update_bridge_slave(ifp,
-							       bridge_ifindex);
+							       bridge_ifindex,
+							       ns_id);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex);
 		} else if (ifp->vrf_id != vrf_id) {
@@ -1454,7 +1455,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				0, link_nsid);
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp) || was_bridge_slave)
 				zebra_l2if_update_bridge_slave(ifp,
-							       bridge_ifindex);
+							       bridge_ifindex,
+							       ns_id);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp) || was_bond_slave)
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex);
 		}
