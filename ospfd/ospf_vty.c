@@ -10064,27 +10064,42 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 		for (rn1 = route_top(area->ranges); rn1; rn1 = route_next(rn1))
 			if (rn1->info) {
 				struct ospf_area_range *range = rn1->info;
-
-				vty_out(vty, " area %s range %s/%d", buf,
-					inet_ntoa(rn1->p.u.prefix4),
-					rn1->p.prefixlen);
+				int output_default = 1;
 
 				if (range->cost_config
-				    != OSPF_AREA_RANGE_COST_UNSPEC)
-					vty_out(vty, " cost %d",
+				    != OSPF_AREA_RANGE_COST_UNSPEC) {
+					vty_out(vty," area %s range %s/%d"
+						" cost %d\n", buf,
+						inet_ntoa(rn1->p.u.prefix4),
+						rn1->p.prefixlen,
 						range->cost_config);
+					output_default = 0;
+				}
 
 				if (!CHECK_FLAG(range->flags,
-						OSPF_AREA_RANGE_ADVERTISE))
-					vty_out(vty, " not-advertise");
-
+						OSPF_AREA_RANGE_ADVERTISE)) {
+					vty_out(vty," area %s range %s/%d"
+						" not-advertise\n", buf,
+						inet_ntoa(rn1->p.u.prefix4),
+						rn1->p.prefixlen);
+					output_default = 0;
+				}
 				if (CHECK_FLAG(range->flags,
-					       OSPF_AREA_RANGE_SUBSTITUTE))
-					vty_out(vty, " substitute %s/%d",
+					       OSPF_AREA_RANGE_SUBSTITUTE)) {
+					vty_out(vty," area %s range %s/%d"
+						" substitute %s/%d\n", buf,
+						inet_ntoa(rn1->p.u.prefix4),
+						rn1->p.prefixlen,
 						inet_ntoa(range->subst_addr),
 						range->subst_masklen);
-
-				vty_out(vty, "\n");
+					output_default = 0;
+				}
+				if (output_default) {
+					vty_out(vty," area %s range %s/%d\n",
+						buf,
+						inet_ntoa(rn1->p.u.prefix4),
+						rn1->p.prefixlen);
+				}
 			}
 
 		if (EXPORT_NAME(area))
