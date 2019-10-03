@@ -2748,8 +2748,8 @@ int bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			return 0;
 
 		zlog_info(
-			"%%MAXPFXEXCEED: No. of %s prefix received from %s %ld exceed, "
-			"limit %ld",
+			"%%MAXPFXEXCEED: No. of %s prefix received from %s %" PRIu32
+			" exceed, limit %" PRIu32,
 			get_afi_safi_str(afi, safi, false), peer->host,
 			peer->pcount[afi][safi], peer->pmax[afi][safi]);
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_LIMIT);
@@ -2810,7 +2810,8 @@ int bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			return 0;
 
 		zlog_info(
-			"%%MAXPFX: No. of %s prefix received from %s reaches %ld, max %ld",
+			"%%MAXPFX: No. of %s prefix received from %s reaches %" PRIu32
+			", max %" PRIu32,
 			get_afi_safi_str(afi, safi, false), peer->host,
 			peer->pcount[afi][safi], peer->pmax[afi][safi]);
 		SET_FLAG(peer->af_sflags[afi][safi],
@@ -10976,7 +10977,7 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 				get_afi_safi_str(afi, safi, false));
 		}
 
-		vty_out(vty, "PfxCt: %ld\n", peer->pcount[afi][safi]);
+		vty_out(vty, "PfxCt: %" PRIu32 "\n", peer->pcount[afi][safi]);
 		vty_out(vty, "\nCounts from RIB table walk:\n\n");
 
 		for (i = 0; i < PCOUNT_MAX; i++)
