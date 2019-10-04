@@ -73,7 +73,9 @@ module frr-filter {
 
   typedef access-list-name {
     description "Access list name formatting";
-    type string;
+    type string {
+      length 1..128;
+    }
   }
 
   typedef access-list-sequence {
@@ -100,26 +102,15 @@ module frr-filter {
   /*
    * Configuration data.
    */
-  container filter-list {
+  container lib {
     list access-list-legacy {
       description "Access list legacy instance";
 
-      key "number sequence";
+      key "number";
 
       leaf number {
         description "Access list sequence value";
         type access-list-legacy;
-      }
-
-      leaf sequence {
-        description "Access list sequence value";
-        type access-list-sequence;
-      }
-
-      leaf action {
-        description "Access list action on match";
-        type access-list-action;
-        mandatory true;
       }
 
       leaf remark {
@@ -127,42 +118,60 @@ module frr-filter {
         type string;
       }
 
-      choice value {
-        description
-          "Standard access list: value to match.
-           Extended access list: source value to match.";
-        mandatory true;
+      list entry {
+        description "Access list legacy entry";
 
-        leaf host {
-          description "Host to match";
-          type inet:ipv4-address;
-        }
-        leaf network {
-          description "Network to match";
-          type inet:ipv4-prefix;
-        }
-        leaf any {
-          description "Match any";
-          type empty;
-        }
-      }
+        key "sequence";
 
-      choice extended-value {
-        when "./sequence >= 100 and ./sequence <= 199 or
-              ./sequence >= 2000 and ./sequence <= 2699";
-        description "Destination value to match";
+        leaf sequence {
+          description "Access list sequence value";
+          type access-list-sequence;
+        }
 
-        leaf destination-host {
-          description "Host to match";
-          type inet:ipv4-address;
+        leaf action {
+          description "Access list action on match";
+          type access-list-action;
+          mandatory true;
         }
-        leaf destination-network {
-          description "Network to match";
-          type inet:ipv4-prefix;
+
+        choice value {
+          description
+            "Standard access list: value to match.
+             Extended access list: source value to match.";
+          mandatory true;
+
+          leaf host {
+            description "Host to match";
+            type inet:ipv4-address;
+          }
+          leaf network {
+            description "Network to match";
+            type inet:ipv4-prefix;
+          }
+          leaf any {
+            description "Match any";
+            type empty;
+          }
         }
-        leaf destination-any {
-          description "Match any";
-          type empty;
+
+        choice extended-value {
+          when "../number >= 100 and ../number <= 199 or
+                ../number >= 2000 and ../number <= 2699";
+          description "Destination value to match";
+          mandatory true;
+
+          leaf destination-host {
+            description "Host to match";
+            type inet:ipv4-address;
+          }
+          leaf destination-network {
+            description "Network to match";
+            type inet:ipv4-prefix;
+          }
+          leaf destination-any {
+            description "Match any";
+            type empty;
+          }
         }
       }
     }
@@ -170,7 +179,7 @@ module frr-filter {
     list access-list {
       description "Access list instance";
 
-      key "type identifier sequence";
+      key "type name";
 
       leaf type {
         description "Access list content type";
@@ -187,34 +196,12 @@ module frr-filter {
             description "Media Access Control address";
             value 2;
           }
-
-          /*
-           * Protocol YANG models should augment the parent node to
-           * contain the routing protocol specific value. The protocol
-           * must also augment `value` leaf to include its specific
-           * values or expand the `when` statement on the existing cases.
-           */
-          enum custom {
-            description "Custom data type";
-            value 100;
-          }
         }
       }
 
-      leaf identifier {
-        description "Access list identifier";
+      leaf name {
+        description "Access list name";
         type access-list-name;
-      }
-
-      leaf sequence {
-        description "Access list sequence value";
-        type access-list-sequence;
-      }
-
-      leaf action {
-        description "Access list action on match";
-        type access-list-action;
-        mandatory true;
       }
 
       leaf remark {
@@ -222,50 +209,67 @@ module frr-filter {
         type string;
       }
 
-      choice value {
-        description "Access list value to match";
-        mandatory true;
+      list entry {
+        description "Access list entry";
 
-        case ipv4-prefix {
-          when "./type = 'ipv4'";
+        key "sequence";
 
-          leaf ipv4-prefix {
-            description "Configure IPv4 prefix to match";
-            type inet:ipv4-prefix;
-          }
-
-          leaf ipv4-exact-match {
-            description "Exact match of prefix";
-            type boolean;
-            default false;
-          }
+        leaf sequence {
+          description "Access list sequence value";
+          type access-list-sequence;
         }
-        case ipv6-prefix {
-          when "./type = 'ipv6'";
 
-          leaf ipv6-prefix {
-            description "Configure IPv6 prefix to match";
-            type inet:ipv6-prefix;
-          }
-
-          leaf ipv6-exact-match {
-            description "Exact match of prefix";
-            type boolean;
-            default false;
-          }
+        leaf action {
+          description "Access list action on match";
+          type access-list-action;
+          mandatory true;
         }
-        case mac {
-          when "./type = 'mac'";
 
-          leaf mac {
-            description "Configure MAC address to match";
-            type yang:mac-address;
+        choice value {
+          description "Access list value to match";
+          mandatory true;
+
+          case ipv4-prefix {
+            when "../type = 'ipv4'";
+
+            leaf ipv4-prefix {
+              description "Configure IPv4 prefix to match";
+              type inet:ipv4-prefix;
+            }
+
+            leaf ipv4-exact-match {
+              description "Exact match of prefix";
+              type boolean;
+              default false;
+            }
           }
-        }
-        case any {
-          leaf any {
-            description "Match anything";
-            type empty;
+          case ipv6-prefix {
+            when "../type = 'ipv6'";
+
+            leaf ipv6-prefix {
+              description "Configure IPv6 prefix to match";
+              type inet:ipv6-prefix;
+            }
+
+            leaf ipv6-exact-match {
+              description "Exact match of prefix";
+              type boolean;
+              default false;
+            }
+          }
+          case mac {
+            when "../type = 'mac'";
+
+            leaf mac {
+              description "Configure MAC address to match";
+              type yang:mac-address;
+            }
+          }
+          case any {
+            leaf any {
+              description "Match anything";
+              type empty;
+            }
           }
         }
       }
@@ -274,7 +278,7 @@ module frr-filter {
     list prefix-list {
       description "Prefix list instance";
 
-      key "type name sequence";
+      key "type name";
 
       leaf type {
         description "Prefix list type";
@@ -295,82 +299,88 @@ module frr-filter {
         type access-list-name;
       }
 
-      leaf sequence {
-        description "Access list sequence value";
-        type access-list-sequence;
-      }
-
-      leaf action {
-        description "Prefix list action on match";
-        type access-list-action;
-        mandatory true;
-      }
-
       leaf description {
         description "Prefix list user description";
         type string;
       }
 
-      choice value {
-        description "Prefix list value to match";
-        mandatory true;
+      list entry {
+        description "Prefix list entry";
 
-        case ipv4-prefix {
-          when "./type = 'ipv4'";
+        key "sequence";
 
-          leaf ipv4-prefix {
-            description "Configure IPv4 prefix to match";
-            type inet:ipv4-prefix;
-          }
-
-          leaf ipv4-prefix-length-greater-or-equal {
-            description
-              "Specifies if matching prefixes with length greater than
-               or equal to value";
-            type uint8 {
-              range "0..32";
-            }
-          }
-
-          leaf ipv4-prefix-length-lesser-or-equal {
-            description
-              "Specifies if matching prefixes with length lesser than
-               or equal to value";
-            type uint8 {
-              range "0..32";
-            }
-          }
+        leaf sequence {
+          description "Access list sequence value";
+          type access-list-sequence;
         }
-        case ipv6-prefix {
-          when "./type = 'ipv6'";
 
-          leaf ipv6-prefix {
-            description "Configure IPv6 prefix to match";
-            type inet:ipv6-prefix;
-          }
-
-          leaf ipv6-prefix-length-greater-or-equal {
-            description
-              "Specifies if matching prefixes with length greater than
-               or equal to value";
-            type uint8 {
-              range "0..128";
-            }
-          }
-
-          leaf ipv6-prefix-length-lesser-or-equal {
-            description
-              "Specifies if matching prefixes with length lesser than
-               or equal to value";
-            type uint8 {
-              range "0..128";
-            }
-          }
+        leaf action {
+          description "Prefix list action on match";
+          type access-list-action;
+          mandatory true;
         }
-        case any {
-          leaf any {
-            description "Match anything";
-            type empty;
+
+        choice value {
+          description "Prefix list value to match";
+          mandatory true;
+
+          case ipv4-prefix {
+            when "../type = 'ipv4'";
+
+            leaf ipv4-prefix {
+              description "Configure IPv4 prefix to match";
+              type inet:ipv4-prefix;
+            }
+
+            leaf ipv4-prefix-length-greater-or-equal {
+              description
+                "Specifies if matching prefixes with length greater than
+                 or equal to value";
+              type uint8 {
+                range "0..32";
+              }
+            }
+
+            leaf ipv4-prefix-length-lesser-or-equal {
+              description
+                "Specifies if matching prefixes with length lesser than
+                 or equal to value";
+              type uint8 {
+                range "0..32";
+              }
+            }
+          }
+          case ipv6-prefix {
+            when "../type = 'ipv6'";
+
+            leaf ipv6-prefix {
+              description "Configure IPv6 prefix to match";
+              type inet:ipv6-prefix;
+            }
+
+            leaf ipv6-prefix-length-greater-or-equal {
+              description
+                "Specifies if matching prefixes with length greater than
+                 or equal to value";
+              type uint8 {
+                range "0..128";
+              }
+            }
+
+            leaf ipv6-prefix-length-lesser-or-equal {
+              description
+                "Specifies if matching prefixes with length lesser than
+                 or equal to value";
+              type uint8 {
+                range "0..128";
+              }
+            }
+          }
+          case any {
+            leaf any {
+              description "Match anything";
+              type empty;
+            }
           }
         }
       }
