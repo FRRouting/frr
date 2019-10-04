@@ -1786,6 +1786,9 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
 
 	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)
 	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
+		/* Change its type to us since we are installing it */
+		nhe->type = ZEBRA_ROUTE_NHG;
+
 		int ret = dplane_nexthop_add(nhe);
 
 		switch (ret) {
@@ -1813,8 +1816,6 @@ void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe)
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)) {
 		int ret = dplane_nexthop_delete(nhe);
 
-		/* Change its type to us since we are installing it */
-		nhe->type = ZEBRA_ROUTE_NHG;
 		switch (ret) {
 		case ZEBRA_DPLANE_REQUEST_QUEUED:
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
