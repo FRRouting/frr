@@ -41,6 +41,11 @@ struct nh_grp {
 
 PREDECL_RBTREE_UNIQ(nhg_connected_tree);
 
+
+/*
+ * Hashtables contiaining entries found in `zebra_router`.
+ */
+
 struct nhg_hash_entry {
 	uint32_t id;
 	afi_t afi;
