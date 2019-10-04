@@ -1834,25 +1834,6 @@ void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe)
 		zebra_nhg_handle_uninstall(nhe);
 }
 
-static void zebra_nhg_uninstall_created(struct hash_bucket *bucket, void *arg)
-{
-	struct nhg_hash_entry *nhe = NULL;
-
-	nhe = (struct nhg_hash_entry *)bucket->data;
-
-	if (ZEBRA_NHG_CREATED(nhe))
-		zebra_nhg_uninstall_kernel(nhe);
-}
-
-void zebra_nhg_cleanup_tables(struct hash *hash)
-{
-	/*
-	 * TODO: These should only be uninstalled via route cleanup path?
-	 */
-	return;
-	hash_iterate(hash, zebra_nhg_uninstall_created, NULL);
-}
-
 void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 {
 	enum dplane_op_e op;
