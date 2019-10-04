@@ -42,6 +42,11 @@ void systemd_send_stopping(void);
  */
 void systemd_send_started(struct thread_master *master, int the_process);
 
+/*
+ * status - A status string to send to systemd
+ */
+void systemd_send_status(const char *status);
+
 #ifdef __cplusplus
 }
 #endif
