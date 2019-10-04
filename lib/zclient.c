@@ -1571,13 +1571,7 @@ static void zclient_interface_add(struct zclient *zclient, vrf_id_t vrf_id)
 	if_new_via_zapi(ifp);
 }
 
-/*
- * Read interface up/down msg (ZEBRA_INTERFACE_UP/ZEBRA_INTERFACE_DOWN)
- * from zebra server.  The format of this message is the same as
- * that sent for ZEBRA_INTERFACE_ADD/ZEBRA_INTERFACE_DELETE,
- * except that no sockaddr_dl is sent at the tail of the message.
- */
-struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
+static struct interface *zebra_interface_read(struct stream *s, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 	char ifname_tmp[INTERFACE_NAMSIZ];
@@ -1587,17 +1581,52 @@ struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 
 	/* Lookup this by interface index. */
 	ifp = if_lookup_by_name(ifname_tmp, vrf_id);
-	if (ifp == NULL) {
-		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "INTERFACE_STATE: Cannot find IF %s in VRF %d",
-			 ifname_tmp, vrf_id);
-		return NULL;
-	}
 
-	zebra_interface_if_set_value(s, ifp);
+	if (ifp == NULL)
+		flog_err(EC_LIB_ZAPI_ENCODE, "%s: Cannot find IF %s in VRF %d",
+			 __func__, ifname_tmp, vrf_id);
 
 	return ifp;
 }
+
+/*
+ * Read interface up/down msg (ZEBRA_INTERFACE_UP/ZEBRA_INTERFACE_DOWN)
+ * from zebra server.  The format of this message is the same as
+ * that sent for ZEBRA_INTERFACE_ADD/ZEBRA_INTERFACE_DELETE,
+ * except that no sockaddr_dl is sent at the tail of the message.
+ */
+struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
+{
+	struct interface *ifp;
+
+	ifp = zebra_interface_read(s, vrf_id);
+
+	if (!ifp)
+		goto done;
+
+	zebra_interface_if_set_value(s, ifp);
+
+done:
+	return ifp;
+}
+
+static struct interface *zebra_interface_vrf_update_read(struct stream *s,
+							 vrf_id_t vrf_id,
+							 vrf_id_t *new_vrf_id)
+{
+	struct interface *ifp;
+
+	ifp = zebra_interface_read(s, vrf_id);
+
+	if (!ifp)
+		goto done;
+
+	*new_vrf_id = stream_getl(s);
+
+done:
+	return ifp;
+}
+
 
 static void zclient_interface_delete(struct zclient *zclient, vrf_id_t vrf_id)
 {
@@ -1637,6 +1666,21 @@ static void zclient_interface_down(struct zclient *zclient, vrf_id_t vrf_id)
 		return;
 
 	if_down_via_zapi(ifp);
+}
+
+static void zclient_interface_vrf_update(struct zclient *zclient,
+					 vrf_id_t vrf_id)
+{
+	struct interface *ifp;
+	struct stream *s = zclient->ibuf;
+	vrf_id_t new_vrf_id;
+
+	ifp = zebra_interface_vrf_update_read(s, vrf_id, &new_vrf_id);
+
+	if (!ifp)
+		return;
+
+	if_vrf_update_via_zapi(ifp, new_vrf_id);
 }
 
 static void link_params_set_value(struct stream *s, struct if_link_params *iflp)
@@ -1969,33 +2013,6 @@ zebra_interface_nbr_address_read(int type, struct stream *s, vrf_id_t vrf_id)
 	}
 
 	return ifc;
-}
-
-struct interface *zebra_interface_vrf_update_read(struct stream *s,
-						  vrf_id_t vrf_id,
-						  vrf_id_t *new_vrf_id)
-{
-	char ifname[INTERFACE_NAMSIZ];
-	struct interface *ifp;
-	vrf_id_t new_id;
-
-	/* Read interface name. */
-	stream_get(ifname, s, INTERFACE_NAMSIZ);
-
-	/* Lookup interface. */
-	ifp = if_lookup_by_name(ifname, vrf_id);
-	if (ifp == NULL) {
-		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "INTERFACE_VRF_UPDATE: Cannot find IF %s in VRF %d",
-			 ifname, vrf_id);
-		return NULL;
-	}
-
-	/* Fetch new VRF Id. */
-	new_id = stream_getl(s);
-
-	*new_vrf_id = new_id;
-	return ifp;
 }
 
 /* filter unwanted messages until the expected one arrives */
@@ -2874,9 +2891,7 @@ static int zclient_read(struct thread *thread)
 		zclient_interface_down(zclient, vrf_id);
 		break;
 	case ZEBRA_INTERFACE_VRF_UPDATE:
-		if (zclient->interface_vrf_update)
-			(*zclient->interface_vrf_update)(command, zclient,
-							 length, vrf_id);
+		zclient_interface_vrf_update(zclient, vrf_id);
 		break;
 	case ZEBRA_NEXTHOP_UPDATE:
 		if (zclient_debug)

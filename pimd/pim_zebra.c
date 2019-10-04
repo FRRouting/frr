@@ -63,26 +63,6 @@ static int pim_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	vrf_id_t new_vrf_id;
-
-	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
-					      &new_vrf_id);
-	if (!ifp)
-		return 0;
-
-	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s: %s updating from %u to %u",
-			   __PRETTY_FUNCTION__,
-			   ifp->name, vrf_id, new_vrf_id);
-
-	if_update_to_new_vrf(ifp, new_vrf_id);
-
-	return 0;
-}
-
 #ifdef PIM_DEBUG_IFADDR_DUMP
 static void dump_if_address(struct interface *ifp)
 {
@@ -583,7 +563,6 @@ void pim_zebra_init(void)
 	zclient->router_id_update = pim_router_id_update_zebra;
 	zclient->interface_address_add = pim_zebra_if_address_add;
 	zclient->interface_address_delete = pim_zebra_if_address_del;
-	zclient->interface_vrf_update = pim_zebra_interface_vrf_update;
 	zclient->nexthop_update = pim_parse_nexthop_update;
 	zclient->vxlan_sg_add = pim_zebra_vxlan_sg_proc;
 	zclient->vxlan_sg_del = pim_zebra_vxlan_sg_proc;

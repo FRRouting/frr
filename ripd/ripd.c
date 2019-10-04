@@ -3532,7 +3532,7 @@ static void rip_vrf_link(struct rip *rip, struct vrf *vrf)
 	vrf->info = rip;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
-		rip_interface_sync(ifp);
+		rip_interface_sync(ifp, ifp->vrf_id);
 }
 
 /* Unlink RIP instance from VRF. */
@@ -3545,7 +3545,7 @@ static void rip_vrf_unlink(struct rip *rip, struct vrf *vrf)
 	vrf->info = NULL;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
-		rip_interface_sync(ifp);
+		rip_interface_sync(ifp, ifp->vrf_id);
 }
 
 static void rip_instance_enable(struct rip *rip, struct vrf *vrf, int sock)

@@ -420,19 +420,17 @@ int zsend_interface_addresses(struct zserv *client, struct interface *ifp)
 	return 0;
 }
 
-/* Notify client about interface moving from one VRF to another.
- * Whether client is interested in old and new VRF is checked by caller.
- */
+/* Notify client about interface moving from one VRF to another. */
 int zsend_interface_vrf_update(struct zserv *client, struct interface *ifp,
-			       vrf_id_t vrf_id)
+			       vrf_id_t old_vrf_id)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_INTERFACE_VRF_UPDATE, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_VRF_UPDATE, old_vrf_id);
 
 	/* Fill in the name of the interface and its new VRF (id) */
 	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
-	stream_putl(s, vrf_id);
+	stream_putl(s, ifp->vrf_id);
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));

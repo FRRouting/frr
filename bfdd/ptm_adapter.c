@@ -670,20 +670,6 @@ static int bfd_ifp_destroy(struct interface *ifp)
 	return 0;
 }
 
-static int bfdd_interface_vrf_update(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	vrf_id_t nvrfid;
-
-	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id, &nvrfid);
-	if (ifp == NULL)
-		return 0;
-
-	if_update_to_new_vrf(ifp, nvrfid);
-
-	return 0;
-}
-
 static void bfdd_sessions_enable_address(struct connected *ifc)
 {
 	struct bfd_session_observer *bso;
@@ -729,7 +715,7 @@ static int bfd_ifp_create(struct interface *ifp)
 
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 {
-	if_zapi_callbacks(bfd_ifp_create, NULL, NULL, bfd_ifp_destroy);
+	if_zapi_callbacks(bfd_ifp_create, NULL, NULL, bfd_ifp_destroy, NULL);
 	zclient = zclient_new(master, &zclient_options_default);
 	assert(zclient != NULL);
 	zclient_init(zclient, ZEBRA_ROUTE_BFD, 0, bfdd_priv);
@@ -743,9 +729,6 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 
 	/* Send replay request on zebra connect. */
 	zclient->zebra_connected = bfdd_zebra_connected;
-
-	/* Learn about interface VRF. */
-	zclient->interface_vrf_update = bfdd_interface_vrf_update;
 
 	/* Learn about new addresses being registered. */
 	zclient->interface_address_add = bfdd_interface_address_update;

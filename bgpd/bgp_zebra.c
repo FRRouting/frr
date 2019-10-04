@@ -297,6 +297,58 @@ static int bgp_ifp_down(struct interface *ifp)
 	return 0;
 }
 
+
+static int bgp_ifp_vrf_update(struct interface *ifp, vrf_id_t new_vrf_id)
+{
+	struct connected *c;
+	struct nbr_connected *nc;
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+	struct peer *peer;
+
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("Rx Intf VRF change VRF %u IF %s NewVRF %u",
+			   ifp->vrf_id, ifp->name, new_vrf_id);
+
+	/* OLD VRF handling */
+
+	bgp = bgp_lookup_by_vrf_id(ifp->vrf_id);
+
+	if (bgp) {
+		for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, c))
+			bgp_connected_delete(bgp, c);
+
+		for (ALL_LIST_ELEMENTS(ifp->nbr_connected, node, nnode, nc))
+			bgp_nbr_connected_delete(bgp, nc, 1);
+
+		/* Fast external-failover */
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER)) {
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+				if ((peer->ttl != 1) && (peer->gtsm_hops != 1))
+					continue;
+
+				if (ifp == peer->nexthop.ifp)
+					BGP_EVENT_ADD(peer, BGP_Stop);
+			}
+		}
+	}
+
+	/* NEW VRF handling */
+
+	bgp = bgp_lookup_by_vrf_id(new_vrf_id);
+
+	if (!bgp)
+		return 0;
+
+	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, c))
+		bgp_connected_add(bgp, c);
+
+	for (ALL_LIST_ELEMENTS(ifp->nbr_connected, node, nnode, nc))
+		bgp_nbr_connected_add(bgp, nc);
+
+	return 0;
+}
+
 static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
@@ -413,61 +465,6 @@ static int bgp_interface_nbr_address_delete(ZAPI_CALLBACK_ARGS)
 
 	nbr_connected_free(ifc);
 
-	return 0;
-}
-
-/* VRF update for an interface. */
-static int bgp_interface_vrf_update(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	vrf_id_t new_vrf_id;
-	struct connected *c;
-	struct nbr_connected *nc;
-	struct listnode *node, *nnode;
-	struct bgp *bgp;
-	struct peer *peer;
-
-	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
-					      &new_vrf_id);
-	if (!ifp)
-		return 0;
-
-	if (BGP_DEBUG(zebra, ZEBRA) && ifp)
-		zlog_debug("Rx Intf VRF change VRF %u IF %s NewVRF %u", vrf_id,
-			   ifp->name, new_vrf_id);
-
-	bgp = bgp_lookup_by_vrf_id(vrf_id);
-
-	if (bgp) {
-		for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, c))
-			bgp_connected_delete(bgp, c);
-
-		for (ALL_LIST_ELEMENTS(ifp->nbr_connected, node, nnode, nc))
-			bgp_nbr_connected_delete(bgp, nc, 1);
-
-		/* Fast external-failover */
-		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER)) {
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-				if ((peer->ttl != 1) && (peer->gtsm_hops != 1))
-					continue;
-
-				if (ifp == peer->nexthop.ifp)
-					BGP_EVENT_ADD(peer, BGP_Stop);
-			}
-		}
-	}
-
-	if_update_to_new_vrf(ifp, new_vrf_id);
-
-	bgp = bgp_lookup_by_vrf_id(new_vrf_id);
-	if (!bgp)
-		return 0;
-
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, c))
-		bgp_connected_add(bgp, c);
-
-	for (ALL_LIST_ELEMENTS(ifp->nbr_connected, node, nnode, nc))
-		bgp_nbr_connected_add(bgp, nc);
 	return 0;
 }
 
@@ -2706,8 +2703,8 @@ void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 {
 	zclient_num_connects = 0;
 
-	if_zapi_callbacks(bgp_ifp_create, bgp_ifp_up,
-			  bgp_ifp_down, bgp_ifp_destroy);
+	if_zapi_callbacks(bgp_ifp_create, bgp_ifp_up, bgp_ifp_down,
+			  bgp_ifp_destroy, bgp_ifp_vrf_update);
 
 	/* Set default values. */
 	zclient = zclient_new(master, &zclient_options_default);
@@ -2719,7 +2716,6 @@ void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->interface_nbr_address_add = bgp_interface_nbr_address_add;
 	zclient->interface_nbr_address_delete =
 		bgp_interface_nbr_address_delete;
-	zclient->interface_vrf_update = bgp_interface_vrf_update;
 	zclient->redistribute_route_add = zebra_read_route;
 	zclient->redistribute_route_del = zebra_read_route;
 	zclient->nexthop_update = bgp_read_nexthop_update;

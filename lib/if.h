@@ -567,12 +567,15 @@ extern void if_cmd_init(void);
 extern void if_zapi_callbacks(int (*create)(struct interface *ifp),
 			      int (*up)(struct interface *ifp),
 			      int (*down)(struct interface *ifp),
-			      int (*destroy)(struct interface *ifp));
+			      int (*destroy)(struct interface *ifp),
+			      int (*vrf_update)(struct interface *ifp,
+						vrf_id_t new_vrf_id));
 
 extern void if_new_via_zapi(struct interface *ifp);
 extern void if_up_via_zapi(struct interface *ifp);
 extern void if_down_via_zapi(struct interface *ifp);
 extern void if_destroy_via_zapi(struct interface *ifp);
+extern void if_vrf_update_via_zapi(struct interface *ifp, vrf_id_t new_vrf_id);
 
 extern const struct frr_yang_module_info frr_interface_info;
 

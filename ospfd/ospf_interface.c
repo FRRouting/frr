@@ -1344,8 +1344,8 @@ static int ospf_ifp_destroy(struct interface *ifp)
 
 void ospf_if_init(void)
 {
-	if_zapi_callbacks(ospf_ifp_create, ospf_ifp_up,
-			  ospf_ifp_down, ospf_ifp_destroy);
+	if_zapi_callbacks(ospf_ifp_create, ospf_ifp_up, ospf_ifp_down,
+			  ospf_ifp_destroy, NULL);
 
 	/* Initialize Zebra interface data structure. */
 	hook_register_prio(if_add, 0, ospf_if_new_hook);

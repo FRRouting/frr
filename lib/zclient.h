@@ -246,7 +246,6 @@ struct zclient {
 	int (*interface_bfd_dest_update)(ZAPI_CALLBACK_ARGS);
 	int (*interface_nbr_address_add)(ZAPI_CALLBACK_ARGS);
 	int (*interface_nbr_address_delete)(ZAPI_CALLBACK_ARGS);
-	int (*interface_vrf_update)(ZAPI_CALLBACK_ARGS);
 	int (*nexthop_update)(ZAPI_CALLBACK_ARGS);
 	int (*import_check_update)(ZAPI_CALLBACK_ARGS);
 	int (*bfd_dest_replay)(ZAPI_CALLBACK_ARGS);
@@ -619,9 +618,6 @@ extern struct connected *zebra_interface_address_read(int, struct stream *,
 						      vrf_id_t);
 extern struct nbr_connected *
 zebra_interface_nbr_address_read(int, struct stream *, vrf_id_t);
-extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
-							 vrf_id_t vrf_id,
-							 vrf_id_t *new_vrf_id);
 extern void zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 
 extern struct interface *zebra_interface_link_params_read(struct stream *s,

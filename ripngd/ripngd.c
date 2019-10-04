@@ -2654,7 +2654,7 @@ static void ripng_vrf_link(struct ripng *ripng, struct vrf *vrf)
 	vrf->info = ripng;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
-		ripng_interface_sync(ifp);
+		ripng_interface_sync(ifp, ifp->vrf_id);
 }
 
 /* Unlink RIPng instance from VRF. */
@@ -2667,7 +2667,7 @@ static void ripng_vrf_unlink(struct ripng *ripng, struct vrf *vrf)
 	vrf->info = NULL;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
-		ripng_interface_sync(ifp);
+		ripng_interface_sync(ifp, ifp->vrf_id);
 }
 
 static void ripng_instance_enable(struct ripng *ripng, struct vrf *vrf,

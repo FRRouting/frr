@@ -803,16 +803,11 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	/* Delete all neighbor addresses learnt through IPv6 RA */
 	if_down_del_nbr_connected(ifp);
 
-	/* Send out notification on interface VRF change. */
-	/* This is to issue an UPDATE or a DELETE, as appropriate. */
-	zebra_interface_vrf_update_del(ifp, vrf_id);
-
 	/* update VRF */
 	if_update_to_new_vrf(ifp, vrf_id);
 
 	/* Send out notification on interface VRF change. */
-	/* This is to issue an ADD, if needed. */
-	zebra_interface_vrf_update_add(ifp, old_vrf_id);
+	zebra_interface_vrf_update(ifp, old_vrf_id);
 
 	/* Install connected routes (in new VRF). */
 	if (if_is_operative(ifp))
@@ -3218,7 +3213,7 @@ void zebra_if_init(void)
 	 * This is *intentionally* setting this to NULL, signaling
 	 * that interface creation for zebra acts differently
 	 */
-	if_zapi_callbacks(NULL, NULL, NULL, NULL);
+	if_zapi_callbacks(NULL, NULL, NULL, NULL, NULL);
 
 	install_element(VIEW_NODE, &show_interface_cmd);
 	install_element(VIEW_NODE, &show_interface_vrf_all_cmd);

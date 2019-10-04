@@ -67,10 +67,7 @@ extern void zebra_interface_address_add_update(struct interface *,
 extern void zebra_interface_address_delete_update(struct interface *,
 						  struct connected *c);
 extern void zebra_interface_parameters_update(struct interface *);
-extern void zebra_interface_vrf_update_del(struct interface *,
-					   vrf_id_t new_vrf_id);
-extern void zebra_interface_vrf_update_add(struct interface *,
-					   vrf_id_t old_vrf_id);
+extern void zebra_interface_vrf_update(struct interface *, vrf_id_t old_vrf_id);
 
 extern int zebra_import_table(afi_t afi, vrf_id_t vrf_id,
 			      uint32_t table_id, uint32_t distance,

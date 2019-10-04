@@ -152,8 +152,8 @@ int main(int argc, char **argv)
 	nhrp_vc_init();
 	nhrp_packet_init();
 	vici_init();
-	if_zapi_callbacks(nhrp_ifp_create, nhrp_ifp_up,
-			  nhrp_ifp_down, nhrp_ifp_destroy);
+	if_zapi_callbacks(nhrp_ifp_create, nhrp_ifp_up, nhrp_ifp_down,
+			  nhrp_ifp_destroy, NULL);
 	nhrp_zebra_init();
 	nhrp_shortcut_init();
 

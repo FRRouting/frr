@@ -244,7 +244,6 @@ void zebra_init(struct thread_master *master)
 	zclient->zebra_connected = ripng_zebra_connected;
 	zclient->interface_address_add = ripng_interface_address_add;
 	zclient->interface_address_delete = ripng_interface_address_delete;
-	zclient->interface_vrf_update = ripng_interface_vrf_update;
 	zclient->redistribute_route_add = ripng_zebra_read_route;
 	zclient->redistribute_route_del = ripng_zebra_read_route;
 }

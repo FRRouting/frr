@@ -191,8 +191,8 @@ int vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
 
 void vrrp_zebra_init(void)
 {
-	if_zapi_callbacks(vrrp_ifp_create, vrrp_ifp_up,
-			  vrrp_ifp_down, vrrp_ifp_destroy);
+	if_zapi_callbacks(vrrp_ifp_create, vrrp_ifp_up, vrrp_ifp_down,
+			  vrrp_ifp_destroy, NULL);
 
 	/* Socket for receiving updates from Zebra daemon */
 	zclient = zclient_new(master, &zclient_options_default);

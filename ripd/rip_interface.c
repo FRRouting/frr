@@ -348,7 +348,7 @@ int if_check_address(struct rip *rip, struct in_addr addr)
 /* Inteface link down message processing. */
 static int rip_ifp_down(struct interface *ifp)
 {
-	rip_interface_sync(ifp);
+	rip_interface_sync(ifp, ifp->vrf_id);
 	rip_if_down(ifp);
 
 	if (IS_RIP_DEBUG_ZEBRA)
@@ -369,7 +369,7 @@ static int rip_ifp_up(struct interface *ifp)
 			ifp->name, ifp->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
 
-	rip_interface_sync(ifp);
+	rip_interface_sync(ifp, ifp->vrf_id);
 
 	/* Check if this interface is RIP enabled or not.*/
 	rip_enable_apply(ifp);
@@ -386,7 +386,7 @@ static int rip_ifp_up(struct interface *ifp)
 /* Inteface addition message from zebra. */
 static int rip_ifp_create(struct interface *ifp)
 {
-	rip_interface_sync(ifp);
+	rip_interface_sync(ifp, ifp->vrf_id);
 
 	if (IS_RIP_DEBUG_ZEBRA)
 		zlog_debug(
@@ -413,7 +413,7 @@ static int rip_ifp_create(struct interface *ifp)
 
 static int rip_ifp_destroy(struct interface *ifp)
 {
-	rip_interface_sync(ifp);
+	rip_interface_sync(ifp, ifp->vrf_id);
 	if (if_is_up(ifp)) {
 		rip_if_down(ifp);
 	}
@@ -426,23 +426,13 @@ static int rip_ifp_destroy(struct interface *ifp)
 	return 0;
 }
 
-/* VRF update for an interface. */
-int rip_interface_vrf_update(ZAPI_CALLBACK_ARGS)
+static int rip_ifp_vrf_update(struct interface *ifp, vrf_id_t new_vrf_id)
 {
-	struct interface *ifp;
-	vrf_id_t new_vrf_id;
-
-	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
-					      &new_vrf_id);
-	if (!ifp)
-		return 0;
-
 	if (IS_RIP_DEBUG_ZEBRA)
 		zlog_debug("interface %s VRF change vrf_id %u new vrf id %u",
-			   ifp->name, vrf_id, new_vrf_id);
+			   ifp->name, new_vrf_id, new_vrf_id);
 
-	if_update_to_new_vrf(ifp, new_vrf_id);
-	rip_interface_sync(ifp);
+	rip_interface_sync(ifp, new_vrf_id);
 
 	return 0;
 }
@@ -1182,11 +1172,11 @@ static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1,
 };
 
-void rip_interface_sync(struct interface *ifp)
+void rip_interface_sync(struct interface *ifp, vrf_id_t new_vrf_id)
 {
 	struct vrf *vrf;
 
-	vrf = vrf_lookup_by_id(ifp->vrf_id);
+	vrf = vrf_lookup_by_id(new_vrf_id);
 	if (vrf) {
 		struct rip_interface *ri;
 
@@ -1200,7 +1190,7 @@ void rip_interface_sync(struct interface *ifp)
 static int rip_interface_new_hook(struct interface *ifp)
 {
 	ifp->info = rip_interface_new();
-	rip_interface_sync(ifp);
+	rip_interface_sync(ifp, ifp->vrf_id);
 
 	return 0;
 }
@@ -1224,6 +1214,6 @@ void rip_if_init(void)
 	/* Install interface node. */
 	install_node(&interface_node, rip_interface_config_write);
 	if_cmd_init();
-	if_zapi_callbacks(rip_ifp_create, rip_ifp_up,
-			  rip_ifp_down, rip_ifp_destroy);
+	if_zapi_callbacks(rip_ifp_create, rip_ifp_up, rip_ifp_down,
+			  rip_ifp_destroy, rip_ifp_vrf_update);
 }

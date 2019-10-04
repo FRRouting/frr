@@ -70,7 +70,8 @@ extern int zsend_redistribute_route(int cmd, struct zserv *zclient,
 extern int zsend_router_id_update(struct zserv *zclient, struct prefix *p,
 				  vrf_id_t vrf_id);
 extern int zsend_interface_vrf_update(struct zserv *zclient,
-				      struct interface *ifp, vrf_id_t vrf_id);
+				      struct interface *ifp,
+				      vrf_id_t old_vrf_id);
 extern int zsend_interface_link_params(struct zserv *zclient,
 				       struct interface *ifp);
 extern int zsend_pw_update(struct zserv *client, struct zebra_pw *pw);

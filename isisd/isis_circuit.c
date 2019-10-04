@@ -1445,6 +1445,6 @@ void isis_circuit_init(void)
 	/* Install interface node */
 	install_node(&interface_node, isis_interface_config_write);
 	if_cmd_init();
-	if_zapi_callbacks(isis_ifp_create, isis_ifp_up,
-			  isis_ifp_down, isis_ifp_destroy);
+	if_zapi_callbacks(isis_ifp_create, isis_ifp_up, isis_ifp_down,
+			  isis_ifp_destroy, NULL);
 }

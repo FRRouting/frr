@@ -2003,8 +2003,8 @@ void ospf6_interface_init(void)
 	/* Install interface node. */
 	install_node(&interface_node, config_write_ospf6_interface);
 	if_cmd_init();
-	if_zapi_callbacks(ospf6_ifp_create, ospf6_ifp_up,
-			  ospf6_ifp_down, ospf6_ifp_destroy);
+	if_zapi_callbacks(ospf6_ifp_create, ospf6_ifp_up, ospf6_ifp_down,
+			  ospf6_ifp_destroy, NULL);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_prefix_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_ifname_cmd);

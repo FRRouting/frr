@@ -63,6 +63,7 @@ struct interface_master{
 	int (*up_hook)(struct interface *ifp);
 	int (*down_hook)(struct interface *ifp);
 	int (*destroy_hook)(struct interface *ifp);
+	int (*vrf_update_hook)(struct interface *ifp, vrf_id_t new_vrf_id);
 } ifp_master = { 0, };
 
 /* Compare interface names, returning an integer greater than, equal to, or
@@ -191,6 +192,14 @@ void if_down_via_zapi(struct interface *ifp)
 {
 	if (ifp_master.down_hook)
 		(*ifp_master.down_hook)(ifp);
+}
+
+void if_vrf_update_via_zapi(struct interface *ifp, vrf_id_t new_vrf_id)
+{
+	if (ifp_master.vrf_update_hook)
+		(*ifp_master.vrf_update_hook)(ifp, new_vrf_id);
+
+	if_update_to_new_vrf(ifp, new_vrf_id);
 }
 
 struct interface *if_create_name(const char *name, vrf_id_t vrf_id)
@@ -1432,12 +1441,15 @@ void if_cmd_init(void)
 void if_zapi_callbacks(int (*create)(struct interface *ifp),
 		       int (*up)(struct interface *ifp),
 		       int (*down)(struct interface *ifp),
-		       int (*destroy)(struct interface *ifp))
+		       int (*destroy)(struct interface *ifp),
+		       int (*vrf_update)(struct interface *ifp,
+					 vrf_id_t new_vrf_id))
 {
 	ifp_master.create_hook = create;
 	ifp_master.up_hook = up;
 	ifp_master.down_hook = down;
 	ifp_master.destroy_hook = destroy;
+	ifp_master.vrf_update_hook = vrf_update;
 }
 
 /* ------- Northbound callbacks ------- */

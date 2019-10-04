@@ -183,29 +183,6 @@ static int ospf_interface_link_params(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-/* VRF update for an interface. */
-static int ospf_interface_vrf_update(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp = NULL;
-	vrf_id_t new_vrf_id;
-
-	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
-					      &new_vrf_id);
-	if (!ifp)
-		return 0;
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"%s: Rx Interface %s VRF change vrf_id %u New vrf %s id %u",
-			__PRETTY_FUNCTION__, ifp->name, vrf_id,
-			ospf_vrf_id_to_name(new_vrf_id), new_vrf_id);
-
-	/*if_update(ifp, ifp->name, strlen(ifp->name), new_vrf_id);*/
-	if_update_to_new_vrf(ifp, new_vrf_id);
-
-	return 0;
-}
-
 void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 		    struct ospf_route * or)
 {
@@ -1363,7 +1340,6 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->interface_address_add = ospf_interface_address_add;
 	zclient->interface_address_delete = ospf_interface_address_delete;
 	zclient->interface_link_params = ospf_interface_link_params;
-	zclient->interface_vrf_update = ospf_interface_vrf_update;
 
 	zclient->redistribute_route_add = ospf_zebra_read_route;
 	zclient->redistribute_route_del = ospf_zebra_read_route;
