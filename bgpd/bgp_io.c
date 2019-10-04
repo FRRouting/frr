@@ -22,6 +22,7 @@
 /* clang-format off */
 #include <zebra.h>
 #include <pthread.h>		// for pthread_mutex_unlock, pthread_mutex_lock
+#include <sys/uio.h>            // for writev
 
 #include "frr_pthread.h"
 #include "linklist.h"		// for list_delete, list_delete_all_node, lis...
@@ -259,6 +260,9 @@ static int bgp_process_reads(struct thread *thread)
 	return 0;
 }
 
+/* Vectorization quantum for I/O */
+#define BGP_IO_VECTOR_QUANTUM 8
+
 /*
  * Flush peer output buffer.
  *
@@ -275,7 +279,6 @@ static uint16_t bgp_write(struct peer *peer)
 {
 	uint8_t type;
 	struct stream *s;
-	int num;
 	int update_last_write = 0;
 	unsigned int count = 0;
 	uint32_t uo = 0;
@@ -286,10 +289,29 @@ static uint16_t bgp_write(struct peer *peer)
 					       memory_order_relaxed);
 
 	while (count < wpkt_quanta_old && (s = stream_fifo_head(peer->obuf))) {
-		int writenum;
+		int writenum = 0;
+		int num;
+
+		struct stream *streams[BGP_IO_VECTOR_QUANTUM];
+		struct iovec iov[BGP_IO_VECTOR_QUANTUM];
+		unsigned int vecsz = 0;
+		unsigned int iovsz = 0;
+
+		while (count < wpkt_quanta_old && vecsz < array_size(iov)
+		       && s) {
+			streams[vecsz] = s;
+			iov[vecsz].iov_base = stream_pnt(s);
+			iov[vecsz].iov_len = STREAM_READABLE(s);
+			writenum += STREAM_READABLE(s);
+			s = s->next;
+			++vecsz;
+			++count;
+		}
+
+		iovsz = vecsz;
+
 		do {
-			writenum = stream_get_endp(s) - stream_get_getp(s);
-			num = write(peer->fd, stream_pnt(s), writenum);
+			num = writev(peer->fd, iov, iovsz);
 
 			if (num < 0) {
 				if (!ERRNO_IO_RETRY(errno)) {
@@ -300,61 +322,89 @@ static uint16_t bgp_write(struct peer *peer)
 				}
 
 				goto done;
-			} else if (num != writenum)
-				stream_forward_getp(s, num);
+			} else if (num != writenum) {
+				int msg_written = 0;
+
+				for (unsigned int i = 0; i < vecsz; i++) {
+					size_t ss = iov[i].iov_len;
+
+					if (ss > (unsigned int) writenum)
+						break;
+
+					msg_written++;
+					iovsz--;
+					writenum -= ss;
+					num -= ss;
+				}
+
+				memmove(&iov, &iov[msg_written],
+					sizeof(iov[0]) * iovsz);
+				stream_forward_getp(streams[msg_written], num);
+				iov[0].iov_base = stream_pnt(streams[msg_written]);
+				iov[0].iov_len = STREAM_READABLE(streams[msg_written]);
+				stream_set_getp(streams[msg_written], 0);
+
+				writenum -= num;
+				num = 0;
+			}
 
 		} while (num != writenum);
 
-		/* Retrieve BGP packet type. */
-		stream_set_getp(s, BGP_MARKER_SIZE + 2);
-		type = stream_getc(s);
+		/* Handle statistics */
+		for (unsigned int i = 0; i < vecsz; i++) {
+			s = streams[i];
 
-		switch (type) {
-		case BGP_MSG_OPEN:
-			atomic_fetch_add_explicit(&peer->open_out, 1,
-						  memory_order_relaxed);
-			break;
-		case BGP_MSG_UPDATE:
-			atomic_fetch_add_explicit(&peer->update_out, 1,
-						  memory_order_relaxed);
-			uo++;
-			break;
-		case BGP_MSG_NOTIFY:
-			atomic_fetch_add_explicit(&peer->notify_out, 1,
-						  memory_order_relaxed);
-			/* Double start timer. */
-			peer->v_start *= 2;
+			/* Retrieve BGP packet type. */
+			stream_set_getp(s, BGP_MARKER_SIZE + 2);
+			type = stream_getc(s);
 
-			/* Overflow check. */
-			if (peer->v_start >= (60 * 2))
-				peer->v_start = (60 * 2);
+			switch (type) {
+			case BGP_MSG_OPEN:
+				atomic_fetch_add_explicit(&peer->open_out, 1,
+							  memory_order_relaxed);
+				break;
+			case BGP_MSG_UPDATE:
+				atomic_fetch_add_explicit(&peer->update_out, 1,
+							  memory_order_relaxed);
+				uo++;
+				break;
+			case BGP_MSG_NOTIFY:
+				atomic_fetch_add_explicit(&peer->notify_out, 1,
+							  memory_order_relaxed);
+				/* Double start timer. */
+				peer->v_start *= 2;
 
-			/*
-			 * Handle Graceful Restart case where the state changes
-			 * to Connect instead of Idle.
-			 */
-			BGP_EVENT_ADD(peer, BGP_Stop);
-			goto done;
+				/* Overflow check. */
+				if (peer->v_start >= (60 * 2))
+					peer->v_start = (60 * 2);
 
-		case BGP_MSG_KEEPALIVE:
-			atomic_fetch_add_explicit(&peer->keepalive_out, 1,
-						  memory_order_relaxed);
-			break;
-		case BGP_MSG_ROUTE_REFRESH_NEW:
-		case BGP_MSG_ROUTE_REFRESH_OLD:
-			atomic_fetch_add_explicit(&peer->refresh_out, 1,
-						  memory_order_relaxed);
-			break;
-		case BGP_MSG_CAPABILITY:
-			atomic_fetch_add_explicit(&peer->dynamic_cap_out, 1,
-						  memory_order_relaxed);
-			break;
+				/*
+				 * Handle Graceful Restart case where the state
+				 * changes to Connect instead of Idle.
+				 */
+				BGP_EVENT_ADD(peer, BGP_Stop);
+				goto done;
+
+			case BGP_MSG_KEEPALIVE:
+				atomic_fetch_add_explicit(&peer->keepalive_out,
+							  1,
+							  memory_order_relaxed);
+				break;
+			case BGP_MSG_ROUTE_REFRESH_NEW:
+			case BGP_MSG_ROUTE_REFRESH_OLD:
+				atomic_fetch_add_explicit(&peer->refresh_out, 1,
+							  memory_order_relaxed);
+				break;
+			case BGP_MSG_CAPABILITY:
+				atomic_fetch_add_explicit(
+					&peer->dynamic_cap_out, 1,
+					memory_order_relaxed);
+				break;
+			}
+
+			stream_free(stream_fifo_pop(peer->obuf));
+			update_last_write = 1;
 		}
-
-		count++;
-
-		stream_free(stream_fifo_pop(peer->obuf));
-		update_last_write = 1;
 	}
 
 done : {
