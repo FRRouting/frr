@@ -35,11 +35,7 @@ import ConfigParser
 import traceback
 import socket
 import ipaddr
-import re
 
-from lib import topotest
-
-from functools import partial
 from lib.topolog import logger, logger_config
 from lib.topogen import TopoRouter
 from lib.topotest import interface_set_status
@@ -736,62 +732,6 @@ def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0):
     return _retry
 
 
-def disable_v6_link_local(tgen, router, intf_name=None):
-    """
-    Disables ipv6 link local addresses for a particular interface or
-    all interfaces
-
-    * `tgen`: tgen onject
-    * `router` : router for which hightest interface should be
-                 calculated
-    * `intf_name` : Interface name for which v6 link local needs to
-                    be disabled
-    """
-
-    router_list = tgen.routers()
-    for rname, rnode in router_list.iteritems():
-        if rname != router:
-            continue
-
-        linklocal = []
-
-        ifaces = router_list[router].run('ip -6 address')
-
-        # Fix newlines (make them all the same)
-        ifaces = ('\n'.join(ifaces.splitlines()) + '\n').splitlines()
-
-        interface = None
-        ll_per_if_count = 0
-        for line in ifaces:
-            # Interface name
-            m = re.search('[0-9]+: ([^:]+)[@if0-9:]+ <', line)
-            if m:
-                interface = m.group(1).split("@")[0]
-                ll_per_if_count = 0
-
-            # Interface ip
-            m = re.search('inet6 (fe80::[0-9a-f]+:[0-9a-f]+:[0-9a-f]+'
-                          ':[0-9a-f]+[/0-9]*) scope link', line)
-            if m:
-                local = m.group(1)
-                ll_per_if_count += 1
-                if ll_per_if_count > 1:
-                    linklocal += [["%s-%s" % (interface, ll_per_if_count), local]]
-                else:
-                    linklocal += [[interface, local]]
-
-        if len(linklocal[0]) > 1:
-            link_local_dict = {item[0]: item[1] for item in linklocal}
-
-            for lname, laddr in link_local_dict.items():
-
-                if intf_name is not None and lname != intf_name:
-                    continue
-
-                cmd = "ip addr del {} dev {}".format(laddr, lname)
-                router_list[router].run(cmd)
-
-
 #############################################
 # These APIs,  will used by testcase
 #############################################
@@ -821,8 +761,6 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     interface_name = destRouterLink
                 else:
                     interface_name = data["interface"]
-                    if "ipv6" in data:
-                        disable_v6_link_local(tgen, c_router, interface_name)
                 interface_data.append("interface {}".format(
                     str(interface_name)
                 ))
@@ -1302,13 +1240,15 @@ def create_route_maps(tgen, input_dict, build=False):
 
                         # Weight
                         if weight:
-                            rmap_data.append("set weight {} \n".format(
+                            rmap_data.append("set weight {}".format(
                                 weight))
                         if ipv6_data:
-                            nexthop = ipv6_data.setdefault("nexthop",None)
+                            nexthop = ipv6_data.setdefault("nexthop", None)
                             if nexthop:
-                                rmap_data.append("set ipv6 next-hop \
-                                        {}".format(nexthop))
+                                rmap_data.append("set ipv6 next-hop {}".format(
+                                    nexthop
+                                ))
+
                     # Adding MATCH and SET sequence to RMAP if defined
                     if "match" in rmap_dict:
                         match_data = rmap_dict["match"]
@@ -1569,19 +1509,13 @@ def shutdown_bringup_interface(tgen, dut, intf_name, ifaceaction=False):
     errormsg(str) or True
     """
 
-    from topotest import interface_set_status
     router_list = tgen.routers()
     if ifaceaction:
         logger.info("Bringing up interface : {}".format(intf_name))
     else:
         logger.info("Shutting down interface : {}".format(intf_name))
 
-    interface_set_status(router_list[dut], intf_name,
-                                  ifaceaction)
-
-    if ifaceaction:
-        # Disabling v6 link local once interfac comes up back
-        disable_v6_link_local(tgen, dut, intf_name=intf_name)
+    interface_set_status(router_list[dut], intf_name, ifaceaction)
 
 
 #############################################
