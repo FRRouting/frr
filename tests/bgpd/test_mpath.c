@@ -38,6 +38,7 @@
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_evpn.h"
+#include "bgpd/bgp_network.h"
 
 #define VT100_RESET "\x1b[0m"
 #define VT100_RED "\x1b[31m"
@@ -379,7 +380,7 @@ static int global_test_init(void)
 	qobj_init();
 	master = thread_master_create(NULL);
 	zclient = zclient_new(master, &zclient_options_default);
-	bgp_master_init(master);
+	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE);
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 

@@ -75,6 +75,7 @@ static const struct option longopts[] = {
 	{"ecmp", required_argument, NULL, 'e'},
 	{"int_num", required_argument, NULL, 'I'},
 	{"no_zebra", no_argument, NULL, 'Z'},
+	{"socket_size", required_argument, NULL, 's'},
 	{0}};
 
 /* signal definitions */
@@ -386,17 +387,19 @@ int main(int argc, char **argv)
 	int no_zebra_flag = 0;
 	int skip_runas = 0;
 	int instance = 0;
+	int buffer_size = BGP_SOCKET_SNDBUF_SIZE;
 
 	frr_preinit(&bgpd_di, argc, argv);
 	frr_opt_add(
-		"p:l:SnZe:I:" DEPRECATED_OPTIONS, longopts,
+		"p:l:SnZe:I:s:" DEPRECATED_OPTIONS, longopts,
 		"  -p, --bgp_port     Set BGP listen port number (0 means do not listen).\n"
 		"  -l, --listenon     Listen on specified address (implies -n)\n"
 		"  -n, --no_kernel    Do not install route to kernel.\n"
 		"  -Z, --no_zebra     Do not communicate with Zebra.\n"
 		"  -S, --skip_runas   Skip capabilities checks, and changing user and group IDs.\n"
 		"  -e, --ecmp         Specify ECMP to use.\n"
-		"  -I, --int_num      Set instance number (label-manager)\n");
+		"  -I, --int_num      Set instance number (label-manager)\n"
+		"  -s, --socket_size  Set BGP peer socket send buffer size\n");
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -452,6 +455,9 @@ int main(int argc, char **argv)
 				zlog_err("Instance %i out of range (0..%u)",
 					 instance, (unsigned short)-1);
 			break;
+		case 's':
+			buffer_size = atoi(optarg);
+			break;
 		default:
 			frr_help_exit(1);
 			break;
@@ -461,7 +467,7 @@ int main(int argc, char **argv)
 		memset(&bgpd_privs, 0, sizeof(bgpd_privs));
 
 	/* BGP master init. */
-	bgp_master_init(frr_init());
+	bgp_master_init(frr_init(), buffer_size);
 	bm->port = bgp_port;
 	if (bgp_port == 0)
 		bgp_option_set(BGP_OPT_NO_LISTEN);

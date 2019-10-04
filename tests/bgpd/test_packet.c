@@ -34,6 +34,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_aspath.h"
+#include "bgpd/bgp_network.h"
 
 /* need these to link in libbgp */
 struct zebra_privs_t *bgpd_privs = NULL;
@@ -58,7 +59,7 @@ int main(int argc, char *argv[])
 	qobj_init();
 	bgp_attr_init();
 	master = thread_master_create(NULL);
-	bgp_master_init(master);
+	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE);
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 
