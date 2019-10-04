@@ -213,14 +213,10 @@ void nexthop_group_copy(struct nexthop_group *to, struct nexthop_group *from)
 
 void nexthop_group_delete(struct nexthop_group **nhg)
 {
-	XFREE(MTYPE_NEXTHOP_GROUP, *nhg);
-}
-
-void nexthop_group_free_delete(struct nexthop_group **nhg)
-{
 	if ((*nhg)->nexthop)
 		nexthops_free((*nhg)->nexthop);
-	nexthop_group_delete(nhg);
+
+	XFREE(MTYPE_NEXTHOP_GROUP, *nhg);
 }
 
 /* Add nexthop to the end of a nexthop list.  */

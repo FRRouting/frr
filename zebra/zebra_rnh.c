@@ -940,7 +940,6 @@ static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 		return;
 
 	/* free RE and nexthops */
-	nexthops_free(re->ng->nexthop);
 	nexthop_group_delete(&re->ng);
 	XFREE(MTYPE_RE, re);
 }

@@ -769,7 +769,7 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 		if (zebra_nhg_process_grp(nhg, &nhg_depends,
 					  nhg_ctx_get_grp(ctx), count)) {
 			depends_decrement_free(&nhg_depends);
-			nexthop_group_free_delete(&nhg);
+			nexthop_group_delete(&nhg);
 			return -ENOENT;
 		}
 
@@ -778,7 +778,7 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 			depends_decrement_free(&nhg_depends);
 
 		/* These got copied over in zebra_nhg_alloc() */
-		nexthop_group_free_delete(&nhg);
+		nexthop_group_delete(&nhg);
 	} else
 		nhe = zebra_nhg_find_nexthop(id, nhg_ctx_get_nh(ctx), afi,
 					     type);
@@ -1046,7 +1046,7 @@ zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 
 void zebra_nhg_free_members(struct nhg_hash_entry *nhe)
 {
-	nexthop_group_free_delete(&nhe->nhg);
+	nexthop_group_delete(&nhe->nhg);
 	/* Decrement to remove connection ref */
 	nhg_connected_tree_decrement_ref(&nhe->nhg_depends);
 	nhg_connected_tree_free(&nhe->nhg_depends);

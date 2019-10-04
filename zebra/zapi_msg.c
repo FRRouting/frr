@@ -1537,7 +1537,6 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 				"%s: Nexthops Specified: %d but we failed to properly create one",
 				__PRETTY_FUNCTION__, api.nexthop_num);
-			nexthops_free(re->ng->nexthop);
 			nexthop_group_delete(&re->ng);
 			XFREE(MTYPE_RE, re);
 			return;
@@ -1580,7 +1579,6 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		flog_warn(EC_ZEBRA_RX_SRCDEST_WRONG_AFI,
 			  "%s: Received SRC Prefix but afi is not v6",
 			  __PRETTY_FUNCTION__);
-		nexthops_free(re->ng->nexthop);
 		nexthop_group_delete(&re->ng);
 		XFREE(MTYPE_RE, re);
 		return;
