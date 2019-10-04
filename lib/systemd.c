@@ -86,6 +86,7 @@ static int systemd_get_watchdog_time(int the_process)
 
 void systemd_send_stopping(void)
 {
+	systemd_send_information("STATUS=");
 	systemd_send_information("STOPPING=1");
 }
 
@@ -115,4 +116,12 @@ void systemd_send_started(struct thread_master *m, int the_process)
 	systemd_send_information("READY=1");
 	if (wsecs != 0)
 		thread_add_timer(m, systemd_send_watchdog, m, wsecs, NULL);
+}
+
+void systemd_send_status(const char *status)
+{
+	char buffer[1024];
+
+	snprintf(buffer, sizeof(buffer), "STATUS=%s", status);
+	systemd_send_information(buffer);
 }
