@@ -267,29 +267,6 @@ An example configuration with multiple autonomous systems might look like this:
     neighbor 10.0.0.6 remote-as 70
    ...
 
-In the past this feature done differently and the following commands were
-required to enable the functionality. They are now deprecated.
-
-.. deprecated:: 5.0
-   This command is deprecated and may be safely removed from the config.
-
-.. index:: bgp multiple-instance
-.. clicmd:: bgp multiple-instance
-
-   Enable BGP multiple instance feature. Because this is now the default
-   configuration this command will not be displayed in the running
-   configuration.
-
-.. deprecated:: 5.0
-   This command is deprecated and may be safely removed from the config.
-
-.. index:: no bgp multiple-instance
-.. clicmd:: no bgp multiple-instance
-
-   In previous versions of FRR, this command disabled the BGP multiple instance
-   feature. This functionality is automatically turned on when BGP multiple
-   instances or views exist so this command no longer does anything.
-
 .. seealso:: :ref:`bgp-vrf-route-leaking`
 .. seealso:: :ref:`zebra-vrf`
 
@@ -390,6 +367,16 @@ Administrative Distance Metrics
 .. clicmd:: distance (1-255) A.B.C.D/M WORD
 
    Sets the administrative distance for a particular route.
+
+.. _bgp-requires-policy:
+
+Require policy on EBGP
+-------------------------------
+
+.. index:: [no] bgp ebgp-requires-policy
+.. clicmd:: [no] bgp ebgp-requires-policy
+
+   This command requires incoming and outgoing filters to be applied for eBGP sessions. Without the incoming filter, no routes will be accepted. Without the outgoing filter, no routes will be announced.
 
 .. _bgp-route-flap-dampening:
 
@@ -688,10 +675,20 @@ Networks
 Route Aggregation
 -----------------
 
+.. _bgp-route-aggregation-ipv4:
+
+Route Aggregation-IPv4 Address Family
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 .. index:: aggregate-address A.B.C.D/M
 .. clicmd:: aggregate-address A.B.C.D/M
 
    This command specifies an aggregate address.
+
+.. index:: aggregate-address A.B.C.D/M route-map NAME
+.. clicmd:: aggregate-address A.B.C.D/M route-map NAME
+
+   Apply a route-map for an aggregated prefix.
 
 .. index:: aggregate-address A.B.C.D/M as-set
 .. clicmd:: aggregate-address A.B.C.D/M as-set
@@ -707,6 +704,69 @@ Route Aggregation
 
 .. index:: no aggregate-address A.B.C.D/M
 .. clicmd:: no aggregate-address A.B.C.D/M
+
+   This command removes an aggregate address.
+
+
+   This configuration example setup the aggregate-address under
+   ipv4 address-family.
+
+   .. code-block:: frr
+
+      router bgp 1
+       address-family ipv4 unicast
+        aggregate-address 10.0.0.0/8
+        aggregate-address 20.0.0.0/8 as-set
+        aggregate-address 40.0.0.0/8 summary-only
+        aggregate-address 50.0.0.0/8 route-map aggr-rmap
+       exit-address-family
+
+
+.. _bgp-route-aggregation-ipv6:
+
+Route Aggregation-IPv6 Address Family
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. index:: aggregate-address X:X::X:X/M
+.. clicmd:: aggregate-address X:X::X:X/M
+
+   This command specifies an aggregate address.
+
+.. index:: aggregate-address X:X::X:X/M route-map NAME
+.. clicmd:: aggregate-address X:X::X:X/M route-map NAME
+
+   Apply a route-map for an aggregated prefix.
+
+.. index:: aggregate-address X:X::X:X/M as-set
+.. clicmd:: aggregate-address X:X::X:X/M as-set
+
+   This command specifies an aggregate address. Resulting routes include
+   AS set.
+
+.. index:: aggregate-address X:X::X:X/M summary-only
+.. clicmd:: aggregate-address X:X::X:X/M summary-only
+
+   This command specifies an aggregate address. Aggregated routes will
+   not be announce.
+
+.. index:: no aggregate-address X:X::X:X/M
+.. clicmd:: no aggregate-address X:X::X:X/M
+
+   This command removes an aggregate address.
+
+
+   This configuration example setup the aggregate-address under
+   ipv6 address-family.
+
+   .. code-block:: frr
+
+      router bgp 1
+       address-family ipv6 unicast
+        aggregate-address 10::0/64
+        aggregate-address 20::0/64 as-set
+        aggregate-address 40::0/64 summary-only
+        aggregate-address 50::0/64 route-map aggr-rmap
+       exit-address-family
 
 .. _bgp-redistribute-to-bgp:
 
@@ -826,8 +886,8 @@ Defining Peers
    peers ASN is the same as mine as specified under the :clicmd:`router bgp ASN`
    command the connection will be denied.
 
-.. index:: [no] bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group WORD
-.. clicmd:: [no] bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group WORD
+.. index:: [no] bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME
+.. clicmd:: [no] bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME
 
    Accept connections from any peers in the specified prefix. Configuration
    from the specified peer-group is used to configure these peers.
@@ -1050,8 +1110,8 @@ and will share updates.
 
    This command defines a new peer group.
 
-.. index:: neighbor PEER peer-group WORD
-.. clicmd:: neighbor PEER peer-group WORD
+.. index:: neighbor PEER peer-group PGNAME
+.. clicmd:: neighbor PEER peer-group PGNAME
 
    This command bind specific peer to peer group WORD.
 
@@ -1080,11 +1140,8 @@ Capability Negotiation
    Negotiation. Please use *dont-capability-negotiate* command to disable the
    feature.
 
-.. index:: neighbor PEER dont-capability-negotiate
-.. clicmd:: neighbor PEER dont-capability-negotiate
-
-.. index:: no neighbor PEER dont-capability-negotiate
-.. clicmd:: no neighbor PEER dont-capability-negotiate
+.. index:: [no] neighbor PEER dont-capability-negotiate
+.. clicmd:: [no] neighbor PEER dont-capability-negotiate
 
    Suppress sending Capability Negotiation as OPEN message optional parameter
    to the peer. This command only affects the peer is configured other than
@@ -1098,6 +1155,11 @@ Capability Negotiation
    capabilities even though remote peer sends capabilities. If the peer is
    configured by *override-capability*, *bgpd* ignores received capabilities
    then override negotiated capabilities with configured values.
+
+   Additionally the operator should be reminded that this feature fundamentally
+   disables the ability to use widely deployed BGP features.  BGP unnumbered,
+   hostname support, AS4, Addpath, Route Refresh, ORF, Dynamic Capabilities,
+   and graceful restart.
 
 .. index:: neighbor PEER override-capability
 .. clicmd:: neighbor PEER override-capability
@@ -1131,19 +1193,24 @@ AS path access list is user defined AS path.
 Using AS Path in Route Map
 --------------------------
 
-.. index:: match as-path WORD
-.. clicmd:: match as-path WORD
+.. index:: [no] match as-path WORD
+.. clicmd:: [no] match as-path WORD
 
+   For a given as-path, WORD, match it on the BGP as-path given for the prefix
+   and if it matches do normal route-map actions.  The no form of the command
+   removes this match from the route-map.
 
-.. index:: set as-path prepend AS-PATH
-.. clicmd:: set as-path prepend AS-PATH
+.. index:: [no] set as-path prepend AS-PATH
+.. clicmd:: [no] set as-path prepend AS-PATH
 
-   Prepend the given string of AS numbers to the AS_PATH.
+   Prepend the given string of AS numbers to the AS_PATH of the BGP path's NLRI.
+   The no form of this command removes this set operation from the route-map.
 
-.. index:: set as-path prepend last-as NUM
-.. clicmd:: set as-path prepend last-as NUM
+.. index:: [no] set as-path prepend last-as NUM
+.. clicmd:: [no] set as-path prepend last-as NUM
 
    Prepend the existing last AS number (the leftmost ASN) to the AS_PATH.
+   The no form of this command removes this set operation from the route-map.
 
 .. _bgp-communities-attribute:
 
@@ -1736,13 +1803,15 @@ Two types of large community lists are supported, namely `standard` and
 Large Communities in Route Map
 """"""""""""""""""""""""""""""
 
-.. index:: match large-community LINE
-.. clicmd:: match large-community LINE
+.. index:: match large-community LINE [exact-match]
+.. clicmd:: match large-community LINE [exact-match]
 
    Where `line` can be a simple string to match, or a regular expression. It
    is very important to note that this match occurs on the entire
    large-community string as a whole, where each large-community is ordered
-   from lowest to highest.
+   from lowest to highest. When `exact-match` keyword is specified, match
+   happen only when BGP updates have completely same large communities value
+   specified in the large community list.
 
 .. index:: set large-community LARGE-COMMUNITY
 .. clicmd:: set large-community LARGE-COMMUNITY
@@ -2098,20 +2167,40 @@ Dumping Messages and Routing Tables
 Other BGP Commands
 ------------------
 
+.. index:: clear bgp \*
+.. clicmd:: clear bgp \*
+
+   Clear all peers.
+
 .. index:: clear bgp ipv4|ipv6 \*
 .. clicmd:: clear bgp ipv4|ipv6 \*
 
-   Clear all address family peers.
+   Clear all peers with this address-family activated.
+
+.. index:: clear bgp ipv4|ipv6 unicast \*
+.. clicmd:: clear bgp ipv4|ipv6 unicast \*
+
+   Clear all peers with this address-family and sub-address-family activated.
 
 .. index:: clear bgp ipv4|ipv6 PEER
 .. clicmd:: clear bgp ipv4|ipv6 PEER
 
-   Clear peers which have addresses of X.X.X.X
+   Clear peers with address of X.X.X.X and this address-family activated.
 
-.. index:: clear bgp ipv4|ipv6 PEER soft in
-.. clicmd:: clear bgp ipv4|ipv6 PEER soft in
+.. index:: clear bgp ipv4|ipv6 unicast PEER
+.. clicmd:: clear bgp ipv4|ipv6 unicast PEER
 
-   Clear peer using soft reconfiguration.
+   Clear peer with address of X.X.X.X and this address-family and sub-address-family activated.
+
+.. index:: clear bgp ipv4|ipv6 PEER soft|in|out
+.. clicmd:: clear bgp ipv4|ipv6 PEER soft|in|out
+
+   Clear peer using soft reconfiguration in this address-family.
+
+.. index:: clear bgp ipv4|ipv6 unicast PEER soft|in|out
+.. clicmd:: clear bgp ipv4|ipv6 unicast PEER soft|in|out
+
+   Clear peer using soft reconfiguration in this address-family and sub-address-family.
 
 
 .. _bgp-displaying-bgp-information:
@@ -2186,6 +2275,12 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    Show a bgp peer summary for the specified address family, and subsequent
    address-family.
 
+.. index:: show bgp [afi] [safi] summary failed [json]
+.. clicmd:: show bgp [afi] [safi] summary failed [json]
+
+   Show a bgp peer summary for peers that are not succesfully exchanging routes
+   for the specified address family, and subsequent address-family.
+
 .. index:: show bgp [afi] [safi] neighbor [PEER]
 .. clicmd:: show bgp [afi] [safi] neighbor [PEER]
 
@@ -2235,7 +2330,48 @@ attribute.
    match the specified community list. When `exact-match` is specified, it
    displays only routes that have an exact match.
 
+.. _bgp-display-routes-by-lcommunity:
+
+Displaying Routes by Large Community Attribute
+----------------------------------------------
+
+The following commands allow displaying routes based on their
+large community attribute.
+
+.. index:: show [ip] bgp <ipv4|ipv6> large-community
+.. clicmd:: show [ip] bgp <ipv4|ipv6> large-community
+
+.. index:: show [ip] bgp <ipv4|ipv6> large-community LARGE-COMMUNITY
+.. clicmd:: show [ip] bgp <ipv4|ipv6> large-community LARGE-COMMUNITY
+
+.. index:: show [ip] bgp <ipv4|ipv6> large-community LARGE-COMMUNITY exact-match
+.. clicmd:: show [ip] bgp <ipv4|ipv6> large-community LARGE-COMMUNITY exact-match
+
+.. index:: show [ip] bgp <ipv4|ipv6> large-community LARGE-COMMUNITY json
+.. clicmd:: show [ip] bgp <ipv4|ipv6> large-community LARGE-COMMUNITY json
+
+   These commands display BGP routes which have the large community attribute.
+   attribute. When ``LARGE-COMMUNITY`` is specified, BGP routes that match that
+   large community are displayed. When `exact-match` is specified, it display
+   only routes that have an exact match. When `json` is specified, it display
+   routes in json format.
+
+.. index:: show [ip] bgp <ipv4|ipv6> large-community-list WORD
+.. clicmd:: show [ip] bgp <ipv4|ipv6> large-community-list WORD
+
+.. index:: show [ip] bgp <ipv4|ipv6> large-community-list WORD exact-match
+.. clicmd:: show [ip] bgp <ipv4|ipv6> large-community-list WORD exact-match
+
+.. index:: show [ip] bgp <ipv4|ipv6> large-community-list WORD json
+.. clicmd:: show [ip] bgp <ipv4|ipv6> large-community-list WORD json
+
+   These commands display BGP routes for the address family specified that
+   match the specified large community list. When `exact-match` is specified,
+   it displays only routes that have an exact match. When `json` is specified,
+   it display routes in json format.
+
 .. _bgp-display-routes-by-as-path:
+
 
 Displaying Routes by AS Path
 ----------------------------
@@ -2262,6 +2398,23 @@ Displaying Routes by AS Path
 
    Print a summary of neighbor connections for the specified AFI/SAFI combination.
 
+Displaying Update Group Information
+-----------------------------------
+
+..index:: show bgp update-groups SUBGROUP-ID [advertise-queue|advertised-routes|packet-queue]
+..clicmd:: show bgp update-groups [advertise-queue|advertised-routes|packet-queue]
+
+   Display Information about each individual update-group being used.
+   If SUBGROUP-ID is specified only display about that particular group.  If
+   advertise-queue is specified the list of routes that need to be sent
+   to the peers in the update-group is displayed, advertised-routes means
+   the list of routes we have sent to the peers in the update-group and 
+   packet-queue specifies the list of packets in the queue to be sent.
+
+..index:: show bgp update-groups statistics
+..clicmd:: show bgp update-groups statistics
+
+   Display Information about update-group events in FRR.
 
 .. _bgp-route-reflector:
 
@@ -2302,7 +2455,6 @@ different filter for a peer.
 
 .. code-block:: frr
 
-   bgp multiple-instance
    !
    router bgp 1 view 1
     neighbor 10.0.0.1 remote-as 2

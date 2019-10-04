@@ -171,6 +171,9 @@ DEFUN (show_modules,
 		}
 		plug = plug->next;
 	}
+
+	vty_out(vty, "pid: %u\n", (uint32_t)(getpid()));
+
 	return CMD_SUCCESS;
 }
 

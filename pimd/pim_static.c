@@ -124,9 +124,6 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 			 * back if it fails.
 			 */
 			original_s_route = static_route_alloc();
-			if (!original_s_route) {
-				return -5;
-			}
 			memcpy(original_s_route, s_route,
 			       sizeof(struct static_route));
 
@@ -141,7 +138,9 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 			} else {
 				/* input interface changed */
 				s_route->iif = iif_index;
-				s_route->c_oil.oil.mfcc_parent = iif_index;
+				pim_channel_oil_change_iif(pim, &s_route->c_oil,
+							   iif_index,
+							   __PRETTY_FUNCTION__);
 
 #ifdef PIM_ENFORCE_LOOPFREE_MFC
 				/* check to make sure the new input was not an

@@ -27,6 +27,7 @@ vtysh_scan += \
 
 # can be loaded as DSO - always include for vtysh
 vtysh_scan += $(top_srcdir)/bgpd/bgp_rpki.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_bmp.c
 
 if ENABLE_BGP_VNC
 vtysh_scan += \
@@ -41,6 +42,9 @@ module_LTLIBRARIES += bgpd/bgpd_snmp.la
 endif
 if RPKI
 module_LTLIBRARIES += bgpd/bgpd_rpki.la
+endif
+if BGP_BMP
+module_LTLIBRARIES += bgpd/bgpd_bmp.la
 endif
 man8 += $(MANBUILD)/bgpd.8
 endif
@@ -129,6 +133,7 @@ noinst_HEADERS += \
 	bgpd/bgp_damp.h \
 	bgpd/bgp_debug.h \
 	bgpd/bgp_dump.h \
+	bgpd/bgp_bmp.h \
 	bgpd/bgp_ecommunity.h \
 	bgpd/bgp_encap_tlv.h \
 	bgpd/bgp_encap_types.h \
@@ -216,6 +221,10 @@ bgpd_bgpd_rpki_la_CFLAGS = $(WERROR) $(RTRLIB_CFLAGS)
 bgpd_bgpd_rpki_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 bgpd_bgpd_rpki_la_LIBADD = $(RTRLIB_LIBS)
 
+bgpd_bgpd_bmp_la_SOURCES = bgpd/bgp_bmp.c
+bgpd_bgpd_bmp_la_LIBADD = lib/libfrrcares.la
+bgpd_bgpd_bmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+
 bgpd/bgp_evpn_vty_clippy.c: $(CLIPPY_DEPS)
 bgpd/bgp_evpn_vty.$(OBJEXT): bgpd/bgp_evpn_vty_clippy.c
 bgpd/bgp_vty_clippy.c: $(CLIPPY_DEPS)
@@ -229,3 +238,5 @@ bgpd/bgp_routemap.$(OBJEXT): bgpd/bgp_routemap_clippy.c
 bgpd/bgp_rpki_clippy.c: $(CLIPPY_DEPS)
 $(AUTOMAKE_DUMMY)bgpd/bgpd_bgpd_rpki_la-bgp_rpki.lo: bgpd/bgp_rpki_clippy.c
 $(AUTOMAKE_DUMMY)bgpd/bgpd_rpki_la-bgp_rpki.lo: bgpd/bgp_rpki_clippy.c
+bgpd/bgp_bmp_clippy.c: $(CLIPPY_DEPS)
+bgpd/bgp_bmp.lo: bgpd/bgp_bmp_clippy.c

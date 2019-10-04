@@ -23,7 +23,9 @@
 #include <zebra.h>
 
 #include "lib/nexthop.h"
+#include "lib/nexthop_group_private.h"
 #include "lib/routemap.h"
+#include "lib/mpls.h"
 
 #include "zebra/connected.h"
 #include "zebra/debug.h"
@@ -37,6 +39,10 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 				 struct nexthop *nexthop)
 {
 	struct nexthop *resolved_hop;
+	uint8_t num_labels = 0;
+	mpls_label_t labels[MPLS_MAX_LABELS];
+	enum lsp_types_t label_type = ZEBRA_LSP_NONE;
+	int i = 0;
 
 	resolved_hop = nexthop_new();
 	SET_FLAG(resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -86,21 +92,61 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
 		resolved_hop->type = NEXTHOP_TYPE_BLACKHOLE;
-		resolved_hop->bh_type = nexthop->bh_type;
+		resolved_hop->bh_type = newhop->bh_type;
 		break;
 	}
 
 	if (newhop->flags & NEXTHOP_FLAG_ONLINK)
 		resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
 
-	/* Copy labels of the resolved route */
-	if (newhop->nh_label)
-		nexthop_add_labels(resolved_hop, newhop->nh_label_type,
-				   newhop->nh_label->num_labels,
-				   &newhop->nh_label->label[0]);
+	/* Copy labels of the resolved route and the parent resolving to it */
+	if (newhop->nh_label) {
+		for (i = 0; i < newhop->nh_label->num_labels; i++)
+			labels[num_labels++] = newhop->nh_label->label[i];
+		label_type = newhop->nh_label_type;
+	}
+
+	if (nexthop->nh_label) {
+		for (i = 0; i < nexthop->nh_label->num_labels; i++)
+			labels[num_labels++] = nexthop->nh_label->label[i];
+
+		/* If the parent has labels, use its type */
+		label_type = nexthop->nh_label_type;
+	}
+
+	if (num_labels)
+		nexthop_add_labels(resolved_hop, label_type, num_labels,
+				   labels);
 
 	resolved_hop->rparent = nexthop;
-	nexthop_add(&nexthop->resolved, resolved_hop);
+	_nexthop_add(&nexthop->resolved, resolved_hop);
+}
+
+/* Checks if nexthop we are trying to resolve to is valid */
+static bool nexthop_valid_resolve(const struct nexthop *nexthop,
+				  const struct nexthop *resolved)
+{
+	/* Can't resolve to a recursive nexthop */
+	if (CHECK_FLAG(resolved->flags, NEXTHOP_FLAG_RECURSIVE))
+		return false;
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		/* If the nexthop we are resolving to does not match the
+		 * ifindex for the nexthop the route wanted, its not valid.
+		 */
+		if (nexthop->ifindex != resolved->ifindex)
+			return false;
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
+		break;
+	}
+
+	return true;
 }
 
 /*
@@ -119,6 +165,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	struct nexthop *newhop;
 	struct interface *ifp;
 	rib_dest_t *dest;
+	struct zebra_vrf *zvrf;
 
 	if ((nexthop->type == NEXTHOP_TYPE_IPV4)
 	    || nexthop->type == NEXTHOP_TYPE_IPV6)
@@ -193,7 +240,9 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	}
 	/* Lookup table.  */
 	table = zebra_vrf_table(afi, SAFI_UNICAST, nexthop->vrf_id);
-	if (!table) {
+	/* get zvrf */
+	zvrf = zebra_vrf_lookup_by_id(nexthop->vrf_id);
+	if (!table || !zvrf) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug("\t%s: Table not found",
 				   __PRETTY_FUNCTION__);
@@ -223,7 +272,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		/* However, do not resolve over default route unless explicitly
 		 * allowed. */
 		if (is_default_prefix(&rn->p)
-		    && !rnh_resolve_via_default(p.family)) {
+		    && !rnh_resolve_via_default(zvrf, p.family)) {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"\t:%s: Resolved against default route",
@@ -265,14 +314,11 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				if (!CHECK_FLAG(match->status,
 						ROUTE_ENTRY_INSTALLED))
 					continue;
-				if (CHECK_FLAG(newhop->flags,
-					       NEXTHOP_FLAG_RECURSIVE))
+				if (!nexthop_valid_resolve(nexthop, newhop))
 					continue;
 
 				SET_FLAG(nexthop->flags,
 					 NEXTHOP_FLAG_RECURSIVE);
-				SET_FLAG(re->status,
-					 ROUTE_ENTRY_NEXTHOPS_CHANGED);
 				nexthop_set_resolved(afi, newhop, nexthop);
 				resolved = 1;
 			}
@@ -288,8 +334,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				if (!CHECK_FLAG(match->status,
 						ROUTE_ENTRY_INSTALLED))
 					continue;
-				if (CHECK_FLAG(newhop->flags,
-					       NEXTHOP_FLAG_RECURSIVE))
+				if (!nexthop_valid_resolve(nexthop, newhop))
 					continue;
 
 				SET_FLAG(nexthop->flags,
@@ -338,7 +383,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 				     struct nexthop *nexthop)
 {
 	struct interface *ifp;
-	route_map_result_t ret = RMAP_MATCH;
+	route_map_result_t ret = RMAP_PERMITMATCH;
 	int family;
 	char buf[SRCDEST2STR_BUFFER];
 	const struct prefix *p, *src_p;
@@ -500,10 +545,8 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 			 && nexthop->type < NEXTHOP_TYPE_BLACKHOLE)
 			&& !(IPV6_ADDR_SAME(&prev_src.ipv6,
 					    &nexthop->rmap_src.ipv6)))
-		    || CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED)) {
+		    || CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED))
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
-			SET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
-		}
 	}
 
 	return re->nexthop_active_num;

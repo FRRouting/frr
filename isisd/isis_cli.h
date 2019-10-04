@@ -27,6 +27,8 @@ void cli_show_ip_isis_ipv4(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults);
 void cli_show_ip_isis_ipv6(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults);
+void cli_show_ip_isis_bfd_monitoring(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults);
 void cli_show_isis_area_address(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults);
 void cli_show_isis_is_type(struct vty *vty, struct lyd_node *dnode,

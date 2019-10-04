@@ -69,7 +69,7 @@ The instance number should be specified in the config when addressing a particul
 .. code-block:: frr
 
    router ospf 5
-      router-id 1.2.3.4
+      ospf router-id 1.2.3.4
       area 0.0.0.0 authentication message-digest
       ...
 
@@ -906,10 +906,13 @@ Opaque LSA
 .. index:: no capability opaque
 .. clicmd:: no capability opaque
 
-   *ospfd* supports Opaque LSA (:rfc:`2370`) as fundamental for MPLS Traffic
-   Engineering LSA. Prior to used MPLS TE, opaque-lsa must be enable in the
-   configuration file. Alternate command could be "mpls-te on"
-   (:ref:`ospf-traffic-engineering`).
+   *ospfd* supports Opaque LSA (:rfc:`2370`) as partial support for
+   MPLS Traffic Engineering LSAs. The opaque-lsa capability must be
+   enabled in the configuration. An alternate command could be
+   "mpls-te on" (:ref:`ospf-traffic-engineering`). Note that FRR
+   offers only partial support for some of the routing protocol
+   extensions that are used with MPLS-TE; it does not support a
+   complete RSVP-TE solution.
 
 .. index:: show ip ospf database (opaque-link|opaque-area|opaque-external)
 .. clicmd:: show ip ospf database (opaque-link|opaque-area|opaque-external)
@@ -935,6 +938,12 @@ Opaque LSA
 
 Traffic Engineering
 ===================
+
+.. note::
+
+   At this time, FRR offers partial support for some of the routing
+   protocol extensions that can be used with MPLS-TE. FRR does not
+   support a complete RSVP-TE solution currently.
 
 .. index:: mpls-te on
 .. clicmd:: mpls-te on

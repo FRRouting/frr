@@ -175,7 +175,7 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 		}
 	}
 
-	frr_elevate_privs(&pimd_privs) {
+	frr_with_privs(&pimd_privs) {
 		/* bind to well known TCP port */
 		rc = bind(sock, (struct sockaddr *)&sin, socklen);
 	}

@@ -31,6 +31,7 @@
 #include "command.h"
 #include "version.h"
 #include "memory_vty.h"
+#include "log_vty.h"
 #include "zclient.h"
 #include "log_int.h"
 #include "module.h"
@@ -40,6 +41,8 @@
 #include "northbound_cli.h"
 #include "northbound_db.h"
 #include "debug.h"
+#include "frrcu.h"
+#include "frr_pthread.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 DEFINE_KOOH(frr_early_fini, (), ())
@@ -408,7 +411,7 @@ static int frr_opt(int opt)
 		}
 		if (di->zpathspace)
 			fprintf(stderr,
-				"-N option overriden by -z for zebra named socket path\n");
+				"-N option overridden by -z for zebra named socket path\n");
 
 		if (strchr(optarg, '/') || strchr(optarg, '.')) {
 			fprintf(stderr,
@@ -677,8 +680,12 @@ struct thread_master *frr_init(void)
 
 	vty_init(master, di->log_always);
 	memory_init();
+	log_filter_cmd_init();
+
+	frr_pthread_init();
 
 	log_ref_init();
+	log_ref_vty_init();
 	lib_error_init();
 
 	yang_init();
@@ -861,12 +868,7 @@ static int frr_config_read_in(struct thread *t)
 	/*
 	 * Update the shared candidate after reading the startup configuration.
 	 */
-	pthread_rwlock_rdlock(&running_config->lock);
-	{
-		nb_config_replace(vty_shared_candidate_config, running_config,
-				  true);
-	}
-	pthread_rwlock_unlock(&running_config->lock);
+	nb_config_replace(vty_shared_candidate_config, running_config, true);
 
 	return 0;
 }
@@ -1072,12 +1074,14 @@ void frr_fini(void)
 	db_close();
 #endif
 	log_ref_fini();
+	frr_pthread_finish();
 	zprivs_terminate(di->privs);
 	/* signal_init -> nothing needed */
 	thread_master_free(master);
 	master = NULL;
 	closezlog();
 	/* frrmod_init -> nothing needed / hooks */
+	rcu_shutdown();
 
 	if (!debug_memstats_at_exit)
 		return;

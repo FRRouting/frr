@@ -302,8 +302,8 @@ extern struct vty *vty_stdio(void (*atclose)(int isexit));
  * - vty_endframe() clears the buffer without printing it, and prints an
  *   extra string if the buffer was empty before (for context-end markers)
  */
-extern int vty_out(struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
-extern void vty_frame(struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
+extern int vty_out(struct vty *, const char *, ...) PRINTFRR(2, 3);
+extern void vty_frame(struct vty *, const char *, ...) PRINTFRR(2, 3);
 extern void vty_endframe(struct vty *, const char *);
 bool vty_set_include(struct vty *vty, const char *regexp);
 

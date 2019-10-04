@@ -218,7 +218,7 @@ static struct prefix_list *prefix_list_insert(afi_t afi, int orf,
 	/* If name is made by all digit character.  We treat it as
 	   number. */
 	for (number = 0, i = 0; i < strlen(name); i++) {
-		if (isdigit((int)name[i]))
+		if (isdigit((unsigned char)name[i]))
 			number = (number * 10) + (name[i] - '0');
 		else
 			break;
@@ -750,6 +750,7 @@ enum prefix_list_type prefix_list_apply_which_prefix(
 	if (pbest == NULL)
 		return PREFIX_DENY;
 
+	pbest->hitcnt++;
 	return pbest->type;
 }
 
@@ -1009,7 +1010,7 @@ static int vty_prefix_list_uninstall(struct vty *vty, afi_t afi,
 
 		if (pentry == NULL) {
 			vty_out(vty,
-				"%% Can't find prefix-list %s with sequence number %lu\n",
+				"%% Can't find prefix-list %s with sequence number %" PRIu64 "\n",
 				name, seqnum);
 			return CMD_WARNING_CONFIG_FAILED;
 		}

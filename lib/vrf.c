@@ -199,9 +199,14 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 
 	/* Set name */
 	if (name && vrf->name[0] != '\0' && strcmp(name, vrf->name)) {
+		/* update the vrf name */
 		RB_REMOVE(vrf_name_head, &vrfs_by_name, vrf);
+		strlcpy(vrf->data.l.netns_name,
+			name, NS_NAMSIZ);
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
+		if (vrf->vrf_id == VRF_DEFAULT)
+			vrf_set_default_name(vrf->name, false);
 	} else if (name && vrf->name[0] == '\0') {
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
@@ -465,6 +470,14 @@ static void vrf_autocomplete(vector comps, struct cmd_token *token)
 static const struct cmd_variable_handler vrf_var_handlers[] = {
 	{
 		.varname = "vrf",
+		.completions = vrf_autocomplete,
+	},
+	{
+		.varname = "vrf_name",
+		.completions = vrf_autocomplete,
+	},
+	{
+		.varname = "nexthop_vrf",
 		.completions = vrf_autocomplete,
 	},
 	{.completions = NULL},
@@ -755,7 +768,7 @@ DEFUN_NOSH (vrf_netns,
 	if (!pathname)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	frr_elevate_privs(vrf_daemon_privs) {
+	frr_with_privs(vrf_daemon_privs) {
 		ret = vrf_netns_handler_create(vty, vrf, pathname,
 					       NS_UNKNOWN, NS_UNKNOWN);
 	}
@@ -870,7 +883,8 @@ void vrf_set_default_name(const char *default_name, bool force)
 			   def_vrf->vrf_id);
 		return;
 	}
-
+	if (strmatch(vrf_default_name, default_name))
+		return;
 	snprintf(vrf_default_name, VRF_NAMSIZ, "%s", default_name);
 	if (def_vrf) {
 		if (force)

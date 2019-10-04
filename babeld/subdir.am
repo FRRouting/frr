@@ -17,7 +17,6 @@ babeld_libbabel_a_SOURCES = \
 	babeld/babel_errors.c \
 	babeld/babel_filter.c \
 	babeld/babel_interface.c \
-	babeld/babel_memory.c \
 	babeld/babel_zebra.c \
 	babeld/babeld.c \
 	babeld/kernel.c \
@@ -36,7 +35,6 @@ noinst_HEADERS += \
 	babeld/babel_filter.h \
 	babeld/babel_interface.h \
 	babeld/babel_main.h \
-	babeld/babel_memory.h \
 	babeld/babel_zebra.h \
 	babeld/babeld.h \
 	babeld/kernel.h \

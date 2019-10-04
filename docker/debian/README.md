@@ -1,14 +1,17 @@
-# Debian9 Docker
-This is a binary docker container build of debian9.
+# Debian 10 Docker
+
+This is a binary docker container build of Debian 10 (buster) with FRR.
 
 # Build
+
 ```
-docker build --rm -t frr:6.0.2 .
+docker build -t frr-debian:latest .
 ```
 
 # Running
+
 ```
-docker run -itd --privileged --name frr frr:latest
+docker run -itd --privileged --name frr frr-debian:latest
 ```
 
 vtysh

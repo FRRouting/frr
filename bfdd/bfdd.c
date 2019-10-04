@@ -29,20 +29,18 @@
 /*
  * FRR related code.
  */
-DEFINE_MGROUP(BFDD, "Bidirectional Forwarding Detection Daemon");
-DEFINE_MTYPE(BFDD, BFDD_TMP, "short-lived temporary memory");
-DEFINE_MTYPE(BFDD, BFDD_CONFIG, "long-lived configuration memory");
-DEFINE_MTYPE(BFDD, BFDD_LABEL, "long-lived label memory");
-DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory");
-DEFINE_MTYPE(BFDD, BFDD_SESSION_OBSERVER, "Session observer");
-DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data");
-DEFINE_MTYPE(BFDD, BFDD_VRF, "BFD VRF");
+DEFINE_MGROUP(BFDD, "Bidirectional Forwarding Detection Daemon")
+DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory")
+DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data")
 
 /* Master of threads. */
 struct thread_master *master;
 
 /* BFDd privileges */
 static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_SYS_ADMIN, ZCAP_NET_RAW};
+
+/* BFD daemon information. */
+static struct frr_daemon_info bfdd_di;
 
 void socket_close(int *s)
 {
@@ -83,6 +81,14 @@ static void sigterm_handler(void)
 	exit(0);
 }
 
+static void sighup_handler(void)
+{
+	zlog_info("SIGHUP received");
+
+	/* Reload config file. */
+	vty_read_config(NULL, bfdd_di.config_file, config_default);
+}
+
 static struct quagga_signal_t bfd_signals[] = {
 	{
 		.signal = SIGUSR1,
@@ -96,12 +102,23 @@ static struct quagga_signal_t bfd_signals[] = {
 		.signal = SIGINT,
 		.handler = &sigterm_handler,
 	},
+	{
+		.signal = SIGHUP,
+		.handler = &sighup_handler,
+	},
+};
+
+static const struct frr_yang_module_info *bfdd_yang_modules[] = {
+	&frr_interface_info,
+	&frr_bfdd_info,
 };
 
 FRR_DAEMON_INFO(bfdd, BFD, .vty_port = 2617,
 		.proghelp = "Implementation of the BFD protocol.",
 		.signals = bfd_signals, .n_signals = array_size(bfd_signals),
-		.privs = &bglobal.bfdd_privs)
+		.privs = &bglobal.bfdd_privs,
+		.yang_modules = bfdd_yang_modules,
+		.n_yang_modules = array_size(bfdd_yang_modules))
 
 #define OPTION_CTLSOCK 1001
 static struct option longopts[] = {

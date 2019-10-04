@@ -5,10 +5,12 @@ endif
 grpc_libfrrgrpc_pb_la_LDFLAGS = -version-info 0:0:0
 grpc_libfrrgrpc_pb_la_CPPFLAGS = $(AM_CPPFLAGS) $(GRPC_CXXFLAGS)
 
+if GRPC
 nodist_grpc_libfrrgrpc_pb_la_SOURCES = \
 	grpc/frr-northbound.pb.cc \
 	grpc/frr-northbound.grpc.pb.cc \
 	# end
+endif
 
 CLEANFILES += \
 	grpc/frr-northbound.pb.cc \

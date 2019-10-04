@@ -214,8 +214,7 @@ int vrrp_ndisc_una_send_all(struct vrrp_router *r)
 
 void vrrp_ndisc_init(void)
 {
-	frr_elevate_privs(&vrrp_privs)
-	{
+	frr_with_privs(&vrrp_privs) {
 		ndisc_fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IPV6));
 	}
 

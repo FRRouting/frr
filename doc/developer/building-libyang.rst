@@ -10,7 +10,7 @@ The FRR project builds binary ``libyang`` packages, which we offer for download
 
 .. warning::
 
-   ``libyang`` version 0.16.74 or newer is required to build FRR.
+   ``libyang`` version 0.16.105 or newer is required to build FRR.
 
 .. note::
 

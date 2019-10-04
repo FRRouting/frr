@@ -6,7 +6,7 @@
       "vrfId":3,
       "distance": 20,
       "metric": 0,
-      "internalStatus": 2,
+      "internalStatus": 0,
       "internalFlags": 0,
       "nexthops": [
         {
@@ -27,7 +27,7 @@
       "distance": 0,
       "metric": 0,
       "installed": true,
-      "internalStatus": 32,
+      "internalStatus": 16,
       "internalFlags": 8,
       "nexthops": [
         {

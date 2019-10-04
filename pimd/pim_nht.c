@@ -447,7 +447,7 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 	struct pim_rpf old;
 
 	old.source_nexthop.interface = up->rpf.source_nexthop.interface;
-	rpf_result = pim_rpf_update(pim, up, &old, 0);
+	rpf_result = pim_rpf_update(pim, up, &old);
 	if (rpf_result == PIM_RPF_FAILURE) {
 		pim_upstream_rpf_clear(pim, up);
 		return HASHWALK_CONTINUE;
@@ -479,7 +479,7 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 		zlog_debug("%s: NHT upstream %s(%s) old ifp %s new ifp %s",
 			__PRETTY_FUNCTION__, up->sg_str, pim->vrf->name,
 			old.source_nexthop.interface
-			? old.source_nexthop.interface->name : "Unknwon",
+			? old.source_nexthop.interface->name : "Unknown",
 			up->rpf.source_nexthop.interface->name);
 	}
 
@@ -842,6 +842,14 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 			}
 
 			if (!ifp->info) {
+				/*
+				 * Though Multicast is not enabled on this
+				 * Interface store it in database otheriwse we
+				 * may miss this update and this will not cause
+				 * any issue, because while choosing the path we
+				 * are ommitting the Interfaces which are not
+				 * multicast enabled
+				 */
 				if (PIM_DEBUG_PIM_NHT) {
 					char buf[NEXTHOP_STRLEN];
 
@@ -853,8 +861,6 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 						nexthop2str(nexthop, buf,
 							    sizeof(buf)));
 				}
-				nexthop_free(nexthop);
-				continue;
 			}
 
 			if (nhlist_tail) {

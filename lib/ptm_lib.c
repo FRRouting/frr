@@ -125,7 +125,7 @@ static int _ptm_lib_decode_header(csv_t *csv, int *msglen, int *version,
 	}
 	/* remove leading spaces */
 	for (i = j = 0; i < csv_field_len(fld); i++) {
-		if (!isspace((int)hdr[i])) {
+		if (!isspace((unsigned char)hdr[i])) {
 			client_name[j] = hdr[i];
 			j++;
 		}

@@ -1232,7 +1232,8 @@ struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 }
 
 /* Replace all private ASNs with our own ASN */
-struct aspath *aspath_replace_private_asns(struct aspath *aspath, as_t asn)
+struct aspath *aspath_replace_private_asns(struct aspath *aspath, as_t asn,
+					   as_t peer_asn)
 {
 	struct aspath *new;
 	struct assegment *seg;
@@ -1244,7 +1245,9 @@ struct aspath *aspath_replace_private_asns(struct aspath *aspath, as_t asn)
 		int i;
 
 		for (i = 0; i < seg->length; i++) {
-			if (BGP_AS_IS_PRIVATE(seg->as[i]))
+			/* Don't replace if public ASN or peer's ASN */
+			if (BGP_AS_IS_PRIVATE(seg->as[i])
+			    && (seg->as[i] != peer_asn))
 				seg->as[i] = asn;
 		}
 		seg = seg->next;
@@ -1255,7 +1258,7 @@ struct aspath *aspath_replace_private_asns(struct aspath *aspath, as_t asn)
 }
 
 /* Remove all private ASNs */
-struct aspath *aspath_remove_private_asns(struct aspath *aspath)
+struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 {
 	struct aspath *new;
 	struct assegment *seg;
@@ -1282,16 +1285,9 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath)
 			}
 		}
 
-		// The entire segment is private so skip it
-		if (!public) {
-			seg = seg->next;
-			continue;
-		}
-
 		// The entire segment is public so copy it
-		else if (public == seg->length) {
+		if (public == seg->length)
 			new_seg = assegment_dup(seg);
-		}
 
 		// The segment is a mix of public and private ASNs. Copy as many
 		// spots as
@@ -1301,8 +1297,9 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath)
 			new_seg = assegment_new(seg->type, public);
 			j = 0;
 			for (i = 0; i < seg->length; i++) {
-				// ASN is public
-				if (!BGP_AS_IS_PRIVATE(seg->as[i])) {
+				// keep ASN if public or matches peer's ASN
+				if (!BGP_AS_IS_PRIVATE(seg->as[i])
+				    || (seg->as[i] == peer_asn)) {
 					new_seg->as[j] = seg->as[i];
 					j++;
 				}
@@ -1469,7 +1466,7 @@ struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 	/* Not reached */
 }
 
-/* Iterate over AS_PATH segments and wipe all occurences of the
+/* Iterate over AS_PATH segments and wipe all occurrences of the
  * listed AS numbers. Hence some segments may lose some or even
  * all data on the way, the operation is implemented as a smarter
  * version of aspath_dup(), which allocates memory to hold the new
@@ -1888,7 +1885,7 @@ static const char *aspath_gettoken(const char *buf, enum as_token *token,
 	const char *p = buf;
 
 	/* Skip seperators (space for sequences, ',' for sets). */
-	while (isspace((int)*p) || *p == ',')
+	while (isspace((unsigned char)*p) || *p == ',')
 		p++;
 
 	/* Check the end of the string and type specify characters
@@ -1923,14 +1920,14 @@ static const char *aspath_gettoken(const char *buf, enum as_token *token,
 	}
 
 	/* Check actual AS value. */
-	if (isdigit((int)*p)) {
+	if (isdigit((unsigned char)*p)) {
 		as_t asval;
 
 		*token = as_token_asval;
 		asval = (*p - '0');
 		p++;
 
-		while (isdigit((int)*p)) {
+		while (isdigit((unsigned char)*p)) {
 			asval *= 10;
 			asval += (*p - '0');
 			p++;
@@ -2117,15 +2114,12 @@ static void *bgp_aggr_aspath_hash_alloc(void *p)
 
 static void bgp_aggr_aspath_prepare(struct hash_backet *hb, void *arg)
 {
-	struct aspath *asmerge = NULL;
 	struct aspath *hb_aspath = hb->data;
 	struct aspath **aggr_aspath = arg;
 
-	if (*aggr_aspath) {
-		asmerge = aspath_aggregate(*aggr_aspath, hb_aspath);
-		aspath_free(*aggr_aspath);
-		*aggr_aspath = asmerge;
-	} else
+	if (*aggr_aspath)
+		*aggr_aspath = aspath_aggregate(*aggr_aspath, hb_aspath);
+	else
 		*aggr_aspath = aspath_dup(hb_aspath);
 }
 
@@ -2138,6 +2132,15 @@ void bgp_aggr_aspath_remove(void *arg)
 
 void bgp_compute_aggregate_aspath(struct bgp_aggregate *aggregate,
 				  struct aspath *aspath)
+{
+	bgp_compute_aggregate_aspath_hash(aggregate, aspath);
+
+	bgp_compute_aggregate_aspath_val(aggregate);
+
+}
+
+void bgp_compute_aggregate_aspath_hash(struct bgp_aggregate *aggregate,
+				       struct aspath *aspath)
 {
 	struct aspath *aggr_aspath = NULL;
 
@@ -2157,17 +2160,29 @@ void bgp_compute_aggregate_aspath(struct bgp_aggregate *aggregate,
 		 */
 		aggr_aspath = hash_get(aggregate->aspath_hash, aspath,
 				       bgp_aggr_aspath_hash_alloc);
+	}
 
-		/* Compute aggregate's as-path.
-		 */
+	/* Increment reference counter.
+	 */
+	aggr_aspath->refcnt++;
+}
+
+void bgp_compute_aggregate_aspath_val(struct bgp_aggregate *aggregate)
+{
+	if (aggregate == NULL)
+		return;
+	/* Re-compute aggregate's as-path.
+	 */
+	if (aggregate->aspath) {
+		aspath_free(aggregate->aspath);
+		aggregate->aspath = NULL;
+	}
+	if (aggregate->aspath_hash
+	    && aggregate->aspath_hash->count) {
 		hash_iterate(aggregate->aspath_hash,
 			     bgp_aggr_aspath_prepare,
 			     &aggregate->aspath);
 	}
-
-	/* Increment refernce counter.
-	 */
-	aggr_aspath->refcnt++;
 }
 
 void bgp_remove_aspath_from_aggregate(struct bgp_aggregate *aggregate,
@@ -2176,10 +2191,9 @@ void bgp_remove_aspath_from_aggregate(struct bgp_aggregate *aggregate,
 	struct aspath *aggr_aspath = NULL;
 	struct aspath *ret_aspath = NULL;
 
-	if ((aggregate == NULL) || (aspath == NULL))
-		return;
-
-	if (aggregate->aspath_hash == NULL)
+	if ((!aggregate)
+	    || (!aggregate->aspath_hash)
+	    || (!aspath))
 		return;
 
 	/* Look-up the aspath in the hash.
@@ -2192,17 +2206,41 @@ void bgp_remove_aspath_from_aggregate(struct bgp_aggregate *aggregate,
 			ret_aspath = hash_release(aggregate->aspath_hash,
 						  aggr_aspath);
 			aspath_free(ret_aspath);
+			ret_aspath = NULL;
 
 			/* Remove aggregate's old as-path.
 			 */
 			aspath_free(aggregate->aspath);
 			aggregate->aspath = NULL;
 
-			/* Compute aggregate's as-path.
-			 */
-			hash_iterate(aggregate->aspath_hash,
-				     bgp_aggr_aspath_prepare,
-				     &aggregate->aspath);
+			bgp_compute_aggregate_aspath_val(aggregate);
 		}
 	}
 }
+
+void bgp_remove_aspath_from_aggregate_hash(struct bgp_aggregate *aggregate,
+					   struct aspath *aspath)
+{
+	struct aspath *aggr_aspath = NULL;
+	struct aspath *ret_aspath = NULL;
+
+	if ((!aggregate)
+	    || (!aggregate->aspath_hash)
+	    || (!aspath))
+		return;
+
+	/* Look-up the aspath in the hash.
+	 */
+	aggr_aspath = bgp_aggr_aspath_lookup(aggregate, aspath);
+	if (aggr_aspath) {
+		aggr_aspath->refcnt--;
+
+		if (aggr_aspath->refcnt == 0) {
+			ret_aspath = hash_release(aggregate->aspath_hash,
+						  aggr_aspath);
+			aspath_free(ret_aspath);
+			ret_aspath = NULL;
+		}
+	}
+}
+

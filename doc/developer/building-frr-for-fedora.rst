@@ -13,8 +13,8 @@ Installing Dependencies
 
    sudo dnf install git autoconf automake libtool make \
      readline-devel texinfo net-snmp-devel groff pkgconfig json-c-devel \
-     pam-devel pytest bison flex c-ares-devel python3-devel python2-sphinx \
-     perl-core patch
+     pam-devel python3-pytest bison flex c-ares-devel python3-devel \
+     python3-sphinx perl-core patch systemd-devel libcap-devel
 
 .. include:: building-libyang.rst
 
@@ -97,6 +97,18 @@ And load the kernel modules on the running system:
 .. code-block:: console
 
    sudo modprobe mpls-router mpls-iptunnel
+
+
+.. note::
+   Fedora ships with the ``firewalld`` service enabled. You may run into some
+   issues with the iptables rules it installs by default. If you wish to just
+   stop the service and clear `ALL` rules do these commands:
+
+   .. code-block:: console
+
+      sudo systemctl disable firewalld.service
+      sudo systemctl stop firewalld.service
+      sudo iptables -F
 
 Install service files
 ^^^^^^^^^^^^^^^^^^^^^

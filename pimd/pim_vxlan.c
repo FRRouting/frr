@@ -115,7 +115,7 @@ static void pim_vxlan_init_work(void)
 	vxlan_info.max_work_cnt = PIM_VXLAN_WORK_MAX;
 	vxlan_info.flags |= PIM_VXLANF_WORK_INITED;
 	vxlan_info.work_list = list_new();
-	pim_vxlan_work_timer_setup(TRUE /* start */);
+	pim_vxlan_work_timer_setup(true/* start */);
 }
 
 static void pim_vxlan_add_work(struct pim_vxlan_sg *vxlan_sg)
@@ -245,7 +245,7 @@ static void pim_vxlan_orig_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
 		 * for nht
 		 */
 		if (up)
-			pim_rpf_update(vxlan_sg->pim, up, NULL, 1 /* is_new */);
+			pim_rpf_update(vxlan_sg->pim, up, NULL);
 	}
 }
 

@@ -31,19 +31,15 @@
 
 #include "bfd.h"
 
-DEFINE_QOBJ_TYPE(bfd_session);
+DEFINE_MTYPE_STATIC(BFDD, BFDD_CONFIG, "long-lived configuration memory")
+DEFINE_MTYPE_STATIC(BFDD, BFDD_SESSION_OBSERVER, "Session observer")
+DEFINE_MTYPE_STATIC(BFDD, BFDD_VRF, "BFD VRF")
 
 /*
  * Prototypes
  */
-void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
-		 struct sockaddr_any *local, bool mhop, const char *ifname,
-		 const char *vrfname);
-
 static uint32_t ptm_bfd_gen_ID(void);
 static void ptm_bfd_echo_xmt_TO(struct bfd_session *bfd);
-static void bfd_session_free(struct bfd_session *bs);
-static struct bfd_session *bfd_session_new(void);
 static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
 					 uint32_t ldisc);
 static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
@@ -88,6 +84,8 @@ void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
 		strlcpy(key->ifname, ifname, sizeof(key->ifname));
 	if (vrfname && vrfname[0])
 		strlcpy(key->vrfname, vrfname, sizeof(key->vrfname));
+	else
+		strlcpy(key->vrfname, VRF_DEFAULT_NAME, sizeof(key->vrfname));
 }
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
@@ -393,17 +391,11 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 
 	/* Search for session without using discriminator. */
 	ifp = if_lookup_by_index(ifindex, vrfid);
-	if (vrfid == VRF_DEFAULT) {
-		/*
-		 * Don't use the default vrf, otherwise we won't find
-		 * sessions that doesn't specify it.
-		 */
-		vrf = NULL;
-	} else
-		vrf = vrf_lookup_by_id(vrfid);
+
+	vrf = vrf_lookup_by_id(vrfid);
 
 	gen_bfd_key(&key, peer, local, is_mhop, ifp ? ifp->name : NULL,
-		    vrf ? vrf->name : NULL);
+		    vrf ? vrf->name : VRF_DEFAULT_NAME);
 
 	/* XXX maybe remoteDiscr should be checked for remoteHeard cases. */
 	return bfd_key_lookup(key);
@@ -466,13 +458,11 @@ int bfd_echo_recvtimer_cb(struct thread *t)
 	return 0;
 }
 
-static struct bfd_session *bfd_session_new(void)
+struct bfd_session *bfd_session_new(void)
 {
 	struct bfd_session *bs;
 
 	bs = XCALLOC(MTYPE_BFDD_CONFIG, sizeof(*bs));
-
-	QOBJ_REG(bs, bfd_session);
 
 	bs->timers.desired_min_tx = BFD_DEFDESIREDMINTX;
 	bs->timers.required_min_rx = BFD_DEFREQUIREDMINRX;
@@ -626,7 +616,7 @@ static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
 	return 0;
 }
 
-static void bfd_session_free(struct bfd_session *bs)
+void bfd_session_free(struct bfd_session *bs)
 {
 	struct bfd_session_observer *bso;
 
@@ -647,7 +637,6 @@ static void bfd_session_free(struct bfd_session *bs)
 
 	pl_free(bs->pl);
 
-	QOBJ_UNREG(bs);
 	XFREE(MTYPE_BFDD_CONFIG, bs);
 }
 
@@ -683,6 +672,9 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 	if (bpc->bpc_has_vrfname)
 		strlcpy(bfd->key.vrfname, bpc->bpc_vrfname,
 			sizeof(bfd->key.vrfname));
+	else
+		strlcpy(bfd->key.vrfname, VRF_DEFAULT_NAME,
+			sizeof(bfd->key.vrfname));
 
 	/* Copy remaining data. */
 	if (bpc->bpc_ipv4 == false)
@@ -714,6 +706,17 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 
 	bfd->key.mhop = bpc->bpc_mhop;
 
+	if (bs_registrate(bfd) == NULL)
+		return NULL;
+
+	/* Apply other configurations. */
+	_bfd_session_update(bfd, bpc);
+
+	return bfd;
+}
+
+struct bfd_session *bs_registrate(struct bfd_session *bfd)
+{
 	/* Registrate session into data structures. */
 	bfd_key_insert(bfd);
 	bfd->discrs.my_discr = ptm_bfd_gen_ID();
@@ -729,9 +732,6 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 	/* Add observer if we have moving parts. */
 	if (bfd->key.ifname[0] || bfd->key.vrfname[0] || bfd->sock == -1)
 		bs_observer_add(bfd);
-
-	/* Apply other configurations. */
-	_bfd_session_update(bfd, bpc);
 
 	log_info("session-new: %s", bs_to_string(bfd));
 
@@ -1339,9 +1339,10 @@ struct bfd_key_walk_partial_lookup {
 };
 
 /* ignore some parameters */
-static int bfd_key_lookup_ignore_partial_walker(struct hash_bucket *b, void *data)
+static int bfd_key_lookup_ignore_partial_walker(struct hash_bucket *b,
+						void *data)
 {
-	struct bfd_key_walk_partial_lookup  *ctx =
+	struct bfd_key_walk_partial_lookup *ctx =
 		(struct bfd_key_walk_partial_lookup *)data;
 	struct bfd_session *given = ctx->given;
 	struct bfd_session *parsed = b->data;
@@ -1350,7 +1351,8 @@ static int bfd_key_lookup_ignore_partial_walker(struct hash_bucket *b, void *dat
 		return HASHWALK_CONTINUE;
 	if (given->key.mhop != parsed->key.mhop)
 		return HASHWALK_CONTINUE;
-	if (memcmp(&given->key.peer, &parsed->key.peer, sizeof(struct in6_addr)))
+	if (memcmp(&given->key.peer, &parsed->key.peer,
+		   sizeof(struct in6_addr)))
 		return HASHWALK_CONTINUE;
 	if (memcmp(given->key.vrfname, parsed->key.vrfname, MAXNAMELEN))
 		return HASHWALK_CONTINUE;
@@ -1528,6 +1530,94 @@ void bfd_shutdown(void)
 	hash_free(bfd_key_hash);
 }
 
+struct bfd_session_iterator {
+	int bsi_stop;
+	bool bsi_mhop;
+	const struct bfd_session *bsi_bs;
+};
+
+static int _bfd_session_next(struct hash_bucket *hb, void *arg)
+{
+	struct bfd_session_iterator *bsi = arg;
+	struct bfd_session *bs = hb->data;
+
+	/* Previous entry signaled stop. */
+	if (bsi->bsi_stop == 1) {
+		/* Match the single/multi hop sessions. */
+		if (bs->key.mhop != bsi->bsi_mhop)
+			return HASHWALK_CONTINUE;
+
+		bsi->bsi_bs = bs;
+		return HASHWALK_ABORT;
+	}
+
+	/* We found the current item, stop in the next one. */
+	if (bsi->bsi_bs == hb->data) {
+		bsi->bsi_stop = 1;
+		/* Set entry to NULL to signal end of list. */
+		bsi->bsi_bs = NULL;
+	} else if (bsi->bsi_bs == NULL && bsi->bsi_mhop == bs->key.mhop) {
+		/* We want the first list item. */
+		bsi->bsi_stop = 1;
+		bsi->bsi_bs = hb->data;
+		return HASHWALK_ABORT;
+	}
+
+	return HASHWALK_CONTINUE;
+}
+
+/*
+ * bfd_session_next: uses the current session to find the next.
+ *
+ * `bs` might point to NULL to get the first item of the data structure.
+ */
+const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
+					   bool mhop)
+{
+	struct bfd_session_iterator bsi;
+
+	bsi.bsi_stop = 0;
+	bsi.bsi_bs = bs;
+	bsi.bsi_mhop = mhop;
+	hash_walk(bfd_key_hash, _bfd_session_next, &bsi);
+	if (bsi.bsi_stop == 0)
+		return NULL;
+
+	return bsi.bsi_bs;
+}
+
+static void _bfd_session_remove_manual(struct hash_bucket *hb,
+				       void *arg __attribute__((__unused__)))
+{
+	struct bfd_session *bs = hb->data;
+
+	/* Delete only manually configured sessions. */
+	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) == 0)
+		return;
+
+	bs->refcount--;
+	BFD_UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+
+	/* Don't delete sessions still in use. */
+	if (bs->refcount != 0)
+		return;
+
+	bfd_session_free(bs);
+}
+
+/*
+ * bfd_sessions_remove_manual: remove all manually configured sessions.
+ *
+ * NOTE: this function doesn't remove automatically created sessions.
+ */
+void bfd_sessions_remove_manual(void)
+{
+	hash_iterate(bfd_key_hash, _bfd_session_remove_manual, NULL);
+}
+
+/*
+ * VRF related functions.
+ */
 static int bfd_vrf_new(struct vrf *vrf)
 {
 	log_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
@@ -1537,6 +1627,16 @@ static int bfd_vrf_new(struct vrf *vrf)
 static int bfd_vrf_delete(struct vrf *vrf)
 {
 	log_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
+	return 0;
+}
+
+static int bfd_vrf_update(struct vrf *vrf)
+{
+	if (!vrf_is_enabled(vrf))
+		return 0;
+	log_debug("VRF update: %s(%u)", vrf->name, vrf->vrf_id);
+	/* a different name is given; update bfd list */
+	bfdd_sessions_enable_vrf(vrf);
 	return 0;
 }
 
@@ -1552,41 +1652,41 @@ static int bfd_vrf_enable(struct vrf *vrf)
 	} else
 		bvrf = vrf->info;
 	log_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
+	if (vrf->vrf_id == VRF_DEFAULT ||
+	    vrf_get_backend() == VRF_BACKEND_NETNS) {
+		if (!bvrf->bg_shop)
+			bvrf->bg_shop = bp_udp_shop(vrf->vrf_id);
+		if (!bvrf->bg_mhop)
+			bvrf->bg_mhop = bp_udp_mhop(vrf->vrf_id);
+		if (!bvrf->bg_shop6)
+			bvrf->bg_shop6 = bp_udp6_shop(vrf->vrf_id);
+		if (!bvrf->bg_mhop6)
+			bvrf->bg_mhop6 = bp_udp6_mhop(vrf->vrf_id);
+		if (!bvrf->bg_echo)
+			bvrf->bg_echo = bp_echo_socket(vrf->vrf_id);
+		if (!bvrf->bg_echov6)
+			bvrf->bg_echov6 = bp_echov6_socket(vrf->vrf_id);
 
-	/* create sockets if needed */
-	if (!bvrf->bg_shop)
-		bvrf->bg_shop = bp_udp_shop(vrf->vrf_id);
-	if (!bvrf->bg_mhop)
-		bvrf->bg_mhop = bp_udp_mhop(vrf->vrf_id);
-	if (!bvrf->bg_shop6)
-		bvrf->bg_shop6 = bp_udp6_shop(vrf->vrf_id);
-	if (!bvrf->bg_mhop6)
-		bvrf->bg_mhop6 = bp_udp6_mhop(vrf->vrf_id);
-	if (!bvrf->bg_echo)
-		bvrf->bg_echo = bp_echo_socket(vrf->vrf_id);
-	if (!bvrf->bg_echov6)
-		bvrf->bg_echov6 = bp_echov6_socket(vrf->vrf_id);
-
-	/* Add descriptors to the event loop. */
-	if (!bvrf->bg_ev[0])
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
-				&bvrf->bg_ev[0]);
-	if (!bvrf->bg_ev[1])
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
-				&bvrf->bg_ev[1]);
-	if (!bvrf->bg_ev[2])
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
-				&bvrf->bg_ev[2]);
-	if (!bvrf->bg_ev[3])
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
-				&bvrf->bg_ev[3]);
-	if (!bvrf->bg_ev[4])
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
-				&bvrf->bg_ev[4]);
-	if (!bvrf->bg_ev[5])
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
-				&bvrf->bg_ev[5]);
-
+		/* Add descriptors to the event loop. */
+		if (!bvrf->bg_ev[0])
+			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
+					&bvrf->bg_ev[0]);
+		if (!bvrf->bg_ev[1])
+			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
+					&bvrf->bg_ev[1]);
+		if (!bvrf->bg_ev[2])
+			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
+					&bvrf->bg_ev[2]);
+		if (!bvrf->bg_ev[3])
+			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
+					&bvrf->bg_ev[3]);
+		if (!bvrf->bg_ev[4])
+			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
+					&bvrf->bg_ev[4]);
+		if (!bvrf->bg_ev[5])
+			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
+					&bvrf->bg_ev[5]);
+	}
 	if (vrf->vrf_id != VRF_DEFAULT) {
 		bfdd_zclient_register(vrf->vrf_id);
 		bfdd_sessions_enable_vrf(vrf);
@@ -1614,6 +1714,8 @@ static int bfd_vrf_disable(struct vrf *vrf)
 	socket_close(&bvrf->bg_mhop);
 	socket_close(&bvrf->bg_shop6);
 	socket_close(&bvrf->bg_mhop6);
+	socket_close(&bvrf->bg_echo);
+	socket_close(&bvrf->bg_echov6);
 
 	/* free context */
 	XFREE(MTYPE_BFDD_VRF, bvrf);
@@ -1625,7 +1727,7 @@ static int bfd_vrf_disable(struct vrf *vrf)
 void bfd_vrf_init(void)
 {
 	vrf_init(bfd_vrf_new, bfd_vrf_enable, bfd_vrf_disable,
-		 bfd_vrf_delete, NULL);
+		 bfd_vrf_delete, bfd_vrf_update);
 }
 
 void bfd_vrf_terminate(void)
@@ -1648,4 +1750,55 @@ struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd)
 	if (!bfd->vrf)
 		return NULL;
 	return bfd->vrf->info;
+}
+
+void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf)
+{
+	if (!vrf || !bs)
+		return;
+	/* update key */
+	hash_release(bfd_key_hash, bs);
+	/*
+	 * HACK: Change the BFD VRF in the running configuration directly,
+	 * bypassing the northbound layer. This is necessary to avoid deleting
+	 * the BFD and readding it in the new VRF, which would have
+	 * several implications.
+	 */
+	if (yang_module_find("frr-bfdd") && bs->key.vrfname[0]) {
+		struct lyd_node *bfd_dnode;
+		char xpath[XPATH_MAXLEN], xpath_srcaddr[XPATH_MAXLEN + 32];
+		char addr_buf[INET6_ADDRSTRLEN];
+		int slen;
+
+		/* build xpath */
+		if (bs->key.mhop) {
+			inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
+			snprintf(xpath_srcaddr, sizeof(xpath_srcaddr), "[source-addr='%s']",
+				 addr_buf);
+		} else
+			xpath_srcaddr[0] = 0;
+		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
+		slen = snprintf(xpath, sizeof(xpath),
+				"/frr-bfdd:bfdd/bfd/sessions/%s%s[dest-addr='%s']",
+				bs->key.mhop ? "multi-hop" : "single-hop", xpath_srcaddr,
+				addr_buf);
+		if (bs->key.ifname[0])
+			slen += snprintf(xpath + slen, sizeof(xpath) - slen,
+					 "[interface='%s']", bs->key.ifname);
+		else
+			slen += snprintf(xpath + slen, sizeof(xpath) - slen,
+					 "[interface='']");
+		snprintf(xpath + slen, sizeof(xpath) - slen, "[vrf='%s']/vrf",
+			 bs->key.vrfname);
+
+		bfd_dnode = yang_dnode_get(running_config->dnode, xpath,
+					   bs->key.vrfname);
+		if (bfd_dnode) {
+			yang_dnode_change_leaf(bfd_dnode, vrf->name);
+			running_config->version++;
+		}
+	}
+	memset(bs->key.vrfname, 0, sizeof(bs->key.vrfname));
+	strlcpy(bs->key.vrfname, vrf->name, sizeof(bs->key.vrfname));
+	hash_get(bfd_key_hash, bs, hash_alloc_intern);
 }

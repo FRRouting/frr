@@ -332,7 +332,8 @@ void igmp_source_free(struct igmp_source *source)
 static void source_channel_oil_detach(struct igmp_source *source)
 {
 	if (source->source_channel_oil) {
-		pim_channel_oil_del(source->source_channel_oil);
+		pim_channel_oil_del(source->source_channel_oil,
+				    __PRETTY_FUNCTION__);
 		source->source_channel_oil = NULL;
 	}
 }

@@ -41,14 +41,9 @@
 #define BFDD_JSON_CONV_OPTIONS (0)
 #endif
 
-DECLARE_MGROUP(BFDD);
-DECLARE_MTYPE(BFDD_TMP);
-DECLARE_MTYPE(BFDD_CONFIG);
-DECLARE_MTYPE(BFDD_LABEL);
-DECLARE_MTYPE(BFDD_CONTROL);
-DECLARE_MTYPE(BFDD_SESSION_OBSERVER);
-DECLARE_MTYPE(BFDD_NOTIFICATION);
-DECLARE_MTYPE(BFDD_VRF);
+DECLARE_MGROUP(BFDD)
+DECLARE_MTYPE(BFDD_CONTROL)
+DECLARE_MTYPE(BFDD_NOTIFICATION)
 
 struct bfd_timers {
 	uint32_t desired_min_tx;
@@ -257,11 +252,7 @@ struct bfd_session {
 	struct bfd_timers remote_timers;
 
 	uint64_t refcount; /* number of pointers referencing this. */
-
-	/* VTY context data. */
-	QOBJ_FIELDS;
 };
-DECLARE_QOBJ_TYPE(bfd_session);
 
 struct peer_label {
 	TAILQ_ENTRY(peer_label) pl_entry;
@@ -551,6 +542,16 @@ void bs_observer_del(struct bfd_session_observer *bso);
 
 void bs_to_bpc(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
 
+void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
+		 struct sockaddr_any *local, bool mhop, const char *ifname,
+		 const char *vrfname);
+struct bfd_session *bfd_session_new(void);
+struct bfd_session *bs_registrate(struct bfd_session *bs);
+void bfd_session_free(struct bfd_session *bs);
+const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
+					   bool mhop);
+void bfd_sessions_remove_manual(void);
+
 /* BFD hash data structures interface */
 void bfd_initialize(void);
 void bfd_shutdown(void);
@@ -590,6 +591,37 @@ void bfdd_vty_init(void);
 
 
 /*
+ * bfdd_cli.c
+ *
+ * BFD daemon CLI implementation.
+ */
+void bfdd_cli_init(void);
+
+void bfd_cli_show_header(struct vty *vty, struct lyd_node *dnode,
+			 bool show_defaults);
+void bfd_cli_show_header_end(struct vty *vty, struct lyd_node *dnode);
+void bfd_cli_show_single_hop_peer(struct vty *vty,
+				  struct lyd_node *dnode,
+				  bool show_defaults);
+void bfd_cli_show_multi_hop_peer(struct vty *vty,
+				 struct lyd_node *dnode,
+				 bool show_defaults);
+void bfd_cli_show_peer_end(struct vty *vty, struct lyd_node *dnode);
+void bfd_cli_show_mult(struct vty *vty, struct lyd_node *dnode,
+		       bool show_defaults);
+void bfd_cli_show_tx(struct vty *vty, struct lyd_node *dnode,
+		     bool show_defaults);
+void bfd_cli_show_rx(struct vty *vty, struct lyd_node *dnode,
+		     bool show_defaults);
+void bfd_cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
+			   bool show_defaults);
+void bfd_cli_show_echo(struct vty *vty, struct lyd_node *dnode,
+			   bool show_defaults);
+void bfd_cli_show_echo_interval(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults);
+
+
+/*
  * ptm_adapter.c
  */
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv);
@@ -598,7 +630,16 @@ void bfdd_zclient_unregister(vrf_id_t vrf_id);
 void bfdd_zclient_register(vrf_id_t vrf_id);
 void bfdd_sessions_enable_vrf(struct vrf *vrf);
 void bfdd_sessions_disable_vrf(struct vrf *vrf);
+void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf);
 
 int ptm_bfd_notify(struct bfd_session *bs);
+
+
+/*
+ * bfdd_northbound.c
+ *
+ * BFD northbound callbacks.
+ */
+extern const struct frr_yang_module_info frr_bfdd_info;
 
 #endif /* _BFD_H_ */

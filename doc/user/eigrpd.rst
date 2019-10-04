@@ -65,15 +65,16 @@ Certain signals have special meanings to *eigrpd*.
 EIGRP Configuration
 ===================
 
-.. index:: router eigrp (1-65535)
-.. clicmd:: router eigrp (1-65535)
+.. index:: router eigrp (1-65535) [vrf NAME]
+.. clicmd:: router eigrp (1-65535) [vrf NAME]
 
    The `router eigrp` command is necessary to enable EIGRP. To disable EIGRP,
    use the `no router eigrp (1-65535)` command. EIGRP must be enabled before
-   carrying out any of the EIGRP commands.
+   carrying out any of the EIGRP commands.  Specify vrf NAME if you want
+   eigrp to work within the specified vrf.
 
-.. index:: no router eigrp (1-65535)
-.. clicmd:: no router eigrp (1-65535)
+.. index:: no router eigrp (1-65535) [vrf NAME]
+.. clicmd:: no router eigrp (1-65535) [vrf NAME]
 
    Disable EIGRP.
 
@@ -189,8 +190,8 @@ How to Announce EIGRP route
 Show EIGRP Information
 ======================
 
-.. index:: show ip eigrp topology
-.. clicmd:: show ip eigrp topology
+.. index:: show ip eigrp [vrf NAME] topology
+.. clicmd:: show ip eigrp [vrf NAME] topology
 
    Display current EIGRP status.
 
@@ -207,6 +208,17 @@ Show EIGRP Information
       P  10.0.2.0/24, 1 successors, FD is 256256, serno: 0
              via Connected, enp0s3
 
+.. index:: show ip eigrp [vrf NAME] interface
+.. clicmd:: show ip eigrp [vrf NAME] interface
+
+   Display the list of interfaces associated with a particular eigrp
+   instance.
+
+..index:: show ip eigrp [vrf NAME] neighbor
+..clicmd:: show ip eigrp [vrf NAME] neighbor
+
+   Display the list of neighbors that have been established within
+   a particular eigrp instance.
 
 EIGRP Debug Commands
 ====================

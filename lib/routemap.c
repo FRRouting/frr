@@ -112,14 +112,14 @@ struct route_map_match_set_hooks {
 						const char *arg,
 						route_map_event_t type);
 
-	/* match ip next hop type */
+	/* match ip next-hop type */
 	int (*match_ip_next_hop_type)(struct vty *vty,
 					     struct route_map_index *index,
 					     const char *command,
 					     const char *arg,
 					     route_map_event_t type);
 
-	/* no match ip next hop type */
+	/* no match ip next-hop type */
 	int (*no_match_ip_next_hop_type)(struct vty *vty,
 						struct route_map_index *index,
 						const char *command,
@@ -160,7 +160,7 @@ struct route_map_match_set_hooks {
 					      const char *arg,
 					      route_map_event_t type);
 
-	/* no match ipv6next-hop type */
+	/* no match ipv6 next-hop type */
 	int (*no_match_ipv6_next_hop_type)(struct vty *vty,
 					   struct route_map_index *index,
 					   const char *command, const char *arg,
@@ -303,7 +303,7 @@ void route_map_no_match_ip_next_hop_prefix_list_hook(int (*func)(
 	rmap_match_set_hook.no_match_ip_next_hop_prefix_list = func;
 }
 
-/* match ip next hop type */
+/* match ip next-hop type */
 void route_map_match_ip_next_hop_type_hook(int (*func)(
 	struct vty *vty, struct route_map_index *index, const char *command,
 	const char *arg, route_map_event_t type))
@@ -311,7 +311,7 @@ void route_map_match_ip_next_hop_type_hook(int (*func)(
 	rmap_match_set_hook.match_ip_next_hop_type = func;
 }
 
-/* no match ip next hop type */
+/* no match ip next-hop type */
 void route_map_no_match_ip_next_hop_type_hook(int (*func)(
 	struct vty *vty, struct route_map_index *index, const char *command,
 	const char *arg, route_map_event_t type))
@@ -474,15 +474,10 @@ int generic_match_add(struct vty *vty, struct route_map_index *index,
 		      const char *command, const char *arg,
 		      route_map_event_t type)
 {
-	int ret;
+	enum rmap_compile_rets ret;
 
 	ret = route_map_add_match(index, command, arg, type);
 	switch (ret) {
-	case RMAP_COMPILE_SUCCESS:
-		if (type != RMAP_EVENT_MATCH_ADDED) {
-			route_map_upd8_dependency(type, arg, index->map->name);
-		}
-		break;
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
 		return CMD_WARNING_CONFIG_FAILED;
@@ -493,6 +488,11 @@ int generic_match_add(struct vty *vty, struct route_map_index *index,
 			frr_protonameinst);
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
+	case RMAP_COMPILE_SUCCESS:
+		/*
+		 * Nothing to do here move along
+		 */
+		break;
 	}
 
 	return CMD_SUCCESS;
@@ -502,7 +502,7 @@ int generic_match_delete(struct vty *vty, struct route_map_index *index,
 			 const char *command, const char *arg,
 			 route_map_event_t type)
 {
-	int ret;
+	enum rmap_compile_rets ret;
 	int retval = CMD_SUCCESS;
 	char *dep_name = NULL;
 	const char *tmpstr;
@@ -521,7 +521,7 @@ int generic_match_delete(struct vty *vty, struct route_map_index *index,
 		rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, index->map->name);
 	}
 
-	ret = route_map_delete_match(index, command, dep_name);
+	ret = route_map_delete_match(index, command, dep_name, type);
 	switch (ret) {
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
@@ -534,8 +534,9 @@ int generic_match_delete(struct vty *vty, struct route_map_index *index,
 		retval = CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
-		if (type != RMAP_EVENT_MATCH_DELETED && dep_name)
-			route_map_upd8_dependency(type, dep_name, rmap_name);
+		/*
+		 * Nothing to do here
+		 */
 		break;
 	}
 
@@ -548,7 +549,7 @@ int generic_match_delete(struct vty *vty, struct route_map_index *index,
 int generic_set_add(struct vty *vty, struct route_map_index *index,
 		    const char *command, const char *arg)
 {
-	int ret;
+	enum rmap_compile_rets ret;
 
 	ret = route_map_add_set(index, command, arg);
 	switch (ret) {
@@ -572,7 +573,7 @@ int generic_set_add(struct vty *vty, struct route_map_index *index,
 int generic_set_delete(struct vty *vty, struct route_map_index *index,
 		       const char *command, const char *arg)
 {
-	int ret;
+	enum rmap_compile_rets ret;
 
 	ret = route_map_delete_set(index, command, arg);
 	switch (ret) {
@@ -688,7 +689,7 @@ static unsigned int route_map_dep_hash_make_key(const void *p);
 static void route_map_clear_all_references(char *rmap_name);
 static void route_map_rule_delete(struct route_map_rule_list *,
 				  struct route_map_rule *);
-static int rmap_debug = 0;
+static bool rmap_debug;
 
 static void route_map_index_delete(struct route_map_index *, int);
 
@@ -739,6 +740,9 @@ static struct route_map *route_map_add(const char *name)
 		(*route_map_master.add_hook)(name);
 		route_map_notify_dependencies(name, RMAP_EVENT_CALL_ADDED);
 	}
+
+	if (rmap_debug)
+		zlog_debug("Add route-map %s", name);
 	return map;
 }
 
@@ -756,6 +760,9 @@ static void route_map_free_map(struct route_map *map)
 
 	while ((index = map->head) != NULL)
 		route_map_index_delete(index, 0);
+
+	if (rmap_debug)
+		zlog_debug("Deleting route-map %s", map->name);
 
 	list = &route_map_master;
 
@@ -921,6 +928,36 @@ static const char *route_map_type_str(enum route_map_type type)
 	return "";
 }
 
+static const char *route_map_cmd_result_str(enum route_map_cmd_result_t res)
+{
+	switch (res) {
+	case RMAP_MATCH:
+		return "match";
+	case RMAP_NOMATCH:
+		return "no match";
+	case RMAP_NOOP:
+		return "noop";
+	case RMAP_ERROR:
+		return "error";
+	case RMAP_OKAY:
+		return "okay";
+	}
+
+	return "invalid";
+}
+
+static const char *route_map_result_str(route_map_result_t res)
+{
+	switch (res) {
+	case RMAP_DENYMATCH:
+		return "deny";
+	case RMAP_PERMITMATCH:
+		return "permit";
+	}
+
+	return "invalid";
+}
+
 static int route_map_empty(struct route_map *map)
 {
 	if (map->head == NULL && map->tail == NULL)
@@ -936,12 +973,12 @@ static void vty_show_route_map_entry(struct vty *vty, struct route_map *map)
 	struct route_map_rule *rule;
 
 	vty_out(vty, "route-map: %s Invoked: %" PRIu64 "\n",
-		map->name, map->applied);
+		map->name, map->applied - map->applied_clear);
 
 	for (index = map->head; index; index = index->next) {
 		vty_out(vty, " %s, sequence %d Invoked %" PRIu64 "\n",
 			route_map_type_str(index->type), index->pref,
-			index->applied);
+			index->applied - index->applied_clear);
 
 		/* Description */
 		if (index->description)
@@ -1066,6 +1103,10 @@ static void route_map_index_delete(struct route_map_index *index, int notify)
 
 	QOBJ_UNREG(index);
 
+	if (rmap_debug)
+		zlog_debug("Deleting route-map %s sequence %d",
+			   index->map->name, index->pref);
+
 	/* Free route match. */
 	while ((rule = index->match_list.head) != NULL)
 		route_map_rule_delete(&index->match_list, rule);
@@ -1152,6 +1193,11 @@ route_map_index_add(struct route_map *map, enum route_map_type type, int pref)
 		(*route_map_master.event_hook)(map->name);
 		route_map_notify_dependencies(map->name, RMAP_EVENT_CALL_ADDED);
 	}
+
+	if (rmap_debug)
+		zlog_debug("Route-map %s add sequence %d, type: %s",
+			   map->name, pref, route_map_type_str(type));
+
 	return index;
 }
 
@@ -1343,14 +1389,17 @@ static route_map_event_t get_route_map_delete_event(route_map_event_t type)
 }
 
 /* Add match statement to route map. */
-int route_map_add_match(struct route_map_index *index, const char *match_name,
-			const char *match_arg, route_map_event_t type)
+enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
+					   const char *match_name,
+					   const char *match_arg,
+					   route_map_event_t type)
 {
 	struct route_map_rule *rule;
 	struct route_map_rule *next;
 	struct route_map_rule_cmd *cmd;
 	void *compile;
 	int8_t delete_rmap_event_type = 0;
+	const char *rule_key;
 
 	/* First lookup rule for add match statement. */
 	cmd = route_map_lookup_match(match_name);
@@ -1364,6 +1413,12 @@ int route_map_add_match(struct route_map_index *index, const char *match_name,
 			return RMAP_COMPILE_ERROR;
 	} else
 		compile = NULL;
+	/* use the compiled results if applicable */
+	if (compile && cmd->func_get_rmap_rule_key)
+		rule_key = (*cmd->func_get_rmap_rule_key)
+			   (compile);
+	else
+		rule_key = match_arg;
 
 	/* If argument is completely same ignore it. */
 	for (rule = index->match_list.head; rule; rule = next) {
@@ -1377,7 +1432,7 @@ int route_map_add_match(struct route_map_index *index, const char *match_name,
 				if (cmd->func_free)
 					(*cmd->func_free)(compile);
 
-				return RMAP_DUPLICATE_RULE;
+				return RMAP_COMPILE_SUCCESS;
 			}
 
 			/* Remove the dependency of the route-map on the rule
@@ -1388,7 +1443,7 @@ int route_map_add_match(struct route_map_index *index, const char *match_name,
 					get_route_map_delete_event(type);
 				route_map_upd8_dependency(
 							delete_rmap_event_type,
-							rule->rule_str,
+							rule_key,
 							index->map->name);
 			}
 
@@ -1414,25 +1469,29 @@ int route_map_add_match(struct route_map_index *index, const char *match_name,
 		route_map_notify_dependencies(index->map->name,
 					      RMAP_EVENT_CALL_ADDED);
 	}
+	if (type != RMAP_EVENT_MATCH_ADDED)
+		route_map_upd8_dependency(type, rule_key, index->map->name);
 
 	return RMAP_COMPILE_SUCCESS;
 }
 
 /* Delete specified route match rule. */
-int route_map_delete_match(struct route_map_index *index,
-			   const char *match_name, const char *match_arg)
+enum rmap_compile_rets route_map_delete_match(struct route_map_index *index,
+					      const char *match_name,
+					      const char *match_arg,
+					      route_map_event_t type)
 {
 	struct route_map_rule *rule;
 	struct route_map_rule_cmd *cmd;
+	const char *rule_key;
 
 	cmd = route_map_lookup_match(match_name);
 	if (cmd == NULL)
-		return 1;
+		return RMAP_RULE_MISSING;
 
 	for (rule = index->match_list.head; rule; rule = rule->next)
 		if (rule->cmd == cmd && (rulecmp(rule->rule_str, match_arg) == 0
 					 || match_arg == NULL)) {
-			route_map_rule_delete(&index->match_list, rule);
 			/* Execute event hook. */
 			if (route_map_master.event_hook) {
 				(*route_map_master.event_hook)(index->map->name);
@@ -1440,15 +1499,27 @@ int route_map_delete_match(struct route_map_index *index,
 					index->map->name,
 					RMAP_EVENT_CALL_ADDED);
 			}
-			return 0;
+			if (cmd->func_get_rmap_rule_key)
+				rule_key = (*cmd->func_get_rmap_rule_key)
+					   (rule->value);
+			else
+				rule_key = match_arg;
+
+			if (type != RMAP_EVENT_MATCH_DELETED && rule_key)
+				route_map_upd8_dependency(type, rule_key,
+						index->map->name);
+
+			route_map_rule_delete(&index->match_list, rule);
+			return RMAP_COMPILE_SUCCESS;
 		}
 	/* Can't find matched rule. */
-	return 1;
+	return RMAP_RULE_MISSING;
 }
 
 /* Add route-map set statement to the route map. */
-int route_map_add_set(struct route_map_index *index, const char *set_name,
-		      const char *set_arg)
+enum rmap_compile_rets route_map_add_set(struct route_map_index *index,
+					 const char *set_name,
+					 const char *set_arg)
 {
 	struct route_map_rule *rule;
 	struct route_map_rule *next;
@@ -1498,15 +1569,16 @@ int route_map_add_set(struct route_map_index *index, const char *set_name,
 }
 
 /* Delete route map set rule. */
-int route_map_delete_set(struct route_map_index *index, const char *set_name,
-			 const char *set_arg)
+enum rmap_compile_rets route_map_delete_set(struct route_map_index *index,
+					    const char *set_name,
+					    const char *set_arg)
 {
 	struct route_map_rule *rule;
 	struct route_map_rule_cmd *cmd;
 
 	cmd = route_map_lookup_set(set_name);
 	if (cmd == NULL)
-		return 1;
+		return RMAP_RULE_MISSING;
 
 	for (rule = index->set_list.head; rule; rule = rule->next)
 		if ((rule->cmd == cmd) && (rulecmp(rule->rule_str, set_arg) == 0
@@ -1519,10 +1591,88 @@ int route_map_delete_set(struct route_map_index *index, const char *set_name,
 					index->map->name,
 					RMAP_EVENT_CALL_ADDED);
 			}
-			return 0;
+			return RMAP_COMPILE_SUCCESS;
 		}
 	/* Can't find matched rule. */
-	return 1;
+	return RMAP_RULE_MISSING;
+}
+
+static enum route_map_cmd_result_t
+route_map_apply_match(struct route_map_rule_list *match_list,
+		      const struct prefix *prefix, route_map_object_t type,
+		      void *object)
+{
+	enum route_map_cmd_result_t ret = RMAP_NOMATCH;
+	struct route_map_rule *match;
+	bool is_matched = false;
+
+
+	/* Check all match rule and if there is no match rule, go to the
+	   set statement. */
+	if (!match_list->head)
+		ret = RMAP_MATCH;
+	else {
+		for (match = match_list->head; match; match = match->next) {
+			/*
+			 * Try each match statement. If any match does not
+			 * return RMAP_MATCH or RMAP_NOOP, return.
+			 * Otherwise continue on to next match statement.
+			 * All match statements must MATCH for
+			 * end-result to be a match.
+			 * (Exception:If match stmts result in a mix of
+			 * MATCH/NOOP, then also end-result is a match)
+			 * If all result in NOOP, end-result is NOOP.
+			 */
+			ret = (*match->cmd->func_apply)(match->value, prefix,
+							type, object);
+
+			/*
+			 * If the consolidated result of func_apply is:
+			 *   -----------------------------------------------
+			 *   |  MATCH  | NOMATCH  |  NOOP   |  Final Result |
+			 *   ------------------------------------------------
+			 *   |   yes   |   yes    |  yes    |     NOMATCH   |
+			 *   |   no    |   no     |  yes    |     NOOP      |
+			 *   |   yes   |   no     |  yes    |     MATCH     |
+			 *   |   no    |   yes    |  yes    |     NOMATCH   |
+			 *   |-----------------------------------------------
+			 *
+			 *  Traditionally, all rules within route-map
+			 *  should match for it to MATCH.
+			 *  If there are noops within the route-map rules,
+			 *  it follows the above matrix.
+			 *
+			 *   Eg: route-map rm1 permit 10
+			 *         match rule1
+			 *         match rule2
+			 *         match rule3
+			 *         ....
+			 *       route-map rm1 permit 20
+			 *         match ruleX
+			 *         match ruleY
+			 *         ...
+			 */
+
+			switch (ret) {
+			case RMAP_MATCH:
+				is_matched = true;
+				break;
+
+			case RMAP_NOMATCH:
+				return ret;
+
+			case RMAP_NOOP:
+				if (is_matched)
+					ret = RMAP_MATCH;
+				break;
+
+			default:
+				break;
+			}
+
+		}
+	}
+	return ret;
 }
 
 /* Apply route map's each index to the object.
@@ -1531,14 +1681,14 @@ int route_map_delete_set(struct route_map_index *index, const char *set_name,
    (note, this includes the description for the "NEXT"
    and "GOTO" frobs now
 
-	      Match   |   No Match
-		      |
-    permit    action  |     cont
-		      |
-    ------------------+---------------
-		      |
-    deny      deny    |     cont
-		      |
+	   |   Match   |   No Match   | No op
+	   |-----------|--------------|-------
+    permit |   action  |     cont     | cont.
+	   |           | default:deny | default:permit
+    -------------------+-----------------------
+	   |   deny    |     cont     | cont.
+    deny   |           | default:deny | default:permit
+	   |-----------|--------------|--------
 
    action)
       -Apply Set statements, accept route
@@ -1571,47 +1721,16 @@ int route_map_delete_set(struct route_map_index *index, const char *set_name,
 
    We need to make sure our route-map processing matches the above
 */
-
-static route_map_result_t
-route_map_apply_match(struct route_map_rule_list *match_list,
-		      const struct prefix *prefix, route_map_object_t type,
-		      void *object)
-{
-	route_map_result_t ret = RMAP_NOMATCH;
-	struct route_map_rule *match;
-
-
-	/* Check all match rule and if there is no match rule, go to the
-	   set statement. */
-	if (!match_list->head)
-		ret = RMAP_MATCH;
-	else {
-		for (match = match_list->head; match; match = match->next) {
-			/* Try each match statement in turn, If any do not
-			   return
-			   RMAP_MATCH, return, otherwise continue on to next
-			   match
-			   statement. All match statements must match for
-			   end-result
-			   to be a match. */
-			ret = (*match->cmd->func_apply)(match->value, prefix,
-							type, object);
-			if (ret != RMAP_MATCH)
-				return ret;
-		}
-	}
-	return ret;
-}
-
-/* Apply route map to the object. */
 route_map_result_t route_map_apply(struct route_map *map,
 				   const struct prefix *prefix,
 				   route_map_object_t type, void *object)
 {
 	static int recursion = 0;
-	int ret = 0;
+	enum route_map_cmd_result_t match_ret = RMAP_NOMATCH;
+	route_map_result_t ret = RMAP_PERMITMATCH;
 	struct route_map_index *index;
 	struct route_map_rule *set;
+	char buf[PREFIX_STRLEN];
 
 	if (recursion > RMAP_RECURSION_LIMIT) {
 		flog_warn(
@@ -1622,29 +1741,73 @@ route_map_result_t route_map_apply(struct route_map *map,
 		return RMAP_DENYMATCH;
 	}
 
-	if (map == NULL)
-		return RMAP_DENYMATCH;
+	if (map == NULL || map->head == NULL) {
+		ret = RMAP_DENYMATCH;
+		goto route_map_apply_end;
+	}
 
 	map->applied++;
 	for (index = map->head; index; index = index->next) {
 		/* Apply this index. */
 		index->applied++;
-		ret = route_map_apply_match(&index->match_list, prefix, type,
-					    object);
+		match_ret = route_map_apply_match(&index->match_list, prefix,
+						  type, object);
+
+		if (rmap_debug) {
+			zlog_debug("Route-map: %s, sequence: %d, prefix: %s, result: %s",
+				   map->name, index->pref,
+				   prefix2str(prefix, buf, sizeof(buf)),
+				   route_map_cmd_result_str(match_ret));
+		}
 
 		/* Now we apply the matrix from above */
-		if (ret == RMAP_NOMATCH)
-			/* 'cont' from matrix - continue to next route-map
-			 * sequence */
+		if (match_ret == RMAP_NOOP)
+			/*
+			 * Do not change the return value. Retain the previous
+			 * return value. Previous values can be:
+			 * 1)permitmatch (if a nomatch was never
+			 * seen before in this route-map.)
+			 * 2)denymatch (if a nomatch was seen earlier in one
+			 * of the previous sequences)
+			 */
+
+			/*
+			 * 'cont' from matrix - continue to next route-map
+			 * sequence
+			 */
 			continue;
-		else if (ret == RMAP_MATCH) {
+		else if (match_ret == RMAP_NOMATCH) {
+
+			/*
+			 * The return value is now changed to denymatch.
+			 * So from here on out, even if we see more noops,
+			 * we retain this return value and return this
+			 * eventually if there are no matches.
+			 */
+			ret = RMAP_DENYMATCH;
+
+			/*
+			 * 'cont' from matrix - continue to next route-map
+			 * sequence
+			 */
+			continue;
+		} else if (match_ret == RMAP_MATCH) {
 			if (index->type == RMAP_PERMIT)
 			/* 'action' */
 			{
+				/* Match succeeded, rmap is of type permit */
+				ret = RMAP_PERMITMATCH;
+
 				/* permit+match must execute sets */
 				for (set = index->set_list.head; set;
 				     set = set->next)
-					ret = (*set->cmd->func_apply)(
+					/*
+					 * set cmds return RMAP_OKAY or
+					 * RMAP_ERROR. We do not care if
+					 * set succeeded or not. So, ignore
+					 * return code.
+					 */
+					(void) (*set->cmd->func_apply)(
 						set->value, prefix, type,
 						object);
 
@@ -1666,12 +1829,12 @@ route_map_result_t route_map_apply(struct route_map *map,
 
 					/* If nextrm returned 'deny', finish. */
 					if (ret == RMAP_DENYMATCH)
-						return ret;
+						goto route_map_apply_end;
 				}
 
 				switch (index->exitpolicy) {
 				case RMAP_EXIT:
-					return ret;
+					goto route_map_apply_end;
 				case RMAP_NEXT:
 					continue;
 				case RMAP_GOTO: {
@@ -1686,19 +1849,28 @@ route_map_result_t route_map_apply(struct route_map *map,
 					}
 					if (next == NULL) {
 						/* No clauses match! */
-						return ret;
+						goto route_map_apply_end;
 					}
 				}
 				}
 			} else if (index->type == RMAP_DENY)
 			/* 'deny' */
 			{
-				return RMAP_DENYMATCH;
+				ret = RMAP_DENYMATCH;
+				goto route_map_apply_end;
 			}
 		}
 	}
-	/* Finally route-map does not match at all. */
-	return RMAP_DENYMATCH;
+
+route_map_apply_end:
+	if (rmap_debug) {
+		zlog_debug("Route-map: %s, prefix: %s, result: %s",
+			   (map ? map->name : "null"),
+			   prefix2str(prefix, buf, sizeof(buf)),
+			   route_map_result_str(ret));
+	}
+
+	return (ret);
 }
 
 void route_map_add_hook(void (*func)(const char *))
@@ -1835,8 +2007,8 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 	case RMAP_EVENT_CALL_ADDED:
 	case RMAP_EVENT_FILTER_ADDED:
 		if (rmap_debug)
-			zlog_debug("%s: Adding dependency for %s in %s",
-				   __FUNCTION__, dep_name, rmap_name);
+			zlog_debug("Adding dependency for filter %s in route-map %s",
+				   dep_name, rmap_name);
 		dep = (struct route_map_dep *)hash_get(
 			dephash, dname, route_map_dep_hash_alloc);
 		if (!dep) {
@@ -1864,8 +2036,8 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 	case RMAP_EVENT_CALL_DELETED:
 	case RMAP_EVENT_FILTER_DELETED:
 		if (rmap_debug)
-			zlog_debug("%s: Deleting dependency for %s in %s",
-				   __FUNCTION__, dep_name, rmap_name);
+			zlog_debug("Deleting dependency for filter %s in route-map %s",
+				   dep_name, rmap_name);
 		dep = (struct route_map_dep *)hash_get(dephash, dname, NULL);
 		if (!dep) {
 			goto out;
@@ -1979,8 +2151,7 @@ static void route_map_process_dependency(struct hash_bucket *bucket, void *data)
 	rmap_name = dep_data->rname;
 
 	if (rmap_debug)
-		zlog_debug("%s: Notifying %s of dependency",
-			   __FUNCTION__, rmap_name);
+		zlog_debug("Notifying %s of dependency", rmap_name);
 	if (route_map_master.event_hook)
 		(*route_map_master.event_hook)(rmap_name);
 }
@@ -2027,6 +2198,8 @@ void route_map_notify_dependencies(const char *affected_name,
 		if (!dep->this_hash)
 			dep->this_hash = upd8_hash;
 
+		if (rmap_debug)
+			zlog_debug("Filter %s updated", dep->dep_name);
 		hash_iterate(dep->dep_rmap_hash, route_map_process_dependency,
 			     (void *)event);
 	}
@@ -2379,7 +2552,7 @@ DEFUN (no_match_ipv6_address_prefix_list,
 DEFUN(match_ipv6_next_hop_type, match_ipv6_next_hop_type_cmd,
       "match ipv6 next-hop type <blackhole>",
       MATCH_STR IPV6_STR
-      "Match address of route\n"
+      "Match next-hop address of route\n"
       "Match entries by type\n"
       "Blackhole\n")
 {
@@ -2901,6 +3074,46 @@ DEFUN (no_rmap_continue,
 	return no_rmap_onmatch_goto(self, vty, argc, argv);
 }
 
+static void clear_route_map_helper(struct route_map *map)
+{
+	struct route_map_index *index;
+
+	map->applied_clear = map->applied;
+	for (index = map->head; index; index = index->next)
+		index->applied_clear = index->applied;
+}
+
+DEFUN (rmap_clear_counters,
+       rmap_clear_counters_cmd,
+       "clear route-map counters [WORD]",
+       CLEAR_STR
+       "route-map information\n"
+       "counters associated with the specified route-map\n"
+       "route-map name\n")
+{
+	int idx_word = 2;
+	struct route_map *map;
+
+	const char *name = (argc == 3 ) ? argv[idx_word]->arg : NULL;
+
+	if (name) {
+		map = route_map_lookup_by_name(name);
+
+		if (map)
+			clear_route_map_helper(map);
+		else {
+			vty_out(vty, "%s: 'route-map %s' not found\n",
+				frr_protonameinst, name);
+			return CMD_SUCCESS;
+		}
+	} else {
+		for (map = route_map_master.head; map; map = map->next)
+			clear_route_map_helper(map);
+	}
+
+	return CMD_SUCCESS;
+
+}
 
 DEFUN (rmap_show_name,
        rmap_show_name_cmd,
@@ -3006,6 +3219,30 @@ DEFUN (no_rmap_description,
 	return CMD_SUCCESS;
 }
 
+DEFUN (debug_rmap,
+       debug_rmap_cmd,
+       "debug route-map",
+       DEBUG_STR
+       "Debug option set for route-maps\n")
+{
+	rmap_debug = true;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_rmap,
+       no_debug_rmap_cmd,
+       "no debug route-map",
+       NO_STR
+       DEBUG_STR
+       "Debug option set for route-maps\n")
+{
+	rmap_debug = false;
+	return CMD_SUCCESS;
+}
+
+/* Debug node. */
+static struct cmd_node rmap_debug_node = {RMAP_DEBUG_NODE, "", 1};
+
 /* Configuration write function. */
 static int route_map_config_write(struct vty *vty)
 {
@@ -3014,8 +3251,15 @@ static int route_map_config_write(struct vty *vty)
 	struct route_map_rule *rule;
 	int first = 1;
 	int write = 0;
+	struct listnode *ln;
+	struct list *maplist = list_new();
 
 	for (map = route_map_master.head; map; map = map->next)
+		listnode_add(maplist, map);
+
+	list_sort(maplist, sort_route_map);
+
+	for (ALL_LIST_ELEMENTS_RO(maplist, ln, map))
 		for (index = map->head; index; index = index->next) {
 			if (!first)
 				vty_out(vty, "!\n");
@@ -3048,6 +3292,20 @@ static int route_map_config_write(struct vty *vty)
 
 			write++;
 		}
+
+	list_delete(&maplist);
+	return write;
+}
+
+static int rmap_config_write_debug(struct vty *vty)
+{
+	int write = 0;
+
+	if (rmap_debug) {
+		vty_out(vty, "debug route-map\n");
+		write++;
+	}
+
 	return write;
 }
 
@@ -3164,14 +3422,21 @@ void route_map_init(void)
 
 	cmd_variable_handler_register(rmap_var_handlers);
 
+	rmap_debug = false;
+
 	/* Install route map top node. */
 	install_node(&rmap_node, route_map_config_write);
+
+	install_node(&rmap_debug_node, rmap_config_write_debug);
 
 	/* Install route map commands. */
 	install_default(RMAP_NODE);
 	install_element(CONFIG_NODE, &route_map_cmd);
 	install_element(CONFIG_NODE, &no_route_map_cmd);
 	install_element(CONFIG_NODE, &no_route_map_all_cmd);
+
+	install_element(CONFIG_NODE, &debug_rmap_cmd);
+	install_element(CONFIG_NODE, &no_debug_rmap_cmd);
 
 	/* Install the on-match stuff */
 	install_element(RMAP_NODE, &route_map_cmd);
@@ -3193,8 +3458,13 @@ void route_map_init(void)
 	install_element(RMAP_NODE, &no_rmap_description_cmd);
 
 	/* Install show command */
+	install_element(ENABLE_NODE, &rmap_clear_counters_cmd);
+
 	install_element(ENABLE_NODE, &rmap_show_name_cmd);
 	install_element(ENABLE_NODE, &rmap_show_unused_cmd);
+
+	install_element(ENABLE_NODE, &debug_rmap_cmd);
+	install_element(ENABLE_NODE, &no_debug_rmap_cmd);
 
 	install_element(RMAP_NODE, &match_interface_cmd);
 	install_element(RMAP_NODE, &no_match_interface_cmd);

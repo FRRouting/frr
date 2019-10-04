@@ -23,6 +23,7 @@
 
 #include <zebra.h>
 
+#include "printfrr.h"
 #include "stream.h"
 #include "vty.h"
 #include "hash.h"
@@ -116,7 +117,8 @@ int dotformat2buff(uint8_t *buff, const char *dotted)
 			break;
 		}
 
-		if ((isxdigit((int)*pos)) && (isxdigit((int)*(pos + 1)))) {
+		if ((isxdigit((unsigned char)*pos)) &&
+		    (isxdigit((unsigned char)*(pos + 1)))) {
 			memcpy(number, pos, 2);
 			pos += 2;
 		} else {
@@ -156,7 +158,8 @@ int sysid2buff(uint8_t *buff, const char *dotted)
 			pos++;
 			continue;
 		}
-		if ((isxdigit((int)*pos)) && (isxdigit((int)*(pos + 1)))) {
+		if ((isxdigit((unsigned char)*pos)) &&
+		    (isxdigit((unsigned char)*(pos + 1)))) {
 			memcpy(number, pos, 2);
 			pos += 2;
 		} else {
@@ -511,42 +514,14 @@ void zlog_dump_data(void *data, int len)
 	return;
 }
 
-static char *qasprintf(const char *format, va_list ap)
-{
-	va_list aq;
-	va_copy(aq, ap);
-
-	int size = 0;
-	char *p = NULL;
-
-	size = vsnprintf(p, size, format, ap);
-
-	if (size < 0) {
-		va_end(aq);
-		return NULL;
-	}
-
-	size++;
-	p = XMALLOC(MTYPE_TMP, size);
-
-	size = vsnprintf(p, size, format, aq);
-	va_end(aq);
-
-	if (size < 0) {
-		XFREE(MTYPE_TMP, p);
-		return NULL;
-	}
-
-	return p;
-}
-
 void log_multiline(int priority, const char *prefix, const char *format, ...)
 {
+	char shortbuf[256];
 	va_list ap;
 	char *p;
 
 	va_start(ap, format);
-	p = qasprintf(format, ap);
+	p = vasnprintfrr(MTYPE_TMP, shortbuf, sizeof(shortbuf), format, ap);
 	va_end(ap);
 
 	if (!p)
@@ -558,16 +533,18 @@ void log_multiline(int priority, const char *prefix, const char *format, ...)
 		zlog(priority, "%s%s", prefix, line);
 	}
 
-	XFREE(MTYPE_TMP, p);
+	if (p != shortbuf)
+		XFREE(MTYPE_TMP, p);
 }
 
 void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 {
+	char shortbuf[256];
 	va_list ap;
 	char *p;
 
 	va_start(ap, format);
-	p = qasprintf(format, ap);
+	p = vasnprintfrr(MTYPE_TMP, shortbuf, sizeof(shortbuf), format, ap);
 	va_end(ap);
 
 	if (!p)
@@ -579,7 +556,8 @@ void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 		vty_out(vty, "%s%s\n", prefix, line);
 	}
 
-	XFREE(MTYPE_TMP, p);
+	if (p != shortbuf)
+		XFREE(MTYPE_TMP, p);
 }
 
 void vty_out_timestr(struct vty *vty, time_t uptime)

@@ -519,8 +519,7 @@ unsigned int attrhash_key_make(const void *p)
 	MIX(attr->mp_nexthop_len);
 	key = jhash(attr->mp_nexthop_global.s6_addr, IPV6_MAX_BYTELEN, key);
 	key = jhash(attr->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
-	MIX(attr->nh_ifindex);
-	MIX(attr->nh_lla_ifindex);
+	MIX3(attr->nh_ifindex, attr->nh_lla_ifindex, attr->distance);
 
 	return key;
 }
@@ -562,7 +561,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 				      &attr2->originator_id)
 		    && overlay_index_same(attr1, attr2)
 		    && attr1->nh_ifindex == attr2->nh_ifindex
-		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex)
+		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex
+		    && attr1->distance == attr2->distance)
 			return true;
 	}
 
@@ -724,10 +724,13 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 				       struct community *community,
 				       struct ecommunity *ecommunity,
 				       struct lcommunity *lcommunity,
-				       int as_set, uint8_t atomic_aggregate)
+				       struct bgp_aggregate *aggregate,
+				       uint8_t atomic_aggregate,
+				       struct prefix *p)
 {
 	struct attr attr;
 	struct attr *new;
+	int ret;
 
 	memset(&attr, 0, sizeof(struct attr));
 
@@ -778,7 +781,7 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 	attr.label = MPLS_INVALID_LABEL;
 	attr.weight = BGP_ATTR_DEFAULT_WEIGHT;
 	attr.mp_nexthop_len = IPV6_MAX_BYTELEN;
-	if (!as_set || atomic_aggregate)
+	if (!aggregate->as_set || atomic_aggregate)
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE);
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR);
 	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
@@ -789,7 +792,42 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 	attr.label_index = BGP_INVALID_LABEL_INDEX;
 	attr.label = MPLS_INVALID_LABEL;
 
-	new = bgp_attr_intern(&attr);
+	/* Apply route-map */
+	if (aggregate->rmap.name) {
+		struct attr attr_tmp = attr;
+		struct bgp_path_info rmap_path;
+
+		memset(&rmap_path, 0, sizeof(struct bgp_path_info));
+		rmap_path.peer = bgp->peer_self;
+		rmap_path.attr = &attr_tmp;
+
+		SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_AGGREGATE);
+
+		ret = route_map_apply(aggregate->rmap.map, p, RMAP_BGP,
+				      &rmap_path);
+
+		bgp->peer_self->rmap_type = 0;
+
+		if (ret == RMAP_DENYMATCH) {
+			/* Free uninterned attribute. */
+			bgp_attr_flush(&attr_tmp);
+
+			/* Unintern original. */
+			aspath_unintern(&attr.aspath);
+			return NULL;
+		}
+
+		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+			bgp_attr_add_gshut_community(&attr_tmp);
+
+		new = bgp_attr_intern(&attr_tmp);
+	} else {
+
+		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+			bgp_attr_add_gshut_community(&attr);
+
+		new = bgp_attr_intern(&attr);
+	}
 
 	aspath_unintern(&new->aspath);
 	return new;
@@ -1267,14 +1305,20 @@ bgp_attr_nexthop_valid(struct peer *peer, struct attr *attr)
 	if ((IPV4_NET0(nexthop_h) || IPV4_NET127(nexthop_h)
 	     || IPV4_CLASS_DE(nexthop_h))
 	    && !BGP_DEBUG(allow_martians, ALLOW_MARTIANS)) {
+		uint8_t data[7]; /* type(2) + length(1) + nhop(4) */
 		char buf[INET_ADDRSTRLEN];
 
 		inet_ntop(AF_INET, &attr->nexthop.s_addr, buf,
 			  INET_ADDRSTRLEN);
 		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %s",
 			 buf);
-		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
-				BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP);
+		data[0] = BGP_ATTR_FLAG_TRANS;
+		data[1] = BGP_ATTR_NEXT_HOP;
+		data[2] = BGP_ATTR_NHLEN_IPV4;
+		memcpy(&data[3], &attr->nexthop.s_addr, BGP_ATTR_NHLEN_IPV4);
+		bgp_notify_send_with_data(peer, BGP_NOTIFY_UPDATE_ERR,
+					  BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP,
+					  data, 7);
 		return BGP_ATTR_PARSE_ERROR;
 	}
 
@@ -1647,8 +1691,8 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 #define BGP_MP_REACH_MIN_SIZE 5
 #define LEN_LEFT	(length - (stream_get_getp(s) - start))
 	if ((length > STREAM_READABLE(s)) || (length < BGP_MP_REACH_MIN_SIZE)) {
-		zlog_info("%s: %s sent invalid length, %lu", __func__,
-			  peer->host, (unsigned long)length);
+		zlog_info("%s: %s sent invalid length, %lu, of MP_REACH_NLRI",
+			  __func__, peer->host, (unsigned long)length);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
@@ -1664,8 +1708,9 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		 */
 		if (bgp_debug_update(peer, NULL, NULL, 0))
 			zlog_debug(
-				"%s: MP_REACH received AFI %u or SAFI %u is unrecognized",
-				peer->host, pkt_afi, pkt_safi);
+				"%s sent unrecognizable AFI, %s or, SAFI, %s, of MP_REACH_NLRI",
+				peer->host, iana_afi2str(pkt_afi),
+				iana_safi2str(pkt_safi));
 		return BGP_ATTR_PARSE_ERROR;
 	}
 
@@ -1674,7 +1719,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 
 	if (LEN_LEFT < attr->mp_nexthop_len) {
 		zlog_info(
-			"%s: %s, MP nexthop length, %u, goes past end of attribute",
+			"%s: %s sent next-hop length, %u, in MP_REACH_NLRI which goes past the end of attribute",
 			__func__, peer->host, attr->mp_nexthop_len);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
@@ -1683,7 +1728,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	switch (attr->mp_nexthop_len) {
 	case 0:
 		if (safi != SAFI_FLOWSPEC) {
-			zlog_info("%s: (%s) Wrong multiprotocol next hop length: %d",
+			zlog_info("%s: %s sent wrong next-hop length, %d, in MP_REACH_NLRI",
 				  __func__, peer->host, attr->mp_nexthop_len);
 			return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 		}
@@ -1715,7 +1760,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		stream_get(&attr->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
 		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
 			if (!peer->nexthop.ifp) {
-				zlog_warn("%s: Received a V6/VPNV6 Global attribute but address is a V6 LL and we have no peer interface information, withdrawing",
+				zlog_warn("%s sent a v6 global attribute but address is a V6 LL and there's no peer interface information. Hence, withdrawing",
 					  peer->host);
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
@@ -1732,7 +1777,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		stream_get(&attr->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
 		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
 			if (!peer->nexthop.ifp) {
-				zlog_warn("%s: Received V6/VPNV6 Global and LL attribute but global address is a V6 LL and we have no peer interface information, withdrawing",
+				zlog_warn("%s sent a v6 global and LL attribute but global address is a V6 LL and there's no peer interface information. Hence, withdrawing",
 					  peer->host);
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
@@ -1750,7 +1795,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 
 			if (bgp_debug_update(peer, NULL, NULL, 1))
 				zlog_debug(
-					"%s rcvd nexthops %s, %s -- ignoring non-LL value",
+					"%s sent next-hops %s and %s. Ignoring non-LL value",
 					peer->host,
 					inet_ntop(AF_INET6,
 						  &attr->mp_nexthop_global,
@@ -1762,21 +1807,21 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
 		}
 		if (!peer->nexthop.ifp) {
-			zlog_warn("%s: Received a V6 LL nexthop and we have no peer interface information, withdrawing",
+			zlog_warn("%s sent a v6 LL next-hop and there's no peer interface information. Hence, withdrawing",
 				  peer->host);
 			return BGP_ATTR_PARSE_WITHDRAW;
 		}
 		attr->nh_lla_ifindex = peer->nexthop.ifp->ifindex;
 		break;
 	default:
-		zlog_info("%s: (%s) Wrong multiprotocol next hop length: %d",
+		zlog_info("%s: %s sent wrong next-hop length, %d, in MP_REACH_NLRI",
 			  __func__, peer->host, attr->mp_nexthop_len);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
 	if (!LEN_LEFT) {
-		zlog_info("%s: (%s) Failed to read SNPA and NLRI(s)", __func__,
-			  peer->host);
+		zlog_info("%s: %s sent SNPA which couldn't be read",
+			  __func__, peer->host);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
@@ -1792,12 +1837,13 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	/* must have nrli_len, what is left of the attribute */
 	nlri_len = LEN_LEFT;
 	if (nlri_len > STREAM_READABLE(s)) {
-		zlog_info("%s: (%s) Failed to read NLRI", __func__, peer->host);
+		zlog_info("%s: %s sent MP_REACH_NLRI which couldn't be read",
+			  __func__, peer->host);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
 	if (!nlri_len) {
-		zlog_info("%s: (%s) No Reachability, Treating as a EOR marker",
+		zlog_info("%s: %s sent a zero-length NLRI. Hence, treating as a EOR marker",
 			  __func__, peer->host);
 
 		mp_update->afi = afi;
@@ -1849,8 +1895,9 @@ int bgp_mp_unreach_parse(struct bgp_attr_parser_args *args,
 		 */
 		if (bgp_debug_update(peer, NULL, NULL, 0))
 			zlog_debug(
-				"%s: MP_UNREACH received AFI %u or SAFI %u is unrecognized",
-				peer->host, pkt_afi, pkt_safi);
+				"%s: MP_UNREACH received AFI %s or SAFI %s is unrecognized",
+				peer->host, iana_afi2str(pkt_afi),
+				iana_safi2str(pkt_safi));
 		return BGP_ATTR_PARSE_ERROR;
 	}
 
@@ -2003,8 +2050,8 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
 		length -= 4;
 
 		if (tlv_length != length) {
-			zlog_info("%s: tlv_length(%d) != length(%d)", __func__,
-				  tlv_length, length);
+			zlog_info("%s: tlv_length(%d) != length(%d)",
+				  __func__, tlv_length, length);
 		}
 	}
 
@@ -2954,7 +3001,8 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 				       addpath_encode, addpath_tx_id);
 	} else if (safi == SAFI_LABELED_UNICAST) {
 		/* Prefix write with label. */
-		stream_put_labeled_prefix(s, p, label);
+		stream_put_labeled_prefix(s, p, label, addpath_encode,
+					  addpath_tx_id);
 	} else if (safi == SAFI_FLOWSPEC) {
 		if (PSIZE (p->prefixlen)+2 < FLOWSPEC_NLRI_SIZELIMIT)
 			stream_putc(s, PSIZE (p->prefixlen)+2);
@@ -2972,6 +3020,8 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi, struct prefix *p)
 	int size = PSIZE(p->prefixlen);
 	if (safi == SAFI_MPLS_VPN)
 		size += 88;
+	else if (safi == SAFI_LABELED_UNICAST)
+		size += BGP_LABEL_BYTES;
 	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
 		size += 232; // TODO: Maximum possible for type-2, type-3 and
 			     // type-5
@@ -3211,6 +3261,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	/* Nexthop attribute. */
 	if (afi == AFI_IP && safi == SAFI_UNICAST
 	    && !peer_cap_enhe(peer, afi, safi)) {
+		afi_t nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->mp_nexthop_len);
+
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
 			stream_putc(s, BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_NEXT_HOP);
@@ -3218,17 +3270,18 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 						     attr);
 			stream_putc(s, 4);
 			stream_put_ipv4(s, attr->nexthop.s_addr);
-		} else if (peer_cap_enhe(from, afi, safi)) {
+		} else if (peer_cap_enhe(from, afi, safi)
+			   || (nh_afi == AFI_IP6)) {
 			/*
 			 * Likely this is the case when an IPv4 prefix was
-			 * received with
-			 * Extended Next-hop capability and now being advertised
-			 * to
-			 * non-ENHE peers.
+			 * received with Extended Next-hop capability in this
+			 * or another vrf and is now being advertised to
+			 * non-ENHE peers. Since peer_cap_enhe only checks
+			 * peers in this vrf, also check the nh_afi to catch
+			 * the case where the originator was in another vrf.
 			 * Setting the mandatory (ipv4) next-hop attribute here
-			 * to enable
-			 * implicit next-hop self with correct (ipv4 address
-			 * family).
+			 * to enable implicit next-hop self with correct A-F
+			 * (ipv4 address family).
 			 */
 			stream_putc(s, BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_NEXT_HOP);

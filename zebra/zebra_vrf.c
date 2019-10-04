@@ -48,7 +48,8 @@ static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 static void zebra_rnhtable_node_cleanup(struct route_table *table,
 					struct route_node *node);
 
-DEFINE_MTYPE_STATIC(ZEBRA, OTHER_TABLE, "Other Table");
+DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_VRF, "ZEBRA VRF")
+DEFINE_MTYPE_STATIC(ZEBRA, OTHER_TABLE, "Other Table")
 
 /* VRF information update. */
 static void zebra_vrf_add_update(struct zebra_vrf *zvrf)
@@ -91,7 +92,7 @@ static int zebra_vrf_new(struct vrf *vrf)
 	struct zebra_vrf *zvrf;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_info("VRF %s created, id %u", vrf->name, vrf->vrf_id);
+		zlog_debug("VRF %s created, id %u", vrf->name, vrf->vrf_id);
 
 	zvrf = zebra_vrf_alloc();
 	vrf->info = zvrf;
@@ -486,7 +487,16 @@ static int vrf_config_write(struct vty *vty)
 
 		if (zvrf_id(zvrf) == VRF_DEFAULT) {
 			if (zvrf->l3vni)
-				vty_out(vty, "vni %u\n", zvrf->l3vni);
+				vty_out(vty, "vni %u%s\n", zvrf->l3vni,
+					is_l3vni_for_prefix_routes_only(
+						zvrf->l3vni)
+						? " prefix-routes-only"
+						: "");
+			if (zvrf->zebra_rnh_ip_default_route)
+				vty_out(vty, "ip nht resolve-via-default\n");
+
+			if (zvrf->zebra_rnh_ipv6_default_route)
+				vty_out(vty, "ipv6 nht resolve-via-default\n");
 		} else {
 			vty_frame(vty, "vrf %s\n", zvrf_name(zvrf));
 			if (zvrf->l3vni)
@@ -496,7 +506,13 @@ static int vrf_config_write(struct vty *vty)
 						? " prefix-routes-only"
 						: "");
 			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
+			if (zvrf->zebra_rnh_ip_default_route)
+				vty_out(vty, " ip nht resolve-via-default\n");
+
+			if (zvrf->zebra_rnh_ipv6_default_route)
+				vty_out(vty, " ipv6 nht resolve-via-default\n");
 		}
+
 
 		zebra_routemap_config_write_protocol(vty, zvrf);
 

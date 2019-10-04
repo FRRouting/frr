@@ -22,6 +22,12 @@
  * memory leak or SEGV for things that haven't been well-tested.
  */
 
+/* This file is "exempt" from having
+#include "config.h"
+ * as the first include statement because Python.h also does environment
+ * setup & these trample over each other.
+ */
+
 #include <Python.h>
 #include "structmember.h"
 #include <string.h>
@@ -321,6 +327,7 @@ static struct PyModuleDef pymoddef_clippy = {
 	} while (0)
 #endif
 
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
 PyMODINIT_FUNC command_py_init(void)
 {
 	PyObject *pymod;

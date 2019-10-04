@@ -146,7 +146,7 @@ static void upstream_channel_oil_detach(struct pim_upstream *up)
 		   but upstream would not keep reference of it
 		 */
 		up->channel_oil->up = NULL;
-		pim_channel_oil_del(up->channel_oil);
+		pim_channel_oil_del(up->channel_oil, __PRETTY_FUNCTION__);
 		up->channel_oil = NULL;
 	}
 }
@@ -716,7 +716,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->join_state = PIM_UPSTREAM_NOTJOINED;
 	up->reg_state = PIM_REG_NOINFO;
 	up->state_transition = pim_time_monotonic_sec();
-	up->channel_oil = NULL;
+	up->channel_oil =
+		pim_channel_oil_add(pim, &up->sg, MAXVIFS, __PRETTY_FUNCTION__);
 	up->sptbit = PIM_UPSTREAM_SPTBIT_FALSE;
 
 	up->rpf.source_nexthop.interface = NULL;
@@ -736,37 +737,34 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	if (up->sg.src.s_addr != INADDR_ANY)
 		wheel_add_item(pim->upstream_sg_wheel, up);
 
-	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)) {
+	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)
+	    || PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags)) {
 		pim_upstream_fill_static_iif(up, incoming);
 		pim_ifp = up->rpf.source_nexthop.interface->info;
 		assert(pim_ifp);
-		up->channel_oil = pim_channel_oil_add(pim,
-				&up->sg, pim_ifp->mroute_vif_index);
-	} else if (up->upstream_addr.s_addr == INADDR_ANY) {
-		/* Create a dummmy channel oil with incoming ineterface MAXVIFS,
-		 * since RP is not configured
-		 */
-		up->channel_oil = pim_channel_oil_add(pim, &up->sg, MAXVIFS);
+		pim_channel_oil_change_iif(pim, up->channel_oil,
+					   pim_ifp->mroute_vif_index,
+					   __PRETTY_FUNCTION__);
 
-	} else {
-		rpf_result = pim_rpf_update(pim, up, NULL, 1);
+		if (PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags))
+			pim_upstream_keep_alive_timer_start(
+				up, pim->keep_alive_time);
+	} else if (up->upstream_addr.s_addr != INADDR_ANY) {
+		rpf_result = pim_rpf_update(pim, up, NULL);
 		if (rpf_result == PIM_RPF_FAILURE) {
 			if (PIM_DEBUG_TRACE)
 				zlog_debug(
 					"%s: Attempting to create upstream(%s), Unable to RPF for source",
 					__PRETTY_FUNCTION__, up->sg_str);
-			/* Create a dummmy channel oil with incoming ineterface
-			 * MAXVIFS, since RP is not reachable
-			 */
-			up->channel_oil = pim_channel_oil_add(
-				pim, &up->sg, MAXVIFS);
 		}
 
 		if (up->rpf.source_nexthop.interface) {
 			pim_ifp = up->rpf.source_nexthop.interface->info;
 			if (pim_ifp)
-				up->channel_oil = pim_channel_oil_add(pim,
-					&up->sg, pim_ifp->mroute_vif_index);
+				pim_channel_oil_change_iif(
+					pim, up->channel_oil,
+					pim_ifp->mroute_vif_index,
+					__PRETTY_FUNCTION__);
 		}
 	}
 
@@ -1186,6 +1184,13 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 		if (!pim_upstream_del(pim, up, __PRETTY_FUNCTION__))
 			return NULL;
 	}
+	if (PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags)) {
+		PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(up->flags);
+
+		if (!pim_upstream_del(pim, up, __PRETTY_FUNCTION__))
+			return NULL;
+	}
+
 	/* upstream reference would have been added to track the local
 	 * membership if it is LHR. We have to clear it when KAT expires.
 	 * Otherwise would result in stale entry with uncleared ref count.
@@ -1303,14 +1308,14 @@ int pim_upstream_is_sg_rpt(struct pim_upstream *up)
  *   void
  *   Update_SPTbit(S,G,iif) {
  *     if ( iif == RPF_interface(S)
- *           AND JoinDesired(S,G) == TRUE
- *           AND ( DirectlyConnected(S) == TRUE
+ *           AND JoinDesired(S,G) == true
+ *           AND ( DirectlyConnected(S) == true
  *                 OR RPF_interface(S) != RPF_interface(RP(G))
  *                 OR inherited_olist(S,G,rpt) == NULL
  *                 OR ( ( RPF'(S,G) == RPF'(*,G) ) AND
  *                      ( RPF'(S,G) != NULL ) )
  *                 OR ( I_Am_Assert_Loser(S,G,iif) ) {
- *        Set SPTbit(S,G) to TRUE
+ *        Set SPTbit(S,G) to true
  *     }
  *   }
  */
@@ -1329,7 +1334,7 @@ void pim_upstream_set_sptbit(struct pim_upstream *up,
 		return;
 	}
 
-	// AND JoinDesired(S,G) == TRUE
+	// AND JoinDesired(S,G) == true
 	if (!pim_upstream_evaluate_join_desired(up->channel_oil->pim, up)) {
 		if (PIM_DEBUG_TRACE)
 			zlog_debug("%s: %s Join is not Desired",
@@ -1337,7 +1342,7 @@ void pim_upstream_set_sptbit(struct pim_upstream *up,
 		return;
 	}
 
-	// DirectlyConnected(S) == TRUE
+	// DirectlyConnected(S) == true
 	if (pim_if_connected_to_source(up->rpf.source_nexthop.interface,
 				       up->sg.src)) {
 		if (PIM_DEBUG_TRACE)
@@ -1441,7 +1446,7 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 		up->reg_state = PIM_REG_JOIN;
 		pim_channel_add_oif(up->channel_oil, pim->regiface,
 				    PIM_OIF_FLAG_PROTO_PIM);
-		pim_vxlan_update_sg_reg_state(pim, up, TRUE /*reg_join*/);
+		pim_vxlan_update_sg_reg_state(pim, up, true /*reg_join*/);
 		break;
 	case PIM_REG_JOIN:
 		break;
@@ -1511,21 +1516,14 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 					struct pim_upstream *up)
 {
 	struct interface *ifp;
-	struct pim_interface *pim_ifp = NULL;
 	struct pim_ifchannel *ch, *starch;
 	struct pim_upstream *starup = up->parent;
 	int output_intf = 0;
 
-	if (up->rpf.source_nexthop.interface)
-		pim_ifp = up->rpf.source_nexthop.interface->info;
-	else {
+	if (!up->rpf.source_nexthop.interface)
 		if (PIM_DEBUG_TRACE)
 			zlog_debug("%s: up %s RPF is not present",
 				   __PRETTY_FUNCTION__, up->sg_str);
-	}
-	if (pim_ifp && !up->channel_oil)
-		up->channel_oil = pim_channel_oil_add(
-			pim, &up->sg, pim_ifp->mroute_vif_index);
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		if (!ifp->info)
@@ -1625,7 +1623,7 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 				zlog_debug(
 					"%s: Upstream %s without a path to send join, checking",
 					__PRETTY_FUNCTION__, up->sg_str);
-			pim_rpf_update(pim, up, NULL, 1);
+			pim_rpf_update(pim, up, NULL);
 		}
 	}
 }
@@ -1674,7 +1672,7 @@ bool pim_upstream_equal(const void *arg1, const void *arg2)
 /* rfc4601:section-4.2:"Data Packet Forwarding Rules" defines
  * the cases where kat has to be restarted on rxing traffic -
  *
- * if( DirectlyConnected(S) == TRUE AND iif == RPF_interface(S) ) {
+ * if( DirectlyConnected(S) == true AND iif == RPF_interface(S) ) {
  * set KeepaliveTimer(S,G) to Keepalive_Period
  * # Note: a register state transition or UpstreamJPState(S,G)
  * # transition may happen as a result of restarting

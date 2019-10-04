@@ -142,6 +142,9 @@ extern bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2);
 extern bool nexthop_same_no_labels(const struct nexthop *nh1,
 				   const struct nexthop *nh2);
 extern int nexthop_cmp(const struct nexthop *nh1, const struct nexthop *nh2);
+extern int nexthop_g_addr_cmp(enum nexthop_types_t type,
+			      const union g_addr *addr1,
+			      const union g_addr *addr2);
 
 extern const char *nexthop_type_to_str(enum nexthop_types_t nh_type);
 extern bool nexthop_labels_match(const struct nexthop *nh1,
@@ -152,6 +155,12 @@ extern const char *nexthop2str(const struct nexthop *nexthop,
 			       char *str, int size);
 extern struct nexthop *nexthop_next(struct nexthop *nexthop);
 extern unsigned int nexthop_level(struct nexthop *nexthop);
+/* Copies to an already allocated nexthop struct */
+extern void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
+			 struct nexthop *rparent);
+/* Duplicates a nexthop and returns the newly allocated nexthop */
+extern struct nexthop *nexthop_dup(const struct nexthop *nexthop,
+				   struct nexthop *rparent);
 
 #ifdef __cplusplus
 }

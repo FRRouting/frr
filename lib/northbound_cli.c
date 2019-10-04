@@ -193,13 +193,8 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 				"Please check the logs for more details.\n");
 
 			/* Regenerate candidate for consistency. */
-			pthread_rwlock_rdlock(&running_config->lock);
-			{
-				nb_config_replace(vty->candidate_config,
-						  running_config, true);
-			}
-			pthread_rwlock_unlock(&running_config->lock);
-
+			nb_config_replace(vty->candidate_config, running_config,
+					  true);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
@@ -307,12 +302,7 @@ static int nb_cli_commit(struct vty *vty, bool force,
 
 	/* "confirm" parameter. */
 	if (confirmed_timeout) {
-		pthread_rwlock_rdlock(&running_config->lock);
-		{
-			vty->confirmed_commit_rollback =
-				nb_config_dup(running_config);
-		}
-		pthread_rwlock_unlock(&running_config->lock);
+		vty->confirmed_commit_rollback = nb_config_dup(running_config);
 
 		vty->t_confirmed_commit_timeout = NULL;
 		thread_add_timer(master, nb_cli_confirmed_commit_timeout, vty,
@@ -326,13 +316,8 @@ static int nb_cli_commit(struct vty *vty, bool force,
 	/* Map northbound return code to CLI return code. */
 	switch (ret) {
 	case NB_OK:
-		pthread_rwlock_rdlock(&running_config->lock);
-		{
-			nb_config_replace(vty->candidate_config_base,
-					  running_config, true);
-		}
-		pthread_rwlock_unlock(&running_config->lock);
-
+		nb_config_replace(vty->candidate_config_base, running_config,
+				  true);
 		vty_out(vty,
 			"%% Configuration committed successfully (Transaction ID #%u).\n\n",
 			transaction_id);
@@ -434,10 +419,29 @@ static int nb_cli_candidate_load_transaction(struct vty *vty,
 	return CMD_SUCCESS;
 }
 
+/*
+ * ly_iter_next_is_up: detects when iterating up on the yang model.
+ *
+ * This function detects whether next node in the iteration is upwards,
+ * then return the node otherwise return NULL.
+ */
+static struct lyd_node *ly_iter_next_up(const struct lyd_node *elem)
+{
+	/* Are we going downwards? Is this still not a leaf? */
+	if (!(elem->schema->nodetype & (LYS_LEAF | LYS_LEAFLIST | LYS_ANYDATA)))
+		return NULL;
+
+	/* Are there still leaves in this branch? */
+	if (elem->next != NULL)
+		return NULL;
+
+	return elem->parent;
+}
+
 void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
 			    bool with_defaults)
 {
-	struct lyd_node *next, *child;
+	struct lyd_node *next, *child, *parent;
 
 	LY_TREE_DFS_BEGIN (root, next, child) {
 		struct nb_node *nb_node;
@@ -452,6 +456,19 @@ void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
 
 		(*nb_node->cbs.cli_show)(vty, child, with_defaults);
 	next:
+		/*
+		 * When transiting upwards in the yang model we should
+		 * give the previous container/list node a chance to
+		 * print its close vty output (e.g. "!" or "end-family"
+		 * etc...).
+		 */
+		parent = ly_iter_next_up(child);
+		if (parent != NULL) {
+			nb_node = parent->schema->priv;
+			if (nb_node->cbs.cli_show_end)
+				(*nb_node->cbs.cli_show_end)(vty, parent);
+		}
+
 		LY_TREE_DFS_END(root, next, child);
 	}
 }
@@ -697,12 +714,7 @@ DEFPY (config_update,
 		return CMD_WARNING;
 	}
 
-	pthread_rwlock_rdlock(&running_config->lock);
-	{
-		nb_config_replace(vty->candidate_config_base, running_config,
-				  true);
-	}
-	pthread_rwlock_unlock(&running_config->lock);
+	nb_config_replace(vty->candidate_config_base, running_config, true);
 
 	vty_out(vty, "%% Candidate configuration updated successfully.\n\n");
 
@@ -725,7 +737,7 @@ DEFPY (config_load,
        "configuration load\
           <\
 	    file [<json$json|xml$xml> [translate WORD$translator_family]] FILENAME$filename\
-	    |transaction (1-4294967296)$tid\
+	    |transaction (1-4294967295)$tid\
 	  >\
 	  [replace$replace]",
        "Configuration related settings\n"
@@ -802,12 +814,8 @@ DEFPY (show_config_running,
 		}
 	}
 
-	pthread_rwlock_rdlock(&running_config->lock);
-	{
-		nb_cli_show_config(vty, running_config, format, translator,
-				   !!with_defaults);
-	}
-	pthread_rwlock_unlock(&running_config->lock);
+	nb_cli_show_config(vty, running_config, format, translator,
+			   !!with_defaults);
 
 	return CMD_SUCCESS;
 }
@@ -891,12 +899,12 @@ DEFPY (show_config_compare,
           <\
 	    candidate$c1_candidate\
 	    |running$c1_running\
-	    |transaction (1-4294967296)$c1_tid\
+	    |transaction (1-4294967295)$c1_tid\
 	  >\
           <\
 	    candidate$c2_candidate\
 	    |running$c2_running\
-	    |transaction (1-4294967296)$c2_tid\
+	    |transaction (1-4294967295)$c2_tid\
 	  >\
 	  [<json$json|xml$xml> [translate WORD$translator_family]]",
        SHOW_STR
@@ -921,68 +929,57 @@ DEFPY (show_config_compare,
 	struct nb_config *config2, *config_transaction2 = NULL;
 	int ret = CMD_WARNING;
 
-	/*
-	 * For simplicity, lock the running configuration regardless if it's
-	 * going to be used or not.
-	 */
-	pthread_rwlock_rdlock(&running_config->lock);
-	{
-		if (c1_candidate)
-			config1 = vty->candidate_config;
-		else if (c1_running)
-			config1 = running_config;
-		else {
-			config_transaction1 = nb_db_transaction_load(c1_tid);
-			if (!config_transaction1) {
-				vty_out(vty,
-					"%% Transaction %u does not exist\n\n",
-					(unsigned int)c1_tid);
-				goto exit;
-			}
-			config1 = config_transaction1;
+	if (c1_candidate)
+		config1 = vty->candidate_config;
+	else if (c1_running)
+		config1 = running_config;
+	else {
+		config_transaction1 = nb_db_transaction_load(c1_tid);
+		if (!config_transaction1) {
+			vty_out(vty, "%% Transaction %u does not exist\n\n",
+				(unsigned int)c1_tid);
+			goto exit;
 		}
-
-		if (c2_candidate)
-			config2 = vty->candidate_config;
-		else if (c2_running)
-			config2 = running_config;
-		else {
-			config_transaction2 = nb_db_transaction_load(c2_tid);
-			if (!config_transaction2) {
-				vty_out(vty,
-					"%% Transaction %u does not exist\n\n",
-					(unsigned int)c2_tid);
-				goto exit;
-			}
-			config2 = config_transaction2;
-		}
-
-		if (json)
-			format = NB_CFG_FMT_JSON;
-		else if (xml)
-			format = NB_CFG_FMT_XML;
-		else
-			format = NB_CFG_FMT_CMDS;
-
-		if (translator_family) {
-			translator = yang_translator_find(translator_family);
-			if (!translator) {
-				vty_out(vty,
-					"%% Module translator \"%s\" not found\n",
-					translator_family);
-				goto exit;
-			}
-		}
-
-		ret = nb_cli_show_config_compare(vty, config1, config2, format,
-						 translator);
-	exit:
-		if (config_transaction1)
-			nb_config_free(config_transaction1);
-		if (config_transaction2)
-			nb_config_free(config_transaction2);
+		config1 = config_transaction1;
 	}
-	pthread_rwlock_unlock(&running_config->lock);
+
+	if (c2_candidate)
+		config2 = vty->candidate_config;
+	else if (c2_running)
+		config2 = running_config;
+	else {
+		config_transaction2 = nb_db_transaction_load(c2_tid);
+		if (!config_transaction2) {
+			vty_out(vty, "%% Transaction %u does not exist\n\n",
+				(unsigned int)c2_tid);
+			goto exit;
+		}
+		config2 = config_transaction2;
+	}
+
+	if (json)
+		format = NB_CFG_FMT_JSON;
+	else if (xml)
+		format = NB_CFG_FMT_XML;
+	else
+		format = NB_CFG_FMT_CMDS;
+
+	if (translator_family) {
+		translator = yang_translator_find(translator_family);
+		if (!translator) {
+			vty_out(vty, "%% Module translator \"%s\" not found\n",
+				translator_family);
+			goto exit;
+		}
+	}
+
+	ret = nb_cli_show_config_compare(vty, config1, config2, format,
+					 translator);
+exit:
+	if (config_transaction1)
+		nb_config_free(config_transaction1);
+	if (config_transaction2)
+		nb_config_free(config_transaction2);
 
 	return ret;
 }
@@ -997,11 +994,11 @@ ALIAS (show_config_compare,
        "show configuration compare\
           <\
 	    running$c1_running\
-	    |transaction (1-4294967296)$c1_tid\
+	    |transaction (1-4294967295)$c1_tid\
 	  >\
           <\
 	    running$c2_running\
-	    |transaction (1-4294967296)$c2_tid\
+	    |transaction (1-4294967295)$c2_tid\
 	  >\
 	 [<json$json|xml$xml> [translate WORD$translator_family]]",
        SHOW_STR
@@ -1160,7 +1157,7 @@ DEFPY (show_config_transaction,
        show_config_transaction_cmd,
        "show configuration transaction\
           [\
-	    (1-4294967296)$transaction_id\
+	    (1-4294967295)$transaction_id\
 	    [<json$json|xml$xml> [translate WORD$translator_family]]\
             [<\
 	      with-defaults$with_defaults\
@@ -1561,7 +1558,7 @@ static int nb_cli_rollback_configuration(struct vty *vty,
 
 DEFPY (rollback_config,
        rollback_config_cmd,
-       "rollback configuration (1-4294967296)$transaction_id",
+       "rollback configuration (1-4294967295)$transaction_id",
        "Rollback to a previous state\n"
        "Running configuration\n"
        "Transaction ID\n")

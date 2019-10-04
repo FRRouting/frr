@@ -55,8 +55,6 @@ Simplified `R1` config:
 	 ip address 172.16.1.254/24
 	 no link-detect
 	!
-	bgp multiple-instance
-	!
 	router bgp 100 view 1
 	 bgp router-id 172.30.1.1
 	 network 172.20.0.0/28 route-map local1
@@ -96,7 +94,7 @@ Simplified `R1` config:
 
 Test is executed by running 
 
-	vtysh -c "show log" | grep "Logging configuration for"
+	vtysh -c "show logging" | grep "Logging configuration for"
 	
 on router `R1`. This should return the logging information for all daemons registered
 to Zebra and the list of running daemons is compared to the daemons started for this

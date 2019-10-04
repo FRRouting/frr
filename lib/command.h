@@ -34,7 +34,6 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(HOST)
 DECLARE_MTYPE(COMPLETION)
 
 /*
@@ -94,10 +93,11 @@ enum node_type {
 	VRF_DEBUG_NODE,		 /* Vrf Debug node. */
 	NORTHBOUND_DEBUG_NODE,	 /* Northbound Debug node. */
 	DEBUG_VNC_NODE,		 /* Debug VNC node. */
+	RMAP_DEBUG_NODE,         /* Route-map debug node */
+	RESOLVER_DEBUG_NODE,	 /* Resolver debug node */
 	AAA_NODE,		 /* AAA node. */
 	KEYCHAIN_NODE,		 /* Key-chain node. */
 	KEYCHAIN_KEY_NODE,       /* Key-chain key node. */
-	LOGICALROUTER_NODE,      /* Logical-Router node. */
 	IP_NODE,		 /* Static ip route node. */
 	VRF_NODE,		 /* VRF mode node. */
 	INTERFACE_NODE,		 /* Interface mode node. */
@@ -159,6 +159,7 @@ enum node_type {
 	BFD_PEER_NODE,		 /* BFD peer configuration mode. */
 	OPENFABRIC_NODE,	/* OpenFabric router configuration node */
 	VRRP_NODE,		 /* VRRP node */
+	BMP_NODE,		/* BMP config under router bgp */
 	NODE_TYPE_MAX, /* maximum */
 };
 
@@ -396,6 +397,7 @@ struct cmd_node {
 #define SR_STR "Segment-Routing specific commands\n"
 #define WATCHFRR_STR "watchfrr information\n"
 #define ZEBRA_STR "Zebra information\n"
+#define FILTER_LOG_STR "Filter Logs\n"
 
 #define CMD_VNI_RANGE "(1-16777215)"
 #define CONF_BACKUP_EXT ".sav"
@@ -409,6 +411,12 @@ struct cmd_node {
 #define NEIGHBOR_ADDR_STR  "Neighbor address\nIPv6 address\n"
 #define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor IPv6 address\nInterface name or neighbor tag\n"
 #define NEIGHBOR_ADDR_STR3 "Neighbor address\nIPv6 address\nInterface name\n"
+
+/* Dameons lists */
+#define DAEMONS_STR                                                            \
+	"For the zebra daemon\nFor the rip daemon\nFor the ripng daemon\nFor the ospf daemon\nFor the ospfv6 daemon\nFor the bgp daemon\nFor the isis daemon\nFor the pbr daemon\nFor the fabricd daemon\nFor the pim daemon\nFor the static daemon\nFor the sharpd daemon\nFor the vrrpd daemon\n"
+#define DAEMONS_LIST                                                           \
+	"<zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pbrd|fabricd|pimd|staticd|sharpd|vrrpd>"
 
 /* Prototypes. */
 extern void install_node(struct cmd_node *, int (*)(struct vty *));

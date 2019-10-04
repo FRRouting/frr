@@ -243,7 +243,8 @@ static void test_run(struct prng *prng, struct vty *vty, const char *cmd,
 				       (test_buf[0] != '\0') ? ", " : "",
 				       test_buf);
 
-			if (isspace((int)test_str[strlen(test_str) - 1])) {
+			if (isspace((unsigned char)test_str[
+				    strlen(test_str) - 1])) {
 				vector_set(vline, NULL);
 				appended_null = 1;
 			}

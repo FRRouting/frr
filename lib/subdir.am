@@ -3,7 +3,7 @@
 #
 lib_LTLIBRARIES += lib/libfrr.la
 lib_libfrr_la_LDFLAGS = -version-info 0:0:0 -Xlinker -e_libfrr_version
-lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB)
+lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(LIBM)
 
 lib_libfrr_la_SOURCES = \
 	lib/agg_table.c \
@@ -21,6 +21,7 @@ lib_libfrr_la_SOURCES = \
 	lib/distribute.c \
 	lib/ferr.c \
 	lib/filter.c \
+	lib/frrcu.c \
 	lib/frrlua.c \
 	lib/frr_pthread.c \
 	lib/frrstr.c \
@@ -42,6 +43,7 @@ lib_libfrr_la_SOURCES = \
 	lib/libfrr.c \
 	lib/linklist.c \
 	lib/log.c \
+	lib/log_vty.c \
 	lib/md5.c \
 	lib/memory.c \
 	lib/memory_vty.c \
@@ -56,13 +58,14 @@ lib_libfrr_la_SOURCES = \
 	lib/northbound.c \
 	lib/northbound_cli.c \
 	lib/northbound_db.c \
+	lib/ntop.c \
 	lib/openbsd-tree.c \
 	lib/pid_output.c \
 	lib/plist.c \
-	lib/pqueue.c \
 	lib/prefix.c \
 	lib/privs.c \
 	lib/ptm_lib.c \
+	lib/pullwr.c \
 	lib/qobj.c \
 	lib/ringbuf.c \
 	lib/routemap.c \
@@ -93,7 +96,6 @@ lib_libfrr_la_SOURCES = \
 	lib/yang_translator.c \
 	lib/yang_wrappers.c \
 	lib/zclient.c \
-	lib/logicalrouter.c \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
 	lib/printf/glue.c \
@@ -111,7 +113,6 @@ vtysh_scan += \
 	$(top_srcdir)/lib/if.c \
 	$(top_srcdir)/lib/if_rmap.c \
 	$(top_srcdir)/lib/keychain.c \
-	$(top_srcdir)/lib/logicalrouter.c \
 	$(top_srcdir)/lib/nexthop_group.c \
 	$(top_srcdir)/lib/plist.c \
 	$(top_srcdir)/lib/routemap.c \
@@ -136,6 +137,8 @@ lib/northbound_cli_clippy.c: $(CLIPPY_DEPS)
 lib/northbound_cli.lo: lib/northbound_cli_clippy.c
 lib/vty_clippy.c: $(CLIPPY_DEPS)
 lib/vty.lo: lib/vty_clippy.c
+lib/log_vty_clippy.c: $(CLIPPY_DEPS)
+lib/log_vty.lo: lib/log_vty_clippy.c
 
 pkginclude_HEADERS += \
 	lib/agg_table.h \
@@ -159,11 +162,13 @@ pkginclude_HEADERS += \
 	lib/frrlua.h \
 	lib/frr_pthread.h \
 	lib/frratomic.h \
+	lib/frrcu.h \
 	lib/frrstr.h \
 	lib/getopt.h \
 	lib/graph.h \
 	lib/hash.h \
 	lib/hook.h \
+	lib/iana_afi.h \
 	lib/id_alloc.h \
 	lib/if.h \
 	lib/if_rmap.h \
@@ -177,6 +182,7 @@ pkginclude_HEADERS += \
 	lib/libospf.h \
 	lib/linklist.h \
 	lib/log.h \
+	lib/log_vty.h \
 	lib/md5.h \
 	lib/memory.h \
 	lib/memory_vty.h \
@@ -186,6 +192,7 @@ pkginclude_HEADERS += \
 	lib/network.h \
 	lib/nexthop.h \
 	lib/nexthop_group.h \
+	lib/nexthop_group_private.h \
 	lib/northbound.h \
 	lib/northbound_cli.h \
 	lib/northbound_db.h \
@@ -193,11 +200,11 @@ pkginclude_HEADERS += \
 	lib/openbsd-queue.h \
 	lib/openbsd-tree.h \
 	lib/plist.h \
-	lib/pqueue.h \
 	lib/prefix.h \
 	lib/printfrr.h \
 	lib/privs.h \
 	lib/ptm_lib.h \
+	lib/pullwr.h \
 	lib/pw.h \
 	lib/qobj.h \
 	lib/queue.h \
@@ -234,7 +241,6 @@ pkginclude_HEADERS += \
 	lib/zassert.h \
 	lib/zclient.h \
 	lib/zebra.h \
-	lib/logicalrouter.h \
 	lib/pbr.h \
 	# end
 
@@ -277,6 +283,21 @@ lib_libfrrsnmp_la_SOURCES = \
 	lib/agentx.c \
 	lib/snmp.c \
 	# end
+
+#
+# c-ares support
+#
+if CARES
+lib_LTLIBRARIES += lib/libfrrcares.la
+pkginclude_HEADERS += lib/resolver.h
+endif
+
+lib_libfrrcares_la_CFLAGS = $(WERROR) $(CARES_CFLAGS)
+lib_libfrrcares_la_LDFLAGS = -version-info 0:0:0
+lib_libfrrcares_la_LIBADD = $(CARES_LIBS)
+lib_libfrrcares_la_SOURCES = \
+	lib/resolver.c \
+	#end
 
 #
 # ZeroMQ support
@@ -339,8 +360,10 @@ noinst_PROGRAMS += \
 if BUILD_CLIPPY
 noinst_PROGRAMS += lib/clippy
 else
-$(HOSTTOOLS)lib/clippy:
-	@$(MAKE) -C $(top_builddir)/$(HOSTTOOLS) lib/route_types.h lib/clippy
+if HOSTTOOLS_CLIPPY
+$(CLIPPY):
+	@$(MAKE) -C $(top_builddir)/hosttools lib/route_types.h lib/clippy
+endif
 endif
 
 lib_grammar_sandbox_SOURCES = \
@@ -371,13 +394,11 @@ am__v_CLIPPY_ = $(am__v_CLIPPY_$(AM_DEFAULT_VERBOSITY))
 am__v_CLIPPY_0 = @echo "  CLIPPY  " $@;
 am__v_CLIPPY_1 =
 
-CLIPPY_DEPS = $(HOSTTOOLS)lib/clippy $(top_srcdir)/python/clidef.py
+CLIPPY_DEPS = $(CLIPPY) $(top_srcdir)/python/clidef.py
 
 SUFFIXES = _clippy.c .proto .pb-c.c .pb-c.h .pb.h .pb.cc .grpc.pb.cc
 .c_clippy.c:
-	@{ test -x $(top_builddir)/$(HOSTTOOLS)lib/clippy || \
-		$(MAKE) -C $(top_builddir)/$(HOSTTOOLS) lib/clippy; }
-	$(AM_V_CLIPPY) $(top_builddir)/$(HOSTTOOLS)lib/clippy $(top_srcdir)/python/clidef.py -o $@ $<
+	$(AM_V_CLIPPY) $(CLIPPY) $(top_srcdir)/python/clidef.py -o $@ $<
 
 ## automake's "ylwrap" is a great piece of GNU software... not.
 .l.c:

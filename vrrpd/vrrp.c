@@ -34,12 +34,14 @@
 #include "vrrp.h"
 #include "vrrp_arp.h"
 #include "vrrp_debug.h"
-#include "vrrp_memory.h"
 #include "vrrp_ndisc.h"
 #include "vrrp_packet.h"
 #include "vrrp_zebra.h"
 
 #define VRRP_LOGPFX "[CORE] "
+
+DEFINE_MTYPE_STATIC(VRRPD, VRRP_IP, "VRRP IP address")
+DEFINE_MTYPE_STATIC(VRRPD, VRRP_RTR, "VRRP Router")
 
 /* statics */
 struct hash *vrrp_vrouters_hash;
@@ -194,9 +196,20 @@ static struct vrrp_vrouter *vrrp_lookup_by_if_mvl(struct interface *mvl_ifp)
 {
 	struct interface *p;
 
-	if (!mvl_ifp || !mvl_ifp->link_ifindex
-	    || !vrrp_ifp_has_vrrp_mac(mvl_ifp))
+	if (!mvl_ifp || mvl_ifp->link_ifindex == 0
+	    || !vrrp_ifp_has_vrrp_mac(mvl_ifp)) {
+		if (mvl_ifp && mvl_ifp->link_ifindex == 0)
+			DEBUGD(&vrrp_dbg_zebra,
+			       VRRP_LOGPFX
+			       "Interface %s has no parent ifindex; disregarding",
+			       mvl_ifp->name);
+		if (mvl_ifp && !vrrp_ifp_has_vrrp_mac(mvl_ifp))
+			DEBUGD(&vrrp_dbg_zebra,
+			       VRRP_LOGPFX
+			       "Interface %s has a non-VRRP MAC; disregarding",
+			       mvl_ifp->name);
 		return NULL;
+	}
 
 	p = if_lookup_by_index(mvl_ifp->link_ifindex, VRF_DEFAULT);
 	uint8_t vrid = mvl_ifp->hw_addr[5];
@@ -768,7 +781,7 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 	ssize_t sent = sendto(r->sock_tx, pkt, (size_t)pktsz, 0, &dest.sa,
 			      sockunion_sizeof(&dest));
 
-	XFREE(MTYPE_VRRP_PKT, pkt);
+	vrrp_pkt_free(pkt);
 
 	if (sent < 0) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
@@ -1052,8 +1065,7 @@ static int vrrp_socket(struct vrrp_router *r)
 	int ret;
 	bool failed = false;
 
-	frr_elevate_privs(&vrrp_privs)
-	{
+	frr_with_privs(&vrrp_privs) {
 		r->sock_rx = socket(r->family, SOCK_RAW, IPPROTO_VRRP);
 		r->sock_tx = socket(r->family, SOCK_RAW, IPPROTO_VRRP);
 	}
@@ -1089,8 +1101,7 @@ static int vrrp_socket(struct vrrp_router *r)
 		setsockopt_ipv4_multicast_loop(r->sock_tx, 0);
 
 		/* Bind Rx socket to exact interface */
-		frr_elevate_privs(&vrrp_privs)
-		{
+		frr_with_privs(&vrrp_privs) {
 			ret = setsockopt(r->sock_rx, SOL_SOCKET,
 					 SO_BINDTODEVICE, r->vr->ifp->name,
 					 strlen(r->vr->ifp->name));
@@ -1200,8 +1211,7 @@ static int vrrp_socket(struct vrrp_router *r)
 		setsockopt_ipv6_multicast_loop(r->sock_tx, 0);
 
 		/* Bind Rx socket to exact interface */
-		frr_elevate_privs(&vrrp_privs)
-		{
+		frr_with_privs(&vrrp_privs) {
 			ret = setsockopt(r->sock_rx, SOL_SOCKET,
 					 SO_BINDTODEVICE, r->vr->ifp->name,
 					 strlen(r->vr->ifp->name));
@@ -2026,9 +2036,19 @@ static void vrrp_bind_pending(struct interface *mvl_ifp)
 {
 	struct vrrp_vrouter *vr;
 
+	DEBUGD(&vrrp_dbg_zebra,
+	       VRRP_LOGPFX
+	       "Searching for instances that could use interface %s",
+	       mvl_ifp->name);
+
 	vr = vrrp_lookup_by_if_mvl(mvl_ifp);
 
 	if (vr) {
+		DEBUGD(&vrrp_dbg_zebra,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "<-- This instance can probably use interface %s",
+		       vr->vrid, mvl_ifp->name);
+
 		if (mvl_ifp->hw_addr[4] == 0x01 && !vr->v4->mvl_ifp)
 			vrrp_attach_interface(vr->v4);
 		else if (mvl_ifp->hw_addr[4] == 0x02 && !vr->v6->mvl_ifp)
@@ -2110,9 +2130,13 @@ void vrrp_if_down(struct interface *ifp)
 	struct listnode *ln;
 	struct list *vrs;
 
+	vrrp_bind_pending(ifp);
+
 	vrs = vrrp_lookup_by_if_any(ifp);
 
 	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
+		vrrp_check_start(vr);
+
 		if (vr->ifp == ifp || vr->v4->mvl_ifp == ifp
 		    || vr->v6->mvl_ifp == ifp) {
 			DEBUGD(&vrrp_dbg_auto,

@@ -31,6 +31,7 @@ dev_RSTFILES = \
 	doc/developer/index.rst \
 	doc/developer/library.rst \
 	doc/developer/lists.rst \
+	doc/developer/locking.rst \
 	doc/developer/logging.rst \
 	doc/developer/maintainer-release-build.rst \
 	doc/developer/memtypes.rst \
@@ -42,6 +43,7 @@ dev_RSTFILES = \
 	doc/developer/packaging-debian.rst \
 	doc/developer/packaging-redhat.rst \
 	doc/developer/packaging.rst \
+	doc/developer/rcu.rst \
 	doc/developer/testing.rst \
 	doc/developer/topotests-snippets.rst \
 	doc/developer/topotests.rst \

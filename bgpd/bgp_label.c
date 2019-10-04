@@ -130,10 +130,21 @@ mpls_label_t bgp_adv_label(struct bgp_node *rn, struct bgp_path_info *pi,
 int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 			       bool allocated)
 {
-	struct bgp_path_info *pi = (struct bgp_path_info *)labelid;
-	struct bgp_node *rn = (struct bgp_node *)pi->net;
+	struct bgp_path_info *pi;
+	struct bgp_node *rn;
 	char addr[PREFIX_STRLEN];
 
+	pi = labelid;
+	/* Is this path still valid? */
+	if (!bgp_path_info_unlock(pi)) {
+		if (BGP_DEBUG(labelpool, LABELPOOL))
+			zlog_debug(
+				"%s: bgp_path_info is no longer valid, ignoring",
+				__func__);
+		return -1;
+	}
+
+	rn = pi->net;
 	prefix2str(&rn->p, addr, PREFIX_STRLEN);
 
 	if (BGP_DEBUG(labelpool, LABELPOOL))

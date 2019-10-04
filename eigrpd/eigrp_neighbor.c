@@ -194,13 +194,12 @@ void eigrp_nbr_delete(struct eigrp_neighbor *nbr)
 
 int holddown_timer_expired(struct thread *thread)
 {
-	struct eigrp_neighbor *nbr;
-
-	nbr = THREAD_ARG(thread);
+	struct eigrp_neighbor *nbr = THREAD_ARG(thread);
+	struct eigrp *eigrp = nbr->ei->eigrp;
 
 	zlog_info("Neighbor %s (%s) is down: holding time expired",
 		  inet_ntoa(nbr->src),
-		  ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
+		  ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 	nbr->state = EIGRP_NEIGHBOR_DOWN;
 	eigrp_nbr_delete(nbr);
 
@@ -297,18 +296,12 @@ void eigrp_nbr_state_update(struct eigrp_neighbor *nbr)
 	}
 }
 
-int eigrp_nbr_count_get(void)
+int eigrp_nbr_count_get(struct eigrp *eigrp)
 {
 	struct eigrp_interface *iface;
 	struct listnode *node, *node2, *nnode2;
 	struct eigrp_neighbor *nbr;
-	struct eigrp *eigrp = eigrp_lookup();
 	uint32_t counter;
-
-	if (eigrp == NULL) {
-		zlog_debug("EIGRP Routing Process not enabled");
-		return 0;
-	}
 
 	counter = 0;
 	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, iface)) {
@@ -335,20 +328,16 @@ int eigrp_nbr_count_get(void)
  */
 void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty)
 {
-	if (nbr == NULL) {
-		flog_err(EC_EIGRP_CONFIG,
-			 "Nbr Hard restart: Neighbor not specified.");
-		return;
-	}
+	struct eigrp *eigrp = nbr->ei->eigrp;
 
 	zlog_debug("Neighbor %s (%s) is down: manually cleared",
 		   inet_ntoa(nbr->src),
-		   ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
+		   ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 	if (vty != NULL) {
 		vty_time_print(vty, 0);
 		vty_out(vty, "Neighbor %s (%s) is down: manually cleared\n",
 			inet_ntoa(nbr->src),
-			ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
+			ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 	}
 
 	/* send Hello with Peer Termination TLV */

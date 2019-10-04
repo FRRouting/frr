@@ -285,7 +285,6 @@ extern void ospf_if_update_params(struct interface *, struct in_addr);
 
 extern int ospf_if_new_hook(struct interface *);
 extern void ospf_if_init(void);
-extern void ospf_if_stream_set(struct ospf_interface *);
 extern void ospf_if_stream_unset(struct ospf_interface *);
 extern void ospf_if_reset_variables(struct ospf_interface *);
 extern int ospf_if_is_enable(struct ospf_interface *);
@@ -322,7 +321,12 @@ extern int ospf_interface_neighbor_count(struct ospf_interface *oi);
    state of the interface. */
 extern void ospf_if_set_multicast(struct ospf_interface *);
 
+extern void ospf_if_interface(struct interface *ifp);
+
 DECLARE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd))
 DECLARE_HOOK(ospf_vl_delete, (struct ospf_vl_data * vd), (vd))
+
+DECLARE_HOOK(ospf_if_update, (struct interface * ifp), (ifp))
+DECLARE_HOOK(ospf_if_delete, (struct interface * ifp), (ifp))
 
 #endif /* _ZEBRA_OSPF_INTERFACE_H */

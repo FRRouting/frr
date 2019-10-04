@@ -27,6 +27,7 @@
 
 static int errors;
 
+static void printcmp(const char *fmt, ...) PRINTFRR(1, 2);
 static void printcmp(const char *fmt, ...)
 {
 	va_list ap;
@@ -58,6 +59,7 @@ static void printcmp(const char *fmt, ...)
 		errors++;
 }
 
+static void printchk(const char *ref, const char *fmt, ...) PRINTFRR(2, 3);
 static void printchk(const char *ref, const char *fmt, ...)
 {
 	va_list ap;

@@ -195,7 +195,7 @@ Example of ospf6d configured on one interface and area:
     ipv6 ospf6 instance-id 0
    !
    router ospf6
-    router-id 212.17.55.53
+    ospf6 router-id 212.17.55.53
     area 0.0.0.0 range 2001:770:105:2::/64
     interface eth0 area 0.0.0.0
    !

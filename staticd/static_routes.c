@@ -39,7 +39,7 @@ static void static_install_route(struct route_node *rn,
 	struct static_route *si;
 
 	for (si = rn->info; si; si = si->next)
-		static_zebra_nht_register(si, true);
+		static_zebra_nht_register(rn, si, true);
 
 	si = rn->info;
 	if (si)
@@ -73,6 +73,7 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	struct static_route *cp;
 	struct static_route *update = NULL;
 	struct route_table *stable = svrf->stable[afi][safi];
+	struct interface *ifp;
 
 	if (!stable)
 		return -1;
@@ -99,7 +100,8 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 			     && IPV4_ADDR_SAME(&gate->ipv4, &si->addr.ipv4))
 			    || (afi == AFI_IP6
 				&& IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
-		    && (!strcmp(ifname ? ifname : "", si->ifname))) {
+		    && (!strcmp(ifname ? ifname : "", si->ifname))
+		    && nh_svrf->vrf->vrf_id == si->nh_vrf_id) {
 			if ((distance == si->distance) && (tag == si->tag)
 			    && (table_id == si->table_id)
 			    && !memcmp(&si->snh_label, snh_label,
@@ -182,11 +184,26 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	si->next = cp;
 
 	/* check whether interface exists in system & install if it does */
-	if (!ifname)
-		static_install_route(rn, si, safi);
-	else {
-		struct interface *ifp;
+	switch (si->type) {
+	case STATIC_IPV4_GATEWAY:
+	case STATIC_IPV6_GATEWAY:
+		static_zebra_nht_register(rn, si, true);
+		break;
+	case STATIC_IPV4_GATEWAY_IFNAME:
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		ifp =  if_lookup_by_name(ifname, nh_svrf->vrf->vrf_id);
+		if (ifp && ifp->ifindex != IFINDEX_INTERNAL)
+			si->ifindex = ifp->ifindex;
+		else
+			zlog_warn("Static Route using %s interface not installed because the interface does not exist in specified vrf",
+				  ifname);
 
+		static_zebra_nht_register(rn, si, true);
+		break;
+	case STATIC_BLACKHOLE:
+		static_install_route(rn, si, safi);
+		break;
+	case STATIC_IFNAME:
 		ifp = if_lookup_by_name(ifname, nh_svrf->vrf->vrf_id);
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL) {
 			si->ifindex = ifp->ifindex;
@@ -194,6 +211,8 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 		} else
 			zlog_warn("Static Route using %s interface not installed because the interface does not exist in specified vrf",
 				  ifname);
+
+		break;
 	}
 
 	return 1;
@@ -242,7 +261,7 @@ int static_delete_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 		return 0;
 	}
 
-	static_zebra_nht_register(si, false);
+	static_zebra_nht_register(rn, si, false);
 
 	/* Unlink static route from linked list. */
 	if (si->prev)

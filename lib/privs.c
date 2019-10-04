@@ -24,6 +24,7 @@
 #include "log.h"
 #include "privs.h"
 #include "memory.h"
+#include "frr_pthread.h"
 #include "lib_errors.h"
 #include "lib/queue.h"
 
@@ -760,8 +761,7 @@ struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
 	 * Serialize 'raise' operations; particularly important for
 	 * OSes where privs are process-wide.
 	 */
-	pthread_mutex_lock(&(privs->mutex));
-	{
+	frr_with_mutex(&(privs->mutex)) {
 		/* Locate ref-counting object to use */
 		refs = get_privs_refs(privs);
 
@@ -775,7 +775,6 @@ struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
 			refs->raised_in_funcname = funcname;
 		}
 	}
-	pthread_mutex_unlock(&(privs->mutex));
 
 	return privs;
 }
@@ -791,8 +790,7 @@ void _zprivs_lower(struct zebra_privs_t **privs)
 	/* Serialize 'lower privs' operation - particularly important
 	 * when OS privs are process-wide.
 	 */
-	pthread_mutex_lock(&(*privs)->mutex);
-	{
+	frr_with_mutex(&(*privs)->mutex) {
 		refs = get_privs_refs(*privs);
 
 		if (--(refs->refcount) == 0) {
@@ -806,7 +804,6 @@ void _zprivs_lower(struct zebra_privs_t **privs)
 			refs->raised_in_funcname = NULL;
 		}
 	}
-	pthread_mutex_unlock(&(*privs)->mutex);
 
 	*privs = NULL;
 }

@@ -28,7 +28,8 @@
 
 static void __attribute__((noreturn)) usage(int status)
 {
-	fprintf(stderr, "usage: gen_northbound_callbacks [-h] MODULE\n");
+	extern const char *__progname;
+	fprintf(stderr, "usage: %s [-h] [-p path] MODULE\n", __progname);
 	exit(status);
 }
 
@@ -152,6 +153,36 @@ static void generate_callback_name(struct lys_node *snode,
 	replace_hyphens_by_underscores(buffer);
 }
 
+static void generate_callback(const struct nb_callback_info *ncinfo,
+			      const char *cb_name)
+{
+	printf("static %s%s(%s)\n{\n",
+	       ncinfo->return_type, cb_name, ncinfo->arguments);
+
+	switch (ncinfo->operation) {
+	case NB_OP_CREATE:
+	case NB_OP_MODIFY:
+	case NB_OP_DESTROY:
+	case NB_OP_MOVE:
+		printf("\tswitch (event) {\n"
+		       "\tcase NB_EV_VALIDATE:\n"
+		       "\tcase NB_EV_PREPARE:\n"
+		       "\tcase NB_EV_ABORT:\n"
+		       "\tcase NB_EV_APPLY:\n"
+		       "\t\t/* TODO: implement me. */\n"
+		       "\t\tbreak;\n"
+		       "\t}\n\n"
+		       );
+		break;
+
+	default:
+		printf("\t/* TODO: implement me. */\n");
+		break;
+	}
+
+	printf("\treturn %s;\n}\n\n", ncinfo->return_value);
+}
+
 static int generate_callbacks(const struct lys_node *snode, void *arg)
 {
 	bool first = true;
@@ -191,14 +222,7 @@ static int generate_callbacks(const struct lys_node *snode, void *arg)
 
 		generate_callback_name((struct lys_node *)snode, cb->operation,
 				       cb_name, sizeof(cb_name));
-		printf("static %s%s(%s)\n"
-		       "{\n"
-		       "\t/* TODO: implement me. */\n"
-		       "\treturn %s;\n"
-		       "}\n\n",
-		       nb_callbacks[cb->operation].return_type, cb_name,
-		       nb_callbacks[cb->operation].arguments,
-		       nb_callbacks[cb->operation].return_value);
+		generate_callback(cb, cb_name);
 	}
 
 	return YANG_ITER_CONTINUE;
@@ -237,32 +261,52 @@ static int generate_nb_nodes(const struct lys_node *snode, void *arg)
 			printf("\t\t{\n"
 			       "\t\t\t.xpath = \"%s\",\n",
 			       xpath);
+			printf("\t\t\t.cbs = {\n");
 			first = false;
 		}
 
 		generate_callback_name((struct lys_node *)snode, cb->operation,
 				       cb_name, sizeof(cb_name));
-		printf("\t\t\t.cbs.%s = %s,\n",
-		       nb_operation_name(cb->operation), cb_name);
+		printf("\t\t\t\t.%s = %s,\n", nb_operation_name(cb->operation),
+		       cb_name);
 	}
 
-	if (!first)
+	if (!first) {
+		printf("\t\t\t}\n");
 		printf("\t\t},\n");
+	}
 
 	return YANG_ITER_CONTINUE;
 }
 
 int main(int argc, char *argv[])
 {
+	const char *search_path = NULL;
 	struct yang_module *module;
 	char module_name_underscores[64];
+	struct stat st;
 	int opt;
 
-	while ((opt = getopt(argc, argv, "h")) != -1) {
+	while ((opt = getopt(argc, argv, "hp:")) != -1) {
 		switch (opt) {
 		case 'h':
 			usage(EXIT_SUCCESS);
 			/* NOTREACHED */
+		case 'p':
+			if (stat(optarg, &st) == -1) {
+				fprintf(stderr,
+				    "error: invalid search path '%s': %s\n",
+				    optarg, strerror(errno));
+				exit(EXIT_FAILURE);
+			}
+			if (S_ISDIR(st.st_mode) == 0) {
+				fprintf(stderr,
+				    "error: search path is not directory");
+				exit(EXIT_FAILURE);
+			}
+
+			search_path = optarg;
+			break;
 		default:
 			usage(EXIT_FAILURE);
 			/* NOTREACHED */
@@ -274,6 +318,9 @@ int main(int argc, char *argv[])
 		usage(EXIT_FAILURE);
 
 	yang_init();
+
+	if (search_path)
+		ly_ctx_set_searchdir(ly_native_ctx, search_path);
 
 	/* Load all FRR native models to ensure all augmentations are loaded. */
 	yang_module_load_all();

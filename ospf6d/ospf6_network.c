@@ -85,7 +85,7 @@ void ospf6_serv_close(void)
 /* Make ospf6d's server socket. */
 int ospf6_serv_sock(void)
 {
-	frr_elevate_privs(&ospf6d_privs) {
+	frr_with_privs(&ospf6d_privs) {
 
 		ospf6_sock = socket(AF_INET6, SOCK_RAW, IPPROTO_OSPFIGP);
 		if (ospf6_sock < 0) {

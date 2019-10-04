@@ -206,6 +206,9 @@ struct attr {
 
 	/* EVPN local router-mac */
 	struct ethaddr rmac;
+
+	/* Distance as applied by Route map */
+	uint8_t distance;
 };
 
 /* rmap_change_flags definition */
@@ -272,8 +275,9 @@ extern struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 					      struct community *community,
 					      struct ecommunity *ecommunity,
 					      struct lcommunity *lcommunity,
-					      int as_set,
-					      uint8_t atomic_aggregate);
+					      struct bgp_aggregate *aggregate,
+					      uint8_t atomic_aggregate,
+					      struct prefix *p);
 extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *,
 				       struct stream *, struct attr *,
 				       struct bpacket_attr_vec_arr *vecarr,

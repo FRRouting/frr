@@ -31,7 +31,6 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(IF)
 DECLARE_MTYPE(CONNECTED_LABEL)
 
 /* Interface link-layer type, if known. Derived from:
@@ -294,6 +293,12 @@ struct interface {
 	struct route_node *node;
 	vrf_id_t vrf_id;
 
+	/*
+	 * Has the end users entered `interface XXXX` from the cli in some
+	 * fashion?
+	 */
+	bool configured;
+
 	QOBJ_FIELDS
 };
 
@@ -384,16 +389,12 @@ struct connected {
 	/* N.B. the ZEBRA_IFA_PEER flag should be set if and only if
 	   a peer address has been configured.  If this flag is set,
 	   the destination field must contain the peer address.
-	   Otherwise, if this flag is not set, the destination address
-	   will either contain a broadcast address or be NULL.
 	 */
 
 	/* Address of connected network. */
 	struct prefix *address;
 
-	/* Peer or Broadcast address, depending on whether ZEBRA_IFA_PEER is
-	   set.
-	   Note: destination may be NULL if ZEBRA_IFA_PEER is not set. */
+	/* Peer address, if ZEBRA_IFA_PEER is set, otherwise NULL */
 	struct prefix *destination;
 
 	/* Label for Linux 2.2.X and upper. */
@@ -479,7 +480,9 @@ extern int if_cmp_name_func(const char *p1, const char *p2);
  */
 extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
 extern struct interface *if_create(const char *name, vrf_id_t vrf_id);
+extern struct interface *if_create_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_index_all_vrf(ifindex_t);
 extern struct interface *if_lookup_exact_address(void *matchaddr, int family,
 						 vrf_id_t vrf_id);
 extern struct connected *if_lookup_address(void *matchaddr, int family,
@@ -494,6 +497,7 @@ size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
 extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
+extern struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
 extern void if_set_index(struct interface *ifp, ifindex_t ifindex);
 
 /* Delete the interface, but do not free the structure, and leave it in the
@@ -554,6 +558,16 @@ void if_link_params_free(struct interface *);
 
 /* Northbound. */
 extern void if_cmd_init(void);
+extern void if_zapi_callbacks(int (*create)(struct interface *ifp),
+			      int (*up)(struct interface *ifp),
+			      int (*down)(struct interface *ifp),
+			      int (*destroy)(struct interface *ifp));
+
+extern void if_new_via_zapi(struct interface *ifp);
+extern void if_up_via_zapi(struct interface *ifp);
+extern void if_down_via_zapi(struct interface *ifp);
+extern void if_destroy_via_zapi(struct interface *ifp);
+
 extern const struct frr_yang_module_info frr_interface_info;
 
 #ifdef __cplusplus

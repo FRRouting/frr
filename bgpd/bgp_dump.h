@@ -51,7 +51,6 @@
 
 extern void bgp_dump_init(void);
 extern void bgp_dump_finish(void);
-extern void bgp_dump_state(struct peer *, int, int);
-extern void bgp_dump_packet(struct peer *, int, struct stream *);
+extern int bgp_dump_state(struct peer *);
 
 #endif /* _QUAGGA_BGP_DUMP_H */

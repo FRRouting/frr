@@ -505,7 +505,9 @@ static void unmap_vni_from_rt(struct bgp *bgp, struct bgpevpn *vpn,
 static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl)
 {
 	struct ecommunity_val eval;
-	struct ecommunity *ecomadd;
+	struct ecommunity *ecomadd, *ecom;
+	bool ecom_found = false;
+	struct listnode *node;
 
 	if (bgp->advertise_autort_rfc8365)
 		vni |= EVPN_AUTORT_VXLAN;
@@ -513,7 +515,12 @@ static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl)
 
 	ecomadd = ecommunity_new();
 	ecommunity_add_val(ecomadd, &eval);
-	listnode_add_sort(rtl, ecomadd);
+	for (ALL_LIST_ELEMENTS_RO(rtl, node, ecom))
+		if (ecommunity_cmp(ecomadd, ecom))
+			ecom_found = true;
+
+	if (!ecom_found)
+		listnode_add_sort(rtl, ecomadd);
 }
 
 /*
@@ -4411,7 +4418,7 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 
 				/* apply the route-map */
 				if (bgp_vrf->adv_cmd_rmap[afi][safi].map) {
-					int ret = 0;
+					route_map_result_t ret;
 
 					ret = route_map_apply(
 						bgp_vrf->adv_cmd_rmap[afi][safi]
@@ -4459,7 +4466,8 @@ void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
 					  struct ecommunity *ecomadd)
 {
 	/* uninstall routes from vrf */
-	uninstall_routes_for_vrf(bgp_vrf);
+	if (is_l3vni_live(bgp_vrf))
+		uninstall_routes_for_vrf(bgp_vrf);
 
 	/* Cleanup the RT to VRF mapping */
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
@@ -4471,11 +4479,11 @@ void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
 	listnode_add_sort(bgp_vrf->vrf_import_rtl, ecomadd);
 	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD);
 
-	/* map VRF to its RTs */
-	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
-
-	/* install routes matching the new VRF */
-	install_routes_for_vrf(bgp_vrf);
+	/* map VRF to its RTs and install routes matching the new RTs */
+	if (is_l3vni_live(bgp_vrf)) {
+		bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
+		install_routes_for_vrf(bgp_vrf);
+	}
 }
 
 void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
@@ -4485,7 +4493,8 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 	struct ecommunity *ecom = NULL;
 
 	/* uninstall routes from vrf */
-	uninstall_routes_for_vrf(bgp_vrf);
+	if (is_l3vni_live(bgp_vrf))
+		uninstall_routes_for_vrf(bgp_vrf);
 
 	/* Cleanup the RT to VRF mapping */
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
@@ -4509,11 +4518,11 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 		evpn_auto_rt_import_add_for_vrf(bgp_vrf);
 	}
 
-	/* map VRFs to its RTs */
-	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
-
-	/* install routes matching this new RT */
-	install_routes_for_vrf(bgp_vrf);
+	/* map VRFs to its RTs and install routes matching this new RT */
+	if (is_l3vni_live(bgp_vrf)) {
+		bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
+		install_routes_for_vrf(bgp_vrf);
+	}
 }
 
 void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
@@ -5533,10 +5542,6 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *rmac,
 			      vrf_id == VRF_DEFAULT ? BGP_INSTANCE_TYPE_DEFAULT
 						    : BGP_INSTANCE_TYPE_VRF);
 		switch (ret) {
-		case BGP_ERR_MULTIPLE_INSTANCE_NOT_SET:
-			flog_err(EC_BGP_MULTI_INSTANCE,
-				 "'bgp multiple-instance' not present\n");
-			return -1;
 		case BGP_ERR_AS_MISMATCH:
 			flog_err(EC_BGP_EVPN_AS_MISMATCH,
 				 "BGP is already running; AS is %u\n", as);
@@ -5662,6 +5667,8 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	/* If any L2VNIs point to this instance, unlink them. */
 	for (ALL_LIST_ELEMENTS(bgp_vrf->l2vnis, node, next, vpn))
 		bgpevpn_unlink_from_l3vni(vpn);
+
+	UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY);
 
 	/* Delete the instance if it was autocreated */
 	if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_AUTO))
@@ -5804,6 +5811,9 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	/* If we are advertising gateway mac-ip
 	   It needs to be conveyed again to zebra */
 	bgp_zebra_advertise_gw_macip(bgp, vpn->advertise_gw_macip, vpn->vni);
+
+	/* advertise svi mac-ip knob to zebra */
+	bgp_zebra_advertise_svi_macip(bgp, vpn->advertise_svi_macip, vpn->vni);
 
 	return 0;
 }

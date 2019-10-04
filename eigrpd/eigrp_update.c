@@ -211,7 +211,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 		zlog_debug(
 			"Processing Update size[%u] int(%s) nbr(%s) seq [%u] flags [%0x]",
 			size,
-			ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT),
+			ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id),
 			inet_ntoa(nbr->src), nbr->recv_sequence_number, flags);
 
 
@@ -221,7 +221,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 		zlog_info("Neighbor %s (%s) is resync: peer graceful-restart",
 			  inet_ntoa(nbr->src),
-			  ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
+			  ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 
 		/* get all prefixes from neighbor from topology table */
 		nbr_prefixes = eigrp_neighbor_prefixes_lookup(eigrp, nbr);
@@ -233,7 +233,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 		zlog_info("Neighbor %s (%s) is resync: peer graceful-restart",
 			  inet_ntoa(nbr->src),
-			  ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
+			  ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 
 		/* get all prefixes from neighbor from topology table */
 		nbr_prefixes = eigrp_neighbor_prefixes_lookup(eigrp, nbr);
@@ -282,12 +282,12 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 			zlog_info("Neighbor %s (%s) is down: peer restarted",
 				  inet_ntoa(nbr->src),
 				  ifindex2ifname(nbr->ei->ifp->ifindex,
-						 VRF_DEFAULT));
+						 eigrp->vrf_id));
 			eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_PENDING);
 			zlog_info("Neighbor %s (%s) is pending: new adjacency",
 				  inet_ntoa(nbr->src),
 				  ifindex2ifname(nbr->ei->ifp->ifindex,
-						 VRF_DEFAULT));
+						 eigrp->vrf_id));
 			eigrp_update_send_init(nbr);
 		}
 	}
@@ -366,11 +366,11 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 				eigrp_prefix_entry_add(eigrp->topology_table,
 						       pe);
-				eigrp_nexthop_entry_add(pe, ne);
+				eigrp_nexthop_entry_add(eigrp, pe, ne);
 				pe->distance = pe->fdistance = pe->rdistance =
 					ne->distance;
 				pe->reported_metric = ne->total_metric;
-				eigrp_topology_update_node_flags(pe);
+				eigrp_topology_update_node_flags(eigrp, pe);
 
 				pe->req_action |= EIGRP_FSM_NEED_UPDATE;
 				listnode_add(
@@ -965,19 +965,20 @@ void eigrp_update_send_GR(struct eigrp_neighbor *nbr, enum GR_type gr_type,
 		zlog_info(
 			"Neighbor %s (%s) is resync: route configuration changed",
 			inet_ntoa(nbr->src),
-			ifindex2ifname(ei->ifp->ifindex, VRF_DEFAULT));
+			ifindex2ifname(ei->ifp->ifindex, eigrp->vrf_id));
 	} else if (gr_type == EIGRP_GR_MANUAL) {
 		/* Graceful restart was called manually */
 		zlog_info("Neighbor %s (%s) is resync: manually cleared",
 			  inet_ntoa(nbr->src),
-			  ifindex2ifname(ei->ifp->ifindex, VRF_DEFAULT));
+			  ifindex2ifname(ei->ifp->ifindex, eigrp->vrf_id));
 
 		if (vty != NULL) {
 			vty_time_print(vty, 0);
 			vty_out(vty,
 				"Neighbor %s (%s) is resync: manually cleared\n",
 				inet_ntoa(nbr->src),
-				ifindex2ifname(ei->ifp->ifindex, VRF_DEFAULT));
+				ifindex2ifname(ei->ifp->ifindex,
+					       eigrp->vrf_id));
 		}
 	}
 

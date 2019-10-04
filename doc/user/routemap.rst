@@ -85,6 +85,23 @@ deny
 cont
    goto next route-map entry
 
+.. _route-map-show-command:
+
+.. index:: show route-map [WORD]
+.. clicmd:: show route-map [WORD]
+
+   Display data about each daemons knowledge of individual route-maps.
+   If WORD is supplied narrow choice to that particular route-map.
+
+.. _route-map-clear-counter-command:
+
+.. index:: clear route-map counter [WORD]
+.. clicmd:: clear route-map counter [WORD]
+
+   Clear counters that are being stored about the route-map utilization
+   so that subsuquent show commands will indicate since the last clear.
+   If WORD is specified clear just that particular route-map's counters.
+
 .. _route-map-command:
 
 Route Map Command
@@ -136,8 +153,8 @@ Route Map Match Command
 
    Matches the specified `ipv4_addr`.
 
-.. index:: match aspath AS_PATH
-.. clicmd:: match aspath AS_PATH
+.. index:: match as-path AS_PATH
+.. clicmd:: match as-path AS_PATH
 
    Matches the specified `as_path`.
 
@@ -253,6 +270,12 @@ Route Map Set Command
 
    Set the BGP local preference to `local_pref`.
 
+.. index:: [no] set distance DISTANCE
+.. clicmd:: [no] set distance DISTANCE
+
+   Set the Administrative distance to DISTANCE to use for the route.
+   This is only locally significant and will not be dispersed to peers.
+
 .. index:: set weight WEIGHT
 .. clicmd:: set weight WEIGHT
 
@@ -314,6 +337,7 @@ Route Map Exit Action Command
 .. clicmd:: continue N
 
    Proceed processing the route-map at the first entry whose order is >= N
+
 
 Route Map Examples
 ==================

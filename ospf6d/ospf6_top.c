@@ -136,7 +136,7 @@ static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
 	ospf6_abr_originate_summary(route);
 }
 
-static struct ospf6 *ospf6_create(void)
+static struct ospf6 *ospf6_create(vrf_id_t vrf_id)
 {
 	struct ospf6 *o;
 
@@ -144,6 +144,7 @@ static struct ospf6 *ospf6_create(void)
 
 	/* initialize */
 	monotime(&o->starttime);
+	o->vrf_id = vrf_id;
 	o->area_list = list_new();
 	o->area_list->cmp = ospf6_area_cmp;
 	o->lsdb = ospf6_lsdb_create(o);
@@ -325,7 +326,7 @@ DEFUN_NOSH (router_ospf6,
        OSPF6_STR)
 {
 	if (ospf6 == NULL) {
-		ospf6 = ospf6_create();
+		ospf6 = ospf6_create(VRF_DEFAULT);
 		if (ospf6->router_id == 0)
 			ospf6_router_id_update();
 	}

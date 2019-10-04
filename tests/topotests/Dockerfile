@@ -19,6 +19,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         libpython-dev \
         libreadline-dev \
         libc-ares-dev \
+        libcap-dev \
         man \
         mininet \
         pkg-config \
@@ -40,12 +41,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         pytest
 
 RUN cd /tmp \
-    && wget -q https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-1/Ubuntu-18.04-x86_64-Packages/libyang-dev_0.16.46_amd64.deb \
+    && wget -q https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-10/Debian-AMD64-Packages/libyang-dev_0.16.105-1_amd64.deb \
          -O libyang-dev.deb \
-    && wget -q https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-1/Ubuntu-18.04-x86_64-Packages/libyang_0.16.46_amd64.deb \
+    && wget -q https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-10/Debian-AMD64-Packages/libyang0.16_0.16.105-1_amd64.deb \
          -O libyang.deb \
-    && echo "039252cc66eb254a97e160b1c325af669470cde8a02d73ec9f7b920ed3c7997c  libyang.deb" | sha256sum -c - \
-    && echo "e7e2d5bfc7b33b3218df8bef404432970f9b4ad10d6dbbdcb0e0be2babbb68e9  libyang-dev.deb" | sha256sum -c - \
+    && echo "34bef017e527a590020185f05dc39203bdf1c86223e0d990839623ec629d8598  libyang.deb" | sha256sum -c - \
+    && echo "fe9cc6e3b173ca56ef49428c281e96bf76c0f910aa75cf85098076411484e8f4  libyang-dev.deb" | sha256sum -c - \
     && dpkg -i libyang*.deb \
     && rm libyang*.deb
 

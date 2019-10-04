@@ -1379,6 +1379,7 @@ int main(void)
 
 	i = 0;
 
+	frr_pthread_init();
 	bgp_pthreads_init();
 	bgp_pth_ka->running = true;
 

@@ -543,7 +543,8 @@ struct kroute {
 	uint32_t		 local_label;
 	uint32_t		 remote_label;
 	unsigned short		 ifindex;
-	uint8_t			 priority;
+	uint8_t			 route_type;
+	uint8_t			 route_instance;
 	uint16_t		 flags;
 };
 

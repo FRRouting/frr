@@ -316,7 +316,7 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 		pbrms->ruleno = pbr_nht_get_next_rule(seqno);
 		pbrms->parent = pbrm;
 		pbrms->reason =
-			PBR_MAP_INVALID_SRCDST |
+			PBR_MAP_INVALID_EMPTY |
 			PBR_MAP_INVALID_NO_NEXTHOPS;
 
 		QOBJ_REG(pbrms, pbr_map_sequence);
@@ -350,10 +350,10 @@ pbr_map_sequence_check_nexthops_valid(struct pbr_map_sequence *pbrms)
 	}
 }
 
-static void pbr_map_sequence_check_src_dst_valid(struct pbr_map_sequence *pbrms)
+static void pbr_map_sequence_check_not_empty(struct pbr_map_sequence *pbrms)
 {
-	if (!pbrms->src && !pbrms->dst)
-		pbrms->reason |= PBR_MAP_INVALID_SRCDST;
+	if (!pbrms->src && !pbrms->dst && !pbrms->mark)
+		pbrms->reason |= PBR_MAP_INVALID_EMPTY;
 }
 
 /*
@@ -364,7 +364,7 @@ static void pbr_map_sequence_check_valid(struct pbr_map_sequence *pbrms)
 {
 	pbr_map_sequence_check_nexthops_valid(pbrms);
 
-	pbr_map_sequence_check_src_dst_valid(pbrms);
+	pbr_map_sequence_check_not_empty(pbrms);
 }
 
 static bool pbr_map_check_valid_internal(struct pbr_map *pbrm)

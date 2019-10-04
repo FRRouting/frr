@@ -289,11 +289,7 @@ static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 	struct cdb_iter_args iter_args;
 	int ret;
 
-	pthread_rwlock_rdlock(&running_config->lock);
-	{
-		candidate = nb_config_dup(running_config);
-	}
-	pthread_rwlock_unlock(&running_config->lock);
+	candidate = nb_config_dup(running_config);
 
 	/* Iterate over all configuration changes. */
 	iter_args.candidate = candidate;

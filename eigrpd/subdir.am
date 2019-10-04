@@ -7,6 +7,7 @@ noinst_LIBRARIES += eigrpd/libeigrp.a
 sbin_PROGRAMS += eigrpd/eigrpd
 dist_examples_DATA += eigrpd/eigrpd.conf.sample
 vtysh_scan += \
+	$(top_srcdir)/eigrpd/eigrp_cli.c \
 	$(top_srcdir)/eigrpd/eigrp_dump.c \
 	$(top_srcdir)/eigrpd/eigrp_vty.c \
 	# end
@@ -15,6 +16,7 @@ man8 += $(MANBUILD)/eigrpd.8
 endif
 
 eigrpd_libeigrp_a_SOURCES = \
+	eigrpd/eigrp_cli.c \
 	eigrpd/eigrp_dump.c \
 	eigrpd/eigrp_errors.c \
 	eigrpd/eigrp_filter.c \
@@ -24,6 +26,7 @@ eigrpd_libeigrp_a_SOURCES = \
 	eigrpd/eigrp_memory.c \
 	eigrpd/eigrp_neighbor.c \
 	eigrpd/eigrp_network.c \
+	eigrpd/eigrp_northbound.c \
 	eigrpd/eigrp_packet.c \
 	eigrpd/eigrp_query.c \
 	eigrpd/eigrp_reply.c \
@@ -32,6 +35,7 @@ eigrpd_libeigrp_a_SOURCES = \
 	eigrpd/eigrp_snmp.c \
 	eigrpd/eigrp_topology.c \
 	eigrpd/eigrp_update.c \
+	eigrpd/eigrp_vrf.c \
 	eigrpd/eigrp_vty.c \
 	eigrpd/eigrp_zebra.c \
 	eigrpd/eigrpd.c \
@@ -47,6 +51,9 @@ eigrpdheader_HEADERS = \
 eigrpd/eigrp_vty_clippy.c: $(CLIPPY_DEPS)
 eigrpd/eigrp_vty.$(OBJEXT): eigrpd/eigrp_vty_clippy.c
 
+eigrpd/eigrp_cli_clippy.c: $(CLIPPY_DEPS)
+eigrpd/eigrp_cli.$(OBJEXT): eigrpd/eigrp_cli_clippy.c
+
 noinst_HEADERS += \
 	eigrpd/eigrp_const.h \
 	eigrpd/eigrp_errors.h \
@@ -60,8 +67,13 @@ noinst_HEADERS += \
 	eigrpd/eigrp_packet.h \
 	eigrpd/eigrp_snmp.h \
 	eigrpd/eigrp_structs.h \
+	eigrpd/eigrp_vrf.h \
 	eigrpd/eigrp_vty.h \
 	eigrpd/eigrp_zebra.h \
+	# end
+
+nodist_eigrpd_eigrpd_SOURCES = \
+	yang/frr-eigrpd.yang.c \
 	# end
 
 eigrpd_eigrpd_SOURCES = eigrpd/eigrp_main.c

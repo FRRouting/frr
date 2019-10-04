@@ -7,6 +7,7 @@ user_RSTFILES = \
 	doc/user/ldpd.rst \
 	doc/user/basic.rst \
 	doc/user/bgp.rst \
+	doc/user/bmp.rst \
 	doc/user/bugs.rst \
 	doc/user/conf.py \
 	doc/user/eigrpd.rst \
@@ -42,6 +43,7 @@ user_RSTFILES = \
 	doc/user/zebra.rst \
 	doc/user/bfd.rst \
 	doc/user/flowspec.rst \
+	doc/user/watchfrr.rst \
 	# end
 
 EXTRA_DIST += \

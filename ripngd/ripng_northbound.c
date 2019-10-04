@@ -105,12 +105,12 @@ static int ripngd_instance_destroy(enum nb_event event,
 static const void *ripngd_instance_get_next(const void *parent_list_entry,
 					    const void *list_entry)
 {
-	const struct ripng *ripng = list_entry;
+	struct ripng *ripng = (struct ripng *)list_entry;
 
 	if (list_entry == NULL)
 		ripng = RB_MIN(ripng_instance_head, &ripng_instances);
 	else
-		ripng = RB_NEXT(ripng_instance_head, (struct ripng *)ripng);
+		ripng = RB_NEXT(ripng_instance_head, ripng);
 
 	return ripng;
 }
@@ -1012,158 +1012,220 @@ const struct frr_yang_module_info frr_ripngd_info = {
 	.nodes = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance",
-			.cbs.create = ripngd_instance_create,
-			.cbs.destroy = ripngd_instance_destroy,
-			.cbs.get_next = ripngd_instance_get_next,
-			.cbs.get_keys = ripngd_instance_get_keys,
-			.cbs.lookup_entry = ripngd_instance_lookup_entry,
-			.cbs.cli_show = cli_show_router_ripng,
+			.cbs = {
+				.cli_show = cli_show_router_ripng,
+				.create = ripngd_instance_create,
+				.destroy = ripngd_instance_destroy,
+				.get_keys = ripngd_instance_get_keys,
+				.get_next = ripngd_instance_get_next,
+				.lookup_entry = ripngd_instance_lookup_entry,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/allow-ecmp",
-			.cbs.modify = ripngd_instance_allow_ecmp_modify,
-			.cbs.cli_show = cli_show_ripng_allow_ecmp,
+			.cbs = {
+				.cli_show = cli_show_ripng_allow_ecmp,
+				.modify = ripngd_instance_allow_ecmp_modify,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/default-information-originate",
-			.cbs.modify = ripngd_instance_default_information_originate_modify,
-			.cbs.cli_show = cli_show_ripng_default_information_originate,
+			.cbs = {
+				.cli_show = cli_show_ripng_default_information_originate,
+				.modify = ripngd_instance_default_information_originate_modify,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/default-metric",
-			.cbs.modify = ripngd_instance_default_metric_modify,
-			.cbs.cli_show = cli_show_ripng_default_metric,
+			.cbs = {
+				.cli_show = cli_show_ripng_default_metric,
+				.modify = ripngd_instance_default_metric_modify,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/network",
-			.cbs.create = ripngd_instance_network_create,
-			.cbs.destroy = ripngd_instance_network_destroy,
-			.cbs.cli_show = cli_show_ripng_network_prefix,
+			.cbs = {
+				.cli_show = cli_show_ripng_network_prefix,
+				.create = ripngd_instance_network_create,
+				.destroy = ripngd_instance_network_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/interface",
-			.cbs.create = ripngd_instance_interface_create,
-			.cbs.destroy = ripngd_instance_interface_destroy,
-			.cbs.cli_show = cli_show_ripng_network_interface,
+			.cbs = {
+				.cli_show = cli_show_ripng_network_interface,
+				.create = ripngd_instance_interface_create,
+				.destroy = ripngd_instance_interface_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/offset-list",
-			.cbs.create = ripngd_instance_offset_list_create,
-			.cbs.destroy = ripngd_instance_offset_list_destroy,
-			.cbs.cli_show = cli_show_ripng_offset_list,
+			.cbs = {
+				.cli_show = cli_show_ripng_offset_list,
+				.create = ripngd_instance_offset_list_create,
+				.destroy = ripngd_instance_offset_list_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/offset-list/access-list",
-			.cbs.modify = ripngd_instance_offset_list_access_list_modify,
+			.cbs = {
+				.modify = ripngd_instance_offset_list_access_list_modify,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/offset-list/metric",
-			.cbs.modify = ripngd_instance_offset_list_metric_modify,
+			.cbs = {
+				.modify = ripngd_instance_offset_list_metric_modify,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/passive-interface",
-			.cbs.create = ripngd_instance_passive_interface_create,
-			.cbs.destroy = ripngd_instance_passive_interface_destroy,
-			.cbs.cli_show = cli_show_ripng_passive_interface,
+			.cbs = {
+				.cli_show = cli_show_ripng_passive_interface,
+				.create = ripngd_instance_passive_interface_create,
+				.destroy = ripngd_instance_passive_interface_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/redistribute",
-			.cbs.create = ripngd_instance_redistribute_create,
-			.cbs.destroy = ripngd_instance_redistribute_destroy,
-			.cbs.apply_finish = ripngd_instance_redistribute_apply_finish,
-			.cbs.cli_show = cli_show_ripng_redistribute,
+			.cbs = {
+				.apply_finish = ripngd_instance_redistribute_apply_finish,
+				.cli_show = cli_show_ripng_redistribute,
+				.create = ripngd_instance_redistribute_create,
+				.destroy = ripngd_instance_redistribute_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/redistribute/route-map",
-			.cbs.modify = ripngd_instance_redistribute_route_map_modify,
-			.cbs.destroy = ripngd_instance_redistribute_route_map_destroy,
+			.cbs = {
+				.destroy = ripngd_instance_redistribute_route_map_destroy,
+				.modify = ripngd_instance_redistribute_route_map_modify,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/redistribute/metric",
-			.cbs.modify = ripngd_instance_redistribute_metric_modify,
-			.cbs.destroy = ripngd_instance_redistribute_metric_destroy,
+			.cbs = {
+				.destroy = ripngd_instance_redistribute_metric_destroy,
+				.modify = ripngd_instance_redistribute_metric_modify,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/static-route",
-			.cbs.create = ripngd_instance_static_route_create,
-			.cbs.destroy = ripngd_instance_static_route_destroy,
-			.cbs.cli_show = cli_show_ripng_route,
+			.cbs = {
+				.cli_show = cli_show_ripng_route,
+				.create = ripngd_instance_static_route_create,
+				.destroy = ripngd_instance_static_route_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/aggregate-address",
-			.cbs.create = ripngd_instance_aggregate_address_create,
-			.cbs.destroy = ripngd_instance_aggregate_address_destroy,
-			.cbs.cli_show = cli_show_ripng_aggregate_address,
+			.cbs = {
+				.cli_show = cli_show_ripng_aggregate_address,
+				.create = ripngd_instance_aggregate_address_create,
+				.destroy = ripngd_instance_aggregate_address_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/timers",
-			.cbs.apply_finish = ripngd_instance_timers_apply_finish,
-			.cbs.cli_show = cli_show_ripng_timers,
+			.cbs = {
+				.apply_finish = ripngd_instance_timers_apply_finish,
+				.cli_show = cli_show_ripng_timers,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/timers/flush-interval",
-			.cbs.modify = ripngd_instance_timers_flush_interval_modify,
+			.cbs = {
+				.modify = ripngd_instance_timers_flush_interval_modify,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/timers/holddown-interval",
-			.cbs.modify = ripngd_instance_timers_holddown_interval_modify,
+			.cbs = {
+				.modify = ripngd_instance_timers_holddown_interval_modify,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/timers/update-interval",
-			.cbs.modify = ripngd_instance_timers_update_interval_modify,
+			.cbs = {
+				.modify = ripngd_instance_timers_update_interval_modify,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/state/neighbors/neighbor",
-			.cbs.get_next = ripngd_instance_state_neighbors_neighbor_get_next,
-			.cbs.get_keys = ripngd_instance_state_neighbors_neighbor_get_keys,
-			.cbs.lookup_entry = ripngd_instance_state_neighbors_neighbor_lookup_entry,
+			.cbs = {
+				.get_keys = ripngd_instance_state_neighbors_neighbor_get_keys,
+				.get_next = ripngd_instance_state_neighbors_neighbor_get_next,
+				.lookup_entry = ripngd_instance_state_neighbors_neighbor_lookup_entry,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/state/neighbors/neighbor/address",
-			.cbs.get_elem = ripngd_instance_state_neighbors_neighbor_address_get_elem,
+			.cbs = {
+				.get_elem = ripngd_instance_state_neighbors_neighbor_address_get_elem,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/state/neighbors/neighbor/last-update",
-			.cbs.get_elem = ripngd_instance_state_neighbors_neighbor_last_update_get_elem,
+			.cbs = {
+				.get_elem = ripngd_instance_state_neighbors_neighbor_last_update_get_elem,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/state/neighbors/neighbor/bad-packets-rcvd",
-			.cbs.get_elem = ripngd_instance_state_neighbors_neighbor_bad_packets_rcvd_get_elem,
+			.cbs = {
+				.get_elem = ripngd_instance_state_neighbors_neighbor_bad_packets_rcvd_get_elem,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/state/neighbors/neighbor/bad-routes-rcvd",
-			.cbs.get_elem = ripngd_instance_state_neighbors_neighbor_bad_routes_rcvd_get_elem,
+			.cbs = {
+				.get_elem = ripngd_instance_state_neighbors_neighbor_bad_routes_rcvd_get_elem,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/state/routes/route",
-			.cbs.get_next = ripngd_instance_state_routes_route_get_next,
-			.cbs.get_keys = ripngd_instance_state_routes_route_get_keys,
-			.cbs.lookup_entry = ripngd_instance_state_routes_route_lookup_entry,
+			.cbs = {
+				.get_keys = ripngd_instance_state_routes_route_get_keys,
+				.get_next = ripngd_instance_state_routes_route_get_next,
+				.lookup_entry = ripngd_instance_state_routes_route_lookup_entry,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/state/routes/route/prefix",
-			.cbs.get_elem = ripngd_instance_state_routes_route_prefix_get_elem,
+			.cbs = {
+				.get_elem = ripngd_instance_state_routes_route_prefix_get_elem,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/state/routes/route/next-hop",
-			.cbs.get_elem = ripngd_instance_state_routes_route_next_hop_get_elem,
+			.cbs = {
+				.get_elem = ripngd_instance_state_routes_route_next_hop_get_elem,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/state/routes/route/interface",
-			.cbs.get_elem = ripngd_instance_state_routes_route_interface_get_elem,
+			.cbs = {
+				.get_elem = ripngd_instance_state_routes_route_interface_get_elem,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/state/routes/route/metric",
-			.cbs.get_elem = ripngd_instance_state_routes_route_metric_get_elem,
+			.cbs = {
+				.get_elem = ripngd_instance_state_routes_route_metric_get_elem,
+			},
 		},
 		{
 			.xpath = "/frr-ripngd:clear-ripng-route",
-			.cbs.rpc = clear_ripng_route_rpc,
+			.cbs = {
+				.rpc = clear_ripng_route_rpc,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-ripngd:ripng/split-horizon",
-			.cbs.modify = lib_interface_ripng_split_horizon_modify,
-			.cbs.cli_show = cli_show_ipv6_ripng_split_horizon,
+			.cbs = {
+				.cli_show = cli_show_ipv6_ripng_split_horizon,
+				.modify = lib_interface_ripng_split_horizon_modify,
+			},
 		},
 		{
 			.xpath = NULL,

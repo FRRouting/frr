@@ -190,7 +190,7 @@ ospf_ase_calculate_asbr_route (struct ospf *ospf,
 	zlog_debug ("ospf_ase_calculate(): Originating router is not an ASBR");
       return NULL;
     }
-   
+
   if (al->e[0].fwd_addr.s_addr != 0)
     {
       if (IS_DEBUG_OSPF (lsa, LSA))
@@ -215,7 +215,7 @@ ospf_ase_calculate_asbr_route (struct ospf *ospf,
       asbr.prefixlen = IPV4_MAX_BITLEN;
 
       rn = route_node_match (rt_network, (struct prefix *) &asbr);
-   
+
       if (rn == NULL)
 	{
 	  if (IS_DEBUG_OSPF (lsa, LSA))

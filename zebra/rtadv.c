@@ -50,16 +50,18 @@ extern struct zebra_privs_t zserv_privs;
 
 #if defined(HAVE_RTADV)
 
+DEFINE_MTYPE_STATIC(ZEBRA, RTADV_PREFIX, "Router Advertisement Prefix")
+
 #ifdef OPEN_BSD
 #include <netinet/icmp6.h>
 #endif
 
 /* If RFC2133 definition is used. */
 #ifndef IPV6_JOIN_GROUP
-#define IPV6_JOIN_GROUP  IPV6_ADD_MEMBERSHIP 
+#define IPV6_JOIN_GROUP  IPV6_ADD_MEMBERSHIP
 #endif
 #ifndef IPV6_LEAVE_GROUP
-#define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP 
+#define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP
 #endif
 
 #define ALLNODE   "ff02::1"
@@ -758,7 +760,7 @@ static int rtadv_make_socket(ns_id_t ns_id)
 	int ret = 0;
 	struct icmp6_filter filter;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 
 		sock = ns_socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6, ns_id);
 
