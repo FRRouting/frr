@@ -3208,6 +3208,7 @@ static int rib_process_dplane_results(struct thread *thread)
 {
 	struct zebra_dplane_ctx *ctx;
 	struct dplane_ctx_q ctxlist;
+	bool shut_p = false;
 
 	/* Dequeue a list of completed updates with one lock/unlock cycle */
 
@@ -3226,6 +3227,21 @@ static int rib_process_dplane_results(struct thread *thread)
 		/* If we've emptied the results queue, we're done */
 		if (ctx == NULL)
 			break;
+
+		/* If zebra is shutting down, avoid processing results,
+		 * just drain the results queue.
+		 */
+		shut_p = atomic_load_explicit(&zrouter.in_shutdown,
+					      memory_order_relaxed);
+		if (shut_p) {
+			while (ctx) {
+				dplane_ctx_fini(&ctx);
+
+				ctx = dplane_ctx_dequeue(&ctxlist);
+			}
+
+			continue;
+		}
 
 		while (ctx) {
 			switch (dplane_ctx_get_op(ctx)) {

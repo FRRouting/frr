@@ -1140,11 +1140,8 @@ Capability Negotiation
    Negotiation. Please use *dont-capability-negotiate* command to disable the
    feature.
 
-.. index:: neighbor PEER dont-capability-negotiate
-.. clicmd:: neighbor PEER dont-capability-negotiate
-
-.. index:: no neighbor PEER dont-capability-negotiate
-.. clicmd:: no neighbor PEER dont-capability-negotiate
+.. index:: [no] neighbor PEER dont-capability-negotiate
+.. clicmd:: [no] neighbor PEER dont-capability-negotiate
 
    Suppress sending Capability Negotiation as OPEN message optional parameter
    to the peer. This command only affects the peer is configured other than
@@ -1158,6 +1155,11 @@ Capability Negotiation
    capabilities even though remote peer sends capabilities. If the peer is
    configured by *override-capability*, *bgpd* ignores received capabilities
    then override negotiated capabilities with configured values.
+
+   Additionally the operator should be reminded that this feature fundamentally
+   disables the ability to use widely deployed BGP features.  BGP unnumbered,
+   hostname support, AS4, Addpath, Route Refresh, ORF, Dynamic Capabilities,
+   and graceful restart.
 
 .. index:: neighbor PEER override-capability
 .. clicmd:: neighbor PEER override-capability
