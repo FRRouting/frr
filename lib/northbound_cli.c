@@ -84,19 +84,11 @@ void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 
 int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 {
-	struct nb_config *candidate_transitory;
 	char xpath_base[XPATH_MAXLEN] = {};
 	bool error = false;
 	int ret;
 
 	VTY_CHECK_XPATH;
-
-	/*
-	 * Create a copy of the candidate configuration. For consistency, we
-	 * need to ensure that either all changes made by the command are
-	 * accepted or none are.
-	 */
-	candidate_transitory = nb_config_dup(vty->candidate_config);
 
 	/* Parse the base XPath format string. */
 	if (xpath_base_fmt) {
@@ -137,7 +129,7 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 			flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
 				  "%s: unknown data path: %s", __func__, xpath);
 			error = true;
-			break;
+			continue;
 		}
 
 		/* If the value is not set, get the default if it exists. */
@@ -149,7 +141,7 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 		 * Ignore "not found" errors when editing the candidate
 		 * configuration.
 		 */
-		ret = nb_candidate_edit(candidate_transitory, nb_node,
+		ret = nb_candidate_edit(vty->candidate_config, nb_node,
 					change->operation, xpath, NULL, data);
 		yang_data_free(data);
 		if (ret != NB_OK && ret != NB_ERR_NOT_FOUND) {
@@ -159,28 +151,19 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 				__func__, nb_operation_name(change->operation),
 				xpath);
 			error = true;
-			break;
+			continue;
 		}
 	}
 
 	if (error) {
-		nb_config_free(candidate_transitory);
-
-		switch (frr_get_cli_mode()) {
-		case FRR_CLI_CLASSIC:
-			vty_out(vty, "%% Configuration failed.\n\n");
-			break;
-		case FRR_CLI_TRANSACTIONAL:
-			vty_out(vty,
-				"%% Failed to edit candidate configuration.\n\n");
-			break;
-		}
+		/*
+		 * Failure to edit the candidate configuration should never
+		 * happen in practice, unless there's a bug in the code. When
+		 * that happens, log the error but otherwise ignore it.
+		 */
+		vty_out(vty, "%% Failed to edit configuration.\n\n");
 		vty_show_libyang_errors(vty, ly_native_ctx);
-
-		return CMD_WARNING_CONFIG_FAILED;
 	}
-
-	nb_config_replace(vty->candidate_config, candidate_transitory, false);
 
 	/* Do an implicit "commit" when using the classic CLI mode. */
 	if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
