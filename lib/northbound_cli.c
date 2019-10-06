@@ -421,6 +421,23 @@ static struct lyd_node *ly_iter_next_up(const struct lyd_node *elem)
 	return elem->parent;
 }
 
+/* Prepare the configuration for display. */
+void nb_cli_show_config_prepare(struct nb_config *config, bool with_defaults)
+{
+	lyd_schema_sort(config->dnode, 1);
+
+	/*
+	 * When "with-defaults" is used, call lyd_validate() only to create
+	 * default child nodes, ignoring any possible validation error. This
+	 * doesn't need to be done when displaying the running configuration
+	 * since it's always fully validated.
+	 */
+	if (with_defaults && config != running_config)
+		(void)lyd_validate(&config->dnode,
+				   LYD_OPT_CONFIG | LYD_OPT_WHENAUTODEL,
+				   ly_native_ctx);
+}
+
 void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
 			    bool with_defaults)
 {
@@ -513,6 +530,8 @@ static int nb_cli_show_config(struct vty *vty, struct nb_config *config,
 			      struct yang_translator *translator,
 			      bool with_defaults)
 {
+	nb_cli_show_config_prepare(config, with_defaults);
+
 	switch (format) {
 	case NB_CFG_FMT_CMDS:
 		nb_cli_show_config_cmds(vty, config, with_defaults);

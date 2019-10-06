@@ -516,17 +516,6 @@ int nb_candidate_edit(struct nb_config *candidate,
 				  __func__);
 			return NB_ERR;
 		}
-
-		/*
-		 * If a new node was created, call lyd_validate() only to create
-		 * default child nodes.
-		 */
-		if (dnode) {
-			lyd_schema_sort(dnode, 0);
-			lyd_validate(&dnode,
-				     LYD_OPT_CONFIG | LYD_OPT_WHENAUTODEL,
-				     ly_native_ctx);
-		}
 		break;
 	case NB_OP_DESTROY:
 		dnode = yang_dnode_get(candidate->dnode, xpath_edit);
