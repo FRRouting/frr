@@ -22,7 +22,7 @@
 /* clang-format off */
 #include <zebra.h>
 #include <pthread.h>		// for pthread_mutex_unlock, pthread_mutex_lock
-#include <sys/uio.h>            // for writev
+#include <sys/uio.h>		// for writev
 
 #include "frr_pthread.h"
 #include "linklist.h"		// for list_delete, list_delete_all_node, lis...
@@ -327,7 +327,7 @@ static uint16_t bgp_write(struct peer *peer)
 			for (unsigned int i = 0; i < vecsz; i++) {
 				size_t ss = iov[i].iov_len;
 
-				if (ss > (unsigned int) writenum)
+				if (ss > (unsigned int)writenum)
 					break;
 
 				msg_written++;
@@ -378,15 +378,14 @@ static uint16_t bgp_write(struct peer *peer)
 				peer->v_start = (60 * 2);
 
 			/*
-			 * Handle Graceful Restart case where the state
-			 * changes to Connect instead of Idle.
+			 * Handle Graceful Restart case where the state changes
+			 * to Connect instead of Idle.
 			 */
 			BGP_EVENT_ADD(peer, BGP_Stop);
 			goto done;
 
 		case BGP_MSG_KEEPALIVE:
-			atomic_fetch_add_explicit(&peer->keepalive_out,
-						  1,
+			atomic_fetch_add_explicit(&peer->keepalive_out, 1,
 						  memory_order_relaxed);
 			break;
 		case BGP_MSG_ROUTE_REFRESH_NEW:
@@ -395,9 +394,8 @@ static uint16_t bgp_write(struct peer *peer)
 						  memory_order_relaxed);
 			break;
 		case BGP_MSG_CAPABILITY:
-			atomic_fetch_add_explicit(
-				&peer->dynamic_cap_out, 1,
-				memory_order_relaxed);
+			atomic_fetch_add_explicit(&peer->dynamic_cap_out, 1,
+						  memory_order_relaxed);
 			break;
 		}
 
