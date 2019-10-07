@@ -450,6 +450,12 @@ void pbr_send_rnh(struct nexthop *nhop, bool reg)
 		p.family = AF_INET6;
 		memcpy(&p.u.prefix6, &nhop->gate.ipv6, 16);
 		p.prefixlen = 128;
+		if (IN6_IS_ADDR_LINKLOCAL(&nhop->gate.ipv6))
+			/*
+			 * Don't bother tracking link locals, just track their
+			 * interface state.
+			 */
+			return;
 		break;
 	}
 
