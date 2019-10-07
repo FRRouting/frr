@@ -615,7 +615,12 @@ DEFUN (ospf_network_area,
 	}
 
 	/* Get network prefix and Area ID. */
-	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
+	if (str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_prefixlen]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 
 	ret = ospf_network_set(ospf, &p, area_id, format);
@@ -651,7 +656,12 @@ DEFUN (no_ospf_network_area,
 	}
 
 	/* Get network prefix and Area ID. */
-	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
+	if (str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p) <= 0) {
+		vty_out(vty, "Prefix specified: %s Did not properly parse\n",
+			argv[idx_ipv4_prefixlen]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 
 	ret = ospf_network_unset(ospf, &p, area_id);
@@ -686,7 +696,11 @@ DEFUN (ospf_area_range,
 	uint32_t cost;
 
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
-	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
+	if (str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_prefixlen]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	ospf_area_range_set(ospf, area_id, &p, OSPF_AREA_RANGE_ADVERTISE);
 	if (argc > 5) {
@@ -718,7 +732,11 @@ DEFUN (ospf_area_range_cost,
 	uint32_t cost;
 
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
-	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
+	if (str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_prefixlen]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	ospf_area_range_set(ospf, area_id, &p, OSPF_AREA_RANGE_ADVERTISE);
 	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
@@ -748,7 +766,11 @@ DEFUN (ospf_area_range_not_advertise,
 	int format;
 
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
-	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
+	if (str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_prefixlen]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	ospf_area_range_set(ospf, area_id, &p, 0);
 	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
@@ -782,7 +804,11 @@ DEFUN (no_ospf_area_range,
 	int format;
 
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
-	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
+	if (str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_prefixlen]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	ospf_area_range_unset(ospf, area_id, &p);
 
@@ -809,8 +835,16 @@ DEFUN (ospf_area_range_substitute,
 	int format;
 
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
-	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
-	str2prefix_ipv4(argv[idx_ipv4_prefixlen_2]->arg, &s);
+	if (str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_prefixlen]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (str2prefix_ipv4(argv[idx_ipv4_prefixlen_2]->arg, &s) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_prefixlen_2]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	ospf_area_range_substitute_set(ospf, area_id, &p, &s);
 	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
@@ -840,8 +874,16 @@ DEFUN (no_ospf_area_range_substitute,
 	int format;
 
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
-	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
-	str2prefix_ipv4(argv[idx_ipv4_prefixlen_2]->arg, &s);
+	if (str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_prefixlen]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (str2prefix_ipv4(argv[idx_ipv4_prefixlen_2]->arg, &s) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_prefixlen_2]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	ospf_area_range_substitute_unset(ospf, area_id, &p);
 
