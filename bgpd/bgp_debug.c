@@ -643,7 +643,13 @@ static int bgp_debug_parse_evpn_prefix(struct vty *vty, struct cmd_token **argv,
 
 		memset(&ip_prefix, 0, sizeof(struct prefix));
 		if (argv_find(argv, argc, "ip", &ip_idx)) {
-			(void)str2prefix(argv[ip_idx + 1]->arg, &ip_prefix);
+			if (str2prefix(argv[ip_idx + 1]->arg, &ip_prefix)
+			    <= 0) {
+				vty_out(vty,
+					"Prefix specified: %s does not parse\n",
+					argv[ip_idx + 1]->arg);
+				return CMD_WARNING_CONFIG_FAILED;
+			}
 			apply_mask(&ip_prefix);
 		}
 		build_type5_prefix_from_ip_prefix(
@@ -1002,7 +1008,12 @@ DEFUN (debug_bgp_bestpath_prefix,
 	int idx_ipv4_ipv6_prefixlen = 3;
 
 	argv_p = prefix_new();
-	(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
+	if (str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_ipv6_prefixlen]->arg);
+		prefix_free(argv_p);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	apply_mask(argv_p);
 
 	if (!bgp_debug_bestpath_prefixes)
@@ -1044,7 +1055,12 @@ DEFUN (no_debug_bgp_bestpath_prefix,
 	int found_prefix = 0;
 
 	argv_p = prefix_new();
-	(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
+	if (str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_ipv6_prefixlen]->arg);
+		prefix_free(argv_p);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	apply_mask(argv_p);
 
 	if (bgp_debug_bestpath_prefixes
@@ -1525,7 +1541,12 @@ DEFUN (debug_bgp_update_prefix,
 	struct prefix *argv_p;
 
 	argv_p = prefix_new();
-	(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
+	if (str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_ipv6_prefixlen]->arg);
+		prefix_free(argv_p);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	apply_mask(argv_p);
 
 	if (!bgp_debug_update_prefixes)
@@ -1567,7 +1588,12 @@ DEFUN (no_debug_bgp_update_prefix,
 	int found_prefix = 0;
 
 	argv_p = prefix_new();
-	(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
+	if (str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_ipv6_prefixlen]->arg);
+		prefix_free(argv_p);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	apply_mask(argv_p);
 
 	if (bgp_debug_update_prefixes
@@ -1658,7 +1684,12 @@ DEFUN (debug_bgp_zebra_prefix,
 	struct prefix *argv_p;
 
 	argv_p = prefix_new();
-	(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
+	if (str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_ipv6_prefixlen]->arg);
+		prefix_free(argv_p);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	apply_mask(argv_p);
 
 	if (!bgp_debug_zebra_prefixes)
@@ -1718,7 +1749,12 @@ DEFUN (no_debug_bgp_zebra_prefix,
 	int found_prefix = 0;
 
 	argv_p = prefix_new();
-	(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
+	if (str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p) <= 0) {
+		vty_out(vty, "Prefix specified: %s does not parse\n",
+			argv[idx_ipv4_ipv6_prefixlen]->arg);
+		prefix_free(argv_p);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	apply_mask(argv_p);
 
 	if (bgp_debug_zebra_prefixes
