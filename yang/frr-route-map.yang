@@ -179,16 +179,26 @@ module frr-route-map {
                 description "Match a route tag";
                 value 10;
               }
-
-              /*
-               * Protocol YANG models should augment the parent node to
-               * contain the routing protocol specific value. The protocol
-               * must also augment `condition-value` to include its specific
-               * values or expand the `when` statement on the existing cases.
-               */
-              enum routing-protocol-specific {
-                description "Match a routing protocol specific type";
+              /* zebra specific conditions. */
+              enum ipv4-prefix-length {
+                description "Match IPv4 prefix length";
                 value 100;
+              }
+              enum ipv6-prefix-length {
+                description "Match IPv6 prefix length";
+                value 101;
+              }
+              enum ipv4-next-hop-prefix-length {
+                description "Match next-hop prefix length";
+                value 102;
+              }
+              enum source-protocol {
+                description "Match prefix length";
+                value 103;
+              }
+              enum source-instance {
+                description "Match prefix length";
+                value 104;
               }
             }
           }
@@ -291,15 +301,9 @@ module frr-route-map {
                 description "Set tag";
                 value 3;
               }
-
-              /*
-               * Protocol YANG models should augment the parent node to
-               * contain the routing protocol specific value. The protocol
-               * must also augment `action-value` to include its specific
-               * values or expand the `when` statement on the existing cases.
-               */
-              enum routing-protocol-specific {
-                description "Set a routing protocol specific action";
+              /* zebra specific conditions. */
+              enum source {
+                description "Set source address for route";
                 value 100;
               }
             }
