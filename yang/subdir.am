@@ -21,10 +21,12 @@ EXTRA_DIST += yang/embedmodel.py
 
 dist_yangmodels_DATA += yang/frr-filter.yang
 dist_yangmodels_DATA += yang/frr-module-translator.yang
+dist_yangmodels_DATA += yang/frr-nexthop.yang
 dist_yangmodels_DATA += yang/frr-test-module.yang
 dist_yangmodels_DATA += yang/frr-interface.yang
 dist_yangmodels_DATA += yang/frr-route-map.yang
 dist_yangmodels_DATA += yang/frr-route-types.yang
+dist_yangmodels_DATA += yang/frr-zebra.yang
 dist_yangmodels_DATA += yang/ietf/ietf-routing-types.yang
 
 if BFDD

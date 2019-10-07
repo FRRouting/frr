@@ -75,6 +75,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_mlag.c \
 	zebra/zebra_mlag_vty.c \
 	zebra/zebra_l2.c \
+	zebra/zebra_northbound.c \
 	zebra/zebra_memory.c \
 	zebra/zebra_dplane.c \
 	zebra/zebra_mpls.c \
@@ -190,6 +191,11 @@ if DEV_BUILD
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_dt.c
 endif
 endif
+
+nodist_zebra_zebra_SOURCES = \
+	yang/frr-nexthop.yang.c \
+	yang/frr-zebra.yang.c \
+	# end
 
 zebra_zebra_cumulus_mlag_la_SOURCES = zebra/zebra_mlag_private.c
 zebra_zebra_cumulus_mlag_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
