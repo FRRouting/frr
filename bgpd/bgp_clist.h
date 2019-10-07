@@ -36,6 +36,8 @@
 #define COMMUNITY_LIST_STRING          0
 #define COMMUNITY_LIST_NUMBER          1
 
+#define COMMUNITY_SEQ_NUMBER_AUTO     -1
+
 /* Community-list entry types.  */
 #define COMMUNITY_LIST_STANDARD        0 /* Standard community-list.  */
 #define COMMUNITY_LIST_EXPANDED        1 /* Expanded community-list.  */
@@ -80,6 +82,9 @@ struct community_entry {
 
 	/* Any match.  */
 	uint8_t any;
+
+	/* Sequence number. */
+	int64_t seq;
 
 	/* Community structure.  */
 	union {
@@ -135,23 +140,23 @@ extern struct community_list_handler *community_list_init(void);
 extern void community_list_terminate(struct community_list_handler *);
 
 extern int community_list_set(struct community_list_handler *ch,
-			      const char *name, const char *str, int direct,
-			      int style);
+			      const char *name, const char *str,
+			      const char *seq, int direct, int style);
 extern int community_list_unset(struct community_list_handler *ch,
-				const char *name, const char *str, int direct,
-				int style);
+				const char *name, const char *str,
+				const char *seq, int direct, int style);
 extern int extcommunity_list_set(struct community_list_handler *ch,
-				 const char *name, const char *str, int direct,
-				 int style);
+				 const char *name, const char *str,
+				 const char *seq, int direct, int style);
 extern int extcommunity_list_unset(struct community_list_handler *ch,
 				   const char *name, const char *str,
-				   int direct, int style);
+				   const char *seq, int direct, int style);
 extern int lcommunity_list_set(struct community_list_handler *ch,
-			       const char *name, const char *str, int direct,
-			       int style);
+			       const char *name, const char *str,
+			       const char *seq, int direct, int style);
 extern int lcommunity_list_unset(struct community_list_handler *ch,
-				 const char *name, const char *str, int direct,
-				 int style);
+				 const char *name, const char *str,
+				 const char *seq, int direct, int style);
 
 extern struct community_list_master *
 community_list_master_lookup(struct community_list_handler *, int);

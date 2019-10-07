@@ -37,6 +37,37 @@
 #include "bgpd/bgp_regex.h"
 #include "bgpd/bgp_clist.h"
 
+/* Calculate new sequential number. */
+static int64_t bgp_clist_new_seq_get(struct community_list *list)
+{
+	int64_t maxseq;
+	int64_t newseq;
+	struct community_entry *entry;
+
+	maxseq = newseq = 0;
+
+	for (entry = list->head; entry; entry = entry->next) {
+		if (maxseq < entry->seq)
+			maxseq = entry->seq;
+	}
+
+	newseq = ((maxseq / 5) * 5) + 5;
+
+	return (newseq > UINT_MAX) ? UINT_MAX : newseq;
+}
+
+/* Return community-list entry which has same seq number. */
+static struct community_entry *bgp_clist_seq_check(struct community_list *list,
+						   int64_t seq)
+{
+	struct community_entry *entry;
+
+	for (entry = list->head; entry; entry = entry->next)
+		if (entry->seq == seq)
+			return entry;
+	return NULL;
+}
+
 static uint32_t bgp_clist_hash_key_community_list(const void *data)
 {
 	struct community_list *cl = (struct community_list *) data;
@@ -285,20 +316,6 @@ static int community_list_empty_p(struct community_list *list)
 	return (list->head == NULL && list->tail == NULL) ? 1 : 0;
 }
 
-/* Add community-list entry to the list.  */
-static void community_list_entry_add(struct community_list *list,
-				     struct community_entry *entry)
-{
-	entry->next = NULL;
-	entry->prev = list->tail;
-
-	if (list->tail)
-		list->tail->next = entry;
-	else
-		list->head = entry;
-	list->tail = entry;
-}
-
 /* Delete community-list entry from the list.  */
 static void community_list_entry_delete(struct community_list_master *cm,
 					struct community_list *list,
@@ -318,6 +335,57 @@ static void community_list_entry_delete(struct community_list_master *cm,
 
 	if (community_list_empty_p(list))
 		community_list_delete(cm, list);
+}
+
+/* Add community-list entry to the list.  */
+static void community_list_entry_add(struct community_list *list,
+				     struct community_entry *entry,
+				     struct community_list_handler *ch,
+				     int master)
+{
+	struct community_list_master *cm = NULL;
+	struct community_entry *replace;
+	struct community_entry *point;
+
+	cm = community_list_master_lookup(ch, master);
+
+	/* Automatic assignment of seq no. */
+	if (entry->seq == COMMUNITY_SEQ_NUMBER_AUTO)
+		entry->seq = bgp_clist_new_seq_get(list);
+
+	if (list->tail && entry->seq > list->tail->seq)
+		point = NULL;
+	else {
+		replace = bgp_clist_seq_check(list, entry->seq);
+		if (replace)
+			community_list_entry_delete(cm, list, entry);
+
+		/* Check insert point. */
+		for (point = list->head; point; point = point->next)
+			if (point->seq >= entry->seq)
+				break;
+	}
+
+	/* In case of this is the first element of the list. */
+	entry->next = point;
+
+	if (point) {
+		if (point->prev)
+			point->prev->next = entry;
+		else
+			list->head = entry;
+
+		entry->prev = point->prev;
+		point->prev = entry;
+	} else {
+		if (list->tail)
+			list->tail->next = entry;
+		else
+			list->head = entry;
+
+		entry->prev = list->tail;
+		list->tail = entry;
+	}
 }
 
 /* Lookup community-list entry from the list.  */
@@ -878,12 +946,16 @@ static int community_list_dup_check(struct community_list *list,
 
 /* Set community-list.  */
 int community_list_set(struct community_list_handler *ch, const char *name,
-		       const char *str, int direct, int style)
+		       const char *str, const char *seq, int direct, int style)
 {
 	struct community_entry *entry = NULL;
 	struct community_list *list;
 	struct community *com = NULL;
 	regex_t *regex = NULL;
+	int64_t seqnum = COMMUNITY_SEQ_NUMBER_AUTO;
+
+	if (seq)
+		seqnum = (int64_t)atol(seq);
 
 	/* Get community list. */
 	list = community_list_get(ch, name, COMMUNITY_LIST_MASTER);
@@ -919,6 +991,7 @@ int community_list_set(struct community_list_handler *ch, const char *name,
 	entry->any = (str ? 0 : 1);
 	entry->u.com = com;
 	entry->reg = regex;
+	entry->seq = seqnum;
 	entry->config =
 		(regex ? XSTRDUP(MTYPE_COMMUNITY_LIST_CONFIG, str) : NULL);
 
@@ -926,7 +999,8 @@ int community_list_set(struct community_list_handler *ch, const char *name,
 	if (community_list_dup_check(list, entry))
 		community_entry_free(entry);
 	else {
-		community_list_entry_add(list, entry);
+		community_list_entry_add(list, entry, ch,
+					 COMMUNITY_LIST_MASTER);
 		route_map_notify_dependencies(name, RMAP_EVENT_CLIST_ADDED);
 	}
 
@@ -935,7 +1009,8 @@ int community_list_set(struct community_list_handler *ch, const char *name,
 
 /* Unset community-list */
 int community_list_unset(struct community_list_handler *ch, const char *name,
-			 const char *str, int direct, int style)
+			 const char *str, const char *seq, int direct,
+			 int style)
 {
 	struct community_list_master *cm = NULL;
 	struct community_entry *entry = NULL;
@@ -1057,12 +1132,16 @@ static int lcommunity_list_valid(const char *community)
 
 /* Set lcommunity-list.  */
 int lcommunity_list_set(struct community_list_handler *ch, const char *name,
-			const char *str, int direct, int style)
+			const char *str, const char *seq, int direct, int style)
 {
 	struct community_entry *entry = NULL;
 	struct community_list *list;
 	struct lcommunity *lcom = NULL;
 	regex_t *regex = NULL;
+	int64_t seqnum = COMMUNITY_SEQ_NUMBER_AUTO;
+
+	if (seq)
+		seqnum = (int64_t)atol(seq);
 
 	/* Get community list. */
 	list = community_list_get(ch, name, LARGE_COMMUNITY_LIST_MASTER);
@@ -1101,6 +1180,7 @@ int lcommunity_list_set(struct community_list_handler *ch, const char *name,
 	entry->any = (str ? 0 : 1);
 	entry->u.lcom = lcom;
 	entry->reg = regex;
+	entry->seq = seqnum;
 	entry->config =
 		(regex ? XSTRDUP(MTYPE_COMMUNITY_LIST_CONFIG, str) : NULL);
 
@@ -1108,7 +1188,8 @@ int lcommunity_list_set(struct community_list_handler *ch, const char *name,
 	if (community_list_dup_check(list, entry))
 		community_entry_free(entry);
 	else {
-		community_list_entry_add(list, entry);
+		community_list_entry_add(list, entry, ch,
+					 LARGE_COMMUNITY_LIST_MASTER);
 		route_map_notify_dependencies(name, RMAP_EVENT_LLIST_ADDED);
 	}
 
@@ -1118,7 +1199,8 @@ int lcommunity_list_set(struct community_list_handler *ch, const char *name,
 /* Unset community-list.  When str is NULL, delete all of
    community-list entry belongs to the specified name.  */
 int lcommunity_list_unset(struct community_list_handler *ch, const char *name,
-			  const char *str, int direct, int style)
+			  const char *str, const char *seq, int direct,
+			  int style)
 {
 	struct community_list_master *cm = NULL;
 	struct community_entry *entry = NULL;
@@ -1168,12 +1250,17 @@ int lcommunity_list_unset(struct community_list_handler *ch, const char *name,
 
 /* Set extcommunity-list.  */
 int extcommunity_list_set(struct community_list_handler *ch, const char *name,
-			  const char *str, int direct, int style)
+			  const char *str, const char *seq, int direct,
+			  int style)
 {
 	struct community_entry *entry = NULL;
 	struct community_list *list;
 	struct ecommunity *ecom = NULL;
 	regex_t *regex = NULL;
+	int64_t seqnum = COMMUNITY_SEQ_NUMBER_AUTO;
+
+	if (seq)
+		seqnum = (int64_t)atol(seq);
 
 	if (str == NULL)
 		return COMMUNITY_LIST_ERR_MALFORMED_VAL;
@@ -1220,12 +1307,14 @@ int extcommunity_list_set(struct community_list_handler *ch, const char *name,
 
 	entry->u.ecom = ecom;
 	entry->reg = regex;
+	entry->seq = seqnum;
 
 	/* Do not put duplicated community entry.  */
 	if (community_list_dup_check(list, entry))
 		community_entry_free(entry);
 	else {
-		community_list_entry_add(list, entry);
+		community_list_entry_add(list, entry, ch,
+					 EXTCOMMUNITY_LIST_MASTER);
 		route_map_notify_dependencies(name, RMAP_EVENT_ECLIST_ADDED);
 	}
 
@@ -1238,7 +1327,8 @@ int extcommunity_list_set(struct community_list_handler *ch, const char *name,
  * specified name.
  */
 int extcommunity_list_unset(struct community_list_handler *ch, const char *name,
-			    const char *str, int direct, int style)
+			    const char *str, const char *seq, int direct,
+			    int style)
 {
 	struct community_list_master *cm = NULL;
 	struct community_entry *entry = NULL;
