@@ -72,6 +72,21 @@ int getsockopt_so_sendbuf(const int sock)
 	return optval;
 }
 
+int getsockopt_so_recvbuf(const int sock)
+{
+	uint32_t optval;
+	socklen_t optlen = sizeof(optval);
+	int ret = getsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char *)&optval,
+			     &optlen);
+	if (ret < 0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "fd %d: can't getsockopt SO_RCVBUF: %d (%s)", sock,
+			     errno, safe_strerror(errno));
+		return ret;
+	}
+	return optval;
+}
+
 static void *getsockopt_cmsg_data(struct msghdr *msgh, int level, int type)
 {
 	struct cmsghdr *cmsg;
