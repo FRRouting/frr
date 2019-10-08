@@ -429,6 +429,7 @@ static inline uint8_t lsp_distance(enum lsp_types_t type)
 	case ZEBRA_LSP_NONE:
 	case ZEBRA_LSP_SHARP:
 	case ZEBRA_LSP_OSPF_SR:
+	case ZEBRA_LSP_ISIS_SR:
 		return 150;
 	}
 
@@ -456,6 +457,8 @@ static inline enum lsp_types_t lsp_type_from_re_type(int re_type)
 		return ZEBRA_LSP_BGP;
 	case ZEBRA_ROUTE_OSPF:
 		return ZEBRA_LSP_OSPF_SR;
+	case ZEBRA_ROUTE_ISIS:
+		return ZEBRA_LSP_ISIS_SR;
 	case ZEBRA_ROUTE_SHARP:
 		return ZEBRA_LSP_SHARP;
 	default:
@@ -477,6 +480,8 @@ static inline int re_type_from_lsp_type(enum lsp_types_t lsp_type)
 		return ZEBRA_ROUTE_BGP;
 	case ZEBRA_LSP_OSPF_SR:
 		return ZEBRA_ROUTE_OSPF;
+	case ZEBRA_LSP_ISIS_SR:
+		return ZEBRA_ROUTE_ISIS;
 	case ZEBRA_LSP_NONE:
 		return ZEBRA_ROUTE_KERNEL;
 	case ZEBRA_LSP_SHARP:
@@ -504,6 +509,8 @@ static inline const char *nhlfe_type2str(enum lsp_types_t lsp_type)
 		return "BGP";
 	case ZEBRA_LSP_OSPF_SR:
 		return "SR (OSPF)";
+	case ZEBRA_LSP_ISIS_SR:
+		return "SR (IS-IS)";
 	case ZEBRA_LSP_SHARP:
 		return "SHARP";
 	case ZEBRA_LSP_NONE:

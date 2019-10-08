@@ -55,10 +55,6 @@ struct zclient *zclient;
 static struct zclient *zclient_sync;
 
 DEFINE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp))
-DEFINE_HOOK(isis_route_update_hook,
-	    (struct isis_area *area, struct prefix *prefix,
-	     struct isis_route_info *route_info),
-	    (area, prefix, route_info))
 
 /* List of chunks of labels externally assigned by zebra. */
 static struct list *label_chunk_list;

@@ -62,6 +62,18 @@ struct isis_lsp {
 extern int lspdb_compare(const struct isis_lsp *a, const struct isis_lsp *b);
 DECLARE_RBTREE_UNIQ(lspdb, struct isis_lsp, dbe, lspdb_compare)
 
+/* Hook for LSP event */
+typedef enum _lsp_event_t {
+	LSP_ADD,
+	LSP_UPD,
+	LSP_DEL,
+	LSP_TICK,
+	LSP_INC
+} lsp_event_t;
+
+DECLARE_HOOK(isis_lsp_event_hook, (struct isis_lsp * lsp, lsp_event_t event),
+	     (lsp, event));
+
 void lsp_db_init(struct lspdb_head *head);
 void lsp_db_fini(struct lspdb_head *head);
 int lsp_tick(struct thread *thread);

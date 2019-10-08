@@ -108,6 +108,9 @@ static void lsp_clear_data(struct isis_lsp *lsp)
 
 static void lsp_remove_frags(struct lspdb_head *head, struct list *frags);
 
+DEFINE_HOOK(isis_lsp_event_hook, (struct isis_lsp * lsp, lsp_event_t event),
+	    (lsp, event));
+
 static void lsp_destroy(struct isis_lsp *lsp)
 {
 	struct listnode *cnode;
@@ -120,6 +123,8 @@ static void lsp_destroy(struct isis_lsp *lsp)
 		isis_tx_queue_del(circuit->tx_queue, lsp);
 
 	ISIS_FLAGS_CLEAR_ALL(lsp->SSNflags);
+
+	hook_call(isis_lsp_event_hook, lsp, LSP_DEL);
 
 	lsp_clear_data(lsp);
 
@@ -341,6 +346,7 @@ void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno)
 	lsp->hdr.seqno = newseq;
 
 	lsp_pack_pdu(lsp);
+	hook_call(isis_lsp_event_hook, lsp, LSP_INC);
 	isis_spf_schedule(lsp->area, lsp->level);
 }
 
@@ -493,8 +499,10 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 			lsp_link_fragment(lsp, lsp0);
 	}
 
-	if (lsp->hdr.seqno)
+	if (lsp->hdr.seqno) {
+		hook_call(isis_lsp_event_hook, lsp, LSP_UPD);
 		isis_spf_schedule(lsp->area, lsp->level);
+	}
 }
 
 /* creation of LSP directly from what we received */
@@ -559,6 +567,7 @@ struct isis_lsp *lsp_new(struct isis_area *area, uint8_t *lsp_id,
 void lsp_insert(struct lspdb_head *head, struct isis_lsp *lsp)
 {
 	lspdb_add(head, lsp);
+	hook_call(isis_lsp_event_hook, lsp, LSP_ADD);
 	if (lsp->hdr.seqno)
 		isis_spf_schedule(lsp->area, lsp->level);
 }
@@ -917,11 +926,25 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			  area->area_tag);
 	}
 
-	/* Add Router Capability TLV if Segment Routing is enable */
-	if (IS_SR(area) && isis->router_id != 0) {
-		struct in_addr id = {.s_addr = isis->router_id};
+	/* Add Router Capability TLV */
+	if (isis->router_id != 0) {
+		struct isis_router_cap cap = {};
 
-		isis_tlvs_set_router_capability(lsp->tlvs, id, &area->srdb);
+		cap.router_id.s_addr = isis->router_id;
+
+		/* Add SR Sub-TLVs if SR is enabled */
+		if (IS_SR(area)) {
+			cap.srgb.flags = ISIS_SUBTLV_SRGB_FLAG_I
+					 | ISIS_SUBTLV_SRGB_FLAG_V;
+			cap.srgb.range_size = area->srdb.upper_bound
+					      - area->srdb.lower_bound + 1;
+			cap.srgb.lower_bound = area->srdb.lower_bound;
+			for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+				cap.algo[i] = area->srdb.algo[i];
+			cap.msd = area->srdb.msd;
+		}
+
+		isis_tlvs_set_router_capability(lsp->tlvs, &cap);
 		lsp_debug("ISIS (%s): Adding Router Capabilities information",
 			  area->area_tag);
 	}
@@ -1868,6 +1891,7 @@ int lsp_tick(struct thread *thread)
 					lsp_flood(lsp, NULL);
 				/* 7.3.16.4 c) record the time to purge
 				 * FIXME */
+				hook_call(isis_lsp_event_hook, lsp, LSP_TICK);
 				isis_spf_schedule(lsp->area, lsp->level);
 			}
 

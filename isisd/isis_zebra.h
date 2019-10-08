@@ -24,7 +24,16 @@
 
 extern struct zclient *zclient;
 
-void isis_zebra_init(struct thread_master *);
+DECLARE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp));
+
+struct label_chunk {
+	uint32_t start;
+	uint32_t end;
+	uint64_t used_mask;
+};
+#define CHUNK_SIZE 64
+
+void isis_zebra_init(struct thread_master *master, int instance);
 void isis_zebra_stop(void);
 
 struct isis_route_info;

@@ -27,8 +27,7 @@
 #ifndef _FRR_ISIS_SR_H
 #define _FRR_ISIS_SR_H
 
-#include "stream.h"
-#include "isisd/isis_route.h"
+#include "lib/nexthop.h"
 
 /*
  * Segment Routing information are transport through LSP:
@@ -63,50 +62,29 @@
 #define SID_INDEX_SIZE(U) (U)
 
 /*
- * subTLVs definition, serialization and de-serialization
- * are defined in isis_tlvs.[c,h]
+ * subTLVs definition, parser & builder are defined in isis_tlvs.[c,h]
  */
 
 /*
  * Following section define structure for Segment Routing management
  */
 
-/* Action and status to configure MPLS entry */
-enum sr_mpls_config {NOP = 0, SWAP, POP_TO_NEXTHOP, POP_TO_IFINDEX};
-enum nh_state { NEW_NH, ACTIVE_NH, INACTIVE_NH, UPDATED_NH };
-
-/* Segment Routing - NHLFE */
-struct sr_nhlfe {
-	/* State of this NHLFE */
-	enum nh_state state;
-
-	/* MPLS configuration to perform */
-	enum sr_mpls_config config;
-
-	/* Nexthop information including SR Node */
-	struct in_addr nexthop;
-	struct in6_addr nexthop6;
-	ifindex_t ifindex;
-	struct sr_node *srnext;
-
-	/* Input and output MPLS labels */
-	mpls_label_t label_in;
-	mpls_label_t label_out;
-};
-
 /* Structure aggregating all Segment Routing Adjacency information */
 /* which are generally advertised by pair: primary + backup */
 struct sr_adjacency {
-
-	/* prefix IPv4 or IPv6 */
-	struct prefix prefix;
 
 	/* Adjacency & LAN Adjacency SID */
 	struct isis_adj_sid *adj_sid;
 	struct isis_lan_adj_sid *lan_sid;
 
-	/* SR NHLFE for this Adjacency */
-	struct sr_nhlfe nhlfe;
+	/* Input Label and nexthop for this Adjacency */
+	mpls_label_t label;
+	struct {
+		int family;
+		union g_addr ip;
+		ifindex_t ifindex;
+		mpls_label_t label;
+	} nexthop;
 
 	/* Back pointer to SR Node which advertise this Adjacency */
 	struct sr_node *srn;
@@ -144,8 +122,11 @@ struct sr_prefix {
 	/* Segment Routing status */
 	enum sid_status status;
 
-	/* List of SR NHLFE for this prefix */
-	struct list *nhlfes;
+	/* Computed Input label */
+	mpls_label_t label;
+
+	/* List of Route associated to this prefix */
+	struct list *nexthops;
 
 	/* Back pointer to SR Node which advertise this Prefix */
 	struct sr_node *srn;
@@ -217,6 +198,21 @@ struct isis_sr_db {
 	uint8_t msd;
 };
 
+/* Action and status to configure MPLS entry */
+enum sr_mpls_config {NOP = 0, SWAP, POP_TO_NEXTHOP, POP_TO_IFINDEX};
+
+/* Segment Routing - NHLFE */
+struct sr_nhlfe {
+	/* MPLS configuration to perform */
+	enum sr_mpls_config config;
+
+	/* Nexthop SR Node */
+	struct sr_node *srnext;
+
+	/* Output MPLS labels */
+	mpls_label_t label;
+};
+
 /* Prototypes definition */
 /* Segment Routing initialization and configuration functions */
 extern void isis_sr_init(void);
@@ -237,6 +233,7 @@ extern struct sr_prefix *isis_sr_prefix_find(const struct isis_area *area,
 extern void isis_sr_update_adj(struct isis_adjacency *adj, uint8_t family,
 			       bool adj_up);
 /* Segment Routing re-routing function */
+struct isis_route_info;
 extern int isis_sr_route_update(struct isis_area *area, struct prefix *prefix,
 				struct isis_route_info *route_info);
 
