@@ -106,4 +106,110 @@ module frr-route-types {
       }
     }
   }
+
+  typedef frr-route-types {
+    description "Route types as enumerated in `lib/route_types.txt`";
+    type enumeration {
+      enum kernel {
+        description
+          "Routes installed by the kernel or the user of the operating system";
+        value 1;
+      }
+      enum connected {
+        description
+          "Routes installed by interface address (directly attached subnet or host)";
+        value 2;
+      }
+      enum static {
+        description "Static routes configured by FRR";
+        value 3;
+      }
+      enum rip {
+        description "Routes installed by Routing Information Protocol (RIP)";
+        value 4;
+      }
+      enum ripng {
+        description
+          "Routes installed by Routing Information Protocol next-generation (RIPng)";
+        value 5;
+      }
+      enum ospf {
+        description "Routes installed by Open Shortest Path First (OSPFv2)";
+        value 6;
+      }
+      enum ospf6 {
+        description
+          "Routes installed by Open Shortest Path First (IPv6) (OSPFv3)";
+        value 7;
+      }
+      enum isis {
+        description
+          "Routes installed by Intermediate System to Intermediate System (IS-IS)";
+        value 8;
+      }
+      enum bgp {
+        description "Routes installed by Border Gateway Protocol (BGP)";
+        value 9;
+      }
+      enum pim {
+        description
+          "Routes installed by Protocol Independent Multicast (PIM)";
+        value 10;
+      }
+      enum eigrp {
+        description
+          "Routes installed by Enhanced Interior Gateway Routing Protocol (EIGRP)";
+        value 11;
+      }
+      enum nhrp {
+        description "Routes installed by Next Hop Resolution Protocol (NHRP)";
+        value 12;
+      }
+      enum hsls {
+        description "Routes installed by Hazy-Sighted Link State Protocol (HSLS)";
+        value 13;
+      }
+      enum olsr {
+        description "Routes installed by Optimised Link State Routing (OLSR)";
+        value 14;
+      }
+      enum table {
+        description "Routes installed by non-main kernel routing table";
+        value 15;
+      }
+      enum ldp {
+        description
+          "Routes installed by Label Distribution Protocol (LDP)";
+        value 16;
+      }
+      enum vnc {
+        description
+          "Routes installed by Virtual Network Control (VNC)";
+        value 17;
+      }
+      enum vnc-direct {
+        description "Routes installed by VNC directly (non-frr)";
+        value 18;
+      }
+      enum babel {
+        description "Routes installed by babel protocol";
+        value 22;
+      }
+      enum sharp {
+        description
+          "Routes installed by Super Happy Advanced Routing Protocol (SHARP)";
+        value 23;
+      }
+      enum pbr {
+        description
+          "Routes installed by Policy Based Routing (PBR)";
+        value 24;
+      }
+      enum openfabric {
+        description
+          "Routes installed by OpenFabric Routing Protocol";
+        value 26;
+      }
+    }
+  }
 }
