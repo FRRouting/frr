@@ -284,12 +284,13 @@ static uint16_t bgp_write(struct peer *peer)
 
 	int writenum = 0;
 	int num;
-	unsigned int vecsz = 0;
 	unsigned int iovsz = 0;
+	unsigned int strmsz;
 
 	wpkt_quanta_old = atomic_load_explicit(&peer->bgp->wpkt_quanta,
 					       memory_order_relaxed);
-	struct stream *streams[wpkt_quanta_old];
+	struct stream *ostreams[wpkt_quanta_old];
+	struct stream **streams = ostreams;
 	struct iovec iov[wpkt_quanta_old];
 
 	s = stream_fifo_head(peer->obuf);
@@ -297,17 +298,17 @@ static uint16_t bgp_write(struct peer *peer)
 	if (!s)
 		goto done;
 
-	while (count < wpkt_quanta_old && vecsz < array_size(iov) && s) {
-		streams[vecsz] = s;
-		iov[vecsz].iov_base = stream_pnt(s);
-		iov[vecsz].iov_len = STREAM_READABLE(s);
+	while (count < wpkt_quanta_old && iovsz < array_size(iov) && s) {
+		ostreams[iovsz] = s;
+		iov[iovsz].iov_base = stream_pnt(s);
+		iov[iovsz].iov_len = STREAM_READABLE(s);
 		writenum += STREAM_READABLE(s);
 		s = s->next;
-		++vecsz;
+		++iovsz;
 		++count;
 	}
 
-	iovsz = vecsz;
+	strmsz = iovsz;
 
 	do {
 		num = writev(peer->fd, iov, iovsz);
@@ -322,12 +323,13 @@ static uint16_t bgp_write(struct peer *peer)
 
 			goto done;
 		} else if (num != writenum) {
-			int msg_written = 0;
+			unsigned int msg_written = 0;
+			unsigned int ic = iovsz;
 
-			for (unsigned int i = 0; i < vecsz; i++) {
+			for (unsigned int i = 0; i < ic; i++) {
 				size_t ss = iov[i].iov_len;
 
-				if (ss > (unsigned int)writenum)
+				if (ss > (unsigned int) num)
 					break;
 
 				msg_written++;
@@ -338,20 +340,21 @@ static uint16_t bgp_write(struct peer *peer)
 
 			memmove(&iov, &iov[msg_written],
 				sizeof(iov[0]) * iovsz);
-			stream_forward_getp(streams[msg_written], num);
-			iov[0].iov_base = stream_pnt(streams[msg_written]);
-			iov[0].iov_len = STREAM_READABLE(streams[msg_written]);
-			stream_set_getp(streams[msg_written], 0);
+			streams = &streams[msg_written];
+			stream_forward_getp(streams[0], num);
+			iov[0].iov_base = stream_pnt(streams[0]);
+			iov[0].iov_len = STREAM_READABLE(streams[0]);
 
 			writenum -= num;
 			num = 0;
+			assert(writenum > 0);
 		}
 
 	} while (num != writenum);
 
 	/* Handle statistics */
-	for (unsigned int i = 0; i < vecsz; i++) {
-		s = streams[i];
+	for (unsigned int i = 0; i < strmsz; i++) {
+		s = ostreams[i];
 
 		/* Retrieve BGP packet type. */
 		stream_set_getp(s, BGP_MARKER_SIZE + 2);
