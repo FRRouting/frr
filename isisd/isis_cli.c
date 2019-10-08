@@ -1326,12 +1326,19 @@ void cli_show_isis_sr_enabled(struct vty *vty, struct lyd_node *dnode,
  */
 DEFPY (isis_sr_global_block_label_range,
        isis_sr_global_block_label_range_cmd,
-       "segment-routing global-block (0-1048575)$lower_bound (0-1048575)$upper_bound",
+       "segment-routing global-block (16-1048575)$lower_bound (16-1048575)$upper_bound",
        SR_STR
        "Segment Routing Global Block label range\n"
-       "Lower-bound first value of SRGB in decimal (0-1048575)\n"
-       "Upper-bound last value of the SRGB in decimal (0-1048575)\n")
+       "The lower bound of SRGB (16-1048575)\n"
+       "The upper bound of SRGB (16-1048575)\n")
 {
+
+	if (!yang_dnode_get_bool(vty->candidate_config->dnode, "%s%s",
+		VTY_CURR_XPATH, "/segment-routing/enabled")) {
+		vty_out(vty, "Enable Segment Routing first!");
+		return CMD_SUCCESS;
+	}
+
 	nb_cli_enqueue_change(vty, "./segment-routing/srgb/lower-bound",
 			      NB_OP_MODIFY, lower_bound_str);
 	nb_cli_enqueue_change(vty, "./segment-routing/srgb/upper-bound",
@@ -1346,9 +1353,16 @@ DEFPY (no_isis_sr_global_block_label_range,
        NO_STR
        SR_STR
        "Segment Routing Global Block label range\n"
-       "Lower-bound first value of SRGB in decimal (0-1048575)\n"
-       "Upper-bound last value of the SRGB in decimal (0-1048575)\n")
+       "The lower bound of SRGB (16-1048575)\n"
+       "The upper bound of SRGB (block size may not exceed 65535)\n")
 {
+
+	if (!yang_dnode_get_bool(vty->candidate_config->dnode, "%s%s",
+		VTY_CURR_XPATH, "/segment-routing/enabled")) {
+		vty_out(vty, "Enable Segment Routing first!");
+		return CMD_SUCCESS;
+	}
+
 	nb_cli_enqueue_change(vty, "./segment-routing/srgb/lower-bound",
 			      NB_OP_MODIFY, NULL);
 	nb_cli_enqueue_change(vty, "./segment-routing/srgb/upper-bound",
@@ -1360,6 +1374,9 @@ DEFPY (no_isis_sr_global_block_label_range,
 void cli_show_isis_srgb(struct vty *vty, struct lyd_node *dnode,
 			bool show_defaults)
 {
+	if (!yang_dnode_get_bool(dnode, "../enabled"))
+		return;
+
 	vty_out(vty, " segment-routing global-block %s %s\n",
 		yang_dnode_get_string(dnode, "./lower-bound"),
 		yang_dnode_get_string(dnode, "./upper-bound"));
@@ -1375,6 +1392,13 @@ DEFPY (isis_sr_node_msd,
        "Maximum Stack Depth for this router\n"
        "Maximum number of label that can be stack (1-16)\n")
 {
+
+	if (!yang_dnode_get_bool(vty->candidate_config->dnode, "%s%s",
+		VTY_CURR_XPATH, "/segment-routing/enabled")) {
+		vty_out(vty, "Enable Segment Routing first!");
+		return CMD_SUCCESS;
+	}
+
 	nb_cli_enqueue_change(vty, "./segment-routing/msd/node-msd",
 			      NB_OP_MODIFY, msd_str);
 
@@ -1389,6 +1413,13 @@ DEFPY (no_isis_sr_node_msd,
        "Maximum Stack Depth for this router\n"
        "Maximum number of label that can be stack (1-16)\n")
 {
+
+	if (!yang_dnode_get_bool(vty->candidate_config->dnode, "%s%s",
+		VTY_CURR_XPATH, "/segment-routing/enabled")) {
+		vty_out(vty, "Enable Segment Routing first!");
+		return CMD_SUCCESS;
+	}
+
 	nb_cli_enqueue_change(vty, "./segment-routing/msd/node-msd",
 			      NB_OP_DESTROY, NULL);
 
@@ -1398,6 +1429,9 @@ DEFPY (no_isis_sr_node_msd,
 void cli_show_isis_node_msd(struct vty *vty, struct lyd_node *dnode,
 			    bool show_defaults)
 {
+	if (!yang_dnode_get_bool(dnode, "../../enabled"))
+		return;
+
 	vty_out(vty, " segment-routing node-msd %s\n",
 		yang_dnode_get_string(dnode, NULL));
 }
@@ -1422,6 +1456,13 @@ DEFPY (isis_sr_prefix_sid,
        "Don't request Penultimate Hop Popping (PHP)\n"
        "Upstream neighbor must replace prefix-sid with explicit null label\n")
 {
+
+	if (!yang_dnode_get_bool(vty->candidate_config->dnode, "%s%s",
+		VTY_CURR_XPATH, "/segment-routing/enabled")) {
+		vty_out(vty, "Enable Segment Routing first!");
+		return CMD_SUCCESS;
+	}
+
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./sid-value-type", NB_OP_MODIFY, sid_type);
 	nb_cli_enqueue_change(vty, "./sid-value", NB_OP_MODIFY, sid_value_str);
@@ -1435,7 +1476,9 @@ DEFPY (isis_sr_prefix_sid,
 
 		nb_cli_enqueue_change(vty, "./last-hop-behavior", NB_OP_MODIFY,
 				      value);
-	}
+	} else
+		nb_cli_enqueue_change(vty, "./last-hop-behavior", NB_OP_MODIFY,
+				      NULL);
 
 	return nb_cli_apply_changes(
 		vty, "./segment-routing/prefix-sid-map/prefix-sid[prefix='%s']",
@@ -1458,6 +1501,13 @@ DEFPY (no_isis_sr_prefix_sid,
        "Don't request Penultimate Hop Popping (PHP)\n"
        "Upstream neighbor must replace prefix-sid with explicit null label\n")
 {
+
+	if (!yang_dnode_get_bool(vty->candidate_config->dnode, "%s%s",
+		VTY_CURR_XPATH, "/segment-routing/enabled")) {
+		vty_out(vty, "Enable Segment Routing first!");
+		return CMD_SUCCESS;
+	}
+
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(
@@ -1472,6 +1522,9 @@ void cli_show_isis_prefix_sid(struct vty *vty, struct lyd_node *dnode,
 	const char *lh_behavior;
 	const char *sid_value_type;
 	const char *sid_value;
+
+	if (!yang_dnode_get_bool(dnode, "../../enabled"))
+		return;
 
 	prefix = yang_dnode_get_string(dnode, "./prefix");
 	lh_behavior = yang_dnode_get_string(dnode, "./last-hop-behavior");

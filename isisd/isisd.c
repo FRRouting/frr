@@ -164,9 +164,6 @@ struct isis_area *isis_area_create(const char *area_tag)
 	area->lsp_mtu =
 		yang_get_default_uint16("/frr-isisd:isis/instance/lsp/mtu");
 
-	/* initialize Segment Routing */
-	isis_sr_create(area);
-
 #else
 	area->max_lsp_lifetime[0] = DEFAULT_LSP_LIFETIME;    /* 1200 */
 	area->max_lsp_lifetime[1] = DEFAULT_LSP_LIFETIME;    /* 1200 */
@@ -197,6 +194,8 @@ struct isis_area *isis_area_create(const char *area_tag)
 	area->lsp_refresh_arg[1].area = area;
 	area->lsp_refresh_arg[1].level = IS_LEVEL_2;
 
+	/* initialize Segment Routing */
+	isis_sr_create(area);
 
 	QOBJ_REG(area, isis_area);
 

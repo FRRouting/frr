@@ -1143,7 +1143,6 @@ module frr-isisd {
           "Segment Routing global configuration.";
         leaf enabled {
           type boolean;
-          must "(. = 'false') or (../../is-type != 'level-1-2')";
           default "false";
           description
             "Enables segment-routing protocol extensions.";
@@ -1151,6 +1150,7 @@ module frr-isisd {
         container srgb {
           description
             "Global blocks to be advertised.";
+          must "./upper-bound > ./lower-bound";
           leaf lower-bound {
               type uint32;
               default "16000";

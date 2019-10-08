@@ -1,6 +1,6 @@
 /*
  * This is an implementation of Segment Routing for IS-IS
- * as per draft draft-ietf-isis-segment-routing-extensions-24
+ * as per draft draft-ietf-isis-segment-routing-extensions-25
  *
  * Module name: Segment Routing header definitions
  *
@@ -51,9 +51,11 @@
  *
  */
 
-/* Label range for Adj-SID attribution purpose */
+/* Default Label range for Adj-SID and SRGB */
 #define ADJ_SID_MIN                    5000
 #define ADJ_SID_MAX                    5999
+#define SRGB_LOWER_BOUND               16000
+#define SRGB_UPPER_BOUND               23999
 
 /* Segment ID could be a Label (3 bytes) or an Index (4 bytes) */
 #define SID_LABEL	3
@@ -143,6 +145,9 @@ struct sr_node {
 	/* System ID of the SR Node */
 	uint8_t sysid[ISIS_SYS_ID_LEN];
 
+	/* Status of SR-Node: Active or disable */
+	bool active;
+
 	/* Router Capabilities */
 	struct isis_router_cap cap;
 
@@ -156,6 +161,9 @@ struct sr_node {
 
 	/* Back pointer to area */
 	struct isis_area *area;
+
+	/* IS-IS level: ISIS_LEVEL1 or ISIS_LEVEL2. */
+	int level;
 };
 RB_HEAD(srdb_node_head, srn);
 RB_PROTOTYPE(srdb_node_head, sr_node, entry, sr_node_cmp)
@@ -176,10 +184,10 @@ struct isis_sr_db {
 	struct sr_node *self;
 
 	/* SR information from all nodes */
-	struct srdb_node_head sr_nodes;
+	struct srdb_node_head sr_nodes[ISIS_LEVELS];
 
 	/* List of Prefix-SIDs */
-	struct srdb_prefix_head prefix_sids;
+	struct srdb_prefix_head prefix_sids[ISIS_LEVELS];
 
 	/* Local SR info announced in Router Capability TLV 242 */
 

@@ -70,6 +70,8 @@ static struct isis_nexthop *isis_nexthop_create(int family, union g_addr *ip,
 	nexthop->family = family;
 	nexthop->ifindex = ifindex;
 	nexthop->ip = *ip;
+	nexthop->nhlfe.config = NOP;
+	nexthop->nhlfe.label = MPLS_INVALID_LABEL;
 
 	return nexthop;
 }

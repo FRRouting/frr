@@ -24,7 +24,6 @@
 #include "northbound.h"
 #include "libfrr.h"
 #include "linklist.h"
-#include "table.h"
 #include "log.h"
 #include "lib/bfd.h"
 #include "isisd/isis_bfd.h"
@@ -1574,12 +1573,14 @@ isis_instance_segment_routing_enabled_modify(enum nb_event event,
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing/srgb
  */
-static void isis_instance_segment_routing_srgb_lower_bound_apply_finish(
+static void isis_instance_segment_routing_srgb_apply_finish(
 	const struct lyd_node *dnode)
 {
 	struct isis_area *area;
 
 	area = nb_running_get_entry(dnode, NULL, true);
+	area->srdb.lower_bound  = yang_dnode_get_uint32(dnode, "./lower-bound");
+	area->srdb.upper_bound = yang_dnode_get_uint32(dnode, "./upper-bound");
 
 	isis_sr_srgb_update(area);
 }
@@ -1591,13 +1592,21 @@ static int isis_instance_segment_routing_srgb_lower_bound_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	struct isis_area *area;
+	uint32_t lower_bound = yang_dnode_get_uint32(dnode, NULL);
 
-	if (event != NB_EV_APPLY)
-		return NB_OK;
-
-	area = nb_running_get_entry(dnode, NULL, true);
-	area->srdb.lower_bound = yang_dnode_get_uint32(dnode, NULL);
+	switch (event) {
+	case NB_EV_VALIDATE:
+		if (!IS_MPLS_UNRESERVED_LABEL(lower_bound)) {
+			zlog_warn("Invalid SRGB lower bound: %" PRIu32,
+				  lower_bound);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
 
 	return NB_OK;
 }
@@ -1609,13 +1618,21 @@ static int isis_instance_segment_routing_srgb_upper_bound_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	struct isis_area *area;
+	uint32_t upper_bound = yang_dnode_get_uint32(dnode, NULL);
 
-	if (event != NB_EV_APPLY)
-		return NB_OK;
-
-	area = nb_running_get_entry(dnode, NULL, true);
-	area->srdb.upper_bound = yang_dnode_get_uint32(dnode, NULL);
+	switch (event) {
+	case NB_EV_VALIDATE:
+		if (!IS_MPLS_UNRESERVED_LABEL(upper_bound)) {
+			zlog_warn("Invalid SRGB upper bound: %" PRIu32,
+				  upper_bound);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
 
 	return NB_OK;
 }
@@ -1697,6 +1714,40 @@ static int isis_instance_segment_routing_prefix_sid_map_prefix_sid_destroy(
 	return NB_OK;
 }
 
+static int isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate(
+	const struct lyd_node *dnode)
+{
+	uint32_t srgb_lbound;
+	uint32_t srgb_ubound;
+	uint32_t sid;
+	enum sr_sid_value_type sid_type;
+
+	srgb_lbound = yang_dnode_get_uint32(dnode, "../../srgb/lower-bound");
+	srgb_ubound = yang_dnode_get_uint32(dnode, "../../srgb/upper-bound");
+	sid = yang_dnode_get_uint32(dnode, "./sid-value");
+	sid_type = yang_dnode_get_enum(dnode, "./sid-value-type");
+
+	switch (sid_type) {
+	case SR_SID_VALUE_TYPE_INDEX:
+		if ((sid + srgb_lbound) > srgb_ubound) {
+			zlog_warn("SID index %u falls outside local SRGB range",
+				  sid);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case SR_SID_VALUE_TYPE_ABSOLUTE:
+		if ((sid < srgb_lbound) || (sid > srgb_ubound)) {
+			zlog_warn(
+				"Absolute SID %u falls outside local SRGB range",
+				sid);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	}
+
+	return NB_OK;
+}
+
 static void
 isis_instance_segment_routing_prefix_sid_map_prefix_sid_apply_finish(
 	const struct lyd_node *dnode)
@@ -1704,12 +1755,7 @@ isis_instance_segment_routing_prefix_sid_map_prefix_sid_apply_finish(
 	struct sr_prefix *srp;
 
 	srp = nb_running_get_entry(dnode, NULL, true);
-	if (srp)
-		isis_sr_prefix_commit(srp);
-	else
-		flog_warn(
-			EC_LIB_NB_CB_CONFIG_VALIDATE,
-			"Could not create Prefix SID");
+	isis_sr_prefix_commit(srp);
 }
 
 /*
@@ -1728,9 +1774,6 @@ isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_type_modify(
 		return NB_OK;
 
 	srp = nb_running_get_entry(dnode, NULL, true);
-	if (srp == NULL)
-		return NB_OK;
-
 	sid_value_type = yang_dnode_get_enum(dnode, NULL);
 	switch (sid_value_type) {
 	case SR_SID_VALUE_TYPE_INDEX:
@@ -1756,17 +1799,12 @@ isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_modify(
 	union nb_resource *resource)
 {
 	struct sr_prefix *srp;
-	uint32_t sid;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
 	srp = nb_running_get_entry(dnode, NULL, true);
-	if (srp == NULL)
-		return NB_OK;
-
-	sid = yang_dnode_get_uint32(dnode, NULL);
-	srp->sid.value = sid;
+	srp->sid.value = yang_dnode_get_uint32(dnode, NULL);
 
 	return NB_OK;
 }
@@ -3885,7 +3923,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/segment-routing/srgb",
 			.cbs = {
-				.apply_finish = isis_instance_segment_routing_srgb_lower_bound_apply_finish,
+				.apply_finish = isis_instance_segment_routing_srgb_apply_finish,
 				.cli_show = cli_show_isis_srgb,
 			},
 		},
@@ -3914,6 +3952,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.cbs = {
 				.create = isis_instance_segment_routing_prefix_sid_map_prefix_sid_create,
 				.destroy = isis_instance_segment_routing_prefix_sid_map_prefix_sid_destroy,
+				.pre_validate = isis_instance_segment_routing_prefix_sid_map_prefix_sid_pre_validate,
 				.apply_finish = isis_instance_segment_routing_prefix_sid_map_prefix_sid_apply_finish,
 				.cli_show = cli_show_isis_prefix_sid,
 			},
@@ -3928,7 +3967,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid/sid-value",
 			.cbs = {
 				.modify = isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_modify,
-			}
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/segment-routing/prefix-sid-map/prefix-sid/last-hop-behavior",

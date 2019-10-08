@@ -38,6 +38,24 @@ static struct log_ref ferr_isis_err[] = {
 		.suggestion = "Ensure configuration is correct"
 	},
 	{
+		.code = EC_ISIS_SR_DB,
+		.title = "ISIS Segment Routing Data Base Error",
+		.description = "Isis has detected an error with the Segment Routing Data Base",
+		.suggestion = "Gather log information and open an issue then restart FRR"
+	},
+	{
+		.code = EC_ISIS_SR_LM,
+		.title = "ISIS Segment Routing Label Manager Error",
+		.description = "Isis is unable to connect to Label Manager",
+		.suggestion = "Gather log information and open an issue then restart FRR"
+	},
+	{
+		.code = EC_ISIS_SID_OVERFLOW,
+		.title = "ISIS Segment Routing SID index overflow",
+		.description = "Isis has detected that a SID index falls outside of its associated SRGB range",
+		.suggestion = "Configure a larger SRGB"
+	},
+	{
 		.code = END_FERR,
 	}
 };
