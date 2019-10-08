@@ -363,7 +363,9 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 		pbr_map_check(pbrms);
 	}
 
-	if (nhop.type == NEXTHOP_TYPE_IFINDEX) {
+	if (nhop.type == NEXTHOP_TYPE_IFINDEX
+	    || (nhop.type == NEXTHOP_TYPE_IPV6_IFINDEX
+		&& IN6_IS_ADDR_LINKLOCAL(&nhop.gate.ipv6))) {
 		struct interface *ifp;
 
 		ifp = if_lookup_by_index(nhop.ifindex, nhop.vrf_id);
