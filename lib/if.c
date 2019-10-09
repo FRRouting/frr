@@ -221,7 +221,9 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 	/* remove interface from old master vrf list */
 	old_vrf = vrf_lookup_by_id(ifp->vrf_id);
 	if (old_vrf) {
-		IFNAME_RB_REMOVE(old_vrf, ifp);
+		if (ifp->name[0] != '\0')
+			IFNAME_RB_REMOVE(old_vrf, ifp);
+
 		if (ifp->ifindex != IFINDEX_INTERNAL)
 			IFINDEX_RB_REMOVE(old_vrf, ifp);
 	}
@@ -229,7 +231,9 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 	ifp->vrf_id = vrf_id;
 	vrf = vrf_get(ifp->vrf_id, NULL);
 
-	IFNAME_RB_INSERT(vrf, ifp);
+	if (ifp->name[0] != '\0')
+		IFNAME_RB_INSERT(vrf, ifp);
+
 	if (ifp->ifindex != IFINDEX_INTERNAL)
 		IFINDEX_RB_INSERT(vrf, ifp);
 
