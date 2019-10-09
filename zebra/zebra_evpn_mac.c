@@ -250,7 +250,7 @@ static void zebra_evpn_mac_get_access_info(zebra_mac_t *mac,
 		struct zebra_ns *zns;
 
 		*vid = mac->fwd_info.local.vid;
-		zns = zebra_ns_lookup(NS_DEFAULT);
+		zns = zebra_ns_lookup(mac->fwd_info.local.ns_id);
 		*ifpP = if_lookup_by_index_per_ns(zns,
 						  mac->fwd_info.local.ifindex);
 	}
@@ -1639,6 +1639,12 @@ static bool zebra_evpn_local_mac_update_fwd_info(zebra_mac_t *mac,
 {
 	struct zebra_if *zif = ifp->info;
 	bool es_change;
+	ns_id_t local_ns_id = NS_DEFAULT;
+	struct zebra_vrf *zvrf;
+
+	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	if (zvrf && zvrf->zns)
+		local_ns_id = zvrf->zns->ns_id;
 
 	memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
 
@@ -1647,6 +1653,7 @@ static bool zebra_evpn_local_mac_update_fwd_info(zebra_mac_t *mac,
 	if (!mac->es) {
 		/* if es is set fwd_info is not-relevant/taped-out */
 		mac->fwd_info.local.ifindex = ifp->ifindex;
+		mac->fwd_info.local.ns_id = local_ns_id;
 		mac->fwd_info.local.vid = vid;
 	}
 
@@ -2224,6 +2231,12 @@ int zebra_evpn_mac_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 {
 	char buf[ETHER_ADDR_STRLEN];
 	zebra_mac_t *mac;
+	ns_id_t local_ns_id = NS_DEFAULT;
+	struct zebra_vrf *zvrf;
+
+	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	if (zvrf && zvrf->zns)
+		local_ns_id = zvrf->zns->ns_id;
 
 	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
 	if (!mac) {
@@ -2243,6 +2256,7 @@ int zebra_evpn_mac_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 	SET_FLAG(mac->flags, ZEBRA_MAC_DEF_GW);
 	memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
 	mac->fwd_info.local.ifindex = ifp->ifindex;
+	mac->fwd_info.local.ns_id = local_ns_id;
 	mac->fwd_info.local.vid = vlan_id;
 
 	*macp = mac;
