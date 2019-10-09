@@ -724,6 +724,7 @@ static void zl3vni_print(zebra_l3vni_t *zl3vni, void **ctx)
 					      json_object_new_int(zevpn->vni));
 		}
 		json_object_object_add(json, "l2Vnis", json_evpn_list);
+
 	}
 }
 
