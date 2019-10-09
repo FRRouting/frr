@@ -3528,32 +3528,37 @@ static int zvni_mac_send_del_to_client(vni_t vni, struct ethaddr *macaddr)
 			     0 /* seq */, ZEBRA_NEIGH_ACTIVE, ZEBRA_MACIP_DEL);
 }
 
-/*
- * Map port or (port, VLAN) to a VNI. This is invoked upon getting MAC
- * notifications, to see if they are of interest.
- */
-static zebra_vni_t *zvni_map_vlan(struct interface *ifp,
-				  struct interface *br_if, vlanid_t vid)
+struct zvni_from_svi_param {
+	struct interface *br_if;
+	struct zebra_if *zif;
+	uint8_t bridge_vlan_aware;
+	vlanid_t vid;
+};
+
+static int zvni_map_vlan_zns(struct zebra_ns *zns,
+			     void *_in_param,
+			     void **_p_zvni)
 {
-	struct zebra_ns *zns;
 	struct route_node *rn;
+	struct interface *br_if;
+	zebra_vni_t **p_zvni = (zebra_vni_t **)_p_zvni;
+	zebra_vni_t *zvni;
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
-	struct zebra_l2info_bridge *br;
 	struct zebra_l2info_vxlan *vxl = NULL;
-	uint8_t bridge_vlan_aware;
-	zebra_vni_t *zvni;
+	struct zvni_from_svi_param *in_param =
+		(struct zvni_from_svi_param *)_in_param;
 	int found = 0;
 
-	/* Determine if bridge is VLAN-aware or not */
-	zif = br_if->info;
+	if (!in_param)
+		return ZNS_WALK_STOP;
+	br_if = in_param->br_if;
+	zif = in_param->zif;
 	assert(zif);
-	br = &zif->l2info.br;
-	bridge_vlan_aware = br->vlan_aware;
+	assert(br_if);
 
 	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN */
 	/* TODO: Optimize with a hash. */
-	zns = zebra_ns_lookup(NS_DEFAULT);
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 		tmp_if = (struct interface *)rn->info;
 		if (!tmp_if)
@@ -3568,25 +3573,48 @@ static zebra_vni_t *zvni_map_vlan(struct interface *ifp,
 		if (zif->brslave_info.br_if != br_if)
 			continue;
 
-		if (!bridge_vlan_aware || vxl->access_vlan == vid) {
+		if (!in_param->bridge_vlan_aware
+		    || vxl->access_vlan == in_param->vid) {
 			found = 1;
 			break;
 		}
 	}
-
 	if (!found)
-		return NULL;
+		return ZNS_WALK_CONTINUE;
 
 	zvni = zvni_lookup(vxl->vni);
-	return zvni;
+	if (p_zvni)
+		*p_zvni = zvni;
+	return ZNS_WALK_STOP;
 }
 
-struct zvni_from_svi_param {
-	struct interface *br_if;
+/*
+ * Map port or (port, VLAN) to a VNI. This is invoked upon getting MAC
+ * notifications, to see if they are of interest.
+ */
+static zebra_vni_t *zvni_map_vlan(struct interface *ifp,
+				  struct interface *br_if, vlanid_t vid)
+{
 	struct zebra_if *zif;
-	uint8_t bridge_vlan_aware;
-	vlanid_t vid;
-};
+	struct zebra_l2info_bridge *br;
+	zebra_vni_t **p_zvni;
+	zebra_vni_t *zvni = NULL;
+	struct zvni_from_svi_param in_param;
+
+	/* Determine if bridge is VLAN-aware or not */
+	zif = br_if->info;
+	assert(zif);
+	br = &zif->l2info.br;
+	in_param.bridge_vlan_aware = br->vlan_aware;
+	in_param.vid = vid;
+	in_param.br_if = br_if;
+	in_param.zif = zif;
+	p_zvni = &zvni;
+
+	zebra_ns_list_walk(zvni_map_vlan_zns, (void *)&in_param,
+			   (void **)p_zvni);
+	return zvni;
+}
 
 static int zvni_from_svi_zns(struct zebra_ns *zns,
 			     void *_in_param,
