@@ -479,7 +479,11 @@ extern int if_cmp_name_func(const char *p1, const char *p2);
  * else think before you use VRF_UNKNOWN
  */
 extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
-extern struct interface *if_create(const char *name, vrf_id_t vrf_id);
+
+/* Create new interface, adds to name list only */
+extern struct interface *if_create_name(const char *name, vrf_id_t vrf_id);
+
+/* Create new interface, adds to index list only */
 extern struct interface *if_create_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index_all_vrf(ifindex_t);
@@ -492,13 +496,15 @@ extern struct interface *if_lookup_prefix(struct prefix *prefix,
 size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 			   struct interface ***result, vrf_id_t vrf_id);
 
-/* These 3 functions are to be used when the ifname argument is terminated
-   by a '\0' character: */
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
 extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
 extern struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
+
+/* Sets the index and adds to index list */
 extern void if_set_index(struct interface *ifp, ifindex_t ifindex);
+/* Sets the name and adds to name list */
+extern void if_set_name(struct interface *ifp, const char *name);
 
 /* Delete the interface, but do not free the structure, and leave it in the
    interface list.  It is often advisable to leave the pseudo interface
