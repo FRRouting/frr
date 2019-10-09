@@ -18,6 +18,8 @@
 //
 
 #include <zebra.h>
+#include <grpcpp/grpcpp.h>
+#include "grpc/frr-northbound.grpc.pb.h"
 
 #include "log.h"
 #include "libfrr.h"
@@ -31,9 +33,6 @@
 #include <sstream>
 #include <memory>
 #include <string>
-
-#include <grpcpp/grpcpp.h>
-#include "grpc/frr-northbound.grpc.pb.h"
 
 #define GRPC_DEFAULT_PORT 50051
 
