@@ -8231,7 +8231,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 			if (peer->status == Established)
 				if (peer->afc_recv[afi][safi])
-					vty_out(vty, " %12ld",
+					vty_out(vty, " %12" PRIu32,
 						peer->pcount[afi]
 							    [pfx_rcd_safi]);
 				else
@@ -9182,11 +9182,13 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				filter->usmap.name);
 
 		/* Receive prefix count */
-		vty_out(vty, "  %ld accepted prefixes\n", p->pcount[afi][safi]);
+		vty_out(vty, "  %" PRIu32 " accepted prefixes\n",
+			p->pcount[afi][safi]);
 
 		/* Maximum prefix */
 		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX)) {
-			vty_out(vty, "  Maximum prefixes allowed %ld%s\n",
+			vty_out(vty,
+				"  Maximum prefixes allowed %" PRIu32 "%s\n",
 				p->pmax[afi][safi],
 				CHECK_FLAG(p->af_flags[afi][safi],
 					   PEER_FLAG_MAX_PREFIX_WARNING)
