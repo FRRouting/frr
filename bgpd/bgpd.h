@@ -1152,10 +1152,10 @@ struct peer {
 	int rcvd_attr_printed;
 
 	/* Prefix count. */
-	unsigned long pcount[AFI_MAX][SAFI_MAX];
+	uint32_t pcount[AFI_MAX][SAFI_MAX];
 
 	/* Max prefix count. */
-	unsigned long pmax[AFI_MAX][SAFI_MAX];
+	uint32_t pmax[AFI_MAX][SAFI_MAX];
 	uint8_t pmax_threshold[AFI_MAX][SAFI_MAX];
 	uint16_t pmax_restart[AFI_MAX][SAFI_MAX];
 #define MAXIMUM_PREFIX_THRESHOLD_DEFAULT 75
