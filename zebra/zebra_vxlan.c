@@ -1194,7 +1194,7 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 			ifindex_t ifindex;
 
 			ifindex = mac->fwd_info.local.ifindex;
-			zns = zebra_ns_lookup(NS_DEFAULT);
+			zns = zebra_ns_lookup(mac->fwd_info.local.ns_id);
 			ifp = if_lookup_by_index_per_ns(zns, ifindex);
 			if (!ifp)
 				return;
@@ -1276,7 +1276,7 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 			ifindex_t ifindex;
 
 			ifindex = mac->fwd_info.local.ifindex;
-			zns = zebra_ns_lookup(NS_DEFAULT);
+			zns = zebra_ns_lookup(mac->fwd_info.local.ns_id);
 			ifp = if_lookup_by_index_per_ns(zns, ifindex);
 			if (!ifp)
 				return;
@@ -1368,7 +1368,7 @@ static void zvni_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 		if (wctx->flags & SHOW_REMOTE_MAC_FROM_VTEP)
 			return;
 
-		zns = zebra_ns_lookup(NS_DEFAULT);
+		zns = zebra_ns_lookup(mac->fwd_info.local.ns_id);
 		ifindex = mac->fwd_info.local.ifindex;
 		ifp = if_lookup_by_index_per_ns(zns, ifindex);
 		if (!ifp) // unexpected
@@ -2731,7 +2731,12 @@ static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 	zebra_mac_t *mac = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
+	struct zebra_vrf *zvrf;
+	ns_id_t local_ns_id = NS_DEFAULT;
 
+	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	if (zvrf && zvrf->zns)
+		local_ns_id = zvrf->zns->ns_id;
 	zif = zvni->vxlan_if->info;
 	if (!zif)
 		return -1;
@@ -2756,6 +2761,7 @@ static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 	SET_FLAG(mac->flags, ZEBRA_MAC_DEF_GW);
 	memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
 	mac->fwd_info.local.ifindex = ifp->ifindex;
+	mac->fwd_info.local.ns_id = local_ns_id;
 	mac->fwd_info.local.vid = vxl->access_vlan;
 
 	n = zvni_neigh_lookup(zvni, ip);
@@ -8127,6 +8133,11 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 	bool upd_neigh = false;
 	bool is_dup_detect = false;
 	struct in_addr vtep_ip = {.s_addr = 0};
+	ns_id_t local_ns_id = NS_DEFAULT;
+
+	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	if (zvrf && zvrf->zns)
+		local_ns_id = zvrf->zns->ns_id;
 
 	/* We are interested in MACs only on ports or (port, VLAN) that
 	 * map to a VNI.
@@ -8179,6 +8190,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 		}
 		SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
 		mac->fwd_info.local.ifindex = ifp->ifindex;
+		mac->fwd_info.local.ns_id = local_ns_id;
 		mac->fwd_info.local.vid = vid;
 		if (sticky)
 			SET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
@@ -8203,6 +8215,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 			 */
 			if (mac_sticky == sticky
 			    && mac->fwd_info.local.ifindex == ifp->ifindex
+			    && mac->fwd_info.local.ns_id == local_ns_id
 			    && mac->fwd_info.local.vid == vid) {
 				if (IS_ZEBRA_DEBUG_VXLAN)
 					zlog_debug(
@@ -8227,6 +8240,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 
 			memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
 			mac->fwd_info.local.ifindex = ifp->ifindex;
+			mac->fwd_info.local.ns_id = local_ns_id;
 			mac->fwd_info.local.vid = vid;
 
 		} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) ||
@@ -8264,6 +8278,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 			SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
 			memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
 			mac->fwd_info.local.ifindex = ifp->ifindex;
+			mac->fwd_info.local.ns_id = local_ns_id;
 			mac->fwd_info.local.vid = vid;
 			if (sticky)
 				SET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
