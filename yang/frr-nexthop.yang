@@ -10,6 +10,9 @@ module frr-nexthop {
   import ietf-routing-types {
     prefix rt-types;
   }
+  import frr-interface {
+    prefix frr-interface;
+  }
 
   organization
     "Free Range Routing";
@@ -112,13 +115,15 @@ module frr-nexthop {
     }
 
     leaf vrf {
-      type string;
+      type string {
+        length "1..36";
+      }
       description
         "The nexthop vrf name, if different from the route.";
     }
 
     leaf interface {
-      type string;
+      type frr-interface:interface-ref;
       description
         "The nexthop egress interface.";
     }
