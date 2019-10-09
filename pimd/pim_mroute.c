@@ -611,7 +611,7 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 			pim_inet4_dump("<dst?>", ip_hdr->ip_dst, ip_dst_str,
 				       sizeof(ip_dst_str));
 
-			zlog_warn(
+			zlog_debug(
 				"%s(%s): igmp kernel upcall on %s(%p) for %s -> %s",
 				__PRETTY_FUNCTION__, pim->vrf->name, ifp->name,
 				igmp, ip_src_str, ip_dst_str);
@@ -643,7 +643,7 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 				       sizeof(src_str));
 			pim_inet4_dump("<grp?>", msg->im_dst, grp_str,
 				       sizeof(grp_str));
-			zlog_warn(
+			zlog_debug(
 				"%s: pim kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%s,%s) on %s vifi=%d  size=%d",
 				__PRETTY_FUNCTION__,
 				igmpmsgtype2str[msg->im_msgtype],
@@ -698,12 +698,9 @@ static int mroute_read(struct thread *t)
 			if (errno == EWOULDBLOCK || errno == EAGAIN)
 				break;
 
-			if (PIM_DEBUG_MROUTE)
-				zlog_warn(
-					"%s: failure reading rd=%d: fd=%d: errno=%d: %s",
-					__PRETTY_FUNCTION__, rd,
-					pim->mroute_socket, errno,
-					safe_strerror(errno));
+			zlog_warn("%s: failure reading rd=%d: fd=%d: errno=%d: %s",
+				  __PRETTY_FUNCTION__, rd, pim->mroute_socket,
+				  errno, safe_strerror(errno));
 			goto done;
 		}
 
@@ -1085,18 +1082,14 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 
 	pim_zlookup_sg_statistics(c_oil);
 	if (ioctl(pim->mroute_socket, SIOCGETSGCNT, &sgreq)) {
-		if (PIM_DEBUG_MROUTE) {
-			struct prefix_sg sg;
+		struct prefix_sg sg;
 
-			sg.src = c_oil->oil.mfcc_origin;
-			sg.grp = c_oil->oil.mfcc_mcastgrp;
+		sg.src = c_oil->oil.mfcc_origin;
+		sg.grp = c_oil->oil.mfcc_mcastgrp;
 
-			zlog_warn(
-				"ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=%s: errno=%d: %s",
-				(unsigned long)SIOCGETSGCNT,
-				pim_str_sg_dump(&sg), errno,
-				safe_strerror(errno));
-		}
+		zlog_warn("ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=%s: errno=%d: %s",
+			  (unsigned long)SIOCGETSGCNT, pim_str_sg_dump(&sg),
+			  errno, safe_strerror(errno));
 		return;
 	}
 
