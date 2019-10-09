@@ -328,8 +328,8 @@ if test "$enable_thread_sanitizer" = "yes"; then
   ])
 fi
 if test "$enable_memory_sanitizer" = "yes"; then
-  AC_C_FLAG([-fsanitize=thread -fPIE -pie], [
-    AC_MSG_ERROR([$CC does not support Thread Sanitizer.])
+  AC_C_FLAG([-fsanitize=memory -fPIE -pie], [
+    AC_MSG_ERROR([$CC does not support Memory Sanitizer.])
   ], [
     SAN_FLAGS="-fsanitize=memory -fPIE -pie"
   ])
