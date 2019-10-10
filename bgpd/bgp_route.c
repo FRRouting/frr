@@ -1785,9 +1785,9 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 
 	/* Route map & unsuppress-map apply. */
 	if (ROUTE_MAP_OUT_NAME(filter) || (pi->extra && pi->extra->suppress)) {
-		struct bgp_path_info rmap_path;
-		struct bgp_path_info_extra dummy_rmap_path_extra;
-		struct attr dummy_attr;
+		struct bgp_path_info rmap_path = {0};
+		struct bgp_path_info_extra dummy_rmap_path_extra = {0};
+		struct attr dummy_attr = {0};
 
 		memset(&rmap_path, 0, sizeof(struct bgp_path_info));
 		rmap_path.peer = peer;
