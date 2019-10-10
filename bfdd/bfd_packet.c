@@ -435,15 +435,17 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 
 				*ifindex = pi6->ipi6_ifindex;
+
+				/* Set scope ID for link local addresses. */
+				if (IN6_IS_ADDR_LINKLOCAL(
+					    &peer->sa_sin6.sin6_addr))
+					peer->sa_sin6.sin6_scope_id = *ifindex;
+				if (IN6_IS_ADDR_LINKLOCAL(
+					    &local->sa_sin6.sin6_addr))
+					local->sa_sin6.sin6_scope_id = *ifindex;
 			}
 		}
 	}
-
-	/* Set scope ID for link local addresses. */
-	if (IN6_IS_ADDR_LINKLOCAL(&peer->sa_sin6.sin6_addr))
-		peer->sa_sin6.sin6_scope_id = *ifindex;
-	if (IN6_IS_ADDR_LINKLOCAL(&local->sa_sin6.sin6_addr))
-		local->sa_sin6.sin6_scope_id = *ifindex;
 
 	return mlen;
 }
@@ -892,7 +894,7 @@ int bp_udp_shop(vrf_id_t vrf_id)
 {
 	int sd;
 
-	frr_elevate_privs(&bglobal.bfdd_privs) {
+	frr_with_privs(&bglobal.bfdd_privs) {
 		sd = vrf_socket(AF_INET, SOCK_DGRAM, PF_UNSPEC, vrf_id, NULL);
 	}
 	if (sd == -1)
@@ -907,7 +909,7 @@ int bp_udp_mhop(vrf_id_t vrf_id)
 {
 	int sd;
 
-	frr_elevate_privs(&bglobal.bfdd_privs) {
+	frr_with_privs(&bglobal.bfdd_privs) {
 		sd = vrf_socket(AF_INET, SOCK_DGRAM, PF_UNSPEC, vrf_id, NULL);
 	}
 	if (sd == -1)
@@ -932,7 +934,7 @@ int bp_peer_socket(const struct bfd_session *bs)
 	    && bs->key.vrfname[0])
 		device_to_bind = (const char *)bs->key.vrfname;
 
-	frr_elevate_privs(&bglobal.bfdd_privs) {
+	frr_with_privs(&bglobal.bfdd_privs) {
 		sd = vrf_socket(AF_INET, SOCK_DGRAM, PF_UNSPEC,
 				bs->vrf->vrf_id, device_to_bind);
 	}
@@ -999,7 +1001,7 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 	    && bs->key.vrfname[0])
 		device_to_bind = (const char *)bs->key.vrfname;
 
-	frr_elevate_privs(&bglobal.bfdd_privs) {
+	frr_with_privs(&bglobal.bfdd_privs) {
 		sd = vrf_socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC,
 				bs->vrf->vrf_id, device_to_bind);
 	}
@@ -1119,7 +1121,7 @@ int bp_udp6_shop(vrf_id_t vrf_id)
 {
 	int sd;
 
-	frr_elevate_privs(&bglobal.bfdd_privs) {
+	frr_with_privs(&bglobal.bfdd_privs) {
 		sd = vrf_socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC, vrf_id, NULL);
 	}
 	if (sd == -1)
@@ -1135,7 +1137,7 @@ int bp_udp6_mhop(vrf_id_t vrf_id)
 {
 	int sd;
 
-	frr_elevate_privs(&bglobal.bfdd_privs) {
+	frr_with_privs(&bglobal.bfdd_privs) {
 		sd = vrf_socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC, vrf_id, NULL);
 	}
 	if (sd == -1)
@@ -1151,7 +1153,7 @@ int bp_echo_socket(vrf_id_t vrf_id)
 {
 	int s;
 
-	frr_elevate_privs(&bglobal.bfdd_privs) {
+	frr_with_privs(&bglobal.bfdd_privs) {
 		s = vrf_socket(AF_INET, SOCK_DGRAM, 0, vrf_id, NULL);
 	}
 	if (s == -1)
@@ -1167,7 +1169,7 @@ int bp_echov6_socket(vrf_id_t vrf_id)
 {
 	int s;
 
-	frr_elevate_privs(&bglobal.bfdd_privs) {
+	frr_with_privs(&bglobal.bfdd_privs) {
 		s = vrf_socket(AF_INET6, SOCK_DGRAM, 0, vrf_id, NULL);
 	}
 	if (s == -1)

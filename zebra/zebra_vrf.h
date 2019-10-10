@@ -69,6 +69,7 @@ struct zebra_vrf {
 	/* Flags. */
 	uint16_t flags;
 #define ZEBRA_VRF_RETAIN          (1 << 0)
+#define ZEBRA_PIM_SEND_VXLAN_SG   (1 << 1)
 
 	uint32_t table_id;
 
@@ -169,6 +170,13 @@ struct zebra_vrf {
 	uint64_t lsp_removals_queued;
 	uint64_t lsp_installs;
 	uint64_t lsp_removals;
+
+#if defined(HAVE_RTADV)
+	struct rtadv rtadv;
+#endif /* HAVE_RTADV */
+
+	int zebra_rnh_ip_default_route;
+	int zebra_rnh_ipv6_default_route;
 };
 #define PROTO_RM_NAME(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].name
 #define NHT_RM_NAME(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].name

@@ -324,8 +324,9 @@ static int subgroup_coalesce_timer(struct thread *thread)
 	subgrp = THREAD_ARG(thread);
 	if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
 		zlog_debug("u%" PRIu64 ":s%" PRIu64
-			   " announcing routes upon coalesce timer expiry",
-			   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id);
+			   " announcing routes upon coalesce timer expiry(%u ms)",
+			   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id,
+			   subgrp->v_coalesce),
 	subgrp->t_coalesce = NULL;
 	subgrp->v_coalesce = 0;
 	subgroup_announce_route(subgrp);
@@ -716,7 +717,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	struct bgp_node *rn;
 	struct bgp_path_info *ri;
 	struct peer *peer;
-	int ret = RMAP_DENYMATCH;
+	route_map_result_t ret = RMAP_DENYMATCH;
 	afi_t afi;
 	safi_t safi;
 

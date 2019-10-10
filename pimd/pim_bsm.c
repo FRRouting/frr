@@ -19,6 +19,11 @@
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
  * MA 02110-1301 USA
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "if.h"
 #include "pimd.h"
 #include "pim_iface.h"
@@ -146,14 +151,6 @@ static struct bsgrp_node *pim_bsm_new_bsgrp_node(struct route_table *rt,
 		return NULL;
 	}
 	bsgrp = XCALLOC(MTYPE_PIM_BSGRP_NODE, sizeof(struct bsgrp_node));
-
-	if (!bsgrp) {
-		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: bsgrp alloc failed",
-				   __PRETTY_FUNCTION__);
-		route_unlock_node(rn);
-		return NULL;
-	}
 
 	rn->info = bsgrp;
 	bsgrp->bsrp_list = pim_alloc_bsrp_list();
@@ -714,22 +711,16 @@ static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
 	/* MTU  passed here is PIM MTU (IP MTU less IP Hdr) */
 	if (pim_mtu < (PIM_MIN_BSM_LEN)) {
 		zlog_warn(
-			"%s: mtu(pim mtu: %d) size less than minimum bootsrap len",
+			"%s: mtu(pim mtu: %d) size less than minimum bootstrap len",
 			__PRETTY_FUNCTION__, pim_mtu);
 		if (PIM_DEBUG_BSM)
 			zlog_debug(
-				"%s: mtu (pim mtu:%d) less than minimum bootsrap len",
+				"%s: mtu (pim mtu:%d) less than minimum bootstrap len",
 				__PRETTY_FUNCTION__, pim_mtu);
 		return false;
 	}
 
 	pak_start = XCALLOC(MTYPE_PIM_BSM_PKT_VAR_MEM, pim_mtu);
-
-	if (!pak_start) {
-		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: malloc failed", __PRETTY_FUNCTION__);
-		return false;
-	}
 
 	pkt = pak_start;
 
@@ -874,8 +865,8 @@ static void pim_bsm_fwd_whole_sz(struct pim_instance *pim, uint8_t *buf,
 	struct pim_interface *pim_ifp;
 	struct in_addr dst_addr;
 	uint32_t pim_mtu;
-	bool no_fwd = FALSE;
-	bool ret = FALSE;
+	bool no_fwd = false;
+	bool ret = false;
 
 	/* For now only global scope zone is supported, so send on all
 	 * pim interfaces in the vrf
@@ -900,7 +891,7 @@ static void pim_bsm_fwd_whole_sz(struct pim_instance *pim, uint8_t *buf,
 			if (!pim_bsm_send_intf(buf, len, ifp, dst_addr)) {
 				if (PIM_DEBUG_BSM)
 					zlog_debug(
-						"%s: pim_bsm_send_intf returned FALSE",
+						"%s: pim_bsm_send_intf returned false",
 						__PRETTY_FUNCTION__);
 			}
 		}
@@ -1051,13 +1042,6 @@ static bool pim_install_bsm_grp_rp(struct pim_instance *pim,
 
 	/*memory allocation for bsm_rpinfo */
 	bsm_rpinfo = XCALLOC(MTYPE_PIM_BSRP_NODE, sizeof(*bsm_rpinfo));
-
-	if (!bsm_rpinfo) {
-		if (PIM_DEBUG_BSM)
-			zlog_debug("%s, Memory allocation failed.\r\n",
-				   __PRETTY_FUNCTION__);
-		return false;
-	}
 
 	bsm_rpinfo->rp_prio = rp->rp_pri;
 	bsm_rpinfo->rp_holdtime = rp->rp_holdtime;
@@ -1232,7 +1216,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 	struct pim_instance *pim;
 	char bsr_str[INET_ADDRSTRLEN];
 	uint16_t frag_tag;
-	bool empty_bsm = FALSE;
+	bool empty_bsm = false;
 
 	/* BSM Packet acceptance validation */
 	pim_ifp = ifp->info;
@@ -1382,18 +1366,8 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 	if (!no_fwd) {
 		pim_bsm_fwd_whole_sz(pim_ifp->pim, buf, buf_size, sz);
 		bsminfo = XCALLOC(MTYPE_PIM_BSM_INFO, sizeof(struct bsm_info));
-		if (!bsminfo) {
-			zlog_warn("%s: bsminfo alloc failed",
-				  __PRETTY_FUNCTION__);
-			return 0;
-		}
 
 		bsminfo->bsm = XCALLOC(MTYPE_PIM_BSM_PKT_VAR_MEM, buf_size);
-		if (!bsminfo->bsm) {
-			zlog_warn("%s: bsm alloc failed", __PRETTY_FUNCTION__);
-			XFREE(MTYPE_PIM_BSM_INFO, bsminfo);
-			return 0;
-		}
 
 		bsminfo->size = buf_size;
 		memcpy(bsminfo->bsm, buf, buf_size);

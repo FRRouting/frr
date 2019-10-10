@@ -22,7 +22,7 @@ Installing Mininet Infrastructure
    apt-get install python-pip
    apt-get install iproute
    pip install ipaddr
-   pip install pytest
+   pip install "pytest<5"
    pip install exabgp==3.4.17 (Newer 4.0 version of exabgp is not yet
    supported)
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
@@ -189,11 +189,8 @@ for ``master`` branch:
    git clone https://github.com/FRRouting/frr.git
    cd frr
    ./bootstrap.sh
-   export CC=gcc
-   export CFLAGS="-O1 -g -fsanitize=address -fno-omit-frame-pointer"
-   export LD=gcc
-   export LDFLAGS="-g -fsanitize=address -ldl"
-   ./configure --enable-shared=no \
+   ./configure \
+       --enable-address-sanitizer \
        --prefix=/usr/lib/frr --sysconfdir=/etc/frr \
        --localstatedir=/var/run/frr \
        --sbindir=/usr/lib/frr --bindir=/usr/lib/frr \

@@ -8,7 +8,6 @@ hostname bgpd
 password zebra
 !enable password please-set-at-here
 !
-!bgp multiple-instance
 !
 router bgp 7675
 ! bgp router-id 10.0.0.1

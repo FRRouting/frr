@@ -58,19 +58,18 @@ extern struct zebra_privs_t isisd_privs;
 
 /* uncomment if you are a developer in bug hunt */
 /* #define EXTREME_DEBUG  */
-/* #define EXTREME_DICT_DEBUG */
 
 struct fabricd;
 
 struct isis {
+	vrf_id_t vrf_id;
 	unsigned long process_id;
 	int sysid_set;
 	uint8_t sysid[ISIS_SYS_ID_LEN]; /* SystemID for this IS */
 	uint32_t router_id;		/* Router ID from zebra */
 	struct list *area_list;	/* list of IS-IS areas */
 	struct list *init_circ_list;
-	struct list *nexthops;		  /* IPv4 next hops from this IS */
-	struct list *nexthops6;		  /* IPv6 next hops from this IS */
+	struct list *nexthops;		  /* IP next hops from this IS */
 	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
 	struct area_addr *man_area_addrs; /* manualAreaAddresses */
 	uint32_t debugs;		  /* bitmap for debug */
@@ -191,7 +190,7 @@ struct isis_area {
 DECLARE_QOBJ_TYPE(isis_area)
 
 void isis_init(void);
-void isis_new(unsigned long);
+void isis_new(unsigned long process_id, vrf_id_t vrf_id);
 struct isis_area *isis_area_create(const char *);
 struct isis_area *isis_area_lookup(const char *);
 int isis_area_get(struct vty *vty, const char *area_tag);

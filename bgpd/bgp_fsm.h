@@ -88,6 +88,5 @@ extern void bgp_adjust_routeadv(struct peer *);
 
 #include "hook.h"
 DECLARE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
-DECLARE_HOOK(peer_established, (struct peer * peer), (peer))
 
 #endif /* _QUAGGA_BGP_FSM_H */

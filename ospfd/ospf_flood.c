@@ -83,6 +83,9 @@ struct external_info *ospf_external_info_check(struct ospf *ospf,
 	struct as_external_lsa *al;
 	struct prefix_ipv4 p;
 	struct route_node *rn;
+	struct list *ext_list;
+	struct listnode *node;
+	struct ospf_external *ext;
 	int type;
 
 	al = (struct as_external_lsa *)lsa->data;
@@ -91,7 +94,7 @@ struct external_info *ospf_external_info_check(struct ospf *ospf,
 	p.prefix = lsa->data->id;
 	p.prefixlen = ip_masklen(al->mask);
 
-	for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
+	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
 		int redist_on = 0;
 
 		redist_on =
@@ -105,10 +108,6 @@ struct external_info *ospf_external_info_check(struct ospf *ospf,
 					      ospf->vrf_id));
 		// Pending: check for MI above.
 		if (redist_on) {
-			struct list *ext_list;
-			struct listnode *node;
-			struct ospf_external *ext;
-
 			ext_list = ospf->external[type];
 			if (!ext_list)
 				continue;
@@ -129,6 +128,22 @@ struct external_info *ospf_external_info_check(struct ospf *ospf,
 		}
 	}
 
+	if (is_prefix_default(&p) && ospf->external[DEFAULT_ROUTE]) {
+		ext_list = ospf->external[DEFAULT_ROUTE];
+
+		for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
+			if (!ext->external_info)
+				continue;
+
+			rn = route_node_lookup(ext->external_info,
+					       (struct prefix *)&p);
+			if (!rn)
+				continue;
+			route_unlock_node(rn);
+			if (rn->info != NULL)
+				return (struct external_info *)rn->info;
+		}
+	}
 	return NULL;
 }
 

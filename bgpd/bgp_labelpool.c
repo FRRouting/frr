@@ -29,11 +29,13 @@
 #include "skiplist.h"
 #include "workqueue.h"
 #include "zclient.h"
+#include "mpls.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_labelpool.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
+#include "bgpd/bgp_route.h"
 
 /*
  * Definitions and external declarations.
@@ -180,9 +182,24 @@ void bgp_lp_init(struct thread_master *master, struct labelpool *pool)
 	lp->callback_q->spec.max_retries = 0;
 }
 
+/* check if a label callback was for a BGP LU path, and if so, unlock it */
+static void check_bgp_lu_cb_unlock(struct lp_lcb *lcb)
+{
+	if (lcb->type == LP_TYPE_BGP_LU)
+		bgp_path_info_unlock(lcb->labelid);
+}
+
+/* check if a label callback was for a BGP LU path, and if so, lock it */
+static void check_bgp_lu_cb_lock(struct lp_lcb *lcb)
+{
+	if (lcb->type == LP_TYPE_BGP_LU)
+		bgp_path_info_lock(lcb->labelid);
+}
+
 void bgp_lp_finish(void)
 {
 	struct lp_fifo *lf;
+	struct work_queue_item *item, *titem;
 
 	if (!lp)
 		return;
@@ -195,9 +212,20 @@ void bgp_lp_finish(void)
 
 	list_delete(&lp->chunks);
 
-	while ((lf = lp_fifo_pop(&lp->requests)))
+	while ((lf = lp_fifo_pop(&lp->requests))) {
+		check_bgp_lu_cb_unlock(&lf->lcb);
 		XFREE(MTYPE_BGP_LABEL_FIFO, lf);
+	}
 	lp_fifo_fini(&lp->requests);
+
+	/* we must unlock path infos for LU callbacks; but we cannot do that
+	 * in the deletion callback of the workqueue, as that is also called
+	 * to remove an element from the queue after it has been run, resulting
+	 * in a double unlock. Hence we need to iterate over our queues and
+	 * lists and manually perform the unlocking (ugh)
+	 */
+	STAILQ_FOREACH_SAFE (item, &lp->callback_q->items, wq, titem)
+		check_bgp_lu_cb_unlock(item->data);
 
 	work_queue_free_and_null(&lp->callback_q);
 
@@ -328,6 +356,9 @@ void bgp_lp_get(
 		q->labelid = lcb->labelid;
 		q->allocated = true;
 
+		/* if this is a LU request, lock path info before queueing */
+		check_bgp_lu_cb_lock(lcb);
+
 		work_queue_add(lp->callback_q, q);
 
 		return;
@@ -353,13 +384,17 @@ void bgp_lp_get(
 		sizeof(struct lp_fifo));
 
 	lf->lcb = *lcb;
+	/* if this is a LU request, lock path info before queueing */
+	check_bgp_lu_cb_lock(lcb);
+
 	lp_fifo_add_tail(&lp->requests, lf);
 
 	if (lp_fifo_count(&lp->requests) > lp->pending_count) {
-		if (!zclient_send_get_label_chunk(zclient, 0, LP_CHUNK_SIZE)) {
-			lp->pending_count += LP_CHUNK_SIZE;
+		if (!zclient || zclient->sock < 0)
 			return;
-		}
+		if (!zclient_send_get_label_chunk(zclient, 0, LP_CHUNK_SIZE,
+						  MPLS_LABEL_BASE_ANY))
+			lp->pending_count += LP_CHUNK_SIZE;
 	}
 }
 
@@ -436,6 +471,10 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 						__func__, labelid,
 						lcb->label, lcb->label, lcb);
 			}
+			/* if this was a BGP_LU request, unlock path info node
+			 */
+			check_bgp_lu_cb_unlock(lcb);
+
 			goto finishedrequest;
 		}
 
@@ -510,10 +549,13 @@ void bgp_lp_event_zebra_up(void)
 
 	lm_init_ok = lm_label_manager_connect(zclient, 1) == 0;
 
-	if (!lm_init_ok)
+	if (!lm_init_ok) {
 		zlog_err("%s: label manager connection error", __func__);
+		return;
+	}
 
-	zclient_send_get_label_chunk(zclient, 0, labels_needed);
+	zclient_send_get_label_chunk(zclient, 0, labels_needed,
+				     MPLS_LABEL_BASE_ANY);
 	lp->pending_count = labels_needed;
 
 	/*
@@ -544,6 +586,7 @@ void bgp_lp_event_zebra_up(void)
 				q->label = lcb->label;
 				q->labelid = lcb->labelid;
 				q->allocated = false;
+				check_bgp_lu_cb_lock(lcb);
 				work_queue_add(lp->callback_q, q);
 
 				lcb->label = MPLS_LABEL_NONE;
@@ -556,6 +599,7 @@ void bgp_lp_event_zebra_up(void)
 				sizeof(struct lp_fifo));
 
 			lf->lcb = *lcb;
+			check_bgp_lu_cb_lock(lcb);
 			lp_fifo_add_tail(&lp->requests, lf);
 		}
 

@@ -135,6 +135,9 @@ ssize_t vrrp_pkt_adver_build(struct vrrp_pkt **pkt, struct ipaddr *src,
 			     uint16_t max_adver_int, uint8_t numip,
 			     struct ipaddr **ips);
 
+/* free memory allocated by vrrp_pkt_adver_build's pkt arg */
+void vrrp_pkt_free(struct vrrp_pkt *pkt);
+
 /*
  * Dumps a VRRP ADVERTISEMENT packet to a string.
  *

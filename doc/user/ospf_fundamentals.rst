@@ -24,7 +24,7 @@ Each router thus builds up an :abbr:`LSDB (Link State Database)` of all the
 link-state messages. From this collection of LSAs in the LSDB, each router can
 then calculate the shortest path to any other router, based on some common
 metric, by using an algorithm such as
-`Edgar Djikstra's <http://www.cs.utexas.edu/users/EWD/>`_
+`Edsger Dijkstra's <http://www.cs.utexas.edu/users/EWD/>`_
 :abbr:`SPF (Shortest Path First)` algorithm.
 
 .. index:: Link-state routing protocol advantages

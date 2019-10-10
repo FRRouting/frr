@@ -34,6 +34,8 @@
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_nexthop.h"
 
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_PEER, "RIPng peer")
+
 static struct ripng_peer *ripng_peer_new(void)
 {
 	return XCALLOC(MTYPE_RIPNG_PEER, sizeof(struct ripng_peer));

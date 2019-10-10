@@ -193,18 +193,25 @@ Standard Commands
 Link Parameters Commands
 ------------------------
 
+.. note::
+
+   At this time, FRR offers partial support for some of the routing
+   protocol extensions that can be used with MPLS-TE. FRR does not
+   support a complete RSVP-TE solution currently.
+
 .. index:: link-params
 .. clicmd:: link-params
 
 .. index:: no link-param
 .. clicmd:: no link-param
 
-   Enter into the link parameters sub node. At least 'enable' must be set to
-   activate the link parameters, and consequently Traffic Engineering on this
-   interface. MPLS-TE must be enable at the OSPF
-   (:ref:`ospf-traffic-engineering`) or ISIS (:ref:`isis-traffic-engineering`)
-   router level in complement to this.  Disable link parameters for this
-   interface.
+   Enter into the link parameters sub node. At least 'enable' must be
+   set to activate the link parameters, and consequently routing
+   information that could be used as part of Traffic Engineering on
+   this interface. MPLS-TE must be enable at the OSPF
+   (:ref:`ospf-traffic-engineering`) or ISIS
+   (:ref:`isis-traffic-engineering`) router level in complement to
+   this.  Disable link parameters for this interface.
 
    Under link parameter statement, the following commands set the different TE values:
 
@@ -285,6 +292,62 @@ Link Parameters Commands
 
 .. _zebra-vrf:
 
+Administrative Distance
+=======================
+
+Administrative distance allows FRR to make decisions about what routes
+should be installed in the rib based upon the originating protocol.
+The lowest Admin Distance is the route selected.  This is purely a
+subjective decision about ordering and care has been taken to choose
+the same distances that other routing suites have choosen.
+
++------------+-----------+
+| Protocol   | Distance  |
++------------+-----------+
+| System     | 0         |
++------------+-----------+
+| Kernel     | 0         |
++------------+-----------+
+| Connect    | 0         |
++------------+-----------+
+| Static     | 1         |
++------------+-----------+
+| NHRP       | 10        |
++------------+-----------+
+| EBGP       | 20        |
++------------+-----------+
+| EIGRP      | 90        |
++------------+-----------+
+| BABEL      | 100       |
++------------+-----------+
+| OSPF       | 110       |
++------------+-----------+
+| ISIS       | 115       |
++------------+-----------+
+| OPENFABRIC | 115       |
++------------+-----------+
+| RIP        | 120       |
++------------+-----------+
+| Table      | 150       |
++------------+-----------+
+| SHARP      | 150       |
++------------+-----------+
+| IBGP       | 200       |
++------------+-----------+
+| PBR        | 200       |
++------------+-----------+
+
+An admin distance of 255 indicates to Zebra that the route should not be
+installed into the Data Plane.  Additionally routes with an admin distance
+of 255 will not be redistributed.
+
+Zebra does treat Kernel routes as special case for the purposes of Admin
+Distance.  Upon learning about a route that is not originated by FRR
+we read the metric value as a uint32_t.  The top byte of the value
+is interpreted as the Administrative Distance and the low three bytes
+are read in as the metric.  This special case is to facilitate VRF
+default routes.
+
 Virtual Routing and Forwarding
 ==============================
 
@@ -360,6 +423,20 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    The show command is only available with :option:`-n` option. This command
    will dump the routing table ``TABLENO`` of the *Linux network namespace*
    ``VRF``.
+
+.. index:: show ip route vrf VRF tables
+.. clicmd:: show ip route vrf VRF tables
+
+   This command will dump the routing tables within the vrf scope. If `vrf all`
+   is executed, all routing tables will be dumped.
+
+.. index:: show <ip|ipv6> route summary [vrf VRF] [table TABLENO] [prefix]
+.. clicmd:: show <ip|ipv6> route summary [vrf VRF] [table TABLENO] [prefix]
+
+   This command will dump a summary output of the specified VRF and TABLENO
+   combination.  If neither VRF or TABLENO is specified FRR defaults to
+   the default vrf and default table.  If prefix is specified dump the
+   number of prefix routes.
 
 By using the :option:`-n` option, the *Linux network namespace* will be mapped
 over the *Zebra* VRF. One nice feature that is possible by handling *Linux
@@ -586,19 +663,30 @@ kernel.
 .. clicmd:: ip protocol PROTOCOL route-map ROUTEMAP
 
    Apply a route-map filter to routes for the specified protocol. PROTOCOL can
-   be **any** or one of
+   be: 
 
-   - system,
-   - kernel,
+   - any,
+   - babel,
+   - bgp,
    - connected,
-   - static,
-   - rip,
-   - ripng,
+   - eigrp,
+   - isis,
+   - kernel,
+   - nhrp,
+   - openfabric,
    - ospf,
    - ospf6,
-   - isis,
-   - bgp,
-   - hsls.
+   - rip,
+   - sharp,
+   - static,
+   - ripng,
+   - table,
+   - vnc.
+
+   If you choose any as the option that will cause all protocols that are sending
+   routes to zebra.  You can specify a :dfn:`ip protocol PROTOCOL route-map ROUTEMAP`
+   on a per vrf basis, by entering this command under vrf mode for the vrf you
+   want to apply the route-map against.
 
 .. index:: set src ADDRESS
 .. clicmd:: set src ADDRESS
@@ -751,8 +839,11 @@ zebra Terminal Mode Commands
 .. index:: show ipv6 route
 .. clicmd:: show ipv6 route
 
-.. index:: show interface
-.. clicmd:: show interface
+.. index:: show interface [{vrf VRF|brief}]
+.. clicmd:: show interface [{vrf VRF|brief}]
+
+.. index:: show interface [{vrf all|brief}]
+.. clicmd:: show interface [{vrf all|brief}]
 
 .. index:: show ip prefix-list [NAME]
 .. clicmd:: show ip prefix-list [NAME]

@@ -39,7 +39,7 @@ static struct log_ref ferr_ospf_warn[] = {
 	},
 	{
 		.code = EC_OSPF_PACKET,
-		.title = "OSPF has detected packet information missmatch",
+		.title = "OSPF has detected packet information mismatch",
 		.description = "OSPF has detected that packet information received is incorrect",
 		.suggestion = "Ensure interface configuration is correct, gather log files from here and the peer and open an Issue",
 	},

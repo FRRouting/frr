@@ -298,13 +298,17 @@ struct ospf6_lsa *ospf6_lsdb_next(const struct route_node *iterend,
 
 void ospf6_lsdb_remove_all(struct ospf6_lsdb *lsdb)
 {
-	struct ospf6_lsa *lsa;
+	struct ospf6_lsa *lsa, *lsa_next;
+	const struct route_node *iterend;
 
 	if (lsdb == NULL)
 		return;
 
-	for (ALL_LSDB(lsdb, lsa))
+	for (iterend = ospf6_lsdb_head(lsdb, 0, 0, 0, &lsa); lsa;
+	     lsa = lsa_next) {
+		lsa_next = ospf6_lsdb_next(iterend, lsa);
 		ospf6_lsdb_remove(lsa, lsdb);
+	}
 }
 
 void ospf6_lsdb_lsa_unlock(struct ospf6_lsa *lsa)
@@ -319,9 +323,12 @@ void ospf6_lsdb_lsa_unlock(struct ospf6_lsa *lsa)
 int ospf6_lsdb_maxage_remover(struct ospf6_lsdb *lsdb)
 {
 	int reschedule = 0;
-	struct ospf6_lsa *lsa;
+	struct ospf6_lsa *lsa, *lsa_next;
+	const struct route_node *iterend;
 
-	for (ALL_LSDB(lsdb, lsa)) {
+	for (iterend = ospf6_lsdb_head(lsdb, 0, 0, 0, &lsa); lsa;
+	     lsa = lsa_next) {
+		lsa_next = ospf6_lsdb_next(iterend, lsa);
 		if (!OSPF6_LSA_IS_MAXAGE(lsa))
 			continue;
 		if (lsa->retrans_count != 0) {

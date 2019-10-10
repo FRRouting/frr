@@ -381,14 +381,6 @@ static struct log_ref ferr_zebra_err[] = {
 			"If you wish to receive the messages, change your IRDP settings accordingly.",
 	},
 	{
-		.code = EC_ZEBRA_IRDP_BAD_TYPE,
-		.title =
-			"Zebra received IRDP packet with bad type",
-		.description =
-			"THIS IS BULLSHIT REMOVE ME",
-		.suggestion = "asdf",
-	},
-	{
 		.code = EC_ZEBRA_RNH_NO_TABLE,
 		.title =
 			"Zebra could not find table for next hop",
@@ -667,7 +659,7 @@ static struct log_ref ferr_zebra_err[] = {
 	{
 		.code = EC_ZEBRA_RTM_VERSION_MISMATCH,
 		.title =
-			"Zebra received kernel message with uknown version",
+			"Zebra received kernel message with unknown version",
 		.description =
 			"Zebra received a message from the kernel with a message version that does not match Zebra's internal version. Depending on version compatibility, this may cause issues sending and receiving messages to the kernel.",
 		.suggestion =

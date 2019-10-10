@@ -40,6 +40,12 @@ shvar-%:
 var-%:
 	@echo "$($*)" >&$(VARFD)
 
+if ONLY_CLIPPY
+.DEFAULT_GOAL := clippy-only
+endif
+clippy-only: Makefile lib/clippy config.h
+.PHONY: clippy-only
+
 # overwriting these vars breaks cross-compilation.  let's be helpful and warn.
 #
 # note: "#AUTODERP# " will be removed from Makefile by configure.  These are

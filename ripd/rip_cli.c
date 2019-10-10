@@ -829,8 +829,10 @@ DEFPY (ip_rip_authentication_mode,
 
 	nb_cli_enqueue_change(vty, "./authentication-scheme/mode", NB_OP_MODIFY,
 			      strmatch(mode, "md5") ? "md5" : "plain-text");
-	nb_cli_enqueue_change(vty, "./authentication-scheme/md5-auth-length",
-			      NB_OP_MODIFY, value);
+	if (strmatch(mode, "md5"))
+		nb_cli_enqueue_change(vty,
+				      "./authentication-scheme/md5-auth-length",
+				      NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
@@ -852,7 +854,7 @@ DEFPY (no_ip_rip_authentication_mode,
 	nb_cli_enqueue_change(vty, "./authentication-scheme/mode", NB_OP_MODIFY,
 			      NULL);
 	nb_cli_enqueue_change(vty, "./authentication-scheme/md5-auth-length",
-			      NB_OP_MODIFY, NULL);
+			      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }

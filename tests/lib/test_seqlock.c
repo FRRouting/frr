@@ -18,6 +18,10 @@
  * Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>
@@ -62,20 +66,20 @@ static void *thr1func(void *arg)
 	seqlock_wait(&sqlo, 1);
 	writestr("thr1 @1\n");
 
-	seqlock_wait(&sqlo, 3);
-	writestr("thr1 @3\n");
-
 	seqlock_wait(&sqlo, 5);
 	writestr("thr1 @5\n");
-
-	seqlock_wait(&sqlo, 7);
-	writestr("thr1 @7\n");
 
 	seqlock_wait(&sqlo, 9);
 	writestr("thr1 @9\n");
 
-	seqlock_wait(&sqlo, 11);
-	writestr("thr1 @11\n");
+	seqlock_wait(&sqlo, 13);
+	writestr("thr1 @13\n");
+
+	seqlock_wait(&sqlo, 17);
+	writestr("thr1 @17\n");
+
+	seqlock_wait(&sqlo, 21);
+	writestr("thr1 @21\n");
 	return NULL;
 }
 
@@ -91,11 +95,11 @@ int main(int argc, char **argv)
 
 	assert(seqlock_cur(&sqlo) == 1);
 	assert(seqlock_bump(&sqlo) == 1);
-	assert(seqlock_cur(&sqlo) == 3);
-	assert(seqlock_bump(&sqlo) == 3);
+	assert(seqlock_cur(&sqlo) == 5);
 	assert(seqlock_bump(&sqlo) == 5);
-	assert(seqlock_bump(&sqlo) == 7);
-	assert(seqlock_cur(&sqlo) == 9);
+	assert(seqlock_bump(&sqlo) == 9);
+	assert(seqlock_bump(&sqlo) == 13);
+	assert(seqlock_cur(&sqlo) == 17);
 
 	assert(seqlock_held(&sqlo));
 	seqlock_release(&sqlo);
@@ -104,16 +108,16 @@ int main(int argc, char **argv)
 	pthread_create(&thr1, NULL, thr1func, NULL);
 	sleep(1);
 
-	writestr("main @3\n");
-	seqlock_acquire_val(&sqlo, 3);
+	writestr("main @5\n");
+	seqlock_acquire_val(&sqlo, 5);
 	sleep(2);
 
-	writestr("main @5\n");
+	writestr("main @9\n");
 	seqlock_bump(&sqlo);
 	sleep(1);
 
-	writestr("main @9\n");
-	seqlock_acquire_val(&sqlo, 9);
+	writestr("main @17\n");
+	seqlock_acquire_val(&sqlo, 17);
 	sleep(1);
 
 	writestr("main @release\n");

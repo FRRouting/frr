@@ -1,0 +1,844 @@
+{
+    "address_types": [
+        "ipv4",
+        "ipv6"
+    ],
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 24,
+    "ipv6base": "fd00::",
+    "ipv6mask": 64,
+    "link_ip_start": {
+        "ipv4": "10.0.0.0",
+        "v4mask": 24,
+        "ipv6": "fd00::",
+        "v6mask": 64
+    },
+    "lo_prefix": {
+        "ipv4": "1.0.",
+        "v4mask": 32,
+        "ipv6": "2001:DB8:F::",
+        "v6mask": 128
+    },
+    "routers": {
+        "r1": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r2-link1": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                }
+            },
+            "bgp": {
+                "local_as": "100",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r1-link1": {}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "r2": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r1-link1": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link1": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link2": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link3": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link4": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link5": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link6": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link7": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link8": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link9": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link10": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link11": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link12": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link13": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link14": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link15": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link16": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link17": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link18": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link19": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link20": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link21": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link22": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link23": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link24": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link25": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link26": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link27": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link28": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link29": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link30": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link31": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r3-link32": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                }
+            },
+            "bgp": {
+                "local_as": "100",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r2-link1": {}
+                                    }
+                                },
+                                "r3": {
+                                    "dest_link": {
+                                        "r2-link1": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link2": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link3": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link4": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link5": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link6": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link7": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link8": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link9": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link10": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link11": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link12": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link13": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link14": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link15": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link16": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link17": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link18": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link19": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link20": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link21": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link22": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link23": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link24": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link25": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link26": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link27": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link28": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link29": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link30": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link31": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link32": {
+                                            "next_hop_self": true
+                                        }
+                                    }
+                                }
+                            },
+                            "redistribute": [
+                                {
+                                    "redist_type": "static"
+                                }
+                            ]
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r1": {
+                                    "dest_link": {
+                                        "r2-link1": {}
+                                    }
+                                },
+                                "r3": {
+                                    "dest_link": {
+                                        "r2-link1": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link2": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link3": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link4": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link5": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link6": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link7": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link8": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link9": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link10": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link11": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link12": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link13": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link14": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link15": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link16": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link17": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link18": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link19": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link20": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link21": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link22": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link23": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link24": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link25": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link26": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link27": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link28": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link29": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link30": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link31": {
+                                            "next_hop_self": true
+                                        },
+                                        "r2-link32": {
+                                            "next_hop_self": true
+                                        }
+                                    }
+                                }
+                            },
+                            "redistribute": [
+                                {
+                                    "redist_type": "static"
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "r3": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r2-link1": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link2": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link3": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link4": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link5": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link6": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link7": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link8": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link9": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link10": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link11": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link12": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link13": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link14": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link15": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link16": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link17": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link18": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link19": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link20": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link21": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link22": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link23": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link24": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link25": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link26": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link27": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link28": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link29": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link30": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link31": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                },
+                "r2-link32": {
+                    "ipv4": "auto",
+                    "ipv6": "auto"
+                }
+            },
+            "route_maps": {
+                "rmap_global": [{
+                    "action": "permit",
+                    "set": {
+                        "ipv6": {
+                            "nexthop": "prefer-global"
+                        }
+                    }
+                }]
+            },
+            "bgp": {
+                "local_as": "100",
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "maximum_paths": {
+                                "ibgp": 32
+                            },
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r3-link1": {},
+                                        "r3-link2": {},
+                                        "r3-link3": {},
+                                        "r3-link4": {},
+                                        "r3-link5": {},
+                                        "r3-link6": {},
+                                        "r3-link7": {},
+                                        "r3-link8": {},
+                                        "r3-link9": {},
+                                        "r3-link10": {},
+                                        "r3-link11": {},
+                                        "r3-link12": {},
+                                        "r3-link13": {},
+                                        "r3-link14": {},
+                                        "r3-link15": {},
+                                        "r3-link16": {},
+                                        "r3-link17": {},
+                                        "r3-link18": {},
+                                        "r3-link19": {},
+                                        "r3-link20": {},
+                                        "r3-link21": {},
+                                        "r3-link22": {},
+                                        "r3-link23": {},
+                                        "r3-link24": {},
+                                        "r3-link25": {},
+                                        "r3-link26": {},
+                                        "r3-link27": {},
+                                        "r3-link28": {},
+                                        "r3-link29": {},
+                                        "r3-link30": {},
+                                        "r3-link31": {},
+                                        "r3-link32": {}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "maximum_paths": {
+                                "ibgp": 32
+                            },
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r3-link1": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link2": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link3": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link4": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link5": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link6": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link7": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link8": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link9": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link10": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link11": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link12": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link13": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link14": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link15": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link16": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link17": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link18": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link19": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link20": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link21": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link22": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link23": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link24": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link25": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link26": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link27": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link28": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link29": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link30": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link31": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        },
+                                        "r3-link32": {
+                                            "route_maps": [{
+                                                "name": "rmap_global",
+                                                "direction": "in"
+                                            }]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

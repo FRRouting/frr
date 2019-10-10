@@ -46,7 +46,7 @@
 
 /* BGP TRAP. */
 #define BGPESTABLISHED			1
-#define BGPBACKWARDTRANSITION		2	
+#define BGPBACKWARDTRANSITION		2
 
 /* BGP MIB bgpVersion. */
 #define BGPVERSION			      0
@@ -894,6 +894,10 @@ static int bgpTrapEstablished(struct peer *peer)
 	struct in_addr addr;
 	oid index[sizeof(oid) * IN_ADDR_SIZE];
 
+	/* Check if this peer just went to Established */
+	if ((peer->last_major_event != OpenConfirm) || !(peer_established(peer)))
+		return 0;
+
 	ret = inet_aton(peer->host, &addr);
 	if (ret == 0)
 		return 0;
@@ -935,7 +939,7 @@ static int bgp_snmp_init(struct thread_master *tm)
 
 static int bgp_snmp_module_init(void)
 {
-	hook_register(peer_established, bgpTrapEstablished);
+	hook_register(peer_status_changed, bgpTrapEstablished);
 	hook_register(peer_backward_transition, bgpTrapBackwardTransition);
 	hook_register(frr_late_init, bgp_snmp_init);
 	return 0;

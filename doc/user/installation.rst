@@ -149,6 +149,11 @@ options from the list below.
    Turn off building of pimd.  On some BSD platforms pimd will not build properly due
    to lack of kernel support.
 
+.. option:: --disable-vrrpd
+
+   Turn off building of vrrpd. Linux is required for vrrpd support;
+   other platforms are not supported.
+
 .. option:: --disable-pbrd
 
    Turn off building of pbrd.  This daemon currently requires linux in order to function
@@ -194,11 +199,6 @@ options from the list below.
 
    Disable building of the example OSPF-API client.
 
-.. option:: --disable-ospf-ri
-
-   Disable support for OSPF Router Information (RFC4970 & RFC5088) this
-   requires support for Opaque LSAs and Traffic Engineering.
-
 .. option:: --disable-isisd
 
    Do not build isisd.
@@ -210,10 +210,6 @@ options from the list below.
 .. option:: --enable-isis-topology
 
    Enable IS-IS topology generator.
-
-.. option:: --enable-isis-te
-
-   Enable Traffic Engineering Extension for ISIS (RFC5305)
 
 .. option:: --enable-realms
 
@@ -331,21 +327,26 @@ options to the configuration script.
    Look for YANG modules in `dir` [`prefix`/share/yang]. Note that the FRR
    YANG modules will be installed here.
 
-.. option:: --with-libyang-pluginsdir <dir>
+Python dependency, documentation and tests
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-   Look for libyang plugins in `dir` [`prefix`/lib/frr/libyang_plugins].
-   Note that the FRR libyang plugins will be installed here.
+FRR's documentation and basic unit tests heavily use code written in Python.
+Additionally, FRR ships Python extensions written in C which are used during
+its build process.
 
-   This option is meaningless with libyang 0.16.74 or newer and will be
-   removed once support for older libyang versions is dropped.
+To this extent, FRR needs the following:
 
-When it's desired to run FRR without installing it in the system, it's possible
-to configure it as follows to look for YANG modules and libyang plugins in the
-compile directory:
-.. code-block:: shell
+* an installation of CPython, preferably version 3.2 or newer (2.7 works but
+  is end of life and will stop working at some point.)
+* development files (mostly headers) for that version of CPython
+* an installation of `sphinx` for that version of CPython, to build the
+  documentation
+* an installation of `pytest` for that version of CPython, to run the unit
+  tests
 
-   ./configure --with-libyang-pluginsdir="`pwd`/yang/libyang_plugins/.libs" \
-               --with-yangmodelsdir="`pwd`/yang"
+The `sphinx` and `pytest` dependencies can be avoided by not building
+documentation / not running ``make check``, but the CPython dependency is a
+hard dependency of the FRR build process (for the `clippy` tool.)
 
 .. _least-privilege-support:
 
@@ -444,7 +445,8 @@ Additional kernel modules are also needed to support MPLS forwarding.
       mpls_router
       mpls_iptunnel
 
-   The following is an example to enable MPLS forwarding in the kernel:
+   The following is an example to enable MPLS forwarding in the
+   kernel, typically by editing :file:`/etc/sysctl.conf`:
 
    .. code-block:: shell
 

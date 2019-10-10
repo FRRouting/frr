@@ -401,7 +401,7 @@ static void parse_schedule_item(const char *string, struct schedule_item *item)
 
 	if (!strcmp(string, "forever")) {
 		item->type = sched_forever;
-	} else if (isdigit((int)string[0])) {
+	} else if (isdigit((unsigned char)string[0])) {
 		item->type = sched_timeout;
 		if (parse_integer(string, &item->value) != 0)
 			badusage("invalid timeout value in schedule");

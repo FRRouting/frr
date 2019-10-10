@@ -74,7 +74,7 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 		json_object_string_add(json_ocode, "incomplete", "?");
 	}
 
-	for (rn = bgp_table_top(bgp->rib[afi][SAFI_MPLS_VPN]); rn;
+	for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
 	     rn = bgp_route_next(rn)) {
 		if (prd && memcmp(rn->p.u.val, prd->val, 8) != 0)
 			continue;
@@ -200,7 +200,7 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 						       json_array);
 			} else {
 				route_vty_out_tmp(vty, &rm->p, path->attr,
-						  SAFI_MPLS_VPN, use_json,
+						  safi, use_json,
 						  json_array);
 			}
 		}

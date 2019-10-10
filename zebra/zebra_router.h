@@ -74,6 +74,8 @@ struct zebra_mlag_info {
 };
 
 struct zebra_router {
+	atomic_bool in_shutdown;
+
 	/* Thread master */
 	struct thread_master *master;
 
@@ -93,9 +95,8 @@ struct zebra_router {
 
 	struct hash *iptable_hash;
 
-#if defined(HAVE_RTADV)
-	struct rtadv rtadv;
-#endif /* HAVE_RTADV */
+	/* used if vrf backend is not network namespace */
+	int rtadv_sock;
 
 	/* A sequence number used for tracking routes */
 	_Atomic uint32_t sequence_num;

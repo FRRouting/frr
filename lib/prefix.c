@@ -441,7 +441,7 @@ void prefix_hexdump(const struct prefix *p)
 	zlog_hexdump(p, sizeof(struct prefix));
 }
 
-int is_zero_mac(struct ethaddr *mac)
+int is_zero_mac(const struct ethaddr *mac)
 {
 	int i = 0;
 
@@ -628,8 +628,15 @@ int prefix_match_network_statement(const struct prefix *n,
 	return 1;
 }
 
-void prefix_copy(struct prefix *dest, const struct prefix *src)
+#ifdef __clang_analyzer__
+#undef prefix_copy	/* cf. prefix.h */
+#endif
+
+void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 {
+	struct prefix *dest = udest.p;
+	const struct prefix *src = usrc.p;
+
 	dest->family = src->family;
 	dest->prefixlen = src->prefixlen;
 
@@ -674,8 +681,11 @@ void prefix_copy(struct prefix *dest, const struct prefix *src)
  * the same.  Note that this routine has the same return value sense
  * as '==' (which is different from prefix_cmp).
  */
-int prefix_same(const struct prefix *p1, const struct prefix *p2)
+int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 {
+	const struct prefix *p1 = up1.p;
+	const struct prefix *p2 = up2.p;
+
 	if ((p1 && !p2) || (!p1 && p2))
 		return 0;
 
@@ -712,57 +722,59 @@ int prefix_same(const struct prefix *p1, const struct prefix *p2)
 }
 
 /*
- * Return 0 if the network prefixes represented by the struct prefix
- * arguments are the same prefix, and 1 otherwise.  Network prefixes
- * are considered the same if the prefix lengths are equal and the
- * network parts are the same.  Host bits (which are considered masked
+ * Return -1/0/1 comparing the prefixes in a way that gives a full/linear
+ * order.
+ *
+ * Network prefixes are considered the same if the prefix lengths are equal
+ * and the network parts are the same.  Host bits (which are considered masked
  * by the prefix length) are not significant.  Thus, 10.0.0.1/8 and
  * 10.0.0.2/8 are considered equivalent by this routine.  Note that
  * this routine has the same return sense as strcmp (which is different
  * from prefix_same).
  */
-int prefix_cmp(const struct prefix *p1, const struct prefix *p2)
+int prefix_cmp(union prefixconstptr up1, union prefixconstptr up2)
 {
+	const struct prefix *p1 = up1.p;
+	const struct prefix *p2 = up2.p;
 	int offset;
 	int shift;
+	int i;
 
 	/* Set both prefix's head pointer. */
 	const uint8_t *pp1;
 	const uint8_t *pp2;
 
 	if (p1->family != p2->family)
-		return 1;
+		return numcmp(p1->family, p2->family);
 	if (p1->family == AF_FLOWSPEC) {
 		pp1 = (const uint8_t *)p1->u.prefix_flowspec.ptr;
 		pp2 = (const uint8_t *)p2->u.prefix_flowspec.ptr;
 
 		if (p1->u.prefix_flowspec.prefixlen !=
 		    p2->u.prefix_flowspec.prefixlen)
-			return 1;
+			return numcmp(p1->u.prefix_flowspec.prefixlen,
+				      p2->u.prefix_flowspec.prefixlen);
 
 		offset = p1->u.prefix_flowspec.prefixlen;
 		while (offset--)
 			if (pp1[offset] != pp2[offset])
-				return 1;
+				return numcmp(pp1[offset], pp2[offset]);
 		return 0;
 	}
 	pp1 = p1->u.val;
 	pp2 = p2->u.val;
 
 	if (p1->prefixlen != p2->prefixlen)
-		return 1;
+		return numcmp(p1->prefixlen, p2->prefixlen);
 	offset = p1->prefixlen / PNBBY;
 	shift = p1->prefixlen % PNBBY;
 
-	if (shift)
-		if (maskbit[shift] & (pp1[offset] ^ pp2[offset]))
-			return 1;
+	i = memcmp(pp1, pp2, offset);
+	if (i)
+		return i;
 
-	while (offset--)
-		if (pp1[offset] != pp2[offset])
-			return 1;
-
-	return 0;
+	return numcmp(pp1[offset] & maskbit[shift],
+		      pp2[offset] & maskbit[shift]);
 }
 
 /*
@@ -841,7 +853,7 @@ void prefix_ipv4_free(struct prefix_ipv4 *p)
 	prefix_free((struct prefix *)p);
 }
 
-/* When string format is invalid return 0. */
+/* If given string is valid return 1 else return 0 */
 int str2prefix_ipv4(const char *str, struct prefix_ipv4 *p)
 {
 	int ret;
@@ -869,8 +881,10 @@ int str2prefix_ipv4(const char *str, struct prefix_ipv4 *p)
 		cp = XMALLOC(MTYPE_TMP, (pnt - str) + 1);
 		memcpy(cp, str, pnt - str);
 		*(cp + (pnt - str)) = '\0';
-		ret = inet_aton(cp, &p->prefix);
+		ret = inet_pton(AF_INET, cp, &p->prefix);
 		XFREE(MTYPE_TMP, cp);
+		if (ret == 0)
+			return 0;
 
 		/* Get prefix length. */
 		plen = (uint8_t)atoi(++pnt);
@@ -1011,7 +1025,7 @@ void prefix_ipv6_free(struct prefix_ipv6 *p)
 	prefix_free((struct prefix *)p);
 }
 
-/* If given string is valid return pin6 else return NULL */
+/* If given string is valid return 1 else return 0 */
 int str2prefix_ipv6(const char *str, struct prefix_ipv6 *p)
 {
 	char *pnt;
@@ -1329,13 +1343,29 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 {
 	const struct prefix *p = pu.p;
 	char buf[PREFIX2STR_BUFFER];
+	int byte, tmp, a, b;
+	bool z = false;
+	size_t l;
 
 	switch (p->family) {
 	case AF_INET:
 	case AF_INET6:
-		snprintf(str, size, "%s/%d", inet_ntop(p->family, &p->u.prefix,
-						       buf, PREFIX2STR_BUFFER),
-			 p->prefixlen);
+		inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf));
+		l = strlen(buf);
+		buf[l++] = '/';
+		byte = p->prefixlen;
+		if ((tmp = p->prefixlen - 100) >= 0) {
+			buf[l++] = '1';
+			z = true;
+			byte = tmp;
+		}
+		b = byte % 10;
+		a = byte / 10;
+		if (a || z)
+			buf[l++] = '0' + a;
+		buf[l++] = '0' + b;
+		buf[l] = '\0';
+		strlcpy(str, buf, size);
 		break;
 
 	case AF_ETHERNET:
@@ -1349,11 +1379,11 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 		break;
 
 	case AF_FLOWSPEC:
-		sprintf(str, "FS prefix");
+		strlcpy(str, "FS prefix", size);
 		break;
 
 	default:
-		sprintf(str, "UNK prefix");
+		strlcpy(str, "UNK prefix", size);
 		break;
 	}
 

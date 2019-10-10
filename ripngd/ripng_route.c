@@ -30,6 +30,8 @@
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_route.h"
 
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_AGGREGATE, "RIPng aggregate")
+
 static struct ripng_aggregate *ripng_aggregate_new(void)
 {
 	struct ripng_aggregate *new;

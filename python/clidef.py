@@ -37,6 +37,7 @@ class RenderHandler(object):
     deref = ''
     drop_str = False
     canfail = True
+    canassert = False
 
 class StringHandler(RenderHandler):
     argtype = 'const char *'
@@ -44,6 +45,7 @@ class StringHandler(RenderHandler):
     code = Template('$varname = (argv[_i]->type == WORD_TKN) ? argv[_i]->text : argv[_i]->arg;')
     drop_str = True
     canfail = False
+    canassert = True
 
 class LongHandler(RenderHandler):
     argtype = 'long'
@@ -111,6 +113,7 @@ if (argv[_i]->text[0] == 'X') {
 	_fail = !inet_aton(argv[_i]->arg, &s__$varname.sin.sin_addr);
 	$varname = &s__$varname;
 }''')
+    canassert = True
 
 def mix_handlers(handlers):
     def combine(a, b):
@@ -171,6 +174,7 @@ $argblocks
 		return CMD_WARNING;
 #endif
 #endif
+$argassert
 	return ${fnname}_magic(self, vty, argc, argv$arglist);
 }
 
@@ -182,16 +186,72 @@ argblock = Template('''
 			$code
 		}''')
 
-def process_file(fn, ofd, dumpfd, all_defun):
+def get_always_args(token, always_args, args = [], stack = []):
+    if token in stack:
+        return
+    if token.type == 'END_TKN':
+        for arg in list(always_args):
+            if arg not in args:
+                always_args.remove(arg)
+        return
+
+    stack = stack + [token]
+    if token.type in handlers and token.varname is not None:
+        args = args + [token.varname]
+    for nexttkn in token.next():
+        get_always_args(nexttkn, always_args, args, stack)
+
+class Macros(dict):
+    def load(self, filename):
+        filedata = clippy.parse(filename)
+        for entry in filedata['data']:
+            if entry['type'] != 'PREPROC':
+                continue
+            ppdir = entry['line'].lstrip().split(None, 1)
+            if ppdir[0] != 'define' or len(ppdir) != 2:
+                continue
+            ppdef = ppdir[1].split(None, 1)
+            name = ppdef[0]
+            if '(' in name:
+                continue
+            val = ppdef[1] if len(ppdef) == 2 else ''
+
+            val = val.strip(' \t\n\\')
+            if name in self:
+                sys.stderr.write('warning: macro %s redefined!\n' % (name))
+            self[name] = val
+
+def process_file(fn, ofd, dumpfd, all_defun, macros):
+    errors = 0
     filedata = clippy.parse(fn)
 
     for entry in filedata['data']:
         if entry['type'].startswith('DEFPY') or (all_defun and entry['type'].startswith('DEFUN')):
+            if len(entry['args'][0]) != 1:
+                sys.stderr.write('%s:%d: DEFPY function name not parseable (%r)\n' % (fn, entry['lineno'], entry['args'][0]))
+                errors += 1
+                continue
+
             cmddef = entry['args'][2]
-            cmddef = ''.join([i[1:-1] for i in cmddef])
+            cmddefx = []
+            for i in cmddef:
+                while i in macros:
+                    i = macros[i]
+                if i.startswith('"') and i.endswith('"'):
+                    cmddefx.append(i[1:-1])
+                    continue
+
+                sys.stderr.write('%s:%d: DEFPY command string not parseable (%r)\n' % (fn, entry['lineno'], cmddef))
+                errors += 1
+                cmddefx = None
+                break
+            if cmddefx is None:
+                continue
+            cmddef = ''.join([i for i in cmddefx])
 
             graph = clippy.Graph(cmddef)
             args = OrderedDict()
+            always_args = set()
             for token, depth in clippy.graph_iterate(graph):
                 if token.type not in handlers:
                     continue
@@ -199,6 +259,9 @@ def process_file(fn, ofd, dumpfd, all_defun):
                     continue
                 arg = args.setdefault(token.varname, [])
                 arg.append(handlers[token.type](token))
+                always_args.add(token.varname)
+
+            get_always_args(graph.first(), always_args)
 
             #print('-' * 76)
             #pprint(entry)
@@ -210,30 +273,36 @@ def process_file(fn, ofd, dumpfd, all_defun):
             argdecls = []
             arglist = []
             argblocks = []
+            argassert = []
             doc = []
             canfail = 0
 
-            def do_add(handler, varname, attr = ''):
+            def do_add(handler, basename, varname, attr = ''):
                 argdefs.append(',\\\n\t%s %s%s' % (handler.argtype, varname, attr))
                 argdecls.append('\t%s\n' % (handler.decl.substitute({'varname': varname}).replace('\n', '\n\t')))
                 arglist.append(', %s%s' % (handler.deref, varname))
+                if basename in always_args and handler.canassert:
+                    argassert.append('''\tif (!%s) {
+\t\tvty_out(vty, "Internal CLI error [%%s]\\n", "%s");
+\t\treturn CMD_WARNING;
+\t}\n''' % (varname, varname))
                 if attr == '':
                     at = handler.argtype
                     if not at.startswith('const '):
                         at = '. . . ' + at
-                    doc.append('\t%-26s %s' % (at, varname))
+                    doc.append('\t%-26s %s  %s' % (at, 'alw' if basename in always_args else 'opt', varname))
 
             for varname in args.keys():
                 handler = mix_handlers(args[varname])
                 #print(varname, handler)
                 if handler is None: continue
-                do_add(handler, varname)
+                do_add(handler, varname, varname)
                 code = handler.code.substitute({'varname': varname}).replace('\n', '\n\t\t\t')
                 if handler.canfail:
                     canfail = 1
                 strblock = ''
                 if not handler.drop_str:
-                    do_add(StringHandler(None), '%s_str' % (varname), ' __attribute__ ((unused))')
+                    do_add(StringHandler(None), varname, '%s_str' % (varname), ' __attribute__ ((unused))')
                     strblock = '\n\t\t\t%s_str = argv[_i]->arg;' % (varname)
                 argblocks.append(argblock.substitute({'varname': varname, 'strblock': strblock, 'code': code}))
 
@@ -249,7 +318,10 @@ def process_file(fn, ofd, dumpfd, all_defun):
             params['argblocks'] = ''.join(argblocks)
             params['canfail'] = canfail
             params['nonempty'] = len(argblocks)
+            params['argassert'] = ''.join(argassert)
             ofd.write(templ.substitute(params))
+
+    return errors
 
 if __name__ == '__main__':
     import argparse
@@ -274,7 +346,18 @@ if __name__ == '__main__':
         if args.show:
             dumpfd = sys.stderr
 
-    process_file(args.cfile, ofd, dumpfd, args.all_defun)
+    basepath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    macros = Macros()
+    macros.load('lib/route_types.h')
+    macros.load(os.path.join(basepath, 'lib/command.h'))
+    macros.load(os.path.join(basepath, 'bgpd/bgp_vty.h'))
+    # sigh :(
+    macros['PROTO_REDIST_STR'] = 'FRR_REDIST_STR_ISISD'
+
+    errors = process_file(args.cfile, ofd, dumpfd, args.all_defun, macros)
+    if errors != 0:
+        sys.exit(1)
 
     if args.o is not None:
         clippy.wrdiff(args.o, ofd, [args.cfile, os.path.realpath(__file__), sys.executable])

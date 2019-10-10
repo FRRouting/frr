@@ -209,7 +209,7 @@ static void concat(test_, TYPE)(void)
 			assert(list_add(&head, &dummy) == &itm[j]);
 		else {
 			assert(list_add(&head, &dummy) == NULL);
-			list_del(&head, &dummy);
+			assert(list_del(&head, &dummy) != NULL);
 		}
 	}
 	ts_hashx("add-dup", "a538546a6e6ab0484e925940aa8dd02fd934408bbaed8cb66a0721841584d838");
@@ -255,7 +255,7 @@ static void concat(test_, TYPE)(void)
 					list_first(&head) == &dummy);
 		} else if (list_next(&head, &dummy))
 			assert(list_next(&head, &dummy)->val > j);
-		list_del(&head, &dummy);
+		assert(list_del(&head, &dummy) != NULL);
 	}
 	ts_hash("add-dup+find_{lt,gteq}", "a538546a6e6ab0484e925940aa8dd02fd934408bbaed8cb66a0721841584d838");
 #endif
@@ -280,7 +280,7 @@ static void concat(test_, TYPE)(void)
 			assert(!tmp || tmp->val >= j);
 		} else
 			assert(gteq == list_first(&head));
-		
+
 		if (gteq)
 			assert(gteq->val >= j);
 	}
@@ -295,7 +295,7 @@ static void concat(test_, TYPE)(void)
 		(void)prng_rand(prng);
 		j = prng_rand(prng) % NITEM;
 		if (itm[j].scratchpad == 1) {
-			list_del(&head, &itm[j]);
+			assert(list_del(&head, &itm[j]) != NULL);
 			itm[j].scratchpad = 0;
 			l++;
 		}
@@ -307,7 +307,7 @@ static void concat(test_, TYPE)(void)
 		assert(item->scratchpad != 0);
 
 		if (item->val & 1) {
-			list_del(&head, item);
+			assert(list_del(&head, item) != NULL);
 			item->scratchpad = 0;
 			l++;
 		}
@@ -333,7 +333,7 @@ static void concat(test_, TYPE)(void)
 	for (i = 0; i < NITEM / 2; i++) {
 		j = prng_rand(prng) % NITEM;
 		if (itm[j].scratchpad == 1) {
-			list_del(&head, &itm[j]);
+			assert(list_del(&head, &itm[j]) != NULL);
 			itm[j].scratchpad = 0;
 			k--;
 		}
@@ -371,7 +371,7 @@ static void concat(test_, TYPE)(void)
 	for (i = 0; i < NITEM / 2; i++) {
 		j = prng_rand(prng) % NITEM;
 		if (itm[j].scratchpad == 1) {
-			list_del(&head, &itm[j]);
+			assert(list_del(&head, &itm[j]) != NULL);
 			itm[j].scratchpad = 0;
 			k--;
 		}
@@ -424,7 +424,7 @@ static void concat(test_, TYPE)(void)
 				item = &itm[j];
 				if (item->scratchpad == 0)
 					continue;
-				list_del(&head, item);
+				assert(list_del(&head, item) != NULL);
 			}
 			item->scratchpad = 0;
 			k--;
@@ -469,7 +469,7 @@ static void concat(test_, TYPE)(void)
 				item = &itm[j];
 				if (item->scratchpad == 0)
 					continue;
-				list_del(&head, item);
+				assert(list_del(&head, item) != NULL);
 			}
 			item->scratchpad = 0;
 			k--;

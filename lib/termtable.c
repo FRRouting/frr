@@ -20,6 +20,7 @@
 #include <zebra.h>
 #include <stdio.h>
 
+#include "printfrr.h"
 #include "memory.h"
 #include "termtable.h"
 
@@ -134,6 +135,7 @@ static struct ttable_cell *ttable_insert_row_va(struct ttable *tt, int i,
 {
 	assert(i >= -1 && i < tt->nrows);
 
+	char shortbuf[256];
 	char *res, *orig, *section;
 	struct ttable_cell *row;
 	int col = 0;
@@ -158,9 +160,7 @@ static struct ttable_cell *ttable_insert_row_va(struct ttable *tt, int i,
 	/* CALLOC a block of cells */
 	row = XCALLOC(MTYPE_TTABLE, tt->ncols * sizeof(struct ttable_cell));
 
-	res = NULL;
-	vasprintf(&res, format, ap);
-
+	res = vasnprintfrr(MTYPE_TMP, shortbuf, sizeof(shortbuf), format, ap);
 	orig = res;
 
 	while (res && col < tt->ncols) {
@@ -170,7 +170,8 @@ static struct ttable_cell *ttable_insert_row_va(struct ttable *tt, int i,
 		col++;
 	}
 
-	free(orig);
+	if (orig != shortbuf)
+		XFREE(MTYPE_TMP, orig);
 
 	/* insert row */
 	if (i == -1 || i == tt->nrows)

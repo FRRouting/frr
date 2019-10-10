@@ -92,7 +92,15 @@ extern struct hash *community_hash(void);
 extern uint32_t community_val_get(struct community *com, int i);
 extern void bgp_compute_aggregate_community(struct bgp_aggregate *aggregate,
 					    struct community *community);
+
+extern void bgp_compute_aggregate_community_val(
+					       struct bgp_aggregate *aggregate);
+extern void bgp_compute_aggregate_community_hash(
+						struct bgp_aggregate *aggregate,
+						struct community *community);
 extern void bgp_remove_community_from_aggregate(struct bgp_aggregate *aggregate,
+						struct community *community);
+extern void bgp_remove_comm_from_aggregate_hash(struct bgp_aggregate *aggregate,
 						struct community *community);
 extern void bgp_aggr_community_remove(void *arg);
 

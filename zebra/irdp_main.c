@@ -82,7 +82,7 @@ int irdp_sock_init(void)
 	int save_errno;
 	int sock;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 
 		sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 		save_errno = errno;

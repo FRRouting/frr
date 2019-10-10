@@ -76,7 +76,7 @@ int ipforward_on(void)
 {
 	FILE *fp;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 
 		fp = fopen(proc_ipv4_forwarding, "w");
 
@@ -97,7 +97,7 @@ int ipforward_off(void)
 {
 	FILE *fp;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 
 		fp = fopen(proc_ipv4_forwarding, "w");
 
@@ -143,7 +143,7 @@ int ipforward_ipv6_on(void)
 {
 	FILE *fp;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 
 		fp = fopen(proc_ipv6_forwarding, "w");
 
@@ -165,7 +165,7 @@ int ipforward_ipv6_off(void)
 {
 	FILE *fp;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 
 		fp = fopen(proc_ipv6_forwarding, "w");
 

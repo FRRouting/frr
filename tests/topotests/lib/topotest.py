@@ -38,6 +38,11 @@ import time
 
 from lib.topolog import logger
 
+if sys.version_info[0] > 2:
+    import configparser
+else:
+    import ConfigParser as configparser
+
 from mininet.topo import Topo
 from mininet.net import Mininet
 from mininet.node import Node, OVSSwitch, Host
@@ -247,6 +252,54 @@ def run_and_expect(func, what, count=20, wait=3):
     return (False, result)
 
 
+def run_and_expect_type(func, etype, count=20, wait=3, avalue=None):
+    """
+    Run `func` and compare the result with `etype`. Do it for `count` times
+    waiting `wait` seconds between tries. By default it tries 20 times with
+    3 seconds delay between tries.
+
+    This function is used when you want to test the return type and,
+    optionally, the return value.
+
+    Returns (True, func-return) on success or
+    (False, func-return) on failure.
+    """
+    start_time = time.time()
+    func_name = "<unknown>"
+    if func.__class__ == functools.partial:
+        func_name = func.func.__name__
+    else:
+        func_name = func.__name__
+
+    logger.info(
+        "'{}' polling started (interval {} secs, maximum wait {} secs)".format(
+            func_name, wait, int(wait * count)))
+
+    while count > 0:
+        result = func()
+        if not isinstance(result, etype):
+            logger.debug("Expected result type '{}' got '{}' instead".format(etype, type(result)))
+            time.sleep(wait)
+            count -= 1
+            continue
+
+        if etype != type(None) and avalue != None and result != avalue:
+            logger.debug("Expected value '{}' got '{}' instead".format(avalue, result))
+            time.sleep(wait)
+            count -= 1
+            continue
+
+        end_time = time.time()
+        logger.info("'{}' succeeded after {:.2f} seconds".format(
+            func_name, end_time - start_time))
+        return (True, result)
+
+    end_time = time.time()
+    logger.error("'{}' failed after {:.2f} seconds".format(
+        func_name, end_time - start_time))
+    return (False, result)
+
+
 def int2dpid(dpid):
     "Converting Integer to DPID"
 
@@ -429,6 +482,33 @@ def ip4_route_zebra(node, vrf_name=None):
         lines = lines[1:]
     return '\n'.join(lines)
 
+def ip6_route_zebra(node, vrf_name=None):
+    """
+    Retrieves the output of 'show ipv6 route [vrf vrf_name]', then
+    canonicalizes it by eliding link-locals.
+    """
+
+    if vrf_name == None:
+        tmp = node.vtysh_cmd('show ipv6 route')
+    else:
+        tmp = node.vtysh_cmd('show ipv6 route vrf {0}'.format(vrf_name))
+
+    # Mask out timestamp
+    output = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", tmp)
+
+    # Mask out the link-local addresses
+    output = re.sub(r'fe80::[^ ]+,', 'fe80::XXXX:XXXX:XXXX:XXXX,', output)
+
+    lines = output.splitlines()
+    header_found = False
+    while lines and (not lines[0].strip() or not header_found):
+        if '> - selected route' in lines[0]:
+            header_found = True
+        lines = lines[1:]
+
+    return '\n'.join(lines)
+
+
 def proto_name_to_number(protocol):
     return {
         'bgp':    '186',
@@ -597,6 +677,20 @@ class Router(Node):
         super(Router, self).__init__(name, **params)
         self.logdir = params.get('logdir')
 
+        # Backward compatibility:
+        #   Load configuration defaults like topogen.
+        self.config_defaults = configparser.ConfigParser({
+            'verbosity': 'info',
+            'frrdir': '/usr/lib/frr',
+            'quaggadir': '/usr/lib/quagga',
+            'routertype': 'frr',
+            'memleak_path': None,
+        })
+        self.config_defaults.read(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                         '../pytest.ini')
+        )
+
         # If this topology is using old API and doesn't have logdir
         # specified, then attempt to generate an unique logdir.
         if self.logdir is None:
@@ -625,7 +719,7 @@ class Router(Node):
         "Configure FRR binaries"
         self.daemondir = params.get('frrdir')
         if self.daemondir is None:
-            self.daemondir = '/usr/lib/frr'
+            self.daemondir = self.config_defaults.get('topogen', 'frrdir')
 
         zebra_path = os.path.join(self.daemondir, 'zebra')
         if not os.path.isfile(zebra_path):
@@ -635,7 +729,7 @@ class Router(Node):
         "Configure Quagga binaries"
         self.daemondir = params.get('quaggadir')
         if self.daemondir is None:
-            self.daemondir = '/usr/lib/quagga'
+            self.daemondir = self.config_defaults.get('topogen', 'quaggadir')
 
         zebra_path = os.path.join(self.daemondir, 'zebra')
         if not os.path.isfile(zebra_path):
@@ -649,7 +743,10 @@ class Router(Node):
         # User did not specify the daemons directory, try to autodetect it.
         self.daemondir = params.get('daemondir')
         if self.daemondir is None:
-            self.routertype = params.get('routertype', 'frr')
+            self.routertype = params.get('routertype',
+                                         self.config_defaults.get(
+                                             'topogen',
+                                             'routertype'))
             if self.routertype == 'quagga':
                 self._config_quagga(**params)
             else:
@@ -661,7 +758,7 @@ class Router(Node):
                 raise Exception('No zebra binary found in {}'.format(zpath))
             # Allow user to specify routertype when the path was specified.
             if params.get('routertype') is not None:
-                self.routertype = self.params.get('routertype')
+                self.routertype = params.get('routertype')
 
         self.cmd('ulimit -c unlimited')
         # Set ownership of config files
@@ -910,7 +1007,7 @@ class Router(Node):
 
         global fatal_error
 
-        daemonsRunning = self.cmd('vtysh -c "show log" | grep "Logging configuration for"')
+        daemonsRunning = self.cmd('vtysh -c "show logging" | grep "Logging configuration for"')
         # Look for AddressSanitizer Errors in vtysh output and append to /tmp/AddressSanitzer.txt if found
         if checkAddressSanitizerError(daemonsRunning, self.name, "vtysh"):
             return "%s: vtysh killed by AddressSanitizer" % (self.name)

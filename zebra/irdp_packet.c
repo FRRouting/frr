@@ -136,10 +136,10 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 		return;
 
 	if (icmp->code != 0) {
-		flog_warn(EC_ZEBRA_IRDP_BAD_TYPE_CODE,
-			  "IRDP: RX packet type %d from %s. Bad ICMP type code,"
-			  " silently ignored",
-			  icmp->type, inet_ntoa(src));
+		flog_warn(
+			EC_ZEBRA_IRDP_BAD_TYPE_CODE,
+			"IRDP: RX packet type %d from %s. Bad ICMP type code, silently ignored",
+			icmp->type, inet_ntoa(src));
 		return;
 	}
 
@@ -174,8 +174,8 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 
 	default:
 		flog_warn(
-			EC_ZEBRA_IRDP_BAD_TYPE,
-			"IRDP: RX type %d from %s. Bad ICMP type, silently ignored",
+			EC_ZEBRA_IRDP_BAD_TYPE_CODE,
+			"IRDP: RX packet type %d from %s. Bad ICMP type code, silently ignored",
 			icmp->type, inet_ntoa(src));
 	}
 }

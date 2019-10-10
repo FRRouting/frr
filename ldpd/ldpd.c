@@ -236,6 +236,9 @@ main(int argc, char *argv[])
 		"      --ctl_socket   Override ctl socket path\n"
 		"  -n, --instance     Instance id\n");
 
+	/* set default instance (to differentiate ldpd socket from lde one */
+	init.instance = 1;
+
 	while (1) {
 		int opt;
 
@@ -447,7 +450,7 @@ ldpd_shutdown(void)
 			if (errno == EINTR)
 				continue;
 			/* No more processes were found. */
-			if (errno != ECHILD)
+			if (errno == ECHILD)
 				break;
 
 			/* Unhandled errno condition. */

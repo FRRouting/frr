@@ -4,7 +4,7 @@
     "installed":true,
     "nexthops":[
       {
-        "type":"SR",
+        "type":"SR (OSPF)",
         "outLabel":8100,
         "distance":150,
         "installed":true,
@@ -17,7 +17,7 @@
     "installed":true,
     "nexthops":[
       {
-        "type":"SR",
+        "type":"SR (OSPF)",
         "outLabel":3,
         "distance":150,
         "installed":true,
@@ -30,7 +30,7 @@
     "installed":true,
     "nexthops":[
       {
-        "type":"SR",
+        "type":"SR (OSPF)",
         "outLabel":8400,
         "distance":150,
         "installed":true,
@@ -43,7 +43,7 @@
     "installed":true,
     "nexthops":[
       {
-        "type":"SR",
+        "type":"SR (OSPF)",
         "outLabel":3,
         "distance":150,
         "installed":true,
@@ -56,7 +56,7 @@
     "installed":true,
     "nexthops":[
       {
-        "type":"SR",
+        "type":"SR (OSPF)",
         "outLabel":3,
         "distance":150,
         "installed":true,

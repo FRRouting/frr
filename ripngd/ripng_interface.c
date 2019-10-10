@@ -43,11 +43,13 @@
 
 /* If RFC2133 definition is used. */
 #ifndef IPV6_JOIN_GROUP
-#define IPV6_JOIN_GROUP  IPV6_ADD_MEMBERSHIP 
+#define IPV6_JOIN_GROUP  IPV6_ADD_MEMBERSHIP
 #endif
 #ifndef IPV6_LEAVE_GROUP
-#define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP 
+#define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP
 #endif
+
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_IF, "ripng interface")
 
 /* Static utility function. */
 static void ripng_enable_apply(struct interface *);
@@ -73,7 +75,7 @@ static int ripng_multicast_join(struct interface *ifp, int sock)
 		 * While this is bogus, privs are available and easy to use
 		 * for this call as a workaround.
 		 */
-		frr_elevate_privs(&ripngd_privs) {
+		frr_with_privs(&ripngd_privs) {
 
 			ret = setsockopt(sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
 					 (char *)&mreq, sizeof(mreq));
@@ -184,7 +186,8 @@ static int ripng_if_down(struct interface *ifp)
 			zlog_debug("turn off %s", ifp->name);
 
 		/* Leave from multicast group. */
-		ripng_multicast_leave(ifp, ripng->sock);
+		if (ripng)
+			ripng_multicast_leave(ifp, ripng->sock);
 
 		ri->running = 0;
 	}
@@ -193,19 +196,8 @@ static int ripng_if_down(struct interface *ifp)
 }
 
 /* Inteface link up message processing. */
-int ripng_interface_up(ZAPI_CALLBACK_ARGS)
+static int ripng_ifp_up(struct interface *ifp)
 {
-	struct stream *s;
-	struct interface *ifp;
-
-	/* zebra_interface_state_read() updates interface structure in iflist.
-	 */
-	s = zclient->ibuf;
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
 	if (IS_RIPNG_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface up %s vrf %u index %d flags %llx metric %d mtu %d",
@@ -227,19 +219,8 @@ int ripng_interface_up(ZAPI_CALLBACK_ARGS)
 }
 
 /* Inteface link down message processing. */
-int ripng_interface_down(ZAPI_CALLBACK_ARGS)
+static int ripng_ifp_down(struct interface *ifp)
 {
-	struct stream *s;
-	struct interface *ifp;
-
-	/* zebra_interface_state_read() updates interface structure in iflist.
-	 */
-	s = zclient->ibuf;
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
 	ripng_interface_sync(ifp);
 	ripng_if_down(ifp);
 
@@ -253,11 +234,8 @@ int ripng_interface_down(ZAPI_CALLBACK_ARGS)
 }
 
 /* Inteface addition message from zebra. */
-int ripng_interface_add(ZAPI_CALLBACK_ARGS)
+static int ripng_ifp_create(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
 	ripng_interface_sync(ifp);
 
 	if (IS_RIPNG_DEBUG_ZEBRA)
@@ -278,19 +256,8 @@ int ripng_interface_add(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-int ripng_interface_delete(ZAPI_CALLBACK_ARGS)
+static int ripng_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	/*  zebra_interface_state_read() updates interface structure in iflist
-	 */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
 	ripng_interface_sync(ifp);
 	if (if_is_up(ifp)) {
 		ripng_if_down(ifp);
@@ -300,10 +267,6 @@ int ripng_interface_delete(ZAPI_CALLBACK_ARGS)
 		"interface delete %s vrf %u index %d flags %#llx metric %d mtu %d",
 		ifp->name, ifp->vrf_id, ifp->ifindex,
 		(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
-
-	/* To support pseudo interface do not free interface structure.  */
-	/* if_delete(ifp); */
-	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	return 0;
 }
@@ -912,7 +875,7 @@ static struct ripng_interface *ri_new(void)
 {
 	struct ripng_interface *ri;
 
-	ri = XCALLOC(MTYPE_IF, sizeof(struct ripng_interface));
+	ri = XCALLOC(MTYPE_RIPNG_IF, sizeof(struct ripng_interface));
 
 	/* Set default split-horizon behavior.  If the interface is Frame
 	   Relay or SMDS is enabled, the default value for split-horizon is
@@ -949,7 +912,7 @@ static int ripng_if_new_hook(struct interface *ifp)
 /* Called when interface structure deleted. */
 static int ripng_if_delete_hook(struct interface *ifp)
 {
-	XFREE(MTYPE_IF, ifp->info);
+	XFREE(MTYPE_RIPNG_IF, ifp->info);
 	ifp->info = NULL;
 	return 0;
 }
@@ -996,4 +959,6 @@ void ripng_if_init(void)
 	/* Install interface node. */
 	install_node(&interface_node, interface_config_write);
 	if_cmd_init();
+	if_zapi_callbacks(ripng_ifp_create, ripng_ifp_up,
+			  ripng_ifp_down, ripng_ifp_destroy);
 }

@@ -701,6 +701,12 @@ int sockopt_tcp_signature_ext(int sock, union sockunion *su, uint16_t prefixlen,
 	}
 	return ret;
 #endif /* HAVE_TCP_MD5SIG */
+
+	/*
+	 * Making compiler happy.  If we get to this point we probably
+	 * have done something really really wrong.
+	 */
+	return -2;
 }
 
 int sockopt_tcp_signature(int sock, union sockunion *su, const char *password)

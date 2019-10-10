@@ -714,7 +714,7 @@ static enum match_type match_ipv4(const char *str)
 				dots++;
 				break;
 			}
-			if (!isdigit((int)*str))
+			if (!isdigit((unsigned char)*str))
 				return no_match;
 
 			str++;
@@ -724,7 +724,12 @@ static enum match_type match_ipv4(const char *str)
 			return no_match;
 
 		memcpy(buf, sp, str - sp);
-		if (atoi(buf) > 255)
+
+		int v = atoi(buf);
+
+		if (v > 255)
+			return no_match;
+		if (v > 0 && buf[0] == '0')
 			return no_match;
 
 		nums++;
@@ -765,7 +770,7 @@ static enum match_type match_ipv4_prefix(const char *str)
 				break;
 			}
 
-			if (!isdigit((int)*str))
+			if (!isdigit((unsigned char)*str))
 				return no_match;
 
 			str++;
@@ -775,7 +780,12 @@ static enum match_type match_ipv4_prefix(const char *str)
 			return no_match;
 
 		memcpy(buf, sp, str - sp);
-		if (atoi(buf) > 255)
+
+		int v = atoi(buf);
+
+		if (v > 255)
+			return no_match;
+		if (v > 0 && buf[0] == '0')
 			return no_match;
 
 		if (dots == 3) {
@@ -797,7 +807,7 @@ static enum match_type match_ipv4_prefix(const char *str)
 
 	sp = str;
 	while (*str != '\0') {
-		if (!isdigit((int)*str))
+		if (!isdigit((unsigned char)*str))
 			return no_match;
 
 		str++;

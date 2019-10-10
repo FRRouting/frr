@@ -65,9 +65,8 @@ static int _nexthop_labels_cmp(const struct nexthop *nh1,
 	return memcmp(nhl1->label, nhl2->label, nhl1->num_labels);
 }
 
-static int _nexthop_g_addr_cmp(enum nexthop_types_t type,
-			       const union g_addr *addr1,
-			       const union g_addr *addr2)
+int nexthop_g_addr_cmp(enum nexthop_types_t type, const union g_addr *addr1,
+		       const union g_addr *addr2)
 {
 	int ret = 0;
 
@@ -92,13 +91,13 @@ static int _nexthop_g_addr_cmp(enum nexthop_types_t type,
 static int _nexthop_gateway_cmp(const struct nexthop *nh1,
 				const struct nexthop *nh2)
 {
-	return _nexthop_g_addr_cmp(nh1->type, &nh1->gate, &nh2->gate);
+	return nexthop_g_addr_cmp(nh1->type, &nh1->gate, &nh2->gate);
 }
 
 static int _nexthop_source_cmp(const struct nexthop *nh1,
 			       const struct nexthop *nh2)
 {
-	return _nexthop_g_addr_cmp(nh1->type, &nh1->src, &nh2->src);
+	return nexthop_g_addr_cmp(nh1->type, &nh1->src, &nh2->src);
 }
 
 static int _nexthop_cmp_no_labels(const struct nexthop *next1,
@@ -423,6 +422,32 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 		break;
 	}
 	return key;
+}
+
+void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
+		  struct nexthop *rparent)
+{
+	copy->vrf_id = nexthop->vrf_id;
+	copy->ifindex = nexthop->ifindex;
+	copy->type = nexthop->type;
+	copy->flags = nexthop->flags;
+	memcpy(&copy->gate, &nexthop->gate, sizeof(nexthop->gate));
+	memcpy(&copy->src, &nexthop->src, sizeof(nexthop->src));
+	memcpy(&copy->rmap_src, &nexthop->rmap_src, sizeof(nexthop->rmap_src));
+	copy->rparent = rparent;
+	if (nexthop->nh_label)
+		nexthop_add_labels(copy, nexthop->nh_label_type,
+				   nexthop->nh_label->num_labels,
+				   &nexthop->nh_label->label[0]);
+}
+
+struct nexthop *nexthop_dup(const struct nexthop *nexthop,
+			    struct nexthop *rparent)
+{
+	struct nexthop *new = nexthop_new();
+
+	nexthop_copy(new, nexthop, rparent);
+	return new;
 }
 
 /*

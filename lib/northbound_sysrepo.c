@@ -256,11 +256,7 @@ static int frr_sr_config_change_cb_verify(sr_session_ctx_t *session,
 		return ret;
 	}
 
-	pthread_rwlock_rdlock(&running_config->lock);
-	{
-		candidate = nb_config_dup(running_config);
-	}
-	pthread_rwlock_unlock(&running_config->lock);
+	candidate = nb_config_dup(running_config);
 
 	while ((ret = sr_get_change_next(session, it, &sr_op, &sr_old_val,
 					 &sr_new_val))
@@ -425,7 +421,7 @@ static int frr_sr_state_cb(const char *xpath, sr_val_t **values,
 exit:
 	list_delete(&elements);
 	*values = NULL;
-	values_cnt = 0;
+	*values_cnt = 0;
 
 	return SR_ERR_OK;
 }

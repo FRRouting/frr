@@ -102,9 +102,14 @@ struct memgroup {
 	}
 
 
+/* the array is a trick to make the "MTYPE_FOO" name work as a pointer without
+ * putting a & in front of it, so we can do "XMALLOC(MTYPE_FOO, ...)" instead
+ * of "XMALLOC(&MTYPE_FOO, ...)".
+ */
 #define DECLARE_MTYPE(name)                                                    \
 	extern struct memtype _mt_##name;                                      \
-	static struct memtype *const MTYPE_##name = &_mt_##name;
+	extern struct memtype MTYPE_##name[1];                                 \
+	/* end */
 
 #define DEFINE_MTYPE_ATTR(group, mname, attr, desc)                            \
 	attr struct memtype _mt_##mname                                        \
@@ -130,12 +135,21 @@ struct memgroup {
 		if (_mt_##mname.next)                                          \
 			_mt_##mname.next->ref = _mt_##mname.ref;               \
 		*_mt_##mname.ref = _mt_##mname.next;                           \
-	}
+	}                                                                      \
+	/* end */
 
-#define DEFINE_MTYPE(group, name, desc) DEFINE_MTYPE_ATTR(group, name, , desc)
+/* can't quite get gcc to emit the alias correctly, so asm-alias it is :/ */
+#define DEFINE_MTYPE(group, name, desc)                                        \
+	DEFINE_MTYPE_ATTR(group, name, , desc)                                 \
+	__asm__(".equiv MTYPE_" #name ", _mt_" #name "\n\t"                    \
+		".global MTYPE_" #name "\n");                                  \
+	/* end */
+/* and this one's borked on clang, it drops static on aliases :/, so... asm */
 #define DEFINE_MTYPE_STATIC(group, name, desc)                                 \
 	DEFINE_MTYPE_ATTR(group, name, static, desc)                           \
-	static struct memtype *const MTYPE_##name = &_mt_##name;
+	extern struct memtype MTYPE_##name[1];                                 \
+	__asm__(".equiv MTYPE_" #name ", _mt_" #name "\n");                    \
+	/* end */
 
 DECLARE_MGROUP(LIB)
 DECLARE_MTYPE(TMP)

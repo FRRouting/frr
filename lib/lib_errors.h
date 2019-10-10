@@ -45,6 +45,7 @@ enum lib_log_refs {
 	EC_LIB_STREAM,
 	EC_LIB_LINUX_NS,
 	EC_LIB_SLOW_THREAD,
+	EC_LIB_NO_THREAD,
 	EC_LIB_RMAP_RECURSION_LIMIT,
 	EC_LIB_BACKUP_CONFIG,
 	EC_LIB_VRF_LENGTH,
@@ -83,6 +84,7 @@ enum lib_log_refs {
 	EC_LIB_GRPC_INIT,
 	EC_LIB_ID_CONSISTENCY,
 	EC_LIB_ID_EXHAUST,
+	EC_LIB_RESOLVER,
 };
 
 extern void lib_error_init(void);

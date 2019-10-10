@@ -611,6 +611,38 @@ Head removal (pop) and deallocation:
     * note nothing between wrlock() and unlock() */
    XFREE(MTYPE_ITEM, i);
 
+FAQ
+---
+
+Why is the list head not ``const`` in the list APIs?
+   The semantics that a ``const`` list head would imply are not obvious.  It
+   could mean any of the following:
+
+    * the list just shouldn't be allocated/deallocated, but may be modified.
+      This doesn't actually work since the list head needs to be modified for
+      inserting or deleting items.
+
+    * the list shouldn't be modified, but items can.  This may make sense for
+      iterating, but it's not exactly consistent - an item might be on more
+      than one list, does it apply to all of them?  If not, which one?
+
+    * neither the list nor the items should be modified.  This is consistent,
+      but hard to do without creating a ``const`` copy of every single list
+      function.  Ease of use trumps this.
+
+Why is there no "is this item on a/the list" test?
+   It's slow for several of the data structures, and the work of adding it
+   just hasn't been done.  It can certainly be added if it's needed.
+
+Why is it ``PREDECL`` + ``DECLARE`` instead of ``DECLARE`` + ``DEFINE``?
+   The rule is that a ``DEFINE`` must be in a ``.c`` file, and linked exactly
+   once because it defines some kind of global symbol.  This is not the case
+   for the data structure macros;  they only define ``static`` symbols and it
+   is perfectly fine to include both ``PREDECL`` and ``DECLARE`` in a header
+   file.  It is also perfectly fine to have the same ``DECLARE`` statement in
+   2 ``.c`` files, but only **if the macro arguments are identical.**  Maybe
+   don't do that unless you really need it.
+
 FRR lists
 ---------
 

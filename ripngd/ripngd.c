@@ -43,6 +43,11 @@
 #include "ripngd/ripng_debug.h"
 #include "ripngd/ripng_nexthop.h"
 
+DEFINE_MGROUP(RIPNGD, "ripngd")
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG, "RIPng structure")
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_VRF_NAME, "RIPng VRF name")
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_ROUTE, "RIPng route info")
+
 enum { ripng_all_route,
        ripng_changed_route,
 };
@@ -115,8 +120,7 @@ int ripng_make_socket(struct vrf *vrf)
 	/* Make datagram socket. */
 	if (vrf->vrf_id != VRF_DEFAULT)
 		vrf_dev = vrf->name;
-	frr_elevate_privs(&ripngd_privs)
-	{
+	frr_with_privs(&ripngd_privs) {
 		sock = vrf_socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP,
 				  vrf->vrf_id, vrf_dev);
 		if (sock < 0) {
@@ -155,7 +159,7 @@ int ripng_make_socket(struct vrf *vrf)
 #endif /* SIN6_LEN */
 	ripaddr.sin6_port = htons(RIPNG_PORT_DEFAULT);
 
-	frr_elevate_privs(&ripngd_privs) {
+	frr_with_privs(&ripngd_privs) {
 		ret = bind(sock, (struct sockaddr *)&ripaddr, sizeof(ripaddr));
 		if (ret < 0) {
 			zlog_err("Can't bind ripng socket: %s.",
@@ -2357,7 +2361,7 @@ DEFUN (show_ipv6_protocols,
     return CMD_SUCCESS;
 
   vty_out (vty, "Routing Protocol is \"ripng\"\n");
-  
+
   vty_out (vty, "Sending updates every %ld seconds, next due in %d seconds\n",
 	   ripng->update_time, 0);
 
@@ -2772,7 +2776,39 @@ static int ripng_vrf_enable(struct vrf *vrf)
 	int socket;
 
 	ripng = ripng_lookup_by_vrf_name(vrf->name);
-	if (!ripng || ripng->enabled)
+	if (!ripng) {
+		char *old_vrf_name = NULL;
+
+		ripng = (struct ripng *)vrf->info;
+		if (!ripng)
+			return 0;
+		/* update vrf name */
+		if (ripng->vrf_name)
+			old_vrf_name = ripng->vrf_name;
+		ripng->vrf_name = XSTRDUP(MTYPE_RIPNG_VRF_NAME, vrf->name);
+		/*
+		 * HACK: Change the RIPng VRF in the running configuration directly,
+		 * bypassing the northbound layer. This is necessary to avoid deleting
+		 * the RIPng and readding it in the new VRF, which would have
+		 * several implications.
+		 */
+		if (yang_module_find("frr-ripngd") && old_vrf_name) {
+			struct lyd_node *ripng_dnode;
+
+			ripng_dnode = yang_dnode_get(
+				running_config->dnode,
+				"/frr-ripngd:ripngd/instance[vrf='%s']/vrf",
+				old_vrf_name);
+			if (ripng_dnode) {
+				yang_dnode_change_leaf(ripng_dnode, vrf->name);
+				running_config->version++;
+			}
+		}
+		if (old_vrf_name)
+			XFREE(MTYPE_RIPNG_VRF_NAME, old_vrf_name);
+	}
+
+	if (ripng->enabled)
 		return 0;
 
 	if (IS_RIPNG_DEBUG_EVENT)
@@ -2780,13 +2816,11 @@ static int ripng_vrf_enable(struct vrf *vrf)
 			   vrf->vrf_id);
 
 	/* Activate the VRF RIPng instance. */
-	if (!ripng->enabled) {
-		socket = ripng_make_socket(vrf);
-		if (socket < 0)
-			return -1;
+	socket = ripng_make_socket(vrf);
+	if (socket < 0)
+		return -1;
 
-		ripng_instance_enable(ripng, vrf, socket);
-	}
+	ripng_instance_enable(ripng, vrf, socket);
 
 	return 0;
 }
@@ -2813,7 +2847,7 @@ static int ripng_vrf_disable(struct vrf *vrf)
 void ripng_vrf_init(void)
 {
 	vrf_init(ripng_vrf_new, ripng_vrf_enable, ripng_vrf_disable,
-		 ripng_vrf_delete, NULL);
+		 ripng_vrf_delete, ripng_vrf_enable);
 }
 
 void ripng_vrf_terminate(void)

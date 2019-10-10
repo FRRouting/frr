@@ -96,18 +96,12 @@ sub scan_file {
         elsif ($file =~ /lib\/if\.c$/) {
             $protocol = "VTYSH_INTERFACE";
         }
-        elsif ($file =~ /lib\/logicalrouter\.c$/) {
-            $protocol = "VTYSH_ALL";
-        }
         elsif ($file =~ /lib\/filter\.c$/) {
             $protocol = "VTYSH_ALL";
         }
 	elsif ($file =~ /lib\/agentx\.c$/) {
 	    $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
 	}
-        elsif ($file =~ /lib\/ns\.c$/) {
-            $protocol = "VTYSH_ZEBRA";
-        }
 	elsif ($file =~ /lib\/nexthop_group\.c$/) {
 	    $protocol = "VTYSH_PBRD | VTYSH_SHARPD";
 	}

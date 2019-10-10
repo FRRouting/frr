@@ -81,7 +81,7 @@ static inline int str2ipaddr(const char *str, struct ipaddr *ip)
 	return -1;
 }
 
-static inline char *ipaddr2str(struct ipaddr *ip, char *buf, int size)
+static inline char *ipaddr2str(const struct ipaddr *ip, char *buf, int size)
 {
 	buf[0] = '\0';
 	if (ip) {

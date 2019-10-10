@@ -187,7 +187,7 @@ static int process_p2p_hello(struct iih_info *iih)
 		adj->sys_type = ISIS_SYSTYPE_UNKNOWN;
 	}
 
-	if (tw_adj && adj->threeway_state == ISIS_THREEWAY_DOWN)
+	if (tw_adj)
 		adj->ext_circuit_id = tw_adj->local_circuit_id;
 
 	/* 8.2.6 Monitoring point-to-point adjacencies */
@@ -198,13 +198,6 @@ static int process_p2p_hello(struct iih_info *iih)
 	isis_tlvs_to_adj(iih->tlvs, adj, &changed);
 	changed |= tlvs_to_adj_mt_set(iih->tlvs, iih->v4_usable, iih->v6_usable,
 				      adj);
-
-	/* Update MPLS TE Remote IP address parameter if possible */
-	if (IS_MPLS_TE(iih->circuit->area->mta)
-	    && IS_MPLS_TE(iih->circuit->mtc)
-	    && adj->ipv4_address_count)
-		set_circuitparams_rmt_ipaddr(iih->circuit->mtc,
-					     adj->ipv4_addresses[0]);
 
 	/* lets take care of the expiry */
 	THREAD_TIMER_OFF(adj->t_expire);
@@ -583,6 +576,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 	if (p2p_hello) {
 		if (circuit->circ_type != CIRCUIT_T_P2P) {
 			zlog_warn("p2p hello on non p2p circuit");
+			circuit->rej_adjacencies++;
 #ifndef FABRICD
 			isis_notif_reject_adjacency(
 				circuit, "p2p hello on non p2p circuit",
@@ -593,6 +587,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 	} else {
 		if (circuit->circ_type != CIRCUIT_T_BROADCAST) {
 			zlog_warn("lan hello on non broadcast circuit");
+			circuit->rej_adjacencies++;
 #ifndef FABRICD
 			isis_notif_reject_adjacency(
 				circuit, "lan hello on non broadcast circuit",
@@ -605,6 +600,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 			zlog_debug(
 				"level %d LAN Hello received over circuit with externalDomain = true",
 				level);
+			circuit->rej_adjacencies++;
 #ifndef FABRICD
 			isis_notif_reject_adjacency(
 				circuit,
@@ -621,6 +617,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 					circuit->area->area_tag,
 					circuit->interface->name);
 			}
+			circuit->rej_adjacencies++;
 #ifndef FABRICD
 			isis_notif_reject_adjacency(
 				circuit, "Interface level mismatch", raw_pdu);
@@ -650,6 +647,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 			"ISIS-Adj (%s): Rcvd %s from (%s) with invalid pdu length %" PRIu16,
 			circuit->area->area_tag, pdu_name,
 			circuit->interface->name, iih.pdu_len);
+		circuit->rej_adjacencies++;
 #ifndef FABRICD
 		isis_notif_reject_adjacency(circuit, "Invalid PDU length",
 					    raw_pdu);
@@ -661,6 +659,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		flog_err(EC_ISIS_PACKET,
 			 "Level %d LAN Hello with Circuit Type %d", level,
 			 iih.circ_type);
+		circuit->rej_adjacencies++;
 #ifndef FABRICD
 		isis_notif_reject_adjacency(
 			circuit, "LAN Hello with wrong IS-level", raw_pdu);
@@ -674,6 +673,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 	if (isis_unpack_tlvs(STREAM_READABLE(circuit->rcv_stream),
 			     circuit->rcv_stream, &iih.tlvs, &error_log)) {
 		zlog_warn("isis_unpack_tlvs() failed: %s", error_log);
+		circuit->rej_adjacencies++;
 #ifndef FABRICD
 		isis_notif_reject_adjacency(circuit, "Failed to unpack TLVs",
 					    raw_pdu);
@@ -692,6 +692,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 
 	if (!iih.tlvs->protocols_supported.count) {
 		zlog_warn("No supported protocols TLV in %s", pdu_name);
+		circuit->rej_adjacencies++;
 #ifndef FABRICD
 		isis_notif_reject_adjacency(
 			circuit, "No supported protocols TLV", raw_pdu);
@@ -709,11 +710,14 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		/* send northbound notification */
 		stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
 				pdu_end - pdu_start);
-		if (auth_code == ISIS_AUTH_FAILURE)
+		if (auth_code == ISIS_AUTH_FAILURE) {
+			circuit->auth_failures++;
 			isis_notif_authentication_failure(circuit, raw_pdu);
-		else /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
+		} else { /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
+			circuit->auth_type_failures++;
 			isis_notif_authentication_type_failure(circuit,
 							       raw_pdu);
+		}
 #endif /* ifndef FABRICD */
 		goto out;
 	}
@@ -722,6 +726,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		zlog_warn(
 			"ISIS-Adj (%s): Received IIH with own sysid - discard",
 			circuit->area->area_tag);
+		circuit->rej_adjacencies++;
 #ifndef FABRICD
 		isis_notif_reject_adjacency(
 			circuit, "Received IIH with our own sysid", raw_pdu);
@@ -759,6 +764,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 				"ISIS-Adj (%s): Neither IPv4 nor IPv6 considered usable. Ignoring IIH",
 				circuit->area->area_tag);
 		}
+		circuit->rej_adjacencies++;
 #ifndef FABRICD
 		isis_notif_reject_adjacency(
 			circuit, "Neither IPv4 not IPv6 considered usable",
@@ -947,11 +953,14 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 					hdr.lsp_id);
 #ifndef FABRICD
 		/* send northbound notification */
-		if (auth_code == ISIS_AUTH_FAILURE)
+		if (auth_code == ISIS_AUTH_FAILURE) {
+			circuit->auth_failures++;
 			isis_notif_authentication_failure(circuit, raw_pdu);
-		else /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
+		} else { /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
+			circuit->auth_type_failures++;
 			isis_notif_authentication_type_failure(circuit,
 							       raw_pdu);
+		}
 #endif /* ifndef FABRICD */
 		goto out;
 	}
@@ -1380,12 +1389,15 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 			/* send northbound notification */
 			stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
 					pdu_end - pdu_start);
-			if (auth_code == ISIS_AUTH_FAILURE)
+			if (auth_code == ISIS_AUTH_FAILURE) {
+				circuit->auth_failures++;
 				isis_notif_authentication_failure(circuit,
 								  raw_pdu);
-			else /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
+			} else { /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
+				circuit->auth_type_failures++;
 				isis_notif_authentication_type_failure(circuit,
 								       raw_pdu);
+			}
 #endif /* ifndef FABRICD */
 			goto out;
 		}
@@ -1621,6 +1633,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 			"IDFieldLengthMismatch: ID Length field in a received PDU  %" PRIu8
 			", while the parameter for this IS is %u",
 			id_len, ISIS_SYS_ID_LEN);
+		circuit->id_len_mismatches++;
 #ifndef FABRICD
 		/* send northbound notification */
 		isis_notif_id_len_mismatch(circuit, id_len, raw_pdu);
@@ -1673,6 +1686,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 			"maximumAreaAddressesMismatch: maximumAreaAdresses in a received PDU %" PRIu8
 			" while the parameter for this IS is %u",
 			max_area_addrs, isis->max_area_addrs);
+		circuit->max_area_addr_mismatches++;
 #ifndef FABRICD
 		/* send northbound notification */
 		isis_notif_max_area_addr_mismatch(circuit, max_area_addrs,

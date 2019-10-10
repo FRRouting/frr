@@ -141,7 +141,7 @@ int main(int argc, char **argv)
 	nhrp_error_init();
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	nhrp_interface_init();
-	resolver_init();
+	resolver_init(master);
 
 	/* Run with elevated capabilities, as for all netlink activity
 	 * we need privileges anyway. */
@@ -152,6 +152,8 @@ int main(int argc, char **argv)
 	nhrp_vc_init();
 	nhrp_packet_init();
 	vici_init();
+	if_zapi_callbacks(nhrp_ifp_create, nhrp_ifp_up,
+			  nhrp_ifp_down, nhrp_ifp_destroy);
 	nhrp_zebra_init();
 	nhrp_shortcut_init();
 

@@ -23,6 +23,7 @@
 #include <zebra.h>
 #include <netinet/ip.h>
 
+#include "lib/memory.h"
 #include "lib/hash.h"
 #include "lib/hook.h"
 #include "lib/if.h"
@@ -53,6 +54,8 @@
 
 /* User compatibility constant */
 #define CS2MS 10
+
+DECLARE_MGROUP(VRRPD)
 
 /* Configured defaults */
 struct vrrp_defaults {

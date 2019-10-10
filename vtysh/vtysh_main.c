@@ -47,6 +47,8 @@
 #include "linklist.h"
 #include "memory_vty.h"
 #include "libfrr.h"
+#include "ferr.h"
+#include "lib_errors.h"
 
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
@@ -461,6 +463,9 @@ int main(int argc, char **argv, char **env)
 		vtysh_read_config(vtysh_config);
 		suid_off();
 	}
+	/* Error code library system */
+	log_ref_init();
+	lib_error_init();
 
 	if (markfile) {
 		if (!inputfile) {

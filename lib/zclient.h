@@ -38,6 +38,15 @@
 
 #include "mlag.h"
 
+/* Zebra types. Used in Zserv message header. */
+typedef uint16_t zebra_size_t;
+
+/* Marker value used in new Zserv, in the byte location corresponding
+ * the command value in the old zserv header. To allow old and new
+ * Zserv headers to be distinguished from each other.
+ */
+#define ZEBRA_HEADER_MARKER              254
+
 /* For input/output buffer to zebra. */
 #define ZEBRA_MAX_PACKET_SIZ          16384U
 
@@ -117,6 +126,7 @@ typedef enum {
 	ZEBRA_INTERFACE_LINK_PARAMS,
 	ZEBRA_MPLS_LABELS_ADD,
 	ZEBRA_MPLS_LABELS_DELETE,
+	ZEBRA_MPLS_LABELS_REPLACE,
 	ZEBRA_IPMR_ROUTE_STATS,
 	ZEBRA_LABEL_MANAGER_CONNECT,
 	ZEBRA_LABEL_MANAGER_CONNECT_ASYNC,
@@ -167,6 +177,7 @@ typedef enum {
 	ZEBRA_VXLAN_FLOOD_CONTROL,
 	ZEBRA_VXLAN_SG_ADD,
 	ZEBRA_VXLAN_SG_DEL,
+	ZEBRA_VXLAN_SG_REPLAY,
 } zebra_message_types_t;
 
 struct redist_proto {
@@ -229,10 +240,6 @@ struct zclient {
 	void (*zebra_connected)(struct zclient *);
 	void (*zebra_capabilities)(struct zclient_capabilities *cap);
 	int (*router_id_update)(ZAPI_CALLBACK_ARGS);
-	int (*interface_add)(ZAPI_CALLBACK_ARGS);
-	int (*interface_delete)(ZAPI_CALLBACK_ARGS);
-	int (*interface_up)(ZAPI_CALLBACK_ARGS);
-	int (*interface_down)(ZAPI_CALLBACK_ARGS);
 	int (*interface_address_add)(ZAPI_CALLBACK_ARGS);
 	int (*interface_address_delete)(ZAPI_CALLBACK_ARGS);
 	int (*interface_link_params)(ZAPI_CALLBACK_ARGS);
@@ -322,6 +329,41 @@ struct zapi_route {
 	unsigned short instance;
 
 	uint32_t flags;
+/*
+ * Cause Zebra to consider this routes nexthops recursively
+ */
+#define ZEBRA_FLAG_ALLOW_RECURSION    0x01
+/*
+ * This is a route that is read in on startup that was left around
+ * from a previous run of FRR
+ */
+#define ZEBRA_FLAG_SELFROUTE          0x02
+/*
+ * This flag is used to tell Zebra that the BGP route being passed
+ * down is a IBGP route
+ */
+#define ZEBRA_FLAG_IBGP               0x04
+/*
+ * This is a route that has been selected for FIB installation.
+ * This flag is set in zebra and can be passed up to routing daemons
+ */
+#define ZEBRA_FLAG_SELECTED           0x08
+/*
+ * This is a route that we are telling Zebra that this route *must*
+ * win and will be installed even over ZEBRA_FLAG_SELECTED
+ */
+#define ZEBRA_FLAG_FIB_OVERRIDE       0x10
+/*
+ * This flag tells Zebra that the route is a EVPN route and should
+ * be treated specially
+ */
+#define ZEBRA_FLAG_EVPN_ROUTE         0x20
+/*
+ * This flag tells Zebra that it should treat the distance passed
+ * down as an additional discriminator for route selection of the
+ * route entry.  This mainly is used for backup static routes.
+ */
+#define ZEBRA_FLAG_RR_USE_DISTANCE    0x40
 
 	uint8_t message;
 
@@ -348,6 +390,28 @@ struct zapi_route {
 	vrf_id_t vrf_id;
 
 	uint32_t tableid;
+};
+
+struct zapi_nexthop_label {
+	enum nexthop_types_t type;
+	int family;
+	union g_addr address;
+	ifindex_t ifindex;
+	mpls_label_t label;
+};
+
+struct zapi_labels {
+	uint8_t message;
+#define ZAPI_LABELS_FTN      0x01
+	enum lsp_types_t type;
+	mpls_label_t local_label;
+	struct {
+		struct prefix prefix;
+		uint8_t type;
+		unsigned short instance;
+	} route;
+	uint16_t nexthop_num;
+	struct zapi_nexthop_label nexthops[MULTIPATH_NUM];
 };
 
 struct zapi_pw {
@@ -549,7 +613,6 @@ extern bool zapi_parse_header(struct stream *zmsg, struct zmsghdr *hdr);
 extern void zclient_interface_set_master(struct zclient *client,
 					 struct interface *master,
 					 struct interface *slave);
-extern struct interface *zebra_interface_add_read(struct stream *, vrf_id_t);
 extern struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t);
 extern struct connected *zebra_interface_address_read(int, struct stream *,
 						      vrf_id_t);
@@ -558,22 +621,19 @@ zebra_interface_nbr_address_read(int, struct stream *, vrf_id_t);
 extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
 							 vrf_id_t vrf_id,
 							 vrf_id_t *new_vrf_id);
-extern void zebra_interface_if_set_value(struct stream *, struct interface *);
 extern void zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 
 extern struct interface *zebra_interface_link_params_read(struct stream *s,
 							  vrf_id_t vrf_id);
 extern size_t zebra_interface_link_params_write(struct stream *,
 						struct interface *);
-extern int zclient_send_get_label_chunk(
-	struct zclient	*zclient,
-	uint8_t		keep,
-	uint32_t	chunk_size);
+extern int zclient_send_get_label_chunk(struct zclient *zclient, uint8_t keep,
+					uint32_t chunk_size, uint32_t base);
 
 extern int lm_label_manager_connect(struct zclient *zclient, int async);
 extern int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
-			      uint32_t chunk_size, uint32_t *start,
-			      uint32_t *end);
+			      uint32_t base, uint32_t chunk_size,
+			      uint32_t *start, uint32_t *end);
 extern int lm_release_label_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
 extern int tm_table_manager_connect(struct zclient *zclient);
@@ -581,6 +641,12 @@ extern int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 			      uint32_t *start, uint32_t *end);
 extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
+
+extern int zebra_send_mpls_labels(struct zclient *zclient, int cmd,
+				  struct zapi_labels *zl);
+extern int zapi_labels_encode(struct stream *s, int cmd,
+			      struct zapi_labels *zl);
+extern int zapi_labels_decode(struct stream *s, struct zapi_labels *zl);
 
 extern int zebra_send_pw(struct zclient *zclient, int command,
 			 struct zapi_pw *pw);

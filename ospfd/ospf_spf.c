@@ -804,7 +804,7 @@ static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
 	int type = 0, lsa_pos = -1, lsa_pos_next = 0;
 
 	/* If this is a router-LSA, and bit V of the router-LSA (see Section
-	   A.4.2:RFC2328) is set, set Area A's TransitCapability to TRUE.  */
+	   A.4.2:RFC2328) is set, set Area A's TransitCapability to true.  */
 	if (v->type == OSPF_VERTEX_ROUTER) {
 		if (IS_ROUTER_LSA_VIRTUAL((struct router_lsa *)v->lsa))
 			area->transit = OSPF_TRANSIT_TRUE;
@@ -879,6 +879,9 @@ static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
 					  "Invalid LSA link type %d", type);
 				continue;
 			}
+
+			/* step (d) below */
+			distance = v->distance + ntohs(l->m[0].metric);
 		} else {
 			/* In case of V is Network-LSA. */
 			r = (struct in_addr *)p;
@@ -892,6 +895,9 @@ static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
 					zlog_debug("found Router LSA %s",
 						   inet_ntoa(w_lsa->data->id));
 			}
+
+			/* step (d) below */
+			distance = v->distance;
 		}
 
 		/* (b cont.) If the LSA does not exist, or its LS age is equal
@@ -929,11 +935,7 @@ static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
 		   vertex V and the advertised cost of the link between vertices
 		   V and W.  If D is: */
 
-		/* calculate link cost D. */
-		if (v->lsa->type == OSPF_ROUTER_LSA)
-			distance = v->distance + ntohs(l->m[0].metric);
-		else /* v is not a Router-LSA */
-			distance = v->distance;
+		/* calculate link cost D -- moved above */
 
 		/* Is there already vertex W in candidate list? */
 		if (w_lsa->stat == LSA_SPF_NOT_EXPLORED) {
@@ -1205,7 +1207,7 @@ static void ospf_spf_calculate(struct ospf *ospf, struct ospf_area *area,
 	 * spanning tree. */
 	v->lsa_p->stat = LSA_SPF_IN_SPFTREE;
 
-	/* Set Area A's TransitCapability to FALSE. */
+	/* Set Area A's TransitCapability to false. */
 	area->transit = OSPF_TRANSIT_FALSE;
 	area->shortcut_capability = 1;
 

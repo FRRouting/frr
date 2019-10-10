@@ -4,7 +4,6 @@
 
 # You can set these variables from the command line.
 SPHINXOPTS    ?=
-SPHINXBUILD   ?= sphinx-build
 PAPER         ?=
 
 # Internal variables.
@@ -32,20 +31,20 @@ am__v_MAKEINFO_1 =
 doc/%/_build/.doctrees/environment.pickle:
 	$(AM_V_SPHINX) ( \
 		subdoc="$@"; subdoc="$${subdoc#doc/}"; subdoc="doc/$${subdoc%%/*}"; \
-		$(SPHINXBUILD) -a -q -b text -d "$${subdoc}/_build/.doctrees" \
+		$(PYTHON) $(PYSPHINX) -a -q -b text -d "$${subdoc}/_build/.doctrees" \
 			$(ALLSPHINXOPTS) "$(top_srcdir)/$${subdoc}" "$${subdoc}/_build/text" \
 	)
 doc/%/_build/html/.buildinfo: doc/%/_build/.doctrees/environment.pickle
 	$(AM_V_SPHINX) ( \
 		subdoc="$@"; subdoc="$${subdoc#doc/}"; subdoc="doc/$${subdoc%%/*}"; \
-		$(SPHINXBUILD) -q -b html -d "$${subdoc}/_build/.doctrees" \
+		$(PYTHON) $(PYSPHINX) -q -b html -d "$${subdoc}/_build/.doctrees" \
 			$(ALLSPHINXOPTS) "$(top_srcdir)/$${subdoc}" "$${subdoc}/_build/html" \
 	)
 .PRECIOUS: doc/%/_build/texinfo/frr.texi
 doc/%/_build/texinfo/frr.texi: doc/%/_build/.doctrees/environment.pickle
 	$(AM_V_SPHINX) ( \
 		subdoc="$@"; subdoc="$${subdoc#doc/}"; subdoc="doc/$${subdoc%%/*}"; \
-		$(SPHINXBUILD) -q -b texinfo -d "$${subdoc}/_build/.doctrees" \
+		$(PYTHON) $(PYSPHINX) -q -b texinfo -d "$${subdoc}/_build/.doctrees" \
 			$(ALLSPHINXOPTS) "$(top_srcdir)/$${subdoc}" "$${subdoc}/_build/texinfo" \
 	)
 doc/%/_build/texinfo/frr.info: doc/%/_build/texinfo/frr.texi
@@ -54,7 +53,7 @@ doc/%/_build/man/man.stamp: doc/%/_build/.doctrees/environment.pickle
 	$(AM_V_SPHINX) ( \
 		subdoc="$@"; subdoc="$${subdoc#doc/}"; subdoc="doc/$${subdoc%%/*}"; \
 		$(MKDIR_P) "$${subdoc}/_build/man"; touch $@.tmp; \
-		$(SPHINXBUILD) -a -q -b man -d "$${subdoc}/_build/.doctrees" \
+		$(PYTHON) $(PYSPHINX) -a -q -b man -d "$${subdoc}/_build/.doctrees" \
 			$(ALLSPHINXOPTS) "$(top_srcdir)/$${subdoc}" "$${subdoc}/_build/man" && \
 			mv -f $@.tmp $@ \
 	)
@@ -80,7 +79,7 @@ $(M_SPHINXTARGETS): doc/%/_build/.doctrees/environment.pickle
 		builder="$${target##*/}"; \
 		subdoc="$${target#doc/}"; subdoc="doc/$${subdoc%%/*}"; \
 		rm -rf "$@"; \
-		$(SPHINXBUILD) -q -b $${builder} -d $${subdoc}/_build/.doctrees \
+		$(PYTHON) $(PYSPHINX) -q -b $${builder} -d $${subdoc}/_build/.doctrees \
 			$(ALLSPHINXOPTS) $(top_srcdir)/$${subdoc} $@ \
 	)
 

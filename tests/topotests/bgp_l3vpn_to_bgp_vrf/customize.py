@@ -149,7 +149,9 @@ def ltemplatePreRouterStartHook():
     krel = platform.release()
     tgen = get_topogen()
     logger.info('pre router-start hook, kernel=' + krel)
-    if topotest.version_cmp(krel, '4.15') == 0:
+
+    if topotest.version_cmp(krel, '4.15') >= 0 and \
+       topotest.version_cmp(krel, '4.18') <= 0:
         l3mdev_accept = 1
     else:
         l3mdev_accept = 0

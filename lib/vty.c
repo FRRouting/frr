@@ -105,8 +105,8 @@ void vty_frame(struct vty *vty, const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
-	vsnprintf(vty->frame + vty->frame_pos,
-		  sizeof(vty->frame) - vty->frame_pos, format, args);
+	vsnprintfrr(vty->frame + vty->frame_pos,
+		    sizeof(vty->frame) - vty->frame_pos, format, args);
 	vty->frame_pos = strlen(vty->frame);
 	va_end(args);
 }
@@ -151,7 +151,7 @@ int vty_out(struct vty *vty, const char *format, ...)
 	va_list args;
 	ssize_t len;
 	char buf[1024];
-	char *p = buf;
+	char *p = NULL;
 	char *filtered;
 
 	if (vty->frame_pos) {
@@ -337,7 +337,8 @@ void vty_hello(struct vty *vty)
 				/* work backwards to ignore trailling isspace()
 				 */
 				for (s = buf + strlen(buf);
-				     (s > buf) && isspace((int)*(s - 1)); s--)
+				     (s > buf) && isspace((unsigned char)s[-1]);
+				     s--)
 					;
 				*s = '\0';
 				vty_out(vty, "%s\n", buf);
@@ -347,6 +348,15 @@ void vty_hello(struct vty *vty)
 			vty_out(vty, "MOTD file not found\n");
 	} else if (host.motd)
 		vty_out(vty, "%s", host.motd);
+
+#if CONFDATE > 20200901
+	CPP_NOTICE("Please remove solaris code from system as it is deprecated");
+#endif
+#ifdef SUNOS_5
+	zlog_warn("If you are using FRR on Solaris, the FRR developers would love to hear from you\n");
+	zlog_warn("Please send email to dev@lists.frrouting.org about this message\n");
+	zlog_warn("We are considering deprecating Solaris and want to find users of Solaris systems\n");
+#endif
 }
 
 /* Put out prompt and wait input from user. */
@@ -468,7 +478,7 @@ static int vty_command(struct vty *vty, char *buf)
 		cp = buf;
 	if (cp != NULL) {
 		/* Skip white spaces. */
-		while (isspace((int)*cp) && *cp != '\0')
+		while (isspace((unsigned char)*cp) && *cp != '\0')
 			cp++;
 	}
 	if (cp != NULL && *cp != '\0') {
@@ -892,7 +902,7 @@ static void vty_complete_command(struct vty *vty)
 		return;
 
 	/* In case of 'help \t'. */
-	if (isspace((int)vty->buf[vty->length - 1]))
+	if (isspace((unsigned char)vty->buf[vty->length - 1]))
 		vector_set(vline, NULL);
 
 	matched = cmd_complete_command(vline, vty, &ret);
@@ -1006,7 +1016,7 @@ static void vty_describe_command(struct vty *vty)
 	if (vline == NULL) {
 		vline = vector_init(1);
 		vector_set(vline, NULL);
-	} else if (isspace((int)vty->buf[vty->length - 1]))
+	} else if (isspace((unsigned char)vty->buf[vty->length - 1]))
 		vector_set(vline, NULL);
 
 	describe = cmd_describe_command(vline, vty, &ret);
@@ -1335,7 +1345,6 @@ static int vty_read(struct thread *thread)
 
 	int vty_sock = THREAD_FD(thread);
 	struct vty *vty = THREAD_ARG(thread);
-	vty->t_read = NULL;
 
 	/* Read raw data from socket */
 	if ((nbytes = read(vty->fd, buf, VTY_READ_BUFSIZ)) <= 0) {
@@ -1529,13 +1538,9 @@ static int vty_flush(struct thread *thread)
 	int vty_sock = THREAD_FD(thread);
 	struct vty *vty = THREAD_ARG(thread);
 
-	vty->t_write = NULL;
-
 	/* Tempolary disable read thread. */
-	if ((vty->lines == 0) && vty->t_read) {
-		thread_cancel(vty->t_read);
-		vty->t_read = NULL;
-	}
+	if (vty->lines == 0)
+		THREAD_OFF(vty->t_read);
 
 	/* Function execution continue. */
 	erase = ((vty->status == VTY_MORE || vty->status == VTY_MORELINE));
@@ -1713,12 +1718,9 @@ void vty_stdio_suspend(void)
 	if (!stdio_vty)
 		return;
 
-	if (stdio_vty->t_write)
-		thread_cancel(stdio_vty->t_write);
-	if (stdio_vty->t_read)
-		thread_cancel(stdio_vty->t_read);
-	if (stdio_vty->t_timeout)
-		thread_cancel(stdio_vty->t_timeout);
+	THREAD_OFF(stdio_vty->t_write);
+	THREAD_OFF(stdio_vty->t_read);
+	THREAD_OFF(stdio_vty->t_timeout);
 
 	if (stdio_termios)
 		tcsetattr(0, TCSANOW, &stdio_orig_termios);
@@ -2077,7 +2079,6 @@ static int vtysh_read(struct thread *thread)
 
 	sock = THREAD_FD(thread);
 	vty = THREAD_ARG(thread);
-	vty->t_read = NULL;
 
 	if ((nbytes = read(sock, buf, VTY_READ_BUFSIZ)) <= 0) {
 		if (nbytes < 0) {
@@ -2157,7 +2158,6 @@ static int vtysh_write(struct thread *thread)
 {
 	struct vty *vty = THREAD_ARG(thread);
 
-	vty->t_write = NULL;
 	vtysh_flush(vty);
 	return 0;
 }
@@ -2193,12 +2193,9 @@ void vty_close(struct vty *vty)
 	bool was_stdio = false;
 
 	/* Cancel threads.*/
-	if (vty->t_read)
-		thread_cancel(vty->t_read);
-	if (vty->t_write)
-		thread_cancel(vty->t_write);
-	if (vty->t_timeout)
-		thread_cancel(vty->t_timeout);
+	THREAD_OFF(vty->t_read);
+	THREAD_OFF(vty->t_write);
+	THREAD_OFF(vty->t_timeout);
 
 	/* Flush buffer. */
 	buffer_flush_all(vty->obuf, vty->wfd);
@@ -2254,7 +2251,6 @@ static int vty_timeout(struct thread *thread)
 	struct vty *vty;
 
 	vty = THREAD_ARG(thread);
-	vty->t_timeout = NULL;
 	vty->v_timeout = 0;
 
 	/* Clear buffer*/
@@ -2289,6 +2285,7 @@ static void vty_read_file(struct nb_config *config, FILE *confp)
 	vty->wfd = STDERR_FILENO;
 	vty->type = VTY_FILE;
 	vty->node = CONFIG_NODE;
+	vty->config = true;
 	if (config)
 		vty->candidate_config = config;
 	else {
@@ -2585,22 +2582,17 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 	vty->private_config = private_config;
 	vty->xpath_index = 0;
 
-	pthread_rwlock_rdlock(&running_config->lock);
-	{
-		if (private_config) {
-			vty->candidate_config = nb_config_dup(running_config);
+	if (private_config) {
+		vty->candidate_config = nb_config_dup(running_config);
+		vty->candidate_config_base = nb_config_dup(running_config);
+		vty_out(vty,
+			"Warning: uncommitted changes will be discarded on exit.\n\n");
+	} else {
+		vty->candidate_config = vty_shared_candidate_config;
+		if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL)
 			vty->candidate_config_base =
 				nb_config_dup(running_config);
-			vty_out(vty,
-				"Warning: uncommitted changes will be discarded on exit.\n\n");
-		} else {
-			vty->candidate_config = vty_shared_candidate_config;
-			if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL)
-				vty->candidate_config_base =
-					nb_config_dup(running_config);
-		}
 	}
-	pthread_rwlock_unlock(&running_config->lock);
 
 	return CMD_SUCCESS;
 }
@@ -2650,25 +2642,20 @@ static void vty_event(enum event event, int sock, struct vty *vty)
 		vector_set_index(Vvty_serv_thread, sock, vty_serv_thread);
 		break;
 	case VTYSH_READ:
-		vty->t_read = NULL;
 		thread_add_read(vty_master, vtysh_read, vty, sock,
 				&vty->t_read);
 		break;
 	case VTYSH_WRITE:
-		vty->t_write = NULL;
 		thread_add_write(vty_master, vtysh_write, vty, sock,
 				 &vty->t_write);
 		break;
 #endif /* VTYSH */
 	case VTY_READ:
-		vty->t_read = NULL;
 		thread_add_read(vty_master, vty_read, vty, sock, &vty->t_read);
 
 		/* Time out treatment. */
 		if (vty->v_timeout) {
-			if (vty->t_timeout)
-				thread_cancel(vty->t_timeout);
-			vty->t_timeout = NULL;
+			THREAD_OFF(vty->t_timeout);
 			thread_add_timer(vty_master, vty_timeout, vty,
 					 vty->v_timeout, &vty->t_timeout);
 		}
@@ -2678,15 +2665,10 @@ static void vty_event(enum event event, int sock, struct vty *vty)
 				 &vty->t_write);
 		break;
 	case VTY_TIMEOUT_RESET:
-		if (vty->t_timeout) {
-			thread_cancel(vty->t_timeout);
-			vty->t_timeout = NULL;
-		}
-		if (vty->v_timeout) {
-			vty->t_timeout = NULL;
+		THREAD_OFF(vty->t_timeout);
+		if (vty->v_timeout)
 			thread_add_timer(vty_master, vty_timeout, vty,
 					 vty->v_timeout, &vty->t_timeout);
-		}
 		break;
 	}
 }
@@ -3023,7 +3005,7 @@ void vty_reset(void)
 	for (i = 0; i < vector_active(Vvty_serv_thread); i++)
 		if ((vty_serv_thread = vector_slot(Vvty_serv_thread, i))
 		    != NULL) {
-			thread_cancel(vty_serv_thread);
+			THREAD_OFF(vty_serv_thread);
 			vector_slot(Vvty_serv_thread, i) = NULL;
 			close(i);
 		}

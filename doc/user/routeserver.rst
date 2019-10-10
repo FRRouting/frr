@@ -369,8 +369,6 @@ the policies for client RA):
    hostname RS
    password ix
    !
-   bgp multiple-instance
-   !
    router bgp 65000 view RS
      no bgp default ipv4-unicast
      neighbor 2001:0DB8::A  remote-as 65001

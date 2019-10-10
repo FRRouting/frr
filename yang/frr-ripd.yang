@@ -24,6 +24,11 @@ module frr-ripd {
   description
     "This module defines a model for managing FRR ripd daemon.";
 
+  revision 2019-09-09 {
+    description
+      "Changed interface references to use
+      frr-interface:interface-ref typedef";
+  }
   revision 2017-12-06 {
     description
       "Initial revision.";
@@ -113,9 +118,7 @@ module frr-ripd {
           "Enable RIP on the specified IP network.";
       }
       leaf-list interface {
-        type string {
-          length "1..16";
-        }
+        type frr-interface:interface-ref;
         description
           "Enable RIP on the specified interface.";
       }
@@ -124,7 +127,15 @@ module frr-ripd {
         description
           "Offset-list to modify route metric.";
         leaf interface {
-          type string;
+          type union {
+            type frr-interface:interface-ref;
+            type enumeration {
+              enum '*' {
+                description
+                  "Match all interfaces.";
+              }
+            }
+          }
           description
             "Interface to match. Use '*' to match all interfaces.";
         }
@@ -168,18 +179,14 @@ module frr-ripd {
       }
       leaf-list passive-interface {
         when "../passive-default = 'false'";
-        type string {
-          length "1..16";
-        }
+        type frr-interface:interface-ref;
         description
           "A list of interfaces where the sending of RIP packets
            is disabled.";
       }
       leaf-list non-passive-interface {
         when "../passive-default = 'true'";
-        type string {
-          length "1..16";
-        }
+        type frr-interface:interface-ref;
         description
           "A list of interfaces where the sending of RIP packets
            is enabled.";

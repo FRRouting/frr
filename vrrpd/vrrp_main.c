@@ -39,6 +39,8 @@
 #include "vrrp_vty.h"
 #include "vrrp_zebra.h"
 
+DEFINE_MGROUP(VRRPD, "vrrpd")
+
 char backup_config_file[256];
 
 zebra_capabilities_t _caps_p[] = {
@@ -142,6 +144,7 @@ int main(int argc, char **argv, char **envp)
 
 	master = frr_init();
 
+	access_list_init();
 	vrrp_debug_init();
 	vrrp_zebra_init();
 	vrrp_vty_init();

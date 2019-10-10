@@ -133,7 +133,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	if (ch->upstream->channel_oil) {
 		uint32_t mask = PIM_OIF_FLAG_PROTO_PIM;
 		if (ch->upstream->flags & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
-			mask = PIM_OIF_FLAG_PROTO_IGMP;
+			mask |= PIM_OIF_FLAG_PROTO_IGMP;
 
 		/*
 		 * A S,G RPT channel can have an empty oil, we also
@@ -142,13 +142,15 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 		 * being inherited.  So let's figure out what
 		 * needs to be done here
 		 */
-		if (pim_upstream_evaluate_join_desired_interface(
-			    ch->upstream, ch, ch->parent))
+		if ((ch->sg.src.s_addr != INADDR_ANY) &&
+				pim_upstream_evaluate_join_desired_interface(
+					ch->upstream, ch, ch->parent))
 			pim_channel_add_oif(ch->upstream->channel_oil,
-					    ch->interface, mask);
-		else
-			pim_channel_del_oif(ch->upstream->channel_oil,
-					    ch->interface, mask);
+					ch->interface,
+					PIM_OIF_FLAG_PROTO_STAR);
+
+		pim_channel_del_oif(ch->upstream->channel_oil,
+					ch->interface, mask);
 		/*
 		 * Do we have any S,G's that are inheriting?
 		 * Nuke from on high too.
@@ -227,6 +229,8 @@ void pim_ifchannel_delete_all(struct interface *ifp)
 	while (!RB_EMPTY(pim_ifchannel_rb, &pim_ifp->ifchannel_rb)) {
 		ch = RB_ROOT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
 
+		pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__,
+				ch, PIM_IFJOIN_NOINFO);
 		pim_ifchannel_delete(ch);
 	}
 }
@@ -613,6 +617,10 @@ static int on_ifjoin_expiry_timer(struct thread *t)
 
 	ch = THREAD_ARG(t);
 
+	if (PIM_DEBUG_TRACE)
+		zlog_debug("%s: ifchannel %s expiry timer", __PRETTY_FUNCTION__,
+			   ch->sg_str);
+
 	ifjoin_to_noinfo(ch, true);
 	/* ch may have been deleted */
 
@@ -787,8 +795,6 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 
 	ch = pim_ifchannel_add(ifp, sg, source_flags,
 			       PIM_UPSTREAM_FLAG_MASK_SRC_PIM);
-	if (!ch)
-		return;
 
 	/*
 	  RFC 4601: 4.6.1.  (S,G) Assert Message State Machine
@@ -949,8 +955,6 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 
 	ch = pim_ifchannel_add(ifp, sg, source_flags,
 			       PIM_UPSTREAM_FLAG_MASK_SRC_PIM);
-	if (!ch)
-		return;
 
 	pim_ifp = ifp->info;
 
@@ -1078,13 +1082,6 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 	}
 
 	ch = pim_ifchannel_add(ifp, sg, 0, PIM_UPSTREAM_FLAG_MASK_SRC_IGMP);
-	if (!ch) {
-		if (PIM_DEBUG_EVENTS)
-			zlog_debug("%s:%s Unable to add ifchannel",
-				   __PRETTY_FUNCTION__,
-				   pim_str_sg_dump(sg));
-		return 0;
-	}
 
 	ifmembership_set(ch, PIM_IFMEMBERSHIP_INCLUDE);
 
@@ -1221,10 +1218,10 @@ void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch)
 	}
 
 	if (new_couldassert) {
-		/* CouldAssert(S,G,I) switched from FALSE to TRUE */
+		/* CouldAssert(S,G,I) switched from false to true */
 		PIM_IF_FLAG_SET_COULD_ASSERT(ch->flags);
 	} else {
-		/* CouldAssert(S,G,I) switched from TRUE to FALSE */
+		/* CouldAssert(S,G,I) switched from true to false */
 		PIM_IF_FLAG_UNSET_COULD_ASSERT(ch->flags);
 
 		if (ch->ifassert_state == PIM_IFASSERT_I_AM_WINNER) {
@@ -1304,10 +1301,10 @@ void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch)
 	}
 
 	if (new_atd) {
-		/* AssertTrackingDesired(S,G,I) switched from FALSE to TRUE */
+		/* AssertTrackingDesired(S,G,I) switched from false to true */
 		PIM_IF_FLAG_SET_ASSERT_TRACKING_DESIRED(ch->flags);
 	} else {
-		/* AssertTrackingDesired(S,G,I) switched from TRUE to FALSE */
+		/* AssertTrackingDesired(S,G,I) switched from true to false */
 		PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(ch->flags);
 
 		if (ch->ifassert_state == PIM_IFASSERT_I_AM_LOSER) {

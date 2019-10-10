@@ -151,6 +151,12 @@ Certain signals have special meanings to *pimd*.
    urib-only
       Lookup in the Unicast Rib only.
 
+.. index:: ip igmp generate-query-once [version (2-3)]
+.. clicmd:: ip igmp generate-query-once [version (2-3)]
+
+   Generate IGMP query (v2/v3) on user requirement. This will not depend on
+   the existing IGMP general query timer.If no version is provided in the cli,
+   it will be considered as default v2 query.This is a hidden command.
 
 .. _pim-interface-configuration:
 
@@ -195,14 +201,15 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 .. clicmd:: ip pim sm
 
    Tell pim that we would like to use this interface to form pim neighbors
-   over. Please note we will *not* accept igmp reports over this interface with
-   this command.
+   over. Please note that this command does not enable the reception of IGMP
+   reports on the interface. Refer to the next `ip igmp` command for IGMP
+   management.
 
 .. index:: ip igmp
 .. clicmd:: ip igmp
 
    Tell pim to receive IGMP reports and Query on this interface. The default
-   version is v3. This command is useful on the LHR.
+   version is v3. This command is useful on a LHR.
 
 .. index:: ip igmp join A.B.C.D A.B.C.D
 .. clicmd:: ip igmp join A.B.C.D A.B.C.D

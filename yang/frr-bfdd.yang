@@ -1,0 +1,387 @@
+module frr-bfdd {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/bfdd";
+  prefix frr-bfdd;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+  import ietf-yang-types {
+    prefix yang;
+  }
+  import frr-interface {
+    prefix frr-interface;
+  }
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+
+  organization "Free Range Routing";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR bfdd daemon.";
+
+  revision 2019-05-09 {
+    description "Initial revision.";
+    reference
+      "RFC 5880: Bidirectional Forwarding Detection (BFD).
+       RFC 5881: Bidirectional Forwarding Detection (BFD)
+                 for IPv4 and IPv6 (Single Hop).
+       RFC 5882: Bidirectional Forwarding Detection (BFD) for Multihop Paths.";
+  }
+
+
+  /*
+   * BFD types declaration.
+   */
+  typedef multiplier {
+    description "Detection multiplier";
+    type uint8 {
+      range 2..255;
+    }
+  }
+
+  typedef discriminator {
+    description "BFD session identification";
+    type uint32 {
+      range 1..4294967295;
+    }
+  }
+
+  typedef state {
+    description "BFD session state";
+    type enumeration {
+      enum admin-down {
+        value 0;
+        description "Administratively down";
+      }
+      enum down {
+        value 1;
+        description "Down";
+      }
+      enum init {
+        value 2;
+        description "Initializing";
+      }
+      enum up {
+        value 3;
+        description "Up";
+      }
+    }
+  }
+
+  typedef diagnostic {
+    description "BFD session diagnostic";
+    type enumeration {
+      enum ok {
+        value 0;
+        description "Ok";
+      }
+      enum control-expired {
+        value 1;
+        description "Control timer expired";
+      }
+      enum echo-failed {
+        value 2;
+        description "Echo function failed";
+      }
+      enum neighbor-down {
+        value 3;
+        description "Neighbor signaled session down";
+      }
+      enum forwarding-reset {
+        value 4;
+        description "Forwarding plane reset";
+      }
+      enum path-down {
+        value 5;
+        description "Path down";
+      }
+      enum concatenated-path-down {
+        value 6;
+        description "Concatenated path down";
+      }
+      enum administratively-down {
+        value 7;
+        description "Administratively down";
+      }
+      enum reverse-concat-path-down {
+        value 8;
+        description "Reverse concatenated path down";
+      }
+    }
+  }
+
+  /*
+   * Shared BFD items.
+   */
+  grouping session-common {
+    description "Common BFD session settings";
+
+    leaf detection-multiplier {
+      type multiplier;
+      default 3;
+      description "Local session detection multiplier";
+    }
+
+    leaf desired-transmission-interval {
+      type uint32;
+      units microseconds;
+      default 300000;
+      description "Minimum desired control packet transmission interval";
+    }
+
+    leaf required-receive-interval {
+      type uint32;
+      units microseconds;
+      default 300000;
+      description "Minimum required control packet receive interval";
+    }
+
+    leaf administrative-down {
+      type boolean;
+      default true;
+      description "Disables or enables the session administratively";
+    }
+  }
+
+  grouping session-echo {
+    description "BFD session echo settings";
+
+    leaf echo-mode {
+      type boolean;
+      default false;
+      description "Use echo packets to detect failures";
+    }
+
+    leaf desired-echo-transmission-interval {
+      type uint32;
+      units microseconds;
+      default 50000;
+      description "Minimum desired control packet transmission interval";
+    }
+  }
+
+  grouping session-states {
+    /*
+     * Local settings.
+     */
+    leaf local-discriminator {
+      type discriminator;
+      description "Local session identifier";
+    }
+
+    leaf local-state {
+      type state;
+      description "Local session state";
+    }
+
+    leaf local-diagnostic {
+      type diagnostic;
+      description "Local session diagnostic";
+    }
+
+    leaf local-multiplier {
+      type multiplier;
+      description "Local session current multiplier";
+    }
+
+    /*
+     * Remote settings.
+     */
+    leaf remote-discriminator {
+      type discriminator;
+      description "Remote session identifier";
+    }
+
+    leaf remote-state {
+      type state;
+      description "Remote session state";
+    }
+
+    leaf remote-diagnostic {
+      type diagnostic;
+      description "Local session diagnostic";
+    }
+
+    leaf remote-multiplier {
+      type multiplier;
+      description "Remote session detection multiplier";
+    }
+
+    /*
+     * Negotiated settings.
+     */
+    leaf negotiated-transmission-interval {
+      description "Negotiated transmit interval";
+      type uint32;
+      units microseconds;
+    }
+
+    leaf negotiated-receive-interval {
+      description "Negotiated receive interval";
+      type uint32;
+      units microseconds;
+    }
+
+    leaf detection-mode {
+      description "Detection mode";
+
+      type enumeration {
+        enum async-with-echo {
+          value "1";
+          description "Async with echo";
+        }
+        enum async-without-echo {
+          value "2";
+          description "Async without echo";
+        }
+        enum demand-with-echo {
+          value "3";
+          description "Demand with echo";
+        }
+        enum demand-without-echo {
+          value "4";
+          description "Demand without echo";
+        }
+      }
+    }
+
+    /*
+     * Statistics.
+     */
+    leaf last-down-time {
+      type yang:date-and-time;
+      description "Time and date of the last time session was down";
+    }
+
+    leaf last-up-time {
+      type yang:date-and-time;
+      description "Time and date of the last time session was up";
+    }
+
+    leaf session-down-count {
+      type uint32;
+      description "Number of times the session went down";
+    }
+
+    leaf session-up-count {
+      type uint32;
+      description "Number of times the session went up";
+    }
+
+    leaf control-packet-input-count {
+      type uint64;
+      description "Number of control packets received";
+    }
+
+    leaf control-packet-output-count {
+      type uint64;
+      description "Number of control packets sent";
+    }
+
+    /*
+     * Echo mode operational data.
+     */
+    leaf negotiated-echo-transmission-interval {
+      type uint32;
+      units microseconds;
+      description "Negotiated echo transmit interval";
+    }
+
+    /*
+     * Statistics.
+     */
+    leaf echo-packet-input-count {
+      type uint64;
+      description "Number of echo packets received";
+    }
+
+    leaf echo-packet-output-count {
+      type uint64;
+      description "Number of echo packets sent";
+    }
+  }
+
+  /*
+   * BFD operational.
+   */
+  container bfdd {
+    container bfd {
+      presence "Present if the BFD protocol is enabled";
+
+      container sessions {
+        list single-hop {
+          key "dest-addr interface vrf";
+          description "List of single hop sessions";
+
+          leaf dest-addr {
+            type inet:ip-address;
+            description "IP address of the peer";
+          }
+
+          leaf interface {
+            type string {
+              length "0..16";
+            }
+            description "Interface to use to contact peer";
+          }
+
+          leaf vrf {
+            type string;
+            description "Virtual Routing Domain name";
+          }
+
+          leaf source-addr {
+            type inet:ip-address;
+            description "Local IP address";
+          }
+
+          uses session-common;
+          uses session-echo;
+
+          container stats {
+            uses session-states;
+            config false;
+          }
+        }
+
+        list multi-hop {
+          key "source-addr dest-addr interface vrf";
+          description "List of multi hop sessions";
+
+          leaf source-addr {
+            type inet:ip-address;
+            description "Local IP address";
+          }
+
+          leaf dest-addr {
+            type inet:ip-address;
+            description "IP address of the peer";
+          }
+
+          leaf interface {
+            type string {
+              length "0..16";
+            }
+            description "Interface to use to contact peer";
+          }
+
+          leaf vrf {
+            type string;
+            description "Virtual Routing Domain name";
+          }
+
+          uses session-common;
+
+          container stats {
+            uses session-states;
+            config false;
+          }
+        }
+      }
+    }
+  }
+}

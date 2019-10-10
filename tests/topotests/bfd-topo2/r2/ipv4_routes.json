@@ -5,7 +5,7 @@
       "protocol": "ospf",
       "internalFlags": 0,
       "metric": 10,
-      "internalStatus": 2,
+      "internalStatus": 0,
       "prefix": "10.0.3.0/24",
       "nexthops": [
         {
@@ -25,7 +25,7 @@
       "selected": true,
       "installed": true,
       "prefix": "10.0.3.0/24",
-      "internalStatus": 32,
+      "internalStatus": 16,
       "nexthops": [
         {
           "directlyConnected": true,
@@ -47,7 +47,7 @@
       "selected": true,
       "installed": true,
       "prefix": "10.254.254.3/32",
-      "internalStatus": 34,
+      "internalStatus": 16,
       "nexthops": [
         {
           "interfaceName": "r2-eth1",
@@ -70,7 +70,7 @@
       "selected": true,
       "installed": true,
       "prefix": "10.254.254.2/32",
-      "internalStatus": 32,
+      "internalStatus": 16,
       "nexthops": [
         {
           "directlyConnected": true,
@@ -92,7 +92,7 @@
       "selected": true,
       "installed": true,
       "prefix": "10.254.254.1/32",
-      "internalStatus": 34,
+      "internalStatus": 16,
       "nexthops": [
         {
           "interfaceName": "r2-eth0",

@@ -35,6 +35,7 @@
 #include "lib/json.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_dplane.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,6 +80,7 @@ extern void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_dup_addr_detection(ZAPI_HANDLER_ARGS);
+extern void zebra_vxlan_sg_replay(ZAPI_HANDLER_ARGS);
 
 extern int is_l3vni_for_prefix_routes_only(vni_t vni);
 extern ifindex_t get_l3vni_svi_ifindex(vrf_id_t vrf_id);
@@ -212,6 +214,9 @@ extern int zebra_vxlan_clear_dup_detect_vni_all(struct vty *vty,
 extern int zebra_vxlan_clear_dup_detect_vni(struct vty *vty,
 					    struct zebra_vrf *zvrf,
 					    vni_t vni);
+extern void zebra_vxlan_handle_result(struct zebra_dplane_ctx *ctx);
+
+extern void zebra_evpn_init(void);
 
 #ifdef __cplusplus
 }
