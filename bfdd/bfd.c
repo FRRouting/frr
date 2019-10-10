@@ -213,9 +213,9 @@ void bfd_session_disable(struct bfd_session *bs)
 
 	/* Disable all timers. */
 	bfd_recvtimer_delete(bs);
-	bfd_echo_recvtimer_delete(bs);
 	bfd_xmttimer_delete(bs);
-	bfd_echo_xmttimer_delete(bs);
+	ptm_bfd_echo_stop(bs);
+	bs->vrf = NULL;
 }
 
 static uint32_t ptm_bfd_gen_ID(void)
@@ -1716,6 +1716,13 @@ static int bfd_vrf_disable(struct vrf *vrf)
 	socket_close(&bvrf->bg_mhop6);
 	socket_close(&bvrf->bg_echo);
 	socket_close(&bvrf->bg_echov6);
+
+	THREAD_OFF(bvrf->bg_ev[0]);
+	THREAD_OFF(bvrf->bg_ev[1]);
+	THREAD_OFF(bvrf->bg_ev[2]);
+	THREAD_OFF(bvrf->bg_ev[3]);
+	THREAD_OFF(bvrf->bg_ev[4]);
+	THREAD_OFF(bvrf->bg_ev[5]);
 
 	/* free context */
 	XFREE(MTYPE_BFDD_VRF, bvrf);
