@@ -381,7 +381,6 @@ static void nb_config_diff_add_change(struct nb_config_cbs *changes,
 	change->cb.seq = *seq;
 	*seq = *seq + 1;
 	change->cb.nb_node = dnode->schema->priv;
-	yang_dnode_get_path(dnode, change->cb.xpath, sizeof(change->cb.xpath));
 	change->cb.dnode = dnode;
 
 	RB_INSERT(nb_config_cbs, changes, &change->cb);
@@ -810,7 +809,7 @@ static int nb_callback_configuration(const enum nb_event event,
 				     struct nb_config_change *change)
 {
 	enum nb_operation operation = change->cb.operation;
-	const char *xpath = change->cb.xpath;
+	char xpath[XPATH_MAXLEN];
 	const struct nb_node *nb_node = change->cb.nb_node;
 	const struct lyd_node *dnode = change->cb.dnode;
 	union nb_resource *resource;
@@ -822,6 +821,7 @@ static int nb_callback_configuration(const enum nb_event event,
 		if (dnode && !yang_snode_is_typeless_data(dnode->schema))
 			value = yang_dnode_get_string(dnode, NULL);
 
+		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
 		nb_log_callback(event, operation, xpath, value);
 	}
 
@@ -844,6 +844,7 @@ static int nb_callback_configuration(const enum nb_event event,
 		ret = (*nb_node->cbs.move)(event, dnode);
 		break;
 	default:
+		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "%s: unknown operation (%u) [xpath %s]", __func__,
 			 operation, xpath);
@@ -853,6 +854,8 @@ static int nb_callback_configuration(const enum nb_event event,
 	if (ret != NB_OK) {
 		int priority;
 		enum lib_log_refs ref;
+
+		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
 
 		switch (event) {
 		case NB_EV_VALIDATE:
@@ -1024,14 +1027,12 @@ static int nb_transaction_process(enum nb_event event,
 }
 
 static struct nb_config_cb *
-nb_apply_finish_cb_new(struct nb_config_cbs *cbs, const char *xpath,
-		       const struct nb_node *nb_node,
+nb_apply_finish_cb_new(struct nb_config_cbs *cbs, const struct nb_node *nb_node,
 		       const struct lyd_node *dnode)
 {
 	struct nb_config_cb *cb;
 
 	cb = XCALLOC(MTYPE_TMP, sizeof(*cb));
-	strlcpy(cb->xpath, xpath, sizeof(cb->xpath));
 	cb->nb_node = nb_node;
 	cb->dnode = dnode;
 	RB_INSERT(nb_config_cbs, cbs, cb);
@@ -1057,6 +1058,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 {
 	struct nb_config_cbs cbs;
 	struct nb_config_cb *cb;
+	char xpath[XPATH_MAXLEN];
 
 	/* Initialize tree of 'apply_finish' callbacks. */
 	RB_INIT(nb_config_cbs, &cbs);
@@ -1073,8 +1075,6 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 		 * be called though).
 		 */
 		if (change->cb.operation == NB_OP_DESTROY) {
-			char xpath[XPATH_MAXLEN];
-
 			dnode = dnode->parent;
 			if (!dnode)
 				break;
@@ -1090,7 +1090,6 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 					       xpath);
 		}
 		while (dnode) {
-			char xpath[XPATH_MAXLEN];
 			struct nb_node *nb_node;
 
 			nb_node = dnode->schema->priv;
@@ -1101,11 +1100,10 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 			 * Don't call the callback more than once for the same
 			 * data node.
 			 */
-			yang_dnode_get_path(dnode, xpath, sizeof(xpath));
 			if (nb_apply_finish_cb_find(&cbs, nb_node, dnode))
 				goto next;
 
-			nb_apply_finish_cb_new(&cbs, xpath, nb_node, dnode);
+			nb_apply_finish_cb_new(&cbs, nb_node, dnode);
 
 		next:
 			dnode = dnode->parent;
@@ -1114,9 +1112,11 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 
 	/* Call the 'apply_finish' callbacks, sorted by their priorities. */
 	RB_FOREACH (cb, nb_config_cbs, &cbs) {
-		if (DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL))
-			nb_log_callback(NB_EV_APPLY, NB_OP_APPLY_FINISH,
-					cb->xpath, NULL);
+		if (DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL)) {
+			yang_dnode_get_path(cb->dnode, xpath, sizeof(xpath));
+			nb_log_callback(NB_EV_APPLY, NB_OP_APPLY_FINISH, xpath,
+					NULL);
+		}
 
 		(*cb->nb_node->cbs.apply_finish)(cb->dnode);
 	}

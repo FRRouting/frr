@@ -458,7 +458,6 @@ struct nb_config_cb {
 	RB_ENTRY(nb_config_cb) entry;
 	enum nb_operation operation;
 	uint32_t seq;
-	char xpath[XPATH_MAXLEN];
 	const struct nb_node *nb_node;
 	const struct lyd_node *dnode;
 };
