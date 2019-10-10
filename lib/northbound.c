@@ -350,7 +350,22 @@ static inline int nb_config_cb_compare(const struct nb_config_cb *a,
 	/*
 	 * Preserve the order of the configuration changes as told by libyang.
 	 */
-	return a->seq - b->seq;
+	if (a->seq < b->seq)
+		return -1;
+	if (a->seq > b->seq)
+		return 1;
+
+	/*
+	 * All 'apply_finish' callbacks have their sequence number set to zero.
+	 * In this case, compare them using their dnode pointers (the order
+	 * doesn't matter for callbacks that have the same priority).
+	 */
+	if (a->dnode < b->dnode)
+		return -1;
+	if (a->dnode > b->dnode)
+		return 1;
+
+	return 0;
 }
 RB_GENERATE(nb_config_cbs, nb_config_cb, entry, nb_config_cb_compare);
 
@@ -1025,13 +1040,15 @@ nb_apply_finish_cb_new(struct nb_config_cbs *cbs, const char *xpath,
 }
 
 static struct nb_config_cb *
-nb_apply_finish_cb_find(struct nb_config_cbs *cbs, const char *xpath,
-			const struct nb_node *nb_node)
+nb_apply_finish_cb_find(struct nb_config_cbs *cbs,
+			const struct nb_node *nb_node,
+			const struct lyd_node *dnode)
 {
 	struct nb_config_cb s;
 
-	strlcpy(s.xpath, xpath, sizeof(s.xpath));
+	s.seq = 0;
 	s.nb_node = nb_node;
+	s.dnode = dnode;
 	return RB_FIND(nb_config_cbs, cbs, &s);
 }
 
@@ -1085,7 +1102,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 			 * data node.
 			 */
 			yang_dnode_get_path(dnode, xpath, sizeof(xpath));
-			if (nb_apply_finish_cb_find(&cbs, xpath, nb_node))
+			if (nb_apply_finish_cb_find(&cbs, nb_node, dnode))
 				goto next;
 
 			nb_apply_finish_cb_new(&cbs, xpath, nb_node, dnode);
