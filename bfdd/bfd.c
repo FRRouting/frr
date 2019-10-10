@@ -216,6 +216,7 @@ void bfd_session_disable(struct bfd_session *bs)
 	bfd_echo_recvtimer_delete(bs);
 	bfd_xmttimer_delete(bs);
 	bfd_echo_xmttimer_delete(bs);
+	bs->vrf = NULL;
 }
 
 static uint32_t ptm_bfd_gen_ID(void)
