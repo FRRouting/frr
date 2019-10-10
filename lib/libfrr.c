@@ -853,22 +853,34 @@ static void frr_daemonize(void)
  */
 static int frr_config_read_in(struct thread *t)
 {
-	if (!vty_read_config(NULL, di->config_file, config_default) &&
-	    di->backup_config_file) {
+	if (!vty_read_config(vty_shared_candidate_config, di->config_file,
+			     config_default)
+	    && di->backup_config_file) {
 		char *orig = XSTRDUP(MTYPE_TMP, host_config_get());
 
 		zlog_info("Attempting to read backup config file: %s specified",
 			  di->backup_config_file);
-		vty_read_config(NULL, di->backup_config_file, config_default);
+		vty_read_config(vty_shared_candidate_config,
+				di->backup_config_file, config_default);
 
 		host_config_set(orig);
 		XFREE(MTYPE_TMP, orig);
 	}
 
 	/*
-	 * Update the shared candidate after reading the startup configuration.
+	 * Automatically commit the candidate configuration after
+	 * reading the configuration file.
 	 */
-	nb_config_replace(vty_shared_candidate_config, running_config, true);
+	if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL) {
+		int ret;
+
+		ret = nb_candidate_commit(vty_shared_candidate_config,
+					  NB_CLIENT_CLI, NULL, true,
+					  "Read configuration file", NULL);
+		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
+			zlog_err("%s: failed to read configuration file.",
+				 __func__);
+	}
 
 	return 0;
 }
