@@ -520,6 +520,7 @@ unsigned int attrhash_key_make(const void *p)
 	key = jhash(attr->mp_nexthop_global.s6_addr, IPV6_MAX_BYTELEN, key);
 	key = jhash(attr->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
 	MIX3(attr->nh_ifindex, attr->nh_lla_ifindex, attr->distance);
+	MIX(attr->rmap_table_id);
 
 	return key;
 }
@@ -546,6 +547,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && attr1->lcommunity == attr2->lcommunity
 		    && attr1->cluster == attr2->cluster
 		    && attr1->transit == attr2->transit
+		    && attr1->rmap_table_id == attr2->rmap_table_id
 		    && (attr1->encap_tunneltype == attr2->encap_tunneltype)
 		    && encap_same(attr1->encap_subtlvs, attr2->encap_subtlvs)
 #if ENABLE_BGP_VNC

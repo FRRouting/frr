@@ -1228,6 +1228,11 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 
+	if (info->attr->rmap_table_id) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
+		api.tableid = info->attr->rmap_table_id;
+	}
+
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
 	for (mpinfo = info; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
@@ -1493,6 +1498,11 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_path_info *info,
 	api.type = ZEBRA_ROUTE_BGP;
 	api.safi = safi;
 	api.prefix = *p;
+
+	if (info->attr->rmap_table_id) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
+		api.tableid = info->attr->rmap_table_id;
+	}
 
 	/* If the route's source is EVPN, flag as such. */
 	if (is_route_parent_evpn(info))

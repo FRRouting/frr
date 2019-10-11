@@ -114,6 +114,7 @@ o Cisco route-map
       origin            :  Done
       tag               :  Done
       weight            :  Done
+      table             :  Done
 
 o Local extensions
 
@@ -1752,6 +1753,32 @@ route_set_metric(void *rule, const struct prefix *prefix,
 /* Set metric rule structure. */
 struct route_map_rule_cmd route_set_metric_cmd = {
 	"metric", route_set_metric, route_value_compile, route_value_free,
+};
+
+/* `set table (1-4294967295)' */
+
+static enum route_map_cmd_result_t route_set_table_id(void *rule,
+						      const struct prefix *prefix,
+						      route_map_object_t type,
+						      void *object)
+{
+	struct rmap_value *rv;
+	struct bgp_path_info *path;
+
+	if (type == RMAP_BGP) {
+		/* Fetch routemap's rule information. */
+		rv = rule;
+		path = object;
+
+		path->attr->rmap_table_id = rv->value;
+	}
+	return RMAP_OKAY;
+}
+
+/* Set table_id rule structure. */
+static struct route_map_rule_cmd route_set_table_id_cmd = {
+	"table", route_set_table_id,
+	route_value_compile, route_value_free
 };
 
 /* `set as-path prepend ASPATH' */
@@ -4058,6 +4085,32 @@ DEFUN (no_match_origin,
 				      RMAP_EVENT_MATCH_DELETED);
 }
 
+DEFUN (set_table_id,
+	set_table_id_cmd,
+	"set table (1-4294967295)",
+	SET_STR
+	"export route to non-main kernel table\n"
+	"Kernel routing table id\n")
+{
+	int idx_id = 2;
+
+	VTY_DECLVAR_CONTEXT(route_map_index, index);
+
+	return generic_set_add(vty, index, "table", argv[idx_id]->arg);
+}
+
+DEFUN (no_set_table_id,
+	no_set_table_id_cmd,
+	"no set table",
+	NO_STR
+	SET_STR
+       "export route to non-main kernel table\n")
+{
+	VTY_DECLVAR_CONTEXT(route_map_index, index);
+
+	return generic_set_delete(vty, index, "table", NULL);
+}
+
 DEFUN (set_ip_nexthop_peer,
        set_ip_nexthop_peer_cmd,
        "[no] set ip next-hop peer-address",
@@ -5167,6 +5220,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_evpn_default_route_cmd);
 	route_map_install_match(&route_match_vrl_source_vrf_cmd);
 
+	route_map_install_set(&route_set_table_id_cmd);
 	route_map_install_set(&route_set_ip_nexthop_cmd);
 	route_map_install_set(&route_set_local_pref_cmd);
 	route_map_install_set(&route_set_weight_cmd);
@@ -5223,6 +5277,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &match_probability_cmd);
 	install_element(RMAP_NODE, &no_match_probability_cmd);
 
+	install_element(RMAP_NODE, &no_set_table_id_cmd);
+	install_element(RMAP_NODE, &set_table_id_cmd);
 	install_element(RMAP_NODE, &set_ip_nexthop_peer_cmd);
 	install_element(RMAP_NODE, &set_ip_nexthop_unchanged_cmd);
 	install_element(RMAP_NODE, &set_local_pref_cmd);
