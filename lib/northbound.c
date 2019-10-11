@@ -22,7 +22,6 @@
 #include "libfrr.h"
 #include "log.h"
 #include "lib_errors.h"
-#include "hash.h"
 #include "command.h"
 #include "debug.h"
 #include "db.h"
@@ -33,13 +32,9 @@
 
 DEFINE_MTYPE_STATIC(LIB, NB_NODE, "Northbound Node")
 DEFINE_MTYPE_STATIC(LIB, NB_CONFIG, "Northbound Configuration")
-DEFINE_MTYPE_STATIC(LIB, NB_CONFIG_ENTRY, "Northbound Configuration Entry")
 
 /* Running configuration - shouldn't be modified directly. */
 struct nb_config *running_config;
-
-/* Hash table of user pointers associated with configuration entries. */
-static struct hash *running_config_entries;
 
 /* Management lock for the running configuration. */
 static struct {
@@ -326,15 +321,9 @@ void nb_config_replace(struct nb_config *config_dst,
 		config_dst->version = config_src->version;
 
 	/* Update dnode. */
-	if (config_dst->dnode)
-		yang_dnode_free(config_dst->dnode);
-	if (preserve_source) {
-		config_dst->dnode = yang_dnode_dup(config_src->dnode);
-	} else {
-		config_dst->dnode = config_src->dnode;
-		config_src->dnode = NULL;
+	yang_dnode_replace(&config_dst->dnode, config_src->dnode);
+	if (!preserve_source)
 		nb_config_free(config_src);
-	}
 }
 
 /* Generate the nb_config_cbs tree. */
@@ -494,6 +483,7 @@ static void nb_config_diff(const struct nb_config *config1,
 			break;
 		case LYD_DIFF_MOVEDAFTER1:
 		case LYD_DIFF_MOVEDAFTER2:
+			/* TODO: "ordered-by user" isn't supported yet. */
 		default:
 			continue;
 		}
@@ -1664,78 +1654,16 @@ int nb_notification_send(const char *xpath, struct list *arguments)
 	return ret;
 }
 
-/* Running configuration user pointers management. */
-struct nb_config_entry {
-	char xpath[XPATH_MAXLEN];
-	void *entry;
-};
-
-static bool running_config_entry_cmp(const void *value1, const void *value2)
-{
-	const struct nb_config_entry *c1 = value1;
-	const struct nb_config_entry *c2 = value2;
-
-	return strmatch(c1->xpath, c2->xpath);
-}
-
-static unsigned int running_config_entry_key_make(const void *value)
-{
-	return string_hash_make(value);
-}
-
-static void *running_config_entry_alloc(void *p)
-{
-	struct nb_config_entry *new, *key = p;
-
-	new = XCALLOC(MTYPE_NB_CONFIG_ENTRY, sizeof(*new));
-	strlcpy(new->xpath, key->xpath, sizeof(new->xpath));
-
-	return new;
-}
-
-static void running_config_entry_free(void *arg)
-{
-	XFREE(MTYPE_NB_CONFIG_ENTRY, arg);
-}
-
 void nb_running_set_entry(const struct lyd_node *dnode, void *entry)
 {
-	struct nb_config_entry *config, s;
-
-	yang_dnode_get_path(dnode, s.xpath, sizeof(s.xpath));
-	config = hash_get(running_config_entries, &s,
-			  running_config_entry_alloc);
-	config->entry = entry;
-}
-
-static void *nb_running_unset_entry_helper(const struct lyd_node *dnode)
-{
-	struct nb_config_entry *config, s;
-	struct lyd_node *child;
-	void *entry = NULL;
-
-	yang_dnode_get_path(dnode, s.xpath, sizeof(s.xpath));
-	config = hash_release(running_config_entries, &s);
-	if (config) {
-		entry = config->entry;
-		running_config_entry_free(config);
-	}
-
-	/* Unset user pointers from the child nodes. */
-	if (CHECK_FLAG(dnode->schema->nodetype, LYS_LIST | LYS_CONTAINER)) {
-		LY_TREE_FOR (dnode->child, child) {
-			(void)nb_running_unset_entry_helper(child);
-		}
-	}
-
-	return entry;
+	lyd_set_private(dnode, entry);
 }
 
 void *nb_running_unset_entry(const struct lyd_node *dnode)
 {
 	void *entry;
 
-	entry = nb_running_unset_entry_helper(dnode);
+	entry = lyd_set_private(dnode, NULL);
 	assert(entry);
 
 	return entry;
@@ -1753,12 +1681,8 @@ void *nb_running_get_entry(const struct lyd_node *dnode, const char *xpath,
 		dnode = yang_dnode_get(running_config->dnode, xpath);
 
 	while (dnode) {
-		struct nb_config_entry *config, s;
-
-		yang_dnode_get_path(dnode, s.xpath, sizeof(s.xpath));
-		config = hash_lookup(running_config_entries, &s);
-		if (config)
-			return config->entry;
+		if (dnode->priv)
+			return dnode->priv;
 
 		dnode = dnode->parent;
 	}
@@ -1910,9 +1834,6 @@ void nb_init(struct thread_master *tm,
 
 	/* Create an empty running configuration. */
 	running_config = nb_config_new(NULL);
-	running_config_entries = hash_create(running_config_entry_key_make,
-					     running_config_entry_cmp,
-					     "Running Configuration Entries");
 	pthread_mutex_init(&running_config_mgmt_lock.mtx, NULL);
 
 	/* Initialize the northbound CLI. */
@@ -1928,8 +1849,6 @@ void nb_terminate(void)
 	nb_nodes_delete();
 
 	/* Delete the running configuration. */
-	hash_clean(running_config_entries, running_config_entry_free);
-	hash_free(running_config_entries);
 	nb_config_free(running_config);
 	pthread_mutex_destroy(&running_config_mgmt_lock.mtx);
 }

@@ -535,7 +535,7 @@ struct lyd_node *yang_dnode_new(struct ly_ctx *ly_ctx, bool config_only)
 
 struct lyd_node *yang_dnode_dup(const struct lyd_node *dnode)
 {
-	return lyd_dup_withsiblings(dnode, 1);
+	return lyd_dup_withsiblings(dnode, LYD_DUP_OPT_RECURSIVE);
 }
 
 void yang_dnode_free(struct lyd_node *dnode)
@@ -543,6 +543,47 @@ void yang_dnode_free(struct lyd_node *dnode)
 	while (dnode->parent)
 		dnode = dnode->parent;
 	lyd_free_withsiblings(dnode);
+}
+
+void yang_dnode_replace(struct lyd_node **dnode_dst, struct lyd_node *dnode_src)
+{
+	struct lyd_difflist *diff;
+
+	diff = lyd_diff(*dnode_dst, dnode_src, 0);
+	assert(diff);
+
+	for (int i = 0; diff->type[i] != LYD_DIFF_END; i++) {
+		struct lyd_node *dnode;
+		struct lyd_node_leaf_list *leaf_dst, *leaf_src;
+
+		switch (diff->type[i]) {
+		case LYD_DIFF_CREATED:
+			dnode = diff->second[i];
+			if (diff->first[i]) {
+				dnode = lyd_dup(dnode, LYD_DUP_OPT_RECURSIVE);
+				lyd_insert(diff->first[i], dnode);
+			} else
+				lyd_merge(*dnode_dst, dnode,
+					  LYD_OPT_NOSIBLINGS);
+			break;
+		case LYD_DIFF_DELETED:
+			dnode = diff->first[i];
+			lyd_free(dnode);
+			break;
+		case LYD_DIFF_CHANGED:
+			leaf_src = (struct lyd_node_leaf_list *)diff->first[i];
+			leaf_dst = (struct lyd_node_leaf_list *)diff->second[i];
+			lyd_change_leaf(leaf_dst, leaf_src->value_str);
+			break;
+		case LYD_DIFF_MOVEDAFTER1:
+		case LYD_DIFF_MOVEDAFTER2:
+			/* TODO: "ordered-by user" isn't supported yet. */
+		default:
+			continue;
+		}
+	}
+
+	lyd_free_diff(diff);
 }
 
 struct yang_data *yang_data_new(const char *xpath, const char *value)
@@ -591,6 +632,12 @@ struct yang_data *yang_data_list_find(const struct list *list,
 			return data;
 
 	return NULL;
+}
+
+static void *ly_dup_cb(const void *priv)
+{
+	/* Make a shallow copy of the priv pointer. */
+	return (void *)priv;
 }
 
 /* Make libyang log its errors using FRR logging infrastructure. */
@@ -663,6 +710,7 @@ void yang_init(void)
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);
 	}
+	ly_ctx_set_priv_dup_clb(ly_native_ctx, ly_dup_cb);
 
 	yang_translator_init();
 }

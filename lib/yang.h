@@ -434,6 +434,19 @@ extern struct lyd_node *yang_dnode_dup(const struct lyd_node *dnode);
 extern void yang_dnode_free(struct lyd_node *dnode);
 
 /*
+ * Replace one libyang data node by another, doing the least amount of work
+ * possible.
+ *
+ * dnode_dst
+ *    libyang data node to be replaced.
+ *
+ * dnode_src
+ *    libyang data node to replace dnode_dst.
+ */
+extern void yang_dnode_replace(struct lyd_node **dnode_dst,
+			       struct lyd_node *dnode_src);
+
+/*
  * Create a new yang_data structure.
  *
  * xpath
