@@ -274,12 +274,8 @@ struct bfd_state_str_list {
 
 struct bfd_session_observer {
 	struct bfd_session *bso_bs;
-	bool bso_isinterface;
-	bool bso_isaddress;
-	union {
-		char bso_entryname[MAXNAMELEN];
-		struct prefix bso_addr;
-	};
+	char bso_entryname[MAXNAMELEN];
+	struct prefix bso_addr;
 
 	TAILQ_ENTRY(bfd_session_observer) bso_entry;
 };

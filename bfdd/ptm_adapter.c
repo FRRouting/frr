@@ -579,8 +579,6 @@ static void bfdd_sessions_enable_interface(struct interface *ifp)
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
 		bs = bso->bso_bs;
-		if (bso->bso_isinterface == false)
-			continue;
 		/* Interface name mismatch. */
 		if (strcmp(ifp->name, bs->key.ifname))
 			continue;
@@ -605,10 +603,6 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 	struct bfd_session *bs;
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
-		if (bso->bso_isinterface == false)
-			continue;
-
-		/* Interface name mismatch. */
 		bs = bso->bso_bs;
 		if (strcmp(ifp->name, bs->key.ifname))
 			continue;
@@ -616,7 +610,6 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 		if (bs->sock == -1)
 			continue;
 
-		/* Try to enable it. */
 		bfd_session_disable(bs);
 
 	}
@@ -658,8 +651,6 @@ void bfdd_sessions_disable_vrf(struct vrf *vrf)
 	struct bfd_session *bs;
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
-		if (bso->bso_isinterface)
-			continue;
 		bs = bso->bso_bs;
 		if (bs->key.vrfname[0] &&
 		    strcmp(vrf->name, bs->key.vrfname))
@@ -668,7 +659,6 @@ void bfdd_sessions_disable_vrf(struct vrf *vrf)
 		if (bs->sock == -1)
 			continue;
 
-		/* Try to enable it. */
 		bfd_session_disable(bs);
 	}
 }
@@ -701,9 +691,6 @@ static void bfdd_sessions_enable_address(struct connected *ifc)
 	struct prefix prefix;
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
-		if (bso->bso_isaddress == false)
-			continue;
-
 		/* Skip enabled sessions. */
 		bs = bso->bso_bs;
 		if (bs->sock != -1)
