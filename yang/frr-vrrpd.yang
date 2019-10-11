@@ -15,6 +15,14 @@ module frr-vrrpd {
     prefix frr-interface;
   }
 
+  organization
+    "Free Range Routing";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR vrrpd daemon.";
+
   revision 2019-09-09 {
     description
       "Initial revision.";
