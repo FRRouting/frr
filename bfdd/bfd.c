@@ -1219,19 +1219,10 @@ int bs_observer_add(struct bfd_session *bs)
 	struct bfd_session_observer *bso;
 
 	bso = XCALLOC(MTYPE_BFDD_SESSION_OBSERVER, sizeof(*bso));
-	bso->bso_isaddress = false;
 	bso->bso_bs = bs;
-	bso->bso_isinterface = !BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH);
-	if (bso->bso_isinterface)
-		strlcpy(bso->bso_entryname, bs->key.ifname,
-			sizeof(bso->bso_entryname));
-	/* Handle socket binding failures caused by missing local addresses. */
-	if (bs->sock == -1) {
-		bso->bso_isaddress = true;
-		bso->bso_addr.family = bs->key.family;
-		memcpy(&bso->bso_addr.u.prefix, &bs->key.local,
-		       sizeof(bs->key.local));
-	}
+	bso->bso_addr.family = bs->key.family;
+	memcpy(&bso->bso_addr.u.prefix, &bs->key.local,
+	       sizeof(bs->key.local));
 
 	TAILQ_INSERT_TAIL(&bglobal.bg_obslist, bso, bso_entry);
 
