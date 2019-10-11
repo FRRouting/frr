@@ -298,6 +298,8 @@ static uint16_t bgp_write(struct peer *peer)
 	if (!s)
 		goto done;
 
+	assert(wpkt_quanta_old > 0);
+
 	while (count < wpkt_quanta_old && iovsz < array_size(iov) && s) {
 		ostreams[iovsz] = s;
 		iov[iovsz].iov_base = stream_pnt(s);
