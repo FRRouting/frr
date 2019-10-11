@@ -213,10 +213,13 @@ void bfd_session_disable(struct bfd_session *bs)
 
 	/* Disable all timers. */
 	bfd_recvtimer_delete(bs);
-	bfd_echo_recvtimer_delete(bs);
 	bfd_xmttimer_delete(bs);
-	bfd_echo_xmttimer_delete(bs);
+	ptm_bfd_echo_stop(bs);
 	bs->vrf = NULL;
+	bs->ifp = NULL;
+
+	/* Set session down so it doesn't report UP and disabled. */
+	ptm_bfd_sess_dn(bs, BD_PATH_DOWN);
 }
 
 static uint32_t ptm_bfd_gen_ID(void)
@@ -329,7 +332,14 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 	bfd->demand_mode = 0;
 	monotime(&bfd->downtime);
 
-	ptm_bfd_snd(bfd, 0);
+	/*
+	 * Only attempt to send if we have a valid socket:
+	 * this function might be called by session disablers and in
+	 * this case we won't have a valid socket (i.e. interface was
+	 * removed or VRF doesn't exist anymore).
+	 */
+	if (bfd->sock != -1)
+		ptm_bfd_snd(bfd, 0);
 
 	/* Slow down the control packets, the connection is down. */
 	bs_set_slow_timers(bfd);
