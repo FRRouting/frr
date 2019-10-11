@@ -240,7 +240,7 @@ static int zserv_write(struct thread *thread)
 	if (cache->tail) {
 		msg = cache->tail;
 		stream_set_getp(msg, 0);
-		wcmd = stream_getw_from(msg, 6);
+		wcmd = stream_getw_from(msg, ZAPI_HEADER_CMD_LOCATION);
 	}
 
 	while (stream_fifo_head(cache)) {
