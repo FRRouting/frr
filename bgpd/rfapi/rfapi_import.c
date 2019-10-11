@@ -2179,8 +2179,8 @@ static struct bgp_path_info *rfapiItBiIndexSearch(
 {
 	struct skiplist *sl;
 	int rc;
-	struct bgp_path_info bpi_fake;
-	struct bgp_path_info_extra bpi_extra;
+	struct bgp_path_info bpi_fake = {0};
+	struct bgp_path_info_extra bpi_extra = {0};
 	struct bgp_path_info *bpi_result;
 
 	sl = RFAPI_RDINDEX(rn);
