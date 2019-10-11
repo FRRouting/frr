@@ -404,7 +404,8 @@ end
                                 "ip ",
                                 "ipv6 ",
                                 "log ",
-                                "mpls",
+                                "mpls lsp",
+                                "mpls label",
                                 "no ",
                                 "password ",
                                 "ptm-enable",
@@ -424,7 +425,12 @@ end
                 continue
 
             # one line contexts
-            if new_ctx is True and any(line.startswith(keyword) for keyword in oneline_ctx_keywords):
+            # there is one exception though: ldpd accepts a 'router-id' clause
+            # as part of its 'mpls ldp' config context. If we are processing
+            # ldp configuration and encounter a router-id we should NOT switch
+            # to a new context
+            if new_ctx is True and any(line.startswith(keyword) for keyword in oneline_ctx_keywords) and not (
+                ctx_keys and ctx_keys[0].startswith("mpls ldp") and line.startswith("router-id ")):
                 self.save_contexts(ctx_keys, current_context_lines)
 
                 # Start a new context
@@ -489,7 +495,8 @@ end
             elif (line.startswith("address-family ") or
                   line.startswith("vnc defaults") or
                   line.startswith("vnc l2-group") or
-                  line.startswith("vnc nve-group")):
+                  line.startswith("vnc nve-group") or
+                  line.startswith("member pseudowire")):
                 main_ctx_key = []
 
                 # Save old context first
@@ -498,9 +505,9 @@ end
                 main_ctx_key = copy.deepcopy(ctx_keys)
                 log.debug('LINE %-50s: entering sub-context, append to ctx_keys', line)
 
-                if line == "address-family ipv6":
+                if line == "address-family ipv6" and not ctx_keys[0].startswith("mpls ldp"):
                     ctx_keys.append("address-family ipv6 unicast")
-                elif line == "address-family ipv4":
+                elif line == "address-family ipv4" and not ctx_keys[0].startswith("mpls ldp"):
                     ctx_keys.append("address-family ipv4 unicast")
                 elif line == "address-family evpn":
                     ctx_keys.append("address-family l2vpn evpn")
