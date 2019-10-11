@@ -118,9 +118,10 @@ Suppose you have an interface ``eth0`` with the following configuration:
        inet6 fe80::17:45ff:fe00:aaaa/64 scope link
           valid_lft forever preferred_lft forever
 
-Suppose that the IPv4 and IPv6 addresses you want to back up are ``10.0.2.16`` and ``2001:db8::370:7334``, and that they will be managed
-by the virtual router with id ``5``. A macvlan device with the appropriate MAC
-address must be created before VRRP can begin to operate.
+Suppose that the IPv4 and IPv6 addresses you want to back up are ``10.0.2.16``
+and ``2001:db8::370:7334``, and that they will be managed by the virtual router
+with id ``5``. A macvlan device with the appropriate MAC address must be created
+before VRRP can begin to operate.
 
 If you are using ``ifupdown2``, the configuration is as follows:
 
