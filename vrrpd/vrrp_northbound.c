@@ -74,11 +74,8 @@ lib_interface_vrrp_vrrp_group_get_next(const void *parent_list_entry,
 {
 	struct list *l = hash_to_list(vrrp_vrouters_hash);
 	struct listnode *ln;
-	const struct vrrp_vrouter *vr, *curr;
+	const struct vrrp_vrouter *curr;
 	const struct interface *ifp = parent_list_entry;
-
-	curr = NULL;
-	vr = list_entry;
 
 	/*
 	 * If list_entry is null, we return the first vrrp instance with a
