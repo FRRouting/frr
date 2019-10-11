@@ -799,7 +799,7 @@ struct yang_data *yang_data_new_prefix(const char *xpath,
 	return yang_data_new(xpath, value_str);
 }
 
-void yang_dnode_get_prefix(union prefixptr prefix, const struct lyd_node *dnode,
+void yang_dnode_get_prefix(struct prefix *prefix, const struct lyd_node *dnode,
 			   const char *xpath_fmt, ...)
 {
 	const struct lyd_node_leaf_list *dleaf;
@@ -816,9 +816,15 @@ void yang_dnode_get_prefix(union prefixptr prefix, const struct lyd_node *dnode,
 		YANG_DNODE_GET_ASSERT(dnode, xpath);
 	}
 
+	/*
+	 * Initialize prefix to avoid static analyzer complaints about
+	 * uninitialized memory.
+	 */
+	memset(prefix, 0, sizeof(*prefix));
+
 	dleaf = (const struct lyd_node_leaf_list *)dnode;
 	assert(dleaf->value_type == LY_TYPE_STRING);
-	(void)str2prefix(dleaf->value_str, prefix.p);
+	(void)str2prefix(dleaf->value_str, prefix);
 }
 
 void yang_get_default_prefix(union prefixptr var, const char *xpath_fmt, ...)
