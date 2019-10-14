@@ -2717,6 +2717,63 @@ stream_failure:
 	return;
 }
 
+void zclient_send_mlag_register(struct zclient *client, uint32_t bit_map)
+{
+	struct stream *s;
+
+	s = client->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_MLAG_CLIENT_REGISTER, VRF_DEFAULT);
+	stream_putl(s, bit_map);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(client);
+}
+
+void zclient_send_mlag_deregister(struct zclient *client)
+{
+	zebra_message_send(client, ZEBRA_MLAG_CLIENT_UNREGISTER, VRF_DEFAULT);
+}
+
+void zclient_send_mlag_data(struct zclient *client, struct stream *client_s)
+{
+	struct stream *s;
+
+	s = client->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_MLAG_FORWARD_MSG, VRF_DEFAULT);
+	stream_put(s, client_s->data, client_s->endp);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(client);
+}
+
+static void zclient_mlag_process_up(int command, struct zclient *zclient,
+				    zebra_size_t length, vrf_id_t vrf_id)
+{
+	if (zclient->mlag_process_up)
+		(*zclient->mlag_process_up)();
+
+}
+
+static void zclient_mlag_process_down(int command, struct zclient *zclient,
+				      zebra_size_t length, vrf_id_t vrf_id)
+{
+	if (zclient->mlag_process_down)
+		(*zclient->mlag_process_down)();
+
+}
+
+static void zclient_mlag_handle_msg(int command, struct zclient *zclient,
+				    zebra_size_t length, vrf_id_t vrf_id)
+{
+	if (zclient->mlag_handle_msg)
+		(*zclient->mlag_handle_msg)(zclient->ibuf, length);
+
+}
+
 /* Zebra client message read function. */
 static int zclient_read(struct thread *thread)
 {
@@ -3010,6 +3067,15 @@ static int zclient_read(struct thread *thread)
 		if (zclient->vxlan_sg_del)
 			(*zclient->vxlan_sg_del)(command, zclient, length,
 						    vrf_id);
+		break;
+	case ZEBRA_MLAG_PROCESS_UP:
+		zclient_mlag_process_up(command, zclient, length, vrf_id);
+		break;
+	case ZEBRA_MLAG_PROCESS_DOWN:
+		zclient_mlag_process_down(command, zclient, length, vrf_id);
+		break;
+	case ZEBRA_MLAG_FORWARD_MSG:
+		zclient_mlag_handle_msg(command, zclient, length, vrf_id);
 		break;
 	default:
 		break;

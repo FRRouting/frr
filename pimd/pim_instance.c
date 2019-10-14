@@ -34,6 +34,7 @@
 #include "pim_ssmpingd.h"
 #include "pim_vty.h"
 #include "pim_bsm.h"
+#include "pim_mlag.h"
 
 static void pim_instance_terminate(struct pim_instance *pim)
 {
@@ -46,6 +47,8 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	if (pim->static_routes)
 		list_delete(&pim->static_routes);
+
+	pim_instance_mlag_terminate(pim);
 
 	pim_upstream_terminate(pim);
 
@@ -114,6 +117,8 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim_oil_init(pim);
 
 	pim_upstream_init(pim);
+
+	pim_instance_mlag_init(pim);
 
 	pim->last_route_change_time = -1;
 	return pim;
