@@ -128,6 +128,7 @@ static void pim_ifchannel_find_new_children(struct pim_ifchannel *ch)
 void pim_ifchannel_delete(struct pim_ifchannel *ch)
 {
 	struct pim_interface *pim_ifp;
+	struct pim_upstream *up;
 
 	pim_ifp = ch->interface->info;
 
@@ -201,14 +202,14 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 
 	listnode_delete(ch->upstream->ifchannels, ch);
 
-	pim_upstream_update_join_desired(pim_ifp->pim, ch->upstream);
+	up = ch->upstream;
 
 	/* upstream is common across ifchannels, check if upstream's
 	   ifchannel list is empty before deleting upstream_del
 	   ref count will take care of it.
 	*/
 	if (ch->upstream->ref_count > 0)
-		pim_upstream_del(pim_ifp->pim, ch->upstream, __func__);
+		up = pim_upstream_del(pim_ifp->pim, ch->upstream, __func__);
 
 	else {
 		if (PIM_DEBUG_PIM_TRACE)
@@ -237,6 +238,9 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 			   ch->sg_str);
 
 	XFREE(MTYPE_PIM_IFCHANNEL, ch);
+
+	if (up)
+		pim_upstream_update_join_desired(pim_ifp->pim, up);
 }
 
 void pim_ifchannel_delete_all(struct interface *ifp)
