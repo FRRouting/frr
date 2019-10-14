@@ -277,15 +277,16 @@ static uint16_t bgp_write(struct peer *peer)
 	uint8_t type;
 	struct stream *s;
 	int update_last_write = 0;
-	unsigned int count = 0;
+	unsigned int count;
 	uint32_t uo = 0;
 	uint16_t status = 0;
 	uint32_t wpkt_quanta_old;
 
 	int writenum = 0;
 	int num;
-	unsigned int iovsz = 0;
+	unsigned int iovsz;
 	unsigned int strmsz;
+	unsigned int total_written;
 
 	wpkt_quanta_old = atomic_load_explicit(&peer->bgp->wpkt_quanta,
 					       memory_order_relaxed);
@@ -300,6 +301,7 @@ static uint16_t bgp_write(struct peer *peer)
 
 	assert(wpkt_quanta_old > 0);
 
+	count = iovsz = 0;
 	while (count < wpkt_quanta_old && iovsz < array_size(iov) && s) {
 		ostreams[iovsz] = s;
 		iov[iovsz].iov_base = stream_pnt(s);
@@ -311,6 +313,7 @@ static uint16_t bgp_write(struct peer *peer)
 	}
 
 	strmsz = iovsz;
+	total_written = 0;
 
 	do {
 		num = writev(peer->fd, iov, iovsz);
@@ -323,7 +326,7 @@ static uint16_t bgp_write(struct peer *peer)
 				SET_FLAG(status, BGP_IO_TRANS_ERR);
 			}
 
-			goto done;
+			break;
 		} else if (num != writenum) {
 			unsigned int msg_written = 0;
 			unsigned int ic = iovsz;
@@ -340,6 +343,8 @@ static uint16_t bgp_write(struct peer *peer)
 				num -= ss;
 			}
 
+			total_written += msg_written;
+
 			memmove(&iov, &iov[msg_written],
 				sizeof(iov[0]) * iovsz);
 			streams = &streams[msg_written];
@@ -350,13 +355,17 @@ static uint16_t bgp_write(struct peer *peer)
 			writenum -= num;
 			num = 0;
 			assert(writenum > 0);
+		} else {
+			total_written = strmsz;
 		}
 
 	} while (num != writenum);
 
 	/* Handle statistics */
-	for (unsigned int i = 0; i < strmsz; i++) {
-		s = ostreams[i];
+	for (unsigned int i = 0; i < total_written; i++) {
+		s = stream_fifo_pop(peer->obuf);
+
+		assert(s == ostreams[i]);
 
 		/* Retrieve BGP packet type. */
 		stream_set_getp(s, BGP_MARKER_SIZE + 2);
@@ -404,7 +413,8 @@ static uint16_t bgp_write(struct peer *peer)
 			break;
 		}
 
-		stream_free(stream_fifo_pop(peer->obuf));
+		stream_free(s);
+		ostreams[i] = NULL;
 		update_last_write = 1;
 	}
 
