@@ -243,13 +243,13 @@ static int bgp_process_reads(struct thread *thread)
 			break;
 	}
 
-	assert(ringbuf_space(peer->ibuf_work) >= BGP_MAX_PACKET_SIZE);
-
 	/* handle invalid header */
 	if (fatal) {
 		/* wipe buffer just in case someone screwed up */
 		ringbuf_wipe(peer->ibuf_work);
 	} else {
+		assert(ringbuf_space(peer->ibuf_work) >= BGP_MAX_PACKET_SIZE);
+
 		thread_add_read(fpt->master, bgp_process_reads, peer, peer->fd,
 				&peer->t_read);
 		if (added_pkt)
