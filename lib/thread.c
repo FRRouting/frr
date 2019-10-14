@@ -1033,6 +1033,8 @@ static void thread_cancel_rw(struct thread_master *master, int fd, short state)
 			(master->handler.pfdcount - i - 1)
 				* sizeof(struct pollfd));
 		master->handler.pfdcount--;
+		master->handler.pfds[master->handler.pfdcount].fd = 0;
+		master->handler.pfds[master->handler.pfdcount].events = 0;
 	}
 
 	/* If we have the same pollfd in the copy, perform the same operations,
@@ -1047,6 +1049,8 @@ static void thread_cancel_rw(struct thread_master *master, int fd, short state)
 			(master->handler.copycount - i - 1)
 				* sizeof(struct pollfd));
 		master->handler.copycount--;
+		master->handler.copy[master->handler.copycount].fd = 0;
+	        master->handler.copy[master->handler.copycount].events = 0;
 	}
 }
 
@@ -1353,11 +1357,15 @@ static void thread_process_io(struct thread_master *m, unsigned int num)
 				(m->handler.pfdcount - i - 1)
 					* sizeof(struct pollfd));
 			m->handler.pfdcount--;
+			m->handler.pfds[m->handler.pfdcount].fd = 0;
+			m->handler.pfds[m->handler.pfdcount].events = 0;
 
 			memmove(pfds + i, pfds + i + 1,
 				(m->handler.copycount - i - 1)
 					* sizeof(struct pollfd));
 			m->handler.copycount--;
+			m->handler.copy[m->handler.copycount].fd = 0;
+			m->handler.copy[m->handler.copycount].events = 0;
 
 			i--;
 		}
