@@ -2341,8 +2341,7 @@ static void vty_read_file(struct nb_config *config, FILE *confp)
 	 * Automatically commit the candidate configuration after
 	 * reading the configuration file.
 	 */
-	if (config == NULL && vty->candidate_config
-	    && frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL) {
+	if (config == NULL) {
 		ret = nb_candidate_commit(vty->candidate_config, NB_CLIENT_CLI,
 					  vty, true, "Read configuration file",
 					  NULL);

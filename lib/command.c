@@ -1709,6 +1709,8 @@ static int vty_write_config(struct vty *vty)
 	if (host.noconfig)
 		return CMD_SUCCESS;
 
+	nb_cli_show_config_prepare(running_config, false);
+
 	if (vty->type == VTY_TERM) {
 		vty_out(vty, "\nCurrent configuration:\n");
 		vty_out(vty, "!\n");
