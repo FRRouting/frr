@@ -493,6 +493,23 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 			}
 		}
 
+		if (PIM_DEBUG_MROUTE) {
+			char group_str[INET_ADDRSTRLEN];
+			char source_str[INET_ADDRSTRLEN];
+			pim_inet4_dump("<group?>",
+				       channel_oil->oil.mfcc_mcastgrp,
+				       group_str, sizeof(group_str));
+			pim_inet4_dump("<source?>",
+				       channel_oil->oil.mfcc_origin, source_str,
+				       sizeof(source_str));
+			zlog_debug(
+				"%s(%s): (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d added to 0x%x",
+				__func__, caller, source_str, group_str,
+				proto_mask, oif->name,
+				pim_ifp->mroute_vif_index,
+				channel_oil
+					->oif_flags[pim_ifp->mroute_vif_index]);
+		}
 		return 0;
 	}
 
