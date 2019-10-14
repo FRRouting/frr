@@ -594,10 +594,14 @@ route_match_prefix_list_flowspec(afi_t afi, struct prefix_list *plist,
 
 	memset(&api, 0, sizeof(api));
 
+	if (family2afi(p->u.prefix_flowspec.family) != afi)
+		return RMAP_NOMATCH;
+
 	/* extract match from flowspec entries */
 	ret = bgp_flowspec_match_rules_fill(
 					    (uint8_t *)p->u.prefix_flowspec.ptr,
-					    p->u.prefix_flowspec.prefixlen, &api);
+					    p->u.prefix_flowspec.prefixlen, &api,
+					    afi);
 	if (ret < 0)
 		return RMAP_NOMATCH;
 	if (api.match_bitmask & PREFIX_DST_PRESENT ||

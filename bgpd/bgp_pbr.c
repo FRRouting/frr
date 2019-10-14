@@ -668,6 +668,7 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 }
 
 /* return -1 if build or validation failed */
+
 int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 				     struct bgp_path_info *path,
 				     struct bgp_pbr_entry_main *api)
@@ -679,13 +680,13 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 	struct bgp_pbr_entry_action *api_action;
 	struct prefix *src = NULL, *dst = NULL;
 	int valid_prefix = 0;
-	afi_t afi = AFI_IP;
 	struct bgp_pbr_entry_action *api_action_redirect_ip = NULL;
 	bool discard_action_found = false;
+	afi_t afi = family2afi(p->u.prefix_flowspec.family);
 
 	/* extract match from flowspec entries */
 	ret = bgp_flowspec_match_rules_fill((uint8_t *)p->u.prefix_flowspec.ptr,
-				     p->u.prefix_flowspec.prefixlen, api);
+					    p->u.prefix_flowspec.prefixlen, api, afi);
 	if (ret < 0)
 		return -1;
 	/* extract actiosn from flowspec ecom list */
@@ -2598,8 +2599,6 @@ void bgp_pbr_update_entry(struct bgp *bgp, const struct prefix *p,
 {
 	struct bgp_pbr_entry_main api;
 
-	if (afi == AFI_IP6)
-		return; /* IPv6 not supported */
 	if (safi != SAFI_FLOWSPEC)
 		return; /* not supported */
 	/* Make Zebra API structure. */

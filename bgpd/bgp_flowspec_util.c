@@ -76,6 +76,7 @@ static int bgp_flowspec_call_non_opaque_decode(uint8_t *nlri_content, int len,
 	return ret;
 }
 
+
 bool bgp_flowspec_contains_prefix(const struct prefix *pfs,
 				  struct prefix *input, int prefix_check)
 {
@@ -84,6 +85,7 @@ bool bgp_flowspec_contains_prefix(const struct prefix *pfs,
 	int ret = 0, error = 0;
 	uint8_t *nlri_content = (uint8_t *)pfs->u.prefix_flowspec.ptr;
 	size_t len = pfs->u.prefix_flowspec.prefixlen;
+	afi_t afi = family2afi(pfs->u.prefix_flowspec.family);
 	struct prefix compare;
 
 	error = 0;
@@ -98,7 +100,8 @@ bool bgp_flowspec_contains_prefix(const struct prefix *pfs,
 					BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE,
 					nlri_content+offset,
 					len - offset,
-					&compare, &error);
+					&compare, &error,
+					afi);
 			if (ret <= 0)
 				break;
 			if (prefix_check &&
@@ -158,7 +161,8 @@ bool bgp_flowspec_contains_prefix(const struct prefix *pfs,
 int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 			    uint8_t *nlri_ptr,
 			    uint32_t max_len,
-			    void *result, int *error)
+			    void *result, int *error,
+			    afi_t afi)
 {
 	char *display = (char *)result; /* for return_string */
 	struct prefix *prefix = (struct prefix *)result;
@@ -417,7 +421,8 @@ int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 }
 
 int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
-				  struct bgp_pbr_entry_main *bpem)
+				  struct bgp_pbr_entry_main *bpem,
+				  afi_t afi)
 {
 	int offset = 0, error = 0;
 	struct prefix *prefix;
@@ -444,7 +449,8 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 					BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE,
 					nlri_content + offset,
 					len - offset,
-					prefix, &error);
+					prefix, &error,
+					afi);
 			if (error < 0)
 				flog_err(EC_BGP_FLOWSPEC_PACKET,
 					 "%s: flowspec_ip_address error %d",
@@ -599,7 +605,7 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 
 /* return 1 if FS entry invalid or no NH IP */
 bool bgp_flowspec_get_first_nh(struct bgp *bgp, struct bgp_path_info *pi,
-			       struct prefix *p)
+			       struct prefix *p, afi_t afi)
 {
 	struct bgp_pbr_entry_main api;
 	int i;
@@ -615,9 +621,15 @@ bool bgp_flowspec_get_first_nh(struct bgp *bgp, struct bgp_path_info *pi,
 		api_action = &api.actions[i];
 		if (api_action->action != ACTION_REDIRECT_IP)
 			continue;
-		p->family = AF_INET;
-		p->prefixlen = IPV4_MAX_BITLEN;
-		p->u.prefix4 = api_action->u.zr.redirect_ip_v4;
+		p->family = afi2family(afi);
+		if (afi == AFI_IP) {
+			p->prefixlen = IPV4_MAX_BITLEN;
+			p->u.prefix4 = api_action->u.zr.redirect_ip_v4;
+		} else {
+			p->prefixlen = IPV6_MAX_BITLEN;
+			memcpy(&p->u.prefix6, &api_action->u.zr.redirect_ip_v6,
+			       sizeof(struct in6_addr));
+		}
 		return false;
 	}
 	return true;

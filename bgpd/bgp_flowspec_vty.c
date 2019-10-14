@@ -93,7 +93,8 @@ static const struct message bgp_flowspec_display_min[] = {
  */
 void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 			    char *return_string, int format,
-			    json_object *json_path)
+			    json_object *json_path,
+			    afi_t afi)
 {
 	uint32_t offset = 0;
 	int type;
@@ -127,7 +128,8 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 						type_util,
 						nlri_content+offset,
 						len - offset,
-						local_string, &error);
+						local_string, &error,
+						afi);
 			if (ret <= 0)
 				break;
 			if (json_path) {
@@ -263,7 +265,12 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 	json_object *json_ecom_path = NULL;
 	json_object *json_time_path = NULL;
 	char timebuf[BGP_UPTIME_LEN];
+	struct bgp_dest *dest = NULL;
 
+	if (path)
+		dest = path->net;
+	if (dest)
+		bgp_dest_get_bgp_table_info(dest);
 	/* Print prefix */
 	if (p != NULL) {
 		if (p->family != AF_FLOWSPEC)
@@ -282,7 +289,9 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 				       p->u.prefix_flowspec.prefixlen,
 				       return_string,
 				       display,
-				       json_nlri_path);
+				       json_nlri_path,
+				       family2afi(p->u.prefix_flowspec
+						  .family));
 		if (display == NLRI_STRING_FORMAT_LARGE)
 			vty_out(vty, "%s", return_string);
 		else if (display == NLRI_STRING_FORMAT_DEBUG)

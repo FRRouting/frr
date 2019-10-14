@@ -79,6 +79,7 @@ struct bgp_pbr_entry_action {
 		vrf_id_t redirect_vrf;
 		struct _pbr_redirect_ip {
 			struct in_addr redirect_ip_v4;
+			struct in6_addr redirect_ip_v6;
 			uint8_t duplicate;
 		} zr;
 		uint8_t marking_dscp;
