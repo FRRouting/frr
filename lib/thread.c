@@ -749,6 +749,7 @@ struct thread *funcname_thread_add_read_write(int dir, struct thread_master *m,
 {
 	struct thread *thread = NULL;
 	struct thread **thread_array;
+	bool found = false;
 
 	assert(fd >= 0 && fd < m->fd_limit);
 	frr_with_mutex(&m->mtx) {
@@ -769,6 +770,7 @@ struct thread *funcname_thread_add_read_write(int dir, struct thread_master *m,
 		for (nfds_t i = 0; i < m->handler.pfdcount; i++)
 			if (m->handler.pfds[i].fd == fd) {
 				queuepos = i;
+				found = true;
 
 #ifdef DEV_BUILD
 				/*
@@ -785,6 +787,12 @@ struct thread *funcname_thread_add_read_write(int dir, struct thread_master *m,
 		assert(queuepos + 1 < m->handler.pfdsize);
 
 		thread = thread_get(m, dir, func, arg, debugargpass);
+
+		/* If this new FD then clean up the index before reuse */
+		if (!found) {
+			m->handler.pfds[queuepos].fd = 0;
+			m->handler.pfds[queuepos].events = 0;
+		}
 
 		m->handler.pfds[queuepos].fd = fd;
 		m->handler.pfds[queuepos].events |=
