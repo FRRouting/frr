@@ -178,11 +178,6 @@ typedef enum {
 	ZEBRA_VXLAN_SG_ADD,
 	ZEBRA_VXLAN_SG_DEL,
 	ZEBRA_VXLAN_SG_REPLAY,
-	ZEBRA_MLAG_PROCESS_UP,
-	ZEBRA_MLAG_PROCESS_DOWN,
-	ZEBRA_MLAG_CLIENT_REGISTER,
-	ZEBRA_MLAG_CLIENT_UNREGISTER,
-	ZEBRA_MLAG_FORWARD_MSG,
 } zebra_message_types_t;
 
 struct redist_proto {
@@ -277,9 +272,6 @@ struct zclient {
 	int (*iptable_notify_owner)(ZAPI_CALLBACK_ARGS);
 	int (*vxlan_sg_add)(ZAPI_CALLBACK_ARGS);
 	int (*vxlan_sg_del)(ZAPI_CALLBACK_ARGS);
-	int (*mlag_process_up)(void);
-	int (*mlag_process_down)(void);
-	int (*mlag_handle_msg)(struct stream *msg, int len);
 };
 
 /* Zebra API message flag. */
@@ -701,11 +693,5 @@ static inline void zapi_route_set_blackhole(struct zapi_route *api,
 	SET_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP);
 };
 
-extern void zclient_send_mlag_register(struct zclient *client,
-				       uint32_t bit_map);
-extern void zclient_send_mlag_deregister(struct zclient *client);
-
-extern void zclient_send_mlag_data(struct zclient *client,
-				   struct stream *client_s);
 
 #endif /* _ZEBRA_ZCLIENT_H */

@@ -125,7 +125,6 @@ include doc/manpages/subdir.am
 include doc/developer/subdir.am
 include include/subdir.am
 include lib/subdir.am
-include mlag/subdir.am
 include zebra/subdir.am
 include watchfrr/subdir.am
 include qpb/subdir.am
