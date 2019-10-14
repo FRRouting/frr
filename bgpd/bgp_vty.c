@@ -14285,13 +14285,6 @@ DEFUN (community_list_standard,
 
 	int idx = 0;
 
-	if (argv_find(argv, argc, "ip", &idx)) {
-		vty_out(vty, "This config option is deprecated, and is scheduled for removal.\n");
-		vty_out(vty, "if you are using this please migrate to the below command.\n");
-		vty_out(vty, "'bgp community-list <(1-99)|(100-500)|standard|expanded> <deny|permit> AA:NN'\n");
-		zlog_warn("Deprecated option: 'ip community-list <(1-99)|(100-500)|standard|expanded> <deny|permit> AA:NN' being used");
-	}
-
 	argv_find(argv, argc, "(1-99)", &idx);
 	argv_find(argv, argc, "WORD", &idx);
 	cl_name_or_number = argv[idx]->arg;
@@ -14313,21 +14306,6 @@ DEFUN (community_list_standard,
 
 	return CMD_SUCCESS;
 }
-
-#if CONFDATE > 20191005
-CPP_NOTICE("bgpd: remove deprecated 'ip community-list <(1-99)|(100-500)|standard|expanded> <deny|permit> AA:NN' command")
-#endif
-ALIAS (community_list_standard,
-       ip_community_list_standard_cmd,
-       "ip community-list <(1-99)|standard WORD> <deny|permit> AA:NN...",
-       IP_STR
-       COMMUNITY_LIST_STR
-       "Community list number (standard)\n"
-       "Add an standard community-list entry\n"
-       "Community list name\n"
-       "Specify community to reject\n"
-       "Specify community to accept\n"
-       COMMUNITY_VAL_STR)
 
 DEFUN (no_community_list_standard_all,
        no_bgp_community_list_standard_all_cmd,
@@ -14792,9 +14770,6 @@ static int lcommunity_list_unset_vty(struct vty *vty, int argc,
 #define LCOMMUNITY_LIST_STR "Add a large community list entry\n"
 #define LCOMMUNITY_VAL_STR  "large community in 'aa:bb:cc' format\n"
 
-#if CONFDATE > 20191005
-CPP_NOTICE("bgpd: remove deprecated 'ip large-community-list <(1-99)|(100-500)|standard|expanded> <deny|permit> <LINE|AA:BB:CC>' command")
-#endif
 DEFUN (lcommunity_list_standard,
        bgp_lcommunity_list_standard_cmd,
        "bgp large-community-list (1-99) <deny|permit> AA:BB:CC...",
@@ -14808,16 +14783,6 @@ DEFUN (lcommunity_list_standard,
 	return lcommunity_list_set_vty(vty, argc, argv,
 				       LARGE_COMMUNITY_LIST_STANDARD, 0);
 }
-
-ALIAS (lcommunity_list_standard,
-       ip_lcommunity_list_standard_cmd,
-       "ip large-community-list (1-99) <deny|permit> AA:BB:CC...",
-       IP_STR
-       LCOMMUNITY_LIST_STR
-       "Large Community list number (standard)\n"
-       "Specify large community to reject\n"
-       "Specify large community to accept\n"
-       LCOMMUNITY_VAL_STR)
 
 DEFUN (lcommunity_list_expanded,
        bgp_lcommunity_list_expanded_cmd,
@@ -15180,14 +15145,8 @@ DEFUN (extcommunity_list_standard,
 	int style = EXTCOMMUNITY_LIST_STANDARD;
 	int direct = 0;
 	char *cl_number_or_name = NULL;
-
 	int idx = 0;
-	if (argv_find(argv, argc, "ip", &idx)) {
-		vty_out(vty, "This config option is deprecated, and is scheduled for removal.\n");
-		vty_out(vty, "if you are using this please migrate to the below command.\n");
-		vty_out(vty, "'bgp extcommunity-list <(1-99)|(100-500)|standard|expanded> <deny|permit> <LINE|AA:NN>'\n");
-		zlog_warn("Deprecated option: 'ip extcommunity-list <(1-99)|(100-500)|standard|expanded> <deny|permit> <LINE|AA:NN>' being used");
-	}
+
 	argv_find(argv, argc, "(1-99)", &idx);
 	argv_find(argv, argc, "WORD", &idx);
 	cl_number_or_name = argv[idx]->arg;
@@ -15208,21 +15167,6 @@ DEFUN (extcommunity_list_standard,
 
 	return CMD_SUCCESS;
 }
-
-#if CONFDATE > 20191005
-CPP_NOTICE("bgpd: remove deprecated 'ip extcommunity-list <(1-99)|(100-500)|standard|expanded> <deny|permit> <LINE|AA:NN>' command")
-#endif
-ALIAS (extcommunity_list_standard,
-       ip_extcommunity_list_standard_cmd,
-       "ip extcommunity-list <(1-99)|standard WORD> <deny|permit> AA:NN...",
-       IP_STR
-       EXTCOMMUNITY_LIST_STR
-       "Extended Community list number (standard)\n"
-       "Specify standard extcommunity-list\n"
-       "Community list name\n"
-       "Specify community to reject\n"
-       "Specify community to accept\n"
-       EXTCOMMUNITY_VAL_STR)
 
 DEFUN (extcommunity_list_name_expanded,
        bgp_extcommunity_list_name_expanded_cmd,
@@ -15656,7 +15600,6 @@ static void community_list_vty(void)
 	install_element(CONFIG_NODE, &no_bgp_community_list_expanded_all_list_cmd);
 	install_element(VIEW_NODE, &show_bgp_community_list_cmd);
 	install_element(VIEW_NODE, &show_bgp_community_list_arg_cmd);
-	install_element(CONFIG_NODE, &ip_community_list_standard_cmd);
 	install_element(CONFIG_NODE, &ip_community_list_expanded_all_cmd);
 	install_element(CONFIG_NODE, &no_ip_community_list_standard_all_cmd);
 	install_element(CONFIG_NODE, &no_ip_community_list_standard_all_list_cmd);
@@ -15676,7 +15619,6 @@ static void community_list_vty(void)
 			&no_bgp_extcommunity_list_expanded_all_list_cmd);
 	install_element(VIEW_NODE, &show_bgp_extcommunity_list_cmd);
 	install_element(VIEW_NODE, &show_bgp_extcommunity_list_arg_cmd);
-	install_element(CONFIG_NODE, &ip_extcommunity_list_standard_cmd);
 	install_element(CONFIG_NODE, &ip_extcommunity_list_name_expanded_cmd);
 	install_element(CONFIG_NODE, &no_ip_extcommunity_list_standard_all_cmd);
 	install_element(CONFIG_NODE, &no_ip_extcommunity_list_standard_all_list_cmd);
@@ -15699,7 +15641,6 @@ static void community_list_vty(void)
 	install_element(CONFIG_NODE, &no_bgp_lcommunity_list_name_expanded_cmd);
 	install_element(VIEW_NODE, &show_bgp_lcommunity_list_cmd);
 	install_element(VIEW_NODE, &show_bgp_lcommunity_list_arg_cmd);
-	install_element(CONFIG_NODE, &ip_lcommunity_list_standard_cmd);
 	install_element(CONFIG_NODE, &ip_lcommunity_list_expanded_cmd);
 	install_element(CONFIG_NODE, &ip_lcommunity_list_name_standard_cmd);
 	install_element(CONFIG_NODE, &ip_lcommunity_list_name_expanded_cmd);
