@@ -424,6 +424,10 @@ static struct lyd_node *ly_iter_next_up(const struct lyd_node *elem)
 /* Prepare the configuration for display. */
 void nb_cli_show_config_prepare(struct nb_config *config, bool with_defaults)
 {
+	/* Nothing to do for daemons that don't implement any YANG module. */
+	if (config->dnode == NULL)
+		return;
+
 	lyd_schema_sort(config->dnode, 1);
 
 	/*
