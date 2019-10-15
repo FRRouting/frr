@@ -109,7 +109,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 	uint16_t type;
 	struct rd_as rd_as;
 	struct rd_ip rd_ip;
-	struct prefix_rd prd;
+	struct prefix_rd prd = {0};
 	mpls_label_t label = {0};
 	afi_t afi;
 	safi_t safi;

@@ -576,7 +576,7 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 			if (make_json)
 				json_object_array_add(
 					jseg_list,
-					json_object_new_int(seg->as[i]));
+					json_object_new_int64(seg->as[i]));
 
 			len += snprintf(str_buf + len, str_size - len, "%u",
 					seg->as[i]);
