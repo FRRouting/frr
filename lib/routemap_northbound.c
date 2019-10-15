@@ -75,6 +75,30 @@ int lib_route_map_entry_set_destroy(enum nb_event event,
 }
 
 /*
+ * Auxiliary hook context list manipulation functions.
+ */
+struct routemap_hook_context *
+routemap_hook_context_insert(struct route_map_index *rmi)
+{
+	struct routemap_hook_context *rhc;
+
+	rhc = XCALLOC(MTYPE_TMP, sizeof(*rhc));
+	rhc->rhc_rmi = rmi;
+	TAILQ_INSERT_TAIL(&rmi->rhclist, rhc, rhc_entry);
+
+	return rhc;
+}
+
+void
+routemap_hook_context_free(struct routemap_hook_context *rhc)
+{
+	struct route_map_index *rmi = rhc->rhc_rmi;
+
+	TAILQ_REMOVE(&rmi->rhclist, rhc, rhc_entry);
+	XFREE(MTYPE_TMP, rhc);
+}
+
+/*
  * XPath: /frr-route-map:lib/route-map
  */
 static int lib_route_map_create(enum nb_event event,
@@ -436,20 +460,17 @@ lib_route_map_entry_match_condition_create(enum nb_event event,
 					   union nb_resource *resource)
 {
 	struct routemap_hook_context *rhc;
+	struct route_map_index *rmi;
 
 	switch (event) {
 	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 		/* NOTHING */
 		break;
-	case NB_EV_PREPARE:
-		resource->ptr = XCALLOC(MTYPE_TMP, sizeof(*rhc));
-		break;
-	case NB_EV_ABORT:
-		XFREE(MTYPE_TMP, resource->ptr);
-		break;
 	case NB_EV_APPLY:
-		rhc = resource->ptr;
-		rhc->rhc_rmi = nb_running_get_entry(dnode, NULL, true);
+		rmi = nb_running_get_entry(dnode, NULL, true);
+		rhc = routemap_hook_context_insert(rmi);
 		nb_running_set_entry(dnode, rhc);
 		break;
 	}
@@ -469,7 +490,7 @@ lib_route_map_entry_match_condition_destroy(enum nb_event event,
 
 	rv = lib_route_map_entry_match_destroy(event, dnode);
 	rhc = nb_running_unset_entry(dnode);
-	XFREE(MTYPE_TMP, rhc);
+	routemap_hook_context_free(rhc);
 
 	return rv;
 }
@@ -893,7 +914,7 @@ static int lib_route_map_entry_set_action_destroy(enum nb_event event,
 
 	rv = lib_route_map_entry_set_destroy(event, dnode);
 	rhc = nb_running_unset_entry(dnode);
-	XFREE(MTYPE_TMP, rhc);
+	routemap_hook_context_free(rhc);
 
 	return rv;
 }

@@ -909,6 +909,7 @@ static struct route_map_index *route_map_index_new(void)
 
 	new = XCALLOC(MTYPE_ROUTE_MAP_INDEX, sizeof(struct route_map_index));
 	new->exitpolicy = RMAP_EXIT; /* Default to Cisco-style */
+	TAILQ_INIT(&new->rhclist);
 	QOBJ_REG(new, route_map_index);
 	return new;
 }
@@ -923,6 +924,10 @@ void route_map_index_delete(struct route_map_index *index, int notify)
 	if (rmap_debug)
 		zlog_debug("Deleting route-map %s sequence %d",
 			   index->map->name, index->pref);
+
+	/* Free route map northbound hook contexts. */
+	while (!TAILQ_EMPTY(&index->rhclist))
+		routemap_hook_context_free(TAILQ_FIRST(&index->rhclist));
 
 	/* Free route match. */
 	while ((rule = index->match_list.head) != NULL)

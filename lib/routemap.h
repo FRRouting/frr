@@ -162,6 +162,9 @@ struct route_map_rule_list {
 	struct route_map_rule *tail;
 };
 
+/* Forward struct declaration: the complete can be found later this file. */
+struct routemap_hook_context;
+
 /* Route map index structure. */
 struct route_map_index {
 	struct route_map *map;
@@ -193,6 +196,9 @@ struct route_map_index {
 	/* Keep track how many times we've try to apply */
 	uint64_t applied;
 	uint64_t applied_clear;
+
+	/* List of match/sets contexts. */
+	TAILQ_HEAD(, routemap_hook_context) rhclist;
 
 	QOBJ_FIELDS
 };
@@ -660,12 +666,17 @@ struct routemap_hook_context {
 	route_map_event_t rhc_event;
 	routemap_set_hook_fun rhc_shook;
 	routemap_match_hook_fun rhc_mhook;
+	TAILQ_ENTRY(routemap_hook_context) rhc_entry;
 };
 
 int lib_route_map_entry_match_destroy(enum nb_event event,
 				      const struct lyd_node *dnode);
 int lib_route_map_entry_set_destroy(enum nb_event event,
 				    const struct lyd_node *dnode);
+
+struct routemap_hook_context *
+routemap_hook_context_insert(struct route_map_index *rmi);
+void routemap_hook_context_free(struct routemap_hook_context *rhc);
 
 extern const struct frr_yang_module_info frr_route_map_info;
 
