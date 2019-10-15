@@ -1,0 +1,751 @@
+module ietf-routing-types {
+  namespace "urn:ietf:params:xml:ns:yang:ietf-routing-types";
+  prefix rt-types;
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  organization
+    "IETF RTGWG - Routing Area Working Group";
+  contact
+    "WG Web:   <https://datatracker.ietf.org/wg/rtgwg/>
+     WG List:  <mailto:rtgwg@ietf.org>
+     Editors:  Xufeng Liu
+               <mailto:Xufeng_Liu@jabail.com>
+               Yingzhen Qu
+               <mailto:yingzhen.qu@huawei.com>
+               Acee Lindem
+               <mailto:acee@cisco.com>
+               Christian Hopps
+               <mailto:chopps@chopps.org>
+               Lou Berger
+               <mailto:lberger@labn.com>";
+
+  description
+    "This module contains a collection of YANG data types
+     considered generally useful for routing protocols.
+     Copyright (c) 2017 IETF Trust and the persons
+     identified as authors of the code.  All rights reserved.
+     Redistribution and use in source and binary forms, with or
+     without modification, is permitted pursuant to, and subject
+     to the license terms contained in, the Simplified BSD License
+     set forth in Section 4.c of the IETF Trust's Legal Provisions
+     Relating to IETF Documents
+     (https://trustee.ietf.org/license-info).
+     This version of this YANG module is part of RFC 8294; see
+     the RFC itself for full legal notices.";
+   revision 2017-12-04 {
+     description "Initial revision.";
+     reference
+       "RFC 8294: Common YANG Data Types for the Routing Area.
+        Section 3.";
+  }
+
+  /*** Identities related to MPLS/GMPLS ***/
+
+  identity mpls-label-special-purpose-value {
+    description
+      "Base identity for deriving identities describing
+       special-purpose Multiprotocol Label Switching (MPLS) label
+       values.";
+    reference
+      "RFC 7274: Allocating and Retiring Special-Purpose MPLS
+       Labels.";
+  }
+
+  identity ipv4-explicit-null-label {
+    base mpls-label-special-purpose-value;
+    description
+      "This identity represents the IPv4 Explicit NULL Label.";
+    reference
+      "RFC 3032: MPLS Label Stack Encoding.  Section 2.1.";
+  }
+
+  identity router-alert-label {
+    base mpls-label-special-purpose-value;
+    description
+      "This identity represents the Router Alert Label.";
+    reference
+      "RFC 3032: MPLS Label Stack Encoding.  Section 2.1.";
+  }
+
+  identity ipv6-explicit-null-label {
+    base mpls-label-special-purpose-value;
+    description
+      "This identity represents the IPv6 Explicit NULL Label.";
+    reference
+      "RFC 3032: MPLS Label Stack Encoding.  Section 2.1.";
+  }
+
+  identity implicit-null-label {
+    base mpls-label-special-purpose-value;
+    description
+      "This identity represents the Implicit NULL Label.";
+    reference
+      "RFC 3032: MPLS Label Stack Encoding.  Section 2.1.";
+  }
+
+  identity entropy-label-indicator {
+    base mpls-label-special-purpose-value;
+    description
+      "This identity represents the Entropy Label Indicator.";
+    reference
+      "RFC 6790: The Use of Entropy Labels in MPLS Forwarding.
+       Sections 3 and 10.1.";
+  }
+
+  identity gal-label {
+    base mpls-label-special-purpose-value;
+    description
+      "This identity represents the Generic Associated Channel
+       (G-ACh) Label (GAL).";
+    reference
+      "RFC 5586: MPLS Generic Associated Channel.
+       Sections 4 and 10.";
+  }
+
+  identity oam-alert-label {
+    base mpls-label-special-purpose-value;
+    description
+      "This identity represents the OAM Alert Label.";
+    reference
+      "RFC 3429: Assignment of the 'OAM Alert Label' for
+       Multiprotocol Label Switching Architecture (MPLS)
+       Operation and Maintenance (OAM) Functions.
+       Sections 3 and 6.";
+  }
+
+  identity extension-label {
+    base mpls-label-special-purpose-value;
+    description
+      "This identity represents the Extension Label.";
+    reference
+      "RFC 7274: Allocating and Retiring Special-Purpose MPLS
+       Labels.  Sections 3.1 and 5.";
+  }
+
+  /*** Collection of types related to routing ***/
+
+  typedef router-id {
+    type yang:dotted-quad;
+    description
+      "A 32-bit number in the dotted-quad format assigned to each
+       router.  This number uniquely identifies the router within
+       an Autonomous System.";
+  }
+
+  /*** Collection of types related to VPNs ***/
+
+  typedef route-target {
+    type string {
+      pattern
+        '(0:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0):(429496729[0-5]|'
+      +     '42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|429496[0-6][0-9]{3}|'
+      +     '42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|429[0-3][0-9]{6}|'
+      +     '42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0))|'
+      + '(1:((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|'
+      +     '25[0-5])\.){3}([0-9]|[1-9][0-9]|'
+      +     '1[0-9]{2}|2[0-4][0-9]|25[0-5])):(6553[0-5]|'
+      +     '655[0-2][0-9]|'
+      +     '65[0-4][0-9]{2}|6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|'
+      + '(2:(429496729[0-5]|42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|'
+      +     '429496[0-6][0-9]{3}|42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|'
+      +     '429[0-3][0-9]{6}|42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0):'
+      +     '(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|'
+      + '(6(:[a-fA-F0-9]{2}){6})|'
+      + '(([3-57-9a-fA-F]|[1-9a-fA-F][0-9a-fA-F]{1,3}):'
+      +     '[0-9a-fA-F]{1,12})';
+    }
+
+    description
+      "A Route Target is an 8-octet BGP extended community
+       initially identifying a set of sites in a BGP VPN
+       (RFC 4364).  However, it has since taken on a more general
+       role in BGP route filtering.  A Route Target consists of two
+       or three fields: a 2-octet Type field, an administrator
+       field, and, optionally, an assigned number field.
+       According to the data formats for types 0, 1, 2, and 6 as
+       defined in RFC 4360, RFC 5668, and RFC 7432, the encoding
+       pattern is defined as:
+       0:2-octet-asn:4-octet-number
+       1:4-octet-ipv4addr:2-octet-number
+       2:4-octet-asn:2-octet-number
+       6:6-octet-mac-address
+       Additionally, a generic pattern is defined for future
+       Route Target types:
+       2-octet-other-hex-number:6-octet-hex-number
+       Some valid examples are 0:100:100, 1:1.1.1.1:100,
+       2:1234567890:203, and 6:26:00:08:92:78:00.";
+    reference
+      "RFC 4360: BGP Extended Communities Attribute.
+       RFC 4364: BGP/MPLS IP Virtual Private Networks (VPNs).
+       RFC 5668: 4-Octet AS Specific BGP Extended Community.
+       RFC 7432: BGP MPLS-Based Ethernet VPN.";
+  }
+
+  typedef ipv6-route-target {
+    type string {
+      pattern
+          '((:|[0-9a-fA-F]{0,4}):)([0-9a-fA-F]{0,4}:){0,5}'
+          + '((([0-9a-fA-F]{0,4}:)?(:|[0-9a-fA-F]{0,4}))|'
+          + '(((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}'
+          + '(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])))'
+          + ':'
+          + '(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+          + '6[0-4][0-9]{3}|'
+          + '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0)';
+      pattern '((([^:]+:){6}(([^:]+:[^:]+)|(.*\..*)))|'
+          + '((([^:]+:)*[^:]+)?::(([^:]+:)*[^:]+)?))'
+          + ':'
+          + '(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+          + '6[0-4][0-9]{3}|'
+          + '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0)';
+    }
+    description
+      "An IPv6 Route Target is a 20-octet BGP IPv6 Address
+       Specific Extended Community serving the same function
+       as a standard 8-octet Route Target, except that it only
+       allows an IPv6 address as the global administrator.
+       The format is <ipv6-address:2-octet-number>.
+       Two valid examples are 2001:db8::1:6544 and
+       2001:db8::5eb1:791:6b37:17958.";
+    reference
+      "RFC 5701: IPv6 Address Specific BGP Extended Community
+       Attribute.";
+  }
+
+  typedef route-target-type {
+    type enumeration {
+      enum import {
+        value 0;
+        description
+          "The Route Target applies to route import.";
+      }
+      enum export {
+        value 1;
+        description
+          "The Route Target applies to route export.";
+      }
+
+      enum both {
+        value 2;
+        description
+          "The Route Target applies to both route import and
+           route export.";
+      }
+    }
+    description
+      "Indicates the role a Route Target takes in route filtering.";
+    reference
+      "RFC 4364: BGP/MPLS IP Virtual Private Networks (VPNs).";
+  }
+
+  typedef route-distinguisher {
+    type string {
+      pattern
+        '(0:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0):(429496729[0-5]|'
+      +     '42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|429496[0-6][0-9]{3}|'
+      +     '42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|429[0-3][0-9]{6}|'
+      +     '42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0))|'
+      + '(1:((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|'
+      +     '25[0-5])\.){3}([0-9]|[1-9][0-9]|'
+      +     '1[0-9]{2}|2[0-4][0-9]|25[0-5])):(6553[0-5]|'
+      +     '655[0-2][0-9]|'
+      +     '65[0-4][0-9]{2}|6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|'
+      + '(2:(429496729[0-5]|42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|'
+      +     '429496[0-6][0-9]{3}|42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|'
+      +     '429[0-3][0-9]{6}|42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0):'
+      +     '(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|'
+      + '(6(:[a-fA-F0-9]{2}){6})|'
+      + '(([3-57-9a-fA-F]|[1-9a-fA-F][0-9a-fA-F]{1,3}):'
+      +     '[0-9a-fA-F]{1,12})';
+    }
+
+    description
+      "A Route Distinguisher is an 8-octet value used to
+       distinguish routes from different BGP VPNs (RFC 4364).
+       A Route Distinguisher will have the same format as a
+       Route Target as per RFC 4360 and will consist of
+       two or three fields: a 2-octet Type field, an administrator
+       field, and, optionally, an assigned number field.
+       According to the data formats for types 0, 1, 2, and 6 as
+       defined in RFC 4360, RFC 5668, and RFC 7432, the encoding
+       pattern is defined as:
+       0:2-octet-asn:4-octet-number
+       1:4-octet-ipv4addr:2-octet-number
+       2:4-octet-asn:2-octet-number
+       6:6-octet-mac-address
+       Additionally, a generic pattern is defined for future
+       route discriminator types:
+       2-octet-other-hex-number:6-octet-hex-number
+       Some valid examples are 0:100:100, 1:1.1.1.1:100,
+       2:1234567890:203, and 6:26:00:08:92:78:00.";
+    reference
+      "RFC 4360: BGP Extended Communities Attribute.
+       RFC 4364: BGP/MPLS IP Virtual Private Networks (VPNs).
+       RFC 5668: 4-Octet AS Specific BGP Extended Community.
+       RFC 7432: BGP MPLS-Based Ethernet VPN.";
+  }
+
+  typedef route-origin {
+    type string {
+      pattern
+        '(0:(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0):(429496729[0-5]|'
+      +     '42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|429496[0-6][0-9]{3}|'
+      +     '42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|429[0-3][0-9]{6}|'
+      +     '42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0))|'
+      + '(1:((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|'
+      +     '25[0-5])\.){3}([0-9]|[1-9][0-9]|'
+      +     '1[0-9]{2}|2[0-4][0-9]|25[0-5])):(6553[0-5]|'
+      +     '655[0-2][0-9]|'
+      +     '65[0-4][0-9]{2}|6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|'
+      + '(2:(429496729[0-5]|42949672[0-8][0-9]|'
+      +     '4294967[01][0-9]{2}|'
+      +     '429496[0-6][0-9]{3}|42949[0-5][0-9]{4}|'
+      +     '4294[0-8][0-9]{5}|'
+      +     '429[0-3][0-9]{6}|42[0-8][0-9]{7}|4[01][0-9]{8}|'
+      +     '[1-3][0-9]{9}|[1-9][0-9]{0,8}|0):'
+      +     '(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+      +     '6[0-4][0-9]{3}|'
+      +     '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|'
+      + '(6(:[a-fA-F0-9]{2}){6})|'
+      + '(([3-57-9a-fA-F]|[1-9a-fA-F][0-9a-fA-F]{1,3}):'
+      +    '[0-9a-fA-F]{1,12})';
+    }
+    description
+      "A Route Origin is an 8-octet BGP extended community
+       identifying the set of sites where the BGP route
+       originated (RFC 4364).  A Route Origin will have the same
+       format as a Route Target as per RFC 4360 and will consist
+       of two or three fields: a 2-octet Type field, an
+       administrator field, and, optionally, an assigned number
+       field.
+       According to the data formats for types 0, 1, 2, and 6 as
+       defined in RFC 4360, RFC 5668, and RFC 7432, the encoding
+       pattern is defined as:
+       0:2-octet-asn:4-octet-number
+       1:4-octet-ipv4addr:2-octet-number
+       2:4-octet-asn:2-octet-number
+       6:6-octet-mac-address
+       Additionally, a generic pattern is defined for future
+       Route Origin types:
+       2-octet-other-hex-number:6-octet-hex-number
+       Some valid examples are 0:100:100, 1:1.1.1.1:100,
+       2:1234567890:203, and 6:26:00:08:92:78:00.";
+    reference
+      "RFC 4360: BGP Extended Communities Attribute.
+       RFC 4364: BGP/MPLS IP Virtual Private Networks (VPNs).
+       RFC 5668: 4-Octet AS Specific BGP Extended Community.
+       RFC 7432: BGP MPLS-Based Ethernet VPN.";
+  }
+
+  typedef ipv6-route-origin {
+    type string {
+      pattern
+          '((:|[0-9a-fA-F]{0,4}):)([0-9a-fA-F]{0,4}:){0,5}'
+          + '((([0-9a-fA-F]{0,4}:)?(:|[0-9a-fA-F]{0,4}))|'
+          + '(((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}'
+          + '(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])))'
+          + ':'
+          + '(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+          + '6[0-4][0-9]{3}|'
+          + '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0)';
+      pattern '((([^:]+:){6}(([^:]+:[^:]+)|(.*\..*)))|'
+          + '((([^:]+:)*[^:]+)?::(([^:]+:)*[^:]+)?))'
+          + ':'
+          + '(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|'
+          + '6[0-4][0-9]{3}|'
+          + '[1-5][0-9]{4}|[1-9][0-9]{0,3}|0)';
+    }
+    description
+      "An IPv6 Route Origin is a 20-octet BGP IPv6 Address
+       Specific Extended Community serving the same function
+       as a standard 8-octet route, except that it only allows
+       an IPv6 address as the global administrator.  The format
+       is <ipv6-address:2-octet-number>.
+       Two valid examples are 2001:db8::1:6544 and
+       2001:db8::5eb1:791:6b37:17958.";
+    reference
+      "RFC 5701: IPv6 Address Specific BGP Extended Community
+       Attribute.";
+  }
+
+  /*** Collection of types common to multicast ***/
+
+  typedef ipv4-multicast-group-address {
+    type inet:ipv4-address {
+      pattern '(2((2[4-9])|(3[0-9]))\.).*';
+    }
+    description
+      "This type represents an IPv4 multicast group address,
+       which is in the range of 224.0.0.0 to 239.255.255.255.";
+    reference
+      "RFC 1112: Host Extensions for IP Multicasting.";
+  }
+
+  typedef ipv6-multicast-group-address {
+    type inet:ipv6-address {
+      pattern '(([fF]{2}[0-9a-fA-F]{2}):).*';
+    }
+    description
+      "This type represents an IPv6 multicast group address,
+       which is in the range of ff00::/8.";
+    reference
+      "RFC 4291: IP Version 6 Addressing Architecture.  Section 2.7.
+       RFC 7346: IPv6 Multicast Address Scopes.";
+  }
+
+  typedef ip-multicast-group-address {
+    type union {
+      type ipv4-multicast-group-address;
+      type ipv6-multicast-group-address;
+    }
+    description
+      "This type represents a version-neutral IP multicast group
+       address.  The format of the textual representation implies
+       the IP version.";
+  }
+
+  typedef ipv4-multicast-source-address {
+    type union {
+      type enumeration {
+        enum * {
+          description
+            "Any source address.";
+        }
+      }
+      type inet:ipv4-address;
+    }
+    description
+      "Multicast source IPv4 address type.";
+  }
+
+  typedef ipv6-multicast-source-address {
+    type union {
+      type enumeration {
+        enum * {
+          description
+            "Any source address.";
+        }
+      }
+      type inet:ipv6-address;
+    }
+    description
+      "Multicast source IPv6 address type.";
+  }
+
+  /*** Collection of types common to protocols ***/
+
+  typedef bandwidth-ieee-float32 {
+    type string {
+      pattern
+        '0[xX](0((\.0?)?[pP](\+)?0?|(\.0?))|'
+      + '1(\.([0-9a-fA-F]{0,5}[02468aAcCeE]?)?)?[pP](\+)?(12[0-7]|'
+      + '1[01][0-9]|0?[0-9]?[0-9])?)';
+    }
+    description
+      "Bandwidth in IEEE 754 floating-point 32-bit binary format:
+       (-1)**(S) * 2**(Exponent-127) * (1 + Fraction),
+       where Exponent uses 8 bits and Fraction uses 23 bits.
+       The units are octets per second.
+       The encoding format is the external hexadecimal-significant
+       character sequences specified in IEEE 754 and ISO/IEC C99.
+       The format is restricted to be normalized, non-negative, and
+       non-fraction: 0x1.hhhhhhp{+}d, 0X1.HHHHHHP{+}D, or 0x0p0,
+       where 'h' and 'H' are hexadecimal digits and 'd' and 'D' are
+       integers in the range of [0..127].
+       When six hexadecimal digits are used for 'hhhhhh' or
+       'HHHHHH', the least significant digit must be an even
+       number.  'x' and 'X' indicate hexadecimal; 'p' and 'P'
+       indicate a power of two.  Some examples are 0x0p0, 0x1p10,
+       and 0x1.abcde2p+20.";
+    reference
+      "IEEE Std 754-2008: IEEE Standard for Floating-Point
+       Arithmetic.
+       ISO/IEC C99: Information technology - Programming
+       Languages - C.";
+  }
+
+  typedef link-access-type {
+    type enumeration {
+      enum broadcast {
+        description
+          "Specify broadcast multi-access network.";
+      }
+      enum non-broadcast-multiaccess {
+        description
+          "Specify Non-Broadcast Multi-Access (NBMA) network.";
+      }
+      enum point-to-multipoint {
+        description
+          "Specify point-to-multipoint network.";
+      }
+      enum point-to-point {
+        description
+          "Specify point-to-point network.";
+      }
+    }
+    description
+      "Link access type.";
+  }
+
+  typedef timer-multiplier {
+    type uint8;
+    description
+      "The number of timer value intervals that should be
+       interpreted as a failure.";
+  }
+
+  typedef timer-value-seconds16 {
+    type union {
+      type uint16 {
+        range "1..65535";
+      }
+      type enumeration {
+        enum infinity {
+          description
+            "The timer is set to infinity.";
+        }
+        enum not-set {
+          description
+            "The timer is not set.";
+        }
+      }
+    }
+    units "seconds";
+    description
+      "Timer value type, in seconds (16-bit range).";
+  }
+
+  typedef timer-value-seconds32 {
+    type union {
+      type uint32 {
+        range "1..4294967295";
+      }
+      type enumeration {
+        enum infinity {
+          description
+            "The timer is set to infinity.";
+        }
+        enum not-set {
+          description
+            "The timer is not set.";
+        }
+      }
+    }
+    units "seconds";
+    description
+      "Timer value type, in seconds (32-bit range).";
+  }
+
+  typedef timer-value-milliseconds {
+    type union {
+      type uint32 {
+        range "1..4294967295";
+      }
+      type enumeration {
+        enum infinity {
+          description
+            "The timer is set to infinity.";
+        }
+        enum not-set {
+          description
+            "The timer is not set.";
+        }
+      }
+    }
+    units "milliseconds";
+    description
+      "Timer value type, in milliseconds.";
+  }
+
+  typedef percentage {
+    type uint8 {
+      range "0..100";
+    }
+    description
+      "Integer indicating a percentage value.";
+  }
+
+  typedef timeticks64 {
+    type uint64;
+    description
+      "This type is based on the timeticks type defined in
+       RFC 6991, but with 64-bit width.  It represents the time,
+       modulo 2^64, in hundredths of a second between two epochs.";
+    reference
+      "RFC 6991: Common YANG Data Types.";
+  }
+
+  typedef uint24 {
+    type uint32 {
+      range "0..16777215";
+    }
+    description
+      "24-bit unsigned integer.";
+  }
+
+  /*** Collection of types related to MPLS/GMPLS ***/
+
+  typedef generalized-label {
+    type binary;
+    description
+      "Generalized Label.  Nodes sending and receiving the
+       Generalized Label are aware of the link-specific
+       label context and type.";
+    reference
+      "RFC 3471: Generalized Multi-Protocol Label Switching (GMPLS)
+       Signaling Functional Description.  Section 3.2.";
+  }
+
+  typedef mpls-label-special-purpose {
+    type identityref {
+      base mpls-label-special-purpose-value;
+    }
+    description
+      "This type represents the special-purpose MPLS label values.";
+    reference
+      "RFC 3032: MPLS Label Stack Encoding.
+       RFC 7274: Allocating and Retiring Special-Purpose MPLS
+       Labels.";
+  }
+
+  typedef mpls-label-general-use {
+    type uint32 {
+      range "16..1048575";
+    }
+    description
+      "The 20-bit label value in an MPLS label stack as specified
+       in RFC 3032.  This label value does not include the
+       encodings of Traffic Class and TTL (Time to Live).
+       The label range specified by this type is for general use,
+       with special-purpose MPLS label values excluded.";
+    reference
+      "RFC 3032: MPLS Label Stack Encoding.";
+  }
+
+  typedef mpls-label {
+    type union {
+      type mpls-label-special-purpose;
+      type mpls-label-general-use;
+    }
+    description
+      "The 20-bit label value in an MPLS label stack as specified
+       in RFC 3032.  This label value does not include the
+       encodings of Traffic Class and TTL.";
+    reference
+      "RFC 3032: MPLS Label Stack Encoding.";
+  }
+
+  /*** Groupings **/
+
+  grouping mpls-label-stack {
+    description
+      "This grouping specifies an MPLS label stack.  The label
+       stack is encoded as a list of label stack entries.  The
+       list key is an identifier that indicates the relative
+       ordering of each entry, with the lowest-value identifier
+       corresponding to the top of the label stack.";
+    container mpls-label-stack {
+      description
+        "Container for a list of MPLS label stack entries.";
+      list entry {
+        key "id";
+        description
+          "List of MPLS label stack entries.";
+        leaf id {
+          type uint8;
+          description
+            "Identifies the entry in a sequence of MPLS label
+             stack entries.  An entry with a smaller identifier
+             value precedes an entry with a larger identifier
+             value in the label stack.  The value of this ID has
+             no semantic meaning other than relative ordering
+             and referencing the entry.";
+        }
+        leaf label {
+          type rt-types:mpls-label;
+          description
+            "Label value.";
+        }
+
+        leaf ttl {
+          type uint8;
+          description
+            "Time to Live (TTL).";
+          reference
+            "RFC 3032: MPLS Label Stack Encoding.";
+        }
+        leaf traffic-class {
+          type uint8 {
+            range "0..7";
+          }
+          description
+            "Traffic Class (TC).";
+          reference
+            "RFC 5462: Multiprotocol Label Switching (MPLS) Label
+             Stack Entry: 'EXP' Field Renamed to 'Traffic Class'
+             Field.";
+        }
+      }
+    }
+  }
+
+  grouping vpn-route-targets {
+    description
+      "A grouping that specifies Route Target import-export rules
+       used in BGP-enabled VPNs.";
+    reference
+      "RFC 4364: BGP/MPLS IP Virtual Private Networks (VPNs).
+       RFC 4664: Framework for Layer 2 Virtual Private Networks
+       (L2VPNs).";
+    list vpn-target {
+      key "route-target";
+      description
+        "List of Route Targets.";
+      leaf route-target {
+        type rt-types:route-target;
+        description
+          "Route Target value.";
+      }
+      leaf route-target-type {
+        type rt-types:route-target-type;
+        mandatory true;
+        description
+          "Import/export type of the Route Target.";
+      }
+    }
+  }
+}
