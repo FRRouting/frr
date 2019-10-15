@@ -3927,11 +3927,15 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 			if (ain->peer != peer)
 				continue;
 
-			struct bgp_path_info *pi =
-				bgp_node_get_bgp_path_info(rn);
+			struct bgp_path_info *pi;
 			uint32_t num_labels = 0;
 			mpls_label_t *label_pnt = NULL;
 			struct bgp_route_evpn evpn;
+
+			for (pi = bgp_node_get_bgp_path_info(rn); pi;
+			     pi = pi->next)
+				if (pi->peer == peer)
+					break;
 
 			if (pi && pi->extra)
 				num_labels = pi->extra->num_labels;
