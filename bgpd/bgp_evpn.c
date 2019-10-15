@@ -2424,7 +2424,8 @@ static int install_evpn_route_entry_in_es(struct bgp *bgp, struct evpnes *es,
 			       parent_pi->peer, attr_new, rn);
 		SET_FLAG(pi->flags, BGP_PATH_VALID);
 		bgp_path_info_extra_get(pi);
-		pi->extra->parent = parent_pi;
+		pi->extra->parent = bgp_path_info_lock(parent_pi);
+		bgp_lock_node((struct bgp_node *)parent_pi->net);
 		bgp_path_info_add(rn, pi);
 	} else {
 		if (attrhash_cmp(pi->attr, parent_pi->attr)
