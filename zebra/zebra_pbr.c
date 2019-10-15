@@ -191,7 +191,7 @@ bool zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 	if (!prefix_same(&r1->rule.filter.dst_ip, &r2->rule.filter.dst_ip))
 		return false;
 
-	if (r1->ifp != r2->ifp)
+	if (r1->rule.ifindex != r2->rule.ifindex)
 		return false;
 
 	if (r1->vrf_id != r2->vrf_id)
