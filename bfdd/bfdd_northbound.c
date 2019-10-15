@@ -58,10 +58,39 @@ static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 			      union nb_resource *resource, bool mhop)
 {
 	struct bfd_session *bs;
+	const char *ifname;
 	struct bfd_key bk;
+	struct in6_addr i6a;
 
 	switch (event) {
 	case NB_EV_VALIDATE:
+		/*
+		 * When `dest-addr` is IPv6 and link-local we must
+		 * require interface name, otherwise we can't figure
+		 * which interface to use to send the packets.
+		 *
+		 * `memset` `i6a` in case address is IPv4 or non
+		 * link-local IPv6, it should also avoid static
+		 * analyzer warning about unset memory read.
+		 */
+		memset(&i6a, 0, sizeof(i6a));
+		yang_dnode_get_ipv6(&i6a, dnode, "./dest-addr");
+
+		/*
+		 * To support old FRR versions we must allow empty
+		 * interface to be specified, however that should
+		 * change in the future.
+		 */
+		if (yang_dnode_exists(dnode, "./interface"))
+			ifname = yang_dnode_get_string(dnode, "./interface");
+		else
+			ifname = "";
+
+		if (IN6_IS_ADDR_LINKLOCAL(&i6a) && strlen(ifname) == 0) {
+			zlog_warn("%s: when using link-local you must specify "
+				  "an interface.", __func__);
+			return NB_ERR_VALIDATION;
+		}
 		break;
 
 	case NB_EV_PREPARE:
