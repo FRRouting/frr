@@ -2394,6 +2394,30 @@ static int handle_tunnel_ip_change(struct bgp *bgp, struct bgpevpn *vpn,
 	return 0;
 }
 
+static void bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
+					  struct bgp_node *rn)
+{
+	struct attr *attr_new;
+	struct bgp_path_info *pi;
+
+	/* Add (or update) attribute to hash. */
+	attr_new = bgp_attr_intern(parent_pi->attr);
+
+	/* Create new route with its attribute. */
+	pi = info_make(parent_pi->type, BGP_ROUTE_IMPORTED, 0, parent_pi->peer,
+		       attr_new, rn);
+	SET_FLAG(pi->flags, BGP_PATH_VALID);
+	bgp_path_info_extra_get(pi);
+	pi->extra->parent = bgp_path_info_lock(parent_pi);
+	bgp_lock_node((struct bgp_node *)parent_pi->net);
+	if (parent_pi->extra) {
+		memcpy(&pi->extra->label, &parent_pi->extra->label,
+		       sizeof(pi->extra->label));
+		pi->extra->num_labels = parent_pi->extra->num_labels;
+	}
+	bgp_path_info_add(rn, pi);
+}
+
 /* Install EVPN route entry in ES */
 static int install_evpn_route_entry_in_es(struct bgp *bgp, struct evpnes *es,
 					  struct prefix_evpn *p,
@@ -2424,7 +2448,8 @@ static int install_evpn_route_entry_in_es(struct bgp *bgp, struct evpnes *es,
 			       parent_pi->peer, attr_new, rn);
 		SET_FLAG(pi->flags, BGP_PATH_VALID);
 		bgp_path_info_extra_get(pi);
-		pi->extra->parent = parent_pi;
+		pi->extra->parent = bgp_path_info_lock(parent_pi);
+		bgp_lock_node((struct bgp_node *)parent_pi->net);
 		bgp_path_info_add(rn, pi);
 	} else {
 		if (attrhash_cmp(pi->attr, parent_pi->attr)
@@ -2516,24 +2541,9 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		    && (struct bgp_path_info *)pi->extra->parent == parent_pi)
 			break;
 
-	if (!pi) {
-		/* Add (or update) attribute to hash. */
-		attr_new = bgp_attr_intern(&attr);
-
-		/* Create new route with its attribute. */
-		pi = info_make(parent_pi->type, BGP_ROUTE_IMPORTED, 0,
-			       parent_pi->peer, attr_new, rn);
-		SET_FLAG(pi->flags, BGP_PATH_VALID);
-		bgp_path_info_extra_get(pi);
-		pi->extra->parent = bgp_path_info_lock(parent_pi);
-		bgp_lock_node((struct bgp_node *)parent_pi->net);
-		if (parent_pi->extra) {
-			memcpy(&pi->extra->label, &parent_pi->extra->label,
-			       sizeof(pi->extra->label));
-			pi->extra->num_labels = parent_pi->extra->num_labels;
-		}
-		bgp_path_info_add(rn, pi);
-	} else {
+	if (!pi)
+		bgp_create_evpn_bgp_path_info(parent_pi, rn);
+	else {
 		if (attrhash_cmp(pi->attr, &attr)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
 			bgp_unlock_node(rn);
@@ -2595,24 +2605,9 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		    && (struct bgp_path_info *)pi->extra->parent == parent_pi)
 			break;
 
-	if (!pi) {
-		/* Add (or update) attribute to hash. */
-		attr_new = bgp_attr_intern(parent_pi->attr);
-
-		/* Create new route with its attribute. */
-		pi = info_make(parent_pi->type, BGP_ROUTE_IMPORTED, 0,
-			       parent_pi->peer, attr_new, rn);
-		SET_FLAG(pi->flags, BGP_PATH_VALID);
-		bgp_path_info_extra_get(pi);
-		pi->extra->parent = bgp_path_info_lock(parent_pi);
-		bgp_lock_node((struct bgp_node *)parent_pi->net);
-		if (parent_pi->extra) {
-			memcpy(&pi->extra->label, &parent_pi->extra->label,
-			       sizeof(pi->extra->label));
-			pi->extra->num_labels = parent_pi->extra->num_labels;
-		}
-		bgp_path_info_add(rn, pi);
-	} else {
+	if (!pi)
+		bgp_create_evpn_bgp_path_info(parent_pi, rn);
+	else {
 		if (attrhash_cmp(pi->attr, parent_pi->attr)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
 			bgp_unlock_node(rn);
