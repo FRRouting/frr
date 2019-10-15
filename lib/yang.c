@@ -595,7 +595,7 @@ struct yang_data *yang_data_list_find(const struct list *list,
 /* Make libyang log its errors using FRR logging infrastructure. */
 static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 {
-	int priority;
+	int priority = LOG_ERR;
 
 	switch (level) {
 	case LY_LLERR:
@@ -605,10 +605,9 @@ static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 		priority = LOG_WARNING;
 		break;
 	case LY_LLVRB:
+	case LY_LLDBG:
 		priority = LOG_DEBUG;
 		break;
-	default:
-		return;
 	}
 
 	if (path)
@@ -645,6 +644,10 @@ void yang_init(void)
 	/* Initialize libyang global parameters that affect all containers. */
 	ly_set_log_clb(ly_log_cb, 1);
 	ly_log_options(LY_LOLOG | LY_LOSTORE);
+
+	/* Let libyang log everything possible. */
+	ly_verb(LY_LLDBG);
+	ly_verb_dbg(0xFF);
 
 	/* Initialize libyang container for native models. */
 	ly_native_ctx = yang_ctx_new_setup();
