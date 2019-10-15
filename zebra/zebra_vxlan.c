@@ -1816,6 +1816,8 @@ static void zl3vni_print(zebra_l3vni_t *zl3vni, void **ctx)
 			CHECK_FLAG(zl3vni->filter, PREFIX_ROUTES_ONLY)
 				? "prefix-routes-only"
 				: "none");
+		vty_out(vty, "  System MAC: %s\n",
+			zl3vni_sysmac2str(zl3vni, buf, sizeof(buf)));
 		vty_out(vty, "  Router MAC: %s\n",
 			zl3vni_rmac2str(zl3vni, buf, sizeof(buf)));
 		vty_out(vty, "  L2 VNIs: ");
@@ -1834,6 +1836,9 @@ static void zl3vni_print(zebra_l3vni_t *zl3vni, void **ctx)
 				       zl3vni_svi_if_name(zl3vni));
 		json_object_string_add(json, "state", zl3vni_state2str(zl3vni));
 		json_object_string_add(json, "vrf", zl3vni_vrf_name(zl3vni));
+		json_object_string_add(
+			json, "sysMac",
+			zl3vni_sysmac2str(zl3vni, buf, sizeof(buf)));
 		json_object_string_add(
 			json, "routerMac",
 			zl3vni_rmac2str(zl3vni, buf, sizeof(buf)));

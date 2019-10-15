@@ -169,6 +169,44 @@ static inline const char *zl3vni_rmac2str(zebra_l3vni_t *zl3vni, char *buf,
 		ptr = buf;
 	}
 
+	if (zl3vni->mac_vlan_if)
+		snprintf(ptr, (ETHER_ADDR_STRLEN),
+			 "%02x:%02x:%02x:%02x:%02x:%02x",
+			 (uint8_t)zl3vni->mac_vlan_if->hw_addr[0],
+			 (uint8_t)zl3vni->mac_vlan_if->hw_addr[1],
+			 (uint8_t)zl3vni->mac_vlan_if->hw_addr[2],
+			 (uint8_t)zl3vni->mac_vlan_if->hw_addr[3],
+			 (uint8_t)zl3vni->mac_vlan_if->hw_addr[4],
+			 (uint8_t)zl3vni->mac_vlan_if->hw_addr[5]);
+	else if (zl3vni->svi_if)
+		snprintf(ptr, (ETHER_ADDR_STRLEN),
+			 "%02x:%02x:%02x:%02x:%02x:%02x",
+			 (uint8_t)zl3vni->svi_if->hw_addr[0],
+			 (uint8_t)zl3vni->svi_if->hw_addr[1],
+			 (uint8_t)zl3vni->svi_if->hw_addr[2],
+			 (uint8_t)zl3vni->svi_if->hw_addr[3],
+			 (uint8_t)zl3vni->svi_if->hw_addr[4],
+			 (uint8_t)zl3vni->svi_if->hw_addr[5]);
+	else
+		snprintf(ptr, ETHER_ADDR_STRLEN, "None");
+
+	return ptr;
+}
+
+/* get the sys mac string */
+static inline const char *zl3vni_sysmac2str(zebra_l3vni_t *zl3vni, char *buf,
+					    int size)
+{
+	char *ptr;
+
+	if (!buf)
+		ptr = (char *)XMALLOC(MTYPE_TMP,
+				      ETHER_ADDR_STRLEN * sizeof(char));
+	else {
+		assert(size >= ETHER_ADDR_STRLEN);
+		ptr = buf;
+	}
+
 	if (zl3vni->svi_if)
 		snprintf(ptr, (ETHER_ADDR_STRLEN),
 			 "%02x:%02x:%02x:%02x:%02x:%02x",
