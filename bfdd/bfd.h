@@ -461,14 +461,14 @@ int bp_set_tosv6(int sd, uint8_t value);
 int bp_set_tos(int sd, uint8_t value);
 int bp_bind_dev(int sd, const char *dev);
 
-int bp_udp_shop(vrf_id_t vrf_id);
-int bp_udp_mhop(vrf_id_t vrf_id);
-int bp_udp6_shop(vrf_id_t vrf_id);
-int bp_udp6_mhop(vrf_id_t vrf_id);
+int bp_udp_shop(const struct vrf *vrf);
+int bp_udp_mhop(const struct vrf *vrf);
+int bp_udp6_shop(const struct vrf *vrf);
+int bp_udp6_mhop(const struct vrf *vrf);
 int bp_peer_socket(const struct bfd_session *bs);
 int bp_peer_socketv6(const struct bfd_session *bs);
-int bp_echo_socket(vrf_id_t vrf_id);
-int bp_echov6_socket(vrf_id_t vrf_id);
+int bp_echo_socket(const struct vrf *vrf);
+int bp_echov6_socket(const struct vrf *vrf);
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit);
 void ptm_bfd_echo_snd(struct bfd_session *bfd);
