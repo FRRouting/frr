@@ -8967,7 +8967,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 
 		/* Remote Label */
 		if (path->extra && bgp_is_valid_label(&path->extra->label[0])
-		    && safi != SAFI_EVPN) {
+		    && (safi != SAFI_EVPN && !is_route_parent_evpn(path))) {
 			mpls_label_t label = label_pton(&path->extra->label[0]);
 
 			if (json_paths)
