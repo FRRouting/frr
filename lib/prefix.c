@@ -188,6 +188,10 @@ int prefix_match(const struct prefix *n, const struct prefix *p)
 
 	if (n->family == AF_FLOWSPEC) {
 		/* prefixlen is unused. look at fs prefix len */
+		if (n->u.prefix_flowspec.family !=
+		    p->u.prefix_flowspec.family)
+			return 0;
+
 		if (n->u.prefix_flowspec.prefixlen >
 		    p->u.prefix_flowspec.prefixlen)
 			return 0;
@@ -325,6 +329,8 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		len = src->u.prefix_flowspec.prefixlen;
 		dest->u.prefix_flowspec.prefixlen =
 			src->u.prefix_flowspec.prefixlen;
+		dest->u.prefix_flowspec.family =
+			src->u.prefix_flowspec.family;
 		dest->family = src->family;
 		temp = XCALLOC(MTYPE_PREFIX_FLOWSPEC, len);
 		dest->u.prefix_flowspec.ptr = (uintptr_t)temp;
@@ -374,6 +380,9 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 				    sizeof(struct evpn_addr)))
 				return 1;
 		if (p1->family == AF_FLOWSPEC) {
+			if (p1->u.prefix_flowspec.family !=
+			    p2->u.prefix_flowspec.family)
+				return 0;
 			if (p1->u.prefix_flowspec.prefixlen !=
 			    p2->u.prefix_flowspec.prefixlen)
 				return 0;
@@ -414,6 +423,10 @@ int prefix_cmp(union prefixconstptr up1, union prefixconstptr up2)
 	if (p1->family == AF_FLOWSPEC) {
 		pp1 = (const uint8_t *)p1->u.prefix_flowspec.ptr;
 		pp2 = (const uint8_t *)p2->u.prefix_flowspec.ptr;
+
+		if (p1->u.prefix_flowspec.family !=
+		    p2->u.prefix_flowspec.family)
+			return 1;
 
 		if (p1->u.prefix_flowspec.prefixlen !=
 		    p2->u.prefix_flowspec.prefixlen)
