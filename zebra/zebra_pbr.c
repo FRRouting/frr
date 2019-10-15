@@ -144,17 +144,12 @@ uint32_t zebra_pbr_rules_hash_key(const void *arg)
 	key = jhash_3words(rule->rule.seq, rule->rule.priority,
 			   rule->rule.action.table,
 			   prefix_hash_key(&rule->rule.filter.src_ip));
-	if (rule->ifp)
-		key = jhash_1word(rule->ifp->ifindex, key);
-	else
-		key = jhash_1word(0, key);
 
 	if (rule->rule.filter.fwmark)
-		key = jhash_1word(rule->rule.filter.fwmark, key);
+		key = jhash_3words(rule->rule.filter.fwmark, rule->vrf_id,
+				   rule->rule.ifindex, key);
 	else
-		key = jhash_1word(0, key);
-
-	key = jhash_1word(rule->vrf_id, key);
+		key = jhash_2words(rule->vrf_id, rule->rule.ifindex, key);
 
 	return jhash_3words(rule->rule.filter.src_port,
 			    rule->rule.filter.dst_port,
@@ -208,7 +203,7 @@ bool zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 struct pbr_rule_unique_lookup {
 	struct zebra_pbr_rule *rule;
 	uint32_t unique;
-	struct interface *ifp;
+	ifindex_t ifindex;
 	vrf_id_t vrf_id;
 };
 
@@ -218,7 +213,7 @@ static int pbr_rule_lookup_unique_walker(struct hash_bucket *b, void *data)
 	struct zebra_pbr_rule *rule = b->data;
 
 	if (pul->unique == rule->rule.unique
-	    && pul->ifp == rule->ifp
+	    && pul->ifindex == rule->rule.ifindex
 	    && pul->vrf_id == rule->vrf_id) {
 		pul->rule = rule;
 		return HASHWALK_ABORT;
@@ -233,7 +228,7 @@ pbr_rule_lookup_unique(struct zebra_pbr_rule *zrule)
 	struct pbr_rule_unique_lookup pul;
 
 	pul.unique = zrule->rule.unique;
-	pul.ifp = zrule->ifp;
+	pul.ifindex = zrule->rule.ifindex;
 	pul.rule = NULL;
 	pul.vrf_id = zrule->vrf_id;
 	hash_walk(zrouter.rules_hash, &pbr_rule_lookup_unique_walker, &pul);

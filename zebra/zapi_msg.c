@@ -2294,7 +2294,6 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 	struct zebra_pbr_rule zpr;
 	struct stream *s;
 	uint32_t total, i;
-	ifindex_t ifindex;
 
 	s = msg;
 	STREAM_GETL(s, total);
@@ -2319,15 +2318,14 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		STREAM_GETW(s, zpr.rule.filter.dst_port);
 		STREAM_GETL(s, zpr.rule.filter.fwmark);
 		STREAM_GETL(s, zpr.rule.action.table);
-		STREAM_GETL(s, ifindex);
+		STREAM_GETL(s, zpr.rule.ifindex);
 
-		if (ifindex) {
-			zpr.ifp = if_lookup_by_index_per_ns(
-						zvrf->zns,
-						ifindex);
+		if (zpr.rule.ifindex) {
+			zpr.ifp = if_lookup_by_index_per_ns(zvrf->zns,
+							    zpr.rule.ifindex);
 			if (!zpr.ifp) {
 				zlog_debug("Failed to lookup ifindex: %u",
-					   ifindex);
+					   zpr.rule.ifindex);
 				return;
 			}
 		}
