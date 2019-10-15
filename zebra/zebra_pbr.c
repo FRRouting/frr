@@ -471,8 +471,12 @@ static void zebra_pbr_cleanup_rules(struct hash_bucket *b, void *data)
 
 	if (rule->sock == *sock) {
 		(void)kernel_del_pbr_rule(rule);
-		hash_release(zrouter.rules_hash, rule);
-		XFREE(MTYPE_TMP, rule);
+		if (hash_release(zrouter.rules_hash, rule))
+			XFREE(MTYPE_TMP, rule);
+		else
+			zlog_debug(
+				"%s: Rule seq: %u is being cleaned but we can't find it in our tables",
+				__func__, rule->rule.seq);
 	}
 }
 
