@@ -144,7 +144,7 @@ class Config(object):
 
         self.load_contexts()
 
-    def load_from_show_running(self, bindir, confdir):
+    def load_from_show_running(self, bindir, confdir, daemon):
         """
         Read running configuration and slurp it into internal memory
         The internal representation has been marked appropriately by passing it
@@ -154,7 +154,7 @@ class Config(object):
 
         try:
             config_text = subprocess.check_output(
-                bindir + "/vtysh --config_dir " + confdir + " -c 'show run' | /usr/bin/tail -n +4 | " + bindir + "/vtysh --config_dir " + confdir + " -m -f -",
+                bindir + "/vtysh --config_dir " + confdir + " -c 'show run " + daemon + "' | /usr/bin/tail -n +4 | " + bindir + "/vtysh --config_dir " + confdir + " -m -f -",
                 shell=True, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             ve = VtyshMarkException(e)
@@ -1115,6 +1115,8 @@ if __name__ == '__main__':
     parser.add_argument('--bindir', help='path to the vtysh executable', default='/usr/bin')
     parser.add_argument('--confdir', help='path to the daemon config files', default='/etc/frr')
     parser.add_argument('--rundir', help='path for the temp config file', default='/var/run/frr')
+    parser.add_argument('--daemon', help='daemon for which want to replace the config', default='')
+
     args = parser.parse_args()
 
     # Logging
@@ -1168,6 +1170,13 @@ if __name__ == '__main__':
         log.error(msg)
         sys.exit(1)
 
+    # verify that the daemon, if specified, is valid
+    if args.daemon and args.daemon not in ['zebra', 'bgpd', 'fabricd', 'isisd', 'ospf6d', 'ospfd', 'pbrd', 'pimd', 'ripd', 'ripngd', 'sharpd', 'staticd', 'vrrpd', 'ldpd']:
+        msg = "Daemon %s is not a valid option for 'show running-config'" % args.daemon
+        print(msg)
+        log.error(msg)
+        sys.exit(1)
+
     # Verify that 'service integrated-vtysh-config' is configured
     vtysh_filename = args.confdir + '/vtysh.conf'
     service_integrated_vtysh_config = True
@@ -1181,7 +1190,7 @@ if __name__ == '__main__':
                     service_integrated_vtysh_config = False
                     break
 
-    if not service_integrated_vtysh_config:
+    if not service_integrated_vtysh_config and not args.daemon:
         msg = "'service integrated-vtysh-config' is not configured, this is required for 'service frr reload'"
         print(msg)
         log.error(msg)
@@ -1205,7 +1214,7 @@ if __name__ == '__main__':
         if args.input:
             running.load_from_file(args.input, args.bindir, args.confdir)
         else:
-            running.load_from_show_running(args.bindir, args.confdir)
+            running.load_from_show_running(args.bindir, args.confdir, args.daemon)
 
         (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
         lines_to_configure = []
@@ -1283,7 +1292,7 @@ if __name__ == '__main__':
 
         for x in range(2):
             running = Config()
-            running.load_from_show_running(args.bindir, args.confdir)
+            running.load_from_show_running(args.bindir, args.confdir, args.daemon)
             log.debug('Running Frr Config (Pass #%d)\n%s', x, running.get_lines())
 
             (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
@@ -1386,7 +1395,8 @@ if __name__ == '__main__':
                     os.unlink(filename)
 
         # Make these changes persistent
-        if args.overwrite or args.filename != str(args.confdir + '/frr.conf'):
+        target = str(args.confdir + '/frr.conf')
+        if args.overwrite or (not args.daemon and args.filename != target):
             subprocess.call([str(args.bindir + '/vtysh'), '--config_dir', args.confdir, '-c', 'write'])
 
     if not reload_ok:
