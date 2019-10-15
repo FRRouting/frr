@@ -889,12 +889,13 @@ static void bp_bind_ip(int sd, uint16_t port)
 		log_fatal("bind-ip: bind: %s", strerror(errno));
 }
 
-int bp_udp_shop(vrf_id_t vrf_id)
+int bp_udp_shop(const struct vrf *vrf)
 {
 	int sd;
 
 	frr_with_privs(&bglobal.bfdd_privs) {
-		sd = vrf_socket(AF_INET, SOCK_DGRAM, PF_UNSPEC, vrf_id, NULL);
+		sd = vrf_socket(AF_INET, SOCK_DGRAM, PF_UNSPEC, vrf->vrf_id,
+				vrf->name);
 	}
 	if (sd == -1)
 		log_fatal("udp-shop: socket: %s", strerror(errno));
@@ -904,12 +905,13 @@ int bp_udp_shop(vrf_id_t vrf_id)
 	return sd;
 }
 
-int bp_udp_mhop(vrf_id_t vrf_id)
+int bp_udp_mhop(const struct vrf *vrf)
 {
 	int sd;
 
 	frr_with_privs(&bglobal.bfdd_privs) {
-		sd = vrf_socket(AF_INET, SOCK_DGRAM, PF_UNSPEC, vrf_id, NULL);
+		sd = vrf_socket(AF_INET, SOCK_DGRAM, PF_UNSPEC, vrf->vrf_id,
+				vrf->name);
 	}
 	if (sd == -1)
 		log_fatal("udp-mhop: socket: %s", strerror(errno));
@@ -1116,12 +1118,13 @@ static void bp_bind_ipv6(int sd, uint16_t port)
 		log_fatal("bind-ipv6: bind: %s", strerror(errno));
 }
 
-int bp_udp6_shop(vrf_id_t vrf_id)
+int bp_udp6_shop(const struct vrf *vrf)
 {
 	int sd;
 
 	frr_with_privs(&bglobal.bfdd_privs) {
-		sd = vrf_socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC, vrf_id, NULL);
+		sd = vrf_socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC, vrf->vrf_id,
+				vrf->name);
 	}
 	if (sd == -1)
 		log_fatal("udp6-shop: socket: %s", strerror(errno));
@@ -1132,12 +1135,13 @@ int bp_udp6_shop(vrf_id_t vrf_id)
 	return sd;
 }
 
-int bp_udp6_mhop(vrf_id_t vrf_id)
+int bp_udp6_mhop(const struct vrf *vrf)
 {
 	int sd;
 
 	frr_with_privs(&bglobal.bfdd_privs) {
-		sd = vrf_socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC, vrf_id, NULL);
+		sd = vrf_socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC, vrf->vrf_id,
+				vrf->name);
 	}
 	if (sd == -1)
 		log_fatal("udp6-mhop: socket: %s", strerror(errno));
@@ -1148,12 +1152,12 @@ int bp_udp6_mhop(vrf_id_t vrf_id)
 	return sd;
 }
 
-int bp_echo_socket(vrf_id_t vrf_id)
+int bp_echo_socket(const struct vrf *vrf)
 {
 	int s;
 
 	frr_with_privs(&bglobal.bfdd_privs) {
-		s = vrf_socket(AF_INET, SOCK_DGRAM, 0, vrf_id, NULL);
+		s = vrf_socket(AF_INET, SOCK_DGRAM, 0, vrf->vrf_id, vrf->name);
 	}
 	if (s == -1)
 		log_fatal("echo-socket: socket: %s", strerror(errno));
@@ -1164,12 +1168,12 @@ int bp_echo_socket(vrf_id_t vrf_id)
 	return s;
 }
 
-int bp_echov6_socket(vrf_id_t vrf_id)
+int bp_echov6_socket(const struct vrf *vrf)
 {
 	int s;
 
 	frr_with_privs(&bglobal.bfdd_privs) {
-		s = vrf_socket(AF_INET6, SOCK_DGRAM, 0, vrf_id, NULL);
+		s = vrf_socket(AF_INET6, SOCK_DGRAM, 0, vrf->vrf_id, vrf->name);
 	}
 	if (s == -1)
 		log_fatal("echov6-socket: socket: %s", strerror(errno));
