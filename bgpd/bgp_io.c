@@ -343,6 +343,8 @@ static uint16_t bgp_write(struct peer *peer)
 
 			total_written += msg_written;
 
+			assert(total_written < count);
+
 			memmove(&iov, &iov[msg_written],
 				sizeof(iov[0]) * iovsz);
 			streams = &streams[msg_written];
