@@ -486,6 +486,14 @@ extern struct yang_data *yang_data_list_find(const struct list *list,
 extern struct ly_ctx *yang_ctx_new_setup(void);
 
 /*
+ * Enable or disable libyang verbose debugging.
+ *
+ * enable
+ *    When set to true, enable libyang verbose debugging, otherwise disable it.
+ */
+extern void yang_debugging_set(bool enable);
+
+/*
  * Initialize the YANG subsystem. Should be called only once during the
  * daemon initialization process.
  */

@@ -2457,6 +2457,7 @@ DEFUNSH(VTYSH_ALL, debug_nb,
 	    callbacks [{configuration|state|rpc}]\
 	    |notifications\
 	    |events\
+	    |libyang\
 	   >]",
 	NO_STR
 	DEBUG_STR
@@ -2466,7 +2467,8 @@ DEFUNSH(VTYSH_ALL, debug_nb,
 	"State\n"
 	"RPC\n"
 	"Notifications\n"
-	"Events\n")
+	"Events\n"
+	"libyang debugging\n")
 {
 	return CMD_SUCCESS;
 }

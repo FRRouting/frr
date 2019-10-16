@@ -616,6 +616,17 @@ static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 		zlog(priority, "libyang: %s", msg);
 }
 
+void yang_debugging_set(bool enable)
+{
+	if (enable) {
+		ly_verb(LY_LLDBG);
+		ly_verb_dbg(0xFF);
+	} else {
+		ly_verb(LY_LLERR);
+		ly_verb_dbg(0);
+	}
+}
+
 struct ly_ctx *yang_ctx_new_setup(void)
 {
 	struct ly_ctx *ctx;
@@ -644,10 +655,6 @@ void yang_init(void)
 	/* Initialize libyang global parameters that affect all containers. */
 	ly_set_log_clb(ly_log_cb, 1);
 	ly_log_options(LY_LOLOG | LY_LOSTORE);
-
-	/* Let libyang log everything possible. */
-	ly_verb(LY_LLDBG);
-	ly_verb_dbg(0xFF);
 
 	/* Initialize libyang container for native models. */
 	ly_native_ctx = yang_ctx_new_setup();
