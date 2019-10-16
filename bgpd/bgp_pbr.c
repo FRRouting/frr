@@ -168,35 +168,61 @@ static int bgp_pbr_match_walkcb(struct hash_bucket *bucket, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
-static int sprintf_bgp_pbr_match_val(char *str, struct bgp_pbr_match_val *mval,
-				     const char *prepend)
+static int snprintf_bgp_pbr_match_val(char *str, int len, struct bgp_pbr_match_val *mval,
+				      const char *prepend)
 {
 	char *ptr = str;
+	int delta;
 
-	if (prepend)
-		ptr += sprintf(ptr, "%s", prepend);
-	else {
-		if (mval->unary_operator & OPERATOR_UNARY_OR)
-			ptr += sprintf(ptr, ", or ");
-		if (mval->unary_operator & OPERATOR_UNARY_AND)
-			ptr += sprintf(ptr, ", and ");
+	if (prepend) {
+		delta = snprintf(ptr, len, "%s", prepend);
+		ptr += delta;
+		len -= delta;
+	} else {
+		if (mval->unary_operator & OPERATOR_UNARY_OR) {
+			delta = snprintf(ptr, len, ", or ");
+			ptr += delta;
+			len -= delta;
+		}
+		if (mval->unary_operator & OPERATOR_UNARY_AND) {
+			delta = snprintf(ptr, len, ", and ");
+			ptr += delta;
+			len -= delta;
+		}
 	}
-	if (mval->compare_operator & OPERATOR_COMPARE_LESS_THAN)
-		ptr += sprintf(ptr, "<");
-	if (mval->compare_operator & OPERATOR_COMPARE_GREATER_THAN)
-		ptr += sprintf(ptr, ">");
-	if (mval->compare_operator & OPERATOR_COMPARE_EQUAL_TO)
-		ptr += sprintf(ptr, "=");
-	if (mval->compare_operator & OPERATOR_COMPARE_EXACT_MATCH)
-		ptr += sprintf(ptr, "match");
-	ptr += sprintf(ptr, " %u", mval->value);
+	if (mval->compare_operator & OPERATOR_COMPARE_LESS_THAN) {
+		delta = snprintf(ptr, len, "<");
+		ptr += delta;
+		len -= delta;
+	}
+	if (mval->compare_operator & OPERATOR_COMPARE_GREATER_THAN) {
+		delta = snprintf(ptr, len, ">");
+		ptr += delta;
+		len -= delta;
+	}
+	if (mval->compare_operator & OPERATOR_COMPARE_EQUAL_TO) {
+		delta = snprintf(ptr, len, "=");
+		ptr += delta;
+		len -= delta;
+	}
+	if (mval->compare_operator & OPERATOR_COMPARE_EXACT_MATCH) {
+		delta = snprintf(ptr, len, "match");
+		ptr += delta;
+		len -= delta;
+	}
+	ptr += snprintf(ptr, len, " %u", mval->value);
 	return (int)(ptr - str);
 }
 
-#define INCREMENT_DISPLAY(_ptr, _cnt) do { \
-		if (_cnt) \
-			(_ptr) += sprintf((_ptr), "; "); \
-		_cnt++; \
+#define INCREMENT_DISPLAY(_ptr, _cnt, _len) do {	\
+		int sn_delta;				\
+							\
+		if (_cnt) {				\
+			sn_delta = snprintf((_ptr), (_len), "; ");\
+			(_len) -= sn_delta;		\
+			(_ptr) += sn_delta;		\
+		}				\
+		(_cnt)++;	\
 	} while (0)
 
 /* this structure can be used for port range,
@@ -1275,132 +1301,208 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 	char *ptr = return_string;
 	char buff[64];
 	int nb_items = 0;
+	int delta, len = sizeof(return_string);
 
-	ptr += sprintf(ptr, "MATCH : ");
+	delta = snprintf(ptr, sizeof(return_string),  "MATCH : ");
+	len -= delta;
+	ptr += delta;
 	if (api->match_bitmask & PREFIX_SRC_PRESENT) {
 		struct prefix *p = &(api->src_prefix);
 
-		ptr += sprintf(ptr, "@src %s", prefix2str(p, buff, 64));
-		INCREMENT_DISPLAY(ptr, nb_items);
+		if (api->src_prefix_offset)
+			delta = snprintf(ptr, len, "@src %s/off%u",
+				       prefix2str(p, buff, 64),
+				       api->src_prefix_offset);
+		else
+			delta = snprintf(ptr, len, "@src %s",
+				       prefix2str(p, buff, 64));
+		len -= delta;
+		ptr += delta;
+		INCREMENT_DISPLAY(ptr, nb_items, len);
 	}
 	if (api->match_bitmask & PREFIX_DST_PRESENT) {
 		struct prefix *p = &(api->dst_prefix);
 
-		INCREMENT_DISPLAY(ptr, nb_items);
-		ptr += sprintf(ptr, "@dst %s", prefix2str(p, buff, 64));
+		INCREMENT_DISPLAY(ptr, nb_items, len);
+		if (api->dst_prefix_offset)
+			delta = snprintf(ptr, len, "@dst %s/off%u",
+				       prefix2str(p, buff, 64),
+				       api->dst_prefix_offset);
+		else
+			delta = snprintf(ptr, len, "@dst %s", prefix2str(p, buff, 64));
+		len -= delta;
+		ptr += delta;
 	}
 
 	if (api->match_protocol_num)
-		INCREMENT_DISPLAY(ptr, nb_items);
-	for (i = 0; i < api->match_protocol_num; i++)
-		ptr += sprintf_bgp_pbr_match_val(ptr, &api->protocol[i],
-					i > 0 ? NULL : "@proto ");
+		INCREMENT_DISPLAY(ptr, nb_items, len);
+	for (i = 0; i < api->match_protocol_num; i++) {
+		delta = snprintf_bgp_pbr_match_val(ptr, len, &api->protocol[i],
+						   i > 0 ? NULL : "@proto ");
+		len -= delta;
+		ptr += delta;
+	}
 
 	if (api->match_src_port_num)
-		INCREMENT_DISPLAY(ptr, nb_items);
-	for (i = 0; i < api->match_src_port_num; i++)
-		ptr += sprintf_bgp_pbr_match_val(ptr, &api->src_port[i],
-					i > 0 ? NULL : "@srcport ");
+		INCREMENT_DISPLAY(ptr, nb_items, len);
+	for (i = 0; i < api->match_src_port_num; i++) {
+		delta = snprintf_bgp_pbr_match_val(ptr, len, &api->src_port[i],
+						   i > 0 ? NULL : "@srcport ");
+		len -= delta;
+		ptr += delta;
+	}
 
 	if (api->match_dst_port_num)
-		INCREMENT_DISPLAY(ptr, nb_items);
-	for (i = 0; i < api->match_dst_port_num; i++)
-		ptr += sprintf_bgp_pbr_match_val(ptr, &api->dst_port[i],
-					 i > 0 ? NULL : "@dstport ");
+		INCREMENT_DISPLAY(ptr, nb_items, len);
+	for (i = 0; i < api->match_dst_port_num; i++) {
+		delta = snprintf_bgp_pbr_match_val(ptr, len, &api->dst_port[i],
+						   i > 0 ? NULL : "@dstport ");
+		len -= delta;
+		ptr += delta;
+	}
 
 	if (api->match_port_num)
-		INCREMENT_DISPLAY(ptr, nb_items);
-	for (i = 0; i < api->match_port_num; i++)
-		ptr += sprintf_bgp_pbr_match_val(ptr, &api->port[i],
-					 i > 0 ? NULL : "@port ");
+		INCREMENT_DISPLAY(ptr, nb_items, len);
+	for (i = 0; i < api->match_port_num; i++) {
+		delta = snprintf_bgp_pbr_match_val(ptr, len, &api->port[i],
+						   i > 0 ? NULL : "@port ");
+		len -= delta;
+		ptr += delta;
+	}
 
 	if (api->match_icmp_type_num)
-		INCREMENT_DISPLAY(ptr, nb_items);
-	for (i = 0; i < api->match_icmp_type_num; i++)
-		ptr += sprintf_bgp_pbr_match_val(ptr, &api->icmp_type[i],
-					 i > 0 ? NULL : "@icmptype ");
+		INCREMENT_DISPLAY(ptr, nb_items, len);
+	for (i = 0; i < api->match_icmp_type_num; i++) {
+		delta = snprintf_bgp_pbr_match_val(ptr, len, &api->icmp_type[i],
+						   i > 0 ? NULL : "@icmptype ");
+		len -= delta;
+		ptr += delta;
+	}
 
 	if (api->match_icmp_code_num)
-		INCREMENT_DISPLAY(ptr, nb_items);
-	for (i = 0; i < api->match_icmp_code_num; i++)
-		ptr += sprintf_bgp_pbr_match_val(ptr, &api->icmp_code[i],
-					 i > 0 ? NULL : "@icmpcode ");
+		INCREMENT_DISPLAY(ptr, nb_items, len);
+	for (i = 0; i < api->match_icmp_code_num; i++) {
+		delta = snprintf_bgp_pbr_match_val(ptr, len, &api->icmp_code[i],
+						   i > 0 ? NULL : "@icmpcode ");
+		len -= delta;
+		ptr += delta;
+	}
 
 	if (api->match_packet_length_num)
-		INCREMENT_DISPLAY(ptr, nb_items);
-	for (i = 0; i < api->match_packet_length_num; i++)
-		ptr += sprintf_bgp_pbr_match_val(ptr, &api->packet_length[i],
-					 i > 0 ? NULL : "@plen ");
+		INCREMENT_DISPLAY(ptr, nb_items, len);
+	for (i = 0; i < api->match_packet_length_num; i++) {
+		delta = snprintf_bgp_pbr_match_val(ptr, len, &api->packet_length[i],
+						   i > 0 ? NULL : "@plen ");
+		len -= delta;
+		ptr += delta;
+	}
 
 	if (api->match_dscp_num)
-		INCREMENT_DISPLAY(ptr, nb_items);
-	for (i = 0; i < api->match_dscp_num; i++)
-		ptr += sprintf_bgp_pbr_match_val(ptr, &api->dscp[i],
-					i > 0 ? NULL : "@dscp ");
+		INCREMENT_DISPLAY(ptr, nb_items, len);
+	for (i = 0; i < api->match_dscp_num; i++) {
+		delta = snprintf_bgp_pbr_match_val(ptr, len, &api->dscp[i],
+						   i > 0 ? NULL : "@dscp ");
+		len -= delta;
+		ptr += delta;
+	}
 
 	if (api->match_tcpflags_num)
-		INCREMENT_DISPLAY(ptr, nb_items);
-	for (i = 0; i < api->match_tcpflags_num; i++)
-		ptr += sprintf_bgp_pbr_match_val(ptr, &api->tcpflags[i],
-					 i > 0 ? NULL : "@tcpflags ");
+		INCREMENT_DISPLAY(ptr, nb_items, len);
+	for (i = 0; i < api->match_tcpflags_num; i++) {
+		delta = snprintf_bgp_pbr_match_val(ptr, len, &api->tcpflags[i],
+						   i > 0 ? NULL : "@tcpflags ");
+		len -= delta;
+		ptr += delta;
+	}
 
 	if (api->match_fragment_num)
-		INCREMENT_DISPLAY(ptr, nb_items);
-	for (i = 0; i < api->match_fragment_num; i++)
-		ptr += sprintf_bgp_pbr_match_val(ptr, &api->fragment[i],
-					 i > 0 ? NULL : "@fragment ");
-	if (!nb_items)
+		INCREMENT_DISPLAY(ptr, nb_items, len);
+	for (i = 0; i < api->match_fragment_num; i++) {
+		delta = snprintf_bgp_pbr_match_val(ptr, len, &api->fragment[i],
+						   i > 0 ? NULL : "@fragment ");
+		len -= delta;
+		ptr += delta;
+	}
+
+	len = sizeof(return_string);
+	if (!nb_items) {
 		ptr = return_string;
-	else
-		ptr += sprintf(ptr, "; ");
-	if (api->action_num)
-		ptr += sprintf(ptr, "SET : ");
+	} else {
+		len -= (ptr - return_string);
+		delta = snprintf(ptr, len, "; ");
+		len -= delta;
+		ptr += delta;
+	}
+	if (api->action_num) {
+		delta = snprintf(ptr, len, "SET : ");
+		len -= delta;
+		ptr += delta;
+	}
 	nb_items = 0;
 	for (i = 0; i < api->action_num; i++) {
 		switch (api->actions[i].action) {
 		case ACTION_TRAFFICRATE:
-			INCREMENT_DISPLAY(ptr, nb_items);
-			ptr += sprintf(ptr, "@set rate %f",
-				       api->actions[i].u.r.rate);
+			INCREMENT_DISPLAY(ptr, nb_items, len);
+			delta = snprintf(ptr, len, "@set rate %f",
+					api->actions[i].u.r.rate);
+			len -= delta;
+			ptr += delta;
 			break;
 		case ACTION_TRAFFIC_ACTION:
-			INCREMENT_DISPLAY(ptr, nb_items);
-			ptr += sprintf(ptr, "@action ");
+			INCREMENT_DISPLAY(ptr, nb_items, len);
+			delta = snprintf(ptr, len, "@action ");
+			len -= delta;
+			ptr += delta;
 			if (api->actions[i].u.za.filter
-			    & TRAFFIC_ACTION_TERMINATE)
-				ptr += sprintf(ptr,
-					       " terminate (apply filter(s))");
+			    & TRAFFIC_ACTION_TERMINATE) {
+				delta = snprintf(ptr, len,
+						 " terminate (apply filter(s))");
+				len -= delta;
+				ptr += delta;
+			}
 			if (api->actions[i].u.za.filter
-			    & TRAFFIC_ACTION_DISTRIBUTE)
-				ptr += sprintf(ptr, " distribute");
+			    & TRAFFIC_ACTION_DISTRIBUTE) {
+				delta = snprintf(ptr, len, " distribute");
+				len -= delta;
+				ptr += delta;
+			}
 			if (api->actions[i].u.za.filter
-			    & TRAFFIC_ACTION_SAMPLE)
-				ptr += sprintf(ptr, " sample");
+			    & TRAFFIC_ACTION_SAMPLE) {
+				delta = snprintf(ptr, len, " sample");
+				len -= delta;
+				ptr += delta;
+			}
 			break;
 		case ACTION_REDIRECT_IP:
-			INCREMENT_DISPLAY(ptr, nb_items);
 			char local_buff[INET_ADDRSTRLEN];
 
+			INCREMENT_DISPLAY(ptr, nb_items, len);
 			if (inet_ntop(AF_INET,
 				      &api->actions[i].u.zr.redirect_ip_v4,
 				      local_buff, INET_ADDRSTRLEN) != NULL)
-				ptr += sprintf(ptr,
+				delta = snprintf(ptr, len,
 					  "@redirect ip nh %s", local_buff);
+				len -= delta;
+				ptr += delta;
 			break;
 		case ACTION_REDIRECT: {
 			struct vrf *vrf;
 
 			vrf = vrf_lookup_by_id(api->actions[i].u.redirect_vrf);
-			INCREMENT_DISPLAY(ptr, nb_items);
-			ptr += sprintf(ptr, "@redirect vrf %s(%u)",
-				       VRF_LOGNAME(vrf),
-				       api->actions[i].u.redirect_vrf);
+			INCREMENT_DISPLAY(ptr, nb_items, len);
+			delta = snprintf(ptr, len, "@redirect vrf %s(%u)",
+					 VRF_LOGNAME(vrf),
+					 api->actions[i].u.redirect_vrf);
+			len -= delta;
+			ptr += delta;
 			break;
 		}
 		case ACTION_MARKING:
-			INCREMENT_DISPLAY(ptr, nb_items);
-			ptr += sprintf(ptr, "@set dscp %u",
-				  api->actions[i].u.marking_dscp);
+			INCREMENT_DISPLAY(ptr, nb_items, len);
+			delta = snprintf(ptr, len, "@set dscp %u",
+					 api->actions[i].u.marking_dscp);
+			len -= delta;
+			ptr += delta;
 			break;
 		default:
 			break;

@@ -50,7 +50,7 @@ static int bgp_fs_nlri_validate(uint8_t *nlri_content, uint32_t len,
 						BGP_FLOWSPEC_VALIDATE_ONLY,
 						nlri_content + offset,
 						len - offset, NULL, &error,
-						afi);
+						afi, NULL);
 			break;
 		case FLOWSPEC_IP_PROTOCOL:
 		case FLOWSPEC_PORT:

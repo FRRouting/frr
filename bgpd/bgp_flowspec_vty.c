@@ -129,7 +129,7 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 						nlri_content+offset,
 						len - offset,
 						local_string, &error,
-						afi);
+						afi, NULL);
 			if (ret <= 0)
 				break;
 			if (json_path) {

@@ -118,6 +118,8 @@ struct bgp_pbr_entry_main {
 
 	struct prefix src_prefix;
 	struct prefix dst_prefix;
+	uint8_t src_prefix_offset;
+	uint8_t dst_prefix_offset;
 
 #define PROTOCOL_UDP 17
 #define PROTOCOL_TCP 6

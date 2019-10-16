@@ -40,7 +40,7 @@ extern int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 				   uint8_t *nlri_ptr,
 				   uint32_t max_len,
 				   void *result, int *error,
-				   afi_t afi);
+				   afi_t afi, uint8_t *ipv6_offset);
 
 extern int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 					uint8_t *nlri_ptr,
