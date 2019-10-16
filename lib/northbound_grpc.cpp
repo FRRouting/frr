@@ -616,6 +616,11 @@ class NorthboundImpl final : public frr::Northbound::Service
 			return LYD_JSON;
 		case frr::XML:
 			return LYD_XML;
+		default:
+			flog_err(EC_LIB_DEVELOPMENT,
+				 "%s: unknown data encoding format (%u)",
+				 __func__, encoding);
+			exit(1);
 		}
 	}
 
