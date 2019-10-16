@@ -275,42 +275,61 @@ static void show_import_rt_entry(struct hash_bucket *bucket, void *args[])
 
 static void bgp_evpn_show_route_rd_header(struct vty *vty,
 					  struct bgp_node *rd_rn,
-					  json_object *json)
+					  json_object *json,
+					  char *rd_str, int len)
 {
 	uint16_t type;
 	struct rd_as rd_as;
 	struct rd_ip rd_ip;
 	uint8_t *pnt;
-	char rd_str[RD_ADDRSTRLEN];
 
 	pnt = rd_rn->p.u.val;
 
 	/* Decode RD type. */
 	type = decode_rd_type(pnt);
 
-	if (json)
-		return;
-
-	vty_out(vty, "Route Distinguisher: ");
+	if (!json)
+		vty_out(vty, "Route Distinguisher: ");
 
 	switch (type) {
 	case RD_TYPE_AS:
 		decode_rd_as(pnt + 2, &rd_as);
-		snprintf(rd_str, RD_ADDRSTRLEN, "%u:%d", rd_as.as, rd_as.val);
+		snprintf(rd_str, len, "%u:%d", rd_as.as, rd_as.val);
+		if (json)
+			json_object_string_add(json, "rd", rd_str);
+		else
+			vty_out(vty, "as2 %s\n", rd_str);
+		break;
+
+	case RD_TYPE_AS4:
+		decode_rd_as4(pnt + 2, &rd_as);
+		snprintf(rd_str, len, "%u:%d", rd_as.as, rd_as.val);
+		if (json)
+			json_object_string_add(json, "rd", rd_str);
+		else
+			vty_out(vty, "as4 %s\n", rd_str);
 		break;
 
 	case RD_TYPE_IP:
 		decode_rd_ip(pnt + 2, &rd_ip);
-		snprintf(rd_str, RD_ADDRSTRLEN, "%s:%d", inet_ntoa(rd_ip.ip),
+		snprintf(rd_str, len, "%s:%d", inet_ntoa(rd_ip.ip),
 			 rd_ip.val);
+		if (json)
+			json_object_string_add(json, "rd", rd_str);
+		else
+			vty_out(vty, "ip %s\n", rd_str);
 		break;
 
 	default:
-		snprintf(rd_str, RD_ADDRSTRLEN, "Unknown RD type");
+		if (json) {
+			snprintf(rd_str, len, "Unknown");
+			json_object_string_add(json, "rd", rd_str);
+		} else {
+			snprintf(rd_str, len, "Unknown RD type");
+			vty_out(vty, "ip %s\n", rd_str);
+		}
 		break;
 	}
-
-	vty_out(vty, "%s\n", rd_str);
 }
 
 static void bgp_evpn_show_route_header(struct vty *vty, struct bgp *bgp,
@@ -1057,18 +1076,17 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 	struct bgp_path_info *pi;
 	int rd_header;
 	int header = 1;
-	char rd_str[BUFSIZ];
+	char rd_str[RD_ADDRSTRLEN];
 	char buf[BUFSIZ];
 	int no_display;
 
 	unsigned long output_count = 0;
 	unsigned long total_count = 0;
 	json_object *json = NULL;
-	json_object *json_nroute = NULL;
 	json_object *json_array = NULL;
 	json_object *json_prefix_info = NULL;
 
-	memset(rd_str, 0, BUFSIZ);
+	memset(rd_str, 0, RD_ADDRSTRLEN);
 
 	bgp = bgp_get_evpn();
 	if (bgp == NULL) {
@@ -1085,6 +1103,7 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 	for (rn = bgp_table_top(bgp->rib[afi][SAFI_EVPN]); rn;
 	     rn = bgp_route_next(rn)) {
 		uint64_t tbl_ver;
+		json_object *json_nroute = NULL;
 
 		if (prd && memcmp(rn->p.u.val, prd->val, 8) != 0)
 			continue;
@@ -1102,22 +1121,6 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 				continue;
 
 			no_display = 0;
-			if (use_json) {
-				json_array = json_object_new_array();
-				json_prefix_info = json_object_new_object();
-
-				json_object_string_add(json_prefix_info,
-					"prefix", bgp_evpn_route2str(
-					(struct prefix_evpn *)&rm->p, buf,
-					BUFSIZ));
-
-				json_object_int_add(json_prefix_info,
-					"prefixLen", rm->p.prefixlen);
-
-				if (rd_header)
-					json_nroute = json_object_new_object();
-			}
-
 			for (; pi; pi = pi->next) {
 				total_count++;
 				if (type == bgp_show_type_neighbor) {
@@ -1191,60 +1194,16 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 					header = 0;
 				}
 				if (rd_header) {
-					uint16_t type;
-					struct rd_as rd_as;
-					struct rd_ip rd_ip;
-					uint8_t *pnt;
-
-					pnt = rn->p.u.val;
-
-					/* Decode RD type. */
-					type = decode_rd_type(pnt);
-					/* Decode RD value. */
-					if (type == RD_TYPE_AS)
-						decode_rd_as(pnt + 2, &rd_as);
-					else if (type == RD_TYPE_AS4)
-						decode_rd_as4(pnt + 2, &rd_as);
-					else if (type == RD_TYPE_IP)
-						decode_rd_ip(pnt + 2, &rd_ip);
-					if (use_json) {
-						if (type == RD_TYPE_AS
-						    || type == RD_TYPE_AS4)
-							sprintf(rd_str, "%u:%d",
-								rd_as.as,
-								rd_as.val);
-						else if (type == RD_TYPE_IP)
-							sprintf(rd_str, "%s:%d",
-								inet_ntoa(
-									rd_ip.ip),
-								rd_ip.val);
-						json_object_string_add(
-							json_nroute,
-							"rd",
-							rd_str);
-
-					} else {
-						vty_out(vty,
-							"Route Distinguisher: ");
-						if (type == RD_TYPE_AS)
-							vty_out(vty,
-								"as2 %u:%d",
-								rd_as.as,
-								rd_as.val);
-						else if (type == RD_TYPE_AS4)
-							vty_out(vty,
-								"as4 %u:%d",
-								rd_as.as,
-								rd_as.val);
-						else if (type == RD_TYPE_IP)
-							vty_out(vty, "ip %s:%d",
-								inet_ntoa(
-									rd_ip.ip),
-								rd_ip.val);
-						vty_out(vty, "\n\n");
-					}
+					if (use_json)
+						json_nroute =
+						       json_object_new_object();
+					bgp_evpn_show_route_rd_header(vty, rn,
+						json_nroute, rd_str,
+						RD_ADDRSTRLEN);
 					rd_header = 0;
 				}
+				if (use_json && !json_array)
+					json_array = json_object_new_array();
 
 				if (option == SHOW_DISPLAY_TAGS)
 					route_vty_out_tag(vty, &rm->p, pi,
@@ -1264,15 +1223,26 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 			if (no_display)
 				output_count++;
 
-			if (use_json) {
+			if (use_json && json_array) {
+				json_prefix_info = json_object_new_object();
+
+				json_object_string_add(json_prefix_info,
+					"prefix", bgp_evpn_route2str(
+					(struct prefix_evpn *)&rm->p, buf,
+					BUFSIZ));
+
+				json_object_int_add(json_prefix_info,
+					"prefixLen", rm->p.prefixlen);
+
 				json_object_object_add(json_prefix_info,
 					"paths", json_array);
 				json_object_object_add(json_nroute, buf,
 					json_prefix_info);
+				json_array = NULL;
 			}
 		}
 
-		if (use_json)
+		if (use_json && json_nroute)
 			json_object_object_add(json, rd_str, json_nroute);
 	}
 
@@ -2689,7 +2659,8 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 				/* RD header - per RD. */
 				if (rd_header) {
 					bgp_evpn_show_route_rd_header(
-						vty, rd_rn, json);
+						vty, rd_rn, NULL, rd_str,
+						RD_ADDRSTRLEN);
 					rd_header = 0;
 				}
 
