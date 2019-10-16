@@ -617,7 +617,7 @@ def write_test_header(tc_name):
     """ Display message at beginning of test case"""
     count = 20
     logger.info("*"*(len(tc_name)+count))
-    logger.info("START -> Testcase : %s" % tc_name)
+    step("START -> Testcase : %s" % tc_name, reset=True)
     logger.info("*"*(len(tc_name)+count))
 
 
@@ -730,6 +730,31 @@ def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0):
         func_retry._original = func
         return func_retry
     return _retry
+
+
+class Stepper:
+    """
+    Prints step number for the test case step being executed
+    """
+    count = 1
+
+    def __call__(self, msg, reset):
+        if reset:
+            Stepper.count = 1
+            logger.info(msg)
+        else:
+            logger.info("STEP %s: '%s'", Stepper.count, msg)
+            Stepper.count += 1
+
+
+def step(msg, reset=False):
+    """
+    Call Stepper to print test steps. Need to reset at the beginning of test.
+    * ` msg` : Step message body.
+    * `reset` : Reset step count to 1 when set to True.
+    """
+    _step = Stepper()
+    _step(msg, reset)
 
 
 #############################################
