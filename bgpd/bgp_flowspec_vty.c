@@ -325,10 +325,28 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 				json_object_array_add(json_paths,
 						      json_ecom_path);
 		}
-		if (attr->nexthop.s_addr != 0 &&
-		    display == NLRI_STRING_FORMAT_LARGE)
-			vty_out(vty, "\tNLRI NH %-16s\n",
-				inet_ntoa(attr->nexthop));
+		if (display == NLRI_STRING_FORMAT_LARGE) {
+			char local_buff[INET6_ADDRSTRLEN];
+
+			local_buff[0] = '\0';
+			if (p->u.prefix_flowspec.family == AF_INET &&
+			    attr->nexthop.s_addr != 0)
+				inet_ntop(AF_INET,
+					  &attr->nexthop.s_addr,
+					  local_buff,
+					  INET6_ADDRSTRLEN);
+			else if (p->u.prefix_flowspec.family == AF_INET6 &&
+				 attr->mp_nexthop_len != 0 &&
+				 attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV4 &&
+				 attr->mp_nexthop_len != BGP_ATTR_NHLEN_VPNV4)
+				inet_ntop(AF_INET6,
+					  &attr->mp_nexthop_global,
+					  local_buff,
+					  INET6_ADDRSTRLEN);
+			if (local_buff[0] != '\0')
+				vty_out(vty, "\tNLRI NH %s\n",
+					local_buff);
+		}
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 	peer_uptime(path->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL);

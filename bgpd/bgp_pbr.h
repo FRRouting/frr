@@ -260,6 +260,7 @@ struct bgp_pbr_action {
 	bool install_in_progress;
 	uint32_t refcnt;
 	struct bgp *bgp;
+	afi_t afi;
 };
 
 extern struct bgp_pbr_rule *bgp_pbr_rule_lookup(vrf_id_t vrf_id,

@@ -222,7 +222,8 @@ extern bool ecommunity_del_val(struct ecommunity *ecom,
 			       struct ecommunity_val *eval);
 struct bgp_pbr_entry_action;
 extern int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
-			       struct bgp_pbr_entry_action *api);
+				      struct bgp_pbr_entry_action *api,
+				      afi_t afi);
 
 extern void bgp_compute_aggregate_ecommunity(
 					struct bgp_aggregate *aggregate,

@@ -1052,7 +1052,8 @@ bool ecommunity_del_val(struct ecommunity *ecom, struct ecommunity_val *eval)
 }
 
 int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
-			       struct bgp_pbr_entry_action *api)
+			       struct bgp_pbr_entry_action *api,
+			       afi_t afi)
 {
 	if (ecom_eval->val[1] == ECOMMUNITY_TRAFFIC_RATE) {
 		api->action = ACTION_TRAFFICRATE;
@@ -1076,7 +1077,8 @@ int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
 	} else if (ecom_eval->val[1] == ECOMMUNITY_REDIRECT_VRF) {
 		/* must use external function */
 		return 0;
-	} else if (ecom_eval->val[1] == ECOMMUNITY_REDIRECT_IP_NH) {
+	} else if (ecom_eval->val[1] == ECOMMUNITY_REDIRECT_IP_NH &&
+		   afi == AFI_IP) {
 		/* see draft-ietf-idr-flowspec-redirect-ip-02
 		 * Q1: how come a ext. community can host ipv6 address
 		 * Q2 : from cisco documentation:

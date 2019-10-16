@@ -248,6 +248,7 @@ struct bgp_pbr_val_mask {
 struct bgp_pbr_filter {
 	uint8_t type;
 	vrf_id_t vrf_id;
+	uint8_t family;
 	struct prefix *src;
 	struct prefix *dst;
 	uint8_t bitmask_iprule;
@@ -793,9 +794,10 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 				 * do not overwrite
 				 * draft-ietf-idr-flowspec-redirect
 				 */
-				if (api_action_redirect_ip) {
-					if (api_action_redirect_ip->u.zr
-						    .redirect_ip_v4.s_addr
+				if (api_action_redirect_ip &&
+				    p->u.prefix_flowspec.family == AF_INET) {
+					if (api_action_redirect_ip->u
+					    .zr.redirect_ip_v4.s_addr
 					    != INADDR_ANY)
 						continue;
 					if (path->attr->nexthop.s_addr
@@ -807,12 +809,41 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 					api_action_redirect_ip->u.zr.duplicate
 						= ecom_eval->val[7];
 					continue;
-				} else {
+				} else if (api_action_redirect_ip &&
+				    p->u.prefix_flowspec.family == AF_INET6) {
+					if (memcmp(&api_action_redirect_ip->u
+						   .zr.redirect_ip_v6,
+						   &in6addr_any,
+						   sizeof(struct in6_addr)))
+						continue;
+					if (path->attr->mp_nexthop_len == 0 ||
+					    path->attr->mp_nexthop_len ==
+					    BGP_ATTR_NHLEN_IPV4 ||
+					    path->attr->mp_nexthop_len ==
+					    BGP_ATTR_NHLEN_VPNV4)
+						continue;
+					memcpy(&api_action_redirect_ip->u
+					       .zr.redirect_ip_v6,
+					       &path->attr->mp_nexthop_global,
+					       sizeof(struct in6_addr));
+					api_action_redirect_ip->u.zr.duplicate
+						= ecom_eval->val[7];
+					continue;
+				} else if (p->u.prefix_flowspec.family == AF_INET) {
 					api_action->action = ACTION_REDIRECT_IP;
 					api_action->u.zr.redirect_ip_v4.s_addr =
 						path->attr->nexthop.s_addr;
 					api_action->u.zr.duplicate =
 						ecom_eval->val[7];
+					api_action_redirect_ip = api_action;
+				} else if (p->u.prefix_flowspec.family == AF_INET6) {
+					api_action->action = ACTION_REDIRECT_IP;
+					memcpy(&api_action->u
+					       .zr.redirect_ip_v6,
+					       &path->attr->mp_nexthop_global,
+					       sizeof(struct in6_addr));
+					api_action->u.zr.duplicate
+						= ecom_eval->val[7];
 					api_action_redirect_ip = api_action;
 				}
 			} else if ((ecom_eval->val[0] ==
@@ -845,7 +876,8 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 				    (char)ECOMMUNITY_ENCODE_TRANS_EXP)
 					continue;
 				ret = ecommunity_fill_pbr_action(ecom_eval,
-								 api_action);
+								 api_action,
+								 afi);
 				if (ret != 0)
 					continue;
 				if ((api_action->action == ACTION_TRAFFICRATE) &&
@@ -1181,6 +1213,7 @@ uint32_t bgp_pbr_action_hash_key(const void *arg)
 	pbra = arg;
 	key = jhash_1word(pbra->table_id, 0x4312abde);
 	key = jhash_1word(pbra->fwmark, key);
+	key = jhash_1word(pbra->afi, key);
 	return key;
 }
 
@@ -1196,6 +1229,9 @@ bool bgp_pbr_action_hash_equal(const void *arg1, const void *arg2)
 	 * rate is ignored
 	 */
 	if (r1->vrf_id != r2->vrf_id)
+		return false;
+
+	if (r1->afi != r2->afi)
 		return false;
 
 	if (memcmp(&r1->nh, &r2->nh, sizeof(struct nexthop)))
@@ -1515,18 +1551,25 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 				ptr += delta;
 			}
 			break;
-		case ACTION_REDIRECT_IP:
-			char local_buff[INET_ADDRSTRLEN];
+		case ACTION_REDIRECT_IP: {
+			char local_buff[INET6_ADDRSTRLEN];
+			void *ptr_ip;
 
 			INCREMENT_DISPLAY(ptr, nb_items, len);
-			if (inet_ntop(AF_INET,
-				      &api->actions[i].u.zr.redirect_ip_v4,
-				      local_buff, INET_ADDRSTRLEN) != NULL)
+			if (api->afi == AF_INET)
+				ptr_ip = &api->actions[i].u.zr.redirect_ip_v4;
+			else
+				ptr_ip = &api->actions[i].u.zr.redirect_ip_v6;
+			if (inet_ntop(afi2family(api->afi),
+				      ptr_ip, local_buff,
+				      INET6_ADDRSTRLEN) != NULL) {
 				delta = snprintf(ptr, len,
 					  "@redirect ip nh %s", local_buff);
 				len -= delta;
 				ptr += delta;
+			}
 			break;
+		}
 		case ACTION_REDIRECT: {
 			struct vrf *vrf;
 
@@ -1639,7 +1682,7 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 		if (bpa->installed && bpa->table_id != 0) {
 			bgp_send_pbr_rule_action(bpa, NULL, false);
 			bgp_zebra_announce_default(bpa->bgp, &(bpa->nh),
-						   AFI_IP,
+						   bpa->afi,
 						   bpa->table_id,
 						   false);
 			bpa->installed = false;
@@ -1794,12 +1837,12 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(
 		temp.flags |= MATCH_IP_SRC_SET;
 		prefix_copy(&temp2.src, bpf->src);
 	} else
-		temp2.src.family = AF_INET;
+		temp2.src.family = bpf->family;
 	if (bpf->dst) {
 		temp.flags |= MATCH_IP_DST_SET;
 		prefix_copy(&temp2.dst, bpf->dst);
 	} else
-		temp2.dst.family = AF_INET;
+		temp2.dst.family = bpf->family;
 	if (src_port && (src_port->min_port || bpf->protocol == IPPROTO_ICMP)) {
 		if (bpf->protocol == IPPROTO_ICMP)
 			temp.flags |= MATCH_ICMP_SET;
@@ -2200,6 +2243,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	if (nh)
 		memcpy(&temp3.nh, nh, sizeof(struct nexthop));
 	temp3.vrf_id = bpf->vrf_id;
+	temp3.afi = family2afi(bpf->family);
 	bpa = hash_get(bgp->pbr_action_hash, &temp3,
 		       bgp_pbr_action_alloc_intern);
 
@@ -2258,7 +2302,8 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		if (!bpa->installed && !bpa->install_in_progress) {
 			bgp_send_pbr_rule_action(bpa, NULL, true);
 			bgp_zebra_announce_default(bgp, nh,
-						   AFI_IP, bpa->table_id, true);
+						   bpa->afi,
+						   bpa->table_id, true);
 		}
 		/* ip rule add */
 		if (bpr && !bpr->installed)
@@ -2377,11 +2422,11 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	if (bpf->src)
 		prefix_copy(&temp2.src, bpf->src);
 	else
-		temp2.src.family = AF_INET;
+		temp2.src.family = bpf->family;
 	if (bpf->dst)
 		prefix_copy(&temp2.dst, bpf->dst);
 	else
-		temp2.dst.family = AF_INET;
+		temp2.dst.family = bpf->family;
 	temp2.src_port_min = src_port ? src_port->min_port : 0;
 	temp2.dst_port_min = dst_port ? dst_port->min_port : 0;
 	temp2.src_port_max = src_port ? src_port->max_port : 0;
@@ -2428,7 +2473,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	if (!bpa->installed && !bpa->install_in_progress) {
 		bgp_send_pbr_rule_action(bpa, NULL, true);
 		bgp_zebra_announce_default(bgp, nh,
-					   AFI_IP, bpa->table_id, true);
+					   bpa->afi, bpa->table_id, true);
 	}
 
 	/* ipset create */
@@ -2690,6 +2735,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 	bpf.protocol = proto;
 	bpf.src_port = srcp;
 	bpf.dst_port = dstp;
+	bpf.family = afi2family(api->afi);
 	if (!add) {
 		bgp_pbr_policyroute_remove_from_zebra(bgp, path, &bpf, &bpof);
 		return;
@@ -2739,10 +2785,18 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 			 */
 			break;
 		case ACTION_REDIRECT_IP:
-			nh.type = NEXTHOP_TYPE_IPV4;
-			nh.gate.ipv4.s_addr =
-				api->actions[i].u.zr.redirect_ip_v4.s_addr;
 			nh.vrf_id = api->vrf_id;
+			if (api->afi == AFI_IP) {
+				nh.type = NEXTHOP_TYPE_IPV4;
+				nh.gate.ipv4.s_addr =
+					api->actions[i].u.zr.
+					redirect_ip_v4.s_addr;
+			} else {
+				nh.type = NEXTHOP_TYPE_IPV6;
+				memcpy(&nh.gate.ipv6,
+				       &api->actions[i].u.zr.redirect_ip_v6,
+				       sizeof(struct in6_addr));
+			}
 			bgp_pbr_policyroute_add_to_zebra(bgp, path, &bpf, &bpof,
 							 &nh, &rate);
 			/* XXX combination with REDIRECT_VRF
