@@ -184,6 +184,7 @@ struct bgp_pbr_match {
 	uint32_t type;
 
 	uint32_t flags;
+	uint8_t family;
 
 	uint16_t pkt_len_min;
 	uint16_t pkt_len_max;

@@ -2415,7 +2415,7 @@ static void bgp_encode_pbr_ipset_match(struct stream *s,
 {
 	stream_putl(s, pbim->unique);
 	stream_putl(s, pbim->type);
-
+	stream_putc(s, pbim->family);
 	stream_put(s, pbim->ipset_name,
 		   ZEBRA_IPSET_NAME_SIZE);
 }
@@ -2464,6 +2464,7 @@ static void bgp_encode_pbr_iptable_match(struct stream *s,
 	stream_putl(s, bpa->fwmark);
 	stream_put(s, pbm->ipset_name,
 		   ZEBRA_IPSET_NAME_SIZE);
+	stream_putc(s, pbm->family);
 	stream_putw(s, pbm->pkt_len_min);
 	stream_putw(s, pbm->pkt_len_max);
 	stream_putw(s, pbm->tcp_flags);
@@ -2471,6 +2472,7 @@ static void bgp_encode_pbr_iptable_match(struct stream *s,
 	stream_putc(s, pbm->dscp_value);
 	stream_putc(s, pbm->fragment);
 	stream_putc(s, pbm->protocol);
+	stream_putw(s, pbm->flow_label);
 }
 
 /* BGP has established connection with Zebra. */

@@ -79,6 +79,9 @@ struct zebra_pbr_ipset {
 	 * but value is an enum ipset_type
 	 */
 	uint32_t type;
+
+	uint8_t family;
+
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
 
@@ -150,6 +153,9 @@ struct zebra_pbr_iptable {
 	uint8_t protocol;
 
 	uint32_t nb_interface;
+	uint16_t flow_label;
+
+	uint8_t family;
 
 	struct list *interface_name_list;
 

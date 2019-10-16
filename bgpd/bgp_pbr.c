@@ -1057,6 +1057,7 @@ uint32_t bgp_pbr_match_hash_key(const void *arg)
 
 	key = jhash_1word(pbm->vrf_id, 0x4312abde);
 	key = jhash_1word(pbm->flags, key);
+	key = jhash_1word(pbm->family, key);
 	key = jhash(&pbm->pkt_len_min, 2, key);
 	key = jhash(&pbm->pkt_len_max, 2, key);
 	key = jhash(&pbm->tcp_flags, 2, key);
@@ -1076,6 +1077,9 @@ bool bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
 	r2 = (const struct bgp_pbr_match *)arg2;
 
 	if (r1->vrf_id != r2->vrf_id)
+		return false;
+
+	if (r1->family != r2->family)
 		return false;
 
 	if (r1->type != r2->type)
@@ -1762,6 +1766,7 @@ static int bgp_pbr_get_remaining_entry(struct hash_bucket *bucket, void *arg)
 	    bpm_temp->pkt_len_max != bpm->pkt_len_max ||
 	    bpm_temp->dscp_value != bpm->dscp_value ||
 	    bpm_temp->flow_label != bpm->flow_label ||
+	    bpm_temp->family != bpm->family ||
 	    bpm_temp->fragment != bpm->fragment)
 		return HASHWALK_CONTINUE;
 
@@ -1833,6 +1838,7 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(
 		return;
 	}
 
+	temp.family = bpf->family;
 	if (bpf->src) {
 		temp.flags |= MATCH_IP_SRC_SET;
 		prefix_copy(&temp2.src, bpf->src);
@@ -2329,6 +2335,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	/* then look for bpm */
 	memset(&temp, 0, sizeof(temp));
 	temp.vrf_id = bpf->vrf_id;
+	temp.family = bpf->family;
 	if (bpf->src)
 		temp.flags |= MATCH_IP_SRC_SET;
 	if (bpf->dst)
