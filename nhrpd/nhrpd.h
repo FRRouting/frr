@@ -76,8 +76,10 @@ static inline void notifier_del(struct notifier_block *n)
 static inline void notifier_call(struct notifier_list *l, int cmd)
 {
 	struct notifier_block *n, *nn;
-	list_for_each_entry_safe(n, nn, &l->notifier_head, notifier_entry)
-		n->action(n, cmd);
+	list_for_each_entry_safe(n, nn, &l->notifier_head, notifier_entry) {
+		if (n)
+			n->action(n, cmd);
+	}
 }
 
 static inline int notifier_active(struct notifier_list *l)
