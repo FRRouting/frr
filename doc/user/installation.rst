@@ -302,6 +302,23 @@ options from the list below.
 
    Build the Sysrepo northbound plugin.
 
+.. option:: --enable-time-check XXX
+
+   When this is enabled with a XXX value in microseconds, any thread that
+   runs for over this value will cause a warning to be issued to the log.
+   If you do not specify any value or don't include this option then
+   the default time is 5 seconds.  If --disable-time-check is specified
+   then no warning is issued for any thread run length.
+
+.. option:: --disable-cpu-time
+
+   Disable cpu process accounting, this command also disables the `show thread cpu`
+   command.  If this option is disabled, --enable-time-check is ignored.  This
+   disabling of cpu time effectively means that the getrusage call is skipped.
+   Since this is a process switch into the kernel, systems with high FRR
+   load might see improvement in behavior.  Be aware that `show thread cpu`
+   is considered a good data gathering tool from the perspective of developers.
+
 You may specify any combination of the above options to the configure
 script. By default, the executables are placed in :file:`/usr/local/sbin`
 and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`

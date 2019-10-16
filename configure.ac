@@ -536,6 +536,8 @@ AC_ARG_ENABLE([backtrace],
   AS_HELP_STRING([--disable-backtrace,], [disable crash backtraces (default autodetect)]))
 AC_ARG_ENABLE([time-check],
   AS_HELP_STRING([--disable-time-check], [disable slow thread warning messages]))
+AC_ARG_ENABLE([cpu-time],
+  AS_HELP_STRING([--disable-cpu-time], [disable cpu usage data gathering]))
 AC_ARG_ENABLE([pcreposix],
   AS_HELP_STRING([--enable-pcreposix], [enable using PCRE Posix libs for regex functions]))
 AC_ARG_ENABLE([fpm],
@@ -613,6 +615,14 @@ if test x"${enable_time_check}" != x"no" ; then
     AC_DEFINE_UNQUOTED([CONSUMED_TIME_CHECK], [$enable_time_check], [Consumed Time Check])
   fi
 fi
+
+case "${enable_cpu_time}" in
+  "no")
+  AC_DEFINE([EXCLUDE_CPU_TIME], [1], [Exclude getrusage data gathering])
+  ;;
+  "*")
+  ;;
+esac
 
 case "${enable_systemd}" in
   "no") ;;
