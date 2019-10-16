@@ -163,6 +163,34 @@ releases have support for this feature request. Moreover, introducing features
 requests may result in breaking the stability of the branch. LTS branches are first
 done to bring long term support for stability.
 
+Development Branches
+--------------------
+
+Occassionally the community will desire the ability to work together
+on a feature that is considered useful to FRR.  In this case the
+parties may ask the Maintainers for the creation of a development
+branch in the main FRR repository.  Requirements for this to happen
+are:
+
+- A one paragraph description of the feature being implemented to
+  allow for the facilitation of discussion about the feature.  This
+  might include pointers to relevant RFC's or presentations that
+  explain what is planned.  This is intended to set a somewhat
+  low bar for organization.
+- A branch maintainer must be named.  This person is responsible for
+  keeping the branch up to date, and general communication about the
+  project with the other FRR Maintainers.  Additionally this person
+  must already be a FRR Maintainer.
+- Commits to this branch must follow the normal PR and commit process
+  as outlined in other areas of this document.  The goal of this is
+  to prevent the current state where large features are submitted
+  and are so large they are difficult to review.
+
+After a development branch has completed the work together, a final
+review can be made and the branch merged into master.  If a development
+branch is becomes un-maintained or not being actively worked on after
+three months then the Maintainers can decide to remove the branch.
+
 Changelog
 ---------
 The changelog will be the base for the release notes. A changelog entry for
