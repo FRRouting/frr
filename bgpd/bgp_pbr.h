@@ -115,6 +115,7 @@ struct bgp_pbr_entry_main {
 	uint8_t match_dscp_num;
 	uint8_t match_tcpflags_num;
 	uint8_t match_fragment_num;
+	uint8_t match_flowlabel_num;
 
 	struct prefix src_prefix;
 	struct prefix dst_prefix;
@@ -132,6 +133,7 @@ struct bgp_pbr_entry_main {
 	struct bgp_pbr_match_val icmp_code[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val packet_length[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val dscp[BGP_PBR_MATCH_VAL_MAX];
+	struct bgp_pbr_match_val flow_label[BGP_PBR_MATCH_VAL_MAX];
 
 	struct bgp_pbr_match_val tcpflags[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val fragment[BGP_PBR_MATCH_VAL_MAX];
@@ -190,6 +192,7 @@ struct bgp_pbr_match {
 	uint8_t dscp_value;
 	uint8_t fragment;
 	uint8_t protocol;
+	uint16_t flow_label;
 
 	vrf_id_t vrf_id;
 

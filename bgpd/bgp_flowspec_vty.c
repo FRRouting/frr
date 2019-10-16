@@ -50,6 +50,7 @@ static const struct message bgp_flowspec_display_large[] = {
 	{FLOWSPEC_PKT_LEN, "Packet Length"},
 	{FLOWSPEC_DSCP, "DSCP field"},
 	{FLOWSPEC_FRAGMENT, "Packet Fragment"},
+	{FLOWSPEC_FLOW_LABEL, "Packet Flow Label"},
 	{0}
 };
 
@@ -66,6 +67,7 @@ static const struct message bgp_flowspec_display_min[] = {
 	{FLOWSPEC_PKT_LEN, "pktlen"},
 	{FLOWSPEC_DSCP, "dscp"},
 	{FLOWSPEC_FRAGMENT, "pktfrag"},
+	{FLOWSPEC_FLOW_LABEL, "flwlbl"},
 	{0}
 };
 
@@ -147,6 +149,7 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 			len_string -= len_written;
 			ptr += len_written;
 			break;
+		case FLOWSPEC_FLOW_LABEL:
 		case FLOWSPEC_IP_PROTOCOL:
 		case FLOWSPEC_PORT:
 		case FLOWSPEC_DEST_PORT:

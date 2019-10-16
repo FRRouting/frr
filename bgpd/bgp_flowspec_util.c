@@ -118,6 +118,16 @@ bool bgp_flowspec_contains_prefix(const struct prefix *pfs,
 					   &compare.u.prefix6.s6_addr))
 				return true;
 			break;
+		case FLOWSPEC_FLOW_LABEL:
+			if (afi == AFI_IP) {
+				error = -1;
+				continue;
+			}
+			ret = bgp_flowspec_op_decode(BGP_FLOWSPEC_VALIDATE_ONLY,
+						     nlri_content+offset,
+						     len - offset,
+						     NULL, &error);
+			break;
 		case FLOWSPEC_IP_PROTOCOL:
 		case FLOWSPEC_PORT:
 		case FLOWSPEC_DEST_PORT:
@@ -499,6 +509,20 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 			}
 			offset += ret;
 			break;
+		case FLOWSPEC_FLOW_LABEL:
+			if (afi == AFI_IP) {
+				error = -1;
+				continue;
+			}
+			match_num = &(bpem->match_flowlabel_num);
+			mval = (struct bgp_pbr_match_val *)
+				&(bpem->flow_label);
+			offset += bgp_flowspec_call_non_opaque_decode(
+							nlri_content + offset,
+							len - offset,
+							mval, match_num,
+							&error);
+			break;
 		case FLOWSPEC_IP_PROTOCOL:
 			match_num = &(bpem->match_protocol_num);
 			mval = (struct bgp_pbr_match_val *)
@@ -621,7 +645,8 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 	    bpem->match_packet_length_num || bpem->match_icmp_code_num ||
 	    bpem->match_icmp_type_num || bpem->match_port_num ||
 	    bpem->match_src_port_num || bpem->match_dst_port_num ||
-	    bpem->match_protocol_num || bpem->match_bitmask)
+	    bpem->match_protocol_num || bpem->match_bitmask ||
+	    bpem->match_flowlabel_num)
 		bpem->type = BGP_PBR_IPSET;
 	else if ((bpem->match_bitmask_iprule & PREFIX_SRC_PRESENT) ||
 		 (bpem->match_bitmask_iprule & PREFIX_DST_PRESENT))

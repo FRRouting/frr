@@ -52,6 +52,13 @@ static int bgp_fs_nlri_validate(uint8_t *nlri_content, uint32_t len,
 						len - offset, NULL, &error,
 						afi, NULL);
 			break;
+		case FLOWSPEC_FLOW_LABEL:
+			if (afi == AFI_IP)
+				return -1;
+			ret = bgp_flowspec_op_decode(BGP_FLOWSPEC_VALIDATE_ONLY,
+						   nlri_content + offset,
+						   len - offset, NULL, &error);
+			break;
 		case FLOWSPEC_IP_PROTOCOL:
 		case FLOWSPEC_PORT:
 		case FLOWSPEC_DEST_PORT:

@@ -129,6 +129,8 @@ struct pbr_rule {
 #define MATCH_FRAGMENT_INVERSE_SET	(1 << 9)
 #define MATCH_ICMP_SET			(1 << 10)
 #define MATCH_PROTOCOL_SET		(1 << 11)
+#define MATCH_FLOW_LABEL_SET		(1 << 12)
+#define MATCH_FLOW_LABEL_INVERSE_SET	(1 << 13)
 
 extern int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s,
 				struct pbr_rule *zrule);

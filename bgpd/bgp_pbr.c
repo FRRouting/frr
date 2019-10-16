@@ -257,6 +257,7 @@ struct bgp_pbr_filter {
 	struct bgp_pbr_range_port *dst_port;
 	struct bgp_pbr_val_mask *tcp_flags;
 	struct bgp_pbr_val_mask *dscp;
+	struct bgp_pbr_val_mask *flow_label;
 	struct bgp_pbr_val_mask *pkt_len_val;
 	struct bgp_pbr_val_mask *fragment;
 };
@@ -268,6 +269,7 @@ struct bgp_pbr_filter {
 struct bgp_pbr_or_filter {
 	struct list *tcpflags;
 	struct list *dscp;
+	struct list *flowlabel;
 	struct list *pkt_len;
 	struct list *fragment;
 	struct list *icmp_type;
@@ -294,6 +296,7 @@ static bool bgp_pbr_extract_enumerate_unary_opposite(
 				TCP_HEADER_ALL_FLAGS &
 				~(value);
 		} else if (type_entry == FLOWSPEC_DSCP ||
+			   type_entry == FLOWSPEC_FLOW_LABEL ||
 			   type_entry == FLOWSPEC_PKT_LEN ||
 			   type_entry == FLOWSPEC_FRAGMENT) {
 			and_valmask->val = value;
@@ -308,6 +311,7 @@ static bool bgp_pbr_extract_enumerate_unary_opposite(
 				TCP_HEADER_ALL_FLAGS &
 				~(value);
 		} else if (type_entry == FLOWSPEC_DSCP ||
+			   type_entry == FLOWSPEC_FLOW_LABEL ||
 			   type_entry == FLOWSPEC_FRAGMENT ||
 			   type_entry == FLOWSPEC_PKT_LEN) {
 			and_valmask->val = value;
@@ -322,7 +326,7 @@ static bool bgp_pbr_extract_enumerate_unary_opposite(
 
 /* TCP : FIN and SYN -> val = ALL; mask = 3
  * TCP : not (FIN and SYN) -> val = ALL; mask = ALL & ~(FIN|RST)
- * other variables type: dscp, pkt len, fragment
+ * other variables type: dscp, pkt len, fragment, flow label
  * - value is copied in bgp_pbr_val_mask->val value
  * - if negate form is identifierd, bgp_pbr_val_mask->mask set to 1
  */
@@ -377,6 +381,7 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 				and_valmask->mask |=
 					TCP_HEADER_ALL_FLAGS & list[i].value;
 			} else if (type_entry == FLOWSPEC_DSCP ||
+				   type_entry == FLOWSPEC_FLOW_LABEL ||
 				   type_entry == FLOWSPEC_ICMP_TYPE ||
 				   type_entry == FLOWSPEC_ICMP_CODE ||
 				   type_entry == FLOWSPEC_FRAGMENT ||
@@ -601,6 +606,23 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 			return 0;
 		}
 	}
+	if (api->match_flowlabel_num) {
+		if (api->afi == AFI_IP) {
+			if (BGP_DEBUG(pbr, PBR))
+				zlog_debug("BGP: match Flow Label operations:"
+					   "Not for IPv4.");
+			return 0;
+		}
+		if (!bgp_pbr_extract_enumerate(api->flow_label,
+					       api->match_flowlabel_num,
+				OPERATOR_UNARY_OR | OPERATOR_UNARY_AND,
+					       NULL, FLOWSPEC_FLOW_LABEL)) {
+			if (BGP_DEBUG(pbr, PBR))
+				zlog_debug("BGP: match FlowLabel operations:"
+					   "too complex. ignoring.");
+			return 0;
+		}
+	}
 	if (api->match_fragment_num) {
 		char fail_str[64];
 		bool success;
@@ -623,6 +645,13 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 						fail_str, sizeof(fail_str),
 						"Value not valid (%d) for this implementation",
 						api->fragment[i].value);
+				}
+				if (api->afi == AFI_IP6 &&
+				    api->fragment[i].value == 1) {
+					success = false;
+					snprintf(fail_str, sizeof(fail_str),
+						 "IPv6 dont fragment match invalid (%d)",
+						 api->fragment[i].value);
 				}
 			}
 		} else
@@ -669,7 +698,7 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 			if (api->actions[i].action == ACTION_MARKING) {
 				if (BGP_DEBUG(pbr, PBR)) {
 					bgp_pbr_print_policy_route(api);
-					zlog_warn("PBR: iprule set DSCP %u not supported",
+					zlog_warn("PBR: iprule set DSCP/Flow Label %u not supported",
 						api->actions[i].u.marking_dscp);
 				}
 			}
@@ -1001,6 +1030,7 @@ uint32_t bgp_pbr_match_hash_key(const void *arg)
 	key = jhash(&pbm->tcp_flags, 2, key);
 	key = jhash(&pbm->tcp_mask_flags, 2, key);
 	key = jhash(&pbm->dscp_value, 1, key);
+	key = jhash(&pbm->flow_label, 2, key);
 	key = jhash(&pbm->fragment, 1, key);
 	key = jhash(&pbm->protocol, 1, key);
 	return jhash_1word(pbm->type, key);
@@ -1038,6 +1068,9 @@ bool bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
 		return false;
 
 	if (r1->dscp_value != r2->dscp_value)
+		return false;
+
+	if (r1->flow_label != r2->flow_label)
 		return false;
 
 	if (r1->fragment != r2->fragment)
@@ -1406,6 +1439,15 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 		ptr += delta;
 	}
 
+	if (api->match_flowlabel_num)
+		INCREMENT_DISPLAY(ptr, nb_items, len);
+	for (i = 0; i < api->match_flowlabel_num; i++) {
+		delta = snprintf_bgp_pbr_match_val(ptr, len, &api->flow_label[i],
+						  i > 0 ? NULL : "@flowlabel ");
+		len -= delta;
+		ptr += delta;
+	}
+
 	if (api->match_tcpflags_num)
 		INCREMENT_DISPLAY(ptr, nb_items, len);
 	for (i = 0; i < api->match_tcpflags_num; i++) {
@@ -1499,7 +1541,7 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 		}
 		case ACTION_MARKING:
 			INCREMENT_DISPLAY(ptr, nb_items, len);
-			delta = snprintf(ptr, len, "@set dscp %u",
+			delta = snprintf(ptr, len, "@set dscp/flowlabel %u",
 					 api->actions[i].u.marking_dscp);
 			len -= delta;
 			ptr += delta;
@@ -1676,6 +1718,7 @@ static int bgp_pbr_get_remaining_entry(struct hash_bucket *bucket, void *arg)
 	    bpm_temp->pkt_len_min != bpm->pkt_len_min ||
 	    bpm_temp->pkt_len_max != bpm->pkt_len_max ||
 	    bpm_temp->dscp_value != bpm->dscp_value ||
+	    bpm_temp->flow_label != bpm->flow_label ||
 	    bpm_temp->fragment != bpm->fragment)
 		return HASHWALK_CONTINUE;
 
@@ -1799,6 +1842,14 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(
 			temp.flags |= MATCH_DSCP_SET;
 		temp.dscp_value = bpf->dscp->val;
 	}
+	if (bpf->flow_label) {
+		if (bpf->flow_label->mask)
+			temp.flags |= MATCH_FLOW_LABEL_INVERSE_SET;
+		else
+			temp.flags |= MATCH_FLOW_LABEL_SET;
+		temp.flow_label = bpf->flow_label->val;
+	}
+
 	if (bpf->fragment) {
 		if (bpf->fragment->mask)
 			temp.flags |= MATCH_FRAGMENT_INVERSE_SET;
@@ -1845,6 +1896,8 @@ static uint8_t bgp_pbr_next_type_entry(uint8_t type_entry)
 	if (type_entry == FLOWSPEC_TCP_FLAGS)
 		return FLOWSPEC_DSCP;
 	if (type_entry == FLOWSPEC_DSCP)
+		return FLOWSPEC_FLOW_LABEL;
+	if (type_entry == FLOWSPEC_FLOW_LABEL)
 		return FLOWSPEC_PKT_LEN;
 	if (type_entry == FLOWSPEC_PKT_LEN)
 		return FLOWSPEC_FRAGMENT;
@@ -1938,6 +1991,9 @@ static void bgp_pbr_policyroute_remove_from_zebra_recursive(
 	} else if (type_entry == FLOWSPEC_DSCP && bpof->dscp) {
 		orig_list = bpof->dscp;
 		target_val = &bpf->dscp;
+	} else if (type_entry == FLOWSPEC_FLOW_LABEL && bpof->flowlabel) {
+		orig_list = bpof->flowlabel;
+		target_val = &bpf->flow_label;
 	} else if (type_entry == FLOWSPEC_PKT_LEN && bpof->pkt_len) {
 		orig_list = bpof->pkt_len;
 		target_val = &bpf->pkt_len_val;
@@ -1975,6 +2031,9 @@ static void bgp_pbr_policyroute_remove_from_zebra(
 	else if (bpof->dscp)
 		bgp_pbr_policyroute_remove_from_zebra_recursive(
 			bgp, path, bpf, bpof, FLOWSPEC_DSCP);
+	else if (bpof->flowlabel)
+		bgp_pbr_policyroute_remove_from_zebra_recursive(
+			bgp, path, bpf, bpof, FLOWSPEC_FLOW_LABEL);
 	else if (bpof->pkt_len)
 		bgp_pbr_policyroute_remove_from_zebra_recursive(
 			bgp, path, bpf, bpof, FLOWSPEC_PKT_LEN);
@@ -1991,6 +2050,8 @@ static void bgp_pbr_policyroute_remove_from_zebra(
 		list_delete_all_node(bpof->tcpflags);
 	if (bpof->dscp)
 		list_delete_all_node(bpof->dscp);
+	if (bpof->flowlabel)
+		list_delete_all_node(bpof->flowlabel);
 	if (bpof->pkt_len)
 		list_delete_all_node(bpof->pkt_len);
 	if (bpof->fragment)
@@ -2081,6 +2142,15 @@ static void bgp_pbr_dump_entry(struct bgp_pbr_filter *bpf, bool add)
 			 bpf->dscp->mask
 			 ? "!" : "",
 			 bpf->dscp->val);
+	}
+	if (bpf->flow_label) {
+		snprintf(buffer + remaining_len,
+			 sizeof(buffer)
+			 - remaining_len,
+			 "%s flow_label %d",
+			 bpf->flow_label->mask
+			 ? "!" : "",
+			 bpf->flow_label->val);
 	}
 	zlog_debug("BGP: %s FS PBR from %s to %s, %s %s",
 		  add ? "adding" : "removing",
@@ -2264,6 +2334,13 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		else
 			temp.flags |= MATCH_DSCP_SET;
 		temp.dscp_value = bpf->dscp->val;
+	}
+	if (bpf->flow_label) {
+		if (bpf->flow_label->mask)
+			temp.flags |= MATCH_FLOW_LABEL_INVERSE_SET;
+		else
+			temp.flags |= MATCH_FLOW_LABEL_SET;
+		temp.flow_label = bpf->flow_label->val;
 	}
 	if (bpf->fragment) {
 		if (bpf->fragment->mask)
@@ -2683,7 +2760,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 		case ACTION_MARKING:
 			if (BGP_DEBUG(pbr, PBR)) {
 				bgp_pbr_print_policy_route(api);
-				zlog_warn("PBR: Set DSCP %u Ignored",
+				zlog_warn("PBR: Set DSCP/FlowLabel %u Ignored",
 					  api->actions[i].u.marking_dscp);
 			}
 			break;
