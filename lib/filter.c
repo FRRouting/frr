@@ -1915,6 +1915,7 @@ DEFUN (mac_access_list,
 	argv_find(argv, argc, "X:X:X:X:X:X", &idx);
 	if (idx)
 		mac = argv[idx]->arg;
+	assert(mac);
 
 	return filter_set_zebra(vty, argv[2]->arg, seq, permit_deny, AFI_L2VPN,
 				mac, 0, 1);
@@ -1952,6 +1953,7 @@ DEFUN (no_mac_access_list,
 	argv_find(argv, argc, "X:X:X:X:X:X", &idx);
 	if (idx)
 		mac = argv[idx]->arg;
+	assert(mac);
 
 	return filter_set_zebra(vty, argv[2]->arg, seq, permit_deny, AFI_L2VPN,
 				mac, 0, 0);
@@ -2050,6 +2052,7 @@ DEFUN (access_list_exact,
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
 	if (idx)
 		prefix = argv[idx]->arg;
+	assert(prefix);
 
 	idx = 0;
 	if (argv_find(argv, argc, "exact-match", &idx))
@@ -2122,6 +2125,7 @@ DEFUN (no_access_list_exact,
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
 	if (idx)
 		prefix = argv[idx]->arg;
+	assert(prefix);
 
 	idx = 0;
 	if (argv_find(argv, argc, "exact-match", &idx))
@@ -2367,6 +2371,7 @@ DEFUN (no_ipv6_access_list_exact,
 	argv_find(argv, argc, "X:X::X:X/M", &idx);
 	if (idx)
 		prefix = argv[idx]->arg;
+	assert(prefix);
 
 	idx = 0;
 	if (argv_find(argv, argc, "exact-match", &idx))
