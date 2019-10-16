@@ -16,7 +16,7 @@ makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
     libblkid libburn libbz2 libc-dev libcap-dev libcurl libedit libffi libgcc
     libgomp libisoburn libisofs libltdl libressl libssh2
     libstdc++ libtool libuuid libyang-dev linux-headers lzip lzo m4 make mkinitfs mpc1
-    mpfr3 mtools musl-dev ncurses-libs ncurses-terminfo ncurses-terminfo-base
+    mpfr4 mtools musl-dev ncurses-libs ncurses-terminfo ncurses-terminfo-base
     patch pax-utils pcre perl pkgconf python2 python2-dev readline
     readline-dev sqlite-libs squashfs-tools sudo tar texinfo xorriso xz-libs
     py-pip py-sphinx rtrlib rtrlib-dev"
