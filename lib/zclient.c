@@ -293,6 +293,10 @@ int zclient_send_message(struct zclient *zclient)
 	return 0;
 }
 
+/*
+ * If we add more data to this structure please ensure that
+ * struct zmsghdr in lib/zclient.h is updated as appropriate.
+ */
 void zclient_create_header(struct stream *s, uint16_t command, vrf_id_t vrf_id)
 {
 	/* length placeholder, caller can update */

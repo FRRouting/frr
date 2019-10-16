@@ -298,7 +298,8 @@ struct zmsghdr {
 	uint8_t version;
 	vrf_id_t vrf_id;
 	uint16_t command;
-};
+} __attribute__((packed));
+#define ZAPI_HEADER_CMD_LOCATION offsetof(struct zmsghdr, command)
 
 struct zapi_nexthop {
 	enum nexthop_types_t type;
