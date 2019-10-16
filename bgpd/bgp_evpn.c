@@ -2394,8 +2394,9 @@ static int handle_tunnel_ip_change(struct bgp *bgp, struct bgpevpn *vpn,
 	return 0;
 }
 
-static void bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
-					  struct bgp_node *rn)
+static struct bgp_path_info *
+bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
+			      struct bgp_node *rn)
 {
 	struct attr *attr_new;
 	struct bgp_path_info *pi;
@@ -2416,6 +2417,8 @@ static void bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
 		pi->extra->num_labels = parent_pi->extra->num_labels;
 	}
 	bgp_path_info_add(rn, pi);
+
+	return pi;
 }
 
 /* Install EVPN route entry in ES */
@@ -2542,7 +2545,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 			break;
 
 	if (!pi)
-		bgp_create_evpn_bgp_path_info(parent_pi, rn);
+		pi = bgp_create_evpn_bgp_path_info(parent_pi, rn);
 	else {
 		if (attrhash_cmp(pi->attr, &attr)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
@@ -2606,7 +2609,7 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 			break;
 
 	if (!pi)
-		bgp_create_evpn_bgp_path_info(parent_pi, rn);
+		pi = bgp_create_evpn_bgp_path_info(parent_pi, rn);
 	else {
 		if (attrhash_cmp(pi->attr, parent_pi->attr)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
