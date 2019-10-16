@@ -1974,3 +1974,61 @@ def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
 
     logger.debug("Exiting lib API: verify_bgp_community()")
     return True
+
+
+def verify_create_community_list(tgen, input_dict):
+    """
+    API is to verify if large community list is created for any given DUT in
+    input_dict by running "sh bgp large-community-list {"comm_name"} detail"
+    command.
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `input_dict`: having details like - for which router, large community
+                    needs to be verified
+    Usage
+    -----
+    input_dict = {
+        "r1": {
+            "large-community-list": {
+                "standard": {
+                     "Test1": [{"action": "PERMIT", "attribute":\
+                                    ""}]
+                }}}}
+    result = verify_create_community_list(tgen, input_dict)
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: verify_create_community_list()")
+
+    for router in input_dict.keys():
+        if router not in tgen.routers():
+            continue
+
+        rnode = tgen.routers()[router]
+
+        logger.info("Verifying large-community is created for dut %s:",
+                    router)
+
+        for comm_data in input_dict[router]["bgp_community_lists"]:
+            comm_name = comm_data["name"]
+            comm_type = comm_data["community_type"]
+            show_bgp_community = \
+                run_frr_cmd(rnode,
+                            "show bgp large-community-list {} detail".
+                            format(comm_name))
+
+            # Verify community list and type
+            if comm_name in show_bgp_community and comm_type in \
+                    show_bgp_community:
+                logger.info("BGP %s large-community-list %s is"
+                            " created", comm_type, comm_name)
+            else:
+                errormsg = "BGP {} large-community-list {} is not" \
+                           " created".format(comm_type, comm_name)
+                return errormsg
+
+            logger.debug("Exiting lib API: verify_create_community_list()")
+            return True
