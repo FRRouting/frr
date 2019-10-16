@@ -44,7 +44,7 @@ from lib.topotest import interface_set_status
 FRRCFG_FILE = "frr_json.conf"
 FRRCFG_BKUP_FILE = "frr_json_initial.conf"
 
-ERROR_LIST = ["Malformed", "Failure", "Unknown"]
+ERROR_LIST = ["Malformed", "Failure", "Unknown", "Incomplete"]
 ROUTER_LIST = []
 
 ####
@@ -709,9 +709,9 @@ def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0):
                     kwargs.pop('expected')
                     ret = func(*args, **kwargs)
                     logger.debug("Function returned %s" % ret)
-                    if return_is_str and isinstance(ret, bool):
+                    if return_is_str and isinstance(ret, bool) and _expected:
                         return ret
-                    elif return_is_str and _expected is False:
+                    if isinstance(ret, str) and _expected is False:
                         return ret
 
                     if _attempts == i:
