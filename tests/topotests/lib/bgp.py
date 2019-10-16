@@ -200,29 +200,6 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
         config_data.append("bgp router-id {}".format(
             router_id))
 
-    aggregate_address = bgp_data.setdefault("aggregate_address",
-                                            {})
-    if aggregate_address:
-        network = aggregate_address.setdefault("network", None)
-        if not network:
-            logger.error("Router %s: 'network' not present in "
-                         "input_dict for BGP", router)
-        else:
-            cmd = "aggregate-address {}".format(network)
-
-            as_set = aggregate_address.setdefault("as_set", False)
-            summary = aggregate_address.setdefault("summary", False)
-            del_action = aggregate_address.setdefault("delete", False)
-            if as_set:
-                cmd = "{} {}".format(cmd, "as-set")
-            if summary:
-                cmd = "{} {}".format(cmd, "summary")
-
-            if del_action:
-                cmd = "no {}".format(cmd)
-
-            config_data.append(cmd)
-
     return config_data
 
 
@@ -300,15 +277,25 @@ def __create_bgp_unicast_neighbor(tgen, topo, input_dict, router,
                     ebgp
                 ))
 
-        aggregate_address = addr_data.setdefault("aggregate_address",
-                                                 {})
-        if aggregate_address:
-            ip = aggregate_address("network", None)
-            attribute = aggregate_address("attribute", None)
-            if ip:
-                cmd = "aggregate-address {}".format(ip)
-                if attribute:
-                    cmd = "{} {}".format(cmd, attribute)
+        aggregate_addresses = addr_data.setdefault("aggregate_address", [])
+        for aggregate_address in aggregate_addresses:
+            network = aggregate_address.setdefault("network", None)
+            if not network:
+                logger.debug("Router %s: 'network' not present in "
+                             "input_dict for BGP", router)
+            else:
+                cmd = "aggregate-address {}".format(network)
+
+                as_set = aggregate_address.setdefault("as_set", False)
+                summary = aggregate_address.setdefault("summary", False)
+                del_action = aggregate_address.setdefault("delete", False)
+                if as_set:
+                    cmd = "{} as-set".format(cmd)
+                if summary:
+                    cmd = "{} summary".format(cmd)
+
+                if del_action:
+                    cmd = "no {}".format(cmd)
 
                 config_data.append(cmd)
 
@@ -481,13 +468,19 @@ def __create_bgp_unicast_address_family(topo, input_dict, router, addr_type,
             send_community = peer.setdefault("send_community", None)
             prefix_lists = peer.setdefault("prefix_lists", {})
             route_maps = peer.setdefault("route_maps", {})
+            no_send_community = peer.setdefault("no_send_community", None)
 
             # next-hop-self
             if next_hop_self:
                 config_data.append("{} next-hop-self".format(neigh_cxt))
-            # no_send_community
+            # send_community
             if send_community:
                 config_data.append("{} send-community".format(neigh_cxt))
+
+            # no_send_community
+            if no_send_community:
+                config_data.append("no {} send-community {}".format(
+                    neigh_cxt, no_send_community))
 
             if prefix_lists:
                 for prefix_list in prefix_lists:
