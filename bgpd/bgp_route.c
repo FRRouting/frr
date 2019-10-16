@@ -6709,6 +6709,10 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 
 	/* Make default attribute. */
 	bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
+	/*
+	 * This must not be NULL to satisfy Coverity SA
+	 */
+	assert(attr.aspath);
 
 	switch (nhtype) {
 	case NEXTHOP_TYPE_IFINDEX:
