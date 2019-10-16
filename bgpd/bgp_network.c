@@ -440,6 +440,20 @@ static int bgp_accept(struct thread *thread)
 		return -1;
 	}
 
+	/* Do not try to reconnect if the peer reached maximum
+	 * prefixes, restart timer is still running or the peer
+	 * is shutdown.
+	 */
+	if (BGP_PEER_START_SUPPRESSED(peer1)) {
+		if (bgp_debug_neighbor_events(peer1))
+			zlog_debug(
+				"[Event] Incoming BGP connection rejected from %s "
+				"due to maximum-prefix or shutdown",
+				peer1->host);
+		close(bgp_sock);
+		return -1;
+	}
+
 	if (bgp_debug_neighbor_events(peer1))
 		zlog_debug("[Event] BGP connection from host %s fd %d",
 			   inet_sutop(&su, buf), bgp_sock);
