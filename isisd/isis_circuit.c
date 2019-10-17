@@ -58,6 +58,7 @@
 #include "isisd/isis_mt.h"
 #include "isisd/isis_errors.h"
 #include "isisd/isis_tx_queue.h"
+#include "isisd/isis_nb.h"
 
 DEFINE_QOBJ_TYPE(isis_circuit)
 

@@ -57,6 +57,7 @@
 #include "isisd/isis_te.h"
 #include "isisd/fabricd.h"
 #include "isisd/isis_tx_queue.h"
+#include "isisd/isis_nb.h"
 
 static int lsp_refresh(struct thread *thread);
 static int lsp_l1_refresh_pseudo(struct thread *thread);
