@@ -58,6 +58,8 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_nhg.h"
 
+DEFINE_MTYPE_STATIC(ZEBRA, RIB_UPDATE_CTX, "Rib update context object");
+
 /*
  * Event, list, and mutex for delivery of dataplane results
  */
@@ -2961,11 +2963,66 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	return rib_add_multipath(afi, safi, p, src_p, re);
 }
 
+static const char *rib_update_event2str(rib_update_event_t event)
+{
+	const char *ret = "UNKNOWN";
+
+	switch (event) {
+	case RIB_UPDATE_KERNEL:
+		ret = "RIB_UPDATE_KERNEL";
+		break;
+	case RIB_UPDATE_RMAP_CHANGE:
+		ret = "RIB_UPDATE_RMAP_CHANGE";
+		break;
+	case RIB_UPDATE_OTHER:
+		ret = "RIB_UPDATE_OTHER";
+		break;
+	case RIB_UPDATE_MAX:
+		break;
+	}
+
+	return ret;
+}
+
+
+/* Schedule route nodes to be processed if they match the type */
+static void rib_update_route_node(struct route_node *rn, int type)
+{
+	struct route_entry *re, *next;
+	bool re_changed = false;
+
+	RNODE_FOREACH_RE_SAFE (rn, re, next) {
+		if (type == ZEBRA_ROUTE_ALL || type == re->type) {
+			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
+			re_changed = true;
+		}
+	}
+
+	if (re_changed)
+		rib_queue_add(rn);
+}
+
 /* Schedule routes of a particular table (address-family) based on event. */
 void rib_update_table(struct route_table *table, rib_update_event_t event)
 {
 	struct route_node *rn;
-	struct route_entry *re, *next;
+
+	if (IS_ZEBRA_DEBUG_EVENT) {
+		struct zebra_vrf *zvrf;
+		struct vrf *vrf;
+
+		zvrf = table->info ? ((rib_table_info_t *)table->info)->zvrf
+				   : NULL;
+		vrf = zvrf ? zvrf->vrf : NULL;
+
+		zlog_debug("%s: %s VRF %s Table %u event %s", __func__,
+			   table->info ? afi2str(
+				   ((rib_table_info_t *)table->info)->afi)
+				       : "Unknown",
+			   vrf ? vrf->name : "Unknown",
+			   zvrf ? zvrf->table_id : 0,
+			   rib_update_event2str(event));
+	}
 
 	/* Walk all routes and queue for processing, if appropriate for
 	 * the trigger event.
@@ -2976,49 +3033,139 @@ void rib_update_table(struct route_table *table, rib_update_event_t event)
 		 * has already been queued  we don't
 		 * need to queue it up again
 		 */
-		if (rn->info && CHECK_FLAG(rib_dest_from_rnode(rn)->flags,
-					   RIB_ROUTE_ANY_QUEUED))
+		if (rn->info
+		    && CHECK_FLAG(rib_dest_from_rnode(rn)->flags,
+				  RIB_ROUTE_ANY_QUEUED))
 			continue;
+
 		switch (event) {
+		case RIB_UPDATE_KERNEL:
+			rib_update_route_node(rn, ZEBRA_ROUTE_KERNEL);
+			break;
 		case RIB_UPDATE_RMAP_CHANGE:
 		case RIB_UPDATE_OTHER:
-			/* Right now, examine all routes. Can restrict to a
-			 * protocol in
-			 * some cases (TODO).
-			 */
-			if (rnode_to_ribs(rn)) {
-				RNODE_FOREACH_RE_SAFE (rn, re, next)
-					SET_FLAG(re->status,
-						 ROUTE_ENTRY_CHANGED);
-				rib_queue_add(rn);
-			}
+			rib_update_route_node(rn, ZEBRA_ROUTE_ALL);
 			break;
-
 		default:
 			break;
 		}
 	}
 }
 
-/* RIB update function. */
-void rib_update(vrf_id_t vrf_id, rib_update_event_t event)
+static void rib_update_handle_vrf(vrf_id_t vrf_id, rib_update_event_t event)
 {
 	struct route_table *table;
 
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("%s: Handling VRF %s event %s", __func__,
+			   vrf_id_to_name(vrf_id), rib_update_event2str(event));
+
 	/* Process routes of interested address-families. */
 	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
-	if (table) {
-		if (IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug("%s : AFI_IP event %d", __func__, event);
+	if (table)
 		rib_update_table(table, event);
-	}
 
 	table = zebra_vrf_table(AFI_IP6, SAFI_UNICAST, vrf_id);
-	if (table) {
-		if (IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug("%s : AFI_IP6 event %d", __func__, event);
+	if (table)
 		rib_update_table(table, event);
-	}
+}
+
+static void rib_update_handle_vrf_all(rib_update_event_t event)
+{
+	struct zebra_router_table *zrt;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("%s: Handling VRF (ALL) event %s", __func__,
+			   rib_update_event2str(event));
+
+	/* Just iterate over all the route tables, rather than vrf lookups */
+	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables)
+		rib_update_table(zrt->table, event);
+}
+
+struct rib_update_ctx {
+	rib_update_event_t event;
+	bool vrf_all;
+	vrf_id_t vrf_id;
+};
+
+static struct rib_update_ctx *rib_update_ctx_init(vrf_id_t vrf_id,
+						  rib_update_event_t event)
+{
+	struct rib_update_ctx *ctx;
+
+	ctx = XCALLOC(MTYPE_RIB_UPDATE_CTX, sizeof(struct rib_update_ctx));
+
+	ctx->event = event;
+	ctx->vrf_id = vrf_id;
+
+	return ctx;
+}
+
+static void rib_update_ctx_fini(struct rib_update_ctx **ctx)
+{
+	XFREE(MTYPE_RIB_UPDATE_CTX, *ctx);
+
+	*ctx = NULL;
+}
+
+static int rib_update_handler(struct thread *thread)
+{
+	struct rib_update_ctx *ctx;
+
+	ctx = THREAD_ARG(thread);
+
+	if (ctx->vrf_all)
+		rib_update_handle_vrf_all(ctx->event);
+	else
+		rib_update_handle_vrf(ctx->vrf_id, ctx->event);
+
+	rib_update_ctx_fini(&ctx);
+
+	return 0;
+}
+
+/*
+ * Thread list to ensure we don't schedule a ton of events
+ * if interfaces are flapping for instance.
+ */
+static struct thread *t_rib_update_threads[RIB_UPDATE_MAX];
+
+/* Schedule a RIB update event for specific vrf */
+void rib_update_vrf(vrf_id_t vrf_id, rib_update_event_t event)
+{
+	struct rib_update_ctx *ctx;
+
+	ctx = rib_update_ctx_init(vrf_id, event);
+
+	/* Don't worry about making sure multiple rib updates for specific vrf
+	 * are scheduled at once for now. If it becomes a problem, we can use a
+	 * lookup of some sort to keep track of running threads via t_vrf_id
+	 * like how we are doing it in t_rib_update_threads[].
+	 */
+	thread_add_event(zrouter.master, rib_update_handler, ctx, 0, NULL);
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("%s: Scheduled VRF %s, event %s", __func__,
+			   vrf_id_to_name(ctx->vrf_id),
+			   rib_update_event2str(event));
+}
+
+/* Schedule a RIB update event for all vrfs */
+void rib_update(rib_update_event_t event)
+{
+	struct rib_update_ctx *ctx;
+
+	ctx = rib_update_ctx_init(0, event);
+
+	ctx->vrf_all = true;
+
+	if (!thread_add_event(zrouter.master, rib_update_handler, ctx, 0,
+			      &t_rib_update_threads[event]))
+		rib_update_ctx_fini(&ctx); /* Already scheduled */
+	else if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("%s: Schedued VRF (ALL), event %s", __func__,
+			   rib_update_event2str(event));
 }
 
 /* Delete self installed routes after zebra is relaunched.  */
