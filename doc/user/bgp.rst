@@ -2167,6 +2167,8 @@ Dumping Messages and Routing Tables
 Other BGP Commands
 ------------------
 
+The following are available in the top level *enable* mode:
+
 .. index:: clear bgp \*
 .. clicmd:: clear bgp \*
 
@@ -2202,6 +2204,24 @@ Other BGP Commands
 
    Clear peer using soft reconfiguration in this address-family and sub-address-family.
 
+The following are available in the ``router bgp`` mode:
+
+.. index:: write-quanta (1-64)
+.. clicmd:: write-quanta (1-64)
+
+   BGP message Tx I/O is vectored. This means that multiple packets are written
+   to the peer socket at the same time each I/O cycle, in order to minimize
+   system call overhead. This value controls how many are written at a time.
+   Under certain load conditions, reducing this value could make peer traffic
+   less 'bursty'. In practice, leave this settings on the default (64) unless
+   you truly know what you are doing.
+
+.. index:: read-quanta (1-10)
+.. index:: read-quanta (1-10)
+
+   Unlike Tx, BGP Rx traffic is not vectored. Packets are read off the wire one
+   at a time in a loop. This setting controls how many iterations the loop runs
+   for. As with write-quanta, it is best to leave this setting on the default.
 
 .. _bgp-displaying-bgp-information:
 
