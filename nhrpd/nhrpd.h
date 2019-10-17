@@ -77,8 +77,7 @@ static inline void notifier_call(struct notifier_list *l, int cmd)
 {
 	struct notifier_block *n, *nn;
 	list_for_each_entry_safe(n, nn, &l->notifier_head, notifier_entry) {
-		if (n)
-			n->action(n, cmd);
+		n->action(n, cmd);
 	}
 }
 
