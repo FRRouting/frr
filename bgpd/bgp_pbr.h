@@ -159,6 +159,8 @@ extern int bgp_pbr_interface_compare(const struct bgp_pbr_interface *a,
 struct bgp_pbr_config {
 	struct bgp_pbr_interface_head ifaces_by_name_ipv4;
 	bool pbr_interface_any_ipv4;
+	struct bgp_pbr_interface_head ifaces_by_name_ipv6;
+	bool pbr_interface_any_ipv6;
 };
 
 extern struct bgp_pbr_config *bgp_pbr_cfg;

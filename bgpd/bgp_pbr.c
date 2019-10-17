@@ -1388,6 +1388,7 @@ void bgp_pbr_cleanup(struct bgp *bgp)
 	if (bgp->bgp_pbr_cfg == NULL)
 		return;
 	bgp_pbr_reset(bgp, AFI_IP);
+	bgp_pbr_reset(bgp, AFI_IP6);
 	XFREE(MTYPE_PBR, bgp->bgp_pbr_cfg);
 }
 
@@ -2935,10 +2936,12 @@ void bgp_pbr_reset(struct bgp *bgp, afi_t afi)
 	struct bgp_pbr_interface_head *head;
 	struct bgp_pbr_interface *pbr_if;
 
-	if (!bgp_pbr_cfg || afi != AFI_IP)
+	if (!bgp_pbr_cfg)
 		return;
-	head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
-
+	if (afi == AFI_IP)
+		head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
+	else
+		head = &(bgp_pbr_cfg->ifaces_by_name_ipv6);
 	while (!RB_EMPTY(bgp_pbr_interface_head, head)) {
 		pbr_if = RB_ROOT(bgp_pbr_interface_head, head);
 		RB_REMOVE(bgp_pbr_interface_head, head, pbr_if);

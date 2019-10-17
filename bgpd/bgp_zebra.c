@@ -2984,7 +2984,8 @@ void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,
 		pbrime->install_in_progress = true;
 }
 
-static void bgp_encode_pbr_interface_list(struct bgp *bgp, struct stream *s)
+static void bgp_encode_pbr_interface_list(struct bgp *bgp, struct stream *s,
+					  uint8_t family)
 {
 	struct bgp_pbr_config *bgp_pbr_cfg = bgp->bgp_pbr_cfg;
 	struct bgp_pbr_interface_head *head;
@@ -2993,8 +2994,10 @@ static void bgp_encode_pbr_interface_list(struct bgp *bgp, struct stream *s)
 
 	if (!bgp_pbr_cfg)
 		return;
-	head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
-
+	if (family == AF_INET)
+		head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
+	else
+		head = &(bgp_pbr_cfg->ifaces_by_name_ipv6);
 	RB_FOREACH (pbr_if, bgp_pbr_interface_head, head) {
 		ifp = if_lookup_by_name(pbr_if->name, bgp->vrf_id);
 		if (ifp)
@@ -3002,7 +3005,7 @@ static void bgp_encode_pbr_interface_list(struct bgp *bgp, struct stream *s)
 	}
 }
 
-static int bgp_pbr_get_ifnumber(struct bgp *bgp)
+static int bgp_pbr_get_ifnumber(struct bgp *bgp, uint8_t family)
 {
 	struct bgp_pbr_config *bgp_pbr_cfg = bgp->bgp_pbr_cfg;
 	struct bgp_pbr_interface_head *head;
@@ -3011,8 +3014,10 @@ static int bgp_pbr_get_ifnumber(struct bgp *bgp)
 
 	if (!bgp_pbr_cfg)
 		return 0;
-	head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
-
+	if (family == AF_INET)
+		head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
+	else
+		head = &(bgp_pbr_cfg->ifaces_by_name_ipv6);
 	RB_FOREACH (pbr_if, bgp_pbr_interface_head, head) {
 		if (if_lookup_by_name(pbr_if->name, bgp->vrf_id))
 			cnt++;
@@ -3043,10 +3048,10 @@ void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 			      VRF_DEFAULT);
 
 	bgp_encode_pbr_iptable_match(s, pba, pbm);
-	nb_interface = bgp_pbr_get_ifnumber(pba->bgp);
+	nb_interface = bgp_pbr_get_ifnumber(pba->bgp, pbm->family);
 	stream_putl(s, nb_interface);
 	if (nb_interface)
-		bgp_encode_pbr_interface_list(pba->bgp, s);
+		bgp_encode_pbr_interface_list(pba->bgp, s, pbm->family);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	ret = zclient_send_message(zclient);
 	if (install) {

@@ -195,8 +195,7 @@ ecommunity_uniq_sort_internal(struct ecommunity *ecom,
 	new->unit_size = ecom_size;
 
 	for (i = 0; i < ecom->size; i++) {
-		eval = (void *)(ecom->val
-						 + (i * ecom_size));
+		eval = (void *)(ecom->val + (i * ecom_size));
 		ecommunity_add_val_internal(new, eval, false, false, ecom_size);
 	}
 	return new;
@@ -549,20 +548,24 @@ static const char *ecommunity_gettoken(const char *str,
 		limit = endptr = strrchr(p, ':');
 		if (!endptr)
 			goto error;
+
 		endptr++;
 		as = strtoul(endptr, &endptr, 10);
 		if (*endptr != '\0' || as == BGP_AS4_MAX)
 			goto error;
+
 		memcpy(buf, p, (limit - p));
 		buf[limit - p] = '\0';
 		ret = inet_pton(AF_INET6, buf, &ip6);
 		if (ret == 0)
 			goto error;
+
 		ecomm_type = ECOMMUNITY_ENCODE_TRANS_EXP;
 		if (ecommunity_encode_internal(ecomm_type,
-				       ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6,
-				       1, 0, NULL, &ip6, as, eval_ptr))
+					ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6,
+					1, 0, NULL, &ip6, as, eval_ptr))
 			goto error;
+
 		*token = ecommunity_token_val6;
 		while (isdigit((int)*p) || *p == ':' || *p == '.') {
 			p++;
@@ -667,8 +670,7 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 		case ecommunity_token_val:
 			if (keyword_included) {
 				if (!keyword) {
-					if (ecom)
-						ecommunity_free(&ecom);
+					ecommunity_free(&ecom);
 					return NULL;
 				}
 				keyword = 0;
@@ -682,8 +684,7 @@ static struct ecommunity *ecommunity_str2com_internal(const char *str, int type,
 		case ecommunity_token_val6:
 			if (keyword_included) {
 				if (!keyword) {
-					if (ecom)
-						ecommunity_free(&ecom);
+					ecommunity_free(&ecom);
 					return NULL;
 				}
 				keyword = 0;
@@ -1039,7 +1040,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			sub_type = *pnt++;
 
 			if (sub_type == ECOMMUNITY_ROUTE_TARGET) {
-				char buf[64];
+				char buf[ECOMMUNITY_STRLEN];
 
 				memset(buf, 0, sizeof(buf));
 				ecommunity_rt_soo_str_internal(buf, sizeof(buf),
