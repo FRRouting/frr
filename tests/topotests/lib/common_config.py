@@ -44,7 +44,7 @@ from lib.topotest import interface_set_status
 FRRCFG_FILE = "frr_json.conf"
 FRRCFG_BKUP_FILE = "frr_json_initial.conf"
 
-ERROR_LIST = ["Malformed", "Failure", "Unknown"]
+ERROR_LIST = ["Malformed", "Failure", "Unknown", "Incomplete"]
 ROUTER_LIST = []
 
 ####
@@ -617,7 +617,7 @@ def write_test_header(tc_name):
     """ Display message at beginning of test case"""
     count = 20
     logger.info("*"*(len(tc_name)+count))
-    logger.info("START -> Testcase : %s" % tc_name)
+    step("START -> Testcase : %s" % tc_name, reset=True)
     logger.info("*"*(len(tc_name)+count))
 
 
@@ -709,9 +709,9 @@ def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0):
                     kwargs.pop('expected')
                     ret = func(*args, **kwargs)
                     logger.debug("Function returned %s" % ret)
-                    if return_is_str and isinstance(ret, bool):
+                    if return_is_str and isinstance(ret, bool) and _expected:
                         return ret
-                    elif return_is_str and _expected is False:
+                    if isinstance(ret, str) and _expected is False:
                         return ret
 
                     if _attempts == i:
@@ -730,6 +730,31 @@ def retry(attempts=3, wait=2, return_is_str=True, initial_wait=0):
         func_retry._original = func
         return func_retry
     return _retry
+
+
+class Stepper:
+    """
+    Prints step number for the test case step being executed
+    """
+    count = 1
+
+    def __call__(self, msg, reset):
+        if reset:
+            Stepper.count = 1
+            logger.info(msg)
+        else:
+            logger.info("STEP %s: '%s'", Stepper.count, msg)
+            Stepper.count += 1
+
+
+def step(msg, reset=False):
+    """
+    Call Stepper to print test steps. Need to reset at the beginning of test.
+    * ` msg` : Step message body.
+    * `reset` : Reset step count to 1 when set to True.
+    """
+    _step = Stepper()
+    _step(msg, reset)
 
 
 #############################################
@@ -1949,3 +1974,61 @@ def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
 
     logger.debug("Exiting lib API: verify_bgp_community()")
     return True
+
+
+def verify_create_community_list(tgen, input_dict):
+    """
+    API is to verify if large community list is created for any given DUT in
+    input_dict by running "sh bgp large-community-list {"comm_name"} detail"
+    command.
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `input_dict`: having details like - for which router, large community
+                    needs to be verified
+    Usage
+    -----
+    input_dict = {
+        "r1": {
+            "large-community-list": {
+                "standard": {
+                     "Test1": [{"action": "PERMIT", "attribute":\
+                                    ""}]
+                }}}}
+    result = verify_create_community_list(tgen, input_dict)
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: verify_create_community_list()")
+
+    for router in input_dict.keys():
+        if router not in tgen.routers():
+            continue
+
+        rnode = tgen.routers()[router]
+
+        logger.info("Verifying large-community is created for dut %s:",
+                    router)
+
+        for comm_data in input_dict[router]["bgp_community_lists"]:
+            comm_name = comm_data["name"]
+            comm_type = comm_data["community_type"]
+            show_bgp_community = \
+                run_frr_cmd(rnode,
+                            "show bgp large-community-list {} detail".
+                            format(comm_name))
+
+            # Verify community list and type
+            if comm_name in show_bgp_community and comm_type in \
+                    show_bgp_community:
+                logger.info("BGP %s large-community-list %s is"
+                            " created", comm_type, comm_name)
+            else:
+                errormsg = "BGP {} large-community-list {} is not" \
+                           " created".format(comm_type, comm_name)
+                return errormsg
+
+            logger.debug("Exiting lib API: verify_create_community_list()")
+            return True
