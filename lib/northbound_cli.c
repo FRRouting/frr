@@ -40,6 +40,7 @@ struct debug nb_dbg_cbs_state = {0, "Northbound callbacks: state"};
 struct debug nb_dbg_cbs_rpc = {0, "Northbound callbacks: RPCs"};
 struct debug nb_dbg_notif = {0, "Northbound notifications"};
 struct debug nb_dbg_events = {0, "Northbound events"};
+struct debug nb_dbg_libyang = {0, "libyang debugging"};
 
 struct nb_config *vty_shared_candidate_config;
 static struct thread_master *master;
@@ -1581,7 +1582,7 @@ DEFPY (rollback_config,
 /* Debug CLI commands. */
 static struct debug *nb_debugs[] = {
 	&nb_dbg_cbs_config, &nb_dbg_cbs_state, &nb_dbg_cbs_rpc,
-	&nb_dbg_notif,      &nb_dbg_events,
+	&nb_dbg_notif,      &nb_dbg_events,    &nb_dbg_libyang,
 };
 
 static const char *const nb_debugs_conflines[] = {
@@ -1590,6 +1591,7 @@ static const char *const nb_debugs_conflines[] = {
 	"debug northbound callbacks rpc",
 	"debug northbound notifications",
 	"debug northbound events",
+	"debug northbound libyang",
 };
 
 DEFINE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set));
@@ -1614,6 +1616,7 @@ DEFPY (debug_nb,
 	    callbacks$cbs [{configuration$cbs_cfg|state$cbs_state|rpc$cbs_rpc}]\
 	    |notifications$notifications\
 	    |events$events\
+	    |libyang$libyang\
           >]",
        NO_STR
        DEBUG_STR
@@ -1623,7 +1626,8 @@ DEFPY (debug_nb,
        "State\n"
        "RPC\n"
        "Notifications\n"
-       "Events\n")
+       "Events\n"
+       "libyang debugging\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
 
@@ -1641,10 +1645,16 @@ DEFPY (debug_nb,
 		DEBUG_MODE_SET(&nb_dbg_notif, mode, !no);
 	if (events)
 		DEBUG_MODE_SET(&nb_dbg_events, mode, !no);
+	if (libyang) {
+		DEBUG_MODE_SET(&nb_dbg_libyang, mode, !no);
+		yang_debugging_set(!no);
+	}
 
 	/* no specific debug --> act on all of them */
-	if (strmatch(argv[argc - 1]->text, "northbound"))
+	if (strmatch(argv[argc - 1]->text, "northbound")) {
 		nb_debug_set_all(mode, !no);
+		yang_debugging_set(!no);
+	}
 
 	return CMD_SUCCESS;
 }

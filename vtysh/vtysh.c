@@ -1339,7 +1339,7 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 }
 
 DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
-	"router bgp [(1-4294967295)$instasn [<view|vrf> WORD]]",
+	"router bgp [(1-4294967295) [<view|vrf> WORD]]",
 	ROUTER_STR BGP_STR AS_STR
 	"BGP view\nBGP VRF\n"
 	"View/VRF name\n")
@@ -2427,10 +2427,10 @@ DEFUN (vtysh_show_error_code,
 /* Northbound. */
 DEFUN (show_yang_operational_data,
        show_yang_operational_data_cmd,
-       "show yang operational-data XPATH$xpath\
+       "show yang operational-data XPATH\
          [{\
-	   format <json$json|xml$xml>\
-	   |translate WORD$translator_family\
+	   format <json|xml>\
+	   |translate WORD\
 	 }]" DAEMONS_LIST,
        SHOW_STR
        "YANG information\n"
@@ -2454,9 +2454,10 @@ DEFUNSH(VTYSH_ALL, debug_nb,
 	debug_nb_cmd,
 	"[no] debug northbound\
 	   [<\
-	    callbacks$cbs [{configuration$cbs_cfg|state$cbs_state|rpc$cbs_rpc}]\
-	    |notifications$notifications\
-	    |events$events\
+	    callbacks [{configuration|state|rpc}]\
+	    |notifications\
+	    |events\
+	    |libyang\
 	   >]",
 	NO_STR
 	DEBUG_STR
@@ -2466,7 +2467,8 @@ DEFUNSH(VTYSH_ALL, debug_nb,
 	"State\n"
 	"RPC\n"
 	"Notifications\n"
-	"Events\n")
+	"Events\n"
+	"libyang debugging\n")
 {
 	return CMD_SUCCESS;
 }
