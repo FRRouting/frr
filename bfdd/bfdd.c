@@ -23,6 +23,7 @@
 #include "filter.h"
 
 #include "bfd.h"
+#include "bfdd_nb.h"
 #include "lib/version.h"
 
 

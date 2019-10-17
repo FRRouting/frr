@@ -13,7 +13,9 @@ endif
 
 bfdd_libbfd_a_SOURCES = \
 	bfdd/bfd.c \
-	bfdd/bfdd_northbound.c \
+	bfdd/bfdd_nb.c \
+	bfdd/bfdd_nb_config.c \
+	bfdd/bfdd_nb_state.c \
 	bfdd/bfdd_vty.c \
 	bfdd/bfdd_cli.c \
 	bfdd/bfd_packet.c \
@@ -32,6 +34,7 @@ bfdd/bfdd_cli.$(OBJEXT): bfdd/bfdd_cli_clippy.c
 
 noinst_HEADERS += \
 	bfdd/bfdctl.h \
+	bfdd/bfdd_nb.h \
 	bfdd/bfd.h \
 	# end
 
