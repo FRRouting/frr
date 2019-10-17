@@ -2217,7 +2217,7 @@ The following are available in the ``router bgp`` mode:
    you truly know what you are doing.
 
 .. index:: read-quanta (1-10)
-.. index:: read-quanta (1-10)
+.. clicmd:: read-quanta (1-10)
 
    Unlike Tx, BGP Rx traffic is not vectored. Packets are read off the wire one
    at a time in a loop. This setting controls how many iterations the loop runs
