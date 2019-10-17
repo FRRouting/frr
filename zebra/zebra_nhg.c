@@ -253,20 +253,9 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	while (rn) {
 		route_unlock_node(rn);
 
-		/* Lookup should halt if we've matched against ourselves ('top',
-		 * if specified) - i.e., we cannot have a nexthop NH1 is
-		 * resolved by a route NH1. The exception is if the route is a
-		 * host route.
-		 */
-		if (top && rn == top)
-			if (((afi == AFI_IP) && (rn->p.prefixlen != 32))
-			    || ((afi == AFI_IP6) && (rn->p.prefixlen != 128))) {
-				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-					zlog_debug(
-						"\t%s: Matched against ourself and prefix length is not max bit length",
-						__PRETTY_FUNCTION__);
-				return 0;
-			}
+		/* If lookup self prefix return immediately. */
+		if (rn == top)
+		    return 0;
 
 		/* Pick up selected route. */
 		/* However, do not resolve over default route unless explicitly
