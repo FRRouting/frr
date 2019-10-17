@@ -391,12 +391,11 @@ static bool ecom_intersect(struct ecommunity *e1, struct ecommunity *e2)
 
 	if (!e1 || !e2)
 		return false;
-
 	for (i = 0; i < e1->size; ++i) {
 		for (j = 0; j < e2->size; ++j) {
-			if (!memcmp(e1->val + (i * ECOMMUNITY_SIZE),
-				    e2->val + (j * ECOMMUNITY_SIZE),
-				    ECOMMUNITY_SIZE)) {
+			if (!memcmp(e1->val + (i * e1->unit_size),
+				    e2->val + (j * e2->unit_size),
+				    e1->unit_size)) {
 
 				return true;
 			}
@@ -2456,6 +2455,10 @@ vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey)
 {
 	struct listnode *mnode, *mnnode;
 	struct bgp *bgp;
+	afi_t afi = AFI_IP;
+
+	if (eckey->unit_size == IPV6_ECOMMUNITY_SIZE)
+		afi = AFI_IP6;
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
 		struct ecommunity *ec;
@@ -2463,7 +2466,10 @@ vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey)
 		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
 			continue;
 
-		ec = bgp->vpn_policy[AFI_IP].import_redirect_rtlist;
+		ec = bgp->vpn_policy[afi].import_redirect_rtlist;
+
+		if (ec && eckey->unit_size != ec->unit_size)
+			continue;
 
 		if (ecom_intersect(ec, eckey))
 			return bgp->vrf_id;

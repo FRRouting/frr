@@ -7332,15 +7332,20 @@ DEFPY(
 }
 
 static int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
-			 struct ecommunity **list)
+			 struct ecommunity **list, int is_rt6)
 {
 	struct ecommunity *ecom = NULL;
 	struct ecommunity *ecomadd;
 
 	for (; argc; --argc, ++argv) {
-
-		ecomadd = ecommunity_str2com(argv[0]->arg,
-					     ECOMMUNITY_ROUTE_TARGET, 0);
+		if (is_rt6)
+			ecomadd = ecommunity_str2com_ipv6(argv[0]->arg,
+						ECOMMUNITY_ROUTE_TARGET,
+						0);
+		else
+			ecomadd = ecommunity_str2com(argv[0]->arg,
+						ECOMMUNITY_ROUTE_TARGET,
+						0);
 		if (!ecomadd) {
 			vty_out(vty, "Malformed community-list value\n");
 			if (ecom)
@@ -7660,7 +7665,7 @@ DEFPY (af_rt_vpn_imexport,
 			vty_out(vty, "%% Missing RTLIST\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		ret = set_ecom_list(vty, argc - idx, argv + idx, &ecom);
+		ret = set_ecom_list(vty, argc - idx, argv + idx, &ecom, 0);
 		if (ret != CMD_SUCCESS) {
 			return ret;
 		}
@@ -8017,26 +8022,36 @@ DEFPY (bgp_imexport_vpn,
 
 DEFPY (af_routetarget_import,
        af_routetarget_import_cmd,
-       "[no] <rt|route-target> redirect import RTLIST...",
+       "[no] <rt|route-target|route-target6|rt6> redirect import RTLIST...",
        NO_STR
+       "Specify route target list\n"
+       "Specify route target list\n"
        "Specify route target list\n"
        "Specify route target list\n"
        "Flow-spec redirect type route target\n"
        "Import routes to this address-family\n"
-       "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
+       "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN|IPV6:MN)\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
 	struct ecommunity *ecom = NULL;
 	afi_t afi;
-	int idx = 0;
+	int idx = 0, idx_unused = 0;
 	int yes = 1;
+	int rt6 = 0;
 
 	if (argv_find(argv, argc, "no", &idx))
 		yes = 0;
 
+	if (argv_find(argv, argc, "rt6", &idx_unused) ||
+	    argv_find(argv, argc, "route-target6", &idx_unused))
+		rt6 = 1;
+
 	afi = vpn_policy_getafi(vty, bgp, false);
 	if (afi == AFI_MAX)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (rt6 && afi != AFI_IP6)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (yes) {
@@ -8044,7 +8059,7 @@ DEFPY (af_routetarget_import,
 			vty_out(vty, "%% Missing RTLIST\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		ret = set_ecom_list(vty, argc - idx, argv + idx, &ecom);
+		ret = set_ecom_list(vty, argc - idx, argv + idx, &ecom, rt6);
 		if (ret != CMD_SUCCESS)
 			return ret;
 	}
@@ -14577,7 +14592,13 @@ static void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 					ECOMMUNITY_FORMAT_ROUTE_MAP,
 					ECOMMUNITY_ROUTE_TARGET);
 
-		vty_out(vty, "%*srt redirect import %s\n", indent, "", b);
+		if (bgp->vpn_policy[afi].import_redirect_rtlist->unit_size
+		    != ECOMMUNITY_SIZE)
+			vty_out(vty, "%*srt redirect import %s\n",
+				indent, "", b);
+		else
+			vty_out(vty, "%*srt redirect import %s\n",
+				indent, "", b);
 		XFREE(MTYPE_ECOMMUNITY_STR, b);
 	}
 }

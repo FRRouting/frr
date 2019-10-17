@@ -263,7 +263,7 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 {
 	struct attr *attr;
 	char return_string[BGP_FLOWSPEC_STRING_DISPLAY_MAX];
-	char *s;
+	char *s = NULL, *s2 = NULL;
 	json_object *json_nlri_path = NULL;
 	json_object *json_ecom_path = NULL;
 	json_object *json_time_path = NULL;
@@ -306,21 +306,31 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 	}
 	if (!path)
 		return;
-	if (path->attr->ecommunity) {
+	if (path->attr &&
+	    (path->attr->ecommunity || path->attr->ipv6_ecommunity)) {
 		/* Print attribute */
 		attr = path->attr;
-		s = ecommunity_ecom2str(attr->ecommunity,
-					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-		if (!s)
+		if (attr->ecommunity)
+			s = ecommunity_ecom2str(attr->ecommunity,
+						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+		if (attr->ipv6_ecommunity)
+			s2 = ecommunity_ecom2str(attr->ipv6_ecommunity,
+						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+		if (!s && !s2)
 			return;
 		if (display == NLRI_STRING_FORMAT_LARGE)
-			vty_out(vty, "\t%s\n", s);
+			vty_out(vty, "\t%s%s%s\n", s ? s : "",
+				s2 && s ? " " : "", s2 ? s2 : "");
 		else if (display == NLRI_STRING_FORMAT_MIN)
-			vty_out(vty, "%s", s);
+			vty_out(vty, "%s%s", s ? s : "", s2 ? s2 : "");
 		else if (json_paths) {
 			json_ecom_path = json_object_new_object();
-			json_object_string_add(json_ecom_path,
-				       "ecomlist", s);
+			if (s)
+				json_object_string_add(json_ecom_path,
+						       "ecomlist", s);
+			if (s2)
+				json_object_string_add(json_ecom_path,
+						       "ecom6list", s2);
 			if (display == NLRI_STRING_FORMAT_JSON)
 				json_object_array_add(json_paths,
 						      json_ecom_path);

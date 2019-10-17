@@ -177,6 +177,9 @@ struct attr {
 	/* Extended Communities attribute. */
 	struct ecommunity *ecommunity;
 
+	/* Extended Communities attribute. */
+	struct ecommunity *ipv6_ecommunity;
+
 	/* Large Communities attribute. */
 	struct lcommunity *lcommunity;
 

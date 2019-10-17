@@ -42,6 +42,9 @@ DEFINE_MTYPE_STATIC(BGPD, PBR_RULE, "PBR rule")
 DEFINE_MTYPE_STATIC(BGPD, PBR, "BGP PBR Context")
 DEFINE_MTYPE_STATIC(BGPD, PBR_VALMASK, "BGP PBR Val Mask Value")
 
+/* chain strings too long to fit in one line */
+#define FSPEC_ACTION_EXCEED_LIMIT "flowspec actions exceeds limit"
+
 RB_GENERATE(bgp_pbr_interface_head, bgp_pbr_interface,
 	    id_entry, bgp_pbr_interface_compare);
 struct bgp_pbr_interface_head ifaces_by_name_ipv4 =
@@ -756,8 +759,10 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 				if (BGP_DEBUG(pbr, PBR_ERROR))
 					flog_err(
 						EC_BGP_FLOWSPEC_PACKET,
-						"%s: flowspec actions exceeds limit (max %u)",
-						__func__, action_count);
+						"%s: %s (max %u)",
+						__func__,
+						FSPEC_ACTION_EXCEED_LIMIT,
+						action_count);
 				break;
 			}
 			api_action = &api->actions[action_count - 1];
@@ -885,6 +890,45 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 					discard_action_found = true;
 			}
 			api->action_num++;
+		}
+	}
+	if (path && path->attr && path->attr->ipv6_ecommunity) {
+		struct ecommunity_val_ipv6 *ipv6_ecom_eval;
+
+		ecom = path->attr->ipv6_ecommunity;
+		for (i = 0; i < ecom->size; i++) {
+			ipv6_ecom_eval = (struct ecommunity_val_ipv6 *)
+				(ecom->val + (i * ecom->unit_size));
+			action_count++;
+			if (action_count > ACTIONS_MAX_NUM) {
+				if (BGP_DEBUG(pbr, PBR_ERROR))
+					flog_err(
+						EC_BGP_FLOWSPEC_PACKET,
+						"%s: flowspec actions exceeds limit (max %u)",
+						__func__, action_count);
+				break;
+			}
+			api_action = &api->actions[action_count - 1];
+			if ((ipv6_ecom_eval->val[1] ==
+			     (char)ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6) &&
+			    (ipv6_ecom_eval->val[0] ==
+			     (char)ECOMMUNITY_ENCODE_TRANS_EXP)) {
+				struct ecommunity *eckey = ecommunity_new();
+				struct ecommunity_val_ipv6 ecom_copy;
+
+				eckey->unit_size = IPV6_ECOMMUNITY_SIZE;
+				memcpy(&ecom_copy, ipv6_ecom_eval,
+				       sizeof(struct ecommunity_val_ipv6));
+				ecom_copy.val[1] = ECOMMUNITY_ROUTE_TARGET;
+				ecommunity_add_val_ipv6(eckey, &ecom_copy,
+							false, false);
+				api_action->action = ACTION_REDIRECT;
+				api_action->u.redirect_vrf =
+					get_first_vrf_for_redirect_with_rt(
+								eckey);
+				ecommunity_free(&eckey);
+				api->action_num++;
+			}
 		}
 	}
 	/* if ECOMMUNITY_TRAFFIC_RATE = 0 as action
@@ -2812,8 +2856,11 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 			continue_loop = 0;
 			break;
 		case ACTION_REDIRECT:
+			if (api->afi == AFI_IP)
+				nh.type = NEXTHOP_TYPE_IPV4;
+			else
+				nh.type = NEXTHOP_TYPE_IPV6;
 			nh.vrf_id = api->actions[i].u.redirect_vrf;
-			nh.type = NEXTHOP_TYPE_IPV4;
 			bgp_pbr_policyroute_add_to_zebra(bgp, path, &bpf, &bpof,
 							 &nh, &rate);
 			continue_loop = 0;
