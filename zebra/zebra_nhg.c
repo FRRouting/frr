@@ -221,6 +221,17 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		}
 	}
 
+	if ((top->p.family == AF_INET && top->p.prefixlen == 32
+	     && nexthop->gate.ipv4.s_addr == top->p.u.prefix4.s_addr)
+	    || (top->p.family == AF_INET6 && top->p.prefixlen == 128
+		&& memcmp(&nexthop->gate.ipv6, &top->p.u.prefix6, 16) == 0)) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			zlog_debug(
+				"\t:%s: Attempting to install a max prefixlength route through itself",
+				__PRETTY_FUNCTION__);
+		return 0;
+	}
+
 	/* Make lookup prefix. */
 	memset(&p, 0, sizeof(struct prefix));
 	switch (afi) {
