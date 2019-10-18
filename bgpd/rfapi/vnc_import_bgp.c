@@ -476,25 +476,21 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 		plifetime = &lifetime;
 	}
 
-	if (bpi->attr) {
-		encaptlvs = bpi->attr->vnc_subtlvs;
-		if (bpi->attr->encap_tunneltype != BGP_ENCAP_TYPE_RESERVED
-		    && bpi->attr->encap_tunneltype != BGP_ENCAP_TYPE_MPLS) {
-			if (opt != NULL)
-				opt->next = &optary[cur_opt];
-			opt = &optary[cur_opt++];
-			memset(opt, 0, sizeof(struct rfapi_un_option));
-			opt->type = RFAPI_UN_OPTION_TYPE_TUNNELTYPE;
-			opt->v.tunnel.type = bpi->attr->encap_tunneltype;
-			/* TBD parse bpi->attr->extra->encap_subtlvs */
-		}
-	} else {
-		encaptlvs = NULL;
+	encaptlvs = bpi->attr->vnc_subtlvs;
+	if (bpi->attr->encap_tunneltype != BGP_ENCAP_TYPE_RESERVED
+	    && bpi->attr->encap_tunneltype != BGP_ENCAP_TYPE_MPLS) {
+		if (opt != NULL)
+			opt->next = &optary[cur_opt];
+		opt = &optary[cur_opt++];
+		memset(opt, 0, sizeof(struct rfapi_un_option));
+		opt->type = RFAPI_UN_OPTION_TYPE_TUNNELTYPE;
+		opt->v.tunnel.type = bpi->attr->encap_tunneltype;
+		/* TBD parse bpi->attr->extra->encap_subtlvs */
 	}
 
 	struct ecommunity *new_ecom = ecommunity_dup(ecom);
 
-	if (bpi->attr && bpi->attr->ecommunity)
+	if (bpi->attr->ecommunity)
 		ecommunity_merge(new_ecom, bpi->attr->ecommunity);
 
 	if (bpi->extra)
@@ -635,12 +631,8 @@ static void vnc_import_bgp_add_route_mode_resolve_nve(
 	}
 
 	local_pref = calc_local_pref(info->attr, info->peer);
-	if (info->attr
-	    && (info->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))) {
-
+	if (info->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
 		med = &info->attr->med;
-	}
-
 
 	/*
 	 * At this point, we have allocated:
@@ -1103,7 +1095,7 @@ static void vnc_import_bgp_del_route_mode_plain(struct bgp *bgp,
 	 * Compute VN address
 	 */
 
-	if (info && info->attr) {
+	if (info) {
 		rfapiUnicastNexthop2Prefix(afi, info->attr, &vn_pfx_space);
 	} else {
 		vnc_zlog_debug_verbose("%s: no attr, can't delete route",
@@ -1489,12 +1481,9 @@ void vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 		}
 		local_pref = calc_local_pref(pb->ubpi->attr, pb->ubpi->peer);
 
-		if (pb->ubpi->attr
-		    && (pb->ubpi->attr->flag
-			& ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))) {
-
+		if (pb->ubpi->attr->flag
+		    & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
 			med = &pb->ubpi->attr->med;
-		}
 
 		/*
 		 * Sanity check
@@ -1729,11 +1718,6 @@ static void vnc_import_bgp_exterior_add_route_it(
 		return;
 	}
 
-	if (!info->attr) {
-		vnc_zlog_debug_verbose("%s: no info, skipping", __func__);
-		return;
-	}
-
 	/*
 	 * Extract nexthop from exterior route
 	 *
@@ -1917,11 +1901,6 @@ void vnc_import_bgp_exterior_del_route(
 		vnc_zlog_debug_verbose(
 			"%s: redist of exterior routes no enabled, skipping",
 			__func__);
-		return;
-	}
-
-	if (!info->attr) {
-		vnc_zlog_debug_verbose("%s: no info, skipping", __func__);
 		return;
 	}
 

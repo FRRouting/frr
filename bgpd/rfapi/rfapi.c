@@ -388,15 +388,13 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 	     bpi = bpi->next) {
 
 		vnc_zlog_debug_verbose(
-			"%s: trying bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc.export.rfapi_handle=%p, local_pref=%u",
+			"%s: trying bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc.export.rfapi_handle=%p, local_pref=%" PRIu64,
 			__func__, bpi, bpi->peer, bpi->type, bpi->sub_type,
 			(bpi->extra ? bpi->extra->vnc.export.rfapi_handle
 				    : NULL),
-			((bpi->attr
-			  && CHECK_FLAG(bpi->attr->flag,
-					ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
-				 ? bpi->attr->local_pref
-				 : 0));
+			CHECK_FLAG(bpi->attr->flag,
+				   ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)
+				   ? bpi->attr->local_pref : 0));
 
 		if (bpi->peer == peer && bpi->type == type
 		    && bpi->sub_type == sub_type && bpi->extra

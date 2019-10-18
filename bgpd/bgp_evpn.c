@@ -3023,8 +3023,7 @@ static int bgp_evpn_route_rmac_self_check(struct bgp *bgp_vrf,
 	 * SVI comes up with MAC and stored in hash, triggers
 	 * bgp_mac_rescan_all_evpn_tables.
 	 */
-	if (pi->attr &&
-	    memcmp(&bgp_vrf->rmac, &pi->attr->rmac, ETH_ALEN) == 0) {
+	if (memcmp(&bgp_vrf->rmac, &pi->attr->rmac, ETH_ALEN) == 0) {
 		if (bgp_debug_update(pi->peer, NULL, NULL, 1)) {
 			char buf1[PREFIX_STRLEN];
 			char attr_str[BUFSIZ] = {0};

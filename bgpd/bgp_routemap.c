@@ -700,7 +700,7 @@ route_match_ip_next_hop_type(void *rule, const struct prefix *prefix,
 
 	if (type == RMAP_BGP && prefix->family == AF_INET) {
 		path = (struct bgp_path_info *)object;
-		if (!path || !path->attr)
+		if (!path)
 			return RMAP_NOMATCH;
 
 		/* If nexthop interface's index can't be resolved and nexthop is
@@ -868,8 +868,7 @@ route_match_vni(void *rule, const struct prefix *prefix,
 		 * For any other tunnel type, return noop to ignore
 		 * this check.
 		 */
-		if (path->attr && path->attr->encap_tunneltype !=
-			BGP_ENCAP_TYPE_VXLAN)
+		if (path->attr->encap_tunneltype != BGP_ENCAP_TYPE_VXLAN)
 			return RMAP_NOOP;
 
 		/*
@@ -1470,7 +1469,7 @@ route_match_interface(void *rule, const struct prefix *prefix,
 	if (type == RMAP_BGP) {
 		path = object;
 
-		if (!path || !path->attr)
+		if (!path)
 			return RMAP_NOMATCH;
 
 		ifp = if_lookup_by_name_all_vrf((char *)rule);
@@ -2690,7 +2689,7 @@ route_match_ipv6_next_hop_type(void *rule, const struct prefix *prefix,
 
 	if (type == RMAP_BGP && prefix->family == AF_INET6) {
 		path = (struct bgp_path_info *)object;
-		if (!path || !path->attr)
+		if (!path)
 			return RMAP_NOMATCH;
 
 		if (IPV6_ADDR_SAME(&path->attr->mp_nexthop_global, addr)

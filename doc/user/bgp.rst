@@ -1063,6 +1063,13 @@ Configuring Peers
    on by default or not.  This command defaults to on and is not displayed.
    The `no bgp default ipv4-unicast` form of the command is displayed.
 
+.. index:: [no] neighbor PEER advertisement-interval (0-600)
+.. clicmd:: [no] neighbor PEER advertisement-interval (0-600)
+
+   Setup the minimum route advertisement interval(mrai) for the
+   peer in question.  This number is between 0 and 600 seconds,
+   with the default advertisement interval being 0.
+
 .. _bgp-peer-filtering:
 
 Peer Filtering

@@ -1025,10 +1025,9 @@ DEFPY (show_route_all_table_vrf,
 			continue;
 		if (zrt->afi != afi || zrt->safi != SAFI_UNICAST)
 			continue;
-		if (zrt->table)
-			do_show_route_helper(vty, info->zvrf, zrt->table, afi,
-					     false, 0, false, false,
-					     0, 0, !!json, zrt->tableid);
+
+		do_show_route_helper(vty, info->zvrf, zrt->table, afi, false, 0,
+				     false, false, 0, 0, !!json, zrt->tableid);
 	}
 	return CMD_SUCCESS;
 }
