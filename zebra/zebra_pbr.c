@@ -83,6 +83,27 @@ const struct message icmp_typecode_str[] = {
 	{0}
 };
 
+const struct message icmpv6_typecode_str[] = {
+	{ 128 << 8, "echo-request"},
+	{ 129 << 8, "echo-reply"},
+	{ 1 << 8, "no-route"},
+	{ (1 << 8) + 1, "communication-prohibited"},
+	{ (1 << 8) + 3, "address-unreachable"},
+	{ (1 << 8) + 4, "port-unreachable"},
+	{ (2 << 8), "packet-too-big"},
+	{ 3 << 0, "ttl-zero-during-transit"},
+	{ (3 << 8) + 1, "ttl-zero-during-reassembly"},
+	{ 4 << 0, "bad-header"},
+	{ (4 << 0) + 1, "unknown-header-type"},
+	{ (4 << 0) + 2, "unknown-option"},
+	{ 133 << 8, "router-solicitation"},
+	{ 134 << 8, "router-advertisement"},
+	{ 135 << 8, "neighbor-solicitation"},
+	{ 136 << 8, "neighbor-advertisement"},
+	{ 137 << 8, "redirect"},
+	{0}
+};
+
 /* definitions */
 static const struct message tcp_value_str[] = {
 	{TCP_HEADER_FIN, "FIN"},
@@ -900,6 +921,9 @@ static void zebra_pbr_display_icmp(struct vty *vty,
 {
 	char decoded_str[20];
 	uint16_t port;
+	struct zebra_pbr_ipset *zpi;
+
+	zpi = zpie->backpointer;
 
 	/* range icmp type */
 	if (zpie->src_port_max || zpie->dst_port_max) {
@@ -912,8 +936,10 @@ static void zebra_pbr_display_icmp(struct vty *vty,
 		memset(decoded_str, 0, sizeof(decoded_str));
 		snprintf(decoded_str, sizeof(decoded_str), "%u/%u",
 			 zpie->src_port_min, zpie->dst_port_min);
-		vty_out(vty, ":icmp:%s",
-			lookup_msg(icmp_typecode_str,
+		vty_out(vty, ":%s:%s",
+			zpi->family == AF_INET6 ? "ipv6-icmp" : "icmp",
+			lookup_msg(zpi->family == AF_INET6 ?
+				   icmpv6_typecode_str : icmp_typecode_str,
 				   port, decoded_str));
 	}
 }
@@ -1115,7 +1141,7 @@ static void zebra_pbr_show_iptable_unit(struct zebra_pbr_iptable *iptable,
 
 	vty_out(vty, "IPtable %s family %s action %s (%u)\n",
 		iptable->ipset_name,
-		iptable->family == AF_INET ? "AF_INET" : "AF_INET6",
+		family2str(iptable->family),
 		iptable->action == ZEBRA_IPTABLES_DROP ? "drop" : "redirect",
 		iptable->unique);
 	if (iptable->type == IPSET_NET_PORT ||

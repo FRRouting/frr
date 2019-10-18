@@ -163,6 +163,7 @@ struct zebra_pbr_iptable {
 };
 
 extern const struct message icmp_typecode_str[];
+extern const struct message icmpv6_typecode_str[];
 
 const char *zebra_pbr_ipset_type2str(uint32_t type);
 
