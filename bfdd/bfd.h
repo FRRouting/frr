@@ -242,6 +242,11 @@ struct bfd_session {
 	/* BFD session flags */
 	enum bfd_session_flags flags;
 
+	/* Flag to indicate if Tx packet is filled in below structure */
+	bool bfd_tx_pkt_stored;
+	/* Stored packet for Tx in Async mode */
+	struct bfd_pkt bfd_tx_pkt;
+
 	struct bfd_session_stats stats;
 
 	struct timeval uptime;   /* last up time */
@@ -373,6 +378,7 @@ int control_notify(struct bfd_session *bs);
 int control_notify_config(const char *op, struct bfd_session *bs);
 int control_accept(struct thread *t);
 
+void bfd_clear_stored_pkt(struct bfd_session *bs);
 
 /*
  * bfdd.c
@@ -449,6 +455,7 @@ void log_init(int foreground, enum blog_level level,
 	      struct frr_daemon_info *fdi);
 void log_info(const char *fmt, ...);
 void log_debug(const char *fmt, ...);
+void log_debug_pkt(const char *fmt, ...);
 void log_warning(const char *fmt, ...);
 void log_error(const char *fmt, ...);
 void log_fatal(const char *fmt, ...);
@@ -620,7 +627,6 @@ void bfd_cli_show_echo(struct vty *vty, struct lyd_node *dnode,
 void bfd_cli_show_echo_interval(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults);
 
-
 /*
  * ptm_adapter.c
  */
@@ -641,5 +647,33 @@ int ptm_bfd_notify(struct bfd_session *bs);
  * BFD northbound callbacks.
  */
 extern const struct frr_yang_module_info frr_bfdd_info;
+
+/* bfd_debug.c*/
+/* Prototypes. */
+extern void bfd_debug_init(void);
+
+extern bool conf_bfd_debug_pkt;
+
+extern bool term_bfd_debug_pkt;
+
+#define BFD_CONF_DEBUG_PKT_ON() (conf_bfd_debug_pkt = true)
+#define BFD_CONF_DEBUG_PKT_OFF() (conf_bfd_debug_pkt = false)
+
+#define BFD_TERM_DEBUG_PKT_ON() (term_bfd_debug_pkt = true)
+#define BFD_TERM_DEBUG_PKT_OFF() (term_bfd_debug_pkt = false)
+
+#define BFD_DEBUG_PKT_ON()				\
+	do {						\
+		BFD_CONF_DEBUG_PKT_ON();		\
+		BFD_TERM_DEBUG_PKT_ON();		\
+	} while (0)
+#define BFD_DEBUG_PKT_OFF()				\
+	do {						\
+		BFD_CONF_DEBUG_PKT_OFF();		\
+		BFD_TERM_DEBUG_PKT_OFF();		\
+	} while (0)
+
+#define BFD_DEBUG_PKT() (true == term_bfd_debug_pkt)
+#define CONF_BFD_DEBUG_PKT() (true == conf_bfd_debug_pkt)
 
 #endif /* _BFD_H_ */

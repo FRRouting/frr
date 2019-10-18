@@ -215,6 +215,14 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 {
 	struct bfd_pkt cp;
+	struct bfd_pkt *pst_bfd_pkt = NULL;
+
+	if ((bfd->bfd_tx_pkt_stored) &&
+	    (bfd->ses_state == PTM_BFD_UP) && (!bfd->polling) && (!fbit)) {
+		pst_bfd_pkt = &(bfd->bfd_tx_pkt);
+
+		goto send_packet;
+	}
 
 	/* Set fields according to section 6.5.7 */
 	cp.diag = bfd->local_diag;
@@ -257,9 +265,22 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 		cp.timers.required_min_rx =
 			htonl(bfd->cur_timers.required_min_rx);
 	}
+
 	cp.timers.required_min_echo = htonl(bfd->timers.required_min_echo);
 
-	if (_ptm_bfd_send(bfd, NULL, &cp, BFD_PKT_LEN) != 0)
+	pst_bfd_pkt = &cp;
+
+	if ((BFD_GETSTATE(cp.flags) == PTM_BFD_UP) &&
+	     (!bfd->polling) && !(fbit)) {
+		memcpy(&(bfd->bfd_tx_pkt), pst_bfd_pkt, sizeof(bfd->bfd_tx_pkt));
+		bfd->bfd_tx_pkt_stored = true;
+
+		log_debug_pkt("storing-packet: session-id: %d",
+			       bfd->discrs.my_discr);
+	}
+
+send_packet:
+	if (_ptm_bfd_send(bfd, NULL, pst_bfd_pkt, BFD_PKT_LEN) != 0)
 		return;
 
 	bfd->stats.tx_ctrl_pkt++;
@@ -431,7 +452,8 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 				local->sa_sin6.sin6_family = AF_INET6;
 				local->sa_sin6.sin6_addr = pi6->ipi6_addr;
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
-				local->sa_sin6.sin6_len = sizeof(local->sa_sin6);
+				local->sa_sin6.sin6_len =
+						sizeof(local->sa_sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 
 				*ifindex = pi6->ipi6_ifindex;

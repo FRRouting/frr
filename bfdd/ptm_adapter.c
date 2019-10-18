@@ -107,11 +107,11 @@ static void debug_printbpc(const char *func, unsigned int line,
 		snprintf(addr[2], sizeof(addr[2]), " vrf:%s", bpc->bpc_vrfname);
 
 	if (bpc->bpc_has_recvinterval)
-		snprintf(timers[0], sizeof(timers[0]), " rx:%lu",
+		snprintf(timers[0], sizeof(timers[0]), " rx:%llu",
 			 bpc->bpc_recvinterval);
 
 	if (bpc->bpc_has_txinterval)
-		snprintf(timers[1], sizeof(timers[1]), " tx:%lu",
+		snprintf(timers[1], sizeof(timers[1]), " tx:%llu",
 			 bpc->bpc_recvinterval);
 
 	if (bpc->bpc_has_detectmultiplier)
@@ -461,6 +461,9 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 	if (bs->refcount ||
 	    BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
 		return;
+
+	bfd_clear_stored_pkt(bs);
+
 	ptm_bfd_sess_del(&bpc);
 }
 
