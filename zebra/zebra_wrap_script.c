@@ -57,11 +57,14 @@ struct item_list {
 #define IPSET_PRE_HASH "hash:"
 
 #define SCRIPT_NETFILTER_IPTABLES "iptables"
+#define SCRIPT_NETFILTER_IP6TABLES "ip6tables"
 #define SCRIPT_NETFILTER_IPSET "ipset"
 DEFINE_MTYPE_STATIC(ZEBRA, SCRIPTCACHE, "Cache Information");
 static char *zebra_wrap_script_iptable_pathname;
+static char *zebra_wrap_script_ip6table_pathname;
 static char *zebra_wrap_script_ipset_pathname;
 static char *zebra_wrap_script_get_iptable_pathname;
+static char *zebra_wrap_script_get_ip6table_pathname;
 static char *zebra_wrap_script_get_ipset_pathname;
 
 static int zebra_wrap_script_config_write(struct vty *vty);
@@ -181,6 +184,11 @@ static const char *zebra_wrap_prefix2str(union prefixconstptr pu,
 	char buf[PREFIX2STR_BUFFER];
 
 	if (p->family == AF_INET && p->prefixlen == IPV4_MAX_PREFIXLEN) {
+		snprintf(str, size, "%s", inet_ntop(p->family, &p->u.prefix,
+						    buf, PREFIX2STR_BUFFER));
+		return str;
+	} else	if (p->family == AF_INET6 &&
+		    p->prefixlen == IPV6_MAX_PREFIXLEN) {
 		snprintf(str, size, "%s", inet_ntop(p->family, &p->u.prefix,
 						    buf, PREFIX2STR_BUFFER));
 		return str;
@@ -1015,6 +1023,8 @@ static int zebra_wrap_script_iptable_get_stat(
 		iptable_json->iptable_list = json_object_new_object();
 		snprintf(input, sizeof(input),
 			 "%s -t mangle -L PREROUTING -v",
+			 iptable->family == AF_INET6 ?
+			 zebra_wrap_script_get_ip6table_pathname :
 			 zebra_wrap_script_get_iptable_pathname);
 		/*
 		 * The following call will analyse the output of 'iptables'
@@ -1064,21 +1074,27 @@ static int netlink_iptable_add_user_action(struct zebra_pbr_iptable *iptable,
 	 */
 	if (cmd) {
 		snprintf(buf2, sizeof(buf2), "%s -N %s -t mangle",
-			zebra_wrap_script_iptable_pathname,
-			iptable->ipset_name);
+			 iptable->family == AF_INET6 ?
+			 zebra_wrap_script_ip6table_pathname :
+			 zebra_wrap_script_iptable_pathname,
+			 iptable->ipset_name);
 		ret = zebra_wrap_script_call_only(buf2);
 
 		snprintf(buf2, sizeof(buf2),
 			"%s -A %s -t mangle -j MARK --set-mark %d",
-			zebra_wrap_script_iptable_pathname,
-			iptable->ipset_name,
-			iptable->fwmark);
+			 iptable->family == AF_INET6 ?
+			 zebra_wrap_script_ip6table_pathname :
+			 zebra_wrap_script_iptable_pathname,
+			 iptable->ipset_name,
+			 iptable->fwmark);
 		ret = zebra_wrap_script_call_only(buf2);
 
 		snprintf(buf2, sizeof(buf2),
 			 "%s -A %s -t mangle -j ACCEPT",
-			zebra_wrap_script_iptable_pathname,
-			iptable->ipset_name);
+			 iptable->family == AF_INET6 ?
+			 zebra_wrap_script_ip6table_pathname :
+			 zebra_wrap_script_iptable_pathname,
+			 iptable->ipset_name);
 		ret = zebra_wrap_script_call_only(buf2);
 	} else {
 		/* - step 1 : remove the apply termination action
@@ -1087,21 +1103,27 @@ static int netlink_iptable_add_user_action(struct zebra_pbr_iptable *iptable,
 		 */
 		snprintf(buf2, sizeof(buf2),
 			 "%s -D %s -t mangle -j ACCEPT",
-			zebra_wrap_script_iptable_pathname,
-			iptable->ipset_name);
+			 iptable->family == AF_INET6 ?
+			 zebra_wrap_script_ip6table_pathname :
+			 zebra_wrap_script_iptable_pathname,
+			 iptable->ipset_name);
 		ret = zebra_wrap_script_call_only(buf2);
 
 		snprintf(buf2, sizeof(buf2),
 			 "%s -D %s -t mangle -j MARK --set-mark %d",
-			zebra_wrap_script_iptable_pathname,
-			iptable->ipset_name,
-			iptable->fwmark);
+			 iptable->family == AF_INET6 ?
+			 zebra_wrap_script_ip6table_pathname :
+			 zebra_wrap_script_iptable_pathname,
+			 iptable->ipset_name,
+			 iptable->fwmark);
 		ret = zebra_wrap_script_call_only(buf2);
 
 		snprintf(buf2, sizeof(buf2),
 			 "%s -X %s -t mangle",
-			zebra_wrap_script_iptable_pathname,
-			iptable->ipset_name);
+			 iptable->family == AF_INET6 ?
+			 zebra_wrap_script_ip6table_pathname :
+			 zebra_wrap_script_iptable_pathname,
+			 iptable->ipset_name);
 		ret = zebra_wrap_script_call_only(buf2);
 	}
 	return ret;
@@ -1260,6 +1282,8 @@ static int netlink_iptable_update_unit(int cmd,
 	if (!iptable->nb_interface) {
 		len_written = snprintf(buf, sizeof(buf),
 				       "%s -t mangle -%s PREROUTING -m set",
+				       iptable->family == AF_INET6 ?
+				       zebra_wrap_script_ip6table_pathname :
 				       zebra_wrap_script_iptable_pathname,
 				       cmd ? "I":"D");
 		remaining_len -= len_written;
@@ -1274,6 +1298,8 @@ static int netlink_iptable_update_unit(int cmd,
 		remaining_len = sizeof(buf);
 		len_written = snprintf(ptr, remaining_len,
 				       "%s -i %s -t mangle -%s PREROUTING -m set",
+				       iptable->family == AF_INET6 ?
+				       zebra_wrap_script_ip6table_pathname :
 				       zebra_wrap_script_iptable_pathname,
 				       name, cmd ? "I":"D");
 		ptr += len_written;
@@ -1396,6 +1422,24 @@ DEFUN (zebra_wrap_script_iptable,
 	return CMD_SUCCESS;
 }
 
+DEFUN (zebra_wrap_script_ip6table,
+       zebra_wrap_script_ip6table_cmd,
+       "wrap script ip6table LINE...",
+       "Wrapping utilities\n"
+       "Use an external script\n"
+       "IP6table utility\n"
+       "path of ip6table script utility \n")
+{
+	int idx = 3;
+
+	if (zebra_wrap_script_ip6table_pathname) {
+		XFREE(MTYPE_TMP, zebra_wrap_script_ip6table_pathname);
+		zebra_wrap_script_ip6table_pathname = NULL;
+	}
+	zebra_wrap_script_ip6table_pathname = argv_concat(argv, argc, idx);
+	return CMD_SUCCESS;
+}
+
 DEFUN (zebra_wrap_script_no_iptable,
        zebra_wrap_script_no_iptable_cmd,
        "no wrap script iptable",
@@ -1406,6 +1450,19 @@ DEFUN (zebra_wrap_script_no_iptable,
 {
 	XFREE(MTYPE_TMP, zebra_wrap_script_iptable_pathname);
 	zebra_wrap_script_iptable_pathname = NULL;
+	return CMD_SUCCESS;
+}
+
+DEFUN (zebra_wrap_script_no_ip6table,
+       zebra_wrap_script_no_ip6table_cmd,
+       "no wrap script ip6table",
+       NO_STR
+       "Wrapping utilities\n"
+       "Use an external script\n"
+       "IP6table utility\n")
+{
+	XFREE(MTYPE_TMP, zebra_wrap_script_ip6table_pathname);
+	zebra_wrap_script_ip6table_pathname = NULL;
 	return CMD_SUCCESS;
 }
 
@@ -1428,6 +1485,25 @@ DEFUN (zebra_wrap_script_get_iptable,
 	return CMD_SUCCESS;
 }
 
+DEFUN (zebra_wrap_script_get_ip6table,
+       zebra_wrap_script_get_ip6table_cmd,
+       "wrap script get ip6table LINE...",
+       "Wrapping utilities\n"
+       "Use an external script\n"
+       "Get Context\n"
+       "IPtable utility\n"
+       "path of iptable script utility \n")
+{
+	int idx = 4;
+
+	if (zebra_wrap_script_get_ip6table_pathname) {
+		XFREE(MTYPE_TMP, zebra_wrap_script_get_ip6table_pathname);
+		zebra_wrap_script_get_ip6table_pathname = NULL;
+	}
+	zebra_wrap_script_get_ip6table_pathname = argv_concat(argv, argc, idx);
+	return CMD_SUCCESS;
+}
+
 DEFUN (zebra_wrap_script_no_get_iptable,
        zebra_wrap_script_no_get_iptable_cmd,
        "no wrap script get iptable",
@@ -1439,6 +1515,20 @@ DEFUN (zebra_wrap_script_no_get_iptable,
 {
 	XFREE(MTYPE_TMP, zebra_wrap_script_get_iptable_pathname);
 	zebra_wrap_script_get_iptable_pathname = NULL;
+	return CMD_SUCCESS;
+}
+
+DEFUN (zebra_wrap_script_no_get_ip6table,
+       zebra_wrap_script_no_get_ip6table_cmd,
+       "no wrap script get ip6table",
+       NO_STR
+       "Wrapping utilities\n"
+       "Use an external script\n"
+       "Get Context\n"
+       "IPtable utility\n")
+{
+	XFREE(MTYPE_TMP, zebra_wrap_script_get_ip6table_pathname);
+	zebra_wrap_script_get_ip6table_pathname = NULL;
 	return CMD_SUCCESS;
 }
 
@@ -1462,9 +1552,11 @@ static int zebra_wrap_script_ipset_update(int cmd,
 	}
 	if (cmd) {
 		snprintf(buf, sizeof(buf),
-			 "ipset create %s %s%s counters",
-			 ipset->ipset_name, IPSET_PRE_HASH,
-			 zebra_pbr_ipset_type2str(ipset->type));
+			 "ipset create %s %s%s counters%s",
+			 ipset->ipset_name,
+			 IPSET_PRE_HASH,
+			 zebra_pbr_ipset_type2str(ipset->type),
+			 ipset->family == AF_INET6 ? " family ipv6":"");
 	} else
 		snprintf(buf, sizeof(buf),
 			"ipset destroy %s",
@@ -1763,6 +1855,14 @@ static int zebra_wrap_script_config_write(struct vty *vty)
 			zebra_wrap_script_iptable_pathname);
 		ret++;
 	}
+	if (zebra_wrap_script_ip6table_pathname &&
+	    strncmp(zebra_wrap_script_ip6table_pathname,
+		    SCRIPT_NETFILTER_IP6TABLES,
+		    strlen(zebra_wrap_script_ip6table_pathname))) {
+		vty_out(vty, "wrap script ip6table %s\n",
+			zebra_wrap_script_ip6table_pathname);
+		ret++;
+	}
 	if (zebra_wrap_script_ipset_pathname &&
 	    strncmp(zebra_wrap_script_ipset_pathname,
 		    SCRIPT_NETFILTER_IPSET,
@@ -1774,9 +1874,17 @@ static int zebra_wrap_script_config_write(struct vty *vty)
 	if (zebra_wrap_script_get_iptable_pathname &&
 	    strncmp(zebra_wrap_script_get_iptable_pathname,
 		    SCRIPT_NETFILTER_IPTABLES,
-		    strlen(zebra_wrap_script_iptable_pathname))) {
+		    strlen(zebra_wrap_script_get_iptable_pathname))) {
 		vty_out(vty, "wrap script get iptable %s\n",
 			zebra_wrap_script_get_iptable_pathname);
+		ret++;
+	}
+	if (zebra_wrap_script_get_ip6table_pathname &&
+	    strncmp(zebra_wrap_script_get_ip6table_pathname,
+		    SCRIPT_NETFILTER_IP6TABLES,
+		    strlen(zebra_wrap_script_get_ip6table_pathname))) {
+		vty_out(vty, "wrap script get ip6table %s\n",
+			zebra_wrap_script_get_ip6table_pathname);
 		ret++;
 	}
 	if (zebra_wrap_script_get_ipset_pathname &&
@@ -1827,16 +1935,22 @@ static int zebra_wrap_script_init(struct thread_master *t)
 	zebra_wrap_debug = 0;
 
 	zebra_wrap_script_iptable_pathname = XSTRDUP(MTYPE_TMP, SCRIPT_NETFILTER_IPTABLES);
+	zebra_wrap_script_ip6table_pathname = XSTRDUP(MTYPE_TMP, SCRIPT_NETFILTER_IP6TABLES);
 	zebra_wrap_script_get_iptable_pathname = XSTRDUP(MTYPE_TMP, SCRIPT_NETFILTER_IPTABLES);
+	zebra_wrap_script_get_ip6table_pathname = XSTRDUP(MTYPE_TMP, SCRIPT_NETFILTER_IP6TABLES);
 	zebra_wrap_script_ipset_pathname = XSTRDUP(MTYPE_TMP, SCRIPT_NETFILTER_IPSET);
 	zebra_wrap_script_get_ipset_pathname = XSTRDUP(MTYPE_TMP, SCRIPT_NETFILTER_IPSET);
 
 	install_element(CONFIG_NODE, &zebra_wrap_script_iptable_cmd);
+	install_element(CONFIG_NODE, &zebra_wrap_script_ip6table_cmd);
 	install_element(CONFIG_NODE, &zebra_wrap_script_get_iptable_cmd);
+	install_element(CONFIG_NODE, &zebra_wrap_script_get_ip6table_cmd);
 	install_element(CONFIG_NODE, &zebra_wrap_script_ipset_cmd);
 	install_element(CONFIG_NODE, &zebra_wrap_script_get_ipset_cmd);
 	install_element(CONFIG_NODE, &zebra_wrap_script_no_iptable_cmd);
+	install_element(CONFIG_NODE, &zebra_wrap_script_no_ip6table_cmd);
 	install_element(CONFIG_NODE, &zebra_wrap_script_no_get_iptable_cmd);
+	install_element(CONFIG_NODE, &zebra_wrap_script_no_get_ip6table_cmd);
 	install_element(CONFIG_NODE, &zebra_wrap_script_no_ipset_cmd);
 	install_element(CONFIG_NODE, &zebra_wrap_script_no_get_ipset_cmd);
 	install_node(&zebra_wrap_script_node);
