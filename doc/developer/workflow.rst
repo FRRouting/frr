@@ -113,6 +113,9 @@ Security fixes are backported to all releases less than or equal to at least one
 year old. Security fixes may also be backported to older releases depending on
 severity.
 
+For detailed instructions on how to produce an FRR release, refer to
+:ref:`frr-release-procedure`.
+
 
 Long term support branches ( LTS )
 -----------------------------------------
