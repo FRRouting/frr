@@ -81,6 +81,7 @@ static const struct message ip_proto_str[] = {
 	{IPPROTO_TCP, "tcp"},
 	{IPPROTO_UDP, "udp"},
 	{IPPROTO_ICMP, "icmp"},
+	{IPPROTO_ICMPV6, "ipv6-icmp"},
 	{0}
 };
 
@@ -156,8 +157,8 @@ static int zebra_wrap_sprint_port(char *str,
 				   "NA:"));
 	len -= len_written;
 	ptr += len_written;
-	if (port || proto == IPPROTO_ICMP) {
-		if (proto == IPPROTO_ICMP) {
+	if (port || proto == IPPROTO_ICMP || proto == IPPROTO_ICMPV6) {
+		if (proto == IPPROTO_ICMP || proto == IPPROTO_ICMPV6) {
 			char decoded_str[20];
 			uint8_t icmp_type, icmp_code;
 
@@ -166,7 +167,8 @@ static int zebra_wrap_sprint_port(char *str,
 			memset(decoded_str, 0, sizeof(decoded_str));
 			sprintf(decoded_str, "%d/%d", icmp_type, icmp_code);
 			len_written = snprintf(ptr, len, ":%s",
-					       lookup_msg(icmp_typecode_str,
+					       lookup_msg(proto == IPPROTO_ICMPV6 ?
+							  icmpv6_typecode_str : icmp_typecode_str,
 							  port, decoded_str));
 		} else {
 			len_written = snprintf(ptr, len, ":%d", port);
@@ -221,7 +223,8 @@ static void zebra_wrap_forge_ipset_identifier(char *buffer, size_t buff_len,
 		len_temp = snprintf(ptr, len, "%s", buf);
 		ptr += len_temp;
 		len -= len_temp;
-		if (port || proto == IPPROTO_ICMP) {
+		if (port || proto == IPPROTO_ICMP ||
+		    proto == IPPROTO_ICMPV6) {
 			len_temp = zebra_wrap_sprint_port(ptr, len,
 							 port, proto);
 			ptr += len_temp;
@@ -242,7 +245,8 @@ static void zebra_wrap_forge_ipset_identifier(char *buffer, size_t buff_len,
 		len_temp = snprintf(ptr, len, "%s", buf);
 		ptr += len_temp;
 		len -= len_temp;
-		if (port || proto == IPPROTO_ICMP)
+		if (port || proto == IPPROTO_ICMP ||
+		    proto == IPPROTO_ICMPV6)
 			zebra_wrap_sprint_port(ptr, len,
 					      port, proto);
 	}
@@ -909,7 +913,10 @@ static int zebra_wrap_script_ipset_entry_get_stat(
 			uint16_t icmp_typecode, icmp_code;
 			uint16_t icmp_code_min, icmp_code_max;
 
-			proto = zpie->proto;
+			if (zpi->family == AF_INET6)
+				proto = IPPROTO_ICMPV6;
+			else
+				proto = zpie->proto;
 			port_min = zpie->src_port_min;
 			port_max = zpie->src_port_max;
 			icmp_code_min = zpie->dst_port_min;
@@ -1210,13 +1217,19 @@ static int netlink_iptable_update_unit_2(char *buf, char *ptr,
 					MATCH_DSCP_INVERSE_SET ? "!" : "",
 					iptable->dscp_value);
 	if (iptable->filter_bm & (MATCH_PROTOCOL_SET)) {
-		if (!iptable->tcp_flags || iptable->protocol != IPPROTO_TCP)
+		if (!iptable->tcp_flags || iptable->protocol != IPPROTO_TCP) {
+			int proto = iptable->protocol;
+
+			if (iptable->family == AF_INET6 &&
+			    proto == IPPROTO_ICMP)
+				proto = IPPROTO_ICMPV6;
 			len_written += snprintf(complement_len + len_written,
 						sizeof(complement_len) - len_written,
 						"-p %s ",
 						lookup_msg(ip_proto_str,
-							   iptable->protocol,
+							   proto,
 							   "NA:"));
+		}
 	}
 	if (iptable->pkt_len_min || iptable->pkt_len_max) {
 		len_written += snprintf(complement_len + len_written,
@@ -1611,24 +1624,28 @@ static int netlink_ipset_icmp_port(int cmd,
 				(uint8_t)icmp_code;
 
 			ptr_to_icmp_typecode =
-				(char *)lookup_msg(icmp_typecode_str,
+				(char *)lookup_msg(bp->family == AF_INET6 ?
+						   icmpv6_typecode_str : icmp_typecode_str,
 						   icmp_typecode,
 						   decoded_str);
 			ptr = buf;
 			memset(ptr, 0, sizeof(buf));
 			if (bp->type == IPSET_NET_PORT)
-				snprintf(ptr, sizeof(buf), "%s %s %s %s,icmp:%s",
+				snprintf(ptr, sizeof(buf), "%s %s %s %s,%s:%s",
 					 zebra_wrap_script_ipset_pathname,
 					 cmd ? "add" : "del",
 					 bp->ipset_name,
 					 pdst == NULL ? psrc : pdst,
+					 bp->family == AF_INET6 ? "ipv6-icmp" : "icmp",
 					 ptr_to_icmp_typecode);
 			else
-				snprintf(ptr, sizeof(buf), "%s %s %s %s,icmp:%s,%s",
+				snprintf(ptr, sizeof(buf), "%s %s %s %s,%s:%s,%s",
 					 zebra_wrap_script_ipset_pathname,
 					 cmd ? "add" : "del",
 					 bp->ipset_name,
-					 psrc, ptr_to_icmp_typecode, pdst);
+					 psrc,
+					 bp->family == AF_INET6 ? "ipv6-icmp" : "icmp",
+					 ptr_to_icmp_typecode, pdst);
 			ret = netlink_ipset_entry_update_unit(cmd, ipset, buf);
 		}
 	}
