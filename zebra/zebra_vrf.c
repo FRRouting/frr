@@ -92,7 +92,7 @@ static int zebra_vrf_new(struct vrf *vrf)
 	struct zebra_vrf *zvrf;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_info("VRF %s created, id %u", vrf->name, vrf->vrf_id);
+		zlog_debug("VRF %s created, id %u", vrf->name, vrf->vrf_id);
 
 	zvrf = zebra_vrf_alloc();
 	vrf->info = zvrf;
@@ -487,7 +487,11 @@ static int vrf_config_write(struct vty *vty)
 
 		if (zvrf_id(zvrf) == VRF_DEFAULT) {
 			if (zvrf->l3vni)
-				vty_out(vty, "vni %u\n", zvrf->l3vni);
+				vty_out(vty, "vni %u%s\n", zvrf->l3vni,
+					is_l3vni_for_prefix_routes_only(
+						zvrf->l3vni)
+						? " prefix-routes-only"
+						: "");
 			if (zvrf->zebra_rnh_ip_default_route)
 				vty_out(vty, "ip nht resolve-via-default\n");
 

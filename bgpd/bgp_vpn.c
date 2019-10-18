@@ -29,6 +29,7 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_vpn.h"
+#include "bgpd/bgp_updgrp.h"
 
 int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 		       struct prefix_rd *prd, afi_t afi, safi_t safi,
@@ -38,14 +39,15 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 	struct bgp_table *table;
 	struct bgp_node *rn;
 	struct bgp_node *rm;
-	struct bgp_path_info *path;
 	int rd_header;
 	int header = 1;
 	json_object *json = NULL;
 	json_object *json_scode = NULL;
 	json_object *json_ocode = NULL;
+	json_object *json_adv = NULL;
 	json_object *json_routes = NULL;
-	json_object *json_array = NULL;
+	char rd_str[BUFSIZ];
+	unsigned long output_count = 0;
 
 	bgp = bgp_get_default();
 	if (bgp == NULL) {
@@ -59,8 +61,8 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 	if (use_json) {
 		json_scode = json_object_new_object();
 		json_ocode = json_object_new_object();
-		json_routes = json_object_new_object();
 		json = json_object_new_object();
+		json_adv = json_object_new_object();
 
 		json_object_string_add(json_scode, "suppressed", "s");
 		json_object_string_add(json_scode, "damped", "d");
@@ -83,16 +85,25 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 		if (table == NULL)
 			continue;
 
-		if (use_json)
-			json_array = json_object_new_array();
-		else
-			json_array = NULL;
 
 		rd_header = 1;
+		memset(rd_str, 0, sizeof(rd_str));
 
 		for (rm = bgp_table_top(table); rm; rm = bgp_route_next(rm)) {
-			path = bgp_node_get_bgp_path_info(rm);
-			if (path == NULL)
+			struct bgp_adj_out *adj = NULL;
+			struct attr *attr = NULL;
+			struct peer_af *paf = NULL;
+
+			RB_FOREACH (adj, bgp_adj_out_rb, &rm->adj_out)
+				SUBGRP_FOREACH_PEER (adj->subgroup, paf) {
+					if (paf->peer != peer || !adj->attr)
+						continue;
+
+					attr = adj->attr;
+					break;
+			}
+
+			if (bgp_node_get_bgp_path_info(rm) == NULL)
 				continue;
 
 			if (header) {
@@ -102,6 +113,13 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 					json_object_string_add(
 						json, "bgpLocalRouterId",
 						inet_ntoa(bgp->router_id));
+					json_object_int_add(
+						json,
+						"defaultLocPrf",
+						bgp->default_local_pref);
+					json_object_int_add(
+						json, "localAS",
+						bgp->as);
 					json_object_object_add(json,
 							       "bgpStatusCodes",
 							       json_scode);
@@ -112,6 +130,9 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 					vty_out(vty,
 						"BGP table version is 0, local router ID is %s\n",
 						inet_ntoa(bgp->router_id));
+					vty_out(vty, "Default local pref %u, ",
+						bgp->default_local_pref);
+					vty_out(vty, "local AS %u\n", bgp->as);
 					vty_out(vty,
 						"Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
 					vty_out(vty,
@@ -146,18 +167,19 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 					decode_rd_vnc_eth(pnt, &rd_vnc_eth);
 #endif
 				if (use_json) {
-					char buffer[BUFSIZ];
+					json_routes = json_object_new_object();
+
 					if (type == RD_TYPE_AS
 					    || type == RD_TYPE_AS4)
-						sprintf(buffer, "%u:%d",
+						sprintf(rd_str, "%u:%d",
 							rd_as.as, rd_as.val);
 					else if (type == RD_TYPE_IP)
-						sprintf(buffer, "%s:%d",
+						sprintf(rd_str, "%s:%d",
 							inet_ntoa(rd_ip.ip),
 							rd_ip.val);
 					json_object_string_add(
 						json_routes,
-						"routeDistinguisher", buffer);
+						"rd", rd_str);
 				} else {
 					vty_out(vty, "Route Distinguisher: ");
 
@@ -192,24 +214,25 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 				}
 				rd_header = 0;
 			}
-			if (use_json) {
-				char buf[BUFSIZ];
-
-				prefix2str(&rm->p, buf, sizeof(buf));
-				json_object_object_add(json_routes, buf,
-						       json_array);
-			} else {
-				route_vty_out_tmp(vty, &rm->p, path->attr,
-						  safi, use_json,
-						  json_array);
-			}
+			route_vty_out_tmp(vty, &rm->p, attr,
+					  safi, use_json,
+					  json_routes);
+			output_count++;
 		}
+
+		if (use_json)
+			json_object_object_add(json_adv, rd_str, json_routes);
 	}
+
 	if (use_json) {
-		json_object_object_add(json, "routes", json_routes);
+		json_object_object_add(json, "advertisedRoutes", json_adv);
+		json_object_int_add(json,
+			"totalPrefixCounter", output_count);
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
 					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
-	}
+	} else
+		vty_out(vty, "\nTotal number of prefixes %ld\n", output_count);
+
 	return CMD_SUCCESS;
 }

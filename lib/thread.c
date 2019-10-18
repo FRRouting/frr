@@ -109,6 +109,7 @@ static void cpu_record_hash_free(void *a)
 	XFREE(MTYPE_THREAD_STATS, hist);
 }
 
+#ifndef EXCLUDE_CPU_TIME
 static void vty_out_cpu_thread_history(struct vty *vty,
 				       struct cpu_thread_history *a)
 {
@@ -219,6 +220,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	if (tmp.total_calls > 0)
 		vty_out_cpu_thread_history(vty, &tmp);
 }
+#endif
 
 static void cpu_record_hash_clear(struct hash_bucket *bucket, void *args[])
 {
@@ -288,6 +290,7 @@ static uint8_t parse_filter(const char *filterstr)
 	return filter;
 }
 
+#ifndef EXCLUDE_CPU_TIME
 DEFUN (show_thread_cpu,
        show_thread_cpu_cmd,
        "show thread cpu [FILTER]",
@@ -313,6 +316,7 @@ DEFUN (show_thread_cpu,
 	cpu_record_print(vty, filter);
 	return CMD_SUCCESS;
 }
+#endif
 
 static void show_thread_poll_helper(struct vty *vty, struct thread_master *m)
 {
@@ -403,7 +407,9 @@ DEFUN (clear_thread_cpu,
 
 void thread_cmd_init(void)
 {
+#ifndef EXCLUDE_CPU_TIME
 	install_element(VIEW_NODE, &show_thread_cpu_cmd);
+#endif
 	install_element(VIEW_NODE, &show_thread_poll_cmd);
 	install_element(ENABLE_NODE, &clear_thread_cpu_cmd);
 }
@@ -975,6 +981,8 @@ static void thread_cancel_rw(struct thread_master *master, int fd, short state)
 			(master->handler.pfdcount - i - 1)
 				* sizeof(struct pollfd));
 		master->handler.pfdcount--;
+		master->handler.pfds[master->handler.pfdcount].fd = 0;
+		master->handler.pfds[master->handler.pfdcount].events = 0;
 	}
 
 	/* If we have the same pollfd in the copy, perform the same operations,
@@ -989,6 +997,8 @@ static void thread_cancel_rw(struct thread_master *master, int fd, short state)
 			(master->handler.copycount - i - 1)
 				* sizeof(struct pollfd));
 		master->handler.copycount--;
+		master->handler.copy[master->handler.copycount].fd = 0;
+	        master->handler.copy[master->handler.copycount].events = 0;
 	}
 }
 
@@ -1292,11 +1302,15 @@ static void thread_process_io(struct thread_master *m, unsigned int num)
 				(m->handler.pfdcount - i - 1)
 					* sizeof(struct pollfd));
 			m->handler.pfdcount--;
+			m->handler.pfds[m->handler.pfdcount].fd = 0;
+			m->handler.pfds[m->handler.pfdcount].events = 0;
 
 			memmove(pfds + i, pfds + i + 1,
 				(m->handler.copycount - i - 1)
 					* sizeof(struct pollfd));
 			m->handler.copycount--;
+			m->handler.copy[m->handler.copycount].fd = 0;
+			m->handler.copy[m->handler.copycount].events = 0;
 
 			i--;
 		}
@@ -1503,7 +1517,9 @@ void thread_getrusage(RUSAGE_T *r)
 #define FRR_RUSAGE RUSAGE_SELF
 #endif
 	monotime(&r->real);
+#ifndef EXCLUDE_CPU_TIME
 	getrusage(FRR_RUSAGE, &(r->cpu));
+#endif
 }
 
 /*
@@ -1519,9 +1535,11 @@ void thread_getrusage(RUSAGE_T *r)
  */
 void thread_call(struct thread *thread)
 {
+#ifndef EXCLUDE_CPU_TIME
 	_Atomic unsigned long realtime, cputime;
 	unsigned long exp;
 	unsigned long helper;
+#endif
 	RUSAGE_T before, after;
 
 	GETRUSAGE(&before);
@@ -1533,6 +1551,7 @@ void thread_call(struct thread *thread)
 
 	GETRUSAGE(&after);
 
+#ifndef EXCLUDE_CPU_TIME
 	realtime = thread_consumed_time(&after, &before, &helper);
 	cputime = helper;
 
@@ -1577,6 +1596,7 @@ void thread_call(struct thread *thread)
 			realtime / 1000, cputime / 1000);
 	}
 #endif /* CONSUMED_TIME_CHECK */
+#endif /* Exclude CPU Time */
 }
 
 /* Execute thread */

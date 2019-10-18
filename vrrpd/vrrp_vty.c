@@ -30,6 +30,7 @@
 #include "vrrp.h"
 #include "vrrp_debug.h"
 #include "vrrp_vty.h"
+#include "vrrp_zebra.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "vrrpd/vrrp_vty_clippy.c"
 #endif
@@ -144,10 +145,11 @@ DEFPY(vrrp_advertisement_interval,
 
 	struct vrrp_vrouter *vr;
 	uint16_t newadvint =
-		no ? vd.advertisement_interval * 10 : advertisement_interval;
+		no ? vd.advertisement_interval * CS2MS : advertisement_interval;
 
-	if (newadvint % 10 != 0) {
-		vty_out(vty, "%% Value must be a multiple of 10\n");
+	if (newadvint % CS2MS != 0) {
+		vty_out(vty, "%% Value must be a multiple of %u\n",
+			(unsigned int)CS2MS);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -326,8 +328,9 @@ DEFPY(vrrp_default,
       "Force VRRP router into administrative shutdown\n")
 {
 	if (adv) {
-		if (advint % 10 != 0) {
-			vty_out(vty, "%% Value must be a multiple of 10\n");
+		if (advint % CS2MS != 0) {
+			vty_out(vty, "%% Value must be a multiple of %u\n",
+				(unsigned int)CS2MS);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		/* all internal computations are in centiseconds */

@@ -201,14 +201,15 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 .. clicmd:: ip pim sm
 
    Tell pim that we would like to use this interface to form pim neighbors
-   over. Please note we will *not* accept igmp reports over this interface with
-   this command.
+   over. Please note that this command does not enable the reception of IGMP
+   reports on the interface. Refer to the next `ip igmp` command for IGMP
+   management.
 
 .. index:: ip igmp
 .. clicmd:: ip igmp
 
    Tell pim to receive IGMP reports and Query on this interface. The default
-   version is v3. This command is useful on the LHR.
+   version is v3. This command is useful on a LHR.
 
 .. index:: ip igmp join A.B.C.D A.B.C.D
 .. clicmd:: ip igmp join A.B.C.D A.B.C.D

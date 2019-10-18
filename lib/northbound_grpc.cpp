@@ -18,6 +18,8 @@
 //
 
 #include <zebra.h>
+#include <grpcpp/grpcpp.h>
+#include "grpc/frr-northbound.grpc.pb.h"
 
 #include "log.h"
 #include "libfrr.h"
@@ -31,9 +33,6 @@
 #include <sstream>
 #include <memory>
 #include <string>
-
-#include <grpcpp/grpcpp.h>
-#include "grpc/frr-northbound.grpc.pb.h"
 
 #define GRPC_DEFAULT_PORT 50051
 
@@ -617,6 +616,11 @@ class NorthboundImpl final : public frr::Northbound::Service
 			return LYD_JSON;
 		case frr::XML:
 			return LYD_XML;
+		default:
+			flog_err(EC_LIB_DEVELOPMENT,
+				 "%s: unknown data encoding format (%u)",
+				 __func__, encoding);
+			exit(1);
 		}
 	}
 
@@ -702,15 +706,10 @@ class NorthboundImpl final : public frr::Northbound::Service
 	{
 		struct lyd_node *dnode;
 
-		pthread_rwlock_rdlock(&running_config->lock);
-		{
-			dnode = yang_dnode_get(running_config->dnode,
-					       path.empty() ? NULL
-							    : path.c_str());
-			if (dnode)
-				dnode = yang_dnode_dup(dnode);
-		}
-		pthread_rwlock_unlock(&running_config->lock);
+		dnode = yang_dnode_get(running_config->dnode,
+				       path.empty() ? NULL : path.c_str());
+		if (dnode)
+			dnode = yang_dnode_dup(dnode);
 
 		return dnode;
 	}
@@ -817,11 +816,7 @@ class NorthboundImpl final : public frr::Northbound::Service
 
 		struct candidate *candidate = &_candidates[candidate_id];
 		candidate->id = candidate_id;
-		pthread_rwlock_rdlock(&running_config->lock);
-		{
-			candidate->config = nb_config_dup(running_config);
-		}
-		pthread_rwlock_unlock(&running_config->lock);
+		candidate->config = nb_config_dup(running_config);
 		candidate->transaction = NULL;
 
 		return candidate;

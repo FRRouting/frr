@@ -31,6 +31,9 @@ struct ospf6_master {
 
 /* OSPFv3 top level data structure */
 struct ospf6 {
+	/* The relevant vrf_id */
+	vrf_id_t vrf_id;
+
 	/* my router id */
 	uint32_t router_id;
 

@@ -104,6 +104,7 @@ lib_libfrr_la_SOURCES = \
 nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-interface.yang.c \
 	yang/frr-route-types.yang.c \
+	yang/ietf/ietf-routing-types.yang.c \
 	yang/frr-module-translator.yang.c \
 	# end
 

@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-#if defined(HAVE_JSON_C_JSON_H)
+#include "command.h"
 #include <json-c/json.h>
 
 /*
@@ -40,21 +40,6 @@ extern "C" {
 	    (join) = json_object_iter_end((jo));                               \
 	     json_object_iter_equal(&(joi), &(join)) == 0;                     \
 	     json_object_iter_next(&(joi)))
-
-#else
-#include <json/json.h>
-
-/*
- * json_object_to_json_string_ext is only available for json-c
- * so let's just turn it back to the original usage.
- */
-#define json_object_to_json_string_ext(A, B) json_object_to_json_string (A)
-
-extern int json_object_object_get_ex(struct json_object *obj, const char *key,
-				     struct json_object **value);
-#endif
-
-#include "command.h"
 
 extern bool use_json(const int argc, struct cmd_token *argv[]);
 extern void json_object_string_add(struct json_object *obj, const char *key,

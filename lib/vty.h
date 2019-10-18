@@ -254,7 +254,8 @@ static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
 
 #define VTY_CHECK_XPATH                                                        \
 	do {                                                                   \
-		if (vty->xpath_index > 0                                       \
+		if (vty->type != VTY_FILE && !vty->private_config              \
+		    && vty->xpath_index > 0                                    \
 		    && !yang_dnode_exists(vty->candidate_config->dnode,        \
 					  VTY_CURR_XPATH)) {                   \
 			vty_out(vty,                                           \

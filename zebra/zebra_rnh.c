@@ -337,7 +337,7 @@ static void addr2hostprefix(int af, const union g_addr *addr,
 		break;
 	default:
 		memset(prefix, 0, sizeof(*prefix));
-		zlog_debug("%s: unknown address family %d", __func__, af);
+		zlog_warn("%s: unknown address family %d", __func__, af);
 		break;
 	}
 }
@@ -916,7 +916,8 @@ void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
 
 	table = get_rnh_table(vrfid, afi, type);
 	if (!table) {
-		zlog_debug("print_rnhs: rnh table not found");
+		if (IS_ZEBRA_DEBUG_NHT)
+			zlog_debug("print_rnhs: rnh table not found");
 		return;
 	}
 

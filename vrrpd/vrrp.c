@@ -893,7 +893,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			THREAD_OFF(r->t_adver_timer);
 			thread_add_timer_msec(
 				master, vrrp_adver_timer_expire, r,
-				r->vr->advertisement_interval * 10,
+				r->vr->advertisement_interval * CS2MS,
 				&r->t_adver_timer);
 		} else if (pkt->hdr.priority > r->priority
 			   || ((pkt->hdr.priority == r->priority)
@@ -913,7 +913,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			THREAD_OFF(r->t_master_down_timer);
 			thread_add_timer_msec(master,
 					      vrrp_master_down_timer_expire, r,
-					      r->master_down_interval * 10,
+					      r->master_down_interval * CS2MS,
 					      &r->t_master_down_timer);
 			vrrp_change_state(r, VRRP_STATE_BACKUP);
 		} else {
@@ -931,7 +931,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			THREAD_OFF(r->t_master_down_timer);
 			thread_add_timer_msec(
 				master, vrrp_master_down_timer_expire, r,
-				r->skew_time * 10, &r->t_master_down_timer);
+				r->skew_time * CS2MS, &r->t_master_down_timer);
 		} else if (r->vr->preempt_mode == false
 			   || pkt->hdr.priority >= r->priority) {
 			if (r->vr->version == 3) {
@@ -942,7 +942,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			THREAD_OFF(r->t_master_down_timer);
 			thread_add_timer_msec(master,
 					      vrrp_master_down_timer_expire, r,
-					      r->master_down_interval * 10,
+					      r->master_down_interval * CS2MS,
 					      &r->t_master_down_timer);
 		} else if (r->vr->preempt_mode == true
 			   && pkt->hdr.priority < r->priority) {
@@ -1456,7 +1456,7 @@ static int vrrp_adver_timer_expire(struct thread *thread)
 
 		/* Reset the Adver_Timer to Advertisement_Interval */
 		thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
-				      r->vr->advertisement_interval * 10,
+				      r->vr->advertisement_interval * CS2MS,
 				      &r->t_adver_timer);
 	} else {
 		zlog_err(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
@@ -1480,7 +1480,7 @@ static int vrrp_master_down_timer_expire(struct thread *thread)
 		  r->vr->vrid, family2str(r->family));
 
 	thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
-			      r->vr->advertisement_interval * 10,
+			      r->vr->advertisement_interval * CS2MS,
 			      &r->t_adver_timer);
 	vrrp_change_state(r, VRRP_STATE_MASTER);
 
@@ -1556,14 +1556,14 @@ static int vrrp_startup(struct vrrp_router *r)
 
 	if (r->priority == VRRP_PRIO_MASTER) {
 		thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
-				      r->vr->advertisement_interval * 10,
+				      r->vr->advertisement_interval * CS2MS,
 				      &r->t_adver_timer);
 		vrrp_change_state(r, VRRP_STATE_MASTER);
 	} else {
 		r->master_adver_interval = r->vr->advertisement_interval;
 		vrrp_recalculate_timers(r);
 		thread_add_timer_msec(master, vrrp_master_down_timer_expire, r,
-				      r->master_down_interval * 10,
+				      r->master_down_interval * CS2MS,
 				      &r->t_master_down_timer);
 		vrrp_change_state(r, VRRP_STATE_BACKUP);
 	}

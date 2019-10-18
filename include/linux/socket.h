@@ -1,5 +1,6 @@
-#ifndef _LINUX_SOCKET_H
-#define _LINUX_SOCKET_H
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+#ifndef _UAPI_LINUX_SOCKET_H
+#define _UAPI_LINUX_SOCKET_H
 
 /*
  * Desired design of maximum size and alignment (see RFC2553)
@@ -18,4 +19,4 @@ struct __kernel_sockaddr_storage {
 				/* _SS_MAXSIZE value minus size of ss_family */
 } __attribute__ ((aligned(_K_SS_ALIGNSIZE)));	/* force desired alignment */
 
-#endif /* _LINUX_SOCKET_H */
+#endif /* _UAPI_LINUX_SOCKET_H */

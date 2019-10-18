@@ -472,6 +472,14 @@ static const struct cmd_variable_handler vrf_var_handlers[] = {
 		.varname = "vrf",
 		.completions = vrf_autocomplete,
 	},
+	{
+		.varname = "vrf_name",
+		.completions = vrf_autocomplete,
+	},
+	{
+		.varname = "nexthop_vrf",
+		.completions = vrf_autocomplete,
+	},
 	{.completions = NULL},
 };
 

@@ -166,6 +166,8 @@ int main(int argc, char **argv, char **envp)
 	access_list_init();
 	pbr_nht_init();
 	pbr_map_init();
+	if_zapi_callbacks(pbr_ifp_create, pbr_ifp_up,
+			  pbr_ifp_down, pbr_ifp_destroy);
 	pbr_zebra_init();
 	pbr_vty_init();
 

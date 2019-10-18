@@ -1152,10 +1152,10 @@ struct peer {
 	int rcvd_attr_printed;
 
 	/* Prefix count. */
-	unsigned long pcount[AFI_MAX][SAFI_MAX];
+	uint32_t pcount[AFI_MAX][SAFI_MAX];
 
 	/* Max prefix count. */
-	unsigned long pmax[AFI_MAX][SAFI_MAX];
+	uint32_t pmax[AFI_MAX][SAFI_MAX];
 	uint8_t pmax_threshold[AFI_MAX][SAFI_MAX];
 	uint16_t pmax_restart[AFI_MAX][SAFI_MAX];
 #define MAXIMUM_PREFIX_THRESHOLD_DEFAULT 75
@@ -1202,7 +1202,7 @@ struct peer {
 	uint8_t last_reset_cause[BGP_MAX_PACKET_SIZE];
 
 	/* The kind of route-map Flags.*/
-	uint8_t rmap_type;
+	uint16_t rmap_type;
 #define PEER_RMAP_TYPE_IN             (1 << 0) /* neighbor route-map in */
 #define PEER_RMAP_TYPE_OUT            (1 << 1) /* neighbor route-map out */
 #define PEER_RMAP_TYPE_NETWORK        (1 << 2) /* network route-map */

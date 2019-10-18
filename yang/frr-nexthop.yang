@@ -1,0 +1,209 @@
+module frr-nexthop {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/nexthop";
+  prefix frr-nexthop;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import ietf-routing-types {
+    prefix rt-types;
+  }
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  organization
+    "Free Range Routing";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR nexthop information.";
+
+  revision 2019-08-15 {
+    description
+      "Initial revision.";
+  }
+
+  typedef gateway-address {
+    type inet:ip-address;
+  }
+
+  typedef nexthop-type {
+    type enumeration {
+      enum "ifindex" {
+        value 1;
+        description
+          "Specific interface.";
+      }
+      enum "ip4" {
+        value 2;
+        description
+          "IPv4 address.";
+      }
+      enum "ip4-ifindex" {
+        value 3;
+        description
+          "IPv4 address and interface.";
+      }
+      enum "ip6" {
+        value 4;
+        description
+          "IPv6 address.";
+      }
+      enum "ip6-ifindex" {
+        value 5;
+        description
+          "IPv6 address and interface.";
+      }
+      enum "blackhole" {
+        value 6;
+        description
+          "Unreachable or prohibited.";
+      }
+    }
+    description
+      "Nexthop types.";
+  }
+
+  typedef blackhole-type {
+    type enumeration {
+      enum "unspec" {
+        value 0;
+        description
+          "Generic unreachable.";
+      }
+      enum "null" {
+        value 1;
+        description
+          "Null type.";
+      }
+      enum "reject" {
+        value 2;
+        description
+          "ICMP unreachable.";
+      }
+      enum "prohibited" {
+        value 3;
+        description
+          "ICMP admin-prohibited.";
+      }
+    }
+    default "null";
+    description
+      "Nexthop blackhole types.";
+  }
+
+  /*
+   * Nexthop object
+   */
+
+  grouping frr-nexthop {
+    leaf nh-type {
+      type nexthop-type;
+      mandatory true;
+      description
+        "The nexthop type.";
+    }
+
+    leaf gateway {
+      type gateway-address;
+      description
+        "The nexthop gateway address.";
+    }
+
+    leaf vrf {
+      type string {
+        length "1..36";
+      }
+      description
+        "The nexthop vrf name, if different from the route.";
+    }
+
+    leaf interface {
+      type frr-interface:interface-ref;
+      description
+        "The nexthop egress interface.";
+    }
+
+    leaf bh-type {
+      type blackhole-type;
+      description
+        "A blackhole sub-type, if the nexthop is a blackhole type.";
+    }
+
+    leaf flags {
+      type uint32;
+      description
+        "The nexthop's raw flags value.";
+    }
+
+    leaf is-duplicate {
+      type empty;
+      description
+        "Duplicate nexthop; will be ignored.";
+    }
+
+    leaf is-recursive {
+      type empty;
+      description
+        "Nexthop must be resolved through another gateway.";
+    }
+
+    leaf is-onlink {
+      type empty;
+      description
+        "Nexthop is directly connected.";
+    }
+
+    leaf is-active {
+      type empty;
+      description
+        "Nexthop is active.";
+    }
+
+    uses rt-types:mpls-label-stack {
+      description
+        "Nexthop's MPLS label stack.";
+    }
+
+    leaf mtu {
+      type uint32;
+      description
+        "The nexthop's specific MTU.";
+    }
+  }
+
+  // End of nexthop
+  /*
+   * Nexthop-group container
+   */
+
+  grouping frr-nexthop-group {
+    description
+      "A nexthop-group, represented as a list of nexthop objects.";
+    leaf name {
+      type string;
+      description
+        "The nexthop-group name.";
+    }
+
+    list entry {
+      key "id";
+      description
+        "A list of nexthop objects.";
+      leaf id {
+        type uint32;
+        description
+          "Identifies a nexthop within a nexthop group; the entries
+           are ordered by id value, and the value has no other meaning.";
+      }
+
+      uses frr-nexthop;
+    }
+  }
+
+  // End of frr-nexthop-group
+}

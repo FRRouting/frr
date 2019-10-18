@@ -1063,6 +1063,13 @@ Configuring Peers
    on by default or not.  This command defaults to on and is not displayed.
    The `no bgp default ipv4-unicast` form of the command is displayed.
 
+.. index:: [no] neighbor PEER advertisement-interval (0-600)
+.. clicmd:: [no] neighbor PEER advertisement-interval (0-600)
+
+   Setup the minimum route advertisement interval(mrai) for the
+   peer in question.  This number is between 0 and 600 seconds,
+   with the default advertisement interval being 0.
+
 .. _bgp-peer-filtering:
 
 Peer Filtering
@@ -1140,11 +1147,8 @@ Capability Negotiation
    Negotiation. Please use *dont-capability-negotiate* command to disable the
    feature.
 
-.. index:: neighbor PEER dont-capability-negotiate
-.. clicmd:: neighbor PEER dont-capability-negotiate
-
-.. index:: no neighbor PEER dont-capability-negotiate
-.. clicmd:: no neighbor PEER dont-capability-negotiate
+.. index:: [no] neighbor PEER dont-capability-negotiate
+.. clicmd:: [no] neighbor PEER dont-capability-negotiate
 
    Suppress sending Capability Negotiation as OPEN message optional parameter
    to the peer. This command only affects the peer is configured other than
@@ -1158,6 +1162,11 @@ Capability Negotiation
    capabilities even though remote peer sends capabilities. If the peer is
    configured by *override-capability*, *bgpd* ignores received capabilities
    then override negotiated capabilities with configured values.
+
+   Additionally the operator should be reminded that this feature fundamentally
+   disables the ability to use widely deployed BGP features.  BGP unnumbered,
+   hostname support, AS4, Addpath, Route Refresh, ORF, Dynamic Capabilities,
+   and graceful restart.
 
 .. index:: neighbor PEER override-capability
 .. clicmd:: neighbor PEER override-capability
@@ -1175,16 +1184,16 @@ AS Path Access Lists
 
 AS path access list is user defined AS path.
 
-.. index:: ip as-path access-list WORD permit|deny LINE
-.. clicmd:: ip as-path access-list WORD permit|deny LINE
+.. index:: bgp as-path access-list WORD permit|deny LINE
+.. clicmd:: bgp as-path access-list WORD permit|deny LINE
 
    This command defines a new AS path access list.
 
-.. index:: no ip as-path access-list WORD
-.. clicmd:: no ip as-path access-list WORD
+.. index:: no bgp as-path access-list WORD
+.. clicmd:: no bgp as-path access-list WORD
 
-.. index:: no ip as-path access-list WORD permit|deny LINE
-.. clicmd:: no ip as-path access-list WORD permit|deny LINE
+.. index:: no bgp as-path access-list WORD permit|deny LINE
+.. clicmd:: no bgp as-path access-list WORD permit|deny LINE
 
 .. _bgp-using-as-path-in-route-map:
 
@@ -1351,8 +1360,8 @@ expanded
    interpreted on each use expanded community lists are slower than standard
    lists.
 
-.. index:: ip community-list standard NAME permit|deny COMMUNITY
-.. clicmd:: ip community-list standard NAME permit|deny COMMUNITY
+.. index:: bgp community-list standard NAME permit|deny COMMUNITY
+.. clicmd:: bgp community-list standard NAME permit|deny COMMUNITY
 
    This command defines a new standard community list. ``COMMUNITY`` is
    communities value. The ``COMMUNITY`` is compiled into community structure.
@@ -1362,8 +1371,8 @@ expanded
    community list definition. When there is no matched entry, deny will be
    returned. When ``COMMUNITY`` is empty it matches to any routes.
 
-.. index:: ip community-list expanded NAME permit|deny COMMUNITY
-.. clicmd:: ip community-list expanded NAME permit|deny COMMUNITY
+.. index:: bgp community-list expanded NAME permit|deny COMMUNITY
+.. clicmd:: bgp community-list expanded NAME permit|deny COMMUNITY
 
    This command defines a new expanded community list. ``COMMUNITY`` is a
    string expression of communities attribute. ``COMMUNITY`` can be a regular
@@ -1374,8 +1383,8 @@ expanded
 .. deprecated:: 5.0
    It is recommended to use the more explicit versions of this command.
 
-.. index:: ip community-list NAME permit|deny COMMUNITY
-.. clicmd:: ip community-list NAME permit|deny COMMUNITY
+.. index:: bgp community-list NAME permit|deny COMMUNITY
+.. clicmd:: bgp community-list NAME permit|deny COMMUNITY
 
    When the community list type is not specified, the community list type is
    automatically detected. If ``COMMUNITY`` can be compiled into communities
@@ -1384,29 +1393,29 @@ expanded
    for backward compatibility. Use of this feature is not recommended.
 
 
-.. index:: no ip community-list [standard|expanded] NAME
-.. clicmd:: no ip community-list [standard|expanded] NAME
+.. index:: no bgp community-list [standard|expanded] NAME
+.. clicmd:: no bgp community-list [standard|expanded] NAME
 
    Deletes the community list specified by ``NAME``. All community lists share
    the same namespace, so it's not necessary to specify ``standard`` or
    ``expanded``; these modifiers are purely aesthetic.
 
-.. index:: show ip community-list [NAME]
-.. clicmd:: show ip community-list [NAME]
+.. index:: show bgp community-list [NAME]
+.. clicmd:: show bgp community-list [NAME]
 
    Displays community list information. When ``NAME`` is specified the
    specified community list's information is shown.
 
    ::
 
-       # show ip community-list
+       # show bgp community-list
        Named Community standard list CLIST
        permit 7675:80 7675:100 no-export
        deny internet
          Named Community expanded list EXPAND
        permit :
 
-         # show ip community-list CLIST
+         # show bgp community-list CLIST
          Named Community standard list CLIST
        permit 7675:80 7675:100 no-export
        deny internet
@@ -1424,14 +1433,14 @@ to 199 is expanded community list. These community lists are called
 as numbered community lists. On the other hand normal community lists
 is called as named community lists.
 
-.. index:: ip community-list (1-99) permit|deny COMMUNITY
-.. clicmd:: ip community-list (1-99) permit|deny COMMUNITY
+.. index:: bgp community-list (1-99) permit|deny COMMUNITY
+.. clicmd:: bgp community-list (1-99) permit|deny COMMUNITY
 
    This command defines a new community list. The argument to (1-99) defines
    the list identifier.
 
-.. index:: ip community-list (100-199) permit|deny COMMUNITY
-.. clicmd:: ip community-list (100-199) permit|deny COMMUNITY
+.. index:: bgp community-list (100-199) permit|deny COMMUNITY
+.. clicmd:: bgp community-list (100-199) permit|deny COMMUNITY
 
    This command defines a new expanded community list. The argument to
    (100-199) defines the list identifier.
@@ -1497,12 +1506,12 @@ setting BGP communities attribute to the updates.
      neighbor 192.168.0.1 route-map RMAP in
     exit-address-family
    !
-   ip community-list 70 permit 7675:70
-   ip community-list 70 deny
-   ip community-list 80 permit 7675:80
-   ip community-list 80 deny
-   ip community-list 90 permit 7675:90
-   ip community-list 90 deny
+   bgp community-list 70 permit 7675:70
+   bgp community-list 70 deny
+   bgp community-list 80 permit 7675:80
+   bgp community-list 80 deny
+   bgp community-list 90 permit 7675:90
+   bgp community-list 90 deny
    !
    route-map RMAP permit 10
     match community 70
@@ -1551,7 +1560,7 @@ announcements into the internal network.
      neighbor 192.168.0.1 route-map RMAP in
     exit-address-family
    !
-   ip community-list 1 permit 0:80 0:90
+   bgp community-list 1 permit 0:80 0:90
    !
    route-map RMAP permit in
     match community 1
@@ -1570,8 +1579,8 @@ community-list.
      neighbor 192.168.0.1 route-map RMAP in
     exit-address-family
    !
-   ip community-list standard FILTER deny 1:1
-   ip community-list standard FILTER permit
+   bgp community-list standard FILTER deny 1:1
+   bgp community-list standard FILTER permit
    !
    route-map RMAP permit 10
     match community FILTER
@@ -1584,8 +1593,8 @@ if the route does not have communities attribute at all. So community list
 
 .. code-block:: frr
 
-   ip community-list standard INTERNET deny 1:1
-   ip community-list standard INTERNET permit internet
+   bgp community-list standard INTERNET deny 1:1
+   bgp community-list standard INTERNET permit internet
 
 
 The following configuration is an example of communities value deletion.  With
@@ -1601,7 +1610,7 @@ community-list is used. ``deny`` community-list is ignored.
      neighbor 192.168.0.1 route-map RMAP in
     exit-address-family
    !
-   ip community-list standard DEL permit 100:1 100:2
+   bgp community-list standard DEL permit 100:1 100:2
    !
    route-map RMAP permit 10
     set comm-list DEL delete
@@ -1646,8 +1655,8 @@ the other is IP address based format.
 Extended Community Lists
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. index:: ip extcommunity-list standard NAME permit|deny EXTCOMMUNITY
-.. clicmd:: ip extcommunity-list standard NAME permit|deny EXTCOMMUNITY
+.. index:: bgp extcommunity-list standard NAME permit|deny EXTCOMMUNITY
+.. clicmd:: bgp extcommunity-list standard NAME permit|deny EXTCOMMUNITY
 
    This command defines a new standard extcommunity-list. `extcommunity` is
    extended communities value. The `extcommunity` is compiled into extended
@@ -1658,37 +1667,37 @@ Extended Community Lists
    there is no matched entry, deny will be returned. When `extcommunity` is
    empty it matches to any routes.
 
-.. index:: ip extcommunity-list expanded NAME permit|deny LINE
-.. clicmd:: ip extcommunity-list expanded NAME permit|deny LINE
+.. index:: bgp extcommunity-list expanded NAME permit|deny LINE
+.. clicmd:: bgp extcommunity-list expanded NAME permit|deny LINE
 
    This command defines a new expanded extcommunity-list. `line` is a string
    expression of extended communities attribute. `line` can be a regular
    expression (:ref:`bgp-regular-expressions`) to match an extended communities
    attribute in BGP updates.
 
-.. index:: no ip extcommunity-list NAME
-.. clicmd:: no ip extcommunity-list NAME
+.. index:: no bgp extcommunity-list NAME
+.. clicmd:: no bgp extcommunity-list NAME
 
-.. index:: no ip extcommunity-list standard NAME
-.. clicmd:: no ip extcommunity-list standard NAME
+.. index:: no bgp extcommunity-list standard NAME
+.. clicmd:: no bgp extcommunity-list standard NAME
 
-.. index:: no ip extcommunity-list expanded NAME
-.. clicmd:: no ip extcommunity-list expanded NAME
+.. index:: no bgp extcommunity-list expanded NAME
+.. clicmd:: no bgp extcommunity-list expanded NAME
 
    These commands delete extended community lists specified by `name`. All of
    extended community lists shares a single name space. So extended community
    lists can be removed simply specifying the name.
 
-.. index:: show ip extcommunity-list
-.. clicmd:: show ip extcommunity-list
+.. index:: show bgp extcommunity-list
+.. clicmd:: show bgp extcommunity-list
 
-.. index:: show ip extcommunity-list NAME
-.. clicmd:: show ip extcommunity-list NAME
+.. index:: show bgp extcommunity-list NAME
+.. clicmd:: show bgp extcommunity-list NAME
 
    This command displays current extcommunity-list information. When `name` is
    specified the community list's information is shown.::
 
-      # show ip extcommunity-list
+      # show bgp extcommunity-list
 
 
 .. _bgp-extended-communities-in-route-map:
@@ -1749,8 +1758,8 @@ Large Community Lists
 Two types of large community lists are supported, namely `standard` and
 `expanded`.
 
-.. index:: ip large-community-list standard NAME permit|deny LARGE-COMMUNITY
-.. clicmd:: ip large-community-list standard NAME permit|deny LARGE-COMMUNITY
+.. index:: bgp large-community-list standard NAME permit|deny LARGE-COMMUNITY
+.. clicmd:: bgp large-community-list standard NAME permit|deny LARGE-COMMUNITY
 
    This command defines a new standard large-community-list.  `large-community`
    is the Large Community value. We can add multiple large communities under
@@ -1760,8 +1769,8 @@ Two types of large community lists are supported, namely `standard` and
    definition. When there is no matched entry, a deny will be returned. When
    `large-community` is empty it matches any routes.
 
-.. index:: ip large-community-list expanded NAME permit|deny LINE
-.. clicmd:: ip large-community-list expanded NAME permit|deny LINE
+.. index:: bgp large-community-list expanded NAME permit|deny LINE
+.. clicmd:: bgp large-community-list expanded NAME permit|deny LINE
 
    This command defines a new expanded large-community-list. Where `line` is a
    string matching expression, it will be compared to the entire Large
@@ -1769,24 +1778,24 @@ Two types of large community lists are supported, namely `standard` and
    lowest to highest.  `line` can also be a regular expression which matches
    this Large Community attribute.
 
-.. index:: no ip large-community-list NAME
-.. clicmd:: no ip large-community-list NAME
+.. index:: no bgp large-community-list NAME
+.. clicmd:: no bgp large-community-list NAME
 
-.. index:: no ip large-community-list standard NAME
-.. clicmd:: no ip large-community-list standard NAME
+.. index:: no bgp large-community-list standard NAME
+.. clicmd:: no bgp large-community-list standard NAME
 
-.. index:: no ip large-community-list expanded NAME
-.. clicmd:: no ip large-community-list expanded NAME
+.. index:: no bgp large-community-list expanded NAME
+.. clicmd:: no bgp large-community-list expanded NAME
 
    These commands delete Large Community lists specified by `name`. All Large
    Community lists share a single namespace.  This means Large Community lists
    can be removed by simply specifying the name.
 
-.. index:: show ip large-community-list
-.. clicmd:: show ip large-community-list
+.. index:: show bgp large-community-list
+.. clicmd:: show bgp large-community-list
 
-.. index:: show ip large-community-list NAME
-.. clicmd:: show ip large-community-list NAME
+.. index:: show bgp large-community-list NAME
+.. clicmd:: show bgp large-community-list NAME
 
    This command display current large-community-list information. When
    `name` is specified the community list information is shown.
@@ -2165,6 +2174,8 @@ Dumping Messages and Routing Tables
 Other BGP Commands
 ------------------
 
+The following are available in the top level *enable* mode:
+
 .. index:: clear bgp \*
 .. clicmd:: clear bgp \*
 
@@ -2200,6 +2211,24 @@ Other BGP Commands
 
    Clear peer using soft reconfiguration in this address-family and sub-address-family.
 
+The following are available in the ``router bgp`` mode:
+
+.. index:: write-quanta (1-64)
+.. clicmd:: write-quanta (1-64)
+
+   BGP message Tx I/O is vectored. This means that multiple packets are written
+   to the peer socket at the same time each I/O cycle, in order to minimize
+   system call overhead. This value controls how many are written at a time.
+   Under certain load conditions, reducing this value could make peer traffic
+   less 'bursty'. In practice, leave this settings on the default (64) unless
+   you truly know what you are doing.
+
+.. index:: read-quanta (1-10)
+.. clicmd:: read-quanta (1-10)
+
+   Unlike Tx, BGP Rx traffic is not vectored. Packets are read off the wire one
+   at a time in a loop. This setting controls how many iterations the loop runs
+   for. As with write-quanta, it is best to leave this setting on the default.
 
 .. _bgp-displaying-bgp-information:
 
@@ -2396,6 +2425,23 @@ Displaying Routes by AS Path
 
    Print a summary of neighbor connections for the specified AFI/SAFI combination.
 
+Displaying Update Group Information
+-----------------------------------
+
+..index:: show bgp update-groups SUBGROUP-ID [advertise-queue|advertised-routes|packet-queue]
+..clicmd:: show bgp update-groups [advertise-queue|advertised-routes|packet-queue]
+
+   Display Information about each individual update-group being used.
+   If SUBGROUP-ID is specified only display about that particular group.  If
+   advertise-queue is specified the list of routes that need to be sent
+   to the peers in the update-group is displayed, advertised-routes means
+   the list of routes we have sent to the peers in the update-group and
+   packet-queue specifies the list of packets in the queue to be sent.
+
+..index:: show bgp update-groups statistics
+..clicmd:: show bgp update-groups statistics
+
+   Display Information about update-group events in FRR.
 
 .. _bgp-route-reflector:
 
@@ -2598,26 +2644,26 @@ certainly contains silly mistakes, if not serious flaws.
    ! 2X00 - set local_preference to X00
    !
    ! blackhole the prefix of the route
-   ip community-list standard cm-blackhole permit 64512:100
+   bgp community-list standard cm-blackhole permit 64512:100
    !
    ! set no-export community before advertising
-   ip community-list standard cm-set-no-export permit 64512:200
+   bgp community-list standard cm-set-no-export permit 64512:200
    !
    ! advertise only to other customers
-   ip community-list standard cm-cust-only permit 64512:300
+   bgp community-list standard cm-cust-only permit 64512:300
    !
    ! advertise only to upstreams
-   ip community-list standard cm-upstream-only permit 64512:400
+   bgp community-list standard cm-upstream-only permit 64512:400
    !
    ! advertise to upstreams with no-export
-   ip community-list standard cm-upstream-noexport permit 64512:500
+   bgp community-list standard cm-upstream-noexport permit 64512:500
    !
    ! set local-pref to least significant 3 digits of the community
-   ip community-list standard cm-prefmod-100 permit 64512:2100
-   ip community-list standard cm-prefmod-200 permit 64512:2200
-   ip community-list standard cm-prefmod-300 permit 64512:2300
-   ip community-list standard cm-prefmod-400 permit 64512:2400
-   ip community-list expanded cme-prefmod-range permit 64512:2...
+   bgp community-list standard cm-prefmod-100 permit 64512:2100
+   bgp community-list standard cm-prefmod-200 permit 64512:2200
+   bgp community-list standard cm-prefmod-300 permit 64512:2300
+   bgp community-list standard cm-prefmod-400 permit 64512:2400
+   bgp community-list expanded cme-prefmod-range permit 64512:2...
    !
    ! Informational communities
    !
@@ -2625,9 +2671,9 @@ certainly contains silly mistakes, if not serious flaws.
    ! 3100 - learned from customer
    ! 3200 - learned from peer
    !
-   ip community-list standard cm-learnt-upstream permit 64512:3000
-   ip community-list standard cm-learnt-cust permit 64512:3100
-   ip community-list standard cm-learnt-peer permit 64512:3200
+   bgp community-list standard cm-learnt-upstream permit 64512:3000
+   bgp community-list standard cm-learnt-cust permit 64512:3100
+   bgp community-list standard cm-learnt-peer permit 64512:3200
    !
    ! ###################################################################
    ! Utility route-maps

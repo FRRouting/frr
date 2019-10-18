@@ -51,4 +51,7 @@ void pim_zebra_update_all_interfaces(struct pim_instance *pim);
 void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 				    struct pim_upstream *up,
 				    struct pim_rpf *old);
+
+void pim_zebra_interface_set_master(struct interface *vrf,
+				    struct interface *ifp);
 #endif /* PIM_ZEBRA_H */

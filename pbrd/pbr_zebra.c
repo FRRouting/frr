@@ -59,15 +59,8 @@ struct pbr_interface *pbr_if_new(struct interface *ifp)
 }
 
 /* Inteface addition message from zebra. */
-static int interface_add(ZAPI_CALLBACK_ARGS)
+int pbr_ifp_create(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-
-	if (!ifp)
-		return 0;
-
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s", __PRETTY_FUNCTION__, ifp->name);
 
@@ -79,23 +72,10 @@ static int interface_add(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int interface_delete(ZAPI_CALLBACK_ARGS)
+int pbr_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	/* zebra_interface_state_read () updates interface structure in iflist
-	 */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s", __PRETTY_FUNCTION__, ifp->name);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	return 0;
 }
@@ -133,12 +113,8 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int interface_state_up(ZAPI_CALLBACK_ARGS)
+int pbr_ifp_up(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s is up", __PRETTY_FUNCTION__, ifp->name);
 
@@ -147,12 +123,8 @@ static int interface_state_up(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int interface_state_down(ZAPI_CALLBACK_ARGS)
+int pbr_ifp_down(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s is down", __PRETTY_FUNCTION__, ifp->name);
 
@@ -447,10 +419,6 @@ void pbr_zebra_init(void)
 
 	zclient_init(zclient, ZEBRA_ROUTE_PBR, 0, &pbr_privs);
 	zclient->zebra_connected = zebra_connected;
-	zclient->interface_add = interface_add;
-	zclient->interface_delete = interface_delete;
-	zclient->interface_up = interface_state_up;
-	zclient->interface_down = interface_state_down;
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
 	zclient->route_notify_owner = route_notify_owner;
@@ -482,6 +450,12 @@ void pbr_send_rnh(struct nexthop *nhop, bool reg)
 		p.family = AF_INET6;
 		memcpy(&p.u.prefix6, &nhop->gate.ipv6, 16);
 		p.prefixlen = 128;
+		if (IN6_IS_ADDR_LINKLOCAL(&nhop->gate.ipv6))
+			/*
+			 * Don't bother tracking link locals, just track their
+			 * interface state.
+			 */
+			return;
 		break;
 	}
 

@@ -10661,7 +10661,7 @@ static void ospf_interface_clear(struct interface *ifp)
 
 DEFUN (clear_ip_ospf_interface,
        clear_ip_ospf_interface_cmd,
-       "clear ip ospf [vrf <NAME>] interface [IFNAME]",
+       "clear ip ospf [vrf NAME] interface [IFNAME]",
        CLEAR_STR
        IP_STR
        "OSPF information\n"

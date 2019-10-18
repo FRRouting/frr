@@ -55,6 +55,7 @@ struct ospf6_interface {
 
 	/* Network Type */
 	uint8_t type;
+	bool type_cfg;
 
 	/* Router Priority */
 	uint8_t priority;

@@ -516,7 +516,8 @@ int zsend_interface_update(int cmd, struct zserv *client, struct interface *ifp)
 
 int zsend_redistribute_route(int cmd, struct zserv *client,
 			     const struct prefix *p,
-			     const struct prefix *src_p, struct route_entry *re)
+			     const struct prefix *src_p,
+			     const struct route_entry *re)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -782,10 +783,7 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 	stream_putl(s, rule->rule.seq);
 	stream_putl(s, rule->rule.priority);
 	stream_putl(s, rule->rule.unique);
-	if (rule->ifp)
-		stream_putl(s, rule->ifp->ifindex);
-	else
-		stream_putl(s, 0);
+	stream_putl(s, rule->rule.ifindex);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -1424,7 +1422,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	re->flags = api.flags;
 	re->uptime = monotime(NULL);
 	re->vrf_id = vrf_id;
-	if (api.tableid && vrf_id == VRF_DEFAULT)
+	if (api.tableid)
 		re->table = api.tableid;
 	else
 		re->table = zvrf->table_id;
@@ -1623,7 +1621,7 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
 		src_p = &api.src_prefix;
 
-	if (api.vrf_id == VRF_DEFAULT && api.tableid != 0)
+	if (api.tableid)
 		table_id = api.tableid;
 	else
 		table_id = zvrf->table_id;
@@ -2293,7 +2291,6 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 	struct zebra_pbr_rule zpr;
 	struct stream *s;
 	uint32_t total, i;
-	ifindex_t ifindex;
 
 	s = msg;
 	STREAM_GETL(s, total);
@@ -2318,17 +2315,20 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		STREAM_GETW(s, zpr.rule.filter.dst_port);
 		STREAM_GETL(s, zpr.rule.filter.fwmark);
 		STREAM_GETL(s, zpr.rule.action.table);
-		STREAM_GETL(s, ifindex);
+		STREAM_GETL(s, zpr.rule.ifindex);
 
-		if (ifindex) {
-			zpr.ifp = if_lookup_by_index_per_ns(
-						zvrf->zns,
-						ifindex);
-			if (!zpr.ifp) {
+		if (zpr.rule.ifindex) {
+			struct interface *ifp;
+
+			ifp = if_lookup_by_index_per_ns(zvrf->zns,
+							zpr.rule.ifindex);
+			if (!ifp) {
 				zlog_debug("Failed to lookup ifindex: %u",
-					   ifindex);
+					   zpr.rule.ifindex);
 				return;
 			}
+
+			strlcpy(zpr.ifname, ifp->name, sizeof(zpr.ifname));
 		}
 
 		if (!is_default_prefix(&zpr.rule.filter.src_ip))

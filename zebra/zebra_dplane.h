@@ -455,6 +455,7 @@ uint32_t dplane_get_in_queue_len(void);
  */
 int dplane_show_helper(struct vty *vty, bool detailed);
 int dplane_show_provs_helper(struct vty *vty, bool detailed);
+int dplane_config_write_helper(struct vty *vty);
 
 /*
  * Dataplane providers: modules that process or consume dataplane events.

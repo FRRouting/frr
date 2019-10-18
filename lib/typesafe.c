@@ -473,7 +473,7 @@ void typesafe_heap_resize(struct heap_head *head, bool grow)
 	newsize &= ~(HEAP_NARY - 1);
 	if (newsize == head->arraysz)
 		return;
-	
+
 	head->array = XREALLOC(MTYPE_HEAP_ARRAY, head->array,
 			       newsize * sizeof(struct heap_item *));
 	head->arraysz = newsize;

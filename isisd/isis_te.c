@@ -81,8 +81,7 @@ void isis_link_params_update(struct isis_circuit *circuit,
 		return;
 
 	/* Sanity Check */
-	if ((circuit == NULL) || (ifp == NULL)
-	    || (circuit->state != C_STATE_UP))
+	if ((ifp == NULL) || (circuit->state != C_STATE_UP))
 		return;
 
 	zlog_debug("TE(%s): Update circuit parameters for interface %s",

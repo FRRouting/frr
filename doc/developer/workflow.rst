@@ -499,8 +499,11 @@ your new claim at the end of the list.
 Code Formatting
 ---------------
 
-FRR uses Linux kernel style except where noted below. Code which does not
-comply with these style guidelines will not be accepted.
+C Code
+^^^^^^
+
+For C code, FRR uses Linux kernel style except where noted below. Code which
+does not comply with these style guidelines will not be accepted.
 
 The project provides multiple tools to allow you to correctly style your code
 as painlessly as possible, primarily built around ``clang-format``.
@@ -707,6 +710,28 @@ BSD coding style applies to:
 
 -  ``ldpd/``
 
+YANG
+^^^^
+
+FRR uses YANG to define data models for its northbound interface. YANG models
+should follow conventions used by the IETF standard models. From a practical
+standpoint, this corresponds to the output produced by the ``yanglint`` tool
+included in the ``libyang`` project, which is used by FRR to parse and validate
+YANG models. You should run the following command on all YANG documents you
+write:
+
+.. code-block:: console
+
+   yanglint -f yang <model>
+
+The output of this command should be identical to the input file. The sole
+exception to this is comments. ``yanglint`` does not support comments and will
+strip them from its output. You may include comments in your YANG documents,
+but they should be indented appropriately (use spaces). Where possible,
+comments should be eschewed in favor of a suitable ``description`` statement.
+
+In short, a diff between your input file and the output of ``yanglint`` should
+either be empty or contain only comments.
 
 Specific Exceptions
 ^^^^^^^^^^^^^^^^^^^

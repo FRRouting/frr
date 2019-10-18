@@ -49,6 +49,23 @@
 #include "lib/vrf.h"
 
 /*
+ * Helper functions.
+ */
+static const char *isis_yang_adj_state(enum isis_adj_state state)
+{
+	switch (state) {
+	case ISIS_ADJ_DOWN:
+		return "down";
+	case ISIS_ADJ_UP:
+		return "up";
+	case ISIS_ADJ_INITIALIZING:
+		return "init";
+	default:
+		return "failed";
+	}
+}
+
+/*
  * XPath: /frr-isisd:isis/instance
  */
 static int isis_instance_create(enum nb_event event,
@@ -1542,9 +1559,9 @@ static int lib_interface_isis_create(enum nb_event event,
 		/* check if interface mtu is sufficient. If the area has not
 		 * been created yet, assume default MTU for the area
 		 */
-		ifp = nb_running_get_entry(dnode, NULL, true);
+		ifp = nb_running_get_entry(dnode, NULL, false);
 		/* zebra might not know yet about the MTU - nothing we can do */
-		if (ifp->mtu == 0)
+		if (!ifp || ifp->mtu == 0)
 			break;
 		actual_mtu =
 			if_is_broadcast(ifp) ? ifp->mtu - LLC_LEN : ifp->mtu;
@@ -2304,6 +2321,368 @@ static int lib_interface_isis_multi_topology_ipv6_dstsrc_modify(
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency
+ */
+static const void *
+lib_interface_isis_adjacencies_adjacency_get_next(const void *parent_list_entry,
+						  const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+	struct isis_adjacency *adj, *adj_next = NULL;
+	struct list *list;
+	struct listnode *node, *node_next;
+
+	/* Get first adjacency. */
+	if (list_entry == NULL) {
+		ifp = (struct interface *)parent_list_entry;
+		if (!ifp)
+			return NULL;
+
+		circuit = circuit_scan_by_ifp(ifp);
+		if (!circuit)
+			return NULL;
+
+		switch (circuit->circ_type) {
+		case CIRCUIT_T_BROADCAST:
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
+			     level++) {
+				adj = listnode_head(
+					circuit->u.bc.adjdb[level - 1]);
+				if (adj)
+					break;
+			}
+			break;
+		case CIRCUIT_T_P2P:
+			adj = circuit->u.p2p.neighbor;
+			break;
+		default:
+			adj = NULL;
+			break;
+		}
+
+		return adj;
+	}
+
+	/* Get next adjacency. */
+	adj = (struct isis_adjacency *)list_entry;
+	circuit = adj->circuit;
+	switch (circuit->circ_type) {
+	case CIRCUIT_T_BROADCAST:
+		list = circuit->u.bc.adjdb[adj->level - 1];
+		node = listnode_lookup(list, adj);
+		node_next = listnextnode(node);
+		if (node_next)
+			adj_next = listgetdata(node_next);
+		else if (adj->level == ISIS_LEVEL1) {
+			/*
+			 * Once we finish the L1 adjacencies, move to the L2
+			 * adjacencies list.
+			 */
+			list = circuit->u.bc.adjdb[ISIS_LEVEL2 - 1];
+			adj_next = listnode_head(list);
+		}
+		break;
+	case CIRCUIT_T_P2P:
+		/* P2P circuits have at most one adjacency. */
+	default:
+		break;
+	}
+
+	return adj_next;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-sys-type
+ */
+static struct yang_data *
+lib_interface_isis_adjacencies_adjacency_neighbor_sys_type_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	const struct isis_adjacency *adj = list_entry;
+
+	return yang_data_new_enum(xpath, adj->level);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-sysid
+ */
+static struct yang_data *
+lib_interface_isis_adjacencies_adjacency_neighbor_sysid_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	const struct isis_adjacency *adj = list_entry;
+
+	return yang_data_new_string(xpath, sysid_print(adj->sysid));
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-extended-circuit-id
+ */
+static struct yang_data *
+lib_interface_isis_adjacencies_adjacency_neighbor_extended_circuit_id_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	const struct isis_adjacency *adj = list_entry;
+
+	return yang_data_new_uint32(xpath, adj->circuit->circuit_id);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-snpa
+ */
+static struct yang_data *
+lib_interface_isis_adjacencies_adjacency_neighbor_snpa_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	const struct isis_adjacency *adj = list_entry;
+
+	return yang_data_new_string(xpath, snpa_print(adj->snpa));
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/hold-timer
+ */
+static struct yang_data *
+lib_interface_isis_adjacencies_adjacency_hold_timer_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	const struct isis_adjacency *adj = list_entry;
+
+	return yang_data_new_uint16(xpath, adj->hold_time);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-priority
+ */
+static struct yang_data *
+lib_interface_isis_adjacencies_adjacency_neighbor_priority_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	const struct isis_adjacency *adj = list_entry;
+
+	return yang_data_new_uint8(xpath, adj->prio[adj->level - 1]);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/state
+ */
+static struct yang_data *
+lib_interface_isis_adjacencies_adjacency_state_get_elem(const char *xpath,
+							const void *list_entry)
+{
+	const struct isis_adjacency *adj = list_entry;
+
+	return yang_data_new_string(xpath, isis_yang_adj_state(adj->adj_state));
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-changes
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_adjacency_changes_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	return yang_data_new_uint32(xpath, circuit->adj_state_changes);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-number
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_adjacency_number_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+	struct isis_adjacency *adj;
+	struct listnode *node;
+	uint32_t total = 0;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	/*
+	 * TODO: keep track of the number of adjacencies instead of calculating
+	 * it on demand.
+	 */
+	switch (circuit->circ_type) {
+	case CIRCUIT_T_BROADCAST:
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
+			for (ALL_LIST_ELEMENTS_RO(
+				     circuit->u.bc.adjdb[level - 1], node, adj))
+				total++;
+		}
+		break;
+	case CIRCUIT_T_P2P:
+		adj = circuit->u.p2p.neighbor;
+		if (adj)
+			total = 1;
+		break;
+	default:
+		break;
+	}
+
+	return yang_data_new_uint32(xpath, total);
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/event-counters/init-fails
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_init_fails_get_elem(const char *xpath,
+						      const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	return yang_data_new_uint32(xpath, circuit->init_failures);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-rejects
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_adjacency_rejects_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	return yang_data_new_uint32(xpath, circuit->rej_adjacencies);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/event-counters/id-len-mismatch
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_id_len_mismatch_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	return yang_data_new_uint32(xpath, circuit->id_len_mismatches);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/event-counters/max-area-addresses-mismatch
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_max_area_addresses_mismatch_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	return yang_data_new_uint32(xpath, circuit->max_area_addr_mismatches);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/event-counters/authentication-type-fails
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_authentication_type_fails_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	return yang_data_new_uint32(xpath, circuit->auth_type_failures);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/event-counters/authentication-fails
+ */
+static struct yang_data *
+lib_interface_isis_event_counters_authentication_fails_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+
+	ifp = (struct interface *)list_entry;
+	if (!ifp)
+		return NULL;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return NULL;
+
+	return yang_data_new_uint32(xpath, circuit->auth_failures);
+}
+
+/*
  * NOTIFICATIONS
  */
 static void notif_prep_instance_hdr(const char *xpath,
@@ -2545,19 +2924,7 @@ void isis_notif_adj_state_change(const struct isis_adjacency *adj,
 	listnode_add(arguments, data);
 
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/state", xpath);
-	switch (new_state) {
-	case ISIS_ADJ_DOWN:
-		data = yang_data_new_string(xpath_arg, "down");
-		break;
-	case ISIS_ADJ_UP:
-		data = yang_data_new_string(xpath_arg, "up");
-		break;
-	case ISIS_ADJ_INITIALIZING:
-		data = yang_data_new_string(xpath_arg, "init");
-		break;
-	default:
-		data = yang_data_new_string(xpath_arg, "failed");
-	}
+	data = yang_data_new_string(xpath_arg, isis_yang_adj_state(new_state));
 	listnode_add(arguments, data);
 	if (new_state == ISIS_ADJ_DOWN) {
 		snprintf(xpath_arg, sizeof(xpath_arg), "%s/reason", xpath);
@@ -3482,6 +3849,102 @@ const struct frr_yang_module_info frr_isisd_info = {
 				.cli_show = cli_show_ip_isis_mt_ipv6_dstsrc,
 				.modify = lib_interface_isis_multi_topology_ipv6_dstsrc_modify,
 			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency",
+			.cbs = {
+				.get_next = lib_interface_isis_adjacencies_adjacency_get_next,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-sys-type",
+			.cbs = {
+				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_sys_type_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-sysid",
+			.cbs = {
+				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_sysid_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-extended-circuit-id",
+			.cbs = {
+				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_extended_circuit_id_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-snpa",
+			.cbs = {
+				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_snpa_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/hold-timer",
+			.cbs = {
+				.get_elem = lib_interface_isis_adjacencies_adjacency_hold_timer_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/neighbor-priority",
+			.cbs = {
+				.get_elem = lib_interface_isis_adjacencies_adjacency_neighbor_priority_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/adjacencies/adjacency/state",
+			.cbs = {
+				.get_elem = lib_interface_isis_adjacencies_adjacency_state_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-changes",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_adjacency_changes_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-number",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_adjacency_number_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/init-fails",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_init_fails_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/adjacency-rejects",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_adjacency_rejects_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/id-len-mismatch",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_id_len_mismatch_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/max-area-addresses-mismatch",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_max_area_addresses_mismatch_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/authentication-type-fails",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_authentication_type_fails_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/event-counters/authentication-fails",
+			.cbs = {
+				.get_elem = lib_interface_isis_event_counters_authentication_fails_get_elem,
+			}
 		},
 		{
 			.xpath = NULL,
