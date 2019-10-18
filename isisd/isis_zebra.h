@@ -24,8 +24,6 @@
 
 extern struct zclient *zclient;
 
-DECLARE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp));
-
 void isis_zebra_init(struct thread_master *);
 void isis_zebra_stop(void);
 

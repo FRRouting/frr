@@ -70,10 +70,19 @@ static int if_zebra_speed_update(struct thread *thread)
 	struct zebra_if *zif = ifp->info;
 	uint32_t new_speed;
 	bool changed = false;
+	int error = 0;
 
 	zif->speed_update = NULL;
 
-	new_speed = kernel_get_speed(ifp);
+	new_speed = kernel_get_speed(ifp, &error);
+
+	/* error may indicate vrf not available or
+	 * interfaces not available.
+	 * note that loopback & virtual interfaces can return 0 as speed
+	 */
+	if (error < 0)
+		return 1;
+
 	if (new_speed != ifp->speed) {
 		zlog_info("%s: %s old speed: %u new speed: %u",
 			  __PRETTY_FUNCTION__, ifp->name, ifp->speed,
@@ -261,8 +270,10 @@ struct interface *if_lookup_by_name_per_ns(struct zebra_ns *ns,
 
 	for (rn = route_top(ns->if_table); rn; rn = route_next(rn)) {
 		ifp = (struct interface *)rn->info;
-		if (ifp && strcmp(ifp->name, ifname) == 0)
+		if (ifp && strcmp(ifp->name, ifname) == 0) {
+			route_unlock_node(rn);
 			return (ifp);
+		}
 	}
 
 	return NULL;
@@ -766,6 +777,13 @@ void if_delete_update(struct interface *ifp)
 		memset(&zif->l2info, 0, sizeof(union zebra_l2if_info));
 		memset(&zif->brslave_info, 0,
 		       sizeof(struct zebra_l2info_brslave));
+	}
+
+	if (!ifp->configured) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("interface %s is being deleted from the system",
+				   ifp->name);
+		if_delete(ifp);
 	}
 }
 
@@ -1556,7 +1574,7 @@ struct cmd_node interface_node = {INTERFACE_NODE, "%s(config-if)# ", 1};
 #endif
 /* Show all interfaces to vty. */
 DEFPY(show_interface, show_interface_cmd,
-      "show interface [vrf NAME$name] [brief$brief]",
+      "show interface [vrf NAME$vrf_name] [brief$brief]",
       SHOW_STR
       "Interface status and configuration\n"
       VRF_CMD_HELP_STR
@@ -1568,8 +1586,8 @@ DEFPY(show_interface, show_interface_cmd,
 
 	interface_update_stats();
 
-	if (name)
-		VRF_GET_ID(vrf_id, name, false);
+	if (vrf_name)
+		VRF_GET_ID(vrf_id, vrf_name, false);
 
 	/* All interface print. */
 	vrf = vrf_lookup_by_id(vrf_id);
@@ -2034,13 +2052,13 @@ DEFUN (link_params_enable,
 	/* This command could be issue at startup, when activate MPLS TE */
 	/* on a new interface or after a ON / OFF / ON toggle */
 	/* In all case, TE parameters are reset to their default factory */
-	if (IS_ZEBRA_DEBUG_EVENT)
+	if (IS_ZEBRA_DEBUG_EVENT || IS_ZEBRA_DEBUG_MPLS)
 		zlog_debug(
 			"Link-params: enable TE link parameters on interface %s",
 			ifp->name);
 
 	if (!if_link_params_get(ifp)) {
-		if (IS_ZEBRA_DEBUG_EVENT)
+		if (IS_ZEBRA_DEBUG_EVENT || IS_ZEBRA_DEBUG_MPLS)
 			zlog_debug(
 				"Link-params: failed to init TE link parameters  %s",
 				ifp->name);
@@ -2063,8 +2081,9 @@ DEFUN (no_link_params_enable,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-	zlog_debug("MPLS-TE: disable TE link parameters on interface %s",
-		   ifp->name);
+	if (IS_ZEBRA_DEBUG_EVENT || IS_ZEBRA_DEBUG_MPLS)
+		zlog_debug("MPLS-TE: disable TE link parameters on interface %s",
+			   ifp->name);
 
 	if_link_params_free(ifp);
 
@@ -3195,6 +3214,11 @@ void zebra_if_init(void)
 	install_node(&interface_node, if_config_write);
 	install_node(&link_params_node, NULL);
 	if_cmd_init();
+	/*
+	 * This is *intentionally* setting this to NULL, signaling
+	 * that interface creation for zebra acts differently
+	 */
+	if_zapi_callbacks(NULL, NULL, NULL, NULL);
 
 	install_element(VIEW_NODE, &show_interface_cmd);
 	install_element(VIEW_NODE, &show_interface_vrf_all_cmd);

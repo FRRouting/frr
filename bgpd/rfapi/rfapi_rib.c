@@ -1647,11 +1647,6 @@ void rfapiRibUpdatePendingNode(
 		struct rfapi_info *ri;
 		struct prefix pfx_nh;
 
-		if (!bpi->attr) {
-			/* shouldn't happen */
-			/* TBD increment error stats counter */
-			continue;
-		}
 		if (!bpi->extra) {
 			/* shouldn't happen */
 			/* TBD increment error stats counter */

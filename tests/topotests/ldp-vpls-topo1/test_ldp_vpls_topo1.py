@@ -144,9 +144,6 @@ def setup_module(mod):
             )
 
     tgen.start_router()
-    for router in router_list.values():
-        if router.has_version('<', '3'):
-            tgen.set_error('unsupported version')
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -180,30 +177,8 @@ def test_ospf_convergence():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    # Old output (before FRR PR1383) didn't show a list of neighbors.
-    # Check for dict object and compare to old output if this is the case
-    tgen = get_topogen()
-    router = tgen.gears['r1']
-    output = router.vtysh_cmd("show ip ospf neighbor json", isjson=True)
-
-    # We could have either old format (without "neighbors" and direct list
-    # of IP's or new format from PR1659 with "neighbors".
-    # Trying old formats first and fall back to new format
-    #
-    # New format: neighbors have dict instead of list of dicts (PR1723).
-    if output.has_key('neighbors'):
-        if isinstance(output['neighbors'], dict):
-            reffile = "show_ip_ospf_neighbor.json"
-        else:
-            reffile = "show_ip_ospf_neighbor.ref"
-    else:
-        if isinstance(output["2.2.2.2"], dict):
-            reffile = "show_ip_ospf_neighbor.ref-old-nolist"
-        else:
-            reffile = "show_ip_ospf_neighbor.ref-no-neigh"
-
     for rname in ['r1', 'r2', 'r3']:
-        router_compare_json_output(rname, "show ip ospf neighbor json", reffile)
+        router_compare_json_output(rname, "show ip ospf neighbor json", "show_ip_ospf_neighbor.json")
 
 def test_rib():
     logger.info("Test: verify RIB")

@@ -520,6 +520,7 @@ unsigned int attrhash_key_make(const void *p)
 	key = jhash(attr->mp_nexthop_global.s6_addr, IPV6_MAX_BYTELEN, key);
 	key = jhash(attr->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
 	MIX3(attr->nh_ifindex, attr->nh_lla_ifindex, attr->distance);
+	MIX(attr->rmap_table_id);
 
 	return key;
 }
@@ -546,6 +547,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && attr1->lcommunity == attr2->lcommunity
 		    && attr1->cluster == attr2->cluster
 		    && attr1->transit == attr2->transit
+		    && attr1->rmap_table_id == attr2->rmap_table_id
 		    && (attr1->encap_tunneltype == attr2->encap_tunneltype)
 		    && encap_same(attr1->encap_subtlvs, attr2->encap_subtlvs)
 #if ENABLE_BGP_VNC
@@ -1305,14 +1307,20 @@ bgp_attr_nexthop_valid(struct peer *peer, struct attr *attr)
 	if ((IPV4_NET0(nexthop_h) || IPV4_NET127(nexthop_h)
 	     || IPV4_CLASS_DE(nexthop_h))
 	    && !BGP_DEBUG(allow_martians, ALLOW_MARTIANS)) {
+		uint8_t data[7]; /* type(2) + length(1) + nhop(4) */
 		char buf[INET_ADDRSTRLEN];
 
 		inet_ntop(AF_INET, &attr->nexthop.s_addr, buf,
 			  INET_ADDRSTRLEN);
 		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %s",
 			 buf);
-		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
-				BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP);
+		data[0] = BGP_ATTR_FLAG_TRANS;
+		data[1] = BGP_ATTR_NEXT_HOP;
+		data[2] = BGP_ATTR_NHLEN_IPV4;
+		memcpy(&data[3], &attr->nexthop.s_addr, BGP_ATTR_NHLEN_IPV4);
+		bgp_notify_send_with_data(peer, BGP_NOTIFY_UPDATE_ERR,
+					  BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP,
+					  data, 7);
 		return BGP_ATTR_PARSE_ERROR;
 	}
 

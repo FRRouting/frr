@@ -240,10 +240,6 @@ struct zclient {
 	void (*zebra_connected)(struct zclient *);
 	void (*zebra_capabilities)(struct zclient_capabilities *cap);
 	int (*router_id_update)(ZAPI_CALLBACK_ARGS);
-	int (*interface_add)(ZAPI_CALLBACK_ARGS);
-	int (*interface_delete)(ZAPI_CALLBACK_ARGS);
-	int (*interface_up)(ZAPI_CALLBACK_ARGS);
-	int (*interface_down)(ZAPI_CALLBACK_ARGS);
 	int (*interface_address_add)(ZAPI_CALLBACK_ARGS);
 	int (*interface_address_delete)(ZAPI_CALLBACK_ARGS);
 	int (*interface_link_params)(ZAPI_CALLBACK_ARGS);
@@ -302,7 +298,8 @@ struct zmsghdr {
 	uint8_t version;
 	vrf_id_t vrf_id;
 	uint16_t command;
-};
+} __attribute__((packed));
+#define ZAPI_HEADER_CMD_LOCATION offsetof(struct zmsghdr, command)
 
 struct zapi_nexthop {
 	enum nexthop_types_t type;
@@ -617,7 +614,6 @@ extern bool zapi_parse_header(struct stream *zmsg, struct zmsghdr *hdr);
 extern void zclient_interface_set_master(struct zclient *client,
 					 struct interface *master,
 					 struct interface *slave);
-extern struct interface *zebra_interface_add_read(struct stream *, vrf_id_t);
 extern struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t);
 extern struct connected *zebra_interface_address_read(int, struct stream *,
 						      vrf_id_t);
@@ -626,7 +622,6 @@ zebra_interface_nbr_address_read(int, struct stream *, vrf_id_t);
 extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
 							 vrf_id_t vrf_id,
 							 vrf_id_t *new_vrf_id);
-extern void zebra_interface_if_set_value(struct stream *, struct interface *);
 extern void zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 
 extern struct interface *zebra_interface_link_params_read(struct stream *s,

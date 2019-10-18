@@ -127,6 +127,8 @@ int main(int argc, char **argv, char **envp)
 	/*
 	 * Initialize zclient "update" and "lookup" sockets
 	 */
+	if_zapi_callbacks(pim_ifp_create, pim_ifp_up,
+			  pim_ifp_down, pim_ifp_destroy);
 	pim_zebra_init();
 	pim_bfd_init();
 

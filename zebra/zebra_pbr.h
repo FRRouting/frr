@@ -41,7 +41,7 @@ struct zebra_pbr_rule {
 
 	struct pbr_rule rule;
 
-	struct interface *ifp;
+	char ifname[INTERFACE_NAMSIZ];
 
 	vrf_id_t vrf_id;
 };

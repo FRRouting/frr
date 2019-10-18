@@ -255,6 +255,12 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
 		}
 	}
 
+	/* Set Tx socket DSCP byte */
+	if (setsockopt_ipv4_tos(fd, IPTOS_PREC_INTERNETCONTROL)) {
+		zlog_warn("can't set sockopt IP_TOS to PIM/IGMP socket %d: %s",
+			  fd, safe_strerror(errno));
+	}
+
 	return fd;
 }
 

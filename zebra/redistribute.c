@@ -119,7 +119,7 @@ static void zebra_redistribute(struct zserv *client, int type,
 
 			srcdest_rnode_prefixes(rn, &dst_p, &src_p);
 
-			if (IS_ZEBRA_DEBUG_EVENT)
+			if (IS_ZEBRA_DEBUG_RIB)
 				zlog_debug(
 					"%s: client %s %s(%u) checking: selected=%d, type=%d, distance=%d, metric=%d zebra_check_addr=%d",
 					__func__,
@@ -149,7 +149,8 @@ static void zebra_redistribute(struct zserv *client, int type,
 /* Either advertise a route for redistribution to registered clients or */
 /* withdraw redistribution if add cannot be done for client */
 void redistribute_update(const struct prefix *p, const struct prefix *src_p,
-			 struct route_entry *re, struct route_entry *prev_re)
+			 const struct route_entry *re,
+			 const struct route_entry *prev_re)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
@@ -200,7 +201,7 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 			send_redistribute = 1;
 
 		if (send_redistribute) {
-			if (IS_ZEBRA_DEBUG_EVENT) {
+			if (IS_ZEBRA_DEBUG_RIB) {
 				zlog_debug(
 					   "%s: client %s %s(%u), type=%d, distance=%d, metric=%d",
 					   __func__,
@@ -226,54 +227,102 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 	}
 }
 
+/*
+ * During a route delete, where 'new_re' is NULL, redist a delete to all
+ * clients registered for the type of 'old_re'.
+ * During a route update, redist a delete to any clients who will not see
+ * an update when the new route is installed. There are cases when a client
+ * may have seen a redist for 'old_re', but will not see
+ * the redist for 'new_re'.
+ */
 void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
-			 struct route_entry *re)
+			 const struct route_entry *old_re,
+			 const struct route_entry *new_re)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
-	char buf[INET6_ADDRSTRLEN];
 	int afi;
+	char buf[PREFIX_STRLEN];
+	vrf_id_t vrfid;
+
+	if (old_re)
+		vrfid = old_re->vrf_id;
+	else if (new_re)
+		vrfid = new_re->vrf_id;
+	else
+		return;
 
 	if (IS_ZEBRA_DEBUG_RIB) {
-		inet_ntop(p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
-		zlog_debug("%u:%s/%d: Redist delete re %p (%s)",
-			   re->vrf_id, buf, p->prefixlen, re,
-			   zebra_route_string(re->type));
+		zlog_debug(
+			"%u:%s: Redist del: re %p (%s), new re %p (%s)",
+			vrfid, prefix2str(p, buf, sizeof(buf)),
+			old_re,
+			old_re ? zebra_route_string(old_re->type) : "None",
+			new_re,
+			new_re ? zebra_route_string(new_re->type) : "None");
 	}
 
 	/* Add DISTANCE_INFINITY check. */
-	if (re->distance == DISTANCE_INFINITY)
+	if (old_re && (old_re->distance == DISTANCE_INFINITY)) {
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("\tSkipping due to Infinite Distance");
 		return;
+	}
 
 	afi = family2afi(p->family);
 	if (!afi) {
 		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
 			  "%s: Unknown AFI/SAFI prefix received\n",
-			  __FUNCTION__);
+			  __func__);
 		return;
 	}
 
+	/* Skip invalid (e.g. linklocal) prefix */
 	if (!zebra_check_addr(p)) {
-		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("Redist delete filter prefix %s",
-				   prefix2str(p, buf, sizeof(buf)));
+		if (IS_ZEBRA_DEBUG_RIB) {
+			zlog_debug(
+				"%u:%s: Redist del old: skipping invalid prefix",
+				vrfid, prefix2str(p, buf, sizeof(buf)));
+		}
 		return;
 	}
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
-		if ((is_default_prefix(p)
-		     && vrf_bitmap_check(client->redist_default[afi],
-					 re->vrf_id))
-		    || vrf_bitmap_check(client->redist[afi][ZEBRA_ROUTE_ALL],
-					re->vrf_id)
-		    || (re->instance
-			&& redist_check_instance(
-				   &client->mi_redist[afi][re->type],
-				   re->instance))
-		    || vrf_bitmap_check(client->redist[afi][re->type],
-					re->vrf_id)) {
+		if (new_re) {
+			/* Skip this client if it will receive an update for the
+			 * 'new' re
+			 */
+			if (is_default_prefix(p)
+			    && vrf_bitmap_check(client->redist_default[afi],
+						new_re->vrf_id))
+				continue;
+			else if (vrf_bitmap_check(
+					 client->redist[afi][ZEBRA_ROUTE_ALL],
+					 new_re->vrf_id))
+				continue;
+			else if (new_re->instance
+				 && redist_check_instance(
+					 &client->mi_redist[afi][new_re->type],
+					 new_re->instance))
+				continue;
+			else if (vrf_bitmap_check(
+					 client->redist[afi][new_re->type],
+					 new_re->vrf_id))
+				continue;
+		}
+
+		/* Send a delete for the 'old' re to any subscribed client. */
+		if (old_re
+		    && (vrf_bitmap_check(client->redist[afi][ZEBRA_ROUTE_ALL],
+					 old_re->vrf_id)
+			|| (old_re->instance
+			    && redist_check_instance(
+				       &client->mi_redist[afi][old_re->type],
+				       old_re->instance))
+			|| vrf_bitmap_check(client->redist[afi][old_re->type],
+					    old_re->vrf_id))) {
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_DEL,
-						 client, p, src_p, re);
+						 client, p, src_p, old_re);
 		}
 	}
 }

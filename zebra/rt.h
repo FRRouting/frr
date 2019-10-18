@@ -66,7 +66,7 @@ extern int kernel_interface_set_master(struct interface *master,
 
 extern int mpls_kernel_init(void);
 
-extern uint32_t kernel_get_speed(struct interface *ifp);
+extern uint32_t kernel_get_speed(struct interface *ifp, int *error);
 extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute);
 
 /*

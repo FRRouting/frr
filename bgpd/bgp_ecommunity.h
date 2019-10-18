@@ -190,7 +190,16 @@ extern int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
 extern void bgp_compute_aggregate_ecommunity(
 					struct bgp_aggregate *aggregate,
 					struct ecommunity *ecommunity);
+
+extern void bgp_compute_aggregate_ecommunity_hash(
+					struct bgp_aggregate *aggregate,
+					struct ecommunity *ecommunity);
+extern void bgp_compute_aggregate_ecommunity_val(
+					struct bgp_aggregate *aggregate);
 extern void bgp_remove_ecommunity_from_aggregate(
+					struct bgp_aggregate *aggregate,
+					struct ecommunity *ecommunity);
+extern void bgp_remove_ecomm_from_aggregate_hash(
 					struct bgp_aggregate *aggregate,
 					struct ecommunity *ecommunity);
 extern void bgp_aggr_ecommunity_remove(void *arg);

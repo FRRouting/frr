@@ -2437,7 +2437,7 @@ static struct ospf_lsa *ospf_summary_asbr_lsa_install(struct ospf *ospf,
 #if 0
       /* These don't exist yet... */
       ospf_summary_incremental_update(new);
-      /* Isn't this done by the above call? 
+      /* Isn't this done by the above call?
 	 - RFC 2328 Section 16.5 implies it should be */
       /* ospf_ase_calculate_schedule(); */
 #else  /* #if 0 */

@@ -588,8 +588,6 @@ static void bfdd_sessions_enable_interface(struct interface *ifp)
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
 		bs = bso->bso_bs;
-		if (bso->bso_isinterface == false)
-			continue;
 		/* Interface name mismatch. */
 		if (strcmp(ifp->name, bs->key.ifname))
 			continue;
@@ -614,10 +612,6 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 	struct bfd_session *bs;
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
-		if (bso->bso_isinterface == false)
-			continue;
-
-		/* Interface name mismatch. */
 		bs = bso->bso_bs;
 		if (strcmp(ifp->name, bs->key.ifname))
 			continue;
@@ -625,7 +619,6 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 		if (bs->sock == -1)
 			continue;
 
-		/* Try to enable it. */
 		bfd_session_disable(bs);
 
 	}
@@ -667,8 +660,6 @@ void bfdd_sessions_disable_vrf(struct vrf *vrf)
 	struct bfd_session *bs;
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
-		if (bso->bso_isinterface)
-			continue;
 		bs = bso->bso_bs;
 		if (bs->key.vrfname[0] &&
 		    strcmp(vrf->name, bs->key.vrfname))
@@ -677,37 +668,13 @@ void bfdd_sessions_disable_vrf(struct vrf *vrf)
 		if (bs->sock == -1)
 			continue;
 
-		/* Try to enable it. */
 		bfd_session_disable(bs);
 	}
 }
 
-static int bfdd_interface_update(ZAPI_CALLBACK_ARGS)
+static int bfd_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	/*
-	 * `zebra_interface_add_read` will handle the interface creation
-	 * on `lib/if.c`. We'll use that data structure instead of
-	 * rolling our own.
-	 */
-	if (cmd == ZEBRA_INTERFACE_ADD) {
-		ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-		if (ifp == NULL)
-			return 0;
-
-		bfdd_sessions_enable_interface(ifp);
-		return 0;
-	}
-
-	/* Update interface information. */
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-	if (ifp == NULL)
-		return 0;
-
 	bfdd_sessions_disable_interface(ifp);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	return 0;
 }
@@ -733,9 +700,6 @@ static void bfdd_sessions_enable_address(struct connected *ifc)
 	struct prefix prefix;
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
-		if (bso->bso_isaddress == false)
-			continue;
-
 		/* Skip enabled sessions. */
 		bs = bso->bso_bs;
 		if (bs->sock != -1)
@@ -765,8 +729,16 @@ static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static int bfd_ifp_create(struct interface *ifp)
+{
+	bfdd_sessions_enable_interface(ifp);
+
+	return 0;
+}
+
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 {
+	if_zapi_callbacks(bfd_ifp_create, NULL, NULL, bfd_ifp_destroy);
 	zclient = zclient_new(master, &zclient_options_default);
 	assert(zclient != NULL);
 	zclient_init(zclient, ZEBRA_ROUTE_BFD, 0, bfdd_priv);
@@ -780,10 +752,6 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 
 	/* Send replay request on zebra connect. */
 	zclient->zebra_connected = bfdd_zebra_connected;
-
-	/* Learn interfaces from zebra instead of the OS. */
-	zclient->interface_add = bfdd_interface_update;
-	zclient->interface_delete = bfdd_interface_update;
 
 	/* Learn about interface VRF. */
 	zclient->interface_vrf_update = bfdd_interface_vrf_update;

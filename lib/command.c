@@ -1135,6 +1135,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 		return saved_ret;
 
 	if (ret != CMD_SUCCESS && ret != CMD_WARNING
+	    && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	    && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED) {
 		/* This assumes all nodes above CONFIG_NODE are childs of
 		 * CONFIG_NODE */
@@ -1146,6 +1147,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 			ret = cmd_execute_command_real(vline, FILTER_RELAXED,
 						       vty, cmd);
 			if (ret == CMD_SUCCESS || ret == CMD_WARNING
+			    || ret == CMD_ERR_AMBIGUOUS || ret == CMD_ERR_INCOMPLETE
 			    || ret == CMD_NOT_MY_INSTANCE
 			    || ret == CMD_WARNING_CONFIG_FAILED)
 				return ret;
@@ -1330,6 +1332,7 @@ int command_config_read_one_line(struct vty *vty,
 	if (!(use_daemon && ret == CMD_SUCCESS_DAEMON)
 	    && !(!use_daemon && ret == CMD_ERR_NOTHING_TODO)
 	    && ret != CMD_SUCCESS && ret != CMD_WARNING
+	    && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	    && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED
 	    && vty->node != CONFIG_NODE) {
 		int saved_node = vty->node;
@@ -1338,6 +1341,7 @@ int command_config_read_one_line(struct vty *vty,
 		while (!(use_daemon && ret == CMD_SUCCESS_DAEMON)
 		       && !(!use_daemon && ret == CMD_ERR_NOTHING_TODO)
 		       && ret != CMD_SUCCESS && ret != CMD_WARNING
+		       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 		       && vty->node > CONFIG_NODE) {
 			vty->node = node_parent(vty->node);
 			if (vty->xpath_index > 0)
@@ -1709,6 +1713,8 @@ static int vty_write_config(struct vty *vty)
 	if (host.noconfig)
 		return CMD_SUCCESS;
 
+	nb_cli_show_config_prepare(running_config, false);
+
 	if (vty->type == VTY_TERM) {
 		vty_out(vty, "\nCurrent configuration:\n");
 		vty_out(vty, "!\n");
@@ -1718,16 +1724,12 @@ static int vty_write_config(struct vty *vty)
 	vty_out(vty, "frr defaults %s\n", DFLT_NAME);
 	vty_out(vty, "!\n");
 
-	pthread_rwlock_rdlock(&running_config->lock);
-	{
-		for (i = 0; i < vector_active(cmdvec); i++)
-			if ((node = vector_slot(cmdvec, i)) && node->func
-			    && (node->vtysh || vty->type != VTY_SHELL)) {
-				if ((*node->func)(vty))
-					vty_out(vty, "!\n");
-			}
-	}
-	pthread_rwlock_unlock(&running_config->lock);
+	for (i = 0; i < vector_active(cmdvec); i++)
+		if ((node = vector_slot(cmdvec, i)) && node->func
+		    && (node->vtysh || vty->type != VTY_SHELL)) {
+			if ((*node->func)(vty))
+				vty_out(vty, "!\n");
+		}
 
 	if (vty->type == VTY_TERM) {
 		vty_out(vty, "end\n");

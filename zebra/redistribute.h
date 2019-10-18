@@ -42,11 +42,19 @@ extern void zebra_redistribute_default_delete(ZAPI_HANDLER_ARGS);
 
 extern void redistribute_update(const struct prefix *p,
 				const struct prefix *src_p,
-				struct route_entry *re,
-				struct route_entry *prev_re);
-extern void redistribute_delete(const struct prefix *p,
-				const struct prefix *src_p,
-				struct route_entry *re);
+				const struct route_entry *re,
+				const struct route_entry *prev_re);
+/*
+ * During a route delete, where 'new_re' is NULL, redist a delete to all
+ * clients registered for the type of 'old_re'.
+ * During a route update, redist a delete to any clients who will not see
+ * an update when the new route is installed. There are cases when a client
+ * may have seen a redist for 'old_re', but will not see
+ * the redist for 'new_re'.
+ */
+void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
+			 const struct route_entry *old_re,
+			 const struct route_entry *new_re);
 
 extern void zebra_interface_up_update(struct interface *);
 extern void zebra_interface_down_update(struct interface *);

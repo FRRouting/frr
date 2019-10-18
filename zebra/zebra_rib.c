@@ -691,7 +691,7 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 
 		srcdest_rnode_prefixes(rn, &p, &src_p);
 
-		redistribute_delete(p, src_p, re);
+		redistribute_delete(p, src_p, re, NULL);
 		UNSET_FLAG(re->flags, ZEBRA_FLAG_SELECTED);
 	}
 }
@@ -1046,14 +1046,18 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 		struct nexthop *nexthop = NULL;
 
 		for (ALL_NEXTHOPS(alternate->ng, nexthop)) {
-			if (if_is_loopback_or_vrf(if_lookup_by_index(
-				    nexthop->ifindex, alternate->vrf_id)))
+			struct interface *ifp = if_lookup_by_index(
+				nexthop->ifindex, alternate->vrf_id);
+
+			if (ifp && if_is_loopback_or_vrf(ifp))
 				return alternate;
 		}
 
 		for (ALL_NEXTHOPS(current->ng, nexthop)) {
-			if (if_is_loopback_or_vrf(if_lookup_by_index(
-				    nexthop->ifindex, current->vrf_id)))
+			struct interface *ifp = if_lookup_by_index(
+				nexthop->ifindex, current->vrf_id);
+
+			if (ifp && if_is_loopback_or_vrf(ifp))
 				return current;
 		}
 
@@ -1248,8 +1252,17 @@ static void rib_process(struct route_node *rn)
 			SET_FLAG(new_selected->flags, ZEBRA_FLAG_SELECTED);
 
 		if (old_selected) {
-			if (!new_selected)
-				redistribute_delete(p, src_p, old_selected);
+			/*
+			 * If we're removing the old entry, we should tell
+			 * redist subscribers about that *if* they aren't
+			 * going to see a redist for the new entry.
+			 */
+			if (!new_selected || CHECK_FLAG(old_selected->status,
+							ROUTE_ENTRY_REMOVED))
+				redistribute_delete(p, src_p,
+						    old_selected,
+						    new_selected);
+
 			if (old_selected != new_selected)
 				UNSET_FLAG(old_selected->flags,
 					   ZEBRA_FLAG_SELECTED);
@@ -1547,7 +1560,9 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 				changed_p = true;
 
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-			break;
+
+			/* Keep checking nexthops */
+			continue;
 		}
 
 		if (CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_FIB)) {
@@ -1983,6 +1998,9 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	 * not-installed; or not-installed to installed.
 	 */
 	if (start_count > 0 && end_count > 0) {
+		if (debug_p)
+			zlog_debug("%u:%s applied nexthop changes from dplane notification",
+				   dplane_ctx_get_vrf(ctx), dest_str);
 
 		/* Changed nexthops - update kernel/others */
 		dplane_route_notif_update(rn, re,
@@ -2026,7 +2044,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 		dplane_route_notif_update(rn, re, DPLANE_OP_ROUTE_DELETE, ctx);
 
 		/* Redistribute, lsp, and nht update */
-		redistribute_delete(dest_pfx, src_pfx, re);
+		redistribute_delete(dest_pfx, src_pfx, re, NULL);
 
 		zebra_rib_evaluate_rn_nexthops(
 			rn, zebra_router_get_next_sequence());
@@ -3190,6 +3208,7 @@ static int rib_process_dplane_results(struct thread *thread)
 {
 	struct zebra_dplane_ctx *ctx;
 	struct dplane_ctx_q ctxlist;
+	bool shut_p = false;
 
 	/* Dequeue a list of completed updates with one lock/unlock cycle */
 
@@ -3208,6 +3227,21 @@ static int rib_process_dplane_results(struct thread *thread)
 		/* If we've emptied the results queue, we're done */
 		if (ctx == NULL)
 			break;
+
+		/* If zebra is shutting down, avoid processing results,
+		 * just drain the results queue.
+		 */
+		shut_p = atomic_load_explicit(&zrouter.in_shutdown,
+					      memory_order_relaxed);
+		if (shut_p) {
+			while (ctx) {
+				dplane_ctx_fini(&ctx);
+
+				ctx = dplane_ctx_dequeue(&ctxlist);
+			}
+
+			continue;
+		}
 
 		while (ctx) {
 			switch (dplane_ctx_get_op(ctx)) {

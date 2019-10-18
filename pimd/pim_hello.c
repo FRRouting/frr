@@ -104,7 +104,7 @@ static void tlv_trace(const char *label, const char *tlv_name,
     char src_str[INET_ADDRSTRLEN];
     pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
     zlog_debug("%s: PIM hello option from %s on interface %s: %s",
-	       label, 
+	       label,
 	       src_str, ifname,
 	       tlv_name);
   }

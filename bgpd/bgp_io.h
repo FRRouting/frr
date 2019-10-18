@@ -22,7 +22,7 @@
 #ifndef _FRR_BGP_IO_H
 #define _FRR_BGP_IO_H
 
-#define BGP_WRITE_PACKET_MAX 10U
+#define BGP_WRITE_PACKET_MAX 64U
 #define BGP_READ_PACKET_MAX  10U
 
 #include "bgpd/bgpd.h"

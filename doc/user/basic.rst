@@ -451,7 +451,8 @@ Terminal Mode Commands
    This command displays system run statistics for all the different event
    types. If no options is specified all different run types are displayed
    together.  Additionally you can ask to look at (r)ead, (w)rite, (t)imer,
-   (e)vent and e(x)ecute thread event types.
+   (e)vent and e(x)ecute thread event types.  If you have compiled with
+   disable-cpu-time then this command will not show up.
 
 .. index:: show thread poll
 .. clicmd:: show thread poll

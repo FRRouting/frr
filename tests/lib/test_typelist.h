@@ -280,7 +280,7 @@ static void concat(test_, TYPE)(void)
 			assert(!tmp || tmp->val >= j);
 		} else
 			assert(gteq == list_first(&head));
-		
+
 		if (gteq)
 			assert(gteq->val >= j);
 	}

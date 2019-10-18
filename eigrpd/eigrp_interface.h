@@ -63,5 +63,4 @@ extern uint32_t eigrp_scaled_to_bandwidth(uint32_t);
 extern uint32_t eigrp_delay_to_scaled(uint32_t);
 extern uint32_t eigrp_scaled_to_delay(uint32_t);
 
-
 #endif /* ZEBRA_EIGRP_INTERFACE_H_ */

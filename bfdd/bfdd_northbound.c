@@ -58,10 +58,36 @@ static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 			      union nb_resource *resource, bool mhop)
 {
 	struct bfd_session *bs;
+	const char *ifname;
 	struct bfd_key bk;
+	struct prefix p;
 
 	switch (event) {
 	case NB_EV_VALIDATE:
+		/*
+		 * When `dest-addr` is IPv6 and link-local we must
+		 * require interface name, otherwise we can't figure
+		 * which interface to use to send the packets.
+		 */
+		yang_dnode_get_prefix(&p, dnode, "./dest-addr");
+
+		/*
+		 * To support old FRR versions we must allow empty
+		 * interface to be specified, however that should
+		 * change in the future.
+		 */
+		if (yang_dnode_exists(dnode, "./interface"))
+			ifname = yang_dnode_get_string(dnode, "./interface");
+		else
+			ifname = "";
+
+		if (p.family == AF_INET6
+		    && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)
+		    && strlen(ifname) == 0) {
+			zlog_warn("%s: when using link-local you must specify "
+				  "an interface.", __func__);
+			return NB_ERR_VALIDATION;
+		}
 		break;
 
 	case NB_EV_PREPARE:
