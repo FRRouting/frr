@@ -1384,6 +1384,8 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	if (bgp_debug_zebra(p)) {
 		char prefix_buf[PREFIX_STRLEN];
 		char nh_buf[INET6_ADDRSTRLEN];
+		char eth_buf[ETHER_ADDR_STRLEN + 7] = {'\0'};
+		char buf1[ETHER_ADDR_STRLEN];
 		char label_buf[20];
 		int i;
 
@@ -1421,13 +1423,19 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			}
 
 			label_buf[0] = '\0';
+			eth_buf[0] = '\0';
 			if (has_valid_label
 			    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE))
 				sprintf(label_buf, "label %u",
 					api_nh->labels[0]);
-			zlog_debug("  nhop [%d]: %s if %u VRF %u %s",
+			if (CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)
+			    && !is_zero_mac(&api_nh->rmac))
+				sprintf(eth_buf, " RMAC %s",
+					   prefix_mac2str(&api_nh->rmac,
+					   buf1, sizeof(buf1)));
+			zlog_debug("  nhop [%d]: %s if %u VRF %u %s %s",
 				   i + 1, nh_buf, api_nh->ifindex,
-				   api_nh->vrf_id, label_buf);
+				   api_nh->vrf_id, label_buf, eth_buf);
 		}
 	}
 
