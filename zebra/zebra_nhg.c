@@ -177,10 +177,16 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	re->nexthop_mtu = 0;
 
 	/*
-	 * If the kernel has sent us a route, then
+	 * If the kernel has sent us a NEW route, then
 	 * by golly gee whiz it's a good route.
+	 *
+	 * If its an already INSTALLED route we have already handled, then the
+	 * kernel route's nexthop might have became unreachable
+	 * and we have to handle that.
 	 */
-	if (re->type == ZEBRA_ROUTE_KERNEL || re->type == ZEBRA_ROUTE_SYSTEM)
+	if (!CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)
+	    && (re->type == ZEBRA_ROUTE_KERNEL
+		|| re->type == ZEBRA_ROUTE_SYSTEM))
 		return 1;
 
 	/*
