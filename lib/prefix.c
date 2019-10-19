@@ -601,6 +601,53 @@ int prefix_match(const struct prefix *n, const struct prefix *p)
 		if (np[offset] != pp[offset])
 			return 0;
 	return 1;
+
+}
+
+/*
+ * n is a type5 evpn prefix. This function tries to see if there is an
+ * ip-prefix within n which matches prefix p
+ * If n includes p prefix then return 1 else return 0.
+ */
+int evpn_type5_prefix_match(const struct prefix *n, const struct prefix *p)
+{
+	int offset;
+	int shift;
+	int prefixlen;
+	const uint8_t *np, *pp;
+	struct prefix_evpn *evp;
+
+	if (n->family != AF_EVPN)
+		return 0;
+
+	evp = (struct prefix_evpn *)n;
+	pp = p->u.val;
+
+	if ((evp->prefix.route_type != 5) ||
+	    (p->family == AF_INET6 && !is_evpn_prefix_ipaddr_v6(evp)) ||
+	    (p->family == AF_INET && !is_evpn_prefix_ipaddr_v4(evp)) ||
+	    (is_evpn_prefix_ipaddr_none(evp)))
+		return 0;
+
+	prefixlen = evp->prefix.prefix_addr.ip_prefix_length;
+	np = &evp->prefix.prefix_addr.ip.ip.addr;
+
+	/* If n's prefix is longer than p's one return 0. */
+	if (prefixlen > p->prefixlen)
+		return 0;
+
+	offset = prefixlen / PNBBY;
+	shift = prefixlen % PNBBY;
+
+	if (shift)
+		if (maskbit[shift] & (np[offset] ^ pp[offset]))
+			return 0;
+
+	while (offset--)
+		if (np[offset] != pp[offset])
+			return 0;
+	return 1;
+
 }
 
 /* If n includes p then return 1 else return 0. Prefix mask is not considered */
