@@ -7823,7 +7823,7 @@ int bgp_config_write(struct vty *vty)
 	return 0;
 }
 
-void bgp_master_init(struct thread_master *master)
+void bgp_master_init(struct thread_master *master, const int buffer_size)
 {
 	qobj_init();
 
@@ -7838,6 +7838,7 @@ void bgp_master_init(struct thread_master *master)
 	bm->t_rmap_update = NULL;
 	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
 	bm->terminating = false;
+	bm->socket_buffer = buffer_size;
 
 	bgp_process_queue_init();
 

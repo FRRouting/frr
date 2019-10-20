@@ -30,6 +30,7 @@ extern "C" {
 extern void setsockopt_so_recvbuf(int sock, int size);
 extern void setsockopt_so_sendbuf(const int sock, int size);
 extern int getsockopt_so_sendbuf(const int sock);
+extern int getsockopt_so_recvbuf(const int sock);
 
 extern int setsockopt_ipv6_pktinfo(int, int);
 extern int setsockopt_ipv6_checksum(int, int);

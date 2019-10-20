@@ -156,6 +156,9 @@ struct bgp_master {
 	/* BGP-EVPN VRF ID. Defaults to default VRF (if any) */
 	struct bgp* bgp_evpn;
 
+	/* How big should we set the socket buffer size */
+	uint32_t socket_buffer;
+
 	bool terminating;	/* global flag that sigint terminate seen */
 	QOBJ_FIELDS
 };
@@ -1575,7 +1578,8 @@ extern char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 
 extern int bgp_config_write(struct vty *);
 
-extern void bgp_master_init(struct thread_master *master);
+extern void bgp_master_init(struct thread_master *master,
+			    const int buffer_size);
 
 extern void bgp_init(unsigned short instance);
 extern void bgp_pthreads_run(void);
