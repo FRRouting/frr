@@ -13,11 +13,11 @@ take time.
 
 Providing a common Git reference will ease cooperation between partners.
 Indeed, it is hard to synchronise independent Git Repo. Only main FRR GitHub
-repo are known by everybody and private forks to create Pull Request are not
+repo is known by everybody and private forks to create Pull Request are not
 known by everybody. In addition, there no space on FRR web site or wiki to
 publicly announce that someone is working on a given feature. FRR community
 is, in general, aware about the development of a feature when Pull Request is
-published, which is be too late for good cooperation.
+published, which is too late for good cooperation.
 
 Feature Branch characteristics
 ------------------------------
@@ -32,18 +32,18 @@ as follow in the GitHub FRR repo (http://github.com/FRRouting/frr):
 
 ::
 
-  FRRouting XXX Development Branch
-  ================================
+   FRRouting XXX Development Branch
+   ================================
 
-  This special FRRouting branch is dedicated to the development of XXX.
-  The code located under this branch is a **Work In Progress**. The code may
-  compile or not, may run or not. In any case, this code **MUST NOT BE USED IN
-  PRODUCTION**.
+   This special FRRouting branch is dedicated to the development of XXX.
+   The code located under this branch is a **Work In Progress**. The code may
+   compile or not, may run or not. In any case, this code **MUST NOT BE USED IN
+   PRODUCTION**.
 
-  FRRouting
-  ---------
+   FRRouting
+   ---------
 
-  FRR is free software that implements a ...
+   FRR is free software that implements a ...
 
 
 Process to Request Feature Branch
@@ -53,11 +53,12 @@ Only feature listed in FRR Wiki Features Requests
 (see https://github.com/FRRouting/frr/wiki/Feature-Requests) can be subject of
 this process.
 
-Everybody *(NOTE: another option is to limit this possibility to the mainteners
-only which will simplify the process, but close the door to not mainteners)*
-could ask for a new feature branch by following the bellow process:
+Everybody *(NOTE: another option is to limit this possibility to the
+maintainers only which will simplify the process, but close the door to not
+maintainers)* could ask for a new feature branch by following the below
+process:
 
-- **Prerequisit:** If feature is not listed in FRR Wiki Features Requests,
+- **Prerequisite:** If feature is not listed in FRR Wiki Features Requests,
   first create a new issue in FRR GitHub to request the new feature and wait
   the feature is added to the Wiki
 - **Request:** [Send a simple mail is send to @frr-dev mailing list | Fill a
