@@ -118,7 +118,8 @@ static void bfd_adj_event(struct isis_adjacency *adj, struct prefix *dst,
 
 	int old_status = adj->bfd_session->status;
 
-	adj->bfd_session->status = new_status;
+	BFD_SET_CLIENT_STATUS(adj->bfd_session->status, new_status);
+
 	if (old_status == new_status)
 		return;
 
