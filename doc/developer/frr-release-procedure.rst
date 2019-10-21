@@ -8,14 +8,14 @@ FRR Release Procedure
 
 1. Checkout ``dev/<version>``.
 
-   .. code-block:: shell
-   
+   .. code-block:: console
+
       git checkout dev/<version>
 
 2. Create and push a new branch called ``stable/<version>`` based on the
    ``dev/<version>`` branch.
 
-   .. code-block:: shell
+   .. code-block:: console
 
       git checkout -b stable/<version>
       git push origin stable/<version>:refs/heads/stable/<version>
@@ -64,7 +64,7 @@ FRR Release Procedure
    - Verify the changelog format using ``dpkg-parsechangelog``. In the
      repository root:
 
-     .. code-block:: shell
+     .. code-block:: console
 
         dpkg-parsechangelog
 
@@ -81,7 +81,7 @@ FRR Release Procedure
         Changes:
          frr (7.3-dev-0) RELEASED; urgency=medium
          .
-           * Your Changes Here 
+           * Your Changes Here
 
 5. Change main version number:
 
@@ -98,13 +98,13 @@ FRR Release Procedure
 
 8. Create a git tag for the version:
 
-   .. code-block:: shell
+   .. code-block:: console
 
       git tag -a frr-<version> -m "FRRouting Release <version>"
 
 9. Push the commit and new tag.
 
-   .. code-block:: shell
+   .. code-block:: console
 
       git push origin stable/<version>:refs/head/stable/<version>
       git push origin frr-<version>
@@ -145,27 +145,27 @@ FRR Release Procedure
 
 18. Clone the ``frr-www`` repository:
 
-    .. code-block:: shell
+    .. code-block:: console
 
        git clone https://github.com/FRRouting/frr-www.git
 
 19. Add a new release announcement, using a previous announcement as template:
 
-    .. code-block:: shell
+    .. code-block:: console
 
        cp <old-version>-launch.md <version>-launch.md
 
     Paste the GitHub release announcement text into this document, and **remove
     line breaks**. In other words, this::
-    
+
        This is one continuous
        sentence that should be
        rendered on one line
-       
+
     Needs to be changed to this::
-    
+
        This is one continuous sentence that should be rendered on one line
-       
+
     This is very important otherwise the announcement will be unreadable on the
     website.
 
