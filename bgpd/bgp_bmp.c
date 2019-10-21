@@ -1762,7 +1762,7 @@ static struct cmd_node bmp_node = {BMP_NODE, "%s(config-bgp-bmp)# "};
 #define BMP_STR "BGP Monitoring Protocol\n"
 
 #ifndef VTYSH_EXTRACT_PL
-#include "bgp_bmp_clippy.c"
+#include "bgpd/bgp_bmp_clippy.c"
 #endif
 
 DEFPY_NOSH(bmp_targets_main,
