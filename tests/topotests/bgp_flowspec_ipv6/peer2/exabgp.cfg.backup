@@ -1,0 +1,113 @@
+neighbor 192.168.0.162 {
+router-id 192.168.0.160;
+local-address 192.168.0.160;
+local-as 100;
+peer-as 100;
+flow {
+route {
+match {
+source 1001::2/128;
+destination 3003::4/128;
+fragment [ first-fragment ];
+}
+then {
+redirect 50::2;
+rate-limit 55;
+#discard;
+}
+}
+# TCP FIN
+route {
+match {
+source 1001::2/128;
+destination 6::232/128;
+tcp-flags [ syn ];
+}
+then {
+redirect 50::2;
+rate-limit 55;
+}
+}
+# TCP FIN
+route {
+match {
+source 1001::2/128;
+destination 5001::2/128;
+icmp-type [ unreachable ];
+}
+then {
+redirect 50::2;
+rate-limit 55;
+}
+}
+# ICMP echo traffic unreachable
+route {
+match {
+source 1001::2/128;
+destination 3003::3/128;
+icmp-type [ echo-reply];
+}
+then {
+redirect 50::2;
+rate-limit 55;
+}
+}
+# ICMP echo icmp type only
+route {
+match {
+source 1001::2/128;
+destination 3003::3/128;
+destination-port =80;
+}
+then {
+redirect 50::2;
+rate-limit 55;
+}
+}
+# HTTP traffic to 3.3.3.3 is redirected
+route {
+match {
+source 1001::2/128;
+destination 2002::2/128;
+destination-port >21&<24;
+}
+then {
+redirect-to-nexthop-ietf 33::2;
+rate-limit 55;
+}
+}
+#telnet and ssh traffic to 2.2.2.2 is redirected
+route {
+match {
+source 1001::2/128;
+destination 2002::2/128;
+}
+then {
+discard;
+}
+}
+#end route 3
+route {
+match {
+destination 3003::3/128;
+destination-port >=179&<=200;
+protocol tcp;
+}
+then {
+redirect 50::2;
+rate-limit 55;
+}
+}
+# BGP traffic to 3.3.3.3 is redirected
+route {
+match {
+source 1001::2/128;
+destination 3003::3/128;
+}
+then {
+discard;
+}
+}
+#end route 4
+}
+}
