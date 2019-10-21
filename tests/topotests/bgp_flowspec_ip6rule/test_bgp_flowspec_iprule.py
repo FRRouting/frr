@@ -88,7 +88,7 @@ sys.path.append(os.path.join(CWD, '../'))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, TopoRouter, get_topogen, set_exabgp_path
 from lib.topolog import logger
 from lib.lutil import lUtil
 from lib.lutil import luCommand
@@ -121,6 +121,7 @@ class BGPFLOWSPECRULETopo1(Topo):
         switch2 = tgen.add_switch('s2')
         switch2.add_link(tgen.gears['r1'])
 
+        set_exabgp_path('/root/exabgp/sbin')
         ## Add eBGP ExaBGP neighbors
         peer_ip = '192.168.0.161'
         peer_route = 'via 10.0.1.1'

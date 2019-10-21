@@ -70,6 +70,15 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 # Global Topogen variable. This is being used to keep the Topogen available on
 # all test functions without declaring a test local variable.
 global_tgen = None
+exabgp_path = None
+
+def set_exabgp_path(tpath):
+    "Helper function to set Exabgp Path"
+    global exabgp_path
+
+    # pylint: disable=W0603
+    logger.info('call set exabg path {0}'.format(tpath))
+    exabgp_path = tpath
 
 
 def get_topogen(topo=None):
@@ -970,6 +979,7 @@ class TopoExaBGP(TopoHost):
         * Make all python files runnable
         * Run ExaBGP with env file `env_file` and configuration peer*/exabgp.cfg
         """
+        global exabgp_path
         self.run("mkdir /etc/exabgp")
         self.run("chmod 755 /etc/exabgp")
         self.run("cp {}/* /etc/exabgp/".format(peer_dir))
@@ -978,7 +988,10 @@ class TopoExaBGP(TopoHost):
         self.run("chmod 644 /etc/exabgp/*")
         self.run("chmod a+x /etc/exabgp/*.py")
         self.run("chown -R exabgp:exabgp /etc/exabgp")
-        output = self.run("exabgp -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg")
+        if exabgp_path:
+            output = self.run('{0}/exabgp -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg'.format(exabgp_path))
+        else:
+            output = self.run("exabgp -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg")
         if output == None or len(output) == 0:
             output = "<none>"
         logger.info("{} exabgp started, output={}".format(self.name, output))
