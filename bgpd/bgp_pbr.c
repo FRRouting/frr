@@ -536,6 +536,7 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 	if (api->match_protocol_num == 1 &&
 	    api->protocol[0].value != PROTOCOL_UDP &&
 	    api->protocol[0].value != PROTOCOL_ICMP &&
+	    api->protocol[0].value != PROTOCOL_ICMPV6 &&
 	    api->protocol[0].value != PROTOCOL_TCP) {
 		if (BGP_DEBUG(pbr, PBR))
 			zlog_debug("BGP: match protocol operations:protocol (%d) not supported. ignoring",
@@ -2694,8 +2695,11 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 		bpf.type = api->type;
 	memset(&nh, 0, sizeof(struct nexthop));
 	nh.vrf_id = VRF_UNKNOWN;
-	if (api->match_protocol_num)
+	if (api->match_protocol_num) {
 		proto = (uint8_t)api->protocol[0].value;
+		if (api->afi == AF_INET6 && proto == IPPROTO_ICMPV6)
+			proto = IPPROTO_ICMP;
+	}
 	/* if match_port is selected, then either src or dst port will be parsed
 	 * but not both at the same time
 	 */
