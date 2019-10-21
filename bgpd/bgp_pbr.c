@@ -44,6 +44,7 @@ DEFINE_MTYPE_STATIC(BGPD, PBR_VALMASK, "BGP PBR Val Mask Value")
 
 /* chain strings too long to fit in one line */
 #define FSPEC_ACTION_EXCEED_LIMIT "flowspec actions exceeds limit"
+#define IPV6_FRAGMENT_INVALID "fragment not valid for IPv6 for this implementation"
 
 RB_GENERATE(bgp_pbr_interface_head, bgp_pbr_interface,
 	    id_entry, bgp_pbr_interface_compare);
@@ -525,6 +526,13 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 				 api->match_protocol_num);
 		return 0;
 	}
+	if (api->src_prefix_offset > 0 ||
+	    api->dst_prefix_offset > 0) {
+		if (BGP_DEBUG(pbr, PBR))
+			zlog_debug("BGP: match prefix offset:"
+				   "implementation does not support it.");
+		return 0;
+	}
 	if (api->match_protocol_num == 1 &&
 	    api->protocol[0].value != PROTOCOL_UDP &&
 	    api->protocol[0].value != PROTOCOL_ICMP &&
@@ -626,6 +634,10 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 					   "too complex. ignoring.");
 			return 0;
 		}
+		if (BGP_DEBUG(pbr, PBR))
+			zlog_debug("BGP: match FlowLabel operations "
+				   "not supported. ignoring.");
+		return 0;
 	}
 	if (api->match_fragment_num) {
 		char fail_str[64];
@@ -657,6 +669,11 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 						 "IPv6 dont fragment match invalid (%d)",
 						 api->fragment[i].value);
 				}
+			}
+			if (api->afi == AFI_IP6) {
+				success = false;
+				snprintf(fail_str, sizeof(fail_str),
+					 "%s", IPV6_FRAGMENT_INVALID);
 			}
 		} else
 			snprintf(fail_str, sizeof(fail_str),
