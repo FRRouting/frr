@@ -63,6 +63,7 @@ unsigned long conf_bgp_debug_vpn;
 unsigned long conf_bgp_debug_flowspec;
 unsigned long conf_bgp_debug_labelpool;
 unsigned long conf_bgp_debug_pbr;
+unsigned long conf_bgp_debug_graceful_restart;
 
 unsigned long term_bgp_debug_as4;
 unsigned long term_bgp_debug_neighbor_events;
@@ -80,6 +81,7 @@ unsigned long term_bgp_debug_vpn;
 unsigned long term_bgp_debug_flowspec;
 unsigned long term_bgp_debug_labelpool;
 unsigned long term_bgp_debug_pbr;
+unsigned long term_bgp_debug_graceful_restart;
 
 struct list *bgp_debug_neighbor_events_peers = NULL;
 struct list *bgp_debug_keepalive_peers = NULL;
@@ -1644,6 +1646,23 @@ DEFUN (debug_bgp_zebra,
 	return CMD_SUCCESS;
 }
 
+DEFUN (debug_bgp_graceful_restart,
+       debug_bgp_graceful_restart_cmd,
+       "debug bgp graceful-restart",
+       DEBUG_STR
+       BGP_STR
+       GR_DEBUG)
+{
+	if (vty->node == CONFIG_NODE) {
+		DEBUG_ON(graceful_restart, GRACEFUL_RESTART);
+	} else {
+		TERM_DEBUG_ON(graceful_restart, GRACEFUL_RESTART);
+		vty_out(vty, "BGP Graceful Restart debugging is on\n");
+	}
+	return CMD_SUCCESS;
+}
+
+
 DEFUN (debug_bgp_zebra_prefix,
        debug_bgp_zebra_prefix_cmd,
        "debug bgp zebra prefix <A.B.C.D/M|X:X::X:X/M>",
@@ -1698,6 +1717,23 @@ DEFUN (no_debug_bgp_zebra,
 	else {
 		TERM_DEBUG_OFF(zebra, ZEBRA);
 		vty_out(vty, "BGP zebra debugging is off\n");
+	}
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_bgp_graceful_restart,
+	no_debug_bgp_graceful_restart_cmd,
+	"no debug bgp graceful-restart",
+	DEBUG_STR
+	BGP_STR
+	GR_DEBUG
+	NO_STR)
+{
+	if (vty->node == CONFIG_NODE) {
+		DEBUG_OFF(graceful_restart, GRACEFUL_RESTART);
+	} else {
+		TERM_DEBUG_OFF(graceful_restart, GRACEFUL_RESTART);
+		vty_out(vty, "BGP Graceful Restart debugging is on\n");
 	}
 	return CMD_SUCCESS;
 }
@@ -2039,6 +2075,8 @@ DEFUN (no_debug_bgp,
 	TERM_DEBUG_OFF(labelpool, LABELPOOL);
 	TERM_DEBUG_OFF(pbr, PBR);
 	TERM_DEBUG_OFF(pbr, PBR_ERROR);
+	TERM_DEBUG_OFF(graceful_restart, GRACEFUL_RESTART);
+
 	vty_out(vty, "All possible debugging has been turned off\n");
 
 	return CMD_SUCCESS;
@@ -2094,7 +2132,11 @@ DEFUN_NOSH (show_debugging_bgp,
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		bgp_debug_list_print(vty, "  BGP zebra debugging is on",
-				     bgp_debug_zebra_prefixes);
+					bgp_debug_zebra_prefixes);
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		vty_out(vty,
+			"  BGP graceful-restart debugging is on");
 
 	if (BGP_DEBUG(allow_martians, ALLOW_MARTIANS))
 		vty_out(vty, "  BGP allow martian next hop debugging is on\n");
@@ -2229,6 +2271,13 @@ static int bgp_config_write_debug(struct vty *vty)
 		vty_out(vty, "debug bgp pbr error\n");
 		write++;
 	}
+
+	if (CONF_BGP_DEBUG(graceful_restart, GRACEFUL_RESTART)) {
+		vty_out(vty, "debug bgp graceful-restart\n");
+		write++;
+
+	}
+
 	return write;
 }
 
@@ -2261,6 +2310,11 @@ void bgp_debug_init(void)
 	install_element(CONFIG_NODE, &debug_bgp_update_groups_cmd);
 	install_element(ENABLE_NODE, &debug_bgp_bestpath_prefix_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_bestpath_prefix_cmd);
+
+	install_element(ENABLE_NODE, &debug_bgp_graceful_restart_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_graceful_restart_cmd);
+
+
 
 	/* debug bgp updates (in|out) */
 	install_element(ENABLE_NODE, &debug_bgp_update_direct_cmd);
@@ -2326,6 +2380,9 @@ void bgp_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_bgp_bestpath_cmd);
 	install_element(ENABLE_NODE, &no_debug_bgp_bestpath_prefix_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_bestpath_prefix_cmd);
+
+	install_element(ENABLE_NODE, &no_debug_bgp_graceful_restart_cmd);
+	install_element(CONFIG_NODE, &no_debug_bgp_graceful_restart_cmd);
 
 	install_element(ENABLE_NODE, &debug_bgp_vpn_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_vpn_cmd);
