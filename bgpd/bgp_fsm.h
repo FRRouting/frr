@@ -99,6 +99,19 @@
 			UNSET_FLAG(peer->peer_gr_new_status_flag, \
 				PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)
 
+#define BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)				\
+	(CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) &&			\
+	 CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV))
+
+#define BGP_PEER_RESTARTING_MODE(peer)\
+	(bgp_peer_flag_check(peer, PEER_FLAG_GRACEFUL_RESTART) &&	\
+	 CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV) &&		\
+	 !CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV))
+
+#define BGP_PEER_HELPER_MODE(peer)\
+	(bgp_peer_flag_check(peer, PEER_FLAG_GRACEFUL_RESTART_HELPER) && \
+	 CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV) &&		      \
+	 !CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV))
 
 /* Prototypes. */
 extern void bgp_fsm_event_update(struct peer *peer, int valid);
