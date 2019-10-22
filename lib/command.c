@@ -198,9 +198,6 @@ static struct cmd_node enable_node = {
 
 static struct cmd_node config_node = {CONFIG_NODE, "%s(config)# ", 1};
 
-/* Default motd string. */
-static const char *default_motd = FRR_DEFAULT_MOTD;
-
 static const struct facility_map {
 	int facility;
 	const char *name;
@@ -592,6 +589,10 @@ static int config_write_host(struct vty *vty)
 
 		if (host.motdfile)
 			vty_out(vty, "banner motd file %s\n", host.motdfile);
+		else if (host.motd
+			 && strncmp(host.motd, FRR_DEFAULT_MOTD,
+				    strlen(host.motd)))
+			vty_out(vty, "banner motd line %s\n", host.motd);
 		else if (!host.motd)
 			vty_out(vty, "no banner motd\n");
 	}
@@ -2668,6 +2669,13 @@ int cmd_banner_motd_file(const char *file)
 	return success;
 }
 
+void cmd_banner_motd_line(const char *line)
+{
+	if (host.motd)
+		XFREE(MTYPE_HOST, host.motd);
+	host.motd = XSTRDUP(MTYPE_HOST, line);
+}
+
 DEFUN (banner_motd_file,
        banner_motd_file_cmd,
        "banner motd file FILE",
@@ -2688,6 +2696,26 @@ DEFUN (banner_motd_file,
 	return cmd;
 }
 
+DEFUN (banner_motd_line,
+       banner_motd_line_cmd,
+       "banner motd line LINE...",
+       "Set banner\n"
+       "Banner for motd\n"
+       "Banner from an input\n"
+       "Text\n")
+{
+	int idx = 0;
+	char *motd;
+
+	argv_find(argv, argc, "LINE", &idx);
+	motd = argv_concat(argv, argc, idx);
+
+	cmd_banner_motd_line(motd);
+	XFREE(MTYPE_TMP, motd);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (banner_motd_default,
        banner_motd_default_cmd,
        "banner motd default",
@@ -2695,7 +2723,7 @@ DEFUN (banner_motd_default,
        "Strings for motd\n"
        "Default string\n")
 {
-	host.motd = default_motd;
+	cmd_banner_motd_line(FRR_DEFAULT_MOTD);
 	return CMD_SUCCESS;
 }
 
@@ -2864,7 +2892,7 @@ void cmd_init(int terminal)
 	host.config = NULL;
 	host.noconfig = (terminal < 0);
 	host.lines = -1;
-	host.motd = default_motd;
+	cmd_banner_motd_line(FRR_DEFAULT_MOTD);
 	host.motdfile = NULL;
 
 	/* Install top nodes. */
@@ -2944,6 +2972,7 @@ void cmd_init(int terminal)
 		install_element(CONFIG_NODE, &no_service_password_encrypt_cmd);
 		install_element(CONFIG_NODE, &banner_motd_default_cmd);
 		install_element(CONFIG_NODE, &banner_motd_file_cmd);
+		install_element(CONFIG_NODE, &banner_motd_line_cmd);
 		install_element(CONFIG_NODE, &no_banner_motd_cmd);
 		install_element(CONFIG_NODE, &service_terminal_length_cmd);
 		install_element(CONFIG_NODE, &no_service_terminal_length_cmd);
@@ -2988,6 +3017,7 @@ void cmd_terminate(void)
 	XFREE(MTYPE_HOST, host.logfile);
 	XFREE(MTYPE_HOST, host.motdfile);
 	XFREE(MTYPE_HOST, host.config);
+	XFREE(MTYPE_HOST, host.motd);
 
 	list_delete(&varhandlers);
 	qobj_finish();
