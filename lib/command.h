@@ -78,7 +78,7 @@ struct host {
 	int encrypt;
 
 	/* Banner configuration. */
-	const char *motd;
+	char *motd;
 	char *motdfile;
 };
 
@@ -499,6 +499,7 @@ extern void host_config_set(const char *);
 extern void print_version(const char *);
 
 extern int cmd_banner_motd_file(const char *);
+extern void cmd_banner_motd_line(const char *line);
 
 /* struct host global, ick */
 extern struct host host;
