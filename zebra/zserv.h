@@ -52,6 +52,42 @@ extern "C" {
 
 #define ZEBRA_RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
 
+
+/* Stale route marker timer */
+#define ZEBRA_DEFAULT_STALE_UPDATE_DELAY 1
+
+/* Count of stale routes processed in timer context */
+#define ZEBRA_MAX_STALE_ROUTE_COUNT 50000
+
+/* Graceful Restart information */
+struct client_gr_info {
+	/* VRF for which GR enabled */
+	vrf_id_t vrf_id;
+
+	/* AFI */
+	afi_t current_afi;
+
+	/* Stale time and GR cap */
+	uint32_t stale_removal_time;
+	enum zserv_client_capabilities capabilities;
+
+	/* GR commands */
+	bool delete;
+	bool gr_enable;
+	bool stale_client;
+
+	/* Route sync and enable flags for AFI/SAFI */
+	bool af_enabled[AFI_MAX][SAFI_MAX];
+	bool route_sync[AFI_MAX][SAFI_MAX];
+
+	/* Book keeping */
+	struct prefix *current_prefix;
+	void *stale_client_ptr;
+	struct thread *t_stale_removal;
+
+	TAILQ_ENTRY(client_gr_info) gr_info;
+};
+
 /* Client structure. */
 struct zserv {
 	/* Client pthread */
@@ -170,6 +206,19 @@ struct zserv {
 	_Atomic uint32_t last_read_cmd;
 	/* command code of last message written */
 	_Atomic uint32_t last_write_cmd;
+
+	/*
+	 * Number of instances configured with
+	 * graceful restart
+	 */
+	uint32_t gr_instance_count;
+	time_t restart_time;
+
+	/*
+	 * Graceful restart information for
+	 * each instance
+	 */
+	TAILQ_HEAD(info_list, client_gr_info) gr_info_queue;
 };
 
 #define ZAPI_HANDLER_ARGS                                                      \
@@ -230,7 +279,6 @@ extern int zserv_send_message(struct zserv *client, struct stream *msg);
  */
 extern struct zserv *zserv_find_client(uint8_t proto, unsigned short instance);
 
-
 /*
  * Close a client.
  *
@@ -241,7 +289,6 @@ extern struct zserv *zserv_find_client(uint8_t proto, unsigned short instance);
  *    the client to close
  */
 extern void zserv_close_client(struct zserv *client);
-
 
 /*
  * Log a ZAPI message hexdump.
