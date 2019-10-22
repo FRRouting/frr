@@ -2227,7 +2227,6 @@ int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
 
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		peer_old_state = PEER_INVALID;
 
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug(
