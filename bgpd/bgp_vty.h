@@ -21,6 +21,7 @@
 #ifndef _QUAGGA_BGP_VTY_H
 #define _QUAGGA_BGP_VTY_H
 
+#include "stream.h"
 struct bgp;
 
 #define BGP_INSTANCE_HELP_STR "BGP view\nBGP VRF\nView/VRF name\n"
@@ -43,6 +44,32 @@ struct bgp;
 	"Address Family modifier\n"                                            \
 	"Address Family modifier\n"                                            \
 	"Address Family modifier\n"
+
+
+
+#define SHOW_GR_HEADER \
+	"Codes: GR - Graceful Restart," \
+	" * -  Inheriting Global GR Config,\n" \
+	"       Restart - GR Mode-Restarting," \
+	" Helper - GR Mode-Helper,\n" \
+	"       Disable - GR Mode-Disable.\n\n"
+
+#define BGP_SHOW_PEER_GR_CAPABILITY( \
+			vty, p, use_json, json) \
+	do {			\
+		bgp_show_neighbor_graceful_restart_local_mode( \
+				vty, p, use_json, json);		\
+		bgp_show_neighbor_graceful_restart_remote_mode( \
+				vty, p, use_json, json); \
+		bgp_show_neighnor_graceful_restart_rbit( \
+				vty, p, use_json, json);	\
+		bgp_show_neighbor_graceful_restart_time( \
+				vty, p, use_json, json);	\
+		bgp_show_neighbor_graceful_restart_capability_per_afi_safi(\
+						vty, p, use_json, json); \
+	} while (0)
+
+
 
 extern void bgp_vty_init(void);
 extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);

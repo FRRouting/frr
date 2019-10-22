@@ -56,6 +56,50 @@
 #define FSM_PEER_TRANSFERRED    2
 #define FSM_PEER_TRANSITIONED   3
 
+#define BGP_PEER_GR_HELPER_ENABLE(peer)	\
+	do {		\
+		UNSET_FLAG( \
+			peer->peer_gr_new_status_flag,		\
+			PEER_GRACEFUL_RESTART_NEW_STATE_RESTART);	\
+		SET_FLAG( \
+			peer->peer_gr_new_status_flag,	\
+			PEER_GRACEFUL_RESTART_NEW_STATE_HELPER);\
+	} while (0)
+
+
+
+#define BGP_PEER_GR_ENABLE(peer)\
+	do {				\
+		SET_FLAG(   \
+			peer->peer_gr_new_status_flag,	\
+			PEER_GRACEFUL_RESTART_NEW_STATE_RESTART); \
+		UNSET_FLAG( \
+			peer->peer_gr_new_status_flag,	\
+			PEER_GRACEFUL_RESTART_NEW_STATE_HELPER);\
+	} while (0)
+
+
+#define BGP_PEER_GR_DISABLE(peer)\
+	do {				\
+		UNSET_FLAG( \
+			peer->peer_gr_new_status_flag,	\
+			PEER_GRACEFUL_RESTART_NEW_STATE_RESTART);\
+		UNSET_FLAG(\
+			peer->peer_gr_new_status_flag, \
+			PEER_GRACEFUL_RESTART_NEW_STATE_HELPER);\
+	} while (0)
+
+
+#define BGP_PEER_GR_GLOBAL_INHERIT_SET(peer) \
+			SET_FLAG(peer->peer_gr_new_status_flag,	\
+				PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)
+
+
+#define BGP_PEER_GR_GLOBAL_INHERIT_UNSET(peer)	\
+			UNSET_FLAG(peer->peer_gr_new_status_flag, \
+				PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)
+
+
 /* Prototypes. */
 extern void bgp_fsm_event_update(struct peer *peer, int valid);
 extern int bgp_event(struct thread *);
@@ -87,6 +131,29 @@ extern void bgp_start_routeadv(struct bgp *);
 extern void bgp_adjust_routeadv(struct peer *);
 
 #include "hook.h"
-DECLARE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
+DECLARE_HOOK(peer_backward_transition, (struct peer *peer), (peer))
+DECLARE_HOOK(peer_established, (struct peer *peer), (peer))
+
+int bgp_gr_update_all(struct bgp *bgp, int global_GR_Cmd);
+int bgp_neighbor_graceful_restart(struct peer *peer,
+			int peer_GR_Cmd);
+unsigned int bgp_peer_gr_action(struct peer *peer,
+		int old_peer_state, int new_peer_state);
+void bgp_peer_move_to_gr_mode(struct peer *peer, int new_state);
+unsigned int bgp_peer_gr_helper_enable(struct peer *peer);
+unsigned int bgp_peer_gr_enable(struct peer *peer);
+unsigned int bgp_peer_gr_global_inherit(struct peer *peer);
+unsigned int bgp_peer_gr_disable(struct peer *peer);
+enum peer_mode bgp_peer_gr_mode_get(struct peer *peer);
+enum global_mode bgp_global_gr_mode_get(struct bgp *bgp);
+enum peer_mode bgp_get_peer_gr_mode_from_flags(struct peer *peer);
+unsigned int bgp_peer_gr_global_inherit_unset(struct peer *peer);
+int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
+		enum global_mode global_new_state,
+		enum global_mode global_old_state);
+
+void bgp_peer_gr_flags_update(struct peer *peer);
+extern int bgp_peer_flag_unset(struct peer *peer, int flag_bit);
+extern int bgp_peer_flag_set(struct peer *peer, int flag_bit);
 
 #endif /* _QUAGGA_BGP_FSM_H */
