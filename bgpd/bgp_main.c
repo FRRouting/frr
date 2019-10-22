@@ -488,6 +488,7 @@ int main(int argc, char **argv)
 
 	frr_config_fork();
 	/* must be called after fork() */
+	bgp_gr_apply_running_config();
 	bgp_pthreads_run();
 	frr_run(bm->master);
 
