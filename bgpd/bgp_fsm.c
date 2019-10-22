@@ -1300,7 +1300,7 @@ int bgp_stop(struct peer *peer)
 	} else {
 		bgp_peer_conf_if_to_su_update(peer);
 	}
-
+	UNSET_FLAG(peer->cap, PEER_CAP_RESTART_RCV);
 	return ret;
 }
 

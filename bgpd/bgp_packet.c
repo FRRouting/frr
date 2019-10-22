@@ -759,6 +759,8 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 	/* Add packet to peer's output queue */
 	stream_fifo_push(peer->obuf, s);
 
+	bgp_peer_gr_flags_update(peer);
+
 	bgp_write_notify(peer);
 }
 
@@ -1793,6 +1795,8 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 	if (bgp_notify.code == BGP_NOTIFY_OPEN_ERR
 	    && bgp_notify.subcode == BGP_NOTIFY_OPEN_UNSUP_PARAM)
 		UNSET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
+
+	bgp_peer_gr_flags_update(peer);
 
 	return Receive_NOTIFICATION_message;
 }

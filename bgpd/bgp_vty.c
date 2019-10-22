@@ -787,6 +787,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 			if (ret < 0)
 				bgp_clear_vty_error(vty, peer, afi, safi, ret);
+
+			bgp_peer_gr_flags_update(peer);
 		}
 
 		/* This is to apply read-only mode on this clear. */
@@ -2039,12 +2041,20 @@ DEFUN (bgp_graceful_restart,
       )
 {
 	int ret = BGP_GR_FAILURE;
+	struct peer *peer;
+	struct listnode *node = {0};
+	struct listnode *nnode = {0};
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("BGP_GR:: bgp_graceful_restart_cmd : START ");
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	ret = bgp_gr_update_all(bgp, GLOBAL_GR_CMD);
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (peer->bgp->t_startup)
+			bgp_peer_gr_flags_update(peer);
+	}
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("BGP_GR:: bgp_graceful_restart_cmd : END ");
@@ -2060,6 +2070,9 @@ DEFUN (no_bgp_graceful_restart,
       )
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct peer *peer;
+	struct listnode *node = {0};
+	struct listnode *nnode = {0};
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("BGP_GR:: no_bgp_graceful_restart_cmd : START ");
@@ -2067,6 +2080,11 @@ DEFUN (no_bgp_graceful_restart,
 	int ret = BGP_GR_FAILURE;
 
 	ret = bgp_gr_update_all(bgp, NO_GLOBAL_GR_CMD);
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (peer->bgp->t_startup)
+			bgp_peer_gr_flags_update(peer);
+	}
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("BGP_GR:: no_bgp_graceful_restart_cmd : END ");
@@ -2209,6 +2227,9 @@ DEFUN (bgp_graceful_restart_disable,
 		GR_DISABLE)
 {
 	int ret = BGP_GR_FAILURE;
+	struct peer *peer;
+	struct listnode *node = {0};
+	struct listnode *nnode = {0};
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
@@ -2216,6 +2237,11 @@ DEFUN (bgp_graceful_restart_disable,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	ret = bgp_gr_update_all(bgp, GLOBAL_DISABLE_CMD);
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (peer->bgp->t_startup)
+			bgp_peer_gr_flags_update(peer);
+	}
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
@@ -2233,6 +2259,9 @@ DEFUN (no_bgp_graceful_restart_disable,
       )
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct peer *peer;
+	struct listnode *node = {0};
+	struct listnode *nnode = {0};
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
@@ -2241,6 +2270,11 @@ DEFUN (no_bgp_graceful_restart_disable,
 	int ret = BGP_GR_FAILURE;
 
 	ret = bgp_gr_update_all(bgp, NO_GLOBAL_DISABLE_CMD);
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (peer->bgp->t_startup)
+			bgp_peer_gr_flags_update(peer);
+	}
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
@@ -2327,17 +2361,18 @@ DEFUN (bgp_neighbor_graceful_restart_helper_set,
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
-				"BGP_GR:: bgp_neighbor_graceful_restart_set_helper_cmd : START ");
+				"BGP_GR:: bgp_neighbor_graceful_restart_helper_set_cmd : START ");
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
-
-	if (peer->bgp->t_startup)
-		bgp_peer_gr_flags_update(peer);
 
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
 
 	ret = bgp_neighbor_graceful_restart(peer, PEER_HELPER_CMD);
+
+	if (peer->bgp->t_startup)
+		bgp_peer_gr_flags_update(peer);
+
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
 				"BGP_GR:: bgp_neighbor_graceful_restart_helper_set_cmd : END ");
@@ -2374,7 +2409,7 @@ DEFUN (no_bgp_neighbor_graceful_restart_helper,
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
-				"BGP_GR:: no_bgp_neighbor_graceful_restart_set_cmd : END ");
+				"BGP_GR:: no_bgp_neighbor_graceful_restart_helper_set_cmd : END ");
 
 	return bgp_vty_return(vty, ret);
 }
@@ -2401,7 +2436,7 @@ DEFUN (bgp_neighbor_graceful_restart_disable_set,
 
 
 	ret = bgp_neighbor_graceful_restart(peer,
-			PEER_DISABLE_cmd);
+				PEER_DISABLE_cmd);
 
 	if (peer->bgp->t_startup)
 		bgp_peer_gr_flags_update(peer);
@@ -2441,7 +2476,7 @@ DEFUN (no_bgp_neighbor_graceful_restart_disable,
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
-				"BGP_GR:: no_bgp_neighbor_graceful_restart_set_cmd : END ");
+				"BGP_GR:: no_bgp_neighbor_graceful_restart_disable_set_cmd : END ");
 
 	return bgp_vty_return(vty, ret);
 }
