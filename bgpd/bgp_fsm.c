@@ -2223,7 +2223,7 @@ int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
 	struct peer *peer = {0};
 	struct listnode *node = {0};
 	struct listnode *nnode = {0};
-	enum peer_mode  peer_old_state = PEER_INVALID;
+	enum peer_mode  peer_old_state;
 
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
@@ -2340,9 +2340,9 @@ int bgp_neighbor_graceful_restart(struct peer *peer,
 						int peer_GR_Cmd)
 {
 
-	enum peer_mode  peer_new_state = PEER_INVALID;
-	enum peer_mode  peer_old_state = PEER_INVALID;
-	struct bgp_peer_gr peer_state = {0};
+	enum peer_mode  peer_new_state;
+	enum peer_mode  peer_old_state;
+	struct bgp_peer_gr peer_state;
 	int result = BGP_GR_FAILURE;
 
 	/*
