@@ -83,6 +83,24 @@ enum show_type {
 	show_ipv6_peer
 };
 
+static struct peer_group *listen_range_exists(
+						struct bgp *bgp,
+						struct prefix *range,
+						int exact);
+
+static void bgp_show_global_graceful_restart_mode_vty(
+					struct vty *vty,
+					struct bgp *bgp,
+					bool use_json,
+					json_object *json);
+
+static int bgp_show_neighbor_graceful_restart_afi_all(
+				struct vty *vty,
+				enum show_type type,
+				const char *ip_str,
+				afi_t afi,
+				bool use_json);
+
 static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 {
 	switch (afi) {
@@ -723,6 +741,8 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 		     tmp_safi < SAFI_MAX; tmp_safi++) {
 			if (!peer->afc[afi][tmp_safi])
 				continue;
+
+			bgp_peer_gr_flags_update(peer);
 
 			if (stype == BGP_CLEAR_SOFT_NONE)
 				ret = peer_clear(peer, &nnode);
@@ -8377,8 +8397,6 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
 			continue;
 
-		bgp_peer_gr_flags_update(peer);
-
 		if (!peer->afc[afi][safi])
 			continue;
 
@@ -9034,6 +9052,418 @@ static void bgp_show_peer_afi_orf_cap(struct vty *vty, struct peer *p,
 	}
 }
 
+
+static void bgp_show_neighnor_graceful_restart_rbit(
+						struct vty *vty,
+						struct peer *p,
+						bool use_json,
+						json_object *json)
+{
+	bool rbit_status = 0;
+
+	if (!use_json)
+		vty_out(vty, "\n    R bit          : ");
+
+	if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV) &&
+		(CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) &&
+		(p->status == Established)) {
+
+		if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_BIT_RCV))
+			rbit_status = 1;
+		else
+			rbit_status = 0;
+	}
+	if (rbit_status) {
+		if (use_json)
+			json_object_boolean_true_add(
+					json, "rBit");
+		else
+			vty_out(vty, "True\n");
+	} else {
+		if (use_json)
+			json_object_boolean_false_add(
+					json, "rBit");
+		else
+			vty_out(vty, "False\n");
+	}
+}
+
+static void bgp_show_neighbor_graceful_restart_remote_mode(
+						struct vty *vty,
+						struct peer *peer,
+						bool use_json,
+						json_object *json)
+{
+
+	const char *mode = "NotReceived";
+
+	if (!use_json)
+		vty_out(vty, "\n    Remote GR Mode : ");
+
+	if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) &&
+		(CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) &&
+		(peer->status == Established)) {
+
+		if ((peer->nsf_af_count == 0) &&
+			!CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
+
+			/*Gr disabled case*/
+			mode = "Disable";
+
+		} else if (peer->nsf_af_count == 0) {
+
+			/* Helper */
+			mode = "Helper";
+
+		} else if (peer->nsf_af_count != 0) {
+
+			/* Restart */
+			mode = "Restart";
+
+		}
+	}
+
+
+	if (use_json) {
+		json_object_string_add(json,
+				"remoteGrMode", mode);
+	} else
+		vty_out(vty, mode, "\n");
+
+}
+
+static void  bgp_show_neighbor_graceful_restart_local_mode(struct vty *vty,
+						struct peer *p,
+						bool use_json,
+						json_object *json)
+{
+
+	const char *mode = "Invalid";
+
+	if (!use_json)
+		vty_out(vty, "    Local GR Mode  : ");
+
+	if (bgp_peer_gr_mode_get(p) == PEER_HELPER)
+		mode = "Helper";
+	else if (bgp_peer_gr_mode_get(p) == PEER_GR)
+		mode = "Restart";
+	else if (bgp_peer_gr_mode_get(p) == PEER_DISABLE)
+		mode = "Disable";
+	else if (bgp_peer_gr_mode_get(p) == PEER_GLOBAL_INHERIT)
+		if (bgp_global_gr_mode_get(p->bgp) == GLOBAL_HELPER)
+			mode = "Helper*";
+		else if (bgp_global_gr_mode_get(p->bgp) == GLOBAL_GR)
+			mode = "Restart*";
+		else if (bgp_global_gr_mode_get(p->bgp) == GLOBAL_DISABLE)
+			mode = "Disable*";
+		else
+			mode = "Invalid*";
+	else
+		mode = "Invalid";
+
+	if (use_json) {
+		json_object_string_add(json,
+				"localGrMode", mode);
+	} else {
+		vty_out(vty, mode, "\n");
+	}
+}
+
+static void  bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
+					struct vty *vty, struct peer *peer,
+					bool use_json, json_object *json)
+{
+
+	afi_t afi = AFI_MAX;
+	safi_t safi = SAFI_MAX;
+	json_object *json_afi_safi = NULL;
+	json_object *json_timer = NULL;
+	json_object *json_endofrib_status = NULL;
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
+
+			if (peer->afc_nego[afi][safi]
+				&& CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV)
+				&& CHECK_FLAG(peer->af_cap[afi][safi],
+				PEER_CAP_RESTART_AF_RCV)) {
+
+				if (use_json) {
+					json_afi_safi =
+						json_object_new_object();
+					json_endofrib_status =
+						json_object_new_object();
+					json_timer =
+						json_object_new_object();
+				}
+
+				if (!use_json) {
+					vty_out(vty, "    %s :\n",
+					get_afi_safi_str(afi, safi, false));
+
+					vty_out(vty,
+					"     F bit                 : ");
+				} else
+					get_afi_safi_str(afi, safi, true);
+
+				if (peer->nsf[afi][safi]
+					&& CHECK_FLAG(
+					peer->af_cap[afi][safi],
+					PEER_CAP_RESTART_AF_PRESERVE_RCV)) {
+
+					if (use_json) {
+						json_object_boolean_true_add(
+						json_afi_safi, "fBit");
+					} else {
+						vty_out(vty,
+							"True\n");
+					}
+
+				} else {
+
+					if (use_json) {
+						json_object_boolean_false_add(
+						json_afi_safi, "fBit");
+					} else {
+						vty_out(vty,
+							"False\n");
+					}
+
+				}
+
+				if (!use_json)
+					vty_out(vty,
+					"     End-of-RIB Received   : ");
+
+				if (CHECK_FLAG(peer->af_sflags[afi][safi],
+						PEER_STATUS_EOR_RECEIVED)) {
+
+					if (use_json) {
+						json_object_boolean_true_add(
+						json_endofrib_status,
+							"endOfRibRecv");
+					} else {
+						vty_out(vty, "Yes\n");
+					}
+
+				} else {
+					if (use_json) {
+						json_object_boolean_false_add(
+						json_endofrib_status,
+							"endOfRibRecv");
+					} else {
+						vty_out(vty, "No\n");
+					}
+				}
+
+				if (!use_json)
+					vty_out(vty,
+					"     End-of-RIB Send       : ");
+
+				if (CHECK_FLAG(peer->af_sflags[afi][safi],
+						PEER_STATUS_EOR_SEND)) {
+
+					if (use_json) {
+						json_object_boolean_true_add(
+						json_endofrib_status,
+							 "endOfRibSend");
+					} else {
+						vty_out(vty, "Yes\n");
+					}
+
+				} else {
+					if (use_json) {
+						json_object_boolean_false_add(
+						json_endofrib_status,
+							"endOfRibSend");
+					} else {
+						vty_out(vty, "No\n");
+					}
+				}
+
+				if (use_json) {
+
+					json_object_int_add(json_timer,
+						"stalePathTimer",
+						peer->bgp->stalepath_time);
+
+					if (peer->t_gr_stale != NULL) {
+
+						json_object_int_add(
+						json_timer,
+						"stalePathTimerRemaining",
+						thread_timer_remain_second(
+						peer->t_gr_stale));
+					}
+
+					json_object_int_add(json_timer,
+						"selectionDeferralTimer",
+						peer->bgp->stalepath_time);
+
+					if (peer->bgp
+						->gr_info[afi][safi]
+						.t_select_deferral != NULL) {
+
+						json_object_int_add(
+						json_timer,
+						"selectionDeferralTimerRemaining",
+						thread_timer_remain_second(
+						peer->bgp
+						->gr_info[afi][safi]
+						.t_select_deferral));
+					}
+
+				} else {
+
+					vty_out(vty, "     Timers:\n");
+
+					vty_out(vty, "%*s", 6, "");
+					vty_out(vty,
+					"Stale Path Time(sec)%*s: %u\n",
+						19, "",
+					peer->bgp->stalepath_time);
+
+					if (peer->t_gr_stale != NULL) {
+						vty_out(vty, "%*s", 6, "");
+						vty_out(vty,
+						"Stale Path Remaining(sec)%*s: %ld\n",
+						14, "",
+						thread_timer_remain_second(
+						peer->t_gr_stale));
+					}
+
+					vty_out(vty, "%*s", 6, "");
+					vty_out(vty,
+					"Selection Deferral Time(sec)%*s: %u\n",
+					11, "",
+					peer->bgp->select_defer_time);
+
+					if (peer->bgp
+						->gr_info[afi][safi]
+						.t_select_deferral != NULL) {
+
+						vty_out(vty, "%*s", 6, "");
+						vty_out(vty,
+						"Selection Deferral Time Remaining(sec) : %ld\n",
+						thread_timer_remain_second(
+						peer->bgp
+						->gr_info[afi][safi]
+						.t_select_deferral));
+					}
+
+				}
+				if (use_json) {
+					json_object_object_add(json_afi_safi,
+							"endOfRibStatus",
+							 json_endofrib_status);
+					json_object_object_add(json_afi_safi,
+							"timers",
+							 json_timer);
+					json_object_object_add(json,
+						get_afi_safi_str(afi, safi, true),
+							 json_afi_safi);
+				}
+			}
+		}
+	}
+}
+
+
+static void  bgp_show_neighbor_graceful_restart_time(struct vty *vty,
+							struct peer *p,
+							bool use_json,
+							json_object *json)
+{
+
+	if (use_json) {
+		json_object *json_timer = NULL;
+
+		json_timer = json_object_new_object();
+
+		json_object_int_add(json_timer,
+					"configuredRestartTimer",
+					p->bgp->restart_time);
+
+		json_object_int_add(json_timer,
+					"recivedRestartTimer",
+					p->v_gr_restart);
+
+		if (p->t_gr_restart != NULL) {
+			json_object_int_add(json_timer,
+					"restartTimerRemaining",
+					thread_timer_remain_second(
+					p->t_gr_restart)
+					);
+		}
+
+		json_object_object_add(json, "timers", json_timer);
+
+	} else {
+
+		vty_out(vty, "    Timers :\n");
+		vty_out(vty,
+			"     Configured Restart Time(sec)  : %u\n",
+				p->bgp->restart_time);
+
+		vty_out(vty,
+			"     Received Restart Time(sec)    : %u\n",
+					p->v_gr_restart);
+		if (p->t_gr_restart != NULL) {
+			vty_out(vty,
+			"     Restart Time Remaining(sec)   : %ld\n",
+				thread_timer_remain_second(
+					p->t_gr_restart));
+		}
+	}
+}
+
+static void bgp_show_peer_gr_status(struct vty *vty, struct peer *p,
+					bool use_json,
+					json_object *json)
+{
+
+	char buf[SU_ADDRSTRLEN] = {0};
+	char dn_flag[2] = {0};
+	char neighborAddr[INET6_ADDRSTRLEN] = {0};
+
+	memset(dn_flag, '\0', sizeof(dn_flag));
+	if (!p->conf_if && peer_dynamic_neighbor(p))
+		dn_flag[0] = '*';
+
+	if (p->conf_if) {
+		if (use_json)
+			json_object_string_add(json, "neighborAddr",
+				BGP_PEER_SU_UNSPEC(p)
+				? "none"
+				: sockunion2str(&p->su, buf,
+					SU_ADDRSTRLEN));
+		else
+			vty_out(vty, "BGP neighbor on %s: %s\n",
+				p->conf_if,
+				BGP_PEER_SU_UNSPEC(p)
+					? "none"
+					: sockunion2str(&p->su, buf,
+							SU_ADDRSTRLEN));
+	} else {
+		sprintf(neighborAddr, "%s%s", dn_flag, p->host);
+
+		if (use_json)
+			json_object_string_add(
+				json, "neighborAddr",
+				neighborAddr);
+		else
+			vty_out(vty, "BGP neighbor is %s\n",
+				neighborAddr);
+	}
+
+	/* more gr info in new format */
+	BGP_SHOW_PEER_GR_CAPABILITY(vty, p, use_json, json);
+
+}
+
+
+
+
 static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			      safi_t safi, bool use_json,
 			      json_object *json_neigh)
@@ -9343,7 +9773,9 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 					"prefixAllowedRestartIntervalMsecs",
 					p->pmax_restart[afi][safi] * 60000);
 		}
-		json_object_object_add(json_neigh, get_afi_safi_str(afi, safi, true),
+		json_object_object_add(json_neigh,
+					get_afi_safi_str(afi,
+						safi, true),
 				       json_addr);
 
 	} else {
@@ -10794,14 +11226,13 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 							vty_out(vty, "none");
 						vty_out(vty, "\n");
 					}
-				}
+				} /* Gracefull Restart */
 			}
 		}
 	}
 
 	/* graceful restart information */
-	if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV) || p->t_gr_restart
-	    || p->t_gr_stale) {
+
 		json_object *json_grace = NULL;
 		json_object *json_grace_send = NULL;
 		json_object *json_grace_recv = NULL;
@@ -10813,10 +11244,11 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			json_grace_send = json_object_new_object();
 			json_grace_recv = json_object_new_object();
 
-			if (p->status == Established) {
+			if ((p->status == Established) &&
+					CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
 				FOREACH_AFI_SAFI (afi, safi) {
 					if (CHECK_FLAG(p->af_sflags[afi][safi],
-						       PEER_STATUS_EOR_SEND)) {
+						PEER_STATUS_EOR_SEND)) {
 						json_object_boolean_true_add(
 							json_grace_send,
 							get_afi_safi_str(afi,
@@ -10827,8 +11259,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				}
 				FOREACH_AFI_SAFI (afi, safi) {
 					if (CHECK_FLAG(
-						    p->af_sflags[afi][safi],
-						    PEER_STATUS_EOR_RECEIVED)) {
+						p->af_sflags[afi][safi],
+						PEER_STATUS_EOR_RECEIVED)) {
 						json_object_boolean_true_add(
 							json_grace_recv,
 							get_afi_safi_str(afi,
@@ -10838,11 +11270,13 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					}
 				}
 			}
+			json_object_object_add(json_grace,
+						"endOfRibSend",
+							json_grace_send);
+			json_object_object_add(json_grace,
+						"endOfRibRecv",
+						json_grace_recv);
 
-			json_object_object_add(json_grace, "endOfRibSend",
-					       json_grace_send);
-			json_object_object_add(json_grace, "endOfRibRecv",
-					       json_grace_recv);
 
 			if (p->t_gr_restart)
 				json_object_int_add(json_grace,
@@ -10858,12 +11292,16 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					thread_timer_remain_second(
 						p->t_gr_stale)
 						* 1000);
-
+			/* more gr info in new format */
+			BGP_SHOW_PEER_GR_CAPABILITY(vty, p, use_json,
+							json_grace);
 			json_object_object_add(
 				json_neigh, "gracefulRestartInfo", json_grace);
 		} else {
-			vty_out(vty, "  Graceful restart information:\n");
-			if (p->status == Established) {
+			vty_out(vty, "  Graceful restart informations:\n");
+			if ((p->status == Established) &&
+				CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
+
 				vty_out(vty, "    End-of-RIB send: ");
 				FOREACH_AFI_SAFI (afi, safi) {
 					if (CHECK_FLAG(p->af_sflags[afi][safi],
@@ -10872,8 +11310,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 							eor_send_af_count ? ", "
 									  : "",
 							get_afi_safi_str(afi,
-								         safi,
-									 false));
+									safi,
+									false));
 						eor_send_af_count++;
 					}
 				}
@@ -10907,8 +11345,11 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					"    The remaining time of stalepath timer is %ld\n",
 					thread_timer_remain_second(
 						p->t_gr_stale));
+
+			/* more gr info in new format */
+			BGP_SHOW_PEER_GR_CAPABILITY(vty, p, use_json, NULL);
 		}
-	}
+
 	if (use_json) {
 		json_object *json_stat = NULL;
 		json_stat = json_object_new_object();
@@ -11322,6 +11763,85 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	}
 }
 
+static int bgp_show_neighbor_graceful_restart(struct vty *vty,
+					struct bgp *bgp,
+					enum show_type type,
+					union sockunion *su,
+					const char *conf_if, afi_t afi,
+					bool use_json, json_object *json)
+{
+
+	struct listnode *node, *nnode;
+	struct peer *peer;
+	int find = 0;
+	safi_t safi = SAFI_UNICAST;
+	json_object *json_neighbor = NULL;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+
+		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			continue;
+
+		if ((peer->afc[afi][safi]) == 0)
+			continue;
+
+		if (use_json)
+			json_neighbor = json_object_new_object();
+
+		if (show_all == type) {
+			bgp_show_peer_gr_status(vty, peer, use_json,
+							json_neighbor);
+
+			if (use_json)
+				json_object_object_add(json,
+						peer->host, json_neighbor);
+
+		} else if (show_peer == type) {
+			if (conf_if) {
+				if ((peer->conf_if
+					&& !strcmp(peer->conf_if, conf_if))
+					|| (peer->hostname
+					&& !strcmp(peer->hostname, conf_if))) {
+					find = 1;
+					bgp_show_peer_gr_status(vty,
+						peer, use_json,
+						json_neighbor);
+				}
+			} else {
+				if (sockunion_same(&peer->su, su)) {
+					find = 1;
+					bgp_show_peer_gr_status(vty,
+						peer, use_json,
+						json_neighbor);
+				}
+			}
+			if (use_json && find) {
+				json_object_object_add(json,
+						peer->host, json_neighbor);
+
+			}
+		}
+
+		if (find)
+			break;
+	}
+
+	if (type == show_peer && !find) {
+		if (use_json)
+			json_object_boolean_true_add(json,
+							"bgpNoSuchNeighbor");
+		else
+			vty_out(vty, "%% No such neighbor\n");
+	}
+	if (use_json) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+	} else {
+		vty_out(vty, "\n");
+	}
+	return CMD_SUCCESS;
+}
+
 static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 			     enum show_type type, union sockunion *su,
 			     const char *conf_if, bool use_json,
@@ -11425,6 +11945,46 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 	}
 
 	return CMD_SUCCESS;
+}
+
+static void  bgp_show_neighbor_graceful_restart_vty(struct vty *vty,
+				 enum show_type type, const char *ip_str,
+				 afi_t afi, bool use_json)
+{
+
+	int ret;
+	struct bgp *bgp;
+	union sockunion su;
+	json_object *json = NULL;
+
+	bgp = bgp_get_default();
+
+	if (bgp) {
+
+		if (!use_json) {
+			bgp_show_global_graceful_restart_mode_vty(vty, bgp,
+						use_json, NULL);
+		}
+
+		json = json_object_new_object();
+		if (ip_str) {
+			ret = str2sockunion(ip_str, &su);
+			if (ret < 0)
+				bgp_show_neighbor_graceful_restart(vty,
+					bgp, type, NULL, ip_str,
+					afi, use_json, json);
+			else
+				bgp_show_neighbor_graceful_restart(vty,
+					bgp, type, &su, NULL,
+					afi, use_json, json);
+		} else {
+			bgp_show_neighbor_graceful_restart(vty, bgp,
+					type, NULL, NULL, afi,
+					use_json, json);
+		}
+		json_object_free(json);
+	}
+
 }
 
 static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
@@ -11562,6 +12122,52 @@ static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 	}
 
 	return CMD_SUCCESS;
+}
+
+
+
+/* "show [ip] bgp neighbors graceful-restart" commands.  */
+DEFUN (show_ip_bgp_neighbors_gracrful_restart,
+	show_ip_bgp_neighbors_graceful_restart_cmd,
+	"show bgp [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] graceful-restart [json]",
+	SHOW_STR
+	BGP_STR
+	IP_STR
+	IPV6_STR
+	NEIGHBOR_STR
+	"Neighbor to display information about\n"
+	"Neighbor to display information about\n"
+	"Neighbor on BGP configured interface\n"
+	GR_SHOW
+       JSON_STR)
+{
+	char *sh_arg = NULL;
+	enum show_type sh_type;
+	int idx = 0;
+	afi_t afi = AFI_MAX;
+
+	bool uj = use_json(argc, argv);
+
+	if	(!argv_find_and_parse_afi(argv, argc, &idx, &afi))
+		afi = AFI_MAX;
+
+	idx++;
+
+	if (argv_find(argv, argc, "A.B.C.D", &idx)
+	    || argv_find(argv, argc, "X:X::X:X", &idx)
+	    || argv_find(argv, argc, "WORD", &idx)) {
+		sh_type = show_peer;
+		sh_arg = argv[idx]->arg;
+	} else
+		sh_type = show_all;
+
+	if (!argv_find(argv, argc, "graceful-restart", &idx))
+		return CMD_SUCCESS;
+
+
+	return bgp_show_neighbor_graceful_restart_afi_all(vty,
+						sh_type, sh_arg,
+						afi, uj);
 }
 
 /* "show [ip] bgp neighbors" commands.  */
@@ -11702,7 +12308,73 @@ DEFUN (show_ip_bgp_lcommunity_info,
 
 	return CMD_SUCCESS;
 }
+/* Graceful Restart */
 
+static void bgp_show_global_graceful_restart_mode_vty(struct vty *vty,
+					struct bgp *bgp,
+					bool use_json,
+					json_object *json)
+{
+
+
+	vty_out(vty, "\n%s", SHOW_GR_HEADER);
+
+	int bgp_global_gr_mode = bgp_global_gr_mode_get(bgp);
+
+	switch (bgp_global_gr_mode) {
+
+	case GLOBAL_HELPER:
+		vty_out(vty,
+				"Global Bgp GR Mode :  Helper\n");
+		break;
+
+	case GLOBAL_GR:
+		vty_out(vty,
+			"Global Bgp GR Mode :  Restart\n");
+		break;
+
+	case GLOBAL_DISABLE:
+		vty_out(vty,
+				"Global Bgp GR Mode :  Disable\n");
+		break;
+
+	case GLOBAL_INVALID:
+	default:
+		vty_out(vty,
+			"Global Bgp GR Mode  Invalid\n");
+		break;
+	}
+	vty_out(vty, "\n");
+}
+
+static int  bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty,
+						enum show_type type,
+						const char *ip_str,
+						afi_t afi,
+						bool use_json)
+{
+	if ((afi == AFI_MAX) && (ip_str == NULL)) {
+		afi = AFI_IP;
+
+		while ((afi != AFI_L2VPN) && (afi < AFI_MAX)) {
+
+			bgp_show_neighbor_graceful_restart_vty(vty,
+							type, ip_str,
+							afi, use_json);
+			afi++;
+		}
+
+	} else if (afi != AFI_MAX) {
+		bgp_show_neighbor_graceful_restart_vty(vty,
+							type, ip_str,
+							afi, use_json);
+	} else {
+		return CMD_ERR_INCOMPLETE;
+	}
+
+	return CMD_SUCCESS;
+}
+/* Graceful Restart */
 
 DEFUN (show_ip_bgp_attr_info,
        show_ip_bgp_attr_info_cmd,
@@ -14395,6 +15067,9 @@ void bgp_vty_init(void)
 
 	/* "show [ip] bgp neighbors" commands. */
 	install_element(VIEW_NODE, &show_ip_bgp_neighbors_cmd);
+
+	install_element(VIEW_NODE,
+			&show_ip_bgp_neighbors_graceful_restart_cmd);
 
 	/* "show [ip] bgp peer-group" commands. */
 	install_element(VIEW_NODE, &show_ip_bgp_peer_groups_cmd);
