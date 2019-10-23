@@ -883,10 +883,17 @@ int nhg_ctx_process(struct nhg_ctx *ctx)
 		ret = nhg_ctx_process_new(ctx);
 		if (nhg_ctx_get_count(ctx) && ret == -ENOENT
 		    && nhg_ctx_get_status(ctx) != NHG_CTX_REQUEUED) {
-			/* Depends probably came before group, re-queue.
+			/**
+			 * We have entered a situation where we are
+			 * processing a group from the kernel
+			 * that has a contained nexthop which
+			 * we have not yet processed.
 			 *
-			 * Only going to retry once, hence just using status
-			 * flag rather than counter.
+			 * Re-enqueue this ctx to be handled exactly one
+			 * more time (indicated by the flag).
+			 *
+			 * By the time we get back to it, we
+			 * should have processed its depends.
 			 */
 			nhg_ctx_set_status(ctx, NHG_CTX_NONE);
 			if (queue_add(ctx) == 0) {
