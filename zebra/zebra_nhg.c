@@ -246,13 +246,12 @@ void zebra_nhg_dependents_init(struct nhg_hash_entry *nhe)
 /* Release this nhe from anything depending on it */
 static void zebra_nhg_dependents_release(struct nhg_hash_entry *nhe)
 {
-	if (!zebra_nhg_dependents_is_empty(nhe)) {
-		struct nhg_connected *rb_node_dep = NULL;
+	struct nhg_connected *rb_node_dep = NULL;
 
-		frr_each_safe(nhg_connected_tree, &nhe->nhg_dependents,
-			       rb_node_dep) {
-			zebra_nhg_depends_del(rb_node_dep->nhe, nhe);
-		}
+	frr_each_safe(nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
+		zebra_nhg_depends_del(rb_node_dep->nhe, nhe);
+		/* recheck validity of the dependent */
+		zebra_nhg_check_valid(rb_node_dep->nhe);
 	}
 }
 
@@ -687,6 +686,48 @@ static void zebra_nhg_set_unhashable(struct nhg_hash_entry *nhe)
 		nhe->id);
 }
 
+static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe)
+{
+	struct nhg_connected *rb_node_dep;
+
+	SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+
+	frr_each(nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep)
+		zebra_nhg_set_valid(rb_node_dep->nhe);
+}
+
+static void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe)
+{
+	struct nhg_connected *rb_node_dep;
+
+	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+
+	/* Update validity of nexthops depending on it */
+	frr_each(nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep)
+		zebra_nhg_check_valid(rb_node_dep->nhe);
+}
+
+void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+	bool valid = false;
+
+	/* If anthing else in the group is valid, the group is valid */
+	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
+		if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_VALID)) {
+			valid = true;
+			goto done;
+		}
+	}
+
+done:
+	if (valid)
+		zebra_nhg_set_valid(nhe);
+	else
+		zebra_nhg_set_invalid(nhe);
+}
+
+
 static void zebra_nhg_release(struct nhg_hash_entry *nhe)
 {
 	/* Remove it from any lists it may be on */
@@ -709,6 +750,15 @@ static void zebra_nhg_handle_uninstall(struct nhg_hash_entry *nhe)
 {
 	zebra_nhg_release(nhe);
 	zebra_nhg_free(nhe);
+}
+
+static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe)
+{
+	/* Update validity of groups depending on it */
+	struct nhg_connected *rb_node_dep;
+
+	frr_each_safe(nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep)
+		zebra_nhg_set_valid(rb_node_dep->nhe);
 }
 
 /*
@@ -1081,34 +1131,6 @@ void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 
 	if (!zebra_nhg_depends_is_empty(nhe))
 		nhg_connected_tree_increment_ref(&nhe->nhg_depends);
-}
-
-void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe)
-{
-	if (!zebra_nhg_depends_is_empty(nhe)
-	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE)) {
-		struct nhg_connected *rb_node_dep = NULL;
-
-		/* If anthing else in the group is valid, the group is valid */
-		frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
-			if (CHECK_FLAG(rb_node_dep->nhe->flags,
-				       NEXTHOP_GROUP_VALID))
-				return;
-		}
-	}
-
-	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
-	/* Assuming uninstalled as well here */
-	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
-
-	if (!zebra_nhg_dependents_is_empty(nhe)) {
-		struct nhg_connected *rb_node_dep = NULL;
-
-		frr_each(nhg_connected_tree, &nhe->nhg_dependents,
-			  rb_node_dep) {
-			zebra_nhg_set_invalid(rb_node_dep->nhe);
-		}
-	}
 }
 
 void zebra_nhg_set_if(struct nhg_hash_entry *nhe, struct interface *ifp)
@@ -1799,6 +1821,7 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
 			break;
 		case ZEBRA_DPLANE_REQUEST_SUCCESS:
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+			zebra_nhg_handle_install(nhe);
 			break;
 		}
 	}
@@ -1870,6 +1893,7 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 		if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+			zebra_nhg_handle_install(nhe);
 		} else
 			flog_err(
 				EC_ZEBRA_DP_INSTALL_FAIL,

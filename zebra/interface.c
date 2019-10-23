@@ -189,17 +189,31 @@ static int if_zebra_new_hook(struct interface *ifp)
 	return 0;
 }
 
-static void if_nhg_dependents_release(struct interface *ifp)
+static void if_nhg_dependents_check_valid(struct nhg_hash_entry *nhe)
 {
-	if (!if_nhg_dependents_is_empty(ifp)) {
-		struct nhg_connected *rb_node_dep = NULL;
-		struct zebra_if *zif = (struct zebra_if *)ifp->info;
+	zebra_nhg_check_valid(nhe);
+	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID))
+		/* Assuming uninstalled as well here */
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+}
 
-		frr_each(nhg_connected_tree, &zif->nhg_dependents,
-			  rb_node_dep) {
-			rb_node_dep->nhe->ifp = NULL;
-			zebra_nhg_set_invalid(rb_node_dep->nhe);
-		}
+static void if_down_nhg_dependents(const struct interface *ifp)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+	struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep)
+		if_nhg_dependents_check_valid(rb_node_dep->nhe);
+}
+
+static void if_nhg_dependents_release(const struct interface *ifp)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+	struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
+		rb_node_dep->nhe->ifp = NULL; /* Null it out */
+		if_nhg_dependents_check_valid(rb_node_dep->nhe);
 	}
 }
 
@@ -996,19 +1010,6 @@ bool if_nhg_dependents_is_empty(const struct interface *ifp)
 	}
 
 	return false;
-}
-
-static void if_down_nhg_dependents(const struct interface *ifp)
-{
-	if (!if_nhg_dependents_is_empty(ifp)) {
-		struct nhg_connected *rb_node_dep = NULL;
-		struct zebra_if *zif = (struct zebra_if *)ifp->info;
-
-		frr_each(nhg_connected_tree, &zif->nhg_dependents,
-			  rb_node_dep) {
-			zebra_nhg_set_invalid(rb_node_dep->nhe);
-		}
-	}
 }
 
 /* Interface is up. */
