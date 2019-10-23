@@ -1122,7 +1122,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 	else
 		vty_out(vty, "     VRF: UNKNOWN\n");
 
-	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE))
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_UNHASHABLE))
 		vty_out(vty, "     Duplicate - from kernel not hashable\n");
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {

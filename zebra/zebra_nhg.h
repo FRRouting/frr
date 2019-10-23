@@ -99,10 +99,13 @@ struct nhg_hash_entry {
  */
 #define NEXTHOP_GROUP_RECURSIVE (1 << 3)
 /*
- * This is a duplicate nexthop we got from the kernel, we are only tracking
- * it in our ID hash table, it is unusable by our routes.
+ * This is a nexthop group we got from the kernel, it is identical to
+ * one we already have. (The kernel allows duplicate nexthops, we don't
+ * since we hash on them). We are only tracking it in our ID table,
+ * it is unusable by our created routes but may be used by routes we get
+ * from the kernel. Therefore, it is unhashable.
  */
-#define NEXTHOP_GROUP_DUPLICATE (1 << 4)
+#define NEXTHOP_GROUP_UNHASHABLE (1 << 4)
 };
 
 /* Was this one we created, either this session or previously? */

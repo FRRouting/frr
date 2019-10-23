@@ -663,27 +663,28 @@ static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
 	return ctx;
 }
 
-static bool zebra_nhg_contains_dup(struct nhg_hash_entry *nhe)
+static bool zebra_nhg_contains_unhashable(struct nhg_hash_entry *nhe)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 		if (CHECK_FLAG(rb_node_dep->nhe->flags,
-			       NEXTHOP_GROUP_DUPLICATE))
+			       NEXTHOP_GROUP_UNHASHABLE))
 			return true;
 	}
 
 	return false;
 }
 
-static void zebra_nhg_set_dup(struct nhg_hash_entry *nhe)
+static void zebra_nhg_set_unhashable(struct nhg_hash_entry *nhe)
 {
-	SET_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE);
+	SET_FLAG(nhe->flags, NEXTHOP_GROUP_UNHASHABLE);
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 
-	flog_warn(EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
-		  "Nexthop Group with ID (%d) is a duplicate, ignoring",
-		  nhe->id);
+	flog_warn(
+		EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
+		"Nexthop Group with ID (%d) is a duplicate, therefore unhashable, ignoring",
+		nhe->id);
 }
 
 static void zebra_nhg_release(struct nhg_hash_entry *nhe)
@@ -695,10 +696,10 @@ static void zebra_nhg_release(struct nhg_hash_entry *nhe)
 		if_nhg_dependents_del(nhe->ifp, nhe);
 
 	/*
-	 * If its a dup, we didn't store it here and have to be
+	 * If its unhashable, we didn't store it here and have to be
 	 * sure we don't clear one thats actually being used.
 	 */
-	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE))
+	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_UNHASHABLE))
 		hash_release(zrouter.nhgs, nhe);
 
 	hash_release(zrouter.nhgs_id, nhe);
@@ -786,19 +787,20 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 			 * changes.
 			 *
 			 * We maintain them *ONLY* in the ID hash table to
-			 * track them.
+			 * track them and set the flag to indicated
+			 * their attributes are unhashable.
 			 */
 
 			kernel_nhe = zebra_nhg_copy(nhe, id);
 			zebra_nhg_insert_id(kernel_nhe);
-			zebra_nhg_set_dup(kernel_nhe);
-		} else if (zebra_nhg_contains_dup(nhe)) {
-			/* The group we got contains a duplciate depend,
-			 * so lets mark this group as a dup as well and release
-			 * it from the non-ID hash.
+			zebra_nhg_set_unhashable(kernel_nhe);
+		} else if (zebra_nhg_contains_unhashable(nhe)) {
+			/* The group we got contains an unhashable/duplicated
+			 * depend, so lets mark this group as unhashable as well
+			 * and release it from the non-ID hash.
 			 */
 			hash_release(zrouter.nhgs, nhe);
-			zebra_nhg_set_dup(nhe);
+			zebra_nhg_set_unhashable(nhe);
 		} else {
 			/* It actually created a new nhe */
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
