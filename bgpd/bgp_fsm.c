@@ -1308,7 +1308,6 @@ int bgp_stop(struct peer *peer)
 	} else {
 		bgp_peer_conf_if_to_su_update(peer);
 	}
-
 	return ret;
 }
 
