@@ -2313,7 +2313,7 @@ static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
 }
 
 static int netlink_nexthop_process_group(struct rtattr **tb,
-					 struct nh_grp *z_grp)
+					 struct nh_grp *z_grp, int z_grp_size)
 {
 	uint8_t count = 0;
 	/* linux/nexthop.h group struct */
@@ -2335,7 +2335,7 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 
 #endif
 
-	for (int i = 0; i < count; i++) {
+	for (int i = 0; ((i < count) && (i < z_grp_size)); i++) {
 		z_grp[i].id = n_grp[i].id;
 		z_grp[i].weight = n_grp[i].weight;
 	}
@@ -2412,7 +2412,8 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			 * If this is a group message its only going to have
 			 * an array of nexthop IDs associated with it
 			 */
-			grp_count = netlink_nexthop_process_group(tb, grp);
+			grp_count = netlink_nexthop_process_group(
+				tb, grp, array_size(grp));
 		} else {
 			if (tb[NHA_BLACKHOLE]) {
 				/**
