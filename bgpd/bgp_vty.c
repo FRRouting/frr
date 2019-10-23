@@ -9416,12 +9416,10 @@ static void  bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
-
-			if (peer->afc_nego[afi][safi]
+			if (peer->afc[afi][safi]
 				&& CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV)
-				&& CHECK_FLAG(peer->af_cap[afi][safi],
-				PEER_CAP_RESTART_AF_RCV)) {
-
+				&& CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)
+				) {
 				if (use_json) {
 					json_afi_safi =
 						json_object_new_object();
@@ -9530,9 +9528,18 @@ static void  bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 						peer->t_gr_stale));
 					}
 
-					json_object_int_add(json_timer,
+					/* Display Configured Selection
+					 * Deferral only when when
+					 * Gr mode is enabled.
+					 */
+					if (CHECK_FLAG(peer->flags,
+						PEER_FLAG_GRACEFUL_RESTART)) {
+
+						json_object_int_add(
+						json_timer,
 						"selectionDeferralTimer",
 						peer->bgp->stalepath_time);
+					}
 
 					if (peer->bgp
 						->gr_info[afi][safi]
@@ -9553,8 +9560,8 @@ static void  bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 
 					vty_out(vty, "%*s", 6, "");
 					vty_out(vty,
-					"Stale Path Time(sec)%*s: %u\n",
-						19, "",
+					"Configured Stale Path Time(sec)%*s: %u\n",
+						8, "",
 					peer->bgp->stalepath_time);
 
 					if (peer->t_gr_stale != NULL) {
@@ -9565,12 +9572,17 @@ static void  bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 						thread_timer_remain_second(
 						peer->t_gr_stale));
 					}
-
-					vty_out(vty, "%*s", 6, "");
-					vty_out(vty,
-					"Selection Deferral Time(sec)%*s: %u\n",
-					11, "",
-					peer->bgp->select_defer_time);
+					/* Display Configured Selection
+					 * Deferral only when when
+					 * Gr mode is enabled.
+					 */
+					if (CHECK_FLAG(peer->flags,
+						PEER_FLAG_GRACEFUL_RESTART)) {
+						vty_out(vty, "%*s", 6, "");
+						vty_out(vty,
+						"Configured Selection Deferral Time(sec): %u\n",
+						peer->bgp->select_defer_time);
+					}
 
 					if (peer->bgp
 						->gr_info[afi][safi]
