@@ -1081,8 +1081,7 @@ void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe)
 		struct nhg_connected *rb_node_dep = NULL;
 
 		/* If anthing else in the group is valid, the group is valid */
-		frr_each(nhg_connected_tree, &nhe->nhg_dependents,
-			  rb_node_dep) {
+		frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 			if (CHECK_FLAG(rb_node_dep->nhe->flags,
 				       NEXTHOP_GROUP_VALID))
 				return;
