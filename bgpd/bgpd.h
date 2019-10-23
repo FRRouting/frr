@@ -232,6 +232,46 @@ enum bgp_instance_type {
 	BGP_INSTANCE_TYPE_VIEW
 };
 
+
+/* BGP GR Global ds */
+
+#define GLOBAL_MODE 4
+#define EVENT_CMD 4
+
+
+/* Graceful restart selection deferral timer info */
+struct graceful_restart_info {
+	/* Count of EOR message expected */
+	uint32_t eor_required;
+	/* Count of EOR received */
+	uint32_t eor_received;
+	/* Deferral Timer */
+	struct thread *t_select_deferral;
+	/* Route list */
+	struct list *route_list;
+	/* Best route select */
+	struct thread *t_route_select;
+};
+
+
+enum global_mode {
+	GLOBAL_HELPER = 0, /* This is the default mode */
+	GLOBAL_GR,
+	GLOBAL_DISABLE,
+	GLOBAL_INVALID
+};
+
+enum global_gr_command {
+	GLOBAL_GR_CMD = 0,
+	NO_GLOBAL_GR_CMD,
+	GLOBAL_DISABLE_CMD,
+	NO_GLOBAL_DISABLE_CMD
+};
+
+#define BGP_GR_SUCCESS 0
+#define BGP_GR_FAILURE 1
+
+
 /* BGP instance structure.  */
 struct bgp {
 	/* AS number of this BGP instance.  */
@@ -356,7 +396,10 @@ struct bgp {
 #define BGP_FLAG_IMPORT_CHECK             (1 << 9)
 #define BGP_FLAG_NO_FAST_EXT_FAILOVER     (1 << 10)
 #define BGP_FLAG_LOG_NEIGHBOR_CHANGES     (1 << 11)
+
+/* This flag is set when we have full BGP Graceful-Restart mode enable */
 #define BGP_FLAG_GRACEFUL_RESTART         (1 << 12)
+
 #define BGP_FLAG_ASPATH_CONFED            (1 << 13)
 #define BGP_FLAG_ASPATH_MULTIPATH_RELAX   (1 << 14)
 #define BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY (1 << 15)
@@ -367,6 +410,10 @@ struct bgp {
 #define BGP_FLAG_GR_PRESERVE_FWD          (1 << 20)
 #define BGP_FLAG_GRACEFUL_SHUTDOWN        (1 << 21)
 #define BGP_FLAG_DELETE_IN_PROGRESS       (1 << 22)
+
+
+	enum global_mode GLOBAL_GR_FSM[GLOBAL_MODE][EVENT_CMD];
+	enum global_mode global_gr_present_state;
 
 	/* BGP Per AF flags */
 	uint16_t af_flags[AFI_MAX][SAFI_MAX];
@@ -462,6 +509,8 @@ struct bgp {
 	/* BGP graceful restart */
 	uint32_t restart_time;
 	uint32_t stalepath_time;
+	uint32_t select_defer_time;
+	struct graceful_restart_info gr_info[AFI_MAX][SAFI_MAX];
 
 	/* Maximum-paths configuration */
 	struct bgp_maxpaths_cfg {
@@ -726,6 +775,37 @@ struct peer_af {
 	safi_t safi;
 	int afid;
 };
+/* BGP GR per peer ds */
+
+
+#define PEER_MODE 5
+#define PEER_EVENT_CMD 6
+
+enum peer_mode {
+	PEER_HELPER = 0,
+	PEER_GR,
+	PEER_DISABLE,
+	PEER_INVALID,
+	PEER_GLOBAL_INHERIT /* This is the default mode */
+
+};
+
+enum peer_gr_command {
+	PEER_GR_CMD = 0,
+	NO_PEER_GR_CMD,
+	PEER_DISABLE_cmd,
+	NO_PEER_DISABLE_CMD,
+	PEER_HELPER_CMD,
+	NO_PEER_HELPER_CMD
+};
+
+typedef unsigned int  (*bgp_peer_gr_action_ptr)(struct peer *, int, int);
+
+struct bgp_peer_gr {
+	enum peer_mode next_state;
+	bgp_peer_gr_action_ptr action_fun;
+};
+
 
 /* BGP neighbor structure. */
 struct peer {
@@ -947,6 +1027,27 @@ struct peer {
 #define PEER_FLAG_LOCAL_AS                  (1 << 21) /* local-as */
 #define PEER_FLAG_UPDATE_SOURCE             (1 << 22) /* update-source */
 
+	/* BGP-GR Peer related  flags */
+#define PEER_FLAG_GRACEFUL_RESTART_HELPER   (1 << 23) /* Helper */
+#define PEER_FLAG_GRACEFUL_RESTART          (1 << 24) /* Graceful Restart */
+#define PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT (1 << 25) /* Global-Inherit */
+
+	/*
+	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
+	 *& PEER_FLAG_GRACEFUL_RESTART_HELPER
+	 *and PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT
+	 */
+
+	struct bgp_peer_gr PEER_GR_FSM[PEER_MODE][PEER_EVENT_CMD];
+	enum peer_mode peer_gr_present_state;
+	/* Non stop forwarding afi-safi count for BGP gr feature*/
+	uint8_t nsf_af_count;
+
+	uint8_t peer_gr_new_status_flag;
+#define PEER_GRACEFUL_RESTART_NEW_STATE_HELPER   (1 << 0)
+#define PEER_GRACEFUL_RESTART_NEW_STATE_RESTART  (1 << 1)
+#define PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT	 (1 << 2)
+
 	/* outgoing message sent in CEASE_ADMIN_SHUTDOWN notify */
 	char *tx_shutdown_message;
 
@@ -975,7 +1076,8 @@ struct peer {
 #define PEER_FLAG_DEFAULT_ORIGINATE         (1 << 9) /* default-originate */
 #define PEER_FLAG_REMOVE_PRIVATE_AS         (1 << 10) /* remove-private-as */
 #define PEER_FLAG_ALLOWAS_IN                (1 << 11) /* set allowas-in */
-#define PEER_FLAG_ORF_PREFIX_SM             (1 << 12) /* orf capability send-mode */
+/* orf capability send-mode */
+#define PEER_FLAG_ORF_PREFIX_SM             (1 << 12)
 #define PEER_FLAG_ORF_PREFIX_RM             (1 << 13) /* orf capability receive-mode */
 #define PEER_FLAG_MAX_PREFIX                (1 << 14) /* maximum prefix */
 #define PEER_FLAG_MAX_PREFIX_WARNING        (1 << 15) /* maximum prefix warning-only */
@@ -1521,6 +1623,12 @@ enum bgp_clear_type {
 #define BGP_ERR_INVALID_FOR_DIRECT_PEER         -34
 #define BGP_ERR_PEER_SAFI_CONFLICT              -35
 
+/* BGP GR ERRORS */
+
+#define BGP_ERR_GR_INVALID_CMD                  -36
+#define BGP_ERR_GR_OPERATION_FAILED             -37
+#define BGP_GR_NO_OPERATION                     -38
+
 /*
  * Enumeration of different policy kinds a peer can be configured with.
  */
@@ -1773,6 +1881,15 @@ extern int peer_af_delete(struct peer *, afi_t, safi_t);
 
 extern void bgp_close(void);
 extern void bgp_free(struct bgp *);
+void bgp_gr_apply_running_config(void);
+
+/* BGP GR */
+
+int bgp_peer_flag_set(struct peer *peer, int flag_bit);
+int bgp_peer_flag_unset(struct peer *peer, int flag_bit);
+int bgp_peer_flag_check(struct peer *peer, int flag_bit);
+int bgp_global_gr_init(struct bgp *bgp);
+int bgp_peer_gr_init(struct peer *peer);
 
 static inline struct bgp *bgp_lock(struct bgp *bgp)
 {
