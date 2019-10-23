@@ -314,6 +314,15 @@ static int bgp_node_set_defer_flag(struct bgp_node *rn, bool delete)
 	if (CHECK_FLAG(rn->flags, BGP_NODE_SELECT_DEFER) && (delete == false))
 		return 0;
 
+	if (CHECK_FLAG(rn->flags, BGP_NODE_PROCESS_SCHEDULED)) {
+		if (BGP_DEBUG(update, UPDATE_OUT)) {
+			prefix2str(&rn->p, buf, PREFIX2STR_BUFFER);
+			zlog_debug("Route %s is in workqueue and being processed, not deferred.",
+				buf);
+		}
+		return 0;
+	}
+
 	table = bgp_node_table(rn);
 	if (table) {
 		bgp = table->bgp;
