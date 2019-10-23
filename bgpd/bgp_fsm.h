@@ -146,7 +146,4 @@ int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
 		enum global_mode global_new_state,
 		enum global_mode global_old_state);
 void bgp_peer_gr_flags_update(struct peer *peer);
-extern void bgp_peer_flag_unset(struct peer *peer, int flag_bit);
-extern void bgp_peer_flag_set(struct peer *peer, int flag_bit);
-
 #endif /* _QUAGGA_BGP_FSM_H */

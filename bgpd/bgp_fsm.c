@@ -1099,6 +1099,7 @@ int bgp_stop(struct peer *peer)
 		/* bgp log-neighbor-changes of neighbor Down */
 		if (bgp_flag_check(peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
 			struct vrf *vrf = vrf_lookup_by_id(peer->bgp->vrf_id);
+
 			zlog_info(
 				"%%ADJCHANGE: neighbor %s(%s) in vrf %s Down %s",
 				peer->host,
@@ -2409,44 +2410,44 @@ void bgp_peer_gr_flags_update(struct peer *peer)
 				__func__);
 	if (CHECK_FLAG(peer->peer_gr_new_status_flag,
 		PEER_GRACEFUL_RESTART_NEW_STATE_HELPER))
-		bgp_peer_flag_set(peer,
+		SET_FLAG(peer->flags,
 				PEER_FLAG_GRACEFUL_RESTART_HELPER);
 	else
-		bgp_peer_flag_unset(peer,
+		UNSET_FLAG(peer->flags,
 				PEER_FLAG_GRACEFUL_RESTART_HELPER);
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
 			"BGP_GR:: Peer %s Flag PEER_FLAG_GRACEFUL_RESTART_HELPER : %s : !",
 			peer->host,
-			(bgp_peer_flag_check(peer,
+			(CHECK_FLAG(peer->flags,
 				PEER_FLAG_GRACEFUL_RESTART_HELPER) ?
 				"Set" : "UnSet"));
 	if (CHECK_FLAG(peer->peer_gr_new_status_flag,
 		PEER_GRACEFUL_RESTART_NEW_STATE_RESTART))
-		bgp_peer_flag_set(peer,
+		SET_FLAG(peer->flags,
 				PEER_FLAG_GRACEFUL_RESTART);
 	else
-		bgp_peer_flag_unset(peer,
+		UNSET_FLAG(peer->flags,
 				PEER_FLAG_GRACEFUL_RESTART);
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
 			"BGP_GR:: Peer %s Flag PEER_FLAG_GRACEFUL_RESTART : %s : !",
 			peer->host,
-			(bgp_peer_flag_check(peer,
+			(CHECK_FLAG(peer->flags,
 				PEER_FLAG_GRACEFUL_RESTART) ?
 				"Set" : "UnSet"));
 	if (CHECK_FLAG(peer->peer_gr_new_status_flag,
 		PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT))
-		bgp_peer_flag_set(peer,
+		SET_FLAG(peer->flags,
 				PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT);
 	else
-		bgp_peer_flag_unset(peer,
+		UNSET_FLAG(peer->flags,
 				PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT);
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
 		"BGP_GR:: Peer %s Flag PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT : %s : !",
 			peer->host,
-			(bgp_peer_flag_check(peer,
+			(CHECK_FLAG(peer->flags,
 				PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT) ?
 				"Set" : "UnSet"));
 }

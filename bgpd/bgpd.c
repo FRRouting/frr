@@ -7217,23 +7217,6 @@ struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 	return peer;
 }
 
-
-/* BGP peer flag manipulation.  */
-void bgp_peer_flag_set(struct peer *peer, int flag)
-{
-	SET_FLAG(peer->flags, flag);
-}
-
-void bgp_peer_flag_unset(struct peer *peer, int flag)
-{
-	UNSET_FLAG(peer->flags, flag);
-}
-
-int bgp_peer_flag_check(struct peer *peer, int flag)
-{
-	return CHECK_FLAG(peer->flags, flag);
-}
-
 void bgp_gr_apply_running_config(void)
 {
 	struct peer *peer = NULL;

@@ -1878,9 +1878,6 @@ extern void bgp_free(struct bgp *);
 void bgp_gr_apply_running_config(void);
 
 /* BGP GR */
-void bgp_peer_flag_set(struct peer *peer, int flag_bit);
-void bgp_peer_flag_unset(struct peer *peer, int flag_bit);
-int bgp_peer_flag_check(struct peer *peer, int flag_bit);
 int bgp_global_gr_init(struct bgp *bgp);
 int bgp_peer_gr_init(struct peer *peer);
 

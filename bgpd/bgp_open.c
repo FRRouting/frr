@@ -1311,9 +1311,9 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 	unsigned long capp = 0;
 	unsigned long rcapp = 0;
 
-	if ((bgp_peer_flag_check(peer,
+	if ((CHECK_FLAG(peer->flags,
 			PEER_FLAG_GRACEFUL_RESTART)) ||
-		(bgp_peer_flag_check(peer,
+		(CHECK_FLAG(peer->flags,
 			PEER_FLAG_GRACEFUL_RESTART_HELPER))) {
 
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
@@ -1331,7 +1331,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 		stream_putc(s, 0);
 		restart_time = peer->bgp->restart_time;
 		if ((peer->bgp->t_startup) &&
-			(bgp_peer_flag_check(peer,
+			(CHECK_FLAG(peer->flags,
 				PEER_FLAG_GRACEFUL_RESTART))) {
 			SET_FLAG(restart_time, RESTART_R_BIT);
 			SET_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV);
@@ -1341,7 +1341,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 		/* Send address-family specific graceful-restart capability
 		 * only when GR config is present
 		 */
-		if (bgp_peer_flag_check(peer, PEER_FLAG_GRACEFUL_RESTART)) {
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)) {
 			FOREACH_AFI_SAFI (afi, safi) {
 				if (peer->afc[afi][safi]) {
 					if (BGP_DEBUG(graceful_restart,
