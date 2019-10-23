@@ -27,7 +27,7 @@
 #include "hook.h"
 
 #include "zebra/zebra_l2.h"
-#include "zebra/zebra_nhg.h"
+#include "zebra/zebra_nhg_private.h"
 
 #ifdef __cplusplus
 extern "C" {

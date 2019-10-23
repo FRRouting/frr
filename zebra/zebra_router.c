@@ -29,7 +29,7 @@
 #include "zebra_pbr.h"
 #include "zebra_vxlan.h"
 #include "zebra_mlag.h"
-#include "zebra_nhg.h"
+#include "zebra_nhg_private.h"
 #include "debug.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_TABLE_INFO, "RIB table info")
