@@ -1418,29 +1418,12 @@ static int isis_instance_mpls_te_create(enum nb_event event,
 		area->mta->status = enable;
 	}
 
-	/*
-	 * Following code is intended to handle two cases;
-	 *
-	 * 1) MPLS-TE was disabled at startup time, but now become enabled.
-	 * In this case, we must enable MPLS-TE Circuit regarding interface
-	 * MPLS_TE flag
-	 * 2) MPLS-TE was once enabled then disabled, and now enabled again.
-	 */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
-		if (circuit->ext == NULL)
-			continue;
+	/* Update Extended TLVs according to Interface link parameters */
+	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+		isis_link_params_update(circuit, circuit->interface);
 
-		if (!IS_EXT_TE(circuit->ext)
-		    && HAS_LINK_PARAMS(circuit->interface))
-			isis_link_params_update(circuit, circuit->interface);
-		else
-			continue;
-
-		/* Reoriginate STD_TE & GMPLS circuits */
-		if (circuit->area)
-			lsp_regenerate_schedule(circuit->area, circuit->is_type,
-						0);
-	}
+	/* Reoriginate STD_TE & GMPLS circuits */
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1473,12 +1456,10 @@ static int isis_instance_mpls_te_destroy(enum nb_event event,
 			circuit->ext->status = EXT_LAN_ADJ_SID;
 		else
 			circuit->ext->status = 0;
-
-		/* Re-originate circuit without STD_TE & GMPLS parameters */
-		if (circuit->area)
-			lsp_regenerate_schedule(circuit->area, circuit->is_type,
-						0);
 	}
+
+	/* Reoriginate STD_TE & GMPLS circuits */
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	zlog_debug("ISIS-TE(%s): Disabled MPLS Traffic Engineering",
 		   area->area_tag);
@@ -1509,8 +1490,7 @@ static int isis_instance_mpls_te_router_address_modify(enum nb_event event,
 	area->mta->router_id.s_addr = value.s_addr;
 
 	/* And re-schedule LSP update */
-	if (listcount(area->area_addrs) > 0)
-		lsp_regenerate_schedule(area, area->is_type, 0);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -1532,8 +1512,7 @@ static int isis_instance_mpls_te_router_address_destroy(enum nb_event event,
 	area->mta->router_id.s_addr = INADDR_ANY;
 
 	/* And re-schedule LSP update */
-	if (listcount(area->area_addrs) > 0)
-		lsp_regenerate_schedule(area, area->is_type, 0);
+	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
