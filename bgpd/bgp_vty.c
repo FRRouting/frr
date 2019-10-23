@@ -159,10 +159,8 @@ static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 		return "IPv6 Flowspec";
 	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
 		return "L2VPN EVPN";
-	else {
-		flog_err(EC_LIB_DEVELOPMENT, "New afi/safi that needs to be taken care of?");
+	else
 		return "Unknown";
-	}
 }
 
 /*
@@ -199,10 +197,8 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 		return "ipv6Flowspec";
 	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
 		return "l2VpnEvpn";
-	else {
-		flog_err(EC_LIB_DEVELOPMENT, "New afi/safi that needs to be taken care of?");
+	else
 		return "Unknown";
-	}
 }
 
 /* Utility function to get address family from current node.  */
