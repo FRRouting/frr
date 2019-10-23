@@ -349,7 +349,7 @@ const char *nexthop2str(const struct nexthop *nexthop, char *str, int size)
  * left branch is 'resolved' and right branch is 'next':
  * https://en.wikipedia.org/wiki/Tree_traversal#/media/File:Sorted_binary_tree_preorder.svg
  */
-struct nexthop *nexthop_next(struct nexthop *nexthop)
+struct nexthop *nexthop_next(const struct nexthop *nexthop)
 {
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 		return nexthop->resolved;
@@ -365,7 +365,7 @@ struct nexthop *nexthop_next(struct nexthop *nexthop)
 }
 
 /* Return the next nexthop in the tree that is resolved and active */
-struct nexthop *nexthop_next_active_resolved(struct nexthop *nexthop)
+struct nexthop *nexthop_next_active_resolved(const struct nexthop *nexthop)
 {
 	struct nexthop *next = nexthop_next(nexthop);
 

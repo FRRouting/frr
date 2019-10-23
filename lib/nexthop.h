@@ -161,8 +161,9 @@ extern int nexthop_same_firsthop(struct nexthop *next1, struct nexthop *next2);
 
 extern const char *nexthop2str(const struct nexthop *nexthop,
 			       char *str, int size);
-extern struct nexthop *nexthop_next(struct nexthop *nexthop);
-extern struct nexthop *nexthop_next_active_resolved(struct nexthop *nexthop);
+extern struct nexthop *nexthop_next(const struct nexthop *nexthop);
+extern struct nexthop *
+nexthop_next_active_resolved(const struct nexthop *nexthop);
 extern unsigned int nexthop_level(struct nexthop *nexthop);
 /* Copies to an already allocated nexthop struct */
 extern void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
