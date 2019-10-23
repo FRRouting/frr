@@ -407,7 +407,7 @@ struct bgp {
 #define BGP_FLAG_GR_PRESERVE_FWD          (1 << 20)
 #define BGP_FLAG_GRACEFUL_SHUTDOWN        (1 << 21)
 #define BGP_FLAG_DELETE_IN_PROGRESS       (1 << 22)
-
+#define BGP_FLAG_SELECT_DEFER_DISABLE     (1 << 23)
 
 	enum global_mode GLOBAL_GR_FSM[GLOBAL_MODE][EVENT_CMD];
 	enum global_mode global_gr_present_state;
@@ -508,7 +508,8 @@ struct bgp {
 	uint32_t stalepath_time;
 	uint32_t select_defer_time;
 	struct graceful_restart_info gr_info[AFI_MAX][SAFI_MAX];
-
+#define BGP_ROUTE_SELECT_DELAY 1
+#define BGP_MAX_BEST_ROUTE_SELECT 10000
 	/* Maximum-paths configuration */
 	struct bgp_maxpaths_cfg {
 		uint16_t maxpaths_ebgp;
@@ -635,12 +636,22 @@ DECLARE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty))
 
+	/* Thread callback information */
+	struct afi_safi_info {
+		afi_t afi;
+		safi_t safi;
+		struct bgp *bgp;
+	};
+
 #define BGP_ROUTE_ADV_HOLD(bgp) (bgp->main_peers_update_hold)
 
 #define IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)                                        \
 	(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT                           \
 	 || (bgp->inst_type == BGP_INSTANCE_TYPE_VRF                           \
 	     && bgp->vrf_id != VRF_UNKNOWN))
+
+#define BGP_SELECT_DEFER_DISABLE(bgp)                                  \
+       (bgp_flag_check(bgp, BGP_FLAG_SELECT_DEFER_DISABLE))
 
 /* BGP peer-group support. */
 struct peer_group {
@@ -1553,6 +1564,7 @@ struct bgp_nlri {
 /* BGP graceful restart  */
 #define BGP_DEFAULT_RESTART_TIME               120
 #define BGP_DEFAULT_STALEPATH_TIME             360
+#define BGP_DEFAULT_SELECT_DEFERRAL_TIME       360
 
 /* BGP uptime string length.  */
 #define BGP_UPTIME_LEN 25

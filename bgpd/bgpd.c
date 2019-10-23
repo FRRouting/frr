@@ -3017,6 +3017,12 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 				      multipath_num, 0);
 		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_IBGP,
 				      multipath_num, 0);
+		/* Initialize graceful restart info */
+		bgp->gr_info[afi][safi].eor_required = 0;
+		bgp->gr_info[afi][safi].eor_received = 0;
+		bgp->gr_info[afi][safi].t_select_deferral = NULL;
+		bgp->gr_info[afi][safi].t_route_select = NULL;
+		bgp->gr_info[afi][safi].route_list = list_new();
 	}
 
 	bgp->v_update_delay = BGP_UPDATE_DELAY_DEF;
@@ -3026,6 +3032,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp_timers_unset(bgp);
 	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 	bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
+	bgp->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
 	bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
 	bgp->dynamic_neighbors_count = 0;
 	bgp->ebgp_requires_policy = DEFAULT_EBGP_POLICY_DISABLED;
@@ -3351,7 +3358,9 @@ int bgp_delete(struct bgp *bgp)
 	struct listnode *node, *next;
 	struct vrf *vrf;
 	afi_t afi;
+	safi_t safi;
 	int i;
+	struct graceful_restart_info *gr_info;
 
 	assert(bgp);
 
@@ -3364,6 +3373,19 @@ int bgp_delete(struct bgp *bgp)
 
 	/* Set flag indicating bgp instance delete in progress */
 	bgp_flag_set(bgp, BGP_FLAG_DELETE_IN_PROGRESS);
+
+	/* Delete the graceful restart info */
+	FOREACH_AFI_SAFI (afi, safi) {
+		gr_info = &bgp->gr_info[afi][safi];
+		if (gr_info) {
+			BGP_TIMER_OFF(gr_info->t_select_deferral);
+			gr_info->t_select_deferral = NULL;
+			BGP_TIMER_OFF(gr_info->t_route_select);
+			gr_info->t_route_select = NULL;
+			if (gr_info->route_list)
+				list_delete(&gr_info->route_list);
+		}
+	}
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
