@@ -1102,6 +1102,117 @@ struct peer *peer_unlock_with_caller(const char *name, struct peer *peer)
 
 	return peer;
 }
+/* BGP GR changes */
+
+int bgp_global_gr_init(struct bgp *bgp)
+{
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s called ..", __func__);
+
+	int local_GLOBAL_GR_FSM[GLOBAL_MODE][EVENT_CMD] = {
+		/* GLOBAL_HELPER Mode  */
+		{
+		/*Event -> */
+		/*GLOBAL_GR_cmd*/  /*no_Global_GR_cmd*/
+			GLOBAL_GR,      GLOBAL_INVALID,
+		/*GLOBAL_DISABLE_cmd*/ /*no_Global_Disable_cmd*/
+			GLOBAL_DISABLE, GLOBAL_INVALID
+		},
+		/* GLOBAL_GR Mode */
+		{
+		/*Event -> */
+		/*GLOBAL_GR_cmd*/ /*no_Global_GR_cmd*/
+			GLOBAL_INVALID,  GLOBAL_HELPER,
+		/*GLOBAL_DISABLE_cmd*/ /*no_Global_Disable_cmd*/
+			GLOBAL_DISABLE,  GLOBAL_INVALID
+		},
+		/* GLOBAL_DISABLE Mode  */
+		{
+		/*Event -> */
+		/*GLOBAL_GR_cmd */	/*no_Global_GR_cmd*/
+			GLOBAL_GR,      GLOBAL_INVALID,
+		/*GLOBAL_DISABLE_cmd*//*no_Global_Disable_cmd*/
+			GLOBAL_INVALID,	GLOBAL_HELPER
+		},
+		/* GLOBAL_INVALID Mode  */
+		{
+		/*Event -> */
+		/*GLOBAL_GR_cmd*/	/*no_Global_GR_cmd*/
+			GLOBAL_INVALID, GLOBAL_INVALID,
+		/*GLOBAL_DISABLE_cmd*/ /*no_Global_Disable_cmd*/
+			GLOBAL_INVALID, GLOBAL_INVALID
+		}
+	};
+	memcpy(bgp->GLOBAL_GR_FSM, local_GLOBAL_GR_FSM,
+					sizeof(local_GLOBAL_GR_FSM));
+
+	bgp->global_gr_present_state = GLOBAL_HELPER;
+
+	return BGP_GR_SUCCESS;
+}
+
+int bgp_peer_gr_init(struct peer *peer)
+{
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s called ..", __func__);
+
+	struct bgp_peer_gr local_Peer_GR_FSM[PEER_MODE][PEER_EVENT_CMD] = {
+	{
+	/*	PEER_HELPER Mode	*/
+	/* Event-> */ /* PEER_GR_CMD */ /* NO_PEER_GR_CMD */
+		{ PEER_GR, bgp_peer_gr_action }, {PEER_INVALID, NULL },
+	/* Event-> */ /* PEER_DISABLE_cmd */ /* NO_PEER_DISABLE_CMD */
+		{PEER_DISABLE, bgp_peer_gr_action }, {PEER_INVALID, NULL },
+	/* Event-> */ /* PEER_HELPER_cmd */ /* NO_PEER_HELPER_CMD */
+		{ PEER_INVALID, NULL }, {PEER_GLOBAL_INHERIT,
+						bgp_peer_gr_action }
+	},
+	{
+	/*	PEER_GR Mode	*/
+	/* Event-> */ /* PEER_GR_CMD */ /* NO_PEER_GR_CMD */
+		{ PEER_INVALID, NULL }, { PEER_GLOBAL_INHERIT,
+						bgp_peer_gr_action },
+	/* Event-> */ /* PEER_DISABLE_cmd */ /* NO_PEER_DISABLE_CMD */
+		{PEER_DISABLE, bgp_peer_gr_action }, { PEER_INVALID, NULL },
+	/* Event-> */ /* PEER_HELPER_cmd */ /* NO_PEER_HELPER_CMD */
+		{ PEER_HELPER, bgp_peer_gr_action }, { PEER_INVALID, NULL }
+	},
+	{
+	/*	PEER_DISABLE Mode	*/
+	/* Event-> */ /* PEER_GR_CMD */ /* NO_PEER_GR_CMD */
+		{ PEER_GR, bgp_peer_gr_action }, { PEER_INVALID, NULL },
+	/* Event-> */ /* PEER_DISABLE_cmd */ /* NO_PEER_DISABLE_CMD */
+		{ PEER_INVALID, NULL }, { PEER_GLOBAL_INHERIT,
+						bgp_peer_gr_action },
+	/* Event-> */ /* PEER_HELPER_cmd */  /* NO_PEER_HELPER_CMD */
+		{ PEER_HELPER, bgp_peer_gr_action }, { PEER_INVALID, NULL }
+	},
+	{
+	/*	PEER_INVALID Mode	*/
+	/* Event-> */ /* PEER_GR_CMD */  /* NO_PEER_GR_CMD */
+		{ PEER_INVALID, NULL }, { PEER_INVALID, NULL },
+	/* Event-> */ /* PEER_DISABLE_cmd */  /* NO_PEER_DISABLE_CMD */
+		{ PEER_INVALID, NULL }, { PEER_INVALID, NULL },
+	/* Event-> */ /* PEER_HELPER_cmd */  /* NO_PEER_HELPER_CMD */
+		{ PEER_INVALID, NULL }, { PEER_INVALID, NULL },
+	},
+	{
+	/*	PEER_GLOBAL_INHERIT Mode	*/
+	/* Event-> */ /* PEER_GR_CMD */		/* NO_PEER_GR_CMD */
+		{ PEER_GR, bgp_peer_gr_action }, { PEER_INVALID, NULL },
+	/* Event-> */ /* PEER_DISABLE_cmd */     /* NO_PEER_DISABLE_CMD */
+		{ PEER_DISABLE, bgp_peer_gr_action}, { PEER_INVALID, NULL },
+	/* Event-> */ /* PEER_HELPER_cmd */     /* NO_PEER_HELPER_CMD */
+		{ PEER_HELPER, bgp_peer_gr_action }, { PEER_INVALID, NULL }
+	}
+	};
+	memcpy(&peer->PEER_GR_FSM, local_Peer_GR_FSM,
+					sizeof(local_Peer_GR_FSM));
+	peer->peer_gr_present_state = PEER_GLOBAL_INHERIT;
+	bgp_peer_move_to_gr_mode(peer, PEER_GLOBAL_INHERIT);
+
+	return BGP_GR_SUCCESS;
+}
 
 /* Allocate new peer object, implicitely locked.  */
 struct peer *peer_new(struct bgp *bgp)
@@ -1152,6 +1263,9 @@ struct peer *peer_new(struct bgp *bgp)
 		 PEER_FLAG_NEXTHOP_UNCHANGED);
 
 	SET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
+
+	/* Initialize per peer bgp GR FSM */
+	bgp_peer_gr_init(peer);
 
 	/* Create buffers.  */
 	peer->ibuf = stream_fifo_new();
@@ -1534,6 +1648,7 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	else if (!active && peer_active(peer))
 		bgp_timer_set(peer);
 
+	bgp_peer_gr_flags_update(peer);
 	return peer;
 }
 
@@ -2990,6 +3105,9 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 	bgp_evpn_init(bgp);
 	bgp_pbr_init(bgp);
+
+	/*initilize global GR FSM */
+	bgp_global_gr_init(bgp);
 	return bgp;
 }
 
@@ -7099,3 +7217,35 @@ struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 	return peer;
 }
 
+
+/* BGP peer flag manipulation.  */
+void bgp_peer_flag_set(struct peer *peer, int flag)
+{
+	SET_FLAG(peer->flags, flag);
+}
+
+void bgp_peer_flag_unset(struct peer *peer, int flag)
+{
+	UNSET_FLAG(peer->flags, flag);
+}
+
+int bgp_peer_flag_check(struct peer *peer, int flag)
+{
+	return CHECK_FLAG(peer->flags, flag);
+}
+
+void bgp_gr_apply_running_config(void)
+{
+	struct peer *peer = NULL;
+	struct bgp *bgp = NULL;
+	struct listnode *node, *nnode;
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug(
+				"BGP_GR:: %s called !",
+				__func__);
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+			bgp_peer_gr_flags_update(peer);
+}

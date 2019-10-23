@@ -94,7 +94,6 @@ extern unsigned long term_bgp_debug_labelpool;
 extern unsigned long term_bgp_debug_pbr;
 extern unsigned long term_bgp_debug_graceful_restart;
 
-
 extern struct list *bgp_debug_neighbor_events_peers;
 extern struct list *bgp_debug_keepalive_peers;
 extern struct list *bgp_debug_update_in_peers;

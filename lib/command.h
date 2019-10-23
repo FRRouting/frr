@@ -419,7 +419,6 @@ struct cmd_node {
 	"<zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pbrd|fabricd|pimd|staticd|sharpd|vrrpd|ldpd>"
 
 /* Graceful Restart cli help strings */
-
 #define GR_CMD "Global Graceful Restart command\n"
 #define NO_GR_CMD "Undo Global Graceful Restart command\n"
 #define GR "Global Graceful Restart - GR Mode\n"
@@ -433,7 +432,6 @@ struct cmd_node {
 #define NO_GR_NEIGHBOR_DISABLE_CMD "Undo Graceful Restart Disable command for a neighbor\n"
 #define GR_NEIGHBOR_HELPER_CMD "Graceful Restart Helper command for a neighbor\n"
 #define NO_GR_NEIGHBOR_HELPER_CMD "Undo Graceful Restart Helper command for a neighbor\n"
-
 
 /* Prototypes. */
 extern void install_node(struct cmd_node *node, int (*)(struct vty *));

@@ -46,8 +46,6 @@ struct bgp;
 	"Address Family modifier\n"                                            \
 	"Address Family modifier\n"
 
-
-
 #define SHOW_GR_HEADER \
 	"Codes: GR - Graceful Restart," \
 	" * -  Inheriting Global GR Config,\n" \
@@ -69,8 +67,6 @@ struct bgp;
 		bgp_show_neighbor_graceful_restart_capability_per_afi_safi(\
 						vty, p, use_json, json); \
 	} while (0)
-
-
 
 extern void bgp_vty_init(void);
 extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);

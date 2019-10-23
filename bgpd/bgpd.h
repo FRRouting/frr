@@ -238,7 +238,6 @@ enum bgp_instance_type {
 #define GLOBAL_MODE 4
 #define EVENT_CMD 4
 
-
 /* Graceful restart selection deferral timer info */
 struct graceful_restart_info {
 	/* Count of EOR message expected */
@@ -252,7 +251,6 @@ struct graceful_restart_info {
 	/* Best route select */
 	struct thread *t_route_select;
 };
-
 
 enum global_mode {
 	GLOBAL_HELPER = 0, /* This is the default mode */
@@ -270,7 +268,6 @@ enum global_gr_command {
 
 #define BGP_GR_SUCCESS 0
 #define BGP_GR_FAILURE 1
-
 
 /* BGP instance structure.  */
 struct bgp {
@@ -777,7 +774,6 @@ struct peer_af {
 };
 /* BGP GR per peer ds */
 
-
 #define PEER_MODE 5
 #define PEER_EVENT_CMD 6
 
@@ -1046,7 +1042,7 @@ struct peer {
 	uint8_t peer_gr_new_status_flag;
 #define PEER_GRACEFUL_RESTART_NEW_STATE_HELPER   (1 << 0)
 #define PEER_GRACEFUL_RESTART_NEW_STATE_RESTART  (1 << 1)
-#define PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT	 (1 << 2)
+#define PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT  (1 << 2)
 
 	/* outgoing message sent in CEASE_ADMIN_SHUTDOWN notify */
 	char *tx_shutdown_message;
@@ -1076,8 +1072,7 @@ struct peer {
 #define PEER_FLAG_DEFAULT_ORIGINATE         (1 << 9) /* default-originate */
 #define PEER_FLAG_REMOVE_PRIVATE_AS         (1 << 10) /* remove-private-as */
 #define PEER_FLAG_ALLOWAS_IN                (1 << 11) /* set allowas-in */
-/* orf capability send-mode */
-#define PEER_FLAG_ORF_PREFIX_SM             (1 << 12)
+#define PEER_FLAG_ORF_PREFIX_SM             (1 << 12) /* orf capability send-mode */
 #define PEER_FLAG_ORF_PREFIX_RM             (1 << 13) /* orf capability receive-mode */
 #define PEER_FLAG_MAX_PREFIX                (1 << 14) /* maximum prefix */
 #define PEER_FLAG_MAX_PREFIX_WARNING        (1 << 15) /* maximum prefix warning-only */
@@ -1624,7 +1619,6 @@ enum bgp_clear_type {
 #define BGP_ERR_PEER_SAFI_CONFLICT              -35
 
 /* BGP GR ERRORS */
-
 #define BGP_ERR_GR_INVALID_CMD                  -36
 #define BGP_ERR_GR_OPERATION_FAILED             -37
 #define BGP_GR_NO_OPERATION                     -38
@@ -1884,9 +1878,8 @@ extern void bgp_free(struct bgp *);
 void bgp_gr_apply_running_config(void);
 
 /* BGP GR */
-
-int bgp_peer_flag_set(struct peer *peer, int flag_bit);
-int bgp_peer_flag_unset(struct peer *peer, int flag_bit);
+void bgp_peer_flag_set(struct peer *peer, int flag_bit);
+void bgp_peer_flag_unset(struct peer *peer, int flag_bit);
 int bgp_peer_flag_check(struct peer *peer, int flag_bit);
 int bgp_global_gr_init(struct bgp *bgp);
 int bgp_peer_gr_init(struct peer *peer);

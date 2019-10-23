@@ -66,8 +66,6 @@
 			PEER_GRACEFUL_RESTART_NEW_STATE_HELPER);\
 	} while (0)
 
-
-
 #define BGP_PEER_GR_ENABLE(peer)\
 	do {				\
 		SET_FLAG(   \
@@ -77,7 +75,6 @@
 			peer->peer_gr_new_status_flag,	\
 			PEER_GRACEFUL_RESTART_NEW_STATE_HELPER);\
 	} while (0)
-
 
 #define BGP_PEER_GR_DISABLE(peer)\
 	do {				\
@@ -89,16 +86,13 @@
 			PEER_GRACEFUL_RESTART_NEW_STATE_HELPER);\
 	} while (0)
 
-
 #define BGP_PEER_GR_GLOBAL_INHERIT_SET(peer) \
 			SET_FLAG(peer->peer_gr_new_status_flag,	\
 				PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)
 
-
 #define BGP_PEER_GR_GLOBAL_INHERIT_UNSET(peer)	\
 			UNSET_FLAG(peer->peer_gr_new_status_flag, \
 				PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)
-
 
 /* Prototypes. */
 extern void bgp_fsm_event_update(struct peer *peer, int valid);
@@ -151,9 +145,8 @@ unsigned int bgp_peer_gr_global_inherit_unset(struct peer *peer);
 int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
 		enum global_mode global_new_state,
 		enum global_mode global_old_state);
-
 void bgp_peer_gr_flags_update(struct peer *peer);
-extern int bgp_peer_flag_unset(struct peer *peer, int flag_bit);
-extern int bgp_peer_flag_set(struct peer *peer, int flag_bit);
+extern void bgp_peer_flag_unset(struct peer *peer, int flag_bit);
+extern void bgp_peer_flag_set(struct peer *peer, int flag_bit);
 
 #endif /* _QUAGGA_BGP_FSM_H */
