@@ -127,6 +127,40 @@ struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t afi, safi_t safi)
 	return rt;
 }
 
+/* Delete the route node from the selection deferral route list */
+void bgp_delete_listnode(struct bgp_node *node)
+{
+	struct route_node *rn = NULL;
+	struct bgp_table *table = NULL;
+	struct bgp *bgp = NULL;
+	afi_t afi;
+	safi_t safi;
+
+	/* If the route to be deleted is selection pending, update the
+	 * route node in gr_info
+	 */
+	if (CHECK_FLAG(node->flags, BGP_NODE_SELECT_DEFER)) {
+		table = bgp_node_table(node);
+		if (table)
+			bgp = table->bgp;
+		rn = bgp_node_to_rnode(node);
+
+		afi = table->afi;
+		safi = table->safi;
+
+		if (bgp && rn && rn->lock == 1) {
+			/* Delete the route from the selection pending list */
+			if ((node->rt_node) &&
+			    (bgp->gr_info[afi][safi].route_list)) {
+				list_delete_node(
+					bgp->gr_info[afi][safi].route_list,
+						node->rt_node);
+				node->rt_node = NULL;
+			}
+		}
+	}
+}
+
 static struct bgp_node *
 bgp_route_next_until_maxlen(struct bgp_node *node, const struct bgp_node *limit,
 			    const uint8_t maxlen)

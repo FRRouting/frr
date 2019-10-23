@@ -650,8 +650,8 @@ DECLARE_HOOK(bgp_inst_config_write,
 	 || (bgp->inst_type == BGP_INSTANCE_TYPE_VRF                           \
 	     && bgp->vrf_id != VRF_UNKNOWN))
 
-#define BGP_SELECT_DEFER_DISABLE(bgp)                                  \
-       (bgp_flag_check(bgp, BGP_FLAG_SELECT_DEFER_DISABLE))
+#define BGP_SELECT_DEFER_DISABLE(bgp)                 \
+	(bgp_flag_check(bgp, BGP_FLAG_SELECT_DEFER_DISABLE))
 
 /* BGP peer-group support. */
 struct peer_group {

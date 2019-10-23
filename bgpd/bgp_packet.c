@@ -723,13 +723,17 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 				if (first) {
 					snprintf(c, sizeof(c), " %02x",
 						 data[i]);
+
 					strlcat(bgp_notify.data, c,
-						bgp_notify.length);
+						bgp_notify.length * 3);
+
 				} else {
 					first = 1;
 					snprintf(c, sizeof(c), "%02x", data[i]);
+
 					strlcpy(bgp_notify.data, c,
-						bgp_notify.length);
+						bgp_notify.length * 3);
+
 				}
 		}
 		bgp_notify_print(peer, &bgp_notify, "sending");
@@ -1404,6 +1408,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	bgp_size_t attribute_len;
 	bgp_size_t update_len;
 	bgp_size_t withdraw_len;
+	bool restart = false;
 
 	enum NLRI_TYPES {
 		NLRI_UPDATE,
@@ -1626,6 +1631,12 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	    || (attr_parse_ret == BGP_ATTR_PARSE_EOR)) {
 		afi_t afi = 0;
 		safi_t safi;
+		struct graceful_restart_info *gr_info;
+
+		/* Restarting router */
+		if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer) &&
+		    BGP_PEER_RESTARTING_MODE(peer))
+			restart = true;
 
 		/* Non-MP IPv4/Unicast is a completely emtpy UPDATE - already
 		 * checked
@@ -1652,6 +1663,31 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 				SET_FLAG(peer->af_sflags[afi][safi],
 					 PEER_STATUS_EOR_RECEIVED);
 				bgp_update_explicit_eors(peer);
+				/* Update graceful restart information */
+				gr_info = &(peer->bgp->gr_info[afi][safi]);
+				if (restart)
+					gr_info->eor_received++;
+				/* If EOR received from all peers and selection
+				 * deferral timer is running, cancel the timer
+				 * and invoke the best path calculation
+				 */
+				if (gr_info->eor_required ==
+						gr_info->eor_received) {
+					if (bgp_debug_neighbor_events(peer))
+						zlog_debug("%s %d, %s %d",
+							"EOR REQ",
+							gr_info->eor_required,
+							"EOR RCV",
+							gr_info->eor_received);
+					BGP_TIMER_OFF(
+						gr_info->t_select_deferral);
+					gr_info->eor_required = 0;
+					gr_info->eor_received = 0;
+					/* Best path selection */
+					if (bgp_best_path_select_defer(
+						peer->bgp, afi, safi) < 0)
+						return BGP_Stop;
+				}
 			}
 
 			/* NSF delete stale route */
@@ -1723,14 +1759,18 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 				if (first) {
 					snprintf(c, sizeof(c), " %02x",
 						stream_getc(peer->curr));
+
 					strlcat(bgp_notify.data, c,
-						bgp_notify.length);
+						bgp_notify.length * 3);
+
 				} else {
 					first = 1;
 					snprintf(c, sizeof(c), "%02x",
 						 stream_getc(peer->curr));
+
 					strlcpy(bgp_notify.data, c,
-						bgp_notify.length);
+						bgp_notify.length * 3);
+
 				}
 			bgp_notify.raw_data = (uint8_t *)peer->notify.data;
 		}

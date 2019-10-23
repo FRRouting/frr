@@ -28,6 +28,8 @@
 #include "bgpd.h"
 #include "bgp_advertise.h"
 
+extern void bgp_delete_listnode(struct bgp_node *node);
+
 struct bgp_table {
 	/* table belongs to this instance */
 	struct bgp *bgp;
@@ -95,7 +97,9 @@ struct bgp_node {
 #define BGP_NODE_USER_CLEAR             (1 << 1)
 #define BGP_NODE_LABEL_CHANGED          (1 << 2)
 #define BGP_NODE_REGISTERED_FOR_LABEL   (1 << 3)
-
+#define BGP_NODE_SELECT_DEFER           (1 << 4)
+	/* list node pointer */
+	struct listnode *rt_node;
 	struct bgp_addpath_node_data tx_addpath;
 
 	enum bgp_path_selection_reason reason;
@@ -162,6 +166,7 @@ static inline struct bgp_node *bgp_node_parent_nolock(struct bgp_node *node)
  */
 static inline void bgp_unlock_node(struct bgp_node *node)
 {
+	bgp_delete_listnode(node);
 	route_unlock_node(bgp_node_to_rnode(node));
 }
 
