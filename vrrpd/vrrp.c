@@ -281,7 +281,7 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 {
 	struct vrrp_router *r;
 	bool start;
-	const char *whynot = NULL;
+	const char *whynot;
 
 	if (vr->shutdown || vr->ifp == NULL)
 		return;
@@ -289,27 +289,28 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 	r = vr->v4;
 	/* Must not already be started */
 	start = r->fsm.state == VRRP_STATE_INITIALIZE;
+	whynot = NULL;
 	/* Must have a parent interface */
 	start = start && (vr->ifp != NULL);
-	whynot = (!start && !whynot) ? "No base interface" : NULL;
+	whynot = (!start && !whynot) ? "No base interface" : whynot;
 #if 0
 	/* Parent interface must be up */
 	start = start && if_is_operative(vr->ifp);
 #endif
 	/* Parent interface must have at least one v4 */
 	start = start && vr->ifp->connected->count > 1;
-	whynot = (!start && !whynot) ? "No primary IPv4 address" : NULL;
+	whynot = (!start && !whynot) ? "No primary IPv4 address" : whynot;
 	/* Must have a macvlan interface */
 	start = start && (r->mvl_ifp != NULL);
-	whynot = (!start && !whynot) ? "No VRRP interface" : NULL;
+	whynot = (!start && !whynot) ? "No VRRP interface" : whynot;
 #if 0
 	/* Macvlan interface must be admin up */
 	start = start && CHECK_FLAG(r->mvl_ifp->flags, IFF_UP);
 #endif
 	/* Must have at least one VIP configured */
 	start = start && r->addrs->count > 0;
-	whynot =
-		(!start && !whynot) ? "No Virtual IP address configured" : NULL;
+	whynot = (!start && !whynot) ? "No Virtual IP address configured"
+				     : whynot;
 	if (start)
 		vrrp_event(r, VRRP_EVENT_STARTUP);
 	else if (whynot)
@@ -320,19 +321,20 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 	r = vr->v6;
 	/* Must not already be started */
 	start = r->fsm.state == VRRP_STATE_INITIALIZE;
+	whynot = NULL;
 	/* Must not be v2 */
 	start = start && vr->version != 2;
-	whynot = (!start && !whynot) ? "VRRPv2 does not support v6" : NULL;
+	whynot = (!start && !whynot) ? "VRRPv2 does not support v6" : whynot;
 	/* Must have a parent interface */
 	start = start && (vr->ifp != NULL);
-	whynot = (!start && !whynot) ? "No base interface" : NULL;
+	whynot = (!start && !whynot) ? "No base interface" : whynot;
 #if 0
 	/* Parent interface must be up */
 	start = start && if_is_operative(vr->ifp);
 #endif
 	/* Must have a macvlan interface */
 	start = start && (r->mvl_ifp != NULL);
-	whynot = (!start && !whynot) ? "No VRRP interface" : NULL;
+	whynot = (!start && !whynot) ? "No VRRP interface" : whynot;
 #if 0
 	/* Macvlan interface must be admin up */
 	start = start && CHECK_FLAG(r->mvl_ifp->flags, IFF_UP);
