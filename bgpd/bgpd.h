@@ -232,6 +232,11 @@ enum bgp_instance_type {
 	BGP_INSTANCE_TYPE_VIEW
 };
 
+#define BGP_SEND_EOR(bgp, afi, safi)				\
+	(!bgp_flag_check(bgp, BGP_FLAG_GR_DISABLE_EOR) &&	\
+	((bgp->gr_info[afi][safi].t_select_deferral == NULL) || \
+	 (bgp->gr_info[afi][safi].eor_required ==		\
+	  bgp->gr_info[afi][safi].eor_received)))
 
 /* BGP GR Global ds */
 
@@ -1061,6 +1066,10 @@ struct peer {
 
 	/* NSF mode (graceful restart) */
 	uint8_t nsf[AFI_MAX][SAFI_MAX];
+	/* EOR Send time */
+	time_t eor_stime[AFI_MAX][SAFI_MAX];
+	/* Last update packet sent time */
+	time_t pkt_stime[AFI_MAX][SAFI_MAX];
 
 	/* Peer Per AF flags */
 	/*

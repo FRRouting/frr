@@ -68,6 +68,27 @@ struct bgp;
 						vty, p, use_json, json); \
 	} while (0)
 
+
+#define PRINT_EOR(_eor_flag) \
+	do {			\
+		if (eor_flag)  \
+			vty_out(vty, "Yes\n");  \
+		else    \
+			vty_out(vty, "No\n"); \
+	} while (0)
+
+#define PRINT_EOR_JSON(_eor_flag) \
+	do {			\
+		if (eor_flag) \
+			json_object_boolean_true_add( \
+				json_endofrib_status,     \
+				"endOfRibSentAfterUpdate"); \
+		else                            \
+			json_object_boolean_false_add( \
+				json_endofrib_status,      \
+				"endOfRibSentAfterUpdate"); \
+	} while (0)
+
 extern void bgp_vty_init(void);
 extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
 extern int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,

@@ -449,13 +449,19 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 						/* If EOR is disabled,
 						 * the message is  not sent
 						 */
-						if (!bgp_flag_check(peer->bgp,
-							BGP_FLAG_GR_DISABLE_EOR
-								)) {
+						if (BGP_SEND_EOR(peer->bgp,
+								afi, safi)) {
 							SET_FLAG(
 							peer->af_sflags
 							[afi][safi],
 							PEER_STATUS_EOR_SEND);
+
+							/* Update EOR
+							 * send time
+							 */
+							peer->eor_stime
+							[afi][safi] =
+							monotime(NULL);
 
 							BGP_UPDATE_EOR_PKT(
 								peer, afi,
@@ -465,6 +471,10 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 				}
 				continue;
 			}
+
+			/* Update packet send time */
+			peer->pkt_stime[afi][safi] = monotime(NULL);
+
 			/* Found a packet template to send, overwrite
 			 * packet with appropriate attributes from peer
 			 * and advance peer */
@@ -2421,4 +2431,15 @@ int bgp_process_packet(struct thread *thread)
 	}
 
 	return 0;
+}
+
+/* Send EOR when routes are processed by selection deferral timer */
+void bgp_send_delayed_eor(struct bgp *bgp)
+{
+	struct peer *peer;
+	struct listnode *node, *nnode;
+
+	/* EOR message sent in bgp_write_proceed_actions */
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+		bgp_write_proceed_actions(peer);
 }

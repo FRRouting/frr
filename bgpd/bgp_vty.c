@@ -9474,6 +9474,7 @@ static void  bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 	json_object *json_afi_safi = NULL;
 	json_object *json_timer = NULL;
 	json_object *json_endofrib_status = NULL;
+	bool eor_flag = false;
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
@@ -9489,6 +9490,12 @@ static void  bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 					json_timer =
 						json_object_new_object();
 				}
+
+				if (peer->eor_stime[afi][safi] >=
+				    peer->pkt_stime[afi][safi])
+					eor_flag = true;
+				else
+					eor_flag = false;
 
 				if (!use_json) {
 					vty_out(vty, "    %s :\n",
@@ -9555,21 +9562,31 @@ static void  bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 
 				if (CHECK_FLAG(peer->af_sflags[afi][safi],
 						PEER_STATUS_EOR_SEND)) {
-
 					if (use_json) {
 						json_object_boolean_true_add(
 						json_endofrib_status,
 							 "endOfRibSend");
+
+						PRINT_EOR_JSON(eor_flag);
 					} else {
 						vty_out(vty, "Yes\n");
-					}
+						vty_out(vty,
+						"     EoRSentAfterUpdate   : ");
 
+						PRINT_EOR(eor_flag);
+					}
 				} else {
 					if (use_json) {
 						json_object_boolean_false_add(
 						json_endofrib_status,
 							"endOfRibSend");
+						json_object_boolean_false_add(
+						json_endofrib_status,
+						 "endOfRibSentAfterUpdate");
 					} else {
+						vty_out(vty, "No\n");
+						vty_out(vty,
+						"     EoRSentAfterUpdate   : ");
 						vty_out(vty, "No\n");
 					}
 				}

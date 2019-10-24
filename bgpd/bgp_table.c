@@ -141,12 +141,13 @@ void bgp_delete_listnode(struct bgp_node *node)
 	 */
 	if (CHECK_FLAG(node->flags, BGP_NODE_SELECT_DEFER)) {
 		table = bgp_node_table(node);
-		if (table)
-			bgp = table->bgp;
-		rn = bgp_node_to_rnode(node);
 
-		afi = table->afi;
-		safi = table->safi;
+		if (table) {
+			bgp = table->bgp;
+			afi = table->afi;
+			safi = table->safi;
+		}
+		rn = bgp_node_to_rnode(node);
 
 		if (bgp && rn && rn->lock == 1) {
 			/* Delete the route from the selection pending list */

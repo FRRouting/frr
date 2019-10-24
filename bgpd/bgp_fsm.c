@@ -1197,15 +1197,20 @@ int bgp_stop(struct peer *peer)
 				    !CHECK_FLAG(peer->af_sflags[afi][safi],
 						PEER_STATUS_EOR_RECEIVED)) {
 					gr_info = &bgp->gr_info[afi][safi];
-					if (gr_info && gr_info->eor_required)
+
+					if (gr_info && (gr_info->eor_required))
 						gr_info->eor_required--;
-					if (BGP_DEBUG(update, UPDATE_OUT))
-						zlog_debug("peer %s, EOR %d",
+
+					if (gr_info && BGP_DEBUG(update,
+						UPDATE_OUT))
+						zlog_debug(
+							"peer %s, EOR %d",
 							peer->host,
 							gr_info->eor_required);
 
 					/* There is no pending EOR message */
-					if (gr_info->eor_required == 0) {
+					if (gr_info && gr_info->eor_required
+							== 0) {
 						BGP_TIMER_OFF(
 						gr_info->t_select_deferral);
 						gr_info->eor_received = 0;
@@ -1813,7 +1818,15 @@ static int bgp_establish(struct peer *peer)
 					if (status < 0)
 						zlog_debug("Error in updating graceful restart for %s",
 						get_afi_safi_str(afi,
-						safi, false));
+							safi, false));
+				} else {
+					if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(
+						peer) &&
+						BGP_PEER_RESTARTING_MODE(peer)
+						&& bgp_flag_check(peer->bgp,
+						BGP_FLAG_GR_PRESERVE_FWD))
+						peer->bgp->gr_info[afi][safi]
+							.eor_required++;
 				}
 			}
 		}
