@@ -310,9 +310,13 @@ static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
 				if (up) {
 					if (strcmp(si->ifname, ifp->name))
 						continue;
+					if (si->nh_vrf_id != ifp->vrf_id)
+						continue;
 					si->ifindex = ifp->ifindex;
 				} else {
 					if (si->ifindex != ifp->ifindex)
+						continue;
+					if (si->nh_vrf_id != ifp->vrf_id)
 						continue;
 					si->ifindex = IFINDEX_INTERNAL;
 				}
