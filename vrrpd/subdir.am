@@ -19,6 +19,7 @@ vrrpd_libvrrp_a_SOURCES = \
 	vrrpd/vrrp_packet.c \
 	vrrpd/vrrp_vty.c \
 	vrrpd/vrrp_zebra.c \
+	vrrpd/vrrp_vrf.c \
 	# end
 
 noinst_HEADERS += \
@@ -29,6 +30,7 @@ noinst_HEADERS += \
 	vrrpd/vrrp_packet.h \
 	vrrpd/vrrp_vty.h \
 	vrrpd/vrrp_zebra.h \
+	vrrpd/vrrp_vrf.h \
 	# end
 
 vrrpd/vrrp_vty_clippy.c: $(CLIPPY_DEPS)

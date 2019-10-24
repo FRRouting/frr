@@ -38,6 +38,7 @@ ldpd_libldp_a_SOURCES = \
 	ldpd/pfkey.c \
 	ldpd/socket.c \
 	ldpd/util.c \
+	ldpd/ldp_vrf.c \
 	# end
 
 ldpd/ldp_vty_cmds_clippy.c: $(CLIPPY_DEPS)
@@ -52,6 +53,8 @@ noinst_HEADERS += \
 	ldpd/ldpd.h \
 	ldpd/ldpe.h \
 	ldpd/log.h \
+	ldpd/ldp_vrf.h \
+	ldpd/ldp_zebra.h \
 	# end
 
 ldpd_ldpd_SOURCES = ldpd/ldpd.c

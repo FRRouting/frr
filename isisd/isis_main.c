@@ -51,6 +51,7 @@
 #include "isisd/isis_route.h"
 #include "isisd/isis_routemap.h"
 #include "isisd/isis_zebra.h"
+#include "isisd/isis_vrf.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_errors.h"
 #include "isisd/isis_bfd.h"
@@ -227,7 +228,7 @@ int main(int argc, char **argv, char **envp)
 	 */
 	isis_error_init();
 	access_list_init();
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	isis_vrf_init();
 	prefix_list_init();
 	isis_init();
 	isis_circuit_init();

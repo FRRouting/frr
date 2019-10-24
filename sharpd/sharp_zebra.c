@@ -422,3 +422,18 @@ void sharp_zebra_init(void)
 	zclient->redistribute_route_add = sharp_redistribute_route;
 	zclient->redistribute_route_del = sharp_redistribute_route;
 }
+
+void sharpd_zebra_vrf_register(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+	zclient_send_reg_requests(zclient, vrf->vrf_id);
+}
+
+void sharpd_zebra_vrf_unregister(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+	zclient_send_dereg_requests(zclient, vrf->vrf_id);
+}
+

@@ -25,6 +25,7 @@
 #include "libfrr.h"
 
 #include "nhrpd.h"
+#include "nhrp_vrf.h"
 #include "netlink.h"
 #include "nhrp_errors.h"
 
@@ -138,7 +139,7 @@ int main(int argc, char **argv)
 	/* Library inits. */
 	master = frr_init();
 	nhrp_error_init();
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	nhrp_vrf_init();
 	nhrp_interface_init();
 	resolver_init(master);
 

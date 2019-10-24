@@ -444,4 +444,6 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb);
 void nhrp_peer_send(struct nhrp_peer *p, struct zbuf *zb);
 void nhrp_peer_send_indication(struct interface *ifp, uint16_t, struct zbuf *);
 
+extern void nhrp_zebra_vrf_register(struct vrf *vrf);
+extern void nhrp_zebra_vrf_unregister(struct vrf *vrf);
 #endif

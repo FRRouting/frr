@@ -45,6 +45,7 @@
 #include "nexthop_group.h"
 
 #include "sharp_zebra.h"
+#include "sharp_vrf.h"
 #include "sharp_vty.h"
 #include "sharp_globals.h"
 
@@ -159,7 +160,7 @@ int main(int argc, char **argv, char **envp)
 	sharp_global_init();
 
 	nexthop_group_init(NULL, NULL, NULL, NULL);
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	sharpd_vrf_init();
 
 	access_list_init();
 	route_map_init();

@@ -28,6 +28,7 @@ babeld_libbabel_a_SOURCES = \
 	babeld/source.c \
 	babeld/util.c \
 	babeld/xroute.c \
+	babeld/babel_vrf.c \
 	# end
 
 noinst_HEADERS += \
@@ -46,6 +47,7 @@ noinst_HEADERS += \
 	babeld/source.h \
 	babeld/util.h \
 	babeld/xroute.h \
+	babeld/babel_vrf.h \
 	# end
 
 babeld_babeld_SOURCES = babeld/babel_main.c

@@ -30,6 +30,7 @@
 
 #include "vty.h"
 #include "vrf.h"
+#include "eigrp_structs.h"
 
 extern void eigrp_zebra_init(void);
 
@@ -39,4 +40,6 @@ extern void eigrp_zebra_route_delete(struct eigrp *eigrp, struct prefix *);
 extern int eigrp_redistribute_set(struct eigrp *, int, struct eigrp_metrics);
 extern int eigrp_redistribute_unset(struct eigrp *, int);
 
+extern void eigrp_zebra_vrf_register(struct vrf *vrf);
+extern void eigrp_zebra_vrf_unregister(struct vrf *vrf);
 #endif /* _ZEBRA_EIGRP_ZEBRA_H_ */

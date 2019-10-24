@@ -31,4 +31,6 @@ void babelz_zebra_init(void);
 void babel_zebra_close_connexion(void);
 extern int debug_babel_config_write (struct vty *);
 
+void babel_zebra_vrf_register(struct vrf *vrf);
+void babel_zebra_vrf_unregister(struct vrf *vrf);
 #endif

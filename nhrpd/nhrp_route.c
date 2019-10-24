@@ -359,3 +359,17 @@ void nhrp_zebra_terminate(void)
 	route_table_finish(zebra_rib[AFI_IP]);
 	route_table_finish(zebra_rib[AFI_IP6]);
 }
+
+void nhrp_zebra_vrf_register(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+	zclient_send_reg_requests(zclient, vrf->vrf_id);
+}
+
+void nhrp_zebra_vrf_unregister(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+	zclient_send_dereg_requests(zclient, vrf->vrf_id);
+}

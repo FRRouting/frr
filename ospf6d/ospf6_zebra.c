@@ -616,3 +616,18 @@ void install_element_ospf6_debug_zebra(void)
 	install_element(CONFIG_NODE, &debug_ospf6_zebra_sendrecv_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf6_zebra_sendrecv_cmd);
 }
+
+void ospf6_zebra_vrf_register(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+	zclient_send_reg_requests(zclient, vrf->vrf_id);
+}
+
+void ospf6_zebra_vrf_unregister(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+	zclient_send_dereg_requests(zclient, vrf->vrf_id);
+}
+

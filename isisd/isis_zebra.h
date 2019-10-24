@@ -39,4 +39,7 @@ int isis_distribute_list_update(int routetype);
 void isis_zebra_redistribute_set(afi_t afi, int type);
 void isis_zebra_redistribute_unset(afi_t afi, int type);
 
+void isis_zebra_vrf_register(struct vrf *vrf);
+void isis_zebra_vrf_unregister(struct vrf *vrf);
+
 #endif /* _ZEBRA_ISIS_ZEBRA_H */

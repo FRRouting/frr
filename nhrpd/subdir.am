@@ -29,6 +29,7 @@ nhrpd_nhrpd_SOURCES = \
 	nhrpd/vici.c \
 	nhrpd/zbuf.c \
 	nhrpd/znl.c \
+	nhrpd/nhrp_vrf.c \
 	# end
 
 noinst_HEADERS += \
@@ -42,4 +43,5 @@ noinst_HEADERS += \
 	nhrpd/vici.h \
 	nhrpd/zbuf.h \
 	nhrpd/znl.h \
+	nhrpd/nhrp_vrf.h \
 	# end

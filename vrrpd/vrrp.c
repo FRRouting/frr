@@ -37,6 +37,7 @@
 #include "vrrp_ndisc.h"
 #include "vrrp_packet.h"
 #include "vrrp_zebra.h"
+#include "vrrp_vrf.h"
 
 #define VRRP_LOGPFX "[CORE] "
 
@@ -2369,7 +2370,7 @@ void vrrp_init(void)
 	vrrp_autoconfig_version = 3;
 	vrrp_vrouters_hash = hash_create(&vrrp_hash_key, vrrp_hash_cmp,
 					 "VRRP virtual router hash");
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrrp_vrf_init();
 }
 
 void vrrp_fini(void)

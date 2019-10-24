@@ -33,6 +33,8 @@
 #include "lde.h"
 #include "log.h"
 #include "ldp_debug.h"
+#include "ldp_vrf.h"
+#include "ldp_zebra.h"
 
 static void	 ifp2kif(struct interface *, struct kif *);
 static void	 ifc2kaddr(struct interface *, struct connected *,
@@ -544,4 +546,18 @@ ldp_zebra_destroy(void)
 	zclient_stop(zclient);
 	zclient_free(zclient);
 	zclient = NULL;
+}
+
+void ldp_zebra_vrf_register(struct vrf *vrf)
+{
+        if (vrf->vrf_id == VRF_DEFAULT)
+                return;
+        zclient_send_reg_requests(zclient, vrf->vrf_id);
+}
+
+void ldp_zebra_vrf_unregister(struct vrf *vrf)
+{
+        if (vrf->vrf_id == VRF_DEFAULT)
+                return;
+        zclient_send_dereg_requests(zclient, vrf->vrf_id);
 }

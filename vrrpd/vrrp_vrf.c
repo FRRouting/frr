@@ -1,7 +1,7 @@
 /*
- * eigrp - vrf code
- * Copyright (C) 2019 Cumulus Networks, Inc.
- *               Donald Sharp
+ * vrrp - vrf code
+ * Copyright (C) 2019 VMware Inc.
+ *               Kishore Aramalla
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -20,35 +20,34 @@
 #include <zebra.h>
 
 #include "vrf.h"
+#include "vrrp.h"
+#include "vrrp_vrf.h"
+#include "vrrp_zebra.h"
 
-#include "eigrpd/eigrp_vrf.h"
-#include "eigrpd/eigrp_zebra.h"
-
-
-static int eigrp_vrf_new(struct vrf *vrf)
+static int vrrp_vrf_new(struct vrf *vrf)
 {
 	return 0;
 }
 
-static int eigrp_vrf_enable(struct vrf *vrf)
+static int vrrp_vrf_enable(struct vrf *vrf)
 {
-	eigrp_zebra_vrf_register(vrf);
+	vrrp_zebra_vrf_register(vrf);
 	return 0;
 }
 
-static int eigrp_vrf_disable(struct vrf *vrf)
+static int vrrp_vrf_disable(struct vrf *vrf)
 {
-	eigrp_zebra_vrf_unregister(vrf);
+	vrrp_zebra_vrf_unregister(vrf);
 	return 0;
 }
 
-static int eigrp_vrf_delete(struct vrf *vrf)
+static int vrrp_vrf_delete(struct vrf *vrf)
 {
 	return 0;
 }
 
-void eigrp_vrf_init(void)
+void vrrp_vrf_init(void)
 {
-	vrf_init(eigrp_vrf_new, eigrp_vrf_enable,
-		 eigrp_vrf_disable, eigrp_vrf_delete, NULL);
+	vrf_init(vrrp_vrf_new, vrrp_vrf_enable, vrrp_vrf_disable,
+		 vrrp_vrf_delete, NULL);
 }

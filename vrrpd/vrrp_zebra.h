@@ -34,4 +34,6 @@ extern int vrrp_ifp_up(struct interface *ifp);
 extern int vrrp_ifp_down(struct interface *ifp);
 extern int vrrp_ifp_destroy(struct interface *ifp);
 
+void vrrp_zebra_vrf_register(struct vrf *vrf);
+void vrrp_zebra_vrf_unregister(struct vrf *vrf);
 #endif /* __VRRP_ZEBRA_H__ */

@@ -260,3 +260,17 @@ babel_zebra_close_connexion(void)
     zclient_stop(zclient);
     zclient_free(zclient);
 }
+
+void babel_zebra_vrf_register(struct vrf *vrf)
+{
+        if (vrf->vrf_id == VRF_DEFAULT)
+                return;
+        zclient_send_reg_requests(zclient, vrf->vrf_id);
+}
+
+void babel_zebra_vrf_unregister(struct vrf *vrf)
+{
+        if (vrf->vrf_id == VRF_DEFAULT)
+                return;
+        zclient_send_dereg_requests(zclient, vrf->vrf_id);
+}

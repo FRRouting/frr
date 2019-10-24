@@ -29,6 +29,7 @@
 #include "vrrp.h"
 #include "vrrp_debug.h"
 #include "vrrp_zebra.h"
+#include "vrrp_vrf.h"
 
 #define VRRP_LOGPFX "[ZEBRA] "
 
@@ -206,3 +207,18 @@ void vrrp_zebra_init(void)
 
 	zlog_notice("%s: zclient socket initialized", __PRETTY_FUNCTION__);
 }
+
+void vrrp_zebra_vrf_register(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+	zclient_send_reg_requests(zclient, vrf->vrf_id);
+}
+
+void vrrp_zebra_vrf_unregister(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+	zclient_send_dereg_requests(zclient, vrf->vrf_id);
+}
+

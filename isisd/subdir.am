@@ -55,6 +55,7 @@ noinst_HEADERS += \
 	isisd/isisd.h \
 	isisd/iso_checksum.h \
 	isisd/fabricd.h \
+	isisd/isis_vrf.h \
 	# end
 
 LIBISIS_SOURCES = \
@@ -84,6 +85,7 @@ LIBISIS_SOURCES = \
 	isisd/isisd.c \
 	isisd/iso_checksum.c \
 	isisd/fabricd.c \
+	isisd/isis_vrf.c \
 	# end
 
 ISIS_SOURCES = \

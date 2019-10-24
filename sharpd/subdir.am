@@ -13,6 +13,7 @@ endif
 sharpd_libsharp_a_SOURCES = \
 	sharpd/sharp_nht.c \
 	sharpd/sharp_zebra.c \
+	sharpd/sharp_vrf.c \
 	sharpd/sharp_vty.c \
 	# end
 
@@ -21,6 +22,7 @@ noinst_HEADERS += \
 	sharpd/sharp_vty.h \
 	sharpd/sharp_globals.h \
 	sharpd/sharp_zebra.h \
+	sharpd/sharp_vrf.h \
 	# end
 
 sharpd/sharp_vty_clippy.c: $(CLIPPY_DEPS)

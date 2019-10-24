@@ -47,6 +47,7 @@
 #include "ospf6_lsa.h"
 #include "ospf6_interface.h"
 #include "ospf6_zebra.h"
+#include "ospf6_vrf.h"
 
 /* Default configuration file name for ospf6d. */
 #define OSPF6_DEFAULT_CONFIG       "ospf6d.conf"
@@ -217,7 +218,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* thread master */
 	master = frr_init();
 
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	ospf6_vrf_init();
 	access_list_init();
 	prefix_list_init();
 

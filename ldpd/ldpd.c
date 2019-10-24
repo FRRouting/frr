@@ -43,6 +43,7 @@
 #include "qobj.h"
 #include "libfrr.h"
 #include "lib_errors.h"
+#include "ldp_vrf.h"
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int);
@@ -347,7 +348,7 @@ main(int argc, char *argv[])
 
 	master = frr_init();
 
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	ldp_vrf_init();
 	access_list_init();
 	ldp_vty_init();
 	ldp_zebra_init(master);

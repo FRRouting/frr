@@ -47,6 +47,7 @@ THE SOFTWARE.
 #include "resend.h"
 #include "babel_zebra.h"
 #include "babel_errors.h"
+#include "babel_vrf.h"
 
 static void babel_fail(void);
 static void babel_init_random(void);
@@ -208,6 +209,8 @@ main(int argc, char **argv)
     /* init zebra client's structure and it's commands */
     /* this replace kernel_setup && kernel_setup_socket */
     babelz_zebra_init ();
+
+    babel_vrf_init();
 
     /* init buffer */
     rc = resize_receive_buffer(1500);

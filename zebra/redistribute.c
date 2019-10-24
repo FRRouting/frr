@@ -463,15 +463,19 @@ void zebra_interface_up_update(struct interface *ifp)
 	struct listnode *node, *nnode;
 	struct zserv *client;
 
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_UP %s(%u)",
-			   ifp->name, ifp->vrf_id);
-
 	if (ifp->ptm_status || !ifp->ptm_enable) {
 		for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode,
 				       client)) {
-			zsend_interface_update(ZEBRA_INTERFACE_UP,
-					       client, ifp);
+			if (!vrf_bitmap_check(client->vrf_reg_info,
+					     ifp->vrf_id))
+				continue;
+
+			if (IS_ZEBRA_DEBUG_EVENT)
+				zlog_debug("ZEBRA_INTERFACE_UP %s(%u) to zclient: %s",
+					   ifp->name, ifp->vrf_id,
+					   zebra_route_string(client->proto));
+
+			zsend_interface_update(ZEBRA_INTERFACE_UP, client, ifp);
 			zsend_interface_link_params(client, ifp);
 		}
 	}
@@ -483,11 +487,15 @@ void zebra_interface_down_update(struct interface *ifp)
 	struct listnode *node, *nnode;
 	struct zserv *client;
 
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_DOWN %s(%u)",
-			   ifp->name, ifp->vrf_id);
-
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+		if (!vrf_bitmap_check(client->vrf_reg_info, ifp->vrf_id))
+			continue;
+
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("ZEBRA_INTERFACE_DOWN %s(%u) to zclient: %s",
+				   ifp->name, ifp->vrf_id,
+				   zebra_route_string(client->proto));
+
 		zsend_interface_update(ZEBRA_INTERFACE_DOWN, client, ifp);
 	}
 }
@@ -498,11 +506,15 @@ void zebra_interface_add_update(struct interface *ifp)
 	struct listnode *node, *nnode;
 	struct zserv *client;
 
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADD %s(%u)", ifp->name,
-			   ifp->vrf_id);
-
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+		if (!vrf_bitmap_check(client->vrf_reg_info, ifp->vrf_id))
+			continue;
+
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("ZEBRA_INTERFACE_ADD %s(%u) to zclient: %s",
+				   ifp->name, ifp->vrf_id,
+				   zebra_route_string(client->proto));
+
 		client->ifadd_cnt++;
 		zsend_interface_add(client, ifp);
 		zsend_interface_link_params(client, ifp);
@@ -514,11 +526,15 @@ void zebra_interface_delete_update(struct interface *ifp)
 	struct listnode *node, *nnode;
 	struct zserv *client;
 
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_DELETE %s(%u)",
-			   ifp->name, ifp->vrf_id);
-
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+		if (!vrf_bitmap_check(client->vrf_reg_info, ifp->vrf_id))
+			continue;
+
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("ZEBRA_INTERFACE_DELETE %s(%u) to zclient: %s",
+				   ifp->name, ifp->vrf_id,
+				   zebra_route_string(client->proto));
+
 		client->ifdel_cnt++;
 		zsend_interface_delete(client, ifp);
 	}
@@ -531,14 +547,16 @@ void zebra_interface_address_add_update(struct interface *ifp,
 	struct listnode *node, *nnode;
 	struct zserv *client;
 	struct prefix *p;
+	char buf1[256];
 
 	if (IS_ZEBRA_DEBUG_EVENT) {
 		char buf[PREFIX_STRLEN];
 
 		p = ifc->address;
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADDRESS_ADD %s on %s(%u)",
-			   prefix2str(p, buf, sizeof(buf)), ifp->name,
-			   ifp->vrf_id);
+		snprintf(buf1, sizeof(buf1),
+			 "ZEBRA_INTERFACE_ADDRESS_ADD %s on %s(%u)",
+			 prefix2str(p, buf, sizeof(buf)), ifp->name,
+			 ifp->vrf_id);
 	}
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
@@ -550,12 +568,21 @@ void zebra_interface_address_add_update(struct interface *ifp,
 
 	router_id_add_address(ifc);
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client))
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL)) {
+			if (!vrf_bitmap_check(client->vrf_reg_info,
+					      ifp->vrf_id))
+				continue;
+
+			if (IS_ZEBRA_DEBUG_EVENT)
+				zlog_debug("%s to zclient: %s", buf1,
+				    zebra_route_string(client->proto));
+
 			client->connected_rt_add_cnt++;
 			zsend_interface_address(ZEBRA_INTERFACE_ADDRESS_ADD,
 						client, ifp, ifc);
 		}
+	}
 }
 
 /* Interface address deletion. */
@@ -565,26 +592,37 @@ void zebra_interface_address_delete_update(struct interface *ifp,
 	struct listnode *node, *nnode;
 	struct zserv *client;
 	struct prefix *p;
+	char buf1[256];
 
 	if (IS_ZEBRA_DEBUG_EVENT) {
 		char buf[PREFIX_STRLEN];
 
 		p = ifc->address;
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE %s on %s(%u)",
-			   prefix2str(p, buf, sizeof(buf)),
-			   ifp->name, ifp->vrf_id);
+		snprintf(buf1, sizeof(buf1),
+			 "ZEBRA_INTERFACE_ADDRESS_DELETE %s on %s(%u)",
+			 prefix2str(p, buf, sizeof(buf)),
+			 ifp->name, ifp->vrf_id);
 	}
 
 	zebra_vxlan_add_del_gw_macip(ifp, ifc->address, 0);
 
 	router_id_del_address(ifc);
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client))
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL)) {
+			if (!vrf_bitmap_check(client->vrf_reg_info,
+					      ifp->vrf_id))
+				continue;
+
+			if (IS_ZEBRA_DEBUG_EVENT)
+				zlog_debug("%s to zclient: %s", buf1,
+				    zebra_route_string(client->proto));
+
 			client->connected_rt_del_cnt++;
 			zsend_interface_address(ZEBRA_INTERFACE_ADDRESS_DELETE,
 						client, ifp, ifc);
 		}
+	}
 }
 
 /* Interface VRF change. May need to delete from clients not interested in
@@ -594,19 +632,26 @@ void zebra_interface_vrf_update_del(struct interface *ifp, vrf_id_t new_vrf_id)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
+	char buf[256];
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug(
-			"MESSAGE: ZEBRA_INTERFACE_VRF_UPDATE/DEL %s VRF Id %u -> %u",
-			ifp->name, ifp->vrf_id, new_vrf_id);
+		snprintf(buf, sizeof(buf),
+			 "ZEBRA_INTERFACE_VRF_UPDATE/DEL %s VRF Id %u -> %u",
+			 ifp->name, ifp->vrf_id, new_vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		/* Need to delete if the client is not interested in the new
 		 * VRF. */
+		if (!vrf_bitmap_check(client->vrf_reg_info, ifp->vrf_id))
+			continue;
+
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("%s to zclient: %s", buf,
+			    zebra_route_string(client->proto));
+
 		zsend_interface_update(ZEBRA_INTERFACE_DOWN, client, ifp);
 		client->ifdel_cnt++;
 		zsend_interface_delete(client, ifp);
-		zsend_interface_vrf_update(client, ifp, new_vrf_id);
 	}
 }
 
@@ -617,17 +662,25 @@ void zebra_interface_vrf_update_add(struct interface *ifp, vrf_id_t old_vrf_id)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
+	char buf[256];
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug(
-			"MESSAGE: ZEBRA_INTERFACE_VRF_UPDATE/ADD %s VRF Id %u -> %u",
-			ifp->name, old_vrf_id, ifp->vrf_id);
+		snprintf(buf, sizeof(buf),
+			 "ZEBRA_INTERFACE_VRF_UPDATE/ADD %s VRF Id %u -> %u",
+			 ifp->name, old_vrf_id, ifp->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		/* Need to add if the client is interested in the new VRF. */
+		if (!vrf_bitmap_check(client->vrf_reg_info, ifp->vrf_id))
+			continue;
+
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("%s to zclient: %s", buf,
+			    zebra_route_string(client->proto));
+
 		client->ifadd_cnt++;
 		zsend_interface_add(client, ifp);
-		zsend_interface_addresses(client, ifp);
+		zsend_interface_link_params(client, ifp);
 	}
 }
 
@@ -907,10 +960,15 @@ void zebra_interface_parameters_update(struct interface *ifp)
 	struct listnode *node, *nnode;
 	struct zserv *client;
 
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_LINK_PARAMS %s(%u)",
-			   ifp->name, ifp->vrf_id);
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+		if (!vrf_bitmap_check(client->vrf_reg_info, ifp->vrf_id))
+			continue;
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client))
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("ZEBRA_INTERFACE_LINK_PARAMS %s(%u) to zclient: %s",
+				   ifp->name, ifp->vrf_id,
+				   zebra_route_string(client->proto));
+
 		zsend_interface_link_params(client, ifp);
+	}
 }

@@ -317,3 +317,17 @@ int eigrp_redistribute_unset(struct eigrp *eigrp, int type)
 
 	return CMD_SUCCESS;
 }
+
+void eigrp_zebra_vrf_register(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+	zclient_send_reg_requests(zclient, vrf->vrf_id);
+}
+
+void eigrp_zebra_vrf_unregister(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+	zclient_send_dereg_requests(zclient, vrf->vrf_id);
+}

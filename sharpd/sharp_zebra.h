@@ -37,4 +37,6 @@ extern void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 					uint32_t routes);
 extern void sharp_remove_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 				       uint8_t instance, uint32_t routes);
+extern void sharpd_zebra_vrf_register(struct vrf *vrf);
+extern void sharpd_zebra_vrf_unregister(struct vrf *vrf);
 #endif

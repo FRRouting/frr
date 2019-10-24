@@ -65,4 +65,6 @@ extern int ospf6_distance_unset(struct vty *, struct ospf6 *, const char *,
 extern int config_write_ospf6_debug_zebra(struct vty *vty);
 extern void install_element_ospf6_debug_zebra(void);
 
+extern void ospf6_zebra_vrf_register(struct vrf *vrf);
+extern void ospf6_zebra_vrf_unregister(struct vrf *vrf);
 #endif /*OSPF6_ZEBRA_H*/

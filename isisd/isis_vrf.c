@@ -1,7 +1,7 @@
 /*
- * eigrp - vrf code
- * Copyright (C) 2019 Cumulus Networks, Inc.
- *               Donald Sharp
+ * isis - vrf code
+ * Copyright (C) 2019 VMware Inc.
+ *               Kishore Aramalla
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -21,34 +21,34 @@
 
 #include "vrf.h"
 
-#include "eigrpd/eigrp_vrf.h"
-#include "eigrpd/eigrp_zebra.h"
+#include "isisd/isis_vrf.h"
+#include "isisd/isis_zebra.h"
 
 
-static int eigrp_vrf_new(struct vrf *vrf)
+static int isis_vrf_new(struct vrf *vrf)
 {
 	return 0;
 }
 
-static int eigrp_vrf_enable(struct vrf *vrf)
+static int isis_vrf_enable(struct vrf *vrf)
 {
-	eigrp_zebra_vrf_register(vrf);
+	isis_zebra_vrf_register(vrf);
 	return 0;
 }
 
-static int eigrp_vrf_disable(struct vrf *vrf)
+static int isis_vrf_disable(struct vrf *vrf)
 {
-	eigrp_zebra_vrf_unregister(vrf);
+	isis_zebra_vrf_unregister(vrf);
 	return 0;
 }
 
-static int eigrp_vrf_delete(struct vrf *vrf)
+static int isis_vrf_delete(struct vrf *vrf)
 {
 	return 0;
 }
 
-void eigrp_vrf_init(void)
+void isis_vrf_init(void)
 {
-	vrf_init(eigrp_vrf_new, eigrp_vrf_enable,
-		 eigrp_vrf_disable, eigrp_vrf_delete, NULL);
+	vrf_init(isis_vrf_new, isis_vrf_enable, isis_vrf_disable,
+		 isis_vrf_delete, NULL);
 }
