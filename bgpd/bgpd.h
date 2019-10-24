@@ -408,6 +408,7 @@ struct bgp {
 #define BGP_FLAG_GRACEFUL_SHUTDOWN        (1 << 21)
 #define BGP_FLAG_DELETE_IN_PROGRESS       (1 << 22)
 #define BGP_FLAG_SELECT_DEFER_DISABLE     (1 << 23)
+#define BGP_FLAG_GR_DISABLE_EOR           (1 << 24)
 
 	enum global_mode GLOBAL_GR_FSM[GLOBAL_MODE][EVENT_CMD];
 	enum global_mode global_gr_present_state;

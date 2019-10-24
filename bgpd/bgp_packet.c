@@ -439,29 +439,32 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 			 */
 			if (!next_pkt || !next_pkt->buffer) {
 				if (CHECK_FLAG(peer->cap,
-					       PEER_CAP_RESTART_RCV)) {
+						PEER_CAP_RESTART_RCV)) {
 					if (!(PAF_SUBGRP(paf))->t_coalesce
-					    && peer->afc_nego[afi][safi]
-					    && peer->synctime
-					    && !CHECK_FLAG(
-						       peer->af_sflags[afi]
-								      [safi],
-						       PEER_STATUS_EOR_SEND)) {
-						SET_FLAG(peer->af_sflags[afi]
-									[safi],
-							 PEER_STATUS_EOR_SEND);
+						&& peer->afc_nego[afi][safi]
+						&& peer->synctime
+						&& !CHECK_FLAG(
+						peer->af_sflags[afi][safi],
+						PEER_STATUS_EOR_SEND)) {
+						/* If EOR is disabled,
+						 * the message is  not sent
+						 */
+						if (!bgp_flag_check(peer->bgp,
+							BGP_FLAG_GR_DISABLE_EOR
+								)) {
+							SET_FLAG(
+							peer->af_sflags
+							[afi][safi],
+							PEER_STATUS_EOR_SEND);
 
-						if ((s = bgp_update_packet_eor(
-							     peer, afi,
-							     safi))) {
-							bgp_packet_add(peer, s);
+							BGP_UPDATE_EOR_PKT(
+								peer, afi,
+								safi, s);
 						}
 					}
 				}
 				continue;
 			}
-
-
 			/* Found a packet template to send, overwrite
 			 * packet with appropriate attributes from peer
 			 * and advance peer */
@@ -1675,7 +1678,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 				 */
 				if (gr_info->eor_required ==
 						gr_info->eor_received) {
-					if (bgp_debug_neighbor_events(peer))
+					if (bgp_debug_neighbor_events(
+								peer))
 						zlog_debug("%s %d, %s %d",
 							"EOR REQ",
 							gr_info->eor_required,
