@@ -51,6 +51,9 @@
  * in isis_tlvs.[c,h].
  */
 
+#define SRGB_LOWER_BOUND               16000
+#define SRGB_UPPER_BOUND               23999
+
 PREDECL_RBTREE_UNIQ(tree_sr_node)
 PREDECL_RBTREE_UNIQ(tree_sr_node_prefix)
 PREDECL_RBTREE_UNIQ(tree_sr_area_prefix)

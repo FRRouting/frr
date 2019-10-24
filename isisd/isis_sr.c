@@ -770,9 +770,9 @@ static void isis_sr_prefix_reinstall(struct sr_prefix *srp,
 
 /* Parse all SR-related information from the given Router Capabilities TLV. */
 static struct sr_node *
-isis_sr_parse_route_cap_tlv(struct isis_area *area, int level,
-			    const uint8_t *sysid,
-			    const struct isis_router_cap *router_cap)
+isis_sr_parse_router_cap_tlv(struct isis_area *area, int level,
+			     const uint8_t *sysid,
+			     const struct isis_router_cap *router_cap)
 {
 	struct sr_node *srn;
 
@@ -859,8 +859,8 @@ static void isis_sr_parse_lsp(struct isis_area *area, int level,
 
 	/* Parse the Router Capability TLV. */
 	if (*srn == NULL) {
-		*srn = isis_sr_parse_route_cap_tlv(area, level, lsp->hdr.lsp_id,
-						   lsp->tlvs->router_cap);
+		*srn = isis_sr_parse_router_cap_tlv(
+			area, level, lsp->hdr.lsp_id, lsp->tlvs->router_cap);
 		if (!*srn)
 			return;
 	}
@@ -1566,8 +1566,8 @@ void isis_sr_area_init(struct isis_area *area)
 
 	memset(srdb, 0, sizeof(*srdb));
 	srdb->enabled = false;
+	tree_sr_adjacency_init(&srdb->adj_sids);
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
-		tree_sr_adjacency_init(&srdb->adj_sids);
 		tree_sr_node_init(&srdb->sr_nodes[level - 1]);
 		tree_sr_area_prefix_init(&srdb->prefix_sids[level - 1]);
 	}
@@ -1581,8 +1581,8 @@ void isis_sr_area_init(struct isis_area *area)
 		yang_get_default_uint32("%s/srgb/upper-bound", ISIS_SR);
 #else
 	srdb->config.enabled = false;
-	srdb->config.srgb_lower_bound = 16000;
-	srdb->config.srgb_upper_bound = 23999;
+	srdb->config.srgb_lower_bound = SRGB_LOWER_BOUND;
+	srdb->config.srgb_upper_bound = SRGB_UPPER_BOUND;
 #endif
 	srdb->config.msd = 0;
 	tree_sr_prefix_cfg_init(&srdb->config.prefix_sids);
