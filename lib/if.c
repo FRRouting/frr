@@ -1585,7 +1585,7 @@ static const void *lib_interface_lookup_entry(const void *parent_list_entry,
 	const char *vrfname = keys->key[1];
 	struct vrf *vrf = vrf_lookup_by_name(vrfname);
 
-	return if_lookup_by_name(ifname, vrf->vrf_id);
+	return vrf ? if_lookup_by_name(ifname, vrf->vrf_id) : NULL;
 }
 
 /*
