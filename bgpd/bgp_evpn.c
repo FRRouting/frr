@@ -2608,9 +2608,10 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		    && (struct bgp_path_info *)pi->extra->parent == parent_pi)
 			break;
 
-	if (!pi)
-		pi = bgp_create_evpn_bgp_path_info(parent_pi, rn);
-	else {
+	if (!pi) {
+		/* Create an info */
+		(void)bgp_create_evpn_bgp_path_info(parent_pi, rn);
+	} else {
 		if (attrhash_cmp(pi->attr, parent_pi->attr)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
 			bgp_unlock_node(rn);
