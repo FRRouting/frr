@@ -9368,13 +9368,12 @@ static void bgp_show_neighbor_graceful_restart_remote_mode(
 						bool use_json,
 						json_object *json)
 {
-	const char *mode = "NotReceived";
+	const char *mode = "NotApplicable";
 
 	if (!use_json)
 		vty_out(vty, "\n    Remote GR Mode : ");
 
 	if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) &&
-		(CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) &&
 		(peer->status == Established)) {
 
 		if ((peer->nsf_af_count == 0) &&
@@ -9383,12 +9382,14 @@ static void bgp_show_neighbor_graceful_restart_remote_mode(
 			/*Gr disabled case*/
 			mode = "Disable";
 
-		} else if (peer->nsf_af_count == 0) {
+		} else if (peer->nsf_af_count == 0 &&
+			CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
 
 			/* Helper */
 			mode = "Helper";
 
-		} else if (peer->nsf_af_count != 0) {
+		} else if (peer->nsf_af_count != 0 &&
+			CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
 
 			/* Restart */
 			mode = "Restart";
