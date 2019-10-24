@@ -251,6 +251,20 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	peer->remote_id = from_peer->remote_id;
 	peer->last_reset = from_peer->last_reset;
 
+	peer->peer_gr_present_state = from_peer->peer_gr_present_state;
+	peer->peer_gr_new_status_flag = from_peer->peer_gr_new_status_flag;
+	bgp_peer_gr_flags_update(peer);
+
+	if (bgp_peer_gr_mode_get(peer) == PEER_DISABLE) {
+
+		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
+
+		if (CHECK_FLAG(peer->sflags,
+					PEER_STATUS_NSF_WAIT)) {
+			peer_nsf_stop(peer);
+		}
+	}
+
 	if (from_peer->hostname != NULL) {
 		if (peer->hostname) {
 			XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
@@ -2604,5 +2618,25 @@ void bgp_peer_gr_flags_update(struct peer *peer)
 			peer->host,
 			(CHECK_FLAG(peer->flags,
 				PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT) ?
-				"Set" : "UnSet"));
+			 "Set" : "UnSet"));
+
+	if (!CHECK_FLAG(peer->flags,
+		PEER_FLAG_GRACEFUL_RESTART) &&
+		!CHECK_FLAG(peer->flags,
+			PEER_FLAG_GRACEFUL_RESTART_HELPER)){
+		zlog_debug(
+			"BGP_GR:: Peer %s UNSET PEER_STATUS_NSF_MODE!",
+			peer->host);
+
+		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
+
+		if (CHECK_FLAG(peer->sflags,
+				PEER_STATUS_NSF_WAIT)) {
+
+			peer_nsf_stop(peer);
+			zlog_debug(
+				"BGP_GR:: Peer %s UNSET PEER_STATUS_NSF_WAIT!",
+				peer->host);
+		}
+	}
 }

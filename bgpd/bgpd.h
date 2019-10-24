@@ -2081,5 +2081,6 @@ extern struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 
 /* Hooks */
 DECLARE_HOOK(peer_status_changed, (struct peer * peer), (peer))
+void peer_nsf_stop(struct peer *peer);
 
 #endif /* _QUAGGA_BGPD_H */

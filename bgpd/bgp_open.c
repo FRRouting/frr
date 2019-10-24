@@ -462,6 +462,8 @@ static int bgp_capability_restart(struct peer *peer,
 	restart_flag_time = stream_getw(s);
 	if (CHECK_FLAG(restart_flag_time, RESTART_R_BIT))
 		SET_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV);
+	else
+		UNSET_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV);
 
 	UNSET_FLAG(restart_flag_time, 0xF000);
 	peer->v_gr_restart = restart_flag_time;

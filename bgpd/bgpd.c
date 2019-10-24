@@ -1326,6 +1326,9 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->flags = peer_src->flags;
 	peer_dst->cap = peer_src->cap;
 
+	peer_dst->peer_gr_present_state = peer_src->peer_gr_present_state;
+	peer_dst->peer_gr_new_status_flag = peer_src->peer_gr_new_status_flag;
+
 	peer_dst->local_as = peer_src->local_as;
 	peer_dst->port = peer_src->port;
 	(void)peer_sort(peer_dst);
@@ -2213,7 +2216,7 @@ int peer_afc_set(struct peer *peer, afi_t afi, safi_t safi, int enable)
 		return peer_deactivate(peer, afi, safi);
 }
 
-static void peer_nsf_stop(struct peer *peer)
+void peer_nsf_stop(struct peer *peer)
 {
 	afi_t afi;
 	safi_t safi;

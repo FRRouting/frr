@@ -487,6 +487,18 @@ static int bgp_accept(struct thread *thread)
 	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 
 	peer_xfer_config(peer, peer1);
+	bgp_peer_gr_flags_update(peer);
+
+	if (bgp_peer_gr_mode_get(peer) == PEER_DISABLE) {
+
+		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
+
+		if (CHECK_FLAG(peer->sflags,
+				PEER_STATUS_NSF_WAIT)) {
+			peer_nsf_stop(peer);
+		}
+	}
+
 	UNSET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
 	peer->doppelganger = peer1;
@@ -497,10 +509,9 @@ static int bgp_accept(struct thread *thread)
 	BGP_TIMER_OFF(peer->t_start); /* created in peer_create() */
 
 	SET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
-
 	/* Make dummy peer until read Open packet. */
 	if (peer1->status == Established
-	    && CHECK_FLAG(peer1->sflags, PEER_STATUS_NSF_MODE)) {
+		&& CHECK_FLAG(peer1->sflags, PEER_STATUS_NSF_MODE)) {
 		/* If we have an existing established connection with graceful
 		 * restart
 		 * capability announced with one or more address families, then
@@ -508,7 +519,14 @@ static int bgp_accept(struct thread *thread)
 		 * existing established connection and move state to connect.
 		 */
 		peer1->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
-		SET_FLAG(peer1->sflags, PEER_STATUS_NSF_WAIT);
+
+		if (CHECK_FLAG(peer1->flags,
+			PEER_FLAG_GRACEFUL_RESTART) ||
+			CHECK_FLAG(peer1->flags,
+			PEER_FLAG_GRACEFUL_RESTART_HELPER))
+			SET_FLAG(peer1->sflags,
+				PEER_STATUS_NSF_WAIT);
+
 		bgp_event_update(peer1, TCP_connection_closed);
 	}
 
