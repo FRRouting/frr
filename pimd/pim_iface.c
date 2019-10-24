@@ -1481,6 +1481,13 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 
 		pim_if_new(pim->regiface, false, false, true,
 			false /*vxlan_term*/);
+		/*
+		 * On vrf moves we delete the interface if there
+		 * is nothing going on with it.  We cannot have
+		 * the pimregiface deleted.
+		 */
+		pim->regiface->configured = true;
+
 	}
 }
 
@@ -1581,6 +1588,7 @@ int pim_ifp_create(struct interface *ifp)
 
 int pim_ifp_up(struct interface *ifp)
 {
+	struct pim_interface *pim_ifp;
 	struct pim_instance *pim;
 	uint32_t table_id;
 
@@ -1593,24 +1601,21 @@ int pim_ifp_up(struct interface *ifp)
 	}
 
 	pim = pim_get_pim_instance(ifp->vrf_id);
-	if (if_is_operative(ifp)) {
-		struct pim_interface *pim_ifp;
 
-		pim_ifp = ifp->info;
-		/*
-		 * If we have a pim_ifp already and this is an if_add
-		 * that means that we probably have a vrf move event
-		 * If that is the case, set the proper vrfness.
-		 */
-		if (pim_ifp)
-			pim_ifp->pim = pim;
+	pim_ifp = ifp->info;
+	/*
+	 * If we have a pim_ifp already and this is an if_add
+	 * that means that we probably have a vrf move event
+	 * If that is the case, set the proper vrfness.
+	 */
+	if (pim_ifp)
+		pim_ifp->pim = pim;
 
-		/*
-		  pim_if_addr_add_all() suffices for bringing up both IGMP and
-		  PIM
-		*/
-		pim_if_addr_add_all(ifp);
-	}
+	/*
+	  pim_if_addr_add_all() suffices for bringing up both IGMP and
+	  PIM
+	*/
+	pim_if_addr_add_all(ifp);
 
 	/*
 	 * If we have a pimreg device callback and it's for a specific

@@ -176,6 +176,8 @@ struct eigrp_interface {
 
 	/* To which multicast groups do we currently belong? */
 
+	uint32_t curr_bandwidth;
+	uint32_t curr_mtu;
 
 	uint8_t multicast_memberships;
 

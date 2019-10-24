@@ -117,6 +117,8 @@ struct ospf_if_info {
 	struct route_table *oifs;
 	unsigned int
 		membership_counts[MEMBER_MAX]; /* multicast group refcnts */
+
+	uint32_t curr_mtu;
 };
 
 struct ospf_interface;
