@@ -922,10 +922,11 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 		}
 	}
 
+	nht_p.family = AF_INET;
+	nht_p.prefixlen = IPV4_MAX_BITLEN;
+
 	/* Deregister old RP addr with Zebra NHT */
 	if (rp_info->rp.rpf_addr.u.prefix4.s_addr != INADDR_ANY) {
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
 		if (PIM_DEBUG_PIM_NHT_RP) {
 			char buf[PREFIX2STR_BUFFER];
