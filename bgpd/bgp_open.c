@@ -830,6 +830,7 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 	int ret;
 	struct stream *s = BGP_INPUT(peer);
 	size_t end = stream_get_getp(s) + length;
+	uint16_t restart_flag_time = 0;
 
 	assert(STREAM_READABLE(s) >= length);
 
@@ -1006,6 +1007,12 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 					caphdr.length);
 			stream_set_getp(s, start + caphdr.length);
 		}
+
+		if (!CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
+			UNSET_FLAG(restart_flag_time, 0xF000);
+			peer->v_gr_restart = restart_flag_time;
+		}
+
 	}
 	return 0;
 }
