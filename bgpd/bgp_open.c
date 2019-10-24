@@ -1332,9 +1332,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 		rcapp = stream_get_endp(s);
 		stream_putc(s, 0);
 		restart_time = peer->bgp->restart_time;
-		if ((peer->bgp->t_startup) &&
-			(CHECK_FLAG(peer->flags,
-				PEER_FLAG_GRACEFUL_RESTART))) {
+		if (peer->bgp->t_startup) {
 			SET_FLAG(restart_time, RESTART_R_BIT);
 			SET_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV);
 		}
