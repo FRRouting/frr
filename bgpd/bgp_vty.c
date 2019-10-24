@@ -14736,14 +14736,27 @@ DEFUN (lcommunity_list_name_expanded,
 				       LARGE_COMMUNITY_LIST_EXPANDED, 1);
 }
 
-DEFUN (no_lcommunity_list_standard_all,
-       no_bgp_lcommunity_list_standard_all_cmd,
+DEFUN (no_lcommunity_list_all,
+       no_bgp_lcommunity_list_all_cmd,
        "no bgp large-community-list <(1-99)|(100-500)|WORD>",
        NO_STR
        BGP_STR
        LCOMMUNITY_LIST_STR
        "Large Community list number (standard)\n"
        "Large Community list number (expanded)\n"
+       "Large Community list name\n")
+{
+	return lcommunity_list_unset_vty(vty, argc, argv,
+					 LARGE_COMMUNITY_LIST_STANDARD);
+}
+
+DEFUN (no_lcommunity_list_name_standard_all,
+       no_bgp_lcommunity_list_name_standard_all_cmd,
+       "no bgp large-community-list standard WORD",
+       NO_STR
+       BGP_STR
+       LCOMMUNITY_LIST_STR
+       "Specify standard large-community-list\n"
        "Large Community list name\n")
 {
 	return lcommunity_list_unset_vty(vty, argc, argv,
@@ -15345,7 +15358,9 @@ static void community_list_vty(void)
 	install_element(CONFIG_NODE, &bgp_lcommunity_list_expanded_cmd);
 	install_element(CONFIG_NODE, &bgp_lcommunity_list_name_standard_cmd);
 	install_element(CONFIG_NODE, &bgp_lcommunity_list_name_expanded_cmd);
-	install_element(CONFIG_NODE, &no_bgp_lcommunity_list_standard_all_cmd);
+	install_element(CONFIG_NODE, &no_bgp_lcommunity_list_all_cmd);
+	install_element(CONFIG_NODE,
+			&no_bgp_lcommunity_list_name_standard_all_cmd);
 	install_element(CONFIG_NODE,
 			&no_bgp_lcommunity_list_name_expanded_all_cmd);
 	install_element(CONFIG_NODE, &no_bgp_lcommunity_list_standard_cmd);
