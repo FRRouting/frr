@@ -452,23 +452,20 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 			}
 		}
 
-		if (gate) {
-			if (rtm->rtm_family == AF_INET) {
-				if (index)
-					nh = route_entry_nexthop_ipv4_ifindex_add(
-						re, gate, prefsrc, index,
-						nh_vrf_id);
-				else
-					nh = route_entry_nexthop_ipv4_add(
-						re, gate, prefsrc, nh_vrf_id);
-			} else if (rtm->rtm_family == AF_INET6) {
-				if (index)
-					nh = route_entry_nexthop_ipv6_ifindex_add(
-						re, gate, index, nh_vrf_id);
-				else
-					nh = route_entry_nexthop_ipv6_add(
-						re, gate, nh_vrf_id);
-			}
+		if (gate && rtm->rtm_family == AF_INET) {
+			if (index)
+				nh = route_entry_nexthop_ipv4_ifindex_add(
+					re, gate, prefsrc, index, nh_vrf_id);
+			else
+				nh = route_entry_nexthop_ipv4_add(
+					re, gate, prefsrc, nh_vrf_id);
+		} else if (gate && rtm->rtm_family == AF_INET6) {
+			if (index)
+				nh = route_entry_nexthop_ipv6_ifindex_add(
+					re, gate, index, nh_vrf_id);
+			else
+				nh = route_entry_nexthop_ipv6_add(re, gate,
+								  nh_vrf_id);
 		} else
 			nh = route_entry_nexthop_ifindex_add(re, index,
 							     nh_vrf_id);
