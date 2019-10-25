@@ -1342,7 +1342,13 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 		if (peer->bgp->t_startup) {
 			SET_FLAG(restart_time, RESTART_R_BIT);
 			SET_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV);
+
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug(
+					"BGP_GR:: Sending R-Bit for Peer :%s :",
+					peer->host);
 		}
+
 		stream_putw(s, restart_time);
 
 		/* Send address-family specific graceful-restart capability

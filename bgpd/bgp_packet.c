@@ -773,6 +773,9 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 	stream_fifo_push(peer->obuf, s);
 
 	bgp_peer_gr_flags_update(peer);
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(
+			peer->bgp,
+			peer->bgp->peer);
 
 	bgp_write_notify(peer);
 }
@@ -1813,6 +1816,9 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 		UNSET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
 	bgp_peer_gr_flags_update(peer);
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(
+			peer->bgp,
+			peer->bgp->peer);
 
 	return Receive_NOTIFICATION_message;
 }

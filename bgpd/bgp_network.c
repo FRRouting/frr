@@ -489,6 +489,10 @@ static int bgp_accept(struct thread *thread)
 	peer_xfer_config(peer, peer1);
 	bgp_peer_gr_flags_update(peer);
 
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(
+			peer->bgp,
+			peer->bgp->peer);
+
 	if (bgp_peer_gr_mode_get(peer) == PEER_DISABLE) {
 
 		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
