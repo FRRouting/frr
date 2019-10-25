@@ -68,6 +68,67 @@ struct bgp;
 						vty, p, use_json, json); \
 	} while (0)
 
+#define VTY_BGP_GR_DEFINE_LOOP_VARIABLE \
+		struct peer *peer_loop = NULL; \
+		struct listnode *node = NULL; \
+		struct listnode *nnode = NULL; \
+		bool gr_router_detected = false
+
+#define VTY_BGP_GR_ROUTER_DETECT( \
+		_bgp, _peer, _peer_list) \
+	do { \
+		if (_peer->bgp->t_startup) \
+			bgp_peer_gr_flags_update(_peer); \
+		for (ALL_LIST_ELEMENTS(_peer_list, \
+			node, nnode, peer_loop)) { \
+			if (CHECK_FLAG(peer_loop->flags,\
+				PEER_FLAG_GRACEFUL_RESTART)) \
+				gr_router_detected = true; \
+		} \
+	} while (0)
+
+
+#define VTY_SEND_BGP_GR_CAPABILITY_TO_ZEBRA(_bgp, _ret) \
+	do { \
+		if (gr_router_detected && \
+			_bgp->present_zebra_gr_state == ZEBRA_GR_DISABLE) { \
+			if (bgp_zebra_send_capabilities(_bgp, false)) \
+				_ret = BGP_ERR_INVALID_VALUE;\
+		} else if (!gr_router_detected && \
+			_bgp->present_zebra_gr_state == ZEBRA_GR_ENABLE) { \
+			if (bgp_zebra_send_capabilities(_bgp, true)) \
+				_ret = BGP_ERR_INVALID_VALUE;\
+		} \
+	} while (0)
+
+#define VTY_BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA( \
+		_bgp, _peer_list, _ret) \
+	do { \
+		struct peer *peer_loop; \
+		bool gr_router_detected = false; \
+		struct listnode *node = {0}; \
+		struct listnode *nnode = {0}; \
+		for (ALL_LIST_ELEMENTS( \
+					_peer_list, node, \
+					nnode, peer_loop)) { \
+			if (peer_loop->bgp->t_startup) \
+				bgp_peer_gr_flags_update(peer_loop); \
+			if (CHECK_FLAG( \
+						peer_loop->flags, \
+						PEER_FLAG_GRACEFUL_RESTART)) \
+				gr_router_detected = true; \
+		} \
+		if (gr_router_detected && \
+			_bgp->present_zebra_gr_state == ZEBRA_GR_DISABLE) { \
+			if (bgp_zebra_send_capabilities(_bgp, false)) \
+				_ret = BGP_ERR_INVALID_VALUE;\
+		} else if (!gr_router_detected && \
+			_bgp->present_zebra_gr_state == ZEBRA_GR_ENABLE) { \
+			if (bgp_zebra_send_capabilities(_bgp, true)) \
+				_ret = BGP_ERR_INVALID_VALUE;\
+		} \
+	} while (0)
+
 
 #define PRINT_EOR(_eor_flag) \
 	do {			\

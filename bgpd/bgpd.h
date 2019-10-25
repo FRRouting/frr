@@ -65,6 +65,12 @@ enum { AS_UNSPECIFIED = 0,
        AS_EXTERNAL,
 };
 
+/* Zebra Gracaful Restart states */
+enum zebra_gr_mode {
+	ZEBRA_GR_DISABLE = 0,
+	ZEBRA_GR_ENABLE
+};
+
 /* Typedef BGP specific types.  */
 typedef uint32_t as_t;
 typedef uint16_t as16_t; /* we may still encounter 16 Bit asnums */
@@ -255,6 +261,10 @@ struct graceful_restart_info {
 	struct list *route_list;
 	/* Best route select */
 	struct thread *t_route_select;
+	/* AFI, SAFI enabled */
+	bool af_enabled[AFI_MAX][SAFI_MAX];
+	/* Route update completed */
+	bool route_sync[AFI_MAX][SAFI_MAX];
 };
 
 enum global_mode {
@@ -418,6 +428,11 @@ struct bgp {
 	enum global_mode GLOBAL_GR_FSM[GLOBAL_MODE][EVENT_CMD];
 	enum global_mode global_gr_present_state;
 
+	/* This variable stores the current Graceful Restart state of Zebra
+	 * - ZEBRA_GR_ENABLE / ZEBRA_GR_DISABLE
+	 */
+	enum zebra_gr_mode present_zebra_gr_state;
+
 	/* BGP Per AF flags */
 	uint16_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING				(1 << 0)
@@ -514,6 +529,8 @@ struct bgp {
 	uint32_t stalepath_time;
 	uint32_t select_defer_time;
 	struct graceful_restart_info gr_info[AFI_MAX][SAFI_MAX];
+	uint32_t rib_stale_time;
+
 #define BGP_ROUTE_SELECT_DELAY 1
 #define BGP_MAX_BEST_ROUTE_SELECT 10000
 	/* Maximum-paths configuration */
@@ -601,6 +618,11 @@ struct bgp {
 #define BGP_VRF_RD_CFGD                     (1 << 3)
 #define BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY    (1 << 4)
 
+#define BGP_SEND_EOR(bgp, afi, safi)				\
+	(!bgp_flag_check(bgp, BGP_FLAG_GR_DISABLE_EOR) &&	\
+	((bgp->gr_info[afi][safi].t_select_deferral == NULL) || \
+	 (bgp->gr_info[afi][safi].eor_required ==		\
+	  bgp->gr_info[afi][safi].eor_received)))
 
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;
@@ -1575,6 +1597,7 @@ struct bgp_nlri {
 #define BGP_DEFAULT_RESTART_TIME               120
 #define BGP_DEFAULT_STALEPATH_TIME             360
 #define BGP_DEFAULT_SELECT_DEFERRAL_TIME       360
+#define BGP_DEFAULT_RIB_STALE_TIME             500
 
 /* BGP uptime string length.  */
 #define BGP_UPTIME_LEN 25
@@ -1902,6 +1925,31 @@ void bgp_gr_apply_running_config(void);
 /* BGP GR */
 int bgp_global_gr_init(struct bgp *bgp);
 int bgp_peer_gr_init(struct peer *peer);
+
+
+#define BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA( \
+		_bgp, _peer_list) \
+do { \
+	struct peer *peer_loop; \
+	bool gr_router_detected = false; \
+	struct listnode *node = {0}; \
+	struct listnode *nnode = {0}; \
+	for (ALL_LIST_ELEMENTS( \
+				_peer_list, node, \
+				nnode, peer_loop)) { \
+		if (CHECK_FLAG( \
+				peer_loop->flags, \
+				PEER_FLAG_GRACEFUL_RESTART)) \
+			gr_router_detected = true; \
+	} \
+	if (gr_router_detected && \
+			_bgp->present_zebra_gr_state == ZEBRA_GR_DISABLE) { \
+		bgp_zebra_send_capabilities(_bgp, false); \
+	} else if (!gr_router_detected && \
+			_bgp->present_zebra_gr_state == ZEBRA_GR_ENABLE) { \
+		bgp_zebra_send_capabilities(_bgp, true); \
+	} \
+} while (0)
 
 static inline struct bgp *bgp_lock(struct bgp *bgp)
 {
