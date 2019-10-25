@@ -1033,7 +1033,8 @@ static uint32_t hash_calc_on_grp_rp(struct prefix group, struct in_addr rp,
 	else
 		grpaddr = grpaddr & mask;
 	rp_add = ntohl(rp.s_addr);
-	temp = 1103515245 * ((1103515245 * grpaddr + 12345) ^ rp_add) + 12345;
+	temp = 1103515245 * ((1103515245 * (uint64_t)grpaddr + 12345) ^ rp_add)
+	       + 12345;
 	hash = temp & (0x7fffffff);
 	return hash;
 }
