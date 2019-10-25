@@ -199,7 +199,7 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 void connected_up(struct interface *ifp, struct connected *ifc)
 {
 	afi_t afi;
-	struct prefix p;
+	struct prefix p = {0};
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,

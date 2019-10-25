@@ -101,9 +101,11 @@ char *vasnprintfrr(struct memtype *mt, char *out, size_t outsz, const char *fmt,
 
 	va_copy(ap2, ap);
 	len = vbprintfrr(&fb, fmt, ap);
-	if (len < 0)
+	if (len < 0) {
+		va_end(ap2);
 		/* error = malformed format string => try something useful */
 		return qstrdup(mt, fmt);
+	}
 
 	if ((size_t)len >= outsz - 1) {
 		ret = qmalloc(mt, len + 1);
@@ -112,6 +114,8 @@ char *vasnprintfrr(struct memtype *mt, char *out, size_t outsz, const char *fmt,
 
 		vbprintfrr(&fb, fmt, ap2);
 	}
+
+	va_end(ap2);
 	ret[len] = '\0';
 	return ret;
 }
