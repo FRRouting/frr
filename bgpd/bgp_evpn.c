@@ -512,7 +512,7 @@ static void bgp_evpn_get_rmac_nexthop(struct bgpevpn *vpn,
 	 * advertise-pip and advertise-svi-ip features
 	 * are enabled.
 	 * Otherwise, for all host MAC-IP route's
-	 * copy anycast RMAC
+	 * copy anycast RMAC.
 	 */
 	if (CHECK_FLAG(flags, BGP_EVPN_MACIP_TYPE_SVI_IP)
 	    && bgp_vrf->evpn_info->advertise_pip &&
@@ -1577,18 +1577,19 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 		bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
 	}
 
-	/* copy sys rmac */
-	memcpy(&attr.rmac, &bgp_vrf->evpn_info->pip_rmac, ETH_ALEN);
 	/* Advertise Primary IP (PIP) is enabled, send individual
 	 * IP (default instance router-id) as nexthop.
 	 * PIP is disabled or vrr interface is not present
-	 * use anycast-IP as nexthop.
+	 * use anycast-IP as nexthop and anycast RMAC.
 	 */
 	if (!bgp_vrf->evpn_info->advertise_pip ||
 	    (!bgp_vrf->evpn_info->is_anycast_mac)) {
 		attr.nexthop = bgp_vrf->originator_ip;
 		attr.mp_nexthop_global_in = bgp_vrf->originator_ip;
+		memcpy(&attr.rmac, &bgp_vrf->rmac, ETH_ALEN);
 	} else {
+		/* copy sys rmac */
+		memcpy(&attr.rmac, &bgp_vrf->evpn_info->pip_rmac, ETH_ALEN);
 		if (bgp_vrf->evpn_info->pip_ip.s_addr != INADDR_ANY) {
 			attr.nexthop = bgp_vrf->evpn_info->pip_ip;
 			attr.mp_nexthop_global_in = bgp_vrf->evpn_info->pip_ip;
