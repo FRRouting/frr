@@ -290,8 +290,7 @@ void pim_bsm_proc_free(struct pim_instance *pim)
 		pim_free_bsgrp_data(bsgrp);
 	}
 
-	if (pim->global_scope.bsrp_table)
-		route_table_finish(pim->global_scope.bsrp_table);
+	route_table_finish(pim->global_scope.bsrp_table);
 }
 
 static bool is_hold_time_elapsed(void *data)
