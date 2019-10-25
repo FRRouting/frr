@@ -523,7 +523,7 @@ DEFUN(if_no_nhrp_map, if_no_nhrp_map_cmd,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	afi_t afi = cmd_to_afi(argv[1]);
-	union sockunion proto_addr;
+	union sockunion proto_addr, nbma_addr;
 	struct nhrp_cache *c;
 
 	if (str2sockunion(argv[4]->arg, &proto_addr) < 0
@@ -534,7 +534,8 @@ DEFUN(if_no_nhrp_map, if_no_nhrp_map_cmd,
 	if (!c || !c->map)
 		return nhrp_vty_return(vty, NHRP_ERR_ENTRY_NOT_FOUND);
 
-	nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL);
+	nhrp_cache_update_binding(c, c->cur.type, -1,
+				  nhrp_peer_get(ifp, &nbma_addr), 0, NULL);
 	return CMD_SUCCESS;
 }
 
