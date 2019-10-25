@@ -3299,3 +3299,31 @@ void zclient_interface_set_master(struct zclient *client,
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(client);
 }
+
+/* Process capabilities message from zebra */
+int zapi_capabilities_decode(struct stream *s, struct zapi_cap *api)
+{
+	memset(api, 0, sizeof(*api));
+
+	STREAM_GETL(s, api->cap);
+	switch (api->cap) {
+	case ZEBRA_CLIENT_GR_CAPABILITIES:
+	case ZEBRA_CLIENT_RIB_STALE_TIME:
+			STREAM_GETL(s, api->stale_removal_time);
+			STREAM_GETL(s, api->vrf_id);
+			break;
+	case ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE:
+	case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
+			STREAM_GETL(s, api->afi);
+			STREAM_GETL(s, api->safi);
+			STREAM_GETL(s, api->vrf_id);
+			break;
+	case ZEBRA_CLIENT_GR_DISABLE:
+			STREAM_GETL(s, api->vrf_id);
+			break;
+	default:
+			break;
+	}
+stream_failure:
+	return 0;
+}
