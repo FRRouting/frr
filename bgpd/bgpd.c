@@ -1147,6 +1147,7 @@ int bgp_global_gr_init(struct bgp *bgp)
 					sizeof(local_GLOBAL_GR_FSM));
 
 	bgp->global_gr_present_state = GLOBAL_HELPER;
+	bgp->present_zebra_gr_state = ZEBRA_GR_DISABLE;
 
 	return BGP_GR_SUCCESS;
 }
@@ -1652,6 +1653,10 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 		bgp_timer_set(peer);
 
 	bgp_peer_gr_flags_update(peer);
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(
+		bgp,
+		bgp->peer);
+
 	return peer;
 }
 
@@ -3036,6 +3041,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 	bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
 	bgp->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
+	bgp->rib_stale_time = BGP_DEFAULT_RIB_STALE_TIME;
 	bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
 	bgp->dynamic_neighbors_count = 0;
 	bgp->ebgp_requires_policy = DEFAULT_EBGP_POLICY_DISABLED;
@@ -3066,14 +3072,11 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp->vpn_policy[afi].export_vrf->del =
 			bgp_vrf_string_name_delete;
 	}
-	if (name) {
+	if (name)
 		bgp->name = XSTRDUP(MTYPE_BGP, name);
-	} else {
-		/* TODO - The startup timer needs to be run for the whole of BGP
-		 */
-		thread_add_timer(bm->master, bgp_startup_timer_expire, bgp,
-				 bgp->restart_time, &bgp->t_startup);
-	}
+
+	thread_add_timer(bm->master, bgp_startup_timer_expire, bgp,
+				bgp->restart_time, &bgp->t_startup);
 
 	/* printable name we can use in debug messages */
 	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
@@ -7247,13 +7250,28 @@ void bgp_gr_apply_running_config(void)
 	struct peer *peer = NULL;
 	struct bgp *bgp = NULL;
 	struct listnode *node, *nnode;
+	bool gr_router_detected = false;
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug(
-				"BGP_GR:: %s called !",
+		zlog_debug("BGP_GR:: %s called !",
 				__func__);
 
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			bgp_peer_gr_flags_update(peer);
+			if (CHECK_FLAG(peer->flags,
+						PEER_FLAG_GRACEFUL_RESTART))
+				gr_router_detected = true;
+		}
+
+		if (gr_router_detected &&
+			bgp->present_zebra_gr_state == ZEBRA_GR_DISABLE) {
+			bgp_zebra_send_capabilities(bgp, false);
+		} else if (!gr_router_detected &&
+			bgp->present_zebra_gr_state == ZEBRA_GR_ENABLE) {
+			bgp_zebra_send_capabilities(bgp, true);
+		}
+
+		gr_router_detected = false;
+	}
 }
