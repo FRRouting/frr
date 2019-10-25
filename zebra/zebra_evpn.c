@@ -1372,7 +1372,7 @@ void process_remote_macip_add(vni_t vni, struct ethaddr *macaddr,
 		}
 	}
 
-	zvrf = vrf_info_lookup(zevpn->vxlan_if->vrf_id);
+	zvrf = zebra_vrf_get_evpn();
 	if (!zvrf)
 		return;
 
