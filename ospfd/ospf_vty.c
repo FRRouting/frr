@@ -4154,7 +4154,7 @@ DEFUN (show_ip_ospf_interface_traffic,
 
 static void show_ip_ospf_neighbour_header(struct vty *vty)
 {
-	vty_out(vty, "\n%-15s %3s %-15s %9s %-15s %-20s %5s %5s %5s\n",
+	vty_out(vty, "\n%-15s %3s %-15s %9s %-15s %-32s %5s %5s %5s\n",
 		"Neighbor ID", "Pri", "State", "Dead Time", "Address",
 		"Interface", "RXmtL", "RqstL", "DBsmL");
 }
@@ -4260,7 +4260,7 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 							timebuf,
 							sizeof(timebuf)));
 				vty_out(vty, "%-15s ", inet_ntoa(nbr->src));
-				vty_out(vty, "%-20s %5ld %5ld %5d\n",
+				vty_out(vty, "%-32s %5ld %5ld %5d\n",
 					IF_NAME(oi),
 					ospf_ls_retransmit_count(nbr),
 					ospf_ls_request_count(nbr),
@@ -4524,7 +4524,7 @@ static int show_ip_ospf_neighbor_all_common(struct vty *vty, struct ospf *ospf,
 						"-", nbr_nbma->priority, "Down",
 						"-");
 					vty_out(vty,
-						"%-15s %-20s %5d %5d %5d\n",
+						"%-32s %-20s %5d %5d %5d\n",
 						inet_ntoa(nbr_nbma->addr),
 						IF_NAME(oi), 0, 0, 0);
 				}
