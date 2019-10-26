@@ -4708,8 +4708,6 @@ static int vnc_add_vrf_prefix(struct vty *vty, const char *arg_vrf,
 	rfapiQprefix2Rprefix(&pfx, &rpfx);
 	memset(optary, 0, sizeof(optary));
 	if (arg_rd) {
-		if (opt != NULL)
-			opt->next = &optary[cur_opt];
 		opt = &optary[cur_opt++];
 		opt->type = RFAPI_VN_OPTION_TYPE_INTERNAL_RD;
 		if (!str2prefix_rd(arg_rd, &opt->v.internal_rd)) {
