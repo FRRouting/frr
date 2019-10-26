@@ -7241,21 +7241,11 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 		if (json_paths) {
 			json_nexthop_global = json_object_new_object();
 
-			if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_EVPN))
-				json_object_string_add(
-					json_nexthop_global,
-					nexthop_fqdn ? "fqdn" : "ip",
-					nexthop_fqdn
-						? nexthop_fqdn
-						: inet_ntoa(
-							  attr->mp_nexthop_global_in));
-			else
-				json_object_string_add(
-					json_nexthop_global,
-					nexthop_fqdn ? "fqdn" : "ip",
-					nexthop_fqdn
-						? nexthop_fqdn
-						: inet_ntoa(attr->nexthop));
+			json_object_string_add(json_nexthop_global,
+					       nexthop_fqdn ? "fqdn" : "ip",
+					       nexthop_fqdn
+					       ? nexthop_fqdn
+					       : inet_ntoa(attr->nexthop));
 
 			json_object_string_add(json_nexthop_global, "afi",
 					       "ipv4");
