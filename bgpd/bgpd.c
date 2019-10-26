@@ -7530,7 +7530,6 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 int bgp_config_write(struct vty *vty)
 {
-	int write = 0;
 	struct bgp *bgp;
 	struct peer_group *group;
 	struct peer *peer;
@@ -7540,9 +7539,6 @@ int bgp_config_write(struct vty *vty)
 	if (bm->rmap_update_timer != RMAP_DEFAULT_UPDATE_TIMER)
 		vty_out(vty, "bgp route-map delay-timer %u\n",
 			bm->rmap_update_timer);
-
-	if (write)
-		vty_out(vty, "!\n");
 
 	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
