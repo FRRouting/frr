@@ -529,8 +529,7 @@ int bfd_recv_cb(struct thread *t)
 	uint8_t msgbuf[1516];
 	struct bfd_vrf_global *bvrf = THREAD_ARG(t);
 
-	if (bvrf)
-		vrfid = bvrf->vrf->vrf_id;
+	vrfid = bvrf->vrf->vrf_id;
 	/* Schedule next read. */
 	bfd_sd_reschedule(bvrf, sd);
 
