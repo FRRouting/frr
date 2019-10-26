@@ -40,7 +40,7 @@
 #include "memory.h"
 #include "lib/json.h"
 #include "lib_errors.h"
-
+#include "zclient.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_route.h"
@@ -2755,6 +2755,9 @@ int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	/* Send EOR message when all routes are processed */
 	if (list_isempty(bgp->gr_info[afi][safi].route_list)) {
 		bgp_send_delayed_eor(bgp);
+		/* Send route processing complete message to RIB */
+		bgp_zebra_update(afi, safi, bgp->vrf_id,
+				ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
 		return 0;
 	}
 

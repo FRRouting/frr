@@ -35,7 +35,7 @@
 #include "filter.h"
 #include "command.h"
 #include "lib_errors.h"
-
+#include "zclient.h"
 #include "lib/json.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -254,6 +254,10 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	peer->peer_gr_present_state = from_peer->peer_gr_present_state;
 	peer->peer_gr_new_status_flag = from_peer->peer_gr_new_status_flag;
 	bgp_peer_gr_flags_update(peer);
+
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(
+			peer->bgp,
+			peer->bgp->peer);
 
 	if (bgp_peer_gr_mode_get(peer) == PEER_DISABLE) {
 
@@ -1616,6 +1620,10 @@ static int bgp_reconnect(struct peer *peer)
 	if (bgp_stop(peer) < 0)
 		return -1;
 
+	/* Send graceful restart capabilty */
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(
+			peer->bgp, peer->bgp->peer);
+
 	bgp_start(peer);
 	return 0;
 }
@@ -1690,8 +1698,14 @@ static int bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 			return -1;
 		}
 	}
-
 	gr_info->eor_required++;
+	/* Send message to RIB indicating route update pending */
+	if (gr_info->af_enabled[afi][safi] == false) {
+		gr_info->af_enabled[afi][safi] = true;
+		/* Send message to RIB */
+		bgp_zebra_update(afi, safi, bgp->vrf_id,
+				 ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
+	}
 	if (BGP_DEBUG(update, UPDATE_OUT))
 		zlog_debug("Started the deferral timer for %s eor_required %d",
 				get_afi_safi_str(afi, safi, false),
@@ -2264,7 +2278,7 @@ int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
 
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug(
-			"BGP_GR:: %s ---> Peer: (%s) :",
+			"BGP_GR:: %s Peer: (%s) :",
 				__func__, peer->host);
 
 		peer_old_state = bgp_peer_gr_mode_get(peer);
@@ -2321,7 +2335,7 @@ int bgp_gr_update_all(struct bgp *bgp, int global_GR_Cmd)
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
-		"BGP_GR::%s:START ---> global_GR_Cmd :%d:",
+		"BGP_GR::%s:START: global_GR_Cmd :%d:",
 			__func__, global_GR_Cmd);
 
 	global_old_state = bgp_global_gr_mode_get(bgp);
@@ -2572,11 +2586,11 @@ inline void bgp_peer_move_to_gr_mode(struct peer *peer, int new_state)
 			BGP_PEER_GR_DISABLE(peer);
 		} else {
 			zlog_debug(
-			"BGP_GR:: Default switch inherit mode ::: SOMETHING IS WORONG !!!");
+			"BGP_GR:: Default switch inherit mode ::: SOMETHING IS WRONG !!!");
 		}
 		break;
 	default:
-		zlog_debug("BGP_GR:: Default switch mode ::: SOMETHING IS WORONG !!!");
+		zlog_debug("BGP_GR:: Default switch mode ::: SOMETHING IS WRONG !!!");
 		break;
 	}
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
