@@ -1535,6 +1535,12 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 		char buf[NL_PKT_BUF_SIZE];
 	} req;
 
+	if (zrouter.skip_kernel_install) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("skip installing routes into kernel.");
+		return 0;
+	}
+
 	p = dplane_ctx_get_dest(ctx);
 	src_p = dplane_ctx_get_src(ctx);
 

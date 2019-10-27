@@ -37,6 +37,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, RIB_TABLE_INFO, "RIB table info")
 struct zebra_router zrouter = {
 	.multipath_num = MULTIPATH_NUM,
 	.ipv4_multicast_mode = MCAST_NO_CONFIG,
+	.skip_kernel_install = false,
 };
 
 static inline int

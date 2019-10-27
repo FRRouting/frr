@@ -93,6 +93,7 @@ struct option longopts[] = {
 	{"retain", no_argument, NULL, 'r'},
 	{"vrfdefaultname", required_argument, NULL, 'o'},
 	{"graceful_restart", required_argument, NULL, 'K'},
+	{"skip_kernel", no_argument, NULL, 'X'},
 #ifdef HAVE_NETLINK
 	{"vrfwnetns", no_argument, NULL, 'n'},
 	{"nl-bufsize", required_argument, NULL, 's'},
@@ -268,7 +269,7 @@ int main(int argc, char **argv)
 	frr_preinit(&zebra_di, argc, argv);
 
 	frr_opt_add(
-		"baz:e:o:rK:"
+		"baz:e:o:rK:X"
 #ifdef HAVE_NETLINK
 		"s:n"
 #endif
@@ -287,6 +288,7 @@ int main(int argc, char **argv)
 		"  -r, --retain             When program terminates, retain added route by zebra.\n"
 		"  -o, --vrfdefaultname     Set default VRF name.\n"
 		"  -K, --graceful_restart   Graceful restart at the kernel level, timer in seconds for expiration\n"
+		"  -X, --skip_kernel        Do not install routes into kernel if this flag is present.\n"
 #ifdef HAVE_NETLINK
 		"  -n, --vrfwnetns          Use NetNS as VRF backend\n"
 		"  -s, --nl-bufsize         Set netlink receive buffer size\n"
@@ -328,6 +330,9 @@ int main(int argc, char **argv)
 			break;
 		case 'o':
 			vrf_default_name_configured = optarg;
+			break;
+		case 'X':
+			zrouter.skip_kernel_install = true;
 			break;
 		case 'z':
 			zserv_path = optarg;

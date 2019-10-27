@@ -138,6 +138,9 @@ struct zebra_router {
 	 */
 	struct hash *nhgs;
 	struct hash *nhgs_id;
+
+	/* skip installing routes into kernel*/
+	bool skip_kernel_install;
 };
 
 #define GRACEFUL_RESTART_TIME 60
