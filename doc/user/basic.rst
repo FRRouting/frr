@@ -238,6 +238,17 @@ Basic Config Commands
 
    Set default motd string.
 
+.. index:: banner motd file FILE
+.. clicmd:: banner motd file FILE
+
+   Set motd string from file. The file must be in directory specified
+   under ``--sysconfdir``.
+
+.. index:: banner motd line LINE
+.. clicmd:: banner motd line LINE
+
+   Set motd string from an input.
+
 .. index:: no banner motd
 .. clicmd:: no banner motd
 
