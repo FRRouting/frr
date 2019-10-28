@@ -3690,7 +3690,7 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 	if (EVPN_ENABLED(bgp_vrf)) {
 		vty_out(vty,
 			"This command is supported under L3VNI BGP EVPN VRF\n");
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 	bgp_evpn = bgp_get_evpn();
 
