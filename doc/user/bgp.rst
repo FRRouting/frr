@@ -841,6 +841,11 @@ Redistribution
 
    Redistribute VNC routes to BGP process.
 
+.. index:: redistribute vnc-direct
+.. clicmd:: redistribute vnc-direct
+
+   Redistribute VNC direct (not via zebra) routes to BGP process.
+
 .. index:: update-delay MAX-DELAY
 .. clicmd:: update-delay MAX-DELAY
 
