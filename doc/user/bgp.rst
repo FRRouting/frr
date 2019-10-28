@@ -836,8 +836,8 @@ Redistribution
 
    Redistribute OSPF route to BGP process.
 
-.. index:: redistribute vpn
-.. clicmd:: redistribute vpn
+.. index:: redistribute vnc
+.. clicmd:: redistribute vnc
 
    Redistribute VNC routes to BGP process.
 
