@@ -869,6 +869,7 @@ void zebra_evpn_install_mac_hash(struct hash_bucket *bucket, void *ctxt)
 void zebra_evpn_read_mac_neigh(zebra_evpn_t *zevpn, struct interface *ifp)
 {
 	struct zebra_ns *zns;
+	struct zebra_vrf *zvrf;
 	struct zebra_if *zif;
 	struct interface *vlan_if;
 	struct zebra_l2info_vxlan *vxl;
@@ -876,7 +877,10 @@ void zebra_evpn_read_mac_neigh(zebra_evpn_t *zevpn, struct interface *ifp)
 
 	zif = ifp->info;
 	vxl = &zif->l2info.vxl;
-	zns = zebra_ns_lookup(NS_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(zevpn->vrf_id);
+	if (!zvrf || !zvrf->zns)
+		return;
+	zns = zvrf->zns;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
