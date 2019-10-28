@@ -107,6 +107,17 @@ static void zebra_if_node_destroy(route_table_delegate_t *delegate,
 	route_node_destroy(delegate, table, node);
 }
 
+static void zebra_if_nhg_dependents_free(struct zebra_if *zebra_if)
+{
+	nhg_connected_tree_free(&zebra_if->nhg_dependents);
+}
+
+static void zebra_if_nhg_dependents_init(struct zebra_if *zebra_if)
+{
+	nhg_connected_tree_init(&zebra_if->nhg_dependents);
+}
+
+
 route_table_delegate_t zebra_if_table_delegate = {
 	.create_node = route_node_create,
 	.destroy_node = zebra_if_node_destroy};
@@ -120,6 +131,9 @@ static int if_zebra_new_hook(struct interface *ifp)
 
 	zebra_if->multicast = IF_ZEBRA_MULTICAST_UNSPEC;
 	zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
+
+	zebra_if_nhg_dependents_init(zebra_if);
+
 	zebra_ptm_if_init(zebra_if);
 
 	ifp->ptm_enable = zebra_ptm_get_enable_state();
@@ -175,6 +189,34 @@ static int if_zebra_new_hook(struct interface *ifp)
 	return 0;
 }
 
+static void if_nhg_dependents_check_valid(struct nhg_hash_entry *nhe)
+{
+	zebra_nhg_check_valid(nhe);
+	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID))
+		/* Assuming uninstalled as well here */
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+}
+
+static void if_down_nhg_dependents(const struct interface *ifp)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+	struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep)
+		if_nhg_dependents_check_valid(rb_node_dep->nhe);
+}
+
+static void if_nhg_dependents_release(const struct interface *ifp)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+	struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
+		rb_node_dep->nhe->ifp = NULL; /* Null it out */
+		if_nhg_dependents_check_valid(rb_node_dep->nhe);
+	}
+}
+
 /* Called when interface is deleted. */
 static int if_zebra_delete_hook(struct interface *ifp)
 {
@@ -196,7 +238,11 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		list_delete(&rtadv->AdvDNSSLList);
 #endif /* HAVE_RTADV */
 
+		if_nhg_dependents_release(ifp);
+		zebra_if_nhg_dependents_free(zebra_if);
+
 		XFREE(MTYPE_TMP, zebra_if->desc);
+
 		THREAD_OFF(zebra_if->speed_update);
 
 		XFREE(MTYPE_ZINFO, zebra_if);
@@ -925,6 +971,47 @@ static void if_down_del_nbr_connected(struct interface *ifp)
 	}
 }
 
+void if_nhg_dependents_add(struct interface *ifp, struct nhg_hash_entry *nhe)
+{
+	if (ifp->info) {
+		struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+		nhg_connected_tree_add_nhe(&zif->nhg_dependents, nhe);
+	}
+}
+
+void if_nhg_dependents_del(struct interface *ifp, struct nhg_hash_entry *nhe)
+{
+	if (ifp->info) {
+		struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+		nhg_connected_tree_del_nhe(&zif->nhg_dependents, nhe);
+	}
+}
+
+unsigned int if_nhg_dependents_count(const struct interface *ifp)
+{
+	if (ifp->info) {
+		struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+		return nhg_connected_tree_count(&zif->nhg_dependents);
+	}
+
+	return 0;
+}
+
+
+bool if_nhg_dependents_is_empty(const struct interface *ifp)
+{
+	if (ifp->info) {
+		struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+		return nhg_connected_tree_is_empty(&zif->nhg_dependents);
+	}
+
+	return false;
+}
+
 /* Interface is up. */
 void if_up(struct interface *ifp)
 {
@@ -987,6 +1074,8 @@ void if_down(struct interface *ifp)
 	zif = ifp->info;
 	zif->down_count++;
 	quagga_timestamp(2, zif->down_last, sizeof(zif->down_last));
+
+	if_down_nhg_dependents(ifp);
 
 	/* Handle interface down for specific types for EVPN. Non-VxLAN
 	 * interfaces

@@ -185,7 +185,7 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	 * the label advertised by the recursive nexthop (plus we don't have the
 	 * logic yet to push multiple labels).
 	 */
-	for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next) {
+	for (nexthop = re->ng->nexthop; nexthop; nexthop = nexthop->next) {
 		/* Skip inactive and recursive entries. */
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
@@ -635,7 +635,7 @@ static int nhlfe_nexthop_active_ipv4(zebra_nhlfe_t *nhlfe,
 		    || !CHECK_FLAG(match->flags, ZEBRA_FLAG_SELECTED))
 			continue;
 
-		for (match_nh = match->ng.nexthop; match_nh;
+		for (match_nh = match->ng->nexthop; match_nh;
 		     match_nh = match_nh->next) {
 			if (match->type == ZEBRA_ROUTE_CONNECT
 			    || nexthop->ifindex == match_nh->ifindex) {
@@ -686,10 +686,10 @@ static int nhlfe_nexthop_active_ipv6(zebra_nhlfe_t *nhlfe,
 			break;
 	}
 
-	if (!match || !match->ng.nexthop)
+	if (!match || !match->ng->nexthop)
 		return 0;
 
-	nexthop->ifindex = match->ng.nexthop->ifindex;
+	nexthop->ifindex = match->ng->nexthop->ifindex;
 	return 1;
 }
 
@@ -2590,11 +2590,13 @@ int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 	struct route_node *rn;
 	struct route_entry *re;
 	struct nexthop *nexthop;
+	struct nexthop_group new_grp = {};
+	struct nhg_hash_entry *nhe = NULL;
 	bool found;
+	afi_t afi = family2afi(prefix->family);
 
 	/* Lookup table.  */
-	table = zebra_vrf_table(family2afi(prefix->family), SAFI_UNICAST,
-				zvrf_id(zvrf));
+	table = zebra_vrf_table(afi, SAFI_UNICAST, zvrf_id(zvrf));
 	if (!table)
 		return -1;
 
@@ -2610,8 +2612,15 @@ int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 	if (re == NULL)
 		return -1;
 
+	/*
+	 * Copy over current nexthops into a temporary group.
+	 * We can't just change the values here since we are hashing
+	 * on labels. We need to create a whole new group
+	 */
+	nexthop_group_copy(&new_grp, re->ng);
+
 	found = false;
-	for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next) {
+	for (nexthop = new_grp.nexthop; nexthop; nexthop = nexthop->next) {
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_IPV4:
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
@@ -2625,7 +2634,7 @@ int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 				continue;
 			if (!mpls_ftn_update_nexthop(add, nexthop, type,
 						     out_label))
-				return 0;
+				break;
 			found = true;
 			break;
 		case NEXTHOP_TYPE_IPV6:
@@ -2640,7 +2649,7 @@ int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 				continue;
 			if (!mpls_ftn_update_nexthop(add, nexthop, type,
 						     out_label))
-				return 0;
+				break;
 			found = true;
 			break;
 		default:
@@ -2648,14 +2657,19 @@ int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 		}
 	}
 
-	if (!found)
-		return -1;
+	if (found) {
+		nhe = zebra_nhg_rib_find(0, &new_grp, afi);
 
-	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
-	SET_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED);
-	rib_queue_add(rn);
+		zebra_nhg_re_update_ref(re, nhe);
 
-	return 0;
+		SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
+		SET_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED);
+		rib_queue_add(rn);
+	}
+
+	nexthops_free(new_grp.nexthop);
+
+	return found ? 0 : -1;
 }
 
 int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
@@ -2684,7 +2698,7 @@ int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	if (re == NULL)
 		return -1;
 
-	for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
+	for (nexthop = re->ng->nexthop; nexthop; nexthop = nexthop->next)
 		nexthop_del_labels(nexthop);
 
 	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
@@ -2889,7 +2903,12 @@ static void mpls_ftn_uninstall_all(struct zebra_vrf *zvrf,
 	for (rn = route_top(table); rn; rn = route_next(rn)) {
 		update = 0;
 		RNODE_FOREACH_RE (rn, re) {
-			for (nexthop = re->ng.nexthop; nexthop;
+			struct nexthop_group new_grp = {};
+			struct nhg_hash_entry *nhe = NULL;
+
+			nexthop_group_copy(&new_grp, re->ng);
+
+			for (nexthop = new_grp.nexthop; nexthop;
 			     nexthop = nexthop->next) {
 				if (nexthop->nh_label_type != lsp_type)
 					continue;
@@ -2900,6 +2919,14 @@ static void mpls_ftn_uninstall_all(struct zebra_vrf *zvrf,
 					 ROUTE_ENTRY_LABELS_CHANGED);
 				update = 1;
 			}
+
+			if (CHECK_FLAG(re->status,
+				       ROUTE_ENTRY_LABELS_CHANGED)) {
+				nhe = zebra_nhg_rib_find(0, &new_grp, afi);
+				zebra_nhg_re_update_ref(re, nhe);
+			}
+
+			nexthops_free(new_grp.nexthop);
 		}
 
 		if (update)

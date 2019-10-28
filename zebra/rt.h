@@ -40,12 +40,16 @@ extern "C" {
 #define RSYSTEM_ROUTE(type)                                                    \
 	((RKERNEL_ROUTE(type)) || (type) == ZEBRA_ROUTE_CONNECT)
 
+
 /*
- * Update or delete a route, LSP, pseudowire, or vxlan MAC from the kernel,
- * using info from a dataplane context.
+ * Update or delete a route, nexthop, LSP, pseudowire, or vxlan MAC from the
+ * kernel, using info from a dataplane context.
  */
 extern enum zebra_dplane_result kernel_route_update(
 	struct zebra_dplane_ctx *ctx);
+
+extern enum zebra_dplane_result
+kernel_nexthop_update(struct zebra_dplane_ctx *ctx);
 
 extern enum zebra_dplane_result kernel_lsp_update(
 	struct zebra_dplane_ctx *ctx);

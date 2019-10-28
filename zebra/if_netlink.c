@@ -66,6 +66,7 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/kernel_netlink.h"
+#include "zebra/rt_netlink.h"
 #include "zebra/if_netlink.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_vxlan.h"
@@ -807,6 +808,23 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 
 	/* fixup linkages */
 	zebra_if_update_all_links();
+	return 0;
+}
+
+/**
+ * interface_addr_lookup_netlink() - Look up interface addresses
+ *
+ * @zns:	Zebra netlink socket
+ * Return:	Result status
+ */
+static int interface_addr_lookup_netlink(struct zebra_ns *zns)
+{
+	int ret;
+	struct zebra_dplane_info dp_info;
+	struct nlsock *netlink_cmd = &zns->netlink_cmd;
+
+	/* Capture key info from ns struct */
+	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
 
 	/* Get IPv4 address of the interfaces. */
 	ret = netlink_request_intf_addr(netlink_cmd, AF_INET, RTM_GETADDR, 0);
@@ -1460,6 +1478,13 @@ int netlink_protodown(struct interface *ifp, bool down)
 void interface_list(struct zebra_ns *zns)
 {
 	interface_lookup_netlink(zns);
+	/* We add routes for interface address,
+	 * so we need to get the nexthop info
+	 * from the kernel before we can do that
+	 */
+	netlink_nexthop_read(zns);
+
+	interface_addr_lookup_netlink(zns);
 }
 
 #endif /* GNU_LINUX */

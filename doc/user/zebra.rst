@@ -839,11 +839,22 @@ zebra Terminal Mode Commands
 .. index:: show ipv6 route
 .. clicmd:: show ipv6 route
 
-.. index:: show interface [{vrf VRF|brief}]
-.. clicmd:: show interface [{vrf VRF|brief}]
+.. index:: show [ip|ipv6] route [PREFIX] [nexthop-group]
+.. clicmd:: show [ip|ipv6] route [PREFIX] [nexthop-group]
 
-.. index:: show interface [{vrf all|brief}]
-.. clicmd:: show interface [{vrf all|brief}]
+   Display detailed information about a route. If [nexthop-group] is
+   included, it will display the nexthop group ID the route is using as well.
+
+.. index:: show interface [NAME] [{vrf VRF|brief}] [nexthop-group]
+.. clicmd:: show interface [NAME] [{vrf VRF|brief}] [nexthop-group]
+
+.. index:: show interface [NAME] [{vrf all|brief}] [nexthop-group]
+.. clicmd:: show interface [NAME] [{vrf all|brief}] [nexthop-group]
+
+   Display interface information. If no extra information is added, it will
+   dump information on all interfaces. If [NAME] is specified, it will display
+   detailed information about that single interface. If [nexthop-group] is
+   specified, it will display nexthop groups pointing out that interface.
 
 .. index:: show ip prefix-list [NAME]
 .. clicmd:: show ip prefix-list [NAME]
@@ -899,4 +910,9 @@ zebra Terminal Mode Commands
 
    Reset statistics related to the zebra code that interacts with the
    optional Forwarding Plane Manager (FPM) component.
+
+.. index:: show nexthop-group [ID] [vrf NAME] [ip|ipv6]
+.. clicmd:: show nexthop-group [ID] [vrf NAME] [ip|ipv6]
+
+   Display nexthop groups created by zebra.
 

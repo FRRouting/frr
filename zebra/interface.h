@@ -27,6 +27,7 @@
 #include "hook.h"
 
 #include "zebra/zebra_l2.h"
+#include "zebra/zebra_nhg_private.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -277,6 +278,15 @@ struct zebra_if {
 	/* Installed addresses chains tree. */
 	struct route_table *ipv4_subnets;
 
+	/* Nexthops pointing to this interface */
+	/**
+	 * Any nexthop that we get should have an
+	 * interface. When an interface goes down,
+	 * we will use this list to update the nexthops
+	 * pointing to it with that info.
+	 */
+	struct nhg_connected_tree_head nhg_dependents;
+
 	/* Information about up/down changes */
 	unsigned int up_count;
 	char up_last[QUAGGA_TIMESTAMP_LEN];
@@ -423,6 +433,14 @@ extern void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 				 ns_id_t ns_id);
 extern void zebra_if_update_all_links(void);
 extern void zebra_if_set_protodown(struct interface *ifp, bool down);
+
+/* Nexthop group connected functions */
+extern void if_nhg_dependents_add(struct interface *ifp,
+				  struct nhg_hash_entry *nhe);
+extern void if_nhg_dependents_del(struct interface *ifp,
+				  struct nhg_hash_entry *nhe);
+extern unsigned int if_nhg_dependents_count(const struct interface *ifp);
+extern bool if_nhg_dependents_is_empty(const struct interface *ifp);
 
 extern void vrf_add_update(struct vrf *vrfp);
 

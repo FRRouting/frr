@@ -349,7 +349,7 @@ const char *nexthop2str(const struct nexthop *nexthop, char *str, int size)
  * left branch is 'resolved' and right branch is 'next':
  * https://en.wikipedia.org/wiki/Tree_traversal#/media/File:Sorted_binary_tree_preorder.svg
  */
-struct nexthop *nexthop_next(struct nexthop *nexthop)
+struct nexthop *nexthop_next(const struct nexthop *nexthop)
 {
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 		return nexthop->resolved;
@@ -364,6 +364,19 @@ struct nexthop *nexthop_next(struct nexthop *nexthop)
 	return NULL;
 }
 
+/* Return the next nexthop in the tree that is resolved and active */
+struct nexthop *nexthop_next_active_resolved(const struct nexthop *nexthop)
+{
+	struct nexthop *next = nexthop_next(nexthop);
+
+	while (next
+	       && (CHECK_FLAG(next->flags, NEXTHOP_FLAG_RECURSIVE)
+		   || !CHECK_FLAG(next->flags, NEXTHOP_FLAG_ACTIVE)))
+		next = nexthop_next(next);
+
+	return next;
+}
+
 unsigned int nexthop_level(struct nexthop *nexthop)
 {
 	unsigned int rv = 0;
@@ -374,16 +387,13 @@ unsigned int nexthop_level(struct nexthop *nexthop)
 	return rv;
 }
 
-uint32_t nexthop_hash(const struct nexthop *nexthop)
+/* Only hash word-sized things, let cmp do the rest. */
+uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 {
 	uint32_t key = 0x45afe398;
 
 	key = jhash_3words(nexthop->type, nexthop->vrf_id,
 			   nexthop->nh_label_type, key);
-	/* gate and blackhole are together in a union */
-	key = jhash(&nexthop->gate, sizeof(nexthop->gate), key);
-	key = jhash(&nexthop->src, sizeof(nexthop->src), key);
-	key = jhash(&nexthop->rmap_src, sizeof(nexthop->rmap_src), key);
 
 	if (nexthop->nh_label) {
 		int labels = nexthop->nh_label->num_labels;
@@ -410,17 +420,35 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 			key = jhash_1word(nexthop->nh_label->label[i], key);
 	}
 
-	switch (nexthop->type) {
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
-	case NEXTHOP_TYPE_IFINDEX:
-		key = jhash_1word(nexthop->ifindex, key);
-		break;
-	case NEXTHOP_TYPE_BLACKHOLE:
-	case NEXTHOP_TYPE_IPV4:
-	case NEXTHOP_TYPE_IPV6:
-		break;
-	}
+	key = jhash_2words(nexthop->ifindex,
+			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK),
+			   key);
+
+	return key;
+}
+
+
+#define GATE_SIZE 4 /* Number of uint32_t words in struct g_addr */
+
+/* For a more granular hash */
+uint32_t nexthop_hash(const struct nexthop *nexthop)
+{
+	uint32_t gate_src_rmap_raw[GATE_SIZE * 3] = {};
+	/* Get all the quick stuff */
+	uint32_t key = nexthop_hash_quick(nexthop);
+
+	assert(((sizeof(nexthop->gate) + sizeof(nexthop->src)
+		 + sizeof(nexthop->rmap_src))
+		/ 3)
+	       == (GATE_SIZE * sizeof(uint32_t)));
+
+	memcpy(gate_src_rmap_raw, &nexthop->gate, GATE_SIZE);
+	memcpy(gate_src_rmap_raw + GATE_SIZE, &nexthop->src, GATE_SIZE);
+	memcpy(gate_src_rmap_raw + (2 * GATE_SIZE), &nexthop->rmap_src,
+	       GATE_SIZE);
+
+	key = jhash2(gate_src_rmap_raw, (GATE_SIZE * 3), key);
+
 	return key;
 }
 

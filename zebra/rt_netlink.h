@@ -69,6 +69,10 @@ extern int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx);
 extern int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int netlink_route_read(struct zebra_ns *zns);
 
+extern int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id,
+				  int startup);
+extern int netlink_nexthop_read(struct zebra_ns *zns);
+
 extern int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id);
 extern int netlink_macfdb_read(struct zebra_ns *zns);
 extern int netlink_macfdb_read_for_bridge(struct zebra_ns *zns,

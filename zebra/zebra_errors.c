@@ -283,6 +283,39 @@ static struct log_ref ferr_zebra_err[] = {
 		.description = "Zebra received an event from inotify, but failed to read what it was.",
 		.suggestion = "Notify a developer.",
 	},
+	{
+		.code = EC_ZEBRA_NHG_TABLE_INSERT_FAILED,
+		.title =
+			"Nexthop Group Hash Table Insert Failure",
+		.description =
+			"Zebra failed in inserting a Nexthop Group into its hash tables.",
+		.suggestion =
+			"Check to see if the entry already exists or if the netlink message was parsed incorrectly."
+	},
+	{
+		.code = EC_ZEBRA_NHG_SYNC,
+		.title =
+			"Zebra's Nexthop Groups are out of sync",
+		.description =
+			"Zebra's nexthop group tables are out of sync with the nexthop groups in the fib.",
+		.suggestion =
+			"Check the current status of the kernels nexthop groups and compare it to Zebra's."
+	},
+	{
+		.code = EC_ZEBRA_NHG_FIB_UPDATE,
+		.title =
+			"Zebra failed updating the fib with Nexthop Group",
+		.description =
+			"Zebra was not able to successfully install a new nexthop group into the fib",
+		.suggestion =
+			"Check to see if the nexthop group on the route you tried to install is valid."
+	},
+	{
+		.code = EC_ZEBRA_IF_LOOKUP_FAILED,
+		.title = "Zebra interface lookup failed",
+		.description = "Zebra attempted to look up a interface for a particular vrf_id and interface index, but didn't find anything.",
+		.suggestion = "If you entered a command to trigger this error, make sure you entered the arguments correctly. Check your config file for any potential errors. If these look correct, seek help.",
+	},
 	/* Warnings */
 	{
 		.code = EC_ZEBRAING_LM_PROTO_MISMATCH,
@@ -727,6 +760,24 @@ static struct log_ref ferr_zebra_err[] = {
 			"Zebra has hit duplicate address detection threshold which means host IP is moving.",
 		.suggestion =
 			"Check network topology to detect duplicate host IP for correctness.",
+	},
+	{
+		.code = EC_ZEBRA_BAD_NHG_MESSAGE,
+		.title =
+			"Bad Nexthop Group Message",
+		.description =
+			"Zebra received Nexthop Group message from the kernel that it cannot process.",
+		.suggestion =
+			"Check the kernel's link states and routing table to see how it matches ours."
+	},
+	{
+		.code = EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
+		.title =
+			"Duplicate Nexthop Group Message",
+		.description =
+			"Zebra received Nexthop Group message from the kernel that it is identical to one it/we already have but with a different ID.",
+		.suggestion =
+			"See if the nexthop you are trying to add is already present in the fib."
 	},
 	{
 		.code = END_FERR,
