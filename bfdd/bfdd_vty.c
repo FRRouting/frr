@@ -241,12 +241,16 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	else
 		json_object_int_add(jo, "echo-interval", 0);
 
+	json_object_int_add(jo, "detect-multiplier", bs->detect_mult);
+
 	json_object_int_add(jo, "remote-receive-interval",
 			    bs->remote_timers.required_min_rx / 1000);
 	json_object_int_add(jo, "remote-transmit-interval",
 			    bs->remote_timers.desired_min_tx / 1000);
 	json_object_int_add(jo, "remote-echo-interval",
 			    bs->remote_timers.required_min_echo / 1000);
+	json_object_int_add(jo, "remote-detect-multiplier",
+			    bs->remote_detect_mult);
 
 	return jo;
 }
@@ -311,9 +315,8 @@ static void _display_peer_json_iter(struct hash_bucket *hb, void *arg)
 static void _display_all_peers(struct vty *vty, char *vrfname, bool use_json)
 {
 	struct json_object *jo;
-	struct bfd_vrf_tuple bvt;
+	struct bfd_vrf_tuple bvt = {0};
 
-	memset(&bvt, 0, sizeof(bvt));
 	bvt.vrfname = vrfname;
 
 	if (!use_json) {
@@ -422,9 +425,8 @@ static void _display_peer_counter_json_iter(struct hash_bucket *hb, void *arg)
 static void _display_peers_counter(struct vty *vty, char *vrfname, bool use_json)
 {
 	struct json_object *jo;
-	struct bfd_vrf_tuple bvt;
+	struct bfd_vrf_tuple bvt = {0};
 
-	memset(&bvt, 0, sizeof(struct bfd_vrf_tuple));
 	bvt.vrfname = vrfname;
 	if (!use_json) {
 		bvt.vty = vty;
@@ -494,9 +496,8 @@ static void _display_peer_brief_iter(struct hash_backet *hb, void *arg)
 static void _display_peers_brief(struct vty *vty, const char *vrfname, bool use_json)
 {
 	struct json_object *jo;
-	struct bfd_vrf_tuple bvt;
+	struct bfd_vrf_tuple bvt = {0};
 
-	memset(&bvt, 0, sizeof(struct bfd_vrf_tuple));
 	bvt.vrfname = vrfname;
 
 	if (use_json == false) {
@@ -726,7 +727,13 @@ DEFPY(bfd_show_peers_brief, bfd_show_peers_brief_cmd,
       "Show BFD peer information in tabular form\n"
       JSON_STR)
 {
-	_display_peers_brief(vty, vrfname, use_json(argc, argv));
+	char *vrf_name = NULL;
+	int idx_vrf = 0;
+
+	if (argv_find(argv, argc, "vrf", &idx_vrf))
+		vrf_name = argv[idx_vrf + 1]->arg;
+
+	_display_peers_brief(vty, vrf_name, use_json(argc, argv));
 
 	return CMD_SUCCESS;
 }
