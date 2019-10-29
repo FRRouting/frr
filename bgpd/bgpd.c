@@ -7166,6 +7166,11 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	/* strict-capability-match */
 	if (peergroup_flag_check(peer, PEER_FLAG_STRICT_CAP_MATCH))
 		vty_out(vty, " neighbor %s strict-capability-match\n", addr);
+
+	/* Sender side AS path loop detection. */
+	if (peer->as_path_loop_detection)
+		vty_out(vty, " neighbor %s sender-as-path-loop-detection\n",
+			addr);
 }
 
 /* BGP peer configuration display function. */
