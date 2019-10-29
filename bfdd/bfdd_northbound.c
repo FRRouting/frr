@@ -431,7 +431,7 @@ static int bfdd_bfd_sessions_single_hop_administrative_down_modify(
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_DOWN;
-		control_notify(bs);
+		control_notify(bs, bs->ses_state);
 
 		/* Enable all timers. */
 		bfd_recvtimer_update(bs);
@@ -454,7 +454,7 @@ static int bfdd_bfd_sessions_single_hop_administrative_down_modify(
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_ADM_DOWN;
-		control_notify(bs);
+		control_notify(bs, bs->ses_state);
 
 		ptm_bfd_snd(bs, 0);
 	}

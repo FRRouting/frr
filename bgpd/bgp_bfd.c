@@ -282,7 +282,8 @@ static void bgp_bfd_peer_status_update(struct peer *peer, int status,
 		return;
 
 	old_status = bfd_info->status;
-	bfd_info->status = status;
+	BFD_SET_CLIENT_STATUS(bfd_info->status, status);
+
 	bfd_info->last_update = bgp_clock();
 
 	if (status != old_status) {

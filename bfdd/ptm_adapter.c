@@ -153,7 +153,7 @@ static int _ptm_msg_address(struct stream *msg, int family, const void *addr)
 	return 0;
 }
 
-int ptm_bfd_notify(struct bfd_session *bs)
+int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 {
 	struct stream *msg;
 
@@ -204,12 +204,15 @@ int ptm_bfd_notify(struct bfd_session *bs)
 	_ptm_msg_address(msg, bs->key.family, &bs->key.peer);
 
 	/* BFD status */
-	switch (bs->ses_state) {
+	switch (notify_state) {
 	case PTM_BFD_UP:
 		stream_putl(msg, BFD_STATUS_UP);
 		break;
 
 	case PTM_BFD_ADM_DOWN:
+		stream_putl(msg, BFD_STATUS_ADMIN_DOWN);
+		break;
+
 	case PTM_BFD_DOWN:
 	case PTM_BFD_INIT:
 		stream_putl(msg, BFD_STATUS_DOWN);
@@ -432,7 +435,7 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 		return;
 	}
 
-	ptm_bfd_notify(bs);
+	ptm_bfd_notify(bs, bs->ses_state);
 }
 
 static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
@@ -461,6 +464,10 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 	if (bs->refcount ||
 	    BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
 		return;
+
+	bs->ses_state = PTM_BFD_ADM_DOWN;
+	ptm_bfd_snd(bs, 0);
+
 	ptm_bfd_sess_del(&bpc);
 }
 

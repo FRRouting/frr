@@ -49,6 +49,8 @@ static void bs_admin_down_handler(struct bfd_session *bs, int nstate);
 static void bs_down_handler(struct bfd_session *bs, int nstate);
 static void bs_init_handler(struct bfd_session *bs, int nstate);
 static void bs_up_handler(struct bfd_session *bs, int nstate);
+static void bs_neighbour_admin_down_handler(struct bfd_session *bfd,
+					    uint8_t diag);
 
 /* Zeroed array with the size of an IPv6 address. */
 struct in6_addr zero_addr;
@@ -312,7 +314,7 @@ void ptm_bfd_sess_up(struct bfd_session *bfd)
 	/* Start sending control packets with poll bit immediately. */
 	ptm_bfd_snd(bfd, 0);
 
-	control_notify(bfd);
+	control_notify(bfd, bfd->ses_state);
 
 	if (old_state != bfd->ses_state) {
 		bfd->stats.session_up++;
@@ -347,7 +349,7 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 
 	/* only signal clients when going from up->down state */
 	if (old_state == PTM_BFD_UP)
-		control_notify(bfd);
+		control_notify(bfd, PTM_BFD_DOWN);
 
 	/* Stop echo packet transmission if they are active */
 	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
@@ -582,7 +584,7 @@ skip_echo:
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_ADM_DOWN;
-		control_notify(bs);
+		control_notify(bs, bs->ses_state);
 
 		/* Don't try to send packets with a disabled session. */
 		if (bs->sock != -1)
@@ -596,7 +598,7 @@ skip_echo:
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_DOWN;
-		control_notify(bs);
+		control_notify(bs, bs->ses_state);
 
 		/* Enable all timers. */
 		bfd_recvtimer_update(bs);
@@ -868,10 +870,46 @@ static void bs_init_handler(struct bfd_session *bs, int nstate)
 	}
 }
 
+static void bs_neighbour_admin_down_handler(struct bfd_session *bfd,
+					    uint8_t diag)
+{
+	int old_state = bfd->ses_state;
+
+	bfd->local_diag = diag;
+	bfd->discrs.remote_discr = 0;
+	bfd->ses_state = PTM_BFD_DOWN;
+	bfd->polling = 0;
+	bfd->demand_mode = 0;
+	monotime(&bfd->downtime);
+
+	/* Slow down the control packets, the connection is down. */
+	bs_set_slow_timers(bfd);
+
+	/* only signal clients when going from up->down state */
+	if (old_state == PTM_BFD_UP)
+		control_notify(bfd, PTM_BFD_ADM_DOWN);
+
+	/* Stop echo packet transmission if they are active */
+	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
+		ptm_bfd_echo_stop(bfd);
+
+	if (old_state != bfd->ses_state) {
+		bfd->stats.session_down++;
+
+		log_info("state-change: [%s] %s -> %s reason:%s",
+			bs_to_string(bfd), state_list[old_state].str,
+			state_list[bfd->ses_state].str,
+			get_diag_str(bfd->local_diag));
+	}
+}
+
 static void bs_up_handler(struct bfd_session *bs, int nstate)
 {
 	switch (nstate) {
 	case PTM_BFD_ADM_DOWN:
+		bs_neighbour_admin_down_handler(bs, BD_ADMIN_DOWN);
+		break;
+
 	case PTM_BFD_DOWN:
 		/* Peer lost or asked to shutdown connection. */
 		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN);
