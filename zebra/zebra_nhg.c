@@ -1000,6 +1000,9 @@ static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi)
 	struct nexthop *lookup = NULL;
 	struct nhg_hash_entry *nhe = NULL;
 
+	if (!nh)
+		goto done;
+
 	copy_nexthops(&lookup, nh, NULL);
 
 	/* Clear it, in case its a group */
@@ -1012,6 +1015,7 @@ static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi)
 
 	nexthops_free(lookup);
 
+done:
 	return nhe;
 }
 
