@@ -211,7 +211,7 @@ static struct vrrp_vrouter *vrrp_lookup_by_if_mvl(struct interface *mvl_ifp)
 		return NULL;
 	}
 
-	p = if_lookup_by_index(mvl_ifp->link_ifindex, VRF_DEFAULT);
+	p = if_lookup_by_index(mvl_ifp->link_ifindex, mvl_ifp->vrf_id);
 
 	if (!p) {
 		DEBUGD(&vrrp_dbg_zebra,
@@ -534,8 +534,9 @@ static bool vrrp_attach_interface(struct vrrp_router *r)
 	/* Search for existing interface with computed MAC address */
 	struct interface **ifps;
 
-	size_t ifps_cnt = if_lookup_by_hwaddr(
-		r->vmac.octet, sizeof(r->vmac.octet), &ifps, VRF_DEFAULT);
+	size_t ifps_cnt =
+		if_lookup_by_hwaddr(r->vmac.octet, sizeof(r->vmac.octet), &ifps,
+				    r->vr->ifp->vrf_id);
 
 	/*
 	 * Filter to only those macvlan interfaces whose parent is the base
@@ -1057,6 +1058,8 @@ done:
  *
  * This function:
  * - Creates two sockets, one for Tx, one for Rx
+ * - Binds the Tx socket to the macvlan device, if necessary (VRF case)
+ * - Binds the Rx socket to the base interface
  * - Joins the Rx socket to the appropriate VRRP multicast group
  * - Sets the Tx socket to set the TTL (v4) or Hop Limit (v6) field to 255 for
  *   all transmitted IPvX packets
@@ -1097,6 +1100,27 @@ static int vrrp_socket(struct vrrp_router *r)
 		goto done;
 	}
 
+	/*
+	 * Bind Tx socket to macvlan device - necessary for VRF support,
+	 * otherwise the kernel will select the vrf device
+	 */
+	if (r->vr->ifp->vrf_id != VRF_DEFAULT) {
+		frr_with_privs (&vrrp_privs) {
+			ret = setsockopt(r->sock_tx, SOL_SOCKET,
+					 SO_BINDTODEVICE, r->mvl_ifp->name,
+					 strlen(r->mvl_ifp->name));
+		}
+
+		if (ret < 0) {
+			zlog_warn(
+				VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
+				"Failed to bind Tx socket to macvlan device '%s'",
+				r->vr->vrid, family2str(r->family),
+				r->mvl_ifp->name);
+			failed = true;
+			goto done;
+		}
+	}
 	/* Configure sockets */
 	if (r->family == AF_INET) {
 		/* Set Tx socket to always Tx with TTL set to 255 */
@@ -1731,7 +1755,7 @@ vrrp_autoconfig_autocreate(struct interface *mvl_ifp)
 	struct interface *p;
 	struct vrrp_vrouter *vr;
 
-	p = if_lookup_by_index(mvl_ifp->link_ifindex, VRF_DEFAULT);
+	p = if_lookup_by_index(mvl_ifp->link_ifindex, mvl_ifp->vrf_id);
 
 	if (!p)
 		return NULL;
@@ -2008,11 +2032,13 @@ int vrrp_autoconfig(void)
 	if (!vrrp_autoconfig_is_on)
 		return 0;
 
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	struct interface *ifp;
 
-	FOR_ALL_INTERFACES (vrf, ifp)
-		vrrp_autoconfig_if_add(ifp);
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp)
+			vrrp_autoconfig_if_add(ifp);
+	}
 
 	return 0;
 }
