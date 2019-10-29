@@ -2246,6 +2246,7 @@ static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
 	enum nexthop_types_t type = 0;
 	int if_index = 0;
 	size_t sz = 0;
+	struct interface *ifp_lookup;
 
 	if_index = *(int *)RTA_DATA(tb[NHA_OIF]);
 
@@ -2280,9 +2281,13 @@ static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
 	if (if_index)
 		nh.ifindex = if_index;
 
-	*ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), nh.ifindex);
+	ifp_lookup =
+		if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), nh.ifindex);
+
 	if (ifp)
-		nh.vrf_id = (*ifp)->vrf_id;
+		*ifp = ifp_lookup;
+	if (ifp_lookup)
+		nh.vrf_id = ifp_lookup->vrf_id;
 	else {
 		flog_warn(
 			EC_ZEBRA_UNKNOWN_INTERFACE,
