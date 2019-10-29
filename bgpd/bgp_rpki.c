@@ -62,6 +62,7 @@
 #include "bgpd/bgp_rpki_clippy.c"
 #endif
 
+DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_TEMP, "BGP RPKI Intermediate Buffer")
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server")
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group")
 
@@ -89,9 +90,12 @@ struct cache {
 	} tr_config;
 	struct rtr_socket *rtr_socket;
 	uint8_t preference;
+	struct rpki_vrf *rpki_vrf;
 };
 
 enum return_values { SUCCESS = 0, ERROR = -1 };
+
+extern struct zebra_privs_t bgpd_privs;
 
 struct rpki_for_each_record_arg {
 	struct vty *vty;
@@ -111,10 +115,11 @@ struct rpki_vrf {
 	int rpki_sync_socket_rtr;
 	int rpki_sync_socket_bgpd;
 	char *vrfname;
-
 	QOBJ_FIELDS
 };
 
+static struct rpki_vrf *find_rpki_vrf(const char *vrfname);
+static int bgp_rpki_vrf_update(struct vrf *vrf, bool enabled);
 static int bgp_rpki_write_debug(struct vty *vty, bool running);
 static int start(struct rpki_vrf *rpki_vrf);
 static void stop(struct rpki_vrf *rpki_vrf);
@@ -276,6 +281,103 @@ static struct rtr_socket *create_rtr_socket(struct tr_socket *tr_socket)
 	return rtr_socket;
 }
 
+static int bgp_rpki_vrf_update(struct vrf *vrf, bool enabled)
+{
+	struct rpki_vrf *rpki;
+
+	if (vrf->vrf_id == VRF_DEFAULT)
+		rpki = find_rpki_vrf(NULL);
+	else
+		rpki = find_rpki_vrf(vrf->name);
+	if (!rpki)
+		return 0;
+
+	if (enabled)
+		start(rpki);
+	else
+		stop(rpki);
+	return 1;
+}
+
+/* tcp identifier : <HOST>:<PORT>
+ * ssh identifier : <user>@<HOST>:<PORT>
+ */
+static struct rpki_vrf *find_rpki_vrf_from_ident(const char *ident)
+{
+	char *ptr;
+	unsigned int port;
+	char *endptr;
+	struct listnode *rpki_vrf_nnode;
+	struct rpki_vrf *rpki_vrf;
+	struct listnode *cache_node;
+	struct cache *cache;
+	char *buf, *host;
+	bool is_tcp = true;
+	size_t host_len;
+
+	/* extract the <SOCKET> */
+	ptr = strrchr(ident, ':');
+	if (!ptr)
+		return NULL;
+	ptr++;
+	/* extract port */
+	port = atoi(ptr);
+	if (port == 0)
+		/* not ours */
+		return NULL;
+	/* extract host */
+	ptr--;
+	host_len = (size_t)(ptr - ident);
+	buf = XCALLOC(MTYPE_BGP_RPKI_TEMP, host_len + 1);
+	memcpy(buf, ident, host_len);
+	buf[host_len] = '\0';
+	endptr = strrchr(buf, '@');
+	/* ssh session */
+	if (endptr) {
+		host = XCALLOC(MTYPE_BGP_RPKI_TEMP, (size_t)(buf + host_len - endptr) + 1);
+		memcpy(host, endptr + 1, (size_t)(buf + host_len - endptr) + 1);
+		is_tcp = false;
+	} else {
+		host = buf;
+		buf = NULL;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(rpki_vrf_list, rpki_vrf_nnode, rpki_vrf)) {
+		for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list,
+					  cache_node, cache)) {
+			if ((cache->type == TCP && !is_tcp) ||
+			    (cache->type == SSH && is_tcp))
+				continue;
+			if (is_tcp) {
+				struct tr_tcp_config *tcp_config = cache->tr_config.tcp_config;
+				unsigned int cache_port;
+
+				cache_port = atoi(tcp_config->port);
+				if (cache_port != port)
+					continue;
+				if (strlen(tcp_config->host) != strlen(host))
+					continue;
+				if (0 == memcmp(tcp_config->host, host, host_len))
+					break;
+			} else {
+				struct tr_ssh_config *ssh_config = cache->tr_config.ssh_config;
+
+				if (port != ssh_config->port)
+					continue;
+				if (strmatch(ssh_config->host, host))
+					break;
+			}
+		}
+		if (cache)
+			break;
+	}
+	if (host)
+		XFREE(MTYPE_BGP_RPKI_TEMP, host);
+	if (buf)
+		XFREE(MTYPE_BGP_RPKI_TEMP, buf);
+	return rpki_vrf;
+}
+
 static struct rpki_vrf *find_rpki_vrf(const char *vrfname)
 {
 	struct listnode *rpki_vrf_nnode;
@@ -345,7 +447,6 @@ static struct rtr_mgr_group *get_groups(struct list *cache_list)
 	int group_count;
 
 	group_count = listcount(cache_list);
-
 	if (group_count == 0)
 		return NULL;
 
@@ -526,8 +627,26 @@ static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
 {
 	struct rpki_vrf *rpki_vrf;
 	const char *msg;
+	struct rtr_socket *rtr = rec.socket;
+	struct tr_socket *tr;
+	const char *ident;
+	int retval;
 
-	rpki_vrf = find_rpki_vrf(NULL);
+	if (!rtr) {
+		msg = "could not find rtr_socket from cb_sync_rtr";
+		goto err;
+	}
+	tr = rtr->tr_socket;
+	if (!tr) {
+		msg = "could not find tr_socket from cb_sync_rtr";
+		goto err;
+	}
+	ident = tr->ident_fp(tr->socket);
+	if (!ident) {
+		msg = "could not find rpki_vrf ident";
+		goto err;
+	}
+	rpki_vrf = find_rpki_vrf_from_ident(ident);
 	if (!rpki_vrf) {
 		msg = "could not find rpki_vrf";
 		goto err;
@@ -536,7 +655,7 @@ static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
 	    || atomic_load_explicit(&rpki_vrf->rtr_update_overflow,
 				    memory_order_seq_cst))
 		return;
-	int retval =
+	retval =
 		write(rpki_vrf->rpki_sync_socket_rtr, &rec,
 		      sizeof(struct pfx_record));
 	if (retval == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
@@ -654,6 +773,7 @@ static int bgp_rpki_module_init(void)
 	hook_register(frr_late_init, bgp_rpki_init);
 	hook_register(frr_early_fini, &bgp_rpki_fini);
 	hook_register(bgp_hook_config_write_debug, &bgp_rpki_write_debug);
+	hook_register(bgp_hook_vrf_update, &bgp_rpki_vrf_update);
 
 	return 0;
 }
@@ -662,6 +782,7 @@ static int start(struct rpki_vrf *rpki_vrf)
 {
 	int ret;
 	struct list *cache_list = NULL;
+	struct vrf *vrf;
 
 	cache_list = rpki_vrf->cache_list;
 	rpki_vrf->rtr_is_stopping = 0;
@@ -672,6 +793,17 @@ static int start(struct rpki_vrf *rpki_vrf)
 			   "Prefix validation is off.");
 		return ERROR;
 	}
+
+	if (rpki_vrf->vrfname)
+		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (!vrf || !CHECK_FLAG(vrf->status, VRF_ACTIVE)) {
+		RPKI_DEBUG("VRF %s not present or disabled",
+			   rpki_vrf->vrfname);
+		return ERROR;
+	}
+
 	RPKI_DEBUG("Init rtr_mgr.");
 	int groups_len = listcount(cache_list);
 	struct rtr_mgr_group *groups = get_groups(rpki_vrf->cache_list);
@@ -894,13 +1026,16 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 	return 0;
 }
 
-static int add_cache(struct cache *cache, struct rpki_vrf *rpki_vrf)
+static int add_cache(struct cache *cache)
 {
 	uint8_t preference = cache->preference;
 	struct rtr_mgr_group group;
 	struct list *cache_list;
+	struct rpki_vrf *rpki_vrf;
 
-	/* assume default vrf */
+	rpki_vrf = cache->rpki_vrf;
+	if (!rpki_vrf)
+		return ERROR;
 
 	group.preference = preference;
 	group.sockets_len = 1;
@@ -925,6 +1060,95 @@ static int add_cache(struct cache *cache, struct rpki_vrf *rpki_vrf)
 	return SUCCESS;
 }
 
+static int rpki_create_socket(struct cache *cache)
+{
+	struct vrf *vrf;
+	int socket;
+	struct addrinfo hints;
+	struct addrinfo *res = NULL;
+	char *host, *port;
+	struct rpki_vrf *rpki_vrf = cache->rpki_vrf;
+	int ret;
+
+	if (rpki_vrf->vrfname == NULL)
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	else
+		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
+	if (!vrf)
+		return 0;
+
+	if (!CHECK_FLAG(vrf->status, VRF_ACTIVE) ||
+	    vrf->vrf_id == VRF_UNKNOWN)
+		return 0;
+
+	bzero(&hints, sizeof(hints));
+
+	if (cache->type == TCP) {
+		struct tr_tcp_config *tcp_config;
+
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_flags = AI_ADDRCONFIG;
+
+		tcp_config = cache->tr_config.tcp_config;
+		host = tcp_config->host;
+		port = tcp_config->port;
+	} else {
+		char s_port[10];
+		struct tr_ssh_config *ssh_config;
+
+		ssh_config = cache->tr_config.ssh_config;
+		host = ssh_config->host;
+		snprintf(s_port, sizeof(s_port), "%hu",
+			 ssh_config->port);
+		port = s_port;
+
+		hints.ai_flags |= AI_NUMERICHOST;
+		hints.ai_protocol = IPPROTO_TCP;
+		hints.ai_family = PF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+	}
+	frr_with_privs(&bgpd_privs) {
+		ret = vrf_getaddrinfo(host, port,
+				      &hints, &res, vrf->vrf_id);
+	}
+	if (ret != 0) {
+		zlog_err("getaddrinfo error, %u", errno);
+		return 0;
+	}
+	frr_with_privs(&bgpd_privs) {
+		socket = vrf_socket(res->ai_family, res->ai_socktype,
+				    res->ai_protocol, vrf->vrf_id, NULL);
+	}
+	if (socket <= 0) {
+		zlog_err("vrf socket error, %u", errno);
+		return 0;
+	}
+
+	if (connect(socket, res->ai_addr, res->ai_addrlen) == -1) {
+		zlog_err("Couldn't establish TCP connection, %s", strerror(errno));
+		if (res)
+			freeaddrinfo(res);
+		return 0;
+	}
+	if (res)
+		freeaddrinfo(res);
+	return socket;
+}
+
+static int rpki_get_socket(void *_cache)
+{
+	int sock;
+	struct cache *cache = (struct cache *)_cache;
+
+	if (!cache)
+		return -1;
+	sock = rpki_create_socket(cache);
+	if (sock <= 0)
+		return -1;
+	return sock;
+}
+
 static int add_tcp_cache(struct rpki_vrf *rpki_vrf, const char *host,
 			 const char *port, const uint8_t preference)
 {
@@ -942,16 +1166,18 @@ static int add_tcp_cache(struct rpki_vrf *rpki_vrf, const char *host,
 	tcp_config->host = XSTRDUP(MTYPE_BGP_RPKI_CACHE, host);
 	tcp_config->port = XSTRDUP(MTYPE_BGP_RPKI_CACHE, port);
 	tcp_config->bindaddr = NULL;
-
+	tcp_config->data = cache;
+	tcp_config->new_socket = rpki_get_socket;
 	rtr_socket = create_rtr_socket(tr_socket);
 
+	cache->rpki_vrf = rpki_vrf;
 	cache->type = TCP;
 	cache->tr_socket = tr_socket;
 	cache->tr_config.tcp_config = tcp_config;
 	cache->rtr_socket = rtr_socket;
 	cache->preference = preference;
 
-	ret = add_cache(cache, rpki_vrf);
+	ret = add_cache(cache);
 	if (ret != SUCCESS) {
 		free_cache(cache);
 	}
@@ -981,6 +1207,8 @@ static int add_ssh_cache(struct rpki_vrf *rpki_vrf,
 	ssh_config->port = port;
 	ssh_config->host = XSTRDUP(MTYPE_BGP_RPKI_CACHE, host);
 	ssh_config->bindaddr = NULL;
+	ssh_config->data = cache;
+	ssh_config->new_socket = rpki_get_socket;
 
 	ssh_config->username = XSTRDUP(MTYPE_BGP_RPKI_CACHE, username);
 	/* public key path is derived from private key path
@@ -993,13 +1221,14 @@ static int add_ssh_cache(struct rpki_vrf *rpki_vrf,
 
 	rtr_socket = create_rtr_socket(tr_socket);
 
+	cache->rpki_vrf = rpki_vrf;
 	cache->type = SSH;
 	cache->tr_socket = tr_socket;
 	cache->tr_config.ssh_config = ssh_config;
 	cache->rtr_socket = rtr_socket;
 	cache->preference = preference;
 
-	ret = add_cache(cache, rpki_vrf);
+	ret = add_cache(cache);
 	if (ret != SUCCESS) {
 		free_cache(cache);
 	}
