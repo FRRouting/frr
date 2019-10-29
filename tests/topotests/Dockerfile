@@ -6,9 +6,11 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         autoconf \
         binutils \
         bison \
+        ca-certificates \
         flex \
         gdb \
         git \
+        gpg \
         install-info \
         iputils-ping \
         iproute2 \
@@ -38,17 +40,15 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && pip install \
         exabgp==3.4.17 \
         ipaddr \
-        pytest
+        pytest \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN cd /tmp \
-    && wget -q https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-10/Debian-AMD64-Packages/libyang-dev_0.16.105-1_amd64.deb \
-         -O libyang-dev.deb \
-    && wget -q https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-10/Debian-AMD64-Packages/libyang0.16_0.16.105-1_amd64.deb \
-         -O libyang.deb \
-    && echo "34bef017e527a590020185f05dc39203bdf1c86223e0d990839623ec629d8598  libyang.deb" | sha256sum -c - \
-    && echo "fe9cc6e3b173ca56ef49428c281e96bf76c0f910aa75cf85098076411484e8f4  libyang-dev.deb" | sha256sum -c - \
-    && dpkg -i libyang*.deb \
-    && rm libyang*.deb
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && apt-key adv --keyserver keyserver.ubuntu.com --recv-key 5418F291D0D4A1AA \
+    && echo "deb https://deb.frrouting.org/frr bionic frr-stable" > /etc/apt/sources.list.d/frr.list \
+    && apt-get update \
+    && apt-get install -y libyang-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -r -g 92 frr \
     && groupadd -r -g 85 frrvty \
