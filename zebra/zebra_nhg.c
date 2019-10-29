@@ -552,20 +552,6 @@ zebra_nhg_find_nexthop(uint32_t id, struct nexthop *nh, afi_t afi, int type)
 	return nhe;
 }
 
-static struct nhg_ctx *nhg_ctx_new()
-{
-	struct nhg_ctx *new = NULL;
-
-	new = XCALLOC(MTYPE_NHG_CTX, sizeof(struct nhg_ctx));
-
-	return new;
-}
-
-static void nhg_ctx_free(struct nhg_ctx *ctx)
-{
-	XFREE(MTYPE_NHG_CTX, ctx);
-}
-
 static uint32_t nhg_ctx_get_id(const struct nhg_ctx *ctx)
 {
 	return ctx->id;
@@ -619,6 +605,36 @@ static uint8_t nhg_ctx_get_count(const struct nhg_ctx *ctx)
 static struct nh_grp *nhg_ctx_get_grp(struct nhg_ctx *ctx)
 {
 	return ctx->u.grp;
+}
+
+static struct nhg_ctx *nhg_ctx_new()
+{
+	struct nhg_ctx *new = NULL;
+
+	new = XCALLOC(MTYPE_NHG_CTX, sizeof(struct nhg_ctx));
+
+	return new;
+}
+
+static void nhg_ctx_free(struct nhg_ctx **ctx)
+{
+	struct nexthop *nh;
+
+	if (ctx == NULL)
+		return;
+
+	assert((*ctx) != NULL);
+
+	if (nhg_ctx_get_count(*ctx))
+		goto done;
+
+	nh = nhg_ctx_get_nh(*ctx);
+
+	nexthop_del_labels(nh);
+
+done:
+	XFREE(MTYPE_NHG_CTX, *ctx);
+	*ctx = NULL;
 }
 
 static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,
@@ -869,23 +885,13 @@ static int nhg_ctx_process_del(struct nhg_ctx *ctx)
 	return 0;
 }
 
-static void nhg_ctx_process_finish(struct nhg_ctx *ctx)
+static void nhg_ctx_fini(struct nhg_ctx **ctx)
 {
-	struct nexthop *nh;
-
 	/*
 	 * Just freeing for now, maybe do something more in the future
 	 * based on flag.
 	 */
 
-	if (nhg_ctx_get_count(ctx))
-		goto done;
-
-	nh = nhg_ctx_get_nh(ctx);
-
-	nexthop_del_labels(nh);
-
-done:
 	nhg_ctx_free(ctx);
 }
 
@@ -941,7 +947,7 @@ int nhg_ctx_process(struct nhg_ctx *ctx)
 
 	nhg_ctx_set_status(ctx, (ret ? NHG_CTX_FAILURE : NHG_CTX_SUCCESS));
 
-	nhg_ctx_process_finish(ctx);
+	nhg_ctx_fini(&ctx);
 
 	return ret;
 }
@@ -970,7 +976,7 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 		return nhg_ctx_process(ctx);
 
 	if (queue_add(ctx)) {
-		nhg_ctx_process_finish(ctx);
+		nhg_ctx_fini(&ctx);
 		return -1;
 	}
 
@@ -987,7 +993,7 @@ int zebra_nhg_kernel_del(uint32_t id)
 	nhg_ctx_set_op(ctx, NHG_CTX_OP_DEL);
 
 	if (queue_add(ctx)) {
-		nhg_ctx_process_finish(ctx);
+		nhg_ctx_fini(&ctx);
 		return -1;
 	}
 
