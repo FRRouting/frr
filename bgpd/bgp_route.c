@@ -1751,18 +1751,22 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 	 * if
 	 * the peer (group) is configured to receive link-local nexthop
 	 * unchanged
-	 * and it is available in the prefix OR we're not reflecting the route
-	 * and
+	 * and it is available in the prefix OR we're not reflecting the route,
+	 * link-local nexthop address is valid and
 	 * the peer (group) to whom we're going to announce is on a shared
 	 * network
 	 * and this is either a self-originated route or the peer is EBGP.
+	 * By checking if nexthop LL address is valid we are sure that
+	 * we do not announce LL address as `::`.
 	 */
 	if (NEXTHOP_IS_V6) {
 		attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 		if ((CHECK_FLAG(peer->af_flags[afi][safi],
 				PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)
 		     && IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local))
-		    || (!reflect && peer->shared_network
+		    || (!reflect
+			&& IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local)
+			&& peer->shared_network
 			&& (from == bgp->peer_self
 			    || peer->sort == BGP_PEER_EBGP))) {
 			attr->mp_nexthop_len =
