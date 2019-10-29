@@ -65,6 +65,9 @@
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
 
+DEFINE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
+	    (vrf, enabled))
+
 /* bgpd options, we use GNU getopt library. */
 static const struct option longopts[] = {
 	{"bgp_port", required_argument, NULL, 'p'},
@@ -302,6 +305,7 @@ static int bgp_vrf_enable(struct vrf *vrf)
 		if (old_vrf_id != bgp->vrf_id)
 			bgp_redistribute_redo(bgp);
 		bgp_instance_up(bgp);
+		hook_call(bgp_hook_vrf_update, vrf, true);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
 		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP,
@@ -351,6 +355,7 @@ static int bgp_vrf_disable(struct vrf *vrf)
 		if (old_vrf_id != bgp->vrf_id)
 			bgp_unset_redist_vrf_bitmaps(bgp, old_vrf_id);
 		bgp_instance_down(bgp);
+		hook_call(bgp_hook_vrf_update, vrf, false);
 	}
 
 	/* Note: This is a callback, the VRF will be deleted by the caller. */
