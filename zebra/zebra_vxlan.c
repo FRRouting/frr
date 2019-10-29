@@ -5775,12 +5775,14 @@ static void process_remote_macip_del(vni_t vni,
 			vlan_if = zvni_map_to_svi(vxl->access_vlan,
 					zif->brslave_info.br_if);
 			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug("%s: IP %s (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
-					   __PRETTY_FUNCTION__,
-					   ipaddr2str(ipaddr, buf1,
-						      sizeof(buf1)), n->flags,
-					   vlan_if->name);
-			neigh_read_specific_ip(ipaddr, vlan_if);
+				zlog_debug(
+					"%s: IP %s (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
+					__PRETTY_FUNCTION__,
+					ipaddr2str(ipaddr, buf1, sizeof(buf1)),
+					n->flags,
+					vlan_if ? vlan_if->name : "Unknown");
+			if (vlan_if)
+				neigh_read_specific_ip(ipaddr, vlan_if);
 		}
 
 		/* When the MAC changes for an IP, it is possible the
