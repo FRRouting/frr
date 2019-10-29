@@ -886,8 +886,7 @@ static void nhg_ctx_process_finish(struct nhg_ctx *ctx)
 	nexthop_del_labels(nh);
 
 done:
-	if (ctx)
-		nhg_ctx_free(ctx);
+	nhg_ctx_free(ctx);
 }
 
 static int queue_add(struct nhg_ctx *ctx)
