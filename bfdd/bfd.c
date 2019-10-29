@@ -159,6 +159,7 @@ int bfd_session_enable(struct bfd_session *bs)
 	bs->vrf = vrf;
 	if (bs->vrf == NULL)
 		bs->vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	assert(bs->vrf);
 
 	if (bs->key.ifname[0]
 	    && BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) == 0)
