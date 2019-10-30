@@ -209,7 +209,7 @@ static void bgp_debug_list_free(struct list *list)
 			listnode_delete(list, filter);
 
 			if (filter->p)
-				prefix_free(filter->p);
+				prefix_free(&filter->p);
 
 			if (filter->host)
 				XFREE(MTYPE_BGP_DEBUG_STR, filter->host);
@@ -323,7 +323,7 @@ static int bgp_debug_list_remove_entry(struct list *list, const char *host,
 		} else if (p && filter->p->prefixlen == p->prefixlen
 			   && prefix_match(filter->p, p)) {
 			listnode_delete(list, filter);
-			prefix_free(filter->p);
+			prefix_free(&filter->p);
 			XFREE(MTYPE_BGP_DEBUG_FILTER, filter);
 			return 1;
 		}
@@ -1412,7 +1412,7 @@ DEFPY (debug_bgp_update_prefix_afi_safi,
 
 	ret = bgp_debug_parse_evpn_prefix(vty, argv, argc, &argv_p);
 	if (ret != CMD_SUCCESS) {
-		prefix_free(argv_p);
+		prefix_free(&argv_p);
 		return ret;
 	}
 
@@ -1425,7 +1425,7 @@ DEFPY (debug_bgp_update_prefix_afi_safi,
 		vty_out(vty,
 			"BGP updates debugging is already enabled for %s\n",
 			buf);
-		prefix_free(argv_p);
+		prefix_free(&argv_p);
 		return CMD_SUCCESS;
 	}
 
@@ -1438,7 +1438,7 @@ DEFPY (debug_bgp_update_prefix_afi_safi,
 		vty_out(vty, "BGP updates debugging is on for %s\n", buf);
 	}
 
-	prefix_free(argv_p);
+	prefix_free(&argv_p);
 
 	return CMD_SUCCESS;
 }
@@ -1477,7 +1477,7 @@ DEFPY (no_debug_bgp_update_prefix_afi_safi,
 
 	ret = bgp_debug_parse_evpn_prefix(vty, argv, argc, &argv_p);
 	if (ret != CMD_SUCCESS) {
-		prefix_free(argv_p);
+		prefix_free(&argv_p);
 		return ret;
 	}
 
@@ -1505,7 +1505,7 @@ DEFPY (no_debug_bgp_update_prefix_afi_safi,
 		vty_out(vty, "BGP updates debugging was not enabled for %s\n",
 			buf);
 
-	prefix_free(argv_p);
+	prefix_free(&argv_p);
 
 	return ret;
 }

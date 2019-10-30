@@ -10548,7 +10548,7 @@ static int bgp_show_prefix_longer(struct vty *vty, struct bgp *bgp,
 	}
 
 	ret = bgp_show(vty, bgp, afi, safi, type, p, 0);
-	prefix_free(p);
+	prefix_free(&p);
 	return ret;
 }
 

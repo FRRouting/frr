@@ -869,10 +869,10 @@ struct nbr_connected *nbr_connected_new(void)
 void connected_free(struct connected *connected)
 {
 	if (connected->address)
-		prefix_free(connected->address);
+		prefix_free(&connected->address);
 
 	if (connected->destination)
-		prefix_free(connected->destination);
+		prefix_free(&connected->destination);
 
 	XFREE(MTYPE_CONNECTED_LABEL, connected->label);
 
@@ -883,7 +883,7 @@ void connected_free(struct connected *connected)
 void nbr_connected_free(struct nbr_connected *connected)
 {
 	if (connected->address)
-		prefix_free(connected->address);
+		prefix_free(&connected->address);
 
 	XFREE(MTYPE_NBR_CONNECTED, connected);
 }

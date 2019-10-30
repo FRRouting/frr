@@ -2586,7 +2586,7 @@ int peer_group_delete(struct peer_group *group)
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (ALL_LIST_ELEMENTS(group->listen_range[afi], node, nnode,
 				       prefix)) {
-			prefix_free(prefix);
+			prefix_free(&prefix);
 		}
 		list_delete(&group->listen_range[afi]);
 	}

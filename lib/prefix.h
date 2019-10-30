@@ -396,7 +396,11 @@ extern unsigned int prefix6_bit(const struct in6_addr *prefix,
 				const uint16_t prefixlen);
 
 extern struct prefix *prefix_new(void);
-extern void prefix_free(struct prefix *);
+extern void prefix_free(struct prefix **p);
+/*
+ * Function to handle prefix_free being used as a del function.
+ */
+extern void prefix_free_lists(void *arg);
 extern const char *prefix_family_str(const struct prefix *);
 extern int prefix_blen(const struct prefix *);
 extern int str2prefix(const char *, struct prefix *);
@@ -435,7 +439,7 @@ extern void prefix2sockunion(const struct prefix *, union sockunion *);
 extern int str2prefix_eth(const char *, struct prefix_eth *);
 
 extern struct prefix_ipv4 *prefix_ipv4_new(void);
-extern void prefix_ipv4_free(struct prefix_ipv4 *);
+extern void prefix_ipv4_free(struct prefix_ipv4 **p);
 extern int str2prefix_ipv4(const char *, struct prefix_ipv4 *);
 extern void apply_mask_ipv4(struct prefix_ipv4 *);
 
@@ -460,7 +464,7 @@ extern in_addr_t ipv4_broadcast_addr(in_addr_t hostaddr, int masklen);
 extern int netmask_str2prefix_str(const char *, const char *, char *);
 
 extern struct prefix_ipv6 *prefix_ipv6_new(void);
-extern void prefix_ipv6_free(struct prefix_ipv6 *);
+extern void prefix_ipv6_free(struct prefix_ipv6 **p);
 extern int str2prefix_ipv6(const char *, struct prefix_ipv6 *);
 extern void apply_mask_ipv6(struct prefix_ipv6 *);
 

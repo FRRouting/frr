@@ -1512,7 +1512,7 @@ static int rfapiNhlAddNodeRoutes(
 	}
 
 	seen_nexthops =
-		skiplist_new(0, vnc_prefix_cmp, (void (*)(void *))prefix_free);
+		skiplist_new(0, vnc_prefix_cmp, prefix_free_lists);
 
 	for (bpi = rn->info; bpi; bpi = bpi->next) {
 
@@ -4359,7 +4359,7 @@ rfapiImportTableRefAdd(struct bgp *bgp, struct ecommunity *rt_import_list,
 		it->rt_import_list = ecommunity_dup(rt_import_list);
 		it->rfg = rfg;
 		it->monitor_exterior_orphans =
-			skiplist_new(0, NULL, (void (*)(void *))prefix_free);
+			skiplist_new(0, NULL, prefix_free_lists);
 
 		/*
 		 * fill import route tables from RIBs

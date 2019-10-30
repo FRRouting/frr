@@ -327,8 +327,7 @@ int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 	if (!IPV4_ADDR_SAME(&pref->u.prefix4, &p->u.prefix4))
 		return 0;
 
-	prefix_ipv4_free(rn->info);
-	rn->info = NULL;
+	prefix_ipv4_free((struct prefix_ipv4 **)&rn->info);
 	route_unlock_node(rn); /* initial reference */
 
 	/* Find interfaces that not configured already.  */
