@@ -513,7 +513,7 @@ extern void if_delete_retain(struct interface *);
 
 /* Delete and free the interface structure: calls if_delete_retain and then
    deletes it from the interface list and frees the structure. */
-extern void if_delete(struct interface *);
+extern void if_delete(struct interface **ifp);
 
 extern int if_is_up(const struct interface *ifp);
 extern int if_is_running(const struct interface *ifp);

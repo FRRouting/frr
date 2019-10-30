@@ -829,7 +829,7 @@ void if_delete_update(struct interface *ifp)
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("interface %s is being deleted from the system",
 				   ifp->name);
-		if_delete(ifp);
+		if_delete(&ifp);
 	}
 }
 
