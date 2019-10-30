@@ -61,6 +61,7 @@ from mininet.cli import CLI
 
 from lib import topotest
 from lib.topolog import logger, logger_config
+from lib.topotest import set_sysctl
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 
@@ -676,6 +677,10 @@ class TopoRouter(TopoGear):
 
         if result != '':
             self.tgen.set_error(result)
+        else:
+            # Enable MPLS processing on all interfaces.
+            for interface in self.links.keys():
+                set_sysctl(nrouter, 'net.mpls.conf.{}.input'.format(interface), 1)
 
         return result
 
