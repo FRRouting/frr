@@ -364,7 +364,7 @@ int nhrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 	nhrp_interface_update_address(
 		ifc->ifp, family2afi(PREFIX_FAMILY(ifc->address)), 0);
-	connected_free(ifc);
+	connected_free(&ifc);
 
 	return 0;
 }

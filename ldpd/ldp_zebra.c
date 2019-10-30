@@ -368,7 +368,7 @@ ldp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 	ifp = ifc->ifp;
 	ifc2kaddr(ifp, ifc, &ka);
-	connected_free(ifc);
+	connected_free(&ifc);
 
 	/* Filter invalid addresses.  */
 	if (bad_addr(ka.af, &ka.addr))

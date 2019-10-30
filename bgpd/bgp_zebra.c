@@ -357,7 +357,7 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		bgp_connected_delete(bgp, ifc);
 	}
 
-	connected_free(ifc);
+	connected_free(&ifc);
 
 	return 0;
 }

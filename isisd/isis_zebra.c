@@ -128,7 +128,7 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 
 	if (if_is_operative(ifp))
 		isis_circuit_del_addr(circuit_scan_by_ifp(ifp), c);
-	connected_free(c);
+	connected_free(&c);
 
 	return 0;
 }

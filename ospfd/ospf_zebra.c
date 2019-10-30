@@ -150,7 +150,7 @@ static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 	rn = route_node_lookup(IF_OIFS(ifp), &p);
 	if (!rn) {
-		connected_free(c);
+		connected_free(&c);
 		return 0;
 	}
 
@@ -163,7 +163,7 @@ static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 	ospf_if_interface(c->ifp);
 
-	connected_free(c);
+	connected_free(&c);
 
 	return 0;
 }

@@ -738,7 +738,7 @@ static void if_delete_connected(struct interface *ifp)
 							ZEBRA_IFC_CONFIGURED)) {
 						listnode_delete(ifp->connected,
 								ifc);
-						connected_free(ifc);
+						connected_free(&ifc);
 					} else
 						last = node;
 				}
@@ -759,7 +759,7 @@ static void if_delete_connected(struct interface *ifp)
 				last = node;
 			else {
 				listnode_delete(ifp->connected, ifc);
-				connected_free(ifc);
+				connected_free(&ifc);
 			}
 		} else {
 			last = node;
@@ -2878,7 +2878,7 @@ static int ip_address_uninstall(struct vty *vty, struct interface *ifp,
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
 	    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 		listnode_delete(ifp->connected, ifc);
-		connected_free(ifc);
+		connected_free(&ifc);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -3103,7 +3103,7 @@ static int ipv6_address_uninstall(struct vty *vty, struct interface *ifp,
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
 	    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 		listnode_delete(ifp->connected, ifc);
-		connected_free(ifc);
+		connected_free(&ifc);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 

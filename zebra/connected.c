@@ -65,7 +65,7 @@ static void connected_withdraw(struct connected *ifc)
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)) {
 		listnode_delete(ifc->ifp->connected, ifc);
-		connected_free(ifc);
+		connected_free(&ifc);
 	}
 }
 
@@ -177,7 +177,7 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 		 */
 		if (connected_same(current, ifc)) {
 			/* nothing to do */
-			connected_free(ifc);
+			connected_free(&ifc);
 			return;
 		}
 

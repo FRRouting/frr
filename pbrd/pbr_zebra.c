@@ -109,7 +109,7 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 	       "%s: %s deleted %s", __PRETTY_FUNCTION__, c->ifp->name,
 	       prefix2str(c->address, buf, sizeof(buf)));
 
-	connected_free(c);
+	connected_free(&c);
 	return 0;
 }
 

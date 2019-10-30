@@ -140,6 +140,13 @@ static int if_cmp_index_func(const struct interface *ifp1,
 	return ifp1->ifindex - ifp2->ifindex;
 }
 
+static void ifp_connected_free(void *arg)
+{
+	struct connected *c = arg;
+
+	connected_free(&c);
+}
+
 /* Create new interface structure. */
 static struct interface *if_new(vrf_id_t vrf_id)
 {
@@ -153,7 +160,7 @@ static struct interface *if_new(vrf_id_t vrf_id)
 	ifp->vrf_id = vrf_id;
 
 	ifp->connected = list_new();
-	ifp->connected->del = (void (*)(void *))connected_free;
+	ifp->connected->del = ifp_connected_free;
 
 	ifp->nbr_connected = list_new();
 	ifp->nbr_connected->del = (void (*)(void *))nbr_connected_free;
@@ -866,17 +873,20 @@ struct nbr_connected *nbr_connected_new(void)
 }
 
 /* Free connected structure. */
-void connected_free(struct connected *connected)
+void connected_free(struct connected **connected)
 {
-	if (connected->address)
-		prefix_free(&connected->address);
+	struct connected *ptr = *connected;
 
-	if (connected->destination)
-		prefix_free(&connected->destination);
+	if (ptr->address)
+		prefix_free(&ptr->address);
 
-	XFREE(MTYPE_CONNECTED_LABEL, connected->label);
+	if (ptr->destination)
+		prefix_free(&ptr->destination);
 
-	XFREE(MTYPE_CONNECTED, connected);
+	XFREE(MTYPE_CONNECTED_LABEL, ptr->label);
+
+	XFREE(MTYPE_CONNECTED, ptr);
+	*connected = NULL;
 }
 
 /* Free nbr connected structure. */

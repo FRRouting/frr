@@ -189,7 +189,7 @@ static int eigrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	if (prefix_cmp(&ei->address, c->address) == 0)
 		eigrp_if_free(ei, INTERFACE_DOWN_BY_ZEBRA);
 
-	connected_free(c);
+	connected_free(&c);
 
 	return 0;
 }
