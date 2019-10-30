@@ -593,29 +593,6 @@ void bfdd_vty_init(void);
  */
 void bfdd_cli_init(void);
 
-void bfd_cli_show_header(struct vty *vty, struct lyd_node *dnode,
-			 bool show_defaults);
-void bfd_cli_show_header_end(struct vty *vty, struct lyd_node *dnode);
-void bfd_cli_show_single_hop_peer(struct vty *vty,
-				  struct lyd_node *dnode,
-				  bool show_defaults);
-void bfd_cli_show_multi_hop_peer(struct vty *vty,
-				 struct lyd_node *dnode,
-				 bool show_defaults);
-void bfd_cli_show_peer_end(struct vty *vty, struct lyd_node *dnode);
-void bfd_cli_show_mult(struct vty *vty, struct lyd_node *dnode,
-		       bool show_defaults);
-void bfd_cli_show_tx(struct vty *vty, struct lyd_node *dnode,
-		     bool show_defaults);
-void bfd_cli_show_rx(struct vty *vty, struct lyd_node *dnode,
-		     bool show_defaults);
-void bfd_cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
-			   bool show_defaults);
-void bfd_cli_show_echo(struct vty *vty, struct lyd_node *dnode,
-			   bool show_defaults);
-void bfd_cli_show_echo_interval(struct vty *vty, struct lyd_node *dnode,
-				bool show_defaults);
-
 
 /*
  * ptm_adapter.c
@@ -629,13 +606,5 @@ void bfdd_sessions_disable_vrf(struct vrf *vrf);
 void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf);
 
 int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state);
-
-
-/*
- * bfdd_northbound.c
- *
- * BFD northbound callbacks.
- */
-extern const struct frr_yang_module_info frr_bfdd_info;
 
 #endif /* _BFD_H_ */

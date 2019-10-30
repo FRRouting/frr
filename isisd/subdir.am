@@ -39,6 +39,7 @@ noinst_HEADERS += \
 	isisd/isis_memory.h \
 	isisd/isis_misc.h \
 	isisd/isis_mt.h \
+	isisd/isis_nb.h \
 	isisd/isis_network.h \
 	isisd/isis_pdu.h \
 	isisd/isis_pdu_counter.h \
@@ -54,7 +55,6 @@ noinst_HEADERS += \
 	isisd/isisd.h \
 	isisd/iso_checksum.h \
 	isisd/fabricd.h \
-	isisd/isis_cli.h \
 	# end
 
 LIBISIS_SOURCES = \
@@ -99,7 +99,10 @@ ISIS_LDADD_COMMON = lib/libfrr.la $(LIBCAP)
 
 isisd_libisis_a_SOURCES = \
 	$(LIBISIS_SOURCES) \
-	isisd/isis_northbound.c \
+	isisd/isis_nb.c \
+	isisd/isis_nb_config.c \
+	isisd/isis_nb_notifications.c \
+	isisd/isis_nb_state.c \
 	isisd/isis_cli.c \
 	#end
 

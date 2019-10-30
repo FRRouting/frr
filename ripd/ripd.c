@@ -46,6 +46,7 @@
 #include "northbound_cli.h"
 
 #include "ripd/ripd.h"
+#include "ripd/rip_nb.h"
 #include "ripd/rip_debug.h"
 #include "ripd/rip_errors.h"
 #include "ripd/rip_interface.h"

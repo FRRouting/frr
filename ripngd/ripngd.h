@@ -494,9 +494,6 @@ extern struct ripng_info *ripng_ecmp_delete(struct ripng *ripng,
 
 extern void ripng_vrf_init(void);
 extern void ripng_vrf_terminate(void);
-
-/* Northbound. */
 extern void ripng_cli_init(void);
-extern const struct frr_yang_module_info frr_ripngd_info;
 
 #endif /* _ZEBRA_RIPNG_RIPNGD_H */

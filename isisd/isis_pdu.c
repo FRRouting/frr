@@ -58,6 +58,7 @@
 #include "isisd/fabricd.h"
 #include "isisd/isis_tx_queue.h"
 #include "isisd/isis_pdu_counter.h"
+#include "isisd/isis_nb.h"
 
 static int ack_lsp(struct isis_lsp_hdr *hdr, struct isis_circuit *circuit,
 		   int level)

@@ -24,7 +24,11 @@ ripd_librip_a_SOURCES = \
 	ripd/rip_errors.c \
 	ripd/rip_interface.c \
 	ripd/rip_offset.c \
-	ripd/rip_northbound.c \
+	ripd/rip_nb.c \
+	ripd/rip_nb_config.c \
+	ripd/rip_nb_rpcs.c \
+	ripd/rip_nb_notifications.c \
+	ripd/rip_nb_state.c \
 	ripd/rip_peer.c \
 	ripd/rip_routemap.c \
 	ripd/rip_zebra.c \
@@ -35,10 +39,10 @@ ripd/rip_cli_clippy.c: $(CLIPPY_DEPS)
 ripd/rip_cli.$(OBJEXT): ripd/rip_cli_clippy.c
 
 noinst_HEADERS += \
-	ripd/rip_cli.h \
 	ripd/rip_debug.h \
 	ripd/rip_errors.h \
 	ripd/rip_interface.h \
+	ripd/rip_nb.h \
 	ripd/ripd.h \
 	# end
 

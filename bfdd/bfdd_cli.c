@@ -31,6 +31,7 @@
 #endif /* VTYSH_EXTRACT_PL */
 
 #include "bfd.h"
+#include "bfdd_nb.h"
 
 /*
  * Definitions.

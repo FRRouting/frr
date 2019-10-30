@@ -32,7 +32,7 @@
 #include "yang.h"
 #include "lib/linklist.h"
 #include "isisd/isisd.h"
-#include "isisd/isis_cli.h"
+#include "isisd/isis_nb.h"
 #include "isisd/isis_misc.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_csm.h"

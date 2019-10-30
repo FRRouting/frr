@@ -121,6 +121,7 @@ DECLARE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj))
 void isis_adj_state_change(struct isis_adjacency *adj,
 			   enum isis_adj_state state, const char *reason);
 void isis_adj_print(struct isis_adjacency *adj);
+const char *isis_adj_yang_state(enum isis_adj_state state);
 int isis_adj_expire(struct thread *thread);
 void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			char detail);

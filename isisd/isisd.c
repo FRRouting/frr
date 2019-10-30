@@ -57,6 +57,7 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/fabricd.h"
+#include "isisd/isis_nb.h"
 
 struct isis *isis = NULL;
 
