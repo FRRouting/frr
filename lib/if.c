@@ -959,6 +959,20 @@ static int connected_same_prefix(struct prefix *p1, struct prefix *p2)
 	return 0;
 }
 
+/* count the number of connected addresses that are in the given family */
+unsigned int connected_count_by_family(struct interface *ifp, int family)
+{
+	struct listnode *cnode;
+	struct connected *connected;
+	unsigned int cnt = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected))
+		if (connected->address->family == family)
+			cnt++;
+
+	return cnt;
+}
+
 struct connected *connected_lookup_prefix_exact(struct interface *ifp,
 						struct prefix *p)
 {

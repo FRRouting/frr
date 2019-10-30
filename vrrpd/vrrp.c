@@ -298,7 +298,7 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 	start = start && if_is_operative(vr->ifp);
 #endif
 	/* Parent interface must have at least one v4 */
-	start = start && vr->ifp->connected->count > 1;
+	start = start && connected_count_by_family(vr->ifp, AF_INET) > 0;
 	whynot = (!start && !whynot) ? "No primary IPv4 address" : whynot;
 	/* Must have a macvlan interface */
 	start = start && (r->mvl_ifp != NULL);
@@ -341,17 +341,17 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 	/* Macvlan interface must have a link local */
 	start = start && connected_get_linklocal(r->mvl_ifp);
 	whynot =
-		(!start && !whynot) ? "No link local address configured" : NULL;
+		(!start && !whynot) ? "No link local address configured" : whynot;
 	/* Macvlan interface must have a v6 IP besides the link local */
-	start = start && (r->mvl_ifp->connected->count >= 2);
+	start = start && (connected_count_by_family(r->mvl_ifp, AF_INET6) > 1);
 	whynot = (!start && !whynot)
-			 ? "No Virtual IP configured on macvlan device"
-			 : NULL;
+			 ? "No Virtual IPv6 address configured on macvlan device"
+			 : whynot;
 #endif
 	/* Must have at least one VIP configured */
 	start = start && r->addrs->count > 0;
 	whynot =
-		(!start && !whynot) ? "No Virtual IP address configured" : NULL;
+		(!start && !whynot) ? "No Virtual IP address configured" : whynot;
 	if (start)
 		vrrp_event(r, VRRP_EVENT_STARTUP);
 	else if (whynot)

@@ -553,6 +553,7 @@ extern struct connected *connected_lookup_prefix(struct interface *,
 						 struct prefix *);
 extern struct connected *connected_lookup_prefix_exact(struct interface *,
 						       struct prefix *);
+extern unsigned int connected_count_by_family(struct interface *, int family);
 extern struct nbr_connected *nbr_connected_new(void);
 extern void nbr_connected_free(struct nbr_connected *);
 struct nbr_connected *nbr_connected_check(struct interface *, struct prefix *);
