@@ -738,10 +738,15 @@ Redistribution
 
    Redistribute OSPF route to BGP process.
 
-.. index:: redistribute vpn
-.. clicmd:: redistribute vpn
+.. index:: redistribute vnc
+.. clicmd:: redistribute vnc
 
    Redistribute VNC routes to BGP process.
+
+.. index:: redistribute vnc-direct
+.. clicmd:: redistribute vnc-direct
+
+   Redistribute VNC direct (not via zebra) routes to BGP process.
 
 .. index:: update-delay MAX-DELAY
 .. clicmd:: update-delay MAX-DELAY
