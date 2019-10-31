@@ -6381,6 +6381,44 @@ ALIAS_HIDDEN(no_neighbor_addpath_tx_bestpath_per_as,
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Use addpath to advertise the bestpath per each neighboring AS\n")
 
+DEFPY(
+	neighbor_aspath_loop_detection, neighbor_aspath_loop_detection_cmd,
+	"neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor sender-as-path-loop-detection",
+	NEIGHBOR_STR
+	NEIGHBOR_ADDR_STR2
+	"Detect AS loops before sending to neighbor\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	peer->as_path_loop_detection = true;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(
+	no_neighbor_aspath_loop_detection,
+	no_neighbor_aspath_loop_detection_cmd,
+	"no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor sender-as-path-loop-detection",
+	NO_STR
+	NEIGHBOR_STR
+	NEIGHBOR_ADDR_STR2
+	"Detect AS loops before sending to neighbor\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	peer->as_path_loop_detection = false;
+
+	return CMD_SUCCESS;
+}
+
 static int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
 			 struct ecommunity **list)
 {
@@ -13677,6 +13715,10 @@ void bgp_vty_init(void)
 			&neighbor_addpath_tx_bestpath_per_as_cmd);
 	install_element(BGP_VPNV6_NODE,
 			&no_neighbor_addpath_tx_bestpath_per_as_cmd);
+
+	/* "neighbor sender-as-path-loop-detection" commands. */
+	install_element(BGP_NODE, &neighbor_aspath_loop_detection_cmd);
+	install_element(BGP_NODE, &no_neighbor_aspath_loop_detection_cmd);
 
 	/* "neighbor passive" commands. */
 	install_element(BGP_NODE, &neighbor_passive_cmd);

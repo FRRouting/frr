@@ -1639,9 +1639,9 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 		return 0;
 	}
 
-#ifdef BGP_SEND_ASPATH_CHECK
 	/* AS path loop check. */
-	if (onlypeer && aspath_loop_check(piattr->aspath, onlypeer->as)) {
+	if (onlypeer && onlypeer->as_path_loop_detection
+	    && aspath_loop_check(piattr->aspath, onlypeer->as)) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 			zlog_debug(
 				"%s [Update:SEND] suppress announcement to peer AS %u "
@@ -1649,7 +1649,6 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 				onlypeer->host, onlypeer->as);
 		return 0;
 	}
-#endif /* BGP_SEND_ASPATH_CHECK */
 
 	/* If we're a CONFED we need to loop check the CONFED ID too */
 	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)) {

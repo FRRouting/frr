@@ -1225,6 +1225,9 @@ struct peer {
 	char *hostname;
 	char *domainname;
 
+	/* Sender side AS path loop detection. */
+	bool as_path_loop_detection;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(peer)
@@ -1446,9 +1449,6 @@ struct bgp_nlri {
 /* Default configuration settings for bgpd.  */
 #define BGP_VTY_PORT                          2605
 #define BGP_DEFAULT_CONFIG             "bgpd.conf"
-
-/* Check AS path loop when we send NLRI.  */
-/* #define BGP_SEND_ASPATH_CHECK */
 
 /* BGP Dynamic Neighbors feature */
 #define BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT    100

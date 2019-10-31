@@ -1142,6 +1142,14 @@ Peer Filtering
    on reflected routes. This option allows the modifications to be reflected as
    well. Once enabled, it affects all reflected routes.
 
+.. index:: [no] neighbor PEER sender-as-path-loop-detection
+.. clicmd:: [no] neighbor PEER sender-as-path-loop-detection
+
+   Enable the detection of sender side AS path loops and filter the
+   bad routes before they are sent.
+
+   This setting is disabled by default.
+
 .. _bgp-peer-group:
 
 Peer Groups
