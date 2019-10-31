@@ -289,27 +289,30 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 	r = vr->v4;
 	/* Must not already be started */
 	start = r->fsm.state == VRRP_STATE_INITIALIZE;
+	whynot = (!start && !whynot) ? "Already running" : whynot;
 	/* Must have a parent interface */
 	start = start && (vr->ifp != NULL);
-	whynot = (!start && !whynot) ? "No base interface" : NULL;
+	whynot = (!start && !whynot) ? "No base interface" : whynot;
 #if 0
 	/* Parent interface must be up */
 	start = start && if_is_operative(vr->ifp);
+	start = (!start && !whynot) ? "Base interface inoperative" : whynot;
 #endif
 	/* Parent interface must have at least one v4 */
-	start = start && vr->ifp->connected->count > 1;
-	whynot = (!start && !whynot) ? "No primary IPv4 address" : NULL;
+	start = start && connected_count_by_family(vr->ifp, AF_INET) > 0;
+	whynot = (!start && !whynot) ? "No primary IPv4 address" : whynot;
 	/* Must have a macvlan interface */
 	start = start && (r->mvl_ifp != NULL);
-	whynot = (!start && !whynot) ? "No VRRP interface" : NULL;
+	whynot = (!start && !whynot) ? "No VRRP interface" : whynot;
 #if 0
 	/* Macvlan interface must be admin up */
 	start = start && CHECK_FLAG(r->mvl_ifp->flags, IFF_UP);
+	start = (!start && !whynot) ? "Macvlan device admin down" : whynot;
 #endif
 	/* Must have at least one VIP configured */
 	start = start && r->addrs->count > 0;
-	whynot =
-		(!start && !whynot) ? "No Virtual IP address configured" : NULL;
+	whynot = (!start && !whynot) ? "No Virtual IP address configured"
+				     : whynot;
 	if (start)
 		vrrp_event(r, VRRP_EVENT_STARTUP);
 	else if (whynot)
@@ -317,39 +320,44 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 			  "Refusing to start Virtual Router: %s",
 			  vr->vrid, family2str(r->family), whynot);
 
+	whynot = NULL;
+
 	r = vr->v6;
 	/* Must not already be started */
 	start = r->fsm.state == VRRP_STATE_INITIALIZE;
+	whynot = (!start && !whynot) ? "Already running" : whynot;
 	/* Must not be v2 */
 	start = start && vr->version != 2;
-	whynot = (!start && !whynot) ? "VRRPv2 does not support v6" : NULL;
+	whynot = (!start && !whynot) ? "VRRPv2 does not support v6" : whynot;
 	/* Must have a parent interface */
 	start = start && (vr->ifp != NULL);
-	whynot = (!start && !whynot) ? "No base interface" : NULL;
+	whynot = (!start && !whynot) ? "No base interface" : whynot;
 #if 0
 	/* Parent interface must be up */
 	start = start && if_is_operative(vr->ifp);
+	start = (!start && !whynot) ? "Base interface inoperative" : whynot;
 #endif
 	/* Must have a macvlan interface */
 	start = start && (r->mvl_ifp != NULL);
-	whynot = (!start && !whynot) ? "No VRRP interface" : NULL;
+	whynot = (!start && !whynot) ? "No VRRP interface" : whynot;
 #if 0
 	/* Macvlan interface must be admin up */
 	start = start && CHECK_FLAG(r->mvl_ifp->flags, IFF_UP);
+	start = (!start && !whynot) ? "Macvlan device admin down" : whynot;
 	/* Macvlan interface must have a link local */
 	start = start && connected_get_linklocal(r->mvl_ifp);
 	whynot =
-		(!start && !whynot) ? "No link local address configured" : NULL;
+		(!start && !whynot) ? "No link local address configured" : whynot;
 	/* Macvlan interface must have a v6 IP besides the link local */
-	start = start && (r->mvl_ifp->connected->count >= 2);
+	start = start && (connected_count_by_family(r->mvl_ifp, AF_INET6) > 1);
 	whynot = (!start && !whynot)
-			 ? "No Virtual IP configured on macvlan device"
-			 : NULL;
+			 ? "No Virtual IPv6 address configured on macvlan device"
+			 : whynot;
 #endif
 	/* Must have at least one VIP configured */
 	start = start && r->addrs->count > 0;
 	whynot =
-		(!start && !whynot) ? "No Virtual IP address configured" : NULL;
+		(!start && !whynot) ? "No Virtual IP address configured" : whynot;
 	if (start)
 		vrrp_event(r, VRRP_EVENT_STARTUP);
 	else if (whynot)
@@ -893,7 +901,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			THREAD_OFF(r->t_adver_timer);
 			thread_add_timer_msec(
 				master, vrrp_adver_timer_expire, r,
-				r->vr->advertisement_interval * 10,
+				r->vr->advertisement_interval * CS2MS,
 				&r->t_adver_timer);
 		} else if (pkt->hdr.priority > r->priority
 			   || ((pkt->hdr.priority == r->priority)
@@ -913,7 +921,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			THREAD_OFF(r->t_master_down_timer);
 			thread_add_timer_msec(master,
 					      vrrp_master_down_timer_expire, r,
-					      r->master_down_interval * 10,
+					      r->master_down_interval * CS2MS,
 					      &r->t_master_down_timer);
 			vrrp_change_state(r, VRRP_STATE_BACKUP);
 		} else {
@@ -931,7 +939,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			THREAD_OFF(r->t_master_down_timer);
 			thread_add_timer_msec(
 				master, vrrp_master_down_timer_expire, r,
-				r->skew_time * 10, &r->t_master_down_timer);
+				r->skew_time * CS2MS, &r->t_master_down_timer);
 		} else if (r->vr->preempt_mode == false
 			   || pkt->hdr.priority >= r->priority) {
 			if (r->vr->version == 3) {
@@ -942,7 +950,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			THREAD_OFF(r->t_master_down_timer);
 			thread_add_timer_msec(master,
 					      vrrp_master_down_timer_expire, r,
-					      r->master_down_interval * 10,
+					      r->master_down_interval * CS2MS,
 					      &r->t_master_down_timer);
 		} else if (r->vr->preempt_mode == true
 			   && pkt->hdr.priority < r->priority) {
@@ -1456,7 +1464,7 @@ static int vrrp_adver_timer_expire(struct thread *thread)
 
 		/* Reset the Adver_Timer to Advertisement_Interval */
 		thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
-				      r->vr->advertisement_interval * 10,
+				      r->vr->advertisement_interval * CS2MS,
 				      &r->t_adver_timer);
 	} else {
 		zlog_err(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
@@ -1480,7 +1488,7 @@ static int vrrp_master_down_timer_expire(struct thread *thread)
 		  r->vr->vrid, family2str(r->family));
 
 	thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
-			      r->vr->advertisement_interval * 10,
+			      r->vr->advertisement_interval * CS2MS,
 			      &r->t_adver_timer);
 	vrrp_change_state(r, VRRP_STATE_MASTER);
 
@@ -1556,14 +1564,14 @@ static int vrrp_startup(struct vrrp_router *r)
 
 	if (r->priority == VRRP_PRIO_MASTER) {
 		thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
-				      r->vr->advertisement_interval * 10,
+				      r->vr->advertisement_interval * CS2MS,
 				      &r->t_adver_timer);
 		vrrp_change_state(r, VRRP_STATE_MASTER);
 	} else {
 		r->master_adver_interval = r->vr->advertisement_interval;
 		vrrp_recalculate_timers(r);
 		thread_add_timer_msec(master, vrrp_master_down_timer_expire, r,
-				      r->master_down_interval * 10,
+				      r->master_down_interval * CS2MS,
 				      &r->t_master_down_timer);
 		vrrp_change_state(r, VRRP_STATE_BACKUP);
 	}

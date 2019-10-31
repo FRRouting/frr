@@ -121,6 +121,11 @@ int babel_interface_delete (int, struct zclient *, zebra_size_t, vrf_id_t);
 int babel_interface_address_add (int, struct zclient *, zebra_size_t, vrf_id_t);
 int babel_interface_address_delete (int, struct zclient *, zebra_size_t, vrf_id_t);
 
+int babel_ifp_create(struct interface *ifp);
+int babel_ifp_up(struct interface *ifp);
+int babel_ifp_down(struct interface *ifp);
+int babel_ifp_destroy(struct interface *ifp);
+
 unsigned jitter(babel_interface_nfo *, int);
 unsigned update_jitter(babel_interface_nfo *babel_ifp, int urgent);
 /* return "true" if "address" is one of our ipv6 addresses */

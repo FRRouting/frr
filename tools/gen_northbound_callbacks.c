@@ -26,10 +26,12 @@
 #include "yang.h"
 #include "northbound.h"
 
+static bool static_cbs;
+
 static void __attribute__((noreturn)) usage(int status)
 {
 	extern const char *__progname;
-	fprintf(stderr, "usage: %s [-h] [-p path] MODULE\n", __progname);
+	fprintf(stderr, "usage: %s [-h] [-s] [-p path] MODULE\n", __progname);
 	exit(status);
 }
 
@@ -153,10 +155,46 @@ static void generate_callback_name(struct lys_node *snode,
 	replace_hyphens_by_underscores(buffer);
 }
 
+static void generate_prototype(const struct nb_callback_info *ncinfo,
+			      const char *cb_name)
+{
+	printf("%s%s(%s);\n", ncinfo->return_type, cb_name, ncinfo->arguments);
+}
+
+static int generate_prototypes(const struct lys_node *snode, void *arg)
+{
+	switch (snode->nodetype) {
+	case LYS_CONTAINER:
+	case LYS_LEAF:
+	case LYS_LEAFLIST:
+	case LYS_LIST:
+	case LYS_NOTIF:
+	case LYS_RPC:
+		break;
+	default:
+		return YANG_ITER_CONTINUE;
+	}
+
+	for (struct nb_callback_info *cb = &nb_callbacks[0];
+	     cb->operation != -1; cb++) {
+		char cb_name[BUFSIZ];
+
+		if (cb->optional
+		    || !nb_operation_is_valid(cb->operation, snode))
+			continue;
+
+		generate_callback_name((struct lys_node *)snode, cb->operation,
+				       cb_name, sizeof(cb_name));
+		generate_prototype(cb, cb_name);
+	}
+
+	return YANG_ITER_CONTINUE;
+}
+
 static void generate_callback(const struct nb_callback_info *ncinfo,
 			      const char *cb_name)
 {
-	printf("static %s%s(%s)\n{\n",
+	printf("%s%s%s(%s)\n{\n", static_cbs ? "static " : "",
 	       ncinfo->return_type, cb_name, ncinfo->arguments);
 
 	switch (ncinfo->operation) {
@@ -287,7 +325,7 @@ int main(int argc, char *argv[])
 	struct stat st;
 	int opt;
 
-	while ((opt = getopt(argc, argv, "hp:")) != -1) {
+	while ((opt = getopt(argc, argv, "hp:s")) != -1) {
 		switch (opt) {
 		case 'h':
 			usage(EXIT_SUCCESS);
@@ -306,6 +344,9 @@ int main(int argc, char *argv[])
 			}
 
 			search_path = optarg;
+			break;
+		case 's':
+			static_cbs = true;
 			break;
 		default:
 			usage(EXIT_FAILURE);
@@ -331,6 +372,14 @@ int main(int argc, char *argv[])
 
 	/* Create a nb_node for all YANG schema nodes. */
 	nb_nodes_create();
+
+	/* Generate callback prototypes. */
+	if (!static_cbs) {
+		printf("/* prototypes */\n");
+		yang_snodes_iterate_module(module->info, generate_prototypes, 0,
+					   NULL);
+		printf("\n");
+	}
 
 	/* Generate callback functions. */
 	yang_snodes_iterate_module(module->info, generate_callbacks, 0, NULL);

@@ -418,7 +418,7 @@ void rfapi_vty_out_vncinfo(struct vty *vty, struct prefix *p,
 		}
 	}
 
-	if (bpi->attr && bpi->attr->ecommunity) {
+	if (bpi->attr->ecommunity) {
 		s = ecommunity_ecom2str(bpi->attr->ecommunity,
 					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 		vty_out(vty, " EC{%s}", s);
@@ -538,80 +538,76 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 	 *          RFP option sizes (they are opaque values)
 	 *          extended communities (RTs)
 	 */
-	if (bpi->attr) {
-		uint32_t lifetime;
-		int printed_1st_gol = 0;
-		struct bgp_attr_encap_subtlv *pEncap;
-		struct prefix pfx_un;
-		int af = BGP_MP_NEXTHOP_FAMILY(bpi->attr->mp_nexthop_len);
+	uint32_t lifetime;
+	int printed_1st_gol = 0;
+	struct bgp_attr_encap_subtlv *pEncap;
+	struct prefix pfx_un;
+	int af = BGP_MP_NEXTHOP_FAMILY(bpi->attr->mp_nexthop_len);
 
-		/* Nexthop */
-		if (af == AF_INET) {
-			r = snprintf(p, REMAIN, "%s",
-				     inet_ntop(AF_INET,
-					       &bpi->attr->mp_nexthop_global_in,
-					       buf, BUFSIZ));
-			INCP;
-		} else if (af == AF_INET6) {
-			r = snprintf(p, REMAIN, "%s",
-				     inet_ntop(AF_INET6,
-					       &bpi->attr->mp_nexthop_global,
-					       buf, BUFSIZ));
-			INCP;
-		} else {
-			r = snprintf(p, REMAIN, "?");
-			INCP;
-		}
+	/* Nexthop */
+	if (af == AF_INET) {
+		r = snprintf(p, REMAIN, "%s",
+			     inet_ntop(AF_INET,
+				       &bpi->attr->mp_nexthop_global_in, buf,
+				       BUFSIZ));
+		INCP;
+	} else if (af == AF_INET6) {
+		r = snprintf(p, REMAIN, "%s",
+			     inet_ntop(AF_INET6, &bpi->attr->mp_nexthop_global,
+				       buf, BUFSIZ));
+		INCP;
+	} else {
+		r = snprintf(p, REMAIN, "?");
+		INCP;
+	}
 
-		/*
-		 * VNC tunnel subtlv, if present, contains UN address
-		 */
-		if (!rfapiGetVncTunnelUnAddr(bpi->attr, &pfx_un)) {
-			r = snprintf(p, REMAIN, " un=%s",
-				     inet_ntop(pfx_un.family, pfx_un.u.val, buf,
-					       BUFSIZ));
-			INCP;
-		}
+	/*
+	 * VNC tunnel subtlv, if present, contains UN address
+	 */
+	if (!rfapiGetVncTunnelUnAddr(bpi->attr, &pfx_un)) {
+		r = snprintf(
+			p, REMAIN, " un=%s",
+			inet_ntop(pfx_un.family, pfx_un.u.val, buf, BUFSIZ));
+		INCP;
+	}
 
-		/* Lifetime */
-		if (rfapiGetVncLifetime(bpi->attr, &lifetime)) {
-			r = snprintf(p, REMAIN, " nolife");
-			INCP;
-		} else {
-			if (lifetime == 0xffffffff)
-				r = snprintf(p, REMAIN, " %6s", "infini");
-			else
-				r = snprintf(p, REMAIN, " %6u", lifetime);
-			INCP;
-		}
+	/* Lifetime */
+	if (rfapiGetVncLifetime(bpi->attr, &lifetime)) {
+		r = snprintf(p, REMAIN, " nolife");
+		INCP;
+	} else {
+		if (lifetime == 0xffffffff)
+			r = snprintf(p, REMAIN, " %6s", "infini");
+		else
+			r = snprintf(p, REMAIN, " %6u", lifetime);
+		INCP;
+	}
 
-		/* RFP option lengths */
-		for (pEncap = bpi->attr->vnc_subtlvs; pEncap;
-		     pEncap = pEncap->next) {
+	/* RFP option lengths */
+	for (pEncap = bpi->attr->vnc_subtlvs; pEncap; pEncap = pEncap->next) {
 
-			if (pEncap->type == BGP_VNC_SUBTLV_TYPE_RFPOPTION) {
-				if (printed_1st_gol) {
-					r = snprintf(p, REMAIN, ",");
-					INCP;
-				} else {
-					r = snprintf(p, REMAIN,
-						     " "); /* leading space */
-					INCP;
-				}
-				r = snprintf(p, REMAIN, "%d", pEncap->length);
+		if (pEncap->type == BGP_VNC_SUBTLV_TYPE_RFPOPTION) {
+			if (printed_1st_gol) {
+				r = snprintf(p, REMAIN, ",");
 				INCP;
-				printed_1st_gol = 1;
+			} else {
+				r = snprintf(p, REMAIN,
+					     " "); /* leading space */
+				INCP;
 			}
-		}
-
-		/* RT list */
-		if (bpi->attr->ecommunity) {
-			s = ecommunity_ecom2str(bpi->attr->ecommunity,
-						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-			r = snprintf(p, REMAIN, " %s", s);
+			r = snprintf(p, REMAIN, "%d", pEncap->length);
 			INCP;
-			XFREE(MTYPE_ECOMMUNITY_STR, s);
+			printed_1st_gol = 1;
 		}
+	}
+
+	/* RT list */
+	if (bpi->attr->ecommunity) {
+		s = ecommunity_ecom2str(bpi->attr->ecommunity,
+					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+		r = snprintf(p, REMAIN, " %s", s);
+		INCP;
+		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 
 	r = snprintf(p, REMAIN, " bpi@%p", bpi);
@@ -628,21 +624,17 @@ void rfapiPrintBi(void *stream, struct bgp_path_info *bpi)
 		INCP;
 	}
 
-	if (bpi->attr) {
+	if (bpi->attr->weight) {
+		r = snprintf(p, REMAIN, " W=%d", bpi->attr->weight);
+		INCP;
+	}
 
-		if (bpi->attr->weight) {
-			r = snprintf(p, REMAIN, " W=%d", bpi->attr->weight);
-			INCP;
-		}
-
-		if (bpi->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)) {
-			r = snprintf(p, REMAIN, " LP=%d",
-				     bpi->attr->local_pref);
-			INCP;
-		} else {
-			r = snprintf(p, REMAIN, " LP=unset");
-			INCP;
-		}
+	if (bpi->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)) {
+		r = snprintf(p, REMAIN, " LP=%d", bpi->attr->local_pref);
+		INCP;
+	} else {
+		r = snprintf(p, REMAIN, " LP=unset");
+		INCP;
 	}
 
 	r = snprintf(p, REMAIN, " %c:%u", zebra_route_char(bpi->type),
@@ -1087,16 +1079,13 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	 * See rfapi_import.c'rfapiRouteInfo2NextHopEntry() for conversion
 	 * back to cost.
 	 */
-	if (bpi->attr) {
-		uint32_t local_pref;
-		if (bpi->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
-			local_pref = bpi->attr->local_pref;
-		else
-			local_pref = 0;
-		cost = (local_pref > 255) ? 0 : 255 - local_pref;
-	} else {
-		cost = 0;
-	}
+	uint32_t local_pref;
+
+	if (bpi->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+		local_pref = bpi->attr->local_pref;
+	else
+		local_pref = 0;
+	cost = (local_pref > 255) ? 0 : 255 - local_pref;
 
 	fp(out, "%-20s ", buf_pfx);
 	fp(out, "%-15s ", buf_vn);
@@ -4719,8 +4708,6 @@ static int vnc_add_vrf_prefix(struct vty *vty, const char *arg_vrf,
 	rfapiQprefix2Rprefix(&pfx, &rpfx);
 	memset(optary, 0, sizeof(optary));
 	if (arg_rd) {
-		if (opt != NULL)
-			opt->next = &optary[cur_opt];
 		opt = &optary[cur_opt++];
 		opt->type = RFAPI_VN_OPTION_TYPE_INTERNAL_RD;
 		if (!str2prefix_rd(arg_rd, &opt->v.internal_rd)) {

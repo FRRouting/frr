@@ -10,7 +10,6 @@
       "internalFlags": 0,
       "nexthops": [
         {
-          "flags": 1,
           "afi": "ipv6",
           "interfaceIndex": 2,
           "interfaceName": "r1-eth0",

@@ -306,6 +306,11 @@ Route Map Set Command
 
    Set BGP route origin.
 
+.. index:: set table (1-4294967295)
+.. clicmd:: set table (1-4294967295)
+
+   Set the BGP table to a given table identifier
+
 .. _route-map-call-command:
 
 Route Map Call Command

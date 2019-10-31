@@ -38,6 +38,7 @@
 #include "libfrr.h"
 
 #include "ripd/ripd.h"
+#include "ripd/rip_nb.h"
 #include "ripd/rip_errors.h"
 
 /* ripd options. */

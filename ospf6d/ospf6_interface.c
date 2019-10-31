@@ -42,6 +42,7 @@
 #include "ospf6_spf.h"
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
+#include "ospf6_zebra.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, CFG_PLIST_NAME, "configured prefix list names")
 DEFINE_QOBJ_TYPE(ospf6_interface)
@@ -354,8 +355,6 @@ void ospf6_interface_state_update(struct interface *ifp)
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
-		return;
-	if (oi->area == NULL)
 		return;
 	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE))
 		return;
@@ -683,6 +682,9 @@ int interface_up(struct thread *thread)
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 	assert(oi && oi->interface);
 
+	if (!oi->type_cfg)
+		oi->type = ospf6_default_iftype(oi->interface);
+
 	/*
 	 * Remove old pointer. If this thread wasn't a timer this
 	 * operation won't make a difference, because it is already NULL.
@@ -774,8 +776,7 @@ int interface_up(struct thread *thread)
 	}
 
 	/* decide next interface state */
-	if ((if_is_pointopoint(oi->interface))
-	    || (oi->type == OSPF_IFTYPE_POINTOPOINT)) {
+	if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
 		ospf6_interface_state_change(OSPF6_INTERFACE_POINTTOPOINT, oi);
 	} else if (oi->priority == 0)
 		ospf6_interface_state_change(OSPF6_INTERFACE_DROTHER, oi);
@@ -880,6 +881,19 @@ int interface_down(struct thread *thread)
 }
 
 
+static const char *ospf6_iftype_str(uint8_t iftype)
+{
+	switch (iftype) {
+	case OSPF_IFTYPE_LOOPBACK:
+		return "LOOPBACK";
+	case OSPF_IFTYPE_BROADCAST:
+		return "BROADCAST";
+	case OSPF_IFTYPE_POINTOPOINT:
+		return "POINTOPOINT";
+	}
+	return "UNKNOWN";
+}
+
 /* show specified interface structure */
 static int ospf6_interface_show(struct vty *vty, struct interface *ifp)
 {
@@ -888,23 +902,16 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp)
 	struct prefix *p;
 	struct listnode *i;
 	char strbuf[PREFIX2STR_BUFFER], drouter[32], bdrouter[32];
-	const char *type;
+	uint8_t default_iftype;
 	struct timeval res, now;
 	char duration[32];
 	struct ospf6_lsa *lsa;
 
-	/* check physical interface type */
-	if (if_is_loopback(ifp))
-		type = "LOOPBACK";
-	else if (if_is_broadcast(ifp))
-		type = "BROADCAST";
-	else if (if_is_pointopoint(ifp))
-		type = "POINTOPOINT";
-	else
-		type = "UNKNOWN";
+	default_iftype = ospf6_default_iftype(ifp);
 
 	vty_out(vty, "%s is %s, type %s\n", ifp->name,
-		(if_is_operative(ifp) ? "up" : "down"), type);
+		(if_is_operative(ifp) ? "up" : "down"),
+		ospf6_iftype_str(default_iftype));
 	vty_out(vty, "  Interface ID: %d\n", ifp->ifindex);
 
 	if (ifp->info == NULL) {
@@ -912,6 +919,10 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp)
 		return 0;
 	} else
 		oi = (struct ospf6_interface *)ifp->info;
+
+	if (if_is_operative(ifp) && oi->type != default_iftype)
+		vty_out(vty, "  Operating as type %s\n",
+			ospf6_iftype_str(oi->type));
 
 	vty_out(vty, "  Internet Address:\n");
 
@@ -1809,6 +1820,8 @@ DEFUN (ipv6_ospf6_network,
 	}
 	assert(oi);
 
+	oi->type_cfg = true;
+
 	if (strncmp(argv[idx_network]->arg, "b", 1) == 0) {
 		if (oi->type == OSPF_IFTYPE_BROADCAST)
 			return CMD_SUCCESS;
@@ -1848,6 +1861,8 @@ DEFUN (no_ipv6_ospf6_network,
 	if (oi == NULL) {
 		return CMD_SUCCESS;
 	}
+
+	oi->type_cfg = false;
 
 	type = ospf6_default_iftype(ifp);
 	if (oi->type == type) {
@@ -1916,13 +1931,10 @@ static int config_write_ospf6_interface(struct vty *vty)
 		if (oi->mtu_ignore)
 			vty_out(vty, " ipv6 ospf6 mtu-ignore\n");
 
-		if (oi->type != ospf6_default_iftype(ifp)) {
-			if (oi->type == OSPF_IFTYPE_POINTOPOINT)
-				vty_out(vty,
-					" ipv6 ospf6 network point-to-point\n");
-			else if (oi->type == OSPF_IFTYPE_BROADCAST)
-				vty_out(vty, " ipv6 ospf6 network broadcast\n");
-		}
+		if (oi->type_cfg && oi->type == OSPF_IFTYPE_POINTOPOINT)
+			vty_out(vty, " ipv6 ospf6 network point-to-point\n");
+		else if (oi->type_cfg && oi->type == OSPF_IFTYPE_BROADCAST)
+			vty_out(vty, " ipv6 ospf6 network broadcast\n");
 
 		ospf6_bfd_write_config(vty, oi);
 
@@ -1935,11 +1947,64 @@ static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1 /* VTYSH */
 };
 
+static int ospf6_ifp_create(struct interface *ifp)
+{
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+		zlog_debug("Zebra Interface add: %s index %d mtu %d", ifp->name,
+			   ifp->ifindex, ifp->mtu6);
+	ospf6_interface_if_add(ifp);
+
+	return 0;
+}
+
+static int ospf6_ifp_up(struct interface *ifp)
+{
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+		zlog_debug(
+			"Zebra Interface state change: "
+			"%s index %d flags %llx metric %d mtu %d bandwidth %d",
+			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu6, ifp->bandwidth);
+
+	ospf6_interface_state_update(ifp);
+
+	return 0;
+}
+
+static int ospf6_ifp_down(struct interface *ifp)
+{
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+		zlog_debug(
+			"Zebra Interface state change: "
+			"%s index %d flags %llx metric %d mtu %d bandwidth %d",
+			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu6, ifp->bandwidth);
+
+	ospf6_interface_state_update(ifp);
+
+	return 0;
+}
+
+static int ospf6_ifp_destroy(struct interface *ifp)
+{
+	if (if_is_up(ifp))
+		zlog_warn("Zebra: got delete of %s, but interface is still up",
+			  ifp->name);
+
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+		zlog_debug("Zebra Interface delete: %s index %d mtu %d",
+			   ifp->name, ifp->ifindex, ifp->mtu6);
+
+	return 0;
+}
+
 void ospf6_interface_init(void)
 {
 	/* Install interface node. */
 	install_node(&interface_node, config_write_ospf6_interface);
 	if_cmd_init();
+	if_zapi_callbacks(ospf6_ifp_create, ospf6_ifp_up,
+			  ospf6_ifp_down, ospf6_ifp_destroy);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_prefix_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_ifname_cmd);

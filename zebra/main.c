@@ -142,6 +142,9 @@ static void sigint(void)
 
 	zlog_notice("Terminating on signal");
 
+	atomic_store_explicit(&zrouter.in_shutdown, true,
+			      memory_order_relaxed);
+
 	frr_early_fini();
 
 	zebra_dplane_pre_finish();
@@ -162,6 +165,7 @@ static void sigint(void)
 		}
 	if (zrouter.lsp_process_q)
 		work_queue_free_and_null(&zrouter.lsp_process_q);
+
 	vrf_terminate();
 
 	ns_walk_func(zebra_ns_early_shutdown);

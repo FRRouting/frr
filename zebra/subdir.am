@@ -137,6 +137,7 @@ noinst_HEADERS += \
 	zebra/zebra_mpls.h \
 	zebra/zebra_mroute.h \
 	zebra/zebra_nhg.h \
+	zebra/zebra_nhg_private.h \
 	zebra/zebra_ns.h \
 	zebra/zebra_pbr.h \
 	zebra/zebra_ptm.h \

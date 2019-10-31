@@ -46,7 +46,7 @@
 
 /* BGP TRAP. */
 #define BGPESTABLISHED			1
-#define BGPBACKWARDTRANSITION		2	
+#define BGPBACKWARDTRANSITION		2
 
 /* BGP MIB bgpVersion. */
 #define BGPVERSION			      0

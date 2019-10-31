@@ -86,15 +86,9 @@ babel_interface_up (ZAPI_CALLBACK_ARGS)
 }
 
 int
-babel_interface_down (ZAPI_CALLBACK_ARGS)
+babel_ifp_down(struct interface *ifp)
 {
-    struct stream *s = NULL;
-    struct interface *ifp = NULL;
-
     debugf(BABEL_DEBUG_IF, "receive a 'interface down'");
-
-    s = zclient->ibuf;
-    ifp = zebra_interface_state_read(s, vrf_id); /* it updates iflist */
 
     if (ifp == NULL) {
         return 0;
@@ -104,44 +98,22 @@ babel_interface_down (ZAPI_CALLBACK_ARGS)
     return 0;
 }
 
-int
-babel_interface_add (ZAPI_CALLBACK_ARGS)
+int babel_ifp_create (struct interface *ifp)
 {
-    struct interface *ifp = NULL;
-
     debugf(BABEL_DEBUG_IF, "receive a 'interface add'");
 
-    /* read and add the interface in the iflist. */
-    ifp = zebra_interface_add_read (zclient->ibuf, vrf_id);
-
-    if (ifp == NULL) {
-        return 0;
-    }
-
     interface_recalculate(ifp);
-    return 0;
-}
+
+     return 0;
+ }
 
 int
-babel_interface_delete (ZAPI_CALLBACK_ARGS)
+babel_ifp_destroy(struct interface *ifp)
 {
-    struct interface *ifp;
-    struct stream *s;
-
     debugf(BABEL_DEBUG_IF, "receive a 'interface delete'");
-
-    s = zclient->ibuf;
-    ifp = zebra_interface_state_read(s, vrf_id); /* it updates iflist */
-
-    if (ifp == NULL)
-        return 0;
 
     if (IS_ENABLE(ifp))
         interface_reset(ifp);
-
-    /* To support pseudo interface do not free interface structure.  */
-    /* if_delete(ifp); */
-    if_set_index(ifp, IFINDEX_INTERNAL);
 
     return 0;
 }
@@ -1095,7 +1067,7 @@ DEFUN (show_babel_route_prefix,
       vty_out (vty, "%% Malformed address\n");
       return CMD_WARNING;
     }
-        
+
     routes = route_stream(0);
     if(routes) {
         while(1) {
@@ -1258,6 +1230,11 @@ DEFUN (show_babel_parameters,
         config_show_distribute(vty, babel_ctx->distribute_ctx);
     }
     return CMD_SUCCESS;
+}
+
+int babel_ifp_up(struct interface *ifp)
+{
+	return 0;
 }
 
 void

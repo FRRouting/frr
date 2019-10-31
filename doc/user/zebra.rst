@@ -663,19 +663,30 @@ kernel.
 .. clicmd:: ip protocol PROTOCOL route-map ROUTEMAP
 
    Apply a route-map filter to routes for the specified protocol. PROTOCOL can
-   be **any** or one of
+   be: 
 
-   - system,
-   - kernel,
+   - any,
+   - babel,
+   - bgp,
    - connected,
-   - static,
-   - rip,
-   - ripng,
+   - eigrp,
+   - isis,
+   - kernel,
+   - nhrp,
+   - openfabric,
    - ospf,
    - ospf6,
-   - isis,
-   - bgp,
-   - hsls.
+   - rip,
+   - sharp,
+   - static,
+   - ripng,
+   - table,
+   - vnc.
+
+   If you choose any as the option that will cause all protocols that are sending
+   routes to zebra.  You can specify a :dfn:`ip protocol PROTOCOL route-map ROUTEMAP`
+   on a per vrf basis, by entering this command under vrf mode for the vrf you
+   want to apply the route-map against.
 
 .. index:: set src ADDRESS
 .. clicmd:: set src ADDRESS
@@ -828,8 +839,22 @@ zebra Terminal Mode Commands
 .. index:: show ipv6 route
 .. clicmd:: show ipv6 route
 
-.. index:: show interface
-.. clicmd:: show interface
+.. index:: show [ip|ipv6] route [PREFIX] [nexthop-group]
+.. clicmd:: show [ip|ipv6] route [PREFIX] [nexthop-group]
+
+   Display detailed information about a route. If [nexthop-group] is
+   included, it will display the nexthop group ID the route is using as well.
+
+.. index:: show interface [NAME] [{vrf VRF|brief}] [nexthop-group]
+.. clicmd:: show interface [NAME] [{vrf VRF|brief}] [nexthop-group]
+
+.. index:: show interface [NAME] [{vrf all|brief}] [nexthop-group]
+.. clicmd:: show interface [NAME] [{vrf all|brief}] [nexthop-group]
+
+   Display interface information. If no extra information is added, it will
+   dump information on all interfaces. If [NAME] is specified, it will display
+   detailed information about that single interface. If [nexthop-group] is
+   specified, it will display nexthop groups pointing out that interface.
 
 .. index:: show ip prefix-list [NAME]
 .. clicmd:: show ip prefix-list [NAME]
@@ -885,4 +910,9 @@ zebra Terminal Mode Commands
 
    Reset statistics related to the zebra code that interacts with the
    optional Forwarding Plane Manager (FPM) component.
+
+.. index:: show nexthop-group [ID] [vrf NAME] [ip|ipv6]
+.. clicmd:: show nexthop-group [ID] [vrf NAME] [ip|ipv6]
+
+   Display nexthop groups created by zebra.
 

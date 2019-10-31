@@ -51,9 +51,17 @@ struct bfd_gbl {
 #define BFD_FLAG_BFD_CBIT_ON (1 << 3) /* Peer registered with CBIT set to on */
 #define BFD_FLAG_BFD_CHECK_CONTROLPLANE (1 << 4) /* BFD and controlplane daemon are linked */
 
-#define BFD_STATUS_UNKNOWN (1 << 0) /* BFD session status never received */
-#define BFD_STATUS_DOWN    (1 << 1) /* BFD session status is down */
-#define BFD_STATUS_UP      (1 << 2) /* BFD session status is up */
+#define BFD_STATUS_UNKNOWN    (1 << 0) /* BFD session status never received */
+#define BFD_STATUS_DOWN       (1 << 1) /* BFD session status is down */
+#define BFD_STATUS_UP         (1 << 2) /* BFD session status is up */
+#define BFD_STATUS_ADMIN_DOWN (1 << 3) /* BFD session is admin down */
+
+#define BFD_SET_CLIENT_STATUS(current_status, new_status)		  \
+	do {								  \
+		(current_status) =					  \
+			(((new_status) == BFD_STATUS_ADMIN_DOWN) ?	  \
+					  BFD_STATUS_DOWN : (new_status));\
+	} while (0)
 
 enum bfd_sess_type {
 	BFD_TYPE_NOT_CONFIGURED,

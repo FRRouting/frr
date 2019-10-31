@@ -2394,6 +2394,33 @@ static int handle_tunnel_ip_change(struct bgp *bgp, struct bgpevpn *vpn,
 	return 0;
 }
 
+static struct bgp_path_info *
+bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
+			      struct bgp_node *rn)
+{
+	struct attr *attr_new;
+	struct bgp_path_info *pi;
+
+	/* Add (or update) attribute to hash. */
+	attr_new = bgp_attr_intern(parent_pi->attr);
+
+	/* Create new route with its attribute. */
+	pi = info_make(parent_pi->type, BGP_ROUTE_IMPORTED, 0, parent_pi->peer,
+		       attr_new, rn);
+	SET_FLAG(pi->flags, BGP_PATH_VALID);
+	bgp_path_info_extra_get(pi);
+	pi->extra->parent = bgp_path_info_lock(parent_pi);
+	bgp_lock_node((struct bgp_node *)parent_pi->net);
+	if (parent_pi->extra) {
+		memcpy(&pi->extra->label, &parent_pi->extra->label,
+		       sizeof(pi->extra->label));
+		pi->extra->num_labels = parent_pi->extra->num_labels;
+	}
+	bgp_path_info_add(rn, pi);
+
+	return pi;
+}
+
 /* Install EVPN route entry in ES */
 static int install_evpn_route_entry_in_es(struct bgp *bgp, struct evpnes *es,
 					  struct prefix_evpn *p,
@@ -2424,7 +2451,8 @@ static int install_evpn_route_entry_in_es(struct bgp *bgp, struct evpnes *es,
 			       parent_pi->peer, attr_new, rn);
 		SET_FLAG(pi->flags, BGP_PATH_VALID);
 		bgp_path_info_extra_get(pi);
-		pi->extra->parent = parent_pi;
+		pi->extra->parent = bgp_path_info_lock(parent_pi);
+		bgp_lock_node((struct bgp_node *)parent_pi->net);
 		bgp_path_info_add(rn, pi);
 	} else {
 		if (attrhash_cmp(pi->attr, parent_pi->attr)
@@ -2516,24 +2544,9 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		    && (struct bgp_path_info *)pi->extra->parent == parent_pi)
 			break;
 
-	if (!pi) {
-		/* Add (or update) attribute to hash. */
-		attr_new = bgp_attr_intern(&attr);
-
-		/* Create new route with its attribute. */
-		pi = info_make(parent_pi->type, BGP_ROUTE_IMPORTED, 0,
-			       parent_pi->peer, attr_new, rn);
-		SET_FLAG(pi->flags, BGP_PATH_VALID);
-		bgp_path_info_extra_get(pi);
-		pi->extra->parent = bgp_path_info_lock(parent_pi);
-		bgp_lock_node((struct bgp_node *)parent_pi->net);
-		if (parent_pi->extra) {
-			memcpy(&pi->extra->label, &parent_pi->extra->label,
-			       sizeof(pi->extra->label));
-			pi->extra->num_labels = parent_pi->extra->num_labels;
-		}
-		bgp_path_info_add(rn, pi);
-	} else {
+	if (!pi)
+		pi = bgp_create_evpn_bgp_path_info(parent_pi, rn);
+	else {
 		if (attrhash_cmp(pi->attr, &attr)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
 			bgp_unlock_node(rn);
@@ -2596,22 +2609,8 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 			break;
 
 	if (!pi) {
-		/* Add (or update) attribute to hash. */
-		attr_new = bgp_attr_intern(parent_pi->attr);
-
-		/* Create new route with its attribute. */
-		pi = info_make(parent_pi->type, BGP_ROUTE_IMPORTED, 0,
-			       parent_pi->peer, attr_new, rn);
-		SET_FLAG(pi->flags, BGP_PATH_VALID);
-		bgp_path_info_extra_get(pi);
-		pi->extra->parent = bgp_path_info_lock(parent_pi);
-		bgp_lock_node((struct bgp_node *)parent_pi->net);
-		if (parent_pi->extra) {
-			memcpy(&pi->extra->label, &parent_pi->extra->label,
-			       sizeof(pi->extra->label));
-			pi->extra->num_labels = parent_pi->extra->num_labels;
-		}
-		bgp_path_info_add(rn, pi);
+		/* Create an info */
+		(void)bgp_create_evpn_bgp_path_info(parent_pi, rn);
 	} else {
 		if (attrhash_cmp(pi->attr, parent_pi->attr)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
@@ -3025,8 +3024,7 @@ static int bgp_evpn_route_rmac_self_check(struct bgp *bgp_vrf,
 	 * SVI comes up with MAC and stored in hash, triggers
 	 * bgp_mac_rescan_all_evpn_tables.
 	 */
-	if (pi->attr &&
-	    memcmp(&bgp_vrf->rmac, &pi->attr->rmac, ETH_ALEN) == 0) {
+	if (memcmp(&bgp_vrf->rmac, &pi->attr->rmac, ETH_ALEN) == 0) {
 		if (bgp_debug_update(pi->peer, NULL, NULL, 1)) {
 			char buf1[PREFIX_STRLEN];
 			char attr_str[BUFSIZ] = {0};
@@ -4700,59 +4698,60 @@ void bgp_evpn_route2json(struct prefix_evpn *p, json_object *json)
 {
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[PREFIX2STR_BUFFER];
+	uint8_t family;
+	uint8_t prefixlen;
 
 	if (!json)
 		return;
 
-	if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE) {
-		json_object_int_add(json, "routeType", p->prefix.route_type);
+	json_object_int_add(json, "routeType", p->prefix.route_type);
+
+	switch (p->prefix.route_type) {
+	case BGP_EVPN_MAC_IP_ROUTE:
 		json_object_int_add(json, "ethTag",
-				    p->prefix.imet_addr.eth_tag);
-		json_object_int_add(json, "ipLen",
-				    is_evpn_prefix_ipaddr_v4(p)
-					    ? IPV4_MAX_BITLEN
-					    : IPV6_MAX_BITLEN);
-		json_object_string_add(json, "ip",
-				       inet_ntoa(p->prefix.imet_addr.ip.ipaddr_v4));
-	} else if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
-		if (is_evpn_prefix_ipaddr_none(p)) {
-			json_object_int_add(json, "routeType",
-					    p->prefix.route_type);
-			json_object_int_add(json, "ethTag",
-					    p->prefix.macip_addr.eth_tag);
-			json_object_int_add(json, "macLen", 8 * ETH_ALEN);
-			json_object_string_add(json, "mac",
-					       prefix_mac2str(&p->prefix.macip_addr.mac,
-							      buf1,
-							      sizeof(buf1)));
-		} else {
-			uint8_t family;
+			p->prefix.macip_addr.eth_tag);
+		json_object_int_add(json, "macLen", 8 * ETH_ALEN);
+		json_object_string_add(json, "mac",
+			prefix_mac2str(&p->prefix.macip_addr.mac, buf1,
+			sizeof(buf1)));
 
-			family = is_evpn_prefix_ipaddr_v4(p) ? AF_INET
-							     : AF_INET6;
-
-			json_object_int_add(json, "routeType",
-					    p->prefix.route_type);
-			json_object_int_add(json, "ethTag",
-					    p->prefix.macip_addr.eth_tag);
-			json_object_int_add(json, "macLen", 8 * ETH_ALEN);
-			json_object_string_add(json, "mac",
-					       prefix_mac2str(&p->prefix.macip_addr.mac,
-							      buf1,
-							      sizeof(buf1)));
-			json_object_int_add(json, "ipLen",
-					    is_evpn_prefix_ipaddr_v4(p)
-						    ? IPV4_MAX_BITLEN
-						    : IPV6_MAX_BITLEN);
-			json_object_string_add(
-				json, "ip",
-				inet_ntop(family,
-					  &p->prefix.macip_addr.ip.ip.addr,
-					  buf2,
-					  PREFIX2STR_BUFFER));
+		if (!is_evpn_prefix_ipaddr_none(p)) {
+			family = is_evpn_prefix_ipaddr_v4(p) ? AF_INET :
+				AF_INET6;
+			prefixlen = (family == AF_INET) ?
+				IPV4_MAX_BITLEN : IPV6_MAX_BITLEN;
+			inet_ntop(family, &p->prefix.macip_addr.ip.ip.addr,
+				buf2, PREFIX2STR_BUFFER);
+			json_object_int_add(json, "ipLen", prefixlen);
+			json_object_string_add(json, "ip", buf2);
 		}
-	} else {
-		/* Currently, this is to cater to other AF_ETHERNET code. */
+	break;
+
+	case BGP_EVPN_IMET_ROUTE:
+		json_object_int_add(json, "ethTag",
+			p->prefix.imet_addr.eth_tag);
+		family = is_evpn_prefix_ipaddr_v4(p) ? AF_INET : AF_INET6;
+		prefixlen = (family == AF_INET) ?  IPV4_MAX_BITLEN :
+			IPV6_MAX_BITLEN;
+		inet_ntop(family, &p->prefix.imet_addr.ip.ip.addr, buf2,
+			PREFIX2STR_BUFFER);
+		json_object_int_add(json, "ipLen", prefixlen);
+		json_object_string_add(json, "ip", buf2);
+	break;
+
+	case BGP_EVPN_IP_PREFIX_ROUTE:
+		json_object_int_add(json, "ethTag",
+			p->prefix.prefix_addr.eth_tag);
+		family = is_evpn_prefix_ipaddr_v4(p) ? AF_INET : AF_INET6;
+		inet_ntop(family, &p->prefix.prefix_addr.ip.ip.addr,
+			  buf2, sizeof(buf2));
+		json_object_int_add(json, "ipLen",
+				    p->prefix.prefix_addr.ip_prefix_length);
+		json_object_string_add(json, "ip", buf2);
+	break;
+
+	default:
+	break;
 	}
 }
 
@@ -6010,4 +6009,20 @@ void bgp_evpn_init(struct bgp *bgp)
 void bgp_evpn_vrf_delete(struct bgp *bgp_vrf)
 {
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
+}
+
+/*
+ * Get the prefixlen of the ip prefix carried within the type5 evpn route.
+ */
+int bgp_evpn_get_type5_prefixlen(struct prefix *pfx)
+{
+	struct prefix_evpn *evp = (struct prefix_evpn *)pfx;
+
+	if (!pfx || pfx->family != AF_EVPN)
+		return 0;
+
+	if (evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE)
+		return 0;
+
+	return evp->prefix.prefix_addr.ip_prefix_length;
 }

@@ -498,7 +498,7 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 /*
  * Show commands.
  */
-DEFPY(bfd_show_peers, bfd_show_peers_cmd, "show bfd [vrf <NAME>] peers [json]",
+DEFPY(bfd_show_peers, bfd_show_peers_cmd, "show bfd [vrf NAME] peers [json]",
       SHOW_STR
       "Bidirection Forwarding Detection\n"
        VRF_CMD_HELP_STR
@@ -516,7 +516,7 @@ DEFPY(bfd_show_peers, bfd_show_peers_cmd, "show bfd [vrf <NAME>] peers [json]",
 }
 
 DEFPY(bfd_show_peer, bfd_show_peer_cmd,
-      "show bfd [vrf <NAME$vrfname>] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> [json]",
+      "show bfd [vrf NAME$vrf_name] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> [json]",
       SHOW_STR
       "Bidirection Forwarding Detection\n"
       VRF_CMD_HELP_STR
@@ -528,7 +528,7 @@ DEFPY(bfd_show_peer, bfd_show_peer_cmd,
 
 	/* Look up the BFD peer. */
 	bs = _find_peer_or_error(vty, argc, argv, label, peer_str, local_str,
-				 ifname, vrfname);
+				 ifname, vrf_name);
 	if (bs == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -543,7 +543,7 @@ DEFPY(bfd_show_peer, bfd_show_peer_cmd,
 }
 
 DEFPY(bfd_show_peer_counters, bfd_show_peer_counters_cmd,
-      "show bfd [vrf <NAME$vrfname>] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> counters [json]",
+      "show bfd [vrf NAME$vrf_name] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> counters [json]",
       SHOW_STR
       "Bidirection Forwarding Detection\n"
       VRF_CMD_HELP_STR
@@ -564,7 +564,7 @@ DEFPY(bfd_show_peer_counters, bfd_show_peer_counters_cmd,
 
 	/* Look up the BFD peer. */
 	bs = _find_peer_or_error(vty, argc, argv, label, peer_str, local_str,
-				 ifname, vrfname);
+				 ifname, vrf_name);
 	if (bs == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -577,7 +577,7 @@ DEFPY(bfd_show_peer_counters, bfd_show_peer_counters_cmd,
 }
 
 DEFPY(bfd_show_peers_counters, bfd_show_peers_counters_cmd,
-      "show bfd [vrf <NAME>] peers counters [json]",
+      "show bfd [vrf NAME] peers counters [json]",
       SHOW_STR
       "Bidirection Forwarding Detection\n"
       VRF_CMD_HELP_STR

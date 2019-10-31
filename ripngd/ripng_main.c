@@ -39,6 +39,7 @@
 #include "libfrr.h"
 
 #include "ripngd/ripngd.h"
+#include "ripngd/ripng_nb.h"
 
 /* RIPngd options. */
 struct option longopts[] = {{0}};

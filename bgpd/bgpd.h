@@ -156,6 +156,9 @@ struct bgp_master {
 	/* BGP-EVPN VRF ID. Defaults to default VRF (if any) */
 	struct bgp* bgp_evpn;
 
+	/* How big should we set the socket buffer size */
+	uint32_t socket_buffer;
+
 	bool terminating;	/* global flag that sigint terminate seen */
 	QOBJ_FIELDS
 };
@@ -631,6 +634,8 @@ struct bgp_nexthop {
 #define RMAP_IN  0
 #define RMAP_OUT 1
 #define RMAP_MAX 2
+
+#define BGP_DEFAULT_TTL 1
 
 #include "filter.h"
 
@@ -1152,10 +1157,10 @@ struct peer {
 	int rcvd_attr_printed;
 
 	/* Prefix count. */
-	unsigned long pcount[AFI_MAX][SAFI_MAX];
+	uint32_t pcount[AFI_MAX][SAFI_MAX];
 
 	/* Max prefix count. */
-	unsigned long pmax[AFI_MAX][SAFI_MAX];
+	uint32_t pmax[AFI_MAX][SAFI_MAX];
 	uint8_t pmax_threshold[AFI_MAX][SAFI_MAX];
 	uint16_t pmax_restart[AFI_MAX][SAFI_MAX];
 #define MAXIMUM_PREFIX_THRESHOLD_DEFAULT 75
@@ -1202,7 +1207,7 @@ struct peer {
 	uint8_t last_reset_cause[BGP_MAX_PACKET_SIZE];
 
 	/* The kind of route-map Flags.*/
-	uint8_t rmap_type;
+	uint16_t rmap_type;
 #define PEER_RMAP_TYPE_IN             (1 << 0) /* neighbor route-map in */
 #define PEER_RMAP_TYPE_OUT            (1 << 1) /* neighbor route-map out */
 #define PEER_RMAP_TYPE_NETWORK        (1 << 2) /* network route-map */
@@ -1219,6 +1224,9 @@ struct peer {
 	/* hostname and domainname advertised by host */
 	char *hostname;
 	char *domainname;
+
+	/* Sender side AS path loop detection. */
+	bool as_path_loop_detection;
 
 	QOBJ_FIELDS
 };
@@ -1442,9 +1450,6 @@ struct bgp_nlri {
 #define BGP_VTY_PORT                          2605
 #define BGP_DEFAULT_CONFIG             "bgpd.conf"
 
-/* Check AS path loop when we send NLRI.  */
-/* #define BGP_SEND_ASPATH_CHECK */
-
 /* BGP Dynamic Neighbors feature */
 #define BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT    100
 #define BGP_DYNAMIC_NEIGHBORS_LIMIT_MIN          1
@@ -1575,7 +1580,8 @@ extern char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 
 extern int bgp_config_write(struct vty *);
 
-extern void bgp_master_init(struct thread_master *master);
+extern void bgp_master_init(struct thread_master *master,
+			    const int buffer_size);
 
 extern void bgp_init(unsigned short instance);
 extern void bgp_pthreads_run(void);

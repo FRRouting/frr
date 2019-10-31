@@ -89,9 +89,8 @@ def test_bgp_maximum_prefix_invalid():
     def _bgp_converge(router):
         while True:
             output = json.loads(tgen.gears[router].vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
-            if output['192.168.255.1']['connectionsEstablished'] > 3:
+            if output['192.168.255.1']['connectionsEstablished'] > 0:
                 return True
-            time.sleep(1)
 
     def _bgp_parsing_nlri(router):
         cmd_max_exceeded = 'grep "%MAXPFXEXCEED: No. of IPv4 Unicast prefix received" bgpd.log'

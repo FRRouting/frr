@@ -108,19 +108,18 @@ Suppose you have an interface ``eth0`` with the following configuration:
 
 .. code-block:: console
 
-   $ ip link show eth0
+   $ ip addr show eth0
    2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
        link/ether 02:17:45:00:aa:aa brd ff:ff:ff:ff:ff:ff
        inet 10.0.2.15/24 brd 10.0.2.255 scope global dynamic eth0
           valid_lft 72532sec preferred_lft 72532sec
-       inet 10.0.2.16/24 brd 10.0.2.255 scope global dynamic eth0
-          valid_lft 72532sec preferred_lft 72532sec
        inet6 fe80::17:45ff:fe00:aaaa/64 scope link
           valid_lft forever preferred_lft forever
 
-Suppose the address you want to back up is ``10.0.2.16``, and will be managed
-by the virtual router with id ``5``. A macvlan device with the appropriate MAC
-address must be created before VRRP can begin to operate.
+Suppose that the IPv4 and IPv6 addresses you want to back up are ``10.0.2.16``
+and ``2001:db8::370:7334``, and that they will be managed by the virtual router
+with id ``5``. A macvlan device with the appropriate MAC address must be created
+before VRRP can begin to operate.
 
 If you are using ``ifupdown2``, the configuration is as follows:
 
@@ -171,6 +170,8 @@ Using ``vrrp4-2-1`` as an example, a few things to note about this interface:
   egress via ``eth0``
 - Its MAC address is set to the VRRP IPv4 virtual MAC specified by the RFC for
   :abbr:`VRID (Virtual Router ID)` ``5``
+- The :abbr:`VIP (Virtual IP)` address ``10.0.2.16`` must not be present on
+  the parent interface ``eth0``.
 - The link local address on the interface is not derived from the interface
   MAC
 
@@ -426,10 +427,11 @@ Show commands, global defaults and debugging configuration commands.
    VRID will only show routers with that VRID. Specifying ``json`` will dump
    each router state in a JSON array.
 
-.. index:: debug vrrp [{protocol|autoconfigure|packets|sockets|ndisc|arp|zebra}]
-.. clicmd:: debug vrrp [{protocol|autoconfigure|packets|sockets|ndisc|arp|zebra}]
+.. index:: [no] debug vrrp [{protocol|autoconfigure|packets|sockets|ndisc|arp|zebra}]
+.. clicmd:: [no] debug vrrp [{protocol|autoconfigure|packets|sockets|ndisc|arp|zebra}]
 
-   Toggle debugging logs for some or all components of VRRP.
+   Toggle debugging logs for VRRP components.
+   If no component is specified, debugging for all components are turned on/off.
 
    protocol
       Logs state changes, election protocol decisions, and interface status
@@ -482,7 +484,8 @@ execute the following command:
 .. clicmd:: [no] vrrp autoconfigure [version (2-3)]
 
    Generates VRRP configuration based on the interface configuration on the
-   base system. Any existing interfaces that are configured properly for VRRP -
+   base system. If the protocol version is not specified, the default is VRRPv3.
+   Any existing interfaces that are configured properly for VRRP -
    i.e. have the correct MAC address, link local address (when required), IPv4
    and IPv6 addresses - are used to create a VRRP router on their parent
    interfaces, with VRRP IPvX addresses taken from the addresses assigned to

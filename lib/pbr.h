@@ -90,7 +90,7 @@ struct pbr_rule {
 	uint32_t unique;
 	struct pbr_filter filter;
 	struct pbr_action action;
-	uint32_t ifindex;
+	ifindex_t ifindex;
 };
 
 /* TCP flags value shared

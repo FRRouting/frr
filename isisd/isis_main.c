@@ -57,6 +57,7 @@
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_mt.h"
 #include "isisd/fabricd.h"
+#include "isisd/isis_nb.h"
 
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
@@ -243,7 +244,7 @@ int main(int argc, char **argv, char **envp)
 	mt_init();
 
 	/* create the global 'isis' instance */
-	isis_new(1);
+	isis_new(1, VRF_DEFAULT);
 
 	isis_zebra_init(master);
 	isis_bfd_init();

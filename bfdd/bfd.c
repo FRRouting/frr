@@ -49,6 +49,8 @@ static void bs_admin_down_handler(struct bfd_session *bs, int nstate);
 static void bs_down_handler(struct bfd_session *bs, int nstate);
 static void bs_init_handler(struct bfd_session *bs, int nstate);
 static void bs_up_handler(struct bfd_session *bs, int nstate);
+static void bs_neighbour_admin_down_handler(struct bfd_session *bfd,
+					    uint8_t diag);
 
 /* Zeroed array with the size of an IPv6 address. */
 struct in6_addr zero_addr;
@@ -159,6 +161,7 @@ int bfd_session_enable(struct bfd_session *bs)
 	bs->vrf = vrf;
 	if (bs->vrf == NULL)
 		bs->vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	assert(bs->vrf);
 
 	if (bs->key.ifname[0]
 	    && BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) == 0)
@@ -213,9 +216,13 @@ void bfd_session_disable(struct bfd_session *bs)
 
 	/* Disable all timers. */
 	bfd_recvtimer_delete(bs);
-	bfd_echo_recvtimer_delete(bs);
 	bfd_xmttimer_delete(bs);
-	bfd_echo_xmttimer_delete(bs);
+	ptm_bfd_echo_stop(bs);
+	bs->vrf = NULL;
+	bs->ifp = NULL;
+
+	/* Set session down so it doesn't report UP and disabled. */
+	ptm_bfd_sess_dn(bs, BD_PATH_DOWN);
 }
 
 static uint32_t ptm_bfd_gen_ID(void)
@@ -322,7 +329,7 @@ void ptm_bfd_sess_up(struct bfd_session *bfd)
 	/* Start sending control packets with poll bit immediately. */
 	ptm_bfd_snd(bfd, 0);
 
-	control_notify(bfd);
+	control_notify(bfd, bfd->ses_state);
 
 	if (old_state != bfd->ses_state) {
 		bfd->stats.session_up++;
@@ -345,14 +352,21 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 
 	bfd_clear_stored_pkt(bfd);
 
-	ptm_bfd_snd(bfd, 0);
+	/*
+	 * Only attempt to send if we have a valid socket:
+	 * this function might be called by session disablers and in
+	 * this case we won't have a valid socket (i.e. interface was
+	 * removed or VRF doesn't exist anymore).
+	 */
+	if (bfd->sock != -1)
+		ptm_bfd_snd(bfd, 0);
 
 	/* Slow down the control packets, the connection is down. */
 	bs_set_slow_timers(bfd);
 
 	/* only signal clients when going from up->down state */
 	if (old_state == PTM_BFD_UP)
-		control_notify(bfd);
+		control_notify(bfd, PTM_BFD_DOWN);
 
 	/* Stop echo packet transmission if they are active */
 	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
@@ -589,7 +603,7 @@ skip_echo:
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_ADM_DOWN;
-		control_notify(bs);
+		control_notify(bs, bs->ses_state);
 
 		/* Don't try to send packets with a disabled session. */
 		if (bs->sock != -1)
@@ -603,7 +617,7 @@ skip_echo:
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_DOWN;
-		control_notify(bs);
+		control_notify(bs, bs->ses_state);
 
 		/* Enable all timers. */
 		bfd_recvtimer_update(bs);
@@ -877,10 +891,46 @@ static void bs_init_handler(struct bfd_session *bs, int nstate)
 	}
 }
 
+static void bs_neighbour_admin_down_handler(struct bfd_session *bfd,
+					    uint8_t diag)
+{
+	int old_state = bfd->ses_state;
+
+	bfd->local_diag = diag;
+	bfd->discrs.remote_discr = 0;
+	bfd->ses_state = PTM_BFD_DOWN;
+	bfd->polling = 0;
+	bfd->demand_mode = 0;
+	monotime(&bfd->downtime);
+
+	/* Slow down the control packets, the connection is down. */
+	bs_set_slow_timers(bfd);
+
+	/* only signal clients when going from up->down state */
+	if (old_state == PTM_BFD_UP)
+		control_notify(bfd, PTM_BFD_ADM_DOWN);
+
+	/* Stop echo packet transmission if they are active */
+	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
+		ptm_bfd_echo_stop(bfd);
+
+	if (old_state != bfd->ses_state) {
+		bfd->stats.session_down++;
+
+		log_info("state-change: [%s] %s -> %s reason:%s",
+			bs_to_string(bfd), state_list[old_state].str,
+			state_list[bfd->ses_state].str,
+			get_diag_str(bfd->local_diag));
+	}
+}
+
 static void bs_up_handler(struct bfd_session *bs, int nstate)
 {
 	switch (nstate) {
 	case PTM_BFD_ADM_DOWN:
+		bs_neighbour_admin_down_handler(bs, BD_ADMIN_DOWN);
+		break;
+
 	case PTM_BFD_DOWN:
 		/* Peer lost or asked to shutdown connection. */
 		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN);
@@ -1227,19 +1277,10 @@ int bs_observer_add(struct bfd_session *bs)
 	struct bfd_session_observer *bso;
 
 	bso = XCALLOC(MTYPE_BFDD_SESSION_OBSERVER, sizeof(*bso));
-	bso->bso_isaddress = false;
 	bso->bso_bs = bs;
-	bso->bso_isinterface = !BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH);
-	if (bso->bso_isinterface)
-		strlcpy(bso->bso_entryname, bs->key.ifname,
-			sizeof(bso->bso_entryname));
-	/* Handle socket binding failures caused by missing local addresses. */
-	if (bs->sock == -1) {
-		bso->bso_isaddress = true;
-		bso->bso_addr.family = bs->key.family;
-		memcpy(&bso->bso_addr.u.prefix, &bs->key.local,
-		       sizeof(bs->key.local));
-	}
+	bso->bso_addr.family = bs->key.family;
+	memcpy(&bso->bso_addr.u.prefix, &bs->key.local,
+	       sizeof(bs->key.local));
 
 	TAILQ_INSERT_TAIL(&bglobal.bg_obslist, bso, bso_entry);
 
@@ -1453,7 +1494,7 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 	if (ctx.result) {
 		bsp = ctx.result;
 		log_debug(" peer %s found, but ifp"
-			  " and/or loc-addr params ignored");
+			  " and/or loc-addr params ignored", peer_buf);
 	}
 	return bsp;
 }
@@ -1729,6 +1770,15 @@ static int bfd_vrf_disable(struct vrf *vrf)
 	}
 
 	log_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
+
+	/* Disable read/write poll triggering. */
+	THREAD_OFF(bvrf->bg_ev[0]);
+	THREAD_OFF(bvrf->bg_ev[1]);
+	THREAD_OFF(bvrf->bg_ev[2]);
+	THREAD_OFF(bvrf->bg_ev[3]);
+	THREAD_OFF(bvrf->bg_ev[4]);
+	THREAD_OFF(bvrf->bg_ev[5]);
+
 	/* Close all descriptors. */
 	socket_close(&bvrf->bg_echo);
 	socket_close(&bvrf->bg_shop);
@@ -1812,16 +1862,11 @@ void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf)
 		snprintf(xpath + slen, sizeof(xpath) - slen, "[vrf='%s']/vrf",
 			 bs->key.vrfname);
 
-		pthread_rwlock_wrlock(&running_config->lock);
-		{
-			bfd_dnode = yang_dnode_get(
-						   running_config->dnode,
-						   xpath, bs->key.vrfname);
-			if (bfd_dnode) {
-				yang_dnode_change_leaf(bfd_dnode, vrf->name);
-				running_config->version++;
-			}
-			pthread_rwlock_unlock(&running_config->lock);
+		bfd_dnode = yang_dnode_get(running_config->dnode, xpath,
+					   bs->key.vrfname);
+		if (bfd_dnode) {
+			yang_dnode_change_leaf(bfd_dnode, vrf->name);
+			running_config->version++;
 		}
 	}
 	memset(bs->key.vrfname, 0, sizeof(bs->key.vrfname));

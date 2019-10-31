@@ -5775,12 +5775,14 @@ static void process_remote_macip_del(vni_t vni,
 			vlan_if = zvni_map_to_svi(vxl->access_vlan,
 					zif->brslave_info.br_if);
 			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug("%s: IP %s (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
-					   __PRETTY_FUNCTION__,
-					   ipaddr2str(ipaddr, buf1,
-						      sizeof(buf1)), n->flags,
-					   vlan_if->name);
-			neigh_read_specific_ip(ipaddr, vlan_if);
+				zlog_debug(
+					"%s: IP %s (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
+					__PRETTY_FUNCTION__,
+					ipaddr2str(ipaddr, buf1, sizeof(buf1)),
+					n->flags,
+					vlan_if ? vlan_if->name : "Unknown");
+			if (vlan_if)
+				neigh_read_specific_ip(ipaddr, vlan_if);
 		}
 
 		/* When the MAC changes for an IP, it is possible the
@@ -9153,6 +9155,11 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 		if (zvni->advertise_svi_macip == advertise)
 			return;
 
+		/* Store flag even though SVI is not present.
+		 * Once SVI comes up triggers self MAC-IP route add.
+		 */
+		zvni->advertise_svi_macip = advertise;
+
 		ifp = zvni->vxlan_if;
 		if (!ifp)
 			return;
@@ -9164,20 +9171,17 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 			return;
 
 		zl2_info = zif->l2info.vxl;
-
 		vlan_if = zvni_map_to_svi(zl2_info.access_vlan,
 					  zif->brslave_info.br_if);
 		if (!vlan_if)
 			return;
 
 		if (advertise) {
-			zvni->advertise_svi_macip = advertise;
 			/* Add primary SVI MAC-IP */
 			zvni_add_macip_for_intf(vlan_if, zvni);
 		} else {
-			/* Del primary MAC-IP */
+			/* Del primary SVI MAC-IP */
 			zvni_del_macip_for_intf(vlan_if, zvni);
-			zvni->advertise_svi_macip = advertise;
 		}
 	}
 

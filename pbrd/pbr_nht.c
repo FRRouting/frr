@@ -267,7 +267,9 @@ void pbr_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	pbr_nht_install_nexthop_group(pnhgc, nhgc->nhg);
 	pbr_map_check_nh_group_change(nhgc->name);
 
-	if (nhop->type == NEXTHOP_TYPE_IFINDEX) {
+	if (nhop->type == NEXTHOP_TYPE_IFINDEX
+	    || (nhop->type == NEXTHOP_TYPE_IPV6_IFINDEX
+		&& IN6_IS_ADDR_LINKLOCAL(&nhop->gate.ipv6))) {
 		struct interface *ifp;
 
 		ifp = if_lookup_by_index(nhop->ifindex, nhop->vrf_id);
@@ -576,8 +578,6 @@ void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
 
 	hash_release(pbr_nhg_hash, pnhgc);
 
-	_nexthop_del(pbrms->nhg, nh);
-	nexthop_free(nh);
 	nexthop_group_delete(&pbrms->nhg);
 	XFREE(MTYPE_TMP, pbrms->internal_nhg_name);
 }
@@ -637,7 +637,6 @@ void pbr_nht_delete_group(const char *name)
 			if (pbrms->nhgrp_name
 			    && strmatch(pbrms->nhgrp_name, name)) {
 				pbrms->reason |= PBR_MAP_INVALID_NO_NEXTHOPS;
-				nexthop_group_delete(&pbrms->nhg);
 				pbrms->nhg = NULL;
 				pbrms->internal_nhg_name = NULL;
 				pbrm->valid = false;
@@ -711,7 +710,7 @@ pbr_nht_individual_nexthop_gw_update(struct pbr_nexthop_cache *pnhc,
 	}
 
 	if (pnhc->nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX
-	    || pnhc->nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
+	    || pnhc->nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
 
 		/* GATEWAY_IFINDEX type shouldn't resolve to group */
 		if (pnhi->nhr->nexthop_num > 1) {
@@ -772,10 +771,15 @@ pbr_nht_individual_nexthop_update(struct pbr_nexthop_cache *pnhc,
 	case NEXTHOP_TYPE_IFINDEX:
 		pbr_nht_individual_nexthop_interface_update(pnhc, pnhi);
 		break;
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		if (IN6_IS_ADDR_LINKLOCAL(&pnhc->nexthop->gate.ipv6)) {
+			pbr_nht_individual_nexthop_interface_update(pnhc, pnhi);
+			break;
+		}
+		/* Intentional fall thru */
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV6:
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		pbr_nht_individual_nexthop_gw_update(pnhc, pnhi);
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:

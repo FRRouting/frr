@@ -46,6 +46,7 @@
 #include "northbound_cli.h"
 
 #include "ripd/ripd.h"
+#include "ripd/rip_nb.h"
 #include "ripd/rip_debug.h"
 #include "ripd/rip_errors.h"
 #include "ripd/rip_interface.h"
@@ -3660,18 +3661,14 @@ static int rip_vrf_enable(struct vrf *vrf)
 		if (yang_module_find("frr-ripd") && old_vrf_name) {
 			struct lyd_node *rip_dnode;
 
-			pthread_rwlock_wrlock(&running_config->lock);
-			{
-				rip_dnode = yang_dnode_get(
-						   running_config->dnode,
-						   "/frr-ripd:ripd/instance[vrf='%s']/vrf",
-						   old_vrf_name);
-				if (rip_dnode) {
-					yang_dnode_change_leaf(rip_dnode, vrf->name);
-					running_config->version++;
-				}
+			rip_dnode = yang_dnode_get(
+				running_config->dnode,
+				"/frr-ripd:ripd/instance[vrf='%s']/vrf",
+				old_vrf_name);
+			if (rip_dnode) {
+				yang_dnode_change_leaf(rip_dnode, vrf->name);
+				running_config->version++;
 			}
-			pthread_rwlock_unlock(&running_config->lock);
 		}
 		if (old_vrf_name)
 			XFREE(MTYPE_RIP_VRF_NAME, old_vrf_name);

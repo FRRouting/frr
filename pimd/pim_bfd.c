@@ -270,7 +270,7 @@ static int pim_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 			continue;
 		}
 		old_status = bfd_info->status;
-		bfd_info->status = status;
+		BFD_SET_CLIENT_STATUS(bfd_info->status, status);
 		monotime(&tv);
 		bfd_info->last_update = tv.tv_sec;
 

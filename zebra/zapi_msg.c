@@ -516,12 +516,13 @@ int zsend_interface_update(int cmd, struct zserv *client, struct interface *ifp)
 
 int zsend_redistribute_route(int cmd, struct zserv *client,
 			     const struct prefix *p,
-			     const struct prefix *src_p, struct route_entry *re)
+			     const struct prefix *src_p,
+			     const struct route_entry *re)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
 	struct nexthop *nexthop;
-	int count = 0;
+	uint8_t count = 0;
 	afi_t afi;
 	size_t stream_size =
 		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
@@ -558,12 +559,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 		memcpy(&api.src_prefix, src_p, sizeof(api.src_prefix));
 	}
 
-	/* Nexthops. */
-	if (re->nexthop_active_num) {
-		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-		api.nexthop_num = re->nexthop_active_num;
-	}
-	for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next) {
+	for (nexthop = re->ng->nexthop; nexthop; nexthop = nexthop->next) {
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
 
@@ -592,6 +588,12 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 			api_nh->ifindex = nexthop->ifindex;
 		}
 		count++;
+	}
+
+	/* Nexthops. */
+	if (count) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+		api.nexthop_num = count;
 	}
 
 	/* Attributes. */
@@ -664,7 +666,8 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 		 * nexthop we are looking up. Therefore, we will just iterate
 		 * over the top chain of nexthops.
 		 */
-		for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
+		for (nexthop = re->ng->nexthop; nexthop;
+		     nexthop = nexthop->next)
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 				num += zserv_encode_nexthop(s, nexthop);
 
@@ -782,10 +785,7 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 	stream_putl(s, rule->rule.seq);
 	stream_putl(s, rule->rule.priority);
 	stream_putl(s, rule->rule.unique);
-	if (rule->ifp)
-		stream_putl(s, rule->ifp->ifindex);
-	else
-		stream_putl(s, 0);
+	stream_putl(s, rule->rule.ifindex);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -1424,7 +1424,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	re->flags = api.flags;
 	re->uptime = monotime(NULL);
 	re->vrf_id = vrf_id;
-	if (api.tableid && vrf_id == VRF_DEFAULT)
+	re->ng = nexthop_group_new();
+
+	if (api.tableid)
 		re->table = api.tableid;
 	else
 		re->table = zvrf->table_id;
@@ -1435,6 +1437,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  "%s: received a route without nexthops for prefix %pFX from client %s",
 			  __func__, &api.prefix,
 			  zebra_route_string(client->proto));
+
+		nexthop_group_delete(&re->ng);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
@@ -1533,7 +1537,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 				"%s: Nexthops Specified: %d but we failed to properly create one",
 				__PRETTY_FUNCTION__, api.nexthop_num);
-			nexthops_free(re->ng.nexthop);
+			nexthop_group_delete(&re->ng);
 			XFREE(MTYPE_RE, re);
 			return;
 		}
@@ -1575,7 +1579,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		flog_warn(EC_ZEBRA_RX_SRCDEST_WRONG_AFI,
 			  "%s: Received SRC Prefix but afi is not v6",
 			  __PRETTY_FUNCTION__);
-		nexthops_free(re->ng.nexthop);
+		nexthop_group_delete(&re->ng);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
@@ -1623,13 +1627,13 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
 		src_p = &api.src_prefix;
 
-	if (api.vrf_id == VRF_DEFAULT && api.tableid != 0)
+	if (api.tableid)
 		table_id = api.tableid;
 	else
 		table_id = zvrf->table_id;
 
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &api.prefix, src_p, NULL, table_id, api.metric,
+		   api.flags, &api.prefix, src_p, NULL, 0, table_id, api.metric,
 		   api.distance, false);
 
 	/* Stats */
@@ -2293,7 +2297,6 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 	struct zebra_pbr_rule zpr;
 	struct stream *s;
 	uint32_t total, i;
-	ifindex_t ifindex;
 
 	s = msg;
 	STREAM_GETL(s, total);
@@ -2318,17 +2321,20 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		STREAM_GETW(s, zpr.rule.filter.dst_port);
 		STREAM_GETL(s, zpr.rule.filter.fwmark);
 		STREAM_GETL(s, zpr.rule.action.table);
-		STREAM_GETL(s, ifindex);
+		STREAM_GETL(s, zpr.rule.ifindex);
 
-		if (ifindex) {
-			zpr.ifp = if_lookup_by_index_per_ns(
-						zvrf->zns,
-						ifindex);
-			if (!zpr.ifp) {
+		if (zpr.rule.ifindex) {
+			struct interface *ifp;
+
+			ifp = if_lookup_by_index_per_ns(zvrf->zns,
+							zpr.rule.ifindex);
+			if (!ifp) {
 				zlog_debug("Failed to lookup ifindex: %u",
-					   ifindex);
+					   zpr.rule.ifindex);
 				return;
 			}
+
+			strlcpy(zpr.ifname, ifp->name, sizeof(zpr.ifname));
 		}
 
 		if (!is_default_prefix(&zpr.rule.filter.src_ip))

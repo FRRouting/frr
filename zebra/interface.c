@@ -70,10 +70,19 @@ static int if_zebra_speed_update(struct thread *thread)
 	struct zebra_if *zif = ifp->info;
 	uint32_t new_speed;
 	bool changed = false;
+	int error = 0;
 
 	zif->speed_update = NULL;
 
-	new_speed = kernel_get_speed(ifp);
+	new_speed = kernel_get_speed(ifp, &error);
+
+	/* error may indicate vrf not available or
+	 * interfaces not available.
+	 * note that loopback & virtual interfaces can return 0 as speed
+	 */
+	if (error < 0)
+		return 1;
+
 	if (new_speed != ifp->speed) {
 		zlog_info("%s: %s old speed: %u new speed: %u",
 			  __PRETTY_FUNCTION__, ifp->name, ifp->speed,
@@ -98,6 +107,17 @@ static void zebra_if_node_destroy(route_table_delegate_t *delegate,
 	route_node_destroy(delegate, table, node);
 }
 
+static void zebra_if_nhg_dependents_free(struct zebra_if *zebra_if)
+{
+	nhg_connected_tree_free(&zebra_if->nhg_dependents);
+}
+
+static void zebra_if_nhg_dependents_init(struct zebra_if *zebra_if)
+{
+	nhg_connected_tree_init(&zebra_if->nhg_dependents);
+}
+
+
 route_table_delegate_t zebra_if_table_delegate = {
 	.create_node = route_node_create,
 	.destroy_node = zebra_if_node_destroy};
@@ -111,6 +131,9 @@ static int if_zebra_new_hook(struct interface *ifp)
 
 	zebra_if->multicast = IF_ZEBRA_MULTICAST_UNSPEC;
 	zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
+
+	zebra_if_nhg_dependents_init(zebra_if);
+
 	zebra_ptm_if_init(zebra_if);
 
 	ifp->ptm_enable = zebra_ptm_get_enable_state();
@@ -166,6 +189,34 @@ static int if_zebra_new_hook(struct interface *ifp)
 	return 0;
 }
 
+static void if_nhg_dependents_check_valid(struct nhg_hash_entry *nhe)
+{
+	zebra_nhg_check_valid(nhe);
+	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID))
+		/* Assuming uninstalled as well here */
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+}
+
+static void if_down_nhg_dependents(const struct interface *ifp)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+	struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep)
+		if_nhg_dependents_check_valid(rb_node_dep->nhe);
+}
+
+static void if_nhg_dependents_release(const struct interface *ifp)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+	struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
+		rb_node_dep->nhe->ifp = NULL; /* Null it out */
+		if_nhg_dependents_check_valid(rb_node_dep->nhe);
+	}
+}
+
 /* Called when interface is deleted. */
 static int if_zebra_delete_hook(struct interface *ifp)
 {
@@ -187,7 +238,11 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		list_delete(&rtadv->AdvDNSSLList);
 #endif /* HAVE_RTADV */
 
+		if_nhg_dependents_release(ifp);
+		zebra_if_nhg_dependents_free(zebra_if);
+
 		XFREE(MTYPE_TMP, zebra_if->desc);
+
 		THREAD_OFF(zebra_if->speed_update);
 
 		XFREE(MTYPE_ZINFO, zebra_if);
@@ -261,8 +316,10 @@ struct interface *if_lookup_by_name_per_ns(struct zebra_ns *ns,
 
 	for (rn = route_top(ns->if_table); rn; rn = route_next(rn)) {
 		ifp = (struct interface *)rn->info;
-		if (ifp && strcmp(ifp->name, ifname) == 0)
+		if (ifp && strcmp(ifp->name, ifname) == 0) {
+			route_unlock_node(rn);
 			return (ifp);
+		}
 	}
 
 	return NULL;
@@ -767,6 +824,13 @@ void if_delete_update(struct interface *ifp)
 		memset(&zif->brslave_info, 0,
 		       sizeof(struct zebra_l2info_brslave));
 	}
+
+	if (!ifp->configured) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("interface %s is being deleted from the system",
+				   ifp->name);
+		if_delete(ifp);
+	}
 }
 
 /* VRF change for an interface */
@@ -907,6 +971,47 @@ static void if_down_del_nbr_connected(struct interface *ifp)
 	}
 }
 
+void if_nhg_dependents_add(struct interface *ifp, struct nhg_hash_entry *nhe)
+{
+	if (ifp->info) {
+		struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+		nhg_connected_tree_add_nhe(&zif->nhg_dependents, nhe);
+	}
+}
+
+void if_nhg_dependents_del(struct interface *ifp, struct nhg_hash_entry *nhe)
+{
+	if (ifp->info) {
+		struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+		nhg_connected_tree_del_nhe(&zif->nhg_dependents, nhe);
+	}
+}
+
+unsigned int if_nhg_dependents_count(const struct interface *ifp)
+{
+	if (ifp->info) {
+		struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+		return nhg_connected_tree_count(&zif->nhg_dependents);
+	}
+
+	return 0;
+}
+
+
+bool if_nhg_dependents_is_empty(const struct interface *ifp)
+{
+	if (ifp->info) {
+		struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+		return nhg_connected_tree_is_empty(&zif->nhg_dependents);
+	}
+
+	return false;
+}
+
 /* Interface is up. */
 void if_up(struct interface *ifp)
 {
@@ -969,6 +1074,8 @@ void if_down(struct interface *ifp)
 	zif = ifp->info;
 	zif->down_count++;
 	quagga_timestamp(2, zif->down_last, sizeof(zif->down_last));
+
+	if_down_nhg_dependents(ifp);
 
 	/* Handle interface down for specific types for EVPN. Non-VxLAN
 	 * interfaces
@@ -1556,7 +1663,7 @@ struct cmd_node interface_node = {INTERFACE_NODE, "%s(config-if)# ", 1};
 #endif
 /* Show all interfaces to vty. */
 DEFPY(show_interface, show_interface_cmd,
-      "show interface [vrf NAME$name] [brief$brief]",
+      "show interface [vrf NAME$vrf_name] [brief$brief]",
       SHOW_STR
       "Interface status and configuration\n"
       VRF_CMD_HELP_STR
@@ -1568,8 +1675,8 @@ DEFPY(show_interface, show_interface_cmd,
 
 	interface_update_stats();
 
-	if (name)
-		VRF_GET_ID(vrf_id, name, false);
+	if (vrf_name)
+		VRF_GET_ID(vrf_id, vrf_name, false);
 
 	/* All interface print. */
 	vrf = vrf_lookup_by_id(vrf_id);
@@ -2034,13 +2141,13 @@ DEFUN (link_params_enable,
 	/* This command could be issue at startup, when activate MPLS TE */
 	/* on a new interface or after a ON / OFF / ON toggle */
 	/* In all case, TE parameters are reset to their default factory */
-	if (IS_ZEBRA_DEBUG_EVENT)
+	if (IS_ZEBRA_DEBUG_EVENT || IS_ZEBRA_DEBUG_MPLS)
 		zlog_debug(
 			"Link-params: enable TE link parameters on interface %s",
 			ifp->name);
 
 	if (!if_link_params_get(ifp)) {
-		if (IS_ZEBRA_DEBUG_EVENT)
+		if (IS_ZEBRA_DEBUG_EVENT || IS_ZEBRA_DEBUG_MPLS)
 			zlog_debug(
 				"Link-params: failed to init TE link parameters  %s",
 				ifp->name);
@@ -2063,8 +2170,9 @@ DEFUN (no_link_params_enable,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-	zlog_debug("MPLS-TE: disable TE link parameters on interface %s",
-		   ifp->name);
+	if (IS_ZEBRA_DEBUG_EVENT || IS_ZEBRA_DEBUG_MPLS)
+		zlog_debug("MPLS-TE: disable TE link parameters on interface %s",
+			   ifp->name);
 
 	if_link_params_free(ifp);
 
@@ -3195,6 +3303,11 @@ void zebra_if_init(void)
 	install_node(&interface_node, if_config_write);
 	install_node(&link_params_node, NULL);
 	if_cmd_init();
+	/*
+	 * This is *intentionally* setting this to NULL, signaling
+	 * that interface creation for zebra acts differently
+	 */
+	if_zapi_callbacks(NULL, NULL, NULL, NULL);
 
 	install_element(VIEW_NODE, &show_interface_cmd);
 	install_element(VIEW_NODE, &show_interface_vrf_all_cmd);

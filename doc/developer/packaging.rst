@@ -1,10 +1,10 @@
-*********
-Packaging
-*********
+********************
+Releases & Packaging
+********************
 
 .. toctree::
    :maxdepth: 2
 
-   maintainer-release-build
+   frr-release-procedure
    packaging-debian
    packaging-redhat

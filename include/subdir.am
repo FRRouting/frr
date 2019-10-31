@@ -6,6 +6,7 @@ noinst_HEADERS += \
 	include/linux/mpls_iptunnel.h \
 	include/linux/neighbour.h \
 	include/linux/netlink.h \
+	include/linux/nexthop.h \
 	include/linux/rtnetlink.h \
 	include/linux/socket.h \
 	include/linux/net_namespace.h \

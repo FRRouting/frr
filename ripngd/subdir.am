@@ -19,7 +19,10 @@ ripngd_libripng_a_SOURCES = \
 	ripngd/ripng_interface.c \
 	ripngd/ripng_nexthop.c \
 	ripngd/ripng_offset.c \
-	ripngd/ripng_northbound.c \
+	ripngd/ripng_nb.c \
+	ripngd/ripng_nb_config.c \
+	ripngd/ripng_nb_rpcs.c \
+	ripngd/ripng_nb_state.c \
 	ripngd/ripng_peer.c \
 	ripngd/ripng_route.c \
 	ripngd/ripng_routemap.c \
@@ -31,8 +34,8 @@ ripngd/ripng_cli_clippy.c: $(CLIPPY_DEPS)
 ripngd/ripng_cli.$(OBJEXT): ripngd/ripng_cli_clippy.c
 
 noinst_HEADERS += \
-	ripngd/ripng_cli.h \
 	ripngd/ripng_debug.h \
+	ripngd/ripng_nb.h \
 	ripngd/ripng_nexthop.h \
 	ripngd/ripng_route.h \
 	ripngd/ripngd.h \

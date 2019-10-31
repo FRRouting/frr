@@ -209,6 +209,9 @@ struct attr {
 
 	/* Distance as applied by Route map */
 	uint8_t distance;
+
+	/* rmap set table */
+	uint32_t rmap_table_id;
 };
 
 /* rmap_change_flags definition */

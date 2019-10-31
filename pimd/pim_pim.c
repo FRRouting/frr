@@ -574,6 +574,7 @@ int pim_msg_send(int fd, struct in_addr src, struct in_addr dst,
 	ip->ip_id = htons(++ip_id);
 	ip->ip_hl = 5;
 	ip->ip_v = 4;
+	ip->ip_tos = IPTOS_PREC_INTERNETCONTROL;
 	ip->ip_p = PIM_IP_PROTO_PIM;
 	ip->ip_src = src;
 	ip->ip_dst = dst;

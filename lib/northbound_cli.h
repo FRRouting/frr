@@ -109,6 +109,8 @@ extern void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *dnode,
 				   bool show_defaults);
 
 /* Prototypes of internal functions. */
+extern void nb_cli_show_config_prepare(struct nb_config *config,
+				       bool with_defaults);
 extern void nb_cli_confirmed_commit_clean(struct vty *vty);
 extern int nb_cli_confirmed_commit_rollback(struct vty *vty);
 extern void nb_cli_install_default(int node);

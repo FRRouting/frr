@@ -189,11 +189,8 @@ for ``master`` branch:
    git clone https://github.com/FRRouting/frr.git
    cd frr
    ./bootstrap.sh
-   export CC=gcc
-   export CFLAGS="-O1 -g -fsanitize=address -fno-omit-frame-pointer"
-   export LD=gcc
-   export LDFLAGS="-g -fsanitize=address -ldl"
-   ./configure --enable-shared=no \
+   ./configure \
+       --enable-address-sanitizer \
        --prefix=/usr/lib/frr --sysconfdir=/etc/frr \
        --localstatedir=/var/run/frr \
        --sbindir=/usr/lib/frr --bindir=/usr/lib/frr \
