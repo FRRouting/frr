@@ -81,6 +81,8 @@ static int zsock;
 enum zserv_client_event {
 	/* Schedule a socket read */
 	ZSERV_CLIENT_READ,
+	/* Schedule a client socket read event, without polling an fd */
+	ZSERV_CLIENT_READ_EVENT,
 	/* Schedule a buffer write */
 	ZSERV_CLIENT_WRITE,
 };
@@ -310,7 +312,6 @@ static int zserv_read(struct thread *thread)
 	size_t already;
 	struct stream_fifo *cache;
 	uint32_t p2p_orig;
-
 	uint32_t p2p;
 	struct zmsghdr hdr;
 
@@ -318,7 +319,7 @@ static int zserv_read(struct thread *thread)
 					memory_order_relaxed);
 	cache = stream_fifo_new();
 	p2p = p2p_orig;
-	sock = THREAD_FD(thread);
+	sock = client->sock;
 
 	while (p2p) {
 		ssize_t nb;
@@ -441,7 +442,12 @@ static int zserv_read(struct thread *thread)
 			   zebra_route_string(client->proto));
 
 	/* Reschedule ourselves */
-	zserv_client_event(client, ZSERV_CLIENT_READ);
+	if (p2p == 0)
+		/* Hit the read limit - try to avoid a poll */
+		zserv_client_event(client, ZSERV_CLIENT_READ_EVENT);
+	else
+		/* Exhausted incoming messages; ok to poll/select */
+		zserv_client_event(client, ZSERV_CLIENT_READ);
 
 	stream_fifo_free(cache);
 
@@ -460,6 +466,13 @@ static void zserv_client_event(struct zserv *client,
 	case ZSERV_CLIENT_READ:
 		thread_add_read(client->pthread->master, zserv_read, client,
 				client->sock, &client->t_read);
+		break;
+	case ZSERV_CLIENT_READ_EVENT:
+		/* Schedule the 'read' callback as an 'event', without polling
+		 * the client fd.
+		 */
+		thread_add_event(client->pthread->master, zserv_read, client,
+				 client->sock, &client->t_read);
 		break;
 	case ZSERV_CLIENT_WRITE:
 		thread_add_write(client->pthread->master, zserv_write, client,
