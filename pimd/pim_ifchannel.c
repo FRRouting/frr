@@ -191,11 +191,13 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 		pim_upstream_del(pim_ifp->pim, ch->upstream,
 			__PRETTY_FUNCTION__);
 
-	else
-		zlog_warn("%s: Avoiding deletion of upstream with ref_count %d "
-			"from ifchannel(%s): %s", __PRETTY_FUNCTION__,
-			ch->upstream->ref_count, ch->interface->name,
-			ch->sg_str);
+	else {
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug("%s: Avoiding deletion of upstream with ref_count %d "
+				   "from ifchannel(%s): %s", __PRETTY_FUNCTION__,
+				   ch->upstream->ref_count, ch->interface->name,
+				   ch->sg_str);
+	}
 
 	ch->upstream = NULL;
 
