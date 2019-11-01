@@ -718,8 +718,8 @@ int zebra_import_table(afi_t afi, vrf_id_t vrf_id, uint32_t table_id,
 	if (afi >= AFI_MAX)
 		return (-1);
 
-	table = zebra_vrf_table_with_table_id(afi, SAFI_UNICAST, vrf_id,
-					      table_id);
+	table = zebra_vrf_get_table_with_table_id(afi, SAFI_UNICAST, vrf_id,
+						  table_id);
 	if (table == NULL) {
 		return 0;
 	} else if (IS_ZEBRA_DEBUG_RIB) {
@@ -830,8 +830,8 @@ static void zebra_import_table_rm_update_vrf_afi(struct zebra_vrf *zvrf,
 	if ((!rmap_name) || (strcmp(rmap_name, rmap) != 0))
 		return;
 
-	table = zebra_vrf_table_with_table_id(afi, SAFI_UNICAST,
-					      zvrf->vrf->vrf_id, table_id);
+	table = zebra_vrf_get_table_with_table_id(afi, SAFI_UNICAST,
+						  zvrf->vrf->vrf_id, table_id);
 	if (!table) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug("%s: Table id=%d not found", __func__,

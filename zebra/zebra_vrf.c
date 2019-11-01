@@ -343,13 +343,12 @@ int zebra_vrf_has_config(struct zebra_vrf *zvrf)
  * - case VRF backend is default : on default VRF only
  * - case VRF backend is netns : on all VRFs
  */
-struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
-						  vrf_id_t vrf_id,
-						  uint32_t table_id)
+struct route_table *zebra_vrf_lookup_table_with_table_id(afi_t afi, safi_t safi,
+							 vrf_id_t vrf_id,
+							 uint32_t table_id)
 {
 	struct zebra_vrf *zvrf = vrf_info_lookup(vrf_id);
 	struct other_route_table ort, *otable;
-	struct route_table *table;
 
 	if (!zvrf)
 		return NULL;
@@ -364,9 +363,28 @@ struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 	ort.safi = safi;
 	ort.table_id = table_id;
 	otable = otable_find(&zvrf->other_tables, &ort);
+
 	if (otable)
 		return otable->table;
 
+	return NULL;
+}
+
+struct route_table *zebra_vrf_get_table_with_table_id(afi_t afi, safi_t safi,
+						      vrf_id_t vrf_id,
+						      uint32_t table_id)
+{
+	struct zebra_vrf *zvrf = vrf_info_lookup(vrf_id);
+	struct other_route_table *otable;
+	struct route_table *table;
+
+	table = zebra_vrf_lookup_table_with_table_id(afi, safi, vrf_id,
+						     table_id);
+
+	if (table)
+		goto done;
+
+	/* Create it as an `other` table */
 	table = zebra_router_get_table(zvrf, table_id, afi, safi);
 
 	otable = XCALLOC(MTYPE_OTHER_TABLE, sizeof(*otable));
@@ -376,6 +394,7 @@ struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 	otable->table = table;
 	otable_add(&zvrf->other_tables, otable);
 
+done:
 	return table;
 }
 

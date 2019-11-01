@@ -1708,10 +1708,9 @@ DEFPY (show_route_summary,
 			if ((zvrf = vrf->info) == NULL)
 				continue;
 
-			table = zebra_vrf_table_with_table_id(afi,
-							      SAFI_UNICAST,
-							      zvrf->vrf->vrf_id,
-							      table_id);
+			table = zebra_vrf_lookup_table_with_table_id(
+				afi, SAFI_UNICAST, zvrf->vrf->vrf_id, table_id);
+
 			if (!table)
 				continue;
 
@@ -1726,9 +1725,8 @@ DEFPY (show_route_summary,
 		if (vrf_name)
 			VRF_GET_ID(vrf_id, vrf_name, false);
 
-		table = zebra_vrf_table_with_table_id(afi,
-						      SAFI_UNICAST,
-						      vrf_id, table_id);
+		table = zebra_vrf_lookup_table_with_table_id(afi, SAFI_UNICAST,
+							     vrf_id, table_id);
 		if (!table)
 			return CMD_SUCCESS;
 
