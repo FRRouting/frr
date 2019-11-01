@@ -202,8 +202,9 @@ static int ospf_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 	struct interface *ifp;
 	struct ospf_interface *oi;
 	struct ospf_if_params *params;
-	struct ospf_neighbor *nbr;
+	struct ospf_neighbor *nbr = NULL;
 	struct route_node *node;
+	struct route_node *n_node;
 	struct prefix p;
 	int status;
 	int old_status;
@@ -231,7 +232,28 @@ static int ospf_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 		if ((oi = node->info) == NULL)
 			continue;
 
-		nbr = ospf_nbr_lookup_by_addr(oi->nbrs, &p.u.prefix4);
+		/* walk the neighbor list for point-to-point network */
+		if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
+			for (n_node = route_top(oi->nbrs); n_node;
+				n_node = route_next(n_node)) {
+				nbr = n_node->info;
+				if (nbr) {
+					/* skip myself */
+					if (nbr == oi->nbr_self) {
+						nbr = NULL;
+						continue;
+					}
+
+					/* Found the matching neighbor */
+					if (nbr->src.s_addr ==
+						p.u.prefix4.s_addr)
+						break;
+				}
+			}
+		} else {
+			nbr = ospf_nbr_lookup_by_addr(oi->nbrs, &p.u.prefix4);
+		}
+
 		if (!nbr || !nbr->bfd_info)
 			continue;
 
