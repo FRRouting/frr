@@ -301,6 +301,11 @@ if $debian; then
 		--format='3.0 (custom)' --target-format='3.0 (quilt)' \
 		-b . frr_${PACKAGE_VERSION}.orig.tar.$zip frr_${DEBVER}.debian.tar.$zip
 
+	dpkg-genchanges -sa -S > ../frr_${DEBVER}_source.changes
+
+	test -n "$keyid" && debsign ../frr_${DEBVER}_source.changes  -k"$keyid"
+
+	mv ../frr_${DEBVER}_source.changes "$outdir" || true
 	mv ../frr_${DEBVER}.dsc "$outdir" || true
 	mv ../frr_${DEBVER}.debian.tar.$zip "$outdir" || true
 	if test -h ../frr_${PACKAGE_VERSION}.orig.tar.$zip; then
@@ -309,12 +314,12 @@ if $debian; then
 	ln -s frr-${PACKAGE_VERSION}.tar.$zip "$outdir/frr_${PACKAGE_VERSION}.orig.tar.$zip" || true
 
 	cd "$outdir"
-	test -n "$keyid" && debsign -k "$keyid" "frr_${DEBVER}.dsc"
 
 	lsfiles="$lsfiles \
 		frr_${DEBVER}.dsc \
 		frr_${DEBVER}.debian.tar.$zip \
-		frr_${PACKAGE_VERSION}.orig.tar.$zip"
+		frr_${PACKAGE_VERSION}.orig.tar.$zip \
+		frr_${DEBVER}_source.changes"
 fi
 
 cd "$outdir"
