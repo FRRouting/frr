@@ -212,6 +212,15 @@ static struct vrrp_vrouter *vrrp_lookup_by_if_mvl(struct interface *mvl_ifp)
 	}
 
 	p = if_lookup_by_index(mvl_ifp->link_ifindex, VRF_DEFAULT);
+
+	if (!p) {
+		DEBUGD(&vrrp_dbg_zebra,
+		       VRRP_LOGPFX
+		       "Tried to lookup interface %d, parent of %s, but it doesn't exist",
+		       mvl_ifp->link_ifindex, mvl_ifp->name);
+		return NULL;
+	}
+
 	uint8_t vrid = mvl_ifp->hw_addr[5];
 
 	return vrrp_lookup(p, vrid);
