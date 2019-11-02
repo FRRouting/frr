@@ -25,6 +25,8 @@
 #include "memory.h"
 #include "qobj.h"
 #include "vty.h"
+#include "lib/plist.h"
+#include "lib/plist_int.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -220,6 +222,7 @@ struct route_map {
 	/* Maintain update info */
 	bool to_be_processed; /* True if modification isn't acted on yet */
 	bool deleted;         /* If 1, then this node will be deleted */
+	bool optimization_disabled;
 
 	/* How many times have we applied this route-map */
 	uint64_t applied;
@@ -227,6 +230,12 @@ struct route_map {
 
 	/* Counter to track active usage of this route-map */
 	uint16_t use_count;
+
+	/* Tables to maintain IPv4 and IPv6 prefixes from
+	 * the prefix-list match clause.
+	 */
+	struct route_table *ipv4_prefix_table;
+	struct route_table *ipv6_prefix_table;
 
 	QOBJ_FIELDS
 };
@@ -310,7 +319,10 @@ extern void route_map_upd8_dependency(route_map_event_t type, const char *arg,
 				      const char *rmap_name);
 extern void route_map_notify_dependencies(const char *affected_name,
 					  route_map_event_t event);
-
+extern void route_map_notify_pentry_dependencies(
+					const char *affected_name,
+					struct prefix_list_entry *pentry,
+					route_map_event_t event);
 extern int generic_match_add(struct vty *vty, struct route_map_index *index,
 			     const char *command, const char *arg,
 			     route_map_event_t type);
