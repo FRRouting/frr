@@ -12,6 +12,7 @@ Copyright: 1996-2003 by the original Zebra authors:
            2016-2018 by the FRRouting Project
     Adam Fitzgerald                2017
     Alex Couloumbis                2017
+    Alexandre Cassen               2001-2017
     Alexandre Chappuis             2011
     Alexis Fasquel                 2015
     Ali Rezaee                     2018
@@ -47,6 +48,7 @@ Copyright: 1996-2003 by the original Zebra authors:
     Christoffer Hansen             2018
     Christoph Dwertmann            2018
     Colin Petrie                   2016
+    Cumulus Networks               2013-2019
     Daniel Kozlowski               2012
     Daniel Ng                      2008
     Daniel Walton                  2015-2018
@@ -153,6 +155,7 @@ Copyright: 1996-2003 by the original Zebra authors:
     Olivier Cochard-Labbé          2014
     Olivier Dugeon                 2014-2018
     Ondrej Zajicek                 2009
+    Open Source Routing / NetDEF   2012-2017
     Pascal Mathis                  2018
     Paul Jakma                     2002-2016
     Paul P Komkoff Jr              2008
@@ -266,7 +269,7 @@ Copyright:
  Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
  Copyright 2007, 2008 by Grégoire Henry, Julien Cristau and Juliusz Chroboczek
 
-Files: babeld/babel_errors.* babeld/babel_memory.*
+Files: babeld/babel_errors.*
 License: GPL-2+
 Copyright: Copyright (C) 2017-2018 Donald Sharp, Cumulus Networks, Inc.
 
