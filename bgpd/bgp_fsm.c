@@ -1181,6 +1181,19 @@ int bgp_stop(struct peer *peer)
 		}
 	}
 
+	/* If a BGP speaker decides to de-configure a peer, then
+	 * the speaker SHOULD send a NOTIFICATION message with the
+	 * Error Code Cease and the Error Subcode "Peer De-configured".
+	 *
+	 * Make sure this is sent only after all the timers are stopped
+	 * and before the peer's socket is closed to avoid race condition
+	 * when you send a notification, FSM Connect fires before
+	 * closing the socket and you still see `Peer closed the session`.
+	 */
+	if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+		bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+				BGP_NOTIFY_CEASE_PEER_UNCONFIG);
+
 	/* Close of file descriptor. */
 	if (peer->fd >= 0) {
 		close(peer->fd);

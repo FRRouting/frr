@@ -685,8 +685,11 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 	/* Set BGP packet length. */
 	bgp_packet_set_size(s);
 
-	/* wipe output buffer */
-	stream_fifo_clean(peer->obuf);
+	/* Output buffer could be already cleaned by bgp_stop()
+	 * thus check if it's not NULL.
+	 */
+	if (peer->obuf)
+		stream_fifo_clean(peer->obuf);
 
 	/*
 	 * If possible, store last packet for debugging purposes. This check is
@@ -753,7 +756,8 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 		peer->last_reset = PEER_DOWN_NOTIFY_SEND;
 
 	/* Add packet to peer's output queue */
-	stream_fifo_push(peer->obuf, s);
+	if (peer->obuf)
+		stream_fifo_push(peer->obuf, s);
 
 	bgp_write_notify(peer);
 }
