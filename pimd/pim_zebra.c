@@ -855,27 +855,24 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		}
 	}
 
-	result = pim_channel_add_oif(source->source_channel_oil,
-				     group->group_igmp_sock->interface,
-				     PIM_OIF_FLAG_PROTO_IGMP);
-	if (result) {
-		if (PIM_DEBUG_MROUTE) {
-			zlog_warn("%s: add_oif() failed with return=%d",
-				  __func__, result);
+	if (PIM_I_am_DR(pim_oif)) {
+		result = pim_channel_add_oif(source->source_channel_oil,
+					     group->group_igmp_sock->interface,
+					     PIM_OIF_FLAG_PROTO_IGMP);
+		if (result) {
+			if (PIM_DEBUG_MROUTE) {
+				zlog_warn("%s: add_oif() failed with return=%d",
+					  __func__, result);
+			}
+			return;
 		}
-		return;
-	}
-
-	if (!(PIM_I_am_DR(pim_oif))) {
+	} else {
 		if (PIM_DEBUG_IGMP_TRACE)
 			zlog_debug("%s: %s was received on %s interface but we are not DR for that interface",
 				   __PRETTY_FUNCTION__,
 				   pim_str_sg_dump(&sg),
 				   group->group_igmp_sock->interface->name);
 
-		pim_channel_del_oif(source->source_channel_oil,
-				    group->group_igmp_sock->interface,
-				    PIM_OIF_FLAG_PROTO_IGMP);
 		return;
 	}
 	/*
