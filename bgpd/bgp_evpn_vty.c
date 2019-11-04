@@ -298,7 +298,7 @@ static void bgp_evpn_show_route_rd_header(struct vty *vty,
 		if (json)
 			json_object_string_add(json, "rd", rd_str);
 		else
-			vty_out(vty, "as2 %s\n", rd_str);
+			vty_out(vty, "%s\n", rd_str);
 		break;
 
 	case RD_TYPE_AS4:
@@ -307,7 +307,7 @@ static void bgp_evpn_show_route_rd_header(struct vty *vty,
 		if (json)
 			json_object_string_add(json, "rd", rd_str);
 		else
-			vty_out(vty, "as4 %s\n", rd_str);
+			vty_out(vty, "%s\n", rd_str);
 		break;
 
 	case RD_TYPE_IP:
@@ -317,7 +317,7 @@ static void bgp_evpn_show_route_rd_header(struct vty *vty,
 		if (json)
 			json_object_string_add(json, "rd", rd_str);
 		else
-			vty_out(vty, "ip %s\n", rd_str);
+			vty_out(vty, "%s\n", rd_str);
 		break;
 
 	default:
@@ -326,7 +326,7 @@ static void bgp_evpn_show_route_rd_header(struct vty *vty,
 			json_object_string_add(json, "rd", rd_str);
 		} else {
 			snprintf(rd_str, len, "Unknown RD type");
-			vty_out(vty, "ip %s\n", rd_str);
+			vty_out(vty, "%s\n", rd_str);
 		}
 		break;
 	}
