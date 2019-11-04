@@ -48,7 +48,7 @@
 #include "pm.h"
 
 zebra_capabilities_t _caps_p[] = {
-	ZCAP_NET_ADMIN, ZCAP_NET_RAW,
+	ZCAP_NET_ADMIN, ZCAP_NET_RAW, ZCAP_SYS_ADMIN
 };
 
 /* PMD daemon information. */
