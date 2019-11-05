@@ -1,53 +1,50 @@
-.. role:: raw-html-m2r(raw)
-   :format: html
+.. _topotests-json:
 
-*************************************
-FRRouting Topology Tests with Mininet
-*************************************
+Topotests with JSON
+===================
 
 Overview
-========
+--------
 
 On top of current topotests framework following enhancements are done:
 
 
-#. Creating the topology and assigning IPs to router' interfaces dynamically.\ :raw-html-m2r:`<br>`
-   It is achieved by using json file, in which user specify the number of routers,
-   links to each router, interfaces for the routers and protocol configurations for
-   all routers.
+* Creating the topology and assigning IPs to router' interfaces dynamically.
+  It is achieved by using json file, in which user specify the number of
+  routers, links to each router, interfaces for the routers and protocol
+  configurations for all routers.
 
-#. Creating the configurations dynamically.  It is achieved by using
-   /usr/lib/frr/frr-reload.py utility, which takes running configuration and the
-   newly created configuration for any particular router and creates a delta
-   file(diff file) and loads it to  router.
+* Creating the configurations dynamically. It is achieved by using
+  :file:`/usr/lib/frr/frr-reload.py` utility, which takes running configuration
+  and the newly created configuration for any particular router and creates a
+  delta file(diff file) and loads it to  router.
 
 
 Logging of test case executions
-===============================
+-------------------------------
 
-
-#. User can enable logging of testcases execution messages into log file by
-   adding "frrtest_log_dir = /tmp/topotests/" in pytest.ini file
-#.Router's current configuration can be displyed on console or sent to logs by
-   adding "show_router_config = True" in pytest.ini file
+* The user can enable logging of testcases execution messages into log file by
+  adding ``frrtest_log_dir = /tmp/topotests/`` in :file:`pytest.ini`.
+* Router's current configuration can be displyed on console or sent to logs by
+  adding ``show_router_config = True`` in :file:`pytest.ini`.
 
 Log file name will be displayed when we start execution:
 
 .. code-block:: console
 
-   root@test:~/topotests/example-topojson-test/test_topo_json_single_link# python
-   test_topo_json_single_link.py Logs will be sent to logfile:
+   root@test:# python ./test_topo_json_single_link.py
+
+   Logs will be sent to logfile:
    /tmp/topotests/test_topo_json_single_link_11:57:01.353797
 
 Note: directory "/tmp/topotests/" is created by topotests by default, making
 use of same directory to save execution logs.
 
-
 Guidelines
-==========
+----------
 
 Writing New Tests
------------------
+^^^^^^^^^^^^^^^^^
 
 This section will guide you in all recommended steps to produce a standard
 topology test.
@@ -60,29 +57,30 @@ This is the recommended test writing routine:
 * Write the tests
 * Create a Pull Request
 
+
 File Hierarchy
---------------
+^^^^^^^^^^^^^^
 
 Before starting to write any tests one must know the file hierarchy. The
 repository hierarchy looks like this:
 
-.. code-block::
+.. code-block:: console
 
-    $ cd path/to/topotests
-    $ find ./*
-    ...
-    ./example-topojson-test  # the basic example test topology-1
-    ./example-topojson-test/test_example_topojson.json # input json file, having
-    topology, interfaces, bgp and other configuration
-    ./example-topojson-test/test_example_topojson.py # test script to write and
-    execute testcases
-    ...
-    ./lib # shared test/topology functions
-    ./lib/topojson.py # library to create topology and configurations dynamically
-    from json file
-    ./lib/common_config.py # library to create protocol's common configurations ex-
-    static_routes, prefix_lists, route_maps etc.
-    ./lib/bgp.py # library to create only bgp configurations
+   $ cd path/to/topotests
+   $ find ./*
+   ...
+   ./example-topojson-test  # the basic example test topology-1
+   ./example-topojson-test/test_example_topojson.json # input json file, having
+   topology, interfaces, bgp and other configuration
+   ./example-topojson-test/test_example_topojson.py # test script to write and
+   execute testcases
+   ...
+   ./lib # shared test/topology functions
+   ./lib/topojson.py # library to create topology and configurations dynamically
+   from json file
+   ./lib/common_config.py # library to create protocol's common configurations ex-
+   static_routes, prefix_lists, route_maps etc.
+   ./lib/bgp.py # library to create only bgp configurations
 
 Defining the Topology and initial configuration in JSON file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -325,7 +323,7 @@ BGP neighborship with Multiple phy-links, sample JSON file::
        ...
 
 
-JSON File Explained 
+JSON File Explained
 """""""""""""""""""
 
 Mandatory keywords/options in JSON:
@@ -466,7 +464,7 @@ Example:
 * ``__main__`` initialization code (to support running the script directly)
 
   .. code-block:: python
-  
+
      if **name** == '\ **main**\ ':
        sys.exit(pytest.main(["-s"]))
 

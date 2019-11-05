@@ -8,3 +8,4 @@ Testing
    :maxdepth: 2
 
    topotests
+   topotests-jsontopo
