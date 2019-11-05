@@ -1638,9 +1638,11 @@ extern int peer_remote_as(struct bgp *, union sockunion *, const char *, as_t *,
 			  int, afi_t, safi_t);
 extern int peer_group_remote_as(struct bgp *, const char *, as_t *, int);
 extern int peer_delete(struct peer *peer);
+extern int peer_notify_unconfig(struct peer *peer);
 extern int peer_group_delete(struct peer_group *);
 extern int peer_group_remote_as_delete(struct peer_group *);
 extern int peer_group_listen_range_add(struct peer_group *, struct prefix *);
+extern int peer_group_notify_unconfig(struct peer_group *group);
 
 extern int peer_activate(struct peer *, afi_t, safi_t);
 extern int peer_deactivate(struct peer *, afi_t, safi_t);

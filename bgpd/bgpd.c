@@ -2562,6 +2562,30 @@ int peer_group_remote_as(struct bgp *bgp, const char *group_name, as_t *as,
 	return 0;
 }
 
+int peer_notify_unconfig(struct peer *peer)
+{
+	if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+		bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+				BGP_NOTIFY_CEASE_PEER_UNCONFIG);
+	return 0;
+}
+
+int peer_group_notify_unconfig(struct peer_group *group)
+{
+	struct peer *peer, *other;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+		other = peer->doppelganger;
+		if (other && other->status != Deleted) {
+			other->group = NULL;
+			peer_notify_unconfig(other);
+		} else
+			peer_notify_unconfig(peer);
+	}
+	return 0;
+}
+
 int peer_group_delete(struct peer_group *group)
 {
 	struct bgp *bgp;

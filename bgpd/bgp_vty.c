@@ -3146,14 +3146,16 @@ DEFUN (no_neighbor,
 			 * interface. */
 			if (peer->ifp)
 				bgp_zebra_terminate_radv(peer->bgp, peer);
+			peer_notify_unconfig(peer);
 			peer_delete(peer);
 			return CMD_SUCCESS;
 		}
 
 		group = peer_group_lookup(bgp, argv[idx_peer]->arg);
-		if (group)
+		if (group) {
+			peer_group_notify_unconfig(group);
 			peer_group_delete(group);
-		else {
+		} else {
 			vty_out(vty, "%% Create the peer-group first\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
@@ -3167,9 +3169,12 @@ DEFUN (no_neighbor,
 			}
 
 			other = peer->doppelganger;
+			peer_notify_unconfig(peer);
 			peer_delete(peer);
-			if (other && other->status != Deleted)
+			if (other && other->status != Deleted) {
+				peer_notify_unconfig(other);
 				peer_delete(other);
+			}
 		}
 	}
 
@@ -3201,6 +3206,7 @@ DEFUN (no_neighbor_interface_config,
 		/* Request zebra to terminate IPv6 RAs on this interface. */
 		if (peer->ifp)
 			bgp_zebra_terminate_radv(peer->bgp, peer);
+		peer_notify_unconfig(peer);
 		peer_delete(peer);
 	} else {
 		vty_out(vty, "%% Create the bgp interface first\n");
@@ -3222,9 +3228,10 @@ DEFUN (no_neighbor_peer_group,
 	struct peer_group *group;
 
 	group = peer_group_lookup(bgp, argv[idx_word]->arg);
-	if (group)
+	if (group) {
+		peer_group_notify_unconfig(group);
 		peer_group_delete(group);
-	else {
+	} else {
 		vty_out(vty, "%% Create the peer-group first\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -3582,6 +3589,7 @@ DEFUN (no_neighbor_set_peer_group,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	peer_notify_unconfig(peer);
 	ret = peer_delete(peer);
 
 	return bgp_vty_return(vty, ret);
