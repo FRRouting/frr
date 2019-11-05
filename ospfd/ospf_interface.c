@@ -902,11 +902,10 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 
 static void ospf_vl_if_delete(struct ospf_vl_data *vl_data)
 {
-	struct interface *ifp = vl_data->vl_oi->ifp;
 	vl_data->vl_oi->address->u.prefix4.s_addr = 0;
 	vl_data->vl_oi->address->prefixlen = 0;
 	ospf_if_free(vl_data->vl_oi);
-	if_delete(ifp);
+	if_delete(&vl_data->vl_oi->ifp);
 	vlink_count--;
 }
 

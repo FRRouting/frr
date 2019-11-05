@@ -73,7 +73,7 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 	if (!c)
 		return 0;
 
-	connected_free(c);
+	connected_free(&c);
 	return 0;
 }
 

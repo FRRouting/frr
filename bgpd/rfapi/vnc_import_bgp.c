@@ -1807,8 +1807,7 @@ static void vnc_import_bgp_exterior_add_route_it(
 					RFAPI_MONITOR_EXTERIOR(rn)->source =
 						skiplist_new(
 							0, NULL,
-							(void (*)(void *))
-								prefix_free);
+							prefix_free_lists);
 					agg_lock_node(rn); /* for skiplist */
 				}
 				agg_lock_node(rn); /* for skiplist entry */
@@ -2194,8 +2193,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 					     ->source) {
 					RFAPI_MONITOR_EXTERIOR(rn_interior)
 						->source = skiplist_new(
-						0, NULL,
-						(void (*)(void *))prefix_free);
+						0, NULL, prefix_free_lists);
 					agg_lock_node(rn_interior);
 				}
 				skiplist_insert(
@@ -2337,8 +2335,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 			if (!RFAPI_MONITOR_EXTERIOR(rn_interior)->source) {
 				RFAPI_MONITOR_EXTERIOR(rn_interior)->source =
 					skiplist_new(
-						0, NULL,
-						(void (*)(void *))prefix_free);
+						0, NULL, prefix_free_lists);
 				agg_lock_node(rn_interior); /* sl */
 			}
 			skiplist_insert(
@@ -2527,8 +2524,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 			if (!RFAPI_MONITOR_EXTERIOR(par)->source) {
 				RFAPI_MONITOR_EXTERIOR(par)->source =
 					skiplist_new(
-						0, NULL,
-						(void (*)(void *))prefix_free);
+						0, NULL, prefix_free_lists);
 				agg_lock_node(par); /* sl */
 			}
 			skiplist_insert(RFAPI_MONITOR_EXTERIOR(par)->source,

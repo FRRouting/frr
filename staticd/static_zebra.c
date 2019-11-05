@@ -79,7 +79,7 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 	if (!c)
 		return 0;
 
-	connected_free(c);
+	connected_free(&c);
 	return 0;
 }
 
@@ -260,7 +260,7 @@ static void static_nht_hash_free(void *data)
 {
 	struct static_nht_data *nhtd = data;
 
-	prefix_free(nhtd->nh);
+	prefix_free(&nhtd->nh);
 	XFREE(MTYPE_TMP, nhtd);
 }
 

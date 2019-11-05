@@ -133,10 +133,8 @@ DEFPY(pbr_map_match_src, pbr_map_match_src_cmd,
 		if (!pbrms->src)
 			pbrms->src = prefix_new();
 		prefix_copy(pbrms->src, prefix);
-	} else {
-		prefix_free(pbrms->src);
-		pbrms->src = 0;
-	}
+	} else
+		prefix_free(&pbrms->src);
 
 	pbr_map_check(pbrms);
 
@@ -162,10 +160,8 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 		if (!pbrms->dst)
 			pbrms->dst = prefix_new();
 		prefix_copy(pbrms->dst, prefix);
-	} else {
-		prefix_free(pbrms->dst);
-		pbrms->dst = NULL;
-	}
+	} else
+		prefix_free(&pbrms->dst);
 
 	pbr_map_check(pbrms);
 

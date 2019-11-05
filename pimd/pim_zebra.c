@@ -233,7 +233,7 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 		pim_i_am_rp_re_evaluate(pim);
 	}
 
-	connected_free(c);
+	connected_free(&c);
 	return 0;
 }
 

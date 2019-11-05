@@ -143,7 +143,7 @@ static int ospf6_zebra_if_address_update_delete(ZAPI_CALLBACK_ARGS)
 		ospf6_interface_state_update(c->ifp);
 	}
 
-	connected_free(c);
+	connected_free(&c);
 
 	return 0;
 }

@@ -430,7 +430,7 @@ int ripng_interface_address_delete(ZAPI_CALLBACK_ARGS)
 			/* Check wether this prefix needs to be removed. */
 			ripng_apply_address_del(ifc);
 		}
-		connected_free(ifc);
+		connected_free(&ifc);
 	}
 
 	return 0;

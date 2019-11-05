@@ -757,8 +757,7 @@ int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
 		 */
 		if (!*hello_option_addr_list) {
 			*hello_option_addr_list = list_new();
-			(*hello_option_addr_list)->del =
-				(void (*)(void *))prefix_free;
+			(*hello_option_addr_list)->del = prefix_free_lists;
 		}
 
 		/*
