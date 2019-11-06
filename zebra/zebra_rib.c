@@ -1575,10 +1575,9 @@ rib_find_rn_from_ctx(const struct zebra_dplane_ctx *ctx)
 
 	/* Locate rn and re(s) from ctx */
 
-	table = zebra_vrf_table_with_table_id(dplane_ctx_get_afi(ctx),
-					      dplane_ctx_get_safi(ctx),
-					      dplane_ctx_get_vrf(ctx),
-					      dplane_ctx_get_table(ctx));
+	table = zebra_vrf_lookup_table_with_table_id(
+		dplane_ctx_get_afi(ctx), dplane_ctx_get_safi(ctx),
+		dplane_ctx_get_vrf(ctx), dplane_ctx_get_table(ctx));
 	if (table == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
 			zlog_debug("Failed to find route for ctx: no table for afi %d, safi %d, vrf %u",
@@ -2664,7 +2663,8 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	assert(!src_p || !src_p->prefixlen || afi == AFI_IP6);
 
 	/* Lookup table.  */
-	table = zebra_vrf_table_with_table_id(afi, safi, re->vrf_id, re->table);
+	table = zebra_vrf_get_table_with_table_id(afi, safi, re->vrf_id,
+						  re->table);
 	if (!table) {
 		if (re->ng)
 			nexthop_group_delete(&re->ng);
@@ -2809,7 +2809,8 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	assert(!src_p || !src_p->prefixlen || afi == AFI_IP6);
 
 	/* Lookup table.  */
-	table = zebra_vrf_table_with_table_id(afi, safi, vrf_id, table_id);
+	table = zebra_vrf_lookup_table_with_table_id(afi, safi, vrf_id,
+						     table_id);
 	if (!table)
 		return;
 
