@@ -1202,6 +1202,7 @@ def create_route_maps(tgen, input_dict, build=False):
                             "large_comm_list", {})
                         set_action = set_data.setdefault("set_action", None)
                         nexthop = set_data.setdefault("nexthop", None)
+                        origin = set_data.setdefault("origin", None)
 
                         # Local Preference
                         if local_preference:
@@ -1211,6 +1212,10 @@ def create_route_maps(tgen, input_dict, build=False):
                         # Metric
                         if metric:
                             rmap_data.append("set metric {} \n".format(metric))
+
+                        # Origin
+                        if origin:
+                            rmap_data.append("set origin {} \n".format(origin))
 
                         # AS Path Prepend
                         if as_path:
@@ -1628,9 +1633,10 @@ def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
                 static_routes = input_dict[routerInput]["static_routes"]
                 st_found = False
                 nh_found = False
-                found_routes = []
-                missing_routes = []
                 for static_route in static_routes:
+                    found_routes = []
+                    missing_routes = []
+
                     network = static_route["network"]
                     if "no_of_ip" in static_route:
                         no_of_ip = static_route["no_of_ip"]
@@ -1667,6 +1673,7 @@ def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
                                         return errormsg
                         else:
                             missing_routes.append(st_rt)
+
                 if nh_found:
                     logger.info("Found next_hop %s for all routes in RIB of"
                                 " router %s\n", next_hop, dut)
@@ -1679,37 +1686,69 @@ def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
                 logger.info("Verified routes in router %s RIB, found routes"
                             " are: %s\n", dut, found_routes)
 
-            advertise_network = input_dict[routerInput].setdefault(
-                "advertise_networks", {})
-            if advertise_network:
-                found_routes = []
-                missing_routes = []
-                found = False
-                for advertise_network_dict in advertise_network:
-                    start_ip = advertise_network_dict["network"]
-                    if "no_of_network" in advertise_network_dict:
-                        no_of_network = advertise_network_dict["no_of_network"]
-                    else:
-                        no_of_network = 0
+                continue
 
-                    # Generating IPs for verification
-                    ip_list = generate_ips(start_ip, no_of_network)
-                    for st_rt in ip_list:
-                        st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
+            if "bgp" in input_dict[routerInput]:
+                if 'advertise_networks' in input_dict[routerInput]["bgp"]\
+                    ["address_family"][addr_type]["unicast"]:
 
-                        if st_rt in rib_routes_json:
-                            found = True
-                            found_routes.append(st_rt)
+                    found_routes = []
+                    missing_routes = []
+                    advertise_network = input_dict[routerInput]["bgp"]\
+                        ["address_family"][addr_type]["unicast"]\
+                        ["advertise_networks"]
+
+                    for advertise_network_dict in advertise_network:
+                        start_ip = advertise_network_dict["network"]
+                        if "no_of_network" in advertise_network_dict:
+                            no_of_network = advertise_network_dict["no_of_network"]
                         else:
-                            missing_routes.append(st_rt)
+                            no_of_network = 1
 
-                if not found and len(missing_routes) > 0:
-                    errormsg = "Missing route in RIB of router {}, are: {}" \
-                               " \n".format(dut, missing_routes)
-                    return errormsg
+                        # Generating IPs for verification
+                        ip_list = generate_ips(start_ip, no_of_network)
+                        for st_rt in ip_list:
+                            st_rt = str(ipaddr.IPNetwork(unicode(st_rt)))
 
-                logger.info("Verified routes in router %s RIB, found routes"
-                            " are: %s", dut, found_routes)
+                            found = False
+                            nh_found = False
+                            if st_rt in rib_routes_json:
+                                found = True
+                                found_routes.append(st_rt)
+
+                                if next_hop:
+                                    if type(next_hop) is not list:
+                                        next_hop = [next_hop]
+
+                                    for index, nh in enumerate(next_hop):
+                                        if rib_routes_json[st_rt][0]\
+                                            ['nexthops'][index]['ip'] == nh:
+                                            nh_found = True
+                                        else:
+                                            errormsg=("Nexthop {} is Missing"
+                                                      " for {} route {} in "
+                                                      "RIB of router {}\n".\
+                                                      format(next_hop,
+                                                             protocol,
+                                                             st_rt, dut))
+                                            return errormsg
+
+                            else:
+                                missing_routes.append(st_rt)
+
+                    if nh_found:
+                        logger.info("Found next_hop {} for all routes in RIB"
+                                    " of router {}\n".format(next_hop, dut))
+
+                    if not found and len(missing_routes) > 0:
+                        errormsg = ("Missing {} route in RIB of router {}, "
+                                   "routes: {} \n".\
+                                   format(addr_type, dut, missing_routes))
+                        return errormsg
+
+                    logger.info("Verified {} routes in router {} RIB, found"
+                                " routes  are: {}\n".\
+                                format(addr_type, dut, found_routes))
 
     logger.debug("Exiting lib API: verify_rib()")
     return True

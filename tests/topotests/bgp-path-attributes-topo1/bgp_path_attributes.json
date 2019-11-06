@@ -12,6 +12,17 @@
             "r2":{"ipv4":"auto", "ipv6":"auto"},
             "r3":{"ipv4":"auto", "ipv6":"auto"}
          },
+         "route_maps": {
+             "rmap_global": [{
+                 "action": "permit",
+                     "set": {
+                         "ipv6": {
+                             "nexthop": "prefer-global"
+                         }
+                    }
+                }
+             ]
+         },
          "bgp":{
             "local_as":"555",
             "address_family": {
@@ -20,7 +31,33 @@
                      "neighbor": {
                         "r2": {
                            "dest_link": {
+                              "r1": {
+                                  "route_maps": [{
+                                      "name": "rmap_global",
+                                      "direction": "in"
+                                  }]
+                              }
+                           }
+                        },
+                        "r3": {
+                           "dest_link": {
                               "r1": {}
+                           }
+                        }
+                     }
+                  }
+               },
+               "ipv6": {
+                  "unicast": {
+                     "neighbor": {
+                        "r2": {
+                           "dest_link": {
+                              "r1": {
+                                  "route_maps": [{
+                                      "name": "rmap_global",
+                                      "direction": "in"
+                                  }]
+                              }
                            }
                         },
                         "r3": {
@@ -46,6 +83,27 @@
             "local_as":"555",
             "address_family": {
                "ipv4": {
+                  "unicast": {
+                     "neighbor": {
+                        "r1": {
+                           "dest_link": {
+                              "r2": {}
+                           }
+                        },
+                        "r3": {
+                           "dest_link": {
+                              "r2": {}
+                           }
+                        },
+                        "r4": {
+                           "dest_link": {
+                              "r2-link1": {}
+                           }
+                        }
+                     }
+                  }
+               },
+               "ipv6": {
                   "unicast": {
                      "neighbor": {
                         "r1": {
@@ -99,6 +157,27 @@
                         }
                      }
                   }
+               },
+               "ipv6": {
+                  "unicast": {
+                     "neighbor": {
+                        "r1": {
+                           "dest_link": {
+                              "r3": {}
+                           }
+                        },
+                        "r2": {
+                           "dest_link": {
+                              "r3": {}
+                           }
+                        },
+                        "r5": {
+                           "dest_link": {
+                              "r3": {}
+                           }
+                        }
+                     }
+                  }
                }
             }
          }
@@ -114,6 +193,22 @@
             "local_as": "666",
             "address_family": {
                "ipv4": {
+                  "unicast": {
+                     "neighbor": {
+                        "r2": {
+                           "dest_link": {
+                              "r4-link1": {}
+                           }
+                        },
+                        "r6": {
+                           "dest_link": {
+                              "r4": {}
+                           }
+                        }
+                     }
+                  }
+               },
+               "ipv6": {
                   "unicast": {
                      "neighbor": {
                         "r2": {
@@ -156,6 +251,22 @@
                         }
                      }
                   }
+               },
+               "ipv6": {
+                  "unicast": {
+                     "neighbor": {
+                        "r3": {
+                           "dest_link": {
+                              "r5": {}
+                           }
+                        },
+                        "r7": {
+                           "dest_link": {
+                              "r5": {}
+                           }
+                        }
+                     }
+                  }
                }
             }
          }
@@ -184,6 +295,22 @@
                         }
                      }
                   }
+               },
+               "ipv6": {
+                  "unicast": {
+                     "neighbor": {
+                        "r4": {
+                           "dest_link": {
+                              "r6": {}
+                           }
+                        },
+                        "r7": {
+                           "dest_link": {
+                              "r6": {}
+                           }
+                        }
+                     }
+                  }
                }
             }
          }
@@ -198,6 +325,22 @@
             "local_as":"888",
             "address_family": {
                "ipv4": {
+                  "unicast": {
+                     "neighbor": {
+                        "r5": {
+                           "dest_link": {
+                              "r7": {}
+                           }
+                        },
+                        "r6": {
+                           "dest_link": {
+                              "r7": {}
+                           }
+                        }
+                     }
+                  }
+               },
+               "ipv6": {
                   "unicast": {
                      "neighbor": {
                         "r5": {

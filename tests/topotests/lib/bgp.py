@@ -112,6 +112,8 @@ def create_router_bgp(tgen, topo, input_dict=None, build=False):
         input_dict = deepcopy(topo)
     else:
         topo = topo["routers"]
+        input_dict = deepcopy(input_dict)
+
     for router in input_dict.keys():
         if "bgp" not in input_dict[router]:
             logger.debug("Router %s: 'bgp' not present in input_dict", router)
@@ -220,7 +222,7 @@ def __create_bgp_unicast_neighbor(tgen, topo, input_dict, router,
     logger.debug("Entering lib API: __create_bgp_unicast_neighbor()")
 
     add_neigh = True
-    if "router bgp "in config_data:
+    if "router bgp" in config_data:
         add_neigh = False
     bgp_data = input_dict[router]["bgp"]["address_family"]
 
@@ -1366,7 +1368,7 @@ def verify_bgp_attributes(tgen, addr_type, dut, static_routes, rmap_name,
     logger.debug("Exiting lib API: verify_bgp_attributes()")
     return True
 
-@retry(attempts=3, wait=2, return_is_str=True)
+@retry(attempts=4, wait=2, return_is_str=True, initial_wait=2)
 def verify_best_path_as_per_bgp_attribute(tgen, addr_type, router, input_dict,
                                           attribute):
     """
@@ -1422,16 +1424,14 @@ def verify_best_path_as_per_bgp_attribute(tgen, addr_type, router, input_dict,
 
     rnode = tgen.routers()[router]
 
-    # TODO get addr_type from address
-    # Verifying show bgp json
     command = "show bgp {} json".format(addr_type)
 
-    sleep(2)
+    sleep(5)
     logger.info("Verifying router %s RIB for best path:", router)
     sh_ip_bgp_json = run_frr_cmd(rnode, command, isjson=True)
 
     for route_val in input_dict.values():
-        net_data = route_val["bgp"]["address_family"]["ipv4"]["unicast"]
+        net_data = route_val["bgp"]["address_family"][addr_type]["unicast"]
         networks = net_data["advertise_networks"]
         for network in networks:
             route = network["network"]
@@ -1503,8 +1503,8 @@ def verify_best_path_as_per_bgp_attribute(tgen, addr_type, router, input_dict,
             if route in rib_routes_json:
                 st_found = True
                 # Verify next_hop in rib_routes_json
-                if rib_routes_json[route][0]["nexthops"][0]["ip"] == \
-                        _next_hop:
+                if rib_routes_json[route][0]["nexthops"][0]["ip"] in \
+                        attribute_dict:
                     nh_found = True
                 else:
                     errormsg = "Incorrect Nexthop for BGP route {} in " \
@@ -1526,7 +1526,6 @@ def verify_best_path_as_per_bgp_attribute(tgen, addr_type, router, input_dict,
     return True
 
 
-@retry(attempts=3, wait=2, return_is_str=True)
 def verify_best_path_as_per_admin_distance(tgen, addr_type, router, input_dict,
                                            attribute):
     """
@@ -1568,7 +1567,7 @@ def verify_best_path_as_per_admin_distance(tgen, addr_type, router, input_dict,
 
     rnode = tgen.routers()[router]
 
-    sleep(2)
+    sleep(5)
     logger.info("Verifying router %s RIB for best path:", router)
 
     # Show ip route cmd
