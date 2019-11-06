@@ -1941,19 +1941,19 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 					__func__, family2str(family));
 			subgroup_announce_reset_nhop(family, attr);
 		}
+	}
 
-		/* If IPv6/MP and nexthop does not have any override and happens
-		 * to
-		 * be a link-local address, reset it so that we don't pass along
-		 * the
-		 * source's link-local IPv6 address to recipients who may not be
-		 * on
-		 * the same interface.
-		 */
-		if (p->family == AF_INET6 || peer_cap_enhe(peer, afi, safi)) {
-			if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global))
-				subgroup_announce_reset_nhop(AF_INET6, attr);
-		}
+	/* If IPv6/MP and nexthop does not have any override and happens
+	 * to
+	 * be a link-local address, reset it so that we don't pass along
+	 * the
+	 * source's link-local IPv6 address to recipients who may not be
+	 * on
+	 * the same interface.
+	 */
+	if (p->family == AF_INET6 || peer_cap_enhe(peer, afi, safi)) {
+		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global))
+			subgroup_announce_reset_nhop(AF_INET6, attr);
 	}
 
 	return 1;
