@@ -140,16 +140,10 @@ struct msg_unregister_opaque_type {
  * Power2[0] is not used. */
 
 
-#ifdef ORIGINAL_CODING
-static const uint16_t Power2[] = {0x0,   0x1,    0x2,    0x4,    0x8,   0x10,
-				  0x20,  0x40,   0x80,   0x100,  0x200, 0x400,
-				  0x800, 0x1000, 0x2000, 0x4000, 0x8000};
-#else
 static const uint16_t Power2[] = {
 	0,	 (1 << 0),  (1 << 1),  (1 << 2),  (1 << 3), (1 << 4),
 	(1 << 5),  (1 << 6),  (1 << 7),  (1 << 8),  (1 << 9), (1 << 10),
 	(1 << 11), (1 << 12), (1 << 13), (1 << 14), (1 << 15)};
-#endif /* ORIGINAL_CODING */
 
 struct lsa_filter_type {
 	uint16_t typemask; /* bitmask for selecting LSA types (1..16) */

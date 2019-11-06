@@ -1505,10 +1505,6 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 
 		/* Check DD Options. */
 		if (dd->options != nbr->options) {
-#ifdef ORIGINAL_CODING
-			/* Save the new options for debugging */
-			nbr->options = dd->options;
-#endif /* ORIGINAL_CODING */
 			flog_warn(EC_OSPF_PACKET,
 				  "Packet[DD]: Neighbor %s options mismatch.",
 				  inet_ntoa(nbr->router_id));

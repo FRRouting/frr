@@ -108,11 +108,6 @@
 	(conf_debug_ospf_packet[a] & OSPF_DEBUG_##b)
 #define IS_CONF_DEBUG_OSPF(a, b) (conf_debug_ospf_##a & OSPF_DEBUG_##b)
 
-#ifdef ORIGINAL_CODING
-#else  /* ORIGINAL_CODING */
-struct stream;
-#endif /* ORIGINAL_CODING */
-
 #define AREA_NAME(A)    ospf_area_name_string ((A))
 #define IF_NAME(I)      ospf_if_name_string ((I))
 
