@@ -85,6 +85,7 @@ ZEBRA_ROUTE_BFD,        bfd,       bfdd,   '-', 0, 0, 0,     "BFD"
 ZEBRA_ROUTE_OPENFABRIC, openfabric, fabricd,  'f', 1, 1, 1, "OpenFabric"
 ZEBRA_ROUTE_VRRP,       vrrp,      vrrpd,  '-', 0, 0, 0,     "VRRP"
 ZEBRA_ROUTE_NHG,        nhg,       none,  '-', 0, 0, 0,     "Nexthop Group"
+ZEBRA_ROUTE_TE,         te,        none,   '-', 0, 0, 0,     "TE"
 ZEBRA_ROUTE_ALL,        wildcard,  none,   '-', 0, 0, 0,     "-"
 
 

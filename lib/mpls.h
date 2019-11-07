@@ -129,6 +129,7 @@ enum lsp_types_t {
 	ZEBRA_LSP_OSPF_SR = 4,/* OSPF Segment Routing LSP. */
 	ZEBRA_LSP_ISIS_SR = 5,/* IS-IS Segment Routing LSP. */
 	ZEBRA_LSP_SHARP = 6,  /* Identifier for test protocol */
+	ZEBRA_LSP_TE = 7,     /* TE LSP */
 };
 
 /* Functions for basic label operations. */

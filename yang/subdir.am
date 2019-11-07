@@ -65,3 +65,7 @@ endif
 if ZEBRA
 dist_yangmodels_DATA += yang/frr-zebra.yang
 endif
+
+if PATHD
+dist_yangmodels_DATA += yang/frr-pathd.yang
+endif

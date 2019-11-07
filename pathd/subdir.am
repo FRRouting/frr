@@ -1,0 +1,39 @@
+#
+# pathd
+#
+
+if PATHD
+noinst_LIBRARIES += pathd/libpath.a
+sbin_PROGRAMS += pathd/pathd
+dist_examples_DATA += pathd/pathd.conf.sample
+vtysh_scan += $(top_srcdir)/pathd/path_cli.c
+
+# TODO add man page
+#man8 += $(MANBUILD)/pathd.8
+endif
+
+pathd_libpath_a_SOURCES = \
+	pathd/path_cli.c \
+	pathd/path_main.c \
+	pathd/path_memory.c \
+	pathd/path_nb.c \
+	pathd/path_nb_config.c \
+	pathd/path_zebra.c \
+	pathd/pathd.c \
+	# end
+
+noinst_HEADERS += \
+	pathd/path_memory.h \
+	pathd/path_nb.h \
+	pathd/path_zebra.h \
+	pathd/pathd.h \
+	# end
+
+pathd/path_cli_clippy.c: $(CLIPPY_DEPS)
+pathd/path_cli.$(OBJEXT): pathd/path_cli_clippy.c
+
+pathd_pathd_SOURCES = pathd/path_main.c
+nodist_pathd_pathd_SOURCES = \
+	yang/frr-pathd.yang.c \
+	# end
+pathd_pathd_LDADD = pathd/libpath.a lib/libfrr.la $(LIBCAP)

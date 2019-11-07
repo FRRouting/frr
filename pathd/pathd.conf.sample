@@ -1,0 +1,5 @@
+! Default pathd configuration sample
+!
+password frr
+log stdout
+!
