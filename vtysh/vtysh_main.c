@@ -535,6 +535,9 @@ int main(int argc, char **argv, char **env)
 	/* Do not connect until we have passed authentication. */
 	if (vtysh_connect_all(daemon_name) <= 0) {
 		fprintf(stderr, "Exiting: failed to connect to any daemons.\n");
+		if (geteuid() != 0)
+			fprintf(stderr,
+				"Hint: if this seems wrong, try running me as a privileged user!\n");
 		if (no_error)
 			exit(0);
 		else
