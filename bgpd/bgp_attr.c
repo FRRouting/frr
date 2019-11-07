@@ -2234,6 +2234,21 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(int32_t type,
 		}
 	}
 
+	/*
+	 * Placeholder code for Unsupported TLV
+	 *  - SRv6 L3 Service TLV (type5)
+	 *  - SRv6 L2 Service TLV (type6)
+	 */
+	else if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE
+	    || type == BGP_PREFIX_SID_SRV6_L2_SERVICE) {
+		if (bgp_debug_update(peer, NULL, NULL, 1))
+			zlog_debug(
+				"%s attr Prefix-SID sub-type=%u is not supported, skipped",
+				peer->host, type);
+		for (int i = 0; i < length; i++)
+			stream_getc(peer->curr);
+	}
+
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
