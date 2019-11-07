@@ -234,9 +234,9 @@ static void bgp_dump_routes_index_table(struct bgp *bgp)
 	stream_put_in_addr(obuf, &bgp->router_id);
 
 	/* View name */
-	if (bgp->name) {
-		stream_putw(obuf, strlen(bgp->name));
-		stream_put(obuf, bgp->name, strlen(bgp->name));
+	if (bgp->name_pretty) {
+		stream_putw(obuf, strlen(bgp->name_pretty));
+		stream_put(obuf, bgp->name_pretty, strlen(bgp->name_pretty));
 	} else {
 		stream_putw(obuf, 0);
 	}
