@@ -432,12 +432,12 @@ void nb_cli_show_config_prepare(struct nb_config *config, bool with_defaults)
 	lyd_schema_sort(config->dnode, 1);
 
 	/*
-	 * When "with-defaults" is used, call lyd_validate() only to create
-	 * default child nodes, ignoring any possible validation error. This
-	 * doesn't need to be done when displaying the running configuration
-	 * since it's always fully validated.
+	 * Call lyd_validate() only to create default child nodes, ignoring
+	 * any possible validation error. This doesn't need to be done when
+	 * displaying the running configuration since it's always fully
+	 * validated.
 	 */
-	if (with_defaults && config != running_config)
+	if (config != running_config)
 		(void)lyd_validate(&config->dnode,
 				   LYD_OPT_CONFIG | LYD_OPT_WHENAUTODEL,
 				   ly_native_ctx);
