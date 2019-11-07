@@ -614,13 +614,6 @@ static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 				"ospf_write_frags: sent id %d, off %d, len %d to %s\n",
 				iph->ip_id, iph->ip_off, iph->ip_len,
 				inet_ntoa(iph->ip_dst));
-			if (IS_DEBUG_OSPF_PACKET(type - 1, DETAIL)) {
-				zlog_debug(
-					"-----------------IP Header Dump----------------------");
-				ospf_ip_header_dump(iph);
-				zlog_debug(
-					"-----------------------------------------------------");
-			}
 		}
 
 		iph->ip_off += offset;
@@ -824,7 +817,6 @@ static int ospf_write(struct thread *thread)
 			if (IS_DEBUG_OSPF_PACKET(type - 1, DETAIL)) {
 				zlog_debug(
 					"-----------------------------------------------------");
-				ospf_ip_header_dump(&iph);
 				stream_set_getp(op->s, 0);
 				ospf_packet_dump(op->s);
 			}
@@ -2995,10 +2987,6 @@ int ospf_read(struct thread *thread)
 			return 0;
 		}
 	}
-
-	/* IP Header dump. */
-	if (IS_DEBUG_OSPF_PACKET(0, RECV))
-		ospf_ip_header_dump(iph);
 
 	/* Self-originated packet should be discarded silently. */
 	if (ospf_if_lookup_by_local_addr(ospf, NULL, iph->ip_src)) {

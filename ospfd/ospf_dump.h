@@ -133,7 +133,6 @@ extern const char *ospf_if_name_string(struct ospf_interface *);
 extern void ospf_nbr_state_message(struct ospf_neighbor *, char *, size_t);
 extern const char *ospf_timer_dump(struct thread *, char *, size_t);
 extern const char *ospf_timeval_dump(struct timeval *, char *, size_t);
-extern void ospf_ip_header_dump(struct ip *);
 extern void ospf_packet_dump(struct stream *);
 extern void ospf_debug_init(void);
 
