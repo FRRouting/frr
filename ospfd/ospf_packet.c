@@ -2381,6 +2381,10 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 		return NULL;
 	}
 
+	if (IS_DEBUG_OSPF_PACKET(0, RECV))
+		zlog_debug("%s: fd %d(%s) on interface %d(%s)",
+			   __PRETTY_FUNCTION__, fd, ospf_get_name(ospf),
+			   ifindex, *ifp ? (*ifp)->name : "Unknown");
 	return ibuf;
 }
 
@@ -2981,8 +2985,15 @@ int ospf_read(struct thread *thread)
 				      ospf->vrf_id);
 		if (c)
 			ifp = c->ifp;
-		if (ifp == NULL)
+		if (ifp == NULL) {
+			if (IS_DEBUG_OSPF_PACKET(0, RECV))
+				zlog_debug(
+					"%s: Unable to determine incoming interface from: %s(%s)",
+					__PRETTY_FUNCTION__,
+					inet_ntoa(iph->ip_src),
+					ospf_get_name(ospf));
 			return 0;
+		}
 	}
 
 	/* IP Header dump. */
