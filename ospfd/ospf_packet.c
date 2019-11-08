@@ -1357,6 +1357,14 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 	/* Add event to thread. */
 	OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_PacketReceived);
 
+	if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
+		zlog_info(
+			"%s:Packet[DD]: Neighbor %s state is %s, seq_num:0x%x, local:0x%x",
+			(oi->ospf->name) ? oi->ospf->name : VRF_DEFAULT_NAME,
+			inet_ntoa(nbr->router_id),
+			lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
+			ntohl(dd->dd_seqnum), nbr->dd_seqnum);
+
 	/* Process DD packet by neighbor status. */
 	switch (nbr->state) {
 	case NSM_Down:
@@ -3825,6 +3833,12 @@ void ospf_db_desc_send(struct ospf_neighbor *nbr)
 		ospf_packet_free(nbr->last_send);
 	nbr->last_send = ospf_packet_dup(op);
 	monotime(&nbr->last_send_ts);
+	if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
+		zlog_info(
+			"%s:Packet[DD]: %s DB Desc send with seqnum:%x , flags:%x",
+			(oi->ospf->name) ? oi->ospf->name : VRF_DEFAULT_NAME,
+			inet_ntoa(nbr->router_id), nbr->dd_seqnum,
+			nbr->dd_flags);
 }
 
 /* Re-send Database Description. */
@@ -3839,6 +3853,12 @@ void ospf_db_desc_resend(struct ospf_neighbor *nbr)
 
 	/* Hook thread to write packet. */
 	OSPF_ISM_WRITE_ON(oi->ospf);
+	if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
+		zlog_info(
+			"%s:Packet[DD]: %s DB Desc resend with seqnum:%x , flags:%x",
+			(oi->ospf->name) ? oi->ospf->name : VRF_DEFAULT_NAME,
+			inet_ntoa(nbr->router_id), nbr->dd_seqnum,
+			nbr->dd_flags);
 }
 
 /* Send Link State Request. */
