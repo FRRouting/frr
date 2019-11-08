@@ -426,9 +426,9 @@ static int static_route_leak(
 
 	/* Null0 static route.  */
 	if (ifname != NULL) {
-		if (strncasecmp(ifname, "Null0", strlen(ifname)) == 0
-		    || strncasecmp(ifname, "reject", strlen(ifname)) == 0
-		    || strncasecmp(ifname, "blackhole", strlen(ifname)) == 0) {
+		if (strcasecmp(ifname, "Null0") == 0
+		    || strcasecmp(ifname, "reject") == 0
+		    || strcasecmp(ifname, "blackhole") == 0) {
 			if (vty)
 				vty_out(vty,
 					"%% Nexthop interface cannot be Null0, reject or blackhole\n");
