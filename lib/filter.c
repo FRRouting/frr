@@ -34,65 +34,6 @@ DEFINE_MTYPE_STATIC(LIB, ACCESS_LIST, "Access List")
 DEFINE_MTYPE_STATIC(LIB, ACCESS_LIST_STR, "Access List Str")
 DEFINE_MTYPE_STATIC(LIB, ACCESS_FILTER, "Access Filter")
 
-struct filter_cisco {
-	/* Cisco access-list */
-	int extended;
-	struct in_addr addr;
-	struct in_addr addr_mask;
-	struct in_addr mask;
-	struct in_addr mask_mask;
-};
-
-struct filter_zebra {
-	/* If this filter is "exact" match then this flag is set. */
-	int exact;
-
-	/* Prefix information. */
-	struct prefix prefix;
-};
-
-/* Filter element of access list */
-struct filter {
-	/* For doubly linked list. */
-	struct filter *next;
-	struct filter *prev;
-
-	/* Filter type information. */
-	enum filter_type type;
-
-	/* Sequence number */
-	int64_t seq;
-
-	/* Cisco access-list */
-	int cisco;
-
-	union {
-		struct filter_cisco cfilter;
-		struct filter_zebra zfilter;
-	} u;
-};
-
-/* List of access_list. */
-struct access_list_list {
-	struct access_list *head;
-	struct access_list *tail;
-};
-
-/* Master structure of access_list. */
-struct access_master {
-	/* List of access_list which name is number. */
-	struct access_list_list num;
-
-	/* List of access_list which name is string. */
-	struct access_list_list str;
-
-	/* Hook function which is executed when new access_list is added. */
-	void (*add_hook)(struct access_list *);
-
-	/* Hook function which is executed when access_list is deleted. */
-	void (*delete_hook)(struct access_list *);
-};
-
 /* Static structure for mac access_list's master. */
 static struct access_master access_master_mac = {
 	{NULL, NULL},
@@ -129,7 +70,7 @@ static struct access_master *access_master_get(afi_t afi)
 }
 
 /* Allocate new filter structure. */
-static struct filter *filter_new(void)
+struct filter *filter_new(void)
 {
 	return XCALLOC(MTYPE_ACCESS_FILTER, sizeof(struct filter));
 }
@@ -210,7 +151,7 @@ static void access_list_free(struct access_list *access)
 }
 
 /* Delete access_list from access_master and free it. */
-static void access_list_delete(struct access_list *access)
+void access_list_delete(struct access_list *access)
 {
 	struct filter *filter;
 	struct filter *next;
@@ -356,7 +297,7 @@ struct access_list *access_list_lookup(afi_t afi, const char *name)
 
 /* Get access list from list of access_list.  If there isn't matched
    access_list create new one and return it. */
-static struct access_list *access_list_get(afi_t afi, const char *name)
+struct access_list *access_list_get(afi_t afi, const char *name)
 {
 	struct access_list *access;
 
@@ -406,7 +347,7 @@ void access_list_delete_hook(void (*func)(struct access_list *access))
 }
 
 /* Calculate new sequential number. */
-static int64_t filter_new_seq_get(struct access_list *access)
+int64_t filter_new_seq_get(struct access_list *access)
 {
 	int64_t maxseq;
 	int64_t newseq;
@@ -447,8 +388,8 @@ static bool access_list_empty(struct access_list *access)
 
 /* Delete filter from specified access_list.  If there is hook
    function execute it. */
-static void access_list_filter_delete(struct access_list *access,
-				      struct filter *filter)
+void access_list_filter_delete(struct access_list *access,
+			       struct filter *filter)
 {
 	struct access_master *master;
 	struct filter *replace = filter;
@@ -478,8 +419,8 @@ static void access_list_filter_delete(struct access_list *access,
 }
 
 /* Add new filter to the end of specified access_list. */
-static void access_list_filter_add(struct access_list *access,
-				   struct filter *filter)
+void access_list_filter_add(struct access_list *access,
+			    struct filter *filter)
 {
 	struct filter *replace;
 	struct filter *point;
@@ -541,8 +482,8 @@ static void access_list_filter_add(struct access_list *access,
   host                 A single host address
 */
 
-static struct filter *filter_lookup_cisco(struct access_list *access,
-					  struct filter *mnew)
+struct filter *filter_lookup_cisco(struct access_list *access,
+				   struct filter *mnew)
 {
 	struct filter *mfilter;
 	struct filter_cisco *filter;
@@ -573,8 +514,8 @@ static struct filter *filter_lookup_cisco(struct access_list *access,
 	return NULL;
 }
 
-static struct filter *filter_lookup_zebra(struct access_list *access,
-					  struct filter *mnew)
+struct filter *filter_lookup_zebra(struct access_list *access,
+				   struct filter *mnew)
 {
 	struct filter *mfilter;
 	struct filter_zebra *filter;
