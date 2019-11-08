@@ -1388,7 +1388,7 @@ stream_failure:
 	return false;
 }
 
-struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh)
+struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 {
 	struct nexthop *n = nexthop_new();
 

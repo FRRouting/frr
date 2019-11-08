@@ -225,6 +225,10 @@ void nexthop_group_copy(struct nexthop_group *to,
 
 void nexthop_group_delete(struct nexthop_group **nhg)
 {
+	/* OK to call with NULL group */
+	if ((*nhg) == NULL)
+		return;
+
 	if ((*nhg)->nexthop)
 		nexthops_free((*nhg)->nexthop);
 

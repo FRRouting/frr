@@ -118,13 +118,22 @@ struct nexthop {
 	uint8_t weight;
 };
 
+
+/* Utility to append one nexthop to another. */
+#define NEXTHOP_APPEND(to, new)           \
+	do {                              \
+		(to)->next = (new);       \
+		(new)->prev = (to);       \
+		(new)->next = NULL;       \
+	} while (0)
+
 struct nexthop *nexthop_new(void);
 
 void nexthop_free(struct nexthop *nexthop);
 void nexthops_free(struct nexthop *nexthop);
 
-void nexthop_add_labels(struct nexthop *, enum lsp_types_t, uint8_t,
-			mpls_label_t *);
+void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t ltype,
+			uint8_t num_labels, const mpls_label_t *labels);
 void nexthop_del_labels(struct nexthop *);
 
 /*

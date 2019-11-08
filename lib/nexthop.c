@@ -393,8 +393,8 @@ struct nexthop *nexthop_from_blackhole(enum blackhole_type bh_type)
 }
 
 /* Update nexthop with label information. */
-void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t type,
-			uint8_t num_labels, mpls_label_t *label)
+void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t ltype,
+			uint8_t num_labels, const mpls_label_t *labels)
 {
 	struct mpls_label_stack *nh_label;
 	int i;
@@ -402,13 +402,18 @@ void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t type,
 	if (num_labels == 0)
 		return;
 
-	nexthop->nh_label_type = type;
+	/* Enforce limit on label stack size */
+	if (num_labels > MPLS_MAX_LABELS)
+		num_labels = MPLS_MAX_LABELS;
+
+	nexthop->nh_label_type = ltype;
+
 	nh_label = XCALLOC(MTYPE_NH_LABEL,
 			   sizeof(struct mpls_label_stack)
 				   + num_labels * sizeof(mpls_label_t));
 	nh_label->num_labels = num_labels;
 	for (i = 0; i < num_labels; i++)
-		nh_label->label[i] = *(label + i);
+		nh_label->label[i] = *(labels + i);
 	nexthop->nh_label = nh_label;
 }
 
