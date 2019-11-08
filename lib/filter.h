@@ -146,6 +146,8 @@ struct filter *filter_lookup_cisco(struct access_list *access,
 struct filter *filter_lookup_zebra(struct access_list *access,
 				   struct filter *mnew);
 
+extern const struct frr_yang_module_info frr_filter_info;
+
 #ifdef __cplusplus
 }
 #endif
