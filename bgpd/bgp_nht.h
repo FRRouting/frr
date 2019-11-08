@@ -27,14 +27,6 @@
 extern void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id);
 
 /**
- * bgp_find_nexthop() - lookup the nexthop cache table for the bnc object
- * ARGUMENTS:
- *   p - path for which the nexthop object is being looked up
- *   connected - True if NH MUST be a connected route
- */
-extern int bgp_find_nexthop(struct bgp_path_info *p, int connected);
-
-/**
  * bgp_find_or_add_nexthop() - lookup the nexthop cache table for the bnc
  *  object. If not found, create a new object and register with ZEBRA for
  *  nexthop notification.
