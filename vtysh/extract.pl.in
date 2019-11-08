@@ -98,7 +98,7 @@ sub scan_file {
         elsif ($file =~ /lib\/if\.c$/) {
             $protocol = "VTYSH_INTERFACE";
         }
-        elsif ($file =~ /lib\/(filter|lib_vty)\.c$/) {
+        elsif ($file =~ /lib\/(filter|filter_cli|lib_vty)\.c$/) {
             $protocol = "VTYSH_ALL";
         }
 	elsif ($file =~ /lib\/agentx\.c$/) {

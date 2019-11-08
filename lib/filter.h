@@ -148,6 +148,8 @@ struct filter *filter_lookup_zebra(struct access_list *access,
 
 extern const struct frr_yang_module_info frr_filter_info;
 
+void filter_cli_init(void);
+
 #ifdef __cplusplus
 }
 #endif

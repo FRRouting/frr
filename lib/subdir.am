@@ -22,6 +22,7 @@ lib_libfrr_la_SOURCES = \
 	lib/distribute.c \
 	lib/ferr.c \
 	lib/filter.c \
+	lib/filter_cli.c \
 	lib/filter_nb.c \
 	lib/frrcu.c \
 	lib/frrlua.c \
@@ -128,6 +129,7 @@ nodist_lib_libfrr_la_SOURCES = \
 vtysh_scan += \
 	lib/distribute.c \
 	lib/filter.c \
+	lib/filter_cli.c \
 	lib/if.c \
 	lib/if_rmap.c \
 	lib/keychain.c \
@@ -149,6 +151,7 @@ endif
 
 clippy_scan += \
 	lib/if.c \
+	lib/filter_cli.c \
 	lib/log_vty.c \
 	lib/nexthop_group.c \
 	lib/northbound_cli.c \
