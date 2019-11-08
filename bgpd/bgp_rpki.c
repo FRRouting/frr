@@ -406,7 +406,7 @@ static int bgpd_sync_callback(struct thread *thread)
 		}
 	}
 
-	prefix_free(prefix);
+	prefix_free(&prefix);
 	return 0;
 }
 
