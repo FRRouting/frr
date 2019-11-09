@@ -414,6 +414,19 @@ unsigned int aspath_count_hops(const struct aspath *aspath)
 	return count;
 }
 
+/* Check if aspath has AS_SET or AS_CONFED_SET */
+bool aspath_check_as_sets(struct aspath *aspath)
+{
+	struct assegment *seg = aspath->segments;
+
+	while (seg) {
+		if (seg->type == AS_SET || seg->type == AS_CONFED_SET)
+			return true;
+		seg = seg->next;
+	}
+	return false;
+}
+
 /* Estimate size aspath /might/ take if encoded into an
  * ASPATH attribute.
  *
