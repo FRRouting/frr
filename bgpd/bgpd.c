@@ -7266,6 +7266,11 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "\n");
 	}
 
+	/* BGP flag dampening. */
+	if (CHECK_FLAG(bgp->af_flags[afi][safi],
+		       BGP_CONFIG_DAMPENING))
+		bgp_config_write_damp(vty, afi, safi);
+
 	/* Route reflector client. */
 	if (peergroup_af_flag_check(peer, afi, safi,
 				    PEER_FLAG_REFLECTOR_CLIENT)) {
@@ -7738,11 +7743,6 @@ int bgp_config_write(struct vty *vty)
 				bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
 					? ""
 					: "no ");
-
-		/* BGP flag dampening. */
-		if (CHECK_FLAG(bgp->af_flags[AFI_IP][SAFI_UNICAST],
-			       BGP_CONFIG_DAMPENING))
-			bgp_config_write_damp(vty);
 
 		/* BGP timers configuration. */
 		if (bgp->default_keepalive != BGP_DEFAULT_KEEPALIVE
