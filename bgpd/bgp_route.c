@@ -196,7 +196,8 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 
 	e = *extra;
 	if (e->damp_info)
-		bgp_damp_info_free(e->damp_info, 0);
+		bgp_damp_info_free(e->damp_info, 0, e->damp_info->afi,
+				   e->damp_info->safi);
 
 	e->damp_info = NULL;
 	if (e->parent) {
@@ -7886,7 +7887,7 @@ void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 
 /* dampening route */
 static void damp_route_vty_out(struct vty *vty, struct prefix *p,
-			       struct bgp_path_info *path, int display,
+			       struct bgp_path_info *path, int display, afi_t afi,
 			       safi_t safi, bool use_json, json_object *json)
 {
 	struct attr *attr;
@@ -7917,13 +7918,13 @@ static void damp_route_vty_out(struct vty *vty, struct prefix *p,
 	}
 
 	if (use_json)
-		bgp_damp_reuse_time_vty(vty, path, timebuf, BGP_UPTIME_LEN,
-					use_json, json);
+		bgp_damp_reuse_time_vty(vty, path, timebuf, BGP_UPTIME_LEN, afi,
+					safi, use_json, json);
 	else
 		vty_out(vty, "%s ",
 			bgp_damp_reuse_time_vty(vty, path, timebuf,
-						BGP_UPTIME_LEN, use_json,
-						json));
+						BGP_UPTIME_LEN, afi, safi,
+						use_json, json));
 
 	/* Print attribute */
 	attr = path->attr;
@@ -7950,7 +7951,7 @@ static void damp_route_vty_out(struct vty *vty, struct prefix *p,
 
 /* flap route */
 static void flap_route_vty_out(struct vty *vty, struct prefix *p,
-			       struct bgp_path_info *path, int display,
+			       struct bgp_path_info *path, int display, afi_t afi,
 			       safi_t safi, bool use_json, json_object *json)
 {
 	struct attr *attr;
@@ -8009,12 +8010,13 @@ static void flap_route_vty_out(struct vty *vty, struct prefix *p,
 	    && !CHECK_FLAG(path->flags, BGP_PATH_HISTORY)) {
 		if (use_json)
 			bgp_damp_reuse_time_vty(vty, path, timebuf,
-						BGP_UPTIME_LEN, use_json, json);
+						BGP_UPTIME_LEN, afi, safi,
+						use_json, json);
 		else
 			vty_out(vty, "%s ",
 				bgp_damp_reuse_time_vty(vty, path, timebuf,
-							BGP_UPTIME_LEN,
-							use_json, json));
+							BGP_UPTIME_LEN, afi,
+							safi, use_json, json));
 	} else {
 		if (!use_json)
 			vty_out(vty, "%*s ", 8, " ");
@@ -8943,7 +8945,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 		}
 
 		if (path->extra && path->extra->damp_info)
-			bgp_damp_info_vty(vty, path, json_path);
+			bgp_damp_info_vty(vty, path, afi, safi, json_path);
 
 		/* Remote Label */
 		if (path->extra && bgp_is_valid_label(&path->extra->label[0])
@@ -9370,11 +9372,11 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			}
 			if (type == bgp_show_type_dampend_paths
 			    || type == bgp_show_type_damp_neighbor)
-				damp_route_vty_out(vty, &rn->p, pi, display,
+				damp_route_vty_out(vty, &rn->p, pi, display, AFI_IP,
 						   safi, use_json, json_paths);
 			else if (type == bgp_show_type_flap_statistics
 				 || type == bgp_show_type_flap_neighbor)
-				flap_route_vty_out(vty, &rn->p, pi, display,
+				flap_route_vty_out(vty, &rn->p, pi, display, AFI_IP,
 						   safi, use_json, json_paths);
 			else
 				route_vty_out(vty, &rn->p, pi, display, safi,
@@ -12206,7 +12208,7 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 						pi_temp = pi->next;
 						bgp_damp_info_free(
 							pi->extra->damp_info,
-							1);
+							1, afi, safi);
 						pi = pi_temp;
 					} else
 						pi = pi->next;
@@ -12226,7 +12228,7 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 						pi_temp = pi->next;
 						bgp_damp_info_free(
 							pi->extra->damp_info,
-							1);
+							1, afi, safi);
 						pi = pi_temp;
 					} else
 						pi = pi->next;
@@ -12248,7 +12250,7 @@ DEFUN (clear_ip_bgp_dampening,
        BGP_STR
        "Clear route flap dampening information\n")
 {
-	bgp_damp_info_clean();
+	bgp_damp_info_clean(AFI_IP, SAFI_UNICAST);
 	return CMD_SUCCESS;
 }
 
