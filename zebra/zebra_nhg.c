@@ -360,6 +360,8 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct nhg_hash_entry *nhe1 = arg1;
 	const struct nhg_hash_entry *nhe2 = arg2;
+	struct nexthop *nexthop1;
+	struct nexthop *nexthop2;
 
 	/* No matter what if they equal IDs, assume equal */
 	if (nhe1->id && nhe2->id && (nhe1->id == nhe2->id))
@@ -371,12 +373,47 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	if (nhe1->afi != nhe2->afi)
 		return false;
 
-	if (nexthop_group_active_nexthop_num_no_recurse(nhe1->nhg)
-	    != nexthop_group_active_nexthop_num_no_recurse(nhe2->nhg))
-		return false;
+	/* Nexthops should be sorted */
+	for (nexthop1 = nhe1->nhg->nexthop, nexthop2 = nhe2->nhg->nexthop;
+	     nexthop1 || nexthop2;
+	     nexthop1 = nexthop1->next, nexthop2 = nexthop2->next) {
+		if (nexthop1 && !nexthop2)
+			return false;
 
-	if (!nexthop_group_equal_no_recurse(nhe1->nhg, nhe2->nhg))
-		return false;
+		if (!nexthop1 && nexthop2)
+			return false;
+
+		/*
+		 * We have to check the active flag of each individual one,
+		 * not just the overall active_num. This solves the special case
+		 * issue of a route with a nexthop group with one nexthop
+		 * resolving to itself and thus marking it inactive. If we
+		 * have two different routes each wanting to mark a different
+		 * nexthop inactive, they need to hash to two different groups.
+		 *
+		 * If we just hashed on num_active, they would hash the same
+		 * which is incorrect.
+		 *
+		 * ex)
+		 *      1.1.1.0/24
+		 *           -> 1.1.1.1 dummy1 (inactive)
+		 *           -> 1.1.2.1 dummy2
+		 *
+		 *      1.1.2.0/24
+		 *           -> 1.1.1.1 dummy1
+		 *           -> 1.1.2.1 dummy2 (inactive)
+		 *
+		 * Without checking each individual one, they would hash to
+		 * the same group and both have 1.1.1.1 dummy1 marked inactive.
+		 *
+		 */
+		if (CHECK_FLAG(nexthop1->flags, NEXTHOP_FLAG_ACTIVE)
+		    != CHECK_FLAG(nexthop2->flags, NEXTHOP_FLAG_ACTIVE))
+			return false;
+
+		if (!nexthop_same(nexthop1, nexthop2))
+			return false;
+	}
 
 	return true;
 }
