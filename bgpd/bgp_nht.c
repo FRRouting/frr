@@ -65,27 +65,6 @@ static int bgp_isvalid_labeled_nexthop(struct bgp_nexthop_cache *bnc)
 		|| (bnc && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID)));
 }
 
-int bgp_find_nexthop(struct bgp_path_info *path, int connected)
-{
-	struct bgp_nexthop_cache *bnc = path->nexthop;
-
-	if (!bnc)
-		return 0;
-
-	/*
-	 * We are cheating here.  Views have no associated underlying
-	 * ability to detect nexthops.  So when we have a view
-	 * just tell everyone the nexthop is valid
-	 */
-	if (path->peer && path->peer->bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
-		return 1;
-
-	if (connected && !(CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)))
-		return 0;
-
-	return (bgp_isvalid_nexthop(bnc));
-}
-
 static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
 {
 	if (LIST_EMPTY(&(bnc->paths)) && !bnc->nht_info) {
