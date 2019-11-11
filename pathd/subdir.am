@@ -8,6 +8,10 @@ sbin_PROGRAMS += pathd/pathd
 dist_examples_DATA += pathd/pathd.conf.sample
 vtysh_scan += $(top_srcdir)/pathd/path_cli.c
 
+if PCEP
+module_LTLIBRARIES += pathd/pathd_pcep.la
+endif
+
 # TODO add man page
 #man8 += $(MANBUILD)/pathd.8
 endif
@@ -24,6 +28,7 @@ pathd_libpath_a_SOURCES = \
 
 noinst_HEADERS += \
 	pathd/path_memory.h \
+	pathd/path_errors.h \
 	pathd/path_nb.h \
 	pathd/path_zebra.h \
 	pathd/pathd.h \
@@ -37,3 +42,8 @@ nodist_pathd_pathd_SOURCES = \
 	yang/frr-pathd.yang.c \
 	# end
 pathd_pathd_LDADD = pathd/libpath.a lib/libfrr.la $(LIBCAP)
+
+pathd_pathd_pcep_la_SOURCES = pathd/path_pcep.c
+pathd_pathd_pcep_la_CFLAGS = $(WERROR)
+pathd_pathd_pcep_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+pathd_pathd_pcep_la_LIBADD = @PCEP_LIBS@
