@@ -1440,8 +1440,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		char buf_prefix[PREFIX_STRLEN];
 
 		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
-		zlog_debug("%s: p=%s, flags=0x%x",
-			   __func__, buf_prefix, api.flags);
+		zlog_debug("%s: p=%s, msg flags=0x%x, flags=0x%x",
+			   __func__, buf_prefix, (int)api.message, api.flags);
 	}
 
 	/* Allocate new route. */
