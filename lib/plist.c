@@ -178,7 +178,7 @@ static void prefix_list_free(struct prefix_list *plist)
 	XFREE(MTYPE_PREFIX_LIST, plist);
 }
 
-static struct prefix_list_entry *prefix_list_entry_new(void)
+struct prefix_list_entry *prefix_list_entry_new(void)
 {
 	struct prefix_list_entry *new;
 
@@ -279,7 +279,7 @@ static struct prefix_list *prefix_list_insert(afi_t afi, int orf,
 	return plist;
 }
 
-static struct prefix_list *prefix_list_get(afi_t afi, int orf, const char *name)
+struct prefix_list *prefix_list_get(afi_t afi, int orf, const char *name)
 {
 	struct prefix_list *plist;
 
@@ -294,7 +294,7 @@ static void prefix_list_trie_del(struct prefix_list *plist,
 				 struct prefix_list_entry *pentry);
 
 /* Delete prefix-list from prefix_list_master and free it. */
-static void prefix_list_delete(struct prefix_list *plist)
+void prefix_list_delete(struct prefix_list *plist)
 {
 	struct prefix_list_list *list;
 	struct prefix_master *master;
@@ -381,7 +381,7 @@ void prefix_list_delete_hook(void (*func)(struct prefix_list *plist))
 }
 
 /* Calculate new sequential number. */
-static int64_t prefix_new_seq_get(struct prefix_list *plist)
+int64_t prefix_new_seq_get(struct prefix_list *plist)
 {
 	int64_t maxseq;
 	int64_t newseq;
@@ -411,7 +411,7 @@ static struct prefix_list_entry *prefix_seq_check(struct prefix_list *plist,
 	return NULL;
 }
 
-static struct prefix_list_entry *
+struct prefix_list_entry *
 prefix_list_entry_lookup(struct prefix_list *plist, struct prefix *prefix,
 			 enum prefix_list_type type, int64_t seq,
 			 int le, int ge)
@@ -502,9 +502,9 @@ static void prefix_list_trie_del(struct prefix_list *plist,
 }
 
 
-static void prefix_list_entry_delete(struct prefix_list *plist,
-				     struct prefix_list_entry *pentry,
-				     int update_list)
+void prefix_list_entry_delete(struct prefix_list *plist,
+			      struct prefix_list_entry *pentry,
+			      int update_list)
 {
 	if (plist == NULL || pentry == NULL)
 		return;

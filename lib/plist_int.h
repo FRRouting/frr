@@ -65,6 +65,8 @@ struct prefix_list_entry {
 	unsigned long refcnt;
 	unsigned long hitcnt;
 
+	struct prefix_list *pl;
+
 	struct prefix_list_entry *next;
 	struct prefix_list_entry *prev;
 
