@@ -25,6 +25,8 @@
 #include "lib/command.h"
 #include "lib/filter.h"
 #include "lib/northbound_cli.h"
+#include "lib/plist.h"
+#include "lib/plist_int.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "lib/filter_cli_clippy.c"
@@ -49,6 +51,8 @@
 	"Specify packets to forward\n"
 #define ACCESS_LIST_REMARK_STR "Access list entry comment\n"
 #define ACCESS_LIST_REMARK_LINE_STR "Comment up to 100 characters\n"
+
+#define PREFIX_LIST_NAME_STR "Prefix list entry name\n"
 
 /*
  * Helper function to locate filter data structures for Cisco-style ACLs.
@@ -1049,6 +1053,426 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+/*
+ * Prefix lists.
+ */
+static int plist_remove(struct vty *vty, const char *iptype, const char *name,
+			const char *seq, const char *action, struct prefix *p,
+			long ge, long le)
+{
+	struct prefix_list_entry *pentry;
+	enum prefix_list_type plt;
+	struct prefix_list *pl;
+	struct lyd_node *dnode;
+	char xpath[XPATH_MAXLEN];
+	char xpath_entry[XPATH_MAXLEN + 32];
+
+	/* If the user provided sequence number, then just go for it. */
+	if (seq != NULL) {
+		snprintf(
+			xpath, sizeof(xpath),
+			"/frr-filter:lib/prefix-list[type='%s'][name='%s']/entry[sequence='%s']",
+			iptype, name, seq);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	/* Otherwise, to keep compatibility, we need to figure it out. */
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-filter:lib/prefix-list[type='%s'][name='%s']", iptype,
+		 name);
+
+	/* Access-list must exist before entries. */
+	if (yang_dnode_exists(running_config->dnode, xpath) == false)
+		return CMD_WARNING;
+
+	/* Use access-list data structure to fetch sequence. */
+	if (strcmp(action, "permit") == 0)
+		plt = PREFIX_PERMIT;
+	else
+		plt = PREFIX_DENY;
+
+	dnode = yang_dnode_get(running_config->dnode, xpath);
+	pl = nb_running_get_entry(dnode, NULL, true);
+	pentry = prefix_list_entry_lookup(pl, p, plt, -1, le, ge);
+	if (pentry == NULL)
+		return CMD_WARNING;
+
+	snprintf(xpath_entry, sizeof(xpath_entry),
+		 "%s/entry[sequence='%" PRId64 "']", xpath, pentry->seq);
+	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(
+	ip_prefix_list, ip_prefix_list_cmd,
+	"ip prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)$ge|le (0-32)$le}]>",
+	IP_STR
+	PREFIX_LIST_STR
+	PREFIX_LIST_NAME_STR
+	ACCESS_LIST_SEQ_STR
+	ACCESS_LIST_ACTION_STR
+	"Any prefix match.  Same as \"0.0.0.0/0 le 32\"\n"
+	"IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+	"Minimum prefix length to be matched\n"
+	"Minimum prefix length\n"
+	"Maximum prefix length to be matched\n"
+	"Maximum prefix length\n")
+{
+	struct prefix_list *pl;
+	struct lyd_node *dnode;
+	int rv;
+	int64_t sseq;
+	char xpath[XPATH_MAXLEN];
+	char xpath_entry[XPATH_MAXLEN + 32];
+	char xpath_value[XPATH_MAXLEN + 64];
+
+	/*
+	 * Create the prefix-list first, so we can generate sequence if
+	 * none given (backward compatibility).
+	 */
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']", name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	rv = nb_cli_apply_changes(vty, NULL);
+	if (rv != CMD_SUCCESS)
+		return rv;
+
+	/* Use prefix-list data structure to generate sequence. */
+	dnode = yang_dnode_get(running_config->dnode, xpath);
+	pl = nb_running_get_entry(dnode, NULL, true);
+	if (seq_str == NULL) {
+		sseq = prefix_new_seq_get(pl);
+		snprintf(xpath_entry, sizeof(xpath_entry),
+			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
+	} else
+		snprintf(xpath_entry, sizeof(xpath_entry),
+			 "%s/entry[sequence='%s']", xpath, seq_str);
+
+	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value), "%s/action", xpath_entry);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, action);
+
+	if (prefix_str != NULL) {
+		snprintf(xpath_value, sizeof(xpath_value), "%s/ipv4-prefix",
+			 xpath_entry);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+				      prefix_str);
+
+		if (ge_str) {
+			snprintf(xpath_value, sizeof(xpath_value),
+				 "%s/ipv4-prefix-length-greater-or-equal",
+				 xpath_entry);
+			nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+					      ge_str);
+		}
+		if (le_str) {
+			snprintf(xpath_value, sizeof(xpath_value),
+				 "%s/ipv4-prefix-length-lesser-or-equal",
+				 xpath_entry);
+			nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+					      le_str);
+		}
+	} else {
+		snprintf(xpath_value, sizeof(xpath_value), "%s/any",
+			 xpath_entry);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(
+	no_ip_prefix_list, no_ip_prefix_list_cmd,
+	"no ip prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|A.B.C.D/M$prefix [{ge (0-32)|le (0-32)}]>",
+	NO_STR
+	IP_STR
+	PREFIX_LIST_STR
+	PREFIX_LIST_NAME_STR
+	ACCESS_LIST_SEQ_STR
+	ACCESS_LIST_ACTION_STR
+	"Any prefix match.  Same as \"0.0.0.0/0 le 32\"\n"
+	"IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+	"Minimum prefix length to be matched\n"
+	"Minimum prefix length\n"
+	"Maximum prefix length to be matched\n"
+	"Maximum prefix length\n")
+{
+	return plist_remove(vty, "ipv4", name, seq_str, action,
+			    (struct prefix *)prefix, ge, le);
+}
+
+DEFPY(
+	no_ip_prefix_list_seq, no_ip_prefix_list_seq_cmd,
+	"no ip prefix-list WORD$name seq (1-4294967295)$seq",
+	NO_STR
+	IP_STR
+	PREFIX_LIST_STR
+	PREFIX_LIST_NAME_STR
+	ACCESS_LIST_SEQ_STR)
+{
+	return plist_remove(vty, "ipv4", name, seq_str, NULL, NULL, 0, 0);
+}
+
+DEFPY(
+	no_ip_prefix_list_all, no_ip_prefix_list_all_cmd,
+	"no ip prefix-list WORD$name",
+	NO_STR
+	IP_STR
+	PREFIX_LIST_STR
+	PREFIX_LIST_NAME_STR)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']", name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(
+	ip_prefix_list_remark, ip_prefix_list_remark_cmd,
+	"ip prefix-list WORD$name remark LINE...",
+	IP_STR
+	PREFIX_LIST_STR
+	PREFIX_LIST_NAME_STR
+	ACCESS_LIST_REMARK_STR
+	ACCESS_LIST_REMARK_LINE_STR)
+{
+	int rv;
+	char *remark;
+	char xpath[XPATH_MAXLEN];
+	char xpath_remark[XPATH_MAXLEN + 32];
+
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']", name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_remark, sizeof(xpath_remark), "%s/remark", xpath);
+	remark = argv_concat(argv, argc, 4);
+	nb_cli_enqueue_change(vty, xpath_remark, NB_OP_CREATE, remark);
+	rv = nb_cli_apply_changes(vty, NULL);
+	XFREE(MTYPE_TMP, remark);
+
+	return rv;
+}
+
+DEFPY(
+	no_ip_prefix_list_remark, no_ip_prefix_list_remark_cmd,
+	"no ip prefix-list WORD$name remark",
+	NO_STR
+	IP_STR
+	PREFIX_LIST_STR
+	PREFIX_LIST_NAME_STR
+	ACCESS_LIST_REMARK_STR)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-filter:lib/prefix-list[type='ipv4'][name='%s']/remark",
+		 name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS(
+	no_ip_prefix_list_remark, no_ip_prefix_list_remark_line_cmd,
+	"no ip prefix-list WORD remark LINE...",
+	NO_STR
+	IP_STR
+	PREFIX_LIST_STR
+	PREFIX_LIST_NAME_STR
+	ACCESS_LIST_REMARK_STR
+	ACCESS_LIST_REMARK_LINE_STR)
+
+DEFPY(
+	ipv6_prefix_list, ipv6_prefix_list_cmd,
+	"ipv6 prefix-list WORD$name [seq (1-4294967295)] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
+	IPV6_STR
+	PREFIX_LIST_STR
+	PREFIX_LIST_NAME_STR
+	ACCESS_LIST_SEQ_STR
+	ACCESS_LIST_ACTION_STR
+	"Any prefix match.  Same as \"::0/0 le 128\"\n"
+	"IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
+	"Maximum prefix length to be matched\n"
+	"Maximum prefix length\n"
+	"Minimum prefix length to be matched\n"
+	"Minimum prefix length\n")
+{
+	struct prefix_list *pl;
+	struct lyd_node *dnode;
+	int rv;
+	int64_t sseq;
+	char xpath[XPATH_MAXLEN];
+	char xpath_entry[XPATH_MAXLEN + 32];
+	char xpath_value[XPATH_MAXLEN + 64];
+
+	/*
+	 * Create the prefix-list first, so we can generate sequence if
+	 * none given (backward compatibility).
+	 */
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']", name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	rv = nb_cli_apply_changes(vty, NULL);
+	if (rv != CMD_SUCCESS)
+		return rv;
+
+	/* Use prefix-list data structure to generate sequence. */
+	dnode = yang_dnode_get(running_config->dnode, xpath);
+	pl = nb_running_get_entry(dnode, NULL, true);
+	if (seq_str == NULL) {
+		sseq = prefix_new_seq_get(pl);
+		snprintf(xpath_entry, sizeof(xpath_entry),
+			 "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
+	} else
+		snprintf(xpath_entry, sizeof(xpath_entry),
+			 "%s/entry[sequence='%s']", xpath, seq_str);
+
+	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value), "%s/action", xpath_entry);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, action);
+
+	if (prefix_str != NULL) {
+		snprintf(xpath_value, sizeof(xpath_value), "%s/ipv6-prefix",
+			 xpath_entry);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+				      prefix_str);
+
+		if (ge_str) {
+			snprintf(xpath_value, sizeof(xpath_value),
+				 "%s/ipv6-prefix-length-greater-or-equal",
+				 xpath_entry);
+			nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+					      ge_str);
+		}
+		if (le_str) {
+			snprintf(xpath_value, sizeof(xpath_value),
+				 "%s/ipv6-prefix-length-lesser-or-equal",
+				 xpath_entry);
+			nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+					      le_str);
+		}
+	} else {
+		snprintf(xpath_value, sizeof(xpath_value), "%s/any",
+			 xpath_entry);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(
+	no_ipv6_prefix_list, no_ipv6_prefix_list_cmd,
+	"no ipv6 prefix-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <any|X:X::X:X/M$prefix [{ge (0-128)$ge|le (0-128)$le}]>",
+	NO_STR
+	IPV6_STR
+	PREFIX_LIST_STR
+	PREFIX_LIST_NAME_STR
+	ACCESS_LIST_SEQ_STR
+	ACCESS_LIST_ACTION_STR
+	"Any prefix match.  Same as \"::0/0 le 128\"\n"
+	"IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
+	"Maximum prefix length to be matched\n"
+	"Maximum prefix length\n"
+	"Minimum prefix length to be matched\n"
+	"Minimum prefix length\n")
+{
+	return plist_remove(vty, "ipv6", name, seq_str, action,
+			    (struct prefix *)prefix, ge, le);
+}
+
+DEFPY(
+	no_ipv6_prefix_list_seq, no_ipv6_prefix_list_seq_cmd,
+	"no ipv6 prefix-list WORD$name seq (1-4294967295)$seq",
+	NO_STR
+	IPV6_STR
+	PREFIX_LIST_STR
+	PREFIX_LIST_NAME_STR
+	ACCESS_LIST_SEQ_STR)
+{
+	return plist_remove(vty, "ipv6", name, seq_str, NULL, NULL, 0, 0);
+}
+
+DEFPY(
+	no_ipv6_prefix_list_all, no_ipv6_prefix_list_all_cmd,
+	"no ipv6 prefix-list WORD$name",
+	NO_STR
+	IPV6_STR
+	PREFIX_LIST_STR
+	PREFIX_LIST_NAME_STR)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']", name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(
+	ipv6_prefix_list_remark, ipv6_prefix_list_remark_cmd,
+	"ipv6 prefix-list WORD$name remark LINE...",
+	IPV6_STR
+	PREFIX_LIST_STR
+	PREFIX_LIST_NAME_STR
+	ACCESS_LIST_REMARK_STR
+	ACCESS_LIST_REMARK_LINE_STR)
+{
+	int rv;
+	char *remark;
+	char xpath[XPATH_MAXLEN];
+	char xpath_remark[XPATH_MAXLEN + 32];
+
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']", name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_remark, sizeof(xpath_remark), "%s/remark", xpath);
+	remark = argv_concat(argv, argc, 4);
+	nb_cli_enqueue_change(vty, xpath_remark, NB_OP_CREATE, remark);
+	rv = nb_cli_apply_changes(vty, NULL);
+	XFREE(MTYPE_TMP, remark);
+
+	return rv;
+}
+
+DEFPY(
+	no_ipv6_prefix_list_remark, no_ipv6_prefix_list_remark_cmd,
+	"no ipv6 prefix-list WORD$name remark",
+	NO_STR
+	IPV6_STR
+	PREFIX_LIST_STR
+	PREFIX_LIST_NAME_STR
+	ACCESS_LIST_REMARK_STR)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']/remark",
+		 name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS(
+	no_ipv6_prefix_list_remark, no_ipv6_prefix_list_remark_line_cmd,
+	"no ipv6 prefix-list WORD remark LINE...",
+	NO_STR
+	IPV6_STR
+	PREFIX_LIST_STR
+	PREFIX_LIST_NAME_STR
+	ACCESS_LIST_REMARK_STR
+	ACCESS_LIST_REMARK_LINE_STR)
+
 void filter_cli_init(void)
 {
 	/* access-list cisco-style (legacy). */
@@ -1078,4 +1502,21 @@ void filter_cli_init(void)
 	install_element(CONFIG_NODE, &no_mac_access_list_all_cmd);
 	install_element(CONFIG_NODE, &mac_access_list_remark_cmd);
 	install_element(CONFIG_NODE, &no_mac_access_list_remark_cmd);
+
+	/* prefix lists. */
+	install_element(CONFIG_NODE, &ip_prefix_list_cmd);
+	install_element(CONFIG_NODE, &no_ip_prefix_list_cmd);
+	install_element(CONFIG_NODE, &no_ip_prefix_list_seq_cmd);
+	install_element(CONFIG_NODE, &no_ip_prefix_list_all_cmd);
+	install_element(CONFIG_NODE, &ip_prefix_list_remark_cmd);
+	install_element(CONFIG_NODE, &no_ip_prefix_list_remark_cmd);
+	install_element(CONFIG_NODE, &no_ip_prefix_list_remark_line_cmd);
+
+	install_element(CONFIG_NODE, &ipv6_prefix_list_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_prefix_list_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_prefix_list_seq_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_prefix_list_all_cmd);
+	install_element(CONFIG_NODE, &ipv6_prefix_list_remark_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_prefix_list_remark_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_prefix_list_remark_line_cmd);
 }
