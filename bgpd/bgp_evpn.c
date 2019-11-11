@@ -1605,12 +1605,14 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 	if (bgp_debug_zebra(NULL)) {
 		char buf[ETHER_ADDR_STRLEN];
 		char buf1[PREFIX_STRLEN];
+		char buf2[INET6_ADDRSTRLEN];
 
 		zlog_debug("VRF %s type-5 route evp %s RMAC %s nexthop %s",
 			   vrf_id_to_name(bgp_vrf->vrf_id),
 			   prefix2str(evp, buf1, sizeof(buf1)),
 			   prefix_mac2str(&attr.rmac, buf, sizeof(buf)),
-			   inet_ntoa(attr.nexthop));
+			   inet_ntop(AF_INET, &attr.nexthop, buf2,
+				     INET_ADDRSTRLEN));
 	}
 
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;

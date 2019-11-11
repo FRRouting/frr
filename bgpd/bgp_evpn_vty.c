@@ -387,7 +387,9 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 				       bgp_vrf->evpn_info->advertise_pip ?
 				       "Enabled" : "Disabled");
 		json_object_string_add(json, "sysIP",
-				       inet_ntoa(bgp_vrf->evpn_info->pip_ip));
+				       inet_ntop(AF_INET,
+					&bgp_vrf->evpn_info->pip_ip,
+					buf1, INET_ADDRSTRLEN));
 		json_object_string_add(json, "sysMac",
 				prefix_mac2str(&bgp_vrf->evpn_info->pip_rmac,
 					       buf2, sizeof(buf2)));
@@ -411,7 +413,8 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		vty_out(vty, "  Advertise-pip: %s\n",
 			bgp_vrf->evpn_info->advertise_pip ? "Yes" : "No");
 		vty_out(vty, "  System-IP: %s\n",
-			inet_ntoa(bgp_vrf->evpn_info->pip_ip));
+			inet_ntop(AF_INET, &bgp_vrf->evpn_info->pip_ip,
+				  buf1, INET_ADDRSTRLEN));
 		vty_out(vty, "  System-MAC: %s\n",
 				prefix_mac2str(&bgp_vrf->evpn_info->pip_rmac,
 					       buf2, sizeof(buf2)));
@@ -5538,6 +5541,7 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 				safi_t safi)
 {
 	char buf1[RD_ADDRSTRLEN];
+	char buf2[INET6_ADDRSTRLEN];
 
 	if (bgp->vnihash) {
 		struct list *vnilist = hash_to_list(bgp->vnihash);
@@ -5618,7 +5622,9 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 		if (bgp->evpn_info->advertise_pip) {
 			if (bgp->evpn_info->pip_ip_static.s_addr != INADDR_ANY)
 				vty_out(vty, "  advertise-pip ip %s",
-				inet_ntoa(bgp->evpn_info->pip_ip_static));
+					inet_ntop(AF_INET,
+					&bgp->evpn_info->pip_ip_static,
+					buf2, INET_ADDRSTRLEN));
 			if (!is_zero_mac(&(bgp->evpn_info->pip_rmac_static))) {
 				char buf[ETHER_ADDR_STRLEN];
 
