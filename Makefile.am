@@ -129,6 +129,7 @@ include zebra/subdir.am
 include watchfrr/subdir.am
 include qpb/subdir.am
 include fpm/subdir.am
+include mlag/subdir.am
 include grpc/subdir.am
 include tools/subdir.am
 include solaris/subdir.am
