@@ -473,7 +473,7 @@ end
                     current_context_lines = []
                     log.debug('LINE %-50s: popping from subcontext to ctx%-50s', line, ctx_keys)
 
-            elif line == "exit-vni":
+            elif line in ["exit-vni", "exit-ldp-if"]:
                 if sub_main_ctx_key:
                     self.save_contexts(ctx_keys, current_context_lines)
 
@@ -518,6 +518,18 @@ end
                    len(ctx_keys) == 2 and
                    ctx_keys[0].startswith('router bgp') and
                    ctx_keys[1] == 'address-family l2vpn evpn')):
+
+                # Save old context first
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines = []
+                sub_main_ctx_key = copy.deepcopy(ctx_keys)
+                log.debug('LINE %-50s: entering sub-sub-context, append to ctx_keys', line)
+                ctx_keys.append(line)
+            
+            elif ((line.startswith("interface ") and
+                   len(ctx_keys) == 2 and
+                   ctx_keys[0].startswith('mpls ldp') and
+                   ctx_keys[1].startswith('address-family'))):
 
                 # Save old context first
                 self.save_contexts(ctx_keys, current_context_lines)

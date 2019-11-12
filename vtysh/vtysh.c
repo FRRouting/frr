@@ -725,11 +725,13 @@ int vtysh_mark_file(const char *filename)
 		switch (vty->node) {
 		case LDP_IPV4_IFACE_NODE:
 			if (strncmp(vty_buf_copy, "   ", 3)) {
+				vty_out(vty, " exit-ldp-if\n");
 				vty->node = LDP_IPV4_NODE;
 			}
 			break;
 		case LDP_IPV6_IFACE_NODE:
 			if (strncmp(vty_buf_copy, "   ", 3)) {
+				vty_out(vty, " exit-ldp-if\n");
 				vty->node = LDP_IPV6_NODE;
 			}
 			break;
