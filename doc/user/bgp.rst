@@ -440,6 +440,9 @@ Route Flap Dampening
    The route-flap damping algorithm is compatible with :rfc:`2439`. The use of
    this command is not recommended nowadays.
 
+   At the moment, route-flap dampening is not working per VRF and is working only
+   for IPv4 unicast and multicast.
+
 .. seealso::
    https://www.ripe.net/publications/docs/ripe-378
 
