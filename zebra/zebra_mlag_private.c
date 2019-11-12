@@ -26,6 +26,7 @@
 #include "hook.h"
 #include "module.h"
 #include "thread.h"
+#include "frr_pthread.h"
 #include "libfrr.h"
 #include "version.h"
 #include "network.h"
@@ -70,8 +71,10 @@ int zebra_mlag_private_write_data(uint8_t *data, uint32_t len)
 
 static void zebra_mlag_sched_read(void)
 {
-	thread_add_read(zmlag_master, zebra_mlag_read, NULL, mlag_socket,
-			&zrouter.mlag_info.t_read);
+	frr_with_mutex (&zrouter.mlag_info.mlag_th_mtx) {
+		thread_add_read(zmlag_master, zebra_mlag_read, NULL,
+				mlag_socket, &zrouter.mlag_info.t_read);
+	}
 }
 
 static int zebra_mlag_read(struct thread *thread)
@@ -79,8 +82,6 @@ static int zebra_mlag_read(struct thread *thread)
 	uint32_t *msglen;
 	uint32_t h_msglen;
 	uint32_t tot_len, curr_len = mlag_rd_buf_offset;
-
-	zrouter.mlag_info.t_read = NULL;
 
 	/*
 	 * Received message in sock_stream looks like below
@@ -103,6 +104,7 @@ static int zebra_mlag_read(struct thread *thread)
 			zebra_mlag_handle_process_state(MLAG_DOWN);
 			return -1;
 		}
+		mlag_rd_buf_offset += data_len;
 		if (data_len != (ssize_t)ZEBRA_MLAG_LEN_SIZE - curr_len) {
 			/* Try again later */
 			zebra_mlag_sched_read();
@@ -131,6 +133,7 @@ static int zebra_mlag_read(struct thread *thread)
 			zebra_mlag_handle_process_state(MLAG_DOWN);
 			return -1;
 		}
+		mlag_rd_buf_offset += data_len;
 		if (data_len != (ssize_t)tot_len - curr_len) {
 			/* Try again later */
 			zebra_mlag_sched_read();

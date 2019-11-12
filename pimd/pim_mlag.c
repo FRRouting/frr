@@ -141,7 +141,7 @@ int pim_zebra_mlag_handle_msg(struct stream *s, int len)
 	} break;
 	case MLAG_MROUTE_ADD_BULK: {
 		struct mlag_mroute_add msg;
-		int i = 0;
+		int i;
 
 		for (i = 0; i < mlag_msg.msg_cnt; i++) {
 
@@ -153,7 +153,7 @@ int pim_zebra_mlag_handle_msg(struct stream *s, int len)
 	} break;
 	case MLAG_MROUTE_DEL_BULK: {
 		struct mlag_mroute_del msg;
-		int i = 0;
+		int i;
 
 		for (i = 0; i < mlag_msg.msg_cnt; i++) {
 

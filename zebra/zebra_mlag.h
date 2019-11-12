@@ -26,6 +26,10 @@
 #include "zclient.h"
 #include "zebra/zserv.h"
 
+#ifdef HAVE_PROTOBUF
+#include "mlag/mlag.pb-c.h"
+#endif
+
 #define ZEBRA_MLAG_BUF_LIMIT 2048
 #define ZEBRA_MLAG_LEN_SIZE 4
 
@@ -33,14 +37,8 @@ extern uint8_t mlag_wr_buffer[ZEBRA_MLAG_BUF_LIMIT];
 extern uint8_t mlag_rd_buffer[ZEBRA_MLAG_BUF_LIMIT];
 extern uint32_t mlag_rd_buf_offset;
 
-static inline void zebra_mlag_reset_write_buffer(void)
-{
-	memset(mlag_wr_buffer, 0, ZEBRA_MLAG_BUF_LIMIT);
-}
-
 static inline void zebra_mlag_reset_read_buffer(void)
 {
-	memset(mlag_rd_buffer, 0, ZEBRA_MLAG_BUF_LIMIT);
 	mlag_rd_buf_offset = 0;
 }
 
@@ -64,6 +62,6 @@ void zebra_mlag_process_mlag_data(uint8_t *data, uint32_t len);
  */
 int zebra_mlag_protobuf_encode_client_data(struct stream *s,
 					   uint32_t *msg_type);
-int zebra_mlag_protobuf_decode_message(struct stream **s, uint8_t *data,
+int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 				       uint32_t len);
 #endif
