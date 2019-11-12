@@ -54,6 +54,7 @@
 #define DEBUG_PIM_PACKETDUMP_RECV_STR               "Dump received packets\n"
 #define DEBUG_PIM_TRACE_STR                         "PIM internal daemon activity\n"
 #define DEBUG_PIM_ZEBRA_STR                         "ZEBRA protocol activity\n"
+#define DEBUG_PIM_MLAG_STR                          "PIM Mlag activity\n"
 #define DEBUG_PIM_VXLAN_STR                         "PIM VxLAN events\n"
 #define DEBUG_SSMPINGD_STR                          "ssmpingd activity\n"
 #define CLEAR_IP_IGMP_STR                           "IGMP clear commands\n"

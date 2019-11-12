@@ -2721,6 +2721,39 @@ stream_failure:
 	return;
 }
 
+void zclient_send_mlag_register(struct zclient *client, uint32_t bit_map)
+{
+	struct stream *s;
+
+	s = client->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_MLAG_CLIENT_REGISTER, VRF_DEFAULT);
+	stream_putl(s, bit_map);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(client);
+}
+
+void zclient_send_mlag_deregister(struct zclient *client)
+{
+	zebra_message_send(client, ZEBRA_MLAG_CLIENT_UNREGISTER, VRF_DEFAULT);
+}
+
+void zclient_send_mlag_data(struct zclient *client, struct stream *client_s)
+{
+	struct stream *s;
+
+	s = client->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_MLAG_FORWARD_MSG, VRF_DEFAULT);
+	stream_put(s, client_s->data, client_s->endp);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(client);
+}
+
 /* Zebra client message read function. */
 static int zclient_read(struct thread *thread)
 {
