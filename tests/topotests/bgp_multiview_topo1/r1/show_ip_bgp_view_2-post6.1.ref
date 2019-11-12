@@ -1,4 +1,4 @@
-BGP table version is XXX, local router ID is 172.30.1.1, vrf id -
+BGP table version is XXX, local router ID is 172.30.1.1, vrf id 0
 Default local pref 100, local AS 100
 Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
                i internal, r RIB-failure, S Stale, R Removed
