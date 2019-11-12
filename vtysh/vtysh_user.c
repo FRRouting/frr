@@ -147,6 +147,26 @@ DEFUN (vtysh_banner_motd_file,
 	return cmd_banner_motd_file(argv[idx_file]->arg);
 }
 
+DEFUN (vtysh_banner_motd_line,
+       vtysh_banner_motd_line_cmd,
+       "banner motd line LINE...",
+       "Set banner\n"
+       "Banner for motd\n"
+       "Banner from an input\n"
+       "Text\n")
+{
+	int idx = 0;
+	char *motd;
+
+	argv_find(argv, argc, "LINE", &idx);
+	motd = argv_concat(argv, argc, idx);
+
+	cmd_banner_motd_line(motd);
+	XFREE(MTYPE_TMP, motd);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (username_nopassword,
        username_nopassword_cmd,
        "username WORD nopassword",
@@ -203,4 +223,5 @@ void vtysh_user_init(void)
 	userlist = list_new();
 	install_element(CONFIG_NODE, &username_nopassword_cmd);
 	install_element(CONFIG_NODE, &vtysh_banner_motd_file_cmd);
+	install_element(CONFIG_NODE, &vtysh_banner_motd_line_cmd);
 }
