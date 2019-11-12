@@ -332,7 +332,7 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				struct pim_upstream *up = sg_ch->upstream;
 				PIM_IF_FLAG_SET_S_G_RPT(sg_ch->flags);
 				if (up) {
-					if (PIM_DEBUG_TRACE)
+					if (PIM_DEBUG_PIM_TRACE)
 						zlog_debug(
 							"%s: SGRpt flag is set, del inherit oif from up %s",
 							__PRETTY_FUNCTION__,

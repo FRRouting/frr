@@ -619,7 +619,7 @@ static int on_ifjoin_expiry_timer(struct thread *t)
 
 	ch = THREAD_ARG(t);
 
-	if (PIM_DEBUG_TRACE)
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: ifchannel %s expiry timer", __PRETTY_FUNCTION__,
 			   ch->sg_str);
 
@@ -638,7 +638,7 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 
 	ch = THREAD_ARG(t);
 
-	if (PIM_DEBUG_TRACE)
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
 			"%s: IFCHANNEL%s %s Prune Pending Timer Popped",
 			__PRETTY_FUNCTION__, pim_str_sg_dump(&ch->sg),
@@ -947,7 +947,7 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 
 	ch = pim_ifchannel_find(ifp, sg);
 	if (!ch && !(source_flags & PIM_ENCODE_RPT_BIT)) {
-		if (PIM_DEBUG_TRACE)
+		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"%s: Received prune with no relevant ifchannel %s%s state: %d",
 				__PRETTY_FUNCTION__, ifp->name,

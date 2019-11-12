@@ -300,7 +300,7 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 	}
 
 	if (!up->rpf.source_nexthop.interface) {
-		if (PIM_DEBUG_TRACE)
+		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug("%s: up %s RPF is not present",
 				__PRETTY_FUNCTION__, up->sg_str);
 		return 0;
