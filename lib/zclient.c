@@ -2754,6 +2754,24 @@ void zclient_send_mlag_data(struct zclient *client, struct stream *client_s)
 	zclient_send_message(client);
 }
 
+static void zclient_mlag_process_up(ZAPI_CALLBACK_ARGS)
+{
+	if (zclient->mlag_process_up)
+		(*zclient->mlag_process_up)();
+}
+
+static void zclient_mlag_process_down(ZAPI_CALLBACK_ARGS)
+{
+	if (zclient->mlag_process_down)
+		(*zclient->mlag_process_down)();
+}
+
+static void zclient_mlag_handle_msg(ZAPI_CALLBACK_ARGS)
+{
+	if (zclient->mlag_handle_msg)
+		(*zclient->mlag_handle_msg)(zclient->ibuf, length);
+}
+
 /* Zebra client message read function. */
 static int zclient_read(struct thread *thread)
 {
@@ -3047,6 +3065,15 @@ static int zclient_read(struct thread *thread)
 		if (zclient->vxlan_sg_del)
 			(*zclient->vxlan_sg_del)(command, zclient, length,
 						    vrf_id);
+		break;
+	case ZEBRA_MLAG_PROCESS_UP:
+		zclient_mlag_process_up(command, zclient, length, vrf_id);
+		break;
+	case ZEBRA_MLAG_PROCESS_DOWN:
+		zclient_mlag_process_down(command, zclient, length, vrf_id);
+		break;
+	case ZEBRA_MLAG_FORWARD_MSG:
+		zclient_mlag_handle_msg(command, zclient, length, vrf_id);
 		break;
 	default:
 		break;
