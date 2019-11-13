@@ -570,14 +570,6 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 				nexthops_free(old->fib_ng.nexthop);
 				old->fib_ng.nexthop = NULL;
 			}
-
-			if (!RIB_SYSTEM_ROUTE(old)) {
-				/* Clear old route's FIB flags */
-				for (ALL_NEXTHOPS_PTR(old->ng, nexthop)) {
-					UNSET_FLAG(nexthop->flags,
-						   NEXTHOP_FLAG_FIB);
-				}
-			}
 		}
 
 		if (zvrf)
