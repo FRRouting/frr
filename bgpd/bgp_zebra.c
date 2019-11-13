@@ -1072,7 +1072,7 @@ static int update_ipv4nh_for_route_install(int nh_othervrf,
 	 */
 	if (is_evpn) {
 		api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-		api_nh->onlink = true;
+		SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		api_nh->ifindex = nh_bgp->l3vni_svi_ifindex;
 	} else if (nh_othervrf &&
 		 api_nh->gate.ipv4.s_addr == INADDR_ANY) {
@@ -1098,7 +1098,7 @@ update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 
 	if (is_evpn) {
 		api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
-		api_nh->onlink = true;
+		SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		api_nh->ifindex = nh_bgp->l3vni_svi_ifindex;
 	} else if (nh_othervrf) {
 		if (IN6_IS_ADDR_UNSPECIFIED(nexthop)) {
@@ -1347,6 +1347,8 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			has_valid_label = 1;
 			label = label_pton(&mpinfo->extra->label[0]);
 
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
+
 			api_nh->label_num = 1;
 			api_nh->labels[0] = label;
 		}
@@ -1354,11 +1356,6 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 		       sizeof(struct ethaddr));
 		valid_nh_count++;
 	}
-
-
-	/* if this is a evpn route we don't have to include the label */
-	if (has_valid_label && !(CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)))
-		SET_FLAG(api.message, ZAPI_MESSAGE_LABEL);
 
 	/*
 	 * When we create an aggregate route we must also
