@@ -206,7 +206,7 @@ void rcu_thread_unprepare(struct rcu_thread *rt)
 	rcu_bump();
 	if (rt != &rcu_thread_main)
 		/* this free() happens after seqlock_release() below */
-		rcu_free_internal(&_mt_RCU_THREAD, rt, rcu_head);
+		rcu_free_internal(MTYPE_RCU_THREAD, rt, rcu_head);
 
 	rcu_threads_del(&rcu_threads, rt);
 	seqlock_release(&rt->rcu);
@@ -269,7 +269,7 @@ static void rcu_bump(void)
 	 * "last item is being deleted - start over" case, and then we may end
 	 * up accessing old RCU queue items that are already free'd.
 	 */
-	rcu_free_internal(&_mt_RCU_NEXT, rn, head_free);
+	rcu_free_internal(MTYPE_RCU_NEXT, rn, head_free);
 
 	/* Only allow the RCU sweeper to run after these 2 items are queued.
 	 *
