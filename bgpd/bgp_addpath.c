@@ -321,6 +321,7 @@ void bgp_addpath_type_changed(struct bgp *bgp)
 		for (type=0; type<BGP_ADDPATH_MAX; type++) {
 			peer_count[afi][safi][type] = 0;
 		}
+		bgp->tx_addpath.total_peercount[afi][safi] = 0;
 	}
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
@@ -328,6 +329,7 @@ void bgp_addpath_type_changed(struct bgp *bgp)
 			type = peer->addpath_type[afi][safi];
 			if (type != BGP_ADDPATH_NONE) {
 				peer_count[afi][safi][type] += 1;
+				bgp->tx_addpath.total_peercount[afi][safi] += 1;
 			}
 		}
 	}
