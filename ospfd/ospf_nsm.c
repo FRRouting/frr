@@ -723,6 +723,13 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 
 		nbr->dd_flags =
 			OSPF_DD_FLAG_I | OSPF_DD_FLAG_M | OSPF_DD_FLAG_MS;
+		if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
+			zlog_info(
+				"%s: Intializing [DD]: %s with seqnum:%x , flags:%x",
+				(oi->ospf->name) ? oi->ospf->name
+						 : VRF_DEFAULT_NAME,
+				inet_ntoa(nbr->router_id), nbr->dd_seqnum,
+				nbr->dd_flags);
 		ospf_db_desc_send(nbr);
 	}
 
