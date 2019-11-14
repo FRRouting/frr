@@ -165,7 +165,7 @@ enum node_type {
 
 extern vector cmdvec;
 extern const struct message tokennames[];
-extern const char *node_names[];
+extern const char *const node_names[];
 
 /* Node which has some commands and prompt string and configuration
    function pointer . */
@@ -217,7 +217,7 @@ struct cmd_node {
 
 /* helper defines for end-user DEFUN* macros */
 #define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum)     \
-	static struct cmd_element cmdname = {                                  \
+	static const struct cmd_element cmdname = {                            \
 		.string = cmdstr,                                              \
 		.func = funcname,                                              \
 		.doc = helpstr,                                                \
@@ -421,11 +421,11 @@ struct cmd_node {
 /* Prototypes. */
 extern void install_node(struct cmd_node *, int (*)(struct vty *));
 extern void install_default(enum node_type);
-extern void install_element(enum node_type, struct cmd_element *);
+extern void install_element(enum node_type, const struct cmd_element *);
 
 /* known issue with uninstall_element:  changes to cmd_token->attr (i.e.
  * deprecated/hidden) are not reversed. */
-extern void uninstall_element(enum node_type, struct cmd_element *);
+extern void uninstall_element(enum node_type, const struct cmd_element *);
 
 /* Concatenates argv[shift] through argv[argc-1] into a single NUL-terminated
    string with a space between each element (allocated using

@@ -48,7 +48,7 @@ static pthread_rwlock_t nodes_lock;
 static struct qobj_nodes_head nodes = { };
 
 
-void qobj_reg(struct qobj_node *node, struct qobj_nodetype *type)
+void qobj_reg(struct qobj_node *node, const struct qobj_nodetype *type)
 {
 	node->type = type;
 	pthread_rwlock_wrlock(&nodes_lock);
@@ -76,7 +76,7 @@ struct qobj_node *qobj_get(uint64_t id)
 	return rv;
 }
 
-void *qobj_get_typed(uint64_t id, struct qobj_nodetype *type)
+void *qobj_get_typed(uint64_t id, const struct qobj_nodetype *type)
 {
 	struct qobj_node dummy = {.nid = id};
 	struct qobj_node *node;
