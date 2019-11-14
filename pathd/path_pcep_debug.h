@@ -17,22 +17,24 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef __PATH_ERRORS_H__
-#define __PATH_ERRORS_H__
+#ifndef _PATH_PCEP_DEBUG_H_
+#define _PATH_PCEP_DEBUG_H_
 
-#include "lib/ferr.h"
+#include <pcep_pcc_api.h>
+#include <pcep-objects.h>
+#include "pathd/path_pcep.h"
 
-enum path_log_refs {
-        EC_PATH_PCEP_INIT = PATH_FERR_START,
-        EC_PATH_SYSTEM_CALL,
-        EC_PATH_PCEP_PCC_INIT,
-        EC_PATH_PCEP_PCC_FINI,
-        EC_PATH_PCEP_PCC_CONF_UPDATE,
-        EC_PATH_PCEP_LIB_CONNECT
-};
+const char *pcc_status_name(pcc_status_t status);
+const char *pcep_event_type_name(pcep_event_type event_type);
+const char *pcep_message_type_name(enum pcep_types pcep_type);
+const char *pcep_object_class_name(enum pcep_object_class obj_class);
+const char *pcep_object_type_name(enum pcep_object_class obj_class,
+                                  enum pcep_object_types obj_type);
 
-#if 0
-extern void path_error_init(void);
-#endif
+const char *format_pcc_opts(pcc_opts_t *ops);
+const char *format_pcc_state(pcc_state_t *state);
+const char *format_ctrl_state(ctrl_state_t *state);
+const char *format_pcep_event(pcep_event *event);
+const char *format_pcep_message(pcep_message *msg);
 
-#endif
+#endif // _PATH_PCEP_DEBUG_H_

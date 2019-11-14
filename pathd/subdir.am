@@ -32,6 +32,8 @@ noinst_HEADERS += \
 	pathd/path_nb.h \
 	pathd/path_zebra.h \
 	pathd/pathd.h \
+	pathd/path_pcep.h \
+	pathd/path_pcep_debug.h \
 	# end
 
 pathd/path_cli_clippy.c: $(CLIPPY_DEPS)
@@ -43,7 +45,10 @@ nodist_pathd_pathd_SOURCES = \
 	# end
 pathd_pathd_LDADD = pathd/libpath.a lib/libfrr.la $(LIBCAP)
 
-pathd_pathd_pcep_la_SOURCES = pathd/path_pcep.c
+pathd_pathd_pcep_la_SOURCES = \
+	pathd/path_pcep.c \
+	pathd/path_pcep_debug.c \
+	# end
 pathd_pathd_pcep_la_CFLAGS = $(WERROR)
 pathd_pathd_pcep_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 pathd_pathd_pcep_la_LIBADD = @PCEP_LIBS@
