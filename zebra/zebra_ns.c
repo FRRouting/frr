@@ -90,7 +90,7 @@ static int zebra_ns_delete(struct ns *ns)
 		zlog_info("ZNS %s with id %u (deleted)", ns->name, ns->ns_id);
 	if (!zns)
 		return 0;
-	XFREE(MTYPE_ZEBRA_NS, zns);
+	XFREE(MTYPE_ZEBRA_NS, ns->info);
 	return 0;
 }
 
