@@ -7,6 +7,9 @@ Route Maps
 Route maps provide a means to both filter and/or apply actions to route, hence
 allowing policy to be applied to routes.
 
+For a route reflector to apply a ``route-map`` to reflected routes, be sure to
+include ``bgp route-reflector allow-outbound-policy`` in ``router bgp`` mode.
+
 Route maps are an ordered list of route map entries. Each entry may specify up
 to four distinct sets of clauses:
 
