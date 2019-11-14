@@ -3038,6 +3038,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	int connected = 0;
 	int do_loop_check = 1;
 	int has_valid_label = 0;
+	afi_t nh_afi;
 #if ENABLE_BGP_VNC
 	int vnc_implicit_withdraw = 0;
 #endif
@@ -3433,8 +3434,10 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 
 		/* Nexthop reachability check - for unicast and
 		 * labeled-unicast.. */
-		if ((afi == AFI_IP || afi == AFI_IP6)
-		    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST)) {
+		if (((afi == AFI_IP || afi == AFI_IP6)
+		    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
+		    || (safi == SAFI_EVPN &&
+			bgp_evpn_is_prefix_nht_supported(p))) {
 			if (peer->sort == BGP_PEER_EBGP && peer->ttl == 1
 			    && !CHECK_FLAG(peer->flags,
 					   PEER_FLAG_DISABLE_CONNECTED_CHECK)
@@ -3449,8 +3452,10 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 			if (pi->extra && pi->extra->bgp_orig)
 				bgp_nexthop = pi->extra->bgp_orig;
 
-			if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, afi, pi,
-						    NULL, connected)
+			nh_afi = BGP_ATTR_NH_AFI(afi, pi->attr);
+
+			if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, nh_afi,
+						    pi, NULL, connected)
 			    || CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
 				bgp_path_info_set_flag(rn, pi, BGP_PATH_VALID);
 			else {
@@ -3498,7 +3503,8 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		 * updating
 		 * the attributes for the route in the VNI(s).
 		 */
-		if (safi == SAFI_EVPN && !same_attr)
+		if (safi == SAFI_EVPN && !same_attr &&
+		    CHECK_FLAG(pi->flags, BGP_PATH_VALID))
 			bgp_evpn_import_route(bgp, afi, safi, p, pi);
 
 		/* Process change. */
@@ -3571,8 +3577,9 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 				     evpn == NULL ? NULL : &evpn->gw_ip);
 	}
 	/* Nexthop reachability check. */
-	if ((afi == AFI_IP || afi == AFI_IP6)
-	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST)) {
+	if (((afi == AFI_IP || afi == AFI_IP6)
+	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
+	    || (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p))) {
 		if (peer->sort == BGP_PEER_EBGP && peer->ttl == 1
 		    && !CHECK_FLAG(peer->flags,
 				   PEER_FLAG_DISABLE_CONNECTED_CHECK)
@@ -3581,7 +3588,10 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		else
 			connected = 0;
 
-		if (bgp_find_or_add_nexthop(bgp, bgp, afi, new, NULL, connected)
+		nh_afi = BGP_ATTR_NH_AFI(afi, new->attr);
+
+		if (bgp_find_or_add_nexthop(bgp, bgp, nh_afi, new, NULL,
+					    connected)
 		    || CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
 			bgp_path_info_set_flag(rn, new, BGP_PATH_VALID);
 		else {
@@ -3632,7 +3642,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		return -1;
 
 	/* If this is an EVPN route, process for import. */
-	if (safi == SAFI_EVPN)
+	if (safi == SAFI_EVPN && CHECK_FLAG(new->flags, BGP_PATH_VALID))
 		bgp_evpn_import_route(bgp, afi, safi, p, new);
 
 	hook_call(bgp_process, bgp, afi, safi, rn, peer, false);

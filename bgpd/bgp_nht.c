@@ -43,6 +43,7 @@
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_flowspec_util.h"
+#include "bgpd/bgp_evpn.h"
 
 extern struct zclient *zclient;
 
@@ -772,6 +773,16 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED)
 		    || CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
 			SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
+
+		if (safi == SAFI_EVPN &&
+		    bgp_evpn_is_prefix_nht_supported(&rn->p)) {
+			if (CHECK_FLAG(path->flags, BGP_PATH_VALID))
+				bgp_evpn_import_route(bgp_path, afi, safi,
+						      &rn->p, path);
+			else
+				bgp_evpn_unimport_route(bgp_path, afi, safi,
+							&rn->p, path);
+		}
 
 		bgp_process(bgp_path, rn, afi, safi);
 	}

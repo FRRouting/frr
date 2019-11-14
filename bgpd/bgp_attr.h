@@ -69,6 +69,10 @@
 #define BGP_PREFIX_SID_IPV6_LENGTH            19
 #define BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH  6
 
+#define BGP_ATTR_NH_AFI(afi, attr) \
+	((afi != AFI_L2VPN) ? afi : \
+	((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) ? AFI_IP : AFI_IP6))
+
 /* PMSI tunnel types (RFC 6514) */
 
 struct bgp_attr_encap_subtlv {
