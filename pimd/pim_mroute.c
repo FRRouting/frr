@@ -277,8 +277,7 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 			pim_upstream_keep_alive_timer_start(
 				up, pim_ifp->pim->keep_alive_time);
 			pim_upstream_inherited_olist(pim_ifp->pim, up);
-			pim_upstream_switch(pim_ifp->pim, up,
-					    PIM_UPSTREAM_JOINED);
+			pim_upstream_update_join_desired(pim_ifp->pim, up);
 
 			if (PIM_DEBUG_MROUTE)
 				zlog_debug("%s: Creating %s upstream on LHR",

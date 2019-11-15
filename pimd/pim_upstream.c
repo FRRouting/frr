@@ -952,6 +952,36 @@ struct pim_upstream *pim_upstream_add(struct pim_instance *pim,
 /*
  * Passed in up must be the upstream for ch.  starch is NULL if no
  * information
+ * This function is copied over from
+ * pim_upstream_evaluate_join_desired_interface but limited to
+ * parent (*,G)'s includes/joins.
+ */
+int pim_upstream_eval_inherit_if(struct pim_upstream *up,
+						 struct pim_ifchannel *ch,
+						 struct pim_ifchannel *starch)
+{
+	/* if there is an explicit prune for this interface we cannot
+	 * add it to the OIL
+	 */
+	if (ch) {
+		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
+			return 0;
+	}
+
+	/* Check if the OIF can be inherited fron the (*,G) entry
+	 */
+	if (starch) {
+		if (!pim_macro_ch_lost_assert(starch)
+		    && pim_macro_chisin_joins_or_include(starch))
+			return 1;
+	}
+
+	return 0;
+}
+
+/*
+ * Passed in up must be the upstream for ch.  starch is NULL if no
+ * information
  */
 int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
 						 struct pim_ifchannel *ch,
@@ -970,8 +1000,14 @@ int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
 	 * joins (*,G)
 	 */
 	if (starch) {
+		/* XXX: check on this with donald
+		 * we are looking for PIM_IF_FLAG_MASK_S_G_RPT in
+		 * upstream flags?
+		 */
+#if 0
 		if (PIM_IF_FLAG_TEST_S_G_RPT(starch->upstream->flags))
 			return 0;
+#endif
 
 		if (!pim_macro_ch_lost_assert(starch)
 		    && pim_macro_chisin_joins_or_include(starch))
@@ -981,56 +1017,76 @@ int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
 	return 0;
 }
 
-/*
-  Evaluate JoinDesired(S,G):
-
-  JoinDesired(S,G) is true if there is a downstream (S,G) interface I
-  in the set:
-
-  inherited_olist(S,G) =
-  joins(S,G) (+) pim_include(S,G) (-) lost_assert(S,G)
-
-  JoinDesired(S,G) may be affected by changes in the following:
-
-  pim_ifp->primary_address
-  pim_ifp->pim_dr_addr
-  ch->ifassert_winner_metric
-  ch->ifassert_winner
-  ch->local_ifmembership
-  ch->ifjoin_state
-  ch->upstream->rpf.source_nexthop.mrib_metric_preference
-  ch->upstream->rpf.source_nexthop.mrib_route_metric
-  ch->upstream->rpf.source_nexthop.interface
-
-  See also pim_upstream_update_join_desired() below.
+/* Returns true if immediate OIL is empty and is used to evaluate
+ * JoinDesired. See pim_upstream_evaluate_join_desired.
  */
-int pim_upstream_evaluate_join_desired(struct pim_instance *pim,
+static bool pim_upstream_empty_immediate_olist(struct pim_instance *pim,
 				       struct pim_upstream *up)
 {
 	struct interface *ifp;
-	struct pim_ifchannel *ch, *starch;
-	struct pim_upstream *starup = up->parent;
-	int ret = 0;
+	struct pim_ifchannel *ch;
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		if (!ifp->info)
 			continue;
 
 		ch = pim_ifchannel_find(ifp, &up->sg);
-
-		if (starup)
-			starch = pim_ifchannel_find(ifp, &starup->sg);
-		else
-			starch = NULL;
-
-		if (!ch && !starch)
+		if (!ch)
 			continue;
 
-		ret += pim_upstream_evaluate_join_desired_interface(up, ch,
-								    starch);
+		/* If we have even one immediate OIF we can return with
+		 * not-empty
+		 */
+		if (pim_upstream_evaluate_join_desired_interface(up, ch,
+					    NULL /* starch */))
+			return false;
 	} /* scan iface channel list */
 
-	return ret; /* false */
+	/* immediate_oil is empty */
+	return true;
+}
+
+static bool pim_upstream_is_kat_running(struct pim_upstream *up)
+{
+	return (up->t_ka_timer != NULL);
+}
+
+/*
+ *   bool JoinDesired(*,G) {
+ *       if (immediate_olist(*,G) != NULL)
+ *           return TRUE
+ *       else
+ *           return FALSE
+ *   }
+ *
+ *   bool JoinDesired(S,G) {
+ *       return( immediate_olist(S,G) != NULL
+ *           OR ( KeepaliveTimer(S,G) is running
+ *           AND inherited_olist(S,G) != NULL ) )
+ *   }
+ */
+int pim_upstream_evaluate_join_desired(struct pim_instance *pim,
+				       struct pim_upstream *up)
+{
+	bool empty_imm_oil;
+	bool empty_inh_oil;
+
+	empty_imm_oil = pim_upstream_empty_immediate_olist(pim, up);
+
+	/* (*,G) */
+	if (up->sg.src.s_addr == INADDR_ANY)
+		return !empty_imm_oil;
+
+	/* (S,G) */
+	if (!empty_imm_oil)
+		return true;
+	empty_inh_oil = pim_upstream_empty_inherited_olist(up);
+	if (!empty_inh_oil &&
+			(pim_upstream_is_kat_running(up) ||
+			 I_am_RP(pim, up->sg.grp)))
+		return true;
+
+	return false;
 }
 
 /*
@@ -1257,6 +1313,9 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 	/* source is no longer active - pull the SA from MSDP's cache */
 	pim_msdp_sa_local_del(pim, &up->sg);
 
+	/* JoinDesired can change when KAT is started or stopped */
+	pim_upstream_update_join_desired(pim, up);
+
 	/* if entry was created because of activity we need to deref it */
 	if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
 		pim_upstream_fhr_kat_expiry(pim, up);
@@ -1319,6 +1378,8 @@ void pim_upstream_keep_alive_timer_start(struct pim_upstream *up, uint32_t time)
 	/* any time keepalive is started against a SG we will have to
 	 * re-evaluate our active source database */
 	pim_msdp_sa_local_update(up);
+	/* JoinDesired can change when KAT is started or stopped */
+	pim_upstream_update_join_desired(up->pim, up);
 }
 
 /* MSDP on RP needs to know if a source is registerable to this RP */
@@ -1669,9 +1730,9 @@ int pim_upstream_inherited_olist(struct pim_instance *pim,
 	 * switch on a stick so turn on forwarding to just accept the
 	 * incoming packets so we don't bother the other stuff!
 	 */
-	if (output_intf)
-		pim_upstream_switch(pim, up, PIM_UPSTREAM_JOINED);
-	else
+	pim_upstream_update_join_desired(pim, up);
+
+	if (!output_intf)
 		forward_on(up);
 
 	return output_intf;

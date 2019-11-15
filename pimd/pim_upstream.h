@@ -262,6 +262,9 @@ int pim_upstream_evaluate_join_desired(struct pim_instance *pim,
 int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
 						 struct pim_ifchannel *ch,
 						 struct pim_ifchannel *starch);
+int pim_upstream_eval_inherit_if(struct pim_upstream *up,
+						 struct pim_ifchannel *ch,
+						 struct pim_ifchannel *starch);
 void pim_upstream_update_join_desired(struct pim_instance *pim,
 				      struct pim_upstream *up);
 
