@@ -4461,6 +4461,90 @@ DEFUN (show_ip_pim_join_vrf_all,
 	return CMD_WARNING;
 }
 
+static void pim_show_jp_agg_helper(struct vty *vty,
+		struct interface *ifp,
+		struct pim_neighbor *neigh,
+		struct pim_upstream *up,
+		int is_join)
+{
+	char src_str[INET_ADDRSTRLEN];
+	char grp_str[INET_ADDRSTRLEN];
+	char rpf_str[INET_ADDRSTRLEN];
+
+	pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
+	pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
+			/* pius->address.s_addr */
+	pim_inet4_dump("<rpf?>", neigh->source_addr, rpf_str, sizeof(rpf_str));
+
+	vty_out(vty, "%-16s %-15s %-15s %-15s %5s\n",
+			ifp->name, rpf_str, src_str,
+			grp_str, is_join?"J":"P");
+}
+
+static void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	struct listnode *n_node;
+	struct pim_neighbor *neigh;
+	struct listnode *jag_node;
+	struct pim_jp_agg_group *jag;
+	struct listnode *js_node;
+	struct pim_jp_sources *js;
+
+	vty_out(vty,
+			"Interface        RPF Nbr         Source          Group           State\n");
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		pim_ifp = ifp->info;
+		if (!pim_ifp)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list,
+					n_node, neigh)) {
+			for (ALL_LIST_ELEMENTS_RO(neigh->upstream_jp_agg,
+						jag_node, jag)) {
+				for (ALL_LIST_ELEMENTS_RO(jag->sources,
+							js_node, js)) {
+					pim_show_jp_agg_helper(vty,
+							ifp, neigh, js->up,
+							js->is_join);
+				}
+			}
+		}
+	}
+}
+
+DEFPY (show_ip_pim_jp_agg,
+       show_ip_pim_jp_agg_cmd,
+       "show ip pim [vrf NAME] jp-agg",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "join prune aggregation list\n")
+{
+	struct vrf *v;
+	struct pim_instance *pim;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v) {
+		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
+		return CMD_WARNING;
+	}
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_jp_agg_list(pim, vty);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_pim_local_membership,
        show_ip_pim_local_membership_cmd,
        "show ip pim [vrf NAME] local-membership [json]",
@@ -10356,6 +10440,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_interface_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_join_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_join_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_jp_agg_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_local_membership_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_neighbor_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_neighbor_vrf_all_cmd);
