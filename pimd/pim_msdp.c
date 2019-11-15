@@ -126,7 +126,12 @@ static void pim_msdp_sa_upstream_del(struct pim_msdp_sa *sa)
 	if (PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags)) {
 		PIM_UPSTREAM_FLAG_UNSET_SRC_MSDP(up->flags);
 		sa->flags |= PIM_MSDP_SAF_UP_DEL_IN_PROG;
-		pim_upstream_del(sa->pim, up, __PRETTY_FUNCTION__);
+		up = pim_upstream_del(sa->pim, up, __PRETTY_FUNCTION__);
+		/* re-eval joinDesired; clearing peer-msdp-sa flag can
+		 * cause JD to change
+		 */
+		if (up)
+			pim_upstream_update_join_desired(sa->pim, up);
 		sa->flags &= ~PIM_MSDP_SAF_UP_DEL_IN_PROG;
 	}
 

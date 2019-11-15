@@ -933,6 +933,15 @@ void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name)
 		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
 	}
 
+	/* re-eval joinDesired; clearing peer-msdp-sa flag can
+	 * cause JD to change
+	 */
+	if (!PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags) &&
+			PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(flags)) {
+		PIM_UPSTREAM_FLAG_SET_SRC_MSDP(up->flags);
+		pim_upstream_update_join_desired(up->pim, up);
+	}
+
 	up->flags |= flags;
 	++up->ref_count;
 	if (PIM_DEBUG_PIM_TRACE)
@@ -1073,6 +1082,12 @@ static bool pim_upstream_empty_immediate_olist(struct pim_instance *pim,
 	return true;
 }
 
+
+static inline bool pim_upstream_is_msdp_peer_sa(struct pim_upstream *up)
+{
+	return PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags);
+}
+
 /*
  *   bool JoinDesired(*,G) {
  *       if (immediate_olist(*,G) != NULL)
@@ -1105,7 +1120,7 @@ int pim_upstream_evaluate_join_desired(struct pim_instance *pim,
 	empty_inh_oil = pim_upstream_empty_inherited_olist(up);
 	if (!empty_inh_oil &&
 			(pim_upstream_is_kat_running(up) ||
-			 I_am_RP(pim, up->sg.grp)))
+			 pim_upstream_is_msdp_peer_sa(up)))
 		return true;
 
 	return false;
