@@ -207,7 +207,7 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 		up = pim_upstream_find_or_add(
 			&sg, ifp, PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE,
 			__PRETTY_FUNCTION__);
-		pim_mroute_add(up->channel_oil, __PRETTY_FUNCTION__);
+		pim_upstream_mroute_add(up->channel_oil, __PRETTY_FUNCTION__);
 
 		return 0;
 	}
@@ -228,7 +228,6 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
 
 	up->channel_oil->cc.pktcnt++;
-	PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
 	// resolve mfcc_parent prior to mroute_add in channel_add_oif
 	if (up->rpf.source_nexthop.interface &&
 	    up->channel_oil->oil.mfcc_parent >= MAXVIFS) {
@@ -518,7 +517,7 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 
 			pim_upstream_inherited_olist(pim_ifp->pim, up);
 			if (!up->channel_oil->installed)
-				pim_mroute_add(up->channel_oil,
+				pim_upstream_mroute_add(up->channel_oil,
 					       __PRETTY_FUNCTION__);
 		} else {
 			if (I_am_RP(pim_ifp->pim, up->sg.grp)) {
@@ -557,6 +556,8 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 		up->channel_oil->cc.pktcnt++;
 		pim_register_join(up);
 		pim_upstream_inherited_olist(pim_ifp->pim, up);
+		if (!up->channel_oil->installed)
+			pim_upstream_mroute_add(up->channel_oil, __func__);
 
 		// Send the packet to the RP
 		pim_mroute_msg_wholepkt(fd, ifp, buf);
@@ -565,7 +566,8 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 				      PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE,
 				      __PRETTY_FUNCTION__, NULL);
 		if (!up->channel_oil->installed)
-			pim_mroute_add(up->channel_oil, __PRETTY_FUNCTION__);
+			pim_upstream_mroute_add(up->channel_oil,
+					__PRETTY_FUNCTION__);
 	}
 
 	return 0;
@@ -899,7 +901,10 @@ static inline void pim_mroute_copy(struct mfcctl *oil,
 	}
 }
 
-int pim_mroute_add(struct channel_oil *c_oil, const char *name)
+/* This function must not be called directly 0
+ * use pim_upstream_mroute_add or pim_static_mroute_add instead
+ */
+static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 {
 	struct pim_instance *pim = c_oil->pim;
 	struct mfcctl tmp_oil;
@@ -907,18 +912,6 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 
 	pim->mroute_add_last = pim_time_monotonic_sec();
 	++pim->mroute_add_events;
-
-	/* Do not install route if incoming interface is undefined. */
-	if (c_oil->oil.mfcc_parent >= MAXVIFS) {
-		if (PIM_DEBUG_MROUTE) {
-			char buf[1000];
-			zlog_debug(
-				"%s(%s) %s Attempting to add vifi that is invalid to mroute table",
-				__PRETTY_FUNCTION__, name,
-				pim_channel_oil_dump(c_oil, buf, sizeof(buf)));
-		}
-		return -2;
-	}
 
 	/* Copy the oil to a temporary structure to fixup (without need to
 	 * later restore) before sending the mroute add to the dataplane
@@ -974,6 +967,60 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	c_oil->mroute_creation = pim_time_monotonic_sec();
 
 	return 0;
+}
+
+/* In the case of "PIM state machine" added mroutes an upstream entry
+ * must be present to decide on the SPT-forwarding vs. RPT-forwarding.
+ */
+int pim_upstream_mroute_add(struct channel_oil *c_oil, const char *name)
+{
+	vifi_t iif = MAXVIFS;
+	char buf[1000];
+	struct interface *ifp = NULL;
+	struct pim_interface *pim_ifp;
+	struct pim_upstream *up = c_oil->up;
+
+	if (up) {
+		if (PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags)) {
+			if (up->parent)
+				ifp = up->parent->rpf.source_nexthop.interface;
+		} else {
+			ifp = up->rpf.source_nexthop.interface;
+		}
+		if (ifp) {
+			pim_ifp = (struct pim_interface *)ifp->info;
+			if (pim_ifp)
+				iif = pim_ifp->mroute_vif_index;
+		}
+	}
+
+	c_oil->oil.mfcc_parent = iif;
+
+	if (c_oil->oil.mfcc_parent >= MAXVIFS) {
+		/* the c_oil cannot be installed as a mroute yet */
+		if (PIM_DEBUG_MROUTE)
+			zlog_debug(
+					"%s(%s) %s mroute not ready to be installed; %s",
+					__PRETTY_FUNCTION__, name,
+					pim_channel_oil_dump(c_oil, buf,
+						sizeof(buf)),
+					c_oil->installed ?
+					"uninstall" : "skip");
+		/* if already installed flush it out as we are going to stop
+		 * updates to it leaving it in a stale state
+		 */
+		if (c_oil->installed)
+			pim_mroute_del(c_oil, name);
+		/* return success (skipped) */
+		return 0;
+	}
+
+	return pim_mroute_add(c_oil, name);
+}
+
+int pim_static_mroute_add(struct channel_oil *c_oil, const char *name)
+{
+	return pim_mroute_add(c_oil, name);
 }
 
 int pim_mroute_del(struct channel_oil *c_oil, const char *name)

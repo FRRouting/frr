@@ -347,6 +347,8 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 			pim_delete_tracked_nexthop(vxlan_sg->pim,
 				&nht_p, up, NULL, false);
 		}
+		/* We are acting FHR; clear out use_rpt setting if any */
+		pim_upstream_update_use_rpt(up, false /*update_mroute*/);
 		pim_upstream_ref(up, flags, __PRETTY_FUNCTION__);
 		vxlan_sg->up = up;
 		pim_vxlan_orig_mr_up_iif_update(vxlan_sg);
@@ -378,6 +380,8 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 
 	/* update the inherited OIL */
 	pim_upstream_inherited_olist(vxlan_sg->pim, up);
+	if (!up->channel_oil->installed)
+		pim_upstream_mroute_add(up->channel_oil, __func__);
 }
 
 static void pim_vxlan_orig_mr_oif_add(struct pim_vxlan_sg *vxlan_sg)

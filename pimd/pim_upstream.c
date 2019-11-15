@@ -561,6 +561,63 @@ void pim_upstream_register_reevaluate(struct pim_instance *pim)
 	}
 }
 
+/* RFC7761, Section 4.2 “Data Packet Forwarding Rules” says we should
+ * forward a S -
+ * 1. along the SPT if SPTbit is set
+ * 2. and along the RPT if SPTbit is not set
+ * If forwarding is hw accelerated i.e. control and dataplane components
+ * are separate you may not be able to reliably set SPT bit on intermediate
+ * routers while still fowarding on the (S,G,rpt).
+ *
+ * This macro is a slight deviation on the RFC and uses "traffic-agnostic"
+ * criteria to decide between using the RPT vs. SPT for forwarding.
+ */
+void pim_upstream_update_use_rpt(struct pim_upstream *up,
+			bool update_mroute)
+{
+	bool old_use_rpt;
+	bool new_use_rpt;
+
+	if (up->sg.src.s_addr == INADDR_ANY)
+		return;
+
+	old_use_rpt = !!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
+
+	/* We will use the SPT (IIF=RPF_interface(S) if -
+	 * 1. We have decided to join the SPT
+	 * 2. We are FHR
+	 * 3. Source is directly connected
+	 * 4. We are RP (parent's IIF is lo or vrf-device)
+	 * In all other cases the source will stay along the RPT and
+	 * IIF=RPF_interface(RP).
+	 */
+	if (up->join_state == PIM_UPSTREAM_JOINED ||
+			PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) ||
+			pim_if_connected_to_source(
+				up->rpf.source_nexthop.interface,
+				up->sg.src) ||
+			/* XXX - need to switch this to a more efficient
+			 * lookup API
+			 */
+			I_am_RP(up->pim, up->sg.grp))
+		/* use SPT */
+		PIM_UPSTREAM_FLAG_UNSET_USE_RPT(up->flags);
+	else
+		/* use RPT */
+		PIM_UPSTREAM_FLAG_SET_USE_RPT(up->flags);
+
+	new_use_rpt = !!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
+	if (old_use_rpt != new_use_rpt) {
+		if (PIM_DEBUG_PIM_EVENTS)
+			zlog_debug("%s switched from %s to %s",
+					up->sg_str,
+					old_use_rpt?"RPT":"SPT",
+					new_use_rpt?"RPT":"SPT");
+		if (update_mroute)
+			pim_upstream_mroute_add(up->channel_oil, __func__);
+	}
+}
+
 void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 			 enum pim_upstream_state new_state)
 {
@@ -642,6 +699,9 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 							0 /* prune */);
 		join_timer_stop(up);
 	}
+
+	if (old_state != new_state)
+		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
 }
 
 int pim_upstream_compare(void *arg1, void *arg2)
@@ -693,6 +753,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 
 	up = XCALLOC(MTYPE_PIM_UPSTREAM, sizeof(*up));
 
+	up->pim = pim;
 	up->sg = *sg;
 	pim_str_sg_set(sg, up->sg_str);
 	if (ch)
@@ -776,6 +837,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 					pim_ifp->mroute_vif_index,
 					__PRETTY_FUNCTION__);
 		}
+		pim_upstream_update_use_rpt(up,
+				false /*update_mroute*/);
 	}
 
 	listnode_add_sort(pim->upstream_list, up);
@@ -802,35 +865,26 @@ struct pim_upstream *pim_upstream_find(struct pim_instance *pim,
 }
 
 struct pim_upstream *pim_upstream_find_or_add(struct prefix_sg *sg,
-					      struct interface *incoming,
-					      int flags, const char *name)
+		struct interface *incoming,
+		int flags, const char *name)
 {
-	struct pim_upstream *up;
-	struct pim_interface *pim_ifp;
+	struct pim_interface *pim_ifp = incoming->info;
 
-	pim_ifp = incoming->info;
-
-	up = pim_upstream_find(pim_ifp->pim, sg);
-
-	if (up) {
-		if (!(up->flags & flags)) {
-			up->flags |= flags;
-			up->ref_count++;
-			if (PIM_DEBUG_PIM_TRACE)
-				zlog_debug(
-					"%s(%s): upstream %s ref count %d increment",
-					__PRETTY_FUNCTION__, name, up->sg_str,
-					up->ref_count);
-		}
-	} else
-		up = pim_upstream_add(pim_ifp->pim, sg, incoming, flags, name,
-				      NULL);
-
-	return up;
+	return (pim_upstream_add(pim_ifp->pim, sg, incoming, flags, name,
+				NULL));
 }
 
 void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name)
 {
+	/* when we go from non-FHR to FHR we need to re-eval traffic
+	 * forwarding path
+	 */
+	if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) &&
+			PIM_UPSTREAM_FLAG_TEST_FHR(flags)) {
+		PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
+	}
+
 	up->flags |= flags;
 	++up->ref_count;
 	if (PIM_DEBUG_PIM_TRACE)
@@ -1146,6 +1200,7 @@ static void pim_upstream_fhr_kat_start(struct pim_upstream *up)
 		PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
 		if (up->reg_state == PIM_REG_NOINFO)
 			pim_register_join(up);
+		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
 	}
 }
 

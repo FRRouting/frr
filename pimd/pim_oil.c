@@ -178,10 +178,10 @@ void pim_channel_oil_change_iif(struct pim_instance *pim,
 		if (input_vif_index == MAXVIFS)
 			pim_mroute_del(c_oil, name);
 		else
-			pim_mroute_add(c_oil, name);
+			pim_upstream_mroute_add(c_oil, name);
 	} else
 		if (old_vif_index == MAXVIFS)
-			pim_mroute_add(c_oil, name);
+			pim_upstream_mroute_add(c_oil, name);
 
 	return;
 }
@@ -368,7 +368,7 @@ int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
 	/* clear mute; will be re-evaluated when the OIF becomes valid again */
 	channel_oil->oif_flags[pim_ifp->mroute_vif_index] &= ~PIM_OIF_FLAG_MUTE;
 
-	if (pim_mroute_add(channel_oil, __PRETTY_FUNCTION__)) {
+	if (pim_upstream_mroute_add(channel_oil, __PRETTY_FUNCTION__)) {
 		if (PIM_DEBUG_MROUTE) {
 			char group_str[INET_ADDRSTRLEN];
 			char source_str[INET_ADDRSTRLEN];
@@ -475,7 +475,7 @@ void pim_channel_update_oif_mute(struct channel_oil *c_oil,
 		c_oil->oif_flags[pim_ifp->mroute_vif_index] &=
 			~PIM_OIF_FLAG_MUTE;
 
-	pim_mroute_add(c_oil, __PRETTY_FUNCTION__);
+	pim_upstream_mroute_add(c_oil, __PRETTY_FUNCTION__);
 }
 
 /* pim_upstream has been set or cleared on the c_oil. re-eval mute state
@@ -654,7 +654,7 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	 * valid to get installed in kernel.
 	 */
 	if (channel_oil->oil.mfcc_parent != MAXVIFS) {
-		if (pim_mroute_add(channel_oil, __PRETTY_FUNCTION__)) {
+		if (pim_upstream_mroute_add(channel_oil, __PRETTY_FUNCTION__)) {
 			if (PIM_DEBUG_MROUTE) {
 				char group_str[INET_ADDRSTRLEN];
 				char source_str[INET_ADDRSTRLEN];

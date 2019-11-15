@@ -80,6 +80,12 @@
  * associated with an upstream
  */
 #define PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE             (1 << 19)
+/* By default as SG entry will use the SPT for forwarding traffic
+ * unless it was setup as a result of a Prune(S,G,rpt) from a
+ * downstream router and has JoinDesired(S,G) as False.
+ * This flag is only relevant for (S,G) entries.
+ */
+#define PIM_UPSTREAM_FLAG_MASK_USE_RPT                 (1 << 20)
 
 #define PIM_UPSTREAM_FLAG_ALL 0xFFFFFFFF
 
@@ -103,6 +109,7 @@
 #define PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN)
 #define PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF)
 #define PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(flags) ((flags) &PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE)
+#define PIM_UPSTREAM_FLAG_TEST_USE_RPT(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_USE_RPT)
 
 #define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED_UPDATED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
@@ -122,6 +129,7 @@
 #define PIM_UPSTREAM_FLAG_SET_SRC_VXLAN_TERM(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM)
 #define PIM_UPSTREAM_FLAG_SET_MLAG_VXLAN(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN)
 #define PIM_UPSTREAM_FLAG_SET_MLAG_NON_DF(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF)
+#define PIM_UPSTREAM_FLAG_SET_USE_RPT(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_USE_RPT)
 
 #define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED_UPDATED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
@@ -142,6 +150,7 @@
 #define PIM_UPSTREAM_FLAG_UNSET_MLAG_VXLAN(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN)
 #define PIM_UPSTREAM_FLAG_UNSET_MLAG_NON_DF(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF)
 #define PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE)
+#define PIM_UPSTREAM_FLAG_UNSET_USE_RPT(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_USE_RPT)
 
 enum pim_upstream_state {
 	PIM_UPSTREAM_NOTJOINED,
@@ -188,6 +197,7 @@ enum pim_upstream_sptbit {
 
 */
 struct pim_upstream {
+	struct pim_instance *pim;
 	struct pim_upstream *parent;
 	struct in_addr upstream_addr;     /* Who we are talking to */
 	struct in_addr upstream_register; /*Who we received a register from*/
@@ -324,4 +334,6 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 		struct pim_upstream *up);
 void pim_upstream_fill_static_iif(struct pim_upstream *up,
 				struct interface *incoming);
+void pim_upstream_update_use_rpt(struct pim_upstream *up,
+		bool update_mroute);
 #endif /* PIM_UPSTREAM_H */

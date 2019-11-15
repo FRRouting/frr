@@ -289,7 +289,7 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 			 * so install it.
 			 */
 			if (!up->channel_oil->installed)
-				pim_mroute_add(up->channel_oil,
+				pim_upstream_mroute_add(up->channel_oil,
 					__PRETTY_FUNCTION__);
 
 			/*
@@ -325,7 +325,8 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 		}
 
 		if (!up->channel_oil->installed)
-			pim_mroute_add(up->channel_oil, __PRETTY_FUNCTION__);
+			pim_upstream_mroute_add(up->channel_oil,
+					__PRETTY_FUNCTION__);
 	}
 
 	/* FIXME can join_desired actually be changed by pim_rpf_update()
@@ -440,7 +441,7 @@ void pim_scan_individual_oil(struct channel_oil *c_oil, int in_vif_index)
 
 	if (input_iface_vif_index == c_oil->oil.mfcc_parent) {
 		if (!c_oil->installed)
-			pim_mroute_add(c_oil, __PRETTY_FUNCTION__);
+			pim_upstream_mroute_add(c_oil, __PRETTY_FUNCTION__);
 
 		/* RPF unchanged */
 		return;
@@ -490,7 +491,7 @@ void pim_scan_individual_oil(struct channel_oil *c_oil, int in_vif_index)
 	/* update iif vif_index */
 	pim_channel_oil_change_iif(c_oil->pim, c_oil, input_iface_vif_index,
 				   __PRETTY_FUNCTION__);
-	pim_mroute_add(c_oil, __PRETTY_FUNCTION__);
+	pim_upstream_mroute_add(c_oil, __PRETTY_FUNCTION__);
 }
 
 void pim_scan_oil(struct pim_instance *pim)
@@ -1008,7 +1009,7 @@ void pim_forward_stop(struct pim_ifchannel *ch, bool install_it)
 				    PIM_OIF_FLAG_PROTO_PIM, __func__);
 
 	if (install_it && !up->channel_oil->installed)
-		pim_mroute_add(up->channel_oil, __PRETTY_FUNCTION__);
+		pim_upstream_mroute_add(up->channel_oil, __PRETTY_FUNCTION__);
 }
 
 void pim_zebra_zclient_update(struct vty *vty)
