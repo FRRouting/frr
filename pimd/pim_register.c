@@ -232,7 +232,7 @@ void pim_null_register_send(struct pim_upstream *up)
 
 	pim_ifp = up->rpf.source_nexthop.interface->info;
 	if (!pim_ifp) {
-		if (PIM_DEBUG_TRACE)
+		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"%s: Cannot send null-register for %s no valid iif",
 				__PRETTY_FUNCTION__, up->sg_str);
@@ -241,7 +241,7 @@ void pim_null_register_send(struct pim_upstream *up)
 
 	rpg = RP(pim_ifp->pim, up->sg.grp);
 	if (!rpg) {
-		if (PIM_DEBUG_TRACE)
+		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"%s: Cannot send null-register for %s no RPF to the RP",
 				__PRETTY_FUNCTION__, up->sg_str);
@@ -260,7 +260,7 @@ void pim_null_register_send(struct pim_upstream *up)
 	src = pim_ifp->primary_address;
 	if (PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(up->flags)) {
 		if (!pim_vxlan_get_register_src(pim_ifp->pim, up, &src)) {
-			if (PIM_DEBUG_TRACE)
+			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug(
 					"%s: Cannot send null-register for %s vxlan-aa PIP unavailable",
 					__PRETTY_FUNCTION__, up->sg_str);

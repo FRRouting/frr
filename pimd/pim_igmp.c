@@ -312,6 +312,13 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 		return 0;
 	}
 
+	if (if_lookup_address(&from, AF_INET, ifp->vrf_id)) {
+		if (PIM_DEBUG_IGMP_PACKETS)
+			zlog_debug("Recv IGMP query on interface: %s from ourself %s",
+				   ifp->name, from_str);
+		return 0;
+	}
+
 	/* Collecting IGMP Rx stats */
 	switch (query_version) {
 	case 1:
@@ -471,21 +478,14 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 
 	ip_hlen = ip_hdr->ip_hl << 2; /* ip_hl gives length in 4-byte words */
 
-	if (PIM_DEBUG_IGMP_PACKETS) {
-		zlog_debug(
-			"Recv IP packet from %s to %s on %s: size=%zu ip_header_size=%zu ip_proto=%d",
-			from_str, to_str, igmp->interface->name, len, ip_hlen,
-			ip_hdr->ip_p);
-	}
-
 	igmp_msg = buf + ip_hlen;
 	msg_type = *igmp_msg;
 	igmp_msg_len = len - ip_hlen;
 
 	if (PIM_DEBUG_IGMP_PACKETS) {
 		zlog_debug(
-			"Recv IGMP packet from %s to %s on %s: ttl=%d msg_type=%d msg_size=%d",
-			from_str, to_str, igmp->interface->name, ip_hdr->ip_ttl,
+			"Recv IGMP packet from %s to %s on %s: size=%zu ttl=%d msg_type=%d msg_size=%d",
+			from_str, to_str, igmp->interface->name, len, ip_hdr->ip_ttl,
 			msg_type, igmp_msg_len);
 	}
 

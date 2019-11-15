@@ -1927,7 +1927,7 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 
 		if (PIM_DEBUG_IGMP_PACKETS) {
 			zlog_debug(
-				"Recv IGMP report v3 from %s on %s: record=%d type=%d auxdatalen=%d sources=%d group=%s",
+				"    Recv IGMP report v3 from %s on %s: record=%d type=%d auxdatalen=%d sources=%d group=%s",
 				from_str, ifp->name, i, rec_type,
 				rec_auxdatalen, rec_num_sources,
 				inet_ntoa(rec_group));
@@ -1954,7 +1954,7 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 					sprintf(src_str, "<source?>");
 
 				zlog_debug(
-					"Recv IGMP report v3 from %s on %s: record=%d group=%s source=%s",
+					"        Recv IGMP report v3 from %s on %s: record=%d group=%s source=%s",
 					from_str, ifp->name, i,
 					inet_ntoa(rec_group), src_str);
 			}

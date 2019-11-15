@@ -131,7 +131,7 @@ void pim_rp_init(struct pim_instance *pim)
 
 	rn = route_node_get(pim->rp_table, &rp_info->group);
 	rn->info = rp_info;
-	if (PIM_DEBUG_TRACE)
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
 			"Allocated: %p for rp_info: %p(224.0.0.0/4) Lock: %d",
 			rn, rp_info, rn->lock);
@@ -245,7 +245,7 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	}
 
 	rp_info = rn->info;
-	if (PIM_DEBUG_TRACE) {
+	if (PIM_DEBUG_PIM_TRACE) {
 		char buf[PREFIX_STRLEN];
 
 		route_unlock_node(rn);
@@ -348,7 +348,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 	pim_rp_set_upstream_addr(pim, &new_upstream_addr, up->sg.src,
 				 up->sg.grp);
 
-	if (PIM_DEBUG_TRACE)
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: pim upstream update for  old upstream %s",
 			   __PRETTY_FUNCTION__,
 			   inet_ntoa(old_upstream_addr));
@@ -366,7 +366,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 		nht_p.family = AF_INET;
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = old_upstream_addr;
-		if (PIM_DEBUG_TRACE) {
+		if (PIM_DEBUG_PIM_TRACE) {
 			char buf[PREFIX2STR_BUFFER];
 
 			prefix2str(&nht_p, buf, sizeof(buf));
@@ -646,7 +646,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	rn = route_node_get(pim->rp_table, &rp_info->group);
 	rn->info = rp_info;
 
-	if (PIM_DEBUG_TRACE) {
+	if (PIM_DEBUG_PIM_TRACE) {
 		char buf[PREFIX_STRLEN];
 
 		zlog_debug("Allocated: %p for rp_info: %p(%s) Lock: %d", rn,
@@ -751,7 +751,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 		was_plist = true;
 	}
 
-	if (PIM_DEBUG_TRACE)
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: Delete RP %s for the group %s",
 			   __PRETTY_FUNCTION__, rp_str, grp_str);
 
@@ -765,7 +765,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 		if (bsgrp) {
 			bsrp = listnode_head(bsgrp->bsrp_list);
 			if (bsrp) {
-				if (PIM_DEBUG_TRACE) {
+				if (PIM_DEBUG_PIM_TRACE) {
 					char bsrp_str[INET_ADDRSTRLEN];
 
 					if (!inet_ntop(AF_INET, bsrp, bsrp_str,
@@ -780,7 +780,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 						     group, RP_SRC_BSR);
 			}
 		} else {
-			if (PIM_DEBUG_TRACE)
+			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug(
 					"%s: BSM RP not found for the group %s",
 					__PRETTY_FUNCTION__, grp_str);
@@ -839,7 +839,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 					EC_LIB_DEVELOPMENT,
 					"Expected rn->info to be equal to rp_info");
 
-			if (PIM_DEBUG_TRACE) {
+			if (PIM_DEBUG_PIM_TRACE) {
 				char buf[PREFIX_STRLEN];
 
 				zlog_debug(
