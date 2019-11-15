@@ -757,7 +757,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     bfd_nbr = "neighbor %s" % nbr
 
                     for (ctx_keys, add_line) in lines_to_add:
-                        re_add_nbr_bfd_timers = re.search(r'neighbor (\S+) bfd (\S+) (\S+) (\S+)', add_line)
+                        re_add_nbr_bfd_timers = re.search(r'neighbor bfd_nbr bfd (\S+) (\S+) (\S+)', add_line)
 
                         if re_add_nbr_bfd_timers:
                             found_add_bfd_nbr = line_exist(lines_to_add, ctx_keys, bfd_nbr, False)
