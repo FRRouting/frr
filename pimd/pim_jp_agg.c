@@ -323,7 +323,8 @@ void pim_jp_agg_switch_interface(struct pim_rpf *orpf, struct pim_rpf *nrpf,
 		pim_jp_agg_add_group(opius->us, up, false);
 
 	/* send Join(S,G) to the current upstream neighbor */
-	pim_jp_agg_add_group(npius->us, up, true);
+	if (npius)
+		pim_jp_agg_add_group(npius->us, up, true);
 }
 
 

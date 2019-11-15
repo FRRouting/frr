@@ -447,15 +447,16 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 
 	old.source_nexthop.interface = up->rpf.source_nexthop.interface;
 	rpf_result = pim_rpf_update(pim, up, &old, __func__);
-	if (rpf_result == PIM_RPF_FAILURE) {
-		pim_upstream_rpf_clear(pim, up);
-		return HASHWALK_CONTINUE;
-	}
 
-	/* update kernel multicast forwarding cache (MFC) */
-	pim_upstream_mroute_iif_update(up->channel_oil, __func__);
+	/* update kernel multicast forwarding cache (MFC); if the
+	 * RPF nbr is now unreachable the MFC has already been updated
+	 * by pim_rpf_clear
+	 */
+	if (rpf_result != PIM_RPF_FAILURE)
+		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
-	if (rpf_result == PIM_RPF_CHANGED)
+	if (rpf_result == PIM_RPF_CHANGED ||
+		(rpf_result == PIM_RPF_FAILURE && old.source_nexthop.interface))
 		pim_zebra_upstream_rpf_changed(pim, up, &old);
 
 
@@ -464,7 +465,8 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 			__PRETTY_FUNCTION__, up->sg_str, pim->vrf->name,
 			old.source_nexthop.interface
 			? old.source_nexthop.interface->name : "Unknown",
-			up->rpf.source_nexthop.interface->name);
+			up->rpf.source_nexthop.interface
+			? up->rpf.source_nexthop.interface->name : "Unknown");
 	}
 
 	return HASHWALK_CONTINUE;

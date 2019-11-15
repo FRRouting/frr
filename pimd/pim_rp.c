@@ -390,7 +390,9 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 	if (up->rpf.source_nexthop.interface && up->channel_oil)
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
-	if (rpf_result == PIM_RPF_CHANGED)
+	if (rpf_result == PIM_RPF_CHANGED ||
+			(rpf_result == PIM_RPF_FAILURE &&
+			 old_rpf.source_nexthop.interface))
 		pim_zebra_upstream_rpf_changed(pim, up, &old_rpf);
 
 	pim_zebra_update_all_interfaces(pim);
