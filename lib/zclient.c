@@ -1500,6 +1500,7 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 
 	znh->type = nh->type;
 	znh->vrf_id = nh->vrf_id;
+	znh->weight = nh->weight;
 	znh->ifindex = nh->ifindex;
 	znh->gate = nh->gate;
 
