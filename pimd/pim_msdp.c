@@ -445,10 +445,9 @@ static bool pim_msdp_sa_local_add_ok(struct pim_upstream *up)
 		return false;
 	}
 
-	if (!up->t_ka_timer) {
+	if (!pim_upstream_is_kat_running(up))
 		/* stream is not active */
 		return false;
-	}
 
 	if (!I_am_RP(pim, up->sg.grp)) {
 		/* we are not RP for the group */

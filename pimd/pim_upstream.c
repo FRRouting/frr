@@ -536,7 +536,8 @@ void pim_upstream_register_reevaluate(struct pim_instance *pim)
 		 * is actually active; if it is not kat setup will trigger
 		 * source
 		 * registration whenever the flow becomes active. */
-		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) || !up->t_ka_timer)
+		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) ||
+			!pim_upstream_is_kat_running(up))
 			continue;
 
 		if (pim_is_grp_ssm(pim, up->sg.grp)) {
@@ -1044,11 +1045,6 @@ static bool pim_upstream_empty_immediate_olist(struct pim_instance *pim,
 
 	/* immediate_oil is empty */
 	return true;
-}
-
-static bool pim_upstream_is_kat_running(struct pim_upstream *up)
-{
-	return (up->t_ka_timer != NULL);
 }
 
 /*
