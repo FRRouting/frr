@@ -1990,7 +1990,7 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty,
 			"Codes: J -> Pim Join, I -> IGMP Report, S -> Source, * -> Inherited from (*,G), V -> VxLAN, M -> Muted");
 		vty_out(vty,
-			"\nInstalled Source           Group            IIF               OIL\n");
+			"\nActive Source           Group            RPT  IIF               OIL\n");
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
@@ -2000,7 +2000,15 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 		char out_ifname[INTERFACE_NAMSIZ + 1];
 		int oif_vif_index;
 		struct interface *ifp_in;
+		bool isRpt;
 		first_oif = 1;
+
+		if ((c_oil->up &&
+			PIM_UPSTREAM_FLAG_TEST_USE_RPT(c_oil->up->flags)) ||
+			c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
+			isRpt = true;
+		else
+			isRpt = false;
 
 		pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, grp_str,
 			       sizeof(grp_str));
@@ -2055,6 +2063,12 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						       json_ifp_in);
 				json_object_int_add(json_source, "Installed",
 						    c_oil->installed);
+				if (isRpt)
+					json_object_boolean_true_add(
+							json_source, "isRpt");
+				else
+					json_object_boolean_false_add(
+							json_source, "isRpt");
 				json_object_int_add(json_source, "RefCount",
 						    c_oil->oil_ref_count);
 				json_object_int_add(json_source, "OilListSize",
@@ -2073,8 +2087,9 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						    c_oil->cc.wrong_if);
 			}
 		} else {
-			vty_out(vty, "%-9d %-15s  %-15s  %-16s  ",
-				c_oil->installed, src_str, grp_str, in_ifname);
+			vty_out(vty, "%-6d %-15s  %-15s  %-3s  %-16s  ",
+					c_oil->installed, src_str, grp_str,
+					isRpt? "y" : "n", in_ifname);
 		}
 
 		for (oif_vif_index = 0; oif_vif_index < MAXVIFS;
