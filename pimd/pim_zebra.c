@@ -324,6 +324,9 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 			up->channel_oil->oil_inherited_rescan = 0;
 		}
 
+		if (up->join_state == PIM_UPSTREAM_JOINED)
+			pim_jp_agg_switch_interface(old, &up->rpf, up);
+
 		if (!up->channel_oil->installed)
 			pim_upstream_mroute_add(up->channel_oil,
 					__PRETTY_FUNCTION__);

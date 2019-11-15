@@ -117,9 +117,15 @@ void pim_jp_agg_clear_group(struct list *group)
 static struct pim_iface_upstream_switch *
 pim_jp_agg_get_interface_upstream_switch_list(struct pim_rpf *rpf)
 {
-	struct pim_interface *pim_ifp = rpf->source_nexthop.interface->info;
+	struct interface *ifp = rpf->source_nexthop.interface;
+	struct pim_interface *pim_ifp;
 	struct pim_iface_upstream_switch *pius;
 	struct listnode *node, *nnode;
+
+	if (!ifp)
+		return NULL;
+
+	pim_ifp = ifp->info;
 
 	/* Old interface is pim disabled */
 	if (!pim_ifp)
