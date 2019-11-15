@@ -1750,6 +1750,8 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 	struct listnode *up_node;
 	struct listnode *up_nextnode;
 	struct pim_upstream *up;
+	struct pim_rpf old;
+	enum pim_rpf_result rpf_result;
 
 	/*
 	 * Scan all (S,G) upstreams searching for RPF'(S,G)=neigh_addr
@@ -1768,9 +1770,15 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 				zlog_debug(
 					"%s: Upstream %s without a path to send join, checking",
 					__PRETTY_FUNCTION__, up->sg_str);
-			pim_rpf_update(pim, up, NULL, __func__);
+			old.source_nexthop.interface = up->rpf.source_nexthop.interface;
+			rpf_result = pim_rpf_update(pim, up, &old, __func__);
+			if (rpf_result == PIM_RPF_CHANGED)
+				pim_zebra_upstream_rpf_changed(pim, up, &old);
+			/* update kernel multicast forwarding cache (MFC) */
+			pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 		}
 	}
+	pim_zebra_update_all_interfaces(pim);
 }
 
 unsigned int pim_upstream_hash_key(const void *arg)
