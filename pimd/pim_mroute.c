@@ -1015,12 +1015,39 @@ static int pim_upstream_mroute_update(struct channel_oil *c_oil,
 	return pim_mroute_add(c_oil, name);
 }
 
+/* IIF associated with SGrpt entries are re-evaluated when the parent
+ * (*,G) entries IIF changes
+ */
+static void pim_upstream_all_sources_iif_update(struct pim_upstream *up)
+{
+	struct listnode *listnode;
+	struct pim_upstream *child;
+
+	for (ALL_LIST_ELEMENTS_RO(up->sources, listnode,
+				child)) {
+		if (PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags))
+			pim_upstream_mroute_iif_update(child->channel_oil,
+					__func__);
+	}
+}
+
 /* In the case of "PIM state machine" added mroutes an upstream entry
  * must be present to decide on the SPT-forwarding vs. RPT-forwarding.
  */
 int pim_upstream_mroute_add(struct channel_oil *c_oil, const char *name)
 {
-	c_oil->oil.mfcc_parent = pim_upstream_get_mroute_iif(c_oil, name);
+	vifi_t iif;
+
+	iif = pim_upstream_get_mroute_iif(c_oil, name);
+
+	if (c_oil->oil.mfcc_parent != iif) {
+		c_oil->oil.mfcc_parent = iif;
+		if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY &&
+				c_oil->up)
+			pim_upstream_all_sources_iif_update(c_oil->up);
+	} else {
+		c_oil->oil.mfcc_parent = iif;
+	}
 
 	return pim_upstream_mroute_update(c_oil, name);
 }
@@ -1039,6 +1066,10 @@ int pim_upstream_mroute_iif_update(struct channel_oil *c_oil, const char *name)
 		return 0;
 	}
 	c_oil->oil.mfcc_parent = iif;
+
+	if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY &&
+			c_oil->up)
+		pim_upstream_all_sources_iif_update(c_oil->up);
 
 	if (PIM_DEBUG_MROUTE_DETAIL)
 		zlog_debug("%s(%s) %s mroute iif update %d",
