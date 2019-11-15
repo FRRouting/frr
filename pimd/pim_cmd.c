@@ -5405,6 +5405,11 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 					& PIM_OIF_FLAG_MUTE)
 				continue;
 
+			if (c_oil->oil.mfcc_parent == oif_vif_index &&
+					!pim_mroute_allow_iif_in_oil(c_oil,
+						oif_vif_index))
+				continue;
+
 			ifp_out = pim_if_find_by_vif_index(pim, oif_vif_index);
 			pim_time_uptime(
 				mroute_uptime, sizeof(mroute_uptime),

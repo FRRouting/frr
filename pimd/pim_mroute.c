@@ -878,6 +878,46 @@ int pim_mroute_del_vif(struct interface *ifp)
 	return 0;
 }
 
+/*
+ * Prevent creating MFC entry with OIF=IIF.
+ *
+ * This is a protection against implementation mistakes.
+ *
+ * PIM protocol implicitely ensures loopfree multicast topology.
+ *
+ * IGMP must be protected against adding looped MFC entries created
+ * by both source and receiver attached to the same interface. See
+ * TODO T22.
+ * We shall allow igmp to create upstream when it is DR for the intf.
+ * Assume RP reachable via non DR.
+ */
+bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
+		int oif_index)
+{
+#ifdef PIM_ENFORCE_LOOPFREE_MFC
+	struct interface *ifp_out;
+	struct pim_interface *pim_ifp;
+
+	if (c_oil->up &&
+		PIM_UPSTREAM_FLAG_TEST_ALLOW_IIF_IN_OIL(c_oil->up->flags))
+		return true;
+
+	ifp_out = pim_if_find_by_vif_index(c_oil->pim, oif_index);
+	if (!ifp_out)
+		return false;
+	pim_ifp = ifp_out->info;
+	if (!pim_ifp)
+		return false;
+	if ((c_oil->oif_flags[oif_index] & PIM_OIF_FLAG_PROTO_IGMP) &&
+			PIM_I_am_DR(pim_ifp))
+		return true;
+
+	return false;
+#else
+	return true;
+#endif
+}
+
 static inline void pim_mroute_copy(struct mfcctl *oil,
 		struct channel_oil *c_oil)
 {
@@ -888,6 +928,12 @@ static inline void pim_mroute_copy(struct mfcctl *oil,
 	oil->mfcc_parent = c_oil->oil.mfcc_parent;
 
 	for (i = 0; i < MAXVIFS; ++i) {
+		if ((oil->mfcc_parent == i) &&
+				!pim_mroute_allow_iif_in_oil(c_oil, i)) {
+			oil->mfcc_ttls[i] = 0;
+			continue;
+		}
+
 		if (c_oil->oif_flags[i] & PIM_OIF_FLAG_MUTE)
 			oil->mfcc_ttls[i] = 0;
 		else

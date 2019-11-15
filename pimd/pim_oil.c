@@ -460,7 +460,6 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 {
 	struct pim_interface *pim_ifp;
 	int old_ttl;
-	bool allow_iif_in_oil = false;
 
 	/*
 	 * If we've gotten here we've gone bad, but let's
@@ -472,48 +471,6 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	}
 
 	pim_ifp = oif->info;
-
-#ifdef PIM_ENFORCE_LOOPFREE_MFC
-	/*
-	  Prevent creating MFC entry with OIF=IIF.
-
-	  This is a protection against implementation mistakes.
-
-	  PIM protocol implicitely ensures loopfree multicast topology.
-
-	  IGMP must be protected against adding looped MFC entries created
-	  by both source and receiver attached to the same interface. See
-	  TODO T22.
-	  We shall allow igmp to create upstream when it is DR for the intf.
-	  Assume RP reachable via non DR.
-	*/
-	if ((channel_oil->up &&
-	    PIM_UPSTREAM_FLAG_TEST_ALLOW_IIF_IN_OIL(channel_oil->up->flags)) ||
-	    ((proto_mask == PIM_OIF_FLAG_PROTO_IGMP) && PIM_I_am_DR(pim_ifp))) {
-		allow_iif_in_oil = true;
-	}
-
-	if (!allow_iif_in_oil &&
-		pim_ifp->mroute_vif_index == channel_oil->oil.mfcc_parent) {
-		channel_oil->oil_inherited_rescan = 1;
-		if (PIM_DEBUG_MROUTE) {
-			char group_str[INET_ADDRSTRLEN];
-			char source_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<group?>",
-				       channel_oil->oil.mfcc_mcastgrp,
-				       group_str, sizeof(group_str));
-			pim_inet4_dump("<source?>",
-				       channel_oil->oil.mfcc_origin, source_str,
-				       sizeof(source_str));
-			zlog_debug(
-				"%s %s: refusing protocol mask %u request for IIF=OIF=%s (vif_index=%d) for channel (S,G)=(%s,%s)",
-				__FILE__, __PRETTY_FUNCTION__, proto_mask,
-				oif->name, pim_ifp->mroute_vif_index,
-				source_str, group_str);
-		}
-		return -2;
-	}
-#endif
 
 	/* Prevent single protocol from subscribing same interface to
 	   channel (S,G) multiple times */
