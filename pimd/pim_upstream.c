@@ -696,21 +696,47 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 				join_timer_start(up);
 			}
 		}
+		if (old_state != new_state)
+			pim_upstream_update_use_rpt(up, true /*update_mroute*/);
 	} else {
+		bool old_use_rpt;
+		bool new_use_rpt;
+		bool send_xg_jp = false;
 
 		forward_off(up);
 		if (old_state == PIM_UPSTREAM_JOINED)
 			pim_msdp_up_join_state_changed(pim, up);
 
+		if (old_state != new_state) {
+			old_use_rpt =
+				!!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
+			pim_upstream_update_use_rpt(up, true /*update_mroute*/);
+			new_use_rpt =
+				!!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
+			if (new_use_rpt &&
+					(new_use_rpt != old_use_rpt) &&
+					up->parent)
+				/* we have decided to switch from the SPT back
+				 * to the RPT which means we need to cancel
+				 * any previously sent SGrpt prunes immediately
+				 */
+				send_xg_jp = true;
+		}
+
 		/* IHR, Trigger SGRpt on *,G IIF to prune S,G from RPT towards
 		   RP.
 		   If I am RP for G then send S,G prune to its IIF. */
-		if (pim_upstream_is_sg_rpt(up) && up->parent
-		    && !I_am_RP(pim, up->sg.grp)) {
+		if (pim_upstream_is_sg_rpt(up) && up->parent &&
+				!I_am_RP(pim, up->sg.grp))
+			send_xg_jp = true;
+		else
+			pim_jp_agg_single_upstream_send(&up->rpf, up,
+							0 /* prune */);
+
+		if (send_xg_jp) {
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)
 				zlog_debug(
-				  "%s: *,G IIF %s S,G IIF %s ",
-				  __PRETTY_FUNCTION__,
+				  "re-join RPT; *,G IIF %s S,G IIF %s ",
 				  up->parent->rpf.source_nexthop.interface ?
 				  up->parent->rpf.source_nexthop.interface->name
 				  : "Unknown",
@@ -720,14 +746,9 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 			pim_jp_agg_single_upstream_send(&up->parent->rpf,
 							up->parent,
 							1 /* (W,G) Join */);
-		} else
-			pim_jp_agg_single_upstream_send(&up->rpf, up,
-							0 /* prune */);
+		}
 		join_timer_stop(up);
 	}
-
-	if (old_state != new_state)
-		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
 }
 
 int pim_upstream_compare(void *arg1, void *arg2)
