@@ -323,6 +323,15 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 					pim_str_sg_dump(&sg));
 			return 0;
 		}
+
+		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
+			if (PIM_DEBUG_PIM_REG)
+				zlog_debug(
+					"%s register forward skipped, not FHR",
+					up->sg_str);
+			return 0;
+		}
+
 		pim_register_send((uint8_t *)buf + sizeof(struct ip),
 				  ntohs(ip_hdr->ip_len) - sizeof(struct ip),
 				  pim_ifp->primary_address, rpg, 0, up);
