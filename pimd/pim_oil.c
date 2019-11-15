@@ -646,19 +646,11 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 
 int pim_channel_oil_empty(struct channel_oil *c_oil)
 {
-	static uint32_t zero[MAXVIFS];
-	static int inited = 0;
+	static struct mfcctl null_oil;
 
 	if (!c_oil)
 		return 1;
-	/*
-	 * Not sure that this is necessary, but I would rather ensure
-	 * that this works.
-	 */
-	if (!inited) {
-		memset(&zero, 0, sizeof(uint32_t) * MAXVIFS);
-		inited = 1;
-	}
 
-	return !memcmp(c_oil->oil.mfcc_ttls, zero, MAXVIFS * sizeof(uint32_t));
+	return !memcmp(c_oil->oil.mfcc_ttls,
+			null_oil.mfcc_ttls, sizeof(null_oil.mfcc_ttls));
 }
