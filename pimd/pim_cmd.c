@@ -2577,7 +2577,7 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 	}
 }
 
-static void pim_show_join_desired_helper(struct pim_instance *pim,
+static void pim_show_channel_helper(struct pim_instance *pim,
 					 struct vty *vty,
 					 struct pim_interface *pim_ifp,
 					 struct pim_ifchannel *ch,
@@ -2636,7 +2636,7 @@ static void pim_show_join_desired_helper(struct pim_instance *pim,
 	}
 }
 
-static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
+static void pim_show_channel(struct pim_instance *pim, struct vty *vty,
 				  bool uj)
 {
 	struct pim_interface *pim_ifp;
@@ -2660,7 +2660,7 @@ static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 
 		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			/* scan all interfaces */
-			pim_show_join_desired_helper(pim, vty, pim_ifp, ch,
+			pim_show_channel_helper(pim, vty, pim_ifp, ch,
 						     json, uj);
 		}
 	}
@@ -4809,14 +4809,14 @@ DEFUN (show_ip_pim_upstream_vrf_all,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_upstream_join_desired,
-       show_ip_pim_upstream_join_desired_cmd,
-       "show ip pim [vrf NAME] upstream-join-desired [json]",
+DEFUN (show_ip_pim_channel,
+       show_ip_pim_channel_cmd,
+       "show ip pim [vrf NAME] channel [json]",
        SHOW_STR
        IP_STR
        PIM_STR
        VRF_CMD_HELP_STR
-       "PIM upstream join-desired\n"
+       "PIM downstream channel info\n"
        JSON_STR)
 {
 	int idx = 2;
@@ -4826,7 +4826,7 @@ DEFUN (show_ip_pim_upstream_join_desired,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_show_join_desired(vrf->info, vty, uj);
+	pim_show_channel(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -10456,7 +10456,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_state_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_upstream_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_upstream_vrf_all_cmd);
-	install_element(VIEW_NODE, &show_ip_pim_upstream_join_desired_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_channel_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_upstream_rpf_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_rp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_rp_vrf_all_cmd);
