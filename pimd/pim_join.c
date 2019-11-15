@@ -316,7 +316,6 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 			recv_prune(ifp, neigh, msg_holdtime,
 				   msg_upstream_addr.u.prefix4, &sg,
 				   msg_source_flags);
-
 			/*
 			 * So if we are receiving a S,G,RPT prune
 			 * before we have any data for that S,G
