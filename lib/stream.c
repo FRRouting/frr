@@ -812,7 +812,7 @@ int stream_put_ipv4(struct stream *s, uint32_t l)
 }
 
 /* Put long word to the stream. */
-int stream_put_in_addr(struct stream *s, struct in_addr *addr)
+int stream_put_in_addr(struct stream *s, const struct in_addr *addr)
 {
 	STREAM_VERIFY_SANE(s);
 
@@ -828,7 +828,8 @@ int stream_put_in_addr(struct stream *s, struct in_addr *addr)
 }
 
 /* Put in_addr at location in the stream. */
-int stream_put_in_addr_at(struct stream *s, size_t putp, struct in_addr *addr)
+int stream_put_in_addr_at(struct stream *s, size_t putp,
+			  const struct in_addr *addr)
 {
 	STREAM_VERIFY_SANE(s);
 
@@ -842,7 +843,8 @@ int stream_put_in_addr_at(struct stream *s, size_t putp, struct in_addr *addr)
 }
 
 /* Put in6_addr at location in the stream. */
-int stream_put_in6_addr_at(struct stream *s, size_t putp, struct in6_addr *addr)
+int stream_put_in6_addr_at(struct stream *s, size_t putp,
+			   const struct in6_addr *addr)
 {
 	STREAM_VERIFY_SANE(s);
 
@@ -856,7 +858,7 @@ int stream_put_in6_addr_at(struct stream *s, size_t putp, struct in6_addr *addr)
 }
 
 /* Put prefix by nlri type format. */
-int stream_put_prefix_addpath(struct stream *s, struct prefix *p,
+int stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
 			      int addpath_encode, uint32_t addpath_tx_id)
 {
 	size_t psize;
@@ -890,7 +892,7 @@ int stream_put_prefix_addpath(struct stream *s, struct prefix *p,
 	return psize;
 }
 
-int stream_put_prefix(struct stream *s, struct prefix *p)
+int stream_put_prefix(struct stream *s, const struct prefix *p)
 {
 	return stream_put_prefix_addpath(s, p, 0, 0);
 }
