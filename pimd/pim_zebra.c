@@ -271,7 +271,7 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 		nbr = pim_neighbor_find(old->source_nexthop.interface,
 					old->rpf_addr.u.prefix4);
 		if (nbr)
-			pim_jp_agg_remove_group(nbr->upstream_jp_agg, up);
+			pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
 
 		/*
 		 * We have detected a case where we might need

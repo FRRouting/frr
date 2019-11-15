@@ -148,7 +148,8 @@ pim_jp_agg_get_interface_upstream_switch_list(struct pim_rpf *rpf)
 	return pius;
 }
 
-void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up)
+void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up,
+		struct pim_neighbor *nbr)
 {
 	struct listnode *node, *nnode;
 	struct pim_jp_agg_group *jag = NULL;
@@ -165,6 +166,20 @@ void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up)
 	for (ALL_LIST_ELEMENTS(jag->sources, node, nnode, js)) {
 		if (js->up == up)
 			break;
+	}
+
+	if (nbr) {
+		if (PIM_DEBUG_TRACE) {
+			char src_str[INET_ADDRSTRLEN];
+
+			pim_inet4_dump("<src?>", nbr->source_addr, src_str,
+					sizeof(src_str));
+			zlog_debug(
+				"up %s remove from nbr %s/%s jp-agg-list",
+				up->sg_str,
+				nbr->interface->name,
+				src_str);
+		}
 	}
 
 	if (js) {
@@ -254,7 +269,7 @@ void pim_jp_agg_upstream_verification(struct pim_upstream *up, bool ignore)
 }
 
 void pim_jp_agg_add_group(struct list *group, struct pim_upstream *up,
-			  bool is_join)
+			  bool is_join, struct pim_neighbor *nbr)
 {
 	struct listnode *node, *nnode;
 	struct pim_jp_agg_group *jag = NULL;
@@ -278,6 +293,20 @@ void pim_jp_agg_add_group(struct list *group, struct pim_upstream *up,
 	for (ALL_LIST_ELEMENTS(jag->sources, node, nnode, js)) {
 		if (js->up == up)
 			break;
+	}
+
+	if (nbr) {
+		if (PIM_DEBUG_TRACE) {
+			char src_str[INET_ADDRSTRLEN];
+
+			pim_inet4_dump("<src?>", nbr->source_addr, src_str,
+					sizeof(src_str));
+			zlog_debug(
+				"up %s add to nbr %s/%s jp-agg-list",
+				up->sg_str,
+				up->rpf.source_nexthop.interface->name,
+				src_str);
+		}
 	}
 
 	if (!js) {
@@ -320,11 +349,11 @@ void pim_jp_agg_switch_interface(struct pim_rpf *orpf, struct pim_rpf *nrpf,
 
 	/* send Prune(S,G) to the old upstream neighbor */
 	if (opius)
-		pim_jp_agg_add_group(opius->us, up, false);
+		pim_jp_agg_add_group(opius->us, up, false, NULL);
 
 	/* send Join(S,G) to the current upstream neighbor */
 	if (npius)
-		pim_jp_agg_add_group(npius->us, up, true);
+		pim_jp_agg_add_group(npius->us, up, true, NULL);
 }
 
 
