@@ -2672,6 +2672,73 @@ static void pim_show_channel(struct pim_instance *pim, struct vty *vty,
 	}
 }
 
+static void pim_show_join_desired_helper(struct pim_instance *pim,
+					 struct vty *vty,
+					 struct pim_upstream *up,
+					 json_object *json, bool uj)
+{
+	json_object *json_group = NULL;
+	char src_str[INET_ADDRSTRLEN];
+	char grp_str[INET_ADDRSTRLEN];
+	json_object *json_row = NULL;
+
+	pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
+	pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
+
+	if (uj) {
+		json_object_object_get_ex(json, grp_str, &json_group);
+
+		if (!json_group) {
+			json_group = json_object_new_object();
+			json_object_object_add(json, grp_str, json_group);
+		}
+
+		json_row = json_object_new_object();
+		json_object_pim_upstream_add(json_row, up);
+		json_object_string_add(json_row, "source", src_str);
+		json_object_string_add(json_row, "group", grp_str);
+
+		if (pim_upstream_evaluate_join_desired(pim, up))
+			json_object_boolean_true_add(json_row,
+						     "evaluateJoinDesired");
+
+		json_object_object_add(json_group, src_str, json_row);
+
+	} else {
+		vty_out(vty, "%-15s %-15s %-6s\n",
+			src_str, grp_str,
+			pim_upstream_evaluate_join_desired(pim, up) ? "yes"
+								    : "no");
+	}
+}
+
+static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
+				  bool uj)
+{
+	struct listnode *upnode;
+	struct pim_upstream *up;
+
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
+	else
+		vty_out(vty,
+			"Source          Group           EvalJD\n");
+
+	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+		/* scan all interfaces */
+		pim_show_join_desired_helper(pim, vty, up,
+				json, uj);
+	}
+
+	if (uj) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+}
+
 static void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty,
 				  bool uj)
 {
@@ -4827,6 +4894,28 @@ DEFUN (show_ip_pim_channel,
 		return CMD_WARNING;
 
 	pim_show_channel(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_pim_upstream_join_desired,
+       show_ip_pim_upstream_join_desired_cmd,
+       "show ip pim [vrf NAME] upstream-join-desired [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM upstream join-desired\n"
+       JSON_STR)
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	bool uj = use_json(argc, argv);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	pim_show_join_desired(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -10457,6 +10546,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_upstream_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_upstream_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_channel_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_upstream_join_desired_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_upstream_rpf_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_rp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_rp_vrf_all_cmd);
