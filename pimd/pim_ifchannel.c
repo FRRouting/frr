@@ -181,9 +181,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 
 	listnode_delete(ch->upstream->ifchannels, ch);
 
-	if (ch->ifjoin_state != PIM_IFJOIN_NOINFO) {
-		pim_upstream_update_join_desired(pim_ifp->pim, ch->upstream);
-	}
+	pim_upstream_update_join_desired(pim_ifp->pim, ch->upstream);
 
 	/* upstream is common across ifchannels, check if upstream's
 	   ifchannel list is empty before deleting upstream_del
