@@ -106,6 +106,9 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 			if (bgp_node_get_bgp_path_info(rm) == NULL)
 				continue;
 
+			if (!attr)
+				continue;
+
 			if (header) {
 				if (use_json) {
 					json_object_int_add(
