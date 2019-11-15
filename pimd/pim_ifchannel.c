@@ -1414,9 +1414,6 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 					__func__);
 				pim_upstream_update_join_desired(pim,
 						child->upstream);
-				pim_jp_agg_single_upstream_send(
-					&child->upstream->rpf, child->upstream,
-					true);
 			}
 			send_upstream_starg = true;
 
