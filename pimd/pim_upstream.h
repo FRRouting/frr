@@ -336,4 +336,5 @@ void pim_upstream_fill_static_iif(struct pim_upstream *up,
 				struct interface *incoming);
 void pim_upstream_update_use_rpt(struct pim_upstream *up,
 		bool update_mroute);
+void pim_upstream_reeval_use_rpt(struct pim_instance *pim);
 #endif /* PIM_UPSTREAM_H */

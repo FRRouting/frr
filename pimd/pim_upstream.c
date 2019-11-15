@@ -627,6 +627,22 @@ void pim_upstream_update_use_rpt(struct pim_upstream *up,
 	}
 }
 
+/* some events like RP change require re-evaluation of SGrpt across
+ * all groups
+ */
+void pim_upstream_reeval_use_rpt(struct pim_instance *pim)
+{
+	struct pim_upstream *up;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, node, up)) {
+		if (up->sg.src.s_addr == INADDR_ANY)
+			continue;
+
+		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
+	}
+}
+
 void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 			 enum pim_upstream_state new_state)
 {
