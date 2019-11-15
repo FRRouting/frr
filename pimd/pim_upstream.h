@@ -292,9 +292,9 @@ void pim_upstream_update_my_assert_metric(struct pim_upstream *up);
 void pim_upstream_keep_alive_timer_start(struct pim_upstream *up,
 					 uint32_t time);
 
-int pim_upstream_switch_to_spt_desired(struct pim_instance *pim,
+int pim_upstream_switch_to_spt_desired_on_rp(struct pim_instance *pim,
 				       struct prefix_sg *sg);
-#define SwitchToSptDesired(pim, sg) pim_upstream_switch_to_spt_desired (pim, sg)
+#define SwitchToSptDesiredOnRp(pim, sg) pim_upstream_switch_to_spt_desired_on_rp (pim, sg)
 int pim_upstream_is_sg_rpt(struct pim_upstream *up);
 
 void pim_upstream_set_sptbit(struct pim_upstream *up,

@@ -1425,7 +1425,7 @@ void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
  *  SwitchToSptDesired(S,G) return true once a single packet has been
  *  received for the source and group.
  */
-int pim_upstream_switch_to_spt_desired(struct pim_instance *pim,
+int pim_upstream_switch_to_spt_desired_on_rp(struct pim_instance *pim,
 				       struct prefix_sg *sg)
 {
 	if (I_am_RP(pim, sg->grp))

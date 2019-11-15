@@ -452,7 +452,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		}
 
 		if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
-		    || ((SwitchToSptDesired(pim_ifp->pim, &sg))
+		    || ((SwitchToSptDesiredOnRp(pim_ifp->pim, &sg))
 			&& pim_upstream_inherited_olist(pim_ifp->pim, upstream)
 				   == 0)) {
 			pim_register_stop_send(ifp, &sg, dest_addr, src_addr);
@@ -463,7 +463,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 					   upstream->sptbit);
 		}
 		if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
-		    || (SwitchToSptDesired(pim_ifp->pim, &sg))) {
+		    || (SwitchToSptDesiredOnRp(pim_ifp->pim, &sg))) {
 			if (sentRegisterStop) {
 				pim_upstream_keep_alive_timer_start(
 					upstream,
