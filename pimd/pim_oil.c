@@ -273,7 +273,7 @@ void pim_channel_oil_del(struct channel_oil *c_oil, const char *name)
 }
 
 int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
-			uint32_t proto_mask)
+			uint32_t proto_mask, const char *caller)
 {
 	struct pim_interface *pim_ifp;
 
@@ -363,8 +363,8 @@ int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
 		pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin,
 			       source_str, sizeof(source_str));
 		zlog_debug(
-			"%s %s: (S,G)=(%s,%s): proto_mask=%u IIF:%d OIF=%s vif_index=%d",
-			__FILE__, __PRETTY_FUNCTION__, source_str, group_str,
+			"%s(%s): (S,G)=(%s,%s): proto_mask=%u IIF:%d OIF=%s vif_index=%d",
+			__PRETTY_FUNCTION__, caller, source_str, group_str,
 			proto_mask, channel_oil->oil.mfcc_parent, oif->name,
 			pim_ifp->mroute_vif_index);
 	}
@@ -374,7 +374,7 @@ int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
 
 
 int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
-			uint32_t proto_mask)
+			uint32_t proto_mask, const char *caller)
 {
 	struct pim_interface *pim_ifp;
 	int old_ttl;
@@ -557,8 +557,8 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 		pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin,
 			       source_str, sizeof(source_str));
 		zlog_debug(
-			"%s %s: (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d: DONE",
-			__FILE__, __PRETTY_FUNCTION__, source_str, group_str,
+			"%s(%s): (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d: DONE",
+			__PRETTY_FUNCTION__, caller, source_str, group_str,
 			proto_mask, oif->name, pim_ifp->mroute_vif_index);
 	}
 

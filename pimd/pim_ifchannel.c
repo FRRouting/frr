@@ -147,10 +147,11 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 					ch->upstream, ch, ch->parent))
 			pim_channel_add_oif(ch->upstream->channel_oil,
 					ch->interface,
-					PIM_OIF_FLAG_PROTO_STAR);
+					PIM_OIF_FLAG_PROTO_STAR,
+					__func__);
 
 		pim_channel_del_oif(ch->upstream->channel_oil,
-					ch->interface, mask);
+					ch->interface, mask, __func__);
 		/*
 		 * Do we have any S,G's that are inheriting?
 		 * Nuke from on high too.
@@ -163,7 +164,8 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 						  up_node, child))
 				pim_channel_del_oif(child->channel_oil,
 						    ch->interface,
-						    PIM_OIF_FLAG_PROTO_STAR);
+						    PIM_OIF_FLAG_PROTO_STAR,
+							__func__);
 		}
 	}
 
@@ -297,7 +299,8 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 						    pim_ifp->pim, child)) {
 						pim_channel_del_oif(
 							c_oil, ch->interface,
-							PIM_OIF_FLAG_PROTO_STAR);
+							PIM_OIF_FLAG_PROTO_STAR,
+							__func__);
 						pim_upstream_update_join_desired(
 							pim_ifp->pim, child);
 					}
@@ -314,7 +317,8 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 						    [pim_ifp->mroute_vif_index])
 						pim_channel_del_oif(
 							c_oil, ch->interface,
-							PIM_OIF_FLAG_PROTO_STAR);
+							PIM_OIF_FLAG_PROTO_STAR,
+							__func__);
 				}
 			}
 			if (ch->ifjoin_state == PIM_IFJOIN_JOIN) {
@@ -333,7 +337,8 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 						pim_channel_add_oif(
 							child->channel_oil,
 							ch->interface,
-							PIM_OIF_FLAG_PROTO_STAR);
+							PIM_OIF_FLAG_PROTO_STAR,
+							__func__);
 						pim_upstream_update_join_desired(
 							pim_ifp->pim, child);
 					}
@@ -904,7 +909,8 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 							       ch->upstream)) {
 				pim_channel_add_oif(ch->upstream->channel_oil,
 						    ch->interface,
-						    PIM_OIF_FLAG_PROTO_PIM);
+						    PIM_OIF_FLAG_PROTO_PIM,
+							__func__);
 				pim_upstream_update_join_desired(pim_ifp->pim,
 								 ch->upstream);
 			}
@@ -1105,7 +1111,8 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 			if (pim_upstream_evaluate_join_desired_interface(
 				    child, ch, starch)) {
 				pim_channel_add_oif(child->channel_oil, ifp,
-						    PIM_OIF_FLAG_PROTO_STAR);
+						    PIM_OIF_FLAG_PROTO_STAR,
+							__func__);
 				pim_upstream_switch(pim, child,
 						    PIM_UPSTREAM_JOINED);
 			}
@@ -1124,12 +1131,14 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 				    == PREFIX_DENY) {
 					pim_channel_add_oif(
 						up->channel_oil, pim->regiface,
-						PIM_OIF_FLAG_PROTO_IGMP);
+						PIM_OIF_FLAG_PROTO_IGMP,
+						__func__);
 				}
 			}
 		} else
 			pim_channel_add_oif(up->channel_oil, pim->regiface,
-					    PIM_OIF_FLAG_PROTO_IGMP);
+					PIM_OIF_FLAG_PROTO_IGMP,
+					__func__);
 	}
 
 	return 1;
@@ -1178,7 +1187,8 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 			    && !pim_upstream_evaluate_join_desired_interface(
 				       child, ch, starch))
 				pim_channel_del_oif(c_oil, ifp,
-						    PIM_OIF_FLAG_PROTO_STAR);
+						    PIM_OIF_FLAG_PROTO_STAR,
+							__func__);
 
 			/*
 			 * If the S,G has no if channel and the c_oil still
@@ -1189,7 +1199,8 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 			if (!chchannel && c_oil
 			    && c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])
 				pim_channel_del_oif(c_oil, ifp,
-						    PIM_OIF_FLAG_PROTO_STAR);
+						    PIM_OIF_FLAG_PROTO_STAR,
+							__func__);
 
 			/* Child node removal/ref count-- will happen as part of
 			 * parent' delete_no_info */
@@ -1408,7 +1419,8 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 				child->upstream))) {
 				pim_channel_add_oif(
 					child->upstream->channel_oil,
-					ch->interface, PIM_OIF_FLAG_PROTO_STAR);
+					ch->interface, PIM_OIF_FLAG_PROTO_STAR,
+					__func__);
 				pim_upstream_switch(pim, child->upstream,
 						    PIM_UPSTREAM_JOINED);
 				pim_jp_agg_single_upstream_send(

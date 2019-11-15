@@ -386,7 +386,8 @@ static void pim_vxlan_orig_mr_oif_add(struct pim_vxlan_sg *vxlan_sg)
 
 	vxlan_sg->flags |= PIM_VXLAN_SGF_OIF_INSTALLED;
 	pim_channel_add_oif(vxlan_sg->up->channel_oil,
-		vxlan_sg->orig_oif, PIM_OIF_FLAG_PROTO_VXLAN);
+		vxlan_sg->orig_oif, PIM_OIF_FLAG_PROTO_VXLAN,
+		__func__);
 }
 
 static void pim_vxlan_orig_mr_oif_del(struct pim_vxlan_sg *vxlan_sg)
@@ -405,7 +406,7 @@ static void pim_vxlan_orig_mr_oif_del(struct pim_vxlan_sg *vxlan_sg)
 
 	vxlan_sg->flags &= ~PIM_VXLAN_SGF_OIF_INSTALLED;
 	pim_channel_del_oif(vxlan_sg->up->channel_oil,
-		orig_oif, PIM_OIF_FLAG_PROTO_VXLAN);
+			orig_oif, PIM_OIF_FLAG_PROTO_VXLAN, __func__);
 }
 
 static inline struct interface *pim_vxlan_orig_mr_oif_get(

@@ -340,7 +340,8 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 					pim_channel_del_oif(
 						up->channel_oil,
 						starg_ch->interface,
-						PIM_OIF_FLAG_PROTO_STAR);
+						PIM_OIF_FLAG_PROTO_STAR,
+						__func__);
 				}
 			}
 		}
