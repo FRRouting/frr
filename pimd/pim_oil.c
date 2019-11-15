@@ -352,6 +352,21 @@ int pim_channel_del_oif(struct channel_oil *channel_oil, struct interface *oif,
 	return 0;
 }
 
+void pim_channel_del_inherited_oif(struct channel_oil *c_oil,
+		struct interface *oif, const char *caller)
+{
+	struct pim_upstream *up = c_oil->up;
+
+	pim_channel_del_oif(c_oil, oif, PIM_OIF_FLAG_PROTO_STAR,
+			caller);
+
+	/* if an inherited OIF is being removed join-desired can change
+	 * if the inherited OIL is now empty and KAT is running
+	 */
+	if (up && up->sg.src.s_addr != INADDR_ANY &&
+			pim_upstream_empty_inherited_olist(up))
+		pim_upstream_update_join_desired(up->pim, up);
+}
 
 static bool pim_channel_eval_oif_mute(struct channel_oil *c_oil,
 		struct pim_interface *pim_ifp)

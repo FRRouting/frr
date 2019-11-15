@@ -162,10 +162,10 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 
 			for (ALL_LIST_ELEMENTS_RO(ch->upstream->sources,
 						  up_node, child))
-				pim_channel_del_oif(child->channel_oil,
-						    ch->interface,
-						    PIM_OIF_FLAG_PROTO_STAR,
-							__func__);
+				pim_channel_del_inherited_oif(
+						child->channel_oil,
+						ch->interface,
+						__func__);
 		}
 	}
 
@@ -305,9 +305,8 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 					 */
 					if (c_oil->oil.mfcc_ttls
 						    [pim_ifp->mroute_vif_index])
-						pim_channel_del_oif(
+						pim_channel_del_inherited_oif(
 							c_oil, ch->interface,
-							PIM_OIF_FLAG_PROTO_STAR,
 							__func__);
 				}
 			}
@@ -1182,24 +1181,19 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 					   child->sg_str);
 
 			ch = pim_ifchannel_find(ifp, &child->sg);
-			if (c_oil
-			    && !pim_upstream_evaluate_join_desired_interface(
-				       child, ch, starch))
-				pim_channel_del_oif(c_oil, ifp,
-						    PIM_OIF_FLAG_PROTO_STAR,
-							__func__);
-
 			/*
 			 * If the S,G has no if channel and the c_oil still
 			 * has output here then the *,G was supplying the
 			 * implied
 			 * if channel.  So remove it.
 			 */
-			if (!chchannel && c_oil
-			    && c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])
-				pim_channel_del_oif(c_oil, ifp,
-						    PIM_OIF_FLAG_PROTO_STAR,
-							__func__);
+			if (!pim_upstream_evaluate_join_desired_interface(
+				child, ch, starch) ||
+				(!chchannel &&
+				 c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])) {
+				pim_channel_del_inherited_oif(c_oil, ifp,
+						__func__);
+			}
 
 			/* Child node removal/ref count-- will happen as part of
 			 * parent' delete_no_info */

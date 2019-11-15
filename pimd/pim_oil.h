@@ -136,4 +136,7 @@ void pim_channel_update_oif_mute(struct channel_oil *c_oil,
 		struct pim_interface *pim_ifp);
 
 void pim_channel_oil_upstream_deref(struct channel_oil *c_oil);
+void pim_channel_del_inherited_oif(struct channel_oil *c_oil,
+		struct interface *oif, const char *caller);
+
 #endif /* PIM_OIL_H */
