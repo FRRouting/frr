@@ -1830,10 +1830,22 @@ bool pim_upstream_equal(const void *arg1, const void *arg2)
  */
 static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 {
-	struct pim_instance *pim = up->channel_oil->pim;
+	struct channel_oil *c_oil = up->channel_oil;
+	struct interface *ifp = up->rpf.source_nexthop.interface;
+	struct pim_interface *pim_ifp;
 
-	/* "iif == RPF_interface(S)" check has to be done by the kernel or hw
-	 * so we will skip that here */
+	/* "iif == RPF_interface(S)" check is not easy to do as the info
+	 * we get from the kernel/ASIC is really a "lookup/key hit".
+	 * So we will do an approximate check here to avoid starting KAT
+	 * because of (S,G,rpt) forwarding on a non-LHR.
+	 */
+	if (!ifp)
+		return false;
+
+	pim_ifp = ifp->info;
+	if (pim_ifp->mroute_vif_index != c_oil->oil.mfcc_parent)
+		return false;
+
 	if (up->rpf.source_nexthop.interface &&
 		pim_if_connected_to_source(up->rpf.source_nexthop.interface,
 				       up->sg.src)) {
@@ -1841,19 +1853,8 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 	}
 
 	if ((up->join_state == PIM_UPSTREAM_JOINED)
-	    && !pim_upstream_empty_inherited_olist(up)) {
-		/* XXX: I have added this RP check just for 3.2 and it's a
-		 * digression from
-		 * what rfc-4601 says. Till now we were only running KAT on FHR
-		 * and RP and
-		 * there is some angst around making the change to run it all
-		 * routers that
-		 * maintain the (S, G) state. This is tracked via CM-13601 and
-		 * MUST be
-		 * removed to handle spt turn-arounds correctly in a 3-tier clos
-		 */
-		if (I_am_RP(pim, up->sg.grp))
-			return true;
+			&& !pim_upstream_empty_inherited_olist(up)) {
+		return true;
 	}
 
 	return false;
