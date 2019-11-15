@@ -120,7 +120,8 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 void pim_channel_oil_change_iif(struct pim_instance *pim,
 				struct channel_oil *c_oil, int input_vif_index,
 				const char *name);
-void pim_channel_oil_del(struct channel_oil *c_oil, const char *name);
+struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
+		const char *name);
 
 int pim_channel_add_oif(struct channel_oil *c_oil, struct interface *oif,
 			uint32_t proto_mask, const char *caller);
@@ -133,4 +134,6 @@ char *pim_channel_oil_dump(struct channel_oil *c_oil, char *buf, size_t size);
 
 void pim_channel_update_oif_mute(struct channel_oil *c_oil,
 		struct pim_interface *pim_ifp);
+
+void pim_channel_oil_upstream_deref(struct channel_oil *c_oil);
 #endif /* PIM_OIL_H */
