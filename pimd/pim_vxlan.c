@@ -292,6 +292,7 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 	struct pim_upstream *up;
 	int flags = 0;
 	struct prefix nht_p;
+	struct pim_instance *pim = vxlan_sg->pim;
 
 	if (vxlan_sg->up) {
 		/* nothing to do */
@@ -349,6 +350,10 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 		pim_upstream_ref(up, flags, __PRETTY_FUNCTION__);
 		vxlan_sg->up = up;
 		pim_vxlan_orig_mr_up_iif_update(vxlan_sg);
+		/* mute pimreg on origination mroutes */
+		if (pim->regiface)
+			pim_channel_update_oif_mute(up->channel_oil,
+					pim->regiface->info);
 	} else {
 		up = pim_upstream_add(vxlan_sg->pim, &vxlan_sg->sg,
 				vxlan_sg->iif, flags,

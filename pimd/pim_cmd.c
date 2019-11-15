@@ -1988,7 +1988,7 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 		json = json_object_new_object();
 	} else {
 		vty_out(vty,
-			"Codes: J -> Pim Join, I -> IGMP Report, S -> Source, * -> Inherited from (*,G), V -> VxLAN");
+			"Codes: J -> Pim Join, I -> IGMP Report, S -> Source, * -> Inherited from (*,G), V -> VxLAN, M -> Muted");
 		vty_out(vty,
 			"\nInstalled Source           Group            IIF               OIL\n");
 	}
@@ -2117,25 +2117,7 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 			} else {
 				if (first_oif) {
 					first_oif = 0;
-					vty_out(vty, "%s(%c%c%c%c)", out_ifname,
-						(c_oil->oif_flags[oif_vif_index]
-						 & PIM_OIF_FLAG_PROTO_IGMP)
-							? 'I'
-							: ' ',
-						(c_oil->oif_flags[oif_vif_index]
-						 & PIM_OIF_FLAG_PROTO_PIM)
-							? 'J'
-							: ' ',
-						(c_oil->oif_flags[oif_vif_index]
-						 & PIM_OIF_FLAG_PROTO_VXLAN)
-							? 'V'
-							: ' ',
-						(c_oil->oif_flags[oif_vif_index]
-						 & PIM_OIF_FLAG_PROTO_STAR)
-							? '*'
-							: ' ');
-				} else
-					vty_out(vty, ", %s(%c%c%c%c)",
+					vty_out(vty, "%s(%c%c%c%c%c)",
 						out_ifname,
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_IGMP)
@@ -2152,6 +2134,33 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_STAR)
 							? '*'
+							: ' ',
+						(c_oil->oif_flags[oif_vif_index]
+						 & PIM_OIF_FLAG_MUTE)
+							? 'M'
+							: ' ');
+				} else
+					vty_out(vty, ", %s(%c%c%c%c%c)",
+						out_ifname,
+						(c_oil->oif_flags[oif_vif_index]
+						 & PIM_OIF_FLAG_PROTO_IGMP)
+							? 'I'
+							: ' ',
+						(c_oil->oif_flags[oif_vif_index]
+						 & PIM_OIF_FLAG_PROTO_PIM)
+							? 'J'
+							: ' ',
+						(c_oil->oif_flags[oif_vif_index]
+						 & PIM_OIF_FLAG_PROTO_VXLAN)
+							? 'V'
+							: ' ',
+						(c_oil->oif_flags[oif_vif_index]
+						 & PIM_OIF_FLAG_PROTO_STAR)
+							? '*'
+							: ' ',
+						(c_oil->oif_flags[oif_vif_index]
+						 & PIM_OIF_FLAG_MUTE)
+							? 'M'
 							: ' ');
 			}
 		}
@@ -5290,6 +5299,11 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 
 			ttl = c_oil->oil.mfcc_ttls[oif_vif_index];
 			if (ttl < 1)
+				continue;
+
+			/* do not display muted OIFs */
+			if (c_oil->oif_flags[oif_vif_index]
+					& PIM_OIF_FLAG_MUTE)
 				continue;
 
 			ifp_out = pim_if_find_by_vif_index(pim, oif_vif_index);
