@@ -307,11 +307,6 @@ void pim_upstream_rpf_clear(struct pim_instance *pim,
 			    struct pim_upstream *up)
 {
 	if (up->rpf.source_nexthop.interface) {
-		if (up->channel_oil)
-			pim_channel_oil_change_iif(pim, up->channel_oil,
-						   MAXVIFS,
-						   __PRETTY_FUNCTION__);
-
 		pim_upstream_switch(pim, up, PIM_UPSTREAM_NOTJOINED);
 		up->rpf.source_nexthop.interface = NULL;
 		up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
@@ -321,6 +316,7 @@ void pim_upstream_rpf_clear(struct pim_instance *pim,
 		up->rpf.source_nexthop.mrib_route_metric =
 			router->infinite_assert_metric.route_metric;
 		up->rpf.rpf_addr.u.prefix4.s_addr = PIM_NET_INADDR_ANY;
+		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 	}
 }
 

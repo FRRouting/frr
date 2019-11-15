@@ -386,20 +386,8 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 		pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
 
 	/* update kernel multicast forwarding cache (MFC) */
-	if (up->rpf.source_nexthop.interface && up->channel_oil) {
-		ifindex_t ifindex = up->rpf.source_nexthop.interface->ifindex;
-		int vif_index = pim_if_find_vifindex_by_ifindex(pim, ifindex);
-		/* Pass Current selected NH vif index to mroute download */
-		if (vif_index)
-			pim_scan_individual_oil(up->channel_oil, vif_index);
-		else {
-			if (PIM_DEBUG_PIM_NHT)
-				zlog_debug(
-				  "%s: NHT upstream %s channel_oil IIF %s vif_index is not valid",
-				  __PRETTY_FUNCTION__, up->sg_str,
-				  up->rpf.source_nexthop.interface->name);
-		}
-	}
+	if (up->rpf.source_nexthop.interface && up->channel_oil)
+		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
 	if (rpf_result == PIM_RPF_CHANGED)
 		pim_zebra_upstream_rpf_changed(pim, up, &old_rpf);

@@ -231,12 +231,7 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	// resolve mfcc_parent prior to mroute_add in channel_add_oif
 	if (up->rpf.source_nexthop.interface &&
 	    up->channel_oil->oil.mfcc_parent >= MAXVIFS) {
-		int vif_index = 0;
-		vif_index = pim_if_find_vifindex_by_ifindex(
-			pim_ifp->pim,
-			up->rpf.source_nexthop.interface->ifindex);
-		pim_channel_oil_change_iif(pim_ifp->pim, up->channel_oil,
-					   vif_index, __PRETTY_FUNCTION__);
+		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 	}
 	pim_register_join(up);
 
@@ -969,13 +964,10 @@ static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	return 0;
 }
 
-/* In the case of "PIM state machine" added mroutes an upstream entry
- * must be present to decide on the SPT-forwarding vs. RPT-forwarding.
- */
-int pim_upstream_mroute_add(struct channel_oil *c_oil, const char *name)
+static int pim_upstream_get_mroute_iif(struct channel_oil *c_oil,
+		const char *name)
 {
 	vifi_t iif = MAXVIFS;
-	char buf[1000];
 	struct interface *ifp = NULL;
 	struct pim_interface *pim_ifp;
 	struct pim_upstream *up = c_oil->up;
@@ -993,15 +985,20 @@ int pim_upstream_mroute_add(struct channel_oil *c_oil, const char *name)
 				iif = pim_ifp->mroute_vif_index;
 		}
 	}
+	return iif;
+}
 
-	c_oil->oil.mfcc_parent = iif;
+static int pim_upstream_mroute_update(struct channel_oil *c_oil,
+		const char *name)
+{
+	char buf[1000];
 
 	if (c_oil->oil.mfcc_parent >= MAXVIFS) {
 		/* the c_oil cannot be installed as a mroute yet */
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
 					"%s(%s) %s mroute not ready to be installed; %s",
-					__PRETTY_FUNCTION__, name,
+					__func__, name,
 					pim_channel_oil_dump(c_oil, buf,
 						sizeof(buf)),
 					c_oil->installed ?
@@ -1018,9 +1015,58 @@ int pim_upstream_mroute_add(struct channel_oil *c_oil, const char *name)
 	return pim_mroute_add(c_oil, name);
 }
 
+/* In the case of "PIM state machine" added mroutes an upstream entry
+ * must be present to decide on the SPT-forwarding vs. RPT-forwarding.
+ */
+int pim_upstream_mroute_add(struct channel_oil *c_oil, const char *name)
+{
+	c_oil->oil.mfcc_parent = pim_upstream_get_mroute_iif(c_oil, name);
+
+	return pim_upstream_mroute_update(c_oil, name);
+}
+
+/* Look for IIF changes and update the dateplane entry only if the IIF
+ * has changed.
+ */
+int pim_upstream_mroute_iif_update(struct channel_oil *c_oil, const char *name)
+{
+	vifi_t iif;
+	char buf[1000];
+
+	iif = pim_upstream_get_mroute_iif(c_oil, name);
+	if (c_oil->oil.mfcc_parent == iif) {
+		/* no change */
+		return 0;
+	}
+	c_oil->oil.mfcc_parent = iif;
+
+	if (PIM_DEBUG_MROUTE_DETAIL)
+		zlog_debug("%s(%s) %s mroute iif update %d",
+				__func__, name,
+				pim_channel_oil_dump(c_oil, buf,
+					sizeof(buf)), iif);
+	/* XXX: is this hack needed? */
+	c_oil->oil_inherited_rescan = 1;
+	return pim_upstream_mroute_update(c_oil, name);
+}
+
 int pim_static_mroute_add(struct channel_oil *c_oil, const char *name)
 {
 	return pim_mroute_add(c_oil, name);
+}
+
+void pim_static_mroute_iif_update(struct channel_oil *c_oil,
+				int input_vif_index,
+				const char *name)
+{
+	if (c_oil->oil.mfcc_parent == input_vif_index)
+		return;
+
+	c_oil->oil.mfcc_parent = input_vif_index;
+	if (input_vif_index == MAXVIFS)
+		pim_mroute_del(c_oil, name);
+	else
+		pim_static_mroute_add(c_oil, name);
 }
 
 int pim_mroute_del(struct channel_oil *c_oil, const char *name)

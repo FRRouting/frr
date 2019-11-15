@@ -788,7 +788,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->reg_state = PIM_REG_NOINFO;
 	up->state_transition = pim_time_monotonic_sec();
 	up->channel_oil =
-		pim_channel_oil_add(pim, &up->sg, MAXVIFS, __PRETTY_FUNCTION__);
+		pim_channel_oil_add(pim, &up->sg, __PRETTY_FUNCTION__);
 	up->sptbit = PIM_UPSTREAM_SPTBIT_FALSE;
 
 	up->rpf.source_nexthop.interface = NULL;
@@ -813,9 +813,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		pim_upstream_fill_static_iif(up, incoming);
 		pim_ifp = up->rpf.source_nexthop.interface->info;
 		assert(pim_ifp);
-		pim_channel_oil_change_iif(pim, up->channel_oil,
-					   pim_ifp->mroute_vif_index,
-					   __PRETTY_FUNCTION__);
+		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
 		if (PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags))
 			pim_upstream_keep_alive_timer_start(
@@ -832,10 +830,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		if (up->rpf.source_nexthop.interface) {
 			pim_ifp = up->rpf.source_nexthop.interface->info;
 			if (pim_ifp)
-				pim_channel_oil_change_iif(
-					pim, up->channel_oil,
-					pim_ifp->mroute_vif_index,
-					__PRETTY_FUNCTION__);
+				pim_upstream_mroute_iif_update(up->channel_oil,
+						__func__);
 		}
 		pim_upstream_update_use_rpt(up,
 				false /*update_mroute*/);

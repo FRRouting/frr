@@ -455,7 +455,6 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		    || ((SwitchToSptDesired(pim_ifp->pim, &sg))
 			&& pim_upstream_inherited_olist(pim_ifp->pim, upstream)
 				   == 0)) {
-			// pim_scan_individual_oil (upstream->channel_oil);
 			pim_register_stop_send(ifp, &sg, dest_addr, src_addr);
 			sentRegisterStop = 1;
 		} else {

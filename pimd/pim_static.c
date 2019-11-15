@@ -138,7 +138,7 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 			} else {
 				/* input interface changed */
 				s_route->iif = iif_index;
-				pim_channel_oil_change_iif(pim, &s_route->c_oil,
+				pim_static_mroute_iif_update(&s_route->c_oil,
 							   iif_index,
 							   __PRETTY_FUNCTION__);
 

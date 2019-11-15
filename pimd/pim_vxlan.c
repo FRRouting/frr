@@ -251,20 +251,14 @@ static void pim_vxlan_orig_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
 
 static void pim_vxlan_orig_mr_up_iif_update(struct pim_vxlan_sg *vxlan_sg)
 {
-	int vif_index;
-
 	/* update MFC with the new IIF */
 	pim_upstream_fill_static_iif(vxlan_sg->up, vxlan_sg->iif);
-	vif_index = pim_if_find_vifindex_by_ifindex(vxlan_sg->pim,
-			vxlan_sg->iif->ifindex);
-	if (vif_index > 0)
-		pim_scan_individual_oil(vxlan_sg->up->channel_oil,
-				vif_index);
+	pim_upstream_mroute_iif_update(vxlan_sg->up->channel_oil, __func__);
 
 	if (PIM_DEBUG_VXLAN)
-		zlog_debug("vxlan SG %s orig mroute-up updated with iif %s vifi %d",
+		zlog_debug("vxlan SG %s orig mroute-up updated with iif %s",
 			vxlan_sg->sg_str,
-			vxlan_sg->iif?vxlan_sg->iif->name:"-", vif_index);
+			vxlan_sg->iif?vxlan_sg->iif->name:"-");
 
 }
 

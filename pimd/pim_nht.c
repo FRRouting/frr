@@ -441,7 +441,6 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 {
 	struct pim_instance *pim = (struct pim_instance *)arg;
 	struct pim_upstream *up = (struct pim_upstream *)bucket->data;
-	int vif_index = 0;
 
 	enum pim_rpf_result rpf_result;
 	struct pim_rpf old;
@@ -454,22 +453,7 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 	}
 
 	/* update kernel multicast forwarding cache (MFC) */
-	if (up->rpf.source_nexthop.interface) {
-		ifindex_t ifindex = up->rpf.source_nexthop.interface->ifindex;
-
-		vif_index = pim_if_find_vifindex_by_ifindex(pim, ifindex);
-		/* Pass Current selected NH vif index to mroute download
-		 */
-		if (vif_index)
-			pim_scan_individual_oil(up->channel_oil, vif_index);
-		else {
-			if (PIM_DEBUG_PIM_NHT)
-				zlog_debug(
-					"%s: NHT upstream %s channel_oil IIF %s vif_index is not valid",
-					__PRETTY_FUNCTION__, up->sg_str,
-					up->rpf.source_nexthop.interface->name);
-		}
-	}
+	pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
 	if (rpf_result == PIM_RPF_CHANGED)
 		pim_zebra_upstream_rpf_changed(pim, up, &old);
