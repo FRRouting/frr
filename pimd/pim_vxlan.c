@@ -245,7 +245,7 @@ static void pim_vxlan_orig_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
 		 * for nht
 		 */
 		if (up)
-			pim_rpf_update(vxlan_sg->pim, up, NULL);
+			pim_rpf_update(vxlan_sg->pim, up, NULL, __func__);
 	}
 }
 

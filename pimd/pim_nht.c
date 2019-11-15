@@ -446,7 +446,7 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 	struct pim_rpf old;
 
 	old.source_nexthop.interface = up->rpf.source_nexthop.interface;
-	rpf_result = pim_rpf_update(pim, up, &old);
+	rpf_result = pim_rpf_update(pim, up, &old, __func__);
 	if (rpf_result == PIM_RPF_FAILURE) {
 		pim_upstream_rpf_clear(pim, up);
 		return HASHWALK_CONTINUE;

@@ -195,7 +195,8 @@ static int nexthop_mismatch(const struct pim_nexthop *nh1,
 }
 
 enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
-				   struct pim_upstream *up, struct pim_rpf *old)
+		struct pim_upstream *up, struct pim_rpf *old,
+		const char *caller)
 {
 	struct pim_rpf *rpf = &up->rpf;
 	struct pim_rpf saved;
@@ -207,8 +208,8 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 		return PIM_RPF_OK;
 
 	if (up->upstream_addr.s_addr == INADDR_ANY) {
-		zlog_debug("%s: RP is not configured yet for %s",
-			__PRETTY_FUNCTION__, up->sg_str);
+		zlog_debug("%s(%s): RP is not configured yet for %s",
+			__func__, caller, up->sg_str);
 		return PIM_RPF_OK;
 	}
 
@@ -238,8 +239,8 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	rpf->rpf_addr.u.prefix4 = pim_rpf_find_rpf_addr(up);
 	if (pim_rpf_addr_is_inaddr_any(rpf) && PIM_DEBUG_ZEBRA) {
 		/* RPF'(S,G) not found */
-		zlog_debug("%s %s: RPF'%s not found: won't send join upstream",
-			   __FILE__, __PRETTY_FUNCTION__, up->sg_str);
+		zlog_debug("%s(%s): RPF'%s not found: won't send join upstream",
+			   __func__, caller, up->sg_str);
 		/* warning only */
 	}
 
@@ -251,8 +252,8 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 			pim_addr_dump("<addr?>",
 				      &rpf->source_nexthop.mrib_nexthop_addr,
 				      nhaddr_str, sizeof(nhaddr_str));
-			zlog_debug("%s %s: (S,G)=%s source nexthop now is: interface=%s address=%s pref=%d metric=%d",
-		 __FILE__, __PRETTY_FUNCTION__,
+			zlog_debug("%s(%s): (S,G)=%s source nexthop now is: interface=%s address=%s pref=%d metric=%d",
+		 __func__, caller,
 		 up->sg_str,
 		 rpf->source_nexthop.interface ? rpf->source_nexthop.interface->name : "<ifname?>",
 		 nhaddr_str,
@@ -269,8 +270,8 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	if (saved.source_nexthop.interface != rpf->source_nexthop.interface) {
 
 		if (PIM_DEBUG_ZEBRA) {
-			zlog_debug("%s %s: (S,G)=%s RPF_interface(S) changed from %s to %s",
-		 __FILE__, __PRETTY_FUNCTION__,
+			zlog_debug("%s(%s): (S,G)=%s RPF_interface(S) changed from %s to %s",
+		 __func__, caller,
 		 up->sg_str,
 		 saved.source_nexthop.interface ? saved.source_nexthop.interface->name : "<oldif?>",
 		 rpf->source_nexthop.interface ? rpf->source_nexthop.interface->name : "<newif?>");

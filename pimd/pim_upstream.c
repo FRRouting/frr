@@ -845,7 +845,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 			pim_upstream_keep_alive_timer_start(
 				up, pim->keep_alive_time);
 	} else if (up->upstream_addr.s_addr != INADDR_ANY) {
-		rpf_result = pim_rpf_update(pim, up, NULL);
+		rpf_result = pim_rpf_update(pim, up, NULL, __func__);
 		if (rpf_result == PIM_RPF_FAILURE) {
 			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug(
@@ -1768,7 +1768,7 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 				zlog_debug(
 					"%s: Upstream %s without a path to send join, checking",
 					__PRETTY_FUNCTION__, up->sg_str);
-			pim_rpf_update(pim, up, NULL);
+			pim_rpf_update(pim, up, NULL, __func__);
 		}
 	}
 }
