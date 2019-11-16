@@ -969,6 +969,63 @@ struct route_map_rule_cmd route_match_evpn_route_type_cmd = {
 	"evpn route-type", route_match_evpn_route_type,
 	route_match_evpn_route_type_compile, route_match_evpn_route_type_free};
 
+/* `match rd' */
+
+/* Match function should return 1 if match is success else return zero. */
+static enum route_map_cmd_result_t
+route_match_rd(void *rule, const struct prefix *prefix,
+	       route_map_object_t type, void *object)
+{
+	struct prefix_rd *prd_rule = NULL;
+	struct prefix_rd *prd_route = NULL;
+	struct bgp_path_info *path = NULL;
+
+	if (type == RMAP_BGP) {
+		if (prefix->family != AF_EVPN)
+			return RMAP_NOMATCH;
+
+		prd_rule = (struct prefix_rd *)rule;
+		path = (struct bgp_path_info *)object;
+
+		if (path->net == NULL || path->net->prn == NULL)
+			return RMAP_NOMATCH;
+
+		prd_route = (struct prefix_rd *)&path->net->prn->p;
+		if (memcmp(prd_route->val, prd_rule->val, ECOMMUNITY_SIZE) == 0)
+			return RMAP_MATCH;
+	}
+
+	return RMAP_NOMATCH;
+}
+
+/* Route map `rd' match statement. */
+static void *route_match_rd_compile(const char *arg)
+{
+	struct prefix_rd *prd;
+	int ret;
+
+	prd = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct prefix_rd));
+
+	ret = str2prefix_rd(arg, prd);
+	if (!ret) {
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, prd);
+		return NULL;
+	}
+
+	return prd;
+}
+
+/* Free route map's compiled `rd' value. */
+static void route_match_rd_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for rd matching. */
+struct route_map_rule_cmd route_match_evpn_rd_cmd = {
+	"evpn rd", route_match_rd, route_match_rd_compile,
+	route_match_rd_free};
+
 /* Route map commands for VRF route leak with source vrf matching */
 static enum route_map_cmd_result_t
 route_match_vrl_source_vrf(void *rule, const struct prefix *prefix,
@@ -1038,8 +1095,10 @@ route_match_local_pref(void *rule, const struct prefix *prefix,
 	return RMAP_NOMATCH;
 }
 
-/* Route map `match local-preference' match statement.
-   `arg' is local-pref value */
+/*
+ * Route map `match local-preference' match statement.
+ * `arg' is local-pref value
+ */
 static void *route_match_local_pref_compile(const char *arg)
 {
 	uint32_t *local_pref;
@@ -3666,6 +3725,31 @@ DEFUN (no_match_evpn_default_route,
 				      RMAP_EVENT_MATCH_DELETED);
 }
 
+DEFUN (match_evpn_rd,
+       match_evpn_rd_cmd,
+       "match evpn rd ASN:NN_OR_IP-ADDRESS:NN",
+       MATCH_STR
+       EVPN_HELP_STR
+       "Route Distinguisher\n"
+       "ASN:XX or A.B.C.D:XX\n")
+{
+	return bgp_route_match_add(vty, "evpn rd", argv[3]->arg,
+				   RMAP_EVENT_MATCH_ADDED);
+}
+
+DEFUN (no_match_evpn_rd,
+       no_match_evpn_rd_cmd,
+       "no match evpn rd ASN:NN_OR_IP-ADDRESS:NN",
+       NO_STR
+       MATCH_STR
+       EVPN_HELP_STR
+       "Route Distinguisher\n"
+       "ASN:XX or A.B.C.D:XX\n")
+{
+	return bgp_route_match_delete(vty, "evpn rd", argv[4]->arg,
+				      RMAP_EVENT_MATCH_DELETED);
+}
+
 DEFPY(match_vrl_source_vrf,
       match_vrl_source_vrf_cmd,
       "match source-vrf NAME$vrf_name",
@@ -5216,6 +5300,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_mac_address_cmd);
 	route_map_install_match(&route_match_evpn_vni_cmd);
 	route_map_install_match(&route_match_evpn_route_type_cmd);
+	route_map_install_match(&route_match_evpn_rd_cmd);
 	route_map_install_match(&route_match_evpn_default_route_cmd);
 	route_map_install_match(&route_match_vrl_source_vrf_cmd);
 
@@ -5256,6 +5341,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_match_evpn_vni_cmd);
 	install_element(RMAP_NODE, &match_evpn_route_type_cmd);
 	install_element(RMAP_NODE, &no_match_evpn_route_type_cmd);
+	install_element(RMAP_NODE, &match_evpn_rd_cmd);
+	install_element(RMAP_NODE, &no_match_evpn_rd_cmd);
 	install_element(RMAP_NODE, &match_evpn_default_route_cmd);
 	install_element(RMAP_NODE, &no_match_evpn_default_route_cmd);
 	install_element(RMAP_NODE, &match_vrl_source_vrf_cmd);
