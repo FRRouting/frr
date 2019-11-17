@@ -75,6 +75,9 @@ repositories to find out if a suitable version is available.
 
 Up-to-date Debian packages are available at https://deb.frrouting.org/.
 
+For instructions on installing from source, refer to the
+`developer documentation <http://docs.frrouting.org/projects/dev-guide/en/latest/>`_.
+
 
 System Architecture
 ===================
