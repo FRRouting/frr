@@ -64,6 +64,21 @@ The ultimate goal of the FRR project is making a production-grade, high
 quality, featureful and free IP routing software suite.
 
 
+How to get FRR
+==============
+
+The official FRR website is located at |PACKAGE_URL| and contains further
+information, as well as links to additional resources.
+
+Several distributions provide packages for FRR. Check your distribution's
+repositories to find out if a suitable version is available.
+
+Up-to-date Debian packages are available at https://deb.frrouting.org/.
+
+For instructions on installing from source, refer to the
+`developer documentation <http://docs.frrouting.org/projects/dev-guide/en/latest/>`_.
+
+
 System Architecture
 ===================
 
@@ -242,13 +257,15 @@ The indicators have the following semantics:
 * :mark:`N` - daemon/feature not supported by operating system
 
 
-Known Kernel Issues:
-====================
+Known Kernel Issues
+-------------------
 
-- Linux
-   v6 Route Replacement - Linux kernels before 4.11 can cause issues with v6 route deletion when you
-   have ecmp routes installed into the kernel.  This especially becomes apparent if the route is being
-   transformed from one ecmp path to another.
+- Linux < 4.11
+
+  v6 Route Replacement - Linux kernels before 4.11 can cause issues with v6
+  route deletion when you have ECMP routes installed into the kernel. This
+  especially becomes apparent if the route is being transformed from one ECMP
+  path to another.
 
 .. _supported-rfcs:
 
@@ -347,15 +364,6 @@ FRR implements the following RFCs:
   November 1995.`
 - :rfc:`2741`
   :t:`Agent Extensibility (AgentX) Protocol. M. Daniele, B. Wijnen. January 2000.`
-
-How to get FRR
-==============
-
-The official FRR website is located at |PACKAGE_URL| and contains further
-information, as well as links to additional resources.
-
-Several distributions provide packages for FRR. Check your distribution's
-repositories to find out if a suitable version is available.
 
 Mailing Lists
 =============
