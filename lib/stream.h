@@ -153,11 +153,6 @@ extern void stream_free(struct stream *);
 extern struct stream *stream_copy(struct stream *, struct stream *src);
 extern struct stream *stream_dup(struct stream *);
 
-#if CONFDATE > 20190821
-CPP_NOTICE("lib: time to remove stream_resize_orig")
-#endif
-extern size_t stream_resize_orig(struct stream *s, size_t newsize);
-#define stream_resize stream_resize_orig
 extern size_t stream_resize_inplace(struct stream **sptr, size_t newsize);
 
 extern size_t stream_get_getp(struct stream *);
@@ -199,7 +194,8 @@ extern int stream_put_prefix_addpath(struct stream *, struct prefix *,
 				     uint32_t addpath_tx_id);
 extern int stream_put_prefix(struct stream *, struct prefix *);
 extern int stream_put_labeled_prefix(struct stream *, struct prefix *,
-				     mpls_label_t *);
+				     mpls_label_t *, int addpath_encode,
+				     uint32_t addpath_tx_id);
 extern void stream_get(void *, struct stream *, size_t);
 extern bool stream_get2(void *data, struct stream *s, size_t size);
 extern void stream_get_from(void *, struct stream *, size_t, size_t);

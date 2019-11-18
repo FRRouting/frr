@@ -43,6 +43,11 @@
 #include "ripngd/ripng_debug.h"
 #include "ripngd/ripng_nexthop.h"
 
+DEFINE_MGROUP(RIPNGD, "ripngd")
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG, "RIPng structure")
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_VRF_NAME, "RIPng VRF name")
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_ROUTE, "RIPng route info")
+
 enum { ripng_all_route,
        ripng_changed_route,
 };
@@ -115,8 +120,7 @@ int ripng_make_socket(struct vrf *vrf)
 	/* Make datagram socket. */
 	if (vrf->vrf_id != VRF_DEFAULT)
 		vrf_dev = vrf->name;
-	frr_elevate_privs(&ripngd_privs)
-	{
+	frr_with_privs(&ripngd_privs) {
 		sock = vrf_socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP,
 				  vrf->vrf_id, vrf_dev);
 		if (sock < 0) {
@@ -155,7 +159,7 @@ int ripng_make_socket(struct vrf *vrf)
 #endif /* SIN6_LEN */
 	ripaddr.sin6_port = htons(RIPNG_PORT_DEFAULT);
 
-	frr_elevate_privs(&ripngd_privs) {
+	frr_with_privs(&ripngd_privs) {
 		ret = bind(sock, (struct sockaddr *)&ripaddr, sizeof(ripaddr));
 		if (ret < 0) {
 			zlog_err("Can't bind ripng socket: %s.",
@@ -2011,26 +2015,26 @@ static char *ripng_route_subtype_print(struct ripng_info *rinfo)
 	memset(str, 0, 3);
 
 	if (rinfo->suppress)
-		strcat(str, "S");
+		strlcat(str, "S", sizeof(str));
 
 	switch (rinfo->sub_type) {
 	case RIPNG_ROUTE_RTE:
-		strcat(str, "n");
+		strlcat(str, "n", sizeof(str));
 		break;
 	case RIPNG_ROUTE_STATIC:
-		strcat(str, "s");
+		strlcat(str, "s", sizeof(str));
 		break;
 	case RIPNG_ROUTE_DEFAULT:
-		strcat(str, "d");
+		strlcat(str, "d", sizeof(str));
 		break;
 	case RIPNG_ROUTE_REDISTRIBUTE:
-		strcat(str, "r");
+		strlcat(str, "r", sizeof(str));
 		break;
 	case RIPNG_ROUTE_INTERFACE:
-		strcat(str, "i");
+		strlcat(str, "i", sizeof(str));
 		break;
 	default:
-		strcat(str, "?");
+		strlcat(str, "?", sizeof(str));
 		break;
 	}
 

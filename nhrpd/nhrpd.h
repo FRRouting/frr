@@ -16,6 +16,7 @@
 #include "zclient.h"
 #include "debug.h"
 #include "memory.h"
+#include "resolver.h"
 
 DECLARE_MGROUP(NHRPD)
 
@@ -83,15 +84,6 @@ static inline int notifier_active(struct notifier_list *l)
 {
 	return !list_empty(&l->notifier_head);
 }
-
-struct resolver_query {
-	void (*callback)(struct resolver_query *, int n, union sockunion *);
-};
-
-void resolver_init(void);
-void resolver_resolve(struct resolver_query *query, int af,
-		      const char *hostname, void (*cb)(struct resolver_query *,
-						       int, union sockunion *));
 
 void nhrp_zebra_init(void);
 void nhrp_zebra_terminate(void);

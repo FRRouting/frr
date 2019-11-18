@@ -58,7 +58,7 @@ static struct zclient *zclient;
 static int _ptm_msg_address(struct stream *msg, int family, const void *addr);
 
 static void _ptm_msg_read_address(struct stream *msg, struct sockaddr_any *sa);
-static int _ptm_msg_read(struct stream *msg, int command,
+static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 			 struct bfd_peer_cfg *bpc, struct ptm_client **pc);
 
 static struct ptm_client *pc_lookup(uint32_t pid);
@@ -72,8 +72,8 @@ static struct ptm_client_notification *pcn_lookup(struct ptm_client *pc,
 static void pcn_free(struct ptm_client_notification *pcn);
 
 
-static void bfdd_dest_register(struct stream *msg);
-static void bfdd_dest_deregister(struct stream *msg);
+static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id);
+static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id);
 static void bfdd_client_register(struct stream *msg);
 static void bfdd_client_deregister(struct stream *msg);
 
@@ -89,6 +89,7 @@ static void debug_printbpc(const char *func, unsigned int line,
 {
 	char addr[3][128];
 	char timers[3][128];
+	char cbit_str[10];
 
 	addr[0][0] = addr[1][0] = addr[2][0] = timers[0][0] = timers[1][0] =
 		timers[2][0] = 0;
@@ -117,9 +118,11 @@ static void debug_printbpc(const char *func, unsigned int line,
 		snprintf(timers[2], sizeof(timers[2]), " detect-multiplier:%d",
 			 bpc->bpc_detectmultiplier);
 
-	log_debug("%s:%d: %s %s%s%s%s%s%s", func, line,
+	sprintf(cbit_str, "CB %x", bpc->bpc_cbit);
+
+	log_debug("%s:%d: %s %s%s%s%s%s%s %s", func, line,
 		  bpc->bpc_mhop ? "multi-hop" : "single-hop", addr[0], addr[1],
-		  addr[2], timers[0], timers[1], timers[2]);
+		  addr[2], timers[0], timers[1], timers[2], cbit_str);
 }
 
 #define DEBUG_PRINTBPC(bpc) debug_printbpc(__FILE__, __LINE__, (bpc))
@@ -173,6 +176,7 @@ int ptm_bfd_notify(struct bfd_session *bs)
 	 *   - AF_INET6:
 	 *     - 16 bytes: ipv6
 	 *   - c: prefix length
+	 * - c: cbit
 	 *
 	 * Commands: ZEBRA_BFD_DEST_REPLAY
 	 *
@@ -182,7 +186,10 @@ int ptm_bfd_notify(struct bfd_session *bs)
 	stream_reset(msg);
 
 	/* TODO: VRF handling */
-	zclient_create_header(msg, ZEBRA_BFD_DEST_REPLAY, VRF_DEFAULT);
+	if (bs->vrf)
+		zclient_create_header(msg, ZEBRA_BFD_DEST_REPLAY, bs->vrf->vrf_id);
+	else
+		zclient_create_header(msg, ZEBRA_BFD_DEST_REPLAY, VRF_DEFAULT);
 
 	/* This header will be handled by `zebra_ptm.c`. */
 	stream_putl(msg, ZEBRA_INTERFACE_BFD_DEST_UPDATE);
@@ -215,6 +222,8 @@ int ptm_bfd_notify(struct bfd_session *bs)
 
 	/* BFD source prefix information. */
 	_ptm_msg_address(msg, bs->key.family, &bs->key.local);
+
+	stream_putc(msg, bs->remote_cbit);
 
 	/* Write packet size. */
 	stream_putw_at(msg, 0, stream_get_endp(msg));
@@ -256,7 +265,7 @@ stream_failure:
 	memset(sa, 0, sizeof(*sa));
 }
 
-static int _ptm_msg_read(struct stream *msg, int command,
+static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 			 struct bfd_peer_cfg *bpc, struct ptm_client **pc)
 {
 	uint32_t pid;
@@ -290,6 +299,7 @@ static int _ptm_msg_read(struct stream *msg, int command,
 	 *       - 16 bytes: ipv6 address
 	 *     - c: ifname length
 	 *     - X bytes: interface name
+	 * - c: bfd_cbit
 	 *
 	 * q(64), l(32), w(16), c(8)
 	 */
@@ -355,6 +365,20 @@ static int _ptm_msg_read(struct stream *msg, int command,
 			bpc->bpc_localif[ifnamelen] = 0;
 		}
 	}
+	if (vrf_id != VRF_DEFAULT) {
+		struct vrf *vrf;
+
+		vrf = vrf_lookup_by_id(vrf_id);
+		if (vrf) {
+			bpc->bpc_has_vrfname = true;
+			strlcpy(bpc->bpc_vrfname, vrf->name, sizeof(bpc->bpc_vrfname));
+		} else {
+			log_error("ptm-read: vrf id %u could not be identified", vrf_id);
+			return -1;
+		}
+	}
+
+	STREAM_GETC(msg, bpc->bpc_cbit);
 
 	/* Sanity check: peer and local address must match IP types. */
 	if (bpc->bpc_local.sa_sin.sin_family != 0
@@ -370,7 +394,7 @@ stream_failure:
 	return -1;
 }
 
-static void bfdd_dest_register(struct stream *msg)
+static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 {
 	struct ptm_client *pc;
 	struct ptm_client_notification *pcn;
@@ -378,7 +402,7 @@ static void bfdd_dest_register(struct stream *msg)
 	struct bfd_peer_cfg bpc;
 
 	/* Read the client context and peer data. */
-	if (_ptm_msg_read(msg, ZEBRA_BFD_DEST_REGISTER, &bpc, &pc) == -1)
+	if (_ptm_msg_read(msg, ZEBRA_BFD_DEST_REGISTER, vrf_id, &bpc, &pc) == -1)
 		return;
 
 	DEBUG_PRINTBPC(&bpc);
@@ -408,7 +432,7 @@ static void bfdd_dest_register(struct stream *msg)
 	ptm_bfd_notify(bs);
 }
 
-static void bfdd_dest_deregister(struct stream *msg)
+static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 {
 	struct ptm_client *pc;
 	struct ptm_client_notification *pcn;
@@ -416,7 +440,7 @@ static void bfdd_dest_deregister(struct stream *msg)
 	struct bfd_peer_cfg bpc;
 
 	/* Read the client context and peer data. */
-	if (_ptm_msg_read(msg, ZEBRA_BFD_DEST_DEREGISTER, &bpc, &pc) == -1)
+	if (_ptm_msg_read(msg, ZEBRA_BFD_DEST_DEREGISTER, vrf_id, &bpc, &pc) == -1)
 		return;
 
 	DEBUG_PRINTBPC(&bpc);
@@ -434,7 +458,7 @@ static void bfdd_dest_deregister(struct stream *msg)
 	if (bs->refcount ||
 	    BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
 		return;
-	ptm_bfd_ses_del(&bpc);
+	ptm_bfd_sess_del(&bpc);
 }
 
 /*
@@ -497,10 +521,10 @@ static int bfdd_replay(ZAPI_CALLBACK_ARGS)
 	switch (rcmd) {
 	case ZEBRA_BFD_DEST_REGISTER:
 	case ZEBRA_BFD_DEST_UPDATE:
-		bfdd_dest_register(msg);
+		bfdd_dest_register(msg, vrf_id);
 		break;
 	case ZEBRA_BFD_DEST_DEREGISTER:
-		bfdd_dest_deregister(msg);
+		bfdd_dest_deregister(msg, vrf_id);
 		break;
 	case ZEBRA_BFD_CLIENT_REGISTER:
 		bfdd_client_register(msg);
@@ -548,14 +572,20 @@ static void bfdd_sessions_enable_interface(struct interface *ifp)
 {
 	struct bfd_session_observer *bso;
 	struct bfd_session *bs;
+	struct vrf *vrf;
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
+		bs = bso->bso_bs;
 		if (bso->bso_isinterface == false)
 			continue;
-
 		/* Interface name mismatch. */
-		bs = bso->bso_bs;
 		if (strcmp(ifp->name, bs->key.ifname))
+			continue;
+		vrf = vrf_lookup_by_id(ifp->vrf_id);
+		if (!vrf)
+			continue;
+		if (bs->key.vrfname[0] &&
+		    strcmp(vrf->name, bs->key.vrfname))
 			continue;
 		/* Skip enabled sessions. */
 		if (bs->sock != -1)
@@ -586,7 +616,52 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 		/* Try to enable it. */
 		bfd_session_disable(bs);
 
-		TAILQ_INSERT_HEAD(&bglobal.bg_obslist, bso, bso_entry);
+	}
+}
+
+void bfdd_sessions_enable_vrf(struct vrf *vrf)
+{
+	struct bfd_session_observer *bso;
+	struct bfd_session *bs;
+
+	/* it may affect configs without interfaces */
+	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
+		bs = bso->bso_bs;
+		if (bs->vrf)
+			continue;
+		if (bs->key.vrfname[0] &&
+		    strcmp(vrf->name, bs->key.vrfname))
+			continue;
+		/* need to update the vrf information on
+		 * bs so that callbacks are handled
+		 */
+		bs->vrf = vrf;
+		/* Skip enabled sessions. */
+		if (bs->sock != -1)
+			continue;
+		/* Try to enable it. */
+		bfd_session_enable(bs);
+	}
+}
+
+void bfdd_sessions_disable_vrf(struct vrf *vrf)
+{
+	struct bfd_session_observer *bso;
+	struct bfd_session *bs;
+
+	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
+		if (bso->bso_isinterface)
+			continue;
+		bs = bso->bso_bs;
+		if (bs->key.vrfname[0] &&
+		    strcmp(vrf->name, bs->key.vrfname))
+			continue;
+		/* Skip disabled sessions. */
+		if (bs->sock == -1)
+			continue;
+
+		/* Try to enable it. */
+		bfd_session_disable(bs);
 	}
 }
 
@@ -699,6 +774,20 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 	/* Learn about new addresses being registered. */
 	zclient->interface_address_add = bfdd_interface_address_update;
 	zclient->interface_address_delete = bfdd_interface_address_update;
+}
+
+void bfdd_zclient_register(vrf_id_t vrf_id)
+{
+	if (!zclient || zclient->sock < 0)
+		return;
+	zclient_send_reg_requests(zclient, vrf_id);
+}
+
+void bfdd_zclient_unregister(vrf_id_t vrf_id)
+{
+	if (!zclient || zclient->sock < 0)
+		return;
+	zclient_send_dereg_requests(zclient, vrf_id);
 }
 
 void bfdd_zclient_stop(void)

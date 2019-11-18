@@ -25,7 +25,7 @@ FRR_VTY_GROUP="@enable_vty_group@" # frrvty
 # Local Daemon selection may be done by using /etc/frr/daemons.
 # See /usr/share/doc/frr/README.Debian.gz for further information.
 # Keep zebra first and do not list watchfrr!
-DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd"
+DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd vrrpd"
 MAX_INSTANCES=5
 RELOAD_SCRIPT="$D_PATH/frr-reload.py"
 
@@ -561,30 +561,7 @@ case "$1" in
 			stop_prio 0 $dmn
 		fi
 
-		if [ -z "$dmn" -o "$dmn" = "zebra" ]; then
-			echo "Removing all routes made by FRR."
-			# Specific values for each proto can be found
-			# in /etc/iproute2/rt_protos as well as FRR
-			# specific ones in /etc/iproute2/rt_protos.d
-			# Additionally if a new protocol is added
-			# we need to add it here as well as
-			# in rt_netlink.h( follow the directions! )
-			ip route flush proto 4
-			ip route flush proto 11
-			ip route flush proto 42
-			ip route flush proto 186
-			ip route flush proto 187
-			ip route flush proto 188
-			ip route flush proto 189
-			ip route flush proto 190
-			ip route flush proto 191
-			ip route flush proto 192
-			ip route flush proto 193
-			ip route flush proto 194
-			ip route flush proto 195
-			ip route flush proto 196
-			ip route flush proto 197
-		else
+		if [ [ -n "$dmn" ] && [ "$dmn" != "zebra" ] ]; then
 			[ -n "$dmn" ] && eval "${dmn/-/_}=0"
 			start_watchfrr
 		fi

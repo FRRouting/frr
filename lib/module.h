@@ -24,16 +24,6 @@
 extern "C" {
 #endif
 
-#if !defined(__GNUC__)
-#error module code needs GCC visibility extensions
-#elif __GNUC__ < 4
-#error module code needs GCC visibility extensions
-#else
-# define DSO_PUBLIC __attribute__ ((visibility ("default")))
-# define DSO_SELF   __attribute__ ((visibility ("protected")))
-# define DSO_LOCAL  __attribute__ ((visibility ("hidden")))
-#endif
-
 struct frrmod_runtime;
 
 struct frrmod_info {

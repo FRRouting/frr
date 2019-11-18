@@ -23,6 +23,8 @@
 #include <netinet/in.h>
 
 #include "pim_jp_agg.h"
+
+#define PIM_HDR_LEN  sizeof(struct pim_msg_header)
 /*
   Number       Description
   ----------   ------------------
@@ -40,12 +42,30 @@ enum pim_msg_address_family {
 };
 
 /*
- * Network Order pim_msg_hdr
+ * pim_msg_hdr
+ * =========================
+ *  PIM Header definition as per RFC 5059. N bit introduced to indicate
+ *  do-not-forward option in PIM Boot strap Message.
+ *    0                   1                   2                   3
+ *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |PIM Ver| Type  |N|  Reserved   |           Checksum            |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 struct pim_msg_header {
+#if (BYTE_ORDER == LITTLE_ENDIAN)
 	uint8_t type : 4;
 	uint8_t ver : 4;
-	uint8_t reserved;
+	uint8_t reserved : 7;
+	uint8_t Nbit : 1; /* No Fwd Bit */
+#elif (BYTE_ORDER == BIG_ENDIAN)
+	uint8_t ver : 4;
+	uint8_t type : 4;
+	uint8_t Nbit : 1; /* No Fwd Bit */
+	uint8_t reserved : 7;
+#else
+#error"Please set byte order"
+#endif
 	uint16_t checksum;
 } __attribute__((packed));
 
@@ -55,17 +75,48 @@ struct pim_encoded_ipv4_unicast {
 	struct in_addr addr;
 } __attribute__((packed));
 
+/*
+ *  Encoded Group format. RFC 4601 Sec 4.9.1
+ *   0                   1                   2                   3
+ *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |  Addr Family  | Encoding Type |B| Reserved  |Z|  Mask Len     |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                Group multicast Address
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+...
+ */
 struct pim_encoded_group_ipv4 {
-	uint8_t ne;
 	uint8_t family;
-	uint8_t reserved;
+	uint8_t ne;
+#if (BYTE_ORDER == LITTLE_ENDIAN)
+	uint8_t sz : 1;	/* scope zone bit */
+	uint8_t reserved : 6;	/* Reserved */
+	uint8_t bidir : 1;	/* Bidir bit */
+#elif (BYTE_ORDER == BIG_ENDIAN)
+	uint8_t bidir : 1;	/* Bidir bit */
+	uint8_t reserved : 6;	/* Reserved */
+	uint8_t sz : 1;		/* scope zone bit */
+#else
+#error"Please set byte order"
+#endif
 	uint8_t mask;
 	struct in_addr addr;
 } __attribute__((packed));
 
+
+/*
+ *  Encoded Source format. RFC 4601 Sec 4.9.1
+ *   0                   1                   2                   3
+ *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  | Addr Family   | Encoding Type | Rsrvd   |S|W|R|  Mask Len     |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                        Source Address
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-...
+ */
 struct pim_encoded_source_ipv4 {
-	uint8_t ne;
 	uint8_t family;
+	uint8_t ne;
 	uint8_t bits;
 	uint8_t mask;
 	struct in_addr addr;
@@ -88,7 +139,7 @@ struct pim_jp {
 } __attribute__((packed));
 
 void pim_msg_build_header(uint8_t *pim_msg, size_t pim_msg_size,
-			  uint8_t pim_msg_type);
+			  uint8_t pim_msg_type, bool no_fwd);
 uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf, struct in_addr addr);
 uint8_t *pim_msg_addr_encode_ipv4_group(uint8_t *buf, struct in_addr addr);
 

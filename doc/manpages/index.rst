@@ -26,4 +26,5 @@
    watchfrr
    zebra
    vtysh
+   vrrpd
    frr

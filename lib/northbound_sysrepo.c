@@ -425,7 +425,7 @@ static int frr_sr_state_cb(const char *xpath, sr_val_t **values,
 exit:
 	list_delete(&elements);
 	*values = NULL;
-	values_cnt = 0;
+	*values_cnt = 0;
 
 	return SR_ERR_OK;
 }

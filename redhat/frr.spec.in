@@ -1,6 +1,6 @@
 # configure options
 #
-# Some can be overriden on rpmbuild commandline with:
+# Some can be overridden on rpmbuild commandline with:
 # rpmbuild --define 'variable value'
 #   (use any value, ie 1 for flag "with_XXXX" definitions)
 #
@@ -24,6 +24,7 @@
 %{!?with_pam:           %global  with_pam           0 }
 %{!?with_pbrd:          %global  with_pbrd          1 }
 %{!?with_pimd:          %global  with_pimd          1 }
+%{!?with_vrrpd:         %global  with_vrrpd         1 }
 %{!?with_rpki:          %global  with_rpki          0 }
 %{!?with_rtadv:         %global  with_rtadv         1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
@@ -43,12 +44,6 @@
 # defines for configure
 %define     rundir  %{_localstatedir}/run/%{name}
 
-# define for sphinx-build binary
-%if 0%{?rhel} && 0%{?rhel} < 7
-    %define sphinx sphinx-build2.7
-%else
-    %define sphinx sphinx-build
-%endif
 ############################################################################
 
 #### Version String tweak
@@ -124,6 +119,12 @@
     %define daemon_babeld ""
 %endif
 
+%if %{with_vrrpd}
+    %define daemon_vrrpd vrrpd
+%else
+    %define daemon_vrrpd ""
+%endif
+
 %if %{with_watchfrr}
     %define daemon_watchfrr watchfrr
 %else
@@ -136,7 +137,7 @@
     %define daemon_bfdd ""
 %endif
 
-%define all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd} %{daemon_bfdd}
+%define all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd} %{daemon_bfdd} %{daemon_vrrpd}
 
 #release sub-revision (the two digits after the CONFDATE)
 %{!?release_rev:        %global  release_rev        01 }
@@ -306,6 +307,11 @@ developing OSPF-API and frr applications.
 %else
     --disable-babeld \
 %endif
+%if %{with_vrrpd}
+	--enable-vrrpd \
+%else
+	--disable-vrrpd \
+%endif
 %if %{with_pam}
     --with-libpam \
 %endif
@@ -348,7 +354,7 @@ developing OSPF-API and frr applications.
 %else
     --disable-bfdd \
 %endif
-    SPHINXBUILD=%{sphinx}
+    # end
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
@@ -461,6 +467,9 @@ zebra_spec_add_service isisd    2608/tcp "ISISd vty"
     zebra_spec_add_service bfdd     2617/tcp "BFDd vty"
 %endif
 zebra_spec_add_service fabricd	2618/tcp "Fabricd vty"
+%if %{with_vrrpd}
+    zebra_spec_add_service vrrpd    2619/tcp "VRRPd vty"
+%endif
 
 %if "%{initsystem}" == "systemd"
     for daemon in %all_daemons ; do
@@ -596,6 +605,9 @@ fi
 %if %{with_pbrd}
     %{_sbindir}/pbrd
 %endif
+%if %{with_vrrpd}
+    %{_sbindir}/vrrpd
+%endif
 %{_sbindir}/isisd
 %{_sbindir}/fabricd
 %if %{with_ldpd}
@@ -622,6 +634,7 @@ fi
     %{_libdir}/frr/modules/bgpd_rpki.so
 %endif
 %{_libdir}/frr/modules/zebra_irdp.so
+%{_libdir}/frr/modules/bgpd_bmp.so
 %{_bindir}/*
 %config(noreplace) %{configdir}/[!v]*.conf*
 %config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons
@@ -665,8 +678,67 @@ fi
 
 
 %changelog
-* Mon Jun 17 2019 David Lamparter <equinox@opensourcerouting.org> - %{version}
-- TBD
+* Tue Oct 15 2019 Martin Winter <equinox@opensourcerouting.org> - %{version}
+[200~- ALL Daemons
+-   -N <namespace> to allow for config file locating when running FRR inside
+     of a namespace
+-   Impoved Testing across all daemons
+- BFD
+-   VRF Support
+-   Conversion to Northbound interface
+- BGP
+-   Aggregate-address add route-map support
+-   BMP Support
+-   Improved JSON output for many commands
+-   `show bgp afi safi summary failed` command
+-   `clear bop *` clears all peers
+-   Show FQDN for `show bgp ipv4 uni` commands
+-   Display BestPath selection reason as part of show commands
+- EIGRP
+-   Infrastructure changes to allow VRF's
+-   SIGHUP signals the config reload
+-   Conversion to Northbound interface
+- ISIS
+-   BFD Support
+-   Support for circuits with MTU > 8192
+- PBRD
+-   fwmark support as part of match criteria
+-   autocompletion of PBRMAPS
+-   Improved Nexthop Support
+- PIMD
+-   PIM-BSM receive support
+-   Improved debugging support
+-   Store ECMP paths that are not currently legal for use
+-   Disallow igmp query from a non-connected source
+-   Many new cli improvements and changes
+- VRRPD
+-   Add Support for RFC 3768 and RFC 5798
+- Route-Maps
+-   Add sequence numbers to access-lists
+-   Add `match ip next-hop type blackhole`
+-   Improved ability to notice dependency changes
+- SHARPD
+-   `sharp watch [import|nexthop]` you can now specify a prefix instead
+    of assuming a /32
+- STATICD
+-   Significantly Improved NHT
+- ZEBRA
+-   Many dataplane improvements for routes, neighbor table and EVPN
+-   NHT cli can now be specified per VRF and improved ability to control
+    NHT data being shown
+-   Removed duplicate processing of routes
+-   Improved debugablility
+-   RMAC and VxLan support for the FPM
+- LIB
+-   RCU support
+-   Nexthop Group Improvements
+-   `log-filter WORD` added
+- Building
+-   openssl support
+-   libcap should be used as part of build or significant slowdowns
+    will be experienced
+-   Lua builds have been fixed
+-   Improved Cross building
 
 * Mon Jun 17 2019 David Lamparter <equinox@opensourcerouting.org> - 7.1
 - gRPC northbound plugin
@@ -723,7 +795,7 @@ fi
 * Sun Oct  7 2018 Martin Winter <mwinter@opensourcerouting.org> - 6.0
 - Staticd: New daemon responsible for management of static routes
 - ISISd: Implement dst-src routing as per draft-ietf-isis-ipv6-dst-src-routing
-- BFDd: new daemon for BFD (Bidrectional Forwarding Detection). Responsiblei
+- BFDd: new daemon for BFD (Bidrectional Forwarding Detection). Responsible
   for notifying link changes to make routing protocols converge faster.
 - various bug fixes
 

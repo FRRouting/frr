@@ -88,7 +88,6 @@ void isis_new(unsigned long process_id)
 	isis->init_circ_list = list_new();
 	isis->uptime = time(NULL);
 	isis->nexthops = list_new();
-	isis->nexthops6 = list_new();
 	dyn_cache_init();
 	/*
 	 * uncomment the next line for full debugs
@@ -738,11 +737,7 @@ DEFUN (clear_isis_neighbor_arg,
  */
 void print_debug(struct vty *vty, int flags, int onoff)
 {
-	char onoffs[4];
-	if (onoff)
-		strcpy(onoffs, "on");
-	else
-		strcpy(onoffs, "off");
+	const char *onoffs = onoff ? "on" : "off";
 
 	if (flags & DEBUG_ADJ_PACKETS)
 		vty_out(vty,

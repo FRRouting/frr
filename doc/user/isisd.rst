@@ -423,6 +423,12 @@ Showing ISIS information
 Traffic Engineering
 ===================
 
+.. note::
+
+   At this time, FRR offers partial support for some of the routing
+   protocol extensions that can be used with MPLS-TE. FRR does not
+   support a complete RSVP-TE solution currently.
+
 .. index:: mpls-te on
 .. clicmd:: mpls-te on
 

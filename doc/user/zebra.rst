@@ -23,9 +23,12 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    Runs in batch mode. *zebra* parses configuration file and terminates
    immediately.
 
-.. option:: -k, --keep_kernel
+.. option:: -K TIME, --graceful_restart TIME
 
-   When zebra starts up, don't delete old self inserted routes.
+   If this option is specified, the graceful restart time is TIME seconds.
+   Zebra, when started, will read in routes.  Those routes that Zebra
+   identifies that it was the originator of will be swept in TIME seconds.
+   If no time is specified then we will sweep those routes immediately.
 
 .. option:: -r, --retain
 
@@ -54,6 +57,12 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    parameter.
 
    .. seealso:: :ref:`zebra-vrf`
+
+.. option:: -z <path_to_socket>, --socket <path_to_socket>
+
+   If this option is supplied on the cli, the path to the zebra
+   control socket(zapi), is used.  This option overrides a -N <namespace>
+   option if handed to it on the cli.
 
 .. option:: --v6-rr-semantics
 
@@ -184,18 +193,25 @@ Standard Commands
 Link Parameters Commands
 ------------------------
 
+.. note::
+
+   At this time, FRR offers partial support for some of the routing
+   protocol extensions that can be used with MPLS-TE. FRR does not
+   support a complete RSVP-TE solution currently.
+
 .. index:: link-params
 .. clicmd:: link-params
 
 .. index:: no link-param
 .. clicmd:: no link-param
 
-   Enter into the link parameters sub node. At least 'enable' must be set to
-   activate the link parameters, and consequently Traffic Engineering on this
-   interface. MPLS-TE must be enable at the OSPF
-   (:ref:`ospf-traffic-engineering`) or ISIS (:ref:`isis-traffic-engineering`)
-   router level in complement to this.  Disable link parameters for this
-   interface.
+   Enter into the link parameters sub node. At least 'enable' must be
+   set to activate the link parameters, and consequently routing
+   information that could be used as part of Traffic Engineering on
+   this interface. MPLS-TE must be enable at the OSPF
+   (:ref:`ospf-traffic-engineering`) or ISIS
+   (:ref:`isis-traffic-engineering`) router level in complement to
+   this.  Disable link parameters for this interface.
 
    Under link parameter statement, the following commands set the different TE values:
 
@@ -351,6 +367,12 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    The show command is only available with :option:`-n` option. This command
    will dump the routing table ``TABLENO`` of the *Linux network namespace*
    ``VRF``.
+
+.. index:: show ip route vrf VRF tables
+.. clicmd:: show ip route vrf VRF tables
+
+   This command will dump the routing tables within the vrf scope. If `vrf all`
+   is executed, all routing tables will be dumped.
 
 By using the :option:`-n` option, the *Linux network namespace* will be mapped
 over the *Zebra* VRF. One nice feature that is possible by handling *Linux

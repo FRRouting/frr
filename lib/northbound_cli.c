@@ -434,10 +434,29 @@ static int nb_cli_candidate_load_transaction(struct vty *vty,
 	return CMD_SUCCESS;
 }
 
+/*
+ * ly_iter_next_is_up: detects when iterating up on the yang model.
+ *
+ * This function detects whether next node in the iteration is upwards,
+ * then return the node otherwise return NULL.
+ */
+static struct lyd_node *ly_iter_next_up(const struct lyd_node *elem)
+{
+	/* Are we going downwards? Is this still not a leaf? */
+	if (!(elem->schema->nodetype & (LYS_LEAF | LYS_LEAFLIST | LYS_ANYDATA)))
+		return NULL;
+
+	/* Are there still leaves in this branch? */
+	if (elem->next != NULL)
+		return NULL;
+
+	return elem->parent;
+}
+
 void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
 			    bool with_defaults)
 {
-	struct lyd_node *next, *child;
+	struct lyd_node *next, *child, *parent;
 
 	LY_TREE_DFS_BEGIN (root, next, child) {
 		struct nb_node *nb_node;
@@ -452,6 +471,19 @@ void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
 
 		(*nb_node->cbs.cli_show)(vty, child, with_defaults);
 	next:
+		/*
+		 * When transiting upwards in the yang model we should
+		 * give the previous container/list node a chance to
+		 * print its close vty output (e.g. "!" or "end-family"
+		 * etc...).
+		 */
+		parent = ly_iter_next_up(child);
+		if (parent != NULL) {
+			nb_node = parent->schema->priv;
+			if (nb_node->cbs.cli_show_end)
+				(*nb_node->cbs.cli_show_end)(vty, parent);
+		}
+
 		LY_TREE_DFS_END(root, next, child);
 	}
 }
@@ -725,7 +757,7 @@ DEFPY (config_load,
        "configuration load\
           <\
 	    file [<json$json|xml$xml> [translate WORD$translator_family]] FILENAME$filename\
-	    |transaction (1-4294967296)$tid\
+	    |transaction (1-4294967295)$tid\
 	  >\
 	  [replace$replace]",
        "Configuration related settings\n"
@@ -891,12 +923,12 @@ DEFPY (show_config_compare,
           <\
 	    candidate$c1_candidate\
 	    |running$c1_running\
-	    |transaction (1-4294967296)$c1_tid\
+	    |transaction (1-4294967295)$c1_tid\
 	  >\
           <\
 	    candidate$c2_candidate\
 	    |running$c2_running\
-	    |transaction (1-4294967296)$c2_tid\
+	    |transaction (1-4294967295)$c2_tid\
 	  >\
 	  [<json$json|xml$xml> [translate WORD$translator_family]]",
        SHOW_STR
@@ -997,11 +1029,11 @@ ALIAS (show_config_compare,
        "show configuration compare\
           <\
 	    running$c1_running\
-	    |transaction (1-4294967296)$c1_tid\
+	    |transaction (1-4294967295)$c1_tid\
 	  >\
           <\
 	    running$c2_running\
-	    |transaction (1-4294967296)$c2_tid\
+	    |transaction (1-4294967295)$c2_tid\
 	  >\
 	 [<json$json|xml$xml> [translate WORD$translator_family]]",
        SHOW_STR
@@ -1160,7 +1192,7 @@ DEFPY (show_config_transaction,
        show_config_transaction_cmd,
        "show configuration transaction\
           [\
-	    (1-4294967296)$transaction_id\
+	    (1-4294967295)$transaction_id\
 	    [<json$json|xml$xml> [translate WORD$translator_family]]\
             [<\
 	      with-defaults$with_defaults\
@@ -1561,7 +1593,7 @@ static int nb_cli_rollback_configuration(struct vty *vty,
 
 DEFPY (rollback_config,
        rollback_config_cmd,
-       "rollback configuration (1-4294967296)$transaction_id",
+       "rollback configuration (1-4294967295)$transaction_id",
        "Rollback to a previous state\n"
        "Running configuration\n"
        "Transaction ID\n")
@@ -1722,8 +1754,8 @@ void nb_cli_init(struct thread_master *tm)
 	/* Initialize the shared candidate configuration. */
 	vty_shared_candidate_config = nb_config_new(NULL);
 
-	/* Install debug commands */
 	debug_init(&nb_dbg_cbs);
+
 	install_node(&nb_debug_node, nb_debug_config_write);
 	install_element(ENABLE_NODE, &debug_nb_cmd);
 	install_element(CONFIG_NODE, &debug_nb_cmd);

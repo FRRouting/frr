@@ -393,8 +393,10 @@ end
         # is not the main router bgp block, but enabling multi-instance
         oneline_ctx_keywords = ("access-list ",
                                 "agentx",
+                                "allow-external-route-update",
                                 "bgp ",
                                 "debug ",
+                                "domainname ",
                                 "dump ",
                                 "enable ",
                                 "frr ",
@@ -410,7 +412,8 @@ end
                                 "service ",
                                 "table ",
                                 "username ",
-                                "zebra ")
+                                "zebra ",
+                                "vrrp autoconfigure")
 
         for line in self.lines:
 

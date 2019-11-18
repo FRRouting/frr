@@ -32,6 +32,7 @@
 #include "prefix.h"
 
 #include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
@@ -40,6 +41,7 @@
 #include "nexthop.h"
 
 #include "zebra/zebra_fpm_private.h"
+#include "zebra/zebra_vxlan_private.h"
 
 /*
  * addr_to_a
@@ -101,6 +103,51 @@ static size_t af_addr_size(uint8_t af)
 }
 
 /*
+ * We plan to use RTA_ENCAP_TYPE attribute for VxLAN encap as well.
+ * Currently, values 0 to 8 for this attribute are used by lwtunnel_encap_types
+ * So, we cannot use these values for VxLAN encap.
+ */
+enum fpm_nh_encap_type_t {
+	FPM_NH_ENCAP_NONE = 0,
+	FPM_NH_ENCAP_VXLAN = 100,
+	FPM_NH_ENCAP_MAX,
+};
+
+/*
+ * fpm_nh_encap_type_to_str
+ */
+static const char *fpm_nh_encap_type_to_str(enum fpm_nh_encap_type_t encap_type)
+{
+	switch (encap_type) {
+	case FPM_NH_ENCAP_NONE:
+		return "none";
+
+	case FPM_NH_ENCAP_VXLAN:
+		return "VxLAN";
+
+	case FPM_NH_ENCAP_MAX:
+		return "invalid";
+	}
+
+	return "invalid";
+}
+
+struct vxlan_encap_info_t {
+	vni_t vni;
+};
+
+enum vxlan_encap_info_type_t {
+	VXLAN_VNI = 0,
+};
+
+struct fpm_nh_encap_info_t {
+	enum fpm_nh_encap_type_t encap_type;
+	union {
+		struct vxlan_encap_info_t vxlan_encap;
+	};
+};
+
+/*
  * netlink_nh_info_t
  *
  * Holds information about a single nexthop for netlink. These info
@@ -117,6 +164,7 @@ typedef struct netlink_nh_info_t_ {
 	 */
 	int recursive;
 	enum nexthop_types_t type;
+	struct fpm_nh_encap_info_t encap_info;
 } netlink_nh_info_t;
 
 /*
@@ -147,13 +195,15 @@ typedef struct netlink_route_info_t_ {
  * Add information about the given nexthop to the given route info
  * structure.
  *
- * Returns TRUE if a nexthop was added, FALSE otherwise.
+ * Returns true if a nexthop was added, false otherwise.
  */
 static int netlink_route_info_add_nh(netlink_route_info_t *ri,
-				     struct nexthop *nexthop)
+				     struct nexthop *nexthop,
+				     struct route_entry *re)
 {
 	netlink_nh_info_t nhi;
 	union g_addr *src;
+	zebra_l3vni_t *zl3vni = NULL;
 
 	memset(&nhi, 0, sizeof(nhi));
 	src = NULL;
@@ -184,6 +234,17 @@ static int netlink_route_info_add_nh(netlink_route_info_t *ri,
 
 	if (!nhi.gateway && nhi.if_index == 0)
 		return 0;
+
+	if (re && CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+		nhi.encap_info.encap_type = FPM_NH_ENCAP_VXLAN;
+
+		zl3vni = zl3vni_from_vrf(nexthop->vrf_id);
+		if (zl3vni && is_l3vni_oper_up(zl3vni)) {
+
+			/* Add VNI to VxLAN encap info */
+			nhi.encap_info.vxlan_encap.vni = zl3vni->vni;
+		}
+	}
 
 	/*
 	 * We have a valid nhi. Copy the structure over to the route_info.
@@ -217,12 +278,13 @@ static uint8_t netlink_proto_from_route_type(int type)
  *
  * Fill out the route information object from the given route.
  *
- * Returns TRUE on success and FALSE on failure.
+ * Returns true on success and false on failure.
  */
 static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 				   rib_dest_t *dest, struct route_entry *re)
 {
 	struct nexthop *nexthop;
+	struct zebra_vrf *zvrf;
 
 	memset(ri, 0, sizeof(*ri));
 
@@ -230,7 +292,9 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 	ri->af = rib_dest_af(dest);
 
 	ri->nlmsg_type = cmd;
-	ri->rtm_table = zvrf_id(rib_dest_vrf(dest));
+	zvrf = rib_dest_vrf(dest);
+	if (zvrf)
+		ri->rtm_table = zvrf->table_id;
 	ri->rtm_protocol = RTPROT_UNSPEC;
 
 	/*
@@ -251,7 +315,7 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 	ri->metric = &re->metric;
 
 	for (ALL_NEXTHOPS(re->ng, nexthop)) {
-		if (ri->num_nhs >= multipath_num)
+		if (ri->num_nhs >= zrouter.multipath_num)
 			break;
 
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
@@ -270,14 +334,13 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 				ri->rtm_type = RTN_BLACKHOLE;
 				break;
 			}
-			return 1;
 		}
 
 		if ((cmd == RTM_NEWROUTE
 		     && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 		    || (cmd == RTM_DELROUTE
 			&& CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))) {
-			netlink_route_info_add_nh(ri, nexthop);
+			netlink_route_info_add_nh(ri, nexthop, re);
 		}
 	}
 
@@ -303,6 +366,10 @@ static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
 	unsigned int nexthop_num = 0;
 	size_t buf_offset;
 	netlink_nh_info_t *nhi;
+	enum fpm_nh_encap_type_t encap;
+	struct rtattr *nest;
+	struct vxlan_encap_info_t *vxlan;
+	int nest_len;
 
 	struct {
 		struct nlmsghdr n;
@@ -327,7 +394,21 @@ static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
 	req->n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
 	req->n.nlmsg_type = ri->nlmsg_type;
 	req->r.rtm_family = ri->af;
-	req->r.rtm_table = ri->rtm_table;
+
+	/*
+	 * rtm_table field is a uchar field which can accomodate table_id less
+	 * than 256.
+	 * To support table id greater than 255, if the table_id is greater than
+	 * 255, set rtm_table to RT_TABLE_UNSPEC and add RTA_TABLE attribute
+	 * with 32 bit value as the table_id.
+	 */
+	if (ri->rtm_table < 256)
+		req->r.rtm_table = ri->rtm_table;
+	else {
+		req->r.rtm_table = RT_TABLE_UNSPEC;
+		addattr32(&req->n, in_buf_len, RTA_TABLE, ri->rtm_table);
+	}
+
 	req->r.rtm_dst_len = ri->prefix->prefixlen;
 	req->r.rtm_protocol = ri->rtm_protocol;
 	req->r.rtm_scope = RT_SCOPE_UNIVERSE;
@@ -353,6 +434,26 @@ static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
 
 		if (nhi->if_index) {
 			addattr32(&req->n, in_buf_len, RTA_OIF, nhi->if_index);
+		}
+
+		encap = nhi->encap_info.encap_type;
+		if (encap > FPM_NH_ENCAP_NONE) {
+			addattr_l(&req->n, in_buf_len, RTA_ENCAP_TYPE, &encap,
+				  sizeof(uint16_t));
+			switch (encap) {
+			case FPM_NH_ENCAP_NONE:
+				break;
+			case FPM_NH_ENCAP_VXLAN:
+				vxlan = &nhi->encap_info.vxlan_encap;
+				nest = addattr_nest(&req->n, in_buf_len,
+						    RTA_ENCAP);
+				addattr32(&req->n, in_buf_len, VXLAN_VNI,
+					  vxlan->vni);
+				addattr_nest_end(&req->n, nest);
+				break;
+			case FPM_NH_ENCAP_MAX:
+				break;
+			}
 		}
 
 		goto done;
@@ -386,6 +487,28 @@ static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
 
 		if (nhi->if_index) {
 			rtnh->rtnh_ifindex = nhi->if_index;
+		}
+
+		encap = nhi->encap_info.encap_type;
+		if (encap > FPM_NH_ENCAP_NONE) {
+			rta_addattr_l(rta, sizeof(buf), RTA_ENCAP_TYPE,
+				      &encap, sizeof(uint16_t));
+			rtnh->rtnh_len += sizeof(struct rtattr) +
+					  sizeof(uint16_t);
+			switch (encap) {
+			case FPM_NH_ENCAP_NONE:
+				break;
+			case FPM_NH_ENCAP_VXLAN:
+				vxlan = &nhi->encap_info.vxlan_encap;
+				nest = rta_nest(rta, sizeof(buf), RTA_ENCAP);
+				rta_addattr_l(rta, sizeof(buf), VXLAN_VNI,
+					      &vxlan->vni, sizeof(uint32_t));
+				nest_len = rta_nest_end(rta, nest);
+				rtnh->rtnh_len += nest_len;
+				break;
+			case FPM_NH_ENCAP_MAX:
+				break;
+			}
 		}
 
 		rtnh = RTNH_NEXT(rtnh);
@@ -424,10 +547,12 @@ static void zfpm_log_route_info(netlink_route_info_t *ri, const char *label)
 
 	for (i = 0; i < ri->num_nhs; i++) {
 		nhi = &ri->nhs[i];
-		zfpm_debug("  Intf: %u, Gateway: %s, Recursive: %s, Type: %s",
+		zfpm_debug("  Intf: %u, Gateway: %s, Recursive: %s, Type: %s, Encap type: %s",
 			   nhi->if_index, addr_to_a(ri->af, nhi->gateway),
 			   nhi->recursive ? "yes" : "no",
-			   nexthop_type_to_str(nhi->type));
+			   nexthop_type_to_str(nhi->type),
+			   fpm_nh_encap_type_to_str(nhi->encap_info.encap_type)
+			   );
 	}
 }
 
@@ -453,6 +578,69 @@ int zfpm_netlink_encode_route(int cmd, rib_dest_t *dest, struct route_entry *re,
 	zfpm_log_route_info(ri, __FUNCTION__);
 
 	return netlink_route_info_encode(ri, in_buf, in_buf_len);
+}
+
+/*
+ * zfpm_netlink_encode_mac
+ *
+ * Create a netlink message corresponding to the given MAC.
+ *
+ * Returns the number of bytes written to the buffer. 0 or a negative
+ * value indicates an error.
+ */
+int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
+			    size_t in_buf_len)
+{
+	char buf1[ETHER_ADDR_STRLEN];
+	size_t buf_offset;
+
+	struct macmsg {
+		struct nlmsghdr hdr;
+		struct ndmsg ndm;
+		char buf[0];
+	} *req;
+	req = (void *)in_buf;
+
+	buf_offset = offsetof(struct macmsg, buf);
+	if (in_buf_len < buf_offset)
+		return 0;
+	memset(req, 0, buf_offset);
+
+	/* Construct nlmsg header */
+	req->hdr.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
+	req->hdr.nlmsg_type = CHECK_FLAG(mac->fpm_flags, ZEBRA_MAC_DELETE_FPM) ?
+				RTM_DELNEIGH : RTM_NEWNEIGH;
+	req->hdr.nlmsg_flags = NLM_F_REQUEST;
+	if (req->hdr.nlmsg_type == RTM_NEWNEIGH)
+		req->hdr.nlmsg_flags |= (NLM_F_CREATE | NLM_F_REPLACE);
+
+	/* Construct ndmsg */
+	req->ndm.ndm_family = AF_BRIDGE;
+	req->ndm.ndm_ifindex = mac->vxlan_if;
+
+	req->ndm.ndm_state = NUD_REACHABLE;
+	req->ndm.ndm_flags |= NTF_SELF | NTF_MASTER;
+	if (CHECK_FLAG(mac->zebra_flags,
+		(ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW)))
+		req->ndm.ndm_state |= NUD_NOARP;
+	else
+		req->ndm.ndm_flags |= NTF_EXT_LEARNED;
+
+	/* Add attributes */
+	addattr_l(&req->hdr, in_buf_len, NDA_LLADDR, &mac->macaddr, 6);
+	addattr_l(&req->hdr, in_buf_len, NDA_DST, &mac->r_vtep_ip, 4);
+	addattr32(&req->hdr, in_buf_len, NDA_MASTER, mac->svi_if);
+	addattr32(&req->hdr, in_buf_len, NDA_VNI, mac->vni);
+
+	assert(req->hdr.nlmsg_len < in_buf_len);
+
+	zfpm_debug("Tx %s family %s ifindex %u MAC %s DEST %s",
+		   nl_msg_type_to_str(req->hdr.nlmsg_type),
+		   nl_family_to_str(req->ndm.ndm_family), req->ndm.ndm_ifindex,
+		   prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1)),
+		   inet_ntoa(mac->r_vtep_ip));
+
+	return req->hdr.nlmsg_len;
 }
 
 #endif /* HAVE_NETLINK */

@@ -33,6 +33,7 @@
 #include "pim_static.h"
 #include "pim_ssmpingd.h"
 #include "pim_vty.h"
+#include "pim_bsm.h"
 
 static void pim_instance_terminate(struct pim_instance *pim)
 {
@@ -49,6 +50,8 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	pim_upstream_terminate(pim);
 
 	pim_rp_free(pim);
+
+	pim_bsm_proc_free(pim);
 
 	/* Traverse and cleanup rpf_hash */
 	if (pim->rpf_hash) {
@@ -105,6 +108,8 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->send_v6_secondary = 1;
 
 	pim_rp_init(pim);
+
+	pim_bsm_proc_init(pim);
 
 	pim_oil_init(pim);
 

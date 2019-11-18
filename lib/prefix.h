@@ -410,11 +410,19 @@ extern const char *prefix2str(union prefixconstptr, char *, int);
 extern int prefix_match(const struct prefix *, const struct prefix *);
 extern int prefix_match_network_statement(const struct prefix *,
 					  const struct prefix *);
-extern int prefix_same(const struct prefix *, const struct prefix *);
-extern int prefix_cmp(const struct prefix *, const struct prefix *);
+extern int prefix_same(union prefixconstptr, union prefixconstptr);
+extern int prefix_cmp(union prefixconstptr, union prefixconstptr);
 extern int prefix_common_bits(const struct prefix *, const struct prefix *);
-extern void prefix_copy(struct prefix *dest, const struct prefix *src);
+extern void prefix_copy(union prefixptr, union prefixconstptr);
 extern void apply_mask(struct prefix *);
+
+#ifdef __clang_analyzer__
+/* clang-SA doesn't understand transparent unions, making it think that the
+ * target of prefix_copy is uninitialized.  So just memset the target.
+ * cf. https://bugs.llvm.org/show_bug.cgi?id=42811
+ */
+#define prefix_copy(a, b) ({ memset(a, 0, sizeof(*a)); prefix_copy(a, b); })
+#endif
 
 extern struct prefix *sockunion2prefix(const union sockunion *dest,
 				       const union sockunion *mask);
@@ -462,11 +470,11 @@ extern void masklen2ip6(const int, struct in6_addr *);
 
 extern const char *inet6_ntoa(struct in6_addr);
 
-extern int is_zero_mac(struct ethaddr *mac);
+extern int is_zero_mac(const struct ethaddr *mac);
 extern int prefix_str2mac(const char *str, struct ethaddr *mac);
 extern char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size);
 
-extern unsigned prefix_hash_key(void *pp);
+extern unsigned prefix_hash_key(const void *pp);
 
 extern int str_to_esi(const char *str, esi_t *esi);
 extern char *esi_to_str(const esi_t *esi, char *buf, int size);

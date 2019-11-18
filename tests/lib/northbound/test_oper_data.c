@@ -411,7 +411,7 @@ int main(int argc, char **argv)
 	/* Library inits. */
 	cmd_init(1);
 	cmd_hostname_set("test");
-	vty_init(master);
+	vty_init(master, false);
 	memory_init();
 	yang_init();
 	nb_init(master, modules, array_size(modules));

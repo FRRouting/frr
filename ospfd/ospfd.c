@@ -91,7 +91,6 @@ void ospf_router_id_update(struct ospf *ospf)
 	struct ospf_interface *oi;
 	struct interface *ifp;
 	struct listnode *node;
-	int type;
 
 	if (!ospf->oi_running) {
 		if (IS_DEBUG_OSPF_EVENT)
@@ -133,24 +132,6 @@ void ospf_router_id_update(struct ospf *ospf)
 			 * !(virtual | ptop) links
 			 */
 			ospf_nbr_self_reset(oi, router_id);
-		}
-
-		/* If AS-external-LSA is queued, then flush those LSAs. */
-		if (router_id_old.s_addr == 0 && ospf->external_origin) {
-			/* Originate each redistributed external route. */
-			for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
-				if (ospf->external_origin & (1 << type))
-					thread_add_event(
-						master,
-						ospf_external_lsa_originate_timer,
-						ospf, type, NULL);
-			/* Originate Deafult. */
-			if (ospf->external_origin & (1 << ZEBRA_ROUTE_MAX))
-				thread_add_event(master,
-						 ospf_default_originate_timer,
-						 ospf, 0, NULL);
-
-			ospf->external_origin = 0;
 		}
 
 		/* Flush (inline) all external LSAs based on the OSPF_LSA_SELF
@@ -196,20 +177,14 @@ void ospf_router_id_update(struct ospf *ospf)
 			}
 		}
 
-		/* Originate each redistributed external route. */
-		for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
-			thread_add_event(master,
-					 ospf_external_lsa_originate_timer,
-					 ospf, type, NULL);
-		thread_add_event(master, ospf_default_originate_timer, ospf, 0,
-				 NULL);
-
 		/* update router-lsa's for each area */
 		ospf_router_lsa_update(ospf);
 
 		/* update ospf_interface's */
 		FOR_ALL_INTERFACES (vrf, ifp)
 			ospf_if_update(ospf, ifp);
+
+		ospf_external_lsa_rid_change(ospf);
 	}
 }
 
@@ -628,10 +603,12 @@ static void ospf_finish_final(struct ospf *ospf)
 		if (!red_list)
 			continue;
 
-		for (ALL_LIST_ELEMENTS(red_list, node, nnode, red))
+		for (ALL_LIST_ELEMENTS(red_list, node, nnode, red)) {
 			ospf_redistribute_unset(ospf, i, red->instance);
+			ospf_redist_del(ospf, i, red->instance);
+		}
 	}
-	ospf_redistribute_default_unset(ospf);
+	ospf_redistribute_default_set(ospf, DEFAULT_ORIGINATE_NONE, 0, 0);
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area))
 		ospf_remove_vls_through_area(ospf, area);
@@ -654,6 +631,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi))
 		ospf_if_free(oi);
 	list_delete(&ospf->oiflist);
+	ospf->oi_running = 0;
 
 	/* De-Register VRF */
 	ospf_zebra_vrf_deregister(ospf);
@@ -697,7 +675,8 @@ static void ospf_finish_final(struct ospf *ospf)
 	}
 
 	/* Cancel all timers. */
-	OSPF_TIMER_OFF(ospf->t_external_lsa);
+	OSPF_TIMER_OFF(ospf->t_read);
+	OSPF_TIMER_OFF(ospf->t_write);
 	OSPF_TIMER_OFF(ospf->t_spf_calc);
 	OSPF_TIMER_OFF(ospf->t_ase_calc);
 	OSPF_TIMER_OFF(ospf->t_maxage);
@@ -706,13 +685,8 @@ static void ospf_finish_final(struct ospf *ospf)
 	OSPF_TIMER_OFF(ospf->t_asbr_check);
 	OSPF_TIMER_OFF(ospf->t_distribute_update);
 	OSPF_TIMER_OFF(ospf->t_lsa_refresher);
-	OSPF_TIMER_OFF(ospf->t_read);
-	OSPF_TIMER_OFF(ospf->t_write);
 	OSPF_TIMER_OFF(ospf->t_opaque_lsa_self);
 	OSPF_TIMER_OFF(ospf->t_sr_update);
-
-	close(ospf->fd);
-	stream_free(ospf->ibuf);
 
 	LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rn, lsa)
 		ospf_discard_from_db(ospf, ospf->lsdb, lsa);
@@ -753,9 +727,6 @@ static void ospf_finish_final(struct ospf *ospf)
 		ospf_ase_external_lsas_finish(ospf->external_lsas);
 	}
 
-	list_delete(&ospf->areas);
-	list_delete(&ospf->oi_write_q);
-
 	for (i = ZEBRA_ROUTE_SYSTEM; i <= ZEBRA_ROUTE_MAX; i++) {
 		struct list *ext_list;
 		struct ospf_external *ext;
@@ -764,7 +735,7 @@ static void ospf_finish_final(struct ospf *ospf)
 		if (!ext_list)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
+		for (ALL_LIST_ELEMENTS(ext_list, node, nnode, ext)) {
 			if (ext->external_info)
 				for (rn = route_top(ext->external_info); rn;
 				     rn = route_next(rn)) {
@@ -776,6 +747,8 @@ static void ospf_finish_final(struct ospf *ospf)
 					rn->info = NULL;
 					route_unlock_node(rn);
 				}
+
+			ospf_external_del(ospf, i, ext->instance);
 		}
 	}
 
@@ -785,6 +758,12 @@ static void ospf_finish_final(struct ospf *ospf)
 	if (!CHECK_FLAG(om->options, OSPF_MASTER_SHUTDOWN))
 		instance = ospf->instance;
 
+	list_delete(&ospf->areas);
+	list_delete(&ospf->oi_write_q);
+
+	close(ospf->fd);
+	stream_free(ospf->ibuf);
+	ospf->fd = -1;
 	ospf_delete(ospf);
 
 	if (ospf->name) {
@@ -2118,7 +2097,7 @@ static int ospf_vrf_enable(struct vrf *vrf)
 				old_vrf_id);
 
 		if (old_vrf_id != ospf->vrf_id) {
-			frr_elevate_privs(&ospfd_privs) {
+			frr_with_privs(&ospfd_privs) {
 				/* stop zebra redist to us for old vrf */
 				zclient_send_dereg_requests(zclient,
 							    old_vrf_id);

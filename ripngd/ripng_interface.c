@@ -49,6 +49,8 @@
 #define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP 
 #endif
 
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_IF, "ripng interface")
+
 /* Static utility function. */
 static void ripng_enable_apply(struct interface *);
 static void ripng_passive_interface_apply(struct interface *);
@@ -73,7 +75,7 @@ static int ripng_multicast_join(struct interface *ifp, int sock)
 		 * While this is bogus, privs are available and easy to use
 		 * for this call as a workaround.
 		 */
-		frr_elevate_privs(&ripngd_privs) {
+		frr_with_privs(&ripngd_privs) {
 
 			ret = setsockopt(sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
 					 (char *)&mreq, sizeof(mreq));
@@ -184,7 +186,8 @@ static int ripng_if_down(struct interface *ifp)
 			zlog_debug("turn off %s", ifp->name);
 
 		/* Leave from multicast group. */
-		ripng_multicast_leave(ifp, ripng->sock);
+		if (ripng)
+			ripng_multicast_leave(ifp, ripng->sock);
 
 		ri->running = 0;
 	}
@@ -912,7 +915,7 @@ static struct ripng_interface *ri_new(void)
 {
 	struct ripng_interface *ri;
 
-	ri = XCALLOC(MTYPE_IF, sizeof(struct ripng_interface));
+	ri = XCALLOC(MTYPE_RIPNG_IF, sizeof(struct ripng_interface));
 
 	/* Set default split-horizon behavior.  If the interface is Frame
 	   Relay or SMDS is enabled, the default value for split-horizon is
@@ -949,7 +952,7 @@ static int ripng_if_new_hook(struct interface *ifp)
 /* Called when interface structure deleted. */
 static int ripng_if_delete_hook(struct interface *ifp)
 {
-	XFREE(MTYPE_IF, ifp->info);
+	XFREE(MTYPE_RIPNG_IF, ifp->info);
 	ifp->info = NULL;
 	return 0;
 }

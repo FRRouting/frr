@@ -11,7 +11,6 @@ vtysh_scan += \
 	$(top_srcdir)/isisd/isis_redist.c \
 	$(top_srcdir)/isisd/isis_spf.c \
 	$(top_srcdir)/isisd/isis_te.c \
-	$(top_srcdir)/isisd/isis_vty_common.c \
 	$(top_srcdir)/isisd/isis_vty_fabricd.c \
 	$(top_srcdir)/isisd/isisd.c \
 	# end
@@ -51,7 +50,6 @@ noinst_HEADERS += \
 	isisd/isis_te.h \
 	isisd/isis_tlvs.h \
 	isisd/isis_tx_queue.h \
-	isisd/isis_vty_common.h \
 	isisd/isis_zebra.h \
 	isisd/isisd.h \
 	isisd/iso_checksum.h \
@@ -82,7 +80,6 @@ LIBISIS_SOURCES = \
 	isisd/isis_te.c \
 	isisd/isis_tlvs.c \
 	isisd/isis_tx_queue.c \
-	isisd/isis_vty_common.c \
 	isisd/isis_zebra.c \
 	isisd/isisd.c \
 	isisd/iso_checksum.c \

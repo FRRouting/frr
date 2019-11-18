@@ -61,6 +61,8 @@ extern void json_object_string_add(struct json_object *obj, const char *key,
 				   const char *s);
 extern void json_object_int_add(struct json_object *obj, const char *key,
 				int64_t i);
+void json_object_boolean_add(struct json_object *obj, const char *key,
+			     bool val);
 extern void json_object_boolean_false_add(struct json_object *obj,
 					  const char *key);
 extern void json_object_boolean_true_add(struct json_object *obj,

@@ -188,7 +188,7 @@ static void handle_repeated(bool installed)
 					   sg.r.inst, sg.r.total_routes);
 	}
 
-	if (installed) {
+	if (!installed) {
 		sg.r.installed_routes = 0;
 		sharp_install_routes_helper(&p, sg.r.vrf_id, sg.r.inst,
 					    &sg.r.nhop_group,
@@ -212,8 +212,8 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 		if (sg.r.total_routes == sg.r.installed_routes) {
 			monotime(&sg.r.t_end);
 			timersub(&sg.r.t_end, &sg.r.t_start, &r);
-			zlog_debug("Installed All Items %ld.%ld", r.tv_sec,
-				   r.tv_usec);
+			zlog_debug("Installed All Items %jd.%ld",
+				   (intmax_t)r.tv_sec, (long)r.tv_usec);
 			handle_repeated(true);
 		}
 		break;
@@ -228,8 +228,8 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 		if (sg.r.total_routes == sg.r.removed_routes) {
 			monotime(&sg.r.t_end);
 			timersub(&sg.r.t_end, &sg.r.t_start, &r);
-			zlog_debug("Removed all Items %ld.%ld", r.tv_sec,
-				   r.tv_usec);
+			zlog_debug("Removed all Items %jd.%ld",
+				   (intmax_t)r.tv_sec, (long)r.tv_usec);
 			handle_repeated(false);
 		}
 		break;

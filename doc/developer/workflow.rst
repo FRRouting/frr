@@ -73,14 +73,20 @@ Releases
 FRR employs a ``<MAJOR>.<MINOR>.<BUGFIX>`` versioning scheme.
 
 ``MAJOR``
-   Significant new features or multiple minor features. The addition of a new
-   routing protocol or daemon would fall under this class.
+   Significant new features or multiple minor features. This should mostly
+   cover any kind of disruptive change that is visible or "risky" to operators.
+   New features or protocols do not necessarily trigger this. (This was changed
+   for FRR 7.x after feedback from users that the pace of major version number
+   increments was too high.)
 
 ``MINOR``
-   Small features, e.g. options for automatic BGP shutdown.
+   General incremental development releases, excluding "major" changes
+   mentioned above.  Not necessarily fully backwards compatible, as smaller
+   (but still visible) changes or deprecated feature removals may still happen.
+   However, there shouldn't be any huge "surprises" between minor releases.
 
 ``BUGFIX``
-   Fixes for actual bugs and/or security issues.
+   Fixes for actual bugs and/or security issues.  Fully compatible.
 
 We will pull a new development branch for the next release every 4 months.  The
 current schedule is Feb/June/October 1. The decision for a ``MAJOR/MINOR``
@@ -361,6 +367,19 @@ platforms.
 Documentation should be written in reStructuredText. Sphinx extensions may be
 utilized but pure ReST is preferred where possible. See
 :ref:`documentation`.
+
+Use of C++
+----------
+
+While C++ is not accepted for core components of FRR, extensions, modules or
+other distinct components may want to use C++ and include FRR header files.
+There is no requirement on contributors to work to retain C++ compatibility,
+but fixes for C++ compatibility are welcome.
+
+This implies that the burden of work to keep C++ compatibility is placed with
+the people who need it, and they may provide it at their leisure to the extent
+it is useful to them.  So, if only a subset of header files, or even parts of
+a header file are made available to C++, this is perfectly fine.
 
 Code Reviews
 ============
@@ -748,9 +767,32 @@ ways that can be unexpected for the original implementor. As such debugs
 ability to turn on/off debugs from the CLI and it is expected that the
 developer will use this convention to allow control of their debugs.
 
+Custom syntax-like block macros
+-------------------------------
+
+FRR uses some macros that behave like the ``for`` or ``if`` C keywords.  These
+macros follow these patterns:
+
+- loop-style macros are named ``frr_each_*`` (and ``frr_each``)
+- single run macros are named ``frr_with_*``
+- to avoid confusion, ``frr_with_*`` macros must always use a ``{ ... }``
+  block even if the block only contains one statement.  The ``frr_each``
+  constructs are assumed to be well-known enough to use normal ``for`` rules.
+- ``break``, ``return`` and ``goto`` all work correctly.  For loop-style
+  macros, ``continue`` works correctly too.
+
+Both the ``each`` and ``with`` keywords are inspired by other (more
+higher-level) programming languages that provide these constructs.
+
+There are also some older iteration macros, e.g. ``ALL_LIST_ELEMENTS`` and
+``FOREACH_AFI_SAFI``.  These macros in some cases do **not** fulfill the above
+pattern (e.g. ``break`` does not work in ``FOREACH_AFI_SAFI`` because it
+expands to 2 nested loops.)
+
 Static Analysis and Sanitizers
 ------------------------------
-Clang/LLVM comes with a variety of tools that can be used to help find bugs in FRR.
+Clang/LLVM and GCC come with a variety of tools that can be used to help find
+bugs in FRR.
 
 clang-analyze
    This is a static analyzer that scans the source code looking for patterns
@@ -794,10 +836,30 @@ All of the above tools are available in the Clang/LLVM toolchain since 3.4.
 AddressSanitizer and ThreadSanitizer are available in recent versions of GCC,
 but are no longer actively maintained. MemorySanitizer is not available in GCC.
 
+.. note::
+
+   The different Sanitizers are mostly incompatible with each other.  Please
+   refer to GCC/LLVM documentation for details.
+
 Additionally, the FRR codebase is regularly scanned with Coverity.
 Unfortunately Coverity does not have the ability to handle scanning pull
 requests, but after code is merged it will send an email notifying project
 members with Coverity access of newly introduced defects.
+
+Executing non-installed dynamic binaries
+----------------------------------------
+
+Since FRR uses the GNU autotools build system, it inherits its shortcomings.
+To execute a binary directly from the build tree under a wrapper like
+`valgrind`, `gdb` or `strace`, use::
+
+   ./libtool --mode=execute valgrind [--valgrind-opts] zebra/zebra [--zebra-opts]
+
+While replacing valgrind/zebra as needed.  The `libtool` script is found in
+the root of the build directory after `./configure` has completed.  Its purpose
+is to correctly set up `LD_LIBRARY_PATH` so that libraries from the build tree
+are used.  (On some systems, `libtool` is also available from PATH, but this is
+not always the case.)
 
 CLI changes
 -----------

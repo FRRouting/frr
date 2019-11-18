@@ -468,8 +468,8 @@ redistributed to VNC as bgp-direct-to-nve-groups routes. These routes are NOT
 announced via BGP, but they are made available for local RFP lookup in response
 to queries from NVEs.
 
-A non-main/default BGP instance is configured using the `bgp multiple-instance`
-and `router bgp AS view NAME` commands as described elsewhere in this document.
+A non-main/default BGP instance is configured using the
+`router bgp AS view NAME` command as described elsewhere in this document.
 
 In order for a route in the unicast BGP RIB to be made available to a querying
 NVE, there must already be, available to that NVE, an (interior) VNC route

@@ -66,7 +66,7 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 	int ret;
 	int err;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 
 		sock = socket(AF_INET, SOCK_DGRAM, 0);
 		if (sock < 0) {
@@ -96,7 +96,7 @@ int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 	int ret;
 	int err;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 
 		sock = socket(AF_INET6, SOCK_DGRAM, 0);
 		if (sock < 0) {
@@ -286,7 +286,7 @@ static int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 
 	p = (struct prefix_ipv4 *)dplane_ctx_get_intf_addr(ctx);
 
-	strncpy(ifreq.ifr_name, dplane_ctx_get_ifname(ctx),
+	strlcpy(ifreq.ifr_name, dplane_ctx_get_ifname(ctx),
 		sizeof(ifreq.ifr_name));
 
 	memset(&addr, 0, sizeof(struct sockaddr_in));

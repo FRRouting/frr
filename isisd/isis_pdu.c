@@ -187,7 +187,7 @@ static int process_p2p_hello(struct iih_info *iih)
 		adj->sys_type = ISIS_SYSTYPE_UNKNOWN;
 	}
 
-	if (tw_adj && adj->threeway_state == ISIS_THREEWAY_DOWN)
+	if (tw_adj)
 		adj->ext_circuit_id = tw_adj->local_circuit_id;
 
 	/* 8.2.6 Monitoring point-to-point adjacencies */
@@ -2258,7 +2258,7 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 		if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
 			isis_tlvs_add_auth(tlvs, passwd);
 
-		for_each (lspdb, &circuit->area->lspdb[level - 1], lsp) {
+		frr_each (lspdb, &circuit->area->lspdb[level - 1], lsp) {
 			if (ISIS_CHECK_FLAG(lsp->SSNflags, circuit))
 				isis_tlvs_add_lsp_entry(tlvs, lsp);
 

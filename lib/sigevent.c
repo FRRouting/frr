@@ -24,7 +24,6 @@
 #include <memory.h>
 #include <lib_errors.h>
 
-#ifdef SA_SIGINFO
 #ifdef HAVE_UCONTEXT_H
 #ifdef GNU_LINUX
 /* get REG_EIP from ucontext.h */
@@ -34,7 +33,6 @@
 #endif /* GNU_LINUX */
 #include <ucontext.h>
 #endif /* HAVE_UCONTEXT_H */
-#endif /* SA_SIGINFO */
 
 
 /* master signals descriptor struct */
@@ -158,8 +156,6 @@ static int signal_set(int signo)
 		return 0;
 }
 
-#ifdef SA_SIGINFO
-
 /* XXX This function should be enhanced to support more platforms
        (it currently works only on Linux/x86). */
 static void *program_counter(void *context)
@@ -199,33 +195,20 @@ static void *program_counter(void *context)
 	return NULL;
 }
 
-#endif /* SA_SIGINFO */
-
 static void __attribute__((noreturn))
-exit_handler(int signo
-#ifdef SA_SIGINFO
-	     ,
-	     siginfo_t *siginfo, void *context
-#endif
-	     )
+exit_handler(int signo, siginfo_t *siginfo, void *context)
 {
-	zlog_signal(signo, "exiting..."
-#ifdef SA_SIGINFO
-		    ,
-		    siginfo, program_counter(context)
-#endif
-			    );
+	void *pc = program_counter(context);
+
+	zlog_signal(signo, "exiting...", siginfo, pc);
 	_exit(128 + signo);
 }
 
 static void __attribute__((noreturn))
-core_handler(int signo
-#ifdef SA_SIGINFO
-	     ,
-	     siginfo_t *siginfo, void *context
-#endif
-	     )
+core_handler(int signo, siginfo_t *siginfo, void *context)
 {
+	void *pc = program_counter(context);
+
 	/* make sure we don't hang in here.  default for SIGALRM is terminate.
 	 * - if we're in backtrace for more than a second, abort. */
 	struct sigaction sa_default = {.sa_handler = SIG_DFL};
@@ -238,12 +221,8 @@ core_handler(int signo
 
 	alarm(1);
 
-	zlog_signal(signo, "aborting..."
-#ifdef SA_SIGINFO
-		    ,
-		    siginfo, program_counter(context)
-#endif
-			    );
+	zlog_signal(signo, "aborting...", siginfo, pc);
+
 	/* dump memory stats on core */
 	log_memstats(stderr, "core_handler");
 	abort();
@@ -285,12 +264,7 @@ static void trap_default_signals(void)
 	static const struct {
 		const int *sigs;
 		unsigned int nsigs;
-		void (*handler)(int signo
-#ifdef SA_SIGINFO
-				,
-				siginfo_t *info, void *context
-#endif
-				);
+		void (*handler)(int signo, siginfo_t *info, void *context);
 	} sigmap[] = {
 		{core_signals, array_size(core_signals), core_handler},
 		{exit_signals, array_size(exit_signals), exit_handler},
@@ -311,15 +285,10 @@ static void trap_default_signals(void)
 					act.sa_handler = SIG_IGN;
 					act.sa_flags = 0;
 				} else {
-#ifdef SA_SIGINFO
 					/* Request extra arguments to signal
 					 * handler. */
 					act.sa_sigaction = sigmap[i].handler;
 					act.sa_flags = SA_SIGINFO;
-#else
-					act.sa_handler = sigmap[i].handler;
-					act.sa_flags = 0;
-#endif
 #ifdef SA_RESETHAND
 					/* don't try to print backtraces
 					 * recursively */

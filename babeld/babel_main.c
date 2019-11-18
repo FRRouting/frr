@@ -68,7 +68,7 @@ const unsigned char ones[16] =
     {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
      0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-static const char *state_file = DAEMON_VTY_DIR "/babel-state";
+static char state_file[1024];
 
 unsigned char protocol_group[16]; /* babel's link-local multicast address */
 int protocol_port;                /* babel's port */
@@ -186,6 +186,9 @@ main(int argc, char **argv)
 	    break;
 	  }
     }
+
+    snprintf(state_file, sizeof(state_file), "%s/%s",
+	     frr_vtydir, "babel-state");
 
     /* create the threads handler */
     master = frr_init ();

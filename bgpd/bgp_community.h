@@ -75,7 +75,7 @@ extern struct community *community_parse(uint32_t *, unsigned short);
 extern struct community *community_intern(struct community *);
 extern void community_unintern(struct community **);
 extern char *community_str(struct community *, bool make_json);
-extern unsigned int community_hash_make(struct community *);
+extern unsigned int community_hash_make(const struct community *);
 extern struct community *community_str2com(const char *);
 extern int community_match(const struct community *, const struct community *);
 extern bool community_cmp(const struct community *c1,

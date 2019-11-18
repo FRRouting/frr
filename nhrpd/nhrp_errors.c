@@ -32,12 +32,6 @@ static struct log_ref ferr_nhrp_err[] = {
 		.suggestion = "Ensure that StrongSwan is configured correctly.  Restart StrongSwan and FRR"
 	},
 	{
-		.code = EC_NHRP_RESOLVER,
-		.title = "NHRP DNS Resolution",
-		.description = "NHRP has detected an error in an attempt to resolve a hostname",
-		.suggestion = "Ensure that DNS is working properly and the hostname is configured in dns.  If you are still seeing this error, open an issue"
-	},
-	{
 		.code = END_FERR,
 	}
 };

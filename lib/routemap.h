@@ -38,12 +38,34 @@ DECLARE_MTYPE(ROUTE_MAP_COMPILED)
 enum route_map_type { RMAP_PERMIT, RMAP_DENY, RMAP_ANY };
 
 typedef enum {
-	RMAP_MATCH,
 	RMAP_DENYMATCH,
-	RMAP_NOMATCH,
-	RMAP_ERROR,
-	RMAP_OKAY
+	RMAP_PERMITMATCH
 } route_map_result_t;
+
+/*
+ * Route-map match or set result "Eg: match evpn vni xx"
+ * route-map match cmd always returns match/nomatch/noop
+ *    match--> found a match
+ *    nomatch--> didnt find a match
+ *    noop--> not applicable
+ * route-map set retuns okay/error
+ *    okay --> set was successful
+ *    error --> set was not successful
+ */
+enum route_map_cmd_result_t {
+	/*
+	 * route-map match cmd results
+	 */
+	RMAP_MATCH,
+	RMAP_NOMATCH,
+	RMAP_NOOP,
+	/*
+	 * route-map set cmd results
+	 */
+	RMAP_OKAY,
+	RMAP_ERROR
+};
+
 
 typedef enum {
 	RMAP_RIP,
@@ -91,10 +113,10 @@ struct route_map_rule_cmd {
 	const char *str;
 
 	/* Function for value set or match. */
-	route_map_result_t (*func_apply)(void *rule,
-					 const struct prefix *prefix,
-					 route_map_object_t type,
-					 void *object);
+	enum route_map_cmd_result_t (*func_apply)(void *rule,
+						  const struct prefix *prefix,
+						  route_map_object_t type,
+						  void *object);
 
 	/* Compile argument and return result as void *. */
 	void *(*func_compile)(const char *);
@@ -104,13 +126,18 @@ struct route_map_rule_cmd {
 };
 
 /* Route map apply error. */
-enum { RMAP_COMPILE_SUCCESS,
+enum rmap_compile_rets {
+	RMAP_COMPILE_SUCCESS,
 
-       /* Route map rule is missing. */
-       RMAP_RULE_MISSING,
+	/* Route map rule is missing. */
+	RMAP_RULE_MISSING,
 
-       /* Route map rule can't compile */
-       RMAP_COMPILE_ERROR };
+	/* Route map rule can't compile */
+	RMAP_COMPILE_ERROR,
+
+	/* Route map rule is duplicate */
+	RMAP_DUPLICATE_RULE
+};
 
 /* Route map rule list. */
 struct route_map_rule_list {
@@ -148,6 +175,7 @@ struct route_map_index {
 
 	/* Keep track how many times we've try to apply */
 	uint64_t applied;
+	uint64_t applied_clear;
 
 	QOBJ_FIELDS
 };
@@ -172,6 +200,7 @@ struct route_map {
 
 	/* How many times have we applied this route-map */
 	uint64_t applied;
+	uint64_t applied_clear;
 
 	/* Counter to track active usage of this route-map */
 	uint16_t use_count;
@@ -191,24 +220,28 @@ extern void route_map_init(void);
 extern void route_map_finish(void);
 
 /* Add match statement to route map. */
-extern int route_map_add_match(struct route_map_index *index,
-			       const char *match_name, const char *match_arg);
+extern enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
+						  const char *match_name,
+						  const char *match_arg,
+						  route_map_event_t type);
 
 /* Delete specified route match rule. */
-extern int route_map_delete_match(struct route_map_index *index,
-				  const char *match_name,
-				  const char *match_arg);
+extern enum rmap_compile_rets
+route_map_delete_match(struct route_map_index *index,
+		       const char *match_name, const char *match_arg);
 
 extern const char *route_map_get_match_arg(struct route_map_index *index,
 					   const char *match_name);
 
 /* Add route-map set statement to the route map. */
-extern int route_map_add_set(struct route_map_index *index,
-			     const char *set_name, const char *set_arg);
+extern enum rmap_compile_rets route_map_add_set(struct route_map_index *index,
+						const char *set_name,
+						const char *set_arg);
 
 /* Delete route map set rule. */
-extern int route_map_delete_set(struct route_map_index *index,
-				const char *set_name, const char *set_arg);
+extern enum rmap_compile_rets
+route_map_delete_set(struct route_map_index *index,
+		     const char *set_name, const char *set_arg);
 
 /* Install rule command to the match list. */
 extern void route_map_install_match(struct route_map_rule_cmd *cmd);
@@ -238,7 +271,15 @@ extern route_map_result_t route_map_apply(struct route_map *map,
 
 extern void route_map_add_hook(void (*func)(const char *));
 extern void route_map_delete_hook(void (*func)(const char *));
-extern void route_map_event_hook(void (*func)(route_map_event_t, const char *));
+
+/*
+ * This is the callback for when something has changed about a
+ * route-map.  The interested parties can register to receive
+ * this data.
+ *
+ * name - Is the name of the changed route-map
+ */
+extern void route_map_event_hook(void (*func)(const char *name));
 extern int route_map_mark_updated(const char *name);
 extern void route_map_walk_update_list(void (*update_fn)(char *name));
 extern void route_map_upd8_dependency(route_map_event_t type, const char *arg,

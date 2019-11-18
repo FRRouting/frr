@@ -206,7 +206,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 		eigrp_prefix_entry_add(eigrp->topology_table, pe);
 		listnode_add(eigrp->topology_changes_internalIPV4, pe);
 
-		eigrp_nexthop_entry_add(pe, ne);
+		eigrp_nexthop_entry_add(eigrp, pe, ne);
 
 		for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei2)) {
 			eigrp_update_send(ei2);
@@ -218,7 +218,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 		struct eigrp_fsm_action_message msg;
 
 		ne->prefix = pe;
-		eigrp_nexthop_entry_add(pe, ne);
+		eigrp_nexthop_entry_add(eigrp, pe, ne);
 
 		msg.packet_type = EIGRP_OPC_UPDATE;
 		msg.eigrp = eigrp;
@@ -329,10 +329,7 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 {
 	struct prefix dest_addr;
 	struct eigrp_prefix_entry *pe;
-	struct eigrp *eigrp = eigrp_lookup();
-
-	if (!eigrp)
-		return;
+	struct eigrp *eigrp = ei->eigrp;
 
 	if (source == INTERFACE_DOWN_BY_VTY) {
 		THREAD_OFF(ei->t_hello);
@@ -344,7 +341,7 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 	pe = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
 					      &dest_addr);
 	if (pe)
-		eigrp_prefix_entry_delete(eigrp->topology_table, pe);
+		eigrp_prefix_entry_delete(eigrp, eigrp->topology_table, pe);
 
 	eigrp_if_down(ei);
 

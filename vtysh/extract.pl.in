@@ -40,7 +40,7 @@ sub scan_file {
 
     $cppadd = $fabricd ? "-DFABRICD=1" : "";
 
-    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -Ivtysh/@top_builddir@ -Ivtysh/@top_srcdir@ -Ivtysh/@top_srcdir@/lib -Ivtysh/@top_builddir@/lib -Ivtysh/@top_srcdir@/bgpd -Ivtysh/@top_srcdir@/bgpd/rfapi @CPPFLAGS@ $cppadd $file |");
+    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -Ivtysh/@top_builddir@ -Ivtysh/@top_srcdir@ -Ivtysh/@top_srcdir@/lib -Ivtysh/@top_builddir@/lib -Ivtysh/@top_srcdir@/bgpd -Ivtysh/@top_srcdir@/bgpd/rfapi @LUA_INCLUDE@ @CPPFLAGS@ $cppadd $file |");
     local $/; undef $/;
     $line = <FH>;
     close (FH);
@@ -96,18 +96,12 @@ sub scan_file {
         elsif ($file =~ /lib\/if\.c$/) {
             $protocol = "VTYSH_INTERFACE";
         }
-        elsif ($file =~ /lib\/logicalrouter\.c$/) {
-            $protocol = "VTYSH_ALL";
-        }
         elsif ($file =~ /lib\/filter\.c$/) {
             $protocol = "VTYSH_ALL";
         }
 	elsif ($file =~ /lib\/agentx\.c$/) {
 	    $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
 	}
-        elsif ($file =~ /lib\/ns\.c$/) {
-            $protocol = "VTYSH_ZEBRA";
-        }
 	elsif ($file =~ /lib\/nexthop_group\.c$/) {
 	    $protocol = "VTYSH_PBRD | VTYSH_SHARPD";
 	}

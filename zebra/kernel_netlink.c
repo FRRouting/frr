@@ -23,6 +23,7 @@
 #if defined(HANDLE_NETLINK_FUZZING)
 #include <stdio.h>
 #include <string.h>
+#include "libfrr.h"
 #endif /* HANDLE_NETLINK_FUZZING */
 
 #ifdef HAVE_NETLINK
@@ -128,8 +129,18 @@ static const struct message family_str[] = {{AF_INET, "ipv4"},
 					    {RTNL_FAMILY_IP6MR, "ipv6MR"},
 					    {0}};
 
-static const struct message rttype_str[] = {{RTN_UNICAST, "unicast"},
+static const struct message rttype_str[] = {{RTN_UNSPEC, "none"},
+					    {RTN_UNICAST, "unicast"},
+					    {RTN_LOCAL, "local"},
+					    {RTN_BROADCAST, "broadcast"},
+					    {RTN_ANYCAST, "anycast"},
 					    {RTN_MULTICAST, "multicast"},
+					    {RTN_BLACKHOLE, "blackhole"},
+					    {RTN_UNREACHABLE, "unreachable"},
+					    {RTN_PROHIBIT, "prohibited"},
+					    {RTN_THROW, "throw"},
+					    {RTN_NAT, "nat"},
+					    {RTN_XRESOLVE, "resolver"},
 					    {0}};
 
 extern struct thread_master *master;
@@ -172,7 +183,7 @@ static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
 	}
 
 	/* Try force option (linux >= 2.6.14) and fall back to normal set */
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUFFORCE,
 				 &nl_rcvbufsize,
 				 sizeof(nl_rcvbufsize));
@@ -209,7 +220,7 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	int sock;
 	int namelen;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		sock = ns_socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE, ns_id);
 		if (sock < 0) {
 			zlog_err("Can't open %s socket: %s", nl->name,
@@ -340,9 +351,8 @@ static void netlink_write_incoming(const char *buf, const unsigned int size,
 	char fname[MAXPATHLEN];
 	FILE *f;
 
-	snprintf(fname, MAXPATHLEN, "%s/%s_%u", DAEMON_VTY_DIR, "netlink",
-		 counter);
-	frr_elevate_privs(&zserv_privs) {
+	snprintf(fname, MAXPATHLEN, "%s/%s_%u", frr_vtydir, "netlink", counter);
+	frr_with_privs(&zserv_privs) {
 		f = fopen(fname, "w");
 	}
 	if (f) {
@@ -363,7 +373,7 @@ static long netlink_read_file(char *buf, const char *fname)
 	FILE *f;
 	long file_bytes = -1;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		f = fopen(fname, "r");
 	}
 	if (f) {
@@ -979,7 +989,7 @@ int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 			n->nlmsg_flags);
 
 	/* Send message to netlink interface. */
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		status = sendmsg(nl->sock, &msg, 0);
 		save_errno = errno;
 	}
@@ -1046,7 +1056,7 @@ int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
 	snl.nl_family = AF_NETLINK;
 
 	/* Raise capabilities and send message, then lower capabilities. */
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		ret = sendto(nl->sock, (void *)n, n->nlmsg_len, 0,
 			     (struct sockaddr *)&snl, sizeof snl);
 	}

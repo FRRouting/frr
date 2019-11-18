@@ -22,7 +22,7 @@ Installing Mininet Infrastructure
    apt-get install python-pip
    apt-get install iproute
    pip install ipaddr
-   pip install pytest
+   pip install "pytest<5"
    pip install exabgp==3.4.17 (Newer 4.0 version of exabgp is not yet
    supported)
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
@@ -105,6 +105,8 @@ Execute all tests with output to console
 
    py.test -s -v --tb=no
 
+The above command must be executed from inside the topotests directory.
+
 All test\_\* scripts in subdirectories are detected and executed (unless
 disabled in ``pytest.ini`` file).
 
@@ -118,6 +120,13 @@ Execute single test
 
    cd test_to_be_run
    ./test_to_be_run.py
+
+For example, and assuming you are inside the frr directory:
+
+.. code:: shell
+
+   cd tests/topotests/bgp_l3vpn_to_bgp_vrf
+   ./test_bgp_l3vpn_to_bgp_vrf.py
 
 For further options, refer to pytest documentation.
 
@@ -136,30 +145,23 @@ the following env variable can be set::
 
    export TOPOTESTS_CHECK_STDERR=Yes
 
-(The value doesn't matter at this time. The check is if the env variable exists
-or not) There is no pass/fail on this reporting. The Output will be reported to
-the console::
-
-   export TOPOTESTS_CHECK_MEMLEAK="/home/mydir/memleak_"
-
-This will enable the check and output to console and the writing of the
-information to files with the given prefix (followed by testname), ie
-:file:`/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case of a memory
-leak.
+(The value doesn't matter at this time. The check is whether the env
+variable exists or not.) There is no pass/fail on this reporting; the
+Output will be reported to the console.
 
 Collect Memory Leak Information
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-FRR processes have the capabilities to report remaining memory allocations upon
-exit. To enable the reporting of the memory, define an environment variable
+FRR processes can report unfreed memory allocations upon exit. To
+enable the reporting of memory leaks, define an environment variable
 ``TOPOTESTS_CHECK_MEMLEAK`` with the file prefix, i.e.::
 
    export TOPOTESTS_CHECK_MEMLEAK="/home/mydir/memleak_"
 
-This will enable the check and output to console and the writing of the
-information to files with the given prefix (followed by testname), ie
-:file:`/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case of a memory
-leak.
+This will enable the check and output to console and the writing of
+the information to files with the given prefix (followed by testname),
+ie :file:`/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case
+of a memory leak.
 
 Running Topotests with AddressSanitizer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -180,13 +182,12 @@ If found, then this is added with context (calling test) to
 
 Compiling for GCC AddressSanitizer requires to use ``gcc`` as a linker as well
 (instead of ``ld``). Here is a suggest way to compile frr with AddressSanitizer
-for ``stable/3.0`` branch:
+for ``master`` branch:
 
 .. code:: shell
 
    git clone https://github.com/FRRouting/frr.git
    cd frr
-   git checkout stable/3.0
    ./bootstrap.sh
    export CC=gcc
    export CFLAGS="-O1 -g -fsanitize=address -fno-omit-frame-pointer"
@@ -199,7 +200,8 @@ for ``stable/3.0`` branch:
        --enable-exampledir=/usr/lib/frr/examples \
        --with-moduledir=/usr/lib/frr/modules \
        --enable-multipath=0 --enable-rtadv \
-       --enable-tcp-zebra --enable-fpm --enable-pimd
+       --enable-tcp-zebra --enable-fpm --enable-pimd \
+       --enable-sharpd
    make
    sudo make install
    # Create symlink for vtysh, so topotest finds it in /usr/lib/frr

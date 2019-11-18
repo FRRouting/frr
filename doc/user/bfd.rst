@@ -47,6 +47,9 @@ may also be specified (:ref:`common-invocation-options`).
 
       #define BFDD_CONTROL_SOCKET "|INSTALL_PREFIX_STATE|/bfdd.sock"
 
+   This option overrides the location addition that the -N option provides
+   to the bfdd.sock
+
 
 .. _bfd-commands:
 
@@ -72,23 +75,22 @@ BFDd Commands
    peer listener to and the address we should use to send the packets.
    This option is mandatory for IPv6.
 
-   `interface` selects which interface we should use. This option
-   conflicts with `vrf`.
+   `interface` selects which interface we should use.
 
    `vrf` selects which domain we want to use.
 
-.. index:: no peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]
-.. clicmd:: no peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]
+.. index:: no peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrf_name}]
+.. clicmd:: no peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrf_name}]
 
     Stops and removes the selected peer.
 
-.. index:: show bfd peers [json]
-.. clicmd:: show bfd peers [json]
+.. index:: show bfd [vrf NAME] peers [json]
+.. clicmd:: show bfd [vrf NAME] peers [json]
 
     Show all configured BFD peers information and current status.
 
-.. index:: show bfd peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]> [json]
-.. clicmd:: show bfd peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]> [json]
+.. index:: show bfd [vrf NAME$vrf_name] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> [json]
+.. clicmd:: show bfd [vrf NAME$vrf_name] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> [json]
 
     Show status for a specific BFD peer.
 
@@ -175,6 +177,21 @@ The following commands are available inside the BGP configuration node.
 
    Removes any notification registration for this neighbor.
 
+.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
+
+   Allow to write CBIT independence in BFD outgoing packets. Also allow to
+   read both C-BIT value of BFD and lookup BGP peer status. This command is
+   useful when a BFD down event is caught, while the BGP peer requested that
+   local BGP keeps the remote BGP entries as staled if such issue is detected.
+   This is the case when graceful restart is enabled, and it is wished to
+   ignore the BD event while waiting for the remote router to restart.
+
+.. index:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
+.. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
+
+   Disallow to write CBIT independence in BFD outgoing packets. Also disallow
+   to ignore BFD down notification. This is the default behaviour.
 
 .. _bfd-ospf-peer-config:
 
@@ -294,6 +311,11 @@ Here are the available peer configurations:
      receive-interval 60000
      transmit-interval 3000
      shutdown
+    !
+
+    ! configure a peer on an interface from a separate vrf
+    peer 192.168.0.5 interface eth1 vrf vrf2
+     no shutdown
     !
 
     ! remove a peer

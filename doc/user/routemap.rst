@@ -85,6 +85,23 @@ deny
 cont
    goto next route-map entry
 
+.. _route-map-show-command:
+
+.. index:: show route-map [WORD]
+.. clicmd:: show route-map [WORD]
+
+   Display data about each daemons knowledge of individual route-maps.
+   If WORD is supplied narrow choice to that particular route-map.
+
+.. _route-map-clear-counter-command:
+
+.. index:: clear route-map counter [WORD]
+.. clicmd:: clear route-map counter [WORD]
+
+   Clear counters that are being stored about the route-map utilization
+   so that subsuquent show commands will indicate since the last clear.
+   If WORD is specified clear just that particular route-map's counters.
+
 .. _route-map-command:
 
 Route Map Command
@@ -136,8 +153,8 @@ Route Map Match Command
 
    Matches the specified `ipv4_addr`.
 
-.. index:: match aspath AS_PATH
-.. clicmd:: match aspath AS_PATH
+.. index:: match as-path AS_PATH
+.. clicmd:: match as-path AS_PATH
 
    Matches the specified `as_path`.
 
@@ -314,6 +331,7 @@ Route Map Exit Action Command
 .. clicmd:: continue N
 
    Proceed processing the route-map at the first entry whose order is >= N
+
 
 Route Map Examples
 ==================

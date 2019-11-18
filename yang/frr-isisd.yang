@@ -756,6 +756,12 @@ module frr-isisd {
           "IS-type of this circuit.";
       }
 
+      leaf bfd-monitoring {
+        type boolean;
+        default false;
+        description "Monitor IS-IS peers on this circuit.";
+      }
+
       container csnp-interval {
         description
           "Complete Sequence Number PDU (CSNP) generation interval.";
@@ -1018,7 +1024,7 @@ module frr-isisd {
       "This notification is sent when we attempt to propagate
        an LSP that is larger than the dataLinkBlockSize for the
        circuit.  The notification generation must be throttled
-       with at least 5 seconds betweeen successive
+       with at least 5 seconds between successive
        notifications.";
     uses notification-instance-hdr;
 
@@ -1084,7 +1090,7 @@ module frr-isisd {
       "This notification is sent when we receive a PDU
        with a different value for the System ID length.
        The notification generation must be throttled
-       with at least 5 seconds betweeen successive
+       with at least 5 seconds between successive
        notifications.";
     uses notification-instance-hdr;
 
@@ -1108,7 +1114,7 @@ module frr-isisd {
       "This notification is sent when we receive a PDU
        with a different value for the Maximum Area Addresses.
        The notification generation must be throttled
-       with at least 5 seconds betweeen successive
+       with at least 5 seconds between successive
        notifications.";
     uses notification-instance-hdr;
 
@@ -1164,7 +1170,7 @@ module frr-isisd {
       "This notification is sent when the system receives a
        PDU with the wrong authentication type field.
        The notification generation must be throttled
-       with at least 5 seconds betweeen successive
+       with at least 5 seconds between successive
        notifications.";
     uses notification-instance-hdr;
 
@@ -1182,7 +1188,7 @@ module frr-isisd {
       "This notification is sent when the system receives
        a PDU with the wrong authentication information.
        The notification generation must be throttled with
-       with at least 5 seconds betweeen successive
+       with at least 5 seconds between successive
        notifications.";
     uses notification-instance-hdr;
 
@@ -1200,7 +1206,7 @@ module frr-isisd {
       "This notification is sent when the system receives a
        PDU with a different protocol version number.
        The notification generation must be throttled
-       with at least 5 seconds betweeen successive
+       with at least 5 seconds between successive
        notifications.";
     uses notification-instance-hdr;
 
@@ -1224,7 +1230,7 @@ module frr-isisd {
       "This notification is sent when the system receives a
        Hello PDU from an IS that does not share any area
        address. The notification generation must be throttled
-       with at least 5 seconds betweeen successive
+       with at least 5 seconds between successive
        notifications.";
     uses notification-instance-hdr;
 
@@ -1242,7 +1248,7 @@ module frr-isisd {
       "This notification is sent when the system receives a
        Hello PDU from an IS but does not establish an adjacency
        for some reason. The notification generation must be
-       throttled with at least 5 seconds betweeen successive
+       throttled with at least 5 seconds between successive
        notifications.";
     uses notification-instance-hdr;
 
@@ -1267,7 +1273,7 @@ module frr-isisd {
     description
       "This notification is sent when the system  receives an
        LSP with a parse error. The notification generation must
-       be throttled with at least 5 seconds betweeen successive
+       be throttled with at least 5 seconds between successive
        notifications.";
     uses notification-instance-hdr;
 
@@ -1344,7 +1350,7 @@ module frr-isisd {
     description
       "This notification is sent when an LSP is received.
        The notification generation must be throttled with at
-       least 5 seconds betweeen successive notifications.";
+       least 5 seconds between successive notifications.";
     uses notification-instance-hdr;
 
     uses notification-interface-hdr;
@@ -1378,7 +1384,7 @@ module frr-isisd {
     description
       "This notification is sent when an LSP is regenerated.
        The notification generation must be throttled with at
-       least 5 seconds betweeen successive notifications.";
+       least 5 seconds between successive notifications.";
     uses notification-instance-hdr;
 
     leaf lsp-id {

@@ -21,6 +21,9 @@
 #ifndef _QUAGGA_BGP_ROUTE_H
 #define _QUAGGA_BGP_ROUTE_H
 
+#include <stdbool.h>
+
+#include "hook.h"
 #include "queue.h"
 #include "nexthop.h"
 #include "bgp_table.h"
@@ -45,7 +48,9 @@ enum bgp_show_type {
 	bgp_show_type_community_list_exact,
 	bgp_show_type_lcommunity_all,
 	bgp_show_type_lcommunity,
+	bgp_show_type_lcommunity_exact,
 	bgp_show_type_lcommunity_list,
+	bgp_show_type_lcommunity_list_exact,
 	bgp_show_type_flap_statistics,
 	bgp_show_type_flap_neighbor,
 	bgp_show_type_dampend_paths,
@@ -308,7 +313,10 @@ struct bgp_aggregate {
 	uint8_t as_set;
 
 	/* Route-map for aggregated route. */
-	struct route_map *map;
+	struct {
+		char *name;
+		struct route_map *map;
+	} rmap;
 
 	/* Suppress-count. */
 	unsigned long count;
@@ -445,6 +453,12 @@ static inline bool is_pi_family_matching(struct bgp_path_info *pi,
 	return false;
 }
 
+/* called before bgp_process() */
+DECLARE_HOOK(bgp_process,
+		(struct bgp *bgp, afi_t afi, safi_t safi,
+			struct bgp_node *bn, struct peer *peer, bool withdraw),
+		(bgp, afi, safi, bn, peer, withdraw))
+
 /* Prototypes. */
 extern void bgp_rib_remove(struct bgp_node *rn, struct bgp_path_info *pi,
 			   struct peer *peer, afi_t afi, safi_t safi);
@@ -534,6 +548,10 @@ extern void bgp_config_write_network(struct vty *, struct bgp *, afi_t, safi_t);
 extern void bgp_config_write_distance(struct vty *, struct bgp *, afi_t,
 				      safi_t);
 
+extern void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
+				 safi_t safi, struct bgp_aggregate *aggregate);
+extern void bgp_aggregate_route(struct bgp *bgp, struct prefix *p, afi_t afi,
+				safi_t safi, struct bgp_aggregate *aggregate);
 extern void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 				    struct bgp_path_info *path, afi_t afi,
 				    safi_t safi);
@@ -588,7 +606,8 @@ extern void bgp_path_info_restore(struct bgp_node *rn,
 extern int bgp_path_info_cmp_compatible(struct bgp *bgp,
 					struct bgp_path_info *new,
 					struct bgp_path_info *exist,
-					char *pfx_buf, afi_t afi, safi_t safi);
+					char *pfx_buf, afi_t afi, safi_t safi,
+					enum bgp_path_selection_reason *reason);
 extern void bgp_attr_add_gshut_community(struct attr *attr);
 
 extern void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
@@ -604,7 +623,8 @@ extern void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 					struct prefix_rd *prd, afi_t afi,
 					safi_t safi, json_object *json);
 extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
-				 struct prefix *p, struct bgp_path_info *path,
+				 struct bgp_node *bn,
+				 struct bgp_path_info *path,
 				 afi_t afi, safi_t safi,
 				 json_object *json_paths);
 extern int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,

@@ -301,7 +301,7 @@ char *lcommunity_str(struct lcommunity *lcom, bool make_json)
 }
 
 /* Utility function to make hash key.  */
-unsigned int lcommunity_hash_make(void *arg)
+unsigned int lcommunity_hash_make(const void *arg)
 {
 	const struct lcommunity *lcom = arg;
 	int size = lcom_length(lcom);
@@ -359,7 +359,7 @@ static const char *lcommunity_gettoken(const char *str,
 	const char *p = str;
 
 	/* Skip white space. */
-	while (isspace((int)*p)) {
+	while (isspace((unsigned char)*p)) {
 		p++;
 		str++;
 	}
@@ -369,14 +369,14 @@ static const char *lcommunity_gettoken(const char *str,
 		return NULL;
 
 	/* Community value. */
-	if (isdigit((int)*p)) {
+	if (isdigit((unsigned char)*p)) {
 		int separator = 0;
 		int digit = 0;
 		uint32_t globaladmin = 0;
 		uint32_t localdata1 = 0;
 		uint32_t localdata2 = 0;
 
-		while (isdigit((int)*p) || *p == ':') {
+		while (isdigit((unsigned char)*p) || *p == ':') {
 			if (*p == ':') {
 				if (separator == 2) {
 					*token = lcommunity_token_unknown;
@@ -439,7 +439,8 @@ struct lcommunity *lcommunity_str2com(const char *str)
 	enum lcommunity_token token = lcommunity_token_unknown;
 	struct lcommunity_val lval;
 
-	while ((str = lcommunity_gettoken(str, &lval, &token))) {
+	do {
+		str = lcommunity_gettoken(str, &lval, &token);
 		switch (token) {
 		case lcommunity_token_val:
 			if (lcom == NULL)
@@ -452,7 +453,8 @@ struct lcommunity *lcommunity_str2com(const char *str)
 				lcommunity_free(&lcom);
 			return NULL;
 		}
-	}
+	} while (str);
+
 	return lcom;
 }
 

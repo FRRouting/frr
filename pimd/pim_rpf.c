@@ -195,8 +195,7 @@ static int nexthop_mismatch(const struct pim_nexthop *nh1,
 }
 
 enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
-				   struct pim_upstream *up, struct pim_rpf *old,
-				   uint8_t is_new)
+				   struct pim_upstream *up, struct pim_rpf *old)
 {
 	struct pim_rpf *rpf = &up->rpf;
 	struct pim_rpf saved;
@@ -216,14 +215,6 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	saved.source_nexthop = rpf->source_nexthop;
 	saved.rpf_addr = rpf->rpf_addr;
 
-	if (is_new && PIM_DEBUG_ZEBRA) {
-		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<source?>", up->upstream_addr, source_str,
-			       sizeof(source_str));
-		zlog_debug("%s: NHT Register upstream %s addr %s with Zebra.",
-			   __PRETTY_FUNCTION__, up->sg_str, source_str);
-	}
-	/* Register addr with Zebra NHT */
 	nht_p.family = AF_INET;
 	nht_p.prefixlen = IPV4_MAX_BITLEN;
 	nht_p.u.prefix4.s_addr = up->upstream_addr.s_addr;
@@ -237,8 +228,8 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 
 	if ((up->sg.src.s_addr == INADDR_ANY && I_am_RP(pim, up->sg.grp)) ||
 	    PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
-		neigh_needed = FALSE;
-	pim_find_or_track_nexthop(pim, &nht_p, up, NULL, NULL);
+		neigh_needed = false;
+	pim_find_or_track_nexthop(pim, &nht_p, up, NULL, false, NULL);
 	if (!pim_ecmp_nexthop_lookup(pim, &rpf->source_nexthop, &src, &grp,
 				     neigh_needed))
 		return PIM_RPF_FAILURE;
@@ -316,11 +307,11 @@ void pim_upstream_rpf_clear(struct pim_instance *pim,
 			    struct pim_upstream *up)
 {
 	if (up->rpf.source_nexthop.interface) {
-		if (up->channel_oil) {
-			up->channel_oil->oil.mfcc_parent = MAXVIFS;
-			pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
+		if (up->channel_oil)
+			pim_channel_oil_change_iif(pim, up->channel_oil,
+						   MAXVIFS,
+						   __PRETTY_FUNCTION__);
 
-		}
 		pim_upstream_switch(pim, up, PIM_UPSTREAM_NOTJOINED);
 		up->rpf.source_nexthop.interface = NULL;
 		up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
@@ -426,9 +417,9 @@ int pim_rpf_is_same(struct pim_rpf *rpf1, struct pim_rpf *rpf2)
 	return 0;
 }
 
-unsigned int pim_rpf_hash_key(void *arg)
+unsigned int pim_rpf_hash_key(const void *arg)
 {
-	struct pim_nexthop_cache *r = (struct pim_nexthop_cache *)arg;
+	const struct pim_nexthop_cache *r = arg;
 
 	return jhash_1word(r->rpf.rpf_addr.u.prefix4.s_addr, 0);
 }

@@ -53,7 +53,7 @@ static int eigrp_network_match_iface(const struct prefix *connected_prefix,
 static void eigrp_network_run_interface(struct eigrp *, struct prefix *,
 					struct interface *);
 
-int eigrp_sock_init(void)
+int eigrp_sock_init(struct vrf *vrf)
 {
 	int eigrp_sock;
 	int ret;
@@ -61,8 +61,10 @@ int eigrp_sock_init(void)
 	int hincl = 1;
 #endif
 
-	frr_elevate_privs(&eigrpd_privs) {
-		eigrp_sock = socket(AF_INET, SOCK_RAW, IPPROTO_EIGRPIGP);
+	frr_with_privs(&eigrpd_privs) {
+		eigrp_sock = vrf_socket(
+			AF_INET, SOCK_RAW, IPPROTO_EIGRPIGP, vrf->vrf_id,
+			vrf->vrf_id != VRF_DEFAULT ? vrf->name : NULL);
 		if (eigrp_sock < 0) {
 			zlog_err("eigrp_read_sock_init: socket: %s",
 				 safe_strerror(errno));
@@ -209,7 +211,7 @@ int eigrp_if_drop_allspfrouters(struct eigrp *top, struct prefix *p,
 
 int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(eigrp->vrf_id);
 	struct route_node *rn;
 	struct interface *ifp;
 
@@ -290,6 +292,9 @@ void eigrp_if_update(struct interface *ifp)
 	 * we need to check eac one and add the interface as approperate
 	 */
 	for (ALL_LIST_ELEMENTS(eigrp_om->eigrp, node, nnode, eigrp)) {
+		if (ifp->vrf_id != eigrp->vrf_id)
+			continue;
+
 		/* EIGRP must be on and Router-ID must be configured. */
 		if (eigrp->router_id.s_addr == 0)
 			continue;

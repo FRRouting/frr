@@ -74,6 +74,13 @@
  * blackholing the traffic pulled down to the LHR.
  */
 #define PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF             (1 << 17)
+/*
+ * We are creating a non-joined upstream data structure
+ * for this S,G as that we want to have a channel oil
+ * associated with an upstream
+ */
+#define PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE             (1 << 19)
+
 #define PIM_UPSTREAM_FLAG_ALL 0xFFFFFFFF
 
 #define PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
@@ -95,6 +102,7 @@
 #define PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN(flags) ((flags) & (PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_ORIG | PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM))
 #define PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN)
 #define PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF)
+#define PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(flags) ((flags) &PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE)
 
 #define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED_UPDATED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
@@ -133,6 +141,7 @@
 #define PIM_UPSTREAM_FLAG_UNSET_SRC_VXLAN_TERM(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM)
 #define PIM_UPSTREAM_FLAG_UNSET_MLAG_VXLAN(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN)
 #define PIM_UPSTREAM_FLAG_UNSET_MLAG_NON_DF(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF)
+#define PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE)
 
 enum pim_upstream_state {
 	PIM_UPSTREAM_NOTJOINED,
@@ -283,7 +292,8 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 
 const char *pim_upstream_state2str(enum pim_upstream_state join_state);
 #define PIM_REG_STATE_STR_LEN 12
-const char *pim_reg_state2str(enum pim_reg_state state, char *state_str);
+const char *pim_reg_state2str(enum pim_reg_state state, char *state_str,
+			      size_t state_str_len);
 
 int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 					struct pim_upstream *up);
@@ -308,7 +318,7 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 void pim_upstream_spt_prefix_list_update(struct pim_instance *pim,
 					 struct prefix_list *pl);
 
-unsigned int pim_upstream_hash_key(void *arg);
+unsigned int pim_upstream_hash_key(const void *arg);
 bool pim_upstream_equal(const void *arg1, const void *arg2);
 struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 		struct pim_upstream *up);

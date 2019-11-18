@@ -349,6 +349,11 @@ void route_add(struct pbr_nexthop_group_cache *pnhgc, struct nexthop_group nhg,
 		       "%s: Asked to install unsupported route type: L2VPN",
 		       __PRETTY_FUNCTION__);
 		break;
+	case AFI_UNSPEC:
+		DEBUGD(&pbr_dbg_zebra,
+		       "%s: Asked to install unspecified route type",
+		       __PRETTY_FUNCTION__);
+		break;
 	}
 }
 
@@ -389,6 +394,11 @@ void route_delete(struct pbr_nexthop_group_cache *pnhgc, afi_t afi)
 	case AFI_L2VPN:
 		DEBUGD(&pbr_dbg_zebra,
 		       "%s: Asked to delete unsupported route type: L2VPN",
+		       __PRETTY_FUNCTION__);
+		break;
+	case AFI_UNSPEC:
+		DEBUGD(&pbr_dbg_zebra,
+		       "%s: Asked to delete unspecified route type",
 		       __PRETTY_FUNCTION__);
 		break;
 	}
@@ -516,7 +526,7 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 	stream_putw(s, 0);  /* src port */
 	pbr_encode_pbr_map_sequence_prefix(s, pbrms->dst, family);
 	stream_putw(s, 0);  /* dst port */
-	stream_putl(s, 0);  /* fwmark */
+	stream_putl(s, pbrms->mark);
 	if (pbrms->nhgrp_name)
 		stream_putl(s, pbr_nht_get_table(pbrms->nhgrp_name));
 	else if (pbrms->nhg)

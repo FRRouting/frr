@@ -264,8 +264,9 @@ static int bgp_capability_mp(struct peer *peer, struct capability_header *hdr)
 	bgp_capability_mp_data(s, &mpc);
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s OPEN has MP_EXT CAP for afi/safi: %u/%u",
-			   peer->host, mpc.afi, mpc.safi);
+		zlog_debug("%s OPEN has MP_EXT CAP for afi/safi: %s/%s",
+			   peer->host, iana_afi2str(mpc.afi),
+			   iana_safi2str(mpc.safi));
 
 	/* Convert AFI, SAFI to internal values, check. */
 	if (bgp_map_afi_safi_iana2int(mpc.afi, mpc.safi, &afi, &safi))
@@ -325,8 +326,8 @@ static int bgp_capability_orf_entry(struct peer *peer,
 	pkt_safi = mpc.safi;
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s ORF Cap entry for afi/safi: %u/%u", peer->host,
-			   mpc.afi, mpc.safi);
+		zlog_debug("%s ORF Cap entry for afi/safi: %s/%s", peer->host,
+			   iana_afi2str(mpc.afi), iana_safi2str(mpc.safi));
 
 	/* Convert AFI, SAFI to internal values, check. */
 	if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
@@ -407,11 +408,11 @@ static int bgp_capability_orf_entry(struct peer *peer,
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"%s OPEN has %s ORF capability"
-				" as %s for afi/safi: %d/%d",
+				" as %s for afi/safi: %s/%s",
 				peer->host,
 				lookup_msg(orf_type_str, type, NULL),
-				lookup_msg(orf_mode_str, mode, NULL), pkt_afi,
-				pkt_safi);
+				lookup_msg(orf_mode_str, mode, NULL),
+				iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
 
 		if (hdr->code == CAPABILITY_CODE_ORF) {
 			sm_cap = PEER_CAP_ORF_PREFIX_SM_RCV;
@@ -487,20 +488,22 @@ static int bgp_capability_restart(struct peer *peer,
 		if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s Addr-family %d/%d(afi/safi) not supported."
+					"%s Addr-family %s/%s(afi/safi) not supported."
 					" Ignore the Graceful Restart capability for this AFI/SAFI",
-					peer->host, pkt_afi, pkt_safi);
+					peer->host, iana_afi2str(pkt_afi),
+					iana_safi2str(pkt_safi));
 		} else if (!peer->afc[afi][safi]) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s Addr-family %d/%d(afi/safi) not enabled."
+					"%s Addr-family %s/%s(afi/safi) not enabled."
 					" Ignore the Graceful Restart capability",
-					peer->host, pkt_afi, pkt_safi);
+					peer->host, iana_afi2str(pkt_afi),
+					iana_safi2str(pkt_safi));
 		} else {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
 					"%s Address family %s is%spreserved",
-					peer->host, afi_safi_print(afi, safi),
+					peer->host, get_afi_safi_str(afi, safi, false),
 					CHECK_FLAG(
 						peer->af_cap[afi][safi],
 						PEER_CAP_RESTART_AF_PRESERVE_RCV)
@@ -564,8 +567,9 @@ static int bgp_capability_addpath(struct peer *peer,
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
-				"%s OPEN has AddPath CAP for afi/safi: %u/%u%s%s",
-				peer->host, pkt_afi, pkt_safi,
+				"%s OPEN has AddPath CAP for afi/safi: %s/%s%s%s",
+				peer->host, iana_afi2str(pkt_afi),
+				iana_safi2str(pkt_safi),
 				(send_receive & BGP_ADDPATH_RX) ? ", receive"
 								: "",
 				(send_receive & BGP_ADDPATH_TX) ? ", transmit"
@@ -575,16 +579,18 @@ static int bgp_capability_addpath(struct peer *peer,
 		if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s Addr-family %d/%d(afi/safi) not supported."
+					"%s Addr-family %s/%s(afi/safi) not supported."
 					" Ignore the Addpath Attribute for this AFI/SAFI",
-					peer->host, pkt_afi, pkt_safi);
+					peer->host, iana_afi2str(pkt_afi),
+					iana_safi2str(pkt_safi));
 			continue;
 		} else if (!peer->afc[afi][safi]) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s Addr-family %d/%d(afi/safi) not enabled."
+					"%s Addr-family %s/%s(afi/safi) not enabled."
 					" Ignore the AddPath capability for this AFI/SAFI",
-					peer->host, pkt_afi, pkt_safi);
+					peer->host, iana_afi2str(pkt_afi),
+					iana_safi2str(pkt_safi));
 			continue;
 		}
 
@@ -624,16 +630,18 @@ static int bgp_capability_enhe(struct peer *peer, struct capability_header *hdr)
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
-				"%s Received with afi/safi/next-hop afi: %u/%u/%u",
-				peer->host, pkt_afi, pkt_safi, pkt_nh_afi);
+				"%s Received with afi/safi/next-hop afi: %s/%s/%u",
+				peer->host, iana_afi2str(pkt_afi),
+				iana_safi2str(pkt_safi), pkt_nh_afi);
 
 		/* Convert AFI, SAFI to internal values, check. */
 		if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s Addr-family %d/%d(afi/safi) not supported."
+					"%s Addr-family %s/%s(afi/safi) not supported."
 					" Ignore the ENHE Attribute for this AFI/SAFI",
-					peer->host, pkt_afi, pkt_safi);
+					peer->host, iana_afi2str(pkt_afi),
+					iana_safi2str(pkt_safi));
 			continue;
 		}
 
@@ -652,9 +660,10 @@ static int bgp_capability_enhe(struct peer *peer, struct capability_header *hdr)
 			 || safi == SAFI_LABELED_UNICAST)) {
 			flog_warn(
 				EC_BGP_CAPABILITY_INVALID_DATA,
-				"%s Unexpected afi/safi/next-hop afi: %u/%u/%u "
+				"%s Unexpected afi/safi/next-hop afi: %s/%s/%u "
 				"in Extended Next-hop capability, ignoring",
-				peer->host, pkt_afi, pkt_safi, pkt_nh_afi);
+				peer->host, iana_afi2str(pkt_afi),
+				iana_safi2str(pkt_safi), pkt_nh_afi);
 			continue;
 		}
 

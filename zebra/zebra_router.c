@@ -29,8 +29,15 @@
 #include "zebra_pbr.h"
 #include "zebra_vxlan.h"
 #include "zebra_mlag.h"
+#include "zebra_nhg.h"
+#include "debug.h"
 
-struct zebra_router zrouter;
+DEFINE_MTYPE_STATIC(ZEBRA, RIB_TABLE_INFO, "RIB table info")
+
+struct zebra_router zrouter = {
+	.multipath_num = MULTIPATH_NUM,
+	.ipv4_multicast_mode = MCAST_NO_CONFIG,
+};
 
 static inline int
 zebra_router_table_entry_compare(const struct zebra_router_table *e1,
@@ -117,19 +124,6 @@ struct route_table *zebra_router_get_table(struct zebra_vrf *zvrf,
 	return zrt->table;
 }
 
-unsigned long zebra_router_score_proto(uint8_t proto, unsigned short instance)
-{
-	struct zebra_router_table *zrt;
-	unsigned long cnt = 0;
-
-	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
-		if (zrt->ns_id != NS_DEFAULT)
-			continue;
-		cnt += rib_score_proto_table(proto, instance, zrt->table);
-	}
-	return cnt;
-}
-
 void zebra_router_show_table_summary(struct vty *vty)
 {
 	struct zebra_router_table *zrt;
@@ -196,6 +190,19 @@ uint32_t zebra_router_get_next_sequence(void)
 	return 1
 	       + atomic_fetch_add_explicit(&zrouter.sequence_num, 1,
 					   memory_order_relaxed);
+}
+
+void multicast_mode_ipv4_set(enum multicast_mode mode)
+{
+	if (IS_ZEBRA_DEBUG_RIB)
+		zlog_debug("%s: multicast lookup mode set (%d)", __func__,
+			   mode);
+	zrouter.ipv4_multicast_mode = mode;
+}
+
+enum multicast_mode multicast_mode_ipv4_get(void)
+{
+	return zrouter.ipv4_multicast_mode;
 }
 
 void zebra_router_terminate(void)

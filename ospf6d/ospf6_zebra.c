@@ -258,7 +258,7 @@ DEFUN (show_zebra,
 		return CMD_SUCCESS;
 	}
 
-	vty_out(vty, "Zebra Infomation\n");
+	vty_out(vty, "Zebra Information\n");
 	vty_out(vty, "  fail: %d\n", zclient->fail);
 	vty_out(vty, "  redistribute default: %d\n",
 		vrf_bitmap_check(zclient->default_information[AFI_IP6],
@@ -571,7 +571,7 @@ uint8_t ospf6_distance_apply(struct prefix_ipv6 *p, struct ospf6_route * or)
 static void ospf6_zebra_connected(struct zclient *zclient)
 {
 	/* Send the client registration */
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }

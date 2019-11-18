@@ -190,7 +190,7 @@ int ospf_sock_init(struct ospf *ospf)
 		/* silently return since VRF is not ready */
 		return -1;
 	}
-	frr_elevate_privs(&ospfd_privs) {
+	frr_with_privs(&ospfd_privs) {
 		ospf_sock = vrf_socket(AF_INET, SOCK_RAW, IPPROTO_OSPFIGP,
 				       ospf->vrf_id, ospf->name);
 		if (ospf_sock < 0) {

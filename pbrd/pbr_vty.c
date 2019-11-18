@@ -25,6 +25,7 @@
 #include "vrf.h"
 #include "nexthop.h"
 #include "nexthop_group.h"
+#include "nexthop_group_private.h"
 #include "log.h"
 #include "debug.h"
 #include "pbr.h"
@@ -38,7 +39,7 @@
 #include "pbrd/pbr_vty_clippy.c"
 #endif
 
-DEFUN_NOSH(pbr_map, pbr_map_cmd, "pbr-map WORD seq (1-700)",
+DEFUN_NOSH(pbr_map, pbr_map_cmd, "pbr-map PBRMAP seq (1-700)",
 	   "Create pbr-map or enter pbr-map command mode\n"
 	   "The name of the PBR MAP\n"
 	   "Sequence to insert in existing pbr-map entry\n"
@@ -54,7 +55,7 @@ DEFUN_NOSH(pbr_map, pbr_map_cmd, "pbr-map WORD seq (1-700)",
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH(no_pbr_map, no_pbr_map_cmd, "no pbr-map WORD [seq (1-700)]",
+DEFUN_NOSH(no_pbr_map, no_pbr_map_cmd, "no pbr-map PBRMAP [seq (1-700)]",
 	   NO_STR
 	   "Delete pbr-map\n"
 	   "The name of the PBR MAP\n"
@@ -171,8 +172,35 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(pbr_map_match_mark, pbr_map_match_mark_cmd,
+	"[no] match mark (1-4294967295)$mark",
+	NO_STR
+	"Match the rest of the command\n"
+	"Choose the mark value to use\n"
+	"mark\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+#ifndef GNU_LINUX
+	vty_out(vty, "pbr marks are not supported on this platform");
+	return CMD_WARNING_CONFIG_FAILED;
+#endif
+
+	if (!no) {
+		if (pbrms->mark == (uint32_t) mark)
+			return CMD_SUCCESS;
+		pbrms->mark = (uint32_t) mark;
+	} else {
+		pbrms->mark = 0;
+	}
+
+	pbr_map_check(pbrms);
+
+	return CMD_SUCCESS;
+ }
+
 DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
-	"[no] set nexthop-group NAME$name",
+	"[no] set nexthop-group NHGNAME$name",
 	NO_STR
 	"Set for the PBR-MAP\n"
 	"nexthop-group to use\n"
@@ -226,7 +254,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 	  <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf]\
 	  |INTERFACE$intf\
 	>\
-        [nexthop-vrf NAME$name]",
+        [nexthop-vrf NAME$vrf_name]",
       NO_STR
       "Set for the PBR-MAP\n"
       "Specify one of the nexthops in this map\n"
@@ -248,13 +276,13 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (name)
-		vrf = vrf_lookup_by_name(name);
+	if (vrf_name)
+		vrf = vrf_lookup_by_name(vrf_name);
 	else
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
 	if (!vrf) {
-		vty_out(vty, "Specified: %s is non-existent\n", name);
+		vty_out(vty, "Specified: %s is non-existent\n", vrf_name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -329,7 +357,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 		nh = nexthop_new();
 
 		memcpy(nh, &nhop, sizeof(nhop));
-		nexthop_add(&pbrms->nhg->nexthop, nh);
+		_nexthop_add(&pbrms->nhg->nexthop, nh);
 
 		pbr_nht_add_individual_nexthop(pbrms);
 		pbr_map_check(pbrms);
@@ -348,7 +376,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 
 DEFPY (pbr_policy,
 	pbr_policy_cmd,
-	"[no] pbr-policy NAME$mapname",
+	"[no] pbr-policy PBRMAP$mapname",
 	NO_STR
 	"Policy to use\n"
 	"Name of the pbr-map to apply\n")
@@ -452,6 +480,8 @@ DEFPY (show_pbr_map,
 				vty_out(vty, "\tDST Match: %s\n",
 					prefix2str(pbrms->dst, buf,
 						   sizeof(buf)));
+			if (pbrms->mark)
+				vty_out(vty, "\tMARK Match: %u\n", pbrms->mark);
 
 			if (pbrms->nhgrp_name) {
 				vty_out(vty,
@@ -631,6 +661,9 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 		vty_out(vty, " match dst-ip %s\n",
 			prefix2str(pbrms->dst, buff, sizeof(buff)));
 
+	if (pbrms->mark)
+		vty_out(vty, " match mark %u\n", pbrms->mark);
+
 	if (pbrms->nhgrp_name)
 		vty_out(vty, " set nexthop-group %s\n", pbrms->nhgrp_name);
 
@@ -661,8 +694,27 @@ static int pbr_vty_map_config_write(struct vty *vty)
 	return 1;
 }
 
+static void pbr_map_completer(vector comps, struct cmd_token *token)
+{
+	struct pbr_map *pbrm;
+
+	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps)
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, pbrm->name));
+}
+
+static const struct cmd_variable_handler pbr_map_name[] = {
+	{
+		.tokenname = "PBRMAP", .completions = pbr_map_completer,
+	},
+	{
+		.completions = NULL
+	}
+};
+
 void pbr_vty_init(void)
 {
+	cmd_variable_handler_register(pbr_map_name);
+
 	install_node(&interface_node,
 		     pbr_interface_config_write);
 	if_cmd_init();
@@ -684,6 +736,7 @@ void pbr_vty_init(void)
 	install_element(INTERFACE_NODE, &pbr_policy_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_src_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_dst_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_match_mark_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_group_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_cmd);
 	install_element(VIEW_NODE, &show_pbr_cmd);

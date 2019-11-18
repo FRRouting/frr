@@ -314,7 +314,7 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 	type = dplane_ctx_get_type(ctx);
 	old_type = dplane_ctx_get_old_type(ctx);
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 
 		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE) {
 			if (!RSYSTEM_ROUTE(type))
@@ -371,42 +371,23 @@ int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
 	return 0;
 }
 
+/* NYI on routing-socket platforms, but we've always returned 'success'... */
+enum zebra_dplane_result kernel_neigh_update_ctx(struct zebra_dplane_ctx *ctx)
+{
+	return ZEBRA_DPLANE_REQUEST_SUCCESS;
+}
+
 extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute)
 {
 	return 0;
 }
 
-int kernel_add_vtep(vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
+/*
+ * Update MAC, using dataplane context object. No-op here for now.
+ */
+enum zebra_dplane_result kernel_mac_update_ctx(struct zebra_dplane_ctx *ctx)
 {
-	return 0;
-}
-
-int kernel_del_vtep(vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
-{
-	return 0;
-}
-
-int kernel_add_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
-		   struct in_addr vtep_ip, bool sticky)
-{
-	return 0;
-}
-
-int kernel_del_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
-		   struct in_addr vtep_ip)
-{
-	return 0;
-}
-
-int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
-		     struct ethaddr *mac, uint8_t flags)
-{
-	return 0;
-}
-
-int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip)
-{
-	return 0;
+	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 
 extern int kernel_interface_set_master(struct interface *master,

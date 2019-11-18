@@ -62,10 +62,13 @@ struct zclient *zclient_new(struct thread_master *master,
 			    struct zclient_options *opt)
 {
 	struct zclient *zclient;
+	size_t stream_size =
+		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
+
 	zclient = XCALLOC(MTYPE_ZCLIENT, sizeof(struct zclient));
 
-	zclient->ibuf = stream_new(ZEBRA_MAX_PACKET_SIZ);
-	zclient->obuf = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	zclient->ibuf = stream_new(stream_size);
+	zclient->obuf = stream_new(stream_size);
 	zclient->wb = buffer_new(0);
 	zclient->master = master;
 
@@ -322,8 +325,9 @@ int zclient_read_header(struct stream *s, int sock, uint16_t *size,
 	if (*size && stream_read(s, sock, *size) != *size)
 		return -1;
 
-stream_failure:
 	return 0;
+stream_failure:
+	return -1;
 }
 
 bool zapi_parse_header(struct stream *zmsg, struct zmsghdr *hdr)
@@ -555,6 +559,25 @@ void zclient_send_interface_radv_req(struct zclient *zclient, vrf_id_t vrf_id,
 	zclient_send_message(zclient);
 }
 
+int zclient_send_interface_protodown(struct zclient *zclient, vrf_id_t vrf_id,
+				     struct interface *ifp, bool down)
+{
+	struct stream *s;
+
+	if (zclient->sock < 0)
+		return -1;
+
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_INTERFACE_SET_PROTODOWN, vrf_id);
+	stream_putl(s, ifp->ifindex);
+	stream_putc(s, !!down);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
+
+	return 0;
+}
+
 /* Make connection to zebra daemon. */
 int zclient_start(struct zclient *zclient)
 {
@@ -743,6 +766,92 @@ int zclient_route_send(uint8_t cmd, struct zclient *zclient,
 	return zclient_send_message(zclient);
 }
 
+static int zapi_nexthop_labels_cmp(const struct zapi_nexthop *next1,
+				   const struct zapi_nexthop *next2)
+{
+	if (next1->label_num > next2->label_num)
+		return 1;
+
+	if (next1->label_num < next2->label_num)
+		return -1;
+
+	return memcmp(next1->labels, next2->labels, next1->label_num);
+}
+
+static int zapi_nexthop_cmp_no_labels(const struct zapi_nexthop *next1,
+				      const struct zapi_nexthop *next2)
+{
+	int ret = 0;
+
+	if (next1->vrf_id < next2->vrf_id)
+		return -1;
+
+	if (next1->vrf_id > next2->vrf_id)
+		return 1;
+
+	if (next1->type < next2->type)
+		return -1;
+
+	if (next1->type > next2->type)
+		return 1;
+
+	switch (next1->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV6:
+		ret = nexthop_g_addr_cmp(next1->type, &next1->gate,
+					 &next2->gate);
+		if (ret != 0)
+			return ret;
+		break;
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		ret = nexthop_g_addr_cmp(next1->type, &next1->gate,
+					 &next2->gate);
+		if (ret != 0)
+			return ret;
+		/* Intentional Fall-Through */
+	case NEXTHOP_TYPE_IFINDEX:
+		if (next1->ifindex < next2->ifindex)
+			return -1;
+
+		if (next1->ifindex > next2->ifindex)
+			return 1;
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		if (next1->bh_type < next2->bh_type)
+			return -1;
+
+		if (next1->bh_type > next2->bh_type)
+			return 1;
+		break;
+	}
+
+	return 0;
+}
+
+static int zapi_nexthop_cmp(const void *item1, const void *item2)
+{
+	int ret = 0;
+
+	const struct zapi_nexthop *next1 = item1;
+	const struct zapi_nexthop *next2 = item2;
+
+	ret = zapi_nexthop_cmp_no_labels(next1, next2);
+	if (ret != 0)
+		return ret;
+
+	ret = zapi_nexthop_labels_cmp(next1, next2);
+
+	return ret;
+}
+
+static void zapi_nexthop_group_sort(struct zapi_nexthop *nh_grp,
+				    uint16_t nexthop_num)
+{
+	qsort(nh_grp, nexthop_num, sizeof(struct zapi_nexthop),
+	      &zapi_nexthop_cmp);
+}
+
 int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 {
 	struct zapi_nexthop *api_nh;
@@ -797,6 +906,8 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 				__func__, buf, api->nexthop_num, MULTIPATH_NUM);
 			return -1;
 		}
+
+		zapi_nexthop_group_sort(api->nexthops, api->nexthop_num);
 
 		stream_putw(s, api->nexthop_num);
 
@@ -1034,8 +1145,9 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TABLEID))
 		STREAM_GETL(s, api->tableid);
 
-stream_failure:
 	return 0;
+stream_failure:
+	return -1;
 }
 
 static void zapi_encode_prefix(struct stream *s, struct prefix *p,
@@ -1381,6 +1493,8 @@ stream_failure:
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  bandwidth                                                    |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |  parent ifindex                                               |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  Link Layer Type                                              |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  Harware Address Length                                       |
@@ -1561,6 +1675,7 @@ void zebra_interface_if_set_value(struct stream *s, struct interface *ifp)
 	ifp->mtu = stream_getl(s);
 	ifp->mtu6 = stream_getl(s);
 	ifp->bandwidth = stream_getl(s);
+	ifp->link_ifindex = stream_getl(s);
 	ifp->ll_type = stream_getl(s);
 	ifp->hw_addr_len = stream_getl(s);
 	if (ifp->hw_addr_len)
@@ -1829,7 +1944,7 @@ struct interface *zebra_interface_vrf_update_read(struct stream *s,
 	}
 
 	/* Fetch new VRF Id. */
-	new_id = stream_getw(s);
+	new_id = stream_getl(s);
 
 	*new_vrf_id = new_id;
 	return ifp;
@@ -1970,10 +2085,11 @@ int lm_label_manager_connect(struct zclient *zclient, int async)
  * @param zclient Zclient used to connect to label manager (zebra)
  * @param keep Avoid garbage collection
  * @param chunk_size Amount of labels requested
+ * @param base Base for the label chunk. if MPLS_LABEL_BASE_ANY we do not care
  * @result 0 on success, -1 otherwise
  */
 int zclient_send_get_label_chunk(struct zclient *zclient, uint8_t keep,
-				 uint32_t chunk_size)
+				 uint32_t chunk_size, uint32_t base)
 {
 	struct stream *s;
 
@@ -1993,6 +2109,7 @@ int zclient_send_get_label_chunk(struct zclient *zclient, uint8_t keep,
 	stream_putw(s, zclient->instance);
 	stream_putc(s, keep);
 	stream_putl(s, chunk_size);
+	stream_putl(s, base);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -2013,7 +2130,7 @@ int zclient_send_get_label_chunk(struct zclient *zclient, uint8_t keep,
  * @param end To write last assigned chunk label to
  * @result 0 on success, -1 otherwise
  */
-int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
+int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 		       uint32_t chunk_size, uint32_t *start, uint32_t *end)
 {
 	int ret;
@@ -2038,6 +2155,8 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 	stream_putc(s, keep);
 	/* chunk size */
 	stream_putl(s, chunk_size);
+	/* requested chunk base */
+	stream_putl(s, base);
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -2077,6 +2196,15 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "Wrong instId (%u) in get chunk response Should be %u",
 			 instance, zclient->instance);
+
+	/* if we requested a specific chunk and it could not be allocated, the
+	 * response message will end here
+	 */
+	if (!STREAM_READABLE(s)) {
+		zlog_info("Unable to assign Label Chunk to %s instance %u",
+			  zebra_route_string(proto), instance);
+		return -1;
+	}
 
 	/* keep */
 	response_keep = stream_getc(s);
@@ -2216,7 +2344,7 @@ int tm_table_manager_connect(struct zclient *zclient)
 
 	return (int)result;
 stream_failure:
-	return 0;
+	return -1;
 }
 
 /**
@@ -2283,8 +2411,9 @@ int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 	if (zclient_debug)
 		zlog_debug("Table Chunk assign: %u - %u ", *start, *end);
 
-stream_failure:
 	return 0;
+stream_failure:
+	return -1;
 }
 
 /**

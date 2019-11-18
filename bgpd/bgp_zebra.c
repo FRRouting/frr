@@ -793,6 +793,7 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 						      peer->bgp->vrf_id);
 	}
 	if (local->sa.sa_family == AF_INET6) {
+		memcpy(&nexthop->v6_global, &local->sin6.sin6_addr, IPV6_MAX_BYTELEN);
 		if (IN6_IS_ADDR_LINKLOCAL(&local->sin6.sin6_addr)) {
 			if (peer->conf_if || peer->ifname)
 				ifp = if_lookup_by_name(peer->conf_if
@@ -1435,15 +1436,29 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 		for (i = 0; i < api.nexthop_num; i++) {
 			api_nh = &api.nexthops[i];
 
-			if (api_nh->type == NEXTHOP_TYPE_IFINDEX)
+			switch (api_nh->type) {
+			case NEXTHOP_TYPE_IFINDEX:
 				nh_buf[0] = '\0';
-			else {
-				if (api_nh->type == NEXTHOP_TYPE_IPV4)
-					nh_family = AF_INET;
-				else
-					nh_family = AF_INET6;
+				break;
+			case NEXTHOP_TYPE_IPV4:
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+				nh_family = AF_INET;
 				inet_ntop(nh_family, &api_nh->gate, nh_buf,
 					  sizeof(nh_buf));
+				break;
+			case NEXTHOP_TYPE_IPV6:
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				nh_family = AF_INET6;
+				inet_ntop(nh_family, &api_nh->gate, nh_buf,
+					  sizeof(nh_buf));
+				break;
+			case NEXTHOP_TYPE_BLACKHOLE:
+				strlcpy(nh_buf, "blackhole", sizeof(nh_buf));
+				break;
+			default:
+				/* Note: add new nexthop case */
+				assert(0);
+				break;
 			}
 
 			label_buf[0] = '\0';
@@ -2421,6 +2436,7 @@ static void bgp_encode_pbr_iptable_match(struct stream *s,
 	stream_putw(s, pbm->tcp_mask_flags);
 	stream_putc(s, pbm->dscp_value);
 	stream_putc(s, pbm->fragment);
+	stream_putc(s, pbm->protocol);
 }
 
 /* BGP has established connection with Zebra. */
@@ -2441,7 +2457,7 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	bgp_zebra_instance_register(bgp);
 
 	/* Send the client registration */
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, bgp->vrf_id);
 
 	/* tell label pool that zebra is connected */
 	bgp_lp_event_zebra_up();
@@ -2959,6 +2975,9 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 	SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	api_nh = &api.nexthops[0];
+
+	api.distance = ZEBRA_EBGP_DISTANCE_DEFAULT;
+	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
 
 	/* redirect IP */
 	if (nh->gate.ipv4.s_addr) {

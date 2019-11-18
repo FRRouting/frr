@@ -332,7 +332,8 @@ void igmp_source_free(struct igmp_source *source)
 static void source_channel_oil_detach(struct igmp_source *source)
 {
 	if (source->source_channel_oil) {
-		pim_channel_oil_del(source->source_channel_oil);
+		pim_channel_oil_del(source->source_channel_oil,
+				    __PRETTY_FUNCTION__);
 		source->source_channel_oil = NULL;
 	}
 }
@@ -997,7 +998,7 @@ static void group_retransmit_group(struct igmp_group *group)
 
 	char query_buf[query_buf_size];
 
-	lmqc = igmp->querier_robustness_variable;
+	lmqc = pim_ifp->igmp_last_member_query_count;
 	lmqi_msec = 100 * pim_ifp->igmp_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
@@ -1076,7 +1077,7 @@ static int group_retransmit_sources(struct igmp_group *group,
 	igmp = group->group_igmp_sock;
 	pim_ifp = igmp->interface->info;
 
-	lmqc = igmp->querier_robustness_variable;
+	lmqc = pim_ifp->igmp_last_member_query_count;
 	lmqi_msec = 100 * pim_ifp->igmp_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
@@ -1314,9 +1315,13 @@ static long igmp_source_timer_remain_msec(struct igmp_source *source)
 */
 static void group_query_send(struct igmp_group *group)
 {
+	struct pim_interface *pim_ifp;
+	struct igmp_sock *igmp;
 	long lmqc; /* Last Member Query Count */
 
-	lmqc = group->group_igmp_sock->querier_robustness_variable;
+	igmp = group->group_igmp_sock;
+	pim_ifp = igmp->interface->info;
+	lmqc = pim_ifp->igmp_last_member_query_count;
 
 	/* lower group timer to lmqt */
 	igmp_group_timer_lower_to_lmqt(group);
@@ -1351,7 +1356,7 @@ static void source_query_send_by_flag(struct igmp_group *group,
 	igmp = group->group_igmp_sock;
 	pim_ifp = igmp->interface->info;
 
-	lmqc = igmp->querier_robustness_variable;
+	lmqc = pim_ifp->igmp_last_member_query_count;
 	lmqi_msec = 100 * pim_ifp->igmp_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
@@ -1509,7 +1514,7 @@ void igmp_group_timer_lower_to_lmqt(struct igmp_group *group)
 	ifname = ifp->name;
 
 	lmqi_dsec = pim_ifp->igmp_specific_query_max_response_time_dsec;
-	lmqc = igmp->querier_robustness_variable;
+	lmqc = pim_ifp->igmp_last_member_query_count;
 	lmqt_msec = PIM_IGMP_LMQT_MSEC(
 		lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
 
@@ -1546,7 +1551,7 @@ void igmp_source_timer_lower_to_lmqt(struct igmp_source *source)
 	ifname = ifp->name;
 
 	lmqi_dsec = pim_ifp->igmp_specific_query_max_response_time_dsec;
-	lmqc = igmp->querier_robustness_variable;
+	lmqc = pim_ifp->igmp_last_member_query_count;
 	lmqt_msec = PIM_IGMP_LMQT_MSEC(
 		lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
 

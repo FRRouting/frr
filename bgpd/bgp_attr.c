@@ -51,7 +51,6 @@
 #include "bgp_encap_types.h"
 #include "bgp_vnc_types.h"
 #endif
-#include "bgp_encap_types.h"
 #include "bgp_evpn.h"
 #include "bgp_flowspec_private.h"
 #include "bgp_mac.h"
@@ -140,7 +139,7 @@ int cluster_loop_check(struct cluster_list *cluster, struct in_addr originator)
 	return 0;
 }
 
-static unsigned int cluster_hash_key_make(void *p)
+static unsigned int cluster_hash_key_make(const void *p)
 {
 	const struct cluster_list *cluster = p;
 
@@ -348,7 +347,7 @@ static void encap_unintern(struct bgp_attr_encap_subtlv **encapp,
 	}
 }
 
-static unsigned int encap_hash_key_make(void *p)
+static unsigned int encap_hash_key_make(const void *p)
 {
 	const struct bgp_attr_encap_subtlv *encap = p;
 
@@ -433,7 +432,7 @@ void transit_unintern(struct transit *transit)
 	}
 }
 
-static unsigned int transit_hash_key_make(void *p)
+static unsigned int transit_hash_key_make(const void *p)
 {
 	const struct transit *transit = p;
 
@@ -484,7 +483,7 @@ unsigned long int attr_unknown_count(void)
 	return transit_hash->count;
 }
 
-unsigned int attrhash_key_make(void *p)
+unsigned int attrhash_key_make(const void *p)
 {
 	const struct attr *attr = (struct attr *)p;
 	uint32_t key = 0;
@@ -725,10 +724,13 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 				       struct community *community,
 				       struct ecommunity *ecommunity,
 				       struct lcommunity *lcommunity,
-				       int as_set, uint8_t atomic_aggregate)
+				       struct bgp_aggregate *aggregate,
+				       uint8_t atomic_aggregate,
+				       struct prefix *p)
 {
 	struct attr attr;
 	struct attr *new;
+	int ret;
 
 	memset(&attr, 0, sizeof(struct attr));
 
@@ -779,7 +781,7 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 	attr.label = MPLS_INVALID_LABEL;
 	attr.weight = BGP_ATTR_DEFAULT_WEIGHT;
 	attr.mp_nexthop_len = IPV6_MAX_BYTELEN;
-	if (!as_set || atomic_aggregate)
+	if (!aggregate->as_set || atomic_aggregate)
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE);
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR);
 	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
@@ -790,7 +792,42 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 	attr.label_index = BGP_INVALID_LABEL_INDEX;
 	attr.label = MPLS_INVALID_LABEL;
 
-	new = bgp_attr_intern(&attr);
+	/* Apply route-map */
+	if (aggregate->rmap.name) {
+		struct attr attr_tmp = attr;
+		struct bgp_path_info rmap_path;
+
+		memset(&rmap_path, 0, sizeof(struct bgp_path_info));
+		rmap_path.peer = bgp->peer_self;
+		rmap_path.attr = &attr_tmp;
+
+		SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_AGGREGATE);
+
+		ret = route_map_apply(aggregate->rmap.map, p, RMAP_BGP,
+				      &rmap_path);
+
+		bgp->peer_self->rmap_type = 0;
+
+		if (ret == RMAP_DENYMATCH) {
+			/* Free uninterned attribute. */
+			bgp_attr_flush(&attr_tmp);
+
+			/* Unintern original. */
+			aspath_unintern(&attr.aspath);
+			return NULL;
+		}
+
+		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+			bgp_attr_add_gshut_community(&attr_tmp);
+
+		new = bgp_attr_intern(&attr_tmp);
+	} else {
+
+		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+			bgp_attr_add_gshut_community(&attr);
+
+		new = bgp_attr_intern(&attr);
+	}
 
 	aspath_unintern(&new->aspath);
 	return new;
@@ -1256,14 +1293,44 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
+/*
+ * Check that the nexthop attribute is valid.
+ */
+bgp_attr_parse_ret_t
+bgp_attr_nexthop_valid(struct peer *peer, struct attr *attr)
+{
+	in_addr_t nexthop_h;
+
+	nexthop_h = ntohl(attr->nexthop.s_addr);
+	if ((IPV4_NET0(nexthop_h) || IPV4_NET127(nexthop_h)
+	     || IPV4_CLASS_DE(nexthop_h))
+	    && !BGP_DEBUG(allow_martians, ALLOW_MARTIANS)) {
+		uint8_t data[7]; /* type(2) + length(1) + nhop(4) */
+		char buf[INET_ADDRSTRLEN];
+
+		inet_ntop(AF_INET, &attr->nexthop.s_addr, buf,
+			  INET_ADDRSTRLEN);
+		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %s",
+			 buf);
+		data[0] = BGP_ATTR_FLAG_TRANS;
+		data[1] = BGP_ATTR_NEXT_HOP;
+		data[2] = BGP_ATTR_NHLEN_IPV4;
+		memcpy(&data[3], &attr->nexthop.s_addr, BGP_ATTR_NHLEN_IPV4);
+		bgp_notify_send_with_data(peer, BGP_NOTIFY_UPDATE_ERR,
+					  BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP,
+					  data, 7);
+		return BGP_ATTR_PARSE_ERROR;
+	}
+
+	return BGP_ATTR_PARSE_PROCEED;
+}
+
 /* Nexthop attribute. */
 static bgp_attr_parse_ret_t bgp_attr_nexthop(struct bgp_attr_parser_args *args)
 {
 	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
-
-	in_addr_t nexthop_h, nexthop_n;
 
 	/* Check nexthop attribute length. */
 	if (length != 4) {
@@ -1274,30 +1341,7 @@ static bgp_attr_parse_ret_t bgp_attr_nexthop(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
-	/* According to section 6.3 of RFC4271, syntactically incorrect NEXT_HOP
-	   attribute must result in a NOTIFICATION message (this is implemented
-	   below).
-	   At the same time, semantically incorrect NEXT_HOP is more likely to
-	   be just
-	   logged locally (this is implemented somewhere else). The UPDATE
-	   message
-	   gets ignored in any of these cases. */
-	nexthop_n = stream_get_ipv4(peer->curr);
-	nexthop_h = ntohl(nexthop_n);
-	if ((IPV4_NET0(nexthop_h) || IPV4_NET127(nexthop_h)
-	     || IPV4_CLASS_DE(nexthop_h))
-	    && !BGP_DEBUG(
-		       allow_martians,
-		       ALLOW_MARTIANS)) /* loopbacks may be used in testing */
-	{
-		char buf[INET_ADDRSTRLEN];
-		inet_ntop(AF_INET, &nexthop_n, buf, INET_ADDRSTRLEN);
-		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %s", buf);
-		return bgp_attr_malformed(
-			args, BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP, args->total);
-	}
-
-	attr->nexthop.s_addr = nexthop_n;
+	attr->nexthop.s_addr = stream_get_ipv4(peer->curr);
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 
 	return BGP_ATTR_PARSE_PROCEED;
@@ -1664,8 +1708,9 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		 */
 		if (bgp_debug_update(peer, NULL, NULL, 0))
 			zlog_debug(
-				"%s: MP_REACH received AFI %u or SAFI %u is unrecognized",
-				peer->host, pkt_afi, pkt_safi);
+				"%s: MP_REACH received AFI %s or SAFI %s is unrecognized",
+				peer->host, iana_afi2str(pkt_afi),
+				iana_safi2str(pkt_safi));
 		return BGP_ATTR_PARSE_ERROR;
 	}
 
@@ -1849,8 +1894,9 @@ int bgp_mp_unreach_parse(struct bgp_attr_parser_args *args,
 		 */
 		if (bgp_debug_update(peer, NULL, NULL, 0))
 			zlog_debug(
-				"%s: MP_UNREACH received AFI %u or SAFI %u is unrecognized",
-				peer->host, pkt_afi, pkt_safi);
+				"%s: MP_UNREACH received AFI %s or SAFI %s is unrecognized",
+				peer->host, iana_afi2str(pkt_afi),
+				iana_safi2str(pkt_safi));
 		return BGP_ATTR_PARSE_ERROR;
 	}
 
@@ -1955,6 +2001,10 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 		}
 
 	}
+
+	/* Get the tunnel type from encap extended community */
+	bgp_attr_extcom_tunnel_type(attr,
+		(bgp_encap_types *)&attr->encap_tunneltype);
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -2681,6 +2731,26 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 		return BGP_ATTR_PARSE_ERROR;
 	}
 
+	/*
+	 * RFC4271: If the NEXT_HOP attribute field is syntactically incorrect,
+	 * then the Error Subcode MUST be set to Invalid NEXT_HOP Attribute.
+	 * This is implemented below and will result in a NOTIFICATION. If the
+	 * NEXT_HOP attribute is semantically incorrect, the error SHOULD be
+	 * logged, and the route SHOULD be ignored. In this case, a NOTIFICATION
+	 * message SHOULD NOT be sent. This is implemented elsewhere.
+	 *
+	 * RFC4760: An UPDATE message that carries no NLRI, other than the one
+	 * encoded in the MP_REACH_NLRI attribute, SHOULD NOT carry the NEXT_HOP
+	 * attribute. If such a message contains the NEXT_HOP attribute, the BGP
+	 * speaker that receives the message SHOULD ignore this attribute.
+	 */
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))
+	    && !CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MP_REACH_NLRI))) {
+		if (bgp_attr_nexthop_valid(peer, attr) < 0) {
+			return BGP_ATTR_PARSE_ERROR;
+		}
+	}
+
 	/* Check all mandatory well-known attributes are present */
 	if ((ret = bgp_attr_check(peer, attr)) < 0) {
 		if (as4_path)
@@ -2753,6 +2823,38 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 #endif
 
 	return BGP_ATTR_PARSE_PROCEED;
+}
+
+/*
+ * Extract the tunnel type from extended community
+ */
+void bgp_attr_extcom_tunnel_type(struct attr *attr,
+				 bgp_encap_types *tunnel_type)
+{
+	struct ecommunity *ecom;
+	int i;
+	if (!attr)
+		return;
+
+	ecom = attr->ecommunity;
+	if (!ecom || !ecom->size)
+		return;
+
+	for (i = 0; i < ecom->size; i++) {
+		uint8_t *pnt;
+		uint8_t type, sub_type;
+
+		pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
+		type = pnt[0];
+		sub_type = pnt[1];
+		if (!(type == ECOMMUNITY_ENCODE_OPAQUE &&
+		      sub_type == ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP))
+			continue;
+		*tunnel_type = ((pnt[6] << 8) | pnt[7]);
+		return;
+	}
+
+	return;
 }
 
 size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
@@ -2898,7 +3000,8 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 				       addpath_encode, addpath_tx_id);
 	} else if (safi == SAFI_LABELED_UNICAST) {
 		/* Prefix write with label. */
-		stream_put_labeled_prefix(s, p, label);
+		stream_put_labeled_prefix(s, p, label, addpath_encode,
+					  addpath_tx_id);
 	} else if (safi == SAFI_FLOWSPEC) {
 		if (PSIZE (p->prefixlen)+2 < FLOWSPEC_NLRI_SIZELIMIT)
 			stream_putc(s, PSIZE (p->prefixlen)+2);
@@ -2916,6 +3019,8 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi, struct prefix *p)
 	int size = PSIZE(p->prefixlen);
 	if (safi == SAFI_MPLS_VPN)
 		size += 88;
+	else if (safi == SAFI_LABELED_UNICAST)
+		size += BGP_LABEL_BYTES;
 	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
 		size += 232; // TODO: Maximum possible for type-2, type-3 and
 			     // type-5
@@ -3155,6 +3260,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	/* Nexthop attribute. */
 	if (afi == AFI_IP && safi == SAFI_UNICAST
 	    && !peer_cap_enhe(peer, afi, safi)) {
+		afi_t nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->mp_nexthop_len);
+
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
 			stream_putc(s, BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_NEXT_HOP);
@@ -3162,17 +3269,18 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 						     attr);
 			stream_putc(s, 4);
 			stream_put_ipv4(s, attr->nexthop.s_addr);
-		} else if (peer_cap_enhe(from, afi, safi)) {
+		} else if (peer_cap_enhe(from, afi, safi)
+			   || (nh_afi == AFI_IP6)) {
 			/*
 			 * Likely this is the case when an IPv4 prefix was
-			 * received with
-			 * Extended Next-hop capability and now being advertised
-			 * to
-			 * non-ENHE peers.
+			 * received with Extended Next-hop capability in this
+			 * or another vrf and is now being advertised to
+			 * non-ENHE peers. Since peer_cap_enhe only checks
+			 * peers in this vrf, also check the nh_afi to catch
+			 * the case where the originator was in another vrf.
 			 * Setting the mandatory (ipv4) next-hop attribute here
-			 * to enable
-			 * implicit next-hop self with correct (ipv4 address
-			 * family).
+			 * to enable implicit next-hop self with correct A-F
+			 * (ipv4 address family).
 			 */
 			stream_putc(s, BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_NEXT_HOP);

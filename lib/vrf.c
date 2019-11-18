@@ -362,9 +362,9 @@ struct vrf_bit_set {
 	bool set;
 };
 
-static unsigned int vrf_hash_bitmap_key(void *data)
+static unsigned int vrf_hash_bitmap_key(const void *data)
 {
-	struct vrf_bit_set *bit = data;
+	const struct vrf_bit_set *bit = data;
 
 	return bit->vrf_id;
 }
@@ -465,6 +465,14 @@ static void vrf_autocomplete(vector comps, struct cmd_token *token)
 static const struct cmd_variable_handler vrf_var_handlers[] = {
 	{
 		.varname = "vrf",
+		.completions = vrf_autocomplete,
+	},
+	{
+		.varname = "vrf_name",
+		.completions = vrf_autocomplete,
+	},
+	{
+		.varname = "nexthop_vrf",
 		.completions = vrf_autocomplete,
 	},
 	{.completions = NULL},
@@ -755,7 +763,7 @@ DEFUN_NOSH (vrf_netns,
 	if (!pathname)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	frr_elevate_privs(vrf_daemon_privs) {
+	frr_with_privs(vrf_daemon_privs) {
 		ret = vrf_netns_handler_create(vty, vrf, pathname,
 					       NS_UNKNOWN, NS_UNKNOWN);
 	}
@@ -904,10 +912,16 @@ vrf_id_t vrf_get_default_id(void)
 int vrf_bind(vrf_id_t vrf_id, int fd, const char *name)
 {
 	int ret = 0;
+	struct interface *ifp;
 
 	if (fd < 0 || name == NULL)
 		return fd;
-	if (vrf_is_backend_netns())
+	/* the device should exist
+	 * otherwise we should return
+	 * case ifname = vrf in netns mode => return
+	 */
+	ifp = if_lookup_by_name(name, vrf_id);
+	if (!ifp)
 		return fd;
 #ifdef SO_BINDTODEVICE
 	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, name, strlen(name)+1);

@@ -23,6 +23,7 @@
 #include <sockunion.h>
 #include <nexthop.h>
 #include <nexthop_group.h>
+#include <nexthop_group_private.h>
 #include <vty.h>
 #include <command.h>
 #include <jhash.h>
@@ -57,6 +58,16 @@ nexthop_group_cmd_compare(const struct nexthop_group_cmd *nhgc1,
 			  const struct nexthop_group_cmd *nhgc2)
 {
 	return strcmp(nhgc1->name, nhgc2->name);
+}
+
+static struct nexthop *nexthop_group_tail(const struct nexthop_group *nhg)
+{
+	struct nexthop *nexthop = nhg->nexthop;
+
+	while (nexthop && nexthop->next)
+		nexthop = nexthop->next;
+
+	return nexthop;
 }
 
 uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
@@ -100,13 +111,19 @@ struct nexthop_group *nexthop_group_new(void)
 	return XCALLOC(MTYPE_NEXTHOP_GROUP, sizeof(struct nexthop_group));
 }
 
+void nexthop_group_copy(struct nexthop_group *to, struct nexthop_group *from)
+{
+	/* Copy everything, including recursive info */
+	copy_nexthops(&to->nexthop, from->nexthop, NULL);
+}
+
 void nexthop_group_delete(struct nexthop_group **nhg)
 {
 	XFREE(MTYPE_NEXTHOP_GROUP, *nhg);
 }
 
 /* Add nexthop to the end of a nexthop list.  */
-void nexthop_add(struct nexthop **target, struct nexthop *nexthop)
+void _nexthop_add(struct nexthop **target, struct nexthop *nexthop)
 {
 	struct nexthop *last;
 
@@ -119,8 +136,49 @@ void nexthop_add(struct nexthop **target, struct nexthop *nexthop)
 	nexthop->prev = last;
 }
 
+void _nexthop_group_add_sorted(struct nexthop_group *nhg,
+			       struct nexthop *nexthop)
+{
+	struct nexthop *position, *prev, *tail;
+
+	/* Try to just append to the end first
+	 * This trust it is already sorted
+	 */
+
+	tail = nexthop_group_tail(nhg);
+
+	if (tail && (nexthop_cmp(tail, nexthop) < 0)) {
+		tail->next = nexthop;
+		nexthop->prev = tail;
+
+		return;
+	}
+
+	for (position = nhg->nexthop, prev = NULL; position;
+	     prev = position, position = position->next) {
+		if (nexthop_cmp(position, nexthop) > 0) {
+			nexthop->next = position;
+			nexthop->prev = prev;
+
+			if (nexthop->prev)
+				nexthop->prev->next = nexthop;
+			else
+				nhg->nexthop = nexthop;
+
+			position->prev = nexthop;
+			return;
+		}
+	}
+
+	nexthop->prev = prev;
+	if (prev)
+		prev->next = nexthop;
+	else
+		nhg->nexthop = nexthop;
+}
+
 /* Delete nexthop from a nexthop list.  */
-void nexthop_del(struct nexthop_group *nhg, struct nexthop *nh)
+void _nexthop_del(struct nexthop_group *nhg, struct nexthop *nh)
 {
 	struct nexthop *nexthop;
 
@@ -150,21 +208,8 @@ void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 	const struct nexthop *nh1;
 
 	for (nh1 = nh; nh1; nh1 = nh1->next) {
-		nexthop = nexthop_new();
-		nexthop->vrf_id = nh1->vrf_id;
-		nexthop->ifindex = nh1->ifindex;
-		nexthop->type = nh1->type;
-		nexthop->flags = nh1->flags;
-		memcpy(&nexthop->gate, &nh1->gate, sizeof(nh1->gate));
-		memcpy(&nexthop->src, &nh1->src, sizeof(nh1->src));
-		memcpy(&nexthop->rmap_src, &nh1->rmap_src,
-		       sizeof(nh1->rmap_src));
-		nexthop->rparent = rparent;
-		if (nh1->nh_label)
-			nexthop_add_labels(nexthop, nh1->nh_label_type,
-					   nh1->nh_label->num_labels,
-					   &nh1->nh_label->label[0]);
-		nexthop_add(tnh, nexthop);
+		nexthop = nexthop_dup(nh1, rparent);
+		_nexthop_add(tnh, nexthop);
 
 		if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_RECURSIVE))
 			copy_nexthops(&nexthop->resolved, nh1->resolved,
@@ -195,7 +240,7 @@ static void nhgc_delete_nexthops(struct nexthop_group_cmd *nhgc)
 	while (nexthop) {
 		struct nexthop *next = nexthop_next(nexthop);
 
-		nexthop_del(&nhgc->nhg, nexthop);
+		_nexthop_del(&nhgc->nhg, nexthop);
 		if (nhg_hooks.del_nexthop)
 			nhg_hooks.del_nexthop(nhgc, nexthop);
 
@@ -308,7 +353,7 @@ static void nhgc_delete(struct nexthop_group_cmd *nhgc)
 
 DEFINE_QOBJ_TYPE(nexthop_group_cmd)
 
-DEFUN_NOSH(nexthop_group, nexthop_group_cmd, "nexthop-group NAME",
+DEFUN_NOSH(nexthop_group, nexthop_group_cmd, "nexthop-group NHGNAME",
 	   "Enter into the nexthop-group submode\n"
 	   "Specify the NAME of the nexthop-group\n")
 {
@@ -321,7 +366,7 @@ DEFUN_NOSH(nexthop_group, nexthop_group_cmd, "nexthop-group NAME",
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH(no_nexthop_group, no_nexthop_group_cmd, "no nexthop-group NAME",
+DEFUN_NOSH(no_nexthop_group, no_nexthop_group_cmd, "no nexthop-group NHGNAME",
 	   NO_STR
 	   "Delete the nexthop-group\n"
 	   "Specify the NAME of the nexthop-group\n")
@@ -430,7 +475,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	  <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf]\
 	  |INTERFACE$intf\
 	>\
-	[nexthop-vrf NAME$name]",
+	[nexthop-vrf NAME$vrf_name]",
       NO_STR
       "Specify one of the nexthops in this ECMP group\n"
       "v4 Address\n"
@@ -445,7 +490,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	struct nexthop *nh;
 	bool legal;
 
-	legal = nexthop_group_parse_nexthop(&nhop, addr, intf, name);
+	legal = nexthop_group_parse_nexthop(&nhop, addr, intf, vrf_name);
 
 	if (nhop.type == NEXTHOP_TYPE_IPV6
 	    && IN6_IS_ADDR_LINKLOCAL(&nhop.gate.ipv6)) {
@@ -457,9 +502,9 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	nh = nexthop_exists(&nhgc->nhg, &nhop);
 
 	if (no) {
-		nexthop_group_unsave_nhop(nhgc, name, addr, intf);
+		nexthop_group_unsave_nhop(nhgc, vrf_name, addr, intf);
 		if (nh) {
-			nexthop_del(&nhgc->nhg, nh);
+			_nexthop_del(&nhgc->nhg, nh);
 
 			if (nhg_hooks.del_nexthop)
 				nhg_hooks.del_nexthop(nhgc, nh);
@@ -472,10 +517,10 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 			nh = nexthop_new();
 
 			memcpy(nh, &nhop, sizeof(nhop));
-			nexthop_add(&nhgc->nhg.nexthop, nh);
+			_nexthop_add(&nhgc->nhg.nexthop, nh);
 		}
 
-		nexthop_group_save_nhop(nhgc, name, addr, intf);
+		nexthop_group_save_nhop(nhgc, vrf_name, addr, intf);
 
 		if (legal && nhg_hooks.add_nexthop)
 			nhg_hooks.add_nexthop(nhgc, nh);
@@ -596,7 +641,7 @@ void nexthop_group_enable_vrf(struct vrf *vrf)
 			nh = nexthop_new();
 
 			memcpy(nh, &nhop, sizeof(nhop));
-			nexthop_add(&nhgc->nhg.nexthop, nh);
+			_nexthop_add(&nhgc->nhg.nexthop, nh);
 
 			if (nhg_hooks.add_nexthop)
 				nhg_hooks.add_nexthop(nhgc, nh);
@@ -629,7 +674,7 @@ void nexthop_group_disable_vrf(struct vrf *vrf)
 			if (nh->vrf_id != vrf->vrf_id)
 				continue;
 
-			nexthop_del(&nhgc->nhg, nh);
+			_nexthop_del(&nhgc->nhg, nh);
 
 			if (nhg_hooks.del_nexthop)
 				nhg_hooks.del_nexthop(nhgc, nh);
@@ -679,7 +724,7 @@ void nexthop_group_interface_state_change(struct interface *ifp,
 				nh = nexthop_new();
 
 				memcpy(nh, &nhop, sizeof(nhop));
-				nexthop_add(&nhgc->nhg.nexthop, nh);
+				_nexthop_add(&nhgc->nhg.nexthop, nh);
 
 				if (nhg_hooks.add_nexthop)
 					nhg_hooks.add_nexthop(nhgc, nh);
@@ -703,7 +748,7 @@ void nexthop_group_interface_state_change(struct interface *ifp,
 				if (oldifindex != nh->ifindex)
 					continue;
 
-				nexthop_del(&nhgc->nhg, nh);
+				_nexthop_del(&nhgc->nhg, nh);
 
 				if (nhg_hooks.del_nexthop)
 					nhg_hooks.del_nexthop(nhgc, nh);
@@ -714,6 +759,19 @@ void nexthop_group_interface_state_change(struct interface *ifp,
 	}
 }
 
+static void nhg_name_autocomplete(vector comps, struct cmd_token *token)
+{
+	struct nexthop_group_cmd *nhgc;
+
+	RB_FOREACH (nhgc, nhgc_entry_head, &nhgc_entries) {
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, nhgc->name));
+	}
+}
+
+static const struct cmd_variable_handler nhg_name_handlers[] = {
+	{.tokenname = "NHGNAME", .completions = nhg_name_autocomplete},
+	{.completions = NULL}};
+
 void nexthop_group_init(void (*new)(const char *name),
 			void (*add_nexthop)(const struct nexthop_group_cmd *nhg,
 					    const struct nexthop *nhop),
@@ -722,6 +780,8 @@ void nexthop_group_init(void (*new)(const char *name),
 			void (*delete)(const char *name))
 {
 	RB_INIT(nhgc_entry_head, &nhgc_entries);
+
+	cmd_variable_handler_register(nhg_name_handlers);
 
 	install_node(&nexthop_group_node, nexthop_group_write);
 	install_element(CONFIG_NODE, &nexthop_group_cmd);

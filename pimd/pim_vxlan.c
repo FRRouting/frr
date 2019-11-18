@@ -115,7 +115,7 @@ static void pim_vxlan_init_work(void)
 	vxlan_info.max_work_cnt = PIM_VXLAN_WORK_MAX;
 	vxlan_info.flags |= PIM_VXLANF_WORK_INITED;
 	vxlan_info.work_list = list_new();
-	pim_vxlan_work_timer_setup(TRUE /* start */);
+	pim_vxlan_work_timer_setup(true/* start */);
 }
 
 static void pim_vxlan_add_work(struct pim_vxlan_sg *vxlan_sg)
@@ -245,7 +245,7 @@ static void pim_vxlan_orig_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
 		 * for nht
 		 */
 		if (up)
-			pim_rpf_update(vxlan_sg->pim, up, NULL, 1 /* is_new */);
+			pim_rpf_update(vxlan_sg->pim, up, NULL);
 	}
 }
 
@@ -344,7 +344,7 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 			nht_p.prefixlen = IPV4_MAX_BITLEN;
 			nht_p.u.prefix4 = up->upstream_addr;
 			pim_delete_tracked_nexthop(vxlan_sg->pim,
-				&nht_p, up, NULL);
+				&nht_p, up, NULL, false);
 		}
 		pim_upstream_ref(up, flags, __PRETTY_FUNCTION__);
 		vxlan_sg->up = up;
@@ -623,9 +623,9 @@ static void pim_vxlan_term_mr_del(struct pim_vxlan_sg *vxlan_sg)
 }
 
 /************************** vxlan SG cache management ************************/
-static unsigned int pim_vxlan_sg_hash_key_make(void *p)
+static unsigned int pim_vxlan_sg_hash_key_make(const void *p)
 {
-	struct pim_vxlan_sg *vxlan_sg = p;
+	const struct pim_vxlan_sg *vxlan_sg = p;
 
 	return (jhash_2words(vxlan_sg->sg.src.s_addr,
 				vxlan_sg->sg.grp.s_addr, 0));

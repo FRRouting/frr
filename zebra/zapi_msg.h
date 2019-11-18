@@ -29,6 +29,8 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/label_manager.h"
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -63,7 +65,8 @@ extern int zsend_interface_update(int cmd, struct zserv *client,
 extern int zsend_redistribute_route(int cmd, struct zserv *zclient,
 				    const struct prefix *p,
 				    const struct prefix *src_p,
-				    struct route_entry *re);
+				    const struct route_entry *re);
+
 extern int zsend_router_id_update(struct zserv *zclient, struct prefix *p,
 				  vrf_id_t vrf_id);
 extern int zsend_interface_vrf_update(struct zserv *zclient,
@@ -90,6 +93,14 @@ extern void zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
 				   const unsigned int nexthop_num);
 
 extern void zsend_capabilities_all_clients(void);
+extern int zsend_assign_label_chunk_response(struct zserv *client,
+					     vrf_id_t vrf_id, uint8_t proto,
+					     uint16_t instance,
+					     struct label_manager_chunk *lmc);
+extern int zsend_label_manager_connect_response(struct zserv *client,
+						vrf_id_t vrf_id,
+						unsigned short result);
+
 
 #ifdef __cplusplus
 }

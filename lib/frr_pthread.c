@@ -28,8 +28,8 @@
 #include "memory.h"
 #include "linklist.h"
 
-DEFINE_MTYPE(LIB, FRR_PTHREAD, "FRR POSIX Thread");
-DEFINE_MTYPE(LIB, PTHREAD_PRIM, "POSIX synchronization primitives");
+DEFINE_MTYPE_STATIC(LIB, FRR_PTHREAD, "FRR POSIX Thread")
+DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives")
 
 /* default frr_pthread start/stop routine prototypes */
 static void *fpt_run(void *arg);
@@ -49,21 +49,17 @@ static struct list *frr_pthread_list;
 
 void frr_pthread_init(void)
 {
-	pthread_mutex_lock(&frr_pthread_list_mtx);
-	{
+	frr_with_mutex(&frr_pthread_list_mtx) {
 		frr_pthread_list = list_new();
 		frr_pthread_list->del = (void (*)(void *))&frr_pthread_destroy;
 	}
-	pthread_mutex_unlock(&frr_pthread_list_mtx);
 }
 
 void frr_pthread_finish(void)
 {
-	pthread_mutex_lock(&frr_pthread_list_mtx);
-	{
+	frr_with_mutex(&frr_pthread_list_mtx) {
 		list_delete(&frr_pthread_list);
 	}
-	pthread_mutex_unlock(&frr_pthread_list_mtx);
 }
 
 struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
@@ -94,11 +90,9 @@ struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
 	pthread_mutex_init(fpt->running_cond_mtx, NULL);
 	pthread_cond_init(fpt->running_cond, NULL);
 
-	pthread_mutex_lock(&frr_pthread_list_mtx);
-	{
+	frr_with_mutex(&frr_pthread_list_mtx) {
 		listnode_add(frr_pthread_list, fpt);
 	}
-	pthread_mutex_unlock(&frr_pthread_list_mtx);
 
 	return fpt;
 }
@@ -133,41 +127,48 @@ int frr_pthread_set_name(struct frr_pthread *fpt)
 	return ret;
 }
 
+static void *frr_pthread_inner(void *arg)
+{
+	struct frr_pthread *fpt = arg;
+
+	rcu_thread_start(fpt->rcu_thread);
+	return fpt->attr.start(fpt);
+}
+
 int frr_pthread_run(struct frr_pthread *fpt, const pthread_attr_t *attr)
 {
 	int ret;
 
-	ret = pthread_create(&fpt->thread, attr, fpt->attr.start, fpt);
+	fpt->rcu_thread = rcu_thread_prepare();
+	ret = pthread_create(&fpt->thread, attr, frr_pthread_inner, fpt);
 
 	/*
 	 * Per pthread_create(3), the contents of fpt->thread are undefined if
 	 * pthread_create() did not succeed. Reset this value to zero.
 	 */
-	if (ret < 0)
+	if (ret < 0) {
+		rcu_thread_unprepare(fpt->rcu_thread);
 		memset(&fpt->thread, 0x00, sizeof(fpt->thread));
+	}
 
 	return ret;
 }
 
 void frr_pthread_wait_running(struct frr_pthread *fpt)
 {
-	pthread_mutex_lock(fpt->running_cond_mtx);
-	{
+	frr_with_mutex(fpt->running_cond_mtx) {
 		while (!fpt->running)
 			pthread_cond_wait(fpt->running_cond,
 					  fpt->running_cond_mtx);
 	}
-	pthread_mutex_unlock(fpt->running_cond_mtx);
 }
 
 void frr_pthread_notify_running(struct frr_pthread *fpt)
 {
-	pthread_mutex_lock(fpt->running_cond_mtx);
-	{
+	frr_with_mutex(fpt->running_cond_mtx) {
 		fpt->running = true;
 		pthread_cond_signal(fpt->running_cond);
 	}
-	pthread_mutex_unlock(fpt->running_cond_mtx);
 }
 
 int frr_pthread_stop(struct frr_pthread *fpt, void **result)
@@ -179,14 +180,12 @@ int frr_pthread_stop(struct frr_pthread *fpt, void **result)
 
 void frr_pthread_stop_all(void)
 {
-	pthread_mutex_lock(&frr_pthread_list_mtx);
-	{
+	frr_with_mutex(&frr_pthread_list_mtx) {
 		struct listnode *n;
 		struct frr_pthread *fpt;
 		for (ALL_LIST_ELEMENTS_RO(frr_pthread_list, n, fpt))
 			frr_pthread_stop(fpt, NULL);
 	}
-	pthread_mutex_unlock(&frr_pthread_list_mtx);
 }
 
 /*

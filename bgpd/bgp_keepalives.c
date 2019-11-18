@@ -97,11 +97,18 @@ static void peer_process(struct hash_bucket *hb, void *arg)
 
 	static struct timeval tolerance = {0, 100000};
 
+	uint32_t v_ka = atomic_load_explicit(&pkat->peer->v_keepalive,
+					     memory_order_relaxed);
+
+	/* 0 keepalive timer means no keepalives */
+	if (v_ka == 0)
+		return;
+
 	/* calculate elapsed time since last keepalive */
 	monotime_since(&pkat->last, &elapsed);
 
 	/* calculate difference between elapsed time and configured time */
-	ka.tv_sec = pkat->peer->v_keepalive;
+	ka.tv_sec = v_ka;
 	timersub(&ka, &elapsed, &diff);
 
 	int send_keepalive =
@@ -131,9 +138,9 @@ static bool peer_hash_cmp(const void *f, const void *s)
 	return p1->peer == p2->peer;
 }
 
-static unsigned int peer_hash_key(void *arg)
+static unsigned int peer_hash_key(const void *arg)
 {
-	struct pkat *pkat = arg;
+	const struct pkat *pkat = arg;
 	return (uintptr_t)pkat->peer;
 }
 
@@ -245,8 +252,7 @@ void bgp_keepalives_on(struct peer *peer)
 	 */
 	assert(peerhash_mtx);
 
-	pthread_mutex_lock(peerhash_mtx);
-	{
+	frr_with_mutex(peerhash_mtx) {
 		holder.peer = peer;
 		if (!hash_lookup(peerhash, &holder)) {
 			struct pkat *pkat = pkat_new(peer);
@@ -255,7 +261,6 @@ void bgp_keepalives_on(struct peer *peer)
 		}
 		SET_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
 	}
-	pthread_mutex_unlock(peerhash_mtx);
 	bgp_keepalives_wake();
 }
 
@@ -275,8 +280,7 @@ void bgp_keepalives_off(struct peer *peer)
 	 */
 	assert(peerhash_mtx);
 
-	pthread_mutex_lock(peerhash_mtx);
-	{
+	frr_with_mutex(peerhash_mtx) {
 		holder.peer = peer;
 		struct pkat *res = hash_release(peerhash, &holder);
 		if (res) {
@@ -285,16 +289,13 @@ void bgp_keepalives_off(struct peer *peer)
 		}
 		UNSET_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
 	}
-	pthread_mutex_unlock(peerhash_mtx);
 }
 
 void bgp_keepalives_wake(void)
 {
-	pthread_mutex_lock(peerhash_mtx);
-	{
+	frr_with_mutex(peerhash_mtx) {
 		pthread_cond_signal(peerhash_cond);
 	}
-	pthread_mutex_unlock(peerhash_mtx);
 }
 
 int bgp_keepalives_stop(struct frr_pthread *fpt, void **result)

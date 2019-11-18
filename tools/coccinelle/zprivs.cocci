@@ -2,12 +2,12 @@
 identifier change;
 identifier end;
 expression E, f, g;
-iterator name frr_elevate_privs;
+iterator name frr_with_privs;
 @@
 
 - if (E.change(ZPRIVS_RAISE))
 -   f;
-+ frr_elevate_privs(&E) {
++ frr_with_privs(&E) {
   <+...
 -   goto end;
 +   break;
@@ -20,7 +20,7 @@ iterator name frr_elevate_privs;
 @@
 identifier change, errno, safe_strerror, exit;
 expression E, f1, f2, f3, ret, fn;
-iterator name frr_elevate_privs;
+iterator name frr_with_privs;
 @@
 
   if (E.change(ZPRIVS_RAISE))
@@ -44,7 +44,7 @@ iterator name frr_elevate_privs;
 @@
 identifier change;
 expression E, f1, f2, f3, ret;
-iterator name frr_elevate_privs;
+iterator name frr_with_privs;
 @@
 
   if (E.change(ZPRIVS_RAISE))
@@ -64,12 +64,12 @@ iterator name frr_elevate_privs;
 @@
 identifier change;
 expression E, f, g;
-iterator name frr_elevate_privs;
+iterator name frr_with_privs;
 @@
 
 - if (E.change(ZPRIVS_RAISE))
 -   f;
-+ frr_elevate_privs(&E) {
++ frr_with_privs(&E) {
   ...
 - if (E.change(ZPRIVS_LOWER))
 -   g;

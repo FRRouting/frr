@@ -25,6 +25,8 @@
 #include "libfrr.h"
 #include "linklist.h"
 #include "log.h"
+#include "lib/bfd.h"
+#include "isisd/isis_bfd.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
@@ -1522,28 +1524,63 @@ static int lib_interface_isis_create(enum nb_event event,
 	struct interface *ifp;
 	struct isis_circuit *circuit;
 	const char *area_tag = yang_dnode_get_string(dnode, "./area-tag");
+	uint32_t min_mtu, actual_mtu;
 
-	if (event != NB_EV_APPLY)
-		return NB_OK;
+	switch (event) {
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_VALIDATE:
+		/* check if interface mtu is sufficient. If the area has not
+		 * been created yet, assume default MTU for the area
+		 */
+		ifp = nb_running_get_entry(dnode, NULL, false);
+		/* zebra might not know yet about the MTU - nothing we can do */
+		if (!ifp || ifp->mtu == 0)
+			break;
+		actual_mtu =
+			if_is_broadcast(ifp) ? ifp->mtu - LLC_LEN : ifp->mtu;
+		area = isis_area_lookup(area_tag);
+		if (area)
+			min_mtu = area->lsp_mtu;
+		else
+#ifndef FABRICD
+			min_mtu = yang_get_default_uint16(
+				"/frr-isisd:isis/instance/lsp/mtu");
+#else
+			min_mtu = DEFAULT_LSP_MTU;
+#endif /* ifndef FABRICD */
+		if (actual_mtu < min_mtu) {
+			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
+				  "Interface %s has MTU %" PRIu32
+				  ", minimum MTU for the area is %" PRIu32 "",
+				  ifp->name, actual_mtu, min_mtu);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_APPLY:
+		area = isis_area_lookup(area_tag);
+		/* The area should have already be created. We are
+		 * setting the priority of the global isis area creation
+		 * slightly lower, so it should be executed first, but I
+		 * cannot rely on that so here I have to check.
+		 */
+		if (!area) {
+			flog_err(
+				EC_LIB_NB_CB_CONFIG_APPLY,
+				"%s: attempt to create circuit for area %s before the area has been created",
+				__func__, area_tag);
+			abort();
+		}
 
-	area = isis_area_lookup(area_tag);
-	/* The area should have already be created. We are
-	 * setting the priority of the global isis area creation
-	 * slightly lower, so it should be executed first, but I
-	 * cannot rely on that so here I have to check.
-	 */
-	if (!area) {
-		flog_err(
-			EC_LIB_NB_CB_CONFIG_APPLY,
-			"%s: attempt to create circuit for area %s before the area has been created",
-			__func__, area_tag);
-		abort();
+		ifp = nb_running_get_entry(dnode, NULL, true);
+		circuit = isis_circuit_create(area, ifp);
+		assert(circuit
+		       && (circuit->state == C_STATE_CONF
+			   || circuit->state == C_STATE_UP));
+		nb_running_set_entry(dnode, circuit);
+		break;
 	}
-
-	ifp = nb_running_get_entry(dnode, NULL, true);
-	circuit = isis_circuit_create(area, ifp);
-	assert(circuit->state == C_STATE_CONF || circuit->state == C_STATE_UP);
-	nb_running_set_entry(dnode, circuit);
 
 	return NB_OK;
 }
@@ -1559,21 +1596,8 @@ static int lib_interface_isis_destroy(enum nb_event event,
 	circuit = nb_running_unset_entry(dnode);
 	if (!circuit)
 		return NB_ERR_INCONSISTENCY;
-	/* delete circuit through csm changes */
-	switch (circuit->state) {
-	case C_STATE_UP:
-		isis_csm_state_change(IF_DOWN_FROM_Z, circuit,
-				      circuit->interface);
+	if (circuit->state == C_STATE_UP || circuit->state == C_STATE_CONF)
 		isis_csm_state_change(ISIS_DISABLE, circuit, circuit->area);
-		break;
-	case C_STATE_CONF:
-		isis_csm_state_change(ISIS_DISABLE, circuit, circuit->area);
-		break;
-	case C_STATE_INIT:
-		isis_csm_state_change(IF_DOWN_FROM_Z, circuit,
-				      circuit->interface);
-		break;
-	}
 
 	return NB_OK;
 }
@@ -1698,6 +1722,34 @@ static int lib_interface_isis_ipv6_routing_modify(enum nb_event event,
 	ipv4 = yang_dnode_exists(dnode, "../ipv4-routing");
 	ipv6 = yang_dnode_get_bool(dnode, NULL);
 	isis_circuit_af_set(circuit, ipv4, ipv6);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring
+ */
+static int lib_interface_isis_bfd_monitoring_modify(enum nb_event event,
+						    const struct lyd_node *dnode,
+						    union nb_resource *resource)
+{
+	struct isis_circuit *circuit;
+	bool bfd_monitoring;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(dnode, NULL, true);
+	bfd_monitoring = yang_dnode_get_bool(dnode, NULL);
+
+	if (bfd_monitoring) {
+		isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX,
+					   BFD_DEF_MIN_TX, BFD_DEF_DETECT_MULT,
+					   true);
+	} else {
+		isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_DEREGISTER);
+		bfd_info_free(&circuit->bfd_info);
+	}
 
 	return NB_OK;
 }
@@ -2741,478 +2793,687 @@ const struct frr_yang_module_info frr_isisd_info = {
 	.nodes = {
 		{
 			.xpath = "/frr-isisd:isis/instance",
-			.cbs.create = isis_instance_create,
-			.cbs.destroy = isis_instance_destroy,
-			.cbs.cli_show = cli_show_router_isis,
+			.cbs = {
+				.cli_show = cli_show_router_isis,
+				.create = isis_instance_create,
+				.destroy = isis_instance_destroy,
+			},
 			.priority = NB_DFLT_PRIORITY - 1,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/is-type",
-			.cbs.modify = isis_instance_is_type_modify,
-			.cbs.cli_show = cli_show_isis_is_type,
+			.cbs = {
+				.cli_show = cli_show_isis_is_type,
+				.modify = isis_instance_is_type_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/area-address",
-			.cbs.create = isis_instance_area_address_create,
-			.cbs.destroy = isis_instance_area_address_destroy,
-			.cbs.cli_show = cli_show_isis_area_address,
+			.cbs = {
+				.cli_show = cli_show_isis_area_address,
+				.create = isis_instance_area_address_create,
+				.destroy = isis_instance_area_address_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/dynamic-hostname",
-			.cbs.modify = isis_instance_dynamic_hostname_modify,
-			.cbs.cli_show = cli_show_isis_dynamic_hostname,
+			.cbs = {
+				.cli_show = cli_show_isis_dynamic_hostname,
+				.modify = isis_instance_dynamic_hostname_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/attached",
-			.cbs.modify = isis_instance_attached_modify,
-			.cbs.cli_show = cli_show_isis_attached,
+			.cbs = {
+				.cli_show = cli_show_isis_attached,
+				.modify = isis_instance_attached_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/overload",
-			.cbs.modify = isis_instance_overload_modify,
-			.cbs.cli_show = cli_show_isis_overload,
+			.cbs = {
+				.cli_show = cli_show_isis_overload,
+				.modify = isis_instance_overload_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/metric-style",
-			.cbs.modify = isis_instance_metric_style_modify,
-			.cbs.cli_show = cli_show_isis_metric_style,
+			.cbs = {
+				.cli_show = cli_show_isis_metric_style,
+				.modify = isis_instance_metric_style_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/purge-originator",
-			.cbs.modify = isis_instance_purge_originator_modify,
-			.cbs.cli_show = cli_show_isis_purge_origin,
+			.cbs = {
+				.cli_show = cli_show_isis_purge_origin,
+				.modify = isis_instance_purge_originator_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/mtu",
-			.cbs.modify = isis_instance_lsp_mtu_modify,
-			.cbs.cli_show = cli_show_isis_lsp_mtu,
+			.cbs = {
+				.cli_show = cli_show_isis_lsp_mtu,
+				.modify = isis_instance_lsp_mtu_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/refresh-interval",
-			.cbs.cli_show = cli_show_isis_lsp_ref_interval,
+			.cbs = {
+				.cli_show = cli_show_isis_lsp_ref_interval,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/refresh-interval/level-1",
-			.cbs.modify = isis_instance_lsp_refresh_interval_level_1_modify,
+			.cbs = {
+				.modify = isis_instance_lsp_refresh_interval_level_1_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/refresh-interval/level-2",
-			.cbs.modify = isis_instance_lsp_refresh_interval_level_2_modify,
+			.cbs = {
+				.modify = isis_instance_lsp_refresh_interval_level_2_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/maximum-lifetime",
-			.cbs.cli_show = cli_show_isis_lsp_max_lifetime,
+			.cbs = {
+				.cli_show = cli_show_isis_lsp_max_lifetime,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/maximum-lifetime/level-1",
-			.cbs.modify = isis_instance_lsp_maximum_lifetime_level_1_modify,
+			.cbs = {
+				.modify = isis_instance_lsp_maximum_lifetime_level_1_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/maximum-lifetime/level-2",
-			.cbs.modify = isis_instance_lsp_maximum_lifetime_level_2_modify,
+			.cbs = {
+				.modify = isis_instance_lsp_maximum_lifetime_level_2_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/generation-interval",
-			.cbs.cli_show = cli_show_isis_lsp_gen_interval,
+			.cbs = {
+				.cli_show = cli_show_isis_lsp_gen_interval,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/generation-interval/level-1",
-			.cbs.modify = isis_instance_lsp_generation_interval_level_1_modify,
+			.cbs = {
+				.modify = isis_instance_lsp_generation_interval_level_1_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/generation-interval/level-2",
-			.cbs.modify = isis_instance_lsp_generation_interval_level_2_modify,
+			.cbs = {
+				.modify = isis_instance_lsp_generation_interval_level_2_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/spf/ietf-backoff-delay",
-			.cbs.create = isis_instance_spf_ietf_backoff_delay_create,
-			.cbs.destroy = isis_instance_spf_ietf_backoff_delay_destroy,
-			.cbs.apply_finish = ietf_backoff_delay_apply_finish,
-			.cbs.cli_show = cli_show_isis_spf_ietf_backoff,
+			.cbs = {
+				.apply_finish = ietf_backoff_delay_apply_finish,
+				.cli_show = cli_show_isis_spf_ietf_backoff,
+				.create = isis_instance_spf_ietf_backoff_delay_create,
+				.destroy = isis_instance_spf_ietf_backoff_delay_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/spf/ietf-backoff-delay/init-delay",
-			.cbs.modify = isis_instance_spf_ietf_backoff_delay_init_delay_modify,
+			.cbs = {
+				.modify = isis_instance_spf_ietf_backoff_delay_init_delay_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/spf/ietf-backoff-delay/short-delay",
-			.cbs.modify = isis_instance_spf_ietf_backoff_delay_short_delay_modify,
+			.cbs = {
+				.modify = isis_instance_spf_ietf_backoff_delay_short_delay_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/spf/ietf-backoff-delay/long-delay",
-			.cbs.modify = isis_instance_spf_ietf_backoff_delay_long_delay_modify,
+			.cbs = {
+				.modify = isis_instance_spf_ietf_backoff_delay_long_delay_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/spf/ietf-backoff-delay/hold-down",
-			.cbs.modify = isis_instance_spf_ietf_backoff_delay_hold_down_modify,
+			.cbs = {
+				.modify = isis_instance_spf_ietf_backoff_delay_hold_down_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/spf/ietf-backoff-delay/time-to-learn",
-			.cbs.modify = isis_instance_spf_ietf_backoff_delay_time_to_learn_modify,
+			.cbs = {
+				.modify = isis_instance_spf_ietf_backoff_delay_time_to_learn_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/spf/minimum-interval",
-			.cbs.cli_show = cli_show_isis_spf_min_interval,
+			.cbs = {
+				.cli_show = cli_show_isis_spf_min_interval,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/spf/minimum-interval/level-1",
-			.cbs.modify = isis_instance_spf_minimum_interval_level_1_modify,
+			.cbs = {
+				.modify = isis_instance_spf_minimum_interval_level_1_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/spf/minimum-interval/level-2",
-			.cbs.modify = isis_instance_spf_minimum_interval_level_2_modify,
+			.cbs = {
+				.modify = isis_instance_spf_minimum_interval_level_2_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/area-password",
-			.cbs.create = isis_instance_area_password_create,
-			.cbs.destroy = isis_instance_area_password_destroy,
-			.cbs.apply_finish = area_password_apply_finish,
-			.cbs.cli_show = cli_show_isis_area_pwd,
+			.cbs = {
+				.apply_finish = area_password_apply_finish,
+				.cli_show = cli_show_isis_area_pwd,
+				.create = isis_instance_area_password_create,
+				.destroy = isis_instance_area_password_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/area-password/password",
-			.cbs.modify = isis_instance_area_password_password_modify,
+			.cbs = {
+				.modify = isis_instance_area_password_password_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/area-password/password-type",
-			.cbs.modify = isis_instance_area_password_password_type_modify,
+			.cbs = {
+				.modify = isis_instance_area_password_password_type_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/area-password/authenticate-snp",
-			.cbs.modify = isis_instance_area_password_authenticate_snp_modify,
+			.cbs = {
+				.modify = isis_instance_area_password_authenticate_snp_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/domain-password",
-			.cbs.create = isis_instance_domain_password_create,
-			.cbs.destroy = isis_instance_domain_password_destroy,
-			.cbs.apply_finish = domain_password_apply_finish,
-			.cbs.cli_show = cli_show_isis_domain_pwd,
+			.cbs = {
+				.apply_finish = domain_password_apply_finish,
+				.cli_show = cli_show_isis_domain_pwd,
+				.create = isis_instance_domain_password_create,
+				.destroy = isis_instance_domain_password_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/domain-password/password",
-			.cbs.modify = isis_instance_domain_password_password_modify,
+			.cbs = {
+				.modify = isis_instance_domain_password_password_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/domain-password/password-type",
-			.cbs.modify = isis_instance_domain_password_password_type_modify,
+			.cbs = {
+				.modify = isis_instance_domain_password_password_type_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/domain-password/authenticate-snp",
-			.cbs.modify = isis_instance_domain_password_authenticate_snp_modify,
+			.cbs = {
+				.modify = isis_instance_domain_password_authenticate_snp_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv4",
-			.cbs.create = isis_instance_default_information_originate_ipv4_create,
-			.cbs.destroy = isis_instance_default_information_originate_ipv4_destroy,
-			.cbs.apply_finish = default_info_origin_ipv4_apply_finish,
-			.cbs.cli_show = cli_show_isis_def_origin_ipv4,
+			.cbs = {
+				.apply_finish = default_info_origin_ipv4_apply_finish,
+				.cli_show = cli_show_isis_def_origin_ipv4,
+				.create = isis_instance_default_information_originate_ipv4_create,
+				.destroy = isis_instance_default_information_originate_ipv4_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv4/always",
-			.cbs.modify = isis_instance_default_information_originate_ipv4_always_modify,
+			.cbs = {
+				.modify = isis_instance_default_information_originate_ipv4_always_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv4/route-map",
-			.cbs.modify = isis_instance_default_information_originate_ipv4_route_map_modify,
-			.cbs.destroy = isis_instance_default_information_originate_ipv4_route_map_destroy,
+			.cbs = {
+				.destroy = isis_instance_default_information_originate_ipv4_route_map_destroy,
+				.modify = isis_instance_default_information_originate_ipv4_route_map_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv4/metric",
-			.cbs.modify = isis_instance_default_information_originate_ipv4_metric_modify,
+			.cbs = {
+				.modify = isis_instance_default_information_originate_ipv4_metric_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv6",
-			.cbs.create = isis_instance_default_information_originate_ipv6_create,
-			.cbs.destroy = isis_instance_default_information_originate_ipv6_destroy,
-			.cbs.apply_finish = default_info_origin_ipv6_apply_finish,
-			.cbs.cli_show = cli_show_isis_def_origin_ipv6,
+			.cbs = {
+				.apply_finish = default_info_origin_ipv6_apply_finish,
+				.cli_show = cli_show_isis_def_origin_ipv6,
+				.create = isis_instance_default_information_originate_ipv6_create,
+				.destroy = isis_instance_default_information_originate_ipv6_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv6/always",
-			.cbs.modify = isis_instance_default_information_originate_ipv6_always_modify,
+			.cbs = {
+				.modify = isis_instance_default_information_originate_ipv6_always_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv6/route-map",
-			.cbs.modify = isis_instance_default_information_originate_ipv6_route_map_modify,
-			.cbs.destroy = isis_instance_default_information_originate_ipv6_route_map_destroy,
+			.cbs = {
+				.destroy = isis_instance_default_information_originate_ipv6_route_map_destroy,
+				.modify = isis_instance_default_information_originate_ipv6_route_map_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv6/metric",
-			.cbs.modify = isis_instance_default_information_originate_ipv6_metric_modify,
+			.cbs = {
+				.modify = isis_instance_default_information_originate_ipv6_metric_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv4",
-			.cbs.create = isis_instance_redistribute_ipv4_create,
-			.cbs.destroy = isis_instance_redistribute_ipv4_destroy,
-			.cbs.apply_finish = redistribute_ipv4_apply_finish,
-			.cbs.cli_show = cli_show_isis_redistribute_ipv4,
+			.cbs = {
+				.apply_finish = redistribute_ipv4_apply_finish,
+				.cli_show = cli_show_isis_redistribute_ipv4,
+				.create = isis_instance_redistribute_ipv4_create,
+				.destroy = isis_instance_redistribute_ipv4_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv4/route-map",
-			.cbs.modify = isis_instance_redistribute_ipv4_route_map_modify,
-			.cbs.destroy = isis_instance_redistribute_ipv4_route_map_destroy,
+			.cbs = {
+				.destroy = isis_instance_redistribute_ipv4_route_map_destroy,
+				.modify = isis_instance_redistribute_ipv4_route_map_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv4/metric",
-			.cbs.modify = isis_instance_redistribute_ipv4_metric_modify,
+			.cbs = {
+				.modify = isis_instance_redistribute_ipv4_metric_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6",
-			.cbs.create = isis_instance_redistribute_ipv6_create,
-			.cbs.destroy = isis_instance_redistribute_ipv6_destroy,
-			.cbs.apply_finish = redistribute_ipv6_apply_finish,
-			.cbs.cli_show = cli_show_isis_redistribute_ipv6,
+			.cbs = {
+				.apply_finish = redistribute_ipv6_apply_finish,
+				.cli_show = cli_show_isis_redistribute_ipv6,
+				.create = isis_instance_redistribute_ipv6_create,
+				.destroy = isis_instance_redistribute_ipv6_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6/route-map",
-			.cbs.modify = isis_instance_redistribute_ipv6_route_map_modify,
-			.cbs.destroy = isis_instance_redistribute_ipv6_route_map_destroy,
+			.cbs = {
+				.destroy = isis_instance_redistribute_ipv6_route_map_destroy,
+				.modify = isis_instance_redistribute_ipv6_route_map_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6/metric",
-			.cbs.modify = isis_instance_redistribute_ipv6_metric_modify,
+			.cbs = {
+				.modify = isis_instance_redistribute_ipv6_metric_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv4-multicast",
-			.cbs.create = isis_instance_multi_topology_ipv4_multicast_create,
-			.cbs.destroy = isis_instance_multi_topology_ipv4_multicast_destroy,
-			.cbs.cli_show = cli_show_isis_mt_ipv4_multicast,
+			.cbs = {
+				.cli_show = cli_show_isis_mt_ipv4_multicast,
+				.create = isis_instance_multi_topology_ipv4_multicast_create,
+				.destroy = isis_instance_multi_topology_ipv4_multicast_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv4-multicast/overload",
-			.cbs.modify = isis_instance_multi_topology_ipv4_multicast_overload_modify,
+			.cbs = {
+				.modify = isis_instance_multi_topology_ipv4_multicast_overload_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv4-management",
-			.cbs.create = isis_instance_multi_topology_ipv4_management_create,
-			.cbs.destroy = isis_instance_multi_topology_ipv4_management_destroy,
-			.cbs.cli_show = cli_show_isis_mt_ipv4_mgmt,
+			.cbs = {
+				.cli_show = cli_show_isis_mt_ipv4_mgmt,
+				.create = isis_instance_multi_topology_ipv4_management_create,
+				.destroy = isis_instance_multi_topology_ipv4_management_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv4-management/overload",
-			.cbs.modify = isis_instance_multi_topology_ipv4_management_overload_modify,
+			.cbs = {
+				.modify = isis_instance_multi_topology_ipv4_management_overload_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-unicast",
-			.cbs.create = isis_instance_multi_topology_ipv6_unicast_create,
-			.cbs.destroy = isis_instance_multi_topology_ipv6_unicast_destroy,
-			.cbs.cli_show = cli_show_isis_mt_ipv6_unicast,
+			.cbs = {
+				.cli_show = cli_show_isis_mt_ipv6_unicast,
+				.create = isis_instance_multi_topology_ipv6_unicast_create,
+				.destroy = isis_instance_multi_topology_ipv6_unicast_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-unicast/overload",
-			.cbs.modify = isis_instance_multi_topology_ipv6_unicast_overload_modify,
+			.cbs = {
+				.modify = isis_instance_multi_topology_ipv6_unicast_overload_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-multicast",
-			.cbs.create = isis_instance_multi_topology_ipv6_multicast_create,
-			.cbs.destroy = isis_instance_multi_topology_ipv6_multicast_destroy,
-			.cbs.cli_show = cli_show_isis_mt_ipv6_multicast,
+			.cbs = {
+				.cli_show = cli_show_isis_mt_ipv6_multicast,
+				.create = isis_instance_multi_topology_ipv6_multicast_create,
+				.destroy = isis_instance_multi_topology_ipv6_multicast_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-multicast/overload",
-			.cbs.modify = isis_instance_multi_topology_ipv6_multicast_overload_modify,
+			.cbs = {
+				.modify = isis_instance_multi_topology_ipv6_multicast_overload_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-management",
-			.cbs.create = isis_instance_multi_topology_ipv6_management_create,
-			.cbs.destroy = isis_instance_multi_topology_ipv6_management_destroy,
-			.cbs.cli_show = cli_show_isis_mt_ipv6_mgmt,
+			.cbs = {
+				.cli_show = cli_show_isis_mt_ipv6_mgmt,
+				.create = isis_instance_multi_topology_ipv6_management_create,
+				.destroy = isis_instance_multi_topology_ipv6_management_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-management/overload",
-			.cbs.modify = isis_instance_multi_topology_ipv6_management_overload_modify,
+			.cbs = {
+				.modify = isis_instance_multi_topology_ipv6_management_overload_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-dstsrc",
-			.cbs.create = isis_instance_multi_topology_ipv6_dstsrc_create,
-			.cbs.destroy = isis_instance_multi_topology_ipv6_dstsrc_destroy,
-			.cbs.cli_show = cli_show_isis_mt_ipv6_dstsrc,
+			.cbs = {
+				.cli_show = cli_show_isis_mt_ipv6_dstsrc,
+				.create = isis_instance_multi_topology_ipv6_dstsrc_create,
+				.destroy = isis_instance_multi_topology_ipv6_dstsrc_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-dstsrc/overload",
-			.cbs.modify = isis_instance_multi_topology_ipv6_dstsrc_overload_modify,
+			.cbs = {
+				.modify = isis_instance_multi_topology_ipv6_dstsrc_overload_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/log-adjacency-changes",
-			.cbs.modify = isis_instance_log_adjacency_changes_modify,
-			.cbs.cli_show = cli_show_isis_log_adjacency,
+			.cbs = {
+				.cli_show = cli_show_isis_log_adjacency,
+				.modify = isis_instance_log_adjacency_changes_modify,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/mpls-te",
-			.cbs.create = isis_instance_mpls_te_create,
-			.cbs.destroy = isis_instance_mpls_te_destroy,
-			.cbs.cli_show = cli_show_isis_mpls_te,
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_te,
+				.create = isis_instance_mpls_te_create,
+				.destroy = isis_instance_mpls_te_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/mpls-te/router-address",
-			.cbs.modify = isis_instance_mpls_te_router_address_modify,
-			.cbs.destroy = isis_instance_mpls_te_router_address_destroy,
-			.cbs.cli_show = cli_show_isis_mpls_te_router_addr,
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_te_router_addr,
+				.destroy = isis_instance_mpls_te_router_address_destroy,
+				.modify = isis_instance_mpls_te_router_address_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis",
-			.cbs.create = lib_interface_isis_create,
-			.cbs.destroy = lib_interface_isis_destroy,
+			.cbs = {
+				.create = lib_interface_isis_create,
+				.destroy = lib_interface_isis_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/area-tag",
-			.cbs.modify = lib_interface_isis_area_tag_modify,
+			.cbs = {
+				.modify = lib_interface_isis_area_tag_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/circuit-type",
-			.cbs.modify = lib_interface_isis_circuit_type_modify,
-			.cbs.cli_show = cli_show_ip_isis_circ_type,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_circ_type,
+				.modify = lib_interface_isis_circuit_type_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/ipv4-routing",
-			.cbs.modify = lib_interface_isis_ipv4_routing_modify,
-			.cbs.cli_show = cli_show_ip_isis_ipv4,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_ipv4,
+				.modify = lib_interface_isis_ipv4_routing_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/ipv6-routing",
-			.cbs.modify = lib_interface_isis_ipv6_routing_modify,
-			.cbs.cli_show = cli_show_ip_isis_ipv6,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_ipv6,
+				.modify = lib_interface_isis_ipv6_routing_modify,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring",
+			.cbs = {
+				.modify = lib_interface_isis_bfd_monitoring_modify,
+				.cli_show = cli_show_ip_isis_bfd_monitoring,
+			}
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/csnp-interval",
-			.cbs.cli_show = cli_show_ip_isis_csnp_interval,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_csnp_interval,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/csnp-interval/level-1",
-			.cbs.modify = lib_interface_isis_csnp_interval_level_1_modify,
+			.cbs = {
+				.modify = lib_interface_isis_csnp_interval_level_1_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/csnp-interval/level-2",
-			.cbs.modify = lib_interface_isis_csnp_interval_level_2_modify,
+			.cbs = {
+				.modify = lib_interface_isis_csnp_interval_level_2_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/psnp-interval",
-			.cbs.cli_show = cli_show_ip_isis_psnp_interval,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_psnp_interval,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/psnp-interval/level-1",
-			.cbs.modify = lib_interface_isis_psnp_interval_level_1_modify,
+			.cbs = {
+				.modify = lib_interface_isis_psnp_interval_level_1_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/psnp-interval/level-2",
-			.cbs.modify = lib_interface_isis_psnp_interval_level_2_modify,
+			.cbs = {
+				.modify = lib_interface_isis_psnp_interval_level_2_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/padding",
-			.cbs.modify = lib_interface_isis_hello_padding_modify,
-			.cbs.cli_show = cli_show_ip_isis_hello_padding,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_hello_padding,
+				.modify = lib_interface_isis_hello_padding_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/interval",
-			.cbs.cli_show = cli_show_ip_isis_hello_interval,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_hello_interval,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/interval/level-1",
-			.cbs.modify = lib_interface_isis_hello_interval_level_1_modify,
+			.cbs = {
+				.modify = lib_interface_isis_hello_interval_level_1_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/interval/level-2",
-			.cbs.modify = lib_interface_isis_hello_interval_level_2_modify,
+			.cbs = {
+				.modify = lib_interface_isis_hello_interval_level_2_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/multiplier",
-			.cbs.cli_show = cli_show_ip_isis_hello_multi,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_hello_multi,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/multiplier/level-1",
-			.cbs.modify = lib_interface_isis_hello_multiplier_level_1_modify,
+			.cbs = {
+				.modify = lib_interface_isis_hello_multiplier_level_1_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/multiplier/level-2",
-			.cbs.modify = lib_interface_isis_hello_multiplier_level_2_modify,
+			.cbs = {
+				.modify = lib_interface_isis_hello_multiplier_level_2_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/metric",
-			.cbs.cli_show = cli_show_ip_isis_metric,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_metric,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/metric/level-1",
-			.cbs.modify = lib_interface_isis_metric_level_1_modify,
+			.cbs = {
+				.modify = lib_interface_isis_metric_level_1_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/metric/level-2",
-			.cbs.modify = lib_interface_isis_metric_level_2_modify,
+			.cbs = {
+				.modify = lib_interface_isis_metric_level_2_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/priority",
-			.cbs.cli_show = cli_show_ip_isis_priority,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_priority,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/priority/level-1",
-			.cbs.modify = lib_interface_isis_priority_level_1_modify,
+			.cbs = {
+				.modify = lib_interface_isis_priority_level_1_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/priority/level-2",
-			.cbs.modify = lib_interface_isis_priority_level_2_modify,
+			.cbs = {
+				.modify = lib_interface_isis_priority_level_2_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/network-type",
-			.cbs.modify = lib_interface_isis_network_type_modify,
-			.cbs.cli_show = cli_show_ip_isis_network_type,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_network_type,
+				.modify = lib_interface_isis_network_type_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/passive",
-			.cbs.modify = lib_interface_isis_passive_modify,
-			.cbs.cli_show = cli_show_ip_isis_passive,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_passive,
+				.modify = lib_interface_isis_passive_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/password",
-			.cbs.create = lib_interface_isis_password_create,
-			.cbs.destroy = lib_interface_isis_password_destroy,
-			.cbs.cli_show = cli_show_ip_isis_password,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_password,
+				.create = lib_interface_isis_password_create,
+				.destroy = lib_interface_isis_password_destroy,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/password/password",
-			.cbs.modify = lib_interface_isis_password_password_modify,
+			.cbs = {
+				.modify = lib_interface_isis_password_password_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/password/password-type",
-			.cbs.modify = lib_interface_isis_password_password_type_modify,
+			.cbs = {
+				.modify = lib_interface_isis_password_password_type_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/disable-three-way-handshake",
-			.cbs.modify = lib_interface_isis_disable_three_way_handshake_modify,
-			.cbs.cli_show = cli_show_ip_isis_threeway_shake,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_threeway_shake,
+				.modify = lib_interface_isis_disable_three_way_handshake_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-unicast",
-			.cbs.modify = lib_interface_isis_multi_topology_ipv4_unicast_modify,
-			.cbs.cli_show = cli_show_ip_isis_mt_ipv4_unicast,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_mt_ipv4_unicast,
+				.modify = lib_interface_isis_multi_topology_ipv4_unicast_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-multicast",
-			.cbs.modify = lib_interface_isis_multi_topology_ipv4_multicast_modify,
-			.cbs.cli_show = cli_show_ip_isis_mt_ipv4_multicast,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_mt_ipv4_multicast,
+				.modify = lib_interface_isis_multi_topology_ipv4_multicast_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-management",
-			.cbs.modify = lib_interface_isis_multi_topology_ipv4_management_modify,
-			.cbs.cli_show = cli_show_ip_isis_mt_ipv4_mgmt,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_mt_ipv4_mgmt,
+				.modify = lib_interface_isis_multi_topology_ipv4_management_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv6-unicast",
-			.cbs.modify = lib_interface_isis_multi_topology_ipv6_unicast_modify,
-			.cbs.cli_show = cli_show_ip_isis_mt_ipv6_unicast,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_mt_ipv6_unicast,
+				.modify = lib_interface_isis_multi_topology_ipv6_unicast_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv6-multicast",
-			.cbs.modify = lib_interface_isis_multi_topology_ipv6_multicast_modify,
-			.cbs.cli_show = cli_show_ip_isis_mt_ipv6_multicast,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_mt_ipv6_multicast,
+				.modify = lib_interface_isis_multi_topology_ipv6_multicast_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv6-management",
-			.cbs.modify = lib_interface_isis_multi_topology_ipv6_management_modify,
-			.cbs.cli_show = cli_show_ip_isis_mt_ipv6_mgmt,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_mt_ipv6_mgmt,
+				.modify = lib_interface_isis_multi_topology_ipv6_management_modify,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv6-dstsrc",
-			.cbs.modify = lib_interface_isis_multi_topology_ipv6_dstsrc_modify,
-			.cbs.cli_show = cli_show_ip_isis_mt_ipv6_dstsrc,
+			.cbs = {
+				.cli_show = cli_show_ip_isis_mt_ipv6_dstsrc,
+				.modify = lib_interface_isis_multi_topology_ipv6_dstsrc_modify,
+			},
 		},
 		{
 			.xpath = NULL,

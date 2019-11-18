@@ -1232,7 +1232,8 @@ struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 }
 
 /* Replace all private ASNs with our own ASN */
-struct aspath *aspath_replace_private_asns(struct aspath *aspath, as_t asn)
+struct aspath *aspath_replace_private_asns(struct aspath *aspath, as_t asn,
+					   as_t peer_asn)
 {
 	struct aspath *new;
 	struct assegment *seg;
@@ -1244,7 +1245,9 @@ struct aspath *aspath_replace_private_asns(struct aspath *aspath, as_t asn)
 		int i;
 
 		for (i = 0; i < seg->length; i++) {
-			if (BGP_AS_IS_PRIVATE(seg->as[i]))
+			/* Don't replace if public ASN or peer's ASN */
+			if (BGP_AS_IS_PRIVATE(seg->as[i])
+			    && (seg->as[i] != peer_asn))
 				seg->as[i] = asn;
 		}
 		seg = seg->next;
@@ -1255,7 +1258,7 @@ struct aspath *aspath_replace_private_asns(struct aspath *aspath, as_t asn)
 }
 
 /* Remove all private ASNs */
-struct aspath *aspath_remove_private_asns(struct aspath *aspath)
+struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 {
 	struct aspath *new;
 	struct assegment *seg;
@@ -1282,16 +1285,9 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath)
 			}
 		}
 
-		// The entire segment is private so skip it
-		if (!public) {
-			seg = seg->next;
-			continue;
-		}
-
 		// The entire segment is public so copy it
-		else if (public == seg->length) {
+		if (public == seg->length)
 			new_seg = assegment_dup(seg);
-		}
 
 		// The segment is a mix of public and private ASNs. Copy as many
 		// spots as
@@ -1301,8 +1297,9 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath)
 			new_seg = assegment_new(seg->type, public);
 			j = 0;
 			for (i = 0; i < seg->length; i++) {
-				// ASN is public
-				if (!BGP_AS_IS_PRIVATE(seg->as[i])) {
+				// keep ASN if public or matches peer's ASN
+				if (!BGP_AS_IS_PRIVATE(seg->as[i])
+				    || (seg->as[i] == peer_asn)) {
 					new_seg->as[j] = seg->as[i];
 					j++;
 				}
@@ -1469,7 +1466,7 @@ struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 	/* Not reached */
 }
 
-/* Iterate over AS_PATH segments and wipe all occurences of the
+/* Iterate over AS_PATH segments and wipe all occurrences of the
  * listed AS numbers. Hence some segments may lose some or even
  * all data on the way, the operation is implemented as a smarter
  * version of aspath_dup(), which allocates memory to hold the new
@@ -1888,7 +1885,7 @@ static const char *aspath_gettoken(const char *buf, enum as_token *token,
 	const char *p = buf;
 
 	/* Skip seperators (space for sequences, ',' for sets). */
-	while (isspace((int)*p) || *p == ',')
+	while (isspace((unsigned char)*p) || *p == ',')
 		p++;
 
 	/* Check the end of the string and type specify characters
@@ -1923,14 +1920,14 @@ static const char *aspath_gettoken(const char *buf, enum as_token *token,
 	}
 
 	/* Check actual AS value. */
-	if (isdigit((int)*p)) {
+	if (isdigit((unsigned char)*p)) {
 		as_t asval;
 
 		*token = as_token_asval;
 		asval = (*p - '0');
 		p++;
 
-		while (isdigit((int)*p)) {
+		while (isdigit((unsigned char)*p)) {
 			asval *= 10;
 			asval += (*p - '0');
 			p++;
@@ -2008,13 +2005,13 @@ struct aspath *aspath_str2aspath(const char *str)
 }
 
 /* Make hash value by raw aspath data. */
-unsigned int aspath_key_make(void *p)
+unsigned int aspath_key_make(const void *p)
 {
-	struct aspath *aspath = (struct aspath *)p;
+	const struct aspath *aspath = p;
 	unsigned int key = 0;
 
 	if (!aspath->str)
-		aspath_str_update(aspath, false);
+		aspath_str_update((struct aspath *)aspath, false);
 
 	key = jhash(aspath->str, aspath->str_len, 2334325);
 

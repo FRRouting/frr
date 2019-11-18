@@ -17,6 +17,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#define test__cplusplus
+
 #include "lib/zebra.h"
 
 #include "lib/agg_table.h"
@@ -53,7 +55,6 @@
 #include "lib/libospf.h"
 #include "lib/linklist.h"
 #include "lib/log.h"
-#include "lib/logicalrouter.h"
 #include "lib/md5.h"
 #include "lib/memory.h"
 #include "lib/memory_vty.h"
@@ -71,7 +72,6 @@
 #include "lib/openbsd-tree.h"
 #include "lib/pbr.h"
 #include "lib/plist.h"
-#include "lib/pqueue.h"
 #include "lib/prefix.h"
 #include "lib/privs.h"
 #include "lib/ptm_lib.h"
@@ -92,6 +92,8 @@
 #include "lib/table.h"
 #include "lib/termtable.h"
 #include "lib/thread.h"
+#include "lib/typesafe.h"
+#include "lib/typerb.h"
 #include "lib/vector.h"
 #include "lib/vlan.h"
 #include "lib/vrf.h"
@@ -104,6 +106,17 @@
 #include "lib/yang_wrappers.h"
 #include "lib/zassert.h"
 #include "lib/zclient.h"
+
+PREDECL_RBTREE_UNIQ(footree)
+struct foo {
+	int dummy;
+	struct footree_item item;
+};
+static int foocmp(const struct foo *a, const struct foo *b)
+{
+	return memcmp(&a->dummy, &b->dummy, sizeof(a->dummy));
+}
+DECLARE_RBTREE_UNIQ(footree, struct foo, item, foocmp)
 
 int main(int argc, char **argv)
 {

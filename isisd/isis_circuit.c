@@ -551,7 +551,7 @@ static void isis_circuit_update_all_srmflags(struct isis_circuit *circuit,
 		if (!lspdb_count(&area->lspdb[level - 1]))
 			continue;
 
-		for_each (lspdb, &area->lspdb[level - 1], lsp) {
+		frr_each (lspdb, &area->lspdb[level - 1], lsp) {
 			if (is_set) {
 				isis_tx_queue_add(circuit->tx_queue, lsp,
 						  TX_LSP_NORMAL);

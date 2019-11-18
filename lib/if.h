@@ -31,7 +31,6 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(IF)
 DECLARE_MTYPE(CONNECTED_LABEL)
 
 /* Interface link-layer type, if known. Derived from:
@@ -225,6 +224,10 @@ struct interface {
 	   not work as expected.
 	 */
 	ifindex_t ifindex;
+	/*
+	 * ifindex of parent interface, if any
+	 */
+	ifindex_t link_ifindex;
 #define IFINDEX_INTERNAL	0
 
 	/* Zebra internal interface status */
@@ -380,16 +383,12 @@ struct connected {
 	/* N.B. the ZEBRA_IFA_PEER flag should be set if and only if
 	   a peer address has been configured.  If this flag is set,
 	   the destination field must contain the peer address.
-	   Otherwise, if this flag is not set, the destination address
-	   will either contain a broadcast address or be NULL.
 	 */
 
 	/* Address of connected network. */
 	struct prefix *address;
 
-	/* Peer or Broadcast address, depending on whether ZEBRA_IFA_PEER is
-	   set.
-	   Note: destination may be NULL if ZEBRA_IFA_PEER is not set. */
+	/* Peer address, if ZEBRA_IFA_PEER is set, otherwise NULL */
 	struct prefix *destination;
 
 	/* Label for Linux 2.2.X and upper. */
@@ -475,19 +474,24 @@ extern int if_cmp_name_func(const char *p1, const char *p2);
  */
 extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
 extern struct interface *if_create(const char *name, vrf_id_t vrf_id);
+extern struct interface *if_create_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_index_all_vrf(ifindex_t);
 extern struct interface *if_lookup_exact_address(void *matchaddr, int family,
 						 vrf_id_t vrf_id);
 extern struct connected *if_lookup_address(void *matchaddr, int family,
 					   vrf_id_t vrf_id);
 extern struct interface *if_lookup_prefix(struct prefix *prefix,
 					  vrf_id_t vrf_id);
+size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
+			   struct interface ***result, vrf_id_t vrf_id);
 
 /* These 3 functions are to be used when the ifname argument is terminated
    by a '\0' character: */
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
 extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
+extern struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
 extern void if_set_index(struct interface *ifp, ifindex_t ifindex);
 
 /* Delete the interface, but do not free the structure, and leave it in the
@@ -540,6 +544,7 @@ extern struct connected *connected_lookup_prefix_exact(struct interface *,
 extern struct nbr_connected *nbr_connected_new(void);
 extern void nbr_connected_free(struct nbr_connected *);
 struct nbr_connected *nbr_connected_check(struct interface *, struct prefix *);
+struct connected *connected_get_linklocal(struct interface *ifp);
 
 /* link parameters */
 struct if_link_params *if_link_params_get(struct interface *);

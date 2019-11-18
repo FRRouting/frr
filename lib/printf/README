@@ -1,0 +1,9 @@
+This is the printf implementation from FreeBSD.  It was imported on 2019-05-12,
+from SVN revision 347514 (but the code hadn't been touched for 2 years before
+that.)
+
+Please don't reindent or otherwise mangle the files to make importing fixes
+easy (not that there are significant changes likely to happen...)
+
+The changes to this code are published under FreeBSD's license as listed in the
+file headers.  If you change license, please make that as obvious as possible.

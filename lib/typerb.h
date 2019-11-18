@@ -22,6 +22,10 @@
 
 #include "typesafe.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct typed_rb_entry {
 	struct typed_rb_entry *rbt_parent;
 	struct typed_rb_entry *rbt_left;
@@ -34,29 +38,30 @@ struct typed_rb_root {
 	size_t count;
 };
 
-struct typed_rb_entry *typed_rb_insert(struct typed_rb_root *,
+struct typed_rb_entry *typed_rb_insert(struct typed_rb_root *rbt,
 		struct typed_rb_entry *rbe,
 		int (*cmpfn)(
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b));
-void typed_rb_remove(struct typed_rb_root *, struct typed_rb_entry *rbe);
-struct typed_rb_entry *typed_rb_find(struct typed_rb_root *,
+struct typed_rb_entry *typed_rb_remove(struct typed_rb_root *rbt,
+				       struct typed_rb_entry *rbe);
+struct typed_rb_entry *typed_rb_find(struct typed_rb_root *rbt,
 		const struct typed_rb_entry *rbe,
 		int (*cmpfn)(
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b));
-struct typed_rb_entry *typed_rb_find_gteq(struct typed_rb_root *,
+struct typed_rb_entry *typed_rb_find_gteq(struct typed_rb_root *rbt,
 		const struct typed_rb_entry *rbe,
 		int (*cmpfn)(
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b));
-struct typed_rb_entry *typed_rb_find_lt(struct typed_rb_root *,
+struct typed_rb_entry *typed_rb_find_lt(struct typed_rb_root *rbt,
 		const struct typed_rb_entry *rbe,
 		int (*cmpfn)(
 			const struct typed_rb_entry *a,
 			const struct typed_rb_entry *b));
-struct typed_rb_entry *typed_rb_min(struct typed_rb_root *);
-struct typed_rb_entry *typed_rb_next(struct typed_rb_entry *);
+struct typed_rb_entry *typed_rb_min(struct typed_rb_root *rbt);
+struct typed_rb_entry *typed_rb_next(struct typed_rb_entry *rbe);
 
 #define _PREDECL_RBTREE(prefix)                                                \
 struct prefix ## _head { struct typed_rb_root rr; };                           \
@@ -95,9 +100,11 @@ macro_inline type *prefix ## _find_lt(struct prefix##_head *h,                 \
 	re = typed_rb_find_lt(&h->rr, &item->field.re, cmpfn_nuq);             \
 	return container_of_null(re, type, field.re);                          \
 }                                                                              \
-macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
+macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 {                                                                              \
-	typed_rb_remove(&h->rr, &item->field.re);                              \
+	struct typed_rb_entry *re;                                             \
+	re = typed_rb_remove(&h->rr, &item->field.re);                         \
+	return container_of_null(re, type, field.re);                          \
 }                                                                              \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 {                                                                              \
@@ -126,7 +133,7 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 	re = item ? typed_rb_next(&item->field.re) : NULL;                     \
 	return container_of_null(re, type, field.re);                          \
 }                                                                              \
-macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
+macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->rr.count;                                                    \
 }                                                                              \
@@ -178,5 +185,9 @@ macro_inline int prefix ## __cmp_uq(const struct typed_rb_entry *a,            \
                                                                                \
 _DECLARE_RBTREE(prefix, type, field, prefix ## __cmp, prefix ## __cmp_uq)      \
 /* ... */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_TYPERB_H */

@@ -28,16 +28,17 @@
 #include "vty.h"
 #include "command.h"
 #include "libfrr.h"
+#include "frr_pthread.h"
 
-DEFINE_MTYPE(LIB, HASH, "Hash")
-DEFINE_MTYPE(LIB, HASH_BACKET, "Hash Bucket")
+DEFINE_MTYPE_STATIC(LIB, HASH, "Hash")
+DEFINE_MTYPE_STATIC(LIB, HASH_BACKET, "Hash Bucket")
 DEFINE_MTYPE_STATIC(LIB, HASH_INDEX, "Hash Index")
 
 static pthread_mutex_t _hashes_mtx = PTHREAD_MUTEX_INITIALIZER;
 static struct list *_hashes;
 
 struct hash *hash_create_size(unsigned int size,
-			      unsigned int (*hash_key)(void *),
+			      unsigned int (*hash_key)(const void *),
 			      bool (*hash_cmp)(const void *, const void *),
 			      const char *name)
 {
@@ -54,19 +55,17 @@ struct hash *hash_create_size(unsigned int size,
 	hash->name = name ? XSTRDUP(MTYPE_HASH, name) : NULL;
 	hash->stats.empty = hash->size;
 
-	pthread_mutex_lock(&_hashes_mtx);
-	{
+	frr_with_mutex(&_hashes_mtx) {
 		if (!_hashes)
 			_hashes = list_new();
 
 		listnode_add(_hashes, hash);
 	}
-	pthread_mutex_unlock(&_hashes_mtx);
 
 	return hash;
 }
 
-struct hash *hash_create(unsigned int (*hash_key)(void *),
+struct hash *hash_create(unsigned int (*hash_key)(const void *),
 			 bool (*hash_cmp)(const void *, const void *),
 			 const char *name)
 {
@@ -311,8 +310,7 @@ struct list *hash_to_list(struct hash *hash)
 
 void hash_free(struct hash *hash)
 {
-	pthread_mutex_lock(&_hashes_mtx);
-	{
+	frr_with_mutex(&_hashes_mtx) {
 		if (_hashes) {
 			listnode_delete(_hashes, hash);
 			if (_hashes->count == 0) {
@@ -320,7 +318,6 @@ void hash_free(struct hash *hash)
 			}
 		}
 	}
-	pthread_mutex_unlock(&_hashes_mtx);
 
 	XFREE(MTYPE_HASH, hash->name);
 

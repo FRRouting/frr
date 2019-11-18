@@ -77,11 +77,13 @@ const struct message eigrp_packet_type_str[] = {
 static unsigned char zeropad[16] = {0};
 
 /* Forward function reference*/
-static struct stream *eigrp_recv_packet(int, struct interface **,
-					struct stream *);
-static int eigrp_verify_header(struct stream *, struct eigrp_interface *,
-			       struct ip *, struct eigrp_header *);
-static int eigrp_check_network_mask(struct eigrp_interface *, struct in_addr);
+static struct stream *eigrp_recv_packet(struct eigrp *eigrp, int fd,
+					struct interface **ifp,
+					struct stream *s);
+static int eigrp_verify_header(struct stream *s, struct eigrp_interface *ei,
+			       struct ip *addr, struct eigrp_header *header);
+static int eigrp_check_network_mask(struct eigrp_interface *ei,
+				    struct in_addr mask);
 
 static int eigrp_retrans_count_exceeded(struct eigrp_packet *ep,
 					struct eigrp_neighbor *nbr)
@@ -495,7 +497,7 @@ int eigrp_read(struct thread *thread)
 	thread_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);
 
 	stream_reset(eigrp->ibuf);
-	if (!(ibuf = eigrp_recv_packet(eigrp->fd, &ifp, eigrp->ibuf))) {
+	if (!(ibuf = eigrp_recv_packet(eigrp, eigrp->fd, &ifp, eigrp->ibuf))) {
 		/* This raw packet is known to be at least as big as its IP
 		 * header. */
 		return -1;
@@ -525,7 +527,7 @@ int eigrp_read(struct thread *thread)
 		   ifindex
 		   retrieval but do not. */
 		c = if_lookup_address((void *)&iph->ip_src, AF_INET,
-				      VRF_DEFAULT);
+				      eigrp->vrf_id);
 
 		if (c == NULL)
 			return 0;
@@ -706,7 +708,8 @@ int eigrp_read(struct thread *thread)
 	return 0;
 }
 
-static struct stream *eigrp_recv_packet(int fd, struct interface **ifp,
+static struct stream *eigrp_recv_packet(struct eigrp *eigrp,
+					int fd, struct interface **ifp,
 					struct stream *ibuf)
 {
 	int ret;
@@ -774,7 +777,7 @@ static struct stream *eigrp_recv_packet(int fd, struct interface **ifp,
 
 	ifindex = getsockopt_ifindex(AF_INET, &msgh);
 
-	*ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	*ifp = if_lookup_by_index(ifindex, eigrp->vrf_id);
 
 	if (ret != ip_len) {
 		zlog_warn(
@@ -1114,6 +1117,7 @@ static struct TLV_IPv4_Internal_type *eigrp_IPv4_InternalTLV_new(void)
 struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 {
 	struct TLV_IPv4_Internal_type *tlv;
+	uint32_t destination_tmp;
 
 	tlv = eigrp_IPv4_InternalTLV_new();
 
@@ -1133,31 +1137,16 @@ struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 
 	tlv->prefix_length = stream_getc(s);
 
-	if (tlv->prefix_length <= 8) {
-		tlv->destination_part[0] = stream_getc(s);
-		tlv->destination.s_addr = (tlv->destination_part[0]);
-	} else if (tlv->prefix_length > 8 && tlv->prefix_length <= 16) {
-		tlv->destination_part[0] = stream_getc(s);
-		tlv->destination_part[1] = stream_getc(s);
-		tlv->destination.s_addr = ((tlv->destination_part[1] << 8)
-					   + tlv->destination_part[0]);
-	} else if (tlv->prefix_length > 16 && tlv->prefix_length <= 24) {
-		tlv->destination_part[0] = stream_getc(s);
-		tlv->destination_part[1] = stream_getc(s);
-		tlv->destination_part[2] = stream_getc(s);
-		tlv->destination.s_addr = ((tlv->destination_part[2] << 16)
-					   + (tlv->destination_part[1] << 8)
-					   + tlv->destination_part[0]);
-	} else if (tlv->prefix_length > 24 && tlv->prefix_length <= 32) {
-		tlv->destination_part[0] = stream_getc(s);
-		tlv->destination_part[1] = stream_getc(s);
-		tlv->destination_part[2] = stream_getc(s);
-		tlv->destination_part[3] = stream_getc(s);
-		tlv->destination.s_addr = ((tlv->destination_part[3] << 24)
-					   + (tlv->destination_part[2] << 16)
-					   + (tlv->destination_part[1] << 8)
-					   + tlv->destination_part[0]);
-	}
+	destination_tmp = stream_getc(s) << 24;
+	if (tlv->prefix_length > 8)
+		destination_tmp |= stream_getc(s) << 16;
+	if (tlv->prefix_length > 16)
+		destination_tmp |= stream_getc(s) << 8;
+	if (tlv->prefix_length > 24)
+		destination_tmp |= stream_getc(s);
+
+	tlv->destination.s_addr = htonl(destination_tmp);
+
 	return tlv;
 }
 
@@ -1234,15 +1223,13 @@ uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 
 	stream_putc(s, pe->destination->prefixlen);
 
-	stream_putc(s, pe->destination->u.prefix4.s_addr & 0xFF);
+	stream_putc(s, (ntohl(pe->destination->u.prefix4.s_addr) >> 24) & 0xFF);
 	if (pe->destination->prefixlen > 8)
-		stream_putc(s, (pe->destination->u.prefix4.s_addr >> 8) & 0xFF);
+		stream_putc(s, (ntohl(pe->destination->u.prefix4.s_addr) >> 16) & 0xFF);
 	if (pe->destination->prefixlen > 16)
-		stream_putc(s,
-			    (pe->destination->u.prefix4.s_addr >> 16) & 0xFF);
+		stream_putc(s, (ntohl(pe->destination->u.prefix4.s_addr) >> 8) & 0xFF);
 	if (pe->destination->prefixlen > 24)
-		stream_putc(s,
-			    (pe->destination->u.prefix4.s_addr >> 24) & 0xFF);
+		stream_putc(s, ntohl(pe->destination->u.prefix4.s_addr) & 0xFF);
 
 	return length;
 }

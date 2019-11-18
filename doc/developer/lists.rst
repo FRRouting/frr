@@ -13,7 +13,7 @@ FRR includes a set of list-like data structure implementations with abstracted
 common APIs.  The purpose of this is easily allow swapping out one
 data structure for another while also making the code easier to read and write.
 There is one API for unsorted lists and a similar but not identical API for
-sorted lists.
+sorted lists - and heaps use a middle ground of both.
 
 For unsorted lists, the following implementations exist:
 
@@ -22,6 +22,11 @@ For unsorted lists, the following implementations exist:
 - double-linked list
 
 - atomic single-linked list with tail pointer
+
+
+Being partially sorted, the oddball structure:
+
+- an 8-ary heap
 
 
 For sorted lists, these data structures are implemented:
@@ -40,6 +45,8 @@ Except for hash tables, each of the sorted data structures has a variant with
 unique and non-unique list items.  Hash tables always require unique items
 and mostly follow the "sorted" API but use the hash value as sorting
 key.  Also, iterating while modifying does not work with hash tables.
+Conversely, the heap always has non-unique items, but iterating while modifying
+doesn't work either.
 
 
 The following sorted structures are likely to be implemented at some point
@@ -63,6 +70,8 @@ Only the following pieces use dynamically allocated memory:
 - skiplists store up to 4 next pointers inline but will dynamically allocate
   memory to hold an item's 5th up to 16th next pointer (if they exist)
 
+- the heap uses a dynamically grown and shrunk array of items
+
 Cheat sheet
 -----------
 
@@ -73,6 +82,8 @@ Available types:
    DECLARE_LIST
    DECLARE_ATOMLIST
    DECLARE_DLIST
+
+   DECLARE_HEAP
 
    DECLARE_SORTLIST_UNIQ
    DECLARE_SORTLIST_NONUNIQ
@@ -87,25 +98,26 @@ Available types:
 
 Functions provided:
 
-+------------------------------------+------+------+---------+------------+
-| Function                           | LIST | HASH | \*_UNIQ | \*_NONUNIQ |
-+====================================+======+======+=========+============+
-| _init, _fini                       | yes  | yes  | yes     | yes        |
-+------------------------------------+------+------+---------+------------+
-| _first, _next, _next_safe          | yes  | yes  | yes     | yes        |
-+------------------------------------+------+------+---------+------------+
-| _add_head, _add_tail, _add_after   | yes  | --   | --      | --         |
-+------------------------------------+------+------+---------+------------+
-| _add                               | --   | yes  | yes     | yes        |
-+------------------------------------+------+------+---------+------------+
-| _del, _pop                         | yes  | yes  | yes     | yes        |
-+------------------------------------+------+------+---------+------------+
-| _find                              | --   | yes  | yes     | --         |
-+------------------------------------+------+------+---------+------------+
-| _find_lt, _find_gteq               | --   | --   | yes     | yes        |
-+------------------------------------+------+------+---------+------------+
-| use with for_each() macros         | yes  | yes  | yes     | yes        |
-+------------------------------------+------+------+---------+------------+
++------------------------------------+------+------+------+---------+------------+
+| Function                           | LIST | HEAP | HASH | \*_UNIQ | \*_NONUNIQ |
++====================================+======+======+======+=========+============+
+| _init, _fini                       | yes  | yes  | yes  | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+| _first, _next, _next_safe          | yes  | yes  | yes  | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+| _add_head, _add_tail, _add_after   | yes  | --   | --   | --      | --         |
++------------------------------------+------+------+------+---------+------------+
+| _add                               | --   | yes  | yes  | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+| _del, _pop                         | yes  | yes  | yes  | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+| _find                              | --   | --   | yes  | yes     | --         |
++------------------------------------+------+------+------+---------+------------+
+| _find_lt, _find_gteq               | --   | --   | --   | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+| use with frr_each() macros         | yes  | yes  | yes  | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+
 
 
 Datastructure type setup
@@ -121,6 +133,8 @@ for the instance of the datastructure.**
 The common setup pattern will look like this:
 
 .. code-block:: c
+
+   #include <typesafe.h>
 
    PREDECL_XXX(Z)
    struct item {
@@ -162,26 +176,26 @@ Common iteration macros
 
 The following iteration macros work across all data structures:
 
-.. c:function:: for_each(Z, head, item)
+.. c:function:: frr_each(Z, &head, item)
 
    Equivalent to:
 
    .. code-block:: c
 
-      for (item = Z_first(head); item; item = Z_next(head, item))
+      for (item = Z_first(&head); item; item = Z_next(&head, item))
 
    Note that this will fail if the list is modified while being iterated
    over.
 
-.. c:function:: for_each_safe(Z, head, item)
+.. c:function:: frr_each_safe(Z, &head, item)
 
    Same as the previous, but the next element is pre-loaded into a "hidden"
    variable (named ``Z_safe``.)  Equivalent to:
 
    .. code-block:: c
 
-      for (item = Z_first(head); item; item = next) {
-          next = Z_next_safe(head, item);
+      for (item = Z_first(&head); item; item = next) {
+          next = Z_next_safe(&head, item);
           ...
       }
 
@@ -192,7 +206,7 @@ The following iteration macros work across all data structures:
       tables is resized while iterating.  This will cause items to be
       skipped or iterated over twice.
 
-.. c:function:: for_each_from(Z, head, item, from)
+.. c:function:: frr_each_from(Z, &head, item, from)
 
    Iterates over the list, starting at item ``from``.  This variant is "safe"
    as in the previous macro.  Equivalent to:
@@ -200,7 +214,7 @@ The following iteration macros work across all data structures:
    .. code-block:: c
 
       for (item = from; item; item = from) {
-          from = Z_next_safe(head, item);
+          from = Z_next_safe(&head, item);
           ...
       }
 
@@ -349,7 +363,7 @@ are several functions exposed to insert data:
 
       itemtype *prev = NULL, *item;
 
-      for_each_safe(Z, head, item) {
+      frr_each_safe(Z, head, item) {
           if (something) {
               Z_add_after(head, prev, item);
               break;
@@ -480,6 +494,21 @@ the same semantics as noted above. :c:func:`Z_find_gteq()` and
 :c:func:`Z_find_lt()` are **not** provided for hash tables.
 
 
+API for heaps
+-------------
+
+Heaps provide the same API as the sorted data structures, except:
+
+* none of the find functions (:c:func:`Z_find()`, :c:func:`Z_find_gteq()`
+  or :c:func:`Z_find_lt()`) are available.
+* iterating over the heap yields the items in semi-random order, only the
+  first item is guaranteed to be in order and actually the "lowest" item
+  on the heap.  Being a heap, only the rebalancing performed on removing the
+  first item (either through :c:func:`Z_pop()` or :c:func:`Z_del()`) causes
+  the new lowest item to bubble up to the front.
+* all heap modifications are O(log n).  However, cacheline efficiency and
+  latency is likely quite a bit better than with other data structures.
+
 Atomic lists
 ------------
 
@@ -556,7 +585,7 @@ Iteration:
    struct item *i;
 
    pthread_rwlock_rdlock(&itemhead_rwlock);
-   for_each(itemlist, &itemhead, i) {
+   frr_each(itemlist, &itemhead, i) {
      /* lock must remain held while iterating */
      ...
    }
@@ -573,7 +602,7 @@ Head removal (pop) and deallocation:
    pthread_rwlock_unlock(&itemhead_rwlock);
 
    /* i might still be visible for another thread doing an
-    * for_each() (but won't be returned by another pop()) */
+    * frr_each() (but won't be returned by another pop()) */
    ...
 
    pthread_rwlock_wrlock(&itemhead_rwlock);
@@ -581,6 +610,38 @@ Head removal (pop) and deallocation:
    /* i now guaranteed to be gone from the list.
     * note nothing between wrlock() and unlock() */
    XFREE(MTYPE_ITEM, i);
+
+FAQ
+---
+
+Why is the list head not ``const`` in the list APIs?
+   The semantics that a ``const`` list head would imply are not obvious.  It
+   could mean any of the following:
+
+    * the list just shouldn't be allocated/deallocated, but may be modified.
+      This doesn't actually work since the list head needs to be modified for
+      inserting or deleting items.
+
+    * the list shouldn't be modified, but items can.  This may make sense for
+      iterating, but it's not exactly consistent - an item might be on more
+      than one list, does it apply to all of them?  If not, which one?
+
+    * neither the list nor the items should be modified.  This is consistent,
+      but hard to do without creating a ``const`` copy of every single list
+      function.  Ease of use trumps this.
+
+Why is there no "is this item on a/the list" test?
+   It's slow for several of the data structures, and the work of adding it
+   just hasn't been done.  It can certainly be added if it's needed.
+
+Why is it ``PREDECL`` + ``DECLARE`` instead of ``DECLARE`` + ``DEFINE``?
+   The rule is that a ``DEFINE`` must be in a ``.c`` file, and linked exactly
+   once because it defines some kind of global symbol.  This is not the case
+   for the data structure macros;  they only define ``static`` symbols and it
+   is perfectly fine to include both ``PREDECL`` and ``DECLARE`` in a header
+   file.  It is also perfectly fine to have the same ``DECLARE`` statement in
+   2 ``.c`` files, but only **if the macro arguments are identical.**  Maybe
+   don't do that unless you really need it.
 
 FRR lists
 ---------

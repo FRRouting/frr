@@ -111,6 +111,7 @@ static void pim_bfd_reg_dereg_nbr(struct pim_neighbor *nbr, int command)
 	struct pim_interface *pim_ifp = NULL;
 	struct bfd_info *bfd_info = NULL;
 	struct zclient *zclient = NULL;
+	int cbit;
 
 	zclient = pim_zebra_zclient_get();
 
@@ -127,8 +128,12 @@ static void pim_bfd_reg_dereg_nbr(struct pim_neighbor *nbr, int command)
 		zlog_debug("%s Nbr %s %s with BFD", __PRETTY_FUNCTION__, str,
 			   bfd_get_command_dbg_str(command));
 	}
+
+	cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
+
 	bfd_peer_sendmsg(zclient, bfd_info, AF_INET, &nbr->source_addr, NULL,
-			 nbr->interface->name, 0, 0, command, 0, VRF_DEFAULT);
+			 nbr->interface->name, 0, 0, cbit,
+			 command, 0, VRF_DEFAULT);
 }
 
 /*
@@ -222,7 +227,8 @@ static int pim_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 	struct listnode *neigh_nextnode = NULL;
 	struct pim_neighbor *neigh = NULL;
 
-	ifp = bfd_get_peer_info(zclient->ibuf, &p, NULL, &status, vrf_id);
+	ifp = bfd_get_peer_info(zclient->ibuf, &p, NULL, &status,
+				NULL, vrf_id);
 
 	if ((ifp == NULL) || (p.family != AF_INET))
 		return 0;
@@ -297,7 +303,7 @@ static int pim_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 	struct vrf *vrf = NULL;
 
 	/* Send the client registration */
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, vrf_id);
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		FOR_ALL_INTERFACES (vrf, ifp) {

@@ -22,7 +22,9 @@
  */
 #include <zebra.h>
 
+#ifdef CRYPTO_INTERNAL
 #include "md5.h"
+#endif
 #include "memory.h"
 #include "stream.h"
 #include "sbuf.h"
@@ -1272,6 +1274,11 @@ static void format_item_extended_ip_reach(uint16_t mtid, struct isis_item *i,
 	if (mtid != ISIS_MT_IPV4_UNICAST)
 		sbuf_push(buf, 0, " %s", isis_mtid2str(mtid));
 	sbuf_push(buf, 0, "\n");
+
+	if (r->subtlvs) {
+		sbuf_push(buf, indent, "  Subtlvs:\n");
+		format_subtlvs(r->subtlvs, buf, indent + 4);
+	}
 }
 
 static void free_item_extended_ip_reach(struct isis_item *i)
@@ -1473,7 +1480,7 @@ static int unpack_tlv_dynamic_hostname(enum isis_tlv_context context,
 	bool sane = true;
 	for (uint8_t i = 0; i < tlv_len; i++) {
 		if ((unsigned char)tlvs->hostname[i] > 127
-		    || !isprint((int)tlvs->hostname[i])) {
+		    || !isprint((unsigned char)tlvs->hostname[i])) {
 			sane = false;
 			tlvs->hostname[i] = '?';
 		}
@@ -2765,8 +2772,16 @@ static void update_auth_hmac_md5(struct isis_auth *auth, struct stream *s,
 		safe_auth_md5(s, &checksum, &rem_lifetime);
 
 	memset(STREAM_DATA(s) + auth->offset, 0, 16);
+#ifdef CRYPTO_OPENSSL
+	uint8_t *result = (uint8_t *)HMAC(EVP_md5(), auth->passwd,
+					  auth->plength, STREAM_DATA(s),
+					  stream_get_endp(s), NULL, NULL);
+
+	memcpy(digest, result, 16);
+#elif CRYPTO_INTERNAL
 	hmac_md5(STREAM_DATA(s), stream_get_endp(s), auth->passwd,
 		 auth->plength, digest);
+#endif
 	memcpy(auth->value, digest, 16);
 	memcpy(STREAM_DATA(s) + auth->offset, digest, 16);
 
@@ -3305,8 +3320,16 @@ static bool auth_validator_hmac_md5(struct isis_passwd *passwd,
 		safe_auth_md5(stream, &checksum, &rem_lifetime);
 
 	memset(STREAM_DATA(stream) + auth->offset, 0, 16);
+#ifdef CRYPTO_OPENSSL
+	uint8_t *result = (uint8_t *)HMAC(EVP_md5(), passwd->passwd,
+					  passwd->len, STREAM_DATA(stream),
+					  stream_get_endp(stream), NULL, NULL);
+
+	memcpy(digest, result, 16);
+#elif CRYPTO_INTERNAL
 	hmac_md5(STREAM_DATA(stream), stream_get_endp(stream), passwd->passwd,
 		 passwd->len, digest);
+#endif
 	memcpy(STREAM_DATA(stream) + auth->offset, auth->value, 16);
 
 	bool rv = !memcmp(digest, auth->value, 16);
@@ -3552,7 +3575,7 @@ void isis_tlvs_add_csnp_entries(struct isis_tlvs *tlvs, uint8_t *start_id,
 	if (!first)
 		return;
 
-	for_each_from (lspdb, head, lsp, first) {
+	frr_each_from (lspdb, head, lsp, first) {
 		if (memcmp(lsp->hdr.lsp_id, stop_id, sizeof(lsp->hdr.lsp_id))
 			> 0 || tlvs->lsp_entries.count == num_lsps)
 			break;

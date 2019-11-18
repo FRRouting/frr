@@ -122,12 +122,6 @@ static struct log_ref ferr_bgp_warn[] = {
 		.suggestion = "Please collect log files and open Issue",
 	},
 	{
-		.code = EC_BGP_NO_SOCKOPT_MARK,
-		.title = "Unable to set socket MARK option",
-		.description = "BGP attempted to set the SO_MARK option for a socket and was unable to do so",
-		.suggestion = "Please collect log files and open Issue",
-	},
-	{
 		.code = EC_BGP_EVPN_PMSI_PRESENT,
 		.title = "BGP Received a EVPN NLRI with PMSI included",
 		.description = "BGP has received a type-3 NLRI with PMSI information.  At this time FRR is not capable of properly handling this NLRI type",
@@ -431,12 +425,6 @@ static struct log_ref ferr_bgp_err[] = {
 		.title = "BGP EVPN ES entry create error",
 		.description = "BGP attempted to create an EVPN ES entry and failed",
 		.suggestion = "Most likely a bug. If the problem persists, report the problem for troubleshooting"
-	},
-	{
-		.code = EC_BGP_MULTI_INSTANCE,
-		.title = "BGP config multi-instance issue",
-		.description = "BGP configuration attempting multiple instances without enabling the feature",
-		.suggestion = "Correct the configuration so that bgp multiple-instance is enabled if desired"
 	},
 	{
 		.code = EC_BGP_EVPN_AS_MISMATCH,

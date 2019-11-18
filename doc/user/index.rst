@@ -56,6 +56,8 @@ Protocols
    sharp
    static
    vnc
+   vrrp
+   bmp
 
 ########
 Appendix

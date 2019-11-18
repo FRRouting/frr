@@ -12,9 +12,9 @@ Installing Dependencies
    sudo apt update
    sudo apt-get install \
       git autoconf automake libtool make libreadline-dev texinfo \
-      pkg-config libpam0g-dev libjson-c-dev bison flex python-pytest \
+      pkg-config libpam0g-dev libjson-c-dev bison flex python3-pytest \
       libc-ares-dev python3-dev libsystemd-dev python-ipaddress python3-sphinx \
-      install-info build-essential libsystemd-dev libsnmp-dev perl
+      install-info build-essential libsystemd-dev libsnmp-dev perl libcap-dev
 
 .. include:: building-libyang.rst
 
@@ -103,6 +103,10 @@ And load the kernel modules on the running system:
 .. code-block:: console
 
    sudo modprobe mpls-router mpls-iptunnel
+
+If the above command returns an error, you may need to install the appropriate
+or latest linux-modules-extra-<kernel-version>-generic package. For example
+``apt-get install linux-modules-extra-`uname -r`-generic``
 
 Enable MPLS Forwarding
 """"""""""""""""""""""

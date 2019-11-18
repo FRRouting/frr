@@ -57,7 +57,7 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 	int ret;
 	int err = 0;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		sock = socket(AF_INET, SOCK_DGRAM, 0);
 		if (sock < 0) {
 			zlog_err("Cannot create UDP socket: %s",
@@ -83,7 +83,7 @@ int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id)
 	int ret;
 	int err = 0;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		sock = vrf_socket(AF_INET, SOCK_DGRAM, 0, vrf_id, NULL);
 		if (sock < 0) {
 			zlog_err("Cannot create UDP socket: %s",
@@ -110,7 +110,7 @@ static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 	int ret;
 	int err = 0;
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		sock = socket(AF_INET6, SOCK_DGRAM, 0);
 		if (sock < 0) {
 			zlog_err("Cannot create IPv6 datagram socket: %s",
@@ -245,7 +245,7 @@ static int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 	p = (struct prefix_ipv4 *)dplane_ctx_get_intf_addr(ctx);
 
 	memset(&addreq, 0, sizeof(addreq));
-	strncpy((char *)&addreq.ifra_name, dplane_ctx_get_ifname(ctx),
+	strlcpy((char *)&addreq.ifra_name, dplane_ctx_get_ifname(ctx),
 		sizeof(addreq.ifra_name));
 
 	memset(&addr, 0, sizeof(struct sockaddr_in));
@@ -296,7 +296,7 @@ static int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 	p = (struct prefix_ipv4 *)dplane_ctx_get_intf_addr(ctx);
 
 	memset(&addreq, 0, sizeof(addreq));
-	strncpy((char *)&addreq.ifra_name, dplane_ctx_get_ifname(ctx),
+	strlcpy((char *)&addreq.ifra_name, dplane_ctx_get_ifname(ctx),
 		sizeof(addreq.ifra_name));
 
 	memset(&addr, 0, sizeof(struct sockaddr_in));

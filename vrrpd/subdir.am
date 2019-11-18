@@ -1,0 +1,37 @@
+#
+# vrrpd
+#
+
+if VRRPD
+noinst_LIBRARIES += vrrpd/libvrrp.a
+sbin_PROGRAMS += vrrpd/vrrpd
+# dist_examples_DATA += staticd/staticd.conf.sample
+vtysh_scan += $(top_srcdir)/vrrpd/vrrp_vty.c
+man8 += $(MANBUILD)/vrrpd.8
+endif
+
+vrrpd_libvrrp_a_SOURCES = \
+	vrrpd/vrrp.c \
+	vrrpd/vrrp_arp.c \
+	vrrpd/vrrp_debug.c \
+	vrrpd/vrrp_ndisc.c \
+	vrrpd/vrrp_packet.c \
+	vrrpd/vrrp_vty.c \
+	vrrpd/vrrp_zebra.c \
+	# end
+
+noinst_HEADERS += \
+	vrrpd/vrrp.h \
+	vrrpd/vrrp_arp.h \
+	vrrpd/vrrp_debug.h \
+	vrrpd/vrrp_ndisc.h \
+	vrrpd/vrrp_packet.h \
+	vrrpd/vrrp_vty.h \
+	vrrpd/vrrp_zebra.h \
+	# end
+
+vrrpd/vrrp_vty_clippy.c: $(CLIPPY_DEPS)
+vrrpd/vrrp_vty.$(OBJEXT): vrrpd/vrrp_vty_clippy.c
+
+vrrpd_vrrpd_SOURCES = vrrpd/vrrp_main.c
+vrrpd_vrrpd_LDADD = vrrpd/libvrrp.a lib/libfrr.la @LIBCAP@

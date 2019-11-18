@@ -102,7 +102,7 @@ extern const char *aspath_print(struct aspath *);
 extern void aspath_print_vty(struct vty *, const char *, struct aspath *,
 			     const char *);
 extern void aspath_print_all_vty(struct vty *);
-extern unsigned int aspath_key_make(void *);
+extern unsigned int aspath_key_make(const void *);
 extern unsigned int aspath_get_first_as(struct aspath *);
 extern unsigned int aspath_get_last_as(struct aspath *);
 extern int aspath_loop_check(struct aspath *, as_t);
@@ -112,8 +112,9 @@ extern struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 						  as_t target_asn,
 						  as_t our_asn);
 extern struct aspath *aspath_replace_private_asns(struct aspath *aspath,
-						  as_t asn);
-extern struct aspath *aspath_remove_private_asns(struct aspath *aspath);
+						  as_t asn, as_t peer_asn);
+extern struct aspath *aspath_remove_private_asns(struct aspath *aspath,
+						 as_t peer_asn);
 extern int aspath_firstas_check(struct aspath *, as_t);
 extern int aspath_confed_check(struct aspath *);
 extern int aspath_left_confed_check(struct aspath *);

@@ -131,6 +131,12 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 		IGMP_QUERY_MAX_RESPONSE_TIME_DSEC;
 	pim_ifp->igmp_specific_query_max_response_time_dsec =
 		IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
+	pim_ifp->igmp_last_member_query_count =
+		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
+
+	/* BSM config on interface: true by default */
+	pim_ifp->bsm_enable = true;
+	pim_ifp->ucast_bsm_accept = true;
 
 	/*
 	  RFC 3376: 8.3. Query Response Interval
@@ -1287,11 +1293,7 @@ ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 		return ferr_ok();
 	}
 
-	ij = igmp_join_new(ifp, group_addr, source_addr);
-	if (!ij) {
-		return ferr_cfg_invalid(
-			"Failure to create new join data structure, see log file for more information");
-	}
+	(void)igmp_join_new(ifp, group_addr, source_addr);
 
 	if (PIM_DEBUG_IGMP_EVENTS) {
 		char group_str[INET_ADDRSTRLEN];

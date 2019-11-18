@@ -207,7 +207,7 @@ static void parse_sa_message(struct vici_message_ctx *ctx,
 		}
 		break;
 	default:
-		if (!key)
+		if (!key || !key->ptr)
 			break;
 
 		switch (key->ptr[0]) {
@@ -550,7 +550,7 @@ int sock_open_unix(const char *path)
 
 	memset(&addr, 0, sizeof(struct sockaddr_un));
 	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
+	strlcpy(addr.sun_path, path, sizeof(addr.sun_path));
 
 	ret = connect(fd, (struct sockaddr *)&addr,
 		      sizeof(addr.sun_family) + strlen(addr.sun_path));

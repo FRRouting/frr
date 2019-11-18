@@ -1170,7 +1170,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	/* Test Preparation: Switch and activate address-family. */
 	if (!is_attr_type_global(pa->type)) {
 		test_log(test, "prepare: switch address-family to [%s]",
-			 afi_safi_print(pa->afi, pa->safi));
+			 get_afi_safi_str(pa->afi, pa->safi, false));
 		test_execute(test, "address-family %s %s",
 			     str_from_afi(pa->afi), str_from_safi(pa->safi));
 		test_execute(test, "neighbor %s activate", g->name);
@@ -1237,7 +1237,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	/* Test Preparation: Switch and activate address-family. */
 	if (!is_attr_type_global(pa->type)) {
 		test_log(test, "prepare: switch address-family to [%s]",
-			 afi_safi_print(pa->afi, pa->safi));
+			 get_afi_safi_str(pa->afi, pa->safi, false));
 		test_execute(test, "address-family %s %s",
 			     str_from_afi(pa->afi), str_from_safi(pa->safi));
 		test_execute(test, "neighbor %s activate", g->name);
@@ -1285,7 +1285,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	/* Test Preparation: Switch and activate address-family. */
 	if (!is_attr_type_global(pa->type)) {
 		test_log(test, "prepare: switch address-family to [%s]",
-			 afi_safi_print(pa->afi, pa->safi));
+			 get_afi_safi_str(pa->afi, pa->safi, false));
 		test_execute(test, "address-family %s %s",
 			     str_from_afi(pa->afi), str_from_safi(pa->safi));
 		test_execute(test, "neighbor %s activate", g->name);

@@ -153,7 +153,7 @@ int main(int argc, char **argv)
 
 	/* Library inits. */
 	cmd_init(1);
-	vty_init(master);
+	vty_init(master, false);
 	memory_init();
 	yang_init();
 	nb_init(master, NULL, 0);

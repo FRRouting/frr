@@ -64,9 +64,9 @@ static void *baa_hash_alloc(void *p)
 	return baa;
 }
 
-unsigned int baa_hash_key(void *p)
+unsigned int baa_hash_key(const void *p)
 {
-	struct bgp_advertise_attr *baa = (struct bgp_advertise_attr *)p;
+	const struct bgp_advertise_attr *baa = p;
 
 	return attrhash_key_make(baa->attr);
 }
@@ -194,6 +194,7 @@ void bgp_adj_in_set(struct bgp_node *rn, struct peer *peer, struct attr *attr,
 	adj = XCALLOC(MTYPE_BGP_ADJ_IN, sizeof(struct bgp_adj_in));
 	adj->peer = peer_lock(peer); /* adj_in peer reference */
 	adj->attr = bgp_attr_intern(attr);
+	adj->uptime = bgp_clock();
 	adj->addpath_rx_id = addpath_id;
 	BGP_ADJ_IN_ADD(rn, adj);
 	bgp_lock_node(rn);

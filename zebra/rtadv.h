@@ -135,8 +135,8 @@ typedef enum {
 	RA_SUPPRESS,
 } ipv6_nd_suppress_ra_status;
 
-extern void rtadv_init(struct zebra_ns *);
-extern void rtadv_terminate(struct zebra_ns *);
+extern void rtadv_init(struct zebra_vrf *zvrf);
+extern void rtadv_terminate(struct zebra_vrf *zvrf);
 extern void rtadv_cmd_init(void);
 extern void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS);
 extern void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS);

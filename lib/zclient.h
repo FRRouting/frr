@@ -38,8 +38,17 @@
 
 #include "mlag.h"
 
+/* Zebra types. Used in Zserv message header. */
+typedef uint16_t zebra_size_t;
+
+/* Marker value used in new Zserv, in the byte location corresponding
+ * the command value in the old zserv header. To allow old and new
+ * Zserv headers to be distinguished from each other.
+ */
+#define ZEBRA_HEADER_MARKER              254
+
 /* For input/output buffer to zebra. */
-#define ZEBRA_MAX_PACKET_SIZ          16384
+#define ZEBRA_MAX_PACKET_SIZ          16384U
 
 /* Zebra header size. */
 #define ZEBRA_HEADER_SIZE             10
@@ -76,6 +85,7 @@ typedef enum {
 	ZEBRA_INTERFACE_UP,
 	ZEBRA_INTERFACE_DOWN,
 	ZEBRA_INTERFACE_SET_MASTER,
+	ZEBRA_INTERFACE_SET_PROTODOWN,
 	ZEBRA_ROUTE_ADD,
 	ZEBRA_ROUTE_DELETE,
 	ZEBRA_ROUTE_NOTIFY_OWNER,
@@ -166,6 +176,7 @@ typedef enum {
 	ZEBRA_VXLAN_FLOOD_CONTROL,
 	ZEBRA_VXLAN_SG_ADD,
 	ZEBRA_VXLAN_SG_DEL,
+	ZEBRA_VXLAN_SG_REPLAY,
 } zebra_message_types_t;
 
 struct redist_proto {
@@ -321,6 +332,41 @@ struct zapi_route {
 	unsigned short instance;
 
 	uint32_t flags;
+/*
+ * Cause Zebra to consider this routes nexthops recursively
+ */
+#define ZEBRA_FLAG_ALLOW_RECURSION    0x01
+/*
+ * This is a route that is read in on startup that was left around
+ * from a previous run of FRR
+ */
+#define ZEBRA_FLAG_SELFROUTE          0x02
+/*
+ * This flag is used to tell Zebra that the BGP route being passed
+ * down is a IBGP route
+ */
+#define ZEBRA_FLAG_IBGP               0x04
+/*
+ * This is a route that has been selected for FIB installation.
+ * This flag is set in zebra and can be passed up to routing daemons
+ */
+#define ZEBRA_FLAG_SELECTED           0x08
+/*
+ * This is a route that we are telling Zebra that this route *must*
+ * win and will be installed even over ZEBRA_FLAG_SELECTED
+ */
+#define ZEBRA_FLAG_FIB_OVERRIDE       0x10
+/*
+ * This flag tells Zebra that the route is a EVPN route and should
+ * be treated specially
+ */
+#define ZEBRA_FLAG_EVPN_ROUTE         0x20
+/*
+ * This flag tells Zebra that it should treat the distance passed
+ * down as an additional discriminator for route selection of the
+ * route entry.  This mainly is used for backup static routes.
+ */
+#define ZEBRA_FLAG_RR_USE_DISTANCE    0x40
 
 	uint8_t message;
 
@@ -466,6 +512,9 @@ extern void zclient_send_interface_radv_req(struct zclient *zclient,
 					    vrf_id_t vrf_id,
 					    struct interface *ifp, int enable,
 					    int ra_interval);
+extern int zclient_send_interface_protodown(struct zclient *zclient,
+					    vrf_id_t vrf_id,
+					    struct interface *ifp, bool down);
 
 /* Send redistribute command to zebra daemon. Do not update zclient state. */
 extern int zebra_redistribute_send(int command, struct zclient *, afi_t,
@@ -561,15 +610,13 @@ extern struct interface *zebra_interface_link_params_read(struct stream *s,
 							  vrf_id_t vrf_id);
 extern size_t zebra_interface_link_params_write(struct stream *,
 						struct interface *);
-extern int zclient_send_get_label_chunk(
-	struct zclient	*zclient,
-	uint8_t		keep,
-	uint32_t	chunk_size);
+extern int zclient_send_get_label_chunk(struct zclient *zclient, uint8_t keep,
+					uint32_t chunk_size, uint32_t base);
 
 extern int lm_label_manager_connect(struct zclient *zclient, int async);
 extern int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
-			      uint32_t chunk_size, uint32_t *start,
-			      uint32_t *end);
+			      uint32_t base, uint32_t chunk_size,
+			      uint32_t *start, uint32_t *end);
 extern int lm_release_label_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
 extern int tm_table_manager_connect(struct zclient *zclient);

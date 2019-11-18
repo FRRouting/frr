@@ -231,13 +231,11 @@ static int zserv_write(struct thread *thread)
 
 	cache = stream_fifo_new();
 
-	pthread_mutex_lock(&client->obuf_mtx);
-	{
+	frr_with_mutex(&client->obuf_mtx) {
 		while (stream_fifo_head(client->obuf_fifo))
 			stream_fifo_push(cache,
 					 stream_fifo_pop(client->obuf_fifo));
 	}
-	pthread_mutex_unlock(&client->obuf_mtx);
 
 	if (cache->tail) {
 		msg = cache->tail;
@@ -427,13 +425,11 @@ static int zserv_read(struct thread *thread)
 				      memory_order_relaxed);
 
 		/* publish read packets on client's input queue */
-		pthread_mutex_lock(&client->ibuf_mtx);
-		{
+		frr_with_mutex(&client->ibuf_mtx) {
 			while (cache->head)
 				stream_fifo_push(client->ibuf_fifo,
 						 stream_fifo_pop(cache));
 		}
-		pthread_mutex_unlock(&client->ibuf_mtx);
 
 		/* Schedule job to process those packets */
 		zserv_event(client, ZSERV_PROCESS_MESSAGES);
@@ -499,8 +495,7 @@ static int zserv_process_messages(struct thread *thread)
 	uint32_t p2p = zrouter.packets_to_process;
 	bool need_resched = false;
 
-	pthread_mutex_lock(&client->ibuf_mtx);
-	{
+	frr_with_mutex(&client->ibuf_mtx) {
 		uint32_t i;
 		for (i = 0; i < p2p && stream_fifo_head(client->ibuf_fifo);
 		     ++i) {
@@ -516,7 +511,6 @@ static int zserv_process_messages(struct thread *thread)
 		if (stream_fifo_head(client->ibuf_fifo))
 			need_resched = true;
 	}
-	pthread_mutex_unlock(&client->ibuf_mtx);
 
 	while (stream_fifo_head(cache)) {
 		msg = stream_fifo_pop(cache);
@@ -535,33 +529,9 @@ static int zserv_process_messages(struct thread *thread)
 
 int zserv_send_message(struct zserv *client, struct stream *msg)
 {
-	/*
-	 * This is a somewhat poorly named variable added with Zebra's portion
-	 * of the label manager. That component does not use the regular
-	 * zserv/zapi_msg interface for handling its messages, as the client
-	 * itself runs in-process. Instead it uses synchronous writes on the
-	 * zserv client's socket directly in the zread* handlers for its
-	 * message types. Furthermore, it cannot handle the usual messages
-	 * Zebra sends (such as those for interface changes) and so has added
-	 * this flag and check here as a hack to suppress all messages that it
-	 * does not explicitly know about.
-	 *
-	 * In any case this needs to be cleaned up at some point.
-	 *
-	 * See also:
-	 *    zread_label_manager_request
-	 *    zsend_label_manager_connect_response
-	 *    zsend_assign_label_chunk_response
-	 *    ...
-	 */
-	if (client->is_synchronous)
-		return 0;
-
-	pthread_mutex_lock(&client->obuf_mtx);
-	{
+	frr_with_mutex(&client->obuf_mtx) {
 		stream_fifo_push(client->obuf_fifo, msg);
 	}
-	pthread_mutex_unlock(&client->obuf_mtx);
 
 	zserv_client_event(client, ZSERV_CLIENT_WRITE);
 
@@ -682,6 +652,8 @@ static int zserv_handle_client_fail(struct thread *thread)
 static struct zserv *zserv_client_create(int sock)
 {
 	struct zserv *client;
+	size_t stream_size =
+		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
 	int i;
 	afi_t afi;
 
@@ -691,8 +663,8 @@ static struct zserv *zserv_client_create(int sock)
 	client->sock = sock;
 	client->ibuf_fifo = stream_fifo_new();
 	client->obuf_fifo = stream_fifo_new();
-	client->ibuf_work = stream_new(ZEBRA_MAX_PACKET_SIZ);
-	client->obuf_work = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	client->ibuf_work = stream_new(stream_size);
+	client->obuf_work = stream_new(stream_size);
 	pthread_mutex_init(&client->ibuf_mtx, NULL);
 	pthread_mutex_init(&client->obuf_mtx, NULL);
 	client->wb = buffer_new(0);
@@ -707,9 +679,6 @@ static struct zserv *zserv_client_create(int sock)
 		client->redist_default[afi] = vrf_bitmap_init();
 	}
 	client->ridinfo = vrf_bitmap_init();
-
-	/* by default, it's not a synchronous client */
-	client->is_synchronous = 0;
 
 	/* Add this client to linked list. */
 	listnode_add(zrouter.client_list, client);
@@ -813,7 +782,7 @@ void zserv_start(char *path)
 	setsockopt_so_recvbuf(zsock, 1048576);
 	setsockopt_so_sendbuf(zsock, 1048576);
 
-	frr_elevate_privs((sa.ss_family != AF_UNIX) ? &zserv_privs : NULL) {
+	frr_with_privs((sa.ss_family != AF_UNIX) ? &zserv_privs : NULL) {
 		ret = bind(zsock, (struct sockaddr *)&sa, sa_len);
 	}
 	if (ret < 0) {
@@ -1065,10 +1034,8 @@ DEFUN (show_zebra_client_summary,
 void zserv_read_file(char *input)
 {
 	int fd;
-	struct thread t;
 
 	fd = open(input, O_RDONLY | O_NONBLOCK);
-	t.u.fd = fd;
 
 	zserv_client_create(fd);
 }

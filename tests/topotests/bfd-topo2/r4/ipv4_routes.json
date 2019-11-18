@@ -8,7 +8,7 @@
       "selected": true,
       "installed": true,
       "prefix": "10.254.254.4/32",
-      "internalStatus": 32,
+      "internalStatus": 16,
       "nexthops": [
         {
           "directlyConnected": true,

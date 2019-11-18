@@ -165,14 +165,8 @@ Showing ip prefix-list
 Clear counter of ip prefix-list
 -------------------------------
 
-.. index:: clear ip prefix-list
-.. clicmd:: clear ip prefix-list
+.. index:: clear ip prefix-list [NAME [A.B.C.D/M]]
+.. clicmd:: clear ip prefix-list [NAME [A.B.C.D/M]]
 
    Clears the counters of all IP prefix lists. Clear IP Prefix List can be used
-   with a specified name and prefix.
-
-.. index:: clear ip prefix-list NAME
-.. clicmd:: clear ip prefix-list NAME
-
-.. index:: clear ip prefix-list NAME A.B.C.D/M
-.. clicmd:: clear ip prefix-list NAME A.B.C.D/M
+   with a specified NAME or NAME and prefix.

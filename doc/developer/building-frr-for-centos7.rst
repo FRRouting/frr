@@ -21,7 +21,7 @@ Add packages:
     sudo yum install git autoconf automake libtool make \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel bison flex pytest c-ares-devel \
-      python-devel systemd-devel python-sphinx
+      python-devel systemd-devel python-sphinx libcap-devel
 
 .. include:: building-libyang.rst
 
@@ -70,7 +70,8 @@ an example.)
         --disable-ldpd \
         --enable-fpm \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion
+        --with-pkg-extra-version=-MyOwnFRRVersion \
+	SPHINXBUILD=/usr/bin/sphinx-build
     make
     make check
     sudo make install

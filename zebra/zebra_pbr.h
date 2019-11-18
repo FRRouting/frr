@@ -145,6 +145,7 @@ struct zebra_pbr_iptable {
 	uint16_t tcp_mask_flags;
 	uint8_t dscp_value;
 	uint8_t fragment;
+	uint8_t protocol;
 
 	uint32_t nb_interface;
 
@@ -211,7 +212,7 @@ extern void kernel_pbr_iptable_add_del_status(struct zebra_pbr_iptable *iptable,
 extern int kernel_pbr_rule_del(struct zebra_pbr_rule *rule);
 
 extern void zebra_pbr_rules_free(void *arg);
-extern uint32_t zebra_pbr_rules_hash_key(void *arg);
+extern uint32_t zebra_pbr_rules_hash_key(const void *arg);
 extern bool zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2);
 
 /* has operates on 32bit pointer
@@ -220,16 +221,16 @@ extern bool zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2);
 #define ZEBRA_IPSET_NAME_HASH_SIZE (ZEBRA_IPSET_NAME_SIZE / 4)
 
 extern void zebra_pbr_ipset_free(void *arg);
-extern uint32_t zebra_pbr_ipset_hash_key(void *arg);
+extern uint32_t zebra_pbr_ipset_hash_key(const void *arg);
 extern bool zebra_pbr_ipset_hash_equal(const void *arg1, const void *arg2);
 
 extern void zebra_pbr_ipset_entry_free(void *arg);
-extern uint32_t zebra_pbr_ipset_entry_hash_key(void *arg);
+extern uint32_t zebra_pbr_ipset_entry_hash_key(const void *arg);
 extern bool zebra_pbr_ipset_entry_hash_equal(const void *arg1,
 					     const void *arg2);
 
 extern void zebra_pbr_iptable_free(void *arg);
-extern uint32_t zebra_pbr_iptable_hash_key(void *arg);
+extern uint32_t zebra_pbr_iptable_hash_key(const void *arg);
 extern bool zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2);
 
 extern void zebra_pbr_init(void);

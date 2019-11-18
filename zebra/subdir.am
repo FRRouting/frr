@@ -75,6 +75,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_mpls_null.c \
 	zebra/zebra_mpls_vty.c \
 	zebra/zebra_mroute.c \
+	zebra/zebra_nhg.c \
 	zebra/zebra_ns.c \
 	zebra/zebra_pbr.c \
 	zebra/zebra_ptm.c \
@@ -135,6 +136,7 @@ noinst_HEADERS += \
 	zebra/zebra_memory.h \
 	zebra/zebra_mpls.h \
 	zebra/zebra_mroute.h \
+	zebra/zebra_nhg.h \
 	zebra/zebra_ns.h \
 	zebra/zebra_pbr.h \
 	zebra/zebra_ptm.h \

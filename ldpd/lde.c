@@ -1654,13 +1654,27 @@ lde_del_label_chunk(void *val)
 }
 
 static int
+lde_release_label_chunk(uint32_t start, uint32_t end)
+{
+	int		ret;
+
+	ret = lm_release_label_chunk(zclient_sync, start, end);
+	if (ret < 0) {
+		log_warnx("Error releasing label chunk!");
+		return (-1);
+	}
+	return (0);
+}
+
+static int
 lde_get_label_chunk(void)
 {
 	int		 ret;
 	uint32_t	 start, end;
 
 	debug_labels("getting label chunk (size %u)", CHUNK_SIZE);
-	ret = lm_get_label_chunk(zclient_sync, 0, CHUNK_SIZE, &start, &end);
+	ret = lm_get_label_chunk(zclient_sync, 0, MPLS_LABEL_BASE_ANY,
+				 CHUNK_SIZE, &start, &end);
 	if (ret < 0) {
 		log_warnx("Error getting label chunk!");
 		return -1;
@@ -1706,6 +1720,32 @@ on_get_label_chunk_response(uint32_t start, uint32_t end)
 	/* let's update current if needed */
 	if (!current_label_chunk)
 		current_label_chunk = listtail(label_chunk_list);
+}
+
+void
+lde_free_label(uint32_t label)
+{
+	struct listnode	*node;
+	struct label_chunk	*label_chunk;
+	uint64_t		pos;
+
+	for (ALL_LIST_ELEMENTS_RO(label_chunk_list, node, label_chunk)) {
+		if (label <= label_chunk->end && label >= label_chunk->start) {
+			pos = 1ULL << (label - label_chunk->start);
+			label_chunk->used_mask &= ~pos;
+			/* if nobody is using this chunk and it's not current_label_chunk, then free it */
+			if (!label_chunk->used_mask && (current_label_chunk != node)) {
+				if (lde_release_label_chunk(label_chunk->start, label_chunk->end) != 0)
+					log_warnx("%s: Error releasing label chunk!", __func__);
+				else {
+					listnode_delete(label_chunk_list, label_chunk);
+					lde_del_label_chunk(label_chunk);
+				}
+			}
+			break;
+		}
+	}
+	return;
 }
 
 static uint32_t

@@ -83,9 +83,9 @@ static int evpn_vtep_ip_cmp(void *p1, void *p2)
 /*
  * Make hash key for ESI.
  */
-static unsigned int esi_hash_keymake(void *p)
+static unsigned int esi_hash_keymake(const void *p)
 {
-	struct evpnes *pes = p;
+	const struct evpnes *pes = p;
 	const void *pnt = (void *)pes->esi.val;
 
 	return jhash(pnt, ESI_BYTES, 0xa5a5a55a);
@@ -111,9 +111,9 @@ static bool esi_cmp(const void *p1, const void *p2)
 /*
  * Make vni hash key.
  */
-static unsigned int vni_hash_key_make(void *p)
+static unsigned int vni_hash_key_make(const void *p)
 {
-	struct bgpevpn *vpn = p;
+	const struct bgpevpn *vpn = p;
 	return (jhash_1word(vpn->vni, 0));
 }
 
@@ -143,10 +143,10 @@ static int vni_list_cmp(void *p1, void *p2)
 /*
  * Make vrf import route target hash key.
  */
-static unsigned int vrf_import_rt_hash_key_make(void *p)
+static unsigned int vrf_import_rt_hash_key_make(const void *p)
 {
-	struct vrf_irt_node *irt = p;
-	char *pnt = irt->rt.val;
+	const struct vrf_irt_node *irt = p;
+	const char *pnt = irt->rt.val;
 
 	return jhash(pnt, 8, 0x5abc1234);
 }
@@ -259,10 +259,10 @@ static int is_vrf_present_in_irt_vrfs(struct list *vrfs, struct bgp *bgp_vrf)
 /*
  * Make import route target hash key.
  */
-static unsigned int import_rt_hash_key_make(void *p)
+static unsigned int import_rt_hash_key_make(const void *p)
 {
-	struct irt_node *irt = p;
-	char *pnt = irt->rt.val;
+	const struct irt_node *irt = p;
+	const char *pnt = irt->rt.val;
 
 	return jhash(pnt, 8, 0xdeadbeef);
 }
@@ -2472,7 +2472,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 
 	if (bgp_debug_zebra(NULL)) {
 		zlog_debug(
-			"installing evpn prefix %s as ip prefix %s in vrf %s",
+			"import evpn prefix %s as ip prefix %s in vrf %s",
 			prefix2str(evp, buf, sizeof(buf)),
 			prefix2str(pp, buf1, sizeof(buf)),
 			vrf_id_to_name(bgp_vrf->vrf_id));
@@ -4411,7 +4411,7 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 
 				/* apply the route-map */
 				if (bgp_vrf->adv_cmd_rmap[afi][safi].map) {
-					int ret = 0;
+					route_map_result_t ret;
 
 					ret = route_map_apply(
 						bgp_vrf->adv_cmd_rmap[afi][safi]
@@ -4459,7 +4459,8 @@ void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
 					  struct ecommunity *ecomadd)
 {
 	/* uninstall routes from vrf */
-	uninstall_routes_for_vrf(bgp_vrf);
+	if (is_l3vni_live(bgp_vrf))
+		uninstall_routes_for_vrf(bgp_vrf);
 
 	/* Cleanup the RT to VRF mapping */
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
@@ -4471,11 +4472,11 @@ void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
 	listnode_add_sort(bgp_vrf->vrf_import_rtl, ecomadd);
 	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD);
 
-	/* map VRF to its RTs */
-	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
-
-	/* install routes matching the new VRF */
-	install_routes_for_vrf(bgp_vrf);
+	/* map VRF to its RTs and install routes matching the new RTs */
+	if (is_l3vni_live(bgp_vrf)) {
+		bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
+		install_routes_for_vrf(bgp_vrf);
+	}
 }
 
 void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
@@ -4485,7 +4486,8 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 	struct ecommunity *ecom = NULL;
 
 	/* uninstall routes from vrf */
-	uninstall_routes_for_vrf(bgp_vrf);
+	if (is_l3vni_live(bgp_vrf))
+		uninstall_routes_for_vrf(bgp_vrf);
 
 	/* Cleanup the RT to VRF mapping */
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
@@ -4509,11 +4511,11 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 		evpn_auto_rt_import_add_for_vrf(bgp_vrf);
 	}
 
-	/* map VRFs to its RTs */
-	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
-
-	/* install routes matching this new RT */
-	install_routes_for_vrf(bgp_vrf);
+	/* map VRFs to its RTs and install routes matching this new RT */
+	if (is_l3vni_live(bgp_vrf)) {
+		bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
+		install_routes_for_vrf(bgp_vrf);
+	}
 }
 
 void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
@@ -5533,10 +5535,6 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *rmac,
 			      vrf_id == VRF_DEFAULT ? BGP_INSTANCE_TYPE_DEFAULT
 						    : BGP_INSTANCE_TYPE_VRF);
 		switch (ret) {
-		case BGP_ERR_MULTIPLE_INSTANCE_NOT_SET:
-			flog_err(EC_BGP_MULTI_INSTANCE,
-				 "'bgp multiple-instance' not present\n");
-			return -1;
 		case BGP_ERR_AS_MISMATCH:
 			flog_err(EC_BGP_EVPN_AS_MISMATCH,
 				 "BGP is already running; AS is %u\n", as);

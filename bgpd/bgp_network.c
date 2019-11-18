@@ -122,7 +122,7 @@ static int bgp_md5_set_connect(int socket, union sockunion *su,
 	int ret = -1;
 
 #if HAVE_DECL_TCP_MD5SIG
-	frr_elevate_privs(&bgpd_privs) {
+	frr_with_privs(&bgpd_privs) {
 		ret = bgp_md5_set_socket(socket, su, prefixlen, password);
 	}
 #endif /* HAVE_TCP_MD5SIG */
@@ -140,8 +140,7 @@ static int bgp_md5_set_password(struct peer *peer, const char *password)
 	 * Set or unset the password on the listen socket(s). Outbound
 	 * connections are taken care of in bgp_connect() below.
 	 */
-	frr_elevate_privs(&bgpd_privs)
-	{
+	frr_with_privs(&bgpd_privs) {
 		for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener))
 			if (listener->su.sa.sa_family
 			    == peer->su.sa.sa_family) {
@@ -167,8 +166,7 @@ int bgp_md5_set_prefix(struct prefix *p, const char *password)
 	struct bgp_listener *listener;
 
 	/* Set or unset the password on the listen socket(s). */
-	frr_elevate_privs(&bgpd_privs)
-	{
+	frr_with_privs(&bgpd_privs) {
 		for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener))
 			if (listener->su.sa.sa_family == p->family) {
 				prefix2sockunion(p, &su);
@@ -440,6 +438,17 @@ static int bgp_accept(struct thread *thread)
 		return -1;
 	}
 
+	/* Check whether max prefix restart timer is set for the peer */
+	if (peer1->t_pmax_restart) {
+		if (bgp_debug_neighbor_events(peer1))
+			zlog_debug(
+				"%s - incoming conn rejected - "
+				"peer max prefix timer is active",
+				peer1->host);
+		close(bgp_sock);
+		return -1;
+	}
+
 	if (bgp_debug_neighbor_events(peer1))
 		zlog_debug("[Event] BGP connection from host %s fd %d",
 			   inet_sutop(&su, buf), bgp_sock);
@@ -588,8 +597,6 @@ static int bgp_update_source(struct peer *peer)
 	return ret;
 }
 
-#define DATAPLANE_MARK 254	/* main table ID */
-
 /* BGP try to connect to the peer.  */
 int bgp_connect(struct peer *peer)
 {
@@ -601,7 +608,7 @@ int bgp_connect(struct peer *peer)
 		zlog_debug("Peer address not learnt: Returning from connect");
 		return 0;
 	}
-	frr_elevate_privs(&bgpd_privs) {
+	frr_with_privs(&bgpd_privs) {
 	/* Make socket for the peer. */
 		peer->fd = vrf_sockunion_socket(&peer->su, peer->bgp->vrf_id,
 						bgp_get_bound_name(peer));
@@ -619,13 +626,9 @@ int bgp_connect(struct peer *peer)
 
 	sockopt_reuseaddr(peer->fd);
 	sockopt_reuseport(peer->fd);
-	if (sockopt_mark_default(peer->fd, DATAPLANE_MARK, &bgpd_privs) < 0)
-		flog_warn(EC_BGP_NO_SOCKOPT_MARK,
-			  "Unable to set mark on FD for peer %s, err=%s",
-			  peer->host, safe_strerror(errno));
 
 #ifdef IPTOS_PREC_INTERNETCONTROL
-	frr_elevate_privs(&bgpd_privs) {
+	frr_with_privs(&bgpd_privs) {
 		if (sockunion_family(&peer->su) == AF_INET)
 			setsockopt_ipv4_tos(peer->fd,
 					    IPTOS_PREC_INTERNETCONTROL);
@@ -703,7 +706,7 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 	sockopt_reuseaddr(sock);
 	sockopt_reuseport(sock);
 
-	frr_elevate_privs(&bgpd_privs) {
+	frr_with_privs(&bgpd_privs) {
 
 #ifdef IPTOS_PREC_INTERNETCONTROL
 		if (sa->sa_family == AF_INET)
@@ -762,7 +765,7 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 	snprintf(port_str, sizeof(port_str), "%d", port);
 	port_str[sizeof(port_str) - 1] = '\0';
 
-	frr_elevate_privs(&bgpd_privs) {
+	frr_with_privs(&bgpd_privs) {
 		ret = vrf_getaddrinfo(address, port_str, &req, &ainfo_save,
 				      bgp->vrf_id);
 	}
@@ -783,7 +786,7 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 		if (ainfo->ai_family != AF_INET && ainfo->ai_family != AF_INET6)
 			continue;
 
-		frr_elevate_privs(&bgpd_privs) {
+		frr_with_privs(&bgpd_privs) {
 			sock = vrf_socket(ainfo->ai_family,
 					  ainfo->ai_socktype,
 					  ainfo->ai_protocol, bgp->vrf_id,

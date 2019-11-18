@@ -21,6 +21,18 @@
 #ifndef _QUAGGA_BGP_PACKET_H
 #define _QUAGGA_BGP_PACKET_H
 
+#include "hook.h"
+
+DECLARE_HOOK(bgp_packet_dump,
+		(struct peer *peer, uint8_t type, bgp_size_t size,
+			struct stream *s),
+		(peer, type, size, s))
+
+DECLARE_HOOK(bgp_packet_send,
+		(struct peer *peer, uint8_t type, bgp_size_t size,
+			struct stream *s),
+		(peer, type, size, s))
+
 #define BGP_NLRI_LENGTH       1U
 #define BGP_TOTAL_ATTR_LEN    2U
 #define BGP_UNFEASIBLE_LEN    2U
@@ -45,9 +57,6 @@ extern void bgp_notify_send_with_data(struct peer *, uint8_t, uint8_t,
 extern void bgp_route_refresh_send(struct peer *, afi_t, safi_t, uint8_t,
 				   uint8_t, int);
 extern void bgp_capability_send(struct peer *, afi_t, safi_t, int, int);
-extern void bgp_default_update_send(struct peer *, struct attr *, afi_t, safi_t,
-				    struct peer *);
-extern void bgp_default_withdraw_send(struct peer *, afi_t, safi_t);
 
 extern int bgp_capability_receive(struct peer *, bgp_size_t);
 

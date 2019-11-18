@@ -28,6 +28,7 @@
 #include "network.h"
 #include "prefix.h"
 #include "log.h"
+#include "frr_pthread.h"
 #include "lib_errors.h"
 
 DEFINE_MTYPE_STATIC(LIB, STREAM, "Stream")
@@ -184,14 +185,6 @@ size_t stream_resize_inplace(struct stream **sptr, size_t newsize)
 
 	*sptr = orig;
 	return orig->size;
-}
-
-size_t __attribute__((deprecated))stream_resize_orig(struct stream *s,
-						     size_t newsize)
-{
-	assert("stream_resize: Switch code to use stream_resize_inplace" == NULL);
-
-	return stream_resize_inplace(&s, newsize);
 }
 
 size_t stream_get_getp(struct stream *s)
@@ -904,18 +897,28 @@ int stream_put_prefix(struct stream *s, struct prefix *p)
 
 /* Put NLRI with label */
 int stream_put_labeled_prefix(struct stream *s, struct prefix *p,
-			      mpls_label_t *label)
+			      mpls_label_t *label, int addpath_encode,
+			      uint32_t addpath_tx_id)
 {
 	size_t psize;
+	size_t psize_with_addpath;
 	uint8_t *label_pnt = (uint8_t *)label;
 
 	STREAM_VERIFY_SANE(s);
 
 	psize = PSIZE(p->prefixlen);
+	psize_with_addpath = psize + (addpath_encode ? 4 : 0);
 
-	if (STREAM_WRITEABLE(s) < (psize + 3)) {
+	if (STREAM_WRITEABLE(s) < (psize_with_addpath + 3)) {
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
+	}
+
+	if (addpath_encode) {
+		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 24);
+		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 16);
+		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 8);
+		s->data[s->endp++] = (uint8_t)addpath_tx_id;
 	}
 
 	stream_putc(s, (p->prefixlen + 24));
@@ -1134,11 +1137,9 @@ void stream_fifo_push(struct stream_fifo *fifo, struct stream *s)
 
 void stream_fifo_push_safe(struct stream_fifo *fifo, struct stream *s)
 {
-	pthread_mutex_lock(&fifo->mtx);
-	{
+	frr_with_mutex(&fifo->mtx) {
 		stream_fifo_push(fifo, s);
 	}
-	pthread_mutex_unlock(&fifo->mtx);
 }
 
 /* Delete first stream from fifo. */
@@ -1168,11 +1169,9 @@ struct stream *stream_fifo_pop_safe(struct stream_fifo *fifo)
 {
 	struct stream *ret;
 
-	pthread_mutex_lock(&fifo->mtx);
-	{
+	frr_with_mutex(&fifo->mtx) {
 		ret = stream_fifo_pop(fifo);
 	}
-	pthread_mutex_unlock(&fifo->mtx);
 
 	return ret;
 }
@@ -1186,11 +1185,9 @@ struct stream *stream_fifo_head_safe(struct stream_fifo *fifo)
 {
 	struct stream *ret;
 
-	pthread_mutex_lock(&fifo->mtx);
-	{
+	frr_with_mutex(&fifo->mtx) {
 		ret = stream_fifo_head(fifo);
 	}
-	pthread_mutex_unlock(&fifo->mtx);
 
 	return ret;
 }
@@ -1210,11 +1207,9 @@ void stream_fifo_clean(struct stream_fifo *fifo)
 
 void stream_fifo_clean_safe(struct stream_fifo *fifo)
 {
-	pthread_mutex_lock(&fifo->mtx);
-	{
+	frr_with_mutex(&fifo->mtx) {
 		stream_fifo_clean(fifo);
 	}
-	pthread_mutex_unlock(&fifo->mtx);
 }
 
 size_t stream_fifo_count_safe(struct stream_fifo *fifo)

@@ -30,6 +30,8 @@
 
 #include "bfd.h"
 
+DEFINE_MTYPE_STATIC(BFDD, BFDD_LABEL, "long-lived label memory")
+
 /*
  * Definitions
  */
@@ -68,7 +70,7 @@ static int config_add(struct bfd_peer_cfg *bpc,
 static int config_del(struct bfd_peer_cfg *bpc,
 		      void *arg __attribute__((unused)))
 {
-	return ptm_bfd_ses_del(bpc) != 0;
+	return ptm_bfd_sess_del(bpc) != 0;
 }
 
 static int parse_config_json(struct json_object *jo, bpc_handle h, void *arg)

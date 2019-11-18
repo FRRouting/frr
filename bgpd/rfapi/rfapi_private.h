@@ -306,8 +306,6 @@ extern int rfapiCliGetPrefixAddr(struct vty *vty, const char *str,
 
 extern int rfapiGetVncLifetime(struct attr *attr, uint32_t *lifetime);
 
-extern int rfapiGetTunnelType(struct attr *attr, bgp_encap_types *type);
-
 extern int rfapiGetVncTunnelUnAddr(struct attr *attr, struct prefix *p);
 
 extern int rfapi_reopen(struct rfapi_descriptor *rfd, struct bgp *bgp);

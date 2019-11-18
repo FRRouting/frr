@@ -574,7 +574,7 @@ void lsp_build_list_nonzero_ht(struct lspdb_head *head, const uint8_t *start_id,
 	memcpy(&searchfor.hdr.lsp_id, start_id, sizeof(searchfor.hdr.lsp_id));
 
 	start = lspdb_find_gteq(head, &searchfor);
-	for_each_from (lspdb, head, lsp, start) {
+	frr_each_from (lspdb, head, lsp, start) {
 		if (memcmp(lsp->hdr.lsp_id, stop_id,
 			   ISIS_SYS_ID_LEN + 2) > 0)
 			break;
@@ -682,12 +682,12 @@ int lsp_print_all(struct vty *vty, struct lspdb_head *head, char detail,
 	int lsp_count = 0;
 
 	if (detail == ISIS_UI_LEVEL_BRIEF) {
-		for_each (lspdb, head, lsp) {
+		frr_each (lspdb, head, lsp) {
 			lsp_print(lsp, vty, dynhost);
 			lsp_count++;
 		}
 	} else if (detail == ISIS_UI_LEVEL_DETAIL) {
-		for_each (lspdb, head, lsp) {
+		frr_each (lspdb, head, lsp) {
 			lsp_print_detail(lsp, vty, dynhost);
 			lsp_count++;
 		}
@@ -1855,7 +1855,7 @@ int lsp_tick(struct thread *thread)
 	 */
 	for (level = 0; level < ISIS_LEVELS; level++) {
 		struct isis_lsp *next = lspdb_first(&area->lspdb[level]);
-		for_each_from (lspdb, &area->lspdb[level], lsp, next) {
+		frr_each_from (lspdb, &area->lspdb[level], lsp, next) {
 			/*
 			 * The lsp rem_lifetime is kept at 0 for MaxAge
 			 * or

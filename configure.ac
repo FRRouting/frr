@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.60])
 
-AC_INIT([frr], [7.1], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [7.2], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -25,9 +25,25 @@ dnl -----------------------------------
 AC_CANONICAL_BUILD()
 AC_CANONICAL_HOST()
 
-AS_IF([test "$host" != "$build"], [
+hosttools_clippy="false"
+build_clippy="true"
+
+dnl case 1: external clippy
+if test -n "$with_clippy" -a "$with_clippy" != "no" -a "$with_clippy" != "yes"; then
+  if test "$enable_clippy_only" == "yes"; then
+    AC_MSG_ERROR([--enable-clippy-only does not make sense with --with-clippy])
+  fi
+
+  CLIPPY="$with_clippy"
+  build_clippy="false"
+  if test ! -x "$with_clippy"; then
+    AC_MSG_ERROR([clippy tool ($with_clippy) is not executable])
+  fi
+
+dnl case 2: cross-compiling internal clippy
+elif test "$host" != "$build"; then
   if test "$srcdir" = "."; then
-    AC_MSG_ERROR([cross-compilation is only possible with builddir separate from srcdir.  create a separate directory and run as .../path-to-frr/configure.])
+    AC_MSG_ERROR([cross-compilation is only possible with builddir separate from srcdir or by building clippy separately and using the --with-clippy option.  create a separate directory and run as .../path-to-frr/configure.])
   fi
   test -d hosttools || mkdir hosttools
   abssrc="`cd \"${srcdir}\"; pwd`"
@@ -37,23 +53,47 @@ AS_IF([test "$host" != "$build"], [
   AC_MSG_NOTICE([... use HOST_CPPFLAGS / HOST_CFLAGS / HOST_LDFLAGS if neccessary])
   AC_MSG_NOTICE([...])
 
-  ( CPPFLAGS="$HOST_CPPFLAGS"; \
-    CFLAGS="$HOST_CFLAGS"; \
-    LDFLAGS="$HOST_LDFLAGS"; \
-    cd hosttools; "${abssrc}/configure" "--host=$build" "--build=$build" "--enable-clippy-only" "--disable-nhrpd" "--disable-vtysh"; )
+  (
+    for var in $ac_precious_vars; do
+      dnl special cases
+      case "$var" in
+      YACC|YFLAGS) continue;;
+      PYTHON*)     retain=true;;
+      *)           retain=false;
+      esac
+
+      eval "hostvar=\"\${HOST_$var}\""
+      eval "targetvar=\"\${$var}\""
+      if test -n "$hostvar"; then
+        eval "$var='$hostvar'"
+        _AS_ECHO_LOG([host $var='$hostvar'])
+      elif $retain; then
+        _AS_ECHO_LOG([host retain $var='$targetvar'])
+      else
+        eval "unset $var"
+        _AS_ECHO_LOG([host unset $var])
+      fi
+    done
+    cd hosttools
+    "${abssrc}/configure" "--host=$build" "--build=$build" "--enable-clippy-only" "--disable-nhrpd" "--disable-vtysh"
+  ) || exit 1
 
   AC_MSG_NOTICE([...])
   AC_MSG_NOTICE([... cross-compilation: finished self-configuring for build platform tools])
   AC_MSG_NOTICE([...])
 
   build_clippy="false"
-  HOSTTOOLS="hosttools/"
-], [
-  build_clippy="true"
-  HOSTTOOLS=""
-])
-AC_SUBST([HOSTTOOLS])
+  hosttools_clippy="true"
+  CLIPPY="hosttools/lib/clippy"
+
+dnl case 3: normal build internal clippy
+else
+  CLIPPY="lib/clippy\$(EXEEXT)"
+fi
+AC_SUBST([CLIPPY])
 AM_CONDITIONAL([BUILD_CLIPPY], [$build_clippy])
+AM_CONDITIONAL([HOSTTOOLS_CLIPPY], [$hosttools_clippy])
+AM_CONDITIONAL([ONLY_CLIPPY], [test "$enable_clippy_only" = "yes"])
 
 # Disable portability warnings -- our automake code (in particular
 # common.am) uses some constructs specific to gmake.
@@ -99,13 +139,6 @@ AC_ARG_WITH([yangmodelsdir], [AS_HELP_STRING([--with-yangmodelsdir=DIR], [yang m
 ])
 AC_SUBST([yangmodelsdir])
 
-AC_ARG_WITH([libyang_pluginsdir], [AS_HELP_STRING([--with-libyang-pluginsdir=DIR], [yangmodule plugins directory (${libdir}/frr/libyang_plugins)])], [
-	libyang_pluginsdir="$withval"
-], [
-   libyang_pluginsdir="\${libdir}/frr/libyang_plugins"
-])
-AC_SUBST([libyang_pluginsdir])
-
 AC_ARG_ENABLE(tcmalloc,
 	AS_HELP_STRING([--enable-tcmalloc], [Turn on tcmalloc]),
 [case "${enableval}" in
@@ -138,12 +171,11 @@ CXXFLAGS="$orig_cxxflags"
 AC_PROG_CC_C99
 dnl NB: see C11 below
 
-AC_PROG_EGREP
 PKG_PROG_PKG_CONFIG
 
-dnl autoconf 2.59 appears not to support AC_PROG_SED
-dnl AC_PROG_SED
-AC_CHECK_PROG([SED],[sed],[sed],[/bin/false])
+dnl it's 2019, sed is sed.
+SED=sed
+AC_SUBST([SED])
 
 dnl try and enable CFLAGS that are useful for FRR
 dnl - specifically, options to control warnings
@@ -183,15 +215,17 @@ AC_DEFUN([AC_LINK_IFELSE_FLAGS], [{
 	AC_LINK_IFELSE(
 		[$3],
 		[
-			AC_MSG_RESULT([yes])
 			CFLAGS="$ac_cflags_save"
 			LIBS="$ac_libs_save"
-			$5
+			m4_default([$5], [
+				AC_MSG_RESULT([yes])
+			])
 		], [
-			AC_MSG_RESULT([no])
 			CFLAGS="$ac_cflags_save"
 			LIBS="$ac_libs_save"
-			$4
+			m4_default([$4], [
+				AC_MSG_RESULT([no])
+			])
 		])
 	AC_LANG_POP([C])
 	}])
@@ -222,9 +256,12 @@ elif test "x${enable_dev_build}" = "xyes"; then
       AC_C_FLAG([-O0])
    fi
    if test "x${enable_lua}" = "xyes"; then
-      AC_CHECK_LIB([lua], [lua_newstate],
-      [LIBS="$LIBS -llua"])
-      AC_DEFINE([HAVE_LUA], [1], [Lua enabled for development])
+      AX_PROG_LUA([5.3])
+      AX_LUA_HEADERS
+      AX_LUA_LIBS([
+         AC_DEFINE([HAVE_LUA], [1], [Have support for Lua interpreter])
+         LIBS="$LIBS $LUA_LIB"
+      ])
    fi
 else
    if test "x${enable_lua}" = "xyes"; then
@@ -232,9 +269,7 @@ else
    fi
    if test "z$orig_cflags" = "z"; then
       AC_C_FLAG([-g])
-      AC_C_FLAG([-Os], [
-        AC_C_FLAG([-O2])
-      ])
+      AC_C_FLAG([-O2])
    fi
 fi
 AM_CONDITIONAL([DEV_BUILD], [test "x$enable_dev_build" = "xyes"])
@@ -325,7 +360,6 @@ dnl Check programs
 dnl --------------
 AC_PROG_INSTALL
 AC_PROG_LN_S
-AC_PROG_MAKE_SET
 AC_CHECK_TOOL([AR], [ar])
 
 dnl -------
@@ -366,14 +400,19 @@ AC_SUBST([ARFLAGS])
 AC_SUBST([AR_FLAGS])
 
 AC_MSG_CHECKING([whether $RANLIB supports D option])
-if $RANLIB -D conftest.a >/dev/null 2>/dev/null; then
-  AC_MSG_RESULT([yes])
-  RANLIB="$RANLIB -D"
+if $RANLIB -D conftest.a >conftest.err 2>&1; then
+  if grep -q -- '-D' conftest.err; then
+    AC_MSG_RESULT([no])
+  else
+    AC_MSG_RESULT([yes])
+    RANLIB="$RANLIB -D"
+  fi
 else
   AC_MSG_RESULT([no])
 fi
 AC_SUBST([RANLIB])
 
+test -f conftest.err && rm conftest.err
 test -f conftest.a && rm conftest.a
 
 dnl ----------------------
@@ -395,6 +434,8 @@ AC_ARG_WITH([pkg-extra-version],
 AC_ARG_WITH([pkg-git-version],
 	AS_HELP_STRING([--with-pkg-git-version], [add git information to MOTD and build version string]),
 	[ test "x$withval" != "xno" && with_pkg_git_version="yes" ])
+AC_ARG_WITH([clippy],
+  AS_HELP_STRING([--with-clippy=PATH], [use external clippy helper program]))
 AC_ARG_WITH([vtysh_pager],
 	AS_HELP_STRING([--with-vtysh-pager=PAGER], [control what pager is compiled in as default]),
 	VTYSH_PAGER=$withval, VTYSH_PAGER="more")
@@ -438,10 +479,14 @@ AC_ARG_ENABLE([staticd],
   AS_HELP_STRING([--disable-staticd], [do not build staticd]))
 AC_ARG_ENABLE([fabricd],
   AS_HELP_STRING([--disable-fabricd], [do not build fabricd]))
+AC_ARG_ENABLE([vrrpd],
+  AS_HELP_STRING([--disable-vrrpd], [do not build vrrpd]))
 AC_ARG_ENABLE([bgp-announce],
   AS_HELP_STRING([--disable-bgp-announce,], [turn off BGP route announcement]))
 AC_ARG_ENABLE([bgp-vnc],
   AS_HELP_STRING([--disable-bgp-vnc],[turn off BGP VNC support]))
+AC_ARG_ENABLE([bgp-bmp],
+  AS_HELP_STRING([--disable-bgp-bmp],[turn off BGP BMP support]))
 AC_ARG_ENABLE([snmp],
   AS_HELP_STRING([--enable-snmp], [enable SNMP support for agentx]))
 AC_ARG_ENABLE([config_rollbacks],
@@ -529,6 +574,20 @@ AC_ARG_ENABLE([thread-sanitizer],
   AS_HELP_STRING([--enable-thread-sanitizer], [enable ThreadSanitizer support for detecting data races]))
 AC_ARG_ENABLE([memory-sanitizer],
   AS_HELP_STRING([--enable-memory-sanitizer], [enable MemorySanitizer support for detecting uninitialized memory reads]))
+AC_ARG_WITH([crypto],
+  AS_HELP_STRING([--with-crypto=<internal|openssl>], [choose between different implementations of cryptographic functions(default value is --with-crypto=internal)]))
+
+#if openssl, else use the internal
+AS_IF([test x"${with_crypto}" = x"openssl"], [
+AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
+if test $ac_cv_lib_crypto_EVP_DigestInit = no; then
+  AC_MSG_ERROR([build with openssl has been specified but openssl library was not found on your system])
+else
+  AC_DEFINE([CRYPTO_OPENSSL], [1], [Compile with openssl support])
+fi
+], [test x"${with_crypto}" = x"internal" || test x"${with_crypto}" = x"" ], [AC_DEFINE([CRYPTO_INTERNAL], [1], [Compile with internal cryptographic implementation])
+], [AC_MSG_ERROR([Unknown value for --with-crypto])]
+)
 
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS([json-c/json.h])
@@ -598,123 +657,34 @@ if test "${enable_shell_access}" = "yes"; then
    AC_DEFINE([HAVE_SHELL_ACCESS], [1], [Allow user to use ssh/telnet/bash, be aware this is considered insecure])
 fi
 
-AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
-
 #
 # Python for clippy
 #
 
-AC_DEFUN([FRR_PYTHON_CHECK_WORKING], [
-  AC_MSG_CHECKING([whether we found a working Python version])
-  AC_LINK_IFELSE_FLAGS([$PYTHON_CFLAGS], [$PYTHON_LIBS], [AC_LANG_PROGRAM([
-#include <Python.h>
-#if PY_VERSION_HEX < 0x02070000
-#error python too old
-#endif
-int main(void);
-],
-[
-{
-  Py_Initialize();
-  return 0;
-}
-])], [
-    # some python installs are missing the zlib dependency...
-    PYTHON_LIBS="${PYTHON_LIBS} -lz"
-    AC_LINK_IFELSE_FLAGS([$PYTHON_CFLAGS], [$PYTHON_LIBS], [AC_LANG_PROGRAM([
-#include <Python.h>
-#if PY_VERSION_HEX < 0x02070000
-#error python too old
-#endif
-int main(void);
-],
-[
-{
-  Py_Initialize();
-  return 0;
-}
-])], [
-      m4_if([$1], [], [
-        PYTHONCONFIG=""
-        unset PYTHON_LIBS
-        unset PYTHON_CFLAGS
-      ], [$1])
-    ])
-  ])
-])
-
 AS_IF([test "$host" = "$build"], [
-  PYTHONCONFIG=""
-
-  # ordering:
-  # 1.  try python3, but respect the user's preference on which minor ver
-  # 2.  try python, which might be py3 or py2 again on the user's preference
-  # 3.  try python2 (can really only be 2.7 but eh)
-  # 4.  try 3.6 > 3.5 > 3.4 > 3.3 > 3.2 > 2.7 through pkg-config (no user pref)
-  #
-  # (AX_PYTHON_DEVEL has no clue about py3 vs py2)
-  # (AX_PYTHON does not do what we need)
-
-  AC_CHECK_TOOLS([PYTHONCONFIG], [ \
-	python3-config \
-	python-config \
-	python2-config \
-	python3.6-config \
-	python3.5-config \
-	python3.4-config \
-	python3.3-config \
-	python3.2-config \
-	python2.7-config ])
-  if test -n "$PYTHONCONFIG"; then
-    PYTHON_CFLAGS="`\"${PYTHONCONFIG}\" --includes`"
-    PYTHON_LIBS="`\"${PYTHONCONFIG}\" --ldflags`"
-
-    FRR_PYTHON_CHECK_WORKING([])
-  fi
-
-  if test -z "$PYTHONCONFIG"; then
-    PKG_CHECK_MODULES([PYTHON], [python-3.6], [], [
-      PKG_CHECK_MODULES([PYTHON], [python-3.5], [], [
-        PKG_CHECK_MODULES([PYTHON], [python-3.4], [], [
-          PKG_CHECK_MODULES([PYTHON], [python-3.3], [], [
-            PKG_CHECK_MODULES([PYTHON], [python-3.2], [], [
-              PKG_CHECK_MODULES([PYTHON], [python-2.7], [], [
-                AC_MSG_FAILURE([could not find python-config or pkg-config python, please install Python development files from libpython-dev or similar])
-                ])])])])])])
-
-
-    FRR_PYTHON_CHECK_WORKING([
-      AC_MSG_FAILURE([could not find python-config or pkg-config python, please install Python development files from libpython-dev or similar])
-    ])
-  fi
+  FRR_PYTHON_DEV
+], [
+  FRR_PYTHON
 ])
-AC_SUBST([PYTHON_CFLAGS])
-AC_SUBST([PYTHON_LIBS])
 
-#
-# Logic for protobuf support.
-#
-if test "$enable_protobuf" = "yes"; then
-  # Check for protoc & protoc-c
+FRR_PYTHON_MODULES([pytest])
 
-  # protoc is not required, it's only for a "be nice" helper target
-  AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
-
-  AC_CHECK_PROGS([PROTOC_C], [protoc-c], [/bin/false])
-  if test "$PROTOC_C" = "/bin/false"; then
-    AC_MSG_FAILURE([protobuf requested but protoc-c not found.  Install protobuf-c.])
-  fi
-
-  PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 0.14],, [
-    AC_MSG_FAILURE([protobuf requested but libprotobuf-c not found.  Install protobuf-c.])
+if test "${enable_doc}" != "no"; then
+  FRR_PYTHON_MODULES([sphinx], , [
+    if test "${enable_doc}" = "yes"; then
+      AC_MSG_ERROR([Documentation was explicitly requested with --enable-doc but sphinx is not available for $PYTHON. Please disable docs or install sphinx.])
+    fi
   ])
-  AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h], [], [
-    AC_MSG_FAILURE([protobuf requested but protobuf-c.h not found.  Install protobuf-c.])
-  ])
-
-  AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
 fi
-AM_CONDITIONAL([HAVE_PROTOBUF], [test "x$enable_protobuf" = "xyes"])
+AM_CONDITIONAL([DOC], [test "${enable_doc}" != "no" -a "$frr_py_mod_sphinx" != "false"])
+AM_CONDITIONAL([DOC_HTML], [test "${enable_doc_html}" = "yes"])
+
+FRR_PYTHON_MOD_EXEC([sphinx], [--version], [
+  PYSPHINX="-m sphinx"
+], [
+  PYSPHINX="-c 'import sys; from sphinx import main; sys.exit(main(sys.argv))'"
+])
+AC_SUBST([PYSPHINX])
 
 #
 # Logic for old vpn commands support.
@@ -840,25 +810,11 @@ if test -n "$frr_cv_interp"; then
   AC_DEFINE_UNQUOTED([INTERP], ["$frr_cv_interp"], [.interp value])
 fi
 
-dnl ------------------------------------
-dnl Check C keywords and standard  types
-dnl ------------------------------------
-AC_C_CONST
-AC_C_INLINE
-AC_C_VOLATILE
-AC_HEADER_STDC
-dnl AC_TYPE_PID_T
-AC_TYPE_UID_T
-AC_TYPE_MODE_T
-AC_TYPE_SIZE_T
-AC_STRUCT_TM
-
 dnl -------------------------
 dnl Check other header files.
 dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h \
-	linux/version.h asm/types.h \
-	sys/cdefs.h])
+	linux/version.h asm/types.h])
 
 ac_stdatomic_ok=false
 AC_DEFINE([FRR_AUTOCONF_ATOMIC], [1], [did autoconf checks for atomic funcs])
@@ -1045,7 +1001,7 @@ FRR_INCLUDES
 AC_CHECK_HEADERS([netinet/in_var.h \
 	net/if_dl.h net/netopt.h \
 	inet/nd.h netinet/ip_icmp.h \
-	sys/sysctl.h sys/sockio.h kvm.h sys/conf.h],
+	sys/sysctl.h sys/sockio.h sys/conf.h],
 	[], [], [FRR_INCLUDES])
 
 AC_CHECK_HEADERS([ucontext.h], [], [],
@@ -1107,6 +1063,7 @@ case "$host_os" in
     AC_CHECK_LIB([nsl], [main])
     AC_CHECK_LIB([umem], [main])
     SOLARIS="solaris"
+    AC_MSG_WARN([--Solaris support is being considered for deprecation, please let us know if you are still using this--])
     ;;
   linux*)
     AC_MSG_RESULT([Linux])
@@ -1165,7 +1122,48 @@ if test "${enable_realms}" = "yes"; then
        ;;
     esac
 fi
-AM_CONDITIONAL([SUPPORT_REALMS], [test "${enable_realms}" = "yes"])
+
+dnl -------------------------------
+dnl Endian-ness check
+dnl -------------------------------
+AC_WORDS_BIGENDIAN
+
+dnl ---------------
+dnl other functions
+dnl ---------------
+AC_CHECK_FUNCS([ \
+	strlcat strlcpy \
+	getgrouplist])
+
+dnl ##########################################################################
+dnl LARGE if block spans a lot of "configure"!
+if test "${enable_clippy_only}" != "yes"; then
+dnl ##########################################################################
+
+#
+# Logic for protobuf support.
+#
+if test "$enable_protobuf" = "yes"; then
+  # Check for protoc & protoc-c
+
+  # protoc is not required, it's only for a "be nice" helper target
+  AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
+
+  AC_CHECK_PROGS([PROTOC_C], [protoc-c], [/bin/false])
+  if test "$PROTOC_C" = "/bin/false"; then
+    AC_MSG_FAILURE([protobuf requested but protoc-c not found.  Install protobuf-c.])
+  fi
+
+  PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 0.14],, [
+    AC_MSG_FAILURE([protobuf requested but libprotobuf-c not found.  Install protobuf-c.])
+  ])
+  AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h], [], [
+    AC_MSG_FAILURE([protobuf requested but protobuf-c.h not found.  Install protobuf-c.])
+  ])
+
+  AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
+fi
+
 
 dnl ---------------------
 dnl Integrated VTY option
@@ -1214,7 +1212,6 @@ case "${enable_vtysh}" in
   ;;
 esac
 AC_SUBST([LIBREADLINE])
-AM_CONDITIONAL([VTYSH], test "x$VTYSH" = "xvtysh")
 
 dnl ----------
 dnl PAM module
@@ -1277,42 +1274,16 @@ fi
 AC_SUBST([LIBPAM])
 
 dnl -------------------------------
-dnl Endian-ness check
-dnl -------------------------------
-AC_WORDS_BIGENDIAN
-
-dnl -------------------------------
-dnl check the size in byte of the C
-dnl -------------------------------
-dnl AC_CHECK_SIZEOF(char)
-dnl AC_CHECK_SIZEOF(int)
-dnl AC_CHECK_SIZEOF(short)
-dnl AC_CHECK_SIZEOF(long)
-
-dnl ----------------------------
-dnl check existance of functions
-dnl ----------------------------
-AC_FUNC_FNMATCH
-AC_FUNC_FORK
-AC_FUNC_MKTIME
-AC_FUNC_STAT
-
-dnl -------------------------------
 dnl bgpd needs pow() and hence libm
 dnl -------------------------------
 TMPLIBS="$LIBS"
-AC_CHECK_HEADER([math.h],
-  [AC_CHECK_LIB([m], [pow],
-    [LIBM="-lm"
-     LIBS="$LIBS $LIBM"
-     AC_CHECK_FUNCS(pow,[],[LIBM=""])
-    ])
-])
-if test x"$LIBM" = x ; then
+LIBS=""
+AC_SEARCH_LIBS([pow], [m], [
+  LIBM="$LIBS"
+], [
   AC_MSG_WARN([Unable to find working pow function - bgpd may not link])
-fi
+])
 LIBS="$TMPLIBS"
-
 AC_SUBST([LIBM])
 
 AC_CHECK_FUNCS([ppoll], [
@@ -1321,13 +1292,6 @@ AC_CHECK_FUNCS([ppoll], [
 AC_CHECK_FUNCS([pollts], [
   AC_DEFINE([HAVE_POLLTS], [1], [have NetBSD pollts()])
 ])
-
-dnl ---------------
-dnl other functions
-dnl ---------------
-AC_CHECK_FUNCS([ \
-	strlcat strlcpy \
-	getgrouplist])
 
 AC_CHECK_HEADER([asm-generic/unistd.h],
                 [AC_CHECK_DECL(__NR_setns,
@@ -1473,6 +1437,38 @@ if test $ac_cv_have_decl_TCP_MD5SIG = no; then
        AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)])
 fi
 
+AC_SUBST([SOLARIS])
+AC_CHECK_LIB([crypt], [crypt], [],
+		    [AC_CHECK_LIB([crypto], [DES_crypt])])
+AC_CHECK_LIB([resolv], [res_init])
+
+dnl ---------------------------
+dnl check system has PCRE regexp
+dnl ---------------------------
+if test "x$enable_pcreposix" = "xyes"; then
+  AC_CHECK_LIB([pcreposix], [regexec], [], [
+    AC_MSG_ERROR([--enable-pcreposix given but unable to find libpcreposix])
+  ])
+fi
+AC_SUBST([HAVE_LIBPCREPOSIX])
+
+dnl ------------------
+dnl check C-Ares library
+dnl ------------------
+PKG_CHECK_MODULES([CARES], [libcares], [
+  c_ares_found=true
+],[
+  c_ares_found=false
+])
+AM_CONDITIONAL([CARES], [$c_ares_found])
+
+dnl ##########################################################################
+dnl test "${enable_clippy_only}" != "yes"
+fi
+dnl END OF LARGE if block
+dnl ##########################################################################
+
+
 dnl ----------------------------------------------------------------------------
 dnl figure out if domainname is available in the utsname struct (GNU extension).
 dnl ----------------------------------------------------------------------------
@@ -1502,31 +1498,9 @@ FRR_INCLUDES
 #endif
 ])dnl
 
-dnl disable doc check
-AC_CHECK_PROGS([SPHINXBUILD], [sphinx-build sphinx-build3 sphinx-build2], [/bin/false])
-if test "$SPHINXBUILD" = "/bin/false"; then
-  if test "${enable_doc}" = "yes"; then
-    AC_MSG_ERROR([Documentation was explicitly requested with --enable-doc but sphinx-build is not available. Please disable docs or install sphinx.])
-  fi
-fi
-AM_CONDITIONAL([DOC], [test "${enable_doc}" != "no" -a "$SPHINXBUILD" != "/bin/false"])
-AM_CONDITIONAL([DOC_HTML], [test "${enable_doc_html}" = "yes"])
-
 dnl --------------------
 dnl Daemon disable check
 dnl --------------------
-AM_CONDITIONAL([ZEBRA], [test "${enable_zebra}" != "no"])
-
-if test "${enable_bgpd}" = "no";then
-  BGPD=""
-else
-  BGPD="bgpd"
-fi
-AM_CONDITIONAL([BGPD], [test "x$BGPD" = "xbgpd"])
-
-AM_CONDITIONAL([RIPD], [test "${enable_ripd}" != "no"])
-AM_CONDITIONAL([OSPFD], [test "${enable_ospfd}" != "no"])
-AM_CONDITIONAL([LDPD], [test "${enable_ldpd}" != "no"])
 
 AS_IF([test "${enable_ldpd}" != "no"], [
   AC_DEFINE([HAVE_LDPD], [1], [ldpd])
@@ -1550,8 +1524,6 @@ else
   esac
 fi
 
-AM_CONDITIONAL([BFDD], [test "x$BFDD" = "xbfdd"])
-
 if test "$ac_cv_lib_json_c_json_object_get" = no -a "x$BFDD" = "xbfdd"; then
   AC_MSG_ERROR(["you must use json-c library to use bfdd"])
 fi
@@ -1559,9 +1531,21 @@ fi
 NHRPD=""
 case "$host_os" in
   linux*)
-    if test "${enable_nhrpd}" != "no"; then
-      NHRPD="nhrpd"
-    fi
+    case "${enable_nhrpd}" in
+      no)
+        ;;
+      yes)
+        if test "$c_ares_found" != "true" ; then
+          AC_MSG_ERROR([nhrpd requires libcares.  Please install c-ares and its -dev headers.])
+        fi
+        NHRPD="nhrpd"
+        ;;
+      *)
+        if test "$c_ares_found" = "true" ; then
+          NHRPD="nhrpd"
+        fi
+        ;;
+    esac
     ;;
   *)
     if test "${enable_nhrpd}" = "yes"; then
@@ -1569,16 +1553,12 @@ case "$host_os" in
     fi
     ;;
 esac
-AM_CONDITIONAL([NHRPD], [test "x$NHRPD" = "xnhrpd"])
-
-AM_CONDITIONAL([EIGRPD], [test "${enable_eigrpd}" != "no"])
 
 if test "${enable_watchfrr}" = "no";then
   WATCHFRR=""
 else
   WATCHFRR="watchfrr"
 fi
-AM_CONDITIONAL([WATCHFRR], [test "x$WATCHFRR" = "xwatchfrr"])
 
 OSPFCLIENT=""
 if test "${enable_ospfapi}" != "no";then
@@ -1589,17 +1569,6 @@ if test "${enable_ospfapi}" != "no";then
   fi
 fi
 
-AM_CONDITIONAL([OSPFCLIENT], [test "x$OSPFCLIENT" = "xospfclient"])
-AM_CONDITIONAL([RIPNGD], [test "${enable_ripngd}" != "no"])
-AM_CONDITIONAL([BABELD], [test "${enable_babeld}" != "no"])
-AM_CONDITIONAL([OSPF6D], [test "${enable_ospf6d}" != "no"])
-AM_CONDITIONAL([ISISD], [test "${enable_isisd}" != "no"])
-AM_CONDITIONAL([PIMD], [test "${enable_pimd}" != "no"])
-AM_CONDITIONAL([PBRD], [test "${enable_pbrd}" != "no"])
-AM_CONDITIONAL([SHARPD], [test "${enable_sharpd}" = "yes"])
-AM_CONDITIONAL([STATICD], [test "${enable_staticd}" != "no"])
-AM_CONDITIONAL([FABRICD], [test "${enable_fabricd}" != "no"])
-
 if test "${enable_bgp_announce}" = "no";then
   AC_DEFINE([DISABLE_BGP_ANNOUNCE], [1], [Disable BGP installation to zebra])
 else
@@ -1609,32 +1578,28 @@ fi
 if test "${enable_bgp_vnc}" != "no";then
   AC_DEFINE([ENABLE_BGP_VNC], [1], [Enable BGP VNC support])
 fi
-AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
 
-AC_SUBST([SOLARIS])
-AC_CHECK_LIB([crypt], [crypt], [],
-		    [AC_CHECK_LIB([crypto], [DES_crypt])])
-AC_CHECK_LIB([resolv], [res_init])
+bgpd_bmp=false
+case "${enable_bmp}" in
+  no)
+    ;;
+  yes)
+    if test "$c_ares_found" != "true" ; then
+      AC_MSG_ERROR([BMP support requires libcares.  Please install c-ares and its -dev headers.])
+    fi
+    bgpd_bmp=true
+    ;;
+  *)
+    if test "$c_ares_found" = "true" ; then
+      bgpd_bmp=true
+    fi
+    ;;
+esac
 
-dnl ---------------------------
-dnl check system has PCRE regexp
-dnl ---------------------------
-if test "x$enable_pcreposix" = "xyes"; then
-  AC_CHECK_LIB([pcreposix], [regexec], [], [
-    AC_MSG_ERROR([--enable-pcreposix given but unable to find libpcreposix])
-  ])
-fi
-AC_SUBST([HAVE_LIBPCREPOSIX])
-
-dnl ------------------
-dnl check C-Ares library
-dnl ------------------
-if test "${NHRPD}" != ""; then
-  PKG_CHECK_MODULES([CARES], [libcares], ,[
-    AC_MSG_ERROR([trying to build nhrpd, but libcares not found. install c-ares and its -dev headers.])
-  ])
-fi
-
+dnl ##########################################################################
+dnl LARGE if block
+if test "${enable_clippy_only}" != "yes"; then
+dnl ##########################################################################
 
 dnl ------------------
 dnl check Net-SNMP library
@@ -1660,6 +1625,7 @@ int main(void);
   return 0;
 }
 ])], [
+     AC_MSG_RESULT([no])
      AC_MSG_ERROR([--enable-snmp given but not usable])])
    case "${enable_snmp}" in
      yes)
@@ -1675,15 +1641,14 @@ int main(void);
    AH_TEMPLATE([SNMP_AGENTX], [Use SNMP AgentX to interface with snmpd])
    AC_DEFINE_UNQUOTED(AS_TR_CPP(SNMP_${SNMP_METHOD}),,[SNMP method to interface with snmpd])
 fi
-AM_CONDITIONAL([SNMP], [test "x${SNMP_METHOD}" != "x"])
 AC_SUBST([SNMP_LIBS])
 AC_SUBST([SNMP_CFLAGS])
 
 dnl ---------------
 dnl libyang
 dnl ---------------
-PKG_CHECK_MODULES([LIBYANG], [libyang >= 0.16.7], , [
-  AC_MSG_ERROR([libyang (>= 0.16.7) was not found on your system.])
+PKG_CHECK_MODULES([LIBYANG], [libyang >= 0.16.105], , [
+  AC_MSG_ERROR([libyang (>= 0.16.105) was not found on your system.])
 ])
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
@@ -1708,7 +1673,6 @@ if test "$enable_config_rollbacks" = "yes"; then
     AC_MSG_ERROR([--enable-config-rollbacks given but sqlite3 was not found on your system.])
   ])
 fi
-AM_CONDITIONAL([SQLITE3], [$SQLITE3])
 
 dnl ---------------
 dnl confd
@@ -1724,7 +1688,6 @@ if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
    AC_SUBST([CONFD_LIBS])
    AC_DEFINE([HAVE_CONFD], [1], [Enable confd integration])
 fi
-AM_CONDITIONAL([CONFD], [test "x$enable_confd" != "x"])
 
 dnl ---------------
 dnl sysrepo
@@ -1737,7 +1700,6 @@ if test "$enable_sysrepo" = "yes"; then
       AC_MSG_ERROR([sysrepo was not found on your system.])]
   )
 fi
-AM_CONDITIONAL([SYSREPO], [test "x$enable_sysrepo" = "xyes"])
 
 dnl ---------------
 dnl gRPC
@@ -1756,12 +1718,42 @@ if test "$enable_grpc" = "yes"; then
     AC_MSG_ERROR([grpc/grpc++ were not found on your system.])
   ])
 fi
-AM_CONDITIONAL([GRPC], [test "x$enable_grpc" = "xyes"])
 
-dnl ---------------
-dnl math
-dnl ---------------
-AC_SEARCH_LIBS([sqrt], [m])
+dnl ------
+dnl ZeroMQ
+dnl ------
+if test "x$enable_zeromq" != "xno"; then
+  PKG_CHECK_MODULES([ZEROMQ], [libzmq >= 4.0.0], [
+    AC_DEFINE([HAVE_ZEROMQ], [1], [Enable ZeroMQ support])
+    ZEROMQ=true
+  ], [
+    if test "x$enable_zeromq" = "xyes"; then
+      AC_MSG_ERROR([configuration specifies --enable-zeromq but libzmq was not found])
+    fi
+  ])
+fi
+
+dnl ------------------------------------
+dnl Enable RPKI and add librtr to libs
+dnl ------------------------------------
+if test "${enable_rpki}" = "yes"; then
+  PKG_CHECK_MODULES([RTRLIB], [rtrlib >= 0.5.0],
+      [RPKI=true],
+      [RPKI=false
+      AC_MSG_ERROR([rtrlib was not found on your system or is too old.])]
+  )
+fi
+
+dnl ------------------------------------------
+dnl Check whether rtrlib was build with ssh support
+dnl ------------------------------------------
+AC_MSG_CHECKING([whether the RTR Library is compiled with SSH])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include "rtrlib/rtrlib.h"]],
+			[[struct tr_ssh_config config;]])],
+	[AC_MSG_RESULT([yes])
+	AC_DEFINE([FOUND_SSH], [1], [found_ssh])],
+	AC_MSG_RESULT([no])
+)
 
 dnl ---------------
 dnl dlopen & dlinfo
@@ -1812,7 +1804,11 @@ if test "$frr_cv_rtld_di_linkmap" = yes; then
   AC_DEFINE([HAVE_DLINFO_LINKMAP], [1], [Have dlinfo RTLD_DI_LINKMAP])
 fi
 
-AM_CONDITIONAL([SNMP], [test "x$SNMP_METHOD" = "xagentx"])
+dnl ##########################################################################
+dnl test "${enable_clippy_only}" != "yes"
+fi
+dnl END OF LARGE if block
+dnl ##########################################################################
 
 dnl ---------------------------
 dnl sockaddr and netinet checks
@@ -1822,7 +1818,7 @@ AC_CHECK_TYPES([
 	struct vifctl, struct mfcctl, struct sioc_sg_req,
 	vifi_t, struct sioc_vif_req, struct igmpmsg,
 	struct ifaliasreq, struct if6_aliasreq, struct in6_aliasreq,
-	struct nd_opt_adv_interval, struct rt_addrinfo,
+	struct nd_opt_adv_interval,
 	struct nd_opt_homeagent_info, struct nd_opt_adv_interval,
 	struct nd_opt_rdnss, struct nd_opt_dnssl],
 	[], [], FRR_INCLUDES)
@@ -1857,7 +1853,6 @@ no)
   ;;
 esac
 
-AM_CONDITIONAL([IRDP], [$IRDP])
 
 dnl -----------------------
 dnl checking for IP_PKTINFO
@@ -1964,7 +1959,7 @@ AC_MSG_CHECKING([version of bison])
 frr_ac_bison_version="$(eval $YACC -V | grep bison | head -n 1)"
 frr_ac_bison_version="${frr_ac_bison_version##* }"
 frr_ac_bison_missing="false"
-case "x${frr_ac_bison_version}" in
+case "x${frr_ac_bison_version}x" in
   x2.7*)
     BISON_OPENBRACE='"'
     BISON_CLOSEBRACE='"'
@@ -1981,11 +1976,17 @@ case "x${frr_ac_bison_version}" in
     AC_MSG_WARN([could not determine bison version.  Please install GNU bison 2.7.x or newer.])
     frr_ac_bison_missing="true"
     ;;
-  *)
+  x3.[012][^0-9]*)
     BISON_OPENBRACE='{'
     BISON_CLOSEBRACE='}'
     BISON_VERBOSE='-Dparse.error=verbose'
-    AC_MSG_RESULT([$frr_ac_bison_version - 3.0 or newer])
+    AC_MSG_RESULT([$frr_ac_bison_version - 3.0 to 3.2])
+    ;;
+  *)
+    BISON_OPENBRACE='{'
+    BISON_CLOSEBRACE='}'
+    BISON_VERBOSE='-Dparse.error=verbose -Wno-yacc'
+    AC_MSG_RESULT([$frr_ac_bison_version - 3.3 or newer])
     ;;
 esac
 AC_SUBST([BISON_OPENBRACE])
@@ -2037,6 +2038,20 @@ if test "${enable_capabilities}" != "no"; then
        -o x"${frr_ac_lcaps}" = x"yes"; then
     AC_DEFINE([HAVE_CAPABILITIES], [1], [capabilities])
   fi
+
+  case "$host_os" in
+  linux*)
+    if test "$frr_ac_lcaps" != "yes"; then
+      AC_MSG_ERROR([libcap and/or its headers were not found.  Running FRR without libcap support built in causes a huge performance penalty.])
+    fi
+    ;;
+  esac
+else
+  case "$host_os" in
+  linux*)
+    AC_MSG_WARN([Running FRR without libcap support built in causes a huge performance penalty.])
+    ;;
+  esac
 fi
 AC_SUBST([LIBCAP])
 
@@ -2139,21 +2154,6 @@ size_t ac_x; ac_x = malloc_size(NULL);
   ])
 ])
 
-dnl ------
-dnl ZeroMQ
-dnl ------
-if test "x$enable_zeromq" != "xno"; then
-  PKG_CHECK_MODULES([ZEROMQ], [libzmq >= 4.0.0], [
-    AC_DEFINE([HAVE_ZEROMQ], [1], [Enable ZeroMQ support])
-    ZEROMQ=true
-  ], [
-    if test "x$enable_zeromq" = "xyes"; then
-      AC_MSG_ERROR([configuration specifies --enable-zeromq but libzmq was not found])
-    fi
-  ])
-fi
-AM_CONDITIONAL([ZEROMQ], [test "x$ZEROMQ" = "xtrue"])
-
 dnl ----------
 dnl configure date
 dnl ----------
@@ -2196,10 +2196,10 @@ fi
 AC_MSG_RESULT([${frr_statedir}])
 AC_SUBST([frr_statedir])
 
-AC_DEFINE_UNQUOTED([LDPD_SOCKET], ["$frr_statedir/ldpd.sock"], [ldpd control socket])
-AC_DEFINE_UNQUOTED([ZEBRA_SERV_PATH], ["$frr_statedir/zserv.api"], [zebra api socket])
-AC_DEFINE_UNQUOTED([BFDD_CONTROL_SOCKET], ["$frr_statedir/bfdd.sock"], [bfdd control socket])
-AC_DEFINE_UNQUOTED([DAEMON_VTY_DIR], ["$frr_statedir"], [daemon vty directory])
+AC_DEFINE_UNQUOTED([LDPD_SOCKET], ["$frr_statedir%s%s/ldpd.sock"], [ldpd control socket])
+AC_DEFINE_UNQUOTED([ZEBRA_SERV_PATH], ["$frr_statedir%s%s/zserv.api"], [zebra api socket])
+AC_DEFINE_UNQUOTED([BFDD_CONTROL_SOCKET], ["$frr_statedir%s%s/bfdd.sock"], [bfdd control socket])
+AC_DEFINE_UNQUOTED([DAEMON_VTY_DIR], ["$frr_statedir%s%s"], [daemon vty directory])
 AC_DEFINE_UNQUOTED([DAEMON_DB_DIR], ["$frr_statedir"], [daemon database directory])
 
 dnl autoconf does this, but it does it too late...
@@ -2219,59 +2219,60 @@ CFG_SBIN="$sbindir"
 CFG_STATE="$frr_statedir"
 CFG_MODULE="$moduledir"
 CFG_YANGMODELS="$yangmodelsdir"
-CFG_LIBYANG_PLUGINS="$libyang_pluginsdir"
 for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
 	eval CFG_SBIN="\"$CFG_SBIN\""
 	eval CFG_STATE="\"$CFG_STATE\""
 	eval CFG_MODULE="\"$CFG_MODULE\""
 	eval CFG_YANGMODELS="\"$CFG_YANGMODELS\""
-	eval CFG_LIBYANG_PLUGINS="\"$CFG_LIBYANG_PLUGINS\""
 done
 AC_SUBST([CFG_SYSCONF])
 AC_SUBST([CFG_SBIN])
 AC_SUBST([CFG_STATE])
 AC_SUBST([CFG_MODULE])
 AC_SUBST([CFG_YANGMODELS])
-AC_SUBST([CFG_LIBYANG_PLUGINS])
 AC_DEFINE_UNQUOTED([MODULE_PATH], ["$CFG_MODULE"], [path to modules])
 AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
-AC_DEFINE_UNQUOTED([LIBYANG_PLUGINS_PATH], ["$CFG_LIBYANG_PLUGINS"], [path to libyang plugins])
 AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
 
-dnl ------------------------------------
-dnl Enable RPKI and add librtr to libs
-dnl ------------------------------------
-if test "${enable_rpki}" = "yes"; then
-  PKG_CHECK_MODULES([RTRLIB], [rtrlib >= 0.5.0],
-      [RPKI=true],
-      [RPKI=false
-      AC_MSG_ERROR([rtrlib was not found on your system or is too old.])]
-  )
-fi
+dnl various features
+AM_CONDITIONAL([SUPPORT_REALMS], [test "${enable_realms}" = "yes"])
+AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
+AM_CONDITIONAL([BGP_BMP], [$bgpd_bmp])
+dnl northbound
+AM_CONDITIONAL([SQLITE3], [$SQLITE3])
+AM_CONDITIONAL([CONFD], [test "x$enable_confd" != "x"])
+AM_CONDITIONAL([SYSREPO], [test "x$enable_sysrepo" = "xyes"])
+AM_CONDITIONAL([GRPC], [test "x$enable_grpc" = "xyes"])
+AM_CONDITIONAL([ZEROMQ], [test "x$ZEROMQ" = "xtrue"])
+dnl plugins
 AM_CONDITIONAL([RPKI], [test "x$RPKI" = "xtrue"])
-
-dnl ------------------------------------------
-dnl Check whether rtrlib was build with ssh support
-dnl ------------------------------------------
-AC_MSG_CHECKING([whether the RTR Library is compiled with SSH])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include "rtrlib/rtrlib.h"]],
-			[[struct tr_ssh_config config;]])],
-	[AC_MSG_RESULT([yes])
-	AC_DEFINE([FOUND_SSH], [1], [found_ssh])],
-	AC_MSG_RESULT([no])
-)
-
-dnl ---------------------------
-dnl Check htonl works correctly
-dnl ---------------------------
-AC_MSG_CHECKING([for working htonl])
-AC_CACHE_VAL(ac_cv_htonl_works,
- [AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES],[htonl (0);])],
- 		[ac_cv_htonl_works=yes], [ac_cv_htonl_works=no])
- ]
-)
-AC_MSG_RESULT([$ac_cv_htonl_works])
+AM_CONDITIONAL([SNMP], [test "x$SNMP_METHOD" = "xagentx"])
+AM_CONDITIONAL([IRDP], [$IRDP])
+AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
+AM_CONDITIONAL([HAVE_PROTOBUF], [test "x$enable_protobuf" = "xyes"])
+dnl daemons
+AM_CONDITIONAL([VTYSH], [test "x$VTYSH" = "xvtysh"])
+AM_CONDITIONAL([ZEBRA], [test "${enable_zebra}" != "no"])
+AM_CONDITIONAL([BGPD], [test "x${enable_bgpd}" != "no"])
+AM_CONDITIONAL([RIPD], [test "${enable_ripd}" != "no"])
+AM_CONDITIONAL([OSPFD], [test "${enable_ospfd}" != "no"])
+AM_CONDITIONAL([LDPD], [test "${enable_ldpd}" != "no"])
+AM_CONDITIONAL([BFDD], [test "x$BFDD" = "xbfdd"])
+AM_CONDITIONAL([NHRPD], [test "x$NHRPD" = "xnhrpd"])
+AM_CONDITIONAL([EIGRPD], [test "${enable_eigrpd}" != "no"])
+AM_CONDITIONAL([WATCHFRR], [test "x$WATCHFRR" = "xwatchfrr"])
+AM_CONDITIONAL([OSPFCLIENT], [test "x$OSPFCLIENT" = "xospfclient"])
+AM_CONDITIONAL([RIPNGD], [test "${enable_ripngd}" != "no"])
+AM_CONDITIONAL([BABELD], [test "${enable_babeld}" != "no"])
+AM_CONDITIONAL([OSPF6D], [test "${enable_ospf6d}" != "no"])
+AM_CONDITIONAL([ISISD], [test "${enable_isisd}" != "no"])
+AM_CONDITIONAL([PIMD], [test "${enable_pimd}" != "no"])
+AM_CONDITIONAL([PBRD], [test "${enable_pbrd}" != "no"])
+AM_CONDITIONAL([SHARPD], [test "${enable_sharpd}" = "yes"])
+AM_CONDITIONAL([STATICD], [test "${enable_staticd}" != "no"])
+AM_CONDITIONAL([FABRICD], [test "${enable_fabricd}" != "no"])
+AM_CONDITIONAL([VRRPD], [test "${enable_vrrpd}" != "no"])
 
 AC_CONFIG_FILES([Makefile],[sed -e 's/^#AUTODERP# //' -i Makefile])
 
@@ -2350,7 +2351,9 @@ zebra protobuf enabled  : ${enable_protobuf:-no}
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."
 
-if test "${enable_doc}" != "no";then
-  AS_IF([test "$SPHINXBUILD" = /bin/false],
-     AC_MSG_WARN([sphinx-build is missing but required to build documentation]))
+if test "${enable_doc}" != "no" -a "$frr_py_mod_sphinx" = false; then
+  AC_MSG_WARN([sphinx is missing but required to build documentation])
+fi
+if test "$frr_py_mod_pytest" = false; then
+  AC_MSG_WARN([pytest is missing, unit tests cannot be performed])
 fi

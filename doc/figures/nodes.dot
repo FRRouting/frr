@@ -55,7 +55,6 @@ digraph climodes {
 	CONFIG_NODE -> KEYCHAIN_KEY_NODE [ label="key (0-2147483647)" ];
 	KEYCHAIN_NODE -> KEYCHAIN_KEY_NODE [ label="key (0-2147483647)" ];
 	KEYCHAIN_KEY_NODE -> KEYCHAIN_NODE [ label="no key (0-2147483647)" ];
-	CONFIG_NODE -> LOGICALROUTER_NODE [ label="logical-router (1-65535) ns NAME" ];
 	CONFIG_NODE -> VRF_NODE [ label="vrf NAME" ];
 	CONFIG_NODE -> INTERFACE_NODE [ label="interface IFNAME vrf NAME" ];
 	INTERFACE_NODE -> LINK_PARAMS_NODE [ label="link-params" ];

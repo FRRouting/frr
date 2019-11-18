@@ -87,6 +87,7 @@ struct pbr_map_sequence {
 	 */
 	struct prefix *src;
 	struct prefix *dst;
+	uint32_t mark;
 
 	/*
 	 * Family of the src/dst.  Needed when deleting since we clear them
@@ -126,7 +127,7 @@ struct pbr_map_sequence {
 #define PBR_MAP_INVALID_NEXTHOP        (1 << 1)
 #define PBR_MAP_INVALID_NO_NEXTHOPS    (1 << 2)
 #define PBR_MAP_INVALID_BOTH_NHANDGRP  (1 << 3)
-#define PBR_MAP_INVALID_SRCDST         (1 << 4)
+#define PBR_MAP_INVALID_EMPTY          (1 << 4)
 	uint64_t reason;
 
 	QOBJ_FIELDS

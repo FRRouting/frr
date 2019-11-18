@@ -180,13 +180,37 @@ Basic Config Commands
    In this example, the precision is set to provide timestamps with
    millisecond accuracy.
 
-.. index:: log commands
-.. clicmd:: log commands
+.. index:: [no] log commands
+.. clicmd:: [no] log commands
 
    This command enables the logging of all commands typed by a user to all
    enabled log destinations. The note that logging includes full command lines,
-   including passwords. Once set, command logging can only be turned off by
-   restarting the daemon.
+   including passwords. If the daemon startup option `--command-log-always`
+   is used to start the daemon then this command is turned on by default
+   and cannot be turned off and the [no] form of the command is dissallowed.
+
+.. index::
+   single: no log-filter WORD [DAEMON]
+   single: log-filter WORD [DAEMON]
+
+.. clicmd:: [no] log-filter WORD [DAEMON]
+
+   This command forces logs to be filtered on a specific string. A log message
+   will only be printed if it matches on one of the filters in the log-filter
+   table. Can be daemon independent.
+
+   .. note::
+
+      Log filters help when you need to turn on debugs that cause significant
+      load on the system (enabling certain debugs can bring FRR to a halt).
+      Log filters prevent this but you should still expect a small performance
+      hit due to filtering each of all those logs.
+
+.. index:: log-filter clear [DAEMON]
+.. clicmd:: log-filter clear [DAEMON]
+
+   This command clears all current filters in the log-filter table. Can be
+   daemon independent.
 
 .. index:: service password-encryption
 .. clicmd:: service password-encryption
@@ -287,8 +311,8 @@ Terminal Mode Commands
 
    Write current configuration to configuration file.
 
-.. index:: configure terminal
-.. clicmd:: configure terminal
+.. index:: configure [terminal]
+.. clicmd:: configure [terminal]
 
    Change to configuration mode. This command is the first step to
    configuration.
@@ -319,6 +343,11 @@ Terminal Mode Commands
 
    Shows the current configuration of the logging system. This includes the
    status of all logging destinations.
+
+.. index:: show log-filter
+.. clicmd:: show log-filter
+
+   Shows the current log filters applied to each daemon.
 
 .. index:: show memory
 .. clicmd:: show memory
@@ -414,6 +443,22 @@ Terminal Mode Commands
         (view)  show [ip] bgp l2vpn evpn all overlay
         ...
 
+.. _common-show-commands:
+
+.. index:: show thread cpu
+.. clicmd:: show thread cpu [r|w|t|e|x]
+
+   This command displays system run statistics for all the different event
+   types. If no options is specified all different run types are displayed
+   together.  Additionally you can ask to look at (r)ead, (w)rite, (t)imer,
+   (e)vent and e(x)ecute thread event types.
+
+.. index:: show thread poll
+.. clicmd:: show thread poll
+
+   This command displays FRR's poll data.  It allows a glimpse into how
+   we are setting each individual fd for the poll command at that point
+   in time.
 
 .. _common-invocation-options:
 
@@ -462,9 +507,22 @@ These options apply to all |PACKAGE_NAME| daemons.
 
    Set the user and group to run as.
 
+.. option:: -N <namespace>
+
+   Set the namespace that the daemon will run in.  A "/<namespace>" will
+   be added to all files that use the statedir.  If you have "/var/run/frr"
+   as the default statedir then it will become "/var/run/frr/<namespace>".
+
 .. option:: -v, --version
 
    Print program version.
+
+.. option:: --command-log-always
+
+   Cause the daemon to always log commands entered to the specified log file.
+   This also makes the `no log commands` command dissallowed.  Enabling this
+   is suggested if you have need to track what the operator is doing on
+   this router.
 
 .. option:: --log <stdout|syslog|file:/path/to/log/file>
 

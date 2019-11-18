@@ -27,6 +27,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/zebra_router.h"
 
 #include "privs.h"
 #include "prefix.h"
@@ -118,7 +119,7 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 			hdr.rtm_mpls = MPLS_OP_SWAP;
 	}
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		ret = writev(kr_state.fd, iov, iovcnt);
 	}
 
@@ -225,7 +226,7 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 			hdr.rtm_mpls = MPLS_OP_SWAP;
 	}
 
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		ret = writev(kr_state.fd, iov, iovcnt);
 	}
 
@@ -262,7 +263,7 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 		if (!nexthop)
 			continue;
 
-		if (nexthop_num >= multipath_num)
+		if (nexthop_num >= zrouter.multipath_num)
 			break;
 
 		if (((action == RTM_ADD || action == RTM_CHANGE)
@@ -368,7 +369,7 @@ static enum zebra_dplane_result kmpw_install(struct zebra_dplane_ctx *ctx)
 
 	/* ioctl */
 	memset(&ifr, 0, sizeof(ifr));
-	strlcpy(ifr.ifr_name, dplane_ctx_get_pw_ifname(ctx),
+	strlcpy(ifr.ifr_name, dplane_ctx_get_ifname(ctx),
 		sizeof(ifr.ifr_name));
 	ifr.ifr_data = (caddr_t)&imr;
 	if (ioctl(kr_state.ioctl_fd, SIOCSETMPWCFG, &ifr) == -1) {
@@ -387,7 +388,7 @@ static enum zebra_dplane_result kmpw_uninstall(struct zebra_dplane_ctx *ctx)
 
 	memset(&ifr, 0, sizeof(ifr));
 	memset(&imr, 0, sizeof(imr));
-	strlcpy(ifr.ifr_name, dplane_ctx_get_pw_ifname(ctx),
+	strlcpy(ifr.ifr_name, dplane_ctx_get_ifname(ctx),
 		sizeof(ifr.ifr_name));
 	ifr.ifr_data = (caddr_t)&imr;
 	if (ioctl(kr_state.ioctl_fd, SIOCSETMPWCFG, &ifr) == -1) {

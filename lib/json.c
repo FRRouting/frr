@@ -64,6 +64,11 @@ void json_object_boolean_true_add(struct json_object *obj, const char *key)
 	json_object_object_add(obj, key, json_object_new_boolean(1));
 }
 
+void json_object_boolean_add(struct json_object *obj, const char *key, bool val)
+{
+	json_object_object_add(obj, key, json_object_new_boolean(val));
+}
+
 struct json_object *json_object_lock(struct json_object *obj)
 {
 	return json_object_get(obj);

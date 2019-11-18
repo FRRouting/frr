@@ -81,20 +81,13 @@ extern void openzlog(const char *progname, const char *protoname,
 /* Close zlog function. */
 extern void closezlog(void);
 
-/* GCC have printf type attribute check.  */
-#ifdef __GNUC__
-#define PRINTF_ATTRIBUTE(a,b) __attribute__ ((__format__ (__printf__, a, b)))
-#else
-#define PRINTF_ATTRIBUTE(a,b)
-#endif /* __GNUC__ */
-
 /* Handy zlog functions. */
-extern void zlog_err(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_warn(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_info(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_notice(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_debug(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog(int priority, const char *format, ...) PRINTF_ATTRIBUTE(2, 3);
+extern void zlog_err(const char *format, ...) PRINTFRR(1, 2);
+extern void zlog_warn(const char *format, ...) PRINTFRR(1, 2);
+extern void zlog_info(const char *format, ...) PRINTFRR(1, 2);
+extern void zlog_notice(const char *format, ...) PRINTFRR(1, 2);
+extern void zlog_debug(const char *format, ...) PRINTFRR(1, 2);
+extern void zlog(int priority, const char *format, ...) PRINTFRR(2, 3);
 
 /* For logs which have error codes associated with them */
 #define flog_err(ferr_id, format, ...)                                        \
@@ -122,18 +115,23 @@ extern int zlog_reset_file(void);
 /* Rotate log. */
 extern int zlog_rotate(void);
 
+#define ZLOG_FILTERS_MAX 100      /* Max # of filters at once */
+#define ZLOG_FILTER_LENGTH_MAX 80 /* 80 character filter limit */
+
+/* Add/Del/Dump log filters */
+extern void zlog_filter_clear(void);
+extern int zlog_filter_add(const char *filter);
+extern int zlog_filter_del(const char *filter);
+extern int zlog_filter_dump(char *buf, size_t max_size);
+
 const char *lookup_msg(const struct message *mz, int kz, const char *nf);
 
 /* Safe version of strerror -- never returns NULL. */
 extern const char *safe_strerror(int errnum);
 
 /* To be called when a fatal signal is caught. */
-extern void zlog_signal(int signo, const char *action
-#ifdef SA_SIGINFO
-			,
-			siginfo_t *siginfo, void *program_counter
-#endif
-			);
+extern void zlog_signal(int signo, const char *action, void *siginfo,
+			void *program_counter);
 
 /* Log a backtrace. */
 extern void zlog_backtrace(int priority);
@@ -157,6 +155,25 @@ extern size_t quagga_timestamp(int timestamp_precision /* # subsecond digits */,
 extern void zlog_hexdump(const void *mem, unsigned int len);
 extern const char *zlog_sanitize(char *buf, size_t bufsz, const void *in,
 				 size_t inlen);
+
+/* Note: whenever a new route-type or zserv-command is added the
+ * corresponding {command,route}_types[] table in lib/log.c MUST be
+ * updated! */
+
+/* Map a route type to a string.  For example, ZEBRA_ROUTE_RIPNG -> "ripng". */
+extern const char *zebra_route_string(unsigned int route_type);
+/* Map a route type to a char.  For example, ZEBRA_ROUTE_RIPNG -> 'R'. */
+extern char zebra_route_char(unsigned int route_type);
+/* Map a zserv command type to the same string,
+ * e.g. ZEBRA_INTERFACE_ADD -> "ZEBRA_INTERFACE_ADD" */
+/* Map a protocol name to its number. e.g. ZEBRA_ROUTE_BGP->9*/
+extern int proto_name2num(const char *s);
+/* Map redistribute X argument to protocol number.
+ * unlike proto_name2num, this accepts shorthands and takes
+ * an AFI value to restrict input */
+extern int proto_redistnum(int afi, const char *s);
+
+extern const char *zserv_command_string(unsigned int command);
 
 
 extern int vzlog_test(int priority);

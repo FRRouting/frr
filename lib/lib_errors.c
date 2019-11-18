@@ -51,6 +51,12 @@ static struct log_ref ferr_lib_warn[] = {
 		.suggestion = "Gather log data and open an Issue",
 	},
 	{
+		.code = EC_LIB_NO_THREAD,
+		.title = "The Event subsystem has detected an internal FD problem",
+		.description = "The Event subsystem has detected a file descriptor read/write event without an associated handling function.  This is a bug, please collect log data and open an issue.",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
 		.code = EC_LIB_RMAP_RECURSION_LIMIT,
 		.title = "Reached the Route-Map Recursion Limit",
 		.description = "The Route-Map subsystem has detected a route-map depth of RMAP_RECURSION_LIMIT and has stopped processing",
@@ -349,6 +355,12 @@ static struct log_ref ferr_lib_err[] = {
 		.title = "A northbound configuration callback has failed in the APPLY phase",
 		.description = "A callback used to process a configuration change has returned an error while applying the changes",
 		.suggestion = "Gather log data and open an Issue.",
+	},
+	{
+		.code = EC_LIB_RESOLVER,
+		.title = "DNS Resolution",
+		.description = "An error was detected while attempting to resolve a hostname",
+		.suggestion = "Ensure that DNS is working properly and the hostname is configured in dns.  If you are still seeing this error, open an issue"
 	},
 	{
 		.code = END_FERR,

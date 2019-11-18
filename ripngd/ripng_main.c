@@ -41,10 +41,7 @@
 #include "ripngd/ripngd.h"
 
 /* RIPngd options. */
-#if CONFDATE > 20190521
-	CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")
-#endif
-struct option longopts[] = {{"retain", no_argument, NULL, 'r'}, {0}};
+struct option longopts[] = {{0}};
 
 /* ripngd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
@@ -132,10 +129,7 @@ FRR_DAEMON_INFO(ripngd, RIPNG, .vty_port = RIPNG_VTY_PORT,
 		.yang_modules = ripngd_yang_modules,
 		.n_yang_modules = array_size(ripngd_yang_modules), )
 
-#if CONFDATE > 20190521
-CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")
-#endif
-#define DEPRECATED_OPTIONS "r"
+#define DEPRECATED_OPTIONS ""
 
 /* RIPngd main routine. */
 int main(int argc, char **argv)

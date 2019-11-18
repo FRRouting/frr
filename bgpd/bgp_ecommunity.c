@@ -241,7 +241,7 @@ void ecommunity_unintern(struct ecommunity **ecom)
 }
 
 /* Utinity function to make hash key.  */
-unsigned int ecommunity_hash_make(void *arg)
+unsigned int ecommunity_hash_make(const void *arg)
 {
 	const struct ecommunity *ecom = arg;
 	int size = ecom->size * ECOMMUNITY_SIZE;
@@ -352,7 +352,7 @@ static const char *ecommunity_gettoken(const char *str,
 	char buf[INET_ADDRSTRLEN + 1];
 
 	/* Skip white space. */
-	while (isspace((int)*p)) {
+	while (isspace((unsigned char)*p)) {
 		p++;
 		str++;
 	}
@@ -362,38 +362,38 @@ static const char *ecommunity_gettoken(const char *str,
 		return NULL;
 
 	/* "rt" and "soo" keyword parse. */
-	if (!isdigit((int)*p)) {
+	if (!isdigit((unsigned char)*p)) {
 		/* "rt" match check.  */
-		if (tolower((int)*p) == 'r') {
+		if (tolower((unsigned char)*p) == 'r') {
 			p++;
-			if (tolower((int)*p) == 't') {
+			if (tolower((unsigned char)*p) == 't') {
 				p++;
 				*token = ecommunity_token_rt;
 				return p;
 			}
-			if (isspace((int)*p) || *p == '\0') {
+			if (isspace((unsigned char)*p) || *p == '\0') {
 				*token = ecommunity_token_rt;
 				return p;
 			}
 			goto error;
 		}
 		/* "soo" match check.  */
-		else if (tolower((int)*p) == 's') {
+		else if (tolower((unsigned char)*p) == 's') {
 			p++;
-			if (tolower((int)*p) == 'o') {
+			if (tolower((unsigned char)*p) == 'o') {
 				p++;
-				if (tolower((int)*p) == 'o') {
+				if (tolower((unsigned char)*p) == 'o') {
 					p++;
 					*token = ecommunity_token_soo;
 					return p;
 				}
-				if (isspace((int)*p) || *p == '\0') {
+				if (isspace((unsigned char)*p) || *p == '\0') {
 					*token = ecommunity_token_soo;
 					return p;
 				}
 				goto error;
 			}
-			if (isspace((int)*p) || *p == '\0') {
+			if (isspace((unsigned char)*p) || *p == '\0') {
 				*token = ecommunity_token_soo;
 				return p;
 			}
@@ -415,7 +415,7 @@ static const char *ecommunity_gettoken(const char *str,
 	 * OPQR:    Four byte value
 	 *
 	 */
-	while (isdigit((int)*p) || *p == ':' || *p == '.') {
+	while (isdigit((unsigned char)*p) || *p == ':' || *p == '.') {
 		if (*p == ':') {
 			if (separator)
 				goto error;

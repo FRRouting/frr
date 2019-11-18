@@ -148,12 +148,6 @@ static int dispatch_assert(struct interface *ifp, struct in_addr source_addr,
 	sg.src = source_addr;
 	sg.grp = group_addr;
 	ch = pim_ifchannel_add(ifp, &sg, 0, 0);
-	if (!ch) {
-		zlog_warn(
-			"%s: (S,G)=%s failure creating channel on interface %s",
-			__PRETTY_FUNCTION__, pim_str_sg_dump(&sg), ifp->name);
-		return -1;
-	}
 
 	switch (ch->ifassert_state) {
 	case PIM_IFASSERT_NOINFO:
@@ -418,7 +412,7 @@ int pim_assert_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,
 	  Add PIM header
 	*/
 	pim_msg_size = pim_msg_curr - pim_msg;
-	pim_msg_build_header(pim_msg, pim_msg_size, PIM_MSG_TYPE_ASSERT);
+	pim_msg_build_header(pim_msg, pim_msg_size, PIM_MSG_TYPE_ASSERT, false);
 
 	return pim_msg_size;
 }
@@ -734,7 +728,7 @@ void assert_action_a5(struct pim_ifchannel *ch)
 	  winner metric as AssertWinnerMetric(S,G,I).
 	  Set Assert Timer to Assert_Time.
 	  If (I is RPF_interface(S)) AND (UpstreamJPState(S,G) == true)
-	  set SPTbit(S,G) to TRUE.
+	  set SPTbit(S,G) to true.
 */
 static void assert_action_a6(struct pim_ifchannel *ch,
 			     struct pim_assert_metric winner_metric)
@@ -743,7 +737,7 @@ static void assert_action_a6(struct pim_ifchannel *ch,
 
 	/*
 	  If (I is RPF_interface(S)) AND (UpstreamJPState(S,G) == true) set
-	  SPTbit(S,G) to TRUE.
+	  SPTbit(S,G) to true.
 	*/
 	if (ch->upstream->rpf.source_nexthop.interface == ch->interface)
 		if (ch->upstream->join_state == PIM_UPSTREAM_JOINED)

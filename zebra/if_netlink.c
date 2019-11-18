@@ -385,7 +385,7 @@ static int get_iflink_speed(struct interface *interface)
 	ifdata.ifr_data = (caddr_t)&ecmd;
 
 	/* use ioctl to get IP address of an interface */
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
 				interface->vrf_id,
 				NULL);
@@ -590,7 +590,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	char *kind = NULL;
 	char *desc = NULL;
 	char *slave_kind = NULL;
-	struct zebra_ns *zns;
+	struct zebra_ns *zns = NULL;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	zebra_iftype_t zif_type = ZEBRA_IF_OTHER;
 	zebra_slave_iftype_t zif_slave_type = ZEBRA_IF_SLAVE_NONE;
@@ -598,6 +598,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
 	ifindex_t bond_ifindex = IFINDEX_INTERNAL;
 	struct zebra_if *zif;
+	struct vrf *vrf = NULL;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -681,9 +682,17 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (tb[IFLA_LINK])
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
-	/* Add interface. */
-	ifp = if_get_by_name(name, vrf_id);
-	set_ifindex(ifp, ifi->ifi_index, zns);
+	vrf = vrf_get(vrf_id, NULL);
+	/* Add interface.
+	 * We add by index first because in some cases such as the master
+	 * interface, we have the index before we have the name. Fixing
+	 * back references on the slave interfaces is painful if not done
+	 * this way, i.e. by creating by ifindex.
+	 */
+	ifp = if_get_by_ifindex(ifi->ifi_index, vrf_id);
+	set_ifindex(ifp, ifi->ifi_index, zns); /* add it to ns struct */
+	strlcpy(ifp->name, name, sizeof(ifp->name));
+	IFNAME_RB_INSERT(vrf, ifp);
 	ifp->flags = ifi->ifi_flags & 0x0000fffff;
 	ifp->mtu6 = ifp->mtu = *(uint32_t *)RTA_DATA(tb[IFLA_MTU]);
 	ifp->metric = 0;
@@ -879,11 +888,13 @@ static int netlink_address_ctx(const struct zebra_dplane_ctx *ctx)
 			p = dplane_ctx_get_intf_dest(ctx);
 			addattr_l(&req.n, sizeof(req), IFA_ADDRESS,
 				  &p->u.prefix, bytelen);
-		} else if (cmd == RTM_NEWADDR &&
-			   dplane_ctx_intf_has_dest(ctx)) {
-			p = dplane_ctx_get_intf_dest(ctx);
+		} else if (cmd == RTM_NEWADDR) {
+			struct in_addr broad = {
+				.s_addr = ipv4_broadcast_addr(p->u.prefix4.s_addr,
+							p->prefixlen)
+			};
 			addattr_l(&req.n, sizeof(req), IFA_BROADCAST,
-				  &p->u.prefix, bytelen);
+				  &broad, bytelen);
 		}
 	}
 
@@ -1056,7 +1067,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		else
 			connected_delete_ipv4(
 				ifp, flags, (struct in_addr *)addr,
-				ifa->ifa_prefixlen, (struct in_addr *)broad);
+				ifa->ifa_prefixlen, NULL);
 	}
 	if (ifa->ifa_family == AF_INET6) {
 		if (ifa->ifa_prefixlen > IPV6_MAX_BITLEN) {
@@ -1082,8 +1093,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 						   metric);
 		} else
 			connected_delete_ipv6(ifp, (struct in6_addr *)addr,
-					      (struct in6_addr *)broad,
-					      ifa->ifa_prefixlen);
+					      NULL, ifa->ifa_prefixlen);
 	}
 
 	return 0;
@@ -1347,6 +1357,12 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 							"Intf %s(%u) has come UP",
 							name, ifp->ifindex);
 					if_up(ifp);
+				} else {
+					if (IS_ZEBRA_DEBUG_KERNEL)
+						zlog_debug(
+							"Intf %s(%u) has gone DOWN",
+							name, ifp->ifindex);
+					if_down(ifp);
 				}
 			}
 
@@ -1394,6 +1410,32 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	}
 
 	return 0;
+}
+
+int netlink_protodown(struct interface *ifp, bool down)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifa;
+		char buf[NL_PKT_BUF_SIZE];
+	} req;
+
+	memset(&req, 0, sizeof(req));
+
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req.n.nlmsg_type = RTM_SETLINK;
+	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
+
+	req.ifa.ifi_index = ifp->ifindex;
+
+	addattr_l(&req.n, sizeof(req), IFLA_PROTO_DOWN, &down, 4);
+	addattr_l(&req.n, sizeof(req), IFLA_LINK, &ifp->ifindex, 4);
+
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
+			    0);
 }
 
 /* Interface information read by netlink. */

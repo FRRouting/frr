@@ -32,44 +32,136 @@
 #include "nexthop.h"
 #include "mpls.h"
 #include "jhash.h"
+#include "printfrr.h"
 
 DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop")
 DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label")
 
-/* check if nexthops are same, non-recursive */
-int nexthop_same_no_recurse(const struct nexthop *next1,
-			    const struct nexthop *next2)
+static int _nexthop_labels_cmp(const struct nexthop *nh1,
+			       const struct nexthop *nh2)
 {
-	if (next1->type != next2->type)
+	const struct mpls_label_stack *nhl1 = NULL;
+	const struct mpls_label_stack *nhl2 = NULL;
+
+	nhl1 = nh1->nh_label;
+	nhl2 = nh2->nh_label;
+
+	/* No labels is a match */
+	if (!nhl1 && !nhl2)
 		return 0;
+
+	if (nhl1 && !nhl2)
+		return 1;
+
+	if (nhl2 && !nhl1)
+		return -1;
+
+	if (nhl1->num_labels > nhl2->num_labels)
+		return 1;
+
+	if (nhl1->num_labels < nhl2->num_labels)
+		return -1;
+
+	return memcmp(nhl1->label, nhl2->label, nhl1->num_labels);
+}
+
+int nexthop_g_addr_cmp(enum nexthop_types_t type, const union g_addr *addr1,
+		       const union g_addr *addr2)
+{
+	int ret = 0;
+
+	switch (type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		ret = IPV4_ADDR_CMP(&addr1->ipv4, &addr2->ipv4);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		ret = IPV6_ADDR_CMP(&addr1->ipv6, &addr2->ipv6);
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
+		/* No addr here */
+		break;
+	}
+
+	return ret;
+}
+
+static int _nexthop_gateway_cmp(const struct nexthop *nh1,
+				const struct nexthop *nh2)
+{
+	return nexthop_g_addr_cmp(nh1->type, &nh1->gate, &nh2->gate);
+}
+
+static int _nexthop_source_cmp(const struct nexthop *nh1,
+			       const struct nexthop *nh2)
+{
+	return nexthop_g_addr_cmp(nh1->type, &nh1->src, &nh2->src);
+}
+
+static int _nexthop_cmp_no_labels(const struct nexthop *next1,
+				  const struct nexthop *next2)
+{
+	int ret = 0;
+
+	if (next1->vrf_id < next2->vrf_id)
+		return -1;
+
+	if (next1->vrf_id > next2->vrf_id)
+		return 1;
+
+	if (next1->type < next2->type)
+		return -1;
+
+	if (next1->type > next2->type)
+		return 1;
 
 	switch (next1->type) {
 	case NEXTHOP_TYPE_IPV4:
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		if (!IPV4_ADDR_SAME(&next1->gate.ipv4, &next2->gate.ipv4))
-			return 0;
-		if (next1->ifindex && (next1->ifindex != next2->ifindex))
-			return 0;
-		break;
-	case NEXTHOP_TYPE_IFINDEX:
-		if (next1->ifindex != next2->ifindex)
-			return 0;
-		break;
 	case NEXTHOP_TYPE_IPV6:
-		if (!IPV6_ADDR_SAME(&next1->gate.ipv6, &next2->gate.ipv6))
-			return 0;
+		ret = _nexthop_gateway_cmp(next1, next2);
+		if (ret != 0)
+			return ret;
 		break;
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		if (!IPV6_ADDR_SAME(&next1->gate.ipv6, &next2->gate.ipv6))
-			return 0;
-		if (next1->ifindex != next2->ifindex)
-			return 0;
+		ret = _nexthop_gateway_cmp(next1, next2);
+		if (ret != 0)
+			return ret;
+		/* Intentional Fall-Through */
+	case NEXTHOP_TYPE_IFINDEX:
+		if (next1->ifindex < next2->ifindex)
+			return -1;
+
+		if (next1->ifindex > next2->ifindex)
+			return 1;
 		break;
-	default:
-		/* do nothing */
+	case NEXTHOP_TYPE_BLACKHOLE:
+		if (next1->bh_type < next2->bh_type)
+			return -1;
+
+		if (next1->bh_type > next2->bh_type)
+			return 1;
 		break;
 	}
-	return 1;
+
+	ret = _nexthop_source_cmp(next1, next2);
+
+	return ret;
+}
+
+int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
+{
+	int ret = 0;
+
+	ret = _nexthop_cmp_no_labels(next1, next2);
+	if (ret != 0)
+		return ret;
+
+	ret = _nexthop_labels_cmp(next1, next2);
+
+	return ret;
 }
 
 int nexthop_same_firsthop(struct nexthop *next1, struct nexthop *next2)
@@ -121,27 +213,12 @@ const char *nexthop_type_to_str(enum nexthop_types_t nh_type)
 /*
  * Check if the labels match for the 2 nexthops specified.
  */
-int nexthop_labels_match(const struct nexthop *nh1, const struct nexthop *nh2)
+bool nexthop_labels_match(const struct nexthop *nh1, const struct nexthop *nh2)
 {
-	const struct mpls_label_stack *nhl1, *nhl2;
+	if (_nexthop_labels_cmp(nh1, nh2) != 0)
+		return false;
 
-	nhl1 = nh1->nh_label;
-	nhl2 = nh2->nh_label;
-
-	/* No labels is a match */
-	if (!nhl1 && !nhl2)
-		return 1;
-
-	if (!nhl1 || !nhl2)
-		return 0;
-
-	if (nhl1->num_labels != nhl2->num_labels)
-		return 0;
-
-	if (memcmp(nhl1->label, nhl2->label, nhl1->num_labels))
-		return 0;
-
-	return 1;
+	return true;
 }
 
 struct nexthop *nexthop_new(void)
@@ -180,45 +257,28 @@ bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2)
 	if (nh1 == nh2)
 		return true;
 
-	if (nh1->vrf_id != nh2->vrf_id)
+	if (nexthop_cmp(nh1, nh2) != 0)
 		return false;
 
-	if (nh1->type != nh2->type)
+	return true;
+}
+
+bool nexthop_same_no_labels(const struct nexthop *nh1,
+			    const struct nexthop *nh2)
+{
+	if (nh1 && !nh2)
 		return false;
 
-	switch (nh1->type) {
-	case NEXTHOP_TYPE_IFINDEX:
-		if (nh1->ifindex != nh2->ifindex)
-			return false;
-		break;
-	case NEXTHOP_TYPE_IPV4:
-		if (nh1->gate.ipv4.s_addr != nh2->gate.ipv4.s_addr)
-			return false;
-		break;
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		if (nh1->gate.ipv4.s_addr != nh2->gate.ipv4.s_addr)
-			return false;
-		if (nh1->ifindex != nh2->ifindex)
-			return false;
-		break;
-	case NEXTHOP_TYPE_IPV6:
-		if (memcmp(&nh1->gate.ipv6, &nh2->gate.ipv6, 16))
-			return false;
-		break;
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		if (memcmp(&nh1->gate.ipv6, &nh2->gate.ipv6, 16))
-			return false;
-		if (nh1->ifindex != nh2->ifindex)
-			return false;
-		break;
-	case NEXTHOP_TYPE_BLACKHOLE:
-		if (nh1->bh_type != nh2->bh_type)
-			return false;
-		break;
-	}
+	if (!nh1 && nh2)
+		return false;
 
-	/* Compare labels too (if present) */
-	return (!!nexthop_labels_match(nh1, nh2));
+	if (nh1 == nh2)
+		return true;
+
+	if (_nexthop_cmp_no_labels(nh1, nh2) != 0)
+		return false;
+
+	return true;
 }
 
 /* Update nexthop with label information. */
@@ -362,4 +422,114 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 		break;
 	}
 	return key;
+}
+
+void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
+		  struct nexthop *rparent)
+{
+	copy->vrf_id = nexthop->vrf_id;
+	copy->ifindex = nexthop->ifindex;
+	copy->type = nexthop->type;
+	copy->flags = nexthop->flags;
+	memcpy(&copy->gate, &nexthop->gate, sizeof(nexthop->gate));
+	memcpy(&copy->src, &nexthop->src, sizeof(nexthop->src));
+	memcpy(&copy->rmap_src, &nexthop->rmap_src, sizeof(nexthop->rmap_src));
+	copy->rparent = rparent;
+	if (nexthop->nh_label)
+		nexthop_add_labels(copy, nexthop->nh_label_type,
+				   nexthop->nh_label->num_labels,
+				   &nexthop->nh_label->label[0]);
+}
+
+struct nexthop *nexthop_dup(const struct nexthop *nexthop,
+			    struct nexthop *rparent)
+{
+	struct nexthop *new = nexthop_new();
+
+	nexthop_copy(new, nexthop, rparent);
+	return new;
+}
+
+/*
+ * nexthop printing variants:
+ *	%pNHvv
+ *		via 1.2.3.4
+ *		via 1.2.3.4, eth0
+ *		is directly connected, eth0
+ *		unreachable (blackhole)
+ *	%pNHv
+ *		1.2.3.4
+ *		1.2.3.4, via eth0
+ *		directly connected, eth0
+ *		unreachable (blackhole)
+ *	%pNHs
+ *		nexthop2str()
+ */
+printfrr_ext_autoreg_p("NH", printfrr_nh)
+static ssize_t printfrr_nh(char *buf, size_t bsz, const char *fmt,
+			   int prec, const void *ptr)
+{
+	const struct nexthop *nexthop = ptr;
+	struct fbuf fb = { .buf = buf, .pos = buf, .len = bsz - 1 };
+	bool do_ifi = false;
+	const char *s, *v_is = "", *v_via = "", *v_viaif = "via ";
+	ssize_t ret = 3;
+
+	switch (fmt[2]) {
+	case 'v':
+		if (fmt[3] == 'v') {
+			v_is = "is ";
+			v_via = "via ";
+			v_viaif = "";
+			ret++;
+		}
+
+		switch (nexthop->type) {
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			bprintfrr(&fb, "%s%pI4", v_via, &nexthop->gate.ipv4);
+			do_ifi = true;
+			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			bprintfrr(&fb, "%s%pI6", v_via, &nexthop->gate.ipv6);
+			do_ifi = true;
+			break;
+		case NEXTHOP_TYPE_IFINDEX:
+			bprintfrr(&fb, "%sdirectly connected, %s", v_is,
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			switch (nexthop->bh_type) {
+			case BLACKHOLE_REJECT:
+				s = " (ICMP unreachable)";
+				break;
+			case BLACKHOLE_ADMINPROHIB:
+				s = " (ICMP admin-prohibited)";
+				break;
+			case BLACKHOLE_NULL:
+				s = " (blackhole)";
+				break;
+			default:
+				s = "";
+				break;
+			}
+			bprintfrr(&fb, "unreachable%s", s);
+			break;
+		default:
+			break;
+		}
+		if (do_ifi && nexthop->ifindex)
+			bprintfrr(&fb, ", %s%s", v_viaif, ifindex2ifname(
+					nexthop->ifindex,
+					nexthop->vrf_id));
+
+		*fb.pos = '\0';
+		return ret;
+	case 's':
+		nexthop2str(nexthop, buf, bsz);
+		return 3;
+	}
+	return 0;
 }

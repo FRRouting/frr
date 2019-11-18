@@ -304,12 +304,13 @@ size_t rta_getattr(caddr_t sap, void *destp, size_t destlen)
 size_t rta_getsdlname(caddr_t sap, void *destp, short *destlen)
 {
 	struct sockaddr_dl *sdl = (struct sockaddr_dl *)sap;
-	struct sockaddr *sa = (struct sockaddr *)sap;
 	uint8_t *dest = destp;
 	size_t tlen, copylen;
 
 	copylen = sdl->sdl_nlen;
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+	struct sockaddr *sa = (struct sockaddr *)sap;
+
 	tlen = (sa->sa_len == 0) ? sizeof(ROUNDUP_TYPE) : ROUNDUP(sa->sa_len);
 #else  /* !HAVE_STRUCT_SOCKADDR_SA_LEN */
 	tlen = SAROUNDUP(sap);
@@ -522,7 +523,7 @@ static enum zebra_link_type sdl_to_zebra_link_type(unsigned int sdlt)
 int ifm_read(struct if_msghdr *ifm)
 {
 	struct interface *ifp = NULL;
-	struct sockaddr_dl *sdl;
+	struct sockaddr_dl *sdl = NULL;
 	char ifname[IFNAMSIZ];
 	short ifnlen = 0;
 	int maskbit;
@@ -1425,7 +1426,7 @@ static int kernel_read(struct thread *thread)
 /* Make routing socket. */
 static void routing_socket(struct zebra_ns *zns)
 {
-	frr_elevate_privs(&zserv_privs) {
+	frr_with_privs(&zserv_privs) {
 		routing_sock = ns_socket(AF_ROUTE, SOCK_RAW, 0, zns->ns_id);
 
 		dplane_routing_sock =

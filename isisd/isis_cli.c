@@ -333,6 +333,40 @@ void cli_show_ip_isis_ipv6(struct vty *vty, struct lyd_node *dnode,
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/bfd-monitoring
+ */
+DEFPY(isis_bfd,
+      isis_bfd_cmd,
+      "[no] isis bfd",
+      NO_STR
+      PROTO_HELP
+      "Enable BFD support\n")
+{
+	const struct lyd_node *dnode;
+
+	dnode = yang_dnode_get(vty->candidate_config->dnode,
+			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	if (dnode == NULL) {
+		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/bfd-monitoring",
+			      NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_bfd_monitoring(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " isis bfd\n");
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/area-address
  */
 DEFPY(net, net_cmd, "[no] net WORD",
@@ -1949,6 +1983,7 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &ip_router_isis_cmd);
 	install_element(INTERFACE_NODE, &ip6_router_isis_cmd);
 	install_element(INTERFACE_NODE, &no_ip_router_isis_cmd);
+	install_element(INTERFACE_NODE, &isis_bfd_cmd);
 
 	install_element(ISIS_NODE, &net_cmd);
 

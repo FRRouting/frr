@@ -53,8 +53,9 @@
 			listnode_add((O)->oi_write_q, oi);                     \
 			oi->on_write_q = 1;                                    \
 		}                                                              \
-		thread_add_write(master, ospf_write, (O), (O)->fd,             \
-				 &(O)->t_write);                               \
+		if (!list_isempty((O)->oi_write_q))                            \
+			thread_add_write(master, ospf_write, (O), (O)->fd,     \
+					 &(O)->t_write);                       \
 	} while (0)
 
 /* Macro for OSPF ISM timer turn on. */

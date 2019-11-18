@@ -151,6 +151,12 @@ Certain signals have special meanings to *pimd*.
    urib-only
       Lookup in the Unicast Rib only.
 
+.. index:: ip igmp generate-query-once [version (2-3)]
+.. clicmd:: ip igmp generate-query-once [version (2-3)]
+
+   Generate IGMP query (v2/v3) on user requirement. This will not depend on
+   the existing IGMP general query timer.If no version is provided in the cli,
+   it will be considered as default v2 query.This is a hidden command.
 
 .. _pim-interface-configuration:
 
@@ -165,6 +171,20 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 .. clicmd:: ip pim bfd
 
    Turns on BFD support for PIM for this interface.
+
+.. index:: ip pim bsm
+.. clicmd:: ip pim bsm
+
+   Tell pim that we would like to use this interface to process bootstrap
+   messages. This is enabled by default. 'no' form of this command is used to
+   restrict bsm messages on this interface.
+
+.. index:: ip pim unicast-bsm
+.. clicmd:: ip pim unicast-bsm
+
+   Tell pim that we would like to allow interface to process unicast bootstrap
+   messages. This is enabled by default. 'no' form of this command is used to
+   restrict processing of unicast bsm messages on this interface.
 
 .. index:: ip pim drpriority (1-4294967295)
 .. clicmd:: ip pim drpriority (1-4294967295)
@@ -217,6 +237,19 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Set a pim multicast boundary, based upon the WORD prefix-list. If a pim join
    or IGMP report is received on this interface and the Group is denied by the
    prefix-list, PIM will ignore the join or report.
+
+.. index:: ip igmp last-member-query-count (1-7)
+.. clicmd:: ip igmp last-member-query-count (1-7)
+
+   Set the IGMP last member query count. The default value is 2. 'no' form of
+   this command is used to to configure back to the default value.
+
+.. index:: ip igmp last-member-query-interval (1-255)
+.. clicmd:: ip igmp last-member-query-interval (1-255)
+
+   Set the IGMP last member query interval in deciseconds. The default value is
+   10 deciseconds. 'no' form of this command is used to to configure back to the
+   default value.
 
 .. _pim-multicast-rib-insertion:
 
@@ -307,6 +340,12 @@ cause great confusion.
 
    Display information about installed into the kernel S,G mroutes and in
    addition display data about packet flow for the mroutes.
+
+.. index:: show ip mroute summary
+.. clicmd:: show ip mroute summary
+
+   Display total number of S,G mroutes and number of S,G mroutes installed
+   into the kernel.
 
 .. index:: show ip pim assert
 .. clicmd:: show ip pim assert
@@ -407,6 +446,21 @@ cause great confusion.
 
    Display upstream information for S,G's and the RPF data associated with them.
 
+.. index:: show ip pim bsr
+.. clicmd:: show ip pim bsr
+
+   Display current bsr, its uptime and last received bsm age.
+
+.. index:: show ip pim bsrp-info
+.. clicmd:: show ip pim bsrp-info
+
+   Display group-to-rp mappings received from E-BSR.
+
+.. index:: show ip pim bsm-database
+.. clicmd:: show ip pim bsm-database
+
+   Display all fragments ofstored bootstrap message in user readable format.
+
 .. index:: show ip rpf
 .. clicmd:: show ip rpf
 
@@ -470,6 +524,11 @@ the config was written out.
 
    This traces pim code and how it is running.
 
+.. index:: debug pim bsm
+.. clicmd:: debug pim bsm
+
+   This turns on debugging for BSR message processing.
+
 .. index:: debug pim zebra
 .. clicmd:: debug pim zebra
 
@@ -493,6 +552,13 @@ Clear commands reset various variables.
 .. clicmd:: clear ip mroute
 
    Reset multicast routes.
+
+.. index:: clear ip mroute [vrf NAME] count
+.. clicmd:: clear ip mroute [vrf NAME] count
+
+   When this command is issued, reset the counts of data shown for
+   packet count, byte count and wrong interface to 0 and start count
+   up from this spot.
 
 .. index:: clear ip pim interfaces
 .. clicmd:: clear ip pim interfaces

@@ -178,7 +178,7 @@ char *frrstr_replace(const char *str, const char *find, const char *replace)
 	return nustr;
 }
 
-bool begins_with(const char *str, const char *prefix)
+bool frrstr_startswith(const char *str, const char *prefix)
 {
 	if (!str || !prefix)
 		return false;
@@ -192,10 +192,24 @@ bool begins_with(const char *str, const char *prefix)
 	return strncmp(str, prefix, lenprefix) == 0;
 }
 
+bool frrstr_endswith(const char *str, const char *suffix)
+{
+	if (!str || !suffix)
+		return false;
+
+	size_t lenstr = strlen(str);
+	size_t lensuffix = strlen(suffix);
+
+	if (lensuffix > lenstr)
+		return false;
+
+	return strncmp(&str[lenstr - lensuffix], suffix, lensuffix) == 0;
+}
+
 int all_digit(const char *str)
 {
 	for (; *str != '\0'; str++)
-		if (!isdigit((int)*str))
+		if (!isdigit((unsigned char)*str))
 			return 0;
 	return 1;
 }

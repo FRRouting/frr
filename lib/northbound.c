@@ -26,6 +26,7 @@
 #include "command.h"
 #include "debug.h"
 #include "db.h"
+#include "frr_pthread.h"
 #include "northbound.h"
 #include "northbound_cli.h"
 #include "northbound_db.h"
@@ -504,7 +505,9 @@ int nb_candidate_edit(struct nb_config *candidate,
 		 */
 		if (dnode) {
 			lyd_schema_sort(dnode, 0);
-			lyd_validate(&dnode, LYD_OPT_CONFIG, ly_native_ctx);
+			lyd_validate(&dnode,
+				     LYD_OPT_CONFIG | LYD_OPT_WHENAUTODEL,
+				     ly_native_ctx);
 		}
 		break;
 	case NB_OP_DESTROY:
@@ -570,7 +573,8 @@ int nb_candidate_update(struct nb_config *candidate)
  */
 static int nb_candidate_validate_yang(struct nb_config *candidate)
 {
-	if (lyd_validate(&candidate->dnode, LYD_OPT_STRICT | LYD_OPT_CONFIG,
+	if (lyd_validate(&candidate->dnode,
+			 LYD_OPT_STRICT | LYD_OPT_CONFIG | LYD_OPT_WHENAUTODEL,
 			 ly_native_ctx)
 	    != 0)
 		return NB_ERR_VALIDATION;
@@ -720,8 +724,7 @@ int nb_running_lock(enum nb_client client, const void *user)
 {
 	int ret = -1;
 
-	pthread_mutex_lock(&running_config_mgmt_lock.mtx);
-	{
+	frr_with_mutex(&running_config_mgmt_lock.mtx) {
 		if (!running_config_mgmt_lock.locked) {
 			running_config_mgmt_lock.locked = true;
 			running_config_mgmt_lock.owner_client = client;
@@ -729,7 +732,6 @@ int nb_running_lock(enum nb_client client, const void *user)
 			ret = 0;
 		}
 	}
-	pthread_mutex_unlock(&running_config_mgmt_lock.mtx);
 
 	return ret;
 }
@@ -738,8 +740,7 @@ int nb_running_unlock(enum nb_client client, const void *user)
 {
 	int ret = -1;
 
-	pthread_mutex_lock(&running_config_mgmt_lock.mtx);
-	{
+	frr_with_mutex(&running_config_mgmt_lock.mtx) {
 		if (running_config_mgmt_lock.locked
 		    && running_config_mgmt_lock.owner_client == client
 		    && running_config_mgmt_lock.owner_user == user) {
@@ -749,7 +750,6 @@ int nb_running_unlock(enum nb_client client, const void *user)
 			ret = 0;
 		}
 	}
-	pthread_mutex_unlock(&running_config_mgmt_lock.mtx);
 
 	return ret;
 }
@@ -758,14 +758,12 @@ int nb_running_lock_check(enum nb_client client, const void *user)
 {
 	int ret = -1;
 
-	pthread_mutex_lock(&running_config_mgmt_lock.mtx);
-	{
+	frr_with_mutex(&running_config_mgmt_lock.mtx) {
 		if (!running_config_mgmt_lock.locked
 		    || (running_config_mgmt_lock.owner_client == client
 			&& running_config_mgmt_lock.owner_user == user))
 			ret = 0;
 	}
-	pthread_mutex_unlock(&running_config_mgmt_lock.mtx);
 
 	return ret;
 }
@@ -777,7 +775,7 @@ static void nb_log_callback(const enum nb_event event,
 	zlog_debug(
 		"northbound callback: event [%s] op [%s] xpath [%s] value [%s]",
 		nb_event_name(event), nb_operation_name(operation), xpath,
-		value);
+		value ? value : "(NULL)");
 }
 
 /*
@@ -1383,19 +1381,12 @@ int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 	 */
 	ly_errno = 0;
 	dnode = lyd_new_path(NULL, ly_native_ctx, xpath, NULL, 0,
-			     LYD_PATH_OPT_UPDATE);
-	if (!dnode && ly_errno) {
+			     LYD_PATH_OPT_UPDATE | LYD_PATH_OPT_NOPARENTRET);
+	if (!dnode) {
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
 			  __func__);
 		return NB_ERR;
 	}
-	/*
-	 * We can remove the following two lines once we depend on
-	 * libyang-v0.16-r2, which has the LYD_PATH_OPT_NOPARENTRET flag for
-	 * lyd_new_path().
-	 */
-	dnode = yang_dnode_get(dnode, xpath);
-	assert(dnode);
 
 	/*
 	 * Create a linked list to sort the data nodes starting from the root.
@@ -1654,7 +1645,7 @@ static bool running_config_entry_cmp(const void *value1, const void *value2)
 	return strmatch(c1->xpath, c2->xpath);
 }
 
-static unsigned int running_config_entry_key_make(void *value)
+static unsigned int running_config_entry_key_make(const void *value)
 {
 	return string_hash_make(value);
 }

@@ -239,6 +239,15 @@ The indicators have the following semantics:
 * :mark:`CP` - control plane only (i.e. BGP route server / route reflector)
 * :mark:`N` - daemon/feature not supported by operating system
 
+
+Known Kernel Issues:
+====================
+
+- Linux
+   v6 Route Replacement - Linux kernels before 4.11 can cause issues with v6 route deletion when you
+   have ecmp routes installed into the kernel.  This especially becomes apparent if the route is being
+   transformed from one ecmp path to another.
+
 .. _supported-rfcs:
 
 Supported RFCs

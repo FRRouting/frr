@@ -43,6 +43,8 @@
 #include "static_nht.h"
 #include "static_vty.h"
 
+bool debug;
+
 /* Zebra structure to hold current status. */
 struct zclient *zclient;
 static struct hash *static_nht_hash;
@@ -128,6 +130,7 @@ static int interface_state_up(ZAPI_CALLBACK_ARGS)
 
 		/* Install any static reliant on this interface coming up */
 		static_install_intf_nh(ifp);
+		static_ifindex_update(ifp, true);
 	}
 
 	return 0;
@@ -135,7 +138,12 @@ static int interface_state_up(ZAPI_CALLBACK_ARGS)
 
 static int interface_state_down(ZAPI_CALLBACK_ARGS)
 {
-	zebra_interface_state_read(zclient->ibuf, vrf_id);
+	struct interface *ifp;
+
+	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
+
+	if (ifp)
+		static_ifindex_update(ifp, false);
 
 	return 0;
 }
@@ -154,18 +162,23 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 
 	switch (note) {
 	case ZAPI_ROUTE_FAIL_INSTALL:
+		static_nht_mark_state(&p, vrf_id, STATIC_NOT_INSTALLED);
 		zlog_warn("%s: Route %s failed to install for table: %u",
 			  __PRETTY_FUNCTION__, buf, table_id);
 		break;
 	case ZAPI_ROUTE_BETTER_ADMIN_WON:
+		static_nht_mark_state(&p, vrf_id, STATIC_NOT_INSTALLED);
 		zlog_warn("%s: Route %s over-ridden by better route for table: %u",
 			  __PRETTY_FUNCTION__, buf, table_id);
 		break;
 	case ZAPI_ROUTE_INSTALLED:
+		static_nht_mark_state(&p, vrf_id, STATIC_INSTALLED);
 		break;
 	case ZAPI_ROUTE_REMOVED:
+		static_nht_mark_state(&p, vrf_id, STATIC_NOT_INSTALLED);
 		break;
 	case ZAPI_ROUTE_REMOVE_FAIL:
+		static_nht_mark_state(&p, vrf_id, STATIC_INSTALLED);
 		zlog_warn("%s: Route %s failure to remove for table: %u",
 			  __PRETTY_FUNCTION__, buf, table_id);
 		break;
@@ -210,7 +223,8 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 	if (nhtd) {
 		nhtd->nh_num = nhr.nexthop_num;
 
-		static_nht_update(&nhr.prefix, nhr.nexthop_num, afi,
+		static_nht_reset_start(&nhr.prefix, afi, nhtd->nh_vrf_id);
+		static_nht_update(NULL, &nhr.prefix, nhr.nexthop_num, afi,
 				  nhtd->nh_vrf_id);
 	} else
 		zlog_err("No nhtd?");
@@ -223,9 +237,9 @@ static void static_zebra_capabilities(struct zclient_capabilities *cap)
 	mpls_enabled = cap->mpls_enabled;
 }
 
-static unsigned int static_nht_hash_key(void *data)
+static unsigned int static_nht_hash_key(const void *data)
 {
-	struct static_nht_data *nhtd = data;
+	const struct static_nht_data *nhtd = data;
 	unsigned int key = 0;
 
 	key = prefix_hash_key(nhtd->nh);
@@ -267,7 +281,8 @@ static void static_nht_hash_free(void *data)
 	XFREE(MTYPE_TMP, nhtd);
 }
 
-void static_zebra_nht_register(struct static_route *si, bool reg)
+void static_zebra_nht_register(struct route_node *rn,
+			       struct static_route *si, bool reg)
 {
 	struct static_nht_data *nhtd, lookup;
 	uint32_t cmd;
@@ -315,8 +330,11 @@ void static_zebra_nht_register(struct static_route *si, bool reg)
 				static_nht_hash_alloc);
 		nhtd->refcount++;
 
-		if (nhtd->refcount > 1) {
-			static_nht_update(nhtd->nh, nhtd->nh_num,
+		if (debug)
+			zlog_debug("Registered nexthop(%pFX) for %pRN %d", &p,
+				   rn, nhtd->nh_num);
+		if (nhtd->refcount > 1 && nhtd->nh_num) {
+			static_nht_update(&rn->p, nhtd->nh, nhtd->nh_num,
 					  afi, si->nh_vrf_id);
 			return;
 		}
@@ -388,6 +406,8 @@ extern void static_zebra_route_add(struct route_node *rn,
 
 		api_nh->vrf_id = si->nh_vrf_id;
 		api_nh->onlink = si->onlink;
+
+		si->state = STATIC_SENT_TO_ZEBRA;
 
 		switch (si->type) {
 		case STATIC_IFNAME:

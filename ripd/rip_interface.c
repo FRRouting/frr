@@ -43,6 +43,8 @@
 #include "ripd/rip_debug.h"
 #include "ripd/rip_interface.h"
 
+DEFINE_MTYPE_STATIC(RIPD, RIP_INTERFACE, "RIP interface")
+DEFINE_MTYPE(RIPD, RIP_INTERFACE_STRING, "RIP Interface String")
 DEFINE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc))
 DEFINE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc))
 

@@ -61,7 +61,7 @@ void pim_register_join(struct pim_upstream *up)
 	pim_channel_add_oif(up->channel_oil, pim->regiface,
 			    PIM_OIF_FLAG_PROTO_PIM);
 	up->reg_state = PIM_REG_JOIN;
-	pim_vxlan_update_sg_reg_state(pim, up, TRUE /*reg_join*/);
+	pim_vxlan_update_sg_reg_state(pim, up, true /*reg_join*/);
 }
 
 void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
@@ -94,7 +94,7 @@ void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
 	b1length += length;
 
 	pim_msg_build_header(buffer, b1length + PIM_MSG_REGISTER_STOP_LEN,
-			     PIM_MSG_TYPE_REG_STOP);
+			     PIM_MSG_TYPE_REG_STOP, false);
 
 	pinfo = (struct pim_interface *)ifp->info;
 	if (!pinfo) {
@@ -148,7 +148,7 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 				    PIM_OIF_FLAG_PROTO_PIM);
 		pim_upstream_start_register_stop_timer(upstream, 0);
 		pim_vxlan_update_sg_reg_state(pim, upstream,
-			FALSE /*reg_join*/);
+			false/*reg_join*/);
 		break;
 	case PIM_REG_JOIN_PENDING:
 		upstream->reg_state = PIM_REG_PRUNE;
@@ -208,7 +208,7 @@ void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 	memcpy(b1, (const unsigned char *)buf, buf_size);
 
 	pim_msg_build_header(buffer, buf_size + PIM_MSG_REGISTER_LEN,
-			     PIM_MSG_TYPE_REGISTER);
+			     PIM_MSG_TYPE_REGISTER, false);
 
 	++pinfo->pim_ifstat_reg_send;
 
@@ -283,8 +283,8 @@ void pim_null_register_send(struct pim_upstream *up)
  *          # Note: this may be a spoofing attempt
  *      }
  *      if( I_am_RP(G) AND outer.dst == RP(G) ) {
- *            sentRegisterStop = FALSE;
- *            if ( register.borderbit == TRUE ) {
+ *            sentRegisterStop = false;
+ *            if ( register.borderbit == true ) {
  *                 if ( PMBR(S,G) == unknown ) {
  *                      PMBR(S,G) = outer.src
  *                 } else if ( outer.src != PMBR(S,G) ) {
@@ -296,10 +296,10 @@ void pim_null_register_send(struct pim_upstream *up)
  *             ( SwitchToSptDesired(S,G) AND
  *               ( inherited_olist(S,G) == NULL ))) {
  *              send Register-Stop(S,G) to outer.src
- *              sentRegisterStop = TRUE;
+ *              sentRegisterStop = true;
  *            }
  *            if ( SPTbit(S,G) OR SwitchToSptDesired(S,G) ) {
- *                 if ( sentRegisterStop == TRUE ) {
+ *                 if ( sentRegisterStop == true ) {
  *                      set KeepaliveTimer(S,G) to RP_Keepalive_Period;
  *                 } else {
  *                      set KeepaliveTimer(S,G) to Keepalive_Period;

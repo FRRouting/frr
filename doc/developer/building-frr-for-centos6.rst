@@ -45,7 +45,7 @@ Add packages:
 
    sudo yum install git autoconf automake libtool make \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
-      json-c-devel pam-devel flex epel-release c-ares-devel
+      json-c-devel pam-devel flex epel-release c-ares-devel libcap-devel
 
 Install newer version of bison (CentOS 6 package source is too old) from CentOS
 7:
@@ -163,10 +163,9 @@ an example.)
         --disable-ldpd \
         --enable-fpm \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion \
-        SPHINXBUILD=sphinx-build2.7
+        --with-pkg-extra-version=-MyOwnFRRVersion
     make
-    make check PYTHON=/usr/bin/python2.7
+    make check
     sudo make install
 
 Create empty FRR configuration files

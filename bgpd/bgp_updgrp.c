@@ -288,7 +288,7 @@ static void *updgrp_hash_alloc(void *p)
  *       16. Local-as should match, if configured.
  *      )
  */
-static unsigned int updgrp_hash_key_make(void *p)
+static unsigned int updgrp_hash_key_make(const void *p)
 {
 	const struct update_group *updgrp;
 	const struct peer *peer;
@@ -829,7 +829,7 @@ void update_subgroup_inherit_info(struct update_subgroup *to,
  *
  * Delete a subgroup if it is ready to be deleted.
  *
- * Returns TRUE if the subgroup was deleted.
+ * Returns true if the subgroup was deleted.
  */
 static int update_subgroup_check_delete(struct update_subgroup *subgrp)
 {
@@ -885,6 +885,9 @@ static void update_subgroup_add_peer(struct update_subgroup *subgrp,
 	bpacket_add_peer(pkt, paf);
 
 	bpacket_queue_sanity_check(SUBGRP_PKTQ(subgrp));
+	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
+		zlog_debug("peer %s added to subgroup s%" PRIu64,
+				paf->peer->host, subgrp->id);
 }
 
 /*
@@ -910,6 +913,10 @@ static void update_subgroup_remove_peer_internal(struct update_subgroup *subgrp,
 	paf->subgroup = NULL;
 	subgrp->peer_count--;
 
+	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
+		zlog_debug("peer %s deleted from subgroup s%"
+			   PRIu64 "peer cnt %d",
+			   paf->peer->host, subgrp->id, subgrp->peer_count);
 	SUBGRP_INCR_STAT(subgrp, prune_events);
 }
 
@@ -972,7 +979,7 @@ static struct update_subgroup *update_subgroup_find(struct update_group *updgrp,
 /*
  * update_subgroup_ready_for_merge
  *
- * Returns TRUE if this subgroup is in a state that allows it to be
+ * Returns true if this subgroup is in a state that allows it to be
  * merged into another subgroup.
  */
 static int update_subgroup_ready_for_merge(struct update_subgroup *subgrp)
@@ -1005,7 +1012,7 @@ static int update_subgroup_ready_for_merge(struct update_subgroup *subgrp)
 /*
  * update_subgrp_can_merge_into
  *
- * Returns TRUE if the first subgroup can merge into the second
+ * Returns true if the first subgroup can merge into the second
  * subgroup.
  */
 static int update_subgroup_can_merge_into(struct update_subgroup *subgrp,
@@ -1085,7 +1092,7 @@ static void update_subgroup_merge(struct update_subgroup *subgrp,
  *
  * Merge this subgroup into another subgroup if possible.
  *
- * Returns TRUE if the subgroup has been merged. The subgroup pointer
+ * Returns true if the subgroup has been merged. The subgroup pointer
  * should not be accessed in this case.
  */
 int update_subgroup_check_merge(struct update_subgroup *subgrp,
@@ -1134,7 +1141,7 @@ static int update_subgroup_merge_check_thread_cb(struct thread *thread)
  * @param force If true, the merge check will be triggered even if the
  *              subgroup doesn't currently look ready for a merge.
  *
- * Returns TRUE if a merge check will be performed shortly.
+ * Returns true if a merge check will be performed shortly.
  */
 int update_subgroup_trigger_merge_check(struct update_subgroup *subgrp,
 					int force)
@@ -1781,7 +1788,7 @@ int update_group_refresh_default_originate_route_map(struct thread *thread)
  *
  * Refreshes routes out to a peer_af immediately.
  *
- * If the combine parameter is TRUE, then this function will try to
+ * If the combine parameter is true, then this function will try to
  * gather other peers in the subgroup for which a route announcement
  * is pending and efficently announce routes to all of them.
  *
@@ -1826,9 +1833,9 @@ void peer_af_announce_route(struct peer_af *paf, int combine)
 	 */
 	if (!combine || !all_pending) {
 		update_subgroup_split_peer(paf, NULL);
-		if (!paf->subgroup)
-			return;
+		subgrp = paf->subgroup;
 
+		assert(subgrp && subgrp->update_group);
 		if (bgp_debug_update(paf->peer, NULL, subgrp->update_group, 0))
 			zlog_debug("u%" PRIu64 ":s%" PRIu64
 				   " %s announcing routes",

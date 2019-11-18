@@ -50,9 +50,9 @@ struct isis_tx_queue_entry {
 	struct isis_tx_queue *queue;
 };
 
-static unsigned tx_queue_hash_key(void *p)
+static unsigned tx_queue_hash_key(const void *p)
 {
-	struct isis_tx_queue_entry *e = p;
+	const struct isis_tx_queue_entry *e = p;
 
 	uint32_t id_key = jhash(e->lsp->hdr.lsp_id,
 				ISIS_SYS_ID_LEN + 2, 0x55aa5a5a);

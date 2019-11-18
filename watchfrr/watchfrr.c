@@ -648,6 +648,7 @@ static void daemon_send_ready(int exitcode)
 {
 	FILE *fp;
 	static int sent = 0;
+	char started[1024];
 
 	if (sent)
 		return;
@@ -669,7 +670,9 @@ static void daemon_send_ready(int exitcode)
 
 	frr_detach();
 
-	fp = fopen(DAEMON_VTY_DIR "/watchfrr.started", "w");
+	snprintf(started, sizeof(started), "%s%s", frr_vtydir,
+		 "watchfrr.started");
+	fp = fopen(started, "w");
 	if (fp)
 		fclose(fp);
 #if defined HAVE_SYSTEMD
@@ -1018,10 +1021,11 @@ void watchfrr_status(struct vty *vty)
 		else if (dmn->state == DAEMON_DOWN &&
 			time_elapsed(&delay, &dmn->restart.time)->tv_sec
 				< dmn->restart.interval)
-			vty_out(vty, "      restarting in %ld seconds"
-				" (%lds backoff interval)\n",
-				dmn->restart.interval - delay.tv_sec,
-				dmn->restart.interval);
+			vty_out(vty, "      restarting in %jd seconds"
+				" (%jds backoff interval)\n",
+				(intmax_t)dmn->restart.interval
+					- (intmax_t)delay.tv_sec,
+				(intmax_t)dmn->restart.interval);
 	}
 }
 

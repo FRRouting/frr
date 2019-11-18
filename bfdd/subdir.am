@@ -7,18 +7,19 @@ noinst_LIBRARIES += bfdd/libbfd.a
 sbin_PROGRAMS += bfdd/bfdd
 dist_examples_DATA += bfdd/bfdd.conf.sample
 vtysh_scan += $(top_srcdir)/bfdd/bfdd_vty.c
+vtysh_scan += $(top_srcdir)/bfdd/bfdd_cli.c
 man8 += $(MANBUILD)/bfdd.8
 endif
 
 bfdd_libbfd_a_SOURCES = \
 	bfdd/bfd.c \
+	bfdd/bfdd_northbound.c \
 	bfdd/bfdd_vty.c \
+	bfdd/bfdd_cli.c \
 	bfdd/bfd_packet.c \
-	bfdd/bsd.c \
 	bfdd/config.c \
 	bfdd/control.c \
 	bfdd/event.c \
-	bfdd/linux.c \
 	bfdd/log.c \
 	bfdd/ptm_adapter.c \
 	# end
@@ -26,9 +27,16 @@ bfdd_libbfd_a_SOURCES = \
 bfdd/bfdd_vty_clippy.c: $(CLIPPY_DEPS)
 bfdd/bfdd_vty.$(OBJEXT): bfdd/bfdd_vty_clippy.c
 
+bfdd/bfdd_cli_clippy.c: $(CLIPPY_DEPS)
+bfdd/bfdd_cli.$(OBJEXT): bfdd/bfdd_cli_clippy.c
+
 noinst_HEADERS += \
 	bfdd/bfdctl.h \
 	bfdd/bfd.h \
+	# end
+
+nodist_bfdd_bfdd_SOURCES = \
+	yang/frr-bfdd.yang.c \
 	# end
 
 bfdd_bfdd_SOURCES = bfdd/bfdd.c

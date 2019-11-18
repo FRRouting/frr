@@ -1282,8 +1282,7 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 	 * since this peer is not on the I/O thread, this lock is not strictly
 	 * necessary, but serves as a reminder to those who may meddle...
 	 */
-	pthread_mutex_lock(&rfd->peer->io_mtx);
-	{
+	frr_with_mutex(&rfd->peer->io_mtx) {
 		// we don't need any I/O related facilities
 		if (rfd->peer->ibuf)
 			stream_fifo_free(rfd->peer->ibuf);
@@ -1300,7 +1299,6 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 		rfd->peer->obuf_work = NULL;
 		rfd->peer->ibuf_work = NULL;
 	}
-	pthread_mutex_unlock(&rfd->peer->io_mtx);
 
 	{ /* base code assumes have valid host pointer */
 		char buf[BUFSIZ];
@@ -2929,7 +2927,7 @@ DEFUN (debug_rfapi_open,
 {
 	struct rfapi_ip_addr vn;
 	struct rfapi_ip_addr un;
-	uint32_t lifetime;
+	uint32_t lifetime = 0;
 	int rc;
 	rfapi_handle handle;
 

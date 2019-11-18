@@ -39,39 +39,41 @@
 #endif
 
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
-      "sharp watch [vrf NAME$name] <nexthop$n|import$import> X:X::X:X$nhop [connected$connected]",
+      "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
       "The NAME of the vrf\n"
       "Watch for nexthop changes\n"
-      "Watch for import check changes\n"
       "The v6 nexthop to signal for watching\n"
+      "Watch for import check changes\n"
+      "The v6 prefix to signal for watching\n"
       "Should the route be connected\n")
 {
 	struct vrf *vrf;
 	struct prefix p;
 	bool type_import;
 
-	if (!name)
-		name = VRF_DEFAULT_NAME;
-	vrf = vrf_lookup_by_name(name);
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
+	vrf = vrf_lookup_by_name(vrf_name);
 	if (!vrf) {
 		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
-			name);
+			vrf_name);
 		return CMD_WARNING;
 	}
 
-	if (n)
-		type_import = false;
-	else
-		type_import = true;
-
 	memset(&p, 0, sizeof(p));
 
-	p.prefixlen = 128;
-	memcpy(&p.u.prefix6, &nhop, 16);
-	p.family = AF_INET6;
+	if (n) {
+		type_import = false;
+		p.prefixlen = 128;
+		memcpy(&p.u.prefix6, &nhop, 16);
+		p.family = AF_INET6;
+	} else {
+		type_import = true;
+		p = *(const struct prefix *)inhop;
+	}
 
 	sharp_nh_tracker_get(&p);
 	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
@@ -81,39 +83,42 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 }
 
 DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
-      "sharp watch [vrf NAME$name] <nexthop$n|import$import> A.B.C.D$nhop [connected$connected]",
+      "sharp watch [vrf NAME$vrf_name] <nexthop$n A.B.C.D$nhop|import$import A.B.C.D/M$inhop> [connected$connected]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
       "The NAME of the vrf\n"
       "Watch for nexthop changes\n"
+      "The v4 address to signal for watching\n"
       "Watch for import check changes\n"
-      "The v4 nexthop to signal for watching\n"
+      "The v4 prefix for import check to watch\n"
       "Should the route be connected\n")
 {
 	struct vrf *vrf;
 	struct prefix p;
 	bool type_import;
 
-	if (!name)
-		name = VRF_DEFAULT_NAME;
-	vrf = vrf_lookup_by_name(name);
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
+	vrf = vrf_lookup_by_name(vrf_name);
 	if (!vrf) {
 		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
-			name);
+			vrf_name);
 		return CMD_WARNING;
 	}
 
 	memset(&p, 0, sizeof(p));
 
-	if (n)
+	if (n) {
 		type_import = false;
-	else
+		p.prefixlen = 32;
+		p.u.prefix4 = nhop;
+		p.family = AF_INET;
+	}
+	else {
 		type_import = true;
-
-	p.prefixlen = 32;
-	p.u.prefix4 = nhop;
-	p.family = AF_INET;
+		p = *(const struct prefix *)inhop;
+	}
 
 	sharp_nh_tracker_get(&p);
 	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
@@ -145,19 +150,19 @@ DEFPY (install_routes_data_dump,
 	struct timeval r;
 
 	timersub(&sg.r.t_end, &sg.r.t_start, &r);
-	vty_out(vty, "Prefix: %s Total: %u %u %u Time: %ld.%ld\n",
+	vty_out(vty, "Prefix: %s Total: %u %u %u Time: %jd.%ld\n",
 		prefix2str(&sg.r.orig_prefix, buf, sizeof(buf)),
 		sg.r.total_routes,
 		sg.r.installed_routes,
 		sg.r.removed_routes,
-		r.tv_sec, r.tv_usec);
+		(intmax_t)r.tv_sec, (long)r.tv_usec);
 
 	return CMD_SUCCESS;
 }
 
 DEFPY (install_routes,
        install_routes_cmd,
-       "sharp install routes [vrf NAME$name] <A.B.C.D$start4|X:X::X:X$start6> <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|nexthop-group NAME$nexthop_group> (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
+       "sharp install routes [vrf NAME$vrf_name] <A.B.C.D$start4|X:X::X:X$start6> <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|nexthop-group NHGNAME$nexthop_group> (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
@@ -204,13 +209,13 @@ DEFPY (install_routes,
 	}
 	sg.r.orig_prefix = prefix;
 
-	if (!name)
-		name = VRF_DEFAULT_NAME;
+	if (!vrf_name)
+		vrf_name = VRF_DEFAULT_NAME;
 
-	vrf = vrf_lookup_by_name(name);
+	vrf = vrf_lookup_by_name(vrf_name);
 	if (!vrf) {
 		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
-			name);
+			vrf_name);
 		return CMD_WARNING;
 	}
 
@@ -247,7 +252,7 @@ DEFPY (install_routes,
 }
 
 DEFPY(vrf_label, vrf_label_cmd,
-      "sharp label <ip$ipv4|ipv6$ipv6> vrf NAME$name label (0-100000)$label",
+      "sharp label <ip$ipv4|ipv6$ipv6> vrf NAME$vrf_name label (0-100000)$label",
       "Sharp Routing Protocol\n"
       "Give a vrf a label\n"
       "Pop and forward for IPv4\n"
@@ -259,10 +264,10 @@ DEFPY(vrf_label, vrf_label_cmd,
 	struct vrf *vrf;
 	afi_t afi = (ipv4) ? AFI_IP : AFI_IP6;
 
-	if (strcmp(name, "default") == 0)
+	if (strcmp(vrf_name, "default") == 0)
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	else
-		vrf = vrf_lookup_by_name(name);
+		vrf = vrf_lookup_by_name(vrf_name);
 
 	if (!vrf) {
 		vty_out(vty, "Unable to find vrf you silly head");
@@ -278,7 +283,7 @@ DEFPY(vrf_label, vrf_label_cmd,
 
 DEFPY (remove_routes,
        remove_routes_cmd,
-       "sharp remove routes [vrf NAME$name] <A.B.C.D$start4|X:X::X:X$start6> (1-1000000)$routes [instance (0-255)$instance]",
+       "sharp remove routes [vrf NAME$vrf_name] <A.B.C.D$start4|X:X::X:X$start6> (1-1000000)$routes [instance (0-255)$instance]",
        "Sharp Routing Protocol\n"
        "Remove some routes\n"
        "Routes to remove\n"
@@ -309,10 +314,10 @@ DEFPY (remove_routes,
 		prefix.u.prefix6 = start6;
 	}
 
-	vrf = vrf_lookup_by_name(name ? name : VRF_DEFAULT_NAME);
+	vrf = vrf_lookup_by_name(vrf_name ? vrf_name : VRF_DEFAULT_NAME);
 	if (!vrf) {
 		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
-			name ? name : VRF_DEFAULT_NAME);
+			vrf_name ? vrf_name : VRF_DEFAULT_NAME);
 		return CMD_WARNING;
 	}
 

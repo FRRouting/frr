@@ -23,8 +23,9 @@
 
 #include "command.h"
 
+#include "lib/bfd.h"
+#include "isisd/isis_bfd.h"
 #include "isisd/isisd.h"
-#include "isisd/isis_vty_common.h"
 #include "isisd/fabricd.h"
 #include "isisd/isis_tlvs.h"
 #include "isisd/isis_misc.h"
@@ -33,6 +34,25 @@
 #include "isisd/isis_circuit.h"
 #include "lib/spf_backoff.h"
 #include "isisd/isis_mt.h"
+
+static struct isis_circuit *isis_circuit_lookup(struct vty *vty)
+{
+	struct interface *ifp = VTY_GET_CONTEXT(interface);
+	struct isis_circuit *circuit;
+
+	if (!ifp) {
+		vty_out(vty, "Invalid interface \n");
+		return NULL;
+	}
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit) {
+		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
+		return NULL;
+	}
+
+	return circuit;
+}
 
 DEFUN (fabric_tier,
        fabric_tier_cmd,
@@ -168,7 +188,7 @@ DEFUN (show_lsp_flooding,
 			area->area_tag : "null");
 
 		if (lspid) {
-			struct isis_lsp *lsp = lsp_for_arg(head, lspid);
+			lsp = lsp_for_arg(head, lspid);
 
 			if (lsp)
 				lsp_print_flooding(vty, lsp);
@@ -176,7 +196,7 @@ DEFUN (show_lsp_flooding,
 			continue;
 		}
 
-		for_each (lspdb, head, lsp) {
+		frr_each (lspdb, head, lsp) {
 			lsp_print_flooding(vty, lsp);
 			vty_out(vty, "\n");
 		}
@@ -285,6 +305,49 @@ DEFUN (no_ip_router_isis,
 		ip = false;
 
 	isis_circuit_af_set(circuit, ip, ipv6);
+	return CMD_SUCCESS;
+}
+
+DEFUN (isis_bfd,
+       isis_bfd_cmd,
+       PROTO_NAME " bfd",
+       PROTO_HELP
+       "Enable BFD support\n")
+{
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
+
+	if (circuit->bfd_info
+	    && CHECK_FLAG(circuit->bfd_info->flags, BFD_FLAG_PARAM_CFG)) {
+		return CMD_SUCCESS;
+	}
+
+	isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX,
+				   BFD_DEF_MIN_TX, BFD_DEF_DETECT_MULT, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_isis_bfd,
+       no_isis_bfd_cmd,
+       "no " PROTO_NAME " bfd",
+       NO_STR
+       PROTO_HELP
+       "Disables BFD support\n"
+)
+{
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
+
+	if (!circuit->bfd_info)
+		return CMD_SUCCESS;
+
+	isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_DEREGISTER);
+	bfd_info_free(&circuit->bfd_info);
 	return CMD_SUCCESS;
 }
 
@@ -1045,6 +1108,8 @@ void isis_vty_daemon_init(void)
 	install_element(INTERFACE_NODE, &ip_router_isis_cmd);
 	install_element(INTERFACE_NODE, &ip6_router_isis_cmd);
 	install_element(INTERFACE_NODE, &no_ip_router_isis_cmd);
+	install_element(INTERFACE_NODE, &isis_bfd_cmd);
+	install_element(INTERFACE_NODE, &no_isis_bfd_cmd);
 
 	install_element(ROUTER_NODE, &set_overload_bit_cmd);
 	install_element(ROUTER_NODE, &no_set_overload_bit_cmd);

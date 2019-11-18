@@ -92,6 +92,46 @@ void listnode_add_head(struct list *list, void *val)
 	list->count++;
 }
 
+bool listnode_add_sort_nodup(struct list *list, void *val)
+{
+	struct listnode *n;
+	struct listnode *new;
+	int ret;
+
+	assert(val != NULL);
+
+	if (list->cmp) {
+		for (n = list->head; n; n = n->next) {
+			ret = (*list->cmp)(val, n->data);
+			if (ret < 0) {
+				new = listnode_new();
+				new->data = val;
+
+				new->next = n;
+				new->prev = n->prev;
+
+				if (n->prev)
+					n->prev->next = new;
+				else
+					list->head = new;
+				n->prev = new;
+				list->count++;
+				return true;
+			}
+			/* found duplicate return false */
+			if (ret == 0)
+				return false;
+		}
+	}
+
+	new = listnode_new();
+	new->data = val;
+
+	LISTNODE_ATTACH(list, new);
+
+	return true;
+}
+
 void listnode_add_sort(struct list *list, void *val)
 {
 	struct listnode *n;
@@ -206,7 +246,7 @@ void listnode_move_to_tail(struct list *l, struct listnode *n)
 	LISTNODE_ATTACH(l, n);
 }
 
-void listnode_delete(struct list *list, void *val)
+void listnode_delete(struct list *list, const void *val)
 {
 	struct listnode *node = listnode_lookup(list, val);
 
@@ -242,6 +282,23 @@ void list_delete_all_node(struct list *list)
 	list->count = 0;
 }
 
+void list_filter_out_nodes(struct list *list, bool (*cond)(void *data))
+{
+	struct listnode *node;
+	struct listnode *next;
+	void *data;
+
+	assert(list);
+
+	for (ALL_LIST_ELEMENTS(list, node, next, data)) {
+		if ((cond && cond(data)) || (!cond)) {
+			if (*list->del)
+				(*list->del)(data);
+			list_delete_node(list, node);
+		}
+	}
+}
+
 void list_delete(struct list **list)
 {
 	assert(*list);
@@ -250,7 +307,7 @@ void list_delete(struct list **list)
 	*list = NULL;
 }
 
-struct listnode *listnode_lookup(struct list *list, void *data)
+struct listnode *listnode_lookup(struct list *list, const void *data)
 {
 	struct listnode *node;
 
@@ -333,4 +390,19 @@ struct listnode *listnode_add_force(struct list **list, void *val)
 	if (*list == NULL)
 		*list = list_new();
 	return listnode_add(*list, val);
+}
+
+void **list_to_array(struct list *list, void **arr, size_t arrlen)
+{
+	struct listnode *ln;
+	void *vp;
+	size_t idx = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(list, ln, vp)) {
+		arr[idx++] = vp;
+		if (idx == arrlen)
+			break;
+	}
+
+	return arr;
 }

@@ -264,6 +264,9 @@ extern void vpn_policy_routemap_event(const char *rmap_name);
 extern vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey);
 
 extern void vpn_leak_postchange_all(void);
-extern void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw);
+extern void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
+					bool is_config);
+extern int bgp_vpn_leak_unimport(struct bgp *from_bgp, struct vty *vty);
+extern void bgp_vpn_leak_export(struct bgp *from_bgp);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */

@@ -123,7 +123,7 @@ but this time, the route command will apply to the VRF.
 .. code-block:: frr
 
    # case with VRF
-   configure terminal
+   configure
    vrf r1-cust1
     ip route 10.0.0.0/24 10.0.0.2
    exit-vrf

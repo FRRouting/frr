@@ -76,20 +76,19 @@ import sys
 import pytest
 from time import sleep
 
-from mininet.topo import Topo
-from mininet.net import Mininet
-from mininet.node import Node, OVSSwitch, Host
-from mininet.log import setLogLevel, info
-from mininet.cli import CLI
-from mininet.link import Intf
-
 from functools import partial
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from mininet.topo import Topo
+
+# Save the Current Working Directory to find configuration files later.
+CWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(CWD, '../'))
+
+# pylint: disable=C0413
+# Import topogen and topotest helpers
 from lib import topotest
-
-
-fatal_error = ""
+from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topolog import logger
 
 
 #####################################################
@@ -102,34 +101,45 @@ class NetworkTopo(Topo):
     "OSPFv3 (IPv6) Test Topology 1"
 
     def build(self, **_opts):
-        #
-        # Define Switches first
-        #
-        switch = {}
-        for i in range(1, 7):
-            switch[i] = self.addSwitch('SW%s' % i, 
-                                       dpid=topotest.int2dpid(i),
-                                       cls=topotest.LegacySwitch)
-        #
-        # Define FRR/Quagga Routers
-        #
-        router = {}
-        for i in range(1, 5):
-            router[i] = topotest.addRouter(self, 'r%s' % i)
+        "Build function"
+
+        tgen = get_topogen(self)
+
+        # Create 4 routers
+        for routern in range(1, 5):
+            tgen.add_router('r{}'.format(routern))
 
         #
         # Wire up the switches and routers
+        # Note that we specify the link names so we match the config files
         #
-        # Stub nets
-        for i in range(1, 5):
-            self.addLink(switch[i], router[i], intfName2='r%s-stubnet' % i)
-        # Switch 5
-        self.addLink(switch[5], router[1], intfName2='r1-sw5')
-        self.addLink(switch[5], router[2], intfName2='r2-sw5')
-        self.addLink(switch[5], router[3], intfName2='r3-sw5')
-        # Switch 6
-        self.addLink(switch[6], router[3], intfName2='r3-sw6')
-        self.addLink(switch[6], router[4], intfName2='r4-sw6')
+
+        # Create a empty network for router 1
+        switch = tgen.add_switch('s1')
+        switch.add_link(tgen.gears['r1'], nodeif='r1-stubnet')
+
+        # Create a empty network for router 2
+        switch = tgen.add_switch('s2')
+        switch.add_link(tgen.gears['r2'], nodeif='r2-stubnet')
+
+        # Create a empty network for router 3
+        switch = tgen.add_switch('s3')
+        switch.add_link(tgen.gears['r3'], nodeif='r3-stubnet')
+
+        # Create a empty network for router 4
+        switch = tgen.add_switch('s4')
+        switch.add_link(tgen.gears['r4'], nodeif='r4-stubnet')
+
+        # Interconnect routers 1, 2, and 3
+        switch = tgen.add_switch('s5')
+        switch.add_link(tgen.gears['r1'], nodeif='r1-sw5')
+        switch.add_link(tgen.gears['r2'], nodeif='r2-sw5')
+        switch.add_link(tgen.gears['r3'], nodeif='r3-sw5')
+
+        # Interconnect routers 3 and 4
+        switch = tgen.add_switch('s6')
+        switch.add_link(tgen.gears['r3'], nodeif='r3-sw6')
+        switch.add_link(tgen.gears['r4'], nodeif='r4-sw6')
 
 
 #####################################################
@@ -138,192 +148,178 @@ class NetworkTopo(Topo):
 ##
 #####################################################
 
-def setup_module(module):
-    global topo, net
+def setup_module(mod):
+    "Sets up the pytest environment"
 
-    print("\n\n** %s: Setup Topology" % module.__name__)
-    print("******************************************\n")
+    tgen = Topogen(NetworkTopo, mod.__name__)
+    tgen.start_topology()
 
-    print("Cleanup old Mininet runs")
-    os.system('sudo mn -c > /dev/null 2>&1')
+    logger.info("** %s: Setup Topology" % mod.__name__)
+    logger.info("******************************************")
 
-    thisDir = os.path.dirname(os.path.realpath(__file__))
-    topo = NetworkTopo()
+    # For debugging after starting net, but before starting FRR,
+    # uncomment the next line
+    # tgen.mininet_cli()
 
-    net = Mininet(controller=None, topo=topo)
-    net.start()
+    router_list = tgen.routers()
+    for rname, router in router_list.iteritems():
+        router.load_config(
+            TopoRouter.RD_ZEBRA,
+            os.path.join(CWD, '{}/zebra.conf'.format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_OSPF6,
+            os.path.join(CWD, '{}/ospf6d.conf'.format(rname))
+        )
 
-    # For debugging after starting net, but before starting FRR/Quagga, uncomment the next line
-    # CLI(net)
+    # Initialize all routers.
+    tgen.start_router()
 
-    ospf_config = 'ospf6d.conf'
-    if net['r1'].checkRouterVersion('<', '4.0'):
-        ospf_config = 'ospf6d.conf-pre-v4'
-
-    # Starting Routers
-    for i in range(1, 5):
-        net['r%s' % i].loadConf('zebra', '%s/r%s/zebra.conf' % (thisDir, i))
-        net['r%s' % i].loadConf('ospf6d', '%s/r%s/%s' % (thisDir, i, ospf_config))
-        net['r%s' % i].startRouter()
-
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
-    # CLI(net)
-
-
-def teardown_module(module):
-    global net
-
-    print("\n\n** %s: Shutdown Topology" % module.__name__)
-    print("******************************************\n")
-
-    # End - Shutdown network
-    net.stop()
+    # For debugging after starting FRR daemons, uncomment the next line
+    # tgen.mininet_cli()
 
 
-def test_router_running():
-    global fatal_error
-    global net
+def teardown_module(mod):
+    "Teardown the pytest environment"
+    tgen = get_topogen()
+    tgen.stop_topology()
 
-    # Skip if previous fatal error condition is raised
-    if (fatal_error != ""):
-        pytest.skip(fatal_error)
-
-    print("\n\n** Check if FRR/Quagga is running on each Router node")
-    print("******************************************\n")
-    sleep(5)
-
-    # Make sure that all daemons are running
-    for i in range(1, 5):
-        fatal_error = net['r%s' % i].checkRouterRunning()
-        assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
-    # CLI(net)
 
 def test_ospf6_converged():
-    global fatal_error
-    global net
 
-    # Skip if previous fatal error condition is raised
-    if (fatal_error != ""):
-        pytest.skip(fatal_error)
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # For debugging, uncomment the next line
+    #tgen.mininet_cli()
 
     # Wait for OSPF6 to converge  (All Neighbors in either Full or TwoWay State)
-    print("\n\n** Verify OSPF6 daemons to converge")
-    print("******************************************\n")
+    logger.info("Waiting for OSPF6 convergence")
+
+    # Set up for regex
+    pat1 = re.compile('^[0-9]')
+    pat2 = re.compile('Full')
+
     timeout = 60
     while timeout > 0:
-        print("Timeout in %s: " % timeout),
+        logger.info("Timeout in %s: " % timeout),
         sys.stdout.flush()
+
         # Look for any node not yet converged
-        for i in range(1, 5):
-            notConverged = net['r%s' % i].cmd('vtysh -c "show ipv6 ospf neigh" 2> /dev/null | grep ^[0-9] | grep -v Full')
-            if notConverged:
-                print('Waiting for r%s' %i)
+        for router, rnode in tgen.routers().iteritems():
+            resStr = rnode.vtysh_cmd('show ipv6 ospf neigh')
+
+            isConverged = False
+
+            for line in resStr.splitlines():
+                res1 = pat1.match(line)
+                if res1:
+                    isConverged = True
+                    res2 = pat2.search(line)
+
+                    if res2 == None:
+                        isConverged = False
+                        break
+
+            if isConverged == False:
+                logger.info('Waiting for {}'.format(router))
                 sys.stdout.flush()
                 break
-        if notConverged:
+
+        if isConverged:
+            logger.info('Done')
+            break
+        else:
             sleep(5)
             timeout -= 5
-        else:
-            print('Done')
-            print(notConverged)
-            break
-    else:
+
+    if timeout == 0:
         # Bail out with error if a router fails to converge
-        ospfStatus = net['r%s' % i].cmd('vtysh -c "show ipv6 ospf neigh"')
-        fatal_error = "OSPFv6 did not converge"
-        assert False, "OSPFv6 did not converge:\n%s" % ospfStatus
+        ospfStatus = rnode.vtysh_cmd('show ipv6 ospf neigh')
+        assert False, "OSPFv6 did not converge:\n{}".format(ospfStatus)
 
-    print("OSPFv3 converged.")
+    logger.info("OSPFv3 converged.")
 
-    if timeout < 60:
-        # Only wait if we actually went through a convergence
-        print("\nwaiting 15s for routes to populate")
-        sleep(15)
+    # For debugging, uncomment the next line
+    # tgen.mininet_cli()
 
     # Make sure that all daemons are still running
-    for i in range(1, 5):
-        fatal_error = net['r%s' % i].checkRouterRunning()
-        assert fatal_error == "", fatal_error
+    if tgen.routers_have_failure():
+        assert tgen.errors == "", tgen.errors
+
+def compare_show_ipv6(rname, expected):
+    """
+    Calls 'show ipv6 route' for router `rname` and compare the obtained
+    result with the expected output.
+    """
+    tgen = get_topogen()
+
+    # Use the vtysh output, with some masking to make comparison easy
+    current = topotest.ip6_route_zebra(tgen.gears[rname])
+
+    # Use just the 'O'spf lines of the output
+    linearr = []
+    for line in current.splitlines():
+        if re.match('^O', line):
+            linearr.append(line)
+
+    current = '\n'.join(linearr)
+
+    return topotest.difflines(topotest.normalize_text(current),
+                              topotest.normalize_text(expected),
+                              title1="Current output",
+                              title2="Expected output")
 
 def test_ospfv3_routingTable():
-    global fatal_error
-    global net
 
-    # Skip if previous fatal error condition is raised
-    if (fatal_error != ""):
-        pytest.skip(fatal_error)
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip('skipped because of router(s) failure')
 
-    thisDir = os.path.dirname(os.path.realpath(__file__))
+    # For debugging, uncomment the next line
+    # tgen.mininet_cli()
 
     # Verify OSPFv3 Routing Table
-    print("\n\n** Verifying OSPFv3 Routing Table")
-    print("******************************************\n")
-    failures = 0
-    for i in range(1, 5):
-        refTableFile = '%s/r%s/show_ipv6_route.ref' % (thisDir, i)
-        if os.path.isfile(refTableFile):
-            # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
-            # Fix newlines (make them all the same)
-            expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
+    for router, rnode in tgen.routers().iteritems():
+        logger.info('Waiting for router "%s" convergence', router)
 
-            # Actual output from router
-            actual = net['r%s' % i].cmd('vtysh -c "show ipv6 route" 2> /dev/null | grep "^O"').rstrip()
-            # Mask out Link-Local mac address portion. They are random...
-            actual = re.sub(r" fe80::[0-9a-f:]+", " fe80::XXXX:XXXX:XXXX:XXXX", actual)
-            # Drop timers on end of line (older Quagga Versions)
-            actual = re.sub(r", [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", "", actual)
-            # Fix newlines (make them all the same)
-            actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
+        # Load expected results from the command
+        reffile = os.path.join(CWD, '{}/show_ipv6_route.ref'.format(router))
+        expected = open(reffile).read()
 
-            # Generate Diff
-            diff = topotest.get_textdiff(actual, expected,
-                title1="actual OSPFv3 IPv6 routing table",
-                title2="expected OSPFv3 IPv6 routing table")
+        # Run test function until we get an result. Wait at most 60 seconds.
+        test_func = partial(
+            compare_show_ipv6, router, expected)
+        result, diff = topotest.run_and_expect(test_func, '',
+                                               count=120, wait=0.5)
+        assert result, 'OSPFv3 did not converge on {}:\n{}'.format(router, diff)
 
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
-                sys.stderr.write('r%s failed OSPFv3 (IPv6) Routing Table Check:\n%s\n' % (i, diff))
-                failures += 1
-            else:
-                print("r%s ok" % i)
-
-            assert failures == 0, "OSPFv3 (IPv6) Routing Table verification failed for router r%s:\n%s" % (i, diff)
-
-    # Make sure that all daemons are still running
-    for i in range(1, 5):
-        fatal_error = net['r%s' % i].checkRouterRunning()
-        assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
-    # CLI(net)
 
 def test_linux_ipv6_kernel_routingTable():
-    global fatal_error
-    global net
 
-    # Skip if previous fatal error condition is raised
-    if (fatal_error != ""):
-        pytest.skip(fatal_error)
+    tgen = get_topogen()
 
-    thisDir = os.path.dirname(os.path.realpath(__file__))
+    if tgen.routers_have_failure():
+        pytest.skip('skipped because of router(s) failure')
 
     # Verify Linux Kernel Routing Table
-    print("\n\n** Verifying Linux IPv6 Kernel Routing Table")
-    print("******************************************\n")
+    logger.info("Verifying Linux IPv6 Kernel Routing Table")
+
     failures = 0
 
     # Get a list of all current link-local addresses first as they change for
     # each run and we need to translate them
     linklocals = []
     for i in range(1, 5):
-        linklocals += net['r%s' % i].get_ipv6_linklocal()
+        linklocals += tgen.net['r{}'.format(i)].get_ipv6_linklocal()
 
-    # Now compare the routing tables (after substituting link-local addresses)        
+    # Now compare the routing tables (after substituting link-local addresses)
+
     for i in range(1, 5):
-        refTableFile = '%s/r%s/ip_6_address.ref' % (thisDir, i)
+        refTableFile = os.path.join(CWD, 'r{}/ip_6_address.ref'.format(i))
         if os.path.isfile(refTableFile):
 
             expected = open(refTableFile).read().rstrip()
@@ -331,7 +327,7 @@ def test_linux_ipv6_kernel_routingTable():
             expected = ('\n'.join(expected.splitlines())).splitlines(1)
 
             # Actual output from router
-            actual = net['r%s' % i].cmd('ip -6 route').rstrip()
+            actual = tgen.gears['r{}'.format(i)].run('ip -6 route').rstrip()
             # Mask out Link-Local mac addresses
             for ll in linklocals:
                 actual = actual.replace(ll[1], "fe80::__(%s)__" % ll[0])
@@ -354,9 +350,9 @@ def test_linux_ipv6_kernel_routingTable():
             actual = '\n'.join(filtered_lines).splitlines(1)
 
             # Print Actual table
-            # print("Router r%s table" % i)
+            # logger.info("Router r%s table" % i)
             # for line in actual:
-            #     print(line.rstrip())
+            #     logger.info(line.rstrip())
 
             # Generate Diff
             diff = topotest.get_textdiff(actual, expected,
@@ -368,64 +364,60 @@ def test_linux_ipv6_kernel_routingTable():
                 sys.stderr.write('r%s failed Linux IPv6 Kernel Routing Table Check:\n%s\n' % (i, diff))
                 failures += 1
             else:
-                print("r%s ok" % i)
+                logger.info("r%s ok" % i)
 
             assert failures == 0, "Linux Kernel IPv6 Routing Table verification failed for router r%s:\n%s" % (i, diff)
 
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_shutdown_check_stderr():
-    global fatal_error
-    global net
 
-    # Skip if previous fatal error condition is raised
-    if (fatal_error != ""):
-        pytest.skip(fatal_error)
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip('skipped because of router(s) failure')
 
     if os.environ.get('TOPOTESTS_CHECK_STDERR') is None:
-        print("SKIPPED final check on StdErr output: Disabled (TOPOTESTS_CHECK_STDERR undefined)\n")
+        logger.info("SKIPPED final check on StdErr output: Disabled (TOPOTESTS_CHECK_STDERR undefined)\n")
         pytest.skip('Skipping test for Stderr output')
 
-    thisDir = os.path.dirname(os.path.realpath(__file__))
+    net = tgen.net
 
-    print("\n\n** Verifying unexpected STDERR output from daemons")
-    print("******************************************\n")
+    logger.info("\n\n** Verifying unexpected STDERR output from daemons")
+    logger.info("******************************************")
 
     for i in range(1, 5):
         net['r%s' % i].stopRouter()
         log = net['r%s' % i].getStdErr('ospf6d')
         if log:
-            print("\nRouter r%s OSPF6d StdErr Log:\n%s" % (i, log))
+            logger.info("\nRouter r%s OSPF6d StdErr Log:\n%s" % (i, log))
         log = net['r%s' % i].getStdErr('zebra')
         if log:
-            print("\nRouter r%s Zebra StdErr Log:\n%s" % (i, log))
+            logger.info("\nRouter r%s Zebra StdErr Log:\n%s" % (i, log))
 
 
 def test_shutdown_check_memleak():
-    global fatal_error
-    global net
-
-    # Skip if previous fatal error condition is raised
-    if (fatal_error != ""):
-        pytest.skip(fatal_error)
+    "Run the memory leak test and report results."
 
     if os.environ.get('TOPOTESTS_CHECK_MEMLEAK') is None:
-        print("SKIPPED final check on Memory leaks: Disabled (TOPOTESTS_CHECK_MEMLEAK undefined)\n")
+        logger.info("SKIPPED final check on Memory leaks: Disabled (TOPOTESTS_CHECK_MEMLEAK undefined)")
         pytest.skip('Skipping test for memory leaks')
-    
-    thisDir = os.path.dirname(os.path.realpath(__file__))
+
+    tgen = get_topogen()
+
+    net = tgen.net
 
     for i in range(1, 5):
         net['r%s' % i].stopRouter()
-        net['r%s' % i].report_memory_leaks(os.environ.get('TOPOTESTS_CHECK_MEMLEAK'), os.path.basename(__file__))
+        net['r%s' % i].report_memory_leaks(
+            os.environ.get('TOPOTESTS_CHECK_MEMLEAK'),
+            os.path.basename(__file__))
 
 
 if __name__ == '__main__':
 
-    setLogLevel('info')
-    # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
+    # To suppress tracebacks, either use the following pytest call or
+    # add "--tb=no" to cli
     # retval = pytest.main(["-s", "--tb=no"])
+
     retval = pytest.main(["-s"])
     sys.exit(retval)

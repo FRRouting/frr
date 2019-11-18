@@ -48,10 +48,9 @@
 #include "isis_zebra.h"
 #include "isis_routemap.h"
 
-static route_map_result_t route_match_ip_address(void *rule,
-						 const struct prefix *prefix,
-						 route_map_object_t type,
-						 void *object)
+static enum route_map_cmd_result_t
+route_match_ip_address(void *rule, const struct prefix *prefix,
+		       route_map_object_t type, void *object)
 {
 	struct access_list *alist;
 
@@ -81,7 +80,7 @@ static struct route_map_rule_cmd route_match_ip_address_cmd = {
 
 /* ------------------------------------------------------------*/
 
-static route_map_result_t
+static enum route_map_cmd_result_t
 route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
 				   route_map_object_t type, void *object)
 {
@@ -114,10 +113,9 @@ struct route_map_rule_cmd route_match_ip_address_prefix_list_cmd = {
 
 /* ------------------------------------------------------------*/
 
-static route_map_result_t route_match_ipv6_address(void *rule,
-						   const struct prefix *prefix,
-						   route_map_object_t type,
-						   void *object)
+static enum route_map_cmd_result_t
+route_match_ipv6_address(void *rule, const struct prefix *prefix,
+			 route_map_object_t type, void *object)
 {
 	struct access_list *alist;
 
@@ -147,7 +145,7 @@ static struct route_map_rule_cmd route_match_ipv6_address_cmd = {
 
 /* ------------------------------------------------------------*/
 
-static route_map_result_t
+static enum route_map_cmd_result_t
 route_match_ipv6_address_prefix_list(void *rule, const struct prefix *prefix,
 				     route_map_object_t type, void *object)
 {
@@ -180,10 +178,9 @@ struct route_map_rule_cmd route_match_ipv6_address_prefix_list_cmd = {
 
 /* ------------------------------------------------------------*/
 
-static route_map_result_t route_set_metric(void *rule,
-					   const struct prefix *prefix,
-					   route_map_object_t type,
-					   void *object)
+static enum route_map_cmd_result_t
+route_set_metric(void *rule, const struct prefix *prefix,
+		 route_map_object_t type, void *object)
 {
 	uint32_t *metric;
 	struct isis_ext_info *info;

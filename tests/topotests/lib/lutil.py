@@ -22,6 +22,7 @@ import sys
 import time
 import datetime
 import json
+import math
 from topolog import logger
 from mininet.net import Mininet
 
@@ -37,7 +38,7 @@ class lUtil:
     base_log_dir = '.'
     fout_name = 'output.log'
     fsum_name = 'summary.txt'
-    l_level = 9
+    l_level = 6
     CallOnFail = False
 
     l_total = 0
@@ -53,12 +54,12 @@ class lUtil:
     fsum = ''
     net  = ''
 
-    def log(self, str):
+    def log(self, str, level=6):
         if self.l_level > 0:
             if self.fout == '':
                 self.fout = open(self.fout_name, 'w', 0)
             self.fout.write(str+'\n')
-        if self.l_level > 5:
+        if level <= self.l_level:
             print(str)
 
     def summary(self, str):
@@ -226,36 +227,43 @@ Total %-4d                                                           %-4d %d\n\
             ret = success
         else:
             ret = search.group()
-            self.log('found:%s:' % ret)
             if op != 'fail':
                 success = True
+                level = 7
             else:
                 success = False
+                level = 5
+            self.log('found:%s:' % ret, level)
 	    # Experiment: compare matched strings obtained each way
 	    if self.l_dotall_experiment and (group_nl_converted != ret):
-		self.log('DOTALL experiment: strings differ dotall=[%s] orig=[%s]' % (group_nl_converted, ret))
+		self.log('DOTALL experiment: strings differ dotall=[%s] orig=[%s]' % (group_nl_converted, ret), 9)
         if op == 'pass' or op == 'fail':
             self.result(target, success, result)
         if js != None:
             return js
         return ret
 
-    def wait(self, target, command, regexp, op, result, wait, returnJson):
-        self.log('%s:%s WAIT:%s:%s:%s:%s:%s:%s:' % \
-                 (self.l_filename, self.l_line, target, command, regexp, op, result,wait))
-        llevel = LUtil.l_level
+    def wait(self, target, command, regexp, op, result, wait, returnJson, wait_time=0.5):
+        self.log('%s:%s WAIT:%s:%s:%s:%s:%s:%s:%s:' % \
+                 (self.l_filename, self.l_line, target, command, regexp, op, result,wait,wait_time))
         found = False
         n = 0
         startt = time.time()
-        delta = time.time() - startt
-        while delta < wait and found is False:
+
+        # Calculate the amount of `sleep`s we are going to peform.
+        wait_count = int(math.ceil(wait / wait_time)) + 1
+
+        while wait_count > 0:
+            n += 1
             found = self.command(target, command, regexp, op, result, returnJson)
-            n+=1
-            LUtil.l_level = 0
-            delta = time.time() - startt
-            if delta < wait and found is False:
-                time.sleep (0.5)
-        LUtil.l_level = llevel
+            if found is not False:
+                break
+
+            wait_count -= 1
+            if wait_count > 0:
+                time.sleep(wait_time)
+
+        delta = time.time() - startt
         self.log('Done after %d loops, time=%s, Found=%s' % (n, delta, found))
         found = self.command(target, command, regexp, 'pass', '%s +%4.2f secs' % (result, delta), returnJson)
         return found
@@ -265,7 +273,7 @@ LUtil=None
 
 #entry calls
 def luStart(baseScriptDir='.', baseLogDir='.', net='',
-            fout='output.log', fsum='summary.txt', level=9):
+            fout='output.log', fsum='summary.txt', level=None):
     global LUtil
     #init class
     LUtil=lUtil()
@@ -276,24 +284,25 @@ def luStart(baseScriptDir='.', baseLogDir='.', net='',
         LUtil.fout_name = baseLogDir + '/' + fout
     if fsum != None:
         LUtil.fsum_name = baseLogDir + '/' + fsum
-    LUtil.l_level = level
+    if level != None:
+        LUtil.l_level = level
     LUtil.l_dotall_experiment = False
     LUtil.l_dotall_experiment = True
 
-def luCommand(target, command, regexp='.', op='none', result='', time=10, returnJson=False):
+def luCommand(target, command, regexp='.', op='none', result='', time=10, returnJson=False, wait_time=0.5):
     if op != 'wait':
         return LUtil.command(target, command, regexp, op, result, returnJson)
     else:
-        return LUtil.wait(target, command, regexp, op, result, time, returnJson)
+        return LUtil.wait(target, command, regexp, op, result, time, returnJson, wait_time)
 
 def luLast(usenl=False):
     if usenl:
 	if LUtil.l_last_nl != None:
-	    LUtil.log('luLast:%s:' %  LUtil.l_last_nl.group())
+	    LUtil.log('luLast:%s:' %  LUtil.l_last_nl.group(), 7)
 	return LUtil.l_last_nl
     else:
 	if LUtil.l_last != None:
-	    LUtil.log('luLast:%s:' %  LUtil.l_last.group())
+	    LUtil.log('luLast:%s:' %  LUtil.l_last.group(), 7)
 	return LUtil.l_last
 
 def luInclude(filename, CallOnFail=None):

@@ -33,9 +33,6 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(YANG_MODULE)
-DECLARE_MTYPE(YANG_DATA)
-
 /* Maximum XPath length. */
 #define XPATH_MAXLEN 256
 

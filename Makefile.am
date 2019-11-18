@@ -12,7 +12,9 @@ AM_CFLAGS = \
 	# end
 AM_CPPFLAGS = \
 	-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
-	-I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib
+	-I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib \
+	$(LUA_INCLUDE) \
+	# end
 AM_LDFLAGS = \
 	-export-dynamic \
 	$(AC_LDFLAGS) \
@@ -37,6 +39,12 @@ shvar-%:
 	@echo "$*=\"$($*)\"" >&$(VARFD)
 var-%:
 	@echo "$($*)" >&$(VARFD)
+
+if ONLY_CLIPPY
+.DEFAULT_GOAL := clippy-only
+endif
+clippy-only: Makefile lib/clippy config.h
+.PHONY: clippy-only
 
 # overwriting these vars breaks cross-compilation.  let's be helpful and warn.
 #
@@ -145,6 +153,7 @@ include staticd/subdir.am
 include bfdd/subdir.am
 include yang/subdir.am
 include yang/libyang_plugins/subdir.am
+include vrrpd/subdir.am
 
 include vtysh/subdir.am
 include tests/subdir.am
@@ -186,7 +195,6 @@ EXTRA_DIST += \
 	snapcraft/defaults \
 	snapcraft/helpers \
 	snapcraft/snap \
-	\
 	babeld/Makefile \
 	bgpd/Makefile \
 	bgpd/rfp-example/librfp/Makefile \
@@ -216,6 +224,7 @@ EXTRA_DIST += \
 	vtysh/Makefile \
 	watchfrr/Makefile \
 	zebra/Makefile \
+	vrrpd/Makefile \
 	# end
 
 noinst_HEADERS += defaults.h

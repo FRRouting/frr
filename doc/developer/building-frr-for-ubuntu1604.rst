@@ -12,9 +12,9 @@ Installing Dependencies
    apt-get update
    apt-get install \
       git autoconf automake libtool make libreadline-dev texinfo \
-      pkg-config libpam0g-dev libjson-c-dev bison flex python-pytest \
+      pkg-config libpam0g-dev libjson-c-dev bison flex python3-pytest \
       libc-ares-dev python3-dev libsystemd-dev python-ipaddress python3-sphinx \
-      install-info build-essential libsystemd-dev libsnmp-dev perl
+      install-info build-essential libsystemd-dev libsnmp-dev perl libcap-dev
 
 .. include:: building-libyang.rst
 

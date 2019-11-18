@@ -98,7 +98,6 @@ struct zserv {
 	/* client's protocol */
 	uint8_t proto;
 	uint16_t instance;
-	uint8_t is_synchronous;
 
 	/* Statistics */
 	uint32_t redist_v4_add_cnt;
@@ -172,8 +171,6 @@ struct zserv {
 /* Hooks for client connect / disconnect */
 DECLARE_HOOK(zserv_client_connect, (struct zserv *client), (client));
 DECLARE_KOOH(zserv_client_close, (struct zserv *client), (client));
-
-extern unsigned int multipath_num;
 
 /*
  * Initialize Zebra API server.

@@ -2,9 +2,9 @@
 #include "hash.h"
 #include "nhrpd.h"
 
-static unsigned int nhrp_reqid_key(void *data)
+static unsigned int nhrp_reqid_key(const void *data)
 {
-	struct nhrp_reqid *r = data;
+	const struct nhrp_reqid *r = data;
 	return r->request_id;
 }
 

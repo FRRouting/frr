@@ -430,6 +430,14 @@ struct nh_walk_ctx {
 	struct json_object *json;
 };
 
+extern zebra_l3vni_t *zl3vni_from_vrf(vrf_id_t vrf_id);
+extern struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni);
+extern struct interface *zl3vni_map_to_svi_if(zebra_l3vni_t *zl3vni);
+
+DECLARE_HOOK(zebra_rmac_update, (zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
+	     bool delete, const char *reason), (rmac, zl3vni, delete, reason))
+
+
 #ifdef __cplusplus
 }
 #endif

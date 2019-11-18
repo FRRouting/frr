@@ -30,9 +30,9 @@ const char *const nhrp_cache_type_str[] = {
 		[NHRP_CACHE_LOCAL] = "local",
 };
 
-static unsigned int nhrp_cache_protocol_key(void *peer_data)
+static unsigned int nhrp_cache_protocol_key(const void *peer_data)
 {
-	struct nhrp_cache *p = peer_data;
+	const struct nhrp_cache *p = peer_data;
 	return sockunion_hash(&p->remote_addr);
 }
 

@@ -41,6 +41,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "typerb.h"
 
 #define RB_BLACK	0
@@ -329,9 +333,10 @@ color:
 	return (old);
 }
 
-void typed_rb_remove(struct rbt_tree *rbt, struct rb_entry *rbe)
+struct typed_rb_entry *typed_rb_remove(struct rbt_tree *rbt,
+				       struct rb_entry *rbe)
 {
-	rbe_remove(rbt, rbe);
+	return rbe_remove(rbt, rbe);
 }
 
 struct typed_rb_entry *typed_rb_insert(struct rbt_tree *rbt,

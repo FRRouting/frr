@@ -39,6 +39,7 @@
 #include "pim_msdp.h"
 #include "pim_ssm.h"
 #include "pim_bfd.h"
+#include "pim_bsm.h"
 #include "pim_vxlan.h"
 
 int pim_debug_config_write(struct vty *vty)
@@ -69,10 +70,6 @@ int pim_debug_config_write(struct vty *vty)
 		vty_out(vty, "debug igmp trace\n");
 		++writes;
 	}
-	if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
-		vty_out(vty, "debug igmp trace detail\n");
-		++writes;
-	}
 
 	if (PIM_DEBUG_MROUTE) {
 		vty_out(vty, "debug mroute\n");
@@ -84,7 +81,7 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 
-	if (PIM_DEBUG_MROUTE_DETAIL) {
+	if (PIM_DEBUG_MROUTE_DETAIL_ONLY) {
 		vty_out(vty, "debug mroute detail\n");
 		++writes;
 	}
@@ -110,13 +107,18 @@ int pim_debug_config_write(struct vty *vty)
 		vty_out(vty, "debug pim trace\n");
 		++writes;
 	}
-	if (PIM_DEBUG_PIM_TRACE_DETAIL) {
+	if (PIM_DEBUG_PIM_TRACE_DETAIL_ONLY) {
 		vty_out(vty, "debug pim trace detail\n");
 		++writes;
 	}
 
 	if (PIM_DEBUG_ZEBRA) {
 		vty_out(vty, "debug pim zebra\n");
+		++writes;
+	}
+
+	if (PIM_DEBUG_BSM) {
+		vty_out(vty, "debug pim bsm\n");
 		++writes;
 	}
 
@@ -344,6 +346,24 @@ int pim_interface_config_write(struct vty *vty)
 					++writes;
 				}
 
+				/* IF ip igmp last-member_query-count */
+				if (pim_ifp->igmp_last_member_query_count
+				    != IGMP_DEFAULT_ROBUSTNESS_VARIABLE) {
+					vty_out(vty,
+						" ip igmp last-member-query-count %d\n",
+						pim_ifp->igmp_last_member_query_count);
+					++writes;
+				}
+
+				/* IF ip igmp last-member_query-interval */
+				if (pim_ifp->igmp_specific_query_max_response_time_dsec
+				    != IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC) {
+					vty_out(vty,
+						" ip igmp last-member-query-interval %d\n",
+						pim_ifp->igmp_specific_query_max_response_time_dsec);
+					  ++writes;
+				}
+
 				/* IF ip igmp join */
 				if (pim_ifp->igmp_join_list) {
 					struct listnode *node;
@@ -383,7 +403,10 @@ int pim_interface_config_write(struct vty *vty)
 
 				writes +=
 					pim_static_write_mroute(pim, vty, ifp);
+				pim_bsm_write_config(vty, ifp);
+				++writes;
 				pim_bfd_write_config(vty, ifp);
+				++writes;
 			}
 			vty_endframe(vty, "!\n");
 			++writes;

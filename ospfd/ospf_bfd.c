@@ -65,6 +65,7 @@ static void ospf_bfd_reg_dereg_nbr(struct ospf_neighbor *nbr, int command)
 	struct interface *ifp = oi->ifp;
 	struct ospf_if_params *params;
 	struct bfd_info *bfd_info;
+	int cbit;
 
 	/* Check if BFD is enabled */
 	params = IF_DEF_PARAMS(ifp);
@@ -80,8 +81,10 @@ static void ospf_bfd_reg_dereg_nbr(struct ospf_neighbor *nbr, int command)
 			   inet_ntoa(nbr->src),
 			   ospf_vrf_id_to_name(oi->ospf->vrf_id));
 
+	cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
+
 	bfd_peer_sendmsg(zclient, bfd_info, AF_INET, &nbr->src, NULL, ifp->name,
-			 0, 0, command, 0, oi->ospf->vrf_id);
+			 0, 0, cbit, command, 0, oi->ospf->vrf_id);
 }
 
 /*
@@ -156,7 +159,7 @@ static int ospf_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 	}
 
 	/* Send the client registration */
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, vrf_id);
 
 	/* Replay the neighbor, if BFD is enabled in OSPF */
 	for (ALL_LIST_ELEMENTS(om->ospf, node, onode, ospf)) {
@@ -207,7 +210,8 @@ static int ospf_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 	struct bfd_info *bfd_info;
 	struct timeval tv;
 
-	ifp = bfd_get_peer_info(zclient->ibuf, &p, NULL, &status, vrf_id);
+	ifp = bfd_get_peer_info(zclient->ibuf, &p, NULL, &status,
+				NULL, vrf_id);
 
 	if ((ifp == NULL) || (p.family != AF_INET))
 		return 0;

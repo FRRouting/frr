@@ -135,8 +135,10 @@ macro_inline void prefix ## _add_tail(struct prefix##_head *h, type *item)     \
 macro_inline void prefix ## _del_hint(struct prefix##_head *h, type *item,     \
 		_Atomic atomptr_t *hint)                                       \
 {	atomlist_del_hint(&h->ah, &item->field.ai, hint); }                    \
-macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
-{	atomlist_del_hint(&h->ah, &item->field.ai, NULL); }                    \
+macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
+{	atomlist_del_hint(&h->ah, &item->field.ai, NULL);                      \
+	/* TODO: Return NULL if not found */                                   \
+	return item; }                                                         \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 {	char *p = (char *)atomlist_pop(&h->ah);                                \
 	return p ? (type *)(p - offsetof(type, field)) : NULL; }               \
@@ -152,6 +154,15 @@ macro_inline type *prefix ## _next_safe(struct prefix##_head *h, type *item)   \
 {	return item ? prefix##_next(h, item) : NULL; }                         \
 macro_inline size_t prefix ## _count(struct prefix##_head *h)                  \
 {	return atomic_load_explicit(&h->ah.count, memory_order_relaxed); }     \
+macro_inline void prefix ## _init(struct prefix##_head *h)                     \
+{                                                                              \
+	memset(h, 0, sizeof(*h));                                              \
+}                                                                              \
+macro_inline void prefix ## _fini(struct prefix##_head *h)                     \
+{                                                                              \
+	assert(prefix ## _count(h) == 0);                                      \
+	memset(h, 0, sizeof(*h));                                              \
+}                                                                              \
 /* ... */
 
 /* add_head:
@@ -264,9 +275,11 @@ macro_inline void prefix ## _del_hint(struct prefix##_head *h, type *item,     \
 {                                                                              \
 	atomsort_del_hint(&h->ah, &item->field.ai, hint);                      \
 }                                                                              \
-macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
+macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 {                                                                              \
 	atomsort_del_hint(&h->ah, &item->field.ai, NULL);                      \
+	/* TODO: Return NULL if not found */                                   \
+	return item;                                                           \
 }                                                                              \
 macro_inline size_t prefix ## _count(struct prefix##_head *h)                  \
 {                                                                              \

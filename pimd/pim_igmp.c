@@ -305,6 +305,13 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 		return -1;
 	}
 
+	if (!pim_if_connected_to_source(ifp, from)) {
+		if (PIM_DEBUG_IGMP_PACKETS)
+			zlog_debug("Recv IGMP query on interface: %s from a non-connected source: %s",
+				   ifp->name, from_str);
+		return 0;
+	}
+
 	/* Collecting IGMP Rx stats */
 	switch (query_version) {
 	case 1:
@@ -741,7 +748,7 @@ static void igmp_group_free(struct igmp_group *group)
 	XFREE(MTYPE_PIM_IGMP_GROUP, group);
 }
 
-static void igmp_group_delete(struct igmp_group *group)
+void igmp_group_delete(struct igmp_group *group)
 {
 	struct listnode *src_node;
 	struct listnode *src_nextnode;
@@ -829,9 +836,9 @@ void igmp_sock_delete_all(struct interface *ifp)
 	}
 }
 
-static unsigned int igmp_group_hash_key(void *arg)
+static unsigned int igmp_group_hash_key(const void *arg)
 {
-	struct igmp_group *group = (struct igmp_group *)arg;
+	const struct igmp_group *group = arg;
 
 	return jhash_1word(group->group_addr.s_addr, 0);
 }
@@ -1178,5 +1185,44 @@ void igmp_send_query(int igmp_version, struct igmp_group *group, int fd,
 	} else if (igmp_version == 2) {
 		igmp_v2_send_query(group, fd, ifname, query_buf, dst_addr,
 				   group_addr, query_max_response_time_dsec);
+	}
+}
+
+void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *sock_node = NULL;
+	struct igmp_sock *igmp = NULL;
+	struct in_addr dst_addr;
+	struct in_addr group_addr;
+	int query_buf_size;
+
+	if (!igmp_ver)
+		igmp_ver = 2;
+
+	if (igmp_ver == 3)
+		query_buf_size = PIM_IGMP_BUFSIZE_WRITE;
+	else
+		query_buf_size = IGMP_V12_MSG_SIZE;
+
+	dst_addr.s_addr = htonl(INADDR_ALLHOSTS_GROUP);
+	group_addr.s_addr = PIM_NET_INADDR_ANY;
+
+	if (PIM_DEBUG_IGMP_TRACE)
+		zlog_debug("Issuing general query on request on %s",
+				ifp->name);
+
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
+
+		char query_buf[query_buf_size];
+
+		igmp_send_query(igmp_ver, 0 /* igmp_group */, igmp->fd,
+				igmp->interface->name, query_buf,
+				sizeof(query_buf), 0 /* num_sources */,
+				dst_addr, group_addr,
+				pim_ifp->igmp_query_max_response_time_dsec,
+				1 /* s_flag: always set for general queries */,
+				igmp->querier_robustness_variable,
+				igmp->querier_query_interval);
 	}
 }

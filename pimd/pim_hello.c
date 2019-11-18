@@ -31,6 +31,7 @@
 #include "pim_iface.h"
 #include "pim_neighbor.h"
 #include "pim_upstream.h"
+#include "pim_bsm.h"
 
 static void on_trace(const char *label, struct interface *ifp,
 		     struct in_addr src)
@@ -367,6 +368,12 @@ int pim_hello_recv(struct interface *ifp, struct in_addr src_addr,
 			}
 			FREE_ADDR_LIST_THEN_RETURN(-8);
 		}
+		/* Forward BSM if required */
+		if (!pim_bsm_new_nbr_fwd(neigh, ifp)) {
+			if (PIM_DEBUG_PIM_HELLO)
+				zlog_debug("%s: forwarding bsm to new nbr failed",
+					   __PRETTY_FUNCTION__);
+		}
 
 		/* actual addr list has been saved under neighbor */
 		return 0;
@@ -419,6 +426,12 @@ int pim_hello_recv(struct interface *ifp, struct in_addr src_addr,
 						ifp->name);
 				}
 				FREE_ADDR_LIST_THEN_RETURN(-9);
+			}
+			/* Forward BSM if required */
+			if (!pim_bsm_new_nbr_fwd(neigh, ifp)) {
+				if (PIM_DEBUG_PIM_HELLO)
+					zlog_debug("%s: forwarding bsm to new nbr failed",
+						   __PRETTY_FUNCTION__);
 			}
 			/* actual addr list is saved under neighbor */
 			return 0;

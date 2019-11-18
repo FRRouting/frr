@@ -61,7 +61,7 @@ static bool yang_mapping_hash_cmp(const void *value1, const void *value2)
 	return strmatch(c1->xpath_from_canonical, c2->xpath_from_canonical);
 }
 
-static unsigned int yang_mapping_hash_key(void *value)
+static unsigned int yang_mapping_hash_key(const void *value)
 {
 	return string_hash_make(value);
 }

@@ -48,7 +48,7 @@
 #include "lib_errors.h"
 #include "northbound_cli.h"
 
-DEFINE_MTYPE(LIB, HOST, "Host config")
+DEFINE_MTYPE_STATIC(LIB, HOST, "Host config")
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item")
 
 #define item(x)                                                                \
@@ -84,10 +84,11 @@ const char *node_names[] = {
 	"vrf debug",		    // VRF_DEBUG_NODE,
 	"northbound debug",	    // NORTHBOUND_DEBUG_NODE,
 	"vnc debug",		    // DEBUG_VNC_NODE,
+	"route-map debug",	    /* RMAP_DEBUG_NODE */
+	"resolver debug",	    /* RESOLVER_DEBUG_NODE */
 	"aaa",			    // AAA_NODE,
 	"keychain",		    // KEYCHAIN_NODE,
 	"keychain key",		    // KEYCHAIN_KEY_NODE,
-	"logical-router",	   // LOGICALROUTER_NODE,
 	"static ip",		    // IP_NODE,
 	"vrf",			    // VRF_NODE,
 	"interface",		    // INTERFACE_NODE,
@@ -149,6 +150,8 @@ const char *node_names[] = {
 	"bfd",			 /* BFD_NODE */
 	"bfd peer",		 /* BFD_PEER_NODE */
 	"openfabric",		    // OPENFABRIC_NODE
+	"vrrp",			    /* VRRP_NODE */
+	"bmp",			 /* BMP_NODE */
 };
 /* clang-format on */
 
@@ -287,7 +290,7 @@ vector cmd_make_strvec(const char *string)
 	const char *copy = string;
 
 	/* skip leading whitespace */
-	while (isspace((int)*copy) && *copy != '\0')
+	while (isspace((unsigned char)*copy) && *copy != '\0')
 		copy++;
 
 	/* if the entire string was whitespace or a comment, return */
@@ -332,7 +335,7 @@ int argv_find(struct cmd_token **argv, int argc, const char *text, int *index)
 	return found;
 }
 
-static unsigned int cmd_hash_key(void *p)
+static unsigned int cmd_hash_key(const void *p)
 {
 	int size = sizeof(p);
 
@@ -973,6 +976,7 @@ enum node_type node_parent(enum node_type node)
 	case BGP_IPV6M_NODE:
 	case BGP_EVPN_NODE:
 	case BGP_IPV6L_NODE:
+	case BMP_NODE:
 		ret = BGP_NODE;
 		break;
 	case BGP_EVPN_VNI_NODE:
@@ -1052,9 +1056,16 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 	if (matched_element->daemon)
 		ret = CMD_SUCCESS_DAEMON;
 	else {
-		/* Clear enqueued configuration changes. */
-		vty->num_cfg_changes = 0;
-		memset(&vty->cfg_changes, 0, sizeof(vty->cfg_changes));
+		if (vty->config) {
+			/* Clear array of enqueued configuration changes. */
+			vty->num_cfg_changes = 0;
+			memset(&vty->cfg_changes, 0, sizeof(vty->cfg_changes));
+
+			/* Regenerate candidate configuration. */
+			if (frr_get_cli_mode() == FRR_CLI_CLASSIC)
+				nb_config_replace(vty->candidate_config,
+						  running_config, true);
+		}
 
 		ret = matched_element->func(matched_element, vty, argc, argv);
 	}
@@ -1386,7 +1397,7 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 /* Configuration from terminal */
 DEFUN (config_terminal,
        config_terminal_cmd,
-       "configure terminal",
+       "configure [terminal]",
        "Configuration from vty interface\n"
        "Configuration terminal\n")
 {
@@ -1446,7 +1457,6 @@ void cmd_exit(struct vty *vty)
 		break;
 	case INTERFACE_NODE:
 	case PW_NODE:
-	case LOGICALROUTER_NODE:
 	case VRF_NODE:
 	case NH_GROUP_NODE:
 	case ZEBRA_NODE:
@@ -1483,6 +1493,7 @@ void cmd_exit(struct vty *vty)
 	case BGP_IPV6M_NODE:
 	case BGP_EVPN_NODE:
 	case BGP_IPV6L_NODE:
+	case BMP_NODE:
 		vty->node = BGP_NODE;
 		break;
 	case BGP_EVPN_VNI_NODE:
@@ -1759,10 +1770,10 @@ static int file_write_config(struct vty *vty)
 		dirfd = open(".", O_DIRECTORY | O_RDONLY);
 	/* if dirfd is invalid, directory sync fails, but we're still OK */
 
-	config_file_sav = XMALLOC(
-		MTYPE_TMP, strlen(config_file) + strlen(CONF_BACKUP_EXT) + 1);
-	strcpy(config_file_sav, config_file);
-	strcat(config_file_sav, CONF_BACKUP_EXT);
+	size_t config_file_sav_sz = strlen(config_file) + strlen(CONF_BACKUP_EXT) + 1;
+	config_file_sav = XMALLOC(MTYPE_TMP, config_file_sav_sz);
+	strlcpy(config_file_sav, config_file, config_file_sav_sz);
+	strlcat(config_file_sav, CONF_BACKUP_EXT, config_file_sav_sz);
 
 
 	config_file_tmp = XMALLOC(MTYPE_TMP, strlen(config_file) + 8);
@@ -1926,7 +1937,7 @@ DEFUN(config_domainname,
 {
 	struct cmd_token *word = argv[1];
 
-	if (!isalpha((int)word->arg[0])) {
+	if (!isalpha((unsigned char)word->arg[0])) {
 		vty_out(vty, "Please specify string starting with alphabet\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -1960,8 +1971,16 @@ DEFUN (config_hostname,
 {
 	struct cmd_token *word = argv[1];
 
-	if (!isalnum((int)word->arg[0])) {
-		vty_out(vty, "Please specify string starting with alphabet\n");
+	if (!isalnum((unsigned char)word->arg[0])) {
+		vty_out(vty,
+		    "Please specify string starting with alphabet or number\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* With reference to RFC 1123 Section 2.1 */
+	if (strlen(word->arg) > HOSTNAME_LEN) {
+		vty_out(vty, "Hostname length should be less than %d chars\n",
+			HOSTNAME_LEN);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -2000,7 +2019,7 @@ DEFUN (config_password,
 		return CMD_SUCCESS;
 	}
 
-	if (!isalnum((int)argv[idx_8]->arg[0])) {
+	if (!isalnum((unsigned char)argv[idx_8]->arg[0])) {
 		vty_out(vty,
 			"Please specify string starting with alphanumeric\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -2080,7 +2099,7 @@ DEFUN (config_enable_password,
 		}
 	}
 
-	if (!isalnum((int)argv[idx_8]->arg[0])) {
+	if (!isalnum((unsigned char)argv[idx_8]->arg[0])) {
 		vty_out(vty,
 			"Please specify string starting with alphanumeric\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -2692,14 +2711,65 @@ DEFUN (no_banner_motd,
 
 DEFUN(find,
       find_cmd,
-      "find COMMAND...",
-      "Find CLI command containing text\n"
-      "Text to search for\n")
+      "find REGEX",
+      "Find CLI command matching a regular expression\n"
+      "Search pattern (POSIX regex)\n")
 {
-	char *text = argv_concat(argv, argc, 1);
+	char *pattern = argv[1]->arg;
 	const struct cmd_node *node;
 	const struct cmd_element *cli;
 	vector clis;
+
+	regex_t exp = {};
+
+	int cr = regcomp(&exp, pattern, REG_NOSUB | REG_EXTENDED);
+
+	if (cr != 0) {
+		switch (cr) {
+		case REG_BADBR:
+			vty_out(vty, "%% Invalid {...} expression\n");
+			break;
+		case REG_BADRPT:
+			vty_out(vty, "%% Bad repetition operator\n");
+			break;
+		case REG_BADPAT:
+			vty_out(vty, "%% Regex syntax error\n");
+			break;
+		case REG_ECOLLATE:
+			vty_out(vty, "%% Invalid collating element\n");
+			break;
+		case REG_ECTYPE:
+			vty_out(vty, "%% Invalid character class name\n");
+			break;
+		case REG_EESCAPE:
+			vty_out(vty,
+				"%% Regex ended with escape character (\\)\n");
+			break;
+		case REG_ESUBREG:
+			vty_out(vty,
+				"%% Invalid number in \\digit construction\n");
+			break;
+		case REG_EBRACK:
+			vty_out(vty, "%% Unbalanced square brackets\n");
+			break;
+		case REG_EPAREN:
+			vty_out(vty, "%% Unbalanced parentheses\n");
+			break;
+		case REG_EBRACE:
+			vty_out(vty, "%% Unbalanced braces\n");
+			break;
+		case REG_ERANGE:
+			vty_out(vty,
+				"%% Invalid endpoint in range expression\n");
+			break;
+		case REG_ESPACE:
+			vty_out(vty, "%% Failed to compile (out of memory)\n");
+			break;
+		}
+
+		goto done;
+	}
+
 
 	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {
 		node = vector_slot(cmdvec, i);
@@ -2708,14 +2778,15 @@ DEFUN(find,
 		clis = node->cmd_vector;
 		for (unsigned int j = 0; j < vector_active(clis); j++) {
 			cli = vector_slot(clis, j);
-			if (strcasestr(cli->string, text))
+
+			if (regexec(&exp, cli->string, 0, NULL, 0) == 0)
 				vty_out(vty, "  (%s)  %s\n",
 					node_names[node->node], cli->string);
 		}
 	}
 
-	XFREE(MTYPE_TMP, text);
-
+done:
+	regfree(&exp);
 	return CMD_SUCCESS;
 }
 
@@ -2802,9 +2873,10 @@ void cmd_init(int terminal)
 	/* Each node's basic commands. */
 	install_element(VIEW_NODE, &show_version_cmd);
 	install_element(ENABLE_NODE, &show_startup_config_cmd);
-	install_element(ENABLE_NODE, &debug_memstats_cmd);
 
 	if (terminal) {
+		install_element(ENABLE_NODE, &debug_memstats_cmd);
+
 		install_element(VIEW_NODE, &config_list_cmd);
 		install_element(VIEW_NODE, &config_exit_cmd);
 		install_element(VIEW_NODE, &config_quit_cmd);
@@ -2838,9 +2910,10 @@ void cmd_init(int terminal)
 	install_element(CONFIG_NODE, &domainname_cmd);
 	install_element(CONFIG_NODE, &no_domainname_cmd);
 	install_element(CONFIG_NODE, &frr_version_defaults_cmd);
-	install_element(CONFIG_NODE, &debug_memstats_cmd);
 
 	if (terminal > 0) {
+		install_element(CONFIG_NODE, &debug_memstats_cmd);
+
 		install_element(CONFIG_NODE, &password_cmd);
 		install_element(CONFIG_NODE, &no_password_cmd);
 		install_element(CONFIG_NODE, &enable_password_cmd);
