@@ -40,8 +40,7 @@ char *mlag_role2str(enum mlag_role role, char *buf, size_t size)
 	return buf;
 }
 
-char *zebra_mlag_lib_msgid_to_str(enum mlag_msg_type msg_type, char *buf,
-				  size_t size)
+char *mlag_lib_msgid_to_str(enum mlag_msg_type msg_type, char *buf, size_t size)
 {
 	switch (msg_type) {
 	case MLAG_REGISTER:
@@ -82,7 +81,7 @@ char *zebra_mlag_lib_msgid_to_str(enum mlag_msg_type msg_type, char *buf,
 }
 
 
-int zebra_mlag_lib_decode_mlag_hdr(struct stream *s, struct mlag_msg *msg)
+int mlag_lib_decode_mlag_hdr(struct stream *s, struct mlag_msg *msg)
 {
 	if (s == NULL || msg == NULL)
 		return -1;
@@ -95,8 +94,7 @@ stream_failure:
 	return -1;
 }
 
-int zebra_mlag_lib_decode_mroute_add(struct stream *s,
-				     struct mlag_mroute_add *msg)
+int mlag_lib_decode_mroute_add(struct stream *s, struct mlag_mroute_add *msg)
 {
 	if (s == NULL || msg == NULL)
 		return -1;
@@ -115,8 +113,7 @@ stream_failure:
 	return -1;
 }
 
-int zebra_mlag_lib_decode_mroute_del(struct stream *s,
-				     struct mlag_mroute_del *msg)
+int mlag_lib_decode_mroute_del(struct stream *s, struct mlag_mroute_del *msg)
 {
 	if (s == NULL || msg == NULL)
 		return -1;
@@ -132,7 +129,7 @@ stream_failure:
 	return -1;
 }
 
-int zebra_mlag_lib_decode_mlag_status(struct stream *s, struct mlag_status *msg)
+int mlag_lib_decode_mlag_status(struct stream *s, struct mlag_status *msg)
 {
 	if (s == NULL || msg == NULL)
 		return -1;
@@ -145,7 +142,7 @@ stream_failure:
 	return -1;
 }
 
-int zebra_mlag_lib_decode_vxlan_update(struct stream *s, struct mlag_vxlan *msg)
+int mlag_lib_decode_vxlan_update(struct stream *s, struct mlag_vxlan *msg)
 {
 	if (s == NULL || msg == NULL)
 		return -1;
@@ -158,8 +155,7 @@ stream_failure:
 	return -1;
 }
 
-int zebra_mlag_lib_decode_frr_status(struct stream *s,
-				     struct mlag_frr_status *msg)
+int mlag_lib_decode_frr_status(struct stream *s, struct mlag_frr_status *msg)
 {
 	if (s == NULL || msg == NULL)
 		return -1;

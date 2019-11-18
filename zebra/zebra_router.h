@@ -100,7 +100,6 @@ struct zebra_mlag_info {
 	/* Threads for read/write. */
 	struct thread *t_read;
 	struct thread *t_write;
-	pthread_mutex_t mlag_th_mtx;
 };
 
 struct zebra_router {

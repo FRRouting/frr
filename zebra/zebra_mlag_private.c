@@ -71,10 +71,8 @@ int zebra_mlag_private_write_data(uint8_t *data, uint32_t len)
 
 static void zebra_mlag_sched_read(void)
 {
-	frr_with_mutex (&zrouter.mlag_info.mlag_th_mtx) {
-		thread_add_read(zmlag_master, zebra_mlag_read, NULL,
-				mlag_socket, &zrouter.mlag_info.t_read);
-	}
+	thread_add_read(zmlag_master, zebra_mlag_read, NULL, mlag_socket,
+			&zrouter.mlag_info.t_read);
 }
 
 static int zebra_mlag_read(struct thread *thread)
