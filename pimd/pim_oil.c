@@ -623,6 +623,10 @@ int pim_channel_oil_empty(struct channel_oil *c_oil)
 	if (!c_oil)
 		return 1;
 
-	return !memcmp(c_oil->oil.mfcc_ttls,
-			null_oil.mfcc_ttls, sizeof(null_oil.mfcc_ttls));
+	/* exclude pimreg from the OIL when checking if the inherited_oil is
+	 * non-NULL.
+	 * pimreg device (in all vrfs) uses a vifi of
+	 * 0 (PIM_OIF_PIM_REGISTER_VIF) so we simply mfcc_ttls[0] */
+	return !memcmp(&c_oil->oil.mfcc_ttls[1], &null_oil.mfcc_ttls[1],
+		sizeof(null_oil.mfcc_ttls) - sizeof(null_oil.mfcc_ttls[0]));
 }
