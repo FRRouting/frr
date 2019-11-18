@@ -98,6 +98,31 @@ FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,
 int main(int argc, char **argv, char **envp)
 {
 	frr_preinit(&pimd_di, argc, argv);
+
+#ifdef FUZZING
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+	__AFL_INIT();
+#endif
+	pim_router_init();
+	pim_vrf_init();
+	//pim_init();
+
+	fseek(stdin, 0, SEEK_END);
+	long fsize = ftell(stdin);
+	if (fsize < 0)
+		return 0;
+
+	fseek(stdin, 0, SEEK_SET);
+	uint8_t *packet = malloc(fsize);
+	fread(packet, 1, fsize, stdin);
+
+	struct interface *ifp = if_create_name("fuzziface", VRF_DEFAULT);
+	pim_if_new(ifp, true, true, false, false);
+	int result = pim_pim_packet(ifp, packet, fsize);
+
+	return result;
+#endif
+
 	frr_opt_add("", longopts, "");
 
 	/* this while just reads the options */
@@ -118,32 +143,6 @@ int main(int argc, char **argv, char **envp)
 		}
 	}
 
-#ifdef FUZZING
-	pim_router_init();
-	pim_vrf_init();
-	pim_init();
-
-#ifdef __AFL_HAVE_MANUAL_CONTROL
-	__AFL_INIT();
-#endif
-
-	fseek(stdin, 0, SEEK_END);
-	long fsize = ftell(stdin);
-	if (fsize < 0)
-		return 0;
-
-	fseek(stdin, 0, SEEK_SET);
-	uint8_t *packet = malloc(fsize);
-	fread(packet, 1, fsize, stdin);
-
-	struct interface *ifp = if_create_name("fuzziface", VRF_DEFAULT);
-	pim_if_new(ifp, true, true, false, false);
-	int result = pim_pim_packet(ifp, packet, fsize);
-
-	/* printf is expensive, skip it for fuzzing */
-	//fprintf(stderr, "parse result: %d\n", result);
-	return result;
-#endif
 
 	pim_router_init();
 
