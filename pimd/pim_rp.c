@@ -1261,7 +1261,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 		json = json_object_new_object();
 	else
 		vty_out(vty,
-			"RP address       group/prefix-list   OIF         I am RP     Source\n");
+			"RP address       group/prefix-list   OIF               I am RP    Source\n");
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (!pim_rpf_addr_is_inaddr_none(&rp_info->rp)) {
 			char buf[48];
@@ -1338,7 +1338,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 					vty_out(vty, "%-16s  ", "(Unknown)");
 
 				if (rp_info->i_am_rp)
-					vty_out(vty, "yes\n");
+					vty_out(vty, "yes");
 				else
 					vty_out(vty, "no");
 
