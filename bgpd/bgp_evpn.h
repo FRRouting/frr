@@ -191,5 +191,6 @@ extern void bgp_evpn_cleanup_on_disable(struct bgp *bgp);
 extern void bgp_evpn_cleanup(struct bgp *bgp);
 extern void bgp_evpn_init(struct bgp *bgp);
 extern int bgp_evpn_get_type5_prefixlen(struct prefix *pfx);
+extern bool bgp_evpn_is_prefix_nht_supported(struct prefix *pfx);
 
 #endif /* _QUAGGA_BGP_EVPN_H */

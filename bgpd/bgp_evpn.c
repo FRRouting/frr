@@ -6030,3 +6030,26 @@ int bgp_evpn_get_type5_prefixlen(struct prefix *pfx)
 
 	return evp->prefix.prefix_addr.ip_prefix_length;
 }
+
+/*
+ * Should we register nexthop for this EVPN prefix for nexthop tracking?
+ */
+bool bgp_evpn_is_prefix_nht_supported(struct prefix *pfx)
+{
+	struct prefix_evpn *evp = (struct prefix_evpn *)pfx;
+
+	/*
+	 * EVPN RT-5 should not be marked as valid and imported to vrfs if the
+	 * BGP nexthop is not reachable. To check for the nexthop reachability,
+	 * Add nexthop for EVPN RT-5 for nexthop tracking.
+	 *
+	 * Ideally, a BGP route should be marked as valid only if the
+	 * nexthop is reachable. Thus, other EVPN route types also should be
+	 * added here after testing is performed for them.
+	 */
+	if (pfx && pfx->family == AF_EVPN &&
+	    evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE)
+		return true;
+
+	return false;
+}
