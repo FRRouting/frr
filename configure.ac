@@ -2391,12 +2391,10 @@ AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
 dnl PCEP plugin
 AM_CONDITIONAL([PCEP], [test "$enable_pcep" = "yes"])
 AS_IF([test "$enable_pcep" = "yes"], [
-  AC_CHECK_LIB([pcep_pcc_api], [initialize_pcc], [
-    PCEP_LIBS="-lpcep_pcc_api -lpcep_session_logic -lpcep_socket_comm -lpcep_timers -lpcep_messages -lpcep_utils"
+  AC_CHECK_LIB([pcep_pcc], [initialize_pcc], [
+    PCEP_LIBS="-lpcep_pcc"
   ],[
-    AC_MSG_ERROR([PCEP library libpcep_timers not found])
-  ], [
-    -lpcep_session_logic -lpcep_socket_comm -lpcep_timers -lpcep_messages -lpcep_utils
+    AC_MSG_ERROR([PCEP library libpcep_pcc not found])
   ])
   AC_SUBST([PCEP_LIBS])
 ])
