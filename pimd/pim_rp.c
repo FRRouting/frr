@@ -457,6 +457,10 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	struct pim_upstream *up;
 	struct listnode *upnode;
 
+	if (rp_addr.s_addr == INADDR_ANY ||
+	    rp_addr.s_addr == INADDR_NONE)
+		return PIM_RP_BAD_ADDRESS;
+
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 
 	rp_info->rp.rpf_addr.family = AF_INET;
