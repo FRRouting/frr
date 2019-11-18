@@ -1,10 +1,8 @@
-frr (7.1-1) UNRELEASED; urgency=medium
+frr (7.2-1) unstable; urgency=medium
 
-  * upstream 7.1 release (7.0 / 7.0.1 packages existed on deb.frrouting.org
-    but were not pushed out to Debian during the buster freeze)
-  * now requires libyang as an additional dependency
+  * New upstream release
 
- -- David Lamparter <equinox-debian@diac24.net>  Mon, 01 Jul 2019 16:30:11 +0200
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Sun, 03 Nov 2019 18:45:23 +0100
 
 frr (6.0.2-2) unstable; urgency=medium
 
