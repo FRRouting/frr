@@ -50,6 +50,11 @@
 #include "pim_mlag.h"
 #include "pim_errors.h"
 
+#define FUZZING 1
+#ifdef FUZZING
+#include "pim_pim.h"
+#endif
+
 extern struct host host;
 
 struct option longopts[] = {{0}};
@@ -113,6 +118,26 @@ int main(int argc, char **argv, char **envp)
 		}
 	}
 
+#ifdef FUZZING
+	pim_router_init();
+	pim_vrf_init();
+	pim_init();
+
+	fseek(stdin, 0, SEEK_END);
+	long fsize = ftell(stdin);
+	fseek(stdin, 0, SEEK_SET);
+	uint8_t *packet = malloc(fsize);
+	fread(packet, 1, fsize, stdin);
+
+	struct interface *ifp = if_create_name("fuzziface", VRF_DEFAULT);
+	pim_if_new(ifp, true, true, false, false);
+	int result = pim_pim_packet(ifp, packet, fsize);
+
+	/* printf is expensive, skip it for fuzzing */
+	//fprintf(stderr, "parse result: %d\n", result);
+	exit(0);
+#endif
+
 	pim_router_init();
 
 	/*
@@ -127,6 +152,7 @@ int main(int argc, char **argv, char **envp)
 
 	pim_route_map_init();
 	pim_init();
+
 
 	/*
 	 * Initialize zclient "update" and "lookup" sockets
