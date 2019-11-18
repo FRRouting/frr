@@ -129,8 +129,15 @@ int main(int argc, char **argv, char **envp)
 	pim_vrf_init();
 	pim_init();
 
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+	__AFL_INIT();
+#endif
+
 	fseek(stdin, 0, SEEK_END);
 	long fsize = ftell(stdin);
+	if (fsize < 0)
+		return 0;
+
 	fseek(stdin, 0, SEEK_SET);
 	uint8_t *packet = malloc(fsize);
 	fread(packet, 1, fsize, stdin);
@@ -141,7 +148,7 @@ int main(int argc, char **argv, char **envp)
 
 	/* printf is expensive, skip it for fuzzing */
 	//fprintf(stderr, "parse result: %d\n", result);
-	exit(0);
+	return result;
 #endif
 
 	pim_router_init();
