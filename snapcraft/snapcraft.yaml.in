@@ -134,6 +134,13 @@ apps:
             - network
             - network-bind
             - network-control
+    vrrpd:
+        command: bin/vrrpd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
     set:
         command: bin/set-options
     zebra-debug:
@@ -232,7 +239,12 @@ apps:
             - network
             - network-bind
             - network-control
-
+    vrrpd-debug:
+        command: sbin/vrrpd -f $SNAP_DATA/vrrpd.conf --pid_file $SNAP_DATA/vrrpd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
 parts:
     rtrlib:
         build-packages:
@@ -327,6 +339,7 @@ parts:
             - --enable-fpm
             - --enable-protobuf
             - --enable-rpki
+            - --enable-vrrpd
             - --enable-configfile-mask=0640
             - --enable-logfile-mask=0640 
             - --localstatedir=/var/run
@@ -353,6 +366,7 @@ parts:
             pbrd.conf.default: etc/frr/pbrd.conf.default
             bfdd.conf.default: etc/frr/bfdd.conf.default
             fabricd.conf.default: etc/frr/fabricd.conf.default
+            vrrpd.conf.default: etc/frr/vrrpd.conf.default
             vtysh.conf.default: etc/frr/vtysh.conf.default
             staticd.conf.default: etc/frr/staticd.conf.default
     frr-scripts:
