@@ -27,6 +27,8 @@
 extern "C" {
 #endif
 
+#undef HAVE_MALLOC_USABLE_SIZE
+
 #if defined(HAVE_MALLOC_SIZE) && !defined(HAVE_MALLOC_USABLE_SIZE)
 #define malloc_usable_size(x) malloc_size(x)
 #define HAVE_MALLOC_USABLE_SIZE
