@@ -30,5 +30,78 @@ module frr-pathd {
   }
 
   container pathd {
+    list sr-policy {
+      key "name";
+      leaf name {
+        type string;
+        description
+          "Name of the SR Policy.";
+      }
+      leaf color {
+        type uint32;
+        description
+          "Color of the SR Policy.";
+      }
+      leaf endpoint {
+        type inet:ip-address;
+        description
+          "Indication for the endpoint of the SR Policy.";
+      }
+      leaf binding-sid {
+        type rt-types:mpls-label;
+        description
+          "BSID of the SR Policy.";
+      }
+      list candidate-path {
+        description
+          "List of Candidate Paths of the SR Policy.";
+        key "preference";
+        leaf preference {
+          type uint32;
+          description
+            "Administrative preference.";
+        }
+        leaf protocol-origin {
+          description
+            "Indication for the protocol origin of the Candidate Path.";
+          type enumeration {
+            enum pcep;
+            enum bgp;
+            enum config;
+          }
+        }
+        leaf originator {
+          type inet:ip-address;
+          description
+            "Indication for the endpoint of the origin of the Candidate Path.";
+        }
+        leaf dynamic-flag {
+          description
+            "Flag for explicit or dynamic path.";
+          type boolean;
+        }
+        leaf segment-list-name {
+          description
+            "Flag for explicit or dynamic path.";
+          type string;
+        }
+      }
+    }
+    list segment-list {
+      description
+        "List of SIDs for Candidate Paths.";
+      key "name";
+      leaf name {
+        description
+          "List name.";
+        type string;
+      }
+      leaf-list label {
+        description
+          "List of MPLS labels.";
+        type rt-types:mpls-label;
+        ordered-by user;
+      }
+    }
   }
 }

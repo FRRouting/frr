@@ -2,5 +2,19 @@
 !
 password frr
 log stdout
-pce ip 1.2.3.4
+!
+segment-list test1
+ mpls label 123
+ mpls label 456
+!
+segment-list test2
+ mpls label 321
+ mpls label 654
+!
+sr-policy bla
+ binding-sid 100
+ color 32
+ endpoint 1.1.1.1
+ candidate-path preference 100 explicit segment-list test1
+ candidate-path preference 200 explicit segment-list test2
 !

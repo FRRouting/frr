@@ -28,6 +28,84 @@ const struct frr_yang_module_info frr_pathd_info = {
 	.name = "frr-pathd",
 	.nodes = {
 		{
+			.xpath = "/frr-pathd:pathd/segment-list",
+			.cbs = {
+				.create = pathd_te_segment_list_create,
+				.destroy = pathd_te_segment_list_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/segment-list/label",
+			.cbs = {
+				.create = pathd_te_segment_list_label_create,
+				.destroy = pathd_te_segment_list_label_destroy,
+		                .move = pathd_te_segment_list_label_move,
+			}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/sr-policy",
+			.cbs = {
+				.create = pathd_te_sr_policy_create,
+				.destroy = pathd_te_sr_policy_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/sr-policy/color",
+			.cbs = {
+				.modify = pathd_te_sr_policy_color_modify,
+				.destroy = pathd_te_sr_policy_color_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/sr-policy/endpoint",
+			.cbs = {
+				.modify = pathd_te_sr_policy_endpoint_modify,
+				.destroy = pathd_te_sr_policy_endpoint_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/sr-policy/binding-sid",
+			.cbs = {
+				.modify = pathd_te_sr_policy_binding_sid_modify,
+				.destroy = pathd_te_sr_policy_binding_sid_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path",
+			.cbs = {
+				.create = pathd_te_sr_policy_candidate_path_create,
+				.destroy = pathd_te_sr_policy_candidate_path_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/protocol-origin",
+			.cbs = {
+				.modify = pathd_te_sr_policy_candidate_path_protocol_origin_modify,
+				.destroy = pathd_te_sr_policy_candidate_path_protocol_origin_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/originator",
+			.cbs = {
+				.modify = pathd_te_sr_policy_candidate_path_originator_modify,
+				.destroy = pathd_te_sr_policy_candidate_path_originator_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/dynamic-flag",
+			.cbs = {
+				.modify = pathd_te_sr_policy_candidate_path_dynamic_flag_modify,
+				.destroy = pathd_te_sr_policy_candidate_path_dynamic_flag_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/segment-list-name",
+			.cbs = {
+				.modify = pathd_te_sr_policy_candidate_path_segment_list_name_modify,
+				.destroy = pathd_te_sr_policy_candidate_path_segment_list_name_destroy,
+			}
+		},
+		{
 			.xpath = NULL,
 		},
 	}
