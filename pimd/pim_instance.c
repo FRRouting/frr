@@ -203,7 +203,7 @@ static int pim_vrf_disable(struct vrf *vrf)
 	return 0;
 }
 
-static int pim_vrf_config_write(struct vty *vty)
+static int  __attribute__((unused)) pim_vrf_config_write(struct vty *vty)
 {
 	struct vrf *vrf;
 	struct pim_instance *pim;
