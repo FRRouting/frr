@@ -11124,7 +11124,7 @@ DEFUN (show_bgp_l2vpn_evpn_route_prefix,
 		argv_find(argv, argc, "X:X::X:X", &idx))
 		network = argv[idx]->arg;
 	else if (argv_find(argv, argc, "A.B.C.D/M", &idx) ||
-		argv_find(argv, argc, "A.B.C.D/M", &idx)) {
+		argv_find(argv, argc, "X:X::X:X/M", &idx)) {
 		network = argv[idx]->arg;
 		prefix_check = 1;
 	} else {
