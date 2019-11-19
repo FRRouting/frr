@@ -22,6 +22,12 @@
 #include "lib/mpls.h"
 #include "lib/ipaddr.h"
 
+enum te_protocol_origin {
+	TE_ORIGIN_PCEP = 1,
+	TE_ORIGIN_BGP = 2,
+	TE_ORIGIN_CONFIG = 3,
+};
+
 struct te_segment_list {
 	RB_ENTRY(te_segment_list) entry;
 
@@ -42,6 +48,15 @@ struct te_candidate_path {
 
 	/* The associated Segment List. */
 	char *segment_list_name;
+
+	/* The Protocol-Origin. */
+	enum te_protocol_origin protocol_origin;
+
+	/* The Originator */
+	struct ipaddr *originator;
+
+	/* Dynamic Flag (indicates if a path is explicit or dynamic) */
+	bool dynamic_flag;
 };
 
 struct te_sr_policy {
@@ -86,6 +101,9 @@ void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 				  mpls_label_t binding_sid);
 void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 				     uint32_t preference,
-				     char *segment_list_name);
+				     char *segment_list_name,
+				     enum te_protocol_origin protocol_origin,
+				     struct ipaddr *originator,
+				     bool dynamic_flag);
 
 #endif /* _FRR_PATHD_H_ */

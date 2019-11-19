@@ -191,6 +191,9 @@ int pathd_te_sr_policy_candidate_path_create(struct nb_cb_create_args *args)
 	struct te_sr_policy *te_sr_policy;
 	uint32_t preference;
 	const char *segment_list_name;
+	enum te_protocol_origin protocol_origin;
+	struct ipaddr originator;
+	bool dynamic_flag;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -199,8 +202,12 @@ int pathd_te_sr_policy_candidate_path_create(struct nb_cb_create_args *args)
 	preference = yang_dnode_get_uint32(args->dnode, "./preference");
 	segment_list_name = yang_dnode_get_string(args->dnode,
 						  "./segment-list-name");
-	te_sr_policy_candidate_path_add(te_sr_policy, preference,
-					strdup(segment_list_name));
+	protocol_origin = yang_dnode_get_enum(args->dnode, "./protocol-origin");
+	yang_dnode_get_ip(&originator, args->dnode, "./originator");
+	dynamic_flag = yang_dnode_get_bool(args->dnode, "./dynamic-flag");
+	te_sr_policy_candidate_path_add(
+		te_sr_policy, preference, strdup(segment_list_name),
+		protocol_origin, &originator, dynamic_flag);
 
 	return NB_OK;
 }
