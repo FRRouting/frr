@@ -2937,19 +2937,258 @@ static int ospf_verify_header(struct stream *ibuf, struct ospf_interface *oi,
 	return 0;
 }
 
-/* Starting point of packet process function. */
-int ospf_read(struct thread *thread)
+enum ospf_read_return_enum {
+	OSPF_READ_ERROR,
+	OSPF_READ_CONTINUE,
+};
+
+static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 {
 	int ret;
 	struct stream *ibuf;
-	struct ospf *ospf;
 	struct ospf_interface *oi;
 	struct ip *iph;
 	struct ospf_header *ospfh;
 	uint16_t length;
-	struct interface *ifp = NULL;
 	struct connected *c;
+	struct interface *ifp = NULL;
+
+	stream_reset(ospf->ibuf);
+	ibuf = ospf_recv_packet(ospf, ospf->fd, &ifp, ospf->ibuf);
+	if (ibuf == NULL)
+		return OSPF_READ_ERROR;
+
+	/*
+	 * This raw packet is known to be at least as big as its
+	 * IP header. Note that there should not be alignment problems with
+	 * this assignment because this is at the beginning of the
+	 * stream data buffer.
+	 */
+	iph = (struct ip *)STREAM_DATA(ibuf);
+	/*
+	 * Note that sockopt_iphdrincl_swab_systoh was called in
+	 * ospf_recv_packet.
+	 */
+	if (ifp == NULL) {
+		/*
+		 * Handle cases where the platform does not support
+		 * retrieving the ifindex, and also platforms (such as
+		 * Solaris 8) that claim to support ifindex retrieval but do
+		 * not.
+		 */
+		c = if_lookup_address((void *)&iph->ip_src, AF_INET,
+				      ospf->vrf_id);
+		if (c)
+			ifp = c->ifp;
+		if (ifp == NULL) {
+			if (IS_DEBUG_OSPF_PACKET(0, RECV))
+				zlog_debug(
+					"%s: Unable to determine incoming interface from: %s(%s)",
+					__PRETTY_FUNCTION__,
+					inet_ntoa(iph->ip_src),
+					ospf_get_name(ospf));
+			return OSPF_READ_CONTINUE;
+		}
+	}
+
+	/* Self-originated packet should be discarded silently. */
+	if (ospf_if_lookup_by_local_addr(ospf, NULL, iph->ip_src)) {
+		if (IS_DEBUG_OSPF_PACKET(0, RECV)) {
+			zlog_debug(
+				"ospf_read[%s]: Dropping self-originated packet",
+				inet_ntoa(iph->ip_src));
+		}
+		return OSPF_READ_CONTINUE;
+	}
+
+	/*
+	 * Advance from IP header to OSPF header (iph->ip_hl has
+	 * been verified by ospf_recv_packet() to be correct).
+	 */
+	stream_forward_getp(ibuf, iph->ip_hl * 4);
+
+	ospfh = (struct ospf_header *)stream_pnt(ibuf);
+	if (MSG_OK
+	    != ospf_packet_examin(ospfh, stream_get_endp(ibuf)
+						 - stream_get_getp(ibuf)))
+		return OSPF_READ_CONTINUE;
+	/* Now it is safe to access all fields of OSPF packet header. */
+
+	/* associate packet with ospf interface */
+	oi = ospf_if_lookup_recv_if(ospf, iph->ip_src, ifp);
+
+	/*
+	 * ospf_verify_header() relies on a valid "oi" and thus can be called
+	 * only after the passive/backbone/other checks below are passed.
+	 * These checks in turn access the fields of unverified "ospfh"
+	 * structure for their own purposes and must remain very accurate
+	 * in doing this.
+	 */
+
+	/* If incoming interface is passive one, ignore it. */
+	if (oi && OSPF_IF_PASSIVE_STATUS(oi) == OSPF_IF_PASSIVE) {
+		char buf[3][INET_ADDRSTRLEN];
+
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug(
+				"ignoring packet from router %s sent to %s, received on a passive interface, %s",
+				inet_ntop(AF_INET, &ospfh->router_id, buf[0],
+					  sizeof(buf[0])),
+				inet_ntop(AF_INET, &iph->ip_dst, buf[1],
+					  sizeof(buf[1])),
+				inet_ntop(AF_INET, &oi->address->u.prefix4,
+					  buf[2], sizeof(buf[2])));
+
+		if (iph->ip_dst.s_addr == htonl(OSPF_ALLSPFROUTERS)) {
+			/* Try to fix multicast membership.
+			 * Some OS:es may have problems in this area,
+			 * make sure it is removed.
+			 */
+			OI_MEMBER_JOINED(oi, MEMBER_ALLROUTERS);
+			ospf_if_set_multicast(oi);
+		}
+		return OSPF_READ_CONTINUE;
+	}
+
+
+	/* if no local ospf_interface,
+	 * or header area is backbone but ospf_interface is not
+	 * check for VLINK interface
+	 */
+	if ((oi == NULL)
+	    || (OSPF_IS_AREA_ID_BACKBONE(ospfh->area_id)
+		&& !OSPF_IS_AREA_ID_BACKBONE(oi->area->area_id))) {
+		if ((oi = ospf_associate_packet_vl(ospf, ifp, iph, ospfh))
+		    == NULL) {
+			if (!ospf->instance && IS_DEBUG_OSPF_EVENT)
+				zlog_debug(
+					"Packet from [%s] received on link %s but no ospf_interface",
+					inet_ntoa(iph->ip_src), ifp->name);
+			return OSPF_READ_CONTINUE;
+		}
+	}
+
+	/*
+	 * else it must be a local ospf interface, check it was
+	 * received on correct link
+	 */
+	else if (oi->ifp != ifp) {
+		if (IS_DEBUG_OSPF_EVENT)
+			flog_warn(EC_OSPF_PACKET,
+				  "Packet from [%s] received on wrong link %s",
+				  inet_ntoa(iph->ip_src), ifp->name);
+		return OSPF_READ_CONTINUE;
+	} else if (oi->state == ISM_Down) {
+		char buf[2][INET_ADDRSTRLEN];
+
+		flog_warn(
+			EC_OSPF_PACKET,
+			"Ignoring packet from %s to %s received on interface that is down [%s]; interface flags are %s",
+			inet_ntop(AF_INET, &iph->ip_src, buf[0],
+				  sizeof(buf[0])),
+			inet_ntop(AF_INET, &iph->ip_dst, buf[1],
+				  sizeof(buf[1])),
+			ifp->name, if_flag_dump(ifp->flags));
+		/* Fix multicast memberships? */
+		if (iph->ip_dst.s_addr == htonl(OSPF_ALLSPFROUTERS))
+			OI_MEMBER_JOINED(oi, MEMBER_ALLROUTERS);
+		else if (iph->ip_dst.s_addr == htonl(OSPF_ALLDROUTERS))
+			OI_MEMBER_JOINED(oi, MEMBER_DROUTERS);
+		if (oi->multicast_memberships)
+			ospf_if_set_multicast(oi);
+		return OSPF_READ_CONTINUE;
+	}
+
+	/*
+	 * If the received packet is destined for AllDRouters, the
+	 * packet should be accepted only if the received ospf
+	 * interface state is either DR or Backup -- endo.
+	 *
+	 * I wonder who endo is?
+	 */
+	if (iph->ip_dst.s_addr == htonl(OSPF_ALLDROUTERS)
+	    && (oi->state != ISM_DR && oi->state != ISM_Backup)) {
+		flog_warn(
+			EC_OSPF_PACKET,
+			"Dropping packet for AllDRouters from [%s] via [%s] (ISM: %s)",
+			inet_ntoa(iph->ip_src), IF_NAME(oi),
+			lookup_msg(ospf_ism_state_msg, oi->state, NULL));
+		/* Try to fix multicast membership. */
+		SET_FLAG(oi->multicast_memberships, MEMBER_DROUTERS);
+		ospf_if_set_multicast(oi);
+		return OSPF_READ_CONTINUE;
+	}
+
+	/* Verify more OSPF header fields. */
+	ret = ospf_verify_header(ibuf, oi, iph, ospfh);
+	if (ret < 0) {
+		if (IS_DEBUG_OSPF_PACKET(0, RECV))
+			zlog_debug(
+				"ospf_read[%s]: Header check failed, "
+				"dropping.",
+				inet_ntoa(iph->ip_src));
+		return OSPF_READ_CONTINUE;
+	}
+
+	/* Show debug receiving packet. */
+	if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV)) {
+		if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, DETAIL)) {
+			zlog_debug(
+				"-----------------------------------------------------");
+			ospf_packet_dump(ibuf);
+		}
+
+		zlog_debug("%s received from [%s] via [%s]",
+			   lookup_msg(ospf_packet_type_str, ospfh->type, NULL),
+			   inet_ntoa(ospfh->router_id), IF_NAME(oi));
+		zlog_debug(" src [%s],", inet_ntoa(iph->ip_src));
+		zlog_debug(" dst [%s]", inet_ntoa(iph->ip_dst));
+
+		if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, DETAIL))
+			zlog_debug(
+				"-----------------------------------------------------");
+	}
+
+	stream_forward_getp(ibuf, OSPF_HEADER_SIZE);
+
+	/* Adjust size to message length. */
+	length = ntohs(ospfh->length) - OSPF_HEADER_SIZE;
+
+	/* Read rest of the packet and call each sort of packet routine.
+	 */
+	switch (ospfh->type) {
+	case OSPF_MSG_HELLO:
+		ospf_hello(iph, ospfh, ibuf, oi, length);
+		break;
+	case OSPF_MSG_DB_DESC:
+		ospf_db_desc(iph, ospfh, ibuf, oi, length);
+		break;
+	case OSPF_MSG_LS_REQ:
+		ospf_ls_req(iph, ospfh, ibuf, oi, length);
+		break;
+	case OSPF_MSG_LS_UPD:
+		ospf_ls_upd(ospf, iph, ospfh, ibuf, oi, length);
+		break;
+	case OSPF_MSG_LS_ACK:
+		ospf_ls_ack(iph, ospfh, ibuf, oi, length);
+		break;
+	default:
+		flog_warn(
+			EC_OSPF_PACKET,
+			"interface %s(%s): OSPF packet header type %d is illegal",
+			IF_NAME(oi), ospf_get_name(ospf), ospfh->type);
+		break;
+	}
+
+	return OSPF_READ_CONTINUE;
+}
+
+/* Starting point of packet process function. */
+int ospf_read(struct thread *thread)
+{
+	struct ospf *ospf;
 	int32_t count = 0;
+	enum ospf_read_return_enum ret;
 
 	/* first of all get interface pointer. */
 	ospf = THREAD_ARG(thread);
@@ -2959,236 +3198,12 @@ int ospf_read(struct thread *thread)
 
 	while (count < ospf->write_oi_count) {
 		count++;
-		stream_reset(ospf->ibuf);
-		ibuf = ospf_recv_packet(ospf, ospf->fd, &ifp, ospf->ibuf);
-		if (ibuf == NULL)
+		ret = ospf_read_helper(ospf);
+		switch (ret) {
+		case OSPF_READ_ERROR:
 			return -1;
-		/*
-		 * This raw packet is known to be at least as big as its
-		 * IP header.
-		 * Note that there should not be alignment problems with
-		 * this assignment because this is at the beginning of the
-		 * stream data buffer.
-		 */
-		iph = (struct ip *)STREAM_DATA(ibuf);
-		/* Note that sockopt_iphdrincl_swab_systoh was called in
-		 * ospf_recv_packet. */
-
-		if (ifp == NULL) {
-			/* Handle cases where the platform does not support
-			 * retrieving the ifindex, and also platforms (such
-			 * as Solaris 8) that claim to support ifindex
-			 * retrieval but do not.
-			 */
-			c = if_lookup_address((void *)&iph->ip_src, AF_INET,
-					      ospf->vrf_id);
-			if (c)
-				ifp = c->ifp;
-			if (ifp == NULL) {
-				if (IS_DEBUG_OSPF_PACKET(0, RECV))
-					zlog_debug(
-						"%s: Unable to determine incoming interface from: %s(%s)",
-						__PRETTY_FUNCTION__,
-						inet_ntoa(iph->ip_src),
-						ospf_get_name(ospf));
-				continue;
-			}
-		}
-
-		/* Self-originated packet should be discarded silently. */
-		if (ospf_if_lookup_by_local_addr(ospf, NULL, iph->ip_src)) {
-			if (IS_DEBUG_OSPF_PACKET(0, RECV)) {
-				zlog_debug(
-					"ospf_read[%s]: Dropping self-originated packet",
-					inet_ntoa(iph->ip_src));
-			}
-			continue;
-		}
-
-		/*
-		 * Advance from IP header to OSPF header (iph->ip_hl has
-		 * been verified by ospf_recv_packet() to be correct).
-		 */
-		stream_forward_getp(ibuf, iph->ip_hl * 4);
-
-		ospfh = (struct ospf_header *)stream_pnt(ibuf);
-		if (MSG_OK
-		    != ospf_packet_examin(ospfh,
-					  stream_get_endp(ibuf)
-						  - stream_get_getp(ibuf)))
-			continue;
-		/* Now it is safe to access all fields of OSPF packet header. */
-
-		/* associate packet with ospf interface */
-		oi = ospf_if_lookup_recv_if(ospf, iph->ip_src, ifp);
-
-		/* ospf_verify_header() relies on a valid "oi" and thus can
-		 * be called only after the passive/backbone/other checks
-		 * below are passed. These checks in turn access the fields
-		 * of unverified "ospfh" structure for their own purposes and
-		 * must remain very accurate in doing this. */
-
-		/* If incoming interface is passive one, ignore it. */
-		if (oi && OSPF_IF_PASSIVE_STATUS(oi) == OSPF_IF_PASSIVE) {
-			char buf[3][INET_ADDRSTRLEN];
-
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ignoring packet from router %s sent to %s, "
-					"received on a passive interface, %s",
-					inet_ntop(AF_INET, &ospfh->router_id,
-						  buf[0], sizeof(buf[0])),
-					inet_ntop(AF_INET, &iph->ip_dst, buf[1],
-						  sizeof(buf[1])),
-					inet_ntop(AF_INET,
-						  &oi->address->u.prefix4,
-						  buf[2], sizeof(buf[2])));
-
-			if (iph->ip_dst.s_addr == htonl(OSPF_ALLSPFROUTERS)) {
-				/* Try to fix multicast membership.
-				 * Some OS:es may have problems in this area,
-				 * make sure it is removed.
-				 */
-				OI_MEMBER_JOINED(oi, MEMBER_ALLROUTERS);
-				ospf_if_set_multicast(oi);
-			}
-			continue;
-		}
-
-
-		/* if no local ospf_interface,
-		 * or header area is backbone but ospf_interface is not
-		 * check for VLINK interface
-		 */
-		if ((oi == NULL)
-		    || (OSPF_IS_AREA_ID_BACKBONE(ospfh->area_id)
-			&& !OSPF_IS_AREA_ID_BACKBONE(oi->area->area_id))) {
-			if ((oi = ospf_associate_packet_vl(ospf, ifp, iph,
-							   ospfh))
-			    == NULL) {
-				if (!ospf->instance && IS_DEBUG_OSPF_EVENT)
-					zlog_debug(
-						"Packet from [%s] received on link %s"
-						" but no ospf_interface",
-						inet_ntoa(iph->ip_src),
-						ifp->name);
-				return 0;
-			}
-		}
-
-		/*
-		 * else it must be a local ospf interface, check it was
-		 * received on correct link
-		 */
-		else if (oi->ifp != ifp) {
-			if (IS_DEBUG_OSPF_EVENT)
-				flog_warn(
-					EC_OSPF_PACKET,
-					"Packet from [%s] received on wrong link %s",
-					inet_ntoa(iph->ip_src), ifp->name);
-			continue;
-		} else if (oi->state == ISM_Down) {
-			char buf[2][INET_ADDRSTRLEN];
-
-			flog_warn(
-				EC_OSPF_PACKET,
-				"Ignoring packet from %s to %s received on interface that is "
-				"down [%s]; interface flags are %s",
-				inet_ntop(AF_INET, &iph->ip_src, buf[0],
-					  sizeof(buf[0])),
-				inet_ntop(AF_INET, &iph->ip_dst, buf[1],
-					  sizeof(buf[1])),
-				ifp->name, if_flag_dump(ifp->flags));
-			/* Fix multicast memberships? */
-			if (iph->ip_dst.s_addr == htonl(OSPF_ALLSPFROUTERS))
-				OI_MEMBER_JOINED(oi, MEMBER_ALLROUTERS);
-			else if (iph->ip_dst.s_addr == htonl(OSPF_ALLDROUTERS))
-				OI_MEMBER_JOINED(oi, MEMBER_DROUTERS);
-			if (oi->multicast_memberships)
-				ospf_if_set_multicast(oi);
-			continue;
-		}
-
-		/*
-		 * If the received packet is destined for AllDRouters, the
-		 * packet should be accepted only if the received ospf
-		 * interface state is either DR or Backup -- endo.
-		 *
-		 * I wonder who endo is?
-		 */
-		if (iph->ip_dst.s_addr == htonl(OSPF_ALLDROUTERS)
-		    && (oi->state != ISM_DR && oi->state != ISM_Backup)) {
-			flog_warn(
-				EC_OSPF_PACKET,
-				"Dropping packet for AllDRouters from [%s] via [%s] (ISM: %s)",
-				inet_ntoa(iph->ip_src), IF_NAME(oi),
-				lookup_msg(ospf_ism_state_msg, oi->state,
-					   NULL));
-			/* Try to fix multicast membership. */
-			SET_FLAG(oi->multicast_memberships, MEMBER_DROUTERS);
-			ospf_if_set_multicast(oi);
-			continue;
-		}
-
-		/* Verify more OSPF header fields. */
-		ret = ospf_verify_header(ibuf, oi, iph, ospfh);
-		if (ret < 0) {
-			if (IS_DEBUG_OSPF_PACKET(0, RECV))
-				zlog_debug(
-					"ospf_read[%s]: Header check failed, "
-					"dropping.",
-					inet_ntoa(iph->ip_src));
-			continue;
-		}
-
-		/* Show debug receiving packet. */
-		if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV)) {
-			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, DETAIL)) {
-				zlog_debug(
-					"-----------------------------------------------------");
-				ospf_packet_dump(ibuf);
-			}
-
-			zlog_debug("%s received from [%s] via [%s]",
-				   lookup_msg(ospf_packet_type_str, ospfh->type,
-					      NULL),
-				   inet_ntoa(ospfh->router_id), IF_NAME(oi));
-			zlog_debug(" src [%s],", inet_ntoa(iph->ip_src));
-			zlog_debug(" dst [%s]", inet_ntoa(iph->ip_dst));
-
-			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, DETAIL))
-				zlog_debug(
-					"-----------------------------------------------------");
-		}
-
-		stream_forward_getp(ibuf, OSPF_HEADER_SIZE);
-
-		/* Adjust size to message length. */
-		length = ntohs(ospfh->length) - OSPF_HEADER_SIZE;
-
-		/* Read rest of the packet and call each sort of packet routine.
-		 */
-		switch (ospfh->type) {
-		case OSPF_MSG_HELLO:
-			ospf_hello(iph, ospfh, ibuf, oi, length);
 			break;
-		case OSPF_MSG_DB_DESC:
-			ospf_db_desc(iph, ospfh, ibuf, oi, length);
-			break;
-		case OSPF_MSG_LS_REQ:
-			ospf_ls_req(iph, ospfh, ibuf, oi, length);
-			break;
-		case OSPF_MSG_LS_UPD:
-			ospf_ls_upd(ospf, iph, ospfh, ibuf, oi, length);
-			break;
-		case OSPF_MSG_LS_ACK:
-			ospf_ls_ack(iph, ospfh, ibuf, oi, length);
-			break;
-		default:
-			flog_warn(
-				EC_OSPF_PACKET,
-				"interface %s(%s): OSPF packet header type %d is illegal",
-				IF_NAME(oi), ospf_get_name(ospf), ospfh->type);
+		case OSPF_READ_CONTINUE:
 			break;
 		}
 	}
