@@ -82,7 +82,7 @@ void pim_router_init(void)
 	router = XCALLOC(MTYPE_ROUTER, sizeof(*router));
 
 	router->debugs = 0;
-	router->master = frr_init();
+	router->master = frr_init_fast();
 	router->t_periodic = PIM_DEFAULT_T_PERIODIC;
 
 	/*
