@@ -2147,7 +2147,7 @@ DEFUN (no_access_list_any,
        "Specify packets to forward\n"
        "Prefix to match. e.g. 10.0.0.0/8\n")
 {
-	int idx_word = 1;
+	int idx_word = 2;
 	int idx = 0;
 	char *seq = NULL;
 	char *permit_deny = NULL;
@@ -2352,7 +2352,7 @@ DEFUN (no_ipv6_access_list_exact,
 {
 	int idx = 0;
 	int exact = 0;
-	int idx_word = 2;
+	int idx_word = 3;
 	char *seq = NULL;
 	char *permit_deny = NULL;
 	char *prefix = NULL;
@@ -2394,7 +2394,7 @@ DEFUN (no_ipv6_access_list_any,
        "Specify packets to forward\n"
        "Any prefixi to match\n")
 {
-	int idx_word = 2;
+	int idx_word = 3;
 	int idx = 0;
 	char *seq = NULL;
 	char *permit_deny = NULL;
