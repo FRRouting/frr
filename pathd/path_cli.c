@@ -198,21 +198,6 @@ DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, preference_str);
 
 	snprintf(xpath, sizeof(xpath),
-		 "./candidate-path[preference='%s']/protocol-origin",
-		 preference_str);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, "config");
-
-	snprintf(xpath, sizeof(xpath),
-		 "./candidate-path[preference='%s']/originator",
-		 preference_str);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, "127.0.0.1");
-
-	snprintf(xpath, sizeof(xpath),
-		 "./candidate-path[preference='%s']/dynamic-flag",
-		 preference_str);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, "false");
-
-	snprintf(xpath, sizeof(xpath),
 		 "./candidate-path[preference='%s']/segment-list-name",
 		 preference_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, list_name);

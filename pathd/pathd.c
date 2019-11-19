@@ -133,24 +133,17 @@ void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 }
 
 void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
-				     uint32_t preference)
+				     uint32_t preference,
+				     char *segment_list_name)
 {
 	struct te_candidate_path *te_candidate_path;
 	te_candidate_path =
 		XCALLOC(MTYPE_PATH_SR_POLICY, sizeof(struct te_candidate_path));
 	te_candidate_path->preference = preference;
+	te_candidate_path->segment_list_name = segment_list_name;
 	int idx = te_sr_policy->candidate_path_num;
 	memcpy(te_candidate_path, &(te_sr_policy->candidate_paths[idx]),
 	       sizeof(struct te_candidate_path));
 	te_sr_policy->candidate_path_num++;
 	XFREE(MTYPE_PATH_SR_POLICY, te_candidate_path);
-}
-
-void te_sr_policy_candidate_path_segment_list_name_add(
-	struct te_sr_policy *te_sr_policy, char *segment_list_name)
-{
-	int idx = te_sr_policy->candidate_path_num - 1;
-	struct te_candidate_path *te_candidate_path =
-		&(te_sr_policy->candidate_paths[idx]);
-	te_candidate_path->segment_list_name = segment_list_name;
 }

@@ -85,8 +85,7 @@ void te_sr_policy_endpoint_add(struct te_sr_policy *te_sr_policy,
 void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 				  mpls_label_t binding_sid);
 void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
-				     uint32_t preference);
-void te_sr_policy_candidate_path_segment_list_name_add(
-	struct te_sr_policy *te_sr_policy, char *segment_list_name);
+				     uint32_t preference,
+				     char *segment_list_name);
 
 #endif /* _FRR_PATHD_H_ */
