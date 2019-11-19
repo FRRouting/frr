@@ -1696,17 +1696,17 @@ static int bfd_vrf_enable(struct vrf *vrf)
 	if (vrf->vrf_id == VRF_DEFAULT ||
 	    vrf_get_backend() == VRF_BACKEND_NETNS) {
 		if (!bvrf->bg_shop)
-			bvrf->bg_shop = bp_udp_shop(vrf->vrf_id);
+			bvrf->bg_shop = bp_udp_shop(vrf);
 		if (!bvrf->bg_mhop)
-			bvrf->bg_mhop = bp_udp_mhop(vrf->vrf_id);
+			bvrf->bg_mhop = bp_udp_mhop(vrf);
 		if (!bvrf->bg_shop6)
-			bvrf->bg_shop6 = bp_udp6_shop(vrf->vrf_id);
+			bvrf->bg_shop6 = bp_udp6_shop(vrf);
 		if (!bvrf->bg_mhop6)
-			bvrf->bg_mhop6 = bp_udp6_mhop(vrf->vrf_id);
+			bvrf->bg_mhop6 = bp_udp6_mhop(vrf);
 		if (!bvrf->bg_echo)
-			bvrf->bg_echo = bp_echo_socket(vrf->vrf_id);
+			bvrf->bg_echo = bp_echo_socket(vrf);
 		if (!bvrf->bg_echov6)
-			bvrf->bg_echov6 = bp_echov6_socket(vrf->vrf_id);
+			bvrf->bg_echov6 = bp_echov6_socket(vrf);
 
 		/* Add descriptors to the event loop. */
 		if (!bvrf->bg_ev[0])
