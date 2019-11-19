@@ -190,6 +190,12 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 	no_fwd = header->Nbit;
 
 	if (header->type == PIM_MSG_TYPE_REGISTER) {
+		if (pim_msg_len < PIM_MSG_REGISTER_LEN) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("PIM Register Message size=%d shorther than min length %d",
+					   pim_msg_len, PIM_MSG_REGISTER_LEN);
+			return -1;
+		}
 		/* First 8 byte header checksum */
 		checksum = in_cksum(pim_msg, PIM_MSG_REGISTER_LEN);
 		if (checksum != pim_checksum) {
