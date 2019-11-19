@@ -7385,12 +7385,14 @@ static int pim_cmd_interface_add(struct interface *ifp)
 	struct pim_interface *pim_ifp = ifp->info;
 
 	if (!pim_ifp)
-		(void)pim_if_new(ifp, false, true, false, false);
+		pim_ifp = pim_if_new(ifp, false, true, false, false);
 	else
 		PIM_IF_DO_PIM(pim_ifp->options);
 
 	pim_if_addr_add_all(ifp);
 	pim_if_membership_refresh(ifp);
+
+	pim_if_create_pimreg(pim_ifp->pim);
 	return 1;
 }
 
