@@ -105,12 +105,6 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 {
 	int ret = 0;
 
-	if (next1->vrf_id < next2->vrf_id)
-		return -1;
-
-	if (next1->vrf_id > next2->vrf_id)
-		return 1;
-
 	if (next1->type < next2->type)
 		return -1;
 
@@ -120,6 +114,12 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 	switch (next1->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV6:
+		if (next1->vrf_id < next2->vrf_id)
+			return -1;
+
+		if (next1->vrf_id > next2->vrf_id)
+			return 1;
+
 		ret = _nexthop_gateway_cmp(next1, next2);
 		if (ret != 0)
 			return ret;

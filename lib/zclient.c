@@ -790,12 +790,6 @@ static int zapi_nexthop_cmp_no_labels(const struct zapi_nexthop *next1,
 {
 	int ret = 0;
 
-	if (next1->vrf_id < next2->vrf_id)
-		return -1;
-
-	if (next1->vrf_id > next2->vrf_id)
-		return 1;
-
 	if (next1->type < next2->type)
 		return -1;
 
@@ -805,6 +799,12 @@ static int zapi_nexthop_cmp_no_labels(const struct zapi_nexthop *next1,
 	switch (next1->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV6:
+		if (next1->vrf_id < next2->vrf_id)
+			return -1;
+
+		if (next1->vrf_id > next2->vrf_id)
+			return 1;
+
 		ret = nexthop_g_addr_cmp(next1->type, &next1->gate,
 					 &next2->gate);
 		if (ret != 0)
