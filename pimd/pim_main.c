@@ -105,6 +105,7 @@ int main(int argc, char **argv, char **envp)
 #endif
 	pim_router_init();
 	pim_vrf_init();
+	pim_zebra_init();
 	//pim_init();
 
 	fseek(stdin, 0, SEEK_END);
@@ -118,6 +119,10 @@ int main(int argc, char **argv, char **envp)
 
 	struct interface *ifp = if_create_name("fuzziface", VRF_DEFAULT);
 	pim_if_new(ifp, true, true, false, false);
+	struct in_addr src = { .s_addr = 0x0900001b };
+	pim_hello_options ho = 0;
+	pim_neighbor_add(ifp, src, ho, 210, 1, 1, 30, 20, NULL, 0);
+
 	int result = pim_pim_packet(ifp, packet, fsize);
 
 	return result;
