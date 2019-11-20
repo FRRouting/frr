@@ -116,7 +116,7 @@ static struct quagga_signal_t sighandlers[] = {
 	},
 };
 
-static const struct frr_yang_module_info *nhrpd_yang_modules[] = {
+static const struct frr_yang_module_info *const nhrpd_yang_modules[] = {
 	&frr_interface_info,
 };
 

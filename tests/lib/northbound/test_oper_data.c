@@ -271,7 +271,7 @@ const struct frr_yang_module_info frr_test_module_info = {
 };
 /* clang-format on */
 
-static const struct frr_yang_module_info *modules[] = {
+static const struct frr_yang_module_info *const modules[] = {
 	&frr_test_module_info,
 };
 

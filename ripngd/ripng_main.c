@@ -113,7 +113,7 @@ struct quagga_signal_t ripng_signals[] = {
 	},
 };
 
-static const struct frr_yang_module_info *ripngd_yang_modules[] = {
+static const struct frr_yang_module_info *const ripngd_yang_modules[] = {
 	&frr_interface_info,
 	&frr_ripngd_info,
 };

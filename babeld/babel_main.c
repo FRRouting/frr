@@ -136,7 +136,7 @@ struct option longopts[] =
     { 0 }
   };
 
-static const struct frr_yang_module_info *babeld_yang_modules[] =
+static const struct frr_yang_module_info *const babeld_yang_modules[] =
   {
     &frr_interface_info,
   };

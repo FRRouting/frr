@@ -1010,7 +1010,8 @@ extern const char *nb_client_name(enum nb_client client);
  * nmodules
  *    Size of the modules array.
  */
-extern void nb_init(struct thread_master *tm, const struct frr_yang_module_info *modules[],
+extern void nb_init(struct thread_master *tm,
+		    const struct frr_yang_module_info *const modules[],
 		    size_t nmodules);
 
 /*
