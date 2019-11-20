@@ -160,6 +160,17 @@ void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 	int idx = te_sr_policy->candidate_path_num;
 	te_sr_policy->candidate_paths[idx] = te_candidate_path;
 	te_sr_policy->candidate_path_num++;
+
+	int i;
+	struct te_candidate_path active_candidate_path;
+	active_candidate_path.preference = -1;
+	for (i = 0; i < te_sr_policy->candidate_path_num; i++) {
+		if (te_sr_policy->candidate_paths[i].preference
+		    > active_candidate_path.preference)
+			active_candidate_path =
+				te_sr_policy->candidate_paths[i];
+	}
+	te_sr_policy->active_candidate_path = active_candidate_path;
 }
 
 char *te_sr_policy_find(uint32_t color, struct ipaddr *endpoint)

@@ -74,6 +74,9 @@ struct te_sr_policy {
 	/* Endpoint */
 	struct ipaddr endpoint;
 
+	/* Active Candidate Path */
+	struct te_candidate_path active_candidate_path;
+
 	/* Candidate Paths */
 	uint8_t candidate_path_num;
 	struct te_candidate_path *candidate_paths;
