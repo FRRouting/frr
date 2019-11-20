@@ -1267,7 +1267,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 		return -1;
 	}
 
-	if (buf_size < sizeof(struct bsm_hdr)) {
+	if (buf_size < (PIM_MSG_HEADER_LEN + sizeof(struct bsm_hdr))) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s: received buffer length of %d which is too small to properly decode",
 				   __PRETTY_FUNCTION__, buf_size);
