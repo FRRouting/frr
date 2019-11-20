@@ -508,7 +508,7 @@ static bool validate_header(struct peer *peer)
 	uint8_t type;
 	struct ringbuf *pkt = peer->ibuf_work;
 
-	static uint8_t m_correct[BGP_MARKER_SIZE] = {
+	static const uint8_t m_correct[BGP_MARKER_SIZE] = {
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 	uint8_t m_rx[BGP_MARKER_SIZE] = {0x00};

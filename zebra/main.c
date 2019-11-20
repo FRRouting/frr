@@ -84,7 +84,7 @@ uint32_t nl_rcvbufsize = 4194304;
 
 #define OPTION_V6_RR_SEMANTICS 2000
 /* Command line options. */
-struct option longopts[] = {
+const struct option longopts[] = {
 	{"batch", no_argument, NULL, 'b'},
 	{"allow_delete", no_argument, NULL, 'a'},
 	{"keep_kernel", no_argument, NULL, 'k'},

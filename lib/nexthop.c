@@ -200,7 +200,7 @@ int nexthop_same_firsthop(struct nexthop *next1, struct nexthop *next2)
  */
 const char *nexthop_type_to_str(enum nexthop_types_t nh_type)
 {
-	static const char *desc[] = {
+	static const char *const desc[] = {
 		"none",		 "Directly connected",
 		"IPv4 nexthop",  "IPv4 nexthop with ifindex",
 		"IPv6 nexthop",  "IPv6 nexthop with ifindex",

@@ -101,7 +101,7 @@ const struct message bgp_status_msg[] = {{Idle, "Idle"},
 					 {0}};
 
 /* BGP message type string. */
-const char *bgp_type_str[] = {NULL,	   "OPEN",      "UPDATE",
+const char *const bgp_type_str[] = {NULL,	   "OPEN",      "UPDATE",
 			      "NOTIFICATION", "KEEPALIVE", "ROUTE-REFRESH",
 			      "CAPABILITY"};
 
@@ -169,8 +169,8 @@ static const struct message bgp_notify_capability_msg[] = {
 	{0}};
 
 /* Origin strings. */
-const char *bgp_origin_str[] = {"i", "e", "?"};
-const char *bgp_origin_long_str[] = {"IGP", "EGP", "incomplete"};
+const char *const bgp_origin_str[] = {"i", "e", "?"};
+const char *const bgp_origin_long_str[] = {"IGP", "EGP", "incomplete"};
 
 static int bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
 				       struct prefix *p);

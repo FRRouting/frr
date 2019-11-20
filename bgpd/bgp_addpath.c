@@ -24,7 +24,7 @@
 #include "bgp_addpath.h"
 #include "bgp_route.h"
 
-static struct bgp_addpath_strategy_names strat_names[BGP_ADDPATH_MAX] = {
+static const struct bgp_addpath_strategy_names strat_names[BGP_ADDPATH_MAX] = {
 	{
 		.config_name = "addpath-tx-all-paths",
 		.human_name = "All",
@@ -41,7 +41,7 @@ static struct bgp_addpath_strategy_names strat_names[BGP_ADDPATH_MAX] = {
 	}
 };
 
-static struct bgp_addpath_strategy_names unknown_names = {
+static const struct bgp_addpath_strategy_names unknown_names = {
 	.config_name = "addpath-tx-unknown",
 	.human_name = "Unknown-Addpath-Strategy",
 	.human_description = "Unknown Addpath Strategy",
@@ -53,7 +53,7 @@ static struct bgp_addpath_strategy_names unknown_names = {
  * Returns a structure full of strings associated with an addpath type. Will
  * never return null.
  */
-struct bgp_addpath_strategy_names *
+const struct bgp_addpath_strategy_names *
 bgp_addpath_names(enum bgp_addpath_strat strat)
 {
 	if (strat < BGP_ADDPATH_MAX)

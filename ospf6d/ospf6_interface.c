@@ -52,7 +52,7 @@ DEFINE_HOOK(ospf6_interface_change,
 
 unsigned char conf_debug_ospf6_interface = 0;
 
-const char *ospf6_interface_state_str[] = {
+const char *const ospf6_interface_state_str[] = {
 	"None",    "Down", "Loopback", "Waiting", "PointToPoint",
 	"DROther", "BDR",  "DR",       NULL};
 

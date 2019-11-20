@@ -10600,7 +10600,7 @@ enum bgp_stats {
 	BGP_STATS_MAX,
 };
 
-static const char *table_stats_strs[] = {
+static const char *const table_stats_strs[] = {
 		[BGP_STATS_PREFIXES] = "Total Prefixes",
 		[BGP_STATS_TOTPLEN] = "Average prefix length",
 		[BGP_STATS_RIB] = "Total Advertisements",
@@ -10858,7 +10858,7 @@ enum bgp_pcounts {
 	PCOUNT_MAX,
 };
 
-static const char *pcount_strs[] = {
+static const char *const pcount_strs[] = {
 		[PCOUNT_ADJ_IN] = "Adj-in",
 		[PCOUNT_DAMPED] = "Damped",
 		[PCOUNT_REMOVED] = "Removed",

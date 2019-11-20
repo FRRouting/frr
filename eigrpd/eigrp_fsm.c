@@ -110,7 +110,7 @@ int eigrp_fsm_event_qact(struct eigrp_fsm_action_message *);
  * NSM[actual/starting state][occurred event].func
  * Functions are should be executed within separate thread.
  */
-struct {
+const struct {
 	int (*func)(struct eigrp_fsm_action_message *);
 } NSM[EIGRP_FSM_STATE_MAX][EIGRP_FSM_EVENT_MAX] = {
 	{

@@ -465,8 +465,7 @@ int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
 #define VRRP_EVENT_STARTUP 0
 #define VRRP_EVENT_SHUTDOWN 1
 
-extern const char *vrrp_state_names[3];
-extern const char *vrrp_event_names[2];
+extern const char *const vrrp_state_names[3];
 
 /*
  * This hook called whenever the state of a Virtual Router changes, after the

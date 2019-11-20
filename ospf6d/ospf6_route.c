@@ -147,19 +147,19 @@ void ospf6_linkstate_prefix2str(struct prefix *prefix, char *buf, int size)
 }
 
 /* Global strings for logging */
-const char *ospf6_dest_type_str[OSPF6_DEST_TYPE_MAX] = {
+const char *const ospf6_dest_type_str[OSPF6_DEST_TYPE_MAX] = {
 	"Unknown", "Router", "Network", "Discard", "Linkstate", "AddressRange",
 };
 
-const char *ospf6_dest_type_substr[OSPF6_DEST_TYPE_MAX] = {
+const char *const ospf6_dest_type_substr[OSPF6_DEST_TYPE_MAX] = {
 	"?", "R", "N", "D", "L", "A",
 };
 
-const char *ospf6_path_type_str[OSPF6_PATH_TYPE_MAX] = {
+const char *const ospf6_path_type_str[OSPF6_PATH_TYPE_MAX] = {
 	"Unknown", "Intra-Area", "Inter-Area", "External-1", "External-2",
 };
 
-const char *ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX] = {
+const char *const ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX] = {
 	"??", "IA", "IE", "E1", "E2",
 };
 

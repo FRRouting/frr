@@ -48,7 +48,7 @@ int bgp_addpath_info_has_ids(struct bgp_addpath_info_data *d);
 uint32_t bgp_addpath_id_for_peer(struct peer *peer, afi_t afi, safi_t safi,
 				struct bgp_addpath_info_data *d);
 
-struct bgp_addpath_strategy_names *
+const struct bgp_addpath_strategy_names *
 bgp_addpath_names(enum bgp_addpath_strat strat);
 
 int bgp_addpath_dmed_required(int strategy);

@@ -45,7 +45,7 @@
 #include "privs.h"
 
 /* tcpdump -i eth0 'isis' -dd */
-static struct sock_filter isisfilter[] = {
+static const struct sock_filter isisfilter[] = {
 	/* NB: we're in SOCK_DGRAM, so src/dst mac + length are stripped
 	 * off!
 	 * (OTOH it's a bit more lower-layer agnostic and might work
@@ -57,9 +57,9 @@ static struct sock_filter isisfilter[] = {
 	{0x6, 0, 0, 0x00040000},       {0x6, 0, 0, 0x00000000},
 };
 
-static struct sock_fprog bpf = {
+static const struct sock_fprog bpf = {
 	.len = array_size(isisfilter),
-	.filter = isisfilter,
+	.filter = (struct sock_filter *)isisfilter,
 };
 
 /*
@@ -67,10 +67,10 @@ static struct sock_fprog bpf = {
  * ISO 10589 - 8.4.8
  */
 
-uint8_t ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
-uint8_t ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
-uint8_t ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
-uint8_t ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
+static const uint8_t ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
+static const uint8_t ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
+static const uint8_t ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
+static const uint8_t ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
 
 static uint8_t discard_buff[8192];
 

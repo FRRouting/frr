@@ -435,7 +435,7 @@ void ospf6_spf_table_finish(struct ospf6_route_table *result_table)
 	}
 }
 
-static const char *ospf6_spf_reason_str[] = {
+static const char *const ospf6_spf_reason_str[] = {
 	"R+", "R-", "N+", "N-", "L+", "L-", "R*", "N*",
 };
 

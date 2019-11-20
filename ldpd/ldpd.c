@@ -120,7 +120,7 @@ char ctl_sock_path[MAXPATHLEN];
 
 /* LDPd options. */
 #define OPTION_CTLSOCK 1001
-static struct option longopts[] =
+static const struct option longopts[] =
 {
 	{ "ctl_socket",  required_argument, NULL, OPTION_CTLSOCK},
 	{ "instance",    required_argument, NULL, 'n'},

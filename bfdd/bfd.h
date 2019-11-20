@@ -399,8 +399,8 @@ struct bfd_global {
 	struct zebra_privs_t bfdd_privs;
 };
 extern struct bfd_global bglobal;
-extern struct bfd_diag_str_list diag_list[];
-extern struct bfd_state_str_list state_list[];
+extern const struct bfd_diag_str_list diag_list[];
+extern const struct bfd_state_str_list state_list[];
 
 void socket_close(int *s);
 

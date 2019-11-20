@@ -51,9 +51,15 @@ DEFINE_HOOK(ospf6_neighbor_change,
 
 unsigned char conf_debug_ospf6_neighbor = 0;
 
-const char *ospf6_neighbor_state_str[] = {
+const char *const ospf6_neighbor_state_str[] = {
 	"None",    "Down",     "Attempt", "Init", "Twoway",
 	"ExStart", "ExChange", "Loading", "Full", NULL};
+
+const char *const ospf6_neighbor_event_str[] = {
+	"NoEvent",      "HelloReceived", "2-WayReceived",   "NegotiationDone",
+	"ExchangeDone", "LoadingDone",   "AdjOK?",	  "SeqNumberMismatch",
+	"BadLSReq",     "1-WayReceived", "InactivityTimer",
+};
 
 int ospf6_neighbor_cmp(void *va, void *vb)
 {

@@ -99,7 +99,7 @@ struct frr_pthread {
 	char os_name[OS_THREAD_NAMELEN];
 };
 
-extern struct frr_pthread_attr frr_pthread_attr_default;
+extern const struct frr_pthread_attr frr_pthread_attr_default;
 
 /*
  * Initializes this module.
@@ -133,7 +133,7 @@ void frr_pthread_finish(void);
  * @param os_name - 16 characters (including '\0') thread name to set in os,
  * @return the created frr_pthread upon success, or NULL upon failure
  */
-struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
+struct frr_pthread *frr_pthread_new(const struct frr_pthread_attr *attr,
 				    const char *name, const char *os_name);
 
 /*

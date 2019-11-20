@@ -60,8 +60,6 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_zebra.h"
 
-const char *mode2text[] = {"Disable", "Area", "AS", "Emulate"};
-
 /*------------------------------------------------------------------------*
  * Followings are control functions for MPLS-TE parameters management.
  *------------------------------------------------------------------------*/

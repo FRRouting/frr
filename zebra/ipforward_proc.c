@@ -30,7 +30,7 @@
 
 extern struct zebra_privs_t zserv_privs;
 
-char proc_net_snmp[] = "/proc/net/snmp";
+static const char proc_net_snmp[] = "/proc/net/snmp";
 
 static void dropline(FILE *fp)
 {
@@ -70,7 +70,7 @@ int ipforward(void)
 }
 
 /* char proc_ipv4_forwarding[] = "/proc/sys/net/ipv4/conf/all/forwarding"; */
-char proc_ipv4_forwarding[] = "/proc/sys/net/ipv4/ip_forward";
+static const char proc_ipv4_forwarding[] = "/proc/sys/net/ipv4/ip_forward";
 
 int ipforward_on(void)
 {
@@ -114,7 +114,8 @@ int ipforward_off(void)
 	return ipforward();
 }
 
-char proc_ipv6_forwarding[] = "/proc/sys/net/ipv6/conf/all/forwarding";
+static const char proc_ipv6_forwarding[] =
+	"/proc/sys/net/ipv6/conf/all/forwarding";
 
 int ipforward_ipv6(void)
 {
