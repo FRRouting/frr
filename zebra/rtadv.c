@@ -2120,14 +2120,8 @@ static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 				 &rtadv->ra_timer);
 		break;
 	case RTADV_STOP:
-		if (rtadv->ra_timer) {
-			thread_cancel(rtadv->ra_timer);
-			rtadv->ra_timer = NULL;
-		}
-		if (rtadv->ra_read) {
-			thread_cancel(rtadv->ra_read);
-			rtadv->ra_read = NULL;
-		}
+		THREAD_OFF(rtadv->ra_timer);
+		THREAD_OFF(rtadv->ra_read);
 		break;
 	case RTADV_TIMER:
 		thread_add_timer(zrouter.master, rtadv_timer, zvrf, val,
@@ -2152,10 +2146,11 @@ void rtadv_init(struct zebra_vrf *zvrf)
 	if (vrf_is_backend_netns()) {
 		zvrf->rtadv.sock = rtadv_make_socket(zvrf->zns->ns_id);
 		zrouter.rtadv_sock = -1;
-	} else if (!zrouter.rtadv_sock) {
+	} else {
 		zvrf->rtadv.sock = -1;
-		if (!zrouter.rtadv_sock)
-			zrouter.rtadv_sock = rtadv_make_socket(zvrf->zns->ns_id);
+		if (zrouter.rtadv_sock < 0)
+			zrouter.rtadv_sock =
+				rtadv_make_socket(zvrf->zns->ns_id);
 	}
 }
 
