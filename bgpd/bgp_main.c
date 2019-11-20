@@ -18,6 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#define FUZZING 1
+
 #include <zebra.h>
 
 #include <pthread.h>
@@ -43,6 +45,7 @@
 #include "ns.h"
 
 #include "bgpd/bgpd.h"
+#include "bgp_io.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_mplsvpn.h"
@@ -387,6 +390,8 @@ FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
 
 #define DEPRECATED_OPTIONS ""
 
+#include "lib/ringbuf.h"
+
 /* Main routine of bgpd. Treatment of argument and start bgp finite
    state machine is handled at here. */
 int main(int argc, char **argv)
@@ -403,6 +408,64 @@ int main(int argc, char **argv)
 	int buffer_size = BGP_SOCKET_SNDBUF_SIZE;
 
 	frr_preinit(&bgpd_di, argc, argv);
+
+#ifdef FUZZING
+	bgp_master_init(frr_init(), buffer_size);
+	bm->port = bgp_port;
+	if (bgp_port == 0)
+		bgp_option_set(BGP_OPT_NO_LISTEN);
+	bm->address = bgp_address;
+	if (no_fib_flag || no_zebra_flag)
+		bgp_option_set(BGP_OPT_NO_FIB);
+	if (no_zebra_flag)
+		bgp_option_set(BGP_OPT_NO_ZEBRA);
+	bgp_error_init();
+	/* Initializations. */
+	bgp_vrf_init();
+
+	/* BGP related initialization.  */
+	bgp_init((unsigned short)instance);
+
+	struct bgp *b;
+	as_t as = 65001;
+	bgp_get(&b, &as, "default", BGP_INSTANCE_TYPE_DEFAULT);
+
+	union sockunion su;
+	sockunion_init(&su);
+	inet_pton(AF_INET, "192.168.0.1", &su.sin.sin_addr);
+	su.sin.sin_family = AF_INET;
+	su.sin.sin_port = 2001;
+	struct peer *p = peer_create(&su, NULL, bgp_get_default(), 65000, 65001, 0, AFI_IP,
+			SAFI_UNICAST, NULL);
+	p->bgp->rpkt_quanta = 1;
+	p->status = Established;
+	struct thread t = {};
+	t.arg = p;
+
+        fseek(stdin, 0, SEEK_END);    
+        long fsize = ftell(stdin);    
+        if (fsize < 0)    
+                return 0;    
+    
+	struct stream *s = stream_new(fsize);
+
+        fseek(stdin, 0, SEEK_SET);    
+        int r = fread(s->data, 1, fsize, stdin);    
+	stream_set_endp(s, r);
+	/* used by header validation */
+	ringbuf_put(p->ibuf_work, s->data, r);
+
+	bool hval = validate_header(p);
+	if (!hval)
+		exit(9);
+
+	p->curr = s;
+	int result = bgp_process_packet(&t);
+	exit(result);
+#endif
+
+
+
 	frr_opt_add(
 		"p:l:SnZe:I:s:" DEPRECATED_OPTIONS, longopts,
 		"  -p, --bgp_port     Set BGP listen port number (0 means do not listen).\n"

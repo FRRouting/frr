@@ -288,7 +288,7 @@ AM_CONDITIONAL([DEV_BUILD], [test "$enable_dev_build" = "yes"])
 dnl always want these CFLAGS
 AC_C_FLAG([-fno-omit-frame-pointer])
 AC_C_FLAG([-funwind-tables])
-AC_C_FLAG([-Wall])
+#AC_C_FLAG([-Wall])
 AC_C_FLAG([-Wextra])
 AC_C_FLAG([-Wmissing-prototypes])
 AC_C_FLAG([-Wmissing-declarations])
