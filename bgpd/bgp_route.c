@@ -2970,7 +2970,8 @@ static bool overlay_index_equal(afi_t afi, struct bgp_path_info *path,
 
 /* Check if received nexthop is valid or not. */
 static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
-				      struct attr *attr)
+				uint8_t type, uint8_t stype,
+				struct attr *attr, struct bgp_node *rn)
 {
 	int ret = 0;
 
@@ -2983,7 +2984,8 @@ static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
 		if (attr->nexthop.s_addr == 0
 		    || IPV4_CLASS_DE(ntohl(attr->nexthop.s_addr))
-		    || bgp_nexthop_self(bgp, attr->nexthop))
+		    || bgp_nexthop_self(bgp, afi, type, stype,
+			attr, rn))
 			return 1;
 	}
 
@@ -2999,8 +3001,8 @@ static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 			ret = (attr->mp_nexthop_global_in.s_addr == 0
 			       || IPV4_CLASS_DE(ntohl(
 					  attr->mp_nexthop_global_in.s_addr))
-			       || bgp_nexthop_self(bgp,
-						   attr->mp_nexthop_global_in));
+			       || bgp_nexthop_self(bgp, afi, type, stype,
+						   attr, rn));
 			break;
 
 		case BGP_ATTR_NHLEN_IPV6_GLOBAL:
@@ -3009,7 +3011,9 @@ static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 			ret = (IN6_IS_ADDR_UNSPECIFIED(&attr->mp_nexthop_global)
 			       || IN6_IS_ADDR_LOOPBACK(&attr->mp_nexthop_global)
 			       || IN6_IS_ADDR_MULTICAST(
-					  &attr->mp_nexthop_global));
+					  &attr->mp_nexthop_global)
+			       || bgp_nexthop_self(bgp, afi, type, stype,
+						   attr, rn));
 			break;
 
 		default:
@@ -3042,6 +3046,9 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	int do_loop_check = 1;
 	int has_valid_label = 0;
 	afi_t nh_afi;
+	uint8_t pi_type = 0;
+	uint8_t pi_sub_type = 0;
+
 #if ENABLE_BGP_VNC
 	int vnc_implicit_withdraw = 0;
 #endif
@@ -3187,9 +3194,15 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		}
 	}
 
+	if (pi) {
+		pi_type = pi->type;
+		pi_sub_type = pi->sub_type;
+	}
+
 	/* next hop check.  */
 	if (!CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD)
-	    && bgp_update_martian_nexthop(bgp, afi, safi, &new_attr)) {
+		&& bgp_update_martian_nexthop(bgp, afi, safi, pi_type,
+		pi_sub_type, &new_attr, rn)) {
 		peer->stat_pfx_nh_invalid++;
 		reason = "martian or self next-hop;";
 		bgp_attr_flush(&new_attr);

@@ -5395,8 +5395,9 @@ int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp)
 				if (!(pi->type == ZEBRA_ROUTE_BGP
 				      && pi->sub_type == BGP_ROUTE_NORMAL))
 					continue;
-
-				if (bgp_nexthop_self(bgp, pi->attr->nexthop)) {
+				if (bgp_nexthop_self(bgp, afi,
+						pi->type, pi->sub_type,
+						pi->attr, rn)) {
 
 					char attr_str[BUFSIZ] = {0};
 					char pbuf[PREFIX_STRLEN];
