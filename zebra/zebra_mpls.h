@@ -326,6 +326,11 @@ int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		     const union g_addr *gate, ifindex_t ifindex);
 
 /*
+ * Lookup LSP by its input label.
+ */
+zebra_lsp_t *mpls_lsp_find(struct zebra_vrf *zvrf, mpls_label_t in_label);
+
+/*
  * Uninstall a particular NHLFE in the forwarding table. If this is
  * the only NHLFE, the entire LSP forwarding entry has to be deleted.
  */

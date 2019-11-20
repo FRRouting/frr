@@ -3344,6 +3344,21 @@ static int lsp_backup_znh_install(zebra_lsp_t *lsp, enum lsp_types_t type,
 	return 0;
 }
 
+zebra_lsp_t *mpls_lsp_find(struct zebra_vrf *zvrf, mpls_label_t in_label)
+{
+	struct hash *lsp_table;
+	zebra_ile_t tmp_ile;
+
+	/* Lookup table. */
+	lsp_table = zvrf->lsp_table;
+	if (!lsp_table)
+		return NULL;
+
+	/* If entry is not present, exit. */
+	tmp_ile.in_label = in_label;
+	return hash_lookup(lsp_table, &tmp_ile);
+}
+
 /*
  * Uninstall a particular NHLFE in the forwarding table. If this is
  * the only NHLFE, the entire LSP forwarding entry has to be deleted.

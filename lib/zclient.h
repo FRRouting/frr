@@ -143,6 +143,8 @@ typedef enum {
 	ZEBRA_MPLS_LABELS_ADD,
 	ZEBRA_MPLS_LABELS_DELETE,
 	ZEBRA_MPLS_LABELS_REPLACE,
+	ZEBRA_SR_TE_TUNNEL_SET,
+	ZEBRA_SR_TE_TUNNEL_DELETE,
 	ZEBRA_IPMR_ROUTE_STATS,
 	ZEBRA_LABEL_MANAGER_CONNECT,
 	ZEBRA_LABEL_MANAGER_CONNECT_ASYNC,
@@ -509,6 +511,13 @@ struct zapi_labels {
 	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
 };
 
+struct zapi_srte_tunnel {
+	enum lsp_types_t type;
+	mpls_label_t local_label;
+	uint8_t label_num;
+	mpls_label_t labels[MPLS_MAX_LABELS];
+};
+
 struct zapi_pw {
 	char ifname[IF_NAMESIZE];
 	ifindex_t ifindex;
@@ -768,6 +777,13 @@ extern int zebra_send_mpls_labels(struct zclient *zclient, int cmd,
 extern int zapi_labels_encode(struct stream *s, int cmd,
 			      struct zapi_labels *zl);
 extern int zapi_labels_decode(struct stream *s, struct zapi_labels *zl);
+
+extern int zebra_send_srte_tunnel(struct zclient *zclient, int cmd,
+				  struct zapi_srte_tunnel *zt);
+extern int zapi_srte_tunnel_encode(struct stream *s, int cmd,
+				   struct zapi_srte_tunnel *zt);
+extern int zapi_srte_tunnel_decode(struct stream *s,
+				   struct zapi_srte_tunnel *zt);
 
 extern int zebra_send_pw(struct zclient *zclient, int command,
 			 struct zapi_pw *pw);
