@@ -83,6 +83,11 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 	    && (source_flags & PIM_WILDCARD_BIT_MASK)) {
 		struct pim_rpf *rp = RP(pim_ifp->pim, sg->grp);
 
+		if (!rp) {
+			zlog_warn("%s: Lookup of RP failed for %pSG4",
+				  __PRETTY_FUNCTION__, sg);
+			return;
+		}
 		/*
 		 * If the RP sent in the message is not
 		 * our RP for the group, drop the message
@@ -139,6 +144,12 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 	    && (source_flags & PIM_WILDCARD_BIT_MASK)) {
 		struct pim_rpf *rp = RP(pim_ifp->pim, sg->grp);
 
+		if (!rp) {
+			if (PIM_DEBUG_PIM_TRACE)
+				zlog_debug("%s: RP for %pSG4 completely failed lookup",
+					   __PRETTY_FUNCTION__, sg);
+			return;
+		}
 		// Ignoring Prune *,G's at the moment.
 		if (sg->src.s_addr != rp->rpf_addr.u.prefix4.s_addr)
 			return;
