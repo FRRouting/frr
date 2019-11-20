@@ -150,19 +150,16 @@ void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 				     struct ipaddr *originator,
 				     bool dynamic_flag)
 {
-	struct te_candidate_path *te_candidate_path;
-	te_candidate_path =
-		XCALLOC(MTYPE_PATH_SR_POLICY, sizeof(struct te_candidate_path));
-	te_candidate_path->preference = preference;
-	te_candidate_path->segment_list_name = segment_list_name;
-	te_candidate_path->protocol_origin = protocol_origin;
-	te_candidate_path->originator = *originator;
-	te_candidate_path->dynamic_flag = dynamic_flag;
+	struct te_candidate_path te_candidate_path;
+	te_candidate_path.preference = preference;
+	te_candidate_path.segment_list_name = segment_list_name;
+	te_candidate_path.protocol_origin = protocol_origin;
+	te_candidate_path.originator = *originator;
+	te_candidate_path.dynamic_flag = dynamic_flag;
+
 	int idx = te_sr_policy->candidate_path_num;
-	memcpy(te_candidate_path, &(te_sr_policy->candidate_paths[idx]),
-	       sizeof(struct te_candidate_path));
+	te_sr_policy->candidate_paths[idx] = te_candidate_path;
 	te_sr_policy->candidate_path_num++;
-	XFREE(MTYPE_PATH_SR_POLICY, te_candidate_path);
 }
 
 char *te_sr_policy_find(uint32_t color, struct ipaddr *endpoint)
