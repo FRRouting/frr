@@ -1111,6 +1111,13 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 	int ins_count = 0;
 
 	while (buflen > offset) {
+		if (offset + (int)sizeof(struct bsmmsg_grpinfo) > buflen) {
+			if (PIM_DEBUG_BSM)
+				zlog_debug(
+					"%s: buflen received %d is less than the internal data structure of the packet would suggest",
+					__PRETTY_FUNCTION__, buflen);
+			return false;
+		}
 		/* Extract Group tlv from BSM */
 		memcpy(&grpinfo, buf, sizeof(struct bsmmsg_grpinfo));
 
@@ -1142,6 +1149,12 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 		}
 
 		group.family = AF_INET;
+		if (grpinfo.group.mask > IPV4_MAX_BITLEN) {
+			if (PIM_DEBUG_BSM)
+				zlog_debug("%s, v4 prefix length specified: %d is too long",
+					   __PRETTY_FUNCTION__, grpinfo.group.mask);
+			return false;
+		}
 		group.prefixlen = grpinfo.group.mask;
 		group.u.prefix4.s_addr = grpinfo.group.addr.s_addr;
 
@@ -1174,6 +1187,15 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 		ins_count = 0;
 
 		while (frag_rp_cnt--) {
+			if (offset + (int)sizeof(struct bsmmsg_rpinfo)
+			    > buflen) {
+				if (PIM_DEBUG_BSM)
+					zlog_debug(
+						"%s, buflen received: %u is less than the internal data structure of the packet would suggest",
+						__PRETTY_FUNCTION__, buflen);
+				return false;
+			}
+
 			/* Extract RP address tlv from BSM */
 			memcpy(&rpinfo, buf, sizeof(struct bsmmsg_rpinfo));
 			rpinfo.rp_holdtime = ntohs(rpinfo.rp_holdtime);
@@ -1242,6 +1264,13 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 			  __PRETTY_FUNCTION__, ifp->name);
 		pim_ifp->pim_ifstat_bsm_cfg_miss++;
 		pim->bsm_dropped++;
+		return -1;
+	}
+
+	if (buf_size < (PIM_MSG_HEADER_LEN + sizeof(struct bsm_hdr))) {
+		if (PIM_DEBUG_BSM)
+			zlog_debug("%s: received buffer length of %d which is too small to properly decode",
+				   __PRETTY_FUNCTION__, buf_size);
 		return -1;
 	}
 
