@@ -46,7 +46,8 @@ static inline int te_sr_policy_instance_compare(const struct te_sr_policy *a,
 						const struct te_sr_policy *b)
 {
 	bool color_is_equal = !(a->color - b->color);
-	bool endpoint_is_equal = (a->endpoint.ipaddr_v4.s_addr == b->endpoint.ipaddr_v4.s_addr);
+	bool endpoint_is_equal =
+		(a->endpoint.ipaddr_v4.s_addr == b->endpoint.ipaddr_v4.s_addr);
 	bool name_is_equal = !(strcmp(a->name, b->name));
 
 	if ((color_is_equal && endpoint_is_equal) || name_is_equal)
@@ -162,4 +163,19 @@ void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 	       sizeof(struct te_candidate_path));
 	te_sr_policy->candidate_path_num++;
 	XFREE(MTYPE_PATH_SR_POLICY, te_candidate_path);
+}
+
+char *te_sr_policy_find(uint32_t color, struct ipaddr *endpoint)
+{
+	struct te_sr_policy te_sr_policy_search;
+	struct te_sr_policy *te_sr_policy_found;
+
+	te_sr_policy_search.color = color;
+	te_sr_policy_search.endpoint = *endpoint;
+
+	te_sr_policy_found =
+		RB_FIND(te_sr_policy_instance_head, &te_sr_policy_instances,
+			&te_sr_policy_search);
+
+	return strdup(te_sr_policy_found->name);
 }

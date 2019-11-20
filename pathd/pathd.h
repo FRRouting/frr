@@ -105,5 +105,6 @@ void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 				     enum te_protocol_origin protocol_origin,
 				     struct ipaddr *originator,
 				     bool dynamic_flag);
+char *te_sr_policy_find(uint32_t color, struct ipaddr *endpoint);
 
 #endif /* _FRR_PATHD_H_ */
