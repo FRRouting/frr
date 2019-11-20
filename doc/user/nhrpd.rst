@@ -124,9 +124,9 @@ nhrpd connects to strongSwan using VICI protocol based on UNIX socket
 (hardcoded now as /var/run/charon.vici).
 
 strongSwan currently needs few patches applied. Please check out the
-`http://git.alpinelinux.org/cgit/user/tteras/strongswan/log/?h=tteras-release,release <http://git.alpinelinux.org/cgit/user/tteras/strongswan/log/?h=tteras-release,release>`_
+https://git.alpinelinux.org/user/tteras/strongswan/log/?h=tteras-release
 and
-`http://git.alpinelinux.org/cgit/user/tteras/strongswan/log/?h=tteras,working tree <http://git.alpinelinux.org/cgit/user/tteras/strongswan/log/?h=tteras,working tree>`_
+https://git.alpinelinux.org/user/tteras/strongswan/log/?h=tteras
 git repositories for the patches.
 
 .. _nhrp-events:
