@@ -1811,14 +1811,16 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 				zlog_debug(
 					"%s: Upstream %s without a path to send join, checking",
 					__PRETTY_FUNCTION__, up->sg_str);
-			old.source_nexthop.interface = up->rpf.source_nexthop.interface;
+			old.source_nexthop.interface =
+				up->rpf.source_nexthop.interface;
 			rpf_result = pim_rpf_update(pim, up, &old, __func__);
 			if (rpf_result == PIM_RPF_CHANGED ||
 					(rpf_result == PIM_RPF_FAILURE &&
 					 old.source_nexthop.interface))
 				pim_zebra_upstream_rpf_changed(pim, up, &old);
 			/* update kernel multicast forwarding cache (MFC) */
-			pim_upstream_mroute_iif_update(up->channel_oil, __func__);
+			pim_upstream_mroute_iif_update(up->channel_oil,
+					__func__);
 		}
 	}
 	pim_zebra_update_all_interfaces(pim);
