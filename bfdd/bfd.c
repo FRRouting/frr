@@ -403,10 +403,21 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 	if (cp->discrs.remote_discr)
 		return bfd_find_disc(peer, ntohl(cp->discrs.remote_discr));
 
-	/* Search for session without using discriminator. */
-	ifp = if_lookup_by_index(ifindex, vrfid);
-
-	vrf = vrf_lookup_by_id(vrfid);
+	/*
+	 * Search for session without using discriminator.
+	 *
+	 * XXX: we can't trust `vrfid` because the VRF handling is not
+	 * properly implemented. Meanwhile we should use the interface
+	 * VRF to find out which one it belongs.
+	 */
+	ifp = if_lookup_by_index_all_vrf(ifindex);
+	if (ifp == NULL) {
+		if (vrfid != VRF_DEFAULT)
+			vrf = vrf_lookup_by_id(vrfid);
+		else
+			vrf = NULL;
+	} else
+		vrf = vrf_lookup_by_id(ifp->vrf_id);
 
 	gen_bfd_key(&key, peer, local, is_mhop, ifp ? ifp->name : NULL,
 		    vrf ? vrf->name : VRF_DEFAULT_NAME);
