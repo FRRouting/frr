@@ -53,7 +53,7 @@ struct te_candidate_path {
 	enum te_protocol_origin protocol_origin;
 
 	/* The Originator */
-	struct ipaddr *originator;
+	struct ipaddr originator;
 
 	/* Dynamic Flag (indicates if a path is explicit or dynamic) */
 	bool dynamic_flag;
@@ -72,7 +72,7 @@ struct te_sr_policy {
 	uint32_t color;
 
 	/* Endpoint */
-	struct ipaddr *endpoint;
+	struct ipaddr endpoint;
 
 	/* Candidate Paths */
 	uint8_t candidate_path_num;

@@ -45,7 +45,17 @@ struct te_segment_list_instance_head te_segment_list_instances =
 static inline int te_sr_policy_instance_compare(const struct te_sr_policy *a,
 						const struct te_sr_policy *b)
 {
-	return strcmp(a->name, b->name);
+	bool color_is_equal = !(a->color - b->color);
+	bool endpoint_is_equal = (a->endpoint.ipaddr_v4.s_addr == b->endpoint.ipaddr_v4.s_addr);
+	bool name_is_equal = !(strcmp(a->name, b->name));
+
+	if ((color_is_equal && endpoint_is_equal) || name_is_equal)
+		return 0;
+
+	if (a->binding_sid && b->binding_sid)
+		return (a->binding_sid - b->binding_sid);
+
+	return -1;
 }
 RB_GENERATE(te_sr_policy_instance_head, te_sr_policy, entry,
 	    te_sr_policy_instance_compare)
@@ -123,7 +133,7 @@ void te_sr_policy_color_add(struct te_sr_policy *te_sr_policy, uint32_t color)
 void te_sr_policy_endpoint_add(struct te_sr_policy *te_sr_policy,
 			       struct ipaddr *endpoint)
 {
-	te_sr_policy->endpoint = endpoint;
+	te_sr_policy->endpoint = *endpoint;
 }
 
 void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
@@ -145,7 +155,7 @@ void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 	te_candidate_path->preference = preference;
 	te_candidate_path->segment_list_name = segment_list_name;
 	te_candidate_path->protocol_origin = protocol_origin;
-	te_candidate_path->originator = originator;
+	te_candidate_path->originator = *originator;
 	te_candidate_path->dynamic_flag = dynamic_flag;
 	int idx = te_sr_policy->candidate_path_num;
 	memcpy(te_candidate_path, &(te_sr_policy->candidate_paths[idx]),
