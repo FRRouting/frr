@@ -143,7 +143,7 @@ static int rpki_sync_socket_rtr;
 static int rpki_sync_socket_bgpd;
 
 static struct cmd_node rpki_node = {RPKI_NODE, "%s(config-rpki)# ", 1};
-static struct route_map_rule_cmd route_match_rpki_cmd = {
+static const struct route_map_rule_cmd route_match_rpki_cmd = {
 	"rpki", route_match, route_match_compile, route_match_free};
 
 static void *malloc_wrapper(size_t size)
