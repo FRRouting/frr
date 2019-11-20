@@ -1897,8 +1897,7 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 	if (pim_ifp->mroute_vif_index != c_oil->oil.mfcc_parent)
 		return false;
 
-	if (up->rpf.source_nexthop.interface &&
-		pim_if_connected_to_source(up->rpf.source_nexthop.interface,
+	if (pim_if_connected_to_source(up->rpf.source_nexthop.interface,
 				       up->sg.src)) {
 		return true;
 	}
