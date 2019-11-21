@@ -23,6 +23,7 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
+#define FUZZING 1
 
 #include <zebra.h>
 #include <lib/version.h>
@@ -255,6 +256,9 @@ const char *cmd_prompt(enum node_type node)
 /* Install a command into a node. */
 void install_element(enum node_type ntype, const struct cmd_element *cmd)
 {
+#ifdef FUZZING
+	return;
+#endif
 	struct cmd_node *cnode;
 
 	/* cmd_init hasn't been called */

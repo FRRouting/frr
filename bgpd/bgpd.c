@@ -7070,32 +7070,42 @@ void bgp_init(unsigned short instance)
 	/* allocates some vital data structures used by peer commands in
 	 * vty_init */
 
+#ifndef FUZZING
 	/* pre-init pthreads */
 	bgp_pthreads_init();
 
 	/* Init zebra. */
 	bgp_zebra_init(bm->master, instance);
+#endif
 
 #ifdef ENABLE_BGP_VNC
 	vnc_zebra_init(bm->master);
 #endif
 
 	/* BGP VTY commands installation.  */
+#ifndef FUZZING
 	bgp_vty_init();
+#endif
 
 	/* BGP inits. */
 	bgp_attr_init();
+#ifndef FUZZING
 	bgp_debug_init();
 	bgp_dump_init();
+#endif
 	bgp_route_init();
 	bgp_route_map_init();
+#ifndef FUZZING
 	bgp_scan_vty_init();
+#endif
 	bgp_mplsvpn_init();
+#ifndef FUZZING
 #ifdef ENABLE_BGP_VNC
 	rfapi_init();
 #endif
 	bgp_ethernetvpn_init();
 	bgp_flowspec_vty_init();
+#endif
 
 	/* Access list initialize. */
 	access_list_init();
@@ -7115,10 +7125,12 @@ void bgp_init(unsigned short instance)
 	/* Community list initialize. */
 	bgp_clist = community_list_init();
 
+#ifndef FUZZING
 	/* BFD init */
 	bgp_bfd_init();
 
 	cmd_variable_handler_register(bgp_viewvrf_var_handlers);
+#endif
 }
 
 void bgp_terminate(void)

@@ -18,6 +18,7 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
+#define FUZZING 1
 
 #include <zebra.h>
 
@@ -347,6 +348,9 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
    structure. */
 void bgp_timer_set(struct peer *peer)
 {
+#ifdef FUZZING
+	return;
+#endif
 	switch (peer->status) {
 	case Idle:
 		/* First entry point of peer's finite state machine.  In Idle

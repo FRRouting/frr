@@ -410,7 +410,7 @@ int main(int argc, char **argv)
 	frr_preinit(&bgpd_di, argc, argv);
 
 #ifdef FUZZING
-	bgp_master_init(frr_init(), buffer_size);
+	bgp_master_init(frr_init_fast(), buffer_size);
 	bm->port = bgp_port;
 	if (bgp_port == 0)
 		bgp_option_set(BGP_OPT_NO_LISTEN);
@@ -421,7 +421,7 @@ int main(int argc, char **argv)
 		bgp_option_set(BGP_OPT_NO_ZEBRA);
 	bgp_error_init();
 	/* Initializations. */
-	bgp_vrf_init();
+	//bgp_vrf_init();
 
 	/* BGP related initialization.  */
 	bgp_init((unsigned short)instance);
@@ -432,13 +432,19 @@ int main(int argc, char **argv)
 
 	union sockunion su;
 	sockunion_init(&su);
-	inet_pton(AF_INET, "192.168.0.1", &su.sin.sin_addr);
+	inet_pton(AF_INET, "10.1.1.1", &su.sin.sin_addr);
 	su.sin.sin_family = AF_INET;
 	su.sin.sin_port = 2001;
 	struct peer *p = peer_create(&su, NULL, bgp_get_default(), 65000, 65001, 0, AFI_IP,
 			SAFI_UNICAST, NULL);
 	p->bgp->rpkt_quanta = 1;
 	p->status = Established;
+	p->as_type = AS_EXTERNAL;
+	SET_FLAG(p->cap, PEER_CAP_AS4_RCV);
+	SET_FLAG(p->cap, PEER_CAP_ADDPATH_AF_RX_RCV);
+	SET_FLAG(p->cap, PEER_CAP_ADDPATH_AF_TX_RCV);
+	SET_FLAG(p->cap, PEER_CAP_REFRESH_OLD_RCV);
+	SET_FLAG(p->cap, PEER_CAP_REFRESH_NEW_RCV);
 	struct thread t = {};
 	t.arg = p;
 
