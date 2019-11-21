@@ -1144,6 +1144,9 @@ void zebra_nhg_free(void *arg)
 
 void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 {
+	if (!nhe)
+		return;
+
 	nhe->refcnt--;
 
 	if (!zebra_nhg_depends_is_empty(nhe))
@@ -1155,6 +1158,9 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 
 void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 {
+	if (!nhe)
+		return;
+
 	nhe->refcnt++;
 
 	if (!zebra_nhg_depends_is_empty(nhe))
