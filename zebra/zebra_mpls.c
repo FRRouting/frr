@@ -2572,7 +2572,7 @@ static void mpls_zebra_nhg_update(struct route_entry *re, afi_t afi,
 
 	nhe = zebra_nhg_rib_find(0, new_grp, afi);
 
-	zebra_nhg_re_update_ref(re, nhe);
+	route_entry_update_nhe(re, nhe);
 }
 
 static bool mpls_ftn_update_nexthop(int add, struct nexthop *nexthop,

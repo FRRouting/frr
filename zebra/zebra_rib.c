@@ -333,6 +333,40 @@ struct nexthop *route_entry_nexthop_blackhole_add(struct route_entry *re,
 	return nexthop;
 }
 
+static void route_entry_attach_ref(struct route_entry *re,
+				   struct nhg_hash_entry *new)
+{
+	re->ng = new->nhg;
+	re->nhe_id = new->id;
+
+	zebra_nhg_increment_ref(new);
+}
+
+int route_entry_update_nhe(struct route_entry *re, struct nhg_hash_entry *new)
+{
+	struct nhg_hash_entry *old = NULL;
+	int ret = 0;
+
+	if (new == NULL) {
+		re->ng = NULL;
+		goto done;
+	}
+
+	if (re->nhe_id != new->id) {
+		old = zebra_nhg_lookup_id(re->nhe_id);
+
+		route_entry_attach_ref(re, new);
+
+		if (old)
+			zebra_nhg_decrement_ref(old);
+	} else if (!re->ng)
+		/* This is the first time it's being attached */
+		route_entry_attach_ref(re, new);
+
+done:
+	return ret;
+}
+
 struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 			      union g_addr *addr, struct route_node **rn_out)
 {
@@ -2708,7 +2742,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	 * level protocols, as the refcnt might be wrong, since it checks
 	 * if old_id != new_id.
 	 */
-	zebra_nhg_re_update_ref(re, nhe);
+	route_entry_update_nhe(re, nhe);
 
 	/* Make it sure prefixlen is applied to the prefix. */
 	apply_mask(p);

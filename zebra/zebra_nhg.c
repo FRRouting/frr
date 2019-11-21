@@ -1704,7 +1704,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 
 		new_nhe = zebra_nhg_rib_find(0, &new_grp, rt_afi);
 
-		zebra_nhg_re_update_ref(re, new_nhe);
+		route_entry_update_nhe(re, new_nhe);
 	}
 
 	if (curr_active) {
@@ -1728,40 +1728,6 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	 */
 	nexthops_free(new_grp.nexthop);
 	return curr_active;
-}
-
-static void zebra_nhg_re_attach_ref(struct route_entry *re,
-				    struct nhg_hash_entry *new)
-{
-	re->ng = new->nhg;
-	re->nhe_id = new->id;
-
-	zebra_nhg_increment_ref(new);
-}
-
-int zebra_nhg_re_update_ref(struct route_entry *re, struct nhg_hash_entry *new)
-{
-	struct nhg_hash_entry *old = NULL;
-	int ret = 0;
-
-	if (new == NULL) {
-		re->ng = NULL;
-		goto done;
-	}
-
-	if (re->nhe_id != new->id) {
-		old = zebra_nhg_lookup_id(re->nhe_id);
-
-		zebra_nhg_re_attach_ref(re, new);
-
-		if (old)
-			zebra_nhg_decrement_ref(old);
-	} else if (!re->ng)
-		/* This is the first time it's being attached */
-		zebra_nhg_re_attach_ref(re, new);
-
-done:
-	return ret;
 }
 
 /* Convert a nhe into a group array */

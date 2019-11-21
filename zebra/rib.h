@@ -35,6 +35,7 @@
 #include "if.h"
 #include "mpls.h"
 #include "srcdest_table.h"
+#include "zebra/zebra_nhg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -334,6 +335,7 @@ extern void route_entry_nexthop_add(struct route_entry *re,
 				    struct nexthop *nexthop);
 extern void route_entry_copy_nexthops(struct route_entry *re,
 				      struct nexthop *nh);
+int route_entry_update_nhe(struct route_entry *re, struct nhg_hash_entry *new);
 
 #define route_entry_dump(prefix, src, re) _route_entry_dump(__func__, prefix, src, re)
 extern void _route_entry_dump(const char *func, union prefixconstptr pp,
