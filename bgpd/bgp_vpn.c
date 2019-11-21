@@ -85,9 +85,13 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 		if (table == NULL)
 			continue;
 
-
+		/*
+		 * Initialize variables for each RD
+		 * All prefixes under an RD is aggregated within "json_routes"
+		 */
 		rd_header = 1;
 		memset(rd_str, 0, sizeof(rd_str));
+		json_routes = NULL;
 
 		for (rm = bgp_table_top(table); rm; rm = bgp_route_next(rm)) {
 			struct bgp_adj_out *adj = NULL;
@@ -223,7 +227,7 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 			output_count++;
 		}
 
-		if (use_json)
+		if (use_json && json_routes)
 			json_object_object_add(json_adv, rd_str, json_routes);
 	}
 
