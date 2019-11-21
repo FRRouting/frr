@@ -177,15 +177,14 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
 {
 	int i;
 	int len;
-	bool first = true;
 	char *str_buf;
-	char *str_pnt;
 	uint8_t *pnt;
 	uint32_t global, local1, local2;
 	json_object *json_lcommunity_list = NULL;
 	json_object *json_string = NULL;
 
-#define LCOMMUNITY_STR_DEFAULT_LEN 32
+	/* 3 32-bit integers, 2 colons, and a space */
+#define LCOMMUNITY_STRLEN (10 * 3 + 2 + 1)
 
 	if (!lcom)
 		return;
@@ -196,8 +195,7 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
 	}
 
 	if (lcom->size == 0) {
-		str_buf = XMALLOC(MTYPE_LCOMMUNITY_STR, 1);
-		str_buf[0] = '\0';
+		str_buf = XCALLOC(MTYPE_LCOMMUNITY_STR, 1);
 
 		if (make_json) {
 			json_object_string_add(lcom->json, "string", "");
@@ -209,15 +207,13 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
 		return;
 	}
 
-	str_buf = str_pnt =
-		XMALLOC(MTYPE_LCOMMUNITY_STR,
-			(LCOMMUNITY_STR_DEFAULT_LEN * lcom->size) + 1);
+	/* 1 space + lcom->size lcom strings + null terminator */
+	size_t str_buf_sz = (LCOMMUNITY_STRLEN * lcom->size) + 2;
+	str_buf = XCALLOC(MTYPE_LCOMMUNITY_STR, str_buf_sz);
 
 	for (i = 0; i < lcom->size; i++) {
-		if (first)
-			first = false;
-		else
-			*str_pnt++ = ' ';
+		if (i > 0)
+			strlcat(str_buf, " ", str_buf_sz);
 
 		pnt = lcom->val + (i * LCOMMUNITY_SIZE);
 		pnt = ptr_get_be32(pnt, &global);
@@ -225,18 +221,20 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
 		pnt = ptr_get_be32(pnt, &local2);
 		(void)pnt;
 
-		len = sprintf(str_pnt, "%u:%u:%u", global, local1, local2);
+		char lcsb[LCOMMUNITY_STRLEN + 1];
+
+		snprintf(lcsb, sizeof(lcsb), "%u:%u:%u", global, local1,
+			 local2);
+
+		len = strlcat(str_buf, lcsb, str_buf_sz);
+		assert((unsigned int)len < str_buf_sz);
+
 		if (make_json) {
-			json_string = json_object_new_string(str_pnt);
+			json_string = json_object_new_string(lcsb);
 			json_object_array_add(json_lcommunity_list,
 					      json_string);
 		}
-
-		str_pnt += len;
 	}
-
-	str_buf =
-		XREALLOC(MTYPE_LCOMMUNITY_STR, str_buf, str_pnt - str_buf + 1);
 
 	if (make_json) {
 		json_object_string_add(lcom->json, "string", str_buf);
