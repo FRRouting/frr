@@ -1345,12 +1345,14 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 		return BGP_Stop;
 
 	/* Get sockname. */
+#ifndef FUZZING
 	if (bgp_getsockname(peer) < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s: bgp_getsockname() failed for peer: %s",
 			     __func__, peer->host);
 		return BGP_Stop;
 	}
+#endif
 
 	/* Set remote router-id */
 	peer->remote_id = remote_id;
@@ -1471,7 +1473,9 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 #endif
 		}
 	}
+#ifndef FUZZING
 	peer->rtt = sockopt_tcp_rtt(peer->fd);
+#endif
 
 	return Receive_OPEN_message;
 }
