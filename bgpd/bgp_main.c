@@ -410,6 +410,7 @@ int main(int argc, char **argv)
 	frr_preinit(&bgpd_di, argc, argv);
 
 #ifdef FUZZING
+	/* Initialize basic BGP datastructures */
 	bgp_master_init(frr_init_fast(), buffer_size);
 	bm->port = bgp_port;
 	if (bgp_port == 0)
@@ -420,12 +421,10 @@ int main(int argc, char **argv)
 	if (no_zebra_flag)
 		bgp_option_set(BGP_OPT_NO_ZEBRA);
 	bgp_error_init();
-	/* Initializations. */
-	//bgp_vrf_init();
-
-	/* BGP related initialization.  */
+	// bgp_vrf_init();
 	bgp_init((unsigned short)instance);
 
+	/* Create a default instance and peer */
 	struct bgp *b;
 	as_t as = 65001;
 	bgp_get(&b, &as, "default", BGP_INSTANCE_TYPE_DEFAULT);
@@ -435,8 +434,8 @@ int main(int argc, char **argv)
 	inet_pton(AF_INET, "10.1.1.1", &su.sin.sin_addr);
 	su.sin.sin_family = AF_INET;
 	su.sin.sin_port = 2001;
-	struct peer *p = peer_create(&su, NULL, bgp_get_default(), 65000, 65001, 0, AFI_IP,
-			SAFI_UNICAST, NULL);
+	struct peer *p = peer_create(&su, NULL, bgp_get_default(), 65000, 65001,
+				     0, AFI_IP, SAFI_UNICAST, NULL);
 	p->bgp->rpkt_quanta = 1;
 	p->status = Established;
 	p->as_type = AS_EXTERNAL;
@@ -445,31 +444,50 @@ int main(int argc, char **argv)
 	SET_FLAG(p->cap, PEER_CAP_ADDPATH_AF_TX_RCV);
 	SET_FLAG(p->cap, PEER_CAP_REFRESH_OLD_RCV);
 	SET_FLAG(p->cap, PEER_CAP_REFRESH_NEW_RCV);
-	struct thread t = {};
-	t.arg = p;
 
-        fseek(stdin, 0, SEEK_END);    
-        long fsize = ftell(stdin);    
-        if (fsize < 0)    
-                return 0;    
-    
-	struct stream *s = stream_new(fsize);
+	fseek(stdin, 0, SEEK_END);
+	long fsize = ftell(stdin);
+	if (fsize < 0)
+		return 0;
 
-        fseek(stdin, 0, SEEK_SET);    
-        int r = fread(s->data, 1, fsize, stdin);    
-	stream_set_endp(s, r);
-	/* used by header validation */
-	ringbuf_put(p->ibuf_work, s->data, r);
+	uint8_t *input = malloc(fsize);
 
-	bool hval = validate_header(p);
-	if (!hval)
+	fseek(stdin, 0, SEEK_SET);
+	int r = fread(input, 1, fsize, stdin);
+	ringbuf_put(p->ibuf_work, input, r);
+
+	/*
+	 * Simulate the read process done by bgp_process_reads().
+	 *
+	 * The actual packet processing code assumes that the size field in the
+	 * BGP message is correct, and this check is performed by the i/o code,
+	 * so we need to make sure that remains true for fuzzed input.
+	 * */
+	if (!validate_header(p))
 		exit(9);
 
-	p->curr = s;
-	int result = bgp_process_packet(&t);
+	int result = 0;
+	static unsigned char pktbuf[BGP_MAX_PACKET_SIZE];
+	uint16_t pktsize = 0;
+
+	ringbuf_peek(p->ibuf_work, BGP_MARKER_SIZE, &pktsize, sizeof(pktsize));
+	pktsize = ntohs(pktsize);
+
+	assert(pktsize <= BGP_MAX_PACKET_SIZE);
+
+	if (ringbuf_remain(p->ibuf_work) >= pktsize) {
+		struct stream *pkt = stream_new(pktsize);
+		ringbuf_get(p->ibuf_work, pktbuf, pktsize);
+		stream_put(pkt, pktbuf, pktsize);
+		p->curr = pkt;
+
+		struct thread t = {};
+		t.arg = p;
+		result = bgp_process_packet(&t);
+	}
+
 	exit(result);
 #endif
-
 
 
 	frr_opt_add(
