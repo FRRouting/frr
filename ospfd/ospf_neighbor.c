@@ -141,6 +141,8 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	thread_cancel_event(master, nbr);
 
 	ospf_bfd_info_free(&nbr->bfd_info);
+
+	nbr->oi = NULL;
 	XFREE(MTYPE_OSPF_NEIGHBOR, nbr);
 }
 
@@ -446,7 +448,7 @@ static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,
 		nbr->crypt_seqnum = ospfh->u.crypt.crypt_seqnum;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("NSM[%s:%s]: start", IF_NAME(nbr->oi),
+		zlog_debug("NSM[%s:%s]: start", IF_NAME(oi),
 			   inet_ntoa(nbr->router_id));
 
 	return nbr;
