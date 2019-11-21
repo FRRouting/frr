@@ -1915,12 +1915,19 @@ DEFUNSH(VTYSH_FABRICD, router_openfabric, router_openfabric_cmd, "router openfab
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_PATHD, te_path_mpls, te_path_mpls_cmd,
-	"te-path mpls input (16-1048575)",
-	"Establish a traffic-engineered path\n"
-	"Multiprotocol Label Switching LSP\n"
-	"Incoming MPLS label\n"
-	"MPLS label value\n")
+DEFUNSH(VTYSH_PATHD, te_path_segment_list, te_path_segment_list_cmd,
+	"segment-list WORD$name",
+	"Segment List\n"
+	"Segment List Name\n")
+{
+	vty->node = TE_PATH_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_PATHD, te_path_sr_policy, te_path_sr_policy_cmd,
+	"sr-policy WORD$name",
+	"Segment Routing Policy\n"
+	"SR Policy name\n")
 {
 	vty->node = TE_PATH_NODE;
 	return CMD_SUCCESS;
@@ -4108,7 +4115,8 @@ void vtysh_init_vty(void)
 	install_element(BGP_VNC_L2_GROUP_NODE, &exit_vnc_config_cmd);
 
 	install_element(CONFIG_NODE, &key_chain_cmd);
-	install_element(CONFIG_NODE, &te_path_mpls_cmd);
+	install_element(CONFIG_NODE, &te_path_segment_list_cmd);
+	install_element(CONFIG_NODE, &te_path_sr_policy_cmd);
 	install_element(CONFIG_NODE, &vtysh_route_map_cmd);
 	install_element(CONFIG_NODE, &vtysh_pbr_map_cmd);
 	install_element(CONFIG_NODE, &vtysh_no_pbr_map_cmd);
