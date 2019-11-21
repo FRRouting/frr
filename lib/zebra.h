@@ -18,6 +18,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#define FUZZING 1
 #ifndef _ZEBRA_H
 #define _ZEBRA_H
 
