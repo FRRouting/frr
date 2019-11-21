@@ -178,7 +178,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		case NEXTHOP_TYPE_BLACKHOLE:
 			bh_type = nexthop->bh_type;
 			switch (p->family) {
-			case AFI_IP: {
+			case AF_INET: {
 				struct in_addr loopback;
 				loopback.s_addr = htonl(INADDR_LOOPBACK);
 				sin_gate.sin.sin_addr = loopback;
@@ -189,7 +189,8 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 				gate = true;
 			}
 				break;
-			case AFI_IP6:
+			case AF_INET6:
+				zlog_warn("v6 blackhole routes have not been programmed yet");
 				break;
 			}
 		}
@@ -230,13 +231,13 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 					__func__, prefix_buf);
 			} else {
 				switch (p->family) {
-				case AFI_IP:
+				case AF_INET:
 					inet_ntop(AF_INET,
 						  &sin_gate.sin.sin_addr,
 						  gate_buf, sizeof(gate_buf));
 					break;
 
-				case AFI_IP6:
+				case AF_INET6:
 					inet_ntop(AF_INET6,
 						  &sin_gate.sin6.sin6_addr,
 						  gate_buf, sizeof(gate_buf));
