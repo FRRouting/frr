@@ -30,7 +30,7 @@
 #include "lib/route_types.h"  /* for ZEBRA_ROUTE_MAX */
 #include "lib/zebra.h"        /* for AFI_MAX */
 #include "lib/vrf.h"          /* for vrf_bitmap_t */
-#include "lib/zclient.h"      /* for redist_proto */
+#include "lib/zclient.h"      /* for redist_proto, zapi_nexthop */
 #include "lib/stream.h"       /* for stream, stream_fifo */
 #include "lib/thread.h"       /* for thread, thread_master */
 #include "lib/linklist.h"     /* for list */
@@ -52,6 +52,14 @@ extern "C" {
 
 #define ZEBRA_RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
 
+/* Nexthop Group Cache to avoid hashing when receiving
+ * the same nexthop for routes repeatedly.
+ */
+struct zserv_zebra_nhg_cache {
+	struct zapi_nexthop nexthops[MULTIPATH_NUM];
+	uint32_t nhe_id;
+};
+
 /* Client structure. */
 struct zserv {
 	/* Client pthread */
@@ -69,6 +77,9 @@ struct zserv {
 	/* Private I/O buffers */
 	struct stream *ibuf_work;
 	struct stream *obuf_work;
+
+	/* Cache incoming zapi_nexthop's previous used nhg_hash_entry */
+	struct zserv_zebra_nhg_cache inhg_cache;
 
 	/* Buffer of data waiting to be written to client. */
 	struct buffer *wb;

@@ -614,6 +614,9 @@ void zserv_close_client(struct zserv *client)
 	THREAD_OFF(client->t_cleanup);
 	THREAD_OFF(client->t_process);
 
+	/* Release cached nhg_hash_entry */
+	zebra_nhg_decrement_ref(zebra_nhg_lookup_id(client->inhg_cache.nhe_id));
+
 	/* destroy pthread */
 	frr_pthread_destroy(client->pthread);
 	client->pthread = NULL;

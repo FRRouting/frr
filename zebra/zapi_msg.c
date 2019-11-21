@@ -1586,7 +1586,44 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
 		src_p = &api.src_prefix;
 
+
+	/**
+	 * zebra_nhg cached handling to speed up route installs
+	 * for routes being sent with the same nexthops in a row.
+	 */
+	assert(sizeof(api.nexthops) == sizeof(client->inhg_cache.nexthops));
+
+	/* If matches cached nexthops, use that NHE ID now */
+	if (memcmp(api.nexthops, client->inhg_cache.nexthops,
+		   sizeof(client->inhg_cache.nexthops))
+	    == 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Using cached zebra_nhg", __func__);
+
+		/* Just pass down with ID */
+		nexthop_group_delete(&re->ng);
+		re->nhe_id = client->inhg_cache.nhe_id;
+	} else {
+		/**
+		 * De-ref the old NHE.
+		 * Reset the cached ID to 0 so we know to
+		 * get the next created NHE and use it.
+		 */
+		zebra_nhg_decrement_ref(
+			zebra_nhg_lookup_id(client->inhg_cache.nhe_id));
+		client->inhg_cache.nhe_id = 0;
+	}
+
 	ret = rib_add_multipath(afi, api.safi, &api.prefix, src_p, re);
+
+	if (client->inhg_cache.nhe_id == 0) {
+		/* Update to new cache */
+		memcpy(client->inhg_cache.nexthops, api.nexthops,
+		       sizeof(client->inhg_cache.nexthops));
+		client->inhg_cache.nhe_id = re->nhe_id;
+		zebra_nhg_increment_ref(
+			zebra_nhg_lookup_id(client->inhg_cache.nhe_id));
+	}
 
 	/* Stats */
 	switch (api.prefix.family) {
