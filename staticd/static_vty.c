@@ -434,7 +434,7 @@ static int static_route_leak(
 					"%% Nexthop interface name can not be from reserved keywords (Null0, reject, blackhole)\n");
 			else
 				zlog_warn(
-					"%s: %s: Nexthop interface name can not be from reserved keywords (Null0, reject, blackhole)\n",
+					"%s: %s: Nexthop interface name can not be from reserved keywords (Null0, reject, blackhole)",
 					__PRETTY_FUNCTION__, dest_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
