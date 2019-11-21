@@ -46,3 +46,19 @@ void path_zebra_init(struct thread_master *master)
 	zclient_init(zclient, ZEBRA_ROUTE_TE, 0, &pathd_privs);
 	zclient->zebra_connected = path_zebra_connected;
 }
+
+void path_zebra_add_lsp(mpls_label_t binding_sid,
+			struct te_segment_list *segment_list)
+{
+	struct zapi_srte_tunnel zt = {};
+	zt.type = ZEBRA_LSP_TE;
+	zt.local_label = binding_sid;
+	zt.label_num = segment_list->label_num;
+
+	int i;
+	for (i = 0; i < zt.label_num; i++) {
+		zt.labels[i] = segment_list->labels[i];
+	}
+
+	(void)zebra_send_srte_tunnel(zclient, ZEBRA_SR_TE_TUNNEL_SET, &zt);
+}

@@ -163,7 +163,7 @@ void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 
 	int i;
 	struct te_candidate_path active_candidate_path;
-	active_candidate_path.preference = -1;
+	active_candidate_path.preference = 0;
 	for (i = 0; i < te_sr_policy->candidate_path_num; i++) {
 		if (te_sr_policy->candidate_paths[i].preference
 		    > active_candidate_path.preference)
@@ -171,6 +171,17 @@ void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 				te_sr_policy->candidate_paths[i];
 	}
 	te_sr_policy->active_candidate_path = active_candidate_path;
+
+	struct te_segment_list *te_segment_list_found;
+	struct te_segment_list te_segment_list_search;
+	te_segment_list_search.name =
+		te_sr_policy->active_candidate_path.segment_list_name;
+	te_segment_list_found =
+		RB_FIND(te_segment_list_instance_head,
+			&te_segment_list_instances, &te_segment_list_search);
+
+	/* send the new active LSP to Zebra */
+	path_zebra_add_lsp(te_sr_policy->binding_sid, te_segment_list_found);
 }
 
 char *te_sr_policy_find(uint32_t color, struct ipaddr *endpoint)
