@@ -1675,10 +1675,13 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 		new_active =
 			nexthop_active_check(rn, re, nexthop);
 
-		if (new_active
-		    && nexthop_group_active_nexthop_num(&new_grp)
-			       >= zrouter.multipath_num) {
-			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		if (new_active && curr_active >= zrouter.multipath_num) {
+			struct nexthop *nh;
+
+			/* Set it and its resolved nexthop as inactive. */
+			for (nh = nexthop; nh; nh = nh->resolved)
+				UNSET_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE);
+
 			new_active = 0;
 		}
 
