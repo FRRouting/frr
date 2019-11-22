@@ -121,8 +121,9 @@ int pcep_lib_connect(pcc_state_t *pcc_state)
 	config = create_default_pcep_configuration();
 	config->support_stateful_pce_lsp_update = true;
 	config->support_pce_lsp_instantiation = true;
-	config->support_lsp_triggered_resync = true;
-	config->support_pce_triggered_initial_sync = true;
+	//TODO: Figure out if we want that for now
+	// config->support_lsp_triggered_resync = true;
+	// config->support_pce_triggered_initial_sync = true;
 	config->support_sr_te_pst = true;
 
 	sess = connect_pce_with_port(config, &pcc_state->opts->addr,
@@ -231,7 +232,8 @@ int pcep_pcc_disable(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state)
 		case DISCONNECTED:
 			return 0;
 		case CONNECTING:
-		case CONNECTED:
+		case SYNCHRONIZING:
+		case OPERATING:
 			PCEP_DEBUG("Disconnecting PCC...");
 			pcep_lib_disconnect(pcc_state);
 			pcc_state->status = DISCONNECTED;
@@ -251,7 +253,10 @@ void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
 			PCEP_DEBUG("Connection established to PCE %pI4:%i",
 			           &pcc_state->opts->addr,
 			           pcc_state->opts->port);
-			pcc_state->status = CONNECTED;
+			//TODO: Trigger synchronization
+			// pcc_state->status = SYNCHRONIZING;
+			/* We skip synchronization for now */
+			pcc_state->status = OPERATING;
 			break;
 		case PCE_CLOSED_SOCKET:
 		case PCE_SENT_PCEP_CLOSE:
@@ -265,7 +270,8 @@ void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
 			//TODO: schedule reconnection ??
 			break;
 		case MESSAGE_RECEIVED:
-			assert(CONNECTED == pcc_state->status);
+			assert(SYNCHRONIZING == pcc_state->status
+			       || OPERATING == pcc_state->status);
 			pcep_pcc_handle_message(ctrl_state, pcc_state,
 			                        event->message);
 			break;

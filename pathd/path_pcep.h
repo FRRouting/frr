@@ -34,7 +34,8 @@ typedef enum {
 	INITIALIZED = 0,
 	DISCONNECTED,
 	CONNECTING,
-	CONNECTED
+	SYNCHRONIZING,
+	OPERATING
 } pcc_status_t;
 
 typedef struct pcc_state_t_ {
