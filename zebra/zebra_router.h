@@ -97,8 +97,14 @@ struct zebra_mlag_info {
 	/* MLAG Thread context 'master' */
 	struct thread_master *th_master;
 
-	/* Threads for read/write. */
+	/*
+	 * Event for Initial MLAG Connection setup & Data Read
+	 * Read can be performed only after successful connection establishment,
+	 * so no issues.
+	 *
+	 */
 	struct thread *t_read;
+	/* Event for MLAG write */
 	struct thread *t_write;
 };
 

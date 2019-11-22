@@ -166,8 +166,6 @@ static int zebra_mlag_connect(struct thread *thread)
 	/* Reset the Timer-running flag */
 	zrouter.mlag_info.timer_running = false;
 
-	/* Reset, sothat Next task can be scheduled */
-	zrouter.mlag_info.t_read = NULL;
 	svr.sun_family = AF_UNIX;
 #define MLAG_SOCK_NAME "/var/run/clag-zebra.socket"
 	strlcpy(svr.sun_path, MLAG_SOCK_NAME, sizeof(MLAG_SOCK_NAME) + 1);
