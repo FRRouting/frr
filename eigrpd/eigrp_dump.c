@@ -150,48 +150,6 @@ const char *eigrp_if_name_string(struct eigrp_interface *ei)
 	return ei->ifp->name;
 }
 
-const char *eigrp_topology_ip_string(struct eigrp_prefix_entry *tn)
-{
-	static char buf[EIGRP_IF_STRING_MAXLEN] = "";
-	uint32_t ifaddr;
-
-	ifaddr = ntohl(tn->destination->u.prefix4.s_addr);
-	snprintf(buf, EIGRP_IF_STRING_MAXLEN, "%u.%u.%u.%u",
-		 (ifaddr >> 24) & 0xff, (ifaddr >> 16) & 0xff,
-		 (ifaddr >> 8) & 0xff, ifaddr & 0xff);
-	return buf;
-}
-
-
-const char *eigrp_if_ip_string(struct eigrp_interface *ei)
-{
-	static char buf[EIGRP_IF_STRING_MAXLEN] = "";
-	uint32_t ifaddr;
-
-	if (!ei)
-		return "inactive";
-
-	ifaddr = ntohl(ei->address.u.prefix4.s_addr);
-	snprintf(buf, EIGRP_IF_STRING_MAXLEN, "%u.%u.%u.%u",
-		 (ifaddr >> 24) & 0xff, (ifaddr >> 16) & 0xff,
-		 (ifaddr >> 8) & 0xff, ifaddr & 0xff);
-
-	return buf;
-}
-
-const char *eigrp_neigh_ip_string(struct eigrp_neighbor *nbr)
-{
-	static char buf[EIGRP_IF_STRING_MAXLEN] = "";
-	uint32_t ifaddr;
-
-	ifaddr = ntohl(nbr->src.s_addr);
-	snprintf(buf, EIGRP_IF_STRING_MAXLEN, "%u.%u.%u.%u",
-		 (ifaddr >> 24) & 0xff, (ifaddr >> 16) & 0xff,
-		 (ifaddr >> 8) & 0xff, ifaddr & 0xff);
-
-	return buf;
-}
-
 void show_ip_eigrp_interface_header(struct vty *vty, struct eigrp *eigrp)
 {
 
