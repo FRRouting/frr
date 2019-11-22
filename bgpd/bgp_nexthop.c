@@ -480,7 +480,7 @@ static void bgp_connected_cleanup(struct route_table *table,
 }
 
 int bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type, uint8_t sub_type,
-		struct attr *attr, struct bgp_node *rn)
+		     const struct attr *attr, struct bgp_node *rn)
 {
 	struct prefix p = {0};
 	afi_t new_afi = afi;

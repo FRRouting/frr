@@ -2970,8 +2970,9 @@ static bool overlay_index_equal(afi_t afi, struct bgp_path_info *path,
 
 /* Check if received nexthop is valid or not. */
 static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
-				uint8_t type, uint8_t stype,
-				struct attr *attr, struct bgp_node *rn)
+				      uint8_t type, uint8_t stype,
+				      const struct attr *attr,
+				      struct bgp_node *rn)
 {
 	int ret = 0;
 
@@ -3157,17 +3158,11 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 
 	bgp_attr_dup(&new_attr, attr);
 
-	/* Apply incoming route-map.
-	 * NB: new_attr may now contain newly allocated values from route-map
-	 * "set"
-	 * commands, so we need bgp_attr_flush in the error paths, until we
-	 * intern
-	 * the attr (which takes over the memory references) */
+	/* Apply incoming route-map. */
 	if (bgp_input_modifier(peer, p, &new_attr, afi, safi, NULL,
 		label, num_labels, rn) == RMAP_DENY) {
 		peer->stat_pfx_filter++;
 		reason = "route-map;";
-		bgp_attr_flush(&new_attr);
 		goto filtered;
 	}
 
@@ -3205,7 +3200,6 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		pi_sub_type, &new_attr, rn)) {
 		peer->stat_pfx_nh_invalid++;
 		reason = "martian or self next-hop;";
-		bgp_attr_flush(&new_attr);
 		goto filtered;
 	}
 
