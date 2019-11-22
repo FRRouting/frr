@@ -1,0 +1,19 @@
+if HAVE_PROTOBUF
+lib_LTLIBRARIES += mlag/libmlag_pb.la
+endif
+
+mlag_libmlag_pb_la_LDFLAGS = -version-info 0:0:0
+mlag_libmlag_pb_la_CPPFLAGS = $(AM_CPPFLAGS) $(PROTOBUF_C_CFLAGS)
+mlag_libmlag_pb_la_SOURCES = \
+	# end
+
+nodist_mlag_libmlag_pb_la_SOURCES = \
+	mlag/mlag.pb-c.c \
+	# end
+
+CLEANFILES += \
+	mlag/mlag.pb-c.c \
+	mlag/mlag.pb-c.h \
+	# end
+
+EXTRA_DIST += mlag/mlag.proto

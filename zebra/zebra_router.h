@@ -71,6 +71,41 @@ struct zebra_mlag_info {
 
 	/* The system mac being used */
 	struct ethaddr mac;
+	/*
+	 * Zebra will open the communication channel with MLAGD only if any
+	 * clients are interested and it is controlled dynamically based on
+	 * client registers & un-registers.
+	 */
+	uint32_t clients_interested_cnt;
+
+	/* coomunication channel with MLAGD is established */
+	bool connected;
+
+	/* connection retry timer is running */
+	bool timer_running;
+
+	/* Holds the client data(unencoded) that need to be pushed to MCLAGD*/
+	struct stream_fifo *mlag_fifo;
+
+	/*
+	 * A new Kernel thread will be created to post the data to MCLAGD.
+	 * where as, read will be performed from the zebra main thread, because
+	 * read involves accessing client registartion data structures.
+	 */
+	struct frr_pthread *zebra_pth_mlag;
+
+	/* MLAG Thread context 'master' */
+	struct thread_master *th_master;
+
+	/*
+	 * Event for Initial MLAG Connection setup & Data Read
+	 * Read can be performed only after successful connection establishment,
+	 * so no issues.
+	 *
+	 */
+	struct thread *t_read;
+	/* Event for MLAG write */
+	struct thread *t_write;
 };
 
 struct zebra_router {

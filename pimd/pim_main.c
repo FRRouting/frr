@@ -47,6 +47,7 @@
 #include "pim_msdp.h"
 #include "pim_iface.h"
 #include "pim_bfd.h"
+#include "pim_mlag.h"
 #include "pim_errors.h"
 
 extern struct host host;
@@ -131,6 +132,7 @@ int main(int argc, char **argv, char **envp)
 			  pim_ifp_down, pim_ifp_destroy);
 	pim_zebra_init();
 	pim_bfd_init();
+	pim_mlag_init();
 
 	frr_config_fork();
 
