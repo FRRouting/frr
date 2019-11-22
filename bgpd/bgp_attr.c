@@ -2135,8 +2135,7 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
  * Read an individual SID value returning how much data we have read
  * Returns 0 if there was an error that needs to be passed up the stack
  */
-static bgp_attr_parse_ret_t bgp_attr_psid_sub(int32_t type,
-					      int32_t length,
+static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 					      struct bgp_attr_parser_args *args,
 					      struct bgp_nlri *mp_update)
 {
@@ -2149,11 +2148,12 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(int32_t type,
 	int srgb_count;
 
 	if (type == BGP_PREFIX_SID_LABEL_INDEX) {
-		if (length != BGP_PREFIX_SID_LABEL_INDEX_LENGTH) {
-			flog_err(
-				EC_BGP_ATTR_LEN,
-				"Prefix SID label index length is %d instead of %d",
-				length, BGP_PREFIX_SID_LABEL_INDEX_LENGTH);
+		if (STREAM_READABLE(peer->curr) < length
+		    || length != BGP_PREFIX_SID_LABEL_INDEX_LENGTH) {
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Prefix SID label index length is %" PRIu16
+				 " instead of %u",
+				 length, BGP_PREFIX_SID_LABEL_INDEX_LENGTH);
 			return bgp_attr_malformed(args,
 						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 						  args->total);
@@ -2185,9 +2185,11 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(int32_t type,
 
 	/* Placeholder code for the IPv6 SID type */
 	else if (type == BGP_PREFIX_SID_IPV6) {
-		if (length != BGP_PREFIX_SID_IPV6_LENGTH) {
+		if (STREAM_READABLE(peer->curr) < length
+		    || length != BGP_PREFIX_SID_IPV6_LENGTH) {
 			flog_err(EC_BGP_ATTR_LEN,
-				 "Prefix SID IPv6 length is %d instead of %d",
+				 "Prefix SID IPv6 length is %" PRIu16
+				 " instead of %u",
 				 length, BGP_PREFIX_SID_IPV6_LENGTH);
 			return bgp_attr_malformed(args,
 						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -2203,6 +2205,17 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(int32_t type,
 
 	/* Placeholder code for the Originator SRGB type */
 	else if (type == BGP_PREFIX_SID_ORIGINATOR_SRGB) {
+		if (STREAM_READABLE(peer->curr) < length
+		    || length != BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH) {
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Prefix SID Originator SRGB length is %" PRIu16
+				 " instead of %u",
+				 length, BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH);
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
+		}
+
 		/* Ignore flags */
 		stream_getw(peer->curr);
 
@@ -2233,12 +2246,24 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(int32_t type,
 	 */
 	else if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE
 	    || type == BGP_PREFIX_SID_SRV6_L2_SERVICE) {
+
+		if (STREAM_READABLE(peer->curr) < length) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Prefix SID SRv6 length is %" PRIu16
+				" - too long, only %zu remaining in this UPDATE",
+				length, STREAM_READABLE(peer->curr));
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
+		}
+
 		if (bgp_debug_update(peer, NULL, NULL, 1))
 			zlog_debug(
 				"%s attr Prefix-SID sub-type=%u is not supported, skipped",
 				peer->host, type);
-		for (int i = 0; i < length; i++)
-			stream_getc(peer->curr);
+
+		stream_forward_getp(peer->curr, length);
 	}
 
 	return BGP_ATTR_PARSE_PROCEED;
@@ -2247,9 +2272,8 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(int32_t type,
 /* Prefix SID attribute
  * draft-ietf-idr-bgp-prefix-sid-05
  */
-bgp_attr_parse_ret_t
-bgp_attr_prefix_sid(int32_t tlength, struct bgp_attr_parser_args *args,
-		    struct bgp_nlri *mp_update)
+bgp_attr_parse_ret_t bgp_attr_prefix_sid(struct bgp_attr_parser_args *args,
+					 struct bgp_nlri *mp_update)
 {
 	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
@@ -2257,31 +2281,40 @@ bgp_attr_prefix_sid(int32_t tlength, struct bgp_attr_parser_args *args,
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID);
 
-	while (tlength) {
-		int32_t type, length;
+	uint8_t type;
+	uint16_t length;
+	size_t headersz = sizeof(type) + sizeof(length);
+
+	while (STREAM_READABLE(peer->curr) > 0) {
+
+		if (STREAM_READABLE(peer->curr) < headersz) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Malformed Prefix SID attribute - insufficent data (need %zu for attribute header, have %zu remaining in UPDATE)",
+				headersz, STREAM_READABLE(peer->curr));
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
+		}
 
 		type = stream_getc(peer->curr);
 		length = stream_getw(peer->curr);
+
+		if (STREAM_READABLE(peer->curr) < length) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Malformed Prefix SID attribute - insufficient data (need %" PRIu8
+				" for attribute body, have %zu remaining in UPDATE)",
+				length, STREAM_READABLE(peer->curr));
+			return bgp_attr_malformed(args,
+						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+						  args->total);
+		}
 
 		ret = bgp_attr_psid_sub(type, length, args, mp_update);
 
 		if (ret != BGP_ATTR_PARSE_PROCEED)
 			return ret;
-		/*
-		 * Subtract length + the T and the L
-		 * since length is the Vector portion
-		 */
-		tlength -= length + 3;
-
-		if (tlength < 0) {
-			flog_err(
-				EC_BGP_ATTR_LEN,
-				"Prefix SID internal length %d causes us to read beyond the total Prefix SID length",
-				length);
-			return bgp_attr_malformed(args,
-						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
-						  args->total);
-		}
 	}
 
 	return BGP_ATTR_PARSE_PROCEED;
@@ -2677,8 +2710,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 					     startp);
 			break;
 		case BGP_ATTR_PREFIX_SID:
-			ret = bgp_attr_prefix_sid(length,
-						  &attr_args, mp_update);
+			ret = bgp_attr_prefix_sid(&attr_args, mp_update);
 			break;
 		case BGP_ATTR_PMSI_TUNNEL:
 			ret = bgp_attr_pmsi_tunnel(&attr_args);
