@@ -390,7 +390,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 }
 
 static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
-						struct route_entry *re,
+						struct nexthop_group *ng,
 						struct rtmsg *rtm,
 						struct rtnexthop *rtnh,
 						struct rtattr **tb,
@@ -406,8 +406,6 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 
 	int len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
 	vrf_id_t nh_vrf_id = vrf_id;
-
-	re->ng = nexthop_group_new();
 
 	for (;;) {
 		struct nexthop *nh = NULL;
@@ -454,21 +452,19 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 
 		if (gate && rtm->rtm_family == AF_INET) {
 			if (index)
-				nh = route_entry_nexthop_ipv4_ifindex_add(
-					re, gate, prefsrc, index, nh_vrf_id);
+				nh = nexthop_from_ipv4_ifindex(
+					gate, prefsrc, index, nh_vrf_id);
 			else
-				nh = route_entry_nexthop_ipv4_add(
-					re, gate, prefsrc, nh_vrf_id);
+				nh = nexthop_from_ipv4(gate, prefsrc,
+						       nh_vrf_id);
 		} else if (gate && rtm->rtm_family == AF_INET6) {
 			if (index)
-				nh = route_entry_nexthop_ipv6_ifindex_add(
-					re, gate, index, nh_vrf_id);
+				nh = nexthop_from_ipv6_ifindex(
+					gate, index, nh_vrf_id);
 			else
-				nh = route_entry_nexthop_ipv6_add(re, gate,
-								  nh_vrf_id);
+				nh = nexthop_from_ipv6(gate, nh_vrf_id);
 		} else
-			nh = route_entry_nexthop_ifindex_add(re, index,
-							     nh_vrf_id);
+			nh = nexthop_from_ifindex(index, nh_vrf_id);
 
 		if (nh) {
 			if (num_labels)
@@ -477,6 +473,9 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 
 			if (rtnh->rtnh_flags & RTNH_F_ONLINK)
 				SET_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK);
+
+			/* Add to temporary list */
+			nexthop_group_add_sorted(ng, nh);
 		}
 
 		if (rtnh->rtnh_len == 0)
@@ -486,10 +485,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 		rtnh = RTNH_NEXT(rtnh);
 	}
 
-	uint8_t nhop_num = nexthop_group_nexthop_num(re->ng);
-
-	if (!nhop_num)
-		nexthop_group_delete(&re->ng);
+	uint8_t nhop_num = nexthop_group_nexthop_num(ng);
 
 	return nhop_num;
 }
@@ -737,6 +733,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		} else {
 			/* This is a multipath route */
 			struct route_entry *re;
+			struct nexthop_group *ng = NULL;
 			struct rtnexthop *rtnh =
 				(struct rtnexthop *)RTA_DATA(tb[RTA_MULTIPATH]);
 
@@ -753,19 +750,30 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			re->nhe_id = nhe_id;
 
 			if (!nhe_id) {
-				uint8_t nhop_num =
+				uint8_t nhop_num;
+
+				/* Use temporary list of nexthops; parse
+				 * message payload's nexthops.
+				 */
+				ng = nexthop_group_new();
+				nhop_num =
 					parse_multipath_nexthops_unicast(
-						ns_id, re, rtm, rtnh, tb,
+						ns_id, ng, rtm, rtnh, tb,
 						prefsrc, vrf_id);
 
 				zserv_nexthop_num_warn(
 					__func__, (const struct prefix *)&p,
 					nhop_num);
+
+				if (nhop_num == 0) {
+					nexthop_group_delete(&ng);
+					ng = NULL;
+				}
 			}
 
-			if (nhe_id || re->ng)
+			if (nhe_id || ng)
 				rib_add_multipath(afi, SAFI_UNICAST, &p,
-						  &src_p, re);
+						  &src_p, re, ng);
 			else
 				XFREE(MTYPE_RE, re);
 		}

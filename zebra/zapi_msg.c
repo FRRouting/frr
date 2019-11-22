@@ -559,7 +559,8 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 		memcpy(&api.src_prefix, src_p, sizeof(api.src_prefix));
 	}
 
-	for (nexthop = re->ng->nexthop; nexthop; nexthop = nexthop->next) {
+	for (nexthop = re->nhe->nhg->nexthop;
+	     nexthop; nexthop = nexthop->next) {
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
 
@@ -666,7 +667,7 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 		 * nexthop we are looking up. Therefore, we will just iterate
 		 * over the top chain of nexthops.
 		 */
-		for (nexthop = re->ng->nexthop; nexthop;
+		for (nexthop = re->nhe->nhg->nexthop; nexthop;
 		     nexthop = nexthop->next)
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 				num += zserv_encode_nexthop(s, nexthop);
@@ -1393,6 +1394,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	struct prefix_ipv6 *src_p = NULL;
 	struct route_entry *re;
 	struct nexthop *nexthop = NULL;
+	struct nexthop_group *ng = NULL;
 	int i, ret;
 	vrf_id_t vrf_id = 0;
 	struct ipaddr vtep_ip;
@@ -1424,7 +1426,6 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	re->flags = api.flags;
 	re->uptime = monotime(NULL);
 	re->vrf_id = vrf_id;
-	re->ng = nexthop_group_new();
 
 	if (api.tableid)
 		re->table = api.tableid;
@@ -1438,10 +1439,12 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  __func__, &api.prefix,
 			  zebra_route_string(client->proto));
 
-		nexthop_group_delete(&re->ng);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
+
+	/* Use temporary list of nexthops */
+	ng = nexthop_group_new();
 
 	/*
 	 * TBD should _all_ of the nexthop add operations use
@@ -1457,8 +1460,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 
 		switch (api_nh->type) {
 		case NEXTHOP_TYPE_IFINDEX:
-			nexthop = route_entry_nexthop_ifindex_add(
-				re, api_nh->ifindex, api_nh->vrf_id);
+			nexthop = nexthop_from_ifindex(api_nh->ifindex,
+						       api_nh->vrf_id);
 			break;
 		case NEXTHOP_TYPE_IPV4:
 			if (IS_ZEBRA_DEBUG_RECV) {
@@ -1469,8 +1472,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				zlog_debug("%s: nh=%s, vrf_id=%d", __func__,
 					   nhbuf, api_nh->vrf_id);
 			}
-			nexthop = route_entry_nexthop_ipv4_add(
-				re, &api_nh->gate.ipv4, NULL, api_nh->vrf_id);
+			nexthop = nexthop_from_ipv4(&api_nh->gate.ipv4,
+						    NULL, api_nh->vrf_id);
 			break;
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 
@@ -1486,8 +1489,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 					__func__, nhbuf, api_nh->vrf_id,
 					re->vrf_id, ifindex);
 			}
-			nexthop = route_entry_nexthop_ipv4_ifindex_add(
-				re, &api_nh->gate.ipv4, NULL, ifindex,
+			nexthop = nexthop_from_ipv4_ifindex(
+				&api_nh->gate.ipv4, NULL, ifindex,
 				api_nh->vrf_id);
 
 			/* Special handling for IPv4 routes sourced from EVPN:
@@ -1504,15 +1507,15 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			}
 			break;
 		case NEXTHOP_TYPE_IPV6:
-			nexthop = route_entry_nexthop_ipv6_add(
-				re, &api_nh->gate.ipv6, api_nh->vrf_id);
+			nexthop = nexthop_from_ipv6(&api_nh->gate.ipv6,
+						    api_nh->vrf_id);
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			memset(&vtep_ip, 0, sizeof(struct ipaddr));
 			ifindex = api_nh->ifindex;
-			nexthop = route_entry_nexthop_ipv6_ifindex_add(
-				re, &api_nh->gate.ipv6, ifindex,
-				api_nh->vrf_id);
+			nexthop = nexthop_from_ipv6_ifindex(&api_nh->gate.ipv6,
+							    ifindex,
+							    api_nh->vrf_id);
 
 			/* Special handling for IPv6 routes sourced from EVPN:
 			 * the nexthop and associated MAC need to be installed.
@@ -1527,8 +1530,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			}
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
-			nexthop = route_entry_nexthop_blackhole_add(
-				re, api_nh->bh_type);
+			nexthop = nexthop_from_blackhole(api_nh->bh_type);
 			break;
 		}
 
@@ -1537,10 +1539,11 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 				"%s: Nexthops Specified: %d but we failed to properly create one",
 				__PRETTY_FUNCTION__, api.nexthop_num);
-			nexthop_group_delete(&re->ng);
+			nexthop_group_delete(&ng);
 			XFREE(MTYPE_RE, re);
 			return;
 		}
+
 		if (api_nh->onlink)
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
 
@@ -1563,6 +1566,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 					   api_nh->label_num,
 					   &api_nh->labels[0]);
 		}
+
+		/* Add new nexthop to temporary list */
+		nexthop_group_add_sorted(ng, nexthop);
 	}
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE))
@@ -1579,14 +1585,14 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		flog_warn(EC_ZEBRA_RX_SRCDEST_WRONG_AFI,
 			  "%s: Received SRC Prefix but afi is not v6",
 			  __PRETTY_FUNCTION__);
-		nexthop_group_delete(&re->ng);
+		nexthop_group_delete(&ng);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
 		src_p = &api.src_prefix;
 
-	ret = rib_add_multipath(afi, api.safi, &api.prefix, src_p, re);
+	ret = rib_add_multipath(afi, api.safi, &api.prefix, src_p, re, ng);
 
 	/* Stats */
 	switch (api.prefix.family) {

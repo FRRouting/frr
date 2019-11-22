@@ -299,12 +299,21 @@ zebra_nhg_connect_depends(struct nhg_hash_entry *nhe,
 	}
 }
 
-static struct nhg_hash_entry *zebra_nhg_copy(struct nhg_hash_entry *copy,
-					     uint32_t id)
+struct nhg_hash_entry *zebra_nhg_alloc(void)
 {
 	struct nhg_hash_entry *nhe;
 
 	nhe = XCALLOC(MTYPE_NHG, sizeof(struct nhg_hash_entry));
+
+	return nhe;
+}
+
+static struct nhg_hash_entry *zebra_nhg_copy(const struct nhg_hash_entry *copy,
+					     uint32_t id)
+{
+	struct nhg_hash_entry *nhe;
+
+	nhe = zebra_nhg_alloc();
 
 	nhe->id = id;
 
@@ -468,7 +477,7 @@ static void handle_recursive_depend(struct nhg_connected_tree_head *nhg_depends,
 	struct nhg_hash_entry *depend = NULL;
 	struct nexthop_group resolved_ng = {};
 
-	_nexthop_group_add_sorted(&resolved_ng, nh);
+	nexthop_group_add_sorted(&resolved_ng, nh);
 
 	depend = zebra_nhg_rib_find(0, &resolved_ng, afi);
 	depends_add(nhg_depends, depend);
@@ -582,7 +591,7 @@ zebra_nhg_find_nexthop(uint32_t id, struct nexthop *nh, afi_t afi, int type)
 	struct nhg_hash_entry *nhe = NULL;
 	struct nexthop_group nhg = {};
 
-	_nexthop_group_add_sorted(&nhg, nh);
+	nexthop_group_add_sorted(&nhg, nh);
 
 	zebra_nhg_find(&nhe, id, &nhg, NULL, nh->vrf_id, afi, 0);
 
@@ -1128,18 +1137,19 @@ static void zebra_nhg_free_members(struct nhg_hash_entry *nhe)
 	nhg_connected_tree_free(&nhe->nhg_dependents);
 }
 
-void zebra_nhg_free(void *arg)
+void zebra_nhg_free(struct nhg_hash_entry *nhe)
 {
-	struct nhg_hash_entry *nhe = NULL;
-
-	nhe = (struct nhg_hash_entry *)arg;
-
 	if (nhe->refcnt)
 		zlog_debug("nhe_id=%u hash refcnt=%d", nhe->id, nhe->refcnt);
 
 	zebra_nhg_free_members(nhe);
 
 	XFREE(MTYPE_NHG, nhe);
+}
+
+void zebra_nhg_hash_free(void *p)
+{
+	zebra_nhg_free((struct nhg_hash_entry *)p);
 }
 
 void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
@@ -1436,7 +1446,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 		if (match->type == ZEBRA_ROUTE_CONNECT) {
 			/* Directly point connected route. */
-			newhop = match->ng->nexthop;
+			newhop = match->nhe->nhg->nexthop;
 			if (newhop) {
 				if (nexthop->type == NEXTHOP_TYPE_IPV4
 				    || nexthop->type == NEXTHOP_TYPE_IPV6)
@@ -1445,7 +1455,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			return 1;
 		} else if (CHECK_FLAG(re->flags, ZEBRA_FLAG_ALLOW_RECURSION)) {
 			resolved = 0;
-			for (ALL_NEXTHOPS_PTR(match->ng, newhop)) {
+			for (ALL_NEXTHOPS_PTR(match->nhe->nhg, newhop)) {
 				if (!CHECK_FLAG(match->status,
 						ROUTE_ENTRY_INSTALLED))
 					continue;
@@ -1466,7 +1476,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			return resolved;
 		} else if (re->type == ZEBRA_ROUTE_STATIC) {
 			resolved = 0;
-			for (ALL_NEXTHOPS_PTR(match->ng, newhop)) {
+			for (ALL_NEXTHOPS_PTR(match->nhe->nhg, newhop)) {
 				if (!CHECK_FLAG(match->status,
 						ROUTE_ENTRY_INSTALLED))
 					continue;
@@ -1657,7 +1667,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	UNSET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 
 	/* Copy over the nexthops in current state */
-	nexthop_group_copy(&new_grp, re->ng);
+	nexthop_group_copy(&new_grp, re->nhe->nhg);
 
 	for (nexthop = new_grp.nexthop; nexthop; nexthop = nexthop->next) {
 

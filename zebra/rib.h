@@ -88,10 +88,14 @@ struct route_entry {
 	/* Link list. */
 	struct re_list_item next;
 
-	/* Nexthop structure (from RIB) */
-	struct nexthop_group *ng;
+	/* Nexthop group, shared/refcounted, based on the nexthop(s)
+	 * provided by the owner of the route
+	 */
+	struct nhg_hash_entry *nhe;
 
-	/* Nexthop group from FIB (optional) */
+	/* Nexthop group from FIB (optional), reflecting what is actually
+	 * installed in the FIB if that differs.
+	 */
 	struct nexthop_group fib_ng;
 
 	/* Nexthop group hash entry ID */
@@ -308,31 +312,6 @@ typedef enum {
 	RIB_UPDATE_MAX
 } rib_update_event_t;
 
-extern struct nexthop *route_entry_nexthop_ifindex_add(struct route_entry *re,
-						       ifindex_t ifindex,
-						       vrf_id_t nh_vrf_id);
-extern struct nexthop *
-route_entry_nexthop_blackhole_add(struct route_entry *re,
-				  enum blackhole_type bh_type);
-extern struct nexthop *route_entry_nexthop_ipv4_add(struct route_entry *re,
-						    struct in_addr *ipv4,
-						    struct in_addr *src,
-						    vrf_id_t nh_vrf_id);
-extern struct nexthop *
-route_entry_nexthop_ipv4_ifindex_add(struct route_entry *re,
-				     struct in_addr *ipv4, struct in_addr *src,
-				     ifindex_t ifindex, vrf_id_t nh_vrf_id);
-extern void route_entry_nexthop_delete(struct route_entry *re,
-				       struct nexthop *nexthop);
-extern struct nexthop *route_entry_nexthop_ipv6_add(struct route_entry *re,
-						    struct in6_addr *ipv6,
-						    vrf_id_t nh_vrf_id);
-extern struct nexthop *
-route_entry_nexthop_ipv6_ifindex_add(struct route_entry *re,
-				     struct in6_addr *ipv6, ifindex_t ifindex,
-				     vrf_id_t nh_vrf_id);
-extern void route_entry_nexthop_add(struct route_entry *re,
-				    struct nexthop *nexthop);
 extern void route_entry_copy_nexthops(struct route_entry *re,
 				      struct nexthop *nh);
 int route_entry_update_nhe(struct route_entry *re, struct nhg_hash_entry *new);
@@ -370,7 +349,8 @@ extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		   uint32_t mtu, uint8_t distance, route_tag_t tag);
 
 extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
-			     struct prefix_ipv6 *src_p, struct route_entry *re);
+			     struct prefix_ipv6 *src_p, struct route_entry *re,
+			     struct nexthop_group *ng);
 
 extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       unsigned short instance, int flags, struct prefix *p,
@@ -535,7 +515,7 @@ static inline struct nexthop_group *rib_active_nhg(struct route_entry *re)
 	if (re->fib_ng.nexthop)
 		return &(re->fib_ng);
 	else
-		return re->ng;
+		return re->nhe->nhg;
 }
 
 extern void zebra_vty_init(void);

@@ -158,6 +158,11 @@ struct nhg_ctx {
  * NHE abstracted tree functions.
  * Use these where possible instead of the direct ones access ones.
  */
+struct nhg_hash_entry *zebra_nhg_alloc(void);
+void zebra_nhg_free(struct nhg_hash_entry *nhe);
+/* In order to clear a generic hash, we need a generic api, sigh. */
+void zebra_nhg_hash_free(void *p);
+
 extern struct nhg_hash_entry *zebra_nhg_resolve(struct nhg_hash_entry *nhe);
 
 extern unsigned int zebra_nhg_depends_count(const struct nhg_hash_entry *nhe);
