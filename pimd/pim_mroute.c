@@ -505,8 +505,17 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 		 * the pimreg period, so I believe we can ignore this packet
 		 */
 		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
-			// No if channel, but upstream we are at the RP.
-			if (pim_nexthop_lookup(pim_ifp->pim, &source,
+			/*
+			 * No if channel, but upstream we are at the RP.
+			 *
+			 * This could be a anycast RP too and we may
+			 * not have received a register packet from
+			 * the source here at all.  So gracefully
+			 * bow out of doing a nexthop lookup and
+			 * setting the SPTBIT to true
+			 */
+			if (up->upstream_register.s_addr != INADDR_ANY &&
+			    pim_nexthop_lookup(pim_ifp->pim, &source,
 					       up->upstream_register, 0)) {
 				pim_register_stop_send(source.interface, &sg,
 						       pim_ifp->primary_address,
