@@ -2227,7 +2227,7 @@ DEFUN (show_evpn_vni_vni,
 
 	vni = strtoul(argv[3]->arg, NULL, 10);
 	zvrf = zebra_vrf_get_evpn();
-	zebra_vxlan_print_vni(vty, zvrf, vni, uj);
+	zebra_vxlan_print_vni(vty, zvrf, vni, uj, NULL);
 	return CMD_SUCCESS;
 }
 
