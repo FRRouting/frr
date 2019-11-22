@@ -97,9 +97,10 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 		zclient_lookup_nexthop(pim, nexthop_tab, router->multipath,
 				       addr, PIM_NEXTHOP_LOOKUP_MAX);
 	if (num_ifindex < 1) {
-		zlog_warn(
-			"%s %s: could not find nexthop ifindex for address %pPAs",
-			__FILE__, __func__, &addr);
+		if (PIM_DEBUG_PIM_NHT)
+			zlog_debug(
+				"%s %s: could not find nexthop ifindex for address %pPAs",
+				__FILE__, __func__, &addr);
 		return false;
 	}
 
