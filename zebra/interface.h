@@ -189,6 +189,13 @@ struct rtadvconf {
 	 */
 	struct list *AdvDNSSLList;
 
+	/*
+	 * rfc4861 states RAs must be sent at least 3 seconds apart.
+	 * We allow faster retransmits to speed up convergence but can
+	 * turn that capability off to meet the rfc if needed.
+	 */
+	bool UseFastRexmit; /* True if fast rexmits are enabled */
+
 	uint8_t inFastRexmit; /* True if we're rexmits faster than usual */
 
 	/* Track if RA was configured by BGP or by the Operator or both */

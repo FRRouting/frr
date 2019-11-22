@@ -59,6 +59,11 @@ struct rtadv_prefix {
 #endif
 };
 
+/* RFC4861 minimum delay between RAs  */
+#ifndef MIN_DELAY_BETWEEN_RAS
+#define MIN_DELAY_BETWEEN_RAS        3000
+#endif
+
 /* RFC4584 Extension to Sockets API for Mobile IPv6 */
 
 #ifndef ND_OPT_ADV_INTERVAL
