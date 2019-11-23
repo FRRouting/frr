@@ -914,7 +914,7 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 			zserv_command_string(last_write_cmd));
 	vty_out(vty, "\n");
 
-	vty_out(vty, "Type        Add        Update     Del \n");
+	vty_out(vty, "Type        Add         Update      Del \n");
 	vty_out(vty, "================================================== \n");
 	vty_out(vty, "IPv4        %-12d%-12d%-12d\n", client->v4_route_add_cnt,
 		client->v4_route_upd8_cnt, client->v4_route_del_cnt);
