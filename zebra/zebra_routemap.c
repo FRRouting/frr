@@ -203,22 +203,22 @@ static void show_vrf_proto_rm(struct vty *vty, struct zebra_vrf *zvrf,
 {
 	int i;
 
-	vty_out(vty, "Protocol    : route-map\n");
-	vty_out(vty, "------------------------\n");
+	vty_out(vty, "Protocol                  : route-map\n");
+	vty_out(vty, "-------------------------------------\n");
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (PROTO_RM_NAME(zvrf, af_type, i))
-			vty_out(vty, "%-10s  : %-10s\n", zebra_route_string(i),
+			vty_out(vty, "%-24s  : %-10s\n", zebra_route_string(i),
 				PROTO_RM_NAME(zvrf, af_type, i));
 		else
-			vty_out(vty, "%-10s  : none\n", zebra_route_string(i));
+			vty_out(vty, "%-24s  : none\n", zebra_route_string(i));
 	}
 
 	if (PROTO_RM_NAME(zvrf, af_type, i))
-		vty_out(vty, "%-10s  : %-10s\n", "any",
+		vty_out(vty, "%-24s  : %-10s\n", "any",
 			PROTO_RM_NAME(zvrf, af_type, i));
 	else
-		vty_out(vty, "%-10s  : none\n", "any");
+		vty_out(vty, "%-24s  : none\n", "any");
 }
 
 static void show_vrf_nht_rm(struct vty *vty, struct zebra_vrf *zvrf,
@@ -226,22 +226,22 @@ static void show_vrf_nht_rm(struct vty *vty, struct zebra_vrf *zvrf,
 {
 	int i;
 
-	vty_out(vty, "Protocol    : route-map\n");
-	vty_out(vty, "------------------------\n");
+	vty_out(vty, "Protocol                  : route-map\n");
+	vty_out(vty, "-------------------------------------\n");
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (NHT_RM_NAME(zvrf, af_type, i))
-			vty_out(vty, "%-10s  : %-10s\n", zebra_route_string(i),
+			vty_out(vty, "%-24s  : %-10s\n", zebra_route_string(i),
 				NHT_RM_NAME(zvrf, af_type, i));
 		else
-			vty_out(vty, "%-10s  : none\n", zebra_route_string(i));
+			vty_out(vty, "%-24s  : none\n", zebra_route_string(i));
 	}
 
 	if (NHT_RM_NAME(zvrf, af_type, i))
-		vty_out(vty, "%-10s  : %-10s\n", "any",
+		vty_out(vty, "%-24s  : %-10s\n", "any",
 			NHT_RM_NAME(zvrf, af_type, i));
 	else
-		vty_out(vty, "%-10s  : none\n", "any");
+		vty_out(vty, "%-24s  : none\n", "any");
 }
 
 static int show_proto_rm(struct vty *vty, int af_type, const char *vrf_all,
