@@ -439,11 +439,14 @@ int main(int argc, char **argv)
 	p->bgp->rpkt_quanta = 1;
 	p->status = Established;
 	p->as_type = AS_EXTERNAL;
-	SET_FLAG(p->cap, PEER_CAP_AS4_RCV);
-	SET_FLAG(p->cap, PEER_CAP_ADDPATH_AF_RX_RCV);
-	SET_FLAG(p->cap, PEER_CAP_ADDPATH_AF_TX_RCV);
-	SET_FLAG(p->cap, PEER_CAP_REFRESH_OLD_RCV);
-	SET_FLAG(p->cap, PEER_CAP_REFRESH_NEW_RCV);
+
+	/* set all flags */
+	afi_t afi;
+	safi_t safi;
+	p->cap |= 0xFFFF;
+	FOREACH_AFI_SAFI(afi, safi) {
+		SET_FLAG(p->af_cap[afi][safi], 0x3FFF);
+	}
 
 	fseek(stdin, 0, SEEK_END);
 	long fsize = ftell(stdin);
