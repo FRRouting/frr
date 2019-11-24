@@ -4481,7 +4481,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		if (addpath_encoded) {
 
 			/* When packet overflow occurs return immediately. */
-			if (pnt + BGP_ADDPATH_ID_LEN > lim)
+			if (pnt + BGP_ADDPATH_ID_LEN >= lim)
 				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 
 			addpath_id = ntohl(*((uint32_t *)pnt));
