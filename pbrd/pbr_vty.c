@@ -148,7 +148,7 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	"[no] match dst-ip <A.B.C.D/M|X:X::X:X/M>$prefix",
 	NO_STR
 	"Match the rest of the command\n"
-	"Choose the src ip or ipv6 prefix to use\n"
+	"Choose the dst ip or ipv6 prefix to use\n"
 	"v4 Prefix\n"
 	"v6 Prefix\n")
 {
