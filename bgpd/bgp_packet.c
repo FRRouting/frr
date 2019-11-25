@@ -738,14 +738,14 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 						 data[i]);
 
 					strlcat(bgp_notify.data, c,
-						bgp_notify.length * 3);
+						bgp_notify.length);
 
 				} else {
 					first = 1;
 					snprintf(c, sizeof(c), "%02x", data[i]);
 
 					strlcpy(bgp_notify.data, c,
-						bgp_notify.length * 3);
+						bgp_notify.length);
 
 				}
 		}

@@ -1327,7 +1327,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug(
-				"BGP_GR:: Sending helper Capability for Peer :%s :",
+				"[BGP_GR] Sending helper Capability for Peer :%s :",
 				peer->host);
 
 		SET_FLAG(peer->cap, PEER_CAP_RESTART_ADV);
@@ -1345,7 +1345,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 
 			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 				zlog_debug(
-					"BGP_GR:: Sending R-Bit for Peer :%s :",
+					"[BGP_GR] Sending R-Bit for Peer :%s :",
 					peer->host);
 		}
 
@@ -1360,7 +1360,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 					if (BGP_DEBUG(graceful_restart,
 							GRACEFUL_RESTART))
 						zlog_debug(
-						"BGP_GR:: Sending GR Capability for AFI :%d :, SAFI :%d:",
+						"[BGP_GR] Sending GR Capability for AFI :%d :, SAFI :%d:",
 						afi, safi);
 
 					/* Convert AFI, SAFI to values for

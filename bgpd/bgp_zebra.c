@@ -3052,8 +3052,7 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 
 	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES,
 				      zclient, &api) < 0) {
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("error sending capability");
+		zlog_err("error sending capability");
 		ret = BGP_GR_FAILURE;
 	} else {
 		if (disable)
@@ -3073,11 +3072,11 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
  */
 int bgp_zebra_update(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type)
 {
-	struct zapi_cap api;
+	struct zapi_cap api = {0};
 
 	if (zclient == NULL) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("zclient invalid");
+			zlog_debug("zclient == NULL, invalid");
 		return BGP_GR_FAILURE;
 	}
 
@@ -3088,7 +3087,6 @@ int bgp_zebra_update(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type)
 		return BGP_GR_FAILURE;
 	}
 
-	memset(&api, 0, sizeof(struct zapi_cap));
 	api.afi = afi;
 	api.safi = safi;
 	api.vrf_id = vrf_id;
@@ -3140,9 +3138,6 @@ int zclient_capabilities_send(uint32_t cmd, struct zclient *zclient,
 
 	return zclient_send_message(zclient);
 }
-
-
-
 
 /* Send RIB stale timer update */
 int bgp_zebra_stale_timer_update(struct bgp *bgp)

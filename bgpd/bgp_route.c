@@ -311,7 +311,7 @@ static int bgp_node_set_defer_flag(struct bgp_node *rn, bool delete)
 	/* If the flag BGP_NODE_SELECT_DEFER is set and new path is added
 	 * then the route selection is deferred
 	 */
-	if (CHECK_FLAG(rn->flags, BGP_NODE_SELECT_DEFER) && (delete == false))
+	if (CHECK_FLAG(rn->flags, BGP_NODE_SELECT_DEFER) && (!delete))
 		return 0;
 
 	if (CHECK_FLAG(rn->flags, BGP_NODE_PROCESS_SCHEDULED)) {
@@ -359,7 +359,7 @@ static int bgp_node_set_defer_flag(struct bgp_node *rn, bool delete)
 	/* Set the flag BGP_NODE_SELECT_DEFER if route selection deferral timer
 	 * is active
 	 */
-	if (set_flag) {
+	if (set_flag && table) {
 		if (bgp && (bgp->gr_info[afi][safi].t_select_deferral)) {
 			SET_FLAG(rn->flags, BGP_NODE_SELECT_DEFER);
 			prefix2str(&rn->p, buf, PREFIX2STR_BUFFER);
@@ -2486,7 +2486,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 	 */
 	if (CHECK_FLAG(rn->flags, BGP_NODE_SELECT_DEFER)) {
 		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug("DEFER set for route %p", rn);
+			zlog_debug("SELECT_DEFER falg set for route %p", rn);
 		return;
 	}
 

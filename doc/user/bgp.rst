@@ -827,7 +827,7 @@ Default global mode is helper and default peer per mode is inherit from global.
 If per peer mode is configured, the GR mode of this particular peer will
 override the global mode.
 
-.. _bgp-GR-globla-mode-cmd:
+.. _bgp-GR-global-mode-cmd:
 
 BGP GR Global Mode Commands
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

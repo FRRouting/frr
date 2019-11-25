@@ -146,7 +146,9 @@ void bgp_delete_listnode(struct bgp_node *node)
 			bgp = table->bgp;
 			afi = table->afi;
 			safi = table->safi;
-		}
+		} else
+			return;
+
 		rn = bgp_node_to_rnode(node);
 
 		if (bgp && rn && rn->lock == 1) {

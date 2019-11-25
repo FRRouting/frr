@@ -142,9 +142,9 @@ extern void bgp_adjust_routeadv(struct peer *);
 DECLARE_HOOK(peer_backward_transition, (struct peer *peer), (peer))
 DECLARE_HOOK(peer_established, (struct peer *peer), (peer))
 
-int bgp_gr_update_all(struct bgp *bgp, int global_GR_Cmd);
+int bgp_gr_update_all(struct bgp *bgp, int global_gr_cmd);
 int bgp_neighbor_graceful_restart(struct peer *peer,
-			int peer_GR_Cmd);
+			int peer_gr_cmd);
 unsigned int bgp_peer_gr_action(struct peer *peer,
 		int old_peer_state, int new_peer_state);
 void bgp_peer_move_to_gr_mode(struct peer *peer, int new_state);
@@ -160,4 +160,8 @@ int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
 		enum global_mode global_new_state,
 		enum global_mode global_old_state);
 void bgp_peer_gr_flags_update(struct peer *peer);
+const char *print_peer_gr_mode(enum peer_mode pr_mode);
+const char *print_peer_gr_cmd(enum peer_gr_command pr_gr_cmd);
+const char *print_global_gr_mode(enum global_mode gl_mode);
+const char *print_global_gr_cmd(enum global_gr_command gl_gr_cmd);
 #endif /* _QUAGGA_BGP_FSM_H */

@@ -246,8 +246,8 @@ enum bgp_instance_type {
 
 /* BGP GR Global ds */
 
-#define GLOBAL_MODE 4
-#define EVENT_CMD 4
+#define BGP_GLOBAL_GR_MODE 4
+#define BGP_GLOBAL_GR_EVENT_CMD 4
 
 /* Graceful restart selection deferral timer info */
 struct graceful_restart_info {
@@ -425,7 +425,8 @@ struct bgp {
 #define BGP_FLAG_SELECT_DEFER_DISABLE     (1 << 23)
 #define BGP_FLAG_GR_DISABLE_EOR           (1 << 24)
 
-	enum global_mode GLOBAL_GR_FSM[GLOBAL_MODE][EVENT_CMD];
+	enum global_mode GLOBAL_GR_FSM[BGP_GLOBAL_GR_MODE]
+				[BGP_GLOBAL_GR_EVENT_CMD];
 	enum global_mode global_gr_present_state;
 
 	/* This variable stores the current Graceful Restart state of Zebra
@@ -618,12 +619,6 @@ struct bgp {
 #define BGP_VRF_RD_CFGD                     (1 << 3)
 #define BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY    (1 << 4)
 
-#define BGP_SEND_EOR(bgp, afi, safi)				\
-	(!bgp_flag_check(bgp, BGP_FLAG_GR_DISABLE_EOR) &&	\
-	((bgp->gr_info[afi][safi].t_select_deferral == NULL) || \
-	 (bgp->gr_info[afi][safi].eor_required ==		\
-	  bgp->gr_info[afi][safi].eor_received)))
-
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;
 
@@ -813,8 +808,8 @@ struct peer_af {
 };
 /* BGP GR per peer ds */
 
-#define PEER_MODE 5
-#define PEER_EVENT_CMD 6
+#define BGP_PEER_GR_MODE 5
+#define BGP_PEER_GR_EVENT_CMD 6
 
 enum peer_mode {
 	PEER_HELPER = 0,
@@ -828,7 +823,7 @@ enum peer_mode {
 enum peer_gr_command {
 	PEER_GR_CMD = 0,
 	NO_PEER_GR_CMD,
-	PEER_DISABLE_cmd,
+	PEER_DISABLE_CMD,
 	NO_PEER_DISABLE_CMD,
 	PEER_HELPER_CMD,
 	NO_PEER_HELPER_CMD
@@ -1073,7 +1068,7 @@ struct peer {
 	 *and PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT
 	 */
 
-	struct bgp_peer_gr PEER_GR_FSM[PEER_MODE][PEER_EVENT_CMD];
+	struct bgp_peer_gr PEER_GR_FSM[BGP_PEER_GR_MODE][BGP_PEER_GR_EVENT_CMD];
 	enum peer_mode peer_gr_present_state;
 	/* Non stop forwarding afi-safi count for BGP gr feature*/
 	uint8_t nsf_af_count;

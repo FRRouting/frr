@@ -1109,7 +1109,7 @@ int bgp_global_gr_init(struct bgp *bgp)
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("%s called ..", __func__);
 
-	int local_GLOBAL_GR_FSM[GLOBAL_MODE][EVENT_CMD] = {
+	int local_GLOBAL_GR_FSM[BGP_GLOBAL_GR_MODE][BGP_GLOBAL_GR_EVENT_CMD] = {
 		/* GLOBAL_HELPER Mode  */
 		{
 		/*Event -> */
@@ -1157,12 +1157,13 @@ int bgp_peer_gr_init(struct peer *peer)
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("%s called ..", __func__);
 
-	struct bgp_peer_gr local_Peer_GR_FSM[PEER_MODE][PEER_EVENT_CMD] = {
+	struct bgp_peer_gr local_Peer_GR_FSM[BGP_PEER_GR_MODE]
+					[BGP_PEER_GR_EVENT_CMD] = {
 	{
 	/*	PEER_HELPER Mode	*/
 	/* Event-> */ /* PEER_GR_CMD */ /* NO_PEER_GR_CMD */
 		{ PEER_GR, bgp_peer_gr_action }, {PEER_INVALID, NULL },
-	/* Event-> */ /* PEER_DISABLE_cmd */ /* NO_PEER_DISABLE_CMD */
+	/* Event-> */ /* PEER_DISABLE_CMD */ /* NO_PEER_DISABLE_CMD */
 		{PEER_DISABLE, bgp_peer_gr_action }, {PEER_INVALID, NULL },
 	/* Event-> */ /* PEER_HELPER_cmd */ /* NO_PEER_HELPER_CMD */
 		{ PEER_INVALID, NULL }, {PEER_GLOBAL_INHERIT,
@@ -1173,7 +1174,7 @@ int bgp_peer_gr_init(struct peer *peer)
 	/* Event-> */ /* PEER_GR_CMD */ /* NO_PEER_GR_CMD */
 		{ PEER_INVALID, NULL }, { PEER_GLOBAL_INHERIT,
 						bgp_peer_gr_action },
-	/* Event-> */ /* PEER_DISABLE_cmd */ /* NO_PEER_DISABLE_CMD */
+	/* Event-> */ /* PEER_DISABLE_CMD */ /* NO_PEER_DISABLE_CMD */
 		{PEER_DISABLE, bgp_peer_gr_action }, { PEER_INVALID, NULL },
 	/* Event-> */ /* PEER_HELPER_cmd */ /* NO_PEER_HELPER_CMD */
 		{ PEER_HELPER, bgp_peer_gr_action }, { PEER_INVALID, NULL }
@@ -1182,7 +1183,7 @@ int bgp_peer_gr_init(struct peer *peer)
 	/*	PEER_DISABLE Mode	*/
 	/* Event-> */ /* PEER_GR_CMD */ /* NO_PEER_GR_CMD */
 		{ PEER_GR, bgp_peer_gr_action }, { PEER_INVALID, NULL },
-	/* Event-> */ /* PEER_DISABLE_cmd */ /* NO_PEER_DISABLE_CMD */
+	/* Event-> */ /* PEER_DISABLE_CMD */ /* NO_PEER_DISABLE_CMD */
 		{ PEER_INVALID, NULL }, { PEER_GLOBAL_INHERIT,
 						bgp_peer_gr_action },
 	/* Event-> */ /* PEER_HELPER_cmd */  /* NO_PEER_HELPER_CMD */
@@ -1192,7 +1193,7 @@ int bgp_peer_gr_init(struct peer *peer)
 	/*	PEER_INVALID Mode	*/
 	/* Event-> */ /* PEER_GR_CMD */  /* NO_PEER_GR_CMD */
 		{ PEER_INVALID, NULL }, { PEER_INVALID, NULL },
-	/* Event-> */ /* PEER_DISABLE_cmd */  /* NO_PEER_DISABLE_CMD */
+	/* Event-> */ /* PEER_DISABLE_CMD */  /* NO_PEER_DISABLE_CMD */
 		{ PEER_INVALID, NULL }, { PEER_INVALID, NULL },
 	/* Event-> */ /* PEER_HELPER_cmd */  /* NO_PEER_HELPER_CMD */
 		{ PEER_INVALID, NULL }, { PEER_INVALID, NULL },
@@ -1201,7 +1202,7 @@ int bgp_peer_gr_init(struct peer *peer)
 	/*	PEER_GLOBAL_INHERIT Mode	*/
 	/* Event-> */ /* PEER_GR_CMD */		/* NO_PEER_GR_CMD */
 		{ PEER_GR, bgp_peer_gr_action }, { PEER_INVALID, NULL },
-	/* Event-> */ /* PEER_DISABLE_cmd */     /* NO_PEER_DISABLE_CMD */
+	/* Event-> */ /* PEER_DISABLE_CMD */     /* NO_PEER_DISABLE_CMD */
 		{ PEER_DISABLE, bgp_peer_gr_action}, { PEER_INVALID, NULL },
 	/* Event-> */ /* PEER_HELPER_cmd */     /* NO_PEER_HELPER_CMD */
 		{ PEER_HELPER, bgp_peer_gr_action }, { PEER_INVALID, NULL }
@@ -7253,7 +7254,7 @@ void bgp_gr_apply_running_config(void)
 	bool gr_router_detected = false;
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug("BGP_GR:: %s called !",
+		zlog_debug("[BGP_GR] %s called !",
 				__func__);
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
@@ -7266,10 +7267,10 @@ void bgp_gr_apply_running_config(void)
 
 		if (gr_router_detected &&
 			bgp->present_zebra_gr_state == ZEBRA_GR_DISABLE) {
-			bgp_zebra_send_capabilities(bgp, false);
+			bgp_zebra_send_capabilities(bgp, true);
 		} else if (!gr_router_detected &&
 			bgp->present_zebra_gr_state == ZEBRA_GR_ENABLE) {
-			bgp_zebra_send_capabilities(bgp, true);
+			bgp_zebra_send_capabilities(bgp, false);
 		}
 
 		gr_router_detected = false;

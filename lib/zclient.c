@@ -3324,6 +3324,7 @@ int zapi_capabilities_decode(struct stream *s, struct zapi_cap *api)
 	default:
 			break;
 	}
+
 stream_failure:
 	return 0;
 }

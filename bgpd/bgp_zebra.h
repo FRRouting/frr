@@ -85,7 +85,6 @@ struct bgp_pbr_match;
 struct bgp_pbr_rule;
 struct bgp_pbr_match_entry;
 
-
 extern void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra,
 				     struct bgp_pbr_rule *pbr,
 				     bool install);
