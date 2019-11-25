@@ -914,7 +914,7 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 			zserv_command_string(last_write_cmd));
 	vty_out(vty, "\n");
 
-	vty_out(vty, "Type        Add        Update     Del \n");
+	vty_out(vty, "Type        Add         Update      Del \n");
 	vty_out(vty, "================================================== \n");
 	vty_out(vty, "IPv4        %-12d%-12d%-12d\n", client->v4_route_add_cnt,
 		client->v4_route_upd8_cnt, client->v4_route_del_cnt);
@@ -965,7 +965,7 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 	last_write_time = (time_t)atomic_load_explicit(&client->last_write_time,
 						       memory_order_relaxed);
 
-	vty_out(vty, "%-8s%12s %12s%12s%8d/%-8d%8d/%-8d\n",
+	vty_out(vty, "%-10s%12s %12s%12s%8d/%-8d%8d/%-8d\n",
 		zebra_route_string(client->proto),
 		zserv_time_buf(&connect_time, cbuf, ZEBRA_TIME_BUF),
 		zserv_time_buf(&last_read_time, rbuf, ZEBRA_TIME_BUF),
@@ -1019,7 +1019,7 @@ DEFUN (show_zebra_client_summary,
 	struct zserv *client;
 
 	vty_out(vty,
-		"Name    Connect Time    Last Read  Last Write  IPv4 Routes       IPv6 Routes    \n");
+		"Name      Connect Time    Last Read  Last Write  IPv4 Routes       IPv6 Routes    \n");
 	vty_out(vty,
 		"--------------------------------------------------------------------------------\n");
 
