@@ -189,9 +189,14 @@ DEFPY(pbr_map_match_mark, pbr_map_match_mark_cmd,
 #endif
 
 	if (!no) {
-		if (pbrms->mark == (uint32_t) mark)
+		if (pbrms->mark && pbrms->mark == (uint32_t)mark)
 			return CMD_SUCCESS;
-		pbrms->mark = (uint32_t) mark;
+		else if (pbrms->mark) {
+			vty_out(vty,
+				"A `match mark XX` command already exists, please remove that first\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		} else
+			pbrms->mark = (uint32_t)mark;
 	} else {
 		pbrms->mark = 0;
 	}
