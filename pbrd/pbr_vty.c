@@ -243,7 +243,7 @@ DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
 			pbr_map_delete_nexthops(pbrms);
 		else {
 			vty_out(vty,
-				"Nexthop Group specified: %s does not exist to remove",
+				"Nexthop Group specified: %s does not exist to remove\n",
 				name);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
@@ -251,7 +251,7 @@ DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
 		if (pbrms->nhgrp_name) {
 			if (strcmp(name, pbrms->nhgrp_name) != 0) {
 				vty_out(vty,
-					"Please delete current nexthop group before modifying current one");
+					"Please delete current nexthop group before modifying current one\n");
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 
@@ -288,7 +288,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 
 	if (pbrms->nhgrp_name) {
 		vty_out(vty,
-			"Please unconfigure the nexthop group before adding an individual nexthop");
+			"Please unconfigure the nexthop group before adding an individual nexthop\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -370,7 +370,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 
 		if (pbrms->nhg->nexthop) {
 			vty_out(vty,
-				"If you would like more than one nexthop please use nexthop-groups");
+				"If you would like more than one nexthop please use nexthop-groups\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
