@@ -164,6 +164,14 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	bgp_writes_off(from_peer);
 	bgp_reads_off(from_peer);
 
+	/*
+	 * Before exchanging FD remove doppelganger from
+	 * keepalive peer hash. It could be possible conf peer
+	 * fd is set to -1. If blocked on lock then keepalive
+	 * thread can access peer pointer with fd -1.
+	 */
+	bgp_keepalives_off(from_peer);
+
 	BGP_TIMER_OFF(peer->t_routeadv);
 	BGP_TIMER_OFF(peer->t_connect);
 	BGP_TIMER_OFF(peer->t_connect_check_r);
