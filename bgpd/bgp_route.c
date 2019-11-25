@@ -11321,6 +11321,32 @@ uint8_t bgp_distance_apply(struct prefix *p, struct bgp_path_info *pinfo,
 	}
 }
 
+/* If we enter `distance bgp (1-255) (1-255) (1-255)`,
+ * we should tell ZEBRA update the routes for a specific
+ * AFI/SAFI to reflect changes in RIB.
+ */
+static void bgp_announce_routes_distance_update(struct bgp *bgp,
+						afi_t update_afi,
+						safi_t update_safi)
+{
+	afi_t afi;
+	safi_t safi;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!bgp_fibupd_safi(safi))
+			continue;
+
+		if (afi != update_afi && safi != update_safi)
+			continue;
+
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug(
+				"%s: Announcing routes due to distance change afi/safi (%d/%d)",
+				__func__, afi, safi);
+		bgp_zebra_announce_table(bgp, afi, safi);
+	}
+}
+
 DEFUN (bgp_distance,
        bgp_distance_cmd,
        "distance bgp (1-255) (1-255) (1-255)",
@@ -11334,15 +11360,23 @@ DEFUN (bgp_distance,
 	int idx_number = 2;
 	int idx_number_2 = 3;
 	int idx_number_3 = 4;
+	int distance_ebgp = atoi(argv[idx_number]->arg);
+	int distance_ibgp = atoi(argv[idx_number_2]->arg);
+	int distance_local = atoi(argv[idx_number_3]->arg);
 	afi_t afi;
 	safi_t safi;
 
 	afi = bgp_node_afi(vty);
 	safi = bgp_node_safi(vty);
 
-	bgp->distance_ebgp[afi][safi] = atoi(argv[idx_number]->arg);
-	bgp->distance_ibgp[afi][safi] = atoi(argv[idx_number_2]->arg);
-	bgp->distance_local[afi][safi] = atoi(argv[idx_number_3]->arg);
+	if (bgp->distance_ebgp[afi][safi] != distance_ebgp
+	    || bgp->distance_ibgp[afi][safi] != distance_ibgp
+	    || bgp->distance_local[afi][safi] != distance_local) {
+		bgp->distance_ebgp[afi][safi] = distance_ebgp;
+		bgp->distance_ibgp[afi][safi] = distance_ibgp;
+		bgp->distance_local[afi][safi] = distance_local;
+		bgp_announce_routes_distance_update(bgp, afi, safi);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -11363,9 +11397,14 @@ DEFUN (no_bgp_distance,
 	afi = bgp_node_afi(vty);
 	safi = bgp_node_safi(vty);
 
-	bgp->distance_ebgp[afi][safi] = 0;
-	bgp->distance_ibgp[afi][safi] = 0;
-	bgp->distance_local[afi][safi] = 0;
+	if (bgp->distance_ebgp[afi][safi] != 0
+	    || bgp->distance_ibgp[afi][safi] != 0
+	    || bgp->distance_local[afi][safi] != 0) {
+		bgp->distance_ebgp[afi][safi] = 0;
+		bgp->distance_ibgp[afi][safi] = 0;
+		bgp->distance_local[afi][safi] = 0;
+		bgp_announce_routes_distance_update(bgp, afi, safi);
+	}
 	return CMD_SUCCESS;
 }
 
