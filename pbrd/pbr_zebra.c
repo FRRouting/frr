@@ -244,6 +244,11 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 		       __PRETTY_FUNCTION__, pbrms->installed);
 		break;
 	case ZAPI_RULE_FAIL_REMOVE:
+		/* Don't change state on rule removal failure */
+		DEBUGD(&pbr_dbg_zebra,
+		       "%s: Received RULE_FAIL_REMOVED: %" PRIu64,
+		       __PRETTY_FUNCTION__, pbrms->installed);
+		break;
 	case ZAPI_RULE_REMOVED:
 		pbrms->installed &= ~installed;
 		DEBUGD(&pbr_dbg_zebra, "%s: Received RULE REMOVED: %" PRIu64,
