@@ -1987,6 +1987,7 @@ struct zvni_evpn_show {
 	struct vty *vty;
 	json_object *json;
 	struct zebra_vrf *zvrf;
+	bool use_json;
 };
 
 /* print a L3 VNI hash entry in detail*/
@@ -1994,20 +1995,21 @@ static void zl3vni_print_hash_detail(struct hash_bucket *bucket, void *data)
 {
 	struct vty *vty = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
-	json_object *json = NULL;
+	json_object *json_array = NULL;
 	bool use_json = false;
 	struct zvni_evpn_show *zes = data;
 
 	vty = zes->vty;
-	json = zes->json;
-
-	if (json)
-		use_json = true;
+	json_array = zes->json;
+	use_json = zes->use_json;
 
 	zl3vni = (zebra_l3vni_t *)bucket->data;
 
-	zebra_vxlan_print_vni(vty, zes->zvrf, zl3vni->vni, use_json);
-	vty_out(vty, "\n");
+	zebra_vxlan_print_vni(vty, zes->zvrf, zl3vni->vni,
+		use_json, json_array);
+
+	if (!use_json)
+		vty_out(vty, "\n");
 }
 
 
@@ -2082,20 +2084,20 @@ static void zvni_print_hash_detail(struct hash_bucket *bucket, void *data)
 {
 	struct vty *vty;
 	zebra_vni_t *zvni;
-	json_object *json = NULL;
+	json_object *json_array = NULL;
 	bool use_json = false;
 	struct zvni_evpn_show *zes = data;
 
 	vty = zes->vty;
-	json = zes->json;
-
-	if (json)
-		use_json = true;
+	json_array = zes->json;
+	use_json = zes->use_json;
 
 	zvni = (zebra_vni_t *)bucket->data;
 
-	zebra_vxlan_print_vni(vty, zes->zvrf, zvni->vni, use_json);
-	vty_out(vty, "\n");
+	zebra_vxlan_print_vni(vty, zes->zvrf, zvni->vni, use_json, json_array);
+
+	if (!use_json)
+		vty_out(vty, "\n");
 }
 
 /*
@@ -7169,9 +7171,14 @@ void zebra_vxlan_print_macs_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf,
 
 /*
  * Display VNI information (VTY command handler).
+ *
+ * use_json flag indicates that output should be in JSON format.
+ * json_array is non NULL when JSON output needs to be aggregated (by the
+ * caller) and then printed, otherwise, JSON evpn vni info is printed
+ * right away.
  */
 void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf, vni_t vni,
-			   bool use_json)
+			   bool use_json, json_object *json_array)
 {
 	json_object *json = NULL;
 	void *args[2];
@@ -7183,6 +7190,7 @@ void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf, vni_t vni,
 
 	if (use_json)
 		json = json_object_new_object();
+
 	args[0] = vty;
 	args[1] = json;
 
@@ -7191,21 +7199,25 @@ void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf, vni_t vni,
 		zl3vni_print(zl3vni, (void *)args);
 	} else {
 		zvni = zvni_lookup(vni);
-		if (!zvni) {
-			if (use_json)
-				vty_out(vty, "{}\n");
-			else
-				vty_out(vty, "%% VNI %u does not exist\n", vni);
-			return;
-		}
-
-		zvni_print(zvni, (void *)args);
+		if (zvni)
+			zvni_print(zvni, (void *)args);
+		else if (!json)
+			vty_out(vty, "%% VNI %u does not exist\n", vni);
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		/*
+		 * Each "json" object contains info about 1 VNI.
+		 * When "json_array" is non-null, we aggreggate the json output
+		 * into json_array and print it as a JSON array.
+		 */
+		if (json_array)
+			json_object_array_add(json_array, json);
+		else {
+			vty_out(vty, "%s\n", json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+			json_object_free(json);
+		}
 	}
 }
 
@@ -7362,7 +7374,7 @@ stream_failure:
 void zebra_vxlan_print_vnis_detail(struct vty *vty, struct zebra_vrf *zvrf,
 				   bool use_json)
 {
-	json_object *json = NULL;
+	json_object *json_array = NULL;
 	struct zebra_ns *zns = NULL;
 	struct zvni_evpn_show zes;
 
@@ -7373,13 +7385,13 @@ void zebra_vxlan_print_vnis_detail(struct vty *vty, struct zebra_vrf *zvrf,
 	if (!zns)
 		return;
 
-
 	if (use_json)
-		json = json_object_new_object();
+		json_array = json_object_new_array();
 
 	zes.vty = vty;
-	zes.json = json;
+	zes.json = json_array;
 	zes.zvrf = zvrf;
+	zes.use_json = use_json;
 
 	/* Display all L2-VNIs */
 	hash_iterate(
@@ -7396,8 +7408,8 @@ void zebra_vxlan_print_vnis_detail(struct vty *vty, struct zebra_vrf *zvrf,
 	if (use_json) {
 		vty_out(vty, "%s\n",
 			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+				json_array, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_array);
 	}
 }
 

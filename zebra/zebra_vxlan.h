@@ -141,7 +141,8 @@ extern void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
 					struct zebra_vrf *zvrf, vni_t vni,
 					bool use_json);
 extern void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf,
-				  vni_t vni, bool use_json);
+				  vni_t vni, bool use_json,
+				  json_object *json_array);
 extern void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 				   bool use_json);
 extern void zebra_vxlan_print_vnis_detail(struct vty *vty,
