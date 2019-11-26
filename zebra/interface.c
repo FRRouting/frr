@@ -161,6 +161,7 @@ static int if_zebra_new_hook(struct interface *ifp)
 		rtadv->HomeAgentLifetime =
 			-1; /* derive from AdvDefaultLifetime */
 		rtadv->AdvIntervalOption = 0;
+		rtadv->UseFastRexmit = true;
 		rtadv->DefaultPreference = RTADV_PREF_MEDIUM;
 
 		rtadv->AdvPrefixList = list_new();
@@ -1037,7 +1038,8 @@ void if_up(struct interface *ifp)
 #if defined(HAVE_RTADV)
 	/* Enable fast tx of RA if enabled && RA interval is not in msecs */
 	if (zif->rtadv.AdvSendAdvertisements
-	    && (zif->rtadv.MaxRtrAdvInterval >= 1000)) {
+	    && (zif->rtadv.MaxRtrAdvInterval >= 1000)
+	    && zif->rtadv.UseFastRexmit) {
 		zif->rtadv.inFastRexmit = 1;
 		zif->rtadv.NumFastReXmitsRemain = RTADV_NUM_FAST_REXMITS;
 	}
