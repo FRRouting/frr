@@ -145,9 +145,17 @@ void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 
 void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy)
 {
-	int i;
 	struct te_candidate_path active_candidate_path;
 	active_candidate_path.preference = 0;
+
+	if (te_sr_policy->candidate_path_num == 0) {
+		/* delete the LSP from Zebra */
+		path_zebra_delete_lsp(te_sr_policy->binding_sid);
+		te_sr_policy->active_candidate_path = active_candidate_path;
+		return;
+	}
+
+	int i;
 	for (i = 0; i < te_sr_policy->candidate_path_num; i++) {
 		if (te_sr_policy->candidate_paths[i].preference
 		    > active_candidate_path.preference)

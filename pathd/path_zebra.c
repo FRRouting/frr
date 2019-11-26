@@ -62,3 +62,13 @@ void path_zebra_add_lsp(mpls_label_t binding_sid,
 
 	(void)zebra_send_srte_tunnel(zclient, ZEBRA_SR_TE_TUNNEL_SET, &zt);
 }
+
+void path_zebra_delete_lsp(mpls_label_t binding_sid)
+{
+	struct zapi_srte_tunnel zt = {};
+	zt.type = ZEBRA_LSP_TE;
+	zt.local_label = binding_sid;
+	zt.label_num = 0;
+
+	(void)zebra_send_srte_tunnel(zclient, ZEBRA_SR_TE_TUNNEL_DELETE, &zt);
+}
