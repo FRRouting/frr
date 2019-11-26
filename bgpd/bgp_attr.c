@@ -2493,7 +2493,8 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
-			return BGP_ATTR_PARSE_ERROR;
+			ret = BGP_ATTR_PARSE_ERROR;
+			goto done;
 		}
 
 		/* Fetch attribute flag and type. */
@@ -2516,7 +2517,8 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
-			return BGP_ATTR_PARSE_ERROR;
+			ret = BGP_ATTR_PARSE_ERROR;
+			goto done;
 		}
 
 		/* Check extended attribue length bit. */
@@ -2537,7 +2539,8 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_MAL_ATTR);
-			return BGP_ATTR_PARSE_ERROR;
+			ret = BGP_ATTR_PARSE_ERROR;
+			goto done;
 		}
 
 		/* Set type to bitmap to check duplicate attribute.  `type' is
@@ -2594,7 +2597,8 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 				BGP_NOTIFY_UPDATE_ATTR_LENG_ERR, ndata,
 				ndl + lfl + 1);
 
-			return BGP_ATTR_PARSE_ERROR;
+			ret = BGP_ATTR_PARSE_ERROR;
+			goto done;
 		}
 
 		struct bgp_attr_parser_args attr_args = {
@@ -2619,7 +2623,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 				attr_args.total);
 			if (ret == BGP_ATTR_PARSE_PROCEED)
 				continue;
-			return ret;
+			goto done;
 		}
 
 		/* OK check attribute and store it's value. */
@@ -2697,32 +2701,25 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_MAL_ATTR);
 			ret = BGP_ATTR_PARSE_ERROR;
+			goto done;
 		}
 
 		if (ret == BGP_ATTR_PARSE_EOR) {
-			if (as4_path)
-				aspath_unintern(&as4_path);
-			return ret;
+			goto done;
 		}
 
-		/* If hard error occurred immediately return to the caller. */
 		if (ret == BGP_ATTR_PARSE_ERROR) {
 			flog_warn(EC_BGP_ATTRIBUTE_PARSE_ERROR,
 				  "%s: Attribute %s, parse error", peer->host,
 				  lookup_msg(attr_str, type, NULL));
-			if (as4_path)
-				aspath_unintern(&as4_path);
-			return ret;
+			goto done;
 		}
 		if (ret == BGP_ATTR_PARSE_WITHDRAW) {
-
 			flog_warn(
 				EC_BGP_ATTRIBUTE_PARSE_WITHDRAW,
 				"%s: Attribute %s, parse error - treating as withdrawal",
 				peer->host, lookup_msg(attr_str, type, NULL));
-			if (as4_path)
-				aspath_unintern(&as4_path);
-			return ret;
+			goto done;
 		}
 
 		/* Check the fetched length. */
@@ -2732,9 +2729,8 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 				  peer->host, lookup_msg(attr_str, type, NULL));
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
-			if (as4_path)
-				aspath_unintern(&as4_path);
-			return BGP_ATTR_PARSE_ERROR;
+			ret = BGP_ATTR_PARSE_ERROR;
+			goto done;
 		}
 	}
 
@@ -2745,9 +2741,9 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 			  lookup_msg(attr_str, type, NULL));
 		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 				BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
-		if (as4_path)
-			aspath_unintern(&as4_path);
-		return BGP_ATTR_PARSE_ERROR;
+
+		ret = BGP_ATTR_PARSE_ERROR;
+		goto done;
 	}
 
 	/*
@@ -2766,16 +2762,14 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))
 	    && !CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MP_REACH_NLRI))) {
 		if (bgp_attr_nexthop_valid(peer, attr) < 0) {
-			return BGP_ATTR_PARSE_ERROR;
+			ret = BGP_ATTR_PARSE_ERROR;
+			goto done;
 		}
 	}
 
 	/* Check all mandatory well-known attributes are present */
-	if ((ret = bgp_attr_check(peer, attr)) < 0) {
-		if (as4_path)
-			aspath_unintern(&as4_path);
-		return ret;
-	}
+	if ((ret = bgp_attr_check(peer, attr)) < 0)
+		goto done;
 
 	/*
 	 * At this place we can see whether we got AS4_PATH and/or
@@ -2798,22 +2792,10 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 					&as4_aggregator_addr)) {
 		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 				BGP_NOTIFY_UPDATE_MAL_ATTR);
-		if (as4_path)
-			aspath_unintern(&as4_path);
-		return BGP_ATTR_PARSE_ERROR;
+		ret = BGP_ATTR_PARSE_ERROR;
+		goto done;
 	}
 
-	/* At this stage, we have done all fiddling with as4, and the
-	 * resulting info is in attr->aggregator resp. attr->aspath
-	 * so we can chuck as4_aggregator and as4_path alltogether in
-	 * order to save memory
-	 */
-	if (as4_path) {
-		aspath_unintern(&as4_path); /* unintern - it is in the hash */
-		/* The flag that we got this is still there, but that does not
-		 * do any trouble
-		 */
-	}
 	/*
 	 * The "rest" of the code does nothing with as4_aggregator.
 	 * there is no memory attached specifically which is not part
@@ -2827,21 +2809,42 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 	if (attr->flag & (ATTR_FLAG_BIT(BGP_ATTR_AS_PATH))) {
 		ret = bgp_attr_aspath_check(peer, attr);
 		if (ret != BGP_ATTR_PARSE_PROCEED)
-			return ret;
+			goto done;
 	}
-	/* Finally intern unknown attribute. */
-	if (attr->transit)
-		attr->transit = transit_intern(attr->transit);
-	if (attr->encap_subtlvs)
-		attr->encap_subtlvs =
-			encap_intern(attr->encap_subtlvs, ENCAP_SUBTLV_TYPE);
 #if ENABLE_BGP_VNC
 	if (attr->vnc_subtlvs)
 		attr->vnc_subtlvs =
 			encap_intern(attr->vnc_subtlvs, VNC_SUBTLV_TYPE);
 #endif
 
-	return BGP_ATTR_PARSE_PROCEED;
+	ret = BGP_ATTR_PARSE_PROCEED;
+
+done:
+	/*
+	 * At this stage, we have done all fiddling with as4, and the
+	 * resulting info is in attr->aggregator resp. attr->aspath so
+	 * we can chuck as4_aggregator and as4_path alltogether in order
+	 * to save memory
+	 */
+	if (as4_path) {
+		/*
+		 * unintern - it is in the hash
+		 * The flag that we got this is still there, but that
+		 * does not do any trouble
+		 */
+		aspath_unintern(&as4_path);
+	}
+
+	if (ret != BGP_ATTR_PARSE_ERROR) {
+		/* Finally intern unknown attribute. */
+		if (attr->transit)
+			attr->transit = transit_intern(attr->transit);
+		if (attr->encap_subtlvs)
+			attr->encap_subtlvs = encap_intern(attr->encap_subtlvs,
+							   ENCAP_SUBTLV_TYPE);
+	}
+
+	return ret;
 }
 
 /*
