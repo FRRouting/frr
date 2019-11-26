@@ -3746,8 +3746,6 @@ int ospf_hello_reply_timer(struct thread *thread)
 	nbr = THREAD_ARG(thread);
 	nbr->t_hello_reply = NULL;
 
-	assert(nbr->oi);
-
 	if (IS_DEBUG_OSPF(nsm, NSM_TIMERS))
 		zlog_debug("NSM[%s:%s]: Timer (hello-reply timer expire)",
 			   IF_NAME(nbr->oi), inet_ntoa(nbr->router_id));
@@ -4335,7 +4333,7 @@ void ospf_proactively_arp(struct ospf_neighbor *nbr)
 	char ping_nbr[OSPF_PING_NBR_STR_MAX];
 	int ret;
 
-	if (!nbr || !nbr->oi || !nbr->oi->ifp)
+	if (!nbr)
 		return;
 
 	snprintf(ping_nbr, sizeof(ping_nbr),

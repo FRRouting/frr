@@ -328,8 +328,7 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 			ospf_ls_retransmit_delete_nbr_as(ospf, current);
 			break;
 		default:
-			ospf_ls_retransmit_delete_nbr_area(nbr->oi->area,
-							   current);
+			ospf_ls_retransmit_delete_nbr_area(oi->area, current);
 			break;
 		}
 	}
@@ -345,7 +344,7 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 	   procedure cannot overwrite the newly installed LSA until
 	   MinLSArrival seconds have elapsed. */
 
-	if (!(new = ospf_lsa_install(ospf, nbr->oi, new)))
+	if (!(new = ospf_lsa_install(ospf, oi, new)))
 		return -1; /* unknown LSA type or any other error condition */
 
 	/* Acknowledge the receipt of the LSA by sending a Link State

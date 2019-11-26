@@ -2330,9 +2330,7 @@ void ospf_apiserver_clients_notify_nsm_change(struct ospf_neighbor *nbr)
 
 	assert(nbr);
 
-	if (nbr->oi) {
-		ifaddr = nbr->oi->address->u.prefix4;
-	}
+	ifaddr = nbr->oi->address->u.prefix4;
 
 	nbraddr = nbr->address.u.prefix4;
 
