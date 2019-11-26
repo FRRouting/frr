@@ -120,6 +120,9 @@ struct te_sr_policy *te_sr_policy_create(char *name)
 
 void te_sr_policy_del(struct te_sr_policy *te_sr_policy)
 {
+	te_sr_policy->candidate_path_num = 0;
+	te_sr_policy_candidate_path_set_active(te_sr_policy);
+
 	free(te_sr_policy->name);
 	XFREE(MTYPE_PATH_SR_POLICY, te_sr_policy->candidate_paths);
 	RB_REMOVE(te_sr_policy_instance_head, &te_sr_policy_instances,
