@@ -48,6 +48,7 @@
 #include "pbr_zebra.h"
 #include "pbr_vty.h"
 #include "pbr_debug.h"
+#include "pbr_vrf.h"
 
 zebra_capabilities_t _caps_p[] = {
 	ZCAP_NET_RAW, ZCAP_BIND, ZCAP_NET_ADMIN,
@@ -153,7 +154,6 @@ int main(int argc, char **argv, char **envp)
 
 	pbr_debug_init();
 
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	nexthop_group_init(pbr_nhgroup_add_cb,
 			   pbr_nhgroup_add_nexthop_cb,
 			   pbr_nhgroup_del_nexthop_cb,
@@ -169,6 +169,7 @@ int main(int argc, char **argv, char **envp)
 	if_zapi_callbacks(pbr_ifp_create, pbr_ifp_up,
 			  pbr_ifp_down, pbr_ifp_destroy);
 	pbr_zebra_init();
+	pbr_vrf_init();
 	pbr_vty_init();
 
 	frr_config_fork();
