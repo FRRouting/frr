@@ -53,6 +53,7 @@ module frr-pathd {
           "BSID of the SR Policy.";
       }
       list candidate-path {
+        must "../color and ../endpoint and ../binding-sid";
         description
           "List of Candidate Paths of the SR Policy.";
         key "preference";
