@@ -218,6 +218,8 @@ extern int zebra_vxlan_clear_dup_detect_vni(struct vty *vty,
 extern void zebra_vxlan_handle_result(struct zebra_dplane_ctx *ctx);
 
 extern void zebra_evpn_init(void);
+extern void zebra_vxlan_macvlan_up(struct interface *ifp);
+extern void zebra_vxlan_macvlan_down(struct interface *ifp);
 
 #ifdef __cplusplus
 }

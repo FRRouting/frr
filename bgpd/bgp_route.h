@@ -114,6 +114,10 @@ struct bgp_path_info_extra {
 	mpls_label_t label[BGP_MAX_LABELS];
 	uint32_t num_labels;
 
+	/* af specific flags */
+	uint16_t af_flags;
+#define BGP_EVPN_MACIP_TYPE_SVI_IP (1 << 0)
+
 #if ENABLE_BGP_VNC
 	union {
 

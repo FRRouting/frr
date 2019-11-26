@@ -125,6 +125,8 @@ struct zebra_l3vni_t_ {
 	/* SVI interface corresponding to the l3vni */
 	struct interface *svi_if;
 
+	struct interface *mac_vlan_if;
+
 	/* list of L2 VNIs associated with the L3 VNI */
 	struct list *l2vnis;
 
@@ -156,6 +158,44 @@ static inline const char *zl3vni_vrf_name(zebra_l3vni_t *zl3vni)
 /* get the rmac string */
 static inline const char *zl3vni_rmac2str(zebra_l3vni_t *zl3vni, char *buf,
 					  int size)
+{
+	char *ptr;
+
+	if (!buf)
+		ptr = (char *)XMALLOC(MTYPE_TMP,
+				      ETHER_ADDR_STRLEN * sizeof(char));
+	else {
+		assert(size >= ETHER_ADDR_STRLEN);
+		ptr = buf;
+	}
+
+	if (zl3vni->mac_vlan_if)
+		snprintf(ptr, (ETHER_ADDR_STRLEN),
+			 "%02x:%02x:%02x:%02x:%02x:%02x",
+			 (uint8_t)zl3vni->mac_vlan_if->hw_addr[0],
+			 (uint8_t)zl3vni->mac_vlan_if->hw_addr[1],
+			 (uint8_t)zl3vni->mac_vlan_if->hw_addr[2],
+			 (uint8_t)zl3vni->mac_vlan_if->hw_addr[3],
+			 (uint8_t)zl3vni->mac_vlan_if->hw_addr[4],
+			 (uint8_t)zl3vni->mac_vlan_if->hw_addr[5]);
+	else if (zl3vni->svi_if)
+		snprintf(ptr, (ETHER_ADDR_STRLEN),
+			 "%02x:%02x:%02x:%02x:%02x:%02x",
+			 (uint8_t)zl3vni->svi_if->hw_addr[0],
+			 (uint8_t)zl3vni->svi_if->hw_addr[1],
+			 (uint8_t)zl3vni->svi_if->hw_addr[2],
+			 (uint8_t)zl3vni->svi_if->hw_addr[3],
+			 (uint8_t)zl3vni->svi_if->hw_addr[4],
+			 (uint8_t)zl3vni->svi_if->hw_addr[5]);
+	else
+		snprintf(ptr, ETHER_ADDR_STRLEN, "None");
+
+	return ptr;
+}
+
+/* get the sys mac string */
+static inline const char *zl3vni_sysmac2str(zebra_l3vni_t *zl3vni, char *buf,
+					    int size)
 {
 	char *ptr;
 
@@ -215,7 +255,8 @@ static inline vrf_id_t zl3vni_vrf_id(zebra_l3vni_t *zl3vni)
 	return zl3vni->vrf_id;
 }
 
-static inline void zl3vni_get_rmac(zebra_l3vni_t *zl3vni, struct ethaddr *rmac)
+static inline void zl3vni_get_svi_rmac(zebra_l3vni_t *zl3vni,
+				       struct ethaddr *rmac)
 {
 	if (!zl3vni)
 		return;
@@ -363,6 +404,7 @@ struct zebra_neigh_t_ {
 #define ZEBRA_NEIGH_DEF_GW    0x08
 #define ZEBRA_NEIGH_ROUTER_FLAG 0x10
 #define ZEBRA_NEIGH_DUPLICATE 0x20
+#define ZEBRA_NEIGH_SVI_IP 0x40
 
 	enum zebra_neigh_state state;
 
@@ -433,6 +475,7 @@ struct nh_walk_ctx {
 extern zebra_l3vni_t *zl3vni_from_vrf(vrf_id_t vrf_id);
 extern struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni);
 extern struct interface *zl3vni_map_to_svi_if(zebra_l3vni_t *zl3vni);
+extern struct interface *zl3vni_map_to_mac_vlan_if(zebra_l3vni_t *zl3vni);
 
 DECLARE_HOOK(zebra_rmac_update, (zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
 	     bool delete, const char *reason), (rmac, zl3vni, delete, reason))
