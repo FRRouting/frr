@@ -83,8 +83,10 @@ module frr-pathd {
         }
         leaf segment-list-name {
           description
-            "Flag for explicit or dynamic path.";
-          type string;
+            "The name of the Segment List to use as LSP.";
+          type leafref {
+            path ../../../segment-list/name;
+          }
         }
       }
     }
