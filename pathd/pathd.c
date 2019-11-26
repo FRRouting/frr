@@ -143,24 +143,8 @@ void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 	te_sr_policy->binding_sid = binding_sid;
 }
 
-void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
-				     uint32_t preference,
-				     char *segment_list_name,
-				     enum te_protocol_origin protocol_origin,
-				     struct ipaddr *originator,
-				     bool dynamic_flag)
+void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy)
 {
-	struct te_candidate_path te_candidate_path;
-	te_candidate_path.preference = preference;
-	te_candidate_path.segment_list_name = segment_list_name;
-	te_candidate_path.protocol_origin = protocol_origin;
-	te_candidate_path.originator = *originator;
-	te_candidate_path.dynamic_flag = dynamic_flag;
-
-	int idx = te_sr_policy->candidate_path_num;
-	te_sr_policy->candidate_paths[idx] = te_candidate_path;
-	te_sr_policy->candidate_path_num++;
-
 	int i;
 	struct te_candidate_path active_candidate_path;
 	active_candidate_path.preference = 0;
@@ -182,6 +166,53 @@ void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 
 	/* send the new active LSP to Zebra */
 	path_zebra_add_lsp(te_sr_policy->binding_sid, te_segment_list_found);
+}
+
+void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
+				     uint32_t preference,
+				     char *segment_list_name,
+				     enum te_protocol_origin protocol_origin,
+				     struct ipaddr *originator,
+				     bool dynamic_flag)
+{
+	struct te_candidate_path te_candidate_path;
+	te_candidate_path.preference = preference;
+	te_candidate_path.segment_list_name = segment_list_name;
+	te_candidate_path.protocol_origin = protocol_origin;
+	te_candidate_path.originator = *originator;
+	te_candidate_path.dynamic_flag = dynamic_flag;
+
+	int idx = te_sr_policy->candidate_path_num;
+	te_sr_policy->candidate_paths[idx] = te_candidate_path;
+	te_sr_policy->candidate_path_num++;
+
+	te_sr_policy_candidate_path_set_active(te_sr_policy);
+}
+
+void te_sr_policy_candidate_path_delete(struct te_sr_policy *te_sr_policy,
+					uint32_t preference)
+{
+	int i;
+	int idx_last_element = te_sr_policy->candidate_path_num - 1;
+	for (i = 0; i < te_sr_policy->candidate_path_num; i++) {
+		if (te_sr_policy->candidate_paths[i].preference == preference) {
+			free(te_sr_policy->candidate_paths[i]
+				     .segment_list_name);
+			if (te_sr_policy->candidate_path_num > 1
+			    && i != idx_last_element) {
+				/*
+				 * If necessary move the last element in place
+				 * of the deleted one
+				 */
+				te_sr_policy->candidate_paths[i] =
+					te_sr_policy->candidate_paths
+						[idx_last_element];
+			}
+			te_sr_policy->candidate_path_num--;
+			break;
+		}
+	}
+	te_sr_policy_candidate_path_set_active(te_sr_policy);
 }
 
 char *te_sr_policy_find(uint32_t color, struct ipaddr *endpoint)

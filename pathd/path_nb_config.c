@@ -214,6 +214,16 @@ int pathd_te_sr_policy_candidate_path_create(struct nb_cb_create_args *args)
 
 int pathd_te_sr_policy_candidate_path_destroy(struct nb_cb_destroy_args *args)
 {
+	struct te_sr_policy *te_sr_policy;
+	uint32_t preference;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	te_sr_policy = nb_running_get_entry(dnode, NULL, true);
+	preference = yang_dnode_get_uint32(dnode, "./preference");
+	te_sr_policy_candidate_path_delete(te_sr_policy, preference);
+
 	return NB_OK;
 }
 
