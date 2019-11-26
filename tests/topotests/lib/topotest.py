@@ -1200,7 +1200,7 @@ class Router(Node):
     # Return count of running daemons
     def listDaemons(self):
         ret = []
-        rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
+        rundaemons = self.cmd("ls -1 /etc/%s/*.pid" % self.routertype)
         errors = ""
         if re.search(r"No such file or directory", rundaemons):
             return 0
@@ -1215,7 +1215,7 @@ class Router(Node):
 
     def stopRouter(self, wait=True, assertOnError=True, minErrorVersion="5.1"):
         # Stop Running FRR Daemons
-        rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
+        rundaemons = self.cmd("ls -1 /etc/%s/*.pid" % self.routertype)
         errors = ""
         if re.search(r"No such file or directory", rundaemons):
             return errors
@@ -1574,7 +1574,7 @@ class Router(Node):
             start_daemon(daemon)
 
         # Check if daemons are running.
-        rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
+        rundaemons = self.cmd("ls -1 /etc/%s/*.pid" % self.routertype)
         if re.search(r"No such file or directory", rundaemons):
             return "Daemons are not running"
 
@@ -1585,7 +1585,7 @@ class Router(Node):
     ):
         # Kill Running FRR
         # Daemons(user specified daemon only) using SIGKILL
-        rundaemons = self.cmd("ls -1 /var/run/%s/*.pid" % self.routertype)
+        rundaemons = self.cmd("ls -1 /etc/%s/*.pid" % self.routertype)
         errors = ""
         daemonsNotRunning = []
         if re.search(r"No such file or directory", rundaemons):
