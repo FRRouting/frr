@@ -1677,3 +1677,13 @@ const struct frr_yang_module_info frr_interface_info = {
 		},
 	}
 };
+
+#if defined(__GNUC__) && ((__GNUC__ - 0) < 5) && !defined(__clang__)
+/* gcc versions before 5.x miscalculate the size for structs with variable
+ * length arrays (they just count it as size 0)
+ *
+ * NB: the "." below means "current position", i.e. this line must be
+ * immediately after the frr_interface_info variable!
+ */
+__asm__(".size\tfrr_interface_info, .-frr_interface_info\n");
+#endif
