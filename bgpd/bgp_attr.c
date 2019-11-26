@@ -421,14 +421,15 @@ static struct transit *transit_intern(struct transit *transit)
 	return find;
 }
 
-void transit_unintern(struct transit *transit)
+static void transit_unintern(struct transit **transit)
 {
-	if (transit->refcnt)
-		transit->refcnt--;
+	if ((*transit)->refcnt)
+		(*transit)->refcnt--;
 
-	if (transit->refcnt == 0) {
-		hash_release(transit_hash, transit);
-		transit_free(transit);
+	if ((*transit)->refcnt == 0) {
+		hash_release(transit_hash, *transit);
+		transit_free(*transit);
+		*transit = NULL;
 	}
 }
 
@@ -860,7 +861,7 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
 
 	if (attr->transit)
-		transit_unintern(attr->transit);
+		transit_unintern(&attr->transit);
 
 	if (attr->encap_subtlvs)
 		encap_unintern(&attr->encap_subtlvs, ENCAP_SUBTLV_TYPE);
