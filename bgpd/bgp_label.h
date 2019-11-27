@@ -58,7 +58,7 @@ static inline int bgp_is_withdraw_label(mpls_label_t *label)
 
 	/* The check on pkt[2] for 0x00 or 0x02 is in case bgp_set_valid_label()
 	 * was called on the withdraw label */
-	if ((pkt[0] == 0x80) && (pkt[1] == 0x00)
+	if (((pkt[0] == 0x80) || (pkt[0] == 0x00)) && (pkt[1] == 0x00)
 	    && ((pkt[2] == 0x00) || (pkt[2] == 0x02)))
 		return 1;
 	return 0;
