@@ -32,7 +32,6 @@ extern "C" {
  * To turn on systemd compilation, use --enable-systemd on
  * configure run.
  */
-void systemd_send_information(const char *info);
 void systemd_send_stopping(void);
 
 /*

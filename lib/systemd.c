@@ -32,7 +32,7 @@
  * Wrapper this silliness if we
  * don't have systemd
  */
-void systemd_send_information(const char *info)
+static void systemd_send_information(const char *info)
 {
 #if defined HAVE_SYSTEMD
 	sd_notify(0, info);

@@ -2498,8 +2498,8 @@ DEFUN (no_ipv6_access_list_remark_comment,
 	return no_ipv6_access_list_remark(self, vty, argc, argv);
 }
 
-void config_write_access_zebra(struct vty *, struct filter *);
-void config_write_access_cisco(struct vty *, struct filter *);
+static void config_write_access_zebra(struct vty *, struct filter *);
+static void config_write_access_cisco(struct vty *, struct filter *);
 
 /* show access-list command. */
 static int filter_show(struct vty *vty, const char *name, afi_t afi)
@@ -2685,7 +2685,7 @@ DEFUN (show_ipv6_access_list_name,
 	return filter_show(vty, argv[idx_word]->arg, AFI_IP6);
 }
 
-void config_write_access_cisco(struct vty *vty, struct filter *mfilter)
+static void config_write_access_cisco(struct vty *vty, struct filter *mfilter)
 {
 	struct filter_cisco *filter;
 
@@ -2724,7 +2724,7 @@ void config_write_access_cisco(struct vty *vty, struct filter *mfilter)
 	}
 }
 
-void config_write_access_zebra(struct vty *vty, struct filter *mfilter)
+static void config_write_access_zebra(struct vty *vty, struct filter *mfilter)
 {
 	struct filter_zebra *filter;
 	struct prefix *p;
