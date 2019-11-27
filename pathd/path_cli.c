@@ -150,6 +150,16 @@ DEFPY(no_te_path_sr_policy, no_te_path_sr_policy_cmd, "no sr-policy WORD$name",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void cli_show_te_path_sr_policy(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults)
+{
+	const char *name;
+
+	name = yang_dnode_get_string(dnode, "./name");
+
+	vty_out(vty, "sr-policy %s\n", name);
+}
+
 /*
  * XPath: /frr-pathd:pathd/sr-policy/color
  */
@@ -164,6 +174,16 @@ DEFPY(te_path_sr_policy_color, te_path_sr_policy_color_cmd,
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, num_str);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_te_path_sr_policy_color(struct vty *vty, struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	uint32_t color;
+
+	color = yang_dnode_get_uint32(dnode, NULL);
+
+	vty_out(vty, " color %u\n", color);
 }
 
 /*
@@ -182,6 +202,22 @@ DEFPY(te_path_sr_policy_endpoint, te_path_sr_policy_endpoint_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void cli_show_te_path_sr_policy_endpoint(struct vty *vty,
+					 struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	struct ipaddr *endpoint = malloc(sizeof(struct ipaddr));
+	char *endpoint_str = malloc(sizeof(char) * 46);
+
+	yang_dnode_get_ip(endpoint, dnode, NULL);
+	ipaddr2str(endpoint, endpoint_str, sizeof(endpoint_str));
+
+	vty_out(vty, " endpoint %s\n", endpoint_str);
+
+	free(endpoint);
+	free(endpoint_str);
+}
+
 /*
  * XPath: /frr-pathd:pathd/sr-policy/binding-sid
  */
@@ -196,6 +232,17 @@ DEFPY(te_path_sr_policy_binding_sid, te_path_sr_policy_binding_sid_cmd,
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, label_str);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_te_path_sr_policy_binding_sid(struct vty *vty,
+					    struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	uint32_t binding_sid;
+
+	binding_sid = yang_dnode_get_uint32(dnode, NULL);
+
+	vty_out(vty, " binding-sid %u\n", binding_sid);
 }
 
 /*

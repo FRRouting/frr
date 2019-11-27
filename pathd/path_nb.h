@@ -62,5 +62,15 @@ void cli_show_te_path_segment_list(struct vty *vty, struct lyd_node *dnode,
 void cli_show_te_path_segment_list_label(struct vty *vty,
 					 struct lyd_node *dnode,
 					 bool show_defaults);
+void cli_show_te_path_sr_policy(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults);
+void cli_show_te_path_sr_policy_color(struct vty *vty, struct lyd_node *dnode,
+				      bool show_defaults);
+void cli_show_te_path_sr_policy_endpoint(struct vty *vty,
+					 struct lyd_node *dnode,
+					 bool show_defaults);
+void cli_show_te_path_sr_policy_binding_sid(struct vty *vty,
+					    struct lyd_node *dnode,
+					    bool show_defaults);
 
 #endif /* _FRR_PATH_NB_H_ */
