@@ -208,17 +208,6 @@ extern struct listnode *listnode_lookup(struct list *list, const void *data);
 extern void *listnode_head(struct list *list);
 
 /*
- * Duplicate a list.
- *
- * list
- *    list to duplicate
- *
- * Returns:
- *    copy of the list
- */
-extern struct list *list_dup(struct list *l);
-
-/*
  * Sort a list in place.
  *
  * The sorting algorithm used is quicksort. Runtimes are equivalent to those of
@@ -294,19 +283,6 @@ extern void list_delete_all_node(struct list *list);
  *    the node to delete
  */
 extern void list_delete_node(struct list *list, struct listnode *node);
-
-/*
- * Append a list to an existing list.
- *
- * Runtime is O(N) where N = listcount(add).
- *
- * list
- *    list to append to
- *
- * add
- *    list to append
- */
-extern void list_add_list(struct list *list, struct list *add);
 
 /*
  * Delete all nodes which satisfy a condition from a list.
