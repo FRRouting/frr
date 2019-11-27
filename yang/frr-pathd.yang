@@ -30,6 +30,22 @@ module frr-pathd {
   }
 
   container pathd {
+    list segment-list {
+      description
+        "List of SIDs for Candidate Paths.";
+      key "name";
+      leaf name {
+        description
+          "List name.";
+        type string;
+      }
+      leaf-list label {
+        description
+          "List of MPLS labels.";
+        type rt-types:mpls-label;
+        ordered-by user;
+      }
+    }
     list sr-policy {
       key "name";
       leaf name {
@@ -88,22 +104,6 @@ module frr-pathd {
             path ../../../segment-list/name;
           }
         }
-      }
-    }
-    list segment-list {
-      description
-        "List of SIDs for Candidate Paths.";
-      key "name";
-      leaf name {
-        description
-          "List name.";
-        type string;
-      }
-      leaf-list label {
-        description
-          "List of MPLS labels.";
-        type rt-types:mpls-label;
-        ordered-by user;
       }
     }
   }
