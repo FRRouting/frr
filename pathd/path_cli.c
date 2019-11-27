@@ -207,7 +207,7 @@ void cli_show_te_path_sr_policy_endpoint(struct vty *vty,
 					 bool show_defaults)
 {
 	struct ipaddr *endpoint = malloc(sizeof(struct ipaddr));
-	char *endpoint_str = malloc(sizeof(char) * 46);
+	char *endpoint_str = malloc(sizeof(char) * MAX_IP_STR_LENGTH);
 
 	yang_dnode_get_ip(endpoint, dnode, NULL);
 	ipaddr2str(endpoint, endpoint_str, sizeof(endpoint_str));

@@ -106,7 +106,8 @@ struct te_sr_policy *te_sr_policy_create(char *name)
 	struct te_candidate_path *candidate_paths;
 	te_sr_policy = XCALLOC(MTYPE_PATH_SR_POLICY, sizeof(*te_sr_policy));
 	candidate_paths = XCALLOC(MTYPE_PATH_SR_POLICY,
-				  100 * sizeof(struct te_candidate_path));
+				  MAX_SR_POLICY_CANDIDATE_PATH_N
+					  * sizeof(struct te_candidate_path));
 
 	te_sr_policy->name = name;
 	te_sr_policy->candidate_path_num = 0;
