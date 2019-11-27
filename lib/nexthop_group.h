@@ -70,12 +70,6 @@ void nexthop_group_mark_duplicates(struct nexthop_group *nhg);
 	(nhop) = nexthop_next(nhop)
 
 
-struct nexthop_hold {
-	char *nhvrf_name;
-	union sockunion *addr;
-	char *intf;
-};
-
 struct nexthop_group_cmd {
 
 	RB_ENTRY(nexthop_group_cmd) nhgc_entry;
