@@ -278,12 +278,14 @@ static int bgp_ifp_down(struct interface *ifp)
 			 * 1-hop BFD
 			 * tracked (directly connected) IBGP peers.
 			 */
-			if ((peer->ttl != 1) && (peer->gtsm_hops != 1)
+			if ((peer->ttl != BGP_DEFAULT_TTL)
+			    && (peer->gtsm_hops != 1)
 			    && (!peer->bfd_info
 				|| bgp_bfd_is_peer_multihop(peer)))
 #else
 			/* Take down directly connected EBGP peers */
-			if ((peer->ttl != 1) && (peer->gtsm_hops != 1))
+			if ((peer->ttl != BGP_DEFAULT_TTL)
+			    && (peer->gtsm_hops != 1))
 #endif
 				continue;
 
@@ -448,7 +450,8 @@ static int bgp_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 		/* Fast external-failover */
 		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER)) {
 			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-				if ((peer->ttl != 1) && (peer->gtsm_hops != 1))
+				if ((peer->ttl != BGP_DEFAULT_TTL)
+				    && (peer->gtsm_hops != 1))
 					continue;
 
 				if (ifp == peer->nexthop.ifp)
@@ -1222,7 +1225,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	}
 
-	if ((peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
+	if ((peer->sort == BGP_PEER_EBGP && peer->ttl != BGP_DEFAULT_TTL)
 	    || CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
 	    || bgp_flag_check(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 

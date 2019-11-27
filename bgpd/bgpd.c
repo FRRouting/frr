@@ -6557,16 +6557,17 @@ int is_ebgp_multihop_configured(struct peer *peer)
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		group = peer->group;
 		if ((peer_sort(peer) != BGP_PEER_IBGP)
-		    && (group->conf->ttl != 1))
+		    && (group->conf->ttl != BGP_DEFAULT_TTL))
 			return 1;
 
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer1)) {
 			if ((peer_sort(peer1) != BGP_PEER_IBGP)
-			    && (peer1->ttl != 1))
+			    && (peer1->ttl != BGP_DEFAULT_TTL))
 				return 1;
 		}
 	} else {
-		if ((peer_sort(peer) != BGP_PEER_IBGP) && (peer->ttl != 1))
+		if ((peer_sort(peer) != BGP_PEER_IBGP)
+		    && (peer->ttl != BGP_DEFAULT_TTL))
 			return 1;
 	}
 	return 0;
@@ -7109,7 +7110,7 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, " neighbor %s passive\n", addr);
 
 	/* ebgp-multihop */
-	if (peer->sort != BGP_PEER_IBGP && peer->ttl != 1
+	if (peer->sort != BGP_PEER_IBGP && peer->ttl != BGP_DEFAULT_TTL
 	    && !(peer->gtsm_hops != 0 && peer->ttl == MAXTTL)) {
 		if (!peer_group_active(peer) || g_peer->ttl != peer->ttl) {
 			vty_out(vty, " neighbor %s ebgp-multihop %d\n", addr,
