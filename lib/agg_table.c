@@ -41,7 +41,7 @@ static void agg_node_destroy(route_table_delegate_t *delegate,
 	XFREE(MTYPE_TMP, anode);
 }
 
-route_table_delegate_t agg_table_delegate = {
+static route_table_delegate_t agg_table_delegate = {
 	.create_node = agg_node_create,
 	.destroy_node = agg_node_destroy,
 };

@@ -93,8 +93,8 @@ void systemd_send_stopping(void)
 /*
  * How many seconds should we wait between watchdog sends
  */
-int wsecs = 0;
-struct thread_master *systemd_master = NULL;
+static int wsecs = 0;
+static struct thread_master *systemd_master = NULL;
 
 static int systemd_send_watchdog(struct thread *t)
 {

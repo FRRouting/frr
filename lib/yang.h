@@ -114,9 +114,6 @@ typedef int (*yang_iterate_cb)(const struct lys_node *snode, void *arg);
 /* Global libyang context for native FRR models. */
 extern struct ly_ctx *ly_native_ctx;
 
-/* Tree of all loaded YANG modules. */
-extern struct yang_modules yang_modules;
-
 /*
  * Create a new YANG module and load it using libyang. If the YANG module is not
  * found in the YANG_MODELS_PATH directory, the program will exit with an error.

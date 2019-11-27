@@ -221,7 +221,7 @@ struct route_map_match_set_hooks {
 			  const char *command, const char *arg);
 };
 
-struct route_map_match_set_hooks rmap_match_set_hook;
+static struct route_map_match_set_hooks rmap_match_set_hook;
 
 /* match interface */
 void route_map_match_interface_hook(int (*func)(
@@ -623,7 +623,7 @@ struct route_map_list {
 
 /* Master list of route map. */
 static struct route_map_list route_map_master = {NULL, NULL, NULL, NULL, NULL};
-struct hash *route_map_master_hash = NULL;
+static struct hash *route_map_master_hash = NULL;
 
 static unsigned int route_map_hash_key_make(const void *p)
 {
@@ -683,7 +683,7 @@ struct route_map_dep_data {
 };
 
 /* Hashes maintaining dependency between various sublists used by route maps */
-struct hash *route_map_dep_hash[ROUTE_MAP_DEP_MAX];
+static struct hash *route_map_dep_hash[ROUTE_MAP_DEP_MAX];
 
 static unsigned int route_map_dep_hash_make_key(const void *p);
 static void route_map_clear_all_references(char *rmap_name);
