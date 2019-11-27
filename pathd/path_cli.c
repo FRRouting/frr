@@ -306,6 +306,20 @@ DEFPY(no_te_path_sr_policy_candidate_path,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void cli_show_te_path_sr_policy_candidate_path(struct vty *vty,
+					       struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	uint32_t preference;
+	const char *segment_list_name;
+
+	preference = yang_dnode_get_uint32(dnode, "./preference");
+	segment_list_name = yang_dnode_get_string(dnode, "./segment-list-name");
+
+	vty_out(vty, " candidate-path preference %u explicit segment-list %s\n",
+		preference, segment_list_name);
+}
+
 int config_write_paths(struct vty *vty)
 {
 	struct lyd_node *dnode;

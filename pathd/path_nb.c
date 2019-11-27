@@ -31,7 +31,7 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.xpath = "/frr-pathd:pathd/segment-list",
 			.cbs = {
 				.create = pathd_te_segment_list_create,
-                .cli_show = cli_show_te_path_segment_list,
+				.cli_show = cli_show_te_path_segment_list,
 				.destroy = pathd_te_segment_list_destroy,
 			}
 		},
@@ -39,8 +39,8 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.xpath = "/frr-pathd:pathd/segment-list/label",
 			.cbs = {
 				.create = pathd_te_segment_list_label_create,
-		        .move = pathd_te_segment_list_label_move,
-                .cli_show = cli_show_te_path_segment_list_label,
+				.move = pathd_te_segment_list_label_move,
+				.cli_show = cli_show_te_path_segment_list_label,
 				.destroy = pathd_te_segment_list_label_destroy,
 			}
 		},
@@ -48,7 +48,7 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.xpath = "/frr-pathd:pathd/sr-policy",
 			.cbs = {
 				.create = pathd_te_sr_policy_create,
-                .cli_show = cli_show_te_path_sr_policy,
+				.cli_show = cli_show_te_path_sr_policy,
 				.destroy = pathd_te_sr_policy_destroy,
 			}
 		},
@@ -56,7 +56,7 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.xpath = "/frr-pathd:pathd/sr-policy/color",
 			.cbs = {
 				.modify = pathd_te_sr_policy_color_modify,
-                .cli_show = cli_show_te_path_sr_policy_color,
+				.cli_show = cli_show_te_path_sr_policy_color,
 				.destroy = pathd_te_sr_policy_color_destroy,
 			}
 		},
@@ -64,7 +64,7 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.xpath = "/frr-pathd:pathd/sr-policy/endpoint",
 			.cbs = {
 				.modify = pathd_te_sr_policy_endpoint_modify,
-                .cli_show = cli_show_te_path_sr_policy_endpoint,
+				.cli_show = cli_show_te_path_sr_policy_endpoint,
 				.destroy = pathd_te_sr_policy_endpoint_destroy,
 			}
 		},
@@ -72,7 +72,7 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.xpath = "/frr-pathd:pathd/sr-policy/binding-sid",
 			.cbs = {
 				.modify = pathd_te_sr_policy_binding_sid_modify,
-                .cli_show = cli_show_te_path_sr_policy_binding_sid,
+				.cli_show = cli_show_te_path_sr_policy_binding_sid,
 				.destroy = pathd_te_sr_policy_binding_sid_destroy,
 			}
 		},
@@ -80,6 +80,7 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path",
 			.cbs = {
 				.create = pathd_te_sr_policy_candidate_path_create,
+				.cli_show = cli_show_te_path_sr_policy_candidate_path,
 				.destroy = pathd_te_sr_policy_candidate_path_destroy,
 			}
 		},
