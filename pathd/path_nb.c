@@ -31,6 +31,7 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.xpath = "/frr-pathd:pathd/segment-list",
 			.cbs = {
 				.create = pathd_te_segment_list_create,
+                .cli_show = cli_show_te_path_segment_list,
 				.destroy = pathd_te_segment_list_destroy,
 			}
 		},
@@ -38,8 +39,9 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.xpath = "/frr-pathd:pathd/segment-list/label",
 			.cbs = {
 				.create = pathd_te_segment_list_label_create,
+		        .move = pathd_te_segment_list_label_move,
+                .cli_show = cli_show_te_path_segment_list_label,
 				.destroy = pathd_te_segment_list_label_destroy,
-		                .move = pathd_te_segment_list_label_move,
 			}
 		},
 		{

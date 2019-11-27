@@ -57,5 +57,10 @@ int pathd_te_sr_policy_candidate_path_segment_list_name_destroy(
 /* Optional 'apply_finish' callbacks. */
 
 /* Optional 'cli_show' callbacks. */
+void cli_show_te_path_segment_list(struct vty *vty, struct lyd_node *dnode,
+				   bool show_defaults);
+void cli_show_te_path_segment_list_label(struct vty *vty,
+					 struct lyd_node *dnode,
+					 bool show_defaults);
 
 #endif /* _FRR_PATH_NB_H_ */

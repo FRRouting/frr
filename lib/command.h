@@ -424,9 +424,9 @@ struct cmd_node {
 
 /* Daemons lists */
 #define DAEMONS_STR                                                            \
-	"For the zebra daemon\nFor the rip daemon\nFor the ripng daemon\nFor the ospf daemon\nFor the ospfv6 daemon\nFor the bgp daemon\nFor the isis daemon\nFor the pbr daemon\nFor the fabricd daemon\nFor the pim daemon\nFor the static daemon\nFor the sharpd daemon\nFor the vrrpd daemon\nFor the ldpd daemon\n"
+	"For the zebra daemon\nFor the rip daemon\nFor the ripng daemon\nFor the ospf daemon\nFor the ospfv6 daemon\nFor the bgp daemon\nFor the isis daemon\nFor the pbr daemon\nFor the fabricd daemon\nFor the pim daemon\nFor the static daemon\nFor the sharpd daemon\nFor the vrrpd daemon\nFor the ldpd daemon\nFor the pathd daemon\n"
 #define DAEMONS_LIST                                                           \
-	"<zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pbrd|fabricd|pimd|staticd|sharpd|vrrpd|ldpd>"
+	"<zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pbrd|fabricd|pimd|staticd|sharpd|vrrpd|ldpd|pathd>"
 
 /* Graceful Restart cli help strings */
 #define GR_CMD "Global Graceful Restart command\n"

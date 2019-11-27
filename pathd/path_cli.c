@@ -77,6 +77,16 @@ DEFPY(no_te_path_segment_list, no_te_path_segment_list_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void cli_show_te_path_segment_list(struct vty *vty, struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	const char *name;
+
+	name = yang_dnode_get_string(dnode, "./name");
+
+	vty_out(vty, "segment-list %s\n", name);
+}
+
 /*
  * XPath: /frr-pathd:pathd/segment-list/label
  */
@@ -92,6 +102,17 @@ DEFPY(te_path_segment_list_label, te_path_segment_list_label_cmd,
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, label_str);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_te_path_segment_list_label(struct vty *vty,
+					 struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	uint32_t label;
+
+	label = yang_dnode_get_uint32(dnode, NULL);
+
+	vty_out(vty, " mpls label %u\n", label);
 }
 
 /*
