@@ -920,7 +920,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			strlcat(str_buf, " ", str_size);
 
 		/* Retrieve value field */
-		pnt = ecom->val + (i * 8);
+		pnt = ecom->val + (i * ecom->unit_size);
 
 		/* High-order octet is the type */
 		type = *pnt++;
