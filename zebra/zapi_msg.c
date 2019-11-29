@@ -1782,7 +1782,7 @@ static void zread_mpls_labels_add(ZAPI_HANDLER_ARGS)
 		struct zapi_nexthop_label *znh;
 
 		znh = &zl.nexthops[i];
-		mpls_lsp_install(zvrf, zl.type, zl.local_label, znh->label,
+		mpls_lsp_install(zvrf, zl.type, zl.local_label, 1, &znh->label,
 				 znh->type, &znh->address, znh->ifindex);
 
 		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
@@ -1883,7 +1883,7 @@ static void zread_mpls_labels_replace(ZAPI_HANDLER_ARGS)
 		struct zapi_nexthop_label *znh;
 
 		znh = &zl.nexthops[i];
-		mpls_lsp_install(zvrf, zl.type, zl.local_label, znh->label,
+		mpls_lsp_install(zvrf, zl.type, zl.local_label, 1, &znh->label,
 				 znh->type, &znh->address, znh->ifindex);
 
 		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN)) {
@@ -2282,10 +2282,11 @@ static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 					   ifp->ifindex);
 	}
 
-	if (nlabel != MPLS_LABEL_NONE)
-		mpls_lsp_install(def_zvrf, ltype, nlabel,
-				 MPLS_LABEL_IMPLICIT_NULL, NEXTHOP_TYPE_IFINDEX,
-				 NULL, ifp->ifindex);
+	if (nlabel != MPLS_LABEL_NONE) {
+		mpls_label_t out_label = MPLS_LABEL_IMPLICIT_NULL;
+		mpls_lsp_install(def_zvrf, ltype, nlabel, 1, &out_label,
+				 NEXTHOP_TYPE_IFINDEX, NULL, ifp->ifindex);
+	}
 
 	zvrf->label[afi] = nlabel;
 stream_failure:
