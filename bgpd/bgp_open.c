@@ -1355,6 +1355,13 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 		 * only when GR config is present
 		 */
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)) {
+
+			if (bgp_flag_check(peer->bgp,
+					BGP_FLAG_GR_PRESERVE_FWD) &&
+					BGP_DEBUG(graceful_restart,
+					GRACEFUL_RESTART))
+				zlog_debug("[BGP_GR] F bit Set");
+
 			FOREACH_AFI_SAFI (afi, safi) {
 				if (peer->afc[afi][safi]) {
 					if (BGP_DEBUG(graceful_restart,

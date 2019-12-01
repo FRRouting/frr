@@ -746,7 +746,6 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 
 					strlcpy(bgp_notify.data, c,
 						bgp_notify.length);
-
 				}
 		}
 		bgp_notify_print(peer, &bgp_notify, "sending");
