@@ -9371,7 +9371,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			json_object_free(json_paths);
 			json_paths = NULL;
 			first = 0;
-		}
+		} else
+			json_object_free(json_paths);
 	}
 
 	if (output_cum) {
