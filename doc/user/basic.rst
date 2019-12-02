@@ -86,6 +86,15 @@ Basic Config Commands
    debugging. Note that the existing code logs its most important messages with
    severity ``errors``.
 
+   .. warning::
+
+      FRRouting uses the ``writev()`` system call to write log messages.  This
+      call is supposed to be atomic, but in reality this does not hold for
+      pipes or terminals, only regular files.  This means that in rare cases,
+      concurrent log messages from distinct threads may get jumbled in
+      terminal output.  Use a log file and ``tail -f`` if this rare chance is
+      inacceptable to your setup.
+
 .. index::
    single: no log file [FILENAME [LEVEL]]
    single: log file FILENAME [LEVEL]
@@ -103,14 +112,6 @@ Basic Config Commands
    the default logging level (typically debugging, but can be changed using the
    deprecated ``log trap`` command) will be used. The ``no`` form of the command
    disables logging to a file.
-
-   .. note::
-
-      If you do not configure any file logging, and a daemon crashes due to a
-      signal or an assertion failure, it will attempt to save the crash
-      information in a file named :file:`/var/tmp/frr.<daemon name>.crashlog`.
-      For security reasons, this will not happen if the file exists already, so
-      it is important to delete the file after reporting the crash information.
 
 .. index::
    single: no log syslog [LEVEL]
