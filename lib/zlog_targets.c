@@ -26,10 +26,18 @@
 #include "zlog.h"
 #include "zlog_targets.h"
 
-DEFINE_MTYPE_STATIC(LIB, LOG_FD,        "log file target")
-DEFINE_MTYPE_STATIC(LIB, LOG_FD_NAME,   "log file name")
-DEFINE_MTYPE_STATIC(LIB, LOG_FD_ROTATE, "log file rotate helper")
-DEFINE_MTYPE_STATIC(LIB, LOG_SYSL,      "syslog target")
+/* these allocations are intentionally left active even when doing full exit
+ * cleanup, in order to keep the logging subsystem fully functional until the
+ * absolute end.
+ */
+
+DECLARE_MGROUP(LOG)
+DEFINE_MGROUP_ACTIVEATEXIT(LOG, "logging subsystem")
+
+DEFINE_MTYPE_STATIC(LOG, LOG_FD,        "log file target")
+DEFINE_MTYPE_STATIC(LOG, LOG_FD_NAME,   "log file name")
+DEFINE_MTYPE_STATIC(LOG, LOG_FD_ROTATE, "log file rotate helper")
+DEFINE_MTYPE_STATIC(LOG, LOG_SYSL,      "syslog target")
 
 struct zlt_fd {
 	struct zlog_target zt;
