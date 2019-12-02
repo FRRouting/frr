@@ -115,16 +115,16 @@ int nb_pcep_add_candidate_path(const char* color_str, const char *endpoint_str, 
     nb_pcep_edit_candidate_config(candidate_config, xpath_base, NB_OP_CREATE, preference_str);
 
     snprintf(xpath, sizeof(xpath), "%s/segment-list-name", xpath_base);
-    nb_pcep_edit_candidate_config(candidate_config, xpath, NB_OP_CREATE, segment_list_name);
+    nb_pcep_edit_candidate_config(candidate_config, xpath, NB_OP_MODIFY, segment_list_name);
 
     snprintf(xpath, sizeof(xpath), "%s/protocol-origin", xpath_base);
-    nb_pcep_edit_candidate_config(candidate_config, xpath, NB_OP_CREATE, "pcep");
+    nb_pcep_edit_candidate_config(candidate_config, xpath, NB_OP_MODIFY, "pcep");
 
     snprintf(xpath, sizeof(xpath), "%s/originator", xpath_base);
-    nb_pcep_edit_candidate_config(candidate_config, xpath, NB_OP_CREATE, originator_str);
+    nb_pcep_edit_candidate_config(candidate_config, xpath, NB_OP_MODIFY, originator_str);
 
     snprintf(xpath, sizeof(xpath), "%s/dynamic-flag", xpath_base);
-    nb_pcep_edit_candidate_config(candidate_config, xpath, NB_OP_CREATE, "false");
+    nb_pcep_edit_candidate_config(candidate_config, xpath, NB_OP_MODIFY, "false");
 
 	ret = nb_pcep_commit_candidate_config(candidate_config, "SR Policy Candidate Path");
 
