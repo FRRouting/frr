@@ -113,13 +113,23 @@ void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 				  mpls_label_t binding_sid);
 void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy);
 void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
-				     uint32_t preference,
-				     char *segment_list_name,
-				     enum te_protocol_origin protocol_origin,
-				     struct ipaddr *originator,
-				     bool dynamic_flag);
+				     uint32_t preference);
+void te_sr_policy_candidate_path_protocol_origin_add(
+	struct te_sr_policy *te_sr_policy, uint32_t preference,
+	enum te_protocol_origin protocol_origin);
+void te_sr_policy_candidate_path_originator_add(
+	struct te_sr_policy *te_sr_policy, uint32_t preference,
+	struct ipaddr *originator);
+void te_sr_policy_candidate_path_dynamic_flag_add(
+	struct te_sr_policy *te_sr_policy, uint32_t preference,
+	bool dynamic_flag);
+void te_sr_policy_candidate_path_segment_list_name_add(
+	struct te_sr_policy *te_sr_policy, uint32_t preference,
+	char *segment_list_name);
 void te_sr_policy_candidate_path_delete(struct te_sr_policy *te_sr_policy,
 					uint32_t preference);
 char *te_sr_policy_find(uint32_t color, struct ipaddr *endpoint);
+struct te_candidate_path *find_candidate_path(struct te_sr_policy *te_sr_policy,
+					      uint32_t preference);
 
 #endif /* _FRR_PATHD_H_ */
