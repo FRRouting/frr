@@ -88,28 +88,24 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/protocol-origin",
 			.cbs = {
 				.modify = pathd_te_sr_policy_candidate_path_protocol_origin_modify,
-				.destroy = pathd_te_sr_policy_candidate_path_protocol_origin_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/originator",
 			.cbs = {
 				.modify = pathd_te_sr_policy_candidate_path_originator_modify,
-				.destroy = pathd_te_sr_policy_candidate_path_originator_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/dynamic-flag",
 			.cbs = {
 				.modify = pathd_te_sr_policy_candidate_path_dynamic_flag_modify,
-				.destroy = pathd_te_sr_policy_candidate_path_dynamic_flag_destroy,
 			}
 		},
 		{
 			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/segment-list-name",
 			.cbs = {
 				.modify = pathd_te_sr_policy_candidate_path_segment_list_name_modify,
-				.destroy = pathd_te_sr_policy_candidate_path_segment_list_name_destroy,
 			}
 		},
 		{

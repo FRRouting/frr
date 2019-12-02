@@ -81,6 +81,7 @@ module frr-pathd {
         leaf protocol-origin {
           description
             "Indication for the protocol origin of the Candidate Path.";
+          mandatory true;
           type enumeration {
             enum pcep;
             enum bgp;
@@ -91,15 +92,18 @@ module frr-pathd {
           type inet:ip-address;
           description
             "Indication for the endpoint of the origin of the Candidate Path.";
+          mandatory true;
         }
         leaf dynamic-flag {
           description
             "Flag for explicit or dynamic path.";
+          mandatory true;
           type boolean;
         }
         leaf segment-list-name {
           description
             "The name of the Segment List to use as LSP.";
+          mandatory true;
           type leafref {
             path ../../../segment-list/name;
           }
