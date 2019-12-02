@@ -1808,9 +1808,12 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	 * and then again if there's been a change.
 	 */
 	start_count = 0;
-	for (ALL_NEXTHOPS_PTR(rib_active_nhg(re), nexthop)) {
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
-			start_count++;
+
+	if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)) {
+		for (ALL_NEXTHOPS_PTR(rib_active_nhg(re), nexthop)) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+				start_count++;
+		}
 	}
 
 	/* Update zebra's nexthop FIB flags based on the context struct's
@@ -1820,10 +1823,8 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 
 	if (!fib_changed) {
 		if (debug_p)
-			zlog_debug("%u:%s No change from dplane notification",
+			zlog_debug("%u:%s dplane notification: rib_update returns FALSE",
 				   dplane_ctx_get_vrf(ctx), dest_str);
-
-		goto done;
 	}
 
 	/*
