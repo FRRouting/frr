@@ -1537,7 +1537,6 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 	int bytelen;
 	struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num;
-	int family;
 	const char *routedesc;
 	bool setsrc = false;
 	union g_addr src;
@@ -1553,11 +1552,9 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 	p = dplane_ctx_get_dest(ctx);
 	src_p = dplane_ctx_get_src(ctx);
 
-	family = PREFIX_FAMILY(p);
-
 	memset(req, 0, sizeof(*req));
 
-	bytelen = (family == AF_INET ? 4 : 16);
+	bytelen = (p->family == AF_INET ? 4 : 16);
 
 	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
 	req->n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
@@ -1570,7 +1567,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 
 	req->n.nlmsg_pid = dplane_ctx_get_ns(ctx)->nls.snl.nl_pid;
 
-	req->r.rtm_family = family;
+	req->r.rtm_family = p->family;
 	req->r.rtm_dst_len = p->prefixlen;
 	req->r.rtm_src_len = src_p ? src_p->prefixlen : 0;
 	req->r.rtm_scope = RT_SCOPE_UNIVERSE;
@@ -1676,10 +1673,10 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 		}
 
 		if (setsrc) {
-			if (family == AF_INET)
+			if (p->family == AF_INET)
 				addattr_l(&req->n, datalen, RTA_PREFSRC,
 					  &src.ipv4, bytelen);
-			else if (family == AF_INET6)
+			else if (p->family == AF_INET6)
 				addattr_l(&req->n, datalen, RTA_PREFSRC,
 					  &src.ipv6, bytelen);
 		}
@@ -1693,7 +1690,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 	for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;
-		if (cmd == RTM_NEWROUTE && !NEXTHOP_IS_ACTIVE(nexthop->flags))
+		if (!NEXTHOP_IS_ACTIVE(nexthop->flags))
 			continue;
 
 		nexthop_num++;
@@ -1730,13 +1727,12 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 				if (setsrc)
 					continue;
 
-				setsrc = nexthop_set_src(nexthop, family, &src);
-
+				setsrc = nexthop_set_src(nexthop, p->family,
+							 &src);
 				continue;
 			}
 
-			if ((cmd == RTM_NEWROUTE
-			     && NEXTHOP_IS_ACTIVE(nexthop->flags))) {
+			if (NEXTHOP_IS_ACTIVE(nexthop->flags)) {
 				routedesc = nexthop->rparent
 						    ? "recursive, single-path"
 						    : "single-path";
@@ -1749,10 +1745,10 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 			}
 		}
 		if (setsrc) {
-			if (family == AF_INET)
+			if (p->family == AF_INET)
 				addattr_l(&req->n, datalen, RTA_PREFSRC,
 					  &src.ipv4, bytelen);
-			else if (family == AF_INET6)
+			else if (p->family == AF_INET6)
 				addattr_l(&req->n, datalen, RTA_PREFSRC,
 					  &src.ipv6, bytelen);
 		}
@@ -1774,13 +1770,12 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 				if (setsrc)
 					continue;
 
-				setsrc = nexthop_set_src(nexthop, family, &src);
-
+				setsrc = nexthop_set_src(nexthop, p->family,
+							 &src);
 				continue;
 			}
 
-			if ((cmd == RTM_NEWROUTE
-			     && NEXTHOP_IS_ACTIVE(nexthop->flags))) {
+			if (NEXTHOP_IS_ACTIVE(nexthop->flags)) {
 				routedesc = nexthop->rparent
 						    ? "recursive, multipath"
 						    : "multipath";
@@ -1792,9 +1787,9 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 				rtnh = RTNH_NEXT(rtnh);
 
 				if (!setsrc && src1) {
-					if (family == AF_INET)
+					if (p->family == AF_INET)
 						src.ipv4 = src1->ipv4;
-					else if (family == AF_INET6)
+					else if (p->family == AF_INET6)
 						src.ipv6 = src1->ipv6;
 
 					setsrc = 1;
@@ -1802,10 +1797,10 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 			}
 		}
 		if (setsrc) {
-			if (family == AF_INET)
+			if (p->family == AF_INET)
 				addattr_l(&req->n, datalen, RTA_PREFSRC,
 					  &src.ipv4, bytelen);
-			else if (family == AF_INET6)
+			else if (p->family == AF_INET6)
 				addattr_l(&req->n, datalen, RTA_PREFSRC,
 					  &src.ipv6, bytelen);
 			if (IS_ZEBRA_DEBUG_KERNEL)
