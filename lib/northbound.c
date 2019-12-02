@@ -1882,7 +1882,8 @@ static void nb_load_callbacks(const struct frr_yang_module_info *module)
 }
 
 void nb_init(struct thread_master *tm,
-	     const struct frr_yang_module_info *modules[], size_t nmodules)
+	     const struct frr_yang_module_info *const modules[],
+	     size_t nmodules)
 {
 	unsigned int errors = 0;
 

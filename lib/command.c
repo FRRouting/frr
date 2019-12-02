@@ -74,7 +74,7 @@ const struct message tokennames[] = {
 	{0},
 };
 
-const char *node_names[] = {
+const char *const node_names[] = {
 	"auth",			    // AUTH_NODE,
 	"view",			    // VIEW_NODE,
 	"auth enable",		    // AUTH_ENABLE_NODE,
@@ -370,7 +370,7 @@ const char *cmd_prompt(enum node_type node)
 }
 
 /* Install a command into a node. */
-void install_element(enum node_type ntype, struct cmd_element *cmd)
+void install_element(enum node_type ntype, const struct cmd_element *cmd)
 {
 	struct cmd_node *cnode;
 
@@ -392,7 +392,7 @@ void install_element(enum node_type ntype, struct cmd_element *cmd)
 		exit(EXIT_FAILURE);
 	}
 
-	if (hash_lookup(cnode->cmd_hash, cmd) != NULL) {
+	if (hash_lookup(cnode->cmd_hash, (void *)cmd) != NULL) {
 		fprintf(stderr,
 			"%s[%s]:\n"
 			"\tnode %d (%s) already has this command installed.\n"
@@ -401,7 +401,7 @@ void install_element(enum node_type ntype, struct cmd_element *cmd)
 		return;
 	}
 
-	assert(hash_get(cnode->cmd_hash, cmd, hash_alloc_intern));
+	assert(hash_get(cnode->cmd_hash, (void *)cmd, hash_alloc_intern));
 
 	struct graph *graph = graph_new();
 	struct cmd_token *token =
@@ -413,13 +413,13 @@ void install_element(enum node_type ntype, struct cmd_element *cmd)
 	cmd_graph_merge(cnode->cmdgraph, graph, +1);
 	graph_delete_graph(graph);
 
-	vector_set(cnode->cmd_vector, cmd);
+	vector_set(cnode->cmd_vector, (void *)cmd);
 
 	if (ntype == VIEW_NODE)
 		install_element(ENABLE_NODE, cmd);
 }
 
-void uninstall_element(enum node_type ntype, struct cmd_element *cmd)
+void uninstall_element(enum node_type ntype, const struct cmd_element *cmd)
 {
 	struct cmd_node *cnode;
 
@@ -441,7 +441,7 @@ void uninstall_element(enum node_type ntype, struct cmd_element *cmd)
 		exit(EXIT_FAILURE);
 	}
 
-	if (hash_release(cnode->cmd_hash, cmd) == NULL) {
+	if (hash_release(cnode->cmd_hash, (void *)cmd) == NULL) {
 		fprintf(stderr,
 			"%s[%s]:\n"
 			"\tnode %d (%s) does not have this command installed.\n"
@@ -450,7 +450,7 @@ void uninstall_element(enum node_type ntype, struct cmd_element *cmd)
 		return;
 	}
 
-	vector_unset_value(cnode->cmd_vector, cmd);
+	vector_unset_value(cnode->cmd_vector, (void *)cmd);
 
 	struct graph *graph = graph_new();
 	struct cmd_token *token =
@@ -1660,7 +1660,7 @@ int cmd_list_cmds(struct vty *vty, int do_permute)
 		permute(vector_slot(node->cmdgraph->nodes, 0), vty);
 	else {
 		/* loop over all commands at this node */
-		struct cmd_element *element = NULL;
+		const struct cmd_element *element = NULL;
 		for (unsigned int i = 0; i < vector_active(node->cmd_vector);
 		     i++)
 			if ((element = vector_slot(node->cmd_vector, i))

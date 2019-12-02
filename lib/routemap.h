@@ -246,7 +246,7 @@ route_map_delete_set(struct route_map_index *index,
 		     const char *set_name, const char *set_arg);
 
 /* Install rule command to the match list. */
-extern void route_map_install_match(struct route_map_rule_cmd *cmd);
+extern void route_map_install_match(const struct route_map_rule_cmd *cmd);
 
 /*
  * Install rule command to the set list.
@@ -257,7 +257,7 @@ extern void route_map_install_match(struct route_map_rule_cmd *cmd);
  * in the apply command).  See 'set metric' command
  * as it is handled in ripd/ripngd and ospfd.
  */
-extern void route_map_install_set(struct route_map_rule_cmd *cmd);
+extern void route_map_install_set(const struct route_map_rule_cmd *cmd);
 
 /* Lookup route map by name. */
 extern struct route_map *route_map_lookup_by_name(const char *name);

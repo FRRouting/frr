@@ -83,8 +83,8 @@ struct gw_family_t {
 	union g_addr gate;
 };
 
-char ipv4_ll_buf[16] = "169.254.0.1";
-struct in_addr ipv4_ll;
+static const char ipv4_ll_buf[16] = "169.254.0.1";
+static struct in_addr ipv4_ll;
 
 /*
  * The ipv4_ll data structure is used for all 5549

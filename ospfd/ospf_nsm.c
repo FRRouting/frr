@@ -399,7 +399,7 @@ static int nsm_kill_nbr(struct ospf_neighbor *nbr)
 }
 
 /* Neighbor State Machine */
-struct {
+const struct {
 	int (*func)(struct ospf_neighbor *);
 	int next_state;
 } NSM[OSPF_NSM_STATE_MAX][OSPF_NSM_EVENT_MAX] = {
@@ -575,7 +575,7 @@ struct {
 	},
 };
 
-static const char *ospf_nsm_event_str[] = {
+static const char *const ospf_nsm_event_str[] = {
 	"NoEvent",	   "PacketReceived",  "Start",
 	"2-WayReceived",     "NegotiationDone", "ExchangeDone",
 	"BadLSReq",	  "LoadingDone",     "AdjOK?",

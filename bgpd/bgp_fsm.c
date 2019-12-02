@@ -62,7 +62,7 @@ DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer))
 /* Definition of display strings corresponding to FSM events. This should be
  * kept consistent with the events defined in bgpd.h
  */
-static const char *bgp_event_str[] = {
+static const char *const bgp_event_str[] = {
 	NULL,
 	"BGP_Start",
 	"BGP_Stop",
@@ -522,7 +522,7 @@ int bgp_routeadv_timer(struct thread *thread)
 }
 
 /* BGP Peer Down Cause */
-const char *peer_down_str[] = {"",
+const char *const peer_down_str[] = {"",
 			       "Router ID changed",
 			       "Remote AS changed",
 			       "Local AS change",

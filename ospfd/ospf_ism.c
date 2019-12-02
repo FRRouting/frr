@@ -418,7 +418,7 @@ static int ism_ignore(struct ospf_interface *oi)
 }
 
 /* Interface State Machine */
-struct {
+const struct {
 	int (*func)(struct ospf_interface *);
 	int next_state;
 } ISM[OSPF_ISM_STATE_MAX][OSPF_ISM_EVENT_MAX] = {
@@ -512,7 +512,7 @@ struct {
 	},
 };
 
-static const char *ospf_ism_event_str[] = {
+static const char *const ospf_ism_event_str[] = {
 	"NoEvent",	"InterfaceUp", "WaitTimer", "BackupSeen",
 	"NeighborChange", "LoopInd",     "UnLoopInd", "InterfaceDown",
 };

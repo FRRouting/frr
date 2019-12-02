@@ -290,7 +290,7 @@ void ospf_lsa_data_free(struct lsa_header *lsah)
 
 const char *dump_lsa_key(struct ospf_lsa *lsa)
 {
-	static char buf[] = {"Type255,id(255.255.255.255),ar(255.255.255.255)"};
+	static char buf[sizeof("Type255,id(255.255.255.255),ar(255.255.255.255)")+1];
 	struct lsa_header *lsah;
 
 	if (lsa != NULL && (lsah = lsa->data) != NULL) {

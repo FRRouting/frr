@@ -50,13 +50,13 @@ int vrrp_autoconfig_version;
 
 struct vrrp_defaults vd;
 
-const char *vrrp_state_names[3] = {
+const char *const vrrp_state_names[3] = {
 	[VRRP_STATE_INITIALIZE] = "Initialize",
 	[VRRP_STATE_MASTER] = "Master",
 	[VRRP_STATE_BACKUP] = "Backup",
 };
 
-const char *vrrp_event_names[2] = {
+static const char *const vrrp_event_names[2] = {
 	[VRRP_EVENT_STARTUP] = "Startup",
 	[VRRP_EVENT_SHUTDOWN] = "Shutdown",
 };
@@ -1414,7 +1414,7 @@ static void vrrp_change_state_initialize(struct vrrp_router *r)
 		vrrp_zebra_radv_set(r, false);
 }
 
-void (*vrrp_change_state_handlers[])(struct vrrp_router *vr) = {
+void (*const vrrp_change_state_handlers[])(struct vrrp_router *vr) = {
 	[VRRP_STATE_MASTER] = vrrp_change_state_master,
 	[VRRP_STATE_BACKUP] = vrrp_change_state_backup,
 	[VRRP_STATE_INITIALIZE] = vrrp_change_state_initialize,
@@ -1639,7 +1639,7 @@ static int vrrp_shutdown(struct vrrp_router *r)
 	return 0;
 }
 
-static int (*vrrp_event_handlers[])(struct vrrp_router *r) = {
+static int (*const vrrp_event_handlers[])(struct vrrp_router *r) = {
 	[VRRP_EVENT_STARTUP] = vrrp_startup,
 	[VRRP_EVENT_SHUTDOWN] = vrrp_shutdown,
 };

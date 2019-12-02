@@ -166,7 +166,7 @@ struct quagga_signal_t ospf6_signals[] = {
 	},
 };
 
-static const struct frr_yang_module_info *ospf6d_yang_modules[] = {
+static const struct frr_yang_module_info *const ospf6d_yang_modules[] = {
 	&frr_interface_info,
 };
 

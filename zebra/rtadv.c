@@ -72,7 +72,9 @@ DEFINE_MTYPE_STATIC(ZEBRA, RTADV_DNSSL, "Router Advertisement DNSSL")
 
 /* Order is intentional.  Matches RFC4191.  This array is also used for
    command matching, so only modify with care. */
-const char *rtadv_pref_strs[] = {"medium", "high", "INVALID", "low", 0};
+static const char *const rtadv_pref_strs[] = {
+	"medium", "high", "INVALID", "low", 0
+};
 
 enum rtadv_event {
 	RTADV_START,

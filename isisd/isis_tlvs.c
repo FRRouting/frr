@@ -88,7 +88,7 @@ struct pack_order_entry {
 		.what_to_pack = offsetof(struct isis_tlvs, w),                 \
 	}
 
-static struct pack_order_entry pack_order[] = {
+static const struct pack_order_entry pack_order[] = {
 	PACK_ENTRY(OLDSTYLE_REACH, ISIS_ITEMS, oldstyle_reach),
 	PACK_ENTRY(LAN_NEIGHBORS, ISIS_ITEMS, lan_neighbor),
 	PACK_ENTRY(LSP_ENTRY, ISIS_ITEMS, lsp_entries),
@@ -106,7 +106,7 @@ static struct pack_order_entry pack_order[] = {
 
 /* This is a forward definition. The table is actually initialized
  * in at the bottom. */
-static const struct tlv_ops *tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX];
+static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX];
 
 /* End of _ops forward definition. */
 
@@ -1003,7 +1003,7 @@ static void free_items(enum isis_tlv_context context, enum isis_tlv_type type,
 static int pack_items_(uint16_t mtid, enum isis_tlv_context context,
 		       enum isis_tlv_type type, struct isis_item_list *items,
 		       struct stream *s, struct isis_tlvs **fragment_tlvs,
-		       struct pack_order_entry *pe,
+		       const struct pack_order_entry *pe,
 		       struct isis_tlvs *(*new_fragment)(struct list *l),
 		       struct list *new_fragment_arg);
 #define pack_items(...) pack_items_(ISIS_MT_IPV4_UNICAST, __VA_ARGS__)
@@ -3095,7 +3095,7 @@ static void free_items(enum isis_tlv_context context, enum isis_tlv_type type,
 static int pack_item(enum isis_tlv_context context, enum isis_tlv_type type,
 		     struct isis_item *i, struct stream *s,
 		     struct isis_tlvs **fragment_tlvs,
-		     struct pack_order_entry *pe, uint16_t mtid)
+		     const struct pack_order_entry *pe, uint16_t mtid)
 {
 	const struct tlv_ops *ops = tlv_table[context][type];
 
@@ -3107,7 +3107,8 @@ static int pack_item(enum isis_tlv_context context, enum isis_tlv_type type,
 	return 1;
 }
 
-static void add_item_to_fragment(struct isis_item *i, struct pack_order_entry *pe,
+static void add_item_to_fragment(struct isis_item *i,
+				 const struct pack_order_entry *pe,
 				 struct isis_tlvs *fragment_tlvs, uint16_t mtid)
 {
 	struct isis_item_list *l;
@@ -3126,7 +3127,7 @@ static void add_item_to_fragment(struct isis_item *i, struct pack_order_entry *p
 static int pack_items_(uint16_t mtid, enum isis_tlv_context context,
 		       enum isis_tlv_type type, struct isis_item_list *items,
 		       struct stream *s, struct isis_tlvs **fragment_tlvs,
-		       struct pack_order_entry *pe,
+		       const struct pack_order_entry *pe,
 		       struct isis_tlvs *(*new_fragment)(struct list *l),
 		       struct list *new_fragment_arg)
 {
@@ -3401,7 +3402,7 @@ static void format_mt_items(enum isis_tlv_context context,
 static int pack_mt_items(enum isis_tlv_context context, enum isis_tlv_type type,
 			 struct isis_mt_item_list *m, struct stream *s,
 			 struct isis_tlvs **fragment_tlvs,
-			 struct pack_order_entry *pe,
+			 const struct pack_order_entry *pe,
 			 struct isis_tlvs *(*new_fragment)(struct list *l),
 			 struct list *new_fragment_arg)
 {
@@ -3734,7 +3735,7 @@ static void update_auth(struct isis_tlvs *tlvs, struct stream *s, bool is_lsp)
 	}
 }
 
-static int handle_pack_entry(struct pack_order_entry *pe,
+static int handle_pack_entry(const struct pack_order_entry *pe,
 			     struct isis_tlvs *tlvs, struct stream *stream,
 			     struct isis_tlvs **fragment_tlvs,
 			     struct isis_tlvs *(*new_fragment)(struct list *l),
@@ -4079,7 +4080,7 @@ TLV_OPS(router_cap, "TLV 242 Router Capability");
 ITEM_SUBTLV_OPS(prefix_sid, "Sub-TLV 3 SR Prefix-SID");
 SUBTLV_OPS(ipv6_source_prefix, "Sub-TLV 22 IPv6 Source Prefix");
 
-static const struct tlv_ops *tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
+static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 	[ISIS_CONTEXT_LSP] = {
 		[ISIS_TLV_AREA_ADDRESSES] = &tlv_area_address_ops,
 		[ISIS_TLV_OLDSTYLE_REACH] = &tlv_oldstyle_reach_ops,

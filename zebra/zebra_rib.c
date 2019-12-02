@@ -3639,7 +3639,7 @@ struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter)
 	 * Array that helps us go over all AFI/SAFI combinations via one
 	 * index.
 	 */
-	static struct {
+	static const struct {
 		afi_t afi;
 		safi_t safi;
 	} afi_safis[] = {

@@ -74,7 +74,7 @@ unsigned char protocol_group[16]; /* babel's link-local multicast address */
 int protocol_port;                /* babel's port */
 int protocol_socket = -1;         /* socket: communicate with others babeld */
 
-static char babel_config_default[] = SYSCONFDIR BABEL_DEFAULT_CONFIG;
+static const char babel_config_default[] = SYSCONFDIR BABEL_DEFAULT_CONFIG;
 static char *babel_vty_addr = NULL;
 static int babel_vty_port = BABEL_VTY_PORT;
 
@@ -136,7 +136,7 @@ struct option longopts[] =
     { 0 }
   };
 
-static const struct frr_yang_module_info *babeld_yang_modules[] =
+static const struct frr_yang_module_info *const babeld_yang_modules[] =
   {
     &frr_interface_info,
   };

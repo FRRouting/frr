@@ -39,7 +39,7 @@ static int fpt_halt(struct frr_pthread *fpt, void **res);
 static void frr_pthread_destroy_nolock(struct frr_pthread *fpt);
 
 /* default frr_pthread attributes */
-struct frr_pthread_attr frr_pthread_attr_default = {
+const struct frr_pthread_attr frr_pthread_attr_default = {
 	.start = fpt_run,
 	.stop = fpt_halt,
 };
@@ -74,7 +74,7 @@ void frr_pthread_finish(void)
 	}
 }
 
-struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
+struct frr_pthread *frr_pthread_new(const struct frr_pthread_attr *attr,
 				    const char *name, const char *os_name)
 {
 	struct frr_pthread *fpt = NULL;

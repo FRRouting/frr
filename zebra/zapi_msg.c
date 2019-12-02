@@ -1022,7 +1022,7 @@ static int zsend_table_manager_connect_response(struct zserv *client,
 
 /* Inbound message handling ------------------------------------------------ */
 
-int cmd2type[] = {
+const int cmd2type[] = {
 	[ZEBRA_NEXTHOP_REGISTER] = RNH_NEXTHOP_TYPE,
 	[ZEBRA_NEXTHOP_UNREGISTER] = RNH_NEXTHOP_TYPE,
 	[ZEBRA_IMPORT_ROUTE_REGISTER] = RNH_IMPORT_CHECK_TYPE,
@@ -2485,7 +2485,7 @@ stream_failure:
 	return;
 }
 
-void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
+void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTER_ID_ADD] = zread_router_id_add,
 	[ZEBRA_ROUTER_ID_DELETE] = zread_router_id_delete,
 	[ZEBRA_INTERFACE_ADD] = zread_interface_add,

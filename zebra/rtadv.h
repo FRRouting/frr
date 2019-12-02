@@ -131,8 +131,6 @@ struct nd_opt_dnssl { /* DNS search list option [RFC8106 5.2] */
 } __attribute__((__packed__));
 #endif
 
-extern const char *rtadv_pref_strs[];
-
 #endif /* HAVE_RTADV */
 
 typedef enum {

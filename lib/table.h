@@ -45,7 +45,7 @@ struct route_table;
  * Function vector that can be used by a client to customize the
  * behavior of one or more route tables.
  */
-typedef struct route_table_delegate_t_ route_table_delegate_t;
+typedef const struct route_table_delegate_t_ route_table_delegate_t;
 
 typedef struct route_node *(*route_table_create_node_func_t)(
 	route_table_delegate_t *, struct route_table *);

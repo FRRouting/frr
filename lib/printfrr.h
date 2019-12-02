@@ -124,7 +124,7 @@ void printfrr_ext_reg(const struct printfrr_ext *);
 #define printfrr_ext_autoreg_p(matchs, print_fn)                               \
 	static ssize_t print_fn(char *, size_t, const char *, int,             \
 				const void *);                                 \
-	static struct printfrr_ext _printext_##print_fn = {                    \
+	static const struct printfrr_ext _printext_##print_fn = {              \
 		.match = matchs,                                               \
 		.print_ptr = print_fn,                                         \
 	};                                                                     \
@@ -136,7 +136,7 @@ void printfrr_ext_reg(const struct printfrr_ext *);
 
 #define printfrr_ext_autoreg_i(matchs, print_fn)                               \
 	static ssize_t print_fn(char *, size_t, const char *, int, uintmax_t); \
-	static struct printfrr_ext _printext_##print_fn = {                    \
+	static const struct printfrr_ext _printext_##print_fn = {              \
 		.match = matchs,                                               \
 		.print_int = print_fn,                                         \
 	};                                                                     \

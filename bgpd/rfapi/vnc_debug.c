@@ -38,7 +38,7 @@ struct vnc_debug {
 	const char *name;
 };
 
-struct vnc_debug vncdebug[] = {
+static const struct vnc_debug vncdebug[] = {
 	{VNC_DEBUG_RFAPI_QUERY, "rfapi-query"},
 	{VNC_DEBUG_IMPORT_BI_ATTACH, "import-bi-attach"},
 	{VNC_DEBUG_IMPORT_DEL_REMOTE, "import-del-remote"},

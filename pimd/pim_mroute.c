@@ -147,7 +147,7 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 	return 0;
 }
 
-static const char *igmpmsgtype2str[IGMPMSG_WRVIFWHOLE + 1] = {
+static const char *const igmpmsgtype2str[IGMPMSG_WRVIFWHOLE + 1] = {
 	"<unknown_upcall?>", "NOCACHE", "WRONGVIF", "WHOLEPKT", "WRVIFWHOLE"};
 
 static int pim_mroute_msg_nocache(int fd, struct interface *ifp,

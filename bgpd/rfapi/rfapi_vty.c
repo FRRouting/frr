@@ -127,8 +127,8 @@ void rfapiRprefixApplyMask(struct rfapi_ip_prefix *rprefix)
 	int index;
 	int offset;
 
-	static uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
-				    0xf8, 0xfc, 0xfe, 0xff};
+	static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
+					  0xf8, 0xfc, 0xfe, 0xff};
 
 	switch (rprefix->prefix.addr_family) {
 	case AF_INET:

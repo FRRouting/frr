@@ -66,7 +66,7 @@ DECLARE_HEAP(thread_timer_list, struct thread, timeritem,
 
 #define AWAKEN(m)                                                              \
 	do {                                                                   \
-		static unsigned char wakebyte = 0x01;                          \
+		const unsigned char wakebyte = 0x01;                           \
 		write(m->io_pipe[1], &wakebyte, 1);                            \
 	} while (0);
 

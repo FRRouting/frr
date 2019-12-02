@@ -27,7 +27,7 @@
 DEFINE_MTYPE_STATIC(LIB, TTABLE, "ASCII table")
 
 /* clang-format off */
-struct ttable_style ttable_styles[] = {
+const struct ttable_style ttable_styles[] = {
 	{	// default ascii
 		.corner = '+',
 		.rownums_on = false,
@@ -99,7 +99,7 @@ void ttable_del(struct ttable *tt)
 	XFREE(MTYPE_TTABLE, tt);
 }
 
-struct ttable *ttable_new(struct ttable_style *style)
+struct ttable *ttable_new(const struct ttable_style *style)
 {
 	struct ttable *tt;
 

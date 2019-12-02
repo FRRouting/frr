@@ -39,7 +39,7 @@ void babelz_zebra_init(void);
 struct zclient *zclient;
 
 /* Debug types */
-static struct {
+static const struct {
     int type;
     int str_min_len;
     const char *str;

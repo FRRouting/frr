@@ -79,9 +79,12 @@ static void route_match_metric_free(void *rule)
 }
 
 /* Route map commands for metric matching. */
-static struct route_map_rule_cmd route_match_metric_cmd = {
-	"metric", route_match_metric, route_match_metric_compile,
-	route_match_metric_free};
+static const struct route_map_rule_cmd route_match_metric_cmd = {
+	"metric",
+	route_match_metric,
+	route_match_metric_compile,
+	route_match_metric_free
+};
 
 /* `match interface IFNAME' */
 /* Match function return 1 if match is success else return zero. */
@@ -121,9 +124,12 @@ static void route_match_interface_free(void *rule)
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-static struct route_map_rule_cmd route_match_interface_cmd = {
-	"interface", route_match_interface, route_match_interface_compile,
-	route_match_interface_free};
+static const struct route_map_rule_cmd route_match_interface_cmd = {
+	"interface",
+	route_match_interface,
+	route_match_interface_compile,
+	route_match_interface_free
+};
 
 /* `match tag TAG' */
 /* Match function return 1 if match is success else return zero. */
@@ -150,8 +156,10 @@ static enum route_map_cmd_result_t route_match_tag(void *rule,
 	return RMAP_NOMATCH;
 }
 
-static struct route_map_rule_cmd route_match_tag_cmd = {
-	"tag", route_match_tag, route_map_rule_tag_compile,
+static const struct route_map_rule_cmd route_match_tag_cmd = {
+	"tag",
+	route_match_tag,
+	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
 };
 
@@ -246,8 +254,10 @@ static void route_set_metric_free(void *rule)
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-static struct route_map_rule_cmd route_set_metric_cmd = {
-	"metric", route_set_metric, route_set_metric_compile,
+static const struct route_map_rule_cmd route_set_metric_cmd = {
+	"metric",
+	route_set_metric,
+	route_set_metric_compile,
 	route_set_metric_free,
 };
 
@@ -299,10 +309,13 @@ static void route_set_ipv6_nexthop_local_free(void *rule)
 }
 
 /* Route map commands for ipv6 nexthop local set. */
-static struct route_map_rule_cmd route_set_ipv6_nexthop_local_cmd = {
-	"ipv6 next-hop local", route_set_ipv6_nexthop_local,
+static const struct route_map_rule_cmd
+		route_set_ipv6_nexthop_local_cmd = {
+	"ipv6 next-hop local",
+	route_set_ipv6_nexthop_local,
 	route_set_ipv6_nexthop_local_compile,
-	route_set_ipv6_nexthop_local_free};
+	route_set_ipv6_nexthop_local_free
+};
 
 /* `set tag TAG' */
 
@@ -327,9 +340,12 @@ route_set_tag(void *rule, const struct prefix *prefix, route_map_object_t type,
 }
 
 /* Route map commands for tag set. */
-static struct route_map_rule_cmd route_set_tag_cmd = {
-	"tag", route_set_tag, route_map_rule_tag_compile,
-	route_map_rule_tag_free};
+static const struct route_map_rule_cmd route_set_tag_cmd = {
+	"tag",
+	route_set_tag,
+	route_map_rule_tag_compile,
+	route_map_rule_tag_free
+};
 
 #define MATCH_STR "Match values from routing table\n"
 #define SET_STR "Set values in destination routing protocol\n"

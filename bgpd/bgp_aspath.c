@@ -102,8 +102,10 @@ static void assegment_data_free(as_t *asdata)
 	XFREE(MTYPE_AS_SEG_DATA, asdata);
 }
 
-const char *aspath_segment_type_str[] = {"as-invalid", "as-set", "as-sequence",
-					 "as-confed-sequence", "as-confed-set"};
+const char *const aspath_segment_type_str[] = {
+	"as-invalid", "as-set", "as-sequence", "as-confed-sequence",
+	"as-confed-set"
+};
 
 /* Get a new segment. Note that 0 is an allowed length,
  * and will result in a segment with no allocated data segment.

@@ -76,7 +76,7 @@ typedef enum {
 	PHASE_WAITING_ZEBRA_UP
 } restart_phase_t;
 
-static const char *phase_str[] = {
+static const char *const phase_str[] = {
 	"Idle",
 	"Startup",
 	"Stop jobs running",
@@ -144,7 +144,7 @@ typedef enum {
 #define IS_UP(DMN)                                                             \
 	(((DMN)->state == DAEMON_UP) || ((DMN)->state == DAEMON_UNRESPONSIVE))
 
-static const char *state_str[] = {
+static const char *const state_str[] = {
 	"Init", "Down", "Connecting", "Up", "Unresponsive",
 };
 

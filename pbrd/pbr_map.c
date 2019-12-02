@@ -145,7 +145,7 @@ static void pbr_map_pbrms_uninstall(struct pbr_map_sequence *pbrms)
 	pbr_map_pbrms_update_common(pbrms, false);
 }
 
-static const char *pbr_map_reason_str[] = {
+static const char *const pbr_map_reason_str[] = {
 	"Invalid NH-group",     "Invalid NH",	 "No Nexthops",
 	"Both NH and NH-Group", "Invalid Src or Dst", "Invalid VRF",
 	"Deleting Sequence",

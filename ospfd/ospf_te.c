@@ -69,7 +69,7 @@
  */
 struct ospf_mpls_te OspfMplsTE;
 
-const char *mode2text[] = {"Off", "AS", "Area"};
+static const char *const mode2text[] = {"Off", "AS", "Area"};
 
 /*------------------------------------------------------------------------*
  * Followings are initialize/terminate functions for MPLS-TE handling.

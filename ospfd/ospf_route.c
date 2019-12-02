@@ -622,8 +622,10 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 		zlog_debug("ospf_intra_add_stub(): Stop");
 }
 
-const char *ospf_path_type_str[] = {"unknown-type", "intra-area", "inter-area",
-				    "type1-external", "type2-external"};
+static const char *const ospf_path_type_str[] = {
+	"unknown-type", "intra-area", "inter-area", "type1-external",
+	"type2-external"
+};
 
 void ospf_route_table_dump(struct route_table *rt)
 {

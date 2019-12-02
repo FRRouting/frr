@@ -72,9 +72,11 @@ struct zebra_privs_t ospfd_privs = {
 	.cap_num_i = 0};
 
 /* OSPFd options. */
-struct option longopts[] = {{"instance", required_argument, NULL, 'n'},
-			    {"apiserver", no_argument, NULL, 'a'},
-			    {0}};
+const struct option longopts[] = {
+	{"instance", required_argument, NULL, 'n'},
+	{"apiserver", no_argument, NULL, 'a'},
+	{0}
+};
 
 /* OSPFd program name */
 
@@ -123,7 +125,7 @@ struct quagga_signal_t ospf_signals[] = {
 	},
 };
 
-static const struct frr_yang_module_info *ospfd_yang_modules[] = {
+static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
 	&frr_interface_info,
 };
 
