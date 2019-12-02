@@ -28,6 +28,7 @@ from subprocess import PIPE as SUB_PIPE
 from subprocess import Popen
 from functools import wraps
 from re import search as re_search
+from tempfile import mkdtemp
 
 import StringIO
 import os
@@ -276,10 +277,18 @@ def reset_config_on_routers(tgen, routerName=None):
 
         run_cfg_file = "{}/{}/frr.sav".format(TMPDIR, rname)
         init_cfg_file = "{}/{}/frr_json_initial.conf".format(TMPDIR, rname)
-        command = "/usr/lib/frr/frr-reload.py  --input {} --test {} > {}". \
-            format(run_cfg_file, init_cfg_file, dname)
+
+        tempdir = mkdtemp()
+        with open(os.path.join(tempdir, 'vtysh.conf'), 'w') as fd:
+            pass
+
+        command = "/usr/lib/frr/frr-reload.py --confdir {} --input {} --test {} > {}". \
+            format(tempdir, run_cfg_file, init_cfg_file, dname)
         result = call(command, shell=True, stderr=SUB_STDOUT,
                       stdout=SUB_PIPE)
+
+        os.unlink(os.path.join(tempdir, 'vtysh.conf'))
+        os.rmdir(tempdir)
 
         # Assert if command fail
         if result > 0:
