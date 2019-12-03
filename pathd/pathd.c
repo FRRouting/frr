@@ -264,7 +264,8 @@ void te_sr_policy_candidate_path_delete(struct te_sr_policy *te_sr_policy,
 	te_sr_policy_candidate_path_set_active(te_sr_policy);
 }
 
-char *te_sr_policy_get_name(uint32_t color, struct ipaddr *endpoint)
+struct te_sr_policy *te_sr_policy_get_by_color_endpoint(uint32_t color,
+							struct ipaddr *endpoint)
 {
 	struct te_sr_policy te_sr_policy_search;
 	struct te_sr_policy *te_sr_policy_found;
@@ -275,6 +276,16 @@ char *te_sr_policy_get_name(uint32_t color, struct ipaddr *endpoint)
 	te_sr_policy_found =
 		RB_FIND(te_sr_policy_instance_head, &te_sr_policy_instances,
 			&te_sr_policy_search);
+
+	return te_sr_policy_found;
+}
+
+char *te_sr_policy_get_name(uint32_t color, struct ipaddr *endpoint)
+{
+	struct te_sr_policy *te_sr_policy_found;
+
+	te_sr_policy_found =
+		te_sr_policy_get_by_color_endpoint(color, endpoint);
 
 	return strdup(te_sr_policy_found->name);
 }

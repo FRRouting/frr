@@ -158,3 +158,15 @@ int nb_pcep_add_candidate_path(const char *color_str, const char *endpoint_str,
 
 	return ret;
 }
+
+struct te_sr_policy *nb_pcep_get_sr_policy(const char *color_str,
+					   const char *endpoint_str)
+{
+	struct ipaddr endpoint;
+	uint32_t color = strtoul(color_str, NULL, 10);
+	str2ipaddr(endpoint_str, &endpoint);
+	struct te_sr_policy *te_sr_policy =
+		te_sr_policy_get_by_color_endpoint(color, &endpoint);
+
+	return te_sr_policy;
+}
