@@ -53,3 +53,7 @@ endif
 if VRRPD
 dist_yangmodels_DATA += yang/frr-vrrpd.yang
 endif
+
+if STATICD
+dist_yangmodels_DATA += yang/frr-staticd.yang
+endif
