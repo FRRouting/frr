@@ -1977,6 +1977,8 @@ DEFUN (shutdown_if,
 	struct zebra_if *if_data;
 
 	if (ifp->ifindex != IFINDEX_INTERNAL) {
+		/* send RA lifetime of 0 before stopping. rfc4861/6.2.5 */
+		rtadv_stop_ra(ifp);
 		ret = if_unset_flags(ifp, IFF_UP);
 		if (ret < 0) {
 			vty_out(vty, "Can't shutdown interface\n");
