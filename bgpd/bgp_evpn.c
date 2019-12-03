@@ -1918,9 +1918,15 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* lock ri to prevent freeing in evpn_route_select_install */
 	bgp_path_info_lock(pi);
-	/* Perform route selection; this is just to set the flags correctly
-	 * as local route in the VNI always wins.
-	 */
+
+       /* Perform route selection. Normally, the local route in the
+        * VNI is expected to win and be the best route. However, if
+        * there is a race condition where a host moved from local to
+        * remote and the remote route was received in BGP just prior
+        * to the local MACIP notification from zebra, the remote
+        * route would win, and we should evict the defunct local route
+        * and (re)install the remote route into zebra.
+	*/
 	evpn_route_select_install(bgp, vpn, rn);
 	/*
 	 * If the new local route was not selected evict it and tell zebra
@@ -2207,24 +2213,40 @@ static int update_all_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 		update_evpn_route_entry(bgp, vpn, afi, safi, rn, &attr, 0, &pi,
 					0, seq);
 
-		/* Perform route selection; this is just to set the flags
-		 * correctly as local route in the VNI always wins.
+		/* lock ri to prevent freeing in evpn_route_select_install */
+		bgp_path_info_lock(pi);
+
+		/* Perform route selection. Normally, the local route in the
+		 * VNI is expected to win and be the best route. However,
+		 * under peculiar situations (e.g., tunnel (next hop) IP change
+		 * that causes best selection to be based on next hop), a
+		 * remote route could win. If the local route is the best,
+		 * ensure it is updated in the global EVPN route table and
+		 * advertised to peers; otherwise, ensure it is evicted and
+		 * (re)install the remote route into zebra.
 		 */
 		evpn_route_select_install(bgp, vpn, rn);
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
+			evpn_cleanup_local_non_best_route(bgp, vpn, rn, pi);
+			/* unlock pi */
+			bgp_path_info_unlock(pi);
+		} else {
+			attr_new = pi->attr;
+			/* unlock pi */
+			bgp_path_info_unlock(pi);
 
-		attr_new = pi->attr;
+			/* Update route in global routing table. */
+			rd_rn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi,
+						 (struct prefix *)evp, &vpn->prd);
+			assert(rd_rn);
+			update_evpn_route_entry(bgp, vpn, afi, safi, rd_rn,
+						attr_new, 0, &global_pi, 0,
+						mac_mobility_seqnum(attr_new));
 
-		/* Update route in global routing table. */
-		rd_rn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi,
-					 (struct prefix *)evp, &vpn->prd);
-		assert(rd_rn);
-		update_evpn_route_entry(bgp, vpn, afi, safi, rd_rn, attr_new, 0,
-					&global_pi, 0,
-					mac_mobility_seqnum(attr_new));
-
-		/* Schedule for processing and unlock node. */
-		bgp_process(bgp, rd_rn, afi, safi);
-		bgp_unlock_node(rd_rn);
+			/* Schedule for processing and unlock node. */
+			bgp_process(bgp, rd_rn, afi, safi);
+			bgp_unlock_node(rd_rn);
+		}
 
 		/* Unintern temporary. */
 		aspath_unintern(&attr.aspath);
