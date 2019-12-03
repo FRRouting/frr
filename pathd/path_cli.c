@@ -29,15 +29,24 @@
 #include "pathd/path_cli_clippy.c"
 #endif
 
-static int config_write_paths(struct vty *vty);
+static int config_write_segment_lists(struct vty *vty);
+static int config_write_sr_policies(struct vty *vty);
 
-/* TE path node structure. */
-static struct cmd_node te_path_node = {
-        .name = "te-path",
-        .node = TE_PATH_NODE,
+/* Vty node structures. */
+static struct cmd_node segment_list_node = {
+        .name = "segment-list",
+        .node = SEGMENT_LIST_NODE,
         .parent_node = CONFIG_NODE,
-        .prompt = "%s(config-te-path)# ",
-        .config_write = config_write_paths,
+        .prompt = "%s(config-segment-list)# ",
+        .config_write = config_write_segment_lists,
+};
+
+static struct cmd_node sr_policy_node = {
+        .name = "sr-policy",
+        .node = SR_POLICY_NODE,
+        .parent_node = CONFIG_NODE,
+        .prompt = "%s(config-sr-policy)# ",
+        .config_write = config_write_sr_policies,
 };
 
 /*
@@ -57,7 +66,7 @@ DEFPY_NOSH(te_path_segment_list, te_path_segment_list_cmd,
 
 	ret = nb_cli_apply_changes(vty, NULL);
 	if (ret == CMD_SUCCESS)
-		VTY_PUSH_XPATH(TE_PATH_NODE, xpath);
+		VTY_PUSH_XPATH(SEGMENT_LIST_NODE, xpath);
 
 	return ret;
 }
@@ -131,7 +140,7 @@ DEFPY_NOSH(te_path_sr_policy, te_path_sr_policy_cmd, "sr-policy WORD$name",
 
 	ret = nb_cli_apply_changes(vty, NULL);
 	if (ret == CMD_SUCCESS)
-		VTY_PUSH_XPATH(TE_PATH_NODE, xpath);
+		VTY_PUSH_XPATH(SR_POLICY_NODE, xpath);
 
 	return ret;
 }
@@ -320,30 +329,46 @@ void cli_show_te_path_sr_policy_candidate_path(struct vty *vty,
 		preference, segment_list_name);
 }
 
-int config_write_paths(struct vty *vty)
+static int config_write_dnode(const struct lyd_node *dnode, void *arg)
 {
-	struct lyd_node *dnode;
+	struct vty *vty = arg;
 
-	dnode = yang_dnode_get(running_config->dnode, "/frr-pathd:pathd");
-	assert(dnode);
-	nb_cli_show_dnode_cmds(vty, dnode, false);
+	nb_cli_show_dnode_cmds(vty, (struct lyd_node *)dnode, false);
+
+	return YANG_ITER_CONTINUE;
+}
+
+int config_write_segment_lists(struct vty *vty)
+{
+	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
+			   "/frr-pathd:pathd/segment-list");
+
+	return 1;
+}
+
+int config_write_sr_policies(struct vty *vty)
+{
+	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
+			   "/frr-pathd:pathd/sr-policy");
 
 	return 1;
 }
 
 void path_cli_init(void)
 {
-	install_node(&te_path_node);
-	install_default(TE_PATH_NODE);
+	install_node(&segment_list_node);
+	install_node(&sr_policy_node);
+	install_default(SEGMENT_LIST_NODE);
+	install_default(SR_POLICY_NODE);
 
 	install_element(CONFIG_NODE, &te_path_segment_list_cmd);
 	install_element(CONFIG_NODE, &no_te_path_segment_list_cmd);
-	install_element(TE_PATH_NODE, &te_path_segment_list_label_cmd);
+	install_element(SEGMENT_LIST_NODE, &te_path_segment_list_label_cmd);
 	install_element(CONFIG_NODE, &te_path_sr_policy_cmd);
 	install_element(CONFIG_NODE, &no_te_path_sr_policy_cmd);
-	install_element(TE_PATH_NODE, &te_path_sr_policy_color_cmd);
-	install_element(TE_PATH_NODE, &te_path_sr_policy_endpoint_cmd);
-	install_element(TE_PATH_NODE, &te_path_sr_policy_binding_sid_cmd);
-	install_element(TE_PATH_NODE, &te_path_sr_policy_candidate_path_cmd);
-	install_element(TE_PATH_NODE, &no_te_path_sr_policy_candidate_path_cmd);
+	install_element(SR_POLICY_NODE, &te_path_sr_policy_color_cmd);
+	install_element(SR_POLICY_NODE, &te_path_sr_policy_endpoint_cmd);
+	install_element(SR_POLICY_NODE, &te_path_sr_policy_binding_sid_cmd);
+	install_element(SR_POLICY_NODE, &te_path_sr_policy_candidate_path_cmd);
+	install_element(SR_POLICY_NODE, &no_te_path_sr_policy_candidate_path_cmd);
 }

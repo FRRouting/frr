@@ -145,7 +145,8 @@ enum node_type {
 	PROTOCOL_NODE,		 /* protocol filtering node */
 	MPLS_NODE,		 /* MPLS config node */
 	PW_NODE,		 /* Pseudowire config node */
-	TE_PATH_NODE,		 /* TE path config node */
+	SEGMENT_LIST_NODE,	 /* SR segment list config node */
+	SR_POLICY_NODE,		 /* SR policy config node */
 	VTY_NODE,		 /* Vty node. */
 	FPM_NODE,		 /* Dataplane FPM node. */
 	LINK_PARAMS_NODE,	/* Link-parameters node */

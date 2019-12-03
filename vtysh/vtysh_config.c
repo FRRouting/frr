@@ -316,8 +316,10 @@ void vtysh_config_parse_line(void *arg, const char *line)
 		else if (strncmp(line, "router openfabric", strlen("router openfabric"))
 			 == 0)
 			config = config_get(OPENFABRIC_NODE, line);
-		else if (strncmp(line, "te-path", strlen("te-path")) == 0)
-			config = config_get(TE_PATH_NODE, line);
+		else if (strncmp(line, "segment-list", strlen("segment-list")) == 0)
+			config = config_get(SEGMENT_LIST_NODE, line);
+		else if (strncmp(line, "sr-policy", strlen("sr-policy")) == 0)
+			config = config_get(SR_POLICY_NODE, line);
 		else if (strncmp(line, "route-map", strlen("route-map")) == 0)
 			config = config_get(RMAP_NODE, line);
 		else if (strncmp(line, "pbr-map", strlen("pbr-map")) == 0)

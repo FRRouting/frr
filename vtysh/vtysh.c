@@ -1213,11 +1213,18 @@ static struct cmd_node pw_node = {
 	.prompt = "%s(config-pw)# ",
 };
 
-static struct cmd_node te_path_node = {
-        .name = "te-path",
-        .node = TE_PATH_NODE,
+static struct cmd_node segment_list_node = {
+        .name = "segment-list",
+        .node = SEGMENT_LIST_NODE,
         .parent_node = CONFIG_NODE,
-        .prompt = "%s(config-te-path)# ",
+        .prompt = "%s(config-segment-list)# ",
+};
+
+static struct cmd_node sr_policy_node = {
+        .name = "sr-policy",
+        .node = SR_POLICY_NODE,
+        .parent_node = CONFIG_NODE,
+        .prompt = "%s(config-sr-policy)# ",
 };
 
 static struct cmd_node vrf_node = {
@@ -1920,7 +1927,7 @@ DEFUNSH(VTYSH_PATHD, te_path_segment_list, te_path_segment_list_cmd,
 	"Segment List\n"
 	"Segment List Name\n")
 {
-	vty->node = TE_PATH_NODE;
+	vty->node = SEGMENT_LIST_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -1929,7 +1936,7 @@ DEFUNSH(VTYSH_PATHD, te_path_sr_policy, te_path_sr_policy_cmd,
 	"Segment Routing Policy\n"
 	"SR Policy name\n")
 {
-	vty->node = TE_PATH_NODE;
+	vty->node = SR_POLICY_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -3812,7 +3819,8 @@ void vtysh_init_vty(void)
 	install_node(&rip_node);
 	install_node(&interface_node);
 	install_node(&pw_node);
-	install_node(&te_path_node);
+	install_node(&segment_list_node);
+	install_node(&sr_policy_node);
 	install_node(&link_params_node);
 	install_node(&vrf_node);
 	install_node(&nh_group_node);
@@ -3951,8 +3959,10 @@ void vtysh_init_vty(void)
 	install_element(KEYCHAIN_NODE, &vtysh_quit_ripd_cmd);
 	install_element(KEYCHAIN_KEY_NODE, &vtysh_exit_ripd_cmd);
 	install_element(KEYCHAIN_KEY_NODE, &vtysh_quit_ripd_cmd);
-	install_element(TE_PATH_NODE, &vtysh_exit_pathd_cmd);
-	install_element(TE_PATH_NODE, &vtysh_quit_pathd_cmd);
+	install_element(SEGMENT_LIST_NODE, &vtysh_exit_pathd_cmd);
+	install_element(SEGMENT_LIST_NODE, &vtysh_quit_pathd_cmd);
+	install_element(SR_POLICY_NODE, &vtysh_exit_pathd_cmd);
+	install_element(SR_POLICY_NODE, &vtysh_quit_pathd_cmd);
 	install_element(RMAP_NODE, &vtysh_exit_rmap_cmd);
 	install_element(RMAP_NODE, &vtysh_quit_rmap_cmd);
 	install_element(PBRMAP_NODE, &vtysh_exit_pbr_map_cmd);
@@ -4016,7 +4026,8 @@ void vtysh_init_vty(void)
 	install_element(OPENFABRIC_NODE, &vtysh_end_all_cmd);
 	install_element(KEYCHAIN_NODE, &vtysh_end_all_cmd);
 	install_element(KEYCHAIN_KEY_NODE, &vtysh_end_all_cmd);
-	install_element(TE_PATH_NODE, &vtysh_end_all_cmd);
+	install_element(SEGMENT_LIST_NODE, &vtysh_end_all_cmd);
+	install_element(SR_POLICY_NODE, &vtysh_end_all_cmd);
 	install_element(RMAP_NODE, &vtysh_end_all_cmd);
 	install_element(PBRMAP_NODE, &vtysh_end_all_cmd);
 	install_element(VTY_NODE, &vtysh_end_all_cmd);
