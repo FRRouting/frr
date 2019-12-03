@@ -89,11 +89,8 @@ DEFPY(no_te_path_segment_list, no_te_path_segment_list_cmd,
 void cli_show_te_path_segment_list(struct vty *vty, struct lyd_node *dnode,
 				   bool show_defaults)
 {
-	const char *name;
-
-	name = yang_dnode_get_string(dnode, "./name");
-
-	vty_out(vty, "segment-list %s\n", name);
+	vty_out(vty, "segment-list %s\n",
+		yang_dnode_get_string(dnode, "./name"));
 }
 
 /*
@@ -117,11 +114,7 @@ void cli_show_te_path_segment_list_label(struct vty *vty,
 					 struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	uint32_t label;
-
-	label = yang_dnode_get_uint32(dnode, NULL);
-
-	vty_out(vty, " mpls label %u\n", label);
+	vty_out(vty, " mpls label %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
 /*
@@ -162,11 +155,7 @@ DEFPY(no_te_path_sr_policy, no_te_path_sr_policy_cmd, "no sr-policy WORD$name",
 void cli_show_te_path_sr_policy(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults)
 {
-	const char *name;
-
-	name = yang_dnode_get_string(dnode, "./name");
-
-	vty_out(vty, "sr-policy %s\n", name);
+	vty_out(vty, "sr-policy %s\n", yang_dnode_get_string(dnode, "./name"));
 }
 
 /*
@@ -188,11 +177,7 @@ DEFPY(te_path_sr_policy_color, te_path_sr_policy_color_cmd,
 void cli_show_te_path_sr_policy_color(struct vty *vty, struct lyd_node *dnode,
 				      bool show_defaults)
 {
-	uint32_t color;
-
-	color = yang_dnode_get_uint32(dnode, NULL);
-
-	vty_out(vty, " color %u\n", color);
+	vty_out(vty, " color %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
 /*
@@ -215,16 +200,7 @@ void cli_show_te_path_sr_policy_endpoint(struct vty *vty,
 					 struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	struct ipaddr *endpoint = malloc(sizeof(struct ipaddr));
-	char *endpoint_str = malloc(sizeof(char) * MAX_IP_STR_LENGTH);
-
-	yang_dnode_get_ip(endpoint, dnode, NULL);
-	ipaddr2str(endpoint, endpoint_str, sizeof(endpoint_str));
-
-	vty_out(vty, " endpoint %s\n", endpoint_str);
-
-	free(endpoint);
-	free(endpoint_str);
+	vty_out(vty, " endpoint %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
 /*
@@ -247,11 +223,7 @@ void cli_show_te_path_sr_policy_binding_sid(struct vty *vty,
 					    struct lyd_node *dnode,
 					    bool show_defaults)
 {
-	uint32_t binding_sid;
-
-	binding_sid = yang_dnode_get_uint32(dnode, NULL);
-
-	vty_out(vty, " binding-sid %u\n", binding_sid);
+	vty_out(vty, " binding-sid %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
 /*
@@ -319,14 +291,9 @@ void cli_show_te_path_sr_policy_candidate_path(struct vty *vty,
 					       struct lyd_node *dnode,
 					       bool show_defaults)
 {
-	uint32_t preference;
-	const char *segment_list_name;
-
-	preference = yang_dnode_get_uint32(dnode, "./preference");
-	segment_list_name = yang_dnode_get_string(dnode, "./segment-list-name");
-
-	vty_out(vty, " candidate-path preference %u explicit segment-list %s\n",
-		preference, segment_list_name);
+	vty_out(vty, " candidate-path preference %s explicit segment-list %s\n",
+		yang_dnode_get_string(dnode, "./preference"),
+		yang_dnode_get_string(dnode, "./segment-list-name"));
 }
 
 static int config_write_dnode(const struct lyd_node *dnode, void *arg)
