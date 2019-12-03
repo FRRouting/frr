@@ -1464,6 +1464,11 @@ static void vty_read(struct thread *thread)
 			vty_out(vty, "\n");
 			buffer_flush_available(vty->obuf, vty->wfd);
 			vty_execute(vty);
+
+			if (vty->pass_fd != -1) {
+				close(vty->pass_fd);
+				vty->pass_fd = -1;
+			}
 			break;
 		case '\t':
 			vty_complete_command(vty);
@@ -1561,6 +1566,7 @@ struct vty *vty_new(void)
 	new->obuf = buffer_new(0); /* Use default buffer size. */
 	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
 	new->max = VTY_BUFSIZ;
+	new->pass_fd = -1;
 
 	return new;
 }
@@ -2010,9 +2016,64 @@ static void vtysh_accept(struct thread *thread)
 	vty_event(VTYSH_READ, vty);
 }
 
+static int vtysh_do_pass_fd(struct vty *vty)
+{
+	struct iovec iov[1] = {
+		{
+			.iov_base = vty->pass_fd_status,
+			.iov_len = sizeof(vty->pass_fd_status),
+		},
+	};
+	union {
+		uint8_t buf[CMSG_SPACE(sizeof(int))];
+		struct cmsghdr align;
+	} u;
+	struct msghdr mh = {
+		.msg_iov = iov,
+		.msg_iovlen = array_size(iov),
+		.msg_control = u.buf,
+		.msg_controllen = sizeof(u.buf),
+	};
+	struct cmsghdr *cmh = CMSG_FIRSTHDR(&mh);
+	ssize_t ret;
+
+	cmh->cmsg_level = SOL_SOCKET;
+	cmh->cmsg_type = SCM_RIGHTS;
+	cmh->cmsg_len = CMSG_LEN(sizeof(int));
+	memcpy(CMSG_DATA(cmh), &vty->pass_fd, sizeof(int));
+
+	ret = sendmsg(vty->wfd, &mh, 0);
+	if (ret < 0 && ERRNO_IO_RETRY(errno))
+		return BUFFER_PENDING;
+
+	close(vty->pass_fd);
+	vty->pass_fd = -1;
+	vty->status = VTY_NORMAL;
+
+	if (ret <= 0)
+		return BUFFER_ERROR;
+
+	/* resume accepting commands (suspended in vtysh_read) */
+	vty_event(VTYSH_READ, vty);
+
+	if ((size_t)ret < sizeof(vty->pass_fd_status)) {
+		size_t remains = sizeof(vty->pass_fd_status) - ret;
+
+		buffer_put(vty->obuf, vty->pass_fd_status + ret, remains);
+		return BUFFER_PENDING;
+	}
+	return BUFFER_EMPTY;
+}
+
 static int vtysh_flush(struct vty *vty)
 {
-	switch (buffer_flush_available(vty->obuf, vty->wfd)) {
+	int ret;
+
+	ret = buffer_flush_available(vty->obuf, vty->wfd);
+	if (ret == BUFFER_EMPTY && vty->status == VTY_PASSFD)
+		ret = vtysh_do_pass_fd(vty);
+
+	switch (ret) {
 	case BUFFER_PENDING:
 		vty_event(VTYSH_WRITE, vty);
 		break;
@@ -2029,6 +2090,14 @@ static int vtysh_flush(struct vty *vty)
 		break;
 	}
 	return 0;
+}
+
+void vty_pass_fd(struct vty *vty, int fd)
+{
+	if (vty->pass_fd != -1)
+		close(vty->pass_fd);
+
+	vty->pass_fd = fd;
 }
 
 static void vtysh_read(struct thread *thread)
@@ -2089,6 +2158,26 @@ static void vtysh_read(struct thread *thread)
 				printf("result: %d\n", ret);
 				printf("vtysh node: %d\n", vty->node);
 #endif /* VTYSH_DEBUG */
+
+				if (vty->pass_fd != -1) {
+					memset(vty->pass_fd_status, 0, 4);
+					vty->pass_fd_status[3] = ret;
+					vty->status = VTY_PASSFD;
+
+					if (!vty->t_write)
+						vty_event(VTYSH_WRITE, vty);
+
+					/* this introduces a "sequence point"
+					 * command output is written normally,
+					 * read processing is suspended until
+					 * buffer is empty
+					 * then retcode + FD is written
+					 * then normal processing resumes
+					 *
+					 * => skip vty_event(VTYSH_READ, vty)!
+					 */
+					return;
+				}
 
 				/* hack for asynchronous "write integrated"
 				 * - other commands in "buf" will be ditched
@@ -2160,6 +2249,11 @@ void vty_close(struct vty *vty)
 	THREAD_OFF(vty->t_read);
 	THREAD_OFF(vty->t_write);
 	THREAD_OFF(vty->t_timeout);
+
+	if (vty->pass_fd != -1) {
+		close(vty->pass_fd);
+		vty->pass_fd = -1;
+	}
 
 	/* Flush buffer. */
 	buffer_flush_all(vty->obuf, vty->wfd);
