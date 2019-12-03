@@ -102,10 +102,19 @@ DEFPY(te_path_segment_list_label, te_path_segment_list_label_cmd,
       "Label\n"
       "Label Value\n")
 {
-	char xpath[XPATH_MAXLEN];
+	nb_cli_enqueue_change(vty, "./label", NB_OP_CREATE, label_str);
 
-	snprintf(xpath, sizeof(xpath), "./label");
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, label_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_te_path_segment_list_label, no_te_path_segment_list_label_cmd,
+      "no mpls label (16-1048575)$label",
+      NO_STR
+      "MPLS or IP Label\n"
+      "Label\n"
+      "Label Value\n")
+{
+	nb_cli_enqueue_change(vty, "./label", NB_OP_DESTROY, label_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -166,10 +175,18 @@ DEFPY(te_path_sr_policy_color, te_path_sr_policy_color_cmd,
       "Segment Routing Policy Color\n"
       "SR Policy color\n")
 {
-	char xpath[XPATH_MAXLEN];
+	nb_cli_enqueue_change(vty, "./color", NB_OP_CREATE, num_str);
 
-	snprintf(xpath, sizeof(xpath), "./color");
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, num_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_te_path_sr_policy_color, no_te_path_sr_policy_color_cmd,
+      "no color [(0-4294967295)]",
+      NO_STR
+      "Segment Routing Policy Color\n"
+      "SR Policy color\n")
+{
+	nb_cli_enqueue_change(vty, "./color", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -188,13 +205,22 @@ DEFPY(te_path_sr_policy_endpoint, te_path_sr_policy_endpoint_cmd,
       "Segment Routing Policy Endpoint\n"
       "SR Policy endpoint IP\n")
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), "./endpoint");
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, endpoint_str);
+	nb_cli_enqueue_change(vty, "./endpoint", NB_OP_CREATE, endpoint_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+DEFPY(no_te_path_sr_policy_endpoint, no_te_path_sr_policy_endpoint_cmd,
+      "no endpoint [A.B.C.D]",
+      NO_STR
+      "Segment Routing Policy Endpoint\n"
+      "SR Policy endpoint IP\n")
+{
+	nb_cli_enqueue_change(vty, "./endpoint", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 
 void cli_show_te_path_sr_policy_endpoint(struct vty *vty,
 					 struct lyd_node *dnode,
@@ -211,10 +237,18 @@ DEFPY(te_path_sr_policy_binding_sid, te_path_sr_policy_binding_sid_cmd,
       "Segment Routing Policy Binding-SID\n"
       "SR Policy Binding-SID label\n")
 {
-	char xpath[XPATH_MAXLEN];
+	nb_cli_enqueue_change(vty, "./binding-sid", NB_OP_CREATE, label_str);
 
-	snprintf(xpath, sizeof(xpath), "./binding-sid");
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, label_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_te_path_sr_policy_binding_sid, no_te_path_sr_policy_binding_sid_cmd,
+      "no binding-sid [(0-1048575)]",
+      NO_STR
+      "Segment Routing Policy Binding-SID\n"
+      "SR Policy Binding-SID label\n")
+{
+	nb_cli_enqueue_change(vty, "./binding-sid", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -331,11 +365,15 @@ void path_cli_init(void)
 	install_element(CONFIG_NODE, &te_path_segment_list_cmd);
 	install_element(CONFIG_NODE, &no_te_path_segment_list_cmd);
 	install_element(SEGMENT_LIST_NODE, &te_path_segment_list_label_cmd);
+	install_element(SEGMENT_LIST_NODE, &no_te_path_segment_list_label_cmd);
 	install_element(CONFIG_NODE, &te_path_sr_policy_cmd);
 	install_element(CONFIG_NODE, &no_te_path_sr_policy_cmd);
 	install_element(SR_POLICY_NODE, &te_path_sr_policy_color_cmd);
+	install_element(SR_POLICY_NODE, &no_te_path_sr_policy_color_cmd);
 	install_element(SR_POLICY_NODE, &te_path_sr_policy_endpoint_cmd);
+	install_element(SR_POLICY_NODE, &no_te_path_sr_policy_endpoint_cmd);
 	install_element(SR_POLICY_NODE, &te_path_sr_policy_binding_sid_cmd);
+	install_element(SR_POLICY_NODE, &no_te_path_sr_policy_binding_sid_cmd);
 	install_element(SR_POLICY_NODE, &te_path_sr_policy_candidate_path_cmd);
 	install_element(SR_POLICY_NODE, &no_te_path_sr_policy_candidate_path_cmd);
 }
