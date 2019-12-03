@@ -100,7 +100,8 @@ void te_segment_list_del(struct te_segment_list *te_segment_list)
 		  te_segment_list);
 }
 
-struct te_sr_policy *te_sr_policy_create(char *name)
+struct te_sr_policy *te_sr_policy_create(uint32_t color,
+					 struct ipaddr *endpoint)
 {
 	struct te_sr_policy *te_sr_policy;
 	struct te_candidate_path *candidate_paths;
@@ -109,7 +110,8 @@ struct te_sr_policy *te_sr_policy_create(char *name)
 				  MAX_SR_POLICY_CANDIDATE_PATH_N
 					  * sizeof(struct te_candidate_path));
 
-	te_sr_policy->name = name;
+	te_sr_policy->color = color;
+	te_sr_policy->endpoint = *endpoint;
 	te_sr_policy->candidate_path_num = 0;
 	te_sr_policy->candidate_paths = candidate_paths;
 
@@ -130,15 +132,9 @@ void te_sr_policy_del(struct te_sr_policy *te_sr_policy)
 		  te_sr_policy);
 }
 
-void te_sr_policy_color_add(struct te_sr_policy *te_sr_policy, uint32_t color)
+void te_sr_policy_name_add(struct te_sr_policy *te_sr_policy, const char *name)
 {
-	te_sr_policy->color = color;
-}
-
-void te_sr_policy_endpoint_add(struct te_sr_policy *te_sr_policy,
-			       struct ipaddr *endpoint)
-{
-	te_sr_policy->endpoint = *endpoint;
+	te_sr_policy->name = (char *)name;
 }
 
 void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
@@ -264,8 +260,7 @@ void te_sr_policy_candidate_path_delete(struct te_sr_policy *te_sr_policy,
 	te_sr_policy_candidate_path_set_active(te_sr_policy);
 }
 
-struct te_sr_policy *te_sr_policy_get_by_color_endpoint(uint32_t color,
-							struct ipaddr *endpoint)
+struct te_sr_policy *te_sr_policy_get(uint32_t color, struct ipaddr *endpoint)
 {
 	struct te_sr_policy te_sr_policy_search;
 	struct te_sr_policy *te_sr_policy_found;
@@ -278,14 +273,4 @@ struct te_sr_policy *te_sr_policy_get_by_color_endpoint(uint32_t color,
 			&te_sr_policy_search);
 
 	return te_sr_policy_found;
-}
-
-char *te_sr_policy_get_name(uint32_t color, struct ipaddr *endpoint)
-{
-	struct te_sr_policy *te_sr_policy_found;
-
-	te_sr_policy_found =
-		te_sr_policy_get_by_color_endpoint(color, endpoint);
-
-	return strdup(te_sr_policy_found->name);
 }

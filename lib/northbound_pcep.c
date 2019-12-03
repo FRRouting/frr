@@ -120,18 +120,14 @@ int nb_pcep_add_candidate_path(const char *color_str, const char *endpoint_str,
 	char xpath[XPATH_MAXLEN];
 	char xpath_base[XPATH_MAXLEN];
 	int ret;
-	struct ipaddr endpoint;
-
-	uint32_t color = strtoul(color_str, NULL, 10);
-	str2ipaddr(endpoint_str, &endpoint);
-	char *policy_name = te_sr_policy_get_name(color, &endpoint);
-
-	struct nb_config *candidate_config = nb_config_dup(running_config);
 
 	snprintf(
 		xpath_base, sizeof(xpath_base),
-		"/frr-pathd:pathd/sr-policy[name='%s']/candidate-path[preference='%s']",
-		policy_name, preference_str);
+		"/frr-pathd:pathd/sr-policy[color='%s'][endpoint='%s']/candidate-path[preference='%s']",
+		color_str, endpoint_str, preference_str);
+
+	struct nb_config *candidate_config = nb_config_dup(running_config);
+
 	nb_pcep_edit_candidate_config(candidate_config, xpath_base,
 				      NB_OP_CREATE, preference_str);
 
@@ -162,11 +158,14 @@ int nb_pcep_add_candidate_path(const char *color_str, const char *endpoint_str,
 struct te_sr_policy *nb_pcep_get_sr_policy(const char *color_str,
 					   const char *endpoint_str)
 {
-	struct ipaddr endpoint;
-	uint32_t color = strtoul(color_str, NULL, 10);
-	str2ipaddr(endpoint_str, &endpoint);
-	struct te_sr_policy *te_sr_policy =
-		te_sr_policy_get_by_color_endpoint(color, &endpoint);
+	char xpath_sr_policy[XPATH_MAXLEN];
+	struct te_sr_policy *te_sr_policy;
+
+	snprintf(xpath_sr_policy, sizeof(xpath_sr_policy),
+		 "/frr-pathd:pathd/sr-policy[color='%s'][endpoint='%s']",
+		 color_str, endpoint_str);
+	te_sr_policy = nb_running_get_entry(running_config->dnode,
+					    xpath_sr_policy, true);
 
 	return te_sr_policy;
 }

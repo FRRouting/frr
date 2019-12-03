@@ -47,12 +47,7 @@ module frr-pathd {
       }
     }
     list sr-policy {
-      key "name";
-      leaf name {
-        type string;
-        description
-          "Name of the SR Policy.";
-      }
+      key "color endpoint";
       leaf color {
         type uint32;
         description
@@ -62,6 +57,11 @@ module frr-pathd {
         type inet:ip-address;
         description
           "Indication for the endpoint of the SR Policy.";
+      }
+      leaf name {
+        type string;
+        description
+          "Name of the SR Policy.";
       }
       leaf binding-sid {
         type rt-types:mpls-label;

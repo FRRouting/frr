@@ -29,10 +29,8 @@ int pathd_te_segment_list_label_create(struct nb_cb_create_args *args);
 int pathd_te_segment_list_label_destroy(struct nb_cb_destroy_args *args);
 int pathd_te_sr_policy_create(struct nb_cb_create_args *args);
 int pathd_te_sr_policy_destroy(struct nb_cb_destroy_args *args);
-int pathd_te_sr_policy_color_modify(struct nb_cb_modify_args *args);
-int pathd_te_sr_policy_color_destroy(struct nb_cb_destroy_args *args);
-int pathd_te_sr_policy_endpoint_modify(struct nb_cb_modify_args *args);
-int pathd_te_sr_policy_endpoint_destroy(struct nb_cb_destroy_args *args);
+int pathd_te_sr_policy_name_modify(struct nb_cb_modify_args *args);
+int pathd_te_sr_policy_name_destroy(struct nb_cb_destroy_args *args);
 int pathd_te_sr_policy_binding_sid_modify(struct nb_cb_modify_args *args);
 int pathd_te_sr_policy_binding_sid_destroy(struct nb_cb_destroy_args *args);
 int pathd_te_sr_policy_candidate_path_create(struct nb_cb_create_args *args);
@@ -58,11 +56,8 @@ void cli_show_te_path_segment_list_label(struct vty *vty,
 					 bool show_defaults);
 void cli_show_te_path_sr_policy(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults);
-void cli_show_te_path_sr_policy_color(struct vty *vty, struct lyd_node *dnode,
-				      bool show_defaults);
-void cli_show_te_path_sr_policy_endpoint(struct vty *vty,
-					 struct lyd_node *dnode,
-					 bool show_defaults);
+void cli_show_te_path_sr_policy_name(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults);
 void cli_show_te_path_sr_policy_binding_sid(struct vty *vty,
 					    struct lyd_node *dnode,
 					    bool show_defaults);

@@ -53,19 +53,11 @@ const struct frr_yang_module_info frr_pathd_info = {
 			}
 		},
 		{
-			.xpath = "/frr-pathd:pathd/sr-policy/color",
+			.xpath = "/frr-pathd:pathd/sr-policy/name",
 			.cbs = {
-				.modify = pathd_te_sr_policy_color_modify,
-				.cli_show = cli_show_te_path_sr_policy_color,
-				.destroy = pathd_te_sr_policy_color_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-pathd:pathd/sr-policy/endpoint",
-			.cbs = {
-				.modify = pathd_te_sr_policy_endpoint_modify,
-				.cli_show = cli_show_te_path_sr_policy_endpoint,
-				.destroy = pathd_te_sr_policy_endpoint_destroy,
+				.modify = pathd_te_sr_policy_name_modify,
+				.cli_show = cli_show_te_path_sr_policy_name,
+				.destroy = pathd_te_sr_policy_name_destroy,
 			}
 		},
 		{

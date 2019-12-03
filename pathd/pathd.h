@@ -68,17 +68,17 @@ struct te_candidate_path {
 struct te_sr_policy {
 	RB_ENTRY(te_sr_policy) entry;
 
-	/* Name */
-	char *name;
-
-	/* Binding SID */
-	mpls_label_t binding_sid;
-
 	/* Color */
 	uint32_t color;
 
 	/* Endpoint */
 	struct ipaddr endpoint;
+
+	/* Name */
+	char *name;
+
+	/* Binding SID */
+	mpls_label_t binding_sid;
 
 	/* Active Candidate Path */
 	struct te_candidate_path active_candidate_path;
@@ -104,11 +104,10 @@ struct te_segment_list *te_segment_list_create(char *name);
 void te_segment_list_label_add(struct te_segment_list *te_segment_list,
 			       mpls_label_t label);
 void te_segment_list_del(struct te_segment_list *te_segment_list);
-struct te_sr_policy *te_sr_policy_create(char *name);
+struct te_sr_policy *te_sr_policy_create(uint32_t color,
+					 struct ipaddr *endpoint);
 void te_sr_policy_del(struct te_sr_policy *te_sr_policy);
-void te_sr_policy_color_add(struct te_sr_policy *te_sr_policy, uint32_t color);
-void te_sr_policy_endpoint_add(struct te_sr_policy *te_sr_policy,
-			       struct ipaddr *endpoint);
+void te_sr_policy_name_add(struct te_sr_policy *te_sr_policy, const char *name);
 void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 				  mpls_label_t binding_sid);
 void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy);
@@ -128,9 +127,7 @@ void te_sr_policy_candidate_path_segment_list_name_add(
 	char *segment_list_name);
 void te_sr_policy_candidate_path_delete(struct te_sr_policy *te_sr_policy,
 					uint32_t preference);
-struct te_sr_policy *
-te_sr_policy_get_by_color_endpoint(uint32_t color, struct ipaddr *endpoint);
-char *te_sr_policy_get_name(uint32_t color, struct ipaddr *endpoint);
+struct te_sr_policy *te_sr_policy_get(uint32_t color, struct ipaddr *endpoint);
 struct te_candidate_path *find_candidate_path(struct te_sr_policy *te_sr_policy,
 					      uint32_t preference);
 

@@ -129,15 +129,20 @@ void cli_show_te_path_segment_list_label(struct vty *vty,
 /*
  * XPath: /frr-pathd:pathd/sr-policy
  */
-DEFPY_NOSH(te_path_sr_policy, te_path_sr_policy_cmd, "sr-policy WORD$name",
+DEFPY_NOSH(te_path_sr_policy, te_path_sr_policy_cmd,
+	   "sr-policy color (0-4294967295)$num endpoint A.B.C.D$endpoint",
 	   "Segment Routing Policy\n"
-	   "SR Policy name\n")
+	   "SR Policy color\n"
+	   "SR Policy color value\n"
+	   "SR Policy endpoint\n"
+	   "SR Policy endpoint IP\n")
 {
 	char xpath[XPATH_MAXLEN];
 	int ret;
 
-	snprintf(xpath, sizeof(xpath), "/frr-pathd:pathd/sr-policy[name='%s']",
-		 name);
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-pathd:pathd/sr-policy[color='%s'][endpoint='%s']",
+		 num_str, endpoint_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	ret = nb_cli_apply_changes(vty, NULL);
@@ -147,15 +152,20 @@ DEFPY_NOSH(te_path_sr_policy, te_path_sr_policy_cmd, "sr-policy WORD$name",
 	return ret;
 }
 
-DEFPY(no_te_path_sr_policy, no_te_path_sr_policy_cmd, "no sr-policy WORD$name",
+DEFPY(no_te_path_sr_policy, no_te_path_sr_policy_cmd,
+      "no sr-policy color (0-4294967295)$num endpoint A.B.C.D$endpoint",
       NO_STR
       "Segment Routing Policy\n"
-      "SR Policy name\n")
+      "SR Policy color\n"
+      "SR Policy color value\n"
+      "SR Policy endpoint\n"
+      "SR Policy endpoint IP\n")
 {
 	char xpath[XPATH_MAXLEN];
 
-	snprintf(xpath, sizeof(xpath), "/frr-pathd:pathd/sr-policy[name='%s']",
-		 name);
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-pathd:pathd/sr-policy[color='%s'][endpoint='%s']",
+		 num_str, endpoint_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -164,69 +174,39 @@ DEFPY(no_te_path_sr_policy, no_te_path_sr_policy_cmd, "no sr-policy WORD$name",
 void cli_show_te_path_sr_policy(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults)
 {
-	vty_out(vty, "sr-policy %s\n", yang_dnode_get_string(dnode, "./name"));
+	vty_out(vty, "sr-policy color %s endpoint %s\n",
+		yang_dnode_get_string(dnode, "./color"),
+		yang_dnode_get_string(dnode, "./endpoint"));
 }
 
 /*
- * XPath: /frr-pathd:pathd/sr-policy/color
+ * XPath: /frr-pathd:pathd/sr-policy/name
  */
-DEFPY(te_path_sr_policy_color, te_path_sr_policy_color_cmd,
-      "color (0-4294967295)$num",
-      "Segment Routing Policy Color\n"
-      "SR Policy color\n")
+DEFPY(te_path_sr_policy_name, te_path_sr_policy_name_cmd, "name WORD$name",
+      "Segment Routing Policy name\n"
+      "SR Policy name value\n")
 {
-	nb_cli_enqueue_change(vty, "./color", NB_OP_CREATE, num_str);
+	nb_cli_enqueue_change(vty, "./name", NB_OP_CREATE, name);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(no_te_path_sr_policy_color, no_te_path_sr_policy_color_cmd,
-      "no color [(0-4294967295)]",
+DEFPY(no_te_path_sr_policy_name, no_te_path_sr_policy_name_cmd,
+      "no name WORD$name",
       NO_STR
-      "Segment Routing Policy Color\n"
-      "SR Policy color\n")
+      "Segment Routing Policy name\n"
+      "SR Policy name value\n")
 {
-	nb_cli_enqueue_change(vty, "./color", NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-void cli_show_te_path_sr_policy_color(struct vty *vty, struct lyd_node *dnode,
-				      bool show_defaults)
-{
-	vty_out(vty, " color %s\n", yang_dnode_get_string(dnode, NULL));
-}
-
-/*
- * XPath: /frr-pathd:pathd/sr-policy/endpoint
- */
-DEFPY(te_path_sr_policy_endpoint, te_path_sr_policy_endpoint_cmd,
-      "endpoint A.B.C.D$endpoint",
-      "Segment Routing Policy Endpoint\n"
-      "SR Policy endpoint IP\n")
-{
-	nb_cli_enqueue_change(vty, "./endpoint", NB_OP_CREATE, endpoint_str);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFPY(no_te_path_sr_policy_endpoint, no_te_path_sr_policy_endpoint_cmd,
-      "no endpoint [A.B.C.D]",
-      NO_STR
-      "Segment Routing Policy Endpoint\n"
-      "SR Policy endpoint IP\n")
-{
-	nb_cli_enqueue_change(vty, "./endpoint", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./name", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 
-void cli_show_te_path_sr_policy_endpoint(struct vty *vty,
-					 struct lyd_node *dnode,
-					 bool show_defaults)
+void cli_show_te_path_sr_policy_name(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults)
 {
-	vty_out(vty, " endpoint %s\n", yang_dnode_get_string(dnode, NULL));
+	vty_out(vty, " name %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
 /*
@@ -347,12 +327,11 @@ void path_cli_init(void)
 	install_element(SEGMENT_LIST_NODE, &no_te_path_segment_list_label_cmd);
 	install_element(CONFIG_NODE, &te_path_sr_policy_cmd);
 	install_element(CONFIG_NODE, &no_te_path_sr_policy_cmd);
-	install_element(SR_POLICY_NODE, &te_path_sr_policy_color_cmd);
-	install_element(SR_POLICY_NODE, &no_te_path_sr_policy_color_cmd);
-	install_element(SR_POLICY_NODE, &te_path_sr_policy_endpoint_cmd);
-	install_element(SR_POLICY_NODE, &no_te_path_sr_policy_endpoint_cmd);
+	install_element(SR_POLICY_NODE, &te_path_sr_policy_name_cmd);
+	install_element(SR_POLICY_NODE, &no_te_path_sr_policy_name_cmd);
 	install_element(SR_POLICY_NODE, &te_path_sr_policy_binding_sid_cmd);
 	install_element(SR_POLICY_NODE, &no_te_path_sr_policy_binding_sid_cmd);
 	install_element(SR_POLICY_NODE, &te_path_sr_policy_candidate_path_cmd);
-	install_element(SR_POLICY_NODE, &no_te_path_sr_policy_candidate_path_cmd);
+	install_element(SR_POLICY_NODE,
+			&no_te_path_sr_policy_candidate_path_cmd);
 }

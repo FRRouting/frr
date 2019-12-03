@@ -89,13 +89,16 @@ int pathd_te_segment_list_label_move(struct nb_cb_move_args *args)
 int pathd_te_sr_policy_create(struct nb_cb_create_args *args)
 {
 	struct te_sr_policy *te_sr_policy;
-	const char *name;
+	uint32_t color;
+	struct ipaddr endpoint;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	name = yang_dnode_get_string(args->dnode, "./name");
-	te_sr_policy = te_sr_policy_create(strdup(name));
+	color = yang_dnode_get_uint32(args->dnode, "./color");
+	yang_dnode_get_ip(&endpoint, args->dnode, "./endpoint");
+	te_sr_policy = te_sr_policy_create(color, &endpoint);
+
 	nb_running_set_entry(args->dnode, te_sr_policy);
 
 	return NB_OK;
@@ -115,47 +118,24 @@ int pathd_te_sr_policy_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * XPath: /frr-pathd:pathd/sr-policy/color
+ * XPath: /frr-pathd:pathd/sr-policy/name
  */
-int pathd_te_sr_policy_color_modify(struct nb_cb_modify_args *args)
+int pathd_te_sr_policy_name_modify(struct nb_cb_modify_args *args)
 {
-	uint32_t color;
+	const char *name;
 	struct te_sr_policy *te_sr_policy;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
-	color = yang_dnode_get_uint32(args->dnode, NULL);
-	te_sr_policy_color_add(te_sr_policy, color);
+	name = yang_dnode_get_string(args->dnode, NULL);
+	te_sr_policy_name_add(te_sr_policy, name);
 
 	return NB_OK;
 }
 
-int pathd_te_sr_policy_color_destroy(struct nb_cb_destroy_args *args)
-{
-	return NB_OK;
-}
-
-/*
- * XPath: /frr-pathd:pathd/sr-policy/endpoint
- */
-int pathd_te_sr_policy_endpoint_modify(struct nb_cb_modify_args *args)
-{
-	struct ipaddr endpoint;
-	struct te_sr_policy *te_sr_policy;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
-	yang_dnode_get_ip(&endpoint, args->dnode, NULL);
-	te_sr_policy_endpoint_add(te_sr_policy, &endpoint);
-
-	return NB_OK;
-}
-
-int pathd_te_sr_policy_endpoint_destroy(struct nb_cb_destroy_args *args)
+int pathd_te_sr_policy_name_destroy(struct nb_cb_destroy_args *args)
 {
 	return NB_OK;
 }

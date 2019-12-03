@@ -11,16 +11,14 @@ segment-list test2
  mpls label 321
  mpls label 654
 !
-sr-policy one
+sr-policy color 1 endpoint 1.1.1.1
+ name one
  binding-sid 100
- color 1
- endpoint 1.1.1.1
  candidate-path preference 100 explicit segment-list test1
  candidate-path preference 200 explicit segment-list test2
 !
-sr-policy two
+sr-policy color 2 endpoint 2.2.2.2
+ name two
  binding-sid 101
- color 2
- endpoint 2.1.1.1
  candidate-path preference 200 explicit segment-list test2
 !
