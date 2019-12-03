@@ -234,27 +234,20 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 	switch (note) {
 	case ZAPI_RULE_FAIL_INSTALL:
 		pbrms->installed &= ~installed;
-		DEBUGD(&pbr_dbg_zebra,
-		       "%s: Received RULE_FAIL_INSTALL: %" PRIu64,
-		       __PRETTY_FUNCTION__, pbrms->installed);
 		break;
 	case ZAPI_RULE_INSTALLED:
 		pbrms->installed |= installed;
-		DEBUGD(&pbr_dbg_zebra, "%s: Received RULE_INSTALLED: %" PRIu64,
-		       __PRETTY_FUNCTION__, pbrms->installed);
 		break;
 	case ZAPI_RULE_FAIL_REMOVE:
 		/* Don't change state on rule removal failure */
-		DEBUGD(&pbr_dbg_zebra,
-		       "%s: Received RULE_FAIL_REMOVED: %" PRIu64,
-		       __PRETTY_FUNCTION__, pbrms->installed);
 		break;
 	case ZAPI_RULE_REMOVED:
 		pbrms->installed &= ~installed;
-		DEBUGD(&pbr_dbg_zebra, "%s: Received RULE REMOVED: %" PRIu64,
-		       __PRETTY_FUNCTION__, pbrms->installed);
 		break;
 	}
+
+	DEBUGD(&pbr_dbg_zebra, "%s: Received %s: %" PRIu64, __func__,
+	       zapi_rule_notify_owner2str(note), pbrms->installed);
 
 	pbr_map_final_interface_deletion(pbrms->parent, pmi);
 
