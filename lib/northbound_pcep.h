@@ -35,7 +35,8 @@ extern "C" {
  * label
  *    MPLS label which should be added to the segment list.
  */
-extern int nb_pcep_add_segment_list_label(const char *segment_list_name, const char *label);
+extern int nb_pcep_add_segment_list_label(const char *segment_list_name,
+					  const char *label);
 
 /*
  * Create an empty named segment list.
@@ -49,25 +50,35 @@ extern int nb_pcep_create_segment_list(const char *name);
  * Add a Candidate Path to an existing SR Policy.
  *
  * color
- *    Color of the SR Policy (is used together with 'endpoint' to select the SR Policy)
+ *    Color of the SR Policy (is used together with 'endpoint' to select the SR
+ * Policy)
  *
  * endpoint
- *    Endpoint of the SR Policy (is used together with 'color' to select the SR Policy)
+ *    Endpoint of the SR Policy (is used together with 'color' to select the SR
+ * Policy)
  *
  * originator
  *    IP of the originating PCE endpoint.
  *
  * preference
- *    Preference of the Candidate Path, used for Active Candidate Path selection.
+ *    Preference of the Candidate Path, used for Active Candidate Path
+ * selection.
  *
  * segment_list_name
  *    Name of the Segment List which should be installed as LSP.
  */
-extern int nb_pcep_add_candidate_path(const char* color, const char *endpoint, const char *originator, const char *preference, const char *segment_list_name);
+extern int nb_pcep_add_candidate_path(const char *color, const char *endpoint,
+				      const char *originator,
+				      const char *preference,
+				      const char *segment_list_name);
 
 /* internal */
-int nb_pcep_commit_candidate_config(struct nb_config *candidate_config, const char *comment);
-void nb_pcep_edit_candidate_config(struct nb_config *candidate_config, const char *xpath, enum nb_operation operation, const char *value);
+int nb_pcep_commit_candidate_config(struct nb_config *candidate_config,
+				    const char *comment);
+void nb_pcep_edit_candidate_config(struct nb_config *candidate_config,
+				   const char *xpath,
+				   enum nb_operation operation,
+				   const char *value);
 
 #ifdef __cplusplus
 }
