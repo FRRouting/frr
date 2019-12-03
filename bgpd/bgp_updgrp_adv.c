@@ -764,7 +764,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 
 				/* Provide dummy so the route-map can't modify
 				 * the attributes */
-				bgp_attr_dup(&dummy_attr, ri->attr);
+				dummy_attr = *ri->attr;
 				tmp_info.peer = ri->peer;
 				tmp_info.attr = &dummy_attr;
 
