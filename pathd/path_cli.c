@@ -274,33 +274,15 @@ DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
       "List of SIDs\n"
       "Name of the Segment List\n")
 {
-	char xpath[XPATH_MAXLEN];
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, preference_str);
+	nb_cli_enqueue_change(vty, "./segment-list-name", NB_OP_MODIFY,
+			      list_name);
+	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "config");
+	nb_cli_enqueue_change(vty, "./originator", NB_OP_MODIFY, "127.0.0.1");
+	nb_cli_enqueue_change(vty, "./dynamic-flag", NB_OP_MODIFY, "false");
 
-	snprintf(xpath, sizeof(xpath), "./candidate-path[preference='%s']",
-		 preference_str);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, preference_str);
-
-	snprintf(xpath, sizeof(xpath),
-		 "./candidate-path[preference='%s']/segment-list-name",
-		 preference_str);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, list_name);
-
-	snprintf(xpath, sizeof(xpath),
-		 "./candidate-path[preference='%s']/protocol-origin",
-		 preference_str);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "config");
-
-	snprintf(xpath, sizeof(xpath),
-		 "./candidate-path[preference='%s']/originator",
-		 preference_str);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "127.0.0.1");
-
-	snprintf(xpath, sizeof(xpath),
-		 "./candidate-path[preference='%s']/dynamic-flag",
-		 preference_str);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "false");
-
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes(vty, "./candidate-path[preference='%s']",
+				    preference_str);
 }
 
 DEFPY(no_te_path_sr_policy_candidate_path,
@@ -312,13 +294,10 @@ DEFPY(no_te_path_sr_policy_candidate_path,
       "Segment Routing Policy Candidate Path Preference\n"
       "Administrative Preference\n")
 {
-	char xpath[XPATH_MAXLEN];
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-	snprintf(xpath, sizeof(xpath), "./candidate-path[preference='%s']",
-		 preference_str);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes(vty, "./candidate-path[preference='%s']",
+				    preference_str);
 }
 
 void cli_show_te_path_sr_policy_candidate_path(struct vty *vty,
