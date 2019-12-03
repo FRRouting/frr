@@ -42,6 +42,7 @@ USER builder
 RUN cd /dist \
 	&& abuild-keygen -a -n \
 	&& abuild checksum \
+	&& git init \
 	&& abuild -r -P /pkgs/apk
 
 # This stage installs frr from the apk
