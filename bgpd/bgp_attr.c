@@ -466,15 +466,6 @@ static void transit_finish(void)
 /* Attribute hash routines. */
 static struct hash *attrhash;
 
-/* Shallow copy of an attribute
- * Though, not so shallow that it doesn't copy the contents
- * of the attr_extra pointed to by 'extra'
- */
-void bgp_attr_dup(struct attr *new, struct attr *orig)
-{
-	*new = *orig;
-}
-
 unsigned long int attr_count(void)
 {
 	return attrhash->count;

@@ -700,7 +700,8 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		return;
 	}
 
-	bgp_attr_dup(&static_attr, path_vrf->attr); /* shallow copy */
+	/* shallow copy */
+	static_attr = *path_vrf->attr;
 
 	/*
 	 * route map handling
@@ -1081,7 +1082,8 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 				buf_prefix, bgp_vrf->name_pretty);
 	}
 
-	bgp_attr_dup(&static_attr, path_vpn->attr); /* shallow copy */
+	/* shallow copy */
+	static_attr = *path_vpn->attr;
 
 	/*
 	 * Nexthop: stash and clear
