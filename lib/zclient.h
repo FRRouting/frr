@@ -485,6 +485,29 @@ enum zapi_iptable_notify_owner {
 	ZAPI_IPTABLE_FAIL_REMOVE,
 };
 
+static inline const char *
+zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
+{
+	const char *ret = "UNKNOWN";
+
+	switch (note) {
+	case ZAPI_RULE_FAIL_INSTALL:
+		ret = "ZAPI_RULE_FAIL_INSTALL";
+		break;
+	case ZAPI_RULE_INSTALLED:
+		ret = "ZAPI_RULE_INSTALLED";
+		break;
+	case ZAPI_RULE_FAIL_REMOVE:
+		ret = "ZAPI_RULE_FAIL_REMOVE";
+		break;
+	case ZAPI_RULE_REMOVED:
+		ret = "ZAPI_RULE_REMOVED";
+		break;
+	}
+
+	return ret;
+}
+
 /* Zebra MAC types */
 #define ZEBRA_MACIP_TYPE_STICKY                0x01 /* Sticky MAC*/
 #define ZEBRA_MACIP_TYPE_GW                    0x02 /* gateway (SVI) mac*/
