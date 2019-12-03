@@ -200,7 +200,8 @@ zebra_nhlfe_t *zebra_mpls_lsp_add_nhlfe(zebra_lsp_t *lsp,
 					enum nexthop_types_t gtype,
 					union g_addr *gate,
 					ifindex_t ifindex,
-					mpls_label_t out_label);
+					uint8_t num_labels,
+					mpls_label_t out_labels[]);
 
 /* Free an allocated NHLFE */
 void zebra_mpls_nhlfe_del(zebra_nhlfe_t *nhlfe);
@@ -282,12 +283,12 @@ int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 /*
  * Install/update a NHLFE for an LSP in the forwarding table. This may be
  * a new LSP entry or a new NHLFE for an existing in-label or an update of
- * the out-label for an existing NHLFE (update case).
+ * the out-label(s) for an existing NHLFE (update case).
  */
 int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
-		     mpls_label_t in_label, mpls_label_t out_label,
-		     enum nexthop_types_t gtype, union g_addr *gate,
-		     ifindex_t ifindex);
+		     mpls_label_t in_label, uint8_t num_out_labels,
+		     mpls_label_t out_labels[], enum nexthop_types_t gtype,
+		     union g_addr *gate, ifindex_t ifindex);
 
 /*
  * Uninstall a particular NHLFE in the forwarding table. If this is

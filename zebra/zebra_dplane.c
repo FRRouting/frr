@@ -1161,7 +1161,8 @@ zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
 				    enum nexthop_types_t nh_type,
 				    union g_addr *gate,
 				    ifindex_t ifindex,
-				    mpls_label_t out_label)
+				    uint8_t num_labels,
+				    mpls_label_t out_labels[])
 {
 	zebra_nhlfe_t *nhlfe;
 
@@ -1169,7 +1170,7 @@ zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
 
 	nhlfe = zebra_mpls_lsp_add_nhlfe(&(ctx->u.lsp),
 					 lsp_type, nh_type, gate,
-					 ifindex, out_label);
+					 ifindex, num_labels, out_labels);
 
 	return nhlfe;
 }
@@ -1660,7 +1661,8 @@ static int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx,
 				nhlfe->nexthop->type,
 				&(nhlfe->nexthop->gate),
 				nhlfe->nexthop->ifindex,
-				nhlfe->nexthop->nh_label->label[0]);
+				nhlfe->nexthop->nh_label->num_labels,
+				nhlfe->nexthop->nh_label->label);
 
 		if (new_nhlfe == NULL || new_nhlfe->nexthop == NULL) {
 			ret = ENOMEM;

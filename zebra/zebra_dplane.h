@@ -302,7 +302,8 @@ zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
 				    enum nexthop_types_t nh_type,
 				    union g_addr *gate,
 				    ifindex_t ifindex,
-				    mpls_label_t out_label);
+				    uint8_t num_labels,
+				    mpls_label_t out_labels[]);
 
 const zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(
 	const struct zebra_dplane_ctx *ctx);
