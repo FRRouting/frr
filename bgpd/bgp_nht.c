@@ -421,7 +421,8 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 			if (peer && !peer->ifp
 			    && CHECK_FLAG(peer->flags,
 					  PEER_FLAG_CAPABILITY_ENHE)
-			    && nhr.prefix.family == AF_INET6) {
+			    && nhr.prefix.family == AF_INET6
+			    && nexthop->type != NEXTHOP_TYPE_BLACKHOLE) {
 				struct interface *ifp;
 
 				ifp = if_lookup_by_index(nexthop->ifindex,
