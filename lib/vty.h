@@ -161,7 +161,19 @@ struct vty {
 	unsigned char escape;
 
 	/* Current vty status. */
-	enum { VTY_NORMAL, VTY_CLOSE, VTY_MORE, VTY_MORELINE } status;
+	enum {
+		VTY_NORMAL,
+		VTY_CLOSE,
+		VTY_MORE,
+		VTY_MORELINE,
+		VTY_PASSFD,
+	} status;
+
+	/* vtysh socket/fd passing (for terminal monitor) */
+	int pass_fd;
+
+	/* CLI command return value (likely CMD_SUCCESS) when pass_fd != -1 */
+	uint8_t pass_fd_status[4];
 
 	/* IAC handling: was the last character received the
 	   IAC (interpret-as-command) escape character (and therefore the next
@@ -328,6 +340,11 @@ extern bool vty_set_include(struct vty *vty, const char *regexp);
  * NULL check and json_object_free() is included.
  */
 extern int vty_json(struct vty *vty, struct json_object *json);
+
+/* post fd to be passed to the vtysh client
+ * fd is owned by the VTY code after this and will be closed when done
+ */
+extern void vty_pass_fd(struct vty *vty, int fd);
 
 extern bool vty_read_config(struct nb_config *config, const char *config_file,
 			    char *config_default_dir);
