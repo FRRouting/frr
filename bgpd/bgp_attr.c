@@ -2797,12 +2797,6 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 	}
 
 	/*
-	 * The "rest" of the code does nothing with as4_aggregator.
-	 * there is no memory attached specifically which is not part
-	 * of the attr.
-	 * so ignoring just means do nothing.
-	 */
-	/*
 	 * Finally do the checks on the aspath we did not do yet
 	 * because we waited for a potentially synthesized aspath.
 	 */
@@ -2811,15 +2805,10 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 		if (ret != BGP_ATTR_PARSE_PROCEED)
 			goto done;
 	}
-#if ENABLE_BGP_VNC
-	if (attr->vnc_subtlvs)
-		attr->vnc_subtlvs =
-			encap_intern(attr->vnc_subtlvs, VNC_SUBTLV_TYPE);
-#endif
 
 	ret = BGP_ATTR_PARSE_PROCEED;
-
 done:
+
 	/*
 	 * At this stage, we have done all fiddling with as4, and the
 	 * resulting info is in attr->aggregator resp. attr->aspath so
@@ -2842,7 +2831,29 @@ done:
 		if (attr->encap_subtlvs)
 			attr->encap_subtlvs = encap_intern(attr->encap_subtlvs,
 							   ENCAP_SUBTLV_TYPE);
-	}
+#if ENABLE_BGP_VNC
+		if (attr->vnc_subtlvs)
+			attr->vnc_subtlvs = encap_intern(attr->vnc_subtlvs,
+							 VNC_SUBTLV_TYPE);
+#endif
+	} else {
+		if (attr->transit) {
+			transit_free(attr->transit);
+			attr->transit = NULL;
+		}
+
+		bgp_attr_flush_encap(attr);
+	};
+
+	/* Sanity checks */
+	if (attr->transit)
+		assert(attr->transit->refcnt > 0);
+	if (attr->encap_subtlvs)
+		assert(attr->encap_subtlvs->refcnt > 0);
+#if ENABLE_BGP_VNC
+	if (attr->vnc_subtlvs)
+		assert(attr->vnc_subtlvs->refcnt > 0);
+#endif
 
 	return ret;
 }
