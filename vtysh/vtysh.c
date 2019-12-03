@@ -182,6 +182,53 @@ static void vclient_close(struct vtysh_client *vclient)
 	}
 }
 
+static ssize_t vtysh_client_receive(struct vtysh_client *vclient,
+				    char *buf, size_t bufsz, int *pass_fd)
+{
+	struct iovec iov[1] = {
+		{
+			.iov_base = buf,
+			.iov_len = bufsz,
+		},
+	};
+	union {
+		uint8_t buf[CMSG_SPACE(sizeof(int))];
+		struct cmsghdr align;
+	} u;
+	struct msghdr mh = {
+		.msg_iov = iov,
+		.msg_iovlen = array_size(iov),
+		.msg_control = u.buf,
+		.msg_controllen = sizeof(u.buf),
+	};
+	struct cmsghdr *cmh = CMSG_FIRSTHDR(&mh);
+	ssize_t ret;
+
+	cmh->cmsg_level = SOL_SOCKET;
+	cmh->cmsg_type = SCM_RIGHTS;
+	cmh->cmsg_len = CMSG_LEN(sizeof(int));
+	memset(CMSG_DATA(cmh), -1, sizeof(int));
+
+	do {
+		ret = recvmsg(vclient->fd, &mh, 0);
+		if (ret < 0 && (errno == EINTR || errno == EAGAIN))
+			continue;
+	} while (false);
+
+	if (cmh->cmsg_len == CMSG_LEN(sizeof(int))) {
+		int fd;
+
+		memcpy(&fd, CMSG_DATA(cmh), sizeof(int));
+		if (fd != -1) {
+			if (pass_fd)
+				*pass_fd = fd;
+			else
+				close(fd);
+		}
+	}
+	return ret;
+}
+
 /*
  * Send a CLI command to a client and read the response.
  *
@@ -205,7 +252,8 @@ static void vclient_close(struct vtysh_client *vclient)
  *    a status code
  */
 static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
-			    void (*callback)(void *, const char *), void *cbarg)
+			    void (*callback)(void *, const char *), void *cbarg,
+			    int *pass_fd)
 {
 	int ret;
 	char stackbuf[4096];
@@ -239,8 +287,11 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 
 	bufvalid = buf;
 	do {
-		ssize_t nread =
-			read(vclient->fd, bufvalid, buf + bufsz - bufvalid - 1);
+		ssize_t nread;
+
+		nread = vtysh_client_receive(vclient, bufvalid,
+					     buf + bufsz - bufvalid - 1,
+					     pass_fd);
 
 		if (nread < 0 && (errno == EINTR || errno == EAGAIN))
 			continue;
@@ -382,7 +433,7 @@ static int vtysh_client_run_all(struct vtysh_client *head_client,
 	int correct_instance = 0, wrong_instance = 0;
 
 	for (client = head_client; client; client = client->next) {
-		rc = vtysh_client_run(client, line, callback, cbarg);
+		rc = vtysh_client_run(client, line, callback, cbarg, NULL);
 		if (rc == CMD_NOT_MY_INSTANCE) {
 			wrong_instance++;
 			continue;
