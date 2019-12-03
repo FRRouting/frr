@@ -124,7 +124,7 @@ int nb_pcep_add_candidate_path(const char *color_str, const char *endpoint_str,
 
 	uint32_t color = strtoul(color_str, NULL, 10);
 	str2ipaddr(endpoint_str, &endpoint);
-	char *policy_name = te_sr_policy_find(color, &endpoint);
+	char *policy_name = te_sr_policy_get_name(color, &endpoint);
 
 	struct nb_config *candidate_config = nb_config_dup(running_config);
 

@@ -128,7 +128,7 @@ void te_sr_policy_candidate_path_segment_list_name_add(
 	char *segment_list_name);
 void te_sr_policy_candidate_path_delete(struct te_sr_policy *te_sr_policy,
 					uint32_t preference);
-char *te_sr_policy_find(uint32_t color, struct ipaddr *endpoint);
+char *te_sr_policy_get_name(uint32_t color, struct ipaddr *endpoint);
 struct te_candidate_path *find_candidate_path(struct te_sr_policy *te_sr_policy,
 					      uint32_t preference);
 

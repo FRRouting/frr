@@ -264,7 +264,7 @@ void te_sr_policy_candidate_path_delete(struct te_sr_policy *te_sr_policy,
 	te_sr_policy_candidate_path_set_active(te_sr_policy);
 }
 
-char *te_sr_policy_find(uint32_t color, struct ipaddr *endpoint)
+char *te_sr_policy_get_name(uint32_t color, struct ipaddr *endpoint)
 {
 	struct te_sr_policy te_sr_policy_search;
 	struct te_sr_policy *te_sr_policy_found;
