@@ -2814,6 +2814,7 @@ int dplane_provider_register(const char *name,
 	TAILQ_INIT(&(p->dp_ctx_in_q));
 	TAILQ_INIT(&(p->dp_ctx_out_q));
 
+	p->dp_flags = flags;
 	p->dp_priority = prio;
 	p->dp_fp = fp;
 	p->dp_start = start_fp;
