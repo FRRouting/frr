@@ -2990,6 +2990,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
 	bgp->dynamic_neighbors_count = 0;
 	bgp->ebgp_requires_policy = DEFAULT_EBGP_POLICY_DISABLED;
+	bgp->reject_as_sets = BGP_REJECT_AS_SETS_DISABLED;
 #if DFLT_BGP_IMPORT_CHECK
 	bgp_flag_set(bgp, BGP_FLAG_IMPORT_CHECK);
 #endif
@@ -7617,6 +7618,10 @@ int bgp_config_write(struct vty *vty)
 		if (bgp->ebgp_requires_policy
 		    == DEFAULT_EBGP_POLICY_ENABLED)
 			vty_out(vty, " bgp ebgp-requires-policy\n");
+
+		/* draft-ietf-idr-deprecate-as-set-confed-set */
+		if (bgp->reject_as_sets == BGP_REJECT_AS_SETS_ENABLED)
+			vty_out(vty, " bgp reject-as-sets\n");
 
 		/* BGP default ipv4-unicast. */
 		if (bgp_flag_check(bgp, BGP_FLAG_NO_DEFAULT_IPV4))

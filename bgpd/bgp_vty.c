@@ -1921,6 +1921,56 @@ DEFUN(no_bgp_ebgp_requires_policy, no_bgp_ebgp_requires_policy_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUN(bgp_reject_as_sets, bgp_reject_as_sets_cmd,
+      "bgp reject-as-sets",
+      "BGP specific commands\n"
+      "Reject routes with AS_SET or AS_CONFED_SET flag\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct listnode *node, *nnode;
+	struct peer *peer;
+
+	bgp->reject_as_sets = BGP_REJECT_AS_SETS_ENABLED;
+
+	/* Reset existing BGP sessions to reject routes
+	 * with aspath containing AS_SET or AS_CONFED_SET.
+	 */
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
+			peer->last_reset = PEER_DOWN_AS_SETS_REJECT;
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_bgp_reject_as_sets, no_bgp_reject_as_sets_cmd,
+      "no bgp reject-as-sets",
+      NO_STR
+      "BGP specific commands\n"
+      "Reject routes with AS_SET or AS_CONFED_SET flag\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct listnode *node, *nnode;
+	struct peer *peer;
+
+	bgp->reject_as_sets = BGP_REJECT_AS_SETS_DISABLED;
+
+	/* Reset existing BGP sessions to reject routes
+	 * with aspath containing AS_SET or AS_CONFED_SET.
+	 */
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
+			peer->last_reset = PEER_DOWN_AS_SETS_REJECT;
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+		}
+	}
+
+	return CMD_SUCCESS;
+}
 
 /* "bgp deterministic-med" configuration. */
 DEFUN (bgp_deterministic_med,
@@ -13135,6 +13185,10 @@ void bgp_vty_init(void)
 	/* bgp ebgp-requires-policy */
 	install_element(BGP_NODE, &bgp_ebgp_requires_policy_cmd);
 	install_element(BGP_NODE, &no_bgp_ebgp_requires_policy_cmd);
+
+	/* bgp reject-as-sets */
+	install_element(BGP_NODE, &bgp_reject_as_sets_cmd);
+	install_element(BGP_NODE, &no_bgp_reject_as_sets_cmd);
 
 	/* "bgp deterministic-med" commands */
 	install_element(BGP_NODE, &bgp_deterministic_med_cmd);

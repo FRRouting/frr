@@ -504,6 +504,13 @@ struct bgp {
 #define DEFAULT_EBGP_POLICY_DISABLED 0
 #define DEFAULT_EBGP_POLICY_ENABLED 1
 
+	/* draft-ietf-idr-deprecate-as-set-confed-set
+	 * Reject aspaths with AS_SET and/or AS_CONFED_SET.
+	 */
+	bool reject_as_sets;
+#define BGP_REJECT_AS_SETS_DISABLED 0
+#define BGP_REJECT_AS_SETS_ENABLED 1
+
 	struct bgp_evpn_info *evpn_info;
 
 	/* EVPN - use RFC 8365 to auto-derive RT */
@@ -1203,6 +1210,7 @@ struct peer {
 #define PEER_DOWN_NBR_ADDR              28 /* Waiting for peer IPv6 IP Addr */
 #define PEER_DOWN_VRF_UNINIT            29 /* Associated VRF is not init yet */
 #define PEER_DOWN_NOAFI_ACTIVATED       30 /* No AFI/SAFI activated for peer */
+#define PEER_DOWN_AS_SETS_REJECT        31 /* Reject routes with AS_SET */
 	size_t last_reset_cause_size;
 	uint8_t last_reset_cause[BGP_MAX_PACKET_SIZE];
 

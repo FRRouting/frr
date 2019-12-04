@@ -1854,6 +1854,16 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 		if (!bgp_outbound_policy_exists(peer, filter))
 			return 0;
 
+	/* draft-ietf-idr-deprecate-as-set-confed-set
+	 * Filter routes having AS_SET or AS_CONFED_SET in the path.
+	 * Eventually, This document (if approved) updates RFC 4271
+	 * and RFC 5065 by eliminating AS_SET and AS_CONFED_SET types,
+	 * and obsoletes RFC 6472.
+	 */
+	if (peer->bgp->reject_as_sets == BGP_REJECT_AS_SETS_ENABLED)
+		if (aspath_check_as_sets(attr->aspath))
+			return 0;
+
 	if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
 		if (peer->sort == BGP_PEER_IBGP
 		    || peer->sort == BGP_PEER_CONFED) {
@@ -3152,6 +3162,19 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		if (!bgp_inbound_policy_exists(peer,
 					       &peer->filter[afi][safi])) {
 			reason = "inbound policy missing";
+			goto filtered;
+		}
+
+	/* draft-ietf-idr-deprecate-as-set-confed-set
+	 * Filter routes having AS_SET or AS_CONFED_SET in the path.
+	 * Eventually, This document (if approved) updates RFC 4271
+	 * and RFC 5065 by eliminating AS_SET and AS_CONFED_SET types,
+	 * and obsoletes RFC 6472.
+	 */
+	if (peer->bgp->reject_as_sets == BGP_REJECT_AS_SETS_ENABLED)
+		if (aspath_check_as_sets(attr->aspath)) {
+			reason =
+				"as-path contains AS_SET or AS_CONFED_SET type;";
 			goto filtered;
 		}
 
@@ -6392,6 +6415,7 @@ void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 /* Aggregate route attribute. */
 #define AGGREGATE_SUMMARY_ONLY 1
 #define AGGREGATE_AS_SET       1
+#define AGGREGATE_AS_UNSET     0
 
 static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 			       afi_t afi, safi_t safi)
@@ -6494,6 +6518,7 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	struct prefix p;
 	struct bgp_node *rn;
 	struct bgp_aggregate *aggregate;
+	uint8_t as_set_new = as_set;
 
 	/* Convert string to prefix structure. */
 	ret = str2prefix(prefix_str, &p);
@@ -6528,7 +6553,27 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	/* Make aggregate address structure. */
 	aggregate = bgp_aggregate_new();
 	aggregate->summary_only = summary_only;
-	aggregate->as_set = as_set;
+
+	/* Network operators MUST NOT locally generate any new
+	 * announcements containing AS_SET or AS_CONFED_SET. If they have
+	 * announced routes with AS_SET or AS_CONFED_SET in them, then they
+	 * SHOULD withdraw those routes and re-announce routes for the
+	 * aggregate or component prefixes (i.e., the more-specific routes
+	 * subsumed by the previously aggregated route) without AS_SET
+	 * or AS_CONFED_SET in the updates.
+	 */
+	if (bgp->reject_as_sets == BGP_REJECT_AS_SETS_ENABLED) {
+		if (as_set == AGGREGATE_AS_SET) {
+			as_set_new = AGGREGATE_AS_UNSET;
+			zlog_warn(
+				"%s: Ignoring as-set because `bgp reject-as-sets` is enabled.\n",
+				__func__);
+			vty_out(vty,
+				"Ignoring as-set because `bgp reject-as-sets` is enabled.\n");
+		}
+	}
+
+	aggregate->as_set = as_set_new;
 	aggregate->safi = safi;
 
 	if (rmap) {
@@ -6563,8 +6608,8 @@ DEFUN (aggregate_address,
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
 	char *prefix = argv[idx]->arg;
 	char *rmap = NULL;
-	int as_set =
-		argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET : 0;
+	int as_set = argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET
+							   : AGGREGATE_AS_UNSET;
 	idx = 0;
 	int summary_only = argv_find(argv, argc, "summary-only", &idx)
 				   ? AGGREGATE_SUMMARY_ONLY
@@ -6598,8 +6643,8 @@ DEFUN (aggregate_address_mask,
 	char *mask = argv[idx + 1]->arg;
 	bool rmap_found;
 	char *rmap = NULL;
-	int as_set =
-		argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET : 0;
+	int as_set = argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET
+							   : AGGREGATE_AS_UNSET;
 	idx = 0;
 	int summary_only = argv_find(argv, argc, "summary-only", &idx)
 				   ? AGGREGATE_SUMMARY_ONLY
@@ -6687,8 +6732,8 @@ DEFUN (ipv6_aggregate_address,
 	char *prefix = argv[idx]->arg;
 	char *rmap = NULL;
 	bool rmap_found;
-	int as_set =
-		argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET : 0;
+	int as_set = argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET
+							   : AGGREGATE_AS_UNSET;
 
 	idx = 0;
 	int sum_only = argv_find(argv, argc, "summary-only", &idx)
