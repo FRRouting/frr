@@ -39,20 +39,6 @@
 #define PCEP_FORMAT_FINI() _debug_buff
 THREAD_DATA char _debug_buff[DEBUG_BUFF_SIZE];
 
-static const char *pcc_status_name(pcc_status_t status);
-static const char *pcep_error_type_name(enum pcep_error_type error_type);
-static const char *pcep_error_value_name(enum pcep_error_type error_type,
-                                         enum pcep_error_value error_value);
-static const char *pcep_event_type_name(pcep_event_type event_type);
-static const char *pcep_message_type_name(enum pcep_types pcep_type);
-static const char *pcep_object_class_name(enum pcep_object_class obj_class);
-static const char *pcep_object_type_name(enum pcep_object_class obj_class,
-					 enum pcep_object_types obj_type);
-static const char *pcep_lsp_status_name(enum pcep_lsp_operational_status status);
-static const char *pcep_tlv_type_name(enum pcep_object_tlv_types tlv_type);
-static const char *pcep_ro_type_name(enum pcep_ro_subobj_types ro_type);
-static const char *pcep_nai_type_name(enum pcep_sr_subobj_nai nai_type);
-
 static void _format_pcc_opts(int ps, pcc_opts_t *ops);
 static void _format_pcc_state(int ps, pcc_state_t *state);
 static void _format_ctrl_state(int ps, ctrl_state_t *state);
@@ -512,10 +498,12 @@ void _format_pcep_message(int ps, pcep_message *msg)
 		int ps3 = ps2 + DEBUG_IDENT_SIZE;
 		PCEP_FORMAT("\n");
 		PCEP_FORMAT("%*sheader: \n", ps2, "");
-		PCEP_FORMAT("%*sver_flags: %u\n", ps3, "", msg->header.ver_flags);
+		PCEP_FORMAT("%*sver_flags: %u\n", ps3, "",
+		            msg->header->ver_flags);
 		PCEP_FORMAT("%*stype: %s (%u)\n", ps3, "",
-		    pcep_message_type_name(msg->header.type), msg->header.type);
-		PCEP_FORMAT("%*ssize: %u\n", ps3, "", msg->header.length);
+		    pcep_message_type_name(msg->header->type),
+		    msg->header->type);
+		PCEP_FORMAT("%*ssize: %u\n", ps3, "", msg->header->length);
 		PCEP_FORMAT("%*sobjects: ", ps2, "");
 		_format_pcep_objects(ps2, msg->obj_list);
 	}

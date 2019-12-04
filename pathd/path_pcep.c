@@ -56,22 +56,22 @@ static pcep_glob_t *pcep_g = &pcep_glob_space;
 static pcc_state_t* pcep_pcc_initialize(ctrl_state_t *ctrl_state, int index);
 static void pcep_pcc_finalize(ctrl_state_t *ctrl_state, pcc_state_t *pcc_state);
 static int pcep_pcc_update(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state,
-                           pcc_opts_t *opts);
+			   pcc_opts_t *opts);
 static int pcep_pcc_enable(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state);
 static int pcep_pcc_disable(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state);
 static void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
-                                       pcc_state_t * pcc_state,
-                                       pcep_event *event);
+				       pcc_state_t * pcc_state,
+				       pcep_event *event);
 static void pcep_pcc_synchronize(ctrl_state_t *ctrl_state,
-                                 pcc_state_t * pcc_state);
+				 pcc_state_t * pcc_state);
 static void pcep_pcc_handle_message(ctrl_state_t *ctrl_state,
-                                    pcc_state_t * pcc_state, pcep_message *msg);
+				    pcc_state_t * pcc_state, pcep_message *msg);
 static void pcep_pcc_lsp_update(ctrl_state_t *ctrl_state,
-                                pcc_state_t * pcc_state, pcep_message *msg);
+				pcc_state_t * pcc_state, pcep_message *msg);
 static void pcep_pcc_lsp_initiate(ctrl_state_t *ctrl_state,
-       	                          pcc_state_t * pcc_state, pcep_message *msg);
+				  pcc_state_t * pcc_state, pcep_message *msg);
 static void pcep_pcc_send(ctrl_state_t *ctrl_state,
-                          pcc_state_t * pcc_state, struct pcep_header *msg);
+			  pcc_state_t * pcc_state, pcep_message *msg);
 
 /* Controller Functions Called from Main */
 static int pcep_controller_initialize(void);
@@ -114,7 +114,12 @@ static int pcep_module_init(void);
 static int pcep_lib_connect(pcc_state_t *pcc_state);
 static void pcep_lib_disconnect(pcc_state_t *pcc_state);
 static double_linked_list *pcep_lib_format_path(path_t *path);
-// static path_t *pcep_lib_parse_path(double_linked_list *objs);
+static path_t *pcep_lib_parse_path(double_linked_list *objs);
+static void pcep_lib_free_path(path_t *path);
+
+static void pcep_lib_parse_srp(path_t *path, struct pcep_object_srp* srp);
+static void pcep_lib_parse_lsp(path_t *path, struct pcep_object_lsp* lsp);
+static void pcep_lib_parse_ero(path_t *path, struct pcep_object_ro* ero);
 
 int pcep_lib_connect(pcc_state_t *pcc_state)
 {
@@ -138,7 +143,7 @@ int pcep_lib_connect(pcc_state_t *pcc_state)
 	config->support_pce_triggered_initial_sync = false;
 
 	sess = connect_pce_with_port(config, &pcc_state->opts->addr,
-	                             pcc_state->opts->port);
+				     pcc_state->opts->port);
 
 	if (NULL == sess) return 1;
 
@@ -186,19 +191,19 @@ double_linked_list *pcep_lib_format_path(path_t *path)
 	lsp_tlvs = dll_initialize();
 	if (NULL != path->name) {
 		tlv = pcep_tlv_create_symbolic_path_name(path->name,
-		                                         strlen(path->name));
+							 strlen(path->name));
 		dll_append(lsp_tlvs, tlv);
 	}
 	tlv = pcep_tlv_create_ipv4_lsp_identifiers(&addr_null, &addr_null, 0, 0, 0);
 	dll_append(lsp_tlvs, tlv);
 	lsp = pcep_obj_create_lsp(path->plsp_id,
-	                          path->status,
-	                          path->was_created   /* C Flag */,
-	                          path->go_active     /* A Flag */,
-	                          path->was_removed   /* R Flag */,
-	                          path->is_synching   /* S Flag */,
-	                          path->is_delegated  /* D Flag */,
-	                          lsp_tlvs);
+				  path->status,
+				  path->was_created   /* C Flag */,
+				  path->go_active     /* A Flag */,
+				  path->was_removed   /* R Flag */,
+				  path->is_synching   /* S Flag */,
+				  path->is_delegated  /* D Flag */,
+				  lsp_tlvs);
 	dll_append(objs, lsp);
 	dll_destroy_with_data(lsp_tlvs);
 	/*   ERO object */
@@ -212,15 +217,15 @@ double_linked_list *pcep_lib_format_path(path_t *path)
 		assert(PCEP_SR_SUBOBJ_NAI_IPV4_NODE == hop->type);
 
 		ero_obj = pcep_obj_create_ro_subobj_sr_ipv4_node(
-		                hop->is_loose,
-		                !hop->has_sid,
-		                hop->has_attribs,
-		                hop->is_mpls,
-		                ENCODE_SR_ERO_SID(hop->sid.mpls.label,
-		                                  hop->sid.mpls.traffic_class,
-		                                  hop->sid.mpls.is_bottom,
-		                                  hop->sid.mpls.ttl),
-		                &hop->nai.ipv4_node.local);
+				hop->is_loose,
+				!hop->has_sid,
+				hop->has_attribs,
+				hop->is_mpls,
+				ENCODE_SR_ERO_SID(hop->sid.mpls.label,
+						  hop->sid.mpls.traffic_class,
+						  hop->sid.mpls.is_bottom,
+						  hop->sid.mpls.ttl),
+				&hop->nai.ipv4_node.local);
 		/* ODL only supports Draft 07 that has a different type */
 		ero_obj->subobj.sr.header.type = RO_SUBOBJ_TYPE_SR_DRAFT07;
 		dll_append(ero_objs, ero_obj);
@@ -232,12 +237,137 @@ double_linked_list *pcep_lib_format_path(path_t *path)
 	return objs;
 }
 
-/*
 path_t *pcep_lib_parse_path(double_linked_list *objs)
 {
-	return NULL;
+	path_t *path;
+	double_linked_list_node *node;
+
+	struct pcep_object_header *obj;
+	struct pcep_object_srp* srp = NULL;
+	struct pcep_object_lsp* lsp = NULL;
+	struct pcep_object_ro* ero = NULL;
+
+	path = XCALLOC(MTYPE_PCEP, sizeof(*path));
+
+	for (node = objs->head; node != NULL; node = node->next_node) {
+		obj = (struct pcep_object_header *) node->data;
+		switch (CLASS_TYPE(obj->object_class, obj->object_type)) {
+			case CLASS_TYPE(PCEP_OBJ_CLASS_SRP, PCEP_OBJ_TYPE_SRP):
+				assert(NULL == srp);
+				srp = (struct pcep_object_srp*) obj;
+				pcep_lib_parse_srp(path, srp);
+				break;
+			case CLASS_TYPE(PCEP_OBJ_CLASS_LSP, PCEP_OBJ_TYPE_LSP):
+				/* Only support single LSP per message */
+				assert(NULL == lsp);
+				lsp = (struct pcep_object_lsp*) obj;
+				pcep_lib_parse_lsp(path, lsp);
+				break;
+			case CLASS_TYPE(PCEP_OBJ_CLASS_ERO, PCEP_OBJ_TYPE_ERO):
+				/* Only support single ERO per message */
+				assert(NULL == ero);
+				ero = (struct pcep_object_ro*) obj;
+				pcep_lib_parse_ero(path, ero);
+				break;
+			default:
+				PCEP_DEBUG("Unexpected PCEP object %s (%u) / %s (%u)",
+					pcep_object_class_name(obj->object_class),
+					obj->object_class,
+					pcep_object_type_name(obj->object_class,
+							      obj->object_type),
+					obj->object_type);
+				break;
+	     }
+	}
+
+	return path;
 }
-*/
+
+void pcep_lib_parse_srp(path_t *path, struct pcep_object_srp* srp)
+{
+	double_linked_list *tlvs;
+	double_linked_list_node *node;
+	struct pcep_object_tlv_header *tlv;
+
+	path->do_remove = srp->lsp_remove;
+	path->srp_id = srp->srp_id_number;
+
+	tlvs = pcep_obj_get_tlvs(&srp->header);
+	for (node = tlvs->head; node != NULL; node = node->next_node) {
+		tlv = (struct pcep_object_tlv_header *) node->data;
+		switch (tlv->type) {
+			case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE:
+			default:
+				PCEP_DEBUG("Unexpected SRP's TLV %s (%u)",
+					pcep_tlv_type_name(tlv->type),
+					tlv->type);
+				break;
+
+		}
+	}
+
+	dll_destroy(tlvs);
+}
+
+void pcep_lib_parse_lsp(path_t *path, struct pcep_object_lsp* lsp)
+{
+	double_linked_list *tlvs;
+	double_linked_list_node *node;
+	struct pcep_object_tlv_header *tlv;
+
+	tlvs = pcep_obj_get_tlvs(&lsp->header);
+	for (node = tlvs->head; node != NULL; node = node->next_node) {
+		tlv = (struct pcep_object_tlv_header *) node->data;
+		switch (tlv->type) {
+			default:
+				PCEP_DEBUG("Unexpected LSP TLV %s (%u)",
+					pcep_tlv_type_name(tlv->type),
+					tlv->type);
+				break;
+
+		}
+	}
+
+	dll_destroy(tlvs);
+}
+
+void pcep_lib_parse_ero(path_t *path, struct pcep_object_ro* ero)
+{
+	double_linked_list *objs;
+	double_linked_list_node *node;
+	struct pcep_ro_subobj_hdr *obj;
+
+	objs = pcep_obj_get_ro_subobjects(&ero->header);
+	for (node = objs->head; node != NULL; node = node->next_node) {
+		obj = (struct pcep_ro_subobj_hdr *) node->data;
+		switch (obj->type) {
+			default:
+				PCEP_DEBUG("Unexpected ERO sub-object %s (%u)",
+					pcep_ro_type_name(obj->type),
+					obj->type);
+				break;
+
+		}
+	}
+
+	dll_destroy(objs);
+}
+
+void pcep_lib_free_path(path_t *path)
+{
+	path_hop_t *hop;
+
+	hop = path->first;
+	while (NULL != hop) {
+		path_hop_t *next = hop->next;
+		XFREE(MTYPE_PCEP, hop);
+		hop = next;
+	}
+	if (NULL != path->name) {
+		XFREE(MTYPE_PCEP, path->name);
+	}
+	XFREE(MTYPE_PCEP, path);
+}
 
 
 /* ------------ PCC Functions ------------ */
@@ -334,15 +464,15 @@ int pcep_pcc_disable(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state)
 }
 
 void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
-                                pcc_state_t * pcc_state, pcep_event *event)
+				pcc_state_t * pcc_state, pcep_event *event)
 {
 	PCEP_DEBUG("Received PCEP event: %s", format_pcep_event(event));
 	switch (event->event_type) {
 		case PCC_CONNECTED_TO_PCE:
 			assert(CONNECTING == pcc_state->status);
 			PCEP_DEBUG("Connection established to PCE %pI4:%i",
-			           &pcc_state->opts->addr,
-			           pcc_state->opts->port);
+				   &pcc_state->opts->addr,
+				   pcc_state->opts->port);
 			pcep_pcc_synchronize(ctrl_state, pcc_state);
 			break;
 		case PCE_CLOSED_SOCKET:
@@ -358,13 +488,13 @@ void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
 			break;
 		case MESSAGE_RECEIVED:
 			if (CONNECTING == pcc_state->status) {
-				assert(PCEP_TYPE_OPEN == event->message->header.type);
+				assert(PCEP_TYPE_OPEN == event->message->header->type);
 				break;
 			}
 			assert(SYNCHRONIZING == pcc_state->status
 			       || OPERATING == pcc_state->status);
 			pcep_pcc_handle_message(ctrl_state, pcc_state,
-			                        event->message);
+						event->message);
 			break;
 		default:
 			//TODO: Log something ???
@@ -374,7 +504,7 @@ void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
 
 void pcep_pcc_synchronize(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state)
 {
-	struct pcep_header *report;
+	pcep_message *report;
 	char name[10] = "foob";
 	struct in_addr addr_r6;
 	double_linked_list *objs;
@@ -409,8 +539,8 @@ void pcep_pcc_synchronize(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state)
 		.name = name,
 		.srp_id = 0,
 		.plsp_id = 42,
-	        .status = PCEP_LSP_OPERATIONAL_UP,
-	        .do_remove = false,
+		.status = PCEP_LSP_OPERATIONAL_UP,
+		.do_remove = false,
 		.go_active = false,
 		.was_created = false,
 		.was_removed = false,
@@ -428,8 +558,8 @@ void pcep_pcc_synchronize(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state)
 		.name = NULL,
 		.srp_id = 0,
 		.plsp_id = 0,
-	        .status = PCEP_LSP_OPERATIONAL_DOWN,
-	        .do_remove = false,
+		.status = PCEP_LSP_OPERATIONAL_DOWN,
+		.do_remove = false,
 		.go_active = false,
 		.was_created = false,
 		.was_removed = false,
@@ -446,9 +576,9 @@ void pcep_pcc_synchronize(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state)
 }
 
 void pcep_pcc_handle_message(ctrl_state_t *ctrl_state,
-                             pcc_state_t * pcc_state, pcep_message *msg)
+			     pcc_state_t * pcc_state, pcep_message *msg)
 {
-	switch (msg->header.type) {
+	switch (msg->header->type) {
 		case PCEP_TYPE_INITIATE:
 			pcep_pcc_lsp_initiate(ctrl_state, pcc_state, msg);
 			break;
@@ -461,19 +591,23 @@ void pcep_pcc_handle_message(ctrl_state_t *ctrl_state,
 }
 
 void pcep_pcc_lsp_update(ctrl_state_t *ctrl_state,
-                         pcc_state_t * pcc_state, pcep_message *msg)
+			 pcc_state_t * pcc_state, pcep_message *msg)
 {
-	PCEP_DEBUG("Received LSP update, not supported yet");
+	path_t *path;
+
+	path = pcep_lib_parse_path(msg->obj_list);
+
+	pcep_lib_free_path(path);
 }
 
 void pcep_pcc_lsp_initiate(ctrl_state_t *ctrl_state,
-                           pcc_state_t * pcc_state, pcep_message *msg)
+			   pcc_state_t * pcc_state, pcep_message *msg)
 {
 	PCEP_DEBUG("Received LSP initiate, not supported yet");
 }
 
 void pcep_pcc_send(ctrl_state_t *ctrl_state,
-                   pcc_state_t * pcc_state, struct pcep_header *msg)
+		   pcc_state_t * pcc_state, pcep_message *msg)
 {
 	// PCEP_DEBUG("Sending PCEP message: %s", format_pcep_message(msg));
 	send_message(pcc_state->sess, msg, true);
@@ -714,7 +848,7 @@ int pcep_thread_pcc_update_event(struct thread *thread)
 
 	if (pcep_pcc_update(ctrl_state, pcc_state, pcc_opts)) {
 		flog_err(EC_PATH_PCEP_PCC_CONF_UPDATE,
-		         "failed to update PCC configuration");
+			 "failed to update PCC configuration");
 	}
 
 	return ret;
