@@ -263,7 +263,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		if (show_ng)
 			vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
 
-		for (ALL_NEXTHOPS_PTR(re->ng, nexthop)) {
+		for (ALL_NEXTHOPS_PTR(re->nhe->nhg, nexthop)) {
 			char addrstr[32];
 
 			vty_out(vty, "  %c%s",
@@ -413,7 +413,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	if (is_fib)
 		nhg = rib_active_nhg(re);
 	else
-		nhg = re->ng;
+		nhg = re->nhe->nhg;
 
 	if (json) {
 		json_route = json_object_new_object();
@@ -466,9 +466,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		json_object_int_add(json_route, "internalFlags",
 				    re->flags);
 		json_object_int_add(json_route, "internalNextHopNum",
-				    nexthop_group_nexthop_num(re->ng));
+				    nexthop_group_nexthop_num(re->nhe->nhg));
 		json_object_int_add(json_route, "internalNextHopActiveNum",
-				    nexthop_group_active_nexthop_num(re->ng));
+				    nexthop_group_active_nexthop_num(
+					    re->nhe->nhg));
 		if (uptime < ONE_DAY_SECOND)
 			sprintf(buf, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
 				tm->tm_sec);
@@ -1833,7 +1834,7 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 				fib_cnt[ZEBRA_ROUTE_TOTAL]++;
 				fib_cnt[re->type]++;
 			}
-			for (nexthop = re->ng->nexthop; (!cnt && nexthop);
+			for (nexthop = re->nhe->nhg->nexthop; (!cnt && nexthop);
 			     nexthop = nexthop->next) {
 				cnt++;
 				rib_cnt[ZEBRA_ROUTE_TOTAL]++;

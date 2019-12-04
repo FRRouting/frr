@@ -233,8 +233,8 @@ void _nexthop_add(struct nexthop **target, struct nexthop *nexthop)
 	nexthop->prev = last;
 }
 
-void _nexthop_group_add_sorted(struct nexthop_group *nhg,
-			       struct nexthop *nexthop)
+void nexthop_group_add_sorted(struct nexthop_group *nhg,
+			      struct nexthop *nexthop)
 {
 	struct nexthop *position, *prev, *tail;
 

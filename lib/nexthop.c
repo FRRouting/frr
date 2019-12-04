@@ -33,6 +33,7 @@
 #include "mpls.h"
 #include "jhash.h"
 #include "printfrr.h"
+#include "vrf.h"
 
 DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop")
 DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label")
@@ -279,6 +280,93 @@ bool nexthop_same_no_labels(const struct nexthop *nh1,
 		return false;
 
 	return true;
+}
+
+/*
+ * Allocate a new nexthop object and initialize it from various args.
+ */
+struct nexthop *nexthop_from_ifindex(ifindex_t ifindex, vrf_id_t vrf_id)
+{
+	struct nexthop *nexthop;
+
+	nexthop = nexthop_new();
+	nexthop->type = NEXTHOP_TYPE_IFINDEX;
+	nexthop->ifindex = ifindex;
+	nexthop->vrf_id = vrf_id;
+
+	return nexthop;
+}
+
+struct nexthop *nexthop_from_ipv4(const struct in_addr *ipv4,
+				  const struct in_addr *src,
+				  vrf_id_t vrf_id)
+{
+	struct nexthop *nexthop;
+
+	nexthop = nexthop_new();
+	nexthop->type = NEXTHOP_TYPE_IPV4;
+	nexthop->vrf_id = vrf_id;
+	nexthop->gate.ipv4 = *ipv4;
+	if (src)
+		nexthop->src.ipv4 = *src;
+
+	return nexthop;
+}
+
+struct nexthop *nexthop_from_ipv4_ifindex(const struct in_addr *ipv4,
+					  const struct in_addr *src,
+					  ifindex_t ifindex, vrf_id_t vrf_id)
+{
+	struct nexthop *nexthop;
+
+	nexthop = nexthop_new();
+	nexthop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+	nexthop->vrf_id = vrf_id;
+	nexthop->gate.ipv4 = *ipv4;
+	if (src)
+		nexthop->src.ipv4 = *src;
+	nexthop->ifindex = ifindex;
+
+	return nexthop;
+}
+
+struct nexthop *nexthop_from_ipv6(const struct in6_addr *ipv6,
+				  vrf_id_t vrf_id)
+{
+	struct nexthop *nexthop;
+
+	nexthop = nexthop_new();
+	nexthop->vrf_id = vrf_id;
+	nexthop->type = NEXTHOP_TYPE_IPV6;
+	nexthop->gate.ipv6 = *ipv6;
+
+	return nexthop;
+}
+
+struct nexthop *nexthop_from_ipv6_ifindex(const struct in6_addr *ipv6,
+					  ifindex_t ifindex, vrf_id_t vrf_id)
+{
+	struct nexthop *nexthop;
+
+	nexthop = nexthop_new();
+	nexthop->vrf_id = vrf_id;
+	nexthop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+	nexthop->gate.ipv6 = *ipv6;
+	nexthop->ifindex = ifindex;
+
+	return nexthop;
+}
+
+struct nexthop *nexthop_from_blackhole(enum blackhole_type bh_type)
+{
+	struct nexthop *nexthop;
+
+	nexthop = nexthop_new();
+	nexthop->vrf_id = VRF_DEFAULT;
+	nexthop->type = NEXTHOP_TYPE_BLACKHOLE;
+	nexthop->bh_type = bh_type;
+
+	return nexthop;
 }
 
 /* Update nexthop with label information. */

@@ -186,7 +186,8 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	 * the label advertised by the recursive nexthop (plus we don't have the
 	 * logic yet to push multiple labels).
 	 */
-	for (nexthop = re->ng->nexthop; nexthop; nexthop = nexthop->next) {
+	for (nexthop = re->nhe->nhg->nexthop;
+	     nexthop; nexthop = nexthop->next) {
 		/* Skip inactive and recursive entries. */
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
@@ -637,7 +638,7 @@ static int nhlfe_nexthop_active_ipv4(zebra_nhlfe_t *nhlfe,
 		    || !CHECK_FLAG(match->flags, ZEBRA_FLAG_SELECTED))
 			continue;
 
-		for (match_nh = match->ng->nexthop; match_nh;
+		for (match_nh = match->nhe->nhg->nexthop; match_nh;
 		     match_nh = match_nh->next) {
 			if (match->type == ZEBRA_ROUTE_CONNECT
 			    || nexthop->ifindex == match_nh->ifindex) {
@@ -688,10 +689,10 @@ static int nhlfe_nexthop_active_ipv6(zebra_nhlfe_t *nhlfe,
 			break;
 	}
 
-	if (!match || !match->ng->nexthop)
+	if (!match || !match->nhe->nhg->nexthop)
 		return 0;
 
-	nexthop->ifindex = match->ng->nexthop->ifindex;
+	nexthop->ifindex = match->nhe->nhg->nexthop->ifindex;
 	return 1;
 }
 
@@ -2577,7 +2578,7 @@ static void mpls_zebra_nhg_update(struct route_entry *re, afi_t afi,
 
 	nhe = zebra_nhg_rib_find(0, new_grp, afi);
 
-	zebra_nhg_re_update_ref(re, nhe);
+	route_entry_update_nhe(re, nhe);
 }
 
 static bool mpls_ftn_update_nexthop(int add, struct nexthop *nexthop,
@@ -2631,7 +2632,7 @@ int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 	 * We can't just change the values here since we are hashing
 	 * on labels. We need to create a whole new group
 	 */
-	nexthop_group_copy(&new_grp, re->ng);
+	nexthop_group_copy(&new_grp, re->nhe->nhg);
 
 	found = false;
 	for (nexthop = new_grp.nexthop; nexthop; nexthop = nexthop->next) {
@@ -2712,7 +2713,7 @@ int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	if (re == NULL)
 		return -1;
 
-	nexthop_group_copy(&new_grp, re->ng);
+	nexthop_group_copy(&new_grp, re->nhe->nhg);
 
 	for (nexthop = new_grp.nexthop; nexthop; nexthop = nexthop->next)
 		nexthop_del_labels(nexthop);
@@ -2949,7 +2950,7 @@ static void mpls_ftn_uninstall_all(struct zebra_vrf *zvrf,
 		RNODE_FOREACH_RE (rn, re) {
 			struct nexthop_group new_grp = {};
 
-			nexthop_group_copy(&new_grp, re->ng);
+			nexthop_group_copy(&new_grp, re->nhe->nhg);
 
 			for (nexthop = new_grp.nexthop; nexthop;
 			     nexthop = nexthop->next) {

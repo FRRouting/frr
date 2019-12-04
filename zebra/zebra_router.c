@@ -29,7 +29,7 @@
 #include "zebra_pbr.h"
 #include "zebra_vxlan.h"
 #include "zebra_mlag.h"
-#include "zebra_nhg_private.h"
+#include "zebra_nhg.h"
 #include "debug.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_TABLE_INFO, "RIB table info")
@@ -223,7 +223,7 @@ void zebra_router_terminate(void)
 	zebra_vxlan_disable();
 	zebra_mlag_terminate();
 
-	hash_clean(zrouter.nhgs, zebra_nhg_free);
+	hash_clean(zrouter.nhgs, zebra_nhg_hash_free);
 	hash_free(zrouter.nhgs);
 	hash_clean(zrouter.nhgs_id, NULL);
 	hash_free(zrouter.nhgs_id);

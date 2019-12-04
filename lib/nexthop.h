@@ -122,6 +122,22 @@ void nexthop_add_labels(struct nexthop *, enum lsp_types_t, uint8_t,
 void nexthop_del_labels(struct nexthop *);
 
 /*
+ * Allocate a new nexthop object and initialize it from various args.
+ */
+struct nexthop *nexthop_from_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
+struct nexthop *nexthop_from_ipv4(const struct in_addr *ipv4,
+				  const struct in_addr *src,
+				  vrf_id_t vrf_id);
+struct nexthop *nexthop_from_ipv4_ifindex(const struct in_addr *ipv4,
+					  const struct in_addr *src,
+					  ifindex_t ifindex, vrf_id_t vrf_id);
+struct nexthop *nexthop_from_ipv6(const struct in6_addr *ipv6,
+				  vrf_id_t vrf_id);
+struct nexthop *nexthop_from_ipv6_ifindex(const struct in6_addr *ipv6,
+					  ifindex_t ifindex, vrf_id_t vrf_id);
+struct nexthop *nexthop_from_blackhole(enum blackhole_type bh_type);
+
+/*
  * Hash a nexthop. Suitable for use with hash tables.
  *
  * This function uses the following values when computing the hash:

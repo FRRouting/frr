@@ -35,8 +35,6 @@ extern "C" {
 
 void _nexthop_add(struct nexthop **target, struct nexthop *nexthop);
 void _nexthop_del(struct nexthop_group *nhg, struct nexthop *nexthop);
-void _nexthop_group_add_sorted(struct nexthop_group *nhg,
-			       struct nexthop *nexthop);
 
 #ifdef __cplusplus
 }

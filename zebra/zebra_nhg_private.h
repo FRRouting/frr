@@ -57,6 +57,4 @@ extern void nhg_connected_tree_del_nhe(struct nhg_connected_tree_head *head,
 extern void nhg_connected_tree_add_nhe(struct nhg_connected_tree_head *head,
 				       struct nhg_hash_entry *nhe);
 
-extern void zebra_nhg_free(void *arg);
-
 #endif /* __ZEBRA_NHG_PRIVATE_H__ */
