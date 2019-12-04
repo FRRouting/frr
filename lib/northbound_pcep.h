@@ -77,6 +77,7 @@ int nb_pcep_add_segment_list_label(const char *segment_list_name,
 int nb_pcep_create_segment_list(const char *segment_list_name);
 struct te_sr_policy *nb_pcep_get_sr_policy(const char *color_str,
 					   const char *endpoint_str);
+struct te_segment_list *nb_pcep_get_segment_list(const char *name);
 
 /* internal */
 int nb_pcep_commit_candidate_config(struct nb_config *candidate_config,

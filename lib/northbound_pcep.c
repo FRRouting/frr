@@ -169,3 +169,16 @@ struct te_sr_policy *nb_pcep_get_sr_policy(const char *color_str,
 
 	return te_sr_policy;
 }
+
+struct te_segment_list *nb_pcep_get_segment_list(const char *name)
+{
+	char xpath_segment_list[XPATH_MAXLEN];
+	struct te_segment_list *te_segment_list;
+
+	snprintf(xpath_segment_list, sizeof(xpath_segment_list),
+		 "/frr-pathd:pathd/segment-list[name='%s']", name);
+	te_segment_list = nb_running_get_entry(running_config->dnode,
+					       xpath_segment_list, true);
+
+	return te_segment_list;
+}
