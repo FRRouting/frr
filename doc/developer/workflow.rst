@@ -293,6 +293,11 @@ Code submitted to FRR must be signed off. We have the same requirements for
 using the signed-off-by process as the Linux kernel. In short, you must include
 a ``Signed-off-by`` tag in every patch.
 
+An easy way to do this is to use ``git commit -s`` where ``-s`` will automatically
+append a signed-off line to the end of your commit message. Also, if you commit
+and forgot to add the line you can use ``git commit --amend -s`` to add the
+signed-off line to the last commit.
+
 ``Signed-off-by`` is a developer's certification that they have the right to
 submit the patch for inclusion into the project. It is an agreement to the
 :ref:`Developer's Certificate of Origin <developers-certificate-of-origin>`.
