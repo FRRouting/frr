@@ -36,7 +36,6 @@
 #include "zebra/debug.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_mlag.h"
-#include "zebra/zebra_mlag_private.h"
 
 #include <sys/un.h>
 
@@ -45,8 +44,6 @@
  * This file will have platform specific apis to communicate with MCLAG.
  *
  */
-
-#ifdef HAVE_CUMULUS
 
 static struct thread_master *zmlag_master;
 static int mlag_socket;
@@ -57,7 +54,7 @@ static int zebra_mlag_read(struct thread *thread);
 /*
  * Write the data to MLAGD
  */
-int zebra_mlag_private_write_data(uint8_t *data, uint32_t len)
+static int zebra_mlag_private_write_data(uint8_t *data, uint32_t len)
 {
 	int rc = 0;
 
@@ -207,13 +204,14 @@ static int zebra_mlag_connect(struct thread *thread)
 /*
  * Currently we are doing polling later we will look for better options
  */
-void zebra_mlag_private_monitor_state(void)
+static int zebra_mlag_private_monitor_state(void)
 {
 	thread_add_event(zmlag_master, zebra_mlag_connect, NULL, 0,
 			 &zrouter.mlag_info.t_read);
+	return 0;
 }
 
-int zebra_mlag_private_open_channel(void)
+static int zebra_mlag_private_open_channel(void)
 {
 	zmlag_master = zrouter.mlag_info.th_master;
 
@@ -242,7 +240,7 @@ int zebra_mlag_private_open_channel(void)
 	return 0;
 }
 
-int zebra_mlag_private_close_channel(void)
+static int zebra_mlag_private_close_channel(void)
 {
 	if (zmlag_master == NULL)
 		return -1;
@@ -263,37 +261,34 @@ int zebra_mlag_private_close_channel(void)
 	return 0;
 }
 
-void zebra_mlag_private_cleanup_data(void)
+static int zebra_mlag_private_cleanup_data(void)
 {
 	zmlag_master = NULL;
 	zrouter.mlag_info.connected = false;
 	zrouter.mlag_info.timer_running = false;
 
 	close(mlag_socket);
-}
-
-#else  /*HAVE_CUMULUS */
-
-int zebra_mlag_private_write_data(uint8_t *data, uint32_t len)
-{
 	return 0;
 }
 
-void zebra_mlag_private_monitor_state(void)
+static int zebra_mlag_module_init(void)
 {
-}
-
-int zebra_mlag_private_open_channel(void)
-{
+	hook_register(zebra_mlag_private_write_data,
+		      zebra_mlag_private_write_data);
+	hook_register(zebra_mlag_private_monitor_state,
+		      zebra_mlag_private_monitor_state);
+	hook_register(zebra_mlag_private_open_channel,
+		      zebra_mlag_private_open_channel);
+	hook_register(zebra_mlag_private_close_channel,
+		      zebra_mlag_private_close_channel);
+	hook_register(zebra_mlag_private_cleanup_data,
+		      zebra_mlag_private_cleanup_data);
 	return 0;
 }
 
-int zebra_mlag_private_close_channel(void)
-{
-	return 0;
-}
-
-void zebra_mlag_private_cleanup_data(void)
-{
-}
-#endif /*HAVE_CUMULUS*/
+FRR_MODULE_SETUP(
+	.name = "zebra_cumulus_mlag",
+	.version = FRR_VERSION,
+	.description = "zebra Cumulus MLAG interface",
+	.init = zebra_mlag_module_init,
+)

@@ -32,6 +32,9 @@ endif
 if FPM
 module_LTLIBRARIES += zebra/zebra_fpm.la
 endif
+if LINUX
+module_LTLIBRARIES += zebra/zebra_cumulus_mlag.la
+endif
 
 man8 += $(MANBUILD)/zebra.8
 ## endif ZEBRA
@@ -69,7 +72,6 @@ zebra_zebra_SOURCES = \
 	zebra/rule_netlink.c \
 	zebra/rule_socket.c \
 	zebra/zebra_mlag.c \
-	zebra/zebra_mlag_private.c \
 	zebra/zebra_l2.c \
 	zebra/zebra_memory.c \
 	zebra/zebra_dplane.c \
@@ -134,7 +136,6 @@ noinst_HEADERS += \
 	zebra/rtadv.h \
 	zebra/rule_netlink.h \
 	zebra/zebra_mlag.h \
-	zebra/zebra_mlag_private.h \
 	zebra/zebra_fpm_private.h \
 	zebra/zebra_l2.h \
 	zebra/zebra_dplane.h \
@@ -185,3 +186,6 @@ if DEV_BUILD
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_dt.c
 endif
 endif
+
+zebra_zebra_cumulus_mlag_la_SOURCES = zebra/zebra_mlag_private.c
+zebra_zebra_cumulus_mlag_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
