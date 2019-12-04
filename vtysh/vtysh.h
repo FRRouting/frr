@@ -73,6 +73,7 @@ extern enum vtysh_write_integrated vtysh_write_integrated;
 
 extern char frr_config[];
 extern char vtydir[];
+extern bool vtysh_loop_exited;
 
 void vtysh_init_vty(void);
 void vtysh_uninit(void);
