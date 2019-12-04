@@ -402,12 +402,14 @@ void ospf_renegotiate_optional_capabilities(struct ospf *top)
 struct ospf_neighbor *ospf_nbr_lookup(struct ospf_interface *oi, struct ip *iph,
 				      struct ospf_header *ospfh)
 {
+	struct in_addr srcaddr = iph->ip_src;
+
 	if (oi->type == OSPF_IFTYPE_VIRTUALLINK
 	    || oi->type == OSPF_IFTYPE_POINTOPOINT)
 		return (ospf_nbr_lookup_by_routerid(oi->nbrs,
 						    &ospfh->router_id));
 	else
-		return (ospf_nbr_lookup_by_addr(oi->nbrs, &iph->ip_src));
+		return (ospf_nbr_lookup_by_addr(oi->nbrs, &srcaddr));
 }
 
 static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,

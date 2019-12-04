@@ -485,7 +485,7 @@ int eigrp_read(struct thread *thread)
 	struct eigrp_header *eigrph;
 	struct interface *ifp;
 	struct eigrp_neighbor *nbr;
-
+	struct in_addr srcaddr;
 	uint16_t opcode = 0;
 	uint16_t length = 0;
 
@@ -511,6 +511,7 @@ int eigrp_read(struct thread *thread)
 	if (iph->ip_v == 4)
 		length = (iph->ip_len) - 20U;
 
+	srcaddr = iph->ip_src;
 
 	/* IP Header dump. */
 	if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV)
@@ -526,7 +527,7 @@ int eigrp_read(struct thread *thread)
 		   and also platforms (such as Solaris 8) that claim to support
 		   ifindex
 		   retrieval but do not. */
-		c = if_lookup_address((void *)&iph->ip_src, AF_INET,
+		c = if_lookup_address((void *)&srcaddr, AF_INET,
 				      eigrp->vrf_id);
 
 		if (c == NULL)
@@ -549,11 +550,11 @@ int eigrp_read(struct thread *thread)
 
 	/* Self-originated packet should be discarded silently. */
 	if (eigrp_if_lookup_by_local_addr(eigrp, NULL, iph->ip_src)
-	    || (IPV4_ADDR_SAME(&iph->ip_src, &ei->address.u.prefix4))) {
+	    || (IPV4_ADDR_SAME(&srcaddr, &ei->address.u.prefix4))) {
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
 			zlog_debug(
 				"eigrp_read[%s]: Dropping self-originated packet",
-				inet_ntoa(iph->ip_src));
+				inet_ntoa(srcaddr));
 		return 0;
 	}
 
