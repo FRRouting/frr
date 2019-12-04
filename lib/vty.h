@@ -34,6 +34,7 @@
 #include "qobj.h"
 #include "compiler.h"
 #include "northbound.h"
+#include "zlog_live.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -175,6 +176,9 @@ struct vty {
 	/* CLI command return value (likely CMD_SUCCESS) when pass_fd != -1 */
 	uint8_t pass_fd_status[4];
 
+	/* live logging target / terminal monitor */
+	struct zlog_live_cfg live_log;
+
 	/* IAC handling: was the last character received the
 	   IAC (interpret-as-command) escape character (and therefore the next
 	   character will be the command code)?  Refer to Telnet RFC 854. */
@@ -197,9 +201,6 @@ struct vty {
 
 	/* Configure lines. */
 	int lines;
-
-	/* Terminal monitor. */
-	int monitor;
 
 	/* Read and write thread. */
 	struct thread *t_read;

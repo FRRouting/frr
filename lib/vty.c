@@ -1314,8 +1314,6 @@ static void vty_read(struct thread *thread)
 				vty_event(VTY_READ, vty);
 				return;
 			}
-			vty->monitor = 0; /* disable monitoring to avoid
-					     infinite recursion */
 			flog_err(
 				EC_LIB_SOCKET,
 				"%s: read error on vty client fd %d, closing: %s",
@@ -1529,8 +1527,6 @@ static void vty_flush(struct thread *thread)
 			vty->lines >= 0 ? vty->lines : vty->height, erase, 0);
 	switch (flushrc) {
 	case BUFFER_ERROR:
-		vty->monitor =
-			0; /* disable monitoring to avoid infinite recursion */
 		zlog_info("buffer_flush failed on vty client fd %d/%d, closing",
 			  vty->fd, vty->wfd);
 		buffer_reset(vty->lbuf);
@@ -2078,8 +2074,6 @@ static int vtysh_flush(struct vty *vty)
 		vty_event(VTYSH_WRITE, vty);
 		break;
 	case BUFFER_ERROR:
-		vty->monitor =
-			0; /* disable monitoring to avoid infinite recursion */
 		flog_err(EC_LIB_SOCKET, "%s: write error to fd %d, closing",
 			 __func__, vty->fd);
 		buffer_reset(vty->lbuf);
@@ -2119,8 +2113,6 @@ static void vtysh_read(struct thread *thread)
 				vty_event(VTYSH_READ, vty);
 				return;
 			}
-			vty->monitor = 0; /* disable monitoring to avoid
-					     infinite recursion */
 			flog_err(
 				EC_LIB_SOCKET,
 				"%s: read failed on vtysh client fd %d, closing: %s",
@@ -2254,6 +2246,7 @@ void vty_close(struct vty *vty)
 		close(vty->pass_fd);
 		vty->pass_fd = -1;
 	}
+	zlog_live_close(&vty->live_log);
 
 	/* Flush buffer. */
 	buffer_flush_all(vty->obuf, vty->wfd);
@@ -2755,8 +2748,9 @@ DEFUN_NOSH (config_who,
 	struct vty *v;
 
 	frr_each (vtys, vty_sessions, v)
-		vty_out(vty, "%svty[%d] connected from %s.\n",
-			v->config ? "*" : " ", v->fd, v->address);
+		vty_out(vty, "%svty[%d] connected from %s%s.\n",
+			v->config ? "*" : " ", v->fd, v->address,
+			zlog_live_is_null(&v->live_log) ? "" : ", live log");
 	return CMD_SUCCESS;
 }
 
@@ -2949,35 +2943,56 @@ DEFUN (no_service_advanced_vty,
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (terminal_monitor,
-       terminal_monitor_cmd,
-       "terminal monitor",
-       "Set terminal line parameters\n"
-       "Copy debug output to the current terminal line\n")
+DEFUN_NOSH(terminal_monitor,
+	   terminal_monitor_cmd,
+	   "terminal monitor [detach]",
+	   "Set terminal line parameters\n"
+	   "Copy debug output to the current terminal line\n"
+	   "Keep logging feed open independent of VTY session\n")
 {
-	vty->monitor = 1;
+	int fd_ret = -1;
+
+	if (vty->type != VTY_SHELL_SERV) {
+		vty_out(vty, "%% not supported\n");
+		return CMD_WARNING;
+	}
+
+	if (argc == 3) {
+		struct zlog_live_cfg detach_log = {};
+
+		zlog_live_open(&detach_log, LOG_DEBUG, &fd_ret);
+		zlog_live_disown(&detach_log);
+	} else
+		zlog_live_open(&vty->live_log, LOG_DEBUG, &fd_ret);
+
+	if (fd_ret == -1) {
+		vty_out(vty, "%% error opening live log: %m\n");
+		return CMD_WARNING;
+	}
+
+	vty_pass_fd(vty, fd_ret);
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (terminal_no_monitor,
-       terminal_no_monitor_cmd,
-       "terminal no monitor",
-       "Set terminal line parameters\n"
-       NO_STR
-       "Copy debug output to the current terminal line\n")
+DEFUN_NOSH(no_terminal_monitor,
+	   no_terminal_monitor_cmd,
+	   "no terminal monitor",
+	   NO_STR
+	   "Set terminal line parameters\n"
+	   "Copy debug output to the current terminal line\n")
 {
-	vty->monitor = 0;
+	zlog_live_close(&vty->live_log);
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (no_terminal_monitor,
-       no_terminal_monitor_cmd,
-       "no terminal monitor",
-       NO_STR
-       "Set terminal line parameters\n"
-       "Copy debug output to the current terminal line\n")
+DEFUN_NOSH(terminal_no_monitor,
+	   terminal_no_monitor_cmd,
+	   "terminal no monitor",
+	   "Set terminal line parameters\n"
+	   NO_STR
+	   "Copy debug output to the current terminal line\n")
 {
-	return terminal_no_monitor(self, vty, argc, argv);
+	return no_terminal_monitor(self, vty, argc, argv);
 }
 
 
