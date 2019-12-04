@@ -36,9 +36,9 @@
 #define PCEP_DEFAULT_PORT 4189
 #define POLL_INTERVAL 1
 
-#define PCEP_DEBUG(fmt, ...) DEBUGD(&pcep_g->dbg, fmt, ##__VA_ARGS__);
+#define PCEP_DEBUG(fmt, ...) DEBUGD(&pcep_g->dbg, fmt, ##__VA_ARGS__)
 
-DEFINE_MTYPE_STATIC(PATHD, PCEP, "PCEP module")
+DEFINE_MTYPE(PATHD, PCEP, "PCEP module")
 
 /*
  * Globals.
@@ -52,10 +52,6 @@ typedef struct pcep_glob_t_ {
 static pcep_glob_t pcep_glob_space = { .dbg = {0, "pathd module: pcep"} };
 static pcep_glob_t *pcep_g = &pcep_glob_space;
 
-/* PCEPLib Functions */
-static int pcep_lib_connect(pcc_state_t *pcc_state);
-static void pcep_lib_disconnect(pcc_state_t *pcc_state);
-
 /* PCC Functions */
 static pcc_state_t* pcep_pcc_initialize(ctrl_state_t *ctrl_state, int index);
 static void pcep_pcc_finalize(ctrl_state_t *ctrl_state, pcc_state_t *pcc_state);
@@ -66,8 +62,16 @@ static int pcep_pcc_disable(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state);
 static void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
                                        pcc_state_t * pcc_state,
                                        pcep_event *event);
+static void pcep_pcc_synchronize(ctrl_state_t *ctrl_state,
+                                 pcc_state_t * pcc_state);
 static void pcep_pcc_handle_message(ctrl_state_t *ctrl_state,
                                     pcc_state_t * pcc_state, pcep_message *msg);
+static void pcep_pcc_lsp_update(ctrl_state_t *ctrl_state,
+                                pcc_state_t * pcc_state, pcep_message *msg);
+static void pcep_pcc_lsp_initiate(ctrl_state_t *ctrl_state,
+       	                          pcc_state_t * pcc_state, pcep_message *msg);
+static void pcep_pcc_send(ctrl_state_t *ctrl_state,
+                          pcc_state_t * pcc_state, struct pcep_header *msg);
 
 /* Controller Functions Called from Main */
 static int pcep_controller_initialize(void);
@@ -77,8 +81,10 @@ static int pcep_controller_pcc_disconnect(int index);
 static int pcep_halt_cb(struct frr_pthread *fpt, void **res);
 
 /* Controller Functions Called From Thread */
+#if 0
 static void pcep_thread_start_sync(ctrl_state_t *ctrl_state);
 static void pcep_thread_update_lsp(ctrl_state_t *ctrl_state);
+#endif
 static void pcep_thread_schedule_poll(ctrl_state_t *ctrl_state);
 static int pcep_thread_init_event(struct thread *thread);
 static int pcep_thread_finish_event(struct thread *thread);
@@ -87,8 +93,10 @@ static int pcep_thread_pcc_update_event(struct thread *thread);
 static int pcep_thread_pcc_disconnect_event(struct thread *thread);
 
 /* Main Thread Functions */
+#if 0
 static int pcep_main_start_sync_event(struct thread *thread);
 static int pcep_main_update_lsp_event(struct thread *thread);
+#endif
 
 /* CLI Functions */
 static int pcep_cli_debug_config_write(struct vty *vty);
@@ -101,12 +109,12 @@ static int pcep_module_late_init(struct thread_master *tm);
 static int pcep_module_init(void);
 
 
-//TODO: Proper PCC error handling
+/* Should be in path_pcep_lib.[ch] */
 
-/* ------------ Utils ------------ */
-
-
-/* ------------ PCEPLib Functions ------------ */
+static int pcep_lib_connect(pcc_state_t *pcc_state);
+static void pcep_lib_disconnect(pcc_state_t *pcc_state);
+static double_linked_list *pcep_lib_format_path(path_t *path);
+// static path_t *pcep_lib_parse_path(double_linked_list *objs);
 
 int pcep_lib_connect(pcc_state_t *pcc_state)
 {
@@ -120,11 +128,14 @@ int pcep_lib_connect(pcc_state_t *pcc_state)
 
 	config = create_default_pcep_configuration();
 	config->support_stateful_pce_lsp_update = true;
-	config->support_pce_lsp_instantiation = true;
-	//TODO: Figure out if we want that for now
-	// config->support_lsp_triggered_resync = true;
-	// config->support_pce_triggered_initial_sync = true;
 	config->support_sr_te_pst = true;
+	config->use_pcep_sr_draft07 = true;
+	//TODO: Figure out if we want that for now
+	config->support_include_db_version = false;
+	config->support_pce_lsp_instantiation = false;
+	config->support_lsp_triggered_resync = false;
+	config->support_lsp_delta_sync = false;
+	config->support_pce_triggered_initial_sync = false;
 
 	sess = connect_pce_with_port(config, &pcc_state->opts->addr,
 	                             pcc_state->opts->port);
@@ -149,6 +160,85 @@ void pcep_lib_disconnect(pcc_state_t *pcc_state)
 	pcc_state->config = NULL;
 	pcc_state->sess = NULL;
 }
+
+double_linked_list *pcep_lib_format_path(path_t *path)
+{
+	struct in_addr addr_null;
+	double_linked_list *objs, *srp_tlvs, *lsp_tlvs, *ero_objs;
+	struct pcep_object_tlv *tlv;
+	struct pcep_object_ro_subobj *ero_obj;
+	struct pcep_object_srp* srp;
+	struct pcep_object_lsp* lsp;
+	struct pcep_object_ro* ero;
+
+	memset(&addr_null, 0, sizeof(addr_null));
+
+	objs = dll_initialize();
+
+	/* SRP object */
+	srp_tlvs = dll_initialize();
+	tlv = pcep_tlv_create_path_setup_type(SR_TE_PST);
+	dll_append(srp_tlvs, tlv);
+	srp = pcep_obj_create_srp(path->do_remove, path->srp_id, srp_tlvs);
+	dll_append(objs, srp);
+	dll_destroy_with_data(srp_tlvs);
+	/* LSP object */
+	lsp_tlvs = dll_initialize();
+	if (NULL != path->name) {
+		tlv = pcep_tlv_create_symbolic_path_name(path->name,
+		                                         strlen(path->name));
+		dll_append(lsp_tlvs, tlv);
+	}
+	tlv = pcep_tlv_create_ipv4_lsp_identifiers(&addr_null, &addr_null, 0, 0, 0);
+	dll_append(lsp_tlvs, tlv);
+	lsp = pcep_obj_create_lsp(path->plsp_id,
+	                          path->status,
+	                          path->was_created   /* C Flag */,
+	                          path->go_active     /* A Flag */,
+	                          path->was_removed   /* R Flag */,
+	                          path->is_synching   /* S Flag */,
+	                          path->is_delegated  /* D Flag */,
+	                          lsp_tlvs);
+	dll_append(objs, lsp);
+	dll_destroy_with_data(lsp_tlvs);
+	/*   ERO object */
+	ero_objs = dll_initialize();
+	for (path_hop_t *hop = path->first; NULL != hop; hop = hop->next) {
+		/* Only supporting MPLS hops with both sid and nai */
+		assert(hop->is_mpls);
+		assert(hop->has_sid);
+		assert(hop->has_nai);
+		/* Only supporting IPv4 nodes */
+		assert(PCEP_SR_SUBOBJ_NAI_IPV4_NODE == hop->type);
+
+		ero_obj = pcep_obj_create_ro_subobj_sr_ipv4_node(
+		                hop->is_loose,
+		                !hop->has_sid,
+		                hop->has_attribs,
+		                hop->is_mpls,
+		                ENCODE_SR_ERO_SID(hop->sid.mpls.label,
+		                                  hop->sid.mpls.traffic_class,
+		                                  hop->sid.mpls.is_bottom,
+		                                  hop->sid.mpls.ttl),
+		                &hop->nai.ipv4_node.local);
+		/* ODL only supports Draft 07 that has a different type */
+		ero_obj->subobj.sr.header.type = RO_SUBOBJ_TYPE_SR_DRAFT07;
+		dll_append(ero_objs, ero_obj);
+	}
+	ero = pcep_obj_create_ero(ero_objs);
+	dll_append(objs, ero);
+	dll_destroy_with_data(ero_objs);
+
+	return objs;
+}
+
+/*
+path_t *pcep_lib_parse_path(double_linked_list *objs)
+{
+	return NULL;
+}
+*/
+
 
 /* ------------ PCC Functions ------------ */
 
@@ -246,17 +336,14 @@ int pcep_pcc_disable(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state)
 void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
                                 pcc_state_t * pcc_state, pcep_event *event)
 {
-	PCEP_DEBUG("Got PCEP event: %s", format_pcep_event(event));
+	PCEP_DEBUG("Received PCEP event: %s", format_pcep_event(event));
 	switch (event->event_type) {
 		case PCC_CONNECTED_TO_PCE:
 			assert(CONNECTING == pcc_state->status);
 			PCEP_DEBUG("Connection established to PCE %pI4:%i",
 			           &pcc_state->opts->addr,
 			           pcc_state->opts->port);
-			//TODO: Trigger synchronization
-			// pcc_state->status = SYNCHRONIZING;
-			/* We skip synchronization for now */
-			pcc_state->status = OPERATING;
+			pcep_pcc_synchronize(ctrl_state, pcc_state);
 			break;
 		case PCE_CLOSED_SOCKET:
 		case PCE_SENT_PCEP_CLOSE:
@@ -270,6 +357,10 @@ void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
 			//TODO: schedule reconnection ??
 			break;
 		case MESSAGE_RECEIVED:
+			if (CONNECTING == pcc_state->status) {
+				assert(PCEP_TYPE_OPEN == event->message->header.type);
+				break;
+			}
 			assert(SYNCHRONIZING == pcc_state->status
 			       || OPERATING == pcc_state->status);
 			pcep_pcc_handle_message(ctrl_state, pcc_state,
@@ -281,10 +372,111 @@ void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
 	}
 }
 
+void pcep_pcc_synchronize(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state)
+{
+	struct pcep_header *report;
+	char name[10] = "foob";
+	struct in_addr addr_r6;
+	double_linked_list *objs;
+	path_hop_t hop1;
+	path_t path;
+
+	pcc_state->status = SYNCHRONIZING;
+	//TODO: Start synchronization, for now it is hard-coded
+
+	inet_pton(AF_INET, "6.6.6.6", &(addr_r6.s_addr));
+
+	/* First Fake Path */
+	hop1 = (path_hop_t){
+		.next = NULL,
+		.type = PCEP_SR_SUBOBJ_NAI_IPV4_NODE,
+		.is_loose = false,
+		.has_sid = true,
+		.has_attribs = false,
+		.is_mpls = true,
+		.has_nai = true,
+		.sid = {
+			.mpls = {
+				.label = 16060,
+				.traffic_class = 0,
+				.is_bottom = true,
+				.ttl = 0
+			}
+		},
+		.nai = { .ipv4_node = { .local = addr_r6 } }
+	};
+	path = (path_t){
+		.name = name,
+		.srp_id = 0,
+		.plsp_id = 42,
+	        .status = PCEP_LSP_OPERATIONAL_UP,
+	        .do_remove = false,
+		.go_active = false,
+		.was_created = false,
+		.was_removed = false,
+		.is_synching = true,
+		.is_delegated = true,
+		.first = &hop1
+	};
+	objs = pcep_lib_format_path(&path);
+	report = pcep_msg_create_report(objs);
+	pcep_pcc_send(ctrl_state, pcc_state, report);
+	dll_destroy_with_data(objs);
+
+	/* End Synchronization */
+	path = (path_t){
+		.name = NULL,
+		.srp_id = 0,
+		.plsp_id = 0,
+	        .status = PCEP_LSP_OPERATIONAL_DOWN,
+	        .do_remove = false,
+		.go_active = false,
+		.was_created = false,
+		.was_removed = false,
+		.is_synching = false,
+		.is_delegated = false,
+		.first = NULL
+	};
+	objs = pcep_lib_format_path(&path);
+	report = pcep_msg_create_report(objs);
+	pcep_pcc_send(ctrl_state, pcc_state, report);
+	dll_destroy_with_data(objs);
+
+	pcc_state->status = OPERATING;
+}
+
 void pcep_pcc_handle_message(ctrl_state_t *ctrl_state,
                              pcc_state_t * pcc_state, pcep_message *msg)
 {
+	switch (msg->header.type) {
+		case PCEP_TYPE_INITIATE:
+			pcep_pcc_lsp_initiate(ctrl_state, pcc_state, msg);
+			break;
+		case PCEP_TYPE_UPDATE:
+			pcep_pcc_lsp_update(ctrl_state, pcc_state, msg);
+			break;
+		default:
+			break;
+	}
+}
 
+void pcep_pcc_lsp_update(ctrl_state_t *ctrl_state,
+                         pcc_state_t * pcc_state, pcep_message *msg)
+{
+	PCEP_DEBUG("Received LSP update, not supported yet");
+}
+
+void pcep_pcc_lsp_initiate(ctrl_state_t *ctrl_state,
+                           pcc_state_t * pcc_state, pcep_message *msg)
+{
+	PCEP_DEBUG("Received LSP initiate, not supported yet");
+}
+
+void pcep_pcc_send(ctrl_state_t *ctrl_state,
+                   pcc_state_t * pcc_state, struct pcep_header *msg)
+{
+	// PCEP_DEBUG("Sending PCEP message: %s", format_pcep_message(msg));
+	send_message(pcc_state->sess, msg, true);
 }
 
 
@@ -413,6 +605,7 @@ int pcep_halt_cb(struct frr_pthread *fpt, void **res)
 
 /* ------------ Controller Functions Called From Thread ------------ */
 
+#if 0
 /* Notifies the main thread that it should start sending LSP to synchronize
    the PCC */
 void pcep_thread_start_sync(ctrl_state_t *ctrl_state)
@@ -432,6 +625,7 @@ void pcep_thread_update_lsp(ctrl_state_t *ctrl_state)
 			 pcep_main_update_lsp_event,
 			 NULL, 0, NULL);
 }
+#endif
 
 void pcep_thread_schedule_poll(ctrl_state_t *ctrl_state)
 {
@@ -491,8 +685,7 @@ int pcep_thread_poll_timer(struct thread *thread)
 			pcep_pcc_handle_pcep_event(ctrl_state, pcc_state, event);
 			break;
 		}
-		// Waiting for a fix of pceplib memory issues
-		// destroy_pcep_event(event);
+		destroy_pcep_event(event);
 	}
 
 	pcep_thread_schedule_poll(ctrl_state);
@@ -545,6 +738,7 @@ int pcep_thread_pcc_disconnect_event(struct thread *thread)
 
 /* ------------ Main Thread Functions ------------ */
 
+#if 0
 int pcep_main_start_sync_event(struct thread *thread)
 {
 	return 0;
@@ -554,6 +748,7 @@ int pcep_main_update_lsp_event(struct thread *thread)
 {
 	return 0;
 }
+#endif
 
 
 /* ------------ CLI Functions ------------ */
