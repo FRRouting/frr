@@ -1531,8 +1531,8 @@ static bool nexthop_set_src(const struct nexthop *nexthop, int family,
 /*
  * Routing table change via netlink interface, using a dataplane context object
  */
-static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
-				   uint8_t *data, size_t datalen)
+ssize_t netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
+				uint8_t *data, size_t datalen)
 {
 	int bytelen;
 	struct nexthop *nexthop = NULL;
@@ -1636,7 +1636,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 	 * it.
 	 */
 	if (cmd == RTM_DELROUTE)
-		return 0;
+		return req->n.nlmsg_len;
 
 	if (dplane_ctx_get_mtu(ctx) || dplane_ctx_get_nh_mtu(ctx)) {
 		char buf[NL_PKT_BUF_SIZE];
@@ -1680,7 +1680,8 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 				addattr_l(&req->n, datalen, RTA_PREFSRC,
 					  &src.ipv6, bytelen);
 		}
-		return 0;
+
+		return req->n.nlmsg_len;
 	}
 
 	/* Count overall nexthops so we can decide whether to use singlepath
@@ -1719,7 +1720,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 					req->r.rtm_type = RTN_BLACKHOLE;
 					break;
 				}
-				return 0;
+				return req->n.nlmsg_len;
 			}
 			if (CHECK_FLAG(nexthop->flags,
 				       NEXTHOP_FLAG_RECURSIVE)) {
@@ -1818,7 +1819,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 			zlog_debug("%s: No useful nexthop.", __func__);
 	}
 
-	return 0;
+	return req->n.nlmsg_len;
 }
 
 int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
