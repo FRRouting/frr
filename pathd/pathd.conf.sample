@@ -14,11 +14,11 @@ segment-list test2
 sr-policy color 1 endpoint 1.1.1.1
  name one
  binding-sid 100
- candidate-path preference 100 explicit segment-list test1
- candidate-path preference 200 explicit segment-list test2
+ candidate-path preference 100 name test1 explicit segment-list test1
+ candidate-path preference 200 name test2 explicit segment-list test2
 !
 sr-policy color 2 endpoint 2.2.2.2
  name two
  binding-sid 101
- candidate-path preference 200 explicit segment-list test2
+ candidate-path preference 200 name default explicit segment-list test2
 !

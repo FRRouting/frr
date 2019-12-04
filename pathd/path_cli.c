@@ -246,10 +246,13 @@ void cli_show_te_path_sr_policy_binding_sid(struct vty *vty,
 DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
       "candidate-path\
         preference (0-4294967295)$preference\
+        name WORD$name\
         explicit segment-list WORD$list_name",
       "Segment Routing Policy Candidate Path\n"
       "Segment Routing Policy Candidate Path Preference\n"
       "Administrative Preference\n"
+      "Segment Routing Policy Candidate Path Name\n"
+      "Symbolic Name\n"
       "'explicit' or 'dynamic' Path\n"
       "List of SIDs\n"
       "Name of the Segment List\n")
@@ -257,6 +260,7 @@ DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, preference_str);
 	nb_cli_enqueue_change(vty, "./segment-list-name", NB_OP_MODIFY,
 			      list_name);
+	nb_cli_enqueue_change(vty, "./name", NB_OP_MODIFY, name);
 	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "config");
 	nb_cli_enqueue_change(vty, "./originator", NB_OP_MODIFY, "127.0.0.1");
 	nb_cli_enqueue_change(vty, "./type", NB_OP_MODIFY, "explicit");
@@ -284,8 +288,9 @@ void cli_show_te_path_sr_policy_candidate_path(struct vty *vty,
 					       struct lyd_node *dnode,
 					       bool show_defaults)
 {
-	vty_out(vty, " candidate-path preference %s explicit segment-list %s\n",
+	vty_out(vty, " candidate-path preference %s name %s explicit segment-list %s\n",
 		yang_dnode_get_string(dnode, "./preference"),
+		yang_dnode_get_string(dnode, "./name"),
 		yang_dnode_get_string(dnode, "./segment-list-name"));
 }
 

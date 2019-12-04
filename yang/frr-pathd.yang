@@ -48,6 +48,7 @@ module frr-pathd {
     }
     list sr-policy {
       key "color endpoint";
+      unique "name";
       leaf color {
         type uint32;
         description
@@ -70,6 +71,7 @@ module frr-pathd {
       }
       list candidate-path {
         must "../binding-sid";
+        unique "name";
         description
           "List of Candidate Paths of the SR Policy.";
         key "preference";
@@ -77,6 +79,12 @@ module frr-pathd {
           type uint32;
           description
             "Administrative preference.";
+        }
+        leaf name {
+          type string;
+          mandatory true;
+          description
+            "Symbolic Name of the Candidate Path.";
         }
         leaf protocol-origin {
           description

@@ -204,6 +204,14 @@ void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 	te_sr_policy->candidate_path_num++;
 }
 
+void te_sr_policy_candidate_path_name_add(
+	struct te_sr_policy *te_sr_policy, uint32_t preference, char *name)
+{
+	struct te_candidate_path *te_candidate_path =
+		find_candidate_path(te_sr_policy, preference);
+	te_candidate_path->name = name;
+}
+
 void te_sr_policy_candidate_path_protocol_origin_add(
 	struct te_sr_policy *te_sr_policy, uint32_t preference,
 	enum te_protocol_origin protocol_origin)

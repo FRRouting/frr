@@ -206,6 +206,29 @@ int pathd_te_sr_policy_candidate_path_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath: /frr-pathd:pathd/sr-policy/candidate-path/name
+ */
+int pathd_te_sr_policy_candidate_path_name_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct te_sr_policy *te_sr_policy;
+	uint32_t preference;
+	const char *name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	te_sr_policy = nb_running_get_entry(args->dnode, "../..", true);
+	preference = yang_dnode_get_uint32(args->dnode, "../preference");
+	name = yang_dnode_get_string(args->dnode, NULL);
+
+	te_sr_policy_candidate_path_segment_list_name_add(
+		te_sr_policy, preference, strdup(name));
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-pathd:pathd/sr-policy/candidate-path/protocol-origin
  */
 int pathd_te_sr_policy_candidate_path_protocol_origin_modify(

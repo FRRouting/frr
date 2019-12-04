@@ -57,6 +57,9 @@ struct te_candidate_path {
 	/* Administrative preference. */
 	uint32_t preference;
 
+	/* Symbolic Name. */
+	char *name;
+
 	/* The associated Segment List. */
 	char *segment_list_name;
 
@@ -121,6 +124,8 @@ void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy);
 void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 				     uint32_t preference);
+void te_sr_policy_candidate_path_name_add(
+	struct te_sr_policy *te_sr_policy, uint32_t preference, char *name);
 void te_sr_policy_candidate_path_protocol_origin_add(
 	struct te_sr_policy *te_sr_policy, uint32_t preference,
 	enum te_protocol_origin protocol_origin);

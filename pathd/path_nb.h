@@ -35,6 +35,8 @@ int pathd_te_sr_policy_binding_sid_modify(struct nb_cb_modify_args *args);
 int pathd_te_sr_policy_binding_sid_destroy(struct nb_cb_destroy_args *args);
 int pathd_te_sr_policy_candidate_path_create(struct nb_cb_create_args *args);
 int pathd_te_sr_policy_candidate_path_destroy(struct nb_cb_destroy_args *args);
+int pathd_te_sr_policy_candidate_path_name_modify(
+	struct nb_cb_modify_args *args);
 int pathd_te_sr_policy_candidate_path_protocol_origin_modify(
 	struct nb_cb_modify_args *args);
 int pathd_te_sr_policy_candidate_path_originator_modify(
