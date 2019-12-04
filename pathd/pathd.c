@@ -145,29 +145,35 @@ void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 
 void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy)
 {
-	struct te_candidate_path active_candidate_path;
-	active_candidate_path.preference = 0;
-
 	if (te_sr_policy->candidate_path_num == 0) {
 		/* delete the LSP from Zebra */
 		path_zebra_delete_lsp(te_sr_policy->binding_sid);
-		te_sr_policy->active_candidate_path = active_candidate_path;
+		te_sr_policy->best_candidate_path_idx = -1;
 		return;
 	}
 
 	int i;
+	int best_candidate_path_idx;
+	uint32_t highest_preference = 0;
 	for (i = 0; i < te_sr_policy->candidate_path_num; i++) {
 		if (te_sr_policy->candidate_paths[i].preference
-		    > active_candidate_path.preference)
-			active_candidate_path =
-				te_sr_policy->candidate_paths[i];
+		    > highest_preference) {
+			highest_preference =
+				te_sr_policy->candidate_paths[i].preference;
+			best_candidate_path_idx = i;
+		}
 	}
-	te_sr_policy->active_candidate_path = active_candidate_path;
+	te_sr_policy->candidate_paths[te_sr_policy->best_candidate_path_idx]
+		.is_best_candidate_path = false;
+	te_sr_policy->candidate_paths[best_candidate_path_idx]
+		.is_best_candidate_path = true;
+	te_sr_policy->best_candidate_path_idx = best_candidate_path_idx;
 
 	struct te_segment_list *te_segment_list_found;
 	struct te_segment_list te_segment_list_search;
 	te_segment_list_search.name =
-		te_sr_policy->active_candidate_path.segment_list_name;
+		te_sr_policy->candidate_paths[best_candidate_path_idx]
+			.segment_list_name;
 	te_segment_list_found =
 		RB_FIND(te_segment_list_instance_head,
 			&te_segment_list_instances, &te_segment_list_search);

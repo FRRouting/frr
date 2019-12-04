@@ -61,6 +61,9 @@ struct te_candidate_path {
 	/* The Originator */
 	struct ipaddr originator;
 
+	/* Flag for best Candidate Path */
+	bool is_best_candidate_path;
+
 	/* Dynamic Flag (indicates if a path is explicit or dynamic) */
 	bool dynamic_flag;
 };
@@ -80,8 +83,8 @@ struct te_sr_policy {
 	/* Binding SID */
 	mpls_label_t binding_sid;
 
-	/* Active Candidate Path */
-	struct te_candidate_path active_candidate_path;
+	/* Active Candidate Path Index */
+	int best_candidate_path_idx;
 
 	/* Candidate Paths */
 	uint8_t candidate_path_num;
