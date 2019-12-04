@@ -1525,10 +1525,8 @@ static int dplane_ctx_ns_init(struct zebra_dplane_ctx *ctx,
 /*
  * Initialize a context block for a route update from zebra data structs.
  */
-static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
-				 enum dplane_op_e op,
-				 struct route_node *rn,
-				 struct route_entry *re)
+int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
+			  struct route_node *rn, struct route_entry *re)
 {
 	int ret = EINVAL;
 	const struct route_table *table = NULL;

@@ -489,6 +489,9 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
 					    const struct in_addr *ip,
 					    vni_t vni);
 
+/* Encode route information into data plane context. */
+int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
+			  struct route_node *rn, struct route_entry *re);
 
 /* Retrieve the limit on the number of pending, unprocessed updates. */
 uint32_t dplane_get_in_queue_limit(void);

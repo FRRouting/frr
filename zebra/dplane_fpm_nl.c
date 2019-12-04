@@ -35,6 +35,7 @@
 #include "lib/ns.h"
 #include "lib/frr_pthread.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_router.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/debug.h"
@@ -48,6 +49,7 @@ struct fpm_nl_ctx {
 	/* data plane connection. */
 	int socket;
 	bool connecting;
+	bool rib_complete;
 	struct sockaddr_storage addr;
 
 	/* data plane buffers. */
@@ -60,7 +62,18 @@ struct fpm_nl_ctx {
 	struct thread *t_connect;
 	struct thread *t_read;
 	struct thread *t_write;
+
+	/* zebra events. */
+	struct thread *t_ribreset;
+	struct thread *t_ribwalk;
 };
+
+/*
+ * Prototypes.
+ */
+static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx);
+static int fpm_rib_send(struct thread *t);
+static int fpm_rib_reset(struct thread *t);
 
 /*
  * FPM functions.
@@ -78,6 +91,12 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 	stream_reset(fnc->obuf);
 	THREAD_OFF(fnc->t_read);
 	THREAD_OFF(fnc->t_write);
+
+	if (fnc->t_ribreset)
+		thread_cancel_async(zrouter.master, &fnc->t_ribreset, NULL);
+	if (fnc->t_ribwalk)
+		thread_cancel_async(zrouter.master, &fnc->t_ribwalk, NULL);
+
 	thread_add_timer(fnc->fthread->master, fpm_connect, fnc, 3,
 			 &fnc->t_connect);
 }
@@ -140,6 +159,10 @@ static int fpm_write(struct thread *t)
 		}
 
 		fnc->connecting = false;
+
+		/* Ask zebra main thread to start walking the RIB table. */
+		thread_add_timer(zrouter.master, fpm_rib_send, fnc, 0,
+				 &fnc->t_ribwalk);
 	}
 
 	frr_mutex_lock_autounlock(&fnc->obuf_mutex);
@@ -230,6 +253,10 @@ static int fpm_connect(struct thread *t)
 			&fnc->t_read);
 	thread_add_write(fnc->fthread->master, fpm_write, fnc, sock,
 			 &fnc->t_write);
+
+	/* Mark all routes as unsent. */
+	thread_add_timer(zrouter.master, fpm_rib_reset, fnc, 0,
+			 &fnc->t_ribreset);
 
 	return 0;
 }
@@ -349,6 +376,92 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	/* Tell the thread to start writing. */
 	thread_add_write(fnc->fthread->master, fpm_write, fnc, fnc->socket,
 			 &fnc->t_write);
+
+	return 0;
+}
+
+/**
+ * Send all RIB installed routes to the connected data plane.
+ */
+static int fpm_rib_send(struct thread *t)
+{
+	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	rib_dest_t *dest;
+	struct route_node *rn;
+	struct route_table *rt;
+	struct zebra_dplane_ctx *ctx;
+	rib_tables_iter_t rt_iter;
+
+	/* Allocate temporary context for all transactions. */
+	ctx = dplane_ctx_alloc();
+
+	rt_iter.state = RIB_TABLES_ITER_S_INIT;
+	while ((rt = rib_tables_iter_next(&rt_iter))) {
+		for (rn = route_top(rt); rn; rn = srcdest_route_next(rn)) {
+			dest = rib_dest_from_rnode(rn);
+			/* Skip bad route entries. */
+			if (dest == NULL || dest->selected_fib == NULL) {
+				continue;
+			}
+
+			/* Check for already sent routes. */
+			if (CHECK_FLAG(dest->flags, RIB_DEST_UPDATE_FPM)) {
+				continue;
+			}
+
+			/* Enqueue route install. */
+			dplane_ctx_reset(ctx);
+			dplane_ctx_route_init(ctx, DPLANE_OP_ROUTE_INSTALL, rn,
+					      dest->selected_fib);
+			if (fpm_nl_enqueue(fnc, ctx) == -1) {
+				/* Free the temporary allocated context. */
+				dplane_ctx_fini(&ctx);
+
+				zlog_debug("%s: buffer full, come back later",
+					   __func__);
+				thread_add_timer(zrouter.master, fpm_rib_send,
+						 fnc, 1, &fnc->t_ribwalk);
+				return 0;
+			}
+
+			/* Mark as sent. */
+			SET_FLAG(dest->flags, RIB_DEST_UPDATE_FPM);
+		}
+	}
+
+	/* Free the temporary allocated context. */
+	dplane_ctx_fini(&ctx);
+
+	/* All RIB routes sent! */
+	fnc->rib_complete = true;
+
+	return 0;
+}
+
+/**
+ * Resets the RIB FPM flags so we send all routes again.
+ */
+static int fpm_rib_reset(struct thread *t)
+{
+	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	rib_dest_t *dest;
+	struct route_node *rn;
+	struct route_table *rt;
+	rib_tables_iter_t rt_iter;
+
+	fnc->rib_complete = false;
+
+	rt_iter.state = RIB_TABLES_ITER_S_INIT;
+	while ((rt = rib_tables_iter_next(&rt_iter))) {
+		for (rn = route_top(rt); rn; rn = srcdest_route_next(rn)) {
+			dest = rib_dest_from_rnode(rn);
+			/* Skip bad route entries. */
+			if (dest == NULL)
+				continue;
+
+			UNSET_FLAG(dest->flags, RIB_DEST_UPDATE_FPM);
+		}
+	}
 
 	return 0;
 }
