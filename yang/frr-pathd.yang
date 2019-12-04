@@ -94,11 +94,14 @@ module frr-pathd {
             "Indication for the endpoint of the origin of the Candidate Path.";
           mandatory true;
         }
-        leaf dynamic-flag {
+        leaf type {
           description
-            "Flag for explicit or dynamic path.";
+            "Type of the Candidate Path.";
           mandatory true;
-          type boolean;
+          type enumeration {
+            enum explicit;
+            enum dynamic;
+          }
         }
         leaf segment-list-name {
           description

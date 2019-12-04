@@ -90,9 +90,9 @@ const struct frr_yang_module_info frr_pathd_info = {
 			}
 		},
 		{
-			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/dynamic-flag",
+			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/type",
 			.cbs = {
-				.modify = pathd_te_sr_policy_candidate_path_dynamic_flag_modify,
+				.modify = pathd_te_sr_policy_candidate_path_type_modify,
 			}
 		},
 		{

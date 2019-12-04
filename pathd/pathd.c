@@ -222,13 +222,13 @@ void te_sr_policy_candidate_path_originator_add(
 	te_candidate_path->originator = *originator;
 }
 
-void te_sr_policy_candidate_path_dynamic_flag_add(
-	struct te_sr_policy *te_sr_policy, uint32_t preference,
-	bool dynamic_flag)
+void te_sr_policy_candidate_path_type_add(struct te_sr_policy *te_sr_policy,
+					  uint32_t preference,
+					  enum te_candidate_path_type type)
 {
 	struct te_candidate_path *te_candidate_path =
 		find_candidate_path(te_sr_policy, preference);
-	te_candidate_path->dynamic_flag = dynamic_flag;
+	te_candidate_path->type = type;
 }
 
 void te_sr_policy_candidate_path_segment_list_name_add(

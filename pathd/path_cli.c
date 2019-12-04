@@ -259,7 +259,7 @@ DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
 			      list_name);
 	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "config");
 	nb_cli_enqueue_change(vty, "./originator", NB_OP_MODIFY, "127.0.0.1");
-	nb_cli_enqueue_change(vty, "./dynamic-flag", NB_OP_MODIFY, "false");
+	nb_cli_enqueue_change(vty, "./type", NB_OP_MODIFY, "explicit");
 
 	return nb_cli_apply_changes(vty, "./candidate-path[preference='%s']",
 				    preference_str);

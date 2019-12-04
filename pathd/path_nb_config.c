@@ -252,24 +252,23 @@ int pathd_te_sr_policy_candidate_path_originator_modify(
 }
 
 /*
- * XPath: /frr-pathd:pathd/sr-policy/candidate-path/dynamic-flag
+ * XPath: /frr-pathd:pathd/sr-policy/candidate-path/type
  */
-int pathd_te_sr_policy_candidate_path_dynamic_flag_modify(
+int pathd_te_sr_policy_candidate_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct te_sr_policy *te_sr_policy;
 	uint32_t preference;
-	bool dynamic_flag;
+	enum te_candidate_path_type type;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	te_sr_policy = nb_running_get_entry(args->dnode, "../..", true);
 	preference = yang_dnode_get_uint32(args->dnode, "../preference");
-	dynamic_flag = yang_dnode_get_bool(args->dnode, NULL);
+	type = yang_dnode_get_enum(args->dnode, NULL);
 
-	te_sr_policy_candidate_path_dynamic_flag_add(te_sr_policy, preference,
-						     dynamic_flag);
+	te_sr_policy_candidate_path_type_add(te_sr_policy, preference, type);
 
 	return NB_OK;
 }

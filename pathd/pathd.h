@@ -34,6 +34,11 @@ enum te_protocol_origin {
 	TE_ORIGIN_CONFIG = 3,
 };
 
+enum te_candidate_path_type {
+	TE_CANDIDATE_PATH_EXPLICIT = 1,
+	TE_CANDIDATE_PATH_DYNAMIC = 2,
+};
+
 struct te_segment_list {
 	RB_ENTRY(te_segment_list) entry;
 
@@ -64,8 +69,8 @@ struct te_candidate_path {
 	/* Flag for best Candidate Path */
 	bool is_best_candidate_path;
 
-	/* Dynamic Flag (indicates if a path is explicit or dynamic) */
-	bool dynamic_flag;
+	/* The Type (explixit or dynamic) */
+	enum te_candidate_path_type type;
 };
 
 struct te_sr_policy {
@@ -122,9 +127,9 @@ void te_sr_policy_candidate_path_protocol_origin_add(
 void te_sr_policy_candidate_path_originator_add(
 	struct te_sr_policy *te_sr_policy, uint32_t preference,
 	struct ipaddr *originator);
-void te_sr_policy_candidate_path_dynamic_flag_add(
-	struct te_sr_policy *te_sr_policy, uint32_t preference,
-	bool dynamic_flag);
+void te_sr_policy_candidate_path_type_add(struct te_sr_policy *te_sr_policy,
+					  uint32_t preference,
+					  enum te_candidate_path_type type);
 void te_sr_policy_candidate_path_segment_list_name_add(
 	struct te_sr_policy *te_sr_policy, uint32_t preference,
 	char *segment_list_name);
