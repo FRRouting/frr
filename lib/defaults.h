@@ -19,6 +19,9 @@
 #define _FRR_DEFAULTS_H
 
 #include "config.h"
+
+#include <stdbool.h>
+
 #include "compiler.h"
 
 #ifdef HAVE_DATACENTER
@@ -67,6 +70,7 @@ struct frr_default_entry {
 	const char *match_profile;
 
 	/* value to use */
+	bool val_bool;
 	const char *val_str;
 	long val_long;
 	unsigned long val_ulong;
@@ -90,12 +94,14 @@ struct frr_default {
 	 */
 
 	/* variable holding the default value for reading/use */
+	bool *dflt_bool;
 	const char **dflt_str;
 	long *dflt_long;
 	unsigned long *dflt_ulong;
 	float *dflt_float;
 
 	/* variable to use when comparing for config save */
+	bool *save_bool;
 	const char **save_str;
 	long *save_long;
 	unsigned long *save_ulong;
@@ -133,6 +139,8 @@ struct frr_default {
  * will be expanded and blow up with a compile error.  Use an enum or add an
  * extra _ at the beginning (e.g. _SHARP_BLUNTNESS => DFLT__SHARP_BLUNTNESS)
  */
+#define FRR_CFG_DEFAULT_BOOL(varname, ...) \
+	_FRR_CFG_DEFAULT(bool, bool, varname, ## __VA_ARGS__)
 #define FRR_CFG_DEFAULT_LONG(varname, ...) \
 	_FRR_CFG_DEFAULT(long, long, varname, ## __VA_ARGS__)
 #define FRR_CFG_DEFAULT_ULONG(varname, ...) \
