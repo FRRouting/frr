@@ -1852,3 +1852,8 @@ void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf)
 	strlcpy(bs->key.vrfname, vrf->name, sizeof(bs->key.vrfname));
 	hash_get(bfd_key_hash, bs, hash_alloc_intern);
 }
+
+unsigned long bfd_get_session_count(void)
+{
+	return bfd_key_hash->count;
+}
