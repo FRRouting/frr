@@ -94,36 +94,49 @@ void cli_show_te_path_segment_list(struct vty *vty, struct lyd_node *dnode,
 }
 
 /*
- * XPath: /frr-pathd:pathd/segment-list/label
+ * XPath: /frr-pathd:pathd/segment-list/segment
  */
-DEFPY(te_path_segment_list_label, te_path_segment_list_label_cmd,
-      "mpls label (16-1048575)$label",
+DEFPY(te_path_segment_list_segment, te_path_segment_list_segment_cmd,
+      "index (0-4294967295)$index mpls label (16-1048575)$label",
+      "Index\n"
+      "Index Value\n"
       "MPLS or IP Label\n"
       "Label\n"
       "Label Value\n")
 {
-	nb_cli_enqueue_change(vty, "./label", NB_OP_CREATE, label_str);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./segment[index='%s']", index_str);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath, sizeof(xpath), "./segment[index='%s']/sid-value",
+		 index_str);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, label_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(no_te_path_segment_list_label, no_te_path_segment_list_label_cmd,
-      "no mpls label (16-1048575)$label",
+DEFPY(no_te_path_segment_list_segment, no_te_path_segment_list_segment_cmd,
+      "no index (0-4294967295)$index",
       NO_STR
-      "MPLS or IP Label\n"
-      "Label\n"
-      "Label Value\n")
+      "Index\n"
+      "Index Value\n")
 {
-	nb_cli_enqueue_change(vty, "./label", NB_OP_DESTROY, label_str);
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./segment[index='%s']", index_str);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_te_path_segment_list_label(struct vty *vty,
-					 struct lyd_node *dnode,
-					 bool show_defaults)
+void cli_show_te_path_segment_list_segment(struct vty *vty,
+					   struct lyd_node *dnode,
+					   bool show_defaults)
 {
-	vty_out(vty, " mpls label %s\n", yang_dnode_get_string(dnode, NULL));
+	vty_out(vty, " index %s mpls label %s\n",
+		yang_dnode_get_string(dnode, "./index"),
+		yang_dnode_get_string(dnode, "./sid-value"));
 }
 
 /*
@@ -288,7 +301,8 @@ void cli_show_te_path_sr_policy_candidate_path(struct vty *vty,
 					       struct lyd_node *dnode,
 					       bool show_defaults)
 {
-	vty_out(vty, " candidate-path preference %s name %s explicit segment-list %s\n",
+	vty_out(vty,
+		" candidate-path preference %s name %s explicit segment-list %s\n",
 		yang_dnode_get_string(dnode, "./preference"),
 		yang_dnode_get_string(dnode, "./name"),
 		yang_dnode_get_string(dnode, "./segment-list-name"));
@@ -328,8 +342,9 @@ void path_cli_init(void)
 
 	install_element(CONFIG_NODE, &te_path_segment_list_cmd);
 	install_element(CONFIG_NODE, &no_te_path_segment_list_cmd);
-	install_element(SEGMENT_LIST_NODE, &te_path_segment_list_label_cmd);
-	install_element(SEGMENT_LIST_NODE, &no_te_path_segment_list_label_cmd);
+	install_element(SEGMENT_LIST_NODE, &te_path_segment_list_segment_cmd);
+	install_element(SEGMENT_LIST_NODE,
+			&no_te_path_segment_list_segment_cmd);
 	install_element(CONFIG_NODE, &te_path_sr_policy_cmd);
 	install_element(CONFIG_NODE, &no_te_path_sr_policy_cmd);
 	install_element(SR_POLICY_NODE, &te_path_sr_policy_name_cmd);

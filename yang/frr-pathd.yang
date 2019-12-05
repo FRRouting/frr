@@ -31,19 +31,23 @@ module frr-pathd {
 
   container pathd {
     list segment-list {
-      description
-        "List of SIDs for Candidate Paths.";
       key "name";
+      description "Segment-list properties";
       leaf name {
-        description
-          "List name.";
         type string;
+        description "Segment-list name";
       }
-      leaf-list label {
-        description
-          "List of MPLS labels.";
-        type rt-types:mpls-label;
-        ordered-by user;
+      list segment {
+        key "index";
+        description "Configure Segment/hop at the index";
+        leaf index {
+          type uint32;
+          description "Segment index";
+        }
+        leaf sid-value {
+          type rt-types:mpls-label;
+          description "MPLS label value";
+        }
       }
     }
     list sr-policy {

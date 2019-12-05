@@ -4,12 +4,12 @@ password frr
 log stdout
 !
 segment-list test1
- mpls label 123
- mpls label 456
+ index 10 mpls label 123
+ index 20 mpls label 456
 !
 segment-list test2
- mpls label 321
- mpls label 654
+ index 10 mpls label 321
+ index 20 mpls label 654
 !
 sr-policy color 1 endpoint 1.1.1.1
  name one

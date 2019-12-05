@@ -24,9 +24,12 @@ extern const struct frr_yang_module_info frr_pathd_info;
 /* Mandatory callbacks. */
 int pathd_te_segment_list_create(struct nb_cb_create_args *args);
 int pathd_te_segment_list_destroy(struct nb_cb_destroy_args *args);
-int pathd_te_segment_list_label_move(struct nb_cb_move_args *args);
-int pathd_te_segment_list_label_create(struct nb_cb_create_args *args);
-int pathd_te_segment_list_label_destroy(struct nb_cb_destroy_args *args);
+int pathd_te_segment_list_segment_create(struct nb_cb_create_args *args);
+int pathd_te_segment_list_segment_destroy(struct nb_cb_destroy_args *args);
+int pathd_te_segment_list_segment_sid_value_modify(
+	struct nb_cb_modify_args *args);
+int pathd_te_segment_list_segment_sid_value_destroy(
+	struct nb_cb_destroy_args *args);
 int pathd_te_sr_policy_create(struct nb_cb_create_args *args);
 int pathd_te_sr_policy_destroy(struct nb_cb_destroy_args *args);
 int pathd_te_sr_policy_name_modify(struct nb_cb_modify_args *args);
@@ -53,9 +56,9 @@ void pathd_te_sr_policy_candidate_path_apply_finish(
 /* Optional 'cli_show' callbacks. */
 void cli_show_te_path_segment_list(struct vty *vty, struct lyd_node *dnode,
 				   bool show_defaults);
-void cli_show_te_path_segment_list_label(struct vty *vty,
-					 struct lyd_node *dnode,
-					 bool show_defaults);
+void cli_show_te_path_segment_list_segment(struct vty *vty,
+					   struct lyd_node *dnode,
+					   bool show_defaults);
 void cli_show_te_path_sr_policy(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults);
 void cli_show_te_path_sr_policy_name(struct vty *vty, struct lyd_node *dnode,

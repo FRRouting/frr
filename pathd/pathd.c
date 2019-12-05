@@ -28,6 +28,16 @@
 DEFINE_MTYPE_STATIC(PATHD, PATH_SEGMENT_LIST, "Segment List information")
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_POLICY, "SR Policy information")
 
+/* Generate rb-tree of Segment List Segment instances. */
+static inline int te_segment_list_segment_instance_compare(
+	const struct te_segment_list_segment *a,
+	const struct te_segment_list_segment *b)
+{
+	return (a->index < b->index ? -1 : a->index > b->index);
+}
+RB_GENERATE(te_segment_list_segment_instance_head, te_segment_list_segment,
+	    entry, te_segment_list_segment_instance_compare)
+
 /* Generate rb-tree of Segment List instances. */
 static inline int
 te_segment_list_instance_compare(const struct te_segment_list *a,
@@ -68,16 +78,15 @@ struct te_sr_policy_instance_head te_sr_policy_instances =
 
 struct te_segment_list *te_segment_list_create(char *name)
 {
-	struct te_segment_list *te_segment_list;
-	mpls_label_t *labels;
-	te_segment_list =
+	struct te_segment_list *te_segment_list =
 		XCALLOC(MTYPE_PATH_SEGMENT_LIST, sizeof(*te_segment_list));
-	labels = XCALLOC(MTYPE_PATH_SEGMENT_LIST,
-			 MPLS_MAX_LABELS * sizeof(*labels));
+
+	struct te_segment_list_segment_instance_head
+		te_segment_list_segment_instances =
+			RB_INITIALIZER(&te_segment_list_segment_instances);
 
 	te_segment_list->name = name;
-	te_segment_list->label_num = 0;
-	te_segment_list->labels = labels;
+	te_segment_list->segments = te_segment_list_segment_instances;
 
 	RB_INSERT(te_segment_list_instance_head, &te_segment_list_instances,
 		  te_segment_list);
@@ -85,19 +94,41 @@ struct te_segment_list *te_segment_list_create(char *name)
 	return te_segment_list;
 }
 
-void te_segment_list_label_add(struct te_segment_list *te_segment_list,
-			       mpls_label_t label)
-{
-	te_segment_list->labels[te_segment_list->label_num] = label;
-	te_segment_list->label_num++;
-}
-
 void te_segment_list_del(struct te_segment_list *te_segment_list)
 {
 	free(te_segment_list->name);
-	XFREE(MTYPE_PATH_SEGMENT_LIST, te_segment_list->labels);
 	RB_REMOVE(te_segment_list_instance_head, &te_segment_list_instances,
 		  te_segment_list);
+}
+
+struct te_segment_list_segment *
+te_segment_list_segment_add(struct te_segment_list *te_segment_list,
+			    uint32_t index)
+{
+	struct te_segment_list_segment *te_segment_list_segment = XCALLOC(
+		MTYPE_PATH_SEGMENT_LIST, sizeof(*te_segment_list_segment));
+
+	te_segment_list_segment->index = index;
+
+	RB_INSERT(te_segment_list_segment_instance_head,
+		  &te_segment_list->segments, te_segment_list_segment);
+
+	return te_segment_list_segment;
+}
+
+void te_segment_list_segment_del(
+	struct te_segment_list *te_segment_list,
+	struct te_segment_list_segment *te_segment_list_segment)
+{
+	RB_REMOVE(te_segment_list_segment_instance_head,
+		  &te_segment_list->segments, te_segment_list_segment);
+}
+
+void te_segment_list_segment_sid_value_add(
+	struct te_segment_list_segment *te_segment_list_segment,
+	mpls_label_t sid_value)
+{
+	te_segment_list_segment->sid_value = sid_value;
 }
 
 struct te_sr_policy *te_sr_policy_create(uint32_t color,
@@ -204,8 +235,8 @@ void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 	te_sr_policy->candidate_path_num++;
 }
 
-void te_sr_policy_candidate_path_name_add(
-	struct te_sr_policy *te_sr_policy, uint32_t preference, char *name)
+void te_sr_policy_candidate_path_name_add(struct te_sr_policy *te_sr_policy,
+					  uint32_t preference, char *name)
 {
 	struct te_candidate_path *te_candidate_path =
 		find_candidate_path(te_sr_policy, preference);

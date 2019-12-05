@@ -39,15 +39,27 @@ enum te_candidate_path_type {
 	TE_CANDIDATE_PATH_DYNAMIC = 2,
 };
 
+struct te_segment_list_segment {
+	RB_ENTRY(te_segment_list_segment) entry;
+
+	/* Index of the Label. */
+	uint32_t index;
+
+	/* Label Value. */
+	mpls_label_t sid_value;
+};
+RB_HEAD(te_segment_list_segment_instance_head, te_segment_list_segment);
+RB_PROTOTYPE(te_segment_list_segment_instance_head, te_segment_list_segment,
+	     entry, te_segment_list_segment_instance_compare)
+
 struct te_segment_list {
 	RB_ENTRY(te_segment_list) entry;
 
 	/* Name of the Segment List. */
 	char *name;
 
-	/* Nexthop labels. */
-	uint8_t label_num;
-	mpls_label_t *labels;
+	/* Nexthops. */
+	struct te_segment_list_segment_instance_head segments;
 };
 RB_HEAD(te_segment_list_instance_head, te_segment_list);
 RB_PROTOTYPE(te_segment_list_instance_head, te_segment_list, entry,
@@ -102,6 +114,9 @@ RB_HEAD(te_sr_policy_instance_head, te_sr_policy);
 RB_PROTOTYPE(te_sr_policy_instance_head, te_sr_policy, entry,
 	     te_sr_policy_instance_compare)
 
+extern struct te_segment_list_instance_head te_segment_list_instances;
+extern struct te_sr_policy_instance_head te_sr_policy_instances;
+
 extern struct zebra_privs_t pathd_privs;
 
 /* Prototypes. */
@@ -112,9 +127,16 @@ void path_zebra_delete_lsp(mpls_label_t binding_sid);
 void path_cli_init(void);
 
 struct te_segment_list *te_segment_list_create(char *name);
-void te_segment_list_label_add(struct te_segment_list *te_segment_list,
-			       mpls_label_t label);
 void te_segment_list_del(struct te_segment_list *te_segment_list);
+struct te_segment_list_segment *
+te_segment_list_segment_add(struct te_segment_list *te_segment_list,
+			    uint32_t index);
+void te_segment_list_segment_del(
+	struct te_segment_list *te_segment_list,
+	struct te_segment_list_segment *te_segment_list_segment);
+void te_segment_list_segment_sid_value_add(
+	struct te_segment_list_segment *te_segment_list_segment,
+	mpls_label_t label);
 struct te_sr_policy *te_sr_policy_create(uint32_t color,
 					 struct ipaddr *endpoint);
 void te_sr_policy_del(struct te_sr_policy *te_sr_policy);
@@ -124,8 +146,8 @@ void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy);
 void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 				     uint32_t preference);
-void te_sr_policy_candidate_path_name_add(
-	struct te_sr_policy *te_sr_policy, uint32_t preference, char *name);
+void te_sr_policy_candidate_path_name_add(struct te_sr_policy *te_sr_policy,
+					  uint32_t preference, char *name);
 void te_sr_policy_candidate_path_protocol_origin_add(
 	struct te_sr_policy *te_sr_policy, uint32_t preference,
 	enum te_protocol_origin protocol_origin);
