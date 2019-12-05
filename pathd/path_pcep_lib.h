@@ -23,6 +23,13 @@
 #include <stdbool.h>
 #include <pcep_pcc_api.h>
 
+/* Should be in pceplib */
+#define GET_SR_ERO_SID_LABEL(SID)   ((SID & 0xfffff000) >> 12)
+#define GET_SR_ERO_SID_TC(SID)      ((SID & 0x00000e00) >> 9)
+#define GET_SR_ERO_SID_S(SID)       ((SID & 0x00000100) >> 8)
+#define GET_SR_ERO_SID_TTL(SID)     ((SID & 0x000000ff))
+
+
 typedef struct sid_mpls_t_ {
 	uint16_t label;
 	uint8_t traffic_class;
