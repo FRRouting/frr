@@ -524,6 +524,61 @@ DEFPY (show_pbr,
 	return CMD_SUCCESS;
 }
 
+static void vty_show_pbrms(struct vty *vty,
+			   const struct pbr_map_sequence *pbrms, bool detail)
+{
+	char buf[PREFIX_STRLEN];
+	char rbuf[64];
+
+	if (pbrms->reason)
+		pbr_map_reason_string(pbrms->reason, rbuf, sizeof(rbuf));
+	vty_out(vty,
+		"    Seq: %u rule: %u Installed: %" PRIu64 "(%u) Reason: %s\n",
+		pbrms->seqno, pbrms->ruleno, pbrms->installed, pbrms->unique,
+		pbrms->reason ? rbuf : "Valid");
+
+	if (pbrms->src)
+		vty_out(vty, "\tSRC Match: %s\n",
+			prefix2str(pbrms->src, buf, sizeof(buf)));
+	if (pbrms->dst)
+		vty_out(vty, "\tDST Match: %s\n",
+			prefix2str(pbrms->dst, buf, sizeof(buf)));
+	if (pbrms->mark)
+		vty_out(vty, "\tMARK Match: %u\n", pbrms->mark);
+
+	if (pbrms->nhgrp_name) {
+		vty_out(vty, "\tNexthop-Group: %s(%u) Installed: %u(%d)\n",
+			pbrms->nhgrp_name, pbr_nht_get_table(pbrms->nhgrp_name),
+			pbrms->nhs_installed,
+			pbr_nht_get_installed(pbrms->nhgrp_name));
+	} else if (pbrms->nhg) {
+		vty_out(vty, "     ");
+		nexthop_group_write_nexthop(vty, pbrms->nhg->nexthop);
+		vty_out(vty, "\tInstalled: %u(%d) Tableid: %d\n",
+			pbrms->nhs_installed,
+			pbr_nht_get_installed(pbrms->internal_nhg_name),
+			pbr_nht_get_table(pbrms->internal_nhg_name));
+	} else if (pbrms->vrf_unchanged) {
+		vty_out(vty, "\tVRF Unchanged (use interface vrf)\n");
+	} else if (pbrms->vrf_lookup) {
+		vty_out(vty, "\tVRF Lookup: %s\n", pbrms->vrf_name);
+	} else {
+		vty_out(vty, "\tNexthop-Group: Unknown Installed: 0(0)\n");
+	}
+}
+
+static void vty_show_pbr_map(struct vty *vty, const struct pbr_map *pbrm,
+			     bool detail)
+{
+	struct pbr_map_sequence *pbrms;
+	struct listnode *node;
+
+	vty_out(vty, "  pbr-map %s valid: %d\n", pbrm->name, pbrm->valid);
+
+	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
+		vty_show_pbrms(vty, pbrms, detail);
+}
+
 DEFPY (show_pbr_map,
 	show_pbr_map_cmd,
 	"show pbr map [NAME$name] [detail$detail]",
@@ -533,69 +588,13 @@ DEFPY (show_pbr_map,
 	"PBR Map Name\n"
 	"Detailed information\n")
 {
-	struct pbr_map_sequence *pbrms;
 	struct pbr_map *pbrm;
-	struct listnode *node;
-	char buf[PREFIX_STRLEN];
-	char rbuf[64];
 
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
 		if (name && strcmp(name, pbrm->name) != 0)
 			continue;
 
-		vty_out(vty, "  pbr-map %s valid: %d\n", pbrm->name,
-			pbrm->valid);
-
-		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms)) {
-			if (pbrms->reason)
-				pbr_map_reason_string(pbrms->reason, rbuf,
-						      sizeof(rbuf));
-			vty_out(vty,
-				"    Seq: %u rule: %u Installed: %" PRIu64 "(%u) Reason: %s\n",
-				pbrms->seqno, pbrms->ruleno, pbrms->installed,
-				pbrms->unique, pbrms->reason ? rbuf : "Valid");
-
-			if (pbrms->src)
-				vty_out(vty, "\tSRC Match: %s\n",
-					prefix2str(pbrms->src, buf,
-						   sizeof(buf)));
-			if (pbrms->dst)
-				vty_out(vty, "\tDST Match: %s\n",
-					prefix2str(pbrms->dst, buf,
-						   sizeof(buf)));
-			if (pbrms->mark)
-				vty_out(vty, "\tMARK Match: %u\n", pbrms->mark);
-
-			if (pbrms->nhgrp_name) {
-				vty_out(vty,
-					"\tNexthop-Group: %s(%u) Installed: %u(%d)\n",
-					pbrms->nhgrp_name,
-					pbr_nht_get_table(pbrms->nhgrp_name),
-					pbrms->nhs_installed,
-					pbr_nht_get_installed(
-						pbrms->nhgrp_name));
-			} else if (pbrms->nhg) {
-				vty_out(vty, "     ");
-				nexthop_group_write_nexthop(
-					vty, pbrms->nhg->nexthop);
-				vty_out(vty,
-					"\tInstalled: %u(%d) Tableid: %d\n",
-					pbrms->nhs_installed,
-					pbr_nht_get_installed(
-						pbrms->internal_nhg_name),
-					pbr_nht_get_table(
-						pbrms->internal_nhg_name));
-			} else if (pbrms->vrf_unchanged) {
-				vty_out(vty,
-					"\tVRF Unchanged (use interface vrf)\n");
-			} else if (pbrms->vrf_lookup) {
-				vty_out(vty, "\tVRF Lookup: %s\n",
-					pbrms->vrf_name);
-			} else {
-				vty_out(vty,
-					"\tNexthop-Group: Unknown Installed: 0(0)\n");
-			}
-		}
+		vty_show_pbr_map(vty, pbrm, detail);
 	}
 	return CMD_SUCCESS;
 }
