@@ -115,6 +115,12 @@ end destination.
 
    Not supported with NETNS VRF backend.
 
+.. clicmd:: show pbr map [NAME] [detail]
+
+   Display pbr maps either all or by ``NAME``. If ``detail`` is set, it will
+   give information about the rules unique ID used internally and some extra
+   debugging information about install state for the nexthop/nexthop group.
+
 .. _pbr-policy:
 
 PBR Policy
