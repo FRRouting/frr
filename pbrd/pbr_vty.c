@@ -532,10 +532,17 @@ static void vty_show_pbrms(struct vty *vty,
 
 	if (pbrms->reason)
 		pbr_map_reason_string(pbrms->reason, rbuf, sizeof(rbuf));
-	vty_out(vty,
-		"    Seq: %u rule: %u Installed: %" PRIu64 "(%u) Reason: %s\n",
-		pbrms->seqno, pbrms->ruleno, pbrms->installed, pbrms->unique,
-		pbrms->reason ? rbuf : "Valid");
+
+	vty_out(vty, "    Seq: %u rule: %u\n", pbrms->seqno, pbrms->ruleno);
+
+	if (detail)
+		vty_out(vty, "    Installed: %" PRIu64 "(%u) Reason: %s\n",
+			pbrms->installed, pbrms->unique,
+			pbrms->reason ? rbuf : "Valid");
+	else
+		vty_out(vty, "    Installed: %s Reason: %s\n",
+			pbrms->installed ? "yes" : "no",
+			pbrms->reason ? rbuf : "Valid");
 
 	if (pbrms->src)
 		vty_out(vty, "\tSRC Match: %s\n",
@@ -547,23 +554,41 @@ static void vty_show_pbrms(struct vty *vty,
 		vty_out(vty, "\tMARK Match: %u\n", pbrms->mark);
 
 	if (pbrms->nhgrp_name) {
-		vty_out(vty, "\tNexthop-Group: %s(%u) Installed: %u(%d)\n",
-			pbrms->nhgrp_name, pbr_nht_get_table(pbrms->nhgrp_name),
-			pbrms->nhs_installed,
-			pbr_nht_get_installed(pbrms->nhgrp_name));
+		if (detail)
+			vty_out(vty,
+				"\tNexthop-Group: %s(%u) Installed: %u(%d)\n",
+				pbrms->nhgrp_name,
+				pbr_nht_get_table(pbrms->nhgrp_name),
+				pbrms->nhs_installed,
+				pbr_nht_get_installed(pbrms->nhgrp_name));
+		else
+			vty_out(vty, "\tNexthop-Group: %s(%u) Installed: %s\n",
+				pbrms->nhgrp_name,
+				pbr_nht_get_table(pbrms->nhgrp_name),
+				pbr_nht_get_installed(pbrms->nhgrp_name)
+					? "yes"
+					: "no");
 	} else if (pbrms->nhg) {
 		vty_out(vty, "     ");
 		nexthop_group_write_nexthop(vty, pbrms->nhg->nexthop);
-		vty_out(vty, "\tInstalled: %u(%d) Tableid: %d\n",
-			pbrms->nhs_installed,
-			pbr_nht_get_installed(pbrms->internal_nhg_name),
-			pbr_nht_get_table(pbrms->internal_nhg_name));
+		if (detail)
+			vty_out(vty, "\tInstalled: %u(%d) Tableid: %d\n",
+				pbrms->nhs_installed,
+				pbr_nht_get_installed(pbrms->internal_nhg_name),
+				pbr_nht_get_table(pbrms->internal_nhg_name));
+		else
+			vty_out(vty, "\tInstalled: %s Tableid: %d\n",
+				pbr_nht_get_installed(pbrms->internal_nhg_name)
+					? "yes"
+					: "no",
+				pbr_nht_get_table(pbrms->internal_nhg_name));
+
 	} else if (pbrms->vrf_unchanged) {
 		vty_out(vty, "\tVRF Unchanged (use interface vrf)\n");
 	} else if (pbrms->vrf_lookup) {
 		vty_out(vty, "\tVRF Lookup: %s\n", pbrms->vrf_name);
 	} else {
-		vty_out(vty, "\tNexthop-Group: Unknown Installed: 0(0)\n");
+		vty_out(vty, "\tNexthop-Group: Unknown Installed: no\n");
 	}
 }
 
