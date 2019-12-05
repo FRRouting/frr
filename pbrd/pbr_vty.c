@@ -599,7 +599,8 @@ static void vty_show_pbr_map(struct vty *vty, const struct pbr_map *pbrm,
 	struct pbr_map_sequence *pbrms;
 	struct listnode *node;
 
-	vty_out(vty, "  pbr-map %s valid: %d\n", pbrm->name, pbrm->valid);
+	vty_out(vty, "  pbr-map %s valid: %s\n", pbrm->name,
+		pbrm->valid ? "yes" : "no");
 
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
 		vty_show_pbrms(vty, pbrms, detail);
