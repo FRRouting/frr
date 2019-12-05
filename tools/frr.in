@@ -561,7 +561,7 @@ case "$1" in
 			stop_prio 0 $dmn
 		fi
 
-		if [ [ -n "$dmn" ] && [ "$dmn" != "zebra" ] ]; then
+		if [ -n "$dmn" -a "$dmn" != "zebra" ]; then
 			[ -n "$dmn" ] && eval "${dmn/-/_}=0"
 			start_watchfrr
 		fi
