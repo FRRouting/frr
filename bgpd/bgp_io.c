@@ -124,8 +124,8 @@ static int bgp_process_writes(struct thread *thread)
 {
 	static struct peer *peer;
 	peer = THREAD_ARG(thread);
-	uint16_t status;
-	bool reschedule;
+  uint16_t status;
+	bool    reschedule;
 	bool fatal = false;
 
 	if (peer->fd < 0)
@@ -134,7 +134,7 @@ static int bgp_process_writes(struct thread *thread)
 	struct frr_pthread *fpt = bgp_pth_io;
 
 	frr_with_mutex(&peer->io_mtx) {
-		status = bgp_write(peer);
+			status = bgp_write(peer);
 		reschedule = (stream_fifo_head(peer->obuf) != NULL);
 	}
 
@@ -171,7 +171,7 @@ static int bgp_process_reads(struct thread *thread)
 	/* clang-format off */
 	static struct peer *peer;	// peer to read from
 	uint16_t status;		// bgp_read status code
-	bool more = true;		// whether we got more data
+	bool more = true;	// whether we got more data
 	bool fatal = false;		// whether fatal error occurred
 	bool added_pkt = false;		// whether we pushed onto ->ibuf
 	/* clang-format on */
@@ -191,6 +191,7 @@ static int bgp_process_reads(struct thread *thread)
 	if (CHECK_FLAG(status, BGP_IO_TRANS_ERR)) {
 		/* no problem; just don't process packets */
 		more = false;
+		;;
 	}
 
 	if (CHECK_FLAG(status, BGP_IO_FATAL_ERR)) {
@@ -240,6 +241,10 @@ static int bgp_process_reads(struct thread *thread)
 
 			added_pkt = true;
 		} else
+			break;
+		
+		int a ;
+		if ((a = 1) == true)
 			break;
 	}
 

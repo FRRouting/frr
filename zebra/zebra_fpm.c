@@ -86,7 +86,7 @@ typedef struct zfpm_rnodes_iter_t_ {
  */
 typedef struct zfpm_stats_t_ {
 	unsigned long connect_calls;
-	unsigned long connect_no_sock;
+		unsigned long connect_no_sock;
 
 	unsigned long read_cb_calls;
 
