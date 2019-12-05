@@ -211,10 +211,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Tell pim to receive IGMP reports and Query on this interface. The default
    version is v3. This command is useful on a LHR.
 
-.. index:: ip igmp join A.B.C.D A.B.C.D
-.. clicmd:: ip igmp join A.B.C.D A.B.C.D
+.. index:: ip igmp join A.B.C.D [A.B.C.D]
+.. clicmd:: ip igmp join A.B.C.D [A.B.C.D]
 
-   Join multicast source-group on an interface.
+   Join multicast group or source-group on an interface.
 
 .. index:: ip igmp query-interval (1-1800)
 .. clicmd:: ip igmp query-interval (1-1800)
