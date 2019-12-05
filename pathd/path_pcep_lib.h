@@ -22,59 +22,13 @@
 
 #include <stdbool.h>
 #include <pcep_pcc_api.h>
+#include "pathd/path_pcep.h"
 
 /* Should be in pceplib */
 #define GET_SR_ERO_SID_LABEL(SID)   ((SID & 0xfffff000) >> 12)
 #define GET_SR_ERO_SID_TC(SID)      ((SID & 0x00000e00) >> 9)
 #define GET_SR_ERO_SID_S(SID)       ((SID & 0x00000100) >> 8)
 #define GET_SR_ERO_SID_TTL(SID)     ((SID & 0x000000ff))
-
-
-typedef struct sid_mpls_t_ {
-	uint16_t label;
-	uint8_t traffic_class;
-	bool is_bottom;
-	uint8_t ttl;
-} sid_mpls_t;
-
-typedef union sid_t_ {
-	uint32_t value;
-	sid_mpls_t mpls;
-} sid_t;
-
-typedef struct nai_ipv4_node_t_ {
-	struct in_addr addr;
-} nai_ipv4_node_t;
-
-typedef union nai_t_ {
-	nai_ipv4_node_t ipv4_node;
-} nai_t;
-
-typedef struct path_hop_t_ {
-	struct path_hop_t_ *next;
-	bool is_loose;
-	bool has_sid;
-	bool is_mpls;
-	bool has_attribs;
-	sid_t sid;
-	bool has_nai;
-	enum pcep_sr_subobj_nai nai_type;
-	nai_t nai;
-} path_hop_t;
-
-typedef struct path_t_ {
-	char *name;
-	uint32_t srp_id;
-	uint32_t plsp_id;
-	enum pcep_lsp_operational_status status;
-	bool do_remove;
-	bool go_active;
-	bool was_created;
-	bool was_removed;
-	bool is_synching;
-	bool is_delegated;
-	path_hop_t *first;
-} path_t;
 
 
 int pcep_lib_connect(pcc_state_t *pcc_state);
