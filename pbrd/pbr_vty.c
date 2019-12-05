@@ -536,11 +536,11 @@ static void vty_show_pbrms(struct vty *vty,
 	vty_out(vty, "    Seq: %u rule: %u\n", pbrms->seqno, pbrms->ruleno);
 
 	if (detail)
-		vty_out(vty, "    Installed: %" PRIu64 "(%u) Reason: %s\n",
+		vty_out(vty, "\tInstalled: %" PRIu64 "(%u) Reason: %s\n",
 			pbrms->installed, pbrms->unique,
 			pbrms->reason ? rbuf : "Valid");
 	else
-		vty_out(vty, "    Installed: %s Reason: %s\n",
+		vty_out(vty, "\tInstalled: %s Reason: %s\n",
 			pbrms->installed ? "yes" : "no",
 			pbrms->reason ? rbuf : "Valid");
 
@@ -554,30 +554,29 @@ static void vty_show_pbrms(struct vty *vty,
 		vty_out(vty, "\tMARK Match: %u\n", pbrms->mark);
 
 	if (pbrms->nhgrp_name) {
+		vty_out(vty, "\tNexthop-Group: %s\n", pbrms->nhgrp_name);
+
 		if (detail)
-			vty_out(vty,
-				"\tNexthop-Group: %s(%u) Installed: %u(%d)\n",
-				pbrms->nhgrp_name,
-				pbr_nht_get_table(pbrms->nhgrp_name),
+			vty_out(vty, "\t\tInstalled: %u(%d) Tableid: %d\n",
 				pbrms->nhs_installed,
-				pbr_nht_get_installed(pbrms->nhgrp_name));
+				pbr_nht_get_installed(pbrms->nhgrp_name),
+				pbr_nht_get_table(pbrms->nhgrp_name));
 		else
-			vty_out(vty, "\tNexthop-Group: %s(%u) Installed: %s\n",
-				pbrms->nhgrp_name,
-				pbr_nht_get_table(pbrms->nhgrp_name),
-				pbr_nht_get_installed(pbrms->nhgrp_name)
-					? "yes"
-					: "no");
+			vty_out(vty, "\t\tInstalled: %s Tableid: %d\n",
+				pbr_nht_get_installed(pbrms->nhgrp_name) ? "yes"
+									 : "no",
+				pbr_nht_get_table(pbrms->nhgrp_name));
+
 	} else if (pbrms->nhg) {
-		vty_out(vty, "     ");
+		vty_out(vty, "\t");
 		nexthop_group_write_nexthop(vty, pbrms->nhg->nexthop);
 		if (detail)
-			vty_out(vty, "\tInstalled: %u(%d) Tableid: %d\n",
+			vty_out(vty, "\t\tInstalled: %u(%d) Tableid: %d\n",
 				pbrms->nhs_installed,
 				pbr_nht_get_installed(pbrms->internal_nhg_name),
 				pbr_nht_get_table(pbrms->internal_nhg_name));
 		else
-			vty_out(vty, "\tInstalled: %s Tableid: %d\n",
+			vty_out(vty, "\t\tInstalled: %s Tableid: %d\n",
 				pbr_nht_get_installed(pbrms->internal_nhg_name)
 					? "yes"
 					: "no",
