@@ -144,8 +144,9 @@ void bgp_addpath_free_node_data(struct bgp_addpath_bgp_data *bd,
 	int i;
 
 	for (i = 0; i < BGP_ADDPATH_MAX; i++) {
-		idalloc_drain_pool(bd->id_allocators[afi][safi][i],
-				   &(nd->free_ids[i]));
+		if (bd->id_allocators[afi][safi][i])
+			idalloc_drain_pool(bd->id_allocators[afi][safi][i],
+					   &(nd->free_ids[i]));
 	}
 }
 
@@ -431,6 +432,15 @@ void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_node *bn, afi_t afi,
 	int i;
 	struct bgp_path_info *pi;
 	struct id_alloc_pool **pool_ptr;
+
+	/* Since we are keeping labeled-unicast routes in unicast table
+	 * addpath IDs are not generated because peercount is always
+	 * zero for SAFI_UNICAST.
+	 * And the result is that only the best path is sent to peers
+	 * instead of multiple paths.
+	 */
+	if (CHECK_FLAG(bn->flags, BGP_NODE_LABEL_CHANGED))
+		safi = SAFI_LABELED_UNICAST;
 
 	for (i = 0; i < BGP_ADDPATH_MAX; i++) {
 		struct id_alloc *alloc =
