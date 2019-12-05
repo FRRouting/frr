@@ -21,11 +21,19 @@
 #define _PATH_PCEP_H_
 
 #include <stdbool.h>
+#include <debug.h>
 #include <pcep_pcc_api.h>
 #include "pathd/path_memory.h"
 
 #define MAX_PCC 1
 #define CLASS_TYPE(CLASS, TYPE) (((CLASS) << 16) | (TYPE))
+#define PCEP_DEBUG(fmt, ...) DEBUGD(&pcep_g->dbg, fmt, ##__VA_ARGS__)
+
+typedef struct pcep_glob_t_ {
+	struct debug dbg;
+	struct thread_master *master;
+	struct frr_pthread *fpt;
+} pcep_glob_t;
 
 typedef struct pcc_opts_t_ {
 	struct in_addr addr;
@@ -62,54 +70,7 @@ typedef struct event_pcc_update_t_ {
 	pcc_opts_t *pcc_opts;
 } event_pcc_update_t;
 
-
-/* Should be in path_pcep_lib.h */
-
-typedef struct sid_mpls_t_ {
-	uint16_t label;
-	uint8_t traffic_class;
-	bool is_bottom;
-	uint8_t ttl;
-} sid_mpls_t;
-
-typedef union sid_t_ {
-	sid_mpls_t mpls;
-} sid_t;
-
-typedef struct nai_ipv4_node_t_ {
-	struct in_addr local;
-} nai_ipv4_node_t;
-
-typedef union nai_t_ {
-	nai_ipv4_node_t ipv4_node;
-} nai_t;
-
-typedef struct path_hop_t_ {
-	struct path_hop_t_ *next;
-	enum pcep_sr_subobj_nai type;
-	bool is_loose;
-	bool has_sid;
-	bool has_attribs;
-	bool is_mpls;
-	bool has_nai;
-	sid_t sid;
-	nai_t nai;
-} path_hop_t;
-
-typedef struct path_t_ {
-	char *name;
-	uint32_t srp_id;
-	uint32_t plsp_id;
-	enum pcep_lsp_operational_status status;
-	bool do_remove;
-	bool go_active;
-	bool was_created;
-	bool was_removed;
-	bool is_synching;
-	bool is_delegated;
-	path_hop_t *first;
-} path_t;
-
+extern pcep_glob_t *pcep_g;
 
 DECLARE_MTYPE(PCEP)
 
