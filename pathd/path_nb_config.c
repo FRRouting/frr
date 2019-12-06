@@ -203,14 +203,17 @@ int pathd_te_sr_policy_binding_sid_destroy(struct nb_cb_destroy_args *args)
 int pathd_te_sr_policy_candidate_path_create(struct nb_cb_create_args *args)
 {
 	struct te_sr_policy *te_sr_policy;
+	struct te_candidate_path *te_candidate_path;
 	uint32_t preference;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
+	te_sr_policy = nb_running_get_entry(args->dnode, "..", true);
 	preference = yang_dnode_get_uint32(args->dnode, "./preference");
-	te_sr_policy_candidate_path_add(te_sr_policy, preference);
+	te_candidate_path =
+		te_sr_policy_candidate_path_add(te_sr_policy, preference);
+	nb_running_set_entry(args->dnode, te_candidate_path);
 
 	return NB_OK;
 }
@@ -218,23 +221,21 @@ int pathd_te_sr_policy_candidate_path_create(struct nb_cb_create_args *args)
 void pathd_te_sr_policy_candidate_path_apply_finish(
 	struct nb_cb_apply_finish_args *args)
 {
-	struct te_sr_policy *te_sr_policy;
+	struct te_candidate_path *te_candidate_path;
 
-	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
-	te_sr_policy_candidate_path_set_active(te_sr_policy);
+	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
+	te_sr_policy_candidate_path_set_active(te_candidate_path->sr_policy);
 }
 
 int pathd_te_sr_policy_candidate_path_destroy(struct nb_cb_destroy_args *args)
 {
-	struct te_sr_policy *te_sr_policy;
-	uint32_t preference;
+	struct te_candidate_path *te_candidate_path;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
-	preference = yang_dnode_get_uint32(args->dnode, "./preference");
-	te_sr_policy_candidate_path_delete(te_sr_policy, preference);
+	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
+	te_sr_policy_candidate_path_delete(te_candidate_path);
 
 	return NB_OK;
 }
@@ -245,19 +246,16 @@ int pathd_te_sr_policy_candidate_path_destroy(struct nb_cb_destroy_args *args)
 int pathd_te_sr_policy_candidate_path_name_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct te_sr_policy *te_sr_policy;
-	uint32_t preference;
+	struct te_candidate_path *te_candidate_path;
 	const char *name;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_sr_policy = nb_running_get_entry(args->dnode, "../..", true);
-	preference = yang_dnode_get_uint32(args->dnode, "../preference");
+	te_candidate_path = nb_running_get_entry(args->dnode, "..", true);
 	name = yang_dnode_get_string(args->dnode, NULL);
 
-	te_sr_policy_candidate_path_name_add(
-		te_sr_policy, preference, strdup(name));
+	te_sr_policy_candidate_path_name_add(te_candidate_path, strdup(name));
 
 	return NB_OK;
 }
@@ -268,19 +266,17 @@ int pathd_te_sr_policy_candidate_path_name_modify(
 int pathd_te_sr_policy_candidate_path_protocol_origin_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct te_sr_policy *te_sr_policy;
-	uint32_t preference;
+	struct te_candidate_path *te_candidate_path;
 	enum te_protocol_origin protocol_origin;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_sr_policy = nb_running_get_entry(args->dnode, "../..", true);
-	preference = yang_dnode_get_uint32(args->dnode, "../preference");
+	te_candidate_path = nb_running_get_entry(args->dnode, "..", true);
 	protocol_origin = yang_dnode_get_enum(args->dnode, NULL);
 
-	te_sr_policy_candidate_path_protocol_origin_add(
-		te_sr_policy, preference, protocol_origin);
+	te_sr_policy_candidate_path_protocol_origin_add(te_candidate_path,
+							protocol_origin);
 
 	return NB_OK;
 }
@@ -291,18 +287,16 @@ int pathd_te_sr_policy_candidate_path_protocol_origin_modify(
 int pathd_te_sr_policy_candidate_path_originator_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct te_sr_policy *te_sr_policy;
-	uint32_t preference;
+	struct te_candidate_path *te_candidate_path;
 	struct ipaddr originator;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_sr_policy = nb_running_get_entry(args->dnode, "../..", true);
-	preference = yang_dnode_get_uint32(args->dnode, "../preference");
+	te_candidate_path = nb_running_get_entry(args->dnode, "..", true);
 	yang_dnode_get_ip(&originator, args->dnode, NULL);
 
-	te_sr_policy_candidate_path_originator_add(te_sr_policy, preference,
+	te_sr_policy_candidate_path_originator_add(te_candidate_path,
 						   &originator);
 
 	return NB_OK;
@@ -314,18 +308,16 @@ int pathd_te_sr_policy_candidate_path_originator_modify(
 int pathd_te_sr_policy_candidate_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct te_sr_policy *te_sr_policy;
-	uint32_t preference;
+	struct te_candidate_path *te_candidate_path;
 	enum te_candidate_path_type type;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_sr_policy = nb_running_get_entry(args->dnode, "../..", true);
-	preference = yang_dnode_get_uint32(args->dnode, "../preference");
+	te_candidate_path = nb_running_get_entry(args->dnode, "..", true);
 	type = yang_dnode_get_enum(args->dnode, NULL);
 
-	te_sr_policy_candidate_path_type_add(te_sr_policy, preference, type);
+	te_sr_policy_candidate_path_type_add(te_candidate_path, type);
 
 	return NB_OK;
 }
@@ -336,19 +328,17 @@ int pathd_te_sr_policy_candidate_path_type_modify(
 int pathd_te_sr_policy_candidate_path_segment_list_name_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct te_sr_policy *te_sr_policy;
-	uint32_t preference;
+	struct te_candidate_path *te_candidate_path;
 	const char *segment_list_name;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_sr_policy = nb_running_get_entry(args->dnode, "../..", true);
-	preference = yang_dnode_get_uint32(args->dnode, "../preference");
+	te_candidate_path = nb_running_get_entry(args->dnode, "..", true);
 	segment_list_name = yang_dnode_get_string(args->dnode, NULL);
 
 	te_sr_policy_candidate_path_segment_list_name_add(
-		te_sr_policy, preference, strdup(segment_list_name));
+		te_candidate_path, strdup(segment_list_name));
 
 	return NB_OK;
 }

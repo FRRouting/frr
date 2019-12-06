@@ -186,7 +186,7 @@ void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy)
 	if (RB_EMPTY(te_candidate_path_instance_head,
 		     &te_sr_policy->candidate_paths)) {
 		/* delete the LSP from Zebra */
-		te_sr_policy->best_candidate_path_key = -1;
+		te_sr_policy->best_candidate_path_key = 0;
 		path_zebra_delete_lsp(te_sr_policy->binding_sid);
 		return;
 	}
@@ -199,7 +199,9 @@ void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy)
 	if (te_sr_policy->best_candidate_path_key > 0) {
 		former_best_candidate_path = find_candidate_path(
 			te_sr_policy, te_sr_policy->best_candidate_path_key);
-		former_best_candidate_path->is_best_candidate_path = false;
+		if (former_best_candidate_path)
+			former_best_candidate_path->is_best_candidate_path =
+				false;
 	}
 
 	best_candidate_path->is_best_candidate_path = true;
@@ -226,69 +228,60 @@ struct te_candidate_path *find_candidate_path(struct te_sr_policy *te_sr_policy,
 		       &te_candidate_path_search);
 }
 
-void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
-				     uint32_t preference)
+struct te_candidate_path *
+te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
+				uint32_t preference)
 {
 	struct te_candidate_path *te_candidate_path =
 		XCALLOC(MTYPE_PATH_SEGMENT_LIST, sizeof(*te_candidate_path));
 	te_candidate_path->preference = preference;
+	te_candidate_path->sr_policy = te_sr_policy;
 
 	RB_INSERT(te_candidate_path_instance_head,
 		  &te_sr_policy->candidate_paths, te_candidate_path);
+
+	return te_candidate_path;
 }
 
-void te_sr_policy_candidate_path_name_add(struct te_sr_policy *te_sr_policy,
-					  uint32_t preference, char *name)
+void te_sr_policy_candidate_path_name_add(
+	struct te_candidate_path *te_candidate_path, char *name)
 {
-	struct te_candidate_path *te_candidate_path =
-		find_candidate_path(te_sr_policy, preference);
 	te_candidate_path->name = name;
 }
 
 void te_sr_policy_candidate_path_protocol_origin_add(
-	struct te_sr_policy *te_sr_policy, uint32_t preference,
+	struct te_candidate_path *te_candidate_path,
 	enum te_protocol_origin protocol_origin)
 {
-	struct te_candidate_path *te_candidate_path =
-		find_candidate_path(te_sr_policy, preference);
 	te_candidate_path->protocol_origin = protocol_origin;
 }
 
 void te_sr_policy_candidate_path_originator_add(
-	struct te_sr_policy *te_sr_policy, uint32_t preference,
-	struct ipaddr *originator)
+	struct te_candidate_path *te_candidate_path, struct ipaddr *originator)
 {
-	struct te_candidate_path *te_candidate_path =
-		find_candidate_path(te_sr_policy, preference);
 	te_candidate_path->originator = *originator;
 }
 
-void te_sr_policy_candidate_path_type_add(struct te_sr_policy *te_sr_policy,
-					  uint32_t preference,
-					  enum te_candidate_path_type type)
+void te_sr_policy_candidate_path_type_add(
+	struct te_candidate_path *te_candidate_path,
+	enum te_candidate_path_type type)
 {
-	struct te_candidate_path *te_candidate_path =
-		find_candidate_path(te_sr_policy, preference);
 	te_candidate_path->type = type;
 }
 
 void te_sr_policy_candidate_path_segment_list_name_add(
-	struct te_sr_policy *te_sr_policy, uint32_t preference,
-	char *segment_list_name)
+	struct te_candidate_path *te_candidate_path, char *segment_list_name)
 {
-	struct te_candidate_path *te_candidate_path =
-		find_candidate_path(te_sr_policy, preference);
 	te_candidate_path->segment_list_name = segment_list_name;
 }
 
-void te_sr_policy_candidate_path_delete(struct te_sr_policy *te_sr_policy,
-					uint32_t preference)
+void te_sr_policy_candidate_path_delete(
+	struct te_candidate_path *te_candidate_path)
 {
-	struct te_candidate_path te_candidate_path_delete;
-	te_candidate_path_delete.preference = preference;
+	struct te_sr_policy *te_sr_policy = te_candidate_path->sr_policy;
 
 	RB_REMOVE(te_candidate_path_instance_head,
-		  &te_sr_policy->candidate_paths, &te_candidate_path_delete);
+		  &te_sr_policy->candidate_paths, te_candidate_path);
 
 	te_sr_policy_candidate_path_set_active(te_sr_policy);
 }
