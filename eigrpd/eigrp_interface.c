@@ -99,6 +99,9 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 	ei->params.auth_type = EIGRP_AUTH_TYPE_NONE;
 	ei->params.auth_keychain = NULL;
 
+	ei->curr_bandwidth = ifp->bandwidth;
+	ei->curr_mtu = ifp->mtu;
+
 	return ei;
 }
 
@@ -139,45 +142,40 @@ static int eigrp_ifp_create(struct interface *ifp)
 
 static int eigrp_ifp_up(struct interface *ifp)
 {
-	/* Interface is already up. */
-	if (if_is_operative(ifp)) {
-		/* Temporarily keep ifp values. */
-		struct interface if_tmp;
-		memcpy(&if_tmp, ifp, sizeof(struct interface));
-
-		if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-			zlog_debug("Zebra: Interface[%s] state update.",
-				   ifp->name);
-
-		if (if_tmp.bandwidth != ifp->bandwidth) {
-			if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-				zlog_debug(
-					"Zebra: Interface[%s] bandwidth change %d -> %d.",
-					ifp->name, if_tmp.bandwidth,
-					ifp->bandwidth);
-
-			//          eigrp_if_recalculate_output_cost (ifp);
-		}
-
-		if (if_tmp.mtu != ifp->mtu) {
-			if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-				zlog_debug(
-					"Zebra: Interface[%s] MTU change %u -> %u.",
-					ifp->name, if_tmp.mtu, ifp->mtu);
-
-			/* Must reset the interface (simulate down/up) when MTU
-			 * changes. */
-			eigrp_if_reset(ifp);
-		}
-		return 0;
-	}
+	struct eigrp_interface *ei = ifp->info;
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
 		zlog_debug("Zebra: Interface[%s] state change to up.",
 			   ifp->name);
 
-	if (ifp->info)
-		eigrp_if_up(ifp->info);
+	if (!ei)
+		return 0;
+
+	if (ei->curr_bandwidth != ifp->bandwidth) {
+		if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+			zlog_debug(
+				"Zebra: Interface[%s] bandwidth change %d -> %d.",
+				ifp->name, ei->curr_bandwidth,
+				ifp->bandwidth);
+
+		ei->curr_bandwidth = ifp->bandwidth;
+		// eigrp_if_recalculate_output_cost (ifp);
+	}
+
+	if (ei->curr_mtu != ifp->mtu) {
+		if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+			zlog_debug(
+				"Zebra: Interface[%s] MTU change %u -> %u.",
+				ifp->name, ei->curr_mtu, ifp->mtu);
+
+		ei->curr_mtu = ifp->mtu;
+		/* Must reset the interface (simulate down/up) when MTU
+		 * changes. */
+		eigrp_if_reset(ifp);
+		return 0;
+	}
+
+	eigrp_if_up(ifp->info);
 
 	return 0;
 }
