@@ -345,11 +345,13 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 {
 	struct nhrp_cache *c = container_of(r, struct nhrp_cache, eventid);
 	char buf[3][SU_ADDRSTRLEN];
+	struct nhrp_vrf *nhrp_vrf = find_nhrp_vrf(NULL);
 
 	debugf(NHRP_DEBUG_COMMON, "cache: %s %pSU: %s", c->ifp->name,
 	       &c->remote_addr, (const char *)arg);
 
-	nhrp_reqid_free(&nhrp_event_reqid, r);
+	if (nhrp_vrf && nhrp_vrf->nhrp_event_reqid)
+		nhrp_reqid_free(nhrp_vrf->nhrp_event_reqid, r);
 
 	if (arg && strcmp(arg, "accept") == 0) {
 		if (c->cur.peer) {

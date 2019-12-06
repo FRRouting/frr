@@ -35,7 +35,7 @@ static struct cmd_node nhrp_interface_node = {
 	.config_write = interface_config_write,
 };
 
-#define NHRP_DEBUG_FLAGS_CMD "<all|common|event|interface|kernel|route|vici>"
+#define NHRP_DEBUG_FLAGS_CMD "<all|common|event|interface|kernel|route|vici|vrf>"
 
 #define NHRP_DEBUG_FLAGS_STR                                                   \
 	"All messages\n"                                                       \
@@ -44,13 +44,15 @@ static struct cmd_node nhrp_interface_node = {
 	"Interface messages\n"                                                 \
 	"Kernel messages\n"                                                    \
 	"Route messages\n"                                                     \
-	"VICI messages\n"
+	"VICI messages\n"                                                      \
+	"VRF messages\n"
 
 static const struct message debug_flags_desc[] = {
 	{NHRP_DEBUG_ALL, "all"},      {NHRP_DEBUG_COMMON, "common"},
 	{NHRP_DEBUG_IF, "interface"}, {NHRP_DEBUG_KERNEL, "kernel"},
 	{NHRP_DEBUG_ROUTE, "route"},  {NHRP_DEBUG_VICI, "vici"},
-	{NHRP_DEBUG_EVENT, "event"},  {0}};
+	{NHRP_DEBUG_EVENT, "event"},  {NHRP_DEBUG_VRF, "vrf"},
+	{0}};
 
 static const struct message interface_flags_desc[] = {
 	{NHRP_IFF_SHORTCUT, "shortcut"},
@@ -161,8 +163,36 @@ DEFUN(no_debug_nhrp, no_debug_nhrp_cmd,
 
 #endif /* NO_DEBUG */
 
+int nhrp_config_write_vrf(struct vty *vty, struct nhrp_vrf *nhrp_vrf)
+{
+	char indent[3];
+
+	memset(indent, 0, sizeof(indent));
+	if (nhrp_vrf->vrfname)
+		snprintf(indent, sizeof(indent), " ");
+	if (nhrp_vrf->nhrp_event_socket_path) {
+		vty_out(vty, "%snhrp event socket %s\n",
+			indent,
+			nhrp_vrf->nhrp_event_socket_path);
+	}
+	if (nhrp_vrf->netlink_nflog_group) {
+		vty_out(vty, "%snhrp nflog-group %d\n",
+			indent,
+			nhrp_vrf->netlink_nflog_group);
+	}
+	if (nhrp_vrf->netlink_mcast_nflog_group)
+		vty_out(vty, "%snhrp multicast-nflog-group %d\n",
+			indent,
+			nhrp_vrf->netlink_mcast_nflog_group);
+
+	return 0;
+}
+
 static int nhrp_config_write(struct vty *vty)
 {
+	struct nhrp_vrf *nhrp_vrf;
+
+	nhrp_vrf = find_nhrp_vrf(NULL);
 #ifndef NO_DEBUG
 	if (debug_flags == NHRP_DEBUG_ALL) {
 		vty_out(vty, "debug nhrp all\n");
@@ -180,18 +210,9 @@ static int nhrp_config_write(struct vty *vty)
 	}
 	vty_out(vty, "!\n");
 #endif /* NO_DEBUG */
-
-	if (nhrp_event_socket_path) {
-		vty_out(vty, "nhrp event socket %s\n", nhrp_event_socket_path);
-	}
-	if (netlink_nflog_group) {
-		vty_out(vty, "nhrp nflog-group %d\n", netlink_nflog_group);
-	}
-	if (netlink_mcast_nflog_group)
-		vty_out(vty, "nhrp multicast-nflog-group %d\n",
-			netlink_mcast_nflog_group);
-
-	return 0;
+	if (!nhrp_vrf)
+		return 0;
+	return nhrp_config_write_vrf(vty, nhrp_vrf);
 }
 
 #define IP_STR		"IP information\n"
@@ -219,7 +240,21 @@ DEFUN(nhrp_event_socket, nhrp_event_socket_cmd,
 	"Event Manager unix socket path\n"
 	"Unix path for the socket\n")
 {
-	evmgr_set_socket(argv[3]->arg);
+	struct nhrp_vrf *nhrp_vrf;
+
+	if (vty->node == CONFIG_NODE)
+		nhrp_vrf = nhrp_get_context(NULL);
+	else {
+		struct vrf *vrf = VTY_GET_CONTEXT(vrf);
+
+		if (vrf->vrf_id == VRF_DEFAULT)
+			nhrp_vrf = nhrp_get_context(NULL);
+		else
+			nhrp_vrf = nhrp_get_context(vrf->name);
+	}
+	if (!nhrp_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+	evmgr_set_socket(nhrp_vrf, argv[3]->arg);
 	return CMD_SUCCESS;
 }
 
@@ -231,7 +266,21 @@ DEFUN(no_nhrp_event_socket, no_nhrp_event_socket_cmd,
 	"Event Manager unix socket path\n"
 	"Unix path for the socket\n")
 {
-	evmgr_set_socket(NULL);
+	struct nhrp_vrf *nhrp_vrf;
+
+	if (vty->node == CONFIG_NODE)
+		nhrp_vrf = nhrp_get_context(NULL);
+	else {
+		struct vrf *vrf = VTY_GET_CONTEXT(vrf);
+
+		if (vrf->vrf_id == VRF_DEFAULT)
+			nhrp_vrf = nhrp_get_context(NULL);
+		else
+			nhrp_vrf = nhrp_get_context(vrf->name);
+	}
+	if (!nhrp_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+	evmgr_set_socket(nhrp_vrf, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -241,10 +290,21 @@ DEFUN(nhrp_nflog_group, nhrp_nflog_group_cmd,
 	"Specify NFLOG group number\n"
 	"NFLOG group number\n")
 {
-	uint32_t nfgroup;
+	struct nhrp_vrf *nhrp_vrf;
 
-	nfgroup = strtoul(argv[2]->arg, NULL, 10);
-	netlink_set_nflog_group(nfgroup);
+	if (vty->node == CONFIG_NODE)
+		nhrp_vrf = nhrp_get_context(NULL);
+	else {
+		struct vrf *vrf = VTY_GET_CONTEXT(vrf);
+
+		if (vrf->vrf_id == VRF_DEFAULT)
+			nhrp_vrf = nhrp_get_context(NULL);
+		else
+			nhrp_vrf = nhrp_get_context(vrf->name);
+	}
+	if (!nhrp_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+	netlink_set_nflog_group(nhrp_vrf, strtoul(argv[2]->arg, NULL, 10));
 
 	return CMD_SUCCESS;
 }
@@ -256,7 +316,21 @@ DEFUN(no_nhrp_nflog_group, no_nhrp_nflog_group_cmd,
 	"Specify NFLOG group number\n"
 	"NFLOG group number\n")
 {
-	netlink_set_nflog_group(0);
+	struct nhrp_vrf *nhrp_vrf;
+
+	if (vty->node == CONFIG_NODE)
+		nhrp_vrf = nhrp_get_context(NULL);
+	else {
+		struct vrf *vrf = VTY_GET_CONTEXT(vrf);
+
+		if (vrf->vrf_id == VRF_DEFAULT)
+			nhrp_vrf = nhrp_get_context(NULL);
+		else
+			nhrp_vrf = nhrp_get_context(vrf->name);
+	}
+	if (!nhrp_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+	netlink_set_nflog_group(nhrp_vrf, 0);
 	return CMD_SUCCESS;
 }
 
@@ -267,9 +341,23 @@ DEFUN(nhrp_multicast_nflog_group, nhrp_multicast_nflog_group_cmd,
 	"NFLOG group number\n")
 {
 	uint32_t nfgroup;
+	struct nhrp_vrf *nhrp_vrf;
+
+	if (vty->node == CONFIG_NODE)
+		nhrp_vrf = nhrp_get_context(NULL);
+	else {
+		struct vrf *vrf = VTY_GET_CONTEXT(vrf);
+
+		if (vrf->vrf_id == VRF_DEFAULT)
+			nhrp_vrf = nhrp_get_context(NULL);
+		else
+			nhrp_vrf = nhrp_get_context(vrf->name);
+	}
+	if (!nhrp_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	nfgroup = strtoul(argv[2]->arg, NULL, 10);
-	netlink_mcast_set_nflog_group(nfgroup);
+	netlink_mcast_set_nflog_group(nhrp_vrf, nfgroup);
 
 	return CMD_SUCCESS;
 }
@@ -281,7 +369,22 @@ DEFUN(no_nhrp_multicast_nflog_group, no_nhrp_multicast_nflog_group_cmd,
 	"Specify NFLOG group number\n"
 	"NFLOG group number\n")
 {
-	netlink_mcast_set_nflog_group(0);
+	struct nhrp_vrf *nhrp_vrf;
+
+	if (vty->node == CONFIG_NODE)
+		nhrp_vrf = nhrp_get_context(NULL);
+	else {
+		struct vrf *vrf = VTY_GET_CONTEXT(vrf);
+
+		if (vrf->vrf_id == VRF_DEFAULT)
+			nhrp_vrf = nhrp_get_context(NULL);
+		else
+			nhrp_vrf = nhrp_get_context(vrf->name);
+	}
+	if (!nhrp_vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	netlink_mcast_set_nflog_group(nhrp_vrf, 0);
 	return CMD_SUCCESS;
 }
 

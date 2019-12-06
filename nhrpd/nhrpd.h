@@ -14,6 +14,7 @@
 
 #include "zbuf.h"
 #include "zclient.h"
+#include "qobj.h"
 #include "debug.h"
 #include "memory.h"
 #include "resolver.h"
@@ -195,8 +196,25 @@ struct nhrp_reqid {
 	void (*cb)(struct nhrp_reqid *, void *);
 };
 
+struct nhrp_vrf {
+	char *vrfname;
+	char *nhrp_event_socket_path;
+	int netlink_nflog_group;
+	int netlink_mcast_nflog_group;
+	/* operational contexts */
+	int netlink_log_fd;
+	int netlink_mcast_log_fd;
+	struct thread *netlink_log_thread;
+	struct thread *netlink_mcast_log_thread;
+	struct event_manager *evmgr_connection;
+	struct nhrp_reqid_pool *nhrp_event_reqid;
+	QOBJ_FIELDS;
+};
+
+extern struct list *nhrp_vrf_list;
+DECLARE_QOBJ_TYPE(nhrp_vrf);
+
 extern struct nhrp_reqid_pool nhrp_packet_reqid;
-extern struct nhrp_reqid_pool nhrp_event_reqid;
 
 enum nhrp_cache_type {
 	NHRP_CACHE_INVALID = 0,
@@ -209,6 +227,11 @@ enum nhrp_cache_type {
 	NHRP_CACHE_LOCAL,
 	NHRP_CACHE_NUM_TYPES
 };
+
+extern struct nhrp_vrf *nhrp_get_context(const char *name);
+extern struct nhrp_vrf *find_nhrp_vrf(const char *vrfname);
+extern int nhrp_config_write_vrf(struct vty *vty,
+				 struct nhrp_vrf *nhrp_vrf);
 
 extern const char *const nhrp_cache_type_str[];
 extern unsigned long nhrp_cache_counts[NHRP_CACHE_NUM_TYPES];
@@ -397,7 +420,7 @@ void nhrp_multicast_interface_del(struct interface *ifp);
 void nhrp_multicast_foreach(struct interface *ifp, afi_t afi,
 			    void (*cb)(struct nhrp_multicast *, void *),
 			    void *ctx);
-void netlink_mcast_set_nflog_group(int nlgroup);
+void netlink_mcast_set_nflog_group(struct nhrp_vrf *nhrp_vrf, int nlgroup);
 
 void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp);
 void nhrp_route_announce(int add, enum nhrp_cache_type type,
@@ -410,6 +433,8 @@ enum nhrp_route_type nhrp_route_address(struct interface *in_ifp,
 					union sockunion *addr, struct prefix *p,
 					struct nhrp_peer **peer);
 
+extern int interface_config_write_vrf(struct vty *vty,
+				      struct nhrp_vrf *nhrp_vrf);
 void nhrp_config_init(void);
 
 void nhrp_shortcut_init(void);
@@ -459,11 +484,9 @@ void vici_terminate_vc_by_ike_id(unsigned int ike_id);
 void vici_request_vc(const char *profile, union sockunion *src,
 		     union sockunion *dst, int prio);
 
-extern const char *nhrp_event_socket_path;
-
-void evmgr_init(void);
-void evmgr_terminate(void);
-void evmgr_set_socket(const char *socket);
+void evmgr_init(struct nhrp_vrf *nhrp_vrf);
+void evmgr_terminate(struct nhrp_vrf *nhrp_vrf);
+void evmgr_set_socket(struct nhrp_vrf *nhrp_vrf, const char *socket);
 void evmgr_notify(const char *name, struct nhrp_cache *c,
 		  void (*cb)(struct nhrp_reqid *, void *));
 

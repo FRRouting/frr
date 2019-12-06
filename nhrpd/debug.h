@@ -14,6 +14,7 @@
 #define NHRP_DEBUG_ROUTE	(1 << 3)
 #define NHRP_DEBUG_VICI		(1 << 4)
 #define NHRP_DEBUG_EVENT	(1 << 5)
+#define NHRP_DEBUG_VRF		(1 << 6)
 #define NHRP_DEBUG_ALL		(0xFFFF)
 
 extern unsigned int debug_flags;

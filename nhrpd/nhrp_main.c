@@ -46,6 +46,11 @@ static zebra_capabilities_t _caps_p[] = {
 			      /proc/sys/net/ipv4/<if>/send_redirect */
 };
 
+struct list *nhrp_vrf_list;
+DEFINE_QOBJ_TYPE(nhrp_vrf);
+
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_VRF, "NHRP vrf entry");
+
 struct zebra_privs_t nhrpd_privs = {
 #if defined(FRR_USER) && defined(FRR_GROUP)
 	.user = FRR_USER,
@@ -85,14 +90,18 @@ static void nhrp_sigusr1(void)
 
 static void nhrp_request_stop(void)
 {
+	struct nhrp_vrf *nhrp_vrf;
+
 	debugf(NHRP_DEBUG_COMMON, "Exiting...");
 	frr_early_fini();
+
+	nhrp_vrf = find_nhrp_vrf(NULL);
 
 	nhrp_shortcut_terminate();
 	nhrp_nhs_terminate();
 	nhrp_zebra_terminate();
 	vici_terminate();
-	evmgr_terminate();
+	evmgr_terminate(nhrp_vrf);
 	nhrp_vc_terminate();
 	vrf_terminate();
 
@@ -133,8 +142,88 @@ FRR_DAEMON_INFO(nhrpd, NHRP, .vty_port = NHRP_VTY_PORT,
 		.n_yang_modules = array_size(nhrpd_yang_modules),
 );
 
+static int nhrp_vrf_new(struct vrf *vrf)
+{
+	debugf(NHRP_DEBUG_VRF, "VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
+	return 0;
+}
+
+static int nhrp_vrf_delete(struct vrf *vrf)
+{
+	debugf(NHRP_DEBUG_VRF, "VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
+	return 0;
+}
+
+static int nhrp_vrf_enable(struct vrf *vrf)
+{
+	debugf(NHRP_DEBUG_VRF, "VRF enable add %s id %u", vrf->name, vrf->vrf_id);
+	return 0;
+}
+
+static int nhrp_vrf_disable(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return 0;
+
+	debugf(NHRP_DEBUG_VRF, "VRF disable %s id %u", vrf->name, vrf->vrf_id);
+	return 0;
+}
+
+static int nhrp_vrf_config_write(struct vty *vty)
+{
+	struct vrf *vrf;
+	struct nhrp_vrf *nhrp_vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (vrf->vrf_id == VRF_DEFAULT) {
+			vty_out(vty, "!\n");
+			continue;
+		}
+		vty_out(vty, "vrf %s\n", vrf->name);
+		nhrp_vrf = find_nhrp_vrf(vrf->name);
+		if (nhrp_vrf)
+			nhrp_config_write_vrf(vty, nhrp_vrf);
+		vty_out(vty, " exit-vrf\n!\n");
+	}
+
+	return 0;
+}
+
+struct nhrp_vrf *find_nhrp_vrf(const char *vrfname)
+{
+	struct listnode *nhrp_vrf_node;
+	struct nhrp_vrf *nhrp_vrf;
+
+	for (ALL_LIST_ELEMENTS_RO(nhrp_vrf_list, nhrp_vrf_node, nhrp_vrf)) {
+		if ((!vrfname && nhrp_vrf->vrfname) ||
+		    (vrfname && !nhrp_vrf->vrfname) ||
+		    (vrfname && nhrp_vrf->vrfname &&
+		     !strmatch(vrfname, nhrp_vrf->vrfname)))
+			continue;
+		return nhrp_vrf;
+	}
+	return NULL;
+}
+
+struct nhrp_vrf *nhrp_get_context(const char *name)
+{
+	struct  nhrp_vrf *nhrp_vrf;
+
+	nhrp_vrf = find_nhrp_vrf(name);
+	if (!nhrp_vrf) {
+		nhrp_vrf = XCALLOC(MTYPE_NHRP_VRF, sizeof(struct nhrp_vrf));
+		QOBJ_REG(nhrp_vrf, nhrp_vrf);
+		listnode_add(nhrp_vrf_list, nhrp_vrf);
+		if (name)
+			nhrp_vrf->vrfname = XSTRDUP(MTYPE_NHRP_VRF, name);
+	}
+	return nhrp_vrf;
+}
+
 int main(int argc, char **argv)
 {
+	struct nhrp_vrf *nhrp_vrf;
+
 	frr_preinit(&nhrpd_di, argc, argv);
 	frr_opt_add("", longopts, "");
 
@@ -143,7 +232,10 @@ int main(int argc, char **argv)
 	/* Library inits. */
 	master = frr_init();
 	nhrp_error_init();
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	nhrp_vrf_list = list_new();
+	vrf_init(nhrp_vrf_new, nhrp_vrf_enable, nhrp_vrf_disable,
+		 nhrp_vrf_delete, NULL);
+	vrf_cmd_init(nhrp_vrf_config_write, &nhrpd_privs);
 	nhrp_interface_init();
 	resolver_init(master);
 
@@ -156,7 +248,8 @@ int main(int argc, char **argv)
 	assert(nhrpd_privs.change);
 	nhrpd_privs.change(ZPRIVS_RAISE);
 
-	evmgr_init();
+	nhrp_vrf = nhrp_get_context(NULL);
+	evmgr_init(nhrp_vrf);
 	nhrp_vc_init();
 	nhrp_packet_init();
 	vici_init();

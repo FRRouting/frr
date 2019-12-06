@@ -30,10 +30,6 @@
 
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_MULTICAST, "NHRP Multicast");
 
-int netlink_mcast_nflog_group;
-static int netlink_mcast_log_fd = -1;
-static struct thread *netlink_mcast_log_thread;
-
 struct mcast_ctx {
 	struct interface *ifp;
 	struct zbuf *pkt;
@@ -148,8 +144,9 @@ static int netlink_mcast_log_recv(struct thread *t)
 	int fd = THREAD_FD(t);
 	struct zbuf payload, zb;
 	struct nlmsghdr *n;
+	struct nhrp_vrf *nhrp_vrf = THREAD_ARG(t);
 
-	netlink_mcast_log_thread = NULL;
+	nhrp_vrf->netlink_mcast_log_thread = NULL;
 
 	zbuf_init(&zb, buf, sizeof(buf), 0);
 	while (zbuf_recv(&zb, fd) > 0) {
@@ -165,8 +162,9 @@ static int netlink_mcast_log_recv(struct thread *t)
 		}
 	}
 
-	thread_add_read(master, netlink_mcast_log_recv, 0, netlink_mcast_log_fd,
-			&netlink_mcast_log_thread);
+	thread_add_read(master, netlink_mcast_log_recv, nhrp_vrf,
+			nhrp_vrf->netlink_mcast_log_fd,
+			&nhrp_vrf->netlink_mcast_log_thread);
 
 	return 0;
 }
@@ -194,26 +192,26 @@ static void netlink_mcast_log_register(int fd, int group)
 	zbuf_free(zb);
 }
 
-void netlink_mcast_set_nflog_group(int nlgroup)
+void netlink_mcast_set_nflog_group(struct nhrp_vrf *nhrp_vrf, int nlgroup)
 {
-	if (netlink_mcast_log_fd >= 0) {
-		THREAD_OFF(netlink_mcast_log_thread);
-		close(netlink_mcast_log_fd);
-		netlink_mcast_log_fd = -1;
+	if (nhrp_vrf->netlink_mcast_log_fd >= 0) {
+		THREAD_OFF(nhrp_vrf->netlink_mcast_log_thread);
+		close(nhrp_vrf->netlink_mcast_log_fd);
+		nhrp_vrf->netlink_mcast_log_fd = -1;
 		debugf(NHRP_DEBUG_COMMON, "De-register nflog group");
 	}
-	netlink_mcast_nflog_group = nlgroup;
+	nhrp_vrf->netlink_mcast_nflog_group = nlgroup;
 	if (nlgroup) {
-		netlink_mcast_log_fd = znl_open(NETLINK_NETFILTER, 0);
-		if (netlink_mcast_log_fd < 0)
+		nhrp_vrf->netlink_mcast_log_fd = znl_open(NETLINK_NETFILTER, 0);
+		if (nhrp_vrf->netlink_mcast_log_fd < 0)
 			return;
 
-		netlink_mcast_log_register(netlink_mcast_log_fd, nlgroup);
-		thread_add_read(master, netlink_mcast_log_recv, 0,
-				netlink_mcast_log_fd,
-				&netlink_mcast_log_thread);
+		netlink_mcast_log_register(nhrp_vrf->netlink_mcast_log_fd, nlgroup);
+		thread_add_read(master, netlink_mcast_log_recv, nhrp_vrf,
+				nhrp_vrf->netlink_mcast_log_fd,
+				&nhrp_vrf->netlink_mcast_log_thread);
 		debugf(NHRP_DEBUG_COMMON, "Register nflog group: %d",
-		       netlink_mcast_nflog_group);
+		       nhrp_vrf->netlink_mcast_nflog_group);
 	}
 }
 

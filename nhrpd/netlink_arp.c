@@ -25,9 +25,6 @@
 #include "netlink.h"
 #include "znl.h"
 
-int netlink_nflog_group;
-static int netlink_log_fd = -1;
-static struct thread *netlink_log_thread;
 
 void netlink_update_binding(struct interface *ifp, union sockunion *proto,
 			    union sockunion *nbma)
@@ -106,8 +103,9 @@ static int netlink_log_recv(struct thread *t)
 	int fd = THREAD_FD(t);
 	struct zbuf payload, zb;
 	struct nlmsghdr *n;
+	struct nhrp_vrf *nhrp_vrf = THREAD_ARG(t);
 
-	netlink_log_thread = NULL;
+	nhrp_vrf->netlink_log_thread = NULL;
 
 	zbuf_init(&zb, buf, sizeof(buf), 0);
 	while (zbuf_recv(&zb, fd) > 0) {
@@ -123,28 +121,29 @@ static int netlink_log_recv(struct thread *t)
 		}
 	}
 
-	thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
-			&netlink_log_thread);
+	thread_add_read(master, netlink_log_recv, nhrp_vrf, nhrp_vrf->netlink_log_fd,
+			&nhrp_vrf->netlink_log_thread);
 
 	return 0;
 }
 
-void netlink_set_nflog_group(int nlgroup)
+void netlink_set_nflog_group(struct nhrp_vrf *nhrp_vrf, int nlgroup)
 {
-	if (netlink_log_fd >= 0) {
-		thread_cancel(&netlink_log_thread);
-		close(netlink_log_fd);
-		netlink_log_fd = -1;
+	if (nhrp_vrf->netlink_log_fd >= 0) {
+		thread_cancel(&nhrp_vrf->netlink_log_thread);
+		close(nhrp_vrf->netlink_log_fd);
+		nhrp_vrf->netlink_log_fd = -1;
 	}
-	netlink_nflog_group = nlgroup;
-	if (nlgroup) {
-		netlink_log_fd = znl_open(NETLINK_NETFILTER, 0);
-		if (netlink_log_fd < 0)
+	nhrp_vrf->netlink_nflog_group = nlgroup;
+	if (nhrp_vrf->netlink_nflog_group) {
+		nhrp_vrf->netlink_log_fd = znl_open(NETLINK_NETFILTER, 0);
+		if (nhrp_vrf->netlink_log_fd < 0)
 			return;
 
-		netlink_log_register(netlink_log_fd, nlgroup);
-		thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
-				&netlink_log_thread);
+		netlink_log_register(nhrp_vrf->netlink_log_fd, nlgroup);
+		thread_add_read(master, netlink_log_recv, nhrp_vrf,
+				nhrp_vrf->netlink_log_fd,
+				&nhrp_vrf->netlink_log_thread);
 	}
 }
 

@@ -20,8 +20,8 @@
 #include "log.h"
 #include "nhrpd.h"
 
-const char *nhrp_event_socket_path;
-struct nhrp_reqid_pool nhrp_event_reqid;
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_EVENT, "NHRP event entry");
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_REQID_POOL, "NHRP event entry");
 
 struct event_manager {
 	struct thread *t_reconnect, *t_read, *t_write;
@@ -33,8 +33,13 @@ struct event_manager {
 
 static int evmgr_reconnect(struct thread *t);
 
-static void evmgr_connection_error(struct event_manager *evmgr)
+static void evmgr_connection_error(struct nhrp_vrf *nhrp_vrf)
 {
+	struct event_manager *evmgr;
+
+	if (!nhrp_vrf || !nhrp_vrf->evmgr_connection)
+		return;
+	evmgr = nhrp_vrf->evmgr_connection;
 	THREAD_OFF(evmgr->t_read);
 	THREAD_OFF(evmgr->t_write);
 	zbuf_reset(&evmgr->ibuf);
@@ -43,12 +48,12 @@ static void evmgr_connection_error(struct event_manager *evmgr)
 	if (evmgr->fd >= 0)
 		close(evmgr->fd);
 	evmgr->fd = -1;
-	if (nhrp_event_socket_path)
+	if (nhrp_vrf->nhrp_event_socket_path)
 		thread_add_timer_msec(master, evmgr_reconnect, evmgr, 10,
 				      &evmgr->t_reconnect);
 }
 
-static void evmgr_recv_message(struct event_manager *evmgr, struct zbuf *zb)
+static void evmgr_recv_message(struct nhrp_vrf *nhrp_vrf, struct zbuf *zb)
 {
 	struct zbuf zl;
 	uint32_t eventid = 0;
@@ -72,7 +77,7 @@ static void evmgr_recv_message(struct event_manager *evmgr, struct zbuf *zb)
 	       eventid, result);
 	if (eventid && result[0]) {
 		struct nhrp_reqid *r =
-			nhrp_reqid_lookup(&nhrp_event_reqid, eventid);
+			nhrp_reqid_lookup(nhrp_vrf->nhrp_event_reqid, eventid);
 		if (r)
 			r->cb(r, result);
 	}
@@ -80,36 +85,45 @@ static void evmgr_recv_message(struct event_manager *evmgr, struct zbuf *zb)
 
 static int evmgr_read(struct thread *t)
 {
-	struct event_manager *evmgr = THREAD_ARG(t);
-	struct zbuf *ibuf = &evmgr->ibuf;
+	struct nhrp_vrf *nhrp_vrf = THREAD_ARG(t);
+	struct zbuf *ibuf;
 	struct zbuf msg;
+	struct event_manager *evmgr;
 
+	if (!nhrp_vrf || !nhrp_vrf->evmgr_connection)
+		return 0;
+	evmgr = nhrp_vrf->evmgr_connection;
+	ibuf = &evmgr->ibuf;
 	evmgr->t_read = NULL;
 	if (zbuf_read(ibuf, evmgr->fd, (size_t)-1) < 0) {
-		evmgr_connection_error(evmgr);
+		evmgr_connection_error(nhrp_vrf);
 		return 0;
 	}
 
 	/* Process all messages in buffer */
 	while (zbuf_may_pull_until(ibuf, "\n\n", &msg))
-		evmgr_recv_message(evmgr, &msg);
+		evmgr_recv_message(nhrp_vrf, &msg);
 
-	thread_add_read(master, evmgr_read, evmgr, evmgr->fd, &evmgr->t_read);
+	thread_add_read(master, evmgr_read, nhrp_vrf, evmgr->fd, &evmgr->t_read);
 	return 0;
 }
 
 static int evmgr_write(struct thread *t)
 {
-	struct event_manager *evmgr = THREAD_ARG(t);
+	struct nhrp_vrf *nhrp_vrf =  THREAD_ARG(t);
+	struct event_manager *evmgr;
 	int r;
 
+	if (!nhrp_vrf || !nhrp_vrf->evmgr_connection)
+		return 0;
+	evmgr = nhrp_vrf->evmgr_connection;
 	evmgr->t_write = NULL;
 	r = zbufq_write(&evmgr->obuf, evmgr->fd);
 	if (r > 0) {
-		thread_add_write(master, evmgr_write, evmgr, evmgr->fd,
+		thread_add_write(master, evmgr_write, nhrp_vrf, evmgr->fd,
 				 &evmgr->t_write);
 	} else if (r < 0) {
-		evmgr_connection_error(evmgr);
+		evmgr_connection_error(nhrp_vrf);
 	}
 
 	return 0;
@@ -175,8 +189,13 @@ static void evmgr_put(struct zbuf *zb, const char *fmt, ...)
 	zbuf_put(zb, pos, strlen(pos));
 }
 
-static void evmgr_submit(struct event_manager *evmgr, struct zbuf *obuf)
+static void evmgr_submit(struct nhrp_vrf *nhrp_vrf, struct zbuf *obuf)
 {
+	struct event_manager *evmgr;
+
+	if (!nhrp_vrf || !nhrp_vrf->evmgr_connection)
+		return;
+	evmgr = nhrp_vrf->evmgr_connection;
 	if (obuf->error) {
 		zbuf_free(obuf);
 		return;
@@ -184,74 +203,89 @@ static void evmgr_submit(struct event_manager *evmgr, struct zbuf *obuf)
 	zbuf_put(obuf, "\n", 1);
 	zbufq_queue(&evmgr->obuf, obuf);
 	if (evmgr->fd >= 0)
-		thread_add_write(master, evmgr_write, evmgr, evmgr->fd,
+		thread_add_write(master, evmgr_write, nhrp_vrf, evmgr->fd,
 				 &evmgr->t_write);
 }
 
 static int evmgr_reconnect(struct thread *t)
 {
-	struct event_manager *evmgr = THREAD_ARG(t);
+	struct nhrp_vrf *nhrp_vrf = THREAD_ARG(t);
 	int fd;
+	struct event_manager *evmgr;
 
+	if (!nhrp_vrf || !nhrp_vrf->evmgr_connection)
+		return 0;
+	evmgr = nhrp_vrf->evmgr_connection;
 	evmgr->t_reconnect = NULL;
-	if (evmgr->fd >= 0 || !nhrp_event_socket_path)
+	if (evmgr->fd >= 0 || !nhrp_vrf->nhrp_event_socket_path)
 		return 0;
 
-	fd = sock_open_unix(nhrp_event_socket_path);
+	fd = sock_open_unix(nhrp_vrf->nhrp_event_socket_path);
 	if (fd < 0) {
 		zlog_warn("%s: failure connecting nhrp-event socket: %s",
 			  __func__, strerror(errno));
 		zbufq_reset(&evmgr->obuf);
-		thread_add_timer(master, evmgr_reconnect, evmgr, 10,
+		thread_add_timer(master, evmgr_reconnect, nhrp_vrf, 10,
 				 &evmgr->t_reconnect);
 		return 0;
 	}
 
 	zlog_info("Connected to Event Manager");
 	evmgr->fd = fd;
-	thread_add_read(master, evmgr_read, evmgr, evmgr->fd, &evmgr->t_read);
+	thread_add_read(master, evmgr_read, nhrp_vrf, evmgr->fd, &evmgr->t_read);
 
 	return 0;
 }
 
-static struct event_manager evmgr_connection;
-
-void evmgr_init(void)
+void evmgr_init(struct nhrp_vrf *nhrp_vrf)
 {
-	struct event_manager *evmgr = &evmgr_connection;
+	struct event_manager *evmgr;
 
+	if (!nhrp_vrf->evmgr_connection)
+		nhrp_vrf->evmgr_connection = XCALLOC(MTYPE_NHRP_EVENT,
+					     sizeof(struct event_manager));
+	if (!nhrp_vrf->nhrp_event_reqid)
+		nhrp_vrf->nhrp_event_reqid = XCALLOC(MTYPE_NHRP_REQID_POOL,
+					     sizeof(struct nhrp_reqid_pool));
+
+	evmgr = nhrp_vrf->evmgr_connection;
 	evmgr->fd = -1;
 	zbuf_init(&evmgr->ibuf, evmgr->ibuf_data, sizeof(evmgr->ibuf_data), 0);
 	zbufq_init(&evmgr->obuf);
-	thread_add_timer_msec(master, evmgr_reconnect, evmgr, 10,
+
+	thread_add_timer_msec(master, evmgr_reconnect, nhrp_vrf, 10,
 			      &evmgr->t_reconnect);
 }
 
-void evmgr_set_socket(const char *socket)
+void evmgr_set_socket(struct nhrp_vrf *nhrp_vrf, const char *socket)
 {
-	if (nhrp_event_socket_path) {
-		free((char *)nhrp_event_socket_path);
-		nhrp_event_socket_path = NULL;
+	if (nhrp_vrf->nhrp_event_socket_path) {
+		free((char *)nhrp_vrf->nhrp_event_socket_path);
+		nhrp_vrf->nhrp_event_socket_path = NULL;
 	}
 	if (socket)
-		nhrp_event_socket_path = strdup(socket);
-	evmgr_connection_error(&evmgr_connection);
+		nhrp_vrf->nhrp_event_socket_path = strdup(socket);
+	evmgr_connection_error(nhrp_vrf);
 }
 
-void evmgr_terminate(void)
+void evmgr_terminate(struct nhrp_vrf *nhrp_vrf)
 {
+	XFREE(MTYPE_NHRP_EVENT, nhrp_vrf->evmgr_connection);
+	XFREE(MTYPE_NHRP_REQID_POOL, nhrp_vrf->nhrp_event_reqid);
 }
 
 void evmgr_notify(const char *name, struct nhrp_cache *c,
 		  void (*cb)(struct nhrp_reqid *, void *))
 {
-	struct event_manager *evmgr = &evmgr_connection;
 	struct nhrp_vc *vc;
 	struct nhrp_interface *nifp = c->ifp->info;
 	struct zbuf *zb;
 	afi_t afi = family2afi(sockunion_family(&c->remote_addr));
+	struct nhrp_vrf *nhrp_vrf = find_nhrp_vrf(NULL);
 
-	if (!nhrp_event_socket_path) {
+	if (!nhrp_vrf || !nhrp_vrf->evmgr_connection)
+		return;
+	if (!nhrp_vrf->nhrp_event_socket_path) {
 		cb(&c->eventid, (void *)"accept");
 		return;
 	}
@@ -263,9 +297,9 @@ void evmgr_notify(const char *name, struct nhrp_cache *c,
 		1024 + (vc ? (vc->local.certlen + vc->remote.certlen) * 2 : 0));
 
 	if (cb) {
-		nhrp_reqid_free(&nhrp_event_reqid, &c->eventid);
+		nhrp_reqid_free(nhrp_vrf->nhrp_event_reqid, &c->eventid);
 		evmgr_put(zb, "eventid=%u\n",
-			  nhrp_reqid_alloc(&nhrp_event_reqid, &c->eventid, cb));
+			  nhrp_reqid_alloc(nhrp_vrf->nhrp_event_reqid, &c->eventid, cb));
 	}
 
 	evmgr_put(zb,
@@ -294,5 +328,5 @@ void evmgr_notify(const char *name, struct nhrp_cache *c,
 			  vc->remote.certlen);
 	}
 
-	evmgr_submit(evmgr, zb);
+	evmgr_submit(nhrp_vrf, zb);
 }
