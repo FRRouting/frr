@@ -40,6 +40,7 @@
 #include "linklist.h"
 #include "command.h"
 #include "memory.h"
+#include "network.h"
 #include "filter.h"
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_daemons.h"
@@ -69,7 +70,13 @@ struct vtysh_client {
 	int flag;
 	char path[MAXPATHLEN];
 	struct vtysh_client *next;
+
+	struct thread *log_reader;
+	int log_fd;
 };
+
+static bool stderr_tty;
+static bool stderr_stdout_same;
 
 /* Some utility functions for working on vtysh-specific vty tasks */
 
@@ -126,27 +133,27 @@ static void vtysh_pager_envdef(bool fallback)
 /* --- */
 
 struct vtysh_client vtysh_client[] = {
-	{.fd = -1, .name = "zebra", .flag = VTYSH_ZEBRA, .next = NULL},
-	{.fd = -1, .name = "ripd", .flag = VTYSH_RIPD, .next = NULL},
-	{.fd = -1, .name = "ripngd", .flag = VTYSH_RIPNGD, .next = NULL},
-	{.fd = -1, .name = "ospfd", .flag = VTYSH_OSPFD, .next = NULL},
-	{.fd = -1, .name = "ospf6d", .flag = VTYSH_OSPF6D, .next = NULL},
-	{.fd = -1, .name = "ldpd", .flag = VTYSH_LDPD, .next = NULL},
-	{.fd = -1, .name = "bgpd", .flag = VTYSH_BGPD, .next = NULL},
-	{.fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .next = NULL},
-	{.fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .next = NULL},
-	{.fd = -1, .name = "nhrpd", .flag = VTYSH_NHRPD, .next = NULL},
-	{.fd = -1, .name = "eigrpd", .flag = VTYSH_EIGRPD, .next = NULL},
-	{.fd = -1, .name = "babeld", .flag = VTYSH_BABELD, .next = NULL},
-	{.fd = -1, .name = "sharpd", .flag = VTYSH_SHARPD, .next = NULL},
-	{.fd = -1, .name = "fabricd", .flag = VTYSH_FABRICD, .next = NULL},
-	{.fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .next = NULL},
-	{.fd = -1, .name = "pbrd", .flag = VTYSH_PBRD, .next = NULL},
-	{.fd = -1, .name = "staticd", .flag = VTYSH_STATICD, .next = NULL},
-	{.fd = -1, .name = "bfdd", .flag = VTYSH_BFDD, .next = NULL},
-	{.fd = -1, .name = "vrrpd", .flag = VTYSH_VRRPD, .next = NULL},
-	{.fd = -1, .name = "pathd", .flag = VTYSH_PATHD, .next = NULL},
-	{.fd = -1, .name = "pim6d", .flag = VTYSH_PIM6D, .next = NULL},
+	{.name = "zebra", .flag = VTYSH_ZEBRA},
+	{.name = "ripd", .flag = VTYSH_RIPD},
+	{.name = "ripngd", .flag = VTYSH_RIPNGD},
+	{.name = "ospfd", .flag = VTYSH_OSPFD},
+	{.name = "ospf6d", .flag = VTYSH_OSPF6D},
+	{.name = "ldpd", .flag = VTYSH_LDPD},
+	{.name = "bgpd", .flag = VTYSH_BGPD},
+	{.name = "isisd", .flag = VTYSH_ISISD},
+	{.name = "pimd", .flag = VTYSH_PIMD},
+	{.name = "nhrpd", .flag = VTYSH_NHRPD},
+	{.name = "eigrpd", .flag = VTYSH_EIGRPD},
+	{.name = "babeld", .flag = VTYSH_BABELD},
+	{.name = "sharpd", .flag = VTYSH_SHARPD},
+	{.name = "fabricd", .flag = VTYSH_FABRICD},
+	{.name = "watchfrr", .flag = VTYSH_WATCHFRR},
+	{.name = "pbrd", .flag = VTYSH_PBRD},
+	{.name = "staticd", .flag = VTYSH_STATICD},
+	{.name = "bfdd", .flag = VTYSH_BFDD},
+	{.name = "vrrpd", .flag = VTYSH_VRRPD},
+	{.name = "pathd", .flag = VTYSH_PATHD},
+	{.name = "pim6d", .flag = VTYSH_PIM6D},
 };
 
 /* Searches for client by name, returns index */
@@ -182,8 +189,8 @@ static void vclient_close(struct vtysh_client *vclient)
 	}
 }
 
-static ssize_t vtysh_client_receive(struct vtysh_client *vclient,
-				    char *buf, size_t bufsz, int *pass_fd)
+static ssize_t vtysh_client_receive(struct vtysh_client *vclient, char *buf,
+				    size_t bufsz, int *pass_fd)
 {
 	struct iovec iov[1] = {
 		{
@@ -289,9 +296,8 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 	do {
 		ssize_t nread;
 
-		nread = vtysh_client_receive(vclient, bufvalid,
-					     buf + bufsz - bufvalid - 1,
-					     pass_fd);
+		nread = vtysh_client_receive(
+			vclient, bufvalid, buf + bufsz - bufvalid - 1, pass_fd);
 
 		if (nread < 0 && (errno == EINTR || errno == EAGAIN))
 			continue;
@@ -1629,6 +1635,8 @@ static int vtysh_end(void)
 	}
 	return CMD_SUCCESS;
 }
+
+#include "vtysh/vtysh_clippy.c"
 
 DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 	"End current mode and change to enable mode\n")
@@ -3522,6 +3530,281 @@ DEFUN (vtysh_show_daemons,
 	return CMD_SUCCESS;
 }
 
+struct visual_prio {
+	/* 4 characters for nice alignment */
+	const char *label;
+
+	int c256_background;
+	int c256_formatarg;
+};
+
+/* clang-format off */
+struct visual_prio visual_prios[] = {
+	[LOG_EMERG] = {
+		.label = "\e[31;1mEMRG",
+		.c256_background = 53,
+		.c256_formatarg = 225,
+	},
+	[LOG_ALERT] = {
+		.label = "\e[31;1mALRT",
+		.c256_background = 53,
+		.c256_formatarg = 225,
+	},
+	[LOG_CRIT] = {
+		.label = "\e[31;1mCRIT",
+		.c256_background = 53,
+		.c256_formatarg = 225,
+	},
+	[LOG_ERR] = {
+		.label = "\e[38;5;202mERR!",
+		.c256_background = 52,
+		.c256_formatarg = 224,
+	},
+	[LOG_WARNING] = {
+		.label = "\e[38;5;222mWARN",
+		.c256_background = 58,
+		.c256_formatarg = 230,
+	},
+	[LOG_NOTICE] = {
+		.label = "NTFY",
+		.c256_background = 234,
+		.c256_formatarg = 195,
+	},
+	[LOG_INFO] = {
+		.label = "\e[38;5;192mINFO",
+		.c256_background = 236,
+		.c256_formatarg = 195,
+	},
+	[LOG_DEBUG] = {
+		.label = "\e[38;5;116mDEBG",
+		.c256_background = 238,
+		.c256_formatarg = 195,
+	},
+};
+/* clang-format on */
+
+static void vtysh_log_print(struct vtysh_client *vclient,
+			    struct zlog_live_hdr *hdr, const char *text)
+{
+	size_t textlen = hdr->textlen, textpos = 0;
+	time_t ts = hdr->ts_sec;
+	struct visual_prio *vis;
+	struct tm tm;
+	char ts_buf[32];
+
+	if (hdr->prio > array_size(visual_prios))
+		vis = &visual_prios[LOG_CRIT];
+	else
+		vis = &visual_prios[hdr->prio];
+
+	localtime_r(&ts, &tm);
+	strftime(ts_buf, sizeof(ts_buf), "%Y-%m-%d %H:%M:%S", &tm);
+
+	if (!stderr_tty) {
+		const char *label = vis->label + strlen(vis->label) - 4;
+
+		fprintf(stderr, "%s.%03u [%s] %s: %.*s\n", ts_buf,
+			hdr->ts_nsec / 1000000U, label, vclient->name,
+			(int)textlen, text);
+		return;
+	}
+
+	fprintf(stderr,
+		"\e[48;5;%dm\e[38;5;247m%s.%03u [%s\e[38;5;247m] \e[38;5;255m%s\e[38;5;247m: \e[38;5;251m",
+		vis->c256_background, ts_buf, hdr->ts_nsec / 1000000U,
+		vis->label, vclient->name);
+
+	for (size_t fmtpos = 0; fmtpos < hdr->n_argpos; fmtpos++) {
+		struct fmt_outpos *fmt = &hdr->argpos[fmtpos];
+
+		if (fmt->off_start < textpos || fmt->off_end < fmt->off_start ||
+		    fmt->off_end > textlen)
+			continue;
+
+		while (fmt->off_end > fmt->off_start &&
+		       text[fmt->off_end - 1] == ' ')
+			fmt->off_end--;
+
+		fprintf(stderr, "%.*s\e[38;5;%dm%.*s\e[38;5;251m",
+			(int)(fmt->off_start - textpos), text + textpos,
+			vis->c256_formatarg,
+			(int)(fmt->off_end - fmt->off_start),
+			text + fmt->off_start);
+		textpos = fmt->off_end;
+	}
+	fprintf(stderr, "%.*s\033[K\033[m\n", (int)(textlen - textpos),
+		text + textpos);
+}
+
+static void vtysh_log_read(struct thread *thread)
+{
+	struct vtysh_client *vclient = THREAD_ARG(thread);
+	struct {
+		struct zlog_live_hdr hdr;
+		char text[4096];
+	} buf;
+	const char *text;
+	ssize_t ret;
+
+	thread_add_read(master, vtysh_log_read, vclient, vclient->log_fd,
+			&vclient->log_reader);
+
+	ret = recv(vclient->log_fd, &buf, sizeof(buf), 0);
+
+	if (ret < 0 && ERRNO_IO_RETRY(errno))
+		return;
+
+	if (ret <= 0) {
+		struct timespec ts;
+
+		if (ret != 0)
+			snprintfrr(buf.text, sizeof(buf.text),
+				   "log monitor connection error: %m");
+		else
+			snprintfrr(
+				buf.text, sizeof(buf.text),
+				"log monitor connection closed unexpectedly");
+		buf.hdr.textlen = strlen(buf.text);
+
+		THREAD_OFF(vclient->log_reader);
+		close(vclient->log_fd);
+		vclient->log_fd = -1;
+
+		clock_gettime(CLOCK_REALTIME, &ts);
+		buf.hdr.ts_sec = ts.tv_sec;
+		buf.hdr.ts_nsec = ts.tv_nsec;
+		buf.hdr.prio = LOG_ERR;
+		buf.hdr.flags = 0;
+		buf.hdr.arghdrlen = 0;
+		buf.hdr.n_argpos = 0;
+	}
+
+	if (stderr_stdout_same) {
+#ifdef HAVE_RL_CLEAR_VISIBLE_LINE
+		rl_clear_visible_line();
+#else
+		puts("\r");
+#endif
+		fflush(stdout);
+	}
+
+	text = buf.text + sizeof(buf.hdr.argpos[0]) * buf.hdr.n_argpos;
+	vtysh_log_print(vclient, &buf.hdr, text);
+
+	if (stderr_stdout_same)
+		rl_forced_update_display();
+
+	return;
+}
+
+#ifdef CLIPPY
+/* clippy/clidef can't process the DEFPY below without some value for this */
+#define DAEMONS_LIST "daemon"
+#endif
+
+DEFPY (vtysh_terminal_monitor,
+       vtysh_terminal_monitor_cmd,
+       "terminal monitor ["DAEMONS_LIST"]$daemon",
+       "Set terminal line parameters\n"
+       "Receive log messages to active VTY session\n"
+       DAEMONS_STR)
+{
+	static const char line[] = "terminal monitor\n";
+	int ret_all = CMD_SUCCESS, ret, fd;
+	size_t i, ok = 0;
+
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		struct vtysh_client *vclient = &vtysh_client[i];
+
+		if (daemon && strcmp(vclient->name, daemon))
+			continue;
+
+		for (; vclient; vclient = vclient->next) {
+			if (vclient->log_fd != -1) {
+				vty_out(vty, "%% %s: already monitoring logs\n",
+					vclient->name);
+				ok++;
+				continue;
+			}
+
+			fd = -1;
+			ret = vtysh_client_run(vclient, line, NULL, NULL, &fd);
+			if (fd != -1) {
+				set_nonblocking(fd);
+				vclient->log_fd = fd;
+				thread_add_read(master, vtysh_log_read, vclient,
+						vclient->log_fd,
+						&vclient->log_reader);
+			}
+			if (ret != CMD_SUCCESS) {
+				vty_out(vty, "%% failed to enable logs on %s\n",
+					vclient->name);
+				ret_all = CMD_WARNING;
+			} else
+				ok++;
+		}
+	}
+
+	if (!ok && ret_all == CMD_SUCCESS) {
+		vty_out(vty,
+			"%% command had no effect, relevant daemons not connected?\n");
+		ret_all = CMD_WARNING;
+	}
+	return ret_all;
+}
+
+DEFPY (no_vtysh_terminal_monitor,
+       no_vtysh_terminal_monitor_cmd,
+       "no terminal monitor ["DAEMONS_LIST"]$daemon",
+       NO_STR
+       "Set terminal line parameters\n"
+       "Receive log messages to active VTY session\n"
+       DAEMONS_STR)
+{
+	static const char line[] = "no terminal monitor\n";
+	int ret_all = CMD_SUCCESS, ret;
+	size_t i, ok = 0;
+
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		struct vtysh_client *vclient = &vtysh_client[i];
+
+		if (daemon && strcmp(vclient->name, daemon))
+			continue;
+
+		for (; vclient; vclient = vclient->next) {
+			/* run this even if log_fd == -1, in case something
+			 * got desync'd
+			 */
+			ret = vtysh_client_run(vclient, line, NULL, NULL, NULL);
+			if (ret != CMD_SUCCESS) {
+				vty_out(vty,
+					"%% failed to disable logs on %s\n",
+					vclient->name);
+				ret_all = CMD_WARNING;
+			} else
+				ok++;
+
+			/* with this being a datagram socket, we can't expect
+			 * a close notification...
+			 */
+			if (vclient->log_fd != -1) {
+				THREAD_OFF(vclient->log_reader);
+
+				close(vclient->log_fd);
+				vclient->log_fd = -1;
+			}
+		}
+	}
+
+	if (!ok && ret_all == CMD_SUCCESS) {
+		vty_out(vty,
+			"%% command had no effect, relevant daemons not connected?\n");
+		ret_all = CMD_WARNING;
+	}
+	return ret_all;
+}
+
+
 /* Execute command in child process. */
 static void execute_command(const char *command, int argc, const char *arg1,
 			    const char *arg2)
@@ -4029,7 +4312,20 @@ void vtysh_uninit(void)
 
 void vtysh_init_vty(void)
 {
+	struct stat st_out, st_err;
+
 	cmd_defer_tree(true);
+
+	for (size_t i = 0; i < array_size(vtysh_client); i++) {
+		vtysh_client[i].fd = -1;
+		vtysh_client[i].log_fd = -1;
+	}
+
+	stderr_tty = isatty(STDERR_FILENO);
+
+	if (fstat(STDOUT_FILENO, &st_out) || fstat(STDERR_FILENO, &st_err) ||
+	    (st_out.st_dev == st_err.st_dev && st_out.st_ino == st_err.st_ino))
+		stderr_stdout_same = true;
 
 	/* Make vty structure. */
 	vty = vty_new();
@@ -4523,6 +4819,9 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &vtysh_terminal_length_cmd);
 	install_element(VIEW_NODE, &vtysh_terminal_no_length_cmd);
 	install_element(VIEW_NODE, &vtysh_show_daemons_cmd);
+
+	install_element(VIEW_NODE, &vtysh_terminal_monitor_cmd);
+	install_element(VIEW_NODE, &no_vtysh_terminal_monitor_cmd);
 
 	install_element(VIEW_NODE, &vtysh_ping_cmd);
 	install_element(VIEW_NODE, &vtysh_ping_ip_cmd);

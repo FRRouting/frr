@@ -29,6 +29,30 @@ administrator with an external editor.
    vtysh.
 
 
+Live logs
+=========
+
+.. clicmd:: terminal monitor [DAEMON]
+
+   Receive and display log messages.
+
+   It is not currently possible to change the minimum message priority (fixed
+   to debug) or output formatting.  These will likely be made configurable in
+   the future.
+
+   Log messages are received asynchronously and may be printed both during
+   command execution as well as while on the prompt.  They are printed to
+   stderr, unlike regular CLI output which is printed to stdout.  The intent is
+   that stdin/stdout might be driven by some script while log messages are
+   visible on stderr.  If stdout and stderr are the same file, the prompt and
+   pending input will be cleared and reprinted appropriately.
+
+   .. note::
+
+      If ``vtysh`` cannot keep up, some log messages may be lost.  The daemons
+      do **not** wait for, get blocked by, or buffer messages for ``vtysh``.
+
+
 Pager usage
 ===========
 

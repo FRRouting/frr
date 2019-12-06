@@ -24,6 +24,10 @@
 #include "memory.h"
 DECLARE_MGROUP(MVTYSH);
 
+struct thread_master;
+
+extern struct thread_master *master;
+
 #define VTYSH_ZEBRA     0x00001
 #define VTYSH_RIPD      0x00002
 #define VTYSH_RIPNGD    0x00004
