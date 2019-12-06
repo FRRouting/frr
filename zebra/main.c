@@ -145,6 +145,9 @@ static void sigint(void)
 	atomic_store_explicit(&zrouter.in_shutdown, true,
 			      memory_order_relaxed);
 
+	/* send RA lifetime of 0 before stopping. rfc4861/6.2.5 */
+	rtadv_stop_ra_all();
+
 	frr_early_fini();
 
 	zebra_dplane_pre_finish();
