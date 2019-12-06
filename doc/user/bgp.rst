@@ -417,7 +417,7 @@ Require policy on EBGP
    This command requires incoming and outgoing filters to be applied for eBGP sessions. Without the incoming filter, no routes will be accepted. Without the outgoing filter, no routes will be announced.
 
 Reject routes with AS_SET or AS_CONFED_SET types
--------------------------------
+------------------------------------------------
 
 .. index:: [no] bgp reject-as-sets
 .. clicmd:: [no] bgp reject-as-sets
