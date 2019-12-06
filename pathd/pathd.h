@@ -66,6 +66,8 @@ RB_PROTOTYPE(te_segment_list_instance_head, te_segment_list, entry,
 	     te_segment_list_instance_compare)
 
 struct te_candidate_path {
+	RB_ENTRY(te_candidate_path) entry;
+
 	/* Administrative preference. */
 	uint32_t preference;
 
@@ -87,6 +89,9 @@ struct te_candidate_path {
 	/* The Type (explixit or dynamic) */
 	enum te_candidate_path_type type;
 };
+RB_HEAD(te_candidate_path_instance_head, te_candidate_path);
+RB_PROTOTYPE(te_candidate_path_instance_head, te_candidate_path, entry,
+	     te_candidate_path_instance_compare)
 
 struct te_sr_policy {
 	RB_ENTRY(te_sr_policy) entry;
@@ -103,12 +108,11 @@ struct te_sr_policy {
 	/* Binding SID */
 	mpls_label_t binding_sid;
 
-	/* Active Candidate Path Index */
-	int best_candidate_path_idx;
+	/* Active Candidate Path Key */
+	uint32_t best_candidate_path_key;
 
 	/* Candidate Paths */
-	uint8_t candidate_path_num;
-	struct te_candidate_path *candidate_paths;
+	struct te_candidate_path_instance_head candidate_paths;
 };
 RB_HEAD(te_sr_policy_instance_head, te_sr_policy);
 RB_PROTOTYPE(te_sr_policy_instance_head, te_sr_policy, entry,

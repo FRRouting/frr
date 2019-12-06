@@ -51,6 +51,17 @@ RB_GENERATE(te_segment_list_instance_head, te_segment_list, entry,
 struct te_segment_list_instance_head te_segment_list_instances =
 	RB_INITIALIZER(&te_segment_list_instances);
 
+/* Generate rb-tree of Candidate Path instances. */
+static inline int
+te_candidate_path_instance_compare(const struct te_candidate_path *a,
+				   const struct te_candidate_path *b)
+{
+	return (a->preference < b->preference ? -1
+					      : a->preference > b->preference);
+}
+RB_GENERATE(te_candidate_path_instance_head, te_candidate_path, entry,
+	    te_candidate_path_instance_compare)
+
 /* Generate rb-tree of SR Policy instances. */
 static inline int te_sr_policy_instance_compare(const struct te_sr_policy *a,
 						const struct te_sr_policy *b)
@@ -135,16 +146,14 @@ struct te_sr_policy *te_sr_policy_create(uint32_t color,
 					 struct ipaddr *endpoint)
 {
 	struct te_sr_policy *te_sr_policy;
-	struct te_candidate_path *candidate_paths;
 	te_sr_policy = XCALLOC(MTYPE_PATH_SR_POLICY, sizeof(*te_sr_policy));
-	candidate_paths = XCALLOC(MTYPE_PATH_SR_POLICY,
-				  MAX_SR_POLICY_CANDIDATE_PATH_N
-					  * sizeof(struct te_candidate_path));
+
+	struct te_candidate_path_instance_head te_candidate_path_instances =
+		RB_INITIALIZER(&te_candidate_path_instances);
 
 	te_sr_policy->color = color;
 	te_sr_policy->endpoint = *endpoint;
-	te_sr_policy->candidate_path_num = 0;
-	te_sr_policy->candidate_paths = candidate_paths;
+	te_sr_policy->candidate_paths = te_candidate_path_instances;
 
 	RB_INSERT(te_sr_policy_instance_head, &te_sr_policy_instances,
 		  te_sr_policy);
@@ -154,11 +163,9 @@ struct te_sr_policy *te_sr_policy_create(uint32_t color,
 
 void te_sr_policy_del(struct te_sr_policy *te_sr_policy)
 {
-	te_sr_policy->candidate_path_num = 0;
 	te_sr_policy_candidate_path_set_active(te_sr_policy);
 
 	free(te_sr_policy->name);
-	XFREE(MTYPE_PATH_SR_POLICY, te_sr_policy->candidate_paths);
 	RB_REMOVE(te_sr_policy_instance_head, &te_sr_policy_instances,
 		  te_sr_policy);
 }
@@ -176,35 +183,31 @@ void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 
 void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy)
 {
-	if (te_sr_policy->candidate_path_num == 0) {
+	if (RB_EMPTY(te_candidate_path_instance_head,
+		     &te_sr_policy->candidate_paths)) {
 		/* delete the LSP from Zebra */
+		te_sr_policy->best_candidate_path_key = -1;
 		path_zebra_delete_lsp(te_sr_policy->binding_sid);
-		te_sr_policy->best_candidate_path_idx = -1;
 		return;
 	}
 
-	int i;
-	int best_candidate_path_idx;
-	uint32_t highest_preference = 0;
-	for (i = 0; i < te_sr_policy->candidate_path_num; i++) {
-		if (te_sr_policy->candidate_paths[i].preference
-		    > highest_preference) {
-			highest_preference =
-				te_sr_policy->candidate_paths[i].preference;
-			best_candidate_path_idx = i;
-		}
+	struct te_candidate_path *best_candidate_path =
+		RB_MAX(te_candidate_path_instance_head,
+		       &te_sr_policy->candidate_paths);
+
+	struct te_candidate_path *former_best_candidate_path;
+	if (te_sr_policy->best_candidate_path_key > 0) {
+		former_best_candidate_path = find_candidate_path(
+			te_sr_policy, te_sr_policy->best_candidate_path_key);
+		former_best_candidate_path->is_best_candidate_path = false;
 	}
-	te_sr_policy->candidate_paths[te_sr_policy->best_candidate_path_idx]
-		.is_best_candidate_path = false;
-	te_sr_policy->candidate_paths[best_candidate_path_idx]
-		.is_best_candidate_path = true;
-	te_sr_policy->best_candidate_path_idx = best_candidate_path_idx;
+
+	best_candidate_path->is_best_candidate_path = true;
+	te_sr_policy->best_candidate_path_key = best_candidate_path->preference;
 
 	struct te_segment_list *te_segment_list_found;
 	struct te_segment_list te_segment_list_search;
-	te_segment_list_search.name =
-		te_sr_policy->candidate_paths[best_candidate_path_idx]
-			.segment_list_name;
+	te_segment_list_search.name = best_candidate_path->segment_list_name;
 	te_segment_list_found =
 		RB_FIND(te_segment_list_instance_head,
 			&te_segment_list_instances, &te_segment_list_search);
@@ -216,23 +219,22 @@ void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy)
 struct te_candidate_path *find_candidate_path(struct te_sr_policy *te_sr_policy,
 					      uint32_t preference)
 {
-	int i;
-	for (i = 0; i < te_sr_policy->candidate_path_num; i++)
-		if (te_sr_policy->candidate_paths[i].preference == preference)
-			return &te_sr_policy->candidate_paths[i];
-
-	return NULL;
+	struct te_candidate_path te_candidate_path_search;
+	te_candidate_path_search.preference = preference;
+	return RB_FIND(te_candidate_path_instance_head,
+		       &te_sr_policy->candidate_paths,
+		       &te_candidate_path_search);
 }
 
 void te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 				     uint32_t preference)
 {
-	struct te_candidate_path te_candidate_path;
-	te_candidate_path.preference = preference;
+	struct te_candidate_path *te_candidate_path =
+		XCALLOC(MTYPE_PATH_SEGMENT_LIST, sizeof(*te_candidate_path));
+	te_candidate_path->preference = preference;
 
-	int idx = te_sr_policy->candidate_path_num;
-	te_sr_policy->candidate_paths[idx] = te_candidate_path;
-	te_sr_policy->candidate_path_num++;
+	RB_INSERT(te_candidate_path_instance_head,
+		  &te_sr_policy->candidate_paths, te_candidate_path);
 }
 
 void te_sr_policy_candidate_path_name_add(struct te_sr_policy *te_sr_policy,
@@ -282,26 +284,12 @@ void te_sr_policy_candidate_path_segment_list_name_add(
 void te_sr_policy_candidate_path_delete(struct te_sr_policy *te_sr_policy,
 					uint32_t preference)
 {
-	int i;
-	int idx_last_element = te_sr_policy->candidate_path_num - 1;
-	for (i = 0; i < te_sr_policy->candidate_path_num; i++) {
-		if (te_sr_policy->candidate_paths[i].preference == preference) {
-			free(te_sr_policy->candidate_paths[i]
-				     .segment_list_name);
-			if (te_sr_policy->candidate_path_num > 1
-			    && i != idx_last_element) {
-				/*
-				 * If necessary move the last element in place
-				 * of the deleted one
-				 */
-				te_sr_policy->candidate_paths[i] =
-					te_sr_policy->candidate_paths
-						[idx_last_element];
-			}
-			te_sr_policy->candidate_path_num--;
-			break;
-		}
-	}
+	struct te_candidate_path te_candidate_path_delete;
+	te_candidate_path_delete.preference = preference;
+
+	RB_REMOVE(te_candidate_path_instance_head,
+		  &te_sr_policy->candidate_paths, &te_candidate_path_delete);
+
 	te_sr_policy_candidate_path_set_active(te_sr_policy);
 }
 
