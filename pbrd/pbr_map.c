@@ -100,6 +100,37 @@ static void pbr_map_interface_list_delete(struct pbr_map_interface *pmi)
 	}
 }
 
+static bool pbrms_is_installed(const struct pbr_map_sequence *pbrms,
+			       const struct pbr_map_interface *pmi)
+{
+	uint64_t is_installed = (uint64_t)1 << pmi->install_bit;
+
+	is_installed &= pbrms->installed;
+
+	if (is_installed)
+		return true;
+
+	return false;
+}
+
+/* If any sequence is installed on the interface, assume installed */
+static bool
+pbr_map_interface_is_installed(const struct pbr_map *pbrm,
+			       const struct pbr_map_interface *check_pmi)
+{
+
+	struct pbr_map_sequence *pbrms;
+	struct pbr_map_interface *pmi;
+	struct listnode *node, *inode;
+
+	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
+		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi))
+			if (pmi == check_pmi && pbrms_is_installed(pbrms, pmi))
+				return true;
+
+	return false;
+}
+
 static bool pbr_map_interface_is_valid(const struct pbr_map_interface *pmi)
 {
 	/* Don't install rules without a real ifindex on the incoming interface.
@@ -171,7 +202,7 @@ void pbr_map_reason_string(unsigned int reason, char *buf, int size)
 void pbr_map_final_interface_deletion(struct pbr_map *pbrm,
 				      struct pbr_map_interface *pmi)
 {
-	if (pmi->delete == true) {
+	if (pmi->delete == true && !pbr_map_interface_is_installed(pbrm, pmi)) {
 		listnode_delete(pbrm->incoming, pmi);
 		pmi->pbrm = NULL;
 
