@@ -2325,7 +2325,7 @@ void ospf_apiserver_clients_notify_ism_change(struct ospf_interface *oi)
 void ospf_apiserver_clients_notify_nsm_change(struct ospf_neighbor *nbr)
 {
 	struct msg *msg;
-	struct in_addr ifaddr = {.s_addr = 0L};
+	struct in_addr ifaddr;
 	struct in_addr nbraddr;
 
 	assert(nbr);
