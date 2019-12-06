@@ -30,7 +30,7 @@
 #include "vty.h"
 #include "command.h"
 #include "version.h"
-#include "memory_vty.h"
+#include "lib_vty.h"
 #include "log_vty.h"
 #include "zclient.h"
 #include "log_int.h"
@@ -679,7 +679,7 @@ struct thread_master *frr_init(void)
 		cmd_init(1);
 
 	vty_init(master, di->log_always);
-	memory_init();
+	lib_cmd_init();
 	log_filter_cmd_init();
 
 	frr_pthread_init();
@@ -1077,7 +1077,6 @@ void frr_fini(void)
 
 	hook_call(frr_fini);
 
-	/* memory_init -> nothing needed */
 	vty_terminate();
 	cmd_terminate();
 	nb_terminate();

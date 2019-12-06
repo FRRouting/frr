@@ -40,13 +40,13 @@ lib_libfrr_la_SOURCES = \
 	lib/json.c \
 	lib/keychain.c \
 	lib/lib_errors.c \
+	lib/lib_vty.c \
 	lib/libfrr.c \
 	lib/linklist.c \
 	lib/log.c \
 	lib/log_vty.c \
 	lib/md5.c \
 	lib/memory.c \
-	lib/memory_vty.c \
 	lib/mlag.c \
 	lib/module.c \
 	lib/mpls.c \
@@ -114,6 +114,7 @@ vtysh_scan += \
 	$(top_srcdir)/lib/if.c \
 	$(top_srcdir)/lib/if_rmap.c \
 	$(top_srcdir)/lib/keychain.c \
+	$(top_srcdir)/lib/lib_vty.c \
 	$(top_srcdir)/lib/nexthop_group.c \
 	$(top_srcdir)/lib/plist.c \
 	$(top_srcdir)/lib/routemap.c \
@@ -179,6 +180,7 @@ pkginclude_HEADERS += \
 	lib/json.h \
 	lib/keychain.h \
 	lib/lib_errors.h \
+	lib/lib_vty.h \
 	lib/libfrr.h \
 	lib/libospf.h \
 	lib/linklist.h \
@@ -186,7 +188,6 @@ pkginclude_HEADERS += \
 	lib/log_vty.h \
 	lib/md5.h \
 	lib/memory.h \
-	lib/memory_vty.h \
 	lib/module.h \
 	lib/monotime.h \
 	lib/mpls.h \

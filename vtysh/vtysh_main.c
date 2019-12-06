@@ -45,7 +45,6 @@
 #include "command.h"
 #include "memory.h"
 #include "linklist.h"
-#include "memory_vty.h"
 #include "libfrr.h"
 #include "ferr.h"
 #include "lib_errors.h"

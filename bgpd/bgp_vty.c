@@ -32,7 +32,7 @@
 #include "thread.h"
 #include "log.h"
 #include "memory.h"
-#include "memory_vty.h"
+#include "lib_vty.h"
 #include "hash.h"
 #include "queue.h"
 #include "filter.h"

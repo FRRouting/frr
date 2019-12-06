@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _ZEBRA_MEMORY_VTY_H
-#define _ZEBRA_MEMORY_VTY_H
+#ifndef _ZEBRA_LIB_VTY_H
+#define _ZEBRA_LIB_VTY_H
 
 #include "memory.h"
 
@@ -27,7 +27,7 @@
 extern "C" {
 #endif
 
-extern void memory_init(void);
+extern void lib_cmd_init(void);
 
 /* Human friendly string for given byte count */
 #define MTYPE_MEMSTR_LEN 20
@@ -37,4 +37,4 @@ extern const char *mtype_memstr(char *, size_t, unsigned long);
 }
 #endif
 
-#endif /* _ZEBRA_MEMORY_VTY_H */
+#endif /* _ZEBRA_LIB_VTY_H */

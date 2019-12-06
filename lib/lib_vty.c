@@ -1,5 +1,5 @@
 /*
- * Memory and dynamic module VTY routine
+ * Assorted library VTY commands
  *
  * Copyright (C) 1998 Kunihiro Ishiguro
  * Copyright (C) 2016-2017  David Lamparter for NetDEF, Inc.
@@ -35,7 +35,7 @@
 #include "log.h"
 #include "memory.h"
 #include "module.h"
-#include "memory_vty.h"
+#include "lib_vty.h"
 
 /* Looking up memory status from vty interface. */
 #include "vector.h"
@@ -120,11 +120,11 @@ static int qmem_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 }
 
 
-DEFUN (show_memory,
-       show_memory_cmd,
-       "show memory",
-       "Show running system information\n"
-       "Memory statistics\n")
+DEFUN_NOSH (show_memory,
+	    show_memory_cmd,
+	    "show memory",
+	    "Show running system information\n"
+	    "Memory statistics\n")
 {
 #ifdef HAVE_MALLINFO
 	show_memory_mallinfo(vty);
@@ -134,11 +134,11 @@ DEFUN (show_memory,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_modules,
-       show_modules_cmd,
-       "show modules",
-       "Show running system information\n"
-       "Loaded modules\n")
+DEFUN_NOSH (show_modules,
+	    show_modules_cmd,
+	    "show modules",
+	    "Show running system information\n"
+	    "Loaded modules\n")
 {
 	struct frrmod_runtime *plug = frrmod_list;
 
@@ -177,7 +177,7 @@ DEFUN (show_modules,
 	return CMD_SUCCESS;
 }
 
-void memory_init(void)
+void lib_cmd_init(void)
 {
 	install_element(VIEW_NODE, &show_memory_cmd);
 	install_element(VIEW_NODE, &show_modules_cmd);

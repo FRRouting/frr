@@ -21,7 +21,6 @@
 #include "version.h"
 #include "log.h"
 #include "memory.h"
-#include "memory_vty.h"
 #include "command.h"
 #include "libfrr.h"
 
