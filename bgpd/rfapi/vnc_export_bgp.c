@@ -78,7 +78,7 @@ static void encap_attr_export_ce(struct attr *new, struct attr *orig,
 	 * Make "new" a ghost attr copy of "orig"
 	 */
 	memset(new, 0, sizeof(struct attr));
-	bgp_attr_dup(new, orig);
+	*new = *orig;
 
 	/*
 	 * Set nexthop
@@ -616,7 +616,7 @@ encap_attr_export(struct attr *new, struct attr *orig,
 	 * Make "new" a ghost attr copy of "orig"
 	 */
 	memset(new, 0, sizeof(struct attr));
-	bgp_attr_dup(new, orig);
+	*new = *orig;
 
 	/*
 	 * Set nexthop
