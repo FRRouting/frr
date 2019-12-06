@@ -265,6 +265,17 @@ void route_add(struct prefix *p, vrf_id_t vrf_id,
 			api_nh->bh_type = nh->bh_type;
 			break;
 		}
+
+		if (nh->nh_label && nh->nh_label->num_labels > 0) {
+			int j;
+
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
+
+			api_nh->label_num = nh->nh_label->num_labels;
+			for (j = 0; j < nh->nh_label->num_labels; j++)
+				api_nh->labels[j] = nh->nh_label->label[j];
+		}
+
 		i++;
 	}
 	api.nexthop_num = i;
