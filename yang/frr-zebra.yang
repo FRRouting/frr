@@ -31,6 +31,10 @@ module frr-zebra {
     prefix frr-interface;
   }
 
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
   organization
     "FRRouting";
   contact
@@ -42,6 +46,35 @@ module frr-zebra {
   revision 2019-06-01 {
     description
       "Initial revision.";
+  }
+
+  identity afi-safi-type {
+    description
+      "Base identity type (AFI,SAFI) tuples for RIB";
+  }
+
+  identity ipv4-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv4 unicast address family.";
+  }
+
+  identity ipv6-unicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv6 unicast address family.";
+  }
+
+  identity ipv4-multicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv4 multicast address family.";
+  }
+
+  identity ipv6-multicast {
+    base afi-safi-type;
+    description
+      "This identity represents the IPv6 multicast address family.";
   }
 
   typedef unix-timestamp {
@@ -133,9 +166,7 @@ module frr-zebra {
     description
       "Common information about a route.";
     leaf vrf {
-      type string {
-        length "1..36";
-      }
+      type frr-vrf:vrf-ref;
       description
         "The route's vrf name.";
     }
@@ -160,25 +191,25 @@ module frr-zebra {
         "Route tag value.";
     }
 
-    leaf is-selected {
+    leaf selected {
       type empty;
       description
         "Route is the selected or preferred route for the prefix.";
     }
 
-    leaf is-installed {
+    leaf installed {
       type empty;
       description
         "Route is installed in the FIB.";
     }
 
-    leaf is-failed {
+    leaf failed {
       type empty;
       description
         "Route installation in FIB has failed.";
     }
 
-    leaf is-queued {
+    leaf queued {
       type empty;
       description
         "Route has a pending FIB operation that has not completed.";
@@ -197,17 +228,12 @@ module frr-zebra {
     }
 
     leaf uptime {
-      type uint32;
-      units "seconds";
+      type yang:date-and-time;
       description
         "Uptime for the route.";
     }
 
-    container nexthop-group {
-      description
-        "Nexthop information for the route.";
-      uses frr-nh:frr-nexthop-group;
-    }
+    uses frr-nh:frr-nexthop-grouping;
   }
 
   // End of route-common
@@ -250,6 +276,37 @@ module frr-zebra {
     }
 
     leaf protocol {
+      type frr-route-types:frr-route-types-v6;
+      description
+        "The protocol owning the route.";
+    }
+
+    uses route-common;
+  }
+  // End of ip6-route
+
+  /*
+   * IP Prefix Route object.
+   */
+
+  grouping ip-route {
+    description
+      "An IPv4/IPv6 prefix route.";
+    leaf prefix {
+      type inet:ip-prefix;
+      description
+        "The route's prefix.";
+    }
+
+    leaf protocol {
+      when "'../../afi-safi-name' = 'ipv4-unicast'";
+      type frr-route-types:frr-route-types-v4;
+      description
+        "The protocol owning the route.";
+    }
+
+    leaf protocol-v6 {
+      when "'../../afi-safi-name' = 'ipv6-unicast'";
       type frr-route-types:frr-route-types-v6;
       description
         "The protocol owning the route.";
@@ -442,6 +499,7 @@ module frr-zebra {
       description
         "Debug kernel messages sent.";
     }
+
     leaf debug-kernel-msg-recv {
       type boolean;
       description
@@ -515,6 +573,36 @@ module frr-zebra {
     }
   }
 
+  grouping ribs {
+    container ribs {
+      description
+        "RIBs supported by FRR.";
+      list rib {
+        key "afi-safi-name table-id";
+        leaf table-id {
+          type uint32;
+          description
+            "Routing Table id (default id - 254).";
+        }
+
+        leaf afi-safi-name {
+          type identityref {
+            base afi-safi-type;
+          }
+          mandatory true;
+          description
+            "AFI, SAFI name.";
+        }
+
+        list route {
+          key "prefix";
+          config false;
+          uses ip-route;
+        }
+      }
+    }
+  }
+
   // End of zebra container
   /*
    * RPCs
@@ -532,6 +620,7 @@ module frr-zebra {
             description
               "Retrieve IPv4 routes.";
           }
+
           leaf prefix-v4 {
             type inet:ipv4-prefix;
             description
@@ -605,7 +694,7 @@ module frr-zebra {
         type uint32 {
           range "1..65535";
         }
-        must '../protocol = "ospf"';
+        must "../protocol = \"ospf\"";
         description
           "Retrieve routes from a specific OSPF instance.";
       }
@@ -1850,6 +1939,16 @@ module frr-zebra {
       }
       // TODO -- link-params for (experimental/partial TE use in IGP extensions)
     }
+  }
+
+  augment "/frr-vrf:lib/frr-vrf:vrf" {
+    description
+      "Extends VRF model with Zebra-related parameters.";
+    uses ribs;
+  }
+
+  augment "/frr-vrf:lib/frr-vrf:vrf/ribs/rib/route/nexthop-group/frr-nexthops/nexthop" {
+    uses frr-nh:frr-nexthop-operational;
   }
 
   /*
