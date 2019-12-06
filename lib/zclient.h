@@ -289,7 +289,6 @@ struct zclient {
 #define ZAPI_MESSAGE_TAG      0x08
 #define ZAPI_MESSAGE_MTU      0x10
 #define ZAPI_MESSAGE_SRCPFX   0x20
-#define ZAPI_MESSAGE_LABEL    0x40
 /*
  * This should only be used by a DAEMON that needs to communicate
  * the table being used is not in the VRF.  You must pass the
@@ -313,7 +312,7 @@ struct zapi_nexthop {
 	enum nexthop_types_t type;
 	vrf_id_t vrf_id;
 	ifindex_t ifindex;
-	bool onlink;
+	uint8_t flags;
 	union {
 		union g_addr gate;
 		enum blackhole_type bh_type;
@@ -325,6 +324,12 @@ struct zapi_nexthop {
 
 	struct ethaddr rmac;
 };
+
+/*
+ * ZAPI nexthop flags values
+ */
+#define ZAPI_NEXTHOP_FLAG_ONLINK	0x01
+#define ZAPI_NEXTHOP_FLAG_LABEL		0x02
 
 /*
  * Some of these data structures do not map easily to
@@ -689,6 +694,8 @@ extern int zclient_route_send(uint8_t, struct zclient *, struct zapi_route *);
 extern int zclient_send_rnh(struct zclient *zclient, int command,
 			    struct prefix *p, bool exact_match,
 			    vrf_id_t vrf_id);
+int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
+			uint32_t api_flags);
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *, struct zapi_route *);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
@@ -713,6 +720,8 @@ bool zapi_iptable_notify_decode(struct stream *s,
 		enum zapi_iptable_notify_owner *note);
 
 extern struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh);
+int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
+			      const struct nexthop *nh);
 extern bool zapi_nexthop_update_decode(struct stream *s,
 				       struct zapi_route *nhr);
 

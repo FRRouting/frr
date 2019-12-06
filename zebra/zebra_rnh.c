@@ -1034,6 +1034,8 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		break;
 	}
 	if (re) {
+		struct zapi_nexthop znh;
+
 		stream_putc(s, re->type);
 		stream_putw(s, re->instance);
 		stream_putc(s, re->distance);
@@ -1043,37 +1045,8 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		stream_putc(s, 0);
 		for (ALL_NEXTHOPS_PTR(re->nhe->nhg, nh))
 			if (rnh_nexthop_valid(re, nh)) {
-				stream_putl(s, nh->vrf_id);
-				stream_putc(s, nh->type);
-				switch (nh->type) {
-				case NEXTHOP_TYPE_IPV4:
-				case NEXTHOP_TYPE_IPV4_IFINDEX:
-					stream_put_in_addr(s, &nh->gate.ipv4);
-					stream_putl(s, nh->ifindex);
-					break;
-				case NEXTHOP_TYPE_IFINDEX:
-					stream_putl(s, nh->ifindex);
-					break;
-				case NEXTHOP_TYPE_IPV6:
-				case NEXTHOP_TYPE_IPV6_IFINDEX:
-					stream_put(s, &nh->gate.ipv6, 16);
-					stream_putl(s, nh->ifindex);
-					break;
-				default:
-					/* do nothing */
-					break;
-				}
-				if (nh->nh_label) {
-					stream_putc(s,
-						    nh->nh_label->num_labels);
-					if (nh->nh_label->num_labels)
-						stream_put(
-							s,
-							&nh->nh_label->label[0],
-							nh->nh_label->num_labels
-								* sizeof(mpls_label_t));
-				} else
-					stream_putc(s, 0);
+				zapi_nexthop_from_nexthop(&znh, nh);
+				zapi_nexthop_encode(s, &znh, 0 /* flags */);
 				num++;
 			}
 		stream_putc_at(s, nump, num);

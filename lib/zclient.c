@@ -859,6 +859,76 @@ static void zapi_nexthop_group_sort(struct zapi_nexthop *nh_grp,
 	      &zapi_nexthop_cmp);
 }
 
+/*
+ * Encode a single zapi nexthop
+ */
+int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
+			uint32_t api_flags)
+{
+	int ret = 0;
+	int nh_flags = api_nh->flags;
+
+	stream_putl(s, api_nh->vrf_id);
+	stream_putc(s, api_nh->type);
+
+	/* If needed, set 'labelled nexthop' flag */
+	if (api_nh->label_num > 0) {
+		SET_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_LABEL);
+
+		/* Validate label count */
+		if (api_nh->label_num > MPLS_MAX_LABELS) {
+			ret = -1;
+			goto done;
+		}
+	}
+
+	/* Note that we're only encoding a single octet */
+	stream_putc(s, nh_flags);
+
+	switch (api_nh->type) {
+	case NEXTHOP_TYPE_BLACKHOLE:
+		stream_putc(s, api_nh->bh_type);
+		break;
+	case NEXTHOP_TYPE_IPV4:
+		stream_put_in_addr(s, &api_nh->gate.ipv4);
+		break;
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		stream_put_in_addr(s, &api_nh->gate.ipv4);
+		stream_putl(s, api_nh->ifindex);
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+		stream_putl(s, api_nh->ifindex);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+		stream_write(s, (uint8_t *)&api_nh->gate.ipv6,
+			     16);
+		break;
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		stream_write(s, (uint8_t *)&api_nh->gate.ipv6,
+			     16);
+		stream_putl(s, api_nh->ifindex);
+		break;
+	}
+
+	/* We only encode labels if we have >0 - we use
+	 * the per-nexthop flag above to signal that the count
+	 * is present in the payload.
+	 */
+	if (api_nh->label_num > 0) {
+		stream_putc(s, api_nh->label_num);
+		stream_put(s, &api_nh->labels[0],
+			   api_nh->label_num * sizeof(mpls_label_t));
+	}
+
+	/* Router MAC for EVPN routes. */
+	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_EVPN_ROUTE))
+		stream_put(s, &(api_nh->rmac),
+			   sizeof(struct ethaddr));
+
+done:
+	return ret;
+}
+
 int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 {
 	struct zapi_nexthop *api_nh;
@@ -921,59 +991,22 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 		for (i = 0; i < api->nexthop_num; i++) {
 			api_nh = &api->nexthops[i];
 
-			stream_putl(s, api_nh->vrf_id);
-			stream_putc(s, api_nh->type);
-			stream_putc(s, api_nh->onlink);
-			switch (api_nh->type) {
-			case NEXTHOP_TYPE_BLACKHOLE:
-				stream_putc(s, api_nh->bh_type);
-				break;
-			case NEXTHOP_TYPE_IPV4:
-				stream_put_in_addr(s, &api_nh->gate.ipv4);
-				break;
-			case NEXTHOP_TYPE_IPV4_IFINDEX:
-				stream_put_in_addr(s, &api_nh->gate.ipv4);
-				stream_putl(s, api_nh->ifindex);
-				break;
-			case NEXTHOP_TYPE_IFINDEX:
-				stream_putl(s, api_nh->ifindex);
-				break;
-			case NEXTHOP_TYPE_IPV6:
-				stream_write(s, (uint8_t *)&api_nh->gate.ipv6,
-					     16);
-				break;
-			case NEXTHOP_TYPE_IPV6_IFINDEX:
-				stream_write(s, (uint8_t *)&api_nh->gate.ipv6,
-					     16);
-				stream_putl(s, api_nh->ifindex);
-				break;
-			}
-
 			/* MPLS labels for BGP-LU or Segment Routing */
-			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL)) {
-				if (api_nh->label_num > MPLS_MAX_LABELS) {
-					char buf[PREFIX2STR_BUFFER];
-					prefix2str(&api->prefix, buf,
-						   sizeof(buf));
-					flog_err(EC_LIB_ZAPI_ENCODE,
-						 "%s: prefix %s: can't encode "
-						 "%u labels (maximum is %u)",
-						 __func__, buf,
-						 api_nh->label_num,
-						 MPLS_MAX_LABELS);
-					return -1;
-				}
+			if (api_nh->label_num > MPLS_MAX_LABELS) {
+				char buf[PREFIX2STR_BUFFER];
 
-				stream_putc(s, api_nh->label_num);
-				stream_put(s, &api_nh->labels[0],
-					   api_nh->label_num
-						   * sizeof(mpls_label_t));
+				prefix2str(&api->prefix, buf, sizeof(buf));
+
+				flog_err(EC_LIB_ZAPI_ENCODE,
+					 "%s: prefix %s: can't encode %u labels (maximum is %u)",
+					 __func__, buf,
+					 api_nh->label_num,
+					 MPLS_MAX_LABELS);
+				return -1;
 			}
 
-			/* Router MAC for EVPN routes. */
-			if (CHECK_FLAG(api->flags, ZEBRA_FLAG_EVPN_ROUTE))
-				stream_put(s, &(api_nh->rmac),
-					   sizeof(struct ethaddr));
+			if (zapi_nexthop_encode(s, api_nh, api->flags) != 0)
+				return -1;
 		}
 	}
 
@@ -993,6 +1026,73 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return 0;
+}
+
+/*
+ * Decode a single zapi nexthop object
+ */
+static int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
+			       uint32_t api_flags)
+{
+	int ret = -1;
+
+	STREAM_GETL(s, api_nh->vrf_id);
+	STREAM_GETC(s, api_nh->type);
+
+	/* Note that we're only using a single octet of flags */
+	STREAM_GETC(s, api_nh->flags);
+
+	switch (api_nh->type) {
+	case NEXTHOP_TYPE_BLACKHOLE:
+		STREAM_GETC(s, api_nh->bh_type);
+		break;
+	case NEXTHOP_TYPE_IPV4:
+		STREAM_GET(&api_nh->gate.ipv4.s_addr, s,
+			   IPV4_MAX_BYTELEN);
+		break;
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		STREAM_GET(&api_nh->gate.ipv4.s_addr, s,
+			   IPV4_MAX_BYTELEN);
+		STREAM_GETL(s, api_nh->ifindex);
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+		STREAM_GETL(s, api_nh->ifindex);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+		STREAM_GET(&api_nh->gate.ipv6, s, 16);
+		break;
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		STREAM_GET(&api_nh->gate.ipv6, s, 16);
+		STREAM_GETL(s, api_nh->ifindex);
+		break;
+	}
+
+	/* MPLS labels for BGP-LU or Segment Routing */
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL)) {
+		STREAM_GETC(s, api_nh->label_num);
+		if (api_nh->label_num > MPLS_MAX_LABELS) {
+			flog_err(
+				EC_LIB_ZAPI_ENCODE,
+				"%s: invalid number of MPLS labels (%u)",
+				__func__, api_nh->label_num);
+			return -1;
+		}
+
+		STREAM_GET(&api_nh->labels[0], s,
+			   api_nh->label_num * sizeof(mpls_label_t));
+	}
+
+	/* Router MAC for EVPN routes. */
+	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_EVPN_ROUTE))
+		STREAM_GET(&(api_nh->rmac), s,
+			   sizeof(struct ethaddr));
+
+	/* Success */
+	ret = 0;
+
+stream_failure:
+
+	return ret;
 }
 
 int zapi_route_decode(struct stream *s, struct zapi_route *api)
@@ -1088,55 +1188,8 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 		for (i = 0; i < api->nexthop_num; i++) {
 			api_nh = &api->nexthops[i];
 
-			STREAM_GETL(s, api_nh->vrf_id);
-			STREAM_GETC(s, api_nh->type);
-			STREAM_GETC(s, api_nh->onlink);
-			switch (api_nh->type) {
-			case NEXTHOP_TYPE_BLACKHOLE:
-				STREAM_GETC(s, api_nh->bh_type);
-				break;
-			case NEXTHOP_TYPE_IPV4:
-				STREAM_GET(&api_nh->gate.ipv4.s_addr, s,
-					   IPV4_MAX_BYTELEN);
-				break;
-			case NEXTHOP_TYPE_IPV4_IFINDEX:
-				STREAM_GET(&api_nh->gate.ipv4.s_addr, s,
-					   IPV4_MAX_BYTELEN);
-				STREAM_GETL(s, api_nh->ifindex);
-				break;
-			case NEXTHOP_TYPE_IFINDEX:
-				STREAM_GETL(s, api_nh->ifindex);
-				break;
-			case NEXTHOP_TYPE_IPV6:
-				STREAM_GET(&api_nh->gate.ipv6, s, 16);
-				break;
-			case NEXTHOP_TYPE_IPV6_IFINDEX:
-				STREAM_GET(&api_nh->gate.ipv6, s, 16);
-				STREAM_GETL(s, api_nh->ifindex);
-				break;
-			}
-
-			/* MPLS labels for BGP-LU or Segment Routing */
-			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL)) {
-				STREAM_GETC(s, api_nh->label_num);
-
-				if (api_nh->label_num > MPLS_MAX_LABELS) {
-					flog_err(
-						EC_LIB_ZAPI_ENCODE,
-						"%s: invalid number of MPLS labels (%u)",
-						__func__, api_nh->label_num);
-					return -1;
-				}
-
-				STREAM_GET(&api_nh->labels[0], s,
-					   api_nh->label_num
-						   * sizeof(mpls_label_t));
-			}
-
-			/* Router MAC for EVPN routes. */
-			if (CHECK_FLAG(api->flags, ZEBRA_FLAG_EVPN_ROUTE))
-				stream_get(&(api_nh->rmac), s,
-					   sizeof(struct ethaddr));
+			if (zapi_nexthop_decode(s, api_nh, api->flags) != 0)
+				return -1;
 		}
 	}
 
@@ -1335,6 +1388,35 @@ struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh)
 	return n;
 }
 
+/*
+ * Convert nexthop to zapi nexthop
+ */
+int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
+			      const struct nexthop *nh)
+{
+	int i;
+
+	memset(znh, 0, sizeof(*znh));
+
+	znh->type = nh->type;
+	znh->vrf_id = nh->vrf_id;
+	znh->ifindex = nh->ifindex;
+	znh->gate = nh->gate;
+
+	if (nh->nh_label && (nh->nh_label->num_labels > 0)) {
+		for (i = 0; i < nh->nh_label->num_labels; i++)
+			znh->labels[i] = nh->nh_label->label[i];
+
+		znh->label_num = i;
+		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
+	}
+
+	return 0;
+}
+
+/*
+ * Decode the nexthop-tracking update message
+ */
 bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 {
 	uint32_t i;
@@ -1361,38 +1443,8 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 	STREAM_GETC(s, nhr->nexthop_num);
 
 	for (i = 0; i < nhr->nexthop_num; i++) {
-		STREAM_GETL(s, nhr->nexthops[i].vrf_id);
-		STREAM_GETC(s, nhr->nexthops[i].type);
-		switch (nhr->nexthops[i].type) {
-		case NEXTHOP_TYPE_IPV4:
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			STREAM_GET(&nhr->nexthops[i].gate.ipv4.s_addr, s,
-				   IPV4_MAX_BYTELEN);
-			STREAM_GETL(s, nhr->nexthops[i].ifindex);
-			break;
-		case NEXTHOP_TYPE_IFINDEX:
-			STREAM_GETL(s, nhr->nexthops[i].ifindex);
-			break;
-		case NEXTHOP_TYPE_IPV6:
-		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			STREAM_GET(&nhr->nexthops[i].gate.ipv6, s,
-				   IPV6_MAX_BYTELEN);
-			STREAM_GETL(s, nhr->nexthops[i].ifindex);
-			break;
-		case NEXTHOP_TYPE_BLACKHOLE:
-			break;
-		}
-		STREAM_GETC(s, nhr->nexthops[i].label_num);
-		if (nhr->nexthops[i].label_num > MPLS_MAX_LABELS) {
-			flog_err(EC_LIB_ZAPI_ENCODE,
-				 "%s: invalid number of MPLS labels (%u)",
-				 __func__, nhr->nexthops[i].label_num);
-			return false;
-		}
-		if (nhr->nexthops[i].label_num)
-			STREAM_GET(&nhr->nexthops[i].labels[0], s,
-				   nhr->nexthops[i].label_num
-					   * sizeof(mpls_label_t));
+		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0) != 0)
+			return -1;
 	}
 
 	return true;

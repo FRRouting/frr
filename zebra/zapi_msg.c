@@ -1411,11 +1411,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		char buf_prefix[PREFIX_STRLEN];
 
 		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
-		zlog_debug("%s: p=%s, ZAPI_MESSAGE_LABEL: %sset, flags=0x%x",
-			   __func__, buf_prefix,
-			   (CHECK_FLAG(api.message, ZAPI_MESSAGE_LABEL) ? ""
-									: "un"),
-			   api.flags);
+		zlog_debug("%s: p=%s, flags=0x%x",
+			   __func__, buf_prefix, api.flags);
 	}
 
 	/* Allocate new route. */
@@ -1544,11 +1541,11 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			return;
 		}
 
-		if (api_nh->onlink)
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
 
 		/* MPLS labels for BGP-LU or Segment Routing */
-		if (CHECK_FLAG(api.message, ZAPI_MESSAGE_LABEL)
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL)
 		    && api_nh->type != NEXTHOP_TYPE_IFINDEX
 		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
 			enum lsp_types_t label_type;

@@ -184,7 +184,7 @@ void isis_zebra_route_add_route(struct prefix *prefix,
 			break;
 		api_nh = &api.nexthops[count];
 		if (fabricd)
-			api_nh->onlink = true;
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		api_nh->vrf_id = VRF_DEFAULT;
 
 		switch (nexthop->family) {
