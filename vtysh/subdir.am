@@ -7,6 +7,10 @@ bin_PROGRAMS += vtysh/vtysh
 man1 += $(MANBUILD)/vtysh.1
 endif
 
+clippy_scan += \
+	vtysh/vtysh.c \
+	# end
+
 vtysh_vtysh_SOURCES = \
 	vtysh/vtysh_main.c \
 	vtysh/vtysh.c \
