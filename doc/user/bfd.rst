@@ -94,6 +94,10 @@ BFDd Commands
 
     Show status for a specific BFD peer.
 
+.. index:: show bfd [vrf NAME] peers brief [json]
+.. clicmd:: show bfd [vrf NAME] peers brief [json]
+
+    Show all configured BFD peers information and current status in brief.
 
 .. _bfd-peer-config:
 
@@ -340,11 +344,14 @@ You can inspect the current BFD peer status with the following commands:
                    Uptime: 1 minute(s), 51 second(s)
                    Diagnostics: ok
                    Remote diagnostics: ok
+                   Peer Type: dynamic
                    Local timers:
+                           Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
                            Echo transmission interval: disabled
                    Remote timers:
+                           Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
                            Echo transmission interval: 50ms
@@ -357,11 +364,14 @@ You can inspect the current BFD peer status with the following commands:
                    Uptime: 1 minute(s), 53 second(s)
                    Diagnostics: ok
                    Remote diagnostics: ok
+                   Peer Type: configured
                    Local timers:
+                           Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
                            Echo transmission interval: disabled
                    Remote timers:
+                           Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
                            Echo transmission interval: 50ms
@@ -376,17 +386,31 @@ You can inspect the current BFD peer status with the following commands:
                    Uptime: 3 minute(s), 4 second(s)
                    Diagnostics: ok
                    Remote diagnostics: ok
+                   Peer Type: dynamic
                    Local timers:
+                           Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
                            Echo transmission interval: disabled
                    Remote timers:
+                           Detect-multiplier: 3
                            Receive interval: 300ms
                            Transmission interval: 300ms
                            Echo transmission interval: 50ms
 
    frr# show bfd peer 192.168.0.1 json
-   {"multihop":false,"peer":"192.168.0.1","id":1,"remote-id":1,"status":"up","uptime":161,"diagnostic":"ok","remote-diagnostic":"ok","receive-interval":300,"transmit-interval":300,"echo-interval":50,"remote-receive-interval":300,"remote-transmit-interval":300,"remote-echo-interval":50}
+   {"multihop":false,"peer":"192.168.0.1","id":1,"remote-id":1,"status":"up","uptime":161,"diagnostic":"ok","remote-diagnostic":"ok","receive-interval":300,"transmit-interval":300,"echo-interval":50,"detect-multiplier":3,"remote-receive-interval":300,"remote-transmit-interval":300,"remote-echo-interval":50,"remote-detect-multiplier":3,"peer-type":"dynamic"}
+
+
+You can inspect the current BFD peer status in brief with the following commands:
+
+::
+
+   frr# show bfd peers brief 
+   Session count: 1
+   SessionId  LocalAddress         PeerAddress      Status
+   =========  ============         ===========      ======
+   1          192.168.0.1          192.168.0.2      up
 
 
 You can also inspect peer session counters with the following commands:
@@ -425,3 +449,30 @@ You can also inspect peer session counters with the following commands:
 
    frr# show bfd peer 192.168.0.1 counters json
    {"multihop":false,"peer":"192.168.0.1","control-packet-input":348,"control-packet-output":685,"echo-packet-input":6815,"echo-packet-output":6816,"session-up":1,"session-down":0,"zebra-notifications":4}
+
+You can also clear packet counters per session with the following commands, only the packet counters will be reset:
+
+::
+
+   frr# clear bfd peers counters
+
+   frr# show bfd peers counters
+   BFD Peers:
+        peer 192.168.2.1 interface r2-eth2
+                Control packet input: 0 packets
+                Control packet output: 0 packets
+                Echo packet input: 0 packets
+                Echo packet output: 0 packets
+                Session up events: 1
+                Session down events: 0
+                Zebra notifications: 2
+
+        peer 192.168.0.1
+                Control packet input: 0 packets
+                Control packet output: 0 packets
+                Echo packet input: 0 packets
+                Echo packet output: 0 packets
+                Session up events: 1
+                Session down events: 0
+                Zebra notifications: 4
+
