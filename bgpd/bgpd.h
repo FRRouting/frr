@@ -457,6 +457,7 @@ struct bgp {
 	/* BGP default timer.  */
 	uint32_t default_holdtime;
 	uint32_t default_keepalive;
+	uint32_t default_connect_retry;
 
 	/* BGP graceful restart */
 	uint32_t restart_time;
@@ -1429,13 +1430,17 @@ struct bgp_nlri {
 #define BGP_EVENTS_MAX                          15
 
 /* BGP timers default value.  */
-/* note: the DFLT_ ones depend on compile-time "defaults" selection */
 #define BGP_INIT_START_TIMER                     1
-#define BGP_DEFAULT_HOLDTIME                      DFLT_BGP_HOLDTIME
-#define BGP_DEFAULT_KEEPALIVE                     DFLT_BGP_KEEPALIVE
+/* The following 3 are RFC defaults that are overridden in bgp_vty.c with
+ * version-/profile-specific values.  The values here do not matter, they only
+ * exist to provide a clear layering separation between core and CLI.
+ */
+#define BGP_DEFAULT_HOLDTIME                   180
+#define BGP_DEFAULT_KEEPALIVE                   60
+#define BGP_DEFAULT_CONNECT_RETRY              120
+
 #define BGP_DEFAULT_EBGP_ROUTEADV                0
 #define BGP_DEFAULT_IBGP_ROUTEADV                0
-#define BGP_DEFAULT_CONNECT_RETRY                 DFLT_BGP_TIMERS_CONNECT
 
 /* BGP default local preference.  */
 #define BGP_DEFAULT_LOCAL_PREF                 100
@@ -1480,6 +1485,7 @@ enum bgp_clear_type {
 
 /* BGP error codes.  */
 #define BGP_SUCCESS                               0
+#define BGP_CREATED                               1
 #define BGP_ERR_INVALID_VALUE                    -1
 #define BGP_ERR_INVALID_FLAG                     -2
 #define BGP_ERR_INVALID_AS                       -3
@@ -1626,7 +1632,8 @@ extern int bgp_confederation_peers_check(struct bgp *, as_t);
 extern int bgp_confederation_peers_add(struct bgp *, as_t);
 extern int bgp_confederation_peers_remove(struct bgp *, as_t);
 
-extern int bgp_timers_set(struct bgp *, uint32_t keepalive, uint32_t holdtime);
+extern int bgp_timers_set(struct bgp *, uint32_t keepalive, uint32_t holdtime,
+			  uint32_t connect_retry);
 extern int bgp_timers_unset(struct bgp *);
 
 extern int bgp_default_local_preference_set(struct bgp *, uint32_t);

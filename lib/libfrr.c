@@ -30,7 +30,7 @@
 #include "vty.h"
 #include "command.h"
 #include "version.h"
-#include "memory_vty.h"
+#include "lib_vty.h"
 #include "log_vty.h"
 #include "zclient.h"
 #include "log_int.h"
@@ -43,6 +43,7 @@
 #include "debug.h"
 #include "frrcu.h"
 #include "frr_pthread.h"
+#include "defaults.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 DEFINE_KOOH(frr_early_fini, (), ())
@@ -104,6 +105,7 @@ static const struct option lo_always[] = {
 	{"version", no_argument, NULL, 'v'},
 	{"daemon", no_argument, NULL, 'd'},
 	{"module", no_argument, NULL, 'M'},
+	{"profile", required_argument, NULL, 'F'},
 	{"vty_socket", required_argument, NULL, OPTION_VTYSOCK},
 	{"moduledir", required_argument, NULL, OPTION_MODULEDIR},
 	{"log", required_argument, NULL, OPTION_LOG},
@@ -112,11 +114,12 @@ static const struct option lo_always[] = {
 	{"command-log-always", no_argument, NULL, OPTION_LOGGING},
 	{NULL}};
 static const struct optspec os_always = {
-	"hvdM:",
+	"hvdM:F:",
 	"  -h, --help         Display this help and exit\n"
 	"  -v, --version      Print program version\n"
 	"  -d, --daemon       Runs in daemon mode\n"
 	"  -M, --module       Load specified module\n"
+	"  -F, --profile      Use specified configuration profile\n"
 	"      --vty_socket   Override vty socket path\n"
 	"      --moduledir    Override modules directory\n"
 	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
@@ -174,7 +177,6 @@ static const struct optspec os_user = {"u:g:",
 				       "  -u, --user         User to run as\n"
 				       "  -g, --group        Group to run as\n",
 				       lo_user};
-
 
 bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 		      const char *path)
@@ -389,6 +391,32 @@ static int frr_opt(int opt)
 		oc->next = NULL;
 		*modnext = oc;
 		modnext = &oc->next;
+		break;
+	case 'F':
+		if (!frr_defaults_profile_valid(optarg)) {
+			const char **p;
+			FILE *ofd = stderr;
+
+			if (!strcmp(optarg, "help"))
+				ofd = stdout;
+			else
+				fprintf(stderr,
+					"The \"%s\" configuration profile is not valid for this FRR version.\n",
+					optarg);
+
+			fprintf(ofd, "Available profiles are:\n");
+			for (p = frr_defaults_profiles; *p; p++)
+				fprintf(ofd, "%s%s\n",
+					strcmp(*p, DFLT_NAME) ? "   " : " * ",
+					*p);
+
+			if (ofd == stdout)
+				exit(0);
+			fprintf(ofd, "\n");
+			errors++;
+			break;
+		}
+		frr_defaults_profile_set(optarg);
 		break;
 	case 'i':
 		if (di->flags & FRR_NO_CFG_PID_DRY)
@@ -608,6 +636,7 @@ struct thread_master *frr_init(void)
 	dir = di->module_path ? di->module_path : frr_moduledir;
 
 	srandom(time(NULL));
+	frr_defaults_apply();
 
 	if (di->instance) {
 		snprintf(frr_protonameinst, sizeof(frr_protonameinst), "%s[%u]",
@@ -679,7 +708,7 @@ struct thread_master *frr_init(void)
 		cmd_init(1);
 
 	vty_init(master, di->log_always);
-	memory_init();
+	lib_cmd_init();
 	log_filter_cmd_init();
 
 	frr_pthread_init();
@@ -1077,7 +1106,6 @@ void frr_fini(void)
 
 	hook_call(frr_fini);
 
-	/* memory_init -> nothing needed */
 	vty_terminate();
 	cmd_terminate();
 	nb_terminate();

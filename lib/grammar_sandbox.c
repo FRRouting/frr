@@ -28,7 +28,6 @@
 #endif
 
 #include "command.h"
-#include "memory_vty.h"
 #include "graph.h"
 #include "linklist.h"
 #include "command_match.h"

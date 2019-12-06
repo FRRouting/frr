@@ -22,7 +22,7 @@
 #include "getopt.h"
 #include "privs.h"
 #include "memory.h"
-#include "memory_vty.h"
+#include "lib_vty.h"
 
 zebra_capabilities_t _caps_p[] = {
 	ZCAP_NET_RAW, ZCAP_BIND, ZCAP_NET_ADMIN, ZCAP_DAC_OVERRIDE,
@@ -105,7 +105,7 @@ int main(int argc, char **argv)
 	}
 
 	/* Library inits. */
-	memory_init();
+	lib_cmd_init();
 	zprivs_preinit(&test_privs);
 	zprivs_init(&test_privs);
 

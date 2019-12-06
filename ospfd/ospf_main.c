@@ -35,7 +35,6 @@
 #include "stream.h"
 #include "log.h"
 #include "memory.h"
-#include "memory_vty.h"
 #include "privs.h"
 #include "sigevent.h"
 #include "zclient.h"

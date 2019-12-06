@@ -228,8 +228,6 @@ EXTRA_DIST += \
 	vrrpd/Makefile \
 	# end
 
-noinst_HEADERS += defaults.h
-
 clean-local: clean-python
 .PHONY: clean-python
 clean-python:

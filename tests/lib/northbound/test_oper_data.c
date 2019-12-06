@@ -23,7 +23,7 @@
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
-#include "memory_vty.h"
+#include "lib_vty.h"
 #include "log.h"
 #include "northbound.h"
 
@@ -412,7 +412,7 @@ int main(int argc, char **argv)
 	cmd_init(1);
 	cmd_hostname_set("test");
 	vty_init(master, false);
-	memory_init();
+	lib_cmd_init();
 	yang_init();
 	nb_init(master, modules, array_size(modules));
 

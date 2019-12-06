@@ -24,6 +24,7 @@ VTYSH="@vtysh_bin@" # /usr/bin/vtysh
 FRR_USER="@enable_user@" # frr
 FRR_GROUP="@enable_group@" # frr
 FRR_VTY_GROUP="@enable_vty_group@" # frrvty
+FRR_DEFAULT_PROFILE="@DFLT_NAME@" # traditional / datacenter
 
 # ORDER MATTERS FOR $DAEMONS!
 # - keep zebra first
@@ -151,7 +152,7 @@ daemon_start() {
 	instopt="${inst:+-n $inst}"
 	eval args="\$${daemon}_options"
 
-	if eval "$all_wrap $wrap $bin -d $instopt $args"; then
+	if eval "$all_wrap $wrap $bin -d $frr_global_options $instopt $args"; then
 		log_success_msg "Started $dmninst"
 		vtysh_b "$daemon"
 	else
@@ -297,6 +298,18 @@ if { declare -p watchfrr_options 2>/dev/null || true; } | grep -q '^declare \-a'
 		"Please remove or fix the setting."
 	unset watchfrr_options
 fi
+
+if test -z "$frr_profile"; then
+	# try to autodetect config profile
+	if test -d /etc/cumulus; then
+		frr_profile=datacenter
+	# elif test ...; then
+	# -- add your distro/system here
+	elif test -n "$FRR_DEFAULT_PROFILE"; then
+		frr_profile="$FRR_DEFAULT_PROFILE"
+	fi
+fi
+test -n "$frr_profile" && frr_global_options="$frr_global_options -F $frr_profile"
 
 #
 # other defaults and dispatch

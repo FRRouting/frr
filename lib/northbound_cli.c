@@ -21,6 +21,7 @@
 
 #include "libfrr.h"
 #include "version.h"
+#include "defaults.h"
 #include "log.h"
 #include "lib_errors.h"
 #include "command.h"
@@ -486,7 +487,7 @@ static void nb_cli_show_config_cmds(struct vty *vty, struct nb_config *config,
 	vty_out(vty, "Configuration:\n");
 	vty_out(vty, "!\n");
 	vty_out(vty, "frr version %s\n", FRR_VER_SHORT);
-	vty_out(vty, "frr defaults %s\n", DFLT_NAME);
+	vty_out(vty, "frr defaults %s\n", frr_defaults_profile());
 
 	LY_TREE_FOR (config->dnode, root)
 		nb_cli_show_dnode_cmds(vty, root, with_defaults);

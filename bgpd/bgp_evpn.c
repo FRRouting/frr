@@ -49,6 +49,7 @@
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_mac.h"
+#include "bgpd/bgp_vty.h"
 
 /*
  * Definitions and external declarations.
@@ -5709,9 +5710,10 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 
 		int ret = 0;
 
-		ret = bgp_get(&bgp_vrf, &as, vrf_id_to_name(vrf_id),
-			      vrf_id == VRF_DEFAULT ? BGP_INSTANCE_TYPE_DEFAULT
-						    : BGP_INSTANCE_TYPE_VRF);
+		ret = bgp_get_vty(&bgp_vrf, &as, vrf_id_to_name(vrf_id),
+				  vrf_id == VRF_DEFAULT
+				  ? BGP_INSTANCE_TYPE_DEFAULT
+				  : BGP_INSTANCE_TYPE_VRF);
 		switch (ret) {
 		case BGP_ERR_AS_MISMATCH:
 			flog_err(EC_BGP_EVPN_AS_MISMATCH,

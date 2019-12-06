@@ -25,7 +25,6 @@
 #include <sigevent.h>
 #include <lib/version.h>
 #include "command.h"
-#include "memory_vty.h"
 #include "libfrr.h"
 #include "lib_errors.h"
 

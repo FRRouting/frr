@@ -1,5 +1,5 @@
 /*
- * Memory and dynamic module VTY routine
+ * Assorted library VTY commands
  *
  * Copyright (C) 1998 Kunihiro Ishiguro
  * Copyright (C) 2016-2017  David Lamparter for NetDEF, Inc.
@@ -35,7 +35,8 @@
 #include "log.h"
 #include "memory.h"
 #include "module.h"
-#include "memory_vty.h"
+#include "defaults.h"
+#include "lib_vty.h"
 
 /* Looking up memory status from vty interface. */
 #include "vector.h"
@@ -120,11 +121,11 @@ static int qmem_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 }
 
 
-DEFUN (show_memory,
-       show_memory_cmd,
-       "show memory",
-       "Show running system information\n"
-       "Memory statistics\n")
+DEFUN_NOSH (show_memory,
+	    show_memory_cmd,
+	    "show memory",
+	    "Show running system information\n"
+	    "Memory statistics\n")
 {
 #ifdef HAVE_MALLINFO
 	show_memory_mallinfo(vty);
@@ -134,11 +135,11 @@ DEFUN (show_memory,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_modules,
-       show_modules_cmd,
-       "show modules",
-       "Show running system information\n"
-       "Loaded modules\n")
+DEFUN_NOSH (show_modules,
+	    show_modules_cmd,
+	    "show modules",
+	    "Show running system information\n"
+	    "Loaded modules\n")
 {
 	struct frrmod_runtime *plug = frrmod_list;
 
@@ -177,8 +178,60 @@ DEFUN (show_modules,
 	return CMD_SUCCESS;
 }
 
-void memory_init(void)
+DEFUN (frr_defaults,
+       frr_defaults_cmd,
+       "frr defaults PROFILE...",
+       "FRRouting global parameters\n"
+       "set of configuration defaults used\n"
+       "profile string\n")
 {
+	char *profile = argv_concat(argv, argc, 2);
+	int rv = CMD_SUCCESS;
+
+	if (!frr_defaults_profile_valid(profile)) {
+		vty_out(vty, "%% WARNING: profile %s is not known in this version\n",
+			profile);
+		rv = CMD_WARNING;
+	}
+	frr_defaults_profile_set(profile);
+	XFREE(MTYPE_TMP, profile);
+	return rv;
+}
+
+DEFUN (frr_version,
+       frr_version_cmd,
+       "frr version VERSION...",
+       "FRRouting global parameters\n"
+       "version configuration was written by\n"
+       "version string\n")
+{
+	char *version = argv_concat(argv, argc, 2);
+
+	frr_defaults_version_set(version);
+	XFREE(MTYPE_TMP, version);
+	return CMD_SUCCESS;
+}
+
+static void defaults_autocomplete(vector comps, struct cmd_token *token)
+{
+	const char **p;
+
+	for (p = frr_defaults_profiles; *p; p++)
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, *p));
+}
+
+static const struct cmd_variable_handler default_var_handlers[] = {
+	{.tokenname = "PROFILE", .completions = defaults_autocomplete},
+	{.completions = NULL},
+};
+
+void lib_cmd_init(void)
+{
+	cmd_variable_handler_register(default_var_handlers);
+
+	install_element(CONFIG_NODE, &frr_defaults_cmd);
+	install_element(CONFIG_NODE, &frr_version_cmd);
+
 	install_element(VIEW_NODE, &show_memory_cmd);
 	install_element(VIEW_NODE, &show_modules_cmd);
 }
