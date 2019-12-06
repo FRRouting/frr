@@ -274,6 +274,7 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 static void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim)
 {
 	pim_msdp_i_am_rp_changed(pim);
+	pim_upstream_reeval_use_rpt(pim);
 }
 
 void pim_rp_prefix_list_update(struct pim_instance *pim,
@@ -381,27 +382,17 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 
 	old_rpf.source_nexthop.interface = up->rpf.source_nexthop.interface;
 
-	rpf_result = pim_rpf_update(pim, up, &old_rpf);
+	rpf_result = pim_rpf_update(pim, up, &old_rpf, __func__);
 	if (rpf_result == PIM_RPF_FAILURE)
 		pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
 
 	/* update kernel multicast forwarding cache (MFC) */
-	if (up->rpf.source_nexthop.interface && up->channel_oil) {
-		ifindex_t ifindex = up->rpf.source_nexthop.interface->ifindex;
-		int vif_index = pim_if_find_vifindex_by_ifindex(pim, ifindex);
-		/* Pass Current selected NH vif index to mroute download */
-		if (vif_index)
-			pim_scan_individual_oil(up->channel_oil, vif_index);
-		else {
-			if (PIM_DEBUG_PIM_NHT)
-				zlog_debug(
-				  "%s: NHT upstream %s channel_oil IIF %s vif_index is not valid",
-				  __PRETTY_FUNCTION__, up->sg_str,
-				  up->rpf.source_nexthop.interface->name);
-		}
-	}
+	if (up->rpf.source_nexthop.interface && up->channel_oil)
+		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
-	if (rpf_result == PIM_RPF_CHANGED)
+	if (rpf_result == PIM_RPF_CHANGED ||
+			(rpf_result == PIM_RPF_FAILURE &&
+			 old_rpf.source_nexthop.interface))
 		pim_zebra_upstream_rpf_changed(pim, up, &old_rpf);
 
 	pim_zebra_update_all_interfaces(pim);
@@ -1057,6 +1048,7 @@ void pim_rp_check_on_if_add(struct pim_interface *pim_ifp)
 
 	if (i_am_rp_changed) {
 		pim_msdp_i_am_rp_changed(pim);
+		pim_upstream_reeval_use_rpt(pim);
 	}
 }
 
@@ -1099,6 +1091,7 @@ void pim_i_am_rp_re_evaluate(struct pim_instance *pim)
 
 	if (i_am_rp_changed) {
 		pim_msdp_i_am_rp_changed(pim);
+		pim_upstream_reeval_use_rpt(pim);
 	}
 }
 

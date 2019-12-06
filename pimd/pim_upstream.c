@@ -78,8 +78,13 @@ static void pim_upstream_remove_children(struct pim_instance *pim,
 			child = pim_upstream_del(pim, child,
 						 __PRETTY_FUNCTION__);
 		}
-		if (child)
+		if (child) {
 			child->parent = NULL;
+			if (PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags))
+				pim_upstream_mroute_iif_update(
+						child->channel_oil,
+						__func__);
+		}
 	}
 	list_delete(&up->sources);
 }
@@ -109,6 +114,10 @@ static void pim_upstream_find_new_children(struct pim_instance *pim,
 		    && (child != up)) {
 			child->parent = up;
 			listnode_add_sort(up->sources, child);
+			if (PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags))
+				pim_upstream_mroute_iif_update(
+						child->channel_oil,
+						__func__);
 		}
 	}
 }
@@ -141,14 +150,22 @@ static struct pim_upstream *pim_upstream_find_parent(struct pim_instance *pim,
 
 static void upstream_channel_oil_detach(struct pim_upstream *up)
 {
-	if (up->channel_oil) {
+	struct channel_oil *channel_oil = up->channel_oil;
+
+	if (channel_oil) {
 		/* Detaching from channel_oil, channel_oil may exist post del,
 		   but upstream would not keep reference of it
 		 */
-		up->channel_oil->up = NULL;
-		pim_channel_oil_del(up->channel_oil, __PRETTY_FUNCTION__);
+		channel_oil->up = NULL;
 		up->channel_oil = NULL;
+
+		/* attempt to delete channel_oil; if channel_oil is being held
+		 * because of other references cleanup info such as "Mute"
+		 * inferred from the parent upstream
+		 */
+		pim_channel_oil_upstream_deref(channel_oil);
 	}
+
 }
 
 struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
@@ -172,6 +189,11 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 
 	if (up->ref_count >= 1)
 		return up;
+
+	if (PIM_DEBUG_TRACE)
+		zlog_debug(
+				"pim_upstream free vrf:%s %s flags 0x%x",
+				pim->vrf->name, up->sg_str, up->flags);
 
 	THREAD_OFF(up->t_ka_timer);
 	THREAD_OFF(up->t_rs_timer);
@@ -316,7 +338,7 @@ static void join_timer_stop(struct pim_upstream *up)
 					up->rpf.rpf_addr.u.prefix4);
 
 	if (nbr)
-		pim_jp_agg_remove_group(nbr->upstream_jp_agg, up);
+		pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
 
 	pim_jp_agg_upstream_verification(up, false);
 }
@@ -338,7 +360,7 @@ void join_timer_start(struct pim_upstream *up)
 	}
 
 	if (nbr)
-		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, 1);
+		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, 1, nbr);
 	else {
 		THREAD_OFF(up->t_join_timer);
 		thread_add_timer(router->master, on_join_timer, up,
@@ -519,7 +541,8 @@ void pim_upstream_register_reevaluate(struct pim_instance *pim)
 		 * is actually active; if it is not kat setup will trigger
 		 * source
 		 * registration whenever the flow becomes active. */
-		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) || !up->t_ka_timer)
+		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) ||
+			!pim_upstream_is_kat_running(up))
 			continue;
 
 		if (pim_is_grp_ssm(pim, up->sg.grp)) {
@@ -532,7 +555,8 @@ void pim_upstream_register_reevaluate(struct pim_instance *pim)
 				/* remove regiface from the OIL if it is there*/
 				pim_channel_del_oif(up->channel_oil,
 						    pim->regiface,
-						    PIM_OIF_FLAG_PROTO_PIM);
+						    PIM_OIF_FLAG_PROTO_PIM,
+							__func__);
 				up->reg_state = PIM_REG_NOINFO;
 			}
 		} else {
@@ -544,10 +568,84 @@ void pim_upstream_register_reevaluate(struct pim_instance *pim)
 						up->sg_str);
 				pim_channel_add_oif(up->channel_oil,
 						    pim->regiface,
-						    PIM_OIF_FLAG_PROTO_PIM);
+						    PIM_OIF_FLAG_PROTO_PIM,
+							__func__);
 				up->reg_state = PIM_REG_JOIN;
 			}
 		}
+	}
+}
+
+/* RFC7761, Section 4.2 “Data Packet Forwarding Rules” says we should
+ * forward a S -
+ * 1. along the SPT if SPTbit is set
+ * 2. and along the RPT if SPTbit is not set
+ * If forwarding is hw accelerated i.e. control and dataplane components
+ * are separate you may not be able to reliably set SPT bit on intermediate
+ * routers while still fowarding on the (S,G,rpt).
+ *
+ * This macro is a slight deviation on the RFC and uses "traffic-agnostic"
+ * criteria to decide between using the RPT vs. SPT for forwarding.
+ */
+void pim_upstream_update_use_rpt(struct pim_upstream *up,
+			bool update_mroute)
+{
+	bool old_use_rpt;
+	bool new_use_rpt;
+
+	if (up->sg.src.s_addr == INADDR_ANY)
+		return;
+
+	old_use_rpt = !!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
+
+	/* We will use the SPT (IIF=RPF_interface(S) if -
+	 * 1. We have decided to join the SPT
+	 * 2. We are FHR
+	 * 3. Source is directly connected
+	 * 4. We are RP (parent's IIF is lo or vrf-device)
+	 * In all other cases the source will stay along the RPT and
+	 * IIF=RPF_interface(RP).
+	 */
+	if (up->join_state == PIM_UPSTREAM_JOINED ||
+			PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) ||
+			pim_if_connected_to_source(
+				up->rpf.source_nexthop.interface,
+				up->sg.src) ||
+			/* XXX - need to switch this to a more efficient
+			 * lookup API
+			 */
+			I_am_RP(up->pim, up->sg.grp))
+		/* use SPT */
+		PIM_UPSTREAM_FLAG_UNSET_USE_RPT(up->flags);
+	else
+		/* use RPT */
+		PIM_UPSTREAM_FLAG_SET_USE_RPT(up->flags);
+
+	new_use_rpt = !!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
+	if (old_use_rpt != new_use_rpt) {
+		if (PIM_DEBUG_PIM_EVENTS)
+			zlog_debug("%s switched from %s to %s",
+					up->sg_str,
+					old_use_rpt?"RPT":"SPT",
+					new_use_rpt?"RPT":"SPT");
+		if (update_mroute)
+			pim_upstream_mroute_add(up->channel_oil, __func__);
+	}
+}
+
+/* some events like RP change require re-evaluation of SGrpt across
+ * all groups
+ */
+void pim_upstream_reeval_use_rpt(struct pim_instance *pim)
+{
+	struct pim_upstream *up;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, node, up)) {
+		if (up->sg.src.s_addr == INADDR_ANY)
+			continue;
+
+		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
 	}
 }
 
@@ -603,21 +701,47 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 				join_timer_start(up);
 			}
 		}
+		if (old_state != new_state)
+			pim_upstream_update_use_rpt(up, true /*update_mroute*/);
 	} else {
+		bool old_use_rpt;
+		bool new_use_rpt;
+		bool send_xg_jp = false;
 
 		forward_off(up);
 		if (old_state == PIM_UPSTREAM_JOINED)
 			pim_msdp_up_join_state_changed(pim, up);
 
+		if (old_state != new_state) {
+			old_use_rpt =
+				!!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
+			pim_upstream_update_use_rpt(up, true /*update_mroute*/);
+			new_use_rpt =
+				!!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
+			if (new_use_rpt &&
+					(new_use_rpt != old_use_rpt) &&
+					up->parent)
+				/* we have decided to switch from the SPT back
+				 * to the RPT which means we need to cancel
+				 * any previously sent SGrpt prunes immediately
+				 */
+				send_xg_jp = true;
+		}
+
 		/* IHR, Trigger SGRpt on *,G IIF to prune S,G from RPT towards
 		   RP.
 		   If I am RP for G then send S,G prune to its IIF. */
-		if (pim_upstream_is_sg_rpt(up) && up->parent
-		    && !I_am_RP(pim, up->sg.grp)) {
+		if (pim_upstream_is_sg_rpt(up) && up->parent &&
+				!I_am_RP(pim, up->sg.grp))
+			send_xg_jp = true;
+		else
+			pim_jp_agg_single_upstream_send(&up->rpf, up,
+							0 /* prune */);
+
+		if (send_xg_jp) {
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)
 				zlog_debug(
-				  "%s: *,G IIF %s S,G IIF %s ",
-				  __PRETTY_FUNCTION__,
+				  "re-join RPT; *,G IIF %s S,G IIF %s ",
 				  up->parent->rpf.source_nexthop.interface ?
 				  up->parent->rpf.source_nexthop.interface->name
 				  : "Unknown",
@@ -627,9 +751,7 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 			pim_jp_agg_single_upstream_send(&up->parent->rpf,
 							up->parent,
 							1 /* (W,G) Join */);
-		} else
-			pim_jp_agg_single_upstream_send(&up->rpf, up,
-							0 /* prune */);
+		}
 		join_timer_stop(up);
 	}
 }
@@ -683,6 +805,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 
 	up = XCALLOC(MTYPE_PIM_UPSTREAM, sizeof(*up));
 
+	up->pim = pim;
 	up->sg = *sg;
 	pim_str_sg_set(sg, up->sg_str);
 	if (ch)
@@ -717,7 +840,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->reg_state = PIM_REG_NOINFO;
 	up->state_transition = pim_time_monotonic_sec();
 	up->channel_oil =
-		pim_channel_oil_add(pim, &up->sg, MAXVIFS, __PRETTY_FUNCTION__);
+		pim_channel_oil_add(pim, &up->sg, __PRETTY_FUNCTION__);
 	up->sptbit = PIM_UPSTREAM_SPTBIT_FALSE;
 
 	up->rpf.source_nexthop.interface = NULL;
@@ -742,15 +865,17 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		pim_upstream_fill_static_iif(up, incoming);
 		pim_ifp = up->rpf.source_nexthop.interface->info;
 		assert(pim_ifp);
-		pim_channel_oil_change_iif(pim, up->channel_oil,
-					   pim_ifp->mroute_vif_index,
-					   __PRETTY_FUNCTION__);
+		pim_upstream_update_use_rpt(up,
+				false /*update_mroute*/);
+		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
 		if (PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags))
 			pim_upstream_keep_alive_timer_start(
 				up, pim->keep_alive_time);
 	} else if (up->upstream_addr.s_addr != INADDR_ANY) {
-		rpf_result = pim_rpf_update(pim, up, NULL);
+		pim_upstream_update_use_rpt(up,
+				false /*update_mroute*/);
+		rpf_result = pim_rpf_update(pim, up, NULL, __func__);
 		if (rpf_result == PIM_RPF_FAILURE) {
 			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug(
@@ -760,11 +885,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 
 		if (up->rpf.source_nexthop.interface) {
 			pim_ifp = up->rpf.source_nexthop.interface->info;
-			if (pim_ifp)
-				pim_channel_oil_change_iif(
-					pim, up->channel_oil,
-					pim_ifp->mroute_vif_index,
-					__PRETTY_FUNCTION__);
+			pim_upstream_mroute_iif_update(up->channel_oil,
+					__func__);
 		}
 	}
 
@@ -792,35 +914,35 @@ struct pim_upstream *pim_upstream_find(struct pim_instance *pim,
 }
 
 struct pim_upstream *pim_upstream_find_or_add(struct prefix_sg *sg,
-					      struct interface *incoming,
-					      int flags, const char *name)
+		struct interface *incoming,
+		int flags, const char *name)
 {
-	struct pim_upstream *up;
-	struct pim_interface *pim_ifp;
+	struct pim_interface *pim_ifp = incoming->info;
 
-	pim_ifp = incoming->info;
-
-	up = pim_upstream_find(pim_ifp->pim, sg);
-
-	if (up) {
-		if (!(up->flags & flags)) {
-			up->flags |= flags;
-			up->ref_count++;
-			if (PIM_DEBUG_PIM_TRACE)
-				zlog_debug(
-					"%s(%s): upstream %s ref count %d increment",
-					__PRETTY_FUNCTION__, name, up->sg_str,
-					up->ref_count);
-		}
-	} else
-		up = pim_upstream_add(pim_ifp->pim, sg, incoming, flags, name,
-				      NULL);
-
-	return up;
+	return (pim_upstream_add(pim_ifp->pim, sg, incoming, flags, name,
+				NULL));
 }
 
 void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name)
 {
+	/* when we go from non-FHR to FHR we need to re-eval traffic
+	 * forwarding path
+	 */
+	if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) &&
+			PIM_UPSTREAM_FLAG_TEST_FHR(flags)) {
+		PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
+	}
+
+	/* re-eval joinDesired; clearing peer-msdp-sa flag can
+	 * cause JD to change
+	 */
+	if (!PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags) &&
+			PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(flags)) {
+		PIM_UPSTREAM_FLAG_SET_SRC_MSDP(up->flags);
+		pim_upstream_update_join_desired(up->pim, up);
+	}
+
 	up->flags |= flags;
 	++up->ref_count;
 	if (PIM_DEBUG_PIM_TRACE)
@@ -867,6 +989,36 @@ struct pim_upstream *pim_upstream_add(struct pim_instance *pim,
 /*
  * Passed in up must be the upstream for ch.  starch is NULL if no
  * information
+ * This function is copied over from
+ * pim_upstream_evaluate_join_desired_interface but limited to
+ * parent (*,G)'s includes/joins.
+ */
+int pim_upstream_eval_inherit_if(struct pim_upstream *up,
+						 struct pim_ifchannel *ch,
+						 struct pim_ifchannel *starch)
+{
+	/* if there is an explicit prune for this interface we cannot
+	 * add it to the OIL
+	 */
+	if (ch) {
+		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
+			return 0;
+	}
+
+	/* Check if the OIF can be inherited fron the (*,G) entry
+	 */
+	if (starch) {
+		if (!pim_macro_ch_lost_assert(starch)
+		    && pim_macro_chisin_joins_or_include(starch))
+			return 1;
+	}
+
+	return 0;
+}
+
+/*
+ * Passed in up must be the upstream for ch.  starch is NULL if no
+ * information
  */
 int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
 						 struct pim_ifchannel *ch,
@@ -885,8 +1037,14 @@ int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
 	 * joins (*,G)
 	 */
 	if (starch) {
+		/* XXX: check on this with donald
+		 * we are looking for PIM_IF_FLAG_MASK_S_G_RPT in
+		 * upstream flags?
+		 */
+#if 0
 		if (PIM_IF_FLAG_TEST_S_G_RPT(starch->upstream->flags))
 			return 0;
+#endif
 
 		if (!pim_macro_ch_lost_assert(starch)
 		    && pim_macro_chisin_joins_or_include(starch))
@@ -896,56 +1054,77 @@ int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
 	return 0;
 }
 
-/*
-  Evaluate JoinDesired(S,G):
-
-  JoinDesired(S,G) is true if there is a downstream (S,G) interface I
-  in the set:
-
-  inherited_olist(S,G) =
-  joins(S,G) (+) pim_include(S,G) (-) lost_assert(S,G)
-
-  JoinDesired(S,G) may be affected by changes in the following:
-
-  pim_ifp->primary_address
-  pim_ifp->pim_dr_addr
-  ch->ifassert_winner_metric
-  ch->ifassert_winner
-  ch->local_ifmembership
-  ch->ifjoin_state
-  ch->upstream->rpf.source_nexthop.mrib_metric_preference
-  ch->upstream->rpf.source_nexthop.mrib_route_metric
-  ch->upstream->rpf.source_nexthop.interface
-
-  See also pim_upstream_update_join_desired() below.
+/* Returns true if immediate OIL is empty and is used to evaluate
+ * JoinDesired. See pim_upstream_evaluate_join_desired.
  */
-int pim_upstream_evaluate_join_desired(struct pim_instance *pim,
+static bool pim_upstream_empty_immediate_olist(struct pim_instance *pim,
 				       struct pim_upstream *up)
 {
 	struct interface *ifp;
-	struct pim_ifchannel *ch, *starch;
-	struct pim_upstream *starup = up->parent;
-	int ret = 0;
+	struct pim_ifchannel *ch;
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		if (!ifp->info)
 			continue;
 
 		ch = pim_ifchannel_find(ifp, &up->sg);
-
-		if (starup)
-			starch = pim_ifchannel_find(ifp, &starup->sg);
-		else
-			starch = NULL;
-
-		if (!ch && !starch)
+		if (!ch)
 			continue;
 
-		ret += pim_upstream_evaluate_join_desired_interface(up, ch,
-								    starch);
+		/* If we have even one immediate OIF we can return with
+		 * not-empty
+		 */
+		if (pim_upstream_evaluate_join_desired_interface(up, ch,
+					    NULL /* starch */))
+			return false;
 	} /* scan iface channel list */
 
-	return ret; /* false */
+	/* immediate_oil is empty */
+	return true;
+}
+
+
+static inline bool pim_upstream_is_msdp_peer_sa(struct pim_upstream *up)
+{
+	return PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags);
+}
+
+/*
+ *   bool JoinDesired(*,G) {
+ *       if (immediate_olist(*,G) != NULL)
+ *           return TRUE
+ *       else
+ *           return FALSE
+ *   }
+ *
+ *   bool JoinDesired(S,G) {
+ *       return( immediate_olist(S,G) != NULL
+ *           OR ( KeepaliveTimer(S,G) is running
+ *           AND inherited_olist(S,G) != NULL ) )
+ *   }
+ */
+int pim_upstream_evaluate_join_desired(struct pim_instance *pim,
+				       struct pim_upstream *up)
+{
+	bool empty_imm_oil;
+	bool empty_inh_oil;
+
+	empty_imm_oil = pim_upstream_empty_immediate_olist(pim, up);
+
+	/* (*,G) */
+	if (up->sg.src.s_addr == INADDR_ANY)
+		return !empty_imm_oil;
+
+	/* (S,G) */
+	if (!empty_imm_oil)
+		return true;
+	empty_inh_oil = pim_upstream_empty_inherited_olist(up);
+	if (!empty_inh_oil &&
+			(pim_upstream_is_kat_running(up) ||
+			 pim_upstream_is_msdp_peer_sa(up)))
+		return true;
+
+	return false;
 }
 
 /*
@@ -1116,7 +1295,7 @@ static void pim_upstream_fhr_kat_expiry(struct pim_instance *pim,
 	THREAD_OFF(up->t_rs_timer);
 	/* remove regiface from the OIL if it is there*/
 	pim_channel_del_oif(up->channel_oil, pim->regiface,
-			    PIM_OIF_FLAG_PROTO_PIM);
+			    PIM_OIF_FLAG_PROTO_PIM, __func__);
 	/* clear the register state */
 	up->reg_state = PIM_REG_NOINFO;
 	PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
@@ -1136,6 +1315,7 @@ static void pim_upstream_fhr_kat_start(struct pim_upstream *up)
 		PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
 		if (up->reg_state == PIM_REG_NOINFO)
 			pim_register_join(up);
+		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
 	}
 }
 
@@ -1170,6 +1350,9 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 
 	/* source is no longer active - pull the SA from MSDP's cache */
 	pim_msdp_sa_local_del(pim, &up->sg);
+
+	/* JoinDesired can change when KAT is started or stopped */
+	pim_upstream_update_join_desired(pim, up);
 
 	/* if entry was created because of activity we need to deref it */
 	if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
@@ -1233,6 +1416,8 @@ void pim_upstream_keep_alive_timer_start(struct pim_upstream *up, uint32_t time)
 	/* any time keepalive is started against a SG we will have to
 	 * re-evaluate our active source database */
 	pim_msdp_sa_local_update(up);
+	/* JoinDesired can change when KAT is started or stopped */
+	pim_upstream_update_join_desired(up->pim, up);
 }
 
 /* MSDP on RP needs to know if a source is registerable to this RP */
@@ -1282,7 +1467,7 @@ void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
  *  SwitchToSptDesired(S,G) return true once a single packet has been
  *  received for the source and group.
  */
-int pim_upstream_switch_to_spt_desired(struct pim_instance *pim,
+int pim_upstream_switch_to_spt_desired_on_rp(struct pim_instance *pim,
 				       struct prefix_sg *sg)
 {
 	if (I_am_RP(pim, sg->grp))
@@ -1445,7 +1630,8 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 	case PIM_REG_JOIN_PENDING:
 		up->reg_state = PIM_REG_JOIN;
 		pim_channel_add_oif(up->channel_oil, pim->regiface,
-				    PIM_OIF_FLAG_PROTO_PIM);
+				    PIM_OIF_FLAG_PROTO_PIM,
+					__func__);
 		pim_vxlan_update_sg_reg_state(pim, up, true /*reg_join*/);
 		break;
 	case PIM_REG_JOIN:
@@ -1546,7 +1732,8 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 			if (!ch)
 				flag = PIM_OIF_FLAG_PROTO_STAR;
 
-			pim_channel_add_oif(up->channel_oil, ifp, flag);
+			pim_channel_add_oif(up->channel_oil, ifp, flag,
+					__func__);
 			output_intf++;
 		}
 	}
@@ -1581,9 +1768,9 @@ int pim_upstream_inherited_olist(struct pim_instance *pim,
 	 * switch on a stick so turn on forwarding to just accept the
 	 * incoming packets so we don't bother the other stuff!
 	 */
-	if (output_intf)
-		pim_upstream_switch(pim, up, PIM_UPSTREAM_JOINED);
-	else
+	pim_upstream_update_join_desired(pim, up);
+
+	if (!output_intf)
 		forward_on(up);
 
 	return output_intf;
@@ -1605,6 +1792,8 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 	struct listnode *up_node;
 	struct listnode *up_nextnode;
 	struct pim_upstream *up;
+	struct pim_rpf old;
+	enum pim_rpf_result rpf_result;
 
 	/*
 	 * Scan all (S,G) upstreams searching for RPF'(S,G)=neigh_addr
@@ -1623,9 +1812,19 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 				zlog_debug(
 					"%s: Upstream %s without a path to send join, checking",
 					__PRETTY_FUNCTION__, up->sg_str);
-			pim_rpf_update(pim, up, NULL);
+			old.source_nexthop.interface =
+				up->rpf.source_nexthop.interface;
+			rpf_result = pim_rpf_update(pim, up, &old, __func__);
+			if (rpf_result == PIM_RPF_CHANGED ||
+					(rpf_result == PIM_RPF_FAILURE &&
+					 old.source_nexthop.interface))
+				pim_zebra_upstream_rpf_changed(pim, up, &old);
+			/* update kernel multicast forwarding cache (MFC) */
+			pim_upstream_mroute_iif_update(up->channel_oil,
+					__func__);
 		}
 	}
+	pim_zebra_update_all_interfaces(pim);
 }
 
 unsigned int pim_upstream_hash_key(const void *arg)
@@ -1685,30 +1884,30 @@ bool pim_upstream_equal(const void *arg1, const void *arg2)
  */
 static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 {
-	struct pim_instance *pim = up->channel_oil->pim;
+	struct channel_oil *c_oil = up->channel_oil;
+	struct interface *ifp = up->rpf.source_nexthop.interface;
+	struct pim_interface *pim_ifp;
 
-	/* "iif == RPF_interface(S)" check has to be done by the kernel or hw
-	 * so we will skip that here */
-	if (up->rpf.source_nexthop.interface &&
-		pim_if_connected_to_source(up->rpf.source_nexthop.interface,
+	/* "iif == RPF_interface(S)" check is not easy to do as the info
+	 * we get from the kernel/ASIC is really a "lookup/key hit".
+	 * So we will do an approximate check here to avoid starting KAT
+	 * because of (S,G,rpt) forwarding on a non-LHR.
+	 */
+	if (!ifp)
+		return false;
+
+	pim_ifp = ifp->info;
+	if (pim_ifp->mroute_vif_index != c_oil->oil.mfcc_parent)
+		return false;
+
+	if (pim_if_connected_to_source(up->rpf.source_nexthop.interface,
 				       up->sg.src)) {
 		return true;
 	}
 
 	if ((up->join_state == PIM_UPSTREAM_JOINED)
-	    && !pim_upstream_empty_inherited_olist(up)) {
-		/* XXX: I have added this RP check just for 3.2 and it's a
-		 * digression from
-		 * what rfc-4601 says. Till now we were only running KAT on FHR
-		 * and RP and
-		 * there is some angst around making the change to run it all
-		 * routers that
-		 * maintain the (S, G) state. This is tracked via CM-13601 and
-		 * MUST be
-		 * removed to handle spt turn-arounds correctly in a 3-tier clos
-		 */
-		if (I_am_RP(pim, up->sg.grp))
-			return true;
+			&& !pim_upstream_empty_inherited_olist(up)) {
+		return true;
 	}
 
 	return false;
@@ -1803,7 +2002,7 @@ void pim_upstream_add_lhr_star_pimreg(struct pim_instance *pim)
 			continue;
 
 		pim_channel_add_oif(up->channel_oil, pim->regiface,
-				    PIM_OIF_FLAG_PROTO_IGMP);
+				    PIM_OIF_FLAG_PROTO_IGMP, __func__);
 	}
 }
 
@@ -1852,17 +2051,18 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 
 		if (!nlist) {
 			pim_channel_del_oif(up->channel_oil, pim->regiface,
-					    PIM_OIF_FLAG_PROTO_IGMP);
+					PIM_OIF_FLAG_PROTO_IGMP, __func__);
 			continue;
 		}
 		g.u.prefix4 = up->sg.grp;
 		apply_new = prefix_list_apply(np, &g);
 		if (apply_new == PREFIX_DENY)
 			pim_channel_add_oif(up->channel_oil, pim->regiface,
-					    PIM_OIF_FLAG_PROTO_IGMP);
+					    PIM_OIF_FLAG_PROTO_IGMP,
+						__func__);
 		else
 			pim_channel_del_oif(up->channel_oil, pim->regiface,
-					    PIM_OIF_FLAG_PROTO_IGMP);
+					PIM_OIF_FLAG_PROTO_IGMP, __func__);
 	}
 }
 

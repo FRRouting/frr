@@ -147,10 +147,11 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 					ch->upstream, ch, ch->parent))
 			pim_channel_add_oif(ch->upstream->channel_oil,
 					ch->interface,
-					PIM_OIF_FLAG_PROTO_STAR);
+					PIM_OIF_FLAG_PROTO_STAR,
+					__func__);
 
 		pim_channel_del_oif(ch->upstream->channel_oil,
-					ch->interface, mask);
+					ch->interface, mask, __func__);
 		/*
 		 * Do we have any S,G's that are inheriting?
 		 * Nuke from on high too.
@@ -161,9 +162,10 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 
 			for (ALL_LIST_ELEMENTS_RO(ch->upstream->sources,
 						  up_node, child))
-				pim_channel_del_oif(child->channel_oil,
-						    ch->interface,
-						    PIM_OIF_FLAG_PROTO_STAR);
+				pim_channel_del_inherited_oif(
+						child->channel_oil,
+						ch->interface,
+						__func__);
 		}
 	}
 
@@ -179,9 +181,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 
 	listnode_delete(ch->upstream->ifchannels, ch);
 
-	if (ch->ifjoin_state != PIM_IFJOIN_NOINFO) {
-		pim_upstream_update_join_desired(pim_ifp->pim, ch->upstream);
-	}
+	pim_upstream_update_join_desired(pim_ifp->pim, ch->upstream);
 
 	/* upstream is common across ifchannels, check if upstream's
 	   ifchannel list is empty before deleting upstream_del
@@ -250,6 +250,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 {
 	enum pim_ifjoin_state old_state = ch->ifjoin_state;
 	struct pim_interface *pim_ifp = ch->interface->info;
+	struct pim_ifchannel *child_ch;
 
 	if (PIM_DEBUG_PIM_EVENTS)
 		zlog_debug(
@@ -293,28 +294,18 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 					if (!c_oil)
 						continue;
 
-					if (!pim_upstream_evaluate_join_desired(
-						    pim_ifp->pim, child)) {
-						pim_channel_del_oif(
-							c_oil, ch->interface,
-							PIM_OIF_FLAG_PROTO_STAR);
-						pim_upstream_update_join_desired(
-							pim_ifp->pim, child);
-					}
-
 					/*
 					 * If the S,G has no if channel and the
 					 * c_oil still
 					 * has output here then the *,G was
 					 * supplying the implied
 					 * if channel.  So remove it.
-					 * I think this is dead code now. is it?
 					 */
 					if (c_oil->oil.mfcc_ttls
 						    [pim_ifp->mroute_vif_index])
-						pim_channel_del_oif(
+						pim_channel_del_inherited_oif(
 							c_oil, ch->interface,
-							PIM_OIF_FLAG_PROTO_STAR);
+							__func__);
 				}
 			}
 			if (ch->ifjoin_state == PIM_IFJOIN_JOIN) {
@@ -328,12 +319,19 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 							child->sg_str,
 							up->sg_str);
 
-					if (pim_upstream_evaluate_join_desired(
-						    pim_ifp->pim, child)) {
+					/* check if the channel can be
+					 * inherited into the SG's OIL
+					 */
+					child_ch = pim_ifchannel_find(
+							ch->interface,
+							&child->sg);
+					if (pim_upstream_eval_inherit_if(
+						    child, child_ch, ch)) {
 						pim_channel_add_oif(
 							child->channel_oil,
 							ch->interface,
-							PIM_OIF_FLAG_PROTO_STAR);
+							PIM_OIF_FLAG_PROTO_STAR,
+							__func__);
 						pim_upstream_update_join_desired(
 							pim_ifp->pim, child);
 					}
@@ -783,6 +781,28 @@ static int nonlocal_upstream(int is_join, struct interface *recv_ifp,
 	return 1; /* non-local */
 }
 
+static void pim_ifchannel_ifjoin_handler(struct pim_ifchannel *ch,
+		struct pim_interface *pim_ifp)
+{
+	pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
+			PIM_IFJOIN_JOIN);
+	PIM_IF_FLAG_UNSET_S_G_RPT(ch->flags);
+	/* check if the interface qualifies as an immediate
+	 * OIF
+	 */
+	if (pim_upstream_evaluate_join_desired_interface(
+				ch->upstream, ch,
+				NULL /*starch*/)) {
+		pim_channel_add_oif(ch->upstream->channel_oil,
+				ch->interface,
+				PIM_OIF_FLAG_PROTO_PIM,
+				__func__);
+		pim_upstream_update_join_desired(pim_ifp->pim,
+				ch->upstream);
+	}
+}
+
+
 void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 			    struct in_addr upstream, struct prefix_sg *sg,
 			    uint8_t source_flags, uint16_t holdtime)
@@ -890,25 +910,8 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		if (source_flags & PIM_ENCODE_RPT_BIT)
 			pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
 						    PIM_IFJOIN_NOINFO);
-		else {
-			/*
-			 * We have received a S,G join and we are in
-			 * S,G RPT Prune state.  Which means we need
-			 * to transition to Join state and setup
-			 * state as appropriate.
-			 */
-			pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
-						    PIM_IFJOIN_JOIN);
-			PIM_IF_FLAG_UNSET_S_G_RPT(ch->flags);
-			if (pim_upstream_evaluate_join_desired(pim_ifp->pim,
-							       ch->upstream)) {
-				pim_channel_add_oif(ch->upstream->channel_oil,
-						    ch->interface,
-						    PIM_OIF_FLAG_PROTO_PIM);
-				pim_upstream_update_join_desired(pim_ifp->pim,
-								 ch->upstream);
-			}
-		}
+		else
+			pim_ifchannel_ifjoin_handler(ch, pim_ifp);
 		break;
 	case PIM_IFJOIN_PRUNE_PENDING:
 		THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
@@ -916,9 +919,9 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 			THREAD_OFF(ch->t_ifjoin_expiry_timer);
 			pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
 						    PIM_IFJOIN_NOINFO);
-		} else
-			pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
-						    PIM_IFJOIN_JOIN);
+		} else {
+			pim_ifchannel_ifjoin_handler(ch, pim_ifp);
+		}
 		break;
 	case PIM_IFJOIN_PRUNE_TMP:
 		break;
@@ -1105,9 +1108,9 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 			if (pim_upstream_evaluate_join_desired_interface(
 				    child, ch, starch)) {
 				pim_channel_add_oif(child->channel_oil, ifp,
-						    PIM_OIF_FLAG_PROTO_STAR);
-				pim_upstream_switch(pim, child,
-						    PIM_UPSTREAM_JOINED);
+						    PIM_OIF_FLAG_PROTO_STAR,
+							__func__);
+				pim_upstream_update_join_desired(pim, child);
 			}
 		}
 
@@ -1124,12 +1127,14 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 				    == PREFIX_DENY) {
 					pim_channel_add_oif(
 						up->channel_oil, pim->regiface,
-						PIM_OIF_FLAG_PROTO_IGMP);
+						PIM_OIF_FLAG_PROTO_IGMP,
+						__func__);
 				}
 			}
 		} else
 			pim_channel_add_oif(up->channel_oil, pim->regiface,
-					    PIM_OIF_FLAG_PROTO_IGMP);
+					PIM_OIF_FLAG_PROTO_IGMP,
+					__func__);
 	}
 
 	return 1;
@@ -1174,22 +1179,19 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 					   child->sg_str);
 
 			ch = pim_ifchannel_find(ifp, &child->sg);
-			if (c_oil
-			    && !pim_upstream_evaluate_join_desired_interface(
-				       child, ch, starch))
-				pim_channel_del_oif(c_oil, ifp,
-						    PIM_OIF_FLAG_PROTO_STAR);
-
 			/*
 			 * If the S,G has no if channel and the c_oil still
 			 * has output here then the *,G was supplying the
 			 * implied
 			 * if channel.  So remove it.
 			 */
-			if (!chchannel && c_oil
-			    && c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])
-				pim_channel_del_oif(c_oil, ifp,
-						    PIM_OIF_FLAG_PROTO_STAR);
+			if (!pim_upstream_evaluate_join_desired_interface(
+				child, ch, starch) ||
+				(!chchannel &&
+				 c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])) {
+				pim_channel_del_inherited_oif(c_oil, ifp,
+						__func__);
+			}
 
 			/* Child node removal/ref count-- will happen as part of
 			 * parent' delete_no_info */
@@ -1408,12 +1410,10 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 				child->upstream))) {
 				pim_channel_add_oif(
 					child->upstream->channel_oil,
-					ch->interface, PIM_OIF_FLAG_PROTO_STAR);
-				pim_upstream_switch(pim, child->upstream,
-						    PIM_UPSTREAM_JOINED);
-				pim_jp_agg_single_upstream_send(
-					&child->upstream->rpf, child->upstream,
-					true);
+					ch->interface, PIM_OIF_FLAG_PROTO_STAR,
+					__func__);
+				pim_upstream_update_join_desired(pim,
+						child->upstream);
 			}
 			send_upstream_starg = true;
 

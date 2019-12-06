@@ -21,6 +21,7 @@
 #define PIM_OIL_H
 
 #include "pim_mroute.h"
+#include "pim_iface.h"
 
 /*
  * Where did we get this (S,G) from?
@@ -38,6 +39,8 @@
 	(PIM_OIF_FLAG_PROTO_IGMP | PIM_OIF_FLAG_PROTO_PIM      \
 	 | PIM_OIF_FLAG_PROTO_STAR | PIM_OIF_FLAG_PROTO_VXLAN)
 
+/* OIF is present in the OIL but must not be used for forwarding traffic */
+#define PIM_OIF_FLAG_MUTE         (1 << 4)
 /*
  * We need a pimreg vif id from the kernel.
  * Since ifindex == vif id for most cases and the number
@@ -113,18 +116,27 @@ struct channel_oil *pim_find_channel_oil(struct pim_instance *pim,
 					 struct prefix_sg *sg);
 struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 					struct prefix_sg *sg,
-					int input_vif_index, const char *name);
+					const char *name);
 void pim_channel_oil_change_iif(struct pim_instance *pim,
 				struct channel_oil *c_oil, int input_vif_index,
 				const char *name);
-void pim_channel_oil_del(struct channel_oil *c_oil, const char *name);
+struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
+		const char *name);
 
 int pim_channel_add_oif(struct channel_oil *c_oil, struct interface *oif,
-			uint32_t proto_mask);
+			uint32_t proto_mask, const char *caller);
 int pim_channel_del_oif(struct channel_oil *c_oil, struct interface *oif,
-			uint32_t proto_mask);
+			uint32_t proto_mask, const char *caller);
 
 int pim_channel_oil_empty(struct channel_oil *c_oil);
 
 char *pim_channel_oil_dump(struct channel_oil *c_oil, char *buf, size_t size);
+
+void pim_channel_update_oif_mute(struct channel_oil *c_oil,
+		struct pim_interface *pim_ifp);
+
+void pim_channel_oil_upstream_deref(struct channel_oil *c_oil);
+void pim_channel_del_inherited_oif(struct channel_oil *c_oil,
+		struct interface *oif, const char *caller);
+
 #endif /* PIM_OIL_H */

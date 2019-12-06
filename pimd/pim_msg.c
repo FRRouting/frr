@@ -126,8 +126,17 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 				__PRETTY_FUNCTION__, up->sg_str);
 
 		for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child)) {
-			if (child->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) {
-				if (!pim_rpf_is_same(&up->rpf, &child->rpf)) {
+			if (!PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags)) {
+				/* If we are using SPT and the SPT and RPT IIFs
+				 * are different we can prune the source off
+				 * of the RPT.
+				 * If RPF_interface(S) is not resolved hold
+				 * decision to prune as SPT may end up on the
+				 * same IIF as RPF_interface(RP).
+				 */
+				if (child->rpf.source_nexthop.interface &&
+					!pim_rpf_is_same(&up->rpf,
+						&child->rpf)) {
 					size += sizeof(
 						struct pim_encoded_source_ipv4);
 					PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(
@@ -143,37 +152,25 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 						"%s: SPT Bit and RPF'(%s) == RPF'(S,G): Not adding Prune for (%s,rpt)",
 						__PRETTY_FUNCTION__, up->sg_str,
 						child->sg_str);
-			} else if (pim_upstream_is_sg_rpt(child)) {
-				if (pim_upstream_empty_inherited_olist(child)) {
-					size += sizeof(
+			} else if (pim_upstream_empty_inherited_olist(child)) {
+				/* S is supposed to be forwarded along the RPT
+				 * but it's inherited OIL is empty. So just
+				 * prune it off.
+				 */
+				size += sizeof(
 						struct pim_encoded_source_ipv4);
-					PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(
+				PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(
 						child->flags);
-					if (PIM_DEBUG_PIM_PACKETS)
-						zlog_debug(
+				if (PIM_DEBUG_PIM_PACKETS)
+					zlog_debug(
 							"%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
 							__PRETTY_FUNCTION__,
 							child->sg_str);
-				} else if (!pim_rpf_is_same(&up->rpf,
-							    &child->rpf)) {
-					size += sizeof(
-						struct pim_encoded_source_ipv4);
-					PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(
-						child->flags);
-					if (PIM_DEBUG_PIM_PACKETS)
-						zlog_debug(
-							"%s: RPF'(%s) != RPF'(%s,rpt), Add Prune to compound message",
-							__PRETTY_FUNCTION__,
-							up->sg_str,
-							child->sg_str);
-				} else if (PIM_DEBUG_PIM_PACKETS)
-					zlog_debug(
-						"%s: RPF'(%s) == RPF'(%s,rpt), Do not add Prune to compound message",
-						__PRETTY_FUNCTION__, up->sg_str,
-						child->sg_str);
 			} else if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug("%s: SPT bit is not set for (%s)",
-					   __PRETTY_FUNCTION__, child->sg_str);
+				zlog_debug(
+						"%s: Do not add Prune %s to compound message %s",
+						__PRETTY_FUNCTION__, child->sg_str,
+						up->sg_str);
 		}
 	}
 	return size;

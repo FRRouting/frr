@@ -59,7 +59,7 @@ void pim_register_join(struct pim_upstream *up)
 	}
 
 	pim_channel_add_oif(up->channel_oil, pim->regiface,
-			    PIM_OIF_FLAG_PROTO_PIM);
+			    PIM_OIF_FLAG_PROTO_PIM, __func__);
 	up->reg_state = PIM_REG_JOIN;
 	pim_vxlan_update_sg_reg_state(pim, up, true /*reg_join*/);
 }
@@ -145,7 +145,7 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	case PIM_REG_JOIN:
 		upstream->reg_state = PIM_REG_PRUNE;
 		pim_channel_del_oif(upstream->channel_oil, pim->regiface,
-				    PIM_OIF_FLAG_PROTO_PIM);
+				    PIM_OIF_FLAG_PROTO_PIM, __func__);
 		pim_upstream_start_register_stop_timer(upstream, 0);
 		pim_vxlan_update_sg_reg_state(pim, upstream,
 			false/*reg_join*/);
@@ -452,10 +452,9 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		}
 
 		if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
-		    || ((SwitchToSptDesired(pim_ifp->pim, &sg))
+		    || ((SwitchToSptDesiredOnRp(pim_ifp->pim, &sg))
 			&& pim_upstream_inherited_olist(pim_ifp->pim, upstream)
 				   == 0)) {
-			// pim_scan_individual_oil (upstream->channel_oil);
 			pim_register_stop_send(ifp, &sg, dest_addr, src_addr);
 			sentRegisterStop = 1;
 		} else {
@@ -464,7 +463,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 					   upstream->sptbit);
 		}
 		if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
-		    || (SwitchToSptDesired(pim_ifp->pim, &sg))) {
+		    || (SwitchToSptDesiredOnRp(pim_ifp->pim, &sg))) {
 			if (sentRegisterStop) {
 				pim_upstream_keep_alive_timer_start(
 					upstream,

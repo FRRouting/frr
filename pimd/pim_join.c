@@ -327,7 +327,6 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 			recv_prune(ifp, neigh, msg_holdtime,
 				   msg_upstream_addr.u.prefix4, &sg,
 				   msg_source_flags);
-
 			/*
 			 * So if we are receiving a S,G,RPT prune
 			 * before we have any data for that S,G
@@ -348,10 +347,10 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 							"%s: SGRpt flag is set, del inherit oif from up %s",
 							__PRETTY_FUNCTION__,
 							up->sg_str);
-					pim_channel_del_oif(
+					pim_channel_del_inherited_oif(
 						up->channel_oil,
 						starg_ch->interface,
-						PIM_OIF_FLAG_PROTO_STAR);
+						__func__);
 				}
 			}
 		}
