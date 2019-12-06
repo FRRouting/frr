@@ -153,8 +153,10 @@ def ltemplatePreRouterStartHook():
     if topotest.version_cmp(krel, '4.15') >= 0 and \
        topotest.version_cmp(krel, '4.18') <= 0:
         l3mdev_accept = 1
-    else:
-        l3mdev_accept = 0
+
+    if topotest.version_cmp(krel, '5.0') >= 0:
+        l3mdev_accept = 1
+
     logger.info('setting net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept))
     #check for mpls
     if tgen.hasmpls != True:
