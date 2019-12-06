@@ -550,6 +550,7 @@ void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
 	copy->ifindex = nexthop->ifindex;
 	copy->type = nexthop->type;
 	copy->flags = nexthop->flags;
+	copy->weight = nexthop->weight;
 	memcpy(&copy->gate, &nexthop->gate, sizeof(nexthop->gate));
 	memcpy(&copy->src, &nexthop->src, sizeof(nexthop->src));
 	memcpy(&copy->rmap_src, &nexthop->rmap_src, sizeof(nexthop->rmap_src));
