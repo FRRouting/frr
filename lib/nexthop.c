@@ -118,6 +118,12 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 	if (next1->type > next2->type)
 		return 1;
 
+	if (next1->weight < next2->weight)
+		return -1;
+
+	if (next1->weight > next2->weight)
+		return 1;
+
 	switch (next1->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV6:

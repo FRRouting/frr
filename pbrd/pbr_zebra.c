@@ -279,6 +279,7 @@ static void route_add_helper(struct zapi_route *api, struct nexthop_group nhg,
 		api_nh = &api->nexthops[i];
 		api_nh->vrf_id = nhop->vrf_id;
 		api_nh->type = nhop->type;
+		api_nh->weight = nhop->weight;
 		switch (nhop->type) {
 		case NEXTHOP_TYPE_IPV4:
 			api_nh->gate.ipv4 = nhop->gate.ipv4;

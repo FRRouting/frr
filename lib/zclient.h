@@ -323,6 +323,8 @@ struct zapi_nexthop {
 	mpls_label_t labels[MPLS_MAX_LABELS];
 
 	struct ethaddr rmac;
+
+	uint32_t weight;
 };
 
 /*
@@ -330,6 +332,7 @@ struct zapi_nexthop {
  */
 #define ZAPI_NEXTHOP_FLAG_ONLINK	0x01
 #define ZAPI_NEXTHOP_FLAG_LABEL		0x02
+#define ZAPI_NEXTHOP_FLAG_WEIGHT	0x04
 
 /*
  * Some of these data structures do not map easily to

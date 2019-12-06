@@ -567,6 +567,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 		api_nh = &api.nexthops[count];
 		api_nh->vrf_id = nexthop->vrf_id;
 		api_nh->type = nexthop->type;
+		api_nh->weight = nexthop->weight;
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_BLACKHOLE:
 			api_nh->bh_type = nexthop->bh_type;
@@ -1543,6 +1544,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
+
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_WEIGHT))
+			nexthop->weight = api_nh->weight;
 
 		/* MPLS labels for BGP-LU or Segment Routing */
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL)

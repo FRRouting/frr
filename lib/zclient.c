@@ -802,6 +802,12 @@ static int zapi_nexthop_cmp_no_labels(const struct zapi_nexthop *next1,
 	if (next1->type > next2->type)
 		return 1;
 
+	if (next1->weight < next2->weight)
+		return -1;
+
+	if (next1->weight > next2->weight)
+		return 1;
+
 	switch (next1->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV6:
@@ -882,6 +888,9 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		}
 	}
 
+	if (api_nh->weight)
+		SET_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_WEIGHT);
+
 	/* Note that we're only encoding a single octet */
 	stream_putc(s, nh_flags);
 
@@ -919,6 +928,9 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		stream_put(s, &api_nh->labels[0],
 			   api_nh->label_num * sizeof(mpls_label_t));
 	}
+
+	if (api_nh->weight)
+		stream_putl(s, api_nh->weight);
 
 	/* Router MAC for EVPN routes. */
 	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_EVPN_ROUTE))
@@ -1081,6 +1093,9 @@ static int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 		STREAM_GET(&api_nh->labels[0], s,
 			   api_nh->label_num * sizeof(mpls_label_t));
 	}
+
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_WEIGHT))
+		STREAM_GETL(s, api_nh->weight);
 
 	/* Router MAC for EVPN routes. */
 	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_EVPN_ROUTE))

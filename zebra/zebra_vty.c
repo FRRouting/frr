@@ -380,6 +380,9 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 						sizeof buf, 1));
 			}
 
+			if (nexthop->weight)
+				vty_out(vty, ", weight %u", nexthop->weight);
+
 			vty_out(vty, "\n");
 		}
 		vty_out(vty, "\n");
@@ -1239,6 +1242,9 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 					       nexthop->nh_label->label, buf,
 					       sizeof(buf), 1));
 		}
+
+		if (nexthop->weight)
+			vty_out(vty, ", weight %u", nexthop->weight);
 
 		vty_out(vty, "\n");
 	}
