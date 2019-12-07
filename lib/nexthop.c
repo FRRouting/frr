@@ -376,6 +376,9 @@ void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t type,
 	struct mpls_label_stack *nh_label;
 	int i;
 
+	if (num_labels == 0)
+		return;
+
 	nexthop->nh_label_type = type;
 	nh_label = XCALLOC(MTYPE_NH_LABEL,
 			   sizeof(struct mpls_label_stack)
