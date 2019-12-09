@@ -1550,9 +1550,13 @@ int lib_interface_isis_destroy(enum nb_event event,
 	circuit = nb_running_unset_entry(dnode);
 	if (!circuit)
 		return NB_ERR_INCONSISTENCY;
-	if (circuit->state == C_STATE_UP || circuit->state == C_STATE_CONF)
-		isis_csm_state_change(ISIS_DISABLE, circuit, circuit->area);
 
+	/* disable both AFs for this circuit. this will also update the
+	 * CSM state by sending an ISIS_DISABLED signal. If there is no
+	 * area associated to the circuit there is nothing to do
+	 */
+	if (circuit->area)
+		isis_circuit_af_set(circuit, false, false);
 	return NB_OK;
 }
 
