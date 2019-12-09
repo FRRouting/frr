@@ -444,6 +444,12 @@ enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
 /*
  * Enqueue evpn mac operations for the dataplane.
  */
+extern struct zebra_dplane_ctx *mac_update_internal(
+	enum dplane_op_e op, const struct interface *ifp,
+	const struct interface *br_ifp,
+	vlanid_t vid, const struct ethaddr *mac,
+	struct in_addr vtep_ip, bool sticky);
+
 enum zebra_dplane_result dplane_mac_add(const struct interface *ifp,
 					const struct interface *bridge_ifp,
 					vlanid_t vid,

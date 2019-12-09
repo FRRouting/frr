@@ -2521,62 +2521,63 @@ int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
  * @type:		RTN_* route type
  * @flags:		NTF_* flags
  * @state:		NUD_* states
+ * @data:		data buffer pointer
+ * @datalen:		total amount of data buffer space
  *
  * Return:		Result status
  */
-static int netlink_update_neigh_ctx_internal(const struct zebra_dplane_ctx *ctx,
-					     int cmd, const struct ethaddr *mac,
-					     const struct ipaddr *ip,
-					     bool replace_obj, uint8_t family,
-					     uint8_t type, uint8_t flags,
-					     uint16_t state)
+static ssize_t
+netlink_update_neigh_ctx_internal(const struct zebra_dplane_ctx *ctx,
+				  int cmd, const struct ethaddr *mac,
+				  const struct ipaddr *ip, bool replace_obj,
+				  uint8_t family, uint8_t type, uint8_t flags,
+				  uint16_t state, void *data, size_t datalen)
 {
 	uint8_t protocol = RTPROT_ZEBRA;
 	struct {
 		struct nlmsghdr n;
 		struct ndmsg ndm;
-		char buf[256];
-	} req;
+		char buf[];
+	} *req = data;
 	int ipa_len;
 	enum dplane_op_e op;
 
-	memset(&req, 0, sizeof(req));
+	memset(req, 0, datalen);
 
 	op = dplane_ctx_get_op(ctx);
 
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
-	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
 	if (cmd == RTM_NEWNEIGH)
-		req.n.nlmsg_flags |=
+		req->n.nlmsg_flags |=
 			NLM_F_CREATE
 			| (replace_obj ? NLM_F_REPLACE : NLM_F_APPEND);
-	req.n.nlmsg_type = cmd;
-	req.ndm.ndm_family = family;
-	req.ndm.ndm_type = type;
-	req.ndm.ndm_state = state;
-	req.ndm.ndm_flags = flags;
-	req.ndm.ndm_ifindex = dplane_ctx_get_ifindex(ctx);
+	req->n.nlmsg_type = cmd;
+	req->ndm.ndm_family = family;
+	req->ndm.ndm_type = type;
+	req->ndm.ndm_state = state;
+	req->ndm.ndm_flags = flags;
+	req->ndm.ndm_ifindex = dplane_ctx_get_ifindex(ctx);
 
-	addattr_l(&req.n, sizeof(req),
+	addattr_l(&req->n, sizeof(req),
 		  NDA_PROTOCOL, &protocol, sizeof(protocol));
 	if (mac)
-		addattr_l(&req.n, sizeof(req), NDA_LLADDR, mac, 6);
+		addattr_l(&req->n, datalen, NDA_LLADDR, mac, 6);
 
 	ipa_len = IS_IPADDR_V4(ip) ? IPV4_MAX_BYTELEN : IPV6_MAX_BYTELEN;
-	addattr_l(&req.n, sizeof(req), NDA_DST, &ip->ip.addr, ipa_len);
+	addattr_l(&req->n, datalen, NDA_DST, &ip->ip.addr, ipa_len);
 
 	if (op == DPLANE_OP_MAC_INSTALL || op == DPLANE_OP_MAC_DELETE) {
 		vlanid_t vid = dplane_ctx_mac_get_vlan(ctx);
 
 		if (vid > 0)
-			addattr16(&req.n, sizeof(req), NDA_VLAN, vid);
+			addattr16(&req->n, datalen, NDA_VLAN, vid);
 
-		addattr32(&req.n, sizeof(req), NDA_MASTER,
+		addattr32(&req->n, datalen, NDA_MASTER,
 			  dplane_ctx_mac_get_br_ifindex(ctx));
 	}
 
-	return netlink_talk_info(netlink_talk_filter, &req.n,
-				 dplane_ctx_get_ns(ctx), 0);
+	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
 
 /*
@@ -2587,10 +2588,16 @@ static int netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx,
 					  int cmd)
 {
 	struct ethaddr dst_mac = {.octet = {0}};
+	uint8_t nl_pkt[NL_PKT_BUF_SIZE];
 
-	return netlink_update_neigh_ctx_internal(
+	 netlink_update_neigh_ctx_internal(
 		ctx, cmd, &dst_mac, dplane_ctx_neigh_get_ipaddr(ctx), false,
-		PF_BRIDGE, 0, NTF_SELF, (NUD_NOARP | NUD_PERMANENT));
+		PF_BRIDGE, 0, NTF_SELF, (NUD_NOARP | NUD_PERMANENT), nl_pkt,
+		sizeof(nl_pkt));
+
+	return netlink_talk_info(netlink_talk_filter,
+				 (struct nlmsghdr *)nl_pkt,
+				 dplane_ctx_get_ns(ctx), 0);
 }
 
 #ifndef NDA_RTA
@@ -2916,12 +2923,20 @@ int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 /*
  * Netlink-specific handler for MAC updates using dataplane context object.
  */
-static int netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, int cmd)
+ssize_t
+netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, uint8_t *data,
+			  size_t datalen)
 {
 	struct ipaddr vtep_ip;
 	vlanid_t vid;
+	ssize_t total;
+	int cmd;
 	uint8_t flags;
 	uint16_t state;
+	uint8_t nl_pkt[NL_PKT_BUF_SIZE];
+
+	cmd = dplane_ctx_get_op(ctx) == DPLANE_OP_MAC_INSTALL
+			  ? RTM_NEWNEIGH : RTM_DELNEIGH;
 
 	flags = (NTF_SELF | NTF_MASTER);
 	state = NUD_REACHABLE;
@@ -2956,10 +2971,12 @@ static int netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, int cmd)
 			   ipaddr2str(&vtep_ip, ipbuf, sizeof(ipbuf)));
 	}
 
-	return netlink_update_neigh_ctx_internal(
-		ctx, cmd, dplane_ctx_mac_get_addr(ctx),
-		dplane_ctx_neigh_get_ipaddr(ctx), true, AF_BRIDGE, 0, flags,
-		state);
+	total = netlink_update_neigh_ctx_internal(
+			ctx, cmd, dplane_ctx_mac_get_addr(ctx),
+			dplane_ctx_neigh_get_ipaddr(ctx), true, AF_BRIDGE, 0,
+			flags, state, nl_pkt, sizeof(nl_pkt));
+
+	return total;
 }
 
 /*
@@ -3348,6 +3365,7 @@ static int netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 	uint8_t flags;
 	uint16_t state;
 	uint8_t family;
+	uint8_t nl_pkt[NL_PKT_BUF_SIZE];
 
 	ip = dplane_ctx_neigh_get_ipaddr(ctx);
 	mac = dplane_ctx_neigh_get_mac(ctx);
@@ -3372,8 +3390,12 @@ static int netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 			flags, state);
 	}
 
-	return netlink_update_neigh_ctx_internal(
-		ctx, cmd, mac, ip, true, family, RTN_UNICAST, flags, state);
+	netlink_update_neigh_ctx_internal(
+			ctx, cmd, mac, ip, true, family, RTN_UNICAST, flags,
+			state, nl_pkt, sizeof(nl_pkt));
+
+	return netlink_talk_info(netlink_talk_filter, (struct nlmsghdr *)nl_pkt,
+				 dplane_ctx_get_ns(ctx), 0);
 }
 
 /*
@@ -3381,13 +3403,18 @@ static int netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
  */
 enum zebra_dplane_result kernel_mac_update_ctx(struct zebra_dplane_ctx *ctx)
 {
-	int cmd = dplane_ctx_get_op(ctx) == DPLANE_OP_MAC_INSTALL
-			  ? RTM_NEWNEIGH
-			  : RTM_DELNEIGH;
-	int ret = netlink_macfdb_update_ctx(ctx, cmd);
+	uint8_t nl_pkt[NL_PKT_BUF_SIZE];
+	ssize_t rv;
 
-	return (ret == 0 ? ZEBRA_DPLANE_REQUEST_SUCCESS
-			 : ZEBRA_DPLANE_REQUEST_FAILURE);
+	rv = netlink_macfdb_update_ctx(ctx, nl_pkt, sizeof(nl_pkt));
+	if (rv <= 0)
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	rv = netlink_talk_info(netlink_talk_filter, (struct nlmsghdr *)nl_pkt,
+			       dplane_ctx_get_ns(ctx), 0);
+
+	return rv == 0 ?
+		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE;
 }
 
 enum zebra_dplane_result kernel_neigh_update_ctx(struct zebra_dplane_ctx *ctx)
