@@ -90,6 +90,12 @@ module frr-pathd {
           description
             "Symbolic Name of the Candidate Path.";
         }
+        leaf is-best-candidate-path {
+          type boolean;
+          config false;
+          description
+            "True if the candidate path is the best candidate path, False otherwise";
+        }
         leaf protocol-origin {
           description
             "Indication for the protocol origin of the Candidate Path.";

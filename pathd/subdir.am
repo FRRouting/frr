@@ -25,6 +25,7 @@ pathd_libpath_a_SOURCES = \
 	pathd/path_memory.c \
 	pathd/path_nb.c \
 	pathd/path_nb_config.c \
+	pathd/path_nb_state.c \
 	pathd/path_zebra.c \
 	pathd/pathd.c \
 	# end

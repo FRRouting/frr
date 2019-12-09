@@ -56,6 +56,9 @@ const struct frr_yang_module_info frr_pathd_info = {
 				.create = pathd_te_sr_policy_create,
 				.cli_show = cli_show_te_path_sr_policy,
 				.destroy = pathd_te_sr_policy_destroy,
+				.get_next = pathd_te_sr_policy_get_next,
+				.get_keys = pathd_te_sr_policy_get_keys,
+				.lookup_entry = pathd_te_sr_policy_lookup_entry,
 			}
 		},
 		{
@@ -81,12 +84,21 @@ const struct frr_yang_module_info frr_pathd_info = {
 				.cli_show = cli_show_te_path_sr_policy_candidate_path,
 				.destroy = pathd_te_sr_policy_candidate_path_destroy,
 				.apply_finish = pathd_te_sr_policy_candidate_path_apply_finish,
+				.get_next = pathd_te_sr_policy_candidate_path_get_next,
+				.get_keys = pathd_te_sr_policy_candidate_path_get_keys,
+				.lookup_entry = pathd_te_sr_policy_candidate_path_lookup_entry,
 			}
 		},
 		{
 			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/name",
 			.cbs = {
 				.modify = pathd_te_sr_policy_candidate_path_name_modify,
+			}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/is-best-candidate-path",
+			.cbs = {
+				.get_elem = pathd_te_sr_policy_candidate_path_is_best_candidate_path_get_elem,
 			}
 		},
 		{
