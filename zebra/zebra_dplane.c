@@ -1023,6 +1023,11 @@ uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rinfo.zd_old_distance;
 }
 
+/*
+ * Set the nexthops associated with a context: note that processing code
+ * may well expect that nexthops are in canonical (sorted) order, so we
+ * will enforce that here.
+ */
 void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -1031,7 +1036,7 @@ void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh)
 		nexthops_free(ctx->u.rinfo.zd_ng.nexthop);
 		ctx->u.rinfo.zd_ng.nexthop = NULL;
 	}
-	copy_nexthops(&(ctx->u.rinfo.zd_ng.nexthop), nh, NULL);
+	nexthop_group_copy_nh_sorted(&(ctx->u.rinfo.zd_ng), nh);
 }
 
 const struct nexthop_group *dplane_ctx_get_ng(
