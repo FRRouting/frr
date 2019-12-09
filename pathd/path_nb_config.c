@@ -342,3 +342,9 @@ int pathd_te_sr_policy_candidate_path_segment_list_name_modify(
 
 	return NB_OK;
 }
+
+int pathd_te_sr_policy_candidate_path_segment_list_name_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}

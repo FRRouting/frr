@@ -67,6 +67,8 @@ int pathd_te_sr_policy_candidate_path_type_modify(
 	struct nb_cb_modify_args *args);
 int pathd_te_sr_policy_candidate_path_segment_list_name_modify(
 	struct nb_cb_modify_args *args);
+int pathd_te_sr_policy_candidate_path_segment_list_name_destroy(
+	struct nb_cb_destroy_args *args);
 
 /* Optional 'apply_finish' callbacks. */
 void pathd_te_sr_policy_candidate_path_apply_finish(

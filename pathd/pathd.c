@@ -182,17 +182,26 @@ void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 
 void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy)
 {
-	if (RB_EMPTY(te_candidate_path_instance_head,
-		     &te_sr_policy->candidate_paths)) {
+	struct te_candidate_path *best_candidate_path = NULL;
+	struct te_candidate_path *candidate_path;
+	RB_FOREACH_REVERSE (candidate_path, te_candidate_path_instance_head,
+			    &te_sr_policy->candidate_paths) {
+		/* search for highest preference with existing segment list name
+		 */
+		if (candidate_path->segment_list_name) {
+			best_candidate_path = candidate_path;
+			break;
+		}
+	}
+
+	if (!best_candidate_path
+	    || RB_EMPTY(te_candidate_path_instance_head,
+			&te_sr_policy->candidate_paths)) {
 		/* delete the LSP from Zebra */
 		te_sr_policy->best_candidate_path_key = 0;
 		path_zebra_delete_lsp(te_sr_policy->binding_sid);
 		return;
 	}
-
-	struct te_candidate_path *best_candidate_path =
-		RB_MAX(te_candidate_path_instance_head,
-		       &te_sr_policy->candidate_paths);
 
 	struct te_candidate_path *former_best_candidate_path;
 	if (te_sr_policy->best_candidate_path_key > 0) {

@@ -125,6 +125,7 @@ const struct frr_yang_module_info frr_pathd_info = {
 		{
 			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/segment-list-name",
 			.cbs = {
+				.destroy = pathd_te_sr_policy_candidate_path_segment_list_name_destroy,
 				.modify = pathd_te_sr_policy_candidate_path_segment_list_name_modify,
 			}
 		},

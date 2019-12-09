@@ -124,7 +124,6 @@ module frr-pathd {
         leaf segment-list-name {
           description
             "The name of the Segment List to use as LSP.";
-          mandatory true;
           type leafref {
             path ../../../segment-list/name;
           }
