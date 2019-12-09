@@ -164,7 +164,7 @@ int pathd_te_sr_policy_name_modify(struct nb_cb_modify_args *args)
 
 	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
 	name = yang_dnode_get_string(args->dnode, NULL);
-	te_sr_policy_name_add(te_sr_policy, name);
+	te_sr_policy_name_add(te_sr_policy, strdup(name));
 
 	return NB_OK;
 }

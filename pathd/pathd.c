@@ -69,9 +69,8 @@ static inline int te_sr_policy_instance_compare(const struct te_sr_policy *a,
 	bool color_is_equal = !(a->color - b->color);
 	bool endpoint_is_equal =
 		(a->endpoint.ipaddr_v4.s_addr == b->endpoint.ipaddr_v4.s_addr);
-	bool name_is_equal = !(strcmp(a->name, b->name));
 
-	if ((color_is_equal && endpoint_is_equal) || name_is_equal)
+	if (color_is_equal && endpoint_is_equal)
 		return 0;
 
 	if (a->binding_sid && b->binding_sid)
