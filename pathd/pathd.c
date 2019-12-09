@@ -207,15 +207,19 @@ void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy)
 	best_candidate_path->is_best_candidate_path = true;
 	te_sr_policy->best_candidate_path_key = best_candidate_path->preference;
 
-	struct te_segment_list *te_segment_list_found;
-	struct te_segment_list te_segment_list_search;
-	te_segment_list_search.name = best_candidate_path->segment_list_name;
-	te_segment_list_found =
-		RB_FIND(te_segment_list_instance_head,
-			&te_segment_list_instances, &te_segment_list_search);
+	struct te_segment_list *te_segment_list_found =
+		te_segment_list_get(best_candidate_path->segment_list_name);
 
 	/* send the new active LSP to Zebra */
 	path_zebra_add_lsp(te_sr_policy->binding_sid, te_segment_list_found);
+}
+
+struct te_segment_list *te_segment_list_get(const char *name)
+{
+	struct te_segment_list te_segment_list_search;
+	te_segment_list_search.name = (char *)name;
+	return RB_FIND(te_segment_list_instance_head,
+		       &te_segment_list_instances, &te_segment_list_search);
 }
 
 struct te_candidate_path *find_candidate_path(struct te_sr_policy *te_sr_policy,

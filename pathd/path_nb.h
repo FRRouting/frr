@@ -24,6 +24,12 @@ extern const struct frr_yang_module_info frr_pathd_info;
 /* Mandatory callbacks. */
 int pathd_te_segment_list_create(struct nb_cb_create_args *args);
 int pathd_te_segment_list_destroy(struct nb_cb_destroy_args *args);
+
+const void *pathd_te_segment_list_get_next(struct nb_cb_get_next_args *args);
+int pathd_te_segment_list_get_keys(struct nb_cb_get_keys_args *args);
+const void *
+pathd_te_segment_list_lookup_entry(struct nb_cb_lookup_entry_args *args);
+
 int pathd_te_segment_list_segment_create(struct nb_cb_create_args *args);
 int pathd_te_segment_list_segment_destroy(struct nb_cb_destroy_args *args);
 int pathd_te_segment_list_segment_sid_value_modify(
