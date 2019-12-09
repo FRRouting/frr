@@ -458,8 +458,6 @@ int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
 	return vrrp_add_ip(vr, &ip);
 }
 
-
-
 int vrrp_del_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 {
 	struct listnode *ln, *nn;
@@ -2263,71 +2261,6 @@ void vrrp_if_address_del(struct interface *ifp)
 }
 
 /* Other ------------------------------------------------------------------- */
-
-int vrrp_config_write_interface(struct vty *vty)
-{
-	struct list *vrs = hash_to_list(vrrp_vrouters_hash);
-	struct listnode *ln, *ipln;
-	struct vrrp_vrouter *vr;
-	int writes = 0;
-
-	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
-		vty_frame(vty, "interface %s\n", vr->ifp->name);
-		++writes;
-
-		vty_out(vty, " vrrp %" PRIu8 "%s\n", vr->vrid,
-			vr->version == 2 ? " version 2" : "");
-		++writes;
-
-		if (vr->shutdown != vd.shutdown && ++writes)
-			vty_out(vty, " %svrrp %" PRIu8 " shutdown\n",
-				vr->shutdown ? "" : "no ", vr->vrid);
-
-		if (vr->preempt_mode != vd.preempt_mode && ++writes)
-			vty_out(vty, " %svrrp %" PRIu8 " preempt\n",
-				vr->preempt_mode ? "" : "no ", vr->vrid);
-
-		if (vr->accept_mode != vd.accept_mode && ++writes)
-			vty_out(vty, " %svrrp %" PRIu8 " accept\n",
-				vr->accept_mode ? "" : "no ", vr->vrid);
-
-		if (vr->advertisement_interval != vd.advertisement_interval
-		    && ++writes)
-			vty_out(vty,
-				" vrrp %" PRIu8
-				" advertisement-interval %d\n",
-				vr->vrid, vr->advertisement_interval * CS2MS);
-
-		if (vr->priority != vd.priority && ++writes)
-			vty_out(vty, " vrrp %" PRIu8 " priority %" PRIu8 "\n",
-				vr->vrid, vr->priority);
-
-		struct ipaddr *ip;
-
-		for (ALL_LIST_ELEMENTS_RO(vr->v4->addrs, ipln, ip)) {
-			char ipbuf[INET6_ADDRSTRLEN];
-
-			ipaddr2str(ip, ipbuf, sizeof(ipbuf));
-			vty_out(vty, " vrrp %" PRIu8 " ip %s\n", vr->vrid,
-				ipbuf);
-			++writes;
-		}
-
-		for (ALL_LIST_ELEMENTS_RO(vr->v6->addrs, ipln, ip)) {
-			char ipbuf[INET6_ADDRSTRLEN];
-
-			ipaddr2str(ip, ipbuf, sizeof(ipbuf));
-			vty_out(vty, " vrrp %" PRIu8 " ipv6 %s\n", vr->vrid,
-				ipbuf);
-			++writes;
-		}
-		vty_endframe(vty, "!\n");
-	}
-
-	list_delete(&vrs);
-
-	return writes;
-}
 
 int vrrp_config_write_global(struct vty *vty)
 {

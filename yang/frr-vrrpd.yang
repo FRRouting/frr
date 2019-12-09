@@ -28,63 +28,6 @@ module frr-vrrpd {
       "Initial revision.";
   }
 
-  grouping ip-vrrp-tracking-config {
-    description
-      "Configuration data for tracking interfaces
-       in a VRRP group";
-    leaf-list track-interface {
-      type frr-interface:interface-ref;
-      description
-        "Sets a list of one or more interfaces that should
-         be tracked for up/down events to dynamically change the
-         priority state of the VRRP group, and potentially
-         change the mastership if the tracked interface going
-         down lowers the priority sufficiently. Any of the tracked
-         interfaces going down will cause the priority to be lowered.
-         Some implementations may only support a single
-         tracked interface.";
-    }
-
-    leaf priority-decrement {
-      type uint8 {
-        range "0..254";
-      }
-      default "0";
-      description
-        "Set the value to subtract from priority when
-         the tracked interface goes down";
-    }
-  }
-
-  grouping ip-vrrp-tracking-state {
-    description
-      "Operational state data for tracking interfaces in a VRRP
-       group";
-  }
-
-  grouping ip-vrrp-tracking-top {
-    description
-      "Top-level grouping for VRRP interface tracking";
-    container interface-tracking {
-      description
-        "Top-level container for VRRP interface tracking";
-      container config {
-        description
-          "Configuration data for VRRP interface tracking";
-        uses ip-vrrp-tracking-config;
-      }
-
-      container state {
-        config false;
-        description
-          "Operational state data for VRRP interface tracking";
-        uses ip-vrrp-tracking-config;
-
-        uses ip-vrrp-tracking-state;
-      }
-    }
-  }
-
   grouping ip-vrrp-config {
     description
       "Configuration data for VRRP on IP interfaces";
@@ -213,16 +156,18 @@ module frr-vrrpd {
       type uint16 {
         range "0..4095";
       }
+      units "centiseconds";
       config false;
       description
-        "Advertisement interval contained in advertisements received from the Master, in milliseconds.";
+        "Advertisement interval contained in advertisements received from the Master.";
     }
 
     leaf skew-time {
       type uint16;
+      units "centiseconds";
       config false;
       description
-        "Time to skew Master_Down_Interval, in milliseconds.";
+        "Time to skew Master_Down_Interval.";
     }
 
     container counter {

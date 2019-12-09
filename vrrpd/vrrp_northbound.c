@@ -118,9 +118,7 @@ lib_interface_vrrp_vrrp_group_lookup_entry(const void *parent_list_entry,
 	uint32_t vrid = strtoul(keys->key[0], NULL, 10);
 	const struct interface *ifp = parent_list_entry;
 
-	vrrp_lookup(ifp, vrid);
-
-	return NULL;
+	return vrrp_lookup(ifp, vrid);
 }
 
 /*
@@ -148,6 +146,9 @@ lib_interface_vrrp_vrrp_group_version_modify(enum nb_event event,
 	return NB_OK;
 }
 
+/*
+ * Helper function for address list OP_MODIFY callbacks.
+ */
 static void vrrp_yang_add_del_virtual_address(const struct lyd_node *dnode,
 					      bool add)
 {
@@ -163,9 +164,6 @@ static void vrrp_yang_add_del_virtual_address(const struct lyd_node *dnode,
 
 	vrrp_check_start(vr);
 }
-
-
-//-----------
 
 /*
  * XPath:
@@ -401,11 +399,8 @@ lib_interface_vrrp_vrrp_group_v6_source_address_get_elem(const char *xpath,
 {
 	const struct vrrp_vrouter *vr = list_entry;
 	struct yang_data *val = NULL;
-	struct ipaddr ip;
 
-	memset(&ip, 0x00, sizeof(ip));
-
-	if (memcmp(&vr->v6->src.ipaddr_v6, &ip.ipaddr_v6, sizeof(ip.ipaddr_v6)))
+	if (ipaddr_isset(&vr->v6->src))
 		val = yang_data_new_ip(xpath, &vr->v6->src);
 
 	return val;

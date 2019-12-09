@@ -550,17 +550,6 @@ void vrrp_if_address_del(struct interface *ifp);
 /* Other ------------------------------------------------------------------- */
 
 /*
- * Write interface block-level configuration to vty.
- *
- * vty
- *    vty to write config to
- *
- * Returns:
- *    # of lines written
- */
-int vrrp_config_write_interface(struct vty *vty);
-
-/*
  * Write global level configuration to vty.
  *
  * vty

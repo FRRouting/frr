@@ -27,6 +27,7 @@
 #include "lib/prefix.h"
 #include "lib/termtable.h"
 #include "lib/vty.h"
+#include "lib/vrf.h"
 
 #include "vrrp.h"
 #include "vrrp_debug.h"
@@ -41,19 +42,8 @@
 #define VRRP_VRID_STR "Virtual Router ID\n"
 #define VRRP_PRIORITY_STR "Virtual Router Priority\n"
 #define VRRP_ADVINT_STR "Virtual Router Advertisement Interval\n"
-#define VRRP_IP_STR "Virtual Router IPv4 address\n"
+#define VRRP_IP_STR "Virtual Router IP address\n"
 #define VRRP_VERSION_STR "VRRP protocol version\n"
-
-#define VROUTER_GET_VTY(_vty, _ifp, _vrid, _vr)                                \
-	do {                                                                   \
-		_vr = vrrp_lookup(_ifp, _vrid);                                \
-		if (!_vr) {                                                    \
-			vty_out(_vty,                                          \
-				"%% Please configure VRRP instance %u\n",      \
-				(unsigned int)_vrid);                          \
-			return CMD_WARNING_CONFIG_FAILED;                      \
-		}                                                              \
-	} while (0)
 
 #define VRRP_XPATH_ENTRY VRRP_XPATH "[virtual-router-id='%ld']"
 
@@ -71,7 +61,7 @@ DEFPY(vrrp_vrid,
       VRRP_VERSION_STR
       VRRP_VERSION_STR)
 {
-	char valbuf[8];
+	char valbuf[20];
 
 	snprintf(valbuf, sizeof(valbuf), "%ld", version ? version : vd.version);
 
@@ -89,19 +79,11 @@ void cli_show_vrrp(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
 {
 	const char *vrid = yang_dnode_get_string(dnode, "./virtual-router-id");
 	const char *ver = yang_dnode_get_string(dnode, "./version");
-	const char *dver =
-		yang_get_default_string("%s/version", VRRP_XPATH_FULL);
 
-	char verstr[16] = {};
-
-	if (strmatch(dver, ver)) {
-		if (show_defaults)
-			snprintf(verstr, sizeof(verstr), "version %s", dver);
-	} else {
-		snprintf(verstr, sizeof(verstr), "version %s", ver);
-	}
-
-	vty_out(vty, " vrrp %s %s\n", vrid, verstr);
+	vty_out(vty, " vrrp %s", vrid);
+	if (show_defaults || !yang_dnode_is_default(dnode, "./version"))
+		vty_out(vty, " version %s", ver);
+	vty_out(vty, "\n");
 }
 
 /*
@@ -135,16 +117,30 @@ void cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
  */
 DEFPY(vrrp_priority,
       vrrp_priority_cmd,
-      "[no] vrrp (1-255)$vrid priority (1-254)",
+      "vrrp (1-255)$vrid priority (1-254)",
+      VRRP_STR
+      VRRP_VRID_STR
+      VRRP_PRIORITY_STR
+      "Priority value")
+{
+	nb_cli_enqueue_change(vty, "./priority", NB_OP_MODIFY, priority_str);
+
+	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/priority
+ */
+DEFPY(no_vrrp_priority,
+      no_vrrp_priority_cmd,
+      "no vrrp (1-255)$vrid priority [(1-254)]",
       NO_STR
       VRRP_STR
       VRRP_VRID_STR
       VRRP_PRIORITY_STR
       "Priority value")
 {
-	const char *val = no ? NULL : priority_str;
-
-	nb_cli_enqueue_change(vty, "./priority", NB_OP_MODIFY, val);
+	nb_cli_enqueue_change(vty, "./priority", NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
@@ -164,21 +160,33 @@ void cli_show_priority(struct vty *vty, struct lyd_node *dnode,
  */
 DEFPY(vrrp_advertisement_interval,
       vrrp_advertisement_interval_cmd,
-      "[no] vrrp (1-255)$vrid advertisement-interval (10-40950)",
-      NO_STR VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
+      "vrrp (1-255)$vrid advertisement-interval (10-40950)",
+      VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
       "Advertisement interval in milliseconds; must be multiple of 10")
 {
-	char valbuf[8];
-	const char *val;
+	char val[20];
 
 	/* all internal computations are in centiseconds */
 	advertisement_interval /= CS2MS;
-	snprintf(valbuf, sizeof(valbuf), "%ld", advertisement_interval);
-
-	val = no ? NULL : valbuf;
-
+	snprintf(val, sizeof(val), "%ld", advertisement_interval);
 	nb_cli_enqueue_change(vty, "./advertisement-interval", NB_OP_MODIFY,
 			      val);
+
+	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/advertisement-interval
+ */
+DEFPY(no_vrrp_advertisement_interval,
+      no_vrrp_advertisement_interval_cmd,
+      "no vrrp (1-255)$vrid advertisement-interval [(10-40950)]",
+      NO_STR VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
+      "Advertisement interval in milliseconds; must be multiple of 10")
+{
+	nb_cli_enqueue_change(vty, "./advertisement-interval", NB_OP_MODIFY,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
@@ -187,9 +195,10 @@ void cli_show_advertisement_interval(struct vty *vty, struct lyd_node *dnode,
 				     bool show_defaults)
 {
 	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
-	const char *advi = yang_dnode_get_string(dnode, NULL);
+	uint16_t advint = yang_dnode_get_uint16(dnode, NULL);
 
-	vty_out(vty, " vrrp %s advertisement-interval %s\n", vrid, advi);
+	vty_out(vty, " vrrp %s advertisement-interval %u\n", vrid,
+		advint * CS2MS);
 }
 
 /*
@@ -706,6 +715,35 @@ DEFUN_NOSH (show_debugging_vrrp,
 
 /* clang-format on */
 
+/*
+ * Write per interface VRRP config.
+ */
+static int vrrp_config_write_interface(struct vty *vty)
+{
+	struct vrf *vrf;
+	int write = 0;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		struct interface *ifp;
+
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			struct lyd_node *dnode;
+
+			dnode = yang_dnode_get(
+				running_config->dnode,
+				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
+				ifp->name, vrf->name);
+			if (dnode == NULL)
+				continue;
+
+			write = 1;
+			nb_cli_show_dnode_cmds(vty, dnode, false);
+		}
+	}
+
+	return write;
+}
+
 static struct cmd_node interface_node = {INTERFACE_NODE, "%s(config-if)# ", 1};
 static struct cmd_node debug_node = {DEBUG_NODE, "", 1};
 static struct cmd_node vrrp_node = {VRRP_NODE, "", 1};
@@ -727,7 +765,9 @@ void vrrp_vty_init(void)
 	install_element(INTERFACE_NODE, &vrrp_vrid_cmd);
 	install_element(INTERFACE_NODE, &vrrp_shutdown_cmd);
 	install_element(INTERFACE_NODE, &vrrp_priority_cmd);
+	install_element(INTERFACE_NODE, &no_vrrp_priority_cmd);
 	install_element(INTERFACE_NODE, &vrrp_advertisement_interval_cmd);
+	install_element(INTERFACE_NODE, &no_vrrp_advertisement_interval_cmd);
 	install_element(INTERFACE_NODE, &vrrp_ip_cmd);
 	install_element(INTERFACE_NODE, &vrrp_ip6_cmd);
 	install_element(INTERFACE_NODE, &vrrp_preempt_cmd);
