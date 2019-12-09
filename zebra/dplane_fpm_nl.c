@@ -34,8 +34,10 @@
 #include "lib/network.h"
 #include "lib/ns.h"
 #include "lib/frr_pthread.h"
+#include "zebra/interface.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_router.h"
+#include "zebra/zebra_vxlan_private.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/debug.h"
@@ -50,6 +52,7 @@ struct fpm_nl_ctx {
 	int socket;
 	bool connecting;
 	bool rib_complete;
+	bool rmac_complete;
 	struct sockaddr_storage addr;
 
 	/* data plane buffers. */
@@ -66,6 +69,8 @@ struct fpm_nl_ctx {
 	/* zebra events. */
 	struct thread *t_ribreset;
 	struct thread *t_ribwalk;
+	struct thread *t_rmacreset;
+	struct thread *t_rmacwalk;
 };
 
 /*
@@ -74,6 +79,8 @@ struct fpm_nl_ctx {
 static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx);
 static int fpm_rib_send(struct thread *t);
 static int fpm_rib_reset(struct thread *t);
+static int fpm_rmac_send(struct thread *t);
+static int fpm_rmac_reset(struct thread *t);
 
 /*
  * FPM functions.
@@ -96,6 +103,10 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 		thread_cancel_async(zrouter.master, &fnc->t_ribreset, NULL);
 	if (fnc->t_ribwalk)
 		thread_cancel_async(zrouter.master, &fnc->t_ribwalk, NULL);
+	if (fnc->t_rmacreset)
+		thread_cancel_async(zrouter.master, &fnc->t_rmacreset, NULL);
+	if (fnc->t_rmacwalk)
+		thread_cancel_async(zrouter.master, &fnc->t_rmacwalk, NULL);
 
 	thread_add_timer(fnc->fthread->master, fpm_connect, fnc, 3,
 			 &fnc->t_connect);
@@ -163,6 +174,8 @@ static int fpm_write(struct thread *t)
 		/* Ask zebra main thread to start walking the RIB table. */
 		thread_add_timer(zrouter.master, fpm_rib_send, fnc, 0,
 				 &fnc->t_ribwalk);
+		thread_add_timer(zrouter.master, fpm_rmac_send, fnc, 0,
+				 &fnc->t_rmacwalk);
 	}
 
 	frr_mutex_lock_autounlock(&fnc->obuf_mutex);
@@ -257,6 +270,8 @@ static int fpm_connect(struct thread *t)
 	/* Mark all routes as unsent. */
 	thread_add_timer(zrouter.master, fpm_rib_reset, fnc, 0,
 			 &fnc->t_ribreset);
+	thread_add_timer(zrouter.master, fpm_rmac_reset, fnc, 0,
+			 &fnc->t_rmacreset);
 
 	return 0;
 }
@@ -322,6 +337,24 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		}
 		break;
 
+	case DPLANE_OP_MAC_INSTALL:
+	case DPLANE_OP_MAC_DELETE:
+		rv = netlink_macfdb_update_ctx(ctx, nl_buf, sizeof(nl_buf));
+		if (rv <= 0) {
+			zlog_debug("%s: netlink_macfdb_update_ctx failed",
+				   __func__);
+			return 0;
+		}
+
+		nl_buf_len = (size_t)rv;
+		if (STREAM_WRITEABLE(fnc->obuf) < nl_buf_len) {
+			zlog_debug("%s: not enough output buffer (%ld vs %lu)",
+				   __func__, STREAM_WRITEABLE(fnc->obuf),
+				   nl_buf_len);
+			return -1;
+		}
+		break;
+
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
 	case DPLANE_OP_NH_DELETE:
@@ -332,8 +365,6 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_PW_UNINSTALL:
 	case DPLANE_OP_ADDR_INSTALL:
 	case DPLANE_OP_ADDR_UNINSTALL:
-	case DPLANE_OP_MAC_INSTALL:
-	case DPLANE_OP_MAC_DELETE:
 	case DPLANE_OP_NEIGH_INSTALL:
 	case DPLANE_OP_NEIGH_UPDATE:
 	case DPLANE_OP_NEIGH_DELETE:
@@ -438,6 +469,68 @@ static int fpm_rib_send(struct thread *t)
 	return 0;
 }
 
+/*
+ * The next three functions will handle RMAC enqueue.
+ */
+struct fpm_rmac_arg {
+	struct zebra_dplane_ctx *ctx;
+	struct fpm_nl_ctx *fnc;
+	zebra_l3vni_t *zl3vni;
+};
+
+static void fpm_enqueue_rmac_table(struct hash_backet *backet, void *arg)
+{
+	struct fpm_rmac_arg *fra = arg;
+	zebra_mac_t *zrmac = backet->data;
+	struct zebra_if *zif = fra->zl3vni->vxlan_if->info;
+	const struct zebra_l2info_vxlan *vxl = &zif->l2info.vxl;
+	struct zebra_if *br_zif;
+	vlanid_t vid;
+	bool sticky;
+
+	/* Entry already sent. */
+	if (CHECK_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT))
+		return;
+
+	sticky = !!CHECK_FLAG(zrmac->flags,
+			      (ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW));
+	br_zif = (struct zebra_if *)(zif->brslave_info.br_if->info);
+	vid = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) ? vxl->access_vlan : 0;
+
+	dplane_ctx_reset(fra->ctx);
+	dplane_ctx_set_op(fra->ctx, DPLANE_OP_MAC_INSTALL);
+	dplane_mac_init(fra->ctx, fra->zl3vni->vxlan_if,
+			zif->brslave_info.br_if, vid, &zrmac->macaddr,
+			zrmac->fwd_info.r_vtep_ip, sticky);
+	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
+		zlog_debug("%s: buffer full, come back later",
+			   __func__);
+		thread_add_timer(zrouter.master, fpm_rmac_send,
+				 fra->fnc, 1, &fra->fnc->t_rmacwalk);
+	}
+}
+
+static void fpm_enqueue_l3vni_table(struct hash_backet *backet, void *arg)
+{
+	struct fpm_rmac_arg *fra = arg;
+	zebra_l3vni_t *zl3vni = backet->data;
+
+	fra->zl3vni = zl3vni;
+	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, zl3vni);
+}
+
+static int fpm_rmac_send(struct thread *t)
+{
+	struct fpm_rmac_arg fra;
+
+	fra.fnc = THREAD_ARG(t);
+	fra.ctx = dplane_ctx_alloc();
+	hash_iterate(zrouter.l3vni_table, fpm_enqueue_l3vni_table, &fra);
+	dplane_ctx_fini(&fra.ctx);
+
+	return 0;
+}
+
 /**
  * Resets the RIB FPM flags so we send all routes again.
  */
@@ -462,6 +555,30 @@ static int fpm_rib_reset(struct thread *t)
 			UNSET_FLAG(dest->flags, RIB_DEST_UPDATE_FPM);
 		}
 	}
+
+	return 0;
+}
+
+/*
+ * The next three function will handle RMAC table reset.
+ */
+static void fpm_unset_rmac_table(struct hash_backet *backet, void *arg)
+{
+	zebra_mac_t *zrmac = backet->data;
+
+	UNSET_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT);
+}
+
+static void fpm_unset_l3vni_table(struct hash_backet *backet, void *arg)
+{
+	zebra_l3vni_t *zl3vni = backet->data;
+
+	hash_iterate(zl3vni->rmac_table, fpm_unset_rmac_table, zl3vni);
+}
+
+static int fpm_rmac_reset(struct thread *t)
+{
+	hash_iterate(zrouter.l3vni_table, fpm_unset_l3vni_table, NULL);
 
 	return 0;
 }
