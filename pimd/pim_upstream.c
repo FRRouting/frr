@@ -884,7 +884,6 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		}
 
 		if (up->rpf.source_nexthop.interface) {
-			pim_ifp = up->rpf.source_nexthop.interface->info;
 			pim_upstream_mroute_iif_update(up->channel_oil,
 					__func__);
 		}
