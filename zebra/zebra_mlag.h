@@ -64,6 +64,9 @@ void zebra_mlag_send_register(void);
 void zebra_mlag_send_deregister(void);
 void zebra_mlag_handle_process_state(enum zebra_mlag_state state);
 void zebra_mlag_process_mlag_data(uint8_t *data, uint32_t len);
+int32_t zebra_mlag_test_mlag_internal(const char *none, const char *primary,
+				      const char *secondary);
+
 /*
  * ProtoBuffer Api's
  */
@@ -71,4 +74,5 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s,
 					   uint32_t *msg_type);
 int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 				       uint32_t len);
+void zebra_mlag_vty_init(void);
 #endif

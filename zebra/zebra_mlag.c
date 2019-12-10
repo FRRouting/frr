@@ -32,10 +32,6 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/debug.h"
 
-#ifndef VTYSH_EXTRACT_PL
-#include "zebra/zebra_mlag_clippy.c"
-#endif
-
 DEFINE_HOOK(zebra_mlag_private_write_data,
 	    (uint8_t *data, uint32_t len), (data, len))
 DEFINE_HOOK(zebra_mlag_private_monitor_state, (), ())
@@ -586,29 +582,8 @@ enum mlag_role zebra_mlag_get_role(void)
 	return zrouter.mlag_info.role;
 }
 
-DEFUN_HIDDEN (show_mlag,
-	      show_mlag_cmd,
-	      "show zebra mlag",
-	      SHOW_STR
-	      ZEBRA_STR
-	      "The mlag role on this machine\n")
-{
-	char buf[MLAG_ROLE_STRSIZE];
-
-	vty_out(vty, "MLag is configured to: %s\n",
-		mlag_role2str(zrouter.mlag_info.role, buf, sizeof(buf)));
-
-	return CMD_SUCCESS;
-}
-
-DEFPY_HIDDEN(test_mlag, test_mlag_cmd,
-	     "test zebra mlag <none$none|primary$primary|secondary$secondary>",
-	     "Test code\n"
-	     ZEBRA_STR
-	     "Modify the Mlag state\n"
-	     "Mlag is not setup on the machine\n"
-	     "Mlag is setup to be primary\n"
-	     "Mlag is setup to be the secondary\n")
+int32_t zebra_mlag_test_mlag_internal(const char *none, const char *primary,
+				      const char *secondary)
 {
 	enum mlag_role orig = zrouter.mlag_info.role;
 	char buf1[MLAG_ROLE_STRSIZE], buf2[MLAG_ROLE_STRSIZE];
@@ -650,8 +625,7 @@ DEFPY_HIDDEN(test_mlag, test_mlag_cmd,
 
 void zebra_mlag_init(void)
 {
-	install_element(VIEW_NODE, &show_mlag_cmd);
-	install_element(ENABLE_NODE, &test_mlag_cmd);
+	zebra_mlag_vty_init();
 
 	/*
 	 * Intialiaze the MLAG Global variables
