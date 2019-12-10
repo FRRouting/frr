@@ -30,6 +30,7 @@
 #include "config.h" /* Include this explicitly */
 #include "lib/zebra.h"
 #include "lib/libfrr.h"
+#include "lib/command.h"
 #include "lib/memory.h"
 #include "lib/network.h"
 #include "lib/ns.h"
@@ -50,6 +51,7 @@ static const char *prov_name = "dplane_fpm_nl";
 struct fpm_nl_ctx {
 	/* data plane connection. */
 	int socket;
+	bool disabled;
 	bool connecting;
 	bool rib_complete;
 	bool rmac_complete;
@@ -65,22 +67,148 @@ struct fpm_nl_ctx {
 	struct thread *t_connect;
 	struct thread *t_read;
 	struct thread *t_write;
+	struct thread *t_event;
 
 	/* zebra events. */
 	struct thread *t_ribreset;
 	struct thread *t_ribwalk;
 	struct thread *t_rmacreset;
 	struct thread *t_rmacwalk;
+} * gfnc;
+
+enum fpm_nl_events {
+	/* Ask for FPM to reconnect the external server. */
+	FNE_RECONNECT,
+	/* Disable FPM. */
+	FNE_DISABLE,
 };
 
 /*
  * Prototypes.
  */
+static int fpm_process_event(struct thread *t);
 static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx);
 static int fpm_rib_send(struct thread *t);
 static int fpm_rib_reset(struct thread *t);
 static int fpm_rmac_send(struct thread *t);
 static int fpm_rmac_reset(struct thread *t);
+
+/*
+ * CLI.
+ */
+DEFUN(fpm_set_address, fpm_set_address_cmd,
+      "fpm address <A.B.C.D|X:X::X:X> [port (1-65535)]",
+      "Forwarding Plane Manager configuration\n"
+      "FPM remote listening server address\n"
+      "Remote IPv4 FPM server\n"
+      "Remote IPv6 FPM server\n"
+      "FPM remote listening server port\n"
+      "Remote FPM server port\n")
+{
+	struct sockaddr_in *sin;
+	struct sockaddr_in6 *sin6;
+	uint16_t port = 0;
+	uint8_t naddr[INET6_BUFSIZ];
+
+	if (argc == 5)
+		port = strtol(argv[4]->arg, NULL, 10);
+
+	/* Handle IPv4 addresses. */
+	if (inet_pton(AF_INET, argv[2]->arg, naddr) == 1) {
+		sin = (struct sockaddr_in *)&gfnc->addr;
+
+		memset(sin, 0, sizeof(*sin));
+		sin->sin_family = AF_INET;
+		sin->sin_port =
+			port ? htons(port) : htons(SOUTHBOUND_DEFAULT_PORT);
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+		sin->sin_len = sizeof(*sin);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
+		memcpy(&sin->sin_addr, naddr, sizeof(sin->sin_addr));
+
+		goto ask_reconnect;
+	}
+
+	/* Handle IPv6 addresses. */
+	if (inet_pton(AF_INET6, argv[2]->arg, naddr) != 1) {
+		vty_out(vty, "%% Invalid address: %s\n", argv[2]->arg);
+		return CMD_WARNING;
+	}
+
+	sin6 = (struct sockaddr_in6 *)&gfnc->addr;
+	memset(sin6, 0, sizeof(*sin6));
+	sin6->sin6_family = AF_INET6;
+	sin6->sin6_port = port ? htons(port) : htons(SOUTHBOUND_DEFAULT_PORT);
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+	sin6->sin6_len = sizeof(*sin6);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
+	memcpy(&sin6->sin6_addr, naddr, sizeof(sin6->sin6_addr));
+
+ask_reconnect:
+	thread_add_event(gfnc->fthread->master, fpm_process_event, gfnc,
+			 FNE_RECONNECT, &gfnc->t_event);
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_fpm_set_address, no_fpm_set_address_cmd,
+      "no fpm address [<A.B.C.D|X:X::X:X> [port <1-65535>]]",
+      NO_STR
+      "Forwarding Plane Manager configuration\n"
+      "FPM remote listening server address\n"
+      "Remote IPv4 FPM server\n"
+      "Remote IPv6 FPM server\n"
+      "FPM remote listening server port\n"
+      "Remote FPM server port\n")
+{
+	thread_add_event(gfnc->fthread->master, fpm_process_event, gfnc,
+			 FNE_DISABLE, &gfnc->t_event);
+	return CMD_SUCCESS;
+}
+
+static int fpm_write_config(struct vty *vty)
+{
+	struct sockaddr_in *sin;
+	struct sockaddr_in6 *sin6;
+	int written = 0;
+	char addrstr[INET6_ADDRSTRLEN];
+
+	if (gfnc->disabled)
+		return written;
+
+	switch (gfnc->addr.ss_family) {
+	case AF_INET:
+		written = 1;
+		sin = (struct sockaddr_in *)&gfnc->addr;
+		inet_ntop(AF_INET, &sin->sin_addr, addrstr, sizeof(addrstr));
+		vty_out(vty, "fpm address %s", addrstr);
+		if (sin->sin_port != htons(SOUTHBOUND_DEFAULT_PORT))
+			vty_out(vty, " port %d", ntohs(sin->sin_port));
+
+		vty_out(vty, "\n");
+		break;
+	case AF_INET6:
+		written = 1;
+		sin6 = (struct sockaddr_in6 *)&gfnc->addr;
+		inet_ntop(AF_INET, &sin6->sin6_addr, addrstr, sizeof(addrstr));
+		vty_out(vty, "fpm address %s", addrstr);
+		if (sin6->sin6_port != htons(SOUTHBOUND_DEFAULT_PORT))
+			vty_out(vty, " port %d", ntohs(sin6->sin6_port));
+
+		vty_out(vty, "\n");
+		break;
+
+	default:
+		break;
+	}
+
+	return written;
+}
+
+struct cmd_node fpm_node = {
+	.node = VTY_NODE,
+	.prompt = "",
+	.vtysh = 1,
+};
 
 /*
  * FPM functions.
@@ -92,8 +220,12 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 	/* Grab the lock to empty the stream and stop the zebra thread. */
 	frr_mutex_lock_autounlock(&fnc->obuf_mutex);
 
-	close(fnc->socket);
-	fnc->socket = -1;
+	/* Avoid calling close on `-1`. */
+	if (fnc->socket != -1) {
+		close(fnc->socket);
+		fnc->socket = -1;
+	}
+
 	stream_reset(fnc->ibuf);
 	stream_reset(fnc->obuf);
 	THREAD_OFF(fnc->t_read);
@@ -107,6 +239,10 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 		thread_cancel_async(zrouter.master, &fnc->t_rmacreset, NULL);
 	if (fnc->t_rmacwalk)
 		thread_cancel_async(zrouter.master, &fnc->t_rmacwalk, NULL);
+
+	/* FPM is disabled, don't attempt to connect. */
+	if (fnc->disabled)
+		return;
 
 	thread_add_timer(fnc->fthread->master, fpm_connect, fnc, 3,
 			 &fnc->t_connect);
@@ -222,11 +358,13 @@ static int fpm_write(struct thread *t)
 static int fpm_connect(struct thread *t)
 {
 	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
-	struct sockaddr_in *sin;
+	struct sockaddr_in *sin = (struct sockaddr_in *)&fnc->addr;
+	struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&fnc->addr;
+	socklen_t slen;
 	int rv, sock;
 	char addrstr[INET6_ADDRSTRLEN];
 
-	sock = socket(AF_INET, SOCK_STREAM, 0);
+	sock = socket(fnc->addr.ss_family, SOCK_STREAM, 0);
 	if (sock == -1) {
 		zlog_err("%s: fpm connection failed: %s", __func__,
 			 strerror(errno));
@@ -237,20 +375,18 @@ static int fpm_connect(struct thread *t)
 
 	set_nonblocking(sock);
 
-	sin = (struct sockaddr_in *)&fnc->addr;
-	memset(sin, 0, sizeof(*sin));
-	sin->sin_family = AF_INET;
-	sin->sin_addr.s_addr = htonl(SOUTHBOUND_DEFAULT_ADDR);
-	sin->sin_port = htons(SOUTHBOUND_DEFAULT_PORT);
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	sin->sin_len = sizeof(sin);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+	if (fnc->addr.ss_family == AF_INET) {
+		inet_ntop(AF_INET, &sin->sin_addr, addrstr, sizeof(addrstr));
+		slen = sizeof(*sin);
+	} else {
+		inet_ntop(AF_INET6, &sin6->sin6_addr, addrstr, sizeof(addrstr));
+		slen = sizeof(*sin6);
+	}
 
-	inet_ntop(AF_INET, &sin->sin_addr, addrstr, sizeof(addrstr));
 	zlog_debug("%s: attempting to connect to %s:%d", __func__, addrstr,
 		   ntohs(sin->sin_port));
 
-	rv = connect(sock, (struct sockaddr *)sin, sizeof(*sin));
+	rv = connect(sock, (struct sockaddr *)&fnc->addr, slen);
 	if (rv == -1 && errno != EINPROGRESS) {
 		close(sock);
 		zlog_warn("%s: fpm connection failed: %s", __func__,
@@ -583,6 +719,37 @@ static int fpm_rmac_reset(struct thread *t)
 	return 0;
 }
 
+/**
+ * Handles external (e.g. CLI, data plane or others) events.
+ */
+static int fpm_process_event(struct thread *t)
+{
+	struct fpm_nl_ctx *fnc = THREAD_ARG(t);
+	int event = THREAD_VAL(t);
+
+	switch (event) {
+	case FNE_DISABLE:
+		zlog_debug("%s: manual FPM disable event", __func__);
+		fnc->disabled = true;
+
+		/* Call reconnect to disable timers and clean up context. */
+		fpm_reconnect(fnc);
+		break;
+
+	case FNE_RECONNECT:
+		zlog_debug("%s: manual FPM reconnect event", __func__);
+		fnc->disabled = false;
+		fpm_reconnect(fnc);
+		break;
+
+	default:
+		zlog_debug("%s: unhandled event %d", __func__, event);
+		break;
+	}
+
+	return 0;
+}
+
 /*
  * Data plane functions.
  */
@@ -597,9 +764,7 @@ static int fpm_nl_start(struct zebra_dplane_provider *prov)
 	fnc->obuf = stream_new(NL_PKT_BUF_SIZE * 128);
 	pthread_mutex_init(&fnc->obuf_mutex, NULL);
 	fnc->socket = -1;
-
-	thread_add_timer(fnc->fthread->master, fpm_connect, fnc, 1,
-			 &fnc->t_connect);
+	fnc->disabled = true;
 
 	return 0;
 }
@@ -646,17 +811,20 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 static int fpm_nl_new(struct thread_master *tm)
 {
 	struct zebra_dplane_provider *prov = NULL;
-	struct fpm_nl_ctx *fnc;
 	int rv;
 
-	fnc = calloc(1, sizeof(*fnc));
+	gfnc = calloc(1, sizeof(*gfnc));
 	rv = dplane_provider_register(prov_name, DPLANE_PRIO_POSTPROCESS,
 				      DPLANE_PROV_FLAG_THREADED, fpm_nl_start,
-				      fpm_nl_process, fpm_nl_finish, fnc,
+				      fpm_nl_process, fpm_nl_finish, gfnc,
 				      &prov);
 
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("%s register status: %d", prov_name, rv);
+
+	install_node(&fpm_node, fpm_write_config);
+	install_element(CONFIG_NODE, &fpm_set_address_cmd);
+	install_element(CONFIG_NODE, &no_fpm_set_address_cmd);
 
 	return 0;
 }
