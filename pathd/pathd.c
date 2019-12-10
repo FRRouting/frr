@@ -162,7 +162,7 @@ struct te_sr_policy *te_sr_policy_create(uint32_t color,
 
 void te_sr_policy_del(struct te_sr_policy *te_sr_policy)
 {
-	te_sr_policy_candidate_path_set_active(te_sr_policy);
+	path_zebra_delete_lsp(te_sr_policy->binding_sid);
 
 	free(te_sr_policy->name);
 	RB_REMOVE(te_sr_policy_instance_head, &te_sr_policy_instances,
@@ -193,6 +193,7 @@ void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy)
 			break;
 		}
 	}
+
 
 	if (!best_candidate_path
 	    || RB_EMPTY(te_candidate_path_instance_head,
@@ -294,8 +295,6 @@ void te_sr_policy_candidate_path_delete(
 
 	RB_REMOVE(te_candidate_path_instance_head,
 		  &te_sr_policy->candidate_paths, te_candidate_path);
-
-	te_sr_policy_candidate_path_set_active(te_sr_policy);
 }
 
 struct te_sr_policy *te_sr_policy_get(uint32_t color, struct ipaddr *endpoint)
