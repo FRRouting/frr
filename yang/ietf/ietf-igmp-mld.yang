@@ -1,0 +1,287 @@
+module ietf-igmp-mld {
+  yang-version 1.1;
+  namespace "urn:ietf:params:xml:ns:yang:ietf-igmp-mld";
+  prefix igmp-mld;
+
+  import ietf-routing-types {
+    prefix "rt-types";
+    reference
+      "RFC 8294: Common YANG Data Types for the Routing Area";
+  }
+
+  import ietf-routing {
+    prefix "rt";
+    reference
+      "RFC 8349: A YANG Data Model for Routing Management (NMDA
+       Version)";
+  }
+
+  import ietf-interfaces {
+    prefix "if";
+    reference "RFC 8343: A YANG Data Model for Interface Management";
+  }
+
+  import ietf-ip {
+    prefix ip;
+    reference "RFC 8344: A YANG Data Model for IP Management";
+  }
+
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
+  organization
+    "IETF PIM Working Group";
+  contact
+    "WG Web:   <http://tools.ietf.org/wg/pim/>
+     WG List:  <mailto:pim@ietf.org>
+
+     Editor:   Xufeng Liu
+               <mailto:xufeng.liu.ietf@gmail.com>
+
+     Editor:   Feng Guo
+               <mailto:guofeng@huawei.com>
+
+     Editor:   Mahesh Sivakumar
+               <mailto:sivakumar.mahesh@gmail.com>
+
+     Editor:   Pete McAllister
+               <mailto:pete.mcallister@metaswitch.com>
+
+     Editor:   Anish Peter
+               <mailto:anish.ietf@gmail.com>";
+
+  description
+    "The module defines the configuration and operational state for
+     the Internet Group Management Protocol (IGMP) and Multicast
+     Listener Discovery (MLD) protocols.
+
+     Copyright (c) 2019 IETF Trust and the persons identified as
+     authors of the code.  All rights reserved.
+
+     Redistribution and use in source and binary forms, with or
+     without modification, is permitted pursuant to, and subject to
+     the license terms contained in, the Simplified BSD License set
+     forth in Section 4.c of the IETF Trust's Legal Provisions
+     Relating to IETF Documents
+     (http://trustee.ietf.org/license-info).
+
+     This version of this YANG module is part of RFC XXXX; see the
+     RFC itself for full legal notices.";
+
+  // RFC Ed.: replace XXXX with actual RFC number and remove
+  // this note
+  revision 2019-06-12 {
+    description
+      "Initial revision.";
+    reference
+      "RFC XXXX: A YANG Data Model for IGMP and MLD";
+  }
+
+  /*
+   * Features
+   */
+  feature feature-igmp {
+    description
+      "Support IGMP protocol for IPv4 group membership record.";
+  }
+
+  feature intf-static-group {
+    description
+      "Support configuration of interface static-group.";
+  }
+
+  feature per-interface-config {
+    description
+      "Support per interface configuration.";
+  }
+
+  /*
+   * Identities
+   */
+  identity igmp {
+    base "rt:control-plane-protocol";
+    description "IGMP protocol.";
+    reference
+      "RFC 3376: Internet Group Management Protocol, Version 3.";
+  }
+
+  grouping interface-common-config-attributes {
+    description
+      "Configuration attributes applied to both the interface-global
+       level and interface level.";
+
+    leaf last-member-query-interval {
+      type uint16 {
+        range "1..1023";
+      }
+      units seconds;
+      description
+        "When used in IGMP schema, this leaf indicates the Last
+         Member Query Interval, which may be tuned to modify the
+         leave latency of the network;
+         when used in MLD schema, this leaf indicates the Last
+         Listener Query Interval, which may be tuned to modify the
+         leave latency of the network.
+         This leaf is not applicable for version 1 of the IGMP. For
+         version 2 and version 3 of the IGMP, and for all versions of
+         the MLD, the default value of this leaf is 1.
+         This leaf may be configured at the interface level or the
+         interface-global level, with precedence given to the value
+         at the interface level. If the leaf is not configured at
+         either level, the default value is used.";
+      reference
+        "RFC 2236. Sec. 8.8. RFC 3376. Sec. 8.8.
+         RFC 2710. Sec. 7.8. RFC 3810. Sec. 9.8.";
+    }
+    leaf query-interval {
+      type uint16 {
+        range "1..31744";
+      }
+      units seconds;
+      description
+        "The Query Interval is the interval between General Queries
+         sent by the Querier. In RFC 3376, the Querier's Query
+         Interval(QQI) is represented from the Querier's Query
+         Interval Code in query message as follows:
+         If QQIC < 128, QQI = QQIC.
+         If QQIC >= 128, QQIC represents a floating-point value as
+         follows:
+          0 1 2 3 4 5 6 7
+         +-+-+-+-+-+-+-+-+
+         |1| exp | mant  |
+         +-+-+-+-+-+-+-+-+
+         QQI = (mant | 0x10) << (exp + 3).
+         The maximum value of QQI is 31744.
+         The default value is 125.
+         This leaf may be configured at the interface level or the
+         interface-global level, with precedence given to the value
+         at the interface level. If the leaf is not configured at
+         either level, the default value is used.";
+      reference "RFC 3376. Sec. 4.1.7, 8.2, 8.14.2.";
+    }
+    leaf query-max-response-time {
+      type uint16 {
+        range "1..1023";
+      }
+      units seconds;
+      description
+        "Query maximum response time specifies the maximum time
+         allowed before sending a responding report.
+         The default value is 10.
+         This leaf may be configured at the interface level or the
+         interface-global level, with precedence given to the value
+         at the interface level. If the leaf is not configured at
+         either level, the default value is used.";
+      reference "RFC 3376. Sec. 4.1.1, 8.3, 8.14.3.";
+    }
+    leaf robustness-variable {
+      type uint8 {
+        range "1..7";
+      }
+      description
+        "Querier's Robustness Variable allows tuning for the
+         expected packet loss on a network.
+         The default value is 2.
+         This leaf may be configured at the interface level or the
+         interface-global level, with precedence given to the value
+         at the interface level. If the leaf is not configured at
+         either level, the default value is used.";
+      reference "RFC 3376. Sec. 4.1.6, 8.1, 8.14.1.";
+    }
+  } // interface-common-config-attributes
+
+  grouping interface-common-config-attributes-igmp {
+    description
+      "Configuration attributes applied to both the interface-global
+       level and interface level for IGMP.";
+
+    uses interface-common-config-attributes;
+    leaf version {
+      type uint8 {
+        range "1..3";
+      }
+      description
+        "IGMP version.
+         The default value is 2.
+         This leaf may be configured at the interface level or the
+         interface-global level, with precedence given to the value
+         at the interface level. If the leaf is not configured at
+         either level, the default value is used.";
+      reference "RFC 1112, RFC 2236, RFC 3376.";
+    }
+  }
+
+  grouping interface-config-attributes-igmp {
+    description
+      "Per interface configuration attributes for IGMP.";
+
+    uses interface-common-config-attributes-igmp;
+    list static-group {
+      if-feature intf-static-group;
+      key "group-addr source-addr";
+      description
+        "A static multicast route, (*,G) or (S,G).
+         The version of IGMP must be 3 to support (S,G).";
+
+      leaf group-addr {
+        type rt-types:ipv4-multicast-group-address;
+        description
+          "Multicast group IPv4 address.";
+      }
+      leaf source-addr {
+        type rt-types:ipv4-multicast-source-address;
+        description
+          "Multicast source IPv4 address.";
+      }
+    }
+  } // interface-config-attributes-igmp
+
+  /*
+   * Configuration and Operational state data nodes (NMDA version)
+   */
+  augment "/frr-vrf:lib/frr-vrf:vrf/"
+    + "rt:routing/rt:control-plane-protocols/"
+    + "rt:control-plane-protocol" {
+    when "derived-from-or-self(rt:type, 'igmp-mld:igmp')" {
+      description
+        "This augmentation is only valid for a control-plane
+         protocol instance of IGMP (type 'igmp').";
+    }
+    description
+      "IGMP augmentation to routing control plane protocol
+       configuration and state.";
+
+    container igmp {
+      if-feature feature-igmp;
+      description
+        "IGMP configuration and operational state data.";
+
+      container interfaces {
+        description
+          "Containing a list of interfaces.";
+
+        list interface {
+          key "interface-name";
+          description
+            "List of IGMP interfaces.";
+
+          leaf interface-name {
+            type if:interface-ref;
+            must "/if:interfaces/if:interface[if:name = current()]/"
+              + "ip:ipv4" {
+              error-message
+                "The interface must have IPv4 configured, either "
+                + "enabled or disabled.";
+            }
+            description
+              "Reference to an entry in the global interface list.";
+          }
+          uses interface-config-attributes-igmp {
+            if-feature per-interface-config;
+          }
+        } // interface
+      } // interfaces
+    } // igmp
+  } //augment
+}
