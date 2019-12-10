@@ -131,6 +131,10 @@ struct ospf {
 	 * config. */
 	uint8_t oi_running;
 
+#ifdef FUZZING
+	struct interface *fuzzing_packet_ifp;
+#endif
+
 	/* OSPF instance ID  */
 	unsigned short instance;
 
@@ -580,4 +584,10 @@ const char *ospf_vrf_id_to_name(vrf_id_t vrf_id);
 int ospf_area_nssa_no_summary_set(struct ospf *, struct in_addr);
 
 const char *ospf_get_name(const struct ospf *ospf);
+
+#ifdef FUZZING
+void add_ospf_interface(struct connected *co, struct ospf_area *area);
+struct ospf_area *ospf_area_new(struct ospf *ospf, struct in_addr area_id);
+#endif
+
 #endif /* _ZEBRA_OSPFD_H */

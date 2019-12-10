@@ -42,6 +42,11 @@
 #include "libfrr.h"
 #include "routemap.h"
 
+#ifdef FUZZING
+#include "sockopt.h"
+#include <netinet/ip.h>
+#endif
+
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
 #include "ospfd/ospf_asbr.h"
@@ -154,6 +159,81 @@ int main(int argc, char **argv)
 #endif /* SUPPORT_OSPF_API */
 
 	frr_preinit(&ospfd_di, argc, argv);
+
+
+#ifdef FUZZING
+	ospf_master_init(frr_init_fast());
+	ospf_debug_init();
+	ospf_vrf_init();
+
+	access_list_init();
+	prefix_list_init();
+
+	ospf_if_init();
+
+	ospf_vty_init();
+	ospf_vty_show_init();
+	ospf_vty_clear_init();
+
+	ospf_route_map_init();
+	ospf_opaque_init();
+
+	ospf_error_init();
+
+	/* Fuzz here */
+	bool created;
+	struct ospf *o = ospf_get_instance(instance, &created);
+
+	uint8_t *input;
+	int r = frrfuzz_read_input(&input);
+
+	/* Simulate the read process done by ospf_recv_packet */
+	stream_put(o->ibuf, input, r);
+	{
+		struct ip *iph;
+		uint16_t ip_len;
+
+		if ((unsigned int)r < sizeof(struct ip))
+			goto done;
+
+		iph = (struct ip *)STREAM_DATA(o->ibuf);
+		sockopt_iphdrincl_swab_systoh(iph);
+		ip_len = iph->ip_len;
+
+		// skipping platform #ifdefs as I test on linux right now
+		// skipping ifindex lookup as it will fail anyway
+
+		if (r != ip_len)
+			goto done;
+	}
+
+	struct prefix p;
+	struct interface *ifp = if_create_ifindex(69, 0);
+	str2prefix("11.0.2.0/24", &p);
+
+	struct in_addr in;
+	inet_pton(AF_INET, "0.0.0.0", &in);
+	struct ospf_area *a = ospf_area_new(o, in);
+
+	struct connected *c = connected_add_by_prefix(ifp, &p, NULL);
+	add_ospf_interface(c, a);
+
+	struct ospf_interface *oi = listhead(a->oiflist)->data;
+	if (!oi)
+		goto done;
+	oi->state = 7; // ISM_DR
+
+	// struct ospf_interface *oi = ospf_if_new(o, ifp, &p);
+	// oi->connected = c;
+
+	o->fuzzing_packet_ifp = ifp;
+
+	ospf_read_helper(o);
+
+done:
+	exit(0);
+#endif
+
 	frr_opt_add("n:a", longopts,
 		    "  -n, --instance     Set the instance id\n"
 		    "  -a, --apiserver    Enable OSPF apiserver\n");

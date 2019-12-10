@@ -2298,8 +2298,11 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 	msgh.msg_control = (caddr_t)buff;
 	msgh.msg_controllen = sizeof(buff);
 
+#ifndef FUZZING
 	ret = stream_recvmsg(ibuf, fd, &msgh, MSG_DONTWAIT,
 			     OSPF_MAX_PACKET_SIZE + 1);
+#endif
+
 	if (ret < 0) {
 		if (errno != EAGAIN && errno != EWOULDBLOCK)
 			flog_warn(EC_OSPF_PACKET, "stream_recvmsg failed: %s",
@@ -2928,12 +2931,7 @@ static int ospf_verify_header(struct stream *ibuf, struct ospf_interface *oi,
 	return 0;
 }
 
-enum ospf_read_return_enum {
-	OSPF_READ_ERROR,
-	OSPF_READ_CONTINUE,
-};
-
-static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
+enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 {
 	int ret;
 	struct stream *ibuf;
@@ -2944,8 +2942,13 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 	struct connected *c;
 	struct interface *ifp = NULL;
 
+#ifndef FUZZING
 	stream_reset(ospf->ibuf);
 	ibuf = ospf_recv_packet(ospf, ospf->fd, &ifp, ospf->ibuf);
+#else
+	ibuf = ospf->ibuf;
+	ifp = ospf->fuzzing_packet_ifp;
+#endif
 	if (ibuf == NULL)
 		return OSPF_READ_ERROR;
 

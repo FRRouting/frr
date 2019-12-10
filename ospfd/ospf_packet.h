@@ -162,4 +162,14 @@ extern const size_t ospf_packet_type_str_max;
 
 extern void ospf_proactively_arp(struct ospf_neighbor *);
 
+
+#ifdef FUZZING
+enum ospf_read_return_enum {
+	OSPF_READ_ERROR,
+	OSPF_READ_CONTINUE,
+};
+
+enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf);
+#endif
+
 #endif /* _ZEBRA_OSPF_PACKET_H */

@@ -286,8 +286,10 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	new->maxage_delay = OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT;
 	new->maxage_lsa = route_table_init();
 	new->t_maxage_walker = NULL;
+#ifndef FUZZING
 	thread_add_timer(master, ospf_lsa_maxage_walker, new,
 			 OSPF_LSA_MAXAGE_CHECK_INTERVAL, &new->t_maxage_walker);
+#endif
 
 	/* Distance table init. */
 	new->distance_table = route_table_init();
@@ -295,8 +297,10 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	new->lsa_refresh_queue.index = 0;
 	new->lsa_refresh_interval = OSPF_LSA_REFRESH_INTERVAL_DEFAULT;
 	new->t_lsa_refresher = NULL;
+#ifndef FUZZING
 	thread_add_timer(master, ospf_lsa_refresh_walker, new,
 			 new->lsa_refresh_interval, &new->t_lsa_refresher);
+#endif
 	new->lsa_refresher_started = monotime(NULL);
 
 	new->ibuf = stream_new(OSPF_MAX_PACKET_SIZE + 1);
@@ -316,7 +320,9 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 				__func__);
 		return new;
 	}
+#ifndef FUZZING
 	thread_add_read(master, ospf_read, new, new->fd, &new->t_read);
+#endif
 
 	return new;
 }
@@ -779,8 +785,7 @@ static void ospf_finish_final(struct ospf *ospf)
 
 
 /* allocate new OSPF Area object */
-static struct ospf_area *ospf_area_new(struct ospf *ospf,
-				       struct in_addr area_id)
+struct ospf_area *ospf_area_new(struct ospf *ospf, struct in_addr area_id)
 {
 	struct ospf_area *new;
 
@@ -921,7 +926,7 @@ void ospf_area_del_if(struct ospf_area *area, struct ospf_interface *oi)
 }
 
 
-static void add_ospf_interface(struct connected *co, struct ospf_area *area)
+void add_ospf_interface(struct connected *co, struct ospf_area *area)
 {
 	struct ospf_interface *oi;
 
