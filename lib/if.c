@@ -262,7 +262,9 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 			"/frr-interface:lib/interface[name='%s'][vrf='%s']/vrf",
 			ifp->name, old_vrf->name);
 		if (if_dnode) {
+			nb_running_unset_entry(if_dnode->parent);
 			yang_dnode_change_leaf(if_dnode, vrf->name);
+			nb_running_set_entry(if_dnode->parent, ifp);
 			running_config->version++;
 		}
 	}
