@@ -608,7 +608,7 @@ void skiplist_test(struct vty *vty)
 	struct skiplist *l;
 	register int i, k;
 	void *keys[sampleSize];
-	void *v;
+	void *v = NULL;
 
 	zlog_debug("%s: entry", __func__);
 
