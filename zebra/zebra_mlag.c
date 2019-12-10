@@ -27,6 +27,7 @@
 #include "mlag.h"
 
 #include "zebra/zebra_mlag.h"
+#include "zebra/zebra_mlag_vty.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zapi_msg.h"
@@ -653,7 +654,7 @@ void zebra_mlag_terminate(void)
  *  ProtoBuf Encoding APIs
  */
 
-#ifdef HAVE_PROTOBUF
+#ifdef HAVE_PROTOBUF_VERSION_3
 
 DEFINE_MTYPE_STATIC(ZEBRA, MLAG_PBUF, "ZEBRA MLAG PROTOBUF")
 

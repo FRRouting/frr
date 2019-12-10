@@ -25,7 +25,7 @@
 #include "command.h"
 
 #include "zebra_router.h"
-#include "zebra_mlag.h"
+#include "zebra_mlag_vty.h"
 #include "debug.h"
 #include "zapi_msg.h"
 
