@@ -120,6 +120,9 @@ struct zserv {
 	/* Router-id information. */
 	vrf_bitmap_t neighinfo[AFI_MAX];
 
+	/* nflog information. */
+	vrf_bitmap_t nfloginfo;
+
 	bool notify_owner;
 
 	/* Indicates if client is synchronous. */
@@ -136,6 +139,8 @@ struct zserv {
 	 */
 	bool mlag_updates_interested;
 	uint32_t mlag_reg_mask1;
+
+	bool nflog_enabled;
 
 	/* Statistics */
 	uint32_t redist_v4_add_cnt;

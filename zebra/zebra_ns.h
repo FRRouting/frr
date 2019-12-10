@@ -48,7 +48,9 @@ struct zebra_ns {
 	 */
 	struct nlsock netlink_dplane_out;
 	struct nlsock netlink_dplane_in;
+	int netlink_nflog_sock;  /* socket nflog events */
 	struct event *t_netlink;
+	struct event *t_netlink_nflog;
 
 	struct nlsock ge_netlink_cmd; /* command channel for generic netlink */
 #endif

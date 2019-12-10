@@ -26,11 +26,15 @@
 #include "mpls.h"
 #include "lib_errors.h"
 #include "hash.h"
+#include "zbuf.h"
+
+#include <linux/netfilter/nfnetlink_log.h>
 
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/rt.h"
+#include "zebra/interface.h"
 #include "zebra/debug.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/rt_netlink.h"
@@ -40,6 +44,8 @@
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/ge_netlink.h"
+#include "lib/znl.h"
+#include "zebra/zapi_msg.h"
 
 #ifndef SO_RCVBUFFORCE
 #define SO_RCVBUFFORCE  (33)
@@ -381,7 +387,23 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	nl->buflen = NL_RCV_PKT_BUF_SIZE;
 	nl->buf = XMALLOC(MTYPE_NL_BUF, nl->buflen);
 
+	if (nl_family == NETLINK_NETFILTER) {
+		int buf = 128 * 1024;
+
+		if (fcntl(sock, F_SETFL, fcntl(sock, F_GETFL, 0) | O_NONBLOCK) < 0)
+			goto error;
+		if (fcntl(sock, F_SETFD, FD_CLOEXEC) < 0)
+			goto error;
+		if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &buf, sizeof(buf)) < 0)
+			goto error;
+		if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &buf, sizeof(buf)) < 0)
+			goto error;
+	}
+
 	return ret;
+ error:
+	close(sock);
+	return -1;
 }
 
 /*
@@ -1746,6 +1768,120 @@ static bool kernel_netlink_nlsock_hash_equal(const void *arg1, const void *arg2)
 	return false;
 }
 
+int netlink_log_unregister(struct zebra_ns *zns, int group)
+{
+	EVENT_OFF(zns->t_netlink_nflog);
+	close(zns->netlink_nflog_sock);
+	zns->netlink_nflog_sock = -1;
+	return 0;
+}
+
+static void netlink_log_indication(struct zebra_ns *zns, struct nlmsghdr *msg,
+				   struct zbuf *zb)
+{
+	struct nfgenmsg *nf;
+	struct rtattr *rta;
+	struct zbuf rtapl, pktpl;
+	struct interface *ifp;
+	struct nfulnl_msg_packet_hdr *pkthdr = NULL;
+	uint32_t *in_ndx = NULL;
+
+	nf = znl_pull(zb, sizeof(*nf));
+	if (!nf)
+		return;
+	zlog_err("%s() : called", __func__);
+	memset(&pktpl, 0, sizeof(pktpl));
+	while ((rta = znl_rta_pull(zb, &rtapl)) != NULL) {
+		switch (rta->rta_type) {
+		case NFULA_PACKET_HDR:
+			pkthdr = znl_pull(&rtapl, sizeof(*pkthdr));
+			break;
+		case NFULA_IFINDEX_INDEV:
+			in_ndx = znl_pull(&rtapl, sizeof(*in_ndx));
+			break;
+		case NFULA_PAYLOAD:
+			pktpl = rtapl;
+			break;
+			/* NFULA_HWHDR exists and is supposed to contain source
+			 * hardware address. However, for ip_gre it seems to be
+			 * the nexthop destination address if the packet matches
+			 * route. */
+		}
+	}
+
+	if (!pkthdr || !in_ndx || !zbuf_used(&pktpl))
+		return;
+
+	ifp = if_lookup_by_index_per_ns(zns, htonl(*in_ndx));
+	if (!ifp)
+		return;
+	zsend_nflog_notify(ZEBRA_NFLOG_TRAFFIC_INDICATION, ifp,
+			   htons(pkthdr->hw_protocol),
+			   pktpl.head, zbuf_used(&pktpl));
+
+}
+
+static void netlink_log_recv(struct event *t)
+{
+	uint8_t buf[ZNL_BUFFER_SIZE];
+	int fd = EVENT_FD(t);
+	struct zbuf payload, zb;
+	struct nlmsghdr *n;
+	struct zebra_ns *zns = EVENT_ARG(t);
+
+	zns->t_netlink_nflog = NULL;
+
+	zbuf_init(&zb, buf, sizeof(buf), 0);
+	while (zbuf_recv(&zb, fd) > 0) {
+		while ((n = znl_nlmsg_pull(&zb, &payload)) != 0) {
+			zlog_debug("Netlink-log: Received msg_type %u, msg_flags %u",
+			       n->nlmsg_type, n->nlmsg_flags);
+			switch (n->nlmsg_type) {
+			case (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_PACKET:
+				netlink_log_indication(zns, n, &payload);
+				break;
+			}
+		}
+	}
+
+	event_add_read(zrouter.master, netlink_log_recv, zns,
+			fd,
+			&zns->t_netlink_nflog);
+	return;
+}
+
+/* Request for specific route information from the kernel */
+int netlink_log_register(struct zebra_ns *zns, int group)
+{
+	struct nlmsghdr *n;
+	struct nfgenmsg *nf;
+	struct nfulnl_msg_config_cmd cmd;
+	struct zbuf *zb = zbuf_alloc(512);
+
+	zns->netlink_nflog_sock = znl_open(NETLINK_NETFILTER, 0);
+	memset(&cmd, 0, sizeof(struct nfulnl_msg_config_cmd));
+	n = znl_nlmsg_push(zb, (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_CONFIG,
+			   NLM_F_REQUEST | NLM_F_ACK);
+	nf = znl_push(zb, sizeof(*nf));
+	*nf = (struct nfgenmsg){
+		.nfgen_family = AF_UNSPEC,
+		.version = NFNETLINK_V0,
+		.res_id = htons(group),
+	};
+	cmd.command = NFULNL_CFG_CMD_BIND;
+	znl_rta_push(zb, NFULA_CFG_CMD, &cmd, sizeof(cmd));
+	znl_nlmsg_complete(zb, n);
+
+	zbuf_send(zb, zns->netlink_nflog_sock);
+	zbuf_free(zb);
+	zns->t_netlink_nflog = NULL;
+	event_add_read(zrouter.master, netlink_log_recv, zns,
+			zns->netlink_nflog_sock,
+			&zns->t_netlink_nflog);
+
+	return 0;
+}
+
 /* Exported interface function.  This function simply calls
    netlink_socket (). */
 void kernel_init(struct zebra_ns *zns)
@@ -1849,6 +1985,8 @@ void kernel_init(struct zebra_ns *zns)
 
 	if (zns->ge_netlink_cmd.sock >= 0)
 		kernel_netlink_nlsock_insert(&zns->ge_netlink_cmd);
+
+	zns->netlink_nflog_sock = -1;
 
 	/*
 	 * SOL_NETLINK is not available on all platforms yet
@@ -1982,6 +2120,7 @@ static void kernel_nlsock_fini(struct nlsock *nls)
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
 	EVENT_OFF(zns->t_netlink);
+	EVENT_OFF(zns->t_netlink_nflog);
 
 	kernel_nlsock_fini(&zns->netlink);
 
@@ -1990,6 +2129,11 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 	kernel_nlsock_fini(&zns->netlink_dplane_in);
 
 	kernel_nlsock_fini(&zns->ge_netlink_cmd);
+
+	if (zns->netlink_nflog_sock >= 0) {
+		close(zns->netlink_nflog_sock);
+		zns->netlink_nflog_sock = -1;
+	}
 
 	/* During zebra shutdown, we need to leave the dataplane socket
 	 * around until all work is done.

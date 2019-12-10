@@ -3,7 +3,7 @@
  * Copyright (c) 2014-2015 Timo Teräs
  */
 
-#include "zbuf.h"
+#include <lib/zbuf.h>
 
 #define ZNL_BUFFER_SIZE		8192
 
