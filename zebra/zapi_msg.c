@@ -974,6 +974,36 @@ void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
 	zserv_send_message(client, s);
 }
 
+void zsend_nflog_notify(int cmd,
+			struct interface *ifp,
+			uint16_t protocol_type,
+			uint8_t *payload, int len)
+{
+	struct stream *s;
+	struct listnode *node, *nnode;
+	struct zserv *client;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Notifying Nflog entry (%u)", __PRETTY_FUNCTION__,
+			   cmd);
+
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+		if (!vrf_bitmap_check(client->nfloginfo, ifp->vrf_id))
+			continue;
+
+		s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+		zclient_create_header(s, cmd, ifp->vrf_id);
+		stream_putl(s, ifp->ifindex);
+		stream_putw(s, protocol_type);
+		stream_putl(s, len);
+		stream_put(s, payload, len);
+		stream_putw_at(s, 0, stream_get_endp(s));
+
+		zserv_send_message(client, s);
+	}
+}
+
 void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 				struct ipaddr *ipaddr, int ndm_state,
 				union sockunion *link_layer_ipv4)
@@ -2350,6 +2380,7 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 		vrf_bitmap_unset(client->ridinfo[afi], zvrf_id(zvrf));
 		vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
 	}
+	vrf_bitmap_unset(client->nfloginfo, zvrf_id(zvrf));
 }
 
 /*
@@ -3361,6 +3392,40 @@ static void zebra_redirect_interface(ZAPI_HANDLER_ARGS)
 	return;
 }
 
+static inline void zebra_nflog_register(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	int group;
+
+	s = msg;
+	STREAM_GETL(s, group);
+
+	if (vrf_bitmap_check(client->nfloginfo, zvrf_id(zvrf)))
+		return;
+	vrf_bitmap_set(client->nfloginfo, zvrf_id(zvrf));
+
+	kernel_nflog_register(zvrf, true, group);
+ stream_failure:
+	return;
+}
+
+static inline void zebra_nflog_unregister(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	int group;
+
+	s = msg;
+	STREAM_GETL(s, group);
+
+	if (!vrf_bitmap_check(client->nfloginfo, zvrf_id(zvrf)))
+		return;
+	vrf_bitmap_unset(client->nfloginfo, zvrf_id(zvrf));
+
+	kernel_nflog_register(zvrf, false, group);
+stream_failure:
+	return;
+}
+
 static inline void zebra_configure_arp(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
@@ -3663,6 +3728,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_GRE_GET] = zebra_gre_get,
 	[ZEBRA_GRE_SOURCE_SET] = zebra_gre_source_set,
 	[ZEBRA_REDIRECT_INTERFACE] = zebra_redirect_interface,
+	[ZEBRA_NFLOG_REGISTER] = zebra_nflog_register,
+	[ZEBRA_NFLOG_UNREGISTER] = zebra_nflog_unregister,
 };
 
 /*

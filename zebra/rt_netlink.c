@@ -28,6 +28,7 @@
 #include <linux/neighbour.h>
 #include <linux/rtnetlink.h>
 #include <linux/nexthop.h>
+#include <linux/netfilter/nfnetlink_log.h>
 
 /* Hack for GNU libc version 2. */
 #ifndef MSG_TRUNC
@@ -2686,6 +2687,28 @@ int netlink_nexthop_read(struct zebra_ns *zns)
 	return ret;
 }
 
+
+static int kernel_nflog_register_netlink_update(struct zebra_ns *zns, int nfgroup,
+						bool reg)
+{
+	if (reg)
+		netlink_log_register(zns, nfgroup);
+	else
+		netlink_log_unregister(zns, nfgroup);
+	return 0;
+}
+
+int kernel_nflog_register(struct zebra_vrf *zvrf, bool reg, int nfgroup)
+{
+	struct zebra_ns *zns = zvrf->zns;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s(): vr %u group %d, reg %s",
+			   __func__, zvrf->vrf->vrf_id, nfgroup, reg ? "on" : "off");
+	kernel_nflog_register_netlink_update(zns, nfgroup, reg);
+
+	return 0;
+}
 
 int kernel_neigh_update(int add, int ifindex, void *addr, char *lla, int llalen,
 			ns_id_t ns_id, uint8_t family, bool permanent)

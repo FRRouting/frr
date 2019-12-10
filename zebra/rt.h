@@ -73,6 +73,7 @@ extern int kernel_neigh_update(int cmd, int ifindex, void *addr, char *lla,
 			       bool permanent);
 extern int kernel_neigh_register(vrf_id_t vrf_id, struct zserv *client,
 				 bool reg);
+extern int kernel_nflog_register(struct zebra_vrf *zvrf, bool reg, int nfgroup);
 extern int kernel_interface_set_master(struct interface *master,
 				       struct interface *slave);
 
@@ -80,6 +81,9 @@ extern int mpls_kernel_init(void);
 
 extern uint32_t kernel_get_speed(struct interface *ifp, int *error);
 extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute);
+
+extern int netlink_log_register(struct zebra_ns *zns, int group);
+extern int netlink_log_unregister(struct zebra_ns *zns, int group);
 
 /*
  * Southbound Initialization routines to get initial starting

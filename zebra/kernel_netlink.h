@@ -140,6 +140,9 @@ extern int netlink_config_write_helper(struct vty *vty);
 extern void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold,
 					  bool set);
 
+#if 0
+extern int netlink_log_indication(struct nlmsghdr *h, ns_id_t ns_id);
+#endif
 #endif /* HAVE_NETLINK */
 
 #ifdef __cplusplus

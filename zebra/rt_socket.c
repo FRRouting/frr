@@ -362,6 +362,12 @@ enum zebra_dplane_result kernel_nexthop_update(struct zebra_dplane_ctx *ctx)
 	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 
+int kernel_nflog_register(struct zebra_vrf *zvrf, struct zserv *client, bool reg, int nfgroup)
+{
+	/* TODO */
+	return 0;
+}
+
 int kernel_neigh_register(vrf_id_t vrf_id, struct zserv *client, bool reg)
 {
 	/* TODO */

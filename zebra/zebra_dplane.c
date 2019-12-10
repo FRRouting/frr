@@ -4717,6 +4717,7 @@ static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
 
 #if defined(HAVE_NETLINK)
 	ns_info->is_cmd = true;
+	ns_info->is_netfilter = false;
 	ns_info->nls = zns->netlink_dplane;
 #endif /* NETLINK */
 }

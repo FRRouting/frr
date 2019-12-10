@@ -116,6 +116,11 @@ int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
 
 extern void zapi_opaque_free(struct opaque *opaque);
 
+extern void zsend_nflog_notify(int cmd,
+			       struct interface *ifp,
+			       uint16_t protocol_type,
+			       uint8_t *payload, int len);
+
 #ifdef __cplusplus
 }
 #endif

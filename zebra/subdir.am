@@ -121,6 +121,8 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_vxlan.c \
 	zebra/zebra_evpn_mh.c \
 	zebra/zserv.c \
+	zebra/znl.c \
+	zebra/zbuf.c \
 	# end
 
 clippy_scan += \
@@ -186,6 +188,9 @@ noinst_HEADERS += \
 	zebra/zebra_vxlan_private.h \
 	zebra/zebra_evpn_mh.h \
 	zebra/zserv.h \
+	zebra/znl.h \
+	zebra/zbuf.h \
+	zebra/list.h \
 	# end
 
 zebra_zebra_irdp_la_SOURCES = \
