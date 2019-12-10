@@ -2205,26 +2205,54 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 
 	/* Placeholder code for the Originator SRGB type */
 	else if (type == BGP_PREFIX_SID_ORIGINATOR_SRGB) {
-		if (STREAM_READABLE(peer->curr) < length
-		    || length != BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH) {
-			flog_err(EC_BGP_ATTR_LEN,
-				 "Prefix SID Originator SRGB length is %" PRIu16
-				 " instead of %u",
-				 length, BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH);
+		/*
+		 * ietf-idr-bgp-prefix-sid-05:
+		 *     Length is the total length of the value portion of the
+		 *     TLV: 2 + multiple of 6.
+		 *
+		 * peer->curr stream readp should be at the beginning of the 16
+		 * bit flag field at this point in the code.
+		 */
+
+		/*
+		 * Check that the TLV length field is sane: at least 2 bytes of
+		 * flag, and at least 1 SRGB (these are 6 bytes each)
+		 */
+		if (length < (2 + BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH)) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Prefix SID Originator SRGB length field claims length of %" PRIu16 " bytes, but the minimum for this TLV type is %u",
+				length,
+				2 + BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH);
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 				args->total);
 		}
 
-		/* Ignore flags */
+		/*
+		 * Check that we actually have at least as much data as
+		 * specified by the length field
+		 */
+		if (STREAM_READABLE(peer->curr) < length) {
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Prefix SID Originator SRGB specifies length %" PRIu16 ", but only %zu bytes remain",
+				 length, STREAM_READABLE(peer->curr));
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
+		}
+
+		/*
+		 * Check that the portion of the TLV containing the sequence of
+		 * SRGBs corresponds to a multiple of the SRGB size; to get
+		 * that length, we skip the 16 bit flags field
+		 */
 		stream_getw(peer->curr);
-
 		length -= 2;
-
 		if (length % BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH) {
 			flog_err(
 				EC_BGP_ATTR_LEN,
-				"Prefix SID Originator SRGB length is %d, it must be a multiple of %d ",
+				"Prefix SID Originator SRGB length field claims attribute SRGB sequence section is %" PRIu16 "bytes, but it must be a multiple of %u",
 				length, BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH);
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
