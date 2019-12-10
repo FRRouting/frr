@@ -305,6 +305,27 @@ int pathd_te_sr_policy_candidate_path_originator_modify(
 }
 
 /*
+ * XPath: /frr-pathd:pathd/sr-policy/candidate-path/discriminator
+ */
+int pathd_te_sr_policy_candidate_path_discriminator_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct te_candidate_path *te_candidate_path;
+	uint32_t discriminator;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	te_candidate_path = nb_running_get_entry(args->dnode, "..", true);
+	discriminator = yang_dnode_get_uint32(args->dnode, NULL);
+
+	te_sr_policy_candidate_path_discriminator_add(te_candidate_path,
+						      discriminator);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-pathd:pathd/sr-policy/candidate-path/type
  */
 int pathd_te_sr_policy_candidate_path_type_modify(

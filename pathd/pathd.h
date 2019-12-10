@@ -86,6 +86,9 @@ struct te_candidate_path {
 	/* The Originator */
 	struct ipaddr originator;
 
+	/* The Discriminator */
+	uint32_t discriminator;
+
 	/* Flag for best Candidate Path */
 	bool is_best_candidate_path;
 
@@ -161,6 +164,8 @@ void te_sr_policy_candidate_path_protocol_origin_add(
 	enum te_protocol_origin protocol_origin);
 void te_sr_policy_candidate_path_originator_add(
 	struct te_candidate_path *te_candidate_path, struct ipaddr *originator);
+void te_sr_policy_candidate_path_discriminator_add(
+	struct te_candidate_path *te_candidate_path, uint32_t discriminator);
 void te_sr_policy_candidate_path_type_add(
 	struct te_candidate_path *te_candidate_path,
 	enum te_candidate_path_type type);

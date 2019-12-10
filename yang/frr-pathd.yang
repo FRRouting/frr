@@ -112,6 +112,11 @@ module frr-pathd {
             "Indication for the endpoint of the origin of the Candidate Path.";
           mandatory true;
         }
+        leaf discriminator {
+          type uint32;
+          description "Candidate path distinguisher";
+          mandatory true;
+        }
         leaf type {
           description
             "Type of the Candidate Path.";

@@ -275,6 +275,12 @@ void te_sr_policy_candidate_path_originator_add(
 	te_candidate_path->originator = *originator;
 }
 
+void te_sr_policy_candidate_path_discriminator_add(
+	struct te_candidate_path *te_candidate_path, uint32_t discriminator)
+{
+	te_candidate_path->discriminator = discriminator;
+}
+
 void te_sr_policy_candidate_path_type_add(
 	struct te_candidate_path *te_candidate_path,
 	enum te_candidate_path_type type)

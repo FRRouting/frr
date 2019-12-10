@@ -277,6 +277,12 @@ DEFPY(te_path_sr_policy_candidate_path_explicit,
 	nb_cli_enqueue_change(vty, "./name", NB_OP_MODIFY, name);
 	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "config");
 	nb_cli_enqueue_change(vty, "./originator", NB_OP_MODIFY, "127.0.0.1");
+
+	char discriminator[(sizeof(uint32_t) * 8) + 1];
+	snprintf(discriminator, sizeof(discriminator), "%u", rand());
+	nb_cli_enqueue_change(vty, "./discriminator", NB_OP_MODIFY,
+			      discriminator);
+
 	nb_cli_enqueue_change(vty, "./type", NB_OP_MODIFY, "explicit");
 
 	return nb_cli_apply_changes(vty, "./candidate-path[preference='%s']",
@@ -300,6 +306,12 @@ DEFPY(te_path_sr_policy_candidate_path_dynamic,
 	nb_cli_enqueue_change(vty, "./name", NB_OP_MODIFY, name);
 	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "config");
 	nb_cli_enqueue_change(vty, "./originator", NB_OP_MODIFY, "127.0.0.1");
+
+	char discriminator[(sizeof(uint32_t) * 8) + 1];
+	snprintf(discriminator, sizeof(discriminator), "%u", rand());
+	nb_cli_enqueue_change(vty, "./discriminator", NB_OP_MODIFY,
+			      discriminator);
+
 	nb_cli_enqueue_change(vty, "./type", NB_OP_MODIFY, "dynamic");
 
 	return nb_cli_apply_changes(vty, "./candidate-path[preference='%s']",
