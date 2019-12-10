@@ -460,6 +460,22 @@ DEFPY(sharp_remove_lsp_prefix_v4, sharp_remove_lsp_prefix_v4_cmd,
 	}
 }
 
+DEFPY (logpump,
+       logpump_cmd,
+       "sharp logpump duration (1-60) frequency (1-1000000) burst (1-1000)",
+       "Sharp Routing Protocol\n"
+       "Generate bulk log messages for testing\n"
+       "Duration of run (s)\n"
+       "Duration of run (s)\n"
+       "Frequency of bursts (s^-1)\n"
+       "Frequency of bursts (s^-1)\n"
+       "Number of log messages per each burst\n"
+       "Number of log messages per each burst\n")
+{
+	sharp_logpump_run(vty, duration, frequency, burst);
+	return CMD_SUCCESS;
+}
+
 void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
@@ -471,6 +487,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &watch_nexthop_v4_cmd);
 	install_element(ENABLE_NODE, &sharp_lsp_prefix_v4_cmd);
 	install_element(ENABLE_NODE, &sharp_remove_lsp_prefix_v4_cmd);
+	install_element(ENABLE_NODE, &logpump_cmd);
 
 	install_element(VIEW_NODE, &show_debugging_sharpd_cmd);
 

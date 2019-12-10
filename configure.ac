@@ -2006,6 +2006,10 @@ AC_CHECK_DECL([CLOCK_MONOTONIC],
 	 AC_DEFINE([HAVE_CLOCK_MONOTONIC], [1], [Have monotonic clock])
 ], [AC_MSG_RESULT([no])], [FRR_INCLUDES])
 
+AC_SEARCH_LIBS([clock_nanosleep], [rt], [
+  AC_DEFINE([HAVE_CLOCK_NANOSLEEP], [1], [Have clock_nanosleep()])
+])
+
 dnl --------------------------------------
 dnl checking for flex and bison
 dnl --------------------------------------
