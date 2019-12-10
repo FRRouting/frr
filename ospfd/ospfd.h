@@ -140,6 +140,10 @@ struct ospf {
 	 * config. */
 	uint8_t oi_running;
 
+#ifdef FUZZING
+	struct interface *fuzzing_packet_ifp;
+#endif
+
 	/* OSPF instance ID  */
 	unsigned short instance;
 

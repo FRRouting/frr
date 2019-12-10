@@ -413,12 +413,14 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 		return new;
 	}
 
+#ifndef FUZZING
 	thread_add_timer(master, ospf_lsa_maxage_walker, new,
 			 OSPF_LSA_MAXAGE_CHECK_INTERVAL, &new->t_maxage_walker);
 	thread_add_timer(master, ospf_lsa_refresh_walker, new,
 			 new->lsa_refresh_interval, &new->t_lsa_refresher);
 
 	thread_add_read(master, ospf_read, new, new->fd, &new->t_read);
+#endif
 
 	return new;
 }
