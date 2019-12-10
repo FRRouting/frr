@@ -197,8 +197,8 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Set the pim hello and hold interval for a interface.
 
-.. index:: ip pim sm
-.. clicmd:: ip pim sm
+.. index:: ip pim
+.. clicmd:: ip pim
 
    Tell pim that we would like to use this interface to form pim neighbors
    over. Please note that this command does not enable the reception of IGMP
@@ -251,6 +251,13 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Set the IGMP last member query interval in deciseconds. The default value is
    10 deciseconds. 'no' form of this command is used to to configure back to the
    default value.
+
+.. index:: ip mroute INTERFACE A.B.C.D [A.B.C.D]
+.. clicmd:: ip mroute INTERFACE A.B.C.D [A.B.C.D]
+
+   Set a static multicast route for a traffic coming on the current interface to
+   be forwarded on the given interface if the traffic matches the group address
+   and optionally the source address.
 
 .. _pim-multicast-rib-insertion:
 
