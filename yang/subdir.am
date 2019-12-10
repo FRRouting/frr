@@ -24,6 +24,13 @@ dist_yangmodels_DATA += yang/frr-test-module.yang
 dist_yangmodels_DATA += yang/frr-interface.yang
 dist_yangmodels_DATA += yang/frr-route-types.yang
 dist_yangmodels_DATA += yang/ietf/ietf-routing-types.yang
+dist_yangmodels_DATA += yang/ietf/ietf-interfaces.yang 
+dist_yangmodels_DATA += yang/ietf/ietf-pim-base.yang
+dist_yangmodels_DATA += yang/ietf/ietf-pim-sm.yang
+dist_yangmodels_DATA += yang/ietf/ietf-pim-rp.yang
+dist_yangmodels_DATA += yang/ietf/ietf-routing.yang
+dist_yangmodels_DATA += yang/frr-pimd.yang
+dist_yangmodels_DATA += yang/frr-vrf.yang
 
 if BFDD
 dist_yangmodels_DATA += yang/frr-bfdd.yang
@@ -44,3 +51,4 @@ endif
 if ISISD
 dist_yangmodels_DATA += yang/frr-isisd.yang
 endif
+

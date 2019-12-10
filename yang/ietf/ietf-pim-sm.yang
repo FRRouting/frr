@@ -1,0 +1,262 @@
+module ietf-pim-sm {
+  namespace "urn:ietf:params:xml:ns:yang:ietf-pim-sm";
+  prefix pim-sm;
+  import ietf-inet-types {
+    prefix "inet";
+  }
+  import ietf-routing {
+    prefix "rt";
+  }
+  import ietf-pim-base {
+    prefix "pim-base";
+  }
+  import ietf-pim-rp {
+    prefix "pim-rp";
+  }
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+  organization
+    "IETF PIM Working Group";
+  contact
+    "WG Web:   <http://tools.ietf.org/wg/pim/>
+     WG List:  <mailto:pim@ietf.org>
+     WG Chair: Stig Venaas
+               <mailto:stig@venaas.com>
+     WG Chair: Mike McBride
+               <mailto:mmcbride7@gmail.com>
+     Editor:   Xufeng Liu
+               <mailto:Xufeng_Liu@jabil.com>
+     Editor:   Pete McAllister
+               <mailto:pete.mcallister@metaswitch.com>
+     Editor:   Anish Peter
+               <mailto:anish.ietf@gmail.com>
+     Editor:   Mahesh Sivakumar
+               <mailto:masivaku@cisco.com>
+     Editor:   Yisong Liu
+               <mailto:liuyisong@huawei.com>
+     Editor:   Fangwei Hu
+               <mailto:hu.fangwei@zte.com.cn>";
+  description
+    "The YANG module defines a PIM (Protocol Independent Multicast)
+     SM (Sparse Mode) model.";
+  revision 2017-03-09 {
+    description
+      "Initial revision.";
+    reference
+      "RFC XXXX: A YANG Data Model for PIM";
+  }
+  /*
+   * Features
+   */
+  feature spt-switch-infinity {
+    description
+      "This feature indicates that the system supports configuration
+       choice whether to trigger the switchover from the RPT
+       (Rendezvous Point Tree) to the SPT (Shortest Path Tree).";
+  }
+  feature spt-switch-policy {
+    description
+      "This feature indicates that the system supports configuring
+       policy for the switchover from the RPT to the SPT.";
+  }
+  /*
+   * Identities
+   */
+  identity sm {
+    base pim-rp:rp-mode;
+    description
+      "SM (Sparse Mode).";
+  }
+  /*
+   * Groupings
+   */
+  grouping af-sm-container {
+    description
+      "Grouping of address family SM container.";
+    container sm {
+      description
+        "PIM SM configuration data.";
+      container asm {
+        description
+          "ASM (Any Source Multicast) attributes.";
+        container anycast-rp {
+          presence
+            "Present to enable anycast RP (Rendezvous Point).";
+          description
+            "Anycast RP attributes.";
+          container ipv4 {
+            when "../../../../pim-base:address-family = 'rt:ipv4'" {
+              description
+                "Only applicable to IPv4 address family.";
+            }
+            description
+              "IPv4 attributes. Only applicable when
+               pim-base:address-family is IPv4.";
+            list ipv4-anycast-rp {
+              key "anycast-address rp-address";
+              description
+                "A list of anycast RP settings.";
+              leaf anycast-address {
+                type inet:ipv4-address;
+                description
+                  "IP address of the anycast RP set. This IP address
+                   is used by the multicast groups or sources to join
+                   or register.";
+              }
+              leaf rp-address {
+                type inet:ipv4-address;
+                description
+                  "IP address of the router configured with anycast
+                   RP. This is the IP address where the Register
+                   messages are forwarded.";
+              }
+            }
+          }
+          container ipv6 {
+            when "../../../../pim-base:address-family = 'rt:ipv6'" {
+              description
+                "Only applicable to IPv6 address family.";
+            }
+            description
+              "IPv6 attributes. Only applicable when
+               pim-base:address-family is IPv6.";
+            list ipv6-anycast-rp {
+              key "anycast-address rp-address";
+              description
+                "A list of anycast RP settings.";
+              leaf anycast-address {
+                type inet:ipv6-address;
+                description
+                  "IP address of the anycast RP set. This IP address
+                   is used by the multicast groups or sources to join
+                   or register.";
+              }
+              leaf rp-address {
+                type inet:ipv6-address;
+                description
+                  "IP address of the router configured with anycast
+                   RP. This is the IP address where the Register
+                   messages are forwarded.";
+              }
+            }
+          }
+        }
+        container spt-switch {
+          description
+            "SPT (Shortest Path Tree) switching attributes.";
+          container infinity {
+            if-feature spt-switch-infinity;
+            presence
+              "Present if SPT switchover threshold is set to
+               infinity, according to the policy specified below.";
+            description
+              "The receiver's DR (Designated Router) never triggers
+               the switchover from the RPT to the SPT.";
+            leaf policy-name {
+              if-feature spt-switch-policy;
+              type string;
+              description
+                "Switch policy.";
+            }
+          } // infinity
+        }
+      } // asm
+      container ssm {
+        presence
+          "Present to enable SSM (Source-Specific Multicast).";
+        description
+          "SSM (Source-Specific Multicast) attributes.";
+        leaf range-policy {
+          type string;
+          description
+            "Policy used to define SSM address range.";
+        }
+      } // ssm
+    } // sm
+  } // af-sm-container
+  grouping interface-sm-container {
+    description
+      "Grouping of interface SM container.";
+    container sm {
+      presence "Present to enable sparse-mode.";
+      description
+        "PIM SM configuration data.";
+      leaf passive {
+        type empty;
+        description
+          "Specifies that no PIM messages are sent or accepted on
+           this PIM interface, but the interface can be included in a
+           multicast forwarding entry.";
+      }
+    } // sm
+  } // interface-sm-container
+  grouping static-rp-sm-container {
+    description
+      "Grouping that contains SM attributes for static RP.";
+    container sm {
+      presence
+        "Indicate the support of sparse mode.";
+      description
+        "PIM SM configuration data.";
+      uses pim-rp:static-rp-attributes;
+    } // sm
+  } // static-rp-sm-container
+  /*
+   * Configuration data nodes
+   */
+  augment "/frr-vrf:lib/frr-vrf:vrf/"
+    + "rt:routing/rt:control-plane-protocols/pim-base:pim/"
+    + "pim-base:address-family" {
+    description "PIM SM augmentation.";
+    uses af-sm-container;
+  } // augment
+  augment "/frr-vrf:lib/frr-vrf:vrf/"
+    + "rt:routing/rt:control-plane-protocols/pim-base:pim/"
+    + "pim-base:interfaces/pim-base:interface/"
+    + "pim-base:address-family" {
+    description "PIM SM augmentation.";
+    uses interface-sm-container;
+  } // augment
+  augment "/frr-vrf:lib/frr-vrf:vrf/"
+    + "rt:routing/rt:control-plane-protocols/pim-base:pim/"
+    + "pim-base:address-family/pim-rp:rp/"
+    + "pim-rp:static-rp/pim-rp:ipv4-rp" {
+    description "PIM SM augmentation.";
+    uses static-rp-sm-container;
+  } // augment
+  augment "/frr-vrf:lib/frr-vrf:vrf/"
+    + "rt:routing/rt:control-plane-protocols/pim-base:pim/"
+    + "pim-base:address-family/pim-rp:rp/"
+    + "pim-rp:static-rp/pim-rp:ipv6-rp" {
+    description "PIM SM augmentation.";
+    uses static-rp-sm-container;
+  } // augment
+  /*
+   * Operational state data nodes
+   */
+  augment "/rt:routing-state/rt:control-plane-protocols/"
+    + "pim-base:pim/pim-base:address-family" {
+    description
+      "PIM SM state.";
+    uses af-sm-container;
+  } // augment
+  augment "/rt:routing-state/rt:control-plane-protocols/"
+    + "pim-base:pim/pim-base:interfaces/pim-base:interface/"
+    + "pim-base:address-family" {
+    description "PIM SM augmentation.";
+    uses interface-sm-container;
+  } // augment
+  augment "/rt:routing-state/rt:control-plane-protocols/"
+    + "pim-base:pim/pim-base:address-family/pim-rp:rp/"
+    + "pim-rp:static-rp/pim-rp:ipv4-rp" {
+    description "PIM SM augmentation.";
+    uses static-rp-sm-container;
+  } // augment
+  augment "/rt:routing-state/rt:control-plane-protocols/"
+    + "pim-base:pim/pim-base:address-family/pim-rp:rp/"
+    + "pim-rp:static-rp/pim-rp:ipv6-rp" {
+    description "PIM SM augmentation.";
+    uses static-rp-sm-container;
+  } // augment
+}

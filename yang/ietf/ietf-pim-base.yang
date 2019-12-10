@@ -1,0 +1,857 @@
+module ietf-pim-base {
+  namespace "urn:ietf:params:xml:ns:yang:ietf-pim-base";
+  prefix pim-base;
+  import ietf-inet-types {
+    prefix "inet";
+  }
+  import ietf-yang-types {
+    prefix "yang";
+  }
+  import ietf-routing-types {
+    prefix "rt-types";
+  }
+  import ietf-interfaces {
+    prefix "if";
+  }
+  import ietf-routing {
+    prefix "rt";
+  }
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+  organization
+    "IETF PIM Working Group";
+  contact
+    "WG Web:   <http://tools.ietf.org/wg/pim/>
+     WG List:  <mailto:pim@ietf.org>
+     WG Chair: Stig Venaas
+               <mailto:stig@venaas.com>
+     WG Chair: Mike McBride
+               <mailto:mmcbride7@gmail.com>
+     Editor:   Xufeng Liu
+               <mailto:Xufeng_Liu@jabil.com>
+     Editor:   Pete McAllister
+               <mailto:pete.mcallister@metaswitch.com>
+     Editor:   Anish Peter
+               <mailto:anish.ietf@gmail.com>
+     Editor:   Mahesh Sivakumar
+               <mailto:masivaku@cisco.com>
+     Editor:   Yisong Liu
+               <mailto:liuyisong@huawei.com>
+     Editor:   Fangwei Hu
+               <mailto:hu.fangwei@zte.com.cn>";
+  description
+    "The module defines a collection of YANG definitions common for
+     all PIM (Protocol Independent Multicast) modes.";
+  revision 2017-03-09 {
+    description
+      "Initial revision.";
+    reference
+      "RFC XXXX: A YANG Data Model for PIM";
+  }
+  /*
+   * Features
+   */
+  feature bfd {
+    description
+      "Support BFD (Bidirectional Forwarding Detection).";
+  }
+  feature global-graceful-restart {
+    description
+      "Global configuration for graceful restart support as per
+       RFC5306.";
+  }
+  feature intf-dr-priority {
+    description
+      "Support configuration of interface DR (Designated Router)
+       priority.";
+  }
+  feature intf-hello-holdtime {
+    description
+      "Support configuration of interface hello holdtime.";
+  }
+  feature intf-hello-interval {
+    description
+      "Support configuration of interface hello interval.";
+  }
+  feature intf-hello-multiplier {
+    description
+      "Support configuration of interface hello multiplier.";
+  }
+  feature intf-jp-interval {
+    description
+      "Support configuration of interface join prune interval.";
+  }
+  feature intf-jp-holdtime {
+    description
+      "Support configuration of interface join prune holdtime.";
+  }
+  feature intf-jp-multiplier {
+    description
+      "Support configuration of interface join prune multiplier.";
+  }
+  feature intf-propagation-delay {
+    description
+      "Support configuration of interface propagation delay.";
+  }
+  feature intf-override-interval {
+    description
+      "Support configuration of interface override interval.";
+  }
+  feature per-af-graceful-restart {
+    description
+      "Per address family configuration for graceful restart support
+       as per RFC5306.";
+  }
+  /*
+   * Typedefs
+   */
+  typedef interface-event-type {
+    type enumeration {
+      enum up {
+        description
+          "Neighbor status changed to up.";
+      }
+      enum down {
+        description
+          "Neighbor status changed to down.";
+      }
+      enum new-dr {
+        description
+          "A new DR (Designated Router) was elected on the connected
+           network.";
+      }
+      enum new-df {
+        description
+          "A new DF (Designated Forwarder) was elected on the
+           connected network.";
+      }
+    }
+    description "Operational status event type for notifications.";
+  }
+  typedef neighbor-event-type {
+    type enumeration {
+      enum up {
+        description
+          "Neighbor status changed to up.";
+      }
+      enum down {
+        description
+          "Neighbor status changed to down.";
+      }
+    }
+    description "Operational status event type for notifications.";
+  }
+  typedef pim-mode {
+    type enumeration {
+      enum none {
+        description
+          "PIM is not operating.";
+      }
+      enum ssm {
+        description
+          "PIM operates in the Sparse Mode with Source-Specific
+           Multicast (SSM).";
+      }
+      enum asm {
+        description
+          "PIM operates in the Sparse Mode with Any Source Multicast
+           (ASM).";
+      }
+      enum bidir {
+        description
+          "PIM operates in the Bidirectional Mode.";
+      }
+      enum dm {
+        description
+          "PIM operates in the Dense Mode (DM).";
+      }
+      enum other {
+        description
+          "PIM operates in any other mode.";
+      }
+    }
+    description
+      "The PIM mode in which a group is operating.";
+  }
+  typedef timer-value {
+    type rt-types:timer-value-seconds16;
+    description "Timer value type.";
+  } // timer-value
+  /*
+   * Identities
+   */
+  /*
+   * Groupings
+   */
+  grouping global-attributes {
+    description
+      "A Grouping defining global configuration attributes.";
+    uses graceful-restart-container {
+      if-feature global-graceful-restart;
+    }
+  } // global-attributes
+  grouping graceful-restart-container {
+    description
+      "A grouping defining a container of graceful restart
+      attributes.";
+    container graceful-restart {
+      leaf enabled {
+        type boolean;
+        description
+          "Enable or disable graceful restart.";
+      }
+      leaf duration {
+        type uint16;
+        units seconds;
+        description
+          "Maximum time for graceful restart to finish.";
+      }
+      description
+        "Container of graceful restart attributes.";
+    }
+  } // graceful-restart-container
+  grouping interface-config-attributes {
+    description
+      "A grouping defining interface attributes.";
+    container bfd {
+      if-feature bfd;
+      description
+        "BFD (Bidirectional Forwarding Detection) operation.";
+      leaf enable {
+        type boolean;
+        description
+          "'true' to suppport BFD for the interface.";
+      }
+    }
+    leaf dr-priority {
+      if-feature intf-dr-priority;
+      type uint32;
+      description "DR (Designated Router) priority";
+    }
+    leaf hello-interval {
+      if-feature intf-hello-interval;
+      type timer-value;
+      description "Hello interval";
+    }
+    choice hello-holdtime-or-multiplier {
+      description "Use holdtime or multiplier";
+      case holdtime {
+        if-feature intf-hello-holdtime;
+        leaf hello-holdtime {
+          type timer-value;
+          description "Hello holdtime";
+        }
+      }
+      case multiplier {
+        if-feature intf-hello-multiplier;
+        leaf hello-multiplier {
+          type rt-types:timer-multiplier;
+          description
+            "Hello multiplier is the number by which the hello
+             interval is multplied to obtain the hold time";
+        }
+      }
+    }
+    leaf jp-interval {
+      if-feature intf-jp-interval;
+      type timer-value;
+      description "Join prune interval";
+    }
+    choice jp-holdtime-or-multiplier {
+      description "Use holdtime or multiplier";
+      case holdtime {
+        if-feature intf-jp-holdtime;
+        leaf jp-holdtime {
+          type timer-value;
+          description "Join prune holdtime";
+        }
+      }
+      case multiplier {
+        if-feature intf-jp-multiplier;
+        leaf jp-multiplier {
+          type rt-types:timer-multiplier;
+          description
+            "Join prune multiplier is the number by which the join
+             prune interval is multplied to obtain the hold time";
+        }
+      }
+    }
+    leaf propagation-delay {
+      if-feature intf-propagation-delay;
+      type uint16;
+      units milliseconds;
+      description "Propagation description";
+    }
+    leaf override-interval {
+      if-feature intf-override-interval;
+      type uint16;
+      units milliseconds;
+      description "Override interval";
+    }
+  } // interface-config-attributes
+  grouping interface-state-attributes {
+    description
+      "A grouping defining interface attributes.";
+    container ipv4 {
+      when "../address-family = 'rt:ipv4'" {
+        description
+          "Only applicable to IPv4 address family.";
+      }
+      description "Interface state attributes for IPv4.";
+      leaf-list address {
+        type inet:ipv4-address;
+        description "List of addresses.";
+      }
+      leaf dr-address {
+        type inet:ipv4-address;
+        description "DR (Designated Router) address.";
+      }
+    }
+    container ipv6 {
+      when "../address-family = 'rt:ipv6'" {
+        description
+          "Only applicable to IPv6 address family.";
+      }
+      description "Interface state attributes for IPv6.";
+      leaf-list address {
+        type inet:ipv6-address;
+        description "List of addresses.";
+      }
+      leaf dr-address {
+        type inet:ipv6-address;
+        description "DR (Designated Router) address.";
+      }
+    }
+    uses interface-state-af-attributes;
+  } // interface-state-attributes
+  grouping interface-state-af-attributes {
+    description
+      "A grouping defining interface per address family attributes.";
+    leaf oper-status {
+      type enumeration {
+        enum up {
+          description
+          "Ready to pass packets.";
+        }
+        enum down {
+          description
+          "The interface does not pass any packets.";
+        }
+      }
+      description "Operational status.";
+    }
+    leaf hello-expiration {
+      type timer-value;
+      description "Hello interval expiration time.";
+    }
+    list neighbor-ipv4 {
+      when "../address-family = 'rt:ipv4'" {
+        description
+          "Only applicable to IPv4 address family.";
+      }
+      key "address";
+      description "Neighbor state information.";
+      leaf address {
+        type inet:ipv4-address;
+        description "Neighbor address.";
+      }
+      uses neighbor-state-af-attributes;
+    } // list neighbor-ipv4
+    list neighbor-ipv6 {
+      when "../address-family = 'rt:ipv6'" {
+        description
+          "Only applicable to IPv6 address family.";
+      }
+      key "address";
+      description "Neighbor state information.";
+      leaf address {
+        type inet:ipv6-address;
+        description "Neighbor address.";
+      }
+      uses neighbor-state-af-attributes;
+    } // list neighbor-ipv6
+  } // interface-state-af-attributes
+  grouping multicast-route-attributes {
+    description
+      "A grouping defining multicast route attributes.";
+    leaf expiration {
+      type timer-value;
+      description "When the route will expire.";
+    }
+    leaf incoming-interface {
+      type if:interface-ref;
+      description
+        "Reference to an entry in the global interface
+         list.";
+    }
+    leaf mode {
+      type pim-mode;
+      description "PIM mode.";
+    }
+    leaf msdp-learned {
+      type boolean;
+      description
+        "'true' if route is learned from MSDP (Multicast Source
+          Discovery Protocol).";
+    }
+    leaf rp-address {
+      type inet:ip-address;
+      description "RP (Rendezvous Point) address.";
+    }
+    leaf rpf-neighbor {
+      type inet:ip-address;
+      description "RPF (Reverse Path Forwarding) neighbor address.";
+    }
+    leaf spt-bit {
+      type boolean;
+      description "'true' if SPT (Shortest Path Tree) bit is set.";
+    }
+    leaf up-time {
+      type uint32;
+      units seconds;
+      description "Up time duration.";
+    }
+    list outgoing-interface {
+      key "name";
+      description
+        "A list of outgoing interfaces.";
+      leaf name {
+        type if:interface-ref;
+        description
+          "Interface name.";
+      }
+      leaf expiration {
+        type timer-value;
+        description "Expiring information.";
+      }
+      leaf up-time {
+        type uint32;
+        units seconds;
+        description "Up time duration.";
+      }
+      leaf jp-state {
+        type enumeration {
+          enum "no-info" {
+            description
+              "The interface has Join state and no timers running";
+          }
+          enum "join" {
+            description
+              "The interface has Join state.";
+          }
+          enum "prune-pending" {
+            description
+              "The router has received a Prune on this interface from
+               a downstream neighbor and is waiting to see whether
+               the prune will be overridden by another downstream
+               router.  For forwarding purposes, the Prune-Pending
+               state functions exactly like the Join state.";
+          }
+        }
+        description "Join-prune state.";
+      }
+    }
+  } // multicast-route-attributes
+  grouping neighbor-state-af-attributes {
+    description
+      "A grouping defining neighbor per address family attributes.";
+    leaf bfd-status {
+      type enumeration {
+        enum up {
+          description
+            "BFD (Bidirectional Forwarding Detection) is up.";
+        }
+        enum down {
+          description
+            "BFD (Bidirectional Forwarding Detection) is down.";
+        }
+      }
+      description "BFD (Bidirectional Forwarding Detection) status.";
+    }
+    leaf expiration {
+      type timer-value;
+      description "Neighbor expiring information.";
+    }
+    leaf dr-priority {
+      type uint32;
+      description "DR (Designated Router) priority";
+    }
+    leaf gen-id {
+      type uint32;
+      description "Generation ID.";
+    }
+    leaf up-time {
+      type uint32;
+      units seconds;
+      description "Up time duration.";
+    }
+  } // neighbor-state-af-attributes
+  grouping per-af-attributes {
+    description
+      "A grouping defining per address family attributes.";
+    uses graceful-restart-container {
+      if-feature per-af-graceful-restart;
+    }
+  } // per-af-attributes
+  grouping pim-instance-af-state-ref {
+    description
+      "An absolute reference to a PIM instance address family.";
+    leaf instance-af-state-ref {
+      type leafref {
+        path "/rt:routing-state/rt:control-plane-protocols/"
+          + "pim-base:pim/pim-base:address-family/"
+          + "pim-base:address-family";
+      }
+      description
+        "Reference to a PIM instance address family.";
+    }
+  } // pim-instance-state-af-ref
+  grouping pim-interface-state-ref {
+    description
+      "An absolute reference to a PIM interface state.";
+    leaf interface-state-ref {
+      type leafref {
+        path "/rt:routing-state/rt:control-plane-protocols/"
+          + "pim-base:pim/pim-base:interfaces/pim-base:interface/"
+          + "pim-base:interface";
+      }
+      description
+        "Reference to a PIM interface.";
+    }
+  } // pim-interface-state-ref
+  grouping pim-neighbor-state-ref {
+    description
+      "An absolute reference to a PIM neighbor state.";
+    uses pim-interface-state-ref;
+    leaf interface-af-state-ref {
+      type leafref {
+        path "/rt:routing-state/rt:control-plane-protocols/"
+          + "pim-base:pim/pim-base:interfaces/pim-base:interface"
+          + "[pim-base:interface = "
+          + "current()/../interface-state-ref]/"
+          + "pim-base:address-family/pim-base:address-family";
+      }
+      description
+        "Reference to a PIM interface address family.";
+    }
+    leaf neighbor-ipv4-state-ref {
+      when "../interface-af-state-ref = 'rt:ipv4'" {
+        description "Only applicable to IPv4 address family.";
+      }
+      type leafref {
+        path "/rt:routing-state/rt:control-plane-protocols/"
+          + "pim-base:pim/pim-base:interfaces/pim-base:interface"
+          + "[pim-base:interface = "
+          + "current()/../interface-state-ref]/"
+          + "pim-base:address-family"
+          + "[pim-base:address-family = "
+          + "current()/../interface-af-state-ref]/"
+          + "pim-base:neighbor-ipv4/pim-base:address";
+      }
+      description
+        "Reference to a PIM IPv4 neighbor.";
+    }
+    leaf neighbor-ipv6-state-ref {
+      when "../interface-af-state-ref = 'rt:ipv6'" {
+        description "Only applicable to IPv6 address family.";
+      }
+      type leafref {
+        path "/rt:routing-state/rt:control-plane-protocols/"
+          + "pim-base:pim/pim-base:interfaces/pim-base:interface"
+          + "[pim-base:interface = "
+          + "current()/../interface-state-ref]/"
+          + "pim-base:address-family"
+          + "[pim-base:address-family = "
+          + "current()/../interface-af-state-ref]/"
+          + "pim-base:neighbor-ipv6/pim-base:address";
+      }
+      description
+        "Reference to a PIM IPv6 neighbor.";
+    }
+  } // pim-neighbor-state-ref
+  grouping statistics-container {
+    description
+      "A container defining statistics attributes.";
+    container statistics {
+      description "A container defining statistics attributes.";
+      leaf discontinuity-time {
+        type yang:date-and-time;
+        description
+          "The time on the most recent occasion at which any one
+           or more of the statistic counters suffered a
+           discontinuity. If no such discontinuities have occurred
+           since the last re-initialization of the local
+           management subsystem, then this node contains the time
+           the local management subsystem re-initialized itself.";
+      }
+      container error {
+        description "Containing error statistics.";
+        uses statistics-error;
+      }
+      container queue {
+        description "Containing queue statistics.";
+        uses statistics-queue;
+      }
+      container received {
+        description "Containing statistics of received messages.";
+        uses statistics-sent-received;
+      }
+      container sent {
+        description "Containing statistics of sent messages.";
+        uses statistics-sent-received;
+      }
+    }
+  } // statistics-container
+  grouping statistics-error {
+    description
+      "A grouping defining error statistics
+       attributes.";
+    uses statistics-sent-received;
+  } // statistics-error
+  grouping statistics-queue {
+    description
+      "A grouping defining queue statistics
+      attributes.";
+    leaf size {
+      type uint32;
+      description
+        "The size of the input queue.";
+    }
+    leaf overflow {
+      type yang:counter32;
+      description
+        "The number of the input queue overflows.";
+    }
+  } // statistics-queue
+  grouping statistics-sent-received {
+    description
+      "A grouping defining sent and received statistics
+      attributes.";
+    leaf assert {
+      type yang:counter64;
+      description
+        "The number of assert messages.";
+    }
+    leaf bsr {
+      type yang:counter64;
+      description
+        "The number of BSR (Bootstrap Router) messages.";
+    }
+    leaf candidate-rp-advertisement {
+      type yang:counter64;
+      description
+        "The number of Candidate-RP-advertisement messages.";
+    }
+    leaf df-election {
+      type yang:counter64;
+      description
+        "The number of DF (Designated Forwarder) election messages.";
+    }
+    leaf hello {
+      type yang:counter64;
+      description
+        "The number of hello messages.";
+    }
+    leaf join-prune {
+      type yang:counter64;
+      description
+        "The number of join/prune messages.";
+    }
+    leaf register {
+      type yang:counter64;
+      description
+        "The number of register messages.";
+    }
+    leaf register-stop {
+      type yang:counter64;
+      description
+        "The number of register stop messages.";
+    }
+    leaf state-refresh {
+      type yang:counter64;
+      description
+        "The number of state refresh messages.";
+    }
+  } // statistics-sent-received
+  /*
+   * Configuration data nodes
+   */
+  augment "/frr-vrf:lib/frr-vrf:vrf/"
+    + "rt:routing/rt:control-plane-protocols" {
+    description
+      "PIM augmentation to routing instance configuration.";
+    container pim {
+      presence "Container for PIM protocol.";
+      description
+        "PIM configuration data.";
+      uses global-attributes;
+      list address-family {
+        key "address-family";
+        description
+          "Each list entry for one address family.";
+        uses rt:address-family;
+        uses per-af-attributes;
+      } // address-family
+      container interfaces {
+        description
+          "Containing a list of interfaces.";
+        list interface {
+          key "interface";
+          description
+            "List of pim interfaces.";
+          leaf interface {
+            type if:interface-ref;
+            description
+              "Reference to an entry in the global interface
+              list.";
+          }
+          list address-family {
+            key "address-family";
+            description
+              "Each list entry for one address family.";
+            uses rt:address-family;
+            uses interface-config-attributes;
+          } // address-family
+        } // interface
+      } // interfaces
+    } // pim
+  } // augment
+  /*
+   * Operational state data nodes
+   */
+  augment "/rt:routing-state/rt:control-plane-protocols" {
+    description
+      "PIM augmentation to routing instance state.";
+    container pim {
+      description
+        "PIM state data.";
+      list address-family {
+        key "address-family";
+        description
+          "Each list entry for one address family.";
+        uses rt:address-family;
+        uses statistics-container;
+        container topology-tree-info {
+          description "Containing topology tree information.";
+          list ipv4-route {
+            when "../../../address-family = 'rt:ipv4'" {
+              description
+                "Only applicable to IPv4 address family.";
+            }
+            key "group source-address is-rpt";
+            description "A list of IPv4 routes.";
+            leaf group {
+              type rt-types:ipv4-multicast-group-address;
+              description "Group address.";
+            }
+            leaf source-address {
+              type rt-types:ipv4-multicast-source-address;
+              description "Source address.";
+            }
+            leaf is-rpt {
+              type boolean;
+              description
+                "'true' if the tree is RPT (Rendezvous-Point Tree).";
+            }
+            uses multicast-route-attributes;
+          } // ipv4-route
+          list ipv6-route {
+            when "../../../address-family = 'rt:ipv6'" {
+              description
+                "Only applicable to IPv6 address family.";
+            }
+            key "group source-address is-rpt";
+            description "A list of IPv6 routes.";
+            leaf group {
+              type rt-types:ipv6-multicast-group-address;
+              description "Group address.";
+            }
+            leaf source-address {
+              type rt-types:ipv6-multicast-source-address;
+              description "Source address.";
+            }
+            leaf is-rpt {
+              type boolean;
+              description
+                "'true' if the tree is RPT (Rendezvous-Point Tree).";
+            }
+            uses multicast-route-attributes;
+          } // ipv6-route
+        } // routes
+      } // address-family
+      container interfaces {
+        description
+          "Containing a list of interfaces.";
+        list interface {
+          key "interface";
+          description
+            "List of pim interfaces.";
+          leaf interface {
+            type if:interface-ref;
+            description
+              "Reference to an entry in the global interface
+              list.";
+          }
+          list address-family {
+            key "address-family";
+            description
+              "Each list entry for one address family.";
+            uses rt:address-family;
+            uses interface-config-attributes;
+            uses interface-state-attributes;
+          } // address-family
+        } // interface
+      } // interfaces
+    } // pim
+  } // augment
+  /*
+   * RPCs
+   */
+  /*
+   * Notifications
+   */
+  notification pim-neighbor-event {
+    description "Notification event for neighbor.";
+    leaf event-type {
+      type neighbor-event-type;
+      description "Event type.";
+    }
+    uses pim-neighbor-state-ref;
+    leaf up-time {
+      type uint32;
+      units seconds;
+      description "Up time duration.";
+    }
+  }
+  notification pim-interface-event {
+    description "Notification event for interface.";
+    leaf event-type {
+      type interface-event-type;
+      description "Event type.";
+    }
+    uses pim-interface-state-ref;
+    container ipv4 {
+      description "Containing IPv4 information.";
+      leaf-list address {
+        type inet:ipv4-address;
+        description "List of addresses.";
+      }
+      leaf dr-address {
+        type inet:ipv4-address;
+        description "DR (Designated Router) address.";
+      }
+    }
+    container ipv6 {
+      description "Containing IPv6 information.";
+      leaf-list address {
+        type inet:ipv6-address;
+        description "List of addresses.";
+      }
+      leaf dr-address {
+        type inet:ipv6-address;
+        description "DR (Designated Router) address.";
+      }
+    }
+  }
+}

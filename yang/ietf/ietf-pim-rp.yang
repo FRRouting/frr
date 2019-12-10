@@ -1,0 +1,647 @@
+module ietf-pim-rp {
+  namespace "urn:ietf:params:xml:ns:yang:ietf-pim-rp";
+  prefix pim-rp;
+  import ietf-inet-types {
+    prefix "inet";
+  }
+  import ietf-routing-types {
+    prefix "rt-types";
+  }
+  import ietf-interfaces {
+    prefix "if";
+  }
+  import ietf-routing {
+    prefix "rt";
+  }
+  import ietf-pim-base {
+    prefix "pim-base";
+  }
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+  organization
+    "IETF PIM Working Group";
+  contact
+    "WG Web:   <http://tools.ietf.org/wg/pim/>
+     WG List:  <mailto:pim@ietf.org>
+     WG Chair: Stig Venaas
+               <mailto:stig@venaas.com>
+     WG Chair: Mike McBride
+               <mailto:mmcbride7@gmail.com>
+     Editor:   Xufeng Liu
+               <mailto:Xufeng_Liu@jabil.com>
+     Editor:   Pete McAllister
+               <mailto:pete.mcallister@metaswitch.com>
+     Editor:   Anish Peter
+               <mailto:anish.ietf@gmail.com>
+     Editor:   Mahesh Sivakumar
+               <mailto:masivaku@cisco.com>
+     Editor:   Yisong Liu
+               <mailto:liuyisong@huawei.com>
+     Editor:   Fangwei Hu
+               <mailto:hu.fangwei@zte.com.cn>";
+  description
+    "The YANG module defines a PIM (Protocol Independent Multicast)
+     RP (Rendezvous Point) model.";
+  revision 2017-03-09 {
+    description
+      "Initial revision.";
+    reference
+      "RFC XXXX: A YANG Data Model for PIM";
+  }
+  /*
+   * Features
+   */
+  feature bsr {
+    description
+      "This feature indicates that the system supports BSR
+       (Bootstrap Router).";
+  }
+  feature bsr-election-state {
+    description
+      "This feature indicates that the system supports providing
+       BSR election state.";
+    reference
+      "RFC5059: Bootstrap Router (BSR) Mechanism for Protocol
+       Independent Multicast (PIM).";
+  }
+  feature static-rp-override {
+    description
+      "This feature indicates that the system supports configuration
+       of static RP (Rendezvous Point) override.";
+  }
+  feature candidate-interface {
+    description
+      "This feature indicates that the system supports using
+       an interface to configure a BSR or RP candidate.";
+  }
+  feature candidate-ipv4 {
+    description
+      "This feature indicates that the system supports using
+       an IPv4 address to configure a BSR or RP candidate.";
+  }
+  feature candidate-ipv6 {
+    description
+      "This feature indicates that the system supports using
+       an IPv6 address to configure a BSR or RP candidate.";
+  }
+  /*
+   * Typedefs
+   */
+  typedef rp-event-type {
+    type enumeration {
+      enum invalid-jp {
+        description
+          "An invalid JP (Join/Prune) message has been received.";
+      }
+      enum invalid-register {
+        description
+          "An invalid register message has been received.";
+      }
+      enum mapping-created {
+        description
+          "A new mapping has been created.";
+      }
+      enum mapping-deleted {
+        description
+          "A mapping has been deleted.";
+      }
+    }
+    description "Operational status event type for notifications.";
+  }
+  /*
+   * Identities
+   */
+  identity rp-mode {
+    description
+      "The mode of an RP, which can be SM (Sparse Mode) or
+       BIDIR (bi-directional).";
+  }
+  identity rp-info-source-type {
+    description
+      "The information source of an RP.";
+  }
+  identity static {
+    base rp-info-source-type;
+    description
+      "The RP is statically configured.";
+  }
+  identity bootstrap {
+    base rp-info-source-type;
+    description
+      "The RP is learned from bootstrap.";
+  }
+  /*
+   * Groupings
+   */
+  grouping bsr-config-attributes {
+    description
+      "Grouping of BSR config attributes.";
+    container bsr-candidate {
+      presence
+        "Present to serve as a BSR candidate";
+      description
+        "BSR candidate attributes.";
+      choice interface-or-address {
+        description
+          "Use either interface or ip-address.";
+        case interface {
+          if-feature candidate-interface;
+          leaf interface {
+            type if:interface-ref;
+            mandatory true;
+            description
+              "Interface to be used by BSR.";
+          }
+        }
+        case ipv4-address {
+          when "../../../pim-base:address-family = 'rt:ipv4'" {
+            description
+              "Only applicable to IPv4 address family.";
+          }
+          if-feature candidate-ipv4;
+          leaf ipv4-address {
+            type inet:ipv4-address;
+            mandatory true;
+            description
+              "IP address to be used by BSR.";
+          }
+        }
+        case ipv6-address {
+          when "../../../pim-base:address-family = 'rt:ipv6'" {
+            description
+              "Only applicable to IPv6 address family.";
+          }
+          if-feature candidate-ipv6;
+          leaf ipv6-address {
+            type inet:ipv6-address;
+            mandatory true;
+            description
+              "IP address to be used by BSR.";
+          }
+        }
+      }
+      leaf hash-mask-length{
+        type uint8 {
+          range "0..128";
+        }
+        mandatory true;
+        description
+          "Value contained in BSR messages used by all routers to
+           hash (map) to an RP.";
+      }
+      leaf priority {
+        type uint8 {
+          range "0..255";
+        }
+        mandatory true;
+        description
+          "BSR election priority among different candidate BSRs.
+          A larger value has a higher priority over a smaller
+          value.";
+      }
+    } // bsr-candidate
+    list rp-candidate-interface {
+      if-feature candidate-interface;
+      key "interface";
+      description
+        "A list of RP candidates";
+      leaf interface {
+        type if:interface-ref;
+        description
+          "Interface that the RP candidate uses.";
+      }
+      uses rp-candidate-attributes;
+    }
+    list rp-candidate-ipv4-address {
+      when "../../../pim-base:address-family = 'rt:ipv4'" {
+        description
+          "Only applicable to IPv4 address family.";
+      }
+      if-feature candidate-ipv4;
+      key "ipv4-address";
+      description
+        "A list of RP candidates";
+      leaf ipv4-address {
+        type inet:ipv4-address;
+        description
+          "IPv4 address that the RP candidate uses.";
+      }
+      uses rp-candidate-attributes;
+    }
+    list rp-candidate-ipv6-address {
+      when "../../../pim-base:address-family = 'rt:ipv6'" {
+        description
+          "Only applicable to IPv6 address family.";
+      }
+      if-feature candidate-ipv6;
+      key "ipv6-address";
+      description
+        "A list of RP candidates";
+      leaf ipv6-address {
+        type inet:ipv6-address;
+        description
+          "IPv6 address that the RP candidate uses.";
+      }
+      uses rp-candidate-attributes;
+    }
+  } // bsr-config-attributes
+  grouping bsr-state-attributes {
+    description
+      "Grouping of BSR state attributes.";
+    container bsr {
+      description
+        "BSR information.";
+      leaf address {
+        type inet:ip-address;
+        description "BSR address";
+      }
+      leaf hash-mask-length {
+        type uint8 {
+          range "0..128";
+        }
+        description "Hash mask length.";
+      }
+      leaf priority {
+        type uint8 {
+          range "0..255";
+        }
+        description "Priority.";
+      }
+      leaf up-time {
+        type uint32;
+        units seconds;
+        description "Up time duration.";
+      }
+    }
+    choice election-state {
+      if-feature bsr-election-state;
+      description "BSR election state.";
+      case candidate {
+        leaf candidate-bsr-state {
+          type enumeration {
+            enum "candidate" {
+              description
+                "The router is a candidate to be the BSR for the
+                 scope zone, but currently another router is the
+                 preferred BSR.";
+            }
+            enum "pending" {
+              description
+                "The router is a candidate to be the BSR for the
+                 scope zone. Currently, no other router is the
+                 preferred BSR, but this router is not yet the
+                 elected BSR.  This is a temporary state that
+                 prevents rapid thrashing of the choice of BSR
+                 during BSR election.";
+            }
+            enum "elected" {
+              description
+                "The router is the elected BSR for the scope zone
+                 and it MUST perform all the BSR functions.";
+            }
+          }
+          description
+            "Candidate-BSR state.";
+          reference
+            "RFC5059, Section 3.1.1.";
+        }
+      }
+      case "non-candidate" {
+        leaf non-candidate-bsr-state {
+          type enumeration {
+            enum "no-info" {
+              description
+                "The router has no information about this scope
+                 zone.";
+            }
+            enum "accept-any" {
+              description
+                "The router does not know of an active BSR, and will
+                 accept the first Bootstrap message it sees as giving
+                 the new BSR's identity and the RP-Set.";
+            }
+            enum "accept" {
+              description
+                "The router knows the identity of the current BSR,
+                 and is using the RP-Set provided by that BSR. Only
+                 Bootstrap messages from that BSR or from a
+                 Candidate-BSR (C-BSR) with higher weight than the
+                 current BSR will be accepted.";
+            }
+          }
+          description
+            "Non-candidate-BSR state.";
+          reference
+            "RFC5059, Section 3.1.2.";
+        }
+      }
+    } // election-state
+    leaf bsr-next-bootstrap {
+      type uint16;
+      units seconds;
+      description "The time when next bootstrap will be sent.";
+    }
+    container rp {
+      description
+        "State information of the RP.";
+      leaf rp-address {
+        type inet:ip-address;
+        description "RP address.";
+      }
+      leaf group-policy {
+        type string;
+        description "Group policy.";
+      }
+      leaf up-time {
+        type uint32;
+        units seconds;
+        description "Up time duration.";
+      }
+    }
+    leaf rp-candidate-next-advertisement {
+      type uint16;
+      units seconds;
+      description
+        "When the next advertisement will be sent as RP candidate";
+    }
+  } // bsr-state-attributes
+  grouping rp-mapping-state-attributes {
+    description
+      "Grouping of RP mapping attributes.";
+    leaf up-time {
+      type uint32;
+      units seconds;
+      description "Up time duration.";
+    }
+    leaf expiration {
+      type pim-base:timer-value;
+      description "Expiration time.";
+    }
+  } // rp-mapping-state-attributes
+  grouping rp-state-attributes {
+    description
+      "Grouping of RP state attributes.";
+    leaf info-source-type {
+      type identityref {
+        base rp-info-source-type;
+      }
+      description "The information source of an RP.";
+    } // info-source-type
+    leaf up-time {
+      type uint32;
+      units seconds;
+      description "Up time duration.";
+    }
+    leaf expiration {
+      type pim-base:timer-value;
+      description "Expiration time.";
+    }
+  } // rp-state-attributes
+  grouping static-rp-attributes {
+    description
+      "Grouping of static RP attributes, used in augmenting
+       modules.";
+    leaf policy-name {
+      type string;
+      description
+        "Static RP policy.";
+    }
+    leaf override {
+      if-feature static-rp-override;
+      type boolean;
+      description
+        "When there is a conflict between static RP and dynamic
+         RP, setting this attribute to 'true' will ask the
+         system to use static RP.";
+    }
+  } // static-rp-attributes
+  grouping static-rp-container {
+    description
+      "Grouping of static RP container.";
+    container static-rp {
+      description
+        "Containing static RP attributes.";
+      list ipv4-rp {
+        when "../../../pim-base:address-family = 'rt:ipv4'" {
+          description
+            "Only applicable to IPv4 address family.";
+        }
+        key "ipv4-address";
+        description
+          "A list of IPv4 RP addresses.";
+        leaf ipv4-address {
+          type inet:ipv4-address;
+          description
+            "Specifies a static RP address.";
+        }
+      }
+      list ipv6-rp {
+        when "../../../pim-base:address-family = 'rt:ipv6'" {
+          description
+            "Only applicable to IPv6 address family.";
+        }
+        key "ipv6-address";
+        description
+          "A list of IPv6 RP addresses.";
+        leaf ipv6-address {
+          type inet:ipv6-address;
+          description
+            "Specifies a static RP address.";
+        }
+      }
+    } // static-rp
+  } // static-rp-container
+  grouping rp-candidate-attributes {
+    description
+      "Grouping of RP candidate attributes.";
+    leaf policy {
+      type string;
+      description
+        "ACL (Access Control List) policy used to filter group
+         addresses.";
+    }
+    leaf mode {
+      type identityref {
+        base rp-mode;
+      }
+      description
+        "RP mode.";
+    }
+  } // rp-candidate-attributes
+  /*
+   * Configuration data nodes
+   */
+  augment "/frr-vrf:lib/frr-vrf:vrf/"
+    + "rt:routing/rt:control-plane-protocols/pim-base:pim/"
+    + "pim-base:address-family" {
+    description "PIM RP augmentation.";
+    container rp {
+      description
+        "PIM RP configuration data.";
+      uses static-rp-container;
+      container bsr {
+        if-feature bsr;
+        description
+          "Containing BSR (BootStrap Router) attributes.";
+        uses bsr-config-attributes;
+      } // bsr
+    } // rp
+  } // augment
+  /*
+   * Operational state data nodes
+   */
+  augment "/rt:routing-state/rt:control-plane-protocols/"
+    + "pim-base:pim/pim-base:address-family" {
+    description
+      "PIM SM state.";
+    container rp {
+      description
+        "PIM RP state data.";
+      uses static-rp-container;
+      container bsr {
+        if-feature bsr;
+        description
+          "Containing BSR (BootStrap Router) attributes.";
+        uses bsr-config-attributes;
+        uses bsr-state-attributes;
+      } // bsr
+      container rp-list {
+        description
+          "Containing a list of RPs.";
+        list ipv4-rp {
+          when "../../../pim-base:address-family = 'rt:ipv4'" {
+            description
+              "Only applicable to IPv4 address family.";
+          }
+          key "ipv4-address mode";
+          description
+            "A list of IPv4 RP addresses.";
+          leaf ipv4-address {
+            type inet:ipv4-address;
+            description
+              "RP address.";
+          }
+          leaf mode {
+            type identityref {
+              base rp-mode;
+            }
+            description
+              "RP mode.";
+          }
+          leaf info-source-address {
+            type inet:ipv4-address;
+            description
+              "The address where RP information is learned.";
+          }
+          uses rp-state-attributes;
+        }
+        list ipv6-rp {
+          when "../../../pim-base:address-family = 'rt:ipv6'" {
+            description
+              "Only applicable to IPv6 address family.";
+          }
+          key "ipv6-address mode";
+          description
+            "A list of IPv6 RP addresses.";
+          leaf ipv6-address {
+            type inet:ipv6-address;
+            description
+              "RP address.";
+          }
+          leaf mode {
+            type identityref {
+              base rp-mode;
+            }
+            description
+              "RP mode.";
+          }
+          leaf info-source-address {
+            type inet:ipv6-address;
+            description
+              "The address where RP information is learned.";
+          }
+          uses rp-state-attributes;
+        }
+      } // rp-list
+      container rp-mappings {
+        description
+          "Containing a list of group-to-RP mappings.";
+        list ipv4-rp {
+          when "../../../pim-base:address-family = 'rt:ipv4'" {
+            description
+              "Only applicable to IPv4 address family.";
+          }
+          key "group rp-address";
+          description
+            "A list of group-to-RP mappings.";
+          leaf group {
+            type inet:ipv4-prefix;
+            description
+              "Group prefix.";
+          }
+          leaf rp-address {
+            type inet:ipv4-address;
+            description
+              "RP address.";
+          }
+          uses rp-mapping-state-attributes;
+        }
+        list ipv6-rp {
+          when "../../../pim-base:address-family = 'rt:ipv6'" {
+            description
+              "Only applicable to IPv6 address family.";
+          }
+          key "group rp-address";
+          description
+            "A list of IPv6 RP addresses.";
+          leaf group {
+            type inet:ipv6-prefix;
+            description
+              "Group prefix.";
+          }
+          leaf rp-address {
+            type inet:ipv6-address;
+            description
+              "RP address.";
+          }
+          uses rp-mapping-state-attributes;
+        }
+      } // rp-mappings
+    } // rp
+  } // augment
+  /*
+   * RPCs
+   */
+  /*
+   * Notifications
+   */
+  notification pim-rp-event {
+    description "Notification event for RP.";
+    leaf event-type {
+      type rp-event-type;
+      description "Event type.";
+    }
+    uses pim-base:pim-instance-af-state-ref;
+    leaf group {
+      type rt-types:ip-multicast-group-address;
+      description "Group address.";
+    }
+    leaf rp-address {
+      type inet:ip-address;
+      description "RP address.";
+    }
+    leaf is-rpt {
+      type boolean;
+      description "'true' if the tree is RPT (RP-Tree).";
+    }
+    leaf mode {
+      type pim-base:pim-mode;
+      description "PIM mode.";
+    }
+    leaf message-origin {
+      type inet:ip-address;
+      description "Where the message is originated.";
+    }
+  }
+}

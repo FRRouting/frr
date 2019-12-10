@@ -1,0 +1,199 @@
+module frr-pimd {
+  yang-version "1.1";
+  namespace "http://frrouting.org/yang/pimd";
+
+  prefix frr-pimd;
+
+  import ietf-routing {
+    prefix "rt";
+  }
+  import ietf-inet-types {
+    prefix inet;
+  }
+  import ietf-pim-base {
+    prefix "pim-base";
+  }
+  import ietf-pim-rp {
+    prefix "pim-rp";
+  }
+
+  import ietf-pim-sm {
+    prefix "pim-sm";
+  }
+
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
+  organization
+    "Free Range Routing";
+
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+
+  description
+    "This module defines a model for managing FRR pimd daemon.";
+
+  revision 2019-11-06 {
+    description
+      "Initial revision.";
+    reference
+      "RFC 4601: PIM SM for IPv4.";
+  }
+
+  typedef ipv4-multicast-group-address {
+    type inet:ipv4-prefix {
+      pattern '(2((2[4-9])|(3[0-9]))\.).*';
+    }
+    description
+      "This type represents an IPv4 multicast group address,
+      which is in the range of 224.0.0.0 to 239.255.255.255.
+      The range of values for the prefix-length is 0 to 32.";
+    reference
+      "RFC 1112: Host Extensions for IP Multicasting.";
+  }
+
+  grouping frr-pim-sm {
+    description "pim sm configuration grouping";
+
+    leaf ecmp {
+      type boolean;
+      default "false";
+      description
+        "Enable PIM ECMP.";
+    }
+
+    leaf ecmp-rebalance {
+      type boolean;
+      default "false";
+      description
+        "Enable PIM ECMP Rebalance.";
+    }
+
+    leaf join-prune-interval {
+      type uint16 {
+        range "60..600";
+      }
+      default "60";
+      description
+        "Join Prune Send Interval in seconds.";
+    }
+
+    leaf keep-alive-timer {
+      type uint16 {
+        range "31..60000";
+      }
+      default "210";
+      description
+        "Keep alive Timer in seconds.";
+    }
+
+    leaf packets {
+      type uint8 {
+        range "1..100";
+      }
+      default "3";
+      description
+        "Number of packets.";
+    }
+
+    leaf register-suppress-time {
+      type uint16 {
+        range "5..60000";
+      }
+      default "60";
+      description
+        "Register Suppress Timer.";
+    }
+
+    leaf send-v6-secondary {
+      type boolean;
+      default "false";
+      description
+        "Send v6 secondary addresses.";
+    }
+
+    leaf rp-keep-alive-timer {
+      type uint16 {
+        range "31..60000";
+      }
+      default "210";
+      description
+        "RP keep alive Timer in seconds.";
+    }
+  }
+
+  grouping frr-pim-interface {
+    description "pim interface configuration grouping";
+    leaf bsm {
+      type boolean;
+      default "false";
+      description
+        "Enables BSM support on the interface.";
+    }
+
+    leaf unicast-bsm {
+      type boolean;
+      default "false";
+      description
+        "Accept/Send unicast BSM on the interface.";
+    }
+
+    leaf use-source {
+      type inet:ipv4-address;
+      description
+        "Primary address of the interface set by user.";
+    }
+  }
+
+  grouping frr-pim-static-rp {
+    description "pim static RP configuration grouping";
+    choice group-list-or-prefix-list {
+      description "Use group-list or prefix-list";
+      case group-list {
+        leaf-list group-list {
+          type ipv4-multicast-group-address;
+          description
+            "List of multicast group address.";
+        }
+      }
+      case prefix-list {
+        leaf prefix-list {
+          type string;
+          description
+            "Group prefix-list filter";
+        }
+      }
+    }
+  }
+
+  augment "/frr-vrf:lib/frr-vrf:vrf/"
+    + "rt:routing/rt:control-plane-protocols/pim-base:pim/"
+    + "pim-base:address-family/pim-sm:sm"
+  {
+    description
+      "Augment pim sm configuration.";
+    uses frr-pim-sm;
+  }
+
+    augment "/frr-vrf:lib/frr-vrf:vrf/"
+     + "rt:routing/rt:control-plane-protocols/pim-base:pim/"
+     + "pim-base:interfaces/pim-base:interface/"
+     + "pim-base:address-family"
+  {
+    description
+      "Augment pim sm interface configuration.";
+    uses frr-pim-interface;
+  }
+
+  augment "/frr-vrf:lib/frr-vrf:vrf/"
+    + "rt:routing/rt:control-plane-protocols/pim-base:pim/"
+    + "pim-base:address-family/pim-rp:rp/"
+    + "pim-rp:static-rp/pim-rp:ipv4-rp"
+  {
+    description "PIM SM augmentation.";
+    uses frr-pim-static-rp; 
+  }
+
+} 
