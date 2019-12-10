@@ -180,6 +180,12 @@ TAILQ_HEAD(dplane_ctx_q, zebra_dplane_ctx);
 /* Allocate a context object */
 struct zebra_dplane_ctx *dplane_ctx_alloc(void);
 
+/*
+ * Reset an allocated context object for re-use. All internal allocations are
+ * freed.
+ */
+void dplane_ctx_reset(struct zebra_dplane_ctx *ctx);
+
 /* Return a dataplane results context block after use; the caller's pointer will
  * be cleared.
  */
@@ -450,6 +456,15 @@ enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
 					vlanid_t vid,
 					const struct ethaddr *mac,
 					struct in_addr vtep_ip);
+
+/* Helper api to init an empty or new context for a MAC update */
+void dplane_mac_init(struct zebra_dplane_ctx *ctx,
+		     const struct interface *ifp,
+		     const struct interface *br_ifp,
+		     vlanid_t vid,
+		     const struct ethaddr *mac,
+		     struct in_addr vtep_ip,
+		     bool sticky);
 
 /*
  * Enqueue evpn neighbor updates for the dataplane.
