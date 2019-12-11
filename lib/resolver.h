@@ -14,12 +14,18 @@
 #include "sockunion.h"
 
 struct resolver_query {
-	void (*callback)(struct resolver_query *, int n, union sockunion *);
+	void (*callback)(struct resolver_query *, const char *errstr, int n,
+			 union sockunion *);
+
+	/* used to immediate provide the result if IP literal is passed in */
+	union sockunion literal_addr;
+	struct thread *literal_cb;
 };
 
 void resolver_init(struct thread_master *tm);
 void resolver_resolve(struct resolver_query *query, int af,
 		      const char *hostname, void (*cb)(struct resolver_query *,
-						       int, union sockunion *));
+						       const char *, int,
+						       union sockunion *));
 
 #endif /* _FRR_RESOLVER_H */

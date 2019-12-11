@@ -1662,33 +1662,30 @@ static void bmp_active_connect(struct bmp_active *ba)
 	bmp_active_setup(ba);
 }
 
-static void bmp_active_resolved(struct resolver_query *resq, int numaddrs,
-				union sockunion *addr)
+static void bmp_active_resolved(struct resolver_query *resq, const char *errstr,
+				int numaddrs, union sockunion *addr)
 {
 	struct bmp_active *ba = container_of(resq, struct bmp_active, resq);
 	unsigned i;
 
 	if (numaddrs <= 0) {
-		int ret;
-
+		zlog_warn("bmp[%s]: hostname resolution failed: %s",
+			  ba->hostname, errstr);
+		ba->last_err = errstr;
+		ba->curretry += ba->curretry / 2;
 		ba->addrpos = 0;
-		ba->addrtotal = 1;
-		ret = str2sockunion(ba->hostname, &ba->addrs[0]);
-		if (ret < 0) {
-			ba->addrtotal = 0;
-			ba->curretry += ba->curretry / 2;
-			bmp_active_setup(ba);
-			return;
-		}
-	} else {
-		if (numaddrs > (int)array_size(ba->addrs))
-			numaddrs = array_size(ba->addrs);
-
-		ba->addrpos = 0;
-		ba->addrtotal = numaddrs;
-		for (i = 0; i < ba->addrtotal; i++)
-			memcpy(&ba->addrs[i], &addr[i], sizeof(ba->addrs[0]));
+		ba->addrtotal = 0;
+		bmp_active_setup(ba);
+		return;
 	}
+
+	if (numaddrs > (int)array_size(ba->addrs))
+		numaddrs = array_size(ba->addrs);
+
+	ba->addrpos = 0;
+	ba->addrtotal = numaddrs;
+	for (i = 0; i < ba->addrtotal; i++)
+		memcpy(&ba->addrs[i], &addr[i], sizeof(ba->addrs[0]));
 
 	bmp_active_connect(ba);
 }
@@ -1706,6 +1703,8 @@ static int bmp_active_thread(struct thread *t)
 	THREAD_OFF(ba->t_read);
 	THREAD_OFF(ba->t_write);
 
+	ba->last_err = NULL;
+
 	if (ba->socket == -1) {
 		resolver_resolve(&ba->resq, AF_UNSPEC, ba->hostname,
 				 bmp_active_resolved);
@@ -1718,8 +1717,9 @@ static int bmp_active_thread(struct thread *t)
 
 	sockunion2str(&ba->addrs[ba->addrpos], buf, sizeof(buf));
 	if (ret < 0 || status != 0) {
-		zlog_warn("bmp[%s]: failed to connect to %s:%d",
-			  ba->hostname, buf, ba->port);
+		ba->last_err = strerror(status);
+		zlog_warn("bmp[%s]: failed to connect to %s:%d: %s",
+			  ba->hostname, buf, ba->port, ba->last_err);
 		goto out_next;
 	}
 
@@ -2079,9 +2079,12 @@ DEFPY(show_bmp,
 	struct bmp_bgp *bmpbgp;
 	struct bmp_targets *bt;
 	struct bmp_listener *bl;
+	struct bmp_active *ba;
 	struct bmp *bmp;
 	struct ttable *tt;
 	char buf[SU_ADDRSTRLEN];
+	char uptime[BGP_UPTIME_LEN];
+	char *out;
 
 	frr_each(bmp_bgph, &bmp_bgph, bmpbgp) {
 		vty_out(vty, "BMP state for BGP %s:\n\n",
@@ -2130,6 +2133,51 @@ DEFPY(show_bmp,
 					sockunion2str(&bl->addr, buf,
 						      SU_ADDRSTRLEN), bl->port);
 
+			vty_out(vty, "\n    Outbound connections:\n");
+			tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+			ttable_add_row(tt, "remote|state||timer");
+			ttable_rowseps(tt, 0, BOTTOM, true, '-');
+			frr_each (bmp_actives, &bt->actives, ba) {
+				const char *state_str = "?";
+
+				if (ba->bmp) {
+					peer_uptime(ba->bmp->t_up.tv_sec,
+						    uptime, sizeof(uptime),
+						    false, NULL);
+					ttable_add_row(tt, "%s:%d|Up|%s|%s",
+						       ba->hostname, ba->port,
+						       ba->bmp->remote, uptime);
+					continue;
+				}
+
+				uptime[0] = '\0';
+
+				if (ba->t_timer) {
+					long trem = thread_timer_remain_second(
+						ba->t_timer);
+
+					peer_uptime(monotime(NULL) - trem,
+						    uptime, sizeof(uptime),
+						    false, NULL);
+					state_str = "RetryWait";
+				} else if (ba->t_read) {
+					state_str = "Connecting";
+				} else if (ba->resq.callback) {
+					state_str = "Resolving";
+				}
+
+				ttable_add_row(tt, "%s:%d|%s|%s|%s",
+					       ba->hostname, ba->port,
+					       state_str,
+					       ba->last_err ? ba->last_err : "",
+					       uptime);
+				continue;
+			}
+			out = ttable_dump(tt, "\n");
+			vty_out(vty, "%s", out);
+			XFREE(MTYPE_TMP, out);
+			ttable_del(tt);
+
 			vty_out(vty, "\n    %zu connected clients:\n",
 					bmp_session_count(&bt->sessions));
 			tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
@@ -2142,14 +2190,17 @@ DEFPY(show_bmp,
 
 				pullwr_stats(bmp->pullwr, &total, &q, &kq);
 
-				ttable_add_row(tt, "%s|-|%Lu|%Lu|%Lu|%Lu|%zu|%zu",
-					       bmp->remote,
+				peer_uptime(bmp->t_up.tv_sec, uptime,
+					    sizeof(uptime), false, NULL);
+
+				ttable_add_row(tt, "%s|%s|%Lu|%Lu|%Lu|%Lu|%zu|%zu",
+					       bmp->remote, uptime,
 					       bmp->cnt_update,
 					       bmp->cnt_mirror,
 					       bmp->cnt_mirror_overruns,
 					       total, q, kq);
 			}
-			char *out = ttable_dump(tt, "\n");
+			out = ttable_dump(tt, "\n");
 			vty_out(vty, "%s", out);
 			XFREE(MTYPE_TMP, out);
 			ttable_del(tt);
