@@ -2160,8 +2160,6 @@ const char *nb_client_name(enum nb_client client)
 		return "Sysrepo";
 	case NB_CLIENT_GRPC:
 		return "gRPC";
-	case NB_CLIENT_PCEP:
-		return "PCEP";
 	default:
 		return "unknown";
 	}

@@ -374,18 +374,6 @@ lib_grpc_la_LIBADD = lib/libfrr.la grpc/libfrrgrpc_pb.la $(GRPC_LIBS)
 lib_grpc_la_SOURCES = lib/northbound_grpc.cpp
 
 #
-# PCEP northbound plugin
-#
-if PCEP
-module_LTLIBRARIES += lib/pcep.la
-endif
-
-lib_pcep_la_CXXFLAGS = $(WERROR) $(PCEP_CFLAGS)
-lib_pcep_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
-lib_pcep_la_LIBADD = lib/libfrr.la $(PCEP_LIBS)
-lib_pcep_la_SOURCES = lib/northbound_pcep.c
-
-#
 # CLI utilities
 #
 noinst_PROGRAMS += \
