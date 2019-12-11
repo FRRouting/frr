@@ -2133,12 +2133,16 @@ DEFPY(show_bmp,
 
 			frr_each (bmp_session, &bt->sessions, bmp) {
 				uint64_t total;
+				char uptime[BGP_UPTIME_LEN];
 				size_t q, kq;
 
 				pullwr_stats(bmp->pullwr, &total, &q, &kq);
 
-				ttable_add_row(tt, "%s|-|%Lu|%Lu|%Lu|%Lu|%zu|%zu",
-					       bmp->remote,
+				peer_uptime(bmp->t_up.tv_sec, uptime,
+					    sizeof(uptime), false, NULL);
+
+				ttable_add_row(tt, "%s|%s|%Lu|%Lu|%Lu|%Lu|%zu|%zu",
+					       bmp->remote, uptime,
 					       bmp->cnt_update,
 					       bmp->cnt_mirror,
 					       bmp->cnt_mirror_overruns,
