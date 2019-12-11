@@ -18,9 +18,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#define FUZZING 1
 #ifndef _ZEBRA_H
 #define _ZEBRA_H
+
+#define FUZZING 1
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -75,6 +76,12 @@ typedef unsigned char uint8_t;
 #include <limits.h>
 #include <inttypes.h>
 #include <stdbool.h>
+
+
+#ifdef FUZZING
+#include "fuzz.h"
+#endif
+
 
 /* machine dependent includes */
 #ifdef SUNOS_5
