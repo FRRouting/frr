@@ -27,6 +27,20 @@
 
 typedef int (*path_list_cb_t)(path_t *path, void *arg);
 
-void path_nb_list_path(path_list_cb_t cb, void* arg);
+void path_nb_list_path(path_list_cb_t cb, void *arg);
+
+int path_nb_commit_candidate_config(struct nb_config *candidate_config,
+				    const char *comment);
+void path_nb_edit_candidate_config(struct nb_config *candidate_config,
+				   const char *xpath,
+				   enum nb_operation operation,
+				   const char *value);
+int path_nb_add_segment_list_segment(const char *segment_list_name,
+				     uint32_t index, uint32_t label);
+int path_nb_create_segment_list(const char *segment_list_name);
+int path_nb_add_candidate_path(uint32_t color, struct ipaddr *endpoint,
+			       struct ipaddr *originator,
+			       uint32_t discriminator, uint32_t preference,
+			       const char *segment_list_name);
 
 #endif // _PATH_PCEP_NB_H_
