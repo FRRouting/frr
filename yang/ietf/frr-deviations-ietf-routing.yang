@@ -7,6 +7,10 @@ module frr-deviations-ietf-routing {
     prefix ietf-routing;
   }
 
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
   organization
     "Free Range Routing";
 
@@ -18,32 +22,32 @@ module frr-deviations-ietf-routing {
     "This module defines deviation statements for the ietf-routing
      module.";
 
-  deviation "/ietf-routing:routing/ietf-routing:router-id" {
+  revision 2019-12-03 {
+    description
+      "Initial revision.";
+  }
+
+  deviation "/frr-vrf:lib/frr-vrf:vrf/ietf-routing:routing/ietf-routing:router-id" {
     deviate not-supported;
   }
 
-  deviation "/ietf-routing:routing/ietf-routing:interfaces" {
+  deviation "/frr-vrf:lib/frr-vrf:vrf/ietf-routing:routing/ietf-routing:interfaces" {
     deviate not-supported;
   }
 
-  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol" {
+  deviation "/frr-vrf:lib/frr-vrf:vrf/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol" {
     deviate add {
-      must '(type != "ietf-rip:ripv2") or (name = "main")' {
+      must '(type != "ietf-rip:ripv2") or (type != "ietf-routing:static") or (name = "main")' {
         description
-          "ripd supports one RIP instance only";
+          "FRR supports ripd:ripv2, static, pim";
       }
     }
   }
-
-  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-routing:description" {
+  deviation "/frr-vrf:lib/frr-vrf:vrf/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-routing:description" {
     deviate not-supported;
   }
 
-  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-routing:static-routes" {
-    deviate not-supported;
-  }
-
-  deviation "/ietf-routing:routing/ietf-routing:ribs" {
+  deviation "/frr-vrf:lib/frr-vrf:vrf/ietf-routing:routing/ietf-routing:ribs" {
     deviate not-supported;
   }
 
