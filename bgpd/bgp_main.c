@@ -448,15 +448,10 @@ int main(int argc, char **argv)
 		SET_FLAG(p->af_cap[afi][safi], 0x3FFF);
 	}
 
-	fseek(stdin, 0, SEEK_END);
-	long fsize = ftell(stdin);
-	if (fsize < 0)
-		return 0;
 
-	uint8_t *input = malloc(fsize);
+	uint8_t *input;
+	int r = frrfuzz_read_input(&input);
 
-	fseek(stdin, 0, SEEK_SET);
-	int r = fread(input, 1, fsize, stdin);
 	ringbuf_put(p->ibuf_work, input, r);
 
 	/*
