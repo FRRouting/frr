@@ -18,9 +18,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#define FUZZING 1
 #ifndef _ZEBRA_H
 #define _ZEBRA_H
+
+#define FUZZING 1
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -75,6 +76,12 @@
 #ifdef HAVE_ENDIAN_H
 #include <endian.h>
 #endif
+
+
+#ifdef FUZZING
+#include "fuzz.h"
+#endif
+
 
 /* machine dependent includes */
 #ifdef HAVE_LINUX_VERSION_H
