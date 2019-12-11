@@ -47,6 +47,19 @@
 #define SOUTHBOUND_DEFAULT_ADDR INADDR_LOOPBACK
 #define SOUTHBOUND_DEFAULT_PORT 2620
 
+/**
+ * FPM header:
+ * {
+ *   version: 1 byte (always 1),
+ *   type: 1 byte (1 for netlink, 2 protobuf),
+ *   len: 2 bytes (network order),
+ * }
+ *
+ * This header is used with any format to tell the users how many bytes to
+ * expect.
+ */
+#define FPM_HEADER_SIZE 4
+
 static const char *prov_name = "dplane_fpm_nl";
 
 struct fpm_nl_ctx {
@@ -545,13 +558,6 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		}
 
 		nl_buf_len = (size_t)rv;
-		if (STREAM_WRITEABLE(fnc->obuf) < nl_buf_len) {
-			fnc->counters.buffer_full++;
-			zlog_debug("%s: not enough output buffer (%ld vs %lu)",
-				   __func__, STREAM_WRITEABLE(fnc->obuf),
-				   nl_buf_len);
-			return -1;
-		}
 
 		/* UPDATE operations need a INSTALL, otherwise just quit. */
 		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE)
@@ -569,13 +575,6 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		}
 
 		nl_buf_len += (size_t)rv;
-		if (STREAM_WRITEABLE(fnc->obuf) < nl_buf_len) {
-			fnc->counters.buffer_full++;
-			zlog_debug("%s: not enough output buffer (%ld vs %lu)",
-				   __func__, STREAM_WRITEABLE(fnc->obuf),
-				   nl_buf_len);
-			return -1;
-		}
 		break;
 
 	case DPLANE_OP_MAC_INSTALL:
@@ -588,13 +587,6 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		}
 
 		nl_buf_len = (size_t)rv;
-		if (STREAM_WRITEABLE(fnc->obuf) < nl_buf_len) {
-			fnc->counters.buffer_full++;
-			zlog_debug("%s: not enough output buffer (%ld vs %lu)",
-				   __func__, STREAM_WRITEABLE(fnc->obuf),
-				   nl_buf_len);
-			return -1;
-		}
 		break;
 
 	case DPLANE_OP_NH_INSTALL:
@@ -630,18 +622,26 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	if (nl_buf_len == 0)
 		return 0;
 
+	/* We must know if someday a message goes beyond 65KiB. */
+	assert((nl_buf_len + FPM_HEADER_SIZE) <= UINT16_MAX);
+
+	/* Check if we have enough buffer space. */
+	if (STREAM_WRITEABLE(fnc->obuf) < (nl_buf_len + FPM_HEADER_SIZE)) {
+		fnc->counters.buffer_full++;
+		zlog_debug("%s: buffer full: wants to write %lu but has %ld",
+			   __func__, nl_buf_len + FPM_HEADER_SIZE,
+			   STREAM_WRITEABLE(fnc->obuf));
+		return -1;
+	}
+
 	/*
-	 * FPM header:
-	 * {
-	 *   version: 1 byte (always 1),
-	 *   type: 1 byte (1 for netlink, 2 protobuf),
-	 *   len: 2 bytes (network order),
-	 * }
+	 * Fill in the FPM header information.
+	 *
+	 * See FPM_HEADER_SIZE definition for more information.
 	 */
 	stream_putc(fnc->obuf, 1);
 	stream_putc(fnc->obuf, 1);
-	assert(nl_buf_len < UINT16_MAX);
-	stream_putw(fnc->obuf, nl_buf_len + 4);
+	stream_putw(fnc->obuf, nl_buf_len + FPM_HEADER_SIZE);
 
 	/* Write current data. */
 	stream_write(fnc->obuf, nl_buf, (size_t)nl_buf_len);
@@ -690,9 +690,6 @@ static int fpm_rib_send(struct thread *t)
 				/* Free the temporary allocated context. */
 				dplane_ctx_fini(&ctx);
 
-				fnc->counters.buffer_full++;
-				zlog_debug("%s: buffer full, come back later",
-					   __func__);
 				thread_add_timer(zrouter.master, fpm_rib_send,
 						 fnc, 1, &fnc->t_ribwalk);
 				return 0;
@@ -746,9 +743,6 @@ static void fpm_enqueue_rmac_table(struct hash_backet *backet, void *arg)
 			zif->brslave_info.br_if, vid, &zrmac->macaddr,
 			zrmac->fwd_info.r_vtep_ip, sticky);
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
-		fra->fnc->counters.buffer_full++;
-		zlog_debug("%s: buffer full, come back later",
-			   __func__);
 		thread_add_timer(zrouter.master, fpm_rmac_send,
 				 fra->fnc, 1, &fra->fnc->t_rmacwalk);
 	}
