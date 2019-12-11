@@ -145,7 +145,8 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 {
 	struct resolver_query *query = (struct resolver_query *)arg;
 	union sockunion addr[16];
-	void (*callback)(struct resolver_query *, int, union sockunion *);
+	void (*callback)(struct resolver_query *, const char *, int,
+			 union sockunion *);
 	size_t i;
 
 	callback = query->callback;
@@ -153,9 +154,10 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 
 	if (status != ARES_SUCCESS) {
 		if (resolver_debug)
-			zlog_debug("[%p] Resolving failed", query);
+			zlog_debug("[%p] Resolving failed (%s)",
+				   query, ares_strerror(status));
 
-		callback(query, -1, NULL);
+		callback(query, ares_strerror(status), -1, NULL);
 		return;
 	}
 
@@ -177,25 +179,26 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 	if (resolver_debug)
 		zlog_debug("[%p] Resolved with %d results", query, (int)i);
 
-	callback(query, i, &addr[0]);
+	callback(query, NULL, i, &addr[0]);
 }
 
 static int resolver_cb_literal(struct thread *t)
 {
 	struct resolver_query *query = THREAD_ARG(t);
-	void (*callback)(struct resolver_query *, int, union sockunion *);
+	void (*callback)(struct resolver_query *, const char *, int,
+			 union sockunion *);
 
 	callback = query->callback;
 	query->callback = NULL;
 
-	callback(query, 1, &query->literal_addr);
+	callback(query, ARES_SUCCESS, 1, &query->literal_addr);
 	return 0;
 }
 
 void resolver_resolve(struct resolver_query *query, int af,
 		      const char *hostname,
-		      void (*callback)(struct resolver_query *, int,
-				       union sockunion *))
+		      void (*callback)(struct resolver_query *, const char *,
+				       int, union sockunion *))
 {
 	int ret;
 

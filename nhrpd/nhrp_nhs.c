@@ -238,8 +238,8 @@ nhrp_reg_by_nbma(struct nhrp_nhs *nhs, const union sockunion *nbma_addr)
 	return NULL;
 }
 
-static void nhrp_nhs_resolve_cb(struct resolver_query *q, int n,
-				union sockunion *addrs)
+static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
+				int n, union sockunion *addrs)
 {
 	struct nhrp_nhs *nhs = container_of(q, struct nhrp_nhs, dns_resolve);
 	struct nhrp_interface *nifp = nhs->ifp->info;

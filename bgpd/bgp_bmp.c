@@ -1662,14 +1662,16 @@ static void bmp_active_connect(struct bmp_active *ba)
 	bmp_active_setup(ba);
 }
 
-static void bmp_active_resolved(struct resolver_query *resq, int numaddrs,
-				union sockunion *addr)
+static void bmp_active_resolved(struct resolver_query *resq, const char *errstr,
+				int numaddrs, union sockunion *addr)
 {
 	struct bmp_active *ba = container_of(resq, struct bmp_active, resq);
 	unsigned i;
 
 	if (numaddrs <= 0) {
-		zlog_warn("bmp[%s]: hostname resolution failed", ba->hostname);
+		zlog_warn("bmp[%s]: hostname resolution failed: %s",
+			  ba->hostname, errstr);
+		ba->last_err = errstr;
 		ba->curretry += ba->curretry / 2;
 		ba->addrpos = 0;
 		ba->addrtotal = 0;
@@ -1701,6 +1703,8 @@ static int bmp_active_thread(struct thread *t)
 	THREAD_OFF(ba->t_read);
 	THREAD_OFF(ba->t_write);
 
+	ba->last_err = NULL;
+
 	if (ba->socket == -1) {
 		resolver_resolve(&ba->resq, AF_UNSPEC, ba->hostname,
 				 bmp_active_resolved);
@@ -1713,8 +1717,9 @@ static int bmp_active_thread(struct thread *t)
 
 	sockunion2str(&ba->addrs[ba->addrpos], buf, sizeof(buf));
 	if (ret < 0 || status != 0) {
-		zlog_warn("bmp[%s]: failed to connect to %s:%d",
-			  ba->hostname, buf, ba->port);
+		ba->last_err = strerror(status);
+		zlog_warn("bmp[%s]: failed to connect to %s:%d: %s",
+			  ba->hostname, buf, ba->port, ba->last_err);
 		goto out_next;
 	}
 
