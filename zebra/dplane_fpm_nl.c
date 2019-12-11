@@ -29,6 +29,7 @@
 
 #include "config.h" /* Include this explicitly */
 #include "lib/zebra.h"
+#include "lib/json.h"
 #include "lib/libfrr.h"
 #include "lib/command.h"
 #include "lib/memory.h"
@@ -74,6 +75,30 @@ struct fpm_nl_ctx {
 	struct thread *t_ribwalk;
 	struct thread *t_rmacreset;
 	struct thread *t_rmacwalk;
+
+	/* Statistic counters. */
+	struct {
+		/* Amount of bytes read into ibuf. */
+		uint64_t bytes_read;
+		/* Amount of bytes written from obuf. */
+		uint64_t bytes_sent;
+
+		/* Amount of connection closes. */
+		uint64_t connection_closes;
+		/* Amount of connection errors. */
+		uint64_t connection_errors;
+
+		/* Amount of user configurations: FNE_RECONNECT. */
+		uint64_t user_configures;
+		/* Amount of user disable requests: FNE_DISABLE. */
+		uint64_t user_disables;
+
+		/* Amount of data plane context processed. */
+		uint64_t dplane_contexts;
+
+		/* Amount of buffer full events. */
+		uint64_t buffer_full;
+	} counters;
 } * gfnc;
 
 enum fpm_nl_events {
@@ -81,6 +106,8 @@ enum fpm_nl_events {
 	FNE_RECONNECT,
 	/* Disable FPM. */
 	FNE_DISABLE,
+	/* Reset counters. */
+	FNE_RESET_COUNTERS,
 };
 
 /*
@@ -96,9 +123,11 @@ static int fpm_rmac_reset(struct thread *t);
 /*
  * CLI.
  */
+#define FPM_STR "Forwarding Plane Manager configuration\n"
+
 DEFUN(fpm_set_address, fpm_set_address_cmd,
       "fpm address <A.B.C.D|X:X::X:X> [port (1-65535)]",
-      "Forwarding Plane Manager configuration\n"
+      FPM_STR
       "FPM remote listening server address\n"
       "Remote IPv4 FPM server\n"
       "Remote IPv6 FPM server\n"
@@ -153,7 +182,7 @@ ask_reconnect:
 DEFUN(no_fpm_set_address, no_fpm_set_address_cmd,
       "no fpm address [<A.B.C.D|X:X::X:X> [port <1-65535>]]",
       NO_STR
-      "Forwarding Plane Manager configuration\n"
+      FPM_STR
       "FPM remote listening server address\n"
       "Remote IPv4 FPM server\n"
       "Remote IPv6 FPM server\n"
@@ -162,6 +191,67 @@ DEFUN(no_fpm_set_address, no_fpm_set_address_cmd,
 {
 	thread_add_event(gfnc->fthread->master, fpm_process_event, gfnc,
 			 FNE_DISABLE, &gfnc->t_event);
+	return CMD_SUCCESS;
+}
+
+DEFUN(fpm_reset_counters, fpm_reset_counters_cmd,
+      "clear fpm counters",
+      CLEAR_STR
+      FPM_STR
+      "FPM statistic counters\n")
+{
+	thread_add_event(gfnc->fthread->master, fpm_process_event, gfnc,
+			 FNE_RESET_COUNTERS, &gfnc->t_event);
+	return CMD_SUCCESS;
+}
+
+DEFUN(fpm_show_counters, fpm_show_counters_cmd,
+      "show fpm counters",
+      SHOW_STR
+      FPM_STR
+      "FPM statistic counters\n")
+{
+	vty_out(vty, "%30s\n%30s\n", "FPM counters", "============");
+
+#define SHOW_COUNTER(label, counter) \
+	vty_out(vty, "%28s: %Lu\n", (label), (counter));
+
+	SHOW_COUNTER("Input bytes", gfnc->counters.bytes_read);
+	SHOW_COUNTER("Output bytes", gfnc->counters.bytes_sent);
+	SHOW_COUNTER("Connection closes", gfnc->counters.connection_closes);
+	SHOW_COUNTER("Connection errors", gfnc->counters.connection_errors);
+	SHOW_COUNTER("Data plane items processed",
+		     gfnc->counters.dplane_contexts);
+	SHOW_COUNTER("Buffer full hits", gfnc->counters.buffer_full);
+	SHOW_COUNTER("User FPM configurations", gfnc->counters.user_configures);
+	SHOW_COUNTER("User FPM disable requests", gfnc->counters.user_disables);
+
+#undef SHOW_COUNTER
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(fpm_show_counters_json, fpm_show_counters_json_cmd,
+      "show fpm counters json",
+      SHOW_STR
+      FPM_STR
+      "FPM statistic counters\n"
+      JSON_STR)
+{
+	struct json_object *jo;
+
+	jo = json_object_new_object();
+	json_object_int_add(jo, "bytes-read", gfnc->counters.bytes_read);
+	json_object_int_add(jo, "bytes-sent", gfnc->counters.bytes_sent);
+	json_object_int_add(jo, "connection-closes", gfnc->counters.connection_closes);
+	json_object_int_add(jo, "connection-errors", gfnc->counters.connection_errors);
+	json_object_int_add(jo, "data-plane-contexts", gfnc->counters.dplane_contexts);
+	json_object_int_add(jo, "buffer-full-hits", gfnc->counters.buffer_full);
+	json_object_int_add(jo, "user-configures", gfnc->counters.user_configures);
+	json_object_int_add(jo, "user-disables", gfnc->counters.user_disables);
+	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
+	json_object_free(jo);
+
 	return CMD_SUCCESS;
 }
 
@@ -257,6 +347,7 @@ static int fpm_read(struct thread *t)
 	rv = stream_read_try(fnc->ibuf, fnc->socket,
 			     STREAM_WRITEABLE(fnc->ibuf));
 	if (rv == 0) {
+		fnc->counters.connection_closes++;
 		zlog_debug("%s: connection closed", __func__);
 		fpm_reconnect(fnc);
 		return 0;
@@ -266,12 +357,16 @@ static int fpm_read(struct thread *t)
 		    || errno == EINTR)
 			return 0;
 
+		fnc->counters.connection_errors++;
 		zlog_debug("%s: connection failure: %s", __func__,
 			   strerror(errno));
 		fpm_reconnect(fnc);
 		return 0;
 	}
 	stream_reset(fnc->ibuf);
+
+	/* Account all bytes read. */
+	fnc->counters.bytes_read += rv;
 
 	thread_add_read(fnc->fthread->master, fpm_read, fnc, fnc->socket,
 			&fnc->t_read);
@@ -301,6 +396,8 @@ static int fpm_write(struct thread *t)
 				zlog_debug("%s: SO_ERROR failed: %s", __func__,
 					   strerror(status));
 
+			fnc->counters.connection_errors++;
+
 			fpm_reconnect(fnc);
 			return 0;
 		}
@@ -328,6 +425,7 @@ static int fpm_write(struct thread *t)
 			stream_get_getp(fnc->obuf);
 		bwritten = write(fnc->socket, stream_pnt(fnc->obuf), btotal);
 		if (bwritten == 0) {
+			fnc->counters.connection_closes++;
 			zlog_debug("%s: connection closed", __func__);
 			break;
 		}
@@ -336,11 +434,15 @@ static int fpm_write(struct thread *t)
 			    || errno == EINTR)
 				break;
 
+			fnc->counters.connection_errors++;
 			zlog_debug("%s: connection failure: %s", __func__,
 				   strerror(errno));
 			fpm_reconnect(fnc);
 			break;
 		}
+
+		/* Account all bytes sent. */
+		fnc->counters.bytes_sent += bwritten;
 
 		stream_forward_getp(fnc->obuf, (size_t)bwritten);
 	}
@@ -366,7 +468,7 @@ static int fpm_connect(struct thread *t)
 
 	sock = socket(fnc->addr.ss_family, SOCK_STREAM, 0);
 	if (sock == -1) {
-		zlog_err("%s: fpm connection failed: %s", __func__,
+		zlog_err("%s: fpm socket failed: %s", __func__,
 			 strerror(errno));
 		thread_add_timer(fnc->fthread->master, fpm_connect, fnc, 3,
 				 &fnc->t_connect);
@@ -388,6 +490,7 @@ static int fpm_connect(struct thread *t)
 
 	rv = connect(sock, (struct sockaddr *)&fnc->addr, slen);
 	if (rv == -1 && errno != EINPROGRESS) {
+		fnc->counters.connection_errors++;
 		close(sock);
 		zlog_warn("%s: fpm connection failed: %s", __func__,
 			  strerror(errno));
@@ -443,6 +546,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 		nl_buf_len = (size_t)rv;
 		if (STREAM_WRITEABLE(fnc->obuf) < nl_buf_len) {
+			fnc->counters.buffer_full++;
 			zlog_debug("%s: not enough output buffer (%ld vs %lu)",
 				   __func__, STREAM_WRITEABLE(fnc->obuf),
 				   nl_buf_len);
@@ -466,6 +570,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 		nl_buf_len += (size_t)rv;
 		if (STREAM_WRITEABLE(fnc->obuf) < nl_buf_len) {
+			fnc->counters.buffer_full++;
 			zlog_debug("%s: not enough output buffer (%ld vs %lu)",
 				   __func__, STREAM_WRITEABLE(fnc->obuf),
 				   nl_buf_len);
@@ -484,6 +589,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 		nl_buf_len = (size_t)rv;
 		if (STREAM_WRITEABLE(fnc->obuf) < nl_buf_len) {
+			fnc->counters.buffer_full++;
 			zlog_debug("%s: not enough output buffer (%ld vs %lu)",
 				   __func__, STREAM_WRITEABLE(fnc->obuf),
 				   nl_buf_len);
@@ -584,6 +690,7 @@ static int fpm_rib_send(struct thread *t)
 				/* Free the temporary allocated context. */
 				dplane_ctx_fini(&ctx);
 
+				fnc->counters.buffer_full++;
 				zlog_debug("%s: buffer full, come back later",
 					   __func__);
 				thread_add_timer(zrouter.master, fpm_rib_send,
@@ -639,6 +746,7 @@ static void fpm_enqueue_rmac_table(struct hash_backet *backet, void *arg)
 			zif->brslave_info.br_if, vid, &zrmac->macaddr,
 			zrmac->fwd_info.r_vtep_ip, sticky);
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
+		fra->fnc->counters.buffer_full++;
 		zlog_debug("%s: buffer full, come back later",
 			   __func__);
 		thread_add_timer(zrouter.master, fpm_rmac_send,
@@ -731,6 +839,7 @@ static int fpm_process_event(struct thread *t)
 	case FNE_DISABLE:
 		zlog_debug("%s: manual FPM disable event", __func__);
 		fnc->disabled = true;
+		fnc->counters.user_disables++;
 
 		/* Call reconnect to disable timers and clean up context. */
 		fpm_reconnect(fnc);
@@ -739,7 +848,13 @@ static int fpm_process_event(struct thread *t)
 	case FNE_RECONNECT:
 		zlog_debug("%s: manual FPM reconnect event", __func__);
 		fnc->disabled = false;
+		fnc->counters.user_configures++;
 		fpm_reconnect(fnc);
+		break;
+
+	case FNE_RESET_COUNTERS:
+		zlog_debug("%s: manual FPM counters reset event", __func__);
+		memset(&fnc->counters, 0, sizeof(fnc->counters));
 		break;
 
 	default:
@@ -798,8 +913,11 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 		 * Skip all notifications if not connected, we'll walk the RIB
 		 * anyway.
 		 */
-		if (fnc->socket != -1 && fnc->connecting == false)
+		if (fnc->socket != -1 && fnc->connecting == false) {
 			fpm_nl_enqueue(fnc, ctx);
+
+			fnc->counters.dplane_contexts++;
+		}
 
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 		dplane_provider_enqueue_out_ctx(prov, ctx);
@@ -823,6 +941,9 @@ static int fpm_nl_new(struct thread_master *tm)
 		zlog_debug("%s register status: %d", prov_name, rv);
 
 	install_node(&fpm_node, fpm_write_config);
+	install_element(ENABLE_NODE, &fpm_show_counters_cmd);
+	install_element(ENABLE_NODE, &fpm_show_counters_json_cmd);
+	install_element(ENABLE_NODE, &fpm_reset_counters_cmd);
 	install_element(CONFIG_NODE, &fpm_set_address_cmd);
 	install_element(CONFIG_NODE, &no_fpm_set_address_cmd);
 
