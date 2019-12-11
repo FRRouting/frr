@@ -26,15 +26,18 @@
 #include "version.h"
 #include "northbound.h"
 #include "frr_pthread.h"
+#include "jhash.h"
 
 #include "pathd/path_errors.h"
 #include "pathd/path_memory.h"
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_lib.h"
+#include "pathd/path_pcep_nb.h"
 #include "pathd/path_pcep_debug.h"
 
 #define PCEP_DEFAULT_PORT 4189
 #define POLL_INTERVAL 1
+#define CMP_RETURN(A, B) if (A != B) return (A < B) ? -1 : 1
 
 DEFINE_MTYPE(PATHD, PCEP, "PCEP module")
 
@@ -62,6 +65,8 @@ static void pcep_pcc_lsp_initiate(ctrl_state_t *ctrl_state,
 				  pcc_state_t * pcc_state, pcep_message *msg);
 static void pcep_pcc_send(ctrl_state_t *ctrl_state,
 			  pcc_state_t * pcc_state, pcep_message *msg);
+static void pcep_pcc_lookup_plspid(pcc_state_t *pcc_state, path_t *path);
+static void pcep_pcc_lookup_nbkey(pcc_state_t *pcc_state, path_t * path);
 
 /* Controller Functions Called from Main */
 static int pcep_controller_initialize(void);
@@ -86,6 +91,7 @@ static int pcep_thread_pcc_report_event(struct thread *thread);
 
 /* Main Thread Functions */
 static int pcep_main_start_sync_event(struct thread *thread);
+static int pcep_main_start_sync_event_cb(path_t *path, void *arg);
 static int pcep_main_update_path_event(struct thread *thread);
 
 /* CLI Functions */
@@ -97,6 +103,54 @@ static void pcep_cli_init(void);
 static int pcep_module_finish(void);
 static int pcep_module_late_init(struct thread_master *tm);
 static int pcep_module_init(void);
+
+/* Data Structure Functions */
+static int plspid_map_cmp(const plspid_map_t *a, const plspid_map_t *b);
+static uint32_t plspid_map_hash(const plspid_map_t *e);
+static int nbkey_map_cmp(const nbkey_map_t *a, const nbkey_map_t *b);
+static uint32_t nbkey_map_hash(const nbkey_map_t *e);
+
+DECLARE_HASH(plspid_map, plspid_map_t, mi, plspid_map_cmp, plspid_map_hash)
+DECLARE_HASH(nbkey_map, nbkey_map_t, mi, nbkey_map_cmp, nbkey_map_hash)
+
+
+/* ------------ Data Structure Functions ------------ */
+
+static int plspid_map_cmp(const plspid_map_t *a, const plspid_map_t *b)
+{
+	CMP_RETURN(a->nbkey.color, b->nbkey.color);
+	int cmp = ipaddr_cmp(&a->nbkey.endpoint, &b->nbkey.endpoint);
+	if (cmp != 0) return cmp;
+	CMP_RETURN(a->nbkey.preference, b->nbkey.preference);
+	return 0;
+}
+
+static uint32_t plspid_map_hash(const plspid_map_t *e)
+{
+	uint32_t hash;
+	hash = jhash_2words(e->nbkey.color, e->nbkey.preference, 0x55aa5a5a);
+	switch (e->nbkey.endpoint.ipa_type) {
+		case IPADDR_V4:
+			return jhash(&e->nbkey.endpoint.ipaddr_v4,
+			             sizeof(e->nbkey.endpoint.ipaddr_v4), hash);
+		case IPADDR_V6:
+			return jhash(&e->nbkey.endpoint.ipaddr_v6,
+			             sizeof(e->nbkey.endpoint.ipaddr_v6), hash);
+		default:
+			return hash;
+	}
+}
+
+static int nbkey_map_cmp(const nbkey_map_t *a, const nbkey_map_t *b)
+{
+	CMP_RETURN(a->plspid, b->plspid);
+	return 0;
+}
+
+static uint32_t nbkey_map_hash(const nbkey_map_t *e)
+{
+	return e->plspid;
+}
 
 
 /* ------------ PCC Functions ------------ */
@@ -252,11 +306,12 @@ void pcep_pcc_lsp_update(ctrl_state_t *ctrl_state,
 {
 	path_t *path;
 	path = pcep_lib_parse_path(msg->obj_list);
+	pcep_pcc_lookup_nbkey(pcc_state, path);
 	pcep_thread_update_path(ctrl_state, pcc_state, path);
 }
 
 void pcep_pcc_lsp_initiate(ctrl_state_t *ctrl_state,
-			   pcc_state_t * pcc_state, pcep_message *msg)
+			   pcc_state_t *pcc_state, pcep_message *msg)
 {
 	PCEP_DEBUG("Received LSP initiate, not supported yet");
 }
@@ -268,6 +323,26 @@ void pcep_pcc_send(ctrl_state_t *ctrl_state,
 	send_message(pcc_state->sess, msg, true);
 }
 
+
+void pcep_pcc_lookup_plspid(pcc_state_t *pcc_state, path_t *path)
+{
+	plspid_map_t key, *mapping;
+
+	if (0 != path->nbkey.color) {
+		key.nbkey = path->nbkey;
+		mapping = plspid_map_find(&pcc_state->plspid_map, &key);
+		if (NULL == mapping) {
+			/*TODO: Generate PLSP_ID and add it to the maps */
+		} else {
+			path->plsp_id = mapping->plspid;
+		}
+	}
+}
+
+void pcep_pcc_lookup_nbkey(pcc_state_t *pcc_state, path_t * path)
+{
+	/*TODO: lookup the NB key from the PLSP ID */
+}
 
 /* ------------ Controller Functions Called from Main ------------ */
 
@@ -566,6 +641,10 @@ int pcep_thread_pcc_report_event(struct thread *thread)
 		status = OPERATING;
 	}
 
+	pcep_pcc_lookup_plspid(pcc_state, path);
+
+	PCEP_DEBUG("Sending path: %s", format_path(path));
+
 	objs = pcep_lib_format_path(path);
 	report = pcep_msg_create_report(objs);
 	pcep_pcc_send(ctrl_state, pcc_state, report);
@@ -583,6 +662,7 @@ int pcep_thread_pcc_report_event(struct thread *thread)
 int pcep_main_start_sync_event(struct thread *thread)
 {
 	int pcc_id = THREAD_VAL(thread);
+
 	struct in_addr addr_r6;
 	path_hop_t *hop1;
 	path_t *path;
@@ -625,7 +705,11 @@ int pcep_main_start_sync_event(struct thread *thread)
 		.is_delegated = true,
 		.first = hop1
 	};
-	pcep_controller_pcc_report(pcc_id, path);
+
+	pcep_main_start_sync_event_cb(path, &pcc_id);
+
+	path_nb_list_path(pcep_main_start_sync_event_cb, &pcc_id);
+
 
 	/* Final sync report */
 	path = XCALLOC(MTYPE_PCEP, sizeof(*path));
@@ -645,6 +729,13 @@ int pcep_main_start_sync_event(struct thread *thread)
 	pcep_controller_pcc_report(pcc_id, path);
 
 	return 0;
+}
+
+int pcep_main_start_sync_event_cb(path_t *path, void *arg)
+{
+	int *pcc_id = (int*)arg;
+	pcep_controller_pcc_report(*pcc_id, path);
+	return 1;
 }
 
 int pcep_main_update_path_event(struct thread *thread)

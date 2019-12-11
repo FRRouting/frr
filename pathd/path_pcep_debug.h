@@ -45,5 +45,6 @@ const char *format_ctrl_state(ctrl_state_t *state);
 const char *format_path(path_t *path);
 const char *format_pcep_event(pcep_event *event);
 const char *format_pcep_message(pcep_message *msg);
+const char *format_yang_dnode(struct lyd_node *dnode);
 
 #endif // _PATH_PCEP_DEBUG_H_

@@ -38,6 +38,7 @@ noinst_HEADERS += \
 	pathd/pathd.h \
 	pathd/path_pcep.h \
 	pathd/path_pcep_lib.h \
+	pathd/path_pcep_nb.h \
 	pathd/path_pcep_debug.h \
 	# end
 
@@ -53,6 +54,7 @@ pathd_pathd_LDADD = pathd/libpath.a lib/libfrr.la $(LIBCAP)
 pathd_pathd_pcep_la_SOURCES = \
 	pathd/path_pcep.c \
 	pathd/path_pcep_lib.c \
+	pathd/path_pcep_nb.c \
 	pathd/path_pcep_debug.c \
 	# end
 pathd_pathd_pcep_la_CFLAGS = $(WERROR)

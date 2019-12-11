@@ -20,8 +20,10 @@
 #include <string.h>
 #include <stdbool.h>
 #include <time.h>
+#include <libyang/libyang.h>
 
 #include "printfrr.h"
+#include "ipaddr.h"
 
 #include "pathd/path_pcep_debug.h"
 
@@ -61,8 +63,8 @@ static void _format_pcep_object_ro_details(int ps,
 static void _format_pcep_object_ro_ipv4(int ps,
 		struct pcep_ro_subobj_ipv4 *obj);
 static void _format_pcep_object_ro_sr(int ps, struct pcep_ro_subobj_sr *obj);
-static void _format_pcep_object_tlvs(int , struct pcep_object_header *obj,
-		size_t size);
+static void _format_pcep_object_tlvs(int ps,
+		struct pcep_object_header *obj, size_t size);
 static void _format_pcep_object_tlv(int ps, struct pcep_object_tlv *tlv);
 static void _format_pcep_object_tlv_details(int ps,
 		struct pcep_object_tlv *tlv);
@@ -407,6 +409,18 @@ const char *format_pcep_message(pcep_message *msg)
 	return PCEP_FORMAT_FINI();
 }
 
+const char *format_yang_dnode(struct lyd_node *dnode)
+{
+	char *buff;
+	int len;
+
+	lyd_print_mem(&buff, dnode, LYD_JSON, LYP_FORMAT);
+	len = strlen(buff);
+	memcpy(_debug_buff, buff, len);
+	free(buff);
+	return _debug_buff;
+}
+
 void _format_pcc_opts(int ps, pcc_opts_t *opts)
 {
 	if (NULL == opts) {
@@ -484,6 +498,25 @@ void _format_path(int ps, path_t *path)
 		int ps2 = ps + DEBUG_IDENT_SIZE;
 		int ps3 = ps2 + DEBUG_IDENT_SIZE;
 		PCEP_FORMAT("\n");
+		PCEP_FORMAT("%*snbkey: \n", ps2, "");
+		PCEP_FORMAT("%*scolor: %u\n", ps3, "",
+			    path->nbkey.color);
+		switch (path->nbkey.endpoint.ipa_type) {
+			case IPADDR_V4:
+				PCEP_FORMAT("%*sendpoint: %pI4\n", ps3, "",
+					    &path->nbkey.endpoint.ipaddr_v4);
+				break;
+			case IPADDR_V6:
+				PCEP_FORMAT("%*sendpoint: %pI6\n", ps3, "",
+					    &path->nbkey.endpoint.ipaddr_v6);
+				break;
+			default:
+				PCEP_FORMAT("%*sendpoint: NONE\n", ps3, "");
+				break;
+		}
+		PCEP_FORMAT("%*spreference: %u\n", ps3, "",
+			    path->nbkey.preference);
+		PCEP_FORMAT("%*splsp_id: %u\n", ps2, "", path->plsp_id);
 		if (NULL == path->name) {
 			PCEP_FORMAT("%*sname: NULL\n", ps2, "");
 		} else {
@@ -491,9 +524,8 @@ void _format_path(int ps, path_t *path)
 				    path->name);
 		}
 		PCEP_FORMAT("%*ssrp_id: %u\n", ps2, "", path->srp_id);
-		PCEP_FORMAT("%*splsp_id: %u\n", ps2, "", path->plsp_id);
 		PCEP_FORMAT("%*sstatus: %s (%u)\n", ps2, "",
-		            pcep_lsp_status_name(path->status), path->status);
+			    pcep_lsp_status_name(path->status), path->status);
 		PCEP_FORMAT("%*sdo_remove: %u\n", ps2, "", path->do_remove);
 		PCEP_FORMAT("%*sgo_active: %u\n", ps2, "", path->go_active);
 		PCEP_FORMAT("%*swas_created: %u\n", ps2, "", path->was_created);
@@ -524,16 +556,16 @@ void _format_path_hop(int ps, path_hop_t *hop)
 		PCEP_FORMAT("%*sis_mpls: %u\n", ps, "", hop->is_mpls);
 		if (hop->is_mpls) {
 			PCEP_FORMAT("%*shas_attribs: %u\n", ps, "",
-			            hop->has_attribs);
+				    hop->has_attribs);
 			PCEP_FORMAT("%*slabel: %u\n", ps, "",
-			            hop->sid.mpls.label);
+				    hop->sid.mpls.label);
 			if (hop->has_attribs) {
 				PCEP_FORMAT("%*straffic_class: %u\n", ps, "",
-				            hop->sid.mpls.traffic_class);
+					    hop->sid.mpls.traffic_class);
 				PCEP_FORMAT("%*sis_bottom: %u\n", ps, "",
-				            hop->sid.mpls.is_bottom);
+					    hop->sid.mpls.is_bottom);
 				PCEP_FORMAT("%*sttl: %u\n", ps, "",
-				            hop->sid.mpls.ttl);
+					    hop->sid.mpls.ttl);
 			}
 		} else {
 			PCEP_FORMAT("%*sSID: %u\n", ps, "", hop->sid.value);
@@ -543,11 +575,11 @@ void _format_path_hop(int ps, path_hop_t *hop)
 	PCEP_FORMAT("%*shas_nai: %u\n", ps, "", hop->has_nai);
 	if (hop->has_nai) {
 		PCEP_FORMAT("%*snai_type: %s (%u)\n", ps, "",
-		            pcep_nai_type_name(hop->nai_type), hop->nai_type);
+			    pcep_nai_type_name(hop->nai_type), hop->nai_type);
 		switch (hop->nai_type) {
 			case PCEP_SR_SUBOBJ_NAI_IPV4_NODE:
 				PCEP_FORMAT("%*sNAI: %pI4\n", ps, "",
-				            &hop->nai.ipv4_node.addr);
+					    &hop->nai.ipv4_node.addr);
 				break;
 			default:
 				PCEP_FORMAT("%*sNAI: UNSUPPORTED\n", ps, "");
@@ -651,7 +683,7 @@ void _format_pcep_object(int ps, struct pcep_object_header *obj)
 		_format_pcep_object_details(ps, obj);
 
 		//TODO: Remove when TLV unpacking is done at parsing time
-		free(obj);
+		free(local_obj);
 	}
 }
 
@@ -735,7 +767,7 @@ void _format_pcep_object_lsp(int ps, struct pcep_object_lsp *obj)
 }
 
 void _format_pcep_object_ipv4_endpoint(int ps,
-				       struct pcep_object_endpoints_ipv4* obj)
+	struct pcep_object_endpoints_ipv4* obj)
 {
 	PCEP_FORMAT("%*ssrc_ipv4: %pI4\n", ps, "", &obj->src_ipv4);
 	PCEP_FORMAT("%*sdst_ipv4: %pI4\n", ps, "", &obj->dst_ipv4);
@@ -813,7 +845,7 @@ void _format_pcep_object_ro_sr(int ps, struct pcep_ro_subobj_sr *obj)
 	has_attr = (GET_SR_SUBOBJ_FLAGS(obj) & PCEP_SR_SUBOBJ_C_FLAG) != 0;
 
 	PCEP_FORMAT("%*snai_type = %s (%u)\n", ps, "",
-	            pcep_nai_type_name(nai_type), nai_type);
+		    pcep_nai_type_name(nai_type), nai_type);
 	//FIXME: uncoment when pceplib is updated
 	// PCEP_FORMAT("%*sL: %u\n", ps, "", GET_RO_SUBOBJ_LFLAG(&sr->header));
 	PCEP_FORMAT("%*sS: %u\n", ps, "", has_sid);
@@ -825,14 +857,14 @@ void _format_pcep_object_ro_sr(int ps, struct pcep_ro_subobj_sr *obj)
 		PCEP_FORMAT("%*sSID: %u\n", ps, "", *p);
 		if (is_mpls) {
 			PCEP_FORMAT("%*slabel: %u\n", ps, "",
-			            GET_SR_ERO_SID_LABEL(*p));
+				    GET_SR_ERO_SID_LABEL(*p));
 			if (has_attr) {
 				PCEP_FORMAT("%*sTC: %u\n", ps, "",
-				            GET_SR_ERO_SID_TC(*p));
+					    GET_SR_ERO_SID_TC(*p));
 				PCEP_FORMAT("%*sS: %u\n", ps, "",
-				            GET_SR_ERO_SID_S(*p));
+					    GET_SR_ERO_SID_S(*p));
 				PCEP_FORMAT("%*sTTL: %u\n", ps, "",
-				            GET_SR_ERO_SID_TTL(*p));
+					    GET_SR_ERO_SID_TTL(*p));
 			}
 		}
 		p++;
@@ -851,7 +883,8 @@ void _format_pcep_object_ro_sr(int ps, struct pcep_ro_subobj_sr *obj)
 	}
 }
 
-void _format_pcep_object_tlvs(int ps, struct pcep_object_header *obj, size_t size)
+void _format_pcep_object_tlvs(int ps, struct pcep_object_header *obj,
+			      size_t size)
 {
 	struct pcep_object_tlv *tlv;
 	double_linked_list *tlv_list;

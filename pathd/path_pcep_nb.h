@@ -17,21 +17,16 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _PATH_PCEP_LIB_H_
-#define _PATH_PCEP_LIB_H_
+#ifndef _PATH_PCEP_NB_H_
+#define _PATH_PCEP_NB_H_
 
 #include <stdbool.h>
-#include <pcep_pcc_api.h>
+#include <debug.h>
+
 #include "pathd/path_pcep.h"
 
-// /* Should be fixed in pceplib */
-#define GET_SR_ERO_SID_S(SID)       ((SID & 0x00000100) >> 8)
+typedef int (*path_list_cb_t)(path_t *path, void *arg);
 
-int pcep_lib_connect(pcc_state_t *pcc_state);
-void pcep_lib_disconnect(pcc_state_t *pcc_state);
-double_linked_list *pcep_lib_format_path(path_t *path);
-path_t *pcep_lib_parse_path(double_linked_list *objs);
-void pcep_lib_free_path(path_t *path);
+void path_nb_list_path(path_list_cb_t cb, void* arg);
 
-
-#endif // _PATH_PCEP_LIB_H_
+#endif // _PATH_PCEP_NB_H_

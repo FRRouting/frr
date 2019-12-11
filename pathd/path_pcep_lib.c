@@ -93,6 +93,7 @@ double_linked_list *pcep_lib_format_path(path_t *path)
 	tlv = pcep_tlv_create_path_setup_type(SR_TE_PST);
 	dll_append(srp_tlvs, tlv);
 	srp = pcep_obj_create_srp(path->do_remove, path->srp_id, srp_tlvs);
+	assert(NULL != srp);
 	dll_append(objs, srp);
 	dll_destroy_with_data(srp_tlvs);
 	/* LSP object */
@@ -103,6 +104,7 @@ double_linked_list *pcep_lib_format_path(path_t *path)
 		dll_append(lsp_tlvs, tlv);
 	}
 	tlv = pcep_tlv_create_ipv4_lsp_identifiers(&addr_null, &addr_null, 0, 0, 0);
+	assert(NULL != tlv);
 	dll_append(lsp_tlvs, tlv);
 	lsp = pcep_obj_create_lsp(path->plsp_id,
 				  path->status,
@@ -112,6 +114,7 @@ double_linked_list *pcep_lib_format_path(path_t *path)
 				  path->is_synching   /* S Flag */,
 				  path->is_delegated  /* D Flag */,
 				  lsp_tlvs);
+	assert(NULL != lsp);
 	dll_append(objs, lsp);
 	dll_destroy_with_data(lsp_tlvs);
 	/*   ERO object */
@@ -136,9 +139,11 @@ double_linked_list *pcep_lib_format_path(path_t *path)
 				&hop->nai.ipv4_node.addr);
 		/* ODL only supports Draft 07 that has a different type */
 		ero_obj->subobj.sr.header.type = RO_SUBOBJ_TYPE_SR_DRAFT07;
+		assert(NULL != ero_obj);
 		dll_append(ero_objs, ero_obj);
 	}
 	ero = pcep_obj_create_ero(ero_objs);
+	assert(NULL != ero);
 	dll_append(objs, ero);
 	dll_destroy_with_data(ero_objs);
 

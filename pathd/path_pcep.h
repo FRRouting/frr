@@ -23,6 +23,8 @@
 #include <stdbool.h>
 #include <debug.h>
 #include <pcep_pcc_api.h>
+#include <pcep_pcc_api.h>
+#include "typesafe.h"
 #include "pathd/path_memory.h"
 
 #define MAX_PCC 1
@@ -48,12 +50,35 @@ typedef enum {
 	OPERATING
 } pcc_status_t;
 
+typedef struct lsp_nb_key_t_ {
+	uint32_t color;
+	struct ipaddr endpoint;
+	uint32_t preference;
+} lsp_nb_key_t;
+
+PREDECL_HASH(plspid_map)
+PREDECL_HASH(nbkey_map)
+
+typedef struct plspid_map_t_ {
+	struct plspid_map_item mi;
+	lsp_nb_key_t nbkey;
+	uint32_t plspid;
+} plspid_map_t;
+
+typedef struct nbkey_map_t_ {
+	struct nbkey_map_item mi;
+	lsp_nb_key_t nbkey;
+	uint32_t plspid;
+} nbkey_map_t;
+
 typedef struct pcc_state_t_ {
 	int id;
 	pcc_status_t status;
 	pcc_opts_t *opts;
 	pcep_configuration * config;
 	pcep_session *sess;
+	struct plspid_map_head plspid_map;
+	struct nbkey_map_head nbkey_map;
 } pcc_state_t;
 
 typedef struct ctrl_state_t_ {
@@ -97,9 +122,10 @@ typedef struct path_hop_t_ {
 } path_hop_t;
 
 typedef struct path_t_ {
-	char *name;
-	uint32_t srp_id;
+	lsp_nb_key_t nbkey;
 	uint32_t plsp_id;
+	uint32_t srp_id;
+	char *name;
 	enum pcep_lsp_operational_status status;
 	bool do_remove;
 	bool go_active;
