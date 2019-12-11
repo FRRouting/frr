@@ -118,6 +118,12 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 	if (next1->type > next2->type)
 		return 1;
 
+	if (next1->weight < next2->weight)
+		return -1;
+
+	if (next1->weight > next2->weight)
+		return 1;
+
 	switch (next1->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV6:
@@ -550,6 +556,7 @@ void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
 	copy->ifindex = nexthop->ifindex;
 	copy->type = nexthop->type;
 	copy->flags = nexthop->flags;
+	copy->weight = nexthop->weight;
 	memcpy(&copy->gate, &nexthop->gate, sizeof(nexthop->gate));
 	memcpy(&copy->src, &nexthop->src, sizeof(nexthop->src));
 	memcpy(&copy->rmap_src, &nexthop->rmap_src, sizeof(nexthop->rmap_src));

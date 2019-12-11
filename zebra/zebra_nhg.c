@@ -1790,7 +1790,7 @@ uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
 		if (!duplicate) {
 			grp[i].id = depend->id;
 			/* We aren't using weights for anything right now */
-			grp[i].weight = 0;
+			grp[i].weight = depend->nhg->nexthop->weight;
 			i++;
 		}
 

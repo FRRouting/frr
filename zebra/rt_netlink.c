@@ -467,6 +467,8 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 			nh = nexthop_from_ifindex(index, nh_vrf_id);
 
 		if (nh) {
+			nh->weight = rtnh->rtnh_hops + 1;
+
 			if (num_labels)
 				nexthop_add_labels(nh, ZEBRA_LSP_STATIC,
 						   num_labels, labels);
@@ -1419,6 +1421,9 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 				"nexthop via if %u",
 				routedesc, nexthop->ifindex);
 	}
+
+	if (nexthop->weight)
+		rtnh->rtnh_hops = nexthop->weight - 1;
 }
 
 static inline void _netlink_mpls_build_singlepath(const char *routedesc,
@@ -1921,7 +1926,7 @@ static void _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
 	if (count) {
 		for (int i = 0; i < count; i++) {
 			grp[i].id = z_grp[i].id;
-			grp[i].weight = z_grp[i].weight;
+			grp[i].weight = z_grp[i].weight - 1;
 
 			if (IS_ZEBRA_DEBUG_KERNEL) {
 				if (i == 0)
@@ -2347,7 +2352,7 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 
 	for (int i = 0; ((i < count) && (i < z_grp_size)); i++) {
 		z_grp[i].id = n_grp[i].id;
-		z_grp[i].weight = n_grp[i].weight;
+		z_grp[i].weight = n_grp[i].weight + 1;
 	}
 	return count;
 }

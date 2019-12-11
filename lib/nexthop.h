@@ -110,6 +110,9 @@ struct nexthop {
 
 	/* Label(s) associated with this nexthop. */
 	struct mpls_label_stack *nh_label;
+
+	/* Weight of the nexthop ( for unequal cost ECMP ) */
+	uint8_t weight;
 };
 
 struct nexthop *nexthop_new(void);

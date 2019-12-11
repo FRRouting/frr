@@ -243,6 +243,8 @@ void route_add(struct prefix *p, vrf_id_t vrf_id,
 		api_nh = &api.nexthops[i];
 		api_nh->vrf_id = nh->vrf_id;
 		api_nh->type = nh->type;
+		api_nh->weight = nh->weight;
+
 		switch (nh->type) {
 		case NEXTHOP_TYPE_IPV4:
 			api_nh->gate = nh->gate;

@@ -42,6 +42,7 @@ struct nexthop_hold {
 	union sockunion *addr;
 	char *intf;
 	char *labels;
+	uint32_t weight;
 };
 
 struct nexthop_group_hooks {
@@ -526,8 +527,8 @@ DEFUN_NOSH(no_nexthop_group, no_nexthop_group_cmd, "no nexthop-group NHGNAME",
 static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 				    const char *nhvrf_name,
 				    const union sockunion *addr,
-				    const char *intf,
-				    const char *labels)
+				    const char *intf, const char *labels,
+				    const uint32_t weight)
 {
 	struct nexthop_hold *nh;
 
@@ -542,23 +543,26 @@ static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 	if (labels)
 		nh->labels = XSTRDUP(MTYPE_TMP, labels);
 
+	nh->weight = weight;
+
 	listnode_add_sort(nhgc->nhg_list, nh);
 }
 
 static void nexthop_group_unsave_nhop(struct nexthop_group_cmd *nhgc,
 				      const char *nhvrf_name,
 				      const union sockunion *addr,
-				      const char *intf,
-				      const char *labels)
+				      const char *intf, const char *labels,
+				      const uint32_t weight)
 {
 	struct nexthop_hold *nh;
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_list, node, nh)) {
-		if (nhgc_cmp_helper(nhvrf_name, nh->nhvrf_name) == 0 &&
-		    nhgc_addr_cmp_helper(addr, nh->addr) == 0 &&
-		    nhgc_cmp_helper(intf, nh->intf) == 0 &&
-		    nhgc_cmp_helper(labels, nh->labels) == 0)
+		if (nhgc_cmp_helper(nhvrf_name, nh->nhvrf_name) == 0
+		    && nhgc_addr_cmp_helper(addr, nh->addr) == 0
+		    && nhgc_cmp_helper(intf, nh->intf) == 0
+		    && nhgc_cmp_helper(labels, nh->labels) == 0
+		    && weight == nh->weight)
 			break;
 	}
 
@@ -581,8 +585,8 @@ static void nexthop_group_unsave_nhop(struct nexthop_group_cmd *nhgc,
 static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 					const union sockunion *addr,
 					const char *intf, const char *name,
-					const char *labels,
-					int *lbl_ret)
+					const char *labels, int *lbl_ret,
+					uint32_t weight)
 {
 	int ret = 0;
 	struct vrf *vrf;
@@ -639,6 +643,8 @@ static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 					   num, larray);
 	}
 
+	nhop->weight = weight;
+
 	return true;
 }
 
@@ -648,11 +654,9 @@ static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
 static bool nexthop_group_parse_nhh(struct nexthop *nhop,
 				    const struct nexthop_hold *nhh)
 {
-	return (nexthop_group_parse_nexthop(nhop, nhh->addr,
-					    nhh->intf,
-					    nhh->nhvrf_name,
-					    nhh->labels,
-					    NULL));
+	return (nexthop_group_parse_nexthop(nhop, nhh->addr, nhh->intf,
+					    nhh->nhvrf_name, nhh->labels, NULL,
+					    nhh->weight));
 }
 
 DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
@@ -664,6 +668,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	[{ \
 	   nexthop-vrf NAME$vrf_name \
 	   |label WORD \
+           |weight (1-255) \
 	}]",
       NO_STR
       "Specify one of the nexthops in this ECMP group\n"
@@ -674,7 +679,9 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
       "If the nexthop is in a different vrf tell us\n"
       "The nexthop-vrf Name\n"
       "Specify label(s) for this nexthop\n"
-      "One or more labels in the range (16-1048575) separated by '/'\n")
+      "One or more labels in the range (16-1048575) separated by '/'\n"
+      "Weight to be used by the nexthop for purposes of ECMP\n"
+      "Weight value to be used\n")
 {
 	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
 	struct nexthop nhop;
@@ -682,8 +689,8 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	int lbl_ret = 0;
 	bool legal;
 
-	legal = nexthop_group_parse_nexthop(&nhop, addr, intf, vrf_name,
-					    label, &lbl_ret);
+	legal = nexthop_group_parse_nexthop(&nhop, addr, intf, vrf_name, label,
+					    &lbl_ret, weight);
 
 	if (nhop.type == NEXTHOP_TYPE_IPV6
 	    && IN6_IS_ADDR_LINKLOCAL(&nhop.gate.ipv6)) {
@@ -716,7 +723,8 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	nh = nexthop_exists(&nhgc->nhg, &nhop);
 
 	if (no) {
-		nexthop_group_unsave_nhop(nhgc, vrf_name, addr, intf, label);
+		nexthop_group_unsave_nhop(nhgc, vrf_name, addr, intf, label,
+					  weight);
 		if (nh) {
 			_nexthop_del(&nhgc->nhg, nh);
 
@@ -734,7 +742,8 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 			_nexthop_add(&nhgc->nhg.nexthop, nh);
 		}
 
-		nexthop_group_save_nhop(nhgc, vrf_name, addr, intf, label);
+		nexthop_group_save_nhop(nhgc, vrf_name, addr, intf, label,
+					weight);
 
 		if (legal && nhg_hooks.add_nexthop)
 			nhg_hooks.add_nexthop(nhgc, nh);
@@ -794,6 +803,9 @@ void nexthop_group_write_nexthop(struct vty *vty, struct nexthop *nh)
 		vty_out(vty, " label %s", buf);
 	}
 
+	if (nh->weight)
+		vty_out(vty, " weight %u", nh->weight);
+
 	vty_out(vty, "\n");
 }
 
@@ -815,6 +827,9 @@ static void nexthop_group_write_nexthop_internal(struct vty *vty,
 
 	if (nh->labels)
 		vty_out(vty, " label %s", nh->labels);
+
+	if (nh->weight)
+		vty_out(vty, " weight %u", nh->weight);
 
 	vty_out(vty, "\n");
 }
