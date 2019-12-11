@@ -1061,6 +1061,8 @@ FRR_INCLUDES
 
 dnl V6 headers are checked below, after we check for v6
 
+is_linux=false
+
 AC_MSG_CHECKING([which operating system interface to use])
 case "$host_os" in
   sunos* | solaris2*)
@@ -1089,6 +1091,8 @@ case "$host_os" in
     dnl how to fix it but no real progress on implementation
     dnl when they fix it, remove this
     AC_DEFINE([IPV6_MINHOPCOUNT], [73], [Linux ipv6 Min Hop Count])
+
+    is_linux=true
     ;;
   openbsd*)
     AC_MSG_RESULT([OpenBSD])
@@ -1116,6 +1120,7 @@ case "$host_os" in
     ;;
 esac
 AM_CONDITIONAL([SOLARIS], [test "${SOLARIS}" = "solaris"])
+AM_CONDITIONAL([LINUX], [${is_linux}])
 
 AC_SYS_LARGEFILE
 

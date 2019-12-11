@@ -27,7 +27,6 @@
 #include "mlag.h"
 
 #include "zebra/zebra_mlag.h"
-#include "zebra/zebra_mlag_private.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zapi_msg.h"
@@ -36,6 +35,13 @@
 #ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_mlag_clippy.c"
 #endif
+
+DEFINE_HOOK(zebra_mlag_private_write_data,
+	    (uint8_t *data, uint32_t len), (data, len))
+DEFINE_HOOK(zebra_mlag_private_monitor_state, (), ())
+DEFINE_HOOK(zebra_mlag_private_open_channel, (), ())
+DEFINE_HOOK(zebra_mlag_private_close_channel, (), ())
+DEFINE_HOOK(zebra_mlag_private_cleanup_data, (), ())
 
 #define ZEBRA_MLAG_METADATA_LEN 4
 #define ZEBRA_MLAG_MSG_BCAST 0xFFFFFFFF
@@ -175,7 +181,8 @@ static int zebra_mlag_client_msg_handler(struct thread *event)
 		 * write to MCLAGD
 		 */
 		if (len > 0) {
-			zebra_mlag_private_write_data(mlag_wr_buffer, len);
+			hook_call(zebra_mlag_private_write_data,
+				  mlag_wr_buffer, len);
 
 			/*
 			 * If message type is De-register, send a signal to main
@@ -220,7 +227,7 @@ void zebra_mlag_handle_process_state(enum zebra_mlag_state state)
 	} else if (state == MLAG_DOWN) {
 		zrouter.mlag_info.connected = false;
 		zebra_mlag_publish_process_state(NULL, ZEBRA_MLAG_PROCESS_DOWN);
-		zebra_mlag_private_monitor_state();
+		hook_call(zebra_mlag_private_monitor_state);
 	}
 }
 
@@ -412,7 +419,7 @@ static int zebra_mlag_terminate_pthread(struct thread *event)
 	/*
 	 * Send Notification to clean private data
 	 */
-	zebra_mlag_private_cleanup_data();
+	hook_call(zebra_mlag_private_cleanup_data);
 	return 0;
 }
 
@@ -470,7 +477,7 @@ void zebra_mlag_client_register(ZAPI_HANDLER_ARGS)
 				"First client, opening the channel with MLAG");
 
 		zebra_mlag_spawn_pthread();
-		rc = zebra_mlag_private_open_channel();
+		rc = hook_call(zebra_mlag_private_open_channel);
 		if (rc < 0) {
 			/*
 			 * For some reason, zebra not able to open the
@@ -530,7 +537,7 @@ void zebra_mlag_client_unregister(ZAPI_HANDLER_ARGS)
 		 * signal back to main thread to do the thread cleanup
 		 * this was mainly to make sure De-register is posted to MCLAGD.
 		 */
-		zebra_mlag_private_close_channel();
+		hook_call(zebra_mlag_private_close_channel);
 	}
 
 	if (IS_ZEBRA_DEBUG_MLAG)
@@ -627,13 +634,13 @@ DEFPY_HIDDEN(test_mlag, test_mlag_cmd,
 					zebra_mlag_spawn_pthread();
 				zrouter.mlag_info.clients_interested_cnt++;
 				test_mlag_in_progress = true;
-				zebra_mlag_private_open_channel();
+				hook_call(zebra_mlag_private_open_channel);
 			}
 		} else {
 			if (test_mlag_in_progress == true) {
 				test_mlag_in_progress = false;
 				zrouter.mlag_info.clients_interested_cnt--;
-				zebra_mlag_private_close_channel();
+				hook_call(zebra_mlag_private_close_channel);
 			}
 		}
 	}

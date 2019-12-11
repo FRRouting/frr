@@ -33,6 +33,13 @@
 #define ZEBRA_MLAG_BUF_LIMIT 2048
 #define ZEBRA_MLAG_LEN_SIZE 4
 
+DECLARE_HOOK(zebra_mlag_private_write_data,
+	     (uint8_t *data, uint32_t len), (data, len))
+DECLARE_HOOK(zebra_mlag_private_monitor_state, (), ())
+DECLARE_HOOK(zebra_mlag_private_open_channel, (), ())
+DECLARE_HOOK(zebra_mlag_private_close_channel, (), ())
+DECLARE_HOOK(zebra_mlag_private_cleanup_data, (), ())
+
 extern uint8_t mlag_wr_buffer[ZEBRA_MLAG_BUF_LIMIT];
 extern uint8_t mlag_rd_buffer[ZEBRA_MLAG_BUF_LIMIT];
 extern uint32_t mlag_rd_buf_offset;
