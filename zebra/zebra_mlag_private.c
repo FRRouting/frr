@@ -100,7 +100,7 @@ static int zebra_mlag_read(struct thread *thread)
 			return -1;
 		}
 		mlag_rd_buf_offset += data_len;
-		if (data_len != (ssize_t)ZEBRA_MLAG_LEN_SIZE - curr_len) {
+		if (data_len != (ssize_t)(ZEBRA_MLAG_LEN_SIZE - curr_len)) {
 			/* Try again later */
 			zebra_mlag_sched_read();
 			return 0;
@@ -129,7 +129,7 @@ static int zebra_mlag_read(struct thread *thread)
 			return -1;
 		}
 		mlag_rd_buf_offset += data_len;
-		if (data_len != (ssize_t)tot_len - curr_len) {
+		if (data_len != (ssize_t)(tot_len - curr_len)) {
 			/* Try again later */
 			zebra_mlag_sched_read();
 			return 0;
