@@ -180,11 +180,25 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 	callback(query, i, &addr[0]);
 }
 
+static int resolver_cb_literal(struct thread *t)
+{
+	struct resolver_query *query = THREAD_ARG(t);
+	void (*callback)(struct resolver_query *, int, union sockunion *);
+
+	callback = query->callback;
+	query->callback = NULL;
+
+	callback(query, 1, &query->literal_addr);
+	return 0;
+}
+
 void resolver_resolve(struct resolver_query *query, int af,
 		      const char *hostname,
 		      void (*callback)(struct resolver_query *, int,
 				       union sockunion *))
 {
+	int ret;
+
 	if (query->callback != NULL) {
 		flog_err(
 			EC_LIB_RESOLVER,
@@ -193,10 +207,26 @@ void resolver_resolve(struct resolver_query *query, int af,
 		return;
 	}
 
+	query->callback = callback;
+	query->literal_cb = NULL;
+
+	ret = str2sockunion(hostname, &query->literal_addr);
+	if (ret == 0) {
+		if (resolver_debug)
+			zlog_debug("[%p] Resolving '%s' (IP literal)",
+				   query, hostname);
+
+		/* for consistency with proper name lookup, don't call the
+		 * callback immediately; defer to thread loop
+		 */
+		thread_add_timer_msec(state.master, resolver_cb_literal,
+				      query, 0, &query->literal_cb);
+		return;
+	}
+
 	if (resolver_debug)
 		zlog_debug("[%p] Resolving '%s'", query, hostname);
 
-	query->callback = callback;
 	ares_gethostbyname(state.channel, hostname, af, ares_address_cb, query);
 	resolver_update_timeouts(&state);
 }

@@ -1669,26 +1669,21 @@ static void bmp_active_resolved(struct resolver_query *resq, int numaddrs,
 	unsigned i;
 
 	if (numaddrs <= 0) {
-		int ret;
-
+		zlog_warn("bmp[%s]: hostname resolution failed", ba->hostname);
+		ba->curretry += ba->curretry / 2;
 		ba->addrpos = 0;
-		ba->addrtotal = 1;
-		ret = str2sockunion(ba->hostname, &ba->addrs[0]);
-		if (ret < 0) {
-			ba->addrtotal = 0;
-			ba->curretry += ba->curretry / 2;
-			bmp_active_setup(ba);
-			return;
-		}
-	} else {
-		if (numaddrs > (int)array_size(ba->addrs))
-			numaddrs = array_size(ba->addrs);
-
-		ba->addrpos = 0;
-		ba->addrtotal = numaddrs;
-		for (i = 0; i < ba->addrtotal; i++)
-			memcpy(&ba->addrs[i], &addr[i], sizeof(ba->addrs[0]));
+		ba->addrtotal = 0;
+		bmp_active_setup(ba);
+		return;
 	}
+
+	if (numaddrs > (int)array_size(ba->addrs))
+		numaddrs = array_size(ba->addrs);
+
+	ba->addrpos = 0;
+	ba->addrtotal = numaddrs;
+	for (i = 0; i < ba->addrtotal; i++)
+		memcpy(&ba->addrs[i], &addr[i], sizeof(ba->addrs[0]));
 
 	bmp_active_connect(ba);
 }

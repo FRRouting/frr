@@ -15,6 +15,10 @@
 
 struct resolver_query {
 	void (*callback)(struct resolver_query *, int n, union sockunion *);
+
+	/* used to immediate provide the result if IP literal is passed in */
+	union sockunion literal_addr;
+	struct thread *literal_cb;
 };
 
 void resolver_init(struct thread_master *tm);
