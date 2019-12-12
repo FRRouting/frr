@@ -25,6 +25,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_RT_TABLE, "Zebra VRF table");
 
 struct zebra_router zrouter = {
 	.zav.multipath_num = MULTIPATH_NUM,
+	.zav.v6_rr_semantics = true,
 };
 
 DEFINE_HOOK(nos_initialize_data, (struct zebra_architectural_values *zav), (zav));
