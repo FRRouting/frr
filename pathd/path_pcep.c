@@ -165,6 +165,7 @@ pcc_state_t* pcep_pcc_initialize(ctrl_state_t *ctrl_state, int index)
 
 	pcc_state->id = index;
 	pcc_state->status = DISCONNECTED;
+	pcc_state->next_plspid = 1;
 
 	return pcc_state;
 }
@@ -306,6 +307,8 @@ void pcep_pcc_lsp_update(ctrl_state_t *ctrl_state,
 {
 	path_t *path;
 	path = pcep_lib_parse_path(msg->obj_list);
+	path->sender.ipa_type = IPADDR_V4;
+	path->sender.ipaddr_v4 = pcc_state->opts->addr;
 	pcep_pcc_lookup_nbkey(pcc_state, path);
 	pcep_thread_update_path(ctrl_state, pcc_state, path);
 }
@@ -326,22 +329,41 @@ void pcep_pcc_send(ctrl_state_t *ctrl_state,
 
 void pcep_pcc_lookup_plspid(pcc_state_t *pcc_state, path_t *path)
 {
-	plspid_map_t key, *mapping;
+	plspid_map_t key, *plspid_mapping;
+	nbkey_map_t *nbkey_mapping;
 
 	if (0 != path->nbkey.color) {
 		key.nbkey = path->nbkey;
-		mapping = plspid_map_find(&pcc_state->plspid_map, &key);
-		if (NULL == mapping) {
-			/*TODO: Generate PLSP_ID and add it to the maps */
-		} else {
-			path->plsp_id = mapping->plspid;
+		plspid_mapping = plspid_map_find(&pcc_state->plspid_map, &key);
+		if (NULL == plspid_mapping) {
+			plspid_mapping = XCALLOC(MTYPE_PCEP,
+			                         sizeof(*plspid_mapping));
+			plspid_mapping->nbkey = key.nbkey;
+			plspid_mapping->plspid = pcc_state->next_plspid;
+			plspid_map_add(&pcc_state->plspid_map, plspid_mapping);
+			nbkey_mapping = XCALLOC(MTYPE_PCEP,
+			                        sizeof(*nbkey_mapping));
+			nbkey_mapping->nbkey = key.nbkey;
+			nbkey_mapping->plspid = pcc_state->next_plspid;
+			nbkey_map_add(&pcc_state->nbkey_map, nbkey_mapping);
+			pcc_state->next_plspid++;
+			//FIXME: Send some error to the PCE isntead of crashing
+			assert(1048576 > pcc_state->next_plspid);
+
 		}
+		path->plsp_id = plspid_mapping->plspid;
 	}
 }
 
 void pcep_pcc_lookup_nbkey(pcc_state_t *pcc_state, path_t * path)
 {
-	/*TODO: lookup the NB key from the PLSP ID */
+	nbkey_map_t key, *mapping;
+	//TODO: Should give an error to the PCE instead of crashing
+	assert(0 != path->plsp_id);
+	key.plspid = path->plsp_id;
+	mapping = nbkey_map_find(&pcc_state->nbkey_map, &key);
+	assert(NULL != mapping);
+	path->nbkey = mapping->nbkey;
 }
 
 /* ------------ Controller Functions Called from Main ------------ */
@@ -662,54 +684,9 @@ int pcep_thread_pcc_report_event(struct thread *thread)
 int pcep_main_start_sync_event(struct thread *thread)
 {
 	int pcc_id = THREAD_VAL(thread);
-
-	struct in_addr addr_r6;
-	path_hop_t *hop1;
 	path_t *path;
 
-	/* This is where the prefered path should be read from NB */
-
-	inet_pton(AF_INET, "6.6.6.6", &(addr_r6.s_addr));
-
-	/* First Fake Path */
-	hop1 = XCALLOC(MTYPE_PCEP, sizeof(*hop1));
-	*hop1 = (path_hop_t) {
-		.next = NULL,
-		.is_loose = false,
-		.has_sid = true,
-		.is_mpls = true,
-		.has_attribs = false,
-		.sid = {
-			.mpls = {
-				.label = 16060,
-				.traffic_class = 0,
-				.is_bottom = true,
-				.ttl = 0
-			}
-		},
-		.has_nai = true,
-		.nai_type = PCEP_SR_SUBOBJ_NAI_IPV4_NODE,
-		.nai = { .ipv4_node = { .addr = addr_r6 } }
-	};
-	path = XCALLOC(MTYPE_PCEP, sizeof(*path));
-	*path = (path_t) {
-		.name = XSTRDUP(MTYPE_PCEP, "foob"),
-		.srp_id = 0,
-		.plsp_id = 42,
-		.status = PCEP_LSP_OPERATIONAL_UP,
-		.do_remove = false,
-		.go_active = false,
-		.was_created = false,
-		.was_removed = false,
-		.is_synching = true,
-		.is_delegated = true,
-		.first = hop1
-	};
-
-	pcep_main_start_sync_event_cb(path, &pcc_id);
-
 	path_nb_list_path(pcep_main_start_sync_event_cb, &pcc_id);
-
 
 	/* Final sync report */
 	path = XCALLOC(MTYPE_PCEP, sizeof(*path));
@@ -746,11 +723,7 @@ int pcep_main_update_path_event(struct thread *thread)
 
 	XFREE(MTYPE_PCEP, event);
 
-	/* This is where the path should be updated with NB */
-
-	PCEP_DEBUG("Path updated: %s", format_path(path));
-
-	/* For now we just send back a report */
+	path_nb_update_path(path);
 
 	pcep_controller_pcc_report(pcc_id, path);
 

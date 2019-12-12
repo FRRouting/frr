@@ -24,9 +24,6 @@
 #include <pcep_pcc_api.h>
 #include "pathd/path_pcep.h"
 
-// /* Should be fixed in pceplib */
-#define GET_SR_ERO_SID_S(SID)       ((SID & 0x00000100) >> 8)
-
 int pcep_lib_connect(pcc_state_t *pcc_state);
 void pcep_lib_disconnect(pcc_state_t *pcc_state);
 double_linked_list *pcep_lib_format_path(path_t *path);

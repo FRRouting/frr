@@ -24,6 +24,7 @@
 #include <debug.h>
 #include <pcep_pcc_api.h>
 #include <pcep_pcc_api.h>
+#include "mpls.h"
 #include "typesafe.h"
 #include "pathd/path_memory.h"
 
@@ -77,6 +78,7 @@ typedef struct pcc_state_t_ {
 	pcc_opts_t *opts;
 	pcep_configuration * config;
 	pcep_session *sess;
+	uint32_t next_plspid;
 	struct plspid_map_head plspid_map;
 	struct nbkey_map_head nbkey_map;
 } pcc_state_t;
@@ -90,7 +92,7 @@ typedef struct ctrl_state_t_ {
 } ctrl_state_t;
 
 typedef struct sid_mpls_t_ {
-	uint16_t label;
+	mpls_label_t label;
 	uint8_t traffic_class;
 	bool is_bottom;
 	uint8_t ttl;
@@ -122,6 +124,7 @@ typedef struct path_hop_t_ {
 } path_hop_t;
 
 typedef struct path_t_ {
+	struct ipaddr sender;
 	lsp_nb_key_t nbkey;
 	uint32_t plsp_id;
 	uint32_t srp_id;

@@ -27,7 +27,7 @@ static void pcep_lib_parse_srp(path_t *path, struct pcep_object_srp* srp);
 static void pcep_lib_parse_lsp(path_t *path, struct pcep_object_lsp* lsp);
 static void pcep_lib_parse_ero(path_t *path, struct pcep_object_ro* ero);
 static path_hop_t *pcep_lib_parse_ero_sr(path_hop_t *next,
-                                         struct pcep_ro_subobj_sr *sr);
+					 struct pcep_ro_subobj_sr *sr);
 
 int pcep_lib_connect(pcc_state_t *pcc_state)
 {
@@ -120,23 +120,36 @@ double_linked_list *pcep_lib_format_path(path_t *path)
 	/*   ERO object */
 	ero_objs = dll_initialize();
 	for (path_hop_t *hop = path->first; NULL != hop; hop = hop->next) {
+		uint32_t sid;
+
 		/* Only supporting MPLS hops with both sid and nai */
 		assert(hop->is_mpls);
 		assert(hop->has_sid);
-		assert(hop->has_nai);
-		/* Only supporting IPv4 nodes */
-		assert(PCEP_SR_SUBOBJ_NAI_IPV4_NODE == hop->nai_type);
 
-		ero_obj = pcep_obj_create_ro_subobj_sr_ipv4_node(
-				hop->is_loose,
-				!hop->has_sid,
-				hop->has_attribs,
-				hop->is_mpls,
-				ENCODE_SR_ERO_SID(hop->sid.mpls.label,
-						  hop->sid.mpls.traffic_class,
-						  hop->sid.mpls.is_bottom,
-						  hop->sid.mpls.ttl),
-				&hop->nai.ipv4_node.addr);
+		if (hop->has_attribs) {
+			sid = ENCODE_SR_ERO_SID(hop->sid.mpls.label,
+						hop->sid.mpls.traffic_class,
+						hop->sid.mpls.is_bottom,
+						hop->sid.mpls.ttl);
+		} else {
+			sid = ENCODE_SR_ERO_SID(hop->sid.mpls.label, 0, 0, 0);
+		}
+
+		if (hop->has_nai) {
+			/* Only supporting IPv4 nodes */
+			assert(PCEP_SR_SUBOBJ_NAI_IPV4_NODE == hop->nai_type);
+
+			ero_obj = pcep_obj_create_ro_subobj_sr_ipv4_node(
+					hop->is_loose,
+					!hop->has_sid,
+					hop->has_attribs,
+					hop->is_mpls,
+					sid,
+					&hop->nai.ipv4_node.addr);
+		} else {
+			ero_obj = pcep_obj_create_ro_subobj_sr_nonai(
+					hop->is_loose, sid);
+		}
 		/* ODL only supports Draft 07 that has a different type */
 		ero_obj->subobj.sr.header.type = RO_SUBOBJ_TYPE_SR_DRAFT07;
 		assert(NULL != ero_obj);
@@ -286,40 +299,44 @@ void pcep_lib_parse_ero(path_t *path, struct pcep_object_ro* ero)
 }
 
 path_hop_t *pcep_lib_parse_ero_sr(path_hop_t *next,
-                                  struct pcep_ro_subobj_sr *sr)
+				  struct pcep_ro_subobj_sr *sr)
 {
 	path_hop_t *hop = NULL;
 	uint16_t flags;
+	bool has_nai;
+	enum pcep_sr_subobj_nai nai_type = PCEP_SR_SUBOBJ_NAI_ABSENT;
+	nai_t nai;
+
 
 	hop = XCALLOC(MTYPE_PCEP, sizeof(*hop));
 	flags = GET_SR_SUBOBJ_FLAGS(sr);
 
-	/* Only support IPv4 node with both SID and NAI for now */
-	assert(PCEP_SR_SUBOBJ_NAI_IPV4_NODE == GET_SR_SUBOBJ_NT(sr));
+	/* Only support IPv4 node with SID */
 	assert((flags & PCEP_SR_SUBOBJ_S_FLAG) == 0);
-	assert((flags & PCEP_SR_SUBOBJ_F_FLAG) == 0);
 
+	memset(&nai, 0, sizeof(nai));
+	has_nai = (flags & PCEP_SR_SUBOBJ_F_FLAG) == 0;
+	if (has_nai) {
+		/* Only support IPv4 node with IPv4 NAI */
+		nai_type = GET_SR_SUBOBJ_NT(sr);
+		assert(PCEP_SR_SUBOBJ_NAI_IPV4_NODE == nai_type);
+		nai = (nai_t) {.ipv4_node = {.addr = {
+				.s_addr = sr->sid_nai[1]}}};
+	}
 
-	*hop = (path_hop_t) {
-		.next = next,
-		//FIXME: change when pceplib is updated
-		// .is_loose = GET_RO_SUBOBJ_LFLAG(&sr->header)
-		.is_loose = false,
-		.has_sid = (flags & PCEP_SR_SUBOBJ_S_FLAG) == 0,
-		.is_mpls = (flags & PCEP_SR_SUBOBJ_M_FLAG) != 0,
-		.has_attribs = (flags & PCEP_SR_SUBOBJ_C_FLAG) != 0,
-		.sid = { .mpls = {
-			.label = GET_SR_ERO_SID_LABEL(sr->sid_nai[0]),
-			.traffic_class = GET_SR_ERO_SID_TC(sr->sid_nai[0]),
-			.is_bottom = GET_SR_ERO_SID_S(sr->sid_nai[0]),
-			.ttl = GET_SR_ERO_SID_TTL(sr->sid_nai[0])
-		}},
-		.has_nai = (flags & PCEP_SR_SUBOBJ_F_FLAG) == 0,
-		.nai_type = GET_SR_SUBOBJ_NT(sr),
-		.nai = { .ipv4_node = {
-			.addr = { .s_addr = sr->sid_nai[1] }
-		}}
-	};
+	*hop = (path_hop_t) {.next = next,
+			     .is_loose = GET_RO_SUBOBJ_LFLAG(&sr->header),
+			     .has_sid = (flags & PCEP_SR_SUBOBJ_S_FLAG) == 0,
+			     .is_mpls = (flags & PCEP_SR_SUBOBJ_M_FLAG) != 0,
+			     .has_attribs = (flags & PCEP_SR_SUBOBJ_C_FLAG) != 0,
+			     .sid = {.mpls = {
+				.label = GET_SR_ERO_SID_LABEL(sr->sid_nai[0]),
+				.traffic_class = GET_SR_ERO_SID_TC(sr->sid_nai[0]),
+				.is_bottom = GET_SR_ERO_SID_S(sr->sid_nai[0]),
+				.ttl = GET_SR_ERO_SID_TTL(sr->sid_nai[0])}},
+			     .has_nai = has_nai,
+			     .nai_type = nai_type,
+			     .nai = nai};
 
 	return hop;
 }
