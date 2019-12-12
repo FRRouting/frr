@@ -79,6 +79,24 @@ static void nhrp_route_update_zebra(const struct prefix *p,
 	}
 }
 
+static void nhrp_zebra_register_neigh(vrf_id_t vrf_id, afi_t afi, bool reg)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0)
+		return;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, reg ? ZEBRA_NHRP_NEIGH_REGISTER :
+			      ZEBRA_NHRP_NEIGH_UNREGISTER,
+			      vrf_id);
+	stream_putw(s, afi);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
+}
+
 void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp)
 {
 	struct route_node *rn;
@@ -344,6 +362,8 @@ static void nhrp_zebra_connected(struct zclient *zclient)
 				ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6,
 				ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP, true);
+	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP6, true);
 }
 
 void nhrp_zebra_init(void)
@@ -357,7 +377,9 @@ void nhrp_zebra_init(void)
 	zclient->interface_address_delete = nhrp_interface_address_delete;
 	zclient->redistribute_route_add = nhrp_route_read;
 	zclient->redistribute_route_del = nhrp_route_read;
-
+	zclient->neighbor_added = nhrp_neighbor_operation;
+	zclient->neighbor_removed = nhrp_neighbor_operation;
+	zclient->neighbor_get = nhrp_neighbor_operation;
 	zclient_init(zclient, ZEBRA_ROUTE_NHRP, 0, &nhrpd_privs);
 }
 
@@ -372,6 +394,8 @@ static void nhrp_table_node_cleanup(struct route_table *table,
 
 void nhrp_zebra_terminate(void)
 {
+	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP, false);
+	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP6, false);
 	zclient_stop(zclient);
 	zclient_free(zclient);
 

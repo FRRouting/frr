@@ -19,6 +19,8 @@
 #include <linux/netfilter/nfnetlink_log.h>
 
 #include "thread.h"
+#include "stream.h"
+#include "prefix.h"
 #include "nhrpd.h"
 #include "netlink.h"
 #include "znl.h"
@@ -27,8 +29,6 @@ int netlink_req_fd = -1;
 int netlink_nflog_group;
 static int netlink_log_fd = -1;
 static struct thread *netlink_log_thread;
-static int netlink_listen_fd = -1;
-
 typedef void (*netlink_dispatch_f)(struct nlmsghdr *msg, struct zbuf *zb);
 
 void netlink_update_binding(struct interface *ifp, union sockunion *proto,
@@ -56,100 +56,6 @@ void netlink_update_binding(struct interface *ifp, union sockunion *proto,
 	zbuf_send(zb, netlink_req_fd);
 	zbuf_recv(zb, netlink_req_fd);
 	zbuf_free(zb);
-}
-
-static void netlink_neigh_msg(struct nlmsghdr *msg, struct zbuf *zb)
-{
-	struct ndmsg *ndm;
-	struct rtattr *rta;
-	struct nhrp_cache *c;
-	struct interface *ifp;
-	struct zbuf payload;
-	union sockunion addr, lladdr;
-	size_t len;
-	int state;
-
-	memset(&lladdr, 0, sizeof(lladdr));
-	ndm = znl_pull(zb, sizeof(*ndm));
-	if (!ndm)
-		return;
-
-	sockunion_family(&addr) = AF_UNSPEC;
-	while ((rta = znl_rta_pull(zb, &payload)) != NULL) {
-		len = zbuf_used(&payload);
-		switch (rta->rta_type) {
-		case NDA_DST:
-			sockunion_set(&addr, ndm->ndm_family,
-				      zbuf_pulln(&payload, len), len);
-			break;
-		case NDA_LLADDR:
-			sockunion_set(&lladdr, ndm->ndm_family,
-				      zbuf_pulln(&payload, len), len);
-			break;
-		}
-	}
-
-	ifp = if_lookup_by_index(ndm->ndm_ifindex, VRF_DEFAULT);
-	if (!ifp || sockunion_family(&addr) == AF_UNSPEC)
-		return;
-
-	c = nhrp_cache_get(ifp, &addr, 0);
-	if (!c)
-		return;
-
-	debugf(NHRP_DEBUG_KERNEL,
-	       "Netlink: %s %pSU dev %s lladdr %pSU nud 0x%x cache used %u type %u",
-	       (msg->nlmsg_type == RTM_GETNEIGH)
-		       ? "who-has"
-		       : (msg->nlmsg_type == RTM_NEWNEIGH) ? "new-neigh"
-							   : "del-neigh",
-	       &addr, ifp->name, &lladdr, ndm->ndm_state, c->used, c->cur.type);
-
-	if (msg->nlmsg_type == RTM_GETNEIGH) {
-		if (c->cur.type >= NHRP_CACHE_CACHED) {
-			nhrp_cache_set_used(c, 1);
-			debugf(NHRP_DEBUG_KERNEL,
-			       "Netlink: update binding for %pSU dev %s from c %pSU peer.vc.nbma %pSU to lladdr %pSU",
-			       &addr, ifp->name, &c->cur.remote_nbma_natoa,
-			       &c->cur.peer->vc->remote.nbma, &lladdr);
-			/* In case of shortcuts, nbma is given by lladdr, not
-			 * vc->remote.nbma.
-			 */
-			netlink_update_binding(ifp, &addr, &lladdr);
-		}
-	} else {
-		state = (msg->nlmsg_type == RTM_NEWNEIGH) ? ndm->ndm_state
-							  : NUD_FAILED;
-		nhrp_cache_set_used(c, state == NUD_REACHABLE);
-	}
-}
-
-static int netlink_route_recv(struct thread *t)
-{
-	uint8_t buf[ZNL_BUFFER_SIZE];
-	int fd = THREAD_FD(t);
-	struct zbuf payload, zb;
-	struct nlmsghdr *n;
-
-	zbuf_init(&zb, buf, sizeof(buf), 0);
-	while (zbuf_recv(&zb, fd) > 0) {
-		while ((n = znl_nlmsg_pull(&zb, &payload)) != NULL) {
-			debugf(NHRP_DEBUG_KERNEL,
-			       "Netlink: Received msg_type %u, msg_flags %u",
-			       n->nlmsg_type, n->nlmsg_flags);
-			switch (n->nlmsg_type) {
-			case RTM_GETNEIGH:
-			case RTM_NEWNEIGH:
-			case RTM_DELNEIGH:
-				netlink_neigh_msg(n, &payload);
-				break;
-			}
-		}
-	}
-
-	thread_add_read(master, netlink_route_recv, 0, fd, NULL);
-
-	return 0;
 }
 
 static void netlink_log_register(int fd, int group)
@@ -265,17 +171,74 @@ void netlink_set_nflog_group(int nlgroup)
 	}
 }
 
+void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
+{
+	union sockunion addr = {}, lladdr = {};
+	struct interface *ifp;
+	ifindex_t idx;
+	struct ethaddr mac;
+	int state, ndm_state;
+	struct nhrp_cache *c;
+	unsigned short l2_len;
+
+	STREAM_GETL(zclient->ibuf, idx);
+	ifp = if_lookup_by_index(idx, vrf_id);
+	STREAM_GETW(zclient->ibuf, addr.sa.sa_family);
+	if (addr.sa.sa_family == AF_INET) {
+		STREAM_GET(&addr.sin.sin_addr.s_addr,
+			   zclient->ibuf, IPV4_MAX_BYTELEN);
+	} else {
+		STREAM_GET(&addr.sin6.sin6_addr.s6_addr,
+			   zclient->ibuf, IPV6_MAX_BYTELEN);
+	}
+	STREAM_GETL(zclient->ibuf, ndm_state);
+
+	STREAM_GETL(zclient->ibuf, l2_len);
+	if (l2_len) {
+		STREAM_GET(&mac, zclient->ibuf, l2_len);
+		if (l2_len == IPV4_MAX_BYTELEN)
+			sockunion_set(&lladdr, AF_INET, (const uint8_t *)&mac,
+				      l2_len);
+	}
+	if (!ifp)
+		return;
+	c = nhrp_cache_get(ifp, &addr, 0);
+	if (!c)
+		return;
+	debugf(NHRP_DEBUG_KERNEL,
+	       "Netlink: %s %pSU dev %s lladdr %pSU nud 0x%x cache used %u type %u",
+	       (cmd == ZEBRA_NHRP_NEIGH_GET)
+	       ? "who-has"
+	       : (cmd == ZEBRA_NHRP_NEIGH_ADDED) ? "new-neigh"
+	       : "del-neigh",
+	       &addr, ifp->name, &lladdr, ndm_state, c->used, c->cur.type);
+	if (cmd == ZEBRA_NHRP_NEIGH_GET) {
+		if (c->cur.type >= NHRP_CACHE_CACHED) {
+			nhrp_cache_set_used(c, 1);
+			debugf(NHRP_DEBUG_KERNEL,
+			       "Netlink: update binding for %pSU dev %s from c %pSU peer.vc.nbma %pSU to lladdr %pSU",
+			       &addr, ifp->name, &c->cur.remote_nbma_natoa,
+			       &c->cur.peer->vc->remote.nbma, &lladdr);
+			/* In case of shortcuts, nbma is given by lladdr, not
+			 * vc->remote.nbma.
+			 */
+			netlink_update_binding(ifp, &addr, &lladdr);
+		}
+	} else {
+		state = (cmd == ZEBRA_NHRP_NEIGH_ADDED) ? ndm_state
+			: NUD_FAILED;
+		nhrp_cache_set_used(c, state == NUD_REACHABLE);
+	}
+	return;
+ stream_failure:
+	return;
+}
+
 void netlink_init(void)
 {
 	netlink_req_fd = znl_open(NETLINK_ROUTE, 0);
 	if (netlink_req_fd < 0)
 		return;
-
-	netlink_listen_fd = znl_open(NETLINK_ROUTE, RTMGRP_NEIGH);
-	if (netlink_listen_fd < 0)
-		return;
-
-	thread_add_read(master, netlink_route_recv, 0, netlink_listen_fd, NULL);
 }
 
 int netlink_configure_arp(unsigned int ifindex, int pf)
