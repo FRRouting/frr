@@ -35,8 +35,8 @@ enum te_protocol_origin {
 };
 
 enum te_candidate_path_type {
-	TE_CANDIDATE_PATH_EXPLICIT = 1,
-	TE_CANDIDATE_PATH_DYNAMIC = 2,
+	TE_CANDIDATE_PATH_EXPLICIT = 0,
+	TE_CANDIDATE_PATH_DYNAMIC = 1,
 };
 
 struct te_segment_list_segment {
