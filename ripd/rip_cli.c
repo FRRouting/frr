@@ -1001,6 +1001,7 @@ DEFPY (clear_ip_rip,
        VRF_CMD_HELP_STR)
 {
 	struct list *input;
+	int ret;
 
 	input = list_new();
 	if (vrf) {
@@ -1011,7 +1012,11 @@ DEFPY (clear_ip_rip,
 		listnode_add(input, yang_vrf);
 	}
 
-	return nb_cli_rpc("/frr-ripd:clear-rip-route", input, NULL);
+	ret = nb_cli_rpc("/frr-ripd:clear-rip-route", input, NULL);
+
+	list_delete(&input);
+
+	return ret;
 }
 
 void rip_cli_init(void)
