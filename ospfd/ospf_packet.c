@@ -1620,6 +1620,7 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 		/* Search proper LSA in LSDB. */
 		find = ospf_lsa_lookup(oi->ospf, oi->area, ls_type, ls_id,
 				       adv_router);
+#ifndef FUZZING
 		if (find == NULL) {
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_BadLSReq);
 			list_delete(&ls_upd);
@@ -1644,9 +1645,13 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 		/* Append LSA to update list. */
 		listnode_add(ls_upd, find);
 		length += ntohs(find->data->length);
+#endif
 
 		size -= OSPF_LSA_KEY_SIZE;
 	}
+#ifdef FUZZING
+	return;
+#endif
 
 	/* Send rest of Link State Update. */
 	if (listcount(ls_upd) > 0) {
@@ -2100,10 +2105,12 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 				DISCARD_LSA(lsa, 4);
 			}
 
+#ifndef FUZZING
 			/* Actual flooding procedure. */
 			if (ospf_flood(oi->ospf, nbr, current, lsa)
 			    < 0) /* Trap NSSA later. */
 				DISCARD_LSA(lsa, 5);
+#endif
 			continue;
 		}
 
@@ -3161,6 +3168,20 @@ enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 
 	/* Adjust size to message length. */
 	length = ntohs(ospfh->length) - OSPF_HEADER_SIZE;
+
+#ifdef FUZZING
+	/*
+	 * Everything except hellos returns early with no neighbor found, so we
+	 * need to make a neighbor
+	 */
+	struct prefix p;
+	p.family = AF_INET;
+	p.prefixlen = 24;
+	p.u.prefix4 = iph->ip_src;
+
+	struct ospf_neighbor *n = ospf_nbr_get(oi, ospfh, iph, &p);
+	n->state = NSM_Exchange;
+#endif
 
 	/* Read rest of the packet and call each sort of packet routine.
 	 */
