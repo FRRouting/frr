@@ -1369,6 +1369,14 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 
 	ctx_nexthop = dplane_ctx_get_ng(ctx)->nexthop;
 
+	/* Nothing installed - we can skip some of the checking/comparison
+	 * of nexthops.
+	 */
+	if (ctx_nexthop == NULL) {
+		changed_p = true;
+		goto no_nexthops;
+	}
+
 	/* Get the first `installed` one to check against.
 	 * If the dataplane doesn't set these to be what was actually installed,
 	 * it will just be whatever was in re->nhe->nhg?
@@ -1430,6 +1438,8 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 				   (changed_p ? "true" : "false"));
 		goto done;
 	}
+
+no_nexthops:
 
 	/* FIB nexthop set differs from the RIB set:
 	 * create a fib-specific nexthop-group
