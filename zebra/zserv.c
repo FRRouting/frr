@@ -638,6 +638,7 @@ static void zserv_client_free(struct zserv *client)
 
 		vrf_bitmap_free(client->redist_default[afi]);
 		vrf_bitmap_free(client->ridinfo[afi]);
+		vrf_bitmap_free(client->nhrp_neighinfo[afi]);
 	}
 
 	/*
@@ -760,6 +761,7 @@ static struct zserv *zserv_client_create(int sock)
 			client->redist[afi][i] = vrf_bitmap_init();
 		client->redist_default[afi] = vrf_bitmap_init();
 		client->ridinfo[afi] = vrf_bitmap_init();
+		client->nhrp_neighinfo[afi] = vrf_bitmap_init();
 	}
 
 	/* Add this client to linked list. */

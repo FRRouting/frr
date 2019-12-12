@@ -974,6 +974,52 @@ void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
 	zserv_send_message(client, s);
 }
 
+void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
+				struct ipaddr *ipaddr, int ndm_state,
+				void *mac, int macsize)
+{
+	struct stream *s;
+	struct listnode *node, *nnode;
+	struct zserv *client;
+	afi_t afi;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Notifying Neighbor entry (%u)",
+			   __PRETTY_FUNCTION__, cmd);
+
+	if (ipaddr->ipa_type == IPADDR_V4)
+		afi = AFI_IP;
+	else if (ipaddr->ipa_type == IPADDR_V6)
+		afi = AFI_IP6;
+	else
+		return;
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+		if (!vrf_bitmap_check(client->nhrp_neighinfo[afi], ifp->vrf_id))
+			continue;
+
+		s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+		zclient_create_header(s, cmd, ifp->vrf_id);
+		stream_putl(s, ifp->ifindex);
+		if (ipaddr->ipa_type == IPADDR_V4) {
+			stream_putw(s, AF_INET);
+			stream_put(s, &ipaddr->ip._v4_addr, IPV4_MAX_BYTELEN);
+		} else if (ipaddr->ipa_type == IPADDR_V6) {
+			stream_putw(s, AF_INET6);
+			stream_put(s, &ipaddr->ip._v6_addr, IPV6_MAX_BYTELEN);
+		} else
+			return;
+		stream_putl(s, ndm_state);
+		stream_putl(s, macsize);
+		if (mac)
+			stream_put(s, mac, macsize);
+		stream_putw_at(s, 0, stream_get_endp(s));
+
+		zserv_send_message(client, s);
+	}
+}
+
+
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_UPDATE to client. */
 int zsend_router_id_update(struct zserv *client, afi_t afi, struct prefix *p,
 			   vrf_id_t vrf_id)
@@ -2277,6 +2323,7 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 			vrf_bitmap_unset(client->redist[afi][i], zvrf_id(zvrf));
 		vrf_bitmap_unset(client->redist_default[afi], zvrf_id(zvrf));
 		vrf_bitmap_unset(client->ridinfo[afi], zvrf_id(zvrf));
+		vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
 	}
 }
 
@@ -3167,6 +3214,38 @@ stream_failure:
 	return;
 }
 
+static inline void zebra_neigh_register(ZAPI_HANDLER_ARGS)
+{
+	afi_t afi;
+
+	STREAM_GETW(msg, afi);
+	if (afi <= AFI_UNSPEC || afi >= AFI_MAX) {
+		zlog_warn(
+			"Invalid AFI %u while registering for neighbors notifications",
+			afi);
+		goto stream_failure;
+	}
+	vrf_bitmap_set(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+stream_failure:
+	return;
+}
+
+static inline void zebra_neigh_unregister(ZAPI_HANDLER_ARGS)
+{
+	afi_t afi;
+
+	STREAM_GETW(msg, afi);
+	if (afi <= AFI_UNSPEC || afi >= AFI_MAX) {
+		zlog_warn(
+			"Invalid AFI %u while unregistering from neighbor notifications",
+			afi);
+		goto stream_failure;
+	}
+	vrf_bitmap_unset(client->nhrp_neighinfo[afi], zvrf_id(zvrf));
+stream_failure:
+	return;
+}
+
 static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 {
 	struct zebra_pbr_iptable *zpi =
@@ -3352,6 +3431,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTE_NOTIFY_REQUEST] = zread_route_notify_request,
 	[ZEBRA_EVPN_REMOTE_NH_ADD] = zebra_evpn_proc_remote_nh,
 	[ZEBRA_EVPN_REMOTE_NH_DEL] = zebra_evpn_proc_remote_nh,
+	[ZEBRA_NHRP_NEIGH_REGISTER] = zebra_neigh_register,
+	[ZEBRA_NHRP_NEIGH_UNREGISTER] = zebra_neigh_unregister,
 };
 
 /*

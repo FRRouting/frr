@@ -70,6 +70,8 @@ kernel_pbr_rule_update(struct zebra_dplane_ctx *ctx);
 
 extern int kernel_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 			       int llalen, ns_id_t ns_id);
+extern int kernel_neigh_register(vrf_id_t vrf_id, struct zserv *client,
+				 bool reg);
 extern int kernel_interface_set_master(struct interface *master,
 				       struct interface *slave);
 

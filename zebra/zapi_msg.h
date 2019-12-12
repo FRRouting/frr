@@ -104,6 +104,9 @@ extern int zsend_label_manager_connect_response(struct zserv *client,
 extern int zsend_sr_policy_notify_status(uint32_t color,
 					 struct ipaddr *endpoint, char *name,
 					 int status);
+extern void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
+				       struct ipaddr *ipaddr, int ndm_state,
+				       void *mac, int macsize);
 
 extern int zsend_client_close_notify(struct zserv *client,
 				     struct zserv *closed_client);
