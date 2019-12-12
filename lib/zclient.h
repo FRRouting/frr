@@ -223,6 +223,9 @@ typedef enum {
 	ZEBRA_NEIGH_DISCOVER,
 	ZEBRA_ROUTE_NOTIFY_REQUEST,
 	ZEBRA_CLIENT_CLOSE_NOTIFY,
+	ZEBRA_NHRP_NEIGH_ADDED,
+	ZEBRA_NHRP_NEIGH_REMOVED,
+	ZEBRA_NHRP_NEIGH_GET,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -381,6 +384,9 @@ struct zclient {
 	int (*opaque_unregister_handler)(ZAPI_CALLBACK_ARGS);
 	int (*sr_policy_notify_status)(ZAPI_CALLBACK_ARGS);
 	int (*zebra_client_close_notify)(ZAPI_CALLBACK_ARGS);
+	void (*neighbor_added)(ZAPI_CALLBACK_ARGS);
+	void (*neighbor_removed)(ZAPI_CALLBACK_ARGS);
+	void (*neighbor_get)(ZAPI_CALLBACK_ARGS);
 };
 
 /* Zebra API message flag. */

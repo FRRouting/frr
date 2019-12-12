@@ -3916,6 +3916,21 @@ static int zclient_read(struct thread *thread)
 			(*zclient->zebra_client_close_notify)(command, zclient,
 							      length, vrf_id);
 		break;
+	case ZEBRA_NHRP_NEIGH_ADDED:
+		if (zclient->neighbor_added)
+			(*zclient->neighbor_added)(command, zclient, length,
+						   vrf_id);
+		break;
+	case ZEBRA_NHRP_NEIGH_REMOVED:
+		if (zclient->neighbor_removed)
+			(*zclient->neighbor_removed)(command, zclient, length,
+						     vrf_id);
+		break;
+	case ZEBRA_NHRP_NEIGH_GET:
+		if (zclient->neighbor_get)
+			(*zclient->neighbor_get)(command, zclient, length,
+						 vrf_id);
+		break;
 	default:
 		break;
 	}
