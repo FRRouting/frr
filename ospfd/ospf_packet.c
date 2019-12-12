@@ -2503,7 +2503,9 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 					IF_NAME(oi),
 					lookup_msg(ospf_auth_type_str,
 						   iface_auth_type, NULL));
+#ifndef FUZZING
 			return 0;
+#endif
 		}
 		if (!ospf_check_sum(ospfh)) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
@@ -2512,7 +2514,9 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 					"interface %s: Null auth OK, but checksum error, Router-ID %pI4",
 					IF_NAME(oi),
 					&ospfh->router_id);
+#ifndef FUZZING
 			return 0;
+#endif
 		}
 		return 1;
 	case OSPF_AUTH_SIMPLE: /* RFC2328 D.5.2 */
