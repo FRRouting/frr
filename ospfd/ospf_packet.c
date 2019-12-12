@@ -3001,11 +3001,23 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 		return OSPF_READ_CONTINUE;
 	}
 
-	/*
-	 * Advance from IP header to OSPF header (iph->ip_hl has
-	 * been verified by ospf_recv_packet() to be correct).
-	 */
-	stream_forward_getp(ibuf, iph->ip_hl * 4);
+	/* Check that we have enough for an IP header */
+	if ((unsigned int)(iph->ip_hl << 2) >= STREAM_READABLE(ibuf)) {
+		if ((unsigned int)(iph->ip_hl << 2) == STREAM_READABLE(ibuf)) {
+			flog_warn(
+				EC_OSPF_PACKET,
+				"Rx'd IP packet with OSPF protocol number but no payload");
+		} else {
+			flog_warn(
+				EC_OSPF_PACKET,
+				"IP header length field claims header is %u bytes, but we only have %zu",
+				(unsigned int)(iph->ip_hl << 2),
+				STREAM_READABLE(ibuf));
+		}
+
+		return OSPF_READ_ERROR;
+	}
+	stream_forward_getp(ibuf, iph->ip_hl << 2);
 
 	ospfh = (struct ospf_header *)stream_pnt(ibuf);
 	if (MSG_OK
