@@ -2318,7 +2318,7 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 				  safe_strerror(errno));
 		return NULL;
 	}
-	if ((unsigned int)ret < sizeof(iph)) /* ret must be > 0 now */
+	if ((unsigned int)ret < sizeof(struct ip))
 	{
 		flog_warn(
 			EC_OSPF_PACKET,
