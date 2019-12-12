@@ -182,6 +182,8 @@ struct cpu_thread_history {
 	})                                                                     \
 	/* end */
 
+#ifndef FUZZING
+
 #define thread_add_read(m,f,a,v,t)       _xref_t_a(read_write, READ,  m,f,a,v,t)
 #define thread_add_write(m,f,a,v,t)      _xref_t_a(read_write, WRITE, m,f,a,v,t)
 #define thread_add_timer(m,f,a,v,t)      _xref_t_a(timer,      TIMER, m,f,a,v,t)
@@ -201,6 +203,19 @@ struct cpu_thread_history {
 		XREF_LINK(_xref.xref);                                         \
 		_thread_execute(&_xref, m, f, a, v);                           \
 	}) /* end */
+
+#else
+
+#define thread_add_read(m,f,a,v,t) 0
+#define thread_add_write(m,f,a,v,t) 0
+#define thread_add_timer(m,f,a,v,t) 0
+#define thread_add_timer_msec(m,f,a,v,t) 0
+#define thread_add_timer_tv(m,f,a,v,t) 0
+#define thread_add_event(m,f,a,v,t) 0
+#define thread_execute(m,f,a,v) 0
+#define thread_execute_name(m, f, a, v, n) 0
+
+#endif
 
 /* Prototypes. */
 extern struct thread_master *thread_master_create(const char *);
