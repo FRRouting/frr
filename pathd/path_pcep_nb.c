@@ -90,7 +90,7 @@ int path_nb_list_path_cb(const struct lyd_node *dnode, void *int_arg)
 			hop = path_nb_list_path_hops(segment_list);
 		}
 		path = XCALLOC(MTYPE_PCEP, sizeof(*path));
-		name = asprintfrr(MTYPE_PCEP, "%s/%s", policy->name,
+		name = asprintfrr(MTYPE_PCEP, "%s-%s", policy->name,
 				  candidate->name);
 		/* FIXME: operational status should come from the operational
 			  data */
@@ -160,13 +160,14 @@ void path_nb_update_path(path_t *path)
 	path_hop_t *hop;
 	int index;
 	char segment_list_name_buff[11];
-	char *segment_list_name = segment_list_name_buff;
+	char *segment_list_name;
 	struct nb_config *config = nb_config_dup(running_config);
 
 	if (NULL != path->first) {
 		snprintf(segment_list_name_buff,
 			 sizeof(segment_list_name_buff),
 			 "%u", (uint32_t)rand());
+		segment_list_name = segment_list_name_buff;
 		path_nb_create_segment_list(config, segment_list_name);
 		for (hop = path->first, index = 10;
 		     NULL != hop;
