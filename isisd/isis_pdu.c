@@ -1054,6 +1054,8 @@ dontcheckadj:
 						   circuit->rcv_stream,
 						   circuit->area, level,
 						   lsp_confusion);
+					if (lsp_confusion)
+						isis_free_tlvs(tlvs);
 					tlvs = NULL;
 					/* ii */
 					lsp_flood_or_update(lsp, NULL,
