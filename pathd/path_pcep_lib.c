@@ -277,10 +277,9 @@ void pcep_lib_parse_ero(path_t *path, struct pcep_object_ro* ero)
 	objs = pcep_obj_get_ro_subobjects(&ero->header);
 	for (node = objs->tail; node != NULL; node = node->prev_node) {
 		obj = (struct pcep_ro_subobj_hdr *) node->data;
-		switch (obj->type) {
-		//FIXME: Enable when pceplib is updated
-		// switch (GET_RO_SUBOBJ_TYPE(obj)) {
+		switch (GET_RO_SUBOBJ_TYPE(obj)) {
 			case RO_SUBOBJ_TYPE_SR_DRAFT07:
+			case RO_SUBOBJ_TYPE_SR:
 				hop = pcep_lib_parse_ero_sr(hop,
 					(struct pcep_ro_subobj_sr *) obj);
 				break;
