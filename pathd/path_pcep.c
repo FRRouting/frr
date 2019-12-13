@@ -316,6 +316,7 @@ void pcep_pcc_lsp_update(ctrl_state_t *ctrl_state,
 	path->sender.ipa_type = IPADDR_V4;
 	path->sender.ipaddr_v4 = pcc_state->opts->addr;
 	pcep_pcc_lookup_nbkey(pcc_state, path);
+	PCEP_DEBUG("Received LSP update: %s", format_path(path));
 	pcep_thread_update_path(ctrl_state, pcc_state, path);
 }
 
