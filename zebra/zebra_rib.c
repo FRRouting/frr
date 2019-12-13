@@ -1369,6 +1369,14 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 
 	ctx_nexthop = dplane_ctx_get_ng(ctx)->nexthop;
 
+	/* Nothing installed - we can skip some of the checking/comparison
+	 * of nexthops.
+	 */
+	if (ctx_nexthop == NULL) {
+		changed_p = true;
+		goto no_nexthops;
+	}
+
 	/* Get the first `installed` one to check against.
 	 * If the dataplane doesn't set these to be what was actually installed,
 	 * it will just be whatever was in re->nhe->nhg?
@@ -1430,6 +1438,8 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 				   (changed_p ? "true" : "false"));
 		goto done;
 	}
+
+no_nexthops:
 
 	/* FIB nexthop set differs from the RIB set:
 	 * create a fib-specific nexthop-group
@@ -1788,18 +1798,40 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	/* Ensure we clear the QUEUED flag */
 	UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
 
-	/* Is this a notification that ... matters? We only really care about
-	 * the route that is currently selected for installation.
+	/* Is this a notification that ... matters? We mostly care about
+	 * the route that is currently selected for installation; we may also
+	 * get an un-install notification, and handle that too.
 	 */
 	if (re != dest->selected_fib) {
-		/* TODO -- don't skip processing entirely? We might like to
-		 * at least report on the event.
+		/*
+		 * If we need to, clean up after a delete that was part of
+		 * an update operation.
 		 */
-		if (debug_p)
-			zlog_debug("%u:%s dplane notif, but type %s not selected_fib",
-				   dplane_ctx_get_vrf(ctx), dest_str,
-				   zebra_route_string(
-					   dplane_ctx_get_type(ctx)));
+		end_count = 0;
+		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+				end_count++;
+		}
+
+		/* If no nexthops or none installed, ensure that this re
+		 * gets its 'installed' flag cleared.
+		 */
+		if (end_count == 0) {
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
+				UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+			if (debug_p)
+				zlog_debug("%u:%s dplane notif, uninstalled type %s route",
+					   dplane_ctx_get_vrf(ctx), dest_str,
+					   zebra_route_string(
+						   dplane_ctx_get_type(ctx)));
+		} else {
+			/* At least report on the event. */
+			if (debug_p)
+				zlog_debug("%u:%s dplane notif, but type %s not selected_fib",
+					   dplane_ctx_get_vrf(ctx), dest_str,
+					   zebra_route_string(
+						   dplane_ctx_get_type(ctx)));
+		}
 		goto done;
 	}
 
@@ -1808,9 +1840,12 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	 * and then again if there's been a change.
 	 */
 	start_count = 0;
-	for (ALL_NEXTHOPS_PTR(rib_active_nhg(re), nexthop)) {
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
-			start_count++;
+
+	if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)) {
+		for (ALL_NEXTHOPS_PTR(rib_active_nhg(re), nexthop)) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+				start_count++;
+		}
 	}
 
 	/* Update zebra's nexthop FIB flags based on the context struct's
@@ -1820,10 +1855,8 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 
 	if (!fib_changed) {
 		if (debug_p)
-			zlog_debug("%u:%s No change from dplane notification",
+			zlog_debug("%u:%s dplane notification: rib_update returns FALSE",
 				   dplane_ctx_get_vrf(ctx), dest_str);
-
-		goto done;
 	}
 
 	/*

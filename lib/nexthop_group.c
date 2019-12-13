@@ -244,25 +244,16 @@ void _nexthop_add(struct nexthop **target, struct nexthop *nexthop)
 	nexthop->prev = last;
 }
 
-void nexthop_group_add_sorted(struct nexthop_group *nhg,
-			      struct nexthop *nexthop)
+/* Add nexthop to sorted list of nexthops */
+static void _nexthop_add_sorted(struct nexthop **head,
+				struct nexthop *nexthop)
 {
-	struct nexthop *position, *prev, *tail;
+	struct nexthop *position, *prev;
 
-	/* Try to just append to the end first
-	 * This trust it is already sorted
-	 */
+	/* Ensure this gets set */
+	nexthop->next = NULL;
 
-	tail = nexthop_group_tail(nhg);
-
-	if (tail && (nexthop_cmp(tail, nexthop) < 0)) {
-		tail->next = nexthop;
-		nexthop->prev = tail;
-
-		return;
-	}
-
-	for (position = nhg->nexthop, prev = NULL; position;
+	for (position = *head, prev = NULL; position;
 	     prev = position, position = position->next) {
 		if (nexthop_cmp(position, nexthop) > 0) {
 			nexthop->next = position;
@@ -271,7 +262,7 @@ void nexthop_group_add_sorted(struct nexthop_group *nhg,
 			if (nexthop->prev)
 				nexthop->prev->next = nexthop;
 			else
-				nhg->nexthop = nexthop;
+				*head = nexthop;
 
 			position->prev = nexthop;
 			return;
@@ -282,7 +273,27 @@ void nexthop_group_add_sorted(struct nexthop_group *nhg,
 	if (prev)
 		prev->next = nexthop;
 	else
-		nhg->nexthop = nexthop;
+		*head = nexthop;
+}
+
+void nexthop_group_add_sorted(struct nexthop_group *nhg,
+			      struct nexthop *nexthop)
+{
+	struct nexthop *tail;
+
+	/* Try to just append to the end first;
+	 * trust the list is already sorted
+	 */
+	tail = nexthop_group_tail(nhg);
+
+	if (tail && (nexthop_cmp(tail, nexthop) < 0)) {
+		tail->next = nexthop;
+		nexthop->prev = tail;
+
+		return;
+	}
+
+	_nexthop_add_sorted(&nhg->nexthop, nexthop);
 }
 
 /* Delete nexthop from a nexthop list.  */
@@ -309,6 +320,40 @@ void _nexthop_del(struct nexthop_group *nhg, struct nexthop *nh)
 	nh->next = NULL;
 }
 
+/*
+ * Copy a list of nexthops in 'nh' to an nhg, enforcing canonical sort order
+ */
+void nexthop_group_copy_nh_sorted(struct nexthop_group *nhg,
+				  const struct nexthop *nh)
+{
+	struct nexthop *nexthop, *tail;
+	const struct nexthop *nh1;
+
+	/* We'll try to append to the end of the new list;
+	 * if the original list in nh is already sorted, this eliminates
+	 * lots of comparison operations.
+	 */
+	tail = nexthop_group_tail(nhg);
+
+	for (nh1 = nh; nh1; nh1 = nh1->next) {
+		nexthop = nexthop_dup(nh1, NULL);
+
+		if (tail && (nexthop_cmp(tail, nexthop) < 0)) {
+			tail->next = nexthop;
+			nexthop->prev = tail;
+
+			tail = nexthop;
+			continue;
+		}
+
+		_nexthop_add_sorted(&nhg->nexthop, nexthop);
+
+		if (tail == NULL)
+			tail = nexthop;
+	}
+}
+
+/* Copy a list of nexthops, no effort made to sort or order them. */
 void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 		   struct nexthop *rparent)
 {
