@@ -180,6 +180,14 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			zclient_lookup_failed(zlookup);
 			return -1;
 		}
+
+		if (command == ZEBRA_ERROR) {
+			enum zebra_error_types error;
+
+			zapi_error_decode(s, &error);
+			/* Do nothing with it for now */
+			return -1;
+		}
 	}
 
 	raddr.s_addr = stream_get_ipv4(s);
