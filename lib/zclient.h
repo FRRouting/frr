@@ -47,7 +47,7 @@ typedef uint16_t zebra_size_t;
  */
 #define ZEBRA_HEADER_MARKER              254
 
-/* For input/output buffer to zebra. */
+/* Zebra MAX packet size */
 #define ZEBRA_MAX_PACKET_SIZ          16384U
 
 /* Zebra header size. */
@@ -183,7 +183,29 @@ typedef enum {
 	ZEBRA_MLAG_CLIENT_REGISTER,
 	ZEBRA_MLAG_CLIENT_UNREGISTER,
 	ZEBRA_MLAG_FORWARD_MSG,
+	ZEBRA_ERROR,
 } zebra_message_types_t;
+
+typedef enum {
+	ZEBRA_NO_VRF,		/* Vrf in header was not found */
+	ZEBRA_INVALID_MSG_TYPE, /* No handler found for msg type */
+} zebra_error_types_t;
+
+static inline const char *zebra_error_type2str(zebra_error_types_t type)
+{
+	const char *ret = "UNKNOWN";
+
+	switch (type) {
+	case ZEBRA_NO_VRF:
+		ret = "ZEBRA_NO_VRF";
+		break;
+	case ZEBRA_INVALID_MSG_TYPE:
+		ret = "ZEBRA_INVALID_MSG_TYPE";
+		break;
+	}
+
+	return ret;
+}
 
 struct redist_proto {
 	uint8_t enabled;
@@ -195,6 +217,18 @@ struct zclient_capabilities {
 	bool mpls_enabled;
 	enum mlag_role role;
 };
+
+#define ZSERV_VERSION 6
+/* Zserv protocol message header */
+struct zmsghdr {
+	uint16_t length;
+	/* Always set to 255 in new zserv */
+	uint8_t marker;
+	uint8_t version;
+	vrf_id_t vrf_id;
+	uint16_t command;
+} __attribute__((packed));
+#define ZAPI_HEADER_CMD_LOCATION offsetof(struct zmsghdr, command)
 
 /* Structure for the zebra client. */
 struct zclient {
@@ -280,6 +314,8 @@ struct zclient {
 	int (*mlag_process_up)(void);
 	int (*mlag_process_down)(void);
 	int (*mlag_handle_msg)(struct stream *msg, int len);
+	int (*handle_error)(zebra_error_types_t error, struct zmsghdr *bad_hdr,
+			    struct stream *bad_msg);
 };
 
 /* Zebra API message flag. */
@@ -295,18 +331,6 @@ struct zclient {
  * default vrf, else this will be ignored.
  */
 #define ZAPI_MESSAGE_TABLEID  0x80
-
-#define ZSERV_VERSION 6
-/* Zserv protocol message header */
-struct zmsghdr {
-	uint16_t length;
-	/* Always set to 255 in new zserv */
-	uint8_t marker;
-	uint8_t version;
-	vrf_id_t vrf_id;
-	uint16_t command;
-} __attribute__((packed));
-#define ZAPI_HEADER_CMD_LOCATION offsetof(struct zmsghdr, command)
 
 struct zapi_nexthop {
 	enum nexthop_types_t type;
@@ -529,6 +553,28 @@ struct zclient_options {
 	bool receive_notify;
 };
 
+/*
+ * Zebra error info size.
+ *
+ * This is the top level header and containing error type.
+ */
+static inline size_t zebra_error_info_size(void)
+{
+	return ZEBRA_HEADER_SIZE + sizeof(zebra_error_types_t);
+}
+
+/* For input/output buffer to zebra. */
+static inline size_t zebra_buffer_size(void)
+{
+	size_t buffer_size =
+		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
+
+	/* Account for sending back error message */
+	buffer_size += zebra_error_info_size();
+
+	return buffer_size;
+}
+
 extern struct zclient_options zclient_options_default;
 
 extern struct zclient *zclient_new(struct thread_master *m,
@@ -727,6 +773,10 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 			      const struct nexthop *nh);
 extern bool zapi_nexthop_update_decode(struct stream *s,
 				       struct zapi_route *nhr);
+
+/* Decode the zebra error message */
+extern bool zapi_error_decode(struct stream *s, zebra_error_types_t *error,
+			      struct zmsghdr *bad_hdr);
 
 static inline void zapi_route_set_blackhole(struct zapi_route *api,
 					    enum blackhole_type bh_type)

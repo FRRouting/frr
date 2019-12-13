@@ -65,8 +65,7 @@ struct zclient *zclient_new(struct thread_master *master,
 			    struct zclient_options *opt)
 {
 	struct zclient *zclient;
-	size_t stream_size =
-		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
+	size_t stream_size = zebra_buffer_size();
 
 	zclient = XCALLOC(MTYPE_ZCLIENT, sizeof(struct zclient));
 
@@ -1467,6 +1466,37 @@ stream_failure:
 	return false;
 }
 
+bool zapi_error_decode(struct stream *s, zebra_error_types_t *error,
+		       struct zmsghdr *bad_hdr)
+{
+	STREAM_GETW(s, *error);
+
+	if (zclient_debug)
+		zlog_debug("%s: type: %s", __func__,
+			   zebra_error_type2str(*error));
+
+	/* Parse offending message's header */
+	if (!zapi_parse_header(s, bad_hdr)) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: failed to parse offending message's header",
+			 __func__);
+		goto stream_failure;
+	}
+
+	if (zclient_debug) {
+		zlog_debug(
+			"%s: Offending message: [Length: %d, Command: %s, VRF: %u]",
+			__func__, bad_hdr->length,
+			zserv_command_string(bad_hdr->command),
+			bad_hdr->vrf_id);
+		zlog_hexdump(s, STREAM_READABLE(s));
+	}
+
+	return true;
+stream_failure:
+	return false;
+}
+
 /*
  * send a ZEBRA_REDISTRIBUTE_ADD or ZEBRA_REDISTRIBUTE_DELETE
  * for the route type (ZEBRA_ROUTE_KERNEL etc.). The zebra server will
@@ -1704,6 +1734,25 @@ static void zclient_interface_down(struct zclient *zclient, vrf_id_t vrf_id)
 		return;
 
 	if_down_via_zapi(ifp);
+}
+
+static void zclient_handle_error(ZAPI_CALLBACK_ARGS)
+{
+	struct zmsghdr bad_hdr;
+	zebra_error_types_t error;
+	struct stream *s = zclient->ibuf;
+	size_t bad_msg_start;
+
+	/* Save the start point of the bad message to pass to client handler */
+	bad_msg_start = stream_get_getp(s);
+
+	zapi_error_decode(s, &error, &bad_hdr);
+
+	/* Resetting pointer to after bad message's header */
+	stream_set_getp(s, bad_msg_start + ZEBRA_HEADER_SIZE);
+
+	if (zclient->handle_error)
+		(*zclient->handle_error)(error, &bad_hdr, s);
 }
 
 static void link_params_set_value(struct stream *s, struct if_link_params *iflp)
@@ -3142,6 +3191,8 @@ static int zclient_read(struct thread *thread)
 	case ZEBRA_MLAG_FORWARD_MSG:
 		zclient_mlag_handle_msg(command, zclient, length, vrf_id);
 		break;
+	case ZEBRA_ERROR:
+		zclient_handle_error(command, zclient, length, vrf_id);
 	default:
 		break;
 	}

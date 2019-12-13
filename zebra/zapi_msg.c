@@ -147,6 +147,41 @@ static int zserv_encode_nexthop(struct stream *s, struct nexthop *nexthop)
 	return 1;
 }
 
+/*
+ * Zebra error addition adds error type and then appends the offending message
+ * behind it.
+ *
+ *
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |      zebra_error_types_t      |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |             Length            |     Marker    |    Version    |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                             VRF ID                            |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |            Command            |                               |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                              DATA                             |
+ * |                                                               |
+ * |                                                               |
+ * |                                                               |
+ * |                                                               |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ */
+static void zserv_encode_error(struct stream *s, zebra_error_types_t error,
+			       struct stream *bad_msg)
+{
+	stream_putw(s, error);
+
+	stream_put(s, STREAM_DATA(bad_msg), stream_get_endp(bad_msg));
+
+	/* Write packet size. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+}
+
 /* Send handlers ----------------------------------------------------------- */
 
 /* Interface is added. Send ZEBRA_INTERFACE_ADD to client. */
@@ -2493,6 +2528,36 @@ stream_failure:
 	return;
 }
 
+static void zsend_error_msg(struct zserv *client, zebra_error_types_t error,
+			    struct zmsghdr *bad_hdr, struct stream *bad_msg)
+{
+
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_ERROR, bad_hdr->vrf_id);
+
+	zserv_encode_error(s, error, bad_msg);
+
+	client->error_cnt++;
+	zserv_send_message(client, s);
+}
+
+static void zserv_error_no_vrf(ZAPI_HANDLER_ARGS)
+{
+	if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
+		zlog_debug("ZAPI message specifies unknown VRF: %d",
+			   hdr->vrf_id);
+
+	return zsend_error_msg(client, ZEBRA_NO_VRF, hdr, msg);
+}
+
+static void zserv_error_invalid_msg_type(ZAPI_HANDLER_ARGS)
+{
+	zlog_info("Zebra received unknown command %d", hdr->command);
+
+	return zsend_error_msg(client, ZEBRA_INVALID_MSG_TYPE, hdr, msg);
+}
+
 void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTER_ID_ADD] = zread_router_id_add,
 	[ZEBRA_ROUTER_ID_DELETE] = zread_router_id_delete,
@@ -2606,20 +2671,16 @@ void zserv_handle_commands(struct zserv *client, struct stream *msg)
 	zserv_write_incoming(msg, hdr.command);
 #endif
 
-	hdr.length -= ZEBRA_HEADER_SIZE;
-
 	/* lookup vrf */
 	zvrf = zebra_vrf_lookup_by_id(hdr.vrf_id);
-	if (!zvrf) {
-		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("ZAPI message specifies unknown VRF: %d",
-				   hdr.vrf_id);
-		return;
-	}
+	if (!zvrf)
+		return zserv_error_no_vrf(client, &hdr, msg, zvrf);
 
 	if (hdr.command >= array_size(zserv_handlers)
 	    || zserv_handlers[hdr.command] == NULL)
-		zlog_info("Zebra received unknown command %d", hdr.command);
-	else
-		zserv_handlers[hdr.command](client, &hdr, msg, zvrf);
+		return zserv_error_invalid_msg_type(client, &hdr, msg, zvrf);
+
+	hdr.length -= ZEBRA_HEADER_SIZE;
+
+	zserv_handlers[hdr.command](client, &hdr, msg, zvrf);
 }
