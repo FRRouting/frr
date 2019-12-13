@@ -58,3 +58,7 @@ endif
 if STATICD
 dist_yangmodels_DATA += yang/frr-staticd.yang
 endif
+
+if ZEBRA
+dist_yangmodels_DATA += yang/frr-zebra.yang
+endif

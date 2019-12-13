@@ -120,6 +120,10 @@ zebra/zebra_vty.$(OBJEXT): zebra/zebra_vty_clippy.c
 zebra/zebra_routemap_clippy.c: $(CLIPPY_DEPS)
 zebra/zebra_routemap.$(OBJEXT): zebra/zebra_routemap_clippy.c
 
+nodist_zebra_zebra_SOURCES = \
+   yang/frr-zebra.yang.c \
+   # end
+
 noinst_HEADERS += \
 	zebra/connected.h \
 	zebra/debug.h \
@@ -191,10 +195,6 @@ if DEV_BUILD
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_dt.c
 endif
 endif
-
-nodist_zebra_zebra_SOURCES = \
-	yang/frr-zebra.yang.c \
-	# end
 
 zebra_zebra_cumulus_mlag_la_SOURCES = zebra/zebra_mlag_private.c
 zebra_zebra_cumulus_mlag_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
