@@ -119,6 +119,10 @@ zebra/zebra_vty.$(OBJEXT): zebra/zebra_vty_clippy.c
 zebra/zebra_routemap_clippy.c: $(CLIPPY_DEPS)
 zebra/zebra_routemap.$(OBJEXT): zebra/zebra_routemap_clippy.c
 
+nodist_zebra_zebra_SOURCES = \
+   yang/frr-zebra.yang.c \
+   # end
+
 noinst_HEADERS += \
 	zebra/connected.h \
 	zebra/debug.h \

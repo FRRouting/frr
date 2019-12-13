@@ -79,6 +79,7 @@ static const char *const frr_native_modules[] = {
 	"frr-ripngd",
 	"frr-isisd",
 	"frr-vrrpd",
+	"frr-zebra",
 };
 
 /* Generate the yang_modules tree. */
