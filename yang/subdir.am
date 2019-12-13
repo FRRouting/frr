@@ -27,7 +27,6 @@ dist_yangmodels_DATA += yang/frr-interface.yang
 dist_yangmodels_DATA += yang/frr-route-map.yang
 dist_yangmodels_DATA += yang/frr-vrf.yang
 dist_yangmodels_DATA += yang/frr-route-types.yang
-dist_yangmodels_DATA += yang/frr-zebra.yang
 dist_yangmodels_DATA += yang/frr-routing.yang
 dist_yangmodels_DATA += yang/ietf/ietf-routing-types.yang
 
@@ -57,4 +56,8 @@ endif
 
 if STATICD
 dist_yangmodels_DATA += yang/frr-staticd.yang
+endif
+
+if ZEBRA
+dist_yangmodels_DATA += yang/frr-zebra.yang
 endif
