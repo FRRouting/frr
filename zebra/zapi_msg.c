@@ -3214,6 +3214,39 @@ stream_failure:
 	return;
 }
 
+static int zebra_neigh_read_ip(struct stream *s, struct prefix *add)
+{
+	STREAM_GETC(s, add->family);
+	if (add->family != AF_INET && add->family != AF_INET6)
+		return -1;
+	STREAM_GET(&add->u.prefix, s, family2addrsize(add->family));
+	if (add->family == AF_INET)
+		add->prefixlen = IPV4_MAX_BITLEN;
+	else
+		add->prefixlen = IPV6_MAX_BITLEN;
+	return 0;
+stream_failure:
+	return -1;
+}
+
+static int zebra_neigh_get(struct stream *s, struct zapi_nbr *api, bool add)
+{
+	int ret;
+
+	ret = zebra_neigh_read_ip(s, &api->pfx_in);
+	if (ret < 0)
+		return -1;
+	if (add) {
+		ret = zebra_neigh_read_ip(s, &api->pfx_out);
+		if (ret < 0)
+			return -1;
+	}
+	STREAM_GETL(s, api->index);
+	return 0;
+stream_failure:
+	return -1;
+}
+
 static inline void zebra_neigh_register(ZAPI_HANDLER_ARGS)
 {
 	afi_t afi;
@@ -3245,6 +3278,51 @@ static inline void zebra_neigh_unregister(ZAPI_HANDLER_ARGS)
 stream_failure:
 	return;
 }
+
+static inline void zebra_neigh_add(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct zapi_nbr api;
+	int ret;
+	struct zebra_ns *zns = zvrf->zns;
+	ns_id_t ns_id;
+
+	if (!zns)
+		return;
+	ns_id = zns->ns_id;
+
+	s = msg;
+	memset(&api, 0, sizeof(api));
+	ret = zebra_neigh_get(s, &api, true);
+	if (ret < 0)
+		return;
+	kernel_neigh_update(1, api.index, &api.pfx_in.u.prefix,
+			    (char *)&api.pfx_out.u.prefix,
+			    family2addrsize(api.pfx_out.family),
+			    ns_id, api.pfx_in.family, false, client->proto);
+}
+
+static inline void zebra_neigh_del(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct zapi_nbr api;
+	int ret;
+	struct zebra_ns *zns = zvrf->zns;
+	ns_id_t ns_id;
+
+	if (!zns)
+		return;
+	ns_id = zns->ns_id;
+	s = msg;
+	memset(&api, 0, sizeof(api));
+	ret = zebra_neigh_get(s, &api, false);
+	if (ret < 0)
+		return;
+	kernel_neigh_update(0, api.index, &api.pfx_in.u.prefix,
+			    NULL, 0, ns_id, api.pfx_in.family,
+			    true, client->proto);
+}
+
 
 static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 {
@@ -3431,6 +3509,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTE_NOTIFY_REQUEST] = zread_route_notify_request,
 	[ZEBRA_EVPN_REMOTE_NH_ADD] = zebra_evpn_proc_remote_nh,
 	[ZEBRA_EVPN_REMOTE_NH_DEL] = zebra_evpn_proc_remote_nh,
+	[ZEBRA_NEIGH_ADD] = zebra_neigh_add,
+	[ZEBRA_NEIGH_DEL] = zebra_neigh_del,
 	[ZEBRA_NHRP_NEIGH_REGISTER] = zebra_neigh_register,
 	[ZEBRA_NHRP_NEIGH_UNREGISTER] = zebra_neigh_unregister,
 };

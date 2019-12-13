@@ -1537,10 +1537,10 @@ static void _netlink_mpls_debug(int cmd, uint32_t label, const char *routedesc)
 			   routedesc, nl_msg_type_to_str(cmd), label);
 }
 
-static int netlink_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
-				int llalen, ns_id_t ns_id)
+static int netlink_neigh_update(int cmd, int ifindex, void *addr, char *lla,
+				int llalen, ns_id_t ns_id, uint8_t family,
+				bool permanent, uint8_t protocol)
 {
-	uint8_t protocol = RTPROT_ZEBRA;
 	struct {
 		struct nlmsghdr n;
 		struct ndmsg ndm;
@@ -1556,15 +1556,23 @@ static int netlink_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 	req.n.nlmsg_type = cmd; // RTM_NEWNEIGH or RTM_DELNEIGH
 	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
 
-	req.ndm.ndm_family = AF_INET;
-	req.ndm.ndm_state = NUD_PERMANENT;
+	req.ndm.ndm_family = family;
 	req.ndm.ndm_ifindex = ifindex;
 	req.ndm.ndm_type = RTN_UNICAST;
+	if (cmd == RTM_NEWNEIGH) {
+		if (!permanent)
+			req.ndm.ndm_state = NUD_REACHABLE;
+		else
+			req.ndm.ndm_state = NUD_PERMANENT;
+	} else
+		req.ndm.ndm_state = NUD_FAILED;
 
 	nl_attr_put(&req.n, sizeof(req), NDA_PROTOCOL, &protocol,
 		    sizeof(protocol));
-	nl_attr_put32(&req.n, sizeof(req), NDA_DST, addr);
-	nl_attr_put(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
+	req.ndm.ndm_type = RTN_UNICAST;
+	nl_attr_put32(&req.n, family2addrsize(family), NDA_DST, addr);
+	if (lla)
+		nl_attr_put(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    0);
@@ -2679,11 +2687,12 @@ int netlink_nexthop_read(struct zebra_ns *zns)
 }
 
 
-int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
-			int llalen, ns_id_t ns_id)
+int kernel_neigh_update(int add, int ifindex, void *addr, char *lla, int llalen,
+			ns_id_t ns_id, uint8_t family, bool permanent)
 {
 	return netlink_neigh_update(add ? RTM_NEWNEIGH : RTM_DELNEIGH, ifindex,
-				    addr, lla, llalen, ns_id);
+				    addr, lla, llalen, ns_id, family, permanent,
+				    RTPROT_ZEBRA);
 }
 
 /**

@@ -898,7 +898,8 @@ void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *ifp,
 	 * Remove and re-add any existing neighbor entry for this address,
 	 * since Netlink doesn't currently offer update message types.
 	 */
-	kernel_neigh_update(0, ifp->ifindex, ipv4_ll.s_addr, mac, 6, ns_id);
+	kernel_neigh_update(0, ifp->ifindex, (void *)&ipv4_ll.s_addr, mac, 6,
+			    ns_id, AF_INET, true);
 
 	/* Add new neighbor entry.
 	 *
@@ -910,8 +911,8 @@ void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *ifp,
 	 * they'll be useless to us.
 	 */
 	if (add)
-		kernel_neigh_update(add, ifp->ifindex, ipv4_ll.s_addr, mac, 6,
-				    ns_id);
+		kernel_neigh_update(add, ifp->ifindex, (void *)&ipv4_ll.s_addr,
+				    mac, 6, ns_id, AF_INET, true);
 
 	memcpy(&zif->neigh_mac[0], &mac[0], 6);
 

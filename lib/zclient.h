@@ -228,6 +228,8 @@ typedef enum {
 	ZEBRA_NHRP_NEIGH_GET,
 	ZEBRA_NHRP_NEIGH_REGISTER,
 	ZEBRA_NHRP_NEIGH_UNREGISTER,
+	ZEBRA_NEIGH_ADD,
+	ZEBRA_NEIGH_DEL,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -801,6 +803,17 @@ struct zclient_options {
 };
 
 extern struct zclient_options zclient_options_default;
+
+/* link layer representation for GRE like interfaces
+ * pfx_in is the underlay IP, pfx_out is the tunnel dest
+ * index stands for the index of the interface
+ */
+struct zapi_nbr {
+	int cmd;
+	struct prefix pfx_in;
+	struct prefix pfx_out;
+	ifindex_t index;
+};
 
 /*
  * We reserve the top 4 bits for l2-NHG, everything else

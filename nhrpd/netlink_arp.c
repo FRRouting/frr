@@ -34,28 +34,7 @@ typedef void (*netlink_dispatch_f)(struct nlmsghdr *msg, struct zbuf *zb);
 void netlink_update_binding(struct interface *ifp, union sockunion *proto,
 			    union sockunion *nbma)
 {
-	struct nlmsghdr *n;
-	struct ndmsg *ndm;
-	struct zbuf *zb = zbuf_alloc(512);
-
-	n = znl_nlmsg_push(zb, nbma ? RTM_NEWNEIGH : RTM_DELNEIGH,
-			   NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
-	ndm = znl_push(zb, sizeof(*ndm));
-	*ndm = (struct ndmsg){
-		.ndm_family = sockunion_family(proto),
-		.ndm_ifindex = ifp->ifindex,
-		.ndm_type = RTN_UNICAST,
-		.ndm_state = nbma ? NUD_REACHABLE : NUD_FAILED,
-	};
-	znl_rta_push(zb, NDA_DST, sockunion_get_addr(proto),
-		     family2addrsize(sockunion_family(proto)));
-	if (nbma)
-		znl_rta_push(zb, NDA_LLADDR, sockunion_get_addr(nbma),
-			     family2addrsize(sockunion_family(nbma)));
-	znl_nlmsg_complete(zb, n);
-	zbuf_send(zb, netlink_req_fd);
-	zbuf_recv(zb, netlink_req_fd);
-	zbuf_free(zb);
+	nhrp_send_zebra_nbr(proto, nbma, ifp);
 }
 
 static void netlink_log_register(int fd, int group)

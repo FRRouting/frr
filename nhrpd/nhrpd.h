@@ -88,6 +88,9 @@ static inline int notifier_active(struct notifier_list *l)
 
 void nhrp_zebra_init(void);
 void nhrp_zebra_terminate(void);
+void nhrp_send_zebra_nbr(union sockunion *in,
+			 union sockunion *out,
+			 struct interface *ifp);
 
 struct zbuf;
 struct nhrp_vc;
