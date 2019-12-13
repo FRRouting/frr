@@ -65,6 +65,8 @@ static void pcep_pcc_lsp_initiate(ctrl_state_t *ctrl_state,
 				  pcc_state_t * pcc_state, pcep_message *msg);
 static void pcep_pcc_send(ctrl_state_t *ctrl_state,
 			  pcc_state_t * pcc_state, pcep_message *msg);
+static void pcep_pcc_schedule_reconnect(ctrl_state_t *ctrl_state,
+                                        pcc_state_t *pcc_state);
 static void pcep_pcc_lookup_plspid(pcc_state_t *pcc_state, path_t *path);
 static void pcep_pcc_lookup_nbkey(pcc_state_t *pcc_state, path_t * path);
 
@@ -88,6 +90,7 @@ static int pcep_thread_poll_timer(struct thread *thread);
 static int pcep_thread_pcc_update_options_event(struct thread *thread);
 static int pcep_thread_pcc_disconnect_event(struct thread *thread);
 static int pcep_thread_pcc_report_event(struct thread *thread);
+static int pcep_thread_pcc_cb_event(struct thread *thread);
 
 /* Main Thread Functions */
 static int pcep_main_start_sync_event(struct thread *thread);
@@ -213,12 +216,14 @@ int pcep_pcc_enable(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state)
 
 	int ret = 0;
 
-	PCEP_DEBUG("PCC connecting...");
+	PCEP_DEBUG("PCC connecting to %pI4:%d",
+	           &pcc_state->opts->addr, pcc_state->opts->port);
 
 	if ((ret = pcep_lib_connect(pcc_state))) {
 		flog_err(EC_PATH_PCEP_LIB_CONNECT,
 			 "failed to connect to PCE %pI4:%d (%d)",
 			 &pcc_state->opts->addr, pcc_state->opts->port, ret);
+		pcep_pcc_schedule_reconnect(ctrl_state, pcc_state);
 		return ret;
 	}
 
@@ -258,6 +263,7 @@ void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
 				   &pcc_state->opts->addr,
 				   pcc_state->opts->port);
 			pcc_state->status = SYNCHRONIZING;
+			pcc_state->retry_count = 0;
 			pcep_thread_start_sync(ctrl_state, pcc_state);
 			break;
 		case PCE_CLOSED_SOCKET:
@@ -269,7 +275,7 @@ void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
 		case PCC_RCVD_MAX_INVALID_MSGS:
 		case PCC_RCVD_MAX_UNKOWN_MSGS:
 			pcep_pcc_disable(ctrl_state, pcc_state);
-			//TODO: schedule reconnection ??
+			pcep_pcc_schedule_reconnect(ctrl_state, pcc_state);
 			break;
 		case MESSAGE_RECEIVED:
 			if (CONNECTING == pcc_state->status) {
@@ -320,12 +326,30 @@ void pcep_pcc_lsp_initiate(ctrl_state_t *ctrl_state,
 }
 
 void pcep_pcc_send(ctrl_state_t *ctrl_state,
-		   pcc_state_t * pcc_state, pcep_message *msg)
+		   pcc_state_t *pcc_state, pcep_message *msg)
 {
-	// PCEP_DEBUG("Sending PCEP message: %s", format_pcep_message(msg));
+	PCEP_DEBUG("Sending PCEP message: %s", format_pcep_message(msg));
 	send_message(pcc_state->sess, msg, true);
 }
 
+void pcep_pcc_schedule_reconnect(ctrl_state_t *ctrl_state,
+                                 pcc_state_t *pcc_state)
+{
+	uint32_t delay;
+	event_pcc_cb_t *event;
+
+	pcc_state->retry_count++;
+	/* TODO: Add exponential backoff */
+	delay = 2;
+
+	event = XCALLOC(MTYPE_PCEP, sizeof(*event));
+	event->ctrl_state = ctrl_state;
+	event->pcc_id = pcc_state->id;
+	event->cb = pcep_pcc_enable;
+
+	thread_add_timer(ctrl_state->self, pcep_thread_pcc_cb_event,
+		         (void*)event, delay, &pcc_state->t_reconnect);
+}
 
 void pcep_pcc_lookup_plspid(pcc_state_t *pcc_state, path_t *path)
 {
@@ -676,6 +700,19 @@ int pcep_thread_pcc_report_event(struct thread *thread)
 	pcc_state->status = status;
 
 	return 0;
+}
+
+int pcep_thread_pcc_cb_event(struct thread *thread)
+{
+	event_pcc_cb_t *event = THREAD_ARG(thread);
+	ctrl_state_t *ctrl_state = event->ctrl_state;
+	int pcc_id = event->pcc_id;
+	pcc_cb_t callback = event->cb;
+	pcc_state_t *pcc_state = ctrl_state->pcc[pcc_id];
+
+	XFREE(MTYPE_PCEP, event);
+
+	return callback(ctrl_state, pcc_state);
 }
 
 

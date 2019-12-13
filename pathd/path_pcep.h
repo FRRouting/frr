@@ -78,6 +78,8 @@ typedef struct pcc_state_t_ {
 	pcc_opts_t *opts;
 	pcep_configuration * config;
 	pcep_session *sess;
+	uint32_t retry_count;
+	struct thread *t_reconnect;
 	uint32_t next_plspid;
 	struct plspid_map_head plspid_map;
 	struct nbkey_map_head nbkey_map;
@@ -144,6 +146,16 @@ typedef struct event_pcc_update_t_ {
 	int pcc_id;
 	pcc_opts_t *pcc_opts;
 } event_pcc_update_t;
+
+
+typedef int (*pcc_cb_t)(ctrl_state_t *ctrl_state,
+                        pcc_state_t *pcc_state);
+
+typedef struct event_pcc_cb_t_ {
+	ctrl_state_t *ctrl_state;
+	int pcc_id;
+	pcc_cb_t cb;
+} event_pcc_cb_t;
 
 typedef struct event_pcc_path_t_ {
 	ctrl_state_t *ctrl_state;

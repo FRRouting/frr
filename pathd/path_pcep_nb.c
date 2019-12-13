@@ -160,7 +160,7 @@ void path_nb_update_path(path_t *path)
 	path_hop_t *hop;
 	int index;
 	char segment_list_name_buff[11];
-	char *segment_list_name;
+	char *segment_list_name = NULL;
 	struct nb_config *config = nb_config_dup(running_config);
 
 	if (NULL != path->first) {
@@ -178,8 +178,6 @@ void path_nb_update_path(path_t *path)
 				config, segment_list_name, index,
 				hop->sid.mpls.label);
 		}
-	} else {
-		segment_list_name = NULL;
 	}
 
 	path_nb_add_candidate_path(config,
