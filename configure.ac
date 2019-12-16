@@ -1159,6 +1159,7 @@ dnl ##########################################################################
 #
 # Logic for protobuf support.
 #
+PROTO3=false
 if test "$enable_protobuf" = "yes"; then
   # Check for protoc & protoc-c
 
@@ -1173,9 +1174,15 @@ if test "$enable_protobuf" = "yes"; then
   PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 0.14],, [
     AC_MSG_FAILURE([protobuf requested but libprotobuf-c not found.  Install protobuf-c.])
   ])
-  AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h], [], [
-    AC_MSG_FAILURE([protobuf requested but protobuf-c.h not found.  Install protobuf-c.])
-  ])
+
+  PROTO3=true
+  AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h],
+                  [AC_CHECK_DECLS(PROTOBUF_C_LABEL_NONE,
+                                  AC_DEFINE([HAVE_PROTOBUF_VERSION_3],
+                                            [1], [Have Protobuf version 3]),
+                                  [PROTO3=false],
+                                  [#include <google/protobuf-c/protobuf-c.h>])],
+                  [PROTO3=false && AC_MSG_FAILURE([protobuf requested but protobuf-c.h not found.  Install protobuf-c.])])
 
   AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
 fi
@@ -2271,6 +2278,7 @@ AM_CONDITIONAL([SNMP], [test "x$SNMP_METHOD" = "xagentx"])
 AM_CONDITIONAL([IRDP], [$IRDP])
 AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
 AM_CONDITIONAL([HAVE_PROTOBUF], [test "x$enable_protobuf" = "xyes"])
+AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
 dnl daemons
 AM_CONDITIONAL([VTYSH], [test "x$VTYSH" = "xvtysh"])
 AM_CONDITIONAL([ZEBRA], [test "${enable_zebra}" != "no"])

@@ -1,4 +1,4 @@
-if HAVE_PROTOBUF
+if HAVE_PROTOBUF3
 lib_LTLIBRARIES += mlag/libmlag_pb.la
 endif
 

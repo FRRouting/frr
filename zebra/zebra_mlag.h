@@ -26,7 +26,7 @@
 #include "zclient.h"
 #include "zebra/zserv.h"
 
-#ifdef HAVE_PROTOBUF
+#ifdef HAVE_PROTOBUF_VERSION_3
 #include "mlag/mlag.pb-c.h"
 #endif
 
@@ -64,6 +64,7 @@ void zebra_mlag_send_register(void);
 void zebra_mlag_send_deregister(void);
 void zebra_mlag_handle_process_state(enum zebra_mlag_state state);
 void zebra_mlag_process_mlag_data(uint8_t *data, uint32_t len);
+
 /*
  * ProtoBuffer Api's
  */
