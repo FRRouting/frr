@@ -1537,6 +1537,52 @@ static void _netlink_mpls_debug(int cmd, uint32_t label, const char *routedesc)
 			   routedesc, nl_msg_type_to_str(cmd), label);
 }
 
+static int netlink_configure_arp(struct interface *ifp, int family, ns_id_t ns_id)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ndtmsg ndtm;
+		char buf[256];
+	} req;
+	struct zebra_ns *zns = zebra_ns_lookup(ns_id);
+	struct rtattr *nest;
+	uint32_t val;
+
+	memset(&req, 0, sizeof(req));
+
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndtmsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_REPLACE;
+	req.n.nlmsg_type = RTM_SETNEIGHTBL;
+	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
+
+	req.ndtm.ndtm_family = family;
+
+	nl_attr_put(&req.n, sizeof(req), NDTA_NAME, family == AF_INET ? "arp_cache" :
+		    "ndisc_cache", 10);
+
+	nest = nl_attr_nest(&req.n, sizeof(req), NDTA_PARMS);
+	if (nest == NULL)
+		return;
+	if (!nl_attr_put(&req.n, sizeof(req), NDTPA_IFINDEX, &ifp->ifindex,
+			 sizeof(ifp->ifindex)))
+		return 0;
+	val = 1;
+	if (!nl_attr_put(&req.n, sizeof(req), NDTPA_APP_PROBES, &val,
+			 sizeof(val)))
+		return 0;
+	val = 0;
+	if (!nl_attr_put(&req.n, sizeof(req), NDTPA_MCAST_PROBES, &val,
+			 sizeof(val)))
+		return 0;
+	if (!nl_attr_put(&req.n, sizeof(req), NDTPA_UCAST_PROBES, &val,
+			 sizeof(val)))
+		return 0;
+	nl_attr_nest_end(&req.n, nest);
+
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
+			    0);
+}
+
 static int netlink_neigh_update(int cmd, int ifindex, void *addr, char *lla,
 				int llalen, ns_id_t ns_id, uint8_t family,
 				bool permanent, uint8_t protocol)
@@ -3787,6 +3833,12 @@ netlink_put_neigh_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 {
 	return netlink_batch_add_msg(bth, ctx, netlink_neigh_msg_encoder,
 				     false);
+}
+
+int kernel_configure_arp(struct interface *ifp, int family,
+			 ns_id_t ns_id)
+{
+	return netlink_configure_arp(ifp, family, ns_id);
 }
 
 /*

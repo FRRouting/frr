@@ -3279,6 +3279,28 @@ stream_failure:
 	return;
 }
 
+static inline void zebra_configure_arp(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	int fam;
+	ifindex_t idx;
+	struct interface *ifp;
+	ns_id_t ns_id;
+
+	s = msg;
+	STREAM_GETC(s, fam);
+	if (fam != AF_INET && fam != AF_INET6)
+		return;
+	STREAM_GETL(s, idx);
+	ifp = if_lookup_by_index_per_ns(zvrf->zns, idx);
+	if (!ifp)
+		return;
+	ns_id = zvrf->zns->ns_id;
+	kernel_configure_arp(ifp, fam, ns_id);
+stream_failure:
+	return;
+}
+
 static inline void zebra_neigh_add(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
@@ -3513,6 +3535,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_NEIGH_DEL] = zebra_neigh_del,
 	[ZEBRA_NHRP_NEIGH_REGISTER] = zebra_neigh_register,
 	[ZEBRA_NHRP_NEIGH_UNREGISTER] = zebra_neigh_unregister,
+	[ZEBRA_CONFIGURE_ARP] = zebra_configure_arp,
 };
 
 /*
