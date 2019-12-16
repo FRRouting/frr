@@ -87,7 +87,7 @@ static inline int yang_module_compare(const struct yang_module *a,
 }
 RB_GENERATE(yang_modules, yang_module, entry, yang_module_compare)
 
-struct yang_modules yang_modules = RB_INITIALIZER(&yang_modules);
+static struct yang_modules yang_modules = RB_INITIALIZER(&yang_modules);
 
 struct yang_module *yang_module_load(const char *module_name)
 {

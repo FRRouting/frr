@@ -797,7 +797,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	return CMD_SUCCESS;
 }
 
-struct cmd_node nexthop_group_node = {
+static struct cmd_node nexthop_group_node = {
 	NH_GROUP_NODE,
 	"%s(config-nh-group)# ",
 	1

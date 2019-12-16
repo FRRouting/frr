@@ -67,7 +67,7 @@ static char vrf_default_name[VRF_NAMSIZ] = VRF_DEFAULT_NAME_INTERNAL;
 static int debug_vrf = 0;
 
 /* Holding VRF hooks  */
-struct vrf_master {
+static struct vrf_master {
 	int (*vrf_new_hook)(struct vrf *);
 	int (*vrf_delete_hook)(struct vrf *);
 	int (*vrf_enable_hook)(struct vrf *);
@@ -752,7 +752,7 @@ DEFUN (no_vrf,
 }
 
 
-struct cmd_node vrf_node = {VRF_NODE, "%s(config-vrf)# ", 1};
+static struct cmd_node vrf_node = {VRF_NODE, "%s(config-vrf)# ", 1};
 
 DEFUN_NOSH (vrf_netns,
        vrf_netns_cmd,

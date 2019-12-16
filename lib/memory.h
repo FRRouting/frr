@@ -102,45 +102,42 @@ struct memgroup {
 	}
 
 #define DECLARE_MTYPE(name)                                                    \
-	extern struct memtype _mt_##name;                                      \
-	extern struct memtype *const MTYPE_##name;                             \
+	extern struct memtype MTYPE_##name[1];                                 \
 	/* end */
 
 #define DEFINE_MTYPE_ATTR(group, mname, attr, desc)                            \
-	attr struct memtype _mt_##mname                                        \
-		__attribute__((section(".data.mtypes"))) = {                   \
+	attr struct memtype MTYPE_##mname[1]                                   \
+		__attribute__((section(".data.mtypes"))) = { {                 \
 			.name = desc,                                          \
 			.next = NULL,                                          \
 			.n_alloc = 0,                                          \
 			.size = 0,                                             \
 			.ref = NULL,                                           \
-	};                                                                     \
+	} };                                                                   \
 	static void _mtinit_##mname(void) __attribute__((_CONSTRUCTOR(1001))); \
 	static void _mtinit_##mname(void)                                      \
 	{                                                                      \
 		if (_mg_##group.insert == NULL)                                \
 			_mg_##group.insert = &_mg_##group.types;               \
-		_mt_##mname.ref = _mg_##group.insert;                          \
-		*_mg_##group.insert = &_mt_##mname;                            \
-		_mg_##group.insert = &_mt_##mname.next;                        \
+		MTYPE_##mname->ref = _mg_##group.insert;                       \
+		*_mg_##group.insert = MTYPE_##mname;                           \
+		_mg_##group.insert = &MTYPE_##mname->next;                      \
 	}                                                                      \
 	static void _mtfini_##mname(void) __attribute__((_DESTRUCTOR(1001)));  \
 	static void _mtfini_##mname(void)                                      \
 	{                                                                      \
-		if (_mt_##mname.next)                                          \
-			_mt_##mname.next->ref = _mt_##mname.ref;               \
-		*_mt_##mname.ref = _mt_##mname.next;                           \
+		if (MTYPE_##mname->next)                                       \
+			MTYPE_##mname->next->ref = MTYPE_##mname->ref;         \
+		*MTYPE_##mname->ref = MTYPE_##mname->next;                     \
 	}                                                                      \
 	/* end */
 
 #define DEFINE_MTYPE(group, name, desc)                                        \
 	DEFINE_MTYPE_ATTR(group, name, , desc)                                 \
-	struct memtype *const MTYPE_##name = &_mt_##name;                      \
 	/* end */
 
 #define DEFINE_MTYPE_STATIC(group, name, desc)                                 \
 	DEFINE_MTYPE_ATTR(group, name, static, desc)                           \
-	static struct memtype *const MTYPE_##name = &_mt_##name;               \
 	/* end */
 
 DECLARE_MGROUP(LIB)

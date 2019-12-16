@@ -339,29 +339,6 @@ void list_delete_node(struct list *list, struct listnode *node)
 	listnode_free(node);
 }
 
-void list_add_list(struct list *list, struct list *add)
-{
-	struct listnode *n;
-
-	for (n = listhead(add); n; n = listnextnode(n))
-		listnode_add(list, n->data);
-}
-
-struct list *list_dup(struct list *list)
-{
-	struct list *new = list_new();
-	struct listnode *ln;
-	void *data;
-
-	new->cmp = list->cmp;
-	new->del = list->del;
-
-	for (ALL_LIST_ELEMENTS_RO(list, ln, data))
-		listnode_add(new, data);
-
-	return new;
-}
-
 void list_sort(struct list *list, int (*cmp)(const void **, const void **))
 {
 	struct listnode *ln, *nn;

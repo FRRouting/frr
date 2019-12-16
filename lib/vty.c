@@ -89,7 +89,7 @@ static char *vty_ipv6_accesslist_name = NULL;
 static vector Vvty_serv_thread;
 
 /* Current directory. */
-char vty_cwd[MAXPATHLEN];
+static char vty_cwd[MAXPATHLEN];
 
 /* Login password check. */
 static int no_password_check = 0;

@@ -85,7 +85,7 @@ RANGE           \({NUMBER}[ ]?\-[ ]?{NUMBER}\)
 .               {return yytext[0];}
 %%
 
-YY_BUFFER_STATE buffer;
+static YY_BUFFER_STATE buffer;
 
 void set_lexer_string (yyscan_t *scn, const char *string)
 {

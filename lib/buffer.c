@@ -114,12 +114,6 @@ char *buffer_getstr(struct buffer *b)
 	return s;
 }
 
-/* Return 1 if buffer is empty. */
-int buffer_empty(struct buffer *b)
-{
-	return (b->head == NULL);
-}
-
 /* Clear and free all allocated data. */
 void buffer_reset(struct buffer *b)
 {

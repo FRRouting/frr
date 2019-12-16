@@ -122,21 +122,6 @@ int setsockopt_ipv6_pktinfo(int sock, int val)
 }
 
 /* Set multicast hops val to the socket. */
-int setsockopt_ipv6_checksum(int sock, int val)
-{
-	int ret;
-
-#ifdef GNU_LINUX
-	ret = setsockopt(sock, IPPROTO_RAW, IPV6_CHECKSUM, &val, sizeof(val));
-#else
-	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_CHECKSUM, &val, sizeof(val));
-#endif /* GNU_LINUX */
-	if (ret < 0)
-		flog_err(EC_LIB_SOCKET, "can't setsockopt IPV6_CHECKSUM");
-	return ret;
-}
-
-/* Set multicast hops val to the socket. */
 int setsockopt_ipv6_multicast_hops(int sock, int val)
 {
 	int ret;

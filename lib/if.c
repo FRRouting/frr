@@ -58,7 +58,7 @@ DEFINE_QOBJ_TYPE(interface)
 DEFINE_HOOK(if_add, (struct interface * ifp), (ifp))
 DEFINE_KOOH(if_del, (struct interface * ifp), (ifp))
 
-struct interface_master{
+static struct interface_master{
 	int (*create_hook)(struct interface *ifp);
 	int (*up_hook)(struct interface *ifp);
 	int (*down_hook)(struct interface *ifp);
