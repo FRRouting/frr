@@ -230,6 +230,7 @@ typedef enum {
 	ZEBRA_NHRP_NEIGH_UNREGISTER,
 	ZEBRA_NEIGH_ADD,
 	ZEBRA_NEIGH_DEL,
+	ZEBRA_CONFIGURE_ARP,
 } zebra_message_types_t;
 
 enum zebra_error_types {
