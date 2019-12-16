@@ -230,7 +230,23 @@ bool nexthop_labels_match(const struct nexthop *nh1, const struct nexthop *nh2)
 
 struct nexthop *nexthop_new(void)
 {
-	return XCALLOC(MTYPE_NEXTHOP, sizeof(struct nexthop));
+	struct nexthop *nh;
+
+	nh = XCALLOC(MTYPE_NEXTHOP, sizeof(struct nexthop));
+
+	/*
+	 * Default the weight to 1 here for all nexthops.
+	 * The linux kernel does some weird stuff with adding +1 to
+	 * all nexthop weights it gets over netlink.
+	 * To handle this, just default everything to 1 right from
+	 * from the beggining so we don't have to special case
+	 * default weights in the linux netlink code.
+	 *
+	 * 1 should be a valid on all platforms anyway.
+	 */
+	nh->weight = 1;
+
+	return nh;
 }
 
 /* Free nexthop. */
