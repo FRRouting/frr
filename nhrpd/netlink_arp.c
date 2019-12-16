@@ -219,35 +219,3 @@ void netlink_init(void)
 	if (netlink_req_fd < 0)
 		return;
 }
-
-int netlink_configure_arp(unsigned int ifindex, int pf)
-{
-	struct nlmsghdr *n;
-	struct ndtmsg *ndtm;
-	struct rtattr *rta;
-	struct zbuf *zb = zbuf_alloc(512);
-	int r;
-
-	n = znl_nlmsg_push(zb, RTM_SETNEIGHTBL, NLM_F_REQUEST | NLM_F_REPLACE);
-	ndtm = znl_push(zb, sizeof(*ndtm));
-	*ndtm = (struct ndtmsg){
-		.ndtm_family = pf,
-	};
-
-	znl_rta_push(zb, NDTA_NAME, pf == AF_INET ? "arp_cache" : "ndisc_cache",
-		     10);
-
-	rta = znl_rta_nested_push(zb, NDTA_PARMS);
-	znl_rta_push_u32(zb, NDTPA_IFINDEX, ifindex);
-	znl_rta_push_u32(zb, NDTPA_APP_PROBES, 1);
-	znl_rta_push_u32(zb, NDTPA_MCAST_PROBES, 0);
-	znl_rta_push_u32(zb, NDTPA_UCAST_PROBES, 0);
-	znl_rta_nested_complete(zb, rta);
-
-	znl_nlmsg_complete(zb, n);
-	r = zbuf_send(zb, netlink_req_fd);
-	zbuf_recv(zb, netlink_req_fd);
-	zbuf_free(zb);
-
-	return r;
-}

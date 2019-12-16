@@ -392,6 +392,26 @@ static void nhrp_table_node_cleanup(struct route_table *table,
 	XFREE(MTYPE_NHRP_ROUTE, node->info);
 }
 
+void nhrp_send_zebra_configure_arp(struct interface *ifp, int family)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0) {
+		debugf(NHRP_DEBUG_COMMON, "%s() : zclient not ready",
+		       __func__);
+		return;
+	}
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s,
+			      ZEBRA_CONFIGURE_ARP,
+			      ifp->vrf_id);
+	stream_putc(s, family);
+	stream_putl(s, ifp->ifindex);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
+}
+
 void nhrp_send_zebra_nbr(union sockunion *in,
 			 union sockunion *out,
 			 struct interface *ifp)
