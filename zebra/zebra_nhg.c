@@ -593,7 +593,7 @@ zebra_nhg_find_nexthop(uint32_t id, struct nexthop *nh, afi_t afi, int type)
 
 	nexthop_group_add_sorted(&nhg, nh);
 
-	zebra_nhg_find(&nhe, id, &nhg, NULL, nh->vrf_id, afi, 0);
+	zebra_nhg_find(&nhe, id, &nhg, NULL, nh->vrf_id, afi, type);
 
 	return nhe;
 }
