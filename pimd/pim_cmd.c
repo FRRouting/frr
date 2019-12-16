@@ -6915,7 +6915,7 @@ DEFUN (interface_no_ip_igmp,
 
 DEFUN (interface_ip_igmp_join,
        interface_ip_igmp_join_cmd,
-       "ip igmp join A.B.C.D A.B.C.D",
+       "ip igmp join A.B.C.D [A.B.C.D]",
        IP_STR
        IFACE_IGMP_STR
        "IGMP join multicast group\n"
@@ -6941,12 +6941,21 @@ DEFUN (interface_ip_igmp_join,
 	}
 
 	/* Source address */
-	source_str = argv[idx_ipv4_2]->arg;
-	result = inet_pton(AF_INET, source_str, &source_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad source address %s: errno=%d: %s\n",
-			source_str, errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
+	if (argc == (idx_ipv4_2 + 1)) {
+		source_str = argv[idx_ipv4_2]->arg;
+		result = inet_pton(AF_INET, source_str, &source_addr);
+		if (result <= 0) {
+			vty_out(vty, "Bad source address %s: errno=%d: %s\n",
+				source_str, errno, safe_strerror(errno));
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		/* Reject 0.0.0.0. Reserved for any source. */
+		if (source_addr.s_addr == INADDR_ANY) {
+			vty_out(vty, "Bad source address %s\n", source_str);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		source_addr.s_addr = INADDR_ANY;
 	}
 
 	CMD_FERR_RETURN(pim_if_igmp_join_add(ifp, group_addr, source_addr),
@@ -6957,7 +6966,7 @@ DEFUN (interface_ip_igmp_join,
 
 DEFUN (interface_no_ip_igmp_join,
        interface_no_ip_igmp_join_cmd,
-       "no ip igmp join A.B.C.D A.B.C.D",
+       "no ip igmp join A.B.C.D [A.B.C.D]",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
@@ -6984,12 +6993,22 @@ DEFUN (interface_no_ip_igmp_join,
 	}
 
 	/* Source address */
-	source_str = argv[idx_ipv4_2]->arg;
-	result = inet_pton(AF_INET, source_str, &source_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad source address %s: errno=%d: %s\n",
-			source_str, errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
+	if (argc == (idx_ipv4_2 + 1)) {
+		source_str = argv[idx_ipv4_2]->arg;
+		result = inet_pton(AF_INET, source_str, &source_addr);
+		if (result <= 0) {
+			vty_out(vty, "Bad source address %s: errno=%d: %s\n",
+				source_str, errno, safe_strerror(errno));
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		/* Reject 0.0.0.0. Reserved for any source. */
+		if (source_addr.s_addr == INADDR_ANY) {
+			vty_out(vty, "Bad source address %s\n", source_str);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		source_str = "*";
+		source_addr.s_addr = INADDR_ANY;
 	}
 
 	result = pim_if_igmp_join_del(ifp, group_addr, source_addr);
