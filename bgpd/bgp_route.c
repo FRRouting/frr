@@ -10921,56 +10921,76 @@ struct peer_pcounts {
 	unsigned int count[PCOUNT_MAX];
 	const struct peer *peer;
 	const struct bgp_table *table;
+	safi_t safi;
 };
+
+static void bgp_peer_count_proc(struct bgp_node *rn,
+				struct peer_pcounts *pc)
+{
+	const struct bgp_adj_in *ain;
+	const struct bgp_path_info *pi;
+	const struct peer *peer = pc->peer;
+
+	for (ain = rn->adj_in; ain; ain = ain->next)
+		if (ain->peer == peer)
+			pc->count[PCOUNT_ADJ_IN]++;
+
+	for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
+
+		if (pi->peer != peer)
+			continue;
+
+		pc->count[PCOUNT_ALL]++;
+
+		if (CHECK_FLAG(pi->flags, BGP_PATH_DAMPED))
+			pc->count[PCOUNT_DAMPED]++;
+		if (CHECK_FLAG(pi->flags, BGP_PATH_HISTORY))
+			pc->count[PCOUNT_HISTORY]++;
+		if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))
+			pc->count[PCOUNT_REMOVED]++;
+		if (CHECK_FLAG(pi->flags, BGP_PATH_STALE))
+			pc->count[PCOUNT_STALE]++;
+		if (CHECK_FLAG(pi->flags, BGP_PATH_VALID))
+			pc->count[PCOUNT_VALID]++;
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE))
+			pc->count[PCOUNT_PFCNT]++;
+
+		if (CHECK_FLAG(pi->flags, BGP_PATH_COUNTED)) {
+			pc->count[PCOUNT_COUNTED]++;
+			if (CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE))
+				flog_err(
+					EC_LIB_DEVELOPMENT,
+					"Attempting to count but flags say it is unusable");
+		} else {
+			if (!CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE))
+				flog_err(
+					EC_LIB_DEVELOPMENT,
+					"Not counted but flags say we should");
+		}
+	}
+}
 
 static int bgp_peer_count_walker(struct thread *t)
 {
-	struct bgp_node *rn;
+	struct bgp_node *rn, *rm;
+	const struct bgp_table *table;
 	struct peer_pcounts *pc = THREAD_ARG(t);
-	const struct peer *peer = pc->peer;
 
-	for (rn = bgp_table_top(pc->table); rn; rn = bgp_route_next(rn)) {
-		struct bgp_adj_in *ain;
-		struct bgp_path_info *pi;
-
-		for (ain = rn->adj_in; ain; ain = ain->next)
-			if (ain->peer == peer)
-				pc->count[PCOUNT_ADJ_IN]++;
-
-		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
-
-			if (pi->peer != peer)
-				continue;
-
-			pc->count[PCOUNT_ALL]++;
-
-			if (CHECK_FLAG(pi->flags, BGP_PATH_DAMPED))
-				pc->count[PCOUNT_DAMPED]++;
-			if (CHECK_FLAG(pi->flags, BGP_PATH_HISTORY))
-				pc->count[PCOUNT_HISTORY]++;
-			if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))
-				pc->count[PCOUNT_REMOVED]++;
-			if (CHECK_FLAG(pi->flags, BGP_PATH_STALE))
-				pc->count[PCOUNT_STALE]++;
-			if (CHECK_FLAG(pi->flags, BGP_PATH_VALID))
-				pc->count[PCOUNT_VALID]++;
-			if (!CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE))
-				pc->count[PCOUNT_PFCNT]++;
-
-			if (CHECK_FLAG(pi->flags, BGP_PATH_COUNTED)) {
-				pc->count[PCOUNT_COUNTED]++;
-				if (CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE))
-					flog_err(
-						EC_LIB_DEVELOPMENT,
-						"Attempting to count but flags say it is unusable");
-			} else {
-				if (!CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE))
-					flog_err(
-						EC_LIB_DEVELOPMENT,
-						"Not counted but flags say we should");
-			}
+	if (pc->safi == SAFI_MPLS_VPN || pc->safi == SAFI_ENCAP
+	    || pc->safi == SAFI_EVPN) {
+		/* Special handling for 2-level routing tables. */
+		for (rn = bgp_table_top(pc->table); rn;
+		     rn = bgp_route_next(rn)) {
+			table = bgp_node_get_bgp_table_info(rn);
+			if (table != NULL)
+				for (rm = bgp_table_top(table); rm;
+				     rm = bgp_route_next(rm))
+					bgp_peer_count_proc(rm, pc);
 		}
-	}
+	} else
+		for (rn = bgp_table_top(pc->table); rn; rn = bgp_route_next(rn))
+			bgp_peer_count_proc(rn, pc);
+
 	return 0;
 }
 
@@ -11004,6 +11024,7 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 	memset(&pcounts, 0, sizeof(pcounts));
 	pcounts.peer = peer;
 	pcounts.table = peer->bgp->rib[afi][safi];
+	pcounts.safi = safi;
 
 	/* in-place call via thread subsystem so as to record execution time
 	 * stats for the thread-walk (i.e. ensure this can't be blamed on
