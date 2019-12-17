@@ -916,3 +916,22 @@ zebra Terminal Mode Commands
 
    Display nexthop groups created by zebra.
 
+
+Router-id
+=========
+
+Many routing protocols require a router-id to be configured. To have a
+consistent router-id across all daemons, the following commands are available
+to configure and display the router-id:
+
+.. index:: [no] router-id A.B.C.D [vrf NAME]
+.. clicmd:: [no] router-id A.B.C.D [vrf NAME]
+
+   Configure the router-id of this router.
+
+.. index:: show router-id [vrf NAME]
+.. clicmd:: show router-id [vrf NAME]
+
+   Display the user configured router-id.
+
+
