@@ -66,9 +66,10 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast, bool use_fib, bool show_ng);
 static void vty_show_ip_route_summary(struct vty *vty,
-				      struct route_table *table);
+				      struct route_table *table, bool use_json);
 static void vty_show_ip_route_summary_prefix(struct vty *vty,
-					     struct route_table *table);
+					     struct route_table *table,
+					     bool use_json);
 
 DEFUN (ip_multicast_mode,
        ip_multicast_mode_cmd,
@@ -1690,7 +1691,7 @@ DEFPY (show_route_detail,
 DEFPY (show_route_summary,
        show_route_summary_cmd,
        "show <ip$ipv4|ipv6$ipv6> route [vrf <NAME$vrf_name|all$vrf_all>] \
-            summary [table (1-4294967295)$table_id] [prefix$prefix]",
+            summary [table (1-4294967295)$table_id] [prefix$prefix] [json]",
        SHOW_STR
        IP_STR
        IP6_STR
@@ -1699,10 +1700,12 @@ DEFPY (show_route_summary,
        "Summary of all routes\n"
        "Table to display summary for\n"
        "The table number\n"
-       "Prefix routes\n")
+       "Prefix routes\n"
+       JSON_STR)
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	struct route_table *table;
+	bool uj = use_json(argc, argv);
 
 	if (table_id == 0)
 		table_id = RT_TABLE_MAIN;
@@ -1722,9 +1725,10 @@ DEFPY (show_route_summary,
 				continue;
 
 			if (prefix)
-				vty_show_ip_route_summary_prefix(vty, table);
+				vty_show_ip_route_summary_prefix(vty, table,
+								 uj);
 			else
-				vty_show_ip_route_summary(vty, table);
+				vty_show_ip_route_summary(vty, table, uj);
 		}
 	} else {
 		vrf_id_t vrf_id = VRF_DEFAULT;
@@ -1738,16 +1742,16 @@ DEFPY (show_route_summary,
 			return CMD_SUCCESS;
 
 		if (prefix)
-			vty_show_ip_route_summary_prefix(vty, table);
+			vty_show_ip_route_summary_prefix(vty, table, uj);
 		else
-			vty_show_ip_route_summary(vty, table);
+			vty_show_ip_route_summary(vty, table, uj);
 	}
 
 	return CMD_SUCCESS;
 }
 
 static void vty_show_ip_route_summary(struct vty *vty,
-				      struct route_table *table)
+				      struct route_table *table, bool use_json)
 {
 	struct route_node *rn;
 	struct route_entry *re;
@@ -1757,9 +1761,19 @@ static void vty_show_ip_route_summary(struct vty *vty,
 	uint32_t fib_cnt[ZEBRA_ROUTE_TOTAL + 1];
 	uint32_t i;
 	uint32_t is_ibgp;
+	json_object *json_route_summary = NULL;
+	json_object *json_route_routes = NULL;
 
 	memset(&rib_cnt, 0, sizeof(rib_cnt));
 	memset(&fib_cnt, 0, sizeof(fib_cnt));
+
+	if (use_json) {
+		json_route_summary = json_object_new_object();
+		json_route_routes = json_object_new_array();
+		json_object_object_add(json_route_summary, "routes",
+				       json_route_routes);
+	}
+
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
 		RNODE_FOREACH_RE (rn, re) {
 			is_ibgp = (re->type == ZEBRA_ROUTE_BGP
@@ -1781,30 +1795,93 @@ static void vty_show_ip_route_summary(struct vty *vty,
 			}
 		}
 
-	vty_out(vty, "%-20s %-20s %s  (vrf %s)\n", "Route Source", "Routes",
-		"FIB", zvrf_name(((rib_table_info_t *)route_table_get_info(table))->zvrf));
+	if (!use_json)
+		vty_out(vty, "%-20s %-20s %s  (vrf %s)\n", "Route Source",
+			"Routes", "FIB",
+			zvrf_name(((rib_table_info_t *)route_table_get_info(
+					   table))
+					  ->zvrf));
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if ((rib_cnt[i] > 0) || (i == ZEBRA_ROUTE_BGP
 					 && rib_cnt[ZEBRA_ROUTE_IBGP] > 0)) {
 			if (i == ZEBRA_ROUTE_BGP) {
-				vty_out(vty, "%-20s %-20d %-20d \n", "ebgp",
-					rib_cnt[ZEBRA_ROUTE_BGP],
-					fib_cnt[ZEBRA_ROUTE_BGP]);
-				vty_out(vty, "%-20s %-20d %-20d \n", "ibgp",
-					rib_cnt[ZEBRA_ROUTE_IBGP],
-					fib_cnt[ZEBRA_ROUTE_IBGP]);
-			} else
-				vty_out(vty, "%-20s %-20d %-20d \n",
-					zebra_route_string(i), rib_cnt[i],
-					fib_cnt[i]);
+				if (use_json) {
+					json_object *json_route_ebgp =
+						json_object_new_object();
+
+					json_object_int_add(
+						json_route_ebgp, "fib",
+						fib_cnt[ZEBRA_ROUTE_BGP]);
+					json_object_int_add(
+						json_route_ebgp, "rib",
+						rib_cnt[ZEBRA_ROUTE_BGP]);
+					json_object_string_add(json_route_ebgp,
+							       "type", "ebgp");
+					json_object_array_add(json_route_routes,
+							      json_route_ebgp);
+
+					json_object *json_route_ibgp =
+						json_object_new_object();
+
+					json_object_int_add(
+						json_route_ibgp, "fib",
+						fib_cnt[ZEBRA_ROUTE_IBGP]);
+					json_object_int_add(
+						json_route_ibgp, "rib",
+						rib_cnt[ZEBRA_ROUTE_IBGP]);
+					json_object_string_add(json_route_ibgp,
+							       "type", "ibgp");
+					json_object_array_add(json_route_routes,
+							      json_route_ibgp);
+				} else {
+					vty_out(vty, "%-20s %-20d %-20d \n",
+						"ebgp",
+						rib_cnt[ZEBRA_ROUTE_BGP],
+						fib_cnt[ZEBRA_ROUTE_BGP]);
+					vty_out(vty, "%-20s %-20d %-20d \n",
+						"ibgp",
+						rib_cnt[ZEBRA_ROUTE_IBGP],
+						fib_cnt[ZEBRA_ROUTE_IBGP]);
+				}
+			} else {
+				if (use_json) {
+					json_object *json_route_type =
+						json_object_new_object();
+
+					json_object_int_add(json_route_type,
+							    "fib", fib_cnt[i]);
+					json_object_int_add(json_route_type,
+							    "rib", rib_cnt[i]);
+					json_object_string_add(
+						json_route_type, "type",
+						zebra_route_string(i));
+					json_object_array_add(json_route_routes,
+							      json_route_type);
+				} else
+					vty_out(vty, "%-20s %-20d %-20d \n",
+						zebra_route_string(i),
+						rib_cnt[i], fib_cnt[i]);
+			}
 		}
 	}
 
-	vty_out(vty, "------\n");
-	vty_out(vty, "%-20s %-20d %-20d \n", "Totals",
-		rib_cnt[ZEBRA_ROUTE_TOTAL], fib_cnt[ZEBRA_ROUTE_TOTAL]);
-	vty_out(vty, "\n");
+	if (use_json) {
+		json_object_int_add(json_route_summary, "routesTotal",
+				    rib_cnt[ZEBRA_ROUTE_TOTAL]);
+		json_object_int_add(json_route_summary, "routesTotalFib",
+				    fib_cnt[ZEBRA_ROUTE_TOTAL]);
+
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json_route_summary, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_route_summary);
+	} else {
+		vty_out(vty, "------\n");
+		vty_out(vty, "%-20s %-20d %-20d \n", "Totals",
+			rib_cnt[ZEBRA_ROUTE_TOTAL], fib_cnt[ZEBRA_ROUTE_TOTAL]);
+		vty_out(vty, "\n");
+	}
 }
 
 /*
@@ -1815,7 +1892,8 @@ static void vty_show_ip_route_summary(struct vty *vty,
  *
  */
 static void vty_show_ip_route_summary_prefix(struct vty *vty,
-					     struct route_table *table)
+					     struct route_table *table,
+					     bool use_json)
 {
 	struct route_node *rn;
 	struct route_entry *re;
@@ -1826,9 +1904,19 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 	uint32_t fib_cnt[ZEBRA_ROUTE_TOTAL + 1];
 	uint32_t i;
 	int cnt;
+	json_object *json_route_summary = NULL;
+	json_object *json_route_routes = NULL;
 
 	memset(&rib_cnt, 0, sizeof(rib_cnt));
 	memset(&fib_cnt, 0, sizeof(fib_cnt));
+
+	if (use_json) {
+		json_route_summary = json_object_new_object();
+		json_route_routes = json_object_new_array();
+		json_object_object_add(json_route_summary, "prefixRoutes",
+				       json_route_routes);
+	}
+
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
 		RNODE_FOREACH_RE (rn, re) {
 
@@ -1855,32 +1943,96 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 			}
 		}
 
-	vty_out(vty, "%-20s %-20s %s  (vrf %s)\n", "Route Source",
-		"Prefix Routes", "FIB",
-		zvrf_name(((rib_table_info_t *)route_table_get_info(table))->zvrf));
+	if (!use_json)
+		vty_out(vty, "%-20s %-20s %s  (vrf %s)\n", "Route Source",
+			"Prefix Routes", "FIB",
+			zvrf_name(((rib_table_info_t *)route_table_get_info(
+					   table))
+					  ->zvrf));
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (rib_cnt[i] > 0) {
 			if (i == ZEBRA_ROUTE_BGP) {
-				vty_out(vty, "%-20s %-20d %-20d \n", "ebgp",
-					rib_cnt[ZEBRA_ROUTE_BGP]
-						- rib_cnt[ZEBRA_ROUTE_IBGP],
-					fib_cnt[ZEBRA_ROUTE_BGP]
-						- fib_cnt[ZEBRA_ROUTE_IBGP]);
-				vty_out(vty, "%-20s %-20d %-20d \n", "ibgp",
-					rib_cnt[ZEBRA_ROUTE_IBGP],
-					fib_cnt[ZEBRA_ROUTE_IBGP]);
-			} else
-				vty_out(vty, "%-20s %-20d %-20d \n",
-					zebra_route_string(i), rib_cnt[i],
-					fib_cnt[i]);
+				if (use_json) {
+					json_object *json_route_ebgp =
+						json_object_new_object();
+
+					json_object_int_add(
+						json_route_ebgp, "fib",
+						fib_cnt[ZEBRA_ROUTE_BGP]
+							- fib_cnt[ZEBRA_ROUTE_IBGP]);
+					json_object_int_add(
+						json_route_ebgp, "rib",
+						rib_cnt[ZEBRA_ROUTE_BGP]
+							- rib_cnt[ZEBRA_ROUTE_IBGP]);
+					json_object_string_add(json_route_ebgp,
+							       "type", "ebgp");
+					json_object_array_add(json_route_routes,
+							      json_route_ebgp);
+
+					json_object *json_route_ibgp =
+						json_object_new_object();
+
+					json_object_int_add(
+						json_route_ibgp, "fib",
+						fib_cnt[ZEBRA_ROUTE_IBGP]);
+					json_object_int_add(
+						json_route_ibgp, "rib",
+						rib_cnt[ZEBRA_ROUTE_IBGP]);
+					json_object_string_add(json_route_ibgp,
+							       "type", "ibgp");
+					json_object_array_add(json_route_routes,
+							      json_route_ibgp);
+				} else {
+					vty_out(vty, "%-20s %-20d %-20d \n",
+						"ebgp",
+						rib_cnt[ZEBRA_ROUTE_BGP]
+							- rib_cnt[ZEBRA_ROUTE_IBGP],
+						fib_cnt[ZEBRA_ROUTE_BGP]
+							- fib_cnt[ZEBRA_ROUTE_IBGP]);
+					vty_out(vty, "%-20s %-20d %-20d \n",
+						"ibgp",
+						rib_cnt[ZEBRA_ROUTE_IBGP],
+						fib_cnt[ZEBRA_ROUTE_IBGP]);
+				}
+			} else {
+				if (use_json) {
+					json_object *json_route_type =
+						json_object_new_object();
+
+					json_object_int_add(json_route_type,
+							    "fib", fib_cnt[i]);
+					json_object_int_add(json_route_type,
+							    "rib", rib_cnt[i]);
+					json_object_string_add(
+						json_route_type, "type",
+						zebra_route_string(i));
+					json_object_array_add(json_route_routes,
+							      json_route_type);
+				} else
+					vty_out(vty, "%-20s %-20d %-20d \n",
+						zebra_route_string(i),
+						rib_cnt[i], fib_cnt[i]);
+			}
 		}
 	}
 
-	vty_out(vty, "------\n");
-	vty_out(vty, "%-20s %-20d %-20d \n", "Totals",
-		rib_cnt[ZEBRA_ROUTE_TOTAL], fib_cnt[ZEBRA_ROUTE_TOTAL]);
-	vty_out(vty, "\n");
+	if (use_json) {
+		json_object_int_add(json_route_summary, "prefixRoutesTotal",
+				    rib_cnt[ZEBRA_ROUTE_TOTAL]);
+		json_object_int_add(json_route_summary, "prefixRoutesTotalFib",
+				    fib_cnt[ZEBRA_ROUTE_TOTAL]);
+
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json_route_summary, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_route_summary);
+	} else {
+		vty_out(vty, "------\n");
+		vty_out(vty, "%-20s %-20d %-20d \n", "Totals",
+			rib_cnt[ZEBRA_ROUTE_TOTAL], fib_cnt[ZEBRA_ROUTE_TOTAL]);
+		vty_out(vty, "\n");
+	}
 }
 
 /*
