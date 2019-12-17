@@ -89,8 +89,29 @@ static inline int notifier_active(struct notifier_list *l)
 
 extern struct hash *nhrp_gre_list;
 
+struct nhrp_vrf {
+	char *vrfname;
+	vrf_id_t vrf_id;
+	char *nhrp_event_socket_path;
+	int netlink_nflog_group;
+	int netlink_mcast_nflog_group;
+	/* operational contexts */
+	int netlink_log_fd;
+	int netlink_mcast_log_fd;
+	struct thread *netlink_log_thread;
+	struct thread *netlink_mcast_log_thread;
+	struct event_manager *evmgr_connection;
+	struct nhrp_reqid_pool *nhrp_event_reqid;
+
+	struct route_table *zebra_rib[AFI_MAX];
+	struct route_table *shortcut_rib[AFI_MAX];
+
+	QOBJ_FIELDS;
+};
+
 void nhrp_zebra_init(void);
-void nhrp_zebra_terminate(void);
+void nhrp_route_init(struct nhrp_vrf *nhrp_vrf);
+void nhrp_zebra_terminate(struct nhrp_vrf *nhrp_vrf);
 void nhrp_send_zebra_configure_arp(struct interface *ifp, int family);
 void nhrp_send_zebra_nbr(union sockunion *in,
 			 union sockunion *out,
@@ -196,21 +217,6 @@ struct nhrp_reqid {
 	void (*cb)(struct nhrp_reqid *, void *);
 };
 
-struct nhrp_vrf {
-	char *vrfname;
-	char *nhrp_event_socket_path;
-	int netlink_nflog_group;
-	int netlink_mcast_nflog_group;
-	/* operational contexts */
-	int netlink_log_fd;
-	int netlink_mcast_log_fd;
-	struct thread *netlink_log_thread;
-	struct thread *netlink_mcast_log_thread;
-	struct event_manager *evmgr_connection;
-	struct nhrp_reqid_pool *nhrp_event_reqid;
-	QOBJ_FIELDS;
-};
-
 extern struct list *nhrp_vrf_list;
 DECLARE_QOBJ_TYPE(nhrp_vrf);
 
@@ -230,6 +236,7 @@ enum nhrp_cache_type {
 
 extern struct nhrp_vrf *nhrp_get_context(const char *name);
 extern struct nhrp_vrf *find_nhrp_vrf(const char *vrfname);
+extern struct nhrp_vrf *find_nhrp_vrf_id(vrf_id_t vrf_id);
 extern int nhrp_config_write_vrf(struct vty *vty,
 				 struct nhrp_vrf *nhrp_vrf);
 
@@ -284,6 +291,7 @@ struct nhrp_shortcut {
 
 	struct nhrp_cache *cache;
 	struct notifier_block cache_notifier;
+	struct nhrp_vrf *nhrp_vrf;
 };
 
 struct nhrp_nhs {
@@ -422,29 +430,34 @@ void nhrp_multicast_foreach(struct interface *ifp, afi_t afi,
 			    void *ctx);
 void netlink_mcast_set_nflog_group(struct nhrp_vrf *nhrp_vrf, int nlgroup);
 
-void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp);
+void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp,
+			    struct nhrp_vrf *nhrp_vrf);
 void nhrp_route_announce(int add, enum nhrp_cache_type type,
 			 const struct prefix *p, struct interface *ifp,
 			 const union sockunion *nexthop, uint32_t mtu);
 int nhrp_route_read(ZAPI_CALLBACK_ARGS);
 int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p,
-			   union sockunion *via, struct interface **ifp);
+			   union sockunion *via, struct interface **ifp,
+			   struct nhrp_vrf *nhrp_vrf);
 enum nhrp_route_type nhrp_route_address(struct interface *in_ifp,
 					union sockunion *addr, struct prefix *p,
-					struct nhrp_peer **peer);
+					struct nhrp_peer **peer,
+					struct nhrp_vrf *nhrp_vrf);
 
 extern int interface_config_write_vrf(struct vty *vty,
 				      struct nhrp_vrf *nhrp_vrf);
 void nhrp_config_init(void);
 
-void nhrp_shortcut_init(void);
-void nhrp_shortcut_terminate(void);
-void nhrp_shortcut_initiate(union sockunion *addr);
+void nhrp_shortcut_init(struct nhrp_vrf *nhrp_vrf);
+void nhrp_shortcut_terminate(struct nhrp_vrf *nhrp_vrf);
+void nhrp_shortcut_initiate(union sockunion *addr, struct nhrp_vrf *nhrp_vrf);
 void nhrp_shortcut_foreach(afi_t afi,
 			   void (*cb)(struct nhrp_shortcut *, void *),
-			   void *ctx);
+			   void *ctx,
+			   struct nhrp_vrf *nhrp_vrf);
 void nhrp_shortcut_purge(struct nhrp_shortcut *s, int force);
-void nhrp_shortcut_prefix_change(const struct prefix *p, int deleted);
+void nhrp_shortcut_prefix_change(const struct prefix *p, int deleted,
+				 struct nhrp_vrf *nhrp_vrf);
 
 void nhrp_cache_interface_del(struct interface *ifp);
 void nhrp_cache_config_free(struct nhrp_cache_config *c);
@@ -526,7 +539,7 @@ uint32_t nhrp_reqid_alloc(struct nhrp_reqid_pool *, struct nhrp_reqid *r,
 void nhrp_reqid_free(struct nhrp_reqid_pool *, struct nhrp_reqid *r);
 struct nhrp_reqid *nhrp_reqid_lookup(struct nhrp_reqid_pool *, uint32_t reqid);
 
-int nhrp_packet_init(void);
+int nhrp_packet_init(struct nhrp_vrf *nhrp_vrf);
 
 void nhrp_peer_interface_del(struct interface *ifp);
 struct nhrp_peer *nhrp_peer_get(struct interface *ifp,

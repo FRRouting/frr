@@ -222,7 +222,13 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 	struct prefix pfx;
 	struct nhrp_peer *p = c->cur.peer;
 	struct nhrp_interface *nifp;
+	struct nhrp_vrf *nhrp_vrf;
 
+	nhrp_vrf = find_nhrp_vrf_id(c->ifp->vrf_id);
+	if (!nhrp_vrf){
+		zlog_err("%s(): nhrp_vrf not found", __func__);
+		return;
+	}
 	if (!sockunion2hostprefix(&c->remote_addr, &pfx))
 		return;
 
@@ -253,10 +259,10 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 		nhrp_route_announce(1, c->cur.type, &pfx, c->ifp, NULL,
 				    c->cur.mtu);
 		if (c->cur.type >= NHRP_CACHE_DYNAMIC) {
-			nhrp_route_update_nhrp(&pfx, c->ifp);
+			nhrp_route_update_nhrp(&pfx, c->ifp, nhrp_vrf);
 			c->nhrp_route_installed = 1;
 		} else if (c->nhrp_route_installed) {
-			nhrp_route_update_nhrp(&pfx, NULL);
+			nhrp_route_update_nhrp(&pfx, NULL, nhrp_vrf);
 			c->nhrp_route_installed = 0;
 		}
 		if (!c->route_installed) {
@@ -276,7 +282,7 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 			       "cache (peer check failed: no p)");
 
 		if (c->nhrp_route_installed) {
-			nhrp_route_update_nhrp(&pfx, NULL);
+			nhrp_route_update_nhrp(&pfx, NULL, nhrp_vrf);
 			c->nhrp_route_installed = 0;
 		}
 		if (c->route_installed) {

@@ -20,8 +20,6 @@
 
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_SHORTCUT, "NHRP shortcut");
 
-static struct route_table *shortcut_rib[AFI_MAX];
-
 static int nhrp_shortcut_do_purge(struct thread *t);
 static void nhrp_shortcut_delete(struct nhrp_shortcut *s);
 static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s);
@@ -149,6 +147,7 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 {
 	struct route_node *rn;
 	afi_t afi = family2afi(PREFIX_FAMILY(s->p));
+	struct nhrp_vrf *nhrp_vrf = s->nhrp_vrf;
 
 	THREAD_OFF(s->t_timer);
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
@@ -158,7 +157,7 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 	nhrp_shortcut_update_binding(s, NHRP_CACHE_INVALID, NULL, 0);
 
 	/* Delete node */
-	rn = route_node_lookup(shortcut_rib[afi], s->p);
+	rn = route_node_lookup(nhrp_vrf->shortcut_rib[afi], s->p);
 	if (rn) {
 		XFREE(MTYPE_NHRP_SHORTCUT, rn->info);
 		rn->info = NULL;
@@ -175,21 +174,23 @@ static int nhrp_shortcut_do_purge(struct thread *t)
 	return 0;
 }
 
-static struct nhrp_shortcut *nhrp_shortcut_get(struct prefix *p)
+static struct nhrp_shortcut *nhrp_shortcut_get(struct prefix *p,
+					       struct nhrp_vrf *nhrp_vrf)
 {
 	struct nhrp_shortcut *s;
 	struct route_node *rn;
 	afi_t afi = family2afi(PREFIX_FAMILY(p));
 
-	if (!shortcut_rib[afi])
+	if (!nhrp_vrf->shortcut_rib[afi])
 		return 0;
 
-	rn = route_node_get(shortcut_rib[afi], p);
+	rn = route_node_get(nhrp_vrf->shortcut_rib[afi], p);
 	if (!rn->info) {
 		s = rn->info = XCALLOC(MTYPE_NHRP_SHORTCUT,
 				       sizeof(struct nhrp_shortcut));
 		s->type = NHRP_CACHE_INVALID;
 		s->p = &rn->p;
+		s->nhrp_vrf = nhrp_vrf;
 
 		debugf(NHRP_DEBUG_ROUTE, "Shortcut %pFX created", s->p);
 	} else {
@@ -217,6 +218,10 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	struct zbuf extpl;
 	int holding_time = pp->if_ad->holdtime;
 
+	if (!s->nhrp_vrf) {
+		zlog_err("%s(): nhrp_vrf not found", __func__);
+		return;
+	}
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
 	THREAD_OFF(s->t_timer);
 	thread_add_timer(master, nhrp_shortcut_do_purge, s, 1, &s->t_timer);
@@ -265,7 +270,8 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	if (prefix.prefixlen >= 8 * prefix_blen(&prefix)
 	    || prefix.prefixlen == 0) {
 		prefix.prefixlen = 8 * prefix_blen(&prefix);
-	} else if (nhrp_route_address(NULL, &pp->dst_proto, &route_prefix, NULL)
+	} else if (nhrp_route_address(NULL, &pp->dst_proto, &route_prefix,
+				      NULL, s->nhrp_vrf)
 		   == NHRP_ROUTE_NBMA_NEXTHOP) {
 		if (prefix.prefixlen < route_prefix.prefixlen)
 			prefix.prefixlen = route_prefix.prefixlen;
@@ -363,7 +369,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 
 	/* Update shortcut entry for subnet to protocol gw binding */
 	if (c) {
-		ps = nhrp_shortcut_get(&prefix);
+		ps = nhrp_shortcut_get(&prefix, s->nhrp_vrf);
 		if (ps) {
 			ps->addr = s->addr;
 			debugf(NHRP_DEBUG_COMMON,
@@ -397,7 +403,7 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	struct nhrp_cie_header *cie;
 	struct nhrp_extension_header *ext;
 
-	if (nhrp_route_address(NULL, &s->addr, NULL, &peer)
+	if (nhrp_route_address(NULL, &s->addr, NULL, &peer, s->nhrp_vrf)
 	    != NHRP_ROUTE_NBMA_NEXTHOP)
 		return;
 
@@ -455,7 +461,7 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	zbuf_free(zb);
 }
 
-void nhrp_shortcut_initiate(union sockunion *addr)
+void nhrp_shortcut_initiate(union sockunion *addr, struct nhrp_vrf *nhrp_vrf)
 {
 	struct prefix p;
 	struct nhrp_shortcut *s;
@@ -463,7 +469,7 @@ void nhrp_shortcut_initiate(union sockunion *addr)
 	if (!sockunion2hostprefix(addr, &p))
 		return;
 
-	s = nhrp_shortcut_get(&p);
+	s = nhrp_shortcut_get(&p, nhrp_vrf);
 	if (s && s->type != NHRP_CACHE_INCOMPLETE) {
 		s->addr = *addr;
 		THREAD_OFF(s->t_timer);
@@ -473,23 +479,24 @@ void nhrp_shortcut_initiate(union sockunion *addr)
 	}
 }
 
-void nhrp_shortcut_init(void)
+void nhrp_shortcut_init(struct nhrp_vrf *nhrp_vrf)
 {
-	shortcut_rib[AFI_IP] = route_table_init();
-	shortcut_rib[AFI_IP6] = route_table_init();
+	nhrp_vrf->shortcut_rib[AFI_IP] = route_table_init();
+	nhrp_vrf->shortcut_rib[AFI_IP6] = route_table_init();
 }
 
-void nhrp_shortcut_terminate(void)
+void nhrp_shortcut_terminate(struct nhrp_vrf *nhrp_vrf)
 {
-	route_table_finish(shortcut_rib[AFI_IP]);
-	route_table_finish(shortcut_rib[AFI_IP6]);
+	route_table_finish(nhrp_vrf->shortcut_rib[AFI_IP]);
+	route_table_finish(nhrp_vrf->shortcut_rib[AFI_IP6]);
 }
 
 void nhrp_shortcut_foreach(afi_t afi,
 			   void (*cb)(struct nhrp_shortcut *, void *),
-			   void *ctx)
+			   void *ctx,
+			   struct nhrp_vrf *nhrp_vrf)
 {
-	struct route_table *rt = shortcut_rib[afi];
+	struct route_table *rt = nhrp_vrf->shortcut_rib[afi];
 	struct route_node *rn;
 	route_table_iter_t iter;
 
@@ -541,11 +548,13 @@ static void nhrp_shortcut_purge_prefix(struct nhrp_shortcut *s, void *ctx)
 		nhrp_shortcut_purge(s, pctx->deleted || !s->cache);
 }
 
-void nhrp_shortcut_prefix_change(const struct prefix *p, int deleted)
+void nhrp_shortcut_prefix_change(const struct prefix *p, int deleted,
+				 struct nhrp_vrf *nhrp_vrf)
 {
 	struct purge_ctx pctx = {
 		.p = p, .deleted = deleted,
 	};
 	nhrp_shortcut_foreach(family2afi(PREFIX_FAMILY(p)),
-			      nhrp_shortcut_purge_prefix, &pctx);
+			      nhrp_shortcut_purge_prefix, &pctx,
+			      nhrp_vrf);
 }

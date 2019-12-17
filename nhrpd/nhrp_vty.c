@@ -1053,6 +1053,7 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	"opennhrpctl style cache dump\n"
 	JSON_STR)
 {
+	struct nhrp_vrf *nhrp_vrf;
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	struct info_ctx ctx = {
@@ -1063,6 +1064,7 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	struct json_object *json_vrf = NULL, *json_vrf_path = NULL;
 	int ret = CMD_SUCCESS;
 
+	nhrp_vrf = find_nhrp_vrf_id(VRF_DEFAULT);
 	if (uj) {
 		json_vrf = json_object_new_object();
 		json_vrf_path = json_object_new_object();
@@ -1076,7 +1078,8 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_nhs_foreach(ifp, ctx.afi, show_ip_nhrp_nhs, &ctx);
 	} else if (argv[3]->text[0] == 's') {
-		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx);
+		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx,
+				      nhrp_vrf);
 	} else {
 		if (!ctx.json)
 			vty_out(vty, "Status: ok\n\n");
@@ -1202,12 +1205,14 @@ DEFUN(clear_nhrp, clear_nhrp_cmd,
 	struct info_ctx ctx = {
 		.vty = vty, .afi = cmd_to_afi(argv[1]), .count = 0,
 	};
+	struct nhrp_vrf *nhrp_vrf = find_nhrp_vrf_id(VRF_DEFAULT);
 
 	if (argc <= 3 || argv[3]->text[0] == 'c') {
 		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_cache_foreach(ifp, clear_nhrp_cache, &ctx);
 	} else {
-		nhrp_shortcut_foreach(ctx.afi, clear_nhrp_shortcut, &ctx);
+		nhrp_shortcut_foreach(ctx.afi, clear_nhrp_shortcut, &ctx,
+				      nhrp_vrf);
 	}
 
 	if (!ctx.count) {

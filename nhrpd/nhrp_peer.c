@@ -448,6 +448,7 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_peer *peer;
 	size_t paylen;
+	struct nhrp_vrf *nhrp_vrf;
 
 	if (!(pp->if_ad->flags & NHRP_IFF_SHORTCUT)) {
 		debugf(NHRP_DEBUG_COMMON, "Shortcuts disabled");
@@ -464,7 +465,14 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 
 	debugf(NHRP_DEBUG_COMMON, "Parsing and replying to Resolution Req");
 
-	if (nhrp_route_address(ifp, &pp->src_proto, NULL, &peer)
+	nhrp_vrf = find_nhrp_vrf_id(pp->ifp->vrf_id);
+	if (!nhrp_vrf) {
+		debugf(NHRP_DEBUG_VRF,
+		       "nhrp vrf context not found");
+		return;
+	}
+
+	if (nhrp_route_address(pp->ifp, &pp->src_proto, NULL, &peer, nhrp_vrf)
 	    != NHRP_ROUTE_NBMA_NEXTHOP)
 		return;
 
@@ -794,6 +802,7 @@ void nhrp_peer_send_indication(struct interface *ifp, uint16_t protocol_type,
 	struct nhrp_afi_data *if_ad;
 	struct nhrp_packet_header *hdr;
 	struct nhrp_peer *p;
+	struct nhrp_vrf *nhrp_vrf;
 
 	if (!nifp->enabled)
 		return;
@@ -802,7 +811,13 @@ void nhrp_peer_send_indication(struct interface *ifp, uint16_t protocol_type,
 	if (!parse_ether_packet(&payload, protocol_type, &dst, NULL))
 		return;
 
-	if (nhrp_route_address(ifp, &dst, NULL, &p) != NHRP_ROUTE_NBMA_NEXTHOP)
+	nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
+	if (!nhrp_vrf) {
+		zlog_err("%s() nhrp vrf not found", __func__);
+		return;
+	}
+	if (nhrp_route_address(ifp, &dst, NULL, &p, nhrp_vrf)
+	    != NHRP_ROUTE_NBMA_NEXTHOP)
 		return;
 
 	if_ad = &nifp->afi[family2afi(sockunion_family(&dst))];
@@ -854,7 +869,14 @@ static void nhrp_handle_error_ind(struct nhrp_packet_parser *pp)
 static void nhrp_handle_traffic_ind(struct nhrp_packet_parser *p)
 {
 	union sockunion dst;
+	struct nhrp_vrf *nhrp_vrf = NULL;
 
+	if (p->ifp)
+		nhrp_vrf = find_nhrp_vrf_id(p->ifp->vrf_id);
+	if (!nhrp_vrf) {
+		zlog_err("%s(): nhrp_vrf not found", __func__);
+		return;
+	}
 	if (!parse_ether_packet(&p->payload, htons(p->hdr->protocol_type), NULL,
 				&dst))
 		return;
@@ -866,7 +888,7 @@ static void nhrp_handle_traffic_ind(struct nhrp_packet_parser *p)
 						     : "ignored");
 
 	if (p->if_ad->flags & NHRP_IFF_SHORTCUT)
-		nhrp_shortcut_initiate(&dst);
+		nhrp_shortcut_initiate(&dst, nhrp_vrf);
 }
 
 enum packet_type_t {
@@ -1141,6 +1163,7 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 	union sockunion *target_addr;
 	unsigned paylen, extoff, extlen, realsize;
 	afi_t nbma_afi, proto_afi;
+	struct nhrp_vrf *nhrp_vrf;
 
 	debugf(NHRP_DEBUG_KERNEL, "PACKET: Recv %pSU -> %pSU", &vc->remote.nbma,
 	       &vc->local.nbma);
@@ -1217,11 +1240,17 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 			      ? &pp.src_proto
 			      : &pp.dst_proto;
 
+	nhrp_vrf = find_nhrp_vrf_id(pp.ifp->vrf_id);
+	if (!nhrp_vrf) {
+		info = "nhrp vrf not found";
+		goto drop;
+	}
+
 	if (sockunion_same(&pp.src_proto, &pp.dst_proto))
 		pp.route_type = NHRP_ROUTE_LOCAL;
 	else
 		pp.route_type = nhrp_route_address(pp.ifp, target_addr,
-						   &pp.route_prefix, &peer);
+						   &pp.route_prefix, &peer, nhrp_vrf);
 
 	switch (pp.route_type) {
 	case NHRP_ROUTE_LOCAL:

@@ -299,8 +299,9 @@ static int nhrp_packet_recvraw(struct thread *t)
 	union sockunion remote_nbma;
 	uint8_t addr[64];
 	size_t len, addrlen;
+	struct nhrp_vrf *nhrp_vrf = THREAD_ARG(t);
 
-	thread_add_read(master, nhrp_packet_recvraw, 0, fd, NULL);
+	thread_add_read(master, nhrp_packet_recvraw, nhrp_vrf, fd, NULL);
 
 	zb = zbuf_alloc(1500);
 	if (!zb)
@@ -322,7 +323,7 @@ static int nhrp_packet_recvraw(struct thread *t)
 		goto err;
 	}
 
-	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	ifp = if_lookup_by_index(ifindex, nhrp_vrf->vrf_id);
 	if (!ifp)
 		goto err;
 
@@ -339,8 +340,8 @@ err:
 	return 0;
 }
 
-int nhrp_packet_init(void)
+int nhrp_packet_init(struct nhrp_vrf *nhrp_vrf)
 {
-	thread_add_read(master, nhrp_packet_recvraw, 0, os_socket(), NULL);
+	thread_add_read(master, nhrp_packet_recvraw, nhrp_vrf, os_socket(), NULL);
 	return 0;
 }

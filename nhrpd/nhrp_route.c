@@ -21,7 +21,6 @@
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_ROUTE, "NHRP routing entry");
 
 static struct zclient *zclient;
-static struct route_table *zebra_rib[AFI_MAX];
 
 struct route_info {
 	union sockunion via;
@@ -30,16 +29,17 @@ struct route_info {
 };
 
 static struct route_node *nhrp_route_update_get(const struct prefix *p,
-						int create)
+						int create,
+						struct nhrp_vrf *nhrp_vrf)
 {
 	struct route_node *rn;
 	afi_t afi = family2afi(PREFIX_FAMILY(p));
 
-	if (!zebra_rib[afi])
+	if (!nhrp_vrf->zebra_rib[afi])
 		return NULL;
 
 	if (create) {
-		rn = route_node_get(zebra_rib[afi], p);
+		rn = route_node_get(nhrp_vrf->zebra_rib[afi], p);
 		if (!rn->info) {
 			rn->info = XCALLOC(MTYPE_NHRP_ROUTE,
 					   sizeof(struct route_info));
@@ -47,7 +47,7 @@ static struct route_node *nhrp_route_update_get(const struct prefix *p,
 		}
 		return rn;
 	} else {
-		return route_node_lookup(zebra_rib[afi], p);
+		return route_node_lookup(nhrp_vrf->zebra_rib[afi], p);
 	}
 }
 
@@ -65,12 +65,14 @@ static void nhrp_route_update_put(struct route_node *rn)
 
 static void nhrp_route_update_zebra(const struct prefix *p,
 				    union sockunion *nexthop,
-				    struct interface *ifp)
+				    struct interface *ifp,
+				    struct nhrp_vrf *nhrp_vrf)
 {
 	struct route_node *rn;
 	struct route_info *ri;
 
-	rn = nhrp_route_update_get(p, !sockunion_is_null(nexthop) || ifp);
+	rn = nhrp_route_update_get(p, !sockunion_is_null(nexthop) || ifp,
+				   nhrp_vrf);
 	if (rn) {
 		ri = rn->info;
 		ri->via = *nexthop;
@@ -97,12 +99,13 @@ static void nhrp_zebra_register_neigh(vrf_id_t vrf_id, afi_t afi, bool reg)
 	zclient_send_message(zclient);
 }
 
-void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp)
+void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp,
+			    struct nhrp_vrf *nhrp_vrf)
 {
 	struct route_node *rn;
 	struct route_info *ri;
 
-	rn = nhrp_route_update_get(p, ifp != NULL);
+	rn = nhrp_route_update_get(p, ifp != NULL, nhrp_vrf);
 	if (rn) {
 		ri = rn->info;
 		ri->nhrp_ifp = ifp;
@@ -219,7 +222,14 @@ int nhrp_route_read(ZAPI_CALLBACK_ARGS)
 	struct interface *ifp = NULL;
 	union sockunion nexthop_addr;
 	int added;
+	struct nhrp_vrf *nhrp_vrf;
 
+
+	nhrp_vrf  = find_nhrp_vrf_id(vrf_id);
+	if (!nhrp_vrf) {
+		zlog_err("%s(): nhrp_vrf not found", __func__);
+		return -1;
+	}
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
 		return -1;
 
@@ -246,22 +256,24 @@ int nhrp_route_read(ZAPI_CALLBACK_ARGS)
 		}
 
 		if (api_nh->ifindex != IFINDEX_INTERNAL)
-			ifp = if_lookup_by_index(api_nh->ifindex, VRF_DEFAULT);
+			ifp = if_lookup_by_index(api_nh->ifindex, vrf_id);
 	}
 
 	added = (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
-	debugf(NHRP_DEBUG_ROUTE, "if-route-%s: %pFX via %pSU dev %s",
-	       added ? "add" : "del", &api.prefix, &nexthop_addr,
+	debugf(NHRP_DEBUG_ROUTE, "%d: if-route-%s: %pFX via %pSU dev %s",
+	       vrf_id, added ? "add" : "del", &api.prefix, &nexthop_addr,
 	       ifp ? ifp->name : "(none)");
 
-	nhrp_route_update_zebra(&api.prefix, &nexthop_addr, added ? ifp : NULL);
-	nhrp_shortcut_prefix_change(&api.prefix, !added);
+	nhrp_route_update_zebra(&api.prefix, &nexthop_addr, added ? ifp : NULL,
+				nhrp_vrf);
+	nhrp_shortcut_prefix_change(&api.prefix, !added, nhrp_vrf);
 
 	return 0;
 }
 
 int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p,
-			   union sockunion *via, struct interface **ifp)
+			   union sockunion *via, struct interface **ifp,
+			   struct nhrp_vrf *nhrp_vrf)
 {
 	struct route_node *rn;
 	struct route_info *ri;
@@ -270,7 +282,7 @@ int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p,
 
 	sockunion2hostprefix(addr, &lookup);
 
-	rn = route_node_match(zebra_rib[afi], &lookup);
+	rn = route_node_match(nhrp_vrf->zebra_rib[afi], &lookup);
 	if (!rn)
 		return 0;
 
@@ -300,7 +312,8 @@ int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p,
 
 enum nhrp_route_type nhrp_route_address(struct interface *in_ifp,
 					union sockunion *addr, struct prefix *p,
-					struct nhrp_peer **peer)
+					struct nhrp_peer **peer,
+					struct nhrp_vrf *nhrp_vrf)
 {
 	struct interface *ifp = in_ifp;
 	struct nhrp_interface *nifp;
@@ -323,7 +336,7 @@ enum nhrp_route_type nhrp_route_address(struct interface *in_ifp,
 	}
 
 	for (i = 0; i < 4; i++) {
-		if (!nhrp_route_get_nexthop(addr, p, &via[i], &ifp))
+		if (!nhrp_route_get_nexthop(addr, p, &via[i], &ifp, nhrp_vrf))
 			return NHRP_ROUTE_BLACKHOLE;
 		if (ifp) {
 			/* Departing from nbma network? */
@@ -366,10 +379,14 @@ static void nhrp_zebra_connected(struct zclient *zclient)
 	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP6, true);
 }
 
+void nhrp_route_init(struct nhrp_vrf *nhrp_vrf)
+{
+	nhrp_vrf->zebra_rib[AFI_IP] = route_table_init();
+	nhrp_vrf->zebra_rib[AFI_IP6] = route_table_init();
+}
+
 void nhrp_zebra_init(void)
 {
-	zebra_rib[AFI_IP] = route_table_init();
-	zebra_rib[AFI_IP6] = route_table_init();
 
 	zclient = zclient_new(master, &zclient_options_default);
 	zclient->zebra_connected = nhrp_zebra_connected;
@@ -462,17 +479,17 @@ int nhrp_send_zebra_gre_request(struct interface *ifp)
 	return zclient_send_zebra_gre_request(zclient, ifp);
 }
 
-void nhrp_zebra_terminate(void)
+void nhrp_zebra_terminate(struct nhrp_vrf *nhrp_vrf)
 {
-	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP, false);
-	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP6, false);
+	nhrp_zebra_register_neigh(nhrp_vrf->vrf_id, AFI_IP, false);
+	nhrp_zebra_register_neigh(nhrp_vrf->vrf_id, AFI_IP6, false);
 	zclient_stop(zclient);
 	zclient_free(zclient);
 
-	zebra_rib[AFI_IP]->cleanup = nhrp_table_node_cleanup;
-	zebra_rib[AFI_IP6]->cleanup = nhrp_table_node_cleanup;
-	route_table_finish(zebra_rib[AFI_IP]);
-	route_table_finish(zebra_rib[AFI_IP6]);
+	nhrp_vrf->zebra_rib[AFI_IP]->cleanup = nhrp_table_node_cleanup;
+	nhrp_vrf->zebra_rib[AFI_IP6]->cleanup = nhrp_table_node_cleanup;
+	route_table_finish(nhrp_vrf->zebra_rib[AFI_IP]);
+	route_table_finish(nhrp_vrf->zebra_rib[AFI_IP6]);
 }
 
 void nhrp_gre_update(ZAPI_CALLBACK_ARGS)

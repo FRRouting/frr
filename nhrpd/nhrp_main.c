@@ -97,9 +97,9 @@ static void nhrp_request_stop(void)
 
 	nhrp_vrf = find_nhrp_vrf(NULL);
 
-	nhrp_shortcut_terminate();
+	nhrp_shortcut_terminate(nhrp_vrf);
 	nhrp_nhs_terminate();
-	nhrp_zebra_terminate();
+	nhrp_zebra_terminate(nhrp_vrf);
 	vici_terminate();
 	evmgr_terminate(nhrp_vrf);
 	nhrp_vc_terminate();
@@ -189,6 +189,17 @@ static int nhrp_vrf_config_write(struct vty *vty)
 	return 0;
 }
 
+struct nhrp_vrf *find_nhrp_vrf_id(vrf_id_t vrf_id)
+{
+	struct listnode *nhrp_vrf_node;
+	struct nhrp_vrf *nhrp_vrf;
+
+	for (ALL_LIST_ELEMENTS_RO(nhrp_vrf_list, nhrp_vrf_node, nhrp_vrf))
+		if (nhrp_vrf->vrf_id == vrf_id)
+			return nhrp_vrf;
+	return NULL;
+}
+
 struct nhrp_vrf *find_nhrp_vrf(const char *vrfname)
 {
 	struct listnode *nhrp_vrf_node;
@@ -216,6 +227,7 @@ struct nhrp_vrf *nhrp_get_context(const char *name)
 		listnode_add(nhrp_vrf_list, nhrp_vrf);
 		if (name)
 			nhrp_vrf->vrfname = XSTRDUP(MTYPE_NHRP_VRF, name);
+		nhrp_vrf->vrf_id = VRF_DEFAULT;
 	}
 	return nhrp_vrf;
 }
@@ -251,12 +263,13 @@ int main(int argc, char **argv)
 	nhrp_vrf = nhrp_get_context(NULL);
 	evmgr_init(nhrp_vrf);
 	nhrp_vc_init();
-	nhrp_packet_init();
+	nhrp_packet_init(nhrp_vrf);
 	vici_init();
 	if_zapi_callbacks(nhrp_ifp_create, nhrp_ifp_up,
 			  nhrp_ifp_down, nhrp_ifp_destroy);
+	nhrp_route_init(nhrp_vrf);
 	nhrp_zebra_init();
-	nhrp_shortcut_init();
+	nhrp_shortcut_init(nhrp_vrf);
 
 	nhrp_config_init();
 
