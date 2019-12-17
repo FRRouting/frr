@@ -103,7 +103,7 @@ sub scan_file {
 	    $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
 	}
 	elsif ($file =~ /lib\/nexthop_group\.c$/) {
-	    $protocol = "VTYSH_PBRD | VTYSH_SHARPD";
+	    $protocol = "VTYSH_NH_GROUP";
 	}
         elsif ($file =~ /lib\/plist\.c$/) {
             if ($defun_array[1] =~ m/ipv6/) {
