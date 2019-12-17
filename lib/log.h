@@ -32,6 +32,7 @@
 
 #include "lib/hook.h"
 #include "lib/zlog.h"
+#include "lib/zlog_targets.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -72,6 +73,22 @@ struct message {
 	zlog(priority, "[EC %" PRIu32 "] " format, ferr_id, ##__VA_ARGS__)
 
 extern void zlog_thread_info(int log_level);
+
+#define ZLOG_FILTERS_MAX 100      /* Max # of filters at once */
+#define ZLOG_FILTER_LENGTH_MAX 80 /* 80 character filter limit */
+
+struct zlog_cfg_filterfile {
+	struct zlog_cfg_file parent;
+};
+
+extern void zlog_filterfile_init(struct zlog_cfg_filterfile *zcf);
+extern void zlog_filterfile_fini(struct zlog_cfg_filterfile *zcf);
+
+/* Add/Del/Dump log filters */
+extern void zlog_filter_clear(void);
+extern int zlog_filter_add(const char *filter);
+extern int zlog_filter_del(const char *filter);
+extern int zlog_filter_dump(char *buf, size_t max_size);
 
 const char *lookup_msg(const struct message *mz, int kz, const char *nf);
 

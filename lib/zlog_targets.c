@@ -61,7 +61,7 @@ static const char * const prionames[] = {
 	[LOG_DEBUG] =	"debugging: ",
 };
 
-static void zlog_fd(struct zlog_target *zt, struct zlog_msg *msgs[], size_t nmsgs)
+void zlog_fd(struct zlog_target *zt, struct zlog_msg *msgs[], size_t nmsgs)
 {
 	struct zlt_fd *zte = container_of(zt, struct zlt_fd, zt);
 	int fd;
@@ -221,7 +221,7 @@ static bool zlog_file_cycle(struct zlog_cfg_file *zcf)
 		zlt->ts_subsec = zcf->ts_subsec;
 
 		zlt->zt.prio_min = zcf->prio_min;
-		zlt->zt.logfn = zlog_fd;
+		zlt->zt.logfn = zcf->zlog_wrap ? zcf->zlog_wrap : zlog_fd;
 		zlt->zt.logfn_sigsafe = zlog_fd_sigsafe;
 	} while (0);
 

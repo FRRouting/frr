@@ -51,6 +51,11 @@ static struct zlog_cfg_file zt_file = {
 static struct zlog_cfg_file zt_stdout = {
 	.prio_min = ZLOG_DISABLED,
 };
+static struct zlog_cfg_filterfile zt_filterfile = {
+	.parent = {
+		.prio_min = ZLOG_DISABLED,
+	},
+};
 
 static const char *zlog_progname;
 static const char *zlog_protoname;
@@ -122,6 +127,7 @@ int log_level_match(const char *s)
 void zlog_rotate(void)
 {
 	zlog_file_rotate(&zt_file);
+	zlog_file_rotate(&zt_filterfile.parent);
 	hook_call(zlog_rotate);
 }
 
@@ -163,6 +169,12 @@ DEFUN (show_logging,
 		vty_out(vty, "level %s, filename %s",
 			zlog_priority[zt_file.prio_min], zt_file.filename);
 	vty_out(vty, "\n");
+
+	if (zt_filterfile.parent.prio_min != ZLOG_DISABLED
+	    && zt_filterfile.parent.filename)
+		vty_out(vty, "Filtered-file logging: level %s, filename %s\n",
+			zlog_priority[zt_filterfile.parent.prio_min],
+			zt_filterfile.parent.filename);
 
 	if (log_cmdline_syslog_lvl != ZLOG_DISABLED)
 		vty_out(vty,
@@ -458,6 +470,8 @@ DEFUN (config_log_record_priority,
 	zlog_file_set_other(&zt_file);
 	zt_stdout.record_priority = true;
 	zlog_file_set_other(&zt_stdout);
+	zt_filterfile.parent.record_priority = true;
+	zlog_file_set_other(&zt_filterfile.parent);
 	return CMD_SUCCESS;
 }
 
@@ -472,6 +486,8 @@ DEFUN (no_config_log_record_priority,
 	zlog_file_set_other(&zt_file);
 	zt_stdout.record_priority = false;
 	zlog_file_set_other(&zt_stdout);
+	zt_filterfile.parent.record_priority = false;
+	zlog_file_set_other(&zt_filterfile.parent);
 	return CMD_SUCCESS;
 }
 
@@ -487,6 +503,8 @@ DEFPY (config_log_timestamp_precision,
 	zlog_file_set_other(&zt_file);
 	zt_stdout.ts_subsec = precision;
 	zlog_file_set_other(&zt_stdout);
+	zt_filterfile.parent.ts_subsec = precision;
+	zlog_file_set_other(&zt_filterfile.parent);
 	return CMD_SUCCESS;
 }
 
@@ -503,6 +521,101 @@ DEFUN (no_config_log_timestamp_precision,
 	zlog_file_set_other(&zt_file);
 	zt_stdout.ts_subsec = 0;
 	zlog_file_set_other(&zt_stdout);
+	zt_filterfile.parent.ts_subsec = 0;
+	zlog_file_set_other(&zt_filterfile.parent);
+	return CMD_SUCCESS;
+}
+
+DEFPY (config_log_filterfile,
+       config_log_filterfile_cmd,
+       "log filtered-file FILENAME [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>$levelarg]",
+       "Logging control\n"
+       "Logging to file with string filter\n"
+       "Logging filename\n"
+       LOG_LEVEL_DESC)
+{
+	int level = log_default_lvl;
+
+	if (levelarg) {
+		level = log_level_match(levelarg);
+		if (level == ZLOG_DISABLED)
+			return CMD_ERR_NO_MATCH;
+	}
+	return set_log_file(&zt_filterfile.parent, vty, filename, level);
+}
+
+DEFUN (no_config_log_filterfile,
+       no_config_log_filterfile_cmd,
+       "no log filtered-file [FILENAME [LEVEL]]",
+       NO_STR
+       "Logging control\n"
+       "Cancel logging to file with string filter\n"
+       "Logging file name\n"
+       "Logging level\n")
+{
+	zt_filterfile.parent.prio_min = ZLOG_DISABLED;
+	zlog_file_set_other(&zt_filterfile.parent);
+	return CMD_SUCCESS;
+}
+
+DEFPY (log_filter,
+       log_filter_cmd,
+       "[no] log-filter WORD$filter",
+       NO_STR
+       FILTER_LOG_STR
+       "String to filter by\n")
+{
+	int ret = 0;
+
+	if (no)
+		ret = zlog_filter_del(filter);
+	else
+		ret = zlog_filter_add(filter);
+
+	if (ret == 1) {
+		vty_out(vty, "%% filter table full\n");
+		return CMD_WARNING;
+	} else if (ret != 0) {
+		vty_out(vty, "%% failed to %s log filter\n",
+			(no ? "remove" : "apply"));
+		return CMD_WARNING;
+	}
+
+	vty_out(vty, " %s\n", filter);
+	return CMD_SUCCESS;
+}
+
+/* Clear all log filters */
+DEFPY (log_filter_clear,
+       log_filter_clear_cmd,
+       "clear log-filter",
+       CLEAR_STR
+       FILTER_LOG_STR)
+{
+	zlog_filter_clear();
+	return CMD_SUCCESS;
+}
+
+/* Show log filter */
+DEFPY (show_log_filter,
+       show_log_filter_cmd,
+       "show log-filter",
+       SHOW_STR
+       FILTER_LOG_STR)
+{
+	char log_filters[ZLOG_FILTERS_MAX * (ZLOG_FILTER_LENGTH_MAX + 3)] = "";
+	int len = 0;
+
+	len = zlog_filter_dump(log_filters, sizeof(log_filters));
+
+	if (len == -1) {
+		vty_out(vty, "%% failed to get filters\n");
+		return CMD_WARNING;
+	}
+
+	if (len != 0)
+		vty_out(vty, "%s", log_filters);
+
 	return CMD_SUCCESS;
 }
 
@@ -515,6 +628,17 @@ void log_config_write(struct vty *vty)
 
 		if (zt_file.prio_min != log_default_lvl)
 			vty_out(vty, " %s", zlog_priority[zt_file.prio_min]);
+		vty_out(vty, "\n");
+	}
+
+	if (zt_filterfile.parent.prio_min != ZLOG_DISABLED
+	    && zt_filterfile.parent.filename) {
+		vty_out(vty, "log filtered-file %s",
+			zt_filterfile.parent.filename);
+
+		if (zt_filterfile.parent.prio_min != log_default_lvl)
+			vty_out(vty, " %s",
+				zlog_priority[zt_filterfile.parent.prio_min]);
 		vty_out(vty, "\n");
 	}
 
@@ -577,6 +701,8 @@ static int log_vty_init(const char *progname, const char *protoname,
 	zlog_progname = progname;
 	zlog_protoname = protoname;
 
+	zlog_filterfile_init(&zt_filterfile);
+
 	zlog_file_set_fd(&zt_stdout, STDOUT_FILENO);
 	return 0;
 }
@@ -605,4 +731,10 @@ void log_cmd_init(void)
 	install_element(CONFIG_NODE, &no_config_log_record_priority_cmd);
 	install_element(CONFIG_NODE, &config_log_timestamp_precision_cmd);
 	install_element(CONFIG_NODE, &no_config_log_timestamp_precision_cmd);
+
+	install_element(VIEW_NODE, &show_log_filter_cmd);
+	install_element(CONFIG_NODE, &log_filter_cmd);
+	install_element(CONFIG_NODE, &log_filter_clear_cmd);
+	install_element(CONFIG_NODE, &config_log_filterfile_cmd);
+	install_element(CONFIG_NODE, &no_config_log_filterfile_cmd);
 }
