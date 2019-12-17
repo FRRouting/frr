@@ -2163,7 +2163,8 @@ DEFUNSH(VTYSH_ZEBRA, vtysh_pseudowire, vtysh_pseudowire_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_nexthop_group, vtysh_nexthop_group_cmd,
+DEFUNSH(VTYSH_NH_GROUP,
+	vtysh_nexthop_group, vtysh_nexthop_group_cmd,
 	"nexthop-group NHGNAME",
 	"Nexthop Group configuration\n"
 	"Name of the Nexthop Group\n")
@@ -2172,7 +2173,7 @@ DEFUNSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_nexthop_group, vtysh_nexthop_group_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_no_nexthop_group_cmd,
+DEFSH(VTYSH_NH_GROUP, vtysh_no_nexthop_group_cmd,
       "no nexthop-group NHGNAME",
       NO_STR
       "Nexthop Group Configuration\n"
@@ -2209,13 +2210,15 @@ DEFUNSH(VTYSH_VRF, vtysh_quit_vrf, vtysh_quit_vrf_cmd, "quit",
 	return vtysh_exit_vrf(self, vty, argc, argv);
 }
 
-DEFUNSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_exit_nexthop_group, vtysh_exit_nexthop_group_cmd,
+DEFUNSH(VTYSH_NH_GROUP,
+	vtysh_exit_nexthop_group, vtysh_exit_nexthop_group_cmd,
 	"exit", "Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit(vty);
 }
 
-DEFUNSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_quit_nexthop_group, vtysh_quit_nexthop_group_cmd,
+DEFUNSH(VTYSH_NH_GROUP,
+	vtysh_quit_nexthop_group, vtysh_quit_nexthop_group_cmd,
 	"quit", "Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit_nexthop_group(self, vty, argc, argv);
