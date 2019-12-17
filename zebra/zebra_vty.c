@@ -1351,9 +1351,10 @@ DEFPY (show_interface_nexthop_group,
 
 DEFPY (show_nexthop_group,
        show_nexthop_group_cmd,
-       "show nexthop-group <(0-4294967295)$id|[<ip$v4|ipv6$v6>] [vrf <NAME$vrf_name|all$vrf_all>]>",
+       "show nexthop-group rib <(0-4294967295)$id|[<ip$v4|ipv6$v6>] [vrf <NAME$vrf_name|all$vrf_all>]>",
        SHOW_STR
        "Show Nexthop Groups\n"
+       "RIB information\n"
        "Nexthop Group ID\n"
        IP_STR
        IP6_STR
