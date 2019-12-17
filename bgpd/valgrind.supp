@@ -7,3 +7,11 @@
    fun:ly_load_plugins_dir
    fun:ly_load_plugins
 }
+{
+   <zlog_keep_working_at_exit>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:qcalloc
+   fun:zlog_target_clone
+}
