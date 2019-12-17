@@ -228,7 +228,7 @@ int route_entry_update_nhe(struct route_entry *re, struct nhg_hash_entry *new)
 
 		if (old)
 			zebra_nhg_decrement_ref(old);
-	} else if (!re->nhe->nhg)
+	} else if (!re->nhe)
 		/* This is the first time it's being attached */
 		route_entry_attach_ref(re, new);
 
