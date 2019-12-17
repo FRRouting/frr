@@ -9141,7 +9141,8 @@ static int bgp_show_prefix_longer(struct vty *vty, struct bgp *bgp,
 				  const char *prefix, afi_t afi, safi_t safi,
 				  enum bgp_show_type type);
 static int bgp_show_regexp(struct vty *vty, struct bgp *bgp, const char *regstr,
-			   afi_t afi, safi_t safi, enum bgp_show_type type);
+			   afi_t afi, safi_t safi, enum bgp_show_type type,
+			   bool use_json);
 static int bgp_show_community(struct vty *vty, struct bgp *bgp,
 			      const char *comstr, int exact, afi_t afi,
 			      safi_t safi, bool use_json);
@@ -10458,7 +10459,7 @@ DEFUN (show_ip_bgp_route,
 
 DEFUN (show_ip_bgp_regexp,
        show_ip_bgp_regexp_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] regexp REGEX...",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] regexp REGEX [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -10466,11 +10467,14 @@ DEFUN (show_ip_bgp_regexp,
        BGP_AFI_HELP_STR
        BGP_SAFI_WITH_LABEL_HELP_STR
        "Display routes matching the AS path regular expression\n"
-       "A regular-expression (1234567890_^|[,{}() ]$*+.?-\\) to match the BGP AS paths\n")
+       "A regular-expression (1234567890_^|[,{}() ]$*+.?-\\) to match the BGP AS paths\n"
+       JSON_STR)
 {
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
 	struct bgp *bgp = NULL;
+	bool uj = use_json(argc, argv);
+	char *regstr = NULL;
 
 	int idx = 0;
 	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
@@ -10479,14 +10483,11 @@ DEFUN (show_ip_bgp_regexp,
 		return CMD_WARNING;
 
 	// get index of regex
-	argv_find(argv, argc, "regexp", &idx);
-	idx++;
+	if (argv_find(argv, argc, "REGEX", &idx))
+		regstr = argv[idx]->arg;
 
-	char *regstr = argv_concat(argv, argc, idx);
-	int rc = bgp_show_regexp(vty, bgp, (const char *)regstr, afi, safi,
-				 bgp_show_type_regexp);
-	XFREE(MTYPE_TMP, regstr);
-	return rc;
+	return bgp_show_regexp(vty, bgp, (const char *)regstr, afi, safi,
+				 bgp_show_type_regexp, uj);
 }
 
 DEFUN (show_ip_bgp_instance_all,
@@ -10519,7 +10520,8 @@ DEFUN (show_ip_bgp_instance_all,
 }
 
 static int bgp_show_regexp(struct vty *vty, struct bgp *bgp, const char *regstr,
-			   afi_t afi, safi_t safi, enum bgp_show_type type)
+			   afi_t afi, safi_t safi, enum bgp_show_type type,
+			   bool use_json)
 {
 	regex_t *regex;
 	int rc;
@@ -10536,7 +10538,7 @@ static int bgp_show_regexp(struct vty *vty, struct bgp *bgp, const char *regstr,
 		return CMD_WARNING;
 	}
 
-	rc = bgp_show(vty, bgp, afi, safi, type, regex, 0);
+	rc = bgp_show(vty, bgp, afi, safi, type, regex, use_json);
 	bgp_regex_free(regex);
 	return rc;
 }
