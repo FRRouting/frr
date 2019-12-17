@@ -10527,7 +10527,7 @@ static int bgp_show_regexp(struct vty *vty, struct bgp *bgp, const char *regstr,
 	int rc;
 
 	if (!config_bgp_aspath_validate(regstr)) {
-		vty_out(vty, "Invalid character in as-path access-list %s\n",
+		vty_out(vty, "Invalid character in REGEX %s\n",
 			regstr);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
