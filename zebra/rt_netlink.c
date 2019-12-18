@@ -2044,6 +2044,9 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 
 			addattr32(&req.n, req_size, NHA_OIF, nh->ifindex);
 
+			if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK))
+				req.nhm.nh_flags |= RTNH_F_ONLINK;
+
 			num_labels =
 				build_label_stack(nh->nh_label, out_lse,
 						  label_buf, sizeof(label_buf));
