@@ -4,65 +4,23 @@
 Overview
 ********
 
-`FRR`_ is a routing software package that provides TCP/IP based routing
-services with routing protocols support such as BGP, RIP, OSPF, IS-IS and more
-(see :ref:`supported-protocols`). FRR also supports
-special BGP Route Reflector and Route Server behavior.  In addition to
-traditional IPv4 routing protocols, FRR also supports IPv6 routing protocols.
-With an SNMP daemon that supports the AgentX protocol, FRR provides routing
-protocol MIB read-only access (:ref:`snmp-support`).
+`FRR`_ is a fully featured, high performance, free software IP routing suite.
 
-FRR uses an advanced software architecture to provide you with a high quality,
-multi server routing engine. FRR has an interactive user interface for each
-routing protocol and supports common client commands.  Due to this design, you
-can add new protocol daemons to FRR easily.  You can use FRR library as your
-program's client user interface.
+FRR implements all standard routing protocols such as BGP, RIP, OSPF, IS-IS and
+more (see :ref:`feature-matrix`), as well as many of their extensions.
 
-FRR is distributed under the GNU General Public License.
+FRR is a high performance suite written primarily in C. It can easily handle
+full Internet routing tables and is suitable for use on hardware ranging from
+cheap SBCs to commercial grade routers. It is actively used in production by
+hundreds of companies, universities, research labs and governments.
+
+FRR is distributed under GPLv2, with development modeled after the Linux
+kernel. Anyone may contribute features, bug fixes, tools, documentation
+updates, or anything else.
 
 FRR is a fork of `Quagga <http://www.quagga.net/>`_.
 
-.. _about-frr:
-
-About FRR
-=========
-
-Today, TCP/IP networks are covering all of the world.  The Internet has been
-deployed in many countries, companies, and to the home.  When you connect to
-the Internet your packet will pass many routers which have TCP/IP routing
-functionality.
-
-A system with FRR installed acts as a dedicated router.  With FRR, your machine
-exchanges routing information with other routers using routing protocols.  FRR
-uses this information to update the kernel routing table so that the right data
-goes to the right place.  You can dynamically change the configuration and you
-may view routing table information from the FRR terminal interface.
-
-Adding to routing protocol support, FRR can setup interface's flags,
-interface's address, static routes and so on.  If you have a small network, or
-a stub network, or xDSL connection, configuring the FRR routing software is
-very easy.  The only thing you have to do is to set up the interfaces and put a
-few commands about static routes and/or default routes.  If the network is
-rather large, or if the network structure changes frequently, you will want to
-take advantage of FRR's dynamic routing protocol support for protocols such as
-RIP, OSPF, IS-IS or BGP.
-
-Traditionally, UNIX based router configuration is done by *ifconfig* and
-*route* commands.  Status of routing table is displayed by *netstat* utility.
-Almost of these commands work only if the user has root privileges.  FRR has a
-different system administration method.  There are two user modes in FRR.  One
-is normal mode, the other is enable mode.  Normal mode user can only view
-system status, enable mode user can change system configuration.  This UNIX
-account independent feature will be great help to the router administrator.
-
-Currently, FRR supports common unicast routing protocols, that is BGP, OSPF,
-RIP and IS-IS.  Upcoming for MPLS support, an implementation of LDP is
-currently being prepared for merging.  Implementations of BFD and PIM-SSM
-(IPv4) also exist, but are not actively being worked on.
-
-The ultimate goal of the FRR project is making a production-grade, high
-quality, featureful and free IP routing software suite.
-
+.. _how-to-get-frr:
 
 How to get FRR
 ==============
@@ -79,25 +37,46 @@ For instructions on installing from source, refer to the
 `developer documentation <http://docs.frrouting.org/projects/dev-guide/en/latest/>`_.
 
 
+.. _about-frr:
+
+About FRR
+=========
+
+FRR provides IP routing services. Its role in a networking stack is to exchange
+routing information with other routers, make routing and policy decisions, and
+inform other layers of these decisions. In the most common scenario, FRR
+installs routing decisions into the OS kernel, allowing the kernel networking
+stack to make the corresponding forwarding decisions.
+
+In addition to dynamic routing FRR supports the full range of L3 configuration,
+including static routes, addresses, router advertisements etc. It has some
+light L2 functionality as well, but this is mostly left to the platform. This
+makes it suitable for deployments ranging from small home networks with static
+routes to Internet exchanges running full Internet tables.
+
+FRR runs on all modern \*NIX operating systems, including Linux and the BSDs.
+Feature support varies by platform; see the :ref:`feature-matrix`.
+
+
 System Architecture
-===================
+-------------------
 
 .. index:: System architecture
-
 .. index:: Software architecture
-
 .. index:: Software internals
 
 Traditional routing software is made as a one process program which provides
 all of the routing protocol functionalities. FRR takes a different approach.
-FRR is a suite of daemons that work together to build the routing table. There
-is a daemon for each major supported protocol as well as a middleman daemon
-(*Zebra*) which serves as the broker between these daemons and the kernel.
+FRR is a suite of daemons that work together to build the routing table. Each
+major protocol is implemented in its own daemon, and these daemons talk to a
+middleman daemon (*zebra*), which is responsible for coordinating routing
+decisions and talking to the dataplane.
 
 This architecture allows for high resiliency, since an error, crash or exploit
-in one protocol daemon will generally not affect the others.  It is also
+in one protocol daemon will generally not affect the others. It is also
 flexible and extensible since the modularity makes it easy to implement new
-protocols and tie them into the suite.
+protocols and tie them into the suite. Additionally, each daemon implements a
+plugin system allowing new functionality to be loaded at runtime.
 
 An illustration of the large scale architecture is given below.
 
@@ -121,17 +100,23 @@ An illustration of the large scale architecture is given below.
    +-------------+   +------------------+   +-------------+
 
 
-The multi-process architecture brings extensibility, modularity and
-maintainability.  All of the FRR daemons can be managed through a single
-integrated user interface shell called *vtysh*.  *vtysh* connects to each
-daemon through a UNIX domain socket and then works as a proxy for user input.
-In addition to a unified frontend, *vtysh* also provides the ability to
-configure all the daemons using a single configuration file through the
-integrated configuration mode avoiding the problem of having to maintain a
-separate configuration file for each daemon.
+All of the FRR daemons can be managed through a single integrated user
+interface shell called *vtysh*. *vtysh* connects to each daemon through a UNIX
+domain socket and then works as a proxy for user input. In addition to a
+unified frontend, *vtysh* also provides the ability to configure all the
+daemons using a single configuration file through the integrated configuration
+mode. This avoids the overhead of maintaining a separate configuration file for
+each daemon.
+
+FRR is currently currently implementing a new internal configuration system
+based on YANG data models. When this work is completed, FRR will be a fully
+programmable routing stack.
+
+
+.. _supported-platforms:
 
 Supported Platforms
-===================
+-------------------
 
 .. index:: Supported platforms
 .. index:: FRR on other systems
@@ -150,7 +135,7 @@ us know if you can get FRR to run on a platform which is not listed below:
 
 Versions of these platforms that are older than around 2 years from the point
 of their original release (in case of GNU/Linux, this is since the kernel's
-release on https://kernel.org/) may need some work.  Similarly, the following
+release on https://kernel.org/) may need some work. Similarly, the following
 platforms may work with some effort:
 
 - Solaris
@@ -162,14 +147,15 @@ Recent versions of the following compilers are well tested:
 - LLVM's Clang
 - Intel's ICC
 
-.. _supported-protocols:
+.. _feature-matrix:
 
-Supported Protocols vs. Platform
-================================
+Feature Matrix
+^^^^^^^^^^^^^^
 
-The following table lists all protocols cross-refrenced to all operating
-systems that have at least CI build tests.  Note that for features, only
-features with system dependencies are included here.
+The following table lists all protocols cross-referenced to all operating
+systems that have at least CI build tests. Note that for features, only
+features with system dependencies are included here; if you don't see the
+feature you're interested in, it should be supported on your platform.
 
 .. role:: mark
 
