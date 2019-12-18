@@ -150,7 +150,7 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 	struct nhrp_vrf *nhrp_vrf = s->nhrp_vrf;
 
 	THREAD_OFF(s->t_timer);
-	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
+	nhrp_reqid_free(nhrp_vrf->nhrp_packet_reqid, &s->reqid);
 
 	debugf(NHRP_DEBUG_ROUTE, "Shortcut %pFX purged", s->p);
 
@@ -222,7 +222,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 		zlog_err("%s(): nhrp_vrf not found", __func__);
 		return;
 	}
-	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
+	nhrp_reqid_free(s->nhrp_vrf->nhrp_packet_reqid, &s->reqid);
 	THREAD_OFF(s->t_timer);
 	thread_add_timer(master, nhrp_shortcut_do_purge, s, 1, &s->t_timer);
 
@@ -420,7 +420,7 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 		&nifp->afi[family2afi(sockunion_family(&s->addr))].addr,
 		&s->addr);
 	hdr->u.request_id =
-		htonl(nhrp_reqid_alloc(&nhrp_packet_reqid, &s->reqid,
+		htonl(nhrp_reqid_alloc(s->nhrp_vrf->nhrp_packet_reqid, &s->reqid,
 				       nhrp_shortcut_recv_resolution_rep));
 	hdr->flags = htons(NHRP_FLAG_RESOLUTION_SOURCE_IS_ROUTER
 			   | NHRP_FLAG_RESOLUTION_AUTHORATIVE
@@ -519,7 +519,7 @@ struct purge_ctx {
 void nhrp_shortcut_purge(struct nhrp_shortcut *s, int force)
 {
 	THREAD_OFF(s->t_timer);
-	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
+	nhrp_reqid_free(s->nhrp_vrf->nhrp_packet_reqid, &s->reqid);
 
 	if (force) {
 		/* Immediate purge on route with draw or pending shortcut */

@@ -20,8 +20,6 @@
 #include "nhrp_protocol.h"
 #include "os.h"
 
-struct nhrp_reqid_pool nhrp_packet_reqid;
-
 static uint16_t family2proto(int family)
 {
 	switch (family) {

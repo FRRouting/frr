@@ -98,7 +98,7 @@ static void nhrp_request_stop(void)
 	nhrp_vrf = find_nhrp_vrf(NULL);
 
 	nhrp_shortcut_terminate(nhrp_vrf);
-	nhrp_nhs_terminate();
+	nhrp_nhs_terminate(nhrp_vrf);
 	nhrp_zebra_terminate(nhrp_vrf);
 	vici_terminate();
 	evmgr_terminate(nhrp_vrf);
@@ -269,6 +269,7 @@ int main(int argc, char **argv)
 			  nhrp_ifp_down, nhrp_ifp_destroy);
 	nhrp_route_init(nhrp_vrf);
 	nhrp_zebra_init();
+	nhrp_nhs_init(nhrp_vrf);
 	nhrp_shortcut_init(nhrp_vrf);
 
 	nhrp_config_init();

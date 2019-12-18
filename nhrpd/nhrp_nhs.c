@@ -16,6 +16,7 @@
 
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_NHS, "NHRP next hop server");
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_REGISTRATION, "NHRP registration entries");
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_REQID_PKT_POOL, "NHRP pkt reqid entry");
 
 static int nhrp_nhs_resolve(struct thread *t);
 static int nhrp_reg_send_req(struct thread *t);
@@ -36,8 +37,15 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 		*proto;
 	int ok = 0, holdtime;
 	unsigned short mtu = 0;
+	struct nhrp_vrf *nhrp_vrf;
 
-	nhrp_reqid_free(&nhrp_packet_reqid, &r->reqid);
+	nhrp_vrf = find_nhrp_vrf_id(p->ifp->vrf_id);
+	if (!nhrp_vrf) {
+		debugf(NHRP_DEBUG_VRF, "NHS: Registration failed. nhrp vrf not found.");
+		return;
+	}
+
+	nhrp_reqid_free(nhrp_vrf->nhrp_packet_reqid, &r->reqid);
 
 	if (p->hdr->type != NHRP_PACKET_REGISTRATION_REPLY) {
 		debugf(NHRP_DEBUG_COMMON, "NHS: Registration failed");
@@ -111,11 +119,17 @@ static int nhrp_reg_timeout(struct thread *t)
 {
 	struct nhrp_registration *r = THREAD_ARG(t);
 	struct nhrp_cache *c;
+	struct nhrp_vrf *nhrp_vrf;
 
 	r->t_register = NULL;
+	if (!r->peer || !r->peer->ifp ||
+	    !(nhrp_vrf = find_nhrp_vrf_id(r->peer->ifp->vrf_id))) {
+		debugf(NHRP_DEBUG_VRF, "NHS: Registration timeout. nhrp vrf not found.");
+		return 0;
+	}
 
 	if (r->timeout >= 16 && sockunion_family(&r->proto_addr) != AF_UNSPEC) {
-		nhrp_reqid_free(&nhrp_packet_reqid, &r->reqid);
+		nhrp_reqid_free(nhrp_vrf->nhrp_packet_reqid, &r->reqid);
 		c = nhrp_cache_get(r->nhs->ifp, &r->proto_addr, 0);
 		if (c)
 			nhrp_cache_update_binding(c, NHRP_CACHE_NHS, -1, NULL,
@@ -175,6 +189,13 @@ static int nhrp_reg_send_req(struct thread *t)
 	struct nhrp_packet_header *hdr;
 	struct nhrp_extension_header *ext;
 	struct nhrp_cie_header *cie;
+	struct nhrp_vrf *nhrp_vrf;
+
+	nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
+	if (!nhrp_vrf) {
+		debugf(NHRP_DEBUG_VRF, "NHS: %s(). nhrp vrf not found.", __func__);
+		return 0;
+	}
 
 	r->t_register = NULL;
 	if (!nhrp_peer_check(r->peer, 2)) {
@@ -209,7 +230,7 @@ static int nhrp_reg_send_req(struct thread *t)
 	if (!(if_ad->flags & NHRP_IFF_REG_NO_UNIQUE))
 		hdr->flags |= htons(NHRP_FLAG_REGISTRATION_UNIQUE);
 
-	hdr->u.request_id = htonl(nhrp_reqid_alloc(&nhrp_packet_reqid,
+	hdr->u.request_id = htonl(nhrp_reqid_alloc(nhrp_vrf->nhrp_packet_reqid,
 						   &r->reqid, nhrp_reg_reply));
 
 	/* FIXME: push CIE for each local protocol address */
@@ -431,9 +452,16 @@ void nhrp_nhs_interface_del(struct interface *ifp)
 	}
 }
 
-void nhrp_nhs_terminate(void)
+void nhrp_nhs_init(struct nhrp_vrf *nhrp_vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (!nhrp_vrf->nhrp_packet_reqid)
+		nhrp_vrf->nhrp_packet_reqid = XCALLOC(MTYPE_NHRP_REQID_PKT_POOL,
+						      sizeof(struct nhrp_reqid_pool));
+}
+
+void nhrp_nhs_terminate(struct nhrp_vrf *nhrp_vrf)
+{
+	struct vrf *vrf = vrf_lookup_by_id(nhrp_vrf->vrf_id);
 	struct interface *ifp;
 	struct nhrp_interface *nifp;
 	struct nhrp_nhs *nhs, *tmp;
@@ -447,6 +475,8 @@ void nhrp_nhs_terminate(void)
 				nhslist_entry) nhrp_nhs_free(nhs);
 		}
 	}
+
+	XFREE(MTYPE_NHRP_REQID_PKT_POOL, nhrp_vrf->nhrp_packet_reqid);
 }
 
 void nhrp_nhs_foreach(struct interface *ifp, afi_t afi,

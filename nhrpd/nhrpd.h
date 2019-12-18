@@ -106,6 +106,7 @@ struct nhrp_vrf {
 	struct route_table *zebra_rib[AFI_MAX];
 	struct route_table *shortcut_rib[AFI_MAX];
 
+	struct nhrp_reqid_pool *nhrp_packet_reqid;
 	QOBJ_FIELDS;
 };
 
@@ -219,8 +220,6 @@ struct nhrp_reqid {
 
 extern struct list *nhrp_vrf_list;
 DECLARE_QOBJ_TYPE(nhrp_vrf);
-
-extern struct nhrp_reqid_pool nhrp_packet_reqid;
 
 enum nhrp_cache_type {
 	NHRP_CACHE_INVALID = 0,
@@ -413,7 +412,8 @@ int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 int nhrp_nhs_del(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 		 const char *nbma_fqdn);
 int nhrp_nhs_free(struct nhrp_nhs *nhs);
-void nhrp_nhs_terminate(void);
+void nhrp_nhs_terminate(struct nhrp_vrf *nhrp_vrf);
+void nhrp_nhs_init(struct nhrp_vrf *nhrp_vrf);
 void nhrp_nhs_foreach(struct interface *ifp, afi_t afi,
 		      void (*cb)(struct nhrp_nhs *, struct nhrp_registration *,
 				 void *),

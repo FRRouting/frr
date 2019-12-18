@@ -852,16 +852,21 @@ static void nhrp_handle_error_ind(struct nhrp_packet_parser *pp)
 	struct nhrp_packet_header *hdr;
 	struct nhrp_reqid *reqid;
 	union sockunion src_nbma, src_proto, dst_proto;
+	struct nhrp_vrf *nhrp_vrf;
 
 	hdr = nhrp_packet_pull(&origmsg, &src_nbma, &src_proto, &dst_proto);
 	if (!hdr)
 		return;
-
 	debugf(NHRP_DEBUG_COMMON,
 	       "Error Indication from %pSU about packet to %pSU ignored",
 	       &pp->src_proto, &dst_proto);
 
-	reqid = nhrp_reqid_lookup(&nhrp_packet_reqid, htonl(hdr->u.request_id));
+	nhrp_vrf = find_nhrp_vrf_id(pp->ifp->vrf_id);
+	if (!nhrp_vrf) {
+		zlog_err("%s() : nhrp vrf not found", __func__);
+		return;
+	}
+	reqid = nhrp_reqid_lookup(nhrp_vrf->nhrp_packet_reqid, htonl(hdr->u.request_id));
 	if (reqid)
 		reqid->cb(reqid, pp);
 }
@@ -1256,7 +1261,7 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 	case NHRP_ROUTE_LOCAL:
 		nhrp_packet_debug(zb, "!LOCAL");
 		if (packet_types[hdr->type].type == PACKET_REPLY) {
-			reqid = nhrp_reqid_lookup(&nhrp_packet_reqid,
+			reqid = nhrp_reqid_lookup(nhrp_vrf->nhrp_packet_reqid,
 						  htonl(hdr->u.request_id));
 			if (reqid) {
 				reqid->cb(reqid, &pp);
