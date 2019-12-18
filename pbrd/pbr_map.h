@@ -182,7 +182,15 @@ extern void pbr_map_init(void);
 
 extern bool pbr_map_check_valid(const char *name);
 
-extern void pbr_map_check(struct pbr_map_sequence *pbrms);
+/**
+ * Re-check the pbr map for validity.
+ *
+ * Install if valid, remove if not.
+ *
+ * If changed is set, the config on the on the map has changed somewhere
+ * and the rules need to be replaced if valid.
+ */
+extern void pbr_map_check(struct pbr_map_sequence *pbrms, bool changed);
 extern void pbr_map_check_nh_group_change(const char *nh_group);
 extern void pbr_map_reason_string(unsigned int reason, char *buf, int size);
 
