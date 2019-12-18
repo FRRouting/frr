@@ -98,12 +98,13 @@ static void ts_hash(const char *text, const char *expect)
 	unsigned i = 0;
 	uint8_t hash[32];
 	char hashtext[65];
-	uint32_t count;
+	uint32_t swap_count, count;
 
-	count = htonl(list_count(&head));
+	count = list_count(&head);
+	swap_count = htonl(count);
 
 	SHA256_Init(&ctx);
-	SHA256_Update(&ctx, &count, sizeof(count));
+	SHA256_Update(&ctx, &swap_count, sizeof(swap_count));
 
 	frr_each (list, &head, item) {
 		struct {
@@ -115,7 +116,7 @@ static void ts_hash(const char *text, const char *expect)
 		};
 		SHA256_Update(&ctx, &hashitem, sizeof(hashitem));
 		i++;
-		assert(i < count);
+		assert(i <= count);
 	}
 	SHA256_Final(hash, &ctx);
 
