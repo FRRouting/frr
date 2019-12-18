@@ -555,7 +555,6 @@ void vrf_terminate(void)
 	}
 }
 
-/* Create a socket for the VRF. */
 int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
 	       const char *interfacename)
 {
