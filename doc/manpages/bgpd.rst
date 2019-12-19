@@ -39,11 +39,6 @@ OPTIONS available for the |DAEMON| command:
    processes in the same namespace.  This option is different than the --no_zebra
    option in that a ZAPI connection is made.
 
-.. option:: -S, --skip_runas
-
-   Skip the normal process of checking capabilities and changing user and group
-   information.
-
 .. option:: -e, --ecmp
 
    Run BGP with a limited ecmp capability, that is different than what BGP
