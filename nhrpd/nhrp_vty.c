@@ -1155,6 +1155,9 @@ DEFUN(show_dmvpn, show_dmvpn_cmd,
 	bool uj = use_json(argc, argv);
 	struct dmvpn_cfg ctxt;
 	struct json_object *json_path = NULL;
+	struct nhrp_vrf *nhrp_vrf;
+
+	nhrp_vrf = find_nhrp_vrf_id(VRF_DEFAULT);
 
 	ctxt.vty = vty;
 	if (!uj) {
@@ -1165,7 +1168,7 @@ DEFUN(show_dmvpn, show_dmvpn_cmd,
 		json_path = json_object_new_array();
 		ctxt.json = json_path;
 	}
-	nhrp_vc_foreach(show_dmvpn_entry, &ctxt);
+	nhrp_vc_foreach(show_dmvpn_entry, &ctxt, nhrp_vrf);
 	if (uj) {
 		vty_out(vty, "%s",
 			json_object_to_json_string_ext(

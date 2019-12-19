@@ -108,6 +108,8 @@ struct nhrp_vrf {
 
 	struct nhrp_reqid_pool *nhrp_packet_reqid;
 	struct vici_conn *vici_connection;
+	struct hash *nhrp_vc_hash;
+	struct list_head childlist_head[512];
 
 	QOBJ_FIELDS;
 };
@@ -174,6 +176,7 @@ struct nhrp_vc {
 		uint16_t certlen;
 		uint8_t cert[MAX_CERT_LENGTH];
 	} local, remote;
+	struct nhrp_vrf *nhrp_vrf;
 };
 
 enum nhrp_route_type {
@@ -481,16 +484,18 @@ void nhrp_cache_notify_add(struct nhrp_cache *c, struct notifier_block *,
 			   notifier_fn_t);
 void nhrp_cache_notify_del(struct nhrp_cache *c, struct notifier_block *);
 
-void nhrp_vc_init(void);
-void nhrp_vc_terminate(void);
+void nhrp_vc_init(struct nhrp_vrf *nhrp_vrf);
+void nhrp_vc_terminate(struct nhrp_vrf *nhrp_vrf);
 struct nhrp_vc *nhrp_vc_get(const union sockunion *src,
-			    const union sockunion *dst, int create);
-int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc);
+			    const union sockunion *dst, int create,
+			    struct nhrp_vrf *nhrp_vrf);
+int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vrf *nhrp_vrf, struct nhrp_vc *vc);
 void nhrp_vc_notify_add(struct nhrp_vc *, struct notifier_block *,
 			notifier_fn_t);
 void nhrp_vc_notify_del(struct nhrp_vc *, struct notifier_block *);
-void nhrp_vc_foreach(void (*cb)(struct nhrp_vc *, void *), void *ctx);
-void nhrp_vc_reset(void);
+void nhrp_vc_foreach(void (*cb)(struct nhrp_vc *, void *),
+		     void *ctx, struct nhrp_vrf *nhrp_vrf);
+void nhrp_vc_reset(struct nhrp_vrf *nhrp_vrf);
 
 void vici_init(struct nhrp_vrf *nhrp_vrf);
 void vici_terminate(struct nhrp_vrf *nhrp_vrf);

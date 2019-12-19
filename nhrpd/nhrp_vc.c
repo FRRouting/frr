@@ -25,9 +25,6 @@ struct child_sa {
 	struct list_head childlist_entry;
 };
 
-static struct hash *nhrp_vc_hash;
-static struct list_head childlist_head[512];
-
 static unsigned int nhrp_vc_key(const void *peer_data)
 {
 	const struct nhrp_vc *vc = peer_data;
@@ -55,6 +52,7 @@ static void *nhrp_vc_alloc(void *data)
 		.remote.nbma = key->remote.nbma,
 		.notifier_list =
 		NOTIFIER_LIST_INITIALIZER(&vc->notifier_list),
+		.nhrp_vrf = key->nhrp_vrf,
 	};
 
 	return vc;
@@ -66,19 +64,22 @@ static void nhrp_vc_free(void *data)
 }
 
 struct nhrp_vc *nhrp_vc_get(const union sockunion *src,
-			    const union sockunion *dst, int create)
+			    const union sockunion *dst, int create,
+			    struct nhrp_vrf *nhrp_vrf)
 {
 	struct nhrp_vc key;
+
 	key.local.nbma = *src;
 	key.remote.nbma = *dst;
-	return hash_get(nhrp_vc_hash, &key, create ? nhrp_vc_alloc : 0);
+	key.nhrp_vrf = nhrp_vrf;
+	return hash_get(nhrp_vrf->nhrp_vc_hash, &key, create ? nhrp_vc_alloc : 0);
 }
 
 static void nhrp_vc_check_delete(struct nhrp_vc *vc)
 {
 	if (vc->updating || vc->ipsec || notifier_active(&vc->notifier_list))
 		return;
-	hash_release(nhrp_vc_hash, vc);
+	hash_release(vc->nhrp_vrf->nhrp_vc_hash, vc);
 	nhrp_vc_free(vc);
 }
 
@@ -98,13 +99,13 @@ static void nhrp_vc_ipsec_reset(struct nhrp_vc *vc)
 	vc->remote.certlen = 0;
 }
 
-int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
+int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vrf *nhrp_vrf, struct nhrp_vc *vc)
 {
 	struct child_sa *sa = NULL, *lsa;
-	uint32_t child_hash = child_id % array_size(childlist_head);
+	uint32_t child_hash = child_id % array_size(nhrp_vrf->childlist_head);
 	int abort_migration = 0;
 
-	list_for_each_entry(lsa, &childlist_head[child_hash], childlist_entry)
+	list_for_each_entry(lsa, &nhrp_vrf->childlist_head[child_hash], childlist_entry)
 	{
 		if (lsa->id == child_id) {
 			sa = lsa;
@@ -125,7 +126,7 @@ int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
 			.vc = NULL,
 		};
 		list_add_tail(&sa->childlist_entry,
-			      &childlist_head[child_hash]);
+			      &vc->nhrp_vrf->childlist_head[child_hash]);
 	}
 
 	if (sa->vc == vc)
@@ -183,40 +184,42 @@ struct nhrp_vc_iterator_ctx {
 static void nhrp_vc_iterator(struct hash_bucket *b, void *ctx)
 {
 	struct nhrp_vc_iterator_ctx *ic = ctx;
+
 	ic->cb(b->data, ic->ctx);
 }
 
-void nhrp_vc_foreach(void (*cb)(struct nhrp_vc *, void *), void *ctx)
+void nhrp_vc_foreach(void (*cb)(struct nhrp_vc *, void *), void *ctx,
+		     struct nhrp_vrf *nhrp_vrf)
 {
 	struct nhrp_vc_iterator_ctx ic = {
-		.cb = cb, .ctx = ctx,
+		.cb = cb, .ctx = ctx
 	};
-	hash_iterate(nhrp_vc_hash, nhrp_vc_iterator, &ic);
+	hash_iterate(nhrp_vrf->nhrp_vc_hash, nhrp_vc_iterator, &ic);
 }
 
-void nhrp_vc_init(void)
+void nhrp_vc_init(struct nhrp_vrf *nhrp_vrf)
 {
 	size_t i;
 
-	nhrp_vc_hash = hash_create(nhrp_vc_key, nhrp_vc_cmp, "NHRP VC hash");
-	for (i = 0; i < array_size(childlist_head); i++)
-		list_init(&childlist_head[i]);
+	nhrp_vrf->nhrp_vc_hash = hash_create(nhrp_vc_key, nhrp_vc_cmp, "NHRP VC hash");
+	for (i = 0; i < array_size(nhrp_vrf->childlist_head); i++)
+		list_init(&nhrp_vrf->childlist_head[i]);
 }
 
-void nhrp_vc_reset(void)
+void nhrp_vc_reset(struct nhrp_vrf *nhrp_vrf)
 {
 	struct child_sa *sa, *n;
 	size_t i;
 
-	for (i = 0; i < array_size(childlist_head); i++) {
-		list_for_each_entry_safe(sa, n, &childlist_head[i],
+	for (i = 0; i < array_size(nhrp_vrf->childlist_head); i++) {
+		list_for_each_entry_safe(sa, n, &nhrp_vrf->childlist_head[i],
 					 childlist_entry)
-			nhrp_vc_ipsec_updown(sa->id, 0);
+			nhrp_vc_ipsec_updown(sa->id, nhrp_vrf, 0);
 	}
 }
 
-void nhrp_vc_terminate(void)
+void nhrp_vc_terminate(struct nhrp_vrf *nhrp_vrf)
 {
-	nhrp_vc_reset();
-	hash_clean(nhrp_vc_hash, nhrp_vc_free);
+	nhrp_vc_reset(nhrp_vrf);
+	hash_clean(nhrp_vrf->nhrp_vc_hash, nhrp_vc_free);
 }

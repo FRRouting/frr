@@ -126,6 +126,7 @@ static void nhrp_peer_ifp_notify(struct notifier_block *n, unsigned long cmd)
 	struct nhrp_peer *p = container_of(n, struct nhrp_peer, ifp_notifier);
 	struct nhrp_interface *nifp;
 	struct nhrp_vc *vc;
+	struct nhrp_vrf *nhrp_vrf;
 
 	nhrp_peer_ref(p);
 	switch (cmd) {
@@ -136,7 +137,12 @@ static void nhrp_peer_ifp_notify(struct notifier_block *n, unsigned long cmd)
 	case NOTIFY_INTERFACE_NBMA_CHANGED:
 		/* Source NBMA changed, rebind to new VC */
 		nifp = p->ifp->info;
-		vc = nhrp_vc_get(&nifp->nbma, &p->vc->remote.nbma, 1);
+		nhrp_vrf = find_nhrp_vrf_id(p->ifp->vrf_id);
+		if (!nhrp_vrf) {
+			debugf(NHRP_DEBUG_VRF, "NHS: %s(). nhrp vrf not found.", __func__);
+			return;
+		}
+		vc = nhrp_vc_get(&nifp->nbma, &p->vc->remote.nbma, 1, nhrp_vrf);
 		if (vc && p->vc != vc) {
 			nhrp_vc_notify_del(p->vc, &p->vc_notifier);
 			p->vc = vc;
@@ -220,6 +226,7 @@ struct nhrp_peer *nhrp_peer_get(struct interface *ifp,
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_peer key, *p;
 	struct nhrp_vc *vc;
+	struct nhrp_vrf *nhrp_vrf;
 
 	if (!nifp->peer_hash) {
 		nifp->peer_hash = hash_create(nhrp_peer_key, nhrp_peer_cmp,
@@ -228,7 +235,10 @@ struct nhrp_peer *nhrp_peer_get(struct interface *ifp,
 			return NULL;
 	}
 
-	vc = nhrp_vc_get(&nifp->nbma, remote_nbma, 1);
+	nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
+	if (!nhrp_vrf)
+		return NULL;
+	vc = nhrp_vc_get(&nifp->nbma, remote_nbma, 1, nhrp_vrf);
 	if (!vc)
 		return NULL;
 

@@ -74,7 +74,7 @@ static void vici_zbuf_puts(struct zbuf *obuf, const char *str)
 
 static void vici_connection_error(struct vici_conn *vici)
 {
-	nhrp_vc_reset();
+	nhrp_vc_reset(vici->nhrp_vrf);
 
 	THREAD_OFF(vici->t_read);
 	THREAD_OFF(vici->t_write);
@@ -90,7 +90,8 @@ static void vici_parse_message(struct vici_conn *vici, struct zbuf *msg,
 			       void (*parser)(struct vici_message_ctx *ctx,
 					      enum vici_type_t msgtype,
 					      const struct blob *key,
-					      const struct blob *val),
+					      const struct blob *val,
+					      struct nhrp_vrf *nhrp_vrf),
 			       struct vici_message_ctx *ctx)
 {
 	uint8_t *type;
@@ -104,12 +105,12 @@ static void vici_parse_message(struct vici_conn *vici, struct zbuf *msg,
 			key.ptr = zbuf_pulln(msg, key.len);
 			debugf(NHRP_DEBUG_VICI, "VICI: Section start '%.*s'",
 			       key.len, key.ptr);
-			parser(ctx, *type, &key, NULL);
+			parser(ctx, *type, &key, NULL, vici->nhrp_vrf);
 			ctx->nsections++;
 			break;
 		case VICI_SECTION_END:
 			debugf(NHRP_DEBUG_VICI, "VICI: Section end");
-			parser(ctx, *type, NULL, NULL);
+			parser(ctx, *type, NULL, NULL, vici->nhrp_vrf);
 			ctx->nsections--;
 			break;
 		case VICI_KEY_VALUE:
@@ -119,7 +120,7 @@ static void vici_parse_message(struct vici_conn *vici, struct zbuf *msg,
 			val.ptr = zbuf_pulln(msg, val.len);
 			debugf(NHRP_DEBUG_VICI, "VICI: Key '%.*s'='%.*s'",
 			       key.len, key.ptr, val.len, val.ptr);
-			parser(ctx, *type, &key, &val);
+			parser(ctx, *type, &key, &val, vici->nhrp_vrf);
 			break;
 		case VICI_LIST_START:
 			key.len = zbuf_get8(msg);
@@ -132,7 +133,7 @@ static void vici_parse_message(struct vici_conn *vici, struct zbuf *msg,
 			val.ptr = zbuf_pulln(msg, val.len);
 			debugf(NHRP_DEBUG_VICI, "VICI: List item: '%.*s'",
 			       val.len, val.ptr);
-			parser(ctx, *type, &key, &val);
+			parser(ctx, *type, &key, &val, vici->nhrp_vrf);
 			break;
 		case VICI_LIST_END:
 			debugf(NHRP_DEBUG_VICI, "VICI: List end");
@@ -160,7 +161,8 @@ struct handle_sa_ctx {
 
 static void parse_sa_message(struct vici_message_ctx *ctx,
 			     enum vici_type_t msgtype, const struct blob *key,
-			     const struct blob *val)
+			     const struct blob *val,
+			     struct nhrp_vrf *nhrp_vrf)
 {
 	struct handle_sa_ctx *sactx =
 		container_of(ctx, struct handle_sa_ctx, msgctx);
@@ -181,7 +183,8 @@ static void parse_sa_message(struct vici_message_ctx *ctx,
 			int up = sactx->child_ok || sactx->event == 1;
 			if (up) {
 				vc = nhrp_vc_get(&sactx->local.host,
-						 &sactx->remote.host, up);
+						 &sactx->remote.host, up,
+						 nhrp_vrf);
 				if (vc) {
 					blob2buf(&sactx->local.id, vc->local.id,
 						 sizeof(vc->local.id));
@@ -201,11 +204,12 @@ static void parse_sa_message(struct vici_message_ctx *ctx,
 					sactx->kill_ikesa |=
 						nhrp_vc_ipsec_updown(
 							sactx->child_uniqueid,
+							nhrp_vrf,
 							vc);
 					vc->ike_uniqueid = sactx->ike_uniqueid;
 				}
 			} else {
-				nhrp_vc_ipsec_updown(sactx->child_uniqueid, 0);
+				nhrp_vc_ipsec_updown(sactx->child_uniqueid, nhrp_vrf, 0);
 			}
 		}
 		break;
@@ -278,7 +282,8 @@ static void parse_sa_message(struct vici_message_ctx *ctx,
 
 static void parse_cmd_response(struct vici_message_ctx *ctx,
 			       enum vici_type_t msgtype, const struct blob *key,
-			       const struct blob *val)
+			       const struct blob *val,
+			       struct nhrp_vrf *nhrp_vrf __attribute__((unused)))
 {
 	char buf[512];
 
