@@ -1014,8 +1014,6 @@ DEFPY (clear_ip_rip,
 
 	ret = nb_cli_rpc("/frr-ripd:clear-rip-route", input, NULL);
 
-	list_delete(&input);
-
 	return ret;
 }
 

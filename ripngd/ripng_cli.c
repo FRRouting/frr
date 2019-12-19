@@ -498,8 +498,6 @@ DEFPY (clear_ipv6_rip,
 
 	ret = nb_cli_rpc("/frr-ripngd:clear-ripng-route", input, NULL);
 
-	list_delete(&input);
-
 	return ret;
 }
 

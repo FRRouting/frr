@@ -200,6 +200,8 @@ int nb_cli_rpc(const char *xpath, struct list *input, struct list *output)
 	}
 
 	ret = nb_callback_rpc(nb_node, xpath, input, output);
+	if (input)
+		list_delete(&input);
 	switch (ret) {
 	case NB_OK:
 		return CMD_SUCCESS;
