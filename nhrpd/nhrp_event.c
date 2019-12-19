@@ -220,7 +220,7 @@ static int evmgr_reconnect(struct thread *t)
 	if (evmgr->fd >= 0 || !nhrp_vrf->nhrp_event_socket_path)
 		return 0;
 
-	fd = sock_open_unix(nhrp_vrf->nhrp_event_socket_path);
+	fd = sock_open_unix(nhrp_vrf->nhrp_event_socket_path, nhrp_vrf->vrf_id);
 	if (fd < 0) {
 		zlog_warn("%s: failure connecting nhrp-event socket: %s",
 			  __func__, strerror(errno));

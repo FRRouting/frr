@@ -100,7 +100,7 @@ static void nhrp_request_stop(void)
 	nhrp_shortcut_terminate(nhrp_vrf);
 	nhrp_nhs_terminate(nhrp_vrf);
 	nhrp_zebra_terminate(nhrp_vrf);
-	vici_terminate();
+	vici_terminate(nhrp_vrf);
 	evmgr_terminate(nhrp_vrf);
 	nhrp_vc_terminate();
 	vrf_terminate();
@@ -264,7 +264,7 @@ int main(int argc, char **argv)
 	evmgr_init(nhrp_vrf);
 	nhrp_vc_init();
 	nhrp_packet_init(nhrp_vrf);
-	vici_init();
+	vici_init(nhrp_vrf);
 	if_zapi_callbacks(nhrp_ifp_create, nhrp_ifp_up,
 			  nhrp_ifp_down, nhrp_ifp_destroy);
 	nhrp_route_init(nhrp_vrf);

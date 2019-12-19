@@ -25,6 +25,7 @@
 #include "nhrp_errors.h"
 
 #define ERRNO_IO_RETRY(EN) (((EN) == EAGAIN) || ((EN) == EWOULDBLOCK) || ((EN) == EINTR))
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_VICI_CONNECTION, "NHRP Vici connection");
 
 struct blob {
 	char *ptr;
@@ -53,6 +54,7 @@ struct vici_conn {
 	struct zbuf_queue obuf;
 	int fd;
 	uint8_t ibuf_data[VICI_MAX_MSGLEN];
+	struct nhrp_vrf *nhrp_vrf;
 };
 
 struct vici_message_ctx {
@@ -508,17 +510,17 @@ static int vici_reconnect(struct thread *t)
 	struct vici_conn *vici = THREAD_ARG(t);
 	int fd;
 	char *file_path;
+	struct nhrp_vrf *nhrp_vrf = vici->nhrp_vrf;
 
 	vici->t_reconnect = NULL;
 	if (vici->fd >= 0)
 		return 0;
 
-	fd = sock_open_unix(VICI_SOCKET);
-	if (fd < 0) {
-		file_path = vici_get_charon_filepath();
-		if (file_path)
-			fd = sock_open_unix(file_path);
-	}
+	file_path = vici_get_charon_filepath();
+	if (!file_path)
+		fd = sock_open_unix("/var/run/charon.vici", nhrp_vrf->vrf_id);
+	else
+		fd = sock_open_unix(file_path, nhrp_vrf->vrf_id);
 	if (fd < 0) {
 		debugf(NHRP_DEBUG_VICI,
 		       "%s: failure connecting VICI socket: %s", __func__,
@@ -544,12 +546,15 @@ static int vici_reconnect(struct thread *t)
 	return 0;
 }
 
-static struct vici_conn vici_connection;
-
-void vici_init(void)
+void vici_init(struct nhrp_vrf *nhrp_vrf)
 {
-	struct vici_conn *vici = &vici_connection;
+	struct vici_conn *vici;
 
+	if (!nhrp_vrf->vici_connection)
+		nhrp_vrf->vici_connection = XCALLOC(MTYPE_NHRP_VICI_CONNECTION,
+						      sizeof(struct vici_conn));
+	vici = nhrp_vrf->vici_connection;
+	vici->nhrp_vrf = nhrp_vrf;
 	vici->fd = -1;
 	zbuf_init(&vici->ibuf, vici->ibuf_data, sizeof(vici->ibuf_data), 0);
 	zbufq_init(&vici->obuf);
@@ -557,24 +562,30 @@ void vici_init(void)
 			      &vici->t_reconnect);
 }
 
-void vici_terminate(void)
+void vici_terminate(struct nhrp_vrf *nhrp_vrf)
 {
+	XFREE(MTYPE_NHRP_VICI_CONNECTION,
+	      nhrp_vrf->vici_connection);
 }
 
-void vici_terminate_vc_by_profile_name(char *profile_name)
+void vici_terminate_vc_by_profile_name(struct nhrp_vrf *nhrp_vrf, char *profile_name)
 {
-	struct vici_conn *vici = &vici_connection;
+	struct vici_conn *vici = nhrp_vrf->vici_connection;
 
+	if (!vici)
+		return;
 	debugf(NHRP_DEBUG_VICI, "Terminate profile = %s", profile_name);
 	vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike",
 		    strlen(profile_name), profile_name, VICI_END);
 }
 
-void vici_terminate_vc_by_ike_id(unsigned int ike_id)
+void vici_terminate_vc_by_ike_id(struct nhrp_vrf *nhrp_vrf, unsigned int ike_id)
 {
-	struct vici_conn *vici = &vici_connection;
+	struct vici_conn *vici = nhrp_vrf->vici_connection;
 	char ike_id_str[10];
 
+	if (!vici)
+		return;
 	snprintf(ike_id_str, sizeof(ike_id_str), "%d", ike_id);
 	debugf(NHRP_DEBUG_VICI, "Terminate ike_id_str = %s", ike_id_str);
 	vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike-id",
@@ -582,9 +593,10 @@ void vici_terminate_vc_by_ike_id(unsigned int ike_id)
 }
 
 void vici_request_vc(const char *profile, union sockunion *src,
-		     union sockunion *dst, int prio)
+		     union sockunion *dst, int prio,
+		     struct nhrp_vrf *nhrp_vrf)
 {
-	struct vici_conn *vici = &vici_connection;
+	struct vici_conn *vici = nhrp_vrf->vici_connection;
 	char buf[2][SU_ADDRSTRLEN];
 
 	sockunion2str(src, buf[0], sizeof(buf[0]));
@@ -599,15 +611,18 @@ void vici_request_vc(const char *profile, union sockunion *src,
 			    "other-host", strlen(buf[1]), buf[1], VICI_END);
 }
 
-int sock_open_unix(const char *path)
+int sock_open_unix(const char *path, vrf_id_t vrf_id)
 {
 	int ret, fd;
 	struct sockaddr_un addr;
 
-	fd = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (fd < 0)
+	if (vrf_id == VRF_UNKNOWN)
 		return -1;
-
+	frr_with_privs(&nhrpd_privs) {
+		fd = vrf_socket(AF_UNIX, SOCK_STREAM, 0, vrf_id, NULL);
+		if (fd < 0)
+			return -1;
+	}
 	memset(&addr, 0, sizeof(struct sockaddr_un));
 	addr.sun_family = AF_UNIX;
 	strlcpy(addr.sun_path, path, sizeof(addr.sun_path));

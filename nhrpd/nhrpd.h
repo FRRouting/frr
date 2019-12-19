@@ -107,6 +107,8 @@ struct nhrp_vrf {
 	struct route_table *shortcut_rib[AFI_MAX];
 
 	struct nhrp_reqid_pool *nhrp_packet_reqid;
+	struct vici_conn *vici_connection;
+
 	QOBJ_FIELDS;
 };
 
@@ -379,7 +381,7 @@ struct nhrp_gre_info {
 
 extern struct zebra_privs_t nhrpd_privs;
 
-int sock_open_unix(const char *path);
+int sock_open_unix(const char *path, vrf_id_t vrf_id);
 
 void nhrp_interface_init(void);
 void nhrp_interface_update(struct interface *ifp);
@@ -490,12 +492,13 @@ void nhrp_vc_notify_del(struct nhrp_vc *, struct notifier_block *);
 void nhrp_vc_foreach(void (*cb)(struct nhrp_vc *, void *), void *ctx);
 void nhrp_vc_reset(void);
 
-void vici_init(void);
-void vici_terminate(void);
-void vici_terminate_vc_by_profile_name(char *profile_name);
-void vici_terminate_vc_by_ike_id(unsigned int ike_id);
+void vici_init(struct nhrp_vrf *nhrp_vrf);
+void vici_terminate(struct nhrp_vrf *nhrp_vrf);
+void vici_terminate_vc_by_profile_name(struct nhrp_vrf *nhrp_vrf, char *profile_name);
+void vici_terminate_vc_by_ike_id(struct nhrp_vrf *nhrp_vrf, unsigned int ike_id);
 void vici_request_vc(const char *profile, union sockunion *src,
-		     union sockunion *dst, int prio);
+		     union sockunion *dst, int prio,
+		     struct nhrp_vrf *nhrp_vrf);
 
 void evmgr_init(struct nhrp_vrf *nhrp_vrf);
 void evmgr_terminate(struct nhrp_vrf *nhrp_vrf);

@@ -264,17 +264,21 @@ static int nhrp_peer_request_timeout(struct thread *t)
 	struct nhrp_vc *vc = p->vc;
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
-
+	struct nhrp_vrf *nhrp_vrf;
 	p->t_fallback = NULL;
 
 	if (p->online)
 		return 0;
-
+	nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
+	if (!nhrp_vrf) {
+		zlog_err("%s() : nhrp_vrf not found",__func__);
+		return 0;
+	}
 	if (nifp->ipsec_fallback_profile && !p->prio
 	    && !p->fallback_requested) {
 		p->fallback_requested = 1;
 		vici_request_vc(nifp->ipsec_fallback_profile, &vc->local.nbma,
-				&vc->remote.nbma, p->prio);
+				&vc->remote.nbma, p->prio, nhrp_vrf);
 		thread_add_timer(master, nhrp_peer_request_timeout, p, 30,
 				 &p->t_fallback);
 	} else {
@@ -290,8 +294,15 @@ static int nhrp_peer_defer_vici_request(struct thread *t)
 	struct nhrp_vc *vc = p->vc;
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
+	struct nhrp_vrf *nhrp_vrf;
 
 	THREAD_OFF(p->t_timer);
+
+	nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
+	if (!nhrp_vrf) {
+		zlog_err("%s() : nhrp_vrf not found",__func__);
+		return 0;
+	}
 
 	if (p->online) {
 		debugf(NHRP_DEBUG_COMMON,
@@ -299,7 +310,7 @@ static int nhrp_peer_defer_vici_request(struct thread *t)
 		       &vc->remote.nbma);
 	} else {
 		vici_request_vc(nifp->ipsec_profile, &vc->local.nbma,
-				&vc->remote.nbma, p->prio);
+				&vc->remote.nbma, p->prio, nhrp_vrf);
 		thread_add_timer(
 			master, nhrp_peer_request_timeout, p,
 			(nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,
@@ -313,6 +324,7 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 	struct nhrp_vc *vc = p->vc;
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
+	struct nhrp_vrf *nhrp_vrf;
 
 	if (p->online)
 		return 1;
@@ -327,13 +339,19 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 	if (vc->ipsec)
 		return 1;
 
+	nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
+	if (!nhrp_vrf) {
+		zlog_err("%s() : nhrp_vrf not found",__func__);
+		return 0;
+	}
+
 	p->prio = establish > 1;
 	p->requested = 1;
 
 	/* All NHRP registration requests are prioritized */
 	if (p->prio) {
 		vici_request_vc(nifp->ipsec_profile, &vc->local.nbma,
-				&vc->remote.nbma, p->prio);
+				&vc->remote.nbma, p->prio, nhrp_vrf);
 		thread_add_timer(
 			master, nhrp_peer_request_timeout, p,
 			(nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,

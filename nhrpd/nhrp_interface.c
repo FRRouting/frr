@@ -523,16 +523,21 @@ void nhrp_interface_set_protection(struct interface *ifp, const char *profile,
 				   const char *fallback_profile)
 {
 	struct nhrp_interface *nifp = ifp->info;
+	struct nhrp_vrf *nhrp_vrf;
+
+	nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
 
 	if (nifp->ipsec_profile) {
-		vici_terminate_vc_by_profile_name(nifp->ipsec_profile);
+		if (nhrp_vrf)
+			vici_terminate_vc_by_profile_name(nhrp_vrf, nifp->ipsec_profile);
 		nhrp_vc_reset();
 		free(nifp->ipsec_profile);
 	}
 	nifp->ipsec_profile = profile ? strdup(profile) : NULL;
 
 	if (nifp->ipsec_fallback_profile) {
-		vici_terminate_vc_by_profile_name(nifp->ipsec_fallback_profile);
+		if (nhrp_vrf)
+			vici_terminate_vc_by_profile_name(nhrp_vrf, nifp->ipsec_fallback_profile);
 		nhrp_vc_reset();
 		free(nifp->ipsec_fallback_profile);
 	}
