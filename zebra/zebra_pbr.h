@@ -183,6 +183,13 @@ extern enum zebra_dplane_result kernel_add_pbr_rule(struct zebra_pbr_rule *rule)
 extern enum zebra_dplane_result kernel_del_pbr_rule(struct zebra_pbr_rule *rule);
 
 /*
+ * Update specified rule for a specific interface.
+ */
+extern enum zebra_dplane_result
+kernel_update_pbr_rule(struct zebra_pbr_rule *old_rule,
+		       struct zebra_pbr_rule *new_rule);
+
+/*
  * Get to know existing PBR rules in the kernel - typically called at startup.
  */
 extern void kernel_read_pbr_rules(struct zebra_ns *zns);

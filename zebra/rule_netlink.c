@@ -174,6 +174,31 @@ enum zebra_dplane_result kernel_del_pbr_rule(struct zebra_pbr_rule *rule)
 }
 
 /*
+ * Update specified rule for a specific interface.
+ */
+enum zebra_dplane_result kernel_update_pbr_rule(struct zebra_pbr_rule *old_rule,
+						struct zebra_pbr_rule *new_rule)
+{
+	int ret = 0;
+
+	/* Add the new, updated one */
+	ret = netlink_rule_update(RTM_NEWRULE, new_rule);
+
+	/**
+	 * Delete the old one.
+	 *
+	 * Don't care about this result right?
+	 */
+	netlink_rule_update(RTM_DELRULE, old_rule);
+
+	kernel_pbr_rule_add_del_status(new_rule,
+				       (!ret) ? ZEBRA_DPLANE_INSTALL_SUCCESS
+					      : ZEBRA_DPLANE_INSTALL_FAILURE);
+
+	return ZEBRA_DPLANE_REQUEST_SUCCESS;
+}
+
+/*
  * Handle netlink notification informing a rule add or delete.
  * Handling of an ADD is TBD.
  * DELs are notified up, if other attributes indicate it may be a
