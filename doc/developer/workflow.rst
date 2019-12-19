@@ -283,7 +283,10 @@ Pre-submission Checklist
    -  ``make test``
 
 - In the case of a major new feature or other significant change, document
-  plans for continued maintenance of the feature
+  plans for continued maintenance of the feature.  In addition it is a
+  requirement that automated testing must be written that exercises
+  the new feature within our existing CI infrastructure.  Also the 
+  addition of automated testing to cover any pull request is encouraged.
 
 .. _signing-off:
 
@@ -451,6 +454,10 @@ Guidelines for code review
   on requests and/or agreement captured in a PR comment.  The comment
   may originate with a reviewer or document agreement reached on Slack,
   the Development mailing list, or the weekly technical meeting.
+
+- Reviewers may ask for new automated testing if they feel that the
+  code change is large enough/significant enough to warrant such
+  a requirement.
 
 
 Coding Practices & Style
