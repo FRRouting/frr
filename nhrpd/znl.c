@@ -21,6 +21,7 @@
 #include <linux/rtnetlink.h>
 
 #include "znl.h"
+#include <nhrpd/nhrpd.h>
 
 #define ZNL_ALIGN(len)		(((len)+3) & ~3)
 
@@ -141,15 +142,17 @@ struct rtattr *znl_rta_pull(struct zbuf *zb, struct zbuf *payload)
 	return rta;
 }
 
-int znl_open(int protocol, int groups)
+int znl_open(int protocol, int groups, vrf_id_t vrf_id)
 {
 	struct sockaddr_nl addr;
 	int fd, buf = 128 * 1024;
+	int ret = 0;
 
-	fd = socket(AF_NETLINK, SOCK_RAW, protocol);
-	if (fd < 0)
-		return -1;
-
+	frr_with_privs(&nhrpd_privs) {
+		fd = vrf_socket(AF_NETLINK, SOCK_RAW, protocol, vrf_id, NULL);
+		if (fd < 0)
+			return -1;
+	}
 	if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK) < 0)
 		goto error;
 	if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0)
@@ -160,7 +163,12 @@ int znl_open(int protocol, int groups)
 	memset(&addr, 0, sizeof(addr));
 	addr.nl_family = AF_NETLINK;
 	addr.nl_groups = groups;
-	if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
+	frr_with_privs(&nhrpd_privs) {
+		vrf_switch_to_netns(vrf_id);
+		ret = bind(fd, (struct sockaddr *)&addr, sizeof(addr));
+		vrf_switchback_to_initial();
+	}
+	if ( ret < 0)
 		goto error;
 
 	return fd;

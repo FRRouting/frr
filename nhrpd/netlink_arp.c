@@ -55,7 +55,8 @@ static void netlink_log_register(int fd, int group)
 	zbuf_free(zb);
 }
 
-static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb)
+static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb,
+				   struct nhrp_vrf *nhrp_vrf)
 {
 	struct nfgenmsg *nf;
 	struct rtattr *rta;
@@ -90,7 +91,7 @@ static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb)
 	if (!pkthdr || !in_ndx || !zbuf_used(&pktpl))
 		return;
 
-	ifp = if_lookup_by_index(htonl(*in_ndx), VRF_DEFAULT);
+	ifp = if_lookup_by_index(htonl(*in_ndx), nhrp_vrf->vrf_id);
 	if (!ifp)
 		return;
 
@@ -115,7 +116,7 @@ static int netlink_log_recv(struct thread *t)
 			       n->nlmsg_type, n->nlmsg_flags);
 			switch (n->nlmsg_type) {
 			case (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_PACKET:
-				netlink_log_indication(n, &payload);
+				netlink_log_indication(n, &payload, nhrp_vrf);
 				break;
 			}
 		}
@@ -136,7 +137,8 @@ void netlink_set_nflog_group(struct nhrp_vrf *nhrp_vrf, int nlgroup)
 	}
 	nhrp_vrf->netlink_nflog_group = nlgroup;
 	if (nhrp_vrf->netlink_nflog_group) {
-		nhrp_vrf->netlink_log_fd = znl_open(NETLINK_NETFILTER, 0);
+		nhrp_vrf->netlink_log_fd = znl_open(NETLINK_NETFILTER, 0,
+						    nhrp_vrf->vrf_id);
 		if (nhrp_vrf->netlink_log_fd < 0)
 			return;
 

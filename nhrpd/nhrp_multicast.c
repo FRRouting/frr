@@ -91,7 +91,8 @@ static void nhrp_multicast_forward(struct nhrp_multicast *mcast, void *pctx)
 	nhrp_multicast_forward_nbma(&mcast->nbma_addr, ctx->ifp, ctx->pkt);
 }
 
-static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb)
+static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb,
+				      struct nhrp_vrf *nhrp_vrf)
 {
 	struct nfgenmsg *nf;
 	struct rtattr *rta;
@@ -124,7 +125,7 @@ static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb)
 	if (!out_ndx || !ctx.pkt)
 		return;
 
-	ctx.ifp = if_lookup_by_index(htonl(*out_ndx), VRF_DEFAULT);
+	ctx.ifp = if_lookup_by_index(htonl(*out_ndx), nhrp_vrf->vrf_id);
 	if (!ctx.ifp)
 		return;
 
@@ -156,7 +157,7 @@ static int netlink_mcast_log_recv(struct thread *t)
 			       n->nlmsg_type, n->nlmsg_flags);
 			switch (n->nlmsg_type) {
 			case (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_PACKET:
-				netlink_mcast_log_handler(n, &payload);
+				netlink_mcast_log_handler(n, &payload, nhrp_vrf);
 				break;
 			}
 		}
@@ -202,7 +203,8 @@ void netlink_mcast_set_nflog_group(struct nhrp_vrf *nhrp_vrf, int nlgroup)
 	}
 	nhrp_vrf->netlink_mcast_nflog_group = nlgroup;
 	if (nlgroup) {
-		nhrp_vrf->netlink_mcast_log_fd = znl_open(NETLINK_NETFILTER, 0);
+		nhrp_vrf->netlink_mcast_log_fd = znl_open(NETLINK_NETFILTER, 0,
+							  nhrp_vrf->vrf_id);
 		if (nhrp_vrf->netlink_mcast_log_fd < 0)
 			return;
 
