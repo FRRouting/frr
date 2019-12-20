@@ -1756,3 +1756,51 @@ const struct frr_yang_module_info frr_interface_info = {
 		},
 	}
 };
+
+/* turning on/off send_redirects for all and specific interface */
+void if_interface_redirect_set(struct interface *ifp, int family, int on)
+{
+	char fname[PATH_MAX];
+	int fd, ret;
+
+	if (!ifp) {
+		zlog_err("%s(): interface not found", __func__);
+		return;
+	}
+	if (family != AF_INET) {
+		zlog_err("%s(): ignoring redirect %s", __func__, ifp->name);
+		return;
+	}
+	ret = vrf_switch_to_netns(ifp->vrf_id);
+	if (ret < 0)
+		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
+			     __func__, ifp->vrf_id, safe_strerror(errno));
+	snprintf(fname, sizeof(fname),
+		 "/proc/sys/net/ipv4/conf/all/send_redirects");
+	fd = open(fname, O_WRONLY);
+	if (fd < 0)
+		return;
+	if (on)
+		write(fd, "1\n", 2);
+	else
+		write(fd, "0\n", 2);
+	close(fd);
+	close(fd);
+	snprintf(fname, sizeof(fname),
+		 "/proc/sys/net/ipv4/conf/%s/send_redirects", ifp->name);
+	fd = open(fname, O_WRONLY);
+	if (fd < 0)
+		return;
+	if (on)
+		write(fd, "1\n", 2);
+	else
+		write(fd, "0\n", 2);
+	close(fd);
+
+	ret = vrf_switchback_to_initial();
+	if (ret < 0)
+		flog_err_sys(EC_LIB_SOCKET,
+			     "%s: Can't switchback from VRF %u (%s)", __func__,
+			     ifp->vrf_id, safe_strerror(errno));
+}
+
