@@ -20,8 +20,47 @@
 #include "nhrpd.h"
 #include "os.h"
 #include "netlink.h"
+#include "hash.h"
 
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_IF, "NHRP interface");
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_IF_GRE, "NHRP GRE interface");
+
+struct hash *nhrp_gre_list;
+
+static unsigned int nhrp_gre_info_key(const void *data)
+{
+	const struct nhrp_gre_info *r = data;
+
+	return r->ifindex;
+}
+
+static bool nhrp_gre_info_cmp(const void *data, const void *key)
+{
+	const struct nhrp_gre_info *a = data, *b = key;
+
+	if (a->ifindex == b->ifindex)
+		return true;
+	return false;
+}
+
+static void *nhrp_interface_gre_alloc(void *data)
+{
+	struct nhrp_gre_info *a;
+	struct nhrp_gre_info *b = data;
+
+	a = XMALLOC(MTYPE_NHRP_IF_GRE, sizeof(struct nhrp_gre_info));
+	memcpy(a, b, sizeof(struct nhrp_gre_info));
+	return a;
+}
+
+struct nhrp_gre_info *nhrp_gre_info_alloc(struct nhrp_gre_info *p)
+{
+	struct nhrp_gre_info *a;
+
+	a = (struct nhrp_gre_info *)hash_get(nhrp_gre_list, p,
+					     nhrp_interface_gre_alloc);
+	return a;
+}
 
 static void nhrp_interface_update_cache_config(struct interface *ifp,
 					       bool available,
@@ -74,6 +113,9 @@ void nhrp_interface_init(void)
 {
 	hook_register_prio(if_add, 0, nhrp_if_new_hook);
 	hook_register_prio(if_del, 0, nhrp_if_delete_hook);
+
+	nhrp_gre_list = hash_create(nhrp_gre_info_key, nhrp_gre_info_cmp,
+				    "NHRP GRE list Hash");
 }
 
 void nhrp_interface_update_mtu(struct interface *ifp, afi_t afi)
@@ -102,14 +144,16 @@ static void nhrp_interface_update_source(struct interface *ifp)
 {
 	struct nhrp_interface *nifp = ifp->info;
 
-	if (!nifp->source || !nifp->nbmaifp
-	    || (ifindex_t)nifp->linkidx == nifp->nbmaifp->ifindex)
+	if (!nifp->source || !nifp->nbmaifp ||
+	    ((ifindex_t)nifp->link_idx == nifp->nbmaifp->ifindex &&
+	     (nifp->link_vrf_id == nifp->nbmaifp->vrf_id)))
 		return;
 
-	nifp->linkidx = nifp->nbmaifp->ifindex;
-	debugf(NHRP_DEBUG_IF, "%s: bound device index changed to %d", ifp->name,
-	       nifp->linkidx);
-	netlink_gre_set_link(ifp->ifindex, nifp->linkidx);
+	nifp->link_idx = nifp->nbmaifp->ifindex;
+	nifp->link_vrf_id = nifp->nbmaifp->vrf_id;
+	debugf(NHRP_DEBUG_IF, "%s: bound device index changed to %d, vr %u",
+	       ifp->name, nifp->link_idx, nifp->link_vrf_id);
+	nhrp_send_zebra_gre_source_set(ifp, nifp->link_idx, nifp->link_vrf_id);
 }
 
 static void nhrp_interface_interface_notifier(struct notifier_block *n,
@@ -136,7 +180,8 @@ static void nhrp_interface_interface_notifier(struct notifier_block *n,
 	}
 }
 
-static void nhrp_interface_update_nbma(struct interface *ifp)
+void nhrp_interface_update_nbma(struct interface *ifp,
+				struct nhrp_gre_info *gre_info)
 {
 	struct nhrp_interface *nifp = ifp->info, *nbmanifp = NULL;
 	struct interface *nbmaifp = NULL;
@@ -145,21 +190,32 @@ static void nhrp_interface_update_nbma(struct interface *ifp)
 	sockunion_family(&nbma) = AF_UNSPEC;
 
 	if (nifp->source)
-		nbmaifp = if_lookup_by_name(nifp->source, VRF_DEFAULT);
+		nbmaifp = if_lookup_by_name(nifp->source, nifp->link_vrf_id);
 
 	switch (ifp->ll_type) {
 	case ZEBRA_LLT_IPGRE: {
 		struct in_addr saddr = {0};
-		netlink_gre_get_info(ifp->ifindex, &nifp->grekey,
-				     &nifp->linkidx, &saddr);
+
+		if (!gre_info) {
+			nhrp_send_zebra_gre_request(ifp);
+			return;
+		}
+		nifp->i_grekey = gre_info->ikey;
+		nifp->o_grekey = gre_info->okey;
+		nifp->link_idx = gre_info->ifindex_link;
+		nifp->link_vrf_id = gre_info->vrfid_link;
+		saddr.s_addr = gre_info->vtep_ip.s_addr;
+
 		debugf(NHRP_DEBUG_IF, "%s: GRE: %x %x %x", ifp->name,
-		       nifp->grekey, nifp->linkidx, saddr.s_addr);
-		if (saddr.s_addr != INADDR_ANY)
-			sockunion_set(&nbma, AF_INET, (uint8_t *)&saddr.s_addr,
+		       nifp->i_grekey, nifp->link_idx, saddr.s_addr);
+		if (saddr.s_addr)
+			sockunion_set(&nbma, AF_INET,
+				      (uint8_t *)&saddr.s_addr,
 				      sizeof(saddr.s_addr));
-		else if (!nbmaifp && nifp->linkidx != IFINDEX_INTERNAL)
+		else if (!nbmaifp && nifp->link_idx != IFINDEX_INTERNAL)
 			nbmaifp =
-				if_lookup_by_index(nifp->linkidx, VRF_DEFAULT);
+				if_lookup_by_index(nifp->link_idx,
+						   nifp->link_vrf_id);
 	} break;
 	default:
 		break;
@@ -322,7 +378,7 @@ int nhrp_ifp_create(struct interface *ifp)
 	       ifp->name, ifp->ifindex, ifp->ll_type,
 	       if_link_type_str(ifp->ll_type));
 
-	nhrp_interface_update_nbma(ifp);
+	nhrp_interface_update_nbma(ifp, NULL);
 
 	return 0;
 }
@@ -402,7 +458,7 @@ static void nhrp_interface_update_cache_config(struct interface *ifp, bool avail
 int nhrp_ifp_up(struct interface *ifp)
 {
 	debugf(NHRP_DEBUG_IF, "if-up: %s", ifp->name);
-	nhrp_interface_update_nbma(ifp);
+	nhrp_interface_update_nbma(ifp, NULL);
 
 	return 0;
 }
@@ -493,5 +549,5 @@ void nhrp_interface_set_source(struct interface *ifp, const char *ifname)
 		free(nifp->source);
 	nifp->source = ifname ? strdup(ifname) : NULL;
 
-	nhrp_interface_update_nbma(ifp);
+	nhrp_interface_update_nbma(ifp, NULL);
 }

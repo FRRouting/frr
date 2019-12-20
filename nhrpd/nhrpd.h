@@ -86,14 +86,22 @@ static inline int notifier_active(struct notifier_list *l)
 	return !list_empty(&l->notifier_head);
 }
 
+extern struct hash *nhrp_gre_list;
+
 void nhrp_zebra_init(void);
 void nhrp_zebra_terminate(void);
 void nhrp_send_zebra_configure_arp(struct interface *ifp, int family);
 void nhrp_send_zebra_nbr(union sockunion *in,
 			 union sockunion *out,
 			 struct interface *ifp);
-void nhrp_send_zebra_configure_arp(struct interface *ifp,
-				   int family);
+
+void nhrp_send_zebra_gre_source_set(struct interface *ifp,
+				    unsigned int link_idx,
+				    vrf_id_t link_vrf_id);
+
+extern int nhrp_send_zebra_gre_request(struct interface *ifp);
+extern struct nhrp_gre_info *nhrp_gre_info_alloc(struct nhrp_gre_info *p);
+
 struct zbuf;
 struct nhrp_vc;
 struct nhrp_cache;
@@ -300,8 +308,10 @@ struct nhrp_interface {
 	char *ipsec_profile, *ipsec_fallback_profile, *source;
 	union sockunion nbma;
 	union sockunion nat_nbma;
-	unsigned int linkidx;
-	uint32_t grekey;
+	unsigned int link_idx;
+	unsigned int link_vrf_id;
+	uint32_t i_grekey;
+	uint32_t o_grekey;
 
 	struct hash *peer_hash;
 	struct hash *cache_config_hash;
@@ -325,6 +335,18 @@ struct nhrp_interface {
 	} afi[AFI_MAX];
 };
 
+struct nhrp_gre_info {
+	ifindex_t ifindex;
+	struct in_addr vtep_ip; /* IFLA_GRE_LOCAL */
+	struct in_addr vtep_ip_remote; /* IFLA_GRE_REMOTE */
+	uint32_t ikey;
+	uint32_t okey;
+	ifindex_t ifindex_link; /* Interface index of interface
+				 * linked with GRE
+				 */
+	vrf_id_t vrfid_link;
+};
+
 extern struct zebra_privs_t nhrpd_privs;
 
 int sock_open_unix(const char *path);
@@ -332,6 +354,8 @@ int sock_open_unix(const char *path);
 void nhrp_interface_init(void);
 void nhrp_interface_update(struct interface *ifp);
 void nhrp_interface_update_mtu(struct interface *ifp, afi_t afi);
+void nhrp_interface_update_nbma(struct interface *ifp,
+				struct nhrp_gre_info *gre_info);
 
 int nhrp_interface_add(ZAPI_CALLBACK_ARGS);
 int nhrp_interface_delete(ZAPI_CALLBACK_ARGS);
@@ -340,6 +364,7 @@ int nhrp_interface_down(ZAPI_CALLBACK_ARGS);
 int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS);
 int nhrp_interface_address_delete(ZAPI_CALLBACK_ARGS);
 void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS);
+void nhrp_gre_update(ZAPI_CALLBACK_ARGS);
 
 void nhrp_interface_notify_add(struct interface *ifp, struct notifier_block *n,
 			       notifier_fn_t fn);
