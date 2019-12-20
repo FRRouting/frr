@@ -57,6 +57,8 @@
 
 DEFINE_MTYPE_STATIC(ZEBRA, RE_OPAQUE, "Route Opaque Data");
 
+extern struct zebra_privs_t zserv_privs;
+
 static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
 
 /* Encoding helpers -------------------------------------------------------- */
@@ -3784,6 +3786,28 @@ static inline void zebra_gre_get(ZAPI_HANDLER_ARGS)
 	return;
 }
 
+static void zebra_redirect_interface(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct interface *ifp;
+	int family, on;
+	ifindex_t idx;
+	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+
+	s = msg;
+	STREAM_GETL(s, idx);
+	STREAM_GETL(s, family);
+	STREAM_GETL(s, on);
+
+	ifp  = if_lookup_by_index(idx, vrf_id);
+	frr_with_privs(&zserv_privs) {
+		if_interface_redirect_set(ifp, family, on);
+	}
+	return;
+ stream_failure:
+	return;
+}
+
 static inline void zebra_configure_arp(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
@@ -4098,6 +4122,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_PM_DEST_DEREGISTER] = zebra_pm_dst_deregister,
 	[ZEBRA_PM_DEST_REPLAY] = zebra_pm_dst_replay,
 	[ZEBRA_PM_CLIENT_REGISTER] = zebra_pm_client_register,
+	[ZEBRA_REDIRECT_INTERFACE] = zebra_redirect_interface,
 };
 
 /*

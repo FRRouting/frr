@@ -247,6 +247,7 @@ typedef enum {
 	ZEBRA_INTERFACE_PM_DEST_UPDATE,
 	ZEBRA_PM_CLIENT_REGISTER,
 	ZEBRA_PM_CLIENT_DEREGISTER,
+	ZEBRA_REDIRECT_INTERFACE,
 } zebra_message_types_t;
 /* Zebra message types. Please update the corresponding
  * command_types array with any changes!
