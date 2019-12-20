@@ -637,6 +637,8 @@ extern void if_destroy_via_zapi(struct interface *ifp);
 extern const struct frr_yang_module_info frr_interface_info;
 extern const struct frr_yang_module_info frr_interface_cli_info;
 
+extern void if_interface_redirect_set(struct interface *ifp, int family, int on);
+
 #ifdef __cplusplus
 }
 #endif
