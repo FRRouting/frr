@@ -21,16 +21,12 @@
 #include <sys/types.h>
 #include <asm/types.h>
 #include <arpa/inet.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <linux/ip.h>
+#include <linux/if_packet.h>
 #include <linux/if_arp.h>
-#include <linux/if_tunnel.h>
 #include <linux/limits.h>
 
 #include "nhrp_protocol.h"
 #include "os.h"
-#include "netlink.h"
 
 #ifndef HAVE_STRLCPY
 size_t strlcpy(char *__restrict dest,
