@@ -3339,6 +3339,28 @@ static inline void zebra_gre_get(ZAPI_HANDLER_ARGS)
 	return;
 }
 
+static void zebra_redirect_interface(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct interface *ifp;
+	int family, on;
+	ifindex_t idx;
+	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+
+	s = msg;
+	STREAM_GETL(s, idx);
+	STREAM_GETL(s, family);
+	STREAM_GETL(s, on);
+
+	ifp  = if_lookup_by_index(idx, vrf_id);
+	frr_with_privs(&zserv_privs) {
+		if_interface_redirect_set(ifp, family, on);
+	}
+	return;
+ stream_failure:
+	return;
+}
+
 static inline void zebra_configure_arp(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
@@ -3640,6 +3662,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_CONFIGURE_ARP] = zebra_configure_arp,
 	[ZEBRA_GRE_GET] = zebra_gre_get,
 	[ZEBRA_GRE_SOURCE_SET] = zebra_gre_source_set,
+	[ZEBRA_REDIRECT_INTERFACE] = zebra_redirect_interface,
 };
 
 /*
