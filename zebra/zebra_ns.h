@@ -67,18 +67,13 @@ struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id);
 int zebra_ns_init(const char *optional_default_name);
 int zebra_ns_enable(ns_id_t ns_id, void **info);
 int zebra_ns_disabled(struct ns *ns);
-int zebra_ns_early_shutdown(struct ns *ns);
-int zebra_ns_final_shutdown(struct ns *ns);
-
+int zebra_ns_early_shutdown(struct ns *ns,
+			    void *param_in __attribute__((unused)),
+			    void **param_out __attribute__((unused)));
+int zebra_ns_final_shutdown(struct ns *ns,
+			    void *param_in __attribute__((unused)),
+			    void **param_out __attribute__((unused)));
 int zebra_ns_config_write(struct vty *vty, struct ns *ns);
-
-#define ZNS_WALK_CONTINUE 0
-#define ZNS_WALK_STOP 1
-void zebra_ns_list_walk(int (*exec_for_each_zns)(struct zebra_ns *zns,
-						 void *param_in,
-						 void **param_out),
-			void *param_in,
-			void **param_out);
 
 #ifdef __cplusplus
 }

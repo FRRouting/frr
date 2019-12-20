@@ -76,8 +76,6 @@ struct ns {
 RB_HEAD(ns_head, ns);
 RB_PROTOTYPE(ns_head, ns, entry, ns_compare)
 
-extern struct ns_head ns_tree;
-
 /*
  * API for managing NETNS. eg from zebra daemon
  * one want to manage the list of NETNS, etc...
@@ -127,7 +125,14 @@ int ns_socket(int domain, int type, int protocol, ns_id_t ns_id);
 extern char *ns_netns_pathname(struct vty *vty, const char *name);
 
 /* Parse and execute a function on all the NETNS */
-extern void ns_walk_func(int (*func)(struct ns *));
+#define NS_WALK_CONTINUE 0
+#define NS_WALK_STOP 1
+
+extern void ns_walk_func(int (*func)(struct ns *,
+				     void *,
+				     void **),
+			 void *param_in,
+			 void **param_out);
 
 /* API to get the NETNS name, from the ns pointer */
 extern const char *ns_get_name(struct ns *ns);
