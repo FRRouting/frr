@@ -461,6 +461,26 @@ void nhrp_interface_update_arp(struct interface *ifp, bool arp_enable)
 	zclient_interface_set_arp(zclient, ifp, arp_enable);
 }
 
+void nhrp_send_zebra_interface_redirect(struct interface *ifp,
+					int af)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0) {
+		zlog_err("%s : zclient not ready", __func__);
+		return;
+	}
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s,
+			      ZEBRA_REDIRECT_INTERFACE,
+			      ifp->vrf->vrf_id);
+	stream_putl(s, ifp->ifindex);
+	stream_putl(s, af);
+	stream_putl(s, 0);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
+}
 
 void nhrp_zebra_terminate(void)
 {

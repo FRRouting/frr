@@ -100,6 +100,8 @@ void nhrp_send_zebra_gre_source_set(struct interface *ifp,
 extern int nhrp_send_zebra_gre_request(struct interface *ifp);
 extern struct nhrp_gre_info *nhrp_gre_info_alloc(struct nhrp_gre_info *p);
 
+void nhrp_send_zebra_interface_redirect(struct interface *ifp,
+					int af);
 struct zbuf;
 struct nhrp_vc;
 struct nhrp_cache;

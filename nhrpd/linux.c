@@ -10,6 +10,7 @@
 #include <linux/if_packet.h>
 
 #include "nhrp_protocol.h"
+#include "nhrpd/nhrpd.h"
 #include "os.h"
 
 #ifndef HAVE_STRLCPY
@@ -97,31 +98,13 @@ int os_recvmsg(uint8_t *buf, size_t *len, int *ifindex, uint8_t *addr,
 	return 0;
 }
 
-static int linux_icmp_redirect_off(const char *iface)
-{
-	char fname[PATH_MAX];
-	int fd, ret = -1;
-
-	snprintf(fname, sizeof(fname),
-		 "/proc/sys/net/ipv4/conf/%s/send_redirects", iface);
-	fd = open(fname, O_WRONLY);
-	if (fd < 0)
-		return -1;
-	if (write(fd, "0\n", 2) == 2)
-		ret = 0;
-	close(fd);
-
-	return ret;
-}
-
-int os_configure_dmvpn(unsigned int ifindex, const char *ifname, int af)
+int os_configure_dmvpn(struct interface *ifp, int af)
 {
 	int ret = 0;
 
 	switch (af) {
 	case AF_INET:
-		ret |= linux_icmp_redirect_off("all");
-		ret |= linux_icmp_redirect_off(ifname);
+		nhrp_send_zebra_interface_redirect(ifp, af);
 		break;
 	}
 
