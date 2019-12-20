@@ -232,6 +232,9 @@ typedef enum {
 	ZEBRA_NEIGH_IP_ADD,
 	ZEBRA_NEIGH_IP_DEL,
 	ZEBRA_CONFIGURE_ARP,
+	ZEBRA_GRE_GET,
+	ZEBRA_GRE_UPDATE,
+	ZEBRA_GRE_SOURCE_SET,
 } zebra_message_types_t;
 
 enum zebra_error_types {
