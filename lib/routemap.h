@@ -319,10 +319,10 @@ extern void route_map_upd8_dependency(route_map_event_t type, const char *arg,
 				      const char *rmap_name);
 extern void route_map_notify_dependencies(const char *affected_name,
 					  route_map_event_t event);
-extern void route_map_notify_pentry_dependencies(
-					const char *affected_name,
-					struct prefix_list_entry *pentry,
-					route_map_event_t event);
+extern void
+route_map_notify_pentry_dependencies(const char *affected_name,
+				     struct prefix_list_entry *pentry,
+				     route_map_event_t event);
 extern int generic_match_add(struct vty *vty, struct route_map_index *index,
 			     const char *command, const char *arg,
 			     route_map_event_t type);

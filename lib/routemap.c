@@ -50,15 +50,15 @@ DEFINE_QOBJ_TYPE(route_map)
 #define IPv4_MATCH_RULE "ip "
 #define IPv6_MATCH_RULE "ipv6 "
 
-#define IS_RULE_IPv4_PREFIX_LIST(S) (strncmp(S, IPv4_PREFIX_LIST, \
-					     strlen(IPv4_PREFIX_LIST)) == 0)
-#define IS_RULE_IPv6_PREFIX_LIST(S) (strncmp(S, IPv6_PREFIX_LIST, \
-					     strlen(IPv6_PREFIX_LIST)) == 0)
+#define IS_RULE_IPv4_PREFIX_LIST(S)                                            \
+	(strncmp(S, IPv4_PREFIX_LIST, strlen(IPv4_PREFIX_LIST)) == 0)
+#define IS_RULE_IPv6_PREFIX_LIST(S)                                            \
+	(strncmp(S, IPv6_PREFIX_LIST, strlen(IPv6_PREFIX_LIST)) == 0)
 
-#define IS_IPv4_RULE(S) (strncmp(S, IPv4_MATCH_RULE, \
-					     strlen(IPv4_MATCH_RULE)) == 0)
-#define IS_IPv6_RULE(S) (strncmp(S, IPv6_MATCH_RULE, \
-					     strlen(IPv6_MATCH_RULE)) == 0)
+#define IS_IPv4_RULE(S)                                                        \
+	(strncmp(S, IPv4_MATCH_RULE, strlen(IPv4_MATCH_RULE)) == 0)
+#define IS_IPv6_RULE(S)                                                        \
+	(strncmp(S, IPv6_MATCH_RULE, strlen(IPv6_MATCH_RULE)) == 0)
 struct route_map_pentry_dep {
 	struct prefix_list_entry *pentry;
 	const char *plist_name;
@@ -71,34 +71,25 @@ static vector route_match_vec;
 /* Vector for route set rules. */
 static vector route_set_vec;
 
-static void
-route_map_pfx_tbl_update(route_map_event_t event,
-			 struct route_map_index *index,
-			 afi_t afi,
-			 const char *plist_name);
-static void
-route_map_pfx_table_add_default(afi_t afi,
-				struct route_map_index *index);
-static void
-route_map_pfx_table_del_default(afi_t afi,
-				struct route_map_index *index);
-static void
-route_map_add_plist_entries(afi_t afi,
-			    struct route_map_index *index,
-			    const char *plist_name,
-			    struct prefix_list_entry *entry);
-static void
-route_map_del_plist_entries(afi_t afi,
-			    struct route_map_index *index,
-			    const char *plist_name,
-			    struct prefix_list_entry *entry);
-static bool
-route_map_is_ip_rule_present(struct route_map_index *index);
-static bool
-route_map_is_ipv6_rule_present(struct route_map_index *index);
+static void route_map_pfx_tbl_update(route_map_event_t event,
+				     struct route_map_index *index, afi_t afi,
+				     const char *plist_name);
+static void route_map_pfx_table_add_default(afi_t afi,
+					    struct route_map_index *index);
+static void route_map_pfx_table_del_default(afi_t afi,
+					    struct route_map_index *index);
+static void route_map_add_plist_entries(afi_t afi,
+					struct route_map_index *index,
+					const char *plist_name,
+					struct prefix_list_entry *entry);
+static void route_map_del_plist_entries(afi_t afi,
+					struct route_map_index *index,
+					const char *plist_name,
+					struct prefix_list_entry *entry);
+static bool route_map_is_ip_rule_present(struct route_map_index *index);
+static bool route_map_is_ipv6_rule_present(struct route_map_index *index);
 
-static struct hash *
-route_map_get_dep_hash(route_map_event_t event);
+static struct hash *route_map_get_dep_hash(route_map_event_t event);
 
 struct route_map_match_set_hooks rmap_match_set_hook;
 
@@ -986,15 +977,12 @@ void route_map_index_delete(struct route_map_index *index, int notify)
 	/* Free route match. */
 	while ((rule = index->match_list.head) != NULL) {
 		if (IS_RULE_IPv4_PREFIX_LIST(rule->cmd->str))
-			route_map_pfx_tbl_update(
-					RMAP_EVENT_PLIST_DELETED,
-					index, AFI_IP,
-					rule->rule_str);
+			route_map_pfx_tbl_update(RMAP_EVENT_PLIST_DELETED,
+						 index, AFI_IP, rule->rule_str);
 		else if (IS_RULE_IPv6_PREFIX_LIST(rule->cmd->str))
-			route_map_pfx_tbl_update(
-					RMAP_EVENT_PLIST_DELETED,
-					index, AFI_IP6,
-					rule->rule_str);
+			route_map_pfx_tbl_update(RMAP_EVENT_PLIST_DELETED,
+						 index, AFI_IP6,
+						 rule->rule_str);
 
 		route_map_rule_delete(&index->match_list, rule);
 	}
@@ -1017,8 +1005,7 @@ void route_map_index_delete(struct route_map_index *index, int notify)
 	/* Free 'char *nextrm' if not NULL */
 	XFREE(MTYPE_ROUTE_MAP_NAME, index->nextrm);
 
-	route_map_pfx_tbl_update(RMAP_EVENT_INDEX_DELETED,
-				 index, 0, NULL);
+	route_map_pfx_tbl_update(RMAP_EVENT_INDEX_DELETED, index, 0, NULL);
 
 	/* Execute event hook. */
 	if (route_map_master.event_hook && notify) {
@@ -1079,8 +1066,7 @@ route_map_index_add(struct route_map *map, enum route_map_type type, int pref)
 		point->prev = index;
 	}
 
-	route_map_pfx_tbl_update(RMAP_EVENT_INDEX_ADDED,
-				 index, 0, NULL);
+	route_map_pfx_tbl_update(RMAP_EVENT_INDEX_ADDED, index, 0, NULL);
 
 	/* Execute event hook. */
 	if (route_map_master.event_hook) {
@@ -1335,14 +1321,12 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 			 */
 			if (IS_RULE_IPv4_PREFIX_LIST(match_name))
 				route_map_pfx_tbl_update(
-						RMAP_EVENT_PLIST_DELETED,
-						index, AFI_IP,
-						rule->rule_str);
+					RMAP_EVENT_PLIST_DELETED, index, AFI_IP,
+					rule->rule_str);
 			else if (IS_RULE_IPv6_PREFIX_LIST(match_name))
 				route_map_pfx_tbl_update(
-						RMAP_EVENT_PLIST_DELETED,
-						index, AFI_IP6,
-						rule->rule_str);
+					RMAP_EVENT_PLIST_DELETED, index,
+					AFI_IP6, rule->rule_str);
 
 			/* Remove the dependency of the route-map on the rule
 			 * that is being replaced.
@@ -1377,12 +1361,10 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 	 * the route-map's prefix table.
 	 */
 	if (IS_RULE_IPv4_PREFIX_LIST(match_name)) {
-		route_map_pfx_tbl_update(RMAP_EVENT_PLIST_ADDED,
-					 index, AFI_IP,
+		route_map_pfx_tbl_update(RMAP_EVENT_PLIST_ADDED, index, AFI_IP,
 					 match_arg);
 	} else if (IS_RULE_IPv6_PREFIX_LIST(match_name)) {
-		route_map_pfx_tbl_update(RMAP_EVENT_PLIST_ADDED,
-					 index, AFI_IP6,
+		route_map_pfx_tbl_update(RMAP_EVENT_PLIST_ADDED, index, AFI_IP6,
 					 match_arg);
 	} else {
 		/* If IPv4 match criteria has been added to the route-map
@@ -1393,8 +1375,7 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 		 * default route's trie node.
 		 */
 		if (IS_IPv4_RULE(match_name))
-			route_map_del_plist_entries(AFI_IP6, index,
-						    NULL, NULL);
+			route_map_del_plist_entries(AFI_IP6, index, NULL, NULL);
 
 		/* If IPv6 match criteria has been added to the route-map
 		 * index, check for IPv4 prefix-list match rule presence and
@@ -1404,8 +1385,7 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 		 * default route's trie node.
 		 */
 		else if (IS_IPv6_RULE(match_name))
-			route_map_del_plist_entries(AFI_IP, index,
-						    NULL, NULL);
+			route_map_del_plist_entries(AFI_IP, index, NULL, NULL);
 	}
 
 	/* Execute event hook. */
@@ -1462,14 +1442,12 @@ enum rmap_compile_rets route_map_delete_match(struct route_map_index *index,
 			 */
 			if (IS_RULE_IPv4_PREFIX_LIST(match_name)) {
 				route_map_pfx_tbl_update(
-						RMAP_EVENT_PLIST_DELETED,
-						index, AFI_IP,
-						match_arg);
+					RMAP_EVENT_PLIST_DELETED, index, AFI_IP,
+					match_arg);
 			} else if (IS_RULE_IPv6_PREFIX_LIST(match_name)) {
 				route_map_pfx_tbl_update(
-						RMAP_EVENT_PLIST_DELETED,
-						index, AFI_IP6,
-						match_arg);
+					RMAP_EVENT_PLIST_DELETED, index,
+					AFI_IP6, match_arg);
 			} else {
 				/* If no more IPv4 match rules are present in
 				 * this index, check for IPv6 prefix-list match
@@ -1480,9 +1458,8 @@ enum rmap_compile_rets route_map_delete_match(struct route_map_index *index,
 				 * default route's trie node.
 				 */
 				if (!route_map_is_ip_rule_present(index))
-					route_map_add_plist_entries(AFI_IP6,
-								    index, NULL,
-								    NULL);
+					route_map_add_plist_entries(
+						AFI_IP6, index, NULL, NULL);
 
 				/* If no more IPv6 match rules are present in
 				 * this index, check for IPv4 prefix-list match
@@ -1493,9 +1470,8 @@ enum rmap_compile_rets route_map_delete_match(struct route_map_index *index,
 				 * default route's trie node.
 				 */
 				if (!route_map_is_ipv6_rule_present(index))
-					route_map_add_plist_entries(AFI_IP,
-								    index, NULL,
-								    NULL);
+					route_map_add_plist_entries(
+						AFI_IP, index, NULL, NULL);
 			}
 
 			return RMAP_COMPILE_SUCCESS;
@@ -1663,10 +1639,9 @@ route_map_apply_match(struct route_map_rule_list *match_list,
 	return ret;
 }
 
-static struct list *
-route_map_get_index_list(struct route_node **rn,
-			 const struct prefix *prefix,
-			 struct route_table *table)
+static struct list *route_map_get_index_list(struct route_node **rn,
+					     const struct prefix *prefix,
+					     struct route_table *table)
 {
 	struct route_node *tmp_rn = NULL;
 
@@ -1706,11 +1681,8 @@ route_map_get_index_list(struct route_node **rn,
  * This function returns the route-map index that best matches the prefix.
  */
 static struct route_map_index *
-route_map_get_index(struct route_map *map,
-		    const struct prefix *prefix,
-		    route_map_object_t type,
-		    void *object,
-		    uint8_t *match_ret)
+route_map_get_index(struct route_map *map, const struct prefix *prefix,
+		    route_map_object_t type, void *object, uint8_t *match_ret)
 {
 	int ret = 0;
 	struct list *candidate_rmap_list = NULL;
@@ -1730,8 +1702,8 @@ route_map_get_index(struct route_map *map,
 		return NULL;
 
 	do {
-		candidate_rmap_list = route_map_get_index_list(&rn, prefix,
-							       table);
+		candidate_rmap_list =
+			route_map_get_index_list(&rn, prefix, table);
 		if (!rn)
 			break;
 
@@ -1739,10 +1711,10 @@ route_map_get_index(struct route_map *map,
 		 * than that in best_index, ignore the list and get the
 		 * parent node's list.
 		 */
-		head_index = (struct route_map_index *)
-			     (listgetdata(listhead(candidate_rmap_list)));
-		if (best_index && head_index &&
-		    (best_index->pref < head_index->pref)) {
+		head_index = (struct route_map_index *)(listgetdata(
+			listhead(candidate_rmap_list)));
+		if (best_index && head_index
+		    && (best_index->pref < head_index->pref)) {
 			route_unlock_node(rn);
 			continue;
 		}
@@ -1755,9 +1727,8 @@ route_map_get_index(struct route_map *map,
 			if (best_index && (best_index->pref < index->pref))
 				break;
 
-			ret = route_map_apply_match(
-						&index->match_list,
-						prefix, type, object);
+			ret = route_map_apply_match(&index->match_list, prefix,
+						    type, object);
 
 			if (ret == RMAP_MATCH) {
 				*match_ret = ret;
@@ -1787,9 +1758,8 @@ route_map_get_index(struct route_map *map,
 	return best_index;
 }
 
-static int
-route_map_candidate_list_cmp(struct route_map_index *idx1,
-			     struct route_map_index *idx2)
+static int route_map_candidate_list_cmp(struct route_map_index *idx1,
+					struct route_map_index *idx2)
 {
 	if (!idx1)
 		return -1;
@@ -1803,9 +1773,8 @@ route_map_candidate_list_cmp(struct route_map_index *idx1,
  * This function adds the route-map index into the default route's
  * route-node in the route-map's IPv4/IPv6 prefix-table.
  */
-static void
-route_map_pfx_table_add_default(afi_t afi,
-				struct route_map_index *index)
+static void route_map_pfx_table_add_default(afi_t afi,
+					    struct route_map_index *index)
 {
 	struct route_node *rn = NULL;
 	struct list *rmap_candidate_list = NULL;
@@ -1856,9 +1825,8 @@ route_map_pfx_table_add_default(afi_t afi,
  * This function removes the route-map index from the default route's
  * route-node in the route-map's IPv4/IPv6 prefix-table.
  */
-static void
-route_map_pfx_table_del_default(afi_t afi,
-				struct route_map_index *index)
+static void route_map_pfx_table_del_default(afi_t afi,
+					    struct route_map_index *index)
 {
 	struct route_node *rn = NULL;
 	struct list *rmap_candidate_list = NULL;
@@ -1895,10 +1863,9 @@ route_map_pfx_table_del_default(afi_t afi,
  * This function adds the route-map index to the route-node for
  * the prefix-entry in the route-map's IPv4/IPv6 prefix-table.
  */
-static void
-route_map_pfx_table_add(struct route_table *table,
-			struct route_map_index *index,
-			struct prefix_list_entry *pentry)
+static void route_map_pfx_table_add(struct route_table *table,
+				    struct route_map_index *index,
+				    struct prefix_list_entry *pentry)
 {
 	struct route_node *rn = NULL;
 	struct list *rmap_candidate_list = NULL;
@@ -1927,10 +1894,9 @@ route_map_pfx_table_add(struct route_table *table,
  * This function removes the route-map index from the route-node for
  * the prefix-entry in the route-map's IPv4/IPv6 prefix-table.
  */
-static void
-route_map_pfx_table_del(struct route_table *table,
-			struct route_map_index *index,
-			struct prefix_list_entry *pentry)
+static void route_map_pfx_table_del(struct route_table *table,
+				    struct route_map_index *index,
+				    struct prefix_list_entry *pentry)
 {
 	struct route_node *rn = NULL;
 	struct list *rmap_candidate_list = NULL;
@@ -1954,8 +1920,7 @@ route_map_pfx_table_del(struct route_table *table,
 /* This function checks for the presence of an IPv4 match rule
  * in the given route-map index.
  */
-static bool
-route_map_is_ip_rule_present(struct route_map_index *index)
+static bool route_map_is_ip_rule_present(struct route_map_index *index)
 {
 	struct route_map_rule_list *match_list = NULL;
 	struct route_map_rule *rule = NULL;
@@ -1971,8 +1936,7 @@ route_map_is_ip_rule_present(struct route_map_index *index)
 /* This function checks for the presence of an IPv6 match rule
  * in the given route-map index.
  */
-static bool
-route_map_is_ipv6_rule_present(struct route_map_index *index)
+static bool route_map_is_ipv6_rule_present(struct route_map_index *index)
 {
 	struct route_map_rule_list *match_list = NULL;
 	struct route_map_rule *rule = NULL;
@@ -2000,11 +1964,10 @@ route_map_is_ipv6_rule_present(struct route_map_index *index)
  *    prefix-list, create a route-node for this entry and
  *    add this index to the route-node.
  */
-static void
-route_map_add_plist_entries(afi_t afi,
-			    struct route_map_index *index,
-			    const char *plist_name,
-			    struct prefix_list_entry *entry)
+static void route_map_add_plist_entries(afi_t afi,
+					struct route_map_index *index,
+					const char *plist_name,
+					struct prefix_list_entry *entry)
 {
 	struct route_map_rule_list *match_list = NULL;
 	struct route_map_rule *match = NULL;
@@ -2017,13 +1980,15 @@ route_map_add_plist_entries(afi_t afi,
 
 		for (match = match_list->head; match; match = match->next) {
 			if (afi == AFI_IP) {
-				if (IS_RULE_IPv4_PREFIX_LIST(match->cmd->str))
+				if (IS_RULE_IPv4_PREFIX_LIST(match->cmd->str)) {
 					plist_rule_is_present = true;
 					break;
+				}
 			} else {
-				if (IS_RULE_IPv6_PREFIX_LIST(match->cmd->str))
+				if (IS_RULE_IPv6_PREFIX_LIST(match->cmd->str)) {
 					plist_rule_is_present = true;
 					break;
+				}
 			}
 		}
 
@@ -2042,24 +2007,22 @@ route_map_add_plist_entries(afi_t afi,
 
 	if (entry) {
 		if (afi == AFI_IP) {
-			route_map_pfx_table_add(
-					index->map->ipv4_prefix_table,
-					index, entry);
+			route_map_pfx_table_add(index->map->ipv4_prefix_table,
+						index, entry);
 		} else {
-			route_map_pfx_table_add(
-					index->map->ipv6_prefix_table,
-					index, entry);
+			route_map_pfx_table_add(index->map->ipv6_prefix_table,
+						index, entry);
 		}
 	} else {
 		for (pentry = plist->head; pentry; pentry = pentry->next) {
 			if (afi == AFI_IP) {
 				route_map_pfx_table_add(
-						index->map->ipv4_prefix_table,
-						index, pentry);
+					index->map->ipv4_prefix_table, index,
+					pentry);
 			} else {
 				route_map_pfx_table_add(
-						index->map->ipv6_prefix_table,
-						index, pentry);
+					index->map->ipv6_prefix_table, index,
+					pentry);
 			}
 		}
 	}
@@ -2078,11 +2041,10 @@ route_map_add_plist_entries(afi_t afi,
  *    prefix-list, remove this index from the route-node
  *    for the prefix in this prefix-entry.
  */
-static void
-route_map_del_plist_entries(afi_t afi,
-			    struct route_map_index *index,
-			    const char *plist_name,
-			    struct prefix_list_entry *entry)
+static void route_map_del_plist_entries(afi_t afi,
+					struct route_map_index *index,
+					const char *plist_name,
+					struct prefix_list_entry *entry)
 {
 	struct route_map_rule_list *match_list = NULL;
 	struct route_map_rule *match = NULL;
@@ -2095,13 +2057,15 @@ route_map_del_plist_entries(afi_t afi,
 
 		for (match = match_list->head; match; match = match->next) {
 			if (afi == AFI_IP) {
-				if (IS_RULE_IPv4_PREFIX_LIST(match->cmd->str))
+				if (IS_RULE_IPv4_PREFIX_LIST(match->cmd->str)) {
 					plist_rule_is_present = true;
 					break;
+				}
 			} else {
-				if (IS_RULE_IPv6_PREFIX_LIST(match->cmd->str))
+				if (IS_RULE_IPv6_PREFIX_LIST(match->cmd->str)) {
 					plist_rule_is_present = true;
 					break;
+				}
 			}
 		}
 
@@ -2118,24 +2082,22 @@ route_map_del_plist_entries(afi_t afi,
 
 	if (entry) {
 		if (afi == AFI_IP) {
-			route_map_pfx_table_del(
-					index->map->ipv4_prefix_table,
-					index, entry);
+			route_map_pfx_table_del(index->map->ipv4_prefix_table,
+						index, entry);
 		} else {
-			route_map_pfx_table_del(
-					index->map->ipv6_prefix_table,
-					index, entry);
+			route_map_pfx_table_del(index->map->ipv6_prefix_table,
+						index, entry);
 		}
 	} else {
 		for (pentry = plist->head; pentry; pentry = pentry->next) {
 			if (afi == AFI_IP) {
 				route_map_pfx_table_del(
-						index->map->ipv4_prefix_table,
-						index, pentry);
+					index->map->ipv4_prefix_table, index,
+					pentry);
 			} else {
 				route_map_pfx_table_del(
-						index->map->ipv6_prefix_table,
-						index, pentry);
+					index->map->ipv6_prefix_table, index,
+					pentry);
 			}
 		}
 	}
@@ -2146,17 +2108,14 @@ route_map_del_plist_entries(afi_t afi,
  * as a match command from a particular route-map index.
  * It updates the prefix-table of the route-map accordingly.
  */
-static void
-route_map_trie_update(afi_t afi,
-		      route_map_event_t event,
-		      struct route_map_index *index,
-		      const char *plist_name)
+static void route_map_trie_update(afi_t afi, route_map_event_t event,
+				  struct route_map_index *index,
+				  const char *plist_name)
 {
 	if (event == RMAP_EVENT_PLIST_ADDED) {
 		if (afi == AFI_IP) {
 			if (!route_map_is_ipv6_rule_present(index)) {
-				route_map_pfx_table_del_default(AFI_IP6,
-								index);
+				route_map_pfx_table_del_default(AFI_IP6, index);
 				route_map_add_plist_entries(afi, index,
 							    plist_name, NULL);
 			} else {
@@ -2165,38 +2124,35 @@ route_map_trie_update(afi_t afi,
 			}
 		} else {
 			if (!route_map_is_ip_rule_present(index)) {
-				route_map_pfx_table_del_default(AFI_IP,
-								index);
+				route_map_pfx_table_del_default(AFI_IP, index);
 				route_map_add_plist_entries(afi, index,
 							    plist_name, NULL);
 			} else {
-				route_map_del_plist_entries(AFI_IP, index,
-							    NULL, NULL);
+				route_map_del_plist_entries(AFI_IP, index, NULL,
+							    NULL);
 			}
 		}
 	} else if (event == RMAP_EVENT_PLIST_DELETED) {
 		if (afi == AFI_IP) {
-			route_map_del_plist_entries(afi, index,
-						    plist_name, NULL);
+			route_map_del_plist_entries(afi, index, plist_name,
+						    NULL);
 
 			if (!route_map_is_ipv6_rule_present(index))
 				route_map_pfx_table_add_default(afi, index);
 
 			if (!route_map_is_ip_rule_present(index))
-				route_map_add_plist_entries(AFI_IP6,
-							    index,
+				route_map_add_plist_entries(AFI_IP6, index,
 							    NULL, NULL);
 		} else {
-			route_map_del_plist_entries(afi, index,
-						    plist_name, NULL);
+			route_map_del_plist_entries(afi, index, plist_name,
+						    NULL);
 
 			if (!route_map_is_ip_rule_present(index))
 				route_map_pfx_table_add_default(afi, index);
 
 			if (!route_map_is_ipv6_rule_present(index))
-				route_map_add_plist_entries(AFI_IP,
-							    index,
-							    NULL, NULL);
+				route_map_add_plist_entries(AFI_IP, index, NULL,
+							    NULL);
 		}
 	}
 }
@@ -2206,11 +2162,9 @@ route_map_trie_update(afi_t afi,
  * prefix-list is added/removed.
  * It updates the prefix-table of the route-map accordingly.
  */
-static void
-route_map_pfx_tbl_update(route_map_event_t event,
-			 struct route_map_index *index,
-			 afi_t afi,
-			 const char *plist_name)
+static void route_map_pfx_tbl_update(route_map_event_t event,
+				     struct route_map_index *index, afi_t afi,
+				     const char *plist_name)
 {
 	struct route_map *rmap = NULL;
 
@@ -2227,8 +2181,7 @@ route_map_pfx_tbl_update(route_map_event_t event,
 		route_map_pfx_table_del_default(AFI_IP, index);
 		route_map_pfx_table_del_default(AFI_IP6, index);
 
-		if ((index->map->head == NULL) &&
-		    (index->map->tail == NULL)) {
+		if ((index->map->head == NULL) && (index->map->tail == NULL)) {
 			rmap = index->map;
 
 			if (rmap->ipv4_prefix_table) {
@@ -2246,8 +2199,7 @@ route_map_pfx_tbl_update(route_map_event_t event,
 
 	/* Handle prefix-list match rule addition/deletion.
 	 */
-	route_map_trie_update(afi, event,
-			      index, plist_name);
+	route_map_trie_update(afi, event, index, plist_name);
 }
 
 /*
@@ -2255,11 +2207,10 @@ route_map_pfx_tbl_update(route_map_event_t event,
  * a prefix-list or, an existing prefix-entry is removed from the prefix-list.
  * It updates the prefix-table of the route-map accordingly.
  */
-static void
-route_map_pentry_update(route_map_event_t event,
-			const char *plist_name,
-			struct route_map_index *index,
-			struct prefix_list_entry *pentry)
+static void route_map_pentry_update(route_map_event_t event,
+				    const char *plist_name,
+				    struct route_map_index *index,
+				    struct prefix_list_entry *pentry)
 {
 	struct prefix_list *plist = NULL;
 	afi_t afi;
@@ -2277,18 +2228,16 @@ route_map_pentry_update(route_map_event_t event,
 		if (plist->count == 1) {
 			if (afi == AFI_IP) {
 				if (!route_map_is_ipv6_rule_present(index))
-					route_map_add_plist_entries(afi, index,
-								    plist_name,
-								    pentry);
+					route_map_add_plist_entries(
+						afi, index, plist_name, pentry);
 			} else {
 				if (!route_map_is_ip_rule_present(index))
-					route_map_add_plist_entries(afi, index,
-								    plist_name,
-								    pentry);
+					route_map_add_plist_entries(
+						afi, index, plist_name, pentry);
 			}
 		} else {
-			route_map_add_plist_entries(afi, index,
-						    plist_name, pentry);
+			route_map_add_plist_entries(afi, index, plist_name,
+						    pentry);
 		}
 	} else if (event == RMAP_EVENT_PLIST_DELETED) {
 		route_map_del_plist_entries(afi, index, plist_name, pentry);
@@ -2307,9 +2256,8 @@ route_map_pentry_update(route_map_event_t event,
 	}
 }
 
-static void
-route_map_pentry_process_dependency(struct hash_backet *backet,
-				    void *data)
+static void route_map_pentry_process_dependency(struct hash_backet *backet,
+						void *data)
 {
 	char *rmap_name = NULL;
 	struct route_map *rmap = NULL;
@@ -2318,7 +2266,7 @@ route_map_pentry_process_dependency(struct hash_backet *backet,
 	struct route_map_rule *match = NULL;
 	struct route_map_dep_data *dep_data = NULL;
 	struct route_map_pentry_dep *pentry_dep =
-				(struct route_map_pentry_dep *)data;
+		(struct route_map_pentry_dep *)data;
 	unsigned char family = pentry_dep->pentry->prefix.family;
 
 	dep_data = (struct route_map_dep_data *)backet->data;
@@ -2338,33 +2286,29 @@ route_map_pentry_process_dependency(struct hash_backet *backet,
 
 		for (match = match_list->head; match; match = match->next) {
 			if (strcmp(match->rule_str, pentry_dep->plist_name)
-									== 0) {
-				if (IS_RULE_IPv4_PREFIX_LIST(
-							match->cmd->str) &&
-				    family == AF_INET) {
+			    == 0) {
+				if (IS_RULE_IPv4_PREFIX_LIST(match->cmd->str)
+				    && family == AF_INET) {
 					route_map_pentry_update(
-							pentry_dep->event,
-							pentry_dep->plist_name,
-							index,
-							pentry_dep->pentry);
+						pentry_dep->event,
+						pentry_dep->plist_name, index,
+						pentry_dep->pentry);
 				} else if (IS_RULE_IPv6_PREFIX_LIST(
-							match->cmd->str) &&
-					   family == AF_INET6) {
+						   match->cmd->str)
+					   && family == AF_INET6) {
 					route_map_pentry_update(
-							pentry_dep->event,
-							pentry_dep->plist_name,
-							index,
-							pentry_dep->pentry);
+						pentry_dep->event,
+						pentry_dep->plist_name, index,
+						pentry_dep->pentry);
 				}
 			}
 		}
 	}
 }
 
-void
-route_map_notify_pentry_dependencies(const char *affected_name,
-				     struct prefix_list_entry *pentry,
-				     route_map_event_t event)
+void route_map_notify_pentry_dependencies(const char *affected_name,
+					  struct prefix_list_entry *pentry,
+					  route_map_event_t event)
 {
 	struct route_map_dep *dep = NULL;
 	struct hash *upd8_hash = NULL;
@@ -2468,11 +2412,9 @@ route_map_result_t route_map_apply(struct route_map *map,
 
 	map->applied++;
 
-	if ((!map->optimization_disabled) &&
-	    (map->ipv4_prefix_table ||
-	     map->ipv6_prefix_table)) {
-		index = route_map_get_index(map, prefix,
-					    type, object,
+	if ((!map->optimization_disabled)
+	    && (map->ipv4_prefix_table || map->ipv6_prefix_table)) {
+		index = route_map_get_index(map, prefix, type, object,
 					    (uint8_t *)&match_ret);
 		if (index) {
 			if (rmap_debug)
@@ -2483,10 +2425,11 @@ route_map_result_t route_map_apply(struct route_map *map,
 					route_map_cmd_result_str(match_ret));
 		} else {
 			if (rmap_debug)
-				zlog_debug("No match for pfx: %s in route-map: %s, result: %s",
-					   prefix2str(prefix, buf, sizeof(buf)),
-					   map->name,
-					   route_map_cmd_result_str(match_ret));
+				zlog_debug(
+					"No best match sequence for pfx: %s in route-map: %s, result: %s",
+					prefix2str(prefix, buf, sizeof(buf)),
+					map->name,
+					route_map_cmd_result_str(match_ret));
 			/*
 			 * No index matches this prefix. Return deny unless,
 			 * match_ret = RMAP_NOOP.
@@ -2964,12 +2907,12 @@ void route_map_notify_dependencies(const char *affected_name,
 	XFREE(MTYPE_ROUTE_MAP_NAME, name);
 }
 
-DEFUN (no_routemap_optimization,
-       no_routemap_optimization_cmd,
-       "no route-map optimization",
-       NO_STR
-       "route-map\n"
-       "optimization\n")
+/* VTY related functions. */
+DEFUN(no_routemap_optimization, no_routemap_optimization_cmd,
+      "no route-map optimization",
+      NO_STR
+      "route-map\n"
+      "optimization\n")
 {
 	VTY_DECLVAR_CONTEXT(route_map_index, index);
 
@@ -2977,11 +2920,10 @@ DEFUN (no_routemap_optimization,
 	return CMD_SUCCESS;
 }
 
-DEFUN (routemap_optimization,
-       routemap_optimization_cmd,
-       "route-map optimization",
-       "route-map\n"
-       "optimization\n")
+DEFUN(routemap_optimization, routemap_optimization_cmd,
+      "route-map optimization",
+      "route-map\n"
+      "optimization\n")
 {
 	VTY_DECLVAR_CONTEXT(route_map_index, index);
 
@@ -3163,6 +3105,121 @@ void route_map_counter_decrement(struct route_map *map)
 	}
 }
 
+DEFUN_HIDDEN(show_route_map_pfx_tbl, show_route_map_pfx_tbl_cmd,
+	     "show route-map WORD prefix-table",
+	     SHOW_STR
+	     "route-map\n"
+	     "route-map name\n"
+	     "internal prefix-table\n")
+{
+	const char *rmap_name = argv[2]->arg;
+	struct route_map *rmap = NULL;
+	struct route_table *rm_pfx_tbl4 = NULL;
+	struct route_table *rm_pfx_tbl6 = NULL;
+	struct route_node *rn = NULL, *prn = NULL;
+	struct list *rmap_index_list = NULL;
+	struct listnode *ln = NULL, *nln = NULL;
+	struct route_map_index *index = NULL;
+	struct prefix *p = NULL, *pp = NULL;
+	char buf[SU_ADDRSTRLEN], pbuf[SU_ADDRSTRLEN];
+	uint8_t len = 54;
+
+	vty_out(vty, "%s:\n", frr_protonameinst);
+	rmap = route_map_lookup_by_name(rmap_name);
+	if (rmap) {
+		rm_pfx_tbl4 = rmap->ipv4_prefix_table;
+		if (rm_pfx_tbl4) {
+			vty_out(vty, "\n%s%43s%s\n", "IPv4 Prefix", "",
+				"Route-map Index List");
+			vty_out(vty, "%s%39s%s\n", "_______________", "",
+				"____________________");
+			for (rn = route_top(rm_pfx_tbl4); rn;
+			     rn = route_next(rn)) {
+				p = &rn->p;
+
+				vty_out(vty, "    %s/%d (%d)\n",
+					inet_ntop(p->family, &p->u.prefix, buf,
+						  SU_ADDRSTRLEN),
+					p->prefixlen, rn->lock);
+
+				vty_out(vty, "(P) ");
+				prn = rn->parent;
+				if (prn) {
+					pp = &prn->p;
+					vty_out(vty, "%s/%d\n",
+						inet_ntop(pp->family,
+							  &pp->u.prefix, pbuf,
+							  SU_ADDRSTRLEN),
+						pp->prefixlen);
+				}
+
+				vty_out(vty, "\n");
+				rmap_index_list = (struct list *)rn->info;
+				if (!rmap_index_list
+				    || !listcount(rmap_index_list))
+					vty_out(vty, "%*s%s\n", len, "", "-");
+				else
+					for (ALL_LIST_ELEMENTS(rmap_index_list,
+							       ln, nln,
+							       index)) {
+						vty_out(vty, "%*s%s seq %d\n",
+							len, "",
+							index->map->name,
+							index->pref);
+					}
+				vty_out(vty, "\n");
+			}
+		}
+
+		rm_pfx_tbl6 = rmap->ipv6_prefix_table;
+		if (rm_pfx_tbl6) {
+			vty_out(vty, "\n%s%43s%s\n", "IPv6 Prefix", "",
+				"Route-map Index List");
+			vty_out(vty, "%s%39s%s\n", "_______________", "",
+				"____________________");
+			for (rn = route_top(rm_pfx_tbl6); rn;
+			     rn = route_next(rn)) {
+				p = &rn->p;
+
+				vty_out(vty, "    %s/%d (%d)\n",
+					inet_ntop(p->family, &p->u.prefix, buf,
+						  SU_ADDRSTRLEN),
+					p->prefixlen, rn->lock);
+
+				vty_out(vty, "(P) ");
+				prn = rn->parent;
+				if (prn) {
+					pp = &prn->p;
+					vty_out(vty, "%s/%d\n",
+						inet_ntop(pp->family,
+							  &pp->u.prefix, pbuf,
+							  SU_ADDRSTRLEN),
+						pp->prefixlen);
+				}
+
+				vty_out(vty, "\n");
+				rmap_index_list = (struct list *)rn->info;
+				if (!rmap_index_list
+				    || !listcount(rmap_index_list))
+					vty_out(vty, "%*s%s\n", len, "", "-");
+				else
+					for (ALL_LIST_ELEMENTS(rmap_index_list,
+							       ln, nln,
+							       index)) {
+						vty_out(vty, "%*s%s seq %d\n",
+							len, "",
+							index->map->name,
+							index->pref);
+					}
+				vty_out(vty, "\n");
+			}
+		}
+	}
+
+	vty_out(vty, "\n");
+	return CMD_SUCCESS;
+}
+
 /* Initialization of route map vector. */
 void route_map_init(void)
 {
@@ -3202,4 +3259,6 @@ void route_map_init(void)
 
 	install_element(RMAP_NODE, &routemap_optimization_cmd);
 	install_element(RMAP_NODE, &no_routemap_optimization_cmd);
+
+	install_element(ENABLE_NODE, &show_route_map_pfx_tbl_cmd);
 }
