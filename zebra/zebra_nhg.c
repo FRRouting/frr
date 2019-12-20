@@ -49,7 +49,8 @@ DEFINE_MTYPE_STATIC(ZEBRA, NHG_CTX, "Nexthop Group Context");
 /* id counter to keep in sync with kernel */
 uint32_t id_counter;
 
-static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi);
+static struct nhg_hash_entry *depends_find(const struct nexthop *nh,
+					   afi_t afi);
 static void depends_add(struct nhg_connected_tree_head *head,
 			struct nhg_hash_entry *depend);
 static struct nhg_hash_entry *
@@ -1047,25 +1048,24 @@ int zebra_nhg_kernel_del(uint32_t id)
 }
 
 /* Some dependency helper functions */
-static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi)
+static struct nhg_hash_entry *depends_find(const struct nexthop *nh, afi_t afi)
 {
-	struct nexthop *lookup = NULL;
+	struct nexthop lookup;
 	struct nhg_hash_entry *nhe = NULL;
 
 	if (!nh)
 		goto done;
 
-	copy_nexthops(&lookup, nh, NULL);
+	/* Capture a snapshot of this single nh; it might be part of a list,
+	 * so we need to make a standalone copy.
+	 */
+	memset(&lookup, 0, sizeof(lookup));
+	nexthop_copy(&lookup, nh, NULL);
 
-	/* Clear it, in case its a group */
-	nexthops_free(lookup->next);
-	nexthops_free(lookup->prev);
-	lookup->next = NULL;
-	lookup->prev = NULL;
+	nhe = zebra_nhg_find_nexthop(0, &lookup, afi, 0);
 
-	nhe = zebra_nhg_find_nexthop(0, lookup, afi, 0);
-
-	nexthops_free(lookup);
+	/* The copy may have allocated labels; free them if necessary. */
+	nexthop_del_labels(&lookup);
 
 done:
 	return nhe;
