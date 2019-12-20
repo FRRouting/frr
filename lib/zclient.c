@@ -3931,6 +3931,11 @@ static int zclient_read(struct thread *thread)
 			(*zclient->neighbor_get)(command, zclient, length,
 						 vrf_id);
 		break;
+	case ZEBRA_GRE_UPDATE:
+		if (zclient->gre_update)
+			(*zclient->gre_update)(command, zclient,
+					       length, vrf_id);
+		break;
 	default:
 		break;
 	}
@@ -4251,4 +4256,29 @@ int zclient_neigh_ip_decode(struct stream *s, struct zapi_neigh_ip *api)
 	return 0;
  stream_failure:
 	return -1;
+}
+
+int zclient_send_zebra_gre_request(struct zclient *client,
+				   struct interface *ifp)
+{
+	struct stream *s;
+	ifindex_t idx_local;
+	int ret;
+
+	if (!client || client->sock < 0) {
+		zlog_err("%s : zclient not ready", __func__);
+		return -1;
+	}
+	s = client->obuf;
+	stream_reset(s);
+	zclient_create_header(s,
+			      ZEBRA_GRE_GET,
+			      ifp->vrf_id);
+	stream_putl(s, ifp->ifindex);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(client);
+	return 0;
+stream_failure:
+	zlog_err("%s(): error reading response ..", __func__);
+	return 0;
 }

@@ -3240,6 +3240,61 @@ stream_failure:
 	return;
 }
 
+static inline void zebra_gre_get(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	ifindex_t idx;
+	struct interface *ifp;
+	struct zebra_if *zebra_if = NULL;
+	struct zebra_l2info_gre *gre_info;
+	struct interface *ifp_link = NULL;
+	vrf_id_t vrf_id_link = VRF_UNKNOWN;
+	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+
+	s = msg;
+	STREAM_GETL(s, idx);
+	ifp  = if_lookup_by_index(idx, vrf_id);
+
+	if (ifp)
+		zebra_if = ifp->info;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_GRE_UPDATE, vrf_id);
+
+	if (ifp  && IS_ZEBRA_IF_GRE(ifp) && zebra_if) {
+		gre_info = &zebra_if->l2info.gre;
+
+		stream_putl(s, idx);
+		stream_putl(s, gre_info->ikey);
+		stream_putl(s, gre_info->ikey);
+		stream_putl(s, gre_info->ifindex_link);
+
+		ifp_link = if_lookup_by_index_per_ns(
+					zebra_ns_lookup(gre_info->link_nsid),
+					gre_info->ifindex_link);
+		if (ifp_link)
+			vrf_id_link = ifp_link->vrf_id;
+		stream_putl(s, vrf_id_link);
+		stream_putl(s, gre_info->vtep_ip.s_addr);
+		stream_putl(s, gre_info->vtep_ip_remote.s_addr);
+	} else {
+		stream_putl(s, idx);
+		stream_putl(s, 0);
+		stream_putl(s, 0);
+		stream_putl(s, IFINDEX_INTERNAL);
+		stream_putl(s, VRF_UNKNOWN);
+		stream_putl(s, 0);
+	}
+	/* Write packet size. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zserv_send_message(client, s);
+
+	return;
+ stream_failure:
+	return;
+}
+
 static inline void zebra_configure_arp(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
@@ -3516,6 +3571,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_NHRP_NEIGH_REGISTER] = zebra_neigh_register,
 	[ZEBRA_NHRP_NEIGH_UNREGISTER] = zebra_neigh_unregister,
 	[ZEBRA_CONFIGURE_ARP] = zebra_configure_arp,
+	[ZEBRA_GRE_GET] = zebra_gre_get,
 	[ZEBRA_GRE_SOURCE_SET] = zebra_gre_source_set,
 };
 
