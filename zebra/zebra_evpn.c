@@ -622,10 +622,11 @@ void zebra_evpn_svi_macip_del_for_evpn_hash(struct hash_bucket *bucket,
 	return;
 }
 
-static int zebra_evpn_map_vlan_zns(struct zebra_ns *zns,
-				   void *_in_param,
-				   void **_p_zevpn)
+static int zebra_evpn_map_vlan_ns(struct ns *ns,
+				  void *_in_param,
+				  void **_p_zevpn)
 {
+	struct zebra_ns *zns = ns->info;
 	struct route_node *rn;
 	struct interface *br_if;
 	zebra_evpn_t **p_zevpn = (zebra_evpn_t **)_p_zevpn;
@@ -638,7 +639,7 @@ static int zebra_evpn_map_vlan_zns(struct zebra_ns *zns,
 	int found = 0;
 
 	if (!in_param)
-		return ZNS_WALK_STOP;
+		return NS_WALK_STOP;
 	br_if = in_param->br_if;
 	zif = in_param->zif;
 	assert(zif);
@@ -667,12 +668,12 @@ static int zebra_evpn_map_vlan_zns(struct zebra_ns *zns,
 		}
 	}
 	if (!found)
-		return ZNS_WALK_CONTINUE;
+		return NS_WALK_CONTINUE;
 
 	zevpn = zebra_evpn_lookup(vxl->vni);
 	if (p_zevpn)
 		*p_zevpn = zevpn;
-	return ZNS_WALK_STOP;
+	return NS_WALK_STOP;
 }
 
 /*
@@ -698,16 +699,17 @@ zebra_evpn_t *zebra_evpn_map_vlan(struct interface *ifp,
 	in_param.zif = zif;
 	p_zevpn = &zevpn;
 
-	zebra_ns_list_walk(zebra_evpn_map_vlan_zns,
-			   (void *)&in_param,
-			   (void **)p_zevpn);
+	ns_walk_func(zebra_evpn_map_vlan_ns,
+		     (void *)&in_param,
+		     (void **)p_zevpn);
 	return zevpn;
 }
 
-static int zebra_evpn_from_svi_zns(struct zebra_ns *zns,
-				   void *_in_param,
-				   void **_p_zevpn)
+static int zebra_evpn_from_svi_ns(struct ns *ns,
+				  void *_in_param,
+				  void **_p_zevpn)
 {
+	struct zebra_ns *zns = ns->info;
 	struct route_node *rn;
 	struct interface *br_if;
 	zebra_evpn_t **p_zevpn = (zebra_evpn_t **)_p_zevpn;
@@ -720,7 +722,7 @@ static int zebra_evpn_from_svi_zns(struct zebra_ns *zns,
 	int found = 0;
 
 	if (!in_param)
-		return ZNS_WALK_STOP;
+		return NS_WALK_STOP;
 	br_if = in_param->br_if;
 	zif = in_param->zif;
 	assert(zif);
@@ -748,12 +750,12 @@ static int zebra_evpn_from_svi_zns(struct zebra_ns *zns,
 	}
 
 	if (!found)
-		return ZNS_WALK_CONTINUE;
+		return NS_WALK_CONTINUE;
 
 	zevpn = zebra_evpn_lookup(vxl->vni);
 	if (p_zevpn)
 		*p_zevpn = zevpn;
-	return ZNS_WALK_STOP;
+	return NS_WALK_STOP;
 }
 
 /*
@@ -799,8 +801,8 @@ zebra_evpn_t *zebra_evpn_from_svi(struct interface *ifp,
 	in_param.zif = zif;
 	p_zevpn = &zevpn;
 	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN */
-	zebra_ns_list_walk(zebra_evpn_from_svi_zns, (void *)&in_param,
-			   (void **)p_zevpn);
+	ns_walk_func(zebra_evpn_from_svi_ns, (void *)&in_param,
+		     (void **)p_zevpn);
 	return zevpn;
 }
 
