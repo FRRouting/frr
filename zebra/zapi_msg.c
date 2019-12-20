@@ -3373,6 +3373,34 @@ stream_failure:
 	return;
 }
 
+static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	ifindex_t idx, link_idx;
+	vrf_id_t link_vrf_id;
+	struct interface *ifp;
+	struct interface *ifp_link;
+	ns_id_t ns_id;
+	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+
+	s = msg;
+	STREAM_GETL(s, idx);
+	ifp  = if_lookup_by_index(idx, vrf_id);
+	STREAM_GETL(s, link_idx);
+	STREAM_GETL(s, link_vrf_id);
+	ifp_link  = if_lookup_by_index(link_idx, link_vrf_id);
+	if (!ifp_link || !ifp) {
+		zlog_warn("GRE (index %u, VRF %u) or GRE link interface (index %u, VRF %u) not found, when setting GRE params",
+			  idx, vrf_id, link_idx, link_vrf_id);
+		return;
+	}
+	ns_id = zvrf->zns->ns_id;
+	kernel_configure_if_link(ifp, ifp_link, ns_id);
+
+ stream_failure:
+	return;
+}
+
 static void zsend_error_msg(struct zserv *client, enum zebra_error_types error,
 			    struct zmsghdr *bad_hdr)
 {
@@ -3488,6 +3516,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_NHRP_NEIGH_REGISTER] = zebra_neigh_register,
 	[ZEBRA_NHRP_NEIGH_UNREGISTER] = zebra_neigh_unregister,
 	[ZEBRA_CONFIGURE_ARP] = zebra_configure_arp,
+	[ZEBRA_GRE_SOURCE_SET] = zebra_gre_source_set,
 };
 
 /*
