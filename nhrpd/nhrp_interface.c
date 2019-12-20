@@ -19,7 +19,6 @@
 
 #include "nhrpd.h"
 #include "os.h"
-#include "netlink.h"
 #include "hash.h"
 
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_IF, "NHRP interface");
