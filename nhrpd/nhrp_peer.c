@@ -394,17 +394,26 @@ void nhrp_peer_notify_del(struct nhrp_peer *p, struct notifier_block *n)
 
 void nhrp_peer_send(struct nhrp_peer *p, struct zbuf *zb)
 {
+	struct nhrp_vrf *nhrp_vrf;
+
 	nhrp_packet_debug(zb, "Send");
 
 	if (!p->online)
 		return;
+
+	nhrp_vrf = find_nhrp_vrf_id(p->ifp->vrf_id);
+	if (!nhrp_vrf) {
+		zlog_err("%s(): nhrp_vrf context not found", __func__);
+		return;
+	}
 
 	debugf(NHRP_DEBUG_KERNEL, "PACKET: Send %pSU -> %pSU",
 	       &p->vc->local.nbma, &p->vc->remote.nbma);
 
 	os_sendmsg(zb->head, zbuf_used(zb), p->ifp->ifindex,
 		   sockunion_get_addr(&p->vc->remote.nbma),
-		   sockunion_get_addrlen(&p->vc->remote.nbma), ETH_P_NHRP);
+		   sockunion_get_addrlen(&p->vc->remote.nbma), ETH_P_NHRP,
+		   nhrp_vrf->nhrp_socket_fd);
 	zbuf_reset(zb);
 }
 

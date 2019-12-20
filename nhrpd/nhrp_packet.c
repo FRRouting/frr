@@ -307,7 +307,7 @@ static int nhrp_packet_recvraw(struct thread *t)
 
 	len = zbuf_size(zb);
 	addrlen = sizeof(addr);
-	if (os_recvmsg(zb->buf, &len, &ifindex, addr, &addrlen) < 0)
+	if (os_recvmsg(zb->buf, &len, &ifindex, addr, &addrlen, fd) < 0)
 		goto err;
 
 	zb->head = zb->buf;
@@ -340,6 +340,9 @@ err:
 
 int nhrp_packet_init(struct nhrp_vrf *nhrp_vrf)
 {
-	thread_add_read(master, nhrp_packet_recvraw, nhrp_vrf, os_socket(), NULL);
+	if (nhrp_vrf->vrf_id == VRF_UNKNOWN)
+		return 0;
+	thread_add_read(master, nhrp_packet_recvraw, nhrp_vrf,
+			os_socket(nhrp_vrf), NULL);
 	return 0;
 }

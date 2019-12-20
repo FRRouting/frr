@@ -110,6 +110,7 @@ struct nhrp_vrf {
 	struct vici_conn *vici_connection;
 	struct hash *nhrp_vc_hash;
 	struct list_head childlist_head[512];
+	int nhrp_socket_fd;
 
 	QOBJ_FIELDS;
 };

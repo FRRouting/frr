@@ -338,6 +338,9 @@ void nhrp_interface_update(struct interface *ifp)
 	struct nhrp_afi_data *if_ad;
 	afi_t afi;
 	int enabled = 0;
+	struct nhrp_vrf *nhrp_vrf;
+
+	nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
 
 	notifier_call(&nifp->notifier_list, NOTIFY_INTERFACE_CHANGED);
 
@@ -355,8 +358,7 @@ void nhrp_interface_update(struct interface *ifp)
 		}
 
 		if (!if_ad->configured) {
-			os_configure_dmvpn(ifp->ifindex, ifp->name,
-					   afi2family(afi));
+			os_configure_dmvpn(ifp, afi2family(afi), nhrp_vrf);
 			nhrp_send_zebra_configure_arp(ifp, afi2family(afi));
 			if_ad->configured = 1;
 			nhrp_interface_update_address(ifp, afi, 1);

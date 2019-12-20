@@ -223,6 +223,7 @@ struct nhrp_vrf *nhrp_get_context(const char *name)
 	nhrp_vrf = find_nhrp_vrf(name);
 	if (!nhrp_vrf) {
 		nhrp_vrf = XCALLOC(MTYPE_NHRP_VRF, sizeof(struct nhrp_vrf));
+		nhrp_vrf->nhrp_socket_fd = -1;
 		QOBJ_REG(nhrp_vrf, nhrp_vrf);
 		listnode_add(nhrp_vrf_list, nhrp_vrf);
 		if (name)

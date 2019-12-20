@@ -39,11 +39,19 @@ static void nhrp_multicast_send(struct nhrp_peer *p, struct zbuf *zb)
 {
 	size_t addrlen;
 	int ret;
+	struct nhrp_vrf *nhrp_vrf;
+
+	nhrp_vrf = find_nhrp_vrf_id(p->ifp->vrf_id);
+	if (!nhrp_vrf) {
+		zlog_err("%s(): nhrp_vrf context not found", __func__);
+		return;
+	}
 
 	addrlen = sockunion_get_addrlen(&p->vc->remote.nbma);
 	ret = os_sendmsg(zb->head, zbuf_used(zb), p->ifp->ifindex,
 			 sockunion_get_addr(&p->vc->remote.nbma), addrlen,
-			 addrlen == 4 ? ETH_P_IP : ETH_P_IPV6);
+			 addrlen == 4 ? ETH_P_IP : ETH_P_IPV6,
+			 nhrp_vrf->nhrp_socket_fd);
 
 	debugf(NHRP_DEBUG_COMMON,
 	       "Multicast Packet: %pSU -> %pSU, ret = %d, size = %zu, addrlen = %zu",

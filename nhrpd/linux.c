@@ -19,18 +19,21 @@ size_t strlcpy(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
 #endif
 
-static int nhrp_socket_fd = -1;
-
-int os_socket(void)
+int os_socket(struct nhrp_vrf *nhrp_vrf)
 {
-	if (nhrp_socket_fd < 0)
-		nhrp_socket_fd =
-			socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_NHRP));
-	return nhrp_socket_fd;
+	if (nhrp_vrf->nhrp_socket_fd < 0) {
+		frr_with_privs(&nhrpd_privs) {
+			nhrp_vrf->nhrp_socket_fd =
+				vrf_socket(PF_PACKET, SOCK_DGRAM,
+					   htons(ETH_P_NHRP),
+					   nhrp_vrf->vrf_id, NULL);
+		}
+	}
+	return nhrp_vrf->nhrp_socket_fd;
 }
 
 int os_sendmsg(const uint8_t *buf, size_t len, int ifindex, const uint8_t *addr,
-	       size_t addrlen, uint16_t protocol)
+	       size_t addrlen, uint16_t protocol, int fd)
 {
 	struct sockaddr_ll lladdr;
 	struct iovec iov = {
@@ -42,7 +45,7 @@ int os_sendmsg(const uint8_t *buf, size_t len, int ifindex, const uint8_t *addr,
 		.msg_iov = &iov,
 		.msg_iovlen = 1,
 	};
-	int status, fd;
+	int status;
 
 	if (addrlen > sizeof(lladdr.sll_addr))
 		return -1;
@@ -54,7 +57,6 @@ int os_sendmsg(const uint8_t *buf, size_t len, int ifindex, const uint8_t *addr,
 	lladdr.sll_halen = addrlen;
 	memcpy(lladdr.sll_addr, addr, addrlen);
 
-	fd = os_socket();
 	if (fd < 0)
 		return -1;
 
@@ -66,7 +68,7 @@ int os_sendmsg(const uint8_t *buf, size_t len, int ifindex, const uint8_t *addr,
 }
 
 int os_recvmsg(uint8_t *buf, size_t *len, int *ifindex, uint8_t *addr,
-	       size_t *addrlen)
+	       size_t *addrlen, int fd)
 {
 	struct sockaddr_ll lladdr;
 	struct iovec iov = {
@@ -80,7 +82,7 @@ int os_recvmsg(uint8_t *buf, size_t *len, int *ifindex, uint8_t *addr,
 	};
 	int r;
 
-	r = recvmsg(nhrp_socket_fd, &msg, MSG_DONTWAIT);
+	r = recvmsg(fd, &msg, MSG_DONTWAIT);
 	if (r < 0)
 		return r;
 
@@ -99,12 +101,13 @@ int os_recvmsg(uint8_t *buf, size_t *len, int *ifindex, uint8_t *addr,
 	return 0;
 }
 
-static int linux_configure_arp(const char *iface, int on)
+static int linux_configure_arp(const char *iface, int on,
+			       struct nhrp_vrf *nhrp_vrf)
 {
 	struct ifreq ifr;
 
 	strlcpy(ifr.ifr_name, iface, IFNAMSIZ);
-	if (ioctl(nhrp_socket_fd, SIOCGIFFLAGS, &ifr))
+	if (ioctl(nhrp_vrf->nhrp_socket_fd, SIOCGIFFLAGS, &ifr))
 		return -1;
 
 	if (on)
@@ -112,7 +115,7 @@ static int linux_configure_arp(const char *iface, int on)
 	else
 		ifr.ifr_flags |= IFF_NOARP;
 
-	if (ioctl(nhrp_socket_fd, SIOCSIFFLAGS, &ifr))
+	if (ioctl(nhrp_vrf->nhrp_socket_fd, SIOCSIFFLAGS, &ifr))
 		return -1;
 
 	return 0;
@@ -135,17 +138,18 @@ static int linux_icmp_redirect_off(const char *iface)
 	return ret;
 }
 
-int os_configure_dmvpn(unsigned int ifindex, const char *ifname, int af)
+int os_configure_dmvpn(struct interface *ifp, int af,
+		       struct nhrp_vrf *nhrp_vrf)
 {
 	int ret = 0;
 
 	switch (af) {
 	case AF_INET:
 		ret |= linux_icmp_redirect_off("all");
-		ret |= linux_icmp_redirect_off(ifname);
+		ret |= linux_icmp_redirect_off(ifp->name);
 		break;
 	}
-	ret |= linux_configure_arp(ifname, 1);
+	ret |= linux_configure_arp(ifp->name, 1, nhrp_vrf);
 
 	return ret;
 }
