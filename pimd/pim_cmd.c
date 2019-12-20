@@ -7873,55 +7873,7 @@ DEFUN(interface_no_ip_pim_boundary_oil,
 
 DEFUN (interface_ip_mroute,
        interface_ip_mroute_cmd,
-       "ip mroute INTERFACE A.B.C.D",
-       IP_STR
-       "Add multicast route\n"
-       "Outgoing interface name\n"
-       "Group address\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
-	int idx_interface = 2;
-	int idx_ipv4 = 3;
-	struct interface *oif;
-	const char *oifname;
-	const char *grp_str;
-	struct in_addr grp_addr;
-	struct in_addr src_addr;
-	int result;
-
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-	pim = pim_ifp->pim;
-
-	oifname = argv[idx_interface]->arg;
-	oif = if_lookup_by_name(oifname, pim->vrf_id);
-	if (!oif) {
-		vty_out(vty, "No such interface name %s\n", oifname);
-		return CMD_WARNING;
-	}
-
-	grp_str = argv[idx_ipv4]->arg;
-	result = inet_pton(AF_INET, grp_str, &grp_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad group address %s: errno=%d: %s\n", grp_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
-
-	src_addr.s_addr = INADDR_ANY;
-
-	if (pim_static_add(pim, iif, oif, grp_addr, src_addr)) {
-		vty_out(vty, "Failed to add route\n");
-		return CMD_WARNING;
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (interface_ip_mroute_source,
-       interface_ip_mroute_source_cmd,
-       "ip mroute INTERFACE A.B.C.D A.B.C.D",
+       "ip mroute INTERFACE A.B.C.D [A.B.C.D]",
        IP_STR
        "Add multicast route\n"
        "Outgoing interface name\n"
@@ -7933,7 +7885,6 @@ DEFUN (interface_ip_mroute_source,
 	struct pim_instance *pim;
 	int idx_interface = 2;
 	int idx_ipv4 = 3;
-	int idx_ipv4_2 = 4;
 	struct interface *oif;
 	const char *oifname;
 	const char *grp_str;
@@ -7960,16 +7911,21 @@ DEFUN (interface_ip_mroute_source,
 		return CMD_WARNING;
 	}
 
-	src_str = argv[idx_ipv4_2]->arg;
-	result = inet_pton(AF_INET, src_str, &src_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad source address %s: errno=%d: %s\n", src_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
+        if (argc == (idx_ipv4 + 1)) {
+                src_addr.s_addr = INADDR_ANY;
+        }
+        else {
+                src_str = argv[idx_ipv4 + 1]->arg;
+                result = inet_pton(AF_INET, src_str, &src_addr);
+                if (result <= 0) {
+                        vty_out(vty, "Bad source address %s: errno=%d: %s\n", src_str,
+                                errno, safe_strerror(errno));
+                        return CMD_WARNING;
+                }
+        }
 
 	if (pim_static_add(pim, iif, oif, grp_addr, src_addr)) {
-		vty_out(vty, "Failed to add route\n");
+		vty_out(vty, "Failed to add static mroute\n");
 		return CMD_WARNING;
 	}
 
@@ -7978,56 +7934,7 @@ DEFUN (interface_ip_mroute_source,
 
 DEFUN (interface_no_ip_mroute,
        interface_no_ip_mroute_cmd,
-       "no ip mroute INTERFACE A.B.C.D",
-       NO_STR
-       IP_STR
-       "Add multicast route\n"
-       "Outgoing interface name\n"
-       "Group Address\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
-	int idx_interface = 3;
-	int idx_ipv4 = 4;
-	struct interface *oif;
-	const char *oifname;
-	const char *grp_str;
-	struct in_addr grp_addr;
-	struct in_addr src_addr;
-	int result;
-
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-	pim = pim_ifp->pim;
-
-	oifname = argv[idx_interface]->arg;
-	oif = if_lookup_by_name(oifname, pim->vrf_id);
-	if (!oif) {
-		vty_out(vty, "No such interface name %s\n", oifname);
-		return CMD_WARNING;
-	}
-
-	grp_str = argv[idx_ipv4]->arg;
-	result = inet_pton(AF_INET, grp_str, &grp_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad group address %s: errno=%d: %s\n", grp_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
-
-	src_addr.s_addr = INADDR_ANY;
-
-	if (pim_static_del(pim, iif, oif, grp_addr, src_addr)) {
-		vty_out(vty, "Failed to remove route\n");
-		return CMD_WARNING;
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (interface_no_ip_mroute_source,
-       interface_no_ip_mroute_source_cmd,
-       "no ip mroute INTERFACE A.B.C.D A.B.C.D",
+       "no ip mroute INTERFACE A.B.C.D [A.B.C.D]",
        NO_STR
        IP_STR
        "Add multicast route\n"
@@ -8040,7 +7947,6 @@ DEFUN (interface_no_ip_mroute_source,
 	struct pim_instance *pim;
 	int idx_interface = 3;
 	int idx_ipv4 = 4;
-	int idx_ipv4_2 = 5;
 	struct interface *oif;
 	const char *oifname;
 	const char *grp_str;
@@ -8067,16 +7973,21 @@ DEFUN (interface_no_ip_mroute_source,
 		return CMD_WARNING;
 	}
 
-	src_str = argv[idx_ipv4_2]->arg;
-	result = inet_pton(AF_INET, src_str, &src_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad source address %s: errno=%d: %s\n", src_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
+        if (argc == (idx_ipv4 + 1)) {
+                src_addr.s_addr = INADDR_ANY;
+        }
+        else {
+                src_str = argv[idx_ipv4 + 1]->arg;
+                result = inet_pton(AF_INET, src_str, &src_addr);
+                if (result <= 0) {
+                        vty_out(vty, "Bad source address %s: errno=%d: %s\n", src_str,
+                                errno, safe_strerror(errno));
+                        return CMD_WARNING;
+                }
+        }
 
 	if (pim_static_del(pim, iif, oif, grp_addr, src_addr)) {
-		vty_out(vty, "Failed to remove route\n");
+		vty_out(vty, "Failed to remove static mroute\n");
 		return CMD_WARNING;
 	}
 
@@ -10547,9 +10458,7 @@ void pim_cmd_init(void)
 
 	// Static mroutes NEB
 	install_element(INTERFACE_NODE, &interface_ip_mroute_cmd);
-	install_element(INTERFACE_NODE, &interface_ip_mroute_source_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_mroute_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ip_mroute_source_cmd);
 
 	install_element(VIEW_NODE, &show_ip_igmp_interface_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_interface_vrf_all_cmd);
