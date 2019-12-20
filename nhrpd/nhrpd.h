@@ -130,6 +130,8 @@ extern int nhrp_send_zebra_gre_request(struct interface *ifp);
 extern struct nhrp_gre_info *nhrp_gre_info_alloc(struct nhrp_gre_info *p,
 						 struct nhrp_vrf *nhrp_vrf);
 
+void nhrp_send_zebra_interface_redirect(struct interface *ifp,
+					int af);
 struct zbuf;
 struct nhrp_vc;
 struct nhrp_cache;

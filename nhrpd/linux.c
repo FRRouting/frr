@@ -121,23 +121,6 @@ static int linux_configure_arp(const char *iface, int on,
 	return 0;
 }
 
-static int linux_icmp_redirect_off(const char *iface)
-{
-	char fname[PATH_MAX];
-	int fd, ret = -1;
-
-	snprintf(fname, sizeof(fname),
-		 "/proc/sys/net/ipv4/conf/%s/send_redirects", iface);
-	fd = open(fname, O_WRONLY);
-	if (fd < 0)
-		return -1;
-	if (write(fd, "0\n", 2) == 2)
-		ret = 0;
-	close(fd);
-
-	return ret;
-}
-
 int os_configure_dmvpn(struct interface *ifp, int af,
 		       struct nhrp_vrf *nhrp_vrf)
 {
@@ -145,8 +128,7 @@ int os_configure_dmvpn(struct interface *ifp, int af,
 
 	switch (af) {
 	case AF_INET:
-		ret |= linux_icmp_redirect_off("all");
-		ret |= linux_icmp_redirect_off(ifp->name);
+		nhrp_send_zebra_interface_redirect(ifp, af);
 		break;
 	}
 	ret |= linux_configure_arp(ifp->name, 1, nhrp_vrf);
