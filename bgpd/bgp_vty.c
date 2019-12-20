@@ -2843,7 +2843,7 @@ DEFUN (no_bgp_listen_range,
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
 	argv_find(argv, argc, "X:X::X:X/M", &idx);
 	char *prefix = argv[idx]->arg;
-	argv_find(argv, argc, "WORD", &idx);
+	argv_find(argv, argc, "PGNAME", &idx);
 	char *peergroup = argv[idx]->arg;
 
 	/* Convert IP prefix string to struct prefix. */
