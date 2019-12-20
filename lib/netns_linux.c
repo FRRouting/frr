@@ -51,7 +51,7 @@ static struct ns *ns_lookup_name_internal(const char *name);
 
 RB_GENERATE(ns_head, ns, entry, ns_compare)
 
-struct ns_head ns_tree = RB_INITIALIZER(&ns_tree);
+static struct ns_head ns_tree = RB_INITIALIZER(&ns_tree);
 
 static struct ns *default_ns;
 static int ns_current_ns_fd;
@@ -379,12 +379,20 @@ struct ns *ns_lookup(ns_id_t ns_id)
 	return ns_lookup_internal(ns_id);
 }
 
-void ns_walk_func(int (*func)(struct ns *))
+void ns_walk_func(int (*func)(struct ns *,
+			      void *param_in,
+			      void **param_out),
+		  void *param_in,
+		  void **param_out)
 {
 	struct ns *ns = NULL;
+	int ret;
 
-	RB_FOREACH (ns, ns_head, &ns_tree)
-		func(ns);
+	RB_FOREACH (ns, ns_head, &ns_tree) {
+		ret = func(ns, param_in, param_out);
+		if (ret == NS_WALK_STOP)
+			return;
+	}
 }
 
 const char *ns_get_name(struct ns *ns)
