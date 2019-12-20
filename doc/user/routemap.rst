@@ -346,6 +346,27 @@ Route Map Exit Action Command
 
    Proceed processing the route-map at the first entry whose order is >= N
 
+.. _route-map-optimization-command:
+
+Route Map Optimization Command
+==============================
+
+.. index:: route-map optimization
+.. clicmd:: route-map optimization
+
+   Enable route-map processing optimization. The optimization is
+   enabled by default.
+   Instead of sequentially passing through all the route-map indexes
+   until a match is found, the search for the best-match index will be
+   based on a look-up in a prefix-tree. A per-route-map prefix-tree
+   will be constructed for this purpose. The prefix-tree will compose
+   of all the prefixes in all the prefix-lists that are included in the
+   match rule of all the sequences of a route-map.
+
+.. index:: no route-map optimization
+.. clicmd:: no route-map optimization
+
+   Disable the route-map processing optimization.
 
 Route Map Examples
 ==================
