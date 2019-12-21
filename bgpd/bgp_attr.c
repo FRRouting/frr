@@ -2905,7 +2905,9 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 
 	/* Nexthop AFI */
 	if (afi == AFI_IP
-	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
+	    && (safi == SAFI_UNICAST ||
+		safi == SAFI_LABELED_UNICAST ||
+		safi == SAFI_MULTICAST))
 		nh_afi = peer_cap_enhe(peer, afi, safi) ? AFI_IP6 : AFI_IP;
 	else
 		nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->mp_nexthop_len);
