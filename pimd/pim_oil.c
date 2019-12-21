@@ -64,8 +64,8 @@ char *pim_channel_oil_dump(struct channel_oil *c_oil, char *buf, size_t size)
 	return buf;
 }
 
-static int pim_channel_oil_compare(struct channel_oil *c1,
-				   struct channel_oil *c2)
+int pim_channel_oil_compare(const struct channel_oil *c1,
+			    const struct channel_oil *c2)
 {
 	if (ntohl(c1->oil.mfcc_mcastgrp.s_addr)
 	    < ntohl(c2->oil.mfcc_mcastgrp.s_addr))
@@ -108,26 +108,17 @@ static unsigned int pim_oil_hash_key(const void *arg)
 
 void pim_oil_init(struct pim_instance *pim)
 {
-	char hash_name[64];
-
-	snprintf(hash_name, 64, "PIM %s Oil Hash", pim->vrf->name);
-	pim->channel_oil_hash = hash_create_size(8192, pim_oil_hash_key,
-						 pim_oil_equal, hash_name);
-
-	pim->channel_oil_list = list_new();
-	pim->channel_oil_list->del = (void (*)(void *))pim_channel_oil_free;
-	pim->channel_oil_list->cmp =
-		(int (*)(void *, void *))pim_channel_oil_compare;
+	rb_pim_oil_init(&pim->channel_oil_head);
 }
 
 void pim_oil_terminate(struct pim_instance *pim)
 {
-	if (pim->channel_oil_list)
-		list_delete(&pim->channel_oil_list);
+	struct channel_oil *c_oil;
 
-	if (pim->channel_oil_hash)
-		hash_free(pim->channel_oil_hash);
-	pim->channel_oil_hash = NULL;
+	while ((c_oil = rb_pim_oil_pop(&pim->channel_oil_head)))
+		pim_channel_oil_free(c_oil);
+
+	rb_pim_oil_fini(&pim->channel_oil_head);
 }
 
 void pim_channel_oil_free(struct channel_oil *c_oil)
@@ -144,7 +135,7 @@ struct channel_oil *pim_find_channel_oil(struct pim_instance *pim,
 	lookup.oil.mfcc_mcastgrp = sg->grp;
 	lookup.oil.mfcc_origin = sg->src;
 
-	c_oil = hash_lookup(pim->channel_oil_hash, &lookup);
+	c_oil = rb_pim_oil_find(&pim->channel_oil_head, &lookup);
 
 	return c_oil;
 }
@@ -187,7 +178,6 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 
 	c_oil->oil.mfcc_mcastgrp = sg->grp;
 	c_oil->oil.mfcc_origin = sg->src;
-	c_oil = hash_get(pim->channel_oil_hash, c_oil, hash_alloc_intern);
 
 	c_oil->oil.mfcc_parent = MAXVIFS;
 	c_oil->oil_ref_count = 1;
@@ -195,7 +185,7 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 	c_oil->up = pim_upstream_find(pim, sg);
 	c_oil->pim = pim;
 
-	listnode_add_sort(pim->channel_oil_list, c_oil);
+	rb_pim_oil_add(&pim->channel_oil_head, c_oil);
 
 	if (PIM_DEBUG_MROUTE)
 		zlog_debug("%s(%s): c_oil %s add",
@@ -224,8 +214,7 @@ struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
 		 * called by list_delete_all_node()
 		 */
 		c_oil->up = NULL;
-		listnode_delete(c_oil->pim->channel_oil_list, c_oil);
-		hash_release(c_oil->pim->channel_oil_hash, c_oil);
+		rb_pim_oil_del(&c_oil->pim->channel_oil_head, c_oil);
 
 		pim_channel_oil_free(c_oil);
 		return NULL;

@@ -1975,7 +1975,6 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 			   const char *src_or_group, const char *group, bool uj)
 {
 	struct channel_oil *c_oil;
-	struct listnode *node;
 	json_object *json = NULL;
 	json_object *json_group = NULL;
 	json_object *json_ifp_in = NULL;
@@ -1994,7 +1993,7 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 			"\nActive Source           Group            RPT  IIF               OIL\n");
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
 		char grp_str[INET_ADDRSTRLEN];
 		char src_str[INET_ADDRSTRLEN];
 		char in_ifname[INTERFACE_NAMSIZ + 1];
@@ -5420,7 +5419,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 	now = pim_time_monotonic_sec();
 
 	/* print list of PIM and IGMP routes */
-	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
 		found_oif = 0;
 		first = 1;
 		if (!c_oil->installed && !uj)
@@ -5828,7 +5827,7 @@ DEFUN (clear_ip_mroute_count,
 		return CMD_WARNING;
 
 	pim = vrf->info;
-	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
+	frr_each(rb_pim_oil, &pim->channel_oil_head, c_oil) {
 		if (!c_oil->installed)
 			continue;
 
@@ -5863,7 +5862,7 @@ static void show_mroute_count(struct pim_instance *pim, struct vty *vty)
 		"Source          Group           LastUsed Packets Bytes WrongIf  \n");
 
 	/* Print PIM and IGMP route counts */
-	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
 
@@ -5968,7 +5967,7 @@ static void show_mroute_summary(struct pim_instance *pim, struct vty *vty)
 
 	vty_out(vty, "Mroute Type    Installed/Total\n");
 
-	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
 		if (!c_oil->installed) {
 			if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
 				starg_sw_mroute_cnt++;

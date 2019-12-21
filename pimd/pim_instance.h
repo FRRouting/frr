@@ -28,6 +28,7 @@
 #include "pim_assert.h"
 #include "pim_bsm.h"
 #include "pim_vxlan_instance.h"
+#include "pim_oil.h"
 
 #if defined(HAVE_LINUX_MROUTE_H)
 #include <linux/mroute.h>
@@ -119,8 +120,7 @@ struct pim_instance {
 
 	int iface_vif_index[MAXVIFS];
 
-	struct list *channel_oil_list;
-	struct hash *channel_oil_hash;
+	struct rb_pim_oil_head channel_oil_head;
 
 	struct pim_msdp msdp;
 	struct pim_vxlan_instance vxlan;
