@@ -86,26 +86,6 @@ int pim_channel_oil_compare(const struct channel_oil *c1,
 	return 0;
 }
 
-static bool pim_oil_equal(const void *arg1, const void *arg2)
-{
-	const struct channel_oil *c1 = (const struct channel_oil *)arg1;
-	const struct channel_oil *c2 = (const struct channel_oil *)arg2;
-
-	if ((c1->oil.mfcc_mcastgrp.s_addr == c2->oil.mfcc_mcastgrp.s_addr)
-	    && (c1->oil.mfcc_origin.s_addr == c2->oil.mfcc_origin.s_addr))
-		return true;
-
-	return false;
-}
-
-static unsigned int pim_oil_hash_key(const void *arg)
-{
-	const struct channel_oil *oil = arg;
-
-	return jhash_2words(oil->oil.mfcc_mcastgrp.s_addr,
-			    oil->oil.mfcc_origin.s_addr, 0);
-}
-
 void pim_oil_init(struct pim_instance *pim)
 {
 	rb_pim_oil_init(&pim->channel_oil_head);

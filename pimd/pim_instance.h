@@ -29,6 +29,7 @@
 #include "pim_bsm.h"
 #include "pim_vxlan_instance.h"
 #include "pim_oil.h"
+#include "pim_upstream.h"
 
 #if defined(HAVE_LINUX_MROUTE_H)
 #include <linux/mroute.h>
@@ -108,8 +109,7 @@ struct pim_instance {
 	struct list *static_routes;
 
 	// Upstream vrf specific information
-	struct list *upstream_list;
-	struct hash *upstream_hash;
+	struct rb_pim_upstream_head upstream_head;
 	struct timer_wheel *upstream_sg_wheel;
 
 	/*

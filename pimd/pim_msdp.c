@@ -565,11 +565,9 @@ void pim_msdp_sa_local_update(struct pim_upstream *up)
 static void pim_msdp_sa_local_setup(struct pim_instance *pim)
 {
 	struct pim_upstream *up;
-	struct listnode *up_node;
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, up_node, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up)
 		pim_msdp_sa_local_update(up);
-	}
 }
 
 /* whenever the RP changes we need to re-evaluate the "local" SA-cache */

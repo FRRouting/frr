@@ -914,7 +914,6 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 	struct in_addr ifaddr;
 	struct interface *ifp;
 	struct listnode *neighnode;
-	struct listnode *upnode;
 	struct pim_interface *pim_ifp;
 	struct pim_neighbor *neigh;
 	struct pim_upstream *up;
@@ -1052,8 +1051,7 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 					    pim_ifp->pim_dr_election_changes);
 
 			// FHR
-			for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode,
-						  up)) {
+			frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 				if (ifp != up->rpf.source_nexthop.interface)
 					continue;
 
@@ -1215,8 +1213,7 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 
 			// FHR
 			print_header = 1;
-			for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode,
-						  up)) {
+			frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 				if (!up->rpf.source_nexthop.interface)
 					continue;
 
@@ -1386,7 +1383,6 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 				bool uj)
 {
 	struct interface *ifp;
-	struct listnode *upnode;
 	struct pim_interface *pim_ifp;
 	struct pim_upstream *up;
 	int fhr = 0;
@@ -1408,7 +1404,7 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 		pim_ifchannels = pim_if_ifchannel_count(pim_ifp);
 		fhr = 0;
 
-		for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up))
+		frr_each (rb_pim_upstream, &pim->upstream_head, up)
 			if (ifp == up->rpf.source_nexthop.interface)
 				if (up->flags & PIM_UPSTREAM_FLAG_MASK_FHR)
 					fhr++;
@@ -2428,7 +2424,6 @@ static const char *pim_reg_state2brief_str(enum pim_reg_state reg_state,
 static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 			      struct prefix_sg *sg, bool uj)
 {
-	struct listnode *upnode;
 	struct pim_upstream *up;
 	time_t now;
 	json_object *json = NULL;
@@ -2443,7 +2438,7 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty,
 			"Iif             Source          Group           State       Uptime   JoinTimer RSTimer   KATimer   RefCnt\n");
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		char src_str[INET_ADDRSTRLEN];
 		char grp_str[INET_ADDRSTRLEN];
 		char uptime[10];
@@ -2715,7 +2710,6 @@ static void pim_show_join_desired_helper(struct pim_instance *pim,
 static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 				  bool uj)
 {
-	struct listnode *upnode;
 	struct pim_upstream *up;
 
 	json_object *json = NULL;
@@ -2726,7 +2720,7 @@ static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty,
 			"Source          Group           EvalJD\n");
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		/* scan all interfaces */
 		pim_show_join_desired_helper(pim, vty, up,
 				json, uj);
@@ -2742,7 +2736,6 @@ static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 static void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty,
 				  bool uj)
 {
-	struct listnode *upnode;
 	struct pim_upstream *up;
 	json_object *json = NULL;
 	json_object *json_group = NULL;
@@ -2754,7 +2747,7 @@ static void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty,
 			"Source          Group           RpfIface         RibNextHop      RpfAddress     \n");
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		char src_str[INET_ADDRSTRLEN];
 		char grp_str[INET_ADDRSTRLEN];
 		char rpf_nexthop_str[PREFIX_STRLEN];
@@ -2875,7 +2868,6 @@ static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
 
 static void pim_show_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 {
-	struct listnode *up_node;
 	struct pim_upstream *up;
 	time_t now = pim_time_monotonic_sec();
 	json_object *json = NULL;
@@ -2892,7 +2884,7 @@ static void pim_show_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 			"Source          Group           RpfIface         RpfAddress      RibNextHop      Metric Pref\n");
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, up_node, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		char src_str[INET_ADDRSTRLEN];
 		char grp_str[INET_ADDRSTRLEN];
 		char rpf_addr_str[PREFIX_STRLEN];
@@ -3932,11 +3924,8 @@ static void clear_mroute(struct pim_instance *pim)
 	}
 
 	/* clean up all upstreams*/
-	if (pim->upstream_list) {
-		while (pim->upstream_list->count) {
-			up = listnode_head(pim->upstream_list);
-			pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
-		}
+	while ((up = rb_pim_upstream_first(&pim->upstream_head))) {
+		pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
 	}
 }
 
