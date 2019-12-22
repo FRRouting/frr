@@ -175,7 +175,7 @@ void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable)
 	       "Requesting Zebra to turn router advertisements %s for %s",
 	       r->vr->vrid, enable ? "on" : "off", r->mvl_ifp->name);
 
-	zclient_send_interface_radv_req(zclient, VRF_DEFAULT, r->mvl_ifp,
+	zclient_send_interface_radv_req(zclient, r->mvl_ifp->vrf_id, r->mvl_ifp,
 					enable, VRRP_RADV_INT);
 }
 
@@ -185,7 +185,7 @@ int vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
 	       VRRP_LOGPFX "Requesting Zebra to set %s protodown %s", ifp->name,
 	       down ? "on" : "off");
 
-	return zclient_send_interface_protodown(zclient, VRF_DEFAULT, ifp,
+	return zclient_send_interface_protodown(zclient, ifp->vrf_id, ifp,
 						down);
 }
 
