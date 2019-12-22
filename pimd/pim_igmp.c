@@ -478,21 +478,29 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 			ip_hdr->ip_p);
 	}
 
+	if (ip_hlen > len) {
+		zlog_warn(
+			"IGMP packet header claims size %zu, but we only have %zu bytes",
+			ip_hlen, len);
+		return -1;
+	}
+
 	igmp_msg = buf + ip_hlen;
-	msg_type = *igmp_msg;
 	igmp_msg_len = len - ip_hlen;
+
+	if (igmp_msg_len < PIM_IGMP_MIN_LEN) {
+		zlog_warn("IGMP message size=%d shorter than minimum=%d",
+			  igmp_msg_len, PIM_IGMP_MIN_LEN);
+		return -1;
+	}
+
+	msg_type = *igmp_msg;
 
 	if (PIM_DEBUG_IGMP_PACKETS) {
 		zlog_debug(
 			"Recv IGMP packet from %s to %s on %s: ttl=%d msg_type=%d msg_size=%d",
 			from_str, to_str, igmp->interface->name, ip_hdr->ip_ttl,
 			msg_type, igmp_msg_len);
-	}
-
-	if (igmp_msg_len < PIM_IGMP_MIN_LEN) {
-		zlog_warn("IGMP message size=%d shorter than minimum=%d",
-			  igmp_msg_len, PIM_IGMP_MIN_LEN);
-		return -1;
 	}
 
 	switch (msg_type) {
