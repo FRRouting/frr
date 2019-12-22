@@ -324,7 +324,9 @@ static void group_exclude_fwd_anysrc_ifempty(struct igmp_group *group)
 void igmp_source_free(struct igmp_source *source)
 {
 	/* make sure there is no source timer running */
+#ifndef FUZZING
 	zassert(!source->t_source_timer);
+#endif
 
 	XFREE(MTYPE_PIM_IGMP_GROUP_SOURCE, source);
 }
@@ -580,7 +582,9 @@ static void isex_excl(struct igmp_group *group, int num_sources,
 			zassert(!source->t_source_timer); /* timer == 0 */
 			igmp_source_reset_gmi(group->group_igmp_sock, group,
 					      source);
+#ifndef FUZZING
 			zassert(source->t_source_timer); /* (A-X-Y) timer > 0 */
+#endif
 		}
 
 	} /* scan received sources */
@@ -631,7 +635,9 @@ static void isex_incl(struct igmp_group *group, int num_sources,
 			/* I.4: if not found, create source with timer=0 (B-A)
 			 */
 			source = source_new(group, *src_addr);
+#ifndef FUZZING
 			zassert(!source->t_source_timer); /* (B-A) timer=0 */
+#endif
 		}
 
 	} /* scan received sources */
@@ -834,7 +840,9 @@ static void toex_incl(struct igmp_group *group, int num_sources,
 			/* If source not found, create source with timer=0:
 			 * (B-A)=0 */
 			source = source_new(group, *src_addr);
+#ifndef FUZZING
 			zassert(!source->t_source_timer); /* (B-A) timer=0 */
+#endif
 		}
 
 	} /* Scan received sources (B) */
@@ -897,7 +905,9 @@ static void toex_excl(struct igmp_group *group, int num_sources,
 			zassert(!source->t_source_timer); /* timer == 0 */
 			group_timer_msec = igmp_group_timer_remain_msec(group);
 			igmp_source_timer_on(group, source, group_timer_msec);
+#ifndef FUZZING
 			zassert(source->t_source_timer); /* (A-X-Y) timer > 0 */
+#endif
 
 			/* make sure source is created with DELETE flag unset */
 			zassert(!IGMP_SOURCE_TEST_DELETE(source->source_flags));
@@ -1411,7 +1421,9 @@ static void block_excl(struct igmp_group *group, int num_sources,
 			zassert(!source->t_source_timer); /* timer == 0 */
 			group_timer_msec = igmp_group_timer_remain_msec(group);
 			igmp_source_timer_on(group, source, group_timer_msec);
+#ifndef FUZZING
 			zassert(source->t_source_timer); /* (A-X-Y) timer > 0 */
+#endif
 		}
 
 		if (source->t_source_timer) {
@@ -1863,7 +1875,9 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 		zlog_warn(
 			"Recv IGMP report v3 from %s on %s: checksum mismatch: received=%x computed=%x",
 			from_str, ifp->name, recv_checksum, checksum);
+#ifndef FUZZING
 		return -1;
+#endif
 	}
 
 	/* Collecting IGMP Rx stats */

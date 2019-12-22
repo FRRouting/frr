@@ -52,7 +52,9 @@
 
 #define FUZZING 1
 #ifdef FUZZING
+#include "fuzz.h"
 #include "pim_pim.h"
+#include "pim_mroute.h"
 #endif
 
 extern struct host host;
@@ -108,22 +110,40 @@ int main(int argc, char **argv, char **envp)
 	pim_zebra_init();
 	//pim_init();
 
-	fseek(stdin, 0, SEEK_END);
-	long fsize = ftell(stdin);
-	if (fsize < 0)
-		return 0;
+	uint8_t *input;
+	int len = frrfuzz_read_input(&input);
 
-	fseek(stdin, 0, SEEK_SET);
-	uint8_t *packet = malloc(fsize);
-	fread(packet, 1, fsize, stdin);
+#define KERNEL_IFACE 1
+#ifdef KERNEL_IFACE
+	/* Source address stuff */
+	struct prefix p;
+	str2prefix("27.0.0.9/24", &p);
+	struct in_addr src = { .s_addr = 0x0900001b };
 
+	/* Create system interface */
+	struct interface *ifp = if_create_name("fuzziface", VRF_DEFAULT);
+	if_set_index(ifp, 69);
+
+	struct connected *c = connected_add_by_prefix(ifp, &p, NULL);
+
+	/* Create pim stuff */
+	struct pim_interface *pim_ifp = pim_if_new(ifp, true, true, false, false);
+	pim_igmp_sock_add(pim_ifp->igmp_socket_list, src, ifp, false);
+
+	struct pim_instance *pim = vrf_lookup_by_id(VRF_DEFAULT)->info;
+	pim_if_create_pimreg(pim);
+	pim_hello_options ho = 0;
+	pim_neighbor_add(ifp, src, ho, 210, 1, 1, 30, 20, NULL, 0);
+
+	int result = pim_mroute_msg(pim, (const char *) input, len, 69);
+#else
 	struct interface *ifp = if_create_name("fuzziface", VRF_DEFAULT);
 	pim_if_new(ifp, true, true, false, false);
 	struct in_addr src = { .s_addr = 0x0900001b };
 	pim_hello_options ho = 0;
 	pim_neighbor_add(ifp, src, ho, 210, 1, 1, 30, 20, NULL, 0);
-
 	int result = pim_pim_packet(ifp, packet, fsize);
+#endif
 
 	return result;
 #endif
