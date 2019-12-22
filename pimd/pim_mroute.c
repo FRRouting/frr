@@ -585,7 +585,7 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 	return 0;
 }
 
-static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
+int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 			  int buf_size, ifindex_t ifindex)
 {
 	struct interface *ifp;
@@ -848,8 +848,12 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 	}
 #endif
 
+#ifndef FUZZING
 	err = setsockopt(pim_ifp->pim->mroute_socket, IPPROTO_IP, MRT_ADD_VIF,
 			 (void *)&vc, sizeof(vc));
+#else
+	err = 0;
+#endif
 	if (err) {
 		char ifaddr_str[INET_ADDRSTRLEN];
 
