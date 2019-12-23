@@ -169,8 +169,14 @@ BuildRequires:  libyang-devel >= 0.16.74
 BuildRequires:  python27-devel
 BuildRequires:  python27-sphinx
 %else
+%if 0%{?rhel} && 0%{?rhel} > 7
+BuildRequires:  python2-devel
+#platform-python-devel is needed for /usr/bin/pathfix.py
+BuildRequires:  platform-python-devel
+%else
 BuildRequires:  python-devel >= 2.7
 BuildRequires:  python-sphinx
+%endif
 %endif
 Requires:       initscripts
 %if %{with_pam}
@@ -217,8 +223,13 @@ Contributed/3rd party tools which may be of use with frr.
 
 %package pythontools
 Summary: python tools for frr
+%if 0%{?rhel} && 0%{?rhel} > 7
+BuildRequires: python2
+Requires: python2-ipaddress
+%else
 BuildRequires: python
 Requires: python-ipaddress
+%endif
 Group: System Environment/Daemons
 
 %description pythontools
@@ -397,6 +408,11 @@ install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate %{buildroot}%{_sysconfdir}/logrotate.d/frr
 install -d -m750 %{buildroot}%{rundir}
 
+%if 0%{?rhel} && 0%{?rhel} > 7
+# avoid `ERROR: ambiguous python shebang in` errors
+pathfix.py -pni "%{__python2} %{py2_shbang_opts}" %{buildroot}/usr/lib/frr/*.py
+%py_byte_compile %{__python2} %{buildroot}/usr/lib/frr/*.py
+%endif
 
 %pre
 # add vty_group
@@ -682,6 +698,9 @@ fi
 
 
 %changelog
+* Fri Dec 27 2019 Donatas Abraitis <donatas.abraitis@gmail.com>
+- Add CentOS 8 support
+
 * Sun May 28 2018 Rafael Zalamena <rzalamena@opensourcerouting.org> - %{version}
 - Add BFDd support
 
