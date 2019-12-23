@@ -934,6 +934,16 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     lines_to_del_to_del.append((ctx_keys, route_target_export_line))
                     lines_to_add_to_del.append((ctx_keys, route_target_both_line))
 
+        # Deleting static routes under a vrf can lead to time-outs if each is sent
+        # as separate vtysh -c commands. Change them from being in lines_to_del and
+        # put the "no" form in lines_to_add
+        if ctx_keys[0].startswith('vrf ') and line:
+            if (line.startswith('ip route') or
+                line.startswith('ipv6 route')):
+                add_cmd = ('no ' + line)
+                lines_to_add.append((ctx_keys, add_cmd))
+                lines_to_del_to_del.append((ctx_keys, line))
+
         if not deleted:
             found_add_line = line_exist(lines_to_add, ctx_keys, line)
 
@@ -1053,6 +1063,19 @@ def compare_context_objects(newconf, running):
                 # delete each line individually again
                 for line in running_ctx.lines:
                     lines_to_del.append((running_ctx_keys, line))
+
+            # Some commands can happen at higher counts that make
+            # doing vtysh -c inefficient (and can time out.)  For
+            # these commands, instead of adding them to lines_to_del,
+            # add the "no " version to lines_to_add.
+            elif (running_ctx_keys[0].startswith('ip route') or
+                  running_ctx_keys[0].startswith('ipv6 route') or
+                  running_ctx_keys[0].startswith('access-list') or
+                  running_ctx_keys[0].startswith('ipv6 access-list') or
+                  running_ctx_keys[0].startswith('ip prefix-list') or
+                  running_ctx_keys[0].startswith('ipv6 prefix-list')):
+                add_cmd = ('no ' + running_ctx_keys[0],)
+                lines_to_add.append((add_cmd, None))
 
             # Non-global context
             elif running_ctx_keys and not any("address-family" in key for key in running_ctx_keys):
@@ -1390,6 +1413,11 @@ if __name__ == '__main__':
                 for (ctx_keys, line) in lines_to_add:
 
                     if line == '!':
+                        continue
+
+                    # Don't run "no" commands twice since they can error
+                    # out the second time due to first deletion
+                    if x == 1 and ctx_keys[0].startswith('no '):
                         continue
 
                     cmd = line_for_vtysh_file(ctx_keys, line, False)
