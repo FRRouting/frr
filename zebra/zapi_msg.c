@@ -1425,9 +1425,6 @@ static struct nexthop *nexthop_from_zapi(struct route_entry *re,
 	struct interface *ifp;
 	char nhbuf[INET6_ADDRSTRLEN] = "";
 
-	if (IS_ZEBRA_DEBUG_RECV)
-		zlog_debug("nh type %d", api_nh->type);
-
 	switch (api_nh->type) {
 	case NEXTHOP_TYPE_IFINDEX:
 		nexthop = nexthop_from_ifindex(api_nh->ifindex, api_nh->vrf_id);
@@ -1526,6 +1523,18 @@ static struct nexthop *nexthop_from_zapi(struct route_entry *re,
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_WEIGHT))
 		nexthop->weight = api_nh->weight;
 
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
+		if (api_nh->backup_idx < api->backup_nexthop_num) {
+			/* Capture backup info */
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP);
+			nexthop->backup_idx = api_nh->backup_idx;
+		} else {
+			/* Warn about invalid backup index */
+			if (IS_ZEBRA_DEBUG_RECV || IS_ZEBRA_DEBUG_EVENT)
+				zlog_debug("%s: invalid backup nh idx %d",
+					   __func__, api_nh->backup_idx);
+		}
+	}
 done:
 	return nexthop;
 }
@@ -1540,9 +1549,13 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	struct route_entry *re;
 	struct nexthop *nexthop = NULL, *last_nh;
 	struct nexthop_group *ng = NULL;
-	struct nexthop_group *backup_ng = NULL;
+	struct nhg_backup_info *bnhg = NULL;
 	int i, ret;
 	vrf_id_t vrf_id;
+	struct nhg_hash_entry nhe;
+	enum lsp_types_t label_type;
+	char nhbuf[NEXTHOP_STRLEN];
+	char labelbuf[MPLS_LABEL_STRLEN];
 
 	s = msg;
 	if (zapi_route_decode(s, &api) < 0) {
@@ -1622,30 +1635,48 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		    && api_nh->type != NEXTHOP_TYPE_IFINDEX
 		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE
 		    && api_nh->label_num > 0) {
-			enum lsp_types_t label_type;
 
 			label_type = lsp_type_from_re_type(client->proto);
-
-			if (IS_ZEBRA_DEBUG_RECV) {
-				zlog_debug(
-					"%s: adding %d labels of type %d (1st=%u)",
-					__func__, api_nh->label_num, label_type,
-					api_nh->labels[0]);
-			}
-
 			nexthop_add_labels(nexthop, label_type,
 					   api_nh->label_num,
 					   &api_nh->labels[0]);
 		}
 
-		/* Add new nexthop to temporary list */
+		if (IS_ZEBRA_DEBUG_RECV) {
+			labelbuf[0] = '\0';
+			nhbuf[0] = '\0';
+
+			nexthop2str(nexthop, nhbuf, sizeof(nhbuf));
+
+			if (nexthop->nh_label &&
+			    nexthop->nh_label->num_labels > 0) {
+				mpls_label2str(nexthop->nh_label->num_labels,
+					       nexthop->nh_label->label,
+					       labelbuf, sizeof(labelbuf),
+					       false);
+			}
+
+			zlog_debug("%s: nh=%s, vrf_id=%d %s",
+				   __func__, nhbuf, api_nh->vrf_id, labelbuf);
+		}
+
+		/* Add new nexthop to temporary list. This list is
+		 * canonicalized - sorted - so that it can be hashed later
+		 * in route processing. We expect that the sender has sent
+		 * the list sorted, and the zapi client api attempts to enforce
+		 * that, so this should be inexpensive - but it is necessary
+		 * to support shared nexthop-groups.
+		 */
 		nexthop_group_add_sorted(ng, nexthop);
-		nexthop = NULL;
 	}
 
 	/* Allocate temporary list of backup nexthops, if necessary */
 	if (api.backup_nexthop_num > 0) {
-		backup_ng = nexthop_group_new();
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: adding %d backup nexthops",
+				   __func__, api.backup_nexthop_num);
+
+		bnhg = zebra_nhg_backup_alloc();
 		nexthop = NULL;
 		last_nh = NULL;
 	}
@@ -1662,9 +1693,20 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				"%s: Backup Nexthops Specified: %d but we failed to properly create one",
 				__func__, api.backup_nexthop_num);
 			nexthop_group_delete(&ng);
-			nexthop_group_delete(&backup_ng);
+			zebra_nhg_backup_free(&bnhg);
 			XFREE(MTYPE_RE, re);
 			return;
+		}
+
+		/* Backup nexthops can't have backups; that's not valid. */
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+			if (IS_ZEBRA_DEBUG_RECV) {
+				nexthop2str(nexthop, nhbuf, sizeof(nhbuf));
+				zlog_debug("%s: backup nh %s with BACKUP flag!",
+					   __func__, nhbuf);
+			}
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP);
+			nexthop->backup_idx = 0;
 		}
 
 		/* MPLS labels for BGP-LU or Segment Routing */
@@ -1672,31 +1714,39 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		    && api_nh->type != NEXTHOP_TYPE_IFINDEX
 		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE
 		    && api_nh->label_num > 0) {
-			enum lsp_types_t label_type;
 
 			label_type = lsp_type_from_re_type(client->proto);
-
-			if (IS_ZEBRA_DEBUG_RECV) {
-				zlog_debug(
-					"%s: adding %d labels of type %d (1st=%u)",
-					__func__, api_nh->label_num, label_type,
-					api_nh->labels[0]);
-			}
-
 			nexthop_add_labels(nexthop, label_type,
 					   api_nh->label_num,
 					   &api_nh->labels[0]);
 		}
 
-		/* Note that the order of the backup nexthops is significant
-		 * at this point - we don't sort this list as we do the
-		 * primary nexthops, we just append.
-		 */
-		if (last_nh) {
-			NEXTHOP_APPEND(last_nh, nexthop);
-		} else {
-			backup_ng->nexthop = nexthop;
+		if (IS_ZEBRA_DEBUG_RECV) {
+			labelbuf[0] = '\0';
+			nhbuf[0] = '\0';
+
+			nexthop2str(nexthop, nhbuf, sizeof(nhbuf));
+
+			if (nexthop->nh_label &&
+			    nexthop->nh_label->num_labels > 0) {
+				mpls_label2str(nexthop->nh_label->num_labels,
+					       nexthop->nh_label->label,
+					       labelbuf, sizeof(labelbuf),
+					       false);
+			}
+
+			zlog_debug("%s: backup nh=%s, vrf_id=%d %s",
+				   __func__, nhbuf, api_nh->vrf_id, labelbuf);
 		}
+
+		/* Note that the order of the backup nexthops is significant,
+		 * so we don't sort this list as we do the primary nexthops,
+		 * we just append.
+		 */
+		if (last_nh)
+			NEXTHOP_APPEND(last_nh, nexthop);
+		else
+			bnhg->nhe->nhg.nexthop = nexthop;
 
 		last_nh = nexthop;
 	}
@@ -1716,7 +1766,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  "%s: Received SRC Prefix but afi is not v6",
 			  __func__);
 		nexthop_group_delete(&ng);
-		nexthop_group_delete(&backup_ng);
+		zebra_nhg_backup_free(&bnhg);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
@@ -1728,10 +1778,17 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  "%s: Received safi: %d but we can only accept UNICAST or MULTICAST",
 			  __func__, api.safi);
 		nexthop_group_delete(&ng);
+		zebra_nhg_backup_free(&bnhg);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
-	ret = rib_add_multipath(afi, api.safi, &api.prefix, src_p, re, ng);
+
+	/* Include backup info with the route */
+	memset(&nhe, 0, sizeof(nhe));
+	nhe.nhg.nexthop = ng->nexthop;
+	nhe.backup_info = bnhg;
+	ret = rib_add_multipath_nhe(afi, api.safi, &api.prefix, src_p,
+				    re, &nhe);
 
 	/* Stats */
 	switch (api.prefix.family) {

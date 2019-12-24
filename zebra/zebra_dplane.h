@@ -270,10 +270,18 @@ void dplane_ctx_set_distance(struct zebra_dplane_ctx *ctx, uint8_t distance);
 uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx);
 
 void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh);
+
+uint32_t dplane_ctx_get_nhg_id(const struct zebra_dplane_ctx *ctx);
 const struct nexthop_group *dplane_ctx_get_ng(
 	const struct zebra_dplane_ctx *ctx);
 const struct nexthop_group *dplane_ctx_get_old_ng(
 	const struct zebra_dplane_ctx *ctx);
+
+/* Backup nexthop information (list of nexthops) if present. */
+const struct nexthop_group *
+dplane_ctx_get_backup_ng(const struct zebra_dplane_ctx *ctx);
+const struct nexthop_group *
+dplane_ctx_get_old_backup_ng(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for nexthop information */
 uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx);

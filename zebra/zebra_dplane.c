@@ -113,10 +113,15 @@ struct dplane_route_info {
 	struct dplane_nexthop_info nhe;
 
 	/* Nexthops */
+	uint32_t zd_nhg_id;
 	struct nexthop_group zd_ng;
+
+	/* Backup nexthops (if present) */
+	struct nexthop_group backup_ng;
 
 	/* "Previous" nexthops, used only in route updates without netlink */
 	struct nexthop_group zd_old_ng;
+	struct nexthop_group old_backup_ng;
 
 	/* TODO -- use fixed array of nexthops, to avoid mallocs? */
 
@@ -472,11 +477,26 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 			(*pctx)->u.rinfo.zd_ng.nexthop = NULL;
 		}
 
+		/* Free backup info also (if present) */
+		if ((*pctx)->u.rinfo.backup_ng.nexthop) {
+			/* This deals with recursive nexthops too */
+			nexthops_free((*pctx)->u.rinfo.backup_ng.nexthop);
+
+			(*pctx)->u.rinfo.backup_ng.nexthop = NULL;
+		}
+
 		if ((*pctx)->u.rinfo.zd_old_ng.nexthop) {
 			/* This deals with recursive nexthops too */
 			nexthops_free((*pctx)->u.rinfo.zd_old_ng.nexthop);
 
 			(*pctx)->u.rinfo.zd_old_ng.nexthop = NULL;
+		}
+
+		if ((*pctx)->u.rinfo.old_backup_ng.nexthop) {
+			/* This deals with recursive nexthops too */
+			nexthops_free((*pctx)->u.rinfo.old_backup_ng.nexthop);
+
+			(*pctx)->u.rinfo.old_backup_ng.nexthop = NULL;
 		}
 
 		break;
@@ -1038,6 +1058,12 @@ void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh)
 	nexthop_group_copy_nh_sorted(&(ctx->u.rinfo.zd_ng), nh);
 }
 
+uint32_t dplane_ctx_get_nhg_id(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.rinfo.zd_nhg_id;
+}
+
 const struct nexthop_group *dplane_ctx_get_ng(
 	const struct zebra_dplane_ctx *ctx)
 {
@@ -1046,12 +1072,28 @@ const struct nexthop_group *dplane_ctx_get_ng(
 	return &(ctx->u.rinfo.zd_ng);
 }
 
-const struct nexthop_group *dplane_ctx_get_old_ng(
-	const struct zebra_dplane_ctx *ctx)
+const struct nexthop_group *
+dplane_ctx_get_backup_ng(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.rinfo.backup_ng);
+}
+
+const struct nexthop_group *
+dplane_ctx_get_old_ng(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
 	return &(ctx->u.rinfo.zd_old_ng);
+}
+
+const struct nexthop_group *
+dplane_ctx_get_old_backup_ng(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.rinfo.old_backup_ng);
 }
 
 const struct zebra_dplane_info *dplane_ctx_get_ns(
@@ -1514,6 +1556,13 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 	/* Copy nexthops; recursive info is included too */
 	copy_nexthops(&(ctx->u.rinfo.zd_ng.nexthop),
 		      re->nhe->nhg.nexthop, NULL);
+	ctx->u.rinfo.zd_nhg_id = re->nhe->id;
+
+	/* Copy backup nexthop info, if present */
+	if (re->nhe->backup_info && re->nhe->backup_info->nhe) {
+		copy_nexthops(&(ctx->u.rinfo.backup_ng.nexthop),
+			      re->nhe->backup_info->nhe->nhg.nexthop, NULL);
+	}
 
 	/* Ensure that the dplane nexthops' flags are clear. */
 	for (ALL_NEXTHOPS(ctx->u.rinfo.zd_ng, nexthop))
@@ -1532,9 +1581,8 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_ROUTE_UPDATE));
 
 #ifdef HAVE_NETLINK
-	if (re->nhe_id) {
-		struct nhg_hash_entry *nhe =
-			zebra_nhg_resolve(zebra_nhg_lookup_id(re->nhe_id));
+	if (re->nhe) {
+		struct nhg_hash_entry *nhe = zebra_nhg_resolve(re->nhe);
 
 		ctx->u.rinfo.nhe.id = nhe->id;
 		/*
@@ -1581,7 +1629,6 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 {
 	struct zebra_vrf *zvrf = NULL;
 	struct zebra_ns *zns = NULL;
-
 	int ret = EINVAL;
 
 	if (!ctx || !nhe)
@@ -1850,6 +1897,17 @@ dplane_route_update_internal(struct route_node *rn,
 			 */
 			copy_nexthops(&(ctx->u.rinfo.zd_old_ng.nexthop),
 				      old_re->nhe->nhg.nexthop, NULL);
+
+			if (zebra_nhg_get_backup_nhg(old_re->nhe) != NULL) {
+				struct nexthop_group *nhg;
+				struct nexthop **nh;
+
+				nhg = zebra_nhg_get_backup_nhg(old_re->nhe);
+				nh = &(ctx->u.rinfo.old_backup_ng.nexthop);
+
+				if (nhg->nexthop)
+					copy_nexthops(nh, nhg->nexthop, NULL);
+			}
 #endif	/* !HAVE_NETLINK */
 		}
 

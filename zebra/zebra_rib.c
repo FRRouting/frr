@@ -2338,7 +2338,6 @@ static void rib_addnode(struct route_node *rn,
 void rib_unlink(struct route_node *rn, struct route_entry *re)
 {
 	rib_dest_t *dest;
-	struct nhg_hash_entry *nhe = NULL;
 
 	assert(rn && re);
 
@@ -2353,11 +2352,10 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 	if (dest->selected_fib == re)
 		dest->selected_fib = NULL;
 
-	if (re->nhe_id) {
-		nhe = zebra_nhg_lookup_id(re->nhe_id);
-		if (nhe)
-			zebra_nhg_decrement_ref(nhe);
-	} else if (re->nhe->nhg.nexthop)
+	if (re->nhe && re->nhe_id) {
+		assert(re->nhe->id == re->nhe_id);
+		zebra_nhg_decrement_ref(re->nhe);
+	} else if (re->nhe && re->nhe->nhg.nexthop)
 		nexthops_free(re->nhe->nhg.nexthop);
 
 	nexthops_free(re->fib_ng.nexthop);
@@ -2574,51 +2572,52 @@ void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	}
 }
 
-int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
-		      struct prefix_ipv6 *src_p, struct route_entry *re,
-		      struct nexthop_group *ng)
+/*
+ * Internal route-add implementation; there are a couple of different public
+ * signatures. Callers in this path are responsible for the memory they
+ * allocate: if they allocate a nexthop_group or backup nexthop info, they
+ * must free those objects. If this returns < 0, an error has occurred and the
+ * route_entry 're' has not been captured; the caller should free that also.
+ */
+int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
+			  struct prefix_ipv6 *src_p,
+			  struct route_entry *re,
+			  struct nhg_hash_entry *re_nhe)
 {
 	struct nhg_hash_entry *nhe = NULL;
 	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *same = NULL;
 	int ret = 0;
+	struct nexthop_group *ng;
 
-	if (!re)
-		return 0;
+	if (!re || !re_nhe)
+		return -1;
 
 	assert(!src_p || !src_p->prefixlen || afi == AFI_IP6);
+
+	/* TODO */
+	ng = &(re_nhe->nhg);
 
 	/* Lookup table.  */
 	table = zebra_vrf_get_table_with_table_id(afi, safi, re->vrf_id,
 						  re->table);
-	if (!table) {
-		if (ng)
-			nexthop_group_delete(&ng);
-		XFREE(MTYPE_RE, re);
-		return 0;
-	}
+	if (!table)
+		return -1;
 
-	if (re->nhe_id) {
-		nhe = zebra_nhg_lookup_id(re->nhe_id);
+	if (re_nhe->id > 0) {
+		nhe = zebra_nhg_lookup_id(re_nhe->id);
 
 		if (!nhe) {
 			flog_err(
 				EC_ZEBRA_TABLE_LOOKUP_FAILED,
 				"Zebra failed to find the nexthop hash entry for id=%u in a route entry",
-				re->nhe_id);
-			XFREE(MTYPE_RE, re);
+				re_nhe->id);
+
 			return -1;
 		}
 	} else {
 		nhe = zebra_nhg_rib_find(0, ng, afi);
-
-		/*
-		 * The nexthops got copied over into an nhe,
-		 * so free them now.
-		 */
-		nexthop_group_delete(&ng);
-
 		if (!nhe) {
 			char buf[PREFIX_STRLEN] = "";
 			char buf2[PREFIX_STRLEN] = "";
@@ -2631,7 +2630,6 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 				src_p ? prefix2str(src_p, buf2, sizeof(buf2))
 				      : "");
 
-			XFREE(MTYPE_RE, re);
 			return -1;
 		}
 	}
@@ -2709,12 +2707,47 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	ret = 1;
 
 	/* Free implicit route.*/
-	if (same) {
+	if (same)
 		rib_delnode(rn, same);
-		ret = -1;
-	}
 
 	route_unlock_node(rn);
+	return ret;
+}
+
+/*
+ * Add a single route.
+ */
+int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
+		      struct prefix_ipv6 *src_p, struct route_entry *re,
+		      struct nexthop_group *ng)
+{
+	int ret;
+	struct nhg_hash_entry nhe = {};
+
+	if (!re)
+		return -1;
+
+	/* We either need nexthop(s) or an existing nexthop id */
+	if (ng == NULL && re->nhe_id == 0)
+		return -1;
+
+	/*
+	 * Use a temporary nhe to convey info to the common/main api.
+	 */
+	if (ng)
+		nhe.nhg.nexthop = ng->nexthop;
+	else if (re->nhe_id > 0)
+		nhe.id = re->nhe_id;
+
+	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, &nhe);
+
+	/* In this path, the callers expect memory to be freed. */
+	nexthop_group_delete(&ng);
+
+	/* In error cases, free the route also */
+	if (ret < 0)
+		XFREE(MTYPE_RE, re);
+
 	return ret;
 }
 
