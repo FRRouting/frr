@@ -3,7 +3,7 @@
 Packaging Red Hat
 =================
 
-Tested on CentOS 6, CentOS 7 and Fedora 24.
+Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
 
 1. On CentOS 6, refer to :ref:`building-centos6` for details on installing
    sufficiently up-to-date package versions to enable building FRR.
@@ -22,7 +22,25 @@ Tested on CentOS 6, CentOS 7 and Fedora 24.
 
       yum install systemd-devel
 
+   .. note::
+
+     For CentOS 8 you need to install ``platform-python-devel`` package
+     to provide ``/usr/bin/pathfix.py``::
+
+       yum install platform-python-devel
+
+   .. warning::
+
+     ``python2-sphinx`` is not shipped for CentOS 8.
+     Development reached the end of life for Python 2.
+     We need to install it using ```pip``::
+
+        pip2 install sphinx
+
    If ``yum`` is not present on your system, use ``dnf`` instead.
+
+   You should enable ``PowerTools`` repo if using CentOS 8 which
+   is disabled by default.
 
 3. Checkout FRR::
 
