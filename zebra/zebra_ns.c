@@ -37,6 +37,7 @@
 #include "zebra_pbr.h"
 #include "rib.h"
 #include "table_manager.h"
+#include "zebra_errors.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -64,6 +65,9 @@ static int zebra_ns_new(struct ns *ns)
 {
 	struct zebra_ns *zns;
 
+	if (!ns)
+		return -1;
+
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_info("ZNS %s with id %u (created)", ns->name, ns->ns_id);
 
@@ -86,7 +90,7 @@ static int zebra_ns_delete(struct ns *ns)
 		zlog_info("ZNS %s with id %u (deleted)", ns->name, ns->ns_id);
 	if (!zns)
 		return 0;
-	XFREE(MTYPE_ZEBRA_NS, zns);
+	XFREE(MTYPE_ZEBRA_NS, ns->info);
 	return 0;
 }
 
@@ -175,10 +179,9 @@ int zebra_ns_final_shutdown(struct ns *ns)
 
 int zebra_ns_init(const char *optional_default_name)
 {
+	struct ns *default_ns;
 	ns_id_t ns_id;
 	ns_id_t ns_id_external;
-
-	dzns = zebra_ns_alloc();
 
 	frr_with_privs(&zserv_privs) {
 		ns_id = zebra_ns_id_get_default();
@@ -186,8 +189,16 @@ int zebra_ns_init(const char *optional_default_name)
 	ns_id_external = ns_map_nsid_with_external(ns_id, true);
 	ns_init_management(ns_id_external, ns_id);
 
+	default_ns = ns_lookup(ns_get_default_id());
+	if (!default_ns) {
+		flog_err(EC_ZEBRA_NS_NO_DEFAULT,
+			 "%s: failed to find default ns", __func__);
+		exit(EXIT_FAILURE); /* This is non-recoverable */
+	}
+
 	/* Do any needed per-NS data structure allocation. */
-	dzns->if_table = route_table_init();
+	zebra_ns_new(default_ns);
+	dzns = default_ns->info;
 
 	/* Register zebra VRF callbacks, create and activate default VRF. */
 	zebra_vrf_init();
