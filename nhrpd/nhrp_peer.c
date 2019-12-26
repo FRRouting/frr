@@ -896,8 +896,10 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 
 	extoff = htons(hdr->extension_offset);
 	if (extoff) {
-		if (extoff >= realsize) {
-			info = "extoff larger than packet";
+		assert(zb->head > zb->buf);
+		uint32_t header_offset = zb->head - zb->buf;
+		if ((extoff >= realsize) || (extoff < (header_offset))) {
+			info = "extoff larger than packet, or smaller than header";
 			goto drop;
 		}
 		paylen = extoff - (zb->head - zb->buf);
