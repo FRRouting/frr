@@ -7693,7 +7693,7 @@ DEFUN (show_bgp_vrfs,
 		if (!uj && count == 1) {
 			vty_out(vty,
 				"%4s  %-5s  %-16s  %9s  %10s  %-37s\n",
-				"Type", "Id", "routerId", "#PeersVfg",
+				"Type", "Id", "routerId", "#PeersCfg",
 				"#PeersEstb", "Name");
 			vty_out(vty, "%11s  %-16s  %-21s  %-6s\n", " ",
 				"L3-VNI", "RouterMAC", "Interface");
