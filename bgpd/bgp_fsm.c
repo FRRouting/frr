@@ -1887,7 +1887,7 @@ static const struct {
 		{bgp_fsm_open, OpenConfirm}, /* Receive_OPEN_message         */
 		{bgp_fsm_event_error, Idle}, /* Receive_KEEPALIVE_message    */
 		{bgp_fsm_event_error, Idle}, /* Receive_UPDATE_message       */
-		{bgp_stop_with_error, Idle}, /* Receive_NOTIFICATION_message */
+		{bgp_fsm_event_error, Idle}, /* Receive_NOTIFICATION_message */
 		{bgp_fsm_exeption, Idle},    /* Clearing_Completed           */
 	},
 	{
