@@ -151,8 +151,8 @@ static int rip_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 void rip_redistribute_conf_update(struct rip *rip, int type)
 {
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type,
-			     0, rip->vrf->vrf_id);
+	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
+				type, 0, rip->vrf->vrf_id);
 }
 
 void rip_redistribute_conf_delete(struct rip *rip, int type)
