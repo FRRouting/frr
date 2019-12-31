@@ -2691,7 +2691,7 @@ DEFUN (bgp_listen_limit,
        bgp_listen_limit_cmd,
        "bgp listen limit (1-5000)",
        "BGP specific commands\n"
-       "Configure BGP defaults\n"
+       "BGP Dynamic Neighbors listen commands\n"
        "maximum number of BGP Dynamic Neighbors that can be created\n"
        "Configure Dynamic Neighbors listen limit value\n")
 {
@@ -2709,8 +2709,9 @@ DEFUN (bgp_listen_limit,
 DEFUN (no_bgp_listen_limit,
        no_bgp_listen_limit_cmd,
        "no bgp listen limit [(1-5000)]",
+       NO_STR
        "BGP specific commands\n"
-       "Configure BGP defaults\n"
+       "BGP Dynamic Neighbors listen commands\n"
        "unset maximum number of BGP Dynamic Neighbors that can be created\n"
        "Configure Dynamic Neighbors listen limit value to default\n"
        "Configure Dynamic Neighbors listen limit value\n")
