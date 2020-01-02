@@ -333,6 +333,7 @@ static void zprivs_caps_init(struct zebra_privs_t *zprivs)
 	/* we have caps, we have no need to ever change back the original user
 	 */
 	/* only change uid if we don't have the correct one */
+#ifndef FUZZING
 	if ((zprivs_state.zuid) && (zprivs_state.zsuid != zprivs_state.zuid)) {
 		if (setreuid(zprivs_state.zuid, zprivs_state.zuid)) {
 			fprintf(stderr,
@@ -341,6 +342,7 @@ static void zprivs_caps_init(struct zebra_privs_t *zprivs)
 			exit(1);
 		}
 	}
+#endif
 
 	if (!zprivs_state.syscaps_p)
 		return;
@@ -372,6 +374,7 @@ static void zprivs_caps_init(struct zebra_privs_t *zprivs)
 	/* apply caps. CAP_EFFECTIVE is cleared. we'll raise the caps as
 	 * and when, and only when, they are needed.
 	 */
+#ifndef FUZZING
 	if (cap_set_proc(zprivs_state.caps)) {
 		cap_t current_caps;
 		char *current_caps_text = NULL;
@@ -398,6 +401,7 @@ static void zprivs_caps_init(struct zebra_privs_t *zprivs)
 
 		exit(1);
 	}
+#endif
 
 	/* set methods for the caller to use */
 	zprivs->change = zprivs_change_caps;
@@ -752,6 +756,9 @@ static struct zebra_privs_refs_t *get_privs_refs(struct zebra_privs_t *privs)
 struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
 				    const char *funcname)
 {
+#ifdef FUZZING
+	return NULL;
+#endif
 	int save_errno = errno;
 	struct zebra_privs_refs_t *refs;
 
@@ -782,6 +789,9 @@ struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
 
 void _zprivs_lower(struct zebra_privs_t **privs)
 {
+#ifdef FUZZING
+	return;
+#endif
 	int save_errno = errno;
 	struct zebra_privs_refs_t *refs;
 
@@ -922,6 +932,7 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 
 	zprivs_state.zsuid = geteuid(); /* initial uid */
 	/* add groups only if we changed uid - otherwise skip */
+#ifndef FUZZING
 	if ((ngroups) && (zprivs_state.zsuid != zprivs_state.zuid)) {
 		if (setgroups(ngroups, groups)) {
 			fprintf(stderr, "privs_init: could not setgroups, %s\n",
@@ -939,6 +950,7 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 			exit(1);
 		}
 	}
+#endif
 
 #ifdef HAVE_CAPABILITIES
 	zprivs_caps_init(zprivs);
@@ -964,6 +976,7 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 	 */
 	zprivs_state.zsuid = geteuid();
 	/* only change uid if we don't have the correct one */
+#ifndef FUZZING
 	if ((zprivs_state.zuid) && (zprivs_state.zsuid != zprivs_state.zuid)) {
 		if (setreuid(-1, zprivs_state.zuid)) {
 			fprintf(stderr,
@@ -975,6 +988,7 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 
 	zprivs->change = zprivs_change_uid;
 	zprivs->current_state = zprivs_state_uid;
+#endif
 #endif /* HAVE_CAPABILITIES */
 }
 

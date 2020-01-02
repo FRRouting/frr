@@ -728,6 +728,7 @@ struct thread_master *frr_init(void)
 	return master;
 }
 
+#ifdef FUZZING
 static struct thread_master *master;
 struct thread_master *frr_init_fast(void)
 {
@@ -738,30 +739,12 @@ struct thread_master *frr_init_fast(void)
 	const char *dir;
 	dir = di->module_path ? di->module_path : frr_moduledir;
 #endif
-	char p_instance[16] = "", p_pathspace[256] = "";
-
-	srandom(time(NULL));
-
-	if (di->instance) {
-		snprintf(frr_protonameinst, sizeof(frr_protonameinst), "%s[%u]",
-			 di->logname, di->instance);
-		snprintf(p_instance, sizeof(p_instance), "-%d", di->instance);
-	}
-	if (di->pathspace)
-		snprintf(p_pathspace, sizeof(p_pathspace), "%s/",
-			 di->pathspace);
-
-	snprintf(config_default, sizeof(config_default), "%s%s%s%s.conf",
-		 frr_sysconfdir, p_pathspace, di->name, p_instance);
-	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s%s.pid",
-		 frr_vtydir, di->name, p_instance);
 #if 0
 #ifdef HAVE_SQLITE3
 	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s%s.db",
 		 frr_dbdir, p_pathspace, di->name, p_instance);
 #endif
 #endif
-
 	zprivs_preinit(di->privs);
 
 	openzlog(di->progname, di->logname, di->instance,
@@ -769,6 +752,7 @@ struct thread_master *frr_init_fast(void)
 
 	command_setup_early_logging(di->early_logging, di->early_loglevel);
 
+#if 0
 	if (!frr_zclient_addr(&zclient_addr, &zclient_addr_len,
 			      frr_zclientpath)) {
 		fprintf(stderr, "Invalid zserv socket path: %s\n",
@@ -785,6 +769,7 @@ struct thread_master *frr_init_fast(void)
 		if (di->vty_path)
 			frr_mkdir(di->vty_path, true);
 	}
+#endif
 
 #if 0
 	frrmod_init(di->module);
@@ -828,7 +813,9 @@ struct thread_master *frr_init_fast(void)
 #endif
 
 	log_ref_init();
+#if 0
 	log_ref_vty_init();
+#endif
 	lib_error_init();
 
 #if 0
@@ -845,6 +832,7 @@ struct thread_master *frr_init_fast(void)
 
 	return master;
 }
+#endif
 
 const char *frr_get_progname(void)
 {
