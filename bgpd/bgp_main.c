@@ -413,16 +413,16 @@ int main(int argc, char **argv)
 	/* Initialize basic BGP datastructures */
 	bgp_master_init(frr_init_fast(), buffer_size);
 	bm->port = bgp_port;
-	if (bgp_port == 0)
-		bgp_option_set(BGP_OPT_NO_LISTEN);
+	bgp_option_set(BGP_OPT_NO_LISTEN);
 	bm->address = bgp_address;
-	if (no_fib_flag || no_zebra_flag)
-		bgp_option_set(BGP_OPT_NO_FIB);
-	if (no_zebra_flag)
-		bgp_option_set(BGP_OPT_NO_ZEBRA);
+
+
+	bgp_option_set(BGP_OPT_NO_FIB);
+	bgp_option_set(BGP_OPT_NO_ZEBRA);
 	bgp_error_init();
 	// bgp_vrf_init();
 	bgp_init((unsigned short)instance);
+
 
 	/* Create a default instance and peer */
 	struct bgp *b;
@@ -447,6 +447,10 @@ int main(int argc, char **argv)
 	FOREACH_AFI_SAFI(afi, safi) {
 		SET_FLAG(p->af_cap[afi][safi], 0x3FFF);
 	}
+
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+	__AFL_INIT();
+#endif
 
 
 	uint8_t *input;
