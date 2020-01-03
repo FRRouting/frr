@@ -7712,9 +7712,20 @@ void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS)
 		STREAM_GETL(s, vni);
 		STREAM_GET(&macaddr.octet, s, ETH_ALEN);
 		STREAM_GETL(s, ipa_len);
+
 		if (ipa_len) {
-			ip.ipa_type = (ipa_len == IPV4_MAX_BYTELEN) ? IPADDR_V4
-								    : IPADDR_V6;
+			if (ipa_len == IPV4_MAX_BYTELEN)
+				ip.ipa_type = IPADDR_V4;
+			else if (ipa_len == IPV6_MAX_BYTELEN)
+				ip.ipa_type = IPADDR_V6;
+			else {
+				if (IS_ZEBRA_DEBUG_VXLAN)
+					zlog_debug("ipa_len *must* be %d or %d bytes in length not %d",
+						   IPV4_MAX_BYTELEN,
+						   IPV6_MAX_BYTELEN, ipa_len);
+				goto stream_failure;
+			}
+
 			STREAM_GET(&ip.ip.addr, s, ipa_len);
 		}
 		l += 4 + ETH_ALEN + 4 + ipa_len;
