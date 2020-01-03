@@ -2360,6 +2360,20 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		if (zpr.rule.filter.fwmark)
 			zpr.rule.filter.filter_bm |= PBR_FILTER_FWMARK;
 
+		if (!(zpr.rule.filter.src_ip.family == AF_INET
+		      || zpr.rule.filter.src_ip.family == AF_INET6)) {
+			zlog_warn("Unsupported PBR source IP family: %s\n",
+				  family2str(zpr.rule.filter.src_ip.family));
+			return;
+		}
+		if (!(zpr.rule.filter.dst_ip.family == AF_INET
+		      || zpr.rule.filter.dst_ip.family == AF_INET6)) {
+			zlog_warn("Unsupported PBR dest IP family: %s\n",
+				  family2str(zpr.rule.filter.dst_ip.family));
+			return;
+		}
+
+
 		zpr.vrf_id = zvrf->vrf->vrf_id;
 		if (hdr->command == ZEBRA_RULE_ADD)
 			zebra_pbr_add_rule(&zpr);
