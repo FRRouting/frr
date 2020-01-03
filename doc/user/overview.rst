@@ -262,14 +262,61 @@ FRR implements the following RFCs:
 
 .. note:: This list is incomplete.
 
-- :rfc:`1058`
-  :t:`Routing Information Protocol. C.L. Hedrick. Jun-01-1988.`
-- :rfc:`2082`
-  :t:`RIP-2 MD5 Authentication. F. Baker, R. Atkinson. January 1997.`
-- :rfc:`2453`
-  :t:`RIP Version 2. G. Malkin. November 1998.`
-- :rfc:`2080`
-  :t:`RIPng for IPv6. G. Malkin, R. Minnear. January 1997.`
+BGP
+----
+
+- :rfc:`1771`
+  :t:`A Border Gateway Protocol 4 (BGP-4). Y. Rekhter & T. Li. March 1995.`
+- :rfc:`1965`
+  :t:`Autonomous System Confederations for BGP. P. Traina. June 1996.`
+- :rfc:`1997`
+  :t:`BGP Communities Attribute. R. Chandra, P. Traina & T. Li. August 1996.`
+- :rfc:`2439`
+  :t:`BGP Route Flap Damping. C. Villamizar, R. Chandra, R. Govindan. November 1998.`
+- :rfc:`2545`
+  :t:`Use of BGP-4 Multiprotocol Extensions for IPv6 Inter-Domain Routing. P.
+  Marques, F. Dupont. March 1999.`
+- :rfc:`2796`
+  :t:`BGP Route Reflection An alternative to full mesh IBGP. T. Bates & R. Chandrasekeran. June 1996.`
+- :rfc:`2842`
+  :t:`Capabilities Advertisement with BGP-4. R. Chandra, J. Scudder. May 2000.`
+- :rfc:`2858`
+  :t:`Multiprotocol Extensions for BGP-4. T. Bates, Y. Rekhter, R. Chandra, D.`
+- :rfc:`3107`
+  :t:`Carrying Label Information in BGP-4. Y. Rekhter & E. Rosen. May 2001.`
+- :rfc:`3765`
+  :t:`NOPEER Community for Border Gateway Protocol (BGP) Route Scope Control. G.Huston, April 2001.`
+- :rfc:`4271`
+  :t:`A Border Gateway Protocol 4 (BGP-4). Updates RFC1771. Y. Rekhter, T. Li & S. Hares. January 2006.`
+- :rfc:`4364`
+  :t:`BGP/MPLS IP Virtual Private Networks (VPNs). Y. Rekhter. Feb 2006.`
+- :rfc:`4659`
+  :t:`BGP-MPLS IP Virtual Private Network (VPN) Extension for IPv6 VPN. J. De Clercq, D. Ooms, M. Carugi, F. Le Faucheur. September 2006.`
+- :rfc:`5004`
+  :t:`Avoid BGP Best Path Transitions from One External to Another. E. Chen & S. Sangli. September 2007 (Partial support).`
+- :rfc:`5082`
+  :t:`The Generalized TTL Security Mechanism (GTSM). V. Gill, J. Heasley, D. Meyer, P. Savola, C. Pingnataro. October 2007.`
+- :rfc:`5575`
+  :t:`Dissemination of Flow Specification Rules. P. Marques, N. Sheth, R. Raszuk, B. Greene, J. Mauch, D. McPherson. August 2009`
+- :rfc:`6810`
+  :t:`The Resource Public Key Infrastructure (RPKI) to Router Protocol. R. Bush, R. Austein. January 2013.`
+- :rfc:`6811`
+  :t:`BGP Prefix Origin Validation. P. Mohapatra, J. Scudder, D. Ward, R. Bush, R. Austein. January 2013.`
+- :rfc:`7611`
+  :t:`BGP ACCEPT_OWN Community Attribute. J. Uttaro, P. Mohapatra, D. Smith, R. Raszuk, J. Scudder. August 2015.`
+- :rfc:`7999`
+  :t:`BLACKHOLE Community. T. King, C. Dietzel, J. Snijders, G. Doering, G. Hankins. Oct 2016.`
+- :rfc:`8092`
+  :t:`BGP Large Communities Attribute. J. Heitz, Ed., J. Snijders, Ed, K. Patel, I. Bagdonas, N. Hilliard. February 2017`
+- :rfc:`8195`
+  :t:`Use of BGP Large Communities. J. Snijders, J. Heasley, M. Schmidt, June 2017`
+- :rfc:`8277`
+  :t:`Using BGP to Bind MPLS Labels to Address Prefixes. E. Rosen. October 2017`
+
+
+OSPF
+----
+
 - :rfc:`2328`
   :t:`OSPF Version 2. J. Moy. April 1998.`
 - :rfc:`2370`
@@ -278,62 +325,67 @@ FRR implements the following RFCs:
   :t:`The OSPF Not-So-Stubby Area (NSSA) Option P. Murphy. January 2003.`
 - :rfc:`2740`
   :t:`OSPF for IPv6. R. Coltun, D. Ferguson, J. Moy. December 1999.`
-- :rfc:`1771`
-  :t:`A Border Gateway Protocol 4 (BGP-4). Y. Rekhter & T. Li. March 1995.`
-- :rfc:`1965`
-  :t:`Autonomous System Confederations for BGP. P. Traina. June 1996.`
-- :rfc:`1997`
-  :t:`BGP Communities Attribute. R. Chandra, P. Traina & T. Li. August 1996.`
-- :rfc:`2545`
-  :t:`Use of BGP-4 Multiprotocol Extensions for IPv6 Inter-Domain Routing. P.
-  Marques, F. Dupont. March 1999.`
-- :rfc:`2796`
-  :t:`BGP Route Reflection An alternative to full mesh IBGP. T. Bates & R.
-  Chandrasekeran. June 1996.`
-- :rfc:`2858`
-  :t:`Multiprotocol Extensions for BGP-4. T. Bates, Y. Rekhter, R. Chandra, D.
-  Katz. June 2000.`
-- :rfc:`2842`
-  :t:`Capabilities Advertisement with BGP-4. R. Chandra, J. Scudder. May 2000.`
 - :rfc:`3137`
-  :t:`OSPF Stub Router Advertisement, A. Retana, L. Nguyen, R. White, A. Zinin,
-  D. McPherson. June 2001`
-- :rfc:`4447`
-  :t:`Pseudowire Setup and Maintenance Using the Label Distribution Protocol
-  (LDP), L. Martini, E. Rosen, N. El-Aawar, T. Smith, and G. Heron. April
-  2006.`
-- :rfc:`4762`
-  :t:`Virtual Private LAN Service (VPLS) Using Label Distribution Protocol
-  (LDP) Signaling, M. Lasserre and V. Kompella. January 2007.`
-- :rfc:`5036`
-  :t:`LDP Specification, L. Andersson, I. Minei, and B. Thomas. October 2007.`
-- :rfc:`5561`
-  :t:`LDP Capabilities, B. Thomas, K. Raza, S. Aggarwal, R. Aggarwal, and
-  JL. Le Roux. July 2009.`
-- :rfc:`5918`
-  :t:`Label Distribution Protocol (LDP) 'Typed Wildcard' Forward Equivalence
-  Class (FEC), R. Asati, I. Minei, and B. Thomas. August 2010.`
-- :rfc:`5919`
-  :t:`Signaling LDP Label Advertisement Completion, R. Asati, P. Mohapatra,
-  E. Chen, and B. Thomas. August 2010.`
-- :rfc:`6667`
-  :t:`LDP 'Typed Wildcard' Forwarding Equivalence Class (FEC) for PWid and
-  Generalized PWid FEC Elements, K. Raza, S. Boutros, and C. Pignataro. July
-  2012.`
-- :rfc:`6720`
-  :t:`The Generalized TTL Security Mechanism (GTSM) for the Label Distribution
-  Protocol (LDP), C. Pignataro and R. Asati. August 2012.`
-- :rfc:`7552`
-  :t:`Updates to LDP for IPv6, R. Asati, C. Pignataro, K. Raza, V. Manral,
-  and R. Papneja. June 2015.`
+  :t:`OSPF Stub Router Advertisement, A. Retana, L. Nguyen, R. White, A. Zinin, D. McPherson. June 2001`
+
+ISIS
+----
+
+RIP
+----
+
+- :rfc:`1058`
+  :t:`Routing Information Protocol. C.L. Hedrick. Jun-01-1988.`
+- :rfc:`2082`
+  :t:`RIP-2 MD5 Authentication. F. Baker, R. Atkinson. January 1997.`
+- :rfc:`2453`
+  :t:`RIP Version 2. G. Malkin. November 1998.`
+- :rfc:`2080`
+  :t:`RIPng for IPv6. G. Malkin, R. Minnear. January 1997.`
+
+PIM
+----
+
+BFD
+----
 - :rfc:`5880`
   :t:`Bidirectional Forwarding Detection (BFD), D. Katz, D. Ward. June 2010`
 - :rfc:`5881`
-  :t:`Bidirectional Forwarding Detection (BFD) for IPv4 and IPv6 (Single Hop),
-  D. Katz, D. Ward. June 2010`
+  :t:`Bidirectional Forwarding Detection (BFD) for IPv4 and IPv6 (Single Hop), D. Katz, D. Ward. June 2010`
 - :rfc:`5883`
-  :t:`Bidirectional Forwarding Detection (BFD) for Multihop Paths, D. Katz,
-  D. Ward. June 2010`
+  :t:`Bidirectional Forwarding Detection (BFD) for Multihop Paths, D. Katz, D. Ward. June 2010`
+
+MPLS
+----
+
+- :rfc:`2858`
+  :t:`Multiprotocol Extensions for BGP-4. T. Bates, Y. Rekhter, R. Chandra, D. Katz. June 2000.`
+- :rfc:`4364`
+  :t:`BGP/MPLS IP Virtual Private Networks (VPNs). Y. Rekhter. Feb 2006.`
+- :rfc:`4447`
+  :t:`Pseudowire Setup and Maintenance Using the Label Distribution Protocol (LDP), L. Martini, E. Rosen, N. El-Aawar, T. Smith, and G. Heron. April 2006.`
+- :rfc:`4659`
+  :t:`BGP-MPLS IP Virtual Private Network (VPN) Extension for IPv6 VPN. J. De Clercq, D. Ooms, M. Carugi, F. Le Faucheur. September 2006`
+- :rfc:`4762`
+  :t:`Virtual Private LAN Service (VPLS) Using Label Distribution Protocol (LDP) Signaling, M. Lasserre and V. Kompella. January 2007.`
+- :rfc:`5036`
+  :t:`LDP Specification, L. Andersson, I. Minei, and B. Thomas. October 2007.`
+- :rfc:`5561`
+  :t:`LDP Capabilities, B. Thomas, K. Raza, S. Aggarwal, R. Aggarwal, and JL. Le Roux. July 2009.`
+- :rfc:`5918`
+  :t:`Label Distribution Protocol (LDP) 'Typed Wildcard' Forward Equivalence Class (FEC), R. Asati, I. Minei, and B. Thomas. August 2010.`
+- :rfc:`5919`
+  :t:`Signaling LDP Label Advertisement Completion, R. Asati, P. Mohapatra, E. Chen, and B. Thomas. August 2010.`
+- :rfc:`6667`
+  :t:`LDP 'Typed Wildcard' Forwarding Equivalence Class (FEC) for PWid and Generalized PWid FEC Elements, K. Raza, S. Boutros, and C. Pignataro. July 2012.`
+- :rfc:`6720`
+  :t:`The Generalized TTL Security Mechanism (GTSM) for the Label Distribution Protocol (LDP), C. Pignataro and R. Asati. August 2012.`
+- :rfc:`7552`
+  :t:`Updates to LDP for IPv6, R. Asati, C. Pignataro, K. Raza, V. Manral, and R. Papneja. June 2015.`
+
+
+SNMP
+----
 
 **When SNMP support is enabled, the following RFCs are also supported:**
 
