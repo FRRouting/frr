@@ -102,18 +102,36 @@ int main(int argc, char **argv, char **envp)
 	frr_preinit(&pimd_di, argc, argv);
 
 #ifdef FUZZING
-#ifdef __AFL_HAVE_MANUAL_CONTROL
-	__AFL_INIT();
-#endif
-	pim_router_init();
-	pim_vrf_init();
-	pim_zebra_init();
-	//pim_init();
 
-	uint8_t *input;
-	int len = frrfuzz_read_input(&input);
+	/* INIT */
+	{
+		pim_router_init();
 
-#define KERNEL_IFACE 1
+		/*
+		 * Initializations
+		 */
+		pim_error_init();
+		pim_vrf_init();
+		access_list_init();
+		prefix_list_init();
+		prefix_list_add_hook(pim_prefix_list_update);
+		prefix_list_delete_hook(pim_prefix_list_update);
+
+		pim_route_map_init();
+		pim_init();
+
+
+		/*
+		 * Initialize zclient "update" and "lookup" sockets
+		 */
+		if_zapi_callbacks(pim_ifp_create, pim_ifp_up,
+				  pim_ifp_down, pim_ifp_destroy);
+		pim_zebra_init();
+		pim_bfd_init();
+		pim_mlag_init();
+	}
+
+#define KERNEL_IFACE 0
 #ifdef KERNEL_IFACE
 	/* Source address stuff */
 	struct prefix p;
@@ -135,18 +153,37 @@ int main(int argc, char **argv, char **envp)
 	pim_hello_options ho = 0;
 	pim_neighbor_add(ifp, src, ho, 210, 1, 1, 30, 20, NULL, 0);
 
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+	__AFL_INIT();
+#endif /* __AFL_HAVE_MANUAL_CONTROL */
+
+	uint8_t *input;
+	int len = frrfuzz_read_input(&input);
+
 	int result = pim_mroute_msg(pim, (const char *) input, len, 69);
-#else
+
+#else /* KERNEL_IFACE */
+
 	struct interface *ifp = if_create_name("fuzziface", VRF_DEFAULT);
 	pim_if_new(ifp, true, true, false, false);
 	struct in_addr src = { .s_addr = 0x0900001b };
 	pim_hello_options ho = 0;
 	pim_neighbor_add(ifp, src, ho, 210, 1, 1, 30, 20, NULL, 0);
-	int result = pim_pim_packet(ifp, packet, fsize);
-#endif
+
+
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+	__AFL_INIT();
+#endif /* __AFL_HAVE_MANUAL_CONTROL */
+
+	uint8_t *input;
+	int len = frrfuzz_read_input(&input);
+
+	int result = pim_pim_packet(ifp, input, len);
+
+#endif /* KERNEL_IFACE */
 
 	return result;
-#endif
+#endif /* FUZZING */
 
 	frr_opt_add("", longopts, "");
 
