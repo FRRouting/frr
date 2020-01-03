@@ -2692,7 +2692,7 @@ DEFUN (bgp_listen_limit,
        "bgp listen limit (1-5000)",
        "BGP specific commands\n"
        "BGP Dynamic Neighbors listen commands\n"
-       "maximum number of BGP Dynamic Neighbors that can be created\n"
+       "Maximum number of BGP Dynamic Neighbors that can be created\n"
        "Configure Dynamic Neighbors listen limit value\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -2712,8 +2712,7 @@ DEFUN (no_bgp_listen_limit,
        NO_STR
        "BGP specific commands\n"
        "BGP Dynamic Neighbors listen commands\n"
-       "unset maximum number of BGP Dynamic Neighbors that can be created\n"
-       "Configure Dynamic Neighbors listen limit value to default\n"
+       "Maximum number of BGP Dynamic Neighbors that can be created\n"
        "Configure Dynamic Neighbors listen limit value\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
