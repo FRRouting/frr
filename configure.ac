@@ -334,6 +334,13 @@ if test "$enable_memory_sanitizer" = "yes"; then
     SAN_FLAGS="-fsanitize=memory -fPIE -pie"
   ])
 fi
+if test "$enable_undefined_sanitizer" = "yes"; then
+  AC_C_FLAG([-fsanitize=undefined], [
+    AC_MSG_ERROR([$CC does not support UndefinedBehaviorSanitizer.])
+  ], [
+    SAN_FLAGS="-fsanitize=undefined"
+  ])
+fi
 AC_SUBST([SAN_FLAGS])
 
 dnl ----------
@@ -576,6 +583,8 @@ AC_ARG_ENABLE([thread-sanitizer],
   AS_HELP_STRING([--enable-thread-sanitizer], [enable ThreadSanitizer support for detecting data races]))
 AC_ARG_ENABLE([memory-sanitizer],
   AS_HELP_STRING([--enable-memory-sanitizer], [enable MemorySanitizer support for detecting uninitialized memory reads]))
+AC_ARG_ENABLE([undefined-sanitizer],
+  AS_HELP_STRING([--undefined-sanitizer], [enable UndefinedBehaviorSanitizer support for detecting undefined behavior]))
 AC_ARG_WITH([crypto],
   AS_HELP_STRING([--with-crypto=<internal|openssl>], [choose between different implementations of cryptographic functions(default value is --with-crypto=internal)]))
 
