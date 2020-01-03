@@ -675,6 +675,7 @@ fi
     %{_libdir}/frr/modules/bgpd_rpki.so
 %endif
 %{_libdir}/frr/modules/zebra_cumulus_mlag.so
+%{_libdir}/frr/modules/dplane_fpm_nl.so
 %{_libdir}/frr/modules/zebra_irdp.so
 %{_libdir}/frr/modules/bgpd_bmp.so
 %{_bindir}/*

@@ -31,6 +31,7 @@
 #include "lib/zebra.h"
 #include "lib/json.h"
 #include "lib/libfrr.h"
+#include "lib/frratomic.h"
 #include "lib/command.h"
 #include "lib/memory.h"
 #include "lib/network.h"
@@ -415,7 +416,8 @@ static int fpm_read(struct thread *t)
 	rv = stream_read_try(fnc->ibuf, fnc->socket,
 			     STREAM_WRITEABLE(fnc->ibuf));
 	if (rv == 0) {
-		atomic_fetch_add(&fnc->counters.connection_closes, 1);
+		atomic_fetch_add_explicit(&fnc->counters.connection_closes, 1,
+					  memory_order_relaxed);
 		zlog_debug("%s: connection closed", __func__);
 		fpm_reconnect(fnc);
 		return 0;
@@ -425,7 +427,8 @@ static int fpm_read(struct thread *t)
 		    || errno == EINTR)
 			return 0;
 
-		atomic_fetch_add(&fnc->counters.connection_errors, 1);
+		atomic_fetch_add_explicit(&fnc->counters.connection_errors, 1,
+					  memory_order_relaxed);
 		zlog_debug("%s: connection failure: %s", __func__,
 			   strerror(errno));
 		fpm_reconnect(fnc);
@@ -434,7 +437,8 @@ static int fpm_read(struct thread *t)
 	stream_reset(fnc->ibuf);
 
 	/* Account all bytes read. */
-	atomic_fetch_add(&fnc->counters.bytes_read, rv);
+	atomic_fetch_add_explicit(&fnc->counters.bytes_read, rv,
+				  memory_order_relaxed);
 
 	thread_add_read(fnc->fthread->master, fpm_read, fnc, fnc->socket,
 			&fnc->t_read);
@@ -464,7 +468,9 @@ static int fpm_write(struct thread *t)
 				zlog_debug("%s: SO_ERROR failed: %s", __func__,
 					   strerror(status));
 
-			atomic_fetch_add(&fnc->counters.connection_errors, 1);
+			atomic_fetch_add_explicit(
+				&fnc->counters.connection_errors, 1,
+				memory_order_relaxed);
 
 			fpm_reconnect(fnc);
 			return 0;
@@ -493,7 +499,9 @@ static int fpm_write(struct thread *t)
 			stream_get_getp(fnc->obuf);
 		bwritten = write(fnc->socket, stream_pnt(fnc->obuf), btotal);
 		if (bwritten == 0) {
-			atomic_fetch_add(&fnc->counters.connection_closes, 1);
+			atomic_fetch_add_explicit(
+				&fnc->counters.connection_closes, 1,
+				memory_order_relaxed);
 			zlog_debug("%s: connection closed", __func__);
 			break;
 		}
@@ -505,7 +513,9 @@ static int fpm_write(struct thread *t)
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
 
-			atomic_fetch_add(&fnc->counters.connection_errors, 1);
+			atomic_fetch_add_explicit(
+				&fnc->counters.connection_errors, 1,
+				memory_order_relaxed);
 			zlog_debug("%s: connection failure: %s", __func__,
 				   strerror(errno));
 			fpm_reconnect(fnc);
@@ -513,10 +523,12 @@ static int fpm_write(struct thread *t)
 		}
 
 		/* Account all bytes sent. */
-		atomic_fetch_add(&fnc->counters.bytes_sent, bwritten);
+		atomic_fetch_add_explicit(&fnc->counters.bytes_sent, bwritten,
+					  memory_order_relaxed);
 
 		/* Account number of bytes free. */
-		atomic_fetch_sub(&fnc->counters.obuf_bytes, bwritten);
+		atomic_fetch_sub_explicit(&fnc->counters.obuf_bytes, bwritten,
+					  memory_order_relaxed);
 
 		stream_forward_getp(fnc->obuf, (size_t)bwritten);
 	}
@@ -565,7 +577,8 @@ static int fpm_connect(struct thread *t)
 
 	rv = connect(sock, (struct sockaddr *)&fnc->addr, slen);
 	if (rv == -1 && errno != EINPROGRESS) {
-		atomic_fetch_add(&fnc->counters.connection_errors, 1);
+		atomic_fetch_add_explicit(&fnc->counters.connection_errors, 1,
+					  memory_order_relaxed);
 		close(sock);
 		zlog_warn("%s: fpm connection failed: %s", __func__,
 			  strerror(errno));
@@ -690,8 +703,9 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 	/* Check if we have enough buffer space. */
 	if (STREAM_WRITEABLE(fnc->obuf) < (nl_buf_len + FPM_HEADER_SIZE)) {
-		atomic_fetch_add(&fnc->counters.buffer_full, 1);
-		zlog_debug("%s: buffer full: wants to write %lu but has %ld",
+		atomic_fetch_add_explicit(&fnc->counters.buffer_full, 1,
+					  memory_order_relaxed);
+		zlog_debug("%s: buffer full: wants to write %zu but has %zu",
 			   __func__, nl_buf_len + FPM_HEADER_SIZE,
 			   STREAM_WRITEABLE(fnc->obuf));
 		return -1;
@@ -710,14 +724,16 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	stream_write(fnc->obuf, nl_buf, (size_t)nl_buf_len);
 
 	/* Account number of bytes waiting to be written. */
-	atomic_fetch_add(&fnc->counters.obuf_bytes,
-			 nl_buf_len + FPM_HEADER_SIZE);
+	atomic_fetch_add_explicit(&fnc->counters.obuf_bytes,
+				  nl_buf_len + FPM_HEADER_SIZE,
+				  memory_order_relaxed);
 	obytes = atomic_load_explicit(&fnc->counters.obuf_bytes,
 				      memory_order_relaxed);
 	obytes_peak = atomic_load_explicit(&fnc->counters.obuf_peak,
 					   memory_order_relaxed);
 	if (obytes_peak < obytes)
-		atomic_store(&fnc->counters.obuf_peak, obytes);
+		atomic_store_explicit(&fnc->counters.obuf_peak, obytes,
+				      memory_order_relaxed);
 
 	/* Tell the thread to start writing. */
 	thread_add_write(fnc->fthread->master, fpm_write, fnc, fnc->socket,
@@ -914,15 +930,19 @@ static int fpm_process_queue(struct thread *t)
 		fpm_nl_enqueue(fnc, ctx);
 
 		/* Account the processed entries. */
-		atomic_fetch_add(&fnc->counters.dplane_contexts, 1);
-		atomic_fetch_sub(&fnc->counters.ctxqueue_len, 1);
+		atomic_fetch_add_explicit(&fnc->counters.dplane_contexts, 1,
+					  memory_order_relaxed);
+		atomic_fetch_sub_explicit(&fnc->counters.ctxqueue_len, 1,
+					  memory_order_relaxed);
 
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 		dplane_provider_enqueue_out_ctx(fnc->prov, ctx);
 	}
 
 	/* Check for more items in the queue. */
-	if (atomic_load(&fnc->counters.ctxqueue_len) > 0)
+	if (atomic_load_explicit(&fnc->counters.ctxqueue_len,
+				 memory_order_relaxed)
+	    > 0)
 		thread_add_timer(fnc->fthread->master, fpm_process_queue,
 				 fnc, 0, &fnc->t_dequeue);
 
@@ -941,7 +961,8 @@ static int fpm_process_event(struct thread *t)
 	case FNE_DISABLE:
 		zlog_debug("%s: manual FPM disable event", __func__);
 		fnc->disabled = true;
-		atomic_fetch_add(&fnc->counters.user_disables, 1);
+		atomic_fetch_add_explicit(&fnc->counters.user_disables, 1,
+					  memory_order_relaxed);
 
 		/* Call reconnect to disable timers and clean up context. */
 		fpm_reconnect(fnc);
@@ -950,7 +971,8 @@ static int fpm_process_event(struct thread *t)
 	case FNE_RECONNECT:
 		zlog_debug("%s: manual FPM reconnect event", __func__);
 		fnc->disabled = false;
-		atomic_fetch_add(&fnc->counters.user_configures, 1);
+		atomic_fetch_add_explicit(&fnc->counters.user_configures, 1,
+					  memory_order_relaxed);
 		fpm_reconnect(fnc);
 		break;
 
@@ -1024,13 +1046,18 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 			dplane_ctx_enqueue_tail(&fnc->ctxqueue, ctx);
 
 			/* Account the number of contexts. */
-			atomic_fetch_add(&fnc->counters.ctxqueue_len, 1);
-			cur_queue = atomic_load_explicit(&fnc->counters.ctxqueue_len,
-							 memory_order_relaxed);
-			peak_queue = atomic_load_explicit(&fnc->counters.ctxqueue_len_peak,
-							  memory_order_relaxed);
+			atomic_fetch_add_explicit(&fnc->counters.ctxqueue_len,
+						  1, memory_order_relaxed);
+			cur_queue = atomic_load_explicit(
+				&fnc->counters.ctxqueue_len,
+				memory_order_relaxed);
+			peak_queue = atomic_load_explicit(
+				&fnc->counters.ctxqueue_len_peak,
+				memory_order_relaxed);
 			if (peak_queue < cur_queue)
-				atomic_store(&fnc->counters.ctxqueue_len_peak, peak_queue);
+				atomic_store_explicit(
+					&fnc->counters.ctxqueue_len_peak,
+					peak_queue, memory_order_relaxed);
 			continue;
 		}
 
@@ -1038,7 +1065,9 @@ static int fpm_nl_process(struct zebra_dplane_provider *prov)
 		dplane_provider_enqueue_out_ctx(prov, ctx);
 	}
 
-	if (atomic_load(&fnc->counters.ctxqueue_len) > 0)
+	if (atomic_load_explicit(&fnc->counters.ctxqueue_len,
+				 memory_order_relaxed)
+	    > 0)
 		thread_add_timer(fnc->fthread->master, fpm_process_queue,
 				 fnc, 0, &fnc->t_dequeue);
 
