@@ -3171,7 +3171,6 @@ void zserv_handle_commands(struct zserv *client, struct stream_fifo *fifo)
 #endif
 
 		hdr.length -= ZEBRA_HEADER_SIZE;
-
 		/* Before checking for a handler function, check for
 		 * special messages that are handled in another module;
 		 * we'll treat these as opaque.

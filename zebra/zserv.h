@@ -375,10 +375,6 @@ extern void zserv_close_client(struct zserv *client);
 void zserv_log_message(const char *errmsg, struct stream *msg,
 		       struct zmsghdr *hdr);
 
-#if defined(HANDLE_ZAPI_FUZZING)
-extern void zserv_read_file(char *input);
-#endif
-
 /* TODO */
 __attribute__((__noreturn__)) int zebra_finalize(struct thread *event);
 
@@ -391,6 +387,10 @@ extern void zebra_gr_stale_client_cleanup(struct list *client_list);
 extern void zread_client_capabilities(struct zserv *client, struct zmsghdr *hdr,
 				      struct stream *msg,
 				      struct zebra_vrf *zvrf);
+
+#ifdef FUZZING
+struct zserv *zserv_client_create(int sock);
+#endif
 
 #ifdef __cplusplus
 }

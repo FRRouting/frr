@@ -36,6 +36,8 @@
 #include "libfrr.h"
 #include "routemap.h"
 #include "routing_nb.h"
+#include "fuzz.h"
+#include "frr_pthread.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"
@@ -58,6 +60,7 @@
 #include "zebra/zebra_nb.h"
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
+#include "zebra/zapi_msg.h"
 
 #if defined(HANDLE_NETLINK_FUZZING)
 #include "zebra/kernel_netlink.h"
@@ -284,9 +287,6 @@ int main(int argc, char **argv)
 	char *vrf_default_name_configured = NULL;
 	struct sockaddr_storage dummy;
 	socklen_t dummylen;
-#if defined(HANDLE_ZAPI_FUZZING)
-	char *zapi_fuzzing = NULL;
-#endif /* HANDLE_ZAPI_FUZZING */
 #if defined(HANDLE_NETLINK_FUZZING)
 	char *netlink_fuzzing = NULL;
 #endif /* HANDLE_NETLINK_FUZZING */
@@ -296,14 +296,53 @@ int main(int argc, char **argv)
 
 	frr_preinit(&zebra_di, argc, argv);
 
+#ifdef FUZZING
+	zrouter.master = frr_init_fast();
+
+	/* Zebra related initialize. */
+	zebra_router_init();
+	zserv_init();
+	rib_init();
+	zebra_if_init();
+	zebra_debug_init();
+	router_id_cmd_init();
+	zebra_ns_init((const char *)vrf_default_name_configured);
+	zebra_vty_init();
+	access_list_init();
+	prefix_list_init();
+	zebra_mpls_init();
+	zebra_mpls_vty_init();
+	zebra_pw_vty_init();
+	zebra_pbr_init();
+	zrouter.startup_time = monotime(NULL);
+	label_manager_init();
+	zebra_rnh_init();
+	zebra_evpn_init();
+	zebra_error_init();
+	frr_pthread_init();
+
+	struct zserv *zc = zserv_client_create(69);
+
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+	__AFL_INIT();
+#endif /* __AFL_HAVE_MANUAL_CONTROL */
+
+	uint8_t *input;
+	int r = frrfuzz_read_input(&input);
+
+	struct stream *s = stream_new(r + 1);
+	stream_put(s, input, r);
+
+	zserv_handle_commands(zc, s);
+
+	exit(0);
+#endif /* FUZZING */
+
 	frr_opt_add(
 		"baz:e:o:rK:"
 #ifdef HAVE_NETLINK
 		"s:n"
 #endif
-#if defined(HANDLE_ZAPI_FUZZING)
-		"c:"
-#endif /* HANDLE_ZAPI_FUZZING */
 #if defined(HANDLE_NETLINK_FUZZING)
 		"w:"
 #endif /* HANDLE_NETLINK_FUZZING */
@@ -321,9 +360,6 @@ int main(int argc, char **argv)
 		"  -s, --nl-bufsize         Set netlink receive buffer size\n"
 		"      --v6-rr-semantics    Use v6 RR semantics\n"
 #endif /* HAVE_NETLINK */
-#if defined(HANDLE_ZAPI_FUZZING)
-		"  -c <file>                Bypass normal startup and use this file for testing of zapi\n"
-#endif /* HANDLE_ZAPI_FUZZING */
 #if defined(HANDLE_NETLINK_FUZZING)
 		"  -w <file>                Bypass normal startup and use this file for testing of netlink input\n"
 #endif /* HANDLE_NETLINK_FUZZING */
@@ -388,11 +424,6 @@ int main(int argc, char **argv)
 			v6_rr_semantics = true;
 			break;
 #endif /* HAVE_NETLINK */
-#if defined(HANDLE_ZAPI_FUZZING)
-		case 'c':
-			zapi_fuzzing = optarg;
-			break;
-#endif /* HANDLE_ZAPI_FUZZING */
 #if defined(HANDLE_NETLINK_FUZZING)
 		case 'w':
 			netlink_fuzzing = optarg;
@@ -489,12 +520,6 @@ int main(int argc, char **argv)
 	/* Error init */
 	zebra_error_init();
 
-#if defined(HANDLE_ZAPI_FUZZING)
-	if (zapi_fuzzing) {
-		zserv_read_file(zapi_fuzzing);
-		exit(0);
-	}
-#endif /* HANDLE_ZAPI_FUZZING */
 #if defined(HANDLE_NETLINK_FUZZING)
 	if (netlink_fuzzing) {
 		netlink_read_init(netlink_fuzzing);
