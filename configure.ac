@@ -331,14 +331,14 @@ if test "$enable_memory_sanitizer" = "yes"; then
   AC_C_FLAG([-fsanitize=memory -fPIE -pie], [
     AC_MSG_ERROR([$CC does not support Memory Sanitizer.])
   ], [
-    SAN_FLAGS="-fsanitize=memory -fPIE -pie"
+    SAN_FLAGS="$SAN_FLAGS -fsanitize=memory -fPIE -pie"
   ])
 fi
 if test "$enable_undefined_sanitizer" = "yes"; then
   AC_C_FLAG([-fsanitize=undefined], [
     AC_MSG_ERROR([$CC does not support UndefinedBehaviorSanitizer.])
   ], [
-    SAN_FLAGS="-fsanitize=undefined"
+    SAN_FLAGS="$SAN_FLAGS -fsanitize=undefined"
   ])
 fi
 AC_SUBST([SAN_FLAGS])
