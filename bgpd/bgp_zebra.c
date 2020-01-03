@@ -1143,7 +1143,8 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 			api_nh->ifindex = 0;
 		}
 	}
-	api_nh->gate.ipv6 = *nexthop;
+	if (nexthop)
+		api_nh->gate.ipv6 = *nexthop;
 
 	return true;
 }
