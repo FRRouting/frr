@@ -732,7 +732,7 @@ static int zserv_handle_client_fail(struct thread *thread)
  * sock
  *    client's socket file descriptor
  */
-static struct zserv *zserv_client_create(int sock)
+struct zserv *zserv_client_create(int sock)
 {
 	struct zserv *client;
 	size_t stream_size =
@@ -785,7 +785,9 @@ static struct zserv *zserv_client_create(int sock)
 	hook_call(zserv_client_connect, client);
 
 	/* start pthread */
+#ifndef FUZZING
 	frr_pthread_run(client->pthread, NULL);
+#endif
 
 	return client;
 }
