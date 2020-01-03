@@ -310,6 +310,8 @@ BGP
   :t:`BGP Large Communities Attribute. J. Heitz, Ed., J. Snijders, Ed, K. Patel, I. Bagdonas, N. Hilliard. February 2017`
 - :rfc:`8195`
   :t:`Use of BGP Large Communities. J. Snijders, J. Heasley, M. Schmidt, June 2017`
+- :rfc:`8212`
+  :t:`Default External BGP (EBGP) Route Propagation Behavior without Policies. J. Mauch, J. Snijders, G. Hankins. July 2017`
 - :rfc:`8277`
   :t:`Using BGP to Bind MPLS Labels to Address Prefixes. E. Rosen. October 2017`
 
