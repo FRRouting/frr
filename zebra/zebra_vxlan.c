@@ -7682,6 +7682,55 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp,
 	return zvni_remote_neigh_update(zvni, ifp, ip, macaddr, state);
 }
 
+static int32_t
+zebra_vxlan_remote_macip_helper(bool add, struct stream *s, vni_t *vni,
+				struct ethaddr *macaddr, uint16_t *ipa_len,
+				struct ipaddr *ip, struct in_addr *vtep_ip,
+				uint8_t *flags, uint32_t *seq)
+{
+	uint16_t l = 0;
+
+	/*
+	 * Obtain each remote MACIP and process.
+	 * Message contains VNI, followed by MAC followed by IP (if any)
+	 * followed by remote VTEP IP.
+	 */
+	memset(ip, 0, sizeof(*ip));
+	STREAM_GETL(s, *vni);
+	STREAM_GET(macaddr->octet, s, ETH_ALEN);
+	STREAM_GETL(s, *ipa_len);
+
+	if (*ipa_len) {
+		if (*ipa_len == IPV4_MAX_BYTELEN)
+			ip->ipa_type = IPADDR_V4;
+		else if (*ipa_len == IPV6_MAX_BYTELEN)
+			ip->ipa_type = IPADDR_V6;
+		else {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug(
+					"ipa_len *must* be %d or %d bytes in length not %d",
+					IPV4_MAX_BYTELEN, IPV6_MAX_BYTELEN,
+					*ipa_len);
+			goto stream_failure;
+		}
+
+		STREAM_GET(&ip->ip.addr, s, *ipa_len);
+	}
+	l += 4 + ETH_ALEN + 4 + *ipa_len;
+	STREAM_GET(&vtep_ip->s_addr, s, IPV4_MAX_BYTELEN);
+	l += IPV4_MAX_BYTELEN;
+
+	if (add) {
+		STREAM_GETC(s, *flags);
+		STREAM_GETL(s, *seq);
+		l += 5;
+	}
+
+	return l;
+
+stream_failure:
+	return -1;
+}
 
 /*
  * Handle message from client to delete a remote MACIP for a VNI.
@@ -7704,34 +7753,14 @@ void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	while (l < hdr->length) {
-		/* Obtain each remote MACIP and process. */
-		/* Message contains VNI, followed by MAC followed by IP (if any)
-		 * followed by remote VTEP IP.
-		 */
-		memset(&ip, 0, sizeof(ip));
-		STREAM_GETL(s, vni);
-		STREAM_GET(&macaddr.octet, s, ETH_ALEN);
-		STREAM_GETL(s, ipa_len);
+		int res_length = zebra_vxlan_remote_macip_helper(
+			false, s, &vni, &macaddr, &ipa_len, &ip, &vtep_ip, NULL,
+			NULL);
 
-		if (ipa_len) {
-			if (ipa_len == IPV4_MAX_BYTELEN)
-				ip.ipa_type = IPADDR_V4;
-			else if (ipa_len == IPV6_MAX_BYTELEN)
-				ip.ipa_type = IPADDR_V6;
-			else {
-				if (IS_ZEBRA_DEBUG_VXLAN)
-					zlog_debug("ipa_len *must* be %d or %d bytes in length not %d",
-						   IPV4_MAX_BYTELEN,
-						   IPV6_MAX_BYTELEN, ipa_len);
-				goto stream_failure;
-			}
+		if (res_length == -1)
+			goto stream_failure;
 
-			STREAM_GET(&ip.ip.addr, s, ipa_len);
-		}
-		l += 4 + ETH_ALEN + 4 + ipa_len;
-		STREAM_GET(&vtep_ip.s_addr, s, IPV4_MAX_BYTELEN);
-		l += IPV4_MAX_BYTELEN;
-
+		l += res_length;
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"Recv MACIP DEL VNI %u MAC %s%s%s Remote VTEP %s from %s",
@@ -7780,29 +7809,14 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	while (l < hdr->length) {
-		/* Obtain each remote MACIP and process. */
-		/* Message contains VNI, followed by MAC followed by IP (if any)
-		 * followed by remote VTEP IP.
-		 */
-		memset(&ip, 0, sizeof(ip));
-		STREAM_GETL(s, vni);
-		STREAM_GET(&macaddr.octet, s, ETH_ALEN);
-		STREAM_GETL(s, ipa_len);
-		if (ipa_len) {
-			ip.ipa_type = (ipa_len == IPV4_MAX_BYTELEN) ? IPADDR_V4
-								    : IPADDR_V6;
-			STREAM_GET(&ip.ip.addr, s, ipa_len);
-		}
-		l += 4 + ETH_ALEN + 4 + ipa_len;
-		STREAM_GET(&vtep_ip.s_addr, s, IPV4_MAX_BYTELEN);
-		l += IPV4_MAX_BYTELEN;
+		int res_length = zebra_vxlan_remote_macip_helper(
+			true, s, &vni, &macaddr, &ipa_len, &ip, &vtep_ip,
+			&flags, &seq);
 
-		/* Get flags - sticky mac and/or gateway mac */
-		STREAM_GETC(s, flags);
-		l++;
-		STREAM_GETL(s, seq);
-		l += 4;
+		if (res_length == -1)
+			goto stream_failure;
 
+		l += res_length;
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"Recv MACIP ADD VNI %u MAC %s%s%s flags 0x%x seq %u VTEP %s from %s",
