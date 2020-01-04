@@ -2540,6 +2540,14 @@ void zserv_handle_commands(struct zserv *client, struct stream *msg)
 	struct zmsghdr hdr;
 	struct zebra_vrf *zvrf;
 
+	if (STREAM_READABLE(msg) > ZEBRA_MAX_PACKET_SIZ) {
+		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
+			zlog_debug(
+				"ZAPI message is %zu bytes long but the maximum packet size is %u; dropping",
+				STREAM_READABLE(msg), ZEBRA_MAX_PACKET_SIZ);
+		return;
+	}
+
 	zapi_parse_header(msg, &hdr);
 
 	if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
