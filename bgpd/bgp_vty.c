@@ -3025,6 +3025,52 @@ DEFUN (no_bgp_default_show_hostname,
 	return CMD_SUCCESS;
 }
 
+/* BGP Extended Message */
+DEFUN (bgp_ext_message,
+       bgp_ext_message_cmd,
+       "bgp extended-message",
+       "BGP specific commands\n"
+       "Enable BGP Extended Message (65535 bytes)\n")
+{
+	struct peer *peer;
+	struct listnode *node, *nnode;
+
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	bgp->extended_message = BGP_EXTENDED_MESSAGE_ENABLED;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
+			peer->last_reset = PEER_DOWN_EXTENDED_MESSAGE;
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+		}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_ext_message,
+       no_bgp_ext_message_cmd,
+       "no bgp extended-message",
+       NO_STR
+       "BGP specific commands\n"
+       "Enable BGP Extended Message (65535 bytes)\n")
+{
+	struct peer *peer;
+	struct listnode *node, *nnode;
+
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	bgp->extended_message = BGP_EXTENDED_MESSAGE_DISABLED;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
+			peer->last_reset = PEER_DOWN_EXTENDED_MESSAGE;
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+		}
+
+	return CMD_SUCCESS;
+}
+
 /* "bgp network import-check" configuration.  */
 DEFUN (bgp_network_import_check,
        bgp_network_import_check_cmd,
@@ -10816,6 +10862,24 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 							"received");
 				}
 
+				/* BGP Extended Message */
+				if (CHECK_FLAG(p->cap, PEER_CAP_EXT_MESSAGE_ADV)
+				    && CHECK_FLAG(p->cap,
+						  PEER_CAP_EXT_MESSAGE_RCV))
+					json_object_string_add(
+						json_cap, "extendedMessage",
+						"advertisedAndReceived");
+				else if (CHECK_FLAG(p->cap,
+						    PEER_CAP_EXT_MESSAGE_ADV))
+					json_object_string_add(
+						json_cap, "extendedMessage",
+						"advertised");
+				else if (CHECK_FLAG(p->cap,
+						    PEER_CAP_EXT_MESSAGE_RCV))
+					json_object_string_add(
+						json_cap, "extendedMessage",
+						"received");
+
 				/* AddPath */
 				if (CHECK_FLAG(p->cap, PEER_CAP_ADDPATH_RCV)
 				    || CHECK_FLAG(p->cap,
@@ -11258,6 +11322,27 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 							CHECK_FLAG(
 								p->cap,
 								PEER_CAP_AS4_ADV)
+								? "and "
+								: "");
+					vty_out(vty, "\n");
+				}
+
+				/* BGP Extended Message */
+				if (CHECK_FLAG(p->cap, PEER_CAP_EXT_MESSAGE_RCV)
+				    || CHECK_FLAG(p->cap,
+						  PEER_CAP_EXT_MESSAGE_ADV)) {
+					vty_out(vty, "    Extended Message:");
+					if (CHECK_FLAG(
+						    p->cap,
+						    PEER_CAP_EXT_MESSAGE_ADV))
+						vty_out(vty, " advertised");
+					if (CHECK_FLAG(
+						    p->cap,
+						    PEER_CAP_EXT_MESSAGE_RCV))
+						vty_out(vty, " %sreceived",
+							CHECK_FLAG(
+								p->cap,
+								PEER_CAP_EXT_MESSAGE_ADV)
 								? "and "
 								: "");
 					vty_out(vty, "\n");
@@ -14978,6 +15063,10 @@ int bgp_config_write(struct vty *vty)
 		if (bgp->reject_as_sets == BGP_REJECT_AS_SETS_ENABLED)
 			vty_out(vty, " bgp reject-as-sets\n");
 
+		/* RFC8654 - Extended Message Support for BGP */
+		if (bgp->extended_message == BGP_EXTENDED_MESSAGE_ENABLED)
+			vty_out(vty, " bgp extended-message\n");
+
 		/* BGP default ipv4-unicast. */
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_DEFAULT_IPV4))
 			vty_out(vty, " no bgp default ipv4-unicast\n");
@@ -15469,6 +15558,10 @@ void bgp_vty_init(void)
 	/* bgp reject-as-sets */
 	install_element(BGP_NODE, &bgp_reject_as_sets_cmd);
 	install_element(BGP_NODE, &no_bgp_reject_as_sets_cmd);
+
+	/* bgp extended-message */
+	install_element(BGP_NODE, &bgp_ext_message_cmd);
+	install_element(BGP_NODE, &no_bgp_ext_message_cmd);
 
 	/* "bgp deterministic-med" commands */
 	install_element(BGP_NODE, &bgp_deterministic_med_cmd);

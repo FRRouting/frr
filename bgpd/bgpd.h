@@ -583,6 +583,11 @@ struct bgp {
 #define BGP_REJECT_AS_SETS_DISABLED 0
 #define BGP_REJECT_AS_SETS_ENABLED 1
 
+	/* RFC 8654 - Extended Message Support for BGP */
+	bool extended_message;
+#define BGP_EXTENDED_MESSAGE_DISABLED 0
+#define BGP_EXTENDED_MESSAGE_ENABLED 1
+
 	struct bgp_evpn_info *evpn_info;
 
 	/* EVPN - use RFC 8365 to auto-derive RT */
@@ -776,6 +781,7 @@ typedef enum {
 #define BGP_MARKER_SIZE		                16
 #define BGP_HEADER_SIZE		                19
 #define BGP_MAX_PACKET_SIZE                   4096
+#define BGP_MAX_EXT_MESSAGE_PACKET_SIZE      65535
 #define BGP_MAX_PACKET_SIZE_OVERFLOW          1024
 
 /*
@@ -959,6 +965,8 @@ struct peer {
 #define PEER_CAP_ENHE_RCV                   (1 << 14) /* Extended nexthop received */
 #define PEER_CAP_HOSTNAME_ADV               (1 << 15) /* hostname advertised */
 #define PEER_CAP_HOSTNAME_RCV               (1 << 16) /* hostname received */
+#define PEER_CAP_EXT_MESSAGE_ADV            (1 << 17) /* BGP Extended Message advertised */
+#define PEER_CAP_EXT_MESSAGE_RCV            (1 << 18) /* BGP Extended Message received */
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
@@ -1352,13 +1360,14 @@ struct peer {
 #define PEER_DOWN_AS_SETS_REJECT        31 /* Reject routes with AS_SET */
 #define PEER_DOWN_WAITING_OPEN          32 /* Waiting for open to succeed */
 #define PEER_DOWN_PFX_COUNT             33 /* Reached received prefix count */
+#define PEER_DOWN_EXTENDED_MESSAGE      34 /* bgp extended-message */
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
 	 * a new value to the last_reset reason
 	 */
 
 	size_t last_reset_cause_size;
-	uint8_t last_reset_cause[BGP_MAX_PACKET_SIZE];
+	uint8_t last_reset_cause[BGP_MAX_EXT_MESSAGE_PACKET_SIZE];
 
 	/* The kind of route-map Flags.*/
 	uint16_t rmap_type;
@@ -1381,6 +1390,9 @@ struct peer {
 
 	/* Sender side AS path loop detection. */
 	bool as_path_loop_detection;
+
+	/* Maximum BGP message size */
+	uint16_t max_packet_size;
 
 	QOBJ_FIELDS
 };

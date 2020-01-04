@@ -200,8 +200,8 @@ static int bgp_process_reads(struct thread *thread)
 	}
 
 	while (more) {
-		/* static buffer for transferring packets */
-		static unsigned char pktbuf[BGP_MAX_PACKET_SIZE];
+		/* buffer for transferring packets */
+		unsigned char pktbuf[peer->max_packet_size];
 		/* shorter alias to peer's input buffer */
 		struct ringbuf *ibw = peer->ibuf_work;
 		/* packet size as given by header */
@@ -223,7 +223,7 @@ static int bgp_process_reads(struct thread *thread)
 		pktsize = ntohs(pktsize);
 
 		/* if this fails we are seriously screwed */
-		assert(pktsize <= BGP_MAX_PACKET_SIZE);
+		assert(pktsize <= peer->max_packet_size);
 
 		/*
 		 * If we have that much data, chuck it into its own
@@ -248,7 +248,7 @@ static int bgp_process_reads(struct thread *thread)
 		/* wipe buffer just in case someone screwed up */
 		ringbuf_wipe(peer->ibuf_work);
 	} else {
-		assert(ringbuf_space(peer->ibuf_work) >= BGP_MAX_PACKET_SIZE);
+		assert(ringbuf_space(peer->ibuf_work) >= peer->max_packet_size);
 
 		thread_add_read(fpt->master, bgp_process_reads, peer, peer->fd,
 				&peer->t_read);
@@ -447,7 +447,10 @@ static uint16_t bgp_read(struct peer *peer)
 	size_t readsize; // how many bytes we want to read
 	ssize_t nbytes;  // how many bytes we actually read
 	uint16_t status = 0;
-	static uint8_t ibw[BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX];
+	int max_packet_count = peer->max_packet_size == BGP_MAX_PACKET_SIZE
+				       ? BGP_READ_PACKET_MAX
+				       : 1;
+	uint8_t ibw[peer->max_packet_size * max_packet_count];
 
 	readsize = MIN(ringbuf_space(peer->ibuf_work), sizeof(ibw));
 	nbytes = read(peer->fd, ibw, readsize);
@@ -551,7 +554,7 @@ static bool validate_header(struct peer *peer)
 	}
 
 	/* Minimum packet length check. */
-	if ((size < BGP_HEADER_SIZE) || (size > BGP_MAX_PACKET_SIZE)
+	if ((size < BGP_HEADER_SIZE) || (size > peer->max_packet_size)
 	    || (type == BGP_MSG_OPEN && size < BGP_MSG_OPEN_MIN_SIZE)
 	    || (type == BGP_MSG_UPDATE && size < BGP_MSG_UPDATE_MIN_SIZE)
 	    || (type == BGP_MSG_NOTIFY && size < BGP_MSG_NOTIFY_MIN_SIZE)

@@ -1214,6 +1214,7 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->bgp = bgp_lock(bgp);
 	peer = peer_lock(peer); /* initial reference */
 	peer->password = NULL;
+	peer->max_packet_size = BGP_MAX_PACKET_SIZE;
 
 	/* Set default flags. */
 	FOREACH_AFI_SAFI (afi, safi) {
@@ -1258,12 +1259,12 @@ struct peer *peer_new(struct bgp *bgp)
 	 * bounds checking for every single attribute as we construct an
 	 * UPDATE.
 	 */
-	peer->obuf_work =
-		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);
-	peer->ibuf_work =
-		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
+	peer->obuf_work = stream_new(BGP_MAX_EXT_MESSAGE_PACKET_SIZE
+				     + BGP_MAX_PACKET_SIZE_OVERFLOW);
+	peer->ibuf_work = ringbuf_new(BGP_MAX_EXT_MESSAGE_PACKET_SIZE
+				      * BGP_READ_PACKET_MAX);
 
-	peer->scratch = stream_new(BGP_MAX_PACKET_SIZE);
+	peer->scratch = stream_new(BGP_MAX_EXT_MESSAGE_PACKET_SIZE);
 
 	bgp_sync_init(peer);
 
@@ -2978,6 +2979,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->dynamic_neighbors_count = 0;
 	bgp->ebgp_requires_policy = DEFAULT_EBGP_POLICY_DISABLED;
 	bgp->reject_as_sets = BGP_REJECT_AS_SETS_DISABLED;
+	bgp->extended_message = BGP_EXTENDED_MESSAGE_DISABLED;
 	bgp_addpath_init_bgp_data(&bgp->tx_addpath);
 
 	bgp->as = *as;
