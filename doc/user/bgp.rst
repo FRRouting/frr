@@ -434,6 +434,15 @@ Disable checking if nexthop is connected on EBGP sessions
    that are reachable by a single hop but are configured on a loopback interface or otherwise
    configured with a non-directly connected IP address.
 
+Extended Message Support for BGP
+--------------------------------
+
+.. index:: [no] bgp extended-message
+.. clicmd:: [no] bgp extended-message
+
+   Extend the maximum message size from 4096 to 65535 bytes for all
+   messages except for OPEN and KEEPALIVE messages.
+
 .. _bgp-route-flap-dampening:
 
 Route Flap Dampening
