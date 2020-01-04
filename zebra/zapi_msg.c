@@ -2136,6 +2136,7 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 
 	/* Get data. */
 	STREAM_GET(ifname, s, IF_NAMESIZE);
+	ifname[IF_NAMESIZE - 1] = '\0';
 	STREAM_GETL(s, ifindex);
 	STREAM_GETL(s, type);
 	STREAM_GETL(s, af);
