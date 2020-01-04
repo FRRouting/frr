@@ -965,16 +965,25 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 	ifindex_t ifindex;
 	struct interface *ifp;
 	struct zebra_if *zif;
-	int ra_interval;
+	int ra_interval_rxd;
 
 	s = msg;
 
 	/* Get interface index and RA interval. */
 	STREAM_GETL(s, ifindex);
-	STREAM_GETL(s, ra_interval);
+	STREAM_GETL(s, ra_interval_rxd);
+
+	if (ra_interval_rxd < 0) {
+		zlog_warn(
+			"Requested RA interval %d is garbage; ignoring request",
+			ra_interval_rxd);
+		return;
+	}
+
+	unsigned int ra_interval = ra_interval_rxd;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("%u: IF %u RA %s from client %s, interval %ds",
+		zlog_debug("%u: IF %u RA %s from client %s, interval %ums",
 			   zvrf_id(zvrf), ifindex,
 			   enable ? "enable" : "disable",
 			   zebra_route_string(client->proto), ra_interval);
@@ -1001,7 +1010,7 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 		SET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
 		ipv6_nd_suppress_ra_set(ifp, RA_ENABLE);
 		if (ra_interval
-		    && (ra_interval * 1000) < zif->rtadv.MaxRtrAdvInterval
+		    && (ra_interval * 1000) < (unsigned int) zif->rtadv.MaxRtrAdvInterval
 		    && !CHECK_FLAG(zif->rtadv.ra_configured,
 				   VTY_RA_INTERVAL_CONFIGURED))
 			zif->rtadv.MaxRtrAdvInterval = ra_interval * 1000;
