@@ -444,7 +444,7 @@ zebra_spec_add_service ()
 {
     # Add port /etc/services entry if it isn't already there
     if [ -f %{_sysconfdir}/services ] && \
-        ! %__sed -e 's/#.*$//' %{_sysconfdir}/services | %__grep -wq $1 ; then
+        ! %__sed -e 's/#.*$//' %{_sysconfdir}/services 2>/dev/null | %__grep -wq $1 ; then
         echo "$1        $2          # $3"  >> %{_sysconfdir}/services
     fi
 }
