@@ -90,9 +90,12 @@ struct channel_counts {
   installed: indicate if this entry is installed in the kernel.
 
 */
+PREDECL_RBTREE_UNIQ(rb_pim_oil)
 
 struct channel_oil {
 	struct pim_instance *pim;
+
+	struct rb_pim_oil_item oil_rb;
 
 	struct mfcctl oil;
 	int installed;
@@ -105,6 +108,12 @@ struct channel_oil {
 	struct pim_upstream *up;
 	time_t mroute_creation;
 };
+
+extern int pim_channel_oil_compare(const struct channel_oil *c1,
+				   const struct channel_oil *c2);
+DECLARE_RBTREE_UNIQ(rb_pim_oil, struct channel_oil, oil_rb,
+                    pim_channel_oil_compare)
+
 
 extern struct list *pim_channel_oil_list;
 

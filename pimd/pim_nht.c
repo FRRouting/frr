@@ -177,7 +177,6 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 	struct pim_nexthop_cache *pnc = NULL;
 	struct pim_nexthop_cache lookup;
 	struct zclient *zclient = NULL;
-	struct listnode *upnode = NULL;
 	struct pim_upstream *upstream = NULL;
 
 	zclient = pim_zebra_zclient_get();
@@ -190,8 +189,8 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 			/* Release the (*, G)upstream from pnc->upstream_hash,
 			 * whose Group belongs to the RP getting deleted
 			 */
-			for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode,
-				upstream)) {
+			frr_each (rb_pim_upstream, &pim->upstream_head,
+				  upstream) {
 				struct prefix grp;
 				struct rp_info *trp_info;
 

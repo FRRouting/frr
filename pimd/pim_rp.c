@@ -446,7 +446,6 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	struct prefix nht_p;
 	struct route_node *rn;
 	struct pim_upstream *up;
-	struct listnode *upnode;
 
 	if (rp_addr.s_addr == INADDR_ANY ||
 	    rp_addr.s_addr == INADDR_NONE)
@@ -554,8 +553,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 					__PRETTY_FUNCTION__, buf, buf1);
 			}
 
-			for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode,
-						  up)) {
+			frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 				/* Find (*, G) upstream whose RP is not
 				 * configured yet
 				 */
@@ -650,7 +648,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 			   rn->lock);
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (up->sg.src.s_addr == INADDR_ANY) {
 			struct prefix grp;
 			struct rp_info *trp_info;
@@ -723,7 +721,6 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 	bool was_plist = false;
 	struct rp_info *trp_info;
 	struct pim_upstream *up;
-	struct listnode *upnode;
 	struct bsgrp_node *bsgrp = NULL;
 	struct bsm_rpinfo *bsrp = NULL;
 	char grp_str[PREFIX2STR_BUFFER];
@@ -800,7 +797,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 	rp_all = pim_rp_find_match_group(pim, &g_all);
 
 	if (rp_all == rp_info) {
-		for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+		frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 			/* Find the upstream (*, G) whose upstream address is
 			 * same as the deleted RP
 			 */
@@ -852,7 +849,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 
 	pim_rp_refresh_group_to_rp_mapping(pim);
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		/* Find the upstream (*, G) whose upstream address is same as
 		 * the deleted RP
 		 */
@@ -893,7 +890,6 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 	int result = 0;
 	struct rp_info *rp_info = NULL;
 	struct pim_upstream *up;
-	struct listnode *upnode;
 
 	rn = route_node_lookup(pim->rp_table, &group);
 	if (!rn) {
@@ -942,7 +938,7 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 
 	listnode_add_sort(pim->rp_list, rp_info);
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (up->sg.src.s_addr == INADDR_ANY) {
 			struct prefix grp;
 			struct rp_info *trp_info;

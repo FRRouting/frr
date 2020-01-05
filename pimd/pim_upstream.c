@@ -98,7 +98,6 @@ static void pim_upstream_find_new_children(struct pim_instance *pim,
 					   struct pim_upstream *up)
 {
 	struct pim_upstream *child;
-	struct listnode *ch_node;
 
 	if ((up->sg.src.s_addr != INADDR_ANY)
 	    && (up->sg.grp.s_addr != INADDR_ANY))
@@ -108,7 +107,7 @@ static void pim_upstream_find_new_children(struct pim_instance *pim,
 	    && (up->sg.grp.s_addr == INADDR_ANY))
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, ch_node, child)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, child) {
 		if ((up->sg.grp.s_addr != INADDR_ANY)
 		    && (child->sg.grp.s_addr == up->sg.grp.s_addr)
 		    && (child != up)) {
@@ -191,9 +190,8 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 		return up;
 
 	if (PIM_DEBUG_TRACE)
-		zlog_debug(
-				"pim_upstream free vrf:%s %s flags 0x%x",
-				pim->vrf->name, up->sg_str, up->flags);
+		zlog_debug("pim_upstream free vrf:%s %s flags 0x%x",
+			   pim->vrf->name, up->sg_str, up->flags);
 
 	THREAD_OFF(up->t_ka_timer);
 	THREAD_OFF(up->t_rs_timer);
@@ -235,8 +233,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 		listnode_delete(up->parent->sources, up);
 	up->parent = NULL;
 
-	listnode_delete(pim->upstream_list, up);
-	hash_release(pim->upstream_hash, up);
+	rb_pim_upstream_del(&pim->upstream_head, up);
 
 	if (notify_msdp) {
 		pim_msdp_up_del(pim, &up->sg);
@@ -533,10 +530,9 @@ static int pim_upstream_could_register(struct pim_upstream *up)
  * we re-revaluate register setup for existing upstream entries */
 void pim_upstream_register_reevaluate(struct pim_instance *pim)
 {
-	struct listnode *upnode;
 	struct pim_upstream *up;
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		/* If FHR is set CouldRegister is True. Also check if the flow
 		 * is actually active; if it is not kat setup will trigger
 		 * source
@@ -639,9 +635,8 @@ void pim_upstream_update_use_rpt(struct pim_upstream *up,
 void pim_upstream_reeval_use_rpt(struct pim_instance *pim)
 {
 	struct pim_upstream *up;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, node, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (up->sg.src.s_addr == INADDR_ANY)
 			continue;
 
@@ -756,11 +751,9 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 	}
 }
 
-int pim_upstream_compare(void *arg1, void *arg2)
+int pim_upstream_compare(const struct pim_upstream *up1,
+			 const struct pim_upstream *up2)
 {
-	const struct pim_upstream *up1 = (const struct pim_upstream *)arg1;
-	const struct pim_upstream *up2 = (const struct pim_upstream *)arg2;
-
 	if (ntohl(up1->sg.grp.s_addr) < ntohl(up2->sg.grp.s_addr))
 		return -1;
 
@@ -811,7 +804,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	if (ch)
 		ch->upstream = up;
 
-	up = hash_get(pim->upstream_hash, up, hash_alloc_intern);
+	rb_pim_upstream_add(&pim->upstream_head, up);
 	/* Set up->upstream_addr as INADDR_ANY, if RP is not
 	 * configured and retain the upstream data structure
 	 */
@@ -825,7 +818,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->parent = pim_upstream_find_parent(pim, up);
 	if (up->sg.src.s_addr == INADDR_ANY) {
 		up->sources = list_new();
-		up->sources->cmp = pim_upstream_compare;
+		up->sources->cmp =
+			(int (*)(void *, void *))pim_upstream_compare;
 	} else
 		up->sources = NULL;
 
@@ -889,8 +883,6 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		}
 	}
 
-	listnode_add_sort(pim->upstream_list, up);
-
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_debug(
 			"%s: Created Upstream %s upstream_addr %s ref count %d increment",
@@ -908,7 +900,7 @@ struct pim_upstream *pim_upstream_find(struct pim_instance *pim,
 	struct pim_upstream *up = NULL;
 
 	lookup.sg = *sg;
-	up = hash_lookup(pim->upstream_hash, &lookup);
+	up = rb_pim_upstream_find(&pim->upstream_head, &lookup);
 	return up;
 }
 
@@ -1168,15 +1160,12 @@ void pim_upstream_update_join_desired(struct pim_instance *pim,
 void pim_upstream_rpf_genid_changed(struct pim_instance *pim,
 				    struct in_addr neigh_addr)
 {
-	struct listnode *up_node;
-	struct listnode *up_nextnode;
 	struct pim_upstream *up;
 
 	/*
 	 * Scan all (S,G) upstreams searching for RPF'(S,G)=neigh_addr
 	 */
-	for (ALL_LIST_ELEMENTS(pim->upstream_list, up_node, up_nextnode, up)) {
-
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			char neigh_str[INET_ADDRSTRLEN];
 			char rpf_addr_str[PREFIX_STRLEN];
@@ -1788,8 +1777,6 @@ int pim_upstream_empty_inherited_olist(struct pim_upstream *up)
  */
 void pim_upstream_find_new_rpf(struct pim_instance *pim)
 {
-	struct listnode *up_node;
-	struct listnode *up_nextnode;
 	struct pim_upstream *up;
 	struct pim_rpf old;
 	enum pim_rpf_result rpf_result;
@@ -1797,7 +1784,7 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 	/*
 	 * Scan all (S,G) upstreams searching for RPF'(S,G)=neigh_addr
 	 */
-	for (ALL_LIST_ELEMENTS(pim->upstream_list, up_node, up_nextnode, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (up->upstream_addr.s_addr == INADDR_ANY) {
 			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug(
@@ -1837,18 +1824,11 @@ void pim_upstream_terminate(struct pim_instance *pim)
 {
 	struct pim_upstream *up;
 
-	if (pim->upstream_list) {
-		while (pim->upstream_list->count) {
-			up = listnode_head(pim->upstream_list);
-			pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
-		}
-
-		list_delete(&pim->upstream_list);
+	while ((up = rb_pim_upstream_first(&pim->upstream_head))) {
+		pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
 	}
 
-	if (pim->upstream_hash)
-		hash_free(pim->upstream_hash);
-	pim->upstream_hash = NULL;
+	rb_pim_upstream_fini(&pim->upstream_head);
 
 	if (pim->upstream_sg_wheel)
 		wheel_delete(pim->upstream_sg_wheel);
@@ -1991,9 +1971,8 @@ static void pim_upstream_sg_running(void *arg)
 void pim_upstream_add_lhr_star_pimreg(struct pim_instance *pim)
 {
 	struct pim_upstream *up;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, node, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (up->sg.src.s_addr != INADDR_ANY)
 			continue;
 
@@ -2031,7 +2010,6 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 					 const char *nlist)
 {
 	struct pim_upstream *up;
-	struct listnode *node;
 	struct prefix_list *np;
 	struct prefix g;
 	enum prefix_list_type apply_new;
@@ -2041,7 +2019,7 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 	g.family = AF_INET;
 	g.prefixlen = IPV4_MAX_PREFIXLEN;
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, node, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (up->sg.src.s_addr != INADDR_ANY)
 			continue;
 
@@ -2075,11 +2053,5 @@ void pim_upstream_init(struct pim_instance *pim)
 		wheel_init(router->master, 31000, 100, pim_upstream_hash_key,
 			   pim_upstream_sg_running, name);
 
-	snprintf(name, 64, "PIM %s Upstream Hash",
-		 pim->vrf->name);
-	pim->upstream_hash = hash_create_size(8192, pim_upstream_hash_key,
-					      pim_upstream_equal, name);
-
-	pim->upstream_list = list_new();
-	pim->upstream_list->cmp = pim_upstream_compare;
+	rb_pim_upstream_init(&pim->upstream_head);
 }

@@ -392,16 +392,13 @@ static void pim_zebra_vxlan_replay(void)
 
 void pim_scan_oil(struct pim_instance *pim)
 {
-	struct listnode *node;
-	struct listnode *nextnode;
 	struct channel_oil *c_oil;
 
 	pim->scan_oil_last = pim_time_monotonic_sec();
 	++pim->scan_oil_events;
 
-	for (ALL_LIST_ELEMENTS(pim->channel_oil_list, node, nextnode, c_oil)) {
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil)
 		pim_upstream_mroute_iif_update(c_oil, __func__);
-	}
 }
 
 static int on_rpf_cache_refresh(struct thread *t)

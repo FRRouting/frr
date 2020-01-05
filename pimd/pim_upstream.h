@@ -169,6 +169,7 @@ enum pim_upstream_sptbit {
 	PIM_UPSTREAM_SPTBIT_TRUE
 };
 
+PREDECL_RBTREE_UNIQ(rb_pim_upstream);
 /*
   Upstream (S,G) channel in Joined state
   (S,G) in the "Not Joined" state is not represented
@@ -198,6 +199,7 @@ enum pim_upstream_sptbit {
 */
 struct pim_upstream {
 	struct pim_instance *pim;
+	struct rb_pim_upstream_item upstream_rb;
 	struct pim_upstream *parent;
 	struct in_addr upstream_addr;     /* Who we are talking to */
 	struct in_addr upstream_register; /*Who we received a register from*/
@@ -326,7 +328,11 @@ void pim_upstream_init(struct pim_instance *pim);
 void pim_upstream_terminate(struct pim_instance *pim);
 
 void join_timer_start(struct pim_upstream *up);
-int pim_upstream_compare(void *arg1, void *arg2);
+int pim_upstream_compare(const struct pim_upstream *up1,
+			 const struct pim_upstream *up2);
+DECLARE_RBTREE_UNIQ(rb_pim_upstream, struct pim_upstream, upstream_rb,
+		    pim_upstream_compare)
+
 void pim_upstream_register_reevaluate(struct pim_instance *pim);
 
 void pim_upstream_add_lhr_star_pimreg(struct pim_instance *pim);
