@@ -741,7 +741,9 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 		/* If the peer is on shared nextwork and we have link-local
 		   nexthop set it. */
 		if (peer->shared_network
-		    && !IN6_IS_ADDR_UNSPECIFIED(&peer->nexthop.v6_local))
+		    && !IN6_IS_ADDR_UNSPECIFIED(&peer->nexthop.v6_local)
+		    && (!bgp_flag_check(bgp, BGP_FLAG_IPV6_LINK_LOCAL_ONLY)
+			|| !IN6_IS_ADDR_UNSPECIFIED(&peer->nexthop.v6_global)))
 			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
 	}
 

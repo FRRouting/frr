@@ -424,6 +424,7 @@ struct bgp {
 #define BGP_FLAG_DELETE_IN_PROGRESS       (1 << 22)
 #define BGP_FLAG_SELECT_DEFER_DISABLE     (1 << 23)
 #define BGP_FLAG_GR_DISABLE_EOR           (1 << 24)
+#define BGP_FLAG_IPV6_LINK_LOCAL_ONLY (1 << 25)
 
 	enum global_mode GLOBAL_GR_FSM[BGP_GLOBAL_GR_MODE]
 				[BGP_GLOBAL_GR_EVENT_CMD];

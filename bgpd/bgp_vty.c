@@ -3087,6 +3087,30 @@ DEFUN (no_bgp_network_import_check,
 	return CMD_SUCCESS;
 }
 
+
+DEFUN(bgp_enable_ipv6_linklocal_address_only,
+      bgp_enable_ipv6_linklocal_address_only_cmd,
+      "[no] bgp enable-ipv6-ll-only",
+      NO_STR
+      "BGP specific commands\n"
+      "Set Link-Local Address only\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	int idx = 0;
+	bool yes = true;
+
+	if (argv_find(argv, argc, "no", &idx))
+		yes = false;
+
+	if (yes && !bgp_flag_check(bgp, BGP_FLAG_IPV6_LINK_LOCAL_ONLY))
+		bgp_flag_set(bgp, BGP_FLAG_IPV6_LINK_LOCAL_ONLY);
+	else if (!yes && bgp_flag_check(bgp, BGP_FLAG_IPV6_LINK_LOCAL_ONLY))
+		bgp_flag_unset(bgp, BGP_FLAG_IPV6_LINK_LOCAL_ONLY);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (bgp_default_local_preference,
        bgp_default_local_preference_cmd,
        "bgp default local-preference (0-4294967295)",
@@ -15034,6 +15058,10 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " bgp router-id %s\n",
 				inet_ntoa(bgp->router_id_static));
 
+		/* BGP enable only Link-Local address. */
+		if (bgp_flag_check(bgp, BGP_FLAG_IPV6_LINK_LOCAL_ONLY))
+			vty_out(vty, " bgp enable-ipv6-ll-only\n");
+
 		/* BGP log-neighbor-changes. */
 		if (!!bgp_flag_check(bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)
 		    != SAVE_BGP_LOG_NEIGHBOR_CHANGES)
@@ -16704,6 +16732,8 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &af_no_route_map_vpn_imexport_cmd);
 	install_element(BGP_IPV4_NODE, &af_no_import_vrf_route_map_cmd);
 	install_element(BGP_IPV6_NODE, &af_no_import_vrf_route_map_cmd);
+
+	install_element(BGP_NODE, &bgp_enable_ipv6_linklocal_address_only_cmd);
 }
 
 #include "memory.h"

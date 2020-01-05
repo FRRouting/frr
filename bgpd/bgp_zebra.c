@@ -750,20 +750,56 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 						      peer->bgp->vrf_id);
 	}
 	if (local->sa.sa_family == AF_INET6) {
-		memcpy(&nexthop->v6_global, &local->sin6.sin6_addr, IPV6_MAX_BYTELEN);
+		if (!bgp_flag_check(peer->bgp, BGP_FLAG_IPV6_LINK_LOCAL_ONLY))
+			memcpy(&nexthop->v6_global, &local->sin6.sin6_addr,
+			       IPV6_MAX_BYTELEN);
+
+		if (BGP_DEBUG(zebra, ZEBRA)) {
+			char buf[INET6_ADDRSTRLEN] = {0};
+
+			zlog_debug("%s: peer %s, ipv6_local: %s", __func__,
+				   peer->host,
+				   inet_ntop(AF_INET6, &local->sin6.sin6_addr,
+					     buf, sizeof(buf)));
+
+			zlog_debug("%s: peer %s, ipv6_remote: %s", __func__,
+				   peer->host,
+				   inet_ntop(AF_INET6, &remote->sin6.sin6_addr,
+					     buf, sizeof(buf)));
+		}
+
 		if (IN6_IS_ADDR_LINKLOCAL(&local->sin6.sin6_addr)) {
+			if (bgp_flag_check(peer->bgp,
+					   BGP_FLAG_IPV6_LINK_LOCAL_ONLY))
+				memcpy(&nexthop->v6_local,
+				       &local->sin6.sin6_addr,
+				       IPV6_MAX_BYTELEN);
+
 			if (peer->conf_if || peer->ifname)
 				ifp = if_lookup_by_name(peer->conf_if
 								? peer->conf_if
 								: peer->ifname,
 							peer->bgp->vrf_id);
-		} else if (peer->update_if)
+		} else if (peer->update_if) {
+			if (bgp_flag_check(peer->bgp,
+					   BGP_FLAG_IPV6_LINK_LOCAL_ONLY))
+				memcpy(&nexthop->v6_global,
+				       &local->sin6.sin6_addr,
+				       IPV6_MAX_BYTELEN);
+
 			ifp = if_lookup_by_name(peer->update_if,
 						peer->bgp->vrf_id);
-		else
+		} else {
+			if (bgp_flag_check(peer->bgp,
+					   BGP_FLAG_IPV6_LINK_LOCAL_ONLY))
+				memcpy(&nexthop->v6_global,
+				       &local->sin6.sin6_addr,
+				       IPV6_MAX_BYTELEN);
+
 			ifp = if_lookup_by_ipv6_exact(&local->sin6.sin6_addr,
 						      local->sin6.sin6_scope_id,
 						      peer->bgp->vrf_id);
+		}
 	}
 
 	if (!ifp) {
@@ -801,9 +837,18 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 			 * route-map to
 			 * specify the global IPv6 nexthop.
 			 */
-			if_get_ipv6_local(ifp, &nexthop->v6_global);
-			memcpy(&nexthop->v6_local, &nexthop->v6_global,
-			       IPV6_MAX_BYTELEN);
+			if (bgp_flag_check(peer->bgp,
+					   BGP_FLAG_IPV6_LINK_LOCAL_ONLY)
+			    && IN6_IS_ADDR_LINKLOCAL(&local->sin6.sin6_addr))
+				memcpy(&nexthop->v6_local,
+				       &local->sin6.sin6_addr,
+				       IPV6_MAX_BYTELEN);
+			else {
+				if_get_ipv6_local(ifp, &nexthop->v6_global);
+				memcpy(&nexthop->v6_local, &nexthop->v6_global,
+				       IPV6_MAX_BYTELEN);
+			}
+
 		} else
 			if_get_ipv6_local(ifp, &nexthop->v6_local);
 
@@ -847,10 +892,13 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 			 * global
 			 * IPv6 nexthop.
 			 */
-			if (!ret)
+			if (!bgp_flag_check(peer->bgp,
+					    BGP_FLAG_IPV6_LINK_LOCAL_ONLY)
+			    && !ret)
 				memcpy(&nexthop->v6_global,
 				       &local->sin6.sin6_addr,
 				       IPV6_MAX_BYTELEN);
+
 			/* Always set the link-local address */
 			memcpy(&nexthop->v6_local, &local->sin6.sin6_addr,
 			       IPV6_MAX_BYTELEN);
@@ -864,6 +912,21 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 		else
 			peer->shared_network = 0;
 	}
+
+	if (BGP_DEBUG(zebra, ZEBRA)) {
+		char buf[INET6_ADDRSTRLEN] = {0};
+
+		zlog_debug("%s : peer %s, nexthop->v6_local :%s", __func__,
+			   peer->host,
+			   inet_ntop(AF_INET6, &nexthop->v6_local, buf,
+				     sizeof(buf)));
+
+		zlog_debug("%s : peer %s, nexthop->v6_global :%s", __func__,
+			   peer->host,
+			   inet_ntop(AF_INET6, &nexthop->v6_global, buf,
+				     sizeof(buf)));
+	}
+
 
 /* KAME stack specific treatment.  */
 #ifdef KAME

@@ -1844,14 +1844,17 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 	 */
 	if (NEXTHOP_IS_V6) {
 		attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-		if ((CHECK_FLAG(peer->af_flags[afi][safi],
-				PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)
-		     && IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local))
-		    || (!reflect
-			&& IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local)
-			&& peer->shared_network
-			&& (from == bgp->peer_self
-			    || peer->sort == BGP_PEER_EBGP))) {
+		if (((CHECK_FLAG(peer->af_flags[afi][safi],
+				 PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)
+		      && IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local))
+		     || (!reflect
+			 && IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local)
+			 && peer->shared_network
+			 && (from == bgp->peer_self
+			     || peer->sort == BGP_PEER_EBGP)))
+		    && (!bgp_flag_check(bgp, BGP_FLAG_IPV6_LINK_LOCAL_ONLY)
+			|| !IN6_IS_ADDR_UNSPECIFIED(
+				&attr->mp_nexthop_global))) {
 			attr->mp_nexthop_len =
 				BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
 		}

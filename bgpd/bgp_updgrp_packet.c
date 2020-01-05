@@ -514,6 +514,11 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 					    vec->flags,
 					    BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
 
+			if (bgp_flag_check(peer->bgp,
+					   BGP_FLAG_IPV6_LINK_LOCAL_ONLY)
+			    && IN6_IS_ADDR_UNSPECIFIED(
+				    &peer->nexthop.v6_global))
+				nhlen = BGP_ATTR_NHLEN_IPV6_LL;
 			/*
 			 * The logic here is rather similar to that for IPv4,
 			 * the
@@ -522,7 +527,12 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			 * party nexthop is not propagated for EBGP right now.
 			 */
 			switch (nhlen) {
-			case BGP_ATTR_NHLEN_IPV6_GLOBAL:
+
+			case IPV6_MAX_BYTELEN:
+				/* This case includes both the below.
+				 * BGP_ATTR_NHLEN_IPV6_LL:
+				 * BGP_ATTR_NHLEN_IPV6_GLOBAL:
+				 */
 				break;
 			case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
 				offset_nhlocal += IPV6_MAX_BYTELEN;
@@ -544,8 +554,13 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 				return NULL;
 			}
 
-			stream_get_from(&v6nhglobal, s, offset_nhglobal,
-					IPV6_MAX_BYTELEN);
+			if (!bgp_flag_check(peer->bgp,
+					    BGP_FLAG_IPV6_LINK_LOCAL_ONLY)
+			    || !IN6_IS_ADDR_UNSPECIFIED(
+				    &peer->nexthop.v6_global)) {
+				stream_get_from(&v6nhglobal, s, offset_nhglobal,
+						IPV6_MAX_BYTELEN);
+			}
 
 			/*
 			 * Updates to an EBGP peer should only modify the
@@ -579,8 +594,12 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			}
 
 
-			if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
-			    || nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
+			if ((nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
+			     || nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
+			    || (bgp_flag_check(peer->bgp,
+					       BGP_FLAG_IPV6_LINK_LOCAL_ONLY)
+				&& IN6_IS_ADDR_UNSPECIFIED(
+					&peer->nexthop.v6_global))) {
 				stream_get_from(&v6nhlocal, s, offset_nhlocal,
 						IPV6_MAX_BYTELEN);
 				if (IN6_IS_ADDR_UNSPECIFIED(&v6nhlocal)) {
@@ -589,7 +608,11 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 				}
 			}
 
-			if (gnh_modified)
+			if ((!bgp_flag_check(peer->bgp,
+					     BGP_FLAG_IPV6_LINK_LOCAL_ONLY)
+			     || !IN6_IS_ADDR_UNSPECIFIED(
+				     &peer->nexthop.v6_global))
+			    && (gnh_modified))
 				stream_put_in6_addr_at(s, offset_nhglobal,
 						       mod_v6nhg);
 			if (lnh_modified)
