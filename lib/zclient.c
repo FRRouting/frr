@@ -2679,6 +2679,17 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 	}
 
 	STREAM_GETW(s, zl->nexthop_num);
+
+	if (zl->nexthop_num > MULTIPATH_NUM) {
+		flog_warn(
+			EC_LIB_ZAPI_ENCODE,
+			"%s: Prefix %pFX has %d nexthops, but we can only use the first %d",
+			__func__, &zl->route.prefix, zl->nexthop_num,
+			MULTIPATH_NUM);
+	}
+
+	zl->nexthop_num = MIN(MULTIPATH_NUM, zl->nexthop_num);
+
 	for (int i = 0; i < zl->nexthop_num; i++) {
 		znh = &zl->nexthops[i];
 
