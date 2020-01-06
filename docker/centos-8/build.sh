@@ -17,7 +17,7 @@ docker build \
 	.
 
 # Copy RPM package from container to host
-CONTAINER_ID="$(docker create "frr:centos-builder-8-$GITREV")"
+CONTAINER_ID="$(docker create "frr:centos-8-builder-$GITREV")"
 docker cp "${CONTAINER_ID}:/rpmbuild/RPMS/x86_64/" docker/centos-8/pkgs
 docker rm "${CONTAINER_ID}"
 
