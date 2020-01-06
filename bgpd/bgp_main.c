@@ -456,6 +456,9 @@ int main(int argc, char **argv)
 	uint8_t *input;
 	int r = frrfuzz_read_input(&input);
 
+	if (!input)
+		return 0;
+
 	ringbuf_put(p->ibuf_work, input, r);
 
 	/*
