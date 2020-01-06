@@ -52,9 +52,22 @@ extern bool
 nhg_connected_tree_is_empty(const struct nhg_connected_tree_head *head);
 extern struct nhg_connected *
 nhg_connected_tree_root(struct nhg_connected_tree_head *head);
-extern void nhg_connected_tree_del_nhe(struct nhg_connected_tree_head *head,
-				       struct nhg_hash_entry *nhe);
-extern void nhg_connected_tree_add_nhe(struct nhg_connected_tree_head *head,
-				       struct nhg_hash_entry *nhe);
+
+/* I realize _add/_del returns are backwords.
+ *
+ * Currently the list APIs are not standardized for what happens in
+ * the _del() function when the item isn't present.
+ *
+ * We are choosing to return NULL if not found in the _del case for now.
+ */
+
+/* Delete NHE from the tree. On success, return the NHE, otherwise NULL. */
+extern struct nhg_hash_entry *
+nhg_connected_tree_del_nhe(struct nhg_connected_tree_head *head,
+			   struct nhg_hash_entry *nhe);
+/* ADD NHE to the tree. On success, return NULL, otherwise return the NHE. */
+extern struct nhg_hash_entry *
+nhg_connected_tree_add_nhe(struct nhg_connected_tree_head *head,
+			   struct nhg_hash_entry *nhe);
 
 #endif /* __ZEBRA_NHG_PRIVATE_H__ */
