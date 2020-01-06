@@ -5620,19 +5620,24 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 		if (!bgp->evpn_info->advertise_pip)
 			vty_out(vty, "  no advertise-pip\n");
 		if (bgp->evpn_info->advertise_pip) {
-			if (bgp->evpn_info->pip_ip_static.s_addr != INADDR_ANY)
+			if (bgp->evpn_info->pip_ip_static.s_addr
+			    != INADDR_ANY) {
 				vty_out(vty, "  advertise-pip ip %s",
 					inet_ntop(AF_INET,
 					&bgp->evpn_info->pip_ip_static,
 					buf2, INET_ADDRSTRLEN));
-			if (!is_zero_mac(&(bgp->evpn_info->pip_rmac_static))) {
-				char buf[ETHER_ADDR_STRLEN];
+				if (!is_zero_mac(&(
+					    bgp->evpn_info->pip_rmac_static))) {
+					char buf[ETHER_ADDR_STRLEN];
 
-				vty_out(vty, " mac %s",
-				prefix_mac2str(&bgp->evpn_info->pip_rmac,
-						       buf, sizeof(buf)));
+					vty_out(vty, " mac %s",
+						prefix_mac2str(
+							&bgp->evpn_info
+								 ->pip_rmac,
+							buf, sizeof(buf)));
+				}
+				vty_out(vty, "\n");
 			}
-			vty_out(vty, "\n");
 		}
 	}
 	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_RD_CFGD))
