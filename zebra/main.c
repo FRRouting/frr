@@ -336,6 +336,9 @@ int main(int argc, char **argv)
 	zserv_handle_commands(zc, s);
 
 	stream_free(s);
+	if (r > 0 && input) {
+		free(input);
+	}
 
 	return 0;
 #endif /* FUZZING */
