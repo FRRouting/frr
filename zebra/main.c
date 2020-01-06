@@ -340,7 +340,9 @@ int main(int argc, char **argv)
 
 	zserv_handle_commands(zc, s);
 
-	exit(0);
+	stream_free(s);
+
+	return 0;
 #endif /* FUZZING */
 
 	frr_opt_add(
