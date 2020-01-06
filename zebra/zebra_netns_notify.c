@@ -79,19 +79,10 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 		return;
 
 	frr_with_privs(&zserv_privs) {
-		ns_id = zebra_ns_id_get(netnspath);
+		ns_id = zebra_ns_id_get(netnspath, -1);
 	}
 	if (ns_id == NS_UNKNOWN)
 		return;
-	default_ns = ns_get_default();
-	if (default_ns && default_ns->internal_ns_id != ns_id) {
-		frr_with_privs(&zserv_privs) {
-			ns_id_relative =
-				zebra_ns_id_get_relative_value(
-							default_ns->internal_ns_id,
-							ns_id);
-		}
-	}
 	ns_id_external = ns_map_nsid_with_external(ns_id, true);
 	/* if VRF with NS ID already present */
 	vrf = vrf_lookup_by_id((vrf_id_t)ns_id_external);
@@ -107,6 +98,16 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 		ns_map_nsid_with_external(ns_id, false);
 		return;
 	}
+
+	default_ns = ns_get_default();
+
+	/* force kernel ns_id creation in that new vrf */
+	frr_with_privs(&zserv_privs) {
+		ns_switch_to_netns(netnspath);
+		ns_id_relative = zebra_ns_id_get(NULL, default_ns->fd);
+		ns_switchback_to_initial();
+	}
+
 	frr_with_privs(&zserv_privs) {
 		ret = vrf_netns_handler_create(NULL, vrf, netnspath,
 					       ns_id_external,
