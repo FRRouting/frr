@@ -1474,6 +1474,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		api_nh = &api.nexthops[i];
 		ifindex_t ifindex = 0;
 
+		nexthop = NULL;
+
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug("nh type %d", api_nh->type);
 
