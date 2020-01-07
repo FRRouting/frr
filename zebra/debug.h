@@ -59,6 +59,9 @@ extern "C" {
 
 #define ZEBRA_DEBUG_MLAG    0x01
 
+#define ZEBRA_DEBUG_NHG             0x01
+#define ZEBRA_DEBUG_NHG_DETAILED    0x02
+
 /* Debug related macro. */
 #define IS_ZEBRA_DEBUG_EVENT  (zebra_debug_event & ZEBRA_DEBUG_EVENT)
 
@@ -92,6 +95,11 @@ extern "C" {
 
 #define IS_ZEBRA_DEBUG_MLAG (zebra_debug_mlag & ZEBRA_DEBUG_MLAG)
 
+#define IS_ZEBRA_DEBUG_NHG (zebra_debug_nexthop & ZEBRA_DEBUG_NHG)
+
+#define IS_ZEBRA_DEBUG_NHG_DETAIL \
+	(zebra_debug_nexthop & ZEBRA_DEBUG_NHG_DETAILED)
+
 extern unsigned long zebra_debug_event;
 extern unsigned long zebra_debug_packet;
 extern unsigned long zebra_debug_kernel;
@@ -103,6 +111,7 @@ extern unsigned long zebra_debug_vxlan;
 extern unsigned long zebra_debug_pw;
 extern unsigned long zebra_debug_dplane;
 extern unsigned long zebra_debug_mlag;
+extern unsigned long zebra_debug_nexthop;
 
 extern void zebra_debug_init(void);
 
