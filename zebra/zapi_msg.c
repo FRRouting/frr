@@ -2431,6 +2431,7 @@ static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
 		zpi.sock = client->sock;
 		STREAM_GETL(s, zpi.unique);
 		STREAM_GET(&ipset.ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
+		ipset.ipset_name[ZEBRA_IPSET_NAME_SIZE - 1] = '\0';
 		STREAM_GETC(s, zpi.src.family);
 		STREAM_GETC(s, zpi.src.prefixlen);
 		STREAM_GET(&zpi.src.u.prefix, s, prefix_blen(&zpi.src));
