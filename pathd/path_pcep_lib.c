@@ -145,10 +145,11 @@ double_linked_list *pcep_lib_format_path(path_t *path)
 					hop->has_attribs,
 					hop->is_mpls,
 					sid,
-					&hop->nai.ipv4_node.addr);
+					&hop->nai.ipv4_node.addr,
+					true);
 		} else {
 			ero_obj = pcep_obj_create_ro_subobj_sr_nonai(
-					hop->is_loose, sid);
+					hop->is_loose, sid, true);
 		}
 		/* ODL only supports Draft 07 that has a different type */
 		ero_obj->subobj.sr.header.type = RO_SUBOBJ_TYPE_SR_DRAFT07;

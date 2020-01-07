@@ -124,12 +124,12 @@ const char *pcep_error_type_name(enum pcep_error_type error_type)
 			return "POLICY_VIOLATION";
 		case PCEP_ERRT_MANDATORY_OBJECT_MISSING:
 			return "MANDATORY_OBJECT_MISSING";
-		case PCEP_ERRT_SYNCH_PC_REQ_MISSING:
-			return "SYNCH_PC_REQ_MISSING";
+		case PCEP_ERRT_SYNC_PC_REQ_MISSING:
+			return "SYNC_PC_REQ_MISSING";
 		case PCEP_ERRT_UNKNOWN_REQ_REF:
 			return "UNKNOWN_REQ_REF";
-		case PCEP_ERRT_ATTEMPT_TO_ESTABLISH_A_SEC_PCEP_SESSION:
-			return "ATTEMPT_TO_ESTABLISH_A_SEC_PCEP_SESSION";
+		case PCEP_ERRT_ATTEMPT_TO_ESTABLISH_2ND_PCEP_SESSION:
+			return "ATTEMPT_TO_ESTABLISH_2ND_PCEP_SESSION";
 		case PCEP_ERRT_RECEPTION_OF_INV_OBJECT:
 			return "RECEPTION_OF_INV_OBJECT";
 		default:
@@ -194,9 +194,11 @@ const char *pcep_error_value_name(enum pcep_error_type error_type,
 		case TUP(PCEP_ERRT_MANDATORY_OBJECT_MISSING, 11):
 			return "LSP_IDENTIFIERS_TLV_MISSING";
 
-		case TUP(PCEP_ERRT_RECEPTION_OF_INV_OBJECT,
-			 PCEP_ERRV_P_FLAG_NOT_CORRECT_IN_OBJECT):
-			return "P_FLAG_NOT_CORRECT_IN_OBJECT";
+		//TODO: The conbstant PCEP_ERRV_P_FLAG_NOT_CORRECT_IN_OBJECT
+		// was removed in pceplib ... how to replace it?
+		//case TUP(PCEP_ERRT_RECEPTION_OF_INV_OBJECT,
+		//	 PCEP_ERRV_P_FLAG_NOT_CORRECT_IN_OBJECT):
+		//	return "P_FLAG_NOT_CORRECT_IN_OBJECT";
 
 		default:
 			return "UNKNOWN";
