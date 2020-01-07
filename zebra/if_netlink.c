@@ -1467,7 +1467,7 @@ int netlink_protodown(struct interface *ifp, bool down)
 
 	req.ifa.ifi_index = ifp->ifindex;
 
-	addattr_l(&req.n, sizeof(req), IFLA_PROTO_DOWN, &down, 4);
+	addattr_l(&req.n, sizeof(req), IFLA_PROTO_DOWN, &down, sizeof(down));
 	addattr_l(&req.n, sizeof(req), IFLA_LINK, &ifp->ifindex, 4);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
