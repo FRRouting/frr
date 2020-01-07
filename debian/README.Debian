@@ -61,7 +61,7 @@ OpenSSL now is not compatible with the GNU GENERAL PUBLIC LICENSE (GPL)
 licence that FRR is distributed under. For more explanation read:
   http://www.gnome.org/~markmc/openssl-and-the-gpl.html
   http://www.gnu.org/licenses/gpl-faq.html#GPLIncompatibleLibs
-Updating the licence to explecitly allow linking against OpenSSL
+Updating the licence to explicitly allow linking against OpenSSL
 would requite the affirmation of all people that ever contributed
 a significant part to Zebra / Quagga or FRR and thus are the collective
 "copyright holder". That's too much work. Using a shrinked down 
