@@ -27,6 +27,10 @@ module frr-isisd {
   description
     "This module defines a model for managing FRR isisd daemon.";
 
+  revision 2019-12-17 {
+    description
+      "Changed default area is-type to level-1-2";
+  }
   revision 2019-09-09 {
     description
       "Changed interface references to use
@@ -748,7 +752,7 @@ module frr-isisd {
 
       leaf is-type {
         type level;
-        default "level-1";
+        default "level-1-2";
         description
           "Level of the IS-IS routing instance (OSI only).";
       }

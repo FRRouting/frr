@@ -107,13 +107,10 @@ struct isis_area *isis_area_create(const char *area_tag)
 
 	/*
 	 * Fabricd runs only as level-2.
-	 * For IS-IS, the first instance is level-1-2 rest are level-1,
-	 * unless otherwise configured
+	 * For IS-IS, the default is level-1-2
 	 */
-	if (fabricd) {
+	if (fabricd)
 		area->is_type = IS_LEVEL_2;
-	} else if (listcount(isis->area_list) == 0)
-		area->is_type = IS_LEVEL_1_AND_2;
 	else
 		area->is_type = yang_get_default_enum(
 			"/frr-isisd:isis/instance/is-type");
