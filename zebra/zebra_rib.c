@@ -1898,11 +1898,6 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 		/* Redistribute, lsp, and nht update */
 		redistribute_update(dest_pfx, src_pfx, re, NULL);
 
-		zebra_rib_evaluate_rn_nexthops(
-			rn, zebra_router_get_next_sequence());
-
-		zebra_rib_evaluate_mpls(rn);
-
 	} else if (start_count > 0 && end_count == 0) {
 		if (debug_p)
 			zlog_debug("%u:%s un-installed transition from dplane notification",
@@ -1921,12 +1916,13 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 
 		/* Redistribute, lsp, and nht update */
 		redistribute_delete(dest_pfx, src_pfx, re, NULL);
-
-		zebra_rib_evaluate_rn_nexthops(
-			rn, zebra_router_get_next_sequence());
-
-		zebra_rib_evaluate_mpls(rn);
 	}
+
+	/* Make any changes visible for lsp and nexthop-tracking processing */
+	zebra_rib_evaluate_rn_nexthops(
+		rn, zebra_router_get_next_sequence());
+
+	zebra_rib_evaluate_mpls(rn);
 
 done:
 	if (rn)
