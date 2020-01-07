@@ -11,6 +11,13 @@ vrf aware and can work within the context of vrf's in order to
 do S,G mrouting.  Additionally PIM can be used in the EVPN underlay
 network for optimizing forwarding of overlay BUM traffic.
 
+.. note::
+
+   On Linux for PIM-SM operation you *must* have kernel version 4.18 or greater.
+   To use PIM for EVPN BUM forwarding, kernels 5.0 or greater are required.
+   OpenBSD has no multicast support and FreeBSD, NetBSD and Solaris only
+   have support for SSM.
+
 .. _starting-and-stopping-pimd:
 
 Starting and Stopping pimd
