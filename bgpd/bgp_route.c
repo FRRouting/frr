@@ -4515,7 +4515,8 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 			if (pnt + BGP_ADDPATH_ID_LEN >= lim)
 				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 
-			addpath_id = ntohl(*((uint32_t *)pnt));
+			memcpy(&addpath_id, pnt, 4);
+			addpath_id = ntohl(addpath_id);
 			pnt += BGP_ADDPATH_ID_LEN;
 		}
 
