@@ -4310,6 +4310,9 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 
 int bgp_outbound_policy_exists(struct peer *peer, struct bgp_filter *filter)
 {
+	if (peer->sort == BGP_PEER_IBGP)
+		return 1;
+
 	if (peer->sort == BGP_PEER_EBGP
 	    && (ROUTE_MAP_OUT_NAME(filter) || PREFIX_LIST_OUT_NAME(filter)
 		|| FILTER_LIST_OUT_NAME(filter)
@@ -4320,6 +4323,9 @@ int bgp_outbound_policy_exists(struct peer *peer, struct bgp_filter *filter)
 
 int bgp_inbound_policy_exists(struct peer *peer, struct bgp_filter *filter)
 {
+	if (peer->sort == BGP_PEER_IBGP)
+		return 1;
+
 	if (peer->sort == BGP_PEER_EBGP
 	    && (ROUTE_MAP_IN_NAME(filter) || PREFIX_LIST_IN_NAME(filter)
 		|| FILTER_LIST_IN_NAME(filter)
