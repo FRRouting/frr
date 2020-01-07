@@ -2463,6 +2463,13 @@ static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
 		/* calculate backpointer */
 		zpi.backpointer =
 			zebra_pbr_lookup_ipset_pername(ipset.ipset_name);
+
+		if (!zpi.backpointer) {
+			zlog_warn("ipset name specified: %s does not exist",
+				  ipset.ipset_name);
+			goto stream_failure;
+		}
+
 		if (hdr->command == ZEBRA_IPSET_ENTRY_ADD)
 			zebra_pbr_add_ipset_entry(&zpi);
 		else
