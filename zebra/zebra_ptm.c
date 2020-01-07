@@ -1295,7 +1295,6 @@ static void zebra_ptm_send_bfdd(struct stream *msg)
 	}
 
 	stream_free(msgc);
-	stream_free(msg);
 }
 
 static void zebra_ptm_send_clients(struct stream *msg)
@@ -1327,7 +1326,6 @@ static void zebra_ptm_send_clients(struct stream *msg)
 	}
 
 	stream_free(msgc);
-	stream_free(msg);
 }
 
 static int _zebra_ptm_bfd_client_deregister(struct zserv *zs)
