@@ -2704,6 +2704,8 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		pi->attr = attr_new;
 		pi->uptime = bgp_clock();
 	}
+	/* as it is an importation, change nexthop */
+	bgp_path_info_set_flag(rn, pi, BGP_PATH_ANNC_NH_SELF);
 
 	bgp_aggregate_increment(bgp_vrf, &rn->p, pi, afi, safi);
 
