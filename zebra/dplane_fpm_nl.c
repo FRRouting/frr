@@ -103,35 +103,35 @@ struct fpm_nl_ctx {
 	/* Statistic counters. */
 	struct {
 		/* Amount of bytes read into ibuf. */
-		_Atomic uint64_t bytes_read;
+		_Atomic uint32_t bytes_read;
 		/* Amount of bytes written from obuf. */
-		_Atomic uint64_t bytes_sent;
+		_Atomic uint32_t bytes_sent;
 		/* Output buffer current usage. */
-		_Atomic uint64_t obuf_bytes;
+		_Atomic uint32_t obuf_bytes;
 		/* Output buffer peak usage. */
-		_Atomic uint64_t obuf_peak;
+		_Atomic uint32_t obuf_peak;
 
 		/* Amount of connection closes. */
-		_Atomic uint64_t connection_closes;
+		_Atomic uint32_t connection_closes;
 		/* Amount of connection errors. */
-		_Atomic uint64_t connection_errors;
+		_Atomic uint32_t connection_errors;
 
 		/* Amount of user configurations: FNE_RECONNECT. */
-		_Atomic uint64_t user_configures;
+		_Atomic uint32_t user_configures;
 		/* Amount of user disable requests: FNE_DISABLE. */
-		_Atomic uint64_t user_disables;
+		_Atomic uint32_t user_disables;
 
 		/* Amount of data plane context processed. */
-		_Atomic uint64_t dplane_contexts;
+		_Atomic uint32_t dplane_contexts;
 		/* Amount of data plane contexts enqueued. */
-		_Atomic uint64_t ctxqueue_len;
+		_Atomic uint32_t ctxqueue_len;
 		/* Peak amount of data plane contexts enqueued. */
-		_Atomic uint64_t ctxqueue_len_peak;
+		_Atomic uint32_t ctxqueue_len_peak;
 
 		/* Amount of buffer full events. */
-		_Atomic uint64_t buffer_full;
+		_Atomic uint32_t buffer_full;
 	} counters;
-} * gfnc;
+} *gfnc;
 
 enum fpm_nl_events {
 	/* Ask for FPM to reconnect the external server. */
@@ -271,7 +271,7 @@ DEFUN(fpm_show_counters, fpm_show_counters_cmd,
 	vty_out(vty, "%30s\n%30s\n", "FPM counters", "============");
 
 #define SHOW_COUNTER(label, counter) \
-	vty_out(vty, "%28s: %Lu\n", (label), (counter));
+	vty_out(vty, "%28s: %u\n", (label), (counter))
 
 	SHOW_COUNTER("Input bytes", gfnc->counters.bytes_read);
 	SHOW_COUNTER("Output bytes", gfnc->counters.bytes_sent);
