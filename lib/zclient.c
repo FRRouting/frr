@@ -1467,6 +1467,21 @@ stream_failure:
 	return false;
 }
 
+bool zapi_error_decode(struct stream *s, enum zebra_error_types *error)
+{
+	memset(error, 0, sizeof(*error));
+
+	STREAM_GET(error, s, sizeof(*error));
+
+	if (zclient_debug)
+		zlog_debug("%s: type: %s", __func__,
+			   zebra_error_type2str(*error));
+
+	return true;
+stream_failure:
+	return false;
+}
+
 /*
  * send a ZEBRA_REDISTRIBUTE_ADD or ZEBRA_REDISTRIBUTE_DELETE
  * for the route type (ZEBRA_ROUTE_KERNEL etc.). The zebra server will
@@ -1704,6 +1719,17 @@ static void zclient_interface_down(struct zclient *zclient, vrf_id_t vrf_id)
 		return;
 
 	if_down_via_zapi(ifp);
+}
+
+static void zclient_handle_error(ZAPI_CALLBACK_ARGS)
+{
+	enum zebra_error_types error;
+	struct stream *s = zclient->ibuf;
+
+	zapi_error_decode(s, &error);
+
+	if (zclient->handle_error)
+		(*zclient->handle_error)(error);
 }
 
 static void link_params_set_value(struct stream *s, struct if_link_params *iflp)
@@ -3153,6 +3179,8 @@ static int zclient_read(struct thread *thread)
 	case ZEBRA_MLAG_FORWARD_MSG:
 		zclient_mlag_handle_msg(command, zclient, length, vrf_id);
 		break;
+	case ZEBRA_ERROR:
+		zclient_handle_error(command, zclient, length, vrf_id);
 	default:
 		break;
 	}
