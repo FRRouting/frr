@@ -174,7 +174,7 @@ const char *pcep_error_value_name(enum pcep_error_type error_type,
 			 PCEP_ERRV_C_BIT_SET_IN_METRIC_OBJECT):
 			return "C_BIT_SET_IN_METRIC_OBJECT";
 		case TUP(PCEP_ERRT_POLICY_VIOLATION,
-			 PCEP_ERRV_O_BIt_CLEARD_IN_RP_OBJECT):
+			 PCEP_ERRV_O_BIT_CLEARD_IN_RP_OBJECT):
 			return "O_BIT_CLEARD_IN_RP_OBJECT";
 
 		case TUP(PCEP_ERRT_MANDATORY_OBJECT_MISSING,
@@ -194,11 +194,9 @@ const char *pcep_error_value_name(enum pcep_error_type error_type,
 		case TUP(PCEP_ERRT_MANDATORY_OBJECT_MISSING, 11):
 			return "LSP_IDENTIFIERS_TLV_MISSING";
 
-		//TODO: The conbstant PCEP_ERRV_P_FLAG_NOT_CORRECT_IN_OBJECT
-		// was removed in pceplib ... how to replace it?
-		//case TUP(PCEP_ERRT_RECEPTION_OF_INV_OBJECT,
-		//	 PCEP_ERRV_P_FLAG_NOT_CORRECT_IN_OBJECT):
-		//	return "P_FLAG_NOT_CORRECT_IN_OBJECT";
+		case TUP(PCEP_ERRT_RECEPTION_OF_INV_OBJECT,
+			 PCEP_ERRV_P_FLAG_NOT_CORRECT_IN_OBJECT):
+			return "P_FLAG_NOT_CORRECT_IN_OBJECT";
 
 		default:
 			return "UNKNOWN";
