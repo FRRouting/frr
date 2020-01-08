@@ -18,6 +18,7 @@ RestartSec=5
 Restart=on-abnormal
 LimitNOFILE=1024
 PIDFile=@CFG_STATE@/watchfrr.pid
+LimitCORE=infinity
 ExecStart=@CFG_SBIN@/frrinit.sh start
 ExecStop=@CFG_SBIN@/frrinit.sh stop
 ExecReload=@CFG_SBIN@/frrinit.sh reload
