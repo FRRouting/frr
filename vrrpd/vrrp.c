@@ -406,9 +406,10 @@ static bool vrrp_has_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 	return false;
 }
 
-int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip)
+int vrrp_add_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 {
-	int af = (ip->ipa_type == IPADDR_V6) ? AF_INET6 : AF_INET;
+	struct vrrp_router *r = IS_IPADDR_V4(ip) ? vr->v4 : vr->v6;
+	int af = r->family;
 
 	assert(r->family == af);
 	assert(!(r->vr->version == 2 && ip->ipa_type == IPADDR_V6));
@@ -452,7 +453,7 @@ int vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
 
 	ip.ipa_type = IPADDR_V4;
 	ip.ipaddr_v4 = v4;
-	return vrrp_add_ip(vr->v4, &ip);
+	return vrrp_add_ip(vr, &ip);
 }
 
 int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
@@ -463,14 +464,16 @@ int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
 
 	ip.ipa_type = IPADDR_V6;
 	ip.ipaddr_v6 = v6;
-	return vrrp_add_ip(vr->v6, &ip);
+	return vrrp_add_ip(vr, &ip);
 }
 
-int vrrp_del_ip(struct vrrp_router *r, struct ipaddr *ip)
+int vrrp_del_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 {
 	struct listnode *ln, *nn;
 	struct ipaddr *iter;
 	int ret = 0;
+
+	struct vrrp_router *r = IS_IPADDR_V4(ip) ? vr->v4 : vr->v6;
 
 	if (!vrrp_has_ip(r->vr, ip))
 		return 0;
@@ -497,7 +500,7 @@ int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
 
 	ip.ipa_type = IPADDR_V6;
 	ip.ipaddr_v6 = v6;
-	return vrrp_del_ip(vr->v6, &ip);
+	return vrrp_del_ip(vr, &ip);
 }
 
 int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
@@ -506,7 +509,7 @@ int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
 
 	ip.ipa_type = IPADDR_V4;
 	ip.ipaddr_v4 = v4;
-	return vrrp_del_ip(vr->v4, &ip);
+	return vrrp_del_ip(vr, &ip);
 }
 
 
@@ -659,12 +662,12 @@ void vrrp_vrouter_destroy(struct vrrp_vrouter *vr)
 	XFREE(MTYPE_VRRP_RTR, vr);
 }
 
-struct vrrp_vrouter *vrrp_lookup(struct interface *ifp, uint8_t vrid)
+struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid)
 {
 	struct vrrp_vrouter vr;
 
 	vr.vrid = vrid;
-	vr.ifp = ifp;
+	vr.ifp = (struct interface *)ifp;
 
 	return hash_lookup(vrrp_vrouters_hash, &vr);
 }
@@ -1445,7 +1448,7 @@ static void vrrp_change_state_initialize(struct vrrp_router *r)
 	r->ndisc_pending = false;
 
 	/* Disable ND Router Advertisements */
-	if (r->family == AF_INET6)
+	if (r->family == AF_INET6 && r->mvl_ifp)
 		vrrp_zebra_radv_set(r, false);
 }
 
@@ -1653,7 +1656,8 @@ static int vrrp_shutdown(struct vrrp_router *r)
 	THREAD_OFF(r->t_write);
 
 	/* Protodown macvlan */
-	vrrp_zclient_send_interface_protodown(r->mvl_ifp, true);
+	if (r->mvl_ifp)
+		vrrp_zclient_send_interface_protodown(r->mvl_ifp, true);
 
 	/* Throw away our source address */
 	memset(&r->src, 0x00, sizeof(r->src));
@@ -2295,71 +2299,6 @@ void vrrp_if_address_del(struct interface *ifp)
 
 /* Other ------------------------------------------------------------------- */
 
-int vrrp_config_write_interface(struct vty *vty)
-{
-	struct list *vrs = hash_to_list(vrrp_vrouters_hash);
-	struct listnode *ln, *ipln;
-	struct vrrp_vrouter *vr;
-	int writes = 0;
-
-	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
-		vty_frame(vty, "interface %s\n", vr->ifp->name);
-		++writes;
-
-		vty_out(vty, " vrrp %" PRIu8 "%s\n", vr->vrid,
-			vr->version == 2 ? " version 2" : "");
-		++writes;
-
-		if (vr->shutdown != vd.shutdown && ++writes)
-			vty_out(vty, " %svrrp %" PRIu8 " shutdown\n",
-				vr->shutdown ? "" : "no ", vr->vrid);
-
-		if (vr->preempt_mode != vd.preempt_mode && ++writes)
-			vty_out(vty, " %svrrp %" PRIu8 " preempt\n",
-				vr->preempt_mode ? "" : "no ", vr->vrid);
-
-		if (vr->accept_mode != vd.accept_mode && ++writes)
-			vty_out(vty, " %svrrp %" PRIu8 " accept\n",
-				vr->accept_mode ? "" : "no ", vr->vrid);
-
-		if (vr->advertisement_interval != vd.advertisement_interval
-		    && ++writes)
-			vty_out(vty,
-				" vrrp %" PRIu8
-				" advertisement-interval %d\n",
-				vr->vrid, vr->advertisement_interval * CS2MS);
-
-		if (vr->priority != vd.priority && ++writes)
-			vty_out(vty, " vrrp %" PRIu8 " priority %" PRIu8 "\n",
-				vr->vrid, vr->priority);
-
-		struct ipaddr *ip;
-
-		for (ALL_LIST_ELEMENTS_RO(vr->v4->addrs, ipln, ip)) {
-			char ipbuf[INET6_ADDRSTRLEN];
-
-			ipaddr2str(ip, ipbuf, sizeof(ipbuf));
-			vty_out(vty, " vrrp %" PRIu8 " ip %s\n", vr->vrid,
-				ipbuf);
-			++writes;
-		}
-
-		for (ALL_LIST_ELEMENTS_RO(vr->v6->addrs, ipln, ip)) {
-			char ipbuf[INET6_ADDRSTRLEN];
-
-			ipaddr2str(ip, ipbuf, sizeof(ipbuf));
-			vty_out(vty, " vrrp %" PRIu8 " ipv6 %s\n", vr->vrid,
-				ipbuf);
-			++writes;
-		}
-		vty_endframe(vty, "!\n");
-	}
-
-	list_delete(&vrs);
-
-	return writes;
-}
-
 int vrrp_config_write_global(struct vty *vty)
 {
 	unsigned int writes = 0;
@@ -2368,6 +2307,7 @@ int vrrp_config_write_global(struct vty *vty)
 		vty_out(vty, "vrrp autoconfigure%s\n",
 			vrrp_autoconfig_version == 2 ? " version 2" : "");
 
+	/* FIXME: needs to be udpated for full YANG conversion. */
 	if (vd.priority != VRRP_DEFAULT_PRIORITY && ++writes)
 		vty_out(vty, "vrrp default priority %" PRIu8 "\n", vd.priority);
 
@@ -2417,10 +2357,13 @@ static bool vrrp_hash_cmp(const void *arg1, const void *arg2)
 void vrrp_init(void)
 {
 	/* Set default defaults */
-	vd.priority = VRRP_DEFAULT_PRIORITY;
-	vd.advertisement_interval = VRRP_DEFAULT_ADVINT;
-	vd.preempt_mode = VRRP_DEFAULT_PREEMPT;
-	vd.accept_mode = VRRP_DEFAULT_ACCEPT;
+	vd.version = yang_get_default_uint8("%s/version", VRRP_XPATH_FULL);
+	vd.priority = yang_get_default_uint8("%s/priority", VRRP_XPATH_FULL);
+	vd.advertisement_interval = yang_get_default_uint16(
+		"%s/advertisement-interval", VRRP_XPATH_FULL);
+	vd.preempt_mode = yang_get_default_bool("%s/preempt", VRRP_XPATH_FULL);
+	vd.accept_mode =
+		yang_get_default_bool("%s/accept-mode", VRRP_XPATH_FULL);
 	vd.shutdown = VRRP_DEFAULT_SHUTDOWN;
 
 	vrrp_autoconfig_version = 3;
