@@ -9679,7 +9679,7 @@ DEFUN (show_ip_ospf_vrfs,
 		if (uj)
 			json_vrf = json_object_new_object();
 
-		if (ospf->vrf_id == 0)
+		if (ospf->vrf_id == VRF_DEFAULT)
 			name = VRF_DEFAULT_NAME;
 		else
 			name = ospf->name;

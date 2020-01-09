@@ -507,7 +507,7 @@ static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
 	if (lookup.nhg->nexthop->next) {
 		/* Groups can have all vrfs and AF's in them */
 		lookup.afi = AFI_UNSPEC;
-		lookup.vrf_id = 0;
+		lookup.vrf_id = VRF_DEFAULT;
 	} else {
 		switch (lookup.nhg->nexthop->type) {
 		case (NEXTHOP_TYPE_IFINDEX):
