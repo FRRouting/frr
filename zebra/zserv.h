@@ -317,6 +317,10 @@ int zebra_finalize(struct thread *event);
  */
 extern int zebra_gr_client_disconnect(struct zserv *client);
 extern void zebra_gr_client_reconnect(struct zserv *client);
+extern void zebra_gr_stale_client_cleanup(struct list *client_list);
+extern void zread_client_capabilities(struct zserv *client, struct zmsghdr *hdr,
+				      struct stream *msg,
+				      struct zebra_vrf *zvrf);
 
 #ifdef __cplusplus
 }
