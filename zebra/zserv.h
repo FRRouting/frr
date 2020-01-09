@@ -312,6 +312,12 @@ extern void zserv_read_file(char *input);
 /* TODO */
 int zebra_finalize(struct thread *event);
 
+/*
+ * Graceful restart functions.
+ */
+extern int zebra_gr_client_disconnect(struct zserv *client);
+extern void zebra_gr_client_reconnect(struct zserv *client);
+
 #ifdef __cplusplus
 }
 #endif

@@ -568,11 +568,14 @@ static void zserv_client_free(struct zserv *client)
 
 		close(client->sock);
 
-		nroutes = rib_score_proto(client->proto, client->instance);
-		zlog_notice(
-			"client %d disconnected %lu %s routes removed from the rib",
-			client->sock, nroutes,
-			zebra_route_string(client->proto));
+		if (!client->gr_instance_count) {
+			nroutes = rib_score_proto(client->proto,
+						  client->instance);
+			zlog_notice(
+				"client %d disconnected %lu %s routes removed from the rib",
+				client->sock, nroutes,
+				zebra_route_string(client->proto));
+		}
 		client->sock = -1;
 	}
 
@@ -603,7 +606,25 @@ static void zserv_client_free(struct zserv *client)
 	}
 	vrf_bitmap_free(client->ridinfo);
 
-	XFREE(MTYPE_TMP, client);
+	/*
+	 * If any instance are graceful restart enabled,
+	 * client is not deleted
+	 */
+	if (!client->gr_instance_count) {
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("%s: Deleting client %s", __func__,
+				   zebra_route_string(client->proto));
+		XFREE(MTYPE_TMP, client);
+	} else {
+		/* Handle cases where client has GR instance. */
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("%s: client %s restart enabled", __func__,
+				   zebra_route_string(client->proto));
+		if (zebra_gr_client_disconnect(client) < 0)
+			zlog_err(
+				"%s: GR enabled but could not handle disconnect event",
+				__func__);
+	}
 }
 
 void zserv_close_client(struct zserv *client)

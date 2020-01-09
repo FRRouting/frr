@@ -1773,6 +1773,8 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 		client->instance = instance;
 	}
 
+	/* Graceful restart processing for client connect */
+	zebra_gr_client_reconnect(client);
 	zsend_capabilities(client, zvrf);
 	zebra_vrf_update_all(client);
 stream_failure:
