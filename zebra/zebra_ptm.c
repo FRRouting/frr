@@ -1367,6 +1367,8 @@ static int _zebra_ptm_bfd_client_deregister(struct zserv *zs)
 
 	zebra_ptm_send_bfdd(msg);
 
+	stream_free(msg);
+
 	pp_free(pp);
 
 	return 0;
