@@ -78,6 +78,9 @@ enum bgp_show_adj_route_type {
  */
 #define BGP_MAX_LABELS 2
 
+/* Maximum number of sids we can process or send with a prefix. */
+#define BGP_MAX_SIDS 6
+
 /* Error codes for handling NLRI */
 #define BGP_NLRI_PARSE_OK 0
 #define BGP_NLRI_PARSE_ERROR_PREFIX_OVERFLOW -1
@@ -117,6 +120,10 @@ struct bgp_path_info_extra {
 	/* af specific flags */
 	uint16_t af_flags;
 #define BGP_EVPN_MACIP_TYPE_SVI_IP (1 << 0)
+
+	/* SRv6 SID(s) for SRv6-VPN */
+	struct in6_addr sid[BGP_MAX_SIDS];
+	uint32_t num_sids;
 
 #if ENABLE_BGP_VNC
 	union {
