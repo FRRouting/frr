@@ -89,6 +89,8 @@ enum zserv_client_capabilities {
 /* Macro to check if there GR enabled. */
 #define ZEBRA_CLIENT_GR_ENABLED(X) (X == ZEBRA_CLIENT_GR_CAPABILITIES)
 
+#define ZEBRA_SR_POLICY_NAME_MAX_LENGTH   100
+
 extern struct sockaddr_storage zclient_addr;
 extern socklen_t zclient_addr_len;
 
@@ -518,6 +520,13 @@ struct zapi_srte_tunnel {
 	mpls_label_t labels[MPLS_MAX_LABELS];
 };
 
+struct zapi_sr_policy {
+    uint32_t color;
+    struct in_addr endpoint;
+    char name[ZEBRA_SR_POLICY_NAME_MAX_LENGTH];
+    struct zapi_srte_tunnel active_segment_list;
+};
+
 struct zapi_pw {
 	char ifname[IF_NAMESIZE];
 	ifindex_t ifindex;
@@ -771,6 +780,12 @@ extern int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 			      uint32_t *start, uint32_t *end);
 extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
+
+extern int zebra_send_sr_policy(struct zclient *zclient, int cmd,
+				  struct zapi_sr_policy *zp);
+extern int zapi_sr_policy_encode(struct stream *s, int cmd,
+			      struct zapi_sr_policy *zp);
+extern int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp);
 
 extern int zebra_send_mpls_labels(struct zclient *zclient, int cmd,
 				  struct zapi_labels *zl);

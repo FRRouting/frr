@@ -2801,6 +2801,75 @@ int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 	return zclient_send_message(zclient);
 }
 
+int zebra_send_sr_policy(struct zclient *zclient, int cmd, struct zapi_sr_policy *zp)
+{
+	if (zapi_sr_policy_encode(zclient->obuf, cmd, zp) < 0)
+		return -1;
+	return zclient_send_message(zclient);
+}
+
+int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
+{
+	struct zapi_srte_tunnel *zt = &zp->active_segment_list;
+
+	stream_reset(s);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_putl(s, zp->color);
+	stream_put_in_addr(s, &zp->endpoint);
+	stream_write(s, &zp->name, ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+
+	stream_putc(s, zt->type);
+	stream_putl(s, zt->local_label);
+
+	if (zt->label_num > MPLS_MAX_LABELS) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: label %u: can't encode %u labels (maximum is %u)",
+			 __func__, zt->local_label, zt->label_num,
+			 MPLS_MAX_LABELS);
+		return -1;
+	}
+	stream_putw(s, zt->label_num);
+
+	for (int i = 0; i < zt->label_num; i++)
+		stream_putl(s, zt->labels[i]);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return 0;
+}
+
+int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
+{
+	memset(zp, 0, sizeof(*zp));
+
+	struct zapi_srte_tunnel *zt = &zp->active_segment_list;
+
+	STREAM_GETL(s, zp->color);
+	STREAM_GET(&zp->endpoint.s_addr, s, IPV4_MAX_BYTELEN);
+	STREAM_GET(&zp->name, s, ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+
+	/* segment list of active candidate path */
+	STREAM_GETC(s, zt->type);
+	STREAM_GETL(s, zt->local_label);
+	STREAM_GETW(s, zt->label_num);
+	if (zt->label_num > MPLS_MAX_LABELS) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: label %u: can't decode %u labels (maximum is %u)",
+			 __func__, zt->local_label, zt->label_num,
+			 MPLS_MAX_LABELS);
+		return -1;
+	}
+	for (int i = 0; i < zt->label_num; i++)
+		STREAM_GETL(s, zt->labels[i]);
+
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
 int zebra_send_mpls_labels(struct zclient *zclient, int cmd,
 			   struct zapi_labels *zl)
 {
