@@ -1346,10 +1346,6 @@ static int _zebra_ptm_bfd_client_deregister(struct zserv *zs)
 
 	/* Generate, send message and free() daemon related data. */
 	msg = stream_new(ZEBRA_MAX_PACKET_SIZ);
-	if (msg == NULL) {
-		zlog_debug("%s: not enough memory", __func__);
-		return 0;
-	}
 
 	/*
 	 * The message type will be BFD_DEST_REPLY so we can use only
@@ -1366,6 +1362,8 @@ static int _zebra_ptm_bfd_client_deregister(struct zserv *zs)
 	stream_putw_at(msg, 0, stream_get_endp(msg));
 
 	zebra_ptm_send_bfdd(msg);
+
+	stream_free(msg);
 
 	pp_free(pp);
 
@@ -1426,6 +1424,7 @@ static void _zebra_ptm_reroute(struct zserv *zs, struct zebra_vrf *zvrf,
 	STREAM_GETL(msg, ppid);
 	pp_new(ppid, zs);
 
+	stream_free(msgc);
 	return;
 
 stream_failure:
