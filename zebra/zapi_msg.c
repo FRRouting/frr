@@ -2099,6 +2099,72 @@ static void zread_mpls_labels_replace(ZAPI_HANDLER_ARGS)
 	mpls_zapi_labels_process(true, zvrf, &zl);
 }
 
+static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct zapi_sr_policy zp;
+	zebra_lsp_t *lsp;
+	zebra_nhlfe_t *nhlfe;
+	struct zapi_srte_tunnel *zt;
+
+	zt = &zp.active_segment_list;
+
+	/* Get input stream.  */
+	s = msg;
+	if (zapi_sr_policy_decode(s, &zp) < 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Unable to decode zapi_sr_policy sent",
+				   __PRETTY_FUNCTION__);
+		return;
+	}
+	if (zt->label_num < 1) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug(
+				"%s: SR-TE tunnel must contain at least one label",
+				__PRETTY_FUNCTION__);
+		return;
+	}
+
+	if (!mpls_enabled)
+		return;
+
+	mpls_lsp_uninstall_all_vrf(zvrf, zt->type, zt->local_label);
+
+	lsp = mpls_lsp_find(zvrf, zt->labels[0]);
+	if (!lsp)
+		return;
+
+	frr_each_safe(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
+		mpls_lsp_install(zvrf, zt->type, zt->local_label, zt->label_num,
+				 zt->labels, nhlfe->nexthop->type,
+				 &nhlfe->nexthop->gate,
+				 nhlfe->nexthop->ifindex);
+	}
+}
+
+static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct zapi_sr_policy zp;
+	struct zapi_srte_tunnel *zt;
+
+	zt = &zp.active_segment_list;
+
+	/* Get input stream.  */
+	s = msg;
+	if (zapi_sr_policy_decode(s, &zp) < 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Unable to decode zapi_sr_policy sent",
+				   __PRETTY_FUNCTION__);
+		return;
+	}
+
+	if (!mpls_enabled)
+		return;
+
+	mpls_lsp_uninstall_all_vrf(zvrf, zt->type, zt->local_label);
+}
+
 static void zread_sr_te_tunnel_set(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
@@ -2858,6 +2924,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_BFD_CLIENT_REGISTER] = zebra_ptm_bfd_client_register,
 	[ZEBRA_INTERFACE_ENABLE_RADV] = zebra_interface_radv_enable,
 	[ZEBRA_INTERFACE_DISABLE_RADV] = zebra_interface_radv_disable,
+	[ZEBRA_SR_POLICY_SET] = zread_sr_policy_set,
+	[ZEBRA_SR_POLICY_DELETE] = zread_sr_policy_delete,
 	[ZEBRA_MPLS_LABELS_ADD] = zread_mpls_labels_add,
 	[ZEBRA_MPLS_LABELS_DELETE] = zread_mpls_labels_delete,
 	[ZEBRA_MPLS_LABELS_REPLACE] = zread_mpls_labels_replace,

@@ -47,30 +47,41 @@ void path_zebra_init(struct thread_master *master)
 	zclient->zebra_connected = path_zebra_connected;
 }
 
-void path_zebra_add_lsp(mpls_label_t binding_sid,
-			struct te_segment_list *segment_list)
+void path_zebra_add_sr_policy(struct te_sr_policy *sr_policy,
+			      struct te_segment_list *segment_list)
 {
+	struct zapi_sr_policy zp = {};
+	zp.color = sr_policy->color;
+	zp.endpoint.s_addr = sr_policy->endpoint.ipaddr_v4.s_addr;
+	strncpy((char *)&zp.name, sr_policy->name,
+		ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+
 	struct te_segment_list_segment *segment;
-	struct zapi_srte_tunnel zt = {};
-	zt.type = ZEBRA_LSP_TE;
-	zt.local_label = binding_sid;
-	zt.label_num = 0;
+	zp.active_segment_list.type = ZEBRA_LSP_TE;
+	zp.active_segment_list.local_label = sr_policy->binding_sid;
+	zp.active_segment_list.label_num = 0;
 
 	RB_FOREACH (segment, te_segment_list_segment_instance_head,
 		    &segment_list->segments) {
-		zt.labels[zt.label_num] = segment->sid_value;
-		zt.label_num++;
+		zp.active_segment_list
+			.labels[zp.active_segment_list.label_num] =
+			segment->sid_value;
+		zp.active_segment_list.label_num++;
 	}
 
-	(void)zebra_send_srte_tunnel(zclient, ZEBRA_SR_TE_TUNNEL_SET, &zt);
+	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_SET, &zp);
 }
 
-void path_zebra_delete_lsp(mpls_label_t binding_sid)
+void path_zebra_delete_sr_policy(struct te_sr_policy *sr_policy)
 {
-	struct zapi_srte_tunnel zt = {};
-	zt.type = ZEBRA_LSP_TE;
-	zt.local_label = binding_sid;
-	zt.label_num = 0;
+	struct zapi_sr_policy zp = {};
+	zp.color = sr_policy->color;
+	zp.endpoint.s_addr = sr_policy->endpoint.ipaddr_v4.s_addr;
+	strncpy((char *)&zp.name, sr_policy->name,
+		ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+	zp.active_segment_list.type = ZEBRA_LSP_TE;
+	zp.active_segment_list.local_label = sr_policy->binding_sid;
+	zp.active_segment_list.label_num = 0;
 
-	(void)zebra_send_srte_tunnel(zclient, ZEBRA_SR_TE_TUNNEL_DELETE, &zt);
+	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_DELETE, &zp);
 }

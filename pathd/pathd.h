@@ -131,9 +131,9 @@ extern struct zebra_privs_t pathd_privs;
 
 /* Prototypes. */
 void path_zebra_init(struct thread_master *master);
-void path_zebra_add_lsp(mpls_label_t binding_sid,
-			struct te_segment_list *segment_list);
-void path_zebra_delete_lsp(mpls_label_t binding_sid);
+void path_zebra_add_sr_policy(struct te_sr_policy *sr_policy,
+			      struct te_segment_list *segment_list);
+void path_zebra_delete_sr_policy(struct te_sr_policy *sr_policy);
 void path_cli_init(void);
 
 struct te_segment_list *te_segment_list_create(char *name);

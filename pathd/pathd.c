@@ -162,7 +162,7 @@ struct te_sr_policy *te_sr_policy_create(uint32_t color,
 
 void te_sr_policy_del(struct te_sr_policy *te_sr_policy)
 {
-	path_zebra_delete_lsp(te_sr_policy->binding_sid);
+	path_zebra_delete_sr_policy(te_sr_policy);
 
 	free(te_sr_policy->name);
 	RB_REMOVE(te_sr_policy_instance_head, &te_sr_policy_instances,
@@ -200,7 +200,7 @@ void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy)
 			&te_sr_policy->candidate_paths)) {
 		/* delete the LSP from Zebra */
 		te_sr_policy->best_candidate_path_key = 0;
-		path_zebra_delete_lsp(te_sr_policy->binding_sid);
+		path_zebra_delete_sr_policy(te_sr_policy);
 		return;
 	}
 
@@ -220,7 +220,7 @@ void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy)
 		te_segment_list_get(best_candidate_path->segment_list_name);
 
 	/* send the new active LSP to Zebra */
-	path_zebra_add_lsp(te_sr_policy->binding_sid, te_segment_list_found);
+	path_zebra_add_sr_policy(te_sr_policy, te_segment_list_found);
 }
 
 struct te_segment_list *te_segment_list_get(const char *name)
