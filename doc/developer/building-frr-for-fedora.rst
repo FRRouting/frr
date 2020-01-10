@@ -110,13 +110,12 @@ And load the kernel modules on the running system:
       sudo systemctl stop firewalld.service
       sudo iptables -F
 
-Install service files
-^^^^^^^^^^^^^^^^^^^^^
+Install frr Service
+^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: console
 
-   sudo install -p -m 644 redhat/frr.service /usr/lib/systemd/system/frr.service
-   sudo install -p -m 755 redhat/frr.init /usr/lib/frr/frr
+   sudo install -p -m 644 tools/frr.service /usr/lib/systemd/system/frr.service
    sudo systemctl enable frr
 
 Enable daemons

@@ -104,7 +104,7 @@ Install daemon config file
 
 ::
 
-    sudo install -p -m 644 redhat/daemons /etc/frr/
+    sudo install -p -m 644 tools/etc/frr/daemons /etc/frr/
     sudo chown frr:frr /etc/frr/daemons
 
 Edit /etc/frr/daemons as needed to select the required daemons
@@ -133,13 +133,12 @@ Load the modified sysctl's on the system:
 
     sudo sysctl -p /etc/sysctl.d/90-routing-sysctl.conf
 
-Install frr Service and redhat init files
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Install frr Service
+^^^^^^^^^^^^^^^^^^^
 
 ::
 
-    sudo install -p -m 644 redhat/frr.service /usr/lib/systemd/system/frr.service
-    sudo install -p -m 755 redhat/frr.init /usr/lib/frr/frr
+    sudo install -p -m 644 tools/frr.service /usr/lib/systemd/system/frr.service
 
 Register the systemd files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

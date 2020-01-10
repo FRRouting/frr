@@ -213,7 +213,7 @@ Install daemon config file
 
 .. code-block:: shell
 
-   sudo install -p -m 644 redhat/daemons /etc/frr/
+   sudo install -p -m 644 tools/etc/frr/daemons /etc/frr/
    sudo chown frr:frr /etc/frr/daemons
 
 Edit /etc/frr/daemons as needed to select the required daemons
@@ -241,12 +241,12 @@ Load the modified sysctl's on the system:
 
    sudo sysctl -p /etc/sysctl.d/90-routing-sysctl.conf
 
-Add init.d startup files
-^^^^^^^^^^^^^^^^^^^^^^^^
+Add init.d startup file
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: shell
 
-   sudo install -p -m 755 redhat/frr.init /etc/init.d/frr
+   sudo install -p -m 755 tools/frr /etc/init.d/frr
    sudo chkconfig --add frr
 
 Enable FRR daemon at startup
