@@ -592,6 +592,7 @@ struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type)
 	struct rtattr *nest = NLMSG_TAIL(n);
 
 	addattr_l(n, maxlen, type, NULL, 0);
+	nest->rta_type |= NLA_F_NESTED;
 	return nest;
 }
 
@@ -606,6 +607,7 @@ struct rtattr *rta_nest(struct rtattr *rta, int maxlen, int type)
 	struct rtattr *nest = RTA_TAIL(rta);
 
 	rta_addattr_l(rta, maxlen, type, NULL, 0);
+	nest->rta_type |= NLA_F_NESTED;
 	return nest;
 }
 

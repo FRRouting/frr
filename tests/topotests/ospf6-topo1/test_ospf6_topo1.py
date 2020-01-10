@@ -89,7 +89,7 @@ sys.path.append(os.path.join(CWD, '../'))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-
+import platform
 
 #####################################################
 ##
@@ -319,7 +319,10 @@ def test_linux_ipv6_kernel_routingTable():
     # Now compare the routing tables (after substituting link-local addresses)
 
     for i in range(1, 5):
-        refTableFile = os.path.join(CWD, 'r{}/ip_6_address.ref'.format(i))
+	if topotest.version_cmp(platform.release(), '5.3') < 0:
+            refTableFile = os.path.join(CWD, 'r{}/ip_6_address.ref'.format(i))
+	else:
+	    refTableFile = os.path.join(CWD, 'r{}/ip_6_address.nhg.ref'.format(i))
         if os.path.isfile(refTableFile):
 
             expected = open(refTableFile).read().rstrip()
@@ -333,6 +336,7 @@ def test_linux_ipv6_kernel_routingTable():
                 actual = actual.replace(ll[1], "fe80::__(%s)__" % ll[0])
             # Mask out protocol name or number
             actual = re.sub(r"[ ]+proto [0-9a-z]+ +", "  proto XXXX ", actual)
+            actual = re.sub(r"[ ]+nhid [0-9]+ +", " nhid XXXX ", actual)
             # Remove ff00::/8 routes (seen on some kernels - not from FRR)
             actual = re.sub(r'ff00::/8.*', '', actual)
 
