@@ -147,8 +147,6 @@ typedef enum {
 	ZEBRA_MPLS_LABELS_REPLACE,
 	ZEBRA_SR_POLICY_SET,
 	ZEBRA_SR_POLICY_DELETE,
-	ZEBRA_SR_TE_TUNNEL_SET,
-	ZEBRA_SR_TE_TUNNEL_DELETE,
 	ZEBRA_IPMR_ROUTE_STATS,
 	ZEBRA_LABEL_MANAGER_CONNECT,
 	ZEBRA_LABEL_MANAGER_CONNECT_ASYNC,
@@ -794,13 +792,6 @@ extern int zebra_send_mpls_labels(struct zclient *zclient, int cmd,
 extern int zapi_labels_encode(struct stream *s, int cmd,
 			      struct zapi_labels *zl);
 extern int zapi_labels_decode(struct stream *s, struct zapi_labels *zl);
-
-extern int zebra_send_srte_tunnel(struct zclient *zclient, int cmd,
-				  struct zapi_srte_tunnel *zt);
-extern int zapi_srte_tunnel_encode(struct stream *s, int cmd,
-				   struct zapi_srte_tunnel *zt);
-extern int zapi_srte_tunnel_decode(struct stream *s,
-				   struct zapi_srte_tunnel *zt);
 
 extern int zebra_send_pw(struct zclient *zclient, int command,
 			 struct zapi_pw *pw);

@@ -2165,66 +2165,6 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 	mpls_lsp_uninstall_all_vrf(zvrf, zt->type, zt->local_label);
 }
 
-static void zread_sr_te_tunnel_set(ZAPI_HANDLER_ARGS)
-{
-	struct stream *s;
-	struct zapi_srte_tunnel zt;
-	zebra_lsp_t *lsp;
-	zebra_nhlfe_t *nhlfe;
-
-	/* Get input stream.  */
-	s = msg;
-	if (zapi_srte_tunnel_decode(s, &zt) < 0) {
-		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to decode zapi_srte_tunnel sent",
-				   __PRETTY_FUNCTION__);
-		return;
-	}
-	if (zt.label_num < 1) {
-		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug(
-				"%s: SR-TE tunnel must contain at least one label",
-				__PRETTY_FUNCTION__);
-		return;
-	}
-
-	if (!mpls_enabled)
-		return;
-
-	mpls_lsp_uninstall_all_vrf(zvrf, zt.type, zt.local_label);
-
-	lsp = mpls_lsp_find(zvrf, zt.labels[0]);
-	if (!lsp)
-		return;
-
-	frr_each_safe(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
-		mpls_lsp_install(zvrf, zt.type, zt.local_label, zt.label_num,
-				 zt.labels, nhlfe->nexthop->type,
-				 &nhlfe->nexthop->gate,
-				 nhlfe->nexthop->ifindex);
-	}
-}
-
-static void zread_sr_te_tunnel_delete(ZAPI_HANDLER_ARGS)
-{
-	struct stream *s;
-	struct zapi_srte_tunnel zt;
-
-	/* Get input stream.  */
-	s = msg;
-	if (zapi_srte_tunnel_decode(s, &zt) < 0) {
-		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to decode zapi_srte_tunnel sent",
-				   __PRETTY_FUNCTION__);
-		return;
-	}
-
-	if (!mpls_enabled)
-		return;
-
-	mpls_lsp_uninstall_all_vrf(zvrf, zt.type, zt.local_label);
-}
-
 /* Send response to a table manager connect request to client */
 static void zread_table_manager_connect(struct zserv *client,
 					struct stream *msg, vrf_id_t vrf_id)
@@ -2929,8 +2869,6 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_MPLS_LABELS_ADD] = zread_mpls_labels_add,
 	[ZEBRA_MPLS_LABELS_DELETE] = zread_mpls_labels_delete,
 	[ZEBRA_MPLS_LABELS_REPLACE] = zread_mpls_labels_replace,
-	[ZEBRA_SR_TE_TUNNEL_SET] = zread_sr_te_tunnel_set,
-	[ZEBRA_SR_TE_TUNNEL_DELETE] = zread_sr_te_tunnel_delete,
 	[ZEBRA_IPMR_ROUTE_STATS] = zebra_ipmr_route_stats,
 	[ZEBRA_LABEL_MANAGER_CONNECT] = zread_label_manager_request,
 	[ZEBRA_LABEL_MANAGER_CONNECT_ASYNC] = zread_label_manager_request,
