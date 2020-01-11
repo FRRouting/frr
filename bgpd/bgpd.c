@@ -1264,7 +1264,11 @@ struct peer *peer_new(struct bgp *bgp)
 	bgp_sync_init(peer);
 
 	/* Get service port number.  */
+#ifndef FUZZING
 	sp = getservbyname("bgp", "tcp");
+#else
+	sp = NULL;
+#endif
 	peer->port = (sp == NULL) ? BGP_PORT_DEFAULT : ntohs(sp->s_port);
 
 	QOBJ_REG(peer, peer);
