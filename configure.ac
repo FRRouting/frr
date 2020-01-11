@@ -358,7 +358,6 @@ if test "$enable_libfuzzer" = "yes"; then
     AC_MSG_ERROR([$CC does not support ASAN / libFuzzer.])
   ], [
     AC_MSG_NOTICE([WARNING - libFuzzer only enabled on supported daemons])
-    AC_MSG_NOTICE([WARNING - libFuzzer implies ASAN for all daemons])
     SAN_FLAGS="$SAN_FLAGS -fsanitize=address"
     BGPD_SAN_FLAGS="-fsanitize=fuzzer"
     AC_DEFINE([FUZZING_LIBFUZZER], [1], [Compiling and linking with libFuzzer])
