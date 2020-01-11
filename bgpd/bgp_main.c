@@ -480,8 +480,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	 * BGP message is correct, and this check is performed by the i/o code,
 	 * so we need to make sure that remains true for fuzzed input.
 	 * */
-	if (!validate_header(p))
-		return 0;
+	if (!validate_header(p)) {
+		goto done;
+	}
 
 	int result = 0;
 	unsigned char pktbuf[BGP_MAX_PACKET_SIZE];
@@ -503,6 +504,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 		result = bgp_process_packet(&t);
 	}
 
+done:
 	peer_delete(p);
 	FuzzingPeer = NULL;
 
