@@ -63,6 +63,7 @@ struct message {
 };
 
 /* For logs which have error codes associated with them */
+#ifndef FUZZING
 #define flog_err(ferr_id, format, ...)                                        \
 	zlog_err("[EC %u] " format, ferr_id, ##__VA_ARGS__)
 #define flog_err_sys(ferr_id, format, ...)                                     \
@@ -71,6 +72,12 @@ struct message {
 	zlog_warn("[EC %u] " format, ferr_id, ##__VA_ARGS__)
 #define flog(priority, ferr_id, format, ...)                                   \
 	zlog(priority, "[EC %u] " format, ferr_id, ##__VA_ARGS__)
+#else
+#define flog_err(ferr_id, format, ...)
+#define flog_err_sys(ferr_id, format, ...)
+#define flog_warn(ferr_id, format, ...)
+#define flog(priority, ferr_id, format, ...)
+#endif
 
 extern void zlog_thread_info(int log_level);
 
