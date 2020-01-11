@@ -17,8 +17,7 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-
-#define FUZZING 1
+#define FUZZING_OVERRIDE_LLVMFuzzerTestOneInput
 
 #include <zebra.h>
 
@@ -392,24 +391,18 @@ FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
 
 #include "lib/ringbuf.h"
 
-/* Main routine of bgpd. Treatment of argument and start bgp finite
-   state machine is handled at here. */
-int main(int argc, char **argv)
-{
-	int opt;
-	int tmp_port;
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 
+static bool FuzzingInit(void) {
 	int bgp_port = BGP_PORT_DEFAULT;
 	char *bgp_address = NULL;
-	int no_fib_flag = 0;
-	int no_zebra_flag = 0;
-	int skip_runas = 0;
 	int instance = 0;
 	int buffer_size = BGP_SOCKET_SNDBUF_SIZE;
 
-	frr_preinit(&bgpd_di, argc, argv);
+	const char *name[] = { "bgpd" };
 
-#ifdef FUZZING
+	frr_preinit(&bgpd_di, 1, (char **) name);
+
 	/* Initialize basic BGP datastructures */
 	bgp_master_init(frr_init_fast(), buffer_size);
 	bm->port = bgp_port;
@@ -429,6 +422,11 @@ int main(int argc, char **argv)
 	as_t as = 65001;
 	bgp_get(&b, &as, "default", BGP_INSTANCE_TYPE_DEFAULT);
 
+	return true;
+}
+
+static struct peer *FuzzingCreatePeer()
+{
 	union sockunion su;
 	sockunion_init(&su);
 	inet_pton(AF_INET, "10.1.1.1", &su.sin.sin_addr);
@@ -448,18 +446,32 @@ int main(int argc, char **argv)
 		SET_FLAG(p->af_cap[afi][safi], 0x3FFF);
 	}
 
-#ifdef __AFL_HAVE_MANUAL_CONTROL
-	__AFL_INIT();
-#endif
+	return p;
+}
+
+static struct peer *FuzzingPeer;
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
+{
+	static bool initialized;
+
+	if (!initialized)
+		initialized = FuzzingInit();
+
+	/*
+	 * In the AFL standalone case, the peer will already be created for us
+	 * before __AFL_INIT() is called to speed things up. We can't pass it
+	 * as an argument because the function signature must match libFuzzer's
+	 * expectations.
+	 *
+	 * In the libFuzzer case, we need to create it each time.
+	 *
+	 * In both cases the peer must be destroyed before we return..
+	 */
+	struct peer *p = (FuzzingPeer) ? FuzzingPeer : FuzzingCreatePeer();
 
 
-	uint8_t *input;
-	int r = frrfuzz_read_input(&input);
-
-	if (!input)
-		return 0;
-
-	ringbuf_put(p->ibuf_work, input, r);
+	ringbuf_put(p->ibuf_work, data, size);
 
 	/*
 	 * Simulate the read process done by bgp_process_reads().
@@ -469,10 +481,10 @@ int main(int argc, char **argv)
 	 * so we need to make sure that remains true for fuzzed input.
 	 * */
 	if (!validate_header(p))
-		exit(9);
+		return 0;
 
 	int result = 0;
-	static unsigned char pktbuf[BGP_MAX_PACKET_SIZE];
+	unsigned char pktbuf[BGP_MAX_PACKET_SIZE];
 	uint16_t pktsize = 0;
 
 	ringbuf_peek(p->ibuf_work, BGP_MARKER_SIZE, &pktsize, sizeof(pktsize));
@@ -491,9 +503,46 @@ int main(int argc, char **argv)
 		result = bgp_process_packet(&t);
 	}
 
-	exit(result);
-#endif
+	peer_delete(p);
+	FuzzingPeer = NULL;
 
+	return 0;
+};
+
+/* Fucking libFuzzer... */
+#ifndef FUZZING_LIBFUZZER
+/* Main routine of bgpd. Treatment of argument and start bgp finite
+   state machine is handled at here. */
+int main(int argc, char **argv)
+{
+	int opt;
+	int tmp_port;
+
+	int bgp_port = BGP_PORT_DEFAULT;
+	char *bgp_address = NULL;
+	int no_fib_flag = 0;
+	int no_zebra_flag = 0;
+	int skip_runas = 0;
+	int instance = 0;
+	int buffer_size = BGP_SOCKET_SNDBUF_SIZE;
+
+	frr_preinit(&bgpd_di, argc, argv);
+
+#ifdef FUZZING
+	FuzzingInit();
+	FuzzingPeer = FuzzingCreatePeer();
+
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+	__AFL_INIT();
+#endif
+	uint8_t *input;
+	int r = frrfuzz_read_input(&input);
+
+	if (!input)
+		return 0;
+
+	return LLVMFuzzerTestOneInput(input, r);
+#endif
 
 	frr_opt_add(
 		"p:l:SnZe:I:s:" DEPRECATED_OPTIONS, longopts,
@@ -604,3 +653,4 @@ int main(int argc, char **argv)
 	/* Not reached. */
 	return 0;
 }
+#endif /* FUZZING_LIBFUZZER */

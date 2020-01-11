@@ -353,7 +353,19 @@ if test "$enable_undefined_sanitizer" = "yes"; then
     SAN_FLAGS="$SAN_FLAGS -fsanitize=undefined"
   ])
 fi
+if test "$enable_libfuzzer" = "yes"; then
+  AC_C_FLAG([-fsanitize=address,fuzzer], [
+    AC_MSG_ERROR([$CC does not support ASAN / libFuzzer.])
+  ], [
+    AC_MSG_NOTICE([WARNING - libFuzzer only enabled on supported daemons])
+    AC_MSG_NOTICE([WARNING - libFuzzer implies ASAN for all daemons])
+    SAN_FLAGS="$SAN_FLAGS -fsanitize=address"
+    BGPD_SAN_FLAGS="-fsanitize=fuzzer"
+    AC_DEFINE([FUZZING_LIBFUZZER], [1], [Compiling and linking with libFuzzer])
+  ])
+fi
 AC_SUBST([SAN_FLAGS])
+AC_SUBST([BGPD_SAN_FLAGS])
 
 dnl frr-format.so
 if test "$with_frr_format" != "no" -a "$with_frr_format" != "yes" -a -n "$with_frr_format"; then
@@ -640,6 +652,8 @@ AC_ARG_ENABLE([memory-sanitizer],
   AS_HELP_STRING([--enable-memory-sanitizer], [enable MemorySanitizer support for detecting uninitialized memory reads]))
 AC_ARG_ENABLE([undefined-sanitizer],
   AS_HELP_STRING([--undefined-sanitizer], [enable UndefinedBehaviorSanitizer support for detecting undefined behavior]))
+AC_ARG_ENABLE([libfuzzer],
+  AS_HELP_STRING([--libfuzzer], [enable libFuzzer]))
 AC_ARG_WITH([crypto],
   AS_HELP_STRING([--with-crypto=<internal|openssl>], [choose between different implementations of cryptographic functions(default value is --with-crypto=internal)]))
 AC_ARG_WITH([frr-format],

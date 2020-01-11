@@ -44,6 +44,14 @@
 #include "frr_pthread.h"
 #include "defaults.h"
 
+#if defined(FUZZING) && defined(FUZZING_LIBFUZZER) && !defined(FUZZING_OVERRIDE_LLVMFuzzerTestOneInput)
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+	return 0;
+}
+#endif /* lol */
+
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 DEFINE_KOOH(frr_early_fini, (), ())
 DEFINE_KOOH(frr_fini, (), ())
