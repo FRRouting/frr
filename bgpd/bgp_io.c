@@ -57,6 +57,9 @@ bool validate_header(struct peer *);
 
 void bgp_writes_on(struct peer *peer)
 {
+#ifdef FUZZING
+	return;
+#endif
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
@@ -75,6 +78,9 @@ void bgp_writes_on(struct peer *peer)
 
 void bgp_writes_off(struct peer *peer)
 {
+#ifdef FUZZING
+	return;
+#endif
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
@@ -86,6 +92,9 @@ void bgp_writes_off(struct peer *peer)
 
 void bgp_reads_on(struct peer *peer)
 {
+#ifdef FUZZING
+	return;
+#endif
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
@@ -106,6 +115,9 @@ void bgp_reads_on(struct peer *peer)
 
 void bgp_reads_off(struct peer *peer)
 {
+#ifdef FUZZING
+	return;
+#endif
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
