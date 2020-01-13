@@ -1373,6 +1373,11 @@ DEFPY (show_nexthop_group,
 	else if (v6)
 		afi = AFI_IP6;
 
+	if (vrf_is_backend_netns() && (vrf_name || vrf_all)) {
+		vty_out(vty, "VRF subcommand does not make any sense in l3mdev based vrf's");
+		return CMD_WARNING;
+	}
+
 	if (vrf_all) {
 		struct vrf *vrf;
 

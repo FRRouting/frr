@@ -195,7 +195,7 @@ extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
 				 vrf_id_t vrf_id, afi_t afi, int type,
 				 int startup);
 /* Del via kernel */
-extern int zebra_nhg_kernel_del(uint32_t id);
+extern int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id);
 
 /* Find via route creation */
 extern struct nhg_hash_entry *
