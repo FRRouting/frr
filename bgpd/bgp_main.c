@@ -447,27 +447,38 @@ static struct peer *FuzzingCreatePeer()
 	return p;
 }
 
+#ifndef FUZZING_LIBFUZZER
 static struct peer *FuzzingPeer;
+#endif
+
+static bool FuzzingInitialized;
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
-	static bool initialized;
-
-	if (!initialized)
-		initialized = FuzzingInit();
+	if (!FuzzingInitialized) {
+		FuzzingInit();
+		FuzzingInitialized = true;
+	}
 
 	/*
 	 * In the AFL standalone case, the peer will already be created for us
 	 * before __AFL_INIT() is called to speed things up. We can't pass it
 	 * as an argument because the function signature must match libFuzzer's
-	 * expectations.
+	 * expectations, so it's saved in a global variable. Even though we'll
+	 * be exiting the program after each run, we still destroy the peer
+	 * because that increases our coverage and is likely to find memory
+	 * leaks when pointers are nulled that would otherwise be "in-use at
+	 * exit".
 	 *
-	 * In the libFuzzer case, we need to create it each time.
-	 *
-	 * In both cases the peer must be destroyed before we return..
+	 * In the libFuzzer case, we need to create it each time, and destroy
+	 * it when done.
 	 */
-	struct peer *p = (FuzzingPeer) ? FuzzingPeer : FuzzingCreatePeer();
-
+	struct peer *p;
+#ifdef FUZZING_LIBFUZZER
+	p = FuzzingCreatePeer();
+#else
+	p = FuzzingPeer;
+#endif /* FUZZING_LIBFUZZER */
 
 	ringbuf_put(p->ibuf_work, data, size);
 
@@ -504,11 +515,10 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
 done:
 	peer_delete(p);
-	FuzzingPeer = NULL;
 
 	return 0;
 };
-#endif
+#endif /* FUZZING */
 
 #ifndef FUZZING_LIBFUZZER
 /* Main routine of bgpd. Treatment of argument and start bgp finite
@@ -531,6 +541,7 @@ int main(int argc, char **argv)
 #ifdef FUZZING
 	FuzzingInit();
 	FuzzingPeer = FuzzingCreatePeer();
+	FuzzingInitialized = true;
 
 #ifdef __AFL_HAVE_MANUAL_CONTROL
 	__AFL_INIT();
