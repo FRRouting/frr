@@ -557,6 +557,12 @@ void zprivs_preinit(struct zebra_privs_t *zprivs)
 	zprivs->process_refs.raised_in_funcname = NULL;
 	STAILQ_INIT(&zprivs->thread_refs);
 
+#ifdef FUZZING
+	zprivs->user = NULL;
+	zprivs->group = NULL;
+	zprivs->vty_group = NULL;
+#endif
+
 	if (zprivs->vty_group) {
 		/* in a "NULL" setup, this is allowed to fail too, but still
 		 * try. */
