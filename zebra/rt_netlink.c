@@ -1528,11 +1528,28 @@ static bool nexthop_set_src(const struct nexthop *nexthop, int family,
 	return false;
 }
 
+static void netlink_route_nexthop_encap(struct nlmsghdr *n, size_t nlen,
+					struct nexthop *nh)
+{
+	struct rtattr *nest;
+
+	switch (nh->nh_encap_type) {
+	case NET_VXLAN:
+		addattr_l(n, nlen, RTA_ENCAP_TYPE, &nh->nh_encap_type,
+			  sizeof(uint16_t));
+
+		nest = addattr_nest(n, nlen, RTA_ENCAP);
+		addattr32(n, nlen, 0 /* VXLAN_VNI */, nh->nh_encap.vni);
+		addattr_nest_end(n, nest);
+		break;
+	}
+}
+
 /*
  * Routing table change via netlink interface, using a dataplane context object
  */
 ssize_t netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
-				uint8_t *data, size_t datalen)
+				uint8_t *data, size_t datalen, bool fpm)
 {
 	int bytelen;
 	struct nexthop *nexthop = NULL;
@@ -1744,7 +1761,16 @@ ssize_t netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 				nexthop_num++;
 				break;
 			}
+
+			/*
+			 * Add encapsulation information when installing via
+			 * FPM.
+			 */
+			if (fpm)
+				netlink_route_nexthop_encap(&req->n, datalen,
+							    nexthop);
 		}
+
 		if (setsrc) {
 			if (p->family == AF_INET)
 				addattr_l(&req->n, datalen, RTA_PREFSRC,
@@ -1796,7 +1822,16 @@ ssize_t netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx,
 					setsrc = 1;
 				}
 			}
+
+			/*
+			 * Add encapsulation information when installing via
+			 * FPM.
+			 */
+			if (fpm)
+				netlink_route_nexthop_encap(&req->n, datalen,
+							    nexthop);
 		}
+
 		if (setsrc) {
 			if (p->family == AF_INET)
 				addattr_l(&req->n, datalen, RTA_PREFSRC,
@@ -2149,7 +2184,8 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 			if (RSYSTEM_ROUTE(dplane_ctx_get_type(ctx)) &&
 			    !RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx))) {
 				netlink_route_multipath(RTM_DELROUTE, ctx,
-							nl_pkt, sizeof(nl_pkt));
+							nl_pkt, sizeof(nl_pkt),
+							false);
 				netlink_talk_info(netlink_talk_filter,
 						  (struct nlmsghdr *)nl_pkt,
 						  dplane_ctx_get_ns(ctx), 0);
@@ -2169,7 +2205,8 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 			 */
 			if (!RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx))) {
 				netlink_route_multipath(RTM_DELROUTE, ctx,
-							nl_pkt, sizeof(nl_pkt));
+							nl_pkt, sizeof(nl_pkt),
+							false);
 				netlink_talk_info(netlink_talk_filter,
 						  (struct nlmsghdr *)nl_pkt,
 						  dplane_ctx_get_ns(ctx), 0);
@@ -2182,7 +2219,8 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 	}
 
 	if (!RSYSTEM_ROUTE(dplane_ctx_get_type(ctx))) {
-		netlink_route_multipath(cmd, ctx, nl_pkt, sizeof(nl_pkt));
+		netlink_route_multipath(cmd, ctx, nl_pkt, sizeof(nl_pkt),
+					false);
 		ret = netlink_talk_info(netlink_talk_filter,
 					(struct nlmsghdr *)nl_pkt,
 					dplane_ctx_get_ns(ctx), 0);

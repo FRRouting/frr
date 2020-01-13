@@ -626,7 +626,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_ROUTE_UPDATE:
 	case DPLANE_OP_ROUTE_DELETE:
 		rv = netlink_route_multipath(RTM_DELROUTE, ctx, nl_buf,
-					     sizeof(nl_buf));
+					     sizeof(nl_buf), true);
 		if (rv <= 0) {
 			zlog_debug("%s: netlink_route_multipath failed",
 				   __func__);
@@ -643,7 +643,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_ROUTE_INSTALL:
 		rv = netlink_route_multipath(RTM_NEWROUTE, ctx,
 					     &nl_buf[nl_buf_len],
-					     sizeof(nl_buf) - nl_buf_len);
+					     sizeof(nl_buf) - nl_buf_len, true);
 		if (rv <= 0) {
 			zlog_debug("%s: netlink_route_multipath failed",
 				   __func__);
@@ -829,8 +829,8 @@ static void fpm_enqueue_rmac_table(struct hash_backet *backet, void *arg)
 	dplane_ctx_reset(fra->ctx);
 	dplane_ctx_set_op(fra->ctx, DPLANE_OP_MAC_INSTALL);
 	dplane_mac_init(fra->ctx, fra->zl3vni->vxlan_if,
-			zif->brslave_info.br_if, vid, &zrmac->macaddr,
-			zrmac->fwd_info.r_vtep_ip, sticky);
+			zif->brslave_info.br_if, vid,
+			&zrmac->macaddr, zrmac->fwd_info.r_vtep_ip, sticky);
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
 		thread_add_timer(zrouter.master, fpm_rmac_send,
 				 fra->fnc, 1, &fra->fnc->t_rmacwalk);

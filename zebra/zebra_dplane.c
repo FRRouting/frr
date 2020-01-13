@@ -32,6 +32,7 @@
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_vxlan_private.h"
 #include "zebra/rt.h"
 #include "zebra/debug.h"
 
@@ -178,7 +179,6 @@ struct dplane_mac_info {
 	struct ethaddr mac;
 	struct in_addr vtep_ip;
 	bool is_sticky;
-
 };
 
 /*
@@ -1535,6 +1535,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf;
 	struct nexthop *nexthop;
+	zebra_l3vni_t *zl3vni;
 
 	if (!ctx || !rn || !re)
 		goto done;
@@ -1584,9 +1585,23 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			      re->nhe->backup_info->nhe->nhg.nexthop, NULL);
 	}
 
-	/* Ensure that the dplane nexthops' flags are clear. */
-	for (ALL_NEXTHOPS(ctx->u.rinfo.zd_ng, nexthop))
+	/*
+	 * Ensure that the dplane nexthops' flags are clear and copy
+	 * encapsulation information.
+	 */
+	for (ALL_NEXTHOPS(ctx->u.rinfo.zd_ng, nexthop)) {
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+
+		/* Check for available encapsulations. */
+		if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE))
+			continue;
+
+		zl3vni = zl3vni_from_vrf(nexthop->vrf_id);
+		if (zl3vni && is_l3vni_oper_up(zl3vni)) {
+			nexthop->nh_encap_type = NET_VXLAN;
+			nexthop->nh_encap.vni = zl3vni->vni;
+		}
+	}
 
 	/* Don't need some info when capturing a system notification */
 	if (op == DPLANE_OP_SYS_ROUTE_ADD ||
