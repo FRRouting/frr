@@ -199,7 +199,7 @@ noinst_HEADERS += \
 bgpd_bgpd_SOURCES = bgpd/bgp_main.c
 bgpd_bgp_btoa_SOURCES = bgpd/bgp_btoa.c
 
-bgpd_bgpd_CFLAGS = $(AM_CFLAGS) $(BGPD_SAN_FLAGS)
+bgpd_bgpd_LDFLAGS = $(AM_LDFLAGS) $(BGPD_SAN_FLAGS)
 bgpd_bgp_btoa_CFLAGS = $(AM_CFLAGS)
 bgpd_bgp_btoa_LDLAGS = $(AM_LDLAGS)
 
