@@ -1054,18 +1054,7 @@ static struct nhg_hash_entry *depends_find_recursive(const struct nexthop *nh,
 	struct nhg_hash_entry *nhe;
 	struct nexthop *lookup = NULL;
 
-	/*
-	 * We need to copy its resolved nexthop if its recursively
-	 * resolved so that has to be handled with allocs/frees since
-	 * it could resolve to a group of unknown size.
-	 */
-	copy_nexthops(&lookup, nh, NULL);
-
-	/* Make it a single, recursive nexthop */
-	nexthops_free(lookup->next);
-	nexthops_free(lookup->prev);
-	lookup->next = NULL;
-	lookup->prev = NULL;
+	lookup = nexthop_dup(nh, NULL);
 
 	nhe = zebra_nhg_find_nexthop(0, lookup, afi, 0);
 
@@ -1083,7 +1072,7 @@ static struct nhg_hash_entry *depends_find_singleton(const struct nexthop *nh,
 	/* Capture a snapshot of this single nh; it might be part of a list,
 	 * so we need to make a standalone copy.
 	 */
-	nexthop_copy(&lookup, nh, NULL);
+	nexthop_copy_no_recurse(&lookup, nh, NULL);
 
 	nhe = zebra_nhg_find_nexthop(0, &lookup, afi, 0);
 
