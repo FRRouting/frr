@@ -17,8 +17,6 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-#define FUZZING_OVERRIDE_LLVMFuzzerTestOneInput
-
 #include <zebra.h>
 
 #include <pthread.h>
@@ -389,6 +387,7 @@ FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
 
 #define DEPRECATED_OPTIONS ""
 
+#ifdef FUZZING
 #include "lib/ringbuf.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
@@ -408,7 +407,6 @@ static bool FuzzingInit(void) {
 	bm->port = bgp_port;
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	bm->address = bgp_address;
-
 
 	bgp_option_set(BGP_OPT_NO_FIB);
 	bgp_option_set(BGP_OPT_NO_ZEBRA);
@@ -510,8 +508,8 @@ done:
 
 	return 0;
 };
+#endif
 
-/* Fucking libFuzzer... */
 #ifndef FUZZING_LIBFUZZER
 /* Main routine of bgpd. Treatment of argument and start bgp finite
    state machine is handled at here. */
@@ -536,7 +534,7 @@ int main(int argc, char **argv)
 
 #ifdef __AFL_HAVE_MANUAL_CONTROL
 	__AFL_INIT();
-#endif
+#endif /* __AFL_HAVE_MANUAL_CONTROL */
 	uint8_t *input;
 	int r = frrfuzz_read_input(&input);
 
@@ -544,7 +542,7 @@ int main(int argc, char **argv)
 		return 0;
 
 	return LLVMFuzzerTestOneInput(input, r);
-#endif
+#endif /* FUZZING */
 
 	frr_opt_add(
 		"p:l:SnZe:I:s:" DEPRECATED_OPTIONS, longopts,
