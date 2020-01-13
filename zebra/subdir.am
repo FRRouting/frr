@@ -42,6 +42,7 @@ man8 += $(MANBUILD)/frr-zebra.8
 ## endif ZEBRA
 endif
 
+zebra_zebra_LDFLAGS = $(AM_LDFLAGS) $(ZEBRA_SAN_FLAGS)
 zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP)
 if HAVE_PROTOBUF3
 zebra_zebra_LDADD += mlag/libmlag_pb.la $(PROTOBUF_C_LIBS)
