@@ -2364,6 +2364,9 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	nhm = NLMSG_DATA(h);
 
+	if (ns_id)
+		vrf_id = ns_id;
+
 	if (startup && h->nlmsg_type != RTM_NEWNEXTHOP)
 		return 0;
 
@@ -2443,7 +2446,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			return -1;
 
 	} else if (h->nlmsg_type == RTM_DELNEXTHOP)
-		zebra_nhg_kernel_del(id);
+		zebra_nhg_kernel_del(id, vrf_id);
 
 	return 0;
 }
