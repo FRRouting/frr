@@ -79,6 +79,7 @@ If you prefer to manually build FRR, then use the following suggested config:
        --sysconfdir=/etc/frr \
        --enable-vtysh \
        --enable-pimd \
+       --enable-sharpd \
        --enable-multipath=64 \
        --enable-user=frr \
        --enable-group=frr \
