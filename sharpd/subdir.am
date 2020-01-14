@@ -7,7 +7,7 @@ noinst_LIBRARIES += sharpd/libsharp.a
 sbin_PROGRAMS += sharpd/sharpd
 dist_examples_DATA += sharpd/sharpd.conf.sample
 vtysh_scan += $(top_srcdir)/sharpd/sharp_vty.c
-man8 += $(MANBUILD)/sharpd.8
+man8 += $(MANBUILD)/frr-sharpd.8
 endif
 
 sharpd_libsharp_a_SOURCES = \

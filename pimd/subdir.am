@@ -9,7 +9,7 @@ bin_PROGRAMS += pimd/mtracebis
 noinst_PROGRAMS += pimd/test_igmpv3_join
 dist_examples_DATA += pimd/pimd.conf.sample
 vtysh_scan += $(top_srcdir)/pimd/pim_cmd.c
-man8 += $(MANBUILD)/pimd.8
+man8 += $(MANBUILD)/frr-pimd.8
 man8 += $(MANBUILD)/mtracebis.8
 endif
 
