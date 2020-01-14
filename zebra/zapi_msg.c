@@ -59,6 +59,7 @@
 #include "zebra/zebra_mlag.h"
 #include "zebra/connected.h"
 #include "zebra/zebra_opaque.h"
+#include "zebra/zebra_srte.h"
 
 /* Encoding helpers -------------------------------------------------------- */
 
@@ -2140,6 +2141,8 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 				 &nhlfe->nexthop->gate,
 				 nhlfe->nexthop->ifindex);
 	}
+
+	zebra_sr_policy_set(&zp);
 }
 
 static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
