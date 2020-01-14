@@ -1428,6 +1428,8 @@ static void _zebra_ptm_reroute(struct zserv *zs, struct zebra_vrf *zvrf,
 	STREAM_GETL(msg, ppid);
 	pp_new(ppid, zs);
 
+	stream_free(msgc);
+
 	return;
 
 stream_failure:
