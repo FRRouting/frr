@@ -10,7 +10,7 @@ vtysh_scan += \
 	$(top_srcdir)/ripngd/ripng_debug.c \
 	$(top_srcdir)/ripngd/ripngd.c \
 	# end
-man8 += $(MANBUILD)/ripngd.8
+man8 += $(MANBUILD)/frr-ripngd.8
 endif
 
 ripngd_libripng_a_SOURCES = \

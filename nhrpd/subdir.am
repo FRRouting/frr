@@ -5,7 +5,7 @@
 if NHRPD
 sbin_PROGRAMS += nhrpd/nhrpd
 vtysh_scan += $(top_srcdir)/nhrpd/nhrp_vty.c
-man8 += $(MANBUILD)/nhrpd.8
+man8 += $(MANBUILD)/frr-nhrpd.8
 endif
 
 nhrpd_nhrpd_LDADD = lib/libfrr.la lib/libfrrcares.la $(LIBCAP)
