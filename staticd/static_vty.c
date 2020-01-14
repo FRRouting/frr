@@ -32,9 +32,13 @@
 #include "static_memory.h"
 #include "static_vty.h"
 #include "static_routes.h"
+#include "static_debug.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "staticd/static_vty_clippy.c"
 #endif
+
+#define STATICD_STR "Static route daemon\n"
+
 static struct static_vrf *static_vty_get_unknown_vrf(struct vty *vty,
 						     const char *vrf_name)
 {
@@ -1439,21 +1443,43 @@ DEFPY(ipv6_route_vrf,
 		from_str, gate_str, ifname, flag, tag_str, distance_str, label,
 		table_str, false);
 }
+DEFPY(debug_staticd,
+      debug_staticd_cmd,
+      "[no] debug static [{events$events}]",
+      NO_STR
+      DEBUG_STR
+      STATICD_STR
+      "Debug events\n")
+{
+	/* If no specific category, change all */
+	if (strmatch(argv[argc - 1]->text, "static"))
+		static_debug_set(vty->node, !no, true);
+	else
+		static_debug_set(vty->node, !no, !!events);
 
-DEFUN_NOSH (show_debugging_staticd,
-	    show_debugging_staticd_cmd,
+	return CMD_SUCCESS;
+}
+
+DEFUN_NOSH (show_debugging_static,
+	    show_debugging_static_cmd,
 	    "show debugging [static]",
 	    SHOW_STR
 	    DEBUG_STR
 	    "Static Information\n")
 {
-	vty_out(vty, "Static debugging status\n");
+	vty_out(vty, "Staticd debugging status\n");
+
+	static_debug_status_write(vty);
 
 	return CMD_SUCCESS;
 }
 
+static struct cmd_node debug_node = {DEBUG_NODE, "", 1};
+
 void static_vty_init(void)
 {
+	install_node(&debug_node, static_config_write_debug);
+
 	install_element(CONFIG_NODE, &ip_mroute_dist_cmd);
 
 	install_element(CONFIG_NODE, &ip_route_blackhole_cmd);
@@ -1470,7 +1496,9 @@ void static_vty_init(void)
 	install_element(CONFIG_NODE, &ipv6_route_cmd);
 	install_element(VRF_NODE, &ipv6_route_vrf_cmd);
 
-	install_element(VIEW_NODE, &show_debugging_staticd_cmd);
+	install_element(VIEW_NODE, &show_debugging_static_cmd);
+	install_element(VIEW_NODE, &debug_staticd_cmd);
+	install_element(CONFIG_NODE, &debug_staticd_cmd);
 
 	static_list = list_new();
 	static_list->cmp = (int (*)(void *, void *))static_list_compare;
