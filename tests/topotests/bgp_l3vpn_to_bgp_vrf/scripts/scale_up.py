@@ -23,15 +23,16 @@ for rtr in rtrs:
         mem_z[rtr] = {'value': int(found.group(1)), 'units': found.group(2)}
         mem_b[rtr] = {'value': int(found.group(3)), 'units': found.group(4)}
 
-luCommand('ce1', 'vtysh -c "sharp data nexthop"', 'sharpd is not running', 'none','check if sharpd running')
-doSharp = True
+luCommand('ce1', 'vtysh -c "show mem"', 'qmem sharpd', 'none','check if sharpd running')
+doSharp = False
 found = luLast()
 if ret != False and found != None:
     if len(found.group()):
-        luCommand('ce1', 'vtysh -c "sharp data nexthop"', 'sharpd is not running', 'pass','sharpd NOT running, skipping test')
-        doSharp = False
+        doSharp = True
 
-if doSharp == True:
+if doSharp != True:
+    luCommand('ce1', 'vtysh -c "sharp data nexthop"', '.', 'pass','sharpd NOT running, skipping test')
+else:
     luCommand('ce1', 'vtysh -c "sharp install routes 10.0.0.0 nexthop 99.0.0.1 {}"'.format(num),'','pass','Adding {} routes'.format(num))
     luCommand('ce2', 'vtysh -c "sharp install routes 10.0.0.0 nexthop 99.0.0.2 {}"'.format(num),'','pass','Adding {} routes'.format(num))
     rtrs = ['ce1', 'ce2', 'ce3']
