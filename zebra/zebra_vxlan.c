@@ -8624,9 +8624,8 @@ void zebra_vxlan_macvlan_down(struct interface *ifp)
 			struct interface *ifp;
 
 			ifp = if_lookup_by_index_all_vrf(zif->link_ifindex);
-			zlog_debug("macvlan %s parent link is not found. Parent index %d ifp %s",
-				ifp->name, zif->link_ifindex,
-				ifp ? ifp->name : " ");
+			zlog_debug("macvlan parent link is not found. Parent index %d ifp %s",
+				zif->link_ifindex, ifp ? ifp->name : " ");
 		}
 		return;
 	}
