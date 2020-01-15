@@ -1725,7 +1725,7 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(
 			temp.type = IPSET_NET_NET;
 	}
 	if (bpf->vrf_id == VRF_UNKNOWN) /* XXX case BGP destroy */
-		temp.vrf_id = 0;
+		temp.vrf_id = VRF_DEFAULT;
 	else
 		temp.vrf_id = bpf->vrf_id;
 	bpme = &temp2;

@@ -2353,7 +2353,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	unsigned char family;
 	int type;
 	afi_t afi = AFI_UNSPEC;
-	vrf_id_t vrf_id = 0;
+	vrf_id_t vrf_id = VRF_DEFAULT;
 	struct interface *ifp = NULL;
 	struct nhmsg *nhm = NULL;
 	struct nexthop nh = {};

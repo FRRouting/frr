@@ -1416,7 +1416,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	struct nexthop *nexthop = NULL;
 	struct nexthop_group *ng = NULL;
 	int i, ret;
-	vrf_id_t vrf_id = 0;
+	vrf_id_t vrf_id;
 	struct ipaddr vtep_ip;
 
 	s = msg;
