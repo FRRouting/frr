@@ -10,7 +10,7 @@ vtysh_scan += \
 	$(top_srcdir)/pbrd/pbr_vty.c \
 	$(top_srcdir)/pbrd/pbr_debug.c \
 	# end
-man8 += $(MANBUILD)/pbrd.8
+man8 += $(MANBUILD)/frr-pbrd.8
 endif
 
 pbrd_libpbr_a_SOURCES = \
