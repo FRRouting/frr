@@ -375,6 +375,9 @@ stream_failure:
 static void zebra_mlag_spawn_pthread(void)
 {
 	/* Start MLAG write pthread */
+#ifdef FUZZING
+	return;
+#endif
 
 	struct frr_pthread_attr pattr = {.start =
 						 frr_pthread_attr_default.start,
@@ -477,7 +480,9 @@ void zebra_mlag_client_register(ZAPI_HANDLER_ARGS)
 			zlog_debug(
 				"First client, opening the channel with MLAG");
 
+#ifndef FUZZING
 		zebra_mlag_spawn_pthread();
+#endif
 		rc = hook_call(zebra_mlag_private_open_channel);
 		if (rc < 0) {
 			/*

@@ -1512,30 +1512,37 @@ void kernel_init(struct zebra_ns *zns)
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);
 	zns->netlink.sock = -1;
+#ifndef FUZZING
 	if (netlink_socket(&zns->netlink, groups, zns->ns_id) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink.name);
 		exit(-1);
 	}
+#endif
 
 	snprintf(zns->netlink_cmd.name, sizeof(zns->netlink_cmd.name),
 		 "netlink-cmd (NS %u)", zns->ns_id);
 	zns->netlink_cmd.sock = -1;
+#ifndef FUZZING
 	if (netlink_socket(&zns->netlink_cmd, 0, zns->ns_id) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_cmd.name);
 		exit(-1);
 	}
+#endif
 
 	snprintf(zns->netlink_dplane.name, sizeof(zns->netlink_dplane.name),
 		 "netlink-dp (NS %u)", zns->ns_id);
 	zns->netlink_dplane.sock = -1;
+#ifndef FUZZING
 	if (netlink_socket(&zns->netlink_dplane, 0, zns->ns_id) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_dplane.name);
 		exit(-1);
 	}
+#endif
 
+#ifndef FUZZING
 	/*
 	 * SOL_NETLINK is not available on all platforms yet
 	 * apparently.  It's in bits/socket.h which I am not
@@ -1584,6 +1591,7 @@ void kernel_init(struct zebra_ns *zns)
 			       zns->netlink_cmd.snl.nl_pid,
 			       zns->netlink_dplane.snl.nl_pid);
 
+#endif /* FUZZING */
 	zns->t_netlink = NULL;
 
 	thread_add_read(zrouter.master, kernel_read, zns,
