@@ -7,7 +7,7 @@ noinst_LIBRARIES += staticd/libstatic.a
 sbin_PROGRAMS += staticd/staticd
 dist_examples_DATA += staticd/staticd.conf.sample
 vtysh_scan += $(top_srcdir)/staticd/static_vty.c
-man8 += $(MANBUILD)/staticd.8
+man8 += $(MANBUILD)/frr-staticd.8
 endif
 
 staticd_libstatic_a_SOURCES = \

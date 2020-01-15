@@ -46,7 +46,7 @@ endif
 if BGP_BMP
 module_LTLIBRARIES += bgpd/bgpd_bmp.la
 endif
-man8 += $(MANBUILD)/bgpd.8
+man8 += $(MANBUILD)/frr-bgpd.8
 endif
 
 bgpd_libbgp_a_SOURCES = \
