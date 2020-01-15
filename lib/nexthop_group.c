@@ -250,8 +250,7 @@ static void _nexthop_add_sorted(struct nexthop **head,
 {
 	struct nexthop *position, *prev;
 
-	/* Ensure this gets set */
-	nexthop->next = NULL;
+	assert(!nexthop->next);
 
 	for (position = *head, prev = NULL; position;
 	     prev = position, position = position->next) {
@@ -280,6 +279,8 @@ void nexthop_group_add_sorted(struct nexthop_group *nhg,
 			      struct nexthop *nexthop)
 {
 	struct nexthop *tail;
+
+	assert(!nexthop->next);
 
 	/* Try to just append to the end first;
 	 * trust the list is already sorted
