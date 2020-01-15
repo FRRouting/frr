@@ -2107,6 +2107,7 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 	zebra_lsp_t *lsp;
 	zebra_nhlfe_t *nhlfe;
 	struct zapi_srte_tunnel *zt;
+	int ret;
 
 	zt = &zp.active_segment_list;
 
@@ -2132,17 +2133,25 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 	mpls_lsp_uninstall_all_vrf(zvrf, zt->type, zt->local_label);
 
 	lsp = mpls_lsp_find(zvrf, zt->labels[0]);
-	if (!lsp)
+	if (!lsp) {
+		/* If the nexthop can't be resolved the tunnel is not installed */
+		zebra_sr_policy_set(&zp, ZEBRA_SR_POLICY_DOWN);
 		return;
-
-	frr_each_safe(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
-		mpls_lsp_install(zvrf, zt->type, zt->local_label, zt->label_num,
-				 zt->labels, nhlfe->nexthop->type,
-				 &nhlfe->nexthop->gate,
-				 nhlfe->nexthop->ifindex);
 	}
 
-	zebra_sr_policy_set(&zp);
+	frr_each_safe(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
+		ret = mpls_lsp_install(zvrf, zt->type, zt->local_label,
+				       zt->label_num, zt->labels,
+				       nhlfe->nexthop->type,
+				       &nhlfe->nexthop->gate,
+				       nhlfe->nexthop->ifindex);
+		if (ret) {
+			zebra_sr_policy_set(&zp, ZEBRA_SR_POLICY_DOWN);
+			return;
+		}
+	}
+
+	zebra_sr_policy_set(&zp, ZEBRA_SR_POLICY_UP);
 }
 
 static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)

@@ -20,11 +20,17 @@
 
 #include "lib/zclient.h"
 
+enum zebra_sr_policy_status {
+	ZEBRA_SR_POLICY_UP = 1,
+	ZEBRA_SR_POLICY_DOWN = 2,
+};
+
 struct zebra_sr_policy {
 	RB_ENTRY(zebra_sr_policy) entry;
 	uint32_t color;
 	struct in_addr endpoint;
 	char name[ZEBRA_SR_POLICY_NAME_MAX_LENGTH];
+	enum zebra_sr_policy_status status;
 	struct zapi_srte_tunnel active_segment_list;
 };
 RB_HEAD(zebra_sr_policy_instance_head, zebra_sr_policy);
@@ -33,4 +39,5 @@ RB_PROTOTYPE(zebra_sr_policy_instance_head, zebra_sr_policy, entry,
 
 extern struct zebra_sr_policy_instance_head zebra_sr_policy_instances;
 
-void zebra_sr_policy_set(struct zapi_sr_policy *zapi_sr_policy);
+void zebra_sr_policy_set(struct zapi_sr_policy *zapi_sr_policy,
+			 enum zebra_sr_policy_status status);

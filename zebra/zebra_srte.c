@@ -48,7 +48,8 @@ RB_GENERATE(zebra_sr_policy_instance_head, zebra_sr_policy, entry,
 struct zebra_sr_policy_instance_head zebra_sr_policy_instances =
 	RB_INITIALIZER(&zebra_sr_policy_instances);
 
-void zebra_sr_policy_set(struct zapi_sr_policy *zapi_sr_policy)
+void zebra_sr_policy_set(struct zapi_sr_policy *zapi_sr_policy,
+			 enum zebra_sr_policy_status status)
 {
 	struct zebra_sr_policy *zebra_sr_policy;
 	struct zebra_sr_policy *removed_zebra_sr_policy;
@@ -60,6 +61,7 @@ void zebra_sr_policy_set(struct zapi_sr_policy *zapi_sr_policy)
 	       sizeof(struct in_addr));
 	strncpy((char *)&zebra_sr_policy->name, (char *)&zapi_sr_policy->name,
 		ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+	zebra_sr_policy->status = status;
 	zebra_sr_policy->active_segment_list =
 		zapi_sr_policy->active_segment_list;
 
