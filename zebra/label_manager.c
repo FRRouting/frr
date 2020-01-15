@@ -262,8 +262,12 @@ assign_specific_label_chunk(uint8_t proto, unsigned short instance,
 		 * included in the previous one */
 		for (node = first_node; node && (node != last_node);
 		     node = next) {
+			struct label_manager_chunk *death;
+
 			next = listnextnode(node);
+			death = listgetdata(node);
 			list_delete_node(lbl_mgr.lc_list, node);
+			delete_label_chunk(death);
 		}
 
 		lmc = create_label_chunk(proto, instance, keep, base, end);
