@@ -74,3 +74,28 @@ void zebra_sr_policy_set(struct zapi_sr_policy *zapi_sr_policy,
 	RB_INSERT(zebra_sr_policy_instance_head, &zebra_sr_policy_instances,
 		  zebra_sr_policy);
 }
+
+void zebra_sr_policy_delete(struct zapi_sr_policy *zapi_sr_policy)
+{
+	struct zebra_sr_policy *zebra_sr_policy;
+	struct zebra_sr_policy *removed_zebra_sr_policy;
+
+	/* TODO: For some reason an XCALLOC is needed here */
+	zebra_sr_policy =
+		XCALLOC(MTYPE_ZEBRA_SR_POLICY, sizeof(struct zebra_sr_policy));
+
+	zebra_sr_policy->color = zapi_sr_policy->color;
+	zebra_sr_policy->endpoint.s_addr = zapi_sr_policy->endpoint.s_addr;
+	zebra_sr_policy->active_segment_list.local_label =
+		zapi_sr_policy->active_segment_list.local_label;
+
+	removed_zebra_sr_policy =
+		RB_REMOVE(zebra_sr_policy_instance_head,
+			  &zebra_sr_policy_instances, zebra_sr_policy);
+
+	if (removed_zebra_sr_policy)
+		XFREE(MTYPE_ZEBRA_SR_POLICY, removed_zebra_sr_policy);
+
+	/* TODO: For some reason an assertion fails here */
+	// XFREE(MTYPE_ZEBRA_SR_POLICY, zebra_sr_policy);
+}

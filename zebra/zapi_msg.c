@@ -2175,6 +2175,7 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 		return;
 
 	mpls_lsp_uninstall_all_vrf(zvrf, zt->type, zt->local_label);
+	zebra_sr_policy_delete(&zp);
 }
 
 /* Send response to a table manager connect request to client */

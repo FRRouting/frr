@@ -41,3 +41,5 @@ extern struct zebra_sr_policy_instance_head zebra_sr_policy_instances;
 
 void zebra_sr_policy_set(struct zapi_sr_policy *zapi_sr_policy,
 			 enum zebra_sr_policy_status status);
+
+void zebra_sr_policy_delete(struct zapi_sr_policy *zapi_sr_policy);
