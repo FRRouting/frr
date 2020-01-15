@@ -14,7 +14,7 @@ vtysh_scan += \
 	$(top_srcdir)/isisd/isis_vty_fabricd.c \
 	$(top_srcdir)/isisd/isisd.c \
 	# end
-man8 += $(MANBUILD)/isisd.8
+man8 += $(MANBUILD)/frr-isisd.8
 endif
 
 if FABRICD

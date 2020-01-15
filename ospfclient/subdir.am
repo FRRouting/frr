@@ -5,7 +5,7 @@
 if OSPFCLIENT
 lib_LTLIBRARIES += ospfclient/libfrrospfapiclient.la
 noinst_PROGRAMS += ospfclient/ospfclient
-man8 += $(MANBUILD)/ospfclient.8
+#man8 += $(MANBUILD)/frr-ospfclient.8
 endif
 
 ospfclient_libfrrospfapiclient_la_LDFLAGS = -version-info 0:0:0
