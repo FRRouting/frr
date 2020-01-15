@@ -34,6 +34,7 @@
 #include "jhash.h"
 #include "printfrr.h"
 #include "vrf.h"
+#include "nexthop_group.h"
 
 DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop")
 DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label")
@@ -565,8 +566,9 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 	return key;
 }
 
-void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
-		  struct nexthop *rparent)
+void nexthop_copy_no_recurse(struct nexthop *copy,
+			     const struct nexthop *nexthop,
+			     struct nexthop *rparent)
 {
 	copy->vrf_id = nexthop->vrf_id;
 	copy->ifindex = nexthop->ifindex;
@@ -581,6 +583,28 @@ void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
 		nexthop_add_labels(copy, nexthop->nh_label_type,
 				   nexthop->nh_label->num_labels,
 				   &nexthop->nh_label->label[0]);
+}
+
+void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
+		  struct nexthop *rparent)
+{
+	nexthop_copy_no_recurse(copy, nexthop, rparent);
+
+	/* Bit of a special case here, we need to handle the case
+	 * of a nexthop resolving to agroup. Hence, we need to
+	 * use a nexthop_group API.
+	 */
+	if (CHECK_FLAG(copy->flags, NEXTHOP_FLAG_RECURSIVE))
+		copy_nexthops(&copy->resolved, nexthop->resolved, copy);
+}
+
+struct nexthop *nexthop_dup_no_recurse(const struct nexthop *nexthop,
+				       struct nexthop *rparent)
+{
+	struct nexthop *new = nexthop_new();
+
+	nexthop_copy_no_recurse(new, nexthop, rparent);
+	return new;
 }
 
 struct nexthop *nexthop_dup(const struct nexthop *nexthop,

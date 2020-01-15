@@ -187,9 +187,16 @@ extern unsigned int nexthop_level(struct nexthop *nexthop);
 /* Copies to an already allocated nexthop struct */
 extern void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
 			 struct nexthop *rparent);
+/* Copies to an already allocated nexthop struct, not including recurse info */
+extern void nexthop_copy_no_recurse(struct nexthop *copy,
+				    const struct nexthop *nexthop,
+				    struct nexthop *rparent);
 /* Duplicates a nexthop and returns the newly allocated nexthop */
 extern struct nexthop *nexthop_dup(const struct nexthop *nexthop,
 				   struct nexthop *rparent);
+/* Duplicates a nexthop and returns the newly allocated nexthop */
+extern struct nexthop *nexthop_dup_no_recurse(const struct nexthop *nexthop,
+					      struct nexthop *rparent);
 
 #ifdef __cplusplus
 }

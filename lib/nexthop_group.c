@@ -364,10 +364,6 @@ void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 	for (nh1 = nh; nh1; nh1 = nh1->next) {
 		nexthop = nexthop_dup(nh1, rparent);
 		_nexthop_add(tnh, nexthop);
-
-		if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_RECURSIVE))
-			copy_nexthops(&nexthop->resolved, nh1->resolved,
-				      nexthop);
 	}
 }
 
