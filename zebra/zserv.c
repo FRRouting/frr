@@ -591,8 +591,10 @@ static void zserv_client_free(struct zserv *client)
 
 	/* Free bitmaps. */
 	for (afi_t afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (int i = 0; i < ZEBRA_ROUTE_MAX; i++)
+		for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 			vrf_bitmap_free(client->redist[afi][i]);
+			redist_del_all_instances(&client->mi_redist[afi][i]);
+		}
 
 		vrf_bitmap_free(client->redist_default[afi]);
 	}

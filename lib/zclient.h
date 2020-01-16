@@ -574,6 +574,7 @@ extern unsigned short *redist_check_instance(struct redist_proto *,
 					     unsigned short);
 extern void redist_add_instance(struct redist_proto *, unsigned short);
 extern void redist_del_instance(struct redist_proto *, unsigned short);
+extern void redist_del_all_instances(struct redist_proto *red);
 
 /*
  * Send to zebra that the specified vrf is using label to resolve

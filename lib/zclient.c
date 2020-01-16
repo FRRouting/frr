@@ -143,6 +143,18 @@ void redist_del_instance(struct redist_proto *red, unsigned short instance)
 	}
 }
 
+void redist_del_all_instances(struct redist_proto *red)
+{
+	struct listnode *ln, *nn;
+	unsigned short *id;
+
+	if (!red->instances)
+		return;
+
+	for (ALL_LIST_ELEMENTS(red->instances, ln, nn, id))
+		redist_del_instance(red, *id);
+}
+
 /* Stop zebra client services. */
 void zclient_stop(struct zclient *zclient)
 {
