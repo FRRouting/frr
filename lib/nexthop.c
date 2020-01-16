@@ -23,11 +23,9 @@
 #include "table.h"
 #include "memory.h"
 #include "command.h"
-#include "if.h"
 #include "log.h"
 #include "sockunion.h"
 #include "linklist.h"
-#include "thread.h"
 #include "prefix.h"
 #include "nexthop.h"
 #include "mpls.h"
@@ -155,7 +153,24 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 	}
 
 	ret = _nexthop_source_cmp(next1, next2);
+	if (ret != 0)
+		goto done;
 
+	if (!CHECK_FLAG(next1->flags, NEXTHOP_FLAG_HAS_BACKUP) &&
+	    CHECK_FLAG(next2->flags, NEXTHOP_FLAG_HAS_BACKUP))
+		return -1;
+
+	if (CHECK_FLAG(next1->flags, NEXTHOP_FLAG_HAS_BACKUP) &&
+	    !CHECK_FLAG(next2->flags, NEXTHOP_FLAG_HAS_BACKUP))
+		return 1;
+
+	if (next1->backup_idx < next2->backup_idx)
+		return -1;
+
+	if (next1->backup_idx > next2->backup_idx)
+		return 1;
+
+done:
 	return ret;
 }
 
@@ -240,7 +255,7 @@ struct nexthop *nexthop_new(void)
 	 * The linux kernel does some weird stuff with adding +1 to
 	 * all nexthop weights it gets over netlink.
 	 * To handle this, just default everything to 1 right from
-	 * from the beggining so we don't have to special case
+	 * from the beginning so we don't have to special case
 	 * default weights in the linux netlink code.
 	 *
 	 * 1 should be a valid on all platforms anyway.
@@ -508,6 +523,7 @@ unsigned int nexthop_level(struct nexthop *nexthop)
 uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 {
 	uint32_t key = 0x45afe398;
+	uint32_t val;
 
 	key = jhash_3words(nexthop->type, nexthop->vrf_id,
 			   nexthop->nh_label_type, key);
@@ -537,8 +553,12 @@ uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 			key = jhash_1word(nexthop->nh_label->label[i], key);
 	}
 
-	key = jhash_2words(nexthop->ifindex,
-			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK),
+	val = 0;
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP))
+		val = (uint32_t)nexthop->backup_idx;
+
+	key = jhash_3words(nexthop->ifindex,
+			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK), val,
 			   key);
 
 	return key;
@@ -578,6 +598,7 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 	copy->type = nexthop->type;
 	copy->flags = nexthop->flags;
 	copy->weight = nexthop->weight;
+	copy->backup_idx = nexthop->backup_idx;
 	memcpy(&copy->gate, &nexthop->gate, sizeof(nexthop->gate));
 	memcpy(&copy->src, &nexthop->src, sizeof(nexthop->src));
 	memcpy(&copy->rmap_src, &nexthop->rmap_src, sizeof(nexthop->rmap_src));

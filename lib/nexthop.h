@@ -86,6 +86,8 @@ struct nexthop {
 					  * active one
 					  */
 #define NEXTHOP_FLAG_RNH_FILTERED  (1 << 5) /* rmap filtered, used by rnh */
+#define NEXTHOP_FLAG_HAS_BACKUP (1 << 6)    /* Backup nexthop index is set */
+
 #define NEXTHOP_IS_ACTIVE(flags)                                               \
 	(CHECK_FLAG(flags, NEXTHOP_FLAG_ACTIVE)                                \
 	 && !CHECK_FLAG(flags, NEXTHOP_FLAG_DUPLICATE))
@@ -116,8 +118,15 @@ struct nexthop {
 
 	/* Weight of the nexthop ( for unequal cost ECMP ) */
 	uint8_t weight;
+
+	/* Index of a corresponding backup nexthop in a backup list;
+	 * only meaningful if the HAS_BACKUP flag is set.
+	 */
+	uint8_t backup_idx;
 };
 
+/* Backup index value is limited */
+#define NEXTHOP_BACKUP_IDX_MAX 255
 
 /* Utility to append one nexthop to another. */
 #define NEXTHOP_APPEND(to, new)           \
