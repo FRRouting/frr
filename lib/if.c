@@ -130,7 +130,12 @@ static int if_cmp_func(const struct interface *ifp1,
 static int if_cmp_index_func(const struct interface *ifp1,
 			     const struct interface *ifp2)
 {
-	return ifp1->ifindex - ifp2->ifindex;
+	if (ifp1->ifindex == ifp2->ifindex)
+		return 0;
+	else if (ifp1->ifindex > ifp2->ifindex)
+		return 1;
+	else
+		return -1;
 }
 
 /* Create new interface structure. */

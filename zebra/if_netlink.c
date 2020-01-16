@@ -365,7 +365,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 	}
 }
 
-static int get_iflink_speed(struct interface *interface)
+static uint32_t get_iflink_speed(struct interface *interface)
 {
 	struct ifreq ifdata;
 	struct ethtool_cmd ecmd;
@@ -410,7 +410,7 @@ static int get_iflink_speed(struct interface *interface)
 
 	close(sd);
 
-	return (ecmd.speed_hi << 16) | ecmd.speed;
+	return ((uint32_t)ecmd.speed_hi << 16) | ecmd.speed;
 }
 
 uint32_t kernel_get_speed(struct interface *ifp)
@@ -1431,7 +1431,7 @@ int netlink_protodown(struct interface *ifp, bool down)
 
 	req.ifa.ifi_index = ifp->ifindex;
 
-	addattr_l(&req.n, sizeof(req), IFLA_PROTO_DOWN, &down, 4);
+	addattr_l(&req.n, sizeof(req), IFLA_PROTO_DOWN, &down, sizeof(down));
 	addattr_l(&req.n, sizeof(req), IFLA_LINK, &ifp->ifindex, 4);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,

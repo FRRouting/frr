@@ -1074,7 +1074,7 @@ int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
    netlink_socket (). */
 void kernel_init(struct zebra_ns *zns)
 {
-	unsigned long groups;
+	uint32_t groups;
 #if defined SOL_NETLINK
 	int one, ret;
 #endif
@@ -1095,8 +1095,8 @@ void kernel_init(struct zebra_ns *zns)
 		RTMGRP_IPV6_IFADDR             |
 		RTMGRP_IPV4_MROUTE             |
 		RTMGRP_NEIGH                   |
-		(1 << (RTNLGRP_IPV4_RULE - 1)) |
-		(1 << (RTNLGRP_IPV6_RULE - 1));
+		((uint32_t) 1 << (RTNLGRP_IPV4_RULE - 1)) |
+		((uint32_t) 1 << (RTNLGRP_IPV6_RULE - 1));
 
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);
