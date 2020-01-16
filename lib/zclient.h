@@ -783,10 +783,12 @@ bool zapi_iptable_notify_decode(struct stream *s,
 		uint32_t *unique,
 		enum zapi_iptable_notify_owner *note);
 
-extern struct nexthop *nexthop_from_zapi_nexthop(
-	const struct zapi_nexthop *znh);
+extern struct nexthop *
+nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh);
 int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 			      const struct nexthop *nh);
+int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
+				     const struct nexthop *nh);
 extern bool zapi_nexthop_update_decode(struct stream *s,
 				       struct zapi_route *nhr);
 

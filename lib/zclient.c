@@ -904,6 +904,7 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		}
 	}
 
+	/* If present, set 'weight' flag before encoding flags */
 	if (api_nh->weight)
 		SET_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_WEIGHT);
 
@@ -1479,6 +1480,11 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 				   znh->labels);
 	}
 
+	if (CHECK_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
+		SET_FLAG(n->flags, NEXTHOP_FLAG_HAS_BACKUP);
+		n->backup_idx = znh->backup_idx;
+	}
+
 	return n;
 }
 
@@ -1510,7 +1516,28 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
 	}
 
+	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
+		znh->backup_idx = nh->backup_idx;
+	}
+
 	return 0;
+}
+
+/*
+ * Wrapper that converts backup nexthop
+ */
+int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
+				     const struct nexthop *nh)
+{
+	int ret;
+
+	/* Ensure that zapi flags are correct: backups don't have backups */
+	ret = zapi_nexthop_from_nexthop(znh, nh);
+	if (ret == 0)
+		UNSET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
+
+	return ret;
 }
 
 /*

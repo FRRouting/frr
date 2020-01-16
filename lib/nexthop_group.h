@@ -81,11 +81,16 @@ void nexthop_group_add_sorted(struct nexthop_group *nhg,
 	(nhop) = nexthop_next(nhop)
 
 
+#define NHGC_NAME_SIZE 80
+
 struct nexthop_group_cmd {
 
 	RB_ENTRY(nexthop_group_cmd) nhgc_entry;
 
-	char name[80];
+	char name[NHGC_NAME_SIZE];
+
+	/* Name of group containing backup nexthops (if set) */
+	char backup_list_name[NHGC_NAME_SIZE];
 
 	struct nexthop_group nhg;
 
