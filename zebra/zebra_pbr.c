@@ -652,12 +652,22 @@ static void *pbr_iptable_alloc_intern(void *arg)
 {
 	struct zebra_pbr_iptable *zpi;
 	struct zebra_pbr_iptable *new;
+	struct listnode *ln;
+	char *ifname;
 
 	zpi = (struct zebra_pbr_iptable *)arg;
 
 	new = XCALLOC(MTYPE_TMP, sizeof(struct zebra_pbr_iptable));
 
+	/* Deep structure copy */
 	memcpy(new, zpi, sizeof(*zpi));
+	new->interface_name_list = list_new();
+
+	if (zpi->interface_name_list) {
+		for (ALL_LIST_ELEMENTS_RO(zpi->interface_name_list, ln, ifname))
+			listnode_add(new->interface_name_list,
+				     XSTRDUP(MTYPE_PBR_IPTABLE_IFNAME, ifname));
+	}
 
 	return new;
 }
