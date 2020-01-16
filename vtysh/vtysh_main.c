@@ -431,9 +431,9 @@ int main(int argc, char **argv, char **env)
 			"most one of:\n\t-b, -C, -m, -w\n");
 		return 1;
 	}
-	if (inputfile && (writeconfig || boot_flag)) {
+	if (inputfile && (writeconfig || boot_flag || preconfig)) {
 		fprintf(stderr,
-			"WARNING: Combinining the -f option with -b or -w is "
+			"WARNING: Combinining the -f option with -p, -b or -w is "
 			"NOT SUPPORTED since its\nresults are inconsistent!\n");
 	}
 

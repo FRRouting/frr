@@ -37,6 +37,14 @@ OPTIONS available for the vtysh command:
 
    Alias for -c. It's here only for compatibility with Zebra routing software and older FRR versions. This will be removed in future.
 
+.. option:: -f, --inputfile file
+
+   Run the commands in the file and exit.
+
+.. option:: -p, --preconfig file
+
+   Run the commands in the file before entering an interactive session.
+
 .. option:: -E, --echo
 
    When the -c option is being used, this flag will cause the standard vtysh prompt and command to be echoed prior to displaying the results. This is particularly useful to separate the results when executing multiple commands.
