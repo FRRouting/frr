@@ -41,6 +41,7 @@
 #include "lib/vrf.h"
 #include "lib/libfrr.h"
 #include "lib/sockopt.h"
+#include "lib/lib_errors.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/rib.h"
@@ -1612,6 +1613,14 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
 		src_p = &api.src_prefix;
 
+	if (api.safi != SAFI_UNICAST && api.safi != SAFI_MULTICAST) {
+		flog_warn(EC_LIB_ZAPI_MISSMATCH,
+			  "%s: Received safi: %d but we can only accept UNICAST or MULTICAST",
+			  __func__, api.safi);
+		nexthop_group_delete(&ng);
+		XFREE(MTYPE_RE, re);
+		return;
+	}
 	ret = rib_add_multipath(afi, api.safi, &api.prefix, src_p, re, ng);
 
 	/* Stats */
