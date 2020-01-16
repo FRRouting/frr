@@ -478,7 +478,7 @@ static void handle_recursive_depend(struct nhg_connected_tree_head *nhg_depends,
 	struct nhg_hash_entry *depend = NULL;
 	struct nexthop_group resolved_ng = {};
 
-	nexthop_group_add_sorted(&resolved_ng, nh);
+	resolved_ng.nexthop = nh;
 
 	depend = zebra_nhg_rib_find(0, &resolved_ng, afi);
 	depends_add(nhg_depends, depend);
@@ -1048,24 +1048,65 @@ int zebra_nhg_kernel_del(uint32_t id)
 }
 
 /* Some dependency helper functions */
-static struct nhg_hash_entry *depends_find(const struct nexthop *nh, afi_t afi)
+static struct nhg_hash_entry *depends_find_recursive(const struct nexthop *nh,
+						     afi_t afi)
 {
-	struct nexthop lookup;
-	struct nhg_hash_entry *nhe = NULL;
+	struct nhg_hash_entry *nhe;
+	struct nexthop *lookup = NULL;
 
-	if (!nh)
-		goto done;
+	/*
+	 * We need to copy its resolved nexthop if its recursively
+	 * resolved so that has to be handled with allocs/frees since
+	 * it could resolve to a group of unknown size.
+	 */
+	copy_nexthops(&lookup, nh, NULL);
+
+	/* Make it a single, recursive nexthop */
+	nexthops_free(lookup->next);
+	nexthops_free(lookup->prev);
+	lookup->next = NULL;
+	lookup->prev = NULL;
+
+	nhe = zebra_nhg_find_nexthop(0, lookup, afi, 0);
+
+	nexthops_free(lookup);
+
+	return nhe;
+}
+
+static struct nhg_hash_entry *depends_find_singleton(const struct nexthop *nh,
+						     afi_t afi)
+{
+	struct nhg_hash_entry *nhe;
+	struct nexthop lookup = {};
 
 	/* Capture a snapshot of this single nh; it might be part of a list,
 	 * so we need to make a standalone copy.
 	 */
-	memset(&lookup, 0, sizeof(lookup));
 	nexthop_copy(&lookup, nh, NULL);
 
 	nhe = zebra_nhg_find_nexthop(0, &lookup, afi, 0);
 
 	/* The copy may have allocated labels; free them if necessary. */
 	nexthop_del_labels(&lookup);
+
+	return nhe;
+}
+
+static struct nhg_hash_entry *depends_find(const struct nexthop *nh, afi_t afi)
+{
+	struct nhg_hash_entry *nhe = NULL;
+
+	if (!nh)
+		goto done;
+
+	/* We are separating these functions out to increase handling speed
+	 * in the non-recursive case (by not alloc/freeing)
+	 */
+	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
+		nhe = depends_find_recursive(nh, afi);
+	else
+		nhe = depends_find_singleton(nh, afi);
 
 done:
 	return nhe;
