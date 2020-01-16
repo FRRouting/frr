@@ -9486,7 +9486,7 @@ void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS)
 
 	s = msg;
 	STREAM_GETC(s, advertise);
-	vni = stream_get3(s);
+	STREAM_GET(&vni, s, 3);
 
 	zvni = zvni_lookup(vni);
 	if (!zvni)
