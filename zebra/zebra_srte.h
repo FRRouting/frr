@@ -20,6 +20,11 @@
 
 #include "lib/zclient.h"
 
+enum zebra_sr_policy_update_label_mode {
+	ZEBRA_SR_POLICY_LABEL_CREATED = 1,
+	ZEBRA_SR_POLICY_LABEL_REMOVED = 2,
+};
+
 enum zebra_sr_policy_status {
 	ZEBRA_SR_POLICY_UP = 1,
 	ZEBRA_SR_POLICY_DOWN = 2,
@@ -32,6 +37,7 @@ struct zebra_sr_policy {
 	char name[ZEBRA_SR_POLICY_NAME_MAX_LENGTH];
 	enum zebra_sr_policy_status status;
 	struct zapi_srte_tunnel active_segment_list;
+	struct zebra_vrf *zvrf;
 };
 RB_HEAD(zebra_sr_policy_instance_head, zebra_sr_policy);
 RB_PROTOTYPE(zebra_sr_policy_instance_head, zebra_sr_policy, entry,
@@ -40,6 +46,10 @@ RB_PROTOTYPE(zebra_sr_policy_instance_head, zebra_sr_policy, entry,
 extern struct zebra_sr_policy_instance_head zebra_sr_policy_instances;
 
 void zebra_sr_policy_set(struct zapi_sr_policy *zapi_sr_policy,
+			 struct zebra_vrf *zvrf,
 			 enum zebra_sr_policy_status status);
 
 void zebra_sr_policy_delete(struct zapi_sr_policy *zapi_sr_policy);
+
+void zebra_sr_policy_nexthop_label_removed(mpls_label_t label);
+void zebra_sr_policy_nexthop_label_created(mpls_label_t label);

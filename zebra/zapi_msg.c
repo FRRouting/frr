@@ -2135,7 +2135,7 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 	lsp = mpls_lsp_find(zvrf, zt->labels[0]);
 	if (!lsp) {
 		/* If the nexthop can't be resolved the tunnel is not installed */
-		zebra_sr_policy_set(&zp, ZEBRA_SR_POLICY_DOWN);
+		zebra_sr_policy_set(&zp, zvrf, ZEBRA_SR_POLICY_DOWN);
 		return;
 	}
 
@@ -2146,12 +2146,12 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 				       &nhlfe->nexthop->gate,
 				       nhlfe->nexthop->ifindex);
 		if (ret) {
-			zebra_sr_policy_set(&zp, ZEBRA_SR_POLICY_DOWN);
+			zebra_sr_policy_set(&zp, zvrf, ZEBRA_SR_POLICY_DOWN);
 			return;
 		}
 	}
 
-	zebra_sr_policy_set(&zp, ZEBRA_SR_POLICY_UP);
+	zebra_sr_policy_set(&zp, zvrf, ZEBRA_SR_POLICY_UP);
 }
 
 static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)

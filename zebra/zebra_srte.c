@@ -21,6 +21,7 @@
 #include "zebra/zebra_srte.h"
 #include "lib/zclient.h"
 #include "zebra/zebra_memory.h"
+#include "zebra/zebra_mpls.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SR_POLICY, "SR Policy")
 
@@ -49,6 +50,7 @@ struct zebra_sr_policy_instance_head zebra_sr_policy_instances =
 	RB_INITIALIZER(&zebra_sr_policy_instances);
 
 void zebra_sr_policy_set(struct zapi_sr_policy *zapi_sr_policy,
+			 struct zebra_vrf *zvrf,
 			 enum zebra_sr_policy_status status)
 {
 	struct zebra_sr_policy *zebra_sr_policy;
@@ -64,6 +66,7 @@ void zebra_sr_policy_set(struct zapi_sr_policy *zapi_sr_policy,
 	zebra_sr_policy->status = status;
 	zebra_sr_policy->active_segment_list =
 		zapi_sr_policy->active_segment_list;
+	zebra_sr_policy->zvrf = zvrf;
 
 	removed_zebra_sr_policy =
 		RB_REMOVE(zebra_sr_policy_instance_head,
@@ -98,4 +101,56 @@ void zebra_sr_policy_delete(struct zapi_sr_policy *zapi_sr_policy)
 
 	/* TODO: For some reason an assertion fails here */
 	// XFREE(MTYPE_ZEBRA_SR_POLICY, zebra_sr_policy);
+}
+
+static void zebra_sr_policy_process_label_update(
+	mpls_label_t label, enum zebra_sr_policy_update_label_mode mode)
+{
+	struct zebra_sr_policy *sr_policy;
+	struct zapi_srte_tunnel *zt;
+	zebra_lsp_t *lsp;
+	mpls_label_t next_hop_label;
+	zebra_nhlfe_t *nhlfe;
+
+	RB_FOREACH (sr_policy, zebra_sr_policy_instance_head,
+		    &zebra_sr_policy_instances) {
+		zt = &sr_policy->active_segment_list;
+		next_hop_label = zt->labels[0];
+		if (next_hop_label == label) {
+			if (mode == ZEBRA_SR_POLICY_LABEL_CREATED
+			    && sr_policy->status == ZEBRA_SR_POLICY_DOWN) {
+				lsp = mpls_lsp_find(sr_policy->zvrf,
+						    next_hop_label);
+				for (nhlfe = lsp->nhlfe_list; nhlfe;
+				     nhlfe = nhlfe->next)
+					mpls_lsp_install(
+						sr_policy->zvrf, zt->type,
+						zt->local_label, zt->label_num,
+						zt->labels,
+						nhlfe->nexthop->type,
+						&nhlfe->nexthop->gate,
+						nhlfe->nexthop->ifindex);
+				sr_policy->status = ZEBRA_SR_POLICY_UP;
+			}
+			if (mode == ZEBRA_SR_POLICY_LABEL_REMOVED
+			    && sr_policy->status == ZEBRA_SR_POLICY_UP) {
+				mpls_lsp_uninstall_all_vrf(sr_policy->zvrf,
+							   zt->type,
+							   zt->local_label);
+				sr_policy->status = ZEBRA_SR_POLICY_DOWN;
+			}
+		}
+	}
+}
+
+void zebra_sr_policy_nexthop_label_removed(mpls_label_t label)
+{
+	zebra_sr_policy_process_label_update(label,
+					     ZEBRA_SR_POLICY_LABEL_REMOVED);
+}
+
+void zebra_sr_policy_nexthop_label_created(mpls_label_t label)
+{
+	zebra_sr_policy_process_label_update(label,
+					     ZEBRA_SR_POLICY_LABEL_CREATED);
 }
