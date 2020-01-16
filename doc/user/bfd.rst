@@ -476,3 +476,13 @@ You can also clear packet counters per session with the following commands, only
                 Session down events: 0
                 Zebra notifications: 4
 
+Logging / debugging
+===================
+
+There are no fine grained debug controls for bfdd. Just enable debug logs.
+
+::
+
+   config
+   log file /var/log/frr/frr.log debugging
+   log syslog debugging
