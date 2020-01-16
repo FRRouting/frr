@@ -30,7 +30,7 @@ build_clippy="true"
 
 dnl case 1: external clippy
 if test -n "$with_clippy" -a "$with_clippy" != "no" -a "$with_clippy" != "yes"; then
-  if test "$enable_clippy_only" == "yes"; then
+  if test "$enable_clippy_only" = "yes"; then
     AC_MSG_ERROR([--enable-clippy-only does not make sense with --with-clippy])
   fi
 
