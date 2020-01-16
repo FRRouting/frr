@@ -158,6 +158,7 @@ static void usage(int status)
 		       "-c, --command            Execute argument as command\n"
 		       "-d, --daemon             Connect only to the specified daemon\n"
 		       "-f, --inputfile          Execute commands from specific file and exit\n"
+		       "-p, --preconfig          Like -f, but open shell after configuring\n"
 		       "-E, --echo               Echo prompt and command in -c mode\n"
 		       "-C, --dryrun             Check configuration for validity and exit\n"
 		       "-m, --markfile           Mark input file with context end\n"
@@ -196,6 +197,7 @@ struct option longopts[] = {
 	{"writeconfig", no_argument, NULL, 'w'},
 	{"pathspace", required_argument, NULL, 'N'},
 	{"user", no_argument, NULL, 'u'},
+	{"preconfig", required_argument, NULL, 'p'},
 	{0}};
 
 /* Read a string, and return a pointer to it.  Returns NULL on EOF. */
@@ -304,6 +306,7 @@ int main(int argc, char **argv, char **env)
 	int boot_flag = 0;
 	const char *daemon_name = NULL;
 	const char *inputfile = NULL;
+	bool preconfig = false;
 	struct cmd_rec {
 		char *line;
 		struct cmd_rec *next;
@@ -339,8 +342,8 @@ int main(int argc, char **argv, char **env)
 
 	/* Option handling. */
 	while (1) {
-		opt = getopt_long(argc, argv, "be:c:d:nf:mEhCwN:u",
-				  longopts, 0);
+		opt = getopt_long(argc, argv, "be:c:d:nf:mEhCwN:up:", longopts,
+				  0);
 
 		if (opt == EOF)
 			break;
@@ -403,6 +406,10 @@ int main(int argc, char **argv, char **env)
 			break;
 		case 'w':
 			writeconfig = 1;
+			break;
+		case 'p':
+			inputfile = optarg;
+			preconfig = true;
 			break;
 		case 'h':
 			usage(0);
@@ -563,7 +570,9 @@ int main(int argc, char **argv, char **env)
 		vtysh_flock_config(inputfile);
 		ret = vtysh_read_config(inputfile);
 		vtysh_unflock_config();
-		exit(ret);
+
+		if (!preconfig)
+			exit(ret);
 	}
 
 	/*
