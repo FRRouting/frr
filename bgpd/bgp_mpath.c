@@ -722,7 +722,7 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 		return;
 	}
 
-	bgp_attr_dup(&attr, new_best->attr);
+	attr = *new_best->attr;
 
 	if (new_best->peer && bgp_flag_check(new_best->peer->bgp,
 					     BGP_FLAG_MULTIPATH_RELAX_AS_SET)) {

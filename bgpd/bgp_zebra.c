@@ -1726,7 +1726,7 @@ int bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 				struct attr *old_attr;
 				struct attr new_attr;
 
-				bgp_attr_dup(&new_attr, pi->attr);
+				new_attr = *pi->attr;
 				new_attr.med = red->redist_metric;
 				old_attr = pi->attr;
 				pi->attr = bgp_attr_intern(&new_attr);

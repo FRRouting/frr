@@ -1891,6 +1891,8 @@ int prefix_bgp_orf_set(char *name, afi_t afi, struct orf_prefix *orfp,
 	if (!plist)
 		return CMD_WARNING_CONFIG_FAILED;
 
+	apply_mask(&orfp->p);
+
 	if (set) {
 		pentry = prefix_list_entry_make(
 			&orfp->p, (permit ? PREFIX_PERMIT : PREFIX_DENY),
