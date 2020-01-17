@@ -2,6 +2,8 @@
 !
 password frr
 log stdout
+pcc
+ pce ip 127.0.0.1
 !
 segment-list test1
  index 10 mpls label 123

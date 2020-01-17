@@ -118,6 +118,12 @@ static uint32_t nbkey_map_hash(const nbkey_map_t *e);
 DECLARE_HASH(plspid_map, plspid_map_t, mi, plspid_map_cmp, plspid_map_hash)
 DECLARE_HASH(nbkey_map, nbkey_map_t, mi, nbkey_map_cmp, nbkey_map_hash)
 
+static struct cmd_node pcc_node = {
+        .name = "pcc",
+        .node = PCC_NODE,
+        .parent_node = CONFIG_NODE,
+        .prompt = "%s(config-pcc)# ",
+};
 
 /* ------------ Data Structure Functions ------------ */
 
@@ -833,8 +839,8 @@ int pcep_main_update_path_event(struct thread *thread)
 
 /* ------------ CLI Functions ------------ */
 
-DEFUN (pcep_cli_pcc_opts,
-       pcep_cli_pcc_opts_cmd,
+DEFUN (pcep_cli_pcc,
+       pcep_cli_pcc_cmd,
 	"pcc [ip A.B.C.D] [port (1024-65535)]",
 	"PCC source ip and port\n"
 	"PCC source ip A.B.C.D\n"
@@ -867,6 +873,8 @@ DEFUN (pcep_cli_pcc_opts,
 	if (pcep_controller_pcc_update_options(opts))
 		return CMD_WARNING;
 
+	VTY_PUSH_CONTEXT_NULL(PCC_NODE);
+
 	return CMD_SUCCESS;
 }
 
@@ -879,7 +887,7 @@ DEFUN (pcep_cli_pce_opts,
 {
 	struct in_addr pce_addr;
 	uint32_t pce_port = PCEP_DEFAULT_PORT;
-	pce_opts_t *opts;
+	pce_opts_t *pce_opts;
 
 	int ip_idx = 2;
 	int port_idx = 4;
@@ -890,11 +898,11 @@ DEFUN (pcep_cli_pce_opts,
 	if (argc > port_idx)
 		pce_port = atoi(argv[port_idx]->arg);
 
-	opts = XCALLOC(MTYPE_PCEP, sizeof(*opts));
-	opts->addr = pce_addr;
-	opts->port = pce_port;
+	pce_opts = XCALLOC(MTYPE_PCEP, sizeof(*pce_opts));
+	pce_opts->addr = pce_addr;
+	pce_opts->port = pce_port;
 
-	if (pcep_controller_pce_update_options(0, opts))
+	if (pcep_controller_pce_update_options(0, pce_opts))
 		return CMD_WARNING;
 
 	return CMD_SUCCESS;
@@ -952,11 +960,13 @@ void pcep_cli_init(void)
 	hook_register(nb_client_debug_set_all,
 		      pcep_cli_debug_set_all);
 
+	install_node(&pcc_node);
+	install_default(PCC_NODE);
 	install_element(ENABLE_NODE, &pcep_cli_debug_cmd);
 	install_element(CONFIG_NODE, &pcep_cli_debug_cmd);
-	install_element(CONFIG_NODE, &pcep_cli_pcc_opts_cmd);
-	install_element(CONFIG_NODE, &pcep_cli_pce_opts_cmd);
-	install_element(CONFIG_NODE, &pcep_cli_no_pce_cmd);
+	install_element(CONFIG_NODE, &pcep_cli_pcc_cmd);
+	install_element(PCC_NODE, &pcep_cli_pce_opts_cmd);
+	install_element(PCC_NODE, &pcep_cli_no_pce_cmd);
 
 }
 
