@@ -2391,14 +2391,19 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 
 		if (!(zpr.rule.filter.src_ip.family == AF_INET
 		      || zpr.rule.filter.src_ip.family == AF_INET6)) {
-			zlog_warn("Unsupported PBR source IP family: %s\n",
-				  family2str(zpr.rule.filter.src_ip.family));
+			zlog_warn(
+				"Unsupported PBR source IP family: %s (%" PRIu8
+				")\n",
+				family2str(zpr.rule.filter.src_ip.family),
+				zpr.rule.filter.src_ip.family);
 			return;
 		}
 		if (!(zpr.rule.filter.dst_ip.family == AF_INET
 		      || zpr.rule.filter.dst_ip.family == AF_INET6)) {
-			zlog_warn("Unsupported PBR dest IP family: %s\n",
-				  family2str(zpr.rule.filter.dst_ip.family));
+			zlog_warn("Unsupported PBR IP family: %s (%" PRIu8
+				  ")\n",
+				  family2str(zpr.rule.filter.dst_ip.family),
+				  zpr.rule.filter.dst_ip.family);
 			return;
 		}
 
