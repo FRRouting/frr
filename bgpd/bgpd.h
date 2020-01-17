@@ -1120,9 +1120,6 @@ struct peer {
 	/* timestamp when the last msg was written */
 	_Atomic time_t last_update;
 
-	/* Send prefix count. */
-	unsigned long scount[AFI_MAX][SAFI_MAX];
-
 	/* Notify data. */
 	struct bgp_notify notify;
 
