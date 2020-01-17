@@ -678,8 +678,47 @@ fi
 
 
 %changelog
-* Tue Oct 15 2019 Martin Winter <equinox@opensourcerouting.org> - %{version}
-[200~- ALL Daemons
+* Fri Jan 17 2020 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- BGPd
+-   Fix Addpath issue
+-   Do not apply eBGP policy for iBGP peers
+-   Show `ip` and `fqdn` in json output for `show [ip] bgp <route> json`
+-   Fix large route-distinguisher's format
+-   Fix `no bgp listen range ...` configuration command
+-   Autocomplete neighbor for clear bgp
+-   Reflect the distance in RIB when it is changed for an arbitrary afi/safi
+-   Notify "Peer De-configured" after entering 'no neighbor <neighbor> cmd
+-   Fix per afi/safi addpath peer counting
+-   Rework BGP dampening to be per AFI/SAFI
+-   Do not send next-hop as :: in MP_REACH_NLRI if no link-local exists
+-   Override peer's TTL only if peer-group is configured with TTL
+-   Remove error message for unkown afi/safi combination
+-   Keep the session down if maximum-prefix is reached
+- OSPFd
+-   Fix BFD down not tearing down OSPF adjacency for point-to-point net
+- BFDd
+-   Fix multiple VRF handling
+-   VRF security improvement
+- PIMd
+-   Fix rp crash
+- NHRPd
+-   Make sure `no ip nhrp map <something>` works as expected
+- LDPd
+-   Add missing sanity check in the parsing of label messages
+- Zebra
+-   Use correct state when installing evpn macs
+-   Capture dplane plugin flags
+- lib
+-   Fix interface config when vrf changes
+-   Fix Interface Infinite Loop Walk (for special interfaces such as bond)
+- snapcraft
+-   fix missing vrrpd daemon
+- Others
+-   Rename man pages (to avoid conflicts with other packages)
+-   Various other fixes for code cleanup and memory leaks 
+
+* Tue Oct 15 2019 Martin Winter <mwinter@opensourcerouting.org> - 7.2
+- ALL Daemons
 -   -N <namespace> to allow for config file locating when running FRR inside
      of a namespace
 -   Impoved Testing across all daemons
@@ -820,7 +859,7 @@ fi
 - BGPD: Flowspec
 - PBRD: Add a new Policy Based Routing Daemon
 
-* Sun May 28 2018 Rafael Zalamena <rzalamena@opensourcerouting.org> - %{version}
+* Mon May 28 2018 Rafael Zalamena <rzalamena@opensourcerouting.org>
 - Add BFDd support
 
 * Sun May 20 2018 Martin Winter <mwinter@opensourcerouting.org>
