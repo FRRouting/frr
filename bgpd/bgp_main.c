@@ -423,7 +423,13 @@ static bool FuzzingInit(void) {
 	return true;
 }
 
-static struct peer *FuzzingCreatePeer()
+/*
+ * Create peer structure that we'll use as the receiver for fuzzed packets.
+ *
+ * state
+ *    BGP FSM state to create the peer in
+ */
+static struct peer *FuzzingCreatePeer(int state)
 {
 	union sockunion su;
 	sockunion_init(&su);
@@ -433,7 +439,7 @@ static struct peer *FuzzingCreatePeer()
 	struct peer *p = peer_create(&su, NULL, bgp_get_default(), 65000, 65001,
 				     0, AFI_IP, SAFI_UNICAST, NULL);
 	p->bgp->rpkt_quanta = 1;
-	p->status = Established;
+	p->status = state;
 	p->as_type = AS_EXTERNAL;
 
 	/* set all flags */
@@ -447,9 +453,7 @@ static struct peer *FuzzingCreatePeer()
 	return p;
 }
 
-#ifndef FUZZING_LIBFUZZER
 static struct peer *FuzzingPeer;
-#endif
 
 static bool FuzzingInitialized;
 
@@ -458,6 +462,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	if (!FuzzingInitialized) {
 		FuzzingInit();
 		FuzzingInitialized = true;
+		/* See comment below */
+		FuzzingPeer = FuzzingCreatePeer(Established);
 	}
 
 	/*
@@ -470,12 +476,21 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	 * leaks when pointers are nulled that would otherwise be "in-use at
 	 * exit".
 	 *
-	 * In the libFuzzer case, we need to create it each time, and destroy
-	 * it when done.
+	 * In the libFuzzer case, we can either create and destroy it each time
+	 * to fuzz single packet rx, or we can keep the peer around, which will
+	 * fuzz a long lived session. Of course, as state accumulates over
+	 * time, memory usage will grow, which imposes some resource
+	 * constraints on the fuzzing host. In practice a reasonable server
+	 * machine with 64gb of memory or so should be able to fuzz
+	 * indefinitely; if bgpd consumes this much memory over time, that
+	 * behavior should probably be considered a bug.
 	 */
 	struct peer *p;
 #ifdef FUZZING_LIBFUZZER
-	p = FuzzingCreatePeer();
+	/* For non-persistent mode */
+	// p = FuzzingCreatePeer();
+	/* For persistent mode */
+	p = FuzzingPeer;
 #else
 	p = FuzzingPeer;
 #endif /* FUZZING_LIBFUZZER */
@@ -488,10 +503,15 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	 * The actual packet processing code assumes that the size field in the
 	 * BGP message is correct, and this check is performed by the i/o code,
 	 * so we need to make sure that remains true for fuzzed input.
-	 * */
-	if (!validate_header(p)) {
+	 *
+	 * Also, validate_header() assumes that there is at least
+	 * BGP_HEADER_SIZE bytes in ibuf_work.
+	 */
+	if ((size < BGP_HEADER_SIZE) || !validate_header(p)) {
 		goto done;
 	}
+	fprintf(stderr, "good header\n");
+
 
 	int result = 0;
 	unsigned char pktbuf[BGP_MAX_PACKET_SIZE];
@@ -514,7 +534,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	}
 
 done:
-	peer_delete(p);
+	//peer_delete(p);
 
 	return 0;
 };
@@ -540,7 +560,7 @@ int main(int argc, char **argv)
 
 #ifdef FUZZING
 	FuzzingInit();
-	FuzzingPeer = FuzzingCreatePeer();
+	FuzzingPeer = FuzzingCreatePeer(Established);
 	FuzzingInitialized = true;
 
 #ifdef __AFL_HAVE_MANUAL_CONTROL

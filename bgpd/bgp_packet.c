@@ -2433,13 +2433,13 @@ int bgp_process_packet(struct thread *thread)
 			 */
 			assert (!"Message of invalid type received during input processing");
 		}
-#ifdef FUZZING
-		return 0;
-#endif
 
 		/* delete processed packet */
 		stream_free(peer->curr);
 		peer->curr = NULL;
+#ifdef FUZZING
+		return 0;
+#endif
 		processed++;
 
 		/* Update FSM */
