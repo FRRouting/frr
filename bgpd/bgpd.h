@@ -988,6 +988,7 @@ struct peer {
 #define PEER_FLAG_WEIGHT                    (1 << 24) /* weight */
 #define PEER_FLAG_ALLOWAS_IN_ORIGIN         (1 << 25) /* allowas-in origin */
 #define PEER_FLAG_SEND_LARGE_COMMUNITY      (1 << 26) /* Send large Communities */
+#define PEER_FLAG_MAX_PREFIX_OUT            (1 << 27) /* outgoing maximum prefix */
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
 
@@ -1120,9 +1121,6 @@ struct peer {
 	/* timestamp when the last msg was written */
 	_Atomic time_t last_update;
 
-	/* Send prefix count. */
-	unsigned long scount[AFI_MAX][SAFI_MAX];
-
 	/* Notify data. */
 	struct bgp_notify notify;
 
@@ -1172,6 +1170,9 @@ struct peer {
 	uint8_t pmax_threshold[AFI_MAX][SAFI_MAX];
 	uint16_t pmax_restart[AFI_MAX][SAFI_MAX];
 #define MAXIMUM_PREFIX_THRESHOLD_DEFAULT 75
+
+	/* Send prefix count. */
+	uint32_t pmax_out[AFI_MAX][SAFI_MAX];
 
 	/* allowas-in. */
 	char allowas_in[AFI_MAX][SAFI_MAX];

@@ -143,6 +143,7 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->v_routeadv = src->v_routeadv;
 	dst->flags = src->flags;
 	dst->af_flags[afi][safi] = src->af_flags[afi][safi];
+	dst->pmax_out[afi][safi] = src->pmax_out[afi][safi];
 	XFREE(MTYPE_BGP_PEER_HOST, dst->host);
 
 	dst->host = XSTRDUP(MTYPE_BGP_PEER_HOST, src->host);
