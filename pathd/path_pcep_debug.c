@@ -42,6 +42,7 @@
 THREAD_DATA char _debug_buff[DEBUG_BUFF_SIZE];
 
 static void _format_pcc_opts(int ps, pcc_opts_t *ops);
+static void _format_pce_opts(int ps, pce_opts_t *ops);
 static void _format_pcc_state(int ps, pcc_state_t *state);
 static void _format_ctrl_state(int ps, ctrl_state_t *state);
 static void _format_path(int ps, path_t *path);
@@ -434,6 +435,20 @@ void _format_pcc_opts(int ps, pcc_opts_t *opts)
 	}
 }
 
+void _format_pce_opts(int ps, pce_opts_t *opts)
+{
+	if (NULL == opts) {
+		PCEP_FORMAT("NULL\n");
+	} else {
+		int ps2 = ps + DEBUG_IDENT_SIZE;
+		PCEP_FORMAT("\n");
+		PCEP_FORMAT("%*saddr: %pI4\n", ps2, "", &opts->addr);
+		PCEP_FORMAT("%*sport: %i\n", ps2, "", opts->port);
+		PCEP_FORMAT("%*s}\n", ps, "");
+	}
+}
+
+
 void _format_pcc_state(int ps, pcc_state_t *state)
 {
 	if (NULL == state) {
@@ -443,8 +458,10 @@ void _format_pcc_state(int ps, pcc_state_t *state)
 		PCEP_FORMAT("\n");
 		PCEP_FORMAT("%*sstatus: %s\n", ps2, "",
 			    pcc_status_name(state->status));
-		PCEP_FORMAT("%*sopts: ", ps2, "");
-		_format_pcc_opts(ps2, state->opts);
+		PCEP_FORMAT("%*spcc_opts: ", ps2, "");
+		_format_pcc_opts(ps2, state->pcc_opts);
+		PCEP_FORMAT("%*spce_opts: ", ps2, "");
+		_format_pce_opts(ps2, state->pce_opts);
 		if (NULL == state->sess) {
 			PCEP_FORMAT("%*ssess: NULL\n", ps2, "");
 		} else {

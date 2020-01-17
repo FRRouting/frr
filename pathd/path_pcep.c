@@ -51,7 +51,7 @@ pcep_glob_t *pcep_g = &pcep_glob_space;
 static pcc_state_t* pcep_pcc_initialize(ctrl_state_t *ctrl_state, int index);
 static void pcep_pcc_finalize(ctrl_state_t *ctrl_state, pcc_state_t *pcc_state);
 static int pcep_pcc_update(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state,
-			   pcc_opts_t *opts);
+			   pcc_opts_t *pcc_opts, pce_opts_t *pce_opts);
 static int pcep_pcc_enable(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state);
 static int pcep_pcc_disable(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state);
 static void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
@@ -73,7 +73,8 @@ static void pcep_pcc_lookup_nbkey(pcc_state_t *pcc_state, path_t * path);
 /* Controller Functions Called from Main */
 static int pcep_controller_initialize(void);
 static int pcep_controller_finalize(void);
-static int pcep_controller_pcc_update_options(int index, pcc_opts_t *opts);
+static int pcep_controller_pcc_update_options(pcc_opts_t *opts);
+static int pcep_controller_pce_update_options(int index, pce_opts_t *opts);
 static void pcep_controller_pcc_disconnect(int index);
 static void pcep_controller_pcc_report(int index, path_t *path);
 static int pcep_halt_cb(struct frr_pthread *fpt, void **res);
@@ -88,6 +89,7 @@ static int pcep_thread_init_event(struct thread *thread);
 static int pcep_thread_finish_event(struct thread *thread);
 static int pcep_thread_poll_timer(struct thread *thread);
 static int pcep_thread_pcc_update_options_event(struct thread *thread);
+static int pcep_thread_pce_update_options_event(struct thread *thread);
 static int pcep_thread_pcc_disconnect_event(struct thread *thread);
 static int pcep_thread_pcc_report_event(struct thread *thread);
 static int pcep_thread_pcc_cb_event(struct thread *thread);
@@ -182,14 +184,19 @@ void pcep_pcc_finalize(ctrl_state_t *ctrl_state, pcc_state_t *pcc_state)
 
 	pcep_pcc_disable(ctrl_state, pcc_state);
 
-	if (NULL != pcc_state->opts) {
-		XFREE(MTYPE_PCEP, pcc_state->opts);
-		pcc_state->opts = NULL;
+	if (NULL != pcc_state->pcc_opts) {
+		XFREE(MTYPE_PCEP, pcc_state->pcc_opts);
+		pcc_state->pcc_opts = NULL;
+	}
+	if (NULL != pcc_state->pce_opts) {
+		XFREE(MTYPE_PCEP, pcc_state->pce_opts);
+		pcc_state->pce_opts = NULL;
 	}
 	XFREE(MTYPE_PCEP, pcc_state);
 }
 
-int pcep_pcc_update(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state, pcc_opts_t *opts)
+int pcep_pcc_update(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state,
+                    pcc_opts_t *pcc_opts, pce_opts_t *pce_opts)
 {
 	assert(NULL != ctrl_state);
 	assert(NULL != pcc_state);
@@ -198,14 +205,21 @@ int pcep_pcc_update(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state, pcc_opts_
 
 	//TODO: check if the options changed ?
 
-	if ((ret = pcep_pcc_disable(ctrl_state, pcc_state))) return ret;
-
-	if (NULL != pcc_state->opts) {
-		XFREE(MTYPE_PCEP, pcc_state->opts);
-		pcc_state->opts = NULL;
+	if ((ret = pcep_pcc_disable(ctrl_state, pcc_state))) {
+		XFREE(MTYPE_PCEP, pcc_opts);
+		XFREE(MTYPE_PCEP, pce_opts);
+		return ret;
 	}
 
-	pcc_state->opts = opts;
+	if (NULL != pcc_state->pcc_opts) {
+		XFREE(MTYPE_PCEP, pcc_state->pcc_opts);
+	}
+	if (NULL != pcc_state->pce_opts) {
+		XFREE(MTYPE_PCEP, pcc_state->pce_opts);
+	}
+
+	pcc_state->pcc_opts = pcc_opts;
+	pcc_state->pce_opts = pce_opts;
 
 	return pcep_pcc_enable(ctrl_state, pcc_state);
 }
@@ -217,12 +231,14 @@ int pcep_pcc_enable(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state)
 	int ret = 0;
 
 	PCEP_DEBUG("PCC connecting to %pI4:%d",
-	           &pcc_state->opts->addr, pcc_state->opts->port);
+	           &pcc_state->pce_opts->addr, pcc_state->pce_opts->port);
 
 	if ((ret = pcep_lib_connect(pcc_state))) {
 		flog_err(EC_PATH_PCEP_LIB_CONNECT,
-			 "failed to connect to PCE %pI4:%d (%d)",
-			 &pcc_state->opts->addr, pcc_state->opts->port, ret);
+			 "failed to connect to PCE %pI4:%d from %pI4:%d (%d)",
+			 &pcc_state->pce_opts->addr, pcc_state->pce_opts->port,
+			 &pcc_state->pcc_opts->addr, pcc_state->pcc_opts->port,
+			 ret);
 		pcep_pcc_schedule_reconnect(ctrl_state, pcc_state);
 		return ret;
 	}
@@ -260,8 +276,8 @@ void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
 		case PCC_CONNECTED_TO_PCE:
 			assert(CONNECTING == pcc_state->status);
 			PCEP_DEBUG("Connection established to PCE %pI4:%i",
-				   &pcc_state->opts->addr,
-				   pcc_state->opts->port);
+				   &pcc_state->pce_opts->addr,
+				   pcc_state->pce_opts->port);
 			pcc_state->status = SYNCHRONIZING;
 			pcc_state->retry_count = 0;
 			pcep_thread_start_sync(ctrl_state, pcc_state);
@@ -314,7 +330,7 @@ void pcep_pcc_lsp_update(ctrl_state_t *ctrl_state,
 	path_t *path;
 	path = pcep_lib_parse_path(msg->obj_list);
 	path->sender.ipa_type = IPADDR_V4;
-	path->sender.ipaddr_v4 = pcc_state->opts->addr;
+	path->sender.ipaddr_v4 = pcc_state->pce_opts->addr;
 	pcep_pcc_lookup_nbkey(pcc_state, path);
 	PCEP_DEBUG("Received LSP update: %s", format_path(path));
 	pcep_thread_update_path(ctrl_state, pcc_state, path);
@@ -433,6 +449,9 @@ int pcep_controller_initialize(void)
 	ctrl_state->self = fpt->master;
 	ctrl_state->t_poll = NULL;
 	ctrl_state->pcc_count = 0;
+	ctrl_state->pcc_opts = XCALLOC(MTYPE_PCEP, sizeof(*ctrl_state->pcc_opts));
+	ctrl_state->pcc_opts->addr.s_addr = INADDR_ANY;
+	ctrl_state->pcc_opts->port = PCEP_DEFAULT_PORT;
 
 	/* Keep the state reference for events */
 	fpt->data = ctrl_state;
@@ -464,10 +483,30 @@ int pcep_controller_finalize(void)
 	return ret;
 }
 
-int pcep_controller_pcc_update_options(int index, pcc_opts_t *opts)
+int pcep_controller_pcc_update_options(pcc_opts_t *opts)
 {
 	ctrl_state_t *ctrl_state;
 	event_pcc_update_t *event;
+
+	assert(NULL != opts);
+	assert(NULL != pcep_g->fpt);
+	assert(NULL != pcep_g->fpt->data);
+	ctrl_state = (ctrl_state_t*)pcep_g->fpt->data;
+
+	event = XCALLOC(MTYPE_PCEP, sizeof(*event));
+	event->ctrl_state = ctrl_state;
+	event->pcc_opts = opts;
+	thread_add_event(ctrl_state->self,
+			 pcep_thread_pcc_update_options_event,
+			 (void*)event, 0, NULL);
+
+	return 0;
+}
+
+int pcep_controller_pce_update_options(int index, pce_opts_t *opts)
+{
+	ctrl_state_t *ctrl_state;
+	event_pce_update_t *event;
 
 	assert(NULL != opts);
 	assert(index < MAX_PCC);
@@ -478,10 +517,10 @@ int pcep_controller_pcc_update_options(int index, pcc_opts_t *opts)
 
 	event = XCALLOC(MTYPE_PCEP, sizeof(*event));
 	event->ctrl_state = ctrl_state;
-	event->pcc_opts = opts;
+	event->pce_opts = opts;
 	event->pcc_id = index;
 	thread_add_event(ctrl_state->self,
-			 pcep_thread_pcc_update_options_event,
+			 pcep_thread_pce_update_options_event,
 			 (void*)event, 0, NULL);
 
 	return 0;
@@ -597,6 +636,7 @@ int pcep_thread_finish_event(struct thread *thread)
 		ctrl_state->pcc[i] = NULL;
 	}
 
+	XFREE(MTYPE_PCEP, ctrl_state->pcc_opts);
 	XFREE(MTYPE_PCEP, ctrl_state);
 	fpt->data = NULL;
 
@@ -632,8 +672,26 @@ int pcep_thread_pcc_update_options_event(struct thread *thread)
 {
 	event_pcc_update_t *event = THREAD_ARG(thread);
 	ctrl_state_t *ctrl_state = event->ctrl_state;
-	int pcc_id = event->pcc_id;
 	pcc_opts_t *pcc_opts = event->pcc_opts;
+
+	XFREE(MTYPE_PCEP, event);
+
+	if (NULL != ctrl_state->pcc_opts) {
+		XFREE(MTYPE_PCEP, ctrl_state->pcc_opts);
+	}
+
+	ctrl_state->pcc_opts = pcc_opts;
+
+	return 0;
+}
+
+int pcep_thread_pce_update_options_event(struct thread *thread)
+{
+	event_pce_update_t *event = THREAD_ARG(thread);
+	ctrl_state_t *ctrl_state = event->ctrl_state;
+	int pcc_id = event->pcc_id;
+	pce_opts_t *pce_opts = event->pce_opts;
+	pcc_opts_t *pcc_opts;
 	pcc_state_t *pcc_state;
 
 	XFREE(MTYPE_PCEP, event);
@@ -646,7 +704,11 @@ int pcep_thread_pcc_update_options_event(struct thread *thread)
 		pcc_state = ctrl_state->pcc[pcc_id];
 	}
 
-	if (pcep_pcc_update(ctrl_state, pcc_state, pcc_opts)) {
+	/* Copy the pcc options to delegate it to the update function */
+	pcc_opts = XCALLOC(MTYPE_PCEP, sizeof(*pcc_opts));
+	memcpy(pcc_opts, ctrl_state->pcc_opts, sizeof(*pcc_opts));
+
+	if (pcep_pcc_update(ctrl_state, pcc_state, pcc_opts, pce_opts)) {
 		flog_err(EC_PATH_PCEP_PCC_CONF_UPDATE,
 			 "failed to update PCC configuration");
 	}
@@ -771,8 +833,45 @@ int pcep_main_update_path_event(struct thread *thread)
 
 /* ------------ CLI Functions ------------ */
 
-DEFUN (pcep_cli_pce_ip,
-       pcep_cli_pce_ip_cmd,
+DEFUN (pcep_cli_pcc_opts,
+       pcep_cli_pcc_opts_cmd,
+	"pcc [ip A.B.C.D] [port (1024-65535)]",
+	"PCC source ip and port\n"
+	"PCC source ip A.B.C.D\n"
+	"PCC source port port")
+{
+	struct in_addr pcc_addr;
+	uint32_t pcc_port = PCEP_DEFAULT_PORT;
+	pcc_opts_t *opts;
+
+	pcc_addr.s_addr = INADDR_ANY;
+
+	if (2 < argc) {
+		if (0 == strcmp("ip", argv[1]->arg)) {
+			if (!inet_pton(AF_INET, argv[2]->arg, &(pcc_addr.s_addr)))
+				return CMD_ERR_INCOMPLETE;
+		} else {
+			pcc_port = atoi(argv[2]->arg);
+		}
+		if (4 < argc) {
+			if (0 == strcmp("port", argv[3]->arg)) {
+				pcc_port = atoi(argv[4]->arg);
+			}
+		}
+	}
+
+	opts = XCALLOC(MTYPE_PCEP, sizeof(*opts));
+	opts->addr = pcc_addr;
+	opts->port = pcc_port;
+
+	if (pcep_controller_pcc_update_options(opts))
+		return CMD_WARNING;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (pcep_cli_pce_opts,
+       pcep_cli_pce_opts_cmd,
 	"pce ip A.B.C.D [port (1024-65535)]",
 	"PCE remote ip and port\n"
 	"Remote PCE server ip A.B.C.D\n"
@@ -780,7 +879,7 @@ DEFUN (pcep_cli_pce_ip,
 {
 	struct in_addr pce_addr;
 	uint32_t pce_port = PCEP_DEFAULT_PORT;
-	pcc_opts_t *opts;
+	pce_opts_t *opts;
 
 	int ip_idx = 2;
 	int port_idx = 4;
@@ -795,7 +894,7 @@ DEFUN (pcep_cli_pce_ip,
 	opts->addr = pce_addr;
 	opts->port = pce_port;
 
-	if (pcep_controller_pcc_update_options(0, opts))
+	if (pcep_controller_pce_update_options(0, opts))
 		return CMD_WARNING;
 
 	return CMD_SUCCESS;
@@ -855,7 +954,8 @@ void pcep_cli_init(void)
 
 	install_element(ENABLE_NODE, &pcep_cli_debug_cmd);
 	install_element(CONFIG_NODE, &pcep_cli_debug_cmd);
-	install_element(CONFIG_NODE, &pcep_cli_pce_ip_cmd);
+	install_element(CONFIG_NODE, &pcep_cli_pcc_opts_cmd);
+	install_element(CONFIG_NODE, &pcep_cli_pce_opts_cmd);
 	install_element(CONFIG_NODE, &pcep_cli_no_pce_cmd);
 
 }

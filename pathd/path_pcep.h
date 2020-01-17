@@ -38,6 +38,11 @@ typedef struct pcep_glob_t_ {
 	struct frr_pthread *fpt;
 } pcep_glob_t;
 
+typedef struct pce_opts_t_ {
+	struct in_addr addr;
+	short port;
+} pce_opts_t;
+
 typedef struct pcc_opts_t_ {
 	struct in_addr addr;
 	short port;
@@ -75,11 +80,13 @@ typedef struct nbkey_map_t_ {
 typedef struct pcc_state_t_ {
 	int id;
 	pcc_status_t status;
-	pcc_opts_t *opts;
+	pcc_opts_t *pcc_opts;
+	pce_opts_t *pce_opts;
 	pcep_configuration * config;
 	pcep_session *sess;
 	uint32_t retry_count;
 	struct thread *t_reconnect;
+	struct thread *t_update_opts;
 	uint32_t next_plspid;
 	struct plspid_map_head plspid_map;
 	struct nbkey_map_head nbkey_map;
@@ -89,6 +96,7 @@ typedef struct ctrl_state_t_ {
 	struct thread_master *main;
 	struct thread_master *self;
 	struct thread *t_poll;
+	pcc_opts_t *pcc_opts;
 	int pcc_count;
 	pcc_state_t *pcc[MAX_PCC];
 } ctrl_state_t;
@@ -143,10 +151,14 @@ typedef struct path_t_ {
 
 typedef struct event_pcc_update_t_ {
 	ctrl_state_t *ctrl_state;
-	int pcc_id;
 	pcc_opts_t *pcc_opts;
 } event_pcc_update_t;
 
+typedef struct event_pce_update_t_ {
+	ctrl_state_t *ctrl_state;
+	int pcc_id;
+	pce_opts_t *pce_opts;
+} event_pce_update_t;
 
 typedef int (*pcc_cb_t)(ctrl_state_t *ctrl_state,
                         pcc_state_t *pcc_state);

@@ -32,7 +32,8 @@ static path_hop_t *pcep_lib_parse_ero_sr(path_hop_t *next,
 int pcep_lib_connect(pcc_state_t *pcc_state)
 {
 	assert(NULL != pcc_state);
-	assert(NULL != pcc_state->opts);
+	assert(NULL != pcc_state->pcc_opts);
+	assert(NULL != pcc_state->pce_opts);
 	assert(NULL == pcc_state->config);
 	assert(NULL == pcc_state->sess);
 
@@ -43,6 +44,9 @@ int pcep_lib_connect(pcc_state_t *pcc_state)
 	config->support_stateful_pce_lsp_update = true;
 	config->support_sr_te_pst = true;
 	config->use_pcep_sr_draft07 = true;
+	config->dst_pcep_port = pcc_state->pce_opts->port;
+	config->src_pcep_port = pcc_state->pcc_opts->port;
+	config->src_ip = pcc_state->pcc_opts->addr;
 	//TODO: Figure out if we want that for now
 	config->support_include_db_version = false;
 	config->support_pce_lsp_instantiation = false;
@@ -50,8 +54,7 @@ int pcep_lib_connect(pcc_state_t *pcc_state)
 	config->support_lsp_delta_sync = false;
 	config->support_pce_triggered_initial_sync = false;
 
-	sess = connect_pce_with_port(config, &pcc_state->opts->addr,
-				     pcc_state->opts->port);
+	sess = connect_pce(config, &pcc_state->pce_opts->addr);
 
 	if (NULL == sess) return 1;
 
