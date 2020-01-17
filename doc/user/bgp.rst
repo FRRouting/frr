@@ -1075,6 +1075,11 @@ Configuring Peers
    granular and offers much smarter matching criterion than number of received
    prefixes, making it more suited to implementing policy.
 
+.. index:: [no] neighbor PEER maximum-prefix-out NUMBER
+.. clicmd:: [no] neighbor PEER maximum-prefix-out NUMBER
+
+   Sets a maximum number of prefixes we can send to a given peer.
+
 .. index:: [no] neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
 .. clicmd:: [no] neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
 
