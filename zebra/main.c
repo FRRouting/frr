@@ -56,6 +56,7 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_nb.h"
 #include "zebra/zebra_opaque.h"
+#include "zebra/zebra_srte.h"
 
 #if defined(HANDLE_NETLINK_FUZZING)
 #include "zebra/kernel_netlink.h"
@@ -437,6 +438,7 @@ int main(int argc, char **argv)
 	zebra_pw_vty_init();
 	zebra_pbr_init();
 	zebra_opaque_init();
+	zebra_srte_init();
 
 /* For debug purpose. */
 /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */

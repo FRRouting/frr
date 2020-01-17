@@ -51,5 +51,4 @@ void zebra_sr_policy_set(struct zapi_sr_policy *zapi_sr_policy,
 
 void zebra_sr_policy_delete(struct zapi_sr_policy *zapi_sr_policy);
 
-void zebra_sr_policy_nexthop_label_removed(mpls_label_t label);
-void zebra_sr_policy_nexthop_label_created(mpls_label_t label);
+void zebra_srte_init(void);
