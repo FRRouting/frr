@@ -1941,9 +1941,11 @@ static int zclient_vrf_add(struct zclient *zclient, vrf_id_t vrf_id)
 	vrf = vrf_get(vrf_id, vrfname_tmp);
 
 	/* If there's already a VRF with this name, don't create vrf */
-	if (!vrf)
+	if (!vrf) {
+		zlog_err("%s() no vrf created with id %u name %s",
+			 __func__, vrf_id, vrfname_tmp);
 		return 0;
-
+	}
 	vrf->data.l.table_id = data.l.table_id;
 	memcpy(vrf->data.l.netns_name, data.l.netns_name, NS_NAMSIZ);
 	/* overwrite default vrf */
