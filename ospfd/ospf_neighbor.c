@@ -70,6 +70,8 @@ struct ospf_neighbor *ospf_nbr_new(struct ospf_interface *oi)
 {
 	struct ospf_neighbor *nbr;
 
+	if (!oi)
+		return NULL;
 	/* Allcate new neighbor. */
 	nbr = XCALLOC(MTYPE_OSPF_NEIGHBOR, sizeof(struct ospf_neighbor));
 
