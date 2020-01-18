@@ -186,7 +186,7 @@ AC_REQUIRE([PKG_PROG_PKG_CONFIG])dnl
       AC_MSG_RESULT([yes])
 
       PYTHON_CFLAGS="`\"$pycfg\" --includes`"
-      if test x"${py_ver}" == x"3.8" || test x"{py_ver}" == x"3.9"; then
+      if test x"${py_ver}" = x"3.8" || test x"{py_ver}" = x"3.9"; then
         PYTHON_LIBS="`\"$pycfg\" --ldflags --embed`"
       else
         PYTHON_LIBS="`\"$pycfg\" --ldflags`"

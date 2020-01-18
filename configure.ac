@@ -30,7 +30,7 @@ build_clippy="true"
 
 dnl case 1: external clippy
 if test -n "$with_clippy" -a "$with_clippy" != "no" -a "$with_clippy" != "yes"; then
-  if test "$enable_clippy_only" == "yes"; then
+  if test "$enable_clippy_only" = "yes"; then
     AC_MSG_ERROR([--enable-clippy-only does not make sense with --with-clippy])
   fi
 
@@ -2113,6 +2113,19 @@ if test x"${enable_backtrace}" != x"no" ; then
     AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
     backtrace_ok=yes
   ], [
+    true
+  ])
+
+  if test "$backtrace_ok" = "no"; then
+    AC_CHECK_HEADER([unwind.h], [
+      AC_SEARCH_LIBS([unw_getcontext], [unwind], [
+        AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
+        backtrace_ok=yes
+      ])
+    ])
+  fi
+
+  if test "$backtrace_ok" = "no"; then
     case "$host_os" in
     sunos* | solaris2*)
       AC_CHECK_FUNCS([printstack], [
@@ -2129,7 +2142,7 @@ if test x"${enable_backtrace}" != x"no" ; then
         ],, [-lm])
       ])
     fi
-  ])
+  fi
 
   if test x"${enable_backtrace}" = x"yes" -a x"${backtrace_ok}" = x"no"; then
     dnl user explicitly requested backtrace but we failed to find support
