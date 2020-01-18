@@ -208,7 +208,7 @@ struct update_subgroup {
 	struct bgp_synchronize *sync;
 
 	/* send prefix count */
-	unsigned long scount;
+	uint32_t scount;
 
 	/* announcement attribute hash */
 	struct hash *hash;
