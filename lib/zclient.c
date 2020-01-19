@@ -899,8 +899,6 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		stream_putc(s, api_nh->bh_type);
 		break;
 	case NEXTHOP_TYPE_IPV4:
-		stream_put_in_addr(s, &api_nh->gate.ipv4);
-		break;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		stream_put_in_addr(s, &api_nh->gate.ipv4);
 		stream_putl(s, api_nh->ifindex);
@@ -909,9 +907,6 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		stream_putl(s, api_nh->ifindex);
 		break;
 	case NEXTHOP_TYPE_IPV6:
-		stream_write(s, (uint8_t *)&api_nh->gate.ipv6,
-			     16);
-		break;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		stream_write(s, (uint8_t *)&api_nh->gate.ipv6,
 			     16);
@@ -1059,9 +1054,6 @@ static int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 		STREAM_GETC(s, api_nh->bh_type);
 		break;
 	case NEXTHOP_TYPE_IPV4:
-		STREAM_GET(&api_nh->gate.ipv4.s_addr, s,
-			   IPV4_MAX_BYTELEN);
-		break;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		STREAM_GET(&api_nh->gate.ipv4.s_addr, s,
 			   IPV4_MAX_BYTELEN);
@@ -1071,8 +1063,6 @@ static int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 		STREAM_GETL(s, api_nh->ifindex);
 		break;
 	case NEXTHOP_TYPE_IPV6:
-		STREAM_GET(&api_nh->gate.ipv6, s, 16);
-		break;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		STREAM_GET(&api_nh->gate.ipv6, s, 16);
 		STREAM_GETL(s, api_nh->ifindex);
