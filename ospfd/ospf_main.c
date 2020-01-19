@@ -147,42 +147,46 @@ FRR_DAEMON_INFO(ospfd, OSPF, .vty_port = OSPF_VTY_PORT,
 		.privs = &ospfd_privs, .yang_modules = ospfd_yang_modules,
 		.n_yang_modules = array_size(ospfd_yang_modules), )
 
-/* OSPFd main routine. */
-int main(int argc, char **argv)
+#ifdef FUZZING
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
+
+static bool FuzzingInit(void)
 {
 	unsigned short instance = 0;
 	bool created = false;
 
-#ifdef SUPPORT_OSPF_API
-	/* OSPF apiserver is disabled by default. */
-	ospf_apiserver_enable = 0;
-#endif /* SUPPORT_OSPF_API */
+	const char *name[] = { "ospfd" };
 
-	frr_preinit(&ospfd_di, argc, argv);
+	frr_preinit(&ospfd_di, 1, (char **) &name);
 
-#ifdef FUZZING
+
 	/* INIT */
-	{
-		ospf_master_init(frr_init_fast());
-		ospf_debug_init();
-		ospf_vrf_init();
-		access_list_init();
-		prefix_list_init();
-		ospf_if_init();
-		ospf_zebra_init(master, instance);
-		ospf_bfd_init();
-		ospf_route_map_init();
-		ospf_opaque_init();
-		ospf_error_init();
-	}
+	ospf_master_init(frr_init_fast());
+	ospf_debug_init();
+	ospf_vrf_init();
+	access_list_init();
+	prefix_list_init();
+	ospf_if_init();
+	ospf_zebra_init(master, instance);
+	ospf_bfd_init();
+	ospf_route_map_init();
+	ospf_opaque_init();
+	ospf_error_init();
 
+	return true;
+}
+
+static struct ospf *FuzzingCreateOspf(void)
+{
 	struct prefix p;
 	struct interface *ifp = if_create_ifindex(69, 0);
 	ifp->mtu = 68;
 	str2prefix("11.0.2.0/24", &p);
 
 	bool created;
-	struct ospf *o = ospf_get_instance(instance, &created);
+	struct ospf *o = ospf_get_instance(0, &created);
+	o->fd = 69;
 
 	struct in_addr in;
 	inet_pton(AF_INET, "0.0.0.0", &in);
@@ -192,24 +196,39 @@ int main(int argc, char **argv)
 	add_ospf_interface(c, a);
 
 	struct ospf_interface *oi = listhead(a->oiflist)->data;
-	if (!oi)
-		goto done;
 	oi->state = 7; // ISM_DR
 
-#ifdef __AFL_HAVE_MANUAL_CONTROL
-	__AFL_INIT();
+	o->fuzzing_packet_ifp = ifp;
+
+	return o;
+}
+
+static struct ospf *FuzzingOspf;
+static bool FuzzingInitialized;
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
+{
+	if (!FuzzingInitialized) {
+		FuzzingInit();
+		FuzzingInitialized = true;
+		FuzzingOspf = FuzzingCreateOspf();
+	}
+
+	struct ospf *o;
+
+#ifdef FUZZING_LIBFUZZER
+	o = FuzzingCreateOspf();
+#else
+	o = FuzzingOspf;
 #endif
 
-	uint8_t *input;
-	int r = frrfuzz_read_input(&input);
-
 	/* Simulate the read process done by ospf_recv_packet */
-	stream_put(o->ibuf, input, r);
+	stream_put(o->ibuf, data, size);
 	{
 		struct ip *iph;
-		uint16_t ip_len;
+		unsigned short ip_len = 0;
 
-		if ((unsigned int)r < sizeof(struct ip))
+		if (size < sizeof(struct ip))
 			goto done;
 
 		iph = (struct ip *)STREAM_DATA(o->ibuf);
@@ -219,18 +238,52 @@ int main(int argc, char **argv)
 		// skipping platform #ifdefs as I test on linux right now
 		// skipping ifindex lookup as it will fail anyway
 
-		if (r != ip_len)
+		if (size != ip_len)
 			goto done;
 	}
-
-
-	o->fuzzing_packet_ifp = ifp;
 
 	ospf_read_helper(o);
 
 done:
-	exit(0);
+	stream_reset(o->ibuf);
+
+	return 0;
+}
 #endif
+
+
+#ifndef FUZZING_LIBFUZZER
+/* OSPFd main routine. */
+int main(int argc, char **argv)
+{
+#ifdef FUZZING
+
+	FuzzingInitialized = FuzzingInit();
+	FuzzingOspf = FuzzingCreateOspf();
+
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+	__AFL_INIT();
+#endif
+	uint8_t *input;
+	int r = frrfuzz_read_input(&input);
+
+	if (r < 0 || !input)
+		goto done;
+
+	LLVMFuzzerTestOneInput(input, r);
+done:
+	return 0;
+#endif
+
+	unsigned short instance = 0;
+
+#ifdef SUPPORT_OSPF_API
+	/* OSPF apiserver is disabled by default. */
+	ospf_apiserver_enable = 0;
+#endif /* SUPPORT_OSPF_API */
+
+	frr_preinit(&ospfd_di, argc, argv);
+
 
 	frr_opt_add("n:a", longopts,
 		    "  -n, --instance     Set the instance id\n"
@@ -318,3 +371,4 @@ done:
 	/* Not reached. */
 	return 0;
 }
+#endif
