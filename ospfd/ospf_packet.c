@@ -1665,6 +1665,7 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 		size -= OSPF_LSA_KEY_SIZE;
 	}
 #ifdef FUZZING
+	list_delete(&ls_upd);
 	return;
 #endif
 
