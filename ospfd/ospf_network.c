@@ -171,6 +171,9 @@ int ospf_if_ipmulticast(struct ospf *top, struct prefix *p, ifindex_t ifindex)
 
 int ospf_sock_init(struct ospf *ospf)
 {
+#ifdef FUZZING
+	return 0;
+#endif
 	int ospf_sock;
 	int ret, hincl = 1;
 	int bufsize = (8 * 1024 * 1024);
