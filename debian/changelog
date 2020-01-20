@@ -1,3 +1,12 @@
+frr (7.2.1-1) UNRELEASED; urgency=medium
+
+  * new upstream release
+  * daemon man pages renamed to frr-* (closes: #944392)
+  * fix/improve multi-arch markers on doc
+  * fix git URLs to point to debian branch
+
+ -- David Lamparter <equinox-debian@diac24.net>  Mon, 20 Jan 2020 16:29:43 +0100
+
 frr (7.2-1) unstable; urgency=medium
 
   * New upstream release
