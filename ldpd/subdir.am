@@ -7,7 +7,7 @@ noinst_LIBRARIES += ldpd/libldp.a
 sbin_PROGRAMS += ldpd/ldpd
 dist_examples_DATA += ldpd/ldpd.conf.sample
 vtysh_scan += $(top_srcdir)/ldpd/ldp_vty_cmds.c
-man8 += $(MANBUILD)/ldpd.8
+man8 += $(MANBUILD)/frr-ldpd.8
 endif
 
 ldpd_libldp_a_SOURCES = \

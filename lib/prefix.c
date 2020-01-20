@@ -773,8 +773,18 @@ int prefix_cmp(union prefixconstptr up1, union prefixconstptr up2)
 	if (i)
 		return i;
 
-	return numcmp(pp1[offset] & maskbit[shift],
-		      pp2[offset] & maskbit[shift]);
+	/*
+	 * At this point offset was the same, if we have shift
+	 * that means we still have data to compare, if shift is
+	 * 0 then we are at the end of the data structure
+	 * and should just return, as that we will be accessing
+	 * memory beyond the end of the party zone
+	 */
+	if (shift)
+		return numcmp(pp1[offset] & maskbit[shift],
+			      pp2[offset] & maskbit[shift]);
+
+	return 0;
 }
 
 /*

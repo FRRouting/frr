@@ -934,16 +934,25 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 	ifindex_t ifindex;
 	struct interface *ifp;
 	struct zebra_if *zif;
-	int ra_interval;
+	int ra_interval_rxd;
 
 	s = msg;
 
 	/* Get interface index and RA interval. */
 	STREAM_GETL(s, ifindex);
-	STREAM_GETL(s, ra_interval);
+	STREAM_GETL(s, ra_interval_rxd);
+
+	if (ra_interval_rxd < 0) {
+		zlog_warn(
+			"Requested RA interval %d is garbage; ignoring request",
+			ra_interval_rxd);
+		return;
+	}
+
+	unsigned int ra_interval = ra_interval_rxd;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("%u: IF %u RA %s from client %s, interval %ds",
+		zlog_debug("%u: IF %u RA %s from client %s, interval %ums",
 			   zvrf_id(zvrf), ifindex,
 			   enable ? "enable" : "disable",
 			   zebra_route_string(client->proto), ra_interval);
@@ -970,7 +979,7 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 		SET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
 		ipv6_nd_suppress_ra_set(ifp, RA_ENABLE);
 		if (ra_interval
-		    && (ra_interval * 1000) < zif->rtadv.MaxRtrAdvInterval
+		    && (ra_interval * 1000) < (unsigned int) zif->rtadv.MaxRtrAdvInterval
 		    && !CHECK_FLAG(zif->rtadv.ra_configured,
 				   VTY_RA_INTERVAL_CONFIGURED))
 			zif->rtadv.MaxRtrAdvInterval = ra_interval * 1000;
@@ -2120,14 +2129,8 @@ static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 				 &rtadv->ra_timer);
 		break;
 	case RTADV_STOP:
-		if (rtadv->ra_timer) {
-			thread_cancel(rtadv->ra_timer);
-			rtadv->ra_timer = NULL;
-		}
-		if (rtadv->ra_read) {
-			thread_cancel(rtadv->ra_read);
-			rtadv->ra_read = NULL;
-		}
+		THREAD_OFF(rtadv->ra_timer);
+		THREAD_OFF(rtadv->ra_read);
 		break;
 	case RTADV_TIMER:
 		thread_add_timer(zrouter.master, rtadv_timer, zvrf, val,
@@ -2152,10 +2155,11 @@ void rtadv_init(struct zebra_vrf *zvrf)
 	if (vrf_is_backend_netns()) {
 		zvrf->rtadv.sock = rtadv_make_socket(zvrf->zns->ns_id);
 		zrouter.rtadv_sock = -1;
-	} else if (!zrouter.rtadv_sock) {
+	} else {
 		zvrf->rtadv.sock = -1;
-		if (!zrouter.rtadv_sock)
-			zrouter.rtadv_sock = rtadv_make_socket(zvrf->zns->ns_id);
+		if (zrouter.rtadv_sock < 0)
+			zrouter.rtadv_sock =
+				rtadv_make_socket(zvrf->zns->ns_id);
 	}
 }
 

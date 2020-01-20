@@ -213,9 +213,13 @@ void bfd_session_disable(struct bfd_session *bs)
 
 	/* Disable all timers. */
 	bfd_recvtimer_delete(bs);
-	bfd_echo_recvtimer_delete(bs);
 	bfd_xmttimer_delete(bs);
-	bfd_echo_xmttimer_delete(bs);
+	ptm_bfd_echo_stop(bs);
+	bs->vrf = NULL;
+	bs->ifp = NULL;
+
+	/* Set session down so it doesn't report UP and disabled. */
+	ptm_bfd_sess_dn(bs, BD_PATH_DOWN);
 }
 
 static uint32_t ptm_bfd_gen_ID(void)
@@ -328,7 +332,14 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 	bfd->demand_mode = 0;
 	monotime(&bfd->downtime);
 
-	ptm_bfd_snd(bfd, 0);
+	/*
+	 * Only attempt to send if we have a valid socket:
+	 * this function might be called by session disablers and in
+	 * this case we won't have a valid socket (i.e. interface was
+	 * removed or VRF doesn't exist anymore).
+	 */
+	if (bfd->sock != -1)
+		ptm_bfd_snd(bfd, 0);
 
 	/* Slow down the control packets, the connection is down. */
 	bs_set_slow_timers(bfd);
@@ -389,12 +400,21 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 	if (cp->discrs.remote_discr)
 		return bfd_find_disc(peer, ntohl(cp->discrs.remote_discr));
 
-	/* Search for session without using discriminator. */
-	ifp = if_lookup_by_index(ifindex, vrfid);
-	if (vrfid != VRF_DEFAULT)
-		vrf = vrf_lookup_by_id(vrfid);
-	else
-		vrf = NULL;
+	/*
+	 * Search for session without using discriminator.
+	 *
+	 * XXX: we can't trust `vrfid` because the VRF handling is not
+	 * properly implemented. Meanwhile we should use the interface
+	 * VRF to find out which one it belongs.
+	 */
+	ifp = if_lookup_by_index_all_vrf(ifindex);
+	if (ifp == NULL) {
+		if (vrfid != VRF_DEFAULT)
+			vrf = vrf_lookup_by_id(vrfid);
+		else
+			vrf = NULL;
+	} else
+		vrf = vrf_lookup_by_id(ifp->vrf_id);
 
 	gen_bfd_key(&key, peer, local, is_mhop, ifp ? ifp->name : NULL,
 		    vrf ? vrf->name : VRF_DEFAULT_NAME);
@@ -1208,19 +1228,10 @@ int bs_observer_add(struct bfd_session *bs)
 	struct bfd_session_observer *bso;
 
 	bso = XCALLOC(MTYPE_BFDD_SESSION_OBSERVER, sizeof(*bso));
-	bso->bso_isaddress = false;
 	bso->bso_bs = bs;
-	bso->bso_isinterface = !BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH);
-	if (bso->bso_isinterface)
-		strlcpy(bso->bso_entryname, bs->key.ifname,
-			sizeof(bso->bso_entryname));
-	/* Handle socket binding failures caused by missing local addresses. */
-	if (bs->sock == -1) {
-		bso->bso_isaddress = true;
-		bso->bso_addr.family = bs->key.family;
-		memcpy(&bso->bso_addr.u.prefix, &bs->key.local,
-		       sizeof(bs->key.local));
-	}
+	bso->bso_addr.family = bs->key.family;
+	memcpy(&bso->bso_addr.u.prefix, &bs->key.local,
+	       sizeof(bs->key.local));
 
 	TAILQ_INSERT_TAIL(&bglobal.bg_obslist, bso, bso_entry);
 
@@ -1434,7 +1445,7 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 	if (ctx.result) {
 		bsp = ctx.result;
 		log_debug(" peer %s found, but ifp"
-			  " and/or loc-addr params ignored");
+			  " and/or loc-addr params ignored", peer_buf);
 	}
 	return bsp;
 }
@@ -1647,17 +1658,17 @@ static int bfd_vrf_enable(struct vrf *vrf)
 	if (vrf->vrf_id == VRF_DEFAULT ||
 	    vrf_get_backend() == VRF_BACKEND_NETNS) {
 		if (!bvrf->bg_shop)
-			bvrf->bg_shop = bp_udp_shop(vrf->vrf_id);
+			bvrf->bg_shop = bp_udp_shop(vrf);
 		if (!bvrf->bg_mhop)
-			bvrf->bg_mhop = bp_udp_mhop(vrf->vrf_id);
+			bvrf->bg_mhop = bp_udp_mhop(vrf);
 		if (!bvrf->bg_shop6)
-			bvrf->bg_shop6 = bp_udp6_shop(vrf->vrf_id);
+			bvrf->bg_shop6 = bp_udp6_shop(vrf);
 		if (!bvrf->bg_mhop6)
-			bvrf->bg_mhop6 = bp_udp6_mhop(vrf->vrf_id);
+			bvrf->bg_mhop6 = bp_udp6_mhop(vrf);
 		if (!bvrf->bg_echo)
-			bvrf->bg_echo = bp_echo_socket(vrf->vrf_id);
+			bvrf->bg_echo = bp_echo_socket(vrf);
 		if (!bvrf->bg_echov6)
-			bvrf->bg_echov6 = bp_echov6_socket(vrf->vrf_id);
+			bvrf->bg_echov6 = bp_echov6_socket(vrf);
 
 		/* Add descriptors to the event loop. */
 		if (!bvrf->bg_ev[0])
@@ -1700,6 +1711,15 @@ static int bfd_vrf_disable(struct vrf *vrf)
 	}
 
 	log_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
+
+	/* Disable read/write poll triggering. */
+	THREAD_OFF(bvrf->bg_ev[0]);
+	THREAD_OFF(bvrf->bg_ev[1]);
+	THREAD_OFF(bvrf->bg_ev[2]);
+	THREAD_OFF(bvrf->bg_ev[3]);
+	THREAD_OFF(bvrf->bg_ev[4]);
+	THREAD_OFF(bvrf->bg_ev[5]);
+
 	/* Close all descriptors. */
 	socket_close(&bvrf->bg_echo);
 	socket_close(&bvrf->bg_shop);

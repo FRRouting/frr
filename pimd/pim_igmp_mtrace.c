@@ -864,6 +864,16 @@ int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr,
 	pim_ifp = ifp->info;
 	pim = pim_ifp->pim;
 
+	if (igmp_msg_len < (int)sizeof(struct igmp_mtrace)) {
+		if (PIM_DEBUG_MTRACE)
+			zlog_warn(
+				"Recv mtrace packet from %s on %s: too short,"
+				" len=%d, min=%zu",
+				from_str, ifp->name, igmp_msg_len,
+				sizeof(struct igmp_mtrace));
+		return -1;
+	}
+
 	mtracep = (struct igmp_mtrace *)igmp_msg;
 
 	recv_checksum = mtracep->checksum;

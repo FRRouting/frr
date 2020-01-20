@@ -2068,6 +2068,7 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 
 	/* Get data. */
 	STREAM_GET(ifname, s, IF_NAMESIZE);
+	ifname[IF_NAMESIZE - 1] = '\0';
 	STREAM_GETL(s, ifindex);
 	STREAM_GETL(s, type);
 	STREAM_GETL(s, af);
@@ -2289,6 +2290,20 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		if (zpr.rule.filter.fwmark)
 			zpr.rule.filter.filter_bm |= PBR_FILTER_FWMARK;
 
+		if (!(zpr.rule.filter.src_ip.family == AF_INET
+		      || zpr.rule.filter.src_ip.family == AF_INET6)) {
+			zlog_warn("Unsupported PBR source IP family: %s\n",
+				  family2str(zpr.rule.filter.src_ip.family));
+			return;
+		}
+		if (!(zpr.rule.filter.dst_ip.family == AF_INET
+		      || zpr.rule.filter.dst_ip.family == AF_INET6)) {
+			zlog_warn("Unsupported PBR dest IP family: %s\n",
+				  family2str(zpr.rule.filter.dst_ip.family));
+			return;
+		}
+
+
 		zpr.vrf_id = zvrf->vrf->vrf_id;
 		if (hdr->command == ZEBRA_RULE_ADD)
 			zebra_pbr_add_rule(&zpr);
@@ -2345,6 +2360,7 @@ static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
 		zpi.sock = client->sock;
 		STREAM_GETL(s, zpi.unique);
 		STREAM_GET(&ipset.ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
+		ipset.ipset_name[ZEBRA_IPSET_NAME_SIZE - 1] = '\0';
 		STREAM_GETC(s, zpi.src.family);
 		STREAM_GETC(s, zpi.src.prefixlen);
 		STREAM_GET(&zpi.src.u.prefix, s, prefix_blen(&zpi.src));
@@ -2388,37 +2404,39 @@ stream_failure:
 
 static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 {
-	struct zebra_pbr_iptable zpi;
+	struct zebra_pbr_iptable *zpi =
+		XCALLOC(MTYPE_TMP, sizeof(struct zebra_pbr_iptable));
 	struct stream *s;
 
 	s = msg;
 
-	memset(&zpi, 0, sizeof(zpi));
-
-	zpi.interface_name_list = list_new();
-	zpi.sock = client->sock;
-	zpi.vrf_id = zvrf->vrf->vrf_id;
-	STREAM_GETL(s, zpi.unique);
-	STREAM_GETL(s, zpi.type);
-	STREAM_GETL(s, zpi.filter_bm);
-	STREAM_GETL(s, zpi.action);
-	STREAM_GETL(s, zpi.fwmark);
-	STREAM_GET(&zpi.ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
-	STREAM_GETW(s, zpi.pkt_len_min);
-	STREAM_GETW(s, zpi.pkt_len_max);
-	STREAM_GETW(s, zpi.tcp_flags);
-	STREAM_GETW(s, zpi.tcp_mask_flags);
-	STREAM_GETC(s, zpi.dscp_value);
-	STREAM_GETC(s, zpi.fragment);
-	STREAM_GETC(s, zpi.protocol);
-	STREAM_GETL(s, zpi.nb_interface);
-	zebra_pbr_iptable_update_interfacelist(s, &zpi);
+	zpi->interface_name_list = list_new();
+	zpi->sock = client->sock;
+	zpi->vrf_id = zvrf->vrf->vrf_id;
+	STREAM_GETL(s, zpi->unique);
+	STREAM_GETL(s, zpi->type);
+	STREAM_GETL(s, zpi->filter_bm);
+	STREAM_GETL(s, zpi->action);
+	STREAM_GETL(s, zpi->fwmark);
+	STREAM_GET(&zpi->ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
+	STREAM_GETW(s, zpi->pkt_len_min);
+	STREAM_GETW(s, zpi->pkt_len_max);
+	STREAM_GETW(s, zpi->tcp_flags);
+	STREAM_GETW(s, zpi->tcp_mask_flags);
+	STREAM_GETC(s, zpi->dscp_value);
+	STREAM_GETC(s, zpi->fragment);
+	STREAM_GETC(s, zpi->protocol);
+	STREAM_GETL(s, zpi->nb_interface);
+	zebra_pbr_iptable_update_interfacelist(s, zpi);
 
 	if (hdr->command == ZEBRA_IPTABLE_ADD)
-		zebra_pbr_add_iptable(&zpi);
+		zebra_pbr_add_iptable(zpi);
 	else
-		zebra_pbr_del_iptable(&zpi);
+		zebra_pbr_del_iptable(zpi);
+
 stream_failure:
+	zebra_pbr_iptable_free(zpi);
+	zpi = NULL;
 	return;
 }
 
@@ -2521,6 +2539,14 @@ void zserv_handle_commands(struct zserv *client, struct stream *msg)
 {
 	struct zmsghdr hdr;
 	struct zebra_vrf *zvrf;
+
+	if (STREAM_READABLE(msg) > ZEBRA_MAX_PACKET_SIZ) {
+		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
+			zlog_debug(
+				"ZAPI message is %zu bytes long but the maximum packet size is %u; dropping",
+				STREAM_READABLE(msg), ZEBRA_MAX_PACKET_SIZ);
+		return;
+	}
 
 	zapi_parse_header(msg, &hdr);
 

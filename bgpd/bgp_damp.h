@@ -106,6 +106,9 @@ struct bgp_damp_config {
 
 	/* Reuse timer thread per-set base. */
 	struct thread *t_reuse;
+
+	afi_t afi;
+	safi_t safi;
 };
 
 #define BGP_DAMP_NONE           0
@@ -134,17 +137,18 @@ extern int bgp_damp_withdraw(struct bgp_path_info *path, struct bgp_node *rn,
 			     afi_t afi, safi_t safi, int attr_change);
 extern int bgp_damp_update(struct bgp_path_info *path, struct bgp_node *rn,
 			   afi_t afi, safi_t saff);
-extern int bgp_damp_scan(struct bgp_path_info *path, afi_t afi, safi_t safi);
-extern void bgp_damp_info_free(struct bgp_damp_info *path, int withdraw);
-extern void bgp_damp_info_clean(void);
-extern int bgp_damp_decay(time_t, int);
-extern void bgp_config_write_damp(struct vty *);
+extern void bgp_damp_info_free(struct bgp_damp_info *path, int withdraw,
+			       afi_t afi, safi_t safi);
+extern void bgp_damp_info_clean(afi_t afi, safi_t safi);
+extern int bgp_damp_decay(time_t, int, struct bgp_damp_config *damp);
+extern void bgp_config_write_damp(struct vty *, afi_t afi, safi_t safi);
 extern void bgp_damp_info_vty(struct vty *vty, struct bgp_path_info *path,
-			      json_object *json_path);
+			      afi_t afi, safi_t safi, json_object *json_path);
 extern const char *bgp_damp_reuse_time_vty(struct vty *vty,
 					   struct bgp_path_info *path,
-					   char *timebuf, size_t len,
-					   bool use_json, json_object *json);
+					   char *timebuf, size_t len, afi_t afi,
+					   safi_t safi, bool use_json,
+					   json_object *json);
 extern int bgp_show_dampening_parameters(struct vty *vty, afi_t, safi_t);
 
 #endif /* _QUAGGA_BGP_DAMP_H */

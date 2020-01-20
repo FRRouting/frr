@@ -130,7 +130,12 @@ static int if_cmp_func(const struct interface *ifp1,
 static int if_cmp_index_func(const struct interface *ifp1,
 			     const struct interface *ifp2)
 {
-	return ifp1->ifindex - ifp2->ifindex;
+	if (ifp1->ifindex == ifp2->ifindex)
+		return 0;
+	else if (ifp1->ifindex > ifp2->ifindex)
+		return 1;
+	else
+		return -1;
 }
 
 /* Create new interface structure. */
@@ -186,7 +191,9 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 	/* remove interface from old master vrf list */
 	old_vrf = vrf_lookup_by_id(ifp->vrf_id);
 	if (old_vrf) {
-		IFNAME_RB_REMOVE(old_vrf, ifp);
+		if (ifp->name[0] != '\0')
+			IFNAME_RB_REMOVE(old_vrf, ifp);
+
 		if (ifp->ifindex != IFINDEX_INTERNAL)
 			IFINDEX_RB_REMOVE(old_vrf, ifp);
 	}
@@ -194,7 +201,9 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 	ifp->vrf_id = vrf_id;
 	vrf = vrf_get(ifp->vrf_id, NULL);
 
-	IFNAME_RB_INSERT(vrf, ifp);
+	if (ifp->name[0] != '\0')
+		IFNAME_RB_INSERT(vrf, ifp);
+
 	if (ifp->ifindex != IFINDEX_INTERNAL)
 		IFINDEX_RB_INSERT(vrf, ifp);
 
@@ -214,7 +223,9 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 				"/frr-interface:lib/interface[name='%s'][vrf='%s']/vrf",
 				ifp->name, old_vrf->name);
 			if (if_dnode) {
+				nb_running_unset_entry(if_dnode->parent);
 				yang_dnode_change_leaf(if_dnode, vrf->name);
+				nb_running_set_entry(if_dnode->parent, ifp);
 				running_config->version++;
 			}
 		}

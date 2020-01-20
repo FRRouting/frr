@@ -260,7 +260,6 @@ extern void bgp_attr_finish(void);
 extern bgp_attr_parse_ret_t bgp_attr_parse(struct peer *, struct attr *,
 					   bgp_size_t, struct bgp_nlri *,
 					   struct bgp_nlri *);
-extern void bgp_attr_dup(struct attr *, struct attr *);
 extern void bgp_attr_undup(struct attr *new, struct attr *old);
 extern struct attr *bgp_attr_intern(struct attr *attr);
 extern void bgp_attr_unintern_sub(struct attr *);
@@ -292,9 +291,6 @@ extern unsigned long int attr_unknown_count(void);
 /* Cluster list prototypes. */
 extern int cluster_loop_check(struct cluster_list *, struct in_addr);
 extern void cluster_unintern(struct cluster_list *);
-
-/* Transit attribute prototypes. */
-void transit_unintern(struct transit *);
 
 /* Below exported for unit-test purposes only */
 struct bgp_attr_parser_args {

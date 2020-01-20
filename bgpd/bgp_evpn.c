@@ -1531,7 +1531,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 	 * present, else treat as locally originated.
 	 */
 	if (src_attr)
-		bgp_attr_dup(&attr, src_attr);
+		attr = *src_attr;
 	else {
 		memset(&attr, 0, sizeof(struct attr));
 		bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
@@ -2497,7 +2497,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	 * address for the rest of the code to flow through. In the case of IPv4,
 	 * make sure to set the flag for next hop attribute.
 	 */
-	bgp_attr_dup(&attr, parent_pi->attr);
+	attr = *parent_pi->attr;
 	if (afi == AFI_IP6)
 		evpn_convert_nexthop_to_ipv6(&attr);
 	else
@@ -4925,7 +4925,8 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 			if (pnt + BGP_ADDPATH_ID_LEN > lim)
 				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 
-			addpath_id = ntohl(*((uint32_t *)pnt));
+			memcpy(&addpath_id, pnt, BGP_ADDPATH_ID_LEN);
+			addpath_id = ntohl(addpath_id);
 			pnt += BGP_ADDPATH_ID_LEN;
 		}
 

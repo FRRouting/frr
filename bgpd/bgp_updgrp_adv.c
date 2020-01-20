@@ -64,6 +64,12 @@ static int bgp_adj_out_compare(const struct bgp_adj_out *o1,
 	if (o1->subgroup > o2->subgroup)
 		return 1;
 
+	if (o1->addpath_tx_id < o2->addpath_tx_id)
+		return -1;
+
+	if (o1->addpath_tx_id > o2->addpath_tx_id)
+		return 1;
+
 	return 0;
 }
 RB_GENERATE(bgp_adj_out_rb, bgp_adj_out, adj_entry, bgp_adj_out_compare);
@@ -72,32 +78,17 @@ static inline struct bgp_adj_out *adj_lookup(struct bgp_node *rn,
 					     struct update_subgroup *subgrp,
 					     uint32_t addpath_tx_id)
 {
-	struct bgp_adj_out *adj, lookup;
-	struct peer *peer;
-	afi_t afi;
-	safi_t safi;
-	int addpath_capable;
+	struct bgp_adj_out lookup;
 
 	if (!rn || !subgrp)
 		return NULL;
 
-	peer = SUBGRP_PEER(subgrp);
-	afi = SUBGRP_AFI(subgrp);
-	safi = SUBGRP_SAFI(subgrp);
-	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
-
 	/* update-groups that do not support addpath will pass 0 for
-	 * addpath_tx_id so do not both matching against it */
+	 * addpath_tx_id. */
 	lookup.subgroup = subgrp;
-	adj = RB_FIND(bgp_adj_out_rb, &rn->adj_out, &lookup);
-	if (adj) {
-		if (addpath_capable) {
-			if (adj->addpath_tx_id == addpath_tx_id)
-				return adj;
-		} else
-			return adj;
-	}
-	return NULL;
+	lookup.addpath_tx_id = addpath_tx_id;
+
+	return RB_FIND(bgp_adj_out_rb, &rn->adj_out, &lookup);
 }
 
 static void adj_free(struct bgp_adj_out *adj)
@@ -402,13 +393,14 @@ struct bgp_adj_out *bgp_adj_out_alloc(struct update_subgroup *subgrp,
 
 	adj = XCALLOC(MTYPE_BGP_ADJ_OUT, sizeof(struct bgp_adj_out));
 	adj->subgroup = subgrp;
+	adj->addpath_tx_id = addpath_tx_id;
+
 	if (rn) {
 		RB_INSERT(bgp_adj_out_rb, &rn->adj_out, adj);
 		bgp_lock_node(rn);
 		adj->rn = rn;
 	}
 
-	adj->addpath_tx_id = addpath_tx_id;
 	TAILQ_INSERT_TAIL(&(subgrp->adjq), adj, subgrp_adj_train);
 	SUBGRP_INCR_STAT(subgrp, adj_count);
 	return adj;
@@ -763,7 +755,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 
 				/* Provide dummy so the route-map can't modify
 				 * the attributes */
-				bgp_attr_dup(&dummy_attr, ri->attr);
+				dummy_attr = *ri->attr;
 				tmp_info.peer = ri->peer;
 				tmp_info.attr = &dummy_attr;
 

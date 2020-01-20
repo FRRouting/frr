@@ -402,6 +402,9 @@ Route Flap Dampening
    The route-flap damping algorithm is compatible with :rfc:`2439`. The use of
    this command is not recommended nowadays.
 
+   At the moment, route-flap dampening is not working per VRF and is working only
+   for IPv4 unicast and multicast.
+
 .. seealso::
    https://www.ripe.net/publications/docs/ripe-378
 
@@ -798,10 +801,15 @@ Redistribution
 
    Redistribute OSPF route to BGP process.
 
-.. index:: redistribute vpn
-.. clicmd:: redistribute vpn
+.. index:: redistribute vnc
+.. clicmd:: redistribute vnc
 
    Redistribute VNC routes to BGP process.
+
+.. index:: redistribute vnc-direct
+.. clicmd:: redistribute vnc-direct
+
+   Redistribute VNC direct (not via zebra) routes to BGP process.
 
 .. index:: update-delay MAX-DELAY
 .. clicmd:: update-delay MAX-DELAY

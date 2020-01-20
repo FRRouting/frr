@@ -1593,7 +1593,7 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	peer->readtime = peer->resettime = bgp_clock();
 
 	/* Default TTL set. */
-	peer->ttl = (peer->sort == BGP_PEER_IBGP) ? MAXTTL : 1;
+	peer->ttl = (peer->sort == BGP_PEER_IBGP) ? MAXTTL : BGP_DEFAULT_TTL;
 
 	SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
@@ -1680,7 +1680,7 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified)
 	if (peer_sort(peer) == BGP_PEER_IBGP)
 		peer->ttl = MAXTTL;
 	else if (type == BGP_PEER_IBGP)
-		peer->ttl = 1;
+		peer->ttl = BGP_DEFAULT_TTL;
 
 	/* reflector-client reset */
 	if (peer_sort(peer) != BGP_PEER_IBGP) {
@@ -2444,7 +2444,7 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 	group->conf->host = XSTRDUP(MTYPE_BGP_PEER_HOST, name);
 	group->conf->group = group;
 	group->conf->as = 0;
-	group->conf->ttl = 1;
+	group->conf->ttl = BGP_DEFAULT_TTL;
 	group->conf->gtsm_hops = 0;
 	group->conf->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
 	SET_FLAG(group->conf->sflags, PEER_STATUS_GROUP);
@@ -2469,8 +2469,9 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_LOCAL_AS))
 		peer->change_local_as = conf->change_local_as;
 
-	/* TTL */
-	peer->ttl = conf->ttl;
+	/* If peer-group has configured TTL then override it */
+	if (conf->ttl != BGP_DEFAULT_TTL)
+		peer->ttl = conf->ttl;
 
 	/* GTSM hops */
 	peer->gtsm_hops = conf->gtsm_hops;
@@ -2558,6 +2559,30 @@ int peer_group_remote_as(struct bgp *bgp, const char *group_name, as_t *as,
 			peer_as_change(peer, *as, as_type);
 	}
 
+	return 0;
+}
+
+int peer_notify_unconfig(struct peer *peer)
+{
+	if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+		bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+				BGP_NOTIFY_CEASE_PEER_UNCONFIG);
+	return 0;
+}
+
+int peer_group_notify_unconfig(struct peer_group *group)
+{
+	struct peer *peer, *other;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+		other = peer->doppelganger;
+		if (other && other->status != Deleted) {
+			other->group = NULL;
+			peer_notify_unconfig(other);
+		} else
+			peer_notify_unconfig(peer);
+	}
 	return 0;
 }
 
@@ -4379,7 +4404,7 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 	if (peer_group_active(peer))
 		peer->ttl = peer->group->conf->ttl;
 	else
-		peer->ttl = 1;
+		peer->ttl = BGP_DEFAULT_TTL;
 
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
@@ -4393,7 +4418,7 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 			if (peer->sort == BGP_PEER_IBGP)
 				continue;
 
-			peer->ttl = 1;
+			peer->ttl = BGP_DEFAULT_TTL;
 
 			if (peer->fd >= 0) {
 				if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
@@ -7260,6 +7285,11 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "\n");
 	}
 
+	/* BGP flag dampening. */
+	if (CHECK_FLAG(bgp->af_flags[afi][safi],
+		       BGP_CONFIG_DAMPENING))
+		bgp_config_write_damp(vty, afi, safi);
+
 	/* Route reflector client. */
 	if (peergroup_af_flag_check(peer, afi, safi,
 				    PEER_FLAG_REFLECTOR_CLIENT)) {
@@ -7736,11 +7766,6 @@ int bgp_config_write(struct vty *vty)
 				bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
 					? ""
 					: "no ");
-
-		/* BGP flag dampening. */
-		if (CHECK_FLAG(bgp->af_flags[AFI_IP][SAFI_UNICAST],
-			       BGP_CONFIG_DAMPENING))
-			bgp_config_write_damp(vty);
 
 		/* BGP timers configuration. */
 		if (bgp->default_keepalive != BGP_DEFAULT_KEEPALIVE

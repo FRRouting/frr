@@ -2319,7 +2319,7 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 			  safe_strerror(errno));
 		return NULL;
 	}
-	if ((unsigned int)ret < sizeof(iph)) /* ret must be > 0 now */
+	if ((unsigned int)ret < sizeof(struct ip))
 	{
 		flog_warn(
 			EC_OSPF_PACKET,
@@ -2994,9 +2994,23 @@ int ospf_read(struct thread *thread)
 		return 0;
 	}
 
-	/* Advance from IP header to OSPF header (iph->ip_hl has been verified
-	   by ospf_recv_packet() to be correct). */
-	stream_forward_getp(ibuf, iph->ip_hl * 4);
+	/* Check that we have enough for an IP header */
+	if ((unsigned int)(iph->ip_hl << 2) >= STREAM_READABLE(ibuf)) {
+		if ((unsigned int)(iph->ip_hl << 2) == STREAM_READABLE(ibuf)) {
+			flog_warn(
+				EC_OSPF_PACKET,
+				"Rx'd IP packet with OSPF protocol number but no payload");
+		} else {
+			flog_warn(
+				EC_OSPF_PACKET,
+				"IP header length field claims header is %u bytes, but we only have %zu",
+				(unsigned int)(iph->ip_hl << 2),
+				STREAM_READABLE(ibuf));
+		}
+
+		return -1;
+	}
+	stream_forward_getp(ibuf, iph->ip_hl << 2);
 
 	ospfh = (struct ospf_header *)stream_pnt(ibuf);
 	if (MSG_OK

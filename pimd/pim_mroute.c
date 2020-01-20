@@ -585,6 +585,9 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 	struct in_addr ifaddr;
 	struct igmp_sock *igmp;
 
+	if (buf_size < (int)sizeof(struct ip))
+		return 0;
+
 	ip_hdr = (const struct ip *)buf;
 
 	if (ip_hdr->ip_p == IPPROTO_IGMP) {

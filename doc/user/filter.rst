@@ -9,11 +9,24 @@ defined, it can be applied in any direction.
 IP Access List
 ==============
 
-.. index:: access-list NAME permit IPV4-NETWORK
-.. clicmd:: access-list NAME permit IPV4-NETWORK
+.. index:: access-list NAME [seq (1-4294967295)] permit IPV4-NETWORK
+.. clicmd:: access-list NAME [seq (1-4294967295)] permit IPV4-NETWORK
 
-.. index:: access-list NAME deny IPV4-NETWORK
-.. clicmd:: access-list NAME deny IPV4-NETWORK
+.. index:: access-list NAME [seq (1-4294967295)] deny IPV4-NETWORK
+.. clicmd:: access-list NAME [seq (1-4294967295)] deny IPV4-NETWORK
+
+   seq
+      seq `number` can be set either automatically or manually. In the
+      case that sequential numbers are set manually, the user may pick any
+      number less than 4294967295. In the case that sequential number are set
+      automatically, the sequential number will increase by a unit of five (5)
+      per list. If a list with no specified sequential number is created
+      after a list with a specified sequential number, the list will
+      automatically pick the next multiple of five (5) as the list number.
+      For example, if a list with number 2 already exists and a new list with
+      no specified number is created, the next list will be numbered 5. If
+      lists 2 and 7 already exist and a new list with no specified number is
+      created, the new list will be numbered 10.
 
    Basic filtering is done by `access-list` as shown in the
    following example.
@@ -22,6 +35,7 @@ IP Access List
 
       access-list filter deny 10.0.0.0/9
       access-list filter permit 10.0.0.0/8
+      access-list filter seq 13 permit 10.0.0.0/7
 
 
 IP Prefix List

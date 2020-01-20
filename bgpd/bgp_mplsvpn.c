@@ -109,7 +109,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 	uint16_t type;
 	struct rd_as rd_as;
 	struct rd_ip rd_ip;
-	struct prefix_rd prd;
+	struct prefix_rd prd = {0};
 	mpls_label_t label = {0};
 	afi_t afi;
 	safi_t safi;
@@ -142,7 +142,8 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 			if (pnt + BGP_ADDPATH_ID_LEN > lim)
 				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 
-			addpath_id = ntohl(*((uint32_t *)pnt));
+			memcpy(&addpath_id, pnt, BGP_ADDPATH_ID_LEN);
+			addpath_id = ntohl(addpath_id);
 			pnt += BGP_ADDPATH_ID_LEN;
 		}
 
@@ -699,7 +700,8 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		return;
 	}
 
-	bgp_attr_dup(&static_attr, path_vrf->attr); /* shallow copy */
+	/* shallow copy */
+	static_attr = *path_vrf->attr;
 
 	/*
 	 * route map handling
@@ -1080,7 +1082,8 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 				buf_prefix, bgp_vrf->name_pretty);
 	}
 
-	bgp_attr_dup(&static_attr, path_vpn->attr); /* shallow copy */
+	/* shallow copy */
+	static_attr = *path_vpn->attr;
 
 	/*
 	 * Nexthop: stash and clear

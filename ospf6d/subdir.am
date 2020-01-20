@@ -26,7 +26,7 @@ vtysh_scan += \
 if SNMP
 module_LTLIBRARIES += ospf6d/ospf6d_snmp.la
 endif
-man8 += $(MANBUILD)/ospf6d.8
+man8 += $(MANBUILD)/frr-ospf6d.8
 endif
 
 ospf6d_libospf6_a_SOURCES = \

@@ -457,6 +457,10 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	struct pim_upstream *up;
 	struct listnode *upnode;
 
+	if (rp_addr.s_addr == INADDR_ANY ||
+	    rp_addr.s_addr == INADDR_NONE)
+		return PIM_RP_BAD_ADDRESS;
+
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 
 	rp_info->rp.rpf_addr.family = AF_INET;
@@ -1187,8 +1191,8 @@ int pim_rp_set_upstream_addr(struct pim_instance *pim, struct in_addr *up,
 
 	rp_info = pim_rp_find_match_group(pim, &g);
 
-	if ((pim_rpf_addr_is_inaddr_none(&rp_info->rp))
-	    && (source.s_addr == INADDR_ANY)) {
+	if (!rp_info || ((pim_rpf_addr_is_inaddr_none(&rp_info->rp))
+			 && (source.s_addr == INADDR_ANY))) {
 		if (PIM_DEBUG_PIM_NHT_RP)
 			zlog_debug("%s: Received a (*,G) with no RP configured",
 				   __PRETTY_FUNCTION__);

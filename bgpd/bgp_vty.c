@@ -159,10 +159,8 @@ static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 		return "IPv6 Flowspec";
 	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
 		return "L2VPN EVPN";
-	else {
-		flog_err(EC_LIB_DEVELOPMENT, "New afi/safi that needs to be taken care of?");
+	else
 		return "Unknown";
-	}
 }
 
 /*
@@ -199,10 +197,8 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 		return "ipv6Flowspec";
 	else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
 		return "l2VpnEvpn";
-	else {
-		flog_err(EC_LIB_DEVELOPMENT, "New afi/safi that needs to be taken care of?");
+	else
 		return "Unknown";
-	}
 }
 
 /* Utility function to get address family from current node.  */
@@ -2762,7 +2758,7 @@ DEFUN (no_bgp_listen_range,
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
 	argv_find(argv, argc, "X:X::X:X/M", &idx);
 	char *prefix = argv[idx]->arg;
-	argv_find(argv, argc, "WORD", &idx);
+	argv_find(argv, argc, "PGNAME", &idx);
 	char *peergroup = argv[idx]->arg;
 
 	/* Convert IP prefix string to struct prefix. */
@@ -3177,14 +3173,16 @@ DEFUN (no_neighbor,
 			 * interface. */
 			if (peer->ifp)
 				bgp_zebra_terminate_radv(peer->bgp, peer);
+			peer_notify_unconfig(peer);
 			peer_delete(peer);
 			return CMD_SUCCESS;
 		}
 
 		group = peer_group_lookup(bgp, argv[idx_peer]->arg);
-		if (group)
+		if (group) {
+			peer_group_notify_unconfig(group);
 			peer_group_delete(group);
-		else {
+		} else {
 			vty_out(vty, "%% Create the peer-group first\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
@@ -3198,9 +3196,12 @@ DEFUN (no_neighbor,
 			}
 
 			other = peer->doppelganger;
+			peer_notify_unconfig(peer);
 			peer_delete(peer);
-			if (other && other->status != Deleted)
+			if (other && other->status != Deleted) {
+				peer_notify_unconfig(other);
 				peer_delete(other);
+			}
 		}
 	}
 
@@ -3232,6 +3233,7 @@ DEFUN (no_neighbor_interface_config,
 		/* Request zebra to terminate IPv6 RAs on this interface. */
 		if (peer->ifp)
 			bgp_zebra_terminate_radv(peer->bgp, peer);
+		peer_notify_unconfig(peer);
 		peer_delete(peer);
 	} else {
 		vty_out(vty, "%% Create the bgp interface first\n");
@@ -3253,9 +3255,10 @@ DEFUN (no_neighbor_peer_group,
 	struct peer_group *group;
 
 	group = peer_group_lookup(bgp, argv[idx_word]->arg);
-	if (group)
+	if (group) {
+		peer_group_notify_unconfig(group);
 		peer_group_delete(group);
-	else {
+	} else {
 		vty_out(vty, "%% Create the peer-group first\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -3613,6 +3616,7 @@ DEFUN (no_neighbor_set_peer_group,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	peer_notify_unconfig(peer);
 	ret = peer_delete(peer);
 
 	return bgp_vty_return(vty, ret);
@@ -7313,7 +7317,7 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn>]] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group PGNAME> [<soft [<in|out>]|in [prefix-filter]|out>]",
+       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn>]] <*|A.B.C.D$neighbor|X:X::X:X$neighbor|WORD$neighbor|(1-4294967295)|external|peer-group PGNAME> [<soft [<in|out>]|in [prefix-filter]|out>]",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7323,7 +7327,7 @@ DEFUN (clear_ip_bgp_all,
        BGP_SAFI_WITH_LABEL_HELP_STR
        "Address Family modifier\n"
        "Clear all peers\n"
-       "BGP neighbor address to clear\n"
+       "BGP IPv4 neighbor to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
        "Clear peers with the AS number\n"
