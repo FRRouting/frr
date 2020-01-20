@@ -52,7 +52,9 @@ typedef unsigned char uint8_t;
 #include <sys/types.h>
 #include <sys/param.h>
 #ifdef HAVE_SYS_SYSCTL_H
-#ifndef GNU_LINUX
+#ifdef GNU_LINUX
+#include <linux/types.h>
+#else
 #include <sys/sysctl.h>
 #endif
 #endif /* HAVE_SYS_SYSCTL_H */
