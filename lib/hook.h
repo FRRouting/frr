@@ -114,7 +114,9 @@ struct hookent {
 	struct hookent *next;
 	void *hookfn; /* actually a function pointer */
 	void *hookarg;
-	bool has_arg;
+	bool has_arg : 1;
+	bool ent_on_heap : 1;
+	bool ent_used : 1;
 	int priority;
 	struct frrmod_runtime *module;
 	const char *fnname;
@@ -133,21 +135,33 @@ struct hook {
  * always use hook_register(), which uses the static inline helper from
  * DECLARE_HOOK in order to get type safety
  */
-extern void _hook_register(struct hook *hook, void *funcptr, void *arg,
-			   bool has_arg, struct frrmod_runtime *module,
+extern void _hook_register(struct hook *hook, struct hookent *stackent,
+			   void *funcptr, void *arg, bool has_arg,
+			   struct frrmod_runtime *module,
 			   const char *funcname, int priority);
+
+/* most hook_register calls are not in a loop or similar and can use a
+ * statically allocated "struct hookent" from the data segment
+ */
+#define _hook_reg_svar(hook, funcptr, arg, has_arg, module, funcname, prio)    \
+	do {                                                                   \
+		static struct hookent stack_hookent = { .ent_on_heap = 0, };   \
+		_hook_register(hook, &stack_hookent, funcptr, arg, has_arg,    \
+			       module, funcname, prio);                        \
+	} while (0)
+
 #define hook_register(hookname, func)                                          \
-	_hook_register(&_hook_##hookname, _hook_typecheck_##hookname(func),    \
+	_hook_reg_svar(&_hook_##hookname, _hook_typecheck_##hookname(func),    \
 		       NULL, false, THIS_MODULE, #func, HOOK_DEFAULT_PRIORITY)
 #define hook_register_arg(hookname, func, arg)                                 \
-	_hook_register(&_hook_##hookname,                                      \
+	_hook_reg_svar(&_hook_##hookname,                                      \
 		       _hook_typecheck_arg_##hookname(func), arg, true,        \
 		       THIS_MODULE, #func, HOOK_DEFAULT_PRIORITY)
 #define hook_register_prio(hookname, prio, func)                               \
-	_hook_register(&_hook_##hookname, _hook_typecheck_##hookname(func),    \
+	_hook_reg_svar(&_hook_##hookname, _hook_typecheck_##hookname(func),    \
 		       NULL, false, THIS_MODULE, #func, prio)
 #define hook_register_arg_prio(hookname, prio, func, arg)                      \
-	_hook_register(&_hook_##hookname,                                      \
+	_hook_reg_svar(&_hook_##hookname,                                      \
 		       _hook_typecheck_arg_##hookname(func), arg, true,        \
 		       THIS_MODULE, #func, prio)
 
