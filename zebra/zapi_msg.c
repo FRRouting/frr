@@ -61,6 +61,8 @@
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
 
+extern struct zebra_privs_t zserv_privs;
+
 DEFINE_MTYPE_STATIC(ZEBRA, OPAQUE, "Opaque Data");
 
 static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
@@ -1729,6 +1731,23 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 		if (CHECK_FLAG(message, ZAPI_MESSAGE_SRTE)) {
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE);
 			nexthop->srte_color = api_nh->srte_color;
+		}
+
+		/* MPLS labels for BGP-LU or Segment Routing */
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL)
+		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
+			if (nexthop->ifindex != IFINDEX_INTERNAL) {
+				struct interface *ifp =
+					if_lookup_by_index(nexthop->ifindex,
+							   nexthop->vrf_id);
+				if (ifp) {
+					frr_with_privs(&zserv_privs) {
+						vrf_switch_to_netns(ifp->vrf_id);
+						mpls_interface_set(ifp->name, 1);
+						vrf_switchback_to_initial();
+					}
+				}
+			}
 		}
 
 		/* MPLS labels for BGP-LU or Segment Routing */
