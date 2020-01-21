@@ -136,7 +136,7 @@ void path_zebra_add_sr_policy(struct te_sr_policy *sr_policy,
 void path_zebra_delete_sr_policy(struct te_sr_policy *sr_policy);
 void path_cli_init(void);
 
-struct te_segment_list *te_segment_list_create(char *name);
+struct te_segment_list *te_segment_list_create(const char *name);
 void te_segment_list_del(struct te_segment_list *te_segment_list);
 struct te_segment_list_segment *
 te_segment_list_segment_add(struct te_segment_list *te_segment_list,
@@ -150,15 +150,16 @@ void te_segment_list_segment_sid_value_add(
 struct te_sr_policy *te_sr_policy_create(uint32_t color,
 					 struct ipaddr *endpoint);
 void te_sr_policy_del(struct te_sr_policy *te_sr_policy);
-void te_sr_policy_name_add(struct te_sr_policy *te_sr_policy, const char *name);
+void te_sr_policy_name_set(struct te_sr_policy *te_sr_policy, const char *name);
+void te_sr_policy_name_unset(struct te_sr_policy *te_sr_policy);
 void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 				  mpls_label_t binding_sid);
 void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy);
 struct te_candidate_path *
 te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 				uint32_t preference);
-void te_sr_policy_candidate_path_name_add(
-	struct te_candidate_path *te_candidate_path, char *name);
+void te_sr_policy_candidate_path_name_set(
+	struct te_candidate_path *te_candidate_path, const char *name);
 void te_sr_policy_candidate_path_protocol_origin_add(
 	struct te_candidate_path *te_candidate_path,
 	enum te_protocol_origin protocol_origin);
@@ -169,8 +170,9 @@ void te_sr_policy_candidate_path_discriminator_add(
 void te_sr_policy_candidate_path_type_add(
 	struct te_candidate_path *te_candidate_path,
 	enum te_candidate_path_type type);
-void te_sr_policy_candidate_path_segment_list_name_add(
-	struct te_candidate_path *te_candidate_path, char *segment_list_name);
+void te_sr_policy_candidate_path_segment_list_name_set(
+	struct te_candidate_path *te_candidate_path,
+	const char *segment_list_name);
 void te_sr_policy_candidate_path_delete(
 	struct te_candidate_path *te_candidate_path);
 struct te_sr_policy *te_sr_policy_get(uint32_t color, struct ipaddr *endpoint);
