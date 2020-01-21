@@ -62,6 +62,7 @@ PREDECL_DLIST(nhlfe_list);
 
 /* Hooks */
 DECLARE_HOOK(zebra_mpls_label_created, (mpls_label_t label), (label))
+DECLARE_HOOK(zebra_mpls_label_updated, (mpls_label_t label), (label))
 DECLARE_HOOK(zebra_mpls_label_removed, (mpls_label_t label), (label))
 
 /*
@@ -188,6 +189,7 @@ DECLARE_DLIST(nhlfe_list, struct zebra_nhlfe_t_, list);
 
 /* Trigger hooks for label updates */
 void zebra_mpls_label_created(mpls_label_t label);
+void zebra_mpls_label_updated(mpls_label_t label);
 void zebra_mpls_label_removed(mpls_label_t label);
 
 /*

@@ -57,6 +57,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, SNHLFE, "MPLS static nexthop object")
 DEFINE_MTYPE_STATIC(ZEBRA, SNHLFE_IFNAME, "MPLS static nexthop ifname")
 
 DEFINE_HOOK(zebra_mpls_label_created, (mpls_label_t label), (label))
+DEFINE_HOOK(zebra_mpls_label_updated, (mpls_label_t label), (label))
 DEFINE_HOOK(zebra_mpls_label_removed, (mpls_label_t label), (label))
 
 int mpls_enabled;
@@ -1876,6 +1877,10 @@ static int mpls_processq_init(void)
 
 void zebra_mpls_label_created(mpls_label_t label){
     hook_call(zebra_mpls_label_created, label);
+}
+
+void zebra_mpls_label_updated(mpls_label_t label){
+    hook_call(zebra_mpls_label_updated, label);
 }
 
 void zebra_mpls_label_removed(mpls_label_t label){

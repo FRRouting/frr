@@ -115,7 +115,7 @@ void zebra_sr_policy_uninstall(struct zebra_sr_policy *policy)
 {
 	struct zapi_srte_tunnel *zt = &policy->active_segment_list;
 
-	if (policy->status == ZEBRA_SR_POLICY_UP)
+	if (policy->status != ZEBRA_SR_POLICY_UP)
 		return;
 
 	mpls_lsp_uninstall_all_vrf(policy->zvrf, zt->type, zt->local_label);
@@ -137,23 +137,18 @@ static int zebra_sr_policy_process_label_update(
 		if (next_hop_label != label)
 			continue;
 
-		if (mode == ZEBRA_SR_POLICY_LABEL_CREATED
-		    && policy->status == ZEBRA_SR_POLICY_DOWN) {
+		switch (mode) {
+		case ZEBRA_SR_POLICY_LABEL_CREATED:
+		case ZEBRA_SR_POLICY_LABEL_UPDATED:
 			zebra_sr_policy_install(policy);
-		}
-		if (mode == ZEBRA_SR_POLICY_LABEL_REMOVED
-		    && policy->status == ZEBRA_SR_POLICY_UP) {
+			break;
+		case ZEBRA_SR_POLICY_LABEL_REMOVED:
 			zebra_sr_policy_uninstall(policy);
+			break;
 		}
 	}
 
 	return 0;
-}
-
-static int zebra_sr_policy_nexthop_label_removed(mpls_label_t label)
-{
-	return zebra_sr_policy_process_label_update(
-		label, ZEBRA_SR_POLICY_LABEL_REMOVED);
 }
 
 static int zebra_sr_policy_nexthop_label_created(mpls_label_t label)
@@ -162,10 +157,24 @@ static int zebra_sr_policy_nexthop_label_created(mpls_label_t label)
 		label, ZEBRA_SR_POLICY_LABEL_CREATED);
 }
 
+static int zebra_sr_policy_nexthop_label_updated(mpls_label_t label)
+{
+	return zebra_sr_policy_process_label_update(
+		label, ZEBRA_SR_POLICY_LABEL_UPDATED);
+}
+
+static int zebra_sr_policy_nexthop_label_removed(mpls_label_t label)
+{
+	return zebra_sr_policy_process_label_update(
+		label, ZEBRA_SR_POLICY_LABEL_REMOVED);
+}
+
 void zebra_srte_init(void)
 {
 	hook_register(zebra_mpls_label_created,
 		      zebra_sr_policy_nexthop_label_created);
+	hook_register(zebra_mpls_label_updated,
+		      zebra_sr_policy_nexthop_label_updated);
 	hook_register(zebra_mpls_label_removed,
 		      zebra_sr_policy_nexthop_label_removed);
 }

@@ -22,7 +22,8 @@
 
 enum zebra_sr_policy_update_label_mode {
 	ZEBRA_SR_POLICY_LABEL_CREATED = 1,
-	ZEBRA_SR_POLICY_LABEL_REMOVED = 2,
+	ZEBRA_SR_POLICY_LABEL_UPDATED = 2,
+	ZEBRA_SR_POLICY_LABEL_REMOVED = 3,
 };
 
 enum zebra_sr_policy_status {
