@@ -209,7 +209,7 @@ int pathd_te_sr_policy_candidate_path_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_sr_policy = nb_running_get_entry(args->dnode, "..", true);
+	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
 	preference = yang_dnode_get_uint32(args->dnode, "./preference");
 	te_candidate_path =
 		te_sr_policy_candidate_path_add(te_sr_policy, preference);
@@ -274,7 +274,7 @@ int pathd_te_sr_policy_candidate_path_protocol_origin_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_candidate_path = nb_running_get_entry(args->dnode, "..", true);
+	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
 	protocol_origin = yang_dnode_get_enum(args->dnode, NULL);
 
 	te_sr_policy_candidate_path_protocol_origin_add(te_candidate_path,
@@ -295,7 +295,7 @@ int pathd_te_sr_policy_candidate_path_originator_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_candidate_path = nb_running_get_entry(args->dnode, "..", true);
+	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
 	yang_dnode_get_ip(&originator, args->dnode, NULL);
 
 	te_sr_policy_candidate_path_originator_add(te_candidate_path,
@@ -316,7 +316,7 @@ int pathd_te_sr_policy_candidate_path_discriminator_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_candidate_path = nb_running_get_entry(args->dnode, "..", true);
+	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
 	discriminator = yang_dnode_get_uint32(args->dnode, NULL);
 
 	te_sr_policy_candidate_path_discriminator_add(te_candidate_path,
@@ -337,7 +337,7 @@ int pathd_te_sr_policy_candidate_path_type_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_candidate_path = nb_running_get_entry(args->dnode, "..", true);
+	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
 	type = yang_dnode_get_enum(args->dnode, NULL);
 
 	te_sr_policy_candidate_path_type_add(te_candidate_path, type);
@@ -357,7 +357,7 @@ int pathd_te_sr_policy_candidate_path_segment_list_name_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_candidate_path = nb_running_get_entry(args->dnode, "..", true);
+	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
 	segment_list_name = yang_dnode_get_string(args->dnode, NULL);
 
 	te_sr_policy_candidate_path_segment_list_name_add(
