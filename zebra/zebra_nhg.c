@@ -513,7 +513,9 @@ static void handle_recursive_depend(struct nhg_connected_tree_head *nhg_depends,
 	resolved_ng.nexthop = nh;
 
 	depend = zebra_nhg_rib_find(0, &resolved_ng, afi);
-	depends_add(nhg_depends, depend);
+
+	if (depend)
+		depends_add(nhg_depends, depend);
 }
 
 static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
