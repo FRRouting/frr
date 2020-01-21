@@ -2970,6 +2970,8 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		safi == SAFI_LABELED_UNICAST ||
 		safi == SAFI_MULTICAST))
 		nh_afi = peer_cap_enhe(peer, afi, safi) ? AFI_IP6 : AFI_IP;
+	else if (safi == SAFI_FLOWSPEC)
+		nh_afi = afi;
 	else
 		nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->mp_nexthop_len);
 
@@ -2996,7 +2998,12 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			stream_put(s, &attr->mp_nexthop_global_in, 4);
 			break;
 		case SAFI_FLOWSPEC:
-			stream_putc(s, 0); /* no nexthop for flowspec */
+			if (attr->mp_nexthop_len == 0)
+				stream_putc(s, 0); /* no nexthop for flowspec */
+			else {
+				stream_putc(s, attr->mp_nexthop_len);
+				stream_put_ipv4(s, attr->nexthop.s_addr);
+			}
 		default:
 			break;
 		}
