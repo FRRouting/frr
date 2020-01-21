@@ -93,12 +93,9 @@ struct te_segment_list *te_segment_list_create(char *name)
 	struct te_segment_list *te_segment_list =
 		XCALLOC(MTYPE_PATH_SEGMENT_LIST, sizeof(*te_segment_list));
 
-	struct te_segment_list_segment_instance_head
-		te_segment_list_segment_instances =
-			RB_INITIALIZER(&te_segment_list_segment_instances);
-
 	te_segment_list->name = name;
-	te_segment_list->segments = te_segment_list_segment_instances;
+	RB_INIT(te_segment_list_segment_instance_head,
+		&te_segment_list->segments);
 
 	RB_INSERT(te_segment_list_instance_head, &te_segment_list_instances,
 		  te_segment_list);
