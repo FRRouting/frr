@@ -3097,13 +3097,9 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 		stream_put_labeled_prefix(s, p, label, addpath_encode,
 					  addpath_tx_id);
 	} else if (safi == SAFI_FLOWSPEC) {
-		if (PSIZE (p->prefixlen)+2 < FLOWSPEC_NLRI_SIZELIMIT)
-			stream_putc(s, PSIZE (p->prefixlen)+2);
-		else
-			stream_putw(s, (PSIZE (p->prefixlen)+2)|(0xf<<12));
-		stream_putc(s, 2);/* Filter type */
-		stream_putc(s, p->prefixlen);/* Prefix length */
-		stream_put(s, &p->u.prefix, PSIZE (p->prefixlen));
+		stream_putc(s, p->u.prefix_flowspec.prefixlen);
+		stream_put(s, (const void *)p->u.prefix_flowspec.ptr,
+			   p->u.prefix_flowspec.prefixlen);
 	} else
 		stream_put_prefix_addpath(s, p, addpath_encode, addpath_tx_id);
 }
