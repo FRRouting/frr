@@ -66,17 +66,19 @@ RB_GENERATE(te_candidate_path_instance_head, te_candidate_path, entry,
 static inline int te_sr_policy_instance_compare(const struct te_sr_policy *a,
 						const struct te_sr_policy *b)
 {
-	bool color_is_equal = !(a->color - b->color);
-	bool endpoint_is_equal =
-		(a->endpoint.ipaddr_v4.s_addr == b->endpoint.ipaddr_v4.s_addr);
+	if (a->color < b->color)
+		return -1;
 
-	if (color_is_equal && endpoint_is_equal)
-		return 0;
+	if (a->color > b->color)
+		return 1;
 
-	if (a->binding_sid && b->binding_sid)
-		return (a->binding_sid - b->binding_sid);
+	if (a->endpoint.ipaddr_v4.s_addr < b->endpoint.ipaddr_v4.s_addr)
+		return -1;
 
-	return -1;
+	if (a->endpoint.ipaddr_v4.s_addr > b->endpoint.ipaddr_v4.s_addr)
+		return 1;
+
+	return 0;
 }
 RB_GENERATE(te_sr_policy_instance_head, te_sr_policy, entry,
 	    te_sr_policy_instance_compare)
