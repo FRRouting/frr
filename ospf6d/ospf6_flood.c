@@ -842,18 +842,6 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 				zlog_debug("Received is duplicated LSA");
 			SET_FLAG(new->flag, OSPF6_LSA_DUPLICATE);
 		}
-		if (old->header->adv_router
-			    == from->ospf6_if->area->ospf6->router_id
-		    && OSPF6_LSA_IS_MAXAGE(new)) {
-			ospf6_acknowledge_lsa(new, ismore_recent, from);
-			ospf6_lsa_delete(new);
-			if (is_debug)
-				zlog_debug(
-					"%s: Received is self orig MAXAGE LSA %s, discard (ismore_recent %d)",
-					__PRETTY_FUNCTION__, old->name,
-					ismore_recent);
-			return;
-		}
 	}
 
 	/* if no database copy or received is more recent */
