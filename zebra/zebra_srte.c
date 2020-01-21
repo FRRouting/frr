@@ -30,18 +30,19 @@ static inline int
 zebra_sr_policy_instance_compare(const struct zebra_sr_policy *a,
 				 const struct zebra_sr_policy *b)
 {
-	bool color_is_equal = !(a->color - b->color);
-	bool endpoint_is_equal = (a->endpoint.s_addr == b->endpoint.s_addr);
+	if (a->color < b->color)
+		return -1;
 
-	if (color_is_equal && endpoint_is_equal)
-		return 0;
+	if (a->color > b->color)
+		return 1;
 
-	if (a->active_segment_list.local_label
-	    && b->active_segment_list.local_label)
-		return (a->active_segment_list.local_label
-			- b->active_segment_list.local_label);
+	if (a->endpoint.s_addr < b->endpoint.s_addr)
+		return -1;
 
-	return -1;
+	if (a->endpoint.s_addr > b->endpoint.s_addr)
+		return 1;
+
+	return 0;
 }
 RB_GENERATE(zebra_sr_policy_instance_head, zebra_sr_policy, entry,
 	    zebra_sr_policy_instance_compare)
@@ -49,83 +50,100 @@ RB_GENERATE(zebra_sr_policy_instance_head, zebra_sr_policy, entry,
 struct zebra_sr_policy_instance_head zebra_sr_policy_instances =
 	RB_INITIALIZER(&zebra_sr_policy_instances);
 
-void zebra_sr_policy_set(struct zapi_sr_policy *zapi_sr_policy,
-			 struct zebra_vrf *zvrf,
-			 enum zebra_sr_policy_status status)
+struct zebra_sr_policy *zebra_sr_policy_add(uint32_t color,
+					    struct in_addr endpoint)
 {
-	struct zebra_sr_policy *zebra_sr_policy;
+	struct zebra_sr_policy *policy;
 
-	zebra_sr_policy =
-		XCALLOC(MTYPE_ZEBRA_SR_POLICY, sizeof(*zebra_sr_policy));
-	zebra_sr_policy->color = zapi_sr_policy->color;
-	memcpy(&zebra_sr_policy->endpoint, &zapi_sr_policy->endpoint,
-	       sizeof(zapi_sr_policy->endpoint));
-	strlcpy(zebra_sr_policy->name, zapi_sr_policy->name,
-		sizeof(zebra_sr_policy->name));
-	zebra_sr_policy->status = status;
-	zebra_sr_policy->active_segment_list =
-		zapi_sr_policy->active_segment_list;
-	zebra_sr_policy->zvrf = zvrf;
-
-	RB_REMOVE(zebra_sr_policy_instance_head, &zebra_sr_policy_instances,
-		  zebra_sr_policy);
-
+	policy = XCALLOC(MTYPE_ZEBRA_SR_POLICY, sizeof(*policy));
+	policy->color = color;
+	policy->endpoint = endpoint;
 	RB_INSERT(zebra_sr_policy_instance_head, &zebra_sr_policy_instances,
-		  zebra_sr_policy);
+		  policy);
+
+	return policy;
 }
 
-void zebra_sr_policy_delete(struct zapi_sr_policy *zapi_sr_policy)
+void zebra_sr_policy_del(struct zebra_sr_policy *policy)
 {
-	struct zebra_sr_policy zebra_sr_policy;
-
-	memset(&zebra_sr_policy, 0, sizeof(zebra_sr_policy));
-
-	zebra_sr_policy.color = zapi_sr_policy->color;
-	zebra_sr_policy.endpoint.s_addr = zapi_sr_policy->endpoint.s_addr;
-	zebra_sr_policy.active_segment_list.local_label =
-		zapi_sr_policy->active_segment_list.local_label;
-
+	zebra_sr_policy_uninstall(policy);
 	RB_REMOVE(zebra_sr_policy_instance_head, &zebra_sr_policy_instances,
-		  &zebra_sr_policy);
+		  policy);
+	XFREE(MTYPE_ZEBRA_SR_POLICY, policy);
+}
+
+struct zebra_sr_policy *zebra_sr_policy_find(uint32_t color,
+					     struct in_addr endpoint)
+{
+	struct zebra_sr_policy policy = {};
+
+	policy.color = color;
+	policy.endpoint = endpoint;
+	return RB_FIND(zebra_sr_policy_instance_head,
+		       &zebra_sr_policy_instances, &policy);
+}
+
+void zebra_sr_policy_install(struct zebra_sr_policy *policy)
+{
+	struct zapi_srte_tunnel *zt = &policy->active_segment_list;
+	zebra_lsp_t *lsp;
+	zebra_nhlfe_t *nhlfe;
+	int ret;
+
+	zebra_sr_policy_uninstall(policy);
+
+	/* Try to resolve the Binding-SID nexthops. */
+	lsp = mpls_lsp_find(policy->zvrf, zt->labels[0]);
+	if (!lsp)
+		return;
+
+	frr_each_safe(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
+		ret = mpls_lsp_install(
+			policy->zvrf, zt->type, zt->local_label, zt->label_num,
+			zt->labels, nhlfe->nexthop->type, &nhlfe->nexthop->gate,
+			nhlfe->nexthop->ifindex);
+		if (ret) {
+			zebra_sr_policy_uninstall(policy);
+			return;
+		}
+	}
+
+	policy->status = ZEBRA_SR_POLICY_UP;
+}
+
+void zebra_sr_policy_uninstall(struct zebra_sr_policy *policy)
+{
+	struct zapi_srte_tunnel *zt = &policy->active_segment_list;
+
+	if (policy->status == ZEBRA_SR_POLICY_UP)
+		return;
+
+	mpls_lsp_uninstall_all_vrf(policy->zvrf, zt->type, zt->local_label);
+	policy->status = ZEBRA_SR_POLICY_DOWN;
 }
 
 static int zebra_sr_policy_process_label_update(
 	mpls_label_t label, enum zebra_sr_policy_update_label_mode mode)
 {
-	struct zebra_sr_policy *sr_policy;
-	struct zapi_srte_tunnel *zt;
-	zebra_lsp_t *lsp;
-	mpls_label_t next_hop_label;
-	zebra_nhlfe_t *nhlfe;
+	struct zebra_sr_policy *policy;
 
-	RB_FOREACH (sr_policy, zebra_sr_policy_instance_head,
+	RB_FOREACH (policy, zebra_sr_policy_instance_head,
 		    &zebra_sr_policy_instances) {
-		zt = &sr_policy->active_segment_list;
+		struct zapi_srte_tunnel *zt;
+		mpls_label_t next_hop_label;
+
+		zt = &policy->active_segment_list;
 		next_hop_label = zt->labels[0];
-		if (next_hop_label == label) {
-			if (mode == ZEBRA_SR_POLICY_LABEL_CREATED
-			    && sr_policy->status == ZEBRA_SR_POLICY_DOWN) {
-				lsp = mpls_lsp_find(sr_policy->zvrf,
-						    next_hop_label);
-				frr_each_safe(nhlfe_list, &lsp->nhlfe_list,
-					      nhlfe) {
-					mpls_lsp_install(
-						sr_policy->zvrf, zt->type,
-						zt->local_label, zt->label_num,
-						zt->labels,
-						nhlfe->nexthop->type,
-						&nhlfe->nexthop->gate,
-						nhlfe->nexthop->ifindex);
-				}
-				sr_policy->status = ZEBRA_SR_POLICY_UP;
-			}
-			if (mode == ZEBRA_SR_POLICY_LABEL_REMOVED
-			    && sr_policy->status == ZEBRA_SR_POLICY_UP) {
-				mpls_lsp_uninstall_all_vrf(sr_policy->zvrf,
-							   zt->type,
-							   zt->local_label);
-				sr_policy->status = ZEBRA_SR_POLICY_DOWN;
-			}
+		if (next_hop_label != label)
+			continue;
+
+		if (mode == ZEBRA_SR_POLICY_LABEL_CREATED
+		    && policy->status == ZEBRA_SR_POLICY_DOWN) {
+			zebra_sr_policy_install(policy);
+		}
+		if (mode == ZEBRA_SR_POLICY_LABEL_REMOVED
+		    && policy->status == ZEBRA_SR_POLICY_UP) {
+			zebra_sr_policy_uninstall(policy);
 		}
 	}
 
