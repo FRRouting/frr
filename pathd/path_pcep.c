@@ -839,8 +839,8 @@ int pcep_main_update_path_event(struct thread *thread)
 
 /* ------------ CLI Functions ------------ */
 
-DEFUN (pcep_cli_pcc,
-       pcep_cli_pcc_cmd,
+DEFUN_NOSH (pcep_cli_pcc,
+	pcep_cli_pcc_cmd,
 	"pcc [ip A.B.C.D] [port (1024-65535)]",
 	"PCC source ip and port\n"
 	"PCC source ip A.B.C.D\n"

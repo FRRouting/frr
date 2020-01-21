@@ -1227,6 +1227,13 @@ static struct cmd_node sr_policy_node = {
         .prompt = "%s(config-sr-policy)# ",
 };
 
+static struct cmd_node pcc_node = {
+        .name = "pcc",
+        .node = PCC_NODE,
+        .parent_node = CONFIG_NODE,
+        .prompt = "%s(config-pcc)# ",
+};
+
 static struct cmd_node vrf_node = {
 	.name = "vrf",
 	.node = VRF_NODE,
@@ -1940,6 +1947,16 @@ DEFUNSH(VTYSH_PATHD, te_path_sr_policy, te_path_sr_policy_cmd,
 	"SR Policy endpoint IP\n")
 {
 	vty->node = SR_POLICY_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_PATHD, pcep_cli_pcc, pcep_cli_pcc_cmd,
+	"pcc [ip A.B.C.D] [port (1024-65535)]",
+	"PCC source ip and port\n"
+	"PCC source ip A.B.C.D\n"
+	"PCC source port port")
+{
+	vty->node = PCC_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -3824,6 +3841,7 @@ void vtysh_init_vty(void)
 	install_node(&pw_node);
 	install_node(&segment_list_node);
 	install_node(&sr_policy_node);
+	install_node(&pcc_node);
 	install_node(&link_params_node);
 	install_node(&vrf_node);
 	install_node(&nh_group_node);
@@ -4131,6 +4149,7 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &key_chain_cmd);
 	install_element(CONFIG_NODE, &te_path_segment_list_cmd);
 	install_element(CONFIG_NODE, &te_path_sr_policy_cmd);
+	install_element(CONFIG_NODE, &pcep_cli_pcc_cmd);
 	install_element(CONFIG_NODE, &vtysh_route_map_cmd);
 	install_element(CONFIG_NODE, &vtysh_pbr_map_cmd);
 	install_element(CONFIG_NODE, &vtysh_no_pbr_map_cmd);
