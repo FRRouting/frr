@@ -36,7 +36,27 @@ static struct zclient *zclient;
 
 static void path_zebra_connected(struct zclient *zclient)
 {
+	struct te_sr_policy *te_sr_policy;
+
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+
+	RB_FOREACH (te_sr_policy, te_sr_policy_instance_head,
+		    &te_sr_policy_instances) {
+		struct te_candidate_path *candidate;
+		struct te_segment_list *te_segment_list;
+
+		candidate = find_candidate_path(
+			te_sr_policy, te_sr_policy->best_candidate_path_key);
+		if (!candidate)
+			continue;
+
+		te_segment_list =
+			te_segment_list_get(candidate->segment_list_name);
+		if (!te_segment_list)
+			continue;
+
+		path_zebra_add_sr_policy(te_sr_policy, te_segment_list);
+	}
 }
 
 void path_zebra_init(struct thread_master *master)
