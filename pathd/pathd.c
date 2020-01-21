@@ -29,6 +29,8 @@ DEFINE_MTYPE_STATIC(PATHD, PATH_SEGMENT_LIST, "Segment List information")
 DEFINE_MTYPE_STATIC(PATHD, PATH_SEGMENT_LIST_NAME, "Segment List name")
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_POLICY, "SR Policy information")
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_POLICY_NAME, "SR Policy name")
+DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE,
+		    "SR Policy candidate path information")
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE_NAME,
 		    "SR Policy candidate path name")
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE_SL_NAME,
@@ -111,9 +113,10 @@ struct te_segment_list *te_segment_list_create(const char *name)
 
 void te_segment_list_del(struct te_segment_list *te_segment_list)
 {
-	XFREE(MTYPE_PATH_SEGMENT_LIST_NAME, te_segment_list->name);
 	RB_REMOVE(te_segment_list_instance_head, &te_segment_list_instances,
 		  te_segment_list);
+	XFREE(MTYPE_PATH_SEGMENT_LIST_NAME, te_segment_list->name);
+	XFREE(MTYPE_PATH_SEGMENT_LIST, te_segment_list);
 }
 
 struct te_segment_list_segment *
@@ -257,7 +260,7 @@ te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 				uint32_t preference)
 {
 	struct te_candidate_path *te_candidate_path =
-		XCALLOC(MTYPE_PATH_SEGMENT_LIST, sizeof(*te_candidate_path));
+		XCALLOC(MTYPE_PATH_SR_CANDIDATE, sizeof(*te_candidate_path));
 	te_candidate_path->preference = preference;
 	te_candidate_path->sr_policy = te_sr_policy;
 
@@ -317,6 +320,7 @@ void te_sr_policy_candidate_path_delete(
 
 	RB_REMOVE(te_candidate_path_instance_head,
 		  &te_sr_policy->candidate_paths, te_candidate_path);
+	XFREE(MTYPE_PATH_SR_CANDIDATE, te_candidate_path);
 }
 
 struct te_sr_policy *te_sr_policy_get(uint32_t color, struct ipaddr *endpoint)
