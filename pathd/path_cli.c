@@ -205,7 +205,7 @@ DEFPY(te_path_sr_policy_name, te_path_sr_policy_name_cmd, "name WORD$name",
 }
 
 DEFPY(no_te_path_sr_policy_name, no_te_path_sr_policy_name_cmd,
-      "no name WORD$name",
+      "no name [WORD]",
       NO_STR
       "Segment Routing Policy name\n"
       "SR Policy name value\n")
