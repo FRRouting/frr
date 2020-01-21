@@ -60,8 +60,8 @@ void zebra_sr_policy_set(struct zapi_sr_policy *zapi_sr_policy,
 	zebra_sr_policy->color = zapi_sr_policy->color;
 	memcpy(&zebra_sr_policy->endpoint, &zapi_sr_policy->endpoint,
 	       sizeof(zapi_sr_policy->endpoint));
-	strncpy((char *)&zebra_sr_policy->name, (char *)&zapi_sr_policy->name,
-		ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+	strlcpy(zebra_sr_policy->name, zapi_sr_policy->name,
+		sizeof(zebra_sr_policy->name));
 	zebra_sr_policy->status = status;
 	zebra_sr_policy->active_segment_list =
 		zapi_sr_policy->active_segment_list;

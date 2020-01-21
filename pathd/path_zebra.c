@@ -73,8 +73,7 @@ void path_zebra_add_sr_policy(struct te_sr_policy *sr_policy,
 	struct zapi_sr_policy zp = {};
 	zp.color = sr_policy->color;
 	zp.endpoint.s_addr = sr_policy->endpoint.ipaddr_v4.s_addr;
-	strncpy((char *)&zp.name, sr_policy->name,
-		ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+	strlcpy(zp.name, sr_policy->name, sizeof(zp.name));
 
 	struct te_segment_list_segment *segment;
 	zp.active_segment_list.type = ZEBRA_LSP_TE;
@@ -97,8 +96,7 @@ void path_zebra_delete_sr_policy(struct te_sr_policy *sr_policy)
 	struct zapi_sr_policy zp = {};
 	zp.color = sr_policy->color;
 	zp.endpoint.s_addr = sr_policy->endpoint.ipaddr_v4.s_addr;
-	strncpy((char *)&zp.name, sr_policy->name,
-		ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+	strlcpy(zp.name, sr_policy->name, sizeof(zp.name));
 	zp.active_segment_list.type = ZEBRA_LSP_TE;
 	zp.active_segment_list.local_label = sr_policy->binding_sid;
 	zp.active_segment_list.label_num = 0;
