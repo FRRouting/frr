@@ -218,8 +218,8 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 		if (rp_info->plist) {
 			plist = prefix_list_lookup(AFI_IP, rp_info->plist);
 
-			if (prefix_list_apply_which_prefix(plist, &p, group)
-			    == PREFIX_DENY)
+			if (prefix_list_apply_which_prefix(plist, &p, NULL,
+					group) == PREFIX_DENY)
 				continue;
 
 			if (!best) {

@@ -684,6 +684,7 @@ static int prefix_list_entry_match(struct prefix_list_entry *pentry,
 enum prefix_list_type prefix_list_apply_which_prefix(
 	struct prefix_list *plist,
 	const struct prefix **which,
+	uint32_t *seq,
 	const void *object)
 {
 	struct prefix_list_entry *pentry, *pbest = NULL;
@@ -694,17 +695,16 @@ enum prefix_list_type prefix_list_apply_which_prefix(
 	size_t validbits = p->prefixlen;
 	struct pltrie_table *table;
 
-	if (plist == NULL) {
-		if (which)
-			*which = NULL;
-		return PREFIX_DENY;
-	}
+	if (which)
+		*which = NULL;
+	if (seq)
+		*seq = 0;
 
-	if (plist->count == 0) {
-		if (which)
-			*which = NULL;
+	if (plist == NULL)
+		return PREFIX_DENY;
+
+	if (plist->count == 0)
 		return PREFIX_PERMIT;
-	}
 
 	depth = plist->master->trie_depth;
 	table = plist->trie;
@@ -740,15 +740,13 @@ enum prefix_list_type prefix_list_apply_which_prefix(
 		break;
 	}
 
-	if (which) {
-		if (pbest)
-			*which = &pbest->prefix;
-		else
-			*which = NULL;
-	}
-
 	if (pbest == NULL)
 		return PREFIX_DENY;
+
+	if (which)
+		*which = &pbest->prefix;
+	if (seq)
+		*seq = pbest->seq;
 
 	pbest->hitcnt++;
 	return pbest->type;

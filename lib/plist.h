@@ -67,8 +67,9 @@ extern struct prefix_list *prefix_list_lookup(afi_t, const char *);
 extern enum prefix_list_type
 prefix_list_apply_which_prefix(struct prefix_list *plist,
 			       const struct prefix **which,
+			       uint32_t *seq,
 			       const void *object);
-#define prefix_list_apply(A, B) prefix_list_apply_which_prefix((A), NULL, (B))
+#define prefix_list_apply(A, B) prefix_list_apply_which_prefix((A), NULL, NULL, (B))
 
 extern struct prefix_list *prefix_bgp_orf_lookup(afi_t, const char *);
 extern struct stream *prefix_bgp_orf_entry(struct stream *,
