@@ -111,6 +111,10 @@ struct vrrp_router {
 	struct ipaddr src;
 
 	/* Socket read buffer */
+#ifdef FUZZING
+	size_t fuzzing_input_size;
+	struct sockaddr_in fuzzing_sa;
+#endif
 	uint8_t ibuf[IP_MAXPACKET];
 
 	/*
@@ -463,6 +467,10 @@ int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4);
  *     0 otherwise
  */
 int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
+
+#ifdef FUZZING
+int vrrp_read(struct thread *thread);
+#endif
 
 /* State machine ----------------------------------------------------------- */
 
