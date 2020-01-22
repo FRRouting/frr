@@ -28,6 +28,7 @@
 #include "lib/mpls.h"
 #include "lib/ipaddr.h"
 #include "lib/srte.h"
+#include "lib/hook.h"
 
 enum te_protocol_origin {
 	TE_ORIGIN_PCEP = 1,
@@ -74,6 +75,9 @@ struct te_candidate_path {
 
 	/* Administrative preference. */
 	uint32_t preference;
+
+	/* true when created, false after triggering the "created" hook. */
+	bool created;
 
 	/* Symbolic Name. */
 	char *name;
@@ -127,6 +131,16 @@ struct te_sr_policy {
 RB_HEAD(te_sr_policy_instance_head, te_sr_policy);
 RB_PROTOTYPE(te_sr_policy_instance_head, te_sr_policy, entry,
 	     te_sr_policy_instance_compare)
+
+DECLARE_HOOK(pathd_candidate_created,
+             (uint32_t color, struct ipaddr endpoint, uint32_t preference),
+             (color, endpoint, preference))
+DECLARE_HOOK(pathd_candidate_updated,
+             (uint32_t color, struct ipaddr endpoint, uint32_t preference),
+             (color, endpoint, preference))
+DECLARE_HOOK(pathd_candidate_removed,
+             (uint32_t color, struct ipaddr endpoint, uint32_t preference),
+             (color, endpoint, preference))
 
 extern struct te_segment_list_instance_head te_segment_list_instances;
 extern struct te_sr_policy_instance_head te_sr_policy_instances;
@@ -183,5 +197,7 @@ struct te_sr_policy *te_sr_policy_get(uint32_t color, struct ipaddr *endpoint);
 struct te_segment_list *te_segment_list_get(const char *name);
 struct te_candidate_path *find_candidate_path(struct te_sr_policy *te_sr_policy,
 					      uint32_t preference);
+
+void pathd_candidate_updated(struct te_candidate_path *te_candidate_path);
 
 #endif /* _FRR_PATHD_H_ */
