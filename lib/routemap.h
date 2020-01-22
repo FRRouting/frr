@@ -77,7 +77,12 @@ typedef enum {
 	RMAP_ISIS,
 } route_map_object_t;
 
-typedef enum { RMAP_EXIT, RMAP_GOTO, RMAP_NEXT } route_map_end_t;
+typedef enum {
+	RMAP_EXIT,
+	RMAP_GOTO,
+	RMAP_GOTO_PLIST,
+	RMAP_NEXT,
+} route_map_end_t;
 
 typedef enum {
 	RMAP_EVENT_SET_ADDED,
@@ -107,6 +112,15 @@ typedef enum {
 /* Depth limit in RMAP recursion using RMAP_CALL. */
 #define RMAP_RECURSION_LIMIT      10
 
+struct route_map_state {
+	const struct prefix *prefix;
+
+	route_map_object_t type;
+	void *object;
+
+	uint32_t plist_seqno;
+};
+
 /* Route map rule structure for matching and setting. */
 struct route_map_rule_cmd {
 	/* Route map rule name (e.g. as-path, metric) */
@@ -126,6 +140,10 @@ struct route_map_rule_cmd {
 
 	/** To get the rule key after Compilation **/
 	void *(*func_get_rmap_rule_key)(void *val);
+
+	/* Extended "apply" function */
+	enum route_map_cmd_result_t (*func_apply_ext)(void *rule,
+						struct route_map_state *state);
 };
 
 /* Route map apply error. */

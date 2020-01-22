@@ -1005,6 +1005,8 @@ static void vty_show_route_map_entry(struct vty *vty, struct route_map *map)
 		vty_out(vty, "  Action:\n");
 		if (index->exitpolicy == RMAP_GOTO)
 			vty_out(vty, "    Goto %d\n", index->nextpref);
+		else if (index->exitpolicy == RMAP_GOTO_PLIST)
+			vty_out(vty, "    Goto sequence number from prefix-list\n");
 		else if (index->exitpolicy == RMAP_NEXT)
 			vty_out(vty, "    Continue to next entry\n");
 		else if (index->exitpolicy == RMAP_EXIT)
@@ -1599,8 +1601,7 @@ enum rmap_compile_rets route_map_delete_set(struct route_map_index *index,
 
 static enum route_map_cmd_result_t
 route_map_apply_match(struct route_map_rule_list *match_list,
-		      const struct prefix *prefix, route_map_object_t type,
-		      void *object)
+		      struct route_map_state *state)
 {
 	enum route_map_cmd_result_t ret = RMAP_NOMATCH;
 	struct route_map_rule *match;
@@ -1623,8 +1624,14 @@ route_map_apply_match(struct route_map_rule_list *match_list,
 			 * MATCH/NOOP, then also end-result is a match)
 			 * If all result in NOOP, end-result is NOOP.
 			 */
-			ret = (*match->cmd->func_apply)(match->value, prefix,
-							type, object);
+			if (match->cmd->func_apply_ext)
+				ret = (*match->cmd->func_apply_ext)(
+					match->value, state);
+			else
+				ret = (*match->cmd->func_apply)(match->value,
+								state->prefix,
+								state->type,
+								state->object);
 
 			/*
 			 * If the consolidated result of func_apply is:
@@ -1731,6 +1738,11 @@ route_map_result_t route_map_apply(struct route_map *map,
 	struct route_map_index *index;
 	struct route_map_rule *set;
 	char buf[PREFIX_STRLEN];
+	struct route_map_state state = {
+		.prefix = prefix,
+		.type = type,
+		.object = object,
+	};
 
 	if (recursion > RMAP_RECURSION_LIMIT) {
 		flog_warn(
@@ -1750,8 +1762,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 	for (index = map->head; index; index = index->next) {
 		/* Apply this index. */
 		index->applied++;
-		match_ret = route_map_apply_match(&index->match_list, prefix,
-						  type, object);
+		match_ret = route_map_apply_match(&index->match_list, &state);
 
 		if (rmap_debug) {
 			zlog_debug("Route-map: %s, sequence: %d, prefix: %s, result: %s",
@@ -1832,16 +1843,22 @@ route_map_result_t route_map_apply(struct route_map *map,
 						goto route_map_apply_end;
 				}
 
+				int nextpref = index->nextpref;
+
 				switch (index->exitpolicy) {
 				case RMAP_EXIT:
 					goto route_map_apply_end;
 				case RMAP_NEXT:
 					continue;
+				case RMAP_GOTO_PLIST:
+					nextpref = state.plist_seqno;
+					if (nextpref <= index->pref)
+						goto route_map_apply_end;
+					/* fallthru */
 				case RMAP_GOTO: {
 					/* Find the next clause to jump to */
 					struct route_map_index *next =
 						index->next;
-					int nextpref = index->nextpref;
 
 					while (next && next->pref < nextpref) {
 						index = next;
@@ -3037,6 +3054,27 @@ DEFUN (rmap_onmatch_goto,
 	return CMD_SUCCESS;
 }
 
+DEFUN (rmap_onmatch_goto_plist,
+       rmap_onmatch_goto_plist_cmd,
+       "on-match goto prefix-list-seqno",
+       "Exit policy on matches\n"
+       "Goto Clause number\n"
+       "Use sequence from prefix list entry as goto target\n")
+{
+	struct route_map_index *index = VTY_GET_CONTEXT(route_map_index);
+
+	if (index->type == RMAP_DENY) {
+		/* Under a deny clause, match means it's finished. No
+		 * need to go anywhere */
+		vty_out(vty,
+			"on-match goto not supported under route-map deny\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	index->exitpolicy = RMAP_GOTO_PLIST;
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_rmap_onmatch_goto,
        no_rmap_onmatch_goto_cmd,
        "no on-match goto",
@@ -3287,6 +3325,8 @@ static int route_map_config_write(struct vty *vty)
 			if (index->exitpolicy == RMAP_GOTO)
 				vty_out(vty, " on-match goto %d\n",
 					index->nextpref);
+			if (index->exitpolicy == RMAP_GOTO_PLIST)
+				vty_out(vty, " on-match goto prefix-list-seqno\n");
 			if (index->exitpolicy == RMAP_NEXT)
 				vty_out(vty, " on-match next\n");
 
@@ -3443,6 +3483,7 @@ void route_map_init(void)
 	install_element(RMAP_NODE, &rmap_onmatch_next_cmd);
 	install_element(RMAP_NODE, &no_rmap_onmatch_next_cmd);
 	install_element(RMAP_NODE, &rmap_onmatch_goto_cmd);
+	install_element(RMAP_NODE, &rmap_onmatch_goto_plist_cmd);
 	install_element(RMAP_NODE, &no_rmap_onmatch_goto_cmd);
 	install_element(RMAP_NODE, &rmap_continue_cmd);
 	install_element(RMAP_NODE, &no_rmap_continue_cmd);
