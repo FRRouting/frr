@@ -130,8 +130,102 @@ FRR_DAEMON_INFO(vrrpd, VRRP, .vty_port = VRRP_VTY_PORT,
 		.n_yang_modules = array_size(vrrp_yang_modules),
 )
 
+#ifdef FUZZING
+
+int LLVMFuzzerTestOneInput(uint8_t *data, size_t size);
+
+static bool FuzzingInit(void)
+{
+	const char *name[] = { "vrrpd" };
+
+	frr_preinit(&vrrpd_di, 1, (char **) name);
+
+	master = frr_init();
+
+	access_list_init();
+	vrrp_debug_init();
+	vrrp_zebra_init();
+	vrrp_vty_init();
+	vrrp_init();
+
+
+	return true;
+}
+
+static struct vrrp_vrouter *FuzzingCreateVr(void)
+{
+	struct interface *ifp;
+	struct prefix p;
+
+	ifp = if_create_ifindex(69, 0);
+	ifp->mtu = 68;
+	str2prefix("11.0.2.1/24", &p);
+	connected_add_by_prefix(ifp, &p, NULL);
+
+	struct vrrp_vrouter *vr = vrrp_vrouter_create(ifp, 10, 3);
+	vr->v4->fsm.state = VRRP_STATE_MASTER;
+	vr->v6->fsm.state = VRRP_STATE_MASTER;
+
+	vrrp_debug_set(NULL, 0, CONFIG_NODE, 1, 1, 1, 1, 1, 1, 1, 1);
+
+	return vr;
+}
+
+bool FuzzingInitialized;
+struct vrrp_vrouter *FuzzingVr;
+
+int LLVMFuzzerTestOneInput(uint8_t *data, size_t size)
+{
+	if (!FuzzingInitialized) {
+		FuzzingInit();
+		FuzzingInitialized = true;
+		FuzzingVr = FuzzingCreateVr();
+	}
+
+	struct thread t;
+	struct vrrp_vrouter *vr;
+
+#ifdef FUZZING_LIBFUZZER
+	vr = FuzzingVr;
+#else
+	vr = FuzzingVr;
+#endif
+	
+	/* set input size */
+	vr->v4->fuzzing_input_size = size;
+	/* some info to fake msghdr with */
+	memcpy(vr->v4->ibuf, data, MIN(size, sizeof(vr->v4->ibuf)));
+	vr->v4->fuzzing_sa.sin_family = AF_INET;
+	inet_pton(AF_INET, "11.0.2.3", &vr->v4->fuzzing_sa.sin_addr);
+
+	t.arg = vr->v4;
+
+	vrrp_read(&t);
+
+	return 0;
+}
+
+#endif
+
+#ifndef FUZZING_LIBFUZZER
 int main(int argc, char **argv, char **envp)
 {
+#ifdef FUZZING
+	FuzzingInit();
+	FuzzingInitialized = true;
+
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+	__AFL_INIT();
+#endif /* AFL_HAVE_MANUAL_CONTROL */
+
+	uint8_t *input;
+	int r = frrfuzz_read_input(&input);
+
+	if (r < 0)
+		return 0;
+
+	return LLVMFuzzerTestOneInput(input, r);
+#endif
 	frr_preinit(&vrrpd_di, argc, argv);
 	frr_opt_add("", longopts, "");
 
@@ -170,3 +264,4 @@ int main(int argc, char **argv, char **envp)
 	/* Not reached. */
 	return 0;
 }
+#endif

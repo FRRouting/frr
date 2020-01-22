@@ -181,6 +181,9 @@ void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable)
 
 int vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
 {
+	if (!ifp)
+		return 0;
+
 	DEBUGD(&vrrp_dbg_zebra,
 	       VRRP_LOGPFX "Requesting Zebra to set %s protodown %s", ifp->name,
 	       down ? "on" : "off");
