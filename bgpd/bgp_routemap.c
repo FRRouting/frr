@@ -618,31 +618,33 @@ route_match_prefix_list_flowspec(afi_t afi, struct prefix_list *plist,
 
 static enum route_map_cmd_result_t
 route_match_address_prefix_list(void *rule, afi_t afi,
-				const struct prefix *prefix,
-				route_map_object_t type, void *object)
+				struct route_map_state *state)
 {
 	struct prefix_list *plist;
+	enum prefix_list_type plist_ret;
 
-	if (type != RMAP_BGP)
+	if (state->type != RMAP_BGP)
 		return RMAP_NOMATCH;
 
 	plist = prefix_list_lookup(afi, (char *)rule);
 	if (plist == NULL)
 		return RMAP_NOMATCH;
 
-	if (prefix->family == AF_FLOWSPEC)
+	if (state->prefix->family == AF_FLOWSPEC)
 		return route_match_prefix_list_flowspec(afi, plist,
-							prefix);
-	return (prefix_list_apply(plist, prefix) == PREFIX_DENY ? RMAP_NOMATCH
-								: RMAP_MATCH);
+							state->prefix);
+
+	plist_ret = prefix_list_apply_which_prefix(plist, NULL,
+						   &state->plist_seqno,
+						   state->prefix);
+	return plist_ret == PREFIX_DENY ? RMAP_NOMATCH : RMAP_MATCH;
 }
 
 static enum route_map_cmd_result_t
-route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
-				   route_map_object_t type, void *object)
+route_match_ip_address_prefix_list_ext(void *rule,
+				       struct route_map_state *state)
 {
-	return route_match_address_prefix_list(rule, AFI_IP, prefix, type,
-					       object);
+	return route_match_address_prefix_list(rule, AFI_IP, state);
 }
 
 static void *route_match_ip_address_prefix_list_compile(const char *arg)
@@ -658,9 +660,11 @@ static void route_match_ip_address_prefix_list_free(void *rule)
 static const struct route_map_rule_cmd
 		route_match_ip_address_prefix_list_cmd = {
 	"ip address prefix-list",
-	route_match_ip_address_prefix_list,
+	NULL,
 	route_match_ip_address_prefix_list_compile,
-	route_match_ip_address_prefix_list_free
+	route_match_ip_address_prefix_list_free,
+	NULL,
+	route_match_ip_address_prefix_list_ext,
 };
 
 /* `match ip next-hop prefix-list PREFIX_LIST' */
@@ -2833,11 +2837,10 @@ static const struct route_map_rule_cmd route_match_ipv6_next_hop_cmd = {
 /* `match ipv6 address prefix-list PREFIX_LIST' */
 
 static enum route_map_cmd_result_t
-route_match_ipv6_address_prefix_list(void *rule, const struct prefix *prefix,
-				     route_map_object_t type, void *object)
+route_match_ipv6_address_prefix_list_ext(void *rule,
+					 struct route_map_state *state)
 {
-	return route_match_address_prefix_list(rule, AFI_IP6, prefix, type,
-					       object);
+	return route_match_address_prefix_list(rule, AFI_IP6, state);
 }
 
 static void *route_match_ipv6_address_prefix_list_compile(const char *arg)
@@ -2853,9 +2856,11 @@ static void route_match_ipv6_address_prefix_list_free(void *rule)
 static const struct route_map_rule_cmd
 		route_match_ipv6_address_prefix_list_cmd = {
 	"ipv6 address prefix-list",
-	route_match_ipv6_address_prefix_list,
+	NULL,
 	route_match_ipv6_address_prefix_list_compile,
-	route_match_ipv6_address_prefix_list_free
+	route_match_ipv6_address_prefix_list_free,
+	NULL,
+	route_match_ipv6_address_prefix_list_ext,
 };
 
 /* `match ipv6 next-hop type <TYPE>' */
