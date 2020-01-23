@@ -65,6 +65,7 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_mlag.h"
+#include "zebra/connected.h"
 
 /* Encoding helpers -------------------------------------------------------- */
 
@@ -1419,6 +1420,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	int i, ret;
 	vrf_id_t vrf_id;
 	struct ipaddr vtep_ip;
+	struct interface *ifp;
 
 	s = msg;
 	if (zapi_route_decode(s, &api) < 0) {
@@ -1511,6 +1513,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				&api_nh->gate.ipv4, NULL, ifindex,
 				api_nh->vrf_id);
 
+			ifp = if_lookup_by_index(ifindex, api_nh->vrf_id);
+			if (ifp && connected_is_unnumbered(ifp))
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
 			/* Special handling for IPv4 routes sourced from EVPN:
 			 * the nexthop and associated MAC need to be installed.
 			 */

@@ -662,6 +662,12 @@ Interfaces
 .. index:: ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)
 .. clicmd:: ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)
 
+   When configuring a point-to-point network on an interface and the interface
+   has a /32 address associated with then OSPF will treat the interface
+   as being `unnumbered`.  If you are doing this you *must* set the
+   net.ipv4.conf.<interface name>.rp_filter value to 0.  In order for
+   the ospf multicast packets to be delivered by the kernel.
+
 .. index:: no ip ospf network
 .. clicmd:: no ip ospf network
 
