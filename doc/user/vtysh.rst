@@ -22,6 +22,14 @@ administrator with an external editor.
    have effect for vtysh) need to be manually updated in :file:`vtysh.conf`.
 
 
+.. index:: copy FILENAME running-config
+.. clicmd:: copy FILENAME running-config
+
+   Process and load a configuration file manually; each line in the
+   file is read and processed as if it were being typed (or piped) to
+   vtysh.
+
+
 Pager usage
 ===========
 
