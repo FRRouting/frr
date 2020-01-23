@@ -2277,6 +2277,12 @@ static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 	s = msg;
 	STREAM_GETL(s, nlabel);
 	STREAM_GETC(s, afi);
+
+	if (!(IS_VALID_AFI(afi))) {
+		zlog_warn("Invalid AFI for VRF label: %u", afi);
+		return;
+	}
+
 	if (nlabel == zvrf->label[afi]) {
 		/*
 		 * Nothing to do here move along
