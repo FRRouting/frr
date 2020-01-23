@@ -105,9 +105,9 @@ DEFUN_NOSH (show_debugging_zebra,
 	if (IS_ZEBRA_DEBUG_MLAG)
 		vty_out(vty, "  Zebra mlag debugging is on\n");
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		vty_out(vty, "Zebra detailed nexthop debugging is on\n");
+		vty_out(vty, "  Zebra detailed nexthop debugging is on\n");
 	else if (IS_ZEBRA_DEBUG_NHG)
-		vty_out(vty, "Zebra nexthop debugging is on\n");
+		vty_out(vty, "  Zebra nexthop debugging is on\n");
 
 	hook_call(zebra_debug_show_debugging, vty);
 	return CMD_SUCCESS;
@@ -554,6 +554,14 @@ static int config_write_debug(struct vty *vty)
 		write++;
 	} else if (CHECK_FLAG(zebra_debug_dplane, ZEBRA_DEBUG_DPLANE)) {
 		vty_out(vty, "debug zebra dplane\n");
+		write++;
+	}
+
+	if (CHECK_FLAG(zebra_debug_nexthop, ZEBRA_DEBUG_NHG_DETAILED)) {
+		vty_out(vty, "debug zebra nexthop detail\n");
+		write++;
+	} else if (CHECK_FLAG(zebra_debug_nexthop, ZEBRA_DEBUG_NHG)) {
+		vty_out(vty, "debug zebra nexthop\n");
 		write++;
 	}
 
