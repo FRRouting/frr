@@ -30,16 +30,16 @@ def createOutputFile(procName):
   oldFile = LOG_DIR + fileName
   cpFileCmd = "cp " + oldFile + " " + oldFile + ".prev"
   rmFileCmd = "rm -rf " + oldFile
-  print "Making backup of " + oldFile
+  print("Making backup of " + oldFile)
   os.system(cpFileCmd)
-  print "Removing " + oldFile
+  print("Removing " + oldFile)
   os.system(rmFileCmd)
   return fileName
 
 # Open the output file for this process
 def openOutputFile(fileName):
   crt_file_cmd = LOG_DIR + fileName
-  print crt_file_cmd
+  print(crt_file_cmd)
   try:
     outputFile = open(crt_file_cmd, "w")
     return outputFile
@@ -67,14 +67,14 @@ def executeCommand(cmd, outputFile):
       outputFile.write("########################################################\n")
       outputFile.write('\n')
     except:
-      print "Writing to ouptut file Failed"
+      print("Writing to ouptut file Failed")
   except subprocess.CalledProcessError as e:
     dateTime = datetime.datetime.now()
     outputFile.write(">>[" + str(dateTime) + "]" + cmd + "\n")
     outputFile.write(e.output)
     outputFile.write("########################################################\n")
     outputFile.write('\n')
-    print "Error:" + e.output
+    print("Error:" + e.output)
 
 
 # Process the support bundle configuration file
@@ -87,26 +87,26 @@ def processConfFile(lines):
     if cmd_line[0] == "PROC_NAME":
       outputFileName = createOutputFile(cmd_line[1])
       if outputFileName:
-        print outputFileName, "created for", cmd_line[1]
+        print(outputFileName, "created for", cmd_line[1])
     elif cmd_line[0] == "CMD_LIST_START":
       outputFile = openOutputFile(outputFileName)
       if outputFile:
-        print outputFileName, "opened"
+        print(outputFileName, "opened")
       else:
-        print outputFileName, "open failed"
-	return FAIL
+        print(outputFileName, "open failed")
+        return FAIL
     elif cmd_line[0] == "CMD_LIST_END":
       if closeOutputFile(outputFile):
-        print outputFileName, "closed"
+        print(outputFileName, "closed")
       else:
-        print outputFileName, "close failed"
+        print(outputFileName, "close failed")
     else:
-      print "Execute:" , cmd_line[0]
+      print("Execute:" , cmd_line[0])
       executeCommand(cmd_line[0], outputFile)
       
 # Main Function
 lines = openConfFile(inputFile)
 if not lines:
-  print "File support_bundle_commands.conf not present in /etc/frr/ directory"
+  print("File support_bundle_commands.conf not present in /etc/frr/ directory")
 else:
   processConfFile(lines)
