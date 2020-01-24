@@ -63,6 +63,13 @@
 %endif
 %endif
 
+# Check for python version - use python2.7 on CentOS 6, otherwise python3
+%if 0%{?rhel} && 0%{?rhel} < 7
+    %global use_python2 1
+%else
+    %global use_python2 0
+%endif
+
 # If init system is systemd, then always enable watchfrr
 %if "%{initsystem}" == "systemd"
     %global with_watchfrr 1
@@ -169,14 +176,17 @@ BuildRequires:  libyang-devel >= 0.16.74
 BuildRequires:  python27-devel
 BuildRequires:  python27-sphinx
 %else
-%if 0%{?rhel} && 0%{?rhel} > 7
-BuildRequires:  python2-devel
-#platform-python-devel is needed for /usr/bin/pathfix.py
-BuildRequires:  platform-python-devel
-%else
+%if %{use_python2}
 BuildRequires:  python-devel >= 2.7
 BuildRequires:  python-sphinx
+%else
+BuildRequires:  python3-devel
+BuildRequires:  python3-sphinx
 %endif
+%endif
+%if 0%{?rhel} > 7
+#platform-python-devel is needed for /usr/bin/pathfix.py
+BuildRequires:  platform-python-devel
 %endif
 Requires:       initscripts
 %if %{with_pam}
@@ -223,12 +233,17 @@ Contributed/3rd party tools which may be of use with frr.
 
 %package pythontools
 Summary: python tools for frr
-%if 0%{?rhel} && 0%{?rhel} > 7
-BuildRequires: python2
-Requires: python2-ipaddress
+%if 0%{?rhel} && 0%{?rhel} < 7
+#python27 is available from ius community repo for RedHat/CentOS 6
+BuildRequires:  python27
+Requires:  python27-ipaddress
 %else
-BuildRequires: python
-Requires: python-ipaddress
+%if %{use_python2}
+BuildRequires:  python2
+Requires:  python2-ipaddress
+%else
+BuildRequires:  python3
+%endif
 %endif
 Group: System Environment/Daemons
 
@@ -369,6 +384,16 @@ developing OSPF-API and frr applications.
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
+%if %{use_python2}
+# Change frr-reload.py to use python2.7
+sed -e '1c #!/usr/bin/python2.7' -i %{zeb_src}/tools/frr-reload.py
+sed -e '1c #!/usr/bin/python2.7' -i %{zeb_src}/tools/generate_support_bundle.py
+%else
+# Change frr-reload.py to use python3
+sed -e '1c #!/usr/bin/python3' -i %{zeb_src}/tools/frr-reload.py
+sed -e '1c #!/usr/bin/python3' -i %{zeb_src}/tools/generate_support_bundle.py
+%endif
+
 pushd doc
 make info
 popd
@@ -408,10 +433,10 @@ install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate %{buildroot}%{_sysconfdir}/logrotate.d/frr
 install -d -m750 %{buildroot}%{rundir}
 
-%if 0%{?rhel} && 0%{?rhel} > 7
+%if 0%{?rhel} > 7 || 0%{?fedora} > 29
 # avoid `ERROR: ambiguous python shebang in` errors
-pathfix.py -pni "%{__python2} %{py2_shbang_opts}" %{buildroot}/usr/lib/frr/*.py
-%py_byte_compile %{__python2} %{buildroot}/usr/lib/frr/*.py
+pathfix.py -pni "%{__python3} %{py3_shbang_opts}" %{buildroot}/usr/lib/frr/*.py
+%py_byte_compile %{__python3} %{buildroot}/usr/lib/frr/*.py
 %endif
 
 %pre
@@ -674,11 +699,16 @@ fi
 
 %files pythontools
 %{_sbindir}/generate_support_bundle.py
+%{_sbindir}/frr-reload.py
+%if 0%{?rhel} > 7 || 0%{?fedora} > 29
+%{_sbindir}/__pycache__/*
+%else
 %{_sbindir}/generate_support_bundle.pyc
 %{_sbindir}/generate_support_bundle.pyo
 %{_sbindir}/frr-reload.py
 %{_sbindir}/frr-reload.pyc
 %{_sbindir}/frr-reload.pyo
+%endif
 
 
 %files devel
