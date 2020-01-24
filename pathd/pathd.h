@@ -27,6 +27,7 @@
 
 #include "lib/mpls.h"
 #include "lib/ipaddr.h"
+#include "lib/srte.h"
 
 enum te_protocol_origin {
 	TE_ORIGIN_PCEP = 1,
@@ -116,6 +117,9 @@ struct te_sr_policy {
 
 	/* Active Candidate Path Key */
 	uint32_t best_candidate_path_key;
+
+	/* Operational Status in Zebra */
+	enum zebra_sr_policy_status status;
 
 	/* Candidate Paths */
 	struct te_candidate_path_instance_head candidate_paths;

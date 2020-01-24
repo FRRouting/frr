@@ -22,6 +22,7 @@
 #include "lib/zclient.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_mpls.h"
+#include "zebra/zapi_msg.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SR_POLICY, "SR Policy")
 
@@ -109,6 +110,8 @@ void zebra_sr_policy_install(struct zebra_sr_policy *policy)
 	}
 
 	policy->status = ZEBRA_SR_POLICY_UP;
+	zsend_sr_policy_notify_status(policy->color, policy->endpoint,
+				      policy->name, ZEBRA_SR_POLICY_UP);
 }
 
 void zebra_sr_policy_uninstall(struct zebra_sr_policy *policy)
@@ -120,6 +123,8 @@ void zebra_sr_policy_uninstall(struct zebra_sr_policy *policy)
 
 	mpls_lsp_uninstall_all_vrf(policy->zvrf, zt->type, zt->local_label);
 	policy->status = ZEBRA_SR_POLICY_DOWN;
+	zsend_sr_policy_notify_status(policy->color, policy->endpoint,
+				      policy->name, ZEBRA_SR_POLICY_DOWN);
 }
 
 static int zebra_sr_policy_process_label_update(

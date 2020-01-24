@@ -2801,7 +2801,8 @@ int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 	return zclient_send_message(zclient);
 }
 
-int zebra_send_sr_policy(struct zclient *zclient, int cmd, struct zapi_sr_policy *zp)
+int zebra_send_sr_policy(struct zclient *zclient, int cmd,
+			 struct zapi_sr_policy *zp)
 {
 	if (zapi_sr_policy_encode(zclient->obuf, cmd, zp) < 0)
 		return -1;
@@ -2863,6 +2864,22 @@ int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
 	}
 	for (int i = 0; i < zt->label_num; i++)
 		STREAM_GETL(s, zt->labels[i]);
+
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
+int zapi_sr_policy_notify_status_decode(struct stream *s,
+					struct zapi_sr_policy *zp)
+{
+	memset(zp, 0, sizeof(*zp));
+
+	STREAM_GETL(s, zp->color);
+	STREAM_GET(&zp->endpoint.s_addr, s, IPV4_MAX_BYTELEN);
+	STREAM_GET(&zp->name, s, ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+	STREAM_GETL(s, zp->status);
 
 	return 0;
 
@@ -3682,6 +3699,10 @@ static int zclient_read(struct thread *thread)
 			(*zclient->opaque_unregister_handler)(command, zclient,
 							    length, vrf_id);
 		break;
+	case ZEBRA_SR_POLICY_NOTIFY_STATUS:
+		if (zclient->sr_policy_notify_status)
+			(*zclient->sr_policy_notify_status)(command,
+						    zclient, length, vrf_id);
 	default:
 		break;
 	}

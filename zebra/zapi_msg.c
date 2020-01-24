@@ -2168,6 +2168,33 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 	zebra_sr_policy_del(policy);
 }
 
+int zsend_sr_policy_notify_status(uint32_t color, struct in_addr endpoint,
+				  char *name, int status)
+{
+	struct zserv *client;
+	struct stream *s;
+
+	client = zserv_find_client(ZEBRA_ROUTE_TE, 0);
+	if (!client) {
+		zlog_debug("Not notifying pathd about changed policy status to %d.",
+			   status);
+		return 0;
+	}
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_SR_POLICY_NOTIFY_STATUS, VRF_DEFAULT);
+	stream_putl(s, color);
+	stream_put_in_addr(s, &endpoint);
+	stream_write(s, name, ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+	stream_putl(s, status);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zserv_send_message(client, s);
+}
+
 /* Send response to a table manager connect request to client */
 static void zread_table_manager_connect(struct zserv *client,
 					struct stream *msg, vrf_id_t vrf_id)

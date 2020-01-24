@@ -147,6 +147,7 @@ typedef enum {
 	ZEBRA_MPLS_LABELS_REPLACE,
 	ZEBRA_SR_POLICY_SET,
 	ZEBRA_SR_POLICY_DELETE,
+	ZEBRA_SR_POLICY_NOTIFY_STATUS,
 	ZEBRA_IPMR_ROUTE_STATS,
 	ZEBRA_LABEL_MANAGER_CONNECT,
 	ZEBRA_LABEL_MANAGER_CONNECT_ASYNC,
@@ -349,6 +350,7 @@ struct zclient {
 	int (*opaque_msg_handler)(ZAPI_CALLBACK_ARGS);
 	int (*opaque_register_handler)(ZAPI_CALLBACK_ARGS);
 	int (*opaque_unregister_handler)(ZAPI_CALLBACK_ARGS);
+	int (*sr_policy_notify_status)(ZAPI_CALLBACK_ARGS);
 };
 
 /* Zebra API message flag. */
@@ -525,6 +527,7 @@ struct zapi_sr_policy {
     struct in_addr endpoint;
     char name[ZEBRA_SR_POLICY_NAME_MAX_LENGTH];
     struct zapi_srte_tunnel active_segment_list;
+    int status;
 };
 
 struct zapi_pw {
@@ -786,6 +789,8 @@ extern int zebra_send_sr_policy(struct zclient *zclient, int cmd,
 extern int zapi_sr_policy_encode(struct stream *s, int cmd,
 			      struct zapi_sr_policy *zp);
 extern int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp);
+extern int zapi_sr_policy_notify_status_decode(struct stream *s,
+			      struct zapi_sr_policy *zp);
 
 extern int zebra_send_mpls_labels(struct zclient *zclient, int cmd,
 				  struct zapi_labels *zl);

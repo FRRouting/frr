@@ -59,12 +59,34 @@ static void path_zebra_connected(struct zclient *zclient)
 	}
 }
 
+static int path_zebra_sr_policy_notify_status(ZAPI_CALLBACK_ARGS)
+{
+	struct zapi_sr_policy zapi_sr_policy;
+	struct te_sr_policy *te_sr_policy;
+	struct ipaddr endpoint;
+
+	if (zapi_sr_policy_notify_status_decode(zclient->ibuf, &zapi_sr_policy))
+		return -1;
+
+	endpoint.ipaddr_v4.s_addr = zapi_sr_policy.endpoint.s_addr;
+
+	te_sr_policy = te_sr_policy_get(zapi_sr_policy.color, &endpoint);
+
+	if (!te_sr_policy)
+		return -1;
+
+	te_sr_policy->status = zapi_sr_policy.status;
+
+	return 0;
+}
+
 void path_zebra_init(struct thread_master *master)
 {
 	/* Initialize asynchronous zclient. */
 	zclient = zclient_new(master, &zclient_options_default);
 	zclient_init(zclient, ZEBRA_ROUTE_TE, 0, &pathd_privs);
 	zclient->zebra_connected = path_zebra_connected;
+	zclient->sr_policy_notify_status = path_zebra_sr_policy_notify_status;
 }
 
 void path_zebra_add_sr_policy(struct te_sr_policy *sr_policy,
