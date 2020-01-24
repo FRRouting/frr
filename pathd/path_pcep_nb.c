@@ -56,6 +56,29 @@ static void path_nb_add_candidate_path(struct nb_config *config,
 				       uint32_t preference,
 				       const char *segment_list_name);
 
+path_t* path_nb_get_path(uint32_t color, struct ipaddr endpoint,
+                         uint32_t preference)
+{
+	char xpath[XPATH_MAXLEN];
+	char endpoint_str[40];
+	struct te_sr_policy *policy;
+	struct te_candidate_path *candidate;
+
+	ipaddr2str(&endpoint, endpoint_str, sizeof(endpoint_str));
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-pathd:pathd/sr-policy[color='%d'][endpoint='%s']",
+		 color, endpoint_str);
+
+	policy = nb_running_get_entry(NULL, xpath, false);
+	zlog_debug(">>>>> path_nb_get_path policy: %p", policy);
+	if (NULL == policy) return NULL;
+
+	candidate = find_candidate_path(policy, preference);
+	zlog_debug(">>>>> path_nb_get_path candidate: %p", candidate);
+	if (NULL == candidate) return NULL;
+
+	return candidate_to_path(candidate);
+}
 
 void path_nb_list_path(path_list_cb_t cb, void *arg)
 {
@@ -66,69 +89,80 @@ void path_nb_list_path(path_list_cb_t cb, void *arg)
 
 int path_nb_list_path_cb(const struct lyd_node *dnode, void *int_arg)
 {
-	char *name;
 	path_t *path;
-	path_hop_t *hop;
 	path_list_cb_t cb = ((path_nb_list_path_cb_arg_t *)int_arg)->cb;
 	void *ext_arg = ((path_nb_list_path_cb_arg_t *)int_arg)->arg;
 	struct te_sr_policy *policy;
 	struct te_candidate_path *candidate;
-	struct te_segment_list *segment_list, key;
-	enum pcep_lsp_operational_status status;
-	bool is_delegated;
 
 	policy = nb_running_get_entry(dnode, NULL, true);
 	RB_FOREACH (candidate, te_candidate_path_instance_head,
 		    &policy->candidate_paths) {
-		hop = NULL;
-		if (NULL != candidate->segment_list_name) {
-			key = (struct te_segment_list){
-				.name = candidate->segment_list_name};
-			segment_list = RB_FIND(te_segment_list_instance_head,
-					       &te_segment_list_instances, &key);
-			assert(NULL != segment_list);
-			hop = path_nb_list_path_hops(segment_list);
-		}
-		path = XCALLOC(MTYPE_PCEP, sizeof(*path));
-		name = asprintfrr(MTYPE_PCEP, "%s-%s", policy->name,
-				  candidate->name);
-		/* FIXME: operational status should come from the operational
-			  data */
-		if (candidate->is_best_candidate_path) {
-			status = PCEP_LSP_OPERATIONAL_UP;
-		} else {
-			status = PCEP_LSP_OPERATIONAL_DOWN;
-		}
-		switch (candidate->type) {
-			case TE_CANDIDATE_PATH_DYNAMIC:
-				is_delegated = true;
-				break;
-			case TE_CANDIDATE_PATH_EXPLICIT:
-			default:
-				is_delegated = false;
-				break;
-		}
-		*path = (path_t){
-			.nbkey = (lsp_nb_key_t){.color = policy->color,
-						.endpoint = policy->endpoint,
-						.preference =
-							candidate->preference},
-			.plsp_id = 0,
-			.name = name,
-			.srp_id = 0,
-			.status = status,
-			.do_remove = false,
-			.go_active = false,
-			.was_created = false,
-			.was_removed = false,
-			.is_synching = true,
-			.is_delegated = is_delegated,
-			.first = hop};
+		path = candidate_to_path(candidate);
 		if (!cb(path, ext_arg))
 			return 0;
 	}
 
 	return 1;
+}
+
+path_t* candidate_to_path(struct te_candidate_path *candidate)
+{
+	char *name;
+	path_t *path;
+	path_hop_t *hop;
+	struct te_sr_policy *policy;
+	struct te_segment_list *segment_list, key;
+	enum pcep_lsp_operational_status status;
+	bool is_delegated;
+
+	policy = candidate->sr_policy;
+	hop = NULL;
+
+	if (NULL != candidate->segment_list_name) {
+		key = (struct te_segment_list){
+			.name = candidate->segment_list_name};
+		segment_list = RB_FIND(te_segment_list_instance_head,
+				       &te_segment_list_instances, &key);
+		assert(NULL != segment_list);
+		hop = path_nb_list_path_hops(segment_list);
+	}
+	path = XCALLOC(MTYPE_PCEP, sizeof(*path));
+	name = asprintfrr(MTYPE_PCEP, "%s-%s", policy->name,
+			  candidate->name);
+	if (candidate->is_best_candidate_path) {
+		/* FIXME: status should come from the policy */
+		status = PCEP_LSP_OPERATIONAL_UP;
+	} else {
+		status = PCEP_LSP_OPERATIONAL_DOWN;
+	}
+	switch (candidate->type) {
+		case TE_CANDIDATE_PATH_DYNAMIC:
+			is_delegated = true;
+			break;
+		case TE_CANDIDATE_PATH_EXPLICIT:
+		default:
+			is_delegated = false;
+			break;
+	}
+	*path = (path_t){
+		.nbkey = (lsp_nb_key_t){.color = policy->color,
+					.endpoint = policy->endpoint,
+					.preference =
+						candidate->preference},
+		.plsp_id = 0,
+		.name = name,
+		.srp_id = 0,
+		.status = status,
+		.do_remove = false,
+		.go_active = false,
+		.was_created = candidate->protocol_origin == TE_ORIGIN_PCEP,
+		.was_removed = false,
+		.is_synching = false,
+		.is_delegated = is_delegated,
+		.first = hop};
+
+	return path;
 }
 
 path_hop_t *path_nb_list_path_hops(struct te_segment_list *segment_list)

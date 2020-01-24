@@ -133,14 +133,14 @@ RB_PROTOTYPE(te_sr_policy_instance_head, te_sr_policy, entry,
 	     te_sr_policy_instance_compare)
 
 DECLARE_HOOK(pathd_candidate_created,
-             (uint32_t color, struct ipaddr endpoint, uint32_t preference),
-             (color, endpoint, preference))
+             (struct te_candidate_path *te_candidate_path),
+             (te_candidate_path))
 DECLARE_HOOK(pathd_candidate_updated,
-             (uint32_t color, struct ipaddr endpoint, uint32_t preference),
-             (color, endpoint, preference))
+             (struct te_candidate_path *te_candidate_path),
+             (te_candidate_path))
 DECLARE_HOOK(pathd_candidate_removed,
-             (uint32_t color, struct ipaddr endpoint, uint32_t preference),
-             (color, endpoint, preference))
+             (struct te_candidate_path *te_candidate_path),
+             (te_candidate_path))
 
 extern struct te_segment_list_instance_head te_segment_list_instances;
 extern struct te_sr_policy_instance_head te_sr_policy_instances;

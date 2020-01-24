@@ -37,14 +37,14 @@ DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE_SL_NAME,
 		    "SR Policy candidate path segment-list name")
 
 DEFINE_HOOK(pathd_candidate_created,
-            (uint32_t color, struct ipaddr endpoint, uint32_t preference),
-            (color, endpoint, preference))
+            (struct te_candidate_path *te_candidate_path),
+            (te_candidate_path))
 DEFINE_HOOK(pathd_candidate_updated,
-            (uint32_t color, struct ipaddr endpoint, uint32_t preference),
-            (color, endpoint, preference))
+            (struct te_candidate_path *te_candidate_path),
+            (te_candidate_path))
 DEFINE_HOOK(pathd_candidate_removed,
-            (uint32_t color, struct ipaddr endpoint, uint32_t preference),
-            (color, endpoint, preference))
+            (struct te_candidate_path *te_candidate_path),
+            (te_candidate_path))
 
 /* Generate rb-tree of Segment List Segment instances. */
 static inline int te_segment_list_segment_instance_compare(
@@ -180,6 +180,15 @@ struct te_sr_policy *te_sr_policy_create(uint32_t color,
 
 void te_sr_policy_del(struct te_sr_policy *te_sr_policy)
 {
+	struct te_candidate_path_instance_head *cps;
+	struct te_candidate_path *cp;
+
+	cps = &te_sr_policy->candidate_paths;
+        while (!RB_EMPTY(te_candidate_path_instance_head, cps)) {
+                cp = RB_ROOT(te_candidate_path_instance_head, cps);
+                te_sr_policy_candidate_path_delete(cp);
+        }
+
 	path_zebra_delete_sr_policy(te_sr_policy);
 
 	free(te_sr_policy->name);
@@ -328,11 +337,8 @@ void te_sr_policy_candidate_path_delete(
 	struct te_candidate_path *te_candidate_path)
 {
 	struct te_sr_policy *te_sr_policy = te_candidate_path->sr_policy;
-	uint32_t color = te_sr_policy->color;
-	struct ipaddr *endpoint = &te_sr_policy->endpoint;
-	uint32_t preference = te_candidate_path->preference;
 
-	hook_call(pathd_candidate_removed, color, *endpoint, preference);
+	hook_call(pathd_candidate_removed, te_candidate_path);
 
 	RB_REMOVE(te_candidate_path_instance_head,
 		  &te_sr_policy->candidate_paths, te_candidate_path);
@@ -357,15 +363,10 @@ struct te_sr_policy *te_sr_policy_get(uint32_t color, struct ipaddr *endpoint)
 
 void pathd_candidate_updated(struct te_candidate_path *te_candidate_path)
 {
-	struct te_sr_policy *te_sr_policy = te_candidate_path->sr_policy;
-	uint32_t color = te_sr_policy->color;
-	struct ipaddr *endpoint = &te_sr_policy->endpoint;
-	uint32_t preference = te_candidate_path->preference;
-
 	if (true == te_candidate_path->created) {
 		te_candidate_path->created = false;
-		hook_call(pathd_candidate_created, color, *endpoint, preference);
+		hook_call(pathd_candidate_created, te_candidate_path);
 	} else {
-		hook_call(pathd_candidate_updated, color, *endpoint, preference);
+		hook_call(pathd_candidate_updated, te_candidate_path);
 	}
 }

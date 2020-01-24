@@ -28,6 +28,7 @@
 #include "frr_pthread.h"
 #include "jhash.h"
 
+#include "pathd/pathd.h"
 #include "pathd/path_errors.h"
 #include "pathd/path_memory.h"
 #include "pathd/path_pcep.h"
@@ -69,6 +70,12 @@ static void pcep_pcc_schedule_reconnect(ctrl_state_t *ctrl_state,
                                         pcc_state_t *pcc_state);
 static void pcep_pcc_lookup_plspid(pcc_state_t *pcc_state, path_t *path);
 static void pcep_pcc_lookup_nbkey(pcc_state_t *pcc_state, path_t * path);
+static void pcep_pcc_send_report(ctrl_state_t *ctrl_state,
+                                 pcc_state_t *pcc_state, path_t * path);
+static void pcep_pcc_handle_pathd_event(ctrl_state_t *ctrl_state,
+                                        pcc_state_t *pcc_state,
+                                        pathd_event_t type,
+                                        path_t * path);
 
 /* Controller Functions Called from Main */
 static int pcep_controller_initialize(void);
@@ -77,6 +84,7 @@ static int pcep_controller_pcc_update_options(pcc_opts_t *opts);
 static int pcep_controller_pce_update_options(int index, pce_opts_t *opts);
 static void pcep_controller_pcc_disconnect(int index);
 static void pcep_controller_pcc_report(int index, path_t *path);
+static void pcep_controller_pcc_sync_done(int index);
 static int pcep_halt_cb(struct frr_pthread *fpt, void **res);
 
 /* Controller Functions Called From Thread */
@@ -92,12 +100,23 @@ static int pcep_thread_pcc_update_options_event(struct thread *thread);
 static int pcep_thread_pce_update_options_event(struct thread *thread);
 static int pcep_thread_pcc_disconnect_event(struct thread *thread);
 static int pcep_thread_pcc_report_event(struct thread *thread);
+static int pcep_thread_pcc_sync_done_event(struct thread *thread);
 static int pcep_thread_pcc_cb_event(struct thread *thread);
+static int pcep_thread_pcc_pathd_event(struct thread *thread);
 
 /* Main Thread Functions */
 static int pcep_main_start_sync_event(struct thread *thread);
 static int pcep_main_start_sync_event_cb(path_t *path, void *arg);
 static int pcep_main_update_path_event(struct thread *thread);
+
+/* Hook Handlers called from the Main Thread */
+static int pathd_candidate_created_handler(
+                struct te_candidate_path *te_candidate_path);
+static int pathd_candidate_updated_handler(
+                struct te_candidate_path *te_candidate_path);
+static int pathd_candidate_removed_handler(
+                struct te_candidate_path *te_candidate_path);
+static void pathd_candidate_send_pathd_event(pathd_event_t type, path_t *path);
 
 /* CLI Functions */
 static int pcep_cli_debug_config_write(struct vty *vty);
@@ -286,6 +305,7 @@ void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
 				   pcc_state->pce_opts->port);
 			pcc_state->status = SYNCHRONIZING;
 			pcc_state->retry_count = 0;
+			pcc_state->synchronized = false;
 			pcep_thread_start_sync(ctrl_state, pcc_state);
 			break;
 		case PCE_CLOSED_SOCKET:
@@ -413,6 +433,46 @@ void pcep_pcc_lookup_nbkey(pcc_state_t *pcc_state, path_t * path)
 	path->nbkey = mapping->nbkey;
 }
 
+void pcep_pcc_send_report(ctrl_state_t *ctrl_state, pcc_state_t *pcc_state,
+                          path_t * path)
+{
+	double_linked_list *objs;
+	pcep_message *report;
+
+	pcep_pcc_lookup_plspid(pcc_state, path);
+	PCEP_DEBUG("Sending path: %s", format_path(path));
+	objs = pcep_lib_format_path(path);
+	report = pcep_msg_create_report(objs);
+	pcep_pcc_send(ctrl_state, pcc_state, report);
+	dll_destroy_with_data(objs);
+}
+
+void pcep_pcc_handle_pathd_event(ctrl_state_t *ctrl_state,
+                                 pcc_state_t *pcc_state,
+                                 pathd_event_t type,
+                                 path_t * path)
+{
+	if (!pcc_state->synchronized) return;
+	switch (type) {
+		case CANDIDATE_CREATED:
+			PCEP_DEBUG("Candidate path created: %s", format_path(path));
+			pcep_pcc_send_report(ctrl_state, pcc_state, path);
+			break;
+		case CANDIDATE_UPDATED:
+			PCEP_DEBUG("Candidate path updated: %s", format_path(path));
+			pcep_pcc_send_report(ctrl_state, pcc_state, path);
+			break;
+		case CANDIDATE_REMOVED:
+			PCEP_DEBUG("Candidate path removed: %s", format_path(path));
+			path->was_removed = true;
+			pcep_pcc_send_report(ctrl_state, pcc_state, path);
+			break;
+	}
+
+	pcep_lib_free_path(path);
+}
+
+
 /* ------------ Controller Functions Called from Main ------------ */
 
 int pcep_controller_initialize(void)
@@ -467,6 +527,13 @@ int pcep_controller_initialize(void)
 	thread_add_event(ctrl_state->self,
 			 pcep_thread_init_event,
 			 (void*)ctrl_state, 0, NULL);
+
+	hook_register(pathd_candidate_created,
+		      pathd_candidate_created_handler);
+	hook_register(pathd_candidate_updated,
+		      pathd_candidate_updated_handler);
+	hook_register(pathd_candidate_removed,
+		      pathd_candidate_removed_handler);
 
 	return 0;
 }
@@ -568,6 +635,21 @@ void pcep_controller_pcc_report(int pcc_id, path_t *path)
 			 (void*)event, 0, NULL);
 }
 
+void pcep_controller_pcc_sync_done(int index)
+{
+	ctrl_state_t *ctrl_state;
+
+	assert(index < MAX_PCC);
+	assert(NULL != pcep_g->fpt);
+	assert(NULL != pcep_g->fpt->data);
+	ctrl_state = (ctrl_state_t*)pcep_g->fpt->data;
+	assert(index < ctrl_state->pcc_count);
+
+	thread_add_event(ctrl_state->self,
+			 pcep_thread_pcc_sync_done_event,
+			 (void*)ctrl_state, index, NULL);
+}
+
 int pcep_halt_cb(struct frr_pthread *fpt, void **res)
 {
 	thread_add_event(fpt->master,
@@ -575,6 +657,48 @@ int pcep_halt_cb(struct frr_pthread *fpt, void **res)
 	pthread_join(fpt->thread, res);
 
 	return 0;
+}
+
+
+/* ------------ Hook Handlers Functions Called From Main Thread ------------ */
+
+int pathd_candidate_created_handler(struct te_candidate_path *te_candidate_path)
+{
+	path_t *path = candidate_to_path(te_candidate_path);
+	pathd_candidate_send_pathd_event(CANDIDATE_CREATED, path);
+	return 0;
+}
+
+int pathd_candidate_updated_handler(struct te_candidate_path *te_candidate_path)
+{
+	path_t *path = candidate_to_path(te_candidate_path);
+	pathd_candidate_send_pathd_event(CANDIDATE_UPDATED, path);
+	return 0;
+}
+
+int pathd_candidate_removed_handler(struct te_candidate_path *te_candidate_path)
+{
+	path_t *path = candidate_to_path(te_candidate_path);
+	pathd_candidate_send_pathd_event(CANDIDATE_REMOVED, path);
+	return 0;
+}
+
+void pathd_candidate_send_pathd_event(pathd_event_t type, path_t *path)
+{
+	ctrl_state_t *ctrl_state;
+	event_pathd_t *event;
+
+	assert(NULL != pcep_g->fpt);
+	assert(NULL != pcep_g->fpt->data);
+	ctrl_state = (ctrl_state_t*)pcep_g->fpt->data;
+
+	event = XCALLOC(MTYPE_PCEP, sizeof(*event));
+	event->ctrl_state = ctrl_state;
+	event->type = type;
+	event->path = path;
+	thread_add_event(ctrl_state->self,
+			 pcep_thread_pcc_pathd_event,
+			 (void*)event, 0, NULL);
 }
 
 
@@ -738,8 +862,6 @@ int pcep_thread_pcc_disconnect_event(struct thread *thread)
 
 int pcep_thread_pcc_report_event(struct thread *thread)
 {
-	pcep_message *report;
-	double_linked_list *objs;
 	event_pcc_path_t *event = THREAD_ARG(thread);
 	ctrl_state_t *ctrl_state = event->ctrl_state;
 	int pcc_id = event->pcc_id;
@@ -756,20 +878,28 @@ int pcep_thread_pcc_report_event(struct thread *thread)
 		status = OPERATING;
 	}
 
-	pcep_pcc_lookup_plspid(pcc_state, path);
-
-	PCEP_DEBUG("Sending path: %s", format_path(path));
-
-	objs = pcep_lib_format_path(path);
-	report = pcep_msg_create_report(objs);
-	pcep_pcc_send(ctrl_state, pcc_state, report);
-	dll_destroy_with_data(objs);
+	pcep_pcc_send_report(ctrl_state, pcc_state, path);
 	pcep_lib_free_path(path);
 
 	pcc_state->status = status;
 
 	return 0;
 }
+
+int pcep_thread_pcc_sync_done_event(struct thread *thread)
+{
+	ctrl_state_t *ctrl_state = THREAD_ARG(thread);
+	pcc_state_t *pcc_state;
+	int pcc_id = THREAD_VAL(thread);
+
+	if (pcc_id < ctrl_state->pcc_count) {
+		pcc_state = ctrl_state->pcc[pcc_id];
+		pcc_state->synchronized = true;
+	}
+
+	return 0;
+}
+
 
 int pcep_thread_pcc_cb_event(struct thread *thread)
 {
@@ -782,6 +912,25 @@ int pcep_thread_pcc_cb_event(struct thread *thread)
 	XFREE(MTYPE_PCEP, event);
 
 	return callback(ctrl_state, pcc_state);
+}
+
+int pcep_thread_pcc_pathd_event(struct thread *thread)
+{
+	int i;
+	event_pathd_t *event = THREAD_ARG(thread);
+	ctrl_state_t *ctrl_state = event->ctrl_state;
+	pathd_event_t type = event->type;
+	path_t *path = event->path;
+
+	XFREE(MTYPE_PCEP, event);
+
+	for (i = 0; i < ctrl_state->pcc_count; i++) {
+		pcc_state_t *pcc_state = ctrl_state->pcc[i];
+		if (!pcc_state->synchronized) continue;
+		pcep_pcc_handle_pathd_event(ctrl_state, pcc_state, type, path);
+	}
+
+	return 0;
 }
 
 
@@ -810,6 +959,7 @@ int pcep_main_start_sync_event(struct thread *thread)
 		.first = NULL
 	};
 	pcep_controller_pcc_report(pcc_id, path);
+	pcep_controller_pcc_sync_done(pcc_id);
 
 	return 0;
 }
@@ -817,6 +967,7 @@ int pcep_main_start_sync_event(struct thread *thread)
 int pcep_main_start_sync_event_cb(path_t *path, void *arg)
 {
 	int *pcc_id = (int*)arg;
+	path->is_synching = true;
 	pcep_controller_pcc_report(*pcc_id, path);
 	return 1;
 }
