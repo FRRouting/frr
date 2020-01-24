@@ -112,6 +112,22 @@ const void *pathd_te_sr_policy_lookup_entry(
 }
 
 /*
+ * XPath: /frr-pathd:pathd/sr-policy/is-operational
+ */
+struct yang_data *
+pathd_te_sr_policy_is_operational_get_elem(struct nb_cb_get_elem_args *args)
+{
+	bool is_operational = false;
+	struct te_sr_policy *te_sr_policy =
+		(struct te_sr_policy *)args->list_entry;
+
+	if (te_sr_policy->status == ZEBRA_SR_POLICY_UP)
+		is_operational = true;
+
+	return yang_data_new_bool(args->xpath, is_operational);
+}
+
+/*
  * XPath: /frr-pathd:pathd/sr-policy/candidate-path
  */
 const void *

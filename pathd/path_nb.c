@@ -81,6 +81,12 @@ const struct frr_yang_module_info frr_pathd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-pathd:pathd/sr-policy/is-operational",
+			.cbs = {
+				.get_elem = pathd_te_sr_policy_is_operational_get_elem
+			}
+		},
+		{
 			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path",
 			.cbs = {
 				.create = pathd_te_sr_policy_candidate_path_create,

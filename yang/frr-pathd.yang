@@ -73,6 +73,12 @@ module frr-pathd {
         description
           "BSID of the SR Policy.";
       }
+      leaf is-operational {
+        type boolean;
+        config false;
+        description
+          "True if a valid candidate path of this policy is operational in zebra, False otherwise";
+      }
       list candidate-path {
         must "../binding-sid";
         unique "name";
