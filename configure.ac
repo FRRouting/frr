@@ -139,6 +139,13 @@ AC_ARG_WITH([yangmodelsdir], [AS_HELP_STRING([--with-yangmodelsdir=DIR], [yang m
 ])
 AC_SUBST([yangmodelsdir])
 
+AC_ARG_WITH([vici-socket], [AS_HELP_STRING([--with-vici-socket=PATH], [vici-socket (/var/run/charon.vici)])], [
+	vici_socket="$withval"
+], [
+	vici_socket="/var/run/charon.vici"
+])
+AC_DEFINE_UNQUOTED([VICI_SOCKET], ["$vici_socket"], [StrongSWAN vici socket path])
+
 AC_ARG_ENABLE(tcmalloc,
 	AS_HELP_STRING([--enable-tcmalloc], [Turn on tcmalloc]),
 [case "${enableval}" in
@@ -2512,6 +2519,7 @@ group for vty sockets   : ${enable_vty_group}
 config file mask        : ${enable_configfile_mask}
 log file mask           : ${enable_logfile_mask}
 zebra protobuf enabled  : ${enable_protobuf:-no}
+vici socket path        : ${vici_socket}
 
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."
