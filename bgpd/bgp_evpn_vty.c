@@ -2579,18 +2579,29 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 			add_rd_to_json = 1;
 		}
 
-		if (json && add_prefix_to_json) {
-			json_object_object_add(json_prefix, "paths",
-					       json_paths);
-			json_object_object_add(json_rd, prefix_str,
-					       json_prefix);
+		if (json) {
+			if (add_prefix_to_json) {
+				json_object_object_add(json_prefix, "paths",
+						       json_paths);
+				json_object_object_add(json_rd, prefix_str,
+						       json_prefix);
+			} else {
+				json_object_free(json_paths);
+				json_object_free(json_prefix);
+				json_paths = NULL;
+				json_prefix = NULL;
+			}
 		}
 	}
 
-	if (json && add_rd_to_json)
-		json_object_object_add(json, rd_str, json_rd);
-
 	if (json) {
+		if (add_rd_to_json)
+			json_object_object_add(json, rd_str, json_rd);
+		else {
+			json_object_free(json_rd);
+			json_rd = NULL;
+		}
+
 		json_object_int_add(json, "numPrefix", prefix_cnt);
 		json_object_int_add(json, "numPaths", path_cnt);
 	} else {
@@ -2732,16 +2743,31 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 							      json_path);
 			}
 
-			if (json && add_prefix_to_json) {
-				json_object_object_add(json_prefix, "paths",
-						       json_paths);
-				json_object_object_add(json_rd, prefix_str,
-						       json_prefix);
+			if (json) {
+				if (add_prefix_to_json) {
+					json_object_object_add(json_prefix,
+							       "paths",
+							       json_paths);
+					json_object_object_add(json_rd,
+							       prefix_str,
+							       json_prefix);
+				} else {
+					json_object_free(json_prefix);
+					json_object_free(json_paths);
+					json_prefix = NULL;
+					json_paths = NULL;
+				}
 			}
 		}
 
-		if (json && add_rd_to_json)
-			json_object_object_add(json, rd_str, json_rd);
+		if (json) {
+			if (add_rd_to_json)
+				json_object_object_add(json, rd_str, json_rd);
+			else {
+				json_object_free(json_rd);
+				json_rd = NULL;
+			}
+		}
 	}
 
 	if (json) {
