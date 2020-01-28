@@ -1806,16 +1806,33 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	return curr_active;
 }
 
-/* Convert a nhe into a group array */
-uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
-			  int max_num)
+/* Recursively construct a grp array of fully resolved IDs.
+ *
+ * This function allows us to account for groups within groups,
+ * by converting them into a flat array of IDs.
+ *
+ * nh_grp is modified at every level of recursion to append
+ * to it the next unique, fully resolved ID from the entire tree.
+ *
+ *
+ * Note:
+ * I'm pretty sure we only allow ONE level of group within group currently.
+ * But making this recursive just in case that ever changes.
+ */
+static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp,
+					  uint8_t curr_index,
+					  struct nhg_hash_entry *nhe,
+					  int max_num)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nhg_hash_entry *depend = NULL;
-	uint8_t i = 0;
+	uint8_t i = curr_index;
 
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 		bool duplicate = false;
+
+		if (i >= max_num)
+			goto done;
 
 		depend = rb_node_dep->nhe;
 
@@ -1833,25 +1850,34 @@ uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
 			}
 		}
 
-		/* Check for duplicate IDs, kernel doesn't like that */
-		for (int j = 0; j < i; j++) {
-			if (depend->id == grp[j].id)
-				duplicate = true;
-		}
+		if (!zebra_nhg_depends_is_empty(depend)) {
+			/* This is a group within a group */
+			i = zebra_nhg_nhe2grp_internal(grp, i, depend, max_num);
+		} else {
+			/* Check for duplicate IDs, kernel doesn't like that */
+			for (int j = 0; j < i; j++) {
+				if (depend->id == grp[j].id)
+					duplicate = true;
+			}
 
-		if (!duplicate) {
-			grp[i].id = depend->id;
-			/* We aren't using weights for anything right now */
-			grp[i].weight = depend->nhg->nexthop->weight;
-			i++;
+			if (!duplicate) {
+				grp[i].id = depend->id;
+				grp[i].weight = depend->nhg->nexthop->weight;
+				i++;
+			}
 		}
-
-		if (i >= max_num)
-			goto done;
 	}
 
 done:
 	return i;
+}
+
+/* Convert a nhe into a group array */
+uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
+			  int max_num)
+{
+	/* Call into the recursive function */
+	return zebra_nhg_nhe2grp_internal(grp, 0, nhe, max_num);
 }
 
 void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
