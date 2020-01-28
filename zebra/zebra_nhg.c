@@ -1896,17 +1896,24 @@ static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp,
 				continue;
 			}
 
-			/* Check for duplicate IDs, kernel doesn't like that */
+			/* Check for duplicate IDs, ignore if found. */
 			for (int j = 0; j < i; j++) {
 				if (depend->id == grp[j].id)
 					duplicate = true;
 			}
 
-			if (!duplicate) {
-				grp[i].id = depend->id;
-				grp[i].weight = depend->nhg.nexthop->weight;
-				i++;
+			if (duplicate) {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED
+				    || IS_ZEBRA_DEBUG_NHG)
+					zlog_debug(
+						"%s: Nexthop ID (%u) is duplicate, not appending to dataplane install group",
+						__func__, depend->id);
+				continue;
 			}
+
+			grp[i].id = depend->id;
+			grp[i].weight = depend->nhg.nexthop->weight;
+			i++;
 		}
 	}
 
