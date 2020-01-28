@@ -451,8 +451,7 @@ extern uint8_t ip_masklen(struct in_addr);
 extern void masklen2ip(const int, struct in_addr *);
 /* given the address of a host on a network and the network mask length,
  * calculate the broadcast address for that network;
- * special treatment for /31: returns the address of the other host
- * on the network by flipping the host bit */
+ * special treatment for /31 according to RFC3021 section 3.3 */
 extern in_addr_t ipv4_broadcast_addr(in_addr_t hostaddr, int masklen);
 
 extern int netmask_str2prefix_str(const char *, const char *, char *);

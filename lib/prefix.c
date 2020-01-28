@@ -1113,11 +1113,11 @@ in_addr_t ipv4_broadcast_addr(in_addr_t hostaddr, int masklen)
 
 	masklen2ip(masklen, &mask);
 	return (masklen != IPV4_MAX_PREFIXLEN - 1) ?
-						   /* normal case */
-		       (hostaddr | ~mask.s_addr)
-						   :
-						   /* special case for /31 */
-		       (hostaddr ^ ~mask.s_addr);
+		/* normal case */
+		(hostaddr | ~mask.s_addr)
+		   :
+		/* For prefix 31 return 255.255.255.255 (RFC3021) */
+		htonl(0xFFFFFFFF);
 }
 
 /* Utility function to convert ipv4 netmask to prefixes
