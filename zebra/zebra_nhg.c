@@ -49,6 +49,9 @@ DEFINE_MTYPE_STATIC(ZEBRA, NHG_CTX, "Nexthop Group Context");
 /* id counter to keep in sync with kernel */
 uint32_t id_counter;
 
+/*  */
+static bool g_nexthops_enabled = true;
+
 static struct nhg_hash_entry *depends_find(const struct nexthop *nh,
 					   afi_t afi);
 static void depends_add(struct nhg_connected_tree_head *head,
@@ -1984,4 +1987,19 @@ static void zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 void zebra_nhg_sweep_table(struct hash *hash)
 {
 	hash_iterate(hash, zebra_nhg_sweep_entry, NULL);
+}
+
+/* Global control to disable use of kernel nexthops, if available. We can't
+ * force the kernel to support nexthop ids, of course, but we can disable
+ * zebra's use of them, for testing e.g. By default, if the kernel supports
+ * nexthop ids, zebra uses them.
+ */
+void zebra_nhg_enable_kernel_nexthops(bool set)
+{
+	g_nexthops_enabled = set;
+}
+
+bool zebra_nhg_kernel_nexthops_enabled(void)
+{
+	return g_nexthops_enabled;
 }

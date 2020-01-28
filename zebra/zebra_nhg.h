@@ -153,6 +153,13 @@ struct nhg_ctx {
 	enum nhg_ctx_status status;
 };
 
+/* Global control to disable use of kernel nexthops, if available. We can't
+ * force the kernel to support nexthop ids, of course, but we can disable
+ * zebra's use of them, for testing e.g. By default, if the kernel supports
+ * nexthop ids, zebra uses them.
+ */
+void zebra_nhg_enable_kernel_nexthops(bool set);
+bool zebra_nhg_kernel_nexthops_enabled(void);
 
 /**
  * NHE abstracted tree functions.
@@ -227,4 +234,5 @@ extern void zebra_nhg_sweep_table(struct hash *hash);
 /* Nexthop resolution processing */
 struct route_entry; /* Forward ref to avoid circular includes */
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
-#endif
+
+#endif	/* __ZEBRA_NHG_H__ */
