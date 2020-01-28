@@ -694,6 +694,181 @@ from eBGP peers, :ref:`bgp-route-selection`.
    MED as an intra-AS metric to steer equal-length AS_PATH routes to, e.g.,
    desired exit points.
 
+
+.. _bgp-graceful-restart:
+
+Graceful Restart
+----------------
+
+BGP graceful restart functionality as defined in
+`RFC-4724 <https://tools.ietf.org/html/rfc4724/>`_ defines the mechanisms that
+allows BGP speaker to continue to forward data packets along known routes
+while the routing protocol information is being restored.
+
+
+Usually, when BGP on a router restarts, all the BGP peers detect that the
+session went down and then came up. This "down/up" transition results in a
+"routing flap" and causes BGP route re-computation, generation of BGP routing
+updates, and unnecessary churn to the forwarding tables.
+
+The following functionality is provided by graceful restart:
+
+1. The feature allows the restarting router to indicate to the helping peer the
+   routes it can preserve in its forwarding plane during control plane restart
+   by sending graceful restart capability in the OPEN message sent during
+   session establishment.
+2. The feature allows helping router to advertise to all other peers the routes
+   received from the restarting router which are preserved in the forwarding
+   plane of the restarting router during control plane restart.
+
+
+::
+
+
+
+ (R1)-----------------------------------------------------------------(R2)
+
+ 1. BGP Graceful Restart Capability exchanged between R1 & R2.
+
+ <--------------------------------------------------------------------->
+
+ 2. Kill BGP Process at R1.
+
+ ---------------------------------------------------------------------->
+
+ 3. R2 Detects the above BGP Restart & verifies BGP Restarting
+   Capability of R1.
+
+ 4. Start BGP Process at R1.
+
+ 5. Re-establish the BGP session between R1 & R2.
+
+ <--------------------------------------------------------------------->
+
+ 6. R2 Send initial route updates, followed by End-Of-Rib.
+
+ <----------------------------------------------------------------------
+
+ 7. R1 was waiting for End-Of-Rib from R2 & which has been received
+   now.
+
+ 8. R1 now runs BGP Best-Path algorithm. Send Initial BGP  Update,
+   followed by End-Of Rib
+
+ <--------------------------------------------------------------------->
+
+
+.. _bgp-end-of-rib-message:
+
+End-of-RIB (EOR) message
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+An UPDATE message with no reachable Network Layer Reachability  Information
+(NLRI) and empty withdrawn NLRI is specified as the End-of-RIB marker that can
+be used by a BGP speaker to indicate to its peer the completion of the initial
+routing update after the session is established.
+
+For the IPv4 unicast address family, the End-of-RIB marker is an UPDATE message
+with the minimum length. For any other address family, it is an UPDATE message
+that contains only the MP_UNREACH_NLRI attribute with no withdrawn routes for
+that <AFI, SAFI>.
+
+Although the End-of-RIB marker is specified for the purpose of BGP graceful
+restart, it is noted that the generation of such a marker upon completion of
+the initial update would be useful for routing convergence in general, and thus
+the practice is recommended.
+
+.. _bgp-route-selection-deferral-timer:
+
+Route Selection Deferral Timer
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Specifies the time the restarting router defers the route selection process
+after restart.
+
+Restarting Router : The usage of route election deferral timer is specified
+in https://tools.ietf.org/html/rfc4724#section-4.1
+
+Once the session between the Restarting Speaker and the Receiving Speaker is
+re-established, the Restarting Speaker will receive and process BGP messages
+from its peers.
+
+However, it MUST defer route selection for an address family until it either.
+
+1. Receives the End-of-RIB marker from all its peers (excluding the ones with
+   the "Restart State" bit set in the received capability and excluding the ones
+   that do not advertise the graceful restart capability).
+2. The Selection_Deferral_Timer timeout.
+
+.. index:: bgp graceful-restart select-defer-time (0-3600)
+.. clicmd:: bgp graceful-restart select-defer-time (0-3600)
+
+   This is command, will set deferral time to value specified.
+
+
+.. index:: bgp graceful-restart rib-stale-time (1-3600)
+.. clicmd:: bgp graceful-restart rib-stale-time (1-3600)
+
+   This is command, will set the time for which stale routes are kept in RIB.
+
+.. _bgp-per-peer-graceful-restart:
+
+BGP Per Peer Graceful Restart
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Ability to enable and disable graceful restart, helper and no GR at all mode
+functionality at peer level.
+
+So bgp graceful restart can be enabled at modes  global BGP level or at per
+peer level. There are two FSM, one for BGP GR global mode and other for peer
+per GR.
+
+Default global mode is helper and default peer per mode is inherit from global.
+If per peer mode is configured, the GR mode of this particular peer will
+override the global mode.
+
+.. _bgp-GR-global-mode-cmd:
+
+BGP GR Global Mode Commands
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. index:: bgp graceful-restart
+.. clicmd:: bgp graceful-restart
+
+   This command will enable BGP graceful restart ifunctionality at the global
+   level.
+
+.. index:: bgp graceful-restart disable
+.. clicmd:: bgp graceful-restart disable
+
+   This command will disable both the functionality graceful restart and helper
+   mode.
+
+
+.. _bgp-GR-peer-mode-cmd:
+
+BGP GR Peer Mode Commands
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. index:: neighbor A.B.C.D graceful-restart
+.. clicmd:: neighbor A.B.C.D graceful-restart
+
+   This command will enable BGP graceful restart ifunctionality at the peer
+   level.
+
+.. index:: neighbor A.B.C.D graceful-restart-helper
+.. clicmd:: neighbor A.B.C.D graceful-restart-helper
+
+   This command will enable BGP graceful restart helper only functionality
+   at the peer level.
+
+.. index:: neighbor A.B.C.D graceful-restart-disable
+.. clicmd:: neighbor A.B.C.D graceful-restart-disable
+
+   This command will disable the entire BGP graceful restart functionality
+   at the peer level.
+
+
 .. _bgp-network:
 
 Networks

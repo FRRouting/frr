@@ -73,6 +73,14 @@ typedef uint16_t zebra_size_t;
 #define ZEBRA_FEC_REGISTER_LABEL          0x1
 #define ZEBRA_FEC_REGISTER_LABEL_INDEX    0x2
 
+/* Client Graceful Restart */
+#define ZEBRA_CLIENT_GR_CAPABILITIES       0x1
+#define ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE 0x2
+#define ZEBRA_CLIENT_ROUTE_UPDATE_PENDING  0x3
+#define ZEBRA_CLIENT_GR_DISABLE            0x4
+#define ZEBRA_CLIENT_RIB_STALE_TIME        0x5
+#define ZEBRA_CLIENT_GR_ENABLED(X) (X & ZEBRA_CLIENT_GR_CAPABILITIES)
+
 extern struct sockaddr_storage zclient_addr;
 extern socklen_t zclient_addr_len;
 
@@ -184,6 +192,7 @@ typedef enum {
 	ZEBRA_MLAG_CLIENT_UNREGISTER,
 	ZEBRA_MLAG_FORWARD_MSG,
 	ZEBRA_ERROR,
+	ZEBRA_CLIENT_CAPABILITIES
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -220,6 +229,15 @@ struct zclient_capabilities {
 	uint32_t ecmp;
 	bool mpls_enabled;
 	enum mlag_role role;
+};
+
+/* Graceful Restart Capabilities message */
+struct zapi_cap {
+	uint32_t  cap;
+	uint32_t  stale_removal_time;
+	afi_t     afi;
+	safi_t    safi;
+	vrf_id_t  vrf_id;
 };
 
 /* Structure for the zebra client. */
@@ -776,4 +794,7 @@ extern void zclient_send_mlag_deregister(struct zclient *client);
 extern void zclient_send_mlag_data(struct zclient *client,
 				   struct stream *client_s);
 
+extern int zclient_capabilities_send(uint32_t cmd, struct zclient *zclient,
+		struct zapi_cap *api);
+extern int zapi_capabilities_decode(struct stream *s, struct zapi_cap *api);
 #endif /* _ZEBRA_ZCLIENT_H */

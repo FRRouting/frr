@@ -2437,6 +2437,7 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	/* TODO - What if we have peers and networks configured, do we have to
 	 * kick-start them?
 	 */
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 }
 
 static int bgp_zebra_process_local_es(ZAPI_CALLBACK_ARGS)
@@ -3015,4 +3016,158 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 				   zclient, &api);
 		return;
 	}
+}
+
+/* Send capabilities to RIB */
+int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
+{
+	struct zapi_cap api;
+	int ret = BGP_GR_SUCCESS;
+
+	if (zclient == NULL) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("zclient invalid");
+		return BGP_GR_FAILURE;
+	}
+
+	/* Check if the client is connected */
+	if ((zclient->sock < 0) || (zclient->t_connect)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("client not connected");
+		return BGP_GR_FAILURE;
+	}
+
+	/* Check if capability is already sent. If the flag force is set
+	 * send the capability since this can be initial bgp configuration
+	 */
+	memset(&api, 0, sizeof(struct zapi_cap));
+	if (disable) {
+		api.cap = ZEBRA_CLIENT_GR_DISABLE;
+		api.vrf_id = bgp->vrf_id;
+	} else {
+		api.cap = ZEBRA_CLIENT_GR_CAPABILITIES;
+		api.stale_removal_time = bgp->rib_stale_time;
+		api.vrf_id = bgp->vrf_id;
+	}
+
+	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES,
+				      zclient, &api) < 0) {
+		zlog_err("error sending capability");
+		ret = BGP_GR_FAILURE;
+	} else {
+		if (disable)
+			bgp->present_zebra_gr_state = ZEBRA_GR_DISABLE;
+		else
+			bgp->present_zebra_gr_state = ZEBRA_GR_ENABLE;
+
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("send capabilty success");
+		ret = BGP_GR_SUCCESS;
+	}
+	return ret;
+}
+
+/* Send route update pesding or completed status to RIB for the
+ * specific AFI, SAFI
+ */
+int bgp_zebra_update(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type)
+{
+	struct zapi_cap api = {0};
+
+	if (zclient == NULL) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("zclient == NULL, invalid");
+		return BGP_GR_FAILURE;
+	}
+
+	/* Check if the client is connected */
+	if ((zclient->sock < 0) || (zclient->t_connect)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("client not connected");
+		return BGP_GR_FAILURE;
+	}
+
+	api.afi = afi;
+	api.safi = safi;
+	api.vrf_id = vrf_id;
+	api.cap = type;
+
+	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES,
+				      zclient, &api) < 0) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("error sending capability");
+		return BGP_GR_FAILURE;
+	}
+	return BGP_GR_SUCCESS;
+}
+
+
+int zclient_capabilities_send(uint32_t cmd, struct zclient *zclient,
+		struct zapi_cap *api)
+{
+	struct stream *s;
+
+	if (zclient == NULL)
+		return -1;
+
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, cmd, 0);
+	stream_putl(s, api->cap);
+	switch (api->cap) {
+	case ZEBRA_CLIENT_GR_CAPABILITIES:
+	case ZEBRA_CLIENT_RIB_STALE_TIME:
+			stream_putl(s, api->stale_removal_time);
+			stream_putl(s, api->vrf_id);
+			break;
+	case ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE:
+	case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
+			stream_putl(s, api->afi);
+			stream_putl(s, api->safi);
+			stream_putl(s, api->vrf_id);
+			break;
+	case ZEBRA_CLIENT_GR_DISABLE:
+			stream_putl(s, api->vrf_id);
+			break;
+	default:
+			break;
+	}
+
+	/* Put length at the first point of the stream */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
+/* Send RIB stale timer update */
+int bgp_zebra_stale_timer_update(struct bgp *bgp)
+{
+	struct zapi_cap api;
+
+	if (zclient == NULL) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("zclient invalid");
+		return BGP_GR_FAILURE;
+	}
+
+	/* Check if the client is connected */
+	if ((zclient->sock < 0) || (zclient->t_connect)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("client not connected");
+		return BGP_GR_FAILURE;
+	}
+
+	memset(&api, 0, sizeof(struct zapi_cap));
+	api.cap = ZEBRA_CLIENT_RIB_STALE_TIME;
+	api.stale_removal_time = bgp->rib_stale_time;
+	api.vrf_id = bgp->vrf_id;
+	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES,
+				zclient, &api) < 0) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("error sending capability");
+		return BGP_GR_FAILURE;
+	}
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("send capabilty success");
+	return BGP_GR_SUCCESS;
 }

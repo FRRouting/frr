@@ -80,11 +80,11 @@ extern int bgp_zebra_num_connects(void);
 
 extern bool bgp_zebra_nexthop_set(union sockunion *, union sockunion *,
 				  struct bgp_nexthop *, struct peer *);
-
 struct bgp_pbr_action;
 struct bgp_pbr_match;
 struct bgp_pbr_rule;
 struct bgp_pbr_match_entry;
+
 extern void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra,
 				     struct bgp_pbr_rule *pbr,
 				     bool install);
@@ -98,5 +98,8 @@ extern void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 
 extern void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 				afi_t afi, uint32_t table_id, bool announce);
-
+extern int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable);
+extern int bgp_zebra_update(afi_t afi, safi_t safi, vrf_id_t vrf_id,
+			    int type);
+extern int bgp_zebra_stale_timer_update(struct bgp *bgp);
 #endif /* _QUAGGA_BGP_ZEBRA_H */
