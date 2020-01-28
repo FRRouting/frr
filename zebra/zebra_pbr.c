@@ -483,8 +483,10 @@ static void zebra_pbr_cleanup_ipset(struct hash_bucket *b, void *data)
 	int *sock = data;
 
 	if (ipset->sock == *sock) {
-		hook_call(zebra_pbr_ipset_update, 0, ipset);
-		hash_release(zrouter.ipset_hash, ipset);
+		if (hash_release(zrouter.ipset_hash, ipset))
+			zebra_pbr_ipset_free(ipset);
+		else
+			hook_call(zebra_pbr_ipset_update, 0, ipset);
 	}
 }
 
@@ -494,8 +496,10 @@ static void zebra_pbr_cleanup_ipset_entry(struct hash_bucket *b, void *data)
 	int *sock = data;
 
 	if (ipset->sock == *sock) {
-		hook_call(zebra_pbr_ipset_entry_update, 0, ipset);
-		hash_release(zrouter.ipset_entry_hash, ipset);
+		if (hash_release(zrouter.ipset_entry_hash, ipset))
+			zebra_pbr_ipset_entry_free(ipset);
+		else
+			hook_call(zebra_pbr_ipset_entry_update, 0, ipset);
 	}
 }
 
@@ -505,8 +509,10 @@ static void zebra_pbr_cleanup_iptable(struct hash_bucket *b, void *data)
 	int *sock = data;
 
 	if (iptable->sock == *sock) {
-		hook_call(zebra_pbr_iptable_update, 0, iptable);
-		hash_release(zrouter.iptable_hash, iptable);
+		if (hash_release(zrouter.iptable_hash, iptable))
+			zebra_pbr_iptable_free(iptable);
+		else
+			hook_call(zebra_pbr_iptable_update, 0, iptable);
 	}
 }
 
