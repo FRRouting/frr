@@ -1882,6 +1882,20 @@ static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp,
 			/* This is a group within a group */
 			i = zebra_nhg_nhe2grp_internal(grp, i, depend, max_num);
 		} else {
+			/* If the nexthop not installed/queued for install don't
+			 * put in the ID array.
+			 */
+			if (!(CHECK_FLAG(depend->flags, NEXTHOP_GROUP_INSTALLED)
+			      || CHECK_FLAG(depend->flags,
+					    NEXTHOP_GROUP_QUEUED))) {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED
+				    || IS_ZEBRA_DEBUG_NHG)
+					zlog_debug(
+						"%s: Nexthop ID (%u) not installed or queued for install, not appending to dataplane install group",
+						__func__, depend->id);
+				continue;
+			}
+
 			/* Check for duplicate IDs, kernel doesn't like that */
 			for (int j = 0; j < i; j++) {
 				if (depend->id == grp[j].id)
