@@ -1668,6 +1668,45 @@ static const struct route_map_rule_cmd route_match_tag_cmd = {
 	route_map_rule_tag_free,
 };
 
+static enum route_map_cmd_result_t
+route_set_srte_color(void *rule, const struct prefix *prefix,
+		     route_map_object_t type, void *object)
+{
+	uint32_t *srte_color = rule;
+	struct bgp_path_info *path;
+
+	if (type != RMAP_BGP)
+		return RMAP_OKAY;
+
+	path = object;
+
+	path->attr->srte_color = *srte_color;
+	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR);
+
+	return RMAP_OKAY;
+}
+
+/* Route map `sr-te color' compile function */
+static void *route_set_srte_color_compile(const char *arg)
+{
+	uint32_t *color;
+
+	color = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
+	*color = atoi(arg);
+
+	return color;
+}
+
+/* Free route map's compiled `sr-te color' value. */
+static void route_set_srte_color_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for sr-te color set. */
+struct route_map_rule_cmd route_set_srte_color_cmd = {
+	"sr-te color", route_set_srte_color, route_set_srte_color_compile,
+	route_set_srte_color_free};
 
 /* Set nexthop to object.  ojbect must be pointer to struct attr. */
 struct rmap_ip_nexthop_set {
@@ -5686,6 +5725,9 @@ void bgp_route_map_init(void)
 	route_map_match_tag_hook(generic_match_add);
 	route_map_no_match_tag_hook(generic_match_delete);
 
+	route_map_set_srte_color_hook(generic_set_add);
+	route_map_no_set_srte_color_hook(generic_set_delete);
+
 	route_map_set_ip_nexthop_hook(generic_set_add);
 	route_map_no_set_ip_nexthop_hook(generic_set_delete);
 
@@ -5728,6 +5770,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_vrl_source_vrf_cmd);
 
 	route_map_install_set(&route_set_table_id_cmd);
+	route_map_install_set(&route_set_srte_color_cmd);
 	route_map_install_set(&route_set_ip_nexthop_cmd);
 	route_map_install_set(&route_set_local_pref_cmd);
 	route_map_install_set(&route_set_weight_cmd);

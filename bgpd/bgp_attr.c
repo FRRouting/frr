@@ -729,7 +729,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex
 		    && attr1->distance == attr2->distance
 		    && srv6_l3vpn_same(attr1->srv6_l3vpn, attr2->srv6_l3vpn)
-		    && srv6_vpn_same(attr1->srv6_vpn, attr2->srv6_vpn))
+		    && srv6_vpn_same(attr1->srv6_vpn, attr2->srv6_vpn)
+		    && attr1->srte_color == attr2->srte_color)
 			return true;
 	}
 
