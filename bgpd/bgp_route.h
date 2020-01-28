@@ -259,6 +259,10 @@ struct bgp_path_info {
 	/* Addpath identifiers */
 	uint32_t addpath_rx_id;
 	struct bgp_addpath_info_data tx_addpath;
+
+	/* SR-TE information */
+	char *srte_policy;
+	uint32_t srte_color;
 };
 
 /* Structure used in BGP path selection */

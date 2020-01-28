@@ -1668,13 +1668,33 @@ static enum route_map_cmd_result_t
 route_set_srte_policy(void *rule, const struct prefix *prefix,
 		      route_map_object_t type, void *object)
 {
+	char *srte_policy = rule;
+	struct bgp_path_info *path;
+	struct peer *peer;
+
+	if (type != RMAP_BGP)
+		return RMAP_OKAY;
+
+	path = object;
+	peer = path->peer;
+
+	path->srte_policy = srte_policy;
+	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_POLICY);
+
+	if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN))
+	    && peer->su_remote
+	    && sockunion_family(peer->su_remote) == AF_INET) {
+		path->attr->nexthop.s_addr = sockunion2ip(peer->su_remote);
+		path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+	}
+
 	return RMAP_OKAY;
 }
 
 /* Route map `sr-te policy' compile function */
 static void *route_set_srte_policy_compile(const char *arg)
 {
-	return XMALLOC(MTYPE_ROUTE_MAP_COMPILED, 8);
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
 /* Free route map's compiled `sr-te policy' value. */
@@ -1692,13 +1712,38 @@ static enum route_map_cmd_result_t
 route_set_srte_color(void *rule, const struct prefix *prefix,
 		     route_map_object_t type, void *object)
 {
+	uint32_t *srte_color = rule;
+	struct bgp_path_info *path;
+	struct peer *peer;
+
+	if (type != RMAP_BGP)
+		return RMAP_OKAY;
+
+	path = object;
+	peer = path->peer;
+
+	path->srte_color = *srte_color;
+	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR);
+
+	if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN))
+	    && peer->su_remote
+	    && sockunion_family(peer->su_remote) == AF_INET) {
+		path->attr->nexthop.s_addr = sockunion2ip(peer->su_remote);
+		path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+	}
+
 	return RMAP_OKAY;
 }
 
 /* Route map `sr-te color' compile function */
 static void *route_set_srte_color_compile(const char *arg)
 {
-	return XMALLOC(MTYPE_ROUTE_MAP_COMPILED, 8);
+	uint32_t *color;
+
+	color = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
+	*color = atoi(arg);
+
+	return color;
 }
 
 /* Free route map's compiled `sr-te color' value. */
