@@ -687,14 +687,22 @@ static void show_esi_routes(struct bgp *bgp,
 			add_prefix_to_json = 1;
 		}
 
-		if (json && add_prefix_to_json) {
-			json_object_string_add(json_prefix, "prefix",
-					       prefix_str);
-			json_object_int_add(json_prefix, "prefixLen",
-					    rn->p.prefixlen);
-			json_object_object_add(json_prefix, "paths",
-					       json_paths);
-			json_object_object_add(json, prefix_str, json_prefix);
+		if (json) {
+			if (add_prefix_to_json) {
+				json_object_string_add(json_prefix, "prefix",
+						       prefix_str);
+				json_object_int_add(json_prefix, "prefixLen",
+						    rn->p.prefixlen);
+				json_object_object_add(json_prefix, "paths",
+						       json_paths);
+				json_object_object_add(json, prefix_str,
+						       json_prefix);
+			} else {
+				json_object_free(json_paths);
+				json_object_free(json_prefix);
+				json_paths = NULL;
+				json_prefix = NULL;
+			}
 		}
 	}
 
@@ -786,14 +794,22 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 			add_prefix_to_json = 1;
 		}
 
-		if (json && add_prefix_to_json) {
-			json_object_string_add(json_prefix, "prefix",
-					       prefix_str);
-			json_object_int_add(json_prefix, "prefixLen",
-					    rn->p.prefixlen);
-			json_object_object_add(json_prefix, "paths",
-					       json_paths);
-			json_object_object_add(json, prefix_str, json_prefix);
+		if (json) {
+			if (add_prefix_to_json) {
+				json_object_string_add(json_prefix, "prefix",
+						       prefix_str);
+				json_object_int_add(json_prefix, "prefixLen",
+						    rn->p.prefixlen);
+				json_object_object_add(json_prefix, "paths",
+						       json_paths);
+				json_object_object_add(json, prefix_str,
+						       json_prefix);
+			} else {
+				json_object_free(json_paths);
+				json_object_free(json_prefix);
+				json_paths = NULL;
+				json_prefix = NULL;
+			}
 		}
 	}
 
