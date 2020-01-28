@@ -22,6 +22,11 @@ Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
 
       yum install systemd-devel
 
+   For CentOS 7 and CentOS 8, the package will be built using python3
+   and requires additional python3 packages::
+
+       yum install python3-devel python3-sphinx
+
    .. note::
 
      For CentOS 8 you need to install ``platform-python-devel`` package
@@ -29,13 +34,6 @@ Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
 
        yum install platform-python-devel
 
-   .. warning::
-
-     ``python2-sphinx`` is not shipped for CentOS 8.
-     Development reached the end of life for Python 2.
-     We need to install it using ```pip``::
-
-        pip2 install sphinx
 
    If ``yum`` is not present on your system, use ``dnf`` instead.
 
