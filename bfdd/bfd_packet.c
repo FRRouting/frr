@@ -116,7 +116,7 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 		return -1;
 	}
 	if (rv < (ssize_t)datalen)
-		log_debug("packet-send: send partial", strerror(errno));
+		log_debug("packet-send: send partial: %s", strerror(errno));
 
 	return 0;
 }
@@ -799,7 +799,7 @@ int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
 		log_debug("udp-send: loopback failure: (%d) %s", errno, strerror(errno));
 		return -1;
 	} else if (wlen < (ssize_t)datalen) {
-		log_debug("udp-send: partial send: %ld expected %ld", wlen,
+		log_debug("udp-send: partial send: %zd expected %zu", wlen,
 			  datalen);
 		return -1;
 	}

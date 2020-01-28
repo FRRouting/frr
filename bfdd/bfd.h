@@ -427,27 +427,20 @@ void pl_free(struct peer_label *pl);
 
 
 /*
- * log.c
- *
- * Contains code that does the logging procedures. Might implement multiple
- * backends (e.g. zebra log, syslog or other logging lib).
+ * logging - alias to zebra log
  */
-enum blog_level {
-	/* level vs syslog equivalent */
-	BLOG_DEBUG = 0,   /* LOG_DEBUG */
-	BLOG_INFO = 1,    /* LOG_INFO */
-	BLOG_WARNING = 2, /* LOG_WARNING */
-	BLOG_ERROR = 3,   /* LOG_ERR */
-	BLOG_FATAL = 4,   /* LOG_CRIT */
-};
 
-void log_init(int foreground, enum blog_level level,
-	      struct frr_daemon_info *fdi);
-void log_info(const char *fmt, ...);
-void log_debug(const char *fmt, ...);
-void log_warning(const char *fmt, ...);
-void log_error(const char *fmt, ...);
-void log_fatal(const char *fmt, ...);
+#define log_debug	zlog_debug
+#define log_info	zlog_info
+#define log_warning	zlog_warn
+#define log_error	zlog_err
+
+#define log_fatal(msg, ...)                                                    \
+	do {                                                                   \
+		zlog_err(msg, ## __VA_ARGS__);                                 \
+		assert(!msg);                                                  \
+		abort();                                                       \
+	} while (0)
 
 
 /*

@@ -471,7 +471,7 @@ static int control_read(struct thread *t)
 	bcb->bcb_buf = XMALLOC(MTYPE_BFDD_NOTIFICATION,
 			       sizeof(bcm) + bcb->bcb_left + 1);
 	if (bcb->bcb_buf == NULL) {
-		log_warning("%s: not enough memory for message size: %u",
+		log_warning("%s: not enough memory for message size: %zu",
 			    __func__, bcb->bcb_left);
 		control_free(bcs);
 		return 0;

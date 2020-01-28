@@ -216,14 +216,11 @@ int main(int argc, char *argv[])
 	parse_config(conf);
 #endif
 
-	/* Initialize logging API. */
-	log_init(1, BLOG_DEBUG, &bfdd_di);
+	/* Initialize FRR infrastructure. */
+	master = frr_init();
 
 	/* Initialize control socket. */
 	control_init(ctl_path);
-
-	/* Initialize FRR infrastructure. */
-	master = frr_init();
 
 	/* Initialize BFD data structures. */
 	bfd_initialize();

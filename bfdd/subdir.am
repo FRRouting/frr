@@ -22,7 +22,6 @@ bfdd_libbfd_a_SOURCES = \
 	bfdd/config.c \
 	bfdd/control.c \
 	bfdd/event.c \
-	bfdd/log.c \
 	bfdd/ptm_adapter.c \
 	# end
 

@@ -215,7 +215,8 @@ static int parse_peer_config(struct json_object *jo, struct bfd_peer_cfg *bpc)
 			if (strlcpy(bpc->bpc_localif, sval,
 				    sizeof(bpc->bpc_localif))
 			    > sizeof(bpc->bpc_localif)) {
-				log_debug("\tlocal-interface: %s (truncated)");
+				log_debug("\tlocal-interface: %s (truncated)",
+					  sval);
 				error++;
 			} else {
 				log_debug("\tlocal-interface: %s", sval);
@@ -235,7 +236,7 @@ static int parse_peer_config(struct json_object *jo, struct bfd_peer_cfg *bpc)
 			bpc->bpc_detectmultiplier =
 				json_object_get_int64(jo_val);
 			bpc->bpc_has_detectmultiplier = true;
-			log_debug("\tdetect-multiplier: %llu",
+			log_debug("\tdetect-multiplier: %u",
 				  bpc->bpc_detectmultiplier);
 		} else if (strcmp(key, "receive-interval") == 0) {
 			bpc->bpc_recvinterval = json_object_get_int64(jo_val);
