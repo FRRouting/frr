@@ -424,6 +424,22 @@ extern void route_map_match_tag_hook(int (*func)(
 extern void route_map_no_match_tag_hook(int (*func)(
 	struct vty *vty, struct route_map_index *index, const char *command,
 	const char *arg, route_map_event_t type));
+/* set sr-te policy */
+extern void route_map_set_srte_policy_hook(
+	int (*func)(struct vty *vty, struct route_map_index *index,
+		    const char *command, const char *arg));
+/* no set sr-te policy */
+extern void route_map_no_set_srte_policy_hook(
+	int (*func)(struct vty *vty, struct route_map_index *index,
+		    const char *command, const char *arg));
+/* set sr-te color */
+extern void route_map_set_srte_color_hook(
+	int (*func)(struct vty *vty, struct route_map_index *index,
+		    const char *command, const char *arg));
+/* no set sr-te color */
+extern void route_map_no_set_srte_color_hook(
+	int (*func)(struct vty *vty, struct route_map_index *index,
+		    const char *command, const char *arg));
 /* set ip nexthop */
 extern void route_map_set_ip_nexthop_hook(
 	int (*func)(struct vty *vty, struct route_map_index *index,
@@ -605,6 +621,22 @@ struct route_map_match_set_hooks {
 	int (*no_match_tag)(struct vty *vty, struct route_map_index *index,
 			    const char *command, const char *arg,
 			    route_map_event_t type);
+
+	/* set sr-te policy */
+	int (*set_srte_policy)(struct vty *vty, struct route_map_index *index,
+			       const char *command, const char *arg);
+
+	/* no set sr-te policy */
+	int (*no_set_srte_policy)(struct vty *vty, struct route_map_index *index,
+				  const char *command, const char *arg);
+
+	/* set sr-te color */
+	int (*set_srte_color)(struct vty *vty, struct route_map_index *index,
+			       const char *command, const char *arg);
+
+	/* no set sr-te color */
+	int (*no_set_srte_color)(struct vty *vty, struct route_map_index *index,
+				  const char *command, const char *arg);
 
 	/* set ip nexthop */
 	int (*set_ip_nexthop)(struct vty *vty, struct route_map_index *index,

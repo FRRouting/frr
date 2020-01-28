@@ -1664,6 +1664,54 @@ static const struct route_map_rule_cmd route_match_tag_cmd = {
 	route_map_rule_tag_free,
 };
 
+static enum route_map_cmd_result_t
+route_set_srte_policy(void *rule, const struct prefix *prefix,
+		      route_map_object_t type, void *object)
+{
+	return RMAP_OKAY;
+}
+
+/* Route map `sr-te policy' compile function */
+static void *route_set_srte_policy_compile(const char *arg)
+{
+	return XMALLOC(MTYPE_ROUTE_MAP_COMPILED, 8);
+}
+
+/* Free route map's compiled `sr-te policy' value. */
+static void route_set_srte_policy_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for sr-te policy set. */
+struct route_map_rule_cmd route_set_srte_policy_cmd = {
+	"sr-te policy", route_set_srte_policy, route_set_srte_policy_compile,
+	route_set_srte_policy_free};
+
+static enum route_map_cmd_result_t
+route_set_srte_color(void *rule, const struct prefix *prefix,
+		     route_map_object_t type, void *object)
+{
+	return RMAP_OKAY;
+}
+
+/* Route map `sr-te color' compile function */
+static void *route_set_srte_color_compile(const char *arg)
+{
+	return XMALLOC(MTYPE_ROUTE_MAP_COMPILED, 8);
+}
+
+/* Free route map's compiled `sr-te color' value. */
+static void route_set_srte_color_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for sr-te color set. */
+struct route_map_rule_cmd route_set_srte_color_cmd = {
+	"sr-te color", route_set_srte_color, route_set_srte_color_compile,
+	route_set_srte_color_free};
+
 
 /* Set nexthop to object.  ojbect must be pointer to struct attr. */
 struct rmap_ip_nexthop_set {
@@ -5682,6 +5730,12 @@ void bgp_route_map_init(void)
 	route_map_match_tag_hook(generic_match_add);
 	route_map_no_match_tag_hook(generic_match_delete);
 
+	route_map_set_srte_policy_hook(generic_set_add);
+	route_map_no_set_srte_policy_hook(generic_set_delete);
+
+	route_map_set_srte_color_hook(generic_set_add);
+	route_map_no_set_srte_color_hook(generic_set_delete);
+
 	route_map_set_ip_nexthop_hook(generic_set_add);
 	route_map_no_set_ip_nexthop_hook(generic_set_delete);
 
@@ -5724,6 +5778,8 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_vrl_source_vrf_cmd);
 
 	route_map_install_set(&route_set_table_id_cmd);
+	route_map_install_set(&route_set_srte_policy_cmd);
+	route_map_install_set(&route_set_srte_color_cmd);
 	route_map_install_set(&route_set_ip_nexthop_cmd);
 	route_map_install_set(&route_set_local_pref_cmd);
 	route_map_install_set(&route_set_weight_cmd);

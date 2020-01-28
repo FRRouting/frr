@@ -271,6 +271,42 @@ void route_map_no_match_tag_hook(int (*func)(
 	rmap_match_set_hook.no_match_tag = func;
 }
 
+/* set sr-te policy */
+void route_map_set_srte_policy_hook(int (*func)(struct vty *vty,
+					       struct route_map_index *index,
+					       const char *command,
+					       const char *arg))
+{
+	rmap_match_set_hook.set_srte_policy = func;
+}
+
+/* no set sr-te policy */
+void route_map_no_set_srte_policy_hook(int (*func)(struct vty *vty,
+						  struct route_map_index *index,
+						  const char *command,
+						  const char *arg))
+{
+	rmap_match_set_hook.no_set_srte_policy = func;
+}
+
+/* set sr-te color */
+void route_map_set_srte_color_hook(int (*func)(struct vty *vty,
+					       struct route_map_index *index,
+					       const char *command,
+					       const char *arg))
+{
+	rmap_match_set_hook.set_srte_color = func;
+}
+
+/* no set sr-te color */
+void route_map_no_set_srte_color_hook(int (*func)(struct vty *vty,
+						  struct route_map_index *index,
+						  const char *command,
+						  const char *arg))
+{
+	rmap_match_set_hook.no_set_srte_color = func;
+}
+
 /* set ip nexthop */
 void route_map_set_ip_nexthop_hook(int (*func)(struct vty *vty,
 					       struct route_map_index *index,
@@ -2647,6 +2683,88 @@ static unsigned int route_map_dep_data_hash_make_key(const void *p)
 	return string_hash_make(dep_data->rname);
 }
 
+DEFUN (set_srte_color,
+       set_srte_color_cmd,
+       "set sr-te color [(1-4294967295)]",
+       SET_STR
+       SRTE_STR
+       SRTE_COLOR_STR
+       "Color of the SR-TE Policies to match with\n")
+{
+	VTY_DECLVAR_CONTEXT(route_map_index, index);
+	int idx = 0;
+	char *arg = argv_find(argv, argc, "(1-4294967295)", &idx)
+			    ? argv[idx]->arg
+			    : NULL;
+
+	if (rmap_match_set_hook.set_srte_color)
+		return rmap_match_set_hook.set_srte_color(
+			vty, index, "sr-te color", arg);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_set_srte_color,
+       no_set_srte_color_cmd,
+       "no set sr-te color [(1-4294967295)]",
+       NO_STR
+       SET_STR
+       SRTE_STR
+       SRTE_COLOR_STR
+       "Color of the SR-TE Policies to match with\n")
+{
+	VTY_DECLVAR_CONTEXT(route_map_index, index);
+	int idx = 0;
+	char *arg = argv_find(argv, argc, "(1-4294967295)", &idx)
+			    ? argv[idx]->arg
+			    : NULL;
+
+	if (rmap_match_set_hook.no_set_srte_color)
+		return rmap_match_set_hook.no_set_srte_color(
+			vty, index, "sr-te color", arg);
+	return CMD_SUCCESS;
+}
+
+DEFUN (set_srte_policy,
+       set_srte_policy_cmd,
+       "set sr-te policy WORD",
+       SET_STR
+       SRTE_STR
+       SRTE_POLICY_STR
+       "Name of the SR-TE Policy\n")
+{
+	VTY_DECLVAR_CONTEXT(route_map_index, index);
+	int idx = 0;
+	char *arg = argv_find(argv, argc, "WORD", &idx)
+			    ? argv[idx]->arg
+			    : NULL;
+
+	if (rmap_match_set_hook.set_srte_policy)
+		return rmap_match_set_hook.set_srte_policy(
+			vty, index, "sr-te policy", arg);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_set_srte_policy,
+       no_set_srte_policy_cmd,
+       "no set sr-te policy WORD",
+       NO_STR
+       SET_STR
+       SRTE_STR
+       SRTE_POLICY_STR
+       "Name of the SR-TE Policy\n")
+{
+	VTY_DECLVAR_CONTEXT(route_map_index, index);
+	int idx = 0;
+	char *arg = argv_find(argv, argc, "WORD", &idx)
+			    ? argv[idx]->arg
+			    : NULL;
+
+	if (rmap_match_set_hook.no_set_srte_policy)
+		return rmap_match_set_hook.no_set_srte_policy(
+			vty, index, "sr-te policy", arg);
+	return CMD_SUCCESS;
+}
+
 static void *route_map_dep_hash_alloc(void *p)
 {
 	char *dep_name = (char *)p;
@@ -3270,6 +3388,12 @@ void route_map_init(void)
 
 	install_element(RMAP_NODE, &routemap_optimization_cmd);
 	install_element(RMAP_NODE, &no_routemap_optimization_cmd);
+
+	install_element(RMAP_NODE, &set_srte_policy_cmd);
+	install_element(RMAP_NODE, &no_set_srte_policy_cmd);
+
+	install_element(RMAP_NODE, &set_srte_color_cmd);
+	install_element(RMAP_NODE, &no_set_srte_color_cmd);
 
 	install_element(ENABLE_NODE, &show_route_map_pfx_tbl_cmd);
 }
