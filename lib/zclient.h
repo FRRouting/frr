@@ -73,13 +73,17 @@ typedef uint16_t zebra_size_t;
 #define ZEBRA_FEC_REGISTER_LABEL          0x1
 #define ZEBRA_FEC_REGISTER_LABEL_INDEX    0x2
 
-/* Client Graceful Restart */
-#define ZEBRA_CLIENT_GR_CAPABILITIES       0x1
-#define ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE 0x2
-#define ZEBRA_CLIENT_ROUTE_UPDATE_PENDING  0x3
-#define ZEBRA_CLIENT_GR_DISABLE            0x4
-#define ZEBRA_CLIENT_RIB_STALE_TIME        0x5
-#define ZEBRA_CLIENT_GR_ENABLED(X) (X & ZEBRA_CLIENT_GR_CAPABILITIES)
+/* Client capabilities */
+enum zserv_client_capabilities {
+	ZEBRA_CLIENT_GR_CAPABILITIES = 1,
+	ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE = 2,
+	ZEBRA_CLIENT_ROUTE_UPDATE_PENDING = 3,
+	ZEBRA_CLIENT_GR_DISABLE = 4,
+	ZEBRA_CLIENT_RIB_STALE_TIME
+};
+
+/* Macro to check if there GR enabled. */
+#define ZEBRA_CLIENT_GR_ENABLED(X) (X == ZEBRA_CLIENT_GR_CAPABILITIES)
 
 extern struct sockaddr_storage zclient_addr;
 extern socklen_t zclient_addr_len;
@@ -196,7 +200,7 @@ typedef enum {
 } zebra_message_types_t;
 
 enum zebra_error_types {
-	ZEBRA_UNKNOWN_ERROR,	/* Error of unknown type */
+	ZEBRA_UNKNOWN_ERROR,    /* Error of unknown type */
 	ZEBRA_NO_VRF,		/* Vrf in header was not found */
 	ZEBRA_INVALID_MSG_TYPE, /* No handler found for msg type */
 };
@@ -233,11 +237,11 @@ struct zclient_capabilities {
 
 /* Graceful Restart Capabilities message */
 struct zapi_cap {
-	uint32_t  cap;
-	uint32_t  stale_removal_time;
-	afi_t     afi;
-	safi_t    safi;
-	vrf_id_t  vrf_id;
+	enum zserv_client_capabilities cap;
+	uint32_t stale_removal_time;
+	afi_t afi;
+	safi_t safi;
+	vrf_id_t vrf_id;
 };
 
 /* Structure for the zebra client. */
@@ -777,6 +781,11 @@ extern bool zapi_nexthop_update_decode(struct stream *s,
 /* Decode the zebra error message */
 extern bool zapi_error_decode(struct stream *s, enum zebra_error_types *error);
 
+/* Encode and decode restart capabilities */
+extern int32_t zclient_capabilities_send(uint32_t cmd, struct zclient *zclient,
+					 struct zapi_cap *api);
+extern int32_t zapi_capabilities_decode(struct stream *s, struct zapi_cap *api);
+
 static inline void zapi_route_set_blackhole(struct zapi_route *api,
 					    enum blackhole_type bh_type)
 {
@@ -794,7 +803,4 @@ extern void zclient_send_mlag_deregister(struct zclient *client);
 extern void zclient_send_mlag_data(struct zclient *client,
 				   struct stream *client_s);
 
-extern int zclient_capabilities_send(uint32_t cmd, struct zclient *zclient,
-		struct zapi_cap *api);
-extern int zapi_capabilities_decode(struct stream *s, struct zapi_cap *api);
 #endif /* _ZEBRA_ZCLIENT_H */

@@ -3300,31 +3300,71 @@ void zclient_interface_set_master(struct zclient *client,
 	zclient_send_message(client);
 }
 
-/* Process capabilities message from zebra */
-int zapi_capabilities_decode(struct stream *s, struct zapi_cap *api)
+/*
+ * Send capabilities message to zebra
+ */
+int32_t zclient_capabilities_send(uint32_t cmd, struct zclient *zclient,
+				  struct zapi_cap *api)
 {
+
+	struct stream *s;
+
+	if (zclient == NULL)
+		return -1;
+
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, cmd, 0);
+	stream_putl(s, api->cap);
+
+	switch (api->cap) {
+	case ZEBRA_CLIENT_GR_CAPABILITIES:
+	case ZEBRA_CLIENT_RIB_STALE_TIME:
+		stream_putl(s, api->stale_removal_time);
+		stream_putl(s, api->vrf_id);
+		break;
+	case ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE:
+	case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
+		stream_putl(s, api->afi);
+		stream_putl(s, api->safi);
+		stream_putl(s, api->vrf_id);
+		break;
+	case ZEBRA_CLIENT_GR_DISABLE:
+		stream_putl(s, api->vrf_id);
+		break;
+	}
+
+	/* Put length at the first point of the stream */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
+/*
+ * Process capabilities message from zebra
+ */
+int32_t zapi_capabilities_decode(struct stream *s, struct zapi_cap *api)
+{
+
 	memset(api, 0, sizeof(*api));
 
 	STREAM_GETL(s, api->cap);
 	switch (api->cap) {
 	case ZEBRA_CLIENT_GR_CAPABILITIES:
 	case ZEBRA_CLIENT_RIB_STALE_TIME:
-			STREAM_GETL(s, api->stale_removal_time);
-			STREAM_GETL(s, api->vrf_id);
-			break;
+		STREAM_GETL(s, api->stale_removal_time);
+		STREAM_GETL(s, api->vrf_id);
+		break;
 	case ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE:
 	case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
-			STREAM_GETL(s, api->afi);
-			STREAM_GETL(s, api->safi);
-			STREAM_GETL(s, api->vrf_id);
-			break;
+		STREAM_GETL(s, api->afi);
+		STREAM_GETL(s, api->safi);
+		STREAM_GETL(s, api->vrf_id);
+		break;
 	case ZEBRA_CLIENT_GR_DISABLE:
-			STREAM_GETL(s, api->vrf_id);
-			break;
-	default:
-			break;
+		STREAM_GETL(s, api->vrf_id);
+		break;
 	}
-
 stream_failure:
 	return 0;
 }
