@@ -75,7 +75,6 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_mlag.c \
 	zebra/zebra_mlag_vty.c \
 	zebra/zebra_l2.c \
-	zebra/zebra_northbound.c \
 	zebra/zebra_memory.c \
 	zebra/zebra_dplane.c \
 	zebra/zebra_mpls.c \
@@ -102,6 +101,10 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_netns_notify.c \
 	zebra/table_manager.c \
 	zebra/zapi_msg.c \
+	zebra/zebra_nb.c \
+	zebra/zebra_nb_config.c \
+	zebra/zebra_nb_rpcs.c \
+	zebra/zebra_nb_state.c \
 	zebra/zebra_errors.c \
 	zebra/zebra_gr.c \
 	# end
@@ -169,6 +172,7 @@ noinst_HEADERS += \
 	zebra/zebra_netns_notify.h \
 	zebra/table_manager.h \
 	zebra/zapi_msg.h \
+	zebra/zebra_nb.h \
 	zebra/zebra_errors.h \
 	# end
 
