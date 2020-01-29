@@ -54,6 +54,7 @@
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_routemap.h"
+#include "zebra/zebra_nb.h"
 
 #if defined(HANDLE_NETLINK_FUZZING)
 #include "zebra/kernel_netlink.h"
