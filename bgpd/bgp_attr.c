@@ -1177,7 +1177,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 		return BGP_ATTR_PARSE_PROCEED;
 
 	/* Core attributes, particularly ones which may influence route
-	 * selection, should always cause session resets
+	 * selection, should be treat-as-withdraw.
 	 */
 	case BGP_ATTR_ORIGIN:
 	case BGP_ATTR_AS_PATH:
@@ -1185,11 +1185,13 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_MULTI_EXIT_DISC:
 	case BGP_ATTR_LOCAL_PREF:
 	case BGP_ATTR_COMMUNITIES:
+	case BGP_ATTR_EXT_COMMUNITIES:
+	case BGP_ATTR_LARGE_COMMUNITIES:
 	case BGP_ATTR_ORIGINATOR_ID:
 	case BGP_ATTR_CLUSTER_LIST:
+		return BGP_ATTR_PARSE_WITHDRAW;
 	case BGP_ATTR_MP_REACH_NLRI:
 	case BGP_ATTR_MP_UNREACH_NLRI:
-	case BGP_ATTR_EXT_COMMUNITIES:
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_UPDATE_ERR, subcode,
 					  notify_datap, length);
 		return BGP_ATTR_PARSE_ERROR;
@@ -1422,9 +1424,7 @@ static bgp_attr_parse_ret_t bgp_attr_aspath_check(struct peer *const peer,
 		&& aspath_confed_check(attr->aspath))) {
 		flog_err(EC_BGP_ATTR_MAL_AS_PATH, "Malformed AS path from %s",
 			 peer->host);
-		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
-				BGP_NOTIFY_UPDATE_MAL_AS_PATH);
-		return BGP_ATTR_PARSE_ERROR;
+		return BGP_ATTR_PARSE_WITHDRAW;
 	}
 
 	/* First AS check for EBGP. */
@@ -1434,9 +1434,7 @@ static bgp_attr_parse_ret_t bgp_attr_aspath_check(struct peer *const peer,
 			flog_err(EC_BGP_ATTR_FIRST_AS,
 				 "%s incorrect first AS (must be %u)",
 				 peer->host, peer->as);
-			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
-					BGP_NOTIFY_UPDATE_MAL_AS_PATH);
-			return BGP_ATTR_PARSE_ERROR;
+			return BGP_ATTR_PARSE_WITHDRAW;
 		}
 	}
 
@@ -1563,8 +1561,12 @@ bgp_attr_local_pref(struct bgp_attr_parser_args *args)
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
-	/* Length check. */
-	if (length != 4) {
+	/* if received from an internal neighbor, it SHALL be considered
+	 * malformed if its length is not equal to 4. If malformed, the
+	 * UPDATE message SHALL be handled using the approach of "treat-as-
+	 * withdraw".
+	 */
+	if (peer->sort == BGP_PEER_IBGP && length != 4) {
 		flog_err(EC_BGP_ATTR_LEN,
 			 "LOCAL_PREF attribute length isn't 4 [%u]", length);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -1618,7 +1620,8 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 	int wantedlen = 6;
 
 	/* peer with AS4 will send 4 Byte AS, peer without will send 2 Byte */
-	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV))
+	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV)
+	    && CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV))
 		wantedlen = 8;
 
 	if (length != wantedlen) {
@@ -1793,6 +1796,9 @@ bgp_attr_community(struct bgp_attr_parser_args *args)
 	/* XXX: fix community_parse to use stream API and remove this */
 	stream_forward_getp(peer->curr, length);
 
+	/* The Community attribute SHALL be considered malformed if its
+	 * length is not a non-zero multiple of 4.
+	 */
 	if (!attr->community)
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
@@ -1810,7 +1816,11 @@ bgp_attr_originator_id(struct bgp_attr_parser_args *args)
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
-	/* Length check. */
+	/* if received from an internal neighbor, it SHALL be considered
+	 * malformed if its length is not equal to 4. If malformed, the
+	 * UPDATE message SHALL be handled using the approach of "treat-as-
+	 * withdraw".
+	 */
 	if (length != 4) {
 		flog_err(EC_BGP_ATTR_LEN, "Bad originator ID length %d",
 			 length);
@@ -1834,7 +1844,11 @@ bgp_attr_cluster_list(struct bgp_attr_parser_args *args)
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
-	/* Check length. */
+	/* if received from an internal neighbor, it SHALL be considered
+	 * malformed if its length is not a non-zero multiple of 4.  If
+	 * malformed, the UPDATE message SHALL be handled using the approach
+	 * of "treat-as-withdraw".
+	 */
 	if (length % 4) {
 		flog_err(EC_BGP_ATTR_LEN, "Bad cluster list length %d", length);
 
@@ -2151,6 +2165,9 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	/* XXX: fix ecommunity_parse to use stream API */
 	stream_forward_getp(peer->curr, length);
 
+	/* The Extended Community attribute SHALL be considered malformed if
+	 * its length is not a non-zero multiple of 8.
+	 */
 	if (!attr->ecommunity)
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
@@ -2755,14 +2772,14 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr)
 	    && !CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
 		type = BGP_ATTR_LOCAL_PREF;
 
+	/* If any of the well-known mandatory attributes are not present
+	 * in an UPDATE message, then "treat-as-withdraw" MUST be used.
+	 */
 	if (type) {
 		flog_warn(EC_BGP_MISSING_ATTRIBUTE,
 			  "%s Missing well-known attribute %s.", peer->host,
 			  lookup_msg(attr_str, type, NULL));
-		bgp_notify_send_with_data(peer, BGP_NOTIFY_UPDATE_ERR,
-					  BGP_NOTIFY_UPDATE_MISS_ATTR, &type,
-					  1);
-		return BGP_ATTR_PARSE_ERROR;
+		return BGP_ATTR_PARSE_WITHDRAW;
 	}
 	return BGP_ATTR_PARSE_PROCEED;
 }
