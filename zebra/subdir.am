@@ -193,7 +193,6 @@ endif
 endif
 
 nodist_zebra_zebra_SOURCES = \
-	yang/frr-nexthop.yang.c \
 	yang/frr-zebra.yang.c \
 	# end
 
