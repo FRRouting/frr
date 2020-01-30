@@ -36,6 +36,14 @@ enum te_protocol_origin {
 	TE_ORIGIN_CONFIG = 3,
 };
 
+enum te_policy_status {
+    TE_POLICY_UNKNOWN = 0,
+    TE_POLICY_DOWN = 1,
+    TE_POLICY_UP = 2,
+    TE_POLICY_GOING_DOWN = 3,
+    TE_POLICY_GOING_UP = 4
+};
+
 enum te_candidate_path_type {
 	TE_CANDIDATE_PATH_EXPLICIT = 0,
 	TE_CANDIDATE_PATH_DYNAMIC = 1,
@@ -122,8 +130,8 @@ struct te_sr_policy {
 	/* Active Candidate Path Key */
 	uint32_t best_candidate_path_key;
 
-	/* Operational Status in Zebra */
-	enum zebra_sr_policy_status status;
+	/* Operational Status of the policy */
+	enum te_policy_status status;
 
 	/* Candidate Paths */
 	struct te_candidate_path_instance_head candidate_paths;
@@ -172,7 +180,8 @@ void te_sr_policy_name_set(struct te_sr_policy *te_sr_policy, const char *name);
 void te_sr_policy_name_unset(struct te_sr_policy *te_sr_policy);
 void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 				  mpls_label_t binding_sid);
-void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy);
+void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy,
+        struct te_candidate_path *changed_candidate_path);
 struct te_candidate_path *
 te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 				uint32_t preference);

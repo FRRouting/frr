@@ -17,6 +17,16 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+/* TODOS:
+	- Delete mapping from NB keys to PLSPID when an LSP is deleted either
+	  by the PCE or by NB.
+	- Revert the hacks to work around ODL not understanding a report message
+	  with the correct SRP ID number IS an acknowledgement even if the LSP
+	  operational status is different from the one received from the
+	  update message.
+	- Enforce only the PCE a policy has been delegated to can update it.
+*/
+
 #include <zebra.h>
 
 #include "log.h"
@@ -67,15 +77,20 @@ static void pcep_pcc_lsp_initiate(ctrl_state_t *ctrl_state,
 static void pcep_pcc_send(ctrl_state_t *ctrl_state,
 			  pcc_state_t * pcc_state, pcep_message *msg);
 static void pcep_pcc_schedule_reconnect(ctrl_state_t *ctrl_state,
-                                        pcc_state_t *pcc_state);
+					pcc_state_t *pcc_state);
 static void pcep_pcc_lookup_plspid(pcc_state_t *pcc_state, path_t *path);
 static void pcep_pcc_lookup_nbkey(pcc_state_t *pcc_state, path_t * path);
+/* FIXME: Enable this back when ODL is not complaining about update
+	acknowledgement when the report message status is not the same as the
+	one received with the update message */
+// static void pcep_pcc_push_srpid(pcc_state_t *pcc_state, path_t *path);
+// static void pcep_pcc_pop_srpid(pcc_state_t *pcc_state, path_t *path);
 static void pcep_pcc_send_report(ctrl_state_t *ctrl_state,
-                                 pcc_state_t *pcc_state, path_t * path);
+				 pcc_state_t *pcc_state, path_t * path);
 static void pcep_pcc_handle_pathd_event(ctrl_state_t *ctrl_state,
-                                        pcc_state_t *pcc_state,
-                                        pathd_event_t type,
-                                        path_t * path);
+					pcc_state_t *pcc_state,
+					pathd_event_t type,
+					path_t * path);
 
 /* Controller Functions Called from Main */
 static int pcep_controller_initialize(void);
@@ -89,9 +104,9 @@ static int pcep_halt_cb(struct frr_pthread *fpt, void **res);
 
 /* Controller Functions Called From Thread */
 static void pcep_thread_start_sync(ctrl_state_t *ctrl_state,
-                                   pcc_state_t * pcc_state);
+				   pcc_state_t * pcc_state);
 static void pcep_thread_update_path(ctrl_state_t *ctrl_state,
-                                    pcc_state_t *pcc_state, path_t *path);
+				    pcc_state_t *pcc_state, path_t *path);
 static void pcep_thread_schedule_poll(ctrl_state_t *ctrl_state);
 static int pcep_thread_init_event(struct thread *thread);
 static int pcep_thread_finish_event(struct thread *thread);
@@ -111,11 +126,11 @@ static int pcep_main_update_path_event(struct thread *thread);
 
 /* Hook Handlers called from the Main Thread */
 static int pathd_candidate_created_handler(
-                struct te_candidate_path *te_candidate_path);
+		struct te_candidate_path *te_candidate_path);
 static int pathd_candidate_updated_handler(
-                struct te_candidate_path *te_candidate_path);
+		struct te_candidate_path *te_candidate_path);
 static int pathd_candidate_removed_handler(
-                struct te_candidate_path *te_candidate_path);
+		struct te_candidate_path *te_candidate_path);
 static void pathd_candidate_send_pathd_event(pathd_event_t type, path_t *path);
 
 /* CLI Functions */
@@ -133,9 +148,12 @@ static int plspid_map_cmp(const plspid_map_t *a, const plspid_map_t *b);
 static uint32_t plspid_map_hash(const plspid_map_t *e);
 static int nbkey_map_cmp(const nbkey_map_t *a, const nbkey_map_t *b);
 static uint32_t nbkey_map_hash(const nbkey_map_t *e);
+static int srpid_map_cmp(const srpid_map_t *a, const srpid_map_t *b);
+static uint32_t srpid_map_hash(const srpid_map_t *e);
 
 DECLARE_HASH(plspid_map, plspid_map_t, mi, plspid_map_cmp, plspid_map_hash)
 DECLARE_HASH(nbkey_map, nbkey_map_t, mi, nbkey_map_cmp, nbkey_map_hash)
+DECLARE_HASH(srpid_map, srpid_map_t, mi, srpid_map_cmp, srpid_map_hash)
 
 static struct cmd_node pcc_node = {
         .name = "pcc",
@@ -162,10 +180,10 @@ static uint32_t plspid_map_hash(const plspid_map_t *e)
 	switch (e->nbkey.endpoint.ipa_type) {
 		case IPADDR_V4:
 			return jhash(&e->nbkey.endpoint.ipaddr_v4,
-			             sizeof(e->nbkey.endpoint.ipaddr_v4), hash);
+				     sizeof(e->nbkey.endpoint.ipaddr_v4), hash);
 		case IPADDR_V6:
 			return jhash(&e->nbkey.endpoint.ipaddr_v6,
-			             sizeof(e->nbkey.endpoint.ipaddr_v6), hash);
+				     sizeof(e->nbkey.endpoint.ipaddr_v6), hash);
 		default:
 			return hash;
 	}
@@ -178,6 +196,18 @@ static int nbkey_map_cmp(const nbkey_map_t *a, const nbkey_map_t *b)
 }
 
 static uint32_t nbkey_map_hash(const nbkey_map_t *e)
+{
+	return e->plspid;
+}
+
+
+static int srpid_map_cmp(const srpid_map_t *a, const srpid_map_t *b)
+{
+	CMP_RETURN(a->plspid, b->plspid);
+	return 0;
+}
+
+static uint32_t srpid_map_hash(const srpid_map_t *e)
 {
 	return e->plspid;
 }
@@ -221,7 +251,7 @@ void pcep_pcc_finalize(ctrl_state_t *ctrl_state, pcc_state_t *pcc_state)
 }
 
 int pcep_pcc_update(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state,
-                    pcc_opts_t *pcc_opts, pce_opts_t *pce_opts)
+		    pcc_opts_t *pcc_opts, pce_opts_t *pce_opts)
 {
 	assert(NULL != ctrl_state);
 	assert(NULL != pcc_state);
@@ -256,7 +286,7 @@ int pcep_pcc_enable(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state)
 	int ret = 0;
 
 	PCEP_DEBUG("PCC connecting to %pI4:%d",
-	           &pcc_state->pce_opts->addr, pcc_state->pce_opts->port);
+		   &pcc_state->pce_opts->addr, pcc_state->pce_opts->port);
 
 	if ((ret = pcep_lib_connect(pcc_state))) {
 		flog_err(EC_PATH_PCEP_LIB_CONNECT,
@@ -351,14 +381,26 @@ void pcep_pcc_handle_message(ctrl_state_t *ctrl_state,
 }
 
 void pcep_pcc_lsp_update(ctrl_state_t *ctrl_state,
-			 pcc_state_t * pcc_state, pcep_message *msg)
+			 pcc_state_t *pcc_state, pcep_message *msg)
 {
 	path_t *path;
 	path = pcep_lib_parse_path(msg->obj_list);
 	path->sender.ipa_type = IPADDR_V4;
 	path->sender.ipaddr_v4 = pcc_state->pce_opts->addr;
 	pcep_pcc_lookup_nbkey(pcc_state, path);
+
+	/* FIXME: Enable this back when ODL is not complaining about update
+	acknowledgement when the report message status is not the same as the
+	one received with the update message */
+	// pcep_pcc_push_srpid(pcc_state, path);
+
 	PCEP_DEBUG("Received LSP update: %s", format_path(path));
+
+	/* FIXME: Remove this when ODL is not complaining about update
+	acknowledgement when the report message status is not the same as the
+	one received with the update message */
+	pcep_pcc_send_report(ctrl_state, pcc_state, path);
+
 	pcep_thread_update_path(ctrl_state, pcc_state, path);
 }
 
@@ -376,7 +418,7 @@ void pcep_pcc_send(ctrl_state_t *ctrl_state,
 }
 
 void pcep_pcc_schedule_reconnect(ctrl_state_t *ctrl_state,
-                                 pcc_state_t *pcc_state)
+				 pcc_state_t *pcc_state)
 {
 	uint32_t delay;
 	event_pcc_cb_t *event;
@@ -391,7 +433,7 @@ void pcep_pcc_schedule_reconnect(ctrl_state_t *ctrl_state,
 	event->cb = pcep_pcc_enable;
 
 	thread_add_timer(ctrl_state->self, pcep_thread_pcc_cb_event,
-		         (void*)event, delay, &pcc_state->t_reconnect);
+			 (void*)event, delay, &pcc_state->t_reconnect);
 }
 
 void pcep_pcc_lookup_plspid(pcc_state_t *pcc_state, path_t *path)
@@ -404,12 +446,12 @@ void pcep_pcc_lookup_plspid(pcc_state_t *pcc_state, path_t *path)
 		plspid_mapping = plspid_map_find(&pcc_state->plspid_map, &key);
 		if (NULL == plspid_mapping) {
 			plspid_mapping = XCALLOC(MTYPE_PCEP,
-			                         sizeof(*plspid_mapping));
+						 sizeof(*plspid_mapping));
 			plspid_mapping->nbkey = key.nbkey;
 			plspid_mapping->plspid = pcc_state->next_plspid;
 			plspid_map_add(&pcc_state->plspid_map, plspid_mapping);
 			nbkey_mapping = XCALLOC(MTYPE_PCEP,
-			                        sizeof(*nbkey_mapping));
+						sizeof(*nbkey_mapping));
 			nbkey_mapping->nbkey = key.nbkey;
 			nbkey_mapping->plspid = pcc_state->next_plspid;
 			nbkey_map_add(&pcc_state->nbkey_map, nbkey_mapping);
@@ -433,13 +475,52 @@ void pcep_pcc_lookup_nbkey(pcc_state_t *pcc_state, path_t * path)
 	path->nbkey = mapping->nbkey;
 }
 
+/* FIXME: Enable this back when ODL is not complaining about update
+	acknowledgement when the report message status is not the same as the
+	one received with the update message */
+// void pcep_pcc_push_srpid(pcc_state_t *pcc_state, path_t *path)
+// {
+// 	srpid_map_t *srpid_mapping;
+
+// 	if (0 == path->srp_id) return;
+
+// 	srpid_mapping = XCALLOC(MTYPE_PCEP, sizeof(*srpid_mapping));
+// 	srpid_mapping->plspid = path->plsp_id;
+// 	srpid_mapping->srpid = path->srp_id;
+
+// 	/* FIXME: When we have correlation between NB commits and hooks call,
+// 	   multiple concurent calls from the PCE should be supported */
+// 	assert(NULL == srpid_map_find(&pcc_state->srpid_map, srpid_mapping));
+
+// 	srpid_map_add(&pcc_state->srpid_map, srpid_mapping);
+// }
+
+// void pcep_pcc_pop_srpid(pcc_state_t *pcc_state, path_t *path)
+// {
+// 	srpid_map_t key, *srpid_mapping;
+
+// 	key.plspid = path->plsp_id;
+
+// 	srpid_mapping = srpid_map_find(&pcc_state->srpid_map, &key);
+// 	if (NULL == srpid_mapping) return;
+
+// 	path->srp_id = srpid_mapping->srpid;
+// 	srpid_map_del(&pcc_state->srpid_map, srpid_mapping);
+// 	XFREE(MTYPE_PCEP, srpid_mapping);
+// }
+
 void pcep_pcc_send_report(ctrl_state_t *ctrl_state, pcc_state_t *pcc_state,
-                          path_t * path)
+			  path_t * path)
 {
 	double_linked_list *objs;
 	pcep_message *report;
 
 	pcep_pcc_lookup_plspid(pcc_state, path);
+	/* FIXME: Enable this back when ODL is not complaining about update
+	acknowledgement when the report message status is not the same as the
+	one received with the update message */
+	//pcep_pcc_pop_srpid(pcc_state, path);
+
 	PCEP_DEBUG("Sending path: %s", format_path(path));
 	objs = pcep_lib_format_path(path);
 	report = pcep_msg_create_report(objs);
@@ -448,22 +529,22 @@ void pcep_pcc_send_report(ctrl_state_t *ctrl_state, pcc_state_t *pcc_state,
 }
 
 void pcep_pcc_handle_pathd_event(ctrl_state_t *ctrl_state,
-                                 pcc_state_t *pcc_state,
-                                 pathd_event_t type,
-                                 path_t * path)
+				 pcc_state_t *pcc_state,
+				 pathd_event_t type,
+				 path_t * path)
 {
 	if (!pcc_state->synchronized) return;
 	switch (type) {
 		case CANDIDATE_CREATED:
-			PCEP_DEBUG("Candidate path created: %s", format_path(path));
+			PCEP_DEBUG("Candidate path %s created", path->name);
 			pcep_pcc_send_report(ctrl_state, pcc_state, path);
 			break;
 		case CANDIDATE_UPDATED:
-			PCEP_DEBUG("Candidate path updated: %s", format_path(path));
+			PCEP_DEBUG("Candidate path %s updated", path->name);
 			pcep_pcc_send_report(ctrl_state, pcc_state, path);
 			break;
 		case CANDIDATE_REMOVED:
-			PCEP_DEBUG("Candidate path removed: %s", format_path(path));
+			PCEP_DEBUG("Candidate path %s removed", path->name);
 			path->was_removed = true;
 			pcep_pcc_send_report(ctrl_state, pcc_state, path);
 			break;
@@ -716,8 +797,8 @@ void pcep_thread_start_sync(ctrl_state_t *ctrl_state, pcc_state_t * pcc_state)
 }
 
 void pcep_thread_update_path(ctrl_state_t *ctrl_state,
-                             pcc_state_t *pcc_state,
-                             path_t *path)
+			     pcc_state_t *pcc_state,
+			     path_t *path)
 {
 	event_pcc_path_t *event;
 
@@ -975,14 +1056,11 @@ int pcep_main_start_sync_event_cb(path_t *path, void *arg)
 int pcep_main_update_path_event(struct thread *thread)
 {
 	event_pcc_path_t *event = THREAD_ARG(thread);
-	int pcc_id = event->pcc_id;
 	path_t *path = event->path;
 
 	XFREE(MTYPE_PCEP, event);
 
 	path_nb_update_path(path);
-
-	pcep_controller_pcc_report(pcc_id, path);
 
 	return 0;
 }
@@ -1005,7 +1083,7 @@ DEFUN_NOSH (pcep_cli_pcc,
 
 	if (2 < argc) {
 		if (0 == strcmp("ip", argv[1]->arg)) {
-			if (!inet_pton(AF_INET, argv[2]->arg, &(pcc_addr.s_addr)))
+			if (!inet_pton(AF_INET, argv[2]->arg, &pcc_addr.s_addr))
 				return CMD_ERR_INCOMPLETE;
 		} else {
 			pcc_port = atoi(argv[2]->arg);
@@ -1043,7 +1121,7 @@ DEFUN (pcep_cli_pce_opts,
 	int ip_idx = 2;
 	int port_idx = 4;
 
-	if (!inet_pton(AF_INET, argv[ip_idx]->arg, &(pce_addr.s_addr)))
+	if (!inet_pton(AF_INET, argv[ip_idx]->arg, &pce_addr.s_addr))
 		return CMD_ERR_INCOMPLETE;
 
 	if (argc > port_idx)

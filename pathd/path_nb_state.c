@@ -121,7 +121,7 @@ pathd_te_sr_policy_is_operational_get_elem(struct nb_cb_get_elem_args *args)
 	struct te_sr_policy *te_sr_policy =
 		(struct te_sr_policy *)args->list_entry;
 
-	if (te_sr_policy->status == ZEBRA_SR_POLICY_UP)
+	if (te_sr_policy->status == TE_POLICY_UP)
 		is_operational = true;
 
 	return yang_data_new_bool(args->xpath, is_operational);

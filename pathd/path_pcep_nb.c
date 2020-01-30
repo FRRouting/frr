@@ -55,6 +55,9 @@ static void path_nb_add_candidate_path(struct nb_config *config,
 				       uint32_t discriminator,
 				       uint32_t preference,
 				       const char *segment_list_name);
+static enum pcep_lsp_operational_status status_int_to_ext(
+                enum te_policy_status status);
+
 
 path_t* path_nb_get_path(uint32_t color, struct ipaddr endpoint,
                          uint32_t preference)
@@ -70,11 +73,9 @@ path_t* path_nb_get_path(uint32_t color, struct ipaddr endpoint,
 		 color, endpoint_str);
 
 	policy = nb_running_get_entry(NULL, xpath, false);
-	zlog_debug(">>>>> path_nb_get_path policy: %p", policy);
 	if (NULL == policy) return NULL;
 
 	candidate = find_candidate_path(policy, preference);
-	zlog_debug(">>>>> path_nb_get_path candidate: %p", candidate);
 	if (NULL == candidate) return NULL;
 
 	return candidate_to_path(candidate);
@@ -131,8 +132,7 @@ path_t* candidate_to_path(struct te_candidate_path *candidate)
 	name = asprintfrr(MTYPE_PCEP, "%s-%s", policy->name,
 			  candidate->name);
 	if (candidate->is_best_candidate_path) {
-		/* FIXME: status should come from the policy */
-		status = PCEP_LSP_OPERATIONAL_UP;
+		status = status_int_to_ext(policy->status);
 	} else {
 		status = PCEP_LSP_OPERATIONAL_DOWN;
 	}
@@ -336,4 +336,18 @@ void path_nb_add_candidate_path(struct nb_config *config,
 	snprintf(xpath, sizeof(xpath), "%s/type", xpath_base);
 	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
 				      "dynamic");
+}
+
+enum pcep_lsp_operational_status status_int_to_ext(enum te_policy_status status)
+{
+	switch (status) {
+		case TE_POLICY_UP:
+			return PCEP_LSP_OPERATIONAL_ACTIVE;
+		case TE_POLICY_GOING_UP:
+			return PCEP_LSP_OPERATIONAL_GOING_UP;
+		case TE_POLICY_GOING_DOWN:
+			return PCEP_LSP_OPERATIONAL_GOING_DOWN;
+		default:
+			return PCEP_LSP_OPERATIONAL_DOWN;
+	}
 }

@@ -70,6 +70,7 @@ typedef struct lsp_nb_key_t_ {
 
 PREDECL_HASH(plspid_map)
 PREDECL_HASH(nbkey_map)
+PREDECL_HASH(srpid_map)
 
 typedef struct plspid_map_t_ {
 	struct plspid_map_item mi;
@@ -82,6 +83,12 @@ typedef struct nbkey_map_t_ {
 	lsp_nb_key_t nbkey;
 	uint32_t plspid;
 } nbkey_map_t;
+
+typedef struct srpid_map_t_ {
+	struct srpid_map_item mi;
+	uint32_t plspid;
+	uint32_t srpid;
+} srpid_map_t;
 
 typedef struct pcc_state_t_ {
 	int id;
@@ -97,6 +104,7 @@ typedef struct pcc_state_t_ {
 	uint32_t next_plspid;
 	struct plspid_map_head plspid_map;
 	struct nbkey_map_head nbkey_map;
+	struct srpid_map_head srpid_map;
 } pcc_state_t;
 
 typedef struct ctrl_state_t_ {

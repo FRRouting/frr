@@ -63,6 +63,7 @@ static int path_zebra_sr_policy_notify_status(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_sr_policy zapi_sr_policy;
 	struct te_sr_policy *te_sr_policy;
+	struct te_candidate_path *best_candidate_path = NULL;
 	struct ipaddr endpoint;
 
 	if (zapi_sr_policy_notify_status_decode(zclient->ibuf, &zapi_sr_policy))
@@ -75,8 +76,41 @@ static int path_zebra_sr_policy_notify_status(ZAPI_CALLBACK_ARGS)
 	if (!te_sr_policy)
 		return -1;
 
-	te_sr_policy->status = zapi_sr_policy.status;
+	best_candidate_path = find_candidate_path(
+			te_sr_policy, te_sr_policy->best_candidate_path_key);
 
+	if (!best_candidate_path)
+		return -1;
+
+	switch (zapi_sr_policy.status) {
+		case ZEBRA_SR_POLICY_DOWN:
+			switch (te_sr_policy->status) {
+				/* If the policy is GOING_UP, and zebra faild
+				   to install it, we wait for zebra to retry */
+				/* TODO: Add some timeout after which we would
+					 get is back to DOWN and remove the
+					 policy */
+				case TE_POLICY_GOING_UP:
+				case TE_POLICY_DOWN:
+					return 0;
+				default:
+					te_sr_policy->status = TE_POLICY_DOWN;
+					break;
+			}
+			break;
+		case ZEBRA_SR_POLICY_UP:
+			switch (te_sr_policy->status) {
+				case TE_POLICY_UP:
+					return 0;
+				default:
+					te_sr_policy->status = TE_POLICY_UP;
+					break;
+			}
+			break;
+
+	}
+
+	pathd_candidate_updated(best_candidate_path);
 	return 0;
 }
 
@@ -110,6 +144,8 @@ void path_zebra_add_sr_policy(struct te_sr_policy *sr_policy,
 		zp.active_segment_list.label_num++;
 	}
 
+	sr_policy->status = TE_POLICY_GOING_UP;
+
 	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_SET, &zp);
 }
 
@@ -122,6 +158,8 @@ void path_zebra_delete_sr_policy(struct te_sr_policy *sr_policy)
 	zp.active_segment_list.type = ZEBRA_LSP_TE;
 	zp.active_segment_list.local_label = sr_policy->binding_sid;
 	zp.active_segment_list.label_num = 0;
+
+	sr_policy->status = TE_POLICY_DOWN;
 
 	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_DELETE, &zp);
 }
