@@ -1114,3 +1114,17 @@ void yang_get_default_ip(struct ipaddr *var, const char *xpath_fmt, ...)
 	value = yang_get_default_value(xpath);
 	yang_str2ip(value, var);
 }
+
+struct yang_data *yang_data_new_mac(const char *xpath,
+				    const struct ethaddr *mac)
+{
+	char value_str[ETHER_ADDR_STRLEN];
+
+	prefix_mac2str(mac, value_str, sizeof(value_str));
+	return yang_data_new(xpath, value_str);
+}
+
+void yang_str2mac(const char *value, struct ethaddr *mac)
+{
+    (void)prefix_str2mac(value, mac);
+}
