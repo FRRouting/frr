@@ -1783,19 +1783,8 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 		route_entry_update_nhe(re, new_nhe);
 	}
 
-	if (curr_active) {
-		struct nhg_hash_entry *nhe = NULL;
-
-		nhe = zebra_nhg_lookup_id(re->nhe_id);
-
-		if (nhe)
-			SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
-		else
-			flog_err(
-				EC_ZEBRA_TABLE_LOOKUP_FAILED,
-				"Active update on NHE id=%u that we do not have in our tables",
-				re->nhe_id);
-	}
+	if (curr_active)
+		SET_FLAG(re->nhe->flags, NEXTHOP_GROUP_VALID);
 
 	/*
 	 * Do not need these nexthops anymore since they
