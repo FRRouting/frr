@@ -1982,6 +1982,12 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 	addattr32(&req.n, req_size, NHA_ID, id);
 
 	if (cmd == RTM_NEWNEXTHOP) {
+		/*
+		 * We distinguish between a "group", which is a collection
+		 * of ids, and a singleton nexthop with an id. The
+		 * group is installed as an id that just refers to a list of
+		 * other ids.
+		 */
 		if (dplane_ctx_get_nhe_nh_grp_count(ctx))
 			_netlink_nexthop_build_group(
 				&req.n, req_size, id,
@@ -2068,14 +2074,13 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 				}
 			}
 
-		nexthop_done:
-			if (IS_ZEBRA_DEBUG_KERNEL) {
-				char buf[NEXTHOP_STRLEN];
+nexthop_done:
 
-				snprintfrr(buf, sizeof(buf), "%pNHv", nh);
-				zlog_debug("%s: ID (%u): %s (%u) %s ", __func__,
-					   id, buf, nh->vrf_id, label_buf);
-			}
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("%s: ID (%u): %pNHv (%u) %s ",
+					   __func__, id, nh, nh->vrf_id,
+					   label_buf);
+
 		}
 
 		req.nhm.nh_protocol = zebra2proto(dplane_ctx_get_nhe_type(ctx));
@@ -2103,43 +2108,19 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
  */
 enum zebra_dplane_result kernel_nexthop_update(struct zebra_dplane_ctx *ctx)
 {
+	enum dplane_op_e op;
 	int cmd = 0;
 	int ret = 0;
 
-	switch (dplane_ctx_get_op(ctx)) {
-	case DPLANE_OP_NH_DELETE:
-		cmd = RTM_DELNEXTHOP;
-		break;
-	case DPLANE_OP_NH_INSTALL:
-	case DPLANE_OP_NH_UPDATE:
+	op = dplane_ctx_get_op(ctx);
+	if (op == DPLANE_OP_NH_INSTALL || op == DPLANE_OP_NH_UPDATE)
 		cmd = RTM_NEWNEXTHOP;
-		break;
-	case DPLANE_OP_ROUTE_INSTALL:
-	case DPLANE_OP_ROUTE_UPDATE:
-	case DPLANE_OP_ROUTE_DELETE:
-	case DPLANE_OP_ROUTE_NOTIFY:
-	case DPLANE_OP_LSP_INSTALL:
-	case DPLANE_OP_LSP_UPDATE:
-	case DPLANE_OP_LSP_DELETE:
-	case DPLANE_OP_LSP_NOTIFY:
-	case DPLANE_OP_PW_INSTALL:
-	case DPLANE_OP_PW_UNINSTALL:
-	case DPLANE_OP_SYS_ROUTE_ADD:
-	case DPLANE_OP_SYS_ROUTE_DELETE:
-	case DPLANE_OP_ADDR_INSTALL:
-	case DPLANE_OP_ADDR_UNINSTALL:
-	case DPLANE_OP_MAC_INSTALL:
-	case DPLANE_OP_MAC_DELETE:
-	case DPLANE_OP_NEIGH_INSTALL:
-	case DPLANE_OP_NEIGH_UPDATE:
-	case DPLANE_OP_NEIGH_DELETE:
-	case DPLANE_OP_VTEP_ADD:
-	case DPLANE_OP_VTEP_DELETE:
-	case DPLANE_OP_NONE:
-		flog_err(
-			EC_ZEBRA_NHG_FIB_UPDATE,
-			"Context received for kernel nexthop update with incorrect OP code (%u)",
-			dplane_ctx_get_op(ctx));
+	else if (op == DPLANE_OP_NH_DELETE)
+		cmd = RTM_DELNEXTHOP;
+	else {
+		flog_err(EC_ZEBRA_NHG_FIB_UPDATE,
+			 "Context received for kernel nexthop update with incorrect OP code (%u)",
+			 op);
 		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
