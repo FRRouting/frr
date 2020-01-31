@@ -646,8 +646,9 @@ static int bgp_graceful_deferral_timer_expire(struct thread *thread)
 	bgp = info->bgp;
 
 	if (BGP_DEBUG(update, UPDATE_OUT))
-		zlog_debug("afi %d, safi %d : graceful restart deferral timer expired",
-				afi, safi);
+		zlog_debug(
+			"afi %d, safi %d : graceful restart deferral timer expired",
+			afi, safi);
 
 	bgp->gr_info[afi][safi].t_select_deferral = NULL;
 
@@ -1198,28 +1199,28 @@ int bgp_stop(struct peer *peer)
 		 */
 		if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)) {
 			FOREACH_AFI_SAFI (afi, safi) {
-				if (peer->afc_nego[afi][safi] &&
-				    !CHECK_FLAG(peer->af_sflags[afi][safi],
-						PEER_STATUS_EOR_RECEIVED)) {
-					gr_info = &bgp->gr_info[afi][safi];
+				if (!peer->afc_nego[afi][safi]
+				    || CHECK_FLAG(peer->af_sflags[afi][safi],
+						  PEER_STATUS_EOR_RECEIVED))
+					continue;
 
-					if (gr_info && (gr_info->eor_required))
-						gr_info->eor_required--;
+				gr_info = &bgp->gr_info[afi][safi];
+				if (!gr_info)
+					continue;
 
-					if (gr_info && BGP_DEBUG(update,
-						UPDATE_OUT))
-						zlog_debug(
-							"peer %s, EOR_required %d",
-							peer->host,
-							gr_info->eor_required);
+				if (gr_info->eor_required)
+					gr_info->eor_required--;
 
-					/* There is no pending EOR message */
-					if (gr_info && gr_info->eor_required
-							== 0) {
-						BGP_TIMER_OFF(
+				if (BGP_DEBUG(update, UPDATE_OUT))
+					zlog_debug("peer %s, EOR_required %d",
+						   peer->host,
+						   gr_info->eor_required);
+
+				/* There is no pending EOR message */
+				if (gr_info->eor_required == 0) {
+					BGP_TIMER_OFF(
 						gr_info->t_select_deferral);
-						gr_info->eor_received = 0;
-					}
+					gr_info->eor_received = 0;
 				}
 			}
 		}
@@ -1677,27 +1678,14 @@ static int bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 	 */
 	if (gr_info->eor_required == 0) {
 		thread_info = XMALLOC(MTYPE_TMP, sizeof(struct afi_safi_info));
-		if (thread_info == NULL) {
-			if (BGP_DEBUG(update, UPDATE_OUT))
-				zlog_debug("%s : Error allocating thread info",
-						__func__);
-			return -1;
-		}
 
 		thread_info->afi = afi;
 		thread_info->safi = safi;
 		thread_info->bgp = bgp;
 
-		thread_add_timer(bm->master,
-				bgp_graceful_deferral_timer_expire,
-				thread_info, bgp->select_defer_time,
-				&gr_info->t_select_deferral);
-		if (gr_info->t_select_deferral == NULL) {
-			if (BGP_DEBUG(update, UPDATE_OUT))
-				zlog_debug("Error starting deferral timer for %s",
-					get_afi_safi_str(afi, safi, false));
-			return -1;
-		}
+		thread_add_timer(bm->master, bgp_graceful_deferral_timer_expire,
+				 thread_info, bgp->select_defer_time,
+				 &gr_info->t_select_deferral);
 	}
 	gr_info->eor_required++;
 	/* Send message to RIB indicating route update pending */
