@@ -439,33 +439,34 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 			 */
 			if (!next_pkt || !next_pkt->buffer) {
 				if (CHECK_FLAG(peer->cap,
-						PEER_CAP_RESTART_RCV)) {
+					       PEER_CAP_RESTART_RCV)) {
 					if (!(PAF_SUBGRP(paf))->t_coalesce
-						&& peer->afc_nego[afi][safi]
-						&& peer->synctime
-						&& !CHECK_FLAG(
-						peer->af_sflags[afi][safi],
-						PEER_STATUS_EOR_SEND)) {
+					    && peer->afc_nego[afi][safi]
+					    && peer->synctime
+					    && !CHECK_FLAG(
+						    peer->af_sflags[afi][safi],
+						    PEER_STATUS_EOR_SEND)) {
 						/* If EOR is disabled,
 						 * the message is  not sent
 						 */
-						if (BGP_SEND_EOR(peer->bgp,
-								afi, safi)) {
+						if (BGP_SEND_EOR(peer->bgp, afi,
+								 safi)) {
 							SET_FLAG(
-							peer->af_sflags
-							[afi][safi],
-							PEER_STATUS_EOR_SEND);
+								peer->af_sflags
+									[afi]
+									[safi],
+								PEER_STATUS_EOR_SEND);
 
 							/* Update EOR
 							 * send time
 							 */
-							peer->eor_stime
-							[afi][safi] =
-							monotime(NULL);
+							peer->eor_stime[afi]
+								       [safi] =
+								monotime(NULL);
 
 							BGP_UPDATE_EOR_PKT(
-								peer, afi,
-								safi, s);
+								peer, afi, safi,
+								s);
 						}
 					}
 				}
@@ -772,9 +773,8 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 	stream_fifo_push(peer->obuf, s);
 
 	bgp_peer_gr_flags_update(peer);
-	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(
-			peer->bgp,
-			peer->bgp->peer);
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
+							  peer->bgp->peer);
 
 	bgp_write_notify(peer);
 }
@@ -1651,8 +1651,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 		struct graceful_restart_info *gr_info;
 
 		/* Restarting router */
-		if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer) &&
-		    BGP_PEER_RESTARTING_MODE(peer))
+		if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)
+		    && BGP_PEER_RESTARTING_MODE(peer))
 			restart = true;
 
 		/* Non-MP IPv4/Unicast is a completely emtpy UPDATE - already
@@ -1688,11 +1688,11 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 				 * deferral timer is running, cancel the timer
 				 * and invoke the best path calculation
 				 */
-				if (gr_info->eor_required ==
-						gr_info->eor_received) {
-					if (bgp_debug_neighbor_events(
-								peer))
-						zlog_debug("%s %d, %s %d",
+				if (gr_info->eor_required
+				    == gr_info->eor_received) {
+					if (bgp_debug_neighbor_events(peer))
+						zlog_debug(
+							"%s %d, %s %d",
 							"EOR REQ",
 							gr_info->eor_required,
 							"EOR RCV",
@@ -1703,7 +1703,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 					gr_info->eor_received = 0;
 					/* Best path selection */
 					if (bgp_best_path_select_defer(
-						peer->bgp, afi, safi) < 0)
+						    peer->bgp, afi, safi)
+					    < 0)
 						return BGP_Stop;
 				}
 			}
@@ -1788,7 +1789,6 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 
 					strlcpy(bgp_notify.data, c,
 						bgp_notify.length * 3);
-
 				}
 			bgp_notify.raw_data = (uint8_t *)peer->notify.data;
 		}
@@ -1815,9 +1815,8 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 		UNSET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
 	bgp_peer_gr_flags_update(peer);
-	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(
-			peer->bgp,
-			peer->bgp->peer);
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
+							  peer->bgp->peer);
 
 	return Receive_NOTIFICATION_message;
 }

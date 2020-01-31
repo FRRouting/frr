@@ -238,11 +238,11 @@ enum bgp_instance_type {
 	BGP_INSTANCE_TYPE_VIEW
 };
 
-#define BGP_SEND_EOR(bgp, afi, safi)				\
-	(!bgp_flag_check(bgp, BGP_FLAG_GR_DISABLE_EOR) &&	\
-	((bgp->gr_info[afi][safi].t_select_deferral == NULL) || \
-	 (bgp->gr_info[afi][safi].eor_required ==		\
-	  bgp->gr_info[afi][safi].eor_received)))
+#define BGP_SEND_EOR(bgp, afi, safi)                                           \
+	(!bgp_flag_check(bgp, BGP_FLAG_GR_DISABLE_EOR)                         \
+	 && ((bgp->gr_info[afi][safi].t_select_deferral == NULL)               \
+	     || (bgp->gr_info[afi][safi].eor_required                          \
+		 == bgp->gr_info[afi][safi].eor_received)))
 
 /* BGP GR Global ds */
 
@@ -426,7 +426,7 @@ struct bgp {
 #define BGP_FLAG_GR_DISABLE_EOR           (1 << 24)
 
 	enum global_mode GLOBAL_GR_FSM[BGP_GLOBAL_GR_MODE]
-				[BGP_GLOBAL_GR_EVENT_CMD];
+				      [BGP_GLOBAL_GR_EVENT_CMD];
 	enum global_mode global_gr_present_state;
 
 	/* This variable stores the current Graceful Restart state of Zebra
@@ -659,12 +659,12 @@ DECLARE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty))
 
-	/* Thread callback information */
-	struct afi_safi_info {
-		afi_t afi;
-		safi_t safi;
-		struct bgp *bgp;
-	};
+/* Thread callback information */
+struct afi_safi_info {
+	afi_t afi;
+	safi_t safi;
+	struct bgp *bgp;
+};
 
 #define BGP_ROUTE_ADV_HOLD(bgp) (bgp->main_peers_update_hold)
 
@@ -673,7 +673,7 @@ DECLARE_HOOK(bgp_inst_config_write,
 	 || (bgp->inst_type == BGP_INSTANCE_TYPE_VRF                           \
 	     && bgp->vrf_id != VRF_UNKNOWN))
 
-#define BGP_SELECT_DEFER_DISABLE(bgp)                 \
+#define BGP_SELECT_DEFER_DISABLE(bgp)                                          \
 	(bgp_flag_check(bgp, BGP_FLAG_SELECT_DEFER_DISABLE))
 
 /* BGP peer-group support. */
@@ -1922,28 +1922,25 @@ int bgp_global_gr_init(struct bgp *bgp);
 int bgp_peer_gr_init(struct peer *peer);
 
 
-#define BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA( \
-		_bgp, _peer_list) \
-do { \
-	struct peer *peer_loop; \
-	bool gr_router_detected = false; \
-	struct listnode *node = {0}; \
-	for (ALL_LIST_ELEMENTS_RO( \
-				_peer_list, node, \
-				peer_loop)) { \
-		if (CHECK_FLAG( \
-				peer_loop->flags, \
-				PEER_FLAG_GRACEFUL_RESTART)) \
-			gr_router_detected = true; \
-	} \
-	if (gr_router_detected && \
-			_bgp->present_zebra_gr_state == ZEBRA_GR_DISABLE) { \
-		bgp_zebra_send_capabilities(_bgp, false); \
-	} else if (!gr_router_detected && \
-			_bgp->present_zebra_gr_state == ZEBRA_GR_ENABLE) { \
-		bgp_zebra_send_capabilities(_bgp, true); \
-	} \
-} while (0)
+#define BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(_bgp, _peer_list)    \
+	do {                                                                   \
+		struct peer *peer_loop;                                        \
+		bool gr_router_detected = false;                               \
+		struct listnode *node = {0};                                   \
+		for (ALL_LIST_ELEMENTS_RO(_peer_list, node, peer_loop)) {      \
+			if (CHECK_FLAG(peer_loop->flags,                       \
+				       PEER_FLAG_GRACEFUL_RESTART))            \
+				gr_router_detected = true;                     \
+		}                                                              \
+		if (gr_router_detected                                         \
+		    && _bgp->present_zebra_gr_state == ZEBRA_GR_DISABLE) {     \
+			bgp_zebra_send_capabilities(_bgp, false);              \
+		} else if (!gr_router_detected                                 \
+			   && _bgp->present_zebra_gr_state                     \
+				      == ZEBRA_GR_ENABLE) {                    \
+			bgp_zebra_send_capabilities(_bgp, true);               \
+		}                                                              \
+	} while (0)
 
 static inline struct bgp *bgp_lock(struct bgp *bgp)
 {

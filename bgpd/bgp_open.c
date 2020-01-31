@@ -1012,7 +1012,6 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			UNSET_FLAG(restart_flag_time, 0xF000);
 			peer->v_gr_restart = restart_flag_time;
 		}
-
 	}
 	return 0;
 }
@@ -1309,7 +1308,7 @@ static void bgp_open_capability_orf(struct stream *s, struct peer *peer,
 }
 
 static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
-				 unsigned long cp)
+					unsigned long cp)
 {
 	int len;
 	iana_afi_t pkt_afi;

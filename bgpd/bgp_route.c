@@ -90,8 +90,7 @@
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
 extern const char *bgp_origin_long_str[];
-const char *get_afi_safi_str(afi_t afi,
-		safi_t safi, bool for_json);
+const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
 /* PMSI strings. */
 #define PMSI_TNLTYPE_STR_NO_INFO "No info"
 #define PMSI_TNLTYPE_STR_DEFAULT PMSI_TNLTYPE_STR_NO_INFO
@@ -318,7 +317,8 @@ static int bgp_node_set_defer_flag(struct bgp_node *rn, bool delete)
 	if (CHECK_FLAG(rn->flags, BGP_NODE_PROCESS_SCHEDULED)) {
 		if (BGP_DEBUG(update, UPDATE_OUT)) {
 			prefix2str(&rn->p, buf, PREFIX2STR_BUFFER);
-			zlog_debug("Route %s is in workqueue and being processed, not deferred.",
+			zlog_debug(
+				"Route %s is in workqueue and being processed, not deferred.",
 				buf);
 		}
 		return 0;
@@ -339,17 +339,18 @@ static int bgp_node_set_defer_flag(struct bgp_node *rn, bool delete)
 		/* Route selection is deferred if there is a stale path which
 		 * which indicates peer is in restart mode
 		 */
-		if (CHECK_FLAG(old_pi->flags, BGP_PATH_STALE) &&
-				(old_pi->sub_type == BGP_ROUTE_NORMAL)) {
+		if (CHECK_FLAG(old_pi->flags, BGP_PATH_STALE)
+		    && (old_pi->sub_type == BGP_ROUTE_NORMAL)) {
 			set_flag = 1;
 		} else {
 			/* If the peer is graceful restart capable and peer is
 			 * restarting mode, set the flag BGP_NODE_SELECT_DEFER
 			 */
 			peer = old_pi->peer;
-			if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer) &&
-			    BGP_PEER_RESTARTING_MODE(peer) &&
-			    (old_pi && old_pi->sub_type == BGP_ROUTE_NORMAL)) {
+			if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)
+			    && BGP_PEER_RESTARTING_MODE(peer)
+			    && (old_pi
+				&& old_pi->sub_type == BGP_ROUTE_NORMAL)) {
 				set_flag = 1;
 			}
 		}
@@ -369,7 +370,7 @@ static int bgp_node_set_defer_flag(struct bgp_node *rn, bool delete)
 					bgp->gr_info[afi][safi].route_list, rn);
 			if (BGP_DEBUG(update, UPDATE_OUT))
 				zlog_debug("DEFER route %s, rn %p, node %p",
-						buf, rn, rn->rt_node);
+					   buf, rn, rn->rt_node);
 			return 0;
 		}
 	}
@@ -2068,8 +2069,8 @@ static int bgp_route_select_timer_expire(struct thread *thread)
 	bgp = info->bgp;
 
 	if (BGP_DEBUG(update, UPDATE_OUT))
-		zlog_debug("afi %d, safi %d : route select timer expired",
-				afi, safi);
+		zlog_debug("afi %d, safi %d : route select timer expired", afi,
+			   safi);
 
 	bgp->gr_info[afi][safi].t_route_select = NULL;
 
@@ -2730,9 +2731,9 @@ int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 		BGP_TIMER_OFF(bgp->gr_info[afi][safi].t_route_select);
 
 	if (BGP_DEBUG(update, UPDATE_OUT)) {
-		zlog_debug("%s: processing route for %s : cnt %d",
-			   __func__, get_afi_safi_str(afi, safi, false),
-				listcount(bgp->gr_info[afi][safi].route_list));
+		zlog_debug("%s: processing route for %s : cnt %d", __func__,
+			   get_afi_safi_str(afi, safi, false),
+			   listcount(bgp->gr_info[afi][safi].route_list));
 	}
 
 	/* Process the route list */
@@ -2758,7 +2759,7 @@ int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 		bgp_send_delayed_eor(bgp);
 		/* Send route processing complete message to RIB */
 		bgp_zebra_update(afi, safi, bgp->vrf_id,
-				ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
+				 ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
 		return 0;
 	}
 
@@ -2861,7 +2862,7 @@ void bgp_process(struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
 	if (CHECK_FLAG(rn->flags, BGP_NODE_SELECT_DEFER)) {
 		if (BGP_DEBUG(update, UPDATE_OUT))
 			zlog_debug("BGP_NODE_SELECT_DEFER set for route %p",
-				    rn);
+				   rn);
 		return;
 	}
 
@@ -3042,20 +3043,17 @@ void bgp_rib_remove(struct bgp_node *rn, struct bgp_path_info *pi,
 		 */
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 			delete_route = true;
-		else
-			if (bgp_node_set_defer_flag(rn, true) < 0)
-				delete_route = true;
+		else if (bgp_node_set_defer_flag(rn, true) < 0)
+			delete_route = true;
 		if (delete_route) {
 			if (CHECK_FLAG(rn->flags, BGP_NODE_SELECT_DEFER)) {
 				UNSET_FLAG(rn->flags, BGP_NODE_SELECT_DEFER);
 				bgp = pi->peer->bgp;
-				if ((rn->rt_node) &&
-					(bgp->gr_info[afi][safi]
-					.route_list)) {
-					list_delete_node(
-						bgp->gr_info[afi][safi]
-						.route_list,
-						rn->rt_node);
+				if ((rn->rt_node)
+				    && (bgp->gr_info[afi][safi].route_list)) {
+					list_delete_node(bgp->gr_info[afi][safi]
+								 .route_list,
+							 rn->rt_node);
 					rn->rt_node = NULL;
 				}
 			}

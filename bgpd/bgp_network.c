@@ -489,16 +489,14 @@ static int bgp_accept(struct thread *thread)
 	peer_xfer_config(peer, peer1);
 	bgp_peer_gr_flags_update(peer);
 
-	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(
-			peer->bgp,
-			peer->bgp->peer);
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
+							  peer->bgp->peer);
 
 	if (bgp_peer_gr_mode_get(peer) == PEER_DISABLE) {
 
 		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 
-		if (CHECK_FLAG(peer->sflags,
-				PEER_STATUS_NSF_WAIT)) {
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
 			peer_nsf_stop(peer);
 		}
 	}
@@ -515,7 +513,7 @@ static int bgp_accept(struct thread *thread)
 	SET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
 	/* Make dummy peer until read Open packet. */
 	if (peer1->status == Established
-		&& CHECK_FLAG(peer1->sflags, PEER_STATUS_NSF_MODE)) {
+	    && CHECK_FLAG(peer1->sflags, PEER_STATUS_NSF_MODE)) {
 		/* If we have an existing established connection with graceful
 		 * restart
 		 * capability announced with one or more address families, then
@@ -524,12 +522,10 @@ static int bgp_accept(struct thread *thread)
 		 */
 		peer1->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
 
-		if (CHECK_FLAG(peer1->flags,
-			PEER_FLAG_GRACEFUL_RESTART) ||
-			CHECK_FLAG(peer1->flags,
-			PEER_FLAG_GRACEFUL_RESTART_HELPER))
-			SET_FLAG(peer1->sflags,
-				PEER_STATUS_NSF_WAIT);
+		if (CHECK_FLAG(peer1->flags, PEER_FLAG_GRACEFUL_RESTART)
+		    || CHECK_FLAG(peer1->flags,
+				  PEER_FLAG_GRACEFUL_RESTART_HELPER))
+			SET_FLAG(peer1->sflags, PEER_STATUS_NSF_WAIT);
 
 		bgp_event_update(peer1, TCP_connection_closed);
 	}

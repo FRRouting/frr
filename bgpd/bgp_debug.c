@@ -2132,11 +2132,10 @@ DEFUN_NOSH (show_debugging_bgp,
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		bgp_debug_list_print(vty, "  BGP zebra debugging is on",
-					bgp_debug_zebra_prefixes);
+				     bgp_debug_zebra_prefixes);
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		vty_out(vty,
-			"  BGP graceful-restart debugging is on");
+		vty_out(vty, "  BGP graceful-restart debugging is on");
 
 	if (BGP_DEBUG(allow_martians, ALLOW_MARTIANS))
 		vty_out(vty, "  BGP allow martian next hop debugging is on\n");
