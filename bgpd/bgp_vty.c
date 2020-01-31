@@ -12678,7 +12678,7 @@ static void bgp_show_global_graceful_restart_mode_vty(struct vty *vty,
 
 	vty_out(vty, "\n%s", SHOW_GR_HEADER);
 
-	int bgp_global_gr_mode = bgp_global_gr_mode_get(bgp);
+	enum global_mode bgp_global_gr_mode = bgp_global_gr_mode_get(bgp);
 
 	switch (bgp_global_gr_mode) {
 
@@ -12695,7 +12695,6 @@ static void bgp_show_global_graceful_restart_mode_vty(struct vty *vty,
 		break;
 
 	case GLOBAL_INVALID:
-	default:
 		vty_out(vty,
 			"Global BGP GR Mode  Invalid\n");
 		break;

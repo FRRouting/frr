@@ -2296,11 +2296,6 @@ int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
 				"%s [BGP_GR] GLOBAL_INVALID",
 				__func__);
 				return BGP_ERR_GR_OPERATION_FAILED;
-			default:
-				zlog_debug(
-				"%s [BGP_GR] Global unknown ERROR",
-				__func__);
-				return BGP_ERR_GR_OPERATION_FAILED;
 			}
 		}
 	}
