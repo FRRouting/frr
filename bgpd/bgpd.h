@@ -1928,10 +1928,9 @@ do { \
 	struct peer *peer_loop; \
 	bool gr_router_detected = false; \
 	struct listnode *node = {0}; \
-	struct listnode *nnode = {0}; \
-	for (ALL_LIST_ELEMENTS( \
+	for (ALL_LIST_ELEMENTS_RO( \
 				_peer_list, node, \
-				nnode, peer_loop)) { \
+				peer_loop)) { \
 		if (CHECK_FLAG( \
 				peer_loop->flags, \
 				PEER_FLAG_GRACEFUL_RESTART)) \
