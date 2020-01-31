@@ -1486,7 +1486,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		 * resolved by a route NH1. The exception is if the route is a
 		 * host route.
 		 */
-		if (top && rn == top)
+		if (rn == top)
 			if (((afi == AFI_IP) && (rn->p.prefixlen != 32))
 			    || ((afi == AFI_IP6) && (rn->p.prefixlen != 128))) {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
