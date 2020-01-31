@@ -317,15 +317,15 @@ zebra_nhg_connect_depends(struct nhg_hash_entry *nhe,
 		struct interface *ifp = NULL;
 
 		ifp = if_lookup_by_index(nhe->nhg->nexthop->ifindex,
-					 nhe->vrf_id);
+					 nhe->nhg->nexthop->vrf_id);
 		if (ifp)
 			zebra_nhg_set_if(nhe, ifp);
 		else
 			flog_err(
 				EC_ZEBRA_IF_LOOKUP_FAILED,
 				"Zebra failed to lookup an interface with ifindex=%d in vrf=%u for NHE id=%u",
-				nhe->nhg->nexthop->ifindex, nhe->vrf_id,
-				nhe->id);
+				nhe->nhg->nexthop->ifindex,
+				nhe->nhg->nexthop->vrf_id, nhe->id);
 	}
 }
 
@@ -535,10 +535,10 @@ static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
 	lookup.type = type ? type : ZEBRA_ROUTE_NHG;
 	lookup.nhg = nhg;
 
+	lookup.vrf_id = vrf_id;
 	if (lookup.nhg->nexthop->next) {
 		/* Groups can have all vrfs and AF's in them */
 		lookup.afi = AFI_UNSPEC;
-		lookup.vrf_id = VRF_DEFAULT;
 	} else {
 		switch (lookup.nhg->nexthop->type) {
 		case (NEXTHOP_TYPE_IFINDEX):
@@ -562,8 +562,6 @@ static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
 			lookup.afi = AFI_IP6;
 			break;
 		}
-
-		lookup.vrf_id = vrf_id;
 	}
 
 	if (id)
@@ -622,10 +620,11 @@ zebra_nhg_find_nexthop(uint32_t id, struct nexthop *nh, afi_t afi, int type)
 {
 	struct nhg_hash_entry *nhe = NULL;
 	struct nexthop_group nhg = {};
+	vrf_id_t vrf_id = !vrf_is_backend_netns() ? VRF_DEFAULT : nh->vrf_id;
 
 	nexthop_group_add_sorted(&nhg, nh);
 
-	zebra_nhg_find(&nhe, id, &nhg, NULL, nh->vrf_id, afi, type);
+	zebra_nhg_find(&nhe, id, &nhg, NULL, vrf_id, afi, type);
 
 	return nhe;
 }
@@ -1062,11 +1061,11 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 }
 
 /* Kernel-side, received delete message */
-int zebra_nhg_kernel_del(uint32_t id)
+int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id)
 {
 	struct nhg_ctx *ctx = NULL;
 
-	ctx = nhg_ctx_init(id, NULL, NULL, 0, 0, 0, 0);
+	ctx = nhg_ctx_init(id, NULL, NULL, vrf_id, 0, 0, 0);
 
 	nhg_ctx_set_op(ctx, NHG_CTX_OP_DEL);
 
@@ -1183,6 +1182,14 @@ struct nhg_hash_entry *
 zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 {
 	struct nhg_hash_entry *nhe = NULL;
+	vrf_id_t vrf_id;
+
+	/*
+	 * CLANG SA is complaining that nexthop may be NULL
+	 * Make it happy but this is ridonc
+	 */
+	assert(nhg->nexthop);
+	vrf_id = !vrf_is_backend_netns() ? VRF_DEFAULT : nhg->nexthop->vrf_id;
 
 	if (!(nhg && nhg->nexthop)) {
 		flog_err(EC_ZEBRA_TABLE_LOOKUP_FAILED,
@@ -1190,7 +1197,7 @@ zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 		return NULL;
 	}
 
-	zebra_nhg_find(&nhe, id, nhg, NULL, nhg->nexthop->vrf_id, rt_afi, 0);
+	zebra_nhg_find(&nhe, id, nhg, NULL, vrf_id, rt_afi, 0);
 
 	return nhe;
 }

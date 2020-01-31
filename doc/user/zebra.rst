@@ -911,10 +911,14 @@ zebra Terminal Mode Commands
    Reset statistics related to the zebra code that interacts with the
    optional Forwarding Plane Manager (FPM) component.
 
-.. index:: show nexthop-group [ID] [vrf NAME] [ip|ipv6]
-.. clicmd:: show nexthop-group [ID] [vrf NAME] [ip|ipv6]
+.. index:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]]
+.. clicmd:: show nexthop-group rib [ID] [vrf NAME]
 
-   Display nexthop groups created by zebra.
+   Display nexthop groups created by zebra.  The [vrf NAME] option
+   is only meaningful if you have started zebra with the --vrfwnetns
+   option as that nexthop groups are per namespace in linux.
+   If you specify singleton you would like to see the singleton
+   nexthop groups that do have an afi.
 
 
 Router-id
