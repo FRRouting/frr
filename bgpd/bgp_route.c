@@ -10708,6 +10708,7 @@ DEFUN (show_ip_bgp_regexp,
 	if (argv_find(argv, argc, "REGEX", &idx))
 		regstr = argv[idx]->arg;
 
+	assert(regstr);
 	return bgp_show_regexp(vty, bgp, (const char *)regstr, afi, safi,
 				 bgp_show_type_regexp, uj);
 }
