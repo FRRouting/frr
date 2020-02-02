@@ -234,8 +234,6 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 	if ((*extra)->bgp_fs_pbr)
 		list_delete(&((*extra)->bgp_fs_pbr));
 	XFREE(MTYPE_BGP_ROUTE_EXTRA, *extra);
-
-	*extra = NULL;
 }
 
 /* Get bgp_path_info extra information for the given bgp_path_info, lazy
@@ -12165,10 +12163,9 @@ static int bgp_distance_set(struct vty *vty, const char *distance_str,
 	bdistance->distance = distance;
 
 	/* Reset access-list configuration. */
-	if (bdistance->access_list) {
+	if (bdistance->access_list)
 		XFREE(MTYPE_AS_LIST, bdistance->access_list);
-		bdistance->access_list = NULL;
-	}
+
 	if (access_list_str)
 		bdistance->access_list =
 			XSTRDUP(MTYPE_AS_LIST, access_list_str);
