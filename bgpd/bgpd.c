@@ -3384,14 +3384,13 @@ int bgp_delete(struct bgp *bgp)
 	/* Delete the graceful restart info */
 	FOREACH_AFI_SAFI (afi, safi) {
 		gr_info = &bgp->gr_info[afi][safi];
-		if (gr_info) {
-			BGP_TIMER_OFF(gr_info->t_select_deferral);
-			gr_info->t_select_deferral = NULL;
-			BGP_TIMER_OFF(gr_info->t_route_select);
-			gr_info->t_route_select = NULL;
-			if (gr_info->route_list)
-				list_delete(&gr_info->route_list);
-		}
+		if (!gr_info)
+			continue;
+
+		BGP_TIMER_OFF(gr_info->t_select_deferral);
+		BGP_TIMER_OFF(gr_info->t_route_select);
+		if (gr_info->route_list)
+			list_delete(&gr_info->route_list);
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {

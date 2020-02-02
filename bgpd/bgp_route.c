@@ -2762,12 +2762,6 @@ int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	}
 
 	thread_info = XMALLOC(MTYPE_TMP, sizeof(struct afi_safi_info));
-	if (thread_info == NULL) {
-		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug("%s : error allocating thread info",
-					__func__);
-		return -1;
-	}
 
 	thread_info->afi = afi;
 	thread_info->safi = safi;
@@ -2779,13 +2773,6 @@ int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	thread_add_timer(bm->master, bgp_route_select_timer_expire, thread_info,
 			BGP_ROUTE_SELECT_DELAY,
 			&bgp->gr_info[afi][safi].t_route_select);
-	if (bgp->gr_info[afi][safi].t_route_select == NULL) {
-		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug("%s : error starting selection thread for %s",
-					__func__, get_afi_safi_str(afi,
-					safi, false));
-		return -1;
-	}
 	return 0;
 }
 
