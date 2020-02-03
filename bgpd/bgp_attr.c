@@ -2590,8 +2590,10 @@ bgp_attr_parse_ret_t bgp_attr_prefix_sid(struct bgp_attr_parser_args *args,
 	uint8_t type;
 	uint16_t length;
 	size_t headersz = sizeof(type) + sizeof(length);
+	size_t psid_parsed_length = 0;
 
-	while (STREAM_READABLE(peer->curr) > 0) {
+	while (STREAM_READABLE(peer->curr) > 0
+	       && psid_parsed_length < args->length) {
 
 		if (STREAM_READABLE(peer->curr) < headersz) {
 			flog_err(
@@ -2621,6 +2623,19 @@ bgp_attr_parse_ret_t bgp_attr_prefix_sid(struct bgp_attr_parser_args *args,
 
 		if (ret != BGP_ATTR_PARSE_PROCEED)
 			return ret;
+
+		psid_parsed_length += length + headersz;
+
+		if (psid_parsed_length > args->length) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Malformed Prefix SID attribute - TLV overflow by attribute (need %zu"
+				" for TLV length, have %zu overflowed in UPDATE)",
+				length + headersz, psid_parsed_length - (length + headersz));
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
+		}
 	}
 
 	return BGP_ATTR_PARSE_PROCEED;
