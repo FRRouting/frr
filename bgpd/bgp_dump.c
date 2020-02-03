@@ -669,7 +669,6 @@ static int bgp_dump_unset(struct bgp_dump *bgp_dump)
 	/* Removing file name. */
 	if (bgp_dump->filename) {
 		XFREE(MTYPE_BGP_DUMP_STR, bgp_dump->filename);
-		bgp_dump->filename = NULL;
 	}
 
 	/* Closing file. */
@@ -689,7 +688,6 @@ static int bgp_dump_unset(struct bgp_dump *bgp_dump)
 	/* Removing interval string. */
 	if (bgp_dump->interval_str) {
 		XFREE(MTYPE_BGP_DUMP_STR, bgp_dump->interval_str);
-		bgp_dump->interval_str = NULL;
 	}
 
 	return CMD_SUCCESS;

@@ -712,12 +712,10 @@ static int bgp_capability_hostname(struct peer *peer,
 
 		if (peer->hostname != NULL) {
 			XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
-			peer->hostname = NULL;
 		}
 
 		if (peer->domainname != NULL) {
 			XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-			peer->domainname = NULL;
 		}
 
 		peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
@@ -752,7 +750,6 @@ static int bgp_capability_hostname(struct peer *peer,
 
 		if (peer->domainname != NULL) {
 			XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-			peer->domainname = NULL;
 		}
 
 		peer->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);

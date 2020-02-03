@@ -2503,8 +2503,6 @@ static void disable_log_file(void)
 	zlog_reset_file();
 
 	XFREE(MTYPE_HOST, host.logfile);
-
-	host.logfile = NULL;
 }
 
 DEFUN (no_config_log_file,

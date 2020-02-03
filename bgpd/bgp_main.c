@@ -272,7 +272,6 @@ static int bgp_vrf_enable(struct vrf *vrf)
 	if (bgp && bgp->vrf_id != vrf->vrf_id) {
 		if (bgp->name && strmatch(vrf->name, VRF_DEFAULT_NAME)) {
 			XFREE(MTYPE_BGP, bgp->name);
-			bgp->name = NULL;
 			XFREE(MTYPE_BGP, bgp->name_pretty);
 			bgp->name_pretty = XSTRDUP(MTYPE_BGP, "VRF default");
 			bgp->inst_type = BGP_INSTANCE_TYPE_DEFAULT;

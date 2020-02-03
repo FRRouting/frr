@@ -752,7 +752,6 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 
 		if (bgp_notify.data) {
 			XFREE(MTYPE_TMP, bgp_notify.data);
-			bgp_notify.data = NULL;
 			bgp_notify.length = 0;
 		}
 	}
@@ -1745,7 +1744,6 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 
 	if (peer->notify.data) {
 		XFREE(MTYPE_TMP, peer->notify.data);
-		peer->notify.data = NULL;
 		peer->notify.length = 0;
 	}
 
@@ -1796,7 +1794,6 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 		bgp_notify_print(peer, &bgp_notify, "received");
 		if (bgp_notify.data) {
 			XFREE(MTYPE_TMP, bgp_notify.data);
-			bgp_notify.data = NULL;
 			bgp_notify.length = 0;
 		}
 	}

@@ -121,7 +121,6 @@ int eigrp_if_delete_hook(struct interface *ifp)
 	eigrp_fifo_free(ei->obuf);
 
 	XFREE(MTYPE_EIGRP_IF_INFO, ifp->info);
-	ifp->info = NULL;
 
 	return 0;
 }

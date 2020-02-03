@@ -610,7 +610,6 @@ static int vty_access_list_remark_unset(struct vty *vty, afi_t afi,
 
 	if (access->remark) {
 		XFREE(MTYPE_TMP, access->remark);
-		access->remark = NULL;
 	}
 
 	if (access->head == NULL && access->tail == NULL)

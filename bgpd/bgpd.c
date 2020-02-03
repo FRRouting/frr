@@ -1009,23 +1009,19 @@ static void peer_free(struct peer *peer)
 
 	if (peer->desc) {
 		XFREE(MTYPE_PEER_DESC, peer->desc);
-		peer->desc = NULL;
 	}
 
 	/* Free allocated host character. */
 	if (peer->host) {
 		XFREE(MTYPE_BGP_PEER_HOST, peer->host);
-		peer->host = NULL;
 	}
 
 	if (peer->domainname) {
 		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-		peer->domainname = NULL;
 	}
 
 	if (peer->ifname) {
 		XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
-		peer->ifname = NULL;
 	}
 
 	/* Update source configuration.  */
@@ -1036,7 +1032,6 @@ static void peer_free(struct peer *peer)
 
 	if (peer->update_if) {
 		XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-		peer->update_if = NULL;
 	}
 
 	XFREE(MTYPE_TMP, peer->notify.data);
@@ -1049,7 +1044,6 @@ static void peer_free(struct peer *peer)
 
 	if (peer->conf_if) {
 		XFREE(MTYPE_PEER_CONF_IF, peer->conf_if);
-		peer->conf_if = NULL;
 	}
 
 	bfd_info_free(&(peer->bfd_info));
@@ -1372,7 +1366,6 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 			sockunion_free(peer_dst->update_source);
 		if (peer_dst->update_if) {
 			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer_dst->update_if);
-			peer_dst->update_if = NULL;
 		}
 		peer_dst->update_source =
 			sockunion_dup(peer_src->update_source);
@@ -2388,19 +2381,16 @@ int peer_delete(struct peer *peer)
 			if (filter->dlist[i].name) {
 				XFREE(MTYPE_BGP_FILTER_NAME,
 				      filter->dlist[i].name);
-				filter->dlist[i].name = NULL;
 			}
 
 			if (filter->plist[i].name) {
 				XFREE(MTYPE_BGP_FILTER_NAME,
 				      filter->plist[i].name);
-				filter->plist[i].name = NULL;
 			}
 
 			if (filter->aslist[i].name) {
 				XFREE(MTYPE_BGP_FILTER_NAME,
 				      filter->aslist[i].name);
-				filter->aslist[i].name = NULL;
 			}
 		}
 
@@ -2408,19 +2398,16 @@ int peer_delete(struct peer *peer)
 			if (filter->map[i].name) {
 				XFREE(MTYPE_BGP_FILTER_NAME,
 				      filter->map[i].name);
-				filter->map[i].name = NULL;
 			}
 		}
 
 		if (filter->usmap.name) {
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
-			filter->usmap.name = NULL;
 		}
 
 		if (peer->default_rmap[afi][safi].name) {
 			XFREE(MTYPE_ROUTE_MAP_NAME,
 			      peer->default_rmap[afi][safi].name);
-			peer->default_rmap[afi][safi].name = NULL;
 		}
 	}
 
@@ -2429,12 +2416,10 @@ int peer_delete(struct peer *peer)
 
 	if (peer->hostname) {
 		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
-		peer->hostname = NULL;
 	}
 
 	if (peer->domainname) {
 		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-		peer->domainname = NULL;
 	}
 
 	peer_unlock(peer); /* initial reference */
@@ -2994,7 +2979,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		XSTRDUP(MTYPE_BGP_PEER_HOST, "Static announcement");
 	if (bgp->peer_self->hostname != NULL) {
 		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->hostname);
-		bgp->peer_self->hostname = NULL;
 	}
 	if (cmd_hostname_get())
 		bgp->peer_self->hostname =
@@ -3002,7 +2986,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 	if (bgp->peer_self->domainname != NULL) {
 		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->domainname);
-		bgp->peer_self->domainname = NULL;
 	}
 	if (cmd_domainname_get())
 		bgp->peer_self->domainname =
@@ -4507,8 +4490,6 @@ int peer_description_unset(struct peer *peer)
 {
 	XFREE(MTYPE_PEER_DESC, peer->desc);
 
-	peer->desc = NULL;
-
 	return 0;
 }
 
@@ -5258,7 +5239,6 @@ void peer_interface_set(struct peer *peer, const char *str)
 void peer_interface_unset(struct peer *peer)
 {
 	XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
-	peer->ifname = NULL;
 }
 
 /* Allow-as in.  */

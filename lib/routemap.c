@@ -2063,7 +2063,6 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 			hash_free(dep->dep_rmap_hash);
 			XFREE(MTYPE_ROUTE_MAP_NAME, dep->dep_name);
 			XFREE(MTYPE_ROUTE_MAP_DEP, dep);
-			dep = NULL;
 		}
 		break;
 	case RMAP_EVENT_SET_ADDED:

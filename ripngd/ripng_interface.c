@@ -913,7 +913,6 @@ static int ripng_if_new_hook(struct interface *ifp)
 static int ripng_if_delete_hook(struct interface *ifp)
 {
 	XFREE(MTYPE_RIPNG_IF, ifp->info);
-	ifp->info = NULL;
 	return 0;
 }
 

@@ -407,7 +407,6 @@ static void control_reset_buf(struct bfd_control_buffer *bcb)
 {
 	/* Get ride of old data. */
 	XFREE(MTYPE_BFDD_NOTIFICATION, bcb->bcb_buf);
-	bcb->bcb_buf = NULL;
 	bcb->bcb_pos = 0;
 	bcb->bcb_left = 0;
 }

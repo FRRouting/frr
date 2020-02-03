@@ -59,7 +59,6 @@ static void bfd_session_free(struct bfd_session **session)
 		return;
 
 	XFREE(MTYPE_BFD_SESSION, *session);
-	*session = NULL;
 }
 
 static bool bfd_session_same(const struct bfd_session *session, int family,

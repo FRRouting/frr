@@ -1153,7 +1153,6 @@ static char *command_generator(const char *text, int state)
 		return matched[index++];
 
 	XFREE(MTYPE_TMP, matched);
-	matched = NULL;
 
 	return NULL;
 }
