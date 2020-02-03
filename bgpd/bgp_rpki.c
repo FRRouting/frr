@@ -849,7 +849,7 @@ static int start(struct rpki_vrf *rpki_vrf)
 		return ERROR;
 	}
 
-	RPKI_DEBUG("Init rtr_mgr.");
+	RPKI_DEBUG("Init rtr_mgr (%s).", vrf->name);
 	int groups_len = listcount(cache_list);
 	struct rtr_mgr_group *groups = get_groups(rpki_vrf->cache_list);
 
@@ -859,14 +859,14 @@ static int start(struct rpki_vrf *rpki_vrf)
 			   rpki_vrf->retry_interval, rpki_update_cb_sync_rtr,
 			   NULL, NULL, NULL);
 	if (ret == RTR_ERROR) {
-		RPKI_DEBUG("Init rtr_mgr failed.");
+		RPKI_DEBUG("Init rtr_mgr failed (%s).", vrf->name);
 		return ERROR;
 	}
 
-	RPKI_DEBUG("Starting rtr_mgr.");
+	RPKI_DEBUG("Starting rtr_mgr (%s).", vrf->name);
 	ret = rtr_mgr_start(rpki_vrf->rtr_config);
 	if (ret == RTR_ERROR) {
-		RPKI_DEBUG("Starting rtr_mgr failed.");
+		RPKI_DEBUG("Starting rtr_mgr failed (%s).", vrf->name);
 		rtr_mgr_free(rpki_vrf->rtr_config);
 		return ERROR;
 	}
