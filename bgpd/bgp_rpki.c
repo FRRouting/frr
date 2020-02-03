@@ -151,7 +151,7 @@ static enum route_map_cmd_result_t route_match(void *rule,
 					       void *object);
 static void *route_match_compile(const char *arg);
 static void revalidate_bgp_node(struct bgp_dest *dest, afi_t afi, safi_t safi);
-static void revalidate_all_routes(void);
+static void revalidate_all_routes(struct rpki_vrf *rpki_vrf);
 
 static bool rpki_debug_conf, rpki_debug_term;
 
@@ -580,6 +580,7 @@ static void bgpd_sync_callback(struct event *thread)
 	struct prefix prefix;
 	struct pfx_record rec;
 	struct rpki_vrf *rpki_vrf = EVENT_ARG(thread);
+	struct vrf *vrf = NULL;
 
 	event_add_read(bm->master, bgpd_sync_callback, rpki_vrf,
 		       rpki_vrf->rpki_sync_socket_bgpd, NULL);
@@ -592,7 +593,7 @@ static void bgpd_sync_callback(struct event *thread)
 
 		atomic_store_explicit(&rpki_vrf->rtr_update_overflow, 0,
 				      memory_order_seq_cst);
-		revalidate_all_routes();
+		revalidate_all_routes(rpki_vrf);
 		return;
 	}
 
@@ -606,8 +607,22 @@ static void bgpd_sync_callback(struct event *thread)
 
 	afi_t afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
 
+	if (rpki_vrf->vrfname) {
+		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
+		if (!vrf) {
+			zlog_err("%s(): vrf for rpki %s not found", __func__,
+				 rpki_vrf->vrfname);
+			return;
+		}
+	}
+
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		safi_t safi;
+
+		if (!vrf && bgp->vrf_id != VRF_DEFAULT)
+			continue;
+		if (vrf && bgp->vrf_id != vrf->vrf_id)
+			continue;
 
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
 			struct bgp_table *table = bgp->rib[afi][safi];
@@ -674,14 +689,29 @@ static void bgp_rpki_revalidate_peer(struct event *thread)
 	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rvp);
 }
 
-static void revalidate_all_routes(void)
+static void revalidate_all_routes(struct rpki_vrf *rpki_vrf)
 {
 	struct bgp *bgp;
 	struct listnode *node;
+	struct vrf *vrf = NULL;
+
+	if (rpki_vrf->vrfname) {
+		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
+		if (!vrf) {
+			zlog_err("%s(): vrf for rpki %s not found", __func__,
+				 rpki_vrf->vrfname);
+			return;
+		}
+	}
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		struct peer *peer;
 		struct listnode *peer_listnode;
+
+		if (!vrf && bgp->vrf_id != VRF_DEFAULT)
+			continue;
+		if (vrf && bgp->vrf_id != vrf->vrf_id)
+			continue;
 
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
 			afi_t afi;
