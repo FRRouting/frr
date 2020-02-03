@@ -3,6 +3,10 @@ module frr-interface {
   namespace "http://frrouting.org/yang/interface";
   prefix frr-interface;
 
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
   organization
     "FRRouting";
   contact
@@ -25,7 +29,6 @@ module frr-interface {
       key "name vrf";
       description
         "Interface.";
-
       leaf name {
         type string {
           length "1..16";
@@ -33,13 +36,13 @@ module frr-interface {
         description
           "Interface name.";
       }
+
       leaf vrf {
-        type string {
-          length "1..36";
-        }
+        type frr-vrf:vrf-ref;
         description
           "VRF this interface is associated with.";
       }
+
       leaf description {
         type string;
         description
