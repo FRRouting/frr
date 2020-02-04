@@ -1007,22 +1007,10 @@ static void peer_free(struct peer *peer)
 
 	XFREE(MTYPE_PEER_TX_SHUTDOWN_MSG, peer->tx_shutdown_message);
 
-	if (peer->desc) {
-		XFREE(MTYPE_PEER_DESC, peer->desc);
-	}
-
-	/* Free allocated host character. */
-	if (peer->host) {
-		XFREE(MTYPE_BGP_PEER_HOST, peer->host);
-	}
-
-	if (peer->domainname) {
-		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-	}
-
-	if (peer->ifname) {
-		XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
-	}
+	XFREE(MTYPE_PEER_DESC, peer->desc);
+	XFREE(MTYPE_BGP_PEER_HOST, peer->host);
+	XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+	XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
 
 	/* Update source configuration.  */
 	if (peer->update_source) {
@@ -1030,9 +1018,7 @@ static void peer_free(struct peer *peer)
 		peer->update_source = NULL;
 	}
 
-	if (peer->update_if) {
-		XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-	}
+	XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
 
 	XFREE(MTYPE_TMP, peer->notify.data);
 	memset(&peer->notify, 0, sizeof(struct bgp_notify));
@@ -1042,9 +1028,7 @@ static void peer_free(struct peer *peer)
 
 	bgp_sync_delete(peer);
 
-	if (peer->conf_if) {
-		XFREE(MTYPE_PEER_CONF_IF, peer->conf_if);
-	}
+	XFREE(MTYPE_PEER_CONF_IF, peer->conf_if);
 
 	bfd_info_free(&(peer->bfd_info));
 
@@ -1364,9 +1348,7 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	if (peer_src->update_source) {
 		if (peer_dst->update_source)
 			sockunion_free(peer_dst->update_source);
-		if (peer_dst->update_if) {
-			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer_dst->update_if);
-		}
+		XFREE(MTYPE_PEER_UPDATE_SOURCE, peer_dst->update_if);
 		peer_dst->update_source =
 			sockunion_dup(peer_src->update_source);
 	} else if (peer_src->update_if) {
@@ -2378,49 +2360,24 @@ int peer_delete(struct peer *peer)
 		filter = &peer->filter[afi][safi];
 
 		for (i = FILTER_IN; i < FILTER_MAX; i++) {
-			if (filter->dlist[i].name) {
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->dlist[i].name);
-			}
-
-			if (filter->plist[i].name) {
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->plist[i].name);
-			}
-
-			if (filter->aslist[i].name) {
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->aslist[i].name);
-			}
+			XFREE(MTYPE_BGP_FILTER_NAME, filter->dlist[i].name);
+			XFREE(MTYPE_BGP_FILTER_NAME, filter->plist[i].name);
+			XFREE(MTYPE_BGP_FILTER_NAME, filter->aslist[i].name);
 		}
 
 		for (i = RMAP_IN; i < RMAP_MAX; i++) {
-			if (filter->map[i].name) {
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->map[i].name);
-			}
+			XFREE(MTYPE_BGP_FILTER_NAME, filter->map[i].name);
 		}
 
-		if (filter->usmap.name) {
-			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
-		}
-
-		if (peer->default_rmap[afi][safi].name) {
-			XFREE(MTYPE_ROUTE_MAP_NAME,
-			      peer->default_rmap[afi][safi].name);
-		}
+		XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
+		XFREE(MTYPE_ROUTE_MAP_NAME, peer->default_rmap[afi][safi].name);
 	}
 
 	FOREACH_AFI_SAFI (afi, safi)
 		peer_af_delete(peer, afi, safi);
 
-	if (peer->hostname) {
-		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
-	}
-
-	if (peer->domainname) {
-		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-	}
+	XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+	XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
 
 	peer_unlock(peer); /* initial reference */
 
@@ -2977,16 +2934,12 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->host);
 	bgp->peer_self->host =
 		XSTRDUP(MTYPE_BGP_PEER_HOST, "Static announcement");
-	if (bgp->peer_self->hostname != NULL) {
-		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->hostname);
-	}
+	XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->hostname);
 	if (cmd_hostname_get())
 		bgp->peer_self->hostname =
 			XSTRDUP(MTYPE_BGP_PEER_HOST, cmd_hostname_get());
 
-	if (bgp->peer_self->domainname != NULL) {
-		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->domainname);
-	}
+	XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->domainname);
 	if (cmd_domainname_get())
 		bgp->peer_self->domainname =
 			XSTRDUP(MTYPE_BGP_PEER_HOST, cmd_domainname_get());

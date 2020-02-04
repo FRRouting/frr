@@ -608,9 +608,7 @@ static int vty_access_list_remark_unset(struct vty *vty, afi_t afi,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (access->remark) {
-		XFREE(MTYPE_TMP, access->remark);
-	}
+	XFREE(MTYPE_TMP, access->remark);
 
 	if (access->head == NULL && access->tail == NULL)
 		access_list_delete(access);

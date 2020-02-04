@@ -74,9 +74,7 @@ struct bfd_info *bfd_info_create(void)
  */
 void bfd_info_free(struct bfd_info **bfd_info)
 {
-	if (*bfd_info) {
-		XFREE(MTYPE_BFD_INFO, *bfd_info);
-	}
+	XFREE(MTYPE_BFD_INFO, *bfd_info);
 }
 
 /*

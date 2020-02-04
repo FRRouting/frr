@@ -12160,9 +12160,7 @@ static int bgp_distance_set(struct vty *vty, const char *distance_str,
 	bdistance->distance = distance;
 
 	/* Reset access-list configuration. */
-	if (bdistance->access_list) {
-		XFREE(MTYPE_AS_LIST, bdistance->access_list);
-	}
+	XFREE(MTYPE_AS_LIST, bdistance->access_list);
 	if (access_list_str)
 		bdistance->access_list =
 			XSTRDUP(MTYPE_AS_LIST, access_list_str);

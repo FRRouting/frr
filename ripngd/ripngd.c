@@ -2804,8 +2804,7 @@ static int ripng_vrf_enable(struct vrf *vrf)
 				running_config->version++;
 			}
 		}
-		if (old_vrf_name)
-			XFREE(MTYPE_RIPNG_VRF_NAME, old_vrf_name);
+		XFREE(MTYPE_RIPNG_VRF_NAME, old_vrf_name);
 	}
 
 	if (ripng->enabled)

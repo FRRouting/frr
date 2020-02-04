@@ -1175,9 +1175,7 @@ static void pim_msdp_peer_free(struct pim_msdp_peer *mp)
 		stream_fifo_free(mp->obuf);
 	}
 
-	if (mp->mesh_group_name) {
-		XFREE(MTYPE_PIM_MSDP_MG_NAME, mp->mesh_group_name);
-	}
+	XFREE(MTYPE_PIM_MSDP_MG_NAME, mp->mesh_group_name);
 
 	mp->pim = NULL;
 	XFREE(MTYPE_PIM_MSDP_PEER, mp);

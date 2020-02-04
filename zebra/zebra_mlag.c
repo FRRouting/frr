@@ -797,13 +797,11 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 		}
 
 		for (i = 0; i < mlag_msg.msg_cnt; i++) {
-			if (pay_load[i]->vrf_name)
-				XFREE(MTYPE_MLAG_PBUF, pay_load[i]->vrf_name);
+			XFREE(MTYPE_MLAG_PBUF, pay_load[i]->vrf_name);
 			if (pay_load[i]->owner_id == MLAG_OWNER_INTERFACE
 			    && pay_load[i]->intf_name)
 				XFREE(MTYPE_MLAG_PBUF, pay_load[i]->intf_name);
-			if (pay_load[i])
-				XFREE(MTYPE_MLAG_PBUF, pay_load[i]);
+			XFREE(MTYPE_MLAG_PBUF, pay_load[i]);
 		}
 		XFREE(MTYPE_MLAG_PBUF, pay_load);
 		if (cleanup == true)
@@ -861,13 +859,11 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 		}
 
 		for (i = 0; i < mlag_msg.msg_cnt; i++) {
-			if (pay_load[i]->vrf_name)
-				XFREE(MTYPE_MLAG_PBUF, pay_load[i]->vrf_name);
+			XFREE(MTYPE_MLAG_PBUF, pay_load[i]->vrf_name);
 			if (pay_load[i]->owner_id == MLAG_OWNER_INTERFACE
 			    && pay_load[i]->intf_name)
 				XFREE(MTYPE_MLAG_PBUF, pay_load[i]->intf_name);
-			if (pay_load[i])
-				XFREE(MTYPE_MLAG_PBUF, pay_load[i]);
+			XFREE(MTYPE_MLAG_PBUF, pay_load[i]);
 		}
 		XFREE(MTYPE_MLAG_PBUF, pay_load);
 		if (cleanup)
@@ -914,8 +910,7 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 			mlag_lib_msgid_to_str(mlag_msg.msg_type, buf,
 					      sizeof(buf)),
 			len);
-	if (hdr.data.data)
-		XFREE(MTYPE_MLAG_PBUF, hdr.data.data);
+	XFREE(MTYPE_MLAG_PBUF, hdr.data.data);
 
 	return len;
 }

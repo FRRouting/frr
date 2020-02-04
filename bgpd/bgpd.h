@@ -1382,8 +1382,7 @@ DECLARE_QOBJ_TYPE(peer)
 	((peer)->attr = (group)->conf->attr)
 #define PEER_STR_ATTR_INHERIT(peer, group, attr, mt)                           \
 	do {                                                                   \
-		if ((peer)->attr)                                              \
-			XFREE(mt, (peer)->attr);                               \
+		XFREE(mt, (peer)->attr);                                       \
 		if ((group)->conf->attr)                                       \
 			(peer)->attr = XSTRDUP(mt, (group)->conf->attr);       \
 		else                                                           \

@@ -1092,9 +1092,7 @@ static int vty_prefix_list_desc_unset(struct vty *vty, afi_t afi,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (plist->desc) {
-		XFREE(MTYPE_TMP, plist->desc);
-	}
+	XFREE(MTYPE_TMP, plist->desc);
 
 	if (plist->head == NULL && plist->tail == NULL && plist->desc == NULL)
 		prefix_list_delete(plist);

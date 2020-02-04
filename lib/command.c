@@ -2659,8 +2659,7 @@ int cmd_banner_motd_file(const char *file)
 
 void cmd_banner_motd_line(const char *line)
 {
-	if (host.motd)
-		XFREE(MTYPE_HOST, host.motd);
+	XFREE(MTYPE_HOST, host.motd);
 	host.motd = XSTRDUP(MTYPE_HOST, line);
 }
 

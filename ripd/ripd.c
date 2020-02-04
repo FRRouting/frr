@@ -3670,8 +3670,7 @@ static int rip_vrf_enable(struct vrf *vrf)
 				running_config->version++;
 			}
 		}
-		if (old_vrf_name)
-			XFREE(MTYPE_RIP_VRF_NAME, old_vrf_name);
+		XFREE(MTYPE_RIP_VRF_NAME, old_vrf_name);
 	}
 	if (!rip || rip->enabled)
 		return 0;
