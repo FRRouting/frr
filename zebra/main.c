@@ -151,6 +151,10 @@ static void sigint(void)
 
 	zebra_dplane_pre_finish();
 
+	/* Clean up GR related info. */
+	zebra_gr_stale_client_cleanup(zrouter.stale_client_list);
+	list_delete_all_node(zrouter.stale_client_list);
+
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, ln, nn, client))
 		zserv_close_client(client);
 

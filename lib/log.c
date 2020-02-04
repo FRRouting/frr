@@ -1094,7 +1094,7 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_VXLAN_SG_DEL),
 	DESC_ENTRY(ZEBRA_VXLAN_SG_REPLAY),
 	DESC_ENTRY(ZEBRA_ERROR),
-};
+	DESC_ENTRY(ZEBRA_CLIENT_CAPABILITIES)};
 #undef DESC_ENTRY
 
 static const struct zebra_desc_table unknown = {0, "unknown", '?'};

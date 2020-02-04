@@ -17,6 +17,7 @@ vtysh_scan += \
 	$(top_srcdir)/zebra/zebra_routemap.c \
 	$(top_srcdir)/zebra/zebra_vty.c \
 	$(top_srcdir)/zebra/zserv.c \
+	$(top_srcdir)/zebra/zebra_gr.c \
 	# end
 
 # can be loaded as DSO - always include for vtysh
@@ -101,6 +102,7 @@ zebra_zebra_SOURCES = \
 	zebra/table_manager.c \
 	zebra/zapi_msg.c \
 	zebra/zebra_errors.c \
+	zebra/zebra_gr.c \
 	# end
 
 zebra/debug_clippy.c: $(CLIPPY_DEPS)

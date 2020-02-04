@@ -117,6 +117,9 @@ struct zebra_router {
 	/* Lists of clients who have connected to us */
 	struct list *client_list;
 
+	/* List of clients in GR */
+	struct list *stale_client_list;
+
 	struct zebra_router_table_head tables;
 
 	/* L3-VNI hash table (for EVPN). Only in default instance */

@@ -3102,43 +3102,6 @@ int bgp_zebra_update(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type)
 }
 
 
-int zclient_capabilities_send(uint32_t cmd, struct zclient *zclient,
-		struct zapi_cap *api)
-{
-	struct stream *s;
-
-	if (zclient == NULL)
-		return -1;
-
-	s = zclient->obuf;
-	stream_reset(s);
-	zclient_create_header(s, cmd, 0);
-	stream_putl(s, api->cap);
-	switch (api->cap) {
-	case ZEBRA_CLIENT_GR_CAPABILITIES:
-	case ZEBRA_CLIENT_RIB_STALE_TIME:
-			stream_putl(s, api->stale_removal_time);
-			stream_putl(s, api->vrf_id);
-			break;
-	case ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE:
-	case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
-			stream_putl(s, api->afi);
-			stream_putl(s, api->safi);
-			stream_putl(s, api->vrf_id);
-			break;
-	case ZEBRA_CLIENT_GR_DISABLE:
-			stream_putl(s, api->vrf_id);
-			break;
-	default:
-			break;
-	}
-
-	/* Put length at the first point of the stream */
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	return zclient_send_message(zclient);
-}
-
 /* Send RIB stale timer update */
 int bgp_zebra_stale_timer_update(struct bgp *bgp)
 {
