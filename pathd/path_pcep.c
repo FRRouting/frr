@@ -69,13 +69,16 @@ static void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
 				       pcc_state_t * pcc_state,
 				       pcep_event *event);
 static void pcep_pcc_handle_message(ctrl_state_t *ctrl_state,
-				    pcc_state_t * pcc_state, pcep_message *msg);
+				    pcc_state_t * pcc_state,
+				    struct pcep_message *msg);
 static void pcep_pcc_lsp_update(ctrl_state_t *ctrl_state,
-				pcc_state_t * pcc_state, pcep_message *msg);
+				pcc_state_t * pcc_state,
+				struct pcep_message *msg);
 static void pcep_pcc_lsp_initiate(ctrl_state_t *ctrl_state,
-				  pcc_state_t * pcc_state, pcep_message *msg);
+				  pcc_state_t * pcc_state,
+				  struct pcep_message *msg);
 static void pcep_pcc_send(ctrl_state_t *ctrl_state,
-			  pcc_state_t * pcc_state, pcep_message *msg);
+			  pcc_state_t * pcc_state, struct pcep_message *msg);
 static void pcep_pcc_schedule_reconnect(ctrl_state_t *ctrl_state,
 					pcc_state_t *pcc_state);
 static void pcep_pcc_lookup_plspid(pcc_state_t *pcc_state, path_t *path);
@@ -351,7 +354,7 @@ void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
 			break;
 		case MESSAGE_RECEIVED:
 			if (CONNECTING == pcc_state->status) {
-				assert(PCEP_TYPE_OPEN == event->message->header->type);
+				assert(PCEP_TYPE_OPEN == event->message->msg_header->type);
 				break;
 			}
 			assert(SYNCHRONIZING == pcc_state->status
@@ -366,9 +369,9 @@ void pcep_pcc_handle_pcep_event(ctrl_state_t *ctrl_state,
 }
 
 void pcep_pcc_handle_message(ctrl_state_t *ctrl_state,
-			     pcc_state_t * pcc_state, pcep_message *msg)
+			     pcc_state_t * pcc_state, struct pcep_message *msg)
 {
-	switch (msg->header->type) {
+	switch (msg->msg_header->type) {
 		case PCEP_TYPE_INITIATE:
 			pcep_pcc_lsp_initiate(ctrl_state, pcc_state, msg);
 			break;
@@ -381,7 +384,7 @@ void pcep_pcc_handle_message(ctrl_state_t *ctrl_state,
 }
 
 void pcep_pcc_lsp_update(ctrl_state_t *ctrl_state,
-			 pcc_state_t *pcc_state, pcep_message *msg)
+			 pcc_state_t *pcc_state, struct pcep_message *msg)
 {
 	path_t *path;
 	path = pcep_lib_parse_path(msg->obj_list);
@@ -405,13 +408,13 @@ void pcep_pcc_lsp_update(ctrl_state_t *ctrl_state,
 }
 
 void pcep_pcc_lsp_initiate(ctrl_state_t *ctrl_state,
-			   pcc_state_t *pcc_state, pcep_message *msg)
+			   pcc_state_t *pcc_state, struct pcep_message *msg)
 {
 	PCEP_DEBUG("Received LSP initiate, not supported yet");
 }
 
 void pcep_pcc_send(ctrl_state_t *ctrl_state,
-		   pcc_state_t *pcc_state, pcep_message *msg)
+		   pcc_state_t *pcc_state, struct pcep_message *msg)
 {
 	PCEP_DEBUG("Sending PCEP message: %s", format_pcep_message(msg));
 	send_message(pcc_state->sess, msg, true);
@@ -513,7 +516,7 @@ void pcep_pcc_send_report(ctrl_state_t *ctrl_state, pcc_state_t *pcc_state,
 			  path_t * path)
 {
 	double_linked_list *objs;
-	pcep_message *report;
+	struct pcep_message *report;
 
 	pcep_pcc_lookup_plspid(pcc_state, path);
 	/* FIXME: Enable this back when ODL is not complaining about update
@@ -525,7 +528,6 @@ void pcep_pcc_send_report(ctrl_state_t *ctrl_state, pcc_state_t *pcc_state,
 	objs = pcep_lib_format_path(path);
 	report = pcep_msg_create_report(objs);
 	pcep_pcc_send(ctrl_state, pcc_state, report);
-	dll_destroy_with_data(objs);
 }
 
 void pcep_pcc_handle_pathd_event(ctrl_state_t *ctrl_state,
@@ -549,8 +551,6 @@ void pcep_pcc_handle_pathd_event(ctrl_state_t *ctrl_state,
 			pcep_pcc_send_report(ctrl_state, pcc_state, path);
 			break;
 	}
-
-	pcep_lib_free_path(path);
 }
 
 
@@ -1010,6 +1010,8 @@ int pcep_thread_pcc_pathd_event(struct thread *thread)
 		if (!pcc_state->synchronized) continue;
 		pcep_pcc_handle_pathd_event(ctrl_state, pcc_state, type, path);
 	}
+
+	pcep_lib_free_path(path);
 
 	return 0;
 }
