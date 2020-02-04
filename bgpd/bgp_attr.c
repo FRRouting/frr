@@ -2382,15 +2382,6 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		/* Store label index; subsequently, we'll check on
 		 * address-family */
 		attr->label_index = label_index;
-
-		/*
-		 * Ignore the Label index attribute unless received for
-		 * labeled-unicast
-		 * SAFI.
-		 */
-		if (!mp_update->length
-		    || mp_update->safi != SAFI_LABELED_UNICAST)
-			attr->label_index = BGP_INVALID_LABEL_INDEX;
 	}
 
 	/* Placeholder code for the IPv6 SID type */
@@ -3077,6 +3068,17 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 			goto done;
 		}
 	}
+
+	/*
+	 * draft-ietf-idr-bgp-prefix-sid-27#section-3:
+	 * About Prefix-SID path attribute,
+	 * Label-Index TLV(type1) and The Originator SRGB TLV(type-3)
+	 * may only appear in a BGP Prefix-SID attribute attached to
+	 * IPv4/IPv6 Labeled Unicast prefixes ([RFC8277]).
+	 * It MUST be ignored when received for other BGP AFI/SAFI combinations.
+	 */
+	if (!attr->mp_nexthop_len || mp_update->safi != SAFI_LABELED_UNICAST)
+		attr->label_index = BGP_INVALID_LABEL_INDEX;
 
 	/* Check final read pointer is same as end pointer. */
 	if (BGP_INPUT_PNT(peer) != endp) {
