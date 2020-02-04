@@ -153,6 +153,30 @@ struct nhg_ctx {
 	enum nhg_ctx_status status;
 };
 
+#define NHG_WALK_CONTINUE 0
+#define NHG_WALK_ABORT -1
+
+/* Walk over all depend NHEs in the trees.
+ *
+ * @nhe: starting tree root (`func` is ran with this as well)
+ *
+ * @func: function to call with each NHE (should return NHG_WALK_CONTINUE or
+ * NHG_WALK_ABORT)
+ *
+ * @arg: additional argument passed into every `func` call
+ *
+ * Note: removing items from the tree during walk is undefined behavior
+ */
+void zebra_nhg_depends_walk(struct nhg_hash_entry *nhe,
+			    int (*func)(struct nhg_hash_entry *, void *),
+			    void *arg);
+
+/* Same but `func` is only ran on fully resolved (singleton) NHE's */
+void zebra_nhg_depends_walk_resolved(struct nhg_hash_entry *nhe,
+				     int (*func)(struct nhg_hash_entry *,
+						 void *),
+				     void *arg);
+
 /* Global control to disable use of kernel nexthops, if available. We can't
  * force the kernel to support nexthop ids, of course, but we can disable
  * zebra's use of them, for testing e.g. By default, if the kernel supports

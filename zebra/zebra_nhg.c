@@ -263,6 +263,51 @@ static void zebra_nhg_depends_release(struct nhg_hash_entry *nhe)
 	}
 }
 
+static int zebra_nhg_is_fully_resolved(const struct nhg_hash_entry *nhe)
+{
+	if (zebra_nhg_depends_is_empty(nhe))
+		return 1;
+
+	return 0;
+}
+
+static int zebra_nhg_depends_walk_internal(
+	struct nhg_hash_entry *nhe,
+	int (*func)(struct nhg_hash_entry *, void *), void *arg,
+	int (*condition)(const struct nhg_hash_entry *nhe))
+{
+	struct nhg_connected *rb_node_dep = NULL;
+
+	frr_each_safe (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
+		if (zebra_nhg_depends_walk_internal(rb_node_dep->nhe, func, arg,
+						    condition)
+		    == NHG_WALK_ABORT)
+			return NHG_WALK_ABORT;
+	}
+
+	if (!condition || condition(nhe))
+		return func(nhe, arg);
+
+	return NHG_WALK_CONTINUE;
+}
+
+/* Walk depends tree/sub-trees */
+void zebra_nhg_depends_walk(struct nhg_hash_entry *nhe,
+			    int (*func)(struct nhg_hash_entry *, void *),
+			    void *arg)
+{
+	zebra_nhg_depends_walk_internal(nhe, func, arg, NULL);
+}
+
+/* Walk only fully resolved depends */
+void zebra_nhg_depends_walk_resolved(struct nhg_hash_entry *nhe,
+				     int (*func)(struct nhg_hash_entry *,
+						 void *),
+				     void *arg)
+{
+	zebra_nhg_depends_walk_internal(nhe, func, arg,
+					&zebra_nhg_is_fully_resolved);
+}
 
 struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id)
 {
