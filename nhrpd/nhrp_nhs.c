@@ -351,8 +351,9 @@ static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
 static int nhrp_nhs_resolve(struct thread *t)
 {
 	struct nhrp_nhs *nhs = THREAD_ARG(t);
+	struct interface *ifp = nhs->ifp;
 
-	resolver_resolve(&nhs->dns_resolve, AF_INET, VRF_DEFAULT, nhs->nbma_fqdn,
+	resolver_resolve(&nhs->dns_resolve, AF_INET, ifp->vrf_id, nhs->nbma_fqdn,
 			 nhrp_nhs_resolve_cb);
 
 	return 0;
