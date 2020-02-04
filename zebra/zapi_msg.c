@@ -2586,14 +2586,14 @@ static void zserv_error_no_vrf(ZAPI_HANDLER_ARGS)
 		zlog_debug("ZAPI message specifies unknown VRF: %d",
 			   hdr->vrf_id);
 
-	return zsend_error_msg(client, ZEBRA_NO_VRF, hdr);
+	zsend_error_msg(client, ZEBRA_NO_VRF, hdr);
 }
 
 static void zserv_error_invalid_msg_type(ZAPI_HANDLER_ARGS)
 {
 	zlog_info("Zebra received unknown command %d", hdr->command);
 
-	return zsend_error_msg(client, ZEBRA_INVALID_MSG_TYPE, hdr);
+	zsend_error_msg(client, ZEBRA_INVALID_MSG_TYPE, hdr);
 }
 
 void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
