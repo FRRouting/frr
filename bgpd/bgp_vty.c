@@ -16706,21 +16706,29 @@ static void community_list_perror(struct vty *vty, int ret)
 /*community-list standard */
 DEFUN (community_list_standard,
        bgp_community_list_standard_cmd,
-       "bgp community-list <(1-99)|standard WORD> <deny|permit> AA:NN...",
+       "bgp community-list <(1-99)|standard WORD> [seq (1-4294967295)] <deny|permit> AA:NN...",
        BGP_STR
        COMMUNITY_LIST_STR
        "Community list number (standard)\n"
        "Add an standard community-list entry\n"
        "Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify community to reject\n"
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
 	char *cl_name_or_number = NULL;
+	char *seq = NULL;
 	int direct = 0;
 	int style = COMMUNITY_LIST_STANDARD;
 	int idx = 0;
 
+	argv_find(argv, argc, "(1-4294967295)", &idx);
+	if (idx)
+		seq = argv[idx]->arg;
+
+	idx = 0;
 	argv_find(argv, argc, "(1-99)", &idx);
 	argv_find(argv, argc, "WORD", &idx);
 	cl_name_or_number = argv[idx]->arg;
@@ -16729,8 +16737,8 @@ DEFUN (community_list_standard,
 	argv_find(argv, argc, "AA:NN", &idx);
 	char *str = argv_concat(argv, argc, idx);
 
-	int ret = community_list_set(bgp_clist, cl_name_or_number, str, direct,
-				     style);
+	int ret = community_list_set(bgp_clist, cl_name_or_number, str, seq,
+				     direct, style);
 
 	XFREE(MTYPE_TMP, str);
 
@@ -16745,13 +16753,15 @@ DEFUN (community_list_standard,
 
 DEFUN (no_community_list_standard_all,
        no_bgp_community_list_standard_all_cmd,
-       "no bgp community-list <(1-99)|standard WORD> <deny|permit> AA:NN...",
+       "no bgp community-list <(1-99)|standard WORD> [seq (1-4294967295)] <deny|permit> AA:NN...",
        NO_STR
        BGP_STR
        COMMUNITY_LIST_STR
        "Community list number (standard)\n"
        "Add an standard community-list entry\n"
        "Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify community to reject\n"
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
@@ -16760,9 +16770,14 @@ DEFUN (no_community_list_standard_all,
 	char *str = NULL;
 	int direct = 0;
 	int style = COMMUNITY_LIST_STANDARD;
-
+	char *seq = NULL;
 	int idx = 0;
 
+	argv_find(argv, argc, "(1-4294967295)", &idx);
+	if (idx)
+		seq = argv[idx]->arg;
+
+	idx = 0;
 	argv_find(argv, argc, "permit", &idx);
 	argv_find(argv, argc, "deny", &idx);
 
@@ -16781,7 +16796,7 @@ DEFUN (no_community_list_standard_all,
 	argv_find(argv, argc, "WORD", &idx);
 	cl_name_or_number = argv[idx]->arg;
 
-	int ret = community_list_unset(bgp_clist, cl_name_or_number, str,
+	int ret = community_list_unset(bgp_clist, cl_name_or_number, str, seq,
 				       direct, style);
 
 	XFREE(MTYPE_TMP, str);
@@ -16804,21 +16819,29 @@ ALIAS(no_community_list_standard_all, no_bgp_community_list_standard_all_list_cm
 /*community-list expanded */
 DEFUN (community_list_expanded_all,
        bgp_community_list_expanded_all_cmd,
-       "bgp community-list <(100-500)|expanded WORD> <deny|permit> AA:NN...",
+       "bgp community-list <(100-500)|expanded WORD> [seq (1-4294967295)] <deny|permit> AA:NN...",
        BGP_STR
        COMMUNITY_LIST_STR
        "Community list number (expanded)\n"
        "Add an expanded community-list entry\n"
        "Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify community to reject\n"
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
 	char *cl_name_or_number = NULL;
+	char *seq = NULL;
 	int direct = 0;
 	int style = COMMUNITY_LIST_EXPANDED;
-
 	int idx = 0;
+
+	argv_find(argv, argc, "(1-4294967295)", &idx);
+	if (idx)
+		seq = argv[idx]->arg;
+
+	idx = 0;
 
 	argv_find(argv, argc, "(100-500)", &idx);
 	argv_find(argv, argc, "WORD", &idx);
@@ -16828,8 +16851,8 @@ DEFUN (community_list_expanded_all,
 	argv_find(argv, argc, "AA:NN", &idx);
 	char *str = argv_concat(argv, argc, idx);
 
-	int ret = community_list_set(bgp_clist, cl_name_or_number, str, direct,
-				     style);
+	int ret = community_list_set(bgp_clist, cl_name_or_number, str, seq,
+				     direct, style);
 
 	XFREE(MTYPE_TMP, str);
 
@@ -16844,24 +16867,31 @@ DEFUN (community_list_expanded_all,
 
 DEFUN (no_community_list_expanded_all,
        no_bgp_community_list_expanded_all_cmd,
-       "no bgp community-list <(100-500)|expanded WORD> <deny|permit> AA:NN...",
+       "no bgp community-list <(100-500)|expanded WORD> [seq (1-4294967295)] <deny|permit> AA:NN...",
        NO_STR
        BGP_STR
        COMMUNITY_LIST_STR
        "Community list number (expanded)\n"
        "Add an expanded community-list entry\n"
        "Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify community to reject\n"
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
 	char *cl_name_or_number = NULL;
+	char *seq = NULL;
 	char *str = NULL;
 	int direct = 0;
 	int style = COMMUNITY_LIST_EXPANDED;
-
 	int idx = 0;
 
+	argv_find(argv, argc, "(1-4294967295)", &idx);
+	if (idx)
+		seq = argv[idx]->arg;
+
+	idx = 0;
 	argv_find(argv, argc, "permit", &idx);
 	argv_find(argv, argc, "deny", &idx);
 
@@ -16880,7 +16910,7 @@ DEFUN (no_community_list_expanded_all,
 	argv_find(argv, argc, "WORD", &idx);
 	cl_name_or_number = argv[idx]->arg;
 
-	int ret = community_list_unset(bgp_clist, cl_name_or_number, str,
+	int ret = community_list_unset(bgp_clist, cl_name_or_number, str, seq,
 				       direct, style);
 
 	XFREE(MTYPE_TMP, str);
@@ -17007,7 +17037,13 @@ static int lcommunity_list_set_vty(struct vty *vty, int argc,
 	char *str;
 	int idx = 0;
 	char *cl_name;
+	char *seq = NULL;
 
+	argv_find(argv, argc, "(1-4294967295)", &idx);
+	if (idx)
+		seq = argv[idx]->arg;
+
+	idx = 0;
 	direct = argv_find(argv, argc, "permit", &idx) ? COMMUNITY_PERMIT
 						       : COMMUNITY_DENY;
 
@@ -17031,7 +17067,7 @@ static int lcommunity_list_set_vty(struct vty *vty, int argc,
 	else
 		str = NULL;
 
-	ret = lcommunity_list_set(bgp_clist, cl_name, str, direct, style);
+	ret = lcommunity_list_set(bgp_clist, cl_name, str, seq, direct, style);
 
 	/* Free temporary community list string allocated by
 	   argv_concat().  */
@@ -17051,7 +17087,13 @@ static int lcommunity_list_unset_vty(struct vty *vty, int argc,
 	int direct = 0;
 	char *str = NULL;
 	int idx = 0;
+	char *seq = NULL;
 
+	argv_find(argv, argc, "(1-4294967295)", &idx);
+	if (idx)
+		seq = argv[idx]->arg;
+
+	idx = 0;
 	argv_find(argv, argc, "permit", &idx);
 	argv_find(argv, argc, "deny", &idx);
 
@@ -17075,7 +17117,7 @@ static int lcommunity_list_unset_vty(struct vty *vty, int argc,
 	argv_find(argv, argc, "WORD", &idx);
 
 	/* Unset community list.  */
-	ret = lcommunity_list_unset(bgp_clist, argv[idx]->arg, str, direct,
+	ret = lcommunity_list_unset(bgp_clist, argv[idx]->arg, str, seq, direct,
 				    style);
 
 	/* Free temporary community list string allocated by
@@ -17096,10 +17138,12 @@ static int lcommunity_list_unset_vty(struct vty *vty, int argc,
 
 DEFUN (lcommunity_list_standard,
        bgp_lcommunity_list_standard_cmd,
-       "bgp large-community-list (1-99) <deny|permit> AA:BB:CC...",
+       "bgp large-community-list (1-99) [seq (1-4294967295)] <deny|permit> AA:BB:CC...",
        BGP_STR
        LCOMMUNITY_LIST_STR
        "Large Community list number (standard)\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify large community to reject\n"
        "Specify large community to accept\n"
        LCOMMUNITY_VAL_STR)
@@ -17110,10 +17154,12 @@ DEFUN (lcommunity_list_standard,
 
 DEFUN (lcommunity_list_expanded,
        bgp_lcommunity_list_expanded_cmd,
-       "bgp large-community-list (100-500) <deny|permit> LINE...",
+       "bgp large-community-list (100-500) [seq (1-4294967295)] <deny|permit> LINE...",
        BGP_STR
        LCOMMUNITY_LIST_STR
        "Large Community list number (expanded)\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify large community to reject\n"
        "Specify large community to accept\n"
        "An ordered list as a regular-expression\n")
@@ -17124,11 +17170,13 @@ DEFUN (lcommunity_list_expanded,
 
 DEFUN (lcommunity_list_name_standard,
        bgp_lcommunity_list_name_standard_cmd,
-       "bgp large-community-list standard WORD <deny|permit> AA:BB:CC...",
+       "bgp large-community-list standard WORD [seq (1-4294967295)] <deny|permit> AA:BB:CC...",
        BGP_STR
        LCOMMUNITY_LIST_STR
        "Specify standard large-community-list\n"
        "Large Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify large community to reject\n"
        "Specify large community to accept\n"
        LCOMMUNITY_VAL_STR)
@@ -17139,11 +17187,13 @@ DEFUN (lcommunity_list_name_standard,
 
 DEFUN (lcommunity_list_name_expanded,
        bgp_lcommunity_list_name_expanded_cmd,
-       "bgp large-community-list expanded WORD <deny|permit> LINE...",
+       "bgp large-community-list expanded WORD [seq (1-4294967295)] <deny|permit> LINE...",
        BGP_STR
        LCOMMUNITY_LIST_STR
        "Specify expanded large-community-list\n"
        "Large Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify large community to reject\n"
        "Specify large community to accept\n"
        "An ordered list as a regular-expression\n")
@@ -17152,14 +17202,27 @@ DEFUN (lcommunity_list_name_expanded,
 				       LARGE_COMMUNITY_LIST_EXPANDED, 1);
 }
 
-DEFUN (no_lcommunity_list_standard_all,
-       no_bgp_lcommunity_list_standard_all_cmd,
+DEFUN (no_lcommunity_list_all,
+       no_bgp_lcommunity_list_all_cmd,
        "no bgp large-community-list <(1-99)|(100-500)|WORD>",
        NO_STR
        BGP_STR
        LCOMMUNITY_LIST_STR
        "Large Community list number (standard)\n"
        "Large Community list number (expanded)\n"
+       "Large Community list name\n")
+{
+	return lcommunity_list_unset_vty(vty, argc, argv,
+					 LARGE_COMMUNITY_LIST_STANDARD);
+}
+
+DEFUN (no_lcommunity_list_name_standard_all,
+       no_bgp_lcommunity_list_name_standard_all_cmd,
+       "no bgp large-community-list standard WORD",
+       NO_STR
+       BGP_STR
+       LCOMMUNITY_LIST_STR
+       "Specify standard large-community-list\n"
        "Large Community list name\n")
 {
 	return lcommunity_list_unset_vty(vty, argc, argv,
@@ -17181,11 +17244,13 @@ DEFUN (no_lcommunity_list_name_expanded_all,
 
 DEFUN (no_lcommunity_list_standard,
        no_bgp_lcommunity_list_standard_cmd,
-       "no bgp large-community-list (1-99) <deny|permit> AA:AA:NN...",
+       "no bgp large-community-list (1-99) [seq (1-4294967295)] <deny|permit> AA:AA:NN...",
        NO_STR
        BGP_STR
        LCOMMUNITY_LIST_STR
        "Large Community list number (standard)\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify large community to reject\n"
        "Specify large community to accept\n"
        LCOMMUNITY_VAL_STR)
@@ -17196,11 +17261,13 @@ DEFUN (no_lcommunity_list_standard,
 
 DEFUN (no_lcommunity_list_expanded,
        no_bgp_lcommunity_list_expanded_cmd,
-       "no bgp large-community-list (100-500) <deny|permit> LINE...",
+       "no bgp large-community-list (100-500) [seq (1-4294967295)] <deny|permit> LINE...",
        NO_STR
        BGP_STR
        LCOMMUNITY_LIST_STR
        "Large Community list number (expanded)\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify large community to reject\n"
        "Specify large community to accept\n"
        "An ordered list as a regular-expression\n")
@@ -17211,12 +17278,14 @@ DEFUN (no_lcommunity_list_expanded,
 
 DEFUN (no_lcommunity_list_name_standard,
        no_bgp_lcommunity_list_name_standard_cmd,
-       "no bgp large-community-list standard WORD <deny|permit> AA:AA:NN...",
+       "no bgp large-community-list standard WORD [seq (1-4294967295)] <deny|permit> AA:AA:NN...",
        NO_STR
        BGP_STR
        LCOMMUNITY_LIST_STR
        "Specify standard large-community-list\n"
        "Large Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify large community to reject\n"
        "Specify large community to accept\n"
        LCOMMUNITY_VAL_STR)
@@ -17227,12 +17296,14 @@ DEFUN (no_lcommunity_list_name_standard,
 
 DEFUN (no_lcommunity_list_name_expanded,
        no_bgp_lcommunity_list_name_expanded_cmd,
-       "no bgp large-community-list expanded WORD <deny|permit> LINE...",
+       "no bgp large-community-list expanded WORD [seq (1-4294967295)] <deny|permit> LINE...",
        NO_STR
        BGP_STR
        LCOMMUNITY_LIST_STR
        "Specify expanded large-community-list\n"
        "Large community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify large community to reject\n"
        "Specify large community to accept\n"
        "An ordered list as a regular-expression\n")
@@ -17327,12 +17398,14 @@ DEFUN (show_lcommunity_list_arg,
 
 DEFUN (extcommunity_list_standard,
        bgp_extcommunity_list_standard_cmd,
-       "bgp extcommunity-list <(1-99)|standard WORD> <deny|permit> AA:NN...",
+       "bgp extcommunity-list <(1-99)|standard WORD> [seq (1-4294967295)] <deny|permit> AA:NN...",
        BGP_STR
        EXTCOMMUNITY_LIST_STR
        "Extended Community list number (standard)\n"
        "Specify standard extcommunity-list\n"
        "Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify community to reject\n"
        "Specify community to accept\n"
        EXTCOMMUNITY_VAL_STR)
@@ -17340,18 +17413,24 @@ DEFUN (extcommunity_list_standard,
 	int style = EXTCOMMUNITY_LIST_STANDARD;
 	int direct = 0;
 	char *cl_number_or_name = NULL;
+	char *seq = NULL;
 
 	int idx = 0;
 
 	argv_find(argv, argc, "(1-99)", &idx);
 	argv_find(argv, argc, "WORD", &idx);
 	cl_number_or_name = argv[idx]->arg;
+
+	argv_find(argv, argc, "(1-4294967295)", &idx);
+	if (idx)
+		seq = argv[idx]->arg;
+
 	direct = argv_find(argv, argc, "permit", &idx) ? COMMUNITY_PERMIT
 						       : COMMUNITY_DENY;
 	argv_find(argv, argc, "AA:NN", &idx);
 	char *str = argv_concat(argv, argc, idx);
 
-	int ret = extcommunity_list_set(bgp_clist, cl_number_or_name, str,
+	int ret = extcommunity_list_set(bgp_clist, cl_number_or_name, str, seq,
 					direct, style);
 
 	XFREE(MTYPE_TMP, str);
@@ -17366,12 +17445,14 @@ DEFUN (extcommunity_list_standard,
 
 DEFUN (extcommunity_list_name_expanded,
        bgp_extcommunity_list_name_expanded_cmd,
-       "bgp extcommunity-list <(100-500)|expanded WORD> <deny|permit> LINE...",
+       "bgp extcommunity-list <(100-500)|expanded WORD> [seq (1-4294967295)] <deny|permit> LINE...",
        BGP_STR
        EXTCOMMUNITY_LIST_STR
        "Extended Community list number (expanded)\n"
        "Specify expanded extcommunity-list\n"
        "Extended Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify community to reject\n"
        "Specify community to accept\n"
        "An ordered list as a regular-expression\n")
@@ -17379,17 +17460,23 @@ DEFUN (extcommunity_list_name_expanded,
 	int style = EXTCOMMUNITY_LIST_EXPANDED;
 	int direct = 0;
 	char *cl_number_or_name = NULL;
+	char *seq = NULL;
 	int idx = 0;
 
 	argv_find(argv, argc, "(100-500)", &idx);
 	argv_find(argv, argc, "WORD", &idx);
 	cl_number_or_name = argv[idx]->arg;
+
+	argv_find(argv, argc, "(1-4294967295)", &idx);
+	if (idx)
+		seq = argv[idx]->arg;
+
 	direct = argv_find(argv, argc, "permit", &idx) ? COMMUNITY_PERMIT
 						       : COMMUNITY_DENY;
 	argv_find(argv, argc, "LINE", &idx);
 	char *str = argv_concat(argv, argc, idx);
 
-	int ret = extcommunity_list_set(bgp_clist, cl_number_or_name, str,
+	int ret = extcommunity_list_set(bgp_clist, cl_number_or_name, str, seq,
 					direct, style);
 
 	XFREE(MTYPE_TMP, str);
@@ -17404,13 +17491,15 @@ DEFUN (extcommunity_list_name_expanded,
 
 DEFUN (no_extcommunity_list_standard_all,
        no_bgp_extcommunity_list_standard_all_cmd,
-       "no bgp extcommunity-list <(1-99)|standard WORD> <deny|permit> AA:NN...",
+       "no bgp extcommunity-list <(1-99)|standard WORD> [seq (1-4294967295)] <deny|permit> AA:NN...",
        NO_STR
        BGP_STR
        EXTCOMMUNITY_LIST_STR
        "Extended Community list number (standard)\n"
        "Specify standard extcommunity-list\n"
        "Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify community to reject\n"
        "Specify community to accept\n"
        EXTCOMMUNITY_VAL_STR)
@@ -17419,11 +17508,16 @@ DEFUN (no_extcommunity_list_standard_all,
 	int direct = 0;
 	char *cl_number_or_name = NULL;
 	char *str = NULL;
+	char *seq = NULL;
 	int idx = 0;
 
+	argv_find(argv, argc, "(1-4294967295)", &idx);
+	if (idx)
+		seq = argv[idx]->arg;
+
+	idx = 0;
 	argv_find(argv, argc, "permit", &idx);
 	argv_find(argv, argc, "deny", &idx);
-
 	if (idx) {
 		direct = argv_find(argv, argc, "permit", &idx)
 				 ? COMMUNITY_PERMIT
@@ -17440,7 +17534,7 @@ DEFUN (no_extcommunity_list_standard_all,
 	cl_number_or_name = argv[idx]->arg;
 
 	int ret = extcommunity_list_unset(bgp_clist, cl_number_or_name, str,
-					  direct, style);
+					  seq, direct, style);
 
 	XFREE(MTYPE_TMP, str);
 
@@ -17462,13 +17556,15 @@ ALIAS(no_extcommunity_list_standard_all,
 
 DEFUN (no_extcommunity_list_expanded_all,
        no_bgp_extcommunity_list_expanded_all_cmd,
-       "no bgp extcommunity-list <(100-500)|expanded WORD> <deny|permit> LINE...",
+       "no bgp extcommunity-list <(100-500)|expanded WORD> [seq (1-4294967295)] <deny|permit> LINE...",
        NO_STR
        BGP_STR
        EXTCOMMUNITY_LIST_STR
        "Extended Community list number (expanded)\n"
        "Specify expanded extcommunity-list\n"
        "Extended Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
        "Specify community to reject\n"
        "Specify community to accept\n"
        "An ordered list as a regular-expression\n")
@@ -17477,8 +17573,14 @@ DEFUN (no_extcommunity_list_expanded_all,
 	int direct = 0;
 	char *cl_number_or_name = NULL;
 	char *str = NULL;
+	char *seq = NULL;
 	int idx = 0;
 
+	argv_find(argv, argc, "(1-4294967295)", &idx);
+	if (idx)
+		seq = argv[idx]->arg;
+
+	idx = 0;
 	argv_find(argv, argc, "permit", &idx);
 	argv_find(argv, argc, "deny", &idx);
 
@@ -17498,7 +17600,7 @@ DEFUN (no_extcommunity_list_expanded_all,
 	cl_number_or_name = argv[idx]->arg;
 
 	int ret = extcommunity_list_unset(bgp_clist, cl_number_or_name, str,
-					  direct, style);
+					  seq, direct, style);
 
 	XFREE(MTYPE_TMP, str);
 
@@ -17609,18 +17711,22 @@ static int community_list_config_write(struct vty *vty)
 
 	for (list = cm->num.head; list; list = list->next)
 		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty, "bgp community-list %s %s %s\n", list->name,
+			vty_out(vty,
+				"bgp community-list %s seq %" PRId64 " %s %s\n",
+				list->name, entry->seq,
 				community_direct_str(entry->direct),
 				community_list_config_str(entry));
 			write++;
 		}
 	for (list = cm->str.head; list; list = list->next)
 		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty, "bgp community-list %s %s %s %s\n",
+			vty_out(vty,
+				"bgp community-list %s %s seq %" PRId64 " %s %s\n",
 				entry->style == COMMUNITY_LIST_STANDARD
 					? "standard"
 					: "expanded",
-				list->name, community_direct_str(entry->direct),
+				list->name, entry->seq,
+				community_direct_str(entry->direct),
 				community_list_config_str(entry));
 			write++;
 		}
@@ -17630,18 +17736,23 @@ static int community_list_config_write(struct vty *vty)
 
 	for (list = cm->num.head; list; list = list->next)
 		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty, "bgp extcommunity-list %s %s %s\n",
-				list->name, community_direct_str(entry->direct),
+			vty_out(vty,
+				"bgp extcommunity-list %s seq %" PRId64 " %s %s\n",
+				list->name, entry->seq,
+				community_direct_str(entry->direct),
 				community_list_config_str(entry));
 			write++;
 		}
 	for (list = cm->str.head; list; list = list->next)
 		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty, "bgp extcommunity-list %s %s %s %s\n",
+			vty_out(vty,
+				"bgp extcommunity-list %s %s seq %" PRId64
+				" %s %s\n",
 				entry->style == EXTCOMMUNITY_LIST_STANDARD
 					? "standard"
 					: "expanded",
-				list->name, community_direct_str(entry->direct),
+				list->name, entry->seq,
+				community_direct_str(entry->direct),
 				community_list_config_str(entry));
 			write++;
 		}
@@ -17653,18 +17764,24 @@ static int community_list_config_write(struct vty *vty)
 
 	for (list = cm->num.head; list; list = list->next)
 		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty, "bgp large-community-list %s %s %s\n",
-				list->name, community_direct_str(entry->direct),
+			vty_out(vty,
+				"bgp large-community-list %s seq %" PRId64
+				" %s %s\n",
+				list->name, entry->seq,
+				community_direct_str(entry->direct),
 				community_list_config_str(entry));
 			write++;
 		}
 	for (list = cm->str.head; list; list = list->next)
 		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty, "bgp large-community-list %s %s %s %s\n",
+			vty_out(vty,
+				"bgp large-community-list %s %s seq %" PRId64
+				" %s %s\n",
+
 				entry->style == LARGE_COMMUNITY_LIST_STANDARD
 					? "standard"
 					: "expanded",
-				list->name, community_direct_str(entry->direct),
+				list->name, entry->seq, community_direct_str(entry->direct),
 				community_list_config_str(entry));
 			write++;
 		}
@@ -17707,7 +17824,9 @@ static void community_list_vty(void)
 	install_element(CONFIG_NODE, &bgp_lcommunity_list_expanded_cmd);
 	install_element(CONFIG_NODE, &bgp_lcommunity_list_name_standard_cmd);
 	install_element(CONFIG_NODE, &bgp_lcommunity_list_name_expanded_cmd);
-	install_element(CONFIG_NODE, &no_bgp_lcommunity_list_standard_all_cmd);
+	install_element(CONFIG_NODE, &no_bgp_lcommunity_list_all_cmd);
+	install_element(CONFIG_NODE,
+			&no_bgp_lcommunity_list_name_standard_all_cmd);
 	install_element(CONFIG_NODE,
 			&no_bgp_lcommunity_list_name_expanded_all_cmd);
 	install_element(CONFIG_NODE, &no_bgp_lcommunity_list_standard_cmd);
