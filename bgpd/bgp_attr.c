@@ -3230,6 +3230,8 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST
 		|| safi == SAFI_MPLS_VPN || safi == SAFI_MULTICAST))
 		nh_afi = peer_cap_enhe(peer, afi, safi) ? AFI_IP6 : AFI_IP;
+	else if (safi == SAFI_FLOWSPEC)
+		nh_afi = afi;
 	else
 		nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->mp_nexthop_len);
 
@@ -3256,7 +3258,12 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			stream_put(s, &attr->mp_nexthop_global_in, 4);
 			break;
 		case SAFI_FLOWSPEC:
-			stream_putc(s, 0); /* no nexthop for flowspec */
+			if (attr->mp_nexthop_len == 0)
+				stream_putc(s, 0); /* no nexthop for flowspec */
+			else {
+				stream_putc(s, attr->mp_nexthop_len);
+				stream_put_ipv4(s, attr->nexthop.s_addr);
+			}
 		default:
 			break;
 		}
@@ -3350,13 +3357,9 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 		stream_put_labeled_prefix(s, p, label, addpath_encode,
 					  addpath_tx_id);
 	} else if (safi == SAFI_FLOWSPEC) {
-		if (PSIZE (p->prefixlen)+2 < FLOWSPEC_NLRI_SIZELIMIT)
-			stream_putc(s, PSIZE (p->prefixlen)+2);
-		else
-			stream_putw(s, (PSIZE (p->prefixlen)+2)|(0xf<<12));
-		stream_putc(s, 2);/* Filter type */
-		stream_putc(s, p->prefixlen);/* Prefix length */
-		stream_put(s, &p->u.prefix, PSIZE (p->prefixlen));
+		stream_putc(s, p->u.prefix_flowspec.prefixlen);
+		stream_put(s, (const void *)p->u.prefix_flowspec.ptr,
+			   p->u.prefix_flowspec.prefixlen);
 	} else
 		stream_put_prefix_addpath(s, p, addpath_encode, addpath_tx_id);
 }
