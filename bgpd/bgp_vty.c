@@ -9593,8 +9593,7 @@ static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 					get_afi_safi_str(afi, safi, false));
 
 				vty_out(vty, "     F bit                 : ");
-			} else
-				get_afi_safi_str(afi, safi, true);
+			}
 
 			if (peer->nsf[afi][safi]
 			    && CHECK_FLAG(peer->af_cap[afi][safi],
