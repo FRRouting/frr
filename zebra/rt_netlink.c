@@ -75,6 +75,10 @@
 
 static vlanid_t filter_vlan = 0;
 
+/* We capture whether the current kernel supports nexthop ids; by
+ * default, we'll use them if possible. There's also a configuration
+ * available to _disable_ use of kernel nexthops.
+ */
 static bool supports_nh;
 
 struct gw_family_t {
@@ -85,6 +89,12 @@ struct gw_family_t {
 
 static const char ipv4_ll_buf[16] = "169.254.0.1";
 static struct in_addr ipv4_ll;
+
+/* Helper to control use of kernel-level nexthop ids */
+static bool kernel_nexthops_supported(void)
+{
+	return (supports_nh && zebra_nhg_kernel_nexthops_enabled());
+}
 
 /*
  * The ipv4_ll data structure is used for all 5549
@@ -1628,7 +1638,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 			  RTA_PAYLOAD(rta));
 	}
 
-	if (supports_nh) {
+	if (kernel_nexthops_supported()) {
 		/* Kernel supports nexthop objects */
 		addattr32(&req.n, sizeof(req), RTA_NH_ID,
 			  dplane_ctx_get_nhe_id(ctx));
@@ -1943,7 +1953,7 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 	size_t req_size = sizeof(req);
 
 	/* Nothing to do if the kernel doesn't support nexthop objects */
-	if (!supports_nh)
+	if (!kernel_nexthops_supported())
 		return 0;
 
 	label_buf[0] = '\0';
@@ -2504,8 +2514,10 @@ int netlink_nexthop_read(struct zebra_ns *zns)
 		 * this kernel must support them.
 		 */
 		supports_nh = true;
-	else if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("Nexthop objects not supported on this kernel");
+
+	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_NHG)
+		zlog_debug("Nexthop objects %ssupported on this kernel",
+			   supports_nh ? "" : "not ");
 
 	return ret;
 }

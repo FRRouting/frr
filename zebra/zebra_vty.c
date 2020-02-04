@@ -1410,6 +1410,19 @@ DEFPY (show_nexthop_group,
 	return CMD_SUCCESS;
 }
 
+DEFPY_HIDDEN(nexthop_group_use_enable,
+	     nexthop_group_use_enable_cmd,
+	     "[no] zebra nexthop kernel enable",
+	     NO_STR
+	     ZEBRA_STR
+	     "Nexthop configuration \n"
+	     "Configure use of kernel nexthops\n"
+	     "Enable kernel nexthops\n")
+{
+	zebra_nhg_enable_kernel_nexthops(!no);
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_ip_nht_default_route,
        no_ip_nht_default_route_cmd,
        "no ip nht resolve-via-default",
@@ -3121,6 +3134,10 @@ static int config_write_protocol(struct vty *vty)
 	/* Include dataplane info */
 	dplane_config_write_helper(vty);
 
+	/* Include nexthop-group config */
+	if (!zebra_nhg_kernel_nexthops_enabled())
+		vty_out(vty, "no zebra nexthop kernel enable\n");
+
 	return 1;
 }
 
@@ -3492,6 +3509,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_zebra_workqueue_timer_cmd);
 	install_element(CONFIG_NODE, &zebra_packet_process_cmd);
 	install_element(CONFIG_NODE, &no_zebra_packet_process_cmd);
+	install_element(CONFIG_NODE, &nexthop_group_use_enable_cmd);
 
 	install_element(VIEW_NODE, &show_nexthop_group_cmd);
 	install_element(VIEW_NODE, &show_interface_nexthop_group_cmd);
