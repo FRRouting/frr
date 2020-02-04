@@ -253,6 +253,12 @@ struct attr {
 
 	/* Link bandwidth value, if any. */
 	uint32_t link_bw;
+
+	/* SR-TE Policy Name */
+	char *srte_policy;
+
+	/* SR-TE Color */
+	uint32_t srte_color;
 };
 
 /* rmap_change_flags definition */

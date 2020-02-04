@@ -1678,7 +1678,7 @@ route_set_srte_policy(void *rule, const struct prefix *prefix,
 	path = object;
 	peer = path->peer;
 
-	path->srte_policy = srte_policy;
+	path->attr->srte_policy = srte_policy;
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_POLICY);
 
 	if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN))
@@ -1722,7 +1722,7 @@ route_set_srte_color(void *rule, const struct prefix *prefix,
 	path = object;
 	peer = path->peer;
 
-	path->srte_color = *srte_color;
+	path->attr->srte_color = *srte_color;
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR);
 
 	if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN))
