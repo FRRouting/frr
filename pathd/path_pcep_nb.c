@@ -34,8 +34,8 @@ struct path_nb_list_path_cb_arg {
 
 
 static int path_nb_list_path_cb(const struct lyd_node *dnode, void *int_arg);
-static struct path_hop *path_nb_list_path_hops(
-                		struct te_segment_list *segment_list);
+static struct path_hop *
+path_nb_list_path_hops(struct te_segment_list *segment_list);
 
 static int path_nb_commit_candidate_config(struct nb_config *candidate_config,
 					   const char *comment);
@@ -45,22 +45,20 @@ static void path_nb_edit_candidate_config(struct nb_config *candidate_config,
 					  const char *value);
 static void path_nb_add_segment_list_segment(struct nb_config *config,
 					     const char *segment_list_name,
-					     uint32_t index,
-					     uint32_t label);
+					     uint32_t index, uint32_t label);
 static void path_nb_create_segment_list(struct nb_config *config,
 					const char *segment_list_name);
-static void path_nb_add_candidate_path(struct nb_config *config,
-				       uint32_t color,
+static void path_nb_add_candidate_path(struct nb_config *config, uint32_t color,
 				       struct ipaddr *endpoint,
 				       struct ipaddr *originator,
 				       uint32_t discriminator,
 				       uint32_t preference,
 				       const char *segment_list_name);
-static enum pcep_lsp_operational_status status_int_to_ext(
-                enum te_policy_status status);
+static enum pcep_lsp_operational_status
+status_int_to_ext(enum te_policy_status status);
 
 
-struct path* path_nb_get_path(uint32_t color, struct ipaddr endpoint,
+struct path *path_nb_get_path(uint32_t color, struct ipaddr endpoint,
 			      uint32_t preference)
 {
 	char xpath[XPATH_MAXLEN];
@@ -70,14 +68,16 @@ struct path* path_nb_get_path(uint32_t color, struct ipaddr endpoint,
 
 	ipaddr2str(&endpoint, endpoint_str, sizeof(endpoint_str));
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-pathd:pathd/sr-policy[color='%d'][endpoint='%s']",
-		 color, endpoint_str);
+		 "/frr-pathd:pathd/sr-policy[color='%d'][endpoint='%s']", color,
+		 endpoint_str);
 
 	policy = nb_running_get_entry(NULL, xpath, false);
-	if (NULL == policy) return NULL;
+	if (NULL == policy)
+		return NULL;
 
 	candidate = find_candidate_path(policy, preference);
-	if (NULL == candidate) return NULL;
+	if (NULL == candidate)
+		return NULL;
 
 	return candidate_to_path(candidate);
 }
@@ -108,7 +108,7 @@ int path_nb_list_path_cb(const struct lyd_node *dnode, void *int_arg)
 	return 1;
 }
 
-struct path* candidate_to_path(struct te_candidate_path *candidate)
+struct path *candidate_to_path(struct te_candidate_path *candidate)
 {
 	char *name;
 	struct path *path;
@@ -130,27 +130,26 @@ struct path* candidate_to_path(struct te_candidate_path *candidate)
 		hop = path_nb_list_path_hops(segment_list);
 	}
 	path = XCALLOC(MTYPE_PCEP, sizeof(*path));
-	name = asprintfrr(MTYPE_PCEP, "%s-%s", policy->name,
-			  candidate->name);
+	name = asprintfrr(MTYPE_PCEP, "%s-%s", policy->name, candidate->name);
 	if (candidate->is_best_candidate_path) {
 		status = status_int_to_ext(policy->status);
 	} else {
 		status = PCEP_LSP_OPERATIONAL_DOWN;
 	}
 	switch (candidate->type) {
-		case TE_CANDIDATE_PATH_DYNAMIC:
-			is_delegated = true;
-			break;
-		case TE_CANDIDATE_PATH_EXPLICIT:
-		default:
-			is_delegated = false;
-			break;
+	case TE_CANDIDATE_PATH_DYNAMIC:
+		is_delegated = true;
+		break;
+	case TE_CANDIDATE_PATH_EXPLICIT:
+	default:
+		is_delegated = false;
+		break;
 	}
 	*path = (struct path){
 		.nbkey = (struct lsp_nb_key){.color = policy->color,
 					     .endpoint = policy->endpoint,
 					     .preference =
-						candidate->preference},
+						     candidate->preference},
 		.plsp_id = 0,
 		.name = name,
 		.srp_id = 0,
@@ -173,14 +172,14 @@ struct path_hop *path_nb_list_path_hops(struct te_segment_list *segment_list)
 	RB_FOREACH_REVERSE (segment, te_segment_list_segment_instance_head,
 			    &segment_list->segments) {
 		hop = XCALLOC(MTYPE_PCEP, sizeof(*hop));
-		*hop = (struct path_hop) {.next = last_hop,
-				     .is_loose = false,
-				     .has_sid = true,
-				     .is_mpls = true,
-				     .has_attribs = false,
-				     .sid = {.mpls
-					= {.label = segment->sid_value}},
-				     .has_nai = false};
+		*hop = (struct path_hop){
+			.next = last_hop,
+			.is_loose = false,
+			.has_sid = true,
+			.is_mpls = true,
+			.has_attribs = false,
+			.sid = {.mpls = {.label = segment->sid_value}},
+			.has_nai = false};
 		last_hop = hop;
 	}
 	return hop;
@@ -199,13 +198,11 @@ void path_nb_update_path(struct path *path)
 	struct nb_config *config = nb_config_dup(running_config);
 
 	if (NULL != path->first) {
-		snprintf(segment_list_name_buff,
-			 sizeof(segment_list_name_buff),
+		snprintf(segment_list_name_buff, sizeof(segment_list_name_buff),
 			 "%u", (uint32_t)rand());
 		segment_list_name = segment_list_name_buff;
 		path_nb_create_segment_list(config, segment_list_name);
-		for (hop = path->first, index = 10;
-		     NULL != hop;
+		for (hop = path->first, index = 10; NULL != hop;
 		     hop = hop->next, index += 10) {
 			assert(hop->has_sid);
 			assert(hop->is_mpls);
@@ -215,13 +212,9 @@ void path_nb_update_path(struct path *path)
 		}
 	}
 
-	path_nb_add_candidate_path(config,
-	                           path->nbkey.color,
-	                           &path->nbkey.endpoint,
-	                           &path->sender,
-	                           (uint32_t)rand(),
-	                           path->nbkey.preference,
-	                           segment_list_name);
+	path_nb_add_candidate_path(
+		config, path->nbkey.color, &path->nbkey.endpoint, &path->sender,
+		(uint32_t)rand(), path->nbkey.preference, segment_list_name);
 
 	path_nb_commit_candidate_config(config, "SR Policy Candidate Path");
 	nb_config_free(config);
@@ -274,12 +267,10 @@ void path_nb_add_segment_list_segment(struct nb_config *config,
 	snprintf(xpath_base, sizeof(xpath_base),
 		 "/frr-pathd:pathd/segment-list[name='%s']/segment[index='%u']",
 		 segment_list_name, index);
-	path_nb_edit_candidate_config(config, xpath_base,
-				      NB_OP_CREATE, NULL);
+	path_nb_edit_candidate_config(config, xpath_base, NB_OP_CREATE, NULL);
 
 	snprintf(xpath, sizeof(xpath), "%s/sid-value", xpath_base);
-	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
-				      label_str);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, label_str);
 }
 
 void path_nb_create_segment_list(struct nb_config *config,
@@ -289,15 +280,14 @@ void path_nb_create_segment_list(struct nb_config *config,
 
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-pathd:pathd/segment-list[name='%s']", segment_list_name);
-	path_nb_edit_candidate_config(config, xpath, NB_OP_CREATE,
-				      NULL);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_CREATE, NULL);
 }
 
-void path_nb_add_candidate_path(struct nb_config *config,
-			       uint32_t color, struct ipaddr *endpoint,
-			       struct ipaddr *originator,
-			       uint32_t discriminator, uint32_t preference,
-			       const char *segment_list_name)
+void path_nb_add_candidate_path(struct nb_config *config, uint32_t color,
+				struct ipaddr *endpoint,
+				struct ipaddr *originator,
+				uint32_t discriminator, uint32_t preference,
+				const char *segment_list_name)
 {
 	char xpath[XPATH_MAXLEN];
 	char xpath_base[XPATH_MAXLEN];
@@ -315,16 +305,14 @@ void path_nb_add_candidate_path(struct nb_config *config,
 		"/frr-pathd:pathd/sr-policy[color='%u'][endpoint='%s']/candidate-path[preference='%u']",
 		color, endpoint_str, preference);
 
-	path_nb_edit_candidate_config(config, xpath_base,
-				      NB_OP_CREATE, NULL);
+	path_nb_edit_candidate_config(config, xpath_base, NB_OP_CREATE, NULL);
 
 	snprintf(xpath, sizeof(xpath), "%s/segment-list-name", xpath_base);
 	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
 				      segment_list_name);
 
 	snprintf(xpath, sizeof(xpath), "%s/protocol-origin", xpath_base);
-	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
-				      "pcep");
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, "pcep");
 
 	snprintf(xpath, sizeof(xpath), "%s/originator", xpath_base);
 	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
@@ -335,20 +323,19 @@ void path_nb_add_candidate_path(struct nb_config *config,
 				      discriminator_str);
 
 	snprintf(xpath, sizeof(xpath), "%s/type", xpath_base);
-	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
-				      "dynamic");
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, "dynamic");
 }
 
 enum pcep_lsp_operational_status status_int_to_ext(enum te_policy_status status)
 {
 	switch (status) {
-		case TE_POLICY_UP:
-			return PCEP_LSP_OPERATIONAL_ACTIVE;
-		case TE_POLICY_GOING_UP:
-			return PCEP_LSP_OPERATIONAL_GOING_UP;
-		case TE_POLICY_GOING_DOWN:
-			return PCEP_LSP_OPERATIONAL_GOING_DOWN;
-		default:
-			return PCEP_LSP_OPERATIONAL_DOWN;
+	case TE_POLICY_UP:
+		return PCEP_LSP_OPERATIONAL_ACTIVE;
+	case TE_POLICY_GOING_UP:
+		return PCEP_LSP_OPERATIONAL_GOING_UP;
+	case TE_POLICY_GOING_DOWN:
+		return PCEP_LSP_OPERATIONAL_GOING_DOWN;
+	default:
+		return PCEP_LSP_OPERATIONAL_DOWN;
 	}
 }

@@ -95,7 +95,7 @@ struct pcc_state {
 	enum pcc_status status;
 	struct pcc_opts *pcc_opts;
 	struct pce_opts *pce_opts;
-	pcep_configuration * config;
+	pcep_configuration *config;
 	pcep_session *sess;
 	uint32_t retry_count;
 	bool synchronized;
@@ -158,15 +158,16 @@ struct path_hop {
 };
 
 struct path {
-	/* The address the path is comming from (only work for the PCE for now) */
+	/* The address the path is comming from (only work for the PCE for now)
+	 */
 	struct ipaddr sender;
 	/* The northbound key identifying this path */
 	struct lsp_nb_key nbkey;
 	/* The generated unique PLSP identifier for this path.
 	   See draft-ietf-pce-stateful-pce */
 	uint32_t plsp_id;
-	/* The request identifier from the PCE, when getting a path from the PCE.
-	   See draft-ietf-pce-stateful-pce */
+	/* The request identifier from the PCE, when getting a path from the
+	   PCE. See draft-ietf-pce-stateful-pce */
 	uint32_t srp_id;
 	/* The name of the path */
 	char *name;
@@ -206,7 +207,7 @@ struct event_pce_update {
 };
 
 typedef int (*pcc_cb_t)(struct ctrl_state *ctrl_state,
-                        struct pcc_state *pcc_state);
+			struct pcc_state *pcc_state);
 
 struct event_pcc_cb {
 	struct ctrl_state *ctrl_state;

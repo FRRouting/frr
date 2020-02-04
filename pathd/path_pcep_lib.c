@@ -23,9 +23,9 @@
 #include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_debug.h"
 
-static void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp* srp);
-static void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp* lsp);
-static void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro* ero);
+static void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp *srp);
+static void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp);
+static void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero);
 static struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 					      struct pcep_ro_subobj_sr *sr);
 
@@ -56,7 +56,8 @@ int pcep_lib_connect(struct pcc_state *pcc_state)
 
 	sess = connect_pce(config, &pcc_state->pce_opts->addr);
 
-	if (NULL == sess) return 1;
+	if (NULL == sess)
+		return 1;
 
 	pcc_state->config = config;
 	pcc_state->sess = sess;
@@ -83,9 +84,9 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	double_linked_list *objs, *srp_tlvs, *lsp_tlvs, *ero_objs;
 	struct pcep_object_tlv_header *tlv;
 	struct pcep_object_ro_subobj *ero_obj;
-	struct pcep_object_srp* srp;
-	struct pcep_object_lsp* lsp;
-	struct pcep_object_ro* ero;
+	struct pcep_object_srp *srp;
+	struct pcep_object_lsp *lsp;
+	struct pcep_object_ro *ero;
 
 	memset(&addr_null, 0, sizeof(addr_null));
 
@@ -93,8 +94,8 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 
 	/* SRP object */
 	srp_tlvs = dll_initialize();
-	tlv = (struct pcep_object_tlv_header*)
-	      pcep_tlv_create_path_setup_type(SR_TE_PST);
+	tlv = (struct pcep_object_tlv_header *)pcep_tlv_create_path_setup_type(
+		SR_TE_PST);
 	assert(NULL != tlv);
 	dll_append(srp_tlvs, tlv);
 	srp = pcep_obj_create_srp(path->do_remove, path->srp_id, srp_tlvs);
@@ -104,23 +105,20 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	lsp_tlvs = dll_initialize();
 	if (NULL != path->name) {
 		tlv = (struct pcep_object_tlv_header *)
-		      pcep_tlv_create_symbolic_path_name(path->name,
-							 strlen(path->name));
+			pcep_tlv_create_symbolic_path_name(path->name,
+							   strlen(path->name));
 		dll_append(lsp_tlvs, tlv);
 	}
 	tlv = (struct pcep_object_tlv_header *)
-              pcep_tlv_create_ipv4_lsp_identifiers(&addr_null, &addr_null, 0, 0,
-                                                   &addr_null);
+		pcep_tlv_create_ipv4_lsp_identifiers(&addr_null, &addr_null, 0,
+						     0, &addr_null);
 	assert(NULL != tlv);
 	dll_append(lsp_tlvs, tlv);
-	lsp = pcep_obj_create_lsp(path->plsp_id,
-				  path->status,
-				  path->was_created   /* C Flag */,
-				  path->go_active     /* A Flag */,
-				  path->was_removed   /* R Flag */,
-				  path->is_synching   /* S Flag */,
-				  path->is_delegated  /* D Flag */,
-				  lsp_tlvs);
+	lsp = pcep_obj_create_lsp(
+		path->plsp_id, path->status, path->was_created /* C Flag */,
+		path->go_active /* A Flag */, path->was_removed /* R Flag */,
+		path->is_synching /* S Flag */, path->is_delegated /* D Flag */,
+		lsp_tlvs);
 	assert(NULL != lsp);
 	dll_append(objs, lsp);
 	/*   ERO object */
@@ -148,16 +146,14 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 			addr = malloc(sizeof(*addr));
 			*addr = hop->nai.ipv4_node.addr;
 			ero_obj = (struct pcep_object_ro_subobj *)
-			          pcep_obj_create_ro_subobj_sr_ipv4_node(
-					hop->is_loose,
-					!hop->has_sid,
+				pcep_obj_create_ro_subobj_sr_ipv4_node(
+					hop->is_loose, !hop->has_sid,
 					hop->has_attribs, /* C Flag */
 					hop->is_mpls,     /* M Flag */
-					sid,
-					addr);
+					sid, addr);
 		} else {
 			ero_obj = (struct pcep_object_ro_subobj *)
-			          pcep_obj_create_ro_subobj_sr_nonai(
+				pcep_obj_create_ro_subobj_sr_nonai(
 					hop->is_loose, sid);
 		}
 		assert(NULL != ero_obj);
@@ -176,47 +172,47 @@ struct path *pcep_lib_parse_path(double_linked_list *objs)
 	double_linked_list_node *node;
 
 	struct pcep_object_header *obj;
-	struct pcep_object_srp* srp = NULL;
-	struct pcep_object_lsp* lsp = NULL;
-	struct pcep_object_ro* ero = NULL;
+	struct pcep_object_srp *srp = NULL;
+	struct pcep_object_lsp *lsp = NULL;
+	struct pcep_object_ro *ero = NULL;
 
 	path = XCALLOC(MTYPE_PCEP, sizeof(*path));
 
 	for (node = objs->head; node != NULL; node = node->next_node) {
-		obj = (struct pcep_object_header *) node->data;
+		obj = (struct pcep_object_header *)node->data;
 		switch (CLASS_TYPE(obj->object_class, obj->object_type)) {
-			case CLASS_TYPE(PCEP_OBJ_CLASS_SRP, PCEP_OBJ_TYPE_SRP):
-				assert(NULL == srp);
-				srp = (struct pcep_object_srp*) obj;
-				pcep_lib_parse_srp(path, srp);
-				break;
-			case CLASS_TYPE(PCEP_OBJ_CLASS_LSP, PCEP_OBJ_TYPE_LSP):
-				/* Only support single LSP per message */
-				assert(NULL == lsp);
-				lsp = (struct pcep_object_lsp*) obj;
-				pcep_lib_parse_lsp(path, lsp);
-				break;
-			case CLASS_TYPE(PCEP_OBJ_CLASS_ERO, PCEP_OBJ_TYPE_ERO):
-				/* Only support single ERO per message */
-				assert(NULL == ero);
-				ero = (struct pcep_object_ro*) obj;
-				pcep_lib_parse_ero(path, ero);
-				break;
-			default:
-				PCEP_DEBUG("Unexpected PCEP object %s (%u) / %s (%u)",
-					pcep_object_class_name(obj->object_class),
-					obj->object_class,
-					pcep_object_type_name(obj->object_class,
-							      obj->object_type),
-					obj->object_type);
-				break;
-	     }
+		case CLASS_TYPE(PCEP_OBJ_CLASS_SRP, PCEP_OBJ_TYPE_SRP):
+			assert(NULL == srp);
+			srp = (struct pcep_object_srp *)obj;
+			pcep_lib_parse_srp(path, srp);
+			break;
+		case CLASS_TYPE(PCEP_OBJ_CLASS_LSP, PCEP_OBJ_TYPE_LSP):
+			/* Only support single LSP per message */
+			assert(NULL == lsp);
+			lsp = (struct pcep_object_lsp *)obj;
+			pcep_lib_parse_lsp(path, lsp);
+			break;
+		case CLASS_TYPE(PCEP_OBJ_CLASS_ERO, PCEP_OBJ_TYPE_ERO):
+			/* Only support single ERO per message */
+			assert(NULL == ero);
+			ero = (struct pcep_object_ro *)obj;
+			pcep_lib_parse_ero(path, ero);
+			break;
+		default:
+			PCEP_DEBUG("Unexpected PCEP object %s (%u) / %s (%u)",
+				   pcep_object_class_name(obj->object_class),
+				   obj->object_class,
+				   pcep_object_type_name(obj->object_class,
+							 obj->object_type),
+				   obj->object_type);
+			break;
+		}
 	}
 
 	return path;
 }
 
-void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp* srp)
+void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp *srp)
 {
 	double_linked_list *tlvs = srp->header.tlv_list;
 	double_linked_list_node *node;
@@ -226,22 +222,20 @@ void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp* srp)
 	path->srp_id = srp->srp_id_number;
 
 	for (node = tlvs->head; node != NULL; node = node->next_node) {
-		tlv = (struct pcep_object_tlv_header *) node->data;
+		tlv = (struct pcep_object_tlv_header *)node->data;
 		switch (tlv->type) {
-			case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE:
-				//TODO: enforce the path setup type is SR_TE_PST
-				break;
-			default:
-				PCEP_DEBUG("Unexpected SRP's TLV %s (%u)",
-					pcep_tlv_type_name(tlv->type),
-					tlv->type);
-				break;
-
+		case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE:
+			// TODO: enforce the path setup type is SR_TE_PST
+			break;
+		default:
+			PCEP_DEBUG("Unexpected SRP's TLV %s (%u)",
+				   pcep_tlv_type_name(tlv->type), tlv->type);
+			break;
 		}
 	}
 }
 
-void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp* lsp)
+void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp)
 {
 	double_linked_list *tlvs = lsp->header.tlv_list;
 	double_linked_list_node *node;
@@ -255,22 +249,21 @@ void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp* lsp)
 	path->is_synching = lsp->flag_a;
 	path->is_delegated = lsp->flag_d;
 
-	if (NULL == tlvs) return;
+	if (NULL == tlvs)
+		return;
 
 	for (node = tlvs->head; node != NULL; node = node->next_node) {
-		tlv = (struct pcep_object_tlv_header *) node->data;
+		tlv = (struct pcep_object_tlv_header *)node->data;
 		switch (tlv->type) {
-			default:
-				PCEP_DEBUG("Unexpected LSP TLV %s (%u)",
-					pcep_tlv_type_name(tlv->type),
-					tlv->type);
-				break;
-
+		default:
+			PCEP_DEBUG("Unexpected LSP TLV %s (%u)",
+				   pcep_tlv_type_name(tlv->type), tlv->type);
+			break;
 		}
 	}
 }
 
-void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro* ero)
+void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero)
 {
 	struct path_hop *hop = NULL;
 	double_linked_list *objs = ero->sub_objects;
@@ -278,19 +271,18 @@ void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro* ero)
 	struct pcep_object_ro_subobj *obj;
 
 	for (node = objs->tail; node != NULL; node = node->prev_node) {
-		obj = (struct pcep_object_ro_subobj *) node->data;
+		obj = (struct pcep_object_ro_subobj *)node->data;
 		switch (obj->ro_subobj_type) {
-			case RO_SUBOBJ_TYPE_SR_DRAFT07:
-			case RO_SUBOBJ_TYPE_SR:
-				hop = pcep_lib_parse_ero_sr(hop,
-					(struct pcep_ro_subobj_sr *) obj);
-				break;
-			default:
-				PCEP_DEBUG("Unexpected ERO sub-object %s (%u)",
-					pcep_ro_type_name(obj->ro_subobj_type),
-					obj->ro_subobj_type);
-				break;
-
+		case RO_SUBOBJ_TYPE_SR_DRAFT07:
+		case RO_SUBOBJ_TYPE_SR:
+			hop = pcep_lib_parse_ero_sr(
+				hop, (struct pcep_ro_subobj_sr *)obj);
+			break;
+		default:
+			PCEP_DEBUG("Unexpected ERO sub-object %s (%u)",
+				   pcep_ro_type_name(obj->ro_subobj_type),
+				   obj->ro_subobj_type);
+			break;
 		}
 	}
 
@@ -298,7 +290,7 @@ void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro* ero)
 }
 
 struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
-				  struct pcep_ro_subobj_sr *sr)
+				       struct pcep_ro_subobj_sr *sr)
 {
 	struct path_hop *hop = NULL;
 
@@ -308,18 +300,18 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 	hop = XCALLOC(MTYPE_PCEP, sizeof(*hop));
 	memset(hop, 0, sizeof(*hop));
 
-	*hop = (struct path_hop) {.next = next,
-			     .is_loose = sr->ro_subobj.flag_subobj_loose_hop,
-			     .has_sid = !sr->flag_s,
-			     .is_mpls = sr->flag_m,
-			     .has_attribs = sr->flag_c,
-			     .sid = {.mpls = {
-				.label = GET_SR_ERO_SID_LABEL(sr->sid),
-				.traffic_class = GET_SR_ERO_SID_TC(sr->sid),
-				.is_bottom = GET_SR_ERO_SID_S(sr->sid),
-				.ttl = GET_SR_ERO_SID_TTL(sr->sid)}},
-			     .has_nai = !sr->flag_f,
-			     .nai_type = sr->nai_type};
+	*hop = (struct path_hop){
+		.next = next,
+		.is_loose = sr->ro_subobj.flag_subobj_loose_hop,
+		.has_sid = !sr->flag_s,
+		.is_mpls = sr->flag_m,
+		.has_attribs = sr->flag_c,
+		.sid = {.mpls = {.label = GET_SR_ERO_SID_LABEL(sr->sid),
+				 .traffic_class = GET_SR_ERO_SID_TC(sr->sid),
+				 .is_bottom = GET_SR_ERO_SID_S(sr->sid),
+				 .ttl = GET_SR_ERO_SID_TTL(sr->sid)}},
+		.has_nai = !sr->flag_f,
+		.nai_type = sr->nai_type};
 
 	if (!sr->flag_f) {
 		/* Only support IPv4 node with IPv4 NAI */
@@ -327,9 +319,10 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 		assert(NULL != sr->nai_list);
 		assert(NULL != sr->nai_list->head);
 		assert(NULL != sr->nai_list->head->data);
-		struct in_addr *addr = (struct in_addr*) sr->nai_list->head->data;
-		hop->nai = (union nai) {.ipv4_node = {.addr = {
-			.s_addr = addr->s_addr}}};
+		struct in_addr *addr =
+			(struct in_addr *)sr->nai_list->head->data;
+		hop->nai = (union nai){
+			.ipv4_node = {.addr = {.s_addr = addr->s_addr}}};
 	}
 
 	return hop;

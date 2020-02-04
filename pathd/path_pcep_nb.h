@@ -27,10 +27,10 @@
 
 typedef int (*path_list_cb_t)(struct path *path, void *arg);
 
-struct path* path_nb_get_path(uint32_t color, struct ipaddr endpoint,
-                              uint32_t preference);
+struct path *path_nb_get_path(uint32_t color, struct ipaddr endpoint,
+			      uint32_t preference);
 void path_nb_list_path(path_list_cb_t cb, void *arg);
 void path_nb_update_path(struct path *path);
-struct path* candidate_to_path(struct te_candidate_path *candidate);
+struct path *candidate_to_path(struct te_candidate_path *candidate);
 
 #endif // _PATH_PCEP_NB_H_

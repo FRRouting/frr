@@ -28,12 +28,12 @@
 const char *pcc_status_name(enum pcc_status status);
 const char *pcep_error_type_name(enum pcep_error_type error_type);
 const char *pcep_error_value_name(enum pcep_error_type error_type,
-                                  enum pcep_error_value error_value);
+				  enum pcep_error_value error_value);
 const char *pcep_event_type_name(pcep_event_type event_type);
 const char *pcep_message_type_name(enum pcep_message_types pcep_message_type);
 const char *pcep_object_class_name(enum pcep_object_classes obj_class);
 const char *pcep_object_type_name(enum pcep_object_classes obj_class,
-                                  enum pcep_object_types obj_type);
+				  enum pcep_object_types obj_type);
 const char *pcep_lsp_status_name(enum pcep_lsp_operational_status status);
 const char *pcep_tlv_type_name(enum pcep_object_tlv_types tlv_type);
 const char *pcep_ro_type_name(enum pcep_ro_subobj_types ro_type);
