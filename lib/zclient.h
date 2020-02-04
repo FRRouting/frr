@@ -369,6 +369,7 @@ struct zclient {
  * default vrf, else this will be ignored.
  */
 #define ZAPI_MESSAGE_TABLEID  0x80
+#define ZAPI_MESSAGE_SRTE     0x0100
 
 #define ZSERV_VERSION 6
 /* Zserv protocol message header */
