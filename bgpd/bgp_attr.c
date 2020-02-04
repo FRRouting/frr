@@ -2343,8 +2343,7 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
  * Returns 0 if there was an error that needs to be passed up the stack
  */
 static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
-					      struct bgp_attr_parser_args *args,
-					      struct bgp_nlri *mp_update)
+					      struct bgp_attr_parser_args *args)
 {
 	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
@@ -2569,8 +2568,7 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 /* Prefix SID attribute
  * draft-ietf-idr-bgp-prefix-sid-05
  */
-bgp_attr_parse_ret_t bgp_attr_prefix_sid(struct bgp_attr_parser_args *args,
-					 struct bgp_nlri *mp_update)
+bgp_attr_parse_ret_t bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 {
 	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
@@ -2610,7 +2608,7 @@ bgp_attr_parse_ret_t bgp_attr_prefix_sid(struct bgp_attr_parser_args *args,
 						  args->total);
 		}
 
-		ret = bgp_attr_psid_sub(type, length, args, mp_update);
+		ret = bgp_attr_psid_sub(type, length, args);
 
 		if (ret != BGP_ATTR_PARSE_PROCEED)
 			return ret;
@@ -3022,7 +3020,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 					     startp);
 			break;
 		case BGP_ATTR_PREFIX_SID:
-			ret = bgp_attr_prefix_sid(&attr_args, mp_update);
+			ret = bgp_attr_prefix_sid(&attr_args);
 			break;
 		case BGP_ATTR_PMSI_TUNNEL:
 			ret = bgp_attr_pmsi_tunnel(&attr_args);

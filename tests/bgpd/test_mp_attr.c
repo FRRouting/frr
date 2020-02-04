@@ -1027,7 +1027,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		parse_ret = bgp_mp_unreach_parse(&attr_args, &nlri);
 		break;
 	case BGP_ATTR_PREFIX_SID:
-		parse_ret = bgp_attr_prefix_sid(&attr_args, &nlri);
+		parse_ret = bgp_attr_prefix_sid(&attr_args);
 		break;
 	default:
 		printf("unknown type");
