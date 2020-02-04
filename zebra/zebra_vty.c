@@ -1123,9 +1123,11 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 	vty_out(vty, "     RefCnt: %d\n", nhe->refcnt);
 
 	if (nhe_vrf)
-		vty_out(vty, "     VRF: %s\n", nhe_vrf->name);
+		vty_out(vty, "     VRF: %s AFI: %s\n", nhe_vrf->name,
+			afi2str(nhe->afi));
 	else
-		vty_out(vty, "     VRF: UNKNOWN\n");
+		vty_out(vty, "     VRF: UNKNOWN AFI: %s\n",
+			afi2str(nhe->afi));
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_UNHASHABLE))
 		vty_out(vty, "     Duplicate - from kernel not hashable\n");
@@ -1276,25 +1278,44 @@ static int show_nexthop_group_id_cmd_helper(struct vty *vty, uint32_t id)
 	return CMD_SUCCESS;
 }
 
-static void show_nexthop_group_cmd_helper(struct vty *vty,
-					  struct zebra_vrf *zvrf, afi_t afi)
+/* Helper function for iteration through the hash of nexthop-groups/nhe-s */
+
+struct nhe_show_context {
+	struct vty *vty;
+	vrf_id_t vrf_id;
+	afi_t afi;
+};
+
+static int nhe_show_walker(struct hash_bucket *bucket, void *arg)
 {
-	struct list *list = hash_to_list(zrouter.nhgs);
-	struct nhg_hash_entry *nhe = NULL;
-	struct listnode *node = NULL;
+	struct nhe_show_context *ctx = arg;
+	struct nhg_hash_entry *nhe;
 
-	for (ALL_LIST_ELEMENTS_RO(list, node, nhe)) {
+	nhe = bucket->data; /* We won't be offered NULL buckets */
 
-		if (afi && nhe->afi != afi)
-			continue;
+	if (ctx->afi && nhe->afi != ctx->afi)
+		goto done;
 
-		if (nhe->vrf_id != zvrf->vrf->vrf_id)
-			continue;
+	if (ctx->vrf_id && nhe->vrf_id != ctx->vrf_id)
+		goto done;
 
-		show_nexthop_group_out(vty, nhe);
-	}
+	show_nexthop_group_out(ctx->vty, nhe);
 
-	list_delete(&list);
+done:
+	return HASHWALK_CONTINUE;
+}
+
+static void show_nexthop_group_cmd_helper(struct vty *vty,
+					  struct zebra_vrf *zvrf,
+					  afi_t afi)
+{
+	struct nhe_show_context ctx;
+
+	ctx.vty = vty;
+	ctx.afi = afi;
+	ctx.vrf_id = zvrf->vrf->vrf_id;
+
+	hash_walk(zrouter.nhgs_id, nhe_show_walker, &ctx);
 }
 
 static void if_nexthop_group_dump_vty(struct vty *vty, struct interface *ifp)
@@ -1401,7 +1422,8 @@ DEFPY (show_nexthop_group,
 		zvrf = zebra_vrf_lookup_by_name(VRF_DEFAULT_NAME);
 
 	if (!zvrf) {
-		vty_out(vty, "VRF %s specified does not exist", vrf_name);
+		vty_out(vty, "%% VRF '%s' specified does not exist\n",
+			vrf_name);
 		return CMD_WARNING;
 	}
 
