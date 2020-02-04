@@ -51,6 +51,7 @@ lib_libfrr_la_SOURCES = \
 	lib/mlag.c \
 	lib/module.c \
 	lib/mpls.c \
+	lib/srv6.c \
 	lib/network.c \
 	lib/nexthop.c \
 	lib/netns_linux.c \
@@ -193,6 +194,7 @@ pkginclude_HEADERS += \
 	lib/module.h \
 	lib/monotime.h \
 	lib/mpls.h \
+	lib/srv6.h \
 	lib/network.h \
 	lib/nexthop.h \
 	lib/nexthop_group.h \

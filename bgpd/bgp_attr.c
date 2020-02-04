@@ -32,6 +32,7 @@
 #include "table.h"
 #include "filter.h"
 #include "command.h"
+#include "srv6.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -201,6 +202,8 @@ static struct hash *encap_hash = NULL;
 #if ENABLE_BGP_VNC
 static struct hash *vnc_hash = NULL;
 #endif
+static struct hash *srv6_l3vpn_hash;
+static struct hash *srv6_vpn_hash;
 
 struct bgp_attr_encap_subtlv *encap_tlv_dup(struct bgp_attr_encap_subtlv *orig)
 {
@@ -434,6 +437,158 @@ static void transit_unintern(struct transit **transit)
 	}
 }
 
+static void *srv6_l3vpn_hash_alloc(void *p)
+{
+	return p;
+}
+
+static void srv6_l3vpn_free(struct bgp_attr_srv6_l3vpn *l3vpn)
+{
+	XFREE(MTYPE_BGP_SRV6_L3VPN, l3vpn);
+}
+
+static struct bgp_attr_srv6_l3vpn *
+srv6_l3vpn_intern(struct bgp_attr_srv6_l3vpn *l3vpn)
+{
+	struct bgp_attr_srv6_l3vpn *find;
+
+	find = hash_get(srv6_l3vpn_hash, l3vpn, srv6_l3vpn_hash_alloc);
+	if (find != l3vpn)
+		srv6_l3vpn_free(l3vpn);
+	find->refcnt++;
+	return find;
+}
+
+static void srv6_l3vpn_unintern(struct bgp_attr_srv6_l3vpn **l3vpnp)
+{
+	struct bgp_attr_srv6_l3vpn *l3vpn = *l3vpnp;
+
+	if (l3vpn->refcnt)
+		l3vpn->refcnt--;
+
+	if (l3vpn->refcnt == 0) {
+		hash_release(srv6_l3vpn_hash, l3vpn);
+		srv6_l3vpn_free(l3vpn);
+		*l3vpnp = NULL;
+	}
+}
+
+static void *srv6_vpn_hash_alloc(void *p)
+{
+	return p;
+}
+
+static void srv6_vpn_free(struct bgp_attr_srv6_vpn *vpn)
+{
+	XFREE(MTYPE_BGP_SRV6_VPN, vpn);
+}
+
+static struct bgp_attr_srv6_vpn *srv6_vpn_intern(struct bgp_attr_srv6_vpn *vpn)
+{
+	struct bgp_attr_srv6_vpn *find;
+
+	find = hash_get(srv6_vpn_hash, vpn, srv6_vpn_hash_alloc);
+	if (find != vpn)
+		srv6_vpn_free(vpn);
+	find->refcnt++;
+	return find;
+}
+
+static void srv6_vpn_unintern(struct bgp_attr_srv6_vpn **vpnp)
+{
+	struct bgp_attr_srv6_vpn *vpn = *vpnp;
+
+	if (vpn->refcnt)
+		vpn->refcnt--;
+
+	if (vpn->refcnt == 0) {
+		hash_release(srv6_vpn_hash, vpn);
+		srv6_vpn_free(vpn);
+		*vpnp = NULL;
+	}
+}
+
+static uint32_t srv6_l3vpn_hash_key_make(const void *p)
+{
+	const struct bgp_attr_srv6_l3vpn *l3vpn = p;
+	uint32_t key = 0;
+
+	key = jhash(&l3vpn->sid, 16, key);
+	key = jhash_1word(l3vpn->sid_flags, key);
+	key = jhash_1word(l3vpn->endpoint_behavior, key);
+	return key;
+}
+
+static bool srv6_l3vpn_hash_cmp(const void *p1, const void *p2)
+{
+	const struct bgp_attr_srv6_l3vpn *l3vpn1 = p1;
+	const struct bgp_attr_srv6_l3vpn *l3vpn2 = p2;
+
+	return sid_same(&l3vpn1->sid, &l3vpn2->sid)
+	       && l3vpn1->sid_flags == l3vpn2->sid_flags
+	       && l3vpn1->endpoint_behavior == l3vpn2->endpoint_behavior;
+}
+
+static bool srv6_l3vpn_same(const struct bgp_attr_srv6_l3vpn *h1,
+			    const struct bgp_attr_srv6_l3vpn *h2)
+{
+	if (h1 == h2)
+		return true;
+	else if (h1 == NULL || h2 == NULL)
+		return false;
+	else
+		return srv6_l3vpn_hash_cmp((const void *)h1, (const void *)h2);
+}
+
+static unsigned int srv6_vpn_hash_key_make(const void *p)
+{
+	const struct bgp_attr_srv6_vpn *vpn = p;
+	uint32_t key = 0;
+
+	key = jhash(&vpn->sid, 16, key);
+	key = jhash_1word(vpn->sid_flags, key);
+	return key;
+}
+
+static bool srv6_vpn_hash_cmp(const void *p1, const void *p2)
+{
+	const struct bgp_attr_srv6_vpn *vpn1 = p1;
+	const struct bgp_attr_srv6_vpn *vpn2 = p2;
+
+	return sid_same(&vpn1->sid, &vpn2->sid)
+	       && vpn1->sid_flags == vpn2->sid_flags;
+}
+
+static bool srv6_vpn_same(const struct bgp_attr_srv6_vpn *h1,
+			  const struct bgp_attr_srv6_vpn *h2)
+{
+	if (h1 == h2)
+		return true;
+	else if (h1 == NULL || h2 == NULL)
+		return false;
+	else
+		return srv6_vpn_hash_cmp((const void *)h1, (const void *)h2);
+}
+
+static void srv6_init(void)
+{
+	srv6_l3vpn_hash =
+		hash_create(srv6_l3vpn_hash_key_make, srv6_l3vpn_hash_cmp,
+			    "BGP Prefix-SID SRv6-L3VPN-Service-TLV");
+	srv6_vpn_hash = hash_create(srv6_vpn_hash_key_make, srv6_vpn_hash_cmp,
+				    "BGP Prefix-SID SRv6-VPN-Service-TLV");
+}
+
+static void srv6_finish(void)
+{
+	hash_clean(srv6_l3vpn_hash, (void (*)(void *))srv6_l3vpn_free);
+	hash_free(srv6_l3vpn_hash);
+	srv6_l3vpn_hash = NULL;
+	hash_clean(srv6_vpn_hash, (void (*)(void *))srv6_vpn_free);
+	hash_free(srv6_vpn_hash);
+	srv6_vpn_hash = NULL;
+}
+
 static unsigned int transit_hash_key_make(const void *p)
 {
 	const struct transit *transit = p;
@@ -557,7 +712,9 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && overlay_index_same(attr1, attr2)
 		    && attr1->nh_ifindex == attr2->nh_ifindex
 		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex
-		    && attr1->distance == attr2->distance)
+		    && attr1->distance == attr2->distance
+		    && srv6_l3vpn_same(attr1->srv6_l3vpn, attr2->srv6_l3vpn)
+		    && srv6_vpn_same(attr1->srv6_vpn, attr2->srv6_vpn))
 			return true;
 	}
 
@@ -588,12 +745,22 @@ static void attrhash_finish(void)
 static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 {
 	struct attr *attr = bucket->data;
+	char sid_str[BUFSIZ];
 
 	vty_out(vty, "attr[%ld] nexthop %s\n", attr->refcnt,
 		inet_ntoa(attr->nexthop));
-	vty_out(vty, "\tflags: %" PRIu64 " med: %u local_pref: %u origin: %u weight: %u label: %u\n",
+
+	sid_str[0] = '\0';
+	if (attr->srv6_l3vpn)
+		inet_ntop(AF_INET6, &attr->srv6_l3vpn->sid, sid_str, BUFSIZ);
+	else if (attr->srv6_vpn)
+		inet_ntop(AF_INET6, &attr->srv6_vpn->sid, sid_str, BUFSIZ);
+
+	vty_out(vty,
+		"\tflags: %" PRIu64
+		" med: %u local_pref: %u origin: %u weight: %u label: %u sid: %s\n",
 		attr->flag, attr->med, attr->local_pref, attr->origin,
-		attr->weight, attr->label);
+		attr->weight, attr->label, sid_str);
 }
 
 void attr_show_all(struct vty *vty)
@@ -618,6 +785,11 @@ static void *bgp_attr_hash_alloc(void *p)
 		val->vnc_subtlvs = NULL;
 	}
 #endif
+	if (val->srv6_l3vpn)
+		val->srv6_l3vpn = NULL;
+	if (val->srv6_vpn)
+		val->srv6_vpn = NULL;
+
 	attr->refcnt = 0;
 	return attr;
 }
@@ -671,6 +843,18 @@ struct attr *bgp_attr_intern(struct attr *attr)
 							   ENCAP_SUBTLV_TYPE);
 		else
 			attr->encap_subtlvs->refcnt++;
+	}
+	if (attr->srv6_l3vpn) {
+		if (!attr->srv6_l3vpn->refcnt)
+			attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
+		else
+			attr->srv6_l3vpn->refcnt++;
+	}
+	if (attr->srv6_vpn) {
+		if (!attr->srv6_vpn->refcnt)
+			attr->srv6_vpn = srv6_vpn_intern(attr->srv6_vpn);
+		else
+			attr->srv6_vpn->refcnt++;
 	}
 #if ENABLE_BGP_VNC
 	if (attr->vnc_subtlvs) {
@@ -862,6 +1046,12 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	if (attr->vnc_subtlvs)
 		encap_unintern(&attr->vnc_subtlvs, VNC_SUBTLV_TYPE);
 #endif
+
+	if (attr->srv6_l3vpn)
+		srv6_l3vpn_unintern(&attr->srv6_l3vpn);
+
+	if (attr->srv6_vpn)
+		srv6_vpn_unintern(&attr->srv6_vpn);
 }
 
 /*
@@ -2147,6 +2337,9 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 	uint32_t srgb_base;
 	uint32_t srgb_range;
 	int srgb_count;
+	uint8_t sid_type, sid_flags;
+	uint16_t endpoint_behavior;
+	char buf[BUFSIZ];
 
 	if (type == BGP_PREFIX_SID_LABEL_INDEX) {
 		if (STREAM_READABLE(peer->curr) < length
@@ -2268,13 +2461,81 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		}
 	}
 
-	/*
-	 * Placeholder code for Unsupported TLV
-	 *  - SRv6 L3 Service TLV (type5)
-	 *  - SRv6 L2 Service TLV (type6)
-	 */
-	else if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE
-	    || type == BGP_PREFIX_SID_SRV6_L2_SERVICE) {
+	/* Placeholder code for the VPN-SID Service type */
+	else if (type == BGP_PREFIX_SID_VPN_SID) {
+		if (STREAM_READABLE(peer->curr) < length
+		    || length != BGP_PREFIX_SID_VPN_SID_LENGTH) {
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Prefix SID VPN SID length is %" PRIu16
+				 " instead of %u",
+				 length, BGP_PREFIX_SID_VPN_SID_LENGTH);
+			return bgp_attr_malformed(args,
+						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+						  args->total);
+		}
+
+		/* Parse VPN-SID Sub-TLV */
+		stream_getc(peer->curr);               /* reserved  */
+		sid_type = stream_getc(peer->curr);    /* sid_type  */
+		sid_flags = stream_getc(peer->curr);   /* sid_flags */
+		stream_get(&ipv6_sid, peer->curr,
+			   sizeof(ipv6_sid)); /* sid_value */
+
+		/* Log VPN-SID Sub-TLV */
+		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
+			inet_ntop(AF_INET6, &ipv6_sid, buf, sizeof(buf));
+			zlog_debug(
+				"%s: vpn-sid: sid %s, sid-type 0x%02x sid-flags 0x%02x",
+				__func__, buf, sid_type, sid_flags);
+		}
+
+		/* Configure from Info */
+		attr->srv6_vpn = XMALLOC(MTYPE_BGP_SRV6_VPN,
+					 sizeof(struct bgp_attr_srv6_vpn));
+		attr->srv6_vpn->refcnt = 0;
+		attr->srv6_vpn->sid_flags = sid_flags;
+		sid_copy(&attr->srv6_vpn->sid, &ipv6_sid);
+	}
+
+	/* Placeholder code for the SRv6 L3 Service type */
+	else if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE) {
+		if (STREAM_READABLE(peer->curr) < length
+		    || length != BGP_PREFIX_SID_SRV6_L3_SERVICE_LENGTH) {
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Prefix SID SRv6 L3-Service length is %" PRIu16
+				 " instead of %u",
+				 length, BGP_PREFIX_SID_SRV6_L3_SERVICE_LENGTH);
+			return bgp_attr_malformed(args,
+				 BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				 args->total);
+		}
+
+		/* Parse L3-SERVICE Sub-TLV */
+		stream_getc(peer->curr);               /* reserved  */
+		stream_get(&ipv6_sid, peer->curr,
+			   sizeof(ipv6_sid)); /* sid_value */
+		sid_flags = stream_getc(peer->curr);   /* sid_flags */
+		endpoint_behavior = stream_getw(peer->curr); /* endpoint */
+		stream_getc(peer->curr);               /* reserved  */
+
+		/* Log L3-SERVICE Sub-TLV */
+		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
+			inet_ntop(AF_INET6, &ipv6_sid, buf, sizeof(buf));
+			zlog_debug(
+				"%s: srv6-l3-srv sid %s, sid-flags 0x%02x, end-behaviour 0x%04x",
+				__func__, buf, sid_flags, endpoint_behavior);
+		}
+
+		/* Configure from Info */
+		attr->srv6_l3vpn = XMALLOC(MTYPE_BGP_SRV6_L3VPN,
+					   sizeof(struct bgp_attr_srv6_l3vpn));
+		attr->srv6_l3vpn->sid_flags = sid_flags;
+		attr->srv6_l3vpn->endpoint_behavior = endpoint_behavior;
+		sid_copy(&attr->srv6_l3vpn->sid, &ipv6_sid);
+	}
+
+	/* Placeholder code for Unsupported TLV */
+	else {
 
 		if (STREAM_READABLE(peer->curr) < length) {
 			flog_err(
@@ -2966,9 +3227,8 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 
 	/* Nexthop AFI */
 	if (afi == AFI_IP
-	    && (safi == SAFI_UNICAST ||
-		safi == SAFI_LABELED_UNICAST ||
-		safi == SAFI_MULTICAST))
+	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST
+		|| safi == SAFI_MPLS_VPN || safi == SAFI_MULTICAST))
 		nh_afi = peer_cap_enhe(peer, afi, safi) ? AFI_IP6 : AFI_IP;
 	else
 		nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->mp_nexthop_len);
@@ -3610,6 +3870,36 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		}
 	}
 
+	/* SRv6 Service Information Attribute. */
+	if (afi == AFI_IP && safi == SAFI_MPLS_VPN) {
+		if (attr->srv6_l3vpn) {
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
+					       | BGP_ATTR_FLAG_TRANS);
+			stream_putc(s, BGP_ATTR_PREFIX_SID);
+			stream_putc(s, 24);     /* tlv len */
+			stream_putc(s, BGP_PREFIX_SID_SRV6_L3_SERVICE);
+			stream_putw(s, 21);     /* sub-tlv len */
+			stream_putc(s, 0);      /* reserved */
+			stream_put(s, &attr->srv6_l3vpn->sid,
+				   sizeof(attr->srv6_l3vpn->sid)); /* sid */
+			stream_putc(s, 0);      /* sid_flags */
+			stream_putw(s, 0xffff); /* endpoint */
+			stream_putc(s, 0);      /* reserved */
+		} else if (attr->srv6_vpn) {
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
+					       | BGP_ATTR_FLAG_TRANS);
+			stream_putc(s, BGP_ATTR_PREFIX_SID);
+			stream_putc(s, 22);     /* tlv len */
+			stream_putc(s, BGP_PREFIX_SID_VPN_SID);
+			stream_putw(s, 0x13);   /* tlv len */
+			stream_putc(s, 0x00);   /* reserved */
+			stream_putc(s, 0x01);   /* sid_type */
+			stream_putc(s, 0x00);   /* sif_flags */
+			stream_put(s, &attr->srv6_vpn->sid,
+				   sizeof(attr->srv6_vpn->sid)); /* sid */
+		}
+	}
+
 	if (send_as4_path) {
 		/* If the peer is NOT As4 capable, AND */
 		/* there are ASnums > 65535 in path  THEN
@@ -3738,6 +4028,7 @@ void bgp_attr_init(void)
 	cluster_init();
 	transit_init();
 	encap_init();
+	srv6_init();
 }
 
 void bgp_attr_finish(void)
@@ -3750,6 +4041,7 @@ void bgp_attr_finish(void)
 	cluster_finish();
 	transit_finish();
 	encap_finish();
+	srv6_finish();
 }
 
 /* Make attribute packet. */

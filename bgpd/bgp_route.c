@@ -38,6 +38,7 @@
 #include "workqueue.h"
 #include "queue.h"
 #include "memory.h"
+#include "srv6.h"
 #include "lib/json.h"
 #include "lib_errors.h"
 #include "zclient.h"
@@ -3645,6 +3646,22 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 				bgp_set_valid_label(&extra->label[0]);
 		}
 
+		/* Update SRv6 SID */
+		if (attr->srv6_l3vpn) {
+			extra = bgp_path_info_extra_get(pi);
+			if (sid_diff(&extra->sid[0], &attr->srv6_l3vpn->sid)) {
+				sid_copy(&extra->sid[0],
+					 &attr->srv6_l3vpn->sid);
+				extra->num_sids = 1;
+			}
+		} else if (attr->srv6_vpn) {
+			extra = bgp_path_info_extra_get(pi);
+			if (sid_diff(&extra->sid[0], &attr->srv6_vpn->sid)) {
+				sid_copy(&extra->sid[0], &attr->srv6_vpn->sid);
+				extra->num_sids = 1;
+			}
+		}
+
 #if ENABLE_BGP_VNC
 		if ((afi == AFI_IP || afi == AFI_IP6)
 		    && (safi == SAFI_UNICAST)) {
@@ -3822,6 +3839,18 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		}
 		if (!(afi == AFI_L2VPN && safi == SAFI_EVPN))
 			bgp_set_valid_label(&extra->label[0]);
+	}
+
+	/* Update SRv6 SID */
+	if (safi == SAFI_MPLS_VPN) {
+		extra = bgp_path_info_extra_get(new);
+		if (attr->srv6_l3vpn) {
+			sid_copy(&extra->sid[0], &attr->srv6_l3vpn->sid);
+			extra->num_sids = 1;
+		} else if (attr->srv6_vpn) {
+			sid_copy(&extra->sid[0], &attr->srv6_vpn->sid);
+			extra->num_sids = 1;
+		}
 	}
 
 	/* Update Overlay Index */
@@ -9206,6 +9235,15 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 			json_object_int_add(json_path, "remoteLabel", label);
 		else
 			vty_out(vty, "      Remote label: %d\n", label);
+	}
+
+	/* Remote SID */
+	if (path->extra && path->extra->num_sids > 0 && safi != SAFI_EVPN) {
+		inet_ntop(AF_INET6, &path->extra->sid, buf, sizeof(buf));
+		if (json_paths)
+			json_object_string_add(json_path, "remoteSid", buf);
+		else
+			vty_out(vty, "      Remote SID: %s\n", buf);
 	}
 
 	/* Label Index */
