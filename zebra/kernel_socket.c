@@ -556,7 +556,7 @@ int ifm_read(struct if_msghdr *ifm)
 	 * is 12 bytes larger than the 32 bit version.
 	 */
 	if (((struct sockaddr *)cp)->sa_family == AF_UNSPEC)
-		cp = cp + 12;
+		cp += 12;
 #endif
 
 	/* Look up for RTA_IFP and skip others. */
