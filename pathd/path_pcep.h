@@ -32,69 +32,69 @@
 #define CLASS_TYPE(CLASS, TYPE) (((CLASS) << 16) | (TYPE))
 #define PCEP_DEBUG(fmt, ...) DEBUGD(&pcep_g->dbg, fmt, ##__VA_ARGS__)
 
-typedef enum {
+enum pcc_status {
 	INITIALIZED = 0,
 	DISCONNECTED,
 	CONNECTING,
 	SYNCHRONIZING,
 	OPERATING
-} pcc_status_t;
+};
 
-typedef enum {
+enum pathd_event_type {
 	CANDIDATE_CREATED = 0,
 	CANDIDATE_UPDATED,
 	CANDIDATE_REMOVED
-} pathd_event_t;
+};
 
-typedef struct pcep_glob_t_ {
+struct pcep_glob {
 	struct debug dbg;
 	struct thread_master *master;
 	struct frr_pthread *fpt;
-} pcep_glob_t;
+};
 
-typedef struct pce_opts_t_ {
+struct pce_opts {
 	struct in_addr addr;
 	short port;
-} pce_opts_t;
+};
 
-typedef struct pcc_opts_t_ {
+struct pcc_opts {
 	struct in_addr addr;
 	short port;
-} pcc_opts_t;
+};
 
-typedef struct lsp_nb_key_t_ {
+struct lsp_nb_key {
 	uint32_t color;
 	struct ipaddr endpoint;
 	uint32_t preference;
-} lsp_nb_key_t;
+};
 
 PREDECL_HASH(plspid_map)
 PREDECL_HASH(nbkey_map)
 PREDECL_HASH(srpid_map)
 
-typedef struct plspid_map_t_ {
+struct plspid_map_data {
 	struct plspid_map_item mi;
-	lsp_nb_key_t nbkey;
+	struct lsp_nb_key nbkey;
 	uint32_t plspid;
-} plspid_map_t;
+};
 
-typedef struct nbkey_map_t_ {
+struct nbkey_map_data {
 	struct nbkey_map_item mi;
-	lsp_nb_key_t nbkey;
+	struct lsp_nb_key nbkey;
 	uint32_t plspid;
-} nbkey_map_t;
+};
 
-typedef struct srpid_map_t_ {
+struct srpid_map_data {
 	struct srpid_map_item mi;
 	uint32_t plspid;
 	uint32_t srpid;
-} srpid_map_t;
+};
 
-typedef struct pcc_state_t_ {
+struct pcc_state {
 	int id;
-	pcc_status_t status;
-	pcc_opts_t *pcc_opts;
-	pce_opts_t *pce_opts;
+	enum pcc_status status;
+	struct pcc_opts *pcc_opts;
+	struct pce_opts *pce_opts;
 	pcep_configuration * config;
 	pcep_session *sess;
 	uint32_t retry_count;
@@ -105,40 +105,40 @@ typedef struct pcc_state_t_ {
 	struct plspid_map_head plspid_map;
 	struct nbkey_map_head nbkey_map;
 	struct srpid_map_head srpid_map;
-} pcc_state_t;
+};
 
-typedef struct ctrl_state_t_ {
+struct ctrl_state {
 	struct thread_master *main;
 	struct thread_master *self;
 	struct thread *t_poll;
-	pcc_opts_t *pcc_opts;
+	struct pcc_opts *pcc_opts;
 	int pcc_count;
-	pcc_state_t *pcc[MAX_PCC];
-} ctrl_state_t;
+	struct pcc_state *pcc[MAX_PCC];
+};
 
-typedef struct sid_mpls_t_ {
+struct sid_mpls {
 	mpls_label_t label;
 	uint8_t traffic_class;
 	bool is_bottom;
 	uint8_t ttl;
-} sid_mpls_t;
+};
 
-typedef union sid_t_ {
+union sid {
 	uint32_t value;
-	sid_mpls_t mpls;
-} sid_t;
+	struct sid_mpls mpls;
+};
 
-typedef struct nai_ipv4_node_t_ {
+struct nai_ipv4_node {
 	struct in_addr addr;
-} nai_ipv4_node_t;
+};
 
-typedef union nai_t_ {
-	nai_ipv4_node_t ipv4_node;
-} nai_t;
+union nai {
+	struct nai_ipv4_node ipv4_node;
+};
 
-typedef struct path_hop_t_ {
+struct path_hop {
 	/* Pointer to the next hop in the path */
-	struct path_hop_t_ *next;
+	struct path_hop *next;
 	/* Indicateif this ia a loose or strict hop */
 	bool is_loose;
 	/* Indicate if there is an SID for the hop */
@@ -148,20 +148,20 @@ typedef struct path_hop_t_ {
 	/* Indicate if the MPLS label has extra attributes (TTL, class..)*/
 	bool has_attribs;
 	/* Hop's SID if available */
-	sid_t sid;
+	union sid sid;
 	/* Indicate if there ia a NAI for this hop */
 	bool has_nai;
 	/* Indicate Hop's NAI type if available */
 	enum pcep_sr_subobj_nai nai_type;
 	/* Hop's NAI if available */
-	nai_t nai;
-} path_hop_t;
+	union nai nai;
+};
 
-typedef struct path_t_ {
+struct path {
 	/* The address the path is comming from (only work for the PCE for now) */
 	struct ipaddr sender;
 	/* The northbound key identifying this path */
-	lsp_nb_key_t nbkey;
+	struct lsp_nb_key nbkey;
 	/* The generated unique PLSP identifier for this path.
 	   See draft-ietf-pce-stateful-pce */
 	uint32_t plsp_id;
@@ -191,42 +191,42 @@ typedef struct path_t_ {
 	   See draft-ietf-pce-stateful-pce, section-7.3, flag D */
 	bool is_delegated;
 	/* Specify the list of hop defining the path */
-	path_hop_t *first;
-} path_t;
+	struct path_hop *first;
+};
 
-typedef struct event_pcc_update_t_ {
-	ctrl_state_t *ctrl_state;
-	pcc_opts_t *pcc_opts;
-} event_pcc_update_t;
+struct event_pcc_update {
+	struct ctrl_state *ctrl_state;
+	struct pcc_opts *pcc_opts;
+};
 
-typedef struct event_pce_update_t_ {
-	ctrl_state_t *ctrl_state;
+struct event_pce_update {
+	struct ctrl_state *ctrl_state;
 	int pcc_id;
-	pce_opts_t *pce_opts;
-} event_pce_update_t;
+	struct pce_opts *pce_opts;
+};
 
-typedef int (*pcc_cb_t)(ctrl_state_t *ctrl_state,
-                        pcc_state_t *pcc_state);
+typedef int (*pcc_cb_t)(struct ctrl_state *ctrl_state,
+                        struct pcc_state *pcc_state);
 
-typedef struct event_pcc_cb_t_ {
-	ctrl_state_t *ctrl_state;
+struct event_pcc_cb {
+	struct ctrl_state *ctrl_state;
 	int pcc_id;
 	pcc_cb_t cb;
-} event_pcc_cb_t;
+};
 
-typedef struct event_pcc_path_t_ {
-	ctrl_state_t *ctrl_state;
+struct event_pcc_path {
+	struct ctrl_state *ctrl_state;
 	int pcc_id;
-	path_t *path;
-} event_pcc_path_t;
+	struct path *path;
+};
 
-typedef struct event_pathd_t_ {
-	ctrl_state_t *ctrl_state;
-	pathd_event_t type;
-	path_t *path;
-} event_pathd_t;
+struct event_pathd {
+	struct ctrl_state *ctrl_state;
+	enum pathd_event_type type;
+	struct path *path;
+};
 
-extern pcep_glob_t *pcep_g;
+extern struct pcep_glob *pcep_g;
 
 DECLARE_MTYPE(PCEP)
 

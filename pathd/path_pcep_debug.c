@@ -41,12 +41,12 @@
 #define PCEP_FORMAT_FINI() _debug_buff
 THREAD_DATA char _debug_buff[DEBUG_BUFF_SIZE];
 
-static void _format_pcc_opts(int ps, pcc_opts_t *ops);
-static void _format_pce_opts(int ps, pce_opts_t *ops);
-static void _format_pcc_state(int ps, pcc_state_t *state);
-static void _format_ctrl_state(int ps, ctrl_state_t *state);
-static void _format_path(int ps, path_t *path);
-static void _format_path_hop(int ps, path_hop_t *hop);
+static void _format_pcc_opts(int ps, struct pcc_opts *ops);
+static void _format_pce_opts(int ps, struct pce_opts *ops);
+static void _format_pcc_state(int ps, struct pcc_state *state);
+static void _format_ctrl_state(int ps, struct ctrl_state *state);
+static void _format_path(int ps, struct path *path);
+static void _format_path_hop(int ps, struct path_hop *hop);
 static void _format_pcep_event(int ps, pcep_event *event);
 static void _format_pcep_message(int ps, struct pcep_message *msg);
 static void _format_pcep_objects(int ps, double_linked_list *objs);
@@ -78,7 +78,7 @@ static void _format_pcep_object_tlv_sr_pce_capability(int ps,
 static void _format_pcep_object_tlv_path_setup_type(int ps,
 		struct pcep_object_tlv_path_setup_type *tlv);
 
-const char *pcc_status_name(pcc_status_t status)
+const char *pcc_status_name(enum pcc_status status)
 {
 	switch (status) {
 		case INITIALIZED: return "INITIALIZED";
@@ -426,28 +426,28 @@ const char *pcep_nai_type_name(enum pcep_sr_subobj_nai nai_type)
 	}
 }
 
-const char *format_pcc_opts(pcc_opts_t *opts)
+const char *format_pcc_opts(struct pcc_opts *opts)
 {
 	PCEP_FORMAT_INIT();
 	_format_pcc_opts(0, opts);
 	return PCEP_FORMAT_FINI();
 }
 
-const char *format_pcc_state(pcc_state_t *state)
+const char *format_pcc_state(struct pcc_state *state)
 {
 	PCEP_FORMAT_INIT();
 	_format_pcc_state(0, state);
 	return PCEP_FORMAT_FINI();
 }
 
-const char *format_ctrl_state(ctrl_state_t *state)
+const char *format_ctrl_state(struct ctrl_state *state)
 {
 	PCEP_FORMAT_INIT();
 	_format_ctrl_state(0, state);
 	return PCEP_FORMAT_FINI();
 }
 
-const char *format_path(path_t *path)
+const char *format_path(struct path *path)
 {
 	PCEP_FORMAT_INIT();
 	_format_path(0, path);
@@ -480,7 +480,7 @@ const char *format_yang_dnode(struct lyd_node *dnode)
 	return _debug_buff;
 }
 
-void _format_pcc_opts(int ps, pcc_opts_t *opts)
+void _format_pcc_opts(int ps, struct pcc_opts *opts)
 {
 	if (NULL == opts) {
 		PCEP_FORMAT("NULL\n");
@@ -493,7 +493,7 @@ void _format_pcc_opts(int ps, pcc_opts_t *opts)
 	}
 }
 
-void _format_pce_opts(int ps, pce_opts_t *opts)
+void _format_pce_opts(int ps, struct pce_opts *opts)
 {
 	if (NULL == opts) {
 		PCEP_FORMAT("NULL\n");
@@ -507,7 +507,7 @@ void _format_pce_opts(int ps, pce_opts_t *opts)
 }
 
 
-void _format_pcc_state(int ps, pcc_state_t *state)
+void _format_pcc_state(int ps, struct pcc_state *state)
 {
 	if (NULL == state) {
 		PCEP_FORMAT("NULL\n");
@@ -529,7 +529,7 @@ void _format_pcc_state(int ps, pcc_state_t *state)
 	}
 }
 
-void _format_ctrl_state(int ps, ctrl_state_t *state)
+void _format_ctrl_state(int ps, struct ctrl_state *state)
 {
 	if (NULL == state) {
 		PCEP_FORMAT("NULL\n");
@@ -565,7 +565,7 @@ void _format_ctrl_state(int ps, ctrl_state_t *state)
 	}
 }
 
-void _format_path(int ps, path_t *path)
+void _format_path(int ps, struct path *path)
 {
 	if (NULL == path) {
 		PCEP_FORMAT("NULL\n");
@@ -612,7 +612,7 @@ void _format_path(int ps, path_t *path)
 			PCEP_FORMAT("%*shops: []", ps2, "");
 		} else {
 			PCEP_FORMAT("%*shops: \n", ps2, "");
-			for (path_hop_t *hop = path->first;
+			for (struct path_hop *hop = path->first;
 			     NULL != hop;
 			     hop = hop->next) {
 				PCEP_FORMAT("%*s- ", ps3 - 2, "");
@@ -622,7 +622,7 @@ void _format_path(int ps, path_t *path)
 	}
 }
 
-void _format_path_hop(int ps, path_hop_t *hop)
+void _format_path_hop(int ps, struct path_hop *hop)
 {
 	PCEP_FORMAT("is_loose: %u\n", hop->is_loose);
 	PCEP_FORMAT("%*shas_sid: %u\n", ps, "", hop->has_sid);

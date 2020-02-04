@@ -24,11 +24,11 @@
 #include <pcep_pcc_api.h>
 #include "pathd/path_pcep.h"
 
-int pcep_lib_connect(pcc_state_t *pcc_state);
-void pcep_lib_disconnect(pcc_state_t *pcc_state);
-double_linked_list *pcep_lib_format_path(path_t *path);
-path_t *pcep_lib_parse_path(double_linked_list *objs);
-void pcep_lib_free_path(path_t *path);
+int pcep_lib_connect(struct pcc_state *pcc_state);
+void pcep_lib_disconnect(struct pcc_state *pcc_state);
+double_linked_list *pcep_lib_format_path(struct path *path);
+struct path *pcep_lib_parse_path(double_linked_list *objs);
+void pcep_lib_free_path(struct path *path);
 
 
 #endif // _PATH_PCEP_LIB_H_

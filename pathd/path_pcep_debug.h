@@ -25,7 +25,7 @@
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_lib.h"
 
-const char *pcc_status_name(pcc_status_t status);
+const char *pcc_status_name(enum pcc_status status);
 const char *pcep_error_type_name(enum pcep_error_type error_type);
 const char *pcep_error_value_name(enum pcep_error_type error_type,
                                   enum pcep_error_value error_value);
@@ -39,10 +39,10 @@ const char *pcep_tlv_type_name(enum pcep_object_tlv_types tlv_type);
 const char *pcep_ro_type_name(enum pcep_ro_subobj_types ro_type);
 const char *pcep_nai_type_name(enum pcep_sr_subobj_nai nai_type);
 
-const char *format_pcc_opts(pcc_opts_t *ops);
-const char *format_pcc_state(pcc_state_t *state);
-const char *format_ctrl_state(ctrl_state_t *state);
-const char *format_path(path_t *path);
+const char *format_pcc_opts(struct pcc_opts *ops);
+const char *format_pcc_state(struct pcc_state *state);
+const char *format_ctrl_state(struct ctrl_state *state);
+const char *format_path(struct path *path);
 const char *format_pcep_event(pcep_event *event);
 const char *format_pcep_message(struct pcep_message *msg);
 const char *format_yang_dnode(struct lyd_node *dnode);

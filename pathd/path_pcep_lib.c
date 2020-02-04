@@ -23,13 +23,13 @@
 #include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_debug.h"
 
-static void pcep_lib_parse_srp(path_t *path, struct pcep_object_srp* srp);
-static void pcep_lib_parse_lsp(path_t *path, struct pcep_object_lsp* lsp);
-static void pcep_lib_parse_ero(path_t *path, struct pcep_object_ro* ero);
-static path_hop_t *pcep_lib_parse_ero_sr(path_hop_t *next,
-					 struct pcep_ro_subobj_sr *sr);
+static void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp* srp);
+static void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp* lsp);
+static void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro* ero);
+static struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
+					      struct pcep_ro_subobj_sr *sr);
 
-int pcep_lib_connect(pcc_state_t *pcc_state)
+int pcep_lib_connect(struct pcc_state *pcc_state)
 {
 	assert(NULL != pcc_state);
 	assert(NULL != pcc_state->pcc_opts);
@@ -64,7 +64,7 @@ int pcep_lib_connect(pcc_state_t *pcc_state)
 	return 0;
 }
 
-void pcep_lib_disconnect(pcc_state_t *pcc_state)
+void pcep_lib_disconnect(struct pcc_state *pcc_state)
 {
 	assert(NULL != pcc_state);
 	assert(NULL != pcc_state->config);
@@ -77,7 +77,7 @@ void pcep_lib_disconnect(pcc_state_t *pcc_state)
 	pcc_state->sess = NULL;
 }
 
-double_linked_list *pcep_lib_format_path(path_t *path)
+double_linked_list *pcep_lib_format_path(struct path *path)
 {
 	struct in_addr addr_null, *addr;
 	double_linked_list *objs, *srp_tlvs, *lsp_tlvs, *ero_objs;
@@ -125,7 +125,7 @@ double_linked_list *pcep_lib_format_path(path_t *path)
 	dll_append(objs, lsp);
 	/*   ERO object */
 	ero_objs = dll_initialize();
-	for (path_hop_t *hop = path->first; NULL != hop; hop = hop->next) {
+	for (struct path_hop *hop = path->first; NULL != hop; hop = hop->next) {
 		uint32_t sid;
 
 		/* Only supporting MPLS hops with both sid and nai */
@@ -170,9 +170,9 @@ double_linked_list *pcep_lib_format_path(path_t *path)
 	return objs;
 }
 
-path_t *pcep_lib_parse_path(double_linked_list *objs)
+struct path *pcep_lib_parse_path(double_linked_list *objs)
 {
-	path_t *path;
+	struct path *path;
 	double_linked_list_node *node;
 
 	struct pcep_object_header *obj;
@@ -216,7 +216,7 @@ path_t *pcep_lib_parse_path(double_linked_list *objs)
 	return path;
 }
 
-void pcep_lib_parse_srp(path_t *path, struct pcep_object_srp* srp)
+void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp* srp)
 {
 	double_linked_list *tlvs = srp->header.tlv_list;
 	double_linked_list_node *node;
@@ -241,7 +241,7 @@ void pcep_lib_parse_srp(path_t *path, struct pcep_object_srp* srp)
 	}
 }
 
-void pcep_lib_parse_lsp(path_t *path, struct pcep_object_lsp* lsp)
+void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp* lsp)
 {
 	double_linked_list *tlvs = lsp->header.tlv_list;
 	double_linked_list_node *node;
@@ -270,9 +270,9 @@ void pcep_lib_parse_lsp(path_t *path, struct pcep_object_lsp* lsp)
 	}
 }
 
-void pcep_lib_parse_ero(path_t *path, struct pcep_object_ro* ero)
+void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro* ero)
 {
-	path_hop_t *hop = NULL;
+	struct path_hop *hop = NULL;
 	double_linked_list *objs = ero->sub_objects;
 	double_linked_list_node *node;
 	struct pcep_object_ro_subobj *obj;
@@ -297,10 +297,10 @@ void pcep_lib_parse_ero(path_t *path, struct pcep_object_ro* ero)
 	path->first = hop;
 }
 
-path_hop_t *pcep_lib_parse_ero_sr(path_hop_t *next,
+struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 				  struct pcep_ro_subobj_sr *sr)
 {
-	path_hop_t *hop = NULL;
+	struct path_hop *hop = NULL;
 
 	/* Only support IPv4 node with SID */
 	assert(!sr->flag_s);
@@ -308,7 +308,7 @@ path_hop_t *pcep_lib_parse_ero_sr(path_hop_t *next,
 	hop = XCALLOC(MTYPE_PCEP, sizeof(*hop));
 	memset(hop, 0, sizeof(*hop));
 
-	*hop = (path_hop_t) {.next = next,
+	*hop = (struct path_hop) {.next = next,
 			     .is_loose = sr->ro_subobj.flag_subobj_loose_hop,
 			     .has_sid = !sr->flag_s,
 			     .is_mpls = sr->flag_m,
@@ -327,21 +327,21 @@ path_hop_t *pcep_lib_parse_ero_sr(path_hop_t *next,
 		assert(NULL != sr->nai_list);
 		assert(NULL != sr->nai_list->head);
 		assert(NULL != sr->nai_list->head->data);
-		struct in_addr * addr = (struct in_addr*) sr->nai_list->head->data;
-		hop->nai = (nai_t) {.ipv4_node = {.addr = {
+		struct in_addr *addr = (struct in_addr*) sr->nai_list->head->data;
+		hop->nai = (union nai) {.ipv4_node = {.addr = {
 			.s_addr = addr->s_addr}}};
 	}
 
 	return hop;
 }
 
-void pcep_lib_free_path(path_t *path)
+void pcep_lib_free_path(struct path *path)
 {
-	path_hop_t *hop;
+	struct path_hop *hop;
 
 	hop = path->first;
 	while (NULL != hop) {
-		path_hop_t *next = hop->next;
+		struct path_hop *next = hop->next;
 		XFREE(MTYPE_PCEP, hop);
 		hop = next;
 	}

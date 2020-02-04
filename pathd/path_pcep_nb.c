@@ -27,14 +27,15 @@
 
 #define MAX_XPATH 256
 
-typedef struct path_nb_list_path_cb_arg_t_ {
+struct path_nb_list_path_cb_arg {
 	void *arg;
 	path_list_cb_t cb;
-} path_nb_list_path_cb_arg_t;
+};
 
 
 static int path_nb_list_path_cb(const struct lyd_node *dnode, void *int_arg);
-static path_hop_t *path_nb_list_path_hops(struct te_segment_list *segment_list);
+static struct path_hop *path_nb_list_path_hops(
+                		struct te_segment_list *segment_list);
 
 static int path_nb_commit_candidate_config(struct nb_config *candidate_config,
 					   const char *comment);
@@ -59,8 +60,8 @@ static enum pcep_lsp_operational_status status_int_to_ext(
                 enum te_policy_status status);
 
 
-path_t* path_nb_get_path(uint32_t color, struct ipaddr endpoint,
-                         uint32_t preference)
+struct path* path_nb_get_path(uint32_t color, struct ipaddr endpoint,
+			      uint32_t preference)
 {
 	char xpath[XPATH_MAXLEN];
 	char endpoint_str[40];
@@ -83,16 +84,16 @@ path_t* path_nb_get_path(uint32_t color, struct ipaddr endpoint,
 
 void path_nb_list_path(path_list_cb_t cb, void *arg)
 {
-	path_nb_list_path_cb_arg_t int_arg = {.arg = arg, .cb = cb};
+	struct path_nb_list_path_cb_arg int_arg = {.arg = arg, .cb = cb};
 	yang_dnode_iterate(path_nb_list_path_cb, &int_arg,
 			   running_config->dnode, "/frr-pathd:pathd/sr-policy");
 }
 
 int path_nb_list_path_cb(const struct lyd_node *dnode, void *int_arg)
 {
-	path_t *path;
-	path_list_cb_t cb = ((path_nb_list_path_cb_arg_t *)int_arg)->cb;
-	void *ext_arg = ((path_nb_list_path_cb_arg_t *)int_arg)->arg;
+	struct path *path;
+	path_list_cb_t cb = ((struct path_nb_list_path_cb_arg *)int_arg)->cb;
+	void *ext_arg = ((struct path_nb_list_path_cb_arg *)int_arg)->arg;
 	struct te_sr_policy *policy;
 	struct te_candidate_path *candidate;
 
@@ -107,11 +108,11 @@ int path_nb_list_path_cb(const struct lyd_node *dnode, void *int_arg)
 	return 1;
 }
 
-path_t* candidate_to_path(struct te_candidate_path *candidate)
+struct path* candidate_to_path(struct te_candidate_path *candidate)
 {
 	char *name;
-	path_t *path;
-	path_hop_t *hop;
+	struct path *path;
+	struct path_hop *hop;
 	struct te_sr_policy *policy;
 	struct te_segment_list *segment_list, key;
 	enum pcep_lsp_operational_status status;
@@ -145,10 +146,10 @@ path_t* candidate_to_path(struct te_candidate_path *candidate)
 			is_delegated = false;
 			break;
 	}
-	*path = (path_t){
-		.nbkey = (lsp_nb_key_t){.color = policy->color,
-					.endpoint = policy->endpoint,
-					.preference =
+	*path = (struct path){
+		.nbkey = (struct lsp_nb_key){.color = policy->color,
+					     .endpoint = policy->endpoint,
+					     .preference =
 						candidate->preference},
 		.plsp_id = 0,
 		.name = name,
@@ -165,14 +166,14 @@ path_t* candidate_to_path(struct te_candidate_path *candidate)
 	return path;
 }
 
-path_hop_t *path_nb_list_path_hops(struct te_segment_list *segment_list)
+struct path_hop *path_nb_list_path_hops(struct te_segment_list *segment_list)
 {
 	struct te_segment_list_segment *segment;
-	path_hop_t *hop, *last_hop = NULL;
+	struct path_hop *hop, *last_hop = NULL;
 	RB_FOREACH_REVERSE (segment, te_segment_list_segment_instance_head,
 			    &segment_list->segments) {
 		hop = XCALLOC(MTYPE_PCEP, sizeof(*hop));
-		*hop = (path_hop_t) {.next = last_hop,
+		*hop = (struct path_hop) {.next = last_hop,
 				     .is_loose = false,
 				     .has_sid = true,
 				     .is_mpls = true,
@@ -185,13 +186,13 @@ path_hop_t *path_nb_list_path_hops(struct te_segment_list *segment_list)
 	return hop;
 }
 
-void path_nb_update_path(path_t *path)
+void path_nb_update_path(struct path *path)
 {
 	assert(NULL != path);
 	assert(0 != path->nbkey.preference);
 	assert(IPADDR_V4 == path->nbkey.endpoint.ipa_type);
 
-	path_hop_t *hop;
+	struct path_hop *hop;
 	int index;
 	char segment_list_name_buff[11];
 	char *segment_list_name = NULL;
