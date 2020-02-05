@@ -72,16 +72,13 @@ void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zclient,
 struct pim_nexthop_cache *pim_nexthop_cache_find(struct pim_instance *pim,
 						 struct pim_rpf *rpf)
 {
-	struct pim_nexthop_cache *pnc = NULL;
 	struct pim_nexthop_cache lookup;
 
 	lookup.rpf.rpf_addr.family = rpf->rpf_addr.family;
 	lookup.rpf.rpf_addr.prefixlen = rpf->rpf_addr.prefixlen;
 	lookup.rpf.rpf_addr.u.prefix4.s_addr = rpf->rpf_addr.u.prefix4.s_addr;
 
-	pnc = hash_lookup(pim->rpf_hash, &lookup);
-
-	return pnc;
+	return hash_lookup(pim->rpf_hash, &lookup);
 }
 
 static struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_instance *pim,
@@ -483,7 +480,6 @@ static int pim_update_upstream_nh(struct pim_instance *pim,
 
 uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp)
 {
-	uint32_t hash_val;
 	uint32_t s = 0, g = 0;
 
 	if ((!src))
@@ -500,8 +496,7 @@ uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp)
 		break;
 	}
 
-	hash_val = jhash_2words(g, s, 101);
-	return hash_val;
+	return jhash_2words(g, s, 101);
 }
 
 static int pim_ecmp_nexthop_search(struct pim_instance *pim,

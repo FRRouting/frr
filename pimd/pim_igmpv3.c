@@ -487,9 +487,7 @@ static struct igmp_source *add_source_by_addr(struct igmp_sock *igmp,
 		return src;
 	}
 
-	src = source_new(group, src_addr);
-
-	return src;
+	return source_new(group, src_addr);
 }
 
 static void allow(struct igmp_sock *igmp, struct in_addr from,

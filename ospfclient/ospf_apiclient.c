@@ -369,7 +369,6 @@ int ospf_apiclient_register_opaque_type(struct ospf_apiclient *cl,
 					uint8_t ltype, uint8_t otype)
 {
 	struct msg *msg;
-	int rc;
 
 	/* just put 1 as a sequence number. */
 	msg = new_msg_register_opaque_type(ospf_apiclient_get_seqnr(), ltype,
@@ -379,8 +378,7 @@ int ospf_apiclient_register_opaque_type(struct ospf_apiclient *cl,
 		return -1;
 	}
 
-	rc = ospf_apiclient_send_request(cl, msg);
-	return rc;
+	return ospf_apiclient_send_request(cl, msg);
 }
 
 /*
@@ -430,7 +428,6 @@ int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
 				 int opaquelen)
 {
 	struct msg *msg;
-	int rc;
 	uint8_t buf[OSPF_MAX_LSA_SIZE];
 	struct lsa_header *lsah;
 	uint32_t tmp;
@@ -466,8 +463,7 @@ int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
 		return OSPF_API_NOMEMORY;
 	}
 
-	rc = ospf_apiclient_send_request(oclient, msg);
-	return rc;
+	return ospf_apiclient_send_request(oclient, msg);
 }
 
 int ospf_apiclient_lsa_delete(struct ospf_apiclient *oclient,
@@ -475,7 +471,6 @@ int ospf_apiclient_lsa_delete(struct ospf_apiclient *oclient,
 			      uint8_t opaque_type, uint32_t opaque_id)
 {
 	struct msg *msg;
-	int rc;
 
 	/* Only opaque LSA can be deleted */
 	if (!IS_OPAQUE_LSA(lsa_type)) {
@@ -489,8 +484,7 @@ int ospf_apiclient_lsa_delete(struct ospf_apiclient *oclient,
 	msg = new_msg_delete_request(ospf_apiclient_get_seqnr(), area_id,
 				     lsa_type, opaque_type, opaque_id);
 
-	rc = ospf_apiclient_send_request(oclient, msg);
-	return rc;
+	return ospf_apiclient_send_request(oclient, msg);
 }
 
 /* -----------------------------------------------------------

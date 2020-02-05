@@ -2794,10 +2794,9 @@ int netlink_macfdb_read(struct zebra_ns *zns)
 		return ret;
 	/* We are reading entire table. */
 	filter_vlan = 0;
-	ret = netlink_parse_info(netlink_macfdb_table, &zns->netlink_cmd,
-				 &dp_info, 0, 1);
 
-	return ret;
+	return netlink_parse_info(netlink_macfdb_table, &zns->netlink_cmd,
+				  &dp_info, 0, 1);
 }
 
 /*
@@ -2895,10 +2894,8 @@ int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 	if (ret < 0)
 		return ret;
 
-	ret = netlink_parse_info(netlink_macfdb_table, &zns->netlink_cmd,
-				 &dp_info, 1, 0);
-
-	return ret;
+	return netlink_parse_info(netlink_macfdb_table, &zns->netlink_cmd,
+				  &dp_info, 1, 0);
 }
 
 /*
@@ -3223,10 +3220,8 @@ int netlink_neigh_read(struct zebra_ns *zns)
 				    0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
+	return netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
 				 &dp_info, 0, 1);
-
-	return ret;
 }
 
 /*
@@ -3244,10 +3239,9 @@ int netlink_neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
 				    vlan_if->ifindex);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
-				 &dp_info, 0, 0);
 
-	return ret;
+	return netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
+				  &dp_info, 0, 0);
 }
 
 /*
@@ -3311,10 +3305,8 @@ int netlink_neigh_read_specific_ip(struct ipaddr *ip,
 	if (ret < 0)
 		return ret;
 
-	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
-				 &dp_info, 1, 0);
-
-	return ret;
+	return netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
+				  &dp_info, 1, 0);
 }
 
 int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)

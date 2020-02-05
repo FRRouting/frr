@@ -151,7 +151,6 @@ struct bgp_node *bgp_afi_node_lookup(struct bgp_table *table, afi_t afi,
 				     safi_t safi, struct prefix *p,
 				     struct prefix_rd *prd)
 {
-	struct bgp_node *rn;
 	struct bgp_node *prn = NULL;
 
 	if (!table)
@@ -171,9 +170,7 @@ struct bgp_node *bgp_afi_node_lookup(struct bgp_table *table, afi_t afi,
 		table = bgp_node_get_bgp_table_info(prn);
 	}
 
-	rn = bgp_node_lookup(table, p);
-
-	return rn;
+	return bgp_node_lookup(table, p);
 }
 
 /* Allocate bgp_path_info_extra */

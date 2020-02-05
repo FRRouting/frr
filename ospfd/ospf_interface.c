@@ -635,7 +635,6 @@ void ospf_if_update_params(struct interface *ifp, struct in_addr addr)
 
 int ospf_if_new_hook(struct interface *ifp)
 {
-	int rc = 0;
 	struct ospf_if_info *oii;
 
 	ifp->info = XCALLOC(MTYPE_OSPF_IF_INFO, sizeof(struct ospf_if_info));
@@ -675,8 +674,7 @@ int ospf_if_new_hook(struct interface *ifp)
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), auth_type);
 	IF_DEF_PARAMS(ifp)->auth_type = OSPF_AUTH_NOTSET;
 
-	rc = ospf_opaque_new_if(ifp);
-	return rc;
+	return ospf_opaque_new_if(ifp);
 }
 
 static int ospf_if_delete_hook(struct interface *ifp)

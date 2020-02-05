@@ -1775,9 +1775,8 @@ static struct ospf_lsa *ospf_lsa_translated_nssa_new(struct ospf *ospf,
 
 	/* add translated flag, checksum and lock new lsa */
 	SET_FLAG(new->flags, OSPF_LSA_LOCAL_XLT); /* Translated from 7  */
-	new = ospf_lsa_lock(new);
 
-	return new;
+	return ospf_lsa_lock(new);
 }
 
 /* Originate Translated Type-5 for supplied Type-7 NSSA LSA */

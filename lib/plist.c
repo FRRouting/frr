@@ -167,10 +167,7 @@ struct prefix_list *prefix_bgp_orf_lookup(afi_t afi, const char *name)
 
 static struct prefix_list *prefix_list_new(void)
 {
-	struct prefix_list *new;
-
-	new = XCALLOC(MTYPE_PREFIX_LIST, sizeof(struct prefix_list));
-	return new;
+	return XCALLOC(MTYPE_PREFIX_LIST, sizeof(struct prefix_list));
 }
 
 static void prefix_list_free(struct prefix_list *plist)
@@ -180,11 +177,8 @@ static void prefix_list_free(struct prefix_list *plist)
 
 static struct prefix_list_entry *prefix_list_entry_new(void)
 {
-	struct prefix_list_entry *new;
-
-	new = XCALLOC(MTYPE_PREFIX_LIST_ENTRY,
-		      sizeof(struct prefix_list_entry));
-	return new;
+	return XCALLOC(MTYPE_PREFIX_LIST_ENTRY,
+		       sizeof(struct prefix_list_entry));
 }
 
 static void prefix_list_entry_free(struct prefix_list_entry *pentry)

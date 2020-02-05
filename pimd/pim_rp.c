@@ -427,8 +427,7 @@ int pim_rp_new_config(struct pim_instance *pim, const char *rp,
 	if (result <= 0)
 		return PIM_RP_BAD_ADDRESS;
 
-	result = pim_rp_new(pim, rp_addr, group, plist, RP_SRC_STATIC);
-	return result;
+	return pim_rp_new(pim, rp_addr, group, plist, RP_SRC_STATIC);
 }
 
 int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
@@ -705,8 +704,7 @@ int pim_rp_del_config(struct pim_instance *pim, const char *rp,
 	if (result <= 0)
 		return PIM_RP_BAD_ADDRESS;
 
-	result = pim_rp_del(pim, rp_addr, group, plist, RP_SRC_STATIC);
-	return result;
+	return pim_rp_del(pim, rp_addr, group, plist, RP_SRC_STATIC);
 }
 
 int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
@@ -887,22 +885,18 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 {
 	struct prefix nht_p;
 	struct route_node *rn;
-	int result = 0;
 	struct rp_info *rp_info = NULL;
 	struct pim_upstream *up;
 
 	rn = route_node_lookup(pim->rp_table, &group);
-	if (!rn) {
-		result = pim_rp_new(pim, new_rp_addr, group, NULL, rp_src_flag);
-		return result;
-	}
+	if (!rn)
+		return pim_rp_new(pim, new_rp_addr, group, NULL, rp_src_flag);
 
 	rp_info = rn->info;
 
 	if (!rp_info) {
 		route_unlock_node(rn);
-		result = pim_rp_new(pim, new_rp_addr, group, NULL, rp_src_flag);
-		return result;
+		return pim_rp_new(pim, new_rp_addr, group, NULL, rp_src_flag);
 	}
 
 	if (rp_info->rp.rpf_addr.u.prefix4.s_addr == new_rp_addr.s_addr) {
@@ -978,7 +972,7 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 
 	pim_rp_refresh_group_to_rp_mapping(pim);
 
-	return result;
+	return PIM_SUCCESS;
 }
 
 void pim_rp_setup(struct pim_instance *pim)

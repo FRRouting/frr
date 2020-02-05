@@ -123,7 +123,6 @@ enum lua_rm_status lua_run_rm_rule(lua_State *L, const char *rule)
 		return LUA_RM_FAILURE;
 	}
 
-	status = lua_tonumber(L, -1);
-	return status;
+	return lua_tonumber(L, -1);
 }
 #endif

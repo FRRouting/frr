@@ -75,8 +75,7 @@ static uint32_t bgp_clist_hash_key_community_list(const void *data)
 	if (cl->name_hash)
 		return cl->name_hash;
 
-	cl->name_hash = bgp_clist_hash_key(cl->name);
-	return cl->name_hash;
+	return bgp_clist_hash_key(cl->name);
 }
 
 static bool bgp_clist_hash_cmp_community_list(const void *a1, const void *a2)

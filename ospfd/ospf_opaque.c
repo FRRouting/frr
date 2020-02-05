@@ -1445,7 +1445,6 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 static int ospf_opaque_type9_lsa_originate(struct thread *t)
 {
 	struct ospf_interface *oi;
-	int rc;
 
 	oi = THREAD_ARG(t);
 	oi->t_opaque_lsa_self = NULL;
@@ -1454,15 +1453,12 @@ static int ospf_opaque_type9_lsa_originate(struct thread *t)
 		zlog_debug("Timer[Type9-LSA]: Originate Opaque-LSAs for OI %s",
 			   IF_NAME(oi));
 
-	rc = opaque_lsa_originate_callback(ospf_opaque_type9_funclist, oi);
-
-	return rc;
+	return opaque_lsa_originate_callback(ospf_opaque_type9_funclist, oi);
 }
 
 static int ospf_opaque_type10_lsa_originate(struct thread *t)
 {
 	struct ospf_area *area;
-	int rc;
 
 	area = THREAD_ARG(t);
 	area->t_opaque_lsa_self = NULL;
@@ -1472,15 +1468,12 @@ static int ospf_opaque_type10_lsa_originate(struct thread *t)
 			"Timer[Type10-LSA]: Originate Opaque-LSAs for Area %s",
 			inet_ntoa(area->area_id));
 
-	rc = opaque_lsa_originate_callback(ospf_opaque_type10_funclist, area);
-
-	return rc;
+	return opaque_lsa_originate_callback(ospf_opaque_type10_funclist, area);
 }
 
 static int ospf_opaque_type11_lsa_originate(struct thread *t)
 {
 	struct ospf *top;
-	int rc;
 
 	top = THREAD_ARG(t);
 	top->t_opaque_lsa_self = NULL;
@@ -1489,9 +1482,7 @@ static int ospf_opaque_type11_lsa_originate(struct thread *t)
 		zlog_debug(
 			"Timer[Type11-LSA]: Originate AS-External Opaque-LSAs");
 
-	rc = opaque_lsa_originate_callback(ospf_opaque_type11_funclist, top);
-
-	return rc;
+	return opaque_lsa_originate_callback(ospf_opaque_type11_funclist, top);
 }
 
 static void ospf_opaque_lsa_reoriginate_resume(struct list *listtop, void *arg)

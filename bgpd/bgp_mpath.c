@@ -263,10 +263,8 @@ void bgp_mp_list_add(struct list *mp_list, struct bgp_path_info *mpinfo)
  */
 static struct bgp_path_info_mpath *bgp_path_info_mpath_new(void)
 {
-	struct bgp_path_info_mpath *new_mpath;
-	new_mpath = XCALLOC(MTYPE_BGP_MPATH_INFO,
-			    sizeof(struct bgp_path_info_mpath));
-	return new_mpath;
+	return XCALLOC(MTYPE_BGP_MPATH_INFO,
+		       sizeof(struct bgp_path_info_mpath));
 }
 
 /*

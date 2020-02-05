@@ -67,11 +67,7 @@
  ********************/
 struct bpacket *bpacket_alloc(void)
 {
-	struct bpacket *pkt;
-
-	pkt = XCALLOC(MTYPE_BGP_PACKET, sizeof(struct bpacket));
-
-	return pkt;
+	return XCALLOC(MTYPE_BGP_PACKET, sizeof(struct bpacket));
 }
 
 void bpacket_free(struct bpacket *pkt)

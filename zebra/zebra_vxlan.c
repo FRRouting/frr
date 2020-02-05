@@ -2347,13 +2347,11 @@ static void zvni_neigh_del_all(zebra_vni_t *zvni, int uninstall, int upd_client,
 static zebra_neigh_t *zvni_neigh_lookup(zebra_vni_t *zvni, struct ipaddr *ip)
 {
 	zebra_neigh_t tmp;
-	zebra_neigh_t *n;
 
 	memset(&tmp, 0, sizeof(tmp));
 	memcpy(&tmp.ip, ip, sizeof(struct ipaddr));
-	n = hash_lookup(zvni->neigh_table, &tmp);
 
-	return n;
+	return hash_lookup(zvni->neigh_table, &tmp);
 }
 
 /*
@@ -3532,13 +3530,11 @@ static void zvni_mac_del_all(zebra_vni_t *zvni, int uninstall, int upd_client,
 static zebra_mac_t *zvni_mac_lookup(zebra_vni_t *zvni, struct ethaddr *mac)
 {
 	zebra_mac_t tmp;
-	zebra_mac_t *pmac;
 
 	memset(&tmp, 0, sizeof(tmp));
 	memcpy(&tmp.macaddr, mac, ETH_ALEN);
-	pmac = hash_lookup(zvni->mac_table, &tmp);
 
-	return pmac;
+	return hash_lookup(zvni->mac_table, &tmp);
 }
 
 /*
@@ -3581,7 +3577,6 @@ static zebra_vni_t *zvni_map_vlan(struct interface *ifp,
 	struct zebra_l2info_bridge *br;
 	struct zebra_l2info_vxlan *vxl = NULL;
 	uint8_t bridge_vlan_aware;
-	zebra_vni_t *zvni;
 	int found = 0;
 
 	/* Determine if bridge is VLAN-aware or not */
@@ -3616,8 +3611,7 @@ static zebra_vni_t *zvni_map_vlan(struct interface *ifp,
 	if (!found)
 		return NULL;
 
-	zvni = zvni_lookup(vxl->vni);
-	return zvni;
+	return zvni_lookup(vxl->vni);
 }
 
 /*
@@ -3635,7 +3629,6 @@ static zebra_vni_t *zvni_from_svi(struct interface *ifp,
 	struct zebra_l2info_vxlan *vxl = NULL;
 	uint8_t bridge_vlan_aware;
 	vlanid_t vid = 0;
-	zebra_vni_t *zvni;
 	int found = 0;
 
 	if (!br_if)
@@ -3688,8 +3681,7 @@ static zebra_vni_t *zvni_from_svi(struct interface *ifp,
 	if (!found)
 		return NULL;
 
-	zvni = zvni_lookup(vxl->vni);
-	return zvni;
+	return zvni_lookup(vxl->vni);
 }
 
 /* Map to SVI on bridge corresponding to specified VLAN. This can be one
@@ -4027,15 +4019,13 @@ static zebra_vni_t *zvni_lookup(vni_t vni)
 {
 	struct zebra_vrf *zvrf;
 	zebra_vni_t tmp_vni;
-	zebra_vni_t *zvni = NULL;
 
 	zvrf = zebra_vrf_get_evpn();
 	assert(zvrf);
 	memset(&tmp_vni, 0, sizeof(zebra_vni_t));
 	tmp_vni.vni = vni;
-	zvni = hash_lookup(zvrf->vni_table, &tmp_vni);
 
-	return zvni;
+	return hash_lookup(zvrf->vni_table, &tmp_vni);
 }
 
 /*
@@ -4521,13 +4511,11 @@ static zebra_mac_t *zl3vni_rmac_lookup(zebra_l3vni_t *zl3vni,
 				       struct ethaddr *rmac)
 {
 	zebra_mac_t tmp;
-	zebra_mac_t *pmac;
 
 	memset(&tmp, 0, sizeof(tmp));
 	memcpy(&tmp.macaddr, rmac, ETH_ALEN);
-	pmac = hash_lookup(zl3vni->rmac_table, &tmp);
 
-	return pmac;
+	return hash_lookup(zl3vni->rmac_table, &tmp);
 }
 
 /*
@@ -4757,13 +4745,11 @@ static void zl3vni_remote_rmac_del(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac,
 static zebra_neigh_t *zl3vni_nh_lookup(zebra_l3vni_t *zl3vni, struct ipaddr *ip)
 {
 	zebra_neigh_t tmp;
-	zebra_neigh_t *n;
 
 	memset(&tmp, 0, sizeof(tmp));
 	memcpy(&tmp.ip, ip, sizeof(struct ipaddr));
-	n = hash_lookup(zl3vni->nh_table, &tmp);
 
-	return n;
+	return hash_lookup(zl3vni->nh_table, &tmp);
 }
 
 
@@ -5007,13 +4993,11 @@ static void *zl3vni_alloc(void *p)
 static zebra_l3vni_t *zl3vni_lookup(vni_t vni)
 {
 	zebra_l3vni_t tmp_l3vni;
-	zebra_l3vni_t *zl3vni = NULL;
 
 	memset(&tmp_l3vni, 0, sizeof(zebra_l3vni_t));
 	tmp_l3vni.vni = vni;
-	zl3vni = hash_lookup(zrouter.l3vni_table, &tmp_l3vni);
 
-	return zl3vni;
+	return hash_lookup(zrouter.l3vni_table, &tmp_l3vni);
 }
 
 /*
@@ -5163,7 +5147,6 @@ static zebra_l3vni_t *zl3vni_from_svi(struct interface *ifp,
 	int found = 0;
 	vlanid_t vid = 0;
 	uint8_t bridge_vlan_aware = 0;
-	zebra_l3vni_t *zl3vni = NULL;
 	struct zebra_ns *zns = NULL;
 	struct route_node *rn = NULL;
 	struct zebra_if *zif = NULL;
@@ -5221,8 +5204,7 @@ static zebra_l3vni_t *zl3vni_from_svi(struct interface *ifp,
 	if (!found)
 		return NULL;
 
-	zl3vni = zl3vni_lookup(vxl->vni);
-	return zl3vni;
+	return zl3vni_lookup(vxl->vni);
 }
 
 static inline void zl3vni_get_vrr_rmac(zebra_l3vni_t *zl3vni,

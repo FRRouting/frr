@@ -793,10 +793,7 @@ static struct stream *eigrp_recv_packet(struct eigrp *eigrp,
 
 struct eigrp_fifo *eigrp_fifo_new(void)
 {
-	struct eigrp_fifo *new;
-
-	new = XCALLOC(MTYPE_EIGRP_FIFO, sizeof(struct eigrp_fifo));
-	return new;
+	return XCALLOC(MTYPE_EIGRP_FIFO, sizeof(struct eigrp_fifo));
 }
 
 /* Free eigrp packet fifo. */
@@ -1107,12 +1104,8 @@ struct eigrp_packet *eigrp_packet_duplicate(struct eigrp_packet *old,
 
 static struct TLV_IPv4_Internal_type *eigrp_IPv4_InternalTLV_new(void)
 {
-	struct TLV_IPv4_Internal_type *new;
-
-	new = XCALLOC(MTYPE_EIGRP_IPV4_INT_TLV,
-		      sizeof(struct TLV_IPv4_Internal_type));
-
-	return new;
+	return XCALLOC(MTYPE_EIGRP_IPV4_INT_TLV,
+		       sizeof(struct TLV_IPv4_Internal_type));
 }
 
 struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
@@ -1317,12 +1310,8 @@ uint16_t eigrp_add_authTLV_SHA256_to_stream(struct stream *s,
 
 struct TLV_MD5_Authentication_Type *eigrp_authTLV_MD5_new(void)
 {
-	struct TLV_MD5_Authentication_Type *new;
-
-	new = XCALLOC(MTYPE_EIGRP_AUTH_TLV,
-		      sizeof(struct TLV_MD5_Authentication_Type));
-
-	return new;
+	return XCALLOC(MTYPE_EIGRP_AUTH_TLV,
+		       sizeof(struct TLV_MD5_Authentication_Type));
 }
 
 void eigrp_authTLV_MD5_free(struct TLV_MD5_Authentication_Type *authTLV)
@@ -1332,12 +1321,8 @@ void eigrp_authTLV_MD5_free(struct TLV_MD5_Authentication_Type *authTLV)
 
 struct TLV_SHA256_Authentication_Type *eigrp_authTLV_SHA256_new(void)
 {
-	struct TLV_SHA256_Authentication_Type *new;
-
-	new = XCALLOC(MTYPE_EIGRP_AUTH_SHA256_TLV,
-		      sizeof(struct TLV_SHA256_Authentication_Type));
-
-	return new;
+	return XCALLOC(MTYPE_EIGRP_AUTH_SHA256_TLV,
+		       sizeof(struct TLV_SHA256_Authentication_Type));
 }
 
 void eigrp_authTLV_SHA256_free(struct TLV_SHA256_Authentication_Type *authTLV)
@@ -1353,9 +1338,5 @@ void eigrp_IPv4_InternalTLV_free(
 
 struct TLV_Sequence_Type *eigrp_SequenceTLV_new(void)
 {
-	struct TLV_Sequence_Type *new;
-
-	new = XCALLOC(MTYPE_EIGRP_SEQ_TLV, sizeof(struct TLV_Sequence_Type));
-
-	return new;
+	return XCALLOC(MTYPE_EIGRP_SEQ_TLV, sizeof(struct TLV_Sequence_Type));
 }

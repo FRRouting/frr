@@ -2028,9 +2028,7 @@ unsigned int aspath_key_make(const void *p)
 	if (!aspath->str)
 		aspath_str_update((struct aspath *)aspath, false);
 
-	key = jhash(aspath->str, aspath->str_len, 2334325);
-
-	return key;
+	return jhash(aspath->str, aspath->str_len, 2334325);
 }
 
 /* If two aspath have same value then return 1 else return 0 */
@@ -2121,10 +2119,8 @@ static struct aspath *bgp_aggr_aspath_lookup(struct bgp_aggregate *aggregate,
 static void *bgp_aggr_aspath_hash_alloc(void *p)
 {
 	struct aspath *ref = (struct aspath *)p;
-	struct aspath *aspath = NULL;
 
-	aspath = aspath_dup(ref);
-	return aspath;
+	return aspath_dup(ref);
 }
 
 static void bgp_aggr_aspath_prepare(struct hash_backet *hb, void *arg)

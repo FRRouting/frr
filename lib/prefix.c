@@ -1064,10 +1064,7 @@ const char *prefix_sg2str(const struct prefix_sg *sg, char *sg_str)
 
 struct prefix *prefix_new(void)
 {
-	struct prefix *p;
-
-	p = XCALLOC(MTYPE_PREFIX, sizeof *p);
-	return p;
+	return XCALLOC(MTYPE_PREFIX, sizeof(struct prefix));
 }
 
 void prefix_free_lists(void *arg)

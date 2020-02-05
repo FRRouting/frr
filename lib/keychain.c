@@ -421,9 +421,8 @@ static time_t key_str2time(const char *time_str, const char *day_str,
 	tm.tm_mday = day;
 	tm.tm_year = year - 1900;
 
-	time = mktime(&tm);
+	return mktime(&tm);
 
-	return time;
 #undef GET_LONG_RANGE
 }
 
@@ -968,13 +967,10 @@ static struct cmd_node keychain_key_node = {KEYCHAIN_KEY_NODE,
 static int keychain_strftime(char *buf, int bufsiz, time_t *time)
 {
 	struct tm *tm;
-	size_t len;
 
 	tm = localtime(time);
 
-	len = strftime(buf, bufsiz, "%T %b %d %Y", tm);
-
-	return len;
+	return strftime(buf, bufsiz, "%T %b %d %Y", tm);
 }
 
 static int keychain_config_write(struct vty *vty)

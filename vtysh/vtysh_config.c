@@ -67,9 +67,7 @@ static void line_del(char *line)
 
 static struct config *config_new(void)
 {
-	struct config *config;
-	config = XCALLOC(MTYPE_VTYSH_CONFIG, sizeof(struct config));
-	return config;
+	return XCALLOC(MTYPE_VTYSH_CONFIG, sizeof(struct config));
 }
 
 static int config_cmp(const struct config *c1, const struct config *c2)

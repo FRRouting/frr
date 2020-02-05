@@ -139,11 +139,7 @@ int pim_ssm_range_set(struct pim_instance *pim, vrf_id_t vrf_id,
 
 void *pim_ssm_init(void)
 {
-	struct pim_ssm *ssm;
-
-	ssm = XCALLOC(MTYPE_PIM_SSM_INFO, sizeof(*ssm));
-
-	return ssm;
+	return XCALLOC(MTYPE_PIM_SSM_INFO, sizeof(struct pim_ssm));
 }
 
 void pim_ssm_terminate(struct pim_ssm *ssm)

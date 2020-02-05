@@ -30,11 +30,7 @@ DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_VRF, "PBR Map VRF")
 
 static struct pbr_vrf *pbr_vrf_alloc(void)
 {
-	struct pbr_vrf *pbr_vrf;
-
-	pbr_vrf = XCALLOC(MTYPE_PBR_MAP_VRF, sizeof(struct pbr_vrf));
-
-	return pbr_vrf;
+	return XCALLOC(MTYPE_PBR_MAP_VRF, sizeof(struct pbr_vrf));
 }
 
 static void pbr_vrf_free(struct pbr_vrf *pbr_vrf)

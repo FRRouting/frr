@@ -225,7 +225,6 @@ static void vrf_import_rt_free(struct vrf_irt_node *irt)
 static struct vrf_irt_node *lookup_vrf_import_rt(struct ecommunity_val *rt)
 {
 	struct bgp *bgp_evpn = NULL;
-	struct vrf_irt_node *irt;
 	struct vrf_irt_node tmp;
 
 	bgp_evpn = bgp_get_evpn();
@@ -238,8 +237,8 @@ static struct vrf_irt_node *lookup_vrf_import_rt(struct ecommunity_val *rt)
 
 	memset(&tmp, 0, sizeof(struct vrf_irt_node));
 	memcpy(&tmp.rt, rt, ECOMMUNITY_SIZE);
-	irt = hash_lookup(bgp_evpn->vrf_import_rt_hash, &tmp);
-	return irt;
+
+	return hash_lookup(bgp_evpn->vrf_import_rt_hash, &tmp);
 }
 
 /*
@@ -327,13 +326,12 @@ static void import_rt_free(struct bgp *bgp, struct irt_node *irt)
 static struct irt_node *lookup_import_rt(struct bgp *bgp,
 					 struct ecommunity_val *rt)
 {
-	struct irt_node *irt;
 	struct irt_node tmp;
 
 	memset(&tmp, 0, sizeof(struct irt_node));
 	memcpy(&tmp.rt, rt, ECOMMUNITY_SIZE);
-	irt = hash_lookup(bgp->import_rt_hash, &tmp);
-	return irt;
+
+	return hash_lookup(bgp->import_rt_hash, &tmp);
 }
 
 /*
@@ -2556,7 +2554,6 @@ static int install_evpn_route_entry_in_es(struct bgp *bgp, struct evpnes *es,
 					  struct prefix_evpn *p,
 					  struct bgp_path_info *parent_pi)
 {
-	int ret = 0;
 	struct bgp_node *rn = NULL;
 	struct bgp_path_info *pi = NULL;
 	struct attr *attr_new = NULL;
@@ -2609,8 +2606,7 @@ static int install_evpn_route_entry_in_es(struct bgp *bgp, struct evpnes *es,
 	}
 
 	/* Perform route selection and update zebra, if required. */
-	ret = evpn_es_route_select_install(bgp, es, rn);
-	return ret;
+	return evpn_es_route_select_install(bgp, es, rn);
 }
 
 /*
@@ -5364,13 +5360,12 @@ bool bgp_evpn_lookup_l3vni_l2vni_table(vni_t vni)
  */
 struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni)
 {
-	struct bgpevpn *vpn;
 	struct bgpevpn tmp;
 
 	memset(&tmp, 0, sizeof(struct bgpevpn));
 	tmp.vni = vni;
-	vpn = hash_lookup(bgp->vnihash, &tmp);
-	return vpn;
+
+	return hash_lookup(bgp->vnihash, &tmp);
 }
 
 /*
@@ -5444,13 +5439,12 @@ void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
  */
 struct evpnes *bgp_evpn_lookup_es(struct bgp *bgp, esi_t *esi)
 {
-	struct evpnes *es;
 	struct evpnes tmp;
 
 	memset(&tmp, 0, sizeof(struct evpnes));
 	memcpy(&tmp.esi, esi, sizeof(esi_t));
-	es = hash_lookup(bgp->esihash, &tmp);
-	return es;
+
+	return hash_lookup(bgp->esihash, &tmp);
 }
 
 /*

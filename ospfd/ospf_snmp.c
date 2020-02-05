@@ -673,9 +673,7 @@ static struct ospf_area *ospfAreaLookup(struct variable *v, oid name[],
 
 		oid2in_addr(name + v->namelen, sizeof(struct in_addr), addr);
 
-		area = ospf_area_lookup_by_area_id(ospf, *addr);
-
-		return area;
+		return ospf_area_lookup_by_area_id(ospf, *addr);
 	} else {
 		len = *length - v->namelen;
 		if (len > 4)
@@ -1301,9 +1299,7 @@ static struct ospf_nbr_nbma *ospfHostLookup(struct variable *v, oid *name,
 
 		oid2in_addr(name + v->namelen, IN_ADDR_SIZE, addr);
 
-		nbr_nbma = ospf_nbr_nbma_lookup(ospf, *addr);
-
-		return nbr_nbma;
+		return ospf_nbr_nbma_lookup(ospf, *addr);
 	} else {
 		len = *length - v->namelen;
 		if (len > 4)

@@ -658,9 +658,7 @@ static struct pim_vxlan_sg *pim_vxlan_sg_new(struct pim_instance *pim,
 	if (PIM_DEBUG_VXLAN)
 		zlog_debug("vxlan SG %s alloc", vxlan_sg->sg_str);
 
-	vxlan_sg = hash_get(pim->vxlan.sg_hash, vxlan_sg, hash_alloc_intern);
-
-	return vxlan_sg;
+	return hash_get(pim->vxlan.sg_hash, vxlan_sg, hash_alloc_intern);
 }
 
 struct pim_vxlan_sg *pim_vxlan_sg_find(struct pim_instance *pim,

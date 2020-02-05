@@ -56,14 +56,12 @@ static int zebra_mlag_read(struct thread *thread);
  */
 static int zebra_mlag_private_write_data(uint8_t *data, uint32_t len)
 {
-	int rc = 0;
-
 	if (IS_ZEBRA_DEBUG_MLAG) {
 		zlog_debug("%s: Writing %d length Data to clag", __func__, len);
 		zlog_hexdump(data, len);
 	}
-	rc = write(mlag_socket, data, len);
-	return rc;
+
+	return write(mlag_socket, data, len);
 }
 
 static void zebra_mlag_sched_read(void)

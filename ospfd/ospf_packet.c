@@ -152,10 +152,7 @@ void ospf_packet_free(struct ospf_packet *op)
 
 struct ospf_fifo *ospf_fifo_new(void)
 {
-	struct ospf_fifo *new;
-
-	new = XCALLOC(MTYPE_OSPF_FIFO, sizeof(struct ospf_fifo));
-	return new;
+	return XCALLOC(MTYPE_OSPF_FIFO, sizeof(struct ospf_fifo));
 }
 
 /* Add new packet to fifo. */

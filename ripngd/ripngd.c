@@ -92,10 +92,7 @@ int ripng_route_rte(struct ripng_info *rinfo)
 /* Allocate new ripng information. */
 struct ripng_info *ripng_info_new(void)
 {
-	struct ripng_info *new;
-
-	new = XCALLOC(MTYPE_RIPNG_ROUTE, sizeof(struct ripng_info));
-	return new;
+	return XCALLOC(MTYPE_RIPNG_ROUTE, sizeof(struct ripng_info));
 }
 
 /* Free ripng information. */

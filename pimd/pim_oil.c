@@ -109,15 +109,12 @@ void pim_channel_oil_free(struct channel_oil *c_oil)
 struct channel_oil *pim_find_channel_oil(struct pim_instance *pim,
 					 struct prefix_sg *sg)
 {
-	struct channel_oil *c_oil = NULL;
 	struct channel_oil lookup;
 
 	lookup.oil.mfcc_mcastgrp = sg->grp;
 	lookup.oil.mfcc_origin = sg->src;
 
-	c_oil = rb_pim_oil_find(&pim->channel_oil_head, &lookup);
-
-	return c_oil;
+	return rb_pim_oil_find(&pim->channel_oil_head, &lookup);
 }
 
 struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,

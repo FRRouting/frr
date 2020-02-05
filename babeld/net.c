@@ -116,7 +116,6 @@ babel_recv(int s, void *buf, int buflen, struct sockaddr *sin, int slen)
 {
     struct iovec iovec;
     struct msghdr msg;
-    int rc;
 
     memset(&msg, 0, sizeof(msg));
     iovec.iov_base = buf;
@@ -126,8 +125,7 @@ babel_recv(int s, void *buf, int buflen, struct sockaddr *sin, int slen)
     msg.msg_iov = &iovec;
     msg.msg_iovlen = 1;
 
-    rc = recvmsg(s, &msg, 0);
-    return rc;
+    return recvmsg(s, &msg, 0);
 }
 
 int

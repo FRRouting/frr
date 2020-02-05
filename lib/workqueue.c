@@ -43,12 +43,9 @@ static struct list *work_queues = &_work_queues;
 
 static struct work_queue_item *work_queue_item_new(struct work_queue *wq)
 {
-	struct work_queue_item *item;
 	assert(wq);
 
-	item = XCALLOC(MTYPE_WORK_QUEUE_ITEM, sizeof(struct work_queue_item));
-
-	return item;
+	return XCALLOC(MTYPE_WORK_QUEUE_ITEM, sizeof(struct work_queue_item));
 }
 
 static void work_queue_item_free(struct work_queue_item *item)

@@ -544,10 +544,8 @@ static struct lcommunity *bgp_aggr_lcommunity_lookup(
 static void *bgp_aggr_lcommunty_hash_alloc(void *p)
 {
 	struct lcommunity *ref = (struct lcommunity *)p;
-	struct lcommunity *lcommunity = NULL;
 
-	lcommunity = lcommunity_dup(ref);
-	return lcommunity;
+	return lcommunity_dup(ref);
 }
 
 static void bgp_aggr_lcommunity_prepare(struct hash_backet *hb, void *arg)

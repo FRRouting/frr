@@ -154,9 +154,7 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 		break;
 	}
 
-	ret = _nexthop_source_cmp(next1, next2);
-
-	return ret;
+	return _nexthop_source_cmp(next1, next2);
 }
 
 int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
@@ -167,9 +165,7 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 	if (ret != 0)
 		return ret;
 
-	ret = _nexthop_labels_cmp(next1, next2);
-
-	return ret;
+	return _nexthop_labels_cmp(next1, next2);
 }
 
 int nexthop_same_firsthop(struct nexthop *next1, struct nexthop *next2)
@@ -534,11 +530,9 @@ uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 			key = jhash_1word(nexthop->nh_label->label[i], key);
 	}
 
-	key = jhash_2words(nexthop->ifindex,
-			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK),
-			   key);
-
-	return key;
+	return jhash_2words(nexthop->ifindex,
+			    CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK),
+			    key);
 }
 
 
@@ -561,9 +555,7 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 	memcpy(gate_src_rmap_raw + (2 * GATE_SIZE), &nexthop->rmap_src,
 	       GATE_SIZE);
 
-	key = jhash2(gate_src_rmap_raw, (GATE_SIZE * 3), key);
-
-	return key;
+	return jhash2(gate_src_rmap_raw, (GATE_SIZE * 3), key);
 }
 
 void nexthop_copy_no_recurse(struct nexthop *copy,

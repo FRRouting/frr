@@ -110,13 +110,10 @@ struct msg *msg_new(uint8_t msgtype, void *msgbody, uint32_t seqnum,
 /* Duplicate a message by copying content. */
 struct msg *msg_dup(struct msg *msg)
 {
-	struct msg *new;
-
 	assert(msg);
 
-	new = msg_new(msg->hdr.msgtype, STREAM_DATA(msg->s),
-		      ntohl(msg->hdr.msgseq), ntohs(msg->hdr.msglen));
-	return new;
+	return msg_new(msg->hdr.msgtype, STREAM_DATA(msg->s),
+		       ntohl(msg->hdr.msgseq), ntohs(msg->hdr.msglen));
 }
 
 
@@ -350,7 +347,6 @@ void msg_fifo_free(struct msg_fifo *fifo)
 
 struct msg *msg_read(int fd)
 {
-	struct msg *msg;
 	struct apimsghdr hdr;
 	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
 	int bodylen;
@@ -395,9 +391,7 @@ struct msg *msg_read(int fd)
 	}
 
 	/* Allocate new message */
-	msg = msg_new(hdr.msgtype, buf, ntohl(hdr.msgseq), ntohs(hdr.msglen));
-
-	return msg;
+	return msg_new(hdr.msgtype, buf, ntohl(hdr.msgseq), ntohs(hdr.msglen));
 }
 
 int msg_write(int fd, struct msg *msg)
@@ -530,16 +524,13 @@ struct msg *new_msg_delete_request(uint32_t seqnum, struct in_addr area_id,
 
 struct msg *new_msg_reply(uint32_t seqnr, uint8_t rc)
 {
-	struct msg *msg;
 	struct msg_reply rmsg;
 
 	/* Set return code */
 	rmsg.errcode = rc;
 	memset(&rmsg.pad, 0, sizeof(rmsg.pad));
 
-	msg = msg_new(MSG_REPLY, &rmsg, seqnr, sizeof(struct msg_reply));
-
-	return msg;
+	return msg_new(MSG_REPLY, &rmsg, seqnr, sizeof(struct msg_reply));
 }
 
 struct msg *new_msg_ready_notify(uint32_t seqnr, uint8_t lsa_type,

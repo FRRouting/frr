@@ -484,9 +484,7 @@ unsigned long route_table_count(struct route_table *table)
 struct route_node *route_node_create(route_table_delegate_t *delegate,
 				     struct route_table *table)
 {
-	struct route_node *node;
-	node = XCALLOC(MTYPE_ROUTE_NODE, sizeof(struct route_node));
-	return node;
+	return XCALLOC(MTYPE_ROUTE_NODE, sizeof(struct route_node));
 }
 
 /**

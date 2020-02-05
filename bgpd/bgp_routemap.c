@@ -416,10 +416,7 @@ route_match_command(void *rule, const struct prefix *prefix,
 
 static void *route_match_command_compile(const char *arg)
 {
-	char *command;
-
-	command = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
-	return command;
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
 static void
@@ -1096,11 +1093,7 @@ route_match_vrl_source_vrf(void *rule, const struct prefix *prefix,
 
 static void *route_match_vrl_source_vrf_compile(const char *arg)
 {
-	uint8_t *vrf_name = NULL;
-
-	vrf_name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
-
-	return vrf_name;
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
 /* Free route map's compiled `route-type' value. */

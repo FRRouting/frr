@@ -422,8 +422,7 @@ static struct peer *bgpPeerTable_lookup(struct variable *v, oid name[],
 
 		oid2in_addr(name + namelen, IN_ADDR_SIZE, addr);
 
-		peer = peer_lookup_addr_ipv4(addr);
-		return peer;
+		return peer_lookup_addr_ipv4(addr);
 	} else {
 		len = *length - namelen;
 		if (len > 4)

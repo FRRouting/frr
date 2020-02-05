@@ -1086,9 +1086,8 @@ uint32_t bgp_pbr_match_entry_hash_key(const void *arg)
 	key = jhash(&pbme->src_port_min, 2, key);
 	key = jhash(&pbme->dst_port_max, 2, key);
 	key = jhash(&pbme->src_port_max, 2, key);
-	key = jhash(&pbme->proto, 1, key);
 
-	return key;
+	return jhash(&pbme->proto, 1, key);
 }
 
 bool bgp_pbr_match_entry_hash_equal(const void *arg1, const void *arg2)
@@ -1135,8 +1134,8 @@ uint32_t bgp_pbr_action_hash_key(const void *arg)
 
 	pbra = arg;
 	key = jhash_1word(pbra->table_id, 0x4312abde);
-	key = jhash_1word(pbra->fwmark, key);
-	return key;
+
+	return jhash_1word(pbra->fwmark, key);
 }
 
 bool bgp_pbr_action_hash_equal(const void *arg1, const void *arg2)

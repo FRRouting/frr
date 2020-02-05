@@ -61,11 +61,7 @@ void ospf_route_free(struct ospf_route *or)
 
 struct ospf_path *ospf_path_new(void)
 {
-	struct ospf_path *new;
-
-	new = XCALLOC(MTYPE_OSPF_PATH, sizeof(struct ospf_path));
-
-	return new;
+	return XCALLOC(MTYPE_OSPF_PATH, sizeof(struct ospf_path));
 }
 
 static struct ospf_path *ospf_path_dup(struct ospf_path *path)

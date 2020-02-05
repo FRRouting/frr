@@ -29,10 +29,9 @@ uint32_t pim_read_uint32_host(const uint8_t *buf)
 {
 	uint32_t val;
 	memcpy(&val, buf, sizeof(val));
+
 	/* val is in netorder */
-	val = ntohl(val);
-	/* val is in hostorder */
-	return val;
+	return ntohl(val);
 }
 
 void pim_write_uint32(uint8_t *buf, uint32_t val_host)

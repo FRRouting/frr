@@ -901,10 +901,8 @@ static struct community *bgp_aggr_community_lookup(
 static void *bgp_aggr_communty_hash_alloc(void *p)
 {
 	struct community *ref = (struct community *)p;
-	struct community *community = NULL;
 
-	community = community_dup(ref);
-	return community;
+	return community_dup(ref);
 }
 
 static void bgp_aggr_community_prepare(struct hash_backet *hb, void *arg)

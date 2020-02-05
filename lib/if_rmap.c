@@ -35,11 +35,7 @@ static struct list *if_rmap_ctx_list;
 
 static struct if_rmap *if_rmap_new(void)
 {
-	struct if_rmap *new;
-
-	new = XCALLOC(MTYPE_IF_RMAP, sizeof(struct if_rmap));
-
-	return new;
+	return XCALLOC(MTYPE_IF_RMAP, sizeof(struct if_rmap));
 }
 
 static void if_rmap_free(struct if_rmap *if_rmap)

@@ -1151,9 +1151,7 @@ int ospf_apiserver_handle_unregister_opaque_type(struct ospf_apiserver *apiserv,
 	rc = ospf_apiserver_unregister_opaque_type(apiserv, ltype, otype);
 
 	/* Send a reply back to client including return code */
-	rc = ospf_apiserver_send_reply(apiserv, ntohl(msg->hdr.msgseq), rc);
-
-	return rc;
+	return ospf_apiserver_send_reply(apiserv, ntohl(msg->hdr.msgseq), rc);
 }
 
 
@@ -1185,8 +1183,7 @@ int ospf_apiserver_handle_register_event(struct ospf_apiserver *apiserv,
 	rc = OSPF_API_OK;
 
 	/* Send a reply back to client with return code */
-	rc = ospf_apiserver_send_reply(apiserv, seqnum, rc);
-	return rc;
+	return ospf_apiserver_send_reply(apiserv, seqnum, rc);
 }
 
 
@@ -1608,8 +1605,7 @@ int ospf_apiserver_handle_originate_request(struct ospf_apiserver *apiserv,
 out:
 
 	/* Send a reply back to client with return code */
-	rc = ospf_apiserver_send_reply(apiserv, ntohl(msg->hdr.msgseq), rc);
-	return rc;
+	return ospf_apiserver_send_reply(apiserv, ntohl(msg->hdr.msgseq), rc);
 }
 
 
@@ -1888,8 +1884,7 @@ int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 out:
 
 	/* Send reply back to client including return code */
-	rc = ospf_apiserver_send_reply(apiserv, ntohl(msg->hdr.msgseq), rc);
-	return rc;
+	return ospf_apiserver_send_reply(apiserv, ntohl(msg->hdr.msgseq), rc);
 }
 
 /* Flush self-originated opaque LSA */

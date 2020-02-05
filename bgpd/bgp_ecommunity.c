@@ -1020,10 +1020,8 @@ static struct ecommunity *bgp_aggr_ecommunity_lookup(
 static void *bgp_aggr_ecommunty_hash_alloc(void *p)
 {
 	struct ecommunity *ref = (struct ecommunity *)p;
-	struct ecommunity *ecommunity = NULL;
 
-	ecommunity = ecommunity_dup(ref);
-	return ecommunity;
+	return ecommunity_dup(ref);
 }
 
 static void bgp_aggr_ecommunity_prepare(struct hash_backet *hb, void *arg)

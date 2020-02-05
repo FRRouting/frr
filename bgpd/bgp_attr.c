@@ -515,8 +515,7 @@ static uint32_t srv6_l3vpn_hash_key_make(const void *p)
 
 	key = jhash(&l3vpn->sid, 16, key);
 	key = jhash_1word(l3vpn->sid_flags, key);
-	key = jhash_1word(l3vpn->endpoint_behavior, key);
-	return key;
+	return jhash_1word(l3vpn->endpoint_behavior, key);
 }
 
 static bool srv6_l3vpn_hash_cmp(const void *p1, const void *p2)
@@ -546,8 +545,7 @@ static unsigned int srv6_vpn_hash_key_make(const void *p)
 	uint32_t key = 0;
 
 	key = jhash(&vpn->sid, 16, key);
-	key = jhash_1word(vpn->sid_flags, key);
-	return key;
+	return jhash_1word(vpn->sid_flags, key);
 }
 
 static bool srv6_vpn_hash_cmp(const void *p1, const void *p2)

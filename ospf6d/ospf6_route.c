@@ -166,10 +166,7 @@ const char *const ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX] = {
 
 struct ospf6_nexthop *ospf6_nexthop_create(void)
 {
-	struct ospf6_nexthop *nh;
-
-	nh = XCALLOC(MTYPE_OSPF6_NEXTHOP, sizeof(struct ospf6_nexthop));
-	return nh;
+	return XCALLOC(MTYPE_OSPF6_NEXTHOP, sizeof(struct ospf6_nexthop));
 }
 
 void ospf6_nexthop_delete(struct ospf6_nexthop *nh)

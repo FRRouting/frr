@@ -298,9 +298,8 @@ uint32_t zebra_pbr_ipset_entry_hash_key(const void *arg)
 	key = jhash(&ipset->dst_port_max, 2, key);
 	key = jhash(&ipset->src_port_min, 2, key);
 	key = jhash(&ipset->src_port_max, 2, key);
-	key = jhash(&ipset->proto, 1, key);
 
-	return key;
+	return jhash(&ipset->proto, 1, key);
 }
 
 bool zebra_pbr_ipset_entry_hash_equal(const void *arg1, const void *arg2)

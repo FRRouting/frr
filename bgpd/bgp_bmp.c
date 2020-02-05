@@ -152,10 +152,10 @@ static int bmp_qhash_cmp(const struct bmp_queue_entry *a,
 	ret = prefix_cmp(&a->p, &b->p);
 	if (ret)
 		return ret;
-	ret = memcmp(&a->peerid, &b->peerid,
-			offsetof(struct bmp_queue_entry, refcount) -
-			offsetof(struct bmp_queue_entry, peerid));
-	return ret;
+
+	return memcmp(&a->peerid, &b->peerid,
+		      offsetof(struct bmp_queue_entry, refcount)
+			      - offsetof(struct bmp_queue_entry, peerid));
 }
 
 static uint32_t bmp_qhash_hkey(const struct bmp_queue_entry *e)
@@ -163,11 +163,11 @@ static uint32_t bmp_qhash_hkey(const struct bmp_queue_entry *e)
 	uint32_t key;
 
 	key = prefix_hash_key((void *)&e->p);
-	key = jhash(&e->peerid,
-			offsetof(struct bmp_queue_entry, refcount) -
-			offsetof(struct bmp_queue_entry, peerid),
-			key);
-	return key;
+
+	return jhash(&e->peerid,
+		     offsetof(struct bmp_queue_entry, refcount)
+			     - offsetof(struct bmp_queue_entry, peerid),
+		     key);
 }
 
 DECLARE_HASH(bmp_qhash, struct bmp_queue_entry, bhi,

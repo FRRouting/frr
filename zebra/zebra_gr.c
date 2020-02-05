@@ -612,7 +612,6 @@ static int32_t zebra_gr_delete_stale_routes(struct client_gr_info *info)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
-	uint64_t cnt = 0;
 
 	if (info == NULL)
 		return -1;
@@ -630,8 +629,7 @@ static int32_t zebra_gr_delete_stale_routes(struct client_gr_info *info)
 		return -1;
 	}
 
-	cnt = zebra_gr_delete_stale_route(info, zvrf);
-	return cnt;
+	return zebra_gr_delete_stale_route(info, zvrf);
 }
 
 /*

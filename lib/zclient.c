@@ -865,9 +865,7 @@ static int zapi_nexthop_cmp(const void *item1, const void *item2)
 	if (ret != 0)
 		return ret;
 
-	ret = zapi_nexthop_labels_cmp(next1, next2);
-
-	return ret;
+	return zapi_nexthop_labels_cmp(next1, next2);
 }
 
 static void zapi_nexthop_group_sort(struct zapi_nexthop *nh_grp,

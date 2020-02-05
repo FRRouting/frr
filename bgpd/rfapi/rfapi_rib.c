@@ -405,9 +405,7 @@ int rfapi_rib_key_cmp(void *k1, void *k2)
 	if (ret)
 		return ret;
 
-	ret = vnc_prefix_cmp(&a->aux_prefix, &b->aux_prefix);
-
-	return ret;
+	return vnc_prefix_cmp(&a->aux_prefix, &b->aux_prefix);
 }
 
 

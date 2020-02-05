@@ -34,10 +34,7 @@ DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_AGGREGATE, "RIPng aggregate")
 
 static struct ripng_aggregate *ripng_aggregate_new(void)
 {
-	struct ripng_aggregate *new;
-
-	new = XCALLOC(MTYPE_RIPNG_AGGREGATE, sizeof(struct ripng_aggregate));
-	return new;
+	return XCALLOC(MTYPE_RIPNG_AGGREGATE, sizeof(struct ripng_aggregate));
 }
 
 void ripng_aggregate_free(struct ripng_aggregate *aggregate)

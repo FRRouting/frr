@@ -1092,13 +1092,9 @@ void stream_reset(struct stream *s)
 /* Write stream contens to the file discriptor. */
 int stream_flush(struct stream *s, int fd)
 {
-	int nbytes;
-
 	STREAM_VERIFY_SANE(s);
 
-	nbytes = write(fd, s->data + s->getp, s->endp - s->getp);
-
-	return nbytes;
+	return write(fd, s->data + s->getp, s->endp - s->getp);
 }
 
 /* Stream first in first out queue. */

@@ -334,11 +334,7 @@ zebra_nhg_connect_depends(struct nhg_hash_entry *nhe,
 
 struct nhg_hash_entry *zebra_nhg_alloc(void)
 {
-	struct nhg_hash_entry *nhe;
-
-	nhe = XCALLOC(MTYPE_NHG, sizeof(struct nhg_hash_entry));
-
-	return nhe;
+	return XCALLOC(MTYPE_NHG, sizeof(struct nhg_hash_entry));
 }
 
 static struct nhg_hash_entry *zebra_nhg_copy(const struct nhg_hash_entry *copy,
@@ -385,10 +381,8 @@ uint32_t zebra_nhg_hash_key(const void *arg)
 
 	uint32_t key = 0x5a351234;
 
-	key = jhash_3words(nhe->vrf_id, nhe->afi, nexthop_group_hash(nhe->nhg),
-			   key);
-
-	return key;
+	return jhash_3words(nhe->vrf_id, nhe->afi, nexthop_group_hash(nhe->nhg),
+			    key);
 }
 
 uint32_t zebra_nhg_id_key(const void *arg)
@@ -689,11 +683,7 @@ static struct nh_grp *nhg_ctx_get_grp(struct nhg_ctx *ctx)
 
 static struct nhg_ctx *nhg_ctx_new()
 {
-	struct nhg_ctx *new = NULL;
-
-	new = XCALLOC(MTYPE_NHG_CTX, sizeof(struct nhg_ctx));
-
-	return new;
+	return XCALLOC(MTYPE_NHG_CTX, sizeof(struct nhg_ctx));
 }
 
 static void nhg_ctx_free(struct nhg_ctx **ctx)

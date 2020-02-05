@@ -437,7 +437,6 @@ struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
 					 struct prefix_sg *sg)
 {
 	struct pim_interface *pim_ifp;
-	struct pim_ifchannel *ch;
 	struct pim_ifchannel lookup;
 
 	pim_ifp = ifp->info;
@@ -450,9 +449,8 @@ struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
 
 	lookup.sg = *sg;
 	lookup.interface = ifp;
-	ch = RB_FIND(pim_ifchannel_rb, &pim_ifp->ifchannel_rb, &lookup);
 
-	return ch;
+	return RB_FIND(pim_ifchannel_rb, &pim_ifp->ifchannel_rb, &lookup);
 }
 
 static void ifmembership_set(struct pim_ifchannel *ch,

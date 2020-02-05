@@ -134,12 +134,9 @@ static void pbr_nh_delete_iterate(struct hash_bucket *b, void *p)
 
 static uint32_t pbr_nh_hash_key(const void *arg)
 {
-	uint32_t key;
 	const struct pbr_nexthop_cache *pbrnc = arg;
 
-	key = nexthop_hash(pbrnc->nexthop);
-
-	return key;
+	return nexthop_hash(pbrnc->nexthop);
 }
 
 static bool pbr_nh_hash_equal(const void *arg1, const void *arg2)

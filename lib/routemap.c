@@ -1221,10 +1221,7 @@ route_map_index_get(struct route_map *map, enum route_map_type type, int pref)
 /* New route map rule */
 static struct route_map_rule *route_map_rule_new(void)
 {
-	struct route_map_rule *new;
-
-	new = XCALLOC(MTYPE_ROUTE_MAP_RULE, sizeof(struct route_map_rule));
-	return new;
+	return XCALLOC(MTYPE_ROUTE_MAP_RULE, sizeof(struct route_map_rule));
 }
 
 /* Install rule command to the match list. */

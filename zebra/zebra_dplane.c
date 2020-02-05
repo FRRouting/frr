@@ -423,14 +423,10 @@ struct thread_master *dplane_get_thread_master(void)
  */
 struct zebra_dplane_ctx *dplane_ctx_alloc(void)
 {
-	struct zebra_dplane_ctx *p;
-
 	/* TODO -- just alloc'ing memory, but would like to maintain
 	 * a pool
 	 */
-	p = XCALLOC(MTYPE_DP_CTX, sizeof(struct zebra_dplane_ctx));
-
-	return p;
+	return XCALLOC(MTYPE_DP_CTX, sizeof(struct zebra_dplane_ctx));
 }
 
 /* Enable system route notifications */
@@ -1172,11 +1168,9 @@ zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
 
 	DPLANE_CTX_VALID(ctx);
 
-	nhlfe = zebra_mpls_lsp_add_nhlfe(&(ctx->u.lsp),
+	return zebra_mpls_lsp_add_nhlfe(&(ctx->u.lsp),
 					 lsp_type, nh_type, gate,
 					 ifindex, num_labels, out_labels);
-
-	return nhlfe;
 }
 
 const zebra_nhlfe_t *
@@ -1803,9 +1797,7 @@ static int dplane_update_enqueue(struct zebra_dplane_ctx *ctx)
 	}
 
 	/* Ensure that an event for the dataplane thread is active */
-	ret = dplane_provider_work_ready();
-
-	return ret;
+	return dplane_provider_work_ready();
 }
 
 /*
@@ -2412,9 +2404,8 @@ enum zebra_dplane_result dplane_mac_add(const struct interface *ifp,
 	enum zebra_dplane_result result;
 
 	/* Use common helper api */
-	result = mac_update_internal(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp,
+	return mac_update_internal(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp,
 				     vid, mac, vtep_ip, sticky);
-	return result;
 }
 
 /*
@@ -2429,9 +2420,8 @@ enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
 	enum zebra_dplane_result result;
 
 	/* Use common helper api */
-	result = mac_update_internal(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp,
+	return mac_update_internal(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp,
 				     vid, mac, vtep_ip, false);
-	return result;
 }
 
 /*
@@ -2511,10 +2501,8 @@ enum zebra_dplane_result dplane_neigh_add(const struct interface *ifp,
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 
-	result = neigh_update_internal(DPLANE_OP_NEIGH_INSTALL,
+	return neigh_update_internal(DPLANE_OP_NEIGH_INSTALL,
 				       ifp, mac, ip, flags, DPLANE_NUD_NOARP);
-
-	return result;
 }
 
 /*
@@ -2526,10 +2514,8 @@ enum zebra_dplane_result dplane_neigh_update(const struct interface *ifp,
 {
 	enum zebra_dplane_result result;
 
-	result = neigh_update_internal(DPLANE_OP_NEIGH_UPDATE,
+	return neigh_update_internal(DPLANE_OP_NEIGH_UPDATE,
 				       ifp, mac, ip, 0, DPLANE_NUD_PROBE);
-
-	return result;
 }
 
 /*
@@ -2540,10 +2526,8 @@ enum zebra_dplane_result dplane_neigh_delete(const struct interface *ifp,
 {
 	enum zebra_dplane_result result;
 
-	result = neigh_update_internal(DPLANE_OP_NEIGH_DELETE,
+	return neigh_update_internal(DPLANE_OP_NEIGH_DELETE,
 				       ifp, NULL, ip, 0, 0);
-
-	return result;
 }
 
 /*
@@ -2564,10 +2548,8 @@ enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp,
 	SET_IPADDR_V4(&addr);
 	addr.ipaddr_v4 = *ip;
 
-	result = neigh_update_internal(DPLANE_OP_VTEP_ADD,
+	return neigh_update_internal(DPLANE_OP_VTEP_ADD,
 				       ifp, &mac, &addr, 0, 0);
-
-	return result;
 }
 
 /*
@@ -2589,10 +2571,8 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
 	SET_IPADDR_V4(&addr);
 	addr.ipaddr_v4 = *ip;
 
-	result = neigh_update_internal(DPLANE_OP_VTEP_DELETE,
+	return neigh_update_internal(DPLANE_OP_VTEP_DELETE,
 				       ifp, &mac, &addr, 0, 0);
-
-	return result;
 }
 
 /*

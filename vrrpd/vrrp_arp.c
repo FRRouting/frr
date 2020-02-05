@@ -54,7 +54,6 @@ static ssize_t vrrp_send_garp(struct interface *ifp, uint8_t *buf,
 			      ssize_t pack_len)
 {
 	struct sockaddr_ll sll;
-	ssize_t len;
 
 	/* Build the dst device */
 	memset(&sll, 0, sizeof(sll));
@@ -65,10 +64,8 @@ static ssize_t vrrp_send_garp(struct interface *ifp, uint8_t *buf,
 	memset(sll.sll_addr, 0xFF, ETH_ALEN);
 
 	/* Send packet */
-	len = sendto(garp_fd, buf, pack_len, 0, (struct sockaddr *)&sll,
-		     sizeof(sll));
-
-	return len;
+	return sendto(garp_fd, buf, pack_len, 0, (struct sockaddr *)&sll,
+		      sizeof(sll));
 }
 
 /* Build a gratuitous ARP message over a specific interface */

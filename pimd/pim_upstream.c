@@ -897,11 +897,10 @@ struct pim_upstream *pim_upstream_find(struct pim_instance *pim,
 				       struct prefix_sg *sg)
 {
 	struct pim_upstream lookup;
-	struct pim_upstream *up = NULL;
 
 	lookup.sg = *sg;
-	up = rb_pim_upstream_find(&pim->upstream_head, &lookup);
-	return up;
+
+	return rb_pim_upstream_find(&pim->upstream_head, &lookup);
 }
 
 struct pim_upstream *pim_upstream_find_or_add(struct prefix_sg *sg,
