@@ -413,7 +413,7 @@ enum zapi_srte_type {
 struct zapi_srte {
 	enum zapi_srte_type type;
 	union {
-		char *policy;
+		char policy[ZEBRA_SR_POLICY_NAME_MAX_LENGTH];
 		uint32_t color;
 	};
 };

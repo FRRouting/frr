@@ -39,6 +39,7 @@
 #include "pbr.h"
 #include "nexthop_group.h"
 #include "lib_errors.h"
+#include "srte.h"
 
 DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient")
 DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs")
@@ -1103,7 +1104,7 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 		switch (api->srte.type) {
 		case ZAPI_SRTE_POLICY:
 			stream_write(s, api->srte.policy,
-				     ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+				     SRTE_POLICY_NAME_MAX_LENGTH);
 			break;
 		case ZAPI_SRTE_COLOR:
 			stream_putl(s, api->srte.color);
@@ -1319,7 +1320,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 		case ZAPI_SRTE_POLICY:
 			/* TODO: this is not working :) */
 			STREAM_GET(api->srte.policy, s,
-				   ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+				   SRTE_POLICY_NAME_MAX_LENGTH);
 			break;
 		case ZAPI_SRTE_COLOR:
 			STREAM_GETL(s, api->srte.color);
@@ -2843,7 +2844,7 @@ int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
 	zclient_create_header(s, cmd, VRF_DEFAULT);
 	stream_putl(s, zp->color);
 	stream_put_in_addr(s, &zp->endpoint);
-	stream_write(s, &zp->name, ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+	stream_write(s, &zp->name, SRTE_POLICY_NAME_MAX_LENGTH);
 
 	stream_putc(s, zt->type);
 	stream_putl(s, zt->local_label);
@@ -2874,7 +2875,7 @@ int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
 
 	STREAM_GETL(s, zp->color);
 	STREAM_GET(&zp->endpoint.s_addr, s, IPV4_MAX_BYTELEN);
-	STREAM_GET(&zp->name, s, ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+	STREAM_GET(&zp->name, s, SRTE_POLICY_NAME_MAX_LENGTH);
 
 	/* segment list of active candidate path */
 	STREAM_GETC(s, zt->type);
@@ -2903,7 +2904,7 @@ int zapi_sr_policy_notify_status_decode(struct stream *s,
 
 	STREAM_GETL(s, zp->color);
 	STREAM_GET(&zp->endpoint.s_addr, s, IPV4_MAX_BYTELEN);
-	STREAM_GET(&zp->name, s, ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+	STREAM_GET(&zp->name, s, SRTE_POLICY_NAME_MAX_LENGTH);
 	STREAM_GETL(s, zp->status);
 
 	return 0;

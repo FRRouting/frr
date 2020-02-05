@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+#define SRTE_POLICY_NAME_MAX_LENGTH	100
+
 enum zebra_sr_policy_status {
     ZEBRA_SR_POLICY_UNKNOWN = 0,
     ZEBRA_SR_POLICY_UP = 1,

@@ -24,6 +24,7 @@
 #include "mpls.h"
 #include "bgp_attr_evpn.h"
 #include "bgpd/bgp_encap_types.h"
+#include "srte.h"
 
 /* Simple bit mapping. */
 #define BITMAP_NBBY 8
@@ -255,7 +256,7 @@ struct attr {
 	uint32_t link_bw;
 
 	/* SR-TE Policy Name */
-	char *srte_policy;
+	char srte_policy[SRTE_POLICY_NAME_MAX_LENGTH];
 
 	/* SR-TE Color */
 	uint32_t srte_color;

@@ -2187,7 +2187,7 @@ int zsend_sr_policy_notify_status(uint32_t color, struct in_addr endpoint,
 	zclient_create_header(s, ZEBRA_SR_POLICY_NOTIFY_STATUS, VRF_DEFAULT);
 	stream_putl(s, color);
 	stream_put_in_addr(s, &endpoint);
-	stream_write(s, name, ZEBRA_SR_POLICY_NAME_MAX_LENGTH);
+	stream_write(s, name, SRTE_POLICY_NAME_MAX_LENGTH);
 	stream_putl(s, status);
 
 	stream_putw_at(s, 0, stream_get_endp(s));

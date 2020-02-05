@@ -1678,7 +1678,8 @@ route_set_srte_policy(void *rule, const struct prefix *prefix,
 	path = object;
 	peer = path->peer;
 
-	path->attr->srte_policy = srte_policy;
+	strncpy(path->attr->srte_policy, srte_policy,
+		SRTE_POLICY_NAME_MAX_LENGTH);
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_POLICY);
 
 	if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN))

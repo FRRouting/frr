@@ -31,7 +31,7 @@ struct zebra_sr_policy {
 	RB_ENTRY(zebra_sr_policy) entry;
 	uint32_t color;
 	struct in_addr endpoint;
-	char name[ZEBRA_SR_POLICY_NAME_MAX_LENGTH];
+	char name[SRTE_POLICY_NAME_MAX_LENGTH];
 	enum zebra_sr_policy_status status;
 	struct zapi_srte_tunnel active_segment_list;
 	struct zebra_vrf *zvrf;
