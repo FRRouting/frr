@@ -178,6 +178,19 @@ void zebra_nhg_depends_walk_resolved(struct nhg_hash_entry *nhe,
 						 void *),
 				     void *arg);
 
+/* Same but walks only on singleton nexthops (not groups) passing its
+ * lib/nexthop struct directly to `func`.
+ */
+void zebra_nhg_depends_walk_nexthops(struct nhg_hash_entry *nhe,
+				     int (*func)(struct nexthop *, void *),
+				     void *arg);
+
+/* Same as above but only calls `func` for resolved nexthops */
+void zebra_nhg_depends_walk_resolved_nexthops(struct nhg_hash_entry *nhe,
+					      int (*func)(struct nexthop *,
+							  void *),
+					      void *arg);
+
 /* Global control to disable use of kernel nexthops, if available. We can't
  * force the kernel to support nexthop ids, of course, but we can disable
  * zebra's use of them, for testing e.g. By default, if the kernel supports
