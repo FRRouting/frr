@@ -141,6 +141,7 @@ FRR_DAEMON_INFO(ospfd, OSPF, .vty_port = OSPF_VTY_PORT,
 int main(int argc, char **argv)
 {
 	unsigned short instance = 0;
+	bool created = false;
 
 #ifdef SUPPORT_OSPF_API
 	/* OSPF apiserver is disabled by default. */
@@ -216,6 +217,17 @@ int main(int argc, char **argv)
 
 	/* OSPF errors init */
 	ospf_error_init();
+
+	/*
+	 * Need to initialize the default ospf structure, so the interface mode
+	 * commands can be duly processed if they are received before 'router
+	 * ospf',  when ospfd is restarted
+	 */
+	if (instance && !ospf_get_instance(instance, &created)) {
+		flog_err(EC_OSPF_INIT_FAIL, "OSPF instance init failed: %s",
+			 strerror(errno));
+		exit(1);
+	}
 
 	frr_config_fork();
 	frr_run(master);
