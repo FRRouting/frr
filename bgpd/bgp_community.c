@@ -89,7 +89,6 @@ void community_del_val(struct community *com, uint32_t *val)
 						    com->val, com_length(com));
 			else {
 				XFREE(MTYPE_COMMUNITY_VAL, com->val);
-				com->val = NULL;
 			}
 			return;
 		}

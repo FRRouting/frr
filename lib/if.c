@@ -1281,7 +1281,6 @@ void if_link_params_free(struct interface *ifp)
 	if (ifp->link_params == NULL)
 		return;
 	XFREE(MTYPE_IF_LINK_PARAMS, ifp->link_params);
-	ifp->link_params = NULL;
 }
 
 /* ----------- CLI commands ----------- */

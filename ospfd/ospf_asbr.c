@@ -141,7 +141,6 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 					ospf->vrf_id, inet_ntoa(p.prefix),
 					p.prefixlen, inetbuf);
 			XFREE(MTYPE_OSPF_EXTERNAL_INFO, rn->info);
-			rn->info = NULL;
 		}
 
 	/* Create new External info instance. */

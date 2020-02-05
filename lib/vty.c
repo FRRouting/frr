@@ -3011,15 +3011,8 @@ void vty_reset(void)
 
 	vty_timeout_val = VTY_TIMEOUT_DEFAULT;
 
-	if (vty_accesslist_name) {
-		XFREE(MTYPE_VTY, vty_accesslist_name);
-		vty_accesslist_name = NULL;
-	}
-
-	if (vty_ipv6_accesslist_name) {
-		XFREE(MTYPE_VTY, vty_ipv6_accesslist_name);
-		vty_ipv6_accesslist_name = NULL;
-	}
+	XFREE(MTYPE_VTY, vty_accesslist_name);
+	XFREE(MTYPE_VTY, vty_ipv6_accesslist_name);
 }
 
 static void vty_save_cwd(void)

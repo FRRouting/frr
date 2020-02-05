@@ -168,10 +168,7 @@ static struct as_list *as_list_new(void)
 
 static void as_list_free(struct as_list *aslist)
 {
-	if (aslist->name) {
-		XFREE(MTYPE_AS_STR, aslist->name);
-		aslist->name = NULL;
-	}
+	XFREE(MTYPE_AS_STR, aslist->name);
 	XFREE(MTYPE_AS_LIST, aslist);
 }
 

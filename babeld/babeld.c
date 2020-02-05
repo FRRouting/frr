@@ -165,7 +165,6 @@ babel_create_routing_process (void)
     return 0;
 fail:
     XFREE(MTYPE_BABEL, babel_routing_process);
-    babel_routing_process = NULL;
     return -1;
 }
 
@@ -324,7 +323,6 @@ babel_clean_routing_process(void)
 
     distribute_list_delete(&babel_routing_process->distribute_ctx);
     XFREE(MTYPE_BABEL, babel_routing_process);
-    babel_routing_process = NULL;
 }
 
 /* Function used with timeout. */

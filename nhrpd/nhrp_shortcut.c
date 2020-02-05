@@ -141,7 +141,6 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 	rn = route_node_lookup(shortcut_rib[afi], s->p);
 	if (rn) {
 		XFREE(MTYPE_NHRP_SHORTCUT, rn->info);
-		rn->info = NULL;
 		route_unlock_node(rn);
 		route_unlock_node(rn);
 	}

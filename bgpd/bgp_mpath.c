@@ -280,7 +280,6 @@ void bgp_path_info_mpath_free(struct bgp_path_info_mpath **mpath)
 		if ((*mpath)->mp_attr)
 			bgp_attr_unintern(&(*mpath)->mp_attr);
 		XFREE(MTYPE_BGP_MPATH_INFO, *mpath);
-		*mpath = NULL;
 	}
 }
 

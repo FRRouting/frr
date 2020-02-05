@@ -235,8 +235,6 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 	if ((*extra)->bgp_fs_pbr)
 		list_delete(&((*extra)->bgp_fs_pbr));
 	XFREE(MTYPE_BGP_ROUTE_EXTRA, *extra);
-
-	*extra = NULL;
 }
 
 /* Get bgp_path_info extra information for the given bgp_path_info, lazy
@@ -5469,7 +5467,6 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 				      bgp_static->rmap.name);
 				route_map_counter_decrement(
 					bgp_static->rmap.map);
-				bgp_static->rmap.name = NULL;
 				bgp_static->rmap.map = NULL;
 				bgp_static->valid = 0;
 			}
@@ -5891,7 +5888,6 @@ static int bgp_table_map_set(struct vty *vty, afi_t afi, safi_t safi,
 	} else {
 		XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
 		route_map_counter_decrement(rmap->map);
-		rmap->name = NULL;
 		rmap->map = NULL;
 	}
 
@@ -5910,7 +5906,6 @@ static int bgp_table_map_unset(struct vty *vty, afi_t afi, safi_t safi,
 	rmap = &bgp->table_map[afi][safi];
 	XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
 	route_map_counter_decrement(rmap->map);
-	rmap->name = NULL;
 	rmap->map = NULL;
 
 	if (bgp_fibupd_safi(safi))
@@ -12191,10 +12186,7 @@ static int bgp_distance_set(struct vty *vty, const char *distance_str,
 	bdistance->distance = distance;
 
 	/* Reset access-list configuration. */
-	if (bdistance->access_list) {
-		XFREE(MTYPE_AS_LIST, bdistance->access_list);
-		bdistance->access_list = NULL;
-	}
+	XFREE(MTYPE_AS_LIST, bdistance->access_list);
 	if (access_list_str)
 		bdistance->access_list =
 			XSTRDUP(MTYPE_AS_LIST, access_list_str);

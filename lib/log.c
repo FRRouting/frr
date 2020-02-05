@@ -934,7 +934,6 @@ int zlog_reset_file(void)
 	zl->maxlvl[ZLOG_DEST_FILE] = ZLOG_DISABLED;
 
 	XFREE(MTYPE_ZLOG, zl->filename);
-	zl->filename = NULL;
 
 	return 1;
 }

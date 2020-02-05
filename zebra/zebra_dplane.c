@@ -549,7 +549,6 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 	}
 
 	XFREE(MTYPE_DP_CTX, *pctx);
-	*pctx = NULL;
 }
 
 /*

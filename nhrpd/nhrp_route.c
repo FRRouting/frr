@@ -58,7 +58,6 @@ static void nhrp_route_update_put(struct route_node *rn)
 	if (!ri->ifp && !ri->nhrp_ifp
 	    && sockunion_family(&ri->via) == AF_UNSPEC) {
 		XFREE(MTYPE_NHRP_ROUTE, rn->info);
-		rn->info = NULL;
 		route_unlock_node(rn);
 	}
 	route_unlock_node(rn);

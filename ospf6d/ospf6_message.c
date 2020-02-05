@@ -1516,15 +1516,8 @@ int ospf6_iobuf_size(unsigned int size)
 
 void ospf6_message_terminate(void)
 {
-	if (recvbuf) {
-		XFREE(MTYPE_OSPF6_MESSAGE, recvbuf);
-		recvbuf = NULL;
-	}
-
-	if (sendbuf) {
-		XFREE(MTYPE_OSPF6_MESSAGE, sendbuf);
-		sendbuf = NULL;
-	}
+	XFREE(MTYPE_OSPF6_MESSAGE, recvbuf);
+	XFREE(MTYPE_OSPF6_MESSAGE, sendbuf);
 
 	iobuflen = 0;
 }

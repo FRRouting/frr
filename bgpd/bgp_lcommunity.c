@@ -527,7 +527,6 @@ void lcommunity_del_val(struct lcommunity *lcom, uint8_t *ptr)
 						 lcom->val, lcom_length(lcom));
 			else {
 				XFREE(MTYPE_LCOMMUNITY_VAL, lcom->val);
-				lcom->val = NULL;
 			}
 			return;
 		}

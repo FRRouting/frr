@@ -1779,7 +1779,6 @@ int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
 	/* Unset route-map. */
 	XFREE(MTYPE_ROUTE_MAP_NAME, red->rmap.name);
 	route_map_counter_decrement(red->rmap.map);
-	red->rmap.name = NULL;
 	red->rmap.map = NULL;
 
 	/* Unset metric. */

@@ -1489,10 +1489,7 @@ void rfapiFreeBgpTeaOptionChain(struct bgp_tea_options *p)
 	while (p) {
 		next = p->next;
 
-		if (p->value) {
-			XFREE(MTYPE_BGP_TEA_OPTIONS_VALUE, p->value);
-			p->value = NULL;
-		}
+		XFREE(MTYPE_BGP_TEA_OPTIONS_VALUE, p->value);
 		XFREE(MTYPE_BGP_TEA_OPTIONS, p);
 
 		p = next;

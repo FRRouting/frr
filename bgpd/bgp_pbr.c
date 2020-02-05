@@ -1260,7 +1260,6 @@ void bgp_pbr_cleanup(struct bgp *bgp)
 		return;
 	bgp_pbr_reset(bgp, AFI_IP);
 	XFREE(MTYPE_PBR, bgp->bgp_pbr_cfg);
-	bgp->bgp_pbr_cfg = NULL;
 }
 
 void bgp_pbr_init(struct bgp *bgp)

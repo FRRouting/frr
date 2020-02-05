@@ -714,7 +714,6 @@ static void nhg_ctx_free(struct nhg_ctx **ctx)
 
 done:
 	XFREE(MTYPE_NHG_CTX, *ctx);
-	*ctx = NULL;
 }
 
 static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh,

@@ -694,7 +694,6 @@ static int ospf_if_delete_hook(struct interface *ifp)
 
 	ospf_del_if_params((struct ospf_if_params *)IF_DEF_PARAMS(ifp));
 	XFREE(MTYPE_OSPF_IF_INFO, ifp->info);
-	ifp->info = NULL;
 
 	return rc;
 }

@@ -86,8 +86,7 @@ static void pim_free_bsgrp_node(struct route_table *rt, struct prefix *grp)
 
 static void pim_bsm_node_free(struct bsm_info *bsm)
 {
-	if (bsm->bsm)
-		XFREE(MTYPE_PIM_BSM_PKT_VAR_MEM, bsm->bsm);
+	XFREE(MTYPE_PIM_BSM_PKT_VAR_MEM, bsm->bsm);
 	XFREE(MTYPE_PIM_BSM_INFO, bsm);
 }
 

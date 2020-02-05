@@ -3114,8 +3114,6 @@ static struct rib_update_ctx *rib_update_ctx_init(vrf_id_t vrf_id,
 static void rib_update_ctx_fini(struct rib_update_ctx **ctx)
 {
 	XFREE(MTYPE_RIB_UPDATE_CTX, *ctx);
-
-	*ctx = NULL;
 }
 
 static int rib_update_handler(struct thread *thread)

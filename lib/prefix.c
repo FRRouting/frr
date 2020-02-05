@@ -1081,7 +1081,6 @@ void prefix_free_lists(void *arg)
 void prefix_free(struct prefix **p)
 {
 	XFREE(MTYPE_PREFIX, *p);
-	*p = NULL;
 }
 
 /* Utility function to convert ipv4 prefixes to Classful prefixes */
