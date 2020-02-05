@@ -52,13 +52,15 @@ struct zebra_sr_policy_instance_head zebra_sr_policy_instances =
 	RB_INITIALIZER(&zebra_sr_policy_instances);
 
 struct zebra_sr_policy *zebra_sr_policy_add(uint32_t color,
-					    struct in_addr endpoint)
+					    struct in_addr endpoint,
+					    char *name)
 {
 	struct zebra_sr_policy *policy;
 
 	policy = XCALLOC(MTYPE_ZEBRA_SR_POLICY, sizeof(*policy));
 	policy->color = color;
 	policy->endpoint = endpoint;
+	strlcpy(policy->name, name, sizeof(policy->name));
 	RB_INSERT(zebra_sr_policy_instance_head, &zebra_sr_policy_instances,
 		  policy);
 
@@ -82,6 +84,20 @@ struct zebra_sr_policy *zebra_sr_policy_find(uint32_t color,
 	policy.endpoint = endpoint;
 	return RB_FIND(zebra_sr_policy_instance_head,
 		       &zebra_sr_policy_instances, &policy);
+}
+
+struct zebra_sr_policy *zebra_sr_policy_find_by_name(char *name)
+{
+	struct zebra_sr_policy *policy;
+
+	// TODO: create index for policy names
+	RB_FOREACH (policy, zebra_sr_policy_instance_head,
+		    &zebra_sr_policy_instances) {
+		if (strcmp(policy->name, name) == 0)
+			return policy;
+	}
+
+	return NULL;
 }
 
 void zebra_sr_policy_install(struct zebra_sr_policy *policy)
