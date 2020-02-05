@@ -127,6 +127,8 @@ void nexthop_add_labels(struct nexthop *, enum lsp_types_t, uint8_t,
 			mpls_label_t *);
 void nexthop_del_labels(struct nexthop *);
 
+bool nexthop_has_labels(const struct nexthop *nexthop);
+
 /*
  * Allocate a new nexthop object and initialize it from various args.
  */

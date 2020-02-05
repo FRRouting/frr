@@ -421,6 +421,15 @@ void nexthop_del_labels(struct nexthop *nexthop)
 	}
 }
 
+/* Does this nexthop have at least one label? */
+bool nexthop_has_labels(const struct nexthop *nexthop)
+{
+	if (nexthop->nh_label && nexthop->nh_label->num_labels)
+		return true;
+
+	return false;
+}
+
 const char *nexthop2str(const struct nexthop *nexthop, char *str, int size)
 {
 	switch (nexthop->type) {
