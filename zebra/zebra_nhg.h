@@ -108,6 +108,7 @@ struct nhg_hash_entry {
 /* Was this one we created, either this session or previously? */
 #define ZEBRA_NHG_CREATED(NHE) ((NHE->type) == ZEBRA_ROUTE_NHG)
 
+#define zebra_nhg_nexthop(nhe) (nhe->nhg->nexthop)
 
 enum nhg_ctx_op_e {
 	NHG_CTX_OP_NONE = 0,
