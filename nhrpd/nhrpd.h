@@ -343,7 +343,9 @@ struct nhrp_interface {
 
 	unsigned enabled : 1;
 
-	char *ipsec_profile, *ipsec_fallback_profile, *source;
+	char *ipsec_profile, *ipsec_fallback_profile;
+	char *source, *vrfname;
+
 	union sockunion nbma;
 	union sockunion nat_nbma;
 	unsigned int link_idx;
@@ -410,7 +412,8 @@ void nhrp_interface_notify_add(struct interface *ifp, struct notifier_block *n,
 void nhrp_interface_notify_del(struct interface *ifp, struct notifier_block *n);
 void nhrp_interface_set_protection(struct interface *ifp, const char *profile,
 				   const char *fallback_profile);
-void nhrp_interface_set_source(struct interface *ifp, const char *ifname);
+void nhrp_interface_set_source(struct interface *ifp, const char *ifname,
+			       const char *vrfname);
 extern int nhrp_ifp_create(struct interface *ifp);
 extern int nhrp_ifp_up(struct interface *ifp);
 extern int nhrp_ifp_down(struct interface *ifp);

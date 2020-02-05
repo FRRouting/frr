@@ -193,8 +193,23 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 
 	sockunion_family(&nbma) = AF_UNSPEC;
 
-	if (nifp->source)
-		nbmaifp = if_lookup_by_name(nifp->source, nifp->link_vrf_id);
+	if (nifp->source) {
+		bool found = true;
+
+		if (nifp->vrfname) {
+			struct vrf *vrf;
+
+			vrf = vrf_lookup_by_name(nifp->vrfname);
+			if (vrf)
+				nifp->link_vrf_id = vrf->vrf_id;
+			else
+				found = false;
+		} else
+			nifp->link_vrf_id = VRF_DEFAULT;
+		if (found)
+			nbmaifp = if_lookup_by_name(nifp->source,
+						    nifp->link_vrf_id);
+	}
 
 	switch (ifp->ll_type) {
 	case ZEBRA_LLT_IPGRE: {
@@ -554,13 +569,17 @@ void nhrp_interface_set_protection(struct interface *ifp, const char *profile,
 	notifier_call(&nifp->notifier_list, NOTIFY_INTERFACE_IPSEC_CHANGED);
 }
 
-void nhrp_interface_set_source(struct interface *ifp, const char *ifname)
+void nhrp_interface_set_source(struct interface *ifp, const char *ifname,
+			       const char *vrfname)
 {
 	struct nhrp_interface *nifp = ifp->info;
 
 	if (nifp->source)
 		free(nifp->source);
+	if (nifp->vrfname)
+		free(nifp->vrfname);
 	nifp->source = ifname ? strdup(ifname) : NULL;
+	nifp->vrfname = vrfname ? strdup(vrfname) : NULL;
 
 	nhrp_interface_update_nbma(ifp, NULL);
 }

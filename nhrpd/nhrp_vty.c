@@ -418,13 +418,18 @@ DEFUN(no_tunnel_protection, no_tunnel_protection_cmd,
 }
 
 DEFUN(tunnel_source, tunnel_source_cmd,
-	"tunnel source INTERFACE",
+	"tunnel source INTERFACE [vrf VRFNAME]",
 	"NHRP/GRE integration\n"
 	"Tunnel device binding tracking\n"
-	"Interface name\n")
+	"Interface name\n"
+	VRF_CMD_HELP_STR)
 {
+	char *vrfname = NULL;
+
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	nhrp_interface_set_source(ifp, argv[2]->arg);
+	if (argc == 5)
+		vrfname = argv[4]->arg;
+	nhrp_interface_set_source(ifp, argv[2]->arg, vrfname);
 	return CMD_SUCCESS;
 }
 
@@ -435,7 +440,7 @@ DEFUN(no_tunnel_source, no_tunnel_source_cmd,
 	"Interface name\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	nhrp_interface_set_source(ifp, NULL);
+	nhrp_interface_set_source(ifp, NULL, NULL);
 	return CMD_SUCCESS;
 }
 
