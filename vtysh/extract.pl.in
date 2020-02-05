@@ -87,7 +87,7 @@ sub scan_file {
         if ($file =~ /lib\/keychain\.c$/) {
             $protocol = "VTYSH_RIPD|VTYSH_EIGRPD";
         }
-        elsif ($file =~ /lib\/routemap\.c$/) {
+        elsif ($file =~ /lib\/routemap\.c$/ || $file =~ /lib\/routemap_cli\.c$/) {
             $protocol = "VTYSH_RMAP";
         }
         elsif ($file =~ /lib\/vrf\.c$/) {
