@@ -570,3 +570,26 @@ void nhrp_gre_update(ZAPI_CALLBACK_ARGS)
 stream_failure:
 	zlog_err("%s(): error reading response ..", __func__);
 }
+
+void nhrp_instance_register(struct nhrp_vrf *nhrp_vrf, bool on)
+{
+	if (nhrp_vrf->vrf_id == VRF_UNKNOWN)
+		return;
+	if (on) {
+		zclient_send_reg_requests(zclient, nhrp_vrf->vrf_id);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
+					ZEBRA_ROUTE_ALL, 0, nhrp_vrf->vrf_id);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6,
+					ZEBRA_ROUTE_ALL, 0, nhrp_vrf->vrf_id);
+		nhrp_zebra_register_neigh(nhrp_vrf->vrf_id, AFI_IP, true);
+		nhrp_zebra_register_neigh(nhrp_vrf->vrf_id, AFI_IP6, true);
+	} else {
+		nhrp_zebra_register_neigh(nhrp_vrf->vrf_id, AFI_IP, false);
+		nhrp_zebra_register_neigh(nhrp_vrf->vrf_id, AFI_IP6, false);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP,
+					ZEBRA_ROUTE_ALL, 0, nhrp_vrf->vrf_id);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP6,
+					ZEBRA_ROUTE_ALL, 0, nhrp_vrf->vrf_id);
+		zclient_send_dereg_requests(zclient, nhrp_vrf->vrf_id);
+	}
+}

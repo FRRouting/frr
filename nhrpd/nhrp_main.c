@@ -183,6 +183,7 @@ static int nhrp_vrf_enable(struct vrf *vrf)
 		nhrp_vrf->vrf_id = vrf->vrf_id;
 		/* start contexts */
 		nhrp_start_context(nhrp_vrf);
+		nhrp_instance_register(nhrp_vrf, true);
 	}
 	return 0;
 }
@@ -200,6 +201,7 @@ static int nhrp_vrf_disable(struct vrf *vrf)
 
 	if (nhrp_vrf && nhrp_vrf->vrf_id != VRF_UNKNOWN) {
 		/* stop contexts */
+		nhrp_instance_register(nhrp_vrf, false);
 		nhrp_stop_context(nhrp_vrf);
 		nhrp_vrf->nhrp_socket_fd = -1;
 		nhrp_vrf->vrf_id = VRF_UNKNOWN;

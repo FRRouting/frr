@@ -459,6 +459,7 @@ enum nhrp_route_type nhrp_route_address(struct interface *in_ifp,
 
 extern int interface_config_write_vrf(struct vty *vty,
 				      struct nhrp_vrf *nhrp_vrf);
+extern void nhrp_instance_register(struct nhrp_vrf *nhrp_vrf, bool on);
 void nhrp_config_init(void);
 
 void nhrp_shortcut_init(struct nhrp_vrf *nhrp_vrf);
