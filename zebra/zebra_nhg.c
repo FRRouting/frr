@@ -360,6 +360,45 @@ void zebra_nhg_depends_walk_resolved_nexthops(struct nhg_hash_entry *nhe,
 						 &zebra_nhg_is_fully_resolved);
 }
 
+static int nexthop_set_flag(struct nexthop *nexthop, void *flag)
+{
+	SET_FLAG(nexthop->flags, *((int *)flag));
+
+	return NHG_WALK_CONTINUE;
+}
+
+static int nexthop_unset_flag(struct nexthop *nexthop, void *flag)
+{
+	UNSET_FLAG(nexthop->flags, *((int *)flag));
+
+	return NHG_WALK_CONTINUE;
+}
+
+void zebra_nhg_depends_set_all_nexthops_flag(struct nhg_hash_entry *nhe,
+					     int flag)
+{
+	zebra_nhg_depends_walk_nexthops(nhe, &nexthop_set_flag, &flag);
+}
+
+void zebra_nhg_depends_unset_all_nexthops_flag(struct nhg_hash_entry *nhe,
+					       int flag)
+{
+	zebra_nhg_depends_walk_nexthops(nhe, &nexthop_unset_flag, &flag);
+}
+
+void zebra_nhg_depends_set_all_resolved_nexthops_flag(
+	struct nhg_hash_entry *nhe, int flag)
+{
+	zebra_nhg_depends_walk_resolved_nexthops(nhe, &nexthop_set_flag, &flag);
+}
+
+void zebra_nhg_depends_unset_all_resolved_nexthops_flag(
+	struct nhg_hash_entry *nhe, int flag)
+{
+	zebra_nhg_depends_walk_resolved_nexthops(nhe, &nexthop_unset_flag,
+						 &flag);
+}
+
 struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id)
 {
 	struct nhg_hash_entry lookup = {};
@@ -562,6 +601,17 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
 	const struct nhg_hash_entry *nhe2 = arg2;
 
 	return nhe1->id == nhe2->id;
+}
+
+/* lib/nexthop manipulation functions */
+void zebra_nhg_nexthop_set_flag(struct nhg_hash_entry *nhe, int flag)
+{
+	SET_FLAG((zebra_nhg_nexthop(nhe))->flags, flag);
+}
+
+void zebra_nhg_nexthop_unset_flag(struct nhg_hash_entry *nhe, int flag)
+{
+	UNSET_FLAG((zebra_nhg_nexthop(nhe))->flags, flag);
 }
 
 static int zebra_nhg_process_grp(struct nexthop_group *nhg,

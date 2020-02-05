@@ -190,6 +190,19 @@ void zebra_nhg_depends_walk_resolved_nexthops(struct nhg_hash_entry *nhe,
 					      int (*func)(struct nexthop *,
 							  void *),
 					      void *arg);
+/* Set all nexthops in NHE tree's flag */
+void zebra_nhg_depends_set_all_nexthops_flag(struct nhg_hash_entry *nhe,
+					     int flag);
+/* Unset all nexthops in NHE tree's flag */
+void zebra_nhg_depends_unset_all_nexthops_flag(struct nhg_hash_entry *nhe,
+					       int flag);
+/* Set all fully resolved nexthops in NHE tree's flag */
+void zebra_nhg_depends_set_all_resolved_nexthops_flag(
+	struct nhg_hash_entry *nhe, int flag);
+
+/* Unset all fully resolved nexthops in NHE tree's flag */
+void zebra_nhg_depends_unset_all_resolved_nexthops_flag(
+	struct nhg_hash_entry *nhe, int flag);
 
 /* Global control to disable use of kernel nexthops, if available. We can't
  * force the kernel to support nexthop ids, of course, but we can disable
@@ -226,6 +239,10 @@ extern uint32_t zebra_nhg_id_key(const void *arg);
 
 extern bool zebra_nhg_hash_equal(const void *arg1, const void *arg2);
 extern bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2);
+
+/* Functions for easily manupulating data on lib/nexthop inside NHEs */
+extern void zebra_nhg_nexthop_set_flag(struct nhg_hash_entry *nhe, int flag);
+extern void zebra_nhg_nexthop_unset_flag(struct nhg_hash_entry *nhe, int flag);
 
 /*
  * Process a context off of a queue.
