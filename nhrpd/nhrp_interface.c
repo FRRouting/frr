@@ -359,6 +359,10 @@ void nhrp_interface_update(struct interface *ifp)
 	struct nhrp_vrf *nhrp_vrf;
 
 	nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
+	if (!nhrp_vrf) {
+		zlog_err("%s(): nhrp_vrf not found", __func__);
+		return;
+	}
 
 	notifier_call(&nifp->notifier_list, NOTIFY_INTERFACE_CHANGED);
 

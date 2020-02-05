@@ -62,6 +62,8 @@ struct zebra_privs_t nhrpd_privs = {
 	.cap_num_i = 0
 };
 
+static void nhrp_stop_context(struct nhrp_vrf *nhrp_vrf);
+
 static void parse_arguments(int argc, char **argv)
 {
 	int opt;
@@ -88,21 +90,12 @@ static void nhrp_sigusr1(void)
 
 static void nhrp_request_stop(void)
 {
-	struct nhrp_vrf *nhrp_vrf;
-
 	debugf(NHRP_DEBUG_COMMON, "Exiting...");
 	frr_early_fini();
 
-	nhrp_vrf = find_nhrp_vrf(NULL);
-
-	nhrp_shortcut_terminate(nhrp_vrf);
-	nhrp_nhs_terminate(nhrp_vrf);
-	nhrp_zebra_terminate(nhrp_vrf);
-	vici_terminate(nhrp_vrf);
-	evmgr_terminate(nhrp_vrf);
-	nhrp_vc_terminate(nhrp_vrf);
 	vrf_terminate();
-
+	nhrp_zebra_terminate_zclient();
+	list_delete(&nhrp_vrf_list);
 	debugf(NHRP_DEBUG_COMMON, "Done.");
 	frr_fini();
 
@@ -140,6 +133,32 @@ FRR_DAEMON_INFO(nhrpd, NHRP, .vty_port = NHRP_VTY_PORT,
 		.n_yang_modules = array_size(nhrpd_yang_modules),
 );
 
+static void nhrp_start_context(struct nhrp_vrf *nhrp_vrf)
+{
+	if (nhrp_vrf->vrf_id == VRF_UNKNOWN)
+		return;
+	nhrp_interface_init_vrf(nhrp_vrf);
+	evmgr_init(nhrp_vrf);
+	nhrp_vc_init(nhrp_vrf);
+	nhrp_packet_init(nhrp_vrf);
+	vici_init(nhrp_vrf);
+	nhrp_route_init(nhrp_vrf);
+	nhrp_nhs_init(nhrp_vrf);
+	nhrp_shortcut_init(nhrp_vrf);
+}
+
+static void nhrp_stop_context(struct nhrp_vrf *nhrp_vrf)
+{
+	if (nhrp_vrf->vrf_id == VRF_UNKNOWN)
+		return;
+	nhrp_shortcut_terminate(nhrp_vrf);
+	nhrp_nhs_terminate(nhrp_vrf);
+	nhrp_zebra_terminate(nhrp_vrf);
+	vici_terminate(nhrp_vrf);
+	evmgr_terminate(nhrp_vrf);
+	nhrp_vc_terminate(nhrp_vrf);
+}
+
 static int nhrp_vrf_new(struct vrf *vrf)
 {
 	debugf(NHRP_DEBUG_VRF, "VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
@@ -154,16 +173,40 @@ static int nhrp_vrf_delete(struct vrf *vrf)
 
 static int nhrp_vrf_enable(struct vrf *vrf)
 {
+	struct nhrp_vrf *nhrp_vrf;
+
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return 0;
 	debugf(NHRP_DEBUG_VRF, "VRF enable add %s id %u", vrf->name, vrf->vrf_id);
+	nhrp_vrf = nhrp_get_context(vrf->name);
+	if (nhrp_vrf && nhrp_vrf->vrf_id != vrf->vrf_id) {
+		nhrp_vrf->vrf_id = vrf->vrf_id;
+		/* start contexts */
+		nhrp_start_context(nhrp_vrf);
+	}
 	return 0;
 }
 
 static int nhrp_vrf_disable(struct vrf *vrf)
 {
-	if (vrf->vrf_id == VRF_DEFAULT)
-		return 0;
+	struct nhrp_vrf *nhrp_vrf;
 
 	debugf(NHRP_DEBUG_VRF, "VRF disable %s id %u", vrf->name, vrf->vrf_id);
+
+	if (vrf->vrf_id == VRF_DEFAULT)
+		nhrp_vrf = find_nhrp_vrf(NULL);
+	else
+		nhrp_vrf = find_nhrp_vrf(vrf->name);
+
+	if (nhrp_vrf && nhrp_vrf->vrf_id != VRF_UNKNOWN) {
+		/* stop contexts */
+		nhrp_stop_context(nhrp_vrf);
+		nhrp_vrf->nhrp_socket_fd = -1;
+		nhrp_vrf->vrf_id = VRF_UNKNOWN;
+		listnode_delete(nhrp_vrf_list, nhrp_vrf);
+		QOBJ_UNREG(nhrp_vrf);
+		XFREE(MTYPE_NHRP_VRF, nhrp_vrf);
+	}
 	return 0;
 }
 
@@ -192,6 +235,8 @@ struct nhrp_vrf *find_nhrp_vrf_id(vrf_id_t vrf_id)
 	struct listnode *nhrp_vrf_node;
 	struct nhrp_vrf *nhrp_vrf;
 
+	if (vrf_id == VRF_UNKNOWN)
+		return NULL;
 	for (ALL_LIST_ELEMENTS_RO(nhrp_vrf_list, nhrp_vrf_node, nhrp_vrf))
 		if (nhrp_vrf->vrf_id == vrf_id)
 			return nhrp_vrf;
@@ -224,9 +269,11 @@ struct nhrp_vrf *nhrp_get_context(const char *name)
 		nhrp_vrf->nhrp_socket_fd = -1;
 		QOBJ_REG(nhrp_vrf, nhrp_vrf);
 		listnode_add(nhrp_vrf_list, nhrp_vrf);
+		nhrp_vrf->vrf_id = VRF_UNKNOWN;
 		if (name)
 			nhrp_vrf->vrfname = XSTRDUP(MTYPE_NHRP_VRF, name);
-		nhrp_vrf->vrf_id = VRF_DEFAULT;
+		else
+			nhrp_vrf->vrf_id = VRF_DEFAULT;
 	}
 	return nhrp_vrf;
 }
@@ -260,18 +307,11 @@ int main(int argc, char **argv)
 	nhrpd_privs.change(ZPRIVS_RAISE);
 
 	nhrp_vrf = nhrp_get_context(NULL);
-	nhrp_interface_init_vrf(nhrp_vrf);
-	evmgr_init(nhrp_vrf);
-	nhrp_vc_init(nhrp_vrf);
-	nhrp_packet_init(nhrp_vrf);
-	vici_init(nhrp_vrf);
 	if_zapi_callbacks(nhrp_ifp_create, nhrp_ifp_up,
 			  nhrp_ifp_down, nhrp_ifp_destroy);
-	nhrp_route_init(nhrp_vrf);
-	nhrp_zebra_init();
-	nhrp_nhs_init(nhrp_vrf);
-	nhrp_shortcut_init(nhrp_vrf);
+	nhrp_start_context(nhrp_vrf);
 
+	nhrp_zebra_init();
 	nhrp_config_init();
 
 	frr_config_fork();

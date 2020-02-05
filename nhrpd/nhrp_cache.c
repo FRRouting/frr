@@ -351,7 +351,14 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 {
 	struct nhrp_cache *c = container_of(r, struct nhrp_cache, eventid);
 	char buf[3][SU_ADDRSTRLEN];
-	struct nhrp_vrf *nhrp_vrf = find_nhrp_vrf(NULL);
+	struct nhrp_vrf *nhrp_vrf = NULL;
+
+	if (c->ifp)
+		nhrp_vrf = find_nhrp_vrf_id(c->ifp->vrf_id);
+	if (!nhrp_vrf) {
+		zlog_err("%s(): nhrp_vrf not found", __func__);
+		return;
+	}
 
 	debugf(NHRP_DEBUG_COMMON, "cache: %s %pSU: %s", c->ifp->name,
 	       &c->remote_addr, (const char *)arg);

@@ -117,6 +117,7 @@ struct nhrp_vrf {
 void nhrp_zebra_init(void);
 void nhrp_route_init(struct nhrp_vrf *nhrp_vrf);
 void nhrp_zebra_terminate(struct nhrp_vrf *nhrp_vrf);
+void nhrp_zebra_terminate_zclient(void);
 void nhrp_send_zebra_configure_arp(struct interface *ifp, int family);
 void nhrp_send_zebra_nbr(union sockunion *in,
 			 union sockunion *out,

@@ -281,7 +281,7 @@ void evmgr_notify(const char *name, struct nhrp_cache *c,
 	struct nhrp_interface *nifp = c->ifp->info;
 	struct zbuf *zb;
 	afi_t afi = family2afi(sockunion_family(&c->remote_addr));
-	struct nhrp_vrf *nhrp_vrf = find_nhrp_vrf(NULL);
+	struct nhrp_vrf *nhrp_vrf = find_nhrp_vrf_id(c->ifp->vrf_id);
 
 	if (!nhrp_vrf || !nhrp_vrf->evmgr_connection)
 		return;

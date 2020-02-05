@@ -503,12 +503,16 @@ void nhrp_send_zebra_interface_redirect(struct interface *ifp,
 	zclient_send_message(zclient);
 }
 
+void nhrp_zebra_terminate_zclient(void)
+{
+	zclient_stop(zclient);
+	zclient_free(zclient);
+}
+
 void nhrp_zebra_terminate(struct nhrp_vrf *nhrp_vrf)
 {
 	nhrp_zebra_register_neigh(nhrp_vrf->vrf_id, AFI_IP, false);
 	nhrp_zebra_register_neigh(nhrp_vrf->vrf_id, AFI_IP6, false);
-	zclient_stop(zclient);
-	zclient_free(zclient);
 
 	nhrp_vrf->zebra_rib[AFI_IP]->cleanup = nhrp_table_node_cleanup;
 	nhrp_vrf->zebra_rib[AFI_IP6]->cleanup = nhrp_table_node_cleanup;
