@@ -7,6 +7,14 @@ module frr-interface {
     prefix frr-vrf;
   }
 
+  import ietf-interfaces {
+    prefix ietf-if;
+  }
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+
   organization
     "FRRouting";
   contact
@@ -15,6 +23,10 @@ module frr-interface {
   description
     "This module defines a model for managing FRR interfaces.";
 
+  revision 2020-02-05 {
+    description
+      "Added operational data";
+  }
   revision 2019-09-09 {
     description
       "Added interface-ref typedef";
@@ -22,6 +34,231 @@ module frr-interface {
   revision 2018-03-28 {
     description
       "Initial revision.";
+  }
+
+  identity other {
+    base ietf-if:interface-type;
+    description
+      "Other type";
+  }
+
+  identity unknown {
+    base ietf-if:interface-type;
+    description
+      "Unknown type";
+  }
+
+  identity ethernet {
+    base ietf-if:interface-type;
+    description
+      "Ethernet type";
+  }
+
+  identity exper-ethernet {
+    base ietf-if:interface-type;
+    description
+      "Experimental Ethernet type";
+  }
+
+  identity loopback {
+    base ietf-if:interface-type;
+    description
+      "Loopback type";
+  }
+
+  identity pimreg {
+    base ietf-if:interface-type;
+    description
+      "PIMSM Registration.";
+  }
+
+  identity ipip {
+    base ietf-if:interface-type;
+    description
+      "IPIP Tunnel.";
+  }
+
+  identity ipip6 {
+    base ietf-if:interface-type;
+    description
+      "IPIP6 Tunnel.";
+  }
+
+  identity ipgre {
+    base ietf-if:interface-type;
+    description
+      "GRE over IP.";
+  }
+
+  typedef interface-ref {
+    type leafref {
+      path "/frr-interface:lib/frr-interface:interface/frr-interface:name";
+      require-instance false;
+    }
+    description
+      "Reference to an interface";
+  }
+
+  typedef if-flags-type {
+    type enumeration {
+      enum "up" {
+        value 1;
+        description
+          "Active and ready to transfer packets.";
+      }
+      enum "broadcast" {
+        value 2;
+        description
+          "Broadcast enabled.";
+      }
+      enum "debug" {
+        value 3;
+        description
+          "Debug mode.";
+      }
+      enum "loopback" {
+        value 4;
+        description
+          "Loopback interface.";
+      }
+      enum "point-to-point" {
+        value 5;
+        description
+          "Point-to-Point link.";
+      }
+      enum "notrailers" {
+        value 6;
+        description
+          "This flag is unused in Linux, but it exists for BSD compatibility.
+          Avoid use of trailers";
+      }
+      enum "running" {
+        value 7;
+        description
+          "Up and Running.";
+      }
+      enum "noarp" {
+        value 8;
+        description
+          "Can't perform address resolution protocol.";
+      }
+      enum "promisc" {
+        value 9;
+        description
+          "Promiscuous mode. Receive all packets.";
+      }
+      enum "allmulti" {
+        value 10;
+        description
+          "Receive all multicast packets.";
+      }
+      enum "simplex" {
+        value 11;
+        description
+          "Does not Rx or Tx at the sametime.";
+      }
+      enum "link0" {
+        value 12;
+        description
+          "Link0.";
+      }
+      enum "link1" {
+        value 13;
+        description
+          "Link1.";
+      }
+      enum "link2" {
+        value 14;
+        description
+          "Link2.";
+      }
+      enum "multicast" {
+        value 15;
+        description
+          "Supports multicast transmission.";
+      }
+      enum "notransmit" {
+        value 16;
+        description
+          "Interface is no transmit mode.";
+      }
+      enum "nortexch" {
+        value 17;
+        description
+          "No routing info exchange.";
+      }
+      enum "virtual" {
+        value 18;
+        description
+          "Virtual interface.";
+      }
+      enum "ipv4" {
+        value 19;
+        description
+          "IPv4 enabled.";
+      }
+      enum "ipv6" {
+        value 20;
+        description
+          "IPv6 enabled.";
+      }
+    }
+  }
+
+  grouping if-common-operational {
+    leaf if-index {
+      type int32 {
+        range "0..2147483647";
+      }
+      description
+        "Interface index.";
+    }
+
+    leaf mtu {
+      type uint16;
+      description
+        "The size of the largest IPV4 packet that the interface
+         will send and receive.";
+    }
+
+    leaf mtu6 {
+      type uint32;
+      description
+        "The size of the largest IPV6 packet that the interface
+         will send and receive.";
+    }
+
+    leaf speed {
+      type uint32;
+      description
+        "Interface speed.";
+    }
+
+    leaf metric {
+      type uint32;
+      description
+        "Interface metric.";
+    }
+
+    leaf flags {
+      type if-flags-type;
+      description
+        "Interface flags.";
+    }
+
+    leaf type {
+      type identityref {
+        base ietf-if:interface-type;
+      }
+      description
+        "The link type of the interface.";
+    }
+
+    leaf phy-address {
+      type yang:mac-address;
+      description
+        "The interface's MAC address.";
+    }
   }
 
   container lib {
@@ -52,15 +289,11 @@ module frr-interface {
         description
           "Interface description.";
       }
-    }
-  }
 
-  typedef interface-ref {
-    type leafref {
-      require-instance false;
-      path "/frr-interface:lib/frr-interface:interface/frr-interface:name";
+      container state {
+        config false;
+        uses if-common-operational;
+      }
     }
-    description
-      "Reference to an interface";
   }
 }
