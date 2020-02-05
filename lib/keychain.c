@@ -344,7 +344,6 @@ static time_t key_str2time(const char *time_str, const char *day_str,
 	int i = 0;
 	char *colon;
 	struct tm tm;
-	time_t time;
 	unsigned int sec, min, hour;
 	unsigned int day, month, year;
 

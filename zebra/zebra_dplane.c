@@ -1164,8 +1164,6 @@ zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
 				    uint8_t num_labels,
 				    mpls_label_t out_labels[])
 {
-	zebra_nhlfe_t *nhlfe;
-
 	DPLANE_CTX_VALID(ctx);
 
 	return zebra_mpls_lsp_add_nhlfe(&(ctx->u.lsp),
@@ -1762,7 +1760,6 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
  */
 static int dplane_update_enqueue(struct zebra_dplane_ctx *ctx)
 {
-	int ret = EINVAL;
 	uint32_t high, curr;
 
 	/* Enqueue for processing by the dataplane pthread */
@@ -2401,11 +2398,9 @@ enum zebra_dplane_result dplane_mac_add(const struct interface *ifp,
 					struct in_addr vtep_ip,
 					bool sticky)
 {
-	enum zebra_dplane_result result;
-
 	/* Use common helper api */
-	return mac_update_internal(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp,
-				     vid, mac, vtep_ip, sticky);
+	return mac_update_internal(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp, vid,
+				   mac, vtep_ip, sticky);
 }
 
 /*
@@ -2417,11 +2412,9 @@ enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
 					const struct ethaddr *mac,
 					struct in_addr vtep_ip)
 {
-	enum zebra_dplane_result result;
-
 	/* Use common helper api */
-	return mac_update_internal(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp,
-				     vid, mac, vtep_ip, false);
+	return mac_update_internal(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, vid,
+				   mac, vtep_ip, false);
 }
 
 /*
@@ -2499,10 +2492,8 @@ enum zebra_dplane_result dplane_neigh_add(const struct interface *ifp,
 					  const struct ethaddr *mac,
 					  uint32_t flags)
 {
-	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
-
-	return neigh_update_internal(DPLANE_OP_NEIGH_INSTALL,
-				       ifp, mac, ip, flags, DPLANE_NUD_NOARP);
+	return neigh_update_internal(DPLANE_OP_NEIGH_INSTALL, ifp, mac, ip,
+				     flags, DPLANE_NUD_NOARP);
 }
 
 /*
@@ -2512,10 +2503,8 @@ enum zebra_dplane_result dplane_neigh_update(const struct interface *ifp,
 					     const struct ipaddr *ip,
 					     const struct ethaddr *mac)
 {
-	enum zebra_dplane_result result;
-
-	return neigh_update_internal(DPLANE_OP_NEIGH_UPDATE,
-				       ifp, mac, ip, 0, DPLANE_NUD_PROBE);
+	return neigh_update_internal(DPLANE_OP_NEIGH_UPDATE, ifp, mac, ip, 0,
+				     DPLANE_NUD_PROBE);
 }
 
 /*
@@ -2524,10 +2513,8 @@ enum zebra_dplane_result dplane_neigh_update(const struct interface *ifp,
 enum zebra_dplane_result dplane_neigh_delete(const struct interface *ifp,
 					     const struct ipaddr *ip)
 {
-	enum zebra_dplane_result result;
-
-	return neigh_update_internal(DPLANE_OP_NEIGH_DELETE,
-				       ifp, NULL, ip, 0, 0);
+	return neigh_update_internal(DPLANE_OP_NEIGH_DELETE, ifp, NULL, ip, 0,
+				     0);
 }
 
 /*
@@ -2537,7 +2524,6 @@ enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp,
 					 const struct in_addr *ip,
 					 vni_t vni)
 {
-	enum zebra_dplane_result result;
 	struct ethaddr mac = { {0, 0, 0, 0, 0, 0} };
 	struct ipaddr addr;
 
@@ -2559,7 +2545,6 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp,
 					    const struct in_addr *ip,
 					    vni_t vni)
 {
-	enum zebra_dplane_result result;
 	struct ethaddr mac = { {0, 0, 0, 0, 0, 0} };
 	struct ipaddr addr;
 

@@ -2023,7 +2023,6 @@ struct aspath *aspath_str2aspath(const char *str)
 unsigned int aspath_key_make(const void *p)
 {
 	const struct aspath *aspath = p;
-	unsigned int key = 0;
 
 	if (!aspath->str)
 		aspath_str_update((struct aspath *)aspath, false);
