@@ -32,6 +32,9 @@ nhrpd_nhrpd_SOURCES = \
 	nhrpd/znl.c \
 	# end
 
+nhrpd/nhrp_vty_clippy.c: $(CLIPPY_DEPS)
+nhrpd/nhrp_vty.$(OBJEXT): nhrpd/nhrp_vty_clippy.c
+
 noinst_HEADERS += \
 	nhrpd/debug.h \
 	nhrpd/list.h \

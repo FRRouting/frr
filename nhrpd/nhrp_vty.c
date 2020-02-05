@@ -18,6 +18,11 @@
 #include "netlink.h"
 
 static int nhrp_config_write(struct vty *vty);
+
+#ifndef VTYSH_EXTRACT_PL
+#include "nhrpd/nhrp_vty_clippy.c"
+#endif
+
 static struct cmd_node zebra_node = {
 	.name = "zebra",
 	.node = ZEBRA_NODE,
@@ -1047,8 +1052,8 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 	vty_out(ctx->vty, "\n\n");
 }
 
-DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
-	"show " AFI_CMD " nhrp [cache|nhs|shortcut|opennhrp] [json]",
+DEFPY(show_ip_nhrp, show_ip_nhrp_cmd,
+	"show <ip$ip|ipv6$ipv6> nhrp [cache$cache|nhs$nhs|shortcut$shcut|opennhrp$open] [vrf <NAME$vrf_name|all$vrf_all>] [json$uj]",
 	SHOW_STR
 	AFI_STR
 	"NHRP information\n"
@@ -1056,60 +1061,78 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	"Next hop server information\n"
 	"Shortcut information\n"
 	"opennhrpctl style cache dump\n"
+	VRF_FULL_CMD_HELP_STR
 	JSON_STR)
 {
-	struct nhrp_vrf *nhrp_vrf;
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	struct interface *ifp;
 	struct info_ctx ctx = {
-		.vty = vty, .afi = cmd_to_afi(argv[1]), .json = NULL
+		.vty = vty, .json = NULL
 	};
-	bool uj = use_json(argc, argv);
 	struct json_object *json_path = NULL;
 	struct json_object *json_vrf = NULL, *json_vrf_path = NULL;
 	int ret = CMD_SUCCESS;
+	struct nhrp_vrf *nhrp_vrf = NULL, *nhrp_vrf2;
+	struct listnode *nhrp_vrf_node;
 
-	nhrp_vrf = find_nhrp_vrf_id(VRF_DEFAULT);
-	if (uj) {
-		json_vrf = json_object_new_object();
-		json_vrf_path = json_object_new_object();
-		json_path = json_object_new_array();
-		ctx.json = json_path;
-	}
-	if (argc <= 3 || argv[3]->text[0] == 'c') {
-		FOR_ALL_INTERFACES (vrf, ifp)
-			nhrp_cache_foreach(ifp, show_ip_nhrp_cache, &ctx);
-	} else if (argv[3]->text[0] == 'n') {
-		FOR_ALL_INTERFACES (vrf, ifp)
-			nhrp_nhs_foreach(ifp, ctx.afi, show_ip_nhrp_nhs, &ctx);
-	} else if (argv[3]->text[0] == 's') {
-		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx,
-				      nhrp_vrf);
-	} else {
-		if (!ctx.json)
-			vty_out(vty, "Status: ok\n\n");
-		else
-			json_object_string_add(json_vrf, "status", "ok");
+	if (ip)
+		ctx.afi = AFI_IP;
+	else
+		ctx.afi = AFI_IP6;
+	if (vrf_name) {
+		nhrp_vrf = find_nhrp_vrf(vrf_name);
+		if (!nhrp_vrf)
+		    return CMD_SUCCESS;
+	} else if (!vrf_all)
+		nhrp_vrf = find_nhrp_vrf(NULL);
 
-		ctx.count++;
-		FOR_ALL_INTERFACES (vrf, ifp)
-			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
-	}
-
-	if (uj)
-		json_object_int_add(json_vrf, "entriesCount", ctx.count);
-	if (!ctx.count) {
-		if (!ctx.json)
-			vty_out(vty, "%% No entries\n");
-		ret = CMD_WARNING;
-	}
-	if (uj) {
-		json_object_object_add(json_vrf_path, "attr", json_vrf);
-		json_object_object_add(json_vrf_path, "table", ctx.json);
-		vty_out(vty, "%s",
-			json_object_to_json_string_ext(
-			       json_vrf_path, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_vrf_path);
+	for (ALL_LIST_ELEMENTS_RO(nhrp_vrf_list, nhrp_vrf_node, nhrp_vrf2)) {
+		if (nhrp_vrf && nhrp_vrf != nhrp_vrf2)
+			continue;
+		vrf = vrf_lookup_by_id(nhrp_vrf2->vrf_id);
+		if (!vrf)
+			continue;
+		if (uj) {
+			json_vrf = json_object_new_object();
+			json_vrf_path = json_object_new_object();
+			json_path = json_object_new_array();
+			ctx.json = json_path;
+		}
+		if (cache) {
+			FOR_ALL_INTERFACES (vrf, ifp)
+				nhrp_cache_foreach(ifp, show_ip_nhrp_cache, &ctx);
+		} else if (nhs) {
+			FOR_ALL_INTERFACES (vrf, ifp)
+				nhrp_nhs_foreach(ifp, ctx.afi,
+						 show_ip_nhrp_nhs, &ctx);
+		} else if (shcut) {
+			nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx,
+					      nhrp_vrf2);
+		} else {
+			if (!ctx.json)
+				vty_out(vty, "Status: ok\n\n");
+			else
+				json_object_string_add(json_vrf, "status", "ok");
+			ctx.count++;
+			FOR_ALL_INTERFACES (vrf, ifp)
+				nhrp_cache_foreach(ifp, show_ip_opennhrp_cache,
+						   &ctx);
+		}
+		if (uj)
+			json_object_int_add(json_vrf, "entriesCount", ctx.count);
+		if (!ctx.count) {
+			if (!ctx.json)
+				vty_out(vty, "%% No entries\n");
+			ret = CMD_WARNING;
+		}
+		if (uj) {
+			json_object_object_add(json_vrf_path, "attr", json_vrf);
+			json_object_object_add(json_vrf_path, "table", ctx.json);
+			vty_out(vty, "%s",
+				json_object_to_json_string_ext(
+							       json_vrf_path, JSON_C_TO_STRING_PRETTY));
+			json_object_free(json_vrf_path);
+		}
 	}
 	return ret;
 }
@@ -1151,34 +1174,44 @@ static void show_dmvpn_entry(struct nhrp_vc *vc, void *ctx)
 	}
 }
 
-DEFUN(show_dmvpn, show_dmvpn_cmd,
-	"show dmvpn [json]",
+DEFPY(show_dmvpn, show_dmvpn_cmd,
+	"show dmvpn [vrf <NAME$vrf_name|all$vrf_all>] [json$uj]",
 	SHOW_STR
 	"DMVPN information\n"
+	VRF_FULL_CMD_HELP_STR
 	JSON_STR)
 {
-	bool uj = use_json(argc, argv);
 	struct dmvpn_cfg ctxt;
 	struct json_object *json_path = NULL;
-	struct nhrp_vrf *nhrp_vrf;
+	struct nhrp_vrf *nhrp_vrf = NULL, *nhrp_vrf2;
+	struct listnode *nhrp_vrf_node;
 
-	nhrp_vrf = find_nhrp_vrf_id(VRF_DEFAULT);
+	if (vrf_name) {
+		nhrp_vrf = find_nhrp_vrf(vrf_name);
+		if (!nhrp_vrf)
+			return CMD_SUCCESS;
+	} else if (!vrf_all)
+		nhrp_vrf = find_nhrp_vrf(NULL);
 
-	ctxt.vty = vty;
-	if (!uj) {
-		ctxt.json = NULL;
-		vty_out(vty, "%-24s %-24s %-6s %-4s %-24s\n",
-			"Src", "Dst", "Flags", "SAs", "Identity");
-	} else {
-		json_path = json_object_new_array();
-		ctxt.json = json_path;
-	}
-	nhrp_vc_foreach(show_dmvpn_entry, &ctxt, nhrp_vrf);
-	if (uj) {
-		vty_out(vty, "%s",
-			json_object_to_json_string_ext(
-			       json_path, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_path);
+	for (ALL_LIST_ELEMENTS_RO(nhrp_vrf_list, nhrp_vrf_node, nhrp_vrf2)) {
+		if (nhrp_vrf && nhrp_vrf != nhrp_vrf2)
+			continue;
+		ctxt.vty = vty;
+		if (!uj) {
+			ctxt.json = NULL;
+			vty_out(vty, "%-24s %-24s %-6s %-4s %-24s\n",
+				"Src", "Dst", "Flags", "SAs", "Identity");
+		} else {
+			json_path = json_object_new_array();
+			ctxt.json = json_path;
+		}
+		nhrp_vc_foreach(show_dmvpn_entry, &ctxt, nhrp_vrf);
+		if (uj) {
+			vty_out(vty, "%s",
+				json_object_to_json_string_ext(
+					json_path, JSON_C_TO_STRING_PRETTY));
+			json_object_free(json_path);
+		}
 	}
 	return CMD_SUCCESS;
 }
@@ -1200,35 +1233,51 @@ static void clear_nhrp_shortcut(struct nhrp_shortcut *s, void *data)
 	ctx->count++;
 }
 
-DEFUN(clear_nhrp, clear_nhrp_cmd,
-	"clear " AFI_CMD " nhrp <cache|shortcut>",
+DEFPY(clear_nhrp, clear_nhrp_cmd,
+	"clear  <ip$ipv4|ipv6$ipv6> nhrp <cache$cache|shortcut$shortcut> [vrf <NAME$vrf_name|all$vrf_all>]",
 	CLEAR_STR
 	AFI_STR
 	NHRP_STR
 	"Dynamic cache entries\n"
-	"Shortcut entries\n")
+	"Shortcut entries\n"
+	VRF_FULL_CMD_HELP_STR)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	struct interface *ifp;
 	struct info_ctx ctx = {
 		.vty = vty, .afi = cmd_to_afi(argv[1]), .count = 0,
 	};
-	struct nhrp_vrf *nhrp_vrf = find_nhrp_vrf_id(VRF_DEFAULT);
+	struct nhrp_vrf *nhrp_vrf = NULL, *nhrp_vrf2;
+	struct listnode *nhrp_vrf_node;
 
-	if (argc <= 3 || argv[3]->text[0] == 'c') {
-		FOR_ALL_INTERFACES (vrf, ifp)
-			nhrp_cache_foreach(ifp, clear_nhrp_cache, &ctx);
-	} else {
-		nhrp_shortcut_foreach(ctx.afi, clear_nhrp_shortcut, &ctx,
-				      nhrp_vrf);
+	if (vrf_name) {
+		nhrp_vrf = find_nhrp_vrf(vrf_name);
+		if (!nhrp_vrf)
+			return CMD_SUCCESS;
+	} else if (!vrf_all)
+		nhrp_vrf = find_nhrp_vrf(NULL);
+
+	for (ALL_LIST_ELEMENTS_RO(nhrp_vrf_list, nhrp_vrf_node, nhrp_vrf2)) {
+		if (nhrp_vrf && nhrp_vrf != nhrp_vrf2)
+			continue;
+		vrf = vrf_lookup_by_id(nhrp_vrf2->vrf_id);
+		if (!vrf)
+			continue;
+		if (cache) {
+			FOR_ALL_INTERFACES (vrf, ifp)
+				nhrp_cache_foreach(ifp, clear_nhrp_cache, &ctx);
+		} else {
+			nhrp_shortcut_foreach(ctx.afi, clear_nhrp_shortcut, &ctx,
+					      nhrp_vrf2);
+		}
+
+		if (!ctx.count) {
+			vty_out(vty, "%% No entries\n");
+			return CMD_WARNING;
+		}
+		vty_out(vty, "%% %d entries cleared\n", ctx.count);
 	}
 
-	if (!ctx.count) {
-		vty_out(vty, "%% No entries\n");
-		return CMD_WARNING;
-	}
-
-	vty_out(vty, "%% %d entries cleared\n", ctx.count);
 	return CMD_SUCCESS;
 }
 
@@ -1254,9 +1303,8 @@ static void interface_config_write_nhrp_map(struct nhrp_cache_config *c,
 		vty_out(vty, "%pSU\n", &c->nbma);
 }
 
-static int interface_config_write(struct vty *vty)
+static void interface_vrf_config_write(struct vty *vty, struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct write_map_ctx mapctx;
 	struct interface *ifp;
 	struct nhrp_interface *nifp;
@@ -1267,7 +1315,10 @@ static int interface_config_write(struct vty *vty)
 	int i;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		vty_frame(vty, "interface %s\n", ifp->name);
+		vty_frame(vty, "interface %s%s%s\n",
+			  ifp->name,
+			  vrf->vrf_id != VRF_DEFAULT ? " vrf " : "",
+			  vrf->vrf_id != VRF_DEFAULT ? vrf->name : "");
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
 
@@ -1280,9 +1331,12 @@ static int interface_config_write(struct vty *vty)
 					nifp->ipsec_fallback_profile);
 			vty_out(vty, "\n");
 		}
-		if (nifp->source)
-			vty_out(vty, " tunnel source %s\n", nifp->source);
-
+		if (nifp->source) {
+			vty_out(vty, " tunnel source %s", nifp->source);
+			if (nifp->vrfname)
+				vty_out(vty, " vrf %s", nifp->vrfname);
+			vty_out(vty, "\n");
+		}
 		for (afi = 0; afi < AFI_MAX; afi++) {
 			struct nhrp_afi_data *ad = &nifp->afi[afi];
 
@@ -1344,7 +1398,14 @@ static int interface_config_write(struct vty *vty)
 
 		vty_endframe(vty, "!\n");
 	}
+}
 
+static int interface_config_write(struct vty *vty)
+{
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		interface_vrf_config_write(vty, vrf);
 	return 0;
 }
 
@@ -1376,7 +1437,12 @@ void nhrp_config_init(void)
 	install_element(CONFIG_NODE, &nhrp_multicast_nflog_group_cmd);
 	install_element(CONFIG_NODE, &no_nhrp_multicast_nflog_group_cmd);
 
-	vrf_cmd_init(NULL, &nhrpd_privs);
+	install_element(VRF_NODE, &nhrp_event_socket_cmd);
+	install_element(VRF_NODE, &no_nhrp_event_socket_cmd);
+	install_element(VRF_NODE, &nhrp_nflog_group_cmd);
+	install_element(VRF_NODE, &no_nhrp_nflog_group_cmd);
+	install_element(VRF_NODE, &nhrp_multicast_nflog_group_cmd);
+	install_element(VRF_NODE, &no_nhrp_multicast_nflog_group_cmd);
 
 	/* interface specific commands */
 	install_node(&nhrp_interface_node);
