@@ -80,7 +80,7 @@ void pcep_lib_disconnect(struct pcc_state *pcc_state)
 
 double_linked_list *pcep_lib_format_path(struct path *path)
 {
-	struct in_addr addr_null, *addr;
+	struct in_addr addr_null;
 	double_linked_list *objs, *srp_tlvs, *lsp_tlvs, *ero_objs;
 	struct pcep_object_tlv_header *tlv;
 	struct pcep_object_ro_subobj *ero_obj;
@@ -142,19 +142,18 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 		if (hop->has_nai) {
 			/* Only supporting IPv4 nodes */
 			assert(PCEP_SR_SUBOBJ_NAI_IPV4_NODE == hop->nai_type);
-
-			addr = malloc(sizeof(*addr));
-			*addr = hop->nai.ipv4_node.addr;
 			ero_obj = (struct pcep_object_ro_subobj *)
 				pcep_obj_create_ro_subobj_sr_ipv4_node(
 					hop->is_loose, !hop->has_sid,
 					hop->has_attribs, /* C Flag */
 					hop->is_mpls,     /* M Flag */
-					sid, addr);
+					sid, &hop->nai.ipv4_node.addr);
 		} else {
 			ero_obj = (struct pcep_object_ro_subobj *)
 				pcep_obj_create_ro_subobj_sr_nonai(
-					hop->is_loose, sid);
+					hop->is_loose, sid,
+					hop->has_attribs, /* C Flag */
+					hop->is_mpls);    /* M Flag */
 		}
 		assert(NULL != ero_obj);
 		dll_append(ero_objs, ero_obj);
