@@ -337,6 +337,13 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 		if (PREFIX_FAMILY(c->address) != family)
 			continue;
 		if (best == NULL) {
+			/* On NHRP interfaces a host prefix is required */
+			if (if_ad->configured
+			    && c->address->prefixlen != 8 * prefix_blen(c->address)) {
+				zlog_notice("%s: %s is not a host prefix (2)", ifp->name,
+					    prefix2str(c->address, buf, sizeof buf));
+				continue;
+			}
 			best = c;
 			continue;
 		}
@@ -349,6 +356,12 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 		    && (c->flags & ZEBRA_IFA_SECONDARY))
 			continue;
 		if (best->address->prefixlen > c->address->prefixlen) {
+			if (if_ad->configured
+			    && c->address->prefixlen != 8 * prefix_blen(c->address)) {
+				zlog_notice("%s: %s is not a host prefix (3)", ifp->name,
+					    prefix2str(c->address, buf, sizeof buf));
+				continue;
+			}
 			best = c;
 			continue;
 		}
