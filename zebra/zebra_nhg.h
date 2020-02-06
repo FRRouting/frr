@@ -223,9 +223,19 @@ void zebra_nhg_hash_free(void *p);
 
 extern struct nhg_hash_entry *zebra_nhg_resolve(struct nhg_hash_entry *nhe);
 
+/*
+ * Depend APIs
+ */
 extern unsigned int zebra_nhg_depends_count(const struct nhg_hash_entry *nhe);
 extern bool zebra_nhg_depends_is_empty(const struct nhg_hash_entry *nhe);
 
+/* Get depend by ID in tree. Return NHE if found, otherwise NULL */
+extern struct nhg_hash_entry *zebra_nhg_depends_get(struct nhg_hash_entry *nhe,
+						    uint32_t id);
+
+/*
+ * Dependent APIs
+ */
 extern unsigned int
 zebra_nhg_dependents_count(const struct nhg_hash_entry *nhe);
 extern bool zebra_nhg_dependents_is_empty(const struct nhg_hash_entry *nhe);

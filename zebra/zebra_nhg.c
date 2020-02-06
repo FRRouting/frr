@@ -304,6 +304,37 @@ static void zebra_nhg_depends_release(struct nhg_hash_entry *nhe)
 	}
 }
 
+/* matching helper struct */
+struct nhg_match {
+	uint32_t id;		      /* ID we are trying to get */
+	struct nhg_hash_entry *found; /* If found, set this pointer to it */
+};
+
+static int nhg_match_walker(struct nhg_hash_entry *nhe, void *arg)
+{
+	struct nhg_match *nhg_match = arg;
+
+	if (nhe->id == nhg_match->id) {
+		nhg_match->found = nhe;
+		return NHG_WALK_ABORT;
+	}
+
+	return NHG_WALK_CONTINUE;
+}
+
+/* Get depend in tree by ID */
+struct nhg_hash_entry *zebra_nhg_depends_get(struct nhg_hash_entry *nhe,
+					     uint32_t id)
+{
+	struct nhg_match nhg_match = {};
+
+	nhg_match.id = id;
+
+	zebra_nhg_depends_walk(nhe, &nhg_match_walker, &nhg_match);
+
+	return nhg_match.found;
+}
+
 static int zebra_nhg_is_group(const struct nhg_hash_entry *nhe)
 {
 	if (!zebra_nhg_depends_is_empty(nhe)
