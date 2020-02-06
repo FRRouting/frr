@@ -126,6 +126,7 @@ struct zebra_evpn_t_ {
 /* for parsing evpn and vni contexts */
 struct zebra_from_svi_param {
 	struct interface *br_if;
+	struct interface *svi_if;
 	struct zebra_if *zif;
 	uint8_t bridge_vlan_aware;
 	vlanid_t vid;
