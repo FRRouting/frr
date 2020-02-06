@@ -754,13 +754,15 @@ int bgp_pbr_build_and_validate_entry(struct prefix *p,
 				 * draft-ietf-idr-flowspec-redirect
 				 */
 				if (api_action_redirect_ip) {
-					if (api_action_redirect_ip->u
-					    .zr.redirect_ip_v4.s_addr)
+					if (api_action_redirect_ip->u.zr
+						    .redirect_ip_v4.s_addr
+					    != INADDR_ANY)
 						continue;
-					if (!path->attr->nexthop.s_addr)
+					if (path->attr->nexthop.s_addr
+					    == INADDR_ANY)
 						continue;
-					api_action_redirect_ip->u
-						.zr.redirect_ip_v4.s_addr =
+					api_action_redirect_ip->u.zr
+						.redirect_ip_v4.s_addr =
 						path->attr->nexthop.s_addr;
 					api_action_redirect_ip->u.zr.duplicate
 						= ecom_eval->val[7];

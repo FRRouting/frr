@@ -1074,7 +1074,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	/* If neighbor itself declares DR and no BDR exists,
 	   cause event BackupSeen */
 	if (IPV4_ADDR_SAME(&nbr->address.u.prefix4, &hello->d_router))
-		if (hello->bd_router.s_addr == 0 && oi->state == ISM_Waiting)
+		if (hello->bd_router.s_addr == INADDR_ANY
+		    && oi->state == ISM_Waiting)
 			OSPF_ISM_EVENT_SCHEDULE(oi, ISM_BackupSeen);
 
 	/* neighbor itself declares BDR. */
@@ -3352,7 +3353,7 @@ static int ospf_make_hello(struct ospf_interface *oi, struct stream *s)
 	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
 		if ((nbr = rn->info))
 			if (nbr->router_id.s_addr
-			    != 0) /* Ignore 0.0.0.0 node. */
+			    != INADDR_ANY) /* Ignore 0.0.0.0 node. */
 				if (nbr->state
 				    != NSM_Attempt) /* Ignore Down neighbor. */
 					if (nbr->state
@@ -3364,17 +3365,17 @@ static int ospf_make_hello(struct ospf_interface *oi, struct stream *s)
 							/* Check neighbor is
 							 * sane? */
 							if (nbr->d_router.s_addr
-								    != 0
+								    != INADDR_ANY
 							    && IPV4_ADDR_SAME(
-								       &nbr->d_router,
-								       &oi->address
-										->u
-										.prefix4)
+								    &nbr->d_router,
+								    &oi->address
+									     ->u
+									     .prefix4)
 							    && IPV4_ADDR_SAME(
-								       &nbr->bd_router,
-								       &oi->address
-										->u
-										.prefix4))
+								    &nbr->bd_router,
+								    &oi->address
+									     ->u
+									     .prefix4))
 								flag = 1;
 
 							/* Hello packet overflows interface MTU. */

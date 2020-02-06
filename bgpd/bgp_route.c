@@ -1535,8 +1535,8 @@ void bgp_attr_add_gshut_community(struct attr *attr)
 static void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
 {
 	if (family == AF_INET) {
-		attr->nexthop.s_addr = 0;
-		attr->mp_nexthop_global_in.s_addr = 0;
+		attr->nexthop.s_addr = INADDR_ANY;
+		attr->mp_nexthop_global_in.s_addr = INADDR_ANY;
 	}
 	if (family == AF_INET6)
 		memset(&attr->mp_nexthop_global, 0, IPV6_MAX_BYTELEN);
@@ -3200,10 +3200,9 @@ static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 
 	/* If NEXT_HOP is present, validate it. */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
-		if (attr->nexthop.s_addr == 0
+		if (attr->nexthop.s_addr == INADDR_ANY
 		    || IPV4_CLASS_DE(ntohl(attr->nexthop.s_addr))
-		    || bgp_nexthop_self(bgp, afi, type, stype,
-			attr, rn))
+		    || bgp_nexthop_self(bgp, afi, type, stype, attr, rn))
 			return 1;
 	}
 
@@ -3216,11 +3215,11 @@ static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 		switch (attr->mp_nexthop_len) {
 		case BGP_ATTR_NHLEN_IPV4:
 		case BGP_ATTR_NHLEN_VPNV4:
-			ret = (attr->mp_nexthop_global_in.s_addr == 0
-			       || IPV4_CLASS_DE(ntohl(
-					  attr->mp_nexthop_global_in.s_addr))
-			       || bgp_nexthop_self(bgp, afi, type, stype,
-						   attr, rn));
+			ret = (attr->mp_nexthop_global_in.s_addr == INADDR_ANY
+			       || IPV4_CLASS_DE(
+				       ntohl(attr->mp_nexthop_global_in.s_addr))
+			       || bgp_nexthop_self(bgp, afi, type, stype, attr,
+						   rn));
 			break;
 
 		case BGP_ATTR_NHLEN_IPV6_GLOBAL:
@@ -5475,7 +5474,7 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 			bgp_static->backdoor = backdoor;
 			bgp_static->valid = 0;
 			bgp_static->igpmetric = 0;
-			bgp_static->igpnexthop.s_addr = 0;
+			bgp_static->igpnexthop.s_addr = INADDR_ANY;
 			bgp_static->label_index = label_index;
 
 			if (rmap) {
@@ -5766,7 +5765,7 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 		bgp_static->backdoor = 0;
 		bgp_static->valid = 0;
 		bgp_static->igpmetric = 0;
-		bgp_static->igpnexthop.s_addr = 0;
+		bgp_static->igpnexthop.s_addr = INADDR_ANY;
 		bgp_static->label = label;
 		bgp_static->prd = prd;
 
@@ -7540,7 +7539,7 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 						 : inet_ntoa(attr->nexthop),
 				vrf_id_str);
 	} else if (safi == SAFI_FLOWSPEC) {
-		if (attr->nexthop.s_addr != 0) {
+		if (attr->nexthop.s_addr != INADDR_ANY) {
 			if (json_paths) {
 				json_nexthop_global = json_object_new_object();
 

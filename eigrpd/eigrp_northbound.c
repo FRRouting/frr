@@ -161,7 +161,7 @@ static int eigrpd_instance_router_id_destroy(enum nb_event event,
 		break;
 	case NB_EV_APPLY:
 		eigrp = nb_running_get_entry(dnode, NULL, true);
-		eigrp->router_id_static.s_addr = 0;
+		eigrp->router_id_static.s_addr = INADDR_ANY;
 		break;
 	}
 

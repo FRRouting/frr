@@ -310,7 +310,7 @@ int ospf_area_range_substitute_unset(struct ospf *ospf, struct in_addr area_id,
 			ospf_schedule_abr_task(ospf);
 
 	UNSET_FLAG(range->flags, OSPF_AREA_RANGE_SUBSTITUTE);
-	range->subst_addr.s_addr = 0;
+	range->subst_addr.s_addr = INADDR_ANY;
 	range->subst_masklen = 0;
 
 	return 1;

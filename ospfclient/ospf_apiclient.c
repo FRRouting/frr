@@ -451,7 +451,7 @@ int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
 
 	tmp = SET_OPAQUE_LSID(opaque_type, opaque_id);
 	lsah->id.s_addr = htonl(tmp);
-	lsah->adv_router.s_addr = 0;
+	lsah->adv_router.s_addr = INADDR_ANY;
 	lsah->ls_seqnum = 0;
 	lsah->checksum = 0;
 	lsah->length = htons(sizeof(struct lsa_header) + opaquelen);

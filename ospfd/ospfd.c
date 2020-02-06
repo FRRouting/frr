@@ -329,7 +329,7 @@ struct ospf *ospf_lookup_instance(unsigned short instance)
 static int ospf_is_ready(struct ospf *ospf)
 {
 	/* OSPF must be on and Router-ID must be configured. */
-	if (!ospf || ospf->router_id.s_addr == 0)
+	if (!ospf || ospf->router_id.s_addr == INADDR_ANY)
 		return 0;
 
 	return 1;
@@ -379,7 +379,7 @@ struct ospf *ospf_get(unsigned short instance, const char *name, bool *created)
 		ospf = ospf_new(instance, name);
 		ospf_add(ospf);
 
-		if (ospf->router_id_static.s_addr == 0)
+		if (ospf->router_id_static.s_addr == INADDR_ANY)
 			ospf_router_id_update(ospf);
 
 		ospf_opaque_type11_lsa_init(ospf);
@@ -398,7 +398,7 @@ struct ospf *ospf_get_instance(unsigned short instance, bool *created)
 		ospf = ospf_new(instance, NULL /* VRF_DEFAULT*/);
 		ospf_add(ospf);
 
-		if (ospf->router_id_static.s_addr == 0)
+		if (ospf->router_id_static.s_addr == INADDR_ANY)
 			ospf_router_id_update(ospf);
 
 		ospf_opaque_type11_lsa_init(ospf);
@@ -938,7 +938,8 @@ static void add_ospf_interface(struct connected *co, struct ospf_area *area)
 	 * ospf_router_id_update() will call ospf_if_update
 	 * whenever r-id is configured instead.
 	 */
-	if ((area->ospf->router_id.s_addr != 0) && if_is_operative(co->ifp))
+	if ((area->ospf->router_id.s_addr != INADDR_ANY)
+	    && if_is_operative(co->ifp))
 		ospf_if_up(oi);
 }
 
@@ -1267,7 +1268,7 @@ static void ospf_network_run(struct prefix *p, struct ospf_area *area)
 	struct interface *ifp;
 
 	/* Schedule Router ID Update. */
-	if (area->ospf->router_id.s_addr == 0)
+	if (area->ospf->router_id.s_addr == INADDR_ANY)
 		ospf_router_id_update(area->ospf);
 
 	/* Get target interface. */

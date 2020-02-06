@@ -2551,7 +2551,8 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi)
 				else {
 					vty_out(vty, " %s",
 						inet_ntoa(filter->addr));
-					if (filter->addr_mask.s_addr != 0)
+					if (filter->addr_mask.s_addr
+					    != INADDR_ANY)
 						vty_out(vty,
 							", wildcard bits %s",
 							inet_ntoa(
@@ -2599,7 +2600,8 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi)
 				else {
 					vty_out(vty, " %s",
 						inet_ntoa(filter->addr));
-					if (filter->addr_mask.s_addr != 0)
+					if (filter->addr_mask.s_addr
+					    != INADDR_ANY)
 						vty_out(vty,
 							", wildcard bits %s",
 							inet_ntoa(
@@ -2692,7 +2694,7 @@ static void config_write_access_cisco(struct vty *vty, struct filter *mfilter)
 		vty_out(vty, " ip");
 		if (filter->addr_mask.s_addr == 0xffffffff)
 			vty_out(vty, " any");
-		else if (filter->addr_mask.s_addr == 0)
+		else if (filter->addr_mask.s_addr == INADDR_ANY)
 			vty_out(vty, " host %s", inet_ntoa(filter->addr));
 		else {
 			vty_out(vty, " %s", inet_ntoa(filter->addr));
@@ -2701,7 +2703,7 @@ static void config_write_access_cisco(struct vty *vty, struct filter *mfilter)
 
 		if (filter->mask_mask.s_addr == 0xffffffff)
 			vty_out(vty, " any");
-		else if (filter->mask_mask.s_addr == 0)
+		else if (filter->mask_mask.s_addr == INADDR_ANY)
 			vty_out(vty, " host %s", inet_ntoa(filter->mask));
 		else {
 			vty_out(vty, " %s", inet_ntoa(filter->mask));
@@ -2713,7 +2715,7 @@ static void config_write_access_cisco(struct vty *vty, struct filter *mfilter)
 			vty_out(vty, " any\n");
 		else {
 			vty_out(vty, " %s", inet_ntoa(filter->addr));
-			if (filter->addr_mask.s_addr != 0)
+			if (filter->addr_mask.s_addr != INADDR_ANY)
 				vty_out(vty, " %s",
 					inet_ntoa(filter->addr_mask));
 			vty_out(vty, "\n");

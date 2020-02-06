@@ -467,16 +467,16 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 					mod_v4nh = &peer->nexthop.v4;
 					nh_modified = 1;
 				}
-			} else if (!v4nh.s_addr) {
+			} else if (v4nh.s_addr == INADDR_ANY) {
 				mod_v4nh = &peer->nexthop.v4;
 				nh_modified = 1;
-			} else if (
-				peer->sort == BGP_PEER_EBGP
-				&& (bgp_multiaccess_check_v4(v4nh, peer) == 0)
-				&& !CHECK_FLAG(
+			} else if (peer->sort == BGP_PEER_EBGP
+				   && (bgp_multiaccess_check_v4(v4nh, peer)
+				       == 0)
+				   && !CHECK_FLAG(
 					   vec->flags,
 					   BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED)
-				&& !peer_af_flag_check(
+				   && !peer_af_flag_check(
 					   peer, paf->afi, paf->safi,
 					   PEER_FLAG_NEXTHOP_UNCHANGED)) {
 				/* NOTE: not handling case where NH has new AFI
@@ -628,7 +628,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			mod_v4nh = &v4nh;
 
 			/* No route-map changes allowed for EVPN nexthops. */
-			if (!v4nh.s_addr) {
+			if (v4nh.s_addr == INADDR_ANY) {
 				mod_v4nh = &peer->nexthop.v4;
 				nh_modified = 1;
 			}

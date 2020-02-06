@@ -230,7 +230,7 @@ int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 	rn->info = (void *)pref;
 
 	/* Schedule Router ID Update. */
-	if (eigrp->router_id.s_addr == 0)
+	if (eigrp->router_id.s_addr == INADDR_ANY)
 		eigrp_router_id_update(eigrp);
 	/* Run network config now. */
 	/* Get target interface. */

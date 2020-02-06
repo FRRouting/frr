@@ -771,7 +771,7 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 		for (; pi; pi = pi->next) {
 			json_object *json_path = NULL;
 
-			if (vtep_ip.s_addr
+			if (vtep_ip.s_addr != INADDR_ANY
 			    && !IPV4_ADDR_SAME(&(vtep_ip),
 					       &(pi->attr->nexthop)))
 				continue;

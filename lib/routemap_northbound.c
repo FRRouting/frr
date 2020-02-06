@@ -940,7 +940,7 @@ lib_route_map_entry_set_action_ipv4_address_modify(enum nb_event event,
 		 * only implemented action.
 		 */
 		yang_dnode_get_ipv4(&ia, dnode, NULL);
-		if (ia.s_addr == 0 || IPV4_CLASS_DE(ntohl(ia.s_addr)))
+		if (ia.s_addr == INADDR_ANY || IPV4_CLASS_DE(ntohl(ia.s_addr)))
 			return NB_ERR_VALIDATION;
 		/* FALLTHROUGH */
 	case NB_EV_PREPARE:

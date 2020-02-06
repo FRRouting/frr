@@ -455,7 +455,7 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 				 * ignore that rule
 				 */
 				if (prefix->family == AF_INET
-				    && prefix->u.prefix4.s_addr == 0)
+				    && prefix->u.prefix4.s_addr == INADDR_ANY)
 					bpem->match_bitmask_iprule |= bitmask;
 				else
 					bpem->match_bitmask |= bitmask;

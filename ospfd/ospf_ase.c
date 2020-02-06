@@ -370,7 +370,7 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 	       external-LSA.  This indicates the IP address to which
 	       packets for the destination should be forwarded. */
 
-	if (al->e[0].fwd_addr.s_addr == 0) {
+	if (al->e[0].fwd_addr.s_addr == INADDR_ANY) {
 		/* If the forwarding address is set to 0.0.0.0, packets should
 		   be sent to the ASBR itself. Among the multiple routing table
 		   entries for the ASBR, select the preferred entry as follows.
@@ -470,7 +470,7 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 
 		ospf_route_add(ospf->new_external_route, &p, new, asbr_route);
 
-		if (al->e[0].fwd_addr.s_addr)
+		if (al->e[0].fwd_addr.s_addr != INADDR_ANY)
 			ospf_ase_complete_direct_routes(new, al->e[0].fwd_addr);
 		return 0;
 	} else {
@@ -512,7 +512,7 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 				zlog_debug(
 					"Route[External]: New route is better");
 			ospf_route_subst(rn, new, asbr_route);
-			if (al->e[0].fwd_addr.s_addr)
+			if (al->e[0].fwd_addr.s_addr != INADDR_ANY)
 				ospf_ase_complete_direct_routes(
 					new, al->e[0].fwd_addr);
 			or = new;
@@ -530,7 +530,7 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 			if (IS_DEBUG_OSPF(lsa, LSA))
 				zlog_debug("Route[External]: Routes are equal");
 			ospf_route_copy_nexthops(or, asbr_route->paths);
-			if (al->e[0].fwd_addr.s_addr)
+			if (al->e[0].fwd_addr.s_addr != INADDR_ANY)
 				ospf_ase_complete_direct_routes(
 					or, al->e[0].fwd_addr);
 		}

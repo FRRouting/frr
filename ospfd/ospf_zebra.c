@@ -585,9 +585,9 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 	int cur_originate = ospf->default_originate;
 	const char *type_str = NULL;
 
-	nexthop.s_addr = 0;
+	nexthop.s_addr = INADDR_ANY;
 	p.family = AF_INET;
-	p.prefix.s_addr = 0;
+	p.prefix.s_addr = INADDR_ANY;
 	p.prefixlen = 0;
 
 	ospf->default_originate = originate;
@@ -854,7 +854,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 			/* Nothing has changed, so nothing to do; return */
 			return 0;
 		}
-		if (ospf->router_id.s_addr != 0) {
+		if (ospf->router_id.s_addr != INADDR_ANY) {
 			if (ei) {
 				if (is_prefix_default(&p))
 					ospf_external_lsa_refresh_default(ospf);

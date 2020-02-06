@@ -3551,7 +3551,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		}
 
 		/* Show DR information. */
-		if (DR(oi).s_addr == 0) {
+		if (DR(oi).s_addr == INADDR_ANY) {
 			if (!use_json)
 				vty_out(vty,
 					"  No backup designated router on this network\n");
@@ -4199,7 +4199,7 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 				}
 
 				if (nbr->state == NSM_Attempt
-				    && nbr->router_id.s_addr == 0)
+				    && nbr->router_id.s_addr == INADDR_ANY)
 					strlcpy(neigh_str, "neighbor",
 						sizeof(neigh_str));
 				else
@@ -4258,7 +4258,7 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 				ospf_nbr_state_message(nbr, msgbuf, 16);
 
 				if (nbr->state == NSM_Attempt
-				    && nbr->router_id.s_addr == 0)
+				    && nbr->router_id.s_addr == INADDR_ANY)
 					vty_out(vty, "%-15s %3d %-15s ", "-",
 						nbr->priority, msgbuf);
 				else
@@ -4908,7 +4908,8 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 			json_neigh_array = NULL;
 		}
 
-		if (nbr->state == NSM_Attempt && nbr->router_id.s_addr == 0)
+		if (nbr->state == NSM_Attempt
+		    && nbr->router_id.s_addr == INADDR_ANY)
 			strlcpy(neigh_str, "noNbrId", sizeof(neigh_str));
 		else
 			strlcpy(neigh_str, inet_ntoa(nbr->router_id),
@@ -4926,7 +4927,8 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 
 	} else {
 		/* Show neighbor ID. */
-		if (nbr->state == NSM_Attempt && nbr->router_id.s_addr == 0)
+		if (nbr->state == NSM_Attempt
+		    && nbr->router_id.s_addr == INADDR_ANY)
 			vty_out(vty, " Neighbor %s,", "-");
 		else
 			vty_out(vty, " Neighbor %s,",

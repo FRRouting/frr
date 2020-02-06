@@ -448,7 +448,7 @@ int main(int argc, char *const argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	mc_group.s_addr = 0;
+	mc_group.s_addr = INADDR_ANY;
 	not_group = false;
 
 	if (argc == 3) {

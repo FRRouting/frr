@@ -603,7 +603,7 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 					IF_NAME(oi));
 
 			path = ospf_path_new();
-			path->nexthop.s_addr = 0;
+			path->nexthop.s_addr = INADDR_ANY;
 			path->ifindex = oi->ifp->ifindex;
 			if (CHECK_FLAG(oi->connected->flags,
 				       ZEBRA_IFA_UNNUMBERED))
@@ -962,7 +962,7 @@ int ospf_add_discard_route(struct ospf *ospf, struct route_table *rt,
 
 	new_or = ospf_route_new();
 	new_or->type = OSPF_DESTINATION_DISCARD;
-	new_or->id.s_addr = 0;
+	new_or->id.s_addr = INADDR_ANY;
 	new_or->cost = 0;
 	new_or->u.std.area_id = area->area_id;
 	new_or->u.std.external_routing = area->external_routing;

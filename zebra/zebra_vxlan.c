@@ -3212,7 +3212,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 			vtep_ip = n->r_vtep_ip;
 			/* Mark appropriately */
 			UNSET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE);
-			n->r_vtep_ip.s_addr = 0;
+			n->r_vtep_ip.s_addr = INADDR_ANY;
 			SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
 			n->ifindex = ifp->ifindex;
 		}
@@ -9985,7 +9985,7 @@ static zebra_vxlan_sg_t *zebra_vxlan_sg_add(struct zebra_vrf *zvrf,
 	 * 2. the XG entry is used by pimd to setup the
 	 * vxlan-termination-mroute
 	 */
-	if (sg->src.s_addr) {
+	if (sg->src.s_addr != INADDR_ANY) {
 		memset(&sip, 0, sizeof(sip));
 		parent = zebra_vxlan_sg_do_ref(zvrf, sip, sg->grp);
 		if (!parent)
@@ -10017,7 +10017,7 @@ static void zebra_vxlan_sg_del(zebra_vxlan_sg_t *vxlan_sg)
 	/* On SG entry deletion remove the reference to its parent XG
 	 * entry
 	 */
-	if (vxlan_sg->sg.src.s_addr) {
+	if (vxlan_sg->sg.src.s_addr != INADDR_ANY) {
 		memset(&sip, 0, sizeof(sip));
 		zebra_vxlan_sg_do_deref(zvrf, sip, vxlan_sg->sg.grp);
 	}
@@ -10076,7 +10076,8 @@ static void zebra_vxlan_sg_deref(struct in_addr local_vtep_ip,
 {
 	struct zebra_vrf *zvrf;
 
-	if (!local_vtep_ip.s_addr || !mcast_grp.s_addr)
+	if (local_vtep_ip.s_addr == INADDR_ANY
+	    || mcast_grp.s_addr == INADDR_ANY)
 		return;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -10091,7 +10092,8 @@ static void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip,
 {
 	struct zebra_vrf *zvrf;
 
-	if (!local_vtep_ip.s_addr || !mcast_grp.s_addr)
+	if (local_vtep_ip.s_addr == INADDR_ANY
+	    || mcast_grp.s_addr == INADDR_ANY)
 		return;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);

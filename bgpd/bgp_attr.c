@@ -1932,7 +1932,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	case BGP_ATTR_NHLEN_IPV4:
 		stream_get(&attr->mp_nexthop_global_in, s, IPV4_MAX_BYTELEN);
 		/* Probably needed for RFC 2283 */
-		if (attr->nexthop.s_addr == 0)
+		if (attr->nexthop.s_addr == INADDR_ANY)
 			memcpy(&attr->nexthop.s_addr,
 			       &attr->mp_nexthop_global_in, IPV4_MAX_BYTELEN);
 		break;
