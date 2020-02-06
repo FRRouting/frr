@@ -444,6 +444,34 @@ struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id)
 	return hash_lookup(zrouter.nhgs_id, &lookup);
 }
 
+/* Lookup an NHE via a single lib/nexthop. No allocation */
+struct nhg_hash_entry *zebra_nhg_lookup_nexthop(const struct nexthop *nexthop,
+						afi_t route_afi)
+{
+	struct nhg_hash_entry *found;
+	struct nhg_hash_entry lookup = {};
+	struct nexthop_group lookup_nhg = {};
+	struct nexthop lookup_nh = {};
+
+	vrf_id_t vrf_id = zebra_nhg_determine_vrf(nexthop);
+
+	/* Take snapshot copy */
+	nexthop_copy_no_recurse(&lookup_nh, nexthop, NULL);
+
+	nexthop_group_add_sorted(&lookup_nhg, &lookup_nh);
+
+	lookup.nhg = &lookup_nhg;
+	lookup.vrf_id = vrf_id;
+	lookup.afi = zebra_nhg_determine_afi(nexthop, route_afi);
+
+	found = hash_lookup(zrouter.nhgs, &lookup);
+
+	/* Labels may have been allocated in snapshot */
+	nexthop_del_labels(&lookup_nh);
+
+	return found;
+}
+
 static int zebra_nhg_insert_id(struct nhg_hash_entry *nhe)
 {
 	if (hash_lookup(zrouter.nhgs_id, nhe)) {

@@ -232,6 +232,13 @@ extern bool zebra_nhg_dependents_is_empty(const struct nhg_hash_entry *nhe);
 
 /* Lookup ID, doesn't create */
 extern struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id);
+/* Lookup single nexthop, doesn't create
+ *
+ * route_afi must be given for blackhole nexthops (their AFI is the route AFI
+ * using). Otherwise, you can just pass AFI_UNSPEC.
+ */
+extern struct nhg_hash_entry *
+zebra_nhg_lookup_nexthop(const struct nexthop *nexthop, afi_t route_afi);
 
 /* Hash functions */
 extern uint32_t zebra_nhg_hash_key(const void *arg);
