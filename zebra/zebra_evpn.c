@@ -806,16 +806,51 @@ zebra_evpn_t *zebra_evpn_from_svi(struct interface *ifp,
 	return zevpn;
 }
 
+static int zvni_map_to_macvlan_ns(struct ns *ns,
+				  void *_in_param,
+				  void **_p_ifp)
+{
+	struct zebra_ns *zns = ns->info;
+	struct zebra_from_svi_param *in_param =
+		(struct zebra_from_svi_param *)_in_param;
+	struct interface **p_ifp = (struct interface **)_p_ifp;
+	struct route_node *rn;
+	struct interface *tmp_if = NULL;
+	struct zebra_if *zif;
+
+	if (!in_param)
+		return NS_WALK_STOP;
+
+	/* Identify corresponding VLAN interface. */
+	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
+		tmp_if = (struct interface *)rn->info;
+		/* Check oper status of the SVI. */
+		if (!tmp_if || !if_is_operative(tmp_if))
+			continue;
+		zif = tmp_if->info;
+
+		if (!zif || zif->zif_type != ZEBRA_IF_MACVLAN)
+			continue;
+
+		if (zif->link == in_param->svi_if) {
+			if (p_ifp)
+				*p_ifp = tmp_if;
+			return NS_WALK_STOP;
+		}
+	}
+
+	return NS_WALK_CONTINUE;
+}
+
 /* Map to MAC-VLAN interface corresponding to specified SVI interface.
  */
 struct interface *zebra_evpn_map_to_macvlan(struct interface *br_if,
 					    struct interface *svi_if)
 {
-	struct zebra_ns *zns;
-	struct route_node *rn;
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
-	int found = 0;
+	struct interface **p_ifp;
+	struct zebra_from_svi_param in_param;
 
 	/* Defensive check, caller expected to invoke only with valid bridge. */
 	if (!br_if)
@@ -830,25 +865,17 @@ struct interface *zebra_evpn_map_to_macvlan(struct interface *br_if,
 	zif = br_if->info;
 	assert(zif);
 
+	in_param.vid = 0;
+	in_param.br_if = br_if;
+	in_param.zif = NULL;
+	in_param.svi_if = svi_if;
+	p_ifp = &tmp_if;
+
 	/* Identify corresponding VLAN interface. */
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
-		tmp_if = (struct interface *)rn->info;
-		/* Check oper status of the SVI. */
-		if (!tmp_if || !if_is_operative(tmp_if))
-			continue;
-		zif = tmp_if->info;
-
-		if (!zif || zif->zif_type != ZEBRA_IF_MACVLAN)
-			continue;
-
-		if (zif->link == svi_if) {
-			found = 1;
-			break;
-		}
-	}
-
-	return found ? tmp_if : NULL;
+	ns_walk_func(zvni_map_to_macvlan_ns,
+		     (void *)&in_param,
+		     (void **)p_ifp);
+	return tmp_if;
 }
 
 /*
