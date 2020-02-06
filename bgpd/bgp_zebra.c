@@ -1227,7 +1227,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 	if ((peer->sort == BGP_PEER_EBGP && peer->ttl != BGP_DEFAULT_TTL)
 	    || CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
-	    || bgp_flag_check(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+	    || CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 
 		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 

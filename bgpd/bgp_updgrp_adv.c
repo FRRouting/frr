@@ -783,9 +783,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 		if (!CHECK_FLAG(subgrp->sflags,
 				SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
 
-			if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
 				bgp_attr_add_gshut_community(new_attr);
-			}
 
 			SET_FLAG(subgrp->sflags,
 				 SUBGRP_STATUS_DEFAULT_ORIGINATE);

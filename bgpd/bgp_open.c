@@ -1341,7 +1341,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 	 * only when GR config is present
 	 */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)) {
-		if (bgp_flag_check(peer->bgp, BGP_FLAG_GR_PRESERVE_FWD)
+		if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_GR_PRESERVE_FWD)
 		    && BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("[BGP_GR] F bit Set");
 
@@ -1361,7 +1361,8 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 						  &pkt_safi);
 			stream_putw(s, pkt_afi);
 			stream_putc(s, pkt_safi);
-			if (bgp_flag_check(peer->bgp, BGP_FLAG_GR_PRESERVE_FWD))
+			if (CHECK_FLAG(peer->bgp->flags,
+				       BGP_FLAG_GR_PRESERVE_FWD))
 				stream_putc(s, RESTART_F_BIT);
 			else
 				stream_putc(s, 0);

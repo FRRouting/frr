@@ -116,10 +116,10 @@ static void bgp_bfd_peer_sendmsg(struct peer *peer, int command)
 	 * and bfd controlplane check not configured is not kept
 	 * keep bfd independent controlplane bit set to 1
 	 */
-	if (!bgp_flag_check(peer->bgp, BGP_FLAG_GRACEFUL_RESTART)
-	    && !bgp_flag_check(peer->bgp, BGP_FLAG_GR_PRESERVE_FWD)
+	if (!CHECK_FLAG(peer->bgp->flags, BGP_FLAG_GRACEFUL_RESTART)
+	    && !CHECK_FLAG(peer->bgp->flags, BGP_FLAG_GR_PRESERVE_FWD)
 	    && !CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE))
-		SET_FLAG(bfd_info->flags,  BFD_FLAG_BFD_CBIT_ON);
+		SET_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
 
 	cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
 

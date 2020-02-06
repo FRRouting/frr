@@ -501,7 +501,7 @@ static uint32_t bgp_med_value(struct attr *attr, struct bgp *bgp)
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
 		return attr->med;
 	else {
-		if (bgp_flag_check(bgp, BGP_FLAG_MED_MISSING_AS_WORST))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST))
 			return BGP_MED_MAX;
 		else
 			return 0;
@@ -747,11 +747,11 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	/* 4. AS path length check. */
-	if (!bgp_flag_check(bgp, BGP_FLAG_ASPATH_IGNORE)) {
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE)) {
 		int exist_hops = aspath_count_hops(existattr->aspath);
 		int exist_confeds = aspath_count_confeds(existattr->aspath);
 
-		if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_CONFED)) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_CONFED)) {
 			int aspath_hops;
 
 			aspath_hops = aspath_count_hops(newattr->aspath);
@@ -832,8 +832,8 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			   && aspath_count_hops(newattr->aspath) == 0
 			   && aspath_count_hops(existattr->aspath) == 0);
 
-	if (bgp_flag_check(bgp, BGP_FLAG_ALWAYS_COMPARE_MED)
-	    || (bgp_flag_check(bgp, BGP_FLAG_MED_CONFED) && confed_as_route)
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_ALWAYS_COMPARE_MED)
+	    || (CHECK_FLAG(bgp->flags, BGP_FLAG_MED_CONFED) && confed_as_route)
 	    || aspath_cmp_left(newattr->aspath, existattr->aspath)
 	    || aspath_cmp_left_confed(newattr->aspath, existattr->aspath)
 	    || internal_as_route) {
@@ -978,8 +978,8 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 				zlog_debug(
 					"%s: %s and %s cannot be multipath, one has a label while the other does not",
 					pfx_buf, new_buf, exist_buf);
-		} else if (bgp_flag_check(bgp,
-					  BGP_FLAG_ASPATH_MULTIPATH_RELAX)) {
+		} else if (CHECK_FLAG(bgp->flags,
+				      BGP_FLAG_ASPATH_MULTIPATH_RELAX)) {
 
 			/*
 			 * For the two paths, all comparison steps till IGP
@@ -1041,7 +1041,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	   first (the oldest one).  This step minimizes route-flap, since a
 	   newer path won't displace an older one, even if it was the
 	   preferred route based on the additional decision criteria below.  */
-	if (!bgp_flag_check(bgp, BGP_FLAG_COMPARE_ROUTER_ID)
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID)
 	    && new_sort == BGP_PEER_EBGP && exist_sort == BGP_PEER_EBGP) {
 		if (CHECK_FLAG(new->flags, BGP_PATH_SELECTED)) {
 			*reason = bgp_path_selection_older;
@@ -1762,7 +1762,8 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 			   check
 			   is already done.  So there is noting to do. */
 			/* no bgp client-to-client reflection check. */
-			if (bgp_flag_check(bgp, BGP_FLAG_NO_CLIENT_TO_CLIENT))
+			if (CHECK_FLAG(bgp->flags,
+				       BGP_FLAG_NO_CLIENT_TO_CLIENT))
 				if (CHECK_FLAG(peer->af_flags[afi][safi],
 					       PEER_FLAG_REFLECTOR_CLIENT))
 					return 0;
@@ -1894,8 +1895,8 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 		 * of the reflected IBGP routes unless explicitly allowed.
 		 */
 		if ((from->sort == BGP_PEER_IBGP && peer->sort == BGP_PEER_IBGP)
-		    && !bgp_flag_check(bgp,
-				       BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
+		    && !CHECK_FLAG(bgp->flags,
+				   BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
 			dummy_attr = *attr;
 			rmap_path.attr = &dummy_attr;
 		}
@@ -1945,7 +1946,7 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 		if (aspath_check_as_sets(attr->aspath))
 			return 0;
 
-	if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
 		if (peer->sort == BGP_PEER_IBGP
 		    || peer->sort == BGP_PEER_CONFED) {
 			attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
@@ -2105,7 +2106,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 
 	/* bgp deterministic-med */
 	new_select = NULL;
-	if (bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)) {
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
 
 		/* Clear BGP_PATH_DMED_SELECTED for all paths */
 		for (pi1 = bgp_node_get_bgp_path_info(rn); pi1;
@@ -2212,7 +2213,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 				continue;
 			}
 
-		if (bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)
 		    && (!CHECK_FLAG(pi->flags, BGP_PATH_DMED_SELECTED))) {
 			bgp_path_info_unset_flag(rn, pi, BGP_PATH_DMED_CHECK);
 			if (debug)
@@ -2445,14 +2446,14 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 	char pfx_buf[PREFIX2STR_BUFFER];
 	int debug = 0;
 
-	if (bgp_flag_check(bgp, BGP_FLAG_DELETE_IN_PROGRESS)) {
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
 		if (rn)
 			debug = bgp_debug_bestpath(&rn->p);
 		if (debug) {
 			prefix2str(&rn->p, pfx_buf, sizeof(pfx_buf));
 			zlog_debug(
-			     "%s: bgp delete in progress, ignoring event, p=%s",
-			     __func__, pfx_buf);
+				"%s: bgp delete in progress, ignoring event, p=%s",
+				__func__, pfx_buf);
 		}
 		return;
 	}
@@ -3418,10 +3419,9 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 
 			/* If graceful-shutdown is configured then add the GSHUT
 			 * community to all paths received from eBGP peers */
-		} else if (bgp_flag_check(peer->bgp,
-					  BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+		} else if (CHECK_FLAG(peer->bgp->flags,
+				      BGP_FLAG_GRACEFUL_SHUTDOWN))
 			bgp_attr_add_gshut_community(&new_attr);
-		}
 	}
 
 	if (pi) {
@@ -3707,8 +3707,8 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 			    && peer->ttl == BGP_DEFAULT_TTL
 			    && !CHECK_FLAG(peer->flags,
 					   PEER_FLAG_DISABLE_CONNECTED_CHECK)
-			    && !bgp_flag_check(
-				       bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+			    && !CHECK_FLAG(bgp->flags,
+					   BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 				connected = 1;
 			else
 				connected = 0;
@@ -3862,7 +3862,8 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		    && peer->ttl == BGP_DEFAULT_TTL
 		    && !CHECK_FLAG(peer->flags,
 				   PEER_FLAG_DISABLE_CONNECTED_CHECK)
-		    && !bgp_flag_check(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+		    && !CHECK_FLAG(bgp->flags,
+				   BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 			connected = 1;
 		else
 			connected = 0;
@@ -4953,13 +4954,13 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 			return;
 		}
 
-		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
 			bgp_attr_add_gshut_community(&attr_tmp);
 
 		attr_new = bgp_attr_intern(&attr_tmp);
 	} else {
 
-		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
 			bgp_attr_add_gshut_community(&attr);
 
 		attr_new = bgp_attr_intern(&attr);
@@ -4973,7 +4974,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 	if (pi) {
 		if (attrhash_cmp(pi->attr, attr_new)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)
-		    && !bgp_flag_check(bgp, BGP_FLAG_FORCE_STATIC_PROCESS)) {
+		    && !CHECK_FLAG(bgp->flags, BGP_FLAG_FORCE_STATIC_PROCESS)) {
 			bgp_unlock_node(rn);
 			bgp_attr_unintern(&attr_new);
 			aspath_unintern(&attr.aspath);
@@ -5018,7 +5019,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 #endif
 
 			/* Nexthop reachability check. */
-			if (bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)
 			    && (safi == SAFI_UNICAST
 				|| safi == SAFI_LABELED_UNICAST)) {
 
@@ -5077,7 +5078,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 	new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0, bgp->peer_self,
 			attr_new, rn);
 	/* Nexthop reachability check. */
-	if (bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)
 	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST)) {
 		if (bgp_find_or_add_nexthop(bgp, bgp, afi, new, NULL, 0))
 			bgp_path_info_set_flag(rn, new, BGP_PATH_VALID);
@@ -5596,7 +5597,7 @@ void bgp_static_redo_import_check(struct bgp *bgp)
 	struct bgp_static *bgp_static;
 
 	/* Use this flag to force reprocessing of the route */
-	bgp_flag_set(bgp, BGP_FLAG_FORCE_STATIC_PROCESS);
+	SET_FLAG(bgp->flags, BGP_FLAG_FORCE_STATIC_PROCESS);
 	FOREACH_AFI_SAFI (afi, safi) {
 		for (rn = bgp_table_top(bgp->route[afi][safi]); rn;
 		     rn = bgp_route_next(rn)) {
@@ -5623,7 +5624,7 @@ void bgp_static_redo_import_check(struct bgp *bgp)
 			}
 		}
 	}
-	bgp_flag_unset(bgp, BGP_FLAG_FORCE_STATIC_PROCESS);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_FORCE_STATIC_PROCESS);
 }
 
 static void bgp_purge_af_static_redist_routes(struct bgp *bgp, afi_t afi,
@@ -5636,8 +5637,8 @@ static void bgp_purge_af_static_redist_routes(struct bgp *bgp, afi_t afi,
 	/* Do not install the aggregate route if BGP is in the
 	 * process of termination.
 	 */
-	if (bgp_flag_check(bgp, BGP_FLAG_DELETE_IN_PROGRESS) ||
-	    (bgp->peer_self == NULL))
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)
+	    || (bgp->peer_self == NULL))
 		return;
 
 	table = bgp->rib[afi][safi];
@@ -6146,8 +6147,8 @@ void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	/* If the bgp instance is being deleted or self peer is deleted
 	 * then do not create aggregate route
 	 */
-	if (bgp_flag_check(bgp, BGP_FLAG_DELETE_IN_PROGRESS) ||
-	   (bgp->peer_self == NULL))
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)
+	    || (bgp->peer_self == NULL))
 		return;
 
 	/* ORIGIN attribute: If at least one route among routes that are
@@ -7101,7 +7102,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 			}
 		}
 
-		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
 			bgp_attr_add_gshut_community(&attr_new);
 
 		bn = bgp_afi_node_get(bgp->rib[afi][SAFI_UNICAST], afi,
@@ -7392,7 +7393,8 @@ static void route_vty_short_status_out(struct vty *vty,
 
 static char *bgp_nexthop_hostname(struct peer *peer, struct attr *attr)
 {
-	if (peer->hostname && bgp_flag_check(peer->bgp, BGP_FLAG_SHOW_HOSTNAME)
+	if (peer->hostname
+	    && CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHOW_HOSTNAME)
 	    && !(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))
 		return peer->hostname;
 	return NULL;
@@ -8406,7 +8408,7 @@ static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
 		}
 
 		if (peer->hostname
-		    && bgp_flag_check(peer->bgp, BGP_FLAG_SHOW_HOSTNAME)) {
+		    && CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHOW_HOSTNAME)) {
 			if (peer->conf_if)
 				vty_out(vty, " %s(%s)", peer->hostname,
 					peer->conf_if);
@@ -8828,8 +8830,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 		} else {
 			if (path->peer->conf_if) {
 				if (path->peer->hostname
-				    && bgp_flag_check(path->peer->bgp,
-						      BGP_FLAG_SHOW_HOSTNAME))
+				    && CHECK_FLAG(path->peer->bgp->flags,
+						  BGP_FLAG_SHOW_HOSTNAME))
 					vty_out(vty, " from %s(%s)",
 						path->peer->hostname,
 						path->peer->conf_if);
@@ -8838,8 +8840,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 						path->peer->conf_if);
 			} else {
 				if (path->peer->hostname
-				    && bgp_flag_check(path->peer->bgp,
-						      BGP_FLAG_SHOW_HOSTNAME))
+				    && CHECK_FLAG(path->peer->bgp->flags,
+						  BGP_FLAG_SHOW_HOSTNAME))
 					vty_out(vty, " from %s(%s)",
 						path->peer->hostname,
 						path->peer->host);
@@ -11333,7 +11335,7 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 	} else {
 
 		if (peer->hostname
-		    && bgp_flag_check(peer->bgp, BGP_FLAG_SHOW_HOSTNAME)) {
+		    && CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHOW_HOSTNAME)) {
 			vty_out(vty, "Prefix counts for %s/%s, %s\n",
 				peer->hostname, peer->host,
 				get_afi_safi_str(afi, safi, false));

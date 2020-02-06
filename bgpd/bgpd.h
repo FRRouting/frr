@@ -239,7 +239,7 @@ enum bgp_instance_type {
 };
 
 #define BGP_SEND_EOR(bgp, afi, safi)                                           \
-	(!bgp_flag_check(bgp, BGP_FLAG_GR_DISABLE_EOR)                         \
+	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR)                      \
 	 && ((bgp->gr_info[afi][safi].t_select_deferral == NULL)               \
 	     || (bgp->gr_info[afi][safi].eor_required                          \
 		 == bgp->gr_info[afi][safi].eor_received)))
@@ -674,7 +674,7 @@ struct afi_safi_info {
 	     && bgp->vrf_id != VRF_UNKNOWN))
 
 #define BGP_SELECT_DEFER_DISABLE(bgp)                                          \
-	(bgp_flag_check(bgp, BGP_FLAG_SELECT_DEFER_DISABLE))
+	(CHECK_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE))
 
 /* BGP peer-group support. */
 struct peer_group {
@@ -1756,10 +1756,6 @@ extern int bgp_delete(struct bgp *);
 
 extern int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf,
 			     vrf_id_t old_vrf_id, bool create);
-
-extern int bgp_flag_set(struct bgp *, int);
-extern int bgp_flag_unset(struct bgp *, int);
-extern int bgp_flag_check(struct bgp *, int);
 
 extern void bgp_router_id_zebra_bump(vrf_id_t, const struct prefix *);
 extern int bgp_router_id_static_set(struct bgp *, struct in_addr);

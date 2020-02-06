@@ -933,7 +933,7 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 		/* If we are not shutting down ourselves and we are
 		 * aggregating a route that contains the GSHUT community we
 		 * need to remove that community when creating the aggregate */
-		if (!bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)
 		    && community_include(community, gshut)) {
 			community_del_val(community, &gshut);
 		}
@@ -952,9 +952,8 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
 	}
 
-	if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
 		bgp_attr_add_gshut_community(&attr);
-	}
 
 	attr.label_index = BGP_INVALID_LABEL_INDEX;
 	attr.label = MPLS_INVALID_LABEL;
@@ -996,13 +995,13 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 			return NULL;
 		}
 
-		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
 			bgp_attr_add_gshut_community(&attr_tmp);
 
 		new = bgp_attr_intern(&attr_tmp);
 	} else {
 
-		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
 			bgp_attr_add_gshut_community(&attr);
 
 		new = bgp_attr_intern(&attr);

@@ -201,24 +201,6 @@ int bgp_option_check(int flag)
 	return CHECK_FLAG(bm->options, flag);
 }
 
-/* BGP flag manipulation.  */
-int bgp_flag_set(struct bgp *bgp, int flag)
-{
-	SET_FLAG(bgp->flags, flag);
-	return 0;
-}
-
-int bgp_flag_unset(struct bgp *bgp, int flag)
-{
-	UNSET_FLAG(bgp->flags, flag);
-	return 0;
-}
-
-int bgp_flag_check(struct bgp *bgp, int flag)
-{
-	return CHECK_FLAG(bgp->flags, flag);
-}
-
 /* Internal function to set BGP structure configureation flag.  */
 static void bgp_config_set(struct bgp *bgp, int config)
 {
@@ -1818,7 +1800,7 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 		/* If this is IPv4 unicast configuration and "no bgp default
 		   ipv4-unicast" is specified. */
 
-		if (bgp_flag_check(bgp, BGP_FLAG_NO_DEFAULT_IPV4)
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_DEFAULT_IPV4)
 		    && afi == AFI_IP && safi == SAFI_UNICAST)
 			peer_create(su, conf_if, bgp, local_as, *as, as_type, 0,
 				    0, NULL);
@@ -2428,7 +2410,7 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		group->listen_range[afi] = list_new();
 	group->conf = peer_new(bgp);
-	if (!bgp_flag_check(bgp, BGP_FLAG_NO_DEFAULT_IPV4))
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_DEFAULT_IPV4))
 		group->conf->afc[AFI_IP][SAFI_UNICAST] = 1;
 	XFREE(MTYPE_BGP_PEER_HOST, group->conf->host);
 	group->conf->host = XSTRDUP(MTYPE_BGP_PEER_HOST, name);
@@ -3314,7 +3296,7 @@ int bgp_delete(struct bgp *bgp)
 	THREAD_OFF(bgp->t_establish_wait);
 
 	/* Set flag indicating bgp instance delete in progress */
-	bgp_flag_set(bgp, BGP_FLAG_DELETE_IN_PROGRESS);
+	SET_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS);
 
 	/* Delete the graceful restart info */
 	FOREACH_AFI_SAFI (afi, safi) {

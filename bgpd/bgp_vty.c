@@ -422,13 +422,13 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			       DFLT_BGP_CONNECT_RETRY);
 
 		if (DFLT_BGP_IMPORT_CHECK)
-			bgp_flag_set(*bgp, BGP_FLAG_IMPORT_CHECK);
+			SET_FLAG((*bgp)->flags, BGP_FLAG_IMPORT_CHECK);
 		if (DFLT_BGP_SHOW_HOSTNAME)
-			bgp_flag_set(*bgp, BGP_FLAG_SHOW_HOSTNAME);
+			SET_FLAG((*bgp)->flags, BGP_FLAG_SHOW_HOSTNAME);
 		if (DFLT_BGP_LOG_NEIGHBOR_CHANGES)
-			bgp_flag_set(*bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+			SET_FLAG((*bgp)->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
 		if (DFLT_BGP_DETERMINISTIC_MED)
-			bgp_flag_set(*bgp, BGP_FLAG_DETERMINISTIC_MED);
+			SET_FLAG((*bgp)->flags, BGP_FLAG_DETERMINISTIC_MED);
 
 		ret = BGP_SUCCESS;
 	}
@@ -1992,7 +1992,7 @@ DEFUN (bgp_client_to_client_reflection,
        "reflection of routes allowed\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_unset(bgp, BGP_FLAG_NO_CLIENT_TO_CLIENT);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
 	bgp_clear_star_soft_out(vty, bgp->name);
 
 	return CMD_SUCCESS;
@@ -2007,7 +2007,7 @@ DEFUN (no_bgp_client_to_client_reflection,
        "reflection of routes allowed\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_set(bgp, BGP_FLAG_NO_CLIENT_TO_CLIENT);
+	SET_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
 	bgp_clear_star_soft_out(vty, bgp->name);
 
 	return CMD_SUCCESS;
@@ -2021,7 +2021,7 @@ DEFUN (bgp_always_compare_med,
        "Allow comparing MED from different neighbors\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_set(bgp, BGP_FLAG_ALWAYS_COMPARE_MED);
+	SET_FLAG(bgp->flags, BGP_FLAG_ALWAYS_COMPARE_MED);
 	bgp_recalculate_all_bestpaths(bgp);
 
 	return CMD_SUCCESS;
@@ -2035,7 +2035,7 @@ DEFUN (no_bgp_always_compare_med,
        "Allow comparing MED from different neighbors\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_unset(bgp, BGP_FLAG_ALWAYS_COMPARE_MED);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_ALWAYS_COMPARE_MED);
 	bgp_recalculate_all_bestpaths(bgp);
 
 	return CMD_SUCCESS;
@@ -2123,8 +2123,8 @@ DEFUN (bgp_deterministic_med,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	if (!bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)) {
-		bgp_flag_set(bgp, BGP_FLAG_DETERMINISTIC_MED);
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
+		SET_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED);
 		bgp_recalculate_all_bestpaths(bgp);
 	}
 
@@ -2145,7 +2145,7 @@ DEFUN (no_bgp_deterministic_med,
 	struct peer *peer;
 	struct listnode *node, *nnode;
 
-	if (bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)) {
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
 		bestpath_per_as_used = 0;
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
@@ -2165,7 +2165,7 @@ DEFUN (no_bgp_deterministic_med,
 				"bgp deterministic-med cannot be disabled while addpath-tx-bestpath-per-AS is in use\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		} else {
-			bgp_flag_unset(bgp, BGP_FLAG_DETERMINISTIC_MED);
+			UNSET_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED);
 			bgp_recalculate_all_bestpaths(bgp);
 		}
 	}
@@ -2277,9 +2277,9 @@ DEFUN (bgp_graceful_restart_select_defer_time,
 	defer_time = strtoul(argv[idx_number]->arg, NULL, 10);
 	bgp->select_defer_time = defer_time;
 	if (defer_time == 0)
-		bgp_flag_set(bgp, BGP_FLAG_SELECT_DEFER_DISABLE);
+		SET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
 	else
-		bgp_flag_unset(bgp, BGP_FLAG_SELECT_DEFER_DISABLE);
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
 
 	return CMD_SUCCESS;
 }
@@ -2326,7 +2326,7 @@ DEFUN (no_bgp_graceful_restart_select_defer_time,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	bgp->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
-	bgp_flag_unset(bgp, BGP_FLAG_SELECT_DEFER_DISABLE);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
 
 	return CMD_SUCCESS;
 }
@@ -2339,7 +2339,7 @@ DEFUN (bgp_graceful_restart_preserve_fw,
 	"Sets F-bit indication that fib is preserved while doing Graceful Restart\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_set(bgp, BGP_FLAG_GR_PRESERVE_FWD);
+	SET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
 	return CMD_SUCCESS;
 }
 
@@ -2352,7 +2352,7 @@ DEFUN (no_bgp_graceful_restart_preserve_fw,
 	"Unsets F-bit indication that fib is preserved while doing Graceful Restart\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_unset(bgp, BGP_FLAG_GR_PRESERVE_FWD);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
 	return CMD_SUCCESS;
 }
 
@@ -2646,7 +2646,7 @@ DEFUN_HIDDEN (bgp_graceful_restart_disable_eor,
               "Disable EOR Check\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_set(bgp, BGP_FLAG_GR_DISABLE_EOR);
+	SET_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR);
 
 	return CMD_SUCCESS;
 }
@@ -2660,7 +2660,7 @@ DEFUN_HIDDEN (no_bgp_graceful_restart_disable_eor,
               "Disable EOR Check\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_unset(bgp, BGP_FLAG_GR_DISABLE_EOR);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR);
 
 	return CMD_SUCCESS;
 }
@@ -2714,8 +2714,8 @@ DEFUN (bgp_graceful_shutdown,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	if (!bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
-		bgp_flag_set(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN);
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+		SET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN);
 		bgp_static_redo_import_check(bgp);
 		bgp_redistribute_redo(bgp);
 		bgp_clear_star_soft_out(vty, bgp->name);
@@ -2734,8 +2734,8 @@ DEFUN (no_bgp_graceful_shutdown,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
-		bgp_flag_unset(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN);
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+		UNSET_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN);
 		bgp_static_redo_import_check(bgp);
 		bgp_redistribute_redo(bgp);
 		bgp_clear_star_soft_out(vty, bgp->name);
@@ -2753,7 +2753,7 @@ DEFUN (bgp_fast_external_failover,
        "Immediately reset session if a link to a directly connected external peer goes down\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_unset(bgp, BGP_FLAG_NO_FAST_EXT_FAILOVER);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER);
 	return CMD_SUCCESS;
 }
 
@@ -2765,7 +2765,7 @@ DEFUN (no_bgp_fast_external_failover,
        "Immediately reset session if a link to a directly connected external peer goes down\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_set(bgp, BGP_FLAG_NO_FAST_EXT_FAILOVER);
+	SET_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER);
 	return CMD_SUCCESS;
 }
 
@@ -2778,7 +2778,7 @@ DEFUN (bgp_bestpath_compare_router_id,
        "Compare router-id for identical EBGP paths\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_set(bgp, BGP_FLAG_COMPARE_ROUTER_ID);
+	SET_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID);
 	bgp_recalculate_all_bestpaths(bgp);
 
 	return CMD_SUCCESS;
@@ -2793,7 +2793,7 @@ DEFUN (no_bgp_bestpath_compare_router_id,
        "Compare router-id for identical EBGP paths\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_unset(bgp, BGP_FLAG_COMPARE_ROUTER_ID);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID);
 	bgp_recalculate_all_bestpaths(bgp);
 
 	return CMD_SUCCESS;
@@ -2809,7 +2809,7 @@ DEFUN (bgp_bestpath_aspath_ignore,
        "Ignore as-path length in selecting a route\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_set(bgp, BGP_FLAG_ASPATH_IGNORE);
+	SET_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE);
 	bgp_recalculate_all_bestpaths(bgp);
 
 	return CMD_SUCCESS;
@@ -2825,7 +2825,7 @@ DEFUN (no_bgp_bestpath_aspath_ignore,
        "Ignore as-path length in selecting a route\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_unset(bgp, BGP_FLAG_ASPATH_IGNORE);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE);
 	bgp_recalculate_all_bestpaths(bgp);
 
 	return CMD_SUCCESS;
@@ -2841,7 +2841,7 @@ DEFUN (bgp_bestpath_aspath_confed,
        "Compare path lengths including confederation sets & sequences in selecting a route\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_set(bgp, BGP_FLAG_ASPATH_CONFED);
+	SET_FLAG(bgp->flags, BGP_FLAG_ASPATH_CONFED);
 	bgp_recalculate_all_bestpaths(bgp);
 
 	return CMD_SUCCESS;
@@ -2857,7 +2857,7 @@ DEFUN (no_bgp_bestpath_aspath_confed,
        "Compare path lengths including confederation sets & sequences in selecting a route\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_unset(bgp, BGP_FLAG_ASPATH_CONFED);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_ASPATH_CONFED);
 	bgp_recalculate_all_bestpaths(bgp);
 
 	return CMD_SUCCESS;
@@ -2876,14 +2876,14 @@ DEFUN (bgp_bestpath_aspath_multipath_relax,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx = 0;
-	bgp_flag_set(bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
+	SET_FLAG(bgp->flags, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
 
 	/* no-as-set is now the default behavior so we can silently
 	 * ignore it */
 	if (argv_find(argv, argc, "as-set", &idx))
-		bgp_flag_set(bgp, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
+		SET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
 	else
-		bgp_flag_unset(bgp, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
+		UNSET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
 
 	bgp_recalculate_all_bestpaths(bgp);
 
@@ -2902,8 +2902,8 @@ DEFUN (no_bgp_bestpath_aspath_multipath_relax,
        "Do not generate an AS_SET\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_unset(bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
-	bgp_flag_unset(bgp, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
 	bgp_recalculate_all_bestpaths(bgp);
 
 	return CMD_SUCCESS;
@@ -2917,7 +2917,7 @@ DEFUN (bgp_log_neighbor_changes,
        "Log neighbor up/down and reset reason\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_set(bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+	SET_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
 	return CMD_SUCCESS;
 }
 
@@ -2929,7 +2929,7 @@ DEFUN (no_bgp_log_neighbor_changes,
        "Log neighbor up/down and reset reason\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_unset(bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
 	return CMD_SUCCESS;
 }
 
@@ -2949,10 +2949,10 @@ DEFUN (bgp_bestpath_med,
 
 	int idx = 0;
 	if (argv_find(argv, argc, "confed", &idx))
-		bgp_flag_set(bgp, BGP_FLAG_MED_CONFED);
+		SET_FLAG(bgp->flags, BGP_FLAG_MED_CONFED);
 	idx = 0;
 	if (argv_find(argv, argc, "missing-as-worst", &idx))
-		bgp_flag_set(bgp, BGP_FLAG_MED_MISSING_AS_WORST);
+		SET_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST);
 
 	bgp_recalculate_all_bestpaths(bgp);
 
@@ -2975,10 +2975,10 @@ DEFUN (no_bgp_bestpath_med,
 
 	int idx = 0;
 	if (argv_find(argv, argc, "confed", &idx))
-		bgp_flag_unset(bgp, BGP_FLAG_MED_CONFED);
+		UNSET_FLAG(bgp->flags, BGP_FLAG_MED_CONFED);
 	idx = 0;
 	if (argv_find(argv, argc, "missing-as-worst", &idx))
-		bgp_flag_unset(bgp, BGP_FLAG_MED_MISSING_AS_WORST);
+		UNSET_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST);
 
 	bgp_recalculate_all_bestpaths(bgp);
 
@@ -2995,7 +2995,7 @@ DEFUN (no_bgp_default_ipv4_unicast,
        "Activate ipv4-unicast for a peer by default\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_set(bgp, BGP_FLAG_NO_DEFAULT_IPV4);
+	SET_FLAG(bgp->flags, BGP_FLAG_NO_DEFAULT_IPV4);
 	return CMD_SUCCESS;
 }
 
@@ -3007,7 +3007,7 @@ DEFUN (bgp_default_ipv4_unicast,
        "Activate ipv4-unicast for a peer by default\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_unset(bgp, BGP_FLAG_NO_DEFAULT_IPV4);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_NO_DEFAULT_IPV4);
 	return CMD_SUCCESS;
 }
 
@@ -3020,7 +3020,7 @@ DEFUN (bgp_default_show_hostname,
        "Show hostname in certain command outputs\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_set(bgp, BGP_FLAG_SHOW_HOSTNAME);
+	SET_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME);
 	return CMD_SUCCESS;
 }
 
@@ -3033,7 +3033,7 @@ DEFUN (no_bgp_default_show_hostname,
        "Show hostname in certain command outputs\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_unset(bgp, BGP_FLAG_SHOW_HOSTNAME);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME);
 	return CMD_SUCCESS;
 }
 
@@ -3046,8 +3046,8 @@ DEFUN (bgp_network_import_check,
        "Check BGP network route exists in IGP\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	if (!bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)) {
-		bgp_flag_set(bgp, BGP_FLAG_IMPORT_CHECK);
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
+		SET_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK);
 		bgp_static_redo_import_check(bgp);
 	}
 
@@ -3070,8 +3070,8 @@ DEFUN (no_bgp_network_import_check,
        "Check BGP network route exists in IGP\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	if (bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)) {
-		bgp_flag_unset(bgp, BGP_FLAG_IMPORT_CHECK);
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
+		UNSET_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK);
 		bgp_static_redo_import_check(bgp);
 	}
 
@@ -3158,8 +3158,8 @@ DEFUN (bgp_rr_allow_outbound_policy,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	if (!bgp_flag_check(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
-		bgp_flag_set(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
+		SET_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
 		update_group_announce_rrclients(bgp);
 		bgp_clear_star_soft_out(vty, bgp->name);
 	}
@@ -3177,8 +3177,8 @@ DEFUN (no_bgp_rr_allow_outbound_policy,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	if (bgp_flag_check(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
-		bgp_flag_unset(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
+		UNSET_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
 		update_group_announce_rrclients(bgp);
 		bgp_clear_star_soft_out(vty, bgp->name);
 	}
@@ -3405,7 +3405,7 @@ DEFUN (bgp_disable_connected_route_check,
        "Disable checking if nexthop is connected on ebgp sessions\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_set(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
+	SET_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
 	bgp_clear_star_soft_in(vty, bgp->name);
 
 	return CMD_SUCCESS;
@@ -3419,7 +3419,7 @@ DEFUN (no_bgp_disable_connected_route_check,
        "Disable checking if nexthop is connected on ebgp sessions\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_unset(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
 	bgp_clear_star_soft_in(vty, bgp->name);
 
 	return CMD_SUCCESS;
@@ -3558,7 +3558,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 			ret = peer_remote_as(bgp, NULL, conf_if, &as, as_type,
 					     afi, safi);
 	} else {
-		if (bgp_flag_check(bgp, BGP_FLAG_NO_DEFAULT_IPV4)
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_DEFAULT_IPV4)
 		    && afi == AFI_IP && safi == SAFI_UNICAST)
 			peer = peer_create(NULL, conf_if, bgp, bgp->as, as,
 					   as_type, 0, 0, NULL);
@@ -8513,14 +8513,14 @@ static void bgp_show_bestpath_json(struct bgp *bgp, json_object *json)
 {
 	json_object *bestpath = json_object_new_object();
 
-	if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_IGNORE))
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE))
 		json_object_string_add(bestpath, "asPath", "ignore");
 
-	if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_CONFED))
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_CONFED))
 		json_object_string_add(bestpath, "asPath", "confed");
 
-	if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX)) {
-		if (bgp_flag_check(bgp, BGP_FLAG_MULTIPATH_RELAX_AS_SET))
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_MULTIPATH_RELAX)) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX_AS_SET))
 			json_object_string_add(bestpath, "multiPathRelax",
 					       "as-set");
 		else
@@ -8529,13 +8529,13 @@ static void bgp_show_bestpath_json(struct bgp *bgp, json_object *json)
 	} else
 		json_object_string_add(bestpath, "multiPathRelax", "false");
 
-	if (bgp_flag_check(bgp, BGP_FLAG_COMPARE_ROUTER_ID))
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID))
 		json_object_string_add(bestpath, "compareRouterId", "true");
-	if (bgp_flag_check(bgp, BGP_FLAG_MED_CONFED)
-	    || bgp_flag_check(bgp, BGP_FLAG_MED_MISSING_AS_WORST)) {
-		if (bgp_flag_check(bgp, BGP_FLAG_MED_CONFED))
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_MED_CONFED)
+	    || CHECK_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST)) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_MED_CONFED))
 			json_object_string_add(bestpath, "med", "confed");
-		if (bgp_flag_check(bgp, BGP_FLAG_MED_MISSING_AS_WORST))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST))
 			json_object_string_add(bestpath, "med",
 					       "missing-as-worst");
 		else
@@ -8658,7 +8658,7 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 		dn_flag[1] = '\0';
 		dn_flag[0] = peer_dynamic_neighbor(peer) ? '*' : '\0';
 		if (peer->hostname
-		    && bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
+		    && CHECK_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME))
 			len = vty_out(vty, "%s%s(%s)", dn_flag,
 				      peer->hostname, peer->host);
 		else
@@ -8741,8 +8741,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					dn_flag[0] = '*';
 
 				if (peer->hostname
-				    && bgp_flag_check(bgp,
-						      BGP_FLAG_SHOW_HOSTNAME))
+				    && CHECK_FLAG(bgp->flags,
+						  BGP_FLAG_SHOW_HOSTNAME))
 					sprintf(neighbor_buf, "%s%s(%s) ",
 						dn_flag, peer->hostname,
 						peer->host);
@@ -9103,9 +9103,11 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				}
 
 				if (peer->hostname
-				    && bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
+				    && CHECK_FLAG(bgp->flags,
+						  BGP_FLAG_SHOW_HOSTNAME))
 					len = vty_out(vty, "%s%s(%s)", dn_flag,
-						      peer->hostname, peer->host);
+						      peer->hostname,
+						      peer->host);
 				else
 					len = vty_out(vty, "%s%s", dn_flag, peer->host);
 
@@ -14603,8 +14605,8 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	} else {
 		if (peer->afc[afi][safi]) {
 			if ((afi == AFI_IP) && (safi == SAFI_UNICAST)) {
-				if (bgp_flag_check(bgp,
-						   BGP_FLAG_NO_DEFAULT_IPV4)) {
+				if (CHECK_FLAG(bgp->flags,
+					       BGP_FLAG_NO_DEFAULT_IPV4)) {
 					vty_out(vty, "  neighbor %s activate\n",
 						addr);
 				}
@@ -14612,8 +14614,8 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 				vty_out(vty, "  neighbor %s activate\n", addr);
 		} else {
 			if ((afi == AFI_IP) && (safi == SAFI_UNICAST)) {
-				if (!bgp_flag_check(bgp,
-						    BGP_FLAG_NO_DEFAULT_IPV4)) {
+				if (!CHECK_FLAG(bgp->flags,
+						BGP_FLAG_NO_DEFAULT_IPV4)) {
 					vty_out(vty,
 						"  no neighbor %s activate\n",
 						addr);
@@ -14974,16 +14976,16 @@ int bgp_config_write(struct vty *vty)
 				inet_ntoa(bgp->router_id_static));
 
 		/* BGP log-neighbor-changes. */
-		if (!!bgp_flag_check(bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES)
 		    != SAVE_BGP_LOG_NEIGHBOR_CHANGES)
 			vty_out(vty, " %sbgp log-neighbor-changes\n",
-				bgp_flag_check(bgp,
-					       BGP_FLAG_LOG_NEIGHBOR_CHANGES)
+				CHECK_FLAG(bgp->flags,
+					   BGP_FLAG_LOG_NEIGHBOR_CHANGES)
 					? ""
 					: "no ");
 
 		/* BGP configuration. */
-		if (bgp_flag_check(bgp, BGP_FLAG_ALWAYS_COMPARE_MED))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ALWAYS_COMPARE_MED))
 			vty_out(vty, " bgp always-compare-med\n");
 
 		/* RFC8212 default eBGP policy. */
@@ -14996,7 +14998,7 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " bgp reject-as-sets\n");
 
 		/* BGP default ipv4-unicast. */
-		if (bgp_flag_check(bgp, BGP_FLAG_NO_DEFAULT_IPV4))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_DEFAULT_IPV4))
 			vty_out(vty, " no bgp default ipv4-unicast\n");
 
 		/* BGP default local-preference. */
@@ -15005,10 +15007,10 @@ int bgp_config_write(struct vty *vty)
 				bgp->default_local_pref);
 
 		/* BGP default show-hostname */
-		if (!!bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME)
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME)
 		    != SAVE_BGP_SHOW_HOSTNAME)
 			vty_out(vty, " %sbgp default show-hostname\n",
-				bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME)
+				CHECK_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME)
 					? ""
 					: "no ");
 
@@ -15019,7 +15021,7 @@ int bgp_config_write(struct vty *vty)
 				bgp->default_subgroup_pkt_queue_max);
 
 		/* BGP client-to-client reflection. */
-		if (bgp_flag_check(bgp, BGP_FLAG_NO_CLIENT_TO_CLIENT))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT))
 			vty_out(vty, " no bgp client-to-client reflection\n");
 
 		/* BGP cluster ID. */
@@ -15028,7 +15030,7 @@ int bgp_config_write(struct vty *vty)
 				inet_ntoa(bgp->cluster_id));
 
 		/* Disable ebgp connected nexthop check */
-		if (bgp_flag_check(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 			vty_out(vty,
 				" bgp disable-ebgp-connected-route-check\n");
 
@@ -15050,10 +15052,11 @@ int bgp_config_write(struct vty *vty)
 		}
 
 		/* BGP deterministic-med. */
-		if (!!bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)
 		    != SAVE_BGP_DETERMINISTIC_MED)
 			vty_out(vty, " %sbgp deterministic-med\n",
-				bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)
+				CHECK_FLAG(bgp->flags,
+					   BGP_FLAG_DETERMINISTIC_MED)
 					? ""
 					: "no ");
 
@@ -15107,11 +15110,11 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " bgp graceful-restart-disable\n");
 
 		/* BGP graceful-shutdown */
-		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
 			vty_out(vty, " bgp graceful-shutdown\n");
 
 		/* BGP graceful-restart Preserve State F bit. */
-		if (bgp_flag_check(bgp, BGP_FLAG_GR_PRESERVE_FWD))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD))
 			vty_out(vty,
 				" bgp graceful-restart preserve-fw-state\n");
 
@@ -15122,14 +15125,14 @@ int bgp_config_write(struct vty *vty)
 				bgp->rib_stale_time);
 
 		/* BGP bestpath method. */
-		if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_IGNORE))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE))
 			vty_out(vty, " bgp bestpath as-path ignore\n");
-		if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_CONFED))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_CONFED))
 			vty_out(vty, " bgp bestpath as-path confed\n");
 
-		if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX)) {
-			if (bgp_flag_check(bgp,
-					   BGP_FLAG_MULTIPATH_RELAX_AS_SET)) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_MULTIPATH_RELAX)) {
+			if (CHECK_FLAG(bgp->flags,
+				       BGP_FLAG_MULTIPATH_RELAX_AS_SET)) {
 				vty_out(vty,
 					" bgp bestpath as-path multipath-relax as-set\n");
 			} else {
@@ -15138,27 +15141,28 @@ int bgp_config_write(struct vty *vty)
 			}
 		}
 
-		if (bgp_flag_check(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
 			vty_out(vty,
 				" bgp route-reflector allow-outbound-policy\n");
 		}
-		if (bgp_flag_check(bgp, BGP_FLAG_COMPARE_ROUTER_ID))
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID))
 			vty_out(vty, " bgp bestpath compare-routerid\n");
-		if (bgp_flag_check(bgp, BGP_FLAG_MED_CONFED)
-		    || bgp_flag_check(bgp, BGP_FLAG_MED_MISSING_AS_WORST)) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_MED_CONFED)
+		    || CHECK_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST)) {
 			vty_out(vty, " bgp bestpath med");
-			if (bgp_flag_check(bgp, BGP_FLAG_MED_CONFED))
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_MED_CONFED))
 				vty_out(vty, " confed");
-			if (bgp_flag_check(bgp, BGP_FLAG_MED_MISSING_AS_WORST))
+			if (CHECK_FLAG(bgp->flags,
+				       BGP_FLAG_MED_MISSING_AS_WORST))
 				vty_out(vty, " missing-as-worst");
 			vty_out(vty, "\n");
 		}
 
 		/* BGP network import check. */
-		if (!!bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)
 		    != SAVE_BGP_IMPORT_CHECK)
 			vty_out(vty, " %sbgp network import-check\n",
-				bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
+				CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)
 					? ""
 					: "no ");
 
