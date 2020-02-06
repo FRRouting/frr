@@ -185,7 +185,7 @@ def test_mpls_interfaces():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify OSPFv3 Routing Table
+    # Verify MPLS Interfaces
     print("\n\n** Verifying MPLS Interfaces")
     print("******************************************\n")
     failures = 0
@@ -238,7 +238,7 @@ def test_mpls_ldp_neighbor_establish():
     if (fatal_error != ""):
         pytest.skip(fatal_error)
 
-    # Wait for OSPF6 to converge  (All Neighbors in either Full or TwoWay State)
+    # Wait for MPLS LDP neighbors to establish.
     print("\n\n** Verify MPLS LDP neighbors to establish")
     print("******************************************\n")
     timeout = 90
@@ -302,12 +302,12 @@ def test_mpls_ldp_discovery():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify OSPFv3 Routing Table
+    # Verify MPLS LDP discovery
     print("\n\n** Verifying MPLS LDP discovery")
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
-        refTableFile = '%s/r%s/show_mpls_ldp_discovery.ref'
+        refTableFile = '%s/r%s/show_mpls_ldp_discovery.ref' % (thisDir, i)
         if os.path.isfile(refTableFile):
             # Actual output from router
             actual = net['r%s' % i].cmd('vtysh -c "show mpls ldp discovery" 2> /dev/null').rstrip()
@@ -356,12 +356,12 @@ def test_mpls_ldp_neighbor():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify OSPFv3 Routing Table
+    # Verify MPLS LDP neighbor
     print("\n\n** Verifying MPLS LDP neighbor")
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
-        refTableFile = '%s/r%s/show_mpls_ldp_neighbor.ref'
+        refTableFile = '%s/r%s/show_mpls_ldp_neighbor.ref' % (thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -415,12 +415,12 @@ def test_mpls_ldp_binding():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify OSPFv3 Routing Table
+    # Verify MPLS LDP binding
     print("\n\n** Verifying MPLS LDP binding")
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
-        refTableFile = '%s/r%s/show_mpls_ldp_binding.ref'
+        refTableFile = '%s/r%s/show_mpls_ldp_binding.ref' % (thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -484,12 +484,12 @@ def test_zebra_ipv4_routingTable():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify OSPFv3 Routing Table
+    # Verify Zebra IPv4 Routing Table
     print("\n\n** Verifying Zebra IPv4 Routing Table")
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
-        refTableFile = '%s/r%s/show_ipv4_route.ref'
+        refTableFile = '%s/r%s/show_ipv4_route.ref' % (thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
@@ -547,13 +547,13 @@ def test_mpls_table():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify OSPFv3 Routing Table
+    # Verify MPLS table
     print("\n\n** Verifying MPLS table")
     print("******************************************\n")
     failures = 0
 
     for i in range(1, 5):
-        refTableFile = '%s/r%s/show_mpls_table.ref'
+        refTableFile = '%s/r%s/show_mpls_table.ref' % (thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read()
@@ -562,7 +562,7 @@ def test_mpls_table():
 
             # Actual output from router
             actual = net['r%s' % i].cmd('vtysh -c "show mpls table" 2> /dev/null')
- 
+
             # Fix inconsistent Label numbers at beginning of line
             actual = re.sub(r"(\s+)[0-9]+(\s+LDP)", r"\1XX\2", actual)
             # Fix inconsistent Label numbers at end of line
@@ -617,7 +617,7 @@ def test_linux_mpls_routes():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    # Verify OSPFv3 Routing Table
+    # Verify Linux Kernel MPLS routes
     print("\n\n** Verifying Linux Kernel MPLS routes")
     print("******************************************\n")
     failures = 0
