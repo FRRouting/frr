@@ -1762,11 +1762,13 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
                 switch (api.srte.type) {
                 case ZAPI_SRTE_POLICY:
 			policy = zebra_sr_policy_find_by_name(api.srte.policy);
-			zlog_debug("Resolving SR Policy %s", policy->name);
+			zlog_debug("Resolved SR Policy by name: %s", policy->name);
 			// TODO: process policy
 			break;
 		case ZAPI_SRTE_COLOR:
-			// TODO: process color
+			policy = zebra_sr_policy_find(api.srte.color, api.nexthops[0].gate.ipv4);
+			zlog_debug("Resolved SR Policy by color: %s", policy->name);
+			// TODO: process policy
 			break;
 		}
 	}
