@@ -473,7 +473,6 @@ static void bgp_connected_cleanup(struct route_table *table,
 int bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type, uint8_t sub_type,
 		struct attr *attr, struct bgp_node *rn)
 {
-	struct prefix p = {0};
 	uint8_t new_afi = afi == AFI_IP ? AF_INET : AF_INET6;
 	struct bgp_addr tmp_addr = {0}, *addr = NULL;
 	struct tip_addr tmp_tip, *tip = NULL;
@@ -486,46 +485,45 @@ int bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type, uint8_t sub_type,
 	if (!is_bgp_static_route)
 		new_afi = BGP_ATTR_NEXTHOP_AFI_IP6(attr) ? AF_INET6 : AF_INET;
 
-	p.family = new_afi;
+	tmp_addr.p.family = new_afi;
 	switch (new_afi) {
 	case AF_INET:
 		if (is_bgp_static_route) {
-			p.u.prefix4 = rn->p.u.prefix4;
-			p.prefixlen = rn->p.prefixlen;
+			tmp_addr.p.u.prefix4 = rn->p.u.prefix4;
+			tmp_addr.p.prefixlen = rn->p.prefixlen;
 		} else {
 			/* Here we need to find out which nexthop to be used*/
 			if (attr->flag &
 					ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
 
-				p.u.prefix4 = attr->nexthop;
-				p.prefixlen = IPV4_MAX_BITLEN;
+				tmp_addr.p.u.prefix4 = attr->nexthop;
+				tmp_addr.p.prefixlen = IPV4_MAX_BITLEN;
 
 			} else if ((attr->mp_nexthop_len) &&
 					((attr->mp_nexthop_len ==
 					  BGP_ATTR_NHLEN_IPV4) ||
 					 (attr->mp_nexthop_len ==
 					  BGP_ATTR_NHLEN_VPNV4))) {
-				p.u.prefix4 =
+				tmp_addr.p.u.prefix4 =
 					attr->mp_nexthop_global_in;
-				p.prefixlen = IPV4_MAX_BITLEN;
+				tmp_addr.p.prefixlen = IPV4_MAX_BITLEN;
 			} else
 				return 0;
 		}
 		break;
 	case AF_INET6:
 		if (is_bgp_static_route) {
-			p.u.prefix6 = rn->p.u.prefix6;
-			p.prefixlen = rn->p.prefixlen;
+			tmp_addr.p.u.prefix6 = rn->p.u.prefix6;
+			tmp_addr.p.prefixlen = rn->p.prefixlen;
 		} else {
-			p.u.prefix6 = attr->mp_nexthop_global;
-			p.prefixlen = IPV6_MAX_BITLEN;
+			tmp_addr.p.u.prefix6 = attr->mp_nexthop_global;
+			tmp_addr.p.prefixlen = IPV6_MAX_BITLEN;
 		}
 		break;
 	default:
 		break;
 	}
 
-	tmp_addr.p = p;
 	addr = hash_lookup(bgp->address_hash, &tmp_addr);
 	if (addr)
 		return 1;
