@@ -44,7 +44,7 @@ int clear_evpn_dup_addr_rpc(const char *xpath, const struct list *input,
 
 	if (yang_dup_choice
 	    && strcmp(yang_dup_choice->value, "all-case") == 0) {
-		zebra_vxlan_clear_dup_detect_vni_all(NULL, zvrf);
+		zebra_vxlan_clear_dup_detect_vni_all(zvrf);
 	} else {
 		vni_t vni;
 		struct ipaddr host_ip = {.ipa_type = IPADDR_NONE};
@@ -64,7 +64,7 @@ int clear_evpn_dup_addr_rpc(const char *xpath, const struct list *input,
 				"input/clear-dup-choice/single-case/vni-id/vni-ipaddr");
 
 			if (yang_dup_mac) {
-				yang_str2mac(value, &mac);
+				yang_str2mac(yang_dup_mac->value, &mac);
 				ret = zebra_vxlan_clear_dup_detect_vni_mac(
 					zvrf, vni, &mac);
 			} else if (yang_dup_ip) {
