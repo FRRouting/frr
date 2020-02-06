@@ -473,7 +473,7 @@ static void pim_msdp_sa_local_add(struct pim_instance *pim,
 				  struct prefix_sg *sg)
 {
 	struct in_addr rp;
-	rp.s_addr = 0;
+	rp.s_addr = INADDR_ANY;
 	pim_msdp_sa_ref(pim, NULL /* mp */, sg, rp);
 }
 

@@ -755,7 +755,7 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 
 			oid2in_addr(offset, len, &paddr);
 		} else
-			paddr.s_addr = 0;
+			paddr.s_addr = INADDR_ANY;
 
 		if (!rn)
 			return NULL;
@@ -804,7 +804,7 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 				return min;
 			}
 
-			paddr.s_addr = 0;
+			paddr.s_addr = INADDR_ANY;
 		} while ((rn = bgp_route_next(rn)) != NULL);
 	}
 	return NULL;

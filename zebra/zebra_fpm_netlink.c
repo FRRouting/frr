@@ -218,7 +218,7 @@ static int netlink_route_info_add_nh(netlink_route_info_t *ri,
 	if (nexthop->type == NEXTHOP_TYPE_IPV4
 	    || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
 		nhi.gateway = &nexthop->gate;
-		if (nexthop->src.ipv4.s_addr)
+		if (nexthop->src.ipv4.s_addr != INADDR_ANY)
 			src = &nexthop->src;
 	}
 
@@ -228,7 +228,7 @@ static int netlink_route_info_add_nh(netlink_route_info_t *ri,
 	}
 
 	if (nexthop->type == NEXTHOP_TYPE_IFINDEX) {
-		if (nexthop->src.ipv4.s_addr)
+		if (nexthop->src.ipv4.s_addr != INADDR_ANY)
 			src = &nexthop->src;
 	}
 

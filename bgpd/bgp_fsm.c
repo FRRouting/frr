@@ -1527,7 +1527,7 @@ int bgp_start(struct peer *peer)
 	}
 
 	/* Clear remote router-id. */
-	peer->remote_id.s_addr = 0;
+	peer->remote_id.s_addr = INADDR_ANY;
 
 	/* Clear peer capability flag. */
 	peer->cap = 0;

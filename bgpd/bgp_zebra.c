@@ -819,7 +819,7 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 
 		/* IPv4 nexthop. */
 		ret = if_get_ipv4_address(ifp, &nexthop->v4);
-		if (!ret && peer->local_id.s_addr)
+		if (!ret && peer->local_id.s_addr != INADDR_ANY)
 			nexthop->v4 = peer->local_id;
 
 		/* Global address*/
@@ -2548,7 +2548,8 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 
 	if (cmd == ZEBRA_VNI_ADD)
 		return bgp_evpn_local_vni_add(
-			bgp, vni, vtep_ip.s_addr ? vtep_ip : bgp->router_id,
+			bgp, vni,
+			vtep_ip.s_addr != INADDR_ANY ? vtep_ip : bgp->router_id,
 			tenant_vrf_id, mcast_grp);
 	else
 		return bgp_evpn_local_vni_del(bgp, vni);
@@ -2975,7 +2976,7 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
 
 	/* redirect IP */
-	if (nh->gate.ipv4.s_addr) {
+	if (nh->gate.ipv4.s_addr != INADDR_ANY) {
 		char buff[PREFIX_STRLEN];
 
 		api_nh->vrf_id = nh->vrf_id;

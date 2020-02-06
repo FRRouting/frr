@@ -335,7 +335,8 @@ void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *router_id)
 int bgp_router_id_static_set(struct bgp *bgp, struct in_addr id)
 {
 	bgp->router_id_static = id;
-	bgp_router_id_set(bgp, id.s_addr ? &id : &bgp->router_id_zebra,
+	bgp_router_id_set(bgp,
+			  id.s_addr != INADDR_ANY ? &id : &bgp->router_id_zebra,
 			  true /* is config */);
 	return 0;
 }

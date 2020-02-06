@@ -797,7 +797,7 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 		}
 
 		/* Zap multipath attr nexthop so we set nexthop to self */
-		attr.nexthop.s_addr = 0;
+		attr.nexthop.s_addr = INADDR_ANY;
 		memset(&attr.mp_nexthop_global, 0, sizeof(struct in6_addr));
 
 		/* TODO: should we set ATOMIC_AGGREGATE and AGGREGATOR? */

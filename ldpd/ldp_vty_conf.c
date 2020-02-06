@@ -250,9 +250,8 @@ ldp_config_write(struct vty *vty)
 
 	vty_out (vty, "mpls ldp\n");
 
-	if (ldpd_conf->rtr_id.s_addr != 0)
-		vty_out (vty, " router-id %s\n",
-		    inet_ntoa(ldpd_conf->rtr_id));
+	if (ldpd_conf->rtr_id.s_addr != INADDR_ANY)
+		vty_out(vty, " router-id %s\n", inet_ntoa(ldpd_conf->rtr_id));
 
 	if (ldpd_conf->lhello_holdtime != LINK_DFLT_HOLDTIME &&
 	    ldpd_conf->lhello_holdtime != 0)

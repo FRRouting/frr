@@ -1223,7 +1223,8 @@ static void rip_response_process(struct rip_packet *packet, int size,
 		}
 
 		/* RIPv1 does not have nexthop value. */
-		if (packet->version == RIPv1 && rte->nexthop.s_addr != 0) {
+		if (packet->version == RIPv1
+		    && rte->nexthop.s_addr != INADDR_ANY) {
 			zlog_info("RIPv1 packet with nexthop value %s",
 				  inet_ntoa(rte->nexthop));
 			rip_peer_bad_route(rip, from);
@@ -1234,7 +1235,8 @@ static void rip_response_process(struct rip_packet *packet, int size,
 		   sub-optimal, but absolutely valid, route may be taken.  If
 		   the received Next Hop is not directly reachable, it should be
 		   treated as 0.0.0.0. */
-		if (packet->version == RIPv2 && rte->nexthop.s_addr != 0) {
+		if (packet->version == RIPv2
+		    && rte->nexthop.s_addr != INADDR_ANY) {
 			uint32_t addrval;
 
 			/* Multicast address check. */
@@ -1272,7 +1274,8 @@ static void rip_response_process(struct rip_packet *packet, int size,
 								"Next hop %s is not directly reachable. Treat it as 0.0.0.0",
 								inet_ntoa(
 									rte->nexthop));
-						rte->nexthop.s_addr = 0;
+						rte->nexthop.s_addr =
+							INADDR_ANY;
 					}
 
 					route_unlock_node(rn);
@@ -1282,7 +1285,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 							"Next hop %s is not directly reachable. Treat it as 0.0.0.0",
 							inet_ntoa(
 								rte->nexthop));
-					rte->nexthop.s_addr = 0;
+					rte->nexthop.s_addr = INADDR_ANY;
 				}
 			}
 		}
@@ -1297,10 +1300,11 @@ static void rip_response_process(struct rip_packet *packet, int size,
 		   (/16 for class B's) except when the RIP packet does to inside
 		   the classful network in question.  */
 
-		if ((packet->version == RIPv1 && rte->prefix.s_addr != 0)
+		if ((packet->version == RIPv1
+		     && rte->prefix.s_addr != INADDR_ANY)
 		    || (packet->version == RIPv2
-			&& (rte->prefix.s_addr != 0
-			    && rte->mask.s_addr == 0))) {
+			&& (rte->prefix.s_addr != INADDR_ANY
+			    && rte->mask.s_addr == INADDR_ANY))) {
 			uint32_t destination;
 
 			if (subnetted == -1) {
@@ -1352,7 +1356,8 @@ static void rip_response_process(struct rip_packet *packet, int size,
 
 		/* In case of RIPv2, if prefix in RTE is not netmask applied one
 		   ignore the entry.  */
-		if ((packet->version == RIPv2) && (rte->mask.s_addr != 0)
+		if ((packet->version == RIPv2)
+		    && (rte->mask.s_addr != INADDR_ANY)
 		    && ((rte->prefix.s_addr & rte->mask.s_addr)
 			!= rte->prefix.s_addr)) {
 			zlog_warn(
@@ -1363,12 +1368,13 @@ static void rip_response_process(struct rip_packet *packet, int size,
 		}
 
 		/* Default route's netmask is ignored. */
-		if (packet->version == RIPv2 && (rte->prefix.s_addr == 0)
-		    && (rte->mask.s_addr != 0)) {
+		if (packet->version == RIPv2
+		    && (rte->prefix.s_addr == INADDR_ANY)
+		    && (rte->mask.s_addr != INADDR_ANY)) {
 			if (IS_RIP_DEBUG_EVENT)
 				zlog_debug(
 					"Default route with non-zero netmask.  Set zero to netmask");
-			rte->mask.s_addr = 0;
+			rte->mask.s_addr = INADDR_ANY;
 		}
 
 		/* Routing table updates. */

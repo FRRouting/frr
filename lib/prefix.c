@@ -659,7 +659,7 @@ void apply_mask_ipv4(struct prefix_ipv4 *p)
 /* If prefix is 0.0.0.0/0 then return 1 else return 0. */
 int prefix_ipv4_any(const struct prefix_ipv4 *p)
 {
-	return (p->prefix.s_addr == 0 && p->prefixlen == 0);
+	return (p->prefix.s_addr == INADDR_ANY && p->prefixlen == 0);
 }
 
 /* Allocate a new ip version 6 route */
@@ -1144,7 +1144,7 @@ int netmask_str2prefix_str(const char *net_str, const char *mask_str,
 	} else {
 		destination = ntohl(network.s_addr);
 
-		if (network.s_addr == 0)
+		if (network.s_addr == INADDR_ANY)
 			prefixlen = 0;
 		else if (IN_CLASSC(destination))
 			prefixlen = 24;

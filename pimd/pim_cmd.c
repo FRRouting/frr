@@ -1741,12 +1741,12 @@ static void pim_show_join(struct pim_instance *pim, struct vty *vty,
 			continue;
 
 		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
-			if (sg->grp.s_addr != 0
+			if (sg->grp.s_addr != INADDR_ANY
 			    && sg->grp.s_addr != ch->sg.grp.s_addr)
 				continue;
-			if (sg->src.s_addr != 0
+			if (sg->src.s_addr != INADDR_ANY
 			    && sg->src.s_addr != ch->sg.src.s_addr)
-			continue;
+				continue;
 			pim_show_join_helper(vty, pim_ifp, ch, json, now, uj);
 		} /* scan interface channels */
 	}
@@ -2448,9 +2448,11 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		char msdp_reg_timer[10];
 		char state_str[PIM_REG_STATE_STR_LEN];
 
-		if (sg->grp.s_addr != 0 && sg->grp.s_addr != up->sg.grp.s_addr)
+		if (sg->grp.s_addr != INADDR_ANY
+		    && sg->grp.s_addr != up->sg.grp.s_addr)
 			continue;
-		if (sg->src.s_addr != 0 && sg->src.s_addr != up->sg.src.s_addr)
+		if (sg->src.s_addr != INADDR_ANY
+		    && sg->src.s_addr != up->sg.src.s_addr)
 			continue;
 
 		pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));

@@ -1186,7 +1186,8 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	}
 
 	/* remote router-id check. */
-	if (remote_id.s_addr == 0 || IPV4_CLASS_DE(ntohl(remote_id.s_addr))
+	if (remote_id.s_addr == INADDR_ANY
+	    || IPV4_CLASS_DE(ntohl(remote_id.s_addr))
 	    || ntohl(peer->local_id.s_addr) == ntohl(remote_id.s_addr)) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s bad OPEN, wrong router identifier %s",
@@ -1354,7 +1355,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	    || peer->afc_nego[AFI_IP][SAFI_MULTICAST]
 	    || peer->afc_nego[AFI_IP][SAFI_MPLS_VPN]
 	    || peer->afc_nego[AFI_IP][SAFI_ENCAP]) {
-		if (!peer->nexthop.v4.s_addr) {
+		if (peer->nexthop.v4.s_addr == INADDR_ANY) {
 #if defined(HAVE_CUMULUS)
 			flog_err(
 				EC_BGP_SND_FAIL,

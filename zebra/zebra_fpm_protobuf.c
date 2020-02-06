@@ -86,7 +86,7 @@ static inline int add_nexthop(qpb_allocator_t *allocator, Fpm__AddRoute *msg,
 	if (nexthop->type == NEXTHOP_TYPE_IPV4
 	    || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
 		gateway = &nexthop->gate;
-		if (nexthop->src.ipv4.s_addr)
+		if (nexthop->src.ipv4.s_addr != INADDR_ANY)
 			src = &nexthop->src;
 	}
 
@@ -96,7 +96,7 @@ static inline int add_nexthop(qpb_allocator_t *allocator, Fpm__AddRoute *msg,
 	}
 
 	if (nexthop->type == NEXTHOP_TYPE_IFINDEX) {
-		if (nexthop->src.ipv4.s_addr)
+		if (nexthop->src.ipv4.s_addr != INADDR_ANY)
 			src = &nexthop->src;
 	}
 

@@ -1705,7 +1705,7 @@ route_set_ip_nexthop(void *rule, const struct prefix *prefix,
 			 */
 			SET_FLAG(path->attr->rmap_change_flags,
 				 BATTR_RMAP_NEXTHOP_PEER_ADDRESS);
-			path->attr->nexthop.s_addr = 0;
+			path->attr->nexthop.s_addr = INADDR_ANY;
 		}
 	} else {
 		/* Set next hop value. */

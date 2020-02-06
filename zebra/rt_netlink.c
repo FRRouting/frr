@@ -1162,10 +1162,12 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 		addattr_l(nlmsg, req_size, RTA_GATEWAY, &ipv4_ll, 4);
 		addattr32(nlmsg, req_size, RTA_OIF, nexthop->ifindex);
 
-		if (nexthop->rmap_src.ipv4.s_addr && (cmd == RTM_NEWROUTE))
+		if (nexthop->rmap_src.ipv4.s_addr != INADDR_ANY
+		    && (cmd == RTM_NEWROUTE))
 			addattr_l(nlmsg, req_size, RTA_PREFSRC,
 				  &nexthop->rmap_src.ipv4, bytelen);
-		else if (nexthop->src.ipv4.s_addr && (cmd == RTM_NEWROUTE))
+		else if (nexthop->src.ipv4.s_addr != INADDR_ANY
+			 && (cmd == RTM_NEWROUTE))
 			addattr_l(nlmsg, req_size, RTA_PREFSRC,
 				  &nexthop->src.ipv4, bytelen);
 
@@ -1187,10 +1189,10 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 				bytelen, nexthop);
 
 		if (cmd == RTM_NEWROUTE) {
-			if (nexthop->rmap_src.ipv4.s_addr)
+			if (nexthop->rmap_src.ipv4.s_addr != INADDR_ANY)
 				addattr_l(nlmsg, req_size, RTA_PREFSRC,
 					  &nexthop->rmap_src.ipv4, bytelen);
-			else if (nexthop->src.ipv4.s_addr)
+			else if (nexthop->src.ipv4.s_addr != INADDR_ANY)
 				addattr_l(nlmsg, req_size, RTA_PREFSRC,
 					  &nexthop->src.ipv4, bytelen);
 		}
@@ -1236,10 +1238,10 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 
 	if (nexthop->type == NEXTHOP_TYPE_IFINDEX) {
 		if (cmd == RTM_NEWROUTE) {
-			if (nexthop->rmap_src.ipv4.s_addr)
+			if (nexthop->rmap_src.ipv4.s_addr != INADDR_ANY)
 				addattr_l(nlmsg, req_size, RTA_PREFSRC,
 					  &nexthop->rmap_src.ipv4, bytelen);
-			else if (nexthop->src.ipv4.s_addr)
+			else if (nexthop->src.ipv4.s_addr != INADDR_ANY)
 				addattr_l(nlmsg, req_size, RTA_PREFSRC,
 					  &nexthop->src.ipv4, bytelen);
 		}
@@ -1336,9 +1338,9 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 		rtnh->rtnh_len += sizeof(struct rtattr) + bytelen;
 		rtnh->rtnh_ifindex = nexthop->ifindex;
 
-		if (nexthop->rmap_src.ipv4.s_addr)
+		if (nexthop->rmap_src.ipv4.s_addr != INADDR_ANY)
 			*src = &nexthop->rmap_src;
-		else if (nexthop->src.ipv4.s_addr)
+		else if (nexthop->src.ipv4.s_addr != INADDR_ANY)
 			*src = &nexthop->src;
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1355,9 +1357,9 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 		_netlink_route_rta_add_gateway_info(rtmsg->rtm_family, AF_INET,
 						    rta, rtnh, NL_PKT_BUF_SIZE,
 						    bytelen, nexthop);
-		if (nexthop->rmap_src.ipv4.s_addr)
+		if (nexthop->rmap_src.ipv4.s_addr != INADDR_ANY)
 			*src = &nexthop->rmap_src;
-		else if (nexthop->src.ipv4.s_addr)
+		else if (nexthop->src.ipv4.s_addr != INADDR_ANY)
 			*src = &nexthop->src;
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1396,9 +1398,9 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 
 	/* ifindex */
 	if (nexthop->type == NEXTHOP_TYPE_IFINDEX) {
-		if (nexthop->rmap_src.ipv4.s_addr)
+		if (nexthop->rmap_src.ipv4.s_addr != INADDR_ANY)
 			*src = &nexthop->rmap_src;
-		else if (nexthop->src.ipv4.s_addr)
+		else if (nexthop->src.ipv4.s_addr != INADDR_ANY)
 			*src = &nexthop->src;
 
 		if (IS_ZEBRA_DEBUG_KERNEL)

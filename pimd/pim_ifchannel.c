@@ -580,7 +580,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 	ch->ifassert_my_metric = pim_macro_ch_my_assert_metric_eval(ch);
 	ch->ifassert_winner_metric = pim_macro_ch_my_assert_metric_eval(ch);
 
-	ch->ifassert_winner.s_addr = 0;
+	ch->ifassert_winner.s_addr = INADDR_ANY;
 
 	/* Assert state */
 	ch->t_ifassert_timer = NULL;

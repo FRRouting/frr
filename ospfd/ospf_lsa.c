@@ -820,7 +820,7 @@ static struct ospf_lsa *ospf_router_lsa_originate(struct ospf_area *area)
 	}
 
 	/* Sanity check. */
-	if (new->data->adv_router.s_addr == 0) {
+	if (new->data->adv_router.s_addr == INADDR_ANY) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("LSA[Type1]: AdvRouter is 0, discard");
 		ospf_lsa_discard(new);
@@ -1459,7 +1459,7 @@ struct in_addr ospf_get_ip_from_ifp(struct ospf_interface *oi)
 {
 	struct in_addr fwd;
 
-	fwd.s_addr = 0;
+	fwd.s_addr = INADDR_ANY;
 
 	if (if_is_operative(oi->ifp))
 		return oi->address->u.prefix4;
@@ -1931,7 +1931,7 @@ int is_prefix_default(struct prefix_ipv4 *p)
 	struct prefix_ipv4 q;
 
 	q.family = AF_INET;
-	q.prefix.s_addr = 0;
+	q.prefix.s_addr = INADDR_ANY;
 	q.prefixlen = 0;
 
 	return prefix_same((struct prefix *)p, (struct prefix *)&q);
@@ -1979,10 +1979,11 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 
 	   */
 
-	if (ospf->router_id.s_addr == 0) {
+	if (ospf->router_id.s_addr == INADDR_ANY) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("LSA[Type5:%pI4]: deferring AS-external-LSA origination, router ID is zero",
-				   &ei->p.prefix);
+			zlog_debug(
+				"LSA[Type5:%pI4]: deferring AS-external-LSA origination, router ID is zero",
+				&ei->p.prefix);
 		return NULL;
 	}
 
@@ -2197,7 +2198,7 @@ void ospf_external_lsa_refresh_default(struct ospf *ospf)
 
 	p.family = AF_INET;
 	p.prefixlen = 0;
-	p.prefix.s_addr = 0;
+	p.prefix.s_addr = INADDR_ANY;
 
 	ei = ospf_default_external_info(ospf);
 	lsa = ospf_external_info_find_lsa(ospf, &p);
