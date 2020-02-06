@@ -5294,7 +5294,7 @@ static void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
 	pim = vrf->info;
 
 	vty_out(vty, "Router MLAG Role: %s\n",
-		mlag_role2str(router->role, mlag_role, sizeof(mlag_role)));
+		mlag_role2str(router->mlag_role, mlag_role, sizeof(mlag_role)));
 	vty_out(vty, "Mroute socket descriptor:");
 
 	vty_out(vty, " %d(%s)\n", pim->mroute_socket, vrf->name);
@@ -10259,7 +10259,7 @@ DEFUN_HIDDEN (no_ip_pim_mlag,
 
 	addr.s_addr = 0;
 	pim_vxlan_mlag_update(true/*mlag_enable*/,
-		false/*peer_state*/, PIM_VXLAN_MLAG_ROLE_SECONDARY,
+		false/*peer_state*/, MLAG_ROLE_NONE,
 		NULL/*peerlink*/, &addr);
 
 	return CMD_SUCCESS;
@@ -10299,9 +10299,9 @@ DEFUN_HIDDEN (ip_pim_mlag,
 
 	idx += 2;
 	if (!strcmp(argv[idx]->arg, "primary")) {
-		role = PIM_VXLAN_MLAG_ROLE_PRIMARY;
+		role = MLAG_ROLE_PRIMARY;
 	} else if (!strcmp(argv[idx]->arg, "secondary")) {
-		role = PIM_VXLAN_MLAG_ROLE_SECONDARY;
+		role = MLAG_ROLE_SECONDARY;
 	} else {
 		vty_out(vty, "unknown MLAG role %s\n", argv[idx]->arg);
 		return CMD_WARNING;

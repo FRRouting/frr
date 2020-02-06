@@ -52,6 +52,7 @@
 #include "pim_nht.h"
 #include "pim_ssm.h"
 #include "pim_vxlan.h"
+#include "pim_mlag.h"
 
 static void join_timer_stop(struct pim_upstream *up);
 static void
@@ -883,6 +884,13 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		}
 	}
 
+	/* send the entry to the MLAG peer */
+	/* XXX - duplicate send is possible here if pim_rpf_update
+	 * successfully resolved the nexthop
+	 */
+	if (pim_up_mlag_is_local(up))
+		pim_mlag_up_local_add(pim, up);
+
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_debug(
 			"%s: Created Upstream %s upstream_addr %s ref count %d increment",
@@ -891,6 +899,22 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	}
 
 	return up;
+}
+
+uint32_t pim_up_mlag_local_cost(struct pim_upstream *up)
+{
+	if (!(pim_up_mlag_is_local(up)))
+		return router->infinite_assert_metric.route_metric;
+
+	return up->rpf.source_nexthop.mrib_route_metric;
+}
+
+uint32_t pim_up_mlag_peer_cost(struct pim_upstream *up)
+{
+	if (!(up->flags & PIM_UPSTREAM_FLAG_MASK_MLAG_PEER))
+		return router->infinite_assert_metric.route_metric;
+
+	return up->mlag.peer_mrib_metric;
 }
 
 struct pim_upstream *pim_upstream_find(struct pim_instance *pim,
@@ -916,6 +940,15 @@ struct pim_upstream *pim_upstream_find_or_add(struct prefix_sg *sg,
 
 void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name)
 {
+	/* if a local MLAG reference is being created we need to send the mroute
+	 * to the peer
+	 */
+	if (!PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(up->flags) &&
+			PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(flags)) {
+		PIM_UPSTREAM_FLAG_SET_MLAG_VXLAN(up->flags);
+		pim_mlag_up_local_add(up->pim, up);
+	}
+
 	/* when we go from non-FHR to FHR we need to re-eval traffic
 	 * forwarding path
 	 */
@@ -1950,8 +1983,9 @@ static void pim_upstream_sg_running(void *arg)
 					"source reference created on kat restart %s[%s]",
 					up->sg_str, pim->vrf->name);
 
-			pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM,
-					 __PRETTY_FUNCTION__);
+			pim_upstream_ref(up,
+					PIM_UPSTREAM_FLAG_MASK_SRC_STREAM,
+					__PRETTY_FUNCTION__);
 			PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 			pim_upstream_fhr_kat_start(up);
 		}

@@ -38,6 +38,7 @@
 #include "pim_nht.h"
 #include "pim_zebra.h"
 #include "pim_vxlan.h"
+#include "pim_mlag.h"
 
 /* pim-vxlan global info */
 struct pim_vxlan vxlan_info, *pim_vxlan_p = &vxlan_info;
@@ -594,7 +595,7 @@ static void pim_vxlan_term_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
 		/* clear out all the vxlan related flags */
 		up->flags &= ~(PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM |
 			PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN);
-
+		pim_mlag_up_local_del(vxlan_sg->pim, up);
 		pim_upstream_del(vxlan_sg->pim, up,
 				__PRETTY_FUNCTION__);
 	}
@@ -825,27 +826,6 @@ void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 }
 
 /****************************** misc callbacks *******************************/
-void pim_vxlan_config_write(struct vty *vty, char *spaces, int *writes)
-{
-	char addr_buf[INET_ADDRSTRLEN];
-
-	if ((vxlan_mlag.flags & PIM_VXLAN_MLAGF_ENABLED) &&
-			vxlan_mlag.peerlink_rif) {
-
-		inet_ntop(AF_INET, &vxlan_mlag.reg_addr,
-				addr_buf, sizeof(addr_buf));
-		vty_out(vty,
-			"%sip pim mlag %s role %s state %s addr %s\n",
-			spaces,
-			vxlan_mlag.peerlink_rif->name,
-			(vxlan_mlag.role == PIM_VXLAN_MLAG_ROLE_PRIMARY) ?
-				"primary":"secondary",
-			vxlan_mlag.peer_state ? "up" : "down",
-			addr_buf);
-		*writes += 1;
-	}
-}
-
 static void pim_vxlan_set_default_iif(struct pim_instance *pim,
 				struct interface *ifp)
 {

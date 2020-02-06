@@ -70,14 +70,10 @@ enum pim_vxlan_mlag_flags {
 	PIM_VXLAN_MLAGF_DO_REG = (1 << 1)
 };
 
-enum pim_vxlan_mlag_role {
-	PIM_VXLAN_MLAG_ROLE_SECONDARY = 0,
-	PIM_VXLAN_MLAG_ROLE_PRIMARY
-};
-
 struct pim_vxlan_mlag {
 	enum pim_vxlan_mlag_flags flags;
-	enum pim_vxlan_mlag_role role;
+	/* XXX - remove this variable from here */
+	int role;
 	bool peer_state;
 	/* routed interface setup on top of MLAG peerlink */
 	struct interface *peerlink_rif;
@@ -142,7 +138,6 @@ extern bool pim_vxlan_get_register_src(struct pim_instance *pim,
 extern void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 				struct interface *peerlink_rif,
 				struct in_addr *reg_addr);
-extern void pim_vxlan_config_write(struct vty *vty, char *spaces, int *writes);
 extern bool pim_vxlan_do_mlag_reg(void);
 
 #endif /* PIM_VXLAN_H */

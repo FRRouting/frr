@@ -37,4 +37,10 @@ extern void pim_mlag_deregister(void);
 extern int pim_zebra_mlag_process_up(void);
 extern int pim_zebra_mlag_process_down(void);
 extern int pim_zebra_mlag_handle_msg(struct stream *msg, int len);
+extern void pim_mlag_up_local_add(struct pim_instance *pim,
+		struct pim_upstream *upstream);
+extern void pim_mlag_up_local_del(struct pim_instance *pim,
+		struct pim_upstream *upstream);
+extern bool pim_mlag_up_df_role_update(struct pim_instance *pim,
+		struct pim_upstream *up, bool is_df, const char *reason);
 #endif
