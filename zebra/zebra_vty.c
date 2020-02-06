@@ -2941,10 +2941,9 @@ DEFPY (clear_evpn_dup_addr,
 	zvrf = zebra_vrf_get_evpn();
 	if (vni_str) {
 		if (!is_zero_mac(&mac->eth_addr)) {
-			ret = zebra_vxlan_clear_dup_detect_vni_mac(vty, zvrf,
-								   vni,
-								   &mac->eth_addr);
-	        } else if (ip) {
+			ret = zebra_vxlan_clear_dup_detect_vni_mac(
+				zvrf, vni, &mac->eth_addr);
+		} else if (ip) {
 			if (sockunion_family(ip) == AF_INET) {
 				host_ip.ipa_type = IPADDR_V4;
 				host_ip.ipaddr_v4.s_addr = sockunion2ip(ip);
@@ -2953,14 +2952,13 @@ DEFPY (clear_evpn_dup_addr,
 				memcpy(&host_ip.ipaddr_v6, &ip->sin6.sin6_addr,
 				       sizeof(struct in6_addr));
 			}
-			ret = zebra_vxlan_clear_dup_detect_vni_ip(vty, zvrf,
-								  vni,
+			ret = zebra_vxlan_clear_dup_detect_vni_ip(zvrf, vni,
 								  &host_ip);
 		} else
-			ret = zebra_vxlan_clear_dup_detect_vni(vty, zvrf, vni);
+			ret = zebra_vxlan_clear_dup_detect_vni(zvrf, vni);
 
 	} else {
-		ret = zebra_vxlan_clear_dup_detect_vni_all(vty, zvrf);
+		ret = zebra_vxlan_clear_dup_detect_vni_all(zvrf);
 	}
 
 	return ret;
