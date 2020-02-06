@@ -49,6 +49,43 @@ DEFINE_MTYPE_STATIC(ZEBRA, NHG_CTX, "Nexthop Group Context");
 /* id counter to keep in sync with kernel */
 uint32_t id_counter;
 
+static inline vrf_id_t zebra_nhg_determine_vrf(const struct nexthop *nexthop)
+{
+	return !vrf_is_backend_netns() ? VRF_DEFAULT : nexthop->vrf_id;
+}
+
+/* Determines what the proper afi should be, given a lib/nexthop */
+static inline afi_t zebra_nhg_determine_afi(const struct nexthop *nexthop,
+					    afi_t route_afi)
+{
+	if (nexthop->next)
+		/* Groups can have all vrfs and AF's in them */
+		return AFI_UNSPEC;
+	else {
+		switch (nexthop->type) {
+		case (NEXTHOP_TYPE_IFINDEX):
+		case (NEXTHOP_TYPE_BLACKHOLE):
+			/*
+			 * This switch case handles setting the afi different
+			 * for ipv4/v6 routes. Ifindex/blackhole nexthop
+			 * objects cannot be ambiguous, they must be Address
+			 * Family specific. If we get here, we will either use
+			 * the AF of the route, or the one we got passed from
+			 * here from the kernel.
+			 */
+			return route_afi;
+		case (NEXTHOP_TYPE_IPV4_IFINDEX):
+		case (NEXTHOP_TYPE_IPV4):
+			return AFI_IP;
+		case (NEXTHOP_TYPE_IPV6_IFINDEX):
+		case (NEXTHOP_TYPE_IPV6):
+			return AFI_IP6;
+		}
+	}
+
+	return AFI_UNSPEC;
+}
+
 /*  */
 static bool g_nexthops_enabled = true;
 
