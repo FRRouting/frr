@@ -27,6 +27,10 @@ module frr-zebra {
     prefix frr-nh;
   }
 
+  import frr-routing {
+    prefix frr-rt;
+  }
+
   import frr-interface {
     prefix frr-interface;
   }
@@ -82,6 +86,65 @@ module frr-zebra {
     units "seconds";
     description
       "An absolute time in seconds since the unix epoch.";
+  }
+
+  identity zebra-interface-type {
+    description
+      "zebra interface type.";
+  }
+
+  identity zif-other {
+    base zebra-interface-type;
+    description
+      "Zebra interface type other.";
+  }
+
+  identity zif-bridge {
+    base zebra-interface-type;
+    description
+      "Zebra interface type bridge.";
+  }
+
+  identity zif-vlan {
+    base zebra-interface-type;
+    description
+      "Zebra interface type vlan.";
+  }
+
+  identity zif-vxlan {
+    base zebra-interface-type;
+    description
+      "Zebra interface type vxlan.";
+  }
+
+  identity zif-vrf {
+    base zebra-interface-type;
+    description
+      "Zebra interface type vrf.";
+  }
+
+  identity zif-veth {
+    base zebra-interface-type;
+    description
+      "Zebra interface type veth.";
+  }
+
+  identity zif-bond {
+    base zebra-interface-type;
+    description
+      "Zebra interface type bond.";
+  }
+
+  identity zif-bond-slave {
+    base zebra-interface-type;
+    description
+      "Zebra interface type bond slave.";
+  }
+
+  identity zif-macvlan {
+    base zebra-interface-type;
+    description
+      "Zebra interface type macvlan.";
   }
 
   /*
@@ -365,7 +428,7 @@ module frr-zebra {
         "The gateway MAC-IP is being advertised.";
     }
 
-    leaf mcase-group {
+    leaf mcast-group {
       type rt-types:ipv4-multicast-group-address;
       description
         "The VNI multicast group for BUM traffic.";
@@ -1866,39 +1929,32 @@ module frr-zebra {
     description
       "Extends interface model with Zebra-related parameters.";
     container zebra {
-      list ip4-addr-list {
-        key "ip4-prefix";
+      list ip-addrs {
+        key "address-family ip-prefix";
         description
-          "IPv4 prefixes for an interface.";
-        leaf ip4-prefix {
-          type inet:ipv4-prefix;
+          "IP prefixes for an interface.";
+        uses frr-rt:address-family {
           description
-            "IPv4 address prefix.";
+            "Address family of the RIB.";
         }
+
+        leaf ip-prefix {
+          type inet:ip-prefix;
+          description
+            "IP address prefix.";
+        }
+
+        leaf label {
+          type string;
+          description
+            "Optional string label for the address.";
+        }
+
         leaf ip4-peer {
+          when "derived-from-or-self(../address-family, 'ipv4')";
           type inet:ipv4-prefix;
           description
             "Peer prefix, for peer-to-peer interfaces.";
-        }
-        leaf label {
-          type string;
-          description
-            "Optional string label for the address.";
-        }
-      }
-      list ip6-addr-list {
-        key "ip6-prefix";
-        description
-          "IPv6 prefixes for an interface.";
-        leaf ip6-prefix {
-          type inet:ipv6-prefix;
-          description
-            "IPv6 address prefix.";
-        }
-        leaf label {
-          type string;
-          description
-            "Optional string label for the address.";
         }
       }
 
@@ -1907,16 +1963,19 @@ module frr-zebra {
         description
           "Multicast flag for the interface.";
       }
+
       leaf link-detect {
         type boolean;
         description
           "Link-detection for the interface.";
       }
+
       leaf shutdown {
         type boolean;
         description
           "Interface admin status.";
       }
+
       leaf bandwidth {
         type uint32 {
           range "1..100000";
@@ -1925,6 +1984,61 @@ module frr-zebra {
           "Link bandwidth informational parameter, in megabits.";
       }
       // TODO -- link-params for (experimental/partial TE use in IGP extensions)
+      container state {
+        config false;
+        description
+          "Operational data.";
+        leaf up-count {
+          type uint16;
+          description
+            "Interface Up count.";
+        }
+
+        leaf down-count {
+          type uint16;
+          description
+            "Interface Down count.";
+        }
+
+        leaf zif-type {
+          type identityref {
+            base zebra-interface-type;
+          }
+          description
+            "zebra interface type.";
+        }
+
+        leaf ptm-status {
+          type string;
+          default "disabled";
+          description
+            "Interface PTM status.";
+        }
+
+        leaf vlan-id {
+          type uint16 {
+            range "1..4094";
+          }
+          description
+            "A VLAN id.";
+        }
+
+        leaf vni-id {
+          type vni-id-type;
+        }
+
+        leaf remote-vtep {
+          type inet:ipv4-address;
+          description
+            "The remote VTEP IP address.";
+        }
+
+        leaf mcast-group {
+          type rt-types:ipv4-multicast-group-address;
+          description
+            "The VNI multicast group for BUM traffic.";
+        }
+      }
     }
   }
 
