@@ -573,7 +573,9 @@ void nhrp_interface_set_protection(struct interface *ifp, const char *profile,
 	}
 	nifp->ipsec_fallback_profile =
 		fallback_profile ? strdup(fallback_profile) : NULL;
-
+	/* start vici */
+	if (nifp->ipsec_profile)
+		vici_init(find_nhrp_vrf_id(ifp->vrf_id));
 	notifier_call(&nifp->notifier_list, NOTIFY_INTERFACE_IPSEC_CHANGED);
 }
 

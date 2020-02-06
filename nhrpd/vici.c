@@ -555,9 +555,10 @@ void vici_init(struct nhrp_vrf *nhrp_vrf)
 {
 	struct vici_conn *vici;
 
-	if (!nhrp_vrf->vici_connection)
-		nhrp_vrf->vici_connection = XCALLOC(MTYPE_NHRP_VICI_CONNECTION,
-						      sizeof(struct vici_conn));
+	if (!nhrp_vrf || nhrp_vrf->vici_connection)
+		return;
+	nhrp_vrf->vici_connection = XCALLOC(MTYPE_NHRP_VICI_CONNECTION,
+					    sizeof(struct vici_conn));
 	vici = nhrp_vrf->vici_connection;
 	vici->nhrp_vrf = nhrp_vrf;
 	vici->fd = -1;
@@ -569,8 +570,9 @@ void vici_init(struct nhrp_vrf *nhrp_vrf)
 
 void vici_terminate(struct nhrp_vrf *nhrp_vrf)
 {
-	XFREE(MTYPE_NHRP_VICI_CONNECTION,
-	      nhrp_vrf->vici_connection);
+	if (nhrp_vrf->vici_connection)
+		XFREE(MTYPE_NHRP_VICI_CONNECTION,
+		      nhrp_vrf->vici_connection);
 }
 
 void vici_terminate_vc_by_profile_name(struct nhrp_vrf *nhrp_vrf, char *profile_name)

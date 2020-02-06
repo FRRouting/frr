@@ -141,7 +141,7 @@ static void nhrp_start_context(struct nhrp_vrf *nhrp_vrf)
 	evmgr_init(nhrp_vrf);
 	nhrp_vc_init(nhrp_vrf);
 	nhrp_packet_init(nhrp_vrf);
-	vici_init(nhrp_vrf);
+	/* vici will start only upon tunnel protection command */
 	nhrp_route_init(nhrp_vrf);
 	nhrp_nhs_init(nhrp_vrf);
 	nhrp_shortcut_init(nhrp_vrf);
