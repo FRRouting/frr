@@ -722,33 +722,7 @@ static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
 	lookup.nhg = nhg;
 
 	lookup.vrf_id = vrf_id;
-	if (lookup.nhg->nexthop->next) {
-		/* Groups can have all vrfs and AF's in them */
-		lookup.afi = AFI_UNSPEC;
-	} else {
-		switch (lookup.nhg->nexthop->type) {
-		case (NEXTHOP_TYPE_IFINDEX):
-		case (NEXTHOP_TYPE_BLACKHOLE):
-			/*
-			 * This switch case handles setting the afi different
-			 * for ipv4/v6 routes. Ifindex/blackhole nexthop
-			 * objects cannot be ambiguous, they must be Address
-			 * Family specific. If we get here, we will either use
-			 * the AF of the route, or the one we got passed from
-			 * here from the kernel.
-			 */
-			lookup.afi = afi;
-			break;
-		case (NEXTHOP_TYPE_IPV4_IFINDEX):
-		case (NEXTHOP_TYPE_IPV4):
-			lookup.afi = AFI_IP;
-			break;
-		case (NEXTHOP_TYPE_IPV6_IFINDEX):
-		case (NEXTHOP_TYPE_IPV6):
-			lookup.afi = AFI_IP6;
-			break;
-		}
-	}
+	lookup.afi = zebra_nhg_determine_afi(zebra_nhg_nexthop((&lookup)), afi);
 
 	if (id)
 		(*nhe) = zebra_nhg_lookup_id(id);
@@ -806,7 +780,7 @@ zebra_nhg_find_nexthop(uint32_t id, struct nexthop *nh, afi_t afi, int type)
 {
 	struct nhg_hash_entry *nhe = NULL;
 	struct nexthop_group nhg = {};
-	vrf_id_t vrf_id = !vrf_is_backend_netns() ? VRF_DEFAULT : nh->vrf_id;
+	vrf_id_t vrf_id = zebra_nhg_determine_vrf(nh);
 
 	nexthop_group_add_sorted(&nhg, nh);
 
@@ -1374,7 +1348,7 @@ zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi)
 	 * Make it happy but this is ridonc
 	 */
 	assert(nhg->nexthop);
-	vrf_id = !vrf_is_backend_netns() ? VRF_DEFAULT : nhg->nexthop->vrf_id;
+	vrf_id = zebra_nhg_determine_vrf(nhg->nexthop);
 
 	if (!(nhg && nhg->nexthop)) {
 		flog_err(EC_ZEBRA_TABLE_LOOKUP_FAILED,
