@@ -119,6 +119,12 @@ static inline bool pim_vxlan_is_local_sip(struct pim_upstream *up)
 		if_is_loopback_or_vrf(up->rpf.source_nexthop.interface);
 }
 
+static inline bool pim_vxlan_is_term_dev_cfg(struct pim_instance *pim,
+			struct interface *ifp)
+{
+	return pim->vxlan.term_if_cfg == ifp;
+}
+
 extern struct pim_vxlan *pim_vxlan_p;
 extern struct pim_vxlan_sg *pim_vxlan_sg_find(struct pim_instance *pim,
 					    struct prefix_sg *sg);

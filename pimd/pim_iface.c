@@ -498,6 +498,7 @@ void pim_if_addr_add(struct connected *ifc)
 	struct pim_interface *pim_ifp;
 	struct interface *ifp;
 	struct in_addr ifaddr;
+	bool vxlan_term;
 
 	zassert(ifc);
 
@@ -635,7 +636,8 @@ void pim_if_addr_add(struct connected *ifc)
 	  address assigned, then try to create a vif_index.
 	*/
 	if (pim_ifp->mroute_vif_index < 0) {
-		pim_if_add_vif(ifp, false, false /*vxlan_term*/);
+		vxlan_term = pim_vxlan_is_term_dev_cfg(pim_ifp->pim, ifp);
+		pim_if_add_vif(ifp, false, vxlan_term);
 	}
 	pim_ifchannel_scan_forward_start(ifp);
 }
@@ -730,6 +732,7 @@ void pim_if_addr_add_all(struct interface *ifp)
 	int v4_addrs = 0;
 	int v6_addrs = 0;
 	struct pim_interface *pim_ifp = ifp->info;
+	bool vxlan_term;
 
 
 	/* PIM/IGMP enabled ? */
@@ -768,7 +771,8 @@ void pim_if_addr_add_all(struct interface *ifp)
 	 * address assigned, then try to create a vif_index.
 	 */
 	if (pim_ifp->mroute_vif_index < 0) {
-		pim_if_add_vif(ifp, false, false /*vxlan_term*/);
+		vxlan_term = pim_vxlan_is_term_dev_cfg(pim_ifp->pim, ifp);
+		pim_if_add_vif(ifp, false, vxlan_term);
 	}
 	pim_ifchannel_scan_forward_start(ifp);
 

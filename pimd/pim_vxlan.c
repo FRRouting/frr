@@ -1012,37 +1012,6 @@ static void pim_vxlan_set_peerlink_rif(struct pim_instance *pim,
 	}
 }
 
-void pim_vxlan_add_vif(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp = ifp->info;
-	struct pim_instance *pim = pim_ifp->pim;
-
-	if (pim->vrf_id != VRF_DEFAULT)
-		return;
-
-	if (if_is_loopback_or_vrf(ifp))
-		pim_vxlan_set_default_iif(pim, ifp);
-
-	if (vxlan_mlag.flags & PIM_VXLAN_MLAGF_ENABLED &&
-			(ifp == vxlan_mlag.peerlink_rif))
-		pim_vxlan_set_peerlink_rif(pim, ifp);
-}
-
-void pim_vxlan_del_vif(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp = ifp->info;
-	struct pim_instance *pim = pim_ifp->pim;
-
-	if (pim->vrf_id != VRF_DEFAULT)
-		return;
-
-	if (pim->vxlan.default_iif == ifp)
-		pim_vxlan_set_default_iif(pim, NULL);
-
-	if (pim->vxlan.peerlink_rif == ifp)
-		pim_vxlan_set_peerlink_rif(pim, NULL);
-}
-
 static void pim_vxlan_term_mr_oif_update(struct hash_backet *backet, void *arg)
 {
 	struct interface *ifp = (struct interface *)arg;
@@ -1065,52 +1034,105 @@ static void pim_vxlan_term_mr_oif_update(struct hash_backet *backet, void *arg)
 	pim_vxlan_term_mr_add(vxlan_sg);
 }
 
-void pim_vxlan_add_term_dev(struct pim_instance *pim,
+static void pim_vxlan_term_oif_update(struct pim_instance *pim,
 		struct interface *ifp)
 {
-	struct pim_interface *pim_ifp;
-
 	if (pim->vxlan.term_if == ifp)
 		return;
 
 	if (PIM_DEBUG_VXLAN)
 		zlog_debug("vxlan term oif changed from %s to %s",
 			pim->vxlan.term_if ? pim->vxlan.term_if->name : "-",
-			ifp->name);
+			ifp ? ifp->name : "-");
+
+	pim->vxlan.term_if = ifp;
+	if (pim->vxlan.sg_hash)
+		hash_iterate(pim->vxlan.sg_hash,
+				pim_vxlan_term_mr_oif_update, ifp);
+}
+
+void pim_vxlan_add_vif(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_instance *pim = pim_ifp->pim;
+
+	if (pim->vrf_id != VRF_DEFAULT)
+		return;
+
+	if (if_is_loopback_or_vrf(ifp))
+		pim_vxlan_set_default_iif(pim, ifp);
+
+	if (vxlan_mlag.flags & PIM_VXLAN_MLAGF_ENABLED &&
+			(ifp == vxlan_mlag.peerlink_rif))
+		pim_vxlan_set_peerlink_rif(pim, ifp);
+
+	if (pim->vxlan.term_if_cfg == ifp)
+		pim_vxlan_term_oif_update(pim, ifp);
+}
+
+void pim_vxlan_del_vif(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_instance *pim = pim_ifp->pim;
+
+	if (pim->vrf_id != VRF_DEFAULT)
+		return;
+
+	if (pim->vxlan.default_iif == ifp)
+		pim_vxlan_set_default_iif(pim, NULL);
+
+	if (pim->vxlan.peerlink_rif == ifp)
+		pim_vxlan_set_peerlink_rif(pim, NULL);
+
+	if (pim->vxlan.term_if == ifp)
+		pim_vxlan_term_oif_update(pim, NULL);
+}
+
+/* enable pim implicitly on the termination device add */
+void pim_vxlan_add_term_dev(struct pim_instance *pim,
+		struct interface *ifp)
+{
+	struct pim_interface *pim_ifp;
+
+	if (pim->vxlan.term_if_cfg == ifp)
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan term oif cfg changed from %s to %s",
+				pim->vxlan.term_if_cfg ?
+				pim->vxlan.term_if_cfg->name : "-",
+				ifp->name);
+
+	pim->vxlan.term_if_cfg = ifp;
 
 	/* enable pim on the term ifp */
 	pim_ifp = (struct pim_interface *)ifp->info;
 	if (pim_ifp) {
 		PIM_IF_DO_PIM(pim_ifp->options);
+		/* ifp is already oper up; activate it as a term dev */
+		if (pim_ifp->mroute_vif_index >= 0)
+			pim_vxlan_term_oif_update(pim, ifp);
 	} else {
-		pim_ifp = pim_if_new(ifp, false /*igmp*/, true /*pim*/,
-				false /*pimreg*/, true /*vxlan_term*/);
-		/* ensure that pimreg existss before using the newly created
+		/* ensure that pimreg exists before using the newly created
 		 * vxlan termination device
 		 */
 		pim_if_create_pimreg(pim);
+		pim_ifp = pim_if_new(ifp, false /*igmp*/, true /*pim*/,
+				false /*pimreg*/, true /*vxlan_term*/);
 	}
-
-	pim->vxlan.term_if = ifp;
-
-	if (pim->vxlan.sg_hash)
-		hash_iterate(pim_ifp->pim->vxlan.sg_hash,
-				pim_vxlan_term_mr_oif_update, ifp);
 }
 
+/* disable pim implicitly, if needed, on the termination device deletion */
 void pim_vxlan_del_term_dev(struct pim_instance *pim)
 {
-	struct interface *ifp = pim->vxlan.term_if;
+	struct interface *ifp = pim->vxlan.term_if_cfg;
 	struct pim_interface *pim_ifp;
 
 	if (PIM_DEBUG_VXLAN)
-		zlog_debug("vxlan term oif changed from %s to -", ifp->name);
+		zlog_debug("vxlan term oif cfg changed from %s to -",
+				ifp->name);
 
-	pim->vxlan.term_if = NULL;
-
-	if (pim->vxlan.sg_hash)
-		hash_iterate(pim->vxlan.sg_hash,
-				pim_vxlan_term_mr_oif_update, NULL);
+	pim->vxlan.term_if_cfg = NULL;
 
 	pim_ifp = (struct pim_interface *)ifp->info;
 	if (pim_ifp) {
@@ -1118,7 +1140,6 @@ void pim_vxlan_del_term_dev(struct pim_instance *pim)
 		if (!PIM_IF_TEST_IGMP(pim_ifp->options))
 			pim_if_delete(ifp);
 	}
-
 }
 
 void pim_vxlan_init(struct pim_instance *pim)
