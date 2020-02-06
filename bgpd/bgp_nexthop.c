@@ -474,7 +474,7 @@ int bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type, uint8_t sub_type,
 		struct attr *attr, struct bgp_node *rn)
 {
 	struct prefix p = {0};
-	afi_t new_afi = afi;
+	uint8_t new_afi = afi == AFI_IP ? AF_INET : AF_INET6;
 	struct bgp_addr tmp_addr = {0}, *addr = NULL;
 	struct tip_addr tmp_tip, *tip = NULL;
 
@@ -484,11 +484,11 @@ int bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type, uint8_t sub_type,
 			: false;
 
 	if (!is_bgp_static_route)
-		new_afi = BGP_ATTR_NEXTHOP_AFI_IP6(attr) ? AFI_IP6 : AFI_IP;
+		new_afi = BGP_ATTR_NEXTHOP_AFI_IP6(attr) ? AF_INET6 : AF_INET;
 
+	p.family = new_afi;
 	switch (new_afi) {
-	case AFI_IP:
-		p.family = AF_INET;
+	case AF_INET:
 		if (is_bgp_static_route) {
 			p.u.prefix4 = rn->p.u.prefix4;
 			p.prefixlen = rn->p.prefixlen;
@@ -512,9 +512,7 @@ int bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type, uint8_t sub_type,
 				return 0;
 		}
 		break;
-	case AFI_IP6:
-		p.family = AF_INET6;
-
+	case AF_INET6:
 		if (is_bgp_static_route) {
 			p.u.prefix6 = rn->p.u.prefix6;
 			p.prefixlen = rn->p.prefixlen;
@@ -532,7 +530,7 @@ int bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type, uint8_t sub_type,
 	if (addr)
 		return 1;
 
-	if (new_afi == AFI_IP) {
+	if (new_afi == AF_INET) {
 		memset(&tmp_tip, 0, sizeof(struct tip_addr));
 		tmp_tip.addr = attr->nexthop;
 
