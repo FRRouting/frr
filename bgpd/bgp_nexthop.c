@@ -474,7 +474,7 @@ int bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type, uint8_t sub_type,
 		struct attr *attr, struct bgp_node *rn)
 {
 	uint8_t new_afi = afi == AFI_IP ? AF_INET : AF_INET6;
-	struct bgp_addr tmp_addr = {0}, *addr = NULL;
+	struct bgp_addr tmp_addr = {{0}}, *addr = NULL;
 	struct tip_addr tmp_tip, *tip = NULL;
 
 	bool is_bgp_static_route =
