@@ -192,17 +192,10 @@ static void show_address_entry(struct hash_bucket *bucket, void *args)
 	struct listnode *node;
 	char str[INET6_ADDRSTRLEN] = {0};
 
-	if (addr->p->family == AF_INET) {
-		vty_out(vty, "addr: %s, count: %d : ", inet_ntop(AF_INET,
-				&(addr->p->u.prefix4),
-				str, INET_ADDRSTRLEN),
-				addr->ifp_name_list->count);
-	} else if (addr->p->family == AF_INET6) {
-		vty_out(vty, "addr: %s, count: %d : ", inet_ntop(AF_INET6,
-				&(addr->p->u.prefix6),
-				str, INET6_ADDRSTRLEN),
-				addr->ifp_name_list->count);
-	}
+	vty_out(vty, "addr: %s, count: %d : ",
+		inet_ntop(addr->p->family, &(addr->p->u.prefix),
+			  str, INET6_ADDRSTRLEN),
+		addr->ifp_name_list->count);
 
 	for (ALL_LIST_ELEMENTS_RO(addr->ifp_name_list, node, name)) {
 		vty_out(vty, " %s,", name);
