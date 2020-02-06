@@ -551,6 +551,37 @@ static void pim_vxlan_term_mr_oif_del(struct pim_vxlan_sg *vxlan_sg)
 	pim_ifchannel_local_membership_del(vxlan_sg->term_oif, &vxlan_sg->sg);
 }
 
+static void pim_vxlan_update_sg_entry_mlag(struct pim_instance *pim,
+		struct pim_upstream *up, bool inherit)
+{
+	bool is_df = true;
+
+	if (inherit && up->parent &&
+			PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(up->parent->flags) &&
+			PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->parent->flags))
+		is_df = false;
+
+	pim_mlag_up_df_role_update(pim, up, is_df, "inherit_xg_df");
+}
+
+/* We run MLAG DF election only on mroutes that have the termination
+ * device ipmr-lo in the immediate OIL. This is only (*, G) entries at the
+ * moment. For (S, G) entries that (with ipmr-lo in the inherited OIL) we
+ * inherit the DF role from the (*, G) entry.
+ */
+void pim_vxlan_inherit_mlag_flags(struct pim_instance *pim,
+		struct pim_upstream *up, bool inherit)
+{
+	struct listnode *listnode;
+	struct pim_upstream *child;
+
+	for (ALL_LIST_ELEMENTS_RO(up->sources, listnode,
+				child)) {
+		pim_vxlan_update_sg_entry_mlag(pim,
+				child, true /* inherit */);
+	}
+}
+
 static void pim_vxlan_term_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 {
 	struct pim_upstream *up;
@@ -577,7 +608,11 @@ static void pim_vxlan_term_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 	if (!up) {
 		zlog_warn("vxlan SG %s term mroute-up add failed",
 			vxlan_sg->sg_str);
+		return;
 	}
+
+	/* update existing SG entries with the parent's MLAG flag */
+	pim_vxlan_inherit_mlag_flags(vxlan_sg->pim, up, true /*enable*/);
 }
 
 static void pim_vxlan_term_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
@@ -592,6 +627,9 @@ static void pim_vxlan_term_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
 			vxlan_sg->sg_str);
 	vxlan_sg->up = NULL;
 	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM) {
+		/* update SG entries that are inheriting from this XG entry */
+		pim_vxlan_inherit_mlag_flags(vxlan_sg->pim, up,
+				false /*enable*/);
 		/* clear out all the vxlan related flags */
 		up->flags &= ~(PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM |
 			PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN);

@@ -139,5 +139,7 @@ extern void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 				struct interface *peerlink_rif,
 				struct in_addr *reg_addr);
 extern bool pim_vxlan_do_mlag_reg(void);
+extern void pim_vxlan_inherit_mlag_flags(struct pim_instance *pim,
+		struct pim_upstream *up, bool inherit);
 
 #endif /* PIM_VXLAN_H */
