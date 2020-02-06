@@ -264,9 +264,13 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 	}
 
 	if (!sockunion_same(&nbma, &nifp->nbma)) {
+		char buf[SU_ADDRSTRLEN];
+
+		sockunion2str(&nbma, buf, sizeof buf);
 		nifp->nbma = nbma;
 		nhrp_interface_update(nifp->ifp);
-		debugf(NHRP_DEBUG_IF, "%s: NBMA address changed", ifp->name);
+		debugf(NHRP_DEBUG_IF, "%s: NBMA address changed to %s",
+		       ifp->name, buf);
 		notifier_call(&nifp->notifier_list,
 			      NOTIFY_INTERFACE_NBMA_CHANGED);
 	}
