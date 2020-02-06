@@ -330,6 +330,8 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	struct prefix p;
 	struct prefix_ipv6 src_p = {};
 	vrf_id_t vrf_id;
+	struct interface *ifp;
+	vrf_id_t nh_vrf_id;
 
 	char anyaddr[16] = {0};
 
@@ -546,10 +548,8 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	if (rtm->rtm_family == AF_INET6)
 		afi = AFI_IP6;
 
+	nh_vrf_id = vrf_id;
 	if (h->nlmsg_type == RTM_NEWROUTE) {
-		struct interface *ifp;
-		vrf_id_t nh_vrf_id = vrf_id;
-
 		if (!tb[RTA_MULTIPATH]) {
 			struct nexthop nh;
 			size_t sz = (afi == AFI_IP) ? 4 : 16;
@@ -755,9 +755,29 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 				nh.bh_type = bh_type;
 			}
 			nh.ifindex = index;
+
+			if (index) {
+				ifp = if_lookup_by_index_per_ns(
+					zebra_ns_lookup(ns_id), index);
+				if (ifp)
+					nh_vrf_id = ifp->vrf_id;
+				else {
+					flog_warn(
+						EC_ZEBRA_UNKNOWN_INTERFACE,
+						"%s: Unknown interface %u specified, defaulting to VRF_DEFAULT",
+						__PRETTY_FUNCTION__,
+						index);
+					nh_vrf_id = VRF_DEFAULT;
+				}
+			} else
+				nh_vrf_id = vrf_id;
+
+			if (prefsrc)
+				memcpy(&nh.src, prefsrc, sz);
 			if (gate)
 				memcpy(&nh.gate, gate, sz);
-			rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags,
+
+			rib_delete(afi, SAFI_UNICAST, nh_vrf_id, proto, 0, flags,
 				   &p, &src_p, &nh, table, metric, distance,
 				   true);
 		} else {
