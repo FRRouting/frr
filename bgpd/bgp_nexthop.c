@@ -477,8 +477,8 @@ int bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type, uint8_t sub_type,
 	struct bgp_addr tmp_addr = {0}, *addr = NULL;
 	struct tip_addr tmp_tip, *tip = NULL;
 
-	bool is_bgp_static_route = ((type == ZEBRA_ROUTE_BGP)
-			&& (sub_type == BGP_ROUTE_STATIC))
+	bool is_bgp_static_route =
+		((type == ZEBRA_ROUTE_BGP) && (sub_type == BGP_ROUTE_STATIC))
 			? true
 			: false;
 
@@ -493,17 +493,14 @@ int bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type, uint8_t sub_type,
 			tmp_addr.p.prefixlen = rn->p.prefixlen;
 		} else {
 			/* Here we need to find out which nexthop to be used*/
-			if (attr->flag &
-					ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
-
+			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
 				tmp_addr.p.u.prefix4 = attr->nexthop;
 				tmp_addr.p.prefixlen = IPV4_MAX_BITLEN;
-
-			} else if ((attr->mp_nexthop_len) &&
-					((attr->mp_nexthop_len ==
-					  BGP_ATTR_NHLEN_IPV4) ||
-					 (attr->mp_nexthop_len ==
-					  BGP_ATTR_NHLEN_VPNV4))) {
+			} else if ((attr->mp_nexthop_len)
+				   && ((attr->mp_nexthop_len
+					== BGP_ATTR_NHLEN_IPV4)
+				       || (attr->mp_nexthop_len
+					   == BGP_ATTR_NHLEN_VPNV4))) {
 				tmp_addr.p.u.prefix4 =
 					attr->mp_nexthop_global_in;
 				tmp_addr.p.prefixlen = IPV4_MAX_BITLEN;
