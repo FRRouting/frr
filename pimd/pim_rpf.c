@@ -36,6 +36,7 @@
 #include "pim_time.h"
 #include "pim_nht.h"
 #include "pim_oil.h"
+#include "pim_mlag.h"
 
 static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up);
 

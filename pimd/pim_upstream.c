@@ -921,6 +921,14 @@ uint32_t pim_up_mlag_local_cost(struct pim_upstream *up)
 	if (!(pim_up_mlag_is_local(up)))
 		return router->infinite_assert_metric.route_metric;
 
+	if ((up->rpf.source_nexthop.interface ==
+				up->pim->vxlan.peerlink_rif) &&
+			(up->rpf.source_nexthop.mrib_route_metric <
+			 (router->infinite_assert_metric.route_metric -
+			  PIM_UPSTREAM_MLAG_PEERLINK_PLUS_METRIC)))
+		return up->rpf.source_nexthop.mrib_route_metric +
+			PIM_UPSTREAM_MLAG_PEERLINK_PLUS_METRIC;
+
 	return up->rpf.source_nexthop.mrib_route_metric;
 }
 

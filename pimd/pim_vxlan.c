@@ -477,13 +477,14 @@ static void pim_vxlan_orig_mr_del(struct pim_vxlan_sg *vxlan_sg)
 
 static void pim_vxlan_orig_mr_iif_update(struct hash_backet *backet, void *arg)
 {
-	struct interface *ifp = (struct interface *)arg;
+	struct interface *ifp;
 	struct pim_vxlan_sg *vxlan_sg = (struct pim_vxlan_sg *)backet->data;
 	struct interface *old_iif = vxlan_sg->iif;
 
 	if (!pim_vxlan_is_orig_mroute(vxlan_sg))
 		return;
 
+	ifp = pim_vxlan_orig_mr_iif_get(vxlan_sg->pim);
 	if (PIM_DEBUG_VXLAN)
 		zlog_debug("vxlan SG %s iif changed from %s to %s",
 				vxlan_sg->sg_str,
@@ -895,7 +896,63 @@ static void pim_vxlan_set_default_iif(struct pim_instance *pim,
 	 */
 	if (pim->vxlan.sg_hash)
 		hash_iterate(pim->vxlan.sg_hash,
-				pim_vxlan_orig_mr_iif_update, ifp);
+				pim_vxlan_orig_mr_iif_update, NULL);
+}
+
+static void pim_vxlan_up_cost_update(struct pim_instance *pim,
+		struct pim_upstream *up,
+		struct interface *old_peerlink_rif)
+{
+	if (!PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(up->flags))
+		return;
+
+	if (up->rpf.source_nexthop.interface &&
+			((up->rpf.source_nexthop.interface ==
+			  pim->vxlan.peerlink_rif) ||
+			 (up->rpf.source_nexthop.interface ==
+			  old_peerlink_rif))) {
+		if (PIM_DEBUG_VXLAN)
+			zlog_debug("RPF cost adjust for %s on peerlink-rif (old: %s, new: %s) change",
+					up->sg_str,
+					old_peerlink_rif ?
+					old_peerlink_rif->name : "-",
+					pim->vxlan.peerlink_rif ?
+					pim->vxlan.peerlink_rif->name : "-");
+		pim_mlag_up_local_add(pim, up);
+	}
+}
+
+static void pim_vxlan_term_mr_cost_update(struct hash_backet *backet,
+		void *arg)
+{
+	struct interface *old_peerlink_rif = (struct interface *)arg;
+	struct pim_vxlan_sg *vxlan_sg = (struct pim_vxlan_sg *)backet->data;
+	struct pim_upstream *up;
+	struct listnode *listnode;
+	struct pim_upstream *child;
+
+	if (pim_vxlan_is_orig_mroute(vxlan_sg))
+		return;
+
+	/* Lookup all XG and SG entries with RPF-interface peerlink_rif */
+	up = vxlan_sg->up;
+	if (!up)
+		return;
+
+	pim_vxlan_up_cost_update(vxlan_sg->pim, up,
+			old_peerlink_rif);
+
+	for (ALL_LIST_ELEMENTS_RO(up->sources, listnode,
+				child))
+		pim_vxlan_up_cost_update(vxlan_sg->pim, child,
+				old_peerlink_rif);
+}
+
+static void pim_vxlan_sg_peerlink_rif_update(struct hash_backet *backet,
+		void *arg)
+{
+	pim_vxlan_orig_mr_iif_update(backet, NULL);
+	pim_vxlan_term_mr_cost_update(backet, arg);
 }
 
 static void pim_vxlan_set_peerlink_rif(struct pim_instance *pim,
@@ -928,7 +985,7 @@ static void pim_vxlan_set_peerlink_rif(struct pim_instance *pim,
 	 */
 	if (pim->vxlan.sg_hash)
 		hash_iterate(pim->vxlan.sg_hash,
-				pim_vxlan_orig_mr_iif_update, ifp);
+				pim_vxlan_sg_peerlink_rif_update, old_iif);
 }
 
 void pim_vxlan_add_vif(struct interface *ifp)

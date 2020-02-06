@@ -157,6 +157,12 @@
 #define PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE)
 #define PIM_UPSTREAM_FLAG_UNSET_USE_RPT(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_USE_RPT)
 
+/* The RPF cost is incremented by 10 if the RPF interface is the peerlink-rif.
+ * This is used to force the MLAG switch with the lowest cost to the RPF
+ * to become the MLAG DF.
+ */
+#define PIM_UPSTREAM_MLAG_PEERLINK_PLUS_METRIC 10
+
 enum pim_upstream_state {
 	PIM_UPSTREAM_NOTJOINED,
 	PIM_UPSTREAM_JOINED,
