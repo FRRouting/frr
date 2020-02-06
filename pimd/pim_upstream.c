@@ -2032,7 +2032,7 @@ void pim_upstream_add_lhr_star_pimreg(struct pim_instance *pim)
 		if (up->sg.src.s_addr != INADDR_ANY)
 			continue;
 
-		if (!PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(up->flags))
+		if (!PIM_UPSTREAM_FLAG_TEST_CAN_BE_LHR(up->flags))
 			continue;
 
 		pim_channel_add_oif(up->channel_oil, pim->regiface,
@@ -2079,7 +2079,7 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 		if (up->sg.src.s_addr != INADDR_ANY)
 			continue;
 
-		if (!PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(up->flags))
+		if (!PIM_UPSTREAM_FLAG_TEST_CAN_BE_LHR(up->flags))
 			continue;
 
 		if (!nlist) {

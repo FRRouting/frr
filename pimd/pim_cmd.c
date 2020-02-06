@@ -166,7 +166,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 					sg.src = src->source_addr;
 					sg.grp = grp->group_addr;
 					pim_ifchannel_local_membership_add(ifp,
-									   &sg);
+						&sg, false /*is_vxlan*/);
 				}
 
 			} /* scan group sources */

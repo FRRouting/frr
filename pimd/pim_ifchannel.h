@@ -130,7 +130,7 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 			 struct prefix_sg *sg, uint8_t source_flags,
 			 uint16_t holdtime);
 int pim_ifchannel_local_membership_add(struct interface *ifp,
-				       struct prefix_sg *sg);
+		struct prefix_sg *sg, bool is_vxlan);
 void pim_ifchannel_local_membership_del(struct interface *ifp,
 					struct prefix_sg *sg);
 

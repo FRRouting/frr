@@ -531,7 +531,7 @@ static void pim_vxlan_term_mr_oif_add(struct pim_vxlan_sg *vxlan_sg)
 			vxlan_sg->sg_str, vxlan_sg->term_oif->name);
 
 	if (pim_ifchannel_local_membership_add(vxlan_sg->term_oif,
-				&vxlan_sg->sg)) {
+				&vxlan_sg->sg, true /*is_vxlan */)) {
 		vxlan_sg->flags |= PIM_VXLAN_SGF_OIF_INSTALLED;
 		/* update the inherited OIL */
 		/* XXX - I don't see the inherited OIL updated when a local
