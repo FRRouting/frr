@@ -89,6 +89,10 @@ static inline afi_t zebra_nhg_determine_afi(const struct nexthop *nexthop,
 /*  */
 static bool g_nexthops_enabled = true;
 
+static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
+			   struct nexthop_group *nhg,
+			   struct nhg_connected_tree_head *nhg_depends,
+			   vrf_id_t vrf_id, afi_t afi, int type);
 static struct nhg_hash_entry *depends_find(const struct nexthop *nh,
 					   afi_t afi);
 static void depends_add(struct nhg_connected_tree_head *head,
@@ -444,32 +448,111 @@ struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id)
 	return hash_lookup(zrouter.nhgs_id, &lookup);
 }
 
-/* Lookup an NHE via a single lib/nexthop. No allocation */
-struct nhg_hash_entry *zebra_nhg_lookup_nexthop(const struct nexthop *nexthop,
-						afi_t route_afi)
+/* Find/lookup based on wheter you want to allocate or not.
+ *
+ * The paths before you get lower are quite similiar so keeping them
+ * together here to de-duplicate some code.
+ */
+static struct nhg_hash_entry *
+zebra_nhg_find_lookup_nexthop_internal(uint32_t id, struct nexthop *nexthop,
+				       afi_t route_afi, int type, bool alloc)
 {
-	struct nhg_hash_entry *found;
+	struct nhg_hash_entry *nhe = NULL;
 	struct nhg_hash_entry lookup = {};
 	struct nexthop_group lookup_nhg = {};
-	struct nexthop lookup_nh = {};
-
 	vrf_id_t vrf_id = zebra_nhg_determine_vrf(nexthop);
 
-	/* Take snapshot copy */
-	nexthop_copy_no_recurse(&lookup_nh, nexthop, NULL);
+	nexthop_group_add_sorted(&lookup_nhg, nexthop);
 
-	nexthop_group_add_sorted(&lookup_nhg, &lookup_nh);
+	/* find/create */
+
+	if (alloc) {
+		zebra_nhg_find(&nhe, id, &lookup_nhg, NULL, vrf_id, route_afi,
+			       type);
+		goto done;
+	}
+
+	/* lookup */
 
 	lookup.nhg = &lookup_nhg;
 	lookup.vrf_id = vrf_id;
 	lookup.afi = zebra_nhg_determine_afi(nexthop, route_afi);
 
-	found = hash_lookup(zrouter.nhgs, &lookup);
+	nhe = hash_lookup(zrouter.nhgs, &lookup);
 
-	/* Labels may have been allocated in snapshot */
+done:
+	return nhe;
+}
+
+static struct nhg_hash_entry *
+zebra_nhg_find_lookup_recursive_nexthop(uint32_t id,
+					const struct nexthop *nexthop,
+					afi_t route_afi, int type, bool alloc)
+{
+	struct nhg_hash_entry *found;
+	struct nexthop *lookup_nh;
+
+	/* Fully duplicate to account for recursive resolution */
+	lookup_nh = nexthop_dup(nexthop, NULL);
+
+	found = zebra_nhg_find_lookup_nexthop_internal(id, lookup_nh, route_afi,
+						       type, alloc);
+
+	/* Free dup, it isn't needed */
+	nexthops_free(lookup_nh);
+
+	return found;
+}
+
+static struct nhg_hash_entry *
+zebra_nhg_find_lookup_singleton_nexthop(uint32_t id,
+					const struct nexthop *nexthop,
+					afi_t route_afi, int type, bool alloc)
+{
+	struct nhg_hash_entry *found;
+	struct nexthop lookup_nh = {};
+
+	/* Capture a snapshot of this single nh; it might be part of a list,
+	 * so we need to make a standalone copy.
+	 */
+	nexthop_copy_no_recurse(&lookup_nh, nexthop, NULL);
+
+	found = zebra_nhg_find_lookup_nexthop_internal(id, &lookup_nh,
+						       route_afi, type, alloc);
+
+	/* The copy may have allocated labels; free them if necessary. */
 	nexthop_del_labels(&lookup_nh);
 
 	return found;
+}
+
+static struct nhg_hash_entry *
+zebra_nhg_find_lookup_nexthop(uint32_t id, const struct nexthop *nexthop,
+			      afi_t route_afi, int type, bool alloc)
+{
+	/* We are separating these functions out to increase handling speed
+	 * in the non-recursive case (by not alloc/freeing)
+	 */
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+		return zebra_nhg_find_lookup_recursive_nexthop(
+			id, nexthop, route_afi, type, alloc);
+
+	return zebra_nhg_find_lookup_singleton_nexthop(id, nexthop, route_afi,
+						       type, alloc);
+}
+
+/* Lookup an NHE via a single lib/nexthop */
+struct nhg_hash_entry *zebra_nhg_lookup_nexthop(const struct nexthop *nexthop,
+						afi_t route_afi)
+{
+	return zebra_nhg_find_lookup_nexthop(0, nexthop, route_afi, 0, false);
+}
+
+/* Find/Create an NHE via a single lib/nexthop */
+struct nhg_hash_entry *zebra_nhg_find_nexthop(const struct nexthop *nexthop,
+					      afi_t route_afi)
+{
+	return zebra_nhg_find_lookup_nexthop(0, nexthop, route_afi, 0, true);
 }
 
 static int zebra_nhg_insert_id(struct nhg_hash_entry *nhe)
@@ -802,21 +885,6 @@ static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
 	return created;
 }
 
-/* Find/create a single nexthop */
-static struct nhg_hash_entry *
-zebra_nhg_find_nexthop(uint32_t id, struct nexthop *nh, afi_t afi, int type)
-{
-	struct nhg_hash_entry *nhe = NULL;
-	struct nexthop_group nhg = {};
-	vrf_id_t vrf_id = zebra_nhg_determine_vrf(nh);
-
-	nexthop_group_add_sorted(&nhg, nh);
-
-	zebra_nhg_find(&nhe, id, &nhg, NULL, vrf_id, afi, type);
-
-	return nhe;
-}
-
 static uint32_t nhg_ctx_get_id(const struct nhg_ctx *ctx)
 {
 	return ctx->id;
@@ -1042,6 +1110,15 @@ static void zebra_nhg_handle_kernel_state_change(struct nhg_hash_entry *nhe,
 		zebra_nhg_handle_uninstall(nhe);
 }
 
+/* single nexthop from nhg_ctx find helper function */
+static struct nhg_hash_entry *nhg_ctx_find_nexthop(uint32_t id,
+						   struct nexthop *nexthop,
+						   afi_t route_afi, int type)
+{
+	return zebra_nhg_find_lookup_nexthop(id, nexthop, route_afi, type,
+					     true);
+}
+
 static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 {
 	struct nexthop_group *nhg = NULL;
@@ -1081,8 +1158,7 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 		/* These got copied over in zebra_nhg_alloc() */
 		nexthop_group_delete(&nhg);
 	} else
-		nhe = zebra_nhg_find_nexthop(id, nhg_ctx_get_nh(ctx), afi,
-					     type);
+		nhe = nhg_ctx_find_nexthop(id, nhg_ctx_get_nh(ctx), afi, type);
 
 	if (nhe) {
 		if (id != nhe->id) {
@@ -1265,57 +1341,12 @@ int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id)
 }
 
 /* Some dependency helper functions */
-static struct nhg_hash_entry *depends_find_recursive(const struct nexthop *nh,
-						     afi_t afi)
-{
-	struct nhg_hash_entry *nhe;
-	struct nexthop *lookup = NULL;
-
-	lookup = nexthop_dup(nh, NULL);
-
-	nhe = zebra_nhg_find_nexthop(0, lookup, afi, 0);
-
-	nexthops_free(lookup);
-
-	return nhe;
-}
-
-static struct nhg_hash_entry *depends_find_singleton(const struct nexthop *nh,
-						     afi_t afi)
-{
-	struct nhg_hash_entry *nhe;
-	struct nexthop lookup = {};
-
-	/* Capture a snapshot of this single nh; it might be part of a list,
-	 * so we need to make a standalone copy.
-	 */
-	nexthop_copy_no_recurse(&lookup, nh, NULL);
-
-	nhe = zebra_nhg_find_nexthop(0, &lookup, afi, 0);
-
-	/* The copy may have allocated labels; free them if necessary. */
-	nexthop_del_labels(&lookup);
-
-	return nhe;
-}
-
 static struct nhg_hash_entry *depends_find(const struct nexthop *nh, afi_t afi)
 {
-	struct nhg_hash_entry *nhe = NULL;
-
 	if (!nh)
-		goto done;
+		return NULL;
 
-	/* We are separating these functions out to increase handling speed
-	 * in the non-recursive case (by not alloc/freeing)
-	 */
-	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
-		nhe = depends_find_recursive(nh, afi);
-	else
-		nhe = depends_find_singleton(nh, afi);
-
-done:
-	return nhe;
+	return zebra_nhg_find_nexthop(nh, afi);
 }
 
 static void depends_add(struct nhg_connected_tree_head *head,
