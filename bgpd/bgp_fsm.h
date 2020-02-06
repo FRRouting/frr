@@ -94,19 +94,19 @@
 			UNSET_FLAG(peer->peer_gr_new_status_flag, \
 				PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)
 
-#define BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)                         \
-	(CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) &&                 \
-	 CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV))
+#define BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)                                \
+	(CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV)                           \
+	 && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV))
 
-#define BGP_PEER_RESTARTING_MODE(peer)\
-	(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART) && \
-	 CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV) &&     \
-	 !CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV))
+#define BGP_PEER_RESTARTING_MODE(peer)                                         \
+	(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)                   \
+	 && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV)                    \
+	 && !CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV))
 
-#define BGP_PEER_HELPER_MODE(peer)\
-	(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER) && \
-	 CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV) &&           \
-	 !CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV))
+#define BGP_PEER_HELPER_MODE(peer)                                             \
+	(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER)            \
+	 && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV)                    \
+	 && !CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_ADV))
 
 /* Prototypes. */
 extern void bgp_fsm_event_update(struct peer *peer, int valid);
@@ -143,8 +143,7 @@ DECLARE_HOOK(peer_backward_transition, (struct peer *peer), (peer))
 DECLARE_HOOK(peer_established, (struct peer *peer), (peer))
 
 int bgp_gr_update_all(struct bgp *bgp, int global_gr_cmd);
-int bgp_neighbor_graceful_restart(struct peer *peer,
-			int peer_gr_cmd);
+int bgp_neighbor_graceful_restart(struct peer *peer, int peer_gr_cmd);
 unsigned int bgp_peer_gr_action(struct peer *peer,
 		int old_peer_state, int new_peer_state);
 void bgp_peer_move_to_gr_mode(struct peer *peer, int new_state);

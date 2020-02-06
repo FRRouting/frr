@@ -58,8 +58,7 @@
 
 DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
 DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer))
-extern const char *get_afi_safi_str(afi_t afi,
-			safi_t safi, bool for_json);
+extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
 /* Definition of display strings corresponding to FSM events. This should be
  * kept consistent with the events defined in bgpd.h
  */
@@ -255,16 +254,14 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	peer->peer_gr_new_status_flag = from_peer->peer_gr_new_status_flag;
 	bgp_peer_gr_flags_update(peer);
 
-	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(
-			peer->bgp,
-			peer->bgp->peer);
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
+							  peer->bgp->peer);
 
 	if (bgp_peer_gr_mode_get(peer) == PEER_DISABLE) {
 
 		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 
-		if (CHECK_FLAG(peer->sflags,
-					PEER_STATUS_NSF_WAIT)) {
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
 			peer_nsf_stop(peer);
 		}
 	}
@@ -1623,8 +1620,8 @@ static int bgp_reconnect(struct peer *peer)
 		return -1;
 
 	/* Send graceful restart capabilty */
-	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(
-			peer->bgp, peer->bgp->peer);
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
+							  peer->bgp->peer);
 
 	bgp_start(peer);
 	return 0;
@@ -1663,7 +1660,7 @@ static int bgp_fsm_holdtime_expire(struct peer *peer)
 
 /* Start the selection deferral timer thread for the specified AFI, SAFI */
 static int bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
-		struct graceful_restart_info *gr_info)
+				    struct graceful_restart_info *gr_info)
 {
 	struct afi_safi_info *thread_info;
 
@@ -1697,8 +1694,8 @@ static int bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 	}
 	if (BGP_DEBUG(update, UPDATE_OUT))
 		zlog_debug("Started the deferral timer for %s eor_required %d",
-				get_afi_safi_str(afi, safi, false),
-				gr_info->eor_required);
+			   get_afi_safi_str(afi, safi, false),
+			   gr_info->eor_required);
 	return 0;
 }
 
@@ -1722,8 +1719,8 @@ static int bgp_update_gr_info(struct peer *peer, afi_t afi, safi_t safi)
 	}
 
 	/* Restarting router */
-	if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer) &&
-	    BGP_PEER_RESTARTING_MODE(peer)) {
+	if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)
+	    && BGP_PEER_RESTARTING_MODE(peer)) {
 		/* Check if the forwarding state is preserved */
 		if (bgp_flag_check(bgp, BGP_FLAG_GR_PRESERVE_FWD)) {
 			gr_info = &(bgp->gr_info[afi][safi]);
@@ -1788,11 +1785,9 @@ static int bgp_establish(struct peer *peer)
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 	if (bgp_debug_neighbor_events(peer)) {
 		if (BGP_PEER_RESTARTING_MODE(peer))
-			zlog_debug("peer %s BGP_RESTARTING_MODE",
-				   peer->host);
+			zlog_debug("peer %s BGP_RESTARTING_MODE", peer->host);
 		else if (BGP_PEER_HELPER_MODE(peer))
-			zlog_debug("peer %s BGP_HELPER_MODE",
-				   peer->host);
+			zlog_debug("peer %s BGP_HELPER_MODE", peer->host);
 	}
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
@@ -1819,15 +1814,18 @@ static int bgp_establish(struct peer *peer)
 					status = bgp_update_gr_info(peer, afi,
 								    safi);
 					if (status < 0)
-						zlog_err("Error in updating graceful restart for %s",
-							get_afi_safi_str(afi,
-							safi, false));
+						zlog_err(
+							"Error in updating graceful restart for %s",
+							get_afi_safi_str(
+								afi, safi,
+								false));
 				} else {
 					if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(
-						peer) &&
-						BGP_PEER_RESTARTING_MODE(peer)
-						&& bgp_flag_check(peer->bgp,
-						BGP_FLAG_GR_PRESERVE_FWD))
+						    peer)
+					    && BGP_PEER_RESTARTING_MODE(peer)
+					    && bgp_flag_check(
+						    peer->bgp,
+						    BGP_FLAG_GR_PRESERVE_FWD))
 						peer->bgp->gr_info[afi][safi]
 							.eor_required++;
 				}
@@ -2255,31 +2253,30 @@ int bgp_event_update(struct peer *peer, int event)
 /* BGP GR Code */
 
 int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
-			enum global_mode global_new_state,
-			enum global_mode global_old_state)
+				    enum global_mode global_new_state,
+				    enum global_mode global_old_state)
 {
 	struct peer *peer = {0};
 	struct listnode *node = {0};
 	struct listnode *nnode = {0};
-	enum peer_mode  peer_old_state = PEER_INVALID;
+	enum peer_mode peer_old_state = PEER_INVALID;
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug(
-			"%s [BGP_GR] Peer: (%s) :",
-				__func__, peer->host);
+			zlog_debug("%s [BGP_GR] Peer: (%s) :", __func__,
+				   peer->host);
 
 		peer_old_state = bgp_peer_gr_mode_get(peer);
 
 		if (peer_old_state == PEER_GLOBAL_INHERIT) {
 
-		/*
-		 *Reset only these peers and send a
-		 *new open message with the change capabilities.
-		 *Considering the mode to be "global_new_state" and
-		 *do all operation accordingly
-		 */
+			/*
+			 *Reset only these peers and send a
+			 *new open message with the change capabilities.
+			 *Considering the mode to be "global_new_state" and
+			 *do all operation accordingly
+			 */
 
 			switch (global_new_state) {
 			case GLOBAL_HELPER:
@@ -2292,9 +2289,8 @@ int bgp_gr_lookup_n_update_all_peer(struct bgp *bgp,
 				BGP_PEER_GR_DISABLE(peer);
 				break;
 			case GLOBAL_INVALID:
-				zlog_debug(
-				"%s [BGP_GR] GLOBAL_INVALID",
-				__func__);
+				zlog_debug("%s [BGP_GR] GLOBAL_INVALID",
+					   __func__);
 				return BGP_ERR_GR_OPERATION_FAILED;
 			}
 		}
@@ -2311,50 +2307,45 @@ int bgp_gr_update_all(struct bgp *bgp, int global_gr_cmd)
 	enum global_mode global_old_state = GLOBAL_INVALID;
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug(
-		"%s [BGP_GR]START: global_gr_cmd :%s:",
-			__func__, print_global_gr_cmd(global_gr_cmd));
+		zlog_debug("%s [BGP_GR]START: global_gr_cmd :%s:", __func__,
+			   print_global_gr_cmd(global_gr_cmd));
 
 	global_old_state = bgp_global_gr_mode_get(bgp);
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug(
-		"[BGP_GR] global_old_gr_state :%s:",
-		print_global_gr_mode(global_old_state));
+		zlog_debug("[BGP_GR] global_old_gr_state :%s:",
+			   print_global_gr_mode(global_old_state));
 
 	if (global_old_state != GLOBAL_INVALID) {
 		global_new_state =
 			bgp->GLOBAL_GR_FSM[global_old_state][global_gr_cmd];
 
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug(
-			"[BGP_GR] global_new_gr_state :%s:",
-			print_global_gr_mode(global_new_state));
+			zlog_debug("[BGP_GR] global_new_gr_state :%s:",
+				   print_global_gr_mode(global_new_state));
 	} else {
-		zlog_err(
-			"%s [BGP_GR] global_old_state == GLOBAL_INVALID",
-			__func__);
+		zlog_err("%s [BGP_GR] global_old_state == GLOBAL_INVALID",
+			 __func__);
 		return BGP_ERR_GR_OPERATION_FAILED;
 	}
 
 	if (global_new_state == GLOBAL_INVALID) {
-		zlog_err(
-			"%s [BGP_GR] global_new_state == GLOBAL_INVALID",
-				__func__);
+		zlog_err("%s [BGP_GR] global_new_state == GLOBAL_INVALID",
+			 __func__);
 		return BGP_ERR_GR_INVALID_CMD;
 	}
 	if (global_new_state == global_old_state) {
 		/* Trace msg */
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug(
-			"%s [BGP_GR] global_new_state == global_old_state :%s",
-			__func__, print_global_gr_mode(global_new_state));
+				"%s [BGP_GR] global_new_state == global_old_state :%s",
+				__func__,
+				print_global_gr_mode(global_new_state));
 		return BGP_GR_NO_OPERATION;
 	}
 
-	return bgp_gr_lookup_n_update_all_peer(bgp,
-					global_new_state,
-					global_old_state);
+	return bgp_gr_lookup_n_update_all_peer(bgp, global_new_state,
+					       global_old_state);
 }
 
 const char *print_peer_gr_mode(enum peer_mode pr_mode)
@@ -2464,11 +2455,10 @@ enum peer_mode bgp_peer_gr_mode_get(struct peer *peer)
 	return peer->peer_gr_present_state;
 }
 
-int bgp_neighbor_graceful_restart(struct peer *peer,
-						int peer_gr_cmd)
+int bgp_neighbor_graceful_restart(struct peer *peer, int peer_gr_cmd)
 {
-	enum peer_mode  peer_new_state = PEER_INVALID;
-	enum peer_mode  peer_old_state = PEER_INVALID;
+	enum peer_mode peer_new_state = PEER_INVALID;
+	enum peer_mode peer_old_state = PEER_INVALID;
 	struct bgp_peer_gr peer_state;
 	int result = BGP_GR_FAILURE;
 
@@ -2479,15 +2469,14 @@ int bgp_neighbor_graceful_restart(struct peer *peer,
 	 */
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug(
-		"%s [BGP_GR] START:Peer: (%s) : peer_gr_cmd :%s:",
-		  __func__, peer->host, print_peer_gr_cmd(peer_gr_cmd));
+		zlog_debug("%s [BGP_GR] START:Peer: (%s) : peer_gr_cmd :%s:",
+			   __func__, peer->host,
+			   print_peer_gr_cmd(peer_gr_cmd));
 
 	peer_old_state = bgp_peer_gr_mode_get(peer);
 
 	if (peer_old_state == PEER_INVALID) {
-		zlog_debug(
-			"[BGP_GR] peer_old_state == Invalid state !");
+		zlog_debug("[BGP_GR] peer_old_state == Invalid state !");
 		return BGP_ERR_GR_OPERATION_FAILED;
 	}
 
@@ -2501,13 +2490,12 @@ int bgp_neighbor_graceful_restart(struct peer *peer,
 	}
 
 	if (peer_new_state != peer_old_state) {
-		result = peer_state.action_fun(peer,
-						peer_old_state,
-						peer_new_state);
+		result = peer_state.action_fun(peer, peer_old_state,
+					       peer_new_state);
 	} else {
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug(
-			"[BGP_GR] peer_old_state == peer_new_state !");
+				"[BGP_GR] peer_old_state == peer_new_state !");
 		return BGP_GR_NO_OPERATION;
 	}
 
@@ -2516,8 +2504,9 @@ int bgp_neighbor_graceful_restart(struct peer *peer,
 		/* Update the mode i.e peer_new_state into the peer structure */
 		peer->peer_gr_present_state = peer_new_state;
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("[BGP_GR] Succesfully change the state of the peer to : %s : !",
-					print_peer_gr_mode(peer_new_state));
+			zlog_debug(
+				"[BGP_GR] Succesfully change the state of the peer to : %s : !",
+				print_peer_gr_mode(peer_new_state));
 
 		return BGP_GR_SUCCESS;
 	}
@@ -2525,8 +2514,8 @@ int bgp_neighbor_graceful_restart(struct peer *peer,
 	return result;
 }
 
-unsigned int bgp_peer_gr_action(struct peer *peer,
-				int old_peer_state, int new_peer_state)
+unsigned int bgp_peer_gr_action(struct peer *peer, int old_peer_state,
+				int new_peer_state)
 {
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
@@ -2538,19 +2527,20 @@ unsigned int bgp_peer_gr_action(struct peer *peer,
 	unsigned int ret = BGP_GR_FAILURE;
 
 	if (old_peer_state == new_peer_state) {
-	/* Nothing to do over here as the present and old state is the same */
+		/* Nothing to do over here as the present and old state is the
+		 * same */
 		return BGP_GR_NO_OPERATION;
 	}
-	if ((old_peer_state == PEER_INVALID) ||
-		(new_peer_state == PEER_INVALID)) {
-	/* something bad happend , print error message */
+	if ((old_peer_state == PEER_INVALID)
+	    || (new_peer_state == PEER_INVALID)) {
+		/* something bad happend , print error message */
 		return BGP_ERR_GR_INVALID_CMD;
 	}
 
 	bgp_gr_global_mode = bgp_global_gr_mode_get(peer->bgp);
 
-	if ((old_peer_state == PEER_GLOBAL_INHERIT) &&
-		(new_peer_state != PEER_GLOBAL_INHERIT)) {
+	if ((old_peer_state == PEER_GLOBAL_INHERIT)
+	    && (new_peer_state != PEER_GLOBAL_INHERIT)) {
 
 		/* fetch the Mode running in the Global state machine
 		 *from the bgp structure into a variable called
@@ -2566,10 +2556,10 @@ unsigned int bgp_peer_gr_action(struct peer *peer,
 		BGP_PEER_GR_GLOBAL_INHERIT_UNSET(peer);
 
 		if (new_peer_state == bgp_gr_global_mode) {
-		/*This is incremental updates i.e no tear down
-		 *of the existing session
-		 *as the peer is already working in the same mode.
-		 */
+			/*This is incremental updates i.e no tear down
+			 *of the existing session
+			 *as the peer is already working in the same mode.
+			 */
 			ret = BGP_GR_SUCCESS;
 		} else {
 			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
@@ -2585,8 +2575,8 @@ unsigned int bgp_peer_gr_action(struct peer *peer,
 	/* In the case below peer is going into Global inherit mode i.e.
 	 * the peer would work as the mode configured at the global level
 	 */
-	else if ((new_peer_state == PEER_GLOBAL_INHERIT) &&
-		(old_peer_state != PEER_GLOBAL_INHERIT)) {
+	else if ((new_peer_state == PEER_GLOBAL_INHERIT)
+		 && (old_peer_state != PEER_GLOBAL_INHERIT)) {
 		/* Here in this case it would be destructive
 		 * in all the cases except one case when,
 		 * Global GR is configured Disabled
@@ -2610,7 +2600,8 @@ unsigned int bgp_peer_gr_action(struct peer *peer,
 			 */
 
 			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-				zlog_debug("[BGP_GR] Peer state changed from :%s",
+				zlog_debug(
+					"[BGP_GR] Peer state changed from :%s",
 					print_peer_gr_mode(old_peer_state));
 
 			bgp_peer_move_to_gr_mode(peer, bgp_gr_global_mode);
@@ -2625,7 +2616,7 @@ unsigned int bgp_peer_gr_action(struct peer *peer,
 		 */
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("[BGP_GR] Peer state changed from :%s",
-					print_peer_gr_mode(old_peer_state));
+				   print_peer_gr_mode(old_peer_state));
 
 		bgp_peer_move_to_gr_mode(peer, new_peer_state);
 
@@ -2655,85 +2646,78 @@ inline void bgp_peer_move_to_gr_mode(struct peer *peer, int new_state)
 
 		if (bgp_global_gr_mode == GLOBAL_HELPER) {
 			BGP_PEER_GR_HELPER_ENABLE(peer);
-		} else if (bgp_global_gr_mode  == GLOBAL_GR) {
+		} else if (bgp_global_gr_mode == GLOBAL_GR) {
 			BGP_PEER_GR_ENABLE(peer);
 		} else if (bgp_global_gr_mode == GLOBAL_DISABLE) {
 			BGP_PEER_GR_DISABLE(peer);
 		} else {
 			zlog_err(
-			"[BGP_GR] Default switch inherit mode ::: SOMETHING IS WRONG !!!");
+				"[BGP_GR] Default switch inherit mode ::: SOMETHING IS WRONG !!!");
 		}
 		break;
 	default:
-		zlog_err("[BGP_GR] Default switch mode ::: SOMETHING IS WRONG !!!");
+		zlog_err(
+			"[BGP_GR] Default switch mode ::: SOMETHING IS WRONG !!!");
 		break;
 	}
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("[BGP_GR] Peer state changed  --to-->  : %d : !",
-					 new_state);
+			   new_state);
 }
 
 void bgp_peer_gr_flags_update(struct peer *peer)
 {
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-		zlog_debug(
-			"%s [BGP_GR] called !",
-				__func__);
+		zlog_debug("%s [BGP_GR] called !", __func__);
 	if (CHECK_FLAG(peer->peer_gr_new_status_flag,
-		PEER_GRACEFUL_RESTART_NEW_STATE_HELPER))
-		SET_FLAG(peer->flags,
-				PEER_FLAG_GRACEFUL_RESTART_HELPER);
+		       PEER_GRACEFUL_RESTART_NEW_STATE_HELPER))
+		SET_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER);
 	else
-		UNSET_FLAG(peer->flags,
-				PEER_FLAG_GRACEFUL_RESTART_HELPER);
+		UNSET_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER);
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
 			"[BGP_GR] Peer %s Flag PEER_FLAG_GRACEFUL_RESTART_HELPER : %s : !",
 			peer->host,
 			(CHECK_FLAG(peer->flags,
-				PEER_FLAG_GRACEFUL_RESTART_HELPER) ?
-				"Set" : "UnSet"));
+				    PEER_FLAG_GRACEFUL_RESTART_HELPER)
+				 ? "Set"
+				 : "UnSet"));
 	if (CHECK_FLAG(peer->peer_gr_new_status_flag,
-		PEER_GRACEFUL_RESTART_NEW_STATE_RESTART))
-		SET_FLAG(peer->flags,
-				PEER_FLAG_GRACEFUL_RESTART);
+		       PEER_GRACEFUL_RESTART_NEW_STATE_RESTART))
+		SET_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART);
 	else
-		UNSET_FLAG(peer->flags,
-				PEER_FLAG_GRACEFUL_RESTART);
+		UNSET_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART);
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
 			"[BGP_GR] Peer %s Flag PEER_FLAG_GRACEFUL_RESTART : %s : !",
 			peer->host,
-			(CHECK_FLAG(peer->flags,
-				PEER_FLAG_GRACEFUL_RESTART) ?
-				"Set" : "UnSet"));
+			(CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
+				 ? "Set"
+				 : "UnSet"));
 	if (CHECK_FLAG(peer->peer_gr_new_status_flag,
-		PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT))
+		       PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT))
 		SET_FLAG(peer->flags,
-				PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT);
+			 PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT);
 	else
 		UNSET_FLAG(peer->flags,
-				PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT);
+			   PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT);
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug(
-		"[BGP_GR] Peer %s Flag PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT : %s : !",
+			"[BGP_GR] Peer %s Flag PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT : %s : !",
 			peer->host,
 			(CHECK_FLAG(peer->flags,
-				PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT) ?
-			 "Set" : "UnSet"));
+				    PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT)
+				 ? "Set"
+				 : "UnSet"));
 
-	if (!CHECK_FLAG(peer->flags,
-		PEER_FLAG_GRACEFUL_RESTART) &&
-		!CHECK_FLAG(peer->flags,
-			PEER_FLAG_GRACEFUL_RESTART_HELPER)){
-		zlog_debug(
-			"[BGP_GR] Peer %s UNSET PEER_STATUS_NSF_MODE!",
-			peer->host);
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)
+	    && !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER)) {
+		zlog_debug("[BGP_GR] Peer %s UNSET PEER_STATUS_NSF_MODE!",
+			   peer->host);
 
 		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 
-		if (CHECK_FLAG(peer->sflags,
-				PEER_STATUS_NSF_WAIT)) {
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
 
 			peer_nsf_stop(peer);
 			zlog_debug(
