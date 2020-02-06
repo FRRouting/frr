@@ -1075,7 +1075,8 @@ static void rib_process(struct route_node *rn)
 		}
 
 		/* Infinite distance. */
-		if (re->distance == DISTANCE_INFINITY) {
+		if (re->distance == DISTANCE_INFINITY &&
+		    re->type != ZEBRA_ROUTE_KERNEL) {
 			UNSET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 			continue;
 		}
