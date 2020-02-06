@@ -660,6 +660,14 @@ static struct pim_vxlan_sg *pim_vxlan_sg_new(struct pim_instance *pim,
 
 	vxlan_sg = hash_get(pim->vxlan.sg_hash, vxlan_sg, hash_alloc_intern);
 
+	/* we register with the MLAG daemon in the first VxLAN SG and never
+	 * de-register during that life of the pimd
+	 */
+	if (pim->vxlan.sg_hash->count == 1) {
+		vxlan_mlag.flags |= PIM_VXLAN_MLAGF_DO_REG;
+		pim_mlag_register();
+	}
+
 	return vxlan_sg;
 }
 
@@ -717,6 +725,11 @@ void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg)
 }
 
 /******************************* MLAG handling *******************************/
+bool pim_vxlan_do_mlag_reg(void)
+{
+	return (vxlan_mlag.flags & PIM_VXLAN_MLAGF_DO_REG);
+}
+
 /* The peerlink sub-interface is added as an OIF to the origination-mroute.
  * This is done to send a copy of the multicast-vxlan encapsulated traffic
  * to the MLAG peer which may mroute it over the underlay if there are any

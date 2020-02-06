@@ -66,7 +66,8 @@ struct pim_vxlan_sg {
 
 enum pim_vxlan_mlag_flags {
 	PIM_VXLAN_MLAGF_NONE = 0,
-	PIM_VXLAN_MLAGF_ENABLED = (1 << 0)
+	PIM_VXLAN_MLAGF_ENABLED = (1 << 0),
+	PIM_VXLAN_MLAGF_DO_REG = (1 << 1)
 };
 
 enum pim_vxlan_mlag_role {
@@ -142,5 +143,6 @@ extern void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 				struct interface *peerlink_rif,
 				struct in_addr *reg_addr);
 extern void pim_vxlan_config_write(struct vty *vty, char *spaces, int *writes);
+extern bool pim_vxlan_do_mlag_reg(void);
 
 #endif /* PIM_VXLAN_H */
