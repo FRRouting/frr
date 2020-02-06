@@ -339,7 +339,7 @@ void cli_show_te_path_sr_policy_candidate_path(struct vty *vty,
 {
 	if (!strcmp("explicit", yang_dnode_get_string(dnode, "./type")))
 		vty_out(vty,
-			" candidate-path preference %s name %s segment-list %s\n",
+			" candidate-path preference %s name %s explicit segment-list %s\n",
 			yang_dnode_get_string(dnode, "./preference"),
 			yang_dnode_get_string(dnode, "./name"),
 			yang_dnode_get_string(dnode, "./segment-list-name"));
