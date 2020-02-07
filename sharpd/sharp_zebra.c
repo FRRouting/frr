@@ -87,6 +87,61 @@ static int sharp_ifp_down(struct interface *ifp)
 	return 0;
 }
 
+int sharp_install_lsps_helper(bool install_p, const struct prefix *p,
+			      uint8_t type, int instance, uint32_t in_label,
+			      const struct nexthop_group *nhg)
+{
+	struct zapi_labels zl = {};
+	struct zapi_nexthop *znh;
+	const struct nexthop *nh;
+	int i, ret;
+
+	zl.type = ZEBRA_LSP_SHARP;
+	zl.local_label = in_label;
+
+	if (p) {
+		SET_FLAG(zl.message, ZAPI_LABELS_FTN);
+		prefix_copy(&zl.route.prefix, p);
+		zl.route.type = type;
+		zl.route.instance = instance;
+	}
+
+	i = 0;
+	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+		znh = &zl.nexthops[i];
+
+		/* Must have labels to be useful */
+		if (nh->nh_label == NULL || nh->nh_label->num_labels == 0)
+			continue;
+
+		if (nh->type == NEXTHOP_TYPE_IFINDEX ||
+		    nh->type == NEXTHOP_TYPE_BLACKHOLE)
+			/* Hmm - can't really deal with these types */
+			continue;
+
+		ret = zapi_nexthop_from_nexthop(znh, nh);
+		if (ret < 0)
+			return -1;
+
+		i++;
+	}
+
+	/* Whoops - no nexthops isn't very useful */
+	if (i == 0)
+		return -1;
+
+	zl.nexthop_num = i;
+
+	if (install_p)
+		ret = zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_ADD,
+					     &zl);
+	else
+		ret = zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_DELETE,
+					     &zl);
+
+	return ret;
+}
+
 void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 				 uint8_t instance, struct nexthop_group *nhg,
 				 uint32_t routes)
@@ -241,43 +296,8 @@ void route_add(struct prefix *p, vrf_id_t vrf_id,
 
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
 		api_nh = &api.nexthops[i];
-		api_nh->vrf_id = nh->vrf_id;
-		api_nh->type = nh->type;
-		api_nh->weight = nh->weight;
 
-		switch (nh->type) {
-		case NEXTHOP_TYPE_IPV4:
-			api_nh->gate = nh->gate;
-			break;
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			api_nh->gate = nh->gate;
-			api_nh->ifindex = nh->ifindex;
-			break;
-		case NEXTHOP_TYPE_IFINDEX:
-			api_nh->ifindex = nh->ifindex;
-			break;
-		case NEXTHOP_TYPE_IPV6:
-			memcpy(&api_nh->gate.ipv6, &nh->gate.ipv6, 16);
-			break;
-		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			api_nh->ifindex = nh->ifindex;
-			memcpy(&api_nh->gate.ipv6, &nh->gate.ipv6, 16);
-			break;
-		case NEXTHOP_TYPE_BLACKHOLE:
-			api_nh->bh_type = nh->bh_type;
-			break;
-		}
-
-		if (nh->nh_label && nh->nh_label->num_labels > 0) {
-			int j;
-
-			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
-
-			api_nh->label_num = nh->nh_label->num_labels;
-			for (j = 0; j < nh->nh_label->num_labels; j++)
-				api_nh->labels[j] = nh->nh_label->label[j];
-		}
-
+		zapi_nexthop_from_nexthop(api_nh, nh);
 		i++;
 	}
 	api.nexthop_num = i;
