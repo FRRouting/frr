@@ -491,5 +491,5 @@ int main(int argc, char **argv)
 	frr_run(bm->master);
 
 	/* Not reached. */
-	return (0);
+	return 0;
 }

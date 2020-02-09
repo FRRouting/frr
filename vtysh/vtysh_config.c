@@ -520,7 +520,7 @@ int vtysh_read_config(const char *config_default_dir)
 		fprintf(stderr,
 			"%% Can't open configuration file %s due to '%s'.\n",
 			config_default_dir, safe_strerror(errno));
-		return (CMD_ERR_NO_FILE);
+		return CMD_ERR_NO_FILE;
 	}
 
 	ret = vtysh_read_file(confp);

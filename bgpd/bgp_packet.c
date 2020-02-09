@@ -973,7 +973,7 @@ static int bgp_collision_detect(struct peer *new, struct in_addr remote_id)
 		if (peer->status == Established || peer->status == Clearing) {
 			bgp_notify_send(new, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
-			return (-1);
+			return -1;
 		} else if ((peer->status == OpenConfirm)
 			   || (peer->status == OpenSent)) {
 			/* 1. The BGP Identifier of the local system is compared

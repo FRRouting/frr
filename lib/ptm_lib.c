@@ -92,36 +92,36 @@ static int _ptm_lib_decode_header(csv_t *csv, int *msglen, int *version,
 	rec = csv_record_iter(csv);
 	if (rec == NULL) {
 		DLOG("malformed CSV\n");
-		return (-1);
+		return -1;
 	}
 	hdr = csv_field_iter(rec, &fld);
 	if (hdr == NULL) {
 		DLOG("malformed CSV\n");
-		return (-1);
+		return -1;
 	}
 	*msglen = atoi(hdr);
 	hdr = csv_field_iter_next(&fld);
 	if (hdr == NULL) {
 		DLOG("malformed CSV\n");
-		return (-1);
+		return -1;
 	}
 	*version = atoi(hdr);
 	hdr = csv_field_iter_next(&fld);
 	if (hdr == NULL) {
 		DLOG("malformed CSV\n");
-		return (-1);
+		return -1;
 	}
 	*type = atoi(hdr);
 	hdr = csv_field_iter_next(&fld);
 	if (hdr == NULL) {
 		DLOG("malformed CSV\n");
-		return (-1);
+		return -1;
 	}
 	*cmd_id = atoi(hdr);
 	hdr = csv_field_iter_next(&fld);
 	if (hdr == NULL) {
 		DLOG("malformed CSV\n");
-		return (-1);
+		return -1;
 	}
 	/* remove leading spaces */
 	for (i = j = 0; i < csv_field_len(fld); i++) {
@@ -132,7 +132,7 @@ static int _ptm_lib_decode_header(csv_t *csv, int *msglen, int *version,
 	}
 	client_name[j] = '\0';
 
-	return (0);
+	return 0;
 }
 
 int ptm_lib_append_msg(ptm_lib_handle_t *hdl, void *ctxt, const char *key,
@@ -364,7 +364,7 @@ int ptm_lib_process_msg(ptm_lib_handle_t *hdl, int fd, char *inbuf, int inlen,
 
 	if (!csv) {
 		DLOG("Cannot allocate csv for hdr\n");
-		return (-1);
+		return -1;
 	}
 
 	rc = _ptm_lib_decode_header(csv, &msglen, &ver, &type, &cmd_id,
@@ -390,14 +390,14 @@ int ptm_lib_process_msg(ptm_lib_handle_t *hdl, int fd, char *inbuf, int inlen,
 		/* we only support the get-status cmd */
 		if (strcmp(inbuf, PTMLIB_CMD_GET_STATUS)) {
 			DLOG("unsupported legacy cmd %s\n", inbuf);
-			return (-1);
+			return -1;
 		}
 		/* internally create a csv-style cmd */
 		ptm_lib_init_msg(hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL,
 				 (void *)&p_ctxt);
 		if (!p_ctxt) {
 			DLOG("couldnt allocate context\n");
-			return (-1);
+			return -1;
 		}
 		ptm_lib_append_msg(hdl, p_ctxt, "cmd", PTMLIB_CMD_GET_STATUS);
 

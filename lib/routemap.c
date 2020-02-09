@@ -1335,7 +1335,7 @@ const char *route_map_get_match_arg(struct route_map_index *index,
 		if (rule->cmd == cmd && rule->rule_str != NULL)
 			return (rule->rule_str);
 
-	return (NULL);
+	return NULL;
 }
 
 static route_map_event_t get_route_map_delete_event(route_map_event_t type)

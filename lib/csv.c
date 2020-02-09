@@ -83,7 +83,7 @@ csv_t *csv_init(csv_t *csv, char *buf, int buflen)
 		csv = malloc(sizeof(csv_t));
 		if (csv == NULL) {
 			log_error("CSV Malloc failed\n");
-			return (NULL);
+			return NULL;
 		}
 	}
 	memset(csv, 0, sizeof(csv_t));
@@ -144,7 +144,7 @@ char *csv_field_iter_next(csv_field_t **fld)
 {
 	*fld = TAILQ_NEXT(*fld, next_field);
 	if ((*fld) == NULL) {
-		return (NULL);
+		return NULL;
 	}
 	return ((*fld)->field);
 }
@@ -198,7 +198,7 @@ static csv_field_t *csv_add_field_to_record(csv_t *csv, csv_record_t *rec,
 	if (!fld) {
 		log_error("field malloc failed\n");
 		/* more cleanup needed */
-		return (NULL);
+		return NULL;
 	}
 	TAILQ_INSERT_TAIL(&(rec->fields), fld, next_field);
 	fld->field = str + rlen;
@@ -227,7 +227,7 @@ csv_record_t *csv_encode(csv_t *csv, int count, ...)
 		str = (char *)malloc(csv->buflen);
 		if (!str) {
 			log_error("field str malloc failed\n");
-			return (NULL);
+			return NULL;
 		}
 	}
 
@@ -238,7 +238,7 @@ csv_record_t *csv_encode(csv_t *csv, int count, ...)
 		if (!buf)
 			free(str);
 		va_end(list);
-		return (NULL);
+		return NULL;
 	}
 	csv_init_record(rec);
 	rec->record = str;
@@ -255,7 +255,7 @@ csv_record_t *csv_encode(csv_t *csv, int count, ...)
 			log_error("fld malloc failed\n");
 			csv_remove_record(csv, rec);
 			va_end(list);
-			return (NULL);
+			return NULL;
 		}
 		if (tempc < (count - 1)) {
 			rec->rec_len += snprintf((str + rec->rec_len),
@@ -494,21 +494,21 @@ csv_record_t *csv_concat_record(csv_t *csv, csv_record_t *rec1,
 	if (!csv_is_record_valid(csv, rec1)
 	    || !csv_is_record_valid(csv, rec2)) {
 		log_error("rec1 and/or rec2 invalid\n");
-		return (NULL);
+		return NULL;
 	}
 
 	/* we can only concat records if no buf was supplied during csv init */
 	if (csv->buf) {
 		log_error(
 			"un-supported for this csv type - single buf detected\n");
-		return (NULL);
+		return NULL;
 	}
 
 	/* create a new rec */
 	rec = calloc(1, sizeof(csv_record_t));
 	if (!rec) {
 		log_error("record malloc failed\n");
-		return (NULL);
+		return NULL;
 	}
 	csv_init_record(rec);
 

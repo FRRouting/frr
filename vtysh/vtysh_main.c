@@ -470,7 +470,7 @@ int main(int argc, char **argv, char **env)
 		if (!inputfile) {
 			fprintf(stderr,
 				"-f option MUST be specified with -m option\n");
-			return (1);
+			return 1;
 		}
 		return (vtysh_mark_file(inputfile));
 	}

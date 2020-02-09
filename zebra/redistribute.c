@@ -717,10 +717,10 @@ int zebra_import_table(afi_t afi, vrf_id_t vrf_id, uint32_t table_id,
 
 	if (!is_zebra_valid_kernel_table(table_id)
 	    || (table_id == RT_TABLE_MAIN))
-		return (-1);
+		return -1;
 
 	if (afi >= AFI_MAX)
-		return (-1);
+		return -1;
 
 	table = zebra_vrf_get_table_with_table_id(afi, SAFI_UNICAST, vrf_id,
 						  table_id);
