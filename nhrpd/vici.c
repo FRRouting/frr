@@ -19,6 +19,7 @@
 #include "zbuf.h"
 #include "log.h"
 #include "lib_errors.h"
+#include "hash.h"
 
 #include "nhrpd.h"
 #include "vici.h"
@@ -26,10 +27,16 @@
 
 #define ERRNO_IO_RETRY(EN) (((EN) == EAGAIN) || ((EN) == EWOULDBLOCK) || ((EN) == EINTR))
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_VICI_CONNECTION, "NHRP Vici connection");
+DEFINE_MTYPE_STATIC(NHRPD, NHRP_VICI_HASH_ENTRY, "NHRP Hash Entry connection");
 
 struct blob {
 	char *ptr;
 	int len;
+};
+
+struct vici_hash_entry {
+	vrf_id_t vrf_id;
+	int refcnt;
 };
 
 static int blob_equal(const struct blob *b, const char *str)
@@ -62,6 +69,7 @@ struct vici_message_ctx {
 	int nsections;
 };
 
+static void *vici_hash_alloc(void *p);
 static int vici_reconnect(struct thread *t);
 static void vici_submit_request(struct vici_conn *vici, const char *name, ...);
 
@@ -159,6 +167,55 @@ struct handle_sa_ctx {
 	} local, remote;
 };
 
+static void parse_sa_message_pervrf(struct hash_bucket *backet, void *arg)
+{
+	struct vici_hash_entry *entry = (struct vici_hash_entry *)backet->data;
+	struct nhrp_vrf *nhrp_vrf;
+	struct handle_sa_ctx *sactx = (struct handle_sa_ctx *)arg;
+	struct nhrp_vc *vc;
+	int up = sactx->child_ok || sactx->event == 1;
+	char buf[2][SU_ADDRSTRLEN];
+
+	nhrp_vrf = find_nhrp_vrf_id(entry->vrf_id);
+	if (!nhrp_vrf)
+		return;
+	sockunion2str(&sactx->local.host, buf[0], sizeof buf[0]);
+	sockunion2str(&sactx->remote.host, buf[1], sizeof buf[1]);
+
+	debugf(NHRP_DEBUG_VICI, "VICI: response connection from %s to %s for VR %s is %s",
+	       buf[0], buf[1], nhrp_vrf->vrfname == NULL ? VRF_DEFAULT_NAME : nhrp_vrf->vrfname,
+	       up ? "UP" : "DOWN");
+
+	if (up) {
+		vc = nhrp_vc_get(&sactx->local.host,
+				 &sactx->remote.host, up,
+				 nhrp_vrf);
+		if (vc) {
+			blob2buf(&sactx->local.id, vc->local.id,
+				 sizeof(vc->local.id));
+			if (blob2buf(&sactx->local.cert,
+				     (char *)vc->local.cert,
+				     sizeof(vc->local.cert)))
+				vc->local.certlen =
+					sactx->local.cert.len;
+			blob2buf(&sactx->remote.id,
+				 vc->remote.id,
+				 sizeof(vc->remote.id));
+			if (blob2buf(&sactx->remote.cert,
+				     (char *)vc->remote.cert,
+				     sizeof(vc->remote.cert)))
+				vc->remote.certlen =
+					sactx->remote.cert.len;
+			sactx->kill_ikesa |=
+				nhrp_vc_ipsec_updown(
+						     sactx->child_uniqueid,
+						     nhrp_vrf, vc);
+		}
+	} else {
+		nhrp_vc_ipsec_updown(sactx->child_uniqueid, nhrp_vrf, 0);
+	}
+}
+
 static void parse_sa_message(struct vici_message_ctx *ctx,
 			     enum vici_type_t msgtype, const struct blob *key,
 			     const struct blob *val,
@@ -166,7 +223,6 @@ static void parse_sa_message(struct vici_message_ctx *ctx,
 {
 	struct handle_sa_ctx *sactx =
 		container_of(ctx, struct handle_sa_ctx, msgctx);
-	struct nhrp_vc *vc;
 	char buf[512];
 
 	switch (msgtype) {
@@ -178,40 +234,10 @@ static void parse_sa_message(struct vici_message_ctx *ctx,
 		}
 		break;
 	case VICI_SECTION_END:
-		if (ctx->nsections == 3) {
+		if (ctx->nsections == 3)
 			/* End of child-sa section, update nhrp_vc */
-			int up = sactx->child_ok || sactx->event == 1;
-			if (up) {
-				vc = nhrp_vc_get(&sactx->local.host,
-						 &sactx->remote.host, up,
-						 nhrp_vrf);
-				if (vc) {
-					blob2buf(&sactx->local.id, vc->local.id,
-						 sizeof(vc->local.id));
-					if (blob2buf(&sactx->local.cert,
-						     (char *)vc->local.cert,
-						     sizeof(vc->local.cert)))
-						vc->local.certlen =
-							sactx->local.cert.len;
-					blob2buf(&sactx->remote.id,
-						 vc->remote.id,
-						 sizeof(vc->remote.id));
-					if (blob2buf(&sactx->remote.cert,
-						     (char *)vc->remote.cert,
-						     sizeof(vc->remote.cert)))
-						vc->remote.certlen =
-							sactx->remote.cert.len;
-					sactx->kill_ikesa |=
-						nhrp_vc_ipsec_updown(
-							sactx->child_uniqueid,
-							nhrp_vrf,
-							vc);
-					vc->ike_uniqueid = sactx->ike_uniqueid;
-				}
-			} else {
-				nhrp_vc_ipsec_updown(sactx->child_uniqueid, nhrp_vrf, 0);
-			}
-		}
+			hash_iterate(nhrp_vrf->vici_hash,
+				     parse_sa_message_pervrf, (void *)sactx);
 		break;
 	default:
 		if (!key || !key->ptr)
@@ -535,7 +561,8 @@ static int vici_reconnect(struct thread *t)
 		return 0;
 	}
 
-	debugf(NHRP_DEBUG_COMMON, "VICI: Connected");
+	debugf(NHRP_DEBUG_COMMON, "VICI: Connected (VR %s)", nhrp_vrf->vrfname == NULL ?
+	       VRF_DEFAULT_NAME : nhrp_vrf->vrfname);
 	vici->fd = fd;
 	thread_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
 
@@ -551,28 +578,148 @@ static int vici_reconnect(struct thread *t)
 	return 0;
 }
 
+
+
+void vici_unregister(struct interface *ifp, vrf_id_t link_vrf_id)
+{
+	struct nhrp_vrf *link_nhrp_vrf;
+	struct nhrp_vrf *nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
+	struct vici_hash_entry entry, *p_entry;
+
+	if (!nhrp_vrf || link_vrf_id == VRF_UNKNOWN)
+		return;
+	link_nhrp_vrf = find_nhrp_vrf_id(link_vrf_id);
+	if (!link_nhrp_vrf)
+		return;
+	entry.vrf_id = nhrp_vrf->vrf_id;
+	entry.refcnt = 0;
+	p_entry = hash_lookup(link_nhrp_vrf->vici_hash, &entry);
+	if (!p_entry || p_entry->refcnt == 0) {
+		debugf(NHRP_DEBUG_VICI, "%s: link VR %s did already unregister VR %s",
+		       __PRETTY_FUNCTION__, link_nhrp_vrf->vrfname ?
+		       link_nhrp_vrf->vrfname : VRF_DEFAULT_NAME,
+		       nhrp_vrf->vrfname ? nhrp_vrf->vrfname : VRF_DEFAULT_NAME);
+		return;
+	}
+	p_entry->refcnt--;
+	debugf(NHRP_DEBUG_VICI, "VR %s if %s unregisters to vici with VR %u (refcnt %d)",
+	       nhrp_vrf->vrfname == NULL ? VRF_DEFAULT_NAME : nhrp_vrf->vrfname,
+	       ifp->name, link_nhrp_vrf->vrf_id, p_entry->refcnt);
+	if (p_entry->refcnt)
+		return;
+	hash_release(link_nhrp_vrf->vici_hash, p_entry);
+
+	if (hashcount(link_nhrp_vrf->vici_hash))
+		return;
+	vici_terminate(link_nhrp_vrf, false);
+}
+
+void vici_register(struct interface *ifp, vrf_id_t link_vrf_id)
+{
+	struct vici_conn *vici;
+	struct nhrp_vrf *nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
+	struct nhrp_vrf *link_nhrp_vrf;
+	struct vici_hash_entry entry, *p_entry;
+
+	if (!nhrp_vrf || link_vrf_id == VRF_UNKNOWN)
+		return;
+	link_nhrp_vrf = find_nhrp_vrf_id(link_vrf_id);
+	if (!link_nhrp_vrf)
+		return;
+
+	entry.vrf_id = nhrp_vrf->vrf_id;
+	entry.refcnt = 0;
+	p_entry = hash_lookup(link_nhrp_vrf->vici_hash, &entry);
+	if (!p_entry)
+		p_entry = hash_get(link_nhrp_vrf->vici_hash,
+				   &entry, vici_hash_alloc);
+	p_entry->refcnt++;
+	debugf(NHRP_DEBUG_VICI, "VR %s if %s registers to vici with VR %u (refcnt %d)",
+	       nhrp_vrf->vrfname == NULL ? VRF_DEFAULT_NAME : nhrp_vrf->vrfname,
+	       ifp->name, link_nhrp_vrf->vrf_id,
+	       p_entry->refcnt);
+	if (!link_nhrp_vrf->vici_connection) {
+		link_nhrp_vrf->vici_connection = XCALLOC(MTYPE_NHRP_VICI_CONNECTION,
+							 sizeof(struct vici_conn));
+		vici = link_nhrp_vrf->vici_connection;
+		vici->nhrp_vrf = link_nhrp_vrf;
+		vici->fd = -1;
+		zbuf_init(&vici->ibuf, vici->ibuf_data, sizeof(vici->ibuf_data), 0);
+		zbufq_init(&vici->obuf);
+		thread_add_timer_msec(master, vici_reconnect, vici, 10,
+				      &vici->t_reconnect);
+	}
+}
+
+static void *vici_hash_alloc(void *p)
+{
+	struct vici_hash_entry *entry, *p_entry;
+
+	p_entry = (struct vici_hash_entry *)p;
+
+	entry = XMALLOC(MTYPE_NHRP_VICI_HASH_ENTRY, sizeof(struct vici_hash_entry));
+	*entry = *p_entry;
+	return entry;
+}
+
+static unsigned vici_hash_key(const void *a)
+{
+	const struct vici_hash_entry *aa = (struct vici_hash_entry *)a;
+
+	return aa->vrf_id;
+}
+
+static bool vici_hash_cmp(const void *a, const void *b)
+{
+	struct vici_hash_entry *aa = (struct vici_hash_entry *)a;
+	struct vici_hash_entry *bb = (struct vici_hash_entry *)b;
+
+	if (aa->vrf_id == bb->vrf_id)
+		return true;
+	return false;
+}
+
+static struct vici_conn *vici_connection(vrf_id_t link_vrf_id)
+{
+	struct nhrp_vrf *nhrp_vrf;
+
+	nhrp_vrf = find_nhrp_vrf_id(link_vrf_id);
+	if (!nhrp_vrf)
+		return NULL;
+	return nhrp_vrf->vici_connection;
+}
+
 void vici_init(struct nhrp_vrf *nhrp_vrf)
+{
+	nhrp_vrf->vici_hash = hash_create(vici_hash_key, vici_hash_cmp,
+					  "vici list of vrf contexts");
+}
+
+void vici_terminate(struct nhrp_vrf *nhrp_vrf, bool complete)
 {
 	struct vici_conn *vici;
 
-	if (!nhrp_vrf || nhrp_vrf->vici_connection)
-		return;
-	nhrp_vrf->vici_connection = XCALLOC(MTYPE_NHRP_VICI_CONNECTION,
-					    sizeof(struct vici_conn));
-	vici = nhrp_vrf->vici_connection;
-	vici->nhrp_vrf = nhrp_vrf;
-	vici->fd = -1;
-	zbuf_init(&vici->ibuf, vici->ibuf_data, sizeof(vici->ibuf_data), 0);
-	zbufq_init(&vici->obuf);
-	thread_add_timer_msec(master, vici_reconnect, vici, 10,
-			      &vici->t_reconnect);
-}
-
-void vici_terminate(struct nhrp_vrf *nhrp_vrf)
-{
-	if (nhrp_vrf->vici_connection)
+	if (nhrp_vrf->vici_connection) {
+		vici = nhrp_vrf->vici_connection;
+		if (vici->t_reconnect)
+			THREAD_OFF(vici->t_reconnect);
+		if (vici->t_read)
+			THREAD_OFF(vici->t_read);
+		if (vici->t_write)
+			THREAD_OFF(vici->t_write);
+		zbuf_reset(&vici->ibuf);
+		zbufq_reset(&vici->obuf);
+		close(vici->fd);
+		vici->fd = -1;
 		XFREE(MTYPE_NHRP_VICI_CONNECTION,
 		      nhrp_vrf->vici_connection);
+		nhrp_vrf->vici_connection = NULL;
+	}
+	if (complete && nhrp_vrf->vici_hash) {
+		hash_clean(nhrp_vrf->vici_hash, NULL);
+		hash_free(nhrp_vrf->vici_hash);
+		nhrp_vrf->vici_hash = NULL;
+	}
 }
 
 void vici_terminate_vc_by_profile_name(struct nhrp_vrf *nhrp_vrf, char *profile_name)
@@ -601,13 +748,24 @@ void vici_terminate_vc_by_ike_id(struct nhrp_vrf *nhrp_vrf, unsigned int ike_id)
 
 void vici_request_vc(const char *profile, union sockunion *src,
 		     union sockunion *dst, int prio,
-		     struct nhrp_vrf *nhrp_vrf)
+		     struct nhrp_vrf *nhrp_vrf,
+		     struct nhrp_interface *nifp)
 {
-	struct vici_conn *vici = nhrp_vrf->vici_connection;
+	struct vici_conn *vici = vici_connection(nifp->link_vrf_id);
 	char buf[2][SU_ADDRSTRLEN];
 
+
+	if (!vici) {
+		debugf(NHRP_DEBUG_VICI,
+		       "%s: failure finding out VICI context for interface %s (link VR %u)",
+		       __PRETTY_FUNCTION__, nifp->ifp->name, nifp->link_vrf_id);
+		return;
+	}
 	sockunion2str(src, buf[0], sizeof(buf[0]));
 	sockunion2str(dst, buf[1], sizeof(buf[1]));
+
+	debugf(NHRP_DEBUG_VICI, "VICI: submit initiate from %s to %s for interface %s (link VR %u)",
+	       buf[0], buf[1], nifp->ifp->name, nifp->link_vrf_id);
 
 	vici_submit_request(vici, "initiate", VICI_KEY_VALUE, "child",
 			    strlen(profile), profile, VICI_KEY_VALUE, "timeout",

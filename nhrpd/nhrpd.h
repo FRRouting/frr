@@ -106,6 +106,8 @@ struct nhrp_vrf {
 
 	struct nhrp_reqid_pool *nhrp_packet_reqid;
 	struct vici_conn *vici_connection;
+	struct hash *vici_hash;
+
 	struct hash *nhrp_vc_hash;
 	struct list_head childlist_head[512];
 	struct hash *nhrp_gre_list;
@@ -507,12 +509,16 @@ void nhrp_vc_foreach(void (*cb)(struct nhrp_vc *, void *),
 void nhrp_vc_reset(struct nhrp_vrf *nhrp_vrf);
 
 void vici_init(struct nhrp_vrf *nhrp_vrf);
-void vici_terminate(struct nhrp_vrf *nhrp_vrf);
+void vici_terminate(struct nhrp_vrf *nhrp_vrf, bool complete);
 void vici_terminate_vc_by_profile_name(struct nhrp_vrf *nhrp_vrf, char *profile_name);
 void vici_terminate_vc_by_ike_id(struct nhrp_vrf *nhrp_vrf, unsigned int ike_id);
+void vici_register(struct interface *ifp, vrf_id_t link_vrf_id);
+void vici_unregister(struct interface *ifp, vrf_id_t link_vrf_id);
+void vici_terminate(struct nhrp_vrf *nhrp_vrf, bool complete);
 void vici_request_vc(const char *profile, union sockunion *src,
 		     union sockunion *dst, int prio,
-		     struct nhrp_vrf *nhrp_vrf);
+		     struct nhrp_vrf *nhrp_vrf,
+		     struct nhrp_interface *nifp);
 
 void evmgr_init(struct nhrp_vrf *nhrp_vrf);
 void evmgr_terminate(struct nhrp_vrf *nhrp_vrf);

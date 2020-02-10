@@ -75,6 +75,7 @@ static int nhrp_if_new_hook(struct interface *ifp)
 
 	ifp->info = nifp;
 	nifp->ifp = ifp;
+	nifp->link_vrf_id = VRF_UNKNOWN;
 
 	notifier_init(&nifp->notifier_list);
 	for (afi = 0; afi < AFI_MAX; afi++) {
@@ -190,8 +191,10 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 	struct nhrp_interface *nifp = ifp->info, *nbmanifp = NULL;
 	struct interface *nbmaifp = NULL;
 	union sockunion nbma;
+	vrf_id_t link_vrf_id;
 
 	sockunion_family(&nbma) = AF_UNSPEC;
+	link_vrf_id = nifp->link_vrf_id;
 
 	if (nifp->source) {
 		bool found = true;
@@ -242,6 +245,15 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 
 	if (nbmaifp)
 		nbmanifp = nbmaifp->info;
+
+	if (nifp->ipsec_profile) {
+		if (link_vrf_id != nifp->link_vrf_id) {
+			if (link_vrf_id != VRF_UNKNOWN)
+				vici_unregister(ifp, link_vrf_id);
+			if (nifp->link_vrf_id != VRF_UNKNOWN)
+				vici_register(ifp, nifp->link_vrf_id);
+		}
+	}
 
 	if (nbmaifp != nifp->nbmaifp) {
 		if (nifp->nbmaifp)
@@ -552,9 +564,16 @@ void nhrp_interface_set_protection(struct interface *ifp, const char *profile,
 {
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_vrf *nhrp_vrf;
+	bool activate = false, deactivate = false;
 
 	nhrp_vrf = find_nhrp_vrf_id(ifp->vrf_id);
 
+	if ((nifp->ipsec_profile || nifp->ipsec_fallback_profile) &&
+	    (!profile && !fallback_profile))
+		deactivate = true;
+	if ((!nifp->ipsec_profile && !nifp->ipsec_fallback_profile) &&
+	    (profile || fallback_profile))
+		activate = true;
 	if (nifp->ipsec_profile) {
 		if (nhrp_vrf) {
 			vici_terminate_vc_by_profile_name(nhrp_vrf, nifp->ipsec_profile);
@@ -573,9 +592,12 @@ void nhrp_interface_set_protection(struct interface *ifp, const char *profile,
 	}
 	nifp->ipsec_fallback_profile =
 		fallback_profile ? strdup(fallback_profile) : NULL;
+	/* stop vici */
+	if (deactivate)
+		vici_unregister(ifp, nifp->link_vrf_id);
 	/* start vici */
-	if (nifp->ipsec_profile)
-		vici_init(find_nhrp_vrf_id(ifp->vrf_id));
+	if (activate)
+		vici_register(ifp, nifp->link_vrf_id);
 	notifier_call(&nifp->notifier_list, NOTIFY_INTERFACE_IPSEC_CHANGED);
 }
 

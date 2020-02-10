@@ -288,7 +288,7 @@ static int nhrp_peer_request_timeout(struct thread *t)
 	    && !p->fallback_requested) {
 		p->fallback_requested = 1;
 		vici_request_vc(nifp->ipsec_fallback_profile, &vc->local.nbma,
-				&vc->remote.nbma, p->prio, nhrp_vrf);
+				&vc->remote.nbma, p->prio, nhrp_vrf, nifp);
 		thread_add_timer(master, nhrp_peer_request_timeout, p, 30,
 				 &p->t_fallback);
 	} else {
@@ -320,7 +320,7 @@ static int nhrp_peer_defer_vici_request(struct thread *t)
 		       &vc->remote.nbma);
 	} else {
 		vici_request_vc(nifp->ipsec_profile, &vc->local.nbma,
-				&vc->remote.nbma, p->prio, nhrp_vrf);
+				&vc->remote.nbma, p->prio, nhrp_vrf, nifp);
 		thread_add_timer(
 			master, nhrp_peer_request_timeout, p,
 			(nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,
@@ -361,7 +361,7 @@ int nhrp_peer_check(struct nhrp_peer *p, int establish)
 	/* All NHRP registration requests are prioritized */
 	if (p->prio) {
 		vici_request_vc(nifp->ipsec_profile, &vc->local.nbma,
-				&vc->remote.nbma, p->prio, nhrp_vrf);
+				&vc->remote.nbma, p->prio, nhrp_vrf, nifp);
 		thread_add_timer(
 			master, nhrp_peer_request_timeout, p,
 			(nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,

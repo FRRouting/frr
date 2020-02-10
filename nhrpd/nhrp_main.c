@@ -142,6 +142,7 @@ static void nhrp_start_context(struct nhrp_vrf *nhrp_vrf)
 	nhrp_vc_init(nhrp_vrf);
 	nhrp_packet_init(nhrp_vrf);
 	/* vici will start only upon tunnel protection command */
+	vici_init(nhrp_vrf);
 	nhrp_route_init(nhrp_vrf);
 	nhrp_nhs_init(nhrp_vrf);
 	nhrp_shortcut_init(nhrp_vrf);
@@ -154,7 +155,7 @@ static void nhrp_stop_context(struct nhrp_vrf *nhrp_vrf)
 	nhrp_shortcut_terminate(nhrp_vrf);
 	nhrp_nhs_terminate(nhrp_vrf);
 	nhrp_zebra_terminate(nhrp_vrf);
-	vici_terminate(nhrp_vrf);
+	vici_terminate(nhrp_vrf, true);
 	evmgr_terminate(nhrp_vrf);
 	nhrp_vc_terminate(nhrp_vrf);
 }
