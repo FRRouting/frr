@@ -135,6 +135,47 @@ static inline int add_nexthop(qpb_allocator_t *allocator, Fpm__AddRoute *msg,
 	return 1;
 }
 
+struct route_walker_info {
+	struct nexthop *nexthops[MULTIPATH_NUM];
+	unsigned int num_nhs;
+	Fpm__AddRoute *msg;
+	/* If one of the nexthops walked over was a blackhole, this is set */
+	bool has_blackhole;
+};
+
+static int route_add_message_nexthop_walker(struct nexthop *nexthop, void *arg)
+{
+	struct route_walker_info *route_walker_info = arg;
+
+	if (route_walker_info->num_nhs >= zrouter.multipath_num)
+		return NHG_WALK_ABORT;
+
+	if (route_walker_info->num_nhs
+	    >= array_size(route_walker_info->nexthops))
+		return NHG_WALK_ABORT;
+
+	if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+		switch (nexthop->bh_type) {
+		case BLACKHOLE_REJECT:
+			route_walker_info->msg->route_type =
+				FPM__ROUTE_TYPE__UNREACHABLE;
+			break;
+		case BLACKHOLE_NULL:
+		default:
+			route_walker_info->msg->route_type =
+				FPM__ROUTE_TYPE__BLACKHOLE;
+			break;
+		}
+		route_walker_info->has_blackhole = true;
+		return NHG_WALK_ABORT;
+	}
+
+	route_walker_info->nexthops[route_walker_info->num_nhs] = nexthop;
+	(route_walker_info->num_nhs)++;
+
+	return NHG_WALK_CONTINUE;
+}
+
 /*
  * create_add_route_message
  */
@@ -143,9 +184,7 @@ static Fpm__AddRoute *create_add_route_message(qpb_allocator_t *allocator,
 					       struct route_entry *re)
 {
 	Fpm__AddRoute *msg;
-	struct nexthop *nexthop;
-	uint num_nhs, u;
-	struct nexthop *nexthops[MULTIPATH_NUM];
+	struct route_walker_info route_walker_info = {};
 
 	msg = QPB_ALLOC(allocator, typeof(*msg));
 	if (!msg) {
@@ -172,38 +211,16 @@ static Fpm__AddRoute *create_add_route_message(qpb_allocator_t *allocator,
 	/*
 	 * Figure out the set of nexthops to be added to the message.
 	 */
-	num_nhs = 0;
-	for (ALL_NEXTHOPS_PTR(re->nhe->nhg, nexthop)) {
-		if (num_nhs >= zrouter.multipath_num)
-			break;
+	route_walker_info.msg = msg;
 
-		if (num_nhs >= array_size(nexthops))
-			break;
+	zebra_nhg_depends_walk_resolved_nexthops_with_flag(
+		re->nhe, NEXTHOP_FLAG_ACTIVE, &route_add_message_nexthop_walker,
+		&route_walker_info);
 
-		if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
-			switch (nexthop->bh_type) {
-			case BLACKHOLE_REJECT:
-				msg->route_type = FPM__ROUTE_TYPE__UNREACHABLE;
-				break;
-			case BLACKHOLE_NULL:
-			default:
-				msg->route_type = FPM__ROUTE_TYPE__BLACKHOLE;
-				break;
-			}
-			return msg;
-		}
+	if (route_walker_info.has_blackhole)
+		return msg;
 
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-			continue;
-
-		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-			continue;
-
-		nexthops[num_nhs] = nexthop;
-		num_nhs++;
-	}
-
-	if (!num_nhs) {
+	if (!route_walker_info.num_nhs) {
 		zfpm_debug("netlink_encode_route(): No useful nexthop.");
 		assert(0);
 		return NULL;
@@ -212,20 +229,22 @@ static Fpm__AddRoute *create_add_route_message(qpb_allocator_t *allocator,
 	/*
 	 * And add them to the message.
 	 */
-	if (!(msg->nexthops = qpb_alloc_ptr_array(allocator, num_nhs))) {
+	if (!(msg->nexthops = qpb_alloc_ptr_array(allocator,
+						  route_walker_info.num_nhs))) {
 		assert(0);
 		return NULL;
 	}
 
 	msg->n_nexthops = 0;
-	for (u = 0; u < num_nhs; u++) {
-		if (!add_nexthop(allocator, msg, dest, nexthops[u])) {
+	for (unsigned int u = 0; u < route_walker_info.num_nhs; u++) {
+		if (!add_nexthop(allocator, msg, dest,
+				 route_walker_info.nexthops[u])) {
 			assert(0);
 			return NULL;
 		}
 	}
 
-	assert(msg->n_nexthops == num_nhs);
+	assert(msg->n_nexthops == route_walker_info.num_nhs);
 
 	return msg;
 }
