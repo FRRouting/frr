@@ -268,6 +268,46 @@ static uint8_t netlink_proto_from_route_type(int type)
 	}
 }
 
+struct route_walker_info {
+	struct route_entry *re;
+	netlink_route_info_t *ri;
+	int cmd;
+};
+
+static int route_info_fill_nexthop_walker(struct nexthop *nexthop, void *arg)
+{
+	struct route_walker_info *route_walker_info = arg;
+
+	if (route_walker_info->ri->num_nhs >= zrouter.multipath_num)
+		return NHG_WALK_ABORT;
+
+	if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+		switch (nexthop->bh_type) {
+		case BLACKHOLE_ADMINPROHIB:
+			route_walker_info->ri->rtm_type = RTN_PROHIBIT;
+			break;
+		case BLACKHOLE_REJECT:
+			route_walker_info->ri->rtm_type = RTN_UNREACHABLE;
+			break;
+		case BLACKHOLE_NULL:
+		default:
+			route_walker_info->ri->rtm_type = RTN_BLACKHOLE;
+			break;
+		}
+	}
+
+	if ((route_walker_info->cmd == RTM_NEWROUTE
+	     && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+	    || (route_walker_info->cmd == RTM_DELROUTE
+		&& CHECK_FLAG(route_walker_info->re->status,
+			      ROUTE_ENTRY_INSTALLED))) {
+		netlink_route_info_add_nh(route_walker_info->ri, nexthop,
+					  route_walker_info->re);
+	}
+
+	return NHG_WALK_CONTINUE;
+}
+
 /*
  * netlink_route_info_fill
  *
@@ -278,8 +318,8 @@ static uint8_t netlink_proto_from_route_type(int type)
 static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 				   rib_dest_t *dest, struct route_entry *re)
 {
-	struct nexthop *nexthop;
 	struct zebra_vrf *zvrf;
+	struct route_walker_info route_walker_info = {};
 
 	memset(ri, 0, sizeof(*ri));
 
@@ -309,35 +349,13 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 	ri->rtm_type = RTN_UNICAST;
 	ri->metric = &re->metric;
 
-	for (ALL_NEXTHOPS_PTR(re->nhe->nhg, nexthop)) {
-		if (ri->num_nhs >= zrouter.multipath_num)
-			break;
+	route_walker_info.re = re;
+	route_walker_info.ri = ri;
+	route_walker_info.cmd = cmd;
 
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-			continue;
-
-		if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
-			switch (nexthop->bh_type) {
-			case BLACKHOLE_ADMINPROHIB:
-				ri->rtm_type = RTN_PROHIBIT;
-				break;
-			case BLACKHOLE_REJECT:
-				ri->rtm_type = RTN_UNREACHABLE;
-				break;
-			case BLACKHOLE_NULL:
-			default:
-				ri->rtm_type = RTN_BLACKHOLE;
-				break;
-			}
-		}
-
-		if ((cmd == RTM_NEWROUTE
-		     && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-		    || (cmd == RTM_DELROUTE
-			&& CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))) {
-			netlink_route_info_add_nh(ri, nexthop, re);
-		}
-	}
+	/* Walk fully resolved nexthops and fill netlink_route_info_t */
+	zebra_nhg_depends_walk_resolved_nexthops(
+		re->nhe, &route_info_fill_nexthop_walker, &route_walker_info);
 
 	/* If there is no useful nexthop then return. */
 	if (ri->num_nhs == 0) {
