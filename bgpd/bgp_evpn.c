@@ -2526,13 +2526,13 @@ static int handle_tunnel_ip_change(struct bgp *bgp, struct bgpevpn *vpn,
 
 static struct bgp_path_info *
 bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
-			      struct bgp_node *rn)
+			      struct bgp_node *rn, struct attr *attr)
 {
 	struct attr *attr_new;
 	struct bgp_path_info *pi;
 
 	/* Add (or update) attribute to hash. */
-	attr_new = bgp_attr_intern(parent_pi->attr);
+	attr_new = bgp_attr_intern(attr);
 
 	/* Create new route with its attribute. */
 	pi = info_make(parent_pi->type, BGP_ROUTE_IMPORTED, 0, parent_pi->peer,
@@ -2675,7 +2675,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 			break;
 
 	if (!pi)
-		pi = bgp_create_evpn_bgp_path_info(parent_pi, rn);
+		pi = bgp_create_evpn_bgp_path_info(parent_pi, rn, &attr);
 	else {
 		if (attrhash_cmp(pi->attr, &attr)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
@@ -2744,7 +2744,8 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 	if (!pi) {
 		/* Create an info */
-		(void)bgp_create_evpn_bgp_path_info(parent_pi, rn);
+		(void)bgp_create_evpn_bgp_path_info(parent_pi, rn,
+						    parent_pi->attr);
 	} else {
 		if (attrhash_cmp(pi->attr, parent_pi->attr)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
