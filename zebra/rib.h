@@ -312,8 +312,6 @@ typedef enum {
 	RIB_UPDATE_MAX
 } rib_update_event_t;
 
-extern void route_entry_copy_nexthops(struct route_entry *re,
-				      struct nexthop *nh);
 int route_entry_update_nhe(struct route_entry *re, struct nhg_hash_entry *new);
 
 #define route_entry_dump(prefix, src, re) _route_entry_dump(__func__, prefix, src, re)
