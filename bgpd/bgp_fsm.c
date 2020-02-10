@@ -103,7 +103,7 @@ static int bgp_peer_reg_with_nht(struct peer *peer)
 
 	if (peer->sort == BGP_PEER_EBGP && peer->ttl == BGP_DEFAULT_TTL
 	    && !CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
-	    && !bgp_flag_check(peer->bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+	    && !CHECK_FLAG(peer->bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 		connected = 1;
 
 	return bgp_find_or_add_nexthop(
@@ -1144,7 +1144,8 @@ int bgp_stop(struct peer *peer)
 		peer->dropped++;
 
 		/* bgp log-neighbor-changes of neighbor Down */
-		if (bgp_flag_check(peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
+		if (CHECK_FLAG(peer->bgp->flags,
+			       BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
 			struct vrf *vrf = vrf_lookup_by_id(peer->bgp->vrf_id);
 
 			zlog_info(
@@ -1722,7 +1723,7 @@ static int bgp_update_gr_info(struct peer *peer, afi_t afi, safi_t safi)
 	if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)
 	    && BGP_PEER_RESTARTING_MODE(peer)) {
 		/* Check if the forwarding state is preserved */
-		if (bgp_flag_check(bgp, BGP_FLAG_GR_PRESERVE_FWD)) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD)) {
 			gr_info = &(bgp->gr_info[afi][safi]);
 			ret = bgp_start_deferral_timer(bgp, afi, safi, gr_info);
 		}
@@ -1768,15 +1769,14 @@ static int bgp_establish(struct peer *peer)
 	bgp_fsm_change_status(peer, Established);
 
 	/* bgp log-neighbor-changes of neighbor Up */
-	if (bgp_flag_check(peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
+	if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
 		struct vrf *vrf = vrf_lookup_by_id(peer->bgp->vrf_id);
-		zlog_info("%%ADJCHANGE: neighbor %s(%s) in vrf %s Up",
-			  peer->host,
-			  (peer->hostname) ? peer->hostname : "Unknown",
-			  vrf ? ((vrf->vrf_id != VRF_DEFAULT)
-					? vrf->name
-					: VRF_DEFAULT_NAME)
-			      : "");
+		zlog_info(
+			"%%ADJCHANGE: neighbor %s(%s) in vrf %s Up", peer->host,
+			(peer->hostname) ? peer->hostname : "Unknown",
+			vrf ? ((vrf->vrf_id != VRF_DEFAULT) ? vrf->name
+							    : VRF_DEFAULT_NAME)
+			    : "");
 	}
 	/* assign update-group/subgroup */
 	update_group_adjust_peer_afs(peer);
@@ -1823,8 +1823,8 @@ static int bgp_establish(struct peer *peer)
 					if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(
 						    peer)
 					    && BGP_PEER_RESTARTING_MODE(peer)
-					    && bgp_flag_check(
-						    peer->bgp,
+					    && CHECK_FLAG(
+						    peer->bgp->flags,
 						    BGP_FLAG_GR_PRESERVE_FWD))
 						peer->bgp->gr_info[afi][safi]
 							.eor_required++;

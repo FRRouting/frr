@@ -511,7 +511,7 @@ void bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
 	char msg_buf[1024];
 
 	if (BGP_DEBUG(neighbor_events, NEIGHBOR_EVENTS)
-	    || bgp_flag_check(peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
+	    || CHECK_FLAG(peer->bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
 		code_str = bgp_notify_code_str(bgp_notify->code);
 		subcode_str = bgp_notify_subcode_str(bgp_notify->code,
 						     bgp_notify->subcode);

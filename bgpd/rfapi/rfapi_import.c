@@ -2388,10 +2388,10 @@ static int rfapiWithdrawTimerVPN(struct thread *t)
                    __func__);
 		return 0;
 	}
-	if (bgp_flag_check(bgp, BGP_FLAG_DELETE_IN_PROGRESS)) {
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
 		vnc_zlog_debug_verbose(
-                   "%s: BGP delete in progress, assume shutdown race condition!!!",
-                   __func__);
+			"%s: BGP delete in progress, assume shutdown race condition!!!",
+			__func__);
 		return 0;
 	}
 	assert(wcb->node);
