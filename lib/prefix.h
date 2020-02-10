@@ -470,6 +470,8 @@ extern void masklen2ip6(const int, struct in6_addr *);
 extern const char *inet6_ntoa(struct in6_addr);
 
 extern int is_zero_mac(const struct ethaddr *mac);
+extern bool is_mcast_mac(const struct ethaddr *mac);
+extern bool is_bcast_mac(const struct ethaddr *mac);
 extern int prefix_str2mac(const char *str, struct ethaddr *mac);
 extern char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size);
 

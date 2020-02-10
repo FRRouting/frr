@@ -56,6 +56,25 @@ int is_zero_mac(const struct ethaddr *mac)
 	return 1;
 }
 
+bool is_bcast_mac(const struct ethaddr *mac)
+{
+	int i = 0;
+
+	for (i = 0; i < ETH_ALEN; i++)
+		if (mac->octet[i] != 0xFF)
+			return false;
+
+	return true;
+}
+
+bool is_mcast_mac(const struct ethaddr *mac)
+{
+	if ((mac->octet[0] & 0x01) == 0x01)
+		return true;
+
+	return false;
+}
+
 unsigned int prefix_bit(const uint8_t *prefix, const uint16_t prefixlen)
 {
 	unsigned int offset = prefixlen / 8;
