@@ -490,6 +490,10 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 	p->prefixlen = prefixlen;
 	ifc->address = (struct prefix *)p;
 
+	/* Add global ipv6 address to the RA prefix list */
+	if (!IN6_IS_ADDR_LINKLOCAL(&p->prefix))
+		rtadv_add_prefix(ifp->info, p);
+
 	if (dest) {
 		p = prefix_ipv6_new();
 		p->family = AF_INET6;
@@ -532,6 +536,10 @@ void connected_delete_ipv6(struct interface *ifp, struct in6_addr *address,
 	p.family = AF_INET6;
 	memcpy(&p.u.prefix6, address, sizeof(struct in6_addr));
 	p.prefixlen = prefixlen;
+
+	/* Delete global ipv6 address from RA prefix list */
+	if (!IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6))
+		rtadv_delete_prefix(ifp->info, &p);
 
 	if (dest) {
 		memset(&d, 0, sizeof(struct prefix));
