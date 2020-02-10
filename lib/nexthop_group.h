@@ -137,6 +137,11 @@ extern uint8_t
 nexthop_group_active_nexthop_num(const struct nexthop_group *nhg);
 extern uint8_t
 nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg);
+extern uint8_t
+nexthop_group_nexthop_num_has_flag(const struct nexthop_group *nhg, int flag);
+extern uint8_t
+nexthop_group_nexthop_num_has_flag_no_recurse(const struct nexthop_group *nhg,
+					      int flag);
 
 #ifdef __cplusplus
 }

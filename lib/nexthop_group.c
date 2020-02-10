@@ -103,13 +103,14 @@ uint8_t nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
 	return num;
 }
 
-uint8_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
+uint8_t nexthop_group_nexthop_num_has_flag(const struct nexthop_group *nhg,
+					   int flag)
 {
 	struct nexthop *nhop;
 	uint8_t num = 0;
 
 	for (ALL_NEXTHOPS_PTR(nhg, nhop)) {
-		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
+		if (CHECK_FLAG(nhop->flags, flag))
 			num++;
 	}
 
@@ -117,17 +118,30 @@ uint8_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
 }
 
 uint8_t
-nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg)
+nexthop_group_nexthop_num_has_flag_no_recurse(const struct nexthop_group *nhg,
+					      int flag)
 {
 	struct nexthop *nhop;
 	uint8_t num = 0;
 
 	for (nhop = nhg->nexthop; nhop; nhop = nhop->next) {
-		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
+		if (CHECK_FLAG(nhop->flags, flag))
 			num++;
 	}
 
 	return num;
+}
+
+uint8_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
+{
+	return nexthop_group_nexthop_num_has_flag(nhg, NEXTHOP_FLAG_ACTIVE);
+}
+
+uint8_t
+nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg)
+{
+	return nexthop_group_nexthop_num_has_flag_no_recurse(
+		nhg, NEXTHOP_FLAG_ACTIVE);
 }
 
 struct nexthop *nexthop_exists(const struct nexthop_group *nhg,
