@@ -417,6 +417,13 @@ extern void zebra_nhg_check_valid(struct nhg_hash_entry *nhe);
 /* Convert nhe depends to a grp context that can be passed around safely */
 extern uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
 				 int size);
+/* Convert nhe depends to a lib/nexthop_group.
+ *
+ * Returns alloc'd lib/nexthop's that caller is responsible for freeing
+ */
+extern unsigned int
+zebra_nhg_nhe2nexthop_group(struct nexthop_group *to_nhg,
+			    struct nhg_hash_entry *from_nhe);
 
 /* Dataplane install/uninstall */
 extern void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe);

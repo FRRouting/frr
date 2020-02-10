@@ -2335,6 +2335,61 @@ done:
 	return i;
 }
 
+/* Constructs the list-like nexthop group datastructure with calls
+ * to `_nexthop_add_sorted()`.
+ */
+static unsigned int zebra_nhg_nhe2nexthop_list(struct nexthop **to,
+					       struct nhg_hash_entry *from_nhe,
+					       struct nexthop *rparent)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+	struct nhg_hash_entry *depend = NULL;
+	struct nexthop *dup;
+
+	unsigned int count = 0;
+
+	/* singleton */
+	if (zebra_nhg_depends_is_empty(from_nhe)) {
+		dup = nexthop_dup_no_recurse(zebra_nhg_nexthop(from_nhe),
+					     rparent);
+		_nexthop_add_sorted(to, dup);
+		count++;
+		goto done;
+	}
+
+	/* Recursive singleton */
+	if (CHECK_FLAG(from_nhe->flags, NEXTHOP_GROUP_RECURSIVE)) {
+		dup = nexthop_dup_no_recurse(zebra_nhg_nexthop(from_nhe),
+					     rparent);
+		_nexthop_add_sorted(to, dup);
+		count++;
+
+		depend = nhg_connected_tree_root(&from_nhe->nhg_depends)->nhe;
+		count +=
+			zebra_nhg_nhe2nexthop_list(&dup->resolved, depend, dup);
+		goto done;
+	}
+
+	/* Group */
+	frr_each (nhg_connected_tree, &from_nhe->nhg_depends, rb_node_dep) {
+		depend = rb_node_dep->nhe;
+		count += zebra_nhg_nhe2nexthop_list(to, depend, rparent);
+	}
+
+done:
+	return count;
+}
+
+/* Convert NHE to lib/nexthop_group.
+ *
+ * Returns alloc'd lib/nexthop's in the group.
+ */
+unsigned int zebra_nhg_nhe2nexthop_group(struct nexthop_group *to_nhg,
+					 struct nhg_hash_entry *from_nhe)
+{
+	return zebra_nhg_nhe2nexthop_list(&to_nhg->nexthop, from_nhe, NULL);
+}
+
 void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
 {
 	struct nhg_connected *rb_node_dep = NULL;
