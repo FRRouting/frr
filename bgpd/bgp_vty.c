@@ -6901,7 +6901,7 @@ DEFUN (neighbor_ttl_security,
 	 * If 'neighbor swpX', then this is for directly connected peers,
 	 * we should not accept a ttl-security hops value greater than 1.
 	 */
-	if (peer->conf_if && (gtsm_hops > 1)) {
+	if (peer->conf_if && (gtsm_hops > BGP_GTSM_HOPS_CONNECTED)) {
 		vty_out(vty,
 			"%s is directly connected peer, hops cannot exceed 1\n",
 			argv[idx_peer]->arg);
@@ -11937,7 +11937,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	/* EBGP Multihop and GTSM */
 	if (p->sort != BGP_PEER_IBGP) {
 		if (use_json) {
-			if (p->gtsm_hops > 0)
+			if (p->gtsm_hops > BGP_GTSM_HOPS_DISABLED)
 				json_object_int_add(json_neigh,
 						    "externalBgpNbrMaxHopsAway",
 						    p->gtsm_hops);
@@ -11946,7 +11946,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						    "externalBgpNbrMaxHopsAway",
 						    p->ttl);
 		} else {
-			if (p->gtsm_hops > 0)
+			if (p->gtsm_hops > BGP_GTSM_HOPS_DISABLED)
 				vty_out(vty,
 					"  External BGP neighbor may be up to %d hops away.\n",
 					p->gtsm_hops);
@@ -11956,7 +11956,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					p->ttl);
 		}
 	} else {
-		if (p->gtsm_hops > 0) {
+		if (p->gtsm_hops > BGP_GTSM_HOPS_DISABLED) {
 			if (use_json)
 				json_object_int_add(json_neigh,
 						    "internalBgpNbrMaxHopsAway",
@@ -14448,7 +14448,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 
 	/* ebgp-multihop */
 	if (peer->sort != BGP_PEER_IBGP && peer->ttl != BGP_DEFAULT_TTL
-	    && !(peer->gtsm_hops != 0 && peer->ttl == MAXTTL)) {
+	    && !(peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED
+		 && peer->ttl == MAXTTL)) {
 		if (!peer_group_active(peer) || g_peer->ttl != peer->ttl) {
 			vty_out(vty, " neighbor %s ebgp-multihop %d\n", addr,
 				peer->ttl);
@@ -14456,7 +14457,7 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* ttl-security hops */
-	if (peer->gtsm_hops != 0) {
+	if (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED) {
 		if (!peer_group_active(peer)
 		    || g_peer->gtsm_hops != peer->gtsm_hops) {
 			vty_out(vty, " neighbor %s ttl-security hops %d\n",

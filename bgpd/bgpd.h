@@ -723,7 +723,9 @@ struct bgp_nexthop {
 #define RMAP_OUT 1
 #define RMAP_MAX 2
 
-#define BGP_DEFAULT_TTL 1
+#define BGP_DEFAULT_TTL         1
+#define BGP_GTSM_HOPS_DISABLED  0
+#define BGP_GTSM_HOPS_CONNECTED 1
 
 #include "filter.h"
 
