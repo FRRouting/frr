@@ -308,15 +308,19 @@ DEFUN(fpm_show_counters_json, fpm_show_counters_json_cmd,
 	json_object_int_add(jo, "bytes-sent", gfnc->counters.bytes_sent);
 	json_object_int_add(jo, "obuf-bytes", gfnc->counters.obuf_bytes);
 	json_object_int_add(jo, "obuf-bytes-peak", gfnc->counters.obuf_peak);
-	json_object_int_add(jo, "connection-closes", gfnc->counters.connection_closes);
-	json_object_int_add(jo, "connection-errors", gfnc->counters.connection_errors);
-	json_object_int_add(jo, "data-plane-contexts", gfnc->counters.dplane_contexts);
+	json_object_int_add(jo, "connection-closes",
+			    gfnc->counters.connection_closes);
+	json_object_int_add(jo, "connection-errors",
+			    gfnc->counters.connection_errors);
+	json_object_int_add(jo, "data-plane-contexts",
+			    gfnc->counters.dplane_contexts);
 	json_object_int_add(jo, "data-plane-contexts-queue",
 			    gfnc->counters.ctxqueue_len);
 	json_object_int_add(jo, "data-plane-contexts-queue-peak",
 			    gfnc->counters.ctxqueue_len_peak);
 	json_object_int_add(jo, "buffer-full-hits", gfnc->counters.buffer_full);
-	json_object_int_add(jo, "user-configures", gfnc->counters.user_configures);
+	json_object_int_add(jo, "user-configures",
+			    gfnc->counters.user_configures);
 	json_object_int_add(jo, "user-disables", gfnc->counters.user_disables);
 	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
 	json_object_free(jo);
@@ -762,14 +766,12 @@ static int fpm_rib_send(struct thread *t)
 		for (rn = route_top(rt); rn; rn = srcdest_route_next(rn)) {
 			dest = rib_dest_from_rnode(rn);
 			/* Skip bad route entries. */
-			if (dest == NULL || dest->selected_fib == NULL) {
+			if (dest == NULL || dest->selected_fib == NULL)
 				continue;
-			}
 
 			/* Check for already sent routes. */
-			if (CHECK_FLAG(dest->flags, RIB_DEST_UPDATE_FPM)) {
+			if (CHECK_FLAG(dest->flags, RIB_DEST_UPDATE_FPM))
 				continue;
-			}
 
 			/* Enqueue route install. */
 			dplane_ctx_reset(ctx);

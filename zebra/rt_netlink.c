@@ -1290,7 +1290,6 @@ _netlink_route_build_multipath(const struct prefix *p, const char *routedesc,
 	char label_buf[256];
 	int num_labels = 0;
 	struct vrf *vrf;
-	char addrstr[INET6_ADDRSTRLEN];
 
 	rtnh->rtnh_len = sizeof(*rtnh);
 	rtnh->rtnh_flags = 0;
@@ -1377,14 +1376,11 @@ _netlink_route_build_multipath(const struct prefix *p, const char *routedesc,
 		else if (nexthop->src.ipv4.s_addr != INADDR_ANY)
 			*src = &nexthop->src;
 
-		if (IS_ZEBRA_DEBUG_KERNEL) {
-			inet_ntop(AF_INET, &nexthop->gate.ipv4, addrstr,
-				  sizeof(addrstr));
-			zlog_debug( "%s: (%s): %pFX nexthop via %s %s if %u vrf %s(%u)",
-				   __func__, routedesc, p, addrstr, label_buf,
-				   nexthop->ifindex, VRF_LOGNAME(vrf),
-				   nexthop->vrf_id);
-		}
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: (%s): %pFX nexthop via %pI4 %s if %u vrf %s(%u)",
+				   __func__, routedesc, p, &nexthop->gate.ipv4,
+				   label_buf, nexthop->ifindex,
+				   VRF_LOGNAME(vrf), nexthop->vrf_id);
 	}
 	if (nexthop->type == NEXTHOP_TYPE_IPV6
 	    || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
@@ -1397,14 +1393,11 @@ _netlink_route_build_multipath(const struct prefix *p, const char *routedesc,
 		else if (!IN6_IS_ADDR_UNSPECIFIED(&nexthop->src.ipv6))
 			*src = &nexthop->src;
 
-		if (IS_ZEBRA_DEBUG_KERNEL) {
-			inet_ntop(AF_INET, &nexthop->gate.ipv6, addrstr,
-				  sizeof(addrstr));
-			zlog_debug( "%s: (%s): %pFX nexthop via %s %s if %u vrf %s(%u)",
-				   __func__, routedesc, p, addrstr, label_buf,
-				   nexthop->ifindex, VRF_LOGNAME(vrf),
-				   nexthop->vrf_id);
-		}
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: (%s): %pFX nexthop via %pI6 %s if %u vrf %s(%u)",
+				   __func__, routedesc, p, &nexthop->gate.ipv6,
+				   label_buf, nexthop->ifindex,
+				   VRF_LOGNAME(vrf), nexthop->vrf_id);
 	}
 
 	/*
