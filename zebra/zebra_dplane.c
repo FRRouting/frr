@@ -1511,9 +1511,10 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 	ctx->u.rinfo.zd_afi = info->afi;
 	ctx->u.rinfo.zd_safi = info->safi;
 
-	/* Copy nexthops; recursive info is included too */
-	copy_nexthops(&(ctx->u.rinfo.zd_ng.nexthop),
-		      re->nhe->nhg->nexthop, NULL);
+	/* Convert zebra_nhg NHE to lib/nexthop_group; recursive info is
+	 * included too.
+	 */
+	zebra_nhg_nhe2nexthop_group(&(ctx->u.rinfo.zd_ng), re->nhe);
 
 	/* Ensure that the dplane's nexthops flags are clear. */
 	for (ALL_NEXTHOPS(ctx->u.rinfo.zd_ng, nexthop))
@@ -1596,7 +1597,7 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 	ctx->u.rinfo.nhe.vrf_id = nhe->vrf_id;
 	ctx->u.rinfo.nhe.type = nhe->type;
 
-	nexthop_group_copy(&(ctx->u.rinfo.nhe.ng), nhe->nhg);
+	zebra_nhg_nhe2nexthop_group(&(ctx->u.rinfo.nhe.ng), nhe);
 
 	/* If its a group, convert it to a grp array of ids */
 	if (!zebra_nhg_depends_is_empty(nhe)
@@ -1752,8 +1753,9 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 			}
 
 			if (re)
-				copy_nexthops(&(ctx->u.pw.nhg.nexthop),
-					      re->nhe->nhg->nexthop, NULL);
+				zebra_nhg_nhe2nexthop_group(&(ctx->u.pw.nhg),
+							    re->nhe);
+
 
 			route_unlock_node(rn);
 		}
@@ -1848,8 +1850,8 @@ dplane_route_update_internal(struct route_node *rn,
 			/* For bsd, capture previous re's nexthops too, sigh.
 			 * We'll need these to do per-nexthop deletes.
 			 */
-			copy_nexthops(&(ctx->u.rinfo.zd_old_ng.nexthop),
-				      old_re->nhe->nhg->nexthop, NULL);
+			zebra_nhg_nhe2nexthop_group(&(ctx->u.rinfo.zd_old_ng),
+						    re->nhe);
 #endif	/* !HAVE_NETLINK */
 		}
 
@@ -2054,8 +2056,12 @@ dplane_route_notif_update(struct route_node *rn,
 		nexthops_free(new_ctx->u.rinfo.zd_ng.nexthop);
 		new_ctx->u.rinfo.zd_ng.nexthop = NULL;
 
-		copy_nexthops(&(new_ctx->u.rinfo.zd_ng.nexthop),
-			      (rib_active_nhg(re))->nexthop, NULL);
+		if (re_has_fib_ng(re))
+			nexthop_group_copy(&(new_ctx->u.rinfo.zd_ng),
+					   re_fib_ng(re));
+		else
+			zebra_nhg_nhe2nexthop_group(&(ctx->u.rinfo.zd_ng),
+						    re->nhe);
 
 		for (ALL_NEXTHOPS(new_ctx->u.rinfo.zd_ng, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
