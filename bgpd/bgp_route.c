@@ -10358,32 +10358,20 @@ DEFUN (show_ip_bgp_large_community_list,
        "Exact match of the large-communities\n"
        JSON_STR)
 {
-	char *vrf = NULL;
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
 	int idx = 0;
 	bool exact_match = 0;
-
-	if (argv_find(argv, argc, "ip", &idx))
-		afi = AFI_IP;
-	if (argv_find(argv, argc, "view", &idx)
-	    || argv_find(argv, argc, "vrf", &idx))
-		vrf = argv[++idx]->arg;
-	if (argv_find(argv, argc, "ipv4", &idx)
-	    || argv_find(argv, argc, "ipv6", &idx)) {
-		afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
-		if (argv_find(argv, argc, "unicast", &idx)
-		    || argv_find(argv, argc, "multicast", &idx))
-			safi = bgp_vty_safi_from_str(argv[idx]->text);
-	}
-
+	struct bgp *bgp = NULL;
 	bool uj = use_json(argc, argv);
 
-	struct bgp *bgp = bgp_lookup_by_name(vrf);
-	if (bgp == NULL) {
-		vty_out(vty, "Can't find BGP instance %s\n", vrf);
-		return CMD_WARNING;
-	}
+        if (uj)
+                argc--;
+
+        bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
+                                            &bgp, uj);
+        if (!idx)
+                return CMD_WARNING;
 
 	argv_find(argv, argc, "large-community-list", &idx);
 
@@ -10409,32 +10397,20 @@ DEFUN (show_ip_bgp_large_community,
        "Exact match of the large-communities\n"
        JSON_STR)
 {
-	char *vrf = NULL;
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
 	int idx = 0;
 	bool exact_match = 0;
-
-	if (argv_find(argv, argc, "ip", &idx))
-		afi = AFI_IP;
-	if (argv_find(argv, argc, "view", &idx)
-	    || argv_find(argv, argc, "vrf", &idx))
-		vrf = argv[++idx]->arg;
-	if (argv_find(argv, argc, "ipv4", &idx)
-	    || argv_find(argv, argc, "ipv6", &idx)) {
-		afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
-		if (argv_find(argv, argc, "unicast", &idx)
-		    || argv_find(argv, argc, "multicast", &idx))
-			safi = bgp_vty_safi_from_str(argv[idx]->text);
-	}
-
+	struct bgp *bgp = NULL;
 	bool uj = use_json(argc, argv);
 
-	struct bgp *bgp = bgp_lookup_by_name(vrf);
-	if (bgp == NULL) {
-		vty_out(vty, "Can't find BGP instance %s\n", vrf);
-		return CMD_WARNING;
-	}
+        if (uj)
+                argc--;
+
+        bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
+                                            &bgp, uj);
+        if (!idx)
+                return CMD_WARNING;
 
 	if (argv_find(argv, argc, "AA:BB:CC", &idx)) {
 		if (argv_find(argv, argc, "exact-match", &idx))
