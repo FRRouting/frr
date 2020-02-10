@@ -33,6 +33,7 @@
 extern "C" {
 #endif
 
+void _nexthop_add_sorted(struct nexthop **head, struct nexthop *nexthop);
 void _nexthop_add(struct nexthop **target, struct nexthop *nexthop);
 void _nexthop_del(struct nexthop_group *nhg, struct nexthop *nexthop);
 

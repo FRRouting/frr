@@ -259,8 +259,7 @@ void _nexthop_add(struct nexthop **target, struct nexthop *nexthop)
 }
 
 /* Add nexthop to sorted list of nexthops */
-static void _nexthop_add_sorted(struct nexthop **head,
-				struct nexthop *nexthop)
+void _nexthop_add_sorted(struct nexthop **head, struct nexthop *nexthop)
 {
 	struct nexthop *position, *prev;
 
