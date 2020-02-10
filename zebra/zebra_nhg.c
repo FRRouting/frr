@@ -54,6 +54,15 @@ static inline vrf_id_t zebra_nhg_determine_vrf(const struct nexthop *nexthop)
 	return !vrf_is_backend_netns() ? VRF_DEFAULT : nexthop->vrf_id;
 }
 
+static inline bool zebra_nhg_is_group(const struct nhg_hash_entry *nhe)
+{
+	if (!zebra_nhg_depends_is_empty(nhe)
+	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
+		return true;
+
+	return false;
+}
+
 /* Determines what the proper afi should be, given a lib/nexthop */
 static inline afi_t zebra_nhg_determine_afi(const struct nexthop *nexthop,
 					    afi_t route_afi)
@@ -104,6 +113,15 @@ static struct nhg_hash_entry *
 depends_find_id_add(struct nhg_connected_tree_head *head, uint32_t id);
 static void depends_decrement_free(struct nhg_connected_tree_head *head);
 
+static int zebra_nhg_depends_walk_internal(
+	struct nhg_hash_entry *nhe,
+	int (*func)(struct nhg_hash_entry *, void *), void *arg,
+	bool (*condition)(const struct nhg_hash_entry *nhe, void *),
+	void *condition_arg);
+static int zebra_nhg_depends_walk_nexthops_internal(
+	struct nhg_hash_entry *nhe, int (*func)(struct nexthop *, void *),
+	void *arg, bool (*condition)(const struct nhg_hash_entry *nhe, void *),
+	void *condition_arg);
 
 static void nhg_connected_free(struct nhg_connected *dep)
 {
@@ -230,9 +248,209 @@ struct nhg_hash_entry *zebra_nhg_resolve(struct nhg_hash_entry *nhe)
 	return nhe;
 }
 
-unsigned int zebra_nhg_depends_count(const struct nhg_hash_entry *nhe)
+/* Used to count the depends in full tree */
+static int zebra_nhg_dep_count_walker(struct nhg_hash_entry *nhe, void *num)
 {
-	return nhg_connected_tree_count(&nhe->nhg_depends);
+	(*(unsigned int *)num)++;
+
+	return NHG_WALK_CONTINUE;
+}
+
+/* Used to count the nexthops in full tree */
+static int zebra_nhg_dep_nexthop_count_walker(struct nexthop *nexthop,
+					      void *num)
+{
+	(*(unsigned int *)num)++;
+
+	return NHG_WALK_CONTINUE;
+}
+
+static unsigned int zebra_nhg_depends_num_internal(
+	struct nhg_hash_entry *nhe,
+	void (*depends_walk_func)(struct nhg_hash_entry *,
+				  int (*func)(struct nhg_hash_entry *, void *),
+				  void *))
+{
+	unsigned int num = 0;
+
+	if (zebra_nhg_depends_is_empty(nhe))
+		return 0;
+
+	depends_walk_func(nhe, &zebra_nhg_dep_count_walker, &num);
+
+	/* Since we do a tree walk to count, we have to subtract one
+	 * to account for it being called on the ROOT node we started with.
+	 */
+	assert(num);
+	return (num - 1);
+}
+
+static unsigned int zebra_nhg_depends_nexthop_num_internal(
+	struct nhg_hash_entry *nhe,
+	void (*depends_walk_nexthops_func)(struct nhg_hash_entry *,
+					   int (*func)(struct nexthop *,
+						       void *),
+					   void *))
+{
+	unsigned int num = 0;
+
+	/* We may count ourself as well so don't check if empty first */
+
+	depends_walk_nexthops_func(nhe, &zebra_nhg_dep_nexthop_count_walker,
+				   &num);
+
+	return num;
+}
+
+unsigned int zebra_nhg_depends_num(struct nhg_hash_entry *nhe)
+{
+	return zebra_nhg_depends_num_internal(nhe, &zebra_nhg_depends_walk);
+}
+
+unsigned int zebra_nhg_depends_resolved_num(struct nhg_hash_entry *nhe)
+{
+	return zebra_nhg_depends_num_internal(nhe,
+					      &zebra_nhg_depends_walk_resolved);
+}
+
+unsigned int zebra_nhg_depends_nexthop_num(struct nhg_hash_entry *nhe)
+{
+	return zebra_nhg_depends_nexthop_num_internal(
+		nhe, &zebra_nhg_depends_walk_nexthops);
+}
+
+unsigned int zebra_nhg_depends_resolved_nexthop_num(struct nhg_hash_entry *nhe)
+{
+	return zebra_nhg_depends_nexthop_num_internal(
+		nhe, &zebra_nhg_depends_walk_resolved_nexthops);
+}
+
+static unsigned int zebra_nhg_depends_nexthop_num_condition_internal(
+	struct nhg_hash_entry *nhe, void *condition_arg,
+	void (*depends_walk_nexthops_condition_func)(
+		struct nhg_hash_entry *, void *,
+		int (*func)(struct nexthop *, void *), void *))
+{
+	unsigned int num = 0;
+
+	depends_walk_nexthops_condition_func(
+		nhe, condition_arg, &zebra_nhg_dep_nexthop_count_walker, &num);
+
+	return num;
+}
+
+static bool nexthop_has_flag(const struct nhg_hash_entry *nhe, void *arg)
+{
+	if (zebra_nhg_is_group(nhe))
+		return false;
+
+	if (!CHECK_FLAG(zebra_nhg_nexthop(nhe)->flags, *((int *)arg)))
+		return false;
+
+	return true;
+}
+
+static bool zebra_nhg_is_fully_resolved(const struct nhg_hash_entry *nhe,
+					void *arg)
+{
+	if (zebra_nhg_depends_is_empty(nhe))
+		return true;
+
+	return false;
+}
+
+static bool nexthop_resolved_has_flag(const struct nhg_hash_entry *nhe,
+				      void *arg)
+{
+	if (zebra_nhg_is_fully_resolved(nhe, arg) && nexthop_has_flag(nhe, arg))
+		return true;
+
+	return false;
+}
+
+static void zebra_nhg_depends_walk_nexthops_with_flag_internal(
+	struct nhg_hash_entry *nhe, void *flag,
+	int (*func)(struct nexthop *, void *), void *arg)
+{
+	zebra_nhg_depends_walk_nexthops_internal(nhe, flag, func, arg,
+						 &nexthop_has_flag);
+}
+
+static void zebra_nhg_depends_walk_resolved_nexthops_with_flag_internal(
+	struct nhg_hash_entry *nhe, void *flag,
+	int (*func)(struct nexthop *, void *), void *arg)
+{
+	zebra_nhg_depends_walk_nexthops_internal(nhe, flag, func, arg,
+						 &nexthop_resolved_has_flag);
+}
+
+unsigned int zebra_nhg_depends_nexthop_num_has_flag(struct nhg_hash_entry *nhe,
+						    int flag)
+{
+	return zebra_nhg_depends_nexthop_num_condition_internal(
+		nhe, &flag,
+		&zebra_nhg_depends_walk_nexthops_with_flag_internal);
+}
+
+unsigned int
+zebra_nhg_depends_resolved_nexthop_num_has_flag(struct nhg_hash_entry *nhe,
+						int flag)
+{
+	return zebra_nhg_depends_nexthop_num_condition_internal(
+		nhe, &flag,
+		&zebra_nhg_depends_walk_resolved_nexthops_with_flag_internal);
+}
+
+struct match_walker_data {
+	bool (*nexthop_same_func)(const struct nexthop *nh1,
+				  const struct nexthop *nh2);
+	const struct nexthop *lookup;
+	struct nhg_hash_entry *found_nhe;
+};
+
+static int nexthop_match_walker(struct nhg_hash_entry *nhe, void *arg)
+{
+	struct match_walker_data *match_walker_data = arg;
+
+	if (zebra_nhg_nexthop(nhe)
+	    && match_walker_data->nexthop_same_func(
+		    zebra_nhg_nexthop(nhe), match_walker_data->lookup)) {
+		match_walker_data->found_nhe = nhe;
+		return NHG_WALK_ABORT;
+	}
+
+	return NHG_WALK_CONTINUE;
+}
+
+static struct nhg_hash_entry *zebra_nhg_depends_nexthop_exists_internal(
+	struct nhg_hash_entry *nhe, const struct nexthop *nexthop,
+	bool (*nexthop_same_func)(const struct nexthop *nh1,
+				  const struct nexthop *nh2))
+{
+	struct match_walker_data match_walker_data = {};
+
+	match_walker_data.lookup = nexthop;
+	match_walker_data.nexthop_same_func = nexthop_same_func;
+
+	zebra_nhg_depends_walk(nhe, &nexthop_match_walker, &match_walker_data);
+
+	return match_walker_data.found_nhe;
+}
+
+struct nhg_hash_entry *
+zebra_nhg_depends_nexthop_exists(struct nhg_hash_entry *nhe,
+				 const struct nexthop *nexthop)
+{
+	return zebra_nhg_depends_nexthop_exists_internal(nhe, nexthop,
+							 &nexthop_same);
+}
+
+struct nhg_hash_entry *
+zebra_nhg_depends_nexthop_exists_ignore_labels(struct nhg_hash_entry *nhe,
+					       const struct nexthop *nexthop)
+{
+	return zebra_nhg_depends_nexthop_exists_internal(
+		nhe, nexthop, &nexthop_same_no_labels);
 }
 
 bool zebra_nhg_depends_is_empty(const struct nhg_hash_entry *nhe)
@@ -250,12 +468,6 @@ static void zebra_nhg_depends_init(struct nhg_hash_entry *nhe)
 {
 	nhg_connected_tree_init(&nhe->nhg_depends);
 }
-
-unsigned int zebra_nhg_dependents_count(const struct nhg_hash_entry *nhe)
-{
-	return nhg_connected_tree_count(&nhe->nhg_dependents);
-}
-
 
 bool zebra_nhg_dependents_is_empty(const struct nhg_hash_entry *nhe)
 {
@@ -335,43 +547,22 @@ struct nhg_hash_entry *zebra_nhg_depends_get(struct nhg_hash_entry *nhe,
 	return nhg_match.found;
 }
 
-static int zebra_nhg_is_group(const struct nhg_hash_entry *nhe)
-{
-	if (!zebra_nhg_depends_is_empty(nhe)
-	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
-		return 1;
-
-	return 0;
-}
-
-static int zebra_nhg_is_not_group(const struct nhg_hash_entry *nhe)
-{
-	return !zebra_nhg_is_group(nhe);
-}
-
-static int zebra_nhg_is_fully_resolved(const struct nhg_hash_entry *nhe)
-{
-	if (zebra_nhg_depends_is_empty(nhe))
-		return 1;
-
-	return 0;
-}
-
 static int zebra_nhg_depends_walk_internal(
 	struct nhg_hash_entry *nhe,
 	int (*func)(struct nhg_hash_entry *, void *), void *arg,
-	int (*condition)(const struct nhg_hash_entry *nhe))
+	bool (*condition)(const struct nhg_hash_entry *nhe, void *),
+	void *condition_arg)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 
 	frr_each_safe (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 		if (zebra_nhg_depends_walk_internal(rb_node_dep->nhe, func, arg,
-						    condition)
+						    condition, condition_arg)
 		    == NHG_WALK_ABORT)
 			return NHG_WALK_ABORT;
 	}
 
-	if (!condition || condition(nhe))
+	if (!condition || condition(nhe, condition_arg))
 		return func(nhe, arg);
 
 	return NHG_WALK_CONTINUE;
@@ -379,18 +570,22 @@ static int zebra_nhg_depends_walk_internal(
 
 static int zebra_nhg_depends_walk_nexthops_internal(
 	struct nhg_hash_entry *nhe, int (*func)(struct nexthop *, void *),
-	void *arg, int (*condition)(const struct nhg_hash_entry *nhe))
+	void *arg, bool (*condition)(const struct nhg_hash_entry *nhe, void *),
+	void *condition_arg)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 
 	frr_each_safe (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 		if (zebra_nhg_depends_walk_nexthops_internal(
-			    rb_node_dep->nhe, func, arg, condition)
+			    rb_node_dep->nhe, func, arg, condition,
+			    condition_arg)
 		    == NHG_WALK_ABORT)
 			return NHG_WALK_ABORT;
 	}
 
-	if (!condition || condition(nhe))
+	/* If singleton and meets the condition */
+	if (!zebra_nhg_is_group(nhe)
+	    && (!condition || condition(nhe, condition_arg)))
 		return func(zebra_nhg_nexthop(nhe), arg);
 
 	return NHG_WALK_CONTINUE;
@@ -401,7 +596,7 @@ void zebra_nhg_depends_walk(struct nhg_hash_entry *nhe,
 			    int (*func)(struct nhg_hash_entry *, void *),
 			    void *arg)
 {
-	zebra_nhg_depends_walk_internal(nhe, func, arg, NULL);
+	zebra_nhg_depends_walk_internal(nhe, func, arg, NULL, NULL);
 }
 
 /* Walk only fully resolved depends */
@@ -411,7 +606,7 @@ void zebra_nhg_depends_walk_resolved(struct nhg_hash_entry *nhe,
 				     void *arg)
 {
 	zebra_nhg_depends_walk_internal(nhe, func, arg,
-					&zebra_nhg_is_fully_resolved);
+					&zebra_nhg_is_fully_resolved, NULL);
 }
 
 /* Walk individual (non-group) lib/nexthop */
@@ -419,8 +614,7 @@ void zebra_nhg_depends_walk_nexthops(struct nhg_hash_entry *nhe,
 				     int (*func)(struct nexthop *, void *),
 				     void *arg)
 {
-	zebra_nhg_depends_walk_nexthops_internal(nhe, func, arg,
-						 &zebra_nhg_is_not_group);
+	zebra_nhg_depends_walk_nexthops_internal(nhe, func, arg, NULL, NULL);
 }
 
 void zebra_nhg_depends_walk_resolved_nexthops(struct nhg_hash_entry *nhe,
@@ -428,8 +622,24 @@ void zebra_nhg_depends_walk_resolved_nexthops(struct nhg_hash_entry *nhe,
 							  void *),
 					      void *arg)
 {
-	zebra_nhg_depends_walk_nexthops_internal(nhe, func, arg,
-						 &zebra_nhg_is_fully_resolved);
+	zebra_nhg_depends_walk_nexthops_internal(
+		nhe, func, arg, &zebra_nhg_is_fully_resolved, NULL);
+}
+
+void zebra_nhg_depends_walk_nexthops_with_flag(
+	struct nhg_hash_entry *nhe, int flag,
+	int (*func)(struct nexthop *, void *), void *arg)
+{
+	zebra_nhg_depends_walk_nexthops_with_flag_internal(nhe, &flag, func,
+							   arg);
+}
+
+void zebra_nhg_depends_walk_resolved_nexthops_with_flag(
+	struct nhg_hash_entry *nhe, int flag,
+	int (*func)(struct nexthop *, void *), void *arg)
+{
+	zebra_nhg_depends_walk_resolved_nexthops_with_flag_internal(nhe, &flag,
+								    func, arg);
 }
 
 static int nexthop_set_flag(struct nexthop *nexthop, void *flag)

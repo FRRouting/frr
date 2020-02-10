@@ -190,6 +190,18 @@ void zebra_nhg_depends_walk_resolved_nexthops(struct nhg_hash_entry *nhe,
 					      int (*func)(struct nexthop *,
 							  void *),
 					      void *arg);
+
+/* Same as above but only calls `func` for nexthops with specified flag */
+void zebra_nhg_depends_walk_nexthops_with_flag(
+	struct nhg_hash_entry *nhe, int flag,
+	int (*func)(struct nexthop *, void *), void *arg);
+
+/* Same as above but only calls `func` for resolved nexthops with specified flag
+ */
+void zebra_nhg_depends_walk_resolved_nexthops_with_flag(
+	struct nhg_hash_entry *nhe, int flag,
+	int (*func)(struct nexthop *, void *), void *arg);
+
 /* Set all nexthops in NHE tree's flag */
 void zebra_nhg_depends_set_all_nexthops_flag(struct nhg_hash_entry *nhe,
 					     int flag);
@@ -226,8 +238,43 @@ extern struct nhg_hash_entry *zebra_nhg_resolve(struct nhg_hash_entry *nhe);
 /*
  * Depend APIs
  */
-extern unsigned int zebra_nhg_depends_count(const struct nhg_hash_entry *nhe);
+/* Number of depends, NOT including self */
+extern unsigned int zebra_nhg_depends_num(struct nhg_hash_entry *nhe);
+/* Number of resolved depends, NOT including self */
+extern unsigned int zebra_nhg_depends_resolved_num(struct nhg_hash_entry *nhe);
 extern bool zebra_nhg_depends_is_empty(const struct nhg_hash_entry *nhe);
+
+/* How many singleton lib/nexthops are in the tree, INCLUDING self if not group.
+ *
+ * We include self here because otherwise a single fully resolved nexthop
+ * passed to these functions would always return 0.
+ *
+ * With just counting the depends above it makes since to not count the
+ * starting root. With counting singleton lib/nexthops, it doesn't.
+ */
+extern unsigned int zebra_nhg_depends_nexthop_num(struct nhg_hash_entry *nhe);
+/* How many fully resolved singleton nexthops are in the tree */
+extern unsigned int
+zebra_nhg_depends_resolved_nexthop_num(struct nhg_hash_entry *nhe);
+/* How many singleton nexthops have this flag set? */
+extern unsigned int
+zebra_nhg_depends_nexthop_num_has_flag(struct nhg_hash_entry *nhe, int flag);
+/* How many fully resolved singleton nexthops have this flag set? */
+extern unsigned int
+zebra_nhg_depends_resolved_nexthop_num_has_flag(struct nhg_hash_entry *nhe,
+						int flag);
+
+/* Does the specified singleton nexthop exist in the depend tree?
+ *
+ * If found, return containing NHE, otherwise NULL.
+ */
+extern struct nhg_hash_entry *
+zebra_nhg_depends_nexthop_exists(struct nhg_hash_entry *nhe,
+				 const struct nexthop *nexthop);
+/* Same as above, but ignores labels when comparing */
+extern struct nhg_hash_entry *
+zebra_nhg_depends_nexthop_exists_ignore_labels(struct nhg_hash_entry *nhe,
+					       const struct nexthop *nexthop);
 
 /* Get depend by ID in tree. Return NHE if found, otherwise NULL */
 extern struct nhg_hash_entry *zebra_nhg_depends_get(struct nhg_hash_entry *nhe,
@@ -236,8 +283,6 @@ extern struct nhg_hash_entry *zebra_nhg_depends_get(struct nhg_hash_entry *nhe,
 /*
  * Dependent APIs
  */
-extern unsigned int
-zebra_nhg_dependents_count(const struct nhg_hash_entry *nhe);
 extern bool zebra_nhg_dependents_is_empty(const struct nhg_hash_entry *nhe);
 
 /* Lookup ID, doesn't create */
