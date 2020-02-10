@@ -1779,7 +1779,7 @@ static int zebra_route_map_update_timer(struct thread *thread)
 	 * 1) VRF Aware <sigh>
 	 * 2) Route-map aware
 	 */
-	return (0);
+	return 0;
 }
 
 static void zebra_route_map_set_delay_timer(uint32_t value)

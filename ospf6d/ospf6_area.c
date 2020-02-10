@@ -157,7 +157,7 @@ static int ospf6_area_stub_set(struct ospf6 *ospf6, struct ospf6_area *area)
 		ospf6_area_stub_update(area);
 	}
 
-	return (1);
+	return 1;
 }
 
 static void ospf6_area_stub_unset(struct ospf6 *ospf6, struct ospf6_area *area)

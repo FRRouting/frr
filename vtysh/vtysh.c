@@ -704,7 +704,7 @@ int vtysh_mark_file(const char *filename)
 	if (confp == NULL) {
 		fprintf(stderr, "%% Can't open config file %s due to '%s'.\n",
 			filename, safe_strerror(errno));
-		return (CMD_ERR_NO_FILE);
+		return CMD_ERR_NO_FILE;
 	}
 
 	vty = vty_new();
@@ -885,7 +885,7 @@ int vtysh_mark_file(const char *filename)
 	if (confp != stdin)
 		fclose(confp);
 
-	return (0);
+	return 0;
 }
 
 /* Configration make from file. */

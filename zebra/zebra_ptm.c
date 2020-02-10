@@ -190,7 +190,7 @@ static int zebra_ptm_flush_messages(struct thread *thread)
 		ptm_cb.t_timer = NULL;
 		thread_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
-		return (-1);
+		return -1;
 	case BUFFER_PENDING:
 		ptm_cb.t_write = NULL;
 		thread_add_write(zrouter.master, zebra_ptm_flush_messages, NULL,
@@ -200,7 +200,7 @@ static int zebra_ptm_flush_messages(struct thread *thread)
 		break;
 	}
 
-	return (0);
+	return 0;
 }
 
 static int zebra_ptm_send_message(char *data, int size)
@@ -661,7 +661,7 @@ int zebra_ptm_sock_read(struct thread *thread)
 		thread_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time,
 				 &ptm_cb.t_timer);
-		return (-1);
+		return -1;
 	}
 
 	ptm_cb.t_read = NULL;

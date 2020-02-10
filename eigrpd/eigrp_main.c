@@ -229,5 +229,5 @@ int main(int argc, char **argv, char **envp)
 	frr_run(master);
 
 	/* Not reached. */
-	return (0);
+	return 0;
 }

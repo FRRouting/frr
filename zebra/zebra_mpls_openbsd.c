@@ -302,7 +302,7 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 		}
 	}
 
-	return (0);
+	return 0;
 }
 
 enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)

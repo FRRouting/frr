@@ -395,7 +395,7 @@ struct rb_entry *typed_rb_find(struct rbt_tree *rbt, const struct rb_entry *key,
 			return tmp;
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 struct rb_entry *typed_rb_find_gteq(struct rbt_tree *rbt,

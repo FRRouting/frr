@@ -1780,7 +1780,7 @@ int update_group_refresh_default_originate_route_map(struct thread *thread)
 	THREAD_TIMER_OFF(bgp->t_rmap_def_originate_eval);
 	bgp_unlock(bgp);
 
-	return (0);
+	return 0;
 }
 
 /*

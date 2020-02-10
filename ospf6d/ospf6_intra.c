@@ -172,13 +172,13 @@ int ospf6_router_is_stub_router(struct ospf6_lsa *lsa)
 				      + sizeof(struct ospf6_lsa_header));
 
 		if (!OSPF6_OPT_ISSET(rtr_lsa->options, OSPF6_OPT_R)) {
-			return (OSPF6_IS_STUB_ROUTER);
+			return OSPF6_IS_STUB_ROUTER;
 		} else if (!OSPF6_OPT_ISSET(rtr_lsa->options, OSPF6_OPT_V6)) {
-			return (OSPF6_IS_STUB_ROUTER_V6);
+			return OSPF6_IS_STUB_ROUTER_V6;
 		}
 	}
 
-	return (OSPF6_NOT_STUB_ROUTER);
+	return OSPF6_NOT_STUB_ROUTER;
 }
 
 int ospf6_router_lsa_originate(struct thread *thread)
@@ -596,7 +596,7 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 
 		prefixnum = ntohl(link_lsa->prefix_num);
 		if (pos > prefixnum)
-			return (NULL);
+			return NULL;
 
 		start = (char *)link_lsa + sizeof(struct ospf6_link_lsa);
 		end = (char *)lsa->header + ntohs(lsa->header->length);
@@ -606,7 +606,7 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 			prefix = (struct ospf6_prefix *)current;
 			if (prefix->prefix_length == 0
 			    || current + OSPF6_PREFIX_SIZE(prefix) > end) {
-				return (NULL);
+				return NULL;
 			}
 
 			if (cnt < pos) {
@@ -623,7 +623,7 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 			}
 		} while (current <= end);
 	}
-	return (NULL);
+	return NULL;
 }
 
 static int ospf6_link_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
@@ -797,7 +797,7 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 
 		prefixnum = ntohs(intra_prefix_lsa->prefix_num);
 		if (pos > prefixnum)
-			return (NULL);
+			return NULL;
 
 		start = (char *)intra_prefix_lsa
 			+ sizeof(struct ospf6_intra_prefix_lsa);

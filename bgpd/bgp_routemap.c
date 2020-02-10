@@ -3706,7 +3706,7 @@ int bgp_route_map_update_timer(struct thread *thread)
 
 	route_map_walk_update_list(bgp_route_map_process_update_cb);
 
-	return (0);
+	return 0;
 }
 
 static void bgp_route_map_mark_update(const char *rmap_name)
