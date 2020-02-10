@@ -1315,6 +1315,10 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 				continue;
 		}
 		api_nh = &api.nexthops[valid_nh_count];
+
+		if (CHECK_FLAG(info->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR)))
+			api_nh->srte_color = info->attr->srte_color;
+
 		if (nh_family == AF_INET) {
 			if (bgp_debug_zebra(&api.prefix)) {
 				if (mpinfo->extra) {

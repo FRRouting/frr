@@ -403,6 +403,9 @@ struct zapi_nexthop {
 
 	/* Index of backup nexthop */
 	uint8_t backup_idx;
+
+	/* SR-TE color used for BGP traffic */
+	uint32_t srte_color;
 };
 
 enum zapi_srte_type {
