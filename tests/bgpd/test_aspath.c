@@ -653,7 +653,7 @@ static struct aspath_tests {
 		&test_segments[6],
 		NULL,
 		AS4_DATA,
-		-1,
+		-2,
 		PEER_CAP_AS4_ADV,
 		{
 			COMMON_ATTRS,
