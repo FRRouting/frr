@@ -2417,7 +2417,7 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 	group->conf->group = group;
 	group->conf->as = 0;
 	group->conf->ttl = BGP_DEFAULT_TTL;
-	group->conf->gtsm_hops = 0;
+	group->conf->gtsm_hops = BGP_GTSM_HOPS_DISABLED;
 	group->conf->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
 	SET_FLAG(group->conf->sflags, PEER_STATUS_GROUP);
 	listnode_add_sort(bgp->group, group);
@@ -4321,7 +4321,7 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 	if (ttl != MAXTTL) {
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 			group = peer->group;
-			if (group->conf->gtsm_hops != 0)
+			if (group->conf->gtsm_hops != BGP_GTSM_HOPS_DISABLED)
 				return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 
 			for (ALL_LIST_ELEMENTS(group->peer, node, nnode,
@@ -4329,11 +4329,11 @@ int peer_ebgp_multihop_set(struct peer *peer, int ttl)
 				if (peer1->sort == BGP_PEER_IBGP)
 					continue;
 
-				if (peer1->gtsm_hops != 0)
+				if (peer1->gtsm_hops != BGP_GTSM_HOPS_DISABLED)
 					return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 			}
 		} else {
-			if (peer->gtsm_hops != 0)
+			if (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED)
 				return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 		}
 	}
@@ -4374,7 +4374,7 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 	if (peer->sort == BGP_PEER_IBGP)
 		return 0;
 
-	if (peer->gtsm_hops != 0 && peer->ttl != MAXTTL)
+	if (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED && peer->ttl != MAXTTL)
 		return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 
 	if (peer_group_active(peer))
@@ -6567,7 +6567,8 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 	   mess of this configuration parameter, and OpenBGPD got it right.
 	*/
 
-	if ((peer->gtsm_hops == 0) && (peer->sort != BGP_PEER_IBGP)) {
+	if ((peer->gtsm_hops == BGP_GTSM_HOPS_DISABLED)
+	    && (peer->sort != BGP_PEER_IBGP)) {
 		if (is_ebgp_multihop_configured(peer))
 			return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 
@@ -6630,7 +6631,9 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 				 *   no session then do nothing (will get
 				 * handled by next connection)
 				 */
-				if (peer->fd >= 0 && peer->gtsm_hops != 0)
+				if (peer->fd >= 0
+				    && peer->gtsm_hops
+					       != BGP_GTSM_HOPS_DISABLED)
 					sockopt_minttl(
 						peer->su.sa.sa_family, peer->fd,
 						MAXTTL + 1 - peer->gtsm_hops);
@@ -6661,7 +6664,7 @@ int peer_ttl_security_hops_unset(struct peer *peer)
 	if (peer_group_active(peer))
 		peer->gtsm_hops = peer->group->conf->gtsm_hops;
 	else
-		peer->gtsm_hops = 0;
+		peer->gtsm_hops = BGP_GTSM_HOPS_DISABLED;
 
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		/* Invoking ebgp_multihop_set will set the TTL back to the
@@ -6684,7 +6687,7 @@ int peer_ttl_security_hops_unset(struct peer *peer)
 	} else {
 		group = peer->group;
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			peer->gtsm_hops = 0;
+			peer->gtsm_hops = BGP_GTSM_HOPS_DISABLED;
 			if (peer->sort == BGP_PEER_EBGP)
 				ret = peer_ebgp_multihop_unset(peer);
 			else {

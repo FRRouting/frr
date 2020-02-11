@@ -1995,7 +1995,7 @@ void bgp_fsm_event_update(struct peer *peer, int valid)
 	case OpenSent:
 	case OpenConfirm:
 	case Established:
-		if (!valid && (peer->gtsm_hops == 1))
+		if (!valid && (peer->gtsm_hops == BGP_GTSM_HOPS_CONNECTED))
 			BGP_EVENT_ADD(peer, TCP_fatal_error);
 	case Clearing:
 	case Deleted:
