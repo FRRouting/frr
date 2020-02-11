@@ -373,7 +373,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		json_export_rtl = json_object_new_array();
 		json_object_int_add(json, "vni", bgp_vrf->l3vni);
 		json_object_string_add(json, "type", "L3");
-		json_object_string_add(json, "kernelFlag", "Yes");
+		json_object_string_add(json, "inKernel", "True");
 		json_object_string_add(
 			json, "rd",
 			prefix_rd2str(&bgp_vrf->vrf_prd, buf1, RD_ADDRSTRLEN));
@@ -519,8 +519,8 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 		json_export_rtl = json_object_new_array();
 		json_object_int_add(json, "vni", vpn->vni);
 		json_object_string_add(json, "type", "L2");
-		json_object_string_add(json, "kernelFlag",
-				       is_vni_live(vpn) ? "Yes" : "No");
+		json_object_string_add(json, "inKernel",
+				       is_vni_live(vpn) ? "True" : "False");
 		json_object_string_add(
 			json, "rd",
 			prefix_rd2str(&vpn->prd, buf1, sizeof(buf1)));
@@ -1049,13 +1049,11 @@ static void show_vni_entry(struct hash_bucket *bucket, void *args[])
 		json_object_string_add(json_vni, "type", "L2");
 		json_object_string_add(json_vni, "inKernel",
 				       is_vni_live(vpn) ? "True" : "False");
-		json_object_string_add(json_vni, "originatorIp",
-				       inet_ntoa(vpn->originator_ip));
-		json_object_string_add(json_vni, "originatorIp",
-				       inet_ntoa(vpn->originator_ip));
 		json_object_string_add(
 			json_vni, "rd",
 			prefix_rd2str(&vpn->prd, buf2, sizeof(buf2)));
+		json_object_string_add(json_vni, "originatorIp",
+				       inet_ntoa(vpn->originator_ip));
 		json_object_string_add(json_vni, "mcastGroup",
 				       inet_ntoa(vpn->mcast_grp));
 		/* per vni knob is enabled -- Enabled
