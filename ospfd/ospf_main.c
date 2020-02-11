@@ -359,6 +359,7 @@ done:
 	 * commands can be duly processed if they are received before 'router
 	 * ospf',  when ospfd is restarted
 	 */
+	bool created = false;
 	if (instance && !ospf_get_instance(instance, &created)) {
 		flog_err(EC_OSPF_INIT_FAIL, "OSPF instance init failed: %s",
 			 strerror(errno));
