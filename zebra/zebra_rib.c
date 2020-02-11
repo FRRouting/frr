@@ -2449,7 +2449,7 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 				  INET6_ADDRSTRLEN);
 			break;
 		}
-		zlog_debug("%s: %s %s[%u] vrf %s(%u) with flags %s%s%s%s%s%s",
+		zlog_debug("%s: %s %s[%u] vrf %s(%u) with flags %s%s%s%s%s",
 			   straddr, (nexthop->rparent ? "  NH" : "NH"), nhname,
 			   nexthop->ifindex, vrf ? vrf->name : "Unknown",
 			   nexthop->vrf_id,
@@ -2464,9 +2464,6 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 				    : ""),
 			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK)
 				    ? "ONLINK "
-				    : ""),
-			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_MATCHED)
-				    ? "MATCHED "
 				    : ""),
 			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE)
 				    ? "DUPLICATE "
