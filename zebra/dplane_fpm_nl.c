@@ -37,6 +37,7 @@
 #include "lib/network.h"
 #include "lib/ns.h"
 #include "lib/frr_pthread.h"
+#include "zebra/debug.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_router.h"
@@ -422,7 +423,10 @@ static int fpm_read(struct thread *t)
 	if (rv == 0) {
 		atomic_fetch_add_explicit(&fnc->counters.connection_closes, 1,
 					  memory_order_relaxed);
-		zlog_debug("%s: connection closed", __func__);
+
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: connection closed", __func__);
+
 		fpm_reconnect(fnc);
 		return 0;
 	}
@@ -433,8 +437,8 @@ static int fpm_read(struct thread *t)
 
 		atomic_fetch_add_explicit(&fnc->counters.connection_errors, 1,
 					  memory_order_relaxed);
-		zlog_debug("%s: connection failure: %s", __func__,
-			   strerror(errno));
+		zlog_warn("%s: connection failure: %s", __func__,
+			  strerror(errno));
 		fpm_reconnect(fnc);
 		return 0;
 	}
@@ -466,11 +470,11 @@ static int fpm_write(struct thread *t)
 				&statuslen);
 		if (rv == -1 || status != 0) {
 			if (rv != -1)
-				zlog_debug("%s: connection failed: %s",
-					   __func__, strerror(status));
+				zlog_warn("%s: connection failed: %s", __func__,
+					  strerror(status));
 			else
-				zlog_debug("%s: SO_ERROR failed: %s", __func__,
-					   strerror(status));
+				zlog_warn("%s: SO_ERROR failed: %s", __func__,
+					  strerror(status));
 
 			atomic_fetch_add_explicit(
 				&fnc->counters.connection_errors, 1,
@@ -506,7 +510,9 @@ static int fpm_write(struct thread *t)
 			atomic_fetch_add_explicit(
 				&fnc->counters.connection_closes, 1,
 				memory_order_relaxed);
-			zlog_debug("%s: connection closed", __func__);
+
+			if (IS_ZEBRA_DEBUG_FPM)
+				zlog_debug("%s: connection closed", __func__);
 			break;
 		}
 		if (bwritten == -1) {
@@ -520,8 +526,8 @@ static int fpm_write(struct thread *t)
 			atomic_fetch_add_explicit(
 				&fnc->counters.connection_errors, 1,
 				memory_order_relaxed);
-			zlog_debug("%s: connection failure: %s", __func__,
-				   strerror(errno));
+			zlog_warn("%s: connection failure: %s", __func__,
+				  strerror(errno));
 			fpm_reconnect(fnc);
 			break;
 		}
@@ -576,8 +582,9 @@ static int fpm_connect(struct thread *t)
 		slen = sizeof(*sin6);
 	}
 
-	zlog_debug("%s: attempting to connect to %s:%d", __func__, addrstr,
-		   ntohs(sin->sin_port));
+	if (IS_ZEBRA_DEBUG_FPM)
+		zlog_debug("%s: attempting to connect to %s:%d", __func__,
+			   addrstr, ntohs(sin->sin_port));
 
 	rv = connect(sock, (struct sockaddr *)&fnc->addr, slen);
 	if (rv == -1 && errno != EINPROGRESS) {
@@ -632,8 +639,8 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		rv = netlink_route_multipath(RTM_DELROUTE, ctx, nl_buf,
 					     sizeof(nl_buf), true);
 		if (rv <= 0) {
-			zlog_debug("%s: netlink_route_multipath failed",
-				   __func__);
+			zlog_err("%s: netlink_route_multipath failed",
+				 __func__);
 			return 0;
 		}
 
@@ -649,8 +656,8 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 					     &nl_buf[nl_buf_len],
 					     sizeof(nl_buf) - nl_buf_len, true);
 		if (rv <= 0) {
-			zlog_debug("%s: netlink_route_multipath failed",
-				   __func__);
+			zlog_err("%s: netlink_route_multipath failed",
+				 __func__);
 			return 0;
 		}
 
@@ -661,8 +668,8 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_MAC_DELETE:
 		rv = netlink_macfdb_update_ctx(ctx, nl_buf, sizeof(nl_buf));
 		if (rv <= 0) {
-			zlog_debug("%s: netlink_macfdb_update_ctx failed",
-				   __func__);
+			zlog_err("%s: netlink_macfdb_update_ctx failed",
+				 __func__);
 			return 0;
 		}
 
@@ -692,9 +699,10 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		break;
 
 	default:
-		zlog_debug("%s: unhandled data plane message (%d) %s",
-			   __func__, dplane_ctx_get_op(ctx),
-			   dplane_op2str(dplane_ctx_get_op(ctx)));
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: unhandled data plane message (%d) %s",
+				   __func__, dplane_ctx_get_op(ctx),
+				   dplane_op2str(dplane_ctx_get_op(ctx)));
 		break;
 	}
 
@@ -709,9 +717,13 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	if (STREAM_WRITEABLE(fnc->obuf) < (nl_buf_len + FPM_HEADER_SIZE)) {
 		atomic_fetch_add_explicit(&fnc->counters.buffer_full, 1,
 					  memory_order_relaxed);
-		zlog_debug("%s: buffer full: wants to write %zu but has %zu",
-			   __func__, nl_buf_len + FPM_HEADER_SIZE,
-			   STREAM_WRITEABLE(fnc->obuf));
+
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug(
+				"%s: buffer full: wants to write %zu but has %zu",
+				__func__, nl_buf_len + FPM_HEADER_SIZE,
+				STREAM_WRITEABLE(fnc->obuf));
+
 		return -1;
 	}
 
@@ -961,7 +973,7 @@ static int fpm_process_event(struct thread *t)
 
 	switch (event) {
 	case FNE_DISABLE:
-		zlog_debug("%s: manual FPM disable event", __func__);
+		zlog_info("%s: manual FPM disable event", __func__);
 		fnc->disabled = true;
 		atomic_fetch_add_explicit(&fnc->counters.user_disables, 1,
 					  memory_order_relaxed);
@@ -971,7 +983,7 @@ static int fpm_process_event(struct thread *t)
 		break;
 
 	case FNE_RECONNECT:
-		zlog_debug("%s: manual FPM reconnect event", __func__);
+		zlog_info("%s: manual FPM reconnect event", __func__);
 		fnc->disabled = false;
 		atomic_fetch_add_explicit(&fnc->counters.user_configures, 1,
 					  memory_order_relaxed);
@@ -979,12 +991,13 @@ static int fpm_process_event(struct thread *t)
 		break;
 
 	case FNE_RESET_COUNTERS:
-		zlog_debug("%s: manual FPM counters reset event", __func__);
+		zlog_info("%s: manual FPM counters reset event", __func__);
 		memset(&fnc->counters, 0, sizeof(fnc->counters));
 		break;
 
 	default:
-		zlog_debug("%s: unhandled event %d", __func__, event);
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: unhandled event %d", __func__, event);
 		break;
 	}
 
