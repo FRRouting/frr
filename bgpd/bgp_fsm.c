@@ -552,7 +552,9 @@ const char *peer_down_str[] = {"",
 			       "Waiting for NHT",
 			       "Waiting for Peer IPv6 LLA",
 			       "Waiting for VRF to be initialized",
-			       "No AFI/SAFI activated for peer"};
+			       "No AFI/SAFI activated for peer",
+			       "AS Set config change",
+			       "Waiting for peer OPEN"};
 
 static int bgp_graceful_restart_timer_expire(struct thread *thread)
 {
