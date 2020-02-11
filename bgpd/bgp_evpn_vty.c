@@ -380,7 +380,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		json_object_string_add(json, "originatorIp",
 				       inet_ntoa(bgp_vrf->originator_ip));
 		json_object_string_add(json, "advertiseGatewayMacip", "n/a");
-		json_object_string_add(json, "advertiseSviMacip", "n/a");
+		json_object_string_add(json, "advertiseSviMacIp", "n/a");
 		json_object_to_json_string_ext(json,
 					       JSON_C_TO_STRING_NOSLASHESCAPE);
 		json_object_string_add(json, "advertisePip",
@@ -544,13 +544,13 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 					       "Disabled");
 		if (!vpn->advertise_svi_macip && bgp_evpn &&
 		    bgp_evpn->evpn_info->advertise_svi_macip)
-			json_object_string_add(json, "advertiseSviMacip",
+			json_object_string_add(json, "advertiseSviMacIp",
 					       "Active");
 		else if (vpn->advertise_svi_macip)
-			json_object_string_add(json, "advertiseSviMacip",
+			json_object_string_add(json, "advertiseSviMacIp",
 					       "Enabled");
 		else
-			json_object_string_add(json, "advertiseSviMacip",
+			json_object_string_add(json, "advertiseSviMacIp",
 					       "Disabled");
 	} else {
 		vty_out(vty, "VNI: %d", vpn->vni);
@@ -889,7 +889,7 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 			prefix_rd2str(&bgp->vrf_prd, buf2, RD_ADDRSTRLEN));
 		json_object_string_add(json_vni, "advertiseGatewayMacip",
 				       "n/a");
-		json_object_string_add(json_vni, "advertiseSviMacip", "n/a");
+		json_object_string_add(json_vni, "advertiseSviMacIp", "n/a");
 		json_object_to_json_string_ext(json_vni,
 					       JSON_C_TO_STRING_NOSLASHESCAPE);
 		json_object_string_add(
@@ -1072,13 +1072,13 @@ static void show_vni_entry(struct hash_bucket *bucket, void *args[])
 				json_vni, "advertiseGatewayMacip", "Disabled");
 		if (!vpn->advertise_svi_macip && bgp_evpn
 		    && bgp_evpn->evpn_info->advertise_svi_macip)
-			json_object_string_add(json_vni, "advertiseSviMacip",
+			json_object_string_add(json_vni, "advertiseSviMacIp",
 					       "Active");
 		else if (vpn->advertise_svi_macip)
-			json_object_string_add(json_vni, "advertiseSviMacip",
+			json_object_string_add(json_vni, "advertiseSviMacIp",
 					       "Enabled");
 		else
-			json_object_string_add(json_vni, "advertiseSviMacip",
+			json_object_string_add(json_vni, "advertiseSviMacIp",
 					       "Disabled");
 	} else {
 		vty_out(vty, "%-1s %-10u %-4s %-21s", buf1, vpn->vni, "L2",
@@ -3944,7 +3944,7 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 					       bgp_evpn->advertise_gw_macip
 						       ? "Enabled"
 						       : "Disabled");
-			json_object_string_add(json, "advertiseSviMacip",
+			json_object_string_add(json, "advertiseSviMacIp",
 					bgp_evpn->evpn_info->advertise_svi_macip
 					? "Enabled" : "Disabled");
 			json_object_string_add(json, "advertiseAllVnis",
