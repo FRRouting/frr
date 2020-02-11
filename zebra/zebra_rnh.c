@@ -383,12 +383,9 @@ static void zebra_rnh_clear_nexthop_rnh_filters(struct route_entry *re)
 {
 	struct nexthop *nexthop;
 
-	if (re) {
-		for (nexthop = re->nhe->nhg->nexthop; nexthop;
-		     nexthop = nexthop->next) {
+	if (re)
+		zebra_nhg_each_nexthop (re->nhe, nexthop)
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_RNH_FILTERED);
-		}
-	}
 }
 
 /* Apply the NHT route-map for a client to the route (and nexthops)
@@ -403,15 +400,14 @@ static int zebra_rnh_apply_nht_rmap(afi_t afi, struct zebra_vrf *zvrf,
 	route_map_result_t ret;
 
 	if (prn && re) {
-		for (nexthop = re->nhe->nhg->nexthop; nexthop;
-		     nexthop = nexthop->next) {
-			ret = zebra_nht_route_map_check(
-				afi, proto, &prn->p, zvrf, re, nexthop);
+		zebra_nhg_each_nexthop (re->nhe, nexthop) {
+			ret = zebra_nht_route_map_check(afi, proto, &prn->p,
+							zvrf, re, nexthop);
 			if (ret != RMAP_DENYMATCH)
 				at_least_one++; /* at least one valid NH */
 			else {
 				SET_FLAG(nexthop->flags,
-						NEXTHOP_FLAG_RNH_FILTERED);
+					 NEXTHOP_FLAG_RNH_FILTERED);
 			}
 		}
 	}
@@ -608,6 +604,23 @@ static bool rnh_nexthop_valid(const struct route_entry *re,
 		&& !CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RNH_FILTERED));
 }
 
+struct rnh_nexthop_valid_info {
+	const struct route_entry *re;
+	bool has_valid_nh;
+};
+
+static int rnh_nexthop_valid_walker(struct nexthop *nexthop, void *arg)
+{
+	struct rnh_nexthop_valid_info *valid_info = arg;
+
+	if (rnh_nexthop_valid(valid_info->re, nexthop)) {
+		valid_info->has_valid_nh = true;
+		return NHG_WALK_ABORT;
+	}
+
+	return NHG_WALK_CONTINUE;
+}
+
 /*
  * Determine appropriate route (route entry) resolving a tracked
  * nexthop.
@@ -620,7 +633,6 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	struct route_table *route_table;
 	struct route_node *rn;
 	struct route_entry *re;
-	struct nexthop *nexthop;
 
 	*prn = NULL;
 
@@ -662,6 +674,8 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 
 		/* Identify appropriate route entry. */
 		RNODE_FOREACH_RE (rn, re) {
+			struct rnh_nexthop_valid_info valid_info = {};
+
 			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 					zlog_debug(
@@ -688,12 +702,12 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			/* Just being SELECTED isn't quite enough - must
 			 * have an installed nexthop to be useful.
 			 */
-			for (ALL_NEXTHOPS_PTR(re->nhe->nhg, nexthop)) {
-				if (rnh_nexthop_valid(re, nexthop))
-					break;
-			}
+			valid_info.re = re;
+			zebra_nhg_depends_walk_nexthops(
+				re->nhe, &rnh_nexthop_valid_walker,
+				&valid_info);
 
-			if (nexthop == NULL) {
+			if (!valid_info.has_valid_nh) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 					zlog_debug(
 						"\tRoute Entry %s no nexthops",
@@ -705,14 +719,20 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 				if ((re->type == ZEBRA_ROUTE_CONNECT)
 				    || (re->type == ZEBRA_ROUTE_STATIC))
 					break;
-				if (re->type == ZEBRA_ROUTE_NHRP) {
 
-					for (nexthop = re->nhe->nhg->nexthop;
-					     nexthop;
-					     nexthop = nexthop->next)
+				/* If NHRP route and at least one nexthop
+				 * with ifindex?
+				 */
+				if (re->type == ZEBRA_ROUTE_NHRP) {
+					struct nexthop *nexthop;
+
+					zebra_nhg_each_nexthop (re->nhe,
+								nexthop) {
 						if (nexthop->type
 						    == NEXTHOP_TYPE_IFINDEX)
 							break;
+					}
+
 					if (nexthop)
 						break;
 				}
@@ -941,7 +961,7 @@ static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 		return;
 
 	/* free RE and nexthops */
-	zebra_nhg_free(re->nhe);
+	zebra_nhg_decrement_ref(re->nhe);
 	XFREE(MTYPE_RE, re);
 }
 
@@ -965,10 +985,14 @@ static void copy_state(struct rnh *rnh, struct route_entry *re,
 	state->vrf_id = re->vrf_id;
 	state->status = re->status;
 
-	state->nhe = zebra_nhg_alloc();
-	state->nhe->nhg = nexthop_group_new();
+	/*
+	 * Lets just attach/refcnt the nhg_hash_entry to track state
+	 *
+	 * This will track if the number of nexthops change or if the
+	 * hashes of them change.
+	 */
+	route_entry_update_nhe(state, re->nhe);
 
-	nexthop_group_copy(state->nhe->nhg, re->nhe->nhg);
 	rnh->state = state;
 }
 
@@ -986,15 +1010,31 @@ static int compare_state(struct route_entry *r1, struct route_entry *r2)
 	if (r1->metric != r2->metric)
 		return 1;
 
-	if (nexthop_group_nexthop_num(r1->nhe->nhg)
-	    != nexthop_group_nexthop_num(r2->nhe->nhg))
-		return 1;
-
-	if (nexthop_group_hash(r1->nhe->nhg) !=
-	    nexthop_group_hash(r2->nhe->nhg))
+	/* If these aren't the same, their nexthop states are different */
+	if (r1->nhe != r2->nhe)
 		return 1;
 
 	return 0;
+}
+
+struct rnh_encode_route_info {
+	const struct route_entry *re;
+	struct stream *s;
+	uint8_t num;
+};
+
+static int rnh_encode_nexthop_walker(struct nexthop *nexthop, void *arg)
+{
+	struct rnh_encode_route_info *encode_rt_info = arg;
+	struct zapi_nexthop znh;
+
+	if (rnh_nexthop_valid(encode_rt_info->re, nexthop)) {
+		zapi_nexthop_from_nexthop(&znh, nexthop);
+		zapi_nexthop_encode(encode_rt_info->s, &znh, 0 /* flags */);
+		encode_rt_info->num++;
+	}
+
+	return NHG_WALK_CONTINUE;
 }
 
 static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
@@ -1003,8 +1043,6 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 	struct stream *s;
 	struct route_entry *re;
 	unsigned long nump;
-	uint8_t num;
-	struct nexthop *nh;
 	struct route_node *rn;
 	int cmd = (type == RNH_IMPORT_CHECK_TYPE) ? ZEBRA_IMPORT_CHECK_UPDATE
 						  : ZEBRA_NEXTHOP_UPDATE;
@@ -1034,22 +1072,23 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		break;
 	}
 	if (re) {
-		struct zapi_nexthop znh;
+		struct rnh_encode_route_info encode_rt_info = {};
 
 		stream_putc(s, re->type);
 		stream_putw(s, re->instance);
 		stream_putc(s, re->distance);
 		stream_putl(s, re->metric);
-		num = 0;
 		nump = stream_get_endp(s);
 		stream_putc(s, 0);
-		for (ALL_NEXTHOPS_PTR(re->nhe->nhg, nh))
-			if (rnh_nexthop_valid(re, nh)) {
-				zapi_nexthop_from_nexthop(&znh, nh);
-				zapi_nexthop_encode(s, &znh, 0 /* flags */);
-				num++;
-			}
-		stream_putc_at(s, nump, num);
+
+		/* Walk nexthop tree and encode valid nexthops */
+		encode_rt_info.re = re;
+		encode_rt_info.s = s;
+
+		zebra_nhg_depends_walk_nexthops(
+			re->nhe, &rnh_encode_nexthop_walker, &encode_rt_info);
+
+		stream_putc_at(s, nump, encode_rt_info.num);
 	} else {
 		stream_putc(s, 0); // type
 		stream_putw(s, 0); // instance
@@ -1114,8 +1153,8 @@ static void print_rnh(struct route_node *rn, struct vty *vty)
 	if (rnh->state) {
 		vty_out(vty, " resolved via %s\n",
 			zebra_route_string(rnh->state->type));
-		for (nexthop = rnh->state->nhe->nhg->nexthop; nexthop;
-		     nexthop = nexthop->next)
+
+		zebra_nhg_each_nexthop (rnh->state->nhe, nexthop)
 			print_nh(nexthop, vty);
 	} else
 		vty_out(vty, " unresolved%s\n",
