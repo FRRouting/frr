@@ -57,6 +57,8 @@ ForEachMacros:
   - RE_DEST_FOREACH_ROUTE_SAFE
   - RNODE_FOREACH_RE
   - RNODE_FOREACH_RE_SAFE
+  - zebra_nhg_each
+  - zebra_nhg_each_nexthop
   # bgpd
   - UPDGRP_FOREACH_SUBGRP
   - UPDGRP_FOREACH_SUBGRP_SAFE
