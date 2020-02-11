@@ -54,15 +54,6 @@ static inline vrf_id_t zebra_nhg_determine_vrf(const struct nexthop *nexthop)
 	return !vrf_is_backend_netns() ? VRF_DEFAULT : nexthop->vrf_id;
 }
 
-static inline bool zebra_nhg_is_group(const struct nhg_hash_entry *nhe)
-{
-	if (!zebra_nhg_depends_is_empty(nhe)
-	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
-		return true;
-
-	return false;
-}
-
 /* Determines what the proper afi should be, given a lib/nexthop */
 static inline afi_t zebra_nhg_determine_afi(const struct nexthop *nexthop,
 					    afi_t route_afi)
@@ -679,6 +670,15 @@ void zebra_nhg_depends_unset_all_resolved_nexthops_flag(
 {
 	zebra_nhg_depends_walk_resolved_nexthops(nhe, &nexthop_unset_flag,
 						 &flag);
+}
+
+bool zebra_nhg_is_group(const struct nhg_hash_entry *nhe)
+{
+	if (!zebra_nhg_depends_is_empty(nhe)
+	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
+		return true;
+
+	return false;
 }
 
 struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id)

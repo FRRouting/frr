@@ -285,6 +285,9 @@ extern struct nhg_hash_entry *zebra_nhg_depends_get(struct nhg_hash_entry *nhe,
  */
 extern bool zebra_nhg_dependents_is_empty(const struct nhg_hash_entry *nhe);
 
+/* Is this NHE a group (non-singleton, non-recursive) */
+extern bool zebra_nhg_is_group(const struct nhg_hash_entry *nhe);
+
 /* Lookup ID, doesn't create */
 extern struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id);
 
