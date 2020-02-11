@@ -21,6 +21,9 @@
 #ifndef _ZEBRA_SRTE_H
 #define _ZEBRA_SRTE_H
 
+#include "zebra/zebra_srte.h"
+#include "zebra/zebra_mpls.h"
+
 #include "lib/zclient.h"
 #include "lib/srte.h"
 
@@ -41,6 +44,7 @@ struct zebra_sr_policy {
 	char name[SRTE_POLICY_NAME_MAX_LENGTH];
 	enum zebra_sr_policy_status status;
 	struct zapi_srte_tunnel active_segment_list;
+	zebra_lsp_t *lsp;
 	struct zebra_vrf *zvrf;
 };
 RB_HEAD(zebra_sr_policy_instance_head, zebra_sr_policy);
