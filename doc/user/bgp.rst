@@ -424,6 +424,16 @@ Reject routes with AS_SET or AS_CONFED_SET types
 
    This command enables rejection of incoming and outgoing routes having AS_SET or AS_CONFED_SET type.
 
+Disable checking if nexthop is connected on EBGP sessions
+---------------------------------------------------------
+
+.. index:: [no] bgp disable-ebgp-connected-route-check
+.. clicmd:: [no] bgp disable-ebgp-connected-route-check
+
+   This command is used to disable the connection verification process for EBGP peering sessions
+   that are reachable by a single hop but are configured on a loopback interface or otherwise
+   configured with a non-directly connected IP address.
+
 .. _bgp-route-flap-dampening:
 
 Route Flap Dampening
