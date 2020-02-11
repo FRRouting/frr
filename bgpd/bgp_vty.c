@@ -8612,7 +8612,7 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 				: "received",
 				code_str, subcode_str);
 		} else {
-			vty_out(vty, "  %s\n",
+			vty_out(vty, " %s\n",
 				peer_down_str[(int)peer->last_reset]);
 		}
 	}
@@ -8668,7 +8668,7 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 		if (len < max_neighbor_width)
 			vty_out(vty, "%*s", max_neighbor_width - len,
 				" ");
-		vty_out(vty, "%7d %7d %8s", peer->established,
+		vty_out(vty, "%7d %7d %9s", peer->established,
 			peer->dropped,
 			peer_uptime(peer->uptime, timebuf,
 				    BGP_UPTIME_LEN, 0, NULL));
