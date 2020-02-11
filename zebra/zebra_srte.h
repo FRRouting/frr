@@ -18,8 +18,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#ifndef _ZEBRA_SRTE_H
+#define _ZEBRA_SRTE_H
+
 #include "lib/zclient.h"
 #include "lib/srte.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 enum zebra_sr_policy_update_label_mode {
 	ZEBRA_SR_POLICY_LABEL_CREATED = 1,
@@ -52,3 +59,9 @@ struct zebra_sr_policy *zebra_sr_policy_find_by_name(char *name);
 void zebra_sr_policy_install(struct zebra_sr_policy *policy);
 void zebra_sr_policy_uninstall(struct zebra_sr_policy *policy);
 void zebra_srte_init(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* _ZEBRA_SRTE_H */
