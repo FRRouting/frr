@@ -788,13 +788,22 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		bgp_process(bgp_path, rn, afi, safi);
 	}
 
-	if (peer && !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED)) {
-		if (BGP_DEBUG(nht, NHT))
-			zlog_debug("%s: Updating peer (%s(%s)) status with NHT",
-				   __FUNCTION__, peer->host,
-				   peer->bgp->name_pretty);
-		bgp_fsm_event_update(peer, bgp_isvalid_nexthop(bnc));
-		SET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
+	if (peer) {
+		int valid_nexthops = bgp_isvalid_nexthop(bnc);
+
+		if (valid_nexthops)
+			peer->last_reset = PEER_DOWN_WAITING_OPEN;
+		else
+			peer->last_reset = PEER_DOWN_WAITING_NHT;
+
+		if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED)) {
+			if (BGP_DEBUG(nht, NHT))
+				zlog_debug("%s: Updating peer (%s(%s)) status with NHT",
+					   __FUNCTION__, peer->host,
+					   peer->bgp->name_pretty);
+			bgp_fsm_event_update(peer, valid_nexthops);
+			SET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
+		}
 	}
 
 	RESET_FLAG(bnc->change_flags);
