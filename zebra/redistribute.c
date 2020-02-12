@@ -645,8 +645,8 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	if (rmap_name)
 		ret = zebra_import_table_route_map_check(
 			afi, re->type, re->instance, &rn->p,
-			re->nhe->nhg->nexthop,
-			zvrf->vrf->vrf_id, re->tag, rmap_name);
+			zebra_nhg_nexthop(re->nhe), zvrf->vrf->vrf_id, re->tag,
+			rmap_name);
 
 	if (ret != RMAP_PERMITMATCH) {
 		UNSET_FLAG(re->flags, ZEBRA_FLAG_SELECTED);
@@ -682,7 +682,7 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	newre->instance = re->table;
 
 	ng = nexthop_group_new();
-	copy_nexthops(&ng->nexthop, re->nhe->nhg->nexthop, NULL);
+	zebra_nhg_nhe2nexthop_group(ng, re->nhe);
 
 	rib_add_multipath(afi, SAFI_UNICAST, &p, NULL, newre, ng);
 
@@ -699,9 +699,8 @@ int zebra_del_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	prefix_copy(&p, &rn->p);
 
 	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_TABLE,
-		   re->table, re->flags, &p, NULL, re->nhe->nhg->nexthop,
-		   re->nhe_id, zvrf->table_id, re->metric, re->distance,
-		   false);
+		   re->table, re->flags, &p, NULL, zebra_nhg_nexthop(re->nhe),
+		   re->nhe_id, zvrf->table_id, re->metric, re->distance, false);
 
 	return 0;
 }
