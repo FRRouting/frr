@@ -2391,7 +2391,6 @@ static void rib_addnode(struct route_node *rn,
 void rib_unlink(struct route_node *rn, struct route_entry *re)
 {
 	rib_dest_t *dest;
-	struct nhg_hash_entry *nhe = NULL;
 
 	assert(rn && re);
 
@@ -2406,12 +2405,7 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 	if (dest->selected_fib == re)
 		dest->selected_fib = NULL;
 
-	if (re->nhe_id) {
-		nhe = zebra_nhg_lookup_id(re->nhe_id);
-		if (nhe)
-			zebra_nhg_decrement_ref(nhe);
-	} else if (re->nhe->nhg)
-		nexthop_group_delete(&re->nhe->nhg);
+	zebra_nhg_decrement_ref(re->nhe);
 
 	nexthops_free(re->fib_ng.nexthop);
 
