@@ -1266,16 +1266,8 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 		api.tableid = info->attr->rmap_table_id;
 	}
 
-	if (CHECK_FLAG(info->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_SRTE_POLICY))) {
+	if (CHECK_FLAG(info->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR)))
 		SET_FLAG(api.message, ZAPI_MESSAGE_SRTE);
-		api.srte.type = ZAPI_SRTE_POLICY;
-		strncpy(api.srte.policy, info->attr->srte_policy, SRTE_POLICY_NAME_MAX_LENGTH);
-	}
-	if (CHECK_FLAG(info->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR))) {
-		SET_FLAG(api.message, ZAPI_MESSAGE_SRTE);
-		api.srte.type = ZAPI_SRTE_COLOR;
-		api.srte.color = info->attr->srte_color;
-	}
 
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;

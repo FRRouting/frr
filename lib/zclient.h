@@ -408,19 +408,6 @@ struct zapi_nexthop {
 	uint32_t srte_color;
 };
 
-enum zapi_srte_type {
-	ZAPI_SRTE_POLICY = 1,
-	ZAPI_SRTE_COLOR = 2,
-};
-
-struct zapi_srte {
-	enum zapi_srte_type type;
-	union {
-		char policy[ZEBRA_SR_POLICY_NAME_MAX_LENGTH];
-		uint32_t color;
-	};
-};
-
 struct zapi_srte_tunnel {
 	enum lsp_types_t type;
 	mpls_label_t local_label;
@@ -517,8 +504,6 @@ struct zapi_route {
 	vrf_id_t vrf_id;
 
 	uint32_t tableid;
-
-	struct zapi_srte srte;
 };
 
 struct zapi_labels {

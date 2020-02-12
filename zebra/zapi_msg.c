@@ -1554,7 +1554,6 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	enum lsp_types_t label_type;
 	char nhbuf[NEXTHOP_STRLEN];
 	char labelbuf[MPLS_LABEL_STRLEN];
-	struct zebra_sr_policy *policy;
 
 	s = msg;
 	if (zapi_route_decode(s, &api) < 0) {
@@ -1763,21 +1762,6 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		re->tag = api.tag;
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_MTU))
 		re->mtu = api.mtu;
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRTE)) {
-                switch (api.srte.type) {
-                case ZAPI_SRTE_POLICY:
-			policy = zebra_sr_policy_find_by_name(api.srte.policy);
-			zlog_debug("Resolved SR Policy by name: %s", policy->name);
-			// TODO: process policy
-			break;
-		case ZAPI_SRTE_COLOR:
-			policy = zebra_sr_policy_find(api.srte.color, api.nexthops[0].gate.ipv4);
-			zlog_debug("Resolved SR Policy by color: %s", policy->name);
-			// TODO: process policy
-			break;
-		}
-	}
-
 
 	afi = family2afi(api.prefix.family);
 	if (afi != AFI_IP6 && CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX)) {

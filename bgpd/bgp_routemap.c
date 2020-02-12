@@ -1665,51 +1665,6 @@ static const struct route_map_rule_cmd route_match_tag_cmd = {
 };
 
 static enum route_map_cmd_result_t
-route_set_srte_policy(void *rule, const struct prefix *prefix,
-		      route_map_object_t type, void *object)
-{
-	char *srte_policy = rule;
-	struct bgp_path_info *path;
-	struct peer *peer;
-
-	if (type != RMAP_BGP)
-		return RMAP_OKAY;
-
-	path = object;
-	peer = path->peer;
-
-	strncpy(path->attr->srte_policy, srte_policy,
-		SRTE_POLICY_NAME_MAX_LENGTH);
-	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_POLICY);
-
-	if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN))
-	    && peer->su_remote
-	    && sockunion_family(peer->su_remote) == AF_INET) {
-		path->attr->nexthop.s_addr = sockunion2ip(peer->su_remote);
-		path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
-	}
-
-	return RMAP_OKAY;
-}
-
-/* Route map `sr-te policy' compile function */
-static void *route_set_srte_policy_compile(const char *arg)
-{
-	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
-}
-
-/* Free route map's compiled `sr-te policy' value. */
-static void route_set_srte_policy_free(void *rule)
-{
-	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
-}
-
-/* Route map commands for sr-te policy set. */
-struct route_map_rule_cmd route_set_srte_policy_cmd = {
-	"sr-te policy", route_set_srte_policy, route_set_srte_policy_compile,
-	route_set_srte_policy_free};
-
-static enum route_map_cmd_result_t
 route_set_srte_color(void *rule, const struct prefix *prefix,
 		     route_map_object_t type, void *object)
 {
@@ -5776,9 +5731,6 @@ void bgp_route_map_init(void)
 	route_map_match_tag_hook(generic_match_add);
 	route_map_no_match_tag_hook(generic_match_delete);
 
-	route_map_set_srte_policy_hook(generic_set_add);
-	route_map_no_set_srte_policy_hook(generic_set_delete);
-
 	route_map_set_srte_color_hook(generic_set_add);
 	route_map_no_set_srte_color_hook(generic_set_delete);
 
@@ -5824,7 +5776,6 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_vrl_source_vrf_cmd);
 
 	route_map_install_set(&route_set_table_id_cmd);
-	route_map_install_set(&route_set_srte_policy_cmd);
 	route_map_install_set(&route_set_srte_color_cmd);
 	route_map_install_set(&route_set_ip_nexthop_cmd);
 	route_map_install_set(&route_set_local_pref_cmd);

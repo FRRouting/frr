@@ -1102,18 +1102,6 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 		stream_putl(s, api->mtu);
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TABLEID))
 		stream_putl(s, api->tableid);
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRTE)) {
-		stream_putc(s, api->srte.type);
-		switch (api->srte.type) {
-		case ZAPI_SRTE_POLICY:
-			stream_write(s, api->srte.policy,
-				     SRTE_POLICY_NAME_MAX_LENGTH);
-			break;
-		case ZAPI_SRTE_COLOR:
-			stream_putl(s, api->srte.color);
-			break;
-		}
-	}
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -1320,20 +1308,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 		STREAM_GETL(s, api->mtu);
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TABLEID))
 		STREAM_GETL(s, api->tableid);
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRTE)) {
-		STREAM_GETC(s, api->srte.type);
-		switch (api->srte.type) {
-		case ZAPI_SRTE_POLICY:
-			/* TODO: this is not working :) */
-			STREAM_GET(api->srte.policy, s,
-				   SRTE_POLICY_NAME_MAX_LENGTH);
-			break;
-		case ZAPI_SRTE_COLOR:
-			STREAM_GETL(s, api->srte.color);
-			break;
-		}
 
-	}
 	return 0;
 stream_failure:
 	return -1;

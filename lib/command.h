@@ -362,7 +362,6 @@ struct cmd_node {
 #define IP_STR "IP information\n"
 #define IPV6_STR "IPv6 information\n"
 #define SRTE_STR "SR-TE information\n"
-#define SRTE_POLICY_STR "SR-TE Policy information\n"
 #define SRTE_COLOR_STR "SR-TE Color information\n"
 #define NO_STR "Negate a command or set its defaults\n"
 #define REDIST_STR "Redistribute information from another routing protocol\n"

@@ -1530,7 +1530,6 @@ struct bgp_nlri {
 #define BGP_ATTR_ENCAP                          23
 #define BGP_ATTR_LARGE_COMMUNITIES              32
 #define BGP_ATTR_PREFIX_SID                     40
-#define BGP_ATTR_SRTE_POLICY                    50
 #define BGP_ATTR_SRTE_COLOR                     51
 #ifdef ENABLE_BGP_VNC_ATTR
 #define BGP_ATTR_VNC                           255
