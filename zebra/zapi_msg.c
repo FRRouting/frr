@@ -580,8 +580,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 		memcpy(&api.src_prefix, src_p, sizeof(api.src_prefix));
 	}
 
-	for (nexthop = re->nhe->nhg->nexthop;
-	     nexthop; nexthop = nexthop->next) {
+	zebra_nhg_each_nexthop (re->nhe, nexthop) {
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
 
@@ -689,10 +688,10 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 		 * nexthop we are looking up. Therefore, we will just iterate
 		 * over the top chain of nexthops.
 		 */
-		for (nexthop = re->nhe->nhg->nexthop; nexthop;
-		     nexthop = nexthop->next)
+		zebra_nhg_each_nexthop (re->nhe, nexthop) {
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 				num += zserv_encode_nexthop(s, nexthop);
+		}
 
 		/* store nexthop_num */
 		stream_putc_at(s, nump, num);
