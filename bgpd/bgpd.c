@@ -978,6 +978,11 @@ bgp_peer_sort_t peer_sort(struct peer *peer)
 	return peer->sort;
 }
 
+bgp_peer_sort_t peer_sort_lookup(struct peer *peer)
+{
+	return peer->sort;
+}
+
 static void peer_free(struct peer *peer)
 {
 	afi_t afi;
