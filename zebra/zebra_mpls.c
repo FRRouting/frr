@@ -186,8 +186,7 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	 * the label advertised by the recursive nexthop (plus we don't have the
 	 * logic yet to push multiple labels).
 	 */
-	for (nexthop = re->nhe->nhg->nexthop;
-	     nexthop; nexthop = nexthop->next) {
+	zebra_nhg_each_nexthop (re->nhe, nexthop) {
 		/* Skip inactive and recursive entries. */
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
@@ -638,8 +637,7 @@ static int nhlfe_nexthop_active_ipv4(zebra_nhlfe_t *nhlfe,
 		    || !CHECK_FLAG(match->flags, ZEBRA_FLAG_SELECTED))
 			continue;
 
-		for (match_nh = match->nhe->nhg->nexthop; match_nh;
-		     match_nh = match_nh->next) {
+		zebra_nhg_each_nexthop (match->nhe, match_nh) {
 			if (match->type == ZEBRA_ROUTE_CONNECT
 			    || nexthop->ifindex == match_nh->ifindex) {
 				nexthop->ifindex = match_nh->ifindex;
@@ -689,10 +687,10 @@ static int nhlfe_nexthop_active_ipv6(zebra_nhlfe_t *nhlfe,
 			break;
 	}
 
-	if (!match || !match->nhe->nhg->nexthop)
+	if (!match || !zebra_nhg_nexthop(match->nhe))
 		return 0;
 
-	nexthop->ifindex = match->nhe->nhg->nexthop->ifindex;
+	nexthop->ifindex = zebra_nhg_nexthop(match->nhe)->ifindex;
 	return 1;
 }
 
