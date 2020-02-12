@@ -839,20 +839,20 @@ zebra_nhg_connect_depends(struct nhg_hash_entry *nhe,
 	}
 
 	/* Add the ifp now if its not a group or recursive and has ifindex */
-	if (zebra_nhg_depends_is_empty(nhe) && nhe->nhg->nexthop
-	    && nhe->nhg->nexthop->ifindex) {
+	if (zebra_nhg_depends_is_empty(nhe) && zebra_nhg_nexthop(nhe)
+	    && zebra_nhg_nexthop(nhe)->ifindex) {
 		struct interface *ifp = NULL;
 
-		ifp = if_lookup_by_index(nhe->nhg->nexthop->ifindex,
-					 nhe->nhg->nexthop->vrf_id);
+		ifp = if_lookup_by_index(zebra_nhg_nexthop(nhe)->ifindex,
+					 zebra_nhg_nexthop(nhe)->vrf_id);
 		if (ifp)
 			zebra_nhg_set_if(nhe, ifp);
 		else
 			flog_err(
 				EC_ZEBRA_IF_LOOKUP_FAILED,
 				"Zebra failed to lookup an interface with ifindex=%d in vrf=%u for NHE id=%u",
-				nhe->nhg->nexthop->ifindex,
-				nhe->nhg->nexthop->vrf_id, nhe->id);
+				zebra_nhg_nexthop(nhe)->ifindex,
+				zebra_nhg_nexthop(nhe)->vrf_id, nhe->id);
 	}
 }
 
@@ -1818,6 +1818,35 @@ static bool nexthop_valid_resolve(const struct nexthop *nexthop,
 	return true;
 }
 
+struct nhg_resolution_info {
+	bool resolved;
+	afi_t afi;
+	const struct route_entry *match;
+	struct nexthop *nexthop;
+};
+
+static int nhg_resolution_walker(struct nexthop *newhop, void *arg)
+{
+	struct nhg_resolution_info *nhg_res_info = arg;
+
+	/* TODO: Can't we move this check to before we iterate the group?
+	 *
+	 * Of maybe this should be checking a different flag NOT on the route?
+	 */
+	if (!CHECK_FLAG(nhg_res_info->match->status, ROUTE_ENTRY_INSTALLED))
+		goto done;
+
+	if (!nexthop_valid_resolve(nhg_res_info->nexthop, newhop))
+		goto done;
+
+	SET_FLAG(nhg_res_info->nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
+	nexthop_set_resolved(nhg_res_info->afi, newhop, nhg_res_info->nexthop);
+	nhg_res_info->resolved = true;
+
+done:
+	return NHG_WALK_CONTINUE;
+}
+
 /*
  * Given a nexthop we need to properly recursively resolve
  * the route.  As such, do a table lookup to find and match
@@ -1831,11 +1860,11 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *match = NULL;
-	int resolved;
 	struct nexthop *newhop;
 	struct interface *ifp;
 	rib_dest_t *dest;
 	struct zebra_vrf *zvrf;
+	struct nhg_resolution_info nhg_res_info;
 
 	if ((nexthop->type == NEXTHOP_TYPE_IPV4)
 	    || nexthop->type == NEXTHOP_TYPE_IPV6)
@@ -1988,9 +2017,15 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			continue;
 		}
 
+		/* Set resolution walker info */
+		memset(&nhg_res_info, 0, sizeof(nhg_res_info));
+		nhg_res_info.afi = afi;
+		nhg_res_info.match = match;
+		nhg_res_info.nexthop = nexthop;
+
 		if (match->type == ZEBRA_ROUTE_CONNECT) {
 			/* Directly point connected route. */
-			newhop = match->nhe->nhg->nexthop;
+			newhop = zebra_nhg_nexthop(match->nhe);
 			if (newhop) {
 				if (nexthop->type == NEXTHOP_TYPE_IPV4
 				    || nexthop->type == NEXTHOP_TYPE_IPV6)
@@ -1998,61 +2033,46 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			}
 			return 1;
 		} else if (CHECK_FLAG(re->flags, ZEBRA_FLAG_ALLOW_RECURSION)) {
-			resolved = 0;
-			for (ALL_NEXTHOPS_PTR(match->nhe->nhg, newhop)) {
-				if (!CHECK_FLAG(match->status,
-						ROUTE_ENTRY_INSTALLED))
-					continue;
-				if (!nexthop_valid_resolve(nexthop, newhop))
-					continue;
+			zebra_nhg_depends_walk_nexthops(match->nhe,
+							&nhg_resolution_walker,
+							&nhg_res_info);
 
-				SET_FLAG(nexthop->flags,
-					 NEXTHOP_FLAG_RECURSIVE);
-				nexthop_set_resolved(afi, newhop, nexthop);
-				resolved = 1;
-			}
-			if (resolved)
+			if (nhg_res_info.resolved)
 				re->nexthop_mtu = match->mtu;
 
-			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
+			if (!nhg_res_info.resolved
+			    && IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug("\t%s: Recursion failed to find",
 					   __PRETTY_FUNCTION__);
-			return resolved;
-		} else if (re->type == ZEBRA_ROUTE_STATIC) {
-			resolved = 0;
-			for (ALL_NEXTHOPS_PTR(match->nhe->nhg, newhop)) {
-				if (!CHECK_FLAG(match->status,
-						ROUTE_ENTRY_INSTALLED))
-					continue;
-				if (!nexthop_valid_resolve(nexthop, newhop))
-					continue;
 
-				SET_FLAG(nexthop->flags,
-					 NEXTHOP_FLAG_RECURSIVE);
-				nexthop_set_resolved(afi, newhop, nexthop);
-				resolved = 1;
-			}
-			if (resolved)
+			return nhg_res_info.resolved ? 1 : 0;
+		} else if (re->type == ZEBRA_ROUTE_STATIC) {
+			zebra_nhg_depends_walk_nexthops(match->nhe,
+							&nhg_resolution_walker,
+							&nhg_res_info);
+			if (nhg_res_info.resolved)
 				re->nexthop_mtu = match->mtu;
 
-			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
+			if (!nhg_res_info.resolved
+			    && IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"\t%s: Static route unable to resolve",
 					__PRETTY_FUNCTION__);
-			return resolved;
-		} else {
-			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
-				zlog_debug(
-					"\t%s: Route Type %s has not turned on recursion",
-					__PRETTY_FUNCTION__,
-					zebra_route_string(re->type));
-				if (re->type == ZEBRA_ROUTE_BGP
-				    && !CHECK_FLAG(re->flags, ZEBRA_FLAG_IBGP))
-					zlog_debug(
-						"\tEBGP: see \"disable-ebgp-connected-route-check\" or \"disable-connected-check\"");
-			}
-			return 0;
+
+			return nhg_res_info.resolved ? 1 : 0;
 		}
+
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+			zlog_debug(
+				"\t%s: Route Type %s has not turned on recursion",
+				__PRETTY_FUNCTION__,
+				zebra_route_string(re->type));
+			if (re->type == ZEBRA_ROUTE_BGP
+			    && !CHECK_FLAG(re->flags, ZEBRA_FLAG_IBGP))
+				zlog_debug(
+					"\tEBGP: see \"disable-ebgp-connected-route-check\" or \"disable-connected-check\"");
+		}
+		return 0;
 	}
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("\t%s: Nexthop did not lookup in table",
@@ -2211,7 +2231,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	UNSET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 
 	/* Copy over the nexthops in current state */
-	nexthop_group_copy(&new_grp, re->nhe->nhg);
+	zebra_nhg_nhe2nexthop_group(&new_grp, re->nhe);
 
 	for (nexthop = new_grp.nexthop; nexthop; nexthop = nexthop->next) {
 
@@ -2323,7 +2343,7 @@ uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
 		if (!duplicate) {
 			grp[i].id = depend->id;
 			/* We aren't using weights for anything right now */
-			grp[i].weight = depend->nhg->nexthop->weight;
+			grp[i].weight = zebra_nhg_nexthop(depend)->weight;
 			i++;
 		}
 

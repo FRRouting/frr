@@ -113,24 +113,24 @@ struct nhg_hash_entry {
 /* Macro for looping over top-level (non-recursive) NHEs
  *
  * EX)
- * 	1:
- * 		-> 2:
- * 			-> 3
- * 		-> 4
- * 		-> 5:
- * 			-> 6
- * 		-> 7
+ *      1:
+ *              -> 2:
+ *                      -> 3
+ *              -> 4
+ *              -> 5:
+ *                      -> 6
+ *              -> 7
  *
- * 	for (2,4,5,7)
+ *      for (2,4,5,7)
  *
  * It will also handle the case of being a passed a singleton NHE (i.e. not a
  * real group). If so, it just loops once over that singleton NHE.
  *
  * Ex)
- * 	1: (recursive singleton)
- * 		-> 2
+ *      1: (recursive singleton)
+ *              -> 2
  *
- * 	for (1)
+ *      for (1)
  *
  *
  * Note Well: These are non-safe macros (do not remove from list while
@@ -140,22 +140,22 @@ struct nhg_hash_entry {
  * Macro Explaination:
  *
  * init:
- * 	- The first ternary is used to force iter as NULL since we use it in the
- * loop condtional. It will always evaluate down the first branch since we are
- * setting it to NULL.
- * 	- Set rb_node_dep to the first depend of the tree.
+ *      - The first ternary is used to force iter as NULL since we use it in the
+ *      loop condtional. It will always evaluate down the first branch since we
+ *      are setting it to NULL.
+ *      - Set rb_node_dep to the first depend of the tree.
  *
  * loop condition:
- * 	- if something is set in rb_node_dep, it found an item in the tree and
- * so we use that to set the iter.
- *  	- otherwise, we may have been passed a singleton NHE. If thats the case,
- * check to make sure we haven't iterated already (!iter). If we haven't check
- * to see if the parent is indeed a group. If its not, then we will just be
- * iterating once on the Parent's NHE so set iter to that.
+ *      - if something is set in rb_node_dep, it found an item in the tree and
+ *      so we use that to set the iter.
+ *      - otherwise, we may have been passed a singleton NHE. If thats the case,
+ *      check to make sure we haven't iterated already (!iter). If we haven't
+ *      check to see if the parent is indeed a group. If its not, then we will
+ *      just be iterating once on the Parent's NHE so set iter to that.
  *
  * iteration:
- * 	- get the next item in the tree. rb_node_dep may be NULL if we were
- * passed a singleton NHE into this macro, so use the safe version.
+ *      - get the next item in the tree. rb_node_dep may be NULL if we were
+ *      passed a singleton NHE into this macro, so use the safe version.
  *
  */
 #define zebra_nhg_each(parent, iter)                                           \
