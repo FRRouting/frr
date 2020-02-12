@@ -192,6 +192,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast, bool use_fib, bool show_ng)
 {
 	struct route_entry *re;
+	struct nexthop_group *nhg;
 	struct nexthop *nexthop;
 	char buf[SRCDEST2STR_BUFFER];
 	struct zebra_vrf *zvrf;
@@ -264,7 +265,11 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		if (show_ng)
 			vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
 
-		for (ALL_NEXTHOPS_PTR(re->nhe->nhg, nexthop)) {
+		/* Convert to lib/nexthop_group for parsing */
+		nhg = nexthop_group_new();
+		zebra_nhg_nhe2nexthop_group(nhg, re->nhe);
+
+		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 			char addrstr[32];
 
 			vty_out(vty, "  %c%s",
@@ -387,6 +392,9 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			vty_out(vty, "\n");
 		}
 		vty_out(vty, "\n");
+
+		/* Free NHE lib/nexthop_group conversion */
+		nexthop_group_delete(&nhg);
 	}
 }
 
@@ -406,6 +414,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	struct vrf *vrf = NULL;
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 	struct nexthop_group *nhg;
+	bool rib_nhg_allocd = false;
 
 	uptime = monotime(NULL);
 	uptime -= re->uptime;
@@ -414,10 +423,16 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	/* If showing fib information, use the fib view of the
 	 * nexthops.
 	 */
-	if (is_fib)
-		nhg = rib_active_nhg(re);
-	else
-		nhg = re->nhe->nhg;
+	if (is_fib && re_has_fib_ng(re))
+		nhg = re_fib_ng(re);
+	else {
+		/* Convert NHE tree to lib/nexthop_group to easily
+		 * parse in alignment with fib_ng.
+		 */
+		nhg = nexthop_group_new();
+		zebra_nhg_nhe2nexthop_group(nhg, re->nhe);
+		rib_nhg_allocd = true;
+	}
 
 	if (json) {
 		json_route = json_object_new_object();
@@ -470,10 +485,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		json_object_int_add(json_route, "internalFlags",
 				    re->flags);
 		json_object_int_add(json_route, "internalNextHopNum",
-				    nexthop_group_nexthop_num(re->nhe->nhg));
+				    zebra_nhg_depends_nexthop_num(re->nhe));
 		json_object_int_add(json_route, "internalNextHopActiveNum",
-				    nexthop_group_active_nexthop_num(
-					    re->nhe->nhg));
+				    zebra_nhg_depends_nexthop_num_has_flag(
+					    re->nhe, NEXTHOP_FLAG_ACTIVE));
 		if (uptime < ONE_DAY_SECOND)
 			sprintf(buf, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
 				tm->tm_sec);
@@ -651,7 +666,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 		json_object_object_add(json_route, "nexthops", json_nexthops);
 		json_object_array_add(json, json_route);
-		return;
+		goto done;
 	}
 
 	/* Nexthop information. */
@@ -786,6 +801,11 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				tm->tm_hour);
 		vty_out(vty, "\n");
 	}
+
+done:
+	/* Free our conversion if we used the rib NHE */
+	if (rib_nhg_allocd)
+		nexthop_group_delete(&nhg);
 }
 
 static void vty_show_ip_route_detail_json(struct vty *vty,
@@ -1116,8 +1136,14 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 	struct nexthop *nexthop = NULL;
 	struct nhg_connected *rb_node_dep = NULL;
 	char buf[SRCDEST2STR_BUFFER];
+	struct nexthop_group *nhg;
 
 	struct vrf *nhe_vrf = vrf_lookup_by_id(nhe->vrf_id);
+
+
+	/* Convert to lib/nexthop_group for parsing */
+	nhg = nexthop_group_new();
+	zebra_nhg_nhe2nexthop_group(nhg, nhe);
 
 	vty_out(vty, "ID: %u\n", nhe->id);
 	vty_out(vty, "     RefCnt: %d\n", nhe->refcnt);
@@ -1149,7 +1175,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 		vty_out(vty, "\n");
 	}
 
-	for (ALL_NEXTHOPS_PTR(nhe->nhg, nexthop)) {
+	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			vty_out(vty, "          ");
 		else
@@ -1261,6 +1287,8 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 		vty_out(vty, "\n");
 	}
 
+	/* Free NHE lib/nexthop_group conversion */
+	nexthop_group_delete(&nhg);
 }
 
 static int show_nexthop_group_id_cmd_helper(struct vty *vty, uint32_t id)
@@ -1970,8 +1998,11 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 				fib_cnt[ZEBRA_ROUTE_TOTAL]++;
 				fib_cnt[re->type]++;
 			}
-			for (nexthop = re->nhe->nhg->nexthop; (!cnt && nexthop);
-			     nexthop = nexthop->next) {
+
+			zebra_nhg_each_nexthop (re->nhe, nexthop) {
+				if (cnt)
+					break;
+
 				cnt++;
 				rib_cnt[ZEBRA_ROUTE_TOTAL]++;
 				rib_cnt[re->type]++;
