@@ -427,10 +427,12 @@ int bgp_confederation_id_set(struct bgp *bgp, as_t as)
 	   AS change.  Just Reset EBGP sessions, not CONFED sessions.  If we
 	   were not doing confederation before, reset all EBGP sessions.  */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		bgp_peer_sort_t ptype = peer_sort(peer);
+
 		/* We're looking for peers who's AS is not local or part of our
 		   confederation.  */
 		if (already_confed) {
-			if (peer_sort(peer) == BGP_PEER_EBGP) {
+			if (ptype == BGP_PEER_EBGP) {
 				peer->local_as = as;
 				if (BGP_IS_VALID_STATE_FOR_NOTIF(
 					    peer->status)) {
@@ -446,9 +448,9 @@ int bgp_confederation_id_set(struct bgp *bgp, as_t as)
 			/* Not doign confederation before, so reset every
 			   non-local
 			   session */
-			if (peer_sort(peer) != BGP_PEER_IBGP) {
+			if (ptype != BGP_PEER_IBGP) {
 				/* Reset the local_as to be our EBGP one */
-				if (peer_sort(peer) == BGP_PEER_EBGP)
+				if (ptype == BGP_PEER_EBGP)
 					peer->local_as = as;
 				if (BGP_IS_VALID_STATE_FOR_NOTIF(
 					    peer->status)) {
@@ -1657,7 +1659,7 @@ int bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
 /* Change peer's AS number.  */
 void peer_as_change(struct peer *peer, as_t as, int as_specified)
 {
-	bgp_peer_sort_t type;
+	bgp_peer_sort_t origtype, newtype;
 
 	/* Stop peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
@@ -1668,7 +1670,7 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified)
 		} else
 			bgp_session_reset(peer);
 	}
-	type = peer_sort(peer);
+	origtype = peer_sort_lookup(peer);
 	peer->as = as;
 	peer->as_type = as_specified;
 
@@ -1679,21 +1681,22 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified)
 	else
 		peer->local_as = peer->bgp->as;
 
+	newtype = peer_sort(peer);
 	/* Advertisement-interval reset */
 	if (!CHECK_FLAG(peer->flags, PEER_FLAG_ROUTEADV)) {
-		peer->v_routeadv = (peer_sort(peer) == BGP_PEER_IBGP)
+		peer->v_routeadv = (newtype == BGP_PEER_IBGP)
 					   ? BGP_DEFAULT_IBGP_ROUTEADV
 					   : BGP_DEFAULT_EBGP_ROUTEADV;
 	}
 
 	/* TTL reset */
-	if (peer_sort(peer) == BGP_PEER_IBGP)
+	if (newtype == BGP_PEER_IBGP)
 		peer->ttl = MAXTTL;
-	else if (type == BGP_PEER_IBGP)
+	else if (origtype == BGP_PEER_IBGP)
 		peer->ttl = BGP_DEFAULT_TTL;
 
 	/* reflector-client reset */
-	if (peer_sort(peer) != BGP_PEER_IBGP) {
+	if (newtype != BGP_PEER_IBGP) {
 		UNSET_FLAG(peer->af_flags[AFI_IP][SAFI_UNICAST],
 			   PEER_FLAG_REFLECTOR_CLIENT);
 		UNSET_FLAG(peer->af_flags[AFI_IP][SAFI_MULTICAST],
@@ -1723,7 +1726,7 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified)
 	}
 
 	/* local-as reset */
-	if (peer_sort(peer) != BGP_PEER_EBGP) {
+	if (newtype != BGP_PEER_EBGP) {
 		peer->change_local_as = 0;
 		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS);
 		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND);
@@ -2719,6 +2722,7 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 	int first_member = 0;
 	afi_t afi;
 	safi_t safi;
+	bgp_peer_sort_t ptype, gtype;
 
 	/* Lookup the peer.  */
 	if (!peer)
@@ -2747,15 +2751,16 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			peer->sort = group->conf->sort;
 		}
 
-		if (!group->conf->as && peer_sort(peer)) {
-			if (peer_sort(group->conf) != BGP_PEER_INTERNAL
-			    && peer_sort(group->conf) != peer_sort(peer)) {
+		ptype = peer_sort(peer);
+		if (!group->conf->as && ptype != BGP_PEER_UNSPECIFIED) {
+			gtype = peer_sort(group->conf);
+			if ((gtype != BGP_PEER_INTERNAL) && (gtype != ptype)) {
 				if (as)
 					*as = peer->as;
 				return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
 			}
 
-			if (peer_sort(group->conf) == BGP_PEER_INTERNAL)
+			if (gtype == BGP_PEER_INTERNAL)
 				first_member = 1;
 		}
 
@@ -2787,22 +2792,22 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 		}
 
 		if (first_member) {
+			gtype = peer_sort(group->conf);
 			/* Advertisement-interval reset */
 			if (!CHECK_FLAG(group->conf->flags,
 					PEER_FLAG_ROUTEADV)) {
 				group->conf->v_routeadv =
-					(peer_sort(group->conf)
-					 == BGP_PEER_IBGP)
+					(gtype == BGP_PEER_IBGP)
 						? BGP_DEFAULT_IBGP_ROUTEADV
 						: BGP_DEFAULT_EBGP_ROUTEADV;
 			}
 
 			/* ebgp-multihop reset */
-			if (peer_sort(group->conf) == BGP_PEER_IBGP)
+			if (gtype == BGP_PEER_IBGP)
 				group->conf->ttl = MAXTTL;
 
 			/* local-as reset */
-			if (peer_sort(group->conf) != BGP_PEER_EBGP) {
+			if (gtype != BGP_PEER_EBGP) {
 				group->conf->change_local_as = 0;
 				peer_flag_unset(group->conf,
 						PEER_FLAG_LOCAL_AS);
@@ -4124,6 +4129,7 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	struct peer *member;
 	struct listnode *node, *nnode;
 	struct peer_flag_action action;
+	bgp_peer_sort_t ptype;
 
 	memset(&action, 0, sizeof(struct peer_flag_action));
 	size = sizeof peer_af_flag_action_list
@@ -4137,18 +4143,17 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	if (!found)
 		return BGP_ERR_INVALID_FLAG;
 
+	ptype = peer_sort(peer);
 	/* Special check for reflector client.  */
-	if (flag & PEER_FLAG_REFLECTOR_CLIENT
-	    && peer_sort(peer) != BGP_PEER_IBGP)
+	if (flag & PEER_FLAG_REFLECTOR_CLIENT && ptype != BGP_PEER_IBGP)
 		return BGP_ERR_NOT_INTERNAL_PEER;
 
 	/* Special check for remove-private-AS.  */
-	if (flag & PEER_FLAG_REMOVE_PRIVATE_AS
-	    && peer_sort(peer) == BGP_PEER_IBGP)
+	if (flag & PEER_FLAG_REMOVE_PRIVATE_AS && ptype == BGP_PEER_IBGP)
 		return BGP_ERR_REMOVE_PRIVATE_AS;
 
 	/* as-override is not allowed for IBGP peers */
-	if (flag & PEER_FLAG_AS_OVERRIDE && peer_sort(peer) == BGP_PEER_IBGP)
+	if (flag & PEER_FLAG_AS_OVERRIDE && ptype == BGP_PEER_IBGP)
 		return BGP_ERR_AS_OVERRIDE;
 
 	/* Handle flag updates where desired state matches current state. */
@@ -5315,9 +5320,9 @@ int peer_local_as_set(struct peer *peer, as_t as, int no_prepend,
 	struct bgp *bgp = peer->bgp;
 	struct peer *member;
 	struct listnode *node, *nnode;
+	bgp_peer_sort_t ptype = peer_sort(peer);
 
-	if (peer_sort(peer) != BGP_PEER_EBGP
-	    && peer_sort(peer) != BGP_PEER_INTERNAL)
+	if (ptype != BGP_PEER_EBGP && ptype != BGP_PEER_INTERNAL)
 		return BGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP;
 
 	if (bgp->as == as)
