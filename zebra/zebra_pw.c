@@ -238,10 +238,22 @@ static void zebra_pw_update_status(struct zebra_pw *pw, int status)
 		zsend_pw_update(pw->client, pw);
 }
 
+static int pw_nexthop_has_label_walker(struct nexthop *nexthop, void *arg)
+{
+	bool *all_nh_have_label = arg;
+
+	if (!nexthop->nh_label) {
+		*all_nh_have_label = false;
+		return NHG_WALK_ABORT;
+	}
+
+	return NHG_WALK_CONTINUE;
+}
+
 static int zebra_pw_check_reachability(struct zebra_pw *pw)
 {
 	struct route_entry *re;
-	struct nexthop *nexthop;
+	bool all_nh_have_label;
 
 	/* TODO: consider GRE/L2TPv3 tunnels in addition to MPLS LSPs */
 
@@ -259,13 +271,16 @@ static int zebra_pw_check_reachability(struct zebra_pw *pw)
 	 * Need to ensure that there's a label binding for all nexthops.
 	 * Otherwise, ECMP for this route could render the pseudowire unusable.
 	 */
-	for (ALL_NEXTHOPS_PTR(re->nhe->nhg, nexthop)) {
-		if (!nexthop->nh_label) {
-			if (IS_ZEBRA_DEBUG_PW)
-				zlog_debug("%s: unlabeled route for %s",
-					   __func__, pw->ifname);
-			return -1;
-		}
+
+	all_nh_have_label = true;
+	zebra_nhg_depends_walk_nexthops(re->nhe, &pw_nexthop_has_label_walker,
+					&all_nh_have_label);
+
+	if (!all_nh_have_label) {
+		if (IS_ZEBRA_DEBUG_PW)
+			zlog_debug("%s: unlabeled route for %s", __func__,
+				   pw->ifname);
+		return -1;
 	}
 
 	return 0;
