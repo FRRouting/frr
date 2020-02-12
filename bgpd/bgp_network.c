@@ -203,7 +203,7 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 	int ret = 0;
 
 	/* In case of peer is EBGP, we should set TTL for this connection.  */
-	if (!peer->gtsm_hops && (peer_sort(peer) == BGP_PEER_EBGP)) {
+	if (!peer->gtsm_hops && (peer_sort_lookup(peer) == BGP_PEER_EBGP)) {
 		ret = sockopt_ttl(peer->su.sa.sa_family, bgp_sock, peer->ttl);
 		if (ret) {
 			flog_err(
