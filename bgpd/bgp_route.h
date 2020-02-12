@@ -338,6 +338,9 @@ struct bgp_aggregate {
 	/* Count of routes of origin type egp under this aggregate. */
 	unsigned long egp_origin_count;
 
+	/* Optional modify flag to override ORIGIN */
+	uint8_t origin;
+
 	/* Hash containing the communities of all the
 	 * routes under this aggregate.
 	 */
