@@ -924,6 +924,11 @@ Route Aggregation-IPv4 Address Family
 
    Apply a route-map for an aggregated prefix.
 
+.. index:: aggregate-address A.B.C.D/M origin <egp|igp|incomplete>
+.. clicmd:: aggregate-address A.B.C.D/M origin <egp|igp|incomplete>
+
+   Override ORIGIN for an aggregated prefix.
+
 .. index:: aggregate-address A.B.C.D/M as-set
 .. clicmd:: aggregate-address A.B.C.D/M as-set
 
@@ -970,6 +975,11 @@ Route Aggregation-IPv6 Address Family
 .. clicmd:: aggregate-address X:X::X:X/M route-map NAME
 
    Apply a route-map for an aggregated prefix.
+
+.. index:: aggregate-address X:X::X:X/M origin <egp|igp|incomplete>
+.. clicmd:: aggregate-address X:X::X:X/M origin <egp|igp|incomplete>
+
+   Override ORIGIN for an aggregated prefix.
 
 .. index:: aggregate-address X:X::X:X/M as-set
 .. clicmd:: aggregate-address X:X::X:X/M as-set
