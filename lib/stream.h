@@ -189,6 +189,7 @@ extern int stream_putq(struct stream *, uint64_t);
 extern int stream_putq_at(struct stream *, size_t, uint64_t);
 extern int stream_put_ipv4(struct stream *, uint32_t);
 extern int stream_put_in_addr(struct stream *s, const struct in_addr *addr);
+extern bool stream_put_ipaddr(struct stream *s, struct ipaddr *ip);
 extern int stream_put_in_addr_at(struct stream *s, size_t putp,
 				 const struct in_addr *addr);
 extern int stream_put_in6_addr_at(struct stream *s, size_t putp,
@@ -219,6 +220,7 @@ extern uint64_t stream_getq(struct stream *);
 extern uint64_t stream_getq_from(struct stream *, size_t);
 bool stream_getq2(struct stream *s, uint64_t *q);
 extern uint32_t stream_get_ipv4(struct stream *);
+extern bool stream_get_ipaddr(struct stream *s, struct ipaddr *ip);
 
 /* IEEE-754 floats */
 extern float stream_getf(struct stream *);
@@ -437,6 +439,12 @@ static inline const uint8_t *ptr_get_be32(const uint8_t *ptr, uint32_t *out)
 		if (!stream_getq2((S), &_pval))                                \
 			goto stream_failure;                                   \
 		(P) = _pval;                                                   \
+	} while (0)
+
+#define STREAM_GET_IPADDR(S, P)                                                \
+	do {                                                                   \
+		if (!stream_get_ipaddr((S), (P)))                              \
+			goto stream_failure;                                   \
 	} while (0)
 
 #define STREAM_GET(P, STR, SIZE)                                               \

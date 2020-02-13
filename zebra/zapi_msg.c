@@ -2132,9 +2132,9 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 	if (!mpls_enabled)
 		return;
 
-	policy = zebra_sr_policy_find(zp.color, zp.endpoint);
+	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);
 	if (!policy)
-		policy = zebra_sr_policy_add(zp.color, zp.endpoint, zp.name);
+		policy = zebra_sr_policy_add(zp.color, &zp.endpoint, zp.name);
 	policy->active_segment_list = zp.active_segment_list;
 	policy->status = ZEBRA_SR_POLICY_UNKNOWN;
 	/* TODO: per-VRF list of SR-TE policies. */
@@ -2161,7 +2161,7 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 	if (!mpls_enabled)
 		return;
 
-	policy = zebra_sr_policy_find(zp.color, zp.endpoint);
+	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);
 	if (!policy) {
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug("%s: Unable to find SR-TE policy",
@@ -2172,7 +2172,7 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 	zebra_sr_policy_del(policy);
 }
 
-int zsend_sr_policy_notify_status(uint32_t color, struct in_addr endpoint,
+int zsend_sr_policy_notify_status(uint32_t color, struct ipaddr *endpoint,
 				  char *name, int status)
 {
 	struct zserv *client;
@@ -2190,7 +2190,7 @@ int zsend_sr_policy_notify_status(uint32_t color, struct in_addr endpoint,
 
 	zclient_create_header(s, ZEBRA_SR_POLICY_NOTIFY_STATUS, VRF_DEFAULT);
 	stream_putl(s, color);
-	stream_put_in_addr(s, &endpoint);
+	stream_put_ipaddr(s, endpoint);
 	stream_write(s, name, SRTE_POLICY_NAME_MAX_LENGTH);
 	stream_putl(s, status);
 

@@ -2825,7 +2825,7 @@ int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
 
 	zclient_create_header(s, cmd, VRF_DEFAULT);
 	stream_putl(s, zp->color);
-	stream_put_in_addr(s, &zp->endpoint);
+	stream_put_ipaddr(s, &zp->endpoint);
 	stream_write(s, &zp->name, SRTE_POLICY_NAME_MAX_LENGTH);
 
 	stream_putc(s, zt->type);
@@ -2856,7 +2856,7 @@ int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
 	struct zapi_srte_tunnel *zt = &zp->active_segment_list;
 
 	STREAM_GETL(s, zp->color);
-	STREAM_GET(&zp->endpoint.s_addr, s, IPV4_MAX_BYTELEN);
+	STREAM_GET_IPADDR(s, &zp->endpoint);
 	STREAM_GET(&zp->name, s, SRTE_POLICY_NAME_MAX_LENGTH);
 
 	/* segment list of active candidate path */
@@ -2885,7 +2885,7 @@ int zapi_sr_policy_notify_status_decode(struct stream *s,
 	memset(zp, 0, sizeof(*zp));
 
 	STREAM_GETL(s, zp->color);
-	STREAM_GET(&zp->endpoint.s_addr, s, IPV4_MAX_BYTELEN);
+	STREAM_GET_IPADDR(s, &zp->endpoint);
 	STREAM_GET(&zp->name, s, SRTE_POLICY_NAME_MAX_LENGTH);
 	STREAM_GETL(s, zp->status);
 

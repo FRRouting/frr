@@ -1939,12 +1939,13 @@ DEFUNSH(VTYSH_PATHD, te_path_segment_list, te_path_segment_list_cmd,
 }
 
 DEFUNSH(VTYSH_PATHD, te_path_sr_policy, te_path_sr_policy_cmd,
-	"sr-policy color (0-4294967295)$num endpoint A.B.C.D$endpoint",
+	"sr-policy color (0-4294967295) endpoint <A.B.C.D|X:X::X:X>",
 	"Segment Routing Policy\n"
 	"SR Policy color\n"
 	"SR Policy color value\n"
 	"SR Policy endpoint\n"
-	"SR Policy endpoint IP\n")
+	"SR Policy endpoint IPv4 address\n"
+	"SR Policy endpoint IPv6 address\n")
 {
 	vty->node = SR_POLICY_NODE;
 	return CMD_SUCCESS;

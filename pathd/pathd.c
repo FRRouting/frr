@@ -84,17 +84,42 @@ RB_GENERATE(te_candidate_path_instance_head, te_candidate_path, entry,
 static inline int te_sr_policy_instance_compare(const struct te_sr_policy *a,
 						const struct te_sr_policy *b)
 {
+	int cmp;
+
 	if (a->color < b->color)
 		return -1;
 
 	if (a->color > b->color)
 		return 1;
 
-	if (a->endpoint.ipaddr_v4.s_addr < b->endpoint.ipaddr_v4.s_addr)
+	if (a->endpoint.ipa_type < b->endpoint.ipa_type)
 		return -1;
 
-	if (a->endpoint.ipaddr_v4.s_addr > b->endpoint.ipaddr_v4.s_addr)
+	if (a->endpoint.ipa_type > b->endpoint.ipa_type)
 		return 1;
+
+	switch (a->endpoint.ipa_type) {
+	case IPADDR_V4:
+		if (a->endpoint.ipaddr_v4.s_addr < b->endpoint.ipaddr_v4.s_addr)
+			return -1;
+
+		if (a->endpoint.ipaddr_v4.s_addr > b->endpoint.ipaddr_v4.s_addr)
+			return 1;
+		break;
+	case IPADDR_V6:
+		cmp = memcmp(&a->endpoint.ipaddr_v6, &b->endpoint.ipaddr_v6,
+			     sizeof(struct in6_addr));
+		if (cmp < 0)
+			return -1;
+		if (cmp > 0)
+			return 1;
+		break;
+	default:
+		flog_err(EC_LIB_DEVELOPMENT,
+			 "%s: unknown endpoint address-family: %u", __func__,
+			 a->endpoint.ipa_type);
+		exit(1);
+	}
 
 	return 0;
 }

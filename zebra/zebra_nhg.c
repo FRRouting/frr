@@ -28,6 +28,7 @@
 #include "lib/mpls.h"
 #include "lib/jhash.h"
 #include "lib/debug.h"
+#include "lib/lib_errors.h"
 
 #include "zebra/connected.h"
 #include "zebra/debug.h"
@@ -1840,11 +1841,26 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	}
 
 	if (nexthop->srte_color) {
+		struct ipaddr endpoint = {0};
 		struct zebra_sr_policy *policy;
 
-		/* TODO: ipv6. */
-		policy = zebra_sr_policy_find(nexthop->srte_color,
-					      nexthop->gate.ipv4);
+		switch (afi) {
+		case AFI_IP:
+			endpoint.ipa_type = IPADDR_V4;
+			endpoint.ipaddr_v4 = nexthop->gate.ipv4;
+			break;
+		case AFI_IP6:
+			endpoint.ipa_type = IPADDR_V6;
+			endpoint.ipaddr_v6 = nexthop->gate.ipv6;
+			break;
+		default:
+			flog_err(EC_LIB_DEVELOPMENT,
+				 "%s: unknown address-family: %u", __func__,
+				 afi);
+			exit(1);
+		}
+
+		policy = zebra_sr_policy_find(nexthop->srte_color, &endpoint);
 		if (policy && policy->lsp) {
 			resolved = 0;
 			frr_each_safe(nhlfe_list, &policy->lsp->nhlfe_list,

@@ -528,7 +528,7 @@ struct zapi_labels {
 
 struct zapi_sr_policy {
     uint32_t color;
-    struct in_addr endpoint;
+    struct ipaddr endpoint;
     char name[ZEBRA_SR_POLICY_NAME_MAX_LENGTH];
     struct zapi_srte_tunnel active_segment_list;
     int status;

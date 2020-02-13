@@ -582,6 +582,43 @@ uint32_t stream_get_ipv4(struct stream *s)
 	return l;
 }
 
+bool stream_get_ipaddr(struct stream *s, struct ipaddr *ip)
+{
+	uint16_t ipa_len;
+
+	STREAM_VERIFY_SANE(s);
+
+	/* Get address type. */
+	if (STREAM_READABLE(s) < sizeof(uint16_t)) {
+		STREAM_BOUND_WARN2(s, "get ipaddr");
+		return false;
+	}
+	ip->ipa_type = stream_getw(s);
+
+	/* Get address value. */
+	switch (ip->ipa_type) {
+	case IPADDR_V4:
+		ipa_len = IPV4_MAX_BYTELEN;
+		break;
+	case IPADDR_V6:
+		ipa_len = IPV6_MAX_BYTELEN;
+		break;
+	default:
+		flog_err(EC_LIB_DEVELOPMENT,
+			 "%s: unknown ip address-family: %u", __func__,
+			 ip->ipa_type);
+		return false;
+	}
+	if (STREAM_READABLE(s) < ipa_len) {
+		STREAM_BOUND_WARN2(s, "get ipaddr");
+		return false;
+	}
+	memcpy(&ip->ip, s->data + s->getp, ipa_len);
+	s->getp += ipa_len;
+
+	return true;
+}
+
 float stream_getf(struct stream *s)
 {
 	union {
@@ -846,6 +883,27 @@ int stream_put_in_addr(struct stream *s, const struct in_addr *addr)
 	s->endp += sizeof(uint32_t);
 
 	return sizeof(uint32_t);
+}
+
+bool stream_put_ipaddr(struct stream *s, struct ipaddr *ip)
+{
+	stream_putw(s, ip->ipa_type);
+
+	switch (ip->ipa_type) {
+	case IPADDR_V4:
+		stream_put_in_addr(s, &ip->ipaddr_v4);
+		break;
+	case IPADDR_V6:
+		stream_write(s, (uint8_t *)&ip->ipaddr_v6, 16);
+		break;
+	default:
+		flog_err(EC_LIB_DEVELOPMENT,
+			 "%s: unknown ip address-family: %u", __func__,
+			 ip->ipa_type);
+		return false;
+	}
+
+	return true;
 }
 
 /* Put in_addr at location in the stream. */

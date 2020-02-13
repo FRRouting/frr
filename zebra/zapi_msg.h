@@ -101,7 +101,7 @@ extern int zsend_label_manager_connect_response(struct zserv *client,
 						vrf_id_t vrf_id,
 						unsigned short result);
 extern int zsend_sr_policy_notify_status(uint32_t color,
-					 struct in_addr endpoint,
+					 struct ipaddr *endpoint,
 					 char *name,
 					 int status);
 

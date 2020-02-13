@@ -64,15 +64,12 @@ static int path_zebra_sr_policy_notify_status(ZAPI_CALLBACK_ARGS)
 	struct zapi_sr_policy zapi_sr_policy;
 	struct te_sr_policy *te_sr_policy;
 	struct te_candidate_path *best_candidate_path = NULL;
-	struct ipaddr endpoint;
 
 	if (zapi_sr_policy_notify_status_decode(zclient->ibuf, &zapi_sr_policy))
 		return -1;
 
-	endpoint.ipaddr_v4.s_addr = zapi_sr_policy.endpoint.s_addr;
-
-	te_sr_policy = te_sr_policy_get(zapi_sr_policy.color, &endpoint);
-
+	te_sr_policy = te_sr_policy_get(zapi_sr_policy.color,
+					&zapi_sr_policy.endpoint);
 	if (!te_sr_policy)
 		return -1;
 
@@ -128,7 +125,7 @@ void path_zebra_add_sr_policy(struct te_sr_policy *sr_policy,
 {
 	struct zapi_sr_policy zp = {};
 	zp.color = sr_policy->color;
-	zp.endpoint.s_addr = sr_policy->endpoint.ipaddr_v4.s_addr;
+	zp.endpoint = sr_policy->endpoint;
 	strlcpy(zp.name, sr_policy->name, sizeof(zp.name));
 
 	struct te_segment_list_segment *segment;
@@ -153,7 +150,7 @@ void path_zebra_delete_sr_policy(struct te_sr_policy *sr_policy)
 {
 	struct zapi_sr_policy zp = {};
 	zp.color = sr_policy->color;
-	zp.endpoint.s_addr = sr_policy->endpoint.ipaddr_v4.s_addr;
+	zp.endpoint = sr_policy->endpoint;
 	strlcpy(zp.name, sr_policy->name, sizeof(zp.name));
 	zp.active_segment_list.type = ZEBRA_LSP_TE;
 	zp.active_segment_list.local_label = sr_policy->binding_sid;
