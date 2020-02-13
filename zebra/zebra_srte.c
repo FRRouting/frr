@@ -138,7 +138,7 @@ void zebra_sr_policy_install(struct zebra_sr_policy *policy)
 
 	/* Try to resolve the Binding-SID nexthops. */
 	lsp = mpls_lsp_find(policy->zvrf, zt->labels[0]);
-	if (!lsp)
+	if (!lsp || lsp->addr_family != ipaddr_family(&policy->endpoint))
 		return;
 
 	frr_each_safe(nhlfe_list, &lsp->nhlfe_list, nhlfe) {

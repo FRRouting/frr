@@ -1861,7 +1861,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		}
 
 		policy = zebra_sr_policy_find(nexthop->srte_color, &endpoint);
-		if (policy && policy->lsp) {
+		if (policy && policy->status == ZEBRA_SR_POLICY_UP) {
 			resolved = 0;
 			frr_each_safe(nhlfe_list, &policy->lsp->nhlfe_list,
 				      nhlfe) {
