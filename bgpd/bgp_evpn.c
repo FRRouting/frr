@@ -4192,6 +4192,8 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	uint32_t eth_tag;
 	mpls_label_t label; /* holds the VNI as in the packet */
 	int ret;
+	afi_t gw_afi;
+	bool is_valid_update = false;
 
 	/* Type-5 route should be 34 or 58 bytes:
 	 * RD (8), ESI (10), Eth Tag (4), IP len (1), IP (4 or 16),
@@ -4250,12 +4252,14 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 		pfx += 4;
 		memcpy(&evpn.gw_ip.ipv4, pfx, 4);
 		pfx += 4;
+		gw_afi = AF_INET;
 	} else {
 		SET_IPADDR_V6(&p.prefix.prefix_addr.ip);
 		memcpy(&p.prefix.prefix_addr.ip.ipaddr_v6, pfx, 16);
 		pfx += 16;
 		memcpy(&evpn.gw_ip.ipv6, pfx, 16);
 		pfx += 16;
+		gw_afi = AF_INET6;
 	}
 
 	/* Get the VNI (in MPLS label field). Stored as bytes here. */
@@ -4268,8 +4272,18 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	 * field
 	 */
 
+	if (attr) {
+		is_valid_update = true;
+		if (is_zero_mac(&attr->rmac) && is_zero_esi(&evpn.eth_s_id) &&
+		    is_zero_gw_ip(&evpn.gw_ip, gw_afi))
+			is_valid_update = false;
+
+		if (is_mcast_mac(&attr->rmac) || is_bcast_mac(&attr->rmac))
+			is_valid_update = false;
+	}
+
 	/* Process the route. */
-	if (attr)
+	if (is_valid_update)
 		ret = bgp_update(peer, (struct prefix *)&p, addpath_id, attr,
 				 afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
 				 &prd, &label, 1, 0, &evpn);
