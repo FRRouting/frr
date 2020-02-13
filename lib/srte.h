@@ -36,13 +36,15 @@ static inline int sr_policy_compare(const struct ipaddr *a_endpoint,
 				    const struct ipaddr *b_endpoint,
 				    uint32_t a_color, uint32_t b_color)
 {
-	if (a_color < b_color)
-		return -1;
+	int ret;
 
-	if (a_color > b_color)
+	ret = ipaddr_cmp(a_endpoint, b_endpoint);
+	if (ret < 0)
+		return -1;
+	if (ret > 0)
 		return 1;
 
-	return ipaddr_cmp(a_endpoint, b_endpoint);
+	return a_color - b_color;
 }
 
 #ifdef __cplusplus
