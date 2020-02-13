@@ -170,13 +170,10 @@ static uint8_t *rip2Globals(struct variable *v, oid name[], size_t *length,
 	switch (v->magic) {
 	case RIP2GLOBALROUTECHANGES:
 		return SNMP_INTEGER(rip->counters.route_changes);
-		break;
 	case RIP2GLOBALQUERIES:
 		return SNMP_INTEGER(rip->counters.queries);
-		break;
 	default:
 		return NULL;
-		break;
 	}
 	return NULL;
 }
@@ -373,7 +370,6 @@ static uint8_t *rip2IfStatEntry(struct variable *v, oid name[], size_t *length,
 	switch (v->magic) {
 	case RIP2IFSTATADDRESS:
 		return SNMP_IPADDRESS(addr);
-		break;
 	case RIP2IFSTATRCVBADPACKETS:
 		*var_len = sizeof(long);
 		return (uint8_t *)&ri->recv_badpackets;

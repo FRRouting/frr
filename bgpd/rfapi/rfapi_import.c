@@ -1092,7 +1092,6 @@ static int rfapiVpnBiNhEqualsPt(struct bgp_path_info *bpi,
 
 	default:
 		return 0;
-		break;
 	}
 
 	return 1;
@@ -1135,7 +1134,6 @@ static int rfapiVpnBiSamePtUn(struct bgp_path_info *bpi1,
 
 	default:
 		return 0;
-		break;
 	}
 
 	memset(&pfx_un1, 0, sizeof(pfx_un1));
@@ -1427,7 +1425,6 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 				  __func__, new->un_address.addr_family, bpi);
 			rfapi_free_next_hop_list(new);
 			return NULL;
-			break;
 		}
 	}
 

@@ -741,13 +741,10 @@ static const char *route_map_type_str(enum route_map_type type)
 	switch (type) {
 	case RMAP_PERMIT:
 		return "permit";
-		break;
 	case RMAP_DENY:
 		return "deny";
-		break;
 	case RMAP_ANY:
 		return "";
-		break;
 	}
 
 	return "";

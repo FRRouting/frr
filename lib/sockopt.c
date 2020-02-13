@@ -537,10 +537,8 @@ ifindex_t getsockopt_ifindex(int af, struct msghdr *msgh)
 	switch (af) {
 	case AF_INET:
 		return (getsockopt_ipv4_ifindex(msgh));
-		break;
 	case AF_INET6:
 		return (getsockopt_ipv6_ifindex(msgh));
-		break;
 	default:
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "getsockopt_ifindex: unknown address family %d", af);

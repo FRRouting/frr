@@ -1965,62 +1965,47 @@ static inline int afindex(afi_t afi, safi_t safi)
 		switch (safi) {
 		case SAFI_UNICAST:
 			return BGP_AF_IPV4_UNICAST;
-			break;
 		case SAFI_MULTICAST:
 			return BGP_AF_IPV4_MULTICAST;
-			break;
 		case SAFI_LABELED_UNICAST:
 			return BGP_AF_IPV4_LBL_UNICAST;
-			break;
 		case SAFI_MPLS_VPN:
 			return BGP_AF_IPV4_VPN;
-			break;
 		case SAFI_ENCAP:
 			return BGP_AF_IPV4_ENCAP;
-			break;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV4_FLOWSPEC;
 		default:
 			return BGP_AF_MAX;
-			break;
 		}
 		break;
 	case AFI_IP6:
 		switch (safi) {
 		case SAFI_UNICAST:
 			return BGP_AF_IPV6_UNICAST;
-			break;
 		case SAFI_MULTICAST:
 			return BGP_AF_IPV6_MULTICAST;
-			break;
 		case SAFI_LABELED_UNICAST:
 			return BGP_AF_IPV6_LBL_UNICAST;
-			break;
 		case SAFI_MPLS_VPN:
 			return BGP_AF_IPV6_VPN;
-			break;
 		case SAFI_ENCAP:
 			return BGP_AF_IPV6_ENCAP;
-			break;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV6_FLOWSPEC;
 		default:
 			return BGP_AF_MAX;
-			break;
 		}
 		break;
 	case AFI_L2VPN:
 		switch (safi) {
 		case SAFI_EVPN:
 			return BGP_AF_L2VPN_EVPN;
-			break;
 		default:
 			return BGP_AF_MAX;
-			break;
 		}
 	default:
 		return BGP_AF_MAX;
-		break;
 	}
 }
 

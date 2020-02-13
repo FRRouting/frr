@@ -124,7 +124,6 @@ static const char *sockunion_log(const union sockunion *su, char *buf,
 
 	case AF_INET6:
 		return inet_ntop(AF_INET6, &(su->sin6.sin6_addr), buf, len);
-		break;
 
 	default:
 		snprintf(buf, len, "af_unknown %d ", su->sa.sa_family);

@@ -1002,7 +1002,6 @@ static int vtysh_process_questionmark(const char *input, int input_len)
 		vty_out(vty, "%% Ambiguous command.\n");
 		rl_on_new_line();
 		return 0;
-		break;
 	case CMD_ERR_NO_MATCH:
 		cmd_free_strvec(vline);
 		if (describe)
@@ -1010,7 +1009,6 @@ static int vtysh_process_questionmark(const char *input, int input_len)
 		vty_out(vty, "%% There is no matched command.\n");
 		rl_on_new_line();
 		return 0;
-		break;
 	}
 
 	/* Get width of command string. */

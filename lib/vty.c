@@ -1221,7 +1221,6 @@ static int vty_telnet_option(struct vty *vty, unsigned char *buf, int nbytes)
 		vty->sb_len = 0;
 		vty->iac_sb_in_progress = 1;
 		return 0;
-		break;
 	case SE: {
 		if (!vty->iac_sb_in_progress)
 			return 0;
@@ -1261,7 +1260,6 @@ static int vty_telnet_option(struct vty *vty, unsigned char *buf, int nbytes)
 		}
 		vty->iac_sb_in_progress = 0;
 		return 0;
-		break;
 	}
 	default:
 		break;
@@ -2060,7 +2058,6 @@ static int vtysh_flush(struct vty *vty)
 		buffer_reset(vty->obuf);
 		vty_close(vty);
 		return -1;
-		break;
 	case BUFFER_EMPTY:
 		break;
 	}

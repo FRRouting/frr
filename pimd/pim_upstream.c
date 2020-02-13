@@ -1569,10 +1569,8 @@ const char *pim_upstream_state2str(enum pim_upstream_state join_state)
 	switch (join_state) {
 	case PIM_UPSTREAM_NOTJOINED:
 		return "NotJoined";
-		break;
 	case PIM_UPSTREAM_JOINED:
 		return "Joined";
-		break;
 	}
 	return "Unknown";
 }

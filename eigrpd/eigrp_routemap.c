@@ -142,11 +142,9 @@ static int eigrp_route_match_add(struct vty *vty, struct route_map_index *index,
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% Can't find rule.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_ERROR:
 		vty_out(vty, "%% Argument is malformed.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_SUCCESS:
 		/*
 		 * Intentionally not handling these cases
@@ -169,11 +167,9 @@ static int eigrp_route_match_delete(struct vty *vty,
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% Can't find rule.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_ERROR:
 		vty_out(vty, "%% Argument is malformed.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_SUCCESS:
 		/*
 		 * These cases intentionally ignored
@@ -195,7 +191,6 @@ static int eigrp_route_set_add(struct vty *vty, struct route_map_index *index,
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% Can't find rule.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_ERROR:
 		/*
 		 * rip, ripng and other protocols share the set metric command
@@ -230,11 +225,9 @@ static int eigrp_route_set_delete(struct vty *vty,
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% Can't find rule.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_ERROR:
 		vty_out(vty, "%% Argument is malformed.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_SUCCESS:
 		/*
 		 * These cases intentionally not handled

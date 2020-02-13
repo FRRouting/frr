@@ -919,7 +919,6 @@ static int vty_prefix_list_install(struct vty *vty, afi_t afi, const char *name,
 	default:
 		vty_out(vty, "%% Unrecognized AFI (%d)\n", afi);
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	}
 
 	/* If prefix has bits not under the mask, adjust it to fit */

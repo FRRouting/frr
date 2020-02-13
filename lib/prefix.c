@@ -839,13 +839,10 @@ int prefix_blen(const struct prefix *p)
 	switch (p->family) {
 	case AF_INET:
 		return IPV4_MAX_BYTELEN;
-		break;
 	case AF_INET6:
 		return IPV6_MAX_BYTELEN;
-		break;
 	case AF_ETHERNET:
 		return ETH_ALEN;
-		break;
 	}
 	return 0;
 }

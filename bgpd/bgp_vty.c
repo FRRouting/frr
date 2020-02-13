@@ -142,54 +142,42 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 		switch (safi) {
 		case SAFI_UNICAST:
 			return BGP_IPV4_NODE;
-			break;
 		case SAFI_MULTICAST:
 			return BGP_IPV4M_NODE;
-			break;
 		case SAFI_LABELED_UNICAST:
 			return BGP_IPV4L_NODE;
-			break;
 		case SAFI_MPLS_VPN:
 			return BGP_VPNV4_NODE;
-			break;
 		case SAFI_FLOWSPEC:
 			return BGP_FLOWSPECV4_NODE;
 		default:
 			/* not expected */
 			return BGP_IPV4_NODE;
-			break;
 		}
 		break;
 	case AFI_IP6:
 		switch (safi) {
 		case SAFI_UNICAST:
 			return BGP_IPV6_NODE;
-			break;
 		case SAFI_MULTICAST:
 			return BGP_IPV6M_NODE;
-			break;
 		case SAFI_LABELED_UNICAST:
 			return BGP_IPV6L_NODE;
-			break;
 		case SAFI_MPLS_VPN:
 			return BGP_VPNV6_NODE;
-			break;
 		case SAFI_FLOWSPEC:
 			return BGP_FLOWSPECV6_NODE;
 		default:
 			/* not expected */
 			return BGP_IPV4_NODE;
-			break;
 		}
 		break;
 	case AFI_L2VPN:
 		return BGP_EVPN_NODE;
-		break;
 	case AFI_UNSPEC:
 	case AFI_MAX:
 		// We should never be here but to clarify the switch statement..
 		return BGP_IPV4_NODE;
-		break;
 	}
 
 	// Impossible to happen

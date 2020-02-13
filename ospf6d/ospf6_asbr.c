@@ -1603,11 +1603,9 @@ static int route_map_command_status(struct vty *vty, enum rmap_compile_rets ret)
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "OSPF6 Can't find rule.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_ERROR:
 		vty_out(vty, "OSPF6 Argument is malformed.\n");
 		return CMD_WARNING_CONFIG_FAILED;
-		break;
 	case RMAP_COMPILE_SUCCESS:
 		break;
 	}

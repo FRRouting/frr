@@ -1231,27 +1231,21 @@ static const char *zebra_ziftype_2str(zebra_iftype_t zif_type)
 	switch (zif_type) {
 	case ZEBRA_IF_OTHER:
 		return "Other";
-		break;
 
 	case ZEBRA_IF_BRIDGE:
 		return "Bridge";
-		break;
 
 	case ZEBRA_IF_VLAN:
 		return "Vlan";
-		break;
 
 	case ZEBRA_IF_VXLAN:
 		return "Vxlan";
-		break;
 
 	case ZEBRA_IF_VRF:
 		return "VRF";
-		break;
 
 	case ZEBRA_IF_VETH:
 		return "VETH";
-		break;
 
 	case ZEBRA_IF_BOND:
 		return "bond";
@@ -1264,7 +1258,6 @@ static const char *zebra_ziftype_2str(zebra_iftype_t zif_type)
 
 	default:
 		return "Unknown";
-		break;
 	}
 }
 

@@ -1017,18 +1017,14 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 	switch (v->magic & OSPFv3WWCOLUMN) {
 	case OSPFv3WWLSDBSEQUENCE:
 		return SNMP_INTEGER(ntohl(lsa->header->seqnum));
-		break;
 	case OSPFv3WWLSDBAGE:
 		ospf6_lsa_age_current(lsa);
 		return SNMP_INTEGER(ntohs(lsa->header->age));
-		break;
 	case OSPFv3WWLSDBCHECKSUM:
 		return SNMP_INTEGER(ntohs(lsa->header->checksum));
-		break;
 	case OSPFv3WWLSDBADVERTISEMENT:
 		*var_len = ntohs(lsa->header->length);
 		return (uint8_t *)lsa->header;
-		break;
 	case OSPFv3WWLSDBTYPEKNOWN:
 		return SNMP_INTEGER(OSPF6_LSA_IS_KNOWN(lsa->header->type)
 					    ? SNMP_TRUE

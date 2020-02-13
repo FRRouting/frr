@@ -57,13 +57,10 @@ static inline const char *addr_to_a(uint8_t af, void *addr)
 
 	case AF_INET:
 		return inet_ntoa(*((struct in_addr *)addr));
-		break;
 	case AF_INET6:
 		return inet6_ntoa(*((struct in6_addr *)addr));
-		break;
 	default:
 		return "<Addr in unknown AF>";
-		break;
 	}
 }
 
@@ -92,10 +89,8 @@ static size_t af_addr_size(uint8_t af)
 
 	case AF_INET:
 		return 4;
-		break;
 	case AF_INET6:
 		return 16;
-		break;
 	default:
 		assert(0);
 		return 16;

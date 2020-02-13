@@ -131,7 +131,6 @@ int pim_encode_addr_ucast(uint8_t *buf, struct prefix *p)
 		++buf;
 		memcpy(buf, &p->u.prefix4, sizeof(struct in_addr));
 		return ucast_ipv4_encoding_len;
-		break;
 	case AF_INET6:
 		*(uint8_t *)buf = PIM_MSG_ADDRESS_FAMILY_IPV6;
 		++buf;
@@ -139,10 +138,8 @@ int pim_encode_addr_ucast(uint8_t *buf, struct prefix *p)
 		++buf;
 		memcpy(buf, &p->u.prefix6, sizeof(struct in6_addr));
 		return ucast_ipv6_encoding_len;
-		break;
 	default:
 		return 0;
-		break;
 	}
 }
 
@@ -211,10 +208,8 @@ int pim_encode_addr_group(uint8_t *buf, afi_t afi, int bidir, int scope,
 		++buf;
 		memcpy(buf, &group, sizeof(struct in_addr));
 		return group_ipv4_encoding_len;
-		break;
 	default:
 		return 0;
-		break;
 	}
 }
 
