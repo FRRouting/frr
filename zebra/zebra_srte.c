@@ -33,44 +33,8 @@ static inline int
 zebra_sr_policy_instance_compare(const struct zebra_sr_policy *a,
 				 const struct zebra_sr_policy *b)
 {
-	int cmp;
-
-	if (a->color < b->color)
-		return -1;
-
-	if (a->color > b->color)
-		return 1;
-
-	if (a->endpoint.ipa_type < b->endpoint.ipa_type)
-		return -1;
-
-	if (a->endpoint.ipa_type > b->endpoint.ipa_type)
-		return 1;
-
-	switch (a->endpoint.ipa_type) {
-	case IPADDR_V4:
-		if (a->endpoint.ipaddr_v4.s_addr < b->endpoint.ipaddr_v4.s_addr)
-			return -1;
-
-		if (a->endpoint.ipaddr_v4.s_addr > b->endpoint.ipaddr_v4.s_addr)
-			return 1;
-		break;
-	case IPADDR_V6:
-		cmp = memcmp(&a->endpoint.ipaddr_v6, &b->endpoint.ipaddr_v6,
-			     sizeof(struct in6_addr));
-		if (cmp < 0)
-			return -1;
-		if (cmp > 0)
-			return 1;
-		break;
-	default:
-		flog_err(EC_LIB_DEVELOPMENT,
-			 "%s: unknown endpoint address-family: %u", __func__,
-			 a->endpoint.ipa_type);
-		exit(1);
-	}
-
-	return 0;
+	return sr_policy_compare(&a->endpoint, &b->endpoint, a->color,
+				 b->color);
 }
 RB_GENERATE(zebra_sr_policy_instance_head, zebra_sr_policy, entry,
 	    zebra_sr_policy_instance_compare)
