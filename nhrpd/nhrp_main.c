@@ -300,15 +300,6 @@ int main(int argc, char **argv)
 	nhrp_interface_init();
 	resolver_init(master);
 
-	/*
-	 * Run with elevated capabilities, as for all netlink activity
-	 * we need privileges anyway.
-	 * The assert is for clang SA code where it does
-	 * not see the change function being set in lib
-	 */
-	assert(nhrpd_privs.change);
-	nhrpd_privs.change(ZPRIVS_RAISE);
-
 	nhrp_vrf = nhrp_get_context(NULL);
 	if_zapi_callbacks(nhrp_ifp_create, nhrp_ifp_up,
 			  nhrp_ifp_down, nhrp_ifp_destroy);

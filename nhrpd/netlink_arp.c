@@ -23,7 +23,6 @@
 #include "prefix.h"
 #include "nhrpd.h"
 #include "netlink.h"
-#include "znl.h"
 
 
 void netlink_update_binding(struct interface *ifp, union sockunion *proto,
@@ -32,120 +31,16 @@ void netlink_update_binding(struct interface *ifp, union sockunion *proto,
 	nhrp_send_zebra_nbr(proto, nbma, ifp);
 }
 
-static void netlink_log_register(int fd, int group)
-{
-	struct nlmsghdr *n;
-	struct nfgenmsg *nf;
-	struct nfulnl_msg_config_cmd cmd;
-	struct zbuf *zb = zbuf_alloc(512);
-
-	n = znl_nlmsg_push(zb, (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_CONFIG,
-			   NLM_F_REQUEST | NLM_F_ACK);
-	nf = znl_push(zb, sizeof(*nf));
-	*nf = (struct nfgenmsg){
-		.nfgen_family = AF_UNSPEC,
-		.version = NFNETLINK_V0,
-		.res_id = htons(group),
-	};
-	cmd.command = NFULNL_CFG_CMD_BIND;
-	znl_rta_push(zb, NFULA_CFG_CMD, &cmd, sizeof(cmd));
-	znl_nlmsg_complete(zb, n);
-
-	zbuf_send(zb, fd);
-	zbuf_free(zb);
-}
-
-static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb,
-				   struct nhrp_vrf *nhrp_vrf)
-{
-	struct nfgenmsg *nf;
-	struct rtattr *rta;
-	struct zbuf rtapl, pktpl;
-	struct interface *ifp;
-	struct nfulnl_msg_packet_hdr *pkthdr = NULL;
-	uint32_t *in_ndx = NULL;
-
-	nf = znl_pull(zb, sizeof(*nf));
-	if (!nf)
-		return;
-
-	memset(&pktpl, 0, sizeof(pktpl));
-	while ((rta = znl_rta_pull(zb, &rtapl)) != NULL) {
-		switch (rta->rta_type) {
-		case NFULA_PACKET_HDR:
-			pkthdr = znl_pull(&rtapl, sizeof(*pkthdr));
-			break;
-		case NFULA_IFINDEX_INDEV:
-			in_ndx = znl_pull(&rtapl, sizeof(*in_ndx));
-			break;
-		case NFULA_PAYLOAD:
-			pktpl = rtapl;
-			break;
-			/* NFULA_HWHDR exists and is supposed to contain source
-			 * hardware address. However, for ip_gre it seems to be
-			 * the nexthop destination address if the packet matches
-			 * route. */
-		}
-	}
-
-	if (!pkthdr || !in_ndx || !zbuf_used(&pktpl))
-		return;
-
-	ifp = if_lookup_by_index(htonl(*in_ndx), nhrp_vrf->vrf_id);
-	if (!ifp)
-		return;
-
-	nhrp_peer_send_indication(ifp, htons(pkthdr->hw_protocol), &pktpl);
-}
-
-static int netlink_log_recv(struct thread *t)
-{
-	uint8_t buf[ZNL_BUFFER_SIZE];
-	int fd = THREAD_FD(t);
-	struct zbuf payload, zb;
-	struct nlmsghdr *n;
-	struct nhrp_vrf *nhrp_vrf = THREAD_ARG(t);
-
-	nhrp_vrf->netlink_log_thread = NULL;
-
-	zbuf_init(&zb, buf, sizeof(buf), 0);
-	while (zbuf_recv(&zb, fd) > 0) {
-		while ((n = znl_nlmsg_pull(&zb, &payload)) != NULL) {
-			debugf(NHRP_DEBUG_KERNEL,
-			       "Netlink-log: Received msg_type %u, msg_flags %u",
-			       n->nlmsg_type, n->nlmsg_flags);
-			switch (n->nlmsg_type) {
-			case (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_PACKET:
-				netlink_log_indication(n, &payload, nhrp_vrf);
-				break;
-			}
-		}
-	}
-
-	thread_add_read(master, netlink_log_recv, nhrp_vrf, nhrp_vrf->netlink_log_fd,
-			&nhrp_vrf->netlink_log_thread);
-
-	return 0;
-}
-
 void netlink_set_nflog_group(struct nhrp_vrf *nhrp_vrf, int nlgroup)
 {
-	if (nhrp_vrf->netlink_log_fd >= 0) {
-		thread_cancel(&nhrp_vrf->netlink_log_thread);
-		close(nhrp_vrf->netlink_log_fd);
+	if (nhrp_vrf->netlink_log_fd > 0) {
+		nhrp_zebra_register_log(nhrp_vrf->vrf_id, nhrp_vrf->netlink_nflog_group, false);
 		nhrp_vrf->netlink_log_fd = -1;
 	}
 	nhrp_vrf->netlink_nflog_group = nlgroup;
 	if (nhrp_vrf->netlink_nflog_group) {
-		nhrp_vrf->netlink_log_fd = znl_open(NETLINK_NETFILTER, 0,
-						    nhrp_vrf->vrf_id);
-		if (nhrp_vrf->netlink_log_fd < 0)
-			return;
-
-		netlink_log_register(nhrp_vrf->netlink_log_fd, nlgroup);
-		thread_add_read(master, netlink_log_recv, nhrp_vrf,
-				nhrp_vrf->netlink_log_fd,
-				&nhrp_vrf->netlink_log_thread);
+		nhrp_zebra_register_log(nhrp_vrf->vrf_id, nhrp_vrf->netlink_nflog_group, true);
+		nhrp_vrf->netlink_log_fd = 1;
 	}
 }
 

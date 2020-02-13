@@ -24,6 +24,8 @@
 
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_PEER, "NHRP peer entry");
 
+#define NHRP_BUFFER_SIZE	8192
+
 struct ipv6hdr {
 	uint8_t priority_version;
 	uint8_t flow_lbl[3];
@@ -831,7 +833,7 @@ static int parse_ether_packet(struct zbuf *zb, uint16_t protocol_type,
 }
 
 void nhrp_peer_send_indication(struct interface *ifp, uint16_t protocol_type,
-			       struct zbuf *pkt)
+			       char *pkt, uint32_t len_payload)
 {
 	union sockunion dst;
 	struct zbuf *zb, payload;
@@ -840,11 +842,21 @@ void nhrp_peer_send_indication(struct interface *ifp, uint16_t protocol_type,
 	struct nhrp_packet_header *hdr;
 	struct nhrp_peer *p;
 	struct nhrp_vrf *nhrp_vrf;
+	uint8_t bufznl[NHRP_BUFFER_SIZE];
+	void *ptr;
 
 	if (!nifp->enabled)
 		return;
 
-	payload = *pkt;
+	memset(bufznl, 0, sizeof(bufznl));
+	memset(&payload, 0, sizeof(payload));
+	zbuf_init(&payload, bufznl, sizeof(bufznl), 0);
+
+	ptr = zbuf_pushn(&payload, len_payload);
+	if (!ptr)
+		return;
+	memcpy(ptr, pkt, len_payload);
+
 	if (!parse_ether_packet(&payload, protocol_type, &dst, NULL))
 		return;
 
@@ -876,7 +888,8 @@ void nhrp_peer_send_indication(struct interface *ifp, uint16_t protocol_type,
 	hdr->hop_count = 1;
 
 	/* Payload is the packet causing indication */
-	zbuf_copy(zb, pkt, zbuf_used(pkt));
+	ptr = zbuf_pushn(zb, len_payload);
+	memcpy(ptr, pkt, len_payload);
 	nhrp_packet_complete(zb, hdr);
 	nhrp_peer_send(p, zb);
 	nhrp_peer_unref(p);

@@ -236,6 +236,9 @@ typedef enum {
 	ZEBRA_GRE_UPDATE,
 	ZEBRA_GRE_SOURCE_SET,
 	ZEBRA_REDIRECT_INTERFACE,
+	ZEBRA_NFLOG_REGISTER,
+	ZEBRA_NFLOG_UNREGISTER,
+	ZEBRA_NFLOG_TRAFFIC_INDICATION,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -398,6 +401,8 @@ struct zclient {
 	void (*neighbor_removed)(ZAPI_CALLBACK_ARGS);
 	void (*neighbor_get)(ZAPI_CALLBACK_ARGS);
 	void (*gre_update)(ZAPI_CALLBACK_ARGS);
+	int (*nflog_traffic_indication)(int command, struct zclient *zclient,
+					uint16_t length, vrf_id_t vrf_id);
 };
 
 /* Zebra API message flag. */

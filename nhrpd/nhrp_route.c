@@ -388,6 +388,61 @@ void nhrp_route_init(struct nhrp_vrf *nhrp_vrf)
 	nhrp_vrf->zebra_rib[AFI_IP6] = route_table_init();
 }
 
+void nhrp_zebra_register_log(vrf_id_t vrf_id, int group, bool reg)
+{
+	struct stream *s;
+
+	if (!zclient || zclient->sock < 0)
+		return;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, reg ? ZEBRA_NFLOG_REGISTER :
+			      ZEBRA_NFLOG_UNREGISTER,
+			      vrf_id);
+	stream_putl(s, group);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
+}
+
+static int nhrp_nflog_traffic_indication(int command, struct zclient *zclient,
+					 uint16_t length, vrf_id_t vrf_id)
+{
+	ifindex_t idx;
+	struct interface *ifp;
+	uint16_t protocol_type;
+	unsigned int len_payload;
+	char buf[ZEBRA_MAX_PACKET_SIZ];
+
+	STREAM_GETL(zclient->ibuf, idx);
+	ifp = if_lookup_by_index(idx, vrf_id);
+	if (!ifp) {
+		debugf(NHRP_DEBUG_KERNEL,
+		       "%s: Rx message. Interface not found ( index %u, vr %u)",
+		       __func__, idx, vrf_id);
+		return 0;
+	}
+	STREAM_GETW(zclient->ibuf, protocol_type);
+	STREAM_GETL(zclient->ibuf, len_payload);
+	if (len_payload == 0 || len_payload > ZEBRA_MAX_PACKET_SIZ) {
+		debugf(NHRP_DEBUG_KERNEL,
+		       "%s: Rx message (interface %s): Invalid payload length %u",
+		       __func__, ifp->name, len_payload);
+		return 0;
+	}
+	memset(buf, 0, sizeof(buf));
+	STREAM_GET(buf, zclient->ibuf, len_payload);
+	debugf(NHRP_DEBUG_KERNEL,
+	       "%s: Rx message (interface %s): pkt len %d protocol type %d",
+	       __func__, ifp->name, len_payload, protocol_type);
+	nhrp_peer_send_indication(ifp, protocol_type, buf, len_payload);
+
+ stream_failure:
+	return 0;
+}
+
 void nhrp_zebra_init(void)
 {
 
@@ -401,6 +456,7 @@ void nhrp_zebra_init(void)
 	zclient->neighbor_removed = nhrp_neighbor_operation;
 	zclient->neighbor_get = nhrp_neighbor_operation;
 	zclient->gre_update = nhrp_gre_update;
+	zclient->nflog_traffic_indication = nhrp_nflog_traffic_indication;
 	zclient_init(zclient, ZEBRA_ROUTE_NHRP, 0, &nhrpd_privs);
 }
 

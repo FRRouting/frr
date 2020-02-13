@@ -3955,6 +3955,11 @@ static int zclient_read(struct thread *thread)
 			(*zclient->gre_update)(command, zclient,
 					       length, vrf_id);
 		break;
+	case ZEBRA_NFLOG_TRAFFIC_INDICATION:
+		if (zclient->nflog_traffic_indication)
+			(*zclient->nflog_traffic_indication)(command, zclient,
+							     length, vrf_id);
+		break;
 	default:
 		break;
 	}
