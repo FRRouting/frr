@@ -87,6 +87,7 @@ static inline int notifier_active(struct notifier_list *l)
 extern struct hash *nhrp_gre_list;
 
 void nhrp_zebra_init(void);
+void nhrp_zebra_register_log(vrf_id_t vrf_id, int group, bool reg);
 void nhrp_zebra_terminate(void);
 void nhrp_send_zebra_configure_arp(struct interface *ifp, int family);
 void nhrp_send_zebra_nbr(union sockunion *in,
@@ -527,7 +528,8 @@ void nhrp_peer_notify_add(struct nhrp_peer *p, struct notifier_block *,
 void nhrp_peer_notify_del(struct nhrp_peer *p, struct notifier_block *);
 void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb);
 void nhrp_peer_send(struct nhrp_peer *p, struct zbuf *zb);
-void nhrp_peer_send_indication(struct interface *ifp, uint16_t, struct zbuf *);
+void nhrp_peer_send_indication(struct interface *ifp, uint16_t p_type,
+			       char *buf, uint32_t len);
 
 int nhrp_nhs_match_ip(union sockunion *in_ip, struct nhrp_interface *nifp);
 
