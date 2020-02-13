@@ -20,10 +20,8 @@
 /* TODOS:
 	- Delete mapping from NB keys to PLSPID when an LSP is deleted either
 	  by the PCE or by NB.
-	- Revert the hacks to work around ODL not understanding a report message
-	  with the correct SRP ID number IS an acknowledgement even if the LSP
-	  operational status is different from the one received from the
-	  update message.
+	- Revert the hacks to work around ODL requiring a report with
+	  operational status DOWN when an LSP is activated.
 	- Enforce only the PCE a policy has been delegated to can update it.
 */
 
@@ -94,11 +92,8 @@ static void pcep_pcc_lookup_plspid(struct pcc_state *pcc_state,
 				   struct path *path);
 static void pcep_pcc_lookup_nbkey(struct pcc_state *pcc_state,
 				  struct path *path);
-/* FIXME: Enable this back when ODL is not complaining about update
-	acknowledgement when the report message status is not the same as the
-	one received with the update message */
-// static void pcep_pcc_push_srpid(struct pcc_state *pcc_state, struct path *path);
-// static void pcep_pcc_pop_srpid(struct pcc_state *pcc_state, struct path *path);
+static void pcep_pcc_push_srpid(struct pcc_state *pcc_state, struct path *path);
+static void pcep_pcc_pop_srpid(struct pcc_state *pcc_state, struct path *path);
 static void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 				 struct pcc_state *pcc_state,
 				 struct path *path);
@@ -418,17 +413,9 @@ void pcep_pcc_lsp_update(struct ctrl_state *ctrl_state,
 	path->sender.ipaddr_v4 = pcc_state->pce_opts->addr;
 	pcep_pcc_lookup_nbkey(pcc_state, path);
 
-	/* FIXME: Enable this back when ODL is not complaining about update
-	acknowledgement when the report message status is not the same as the
-	one received with the update message */
-	// pcep_pcc_push_srpid(pcc_state, path);
+	pcep_pcc_push_srpid(pcc_state, path);
 
 	PCEP_DEBUG("Received LSP update: %s", format_path(path));
-
-	/* FIXME: Remove this when ODL is not complaining about update
-	acknowledgement when the report message status is not the same as the
-	one received with the update message */
-	pcep_pcc_send_report(ctrl_state, pcc_state, path);
 
 	pcep_thread_update_path(ctrl_state, pcc_state, path);
 }
@@ -504,51 +491,60 @@ void pcep_pcc_lookup_nbkey(struct pcc_state *pcc_state, struct path *path)
 	path->nbkey = mapping->nbkey;
 }
 
-/* FIXME: Enable this back when ODL is not complaining about update
-	acknowledgement when the report message status is not the same as the
-	one received with the update message */
-// void pcep_pcc_push_srpid(struct pcc_state *pcc_state, struct path *path)
-// {
-// 	struct srpid_map_data *srpid_mapping;
+void pcep_pcc_push_srpid(struct pcc_state *pcc_state, struct path *path)
+{
+	struct srpid_map_data *srpid_mapping;
 
-// 	if (0 == path->srp_id) return;
+	if (0 == path->srp_id) return;
 
-// 	srpid_mapping = XCALLOC(MTYPE_PCEP, sizeof(*srpid_mapping));
-// 	srpid_mapping->plspid = path->plsp_id;
-// 	srpid_mapping->srpid = path->srp_id;
+	srpid_mapping = XCALLOC(MTYPE_PCEP, sizeof(*srpid_mapping));
+	srpid_mapping->plspid = path->plsp_id;
+	srpid_mapping->srpid = path->srp_id;
 
-// 	/* FIXME: When we have correlation between NB commits and hooks call,
-// 	   multiple concurent calls from the PCE should be supported */
-// 	assert(NULL == srpid_map_find(&pcc_state->srpid_map, srpid_mapping));
+	/* FIXME: When we have correlation between NB commits and hooks call,
+	   multiple concurent calls from the PCE should be supported */
+	assert(NULL == srpid_map_find(&pcc_state->srpid_map, srpid_mapping));
 
-// 	srpid_map_add(&pcc_state->srpid_map, srpid_mapping);
-// }
+	srpid_map_add(&pcc_state->srpid_map, srpid_mapping);
+}
 
-// void pcep_pcc_pop_srpid(struct pcc_state *pcc_state, struct path *path)
-// {
-// 	struct srpid_map_data key, *srpid_mapping;
+void pcep_pcc_pop_srpid(struct pcc_state *pcc_state, struct path *path)
+{
+	struct srpid_map_data key, *srpid_mapping;
 
-// 	key.plspid = path->plsp_id;
+	key.plspid = path->plsp_id;
 
-// 	srpid_mapping = srpid_map_find(&pcc_state->srpid_map, &key);
-// 	if (NULL == srpid_mapping) return;
+	srpid_mapping = srpid_map_find(&pcc_state->srpid_map, &key);
+	if (NULL == srpid_mapping) return;
 
-// 	path->srp_id = srpid_mapping->srpid;
-// 	srpid_map_del(&pcc_state->srpid_map, srpid_mapping);
-// 	XFREE(MTYPE_PCEP, srpid_mapping);
-// }
+	path->srp_id = srpid_mapping->srpid;
+	srpid_map_del(&pcc_state->srpid_map, srpid_mapping);
+	XFREE(MTYPE_PCEP, srpid_mapping);
+}
 
 void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 			  struct pcc_state *pcc_state, struct path *path)
 {
 	double_linked_list *objs;
 	struct pcep_message *report;
+	enum pcep_lsp_operational_status orig_status;
 
 	pcep_pcc_lookup_plspid(pcc_state, path);
-	/* FIXME: Enable this back when ODL is not complaining about update
-	acknowledgement when the report message status is not the same as the
-	one received with the update message */
-	// pcep_pcc_pop_srpid(pcc_state, path);
+	pcep_pcc_pop_srpid(pcc_state, path);
+
+	/* FIXME: Remove this back when ODL is not expecting a DOWN status
+	anymore when installing an LSP */
+	if ((0 != path->srp_id)
+	    && (PCEP_LSP_OPERATIONAL_DOWN != path->status)) {
+		orig_status = path->status;
+		path->status = PCEP_LSP_OPERATIONAL_DOWN;
+		PCEP_DEBUG("Sending path (ODL FIX): %s", format_path(path));
+		objs = pcep_lib_format_path(path);
+		report = pcep_msg_create_report(objs);
+		pcep_pcc_send(ctrl_state, pcc_state, report);
+		path->status = orig_status;
+		path->srp_id = 0;
+	}
 
 	PCEP_DEBUG("Sending path: %s", format_path(path));
 	objs = pcep_lib_format_path(path);
