@@ -51,7 +51,7 @@ static inline int te_segment_list_segment_instance_compare(
 	const struct te_segment_list_segment *a,
 	const struct te_segment_list_segment *b)
 {
-	return (a->index < b->index ? -1 : a->index > b->index);
+	return a->index - b->index;
 }
 RB_GENERATE(te_segment_list_segment_instance_head, te_segment_list_segment,
 	    entry, te_segment_list_segment_instance_compare)
@@ -74,8 +74,7 @@ static inline int
 te_candidate_path_instance_compare(const struct te_candidate_path *a,
 				   const struct te_candidate_path *b)
 {
-	return (a->preference < b->preference ? -1
-					      : a->preference > b->preference);
+	return a->preference - b->preference;
 }
 RB_GENERATE(te_candidate_path_instance_head, te_candidate_path, entry,
 	    te_candidate_path_instance_compare)
