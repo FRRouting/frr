@@ -210,7 +210,8 @@ void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy,
 	struct te_candidate_path *best_candidate_path = NULL;
 	struct te_candidate_path *candidate_path = NULL;
 
-	/* Figure out if the triggering candidate path was deleted */
+	/* Figure out if the triggering candidate path was deleted,
+	   because in this case, the hook has already been called */
 	if (changed_candidate_path) {
 		candidate_path = find_candidate_path(te_sr_policy,
 		                        changed_candidate_path->preference);
@@ -231,7 +232,7 @@ void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy,
 	if (!best_candidate_path
 	    || RB_EMPTY(te_candidate_path_instance_head,
 			&te_sr_policy->candidate_paths)) {
-		/* delete the LSP from Zebra */
+		/* Delete the LSP from Zebra */
 		te_sr_policy->best_candidate_path_key = 0;
 		path_zebra_delete_sr_policy(te_sr_policy);
 		/* We still want to notify the changed candidate path */
@@ -265,6 +266,10 @@ void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy,
 			former_best_candidate_path->is_best_candidate_path
 				= false;
 		}
+
+		/* Delete the former candidate path LSP from Zebra */
+		te_sr_policy->best_candidate_path_key = 0;
+		path_zebra_delete_sr_policy(te_sr_policy);
 	}
 
 	best_candidate_path->is_best_candidate_path = true;
