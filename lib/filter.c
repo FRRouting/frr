@@ -145,16 +145,12 @@ static const char *filter_type_str(struct filter *filter)
 	switch (filter->type) {
 	case FILTER_PERMIT:
 		return "permit";
-		break;
 	case FILTER_DENY:
 		return "deny";
-		break;
 	case FILTER_DYNAMIC:
 		return "dynamic";
-		break;
 	default:
 		return "";
-		break;
 	}
 }
 

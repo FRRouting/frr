@@ -373,14 +373,11 @@ int pim_rpf_addr_is_inaddr_none(struct pim_rpf *rpf)
 	switch (rpf->rpf_addr.family) {
 	case AF_INET:
 		return rpf->rpf_addr.u.prefix4.s_addr == INADDR_NONE;
-		break;
 	case AF_INET6:
 		zlog_warn("%s: v6 Unimplmeneted", __PRETTY_FUNCTION__);
 		return 1;
-		break;
 	default:
 		return 0;
-		break;
 	}
 
 	return 0;
@@ -391,14 +388,11 @@ int pim_rpf_addr_is_inaddr_any(struct pim_rpf *rpf)
 	switch (rpf->rpf_addr.family) {
 	case AF_INET:
 		return rpf->rpf_addr.u.prefix4.s_addr == INADDR_ANY;
-		break;
 	case AF_INET6:
 		zlog_warn("%s: v6 Unimplmented", __PRETTY_FUNCTION__);
 		return 1;
-		break;
 	default:
 		return 0;
-		break;
 	}
 
 	return 0;

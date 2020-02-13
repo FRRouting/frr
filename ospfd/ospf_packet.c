@@ -3214,7 +3214,6 @@ int ospf_read(struct thread *thread)
 		switch (ret) {
 		case OSPF_READ_ERROR:
 			return -1;
-			break;
 		case OSPF_READ_CONTINUE:
 			break;
 		}

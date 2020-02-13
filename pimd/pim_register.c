@@ -141,7 +141,6 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	case PIM_REG_NOINFO:
 	case PIM_REG_PRUNE:
 		return 0;
-		break;
 	case PIM_REG_JOIN:
 		upstream->reg_state = PIM_REG_PRUNE;
 		pim_channel_del_oif(upstream->channel_oil, pim->regiface,
@@ -154,7 +153,6 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 		upstream->reg_state = PIM_REG_PRUNE;
 		pim_upstream_start_register_stop_timer(upstream, 0);
 		return 0;
-		break;
 	}
 
 	return 0;

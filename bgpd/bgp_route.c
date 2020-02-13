@@ -8445,70 +8445,48 @@ static const char *bgp_path_selection_reason2str(
 	switch (reason) {
 	case bgp_path_selection_none:
 		return "Nothing to Select";
-		break;
 	case bgp_path_selection_first:
 		return "First path received";
-		break;
 	case bgp_path_selection_evpn_sticky_mac:
 		return "EVPN Sticky Mac";
-		break;
 	case bgp_path_selection_evpn_seq:
 		return "EVPN sequence number";
-		break;
 	case bgp_path_selection_evpn_lower_ip:
 		return "EVPN lower IP";
-		break;
 	case bgp_path_selection_weight:
 		return "Weight";
-		break;
 	case bgp_path_selection_local_pref:
 		return "Local Pref";
-		break;
 	case bgp_path_selection_local_route:
 		return "Local Route";
-		break;
 	case bgp_path_selection_confed_as_path:
 		return "Confederation based AS Path";
-		break;
 	case bgp_path_selection_as_path:
 		return "AS Path";
-		break;
 	case bgp_path_selection_origin:
 		return "Origin";
-		break;
 	case bgp_path_selection_med:
 		return "MED";
-		break;
 	case bgp_path_selection_peer:
 		return "Peer Type";
-		break;
 	case bgp_path_selection_confed:
 		return "Confed Peer Type";
-		break;
 	case bgp_path_selection_igp_metric:
 		return "IGP Metric";
-		break;
 	case bgp_path_selection_older:
 		return "Older Path";
-		break;
 	case bgp_path_selection_router_id:
 		return "Router ID";
-		break;
 	case bgp_path_selection_cluster_length:
 		return "Cluser length";
-		break;
 	case bgp_path_selection_stale:
 		return "Path Staleness";
-		break;
 	case bgp_path_selection_local_configured:
 		return "Locally configured route";
-		break;
 	case bgp_path_selection_neighbor_ip:
 		return "Neighbor IP";
-		break;
 	case bgp_path_selection_default:
 		return "Nothing left to compare";
-		break;
 	}
 	return "Invalid (internal error)";
 }

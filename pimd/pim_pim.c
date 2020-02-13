@@ -513,7 +513,6 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 		}
 
 			return -1;
-			break;
 		default:
 			if (PIM_DEBUG_PIM_PACKETS) {
 				pim_inet4_dump("<dst?>", ip->ip_dst, dst_str,
@@ -524,7 +523,6 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 					errno, safe_strerror(errno));
 			}
 			return -1;
-			break;
 		}
 	}
 

@@ -370,34 +370,28 @@ const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state,
 			return "SGRpt(NI)";
 		else
 			return "NOINFO";
-		break;
 	case PIM_IFJOIN_JOIN:
 		return "JOIN";
-		break;
 	case PIM_IFJOIN_PRUNE:
 		if (PIM_IF_FLAG_TEST_S_G_RPT(flags))
 			return "SGRpt(P)";
 		else
 			return "PRUNE";
-		break;
 	case PIM_IFJOIN_PRUNE_PENDING:
 		if (PIM_IF_FLAG_TEST_S_G_RPT(flags))
 			return "SGRpt(PP)";
 		else
 			return "PRUNEP";
-		break;
 	case PIM_IFJOIN_PRUNE_TMP:
 		if (PIM_IF_FLAG_TEST_S_G_RPT(flags))
 			return "SGRpt(P')";
 		else
 			return "PRUNET";
-		break;
 	case PIM_IFJOIN_PRUNE_PENDING_TMP:
 		if (PIM_IF_FLAG_TEST_S_G_RPT(flags))
 			return "SGRpt(PP')";
 		else
 			return "PRUNEPT";
-		break;
 	}
 
 	return "ifjoin_bad_state";

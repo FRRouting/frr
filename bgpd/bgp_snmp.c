@@ -528,10 +528,8 @@ static uint8_t *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 	switch (v->magic) {
 	case BGPPEERIDENTIFIER:
 		return SNMP_IPADDRESS(peer->remote_id);
-		break;
 	case BGPPEERSTATE:
 		return SNMP_INTEGER(peer->status);
-		break;
 	case BGPPEERADMINSTATUS:
 		*write_method = write_bgpPeerTable;
 #define BGP_PeerAdmin_stop  1
@@ -540,108 +538,87 @@ static uint8_t *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 			return SNMP_INTEGER(BGP_PeerAdmin_stop);
 		else
 			return SNMP_INTEGER(BGP_PeerAdmin_start);
-		break;
 	case BGPPEERNEGOTIATEDVERSION:
 		return SNMP_INTEGER(BGP_VERSION_4);
-		break;
 	case BGPPEERLOCALADDR:
 		if (peer->su_local)
 			return SNMP_IPADDRESS(peer->su_local->sin.sin_addr);
 		else
 			return SNMP_IPADDRESS(bgp_empty_addr);
-		break;
 	case BGPPEERLOCALPORT:
 		if (peer->su_local)
 			return SNMP_INTEGER(
 				ntohs(peer->su_local->sin.sin_port));
 		else
 			return SNMP_INTEGER(0);
-		break;
 	case BGPPEERREMOTEADDR:
 		if (peer->su_remote)
 			return SNMP_IPADDRESS(peer->su_remote->sin.sin_addr);
 		else
 			return SNMP_IPADDRESS(bgp_empty_addr);
-		break;
 	case BGPPEERREMOTEPORT:
 		if (peer->su_remote)
 			return SNMP_INTEGER(
 				ntohs(peer->su_remote->sin.sin_port));
 		else
 			return SNMP_INTEGER(0);
-		break;
 	case BGPPEERREMOTEAS:
 		return SNMP_INTEGER(peer->as);
-		break;
 	case BGPPEERINUPDATES:
 		ui = atomic_load_explicit(&peer->update_in,
 					  memory_order_relaxed);
 		return SNMP_INTEGER(ui);
-		break;
 	case BGPPEEROUTUPDATES:
 		uo = atomic_load_explicit(&peer->update_out,
 					  memory_order_relaxed);
 		return SNMP_INTEGER(uo);
-		break;
 	case BGPPEERINTOTALMESSAGES:
 		return SNMP_INTEGER(PEER_TOTAL_RX(peer));
-		break;
 	case BGPPEEROUTTOTALMESSAGES:
 		return SNMP_INTEGER(PEER_TOTAL_TX(peer));
-		break;
 	case BGPPEERLASTERROR: {
 		static uint8_t lasterror[2];
 		lasterror[0] = peer->notify.code;
 		lasterror[1] = peer->notify.subcode;
 		*var_len = 2;
 		return (uint8_t *)&lasterror;
-	} break;
+	}
 	case BGPPEERFSMESTABLISHEDTRANSITIONS:
 		return SNMP_INTEGER(peer->established);
-		break;
 	case BGPPEERFSMESTABLISHEDTIME:
 		if (peer->uptime == 0)
 			return SNMP_INTEGER(0);
 		else
 			return SNMP_INTEGER(bgp_clock() - peer->uptime);
-		break;
 	case BGPPEERCONNECTRETRYINTERVAL:
 		*write_method = write_bgpPeerTable;
 		return SNMP_INTEGER(peer->v_connect);
-		break;
 	case BGPPEERHOLDTIME:
 		return SNMP_INTEGER(peer->v_holdtime);
-		break;
 	case BGPPEERKEEPALIVE:
 		return SNMP_INTEGER(peer->v_keepalive);
-		break;
 	case BGPPEERHOLDTIMECONFIGURED:
 		*write_method = write_bgpPeerTable;
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
 			return SNMP_INTEGER(peer->holdtime);
 		else
 			return SNMP_INTEGER(peer->v_holdtime);
-		break;
 	case BGPPEERKEEPALIVECONFIGURED:
 		*write_method = write_bgpPeerTable;
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
 			return SNMP_INTEGER(peer->keepalive);
 		else
 			return SNMP_INTEGER(peer->v_keepalive);
-		break;
 	case BGPPEERMINROUTEADVERTISEMENTINTERVAL:
 		*write_method = write_bgpPeerTable;
 		return SNMP_INTEGER(peer->v_routeadv);
-		break;
 	case BGPPEERINUPDATEELAPSEDTIME:
 		if (peer->update_time == 0)
 			return SNMP_INTEGER(0);
 		else
 			return SNMP_INTEGER(bgp_clock() - peer->update_time);
-		break;
 	default:
 		return NULL;
-		break;
 	}
 	return NULL;
 }
@@ -834,40 +811,28 @@ static uint8_t *bgp4PathAttrTable(struct variable *v, oid name[],
 	switch (v->magic) {
 	case BGP4PATHATTRPEER: /* 1 */
 		return SNMP_IPADDRESS(path->peer->su.sin.sin_addr);
-		break;
 	case BGP4PATHATTRIPADDRPREFIXLEN: /* 2 */
 		return SNMP_INTEGER(addr.prefixlen);
-		break;
 	case BGP4PATHATTRIPADDRPREFIX: /* 3 */
 		return SNMP_IPADDRESS(addr.prefix);
-		break;
 	case BGP4PATHATTRORIGIN: /* 4 */
 		return SNMP_INTEGER(path->attr->origin);
-		break;
 	case BGP4PATHATTRASPATHSEGMENT: /* 5 */
 		return aspath_snmp_pathseg(path->attr->aspath, var_len);
-		break;
 	case BGP4PATHATTRNEXTHOP: /* 6 */
 		return SNMP_IPADDRESS(path->attr->nexthop);
-		break;
 	case BGP4PATHATTRMULTIEXITDISC: /* 7 */
 		return SNMP_INTEGER(path->attr->med);
-		break;
 	case BGP4PATHATTRLOCALPREF: /* 8 */
 		return SNMP_INTEGER(path->attr->local_pref);
-		break;
 	case BGP4PATHATTRATOMICAGGREGATE: /* 9 */
 		return SNMP_INTEGER(1);
-		break;
 	case BGP4PATHATTRAGGREGATORAS: /* 10 */
 		return SNMP_INTEGER(path->attr->aggregator_as);
-		break;
 	case BGP4PATHATTRAGGREGATORADDR: /* 11 */
 		return SNMP_IPADDRESS(path->attr->aggregator_addr);
-		break;
 	case BGP4PATHATTRCALCLOCALPREF: /* 12 */
 		return SNMP_INTEGER(-1);
-		break;
 	case BGP4PATHATTRBEST: /* 13 */
 #define BGP4_PathAttrBest_false 1
 #define BGP4_PathAttrBest_true  2
@@ -875,11 +840,9 @@ static uint8_t *bgp4PathAttrTable(struct variable *v, oid name[],
 			return SNMP_INTEGER(BGP4_PathAttrBest_true);
 		else
 			return SNMP_INTEGER(BGP4_PathAttrBest_false);
-		break;
 	case BGP4PATHATTRUNKNOWN: /* 14 */
 		*var_len = 0;
 		return NULL;
-		break;
 	}
 	return NULL;
 }

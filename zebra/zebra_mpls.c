@@ -1244,7 +1244,6 @@ static zebra_nhlfe_t *nhlfe_add(zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
 		nexthop_free(nexthop);
 		XFREE(MTYPE_NHLFE, nhlfe);
 		return NULL;
-		break;
 	}
 
 	nhlfe->nexthop = nexthop;

@@ -269,7 +269,6 @@ static int zclient_flush_data(struct thread *thread)
 			"%s: buffer_flush_available failed on zclient fd %d, closing",
 			__func__, zclient->sock);
 		return zclient_failed(zclient);
-		break;
 	case BUFFER_PENDING:
 		zclient->t_write = NULL;
 		thread_add_write(zclient->master, zclient_flush_data, zclient,
@@ -293,7 +292,6 @@ int zclient_send_message(struct zclient *zclient)
 			 "%s: buffer_write failed to zclient fd %d, closing",
 			 __func__, zclient->sock);
 		return zclient_failed(zclient);
-		break;
 	case BUFFER_EMPTY:
 		THREAD_OFF(zclient->t_write);
 		break;
