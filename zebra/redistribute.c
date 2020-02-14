@@ -339,9 +339,10 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
-			"%s: client proto %s afi=%d, wants %s, vrf %u, instance=%d",
+			"%s: client proto %s afi=%d, wants %s, vrf %s(%u), instance=%d",
 			__func__, zebra_route_string(client->proto), afi,
-			zebra_route_string(type), zvrf_id(zvrf), instance);
+			zebra_route_string(type), VRF_LOGNAME(zvrf->vrf),
+			zvrf_id(zvrf), instance);
 
 	if (afi == 0 || afi >= AFI_MAX) {
 		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
@@ -368,8 +369,10 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 		if (!vrf_bitmap_check(client->redist[afi][type],
 				      zvrf_id(zvrf))) {
 			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s: setting vrf %u redist bitmap",
-					   __func__, zvrf_id(zvrf));
+				zlog_debug(
+					"%s: setting vrf %s(%u) redist bitmap",
+					__func__, VRF_LOGNAME(zvrf->vrf),
+					zvrf_id(zvrf));
 			vrf_bitmap_set(client->redist[afi][type],
 				       zvrf_id(zvrf));
 			zebra_redistribute(client, type, 0, zvrf_id(zvrf), afi);

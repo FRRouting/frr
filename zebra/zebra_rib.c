@@ -2408,13 +2408,14 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	char srcaddr[PREFIX_STRLEN];
 	char nhname[PREFIX_STRLEN];
 	struct nexthop *nexthop;
+	struct vrf *vrf = vrf_lookup_by_id(re->vrf_id);
 
-	zlog_debug("%s: dumping RE entry %p for %s%s%s vrf %u", func,
+	zlog_debug("%s: dumping RE entry %p for %s%s%s vrf %s(%u)", func,
 		   (const void *)re, prefix2str(pp, straddr, sizeof(straddr)),
 		   is_srcdst ? " from " : "",
 		   is_srcdst ? prefix2str(src_pp, srcaddr, sizeof(srcaddr))
 			     : "",
-		   re->vrf_id);
+		   VRF_LOGNAME(vrf), re->vrf_id);
 	zlog_debug("%s: uptime == %lu, type == %u, instance == %d, table == %d",
 		   straddr, (unsigned long)re->uptime, re->type, re->instance,
 		   re->table);

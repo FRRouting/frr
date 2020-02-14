@@ -617,11 +617,14 @@ void if_add_update(struct interface *ifp)
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE);
 
 		if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON) {
-			if (IS_ZEBRA_DEBUG_KERNEL)
+			if (IS_ZEBRA_DEBUG_KERNEL) {
 				zlog_debug(
-					"interface %s vrf %u index %d is shutdown. "
+					"interface %s vrf %s(%u) index %d is shutdown. "
 					"Won't wake it up.",
-					ifp->name, ifp->vrf_id, ifp->ifindex);
+					ifp->name, VRF_LOGNAME(zvrf->vrf),
+					ifp->vrf_id, ifp->ifindex);
+			}
+
 			return;
 		}
 
@@ -629,13 +632,15 @@ void if_add_update(struct interface *ifp)
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"interface %s vrf %u index %d becomes active.",
-				ifp->name, ifp->vrf_id, ifp->ifindex);
+				"interface %s vrf %s(%u) index %d becomes active.",
+				ifp->name, VRF_LOGNAME(zvrf->vrf), ifp->vrf_id,
+				ifp->ifindex);
 
 	} else {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("interface %s vrf %u index %d is added.",
-				   ifp->name, ifp->vrf_id, ifp->ifindex);
+			zlog_debug("interface %s vrf %s(%u) index %d is added.",
+				   ifp->name, VRF_LOGNAME(zvrf->vrf),
+				   ifp->vrf_id, ifp->ifindex);
 	}
 }
 
@@ -774,10 +779,12 @@ void if_delete_update(struct interface *ifp)
 	struct zebra_if *zif;
 
 	if (if_is_up(ifp)) {
+		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
 		flog_err(
 			EC_LIB_INTERFACE,
-			"interface %s vrf %u index %d is still up while being deleted.",
-			ifp->name, ifp->vrf_id, ifp->ifindex);
+			"interface %s vrf %s(%u) index %d is still up while being deleted.",
+			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex);
 		return;
 	}
 
@@ -787,9 +794,13 @@ void if_delete_update(struct interface *ifp)
 	/* Mark interface as inactive */
 	UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE);
 
-	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("interface %s vrf %u index %d is now inactive.",
-			   ifp->name, ifp->vrf_id, ifp->ifindex);
+	if (IS_ZEBRA_DEBUG_KERNEL) {
+		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
+		zlog_debug("interface %s vrf %s(%u) index %d is now inactive.",
+			   ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id,
+			   ifp->ifindex);
+	}
 
 	/* Delete connected routes from the kernel. */
 	if_delete_connected(ifp);
@@ -1863,7 +1874,8 @@ DEFUN (show_interface_desc_vrf_all,
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
 		if (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
-			vty_out(vty, "\n\tVRF %u\n\n", vrf->vrf_id);
+			vty_out(vty, "\n\tVRF %s(%u)\n\n", VRF_LOGNAME(vrf),
+				vrf->vrf_id);
 			if_show_description(vty, vrf->vrf_id);
 		}
 

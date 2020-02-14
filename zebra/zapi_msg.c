@@ -1946,6 +1946,7 @@ static void zread_table_manager_connect(struct zserv *client,
 	struct stream *s;
 	uint8_t proto;
 	uint16_t instance;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
 	s = msg;
 
@@ -1961,8 +1962,9 @@ static void zread_table_manager_connect(struct zserv *client,
 		zsend_table_manager_connect_response(client, vrf_id, 1);
 		return;
 	}
-	zlog_notice("client %d with vrf %u instance %u connected as %s",
-		    client->sock, vrf_id, instance, zebra_route_string(proto));
+	zlog_notice("client %d with vrf %s(%u) instance %u connected as %s",
+		    client->sock, VRF_LOGNAME(vrf), vrf_id, instance,
+		    zebra_route_string(proto));
 	client->proto = proto;
 	client->instance = instance;
 
