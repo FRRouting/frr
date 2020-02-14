@@ -114,7 +114,7 @@ void path_zebra_init(struct thread_master *master)
 {
 	/* Initialize asynchronous zclient. */
 	zclient = zclient_new(master, &zclient_options_default);
-	zclient_init(zclient, ZEBRA_ROUTE_TE, 0, &pathd_privs);
+	zclient_init(zclient, ZEBRA_ROUTE_SRTE, 0, &pathd_privs);
 	zclient->zebra_connected = path_zebra_connected;
 	zclient->sr_policy_notify_status = path_zebra_sr_policy_notify_status;
 }
@@ -128,7 +128,7 @@ void path_zebra_add_sr_policy(struct te_sr_policy *sr_policy,
 	strlcpy(zp.name, sr_policy->name, sizeof(zp.name));
 
 	struct te_segment_list_segment *segment;
-	zp.active_segment_list.type = ZEBRA_LSP_TE;
+	zp.active_segment_list.type = ZEBRA_LSP_SRTE;
 	zp.active_segment_list.local_label = sr_policy->binding_sid;
 	zp.active_segment_list.label_num = 0;
 
@@ -151,7 +151,7 @@ void path_zebra_delete_sr_policy(struct te_sr_policy *sr_policy)
 	zp.color = sr_policy->color;
 	zp.endpoint = sr_policy->endpoint;
 	strlcpy(zp.name, sr_policy->name, sizeof(zp.name));
-	zp.active_segment_list.type = ZEBRA_LSP_TE;
+	zp.active_segment_list.type = ZEBRA_LSP_SRTE;
 	zp.active_segment_list.local_label = sr_policy->binding_sid;
 	zp.active_segment_list.label_num = 0;
 

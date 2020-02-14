@@ -2178,7 +2178,7 @@ int zsend_sr_policy_notify_status(uint32_t color, struct ipaddr *endpoint,
 	struct zserv *client;
 	struct stream *s;
 
-	client = zserv_find_client(ZEBRA_ROUTE_TE, 0);
+	client = zserv_find_client(ZEBRA_ROUTE_SRTE, 0);
 	if (!client) {
 		zlog_debug(
 			"Not notifying pathd about changed policy status to %d.",
