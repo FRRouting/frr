@@ -121,8 +121,8 @@ struct te_sr_policy {
 	/* Binding SID */
 	mpls_label_t binding_sid;
 
-	/* Active Candidate Path Key */
-	uint32_t best_candidate_path_key;
+	/* Best candidate path. */
+	struct te_candidate_path *best_candidate;
 
 	/* Operational Status of the policy */
 	enum te_policy_status status;

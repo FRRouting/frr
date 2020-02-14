@@ -45,8 +45,7 @@ static void path_zebra_connected(struct zclient *zclient)
 		struct te_candidate_path *candidate;
 		struct te_segment_list *te_segment_list;
 
-		candidate = find_candidate_path(
-			te_sr_policy, te_sr_policy->best_candidate_path_key);
+		candidate = te_sr_policy->best_candidate;
 		if (!candidate)
 			continue;
 
@@ -63,7 +62,7 @@ static int path_zebra_sr_policy_notify_status(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_sr_policy zapi_sr_policy;
 	struct te_sr_policy *te_sr_policy;
-	struct te_candidate_path *best_candidate_path = NULL;
+	struct te_candidate_path *best_candidate_path;
 
 	if (zapi_sr_policy_notify_status_decode(zclient->ibuf, &zapi_sr_policy))
 		return -1;
@@ -73,9 +72,7 @@ static int path_zebra_sr_policy_notify_status(ZAPI_CALLBACK_ARGS)
 	if (!te_sr_policy)
 		return -1;
 
-	best_candidate_path = find_candidate_path(
-		te_sr_policy, te_sr_policy->best_candidate_path_key);
-
+	best_candidate_path = te_sr_policy->best_candidate;
 	if (!best_candidate_path)
 		return -1;
 

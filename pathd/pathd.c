@@ -221,7 +221,7 @@ void te_sr_policy_candidate_path_set_active(
 	    || RB_EMPTY(te_candidate_path_instance_head,
 			&te_sr_policy->candidate_paths)) {
 		/* Delete the LSP from Zebra */
-		te_sr_policy->best_candidate_path_key = 0;
+		te_sr_policy->best_candidate = NULL;
 		path_zebra_delete_sr_policy(te_sr_policy);
 		/* We still want to notify the changed candidate path */
 		if (changed_candidate_path && !was_deleted) {
@@ -230,10 +230,8 @@ void te_sr_policy_candidate_path_set_active(
 		return;
 	}
 
-	if (te_sr_policy->best_candidate_path_key > 0) {
-		former_best_candidate_path = find_candidate_path(
-			te_sr_policy, te_sr_policy->best_candidate_path_key);
-	}
+	if (te_sr_policy->best_candidate)
+		former_best_candidate_path = te_sr_policy->best_candidate;
 
 	if (former_best_candidate_path) {
 		if (former_best_candidate_path == best_candidate_path) {
@@ -257,12 +255,12 @@ void te_sr_policy_candidate_path_set_active(
 		}
 
 		/* Delete the former candidate path LSP from Zebra */
-		te_sr_policy->best_candidate_path_key = 0;
+		te_sr_policy->best_candidate = NULL;
 		path_zebra_delete_sr_policy(te_sr_policy);
 	}
 
 	best_candidate_path->is_best_candidate_path = true;
-	te_sr_policy->best_candidate_path_key = best_candidate_path->preference;
+	te_sr_policy->best_candidate = best_candidate_path;
 
 	struct te_segment_list *te_segment_list_found =
 		te_segment_list_get(best_candidate_path->segment_list_name);
