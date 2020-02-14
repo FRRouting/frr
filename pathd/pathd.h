@@ -19,12 +19,6 @@
 #ifndef _FRR_PATHD_H_
 #define _FRR_PATHD_H_
 
-/* maximum length of an IP string including null byte */
-#define MAX_IP_STR_LENGTH 46
-
-/* maximum amount of candidate paths */
-#define MAX_SR_POLICY_CANDIDATE_PATH_N 100
-
 #include "lib/mpls.h"
 #include "lib/ipaddr.h"
 #include "lib/srte.h"
