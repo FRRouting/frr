@@ -1213,6 +1213,7 @@ struct peer {
 #define PEER_DOWN_NOAFI_ACTIVATED       30 /* No AFI/SAFI activated for peer */
 #define PEER_DOWN_AS_SETS_REJECT        31 /* Reject routes with AS_SET */
 #define PEER_DOWN_WAITING_OPEN          32 /* Waiting for open to succeed */
+#define PEER_DOWN_PFX_COUNT             33 /* Reached received prefix count */
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
 	 * a new value to the last_reset reason
