@@ -107,6 +107,15 @@ void te_segment_list_del(struct te_segment_list *te_segment_list)
 	XFREE(MTYPE_PATH_SEGMENT_LIST, te_segment_list);
 }
 
+struct te_segment_list *te_segment_list_get(const char *name)
+{
+	struct te_segment_list te_segment_list_search;
+	strlcpy(te_segment_list_search.name, name,
+		sizeof(te_segment_list_search.name));
+	return RB_FIND(te_segment_list_instance_head,
+		       &te_segment_list_instances, &te_segment_list_search);
+}
+
 struct te_segment_list_segment *
 te_segment_list_segment_add(struct te_segment_list *te_segment_list,
 			    uint32_t index)
@@ -168,6 +177,60 @@ void te_sr_policy_del(struct te_sr_policy *te_sr_policy)
 
 	RB_REMOVE(te_sr_policy_instance_head, &te_sr_policy_instances,
 		  te_sr_policy);
+}
+
+struct te_sr_policy *te_sr_policy_get(uint32_t color, struct ipaddr *endpoint)
+{
+	struct te_sr_policy te_sr_policy_search;
+	struct te_sr_policy *te_sr_policy_found;
+
+	te_sr_policy_search.color = color;
+	te_sr_policy_search.endpoint = *endpoint;
+
+	te_sr_policy_found =
+		RB_FIND(te_sr_policy_instance_head, &te_sr_policy_instances,
+			&te_sr_policy_search);
+
+	return te_sr_policy_found;
+}
+
+struct te_candidate_path *
+te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
+				uint32_t preference)
+{
+	struct te_candidate_path *te_candidate_path =
+		XCALLOC(MTYPE_PATH_SR_CANDIDATE, sizeof(*te_candidate_path));
+	te_candidate_path->preference = preference;
+	te_candidate_path->sr_policy = te_sr_policy;
+	te_candidate_path->created = true;
+
+	RB_INSERT(te_candidate_path_instance_head,
+		  &te_sr_policy->candidate_paths, te_candidate_path);
+
+	return te_candidate_path;
+}
+
+void te_sr_policy_candidate_path_delete(
+	struct te_candidate_path *te_candidate_path)
+{
+	struct te_sr_policy *te_sr_policy = te_candidate_path->sr_policy;
+
+	hook_call(pathd_candidate_removed, te_candidate_path);
+
+	RB_REMOVE(te_candidate_path_instance_head,
+		  &te_sr_policy->candidate_paths, te_candidate_path);
+
+	XFREE(MTYPE_PATH_SR_CANDIDATE, te_candidate_path);
+}
+
+struct te_candidate_path *find_candidate_path(struct te_sr_policy *te_sr_policy,
+					      uint32_t preference)
+{
+	struct te_candidate_path te_candidate_path_search;
+	te_candidate_path_search.preference = preference;
+	return RB_FIND(te_candidate_path_instance_head,
+		       &te_sr_policy->candidate_paths,
+		       &te_candidate_path_search);
 }
 
 void te_sr_policy_candidate_path_set_active(
@@ -257,69 +320,6 @@ void te_sr_policy_candidate_path_set_active(
 		pathd_candidate_updated(former_best_candidate_path);
 	}
 	pathd_candidate_updated(best_candidate_path);
-}
-
-struct te_segment_list *te_segment_list_get(const char *name)
-{
-	struct te_segment_list te_segment_list_search;
-	strlcpy(te_segment_list_search.name, name,
-		sizeof(te_segment_list_search.name));
-	return RB_FIND(te_segment_list_instance_head,
-		       &te_segment_list_instances, &te_segment_list_search);
-}
-
-struct te_candidate_path *find_candidate_path(struct te_sr_policy *te_sr_policy,
-					      uint32_t preference)
-{
-	struct te_candidate_path te_candidate_path_search;
-	te_candidate_path_search.preference = preference;
-	return RB_FIND(te_candidate_path_instance_head,
-		       &te_sr_policy->candidate_paths,
-		       &te_candidate_path_search);
-}
-
-struct te_candidate_path *
-te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
-				uint32_t preference)
-{
-	struct te_candidate_path *te_candidate_path =
-		XCALLOC(MTYPE_PATH_SR_CANDIDATE, sizeof(*te_candidate_path));
-	te_candidate_path->preference = preference;
-	te_candidate_path->sr_policy = te_sr_policy;
-	te_candidate_path->created = true;
-
-	RB_INSERT(te_candidate_path_instance_head,
-		  &te_sr_policy->candidate_paths, te_candidate_path);
-
-	return te_candidate_path;
-}
-
-void te_sr_policy_candidate_path_delete(
-	struct te_candidate_path *te_candidate_path)
-{
-	struct te_sr_policy *te_sr_policy = te_candidate_path->sr_policy;
-
-	hook_call(pathd_candidate_removed, te_candidate_path);
-
-	RB_REMOVE(te_candidate_path_instance_head,
-		  &te_sr_policy->candidate_paths, te_candidate_path);
-
-	XFREE(MTYPE_PATH_SR_CANDIDATE, te_candidate_path);
-}
-
-struct te_sr_policy *te_sr_policy_get(uint32_t color, struct ipaddr *endpoint)
-{
-	struct te_sr_policy te_sr_policy_search;
-	struct te_sr_policy *te_sr_policy_found;
-
-	te_sr_policy_search.color = color;
-	te_sr_policy_search.endpoint = *endpoint;
-
-	te_sr_policy_found =
-		RB_FIND(te_sr_policy_instance_head, &te_sr_policy_instances,
-			&te_sr_policy_search);
-
-	return te_sr_policy_found;
 }
 
 void pathd_candidate_updated(struct te_candidate_path *te_candidate_path)
