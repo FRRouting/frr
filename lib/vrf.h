@@ -114,6 +114,8 @@ extern struct vrf *vrf_get(vrf_id_t, const char *);
 extern const char *vrf_id_to_name(vrf_id_t vrf_id);
 extern vrf_id_t vrf_name_to_id(const char *);
 
+#define VRF_LOGNAME(V) V ? V->name : "Unknown"
+
 #define VRF_GET_ID(V, NAME, USE_JSON)                                          \
 	do {                                                                   \
 		struct vrf *_vrf;                                              \
