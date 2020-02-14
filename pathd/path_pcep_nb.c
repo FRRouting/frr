@@ -114,7 +114,7 @@ struct path *candidate_to_path(struct te_candidate_path *candidate)
 	struct path *path;
 	struct path_hop *hop;
 	struct te_sr_policy *policy;
-	struct te_segment_list *segment_list, key;
+	struct te_segment_list *segment_list, key = {};
 	enum pcep_lsp_operational_status status;
 	bool is_delegated;
 
@@ -122,8 +122,8 @@ struct path *candidate_to_path(struct te_candidate_path *candidate)
 	hop = NULL;
 
 	if (candidate->segment_list_name[0] != '\0') {
-		key = (struct te_segment_list){
-			.name = candidate->segment_list_name};
+                strlcpy(key.name, candidate->segment_list_name,
+                        sizeof(key.name));
 		segment_list = RB_FIND(te_segment_list_instance_head,
 				       &te_segment_list_instances, &key);
 		assert(NULL != segment_list);
