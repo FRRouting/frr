@@ -121,9 +121,9 @@ struct path *candidate_to_path(struct te_candidate_path *candidate)
 	policy = candidate->sr_policy;
 	hop = NULL;
 
-	if (candidate->segment_list_name[0] != '\0') {
-                strlcpy(key.name, candidate->segment_list_name,
-                        sizeof(key.name));
+	if (candidate->segment_list != NULL) {
+		strlcpy(key.name, candidate->segment_list->name,
+			sizeof(key.name));
 		segment_list = RB_FIND(te_segment_list_instance_head,
 				       &te_segment_list_instances, &key);
 		assert(NULL != segment_list);

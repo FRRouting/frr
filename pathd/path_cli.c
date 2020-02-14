@@ -138,9 +138,9 @@ DEFPY(show_srte_policy_detail, show_srte_policy_detail_cmd,
 						== TE_CANDIDATE_PATH_EXPLICIT
 					? "explicit"
 					: "dynamic",
-				candidate_path->segment_list_name == NULL
+				candidate_path->segment_list == NULL
 					? "(undefined)"
-					: candidate_path->segment_list_name,
+					: candidate_path->segment_list->name,
 				candidate_path->protocol_origin
 						== TE_ORIGIN_PCEP
 					? "PCEP"

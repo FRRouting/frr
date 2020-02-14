@@ -49,8 +49,7 @@ static void path_zebra_connected(struct zclient *zclient)
 		if (!candidate)
 			continue;
 
-		te_segment_list =
-			te_segment_list_get(candidate->segment_list_name);
+		te_segment_list = candidate->segment_list;
 		if (!te_segment_list)
 			continue;
 

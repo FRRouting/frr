@@ -209,9 +209,8 @@ void te_sr_policy_candidate_path_set_active(
 
 	RB_FOREACH_REVERSE (candidate_path, te_candidate_path_instance_head,
 			    &te_sr_policy->candidate_paths) {
-		/* search for highest preference with existing segment list name
-		 */
-		if (candidate_path->segment_list_name) {
+		/* search for highest preference with existing segment list */
+		if (candidate_path->segment_list) {
 			best_candidate_path = candidate_path;
 			break;
 		}
@@ -262,11 +261,9 @@ void te_sr_policy_candidate_path_set_active(
 	best_candidate_path->is_best_candidate_path = true;
 	te_sr_policy->best_candidate = best_candidate_path;
 
-	struct te_segment_list *te_segment_list_found =
-		te_segment_list_get(best_candidate_path->segment_list_name);
-
 	/* send the new active LSP to Zebra */
-	path_zebra_add_sr_policy(te_sr_policy, te_segment_list_found);
+	path_zebra_add_sr_policy(te_sr_policy,
+				 best_candidate_path->segment_list);
 
 	/* Notifies a single time all the candidates that changed */
 	if (changed_candidate_path && !was_deleted
@@ -346,14 +343,6 @@ void te_sr_policy_candidate_path_type_add(
 	enum te_candidate_path_type type)
 {
 	te_candidate_path->type = type;
-}
-
-void te_sr_policy_candidate_path_segment_list_name_set(
-	struct te_candidate_path *te_candidate_path,
-	const char *segment_list_name)
-{
-	strlcpy(te_candidate_path->segment_list_name, segment_list_name,
-		sizeof(te_candidate_path->segment_list_name));
 }
 
 void te_sr_policy_candidate_path_delete(

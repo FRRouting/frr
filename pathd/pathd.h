@@ -85,7 +85,7 @@ struct te_candidate_path {
 	char name[64];
 
 	/* The associated Segment List. */
-	char segment_list_name[64];
+	struct te_segment_list *segment_list;
 
 	/* The Protocol-Origin. */
 	enum te_protocol_origin protocol_origin;
@@ -192,9 +192,6 @@ void te_sr_policy_candidate_path_discriminator_add(
 void te_sr_policy_candidate_path_type_add(
 	struct te_candidate_path *te_candidate_path,
 	enum te_candidate_path_type type);
-void te_sr_policy_candidate_path_segment_list_name_set(
-	struct te_candidate_path *te_candidate_path,
-	const char *segment_list_name);
 void te_sr_policy_candidate_path_delete(
 	struct te_candidate_path *te_candidate_path);
 struct te_sr_policy *te_sr_policy_get(uint32_t color, struct ipaddr *endpoint);
