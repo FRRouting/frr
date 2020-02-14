@@ -30,306 +30,260 @@ DEFINE_MTYPE_STATIC(PATHD, PATH_SR_POLICY, "SR Policy information")
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE,
 		    "SR Policy candidate path information")
 
-DEFINE_HOOK(pathd_candidate_created,
-	    (struct te_candidate_path * te_candidate_path), (te_candidate_path))
-DEFINE_HOOK(pathd_candidate_updated,
-	    (struct te_candidate_path * te_candidate_path), (te_candidate_path))
-DEFINE_HOOK(pathd_candidate_removed,
-	    (struct te_candidate_path * te_candidate_path), (te_candidate_path))
+DEFINE_HOOK(pathd_candidate_created, (struct srte_candidate * candidate),
+	    (candidate))
+DEFINE_HOOK(pathd_candidate_updated, (struct srte_candidate * candidate),
+	    (candidate))
+DEFINE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
+	    (candidate))
 
 /* Generate rb-tree of Segment List Segment instances. */
-static inline int te_segment_list_segment_instance_compare(
-	const struct te_segment_list_segment *a,
-	const struct te_segment_list_segment *b)
+static inline int srte_segment_entry_compare(const struct srte_segment_entry *a,
+					     const struct srte_segment_entry *b)
 {
 	return a->index - b->index;
 }
-RB_GENERATE(te_segment_list_segment_instance_head, te_segment_list_segment,
-	    entry, te_segment_list_segment_instance_compare)
+RB_GENERATE(srte_segment_entry_head, srte_segment_entry, entry,
+	    srte_segment_entry_compare)
 
 /* Generate rb-tree of Segment List instances. */
-static inline int
-te_segment_list_instance_compare(const struct te_segment_list *a,
-				 const struct te_segment_list *b)
+static inline int srte_segment_list_compare(const struct srte_segment_list *a,
+					    const struct srte_segment_list *b)
 {
 	return strcmp(a->name, b->name);
 }
-RB_GENERATE(te_segment_list_instance_head, te_segment_list, entry,
-	    te_segment_list_instance_compare)
+RB_GENERATE(srte_segment_list_head, srte_segment_list, entry,
+	    srte_segment_list_compare)
 
-struct te_segment_list_instance_head te_segment_list_instances =
-	RB_INITIALIZER(&te_segment_list_instances);
+struct srte_segment_list_head srte_segment_lists =
+	RB_INITIALIZER(&srte_segment_lists);
 
 /* Generate rb-tree of Candidate Path instances. */
-static inline int
-te_candidate_path_instance_compare(const struct te_candidate_path *a,
-				   const struct te_candidate_path *b)
+static inline int srte_candidate_compare(const struct srte_candidate *a,
+					 const struct srte_candidate *b)
 {
 	return a->preference - b->preference;
 }
-RB_GENERATE(te_candidate_path_instance_head, te_candidate_path, entry,
-	    te_candidate_path_instance_compare)
+RB_GENERATE(srte_candidate_head, srte_candidate, entry, srte_candidate_compare)
 
 /* Generate rb-tree of SR Policy instances. */
-static inline int te_sr_policy_instance_compare(const struct te_sr_policy *a,
-						const struct te_sr_policy *b)
+static inline int srte_policy_compare(const struct srte_policy *a,
+				      const struct srte_policy *b)
 {
 	return sr_policy_compare(&a->endpoint, &b->endpoint, a->color,
 				 b->color);
 }
-RB_GENERATE(te_sr_policy_instance_head, te_sr_policy, entry,
-	    te_sr_policy_instance_compare)
+RB_GENERATE(srte_policy_head, srte_policy, entry, srte_policy_compare)
 
-struct te_sr_policy_instance_head te_sr_policy_instances =
-	RB_INITIALIZER(&te_sr_policy_instances);
+struct srte_policy_head srte_policies = RB_INITIALIZER(&srte_policies);
 
-/*----------------------------------------------------------------------------*/
-
-struct te_segment_list *te_segment_list_create(const char *name)
+struct srte_segment_list *srte_segment_list_add(const char *name)
 {
-	struct te_segment_list *te_segment_list =
-		XCALLOC(MTYPE_PATH_SEGMENT_LIST, sizeof(*te_segment_list));
+	struct srte_segment_list *segment_list;
 
-	strlcpy(te_segment_list->name, name, sizeof(te_segment_list->name));
-	RB_INIT(te_segment_list_segment_instance_head,
-		&te_segment_list->segments);
+	segment_list = XCALLOC(MTYPE_PATH_SEGMENT_LIST, sizeof(*segment_list));
+	strlcpy(segment_list->name, name, sizeof(segment_list->name));
+	RB_INIT(srte_segment_entry_head, &segment_list->segments);
+	RB_INSERT(srte_segment_list_head, &srte_segment_lists, segment_list);
 
-	RB_INSERT(te_segment_list_instance_head, &te_segment_list_instances,
-		  te_segment_list);
-
-	return te_segment_list;
+	return segment_list;
 }
 
-void te_segment_list_del(struct te_segment_list *te_segment_list)
+void srte_segment_list_del(struct srte_segment_list *segment_list)
 {
-	RB_REMOVE(te_segment_list_instance_head, &te_segment_list_instances,
-		  te_segment_list);
-	XFREE(MTYPE_PATH_SEGMENT_LIST, te_segment_list);
+	RB_REMOVE(srte_segment_list_head, &srte_segment_lists, segment_list);
+	XFREE(MTYPE_PATH_SEGMENT_LIST, segment_list);
 }
 
-struct te_segment_list *te_segment_list_get(const char *name)
+struct srte_segment_list *srte_segment_list_find(const char *name)
 {
-	struct te_segment_list te_segment_list_search;
-	strlcpy(te_segment_list_search.name, name,
-		sizeof(te_segment_list_search.name));
-	return RB_FIND(te_segment_list_instance_head,
-		       &te_segment_list_instances, &te_segment_list_search);
+	struct srte_segment_list search;
+
+	strlcpy(search.name, name, sizeof(search.name));
+	return RB_FIND(srte_segment_list_head, &srte_segment_lists, &search);
 }
 
-struct te_segment_list_segment *
-te_segment_list_segment_add(struct te_segment_list *te_segment_list,
-			    uint32_t index)
+struct srte_segment_entry *
+srte_segment_entry_add(struct srte_segment_list *segment_list, uint32_t index)
 {
-	struct te_segment_list_segment *te_segment_list_segment = XCALLOC(
-		MTYPE_PATH_SEGMENT_LIST, sizeof(*te_segment_list_segment));
+	struct srte_segment_entry *segment;
 
-	te_segment_list_segment->index = index;
+	segment = XCALLOC(MTYPE_PATH_SEGMENT_LIST, sizeof(*segment));
+	segment->index = index;
+	RB_INSERT(srte_segment_entry_head, &segment_list->segments, segment);
 
-	RB_INSERT(te_segment_list_segment_instance_head,
-		  &te_segment_list->segments, te_segment_list_segment);
-
-	return te_segment_list_segment;
+	return segment;
 }
 
-void te_segment_list_segment_del(
-	struct te_segment_list *te_segment_list,
-	struct te_segment_list_segment *te_segment_list_segment)
+void srte_segment_entry_del(struct srte_segment_list *segment_list,
+			    struct srte_segment_entry *segment)
 {
-	RB_REMOVE(te_segment_list_segment_instance_head,
-		  &te_segment_list->segments, te_segment_list_segment);
-	XFREE(MTYPE_PATH_SEGMENT_LIST, te_segment_list);
+	RB_REMOVE(srte_segment_entry_head, &segment_list->segments, segment);
+	XFREE(MTYPE_PATH_SEGMENT_LIST, segment);
 }
 
-void te_segment_list_segment_sid_value_add(
-	struct te_segment_list_segment *te_segment_list_segment,
-	mpls_label_t sid_value)
+struct srte_policy *srte_policy_add(uint32_t color, struct ipaddr *endpoint)
 {
-	te_segment_list_segment->sid_value = sid_value;
+	struct srte_policy *policy;
+
+	policy = XCALLOC(MTYPE_PATH_SR_POLICY, sizeof(*policy));
+	policy->color = color;
+	policy->endpoint = *endpoint;
+	policy->binding_sid = MPLS_LABEL_NONE;
+	RB_INIT(srte_candidate_head, &policy->candidate_paths);
+	RB_INSERT(srte_policy_head, &srte_policies, policy);
+
+	return policy;
 }
 
-struct te_sr_policy *te_sr_policy_create(uint32_t color,
-					 struct ipaddr *endpoint)
+void srte_policy_del(struct srte_policy *policy)
 {
-	struct te_sr_policy *te_sr_policy;
+	struct srte_candidate *candidate;
 
-	te_sr_policy = XCALLOC(MTYPE_PATH_SR_POLICY, sizeof(*te_sr_policy));
-	te_sr_policy->color = color;
-	te_sr_policy->endpoint = *endpoint;
-	te_sr_policy->binding_sid = MPLS_LABEL_NONE;
-	RB_INIT(te_candidate_path_instance_head, &te_sr_policy->candidate_paths);
-	RB_INSERT(te_sr_policy_instance_head, &te_sr_policy_instances,
-		  te_sr_policy);
+	path_zebra_delete_sr_policy(policy);
 
-	return te_sr_policy;
-}
-
-void te_sr_policy_del(struct te_sr_policy *te_sr_policy)
-{
-	struct te_candidate_path_instance_head *cps;
-	struct te_candidate_path *cp;
-
-	cps = &te_sr_policy->candidate_paths;
-	while (!RB_EMPTY(te_candidate_path_instance_head, cps)) {
-		cp = RB_ROOT(te_candidate_path_instance_head, cps);
-		te_sr_policy_candidate_path_delete(cp);
+	while (!RB_EMPTY(srte_candidate_head, &policy->candidate_paths)) {
+		candidate =
+			RB_ROOT(srte_candidate_head, &policy->candidate_paths);
+		srte_candidate_del(candidate);
 	}
 
-	path_zebra_delete_sr_policy(te_sr_policy);
-
-	RB_REMOVE(te_sr_policy_instance_head, &te_sr_policy_instances,
-		  te_sr_policy);
-	XFREE(MTYPE_PATH_SR_POLICY, te_sr_policy);
+	RB_REMOVE(srte_policy_head, &srte_policies, policy);
+	XFREE(MTYPE_PATH_SR_POLICY, policy);
 }
 
-struct te_sr_policy *te_sr_policy_get(uint32_t color, struct ipaddr *endpoint)
+struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint)
 {
-	struct te_sr_policy te_sr_policy_search;
-	struct te_sr_policy *te_sr_policy_found;
+	struct srte_policy search;
 
-	te_sr_policy_search.color = color;
-	te_sr_policy_search.endpoint = *endpoint;
-
-	te_sr_policy_found =
-		RB_FIND(te_sr_policy_instance_head, &te_sr_policy_instances,
-			&te_sr_policy_search);
-
-	return te_sr_policy_found;
+	search.color = color;
+	search.endpoint = *endpoint;
+	return RB_FIND(srte_policy_head, &srte_policies, &search);
 }
 
-struct te_candidate_path *
-te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
-				uint32_t preference)
+struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
+					  uint32_t preference)
 {
-	struct te_candidate_path *te_candidate_path =
-		XCALLOC(MTYPE_PATH_SR_CANDIDATE, sizeof(*te_candidate_path));
-	te_candidate_path->preference = preference;
-	te_candidate_path->sr_policy = te_sr_policy;
-	te_candidate_path->created = true;
+	struct srte_candidate *candidate;
 
-	RB_INSERT(te_candidate_path_instance_head,
-		  &te_sr_policy->candidate_paths, te_candidate_path);
+	candidate = XCALLOC(MTYPE_PATH_SR_CANDIDATE, sizeof(*candidate));
+	candidate->preference = preference;
+	candidate->policy = policy;
+	candidate->created = true;
+	RB_INSERT(srte_candidate_head, &policy->candidate_paths, candidate);
 
-	return te_candidate_path;
+	return candidate;
 }
 
-void te_sr_policy_candidate_path_delete(
-	struct te_candidate_path *te_candidate_path)
+void srte_candidate_del(struct srte_candidate *candidate)
 {
-	struct te_sr_policy *te_sr_policy = te_candidate_path->sr_policy;
+	struct srte_policy *srte_policy = candidate->policy;
 
-	hook_call(pathd_candidate_removed, te_candidate_path);
-
-	RB_REMOVE(te_candidate_path_instance_head,
-		  &te_sr_policy->candidate_paths, te_candidate_path);
-
-	XFREE(MTYPE_PATH_SR_CANDIDATE, te_candidate_path);
+	hook_call(pathd_candidate_removed, candidate);
+	RB_REMOVE(srte_candidate_head, &srte_policy->candidate_paths,
+		  candidate);
+	XFREE(MTYPE_PATH_SR_CANDIDATE, candidate);
 }
 
-struct te_candidate_path *find_candidate_path(struct te_sr_policy *te_sr_policy,
-					      uint32_t preference)
+struct srte_candidate *srte_candidate_find(struct srte_policy *policy,
+					   uint32_t preference)
 {
-	struct te_candidate_path te_candidate_path_search;
-	te_candidate_path_search.preference = preference;
-	return RB_FIND(te_candidate_path_instance_head,
-		       &te_sr_policy->candidate_paths,
-		       &te_candidate_path_search);
+	struct srte_candidate search;
+
+	search.preference = preference;
+	return RB_FIND(srte_candidate_head, &policy->candidate_paths, &search);
 }
 
-void te_sr_policy_candidate_path_set_active(
-	struct te_sr_policy *te_sr_policy,
-	struct te_candidate_path *changed_candidate_path)
+void srte_candidate_set_active(struct srte_policy *policy,
+			       struct srte_candidate *changed_candidate)
 {
 	bool was_deleted = false;
-	struct te_candidate_path *former_best_candidate_path = NULL;
-	struct te_candidate_path *best_candidate_path = NULL;
-	struct te_candidate_path *candidate_path = NULL;
+	struct srte_candidate *former_best_candidate = NULL;
+	struct srte_candidate *best_candidate = NULL;
+	struct srte_candidate *candidate = NULL;
 
 	/* Figure out if the triggering candidate path was deleted,
 	   because in this case, the hook has already been called */
-	if (changed_candidate_path) {
-		candidate_path = find_candidate_path(
-			te_sr_policy, changed_candidate_path->preference);
-		was_deleted = (NULL == candidate_path)
-			      || (candidate_path != changed_candidate_path);
+	if (changed_candidate) {
+		candidate = srte_candidate_find(policy,
+						changed_candidate->preference);
+		was_deleted =
+			(NULL == candidate) || (candidate != changed_candidate);
 	}
 
-	RB_FOREACH_REVERSE (candidate_path, te_candidate_path_instance_head,
-			    &te_sr_policy->candidate_paths) {
+	RB_FOREACH_REVERSE (candidate, srte_candidate_head,
+			    &policy->candidate_paths) {
 		/* search for highest preference with existing segment list */
-		if (candidate_path->segment_list) {
-			best_candidate_path = candidate_path;
+		if (candidate->segment_list) {
+			best_candidate = candidate;
 			break;
 		}
 	}
 
-	if (!best_candidate_path
-	    || RB_EMPTY(te_candidate_path_instance_head,
-			&te_sr_policy->candidate_paths)) {
+	if (!best_candidate
+	    || RB_EMPTY(srte_candidate_head, &policy->candidate_paths)) {
 		/* Delete the LSP from Zebra */
-		te_sr_policy->best_candidate = NULL;
-		path_zebra_delete_sr_policy(te_sr_policy);
+		policy->best_candidate = NULL;
+		path_zebra_delete_sr_policy(policy);
 		/* We still want to notify the changed candidate path */
-		if (changed_candidate_path && !was_deleted) {
-			pathd_candidate_updated(changed_candidate_path);
+		if (changed_candidate && !was_deleted) {
+			srte_candidate_updated(changed_candidate);
 		}
 		return;
 	}
 
-	if (te_sr_policy->best_candidate)
-		former_best_candidate_path = te_sr_policy->best_candidate;
+	if (policy->best_candidate)
+		former_best_candidate = policy->best_candidate;
 
-	if (former_best_candidate_path) {
-		if (former_best_candidate_path == best_candidate_path) {
-			if (changed_candidate_path
-			    && (changed_candidate_path
-				!= best_candidate_path)) {
+	if (former_best_candidate) {
+		if (former_best_candidate == best_candidate) {
+			if (changed_candidate
+			    && (changed_candidate != best_candidate)) {
 				/* If the elected candidate did not change,
 				   and it is not the triggering candidate,
 				   we only need to notify the triggering
 				   candidate changes */
 				if (was_deleted)
 					return;
-				pathd_candidate_updated(changed_candidate_path);
+				srte_candidate_updated(changed_candidate);
 				return;
 			}
 		} else {
 			/* If the elected candidate changed, update the former
 			   one state */
-			former_best_candidate_path->is_best_candidate_path =
-				false;
+			former_best_candidate->is_best_candidate_path = false;
 		}
 
 		/* Delete the former candidate path LSP from Zebra */
-		te_sr_policy->best_candidate = NULL;
-		path_zebra_delete_sr_policy(te_sr_policy);
+		policy->best_candidate = NULL;
+		path_zebra_delete_sr_policy(policy);
 	}
 
-	best_candidate_path->is_best_candidate_path = true;
-	te_sr_policy->best_candidate = best_candidate_path;
+	best_candidate->is_best_candidate_path = true;
+	policy->best_candidate = best_candidate;
 
 	/* send the new active LSP to Zebra */
-	path_zebra_add_sr_policy(te_sr_policy,
-				 best_candidate_path->segment_list);
+	path_zebra_add_sr_policy(policy, best_candidate->segment_list);
 
 	/* Notifies a single time all the candidates that changed */
-	if (changed_candidate_path && !was_deleted
-	    && (changed_candidate_path != former_best_candidate_path)
-	    && (changed_candidate_path != best_candidate_path)) {
-		pathd_candidate_updated(changed_candidate_path);
+	if (changed_candidate && !was_deleted
+	    && (changed_candidate != former_best_candidate)
+	    && (changed_candidate != best_candidate)) {
+		srte_candidate_updated(changed_candidate);
 	}
-	if (former_best_candidate_path
-	    && (former_best_candidate_path != best_candidate_path)) {
-		pathd_candidate_updated(former_best_candidate_path);
+	if (former_best_candidate
+	    && (former_best_candidate != best_candidate)) {
+		srte_candidate_updated(former_best_candidate);
 	}
-	pathd_candidate_updated(best_candidate_path);
+	srte_candidate_updated(best_candidate);
 }
 
-void pathd_candidate_updated(struct te_candidate_path *te_candidate_path)
+void srte_candidate_updated(struct srte_candidate *candidate)
 {
-	if (true == te_candidate_path->created) {
-		te_candidate_path->created = false;
-		hook_call(pathd_candidate_created, te_candidate_path);
+	if (true == candidate->created) {
+		candidate->created = false;
+		hook_call(pathd_candidate_created, candidate);
 	} else {
-		hook_call(pathd_candidate_updated, te_candidate_path);
+		hook_call(pathd_candidate_updated, candidate);
 	}
 }

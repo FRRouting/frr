@@ -36,73 +36,72 @@ static struct zclient *zclient;
 
 static void path_zebra_connected(struct zclient *zclient)
 {
-	struct te_sr_policy *te_sr_policy;
+	struct srte_policy *policy;
 
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 
-	RB_FOREACH (te_sr_policy, te_sr_policy_instance_head,
-		    &te_sr_policy_instances) {
-		struct te_candidate_path *candidate;
-		struct te_segment_list *te_segment_list;
+	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
+		struct srte_candidate *candidate;
+		struct srte_segment_list *segment_list;
 
-		candidate = te_sr_policy->best_candidate;
+		candidate = policy->best_candidate;
 		if (!candidate)
 			continue;
 
-		te_segment_list = candidate->segment_list;
-		if (!te_segment_list)
+		segment_list = candidate->segment_list;
+		if (!segment_list)
 			continue;
 
-		path_zebra_add_sr_policy(te_sr_policy, te_segment_list);
+		path_zebra_add_sr_policy(policy, segment_list);
 	}
 }
 
 static int path_zebra_sr_policy_notify_status(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_sr_policy zapi_sr_policy;
-	struct te_sr_policy *te_sr_policy;
-	struct te_candidate_path *best_candidate_path;
+	struct srte_policy *policy;
+	struct srte_candidate *best_candidate_path;
 
 	if (zapi_sr_policy_notify_status_decode(zclient->ibuf, &zapi_sr_policy))
 		return -1;
 
-	te_sr_policy = te_sr_policy_get(zapi_sr_policy.color,
-					&zapi_sr_policy.endpoint);
-	if (!te_sr_policy)
+	policy = srte_policy_find(zapi_sr_policy.color,
+				  &zapi_sr_policy.endpoint);
+	if (!policy)
 		return -1;
 
-	best_candidate_path = te_sr_policy->best_candidate;
+	best_candidate_path = policy->best_candidate;
 	if (!best_candidate_path)
 		return -1;
 
 	switch (zapi_sr_policy.status) {
 	case ZEBRA_SR_POLICY_DOWN:
-		switch (te_sr_policy->status) {
+		switch (policy->status) {
 		/* If the policy is GOING_UP, and zebra faild
 		   to install it, we wait for zebra to retry */
 		/* TODO: Add some timeout after which we would
 			 get is back to DOWN and remove the
 			 policy */
-		case TE_POLICY_GOING_UP:
-		case TE_POLICY_DOWN:
+		case SRTE_POLICY_STATUS_GOING_UP:
+		case SRTE_POLICY_STATUS_DOWN:
 			return 0;
 		default:
-			te_sr_policy->status = TE_POLICY_DOWN;
+			policy->status = SRTE_POLICY_STATUS_DOWN;
 			break;
 		}
 		break;
 	case ZEBRA_SR_POLICY_UP:
-		switch (te_sr_policy->status) {
-		case TE_POLICY_UP:
+		switch (policy->status) {
+		case SRTE_POLICY_STATUS_UP:
 			return 0;
 		default:
-			te_sr_policy->status = TE_POLICY_UP;
+			policy->status = SRTE_POLICY_STATUS_UP;
 			break;
 		}
 		break;
 	}
 
-	pathd_candidate_updated(best_candidate_path);
+	srte_candidate_updated(best_candidate_path);
 	return 0;
 }
 
@@ -115,43 +114,38 @@ void path_zebra_init(struct thread_master *master)
 	zclient->sr_policy_notify_status = path_zebra_sr_policy_notify_status;
 }
 
-void path_zebra_add_sr_policy(struct te_sr_policy *sr_policy,
-			      struct te_segment_list *segment_list)
+void path_zebra_add_sr_policy(struct srte_policy *policy,
+			      struct srte_segment_list *segment_list)
 {
 	struct zapi_sr_policy zp = {};
-	zp.color = sr_policy->color;
-	zp.endpoint = sr_policy->endpoint;
-	strlcpy(zp.name, sr_policy->name, sizeof(zp.name));
+	struct srte_segment_entry *segment;
 
-	struct te_segment_list_segment *segment;
-	zp.active_segment_list.type = ZEBRA_LSP_SRTE;
-	zp.active_segment_list.local_label = sr_policy->binding_sid;
-	zp.active_segment_list.label_num = 0;
-
-	RB_FOREACH (segment, te_segment_list_segment_instance_head,
-		    &segment_list->segments) {
-		zp.active_segment_list
-			.labels[zp.active_segment_list.label_num] =
+	zp.color = policy->color;
+	zp.endpoint = policy->endpoint;
+	strlcpy(zp.name, policy->name, sizeof(zp.name));
+	zp.segment_list.type = ZEBRA_LSP_SRTE;
+	zp.segment_list.local_label = policy->binding_sid;
+	zp.segment_list.label_num = 0;
+	RB_FOREACH (segment, srte_segment_entry_head, &segment_list->segments)
+		zp.segment_list
+			.labels[zp.segment_list.label_num++] =
 			segment->sid_value;
-		zp.active_segment_list.label_num++;
-	}
-
-	sr_policy->status = TE_POLICY_GOING_UP;
+	policy->status = SRTE_POLICY_STATUS_GOING_UP;
 
 	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_SET, &zp);
 }
 
-void path_zebra_delete_sr_policy(struct te_sr_policy *sr_policy)
+void path_zebra_delete_sr_policy(struct srte_policy *policy)
 {
 	struct zapi_sr_policy zp = {};
-	zp.color = sr_policy->color;
-	zp.endpoint = sr_policy->endpoint;
-	strlcpy(zp.name, sr_policy->name, sizeof(zp.name));
-	zp.active_segment_list.type = ZEBRA_LSP_SRTE;
-	zp.active_segment_list.local_label = sr_policy->binding_sid;
-	zp.active_segment_list.label_num = 0;
 
-	sr_policy->status = TE_POLICY_DOWN;
+	zp.color = policy->color;
+	zp.endpoint = policy->endpoint;
+	strlcpy(zp.name, policy->name, sizeof(zp.name));
+	zp.segment_list.type = ZEBRA_LSP_SRTE;
+	zp.segment_list.local_label = policy->binding_sid;
+	zp.segment_list.label_num = 0;
+	policy->status = SRTE_POLICY_STATUS_DOWN;
 
 	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_DELETE, &zp);
 }

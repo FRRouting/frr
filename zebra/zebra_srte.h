@@ -43,7 +43,7 @@ struct zebra_sr_policy {
 	struct ipaddr endpoint;
 	char name[SRTE_POLICY_NAME_MAX_LENGTH];
 	enum zebra_sr_policy_status status;
-	struct zapi_srte_tunnel active_segment_list;
+	struct zapi_srte_tunnel segment_list;
 	zebra_lsp_t *lsp;
 	struct zebra_vrf *zvrf;
 };

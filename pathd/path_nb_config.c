@@ -29,28 +29,28 @@
  */
 int pathd_te_segment_list_create(struct nb_cb_create_args *args)
 {
-	struct te_segment_list *te_segment_list;
+	struct srte_segment_list *segment_list;
 	const char *name;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	name = yang_dnode_get_string(args->dnode, "./name");
-	te_segment_list = te_segment_list_create(name);
-	nb_running_set_entry(args->dnode, te_segment_list);
+	segment_list = srte_segment_list_add(name);
+	nb_running_set_entry(args->dnode, segment_list);
 
 	return NB_OK;
 }
 
 int pathd_te_segment_list_destroy(struct nb_cb_destroy_args *args)
 {
-	struct te_segment_list *te_segment_list;
+	struct srte_segment_list *segment_list;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_segment_list = nb_running_unset_entry(args->dnode);
-	te_segment_list_del(te_segment_list);
+	segment_list = nb_running_unset_entry(args->dnode);
+	srte_segment_list_del(segment_list);
 
 	return NB_OK;
 }
@@ -60,33 +60,32 @@ int pathd_te_segment_list_destroy(struct nb_cb_destroy_args *args)
  */
 int pathd_te_segment_list_segment_create(struct nb_cb_create_args *args)
 {
-	struct te_segment_list *te_segment_list;
-	struct te_segment_list_segment *te_segment_list_segment;
+	struct srte_segment_list *segment_list;
+	struct srte_segment_entry *segment;
 	uint32_t index;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_segment_list = nb_running_get_entry(args->dnode, NULL, true);
+	segment_list = nb_running_get_entry(args->dnode, NULL, true);
 	index = yang_dnode_get_uint32(args->dnode, "./index");
-	te_segment_list_segment =
-		te_segment_list_segment_add(te_segment_list, index);
-	nb_running_set_entry(args->dnode, te_segment_list_segment);
+	segment = srte_segment_entry_add(segment_list, index);
+	nb_running_set_entry(args->dnode, segment);
 
 	return NB_OK;
 }
 
 int pathd_te_segment_list_segment_destroy(struct nb_cb_destroy_args *args)
 {
-	struct te_segment_list *te_segment_list;
-	struct te_segment_list_segment *te_segment_list_segment;
+	struct srte_segment_list *segment_list;
+	struct srte_segment_entry *segment;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_segment_list = nb_running_get_entry(args->dnode, NULL, true);
-	te_segment_list_segment = nb_running_unset_entry(args->dnode);
-	te_segment_list_segment_del(te_segment_list, te_segment_list_segment);
+	segment_list = nb_running_get_entry(args->dnode, NULL, true);
+	segment = nb_running_unset_entry(args->dnode);
+	srte_segment_entry_del(segment_list, segment);
 
 	return NB_OK;
 }
@@ -98,15 +97,14 @@ int pathd_te_segment_list_segment_sid_value_modify(
 	struct nb_cb_modify_args *args)
 {
 	mpls_label_t sid_value;
-	struct te_segment_list_segment *te_segment_list_segment;
+	struct srte_segment_entry *segment;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_segment_list_segment = nb_running_get_entry(args->dnode, NULL, true);
+	segment = nb_running_get_entry(args->dnode, NULL, true);
 	sid_value = yang_dnode_get_uint32(args->dnode, NULL);
-	te_segment_list_segment_sid_value_add(te_segment_list_segment,
-					      sid_value);
+	segment->sid_value = sid_value;
 
 	return NB_OK;
 }
@@ -116,7 +114,7 @@ int pathd_te_segment_list_segment_sid_value_modify(
  */
 int pathd_te_sr_policy_create(struct nb_cb_create_args *args)
 {
-	struct te_sr_policy *te_sr_policy;
+	struct srte_policy *policy;
 	uint32_t color;
 	struct ipaddr endpoint;
 
@@ -125,22 +123,22 @@ int pathd_te_sr_policy_create(struct nb_cb_create_args *args)
 
 	color = yang_dnode_get_uint32(args->dnode, "./color");
 	yang_dnode_get_ip(&endpoint, args->dnode, "./endpoint");
-	te_sr_policy = te_sr_policy_create(color, &endpoint);
+	policy = srte_policy_add(color, &endpoint);
 
-	nb_running_set_entry(args->dnode, te_sr_policy);
+	nb_running_set_entry(args->dnode, policy);
 
 	return NB_OK;
 }
 
 int pathd_te_sr_policy_destroy(struct nb_cb_destroy_args *args)
 {
-	struct te_sr_policy *te_sr_policy;
+	struct srte_policy *policy;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_sr_policy = nb_running_unset_entry(args->dnode);
-	te_sr_policy_del(te_sr_policy);
+	policy = nb_running_unset_entry(args->dnode);
+	srte_policy_del(policy);
 
 	return NB_OK;
 }
@@ -150,28 +148,28 @@ int pathd_te_sr_policy_destroy(struct nb_cb_destroy_args *args)
  */
 int pathd_te_sr_policy_name_modify(struct nb_cb_modify_args *args)
 {
+	struct srte_policy *policy;
 	const char *name;
-	struct te_sr_policy *te_sr_policy;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
+	policy = nb_running_get_entry(args->dnode, NULL, true);
 	name = yang_dnode_get_string(args->dnode, NULL);
-	strlcpy(te_sr_policy->name, name, sizeof(te_sr_policy->name));
+	strlcpy(policy->name, name, sizeof(policy->name));
 
 	return NB_OK;
 }
 
 int pathd_te_sr_policy_name_destroy(struct nb_cb_destroy_args *args)
 {
-	struct te_sr_policy *te_sr_policy;
+	struct srte_policy *policy;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
-	te_sr_policy->name[0] = '\0';
+	policy = nb_running_get_entry(args->dnode, NULL, true);
+	policy->name[0] = '\0';
 
 	return NB_OK;
 }
@@ -181,28 +179,28 @@ int pathd_te_sr_policy_name_destroy(struct nb_cb_destroy_args *args)
  */
 int pathd_te_sr_policy_binding_sid_modify(struct nb_cb_modify_args *args)
 {
-	struct te_sr_policy *te_sr_policy;
+	struct srte_policy *policy;
 	mpls_label_t binding_sid;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
+	policy = nb_running_get_entry(args->dnode, NULL, true);
 	binding_sid = yang_dnode_get_uint32(args->dnode, NULL);
-	te_sr_policy->binding_sid = binding_sid;
+	policy->binding_sid = binding_sid;
 
 	return NB_OK;
 }
 
 int pathd_te_sr_policy_binding_sid_destroy(struct nb_cb_destroy_args *args)
 {
-	struct te_sr_policy *te_sr_policy;
+	struct srte_policy *policy;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
-	te_sr_policy->binding_sid = MPLS_LABEL_NONE;
+	policy = nb_running_get_entry(args->dnode, NULL, true);
+	policy->binding_sid = MPLS_LABEL_NONE;
 
 	return NB_OK;
 }
@@ -212,18 +210,17 @@ int pathd_te_sr_policy_binding_sid_destroy(struct nb_cb_destroy_args *args)
  */
 int pathd_te_sr_policy_candidate_path_create(struct nb_cb_create_args *args)
 {
-	struct te_sr_policy *te_sr_policy;
-	struct te_candidate_path *te_candidate_path;
+	struct srte_policy *policy;
+	struct srte_candidate *candidate;
 	uint32_t preference;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
+	policy = nb_running_get_entry(args->dnode, NULL, true);
 	preference = yang_dnode_get_uint32(args->dnode, "./preference");
-	te_candidate_path =
-		te_sr_policy_candidate_path_add(te_sr_policy, preference);
-	nb_running_set_entry(args->dnode, te_candidate_path);
+	candidate = srte_candidate_add(policy, preference);
+	nb_running_set_entry(args->dnode, candidate);
 
 	return NB_OK;
 }
@@ -231,25 +228,23 @@ int pathd_te_sr_policy_candidate_path_create(struct nb_cb_create_args *args)
 void pathd_te_sr_policy_candidate_path_apply_finish(
 	struct nb_cb_apply_finish_args *args)
 {
-	struct te_candidate_path *te_candidate_path;
+	struct srte_candidate *candidate;
 
-	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
-	te_sr_policy_candidate_path_set_active(te_candidate_path->sr_policy,
-					       te_candidate_path);
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	srte_candidate_set_active(candidate->policy, candidate);
 }
 
 int pathd_te_sr_policy_candidate_path_destroy(struct nb_cb_destroy_args *args)
 {
-	struct te_candidate_path *te_candidate_path;
+	struct srte_candidate *candidate;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
-	te_sr_policy_candidate_path_delete(te_candidate_path);
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	srte_candidate_del(candidate);
 
-	te_sr_policy_candidate_path_set_active(te_candidate_path->sr_policy,
-					       te_candidate_path);
+	srte_candidate_set_active(candidate->policy, candidate);
 
 	return NB_OK;
 }
@@ -260,15 +255,15 @@ int pathd_te_sr_policy_candidate_path_destroy(struct nb_cb_destroy_args *args)
 int pathd_te_sr_policy_candidate_path_name_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct te_candidate_path *te_candidate_path;
+	struct srte_candidate *candidate;
 	const char *name;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
 	name = yang_dnode_get_string(args->dnode, NULL);
-	strlcpy(te_candidate_path->name, name, sizeof(te_candidate_path->name));
+	strlcpy(candidate->name, name, sizeof(candidate->name));
 
 	return NB_OK;
 }
@@ -279,15 +274,15 @@ int pathd_te_sr_policy_candidate_path_name_modify(
 int pathd_te_sr_policy_candidate_path_protocol_origin_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct te_candidate_path *te_candidate_path;
-	enum te_protocol_origin protocol_origin;
+	struct srte_candidate *candidate;
+	enum srte_protocol_origin protocol_origin;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
 	protocol_origin = yang_dnode_get_enum(args->dnode, NULL);
-	te_candidate_path->protocol_origin = protocol_origin;
+	candidate->protocol_origin = protocol_origin;
 
 	return NB_OK;
 }
@@ -298,15 +293,15 @@ int pathd_te_sr_policy_candidate_path_protocol_origin_modify(
 int pathd_te_sr_policy_candidate_path_originator_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct te_candidate_path *te_candidate_path;
+	struct srte_candidate *candidate;
 	struct ipaddr originator;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
 	yang_dnode_get_ip(&originator, args->dnode, NULL);
-	te_candidate_path->originator = originator;
+	candidate->originator = originator;
 
 	return NB_OK;
 }
@@ -317,15 +312,15 @@ int pathd_te_sr_policy_candidate_path_originator_modify(
 int pathd_te_sr_policy_candidate_path_discriminator_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct te_candidate_path *te_candidate_path;
+	struct srte_candidate *candidate;
 	uint32_t discriminator;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
 	discriminator = yang_dnode_get_uint32(args->dnode, NULL);
-	te_candidate_path->discriminator = discriminator;
+	candidate->discriminator = discriminator;
 
 	return NB_OK;
 }
@@ -336,15 +331,15 @@ int pathd_te_sr_policy_candidate_path_discriminator_modify(
 int pathd_te_sr_policy_candidate_path_type_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct te_candidate_path *te_candidate_path;
-	enum te_candidate_path_type type;
+	struct srte_candidate *candidate;
+	enum srte_candidate_type type;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
 	type = yang_dnode_get_enum(args->dnode, NULL);
-	te_candidate_path->type = type;
+	candidate->type = type;
 
 	return NB_OK;
 }
@@ -355,17 +350,16 @@ int pathd_te_sr_policy_candidate_path_type_modify(
 int pathd_te_sr_policy_candidate_path_segment_list_name_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct te_candidate_path *te_candidate_path;
+	struct srte_candidate *candidate;
 	const char *segment_list_name;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
 	segment_list_name = yang_dnode_get_string(args->dnode, NULL);
-	te_candidate_path->segment_list =
-		te_segment_list_get(segment_list_name);
-	assert(te_candidate_path->segment_list);
+	candidate->segment_list = srte_segment_list_find(segment_list_name);
+	assert(candidate->segment_list);
 
 	return NB_OK;
 }
@@ -373,13 +367,13 @@ int pathd_te_sr_policy_candidate_path_segment_list_name_modify(
 int pathd_te_sr_policy_candidate_path_segment_list_name_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct te_candidate_path *te_candidate_path;
+	struct srte_candidate *candidate;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
-	te_candidate_path->segment_list = NULL;
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate->segment_list = NULL;
 
 	return NB_OK;
 }

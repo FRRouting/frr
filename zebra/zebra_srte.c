@@ -92,7 +92,7 @@ struct zebra_sr_policy *zebra_sr_policy_find_by_name(char *name)
 
 void zebra_sr_policy_install(struct zebra_sr_policy *policy)
 {
-	struct zapi_srte_tunnel *zt = &policy->active_segment_list;
+	struct zapi_srte_tunnel *zt = &policy->segment_list;
 	zebra_lsp_t *lsp;
 	zebra_nhlfe_t *nhlfe;
 	int ret;
@@ -126,7 +126,7 @@ void zebra_sr_policy_install(struct zebra_sr_policy *policy)
 
 void zebra_sr_policy_uninstall(struct zebra_sr_policy *policy)
 {
-	struct zapi_srte_tunnel *zt = &policy->active_segment_list;
+	struct zapi_srte_tunnel *zt = &policy->segment_list;
 
 	if (policy->status != ZEBRA_SR_POLICY_UP)
 		return;
@@ -148,7 +148,7 @@ static int zebra_sr_policy_process_label_update(
 		struct zapi_srte_tunnel *zt;
 		mpls_label_t next_hop_label;
 
-		zt = &policy->active_segment_list;
+		zt = &policy->segment_list;
 		next_hop_label = zt->labels[0];
 		if (next_hop_label != label)
 			continue;

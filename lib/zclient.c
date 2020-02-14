@@ -2819,7 +2819,7 @@ int zebra_send_sr_policy(struct zclient *zclient, int cmd,
 
 int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
 {
-	struct zapi_srte_tunnel *zt = &zp->active_segment_list;
+	struct zapi_srte_tunnel *zt = &zp->segment_list;
 
 	stream_reset(s);
 
@@ -2853,7 +2853,7 @@ int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
 {
 	memset(zp, 0, sizeof(*zp));
 
-	struct zapi_srte_tunnel *zt = &zp->active_segment_list;
+	struct zapi_srte_tunnel *zt = &zp->segment_list;
 
 	STREAM_GETL(s, zp->color);
 	STREAM_GET_IPADDR(s, &zp->endpoint);

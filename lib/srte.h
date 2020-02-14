@@ -20,11 +20,14 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#ifndef _FRR_SRTE_H
+#define _FRR_SRTE_H
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define SRTE_POLICY_NAME_MAX_LENGTH 100
+#define SRTE_POLICY_NAME_MAX_LENGTH 64
 
 enum zebra_sr_policy_status {
 	ZEBRA_SR_POLICY_UNKNOWN = 0,
@@ -50,3 +53,5 @@ static inline int sr_policy_compare(const struct ipaddr *a_endpoint,
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* _FRR_SRTE_H */

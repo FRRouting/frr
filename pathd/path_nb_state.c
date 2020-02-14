@@ -34,28 +34,26 @@
  */
 const void *pathd_te_segment_list_get_next(struct nb_cb_get_next_args *args)
 {
-	struct te_segment_list *te_segment_list =
-		(struct te_segment_list *)args->list_entry;
+	struct srte_segment_list *segment_list =
+		(struct srte_segment_list *)args->list_entry;
 
 	if (args->list_entry == NULL)
-		te_segment_list = RB_MIN(te_segment_list_instance_head,
-					 &te_segment_list_instances);
+		segment_list =
+			RB_MIN(srte_segment_list_head, &srte_segment_lists);
 	else
-		te_segment_list =
-			RB_NEXT(te_segment_list_instance_head, te_segment_list);
+		segment_list = RB_NEXT(srte_segment_list_head, segment_list);
 
-	return te_segment_list;
+	return segment_list;
 }
 
 int pathd_te_segment_list_get_keys(struct nb_cb_get_keys_args *args)
 {
-	const struct te_segment_list *te_segment_list =
-		(struct te_segment_list *)args->list_entry;
+	const struct srte_segment_list *segment_list =
+		(struct srte_segment_list *)args->list_entry;
 
 	args->keys->num = 1;
-
 	snprintf(args->keys->key[0], sizeof(args->keys->key[0]), "%s",
-		 te_segment_list->name);
+		 segment_list->name);
 
 	return NB_OK;
 }
@@ -63,7 +61,7 @@ int pathd_te_segment_list_get_keys(struct nb_cb_get_keys_args *args)
 const void *
 pathd_te_segment_list_lookup_entry(struct nb_cb_lookup_entry_args *args)
 {
-	return te_segment_list_get(args->keys->key[0]);
+	return srte_segment_list_find(args->keys->key[0]);
 }
 
 /*
@@ -71,29 +69,25 @@ pathd_te_segment_list_lookup_entry(struct nb_cb_lookup_entry_args *args)
  */
 const void *pathd_te_sr_policy_get_next(struct nb_cb_get_next_args *args)
 {
-	struct te_sr_policy *te_sr_policy = (struct te_sr_policy *)args->list_entry;
+	struct srte_policy *policy = (struct srte_policy *)args->list_entry;
 
 	if (args->list_entry == NULL)
-		te_sr_policy = RB_MIN(te_sr_policy_instance_head,
-				      &te_sr_policy_instances);
+		policy = RB_MIN(srte_policy_head, &srte_policies);
 	else
-		te_sr_policy =
-			RB_NEXT(te_sr_policy_instance_head, te_sr_policy);
+		policy = RB_NEXT(srte_policy_head, policy);
 
-	return te_sr_policy;
+	return policy;
 }
 
 int pathd_te_sr_policy_get_keys(struct nb_cb_get_keys_args *args)
 {
-	const struct te_sr_policy *te_sr_policy =
-		(struct te_sr_policy *)args->list_entry;
+	const struct srte_policy *policy =
+		(struct srte_policy *)args->list_entry;
 
 	args->keys->num = 2;
-
 	snprintf(args->keys->key[0], sizeof(args->keys->key[0]), "%u",
-		 te_sr_policy->color);
-
-	(void)inet_ntop(AF_INET, &te_sr_policy->endpoint, args->keys->key[1],
+		 policy->color);
+	(void)inet_ntop(AF_INET, &policy->endpoint, args->keys->key[1],
 			sizeof(args->keys->key[1]));
 
 	return NB_OK;
@@ -108,7 +102,7 @@ const void *pathd_te_sr_policy_lookup_entry(
 	color = yang_str2uint32(args->keys->key[0]);
 	yang_str2ip(args->keys->key[1], &endpoint);
 
-	return te_sr_policy_get(color, &endpoint);
+	return srte_policy_find(color, &endpoint);
 }
 
 /*
@@ -117,11 +111,10 @@ const void *pathd_te_sr_policy_lookup_entry(
 struct yang_data *
 pathd_te_sr_policy_is_operational_get_elem(struct nb_cb_get_elem_args *args)
 {
+	struct srte_policy *policy = (struct srte_policy *)args->list_entry;
 	bool is_operational = false;
-	struct te_sr_policy *te_sr_policy =
-		(struct te_sr_policy *)args->list_entry;
 
-	if (te_sr_policy->status == TE_POLICY_UP)
+	if (policy->status == SRTE_POLICY_STATUS_UP)
 		is_operational = true;
 
 	return yang_data_new_bool(args->xpath, is_operational);
@@ -133,30 +126,28 @@ pathd_te_sr_policy_is_operational_get_elem(struct nb_cb_get_elem_args *args)
 const void *
 pathd_te_sr_policy_candidate_path_get_next(struct nb_cb_get_next_args *args)
 {
-	struct te_sr_policy *te_sr_policy =
-		(struct te_sr_policy *)args->parent_list_entry;
-	struct te_candidate_path *te_candidate_path =
-		(struct te_candidate_path *)args->list_entry;
+	struct srte_policy *policy =
+		(struct srte_policy *)args->parent_list_entry;
+	struct srte_candidate *candidate =
+		(struct srte_candidate *)args->list_entry;
 
 	if (args->list_entry == NULL)
-		te_candidate_path = RB_MIN(te_candidate_path_instance_head,
-					   &te_sr_policy->candidate_paths);
+		candidate =
+			RB_MIN(srte_candidate_head, &policy->candidate_paths);
 	else
-		te_candidate_path = RB_NEXT(te_candidate_path_instance_head,
-					    te_candidate_path);
+		candidate = RB_NEXT(srte_candidate_head, candidate);
 
-	return te_candidate_path;
+	return candidate;
 }
 
 int pathd_te_sr_policy_candidate_path_get_keys(struct nb_cb_get_keys_args *args)
 {
-	const struct te_candidate_path *te_candidate_path =
-		(struct te_candidate_path *)args->list_entry;
+	const struct srte_candidate *candidate =
+		(struct srte_candidate *)args->list_entry;
 
 	args->keys->num = 1;
-
 	snprintf(args->keys->key[0], sizeof(args->keys->key[0]), "%u",
-		 te_candidate_path->preference);
+		 candidate->preference);
 
 	return NB_OK;
 }
@@ -164,14 +155,13 @@ int pathd_te_sr_policy_candidate_path_get_keys(struct nb_cb_get_keys_args *args)
 const void *pathd_te_sr_policy_candidate_path_lookup_entry(
 	struct nb_cb_lookup_entry_args *args)
 {
+	struct srte_policy *policy =
+		(struct srte_policy *)args->parent_list_entry;
 	uint32_t preference;
-
-	struct te_sr_policy *te_sr_policy =
-		(struct te_sr_policy *)args->parent_list_entry;
 
 	preference = yang_str2uint32(args->keys->key[0]);
 
-	return find_candidate_path(te_sr_policy, preference);
+	return srte_candidate_find(policy, preference);
 }
 
 /*
@@ -181,9 +171,9 @@ struct yang_data *
 pathd_te_sr_policy_candidate_path_is_best_candidate_path_get_elem(
 	struct nb_cb_get_elem_args *args)
 {
-	struct te_candidate_path *te_candidate_path =
-		(struct te_candidate_path *)args->list_entry;
+	struct srte_candidate *candidate =
+		(struct srte_candidate *)args->list_entry;
 
 	return yang_data_new_bool(args->xpath,
-				  te_candidate_path->is_best_candidate_path);
+				  candidate->is_best_candidate_path);
 }

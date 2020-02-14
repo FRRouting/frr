@@ -37,6 +37,7 @@
 #include "pw.h"
 
 #include "mlag.h"
+#include "srte.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -368,7 +369,7 @@ struct zclient {
  * the table being used is not in the VRF.  You must pass the
  * default vrf, else this will be ignored.
  */
-#define ZAPI_MESSAGE_TABLEID  0x80
+#define ZAPI_MESSAGE_TABLEID  0x0080
 #define ZAPI_MESSAGE_SRTE     0x0100
 
 #define ZSERV_VERSION 6
@@ -404,15 +405,8 @@ struct zapi_nexthop {
 	/* Index of backup nexthop */
 	uint8_t backup_idx;
 
-	/* SR-TE color used for BGP traffic */
+	/* SR-TE color. */
 	uint32_t srte_color;
-};
-
-struct zapi_srte_tunnel {
-	enum lsp_types_t type;
-	mpls_label_t local_label;
-	uint8_t label_num;
-	mpls_label_t labels[MPLS_MAX_LABELS];
 };
 
 /*
@@ -526,11 +520,18 @@ struct zapi_labels {
 	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
 };
 
+struct zapi_srte_tunnel {
+	enum lsp_types_t type;
+	mpls_label_t local_label;
+	uint8_t label_num;
+	mpls_label_t labels[MPLS_MAX_LABELS];
+};
+
 struct zapi_sr_policy {
 	uint32_t color;
 	struct ipaddr endpoint;
-	char name[ZEBRA_SR_POLICY_NAME_MAX_LENGTH];
-	struct zapi_srte_tunnel active_segment_list;
+	char name[SRTE_POLICY_NAME_MAX_LENGTH];
+	struct zapi_srte_tunnel segment_list;
 	int status;
 };
 

@@ -200,11 +200,11 @@ struct path *pcep_lib_parse_path(double_linked_list *objs)
 			break;
 		default:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_OBJECT,
-			          "Unexpected PCEP object %s (%u) / %s (%u)",
+				  "Unexpected PCEP object %s (%u) / %s (%u)",
 				  pcep_object_class_name(obj->object_class),
 				  obj->object_class,
 				  pcep_object_type_name(obj->object_class,
-						        obj->object_type),
+							obj->object_type),
 				  obj->object_type);
 			break;
 		}
@@ -230,7 +230,7 @@ void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp *srp)
 			break;
 		default:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_TLV,
-			          "Unexpected SRP's TLV %s (%u)",
+				  "Unexpected SRP's TLV %s (%u)",
 				  pcep_tlv_type_name(tlv->type), tlv->type);
 			break;
 		}
@@ -259,7 +259,7 @@ void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp)
 		switch (tlv->type) {
 		default:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_TLV,
-			          "Unexpected LSP TLV %s (%u)",
+				  "Unexpected LSP TLV %s (%u)",
 				  pcep_tlv_type_name(tlv->type), tlv->type);
 			break;
 		}
@@ -283,7 +283,7 @@ void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero)
 			break;
 		default:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_ERO_SUBOBJ,
-			          "Unexpected ERO sub-object %s (%u)",
+				  "Unexpected ERO sub-object %s (%u)",
 				  pcep_ro_type_name(obj->ro_subobj_type),
 				  obj->ro_subobj_type);
 			break;

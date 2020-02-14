@@ -59,11 +59,11 @@ DEFPY(show_srte_policy, show_srte_policy_cmd, "show sr-te policy",
       "SR-TE Policy\n")
 {
 	struct ttable *tt;
-	struct te_sr_policy *policy;
+	struct srte_policy *policy;
 	char endpoint[46];
 	char *table;
 
-	if (RB_EMPTY(te_sr_policy_instance_head, &te_sr_policy_instances)) {
+	if (RB_EMPTY(srte_policy_head, &srte_policies)) {
 		vty_out(vty, "No SR Policies to display.\n\n");
 		return CMD_SUCCESS;
 	}
@@ -76,13 +76,13 @@ DEFPY(show_srte_policy, show_srte_policy_cmd, "show sr-te policy",
 	ttable_restyle(tt);
 	ttable_rowseps(tt, 0, BOTTOM, true, '-');
 
-	RB_FOREACH (policy, te_sr_policy_instance_head,
-		    &te_sr_policy_instances) {
+	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
 		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 		ttable_add_row(tt, "%s|%d|%s|%d|%s", endpoint, policy->color,
 			       policy->name, policy->binding_sid,
-			       policy->status == TE_POLICY_UP ? "Active"
-							      : "Inactive");
+			       policy->status == SRTE_POLICY_STATUS_UP
+				       ? "Active"
+				       : "Inactive");
 	}
 
 	/* Dump the generated table. */
@@ -105,44 +105,39 @@ DEFPY(show_srte_policy_detail, show_srte_policy_detail_cmd,
       "SR-TE Policy\n"
       "Show a detailed summary\n")
 {
-	struct te_sr_policy *policy;
-	struct te_candidate_path *candidate_path;
-	char endpoint[46];
+	struct srte_policy *policy;
 
-	if (RB_EMPTY(te_sr_policy_instance_head, &te_sr_policy_instances)) {
+	if (RB_EMPTY(srte_policy_head, &srte_policies)) {
 		vty_out(vty, "No SR Policies to display.\n\n");
 		return CMD_SUCCESS;
 	}
 
 	vty_out(vty, "\n");
-
-	RB_FOREACH (policy, te_sr_policy_instance_head,
-		    &te_sr_policy_instances) {
+	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
+		struct srte_candidate *candidate;
+		char endpoint[46];
 
 		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 		vty_out(vty,
 			"Endpoint: %s  Color: %d  Name: %s  BSID: %d  Status: %s\n",
 			endpoint, policy->color, policy->name,
 			policy->binding_sid,
-			policy->status == TE_POLICY_UP ? "Active" : "Inactive");
+			policy->status == SRTE_POLICY_STATUS_UP ? "Active"
+								: "Inactive");
 
-		RB_FOREACH (candidate_path, te_candidate_path_instance_head,
+		RB_FOREACH (candidate, srte_candidate_head,
 			    &policy->candidate_paths) {
 			vty_out(vty,
 				"  %s Preference: %d  Name: %s  Type: %s  Segment-List: %s  Protocol-Origin: %s\n",
-				candidate_path->is_best_candidate_path ? "*"
-								       : " ",
-				candidate_path->preference,
-				candidate_path->name,
-				candidate_path->type
-						== TE_CANDIDATE_PATH_EXPLICIT
+				candidate->is_best_candidate_path ? "*" : " ",
+				candidate->preference, candidate->name,
+				candidate->type == SRTE_CANDIDATE_TYPE_EXPLICIT
 					? "explicit"
 					: "dynamic",
-				candidate_path->segment_list == NULL
+				candidate->segment_list == NULL
 					? "(undefined)"
-					: candidate_path->segment_list->name,
-				candidate_path->protocol_origin
-						== TE_ORIGIN_PCEP
+					: candidate->segment_list->name,
+				candidate->protocol_origin == SRTE_ORIGIN_PCEP
 					? "PCEP"
 					: "Config");
 		}

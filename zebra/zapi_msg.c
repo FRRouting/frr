@@ -2120,7 +2120,7 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 				   __PRETTY_FUNCTION__);
 		return;
 	}
-	zt = &zp.active_segment_list;
+	zt = &zp.segment_list;
 	if (zt->label_num < 1) {
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug(
@@ -2135,7 +2135,7 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);
 	if (!policy)
 		policy = zebra_sr_policy_add(zp.color, &zp.endpoint, zp.name);
-	policy->active_segment_list = zp.active_segment_list;
+	policy->segment_list = zp.segment_list;
 	policy->status = ZEBRA_SR_POLICY_UNKNOWN;
 	/* TODO: per-VRF list of SR-TE policies. */
 	policy->zvrf = zvrf;

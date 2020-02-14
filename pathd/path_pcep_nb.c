@@ -35,7 +35,7 @@ struct path_nb_list_path_cb_arg {
 
 static int path_nb_list_path_cb(const struct lyd_node *dnode, void *int_arg);
 static struct path_hop *
-path_nb_list_path_hops(struct te_segment_list *segment_list);
+path_nb_list_path_hops(struct srte_segment_list *segment_list);
 
 static int path_nb_commit_candidate_config(struct nb_config *candidate_config,
 					   const char *comment);
@@ -55,7 +55,7 @@ static void path_nb_add_candidate_path(struct nb_config *config, uint32_t color,
 				       uint32_t preference,
 				       const char *segment_list_name);
 static enum pcep_lsp_operational_status
-status_int_to_ext(enum te_policy_status status);
+status_int_to_ext(enum srte_policy_status status);
 
 
 struct path *path_nb_get_path(uint32_t color, struct ipaddr endpoint,
@@ -63,8 +63,8 @@ struct path *path_nb_get_path(uint32_t color, struct ipaddr endpoint,
 {
 	char xpath[XPATH_MAXLEN];
 	char endpoint_str[40];
-	struct te_sr_policy *policy;
-	struct te_candidate_path *candidate;
+	struct srte_policy *policy;
+	struct srte_candidate *candidate;
 
 	ipaddr2str(&endpoint, endpoint_str, sizeof(endpoint_str));
 	snprintf(xpath, sizeof(xpath),
@@ -75,7 +75,7 @@ struct path *path_nb_get_path(uint32_t color, struct ipaddr endpoint,
 	if (NULL == policy)
 		return NULL;
 
-	candidate = find_candidate_path(policy, preference);
+	candidate = srte_candidate_find(policy, preference);
 	if (NULL == candidate)
 		return NULL;
 
@@ -94,12 +94,11 @@ int path_nb_list_path_cb(const struct lyd_node *dnode, void *int_arg)
 	struct path *path;
 	path_list_cb_t cb = ((struct path_nb_list_path_cb_arg *)int_arg)->cb;
 	void *ext_arg = ((struct path_nb_list_path_cb_arg *)int_arg)->arg;
-	struct te_sr_policy *policy;
-	struct te_candidate_path *candidate;
+	struct srte_policy *policy;
+	struct srte_candidate *candidate;
 
 	policy = nb_running_get_entry(dnode, NULL, true);
-	RB_FOREACH (candidate, te_candidate_path_instance_head,
-		    &policy->candidate_paths) {
+	RB_FOREACH (candidate, srte_candidate_head, &policy->candidate_paths) {
 		path = candidate_to_path(candidate);
 		if (!cb(path, ext_arg))
 			return 0;
@@ -108,24 +107,24 @@ int path_nb_list_path_cb(const struct lyd_node *dnode, void *int_arg)
 	return 1;
 }
 
-struct path *candidate_to_path(struct te_candidate_path *candidate)
+struct path *candidate_to_path(struct srte_candidate *candidate)
 {
 	char *name;
 	struct path *path;
 	struct path_hop *hop;
-	struct te_sr_policy *policy;
-	struct te_segment_list *segment_list, key = {};
+	struct srte_policy *policy;
+	struct srte_segment_list *segment_list, key = {};
 	enum pcep_lsp_operational_status status;
 	bool is_delegated;
 
-	policy = candidate->sr_policy;
+	policy = candidate->policy;
 	hop = NULL;
 
 	if (candidate->segment_list != NULL) {
 		strlcpy(key.name, candidate->segment_list->name,
 			sizeof(key.name));
-		segment_list = RB_FIND(te_segment_list_instance_head,
-				       &te_segment_list_instances, &key);
+		segment_list = RB_FIND(srte_segment_list_head,
+				       &srte_segment_lists, &key);
 		assert(NULL != segment_list);
 		hop = path_nb_list_path_hops(segment_list);
 	}
@@ -137,10 +136,10 @@ struct path *candidate_to_path(struct te_candidate_path *candidate)
 		status = PCEP_LSP_OPERATIONAL_DOWN;
 	}
 	switch (candidate->type) {
-	case TE_CANDIDATE_PATH_DYNAMIC:
+	case SRTE_CANDIDATE_TYPE_DYNAMIC:
 		is_delegated = true;
 		break;
-	case TE_CANDIDATE_PATH_EXPLICIT:
+	case SRTE_CANDIDATE_TYPE_EXPLICIT:
 	default:
 		is_delegated = false;
 		break;
@@ -156,7 +155,7 @@ struct path *candidate_to_path(struct te_candidate_path *candidate)
 		.status = status,
 		.do_remove = false,
 		.go_active = false,
-		.was_created = candidate->protocol_origin == TE_ORIGIN_PCEP,
+		.was_created = candidate->protocol_origin == SRTE_ORIGIN_PCEP,
 		.was_removed = false,
 		.is_synching = false,
 		.is_delegated = is_delegated,
@@ -165,11 +164,11 @@ struct path *candidate_to_path(struct te_candidate_path *candidate)
 	return path;
 }
 
-struct path_hop *path_nb_list_path_hops(struct te_segment_list *segment_list)
+struct path_hop *path_nb_list_path_hops(struct srte_segment_list *segment_list)
 {
-	struct te_segment_list_segment *segment;
+	struct srte_segment_entry *segment;
 	struct path_hop *hop, *last_hop = NULL;
-	RB_FOREACH_REVERSE (segment, te_segment_list_segment_instance_head,
+	RB_FOREACH_REVERSE (segment, srte_segment_entry_head,
 			    &segment_list->segments) {
 		hop = XCALLOC(MTYPE_PCEP, sizeof(*hop));
 		*hop = (struct path_hop){
@@ -326,14 +325,15 @@ void path_nb_add_candidate_path(struct nb_config *config, uint32_t color,
 	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, "dynamic");
 }
 
-enum pcep_lsp_operational_status status_int_to_ext(enum te_policy_status status)
+enum pcep_lsp_operational_status
+status_int_to_ext(enum srte_policy_status status)
 {
 	switch (status) {
-	case TE_POLICY_UP:
+	case SRTE_POLICY_STATUS_UP:
 		return PCEP_LSP_OPERATIONAL_ACTIVE;
-	case TE_POLICY_GOING_UP:
+	case SRTE_POLICY_STATUS_GOING_UP:
 		return PCEP_LSP_OPERATIONAL_GOING_UP;
-	case TE_POLICY_GOING_DOWN:
+	case SRTE_POLICY_STATUS_GOING_DOWN:
 		return PCEP_LSP_OPERATIONAL_GOING_DOWN;
 	default:
 		return PCEP_LSP_OPERATIONAL_DOWN;

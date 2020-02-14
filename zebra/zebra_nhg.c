@@ -1688,10 +1688,10 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 
 	/* Copy labels of the resolved route and the parent resolving to it */
 	if (policy) {
-		for (i = 0; i < policy->active_segment_list.label_num; i++)
+		for (i = 0; i < policy->segment_list.label_num; i++)
 			labels[num_labels++] =
-				policy->active_segment_list.labels[i];
-		label_type = policy->active_segment_list.type;
+				policy->segment_list.labels[i];
+		label_type = policy->segment_list.type;
 	} else if (newhop->nh_label) {
 		for (i = 0; i < newhop->nh_label->num_labels; i++) {
 			/* Be a bit picky about overrunning the local array */

@@ -103,7 +103,7 @@ static void pcep_pcc_handle_pathd_event(struct ctrl_state *ctrl_state,
 					struct path *path);
 
 /* pceplib logging callback */
-static int pceplib_logging_cb(int level, const char* fmt, va_list args);
+static int pceplib_logging_cb(int level, const char *fmt, va_list args);
 
 /* Controller Functions Called from Main */
 static int pcep_controller_initialize(void);
@@ -139,12 +139,9 @@ static int pcep_main_start_sync_event_cb(struct path *path, void *arg);
 static int pcep_main_update_path_event(struct thread *thread);
 
 /* Hook Handlers called from the Main Thread */
-static int
-pathd_candidate_created_handler(struct te_candidate_path *te_candidate_path);
-static int
-pathd_candidate_updated_handler(struct te_candidate_path *te_candidate_path);
-static int
-pathd_candidate_removed_handler(struct te_candidate_path *te_candidate_path);
+static int pathd_candidate_created_handler(struct srte_candidate *candidate);
+static int pathd_candidate_updated_handler(struct srte_candidate *candidate);
+static int pathd_candidate_removed_handler(struct srte_candidate *candidate);
 static void pathd_candidate_send_pathd_event(enum pathd_event_type type,
 					     struct path *path);
 
@@ -353,7 +350,7 @@ void pcep_pcc_handle_pcep_event(struct ctrl_state *ctrl_state,
 				struct pcc_state *pcc_state, pcep_event *event)
 {
 	PCEP_DEBUG("Received PCEP event: %s",
-	           pcep_event_type_name(event->event_type));
+		   pcep_event_type_name(event->event_type));
 	switch (event->event_type) {
 	case PCC_CONNECTED_TO_PCE:
 		assert(CONNECTING == pcc_state->status);
@@ -391,7 +388,7 @@ void pcep_pcc_handle_pcep_event(struct ctrl_state *ctrl_state,
 	default:
 		flog_warn(EC_PATH_PCEP_UNEXPECTED_EVENT,
 			  "Unexpected event from pceplib: %s",
-		          format_pcep_event(event));
+			  format_pcep_event(event));
 		break;
 	}
 }
@@ -591,7 +588,7 @@ void pcep_pcc_handle_pathd_event(struct ctrl_state *ctrl_state,
 
 /* ------------ pceplib logging callback ------------ */
 
-int pceplib_logging_cb(int priority, const char* fmt, va_list args)
+int pceplib_logging_cb(int priority, const char *fmt, va_list args)
 {
 	char buffer[1024];
 	snprintf(buffer, sizeof(buffer), fmt, args);
@@ -780,23 +777,23 @@ int pcep_halt_cb(struct frr_pthread *fpt, void **res)
 
 /* ------------ Hook Handlers Functions Called From Main Thread ------------ */
 
-int pathd_candidate_created_handler(struct te_candidate_path *te_candidate_path)
+int pathd_candidate_created_handler(struct srte_candidate *candidate)
 {
-	struct path *path = candidate_to_path(te_candidate_path);
+	struct path *path = candidate_to_path(candidate);
 	pathd_candidate_send_pathd_event(CANDIDATE_CREATED, path);
 	return 0;
 }
 
-int pathd_candidate_updated_handler(struct te_candidate_path *te_candidate_path)
+int pathd_candidate_updated_handler(struct srte_candidate *candidate)
 {
-	struct path *path = candidate_to_path(te_candidate_path);
+	struct path *path = candidate_to_path(candidate);
 	pathd_candidate_send_pathd_event(CANDIDATE_UPDATED, path);
 	return 0;
 }
 
-int pathd_candidate_removed_handler(struct te_candidate_path *te_candidate_path)
+int pathd_candidate_removed_handler(struct srte_candidate *candidate)
 {
-	struct path *path = candidate_to_path(te_candidate_path);
+	struct path *path = candidate_to_path(candidate);
 	pathd_candidate_send_pathd_event(CANDIDATE_REMOVED, path);
 	return 0;
 }
@@ -1206,13 +1203,13 @@ DEFUN(pcep_cli_debug, pcep_cli_debug_cmd,
 			zlog_debug("ARG: %s", argv[i]->arg);
 			if (0 == strcmp("path", argv[i]->arg)) {
 				DEBUG_FLAGS_SET(&pcep_g->dbg,
-				                PCEP_DEBUG_MODE_PATH, true);
+						PCEP_DEBUG_MODE_PATH, true);
 			} else if (0 == strcmp("message", argv[i]->arg)) {
 				DEBUG_FLAGS_SET(&pcep_g->dbg,
-				                PCEP_DEBUG_MODE_PCEP, true);
+						PCEP_DEBUG_MODE_PCEP, true);
 			} else if (0 == strcmp("pceplib", argv[i]->arg)) {
 				DEBUG_FLAGS_SET(&pcep_g->dbg,
-				                PCEP_DEBUG_MODE_PCEPLIB, true);
+						PCEP_DEBUG_MODE_PCEPLIB, true);
 			}
 		}
 	}

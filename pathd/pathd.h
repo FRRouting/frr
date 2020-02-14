@@ -24,27 +24,27 @@
 #include "lib/srte.h"
 #include "lib/hook.h"
 
-enum te_protocol_origin {
-	TE_ORIGIN_PCEP = 1,
-	TE_ORIGIN_BGP = 2,
-	TE_ORIGIN_CONFIG = 3,
+enum srte_protocol_origin {
+	SRTE_ORIGIN_PCEP = 1,
+	SRTE_ORIGIN_BGP = 2,
+	SRTE_ORIGIN_CONFIG = 3,
 };
 
-enum te_policy_status {
-	TE_POLICY_UNKNOWN = 0,
-	TE_POLICY_DOWN = 1,
-	TE_POLICY_UP = 2,
-	TE_POLICY_GOING_DOWN = 3,
-	TE_POLICY_GOING_UP = 4
+enum srte_policy_status {
+	SRTE_POLICY_STATUS_UNKNOWN = 0,
+	SRTE_POLICY_STATUS_DOWN = 1,
+	SRTE_POLICY_STATUS_UP = 2,
+	SRTE_POLICY_STATUS_GOING_DOWN = 3,
+	SRTE_POLICY_STATUS_GOING_UP = 4
 };
 
-enum te_candidate_path_type {
-	TE_CANDIDATE_PATH_EXPLICIT = 0,
-	TE_CANDIDATE_PATH_DYNAMIC = 1,
+enum srte_candidate_type {
+	SRTE_CANDIDATE_TYPE_EXPLICIT = 0,
+	SRTE_CANDIDATE_TYPE_DYNAMIC = 1,
 };
 
-struct te_segment_list_segment {
-	RB_ENTRY(te_segment_list_segment) entry;
+struct srte_segment_entry {
+	RB_ENTRY(srte_segment_entry) entry;
 
 	/* Index of the Label. */
 	uint32_t index;
@@ -52,28 +52,28 @@ struct te_segment_list_segment {
 	/* Label Value. */
 	mpls_label_t sid_value;
 };
-RB_HEAD(te_segment_list_segment_instance_head, te_segment_list_segment);
-RB_PROTOTYPE(te_segment_list_segment_instance_head, te_segment_list_segment,
-	     entry, te_segment_list_segment_instance_compare)
+RB_HEAD(srte_segment_entry_head, srte_segment_entry);
+RB_PROTOTYPE(srte_segment_entry_head, srte_segment_entry, entry,
+	     srte_segment_entry_compare)
 
-struct te_segment_list {
-	RB_ENTRY(te_segment_list) entry;
+struct srte_segment_list {
+	RB_ENTRY(srte_segment_list) entry;
 
 	/* Name of the Segment List. */
 	char name[64];
 
 	/* Nexthops. */
-	struct te_segment_list_segment_instance_head segments;
+	struct srte_segment_entry_head segments;
 };
-RB_HEAD(te_segment_list_instance_head, te_segment_list);
-RB_PROTOTYPE(te_segment_list_instance_head, te_segment_list, entry,
-	     te_segment_list_instance_compare)
+RB_HEAD(srte_segment_list_head, srte_segment_list);
+RB_PROTOTYPE(srte_segment_list_head, srte_segment_list, entry,
+	     srte_segment_list_compare)
 
-struct te_candidate_path {
-	RB_ENTRY(te_candidate_path) entry;
+struct srte_candidate {
+	RB_ENTRY(srte_candidate) entry;
 
-	/* Backpoiner to SR Policy */
-	struct te_sr_policy *sr_policy;
+	/* Backpointer to SR Policy */
+	struct srte_policy *policy;
 
 	/* Administrative preference. */
 	uint32_t preference;
@@ -85,10 +85,10 @@ struct te_candidate_path {
 	char name[64];
 
 	/* The associated Segment List. */
-	struct te_segment_list *segment_list;
+	struct srte_segment_list *segment_list;
 
 	/* The Protocol-Origin. */
-	enum te_protocol_origin protocol_origin;
+	enum srte_protocol_origin protocol_origin;
 
 	/* The Originator */
 	struct ipaddr originator;
@@ -99,15 +99,14 @@ struct te_candidate_path {
 	/* Flag for best Candidate Path */
 	bool is_best_candidate_path;
 
-	/* The Type (explixit or dynamic) */
-	enum te_candidate_path_type type;
+	/* The Type (explicit or dynamic) */
+	enum srte_candidate_type type;
 };
-RB_HEAD(te_candidate_path_instance_head, te_candidate_path);
-RB_PROTOTYPE(te_candidate_path_instance_head, te_candidate_path, entry,
-	     te_candidate_path_instance_compare)
+RB_HEAD(srte_candidate_head, srte_candidate);
+RB_PROTOTYPE(srte_candidate_head, srte_candidate, entry, srte_candidate_compare)
 
-struct te_sr_policy {
-	RB_ENTRY(te_sr_policy) entry;
+struct srte_policy {
+	RB_ENTRY(srte_policy) entry;
 
 	/* Color */
 	uint32_t color;
@@ -121,68 +120,56 @@ struct te_sr_policy {
 	/* Binding SID */
 	mpls_label_t binding_sid;
 
-	/* Best candidate path. */
-	struct te_candidate_path *best_candidate;
-
 	/* Operational Status of the policy */
-	enum te_policy_status status;
+	enum srte_policy_status status;
+
+	/* Best candidate path. */
+	struct srte_candidate *best_candidate;
 
 	/* Candidate Paths */
-	struct te_candidate_path_instance_head candidate_paths;
+	struct srte_candidate_head candidate_paths;
 };
-RB_HEAD(te_sr_policy_instance_head, te_sr_policy);
-RB_PROTOTYPE(te_sr_policy_instance_head, te_sr_policy, entry,
-	     te_sr_policy_instance_compare)
+RB_HEAD(srte_policy_head, srte_policy);
+RB_PROTOTYPE(srte_policy_head, srte_policy, entry, srte_policy_compare)
 
-DECLARE_HOOK(pathd_candidate_created,
-	     (struct te_candidate_path * te_candidate_path),
-	     (te_candidate_path))
-DECLARE_HOOK(pathd_candidate_updated,
-	     (struct te_candidate_path * te_candidate_path),
-	     (te_candidate_path))
-DECLARE_HOOK(pathd_candidate_removed,
-	     (struct te_candidate_path * te_candidate_path),
-	     (te_candidate_path))
+DECLARE_HOOK(pathd_candidate_created, (struct srte_candidate * candidate),
+	     (candidate))
+DECLARE_HOOK(pathd_candidate_updated, (struct srte_candidate * candidate),
+	     (candidate))
+DECLARE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
+	     (candidate))
 
-extern struct te_segment_list_instance_head te_segment_list_instances;
-extern struct te_sr_policy_instance_head te_sr_policy_instances;
-
+extern struct srte_segment_list_head srte_segment_lists;
+extern struct srte_policy_head srte_policies;
 extern struct zebra_privs_t pathd_privs;
 
-/* Prototypes. */
+/* pathd.c */
+struct srte_segment_list *srte_segment_list_add(const char *name);
+void srte_segment_list_del(struct srte_segment_list *segment_list);
+struct srte_segment_list *srte_segment_list_find(const char *name);
+struct srte_segment_entry *
+srte_segment_entry_add(struct srte_segment_list *segment_list, uint32_t index);
+void srte_segment_entry_del(struct srte_segment_list *segment_list,
+			    struct srte_segment_entry *segment);
+struct srte_policy *srte_policy_add(uint32_t color, struct ipaddr *endpoint);
+void srte_policy_del(struct srte_policy *policy);
+struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint);
+struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
+					  uint32_t preference);
+void srte_candidate_del(struct srte_candidate *candidate);
+struct srte_candidate *srte_candidate_find(struct srte_policy *policy,
+					   uint32_t preference);
+void srte_candidate_set_active(struct srte_policy *policy,
+			       struct srte_candidate *changed_candidate);
+void srte_candidate_updated(struct srte_candidate *candidate);
+
+/* path_zebra.c */
 void path_zebra_init(struct thread_master *master);
-void path_zebra_add_sr_policy(struct te_sr_policy *sr_policy,
-			      struct te_segment_list *segment_list);
-void path_zebra_delete_sr_policy(struct te_sr_policy *sr_policy);
+void path_zebra_add_sr_policy(struct srte_policy *policy,
+			      struct srte_segment_list *segment_list);
+void path_zebra_delete_sr_policy(struct srte_policy *policy);
+
+/* path_cli.c */
 void path_cli_init(void);
-
-struct te_segment_list *te_segment_list_create(const char *name);
-void te_segment_list_del(struct te_segment_list *te_segment_list);
-struct te_segment_list_segment *
-te_segment_list_segment_add(struct te_segment_list *te_segment_list,
-			    uint32_t index);
-void te_segment_list_segment_del(
-	struct te_segment_list *te_segment_list,
-	struct te_segment_list_segment *te_segment_list_segment);
-void te_segment_list_segment_sid_value_add(
-	struct te_segment_list_segment *te_segment_list_segment,
-	mpls_label_t label);
-struct te_sr_policy *te_sr_policy_create(uint32_t color,
-					 struct ipaddr *endpoint);
-void te_sr_policy_del(struct te_sr_policy *te_sr_policy);
-void te_sr_policy_candidate_path_set_active(
-	struct te_sr_policy *te_sr_policy,
-	struct te_candidate_path *changed_candidate_path);
-struct te_candidate_path *
-te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
-				uint32_t preference);
-void te_sr_policy_candidate_path_delete(
-	struct te_candidate_path *te_candidate_path);
-struct te_sr_policy *te_sr_policy_get(uint32_t color, struct ipaddr *endpoint);
-struct te_segment_list *te_segment_list_get(const char *name);
-struct te_candidate_path *find_candidate_path(struct te_sr_policy *te_sr_policy,
-					      uint32_t preference);
-
-void pathd_candidate_updated(struct te_candidate_path *te_candidate_path);
 
 #endif /* _FRR_PATHD_H_ */
