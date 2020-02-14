@@ -10554,6 +10554,44 @@ DEFUN (show_ip_bgp_large_community,
 static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
 			   safi_t safi, struct json_object *json);
 
+
+DEFUN (show_ip_bgp_statistics_all,
+       show_ip_bgp_statistics_all_cmd,
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] statistics-all [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       "Display number of prefixes for all afi/safi\n"
+       JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	struct bgp *bgp = NULL;
+	safi_t safi;
+	afi_t afi;
+	int idx = 0;
+	struct json_object *json = NULL;
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
+					    &bgp, false);
+	if (!idx)
+		return CMD_WARNING;
+	if (uj)
+		json = json_object_new_array();
+
+	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
+		for (safi = SAFI_UNICAST;
+		     safi < SAFI_MAX; safi++)
+			bgp_table_stats(vty, bgp, afi, safi, json);
+	}
+	if (json) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+						    json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+	return CMD_SUCCESS;
+}
+
 /* BGP route print out function without JSON */
 DEFUN (show_ip_bgp_afi_safi_statistics,
        show_ip_bgp_afi_safi_statistics_cmd,
@@ -13282,6 +13320,7 @@ void bgp_route_init(void)
 	install_element(VIEW_NODE, &show_ip_bgp_json_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_route_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_regexp_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_statistics_all_cmd);
 
 	install_element(VIEW_NODE,
 			&show_ip_bgp_instance_neighbor_advertised_route_cmd);
