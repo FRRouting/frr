@@ -11209,7 +11209,9 @@ static int bgp_table_stats_walker(struct thread *t)
 	ts->counts[BGP_STATS_MAXBITLEN] = space;
 
 	for (rn = top; rn; rn = bgp_route_next(rn)) {
-		if (ts->table->safi == SAFI_MPLS_VPN) {
+		if (ts->table->safi == SAFI_MPLS_VPN ||
+		    ts->table->safi == SAFI_ENCAP ||
+		    ts->table->safi == SAFI_EVPN) {
 			struct bgp_table *table;
 
 			table = bgp_node_get_bgp_table_info(rn);
