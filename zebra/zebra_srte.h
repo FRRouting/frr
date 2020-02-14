@@ -53,9 +53,8 @@ RB_PROTOTYPE(zebra_sr_policy_instance_head, zebra_sr_policy, entry,
 
 extern struct zebra_sr_policy_instance_head zebra_sr_policy_instances;
 
-struct zebra_sr_policy *zebra_sr_policy_add(uint32_t color,
-					    struct ipaddr *endpoint,
-					    char *name);
+struct zebra_sr_policy *
+zebra_sr_policy_add(uint32_t color, struct ipaddr *endpoint, char *name);
 void zebra_sr_policy_del(struct zebra_sr_policy *policy);
 struct zebra_sr_policy *zebra_sr_policy_find(uint32_t color,
 					     struct ipaddr *endpoint);

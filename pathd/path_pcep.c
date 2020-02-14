@@ -505,7 +505,8 @@ void pcep_pcc_push_srpid(struct pcc_state *pcc_state, struct path *path)
 {
 	struct srpid_map_data *srpid_mapping;
 
-	if (0 == path->srp_id) return;
+	if (0 == path->srp_id)
+		return;
 
 	srpid_mapping = XCALLOC(MTYPE_PCEP, sizeof(*srpid_mapping));
 	srpid_mapping->plspid = path->plsp_id;
@@ -525,7 +526,8 @@ void pcep_pcc_pop_srpid(struct pcc_state *pcc_state, struct path *path)
 	key.plspid = path->plsp_id;
 
 	srpid_mapping = srpid_map_find(&pcc_state->srpid_map, &key);
-	if (NULL == srpid_mapping) return;
+	if (NULL == srpid_mapping)
+		return;
 
 	path->srp_id = srpid_mapping->srpid;
 	srpid_map_del(&pcc_state->srpid_map, srpid_mapping);

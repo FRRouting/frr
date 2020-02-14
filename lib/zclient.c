@@ -3709,8 +3709,8 @@ static int zclient_read(struct thread *thread)
 		break;
 	case ZEBRA_SR_POLICY_NOTIFY_STATUS:
 		if (zclient->sr_policy_notify_status)
-			(*zclient->sr_policy_notify_status)(command,
-						    zclient, length, vrf_id);
+			(*zclient->sr_policy_notify_status)(command, zclient,
+							    length, vrf_id);
 	default:
 		break;
 	}

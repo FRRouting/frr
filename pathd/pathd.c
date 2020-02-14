@@ -37,14 +37,11 @@ DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE_SL_NAME,
 		    "SR Policy candidate path segment-list name")
 
 DEFINE_HOOK(pathd_candidate_created,
-	    (struct te_candidate_path *te_candidate_path),
-	    (te_candidate_path))
+	    (struct te_candidate_path * te_candidate_path), (te_candidate_path))
 DEFINE_HOOK(pathd_candidate_updated,
-	    (struct te_candidate_path *te_candidate_path),
-	    (te_candidate_path))
+	    (struct te_candidate_path * te_candidate_path), (te_candidate_path))
 DEFINE_HOOK(pathd_candidate_removed,
-	    (struct te_candidate_path *te_candidate_path),
-	    (te_candidate_path))
+	    (struct te_candidate_path * te_candidate_path), (te_candidate_path))
 
 /* Generate rb-tree of Segment List Segment instances. */
 static inline int te_segment_list_segment_instance_compare(
@@ -201,7 +198,8 @@ void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 	te_sr_policy->binding_sid = binding_sid;
 }
 
-void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy,
+void te_sr_policy_candidate_path_set_active(
+	struct te_sr_policy *te_sr_policy,
 	struct te_candidate_path *changed_candidate_path)
 {
 	bool was_deleted = false;
@@ -212,10 +210,10 @@ void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy,
 	/* Figure out if the triggering candidate path was deleted,
 	   because in this case, the hook has already been called */
 	if (changed_candidate_path) {
-		candidate_path = find_candidate_path(te_sr_policy,
-		                        changed_candidate_path->preference);
+		candidate_path = find_candidate_path(
+			te_sr_policy, changed_candidate_path->preference);
 		was_deleted = (NULL == candidate_path)
-		              || (candidate_path != changed_candidate_path);
+			      || (candidate_path != changed_candidate_path);
 	}
 
 	RB_FOREACH_REVERSE (candidate_path, te_candidate_path_instance_head,
@@ -249,21 +247,22 @@ void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy,
 	if (former_best_candidate_path) {
 		if (former_best_candidate_path == best_candidate_path) {
 			if (changed_candidate_path
-			    && (changed_candidate_path != best_candidate_path))
-			{
+			    && (changed_candidate_path
+				!= best_candidate_path)) {
 				/* If the elected candidate did not change,
 				   and it is not the triggering candidate,
 				   we only need to notify the triggering
 				   candidate changes */
-				if (was_deleted) return;
+				if (was_deleted)
+					return;
 				pathd_candidate_updated(changed_candidate_path);
 				return;
 			}
 		} else {
 			/* If the elected candidate changed, update the former
 			   one state */
-			former_best_candidate_path->is_best_candidate_path
-				= false;
+			former_best_candidate_path->is_best_candidate_path =
+				false;
 		}
 
 		/* Delete the former candidate path LSP from Zebra */
@@ -281,8 +280,7 @@ void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy,
 	path_zebra_add_sr_policy(te_sr_policy, te_segment_list_found);
 
 	/* Notifies a single time all the candidates that changed */
-	if (changed_candidate_path
-	    && !was_deleted
+	if (changed_candidate_path && !was_deleted
 	    && (changed_candidate_path != former_best_candidate_path)
 	    && (changed_candidate_path != best_candidate_path)) {
 		pathd_candidate_updated(changed_candidate_path);

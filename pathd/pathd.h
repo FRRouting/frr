@@ -37,11 +37,11 @@ enum te_protocol_origin {
 };
 
 enum te_policy_status {
-    TE_POLICY_UNKNOWN = 0,
-    TE_POLICY_DOWN = 1,
-    TE_POLICY_UP = 2,
-    TE_POLICY_GOING_DOWN = 3,
-    TE_POLICY_GOING_UP = 4
+	TE_POLICY_UNKNOWN = 0,
+	TE_POLICY_DOWN = 1,
+	TE_POLICY_UP = 2,
+	TE_POLICY_GOING_DOWN = 3,
+	TE_POLICY_GOING_UP = 4
 };
 
 enum te_candidate_path_type {
@@ -141,14 +141,14 @@ RB_PROTOTYPE(te_sr_policy_instance_head, te_sr_policy, entry,
 	     te_sr_policy_instance_compare)
 
 DECLARE_HOOK(pathd_candidate_created,
-             (struct te_candidate_path *te_candidate_path),
-             (te_candidate_path))
+	     (struct te_candidate_path * te_candidate_path),
+	     (te_candidate_path))
 DECLARE_HOOK(pathd_candidate_updated,
-             (struct te_candidate_path *te_candidate_path),
-             (te_candidate_path))
+	     (struct te_candidate_path * te_candidate_path),
+	     (te_candidate_path))
 DECLARE_HOOK(pathd_candidate_removed,
-             (struct te_candidate_path *te_candidate_path),
-             (te_candidate_path))
+	     (struct te_candidate_path * te_candidate_path),
+	     (te_candidate_path))
 
 extern struct te_segment_list_instance_head te_segment_list_instances;
 extern struct te_sr_policy_instance_head te_sr_policy_instances;
@@ -180,8 +180,9 @@ void te_sr_policy_name_set(struct te_sr_policy *te_sr_policy, const char *name);
 void te_sr_policy_name_unset(struct te_sr_policy *te_sr_policy);
 void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
 				  mpls_label_t binding_sid);
-void te_sr_policy_candidate_path_set_active(struct te_sr_policy *te_sr_policy,
-        struct te_candidate_path *changed_candidate_path);
+void te_sr_policy_candidate_path_set_active(
+	struct te_sr_policy *te_sr_policy,
+	struct te_candidate_path *changed_candidate_path);
 struct te_candidate_path *
 te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 				uint32_t preference);

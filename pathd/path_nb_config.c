@@ -233,7 +233,7 @@ void pathd_te_sr_policy_candidate_path_apply_finish(
 
 	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
 	te_sr_policy_candidate_path_set_active(te_candidate_path->sr_policy,
-	                                       te_candidate_path);
+					       te_candidate_path);
 }
 
 int pathd_te_sr_policy_candidate_path_destroy(struct nb_cb_destroy_args *args)
@@ -247,7 +247,7 @@ int pathd_te_sr_policy_candidate_path_destroy(struct nb_cb_destroy_args *args)
 	te_sr_policy_candidate_path_delete(te_candidate_path);
 
 	te_sr_policy_candidate_path_set_active(te_candidate_path->sr_policy,
-	                                       te_candidate_path);
+					       te_candidate_path);
 
 	return NB_OK;
 }

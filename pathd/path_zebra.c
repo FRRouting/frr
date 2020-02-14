@@ -74,37 +74,36 @@ static int path_zebra_sr_policy_notify_status(ZAPI_CALLBACK_ARGS)
 		return -1;
 
 	best_candidate_path = find_candidate_path(
-			te_sr_policy, te_sr_policy->best_candidate_path_key);
+		te_sr_policy, te_sr_policy->best_candidate_path_key);
 
 	if (!best_candidate_path)
 		return -1;
 
 	switch (zapi_sr_policy.status) {
-		case ZEBRA_SR_POLICY_DOWN:
-			switch (te_sr_policy->status) {
-				/* If the policy is GOING_UP, and zebra faild
-				   to install it, we wait for zebra to retry */
-				/* TODO: Add some timeout after which we would
-					 get is back to DOWN and remove the
-					 policy */
-				case TE_POLICY_GOING_UP:
-				case TE_POLICY_DOWN:
-					return 0;
-				default:
-					te_sr_policy->status = TE_POLICY_DOWN;
-					break;
-			}
+	case ZEBRA_SR_POLICY_DOWN:
+		switch (te_sr_policy->status) {
+		/* If the policy is GOING_UP, and zebra faild
+		   to install it, we wait for zebra to retry */
+		/* TODO: Add some timeout after which we would
+			 get is back to DOWN and remove the
+			 policy */
+		case TE_POLICY_GOING_UP:
+		case TE_POLICY_DOWN:
+			return 0;
+		default:
+			te_sr_policy->status = TE_POLICY_DOWN;
 			break;
-		case ZEBRA_SR_POLICY_UP:
-			switch (te_sr_policy->status) {
-				case TE_POLICY_UP:
-					return 0;
-				default:
-					te_sr_policy->status = TE_POLICY_UP;
-					break;
-			}
+		}
+		break;
+	case ZEBRA_SR_POLICY_UP:
+		switch (te_sr_policy->status) {
+		case TE_POLICY_UP:
+			return 0;
+		default:
+			te_sr_policy->status = TE_POLICY_UP;
 			break;
-
+		}
+		break;
 	}
 
 	pathd_candidate_updated(best_candidate_path);

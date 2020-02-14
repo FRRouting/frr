@@ -527,11 +527,11 @@ struct zapi_labels {
 };
 
 struct zapi_sr_policy {
-    uint32_t color;
-    struct ipaddr endpoint;
-    char name[ZEBRA_SR_POLICY_NAME_MAX_LENGTH];
-    struct zapi_srte_tunnel active_segment_list;
-    int status;
+	uint32_t color;
+	struct ipaddr endpoint;
+	char name[ZEBRA_SR_POLICY_NAME_MAX_LENGTH];
+	struct zapi_srte_tunnel active_segment_list;
+	int status;
 };
 
 struct zapi_pw {
@@ -789,12 +789,12 @@ extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
 
 extern int zebra_send_sr_policy(struct zclient *zclient, int cmd,
-				  struct zapi_sr_policy *zp);
+				struct zapi_sr_policy *zp);
 extern int zapi_sr_policy_encode(struct stream *s, int cmd,
-			      struct zapi_sr_policy *zp);
+				 struct zapi_sr_policy *zp);
 extern int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp);
 extern int zapi_sr_policy_notify_status_decode(struct stream *s,
-			      struct zapi_sr_policy *zp);
+					       struct zapi_sr_policy *zp);
 
 extern int zebra_send_mpls_labels(struct zclient *zclient, int cmd,
 				  struct zapi_labels *zl);

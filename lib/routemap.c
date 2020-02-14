@@ -2680,8 +2680,8 @@ DEFUN (set_srte_color,
 			    : NULL;
 
 	if (rmap_match_set_hook.set_srte_color)
-		return rmap_match_set_hook.set_srte_color(
-			vty, index, "sr-te color", arg);
+		return rmap_match_set_hook.set_srte_color(vty, index,
+							  "sr-te color", arg);
 	return CMD_SUCCESS;
 }
 

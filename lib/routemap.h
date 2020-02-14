@@ -614,14 +614,6 @@ struct route_map_match_set_hooks {
 			    const char *command, const char *arg,
 			    route_map_event_t type);
 
-	/* set sr-te policy */
-	int (*set_srte_policy)(struct vty *vty, struct route_map_index *index,
-			       const char *command, const char *arg);
-
-	/* no set sr-te policy */
-	int (*no_set_srte_policy)(struct vty *vty, struct route_map_index *index,
-				  const char *command, const char *arg);
-
 	/* set sr-te color */
 	int (*set_srte_color)(struct vty *vty, struct route_map_index *index,
 			       const char *command, const char *arg);

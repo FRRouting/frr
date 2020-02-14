@@ -1681,8 +1681,7 @@ route_set_srte_color(void *rule, const struct prefix *prefix,
 	path->attr->srte_color = *srte_color;
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR);
 
-	if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN))
-	    && peer->su_remote
+	if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN)) && peer->su_remote
 	    && sockunion_family(peer->su_remote) == AF_INET) {
 		path->attr->nexthop.s_addr = sockunion2ip(peer->su_remote);
 		path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
@@ -1712,7 +1711,6 @@ static void route_set_srte_color_free(void *rule)
 struct route_map_rule_cmd route_set_srte_color_cmd = {
 	"sr-te color", route_set_srte_color, route_set_srte_color_compile,
 	route_set_srte_color_free};
-
 
 /* Set nexthop to object.  ojbect must be pointer to struct attr. */
 struct rmap_ip_nexthop_set {

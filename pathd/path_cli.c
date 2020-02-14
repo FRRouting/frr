@@ -246,14 +246,15 @@ void cli_show_te_path_segment_list_segment(struct vty *vty,
 /*
  * XPath: /frr-pathd:pathd/sr-policy
  */
-DEFPY_NOSH(te_path_sr_policy, te_path_sr_policy_cmd,
-	   "sr-policy color (0-4294967295)$num endpoint <A.B.C.D|X:X::X:X>$endpoint",
-	   "Segment Routing Policy\n"
-	   "SR Policy color\n"
-	   "SR Policy color value\n"
-	   "SR Policy endpoint\n"
-	   "SR Policy endpoint IPv4 address\n"
-	   "SR Policy endpoint IPv6 address\n")
+DEFPY_NOSH(
+	te_path_sr_policy, te_path_sr_policy_cmd,
+	"sr-policy color (0-4294967295)$num endpoint <A.B.C.D|X:X::X:X>$endpoint",
+	"Segment Routing Policy\n"
+	"SR Policy color\n"
+	"SR Policy color value\n"
+	"SR Policy endpoint\n"
+	"SR Policy endpoint IPv4 address\n"
+	"SR Policy endpoint IPv6 address\n")
 {
 	char xpath[XPATH_MAXLEN];
 	int ret;

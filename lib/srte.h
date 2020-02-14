@@ -24,12 +24,12 @@
 extern "C" {
 #endif
 
-#define SRTE_POLICY_NAME_MAX_LENGTH	100
+#define SRTE_POLICY_NAME_MAX_LENGTH 100
 
 enum zebra_sr_policy_status {
-    ZEBRA_SR_POLICY_UNKNOWN = 0,
-    ZEBRA_SR_POLICY_UP = 1,
-    ZEBRA_SR_POLICY_DOWN = 2,
+	ZEBRA_SR_POLICY_UNKNOWN = 0,
+	ZEBRA_SR_POLICY_UP = 1,
+	ZEBRA_SR_POLICY_DOWN = 2,
 };
 
 static inline int sr_policy_compare(const struct ipaddr *a_endpoint,
