@@ -200,7 +200,7 @@ struct static_nexthop *
 static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 		   struct static_vrf *svrf, static_types type,
 		   struct ipaddr *ipaddr, const char *ifname,
-		   const char *nh_vrf)
+		   const char *nh_vrf, uint32_t color)
 {
 	struct static_nexthop *nh;
 	struct static_vrf *nh_svrf;
@@ -218,6 +218,7 @@ static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 	nh = XCALLOC(MTYPE_STATIC_NEXTHOP, sizeof(struct static_nexthop));
 
 	nh->type = type;
+	nh->color = color;
 
 	nh->nh_vrf_id = nh_svrf->vrf->vrf_id;
 	strlcpy(nh->nh_vrfname, nh_svrf->vrf->name, sizeof(nh->nh_vrfname));

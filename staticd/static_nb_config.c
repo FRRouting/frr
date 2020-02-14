@@ -162,7 +162,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 				yang_dnode_get_string(args->dnode,
 						      "./gateway"));
 		nh = static_add_nexthop(rn, pn, info->safi, info->svrf, nh_type,
-					&ipaddr, ifname, nh_vrf);
+					&ipaddr, ifname, nh_vrf, 0);
 		if (!nh) {
 			char buf[SRCDEST2STR_BUFFER];
 
@@ -298,6 +298,26 @@ static int static_nexthop_onlink_modify(struct nb_cb_modify_args *args)
 
 	nh = nb_running_get_entry(args->dnode, NULL, true);
 	nh->onlink = yang_dnode_get_bool(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+static int static_nexthop_color_modify(struct nb_cb_modify_args *args)
+{
+	struct static_nexthop *nh;
+
+	nh = nb_running_get_entry(args->dnode, NULL, true);
+	nh->color = yang_dnode_get_uint32(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+static int static_nexthop_color_destroy(struct nb_cb_destroy_args *args)
+{
+	struct static_nexthop *nh;
+
+	nh = nb_running_unset_entry(args->dnode);
+	nh->color = 0;
 
 	return NB_OK;
 }
@@ -705,6 +725,44 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	}
 	return NB_OK;
 }
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/srte-color
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_color_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		if (static_nexthop_color_modify(args) != NB_OK)
+			return NB_ERR;
+
+		break;
+	}
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_color_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		if (static_nexthop_color_destroy(args) != NB_OK)
+			return NB_ERR;
+		break;
+	}
+	return NB_OK;
+}
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/mpls-label-stack/entry
@@ -1117,6 +1175,44 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
+		break;
+	}
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop/srte-color
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_color_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		if (static_nexthop_color_modify(args) != NB_OK)
+			return NB_ERR;
+
+		break;
+	}
+	return NB_OK;
+}
+
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_color_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		if (static_nexthop_color_destroy(args) != NB_OK)
+			return NB_ERR;
 		break;
 	}
 	return NB_OK;

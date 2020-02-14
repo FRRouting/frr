@@ -132,6 +132,9 @@ struct static_nexthop {
 	 * are specified.
 	 */
 	bool onlink;
+
+	/* SR-TE color */
+	uint32_t color;
 };
 
 DECLARE_DLIST(static_nexthop_list, struct static_nexthop, list);
@@ -156,7 +159,7 @@ extern struct static_nexthop *
 static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 		   struct static_vrf *svrf, static_types type,
 		   struct ipaddr *ipaddr, const char *ifname,
-		   const char *nh_vrf);
+		   const char *nh_vrf, uint32_t color);
 extern void static_install_nexthop(struct route_node *rn,
 				   struct static_path *pn,
 				   struct static_nexthop *nh, safi_t safi,

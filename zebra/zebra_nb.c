@@ -553,6 +553,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/srte-color",
+			.cbs = {
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_color_get_elem,
+			}
+		},
+		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/mpls-label-stack/entry",
 			.cbs = {
 				.get_next = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_get_next,
