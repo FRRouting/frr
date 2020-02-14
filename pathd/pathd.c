@@ -141,15 +141,11 @@ struct te_sr_policy *te_sr_policy_create(uint32_t color,
 					 struct ipaddr *endpoint)
 {
 	struct te_sr_policy *te_sr_policy;
+
 	te_sr_policy = XCALLOC(MTYPE_PATH_SR_POLICY, sizeof(*te_sr_policy));
-
-	struct te_candidate_path_instance_head te_candidate_path_instances =
-		RB_INITIALIZER(&te_candidate_path_instances);
-
 	te_sr_policy->color = color;
 	te_sr_policy->endpoint = *endpoint;
-	te_sr_policy->candidate_paths = te_candidate_path_instances;
-
+	RB_INIT(te_candidate_path_instance_head, &te_sr_policy->candidate_paths);
 	RB_INSERT(te_sr_policy_instance_head, &te_sr_policy_instances,
 		  te_sr_policy);
 
