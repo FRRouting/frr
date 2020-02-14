@@ -267,7 +267,7 @@ static int static_route_leak(
 	const char *mask_str, const char *src_str, const char *gate_str,
 	const char *ifname, const char *flag_str, const char *tag_str,
 	const char *distance_str, const char *label_str, const char *table_str,
-	bool onlink)
+	bool onlink, const char *color_str)
 {
 	int ret;
 	uint8_t distance;
@@ -281,6 +281,7 @@ static int static_route_leak(
 	uint8_t type;
 	struct static_nh_label snh_label;
 	uint32_t table_id = 0;
+	uint32_t color;
 
 	ret = str2prefix(dest_str, &p);
 	if (ret <= 0) {
@@ -442,6 +443,10 @@ static int static_route_leak(
 		}
 	}
 
+	/* SR-TE color */
+	if (color_str)
+		color = strtoul(color_str, NULL, 10);
+
 	/* Route flags */
 	if (flag_str) {
 		switch (flag_str[0]) {
@@ -516,7 +521,7 @@ static int static_route_leak(
 	if (!negate) {
 		static_add_route(afi, safi, type, &p, src_p, gatep, ifname,
 				 bh_type, tag, distance, svrf, nh_svrf,
-				 &snh_label, table_id, onlink);
+				 &snh_label, table_id, onlink, color);
 		/* Mark as having FRR configuration */
 		vrf_set_user_cfged(svrf->vrf);
 	} else {
@@ -560,7 +565,7 @@ static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 	return static_route_leak(vty, svrf, svrf, afi, safi, negate, dest_str,
 				 mask_str, src_str, gate_str, ifname, flag_str,
 				 tag_str, distance_str, label_str, table_str,
-				 false);
+				 false, NULL);
 }
 
 void static_config_install_delayed_routes(struct static_vrf *svrf)
@@ -586,7 +591,7 @@ void static_config_install_delayed_routes(struct static_vrf *svrf)
 			shr->dest_str, shr->mask_str, shr->src_str,
 			shr->gate_str, shr->ifname, shr->flag_str, shr->tag_str,
 			shr->distance_str, shr->label_str, shr->table_str,
-			shr->onlink);
+			shr->onlink, NULL);
 
 		if (installed != CMD_SUCCESS)
 			zlog_debug(
@@ -833,7 +838,7 @@ DEFPY(ip_route_blackhole_vrf,
 	return static_route_leak(vty, svrf, svrf, AFI_IP, SAFI_UNICAST, no,
 				 prefix, mask_str, NULL, NULL, NULL, flag,
 				 tag_str, distance_str, label, table_str,
-				 false);
+				 false, NULL);
 }
 
 DEFPY(ip_route_address_interface,
@@ -903,7 +908,7 @@ DEFPY(ip_route_address_interface,
 	return static_route_leak(vty, svrf, nh_svrf, AFI_IP, SAFI_UNICAST, no,
 				 prefix, mask_str, NULL, gate_str, ifname, flag,
 				 tag_str, distance_str, label, table_str,
-				 !!onlink);
+				 !!onlink, NULL);
 }
 
 DEFPY(ip_route_address_interface_vrf,
@@ -966,7 +971,7 @@ DEFPY(ip_route_address_interface_vrf,
 	return static_route_leak(vty, svrf, nh_svrf, AFI_IP, SAFI_UNICAST, no,
 				 prefix, mask_str, NULL, gate_str, ifname, flag,
 				 tag_str, distance_str, label, table_str,
-				 !!onlink);
+				 !!onlink, NULL);
 }
 
 DEFPY(ip_route,
@@ -981,6 +986,7 @@ DEFPY(ip_route,
 	  |label WORD                                  \
 	  |table (1-4294967295)                        \
 	  |nexthop-vrf NAME                            \
+	  |color (1-4294967295)                        \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -997,7 +1003,9 @@ DEFPY(ip_route,
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
       "The table number to configure\n"
-      VRF_CMD_HELP_STR)
+      VRF_CMD_HELP_STR
+      "SR-TE color\n"
+      "The SR-TE color to configure\n")
 {
 	struct static_vrf *svrf;
 	struct static_vrf *nh_svrf;
@@ -1033,7 +1041,7 @@ DEFPY(ip_route,
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP, SAFI_UNICAST, no, prefix, mask_str,
 		NULL, gate_str, ifname, flag, tag_str, distance_str, label,
-		table_str, false);
+		table_str, false, color_str);
 }
 
 DEFPY(ip_route_vrf,
@@ -1093,7 +1101,7 @@ DEFPY(ip_route_vrf,
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP, SAFI_UNICAST, no, prefix, mask_str,
 		NULL, gate_str, ifname, flag, tag_str, distance_str, label,
-		table_str, false);
+		table_str, false, NULL);
 }
 
 DEFPY(ipv6_route_blackhole,
@@ -1177,7 +1185,7 @@ DEFPY(ipv6_route_blackhole_vrf,
 	return static_route_leak(
 		vty, svrf, svrf, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
 		from_str, NULL, NULL, flag, tag_str, distance_str, label,
-		table_str, false);
+		table_str, false, NULL);
 }
 
 DEFPY(ipv6_route_address_interface,
@@ -1247,7 +1255,7 @@ DEFPY(ipv6_route_address_interface,
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
 		from_str, gate_str, ifname, flag, tag_str, distance_str, label,
-		table_str, !!onlink);
+		table_str, !!onlink, NULL);
 }
 
 DEFPY(ipv6_route_address_interface_vrf,
@@ -1310,7 +1318,7 @@ DEFPY(ipv6_route_address_interface_vrf,
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
 		from_str, gate_str, ifname, flag, tag_str, distance_str, label,
-		table_str, !!onlink);
+		table_str, !!onlink, NULL);
 }
 
 DEFPY(ipv6_route,
@@ -1377,7 +1385,7 @@ DEFPY(ipv6_route,
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
 		from_str, gate_str, ifname, flag, tag_str, distance_str, label,
-		table_str, false);
+		table_str, false, NULL);
 }
 
 DEFPY(ipv6_route_vrf,
@@ -1437,7 +1445,7 @@ DEFPY(ipv6_route_vrf,
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
 		from_str, gate_str, ifname, flag, tag_str, distance_str, label,
-		table_str, false);
+		table_str, false, NULL);
 }
 DEFPY(debug_staticd,
       debug_staticd_cmd,

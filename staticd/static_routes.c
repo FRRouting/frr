@@ -65,7 +65,7 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 		     route_tag_t tag, uint8_t distance, struct static_vrf *svrf,
 		     struct static_vrf *nh_svrf,
 		     struct static_nh_label *snh_label, uint32_t table_id,
-		     bool onlink)
+		     bool onlink, uint32_t color)
 {
 	struct route_node *rn;
 	struct static_route *si;
@@ -132,6 +132,7 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	strlcpy(si->nh_vrfname, nh_svrf->vrf->name, sizeof(si->nh_vrfname));
 	si->table_id = table_id;
 	si->onlink = onlink;
+	si->color = color;
 
 	if (ifname)
 		strlcpy(si->ifname, ifname, sizeof(si->ifname));

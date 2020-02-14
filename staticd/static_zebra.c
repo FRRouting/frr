@@ -376,6 +376,9 @@ extern void static_zebra_route_add(struct route_node *rn,
 		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
 		api.tableid = si_changed->table_id;
 	}
+	if (si_changed->color != 0)
+		SET_FLAG(api.message, ZAPI_MESSAGE_SRTE);
+
 	for (/*loaded above*/; si; si = si->next) {
 		api_nh = &api.nexthops[nh_num];
 		if (si->nh_vrf_id == VRF_UNKNOWN)
@@ -390,6 +393,7 @@ extern void static_zebra_route_add(struct route_node *rn,
 		api_nh->vrf_id = si->nh_vrf_id;
 		if (si->onlink)
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+		api_nh->srte_color = si->color;
 
 		si->state = STATIC_SENT_TO_ZEBRA;
 

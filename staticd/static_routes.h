@@ -112,6 +112,9 @@ struct static_route {
 	 * are specified.
 	 */
 	bool onlink;
+
+	/* SR-TE color */
+	uint32_t color;
 };
 
 extern bool mpls_enabled;
@@ -127,7 +130,7 @@ extern int static_add_route(afi_t afi, safi_t safi, uint8_t type,
 			    uint8_t distance, struct static_vrf *svrf,
 			    struct static_vrf *nh_svrf,
 			    struct static_nh_label *snh_label,
-			    uint32_t table_id, bool onlink);
+			    uint32_t table_id, bool onlink, uint32_t color);
 
 extern int static_delete_route(afi_t afi, safi_t safi, uint8_t type,
 			       struct prefix *p, struct prefix_ipv6 *src_p,
