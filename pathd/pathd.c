@@ -145,6 +145,7 @@ struct te_sr_policy *te_sr_policy_create(uint32_t color,
 	te_sr_policy = XCALLOC(MTYPE_PATH_SR_POLICY, sizeof(*te_sr_policy));
 	te_sr_policy->color = color;
 	te_sr_policy->endpoint = *endpoint;
+	te_sr_policy->binding_sid = MPLS_LABEL_NONE;
 	RB_INIT(te_candidate_path_instance_head, &te_sr_policy->candidate_paths);
 	RB_INSERT(te_sr_policy_instance_head, &te_sr_policy_instances,
 		  te_sr_policy);
@@ -167,22 +168,6 @@ void te_sr_policy_del(struct te_sr_policy *te_sr_policy)
 
 	RB_REMOVE(te_sr_policy_instance_head, &te_sr_policy_instances,
 		  te_sr_policy);
-}
-
-void te_sr_policy_name_set(struct te_sr_policy *te_sr_policy, const char *name)
-{
-	strlcpy(te_sr_policy->name, name, sizeof(te_sr_policy->name));
-}
-
-void te_sr_policy_name_unset(struct te_sr_policy *te_sr_policy)
-{
-	te_sr_policy->name[0] = '\0';
-}
-
-void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
-				  mpls_label_t binding_sid)
-{
-	te_sr_policy->binding_sid = binding_sid;
 }
 
 void te_sr_policy_candidate_path_set_active(
@@ -307,38 +292,6 @@ te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 		  &te_sr_policy->candidate_paths, te_candidate_path);
 
 	return te_candidate_path;
-}
-
-void te_sr_policy_candidate_path_name_set(
-	struct te_candidate_path *te_candidate_path, const char *name)
-{
-	strlcpy(te_candidate_path->name, name, sizeof(te_candidate_path->name));
-}
-
-void te_sr_policy_candidate_path_protocol_origin_add(
-	struct te_candidate_path *te_candidate_path,
-	enum te_protocol_origin protocol_origin)
-{
-	te_candidate_path->protocol_origin = protocol_origin;
-}
-
-void te_sr_policy_candidate_path_originator_add(
-	struct te_candidate_path *te_candidate_path, struct ipaddr *originator)
-{
-	te_candidate_path->originator = *originator;
-}
-
-void te_sr_policy_candidate_path_discriminator_add(
-	struct te_candidate_path *te_candidate_path, uint32_t discriminator)
-{
-	te_candidate_path->discriminator = discriminator;
-}
-
-void te_sr_policy_candidate_path_type_add(
-	struct te_candidate_path *te_candidate_path,
-	enum te_candidate_path_type type)
-{
-	te_candidate_path->type = type;
 }
 
 void te_sr_policy_candidate_path_delete(

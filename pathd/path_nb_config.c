@@ -164,7 +164,7 @@ int pathd_te_sr_policy_name_modify(struct nb_cb_modify_args *args)
 
 	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
 	name = yang_dnode_get_string(args->dnode, NULL);
-	te_sr_policy_name_set(te_sr_policy, name);
+	strlcpy(te_sr_policy->name, name, sizeof(te_sr_policy->name));
 
 	return NB_OK;
 }
@@ -177,7 +177,7 @@ int pathd_te_sr_policy_name_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
-	te_sr_policy_name_unset(te_sr_policy);
+	te_sr_policy->name[0] = '\0';
 
 	return NB_OK;
 }
@@ -187,21 +187,29 @@ int pathd_te_sr_policy_name_destroy(struct nb_cb_destroy_args *args)
  */
 int pathd_te_sr_policy_binding_sid_modify(struct nb_cb_modify_args *args)
 {
-	mpls_label_t binding_sid;
 	struct te_sr_policy *te_sr_policy;
+	mpls_label_t binding_sid;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
 	binding_sid = yang_dnode_get_uint32(args->dnode, NULL);
-	te_sr_policy_binding_sid_add(te_sr_policy, binding_sid);
+	te_sr_policy->binding_sid = binding_sid;
 
 	return NB_OK;
 }
 
 int pathd_te_sr_policy_binding_sid_destroy(struct nb_cb_destroy_args *args)
 {
+	struct te_sr_policy *te_sr_policy;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	te_sr_policy = nb_running_get_entry(args->dnode, NULL, true);
+	te_sr_policy->binding_sid = MPLS_LABEL_NONE;
+
 	return NB_OK;
 }
 
@@ -266,7 +274,7 @@ int pathd_te_sr_policy_candidate_path_name_modify(
 
 	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
 	name = yang_dnode_get_string(args->dnode, NULL);
-	te_sr_policy_candidate_path_name_set(te_candidate_path, name);
+	strlcpy(te_candidate_path->name, name, sizeof(te_candidate_path->name));
 
 	return NB_OK;
 }
@@ -285,9 +293,7 @@ int pathd_te_sr_policy_candidate_path_protocol_origin_modify(
 
 	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
 	protocol_origin = yang_dnode_get_enum(args->dnode, NULL);
-
-	te_sr_policy_candidate_path_protocol_origin_add(te_candidate_path,
-							protocol_origin);
+	te_candidate_path->protocol_origin = protocol_origin;
 
 	return NB_OK;
 }
@@ -306,9 +312,7 @@ int pathd_te_sr_policy_candidate_path_originator_modify(
 
 	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
 	yang_dnode_get_ip(&originator, args->dnode, NULL);
-
-	te_sr_policy_candidate_path_originator_add(te_candidate_path,
-						   &originator);
+	te_candidate_path->originator = originator;
 
 	return NB_OK;
 }
@@ -327,9 +331,7 @@ int pathd_te_sr_policy_candidate_path_discriminator_modify(
 
 	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
 	discriminator = yang_dnode_get_uint32(args->dnode, NULL);
-
-	te_sr_policy_candidate_path_discriminator_add(te_candidate_path,
-						      discriminator);
+	te_candidate_path->discriminator = discriminator;
 
 	return NB_OK;
 }
@@ -348,8 +350,7 @@ int pathd_te_sr_policy_candidate_path_type_modify(
 
 	te_candidate_path = nb_running_get_entry(args->dnode, NULL, true);
 	type = yang_dnode_get_enum(args->dnode, NULL);
-
-	te_sr_policy_candidate_path_type_add(te_candidate_path, type);
+	te_candidate_path->type = type;
 
 	return NB_OK;
 }
