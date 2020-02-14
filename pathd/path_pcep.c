@@ -102,6 +102,9 @@ static void pcep_pcc_handle_pathd_event(struct ctrl_state *ctrl_state,
 					enum pathd_event_type type,
 					struct path *path);
 
+/* pceplib logging callback */
+static int pceplib_logging_cb(int level, const char* fmt, va_list args);
+
 /* Controller Functions Called from Main */
 static int pcep_controller_initialize(void);
 static int pcep_controller_finalize(void);
@@ -349,7 +352,8 @@ int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 void pcep_pcc_handle_pcep_event(struct ctrl_state *ctrl_state,
 				struct pcc_state *pcc_state, pcep_event *event)
 {
-	PCEP_DEBUG("Received PCEP event: %s", format_pcep_event(event));
+	PCEP_DEBUG("Received PCEP event: %s",
+	           pcep_event_type_name(event->event_type));
 	switch (event->event_type) {
 	case PCC_CONNECTED_TO_PCE:
 		assert(CONNECTING == pcc_state->status);
@@ -373,6 +377,8 @@ void pcep_pcc_handle_pcep_event(struct ctrl_state *ctrl_state,
 		pcep_pcc_schedule_reconnect(ctrl_state, pcc_state);
 		break;
 	case MESSAGE_RECEIVED:
+		PCEP_DEBUG("Received PCEP message");
+		PCEP_DEBUG_PCEP("%s", format_pcep_message(event->message));
 		if (CONNECTING == pcc_state->status) {
 			assert(PCEP_TYPE_OPEN
 			       == event->message->msg_header->type);
@@ -383,7 +389,9 @@ void pcep_pcc_handle_pcep_event(struct ctrl_state *ctrl_state,
 		pcep_pcc_handle_message(ctrl_state, pcc_state, event->message);
 		break;
 	default:
-		// TODO: Log something ???
+		flog_warn(EC_PATH_PCEP_UNEXPECTED_EVENT,
+			  "Unexpected event from pceplib: %s",
+		          format_pcep_event(event));
 		break;
 	}
 }
@@ -415,7 +423,8 @@ void pcep_pcc_lsp_update(struct ctrl_state *ctrl_state,
 
 	pcep_pcc_push_srpid(pcc_state, path);
 
-	PCEP_DEBUG("Received LSP update: %s", format_path(path));
+	PCEP_DEBUG("Received LSP update");
+	PCEP_DEBUG_PATH("%s", format_path(path));
 
 	pcep_thread_update_path(ctrl_state, pcc_state, path);
 }
@@ -430,7 +439,8 @@ void pcep_pcc_lsp_initiate(struct ctrl_state *ctrl_state,
 void pcep_pcc_send(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
 		   struct pcep_message *msg)
 {
-	PCEP_DEBUG("Sending PCEP message: %s", format_pcep_message(msg));
+	PCEP_DEBUG("Sending PCEP message");
+	PCEP_DEBUG_PCEP("%s", format_pcep_message(msg));
 	send_message(pcc_state->sess, msg, true);
 }
 
@@ -538,7 +548,8 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 	    && (PCEP_LSP_OPERATIONAL_DOWN != path->status)) {
 		orig_status = path->status;
 		path->status = PCEP_LSP_OPERATIONAL_DOWN;
-		PCEP_DEBUG("Sending path (ODL FIX): %s", format_path(path));
+		PCEP_DEBUG("Sending path (ODL FIX)");
+		PCEP_DEBUG_PATH("%s", format_path(path));
 		objs = pcep_lib_format_path(path);
 		report = pcep_msg_create_report(objs);
 		pcep_pcc_send(ctrl_state, pcc_state, report);
@@ -546,7 +557,8 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 		path->srp_id = 0;
 	}
 
-	PCEP_DEBUG("Sending path: %s", format_path(path));
+	PCEP_DEBUG("Sending path");
+	PCEP_DEBUG_PATH("%s", format_path(path));
 	objs = pcep_lib_format_path(path);
 	report = pcep_msg_create_report(objs);
 	pcep_pcc_send(ctrl_state, pcc_state, report);
@@ -575,6 +587,16 @@ void pcep_pcc_handle_pathd_event(struct ctrl_state *ctrl_state,
 	}
 }
 
+/* ------------ pceplib logging callback ------------ */
+
+int pceplib_logging_cb(int priority, const char* fmt, va_list args)
+{
+	char buffer[1024];
+	snprintf(buffer, sizeof(buffer), fmt, args);
+	PCEP_DEBUG_PCEPLIB(priority, "pceplib: %s", buffer);
+	return 0;
+}
+
 
 /* ------------ Controller Functions Called from Main ------------ */
 
@@ -595,6 +617,9 @@ int pcep_controller_initialize(void)
 		flog_err(EC_PATH_PCEP_PCC_INIT, "failed to initialize PCC");
 		return 1;
 	}
+
+	/* Register pceplib logging callback */
+	register_logger(pceplib_logging_cb);
 
 	/* Create and start the FRR pthread */
 	fpt = frr_pthread_new(&attr, "PCEP thread", "pcep");
@@ -1152,15 +1177,43 @@ DEFUN(pcep_cli_no_pce, pcep_cli_no_pce_cmd, "no pce", NO_STR "Disable pce\n")
 	return CMD_SUCCESS;
 }
 
-DEFUN(pcep_cli_debug, pcep_cli_debug_cmd, "[no] debug pathd pcep",
+DEFUN(pcep_cli_debug, pcep_cli_debug_cmd,
+      "[no] debug pathd pcep [path] [message] [pceplib]",
       NO_STR DEBUG_STR
-      "Pathd debugging\n"
-      "pcep\n")
+      "pathd debugging\n"
+      "pcep basic debugging\n"
+      "path structures debugging\n"
+      "pcep message debugging\n"
+      "pceplib debugging\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
 	bool no = strmatch(argv[0]->text, "no");
+	int i;
 
 	DEBUG_MODE_SET(&pcep_g->dbg, mode, !no);
+	DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC, !no);
+	DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PATH, false);
+	DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP, false);
+	DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEPLIB, false);
+
+	if (no)
+		return CMD_SUCCESS;
+
+	if (3 < argc) {
+		for (i = (3 + no); i < argc; i++) {
+			zlog_debug("ARG: %s", argv[i]->arg);
+			if (0 == strcmp("path", argv[i]->arg)) {
+				DEBUG_FLAGS_SET(&pcep_g->dbg,
+				                PCEP_DEBUG_MODE_PATH, true);
+			} else if (0 == strcmp("message", argv[i]->arg)) {
+				DEBUG_FLAGS_SET(&pcep_g->dbg,
+				                PCEP_DEBUG_MODE_PCEP, true);
+			} else if (0 == strcmp("pceplib", argv[i]->arg)) {
+				DEBUG_FLAGS_SET(&pcep_g->dbg,
+				                PCEP_DEBUG_MODE_PCEPLIB, true);
+			}
+		}
+	}
 
 	return CMD_SUCCESS;
 }
@@ -1192,8 +1245,8 @@ void pcep_cli_init(void)
 
 	install_node(&pcc_node);
 	install_default(PCC_NODE);
-	install_element(ENABLE_NODE, &pcep_cli_debug_cmd);
 	install_element(CONFIG_NODE, &pcep_cli_debug_cmd);
+	install_element(ENABLE_NODE, &pcep_cli_debug_cmd);
 	install_element(CONFIG_NODE, &pcep_cli_pcc_cmd);
 	install_element(PCC_NODE, &pcep_cli_pce_opts_cmd);
 	install_element(PCC_NODE, &pcep_cli_no_pce_cmd);

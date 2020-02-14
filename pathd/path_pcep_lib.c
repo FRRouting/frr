@@ -18,6 +18,7 @@
  */
 
 #include <debug.h>
+#include "pathd/path_errors.h"
 #include "pathd/path_memory.h"
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_lib.h"
@@ -198,12 +199,13 @@ struct path *pcep_lib_parse_path(double_linked_list *objs)
 			pcep_lib_parse_ero(path, ero);
 			break;
 		default:
-			PCEP_DEBUG("Unexpected PCEP object %s (%u) / %s (%u)",
-				   pcep_object_class_name(obj->object_class),
-				   obj->object_class,
-				   pcep_object_type_name(obj->object_class,
-							 obj->object_type),
-				   obj->object_type);
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_OBJECT,
+			          "Unexpected PCEP object %s (%u) / %s (%u)",
+				  pcep_object_class_name(obj->object_class),
+				  obj->object_class,
+				  pcep_object_type_name(obj->object_class,
+						        obj->object_type),
+				  obj->object_type);
 			break;
 		}
 	}
@@ -227,8 +229,9 @@ void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp *srp)
 			// TODO: enforce the path setup type is SR_TE_PST
 			break;
 		default:
-			PCEP_DEBUG("Unexpected SRP's TLV %s (%u)",
-				   pcep_tlv_type_name(tlv->type), tlv->type);
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_TLV,
+			          "Unexpected SRP's TLV %s (%u)",
+				  pcep_tlv_type_name(tlv->type), tlv->type);
 			break;
 		}
 	}
@@ -255,8 +258,9 @@ void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp)
 		tlv = (struct pcep_object_tlv_header *)node->data;
 		switch (tlv->type) {
 		default:
-			PCEP_DEBUG("Unexpected LSP TLV %s (%u)",
-				   pcep_tlv_type_name(tlv->type), tlv->type);
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_TLV,
+			          "Unexpected LSP TLV %s (%u)",
+				  pcep_tlv_type_name(tlv->type), tlv->type);
 			break;
 		}
 	}
@@ -278,9 +282,10 @@ void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero)
 				hop, (struct pcep_ro_subobj_sr *)obj);
 			break;
 		default:
-			PCEP_DEBUG("Unexpected ERO sub-object %s (%u)",
-				   pcep_ro_type_name(obj->ro_subobj_type),
-				   obj->ro_subobj_type);
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_ERO_SUBOBJ,
+			          "Unexpected ERO sub-object %s (%u)",
+				  pcep_ro_type_name(obj->ro_subobj_type),
+				  obj->ro_subobj_type);
 			break;
 		}
 	}

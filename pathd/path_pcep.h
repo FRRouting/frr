@@ -24,13 +24,58 @@
 #include <debug.h>
 #include <pcep_pcc_api.h>
 #include <pcep_pcc_api.h>
+#include <pcep_utils_logging.h>
 #include "mpls.h"
 #include "typesafe.h"
 #include "pathd/path_memory.h"
 
 #define MAX_PCC 1
 #define CLASS_TYPE(CLASS, TYPE) (((CLASS) << 16) | (TYPE))
-#define PCEP_DEBUG(fmt, ...) DEBUGD(&pcep_g->dbg, fmt, ##__VA_ARGS__)
+#define PCEP_DEBUG_MODE_BASIC    0x01
+#define PCEP_DEBUG_MODE_PATH     0x02
+#define PCEP_DEBUG_MODE_PCEP     0x04
+#define PCEP_DEBUG_MODE_PCEPLIB  0x08
+#define PCEP_DEBUG(fmt, ...)                                                   \
+	do {                                                                   \
+		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC))    \
+			DEBUGD(&pcep_g->dbg, fmt, ##__VA_ARGS__);              \
+	} while (0)
+#define PCEP_DEBUG_PATH(fmt, ...)                                              \
+	do {                                                                   \
+		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PATH))     \
+			DEBUGD(&pcep_g->dbg, fmt, ##__VA_ARGS__);              \
+	} while (0)
+#define PCEP_DEBUG_PCEP(fmt, ...)                                              \
+	do {                                                                   \
+		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP))     \
+			DEBUGD(&pcep_g->dbg, fmt, ##__VA_ARGS__);              \
+	} while (0)
+#define PCEP_DEBUG_PCEPLIB(priority, fmt, ...)                                 \
+	do {                                                                   \
+		switch (priority) {                                            \
+		case LOG_DEBUG:                                                \
+			if (DEBUG_FLAGS_CHECK(&pcep_g->dbg,                    \
+			                     PCEP_DEBUG_MODE_PCEPLIB))         \
+				DEBUGD(&pcep_g->dbg, fmt, ##__VA_ARGS__);      \
+			break;                                                 \
+		case LOG_INFO:                                                 \
+			if (DEBUG_FLAGS_CHECK(&pcep_g->dbg,                    \
+			                     PCEP_DEBUG_MODE_PCEPLIB))         \
+				DEBUGI(&pcep_g->dbg, fmt, ##__VA_ARGS__);      \
+			break;                                                 \
+		case LOG_NOTICE:                                               \
+			if (DEBUG_FLAGS_CHECK(&pcep_g->dbg,                    \
+			                     PCEP_DEBUG_MODE_PCEPLIB))         \
+				DEBUGN(&pcep_g->dbg, fmt, ##__VA_ARGS__);      \
+			break;                                                 \
+		case LOG_WARNING:                                              \
+		case LOG_ERR:                                                  \
+		default:                                                       \
+			zlog(priority, fmt, ##__VA_ARGS__);                    \
+			break;                                                 \
+		}                                                              \
+	} while (0)
+
 
 enum pcc_status {
 	INITIALIZED = 0,
