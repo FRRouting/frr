@@ -540,6 +540,8 @@ extern int bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *,
 				 const char *, const char *, const char *, int,
 				 const char *, const char *, const char *);
 
+extern const char *bgp_origin2str(uint8_t origin, bool origin_short);
+
 /* this is primarily for MPLS-VPN */
 extern int bgp_update(struct peer *, struct prefix *, uint32_t, struct attr *,
 		      afi_t, safi_t, int, int, struct prefix_rd *,

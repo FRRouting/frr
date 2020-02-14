@@ -170,10 +170,6 @@ static const struct message bgp_notify_capability_msg[] = {
 	{BGP_NOTIFY_CAPABILITY_MALFORMED_CODE, "/Malformed Capability Value"},
 	{0}};
 
-/* Origin strings. */
-const char *const bgp_origin_str[] = {"i", "e", "?"};
-const char *const bgp_origin_long_str[] = {"IGP", "EGP", "incomplete"};
-
 static int bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
 				       struct prefix *p);
 /* Given a string return a pointer the corresponding peer structure */
@@ -377,7 +373,7 @@ int bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGIN)))
 		snprintf(buf + strlen(buf), size - strlen(buf), ", origin %s",
-			 bgp_origin_str[attr->origin]);
+			 bgp_origin2str(attr->origin, true));
 
 	/* Add MP case. */
 	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL

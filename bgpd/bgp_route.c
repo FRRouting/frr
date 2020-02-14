@@ -87,9 +87,6 @@
 #include "bgpd/bgp_route_clippy.c"
 #endif
 
-/* Extern from bgp_dump.c */
-extern const char *bgp_origin_str[];
-extern const char *bgp_origin_long_str[];
 const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
 /* PMSI strings. */
 #define PMSI_TNLTYPE_STR_NO_INFO "No info"
@@ -809,8 +806,8 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		if (debug)
 			zlog_debug("%s: %s wins over %s due to ORIGIN %s < %s",
 				   pfx_buf, new_buf, exist_buf,
-				   bgp_origin_long_str[newattr->origin],
-				   bgp_origin_long_str[existattr->origin]);
+				   bgp_origin2str(newattr->origin, false),
+				   bgp_origin2str(existattr->origin, false));
 		return 1;
 	}
 
@@ -819,8 +816,8 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		if (debug)
 			zlog_debug("%s: %s loses to %s due to ORIGIN %s > %s",
 				   pfx_buf, new_buf, exist_buf,
-				   bgp_origin_long_str[newattr->origin],
-				   bgp_origin_long_str[existattr->origin]);
+				   bgp_origin2str(newattr->origin, false),
+				   bgp_origin2str(existattr->origin, false));
 		return 0;
 	}
 
@@ -6669,14 +6666,20 @@ void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 #define AGGREGATE_AS_SET       1
 #define AGGREGATE_AS_UNSET     0
 
-static const char *bgp_origin2str(uint8_t origin)
+const char *bgp_origin2str(uint8_t origin, bool origin_short)
 {
 	switch (origin) {
 	case BGP_ORIGIN_IGP:
+		if (origin_short)
+			return "i";
 		return "igp";
 	case BGP_ORIGIN_EGP:
+		if (origin_short)
+			return "e";
 		return "egp";
 	case BGP_ORIGIN_INCOMPLETE:
+		if (origin_short)
+			return "?";
 		return "incomplete";
 	}
 	return "n/a";
@@ -7854,9 +7857,9 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 	/* Print origin */
 	if (json_paths)
 		json_object_string_add(json_path, "origin",
-				       bgp_origin_long_str[attr->origin]);
+				       bgp_origin2str(attr->origin, false));
 	else
-		vty_out(vty, "%s", bgp_origin_str[attr->origin]);
+		vty_out(vty, "%s", bgp_origin2str(attr->origin, true));
 
 	if (json_paths) {
 		if (safi == SAFI_EVPN &&
@@ -8019,8 +8022,9 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 			}
 
 			/* Print origin */
-			json_object_string_add(json_net, "bgpOriginCode",
-					       bgp_origin_str[attr->origin]);
+			json_object_string_add(
+				json_net, "bgpOriginCode",
+				bgp_origin2str(attr->origin, true));
 		} else {
 			if (p->family == AF_INET
 			    && (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
@@ -8068,7 +8072,7 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 				aspath_print_vty(vty, "%s", attr->aspath, " ");
 
 			/* Print origin */
-			vty_out(vty, "%s", bgp_origin_str[attr->origin]);
+			vty_out(vty, "%s", bgp_origin2str(attr->origin, true));
 		}
 	}
 	if (use_json) {
@@ -8355,9 +8359,9 @@ static void damp_route_vty_out(struct vty *vty, struct prefix *p,
 	/* Print origin */
 	if (use_json)
 		json_object_string_add(json, "origin",
-				       bgp_origin_str[attr->origin]);
+				       bgp_origin2str(attr->origin, true));
 	else
-		vty_out(vty, "%s", bgp_origin_str[attr->origin]);
+		vty_out(vty, "%s", bgp_origin2str(attr->origin, true));
 
 	if (!use_json)
 		vty_out(vty, "\n");
@@ -8451,9 +8455,9 @@ static void flap_route_vty_out(struct vty *vty, struct prefix *p,
 	/* Print origin */
 	if (use_json)
 		json_object_string_add(json, "origin",
-				       bgp_origin_str[attr->origin]);
+				       bgp_origin2str(attr->origin, true));
 	else
-		vty_out(vty, "%s", bgp_origin_str[attr->origin]);
+		vty_out(vty, "%s", bgp_origin2str(attr->origin, true));
 
 	if (!use_json)
 		vty_out(vty, "\n");
@@ -9023,10 +9027,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 	 * Int/Ext/Local, Atomic, best */
 	if (json_paths)
 		json_object_string_add(json_path, "origin",
-				       bgp_origin_long_str[attr->origin]);
+				       bgp_origin2str(attr->origin, false));
 	else
 		vty_out(vty, "      Origin %s",
-			bgp_origin_long_str[attr->origin]);
+			bgp_origin2str(attr->origin, false));
 
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)) {
 		if (json_paths) {
@@ -12985,7 +12989,7 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 		if (bgp_aggregate->origin != BGP_ORIGIN_UNSPECIFIED)
 			vty_out(vty, " origin %s",
-				bgp_origin2str(bgp_aggregate->origin));
+				bgp_origin2str(bgp_aggregate->origin, false));
 
 		vty_out(vty, "\n");
 	}
