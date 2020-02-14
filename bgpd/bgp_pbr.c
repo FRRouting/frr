@@ -1403,11 +1403,16 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 				ptr += sprintf(ptr,
 					  "@redirect ip nh %s", local_buff);
 			break;
-		case ACTION_REDIRECT:
+		case ACTION_REDIRECT: {
+			struct vrf *vrf;
+
+			vrf = vrf_lookup_by_id(api->actions[i].u.redirect_vrf);
 			INCREMENT_DISPLAY(ptr, nb_items);
-			ptr += sprintf(ptr, "@redirect vrf %u",
+			ptr += sprintf(ptr, "@redirect vrf %s(%u)",
+				       VRF_LOGNAME(vrf),
 				       api->actions[i].u.redirect_vrf);
 			break;
+		}
 		case ACTION_MARKING:
 			INCREMENT_DISPLAY(ptr, nb_items);
 			ptr += sprintf(ptr, "@set dscp %u",

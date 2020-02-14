@@ -284,8 +284,11 @@ void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *router_id)
 				 */
 				if (bgp->established_peers == 0) {
 					if (BGP_DEBUG(zebra, ZEBRA))
-						zlog_debug("RID change : vrf %u, RTR ID %s",
-					bgp->vrf_id, inet_ntoa(*addr));
+						zlog_debug(
+							"RID change : vrf %s(%u), RTR ID %s",
+							bgp->name_pretty,
+							bgp->vrf_id,
+							inet_ntoa(*addr));
 					bgp_router_id_set(bgp, addr, false);
 				}
 			}
@@ -304,8 +307,11 @@ void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *router_id)
 				 */
 				if (bgp->established_peers == 0) {
 					if (BGP_DEBUG(zebra, ZEBRA))
-						zlog_debug("RID change : vrf %u, RTR ID %s",
-					bgp->vrf_id, inet_ntoa(*addr));
+						zlog_debug(
+							"RID change : vrf %s(%u), RTR ID %s",
+							bgp->name_pretty,
+							bgp->vrf_id,
+							inet_ntoa(*addr));
 					bgp_router_id_set(bgp, addr, false);
 				}
 			}
