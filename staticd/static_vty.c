@@ -1332,6 +1332,7 @@ DEFPY(ipv6_route,
             |label WORD                                    \
 	    |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
+            |color (1-4294967295)                          \
           }]",
       NO_STR
       IPV6_STR
@@ -1349,7 +1350,9 @@ DEFPY(ipv6_route,
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
       "The table number to configure\n"
-      VRF_CMD_HELP_STR)
+      VRF_CMD_HELP_STR
+      "SR-TE color\n"
+      "The SR-TE color to configure\n")
 {
 	struct static_vrf *svrf;
 	struct static_vrf *nh_svrf;
@@ -1385,7 +1388,7 @@ DEFPY(ipv6_route,
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
 		from_str, gate_str, ifname, flag, tag_str, distance_str, label,
-		table_str, false, NULL);
+		table_str, false, color_str);
 }
 
 DEFPY(ipv6_route_vrf,
