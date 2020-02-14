@@ -26,15 +26,9 @@
 #include "pathd/path_memory.h"
 
 DEFINE_MTYPE_STATIC(PATHD, PATH_SEGMENT_LIST, "Segment List information")
-DEFINE_MTYPE_STATIC(PATHD, PATH_SEGMENT_LIST_NAME, "Segment List name")
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_POLICY, "SR Policy information")
-DEFINE_MTYPE_STATIC(PATHD, PATH_SR_POLICY_NAME, "SR Policy name")
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE,
 		    "SR Policy candidate path information")
-DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE_NAME,
-		    "SR Policy candidate path name")
-DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE_SL_NAME,
-		    "SR Policy candidate path segment-list name")
 
 DEFINE_HOOK(pathd_candidate_created,
 	    (struct te_candidate_path * te_candidate_path), (te_candidate_path))
@@ -96,7 +90,7 @@ struct te_segment_list *te_segment_list_create(const char *name)
 	struct te_segment_list *te_segment_list =
 		XCALLOC(MTYPE_PATH_SEGMENT_LIST, sizeof(*te_segment_list));
 
-	te_segment_list->name = XSTRDUP(MTYPE_PATH_SEGMENT_LIST_NAME, name);
+	strlcpy(te_segment_list->name, name, sizeof(te_segment_list->name));
 	RB_INIT(te_segment_list_segment_instance_head,
 		&te_segment_list->segments);
 
@@ -110,7 +104,6 @@ void te_segment_list_del(struct te_segment_list *te_segment_list)
 {
 	RB_REMOVE(te_segment_list_instance_head, &te_segment_list_instances,
 		  te_segment_list);
-	XFREE(MTYPE_PATH_SEGMENT_LIST_NAME, te_segment_list->name);
 	XFREE(MTYPE_PATH_SEGMENT_LIST, te_segment_list);
 }
 
@@ -176,20 +169,18 @@ void te_sr_policy_del(struct te_sr_policy *te_sr_policy)
 
 	path_zebra_delete_sr_policy(te_sr_policy);
 
-	free(te_sr_policy->name);
 	RB_REMOVE(te_sr_policy_instance_head, &te_sr_policy_instances,
 		  te_sr_policy);
 }
 
 void te_sr_policy_name_set(struct te_sr_policy *te_sr_policy, const char *name)
 {
-	XFREE(MTYPE_PATH_SR_POLICY_NAME, te_sr_policy->name);
-	te_sr_policy->name = XSTRDUP(MTYPE_PATH_SR_POLICY_NAME, name);
+	strlcpy(te_sr_policy->name, name, sizeof(te_sr_policy->name));
 }
 
 void te_sr_policy_name_unset(struct te_sr_policy *te_sr_policy)
 {
-	XFREE(MTYPE_PATH_SR_POLICY_NAME, te_sr_policy->name);
+	te_sr_policy->name[0] = '\0';
 }
 
 void te_sr_policy_binding_sid_add(struct te_sr_policy *te_sr_policy,
@@ -295,7 +286,8 @@ void te_sr_policy_candidate_path_set_active(
 struct te_segment_list *te_segment_list_get(const char *name)
 {
 	struct te_segment_list te_segment_list_search;
-	te_segment_list_search.name = (char *)name;
+	strlcpy(te_segment_list_search.name, name,
+		sizeof(te_segment_list_search.name));
 	return RB_FIND(te_segment_list_instance_head,
 		       &te_segment_list_instances, &te_segment_list_search);
 }
@@ -329,8 +321,7 @@ te_sr_policy_candidate_path_add(struct te_sr_policy *te_sr_policy,
 void te_sr_policy_candidate_path_name_set(
 	struct te_candidate_path *te_candidate_path, const char *name)
 {
-	XFREE(MTYPE_PATH_SR_CANDIDATE_NAME, te_candidate_path->name);
-	te_candidate_path->name = XSTRDUP(MTYPE_PATH_SR_CANDIDATE_NAME, name);
+	strlcpy(te_candidate_path->name, name, sizeof(te_candidate_path->name));
 }
 
 void te_sr_policy_candidate_path_protocol_origin_add(
@@ -363,10 +354,8 @@ void te_sr_policy_candidate_path_segment_list_name_set(
 	struct te_candidate_path *te_candidate_path,
 	const char *segment_list_name)
 {
-	XFREE(MTYPE_PATH_SR_CANDIDATE_SL_NAME,
-	      te_candidate_path->segment_list_name);
-	te_candidate_path->segment_list_name =
-		XSTRDUP(MTYPE_PATH_SR_CANDIDATE_SL_NAME, segment_list_name);
+	strlcpy(te_candidate_path->segment_list_name, segment_list_name,
+		sizeof(te_candidate_path->segment_list_name));
 }
 
 void te_sr_policy_candidate_path_delete(

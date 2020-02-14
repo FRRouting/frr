@@ -60,7 +60,7 @@ struct te_segment_list {
 	RB_ENTRY(te_segment_list) entry;
 
 	/* Name of the Segment List. */
-	char *name;
+	char name[64];
 
 	/* Nexthops. */
 	struct te_segment_list_segment_instance_head segments;
@@ -82,10 +82,10 @@ struct te_candidate_path {
 	bool created;
 
 	/* Symbolic Name. */
-	char *name;
+	char name[64];
 
 	/* The associated Segment List. */
-	char *segment_list_name;
+	char segment_list_name[64];
 
 	/* The Protocol-Origin. */
 	enum te_protocol_origin protocol_origin;
@@ -116,7 +116,7 @@ struct te_sr_policy {
 	struct ipaddr endpoint;
 
 	/* Name */
-	char *name;
+	char name[64];
 
 	/* Binding SID */
 	mpls_label_t binding_sid;

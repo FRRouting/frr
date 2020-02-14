@@ -121,7 +121,7 @@ struct path *candidate_to_path(struct te_candidate_path *candidate)
 	policy = candidate->sr_policy;
 	hop = NULL;
 
-	if (NULL != candidate->segment_list_name) {
+	if (candidate->segment_list_name[0] != '\0') {
 		key = (struct te_segment_list){
 			.name = candidate->segment_list_name};
 		segment_list = RB_FIND(te_segment_list_instance_head,

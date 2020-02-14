@@ -34,7 +34,9 @@ module frr-pathd {
       key "name";
       description "Segment-list properties";
       leaf name {
-        type string;
+        type string {
+          length "1..64";
+        }
         description "Segment-list name";
       }
       list segment {
@@ -64,7 +66,9 @@ module frr-pathd {
           "Indication for the endpoint of the SR Policy.";
       }
       leaf name {
-        type string;
+        type string {
+          length "1..64";
+        }
         description
           "Name of the SR Policy.";
       }
@@ -91,7 +95,9 @@ module frr-pathd {
             "Administrative preference.";
         }
         leaf name {
-          type string;
+          type string {
+            length "1..64";
+          }
           mandatory true;
           description
             "Symbolic Name of the Candidate Path.";
