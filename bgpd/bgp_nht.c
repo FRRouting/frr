@@ -428,9 +428,11 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 
 				ifp = if_lookup_by_index(nexthop->ifindex,
 							 nexthop->vrf_id);
-				zclient_send_interface_radv_req(
-					zclient, nexthop->vrf_id, ifp, true,
-					BGP_UNNUM_DEFAULT_RA_INTERVAL);
+				if (ifp)
+					zclient_send_interface_radv_req(
+						zclient, nexthop->vrf_id, ifp,
+						true,
+						BGP_UNNUM_DEFAULT_RA_INTERVAL);
 			}
 			/* There is at least one label-switched path */
 			if (nexthop->nh_label &&
@@ -898,8 +900,11 @@ void bgp_nht_register_enhe_capability_interfaces(struct peer *peer)
 		return;
 
 	for (nhop = bnc->nexthop; nhop; nhop = nhop->next) {
-		ifp = if_lookup_by_index(nhop->ifindex,
-					 nhop->vrf_id);
+		ifp = if_lookup_by_index(nhop->ifindex, nhop->vrf_id);
+
+		if (!ifp)
+			continue;
+
 		zclient_send_interface_radv_req(zclient,
 						nhop->vrf_id,
 						ifp, true,
