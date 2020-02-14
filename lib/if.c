@@ -811,27 +811,25 @@ DEFUN (show_address,
        "address\n"
        VRF_CMD_HELP_STR)
 {
-  int idx_vrf = 3;
-  struct listnode *node;
-  struct interface *ifp;
-  struct connected *ifc;
-  struct prefix *p;
-  vrf_id_t vrf_id = VRF_DEFAULT;
+	int idx_vrf = 3;
+	struct listnode *node;
+	struct interface *ifp;
+	struct connected *ifc;
+	struct prefix *p;
+	vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 2)
-    VRF_GET_ID (vrf_id, argv[idx_vrf]->arg);
+	if (argc > 2)
+		VRF_GET_ID (vrf_id, argv[idx_vrf]->arg);
 
-  FOR_ALL_INTERFACES (vrf, ifp)
-    {
-      for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
-	{
-	  p = ifc->address;
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc)) {
+			p = ifc->address;
 
-	  if (p->family == AF_INET)
-	    vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
+			if (p->family == AF_INET)
+				vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
+		}
 	}
-    }
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (show_address_vrf_all,
@@ -841,31 +839,29 @@ DEFUN (show_address_vrf_all,
        "address\n"
        VRF_ALL_CMD_HELP_STR)
 {
-  struct vrf *vrf;
-  struct listnode *node;
-  struct interface *ifp;
-  struct connected *ifc;
-  struct prefix *p;
+	struct vrf *vrf;
+	struct listnode *node;
+	struct interface *ifp;
+	struct connected *ifc;
+	struct prefix *p;
 
-  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-    {
-      if (RB_EMPTY (if_name_head, &vrf->ifaces_by_name))
-        continue;
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (RB_EMPTY (if_name_head, &vrf->ifaces_by_name))
+			continue;
 
-      vty_out (vty, "\nVRF %u\n\n", vrf->vrf_id);
+		vty_out (vty, "\nVRF %u\n\n", vrf->vrf_id);
 
-      FOR_ALL_INTERFACES (vrf, ifp)
-        {
-          for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
-            {
-              p = ifc->address;
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc)) {
+				p = ifc->address;
 
-              if (p->family == AF_INET)
-                vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
-            }
-        }
-    }
-  return CMD_SUCCESS;
+				if (p->family == AF_INET)
+					vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
+			}
+		}
+	}
+	return CMD_SUCCESS;
 }
 #endif
 
