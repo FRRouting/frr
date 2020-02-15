@@ -137,6 +137,7 @@ void te_segment_list_segment_del(
 {
 	RB_REMOVE(te_segment_list_segment_instance_head,
 		  &te_segment_list->segments, te_segment_list_segment);
+	XFREE(MTYPE_PATH_SEGMENT_LIST, te_segment_list);
 }
 
 void te_segment_list_segment_sid_value_add(
@@ -177,6 +178,7 @@ void te_sr_policy_del(struct te_sr_policy *te_sr_policy)
 
 	RB_REMOVE(te_sr_policy_instance_head, &te_sr_policy_instances,
 		  te_sr_policy);
+	XFREE(MTYPE_PATH_SR_POLICY, te_sr_policy);
 }
 
 struct te_sr_policy *te_sr_policy_get(uint32_t color, struct ipaddr *endpoint)
