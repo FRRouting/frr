@@ -154,6 +154,8 @@ void srte_segment_entry_del(struct srte_segment_list *segment_list,
 struct srte_policy *srte_policy_add(uint32_t color, struct ipaddr *endpoint);
 void srte_policy_del(struct srte_policy *policy);
 struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint);
+void srte_policy_update_binding_sid(struct srte_policy *policy,
+				    uint32_t binding_sid);
 struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
 					  uint32_t preference);
 void srte_candidate_del(struct srte_candidate *candidate);

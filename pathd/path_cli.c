@@ -60,7 +60,6 @@ DEFPY(show_srte_policy, show_srte_policy_cmd, "show sr-te policy",
 {
 	struct ttable *tt;
 	struct srte_policy *policy;
-	char endpoint[46];
 	char *table;
 
 	if (RB_EMPTY(srte_policy_head, &srte_policies)) {
@@ -77,9 +76,16 @@ DEFPY(show_srte_policy, show_srte_policy_cmd, "show sr-te policy",
 	ttable_rowseps(tt, 0, BOTTOM, true, '-');
 
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
+		char endpoint[46];
+		char binding_sid[16] = "-";
+
 		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
-		ttable_add_row(tt, "%s|%d|%s|%d|%s", endpoint, policy->color,
-			       policy->name, policy->binding_sid,
+		if (policy->binding_sid != MPLS_LABEL_NONE)
+			snprintf(binding_sid, sizeof(binding_sid), "%u",
+				 policy->binding_sid);
+
+		ttable_add_row(tt, "%s|%d|%s|%s|%s", endpoint, policy->color,
+			       policy->name, binding_sid,
 			       policy->status == SRTE_POLICY_STATUS_UP
 				       ? "Active"
 				       : "Inactive");
@@ -116,12 +122,15 @@ DEFPY(show_srte_policy_detail, show_srte_policy_detail_cmd,
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
 		struct srte_candidate *candidate;
 		char endpoint[46];
+		char binding_sid[16] = "-";
 
 		ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+		if (policy->binding_sid != MPLS_LABEL_NONE)
+			snprintf(binding_sid, sizeof(binding_sid), "%u",
+				 policy->binding_sid);
 		vty_out(vty,
-			"Endpoint: %s  Color: %d  Name: %s  BSID: %d  Status: %s\n",
-			endpoint, policy->color, policy->name,
-			policy->binding_sid,
+			"Endpoint: %s  Color: %d  Name: %s  BSID: %s  Status: %s\n",
+			endpoint, policy->color, policy->name, binding_sid,
 			policy->status == SRTE_POLICY_STATUS_UP ? "Active"
 								: "Inactive");
 

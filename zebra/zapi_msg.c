@@ -2135,12 +2135,13 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);
 	if (!policy)
 		policy = zebra_sr_policy_add(zp.color, &zp.endpoint, zp.name);
-	policy->segment_list = zp.segment_list;
-	policy->status = ZEBRA_SR_POLICY_UNKNOWN;
 	/* TODO: per-VRF list of SR-TE policies. */
 	policy->zvrf = zvrf;
 
-	zebra_sr_policy_install(policy);
+	if (policy->status == ZEBRA_SR_POLICY_UP)
+		zebra_sr_policy_bsid_uninstall(policy);
+	policy->segment_list = zp.segment_list;
+	zebra_sr_policy_validate(policy);
 }
 
 static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)

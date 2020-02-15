@@ -187,7 +187,7 @@ int pathd_te_sr_policy_binding_sid_modify(struct nb_cb_modify_args *args)
 
 	policy = nb_running_get_entry(args->dnode, NULL, true);
 	binding_sid = yang_dnode_get_uint32(args->dnode, NULL);
-	policy->binding_sid = binding_sid;
+	srte_policy_update_binding_sid(policy, binding_sid);
 
 	return NB_OK;
 }
@@ -200,7 +200,7 @@ int pathd_te_sr_policy_binding_sid_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	policy = nb_running_get_entry(args->dnode, NULL, true);
-	policy->binding_sid = MPLS_LABEL_NONE;
+	srte_policy_update_binding_sid(policy, MPLS_LABEL_NONE);
 
 	return NB_OK;
 }

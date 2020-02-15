@@ -51,6 +51,7 @@ struct zebra_sr_policy *zebra_sr_policy_add(uint32_t color,
 	policy->color = color;
 	policy->endpoint = *endpoint;
 	strlcpy(policy->name, name, sizeof(policy->name));
+	policy->status = ZEBRA_SR_POLICY_UNKNOWN;
 	RB_INSERT(zebra_sr_policy_instance_head, &zebra_sr_policy_instances,
 		  policy);
 
@@ -59,7 +60,8 @@ struct zebra_sr_policy *zebra_sr_policy_add(uint32_t color,
 
 void zebra_sr_policy_del(struct zebra_sr_policy *policy)
 {
-	zebra_sr_policy_uninstall(policy);
+	if (policy->status == ZEBRA_SR_POLICY_UP)
+		zebra_sr_policy_bsid_uninstall(policy);
 	RB_REMOVE(zebra_sr_policy_instance_head, &zebra_sr_policy_instances,
 		  policy);
 	XFREE(MTYPE_ZEBRA_SR_POLICY, policy);
@@ -90,52 +92,74 @@ struct zebra_sr_policy *zebra_sr_policy_find_by_name(char *name)
 	return NULL;
 }
 
-void zebra_sr_policy_install(struct zebra_sr_policy *policy)
+static void zebra_sr_policy_activate(struct zebra_sr_policy *policy,
+				     zebra_lsp_t *lsp)
 {
-	struct zapi_srte_tunnel *zt = &policy->segment_list;
-	zebra_lsp_t *lsp;
-	zebra_nhlfe_t *nhlfe;
-	int ret;
-
-	zebra_sr_policy_uninstall(policy);
-
-	/* Try to resolve the Binding-SID nexthops. */
-	lsp = mpls_lsp_find(policy->zvrf, zt->labels[0]);
-	if (!lsp || lsp->addr_family != ipaddr_family(&policy->endpoint))
-		return;
-
-	frr_each_safe(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
-		if (!CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)
-		    || CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED))
-			continue;
-		ret = mpls_lsp_install(
-			policy->zvrf, zt->type, zt->local_label, zt->label_num,
-			zt->labels, nhlfe->nexthop->type, &nhlfe->nexthop->gate,
-			nhlfe->nexthop->ifindex);
-		if (ret) {
-			zebra_sr_policy_uninstall(policy);
-			return;
-		}
-	}
-
 	policy->status = ZEBRA_SR_POLICY_UP;
 	policy->lsp = lsp;
 	zsend_sr_policy_notify_status(policy->color, &policy->endpoint,
 				      policy->name, ZEBRA_SR_POLICY_UP);
+	(void)zebra_sr_policy_bsid_install(policy);
 }
 
-void zebra_sr_policy_uninstall(struct zebra_sr_policy *policy)
+static void zebra_sr_policy_deactivate(struct zebra_sr_policy *policy)
 {
-	struct zapi_srte_tunnel *zt = &policy->segment_list;
-
-	if (policy->status != ZEBRA_SR_POLICY_UP)
-		return;
-
-	mpls_lsp_uninstall_all_vrf(policy->zvrf, zt->type, zt->local_label);
+	zebra_sr_policy_bsid_uninstall(policy);
 	policy->status = ZEBRA_SR_POLICY_DOWN;
 	policy->lsp = NULL;
 	zsend_sr_policy_notify_status(policy->color, &policy->endpoint,
 				      policy->name, ZEBRA_SR_POLICY_DOWN);
+}
+
+int zebra_sr_policy_validate(struct zebra_sr_policy *policy)
+{
+	struct zapi_srte_tunnel *zt = &policy->segment_list;
+	zebra_lsp_t *lsp;
+
+	/* Try to resolve the Binding-SID nexthops. */
+	lsp = mpls_lsp_find(policy->zvrf, zt->labels[0]);
+	if (!lsp || lsp->addr_family != ipaddr_family(&policy->endpoint)) {
+		zebra_sr_policy_deactivate(policy);
+		return -1;
+	}
+
+	zebra_sr_policy_activate(policy, lsp);
+
+	return 0;
+}
+
+int zebra_sr_policy_bsid_install(struct zebra_sr_policy *policy)
+{
+	struct zapi_srte_tunnel *zt = &policy->segment_list;
+	zebra_nhlfe_t *nhlfe;
+
+	if (zt->local_label == MPLS_LABEL_NONE)
+		return 0;
+
+	frr_each_safe(nhlfe_list, &policy->lsp->nhlfe_list, nhlfe) {
+		if (!CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)
+		    || CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED))
+			continue;
+
+		if (mpls_lsp_install(
+			    policy->zvrf, zt->type, zt->local_label,
+			    zt->label_num, zt->labels, nhlfe->nexthop->type,
+			    &nhlfe->nexthop->gate, nhlfe->nexthop->ifindex)
+		    < 0)
+			return -1;
+	}
+
+	return 0;
+}
+
+void zebra_sr_policy_bsid_uninstall(struct zebra_sr_policy *policy)
+{
+	struct zapi_srte_tunnel *zt = &policy->segment_list;
+
+	if (zt->local_label == MPLS_LABEL_NONE)
+		return;
+
+	mpls_lsp_uninstall_all_vrf(policy->zvrf, zt->type, zt->local_label);
 }
 
 static int zebra_sr_policy_process_label_update(
@@ -156,10 +180,10 @@ static int zebra_sr_policy_process_label_update(
 		switch (mode) {
 		case ZEBRA_SR_POLICY_LABEL_CREATED:
 		case ZEBRA_SR_POLICY_LABEL_UPDATED:
-			zebra_sr_policy_install(policy);
-			break;
 		case ZEBRA_SR_POLICY_LABEL_REMOVED:
-			zebra_sr_policy_uninstall(policy);
+			if (policy->status == ZEBRA_SR_POLICY_UP)
+				zebra_sr_policy_bsid_uninstall(policy);
+			zebra_sr_policy_validate(policy);
 			break;
 		}
 	}

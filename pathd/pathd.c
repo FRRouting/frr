@@ -161,6 +161,17 @@ struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint)
 	return RB_FIND(srte_policy_head, &srte_policies, &search);
 }
 
+void srte_policy_update_binding_sid(struct srte_policy *policy,
+				    uint32_t binding_sid)
+{
+	policy->binding_sid = binding_sid;
+
+	/* Reinstall the Binding-SID if necessary. */
+	if (policy->best_candidate)
+		path_zebra_add_sr_policy(policy,
+					 policy->best_candidate->segment_list);
+}
+
 struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
 					  uint32_t preference)
 {
