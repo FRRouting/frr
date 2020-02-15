@@ -182,12 +182,22 @@ int pathd_te_sr_policy_binding_sid_modify(struct nb_cb_modify_args *args)
 	struct srte_policy *policy;
 	mpls_label_t binding_sid;
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
 	policy = nb_running_get_entry(args->dnode, NULL, true);
 	binding_sid = yang_dnode_get_uint32(args->dnode, NULL);
-	srte_policy_update_binding_sid(policy, binding_sid);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		break;
+	case NB_EV_PREPARE:
+		if (path_zebra_request_label(binding_sid) < 0)
+			return NB_ERR_RESOURCE;
+		break;
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		srte_policy_update_binding_sid(policy, binding_sid);
+		break;
+	}
 
 	return NB_OK;
 }

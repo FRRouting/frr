@@ -24,6 +24,7 @@
 #include "if.h"
 #include "prefix.h"
 #include "zclient.h"
+#include "network.h"
 #include "stream.h"
 #include "linklist.h"
 #include "nexthop.h"
@@ -33,6 +34,7 @@
 #include "pathd/pathd.h"
 
 static struct zclient *zclient;
+static struct zclient *zclient_sync;
 
 static void path_zebra_connected(struct zclient *zclient)
 {
@@ -105,15 +107,6 @@ static int path_zebra_sr_policy_notify_status(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-void path_zebra_init(struct thread_master *master)
-{
-	/* Initialize asynchronous zclient. */
-	zclient = zclient_new(master, &zclient_options_default);
-	zclient_init(zclient, ZEBRA_ROUTE_SRTE, 0, &pathd_privs);
-	zclient->zebra_connected = path_zebra_connected;
-	zclient->sr_policy_notify_status = path_zebra_sr_policy_notify_status;
-}
-
 void path_zebra_add_sr_policy(struct srte_policy *policy,
 			      struct srte_segment_list *segment_list)
 {
@@ -148,4 +141,62 @@ void path_zebra_delete_sr_policy(struct srte_policy *policy)
 	policy->status = SRTE_POLICY_STATUS_DOWN;
 
 	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_DELETE, &zp);
+}
+
+int path_zebra_request_label(mpls_label_t label)
+{
+	int ret;
+	uint32_t start, end;
+
+	ret = lm_get_label_chunk(zclient_sync, 0, label, 1, &start,
+				 &end);
+	if (ret < 0) {
+		zlog_warn("%s: error getting label range!", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+void path_zebra_release_label(mpls_label_t label)
+{
+	int ret;
+
+	ret = lm_release_label_chunk(zclient_sync, label, label);
+	if (ret < 0)
+		zlog_warn("%s: error releasing label range!", __func__);
+}
+
+static void path_zebra_label_manager_connect(void)
+{
+	/* Connect to label manager. */
+	while (zclient_socket_connect(zclient_sync) < 0) {
+		zlog_warn("%s: error connecting synchronous zclient!",
+			  __func__);
+		sleep(1);
+	}
+	set_nonblocking(zclient_sync->sock);
+	while (lm_label_manager_connect(zclient_sync, 0) != 0) {
+		zlog_warn("%s: error connecting to label manager!", __func__);
+		sleep(1);
+	}
+}
+
+void path_zebra_init(struct thread_master *master)
+{
+	/* Initialize asynchronous zclient. */
+	zclient = zclient_new(master, &zclient_options_default);
+	zclient_init(zclient, ZEBRA_ROUTE_SRTE, 0, &pathd_privs);
+	zclient->zebra_connected = path_zebra_connected;
+	zclient->sr_policy_notify_status = path_zebra_sr_policy_notify_status;
+
+	/* Initialize special zclient for synchronous message exchanges. */
+	zclient_sync = zclient_new(master, &zclient_options_default);
+	zclient_sync->sock = -1;
+	zclient_sync->redist_default = ZEBRA_ROUTE_SRTE;
+	zclient_sync->instance = 1;
+	zclient_sync->privs = &pathd_privs;
+
+	/* Connect to the LM. */
+	path_zebra_label_manager_connect();
 }

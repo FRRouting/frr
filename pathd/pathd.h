@@ -167,10 +167,12 @@ void srte_candidate_updated(struct srte_candidate *candidate);
 const char *srte_origin2str(enum srte_protocol_origin origin);
 
 /* path_zebra.c */
-void path_zebra_init(struct thread_master *master);
 void path_zebra_add_sr_policy(struct srte_policy *policy,
 			      struct srte_segment_list *segment_list);
 void path_zebra_delete_sr_policy(struct srte_policy *policy);
+int path_zebra_request_label(mpls_label_t label);
+void path_zebra_release_label(mpls_label_t label);
+void path_zebra_init(struct thread_master *master);
 
 /* path_cli.c */
 void path_cli_init(void);

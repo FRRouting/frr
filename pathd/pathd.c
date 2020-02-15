@@ -164,6 +164,9 @@ struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint)
 void srte_policy_update_binding_sid(struct srte_policy *policy,
 				    uint32_t binding_sid)
 {
+	if (policy->binding_sid != MPLS_LABEL_NONE)
+		path_zebra_release_label(policy->binding_sid);
+
 	policy->binding_sid = binding_sid;
 
 	/* Reinstall the Binding-SID if necessary. */
