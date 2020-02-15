@@ -84,7 +84,7 @@ DEFPY(show_srte_policy, show_srte_policy_cmd, "show sr-te policy",
 			snprintf(binding_sid, sizeof(binding_sid), "%u",
 				 policy->binding_sid);
 
-		ttable_add_row(tt, "%s|%d|%s|%s|%s", endpoint, policy->color,
+		ttable_add_row(tt, "%s|%u|%s|%s|%s", endpoint, policy->color,
 			       policy->name, binding_sid,
 			       policy->status == SRTE_POLICY_STATUS_UP
 				       ? "Active"
@@ -129,7 +129,7 @@ DEFPY(show_srte_policy_detail, show_srte_policy_detail_cmd,
 			snprintf(binding_sid, sizeof(binding_sid), "%u",
 				 policy->binding_sid);
 		vty_out(vty,
-			"Endpoint: %s  Color: %d  Name: %s  BSID: %s  Status: %s\n",
+			"Endpoint: %s  Color: %u  Name: %s  BSID: %s  Status: %s\n",
 			endpoint, policy->color, policy->name, binding_sid,
 			policy->status == SRTE_POLICY_STATUS_UP ? "Active"
 								: "Inactive");
