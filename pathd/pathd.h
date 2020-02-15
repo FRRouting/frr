@@ -27,7 +27,7 @@
 enum srte_protocol_origin {
 	SRTE_ORIGIN_PCEP = 1,
 	SRTE_ORIGIN_BGP = 2,
-	SRTE_ORIGIN_CONFIG = 3,
+	SRTE_ORIGIN_LOCAL = 3,
 };
 
 enum srte_policy_status {
@@ -162,6 +162,7 @@ struct srte_candidate *srte_candidate_find(struct srte_policy *policy,
 void srte_candidate_set_active(struct srte_policy *policy,
 			       struct srte_candidate *changed_candidate);
 void srte_candidate_updated(struct srte_candidate *candidate);
+const char *srte_origin2str(enum srte_protocol_origin origin);
 
 /* path_zebra.c */
 void path_zebra_init(struct thread_master *master);

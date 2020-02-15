@@ -114,9 +114,18 @@ module frr-pathd {
             "Indication for the protocol origin of the Candidate Path.";
           mandatory true;
           type enumeration {
-            enum pcep;
-            enum bgp;
-            enum config;
+            enum pcep {
+              value 1;
+              description "PCEP used as signalling mechanism for the candidate path";
+            }
+            enum bgp {
+              value 2;
+              description "BGP used as signalling mechanism for the candidate path";
+            }
+            enum local {
+              value 3;
+              description "CLI, Yang model via Netconf, gRPC, etc used for candidate path instantiation";
+            }
           }
         }
         leaf originator {

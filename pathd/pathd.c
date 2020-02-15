@@ -287,3 +287,17 @@ void srte_candidate_updated(struct srte_candidate *candidate)
 		hook_call(pathd_candidate_updated, candidate);
 	}
 }
+
+const char *srte_origin2str(enum srte_protocol_origin origin)
+{
+	switch (origin) {
+	case SRTE_ORIGIN_PCEP:
+		return "PCEP";
+	case SRTE_ORIGIN_BGP:
+		return "BGP";
+	case SRTE_ORIGIN_LOCAL:
+		return "Local";
+	default:
+		return "Unknown";
+	}
+}

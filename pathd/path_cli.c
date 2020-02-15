@@ -137,9 +137,7 @@ DEFPY(show_srte_policy_detail, show_srte_policy_detail_cmd,
 				candidate->segment_list == NULL
 					? "(undefined)"
 					: candidate->segment_list->name,
-				candidate->protocol_origin == SRTE_ORIGIN_PCEP
-					? "PCEP"
-					: "Config");
+				srte_origin2str(candidate->protocol_origin));
 		}
 
 		vty_out(vty, "\n");
@@ -377,7 +375,7 @@ DEFPY(te_path_sr_policy_candidate_path_explicit,
 	nb_cli_enqueue_change(vty, "./segment-list-name", NB_OP_MODIFY,
 			      list_name);
 	nb_cli_enqueue_change(vty, "./name", NB_OP_MODIFY, name);
-	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "config");
+	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "local");
 	nb_cli_enqueue_change(vty, "./originator", NB_OP_MODIFY, "127.0.0.1");
 
 	char discriminator[(sizeof(uint32_t) * 8) + 1];
@@ -406,7 +404,7 @@ DEFPY(te_path_sr_policy_candidate_path_dynamic,
 {
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, preference_str);
 	nb_cli_enqueue_change(vty, "./name", NB_OP_MODIFY, name);
-	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "config");
+	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "local");
 	nb_cli_enqueue_change(vty, "./originator", NB_OP_MODIFY, "127.0.0.1");
 
 	char discriminator[(sizeof(uint32_t) * 8) + 1];
