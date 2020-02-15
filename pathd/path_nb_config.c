@@ -111,12 +111,6 @@ int pathd_te_segment_list_segment_sid_value_modify(
 	return NB_OK;
 }
 
-int pathd_te_segment_list_segment_sid_value_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return NB_OK;
-}
-
 /*
  * XPath: /frr-pathd:pathd/sr-policy
  */

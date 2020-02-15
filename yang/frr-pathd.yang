@@ -48,6 +48,7 @@ module frr-pathd {
         }
         leaf sid-value {
           type rt-types:mpls-label;
+          mandatory true;
           description "MPLS label value";
         }
       }

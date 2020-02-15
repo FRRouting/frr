@@ -50,7 +50,6 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.xpath = "/frr-pathd:pathd/segment-list/segment/sid-value",
 			.cbs = {
 				.modify = pathd_te_segment_list_segment_sid_value_modify,
-				.destroy = pathd_te_segment_list_segment_sid_value_destroy,
 			}
 		},
 		{

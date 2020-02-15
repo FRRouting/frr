@@ -34,8 +34,6 @@ int pathd_te_segment_list_segment_create(struct nb_cb_create_args *args);
 int pathd_te_segment_list_segment_destroy(struct nb_cb_destroy_args *args);
 int pathd_te_segment_list_segment_sid_value_modify(
 	struct nb_cb_modify_args *args);
-int pathd_te_segment_list_segment_sid_value_destroy(
-	struct nb_cb_destroy_args *args);
 int pathd_te_sr_policy_create(struct nb_cb_create_args *args);
 int pathd_te_sr_policy_destroy(struct nb_cb_destroy_args *args);
 const void *pathd_te_sr_policy_get_next(struct nb_cb_get_next_args *args);
