@@ -23,7 +23,12 @@
 
 #include <lib/version.h>
 #include <sys/types.h>
+#include <sys/types.h>
+#ifdef HAVE_LIBPCREPOSIX
+#include <pcreposix.h>
+#else
 #include <regex.h>
+#endif /* HAVE_LIBPCREPOSIX */
 #include <stdio.h>
 
 #include "linklist.h"

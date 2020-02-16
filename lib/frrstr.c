@@ -25,7 +25,11 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/types.h>
+#ifdef HAVE_LIBPCREPOSIX
+#include <pcreposix.h>
+#else
 #include <regex.h>
+#endif /* HAVE_LIBPCREPOSIX */
 
 #include "frrstr.h"
 #include "memory.h"
