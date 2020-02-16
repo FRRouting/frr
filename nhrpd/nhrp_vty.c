@@ -513,13 +513,15 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 }
 
 DEFUN(if_no_nhrp_map, if_no_nhrp_map_cmd,
-	"no " AFI_CMD " nhrp map <A.B.C.D|X:X::X:X>",
+	"no " AFI_CMD " nhrp map <A.B.C.D|X:X::X:X> [<A.B.C.D|local>]",
 	NO_STR
 	AFI_STR
 	NHRP_STR
 	"Nexthop Server configuration\n"
 	"IPv4 protocol address\n"
-	"IPv6 protocol address\n")
+	"IPv6 protocol address\n"
+	"IPv4 NBMA address\n"
+	"Handle protocol address locally\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	afi_t afi = cmd_to_afi(argv[1]);
