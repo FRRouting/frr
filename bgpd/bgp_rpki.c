@@ -1412,21 +1412,18 @@ DEFUN (match_rpki,
 
 	ret = route_map_add_match(index, "rpki", argv[2]->arg,
 				  RMAP_EVENT_MATCH_ADDED);
-	if (ret) {
-		switch (ret) {
-		case RMAP_RULE_MISSING:
-			vty_out(vty, "%% BGP Can't find rule.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		case RMAP_COMPILE_ERROR:
-			vty_out(vty, "%% BGP Argument is malformed.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		case RMAP_COMPILE_SUCCESS:
-			/*
-			 * Intentionally doing nothing here
-			 */
-			break;
-		}
+	switch (ret) {
+	case RMAP_RULE_MISSING:
+		vty_out(vty, "%% BGP Can't find rule.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	case RMAP_COMPILE_ERROR:
+		vty_out(vty, "%% BGP Argument is malformed.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	case RMAP_COMPILE_SUCCESS:
+		return CMD_SUCCESS;
+		break;
 	}
+
 	return CMD_SUCCESS;
 }
 
@@ -1445,21 +1442,18 @@ DEFUN (no_match_rpki,
 
 	ret = route_map_delete_match(index, "rpki", argv[3]->arg,
 				     RMAP_EVENT_MATCH_DELETED);
-	if (ret) {
-		switch (ret) {
-		case RMAP_RULE_MISSING:
-			vty_out(vty, "%% BGP Can't find rule.\n");
-			break;
-		case RMAP_COMPILE_ERROR:
-			vty_out(vty, "%% BGP Argument is malformed.\n");
-			break;
-		case RMAP_COMPILE_SUCCESS:
-			/*
-			 * Nothing to do here
-			 */
-			break;
-		}
+	switch (ret) {
+	case RMAP_RULE_MISSING:
+		vty_out(vty, "%% BGP Can't find rule.\n");
 		return CMD_WARNING_CONFIG_FAILED;
+		break;
+	case RMAP_COMPILE_ERROR:
+		vty_out(vty, "%% BGP Argument is malformed.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+		break;
+	case RMAP_COMPILE_SUCCESS:
+		return CMD_SUCCESS;
+		break;
 	}
 
 	return CMD_SUCCESS;
