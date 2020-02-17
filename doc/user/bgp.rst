@@ -1205,6 +1205,14 @@ Configuring Peers
    keyword `all` is specified the modification is done also for routes learned
    via iBGP.
 
+.. index:: neighbor PEER attribute-unchanged [{as-path|next-hop|med}]
+.. clicmd:: neighbor PEER attribute-unchanged [{as-path|next-hop|med}]
+
+   This command specifies attributes to be left unchanged for advertisements
+   sent to a peer. Use this to leave the next-hop unchanged in ipv6
+   configurations, as the route-map directive to leave the next-hop unchanged
+   is only available for ipv4.
+
 .. index:: [no] neighbor PEER update-source <IFNAME|ADDRESS>
 .. clicmd:: [no] neighbor PEER update-source <IFNAME|ADDRESS>
 
