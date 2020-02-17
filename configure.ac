@@ -543,7 +543,7 @@ AC_ARG_ENABLE([realms],
 AC_ARG_ENABLE([rtadv],
   AS_HELP_STRING([--disable-rtadv], [disable IPV6 router advertisement feature]))
 AC_ARG_ENABLE([irdp],
-  AS_HELP_STRING([--disable-irdp], [enable IRDP server support in zebra (default if supported)]))
+  AS_HELP_STRING([--disable-irdp], [disable IRDP server support in zebra (enabled by default if supported)]))
 AC_ARG_ENABLE([capabilities],
   AS_HELP_STRING([--disable-capabilities], [disable using POSIX capabilities]))
 AC_ARG_ENABLE([rusage],
