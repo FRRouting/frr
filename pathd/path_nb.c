@@ -36,7 +36,8 @@ const struct frr_yang_module_info frr_pathd_info = {
 				.get_next = pathd_te_segment_list_get_next,
 				.get_keys = pathd_te_segment_list_get_keys,
 				.lookup_entry = pathd_te_segment_list_lookup_entry,
-			}
+			},
+			.priority = NB_DFLT_PRIORITY - 1
 		},
 		{
 			.xpath = "/frr-pathd:pathd/segment-list/segment",
@@ -44,13 +45,15 @@ const struct frr_yang_module_info frr_pathd_info = {
 				.create = pathd_te_segment_list_segment_create,
 				.cli_show = cli_show_te_path_segment_list_segment,
 				.destroy = pathd_te_segment_list_segment_destroy,
-			}
+			},
+			.priority = NB_DFLT_PRIORITY - 1
 		},
 		{
 			.xpath = "/frr-pathd:pathd/segment-list/segment/sid-value",
 			.cbs = {
 				.modify = pathd_te_segment_list_segment_sid_value_modify,
-			}
+			},
+			.priority = NB_DFLT_PRIORITY - 1
 		},
 		{
 			.xpath = "/frr-pathd:pathd/sr-policy",
