@@ -31,6 +31,7 @@
 #include "pathd.h"
 #include "path_nb.h"
 #include "path_zebra.h"
+#include "path_errors.h"
 
 char backup_config_file[256];
 
@@ -137,6 +138,7 @@ int main(int argc, char **argv, char **envp)
 
 	master = frr_init();
 
+	path_error_init();
 	path_zebra_init(master);
 	path_cli_init();
 

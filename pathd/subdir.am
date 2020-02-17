@@ -21,6 +21,7 @@ endif
 
 pathd_libpath_a_SOURCES = \
 	pathd/path_cli.c \
+	pathd/path_errors.c \
 	pathd/path_main.c \
 	pathd/path_memory.c \
 	pathd/path_nb.c \

@@ -306,24 +306,24 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 {
 	assert(DISCONNECTED == pcc_state->status);
 
-	int ret = 0;
+	int ret;
 
 	PCEP_DEBUG("PCC connecting to %pI4:%d", &pcc_state->pce_opts->addr,
 		   pcc_state->pce_opts->port);
 
 	if ((ret = pcep_lib_connect(pcc_state))) {
-		flog_err(EC_PATH_PCEP_LIB_CONNECT,
-			 "failed to connect to PCE %pI4:%d from %pI4:%d (%d)",
-			 &pcc_state->pce_opts->addr, pcc_state->pce_opts->port,
-			 &pcc_state->pcc_opts->addr, pcc_state->pcc_opts->port,
-			 ret);
+		flog_warn(EC_PATH_PCEP_LIB_CONNECT,
+			  "failed to connect to PCE %pI4:%d from %pI4:%d (%d)",
+			  &pcc_state->pce_opts->addr, pcc_state->pce_opts->port,
+			  &pcc_state->pcc_opts->addr, pcc_state->pcc_opts->port,
+			  ret);
 		pcep_pcc_schedule_reconnect(ctrl_state, pcc_state);
-		return ret;
+		return 0;
 	}
 
 	pcc_state->status = CONNECTING;
 
-	return ret;
+	return 0;
 }
 
 int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)

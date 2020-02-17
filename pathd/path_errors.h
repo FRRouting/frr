@@ -35,8 +35,6 @@ enum path_log_refs {
 	EC_PATH_PCEP_UNEXPECTED_ERO_SUBOBJ
 };
 
-#if 0
 extern void path_error_init(void);
-#endif
 
 #endif
