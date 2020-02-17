@@ -120,8 +120,7 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 	policy = candidate->policy;
 	hop = NULL;
 
-	if (NULL != candidate->segment_list
-	    && candidate->segment_list->name[0] != '\0') {
+	if (NULL != candidate->segment_list) {
 		strlcpy(key.name, candidate->segment_list->name,
 			sizeof(key.name));
 		segment_list = RB_FIND(srte_segment_list_head,
@@ -277,11 +276,10 @@ void path_nb_create_segment_list(struct nb_config *config,
 				 const char *segment_list_name)
 {
 	char xpath[XPATH_MAXLEN];
-	char xpath_base[XPATH_MAXLEN];
 
-	snprintf(xpath_base, sizeof(xpath),
+	snprintf(xpath, sizeof(xpath),
 		 "/frr-pathd:pathd/segment-list[name='%s']", segment_list_name);
-	path_nb_edit_candidate_config(config, xpath_base, NB_OP_CREATE, NULL);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_CREATE, NULL);
 }
 
 void path_nb_add_candidate_path(struct nb_config *config, uint32_t color,
