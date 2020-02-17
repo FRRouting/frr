@@ -78,9 +78,6 @@ struct srte_candidate {
 	/* Administrative preference. */
 	uint32_t preference;
 
-	/* true when created, false after triggering the "created" hook. */
-	bool created;
-
 	/* Symbolic Name. */
 	char name[64];
 
@@ -96,11 +93,15 @@ struct srte_candidate {
 	/* The Discriminator */
 	uint32_t discriminator;
 
-	/* Flag for best Candidate Path */
-	bool is_best_candidate_path;
-
 	/* The Type (explicit or dynamic) */
 	enum srte_candidate_type type;
+
+	/* Status flags. */
+	uint16_t flags;
+#define F_CANDIDATE_BEST 0x0001
+#define F_CANDIDATE_NEW 0x0002
+#define F_CANDIDATE_MODIFIED 0x0004
+#define F_CANDIDATE_DELETED 0x0008
 };
 RB_HEAD(srte_candidate_head, srte_candidate);
 RB_PROTOTYPE(srte_candidate_head, srte_candidate, entry, srte_candidate_compare)
@@ -156,14 +157,14 @@ void srte_policy_del(struct srte_policy *policy);
 struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint);
 void srte_policy_update_binding_sid(struct srte_policy *policy,
 				    uint32_t binding_sid);
+void srte_policy_update_candidates(struct srte_policy *policy);
 struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
 					  uint32_t preference);
 void srte_candidate_del(struct srte_candidate *candidate);
 struct srte_candidate *srte_candidate_find(struct srte_policy *policy,
 					   uint32_t preference);
-void srte_candidate_set_active(struct srte_policy *policy,
-			       struct srte_candidate *changed_candidate);
-void srte_candidate_updated(struct srte_candidate *candidate);
+void srte_candidate_status_update(struct srte_policy *policy,
+				  struct srte_candidate *candidate, int status);
 const char *srte_origin2str(enum srte_protocol_origin origin);
 
 /* path_zebra.c */

@@ -130,7 +130,7 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 	}
 	path = XCALLOC(MTYPE_PCEP, sizeof(*path));
 	name = asprintfrr(MTYPE_PCEP, "%s-%s", policy->name, candidate->name);
-	if (candidate->is_best_candidate_path) {
+	if (CHECK_FLAG(candidate->flags, F_CANDIDATE_BEST)) {
 		status = status_int_to_ext(policy->status);
 	} else {
 		status = PCEP_LSP_OPERATIONAL_DOWN;

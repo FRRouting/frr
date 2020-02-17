@@ -138,7 +138,9 @@ DEFPY(show_srte_policy_detail, show_srte_policy_detail_cmd,
 			    &policy->candidate_paths) {
 			vty_out(vty,
 				"  %s Preference: %d  Name: %s  Type: %s  Segment-List: %s  Protocol-Origin: %s\n",
-				candidate->is_best_candidate_path ? "*" : " ",
+				CHECK_FLAG(candidate->flags, F_CANDIDATE_BEST)
+					? "*"
+					: " ",
 				candidate->preference, candidate->name,
 				candidate->type == SRTE_CANDIDATE_TYPE_EXPLICIT
 					? "explicit"

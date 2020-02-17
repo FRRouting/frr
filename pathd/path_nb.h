@@ -73,8 +73,7 @@ int pathd_te_sr_policy_candidate_path_segment_list_name_destroy(
 	struct nb_cb_destroy_args *args);
 
 /* Optional 'apply_finish' callbacks. */
-void pathd_te_sr_policy_candidate_path_apply_finish(
-	struct nb_cb_apply_finish_args *args);
+void pathd_te_sr_policy_apply_finish(struct nb_cb_apply_finish_args *args);
 
 /* Optional 'cli_show' callbacks. */
 void cli_show_te_path_segment_list(struct vty *vty, struct lyd_node *dnode,

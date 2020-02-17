@@ -174,6 +174,6 @@ pathd_te_sr_policy_candidate_path_is_best_candidate_path_get_elem(
 	struct srte_candidate *candidate =
 		(struct srte_candidate *)args->list_entry;
 
-	return yang_data_new_bool(args->xpath,
-				  candidate->is_best_candidate_path);
+	return yang_data_new_bool(
+		args->xpath, CHECK_FLAG(candidate->flags, F_CANDIDATE_BEST));
 }

@@ -76,34 +76,9 @@ static int path_zebra_sr_policy_notify_status(ZAPI_CALLBACK_ARGS)
 	if (!best_candidate_path)
 		return -1;
 
-	switch (zapi_sr_policy.status) {
-	case ZEBRA_SR_POLICY_DOWN:
-		switch (policy->status) {
-		/* If the policy is GOING_UP, and zebra faild
-		   to install it, we wait for zebra to retry */
-		/* TODO: Add some timeout after which we would
-			 get is back to DOWN and remove the
-			 policy */
-		case SRTE_POLICY_STATUS_GOING_UP:
-		case SRTE_POLICY_STATUS_DOWN:
-			return 0;
-		default:
-			policy->status = SRTE_POLICY_STATUS_DOWN;
-			break;
-		}
-		break;
-	case ZEBRA_SR_POLICY_UP:
-		switch (policy->status) {
-		case SRTE_POLICY_STATUS_UP:
-			return 0;
-		default:
-			policy->status = SRTE_POLICY_STATUS_UP;
-			break;
-		}
-		break;
-	}
+	srte_candidate_status_update(policy, best_candidate_path,
+				     zapi_sr_policy.status);
 
-	srte_candidate_updated(best_candidate_path);
 	return 0;
 }
 

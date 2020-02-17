@@ -175,6 +175,81 @@ void srte_policy_update_binding_sid(struct srte_policy *policy,
 					 policy->best_candidate->segment_list);
 }
 
+static struct srte_candidate *
+srte_policy_best_candidate(const struct srte_policy *policy)
+{
+	struct srte_candidate *candidate;
+
+	RB_FOREACH_REVERSE (candidate, srte_candidate_head,
+			    &policy->candidate_paths) {
+		/* search for highest preference with existing segment list */
+		if (!CHECK_FLAG(candidate->flags, F_CANDIDATE_DELETED)
+		    && candidate->segment_list)
+			return candidate;
+	}
+
+	return NULL;
+}
+
+void srte_policy_update_candidates(struct srte_policy *policy)
+{
+	struct srte_candidate *candidate, *safe;
+	struct srte_candidate *old_best_candidate;
+	struct srte_candidate *new_best_candidate;
+	char endpoint[46];
+
+	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+
+	/* Get old and new best candidate path. */
+	old_best_candidate = policy->best_candidate;
+	new_best_candidate = srte_policy_best_candidate(policy);
+
+	if (new_best_candidate != old_best_candidate) {
+		/* TODO: add debug guard. */
+		zlog_debug(
+			"SR-TE(%s, %u): best candidate changed from %s to %s",
+			endpoint, policy->color,
+			old_best_candidate ? old_best_candidate->name : "none",
+			new_best_candidate ? new_best_candidate->name : "none");
+
+		if (old_best_candidate) {
+			policy->best_candidate = NULL;
+			UNSET_FLAG(old_best_candidate->flags, F_CANDIDATE_BEST);
+			SET_FLAG(old_best_candidate->flags, F_CANDIDATE_MODIFIED);
+
+			/*
+			 * Rely on replace semantics if there's a new best
+			 * candidate.
+			 */
+			if (!new_best_candidate)
+				path_zebra_delete_sr_policy(policy);
+		}
+		if (new_best_candidate) {
+			policy->best_candidate = new_best_candidate;
+			SET_FLAG(new_best_candidate->flags, F_CANDIDATE_BEST);
+			SET_FLAG(old_best_candidate->flags, F_CANDIDATE_MODIFIED);
+
+			path_zebra_add_sr_policy(
+				policy, new_best_candidate->segment_list);
+		}
+	}
+
+	RB_FOREACH_SAFE (candidate, srte_candidate_head,
+			 &policy->candidate_paths, safe) {
+		if (CHECK_FLAG(candidate->flags, F_CANDIDATE_NEW))
+			hook_call(pathd_candidate_created, candidate);
+		else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_MODIFIED))
+			hook_call(pathd_candidate_updated, candidate);
+		else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_DELETED)) {
+			srte_candidate_del(candidate);
+			continue;
+		}
+
+		UNSET_FLAG(candidate->flags, F_CANDIDATE_NEW);
+		UNSET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
+	}
+}
+
 struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
 					  uint32_t preference)
 {
@@ -183,7 +258,6 @@ struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
 	candidate = XCALLOC(MTYPE_PATH_SR_CANDIDATE, sizeof(*candidate));
 	candidate->preference = preference;
 	candidate->policy = policy;
-	candidate->created = true;
 	RB_INSERT(srte_candidate_head, &policy->candidate_paths, candidate);
 
 	return candidate;
@@ -208,98 +282,37 @@ struct srte_candidate *srte_candidate_find(struct srte_policy *policy,
 	return RB_FIND(srte_candidate_head, &policy->candidate_paths, &search);
 }
 
-void srte_candidate_set_active(struct srte_policy *policy,
-			       struct srte_candidate *changed_candidate)
+void srte_candidate_status_update(struct srte_policy *policy,
+				  struct srte_candidate *candidate, int status)
 {
-	bool was_deleted = false;
-	struct srte_candidate *former_best_candidate = NULL;
-	struct srte_candidate *best_candidate = NULL;
-	struct srte_candidate *candidate = NULL;
-
-	/* Figure out if the triggering candidate path was deleted,
-	   because in this case, the hook has already been called */
-	if (changed_candidate) {
-		candidate = srte_candidate_find(policy,
-						changed_candidate->preference);
-		was_deleted =
-			(NULL == candidate) || (candidate != changed_candidate);
-	}
-
-	RB_FOREACH_REVERSE (candidate, srte_candidate_head,
-			    &policy->candidate_paths) {
-		/* search for highest preference with existing segment list */
-		if (candidate->segment_list) {
-			best_candidate = candidate;
+	switch (status) {
+	case ZEBRA_SR_POLICY_DOWN:
+		switch (policy->status) {
+		/* If the policy is GOING_UP, and zebra faild
+		   to install it, we wait for zebra to retry */
+		/* TODO: Add some timeout after which we would
+			 get is back to DOWN and remove the
+			 policy */
+		case SRTE_POLICY_STATUS_GOING_UP:
+		case SRTE_POLICY_STATUS_DOWN:
+			return;
+		default:
+			policy->status = SRTE_POLICY_STATUS_DOWN;
 			break;
 		}
-	}
-
-	if (!best_candidate
-	    || RB_EMPTY(srte_candidate_head, &policy->candidate_paths)) {
-		/* Delete the LSP from Zebra */
-		policy->best_candidate = NULL;
-		path_zebra_delete_sr_policy(policy);
-		/* We still want to notify the changed candidate path */
-		if (changed_candidate && !was_deleted) {
-			srte_candidate_updated(changed_candidate);
+		break;
+	case ZEBRA_SR_POLICY_UP:
+		switch (policy->status) {
+		case SRTE_POLICY_STATUS_UP:
+			return;
+		default:
+			policy->status = SRTE_POLICY_STATUS_UP;
+			break;
 		}
-		return;
+		break;
 	}
 
-	if (policy->best_candidate)
-		former_best_candidate = policy->best_candidate;
-
-	if (former_best_candidate) {
-		if (former_best_candidate == best_candidate) {
-			if (changed_candidate
-			    && (changed_candidate != best_candidate)) {
-				/* If the elected candidate did not change,
-				   and it is not the triggering candidate,
-				   we only need to notify the triggering
-				   candidate changes */
-				if (was_deleted)
-					return;
-				srte_candidate_updated(changed_candidate);
-				return;
-			}
-		} else {
-			/* If the elected candidate changed, update the former
-			   one state */
-			former_best_candidate->is_best_candidate_path = false;
-		}
-
-		/* Delete the former candidate path LSP from Zebra */
-		policy->best_candidate = NULL;
-		path_zebra_delete_sr_policy(policy);
-	}
-
-	best_candidate->is_best_candidate_path = true;
-	policy->best_candidate = best_candidate;
-
-	/* send the new active LSP to Zebra */
-	path_zebra_add_sr_policy(policy, best_candidate->segment_list);
-
-	/* Notifies a single time all the candidates that changed */
-	if (changed_candidate && !was_deleted
-	    && (changed_candidate != former_best_candidate)
-	    && (changed_candidate != best_candidate)) {
-		srte_candidate_updated(changed_candidate);
-	}
-	if (former_best_candidate
-	    && (former_best_candidate != best_candidate)) {
-		srte_candidate_updated(former_best_candidate);
-	}
-	srte_candidate_updated(best_candidate);
-}
-
-void srte_candidate_updated(struct srte_candidate *candidate)
-{
-	if (true == candidate->created) {
-		candidate->created = false;
-		hook_call(pathd_candidate_created, candidate);
-	} else {
-		hook_call(pathd_candidate_updated, candidate);
-	}
+	hook_call(pathd_candidate_updated, candidate);
 }
 
 const char *srte_origin2str(enum srte_protocol_origin origin)
