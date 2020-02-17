@@ -578,7 +578,8 @@ const char *const peer_down_str[] = {"",
 			       "Waiting for VRF to be initialized",
 			       "No AFI/SAFI activated for peer",
 			       "AS Set config change",
-			       "Waiting for peer OPEN"};
+			       "Waiting for peer OPEN",
+			       "Reached received prefix count"};
 
 static int bgp_graceful_restart_timer_expire(struct thread *thread)
 {
@@ -1512,6 +1513,10 @@ int bgp_start(struct peer *peer)
 				 "%s [FSM] Trying to start suppressed peer"
 				 " - this is never supposed to happen!",
 				 peer->host);
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+			peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
+		else if (CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
+			peer->last_reset = PEER_DOWN_PFX_COUNT;
 		return -1;
 	}
 
