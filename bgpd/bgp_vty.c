@@ -8979,7 +8979,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					vty_out(vty, "EstdCnt DropCnt ResetTime Reason\n");
 				else
 					vty_out(vty,
-					"V         AS MsgRcvd MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd\n");
+					"V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd\n");
 			}
 		}
 
@@ -9104,7 +9104,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					vty_out(vty, "%*s", max_neighbor_width - len,
 						" ");
 
-				vty_out(vty, "4 %10u %7u %7u %8" PRIu64 " %4d %4zd %8s",
+				vty_out(vty, "4 %10u %9u %9u %8" PRIu64 " %4d %4zd %8s",
 					peer->as, PEER_TOTAL_RX(peer),
 					PEER_TOTAL_TX(peer), peer->version[afi][safi],
 					0, peer->obuf->count,
