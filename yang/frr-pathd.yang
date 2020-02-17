@@ -148,7 +148,6 @@ module frr-pathd {
           }
         }
         leaf segment-list-name {
-          when "../type = 'explicit'";
           type leafref {
             path ../../../segment-list/name;
           }
