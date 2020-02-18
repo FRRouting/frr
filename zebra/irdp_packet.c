@@ -78,6 +78,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	int ip_hlen, iplen, datalen;
 	struct zebra_if *zi;
 	struct irdp_interface *irdp;
+	uint16_t saved_chksum;
 
 	zi = ifp->info;
 	if (!zi)
@@ -121,8 +122,10 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 
 	icmp = (struct icmphdr *)(p + ip_hlen);
 
+	saved_chksum = icmp->checksum;
+	icmp->checksum = 0;
 	/* check icmp checksum */
-	if (in_cksum(icmp, datalen) != icmp->checksum) {
+	if (in_cksum(icmp, datalen) != saved_chksum) {
 		flog_warn(
 			EC_ZEBRA_IRDP_BAD_CHECKSUM,
 			"IRDP: RX ICMP packet from %s. Bad checksum, silently ignored",
@@ -315,15 +318,20 @@ void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
 	if (setsockopt(irdp_sock, IPPROTO_IP, IP_HDRINCL, (char *)&on,
 		       sizeof(on))
 	    < 0)
-		zlog_debug("sendto %s", safe_strerror(errno));
+		flog_err(EC_LIB_SOCKET,
+			 "IRDP: Cannot set IP_HDRINCLU %s(%d) on %s",
+			 safe_strerror(errno), errno, ifp->name);
 
 
 	if (dst == INADDR_BROADCAST) {
-		on = 1;
-		if (setsockopt(irdp_sock, SOL_SOCKET, SO_BROADCAST, (char *)&on,
-			       sizeof(on))
+		uint32_t bon = 1;
+
+		if (setsockopt(irdp_sock, SOL_SOCKET, SO_BROADCAST, &bon,
+			       sizeof(bon))
 		    < 0)
-			zlog_debug("sendto %s", safe_strerror(errno));
+			flog_err(EC_LIB_SOCKET,
+				 "IRDP: Cannot set SO_BROADCAST %s(%d) on %s",
+				 safe_strerror(errno), errno, ifp->name);
 	}
 
 	if (dst != INADDR_BROADCAST)
@@ -354,8 +362,8 @@ void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
 
 	sockopt_iphdrincl_swab_htosys(ip);
 
-	if (sendmsg(irdp_sock, msg, 0) < 0) {
-		zlog_debug("sendto %s", safe_strerror(errno));
-	}
-	/*   printf("TX on %s idx %d\n", ifp->name, ifp->ifindex); */
+	if (sendmsg(irdp_sock, msg, 0) < 0)
+		flog_err(EC_LIB_SOCKET,
+			 "IRDP: sendmsg send failure %s(%d) on %s",
+			 safe_strerror(errno), errno, ifp->name);
 }
