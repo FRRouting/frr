@@ -78,6 +78,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	int ip_hlen, iplen, datalen;
 	struct zebra_if *zi;
 	struct irdp_interface *irdp;
+	uint16_t saved_chksum;
 
 	zi = ifp->info;
 	if (!zi)
@@ -121,8 +122,10 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 
 	icmp = (struct icmphdr *)(p + ip_hlen);
 
+	saved_chksum = icmp->checksum;
+	icmp->checksum = 0;
 	/* check icmp checksum */
-	if (in_cksum(icmp, datalen) != icmp->checksum) {
+	if (in_cksum(icmp, datalen) != saved_chksum) {
 		flog_warn(
 			EC_ZEBRA_IRDP_BAD_CHECKSUM,
 			"IRDP: RX ICMP packet from %s. Bad checksum, silently ignored",
