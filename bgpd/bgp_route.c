@@ -10570,25 +10570,51 @@ DEFUN (show_ip_bgp_statistics_all,
 	safi_t safi;
 	afi_t afi;
 	int idx = 0;
-	struct json_object *json = NULL;
+	struct json_object *json_all = NULL;
+	struct json_object *json_afi_safi = NULL;
 
 	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
 					    &bgp, false);
 	if (!idx)
 		return CMD_WARNING;
-	if (uj)
-		json = json_object_new_array();
 
-	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
-		for (safi = SAFI_UNICAST;
-		     safi < SAFI_MAX; safi++)
-			bgp_table_stats(vty, bgp, afi, safi, json);
+	if (uj)
+		json_all = json_object_new_object();
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+			/*
+			 * So limit output to those afi/safi
+			 * pairs that
+			 * actualy have something interesting in
+			 * them
+			 */
+			if (strmatch(get_afi_safi_str(afi, safi, true),
+				     "Unknown")) {
+				continue;
+			}
+			if (uj)
+				json_afi_safi = json_object_new_array();
+			else
+				json_afi_safi = NULL;
+
+			bgp_table_stats(vty, bgp, afi, safi, json_afi_safi);
+
+			if (uj)
+				json_object_object_add(json_all,
+						       get_afi_safi_str(afi,
+								safi, true),
+						       json_afi_safi);
+
+		}
 	}
-	if (json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-						    json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+
+	if (uj) {
+		vty_out(vty, "%s", json_object_to_json_string_ext(
+					  json_all, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_all);
 	}
+
 	return CMD_SUCCESS;
 }
 
@@ -10611,18 +10637,26 @@ DEFUN (show_ip_bgp_afi_safi_statistics,
 	struct bgp *bgp = NULL;
 	int idx = 0, ret;
 	bool uj = use_json(argc, argv);
-	struct json_object *json = NULL;
+	struct json_object *json_afi_safi = NULL, *json = NULL;
 
 	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
 					    &bgp, false);
 	if (!idx)
 		return CMD_WARNING;
+
 	if (uj)
-		json = json_object_new_array();
-	ret = bgp_table_stats(vty, bgp, afi, safi, json);
-	if (json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-						    json, JSON_C_TO_STRING_PRETTY));
+		json_afi_safi = json_object_new_array();
+	else
+		json_afi_safi = NULL;
+
+	ret = bgp_table_stats(vty, bgp, afi, safi, json_afi_safi);
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_object_add(json, get_afi_safi_str(afi, safi, true),
+				       json_afi_safi);
+		vty_out(vty, "%s", json_object_to_json_string_ext(
+					  json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 	return ret;
@@ -11101,27 +11135,28 @@ enum bgp_stats {
 #define TABLE_STATS_IDX_JSON 1
 
 static const char *table_stats_strs[][2] = {
-	[BGP_STATS_PREFIXES] = {"Total Prefixes", "TotalPrefixes"},
-	[BGP_STATS_TOTPLEN] = {"Average prefix length", "AveragePrefixLength"},
-	[BGP_STATS_RIB] = {"Total Advertisements", "TotalAdvertisements"},
+	[BGP_STATS_PREFIXES] = {"Total Prefixes", "totalPrefixes"},
+	[BGP_STATS_TOTPLEN] = {"Average prefix length", "averagePrefixLength"},
+	[BGP_STATS_RIB] = {"Total Advertisements", "totalAdvertisements"},
 	[BGP_STATS_UNAGGREGATEABLE] =
-	{"Unaggregateable prefixes", "UnaggregateablePrefixes"},
+	{"Unaggregateable prefixes", "unaggregateablePrefixes"},
 	[BGP_STATS_MAX_AGGREGATEABLE] =
-	{"Maximum aggregateable prefixes", "MaximumAggregateablePrefixes"},
+	{"Maximum aggregateable prefixes", "maximumAggregateablePrefixes"},
 	[BGP_STATS_AGGREGATES] =
-	{"BGP Aggregate advertisements", "BgpAggregateAdvertisements"},
-	[BGP_STATS_SPACE] = {"Address space advertised","AddressSpaceAdvertised"},
+	{"BGP Aggregate advertisements", "bgpAggregateAdvertisements"},
+	[BGP_STATS_SPACE] = {"Address space advertised",
+			     "addressSpaceAdvertised"},
 	[BGP_STATS_ASPATH_COUNT] =
-	{"Advertisements with paths", "AdvertisementsWithPaths"},
+	{"Advertisements with paths", "advertisementsWithPaths"},
 	[BGP_STATS_ASPATH_MAXHOPS] =
-	{"Longest AS-Path (hops)", "LongestAsPath"},
+	{"Longest AS-Path (hops)", "longestAsPath"},
 	[BGP_STATS_ASPATH_MAXSIZE] =
-	{"Largest AS-Path (bytes)","LargestAsPath"},
+	{"Largest AS-Path (bytes)","largestAsPath"},
 	[BGP_STATS_ASPATH_TOTHOPS] =
-	{"Average AS-Path length (hops)", "AverageAsPathLengthHops"},
+	{"Average AS-Path length (hops)", "averageAsPathLengthHops"},
 	[BGP_STATS_ASPATH_TOTSIZE] =
-	{"Average AS-Path size (bytes)", "AverageAsPathSizeBytes"},
-	[BGP_STATS_ASN_HIGHEST] = {"Highest public ASN","HighestPublicAsn"},
+	{"Average AS-Path size (bytes)", "averageAsPathSizeBytes"},
+	[BGP_STATS_ASN_HIGHEST] = {"Highest public ASN","highestPublicAsn"},
 	[BGP_STATS_MAX] = {NULL, NULL}
 };
 
@@ -11269,30 +11304,30 @@ static int bgp_table_stats_walker(struct thread *t)
 }
 
 static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
-			   safi_t safi, json_object *json)
+			   safi_t safi, struct json_object *json_array)
 {
 	struct bgp_table_stats ts;
 	unsigned int i;
 	int ret = CMD_SUCCESS;
 	char temp_buf[20];
-	json_object *json_2 = NULL;
+	struct json_object *json = NULL;
 
-	if (json) {
-		json_2 = json_object_new_object();
-		json_object_string_add(json_2, "afi", afi2str(afi));
-		json_object_string_add(json_2, "safi", safi2str(safi));
-	}
+	if (json_array)
+		json = json_object_new_object();
+
 	if (!bgp->rib[afi][safi]) {
 		char warning_msg[50];
 
 		snprintf(warning_msg, sizeof(warning_msg),
 			 "%% No RIB exist's for the AFI(%d)/SAFI(%d)",
 			 afi, safi);
-		if (!json_2)
+
+		if (!json)
 			vty_out(vty, "%s\n", warning_msg);
 		else
-			json_object_string_add(json_2, "warning",
+			json_object_string_add(json, "warning",
 					       warning_msg);
+
 		ret = CMD_WARNING;
 		goto end_table_stats;
 	}
@@ -11310,8 +11345,8 @@ static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
 	thread_execute(bm->master, bgp_table_stats_walker, &ts, 0);
 
 	for (i = 0; i < BGP_STATS_MAX; i++) {
-		if ((!json_2 && !table_stats_strs[i][TABLE_STATS_IDX_VTY]) ||
-		    (json_2 && !table_stats_strs[i][TABLE_STATS_IDX_JSON]))
+		if ((!json && !table_stats_strs[i][TABLE_STATS_IDX_VTY]) ||
+		    (json && !table_stats_strs[i][TABLE_STATS_IDX_JSON]))
 			continue;
 
 		switch (i) {
@@ -11326,119 +11361,132 @@ static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
 #endif
 		case BGP_STATS_ASPATH_TOTHOPS:
 		case BGP_STATS_ASPATH_TOTSIZE:
-			if (!json_2) {
+			if (!json) {
 				snprintf(temp_buf, sizeof(temp_buf), "%12.2f",
-					 ts.counts[i] ? (float)ts.counts[i] /
-					 (float)ts.counts[BGP_STATS_ASPATH_COUNT] : 0);
-				vty_out(vty, "%-30s: %s",
-					table_stats_strs[i][TABLE_STATS_IDX_VTY],
-					temp_buf);
-			} else {
-				snprintf(temp_buf, sizeof(temp_buf), "%.2f",
-					 ts.counts[i] ? (float)ts.counts[i] /
-					 (float)ts.counts[BGP_STATS_ASPATH_COUNT] : 0);
-				json_object_string_add(json_2,
-						       table_stats_strs[i][TABLE_STATS_IDX_JSON],
-						       temp_buf);
-			}
-			break;
-		case BGP_STATS_TOTPLEN:
-			if (!json_2) {
-				snprintf(temp_buf, sizeof(temp_buf), "%12.2f",
-					 ts.counts[i] ? (float)ts.counts[i] /
-					 (float)ts.counts[BGP_STATS_PREFIXES] : 0);
-				vty_out(vty, "%-30s: %s",
-					table_stats_strs[i][TABLE_STATS_IDX_VTY],
-					temp_buf);
-			} else {
-				snprintf(temp_buf, sizeof(temp_buf), "%.2f",
-					 ts.counts[i] ? (float)ts.counts[i] /
-					 (float)ts.counts[BGP_STATS_PREFIXES] : 0);
-				json_object_string_add(json_2,
-						       table_stats_strs[i][TABLE_STATS_IDX_JSON],
-						       temp_buf);
-			}
-			break;
-		case BGP_STATS_SPACE:
-			if (!json_2) {
-				snprintf(temp_buf, sizeof(temp_buf), "%12g", ts.total_space);
-				vty_out(vty, "%-30s: %s\n",
-					table_stats_strs[i][TABLE_STATS_IDX_VTY],
-					temp_buf);
-			} else {
-				snprintf(temp_buf, sizeof(temp_buf), "%g", ts.total_space);
-				json_object_string_add(json_2,
-						       table_stats_strs[i][TABLE_STATS_IDX_JSON],
-						       temp_buf);
-			}
-			if (afi == AFI_IP6) {
-				if (!json_2) {
-					snprintf(temp_buf, sizeof(temp_buf), "%12g",
-						 ts.total_space * pow(2.0, -128 + 32));
-					vty_out(vty, "%30s: %s\n", "/32 equivalent %s\n", temp_buf);
-				} else {
-					snprintf(temp_buf, sizeof(temp_buf), "%g",
-						 ts.total_space * pow(2.0, -128 + 32));
-					json_object_string_add(json_2, "/32Equivalent", temp_buf);
-				}
-				if (!json_2) {
-					snprintf(temp_buf, sizeof(temp_buf), "%12g",
-						 ts.total_space * pow(2.0, -128 + 48));
-					vty_out(vty, "%30s: %s\n", "/48 equivalent %s\n", temp_buf);
-				} else {
-					snprintf(temp_buf, sizeof(temp_buf), "%g",
-						 ts.total_space * pow(2.0, -128 + 48));
-					json_object_string_add(json_2, "/48Equivalent", temp_buf);
-				}
-			} else {
-				snprintf(temp_buf, sizeof(temp_buf), "%12.2f",
-					 ts.total_space * 100. * pow(2.0, -32));
-				if (!json_2) {
-					snprintf(temp_buf, sizeof(temp_buf), "%12.2f",
-						 ts.total_space * 100. * pow(2.0, -32));
-					vty_out(vty, "%30s: %s\n", "% announced ", temp_buf);
-				} else {
-					snprintf(temp_buf, sizeof(temp_buf), "%.2f",
-						 ts.total_space * 100. * pow(2.0, -32));
-					json_object_string_add(json_2, "%Announced", temp_buf);
-				}
-				if (!json_2) {
-					snprintf(temp_buf, sizeof(temp_buf), "%12.2f",
-						 ts.total_space * pow(2.0, -32 + 8));
-					vty_out(vty, "%30s: %s\n", "/8 equivalent ", temp_buf);
-				} else {
-					snprintf(temp_buf, sizeof(temp_buf), "%.2f",
-						 ts.total_space * pow(2.0, -32 + 8));
-					json_object_string_add(json_2, "/8Equivalent", temp_buf);
-				}
-				if (!json_2) {
-					snprintf(temp_buf, sizeof(temp_buf), "%12.2f",
-						 ts.total_space * pow(2.0, -32 + 24));
-					vty_out(vty, "%30s: %s\n", "/24 equivalent ", temp_buf);
-				} else {
-					snprintf(temp_buf, sizeof(temp_buf), "%.2f",
-						 ts.total_space * pow(2.0, -32 + 24));
-					json_object_string_add(json_2, "/24Equivalent", temp_buf);
-				}
-			}
-			break;
-		default:
-			if (!json_2) {
-				snprintf(temp_buf, sizeof(temp_buf), "%12llu", ts.counts[i]);
+					ts.counts[i] ? (float)ts.counts[i] /
+					(float)ts.counts[BGP_STATS_ASPATH_COUNT]
+					: 0);
 				vty_out(vty, "%-30s: %s",
 					table_stats_strs[i][TABLE_STATS_IDX_VTY],
 					temp_buf);
 			} else
-				json_object_int_add(json_2,
-						    table_stats_strs[i][TABLE_STATS_IDX_JSON],
-						    ts.counts[i]);
+				json_object_double_add(json,
+				      table_stats_strs[i][TABLE_STATS_IDX_JSON],
+				      ts.counts[i] ? (double)ts.counts[i] /
+				      (double)ts.counts[BGP_STATS_ASPATH_COUNT]
+				      : 0);
+			break;
+		case BGP_STATS_TOTPLEN:
+			if (!json) {
+				snprintf(temp_buf, sizeof(temp_buf), "%12.2f",
+					 ts.counts[i] ? (float)ts.counts[i] /
+					 (float)ts.counts[BGP_STATS_PREFIXES]
+					 : 0);
+				vty_out(vty, "%-30s: %s",
+					table_stats_strs[i][TABLE_STATS_IDX_VTY],
+					temp_buf);
+			} else
+				json_object_double_add(json,
+				     table_stats_strs[i][TABLE_STATS_IDX_JSON],
+				     ts.counts[i] ? (double)ts.counts[i] /
+				     (double)ts.counts[BGP_STATS_PREFIXES] : 0);
+			break;
+		case BGP_STATS_SPACE:
+			if (!json) {
+				snprintf(temp_buf, sizeof(temp_buf), "%12g",
+					 ts.total_space);
+				vty_out(vty, "%-30s: %s\n",
+					table_stats_strs[i][TABLE_STATS_IDX_VTY],
+					temp_buf);
+			} else
+				json_object_double_add(json,
+				     table_stats_strs[i][TABLE_STATS_IDX_JSON],
+				     (double)ts.total_space);
+			if (afi == AFI_IP6) {
+				if (!json) {
+					snprintf(temp_buf, sizeof(temp_buf),
+						 "%12g", ts.total_space *
+						 pow(2.0, -128 + 32));
+					vty_out(vty, "%30s: %s\n",
+						"/32 equivalent %s\n",
+						temp_buf);
+				} else
+					json_object_double_add(json,
+						      "/32equivalent",
+						      (double)(ts.total_space *
+						      pow(2.0, -128 + 32)));
+				if (!json) {
+					snprintf(temp_buf, sizeof(temp_buf),
+						 "%12g", ts.total_space *
+						 pow(2.0, -128 + 48));
+					vty_out(vty, "%30s: %s\n",
+						"/48 equivalent %s\n",
+						temp_buf);
+				} else
+					json_object_double_add(json,
+						     "/48equivalent",
+						     (double)(ts.total_space *
+						     pow(2.0, -128 + 48)));
+			} else {
+				if (!json) {
+					snprintf(temp_buf, sizeof(temp_buf),
+						 "%12.2f",
+						 ts.total_space * 100. *
+						 pow(2.0, -32));
+					vty_out(vty, "%30s: %s\n",
+						"% announced ",
+						temp_buf);
+				} else
+					json_object_double_add(json,
+						     "%announced",
+						     (double)(ts.total_space *
+						     100. *
+						     pow(2.0, -32)));
+				if (!json) {
+					snprintf(temp_buf, sizeof(temp_buf),
+						 "%12.2f",
+						 ts.total_space *
+						 pow(2.0, -32 + 8));
+					vty_out(vty, "%30s: %s\n",
+						"/8 equivalent ", temp_buf);
+				} else
+					json_object_double_add(json,
+						    "/8equivalent",
+						    (double)(ts.total_space *
+						    pow(2.0, -32 + 8)));
+				if (!json) {
+					snprintf(temp_buf, sizeof(temp_buf),
+						 "%12.2f",
+						 ts.total_space *
+						 pow(2.0, -32 + 24));
+					vty_out(vty, "%30s: %s\n",
+						"/24 equivalent ",
+						temp_buf);
+				} else
+					json_object_double_add(json,
+					        "/24equivalent",
+						(double)(ts.total_space *
+						 pow(2.0, -32 + 24)));
+			}
+			break;
+		default:
+			if (!json) {
+				snprintf(temp_buf, sizeof(temp_buf), "%12llu",
+					 ts.counts[i]);
+				vty_out(vty, "%-30s: %s",
+				    table_stats_strs[i][TABLE_STATS_IDX_VTY],
+				    temp_buf);
+			} else
+				json_object_int_add(json,
+				    table_stats_strs[i][TABLE_STATS_IDX_JSON],
+				    ts.counts[i]);
 		}
 		if (!json)
 			vty_out(vty, "\n");
 	}
  end_table_stats:
-	if (json_2)
-		json_object_array_add(json, json_2);
+	if (json)
+		json_object_array_add(json_array, json);
 	return ret;
 }
 
