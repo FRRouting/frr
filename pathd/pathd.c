@@ -145,6 +145,7 @@ void srte_policy_del(struct srte_policy *policy)
 	while (!RB_EMPTY(srte_candidate_head, &policy->candidate_paths)) {
 		candidate =
 			RB_ROOT(srte_candidate_head, &policy->candidate_paths);
+		hook_call(pathd_candidate_removed, candidate);
 		srte_candidate_del(candidate);
 	}
 
@@ -250,14 +251,14 @@ void srte_policy_update_candidates(struct srte_policy *policy)
 
 	RB_FOREACH_SAFE (candidate, srte_candidate_head,
 			 &policy->candidate_paths, safe) {
-		if (CHECK_FLAG(candidate->flags, F_CANDIDATE_NEW))
-			hook_call(pathd_candidate_created, candidate);
-		else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_MODIFIED))
-			hook_call(pathd_candidate_updated, candidate);
-		else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_DELETED)) {
-			/* The pathd_candidate_removed hook is called by: */
+		if (CHECK_FLAG(candidate->flags, F_CANDIDATE_DELETED)) {
+			hook_call(pathd_candidate_removed, candidate);
 			srte_candidate_del(candidate);
 			continue;
+		} else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_NEW)) {
+			hook_call(pathd_candidate_created, candidate);
+		} else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_MODIFIED)) {
+			hook_call(pathd_candidate_updated, candidate);
 		}
 
 		UNSET_FLAG(candidate->flags, F_CANDIDATE_NEW);
@@ -282,7 +283,6 @@ void srte_candidate_del(struct srte_candidate *candidate)
 {
 	struct srte_policy *srte_policy = candidate->policy;
 
-	hook_call(pathd_candidate_removed, candidate);
 	RB_REMOVE(srte_candidate_head, &srte_policy->candidate_paths,
 		  candidate);
 	XFREE(MTYPE_PATH_SR_CANDIDATE, candidate);

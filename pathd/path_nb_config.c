@@ -252,7 +252,16 @@ int pathd_te_sr_policy_candidate_path_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	candidate = nb_running_unset_entry(args->dnode);
-	SET_FLAG(candidate->flags, F_CANDIDATE_DELETED);
+
+	/*
+	 * If the candidate creation and deletion happen
+	 * in one go then we shouldn't bother pathd with
+	 * this candidate.
+	*/
+	if (CHECK_FLAG(candidate->flags, F_CANDIDATE_NEW))
+		srte_candidate_del(candidate);
+	else
+		SET_FLAG(candidate->flags, F_CANDIDATE_DELETED);
 
 	return NB_OK;
 }
