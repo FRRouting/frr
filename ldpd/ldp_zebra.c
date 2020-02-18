@@ -106,7 +106,7 @@ static int
 ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 {
 	struct zapi_labels zl = {};
-	struct zapi_nexthop_label *znh;
+	struct zapi_nexthop *znh;
 
 	if (kr->local_label < MPLS_LABEL_RESERVED_MAX ||
 	    kr->remote_label == NO_LABEL)
@@ -143,16 +143,14 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 	znh = &zl.nexthops[0];
 	switch (kr->af) {
 	case AF_INET:
-		znh->family = AF_INET;
-		znh->address.ipv4 = kr->nexthop.v4;
+		znh->gate.ipv4 = kr->nexthop.v4;
 		if (kr->ifindex)
 			znh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 		else
 			znh->type = NEXTHOP_TYPE_IPV4;
 		break;
 	case AF_INET6:
-		znh->family = AF_INET6;
-		znh->address.ipv6 = kr->nexthop.v6;
+		znh->gate.ipv6 = kr->nexthop.v6;
 		if (kr->ifindex)
 			znh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 		else
@@ -162,7 +160,8 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 		break;
 	}
 	znh->ifindex = kr->ifindex;
-	znh->label = kr->remote_label;
+	znh->label_num = 1;
+	znh->labels[0] = kr->remote_label;
 
 	return zebra_send_mpls_labels(zclient, cmd, &zl);
 }

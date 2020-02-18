@@ -2602,7 +2602,7 @@ int zebra_send_mpls_labels(struct zclient *zclient, int cmd,
 
 int zapi_labels_encode(struct stream *s, int cmd, struct zapi_labels *zl)
 {
-	struct zapi_nexthop_label *znh;
+	struct zapi_nexthop *znh;
 
 	stream_reset(s);
 
@@ -2631,20 +2631,8 @@ int zapi_labels_encode(struct stream *s, int cmd, struct zapi_labels *zl)
 	for (int i = 0; i < zl->nexthop_num; i++) {
 		znh = &zl->nexthops[i];
 
-		stream_putc(s, znh->type);
-		stream_putw(s, znh->family);
-		switch (znh->family) {
-		case AF_INET:
-			stream_put_in_addr(s, &znh->address.ipv4);
-			break;
-		case AF_INET6:
-			stream_write(s, (uint8_t *)&znh->address.ipv6, 16);
-			break;
-		default:
-			break;
-		}
-		stream_putl(s, znh->ifindex);
-		stream_putl(s, znh->label);
+		if (zapi_nexthop_encode(s, znh, 0) < 0)
+			return -1;
 	}
 
 	/* Put length at the first point of the stream. */
@@ -2655,7 +2643,7 @@ int zapi_labels_encode(struct stream *s, int cmd, struct zapi_labels *zl)
 
 int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 {
-	struct zapi_nexthop_label *znh;
+	struct zapi_nexthop *znh;
 
 	memset(zl, 0, sizeof(*zl));
 
@@ -2719,21 +2707,8 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 	for (int i = 0; i < zl->nexthop_num; i++) {
 		znh = &zl->nexthops[i];
 
-		STREAM_GETC(s, znh->type);
-		STREAM_GETW(s, znh->family);
-		switch (znh->family) {
-		case AF_INET:
-			STREAM_GET(&znh->address.ipv4.s_addr, s,
-				   IPV4_MAX_BYTELEN);
-			break;
-		case AF_INET6:
-			STREAM_GET(&znh->address.ipv6, s, 16);
-			break;
-		default:
-			break;
-		}
-		STREAM_GETL(s, znh->ifindex);
-		STREAM_GETL(s, znh->label);
+		if (zapi_nexthop_decode(s, znh, 0) < 0)
+			return -1;
 	}
 
 	return 0;

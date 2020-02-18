@@ -458,14 +458,6 @@ struct zapi_route {
 	uint32_t tableid;
 };
 
-struct zapi_nexthop_label {
-	enum nexthop_types_t type;
-	int family;
-	union g_addr address;
-	ifindex_t ifindex;
-	mpls_label_t label;
-};
-
 struct zapi_labels {
 	uint8_t message;
 #define ZAPI_LABELS_FTN      0x01
@@ -476,8 +468,9 @@ struct zapi_labels {
 		uint8_t type;
 		unsigned short instance;
 	} route;
+
 	uint16_t nexthop_num;
-	struct zapi_nexthop_label nexthops[MULTIPATH_NUM];
+	struct zapi_nexthop nexthops[MULTIPATH_NUM];
 };
 
 struct zapi_pw {

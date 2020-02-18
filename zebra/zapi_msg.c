@@ -1823,17 +1823,17 @@ static void zread_mpls_labels_add(ZAPI_HANDLER_ARGS)
 		return;
 
 	for (int i = 0; i < zl.nexthop_num; i++) {
-		struct zapi_nexthop_label *znh;
+		struct zapi_nexthop *znh;
 
 		znh = &zl.nexthops[i];
-		mpls_lsp_install(zvrf, zl.type, zl.local_label, 1, &znh->label,
-				 znh->type, &znh->address, znh->ifindex);
+		mpls_lsp_install(zvrf, zl.type, zl.local_label, 1, znh->labels,
+				 znh->type, &znh->gate, znh->ifindex);
 
 		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
 			mpls_ftn_update(1, zvrf, zl.type, &zl.route.prefix,
-					znh->type, &znh->address, znh->ifindex,
+					znh->type, &znh->gate, znh->ifindex,
 					zl.route.type, zl.route.instance,
-					znh->label);
+					znh->labels[0]);
 	}
 }
 
@@ -1866,19 +1866,20 @@ static void zread_mpls_labels_delete(ZAPI_HANDLER_ARGS)
 
 	if (zl.nexthop_num > 0) {
 		for (int i = 0; i < zl.nexthop_num; i++) {
-			struct zapi_nexthop_label *znh;
+			struct zapi_nexthop *znh;
 
 			znh = &zl.nexthops[i];
 			mpls_lsp_uninstall(zvrf, zl.type, zl.local_label,
-					   znh->type, &znh->address,
+					   znh->type, &znh->gate,
 					   znh->ifindex);
 
 			if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
 				mpls_ftn_update(0, zvrf, zl.type,
 						&zl.route.prefix, znh->type,
-						&znh->address, znh->ifindex,
+						&znh->gate, znh->ifindex,
 						zl.route.type,
-						zl.route.instance, znh->label);
+						zl.route.instance,
+						znh->labels[0]);
 		}
 	} else {
 		mpls_lsp_uninstall_all_vrf(zvrf, zl.type, zl.local_label);
@@ -1924,17 +1925,18 @@ static void zread_mpls_labels_replace(ZAPI_HANDLER_ARGS)
 				   zl.route.type, zl.route.instance);
 
 	for (int i = 0; i < zl.nexthop_num; i++) {
-		struct zapi_nexthop_label *znh;
+		struct zapi_nexthop *znh;
 
 		znh = &zl.nexthops[i];
-		mpls_lsp_install(zvrf, zl.type, zl.local_label, 1, &znh->label,
-				 znh->type, &znh->address, znh->ifindex);
+		mpls_lsp_install(zvrf, zl.type, zl.local_label,
+				 1, znh->labels, znh->type,
+				 &znh->gate, znh->ifindex);
 
 		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN)) {
 			mpls_ftn_update(1, zvrf, zl.type, &zl.route.prefix,
-					znh->type, &znh->address, znh->ifindex,
+					znh->type, &znh->gate, znh->ifindex,
 					zl.route.type, zl.route.instance,
-					znh->label);
+					znh->labels[0]);
 		}
 	}
 }

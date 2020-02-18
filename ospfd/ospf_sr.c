@@ -609,7 +609,7 @@ static int compute_prefix_nhlfe(struct sr_prefix *srp)
 static int ospf_zebra_send_mpls_labels(int cmd, struct sr_nhlfe nhlfe)
 {
 	struct zapi_labels zl = {};
-	struct zapi_nexthop_label *znh;
+	struct zapi_nexthop *znh;
 
 	if (IS_DEBUG_OSPF_SR)
 		zlog_debug("    |-  %s LSP %u/%u for %s/%u via %u",
@@ -631,10 +631,10 @@ static int ospf_zebra_send_mpls_labels(int cmd, struct sr_nhlfe nhlfe)
 	zl.nexthop_num = 1;
 	znh = &zl.nexthops[0];
 	znh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-	znh->family = AF_INET;
-	znh->address.ipv4 = nhlfe.nexthop;
+	znh->gate.ipv4 = nhlfe.nexthop;
 	znh->ifindex = nhlfe.ifindex;
-	znh->label = nhlfe.label_out;
+	znh->label_num = 1;
+	znh->labels[0] = nhlfe.label_out;
 
 	return zebra_send_mpls_labels(zclient, cmd, &zl);
 }
