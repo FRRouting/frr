@@ -227,7 +227,7 @@ void srte_policy_update_candidates(struct srte_policy *policy)
 		if (new_best_candidate) {
 			policy->best_candidate = new_best_candidate;
 			SET_FLAG(new_best_candidate->flags, F_CANDIDATE_BEST);
-			SET_FLAG(old_best_candidate->flags, F_CANDIDATE_MODIFIED);
+			SET_FLAG(new_best_candidate->flags, F_CANDIDATE_MODIFIED);
 
 			path_zebra_add_sr_policy(
 				policy, new_best_candidate->segment_list);
