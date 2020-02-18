@@ -2479,4 +2479,25 @@ void rtadv_cmd_init(void)
 {
 	/* Empty.*/;
 }
+
+void rtadv_add_prefix(struct zebra_if *zif, const struct prefix_ipv6 *p)
+{
+	/* Empty.*/;
+}
+
+void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p)
+{
+	/* Empty.*/;
+}
+
+void rtadv_stop_ra(struct interface *ifp)
+{
+	/* Empty.*/;
+}
+
+void rtadv_stop_ra_all(void)
+{
+	/* Empty.*/;
+}
+
 #endif /* HAVE_RTADV */
