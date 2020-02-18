@@ -367,3 +367,165 @@ Zebra Protocol Commands
 +------------------------------------+-------+
 | ZEBRA_CLIENT_CAPABILITIES          | 105   |
 +------------------------------------+-------+
+
+.. _zebra-nexthop-group:
+
+Zebra Nexthop Group
+==============================
+
+code found in ``zebra/zebra_nhg.c[h]``
+
+
+Zebra has its own heirarchical structure for nexthops in the form of 2 directed
+graphs of nexthop objects. These objects, ``struct nhg_hash_entry (NHE)``
+are given UUIDs assigned by zebra in the form of a ``uint32_t`` on ``->id``.
+
+A route entry points to its nexthops via ``->nhe`` in ``struct route_entry``.
+
+These NHEs are stored in two hash tables for lookup in ``zebra/zrouter.h``:
+        - nhgs: key'd via a hash on the nexthops themselves
+        - nhgs_id: key'd via the ``uint32_t`` ID assigned by zebra
+
+We use the hash tables to to track nexthops and share them between routes via
+lookup code and reference counting ``->refcnt``. Nexthops and nexthop groups
+we receive from upper level protocols (and the dataplane) are hashed to find
+or create a new NHE for them in the ``nhgs`` hash table. If new, we will also
+allocate an ID for it and put it in the ``nhgs_id`` table for lookup via ID as
+well. Sharing groups allows us to dramatically reduce memory in zebra and
+create the heirarchical graph of NHEs.
+
+Inside the NHEs themselves, there are two trees:
+        - nhg_depends: NHE it resolves to or member NHEs if its a group
+        - nhgs_dependents: backpointing tree to NHEs that depend on it
+
+The ``depends``/``dependents`` tree is where the heirarchical tree of nexthops
+is defined. A single NHE may have a tree in ``->nhg_depends`` that define the
+children of its group. Those children NHEs may have their own trees in them
+defining what NHEs they resolve to. Further, the original NHE may be part of a
+larger group and reside in another NHE's ``depends`` tree.
+
+Each of these ``depends`` relationships also create a back propogated tree of
+``dependents`` so that any NHE can know what other NHE's ``depends`` trees
+its a member of. ``struct zebra_if`` also has a similar list of NHEs that are
+fully resolved and pointing out of its' interface.
+
+Depends Tree
+---------------
+What exactly defines a ``depend``?
+
+A ``depend`` is simply an NHE this NHE depends on. This can mean its recursively
+resolved to that NHE or its a group and that NHE is a member of it. Abstracting
+recursive resolution and groups into the same tree greatly simplifies the code
+for tracking the heirarchical tree. We don't need two different paths to handle
+creating/removing trees based on route resolution and group membership.
+
+A couple examples of the ``depends`` tree:
+
+*Nexthop Recursive Resolution:*
+::
+
+   A _____ B
+
+   (A is resolved to B)
+
+   NHE A would have a depends tree with one node NHE B.
+
+*Nexthop Group (ECMP x3):*
+::
+
+   A _____ B
+    \_____ C
+    \_____ D
+
+   (A is a nexthop group with members B,C,D)
+
+   NHE A would have a depends tree with nodes NHE B, C, D.
+
+*Nexthop Group (ECMP x3) & Recursive Resolution:*
+::
+
+   A _____ B
+    \_____ C
+    \_____ D _____ E
+
+   (Same but D is recursively resolved to E)
+
+   NHE A would have a depends tree with nodes NHE B, C, D and D would have
+   a depends tree with node NHE E.
+
+
+With the graph, we can do a lookup on an ID (via hashtable) to get any NHE and
+then walk the entire subgraph starting at that given root NHE. This would
+include itself as well as any fully resolved nexthops in recurses to and any
+members of it if its a group and their ``depends``.
+
+Dependents Tree
+---------------
+What exactly defines a ``dependent``?
+
+A ``dependent`` is simply an NHE that has other NHEs depending on it. That is, 
+it is a member of another NHE's ``depends`` tree either because it's recursively
+resovled to it or it's a member of its group. When an NHE is added to another
+NHE's ``depends`` tree, we add the latter NHE to the former's ``dependents``
+tree at the same time.
+
+The example from above:
+
+*Nexthop Group (ECMP x3) && Recursive Resolution:*
+::
+
+   A _____ B
+    \_____ C
+    \_____ D _____ E
+
+Would create the following ``dependents`` trees:
+
+::
+
+   B _____ A
+
+   NHE B would have a dependents tree with node NHE A.
+
+   C _____ A
+
+   NHE C would have a dependents tree with node NHE A.
+
+   D _____ A
+
+   NHE D would have a dependents tree with node NHE A.
+
+   E _____ D
+
+   NHE E would have a dependents tree with node NHE D.
+
+
+*Add Another NHE Resolution:*
+
+Now, lets say we add another route with an NHE I and it resolves to NHE E
+as well.
+
+::
+
+   I _____ E
+
+This would modify NHE E's ``dependents`` tree to:
+
+::
+
+   E _____ D
+    \_____ I
+
+   NHE E would have a dependents tree with nodes NHE D and I.
+
+*Overall:*
+
+All these create an overall ``dependents`` tree that looks like this:
+
+::
+
+   E _____ D _____ A
+    \_____ I      //
+           C ____//
+           B ____/
+
+
