@@ -232,6 +232,20 @@ void srte_policy_update_candidates(struct srte_policy *policy)
 			path_zebra_add_sr_policy(
 				policy, new_best_candidate->segment_list);
 		}
+	} else if (new_best_candidate &&
+		   CHECK_FLAG(new_best_candidate->flags,
+			      F_CANDIDATE_MODIFIED)) {
+		/* The best candidate path is the same, but some attributes
+		 * like its segment list changed.
+		 */
+		/* TODO: add debug guard. */
+		zlog_debug(
+			"SR-TE(%s, %u): best candidate %s changed",
+			endpoint, policy->color,
+			new_best_candidate ? new_best_candidate->name : "none");
+
+		path_zebra_add_sr_policy(
+				policy, new_best_candidate->segment_list);
 	}
 
 	RB_FOREACH_SAFE (candidate, srte_candidate_head,
@@ -241,6 +255,7 @@ void srte_policy_update_candidates(struct srte_policy *policy)
 		else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_MODIFIED))
 			hook_call(pathd_candidate_updated, candidate);
 		else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_DELETED)) {
+			/* The pathd_candidate_removed hook is called by: */
 			srte_candidate_del(candidate);
 			continue;
 		}
