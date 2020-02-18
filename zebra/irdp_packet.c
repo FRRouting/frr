@@ -319,9 +319,10 @@ void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
 
 
 	if (dst == INADDR_BROADCAST) {
-		on = 1;
-		if (setsockopt(irdp_sock, SOL_SOCKET, SO_BROADCAST, (char *)&on,
-			       sizeof(on))
+		uint32_t bon = 1;
+
+		if (setsockopt(irdp_sock, SOL_SOCKET, SO_BROADCAST, &bon,
+			       sizeof(bon))
 		    < 0)
 			zlog_debug("sendto %s", safe_strerror(errno));
 	}
