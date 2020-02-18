@@ -529,3 +529,67 @@ All these create an overall ``dependents`` tree that looks like this:
            B ____/
 
 
+Macros:
+==============
+
+.. c:function:: zebra_nhg_nexthop(nhe)
+
+   Accessor macro for the ``lib/nexthop.h`` nexthop.
+
+   Returns ``struct nexthop *``:
+
+   .. code-block:: c
+
+      ->nexthop
+
+Iteration Macros
+----------------
+Iterate over top-level (non-recursive) NHEs (singleton and groups):
+
+ex)
+
+::
+
+   A _____ B
+    \_____ C
+    \_____ D _____ E
+
+
+   for (B, C, D)
+
+::
+
+   A _____ B
+
+   for (A)
+
+.. c:function:: zebra_nhg_each(root, iter)
+
+   If root is a singleton (recursive or not), it just iterates on that,
+   otherwise it iterates on the group.
+
+   .. code-block:: c
+
+      if (root != GROUP)
+              iter = root;
+      else
+              for (iter = root;
+                      iter;
+                      iter = nhg_connected_tree_next(&root->nhg_depends, iter)
+              )
+
+.. c:function:: zebra_nhg_each_nexthop(root, iter)
+
+   Same as above but iterates on the ``struct nexthop *`` in an NHE.
+
+   Equivalent to lib/nexthop iteration:
+
+   .. code-block:: c
+
+      for (iter = root; iter; iter = iter->next)
+
+
+.. warning::
+
+   These are non-safe macros (removing from list while iterating is undefined
+   behavior).
