@@ -36,6 +36,7 @@
 #include "pim_time.h"
 #include "pim_nht.h"
 #include "pim_oil.h"
+#include "pim_mlag.h"
 
 static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up);
 
@@ -194,6 +195,32 @@ static int nexthop_mismatch(const struct pim_nexthop *nh1,
 	       || (nh1->mrib_route_metric != nh2->mrib_route_metric);
 }
 
+static void pim_rpf_cost_change(struct pim_instance *pim,
+		struct pim_upstream *up, uint32_t old_cost)
+{
+	struct pim_rpf *rpf = &up->rpf;
+	uint32_t new_cost;
+
+	new_cost = pim_up_mlag_local_cost(up);
+	if (PIM_DEBUG_MLAG)
+		zlog_debug(
+			"%s: Cost_to_rp of upstream-%s changed to:%u, from:%u",
+			__func__, up->sg_str, new_cost, old_cost);
+
+	if (old_cost == new_cost)
+		return;
+
+	/* Cost changed, it might Impact MLAG DF election, update */
+	if (PIM_DEBUG_MLAG)
+		zlog_debug(
+			"%s: Cost_to_rp of upstream-%s changed to:%u",
+			__func__, up->sg_str,
+			rpf->source_nexthop.mrib_route_metric);
+
+	if (pim_up_mlag_is_local(up))
+		pim_mlag_up_local_add(pim, up);
+}
+
 enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 		struct pim_upstream *up, struct pim_rpf *old,
 		const char *caller)
@@ -203,6 +230,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	struct prefix nht_p;
 	struct prefix src, grp;
 	bool neigh_needed = true;
+	uint32_t saved_mrib_route_metric;
 
 	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags))
 		return PIM_RPF_OK;
@@ -215,6 +243,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 
 	saved.source_nexthop = rpf->source_nexthop;
 	saved.rpf_addr = rpf->rpf_addr;
+	saved_mrib_route_metric = pim_up_mlag_local_cost(up);
 	if (old) {
 		old->source_nexthop = saved.source_nexthop;
 		old->rpf_addr = saved.rpf_addr;
@@ -236,8 +265,12 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 		neigh_needed = false;
 	pim_find_or_track_nexthop(pim, &nht_p, up, NULL, false, NULL);
 	if (!pim_ecmp_nexthop_lookup(pim, &rpf->source_nexthop, &src, &grp,
-				     neigh_needed))
+				neigh_needed)) {
+		/* Route is Deleted in Zebra, reset the stored NH data */
+		pim_upstream_rpf_clear(pim, up);
+		pim_rpf_cost_change(pim, up, saved_mrib_route_metric);
 		return PIM_RPF_FAILURE;
+	}
 
 	rpf->rpf_addr.family = AF_INET;
 	rpf->rpf_addr.u.prefix4 = pim_rpf_find_rpf_addr(up);
@@ -290,9 +323,17 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	if (saved.rpf_addr.u.prefix4.s_addr != rpf->rpf_addr.u.prefix4.s_addr
 	    || saved.source_nexthop
 			       .interface != rpf->source_nexthop.interface) {
-
+		pim_rpf_cost_change(pim, up, saved_mrib_route_metric);
 		return PIM_RPF_CHANGED;
 	}
+
+	if (PIM_DEBUG_MLAG)
+		zlog_debug(
+			"%s(%s): Cost_to_rp of upstream-%s changed to:%u",
+			__func__, caller, up->sg_str,
+			rpf->source_nexthop.mrib_route_metric);
+
+	pim_rpf_cost_change(pim, up, saved_mrib_route_metric);
 
 	return PIM_RPF_OK;
 }

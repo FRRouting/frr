@@ -561,6 +561,13 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 							"%s: current nexthop does not have nbr ",
 							__PRETTY_FUNCTION__);
 				} else {
+					/* update metric even if the upstream
+					 * neighbor stays unchanged
+					 */
+					nexthop->mrib_metric_preference =
+						pnc->distance;
+					nexthop->mrib_route_metric =
+						pnc->metric;
 					if (PIM_DEBUG_PIM_NHT) {
 						char src_str[INET_ADDRSTRLEN];
 						pim_inet4_dump("<addr?>",

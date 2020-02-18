@@ -544,6 +544,10 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug zebra vxlan\n");
 		write++;
 	}
+	if (IS_ZEBRA_DEBUG_MLAG) {
+		vty_out(vty, "debug zebra mlag\n");
+		write++;
+	}
 	if (IS_ZEBRA_DEBUG_PW) {
 		vty_out(vty, "debug zebra pseudowires\n");
 		write++;
@@ -633,4 +637,5 @@ void zebra_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_zebra_rib_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_fpm_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_dplane_cmd);
+	install_element(CONFIG_NODE, &debug_zebra_mlag_cmd);
 }

@@ -242,8 +242,6 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		}
 	}
 
-	pim_vxlan_config_write(vty, spaces, &writes);
-
 	return writes;
 }
 

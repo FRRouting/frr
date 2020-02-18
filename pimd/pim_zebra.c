@@ -452,7 +452,7 @@ static void pim_zebra_connected(struct zclient *zclient)
 
 static void pim_zebra_capabilities(struct zclient_capabilities *cap)
 {
-	router->role = cap->role;
+	router->mlag_role = cap->role;
 }
 
 void pim_zebra_init(void)
@@ -547,7 +547,8 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 					"local membership add for %s as G is now ASM",
 					pim_str_sg_dump(&sg));
 			pim_ifchannel_local_membership_add(
-				group->group_igmp_sock->interface, &sg);
+				group->group_igmp_sock->interface, &sg,
+				false /*is_vxlan*/);
 		}
 	}
 }
@@ -765,7 +766,8 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	  per-interface (S,G) state.
 	 */
 	if (!pim_ifchannel_local_membership_add(
-						group->group_igmp_sock->interface, &sg)) {
+						group->group_igmp_sock->interface, &sg,
+						false /*is_vxlan*/)) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_warn("%s: Failure to add local membership for %s",
 				  __PRETTY_FUNCTION__, pim_str_sg_dump(&sg));

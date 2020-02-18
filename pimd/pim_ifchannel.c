@@ -854,8 +854,9 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		/*
 		 * If we are going to be a LHR, we need to note it
 		 */
-		if (ch->upstream->parent && (ch->upstream->parent->flags
-					     & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
+		if (ch->upstream->parent &&
+			(PIM_UPSTREAM_FLAG_TEST_CAN_BE_LHR(
+						   ch->upstream->parent->flags))
 		    && !(ch->upstream->flags
 			 & PIM_UPSTREAM_FLAG_MASK_SRC_LHR)) {
 			pim_upstream_ref(ch->upstream,
@@ -1042,11 +1043,12 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 }
 
 int pim_ifchannel_local_membership_add(struct interface *ifp,
-				       struct prefix_sg *sg)
+				       struct prefix_sg *sg, bool is_vxlan)
 {
 	struct pim_ifchannel *ch, *starch;
 	struct pim_interface *pim_ifp;
 	struct pim_instance *pim;
+	int up_flags;
 
 	/* PIM enabled on interface? */
 	pim_ifp = ifp->info;
@@ -1080,7 +1082,9 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 		}
 	}
 
-	ch = pim_ifchannel_add(ifp, sg, 0, PIM_UPSTREAM_FLAG_MASK_SRC_IGMP);
+	up_flags = is_vxlan ? PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM :
+		PIM_UPSTREAM_FLAG_MASK_SRC_IGMP;
+	ch = pim_ifchannel_add(ifp, sg, 0, up_flags);
 
 	ifmembership_set(ch, PIM_IFMEMBERSHIP_INCLUDE);
 

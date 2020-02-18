@@ -461,6 +461,18 @@ cause great confusion.
 
    Display upstream information for S,G's and the RPF data associated with them.
 
+.. index:: show ip pim [vrf NAME] mlag upstream [A.B.C.D [A.B.C.D]] [json]
+.. clicmd:: show ip pim mlag upstream
+
+   Display upstream entries that are synced across MLAG switches.
+   Allow the user to specify sub Source and Groups address filters.
+
+.. index:: show ip pim mlag summary
+.. clicmd:: show ip pim mlag summary
+
+   Display PIM MLAG (multi-chassis link aggregation) session status and
+   control message statistics.
+
 .. index:: show ip pim bsr
 .. clicmd:: show ip pim bsr
 

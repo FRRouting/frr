@@ -262,7 +262,7 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 
 		up = pim_upstream_find(pim_ifp->pim, &star);
 
-		if (up && PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(up->flags)) {
+		if (up && PIM_UPSTREAM_FLAG_TEST_CAN_BE_LHR(up->flags)) {
 			up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
 					      PIM_UPSTREAM_FLAG_MASK_SRC_LHR,
 					      __PRETTY_FUNCTION__, NULL);

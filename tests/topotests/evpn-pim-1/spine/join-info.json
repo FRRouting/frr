@@ -1,0 +1,34 @@
+{
+  "spine-eth0":{
+    "name":"spine-eth0",
+    "state":"up",
+    "address":"192.168.1.1",
+    "flagMulticast":true,
+    "flagBroadcast":true,
+    "lanDelayEnabled":true,
+    "239.1.1.1":{
+      "*":{
+        "source":"*",
+        "group":"239.1.1.1",
+        "prune":"--:--",
+        "channelJoinName":"JOIN"
+      }
+    }
+  },
+  "spine-eth1":{
+    "name":"spine-eth1",
+    "state":"up",
+    "address":"192.168.2.1",
+    "flagMulticast":true,
+    "flagBroadcast":true,
+    "lanDelayEnabled":true,
+    "239.1.1.1":{
+      "*":{
+        "source":"*",
+        "group":"239.1.1.1",
+        "prune":"--:--",
+        "channelJoinName":"JOIN"
+      }
+    }
+  }
+}

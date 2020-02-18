@@ -36,6 +36,7 @@ struct pim_vxlan_instance {
 	/* device used by the dataplane to terminate multicast encapsulated
 	 * vxlan traffic
 	 */
+	struct interface *term_if_cfg;
 	struct interface *term_if;
 };
 
