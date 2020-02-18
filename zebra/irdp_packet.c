@@ -315,7 +315,9 @@ void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
 	if (setsockopt(irdp_sock, IPPROTO_IP, IP_HDRINCL, (char *)&on,
 		       sizeof(on))
 	    < 0)
-		zlog_debug("sendto %s", safe_strerror(errno));
+		flog_err(EC_LIB_SOCKET,
+			 "IRDP: Cannot set IP_HDRINCLU %s(%d) on %s",
+			 safe_strerror(errno), errno, ifp->name);
 
 
 	if (dst == INADDR_BROADCAST) {
@@ -324,7 +326,9 @@ void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
 		if (setsockopt(irdp_sock, SOL_SOCKET, SO_BROADCAST, &bon,
 			       sizeof(bon))
 		    < 0)
-			zlog_debug("sendto %s", safe_strerror(errno));
+			flog_err(EC_LIB_SOCKET,
+				 "IRDP: Cannot set SO_BROADCAST %s(%d) on %s",
+				 safe_strerror(errno), errno, ifp->name);
 	}
 
 	if (dst != INADDR_BROADCAST)
@@ -355,8 +359,8 @@ void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
 
 	sockopt_iphdrincl_swab_htosys(ip);
 
-	if (sendmsg(irdp_sock, msg, 0) < 0) {
-		zlog_debug("sendto %s", safe_strerror(errno));
-	}
-	/*   printf("TX on %s idx %d\n", ifp->name, ifp->ifindex); */
+	if (sendmsg(irdp_sock, msg, 0) < 0)
+		flog_err(EC_LIB_SOCKET,
+			 "IRDP: sendmsg send failure %s(%d) on %s",
+			 safe_strerror(errno), errno, ifp->name);
 }
