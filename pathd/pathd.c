@@ -240,10 +240,8 @@ void srte_policy_update_candidates(struct srte_policy *policy)
 		 * like its segment list changed.
 		 */
 		/* TODO: add debug guard. */
-		zlog_debug(
-			"SR-TE(%s, %u): best candidate %s changed",
-			endpoint, policy->color,
-			new_best_candidate ? new_best_candidate->name : "none");
+		zlog_debug("SR-TE(%s, %u): best candidate %s changed", endpoint,
+			   policy->color, new_best_candidate->name);
 
 		path_zebra_add_sr_policy(
 				policy, new_best_candidate->segment_list);
