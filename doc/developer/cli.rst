@@ -371,11 +371,11 @@ Type rules
 +----------------------------+--------------------------------+--------------------------+
 | ``A.B.C.D + X:X::X:X``     | ``const union sockunion *``    | ``NULL``                 |
 +----------------------------+--------------------------------+--------------------------+
-| ``A.B.C.D/M``              | ``const struct prefix_ipv4 *`` | ``NULL``                 |
+| ``A.B.C.D/M``              | ``const struct prefix_ipv4 *`` | ``all-zeroes struct``    |
 +----------------------------+--------------------------------+--------------------------+
-| ``X:X::X:X/M``             | ``const struct prefix_ipv6 *`` | ``NULL``                 |
+| ``X:X::X:X/M``             | ``const struct prefix_ipv6 *`` | ``all-zeroes struct``    |
 +----------------------------+--------------------------------+--------------------------+
-| ``A.B.C.D/M + X:X::X:X/M`` | ``const struct prefix *``      | ``NULL``                 |
+| ``A.B.C.D/M + X:X::X:X/M`` | ``const struct prefix *``      | ``all-zeroes struct``    |
 +----------------------------+--------------------------------+--------------------------+
 | ``(0-9)``                  | ``long``                       | ``0``                    |
 +----------------------------+--------------------------------+--------------------------+
@@ -395,8 +395,10 @@ Note the following details:
    ``word`` tokens (e.g. constant words). This is useful if some parts of a
    command are optional. The type will be ``const char *``.
 -  ``[no]`` will be passed as ``const char *no``.
--  Pointers will be ``NULL`` when the argument is optional and the user did not
-   use it.
+-  Most pointers will be ``NULL`` when the argument is optional and the
+   user did not supply it. As noted in the table above, some prefix
+   struct type arguments are passed as pointers to all-zeroes structs,
+   not as ``NULL`` pointers.
 -  If a parameter is not a pointer, but is optional and the user didn't use it,
    the default value will be passed. Check the ``_str`` argument if you need to
    determine whether the parameter was omitted.
