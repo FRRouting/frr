@@ -516,7 +516,6 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 	struct route_entry *next;
 	struct route_table *table;
 	int32_t n = 0;
-	struct prefix *p;
 	afi_t afi, curr_afi;
 	uint8_t proto;
 	uint16_t instance;
@@ -541,25 +540,21 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 	/* Process routes for all AFI */
 	for (afi = curr_afi; afi < AFI_MAX; afi++) {
 		table = zvrf->table[afi][SAFI_UNICAST];
-		p = info->current_prefix;
 
 		if (table) {
 			/*
 			 * If the current prefix is NULL then get the first
 			 * route entry in the table
 			 */
-			if (p == NULL) {
+			if (info->current_prefix == NULL) {
 				rn = route_top(table);
 				if (rn == NULL)
 					continue;
-				p = XCALLOC(MTYPE_TMP, sizeof(struct prefix));
-				if (p == NULL)
-					return -1;
 				curr = rn;
-				prefix_copy(p, &rn->p);
 			} else
 				/* Get the next route entry */
-				curr = route_table_get_next(table, p);
+				curr = route_table_get_next(
+					table, info->current_prefix);
 
 			for (rn = curr; rn; rn = srcdest_route_next(rn)) {
 				RNODE_FOREACH_RE_SAFE (rn, re, next) {
@@ -583,9 +578,13 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 					 */
 					if ((n >= ZEBRA_MAX_STALE_ROUTE_COUNT)
 					    && (info->delete == false)) {
-						prefix_copy(p, &rn->p);
 						info->current_afi = afi;
-						info->current_prefix = p;
+						info->current_prefix = XCALLOC(
+							MTYPE_TMP,
+							sizeof(struct prefix));
+						prefix_copy(
+							info->current_prefix,
+							&rn->p);
 						return n;
 					}
 				}
@@ -595,11 +594,7 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 		 * Reset the current prefix to indicate processing completion
 		 * of the current AFI
 		 */
-		if (info->current_prefix) {
-			XFREE(MTYPE_TMP, info->current_prefix);
-			info->current_prefix = NULL;
-		}
-		continue;
+		XFREE(MTYPE_TMP, info->current_prefix);
 	}
 	return 0;
 }
