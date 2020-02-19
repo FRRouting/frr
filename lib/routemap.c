@@ -914,6 +914,7 @@ static struct route_map_index *route_map_index_new(void)
 /* Free route map index. */
 void route_map_index_delete(struct route_map_index *index, int notify)
 {
+	struct routemap_hook_context *rhc;
 	struct route_map_rule *rule;
 
 	QOBJ_UNREG(index);
@@ -923,8 +924,8 @@ void route_map_index_delete(struct route_map_index *index, int notify)
 			   index->map->name, index->pref);
 
 	/* Free route map northbound hook contexts. */
-	while (!TAILQ_EMPTY(&index->rhclist))
-		routemap_hook_context_free(TAILQ_FIRST(&index->rhclist));
+	while ((rhc = TAILQ_FIRST(&index->rhclist)) != NULL)
+		routemap_hook_context_free(rhc);
 
 	/* Free route match. */
 	while ((rule = index->match_list.head) != NULL)
