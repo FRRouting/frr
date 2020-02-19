@@ -6,12 +6,10 @@ if PATHD
 noinst_LIBRARIES += pathd/libpath.a
 sbin_PROGRAMS += pathd/pathd
 dist_examples_DATA += pathd/pathd.conf.sample
-vtysh_scan += \
-	$(top_srcdir)/pathd/path_cli.c \
-	$(top_srcdir)/pathd/path_pcep.c \
-	# end
+vtysh_scan += $(top_srcdir)/pathd/path_cli.c
 
 if PCEP
+vtysh_scan += $(top_srcdir)/pathd/path_pcep.c
 module_LTLIBRARIES += pathd/pathd_pcep.la
 endif
 
