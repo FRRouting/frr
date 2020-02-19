@@ -34,6 +34,7 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_jp_agg.c \
 	pimd/pim_macro.c \
 	pimd/pim_memory.c \
+	pimd/pim_mlag.c \
 	pimd/pim_mroute.c \
 	pimd/pim_msdp.c \
 	pimd/pim_msdp_packet.c \
@@ -62,7 +63,6 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_zebra.c \
 	pimd/pim_zlookup.c \
 	pimd/pim_vxlan.c \
-	pimd/pim_mlag.c \
 	pimd/pimd.c \
 	# end
 
@@ -88,6 +88,7 @@ noinst_HEADERS += \
 	pimd/pim_jp_agg.h \
 	pimd/pim_macro.h \
 	pimd/pim_memory.h \
+	pimd/pim_mlag.h \
 	pimd/pim_mroute.h \
 	pimd/pim_msdp.h \
 	pimd/pim_msdp_packet.h \
@@ -115,7 +116,6 @@ noinst_HEADERS += \
 	pimd/pim_zebra.h \
 	pimd/pim_zlookup.h \
 	pimd/pim_vxlan.h \
-	pimd/pim_mlag.h \
 	pimd/pim_vxlan_instance.h \
 	pimd/pimd.h \
 	pimd/mtracebis_netlink.h \
