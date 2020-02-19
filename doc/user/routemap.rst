@@ -314,6 +314,11 @@ Route Map Set Command
 
    Set the BGP table to a given table identifier
 
+.. index:: set mtu (1-9000)
+.. clicmd:: set mtu (1-9000)
+
+   Set the mtu of the route when installed into the kernel on linux.
+
 .. _route-map-call-command:
 
 Route Map Call Command

@@ -115,6 +115,7 @@ o Cisco route-map
       tag               :  Done
       weight            :  Done
       table             :  Done
+      mtu               :  Done
 
 o Local extensions
 
@@ -1924,6 +1925,36 @@ static const struct route_map_rule_cmd route_set_table_id_cmd = {
 	route_value_compile,
 	route_value_free
 };
+
+/* `set mtu XXXX` */
+
+static enum route_map_cmd_result_t route_set_mtu(void *rule,
+						 const struct prefix *prefix,
+						 route_map_object_t type,
+						 void *object)
+{
+	struct rmap_value *rv;
+	struct bgp_path_info *path;
+
+	if (type != RMAP_BGP)
+		return RMAP_OKAY;
+
+	rv = rule;
+	path = object;
+
+	path->attr->mtu = rv->value;
+
+	return RMAP_OKAY;
+}
+
+/* Set table_id rule structure. */
+static const struct route_map_rule_cmd route_set_mtu_cmd = {
+	"mtu",
+	route_set_mtu,
+	route_value_compile,
+	route_value_free
+};
+
 
 /* `set as-path prepend ASPATH' */
 
@@ -4338,6 +4369,37 @@ DEFUN (no_set_table_id,
 	return generic_set_delete(vty, index, "table", NULL);
 }
 
+DEFUN (set_mtu,
+       set_mtu_cmd,
+       "[no] set mtu (1-9000)",
+       NO_STR
+       SET_STR
+       "Modify the MTU of the route for installation\n"
+       "MTU must be between 1 and 9000\n")
+{
+	int idx = 0;
+
+	VTY_DECLVAR_CONTEXT(route_map_index, index);
+
+	if (argv_find(argv, argc, "no", &idx))
+		return generic_set_delete(vty, index, "mtu", NULL);
+
+	idx = 2;
+	return generic_set_add(vty, index, "mtu", argv[idx]->arg);
+}
+
+DEFUN (no_set_mtu,
+       no_set_mtu_cmd,
+       "no set mtu",
+       NO_STR
+       SET_STR
+       "Modify the MTU of the route for installation\n")
+{
+	VTY_DECLVAR_CONTEXT(route_map_index, index);
+
+	return generic_set_delete(vty, index, "mtu", NULL);
+}
+
 DEFUN (set_ip_nexthop_peer,
        set_ip_nexthop_peer_cmd,
        "[no] set ip next-hop peer-address",
@@ -5449,6 +5511,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_vrl_source_vrf_cmd);
 
 	route_map_install_set(&route_set_table_id_cmd);
+	route_map_install_set(&route_set_mtu_cmd);
 	route_map_install_set(&route_set_ip_nexthop_cmd);
 	route_map_install_set(&route_set_local_pref_cmd);
 	route_map_install_set(&route_set_weight_cmd);
@@ -5509,6 +5572,8 @@ void bgp_route_map_init(void)
 
 	install_element(RMAP_NODE, &no_set_table_id_cmd);
 	install_element(RMAP_NODE, &set_table_id_cmd);
+	install_element(RMAP_NODE, &set_mtu_cmd);
+	install_element(RMAP_NODE, &no_set_mtu_cmd);
 	install_element(RMAP_NODE, &set_ip_nexthop_peer_cmd);
 	install_element(RMAP_NODE, &set_ip_nexthop_unchanged_cmd);
 	install_element(RMAP_NODE, &set_local_pref_cmd);

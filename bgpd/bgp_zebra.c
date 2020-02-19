@@ -1237,6 +1237,11 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 		api.tableid = info->attr->rmap_table_id;
 	}
 
+	if (info->attr->mtu) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_MTU);
+		api.mtu = info->attr->mtu;
+	}
+
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
 	for (mpinfo = info; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {

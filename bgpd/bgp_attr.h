@@ -250,6 +250,9 @@ struct attr {
 
 	/* rmap set table */
 	uint32_t rmap_table_id;
+
+	/* route map set mtu */
+	uint32_t mtu;
 };
 
 /* rmap_change_flags definition */
