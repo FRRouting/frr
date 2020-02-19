@@ -243,9 +243,7 @@ static int lib_route_map_entry_description_destroy(enum nb_event event,
 		break;
 	case NB_EV_APPLY:
 		rmi = nb_running_get_entry(dnode, NULL, true);
-		if (rmi->description != NULL)
-			XFREE(MTYPE_TMP, rmi->description);
-		rmi->description = NULL;
+		XFREE(MTYPE_TMP, rmi->description);
 		break;
 	}
 
