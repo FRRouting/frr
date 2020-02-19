@@ -1,3 +1,5 @@
+.. _logging:
+
 Developer's Guide to Logging
 ============================
 

@@ -10,7 +10,7 @@ likely to be present on a given platform - libfrr and libyang. The resultant
 binaries should still be fairly portable. For example, here is the DSO
 dependency list for `bgpd` after using these steps:
 
-.. code-block::
+.. code-block:: shell
 
    $ ldd bgpd
         linux-vdso.so.1 (0x00007ffe3a989000)
@@ -56,7 +56,7 @@ usable for our purposes. So download ``libpcre`` from
 `SourceForge <https://sourceforge.net/projects/pcre/>`_, and build it
 like this:
 
-.. code-block::
+.. code-block:: shell
 
    ./configure --with-pic
    make
