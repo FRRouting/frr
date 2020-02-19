@@ -8867,8 +8867,13 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 		} else {
 			if (nexthop_vrfid == VRF_UNKNOWN)
 				vty_out(vty, " vrf ?");
-			else
-				vty_out(vty, " vrf %u", nexthop_vrfid);
+			else {
+				struct vrf *vrf;
+
+				vrf = vrf_lookup_by_id(nexthop_vrfid);
+				vty_out(vty, " vrf %s(%u)",
+					VRF_LOGNAME(vrf), nexthop_vrfid);
+			}
 		}
 	}
 

@@ -441,15 +441,17 @@ static void if_bfd_session_update(struct interface *ifp, struct prefix *dp,
 				dp->prefixlen, ifp->name,
 				bfd_get_status_str(status));
 		} else {
+			struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
 			zlog_debug(
 				"MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d "
-				"with src %s/%d and vrf %u %s event",
+				"with src %s/%d and vrf %s(%u) %s event",
 				inet_ntop(dp->family, &dp->u.prefix, buf[0],
 					  INET6_ADDRSTRLEN),
 				dp->prefixlen,
 				inet_ntop(sp->family, &sp->u.prefix, buf[1],
 					  INET6_ADDRSTRLEN),
-				sp->prefixlen, vrf_id,
+				sp->prefixlen, VRF_LOGNAME(vrf), vrf_id,
 				bfd_get_status_str(status));
 		}
 	}

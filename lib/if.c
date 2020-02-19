@@ -745,12 +745,16 @@ static void if_dump(const struct interface *ifp)
 	struct listnode *node;
 	struct connected *c __attribute__((unused));
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, c))
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, c)) {
+		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
 		zlog_info(
-			"Interface %s vrf %u index %d metric %d mtu %d "
+			"Interface %s vrf %s(%u) index %d metric %d mtu %d "
 			"mtu6 %d %s",
-			ifp->name, ifp->vrf_id, ifp->ifindex, ifp->metric,
-			ifp->mtu, ifp->mtu6, if_flag_dump(ifp->flags));
+			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
+			ifp->metric, ifp->mtu, ifp->mtu6,
+			if_flag_dump(ifp->flags));
+	}
 }
 
 /* Interface printing for all interface. */
@@ -811,27 +815,25 @@ DEFUN (show_address,
        "address\n"
        VRF_CMD_HELP_STR)
 {
-  int idx_vrf = 3;
-  struct listnode *node;
-  struct interface *ifp;
-  struct connected *ifc;
-  struct prefix *p;
-  vrf_id_t vrf_id = VRF_DEFAULT;
+	int idx_vrf = 3;
+	struct listnode *node;
+	struct interface *ifp;
+	struct connected *ifc;
+	struct prefix *p;
+	vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 2)
-    VRF_GET_ID (vrf_id, argv[idx_vrf]->arg);
+	if (argc > 2)
+		VRF_GET_ID (vrf_id, argv[idx_vrf]->arg);
 
-  FOR_ALL_INTERFACES (vrf, ifp)
-    {
-      for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
-	{
-	  p = ifc->address;
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc)) {
+			p = ifc->address;
 
-	  if (p->family == AF_INET)
-	    vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
+			if (p->family == AF_INET)
+				vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
+		}
 	}
-    }
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (show_address_vrf_all,
@@ -841,31 +843,30 @@ DEFUN (show_address_vrf_all,
        "address\n"
        VRF_ALL_CMD_HELP_STR)
 {
-  struct vrf *vrf;
-  struct listnode *node;
-  struct interface *ifp;
-  struct connected *ifc;
-  struct prefix *p;
+	struct vrf *vrf;
+	struct listnode *node;
+	struct interface *ifp;
+	struct connected *ifc;
+	struct prefix *p;
 
-  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-    {
-      if (RB_EMPTY (if_name_head, &vrf->ifaces_by_name))
-        continue;
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (RB_EMPTY (if_name_head, &vrf->ifaces_by_name))
+			continue;
 
-      vty_out (vty, "\nVRF %u\n\n", vrf->vrf_id);
+		vty_out (vty, "\nVRF %s(%u)\n\n",
+			 VRF_LOGNAME(vrf), vrf->vrf_id);
 
-      FOR_ALL_INTERFACES (vrf, ifp)
-        {
-          for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
-            {
-              p = ifc->address;
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc)) {
+				p = ifc->address;
 
-              if (p->family == AF_INET)
-                vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
-            }
-        }
-    }
-  return CMD_SUCCESS;
+				if (p->family == AF_INET)
+					vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
+			}
+		}
+	}
+	return CMD_SUCCESS;
 }
 #endif
 
@@ -927,14 +928,16 @@ connected_log(struct connected *connected, char *str)
 {
 	struct prefix *p;
 	struct interface *ifp;
+	struct vrf *vrf;
 	char logbuf[BUFSIZ];
 	char buf[BUFSIZ];
 
 	ifp = connected->ifp;
 	p = connected->address;
 
-	snprintf(logbuf, BUFSIZ, "%s interface %s vrf %u %s %s/%d ", str,
-		 ifp->name, ifp->vrf_id, prefix_family_str(p),
+	vrf = vrf_lookup_by_id(ifp->vrf_id);
+	snprintf(logbuf, BUFSIZ, "%s interface %s vrf %s(%u) %s %s/%d ", str,
+		 ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, prefix_family_str(p),
 		 inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
 
 	p = connected->destination;

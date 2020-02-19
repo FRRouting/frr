@@ -351,11 +351,14 @@ static int rip_ifp_down(struct interface *ifp)
 	rip_interface_sync(ifp);
 	rip_if_down(ifp);
 
-	if (IS_RIP_DEBUG_ZEBRA)
+	if (IS_RIP_DEBUG_ZEBRA) {
+		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
 		zlog_debug(
-			"interface %s vrf %u index %d flags %llx metric %d mtu %d is down",
-			ifp->name, ifp->vrf_id, ifp->ifindex,
+			"interface %s vrf %s(%u) index %d flags %llx metric %d mtu %d is down",
+			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
+	}
 
 	return 0;
 }
@@ -363,11 +366,14 @@ static int rip_ifp_down(struct interface *ifp)
 /* Inteface link up message processing */
 static int rip_ifp_up(struct interface *ifp)
 {
-	if (IS_RIP_DEBUG_ZEBRA)
+	if (IS_RIP_DEBUG_ZEBRA) {
+		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
 		zlog_debug(
-			"interface %s vrf %u index %d flags %#llx metric %d mtu %d is up",
-			ifp->name, ifp->vrf_id, ifp->ifindex,
+			"interface %s vrf %s(%u) index %d flags %#llx metric %d mtu %d is up",
+			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
+	}
 
 	rip_interface_sync(ifp);
 
@@ -388,11 +394,13 @@ static int rip_ifp_create(struct interface *ifp)
 {
 	rip_interface_sync(ifp);
 
-	if (IS_RIP_DEBUG_ZEBRA)
+	if (IS_RIP_DEBUG_ZEBRA) {
+		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 		zlog_debug(
-			"interface add %s vrf %u index %d flags %#llx metric %d mtu %d",
-			ifp->name, ifp->vrf_id, ifp->ifindex,
+			"interface add %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
+			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
+	}
 
 	/* Check if this interface is RIP enabled or not.*/
 	rip_enable_apply(ifp);
@@ -413,14 +421,16 @@ static int rip_ifp_create(struct interface *ifp)
 
 static int rip_ifp_destroy(struct interface *ifp)
 {
+	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
 	rip_interface_sync(ifp);
 	if (if_is_up(ifp)) {
 		rip_if_down(ifp);
 	}
 
 	zlog_info(
-		"interface delete %s vrf %u index %d flags %#llx metric %d mtu %d",
-		ifp->name, ifp->vrf_id, ifp->ifindex,
+		"interface delete %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
+		ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
 		(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
 
 	return 0;
@@ -437,9 +447,14 @@ int rip_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 	if (!ifp)
 		return 0;
 
-	if (IS_RIP_DEBUG_ZEBRA)
-		zlog_debug("interface %s VRF change vrf_id %u new vrf id %u",
-			   ifp->name, vrf_id, new_vrf_id);
+	if (IS_RIP_DEBUG_ZEBRA) {
+		struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+		struct vrf *nvrf = vrf_lookup_by_id(new_vrf_id);
+
+		zlog_debug("interface %s VRF change vrf %s(%u) new vrf %s(%u)",
+			   ifp->name, VRF_LOGNAME(vrf), vrf_id,
+			   VRF_LOGNAME(nvrf), new_vrf_id);
+	}
 
 	if_update_to_new_vrf(ifp, new_vrf_id);
 	rip_interface_sync(ifp);
