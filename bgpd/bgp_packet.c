@@ -1007,6 +1007,11 @@ static int bgp_collision_detect(struct peer *new, struct in_addr remote_id)
 					return -1;
 				}
 			else {
+				if (ntohl(peer->local_id.s_addr) ==
+				    ntohl(remote_id.s_addr))
+					flog_err(EC_BGP_ROUTER_ID_SAME, "Peer's router-id %s is the same as ours",
+						 inet_ntoa(remote_id));
+
 				/* 3. Otherwise, the local system closes newly
 				   created
 				   BGP connection (the one associated with the
