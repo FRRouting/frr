@@ -1064,7 +1064,6 @@ void route_map_cli_init(void)
 	install_element(CONFIG_NODE, &no_route_map_all_cmd);
 
 	/* Install the on-match stuff */
-	install_element(RMAP_NODE, &route_map_cmd);
 	install_element(RMAP_NODE, &rmap_onmatch_next_cmd);
 	install_element(RMAP_NODE, &no_rmap_onmatch_next_cmd);
 	install_element(RMAP_NODE, &rmap_onmatch_goto_cmd);
