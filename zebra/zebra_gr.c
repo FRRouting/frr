@@ -157,12 +157,19 @@ int32_t zebra_gr_client_disconnect(struct zserv *client)
 	if (stale_client) {
 		LOG_GR("%s: Stale client %s exist, we should not be here!",
 		       __func__, zebra_route_string(client->proto));
+#ifndef FUZZING
 		assert(0);
+#endif
 	}
 
 	client->restart_time = monotime(&tv);
 
 	/* For all the GR instance start the stale removal timer. */
+#ifdef FUZZING
+	struct client_gr_info dupinfo = {};
+#endif
+
+	/* For all the GR instance start the starle removal timer. */
 	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
 		if (ZEBRA_CLIENT_GR_ENABLED(info->capabilities)
 		    && (info->t_stale_removal == NULL)) {
@@ -177,10 +184,22 @@ int32_t zebra_gr_client_disconnect(struct zserv *client)
 			LOG_GR("%s: Client %s Stale timer update to %d",
 			       __func__, zebra_route_string(client->proto),
 			       info->stale_removal_time);
+
+			dupinfo = *info;
+#ifdef FUZZING
+			// yeah, that thread will never execute...clean it up now
+			struct thread t = {};
+			t.arg = info;
+			info->t_stale_removal = &t;
+			zebra_gr_route_stale_delete_timer_expiry(&t);
+			info = &dupinfo;
+#endif
 		}
 	}
 
+#ifndef FUZZING
 	listnode_add(zrouter.stale_client_list, client);
+#endif
 
 	return 0;
 }
