@@ -63,6 +63,7 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_zebra.c \
 	pimd/pim_zlookup.c \
 	pimd/pim_vxlan.c \
+	pimd/pim_zpthread.c \
 	pimd/pimd.c \
 	# end
 

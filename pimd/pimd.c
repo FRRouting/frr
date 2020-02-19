@@ -102,6 +102,8 @@ void pim_router_init(void)
 	router->packet_process = PIM_DEFAULT_PACKET_PROCESS;
 	router->register_probe_time = PIM_REGISTER_PROBE_TIME_DEFAULT;
 	router->vrf_id = VRF_DEFAULT;
+	router->pim_mlag_intf_cnt = 0;
+	router->connected_to_mlag = false;
 }
 
 void pim_router_terminate(void)

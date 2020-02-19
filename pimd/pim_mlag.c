@@ -312,14 +312,6 @@ static void pim_mlag_up_peer_del_all(void)
 	list_delete(&temp);
 }
 
-static int pim_mlag_signal_zpthread(void)
-{
-	/* XXX - This is a temporary stub; the MLAG thread code is planned for
-	 * a separate commit
-	 */
-    return (0);
-}
-
 /* Send upstream entry to the local MLAG daemon (which will subsequently
  * send it to the peer MLAG switch).
  */
@@ -872,7 +864,7 @@ static int pim_mlag_deregister_handler(struct thread *thread)
 void pim_mlag_deregister(void)
 {
 	/* if somebody still interested in the MLAG channel skip de-reg */
-	if (router->pim_mlag_intf_cnt)
+	if (router->pim_mlag_intf_cnt || pim_vxlan_do_mlag_reg())
 		return;
 
 	/* not registered; nothing do */
@@ -889,10 +881,6 @@ void pim_if_configure_mlag_dualactive(struct pim_interface *pim_ifp)
 {
 	if (!pim_ifp || !pim_ifp->pim || pim_ifp->activeactive == true)
 		return;
-
-	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: Configuring active-active on Interface: %s",
-			   __func__, "NULL");
 
 	pim_ifp->activeactive = true;
 	if (pim_ifp->pim)
@@ -919,10 +907,6 @@ void pim_if_unconfigure_mlag_dualactive(struct pim_interface *pim_ifp)
 	if (!pim_ifp || !pim_ifp->pim || pim_ifp->activeactive == false)
 		return;
 
-	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: UnConfiguring active-active on Interface: %s",
-			   __func__, "NULL");
-
 	pim_ifp->activeactive = false;
 	pim_ifp->pim->inst_mlag_intf_cnt--;
 
@@ -939,6 +923,7 @@ void pim_if_unconfigure_mlag_dualactive(struct pim_interface *pim_ifp)
 		 * De-register to Zebra
 		 */
 		pim_mlag_deregister();
+		pim_mlag_param_reset();
 	}
 }
 

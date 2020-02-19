@@ -33,9 +33,6 @@
 #include "pim_time.h"
 #include "pim_vxlan.h"
 
-// struct list *pim_channel_oil_list = NULL;
-// struct hash *pim_channel_oil_hash = NULL;
-
 static void pim_channel_update_mute(struct channel_oil *c_oil);
 
 char *pim_channel_oil_dump(struct channel_oil *c_oil, char *buf, size_t size)
@@ -174,7 +171,7 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 }
 
 struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
-		const char *name)
+					const char *name)
 {
 	if (PIM_DEBUG_MROUTE) {
 		struct prefix_sg sg = {.src = c_oil->oil.mfcc_mcastgrp,

@@ -1073,6 +1073,9 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 		}
 	}
 
+	/* vxlan term mroutes use ipmr-lo as local member to
+	 * pull down multicast vxlan tunnel traffic
+	 */
 	up_flags = is_vxlan ? PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM :
 		PIM_UPSTREAM_FLAG_MASK_SRC_IGMP;
 	ch = pim_ifchannel_add(ifp, sg, 0, up_flags);

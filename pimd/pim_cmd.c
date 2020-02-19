@@ -909,7 +909,7 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty)
 
 static void pim_show_interfaces_single(struct pim_instance *pim,
 				       struct vty *vty, const char *ifname,
-				       bool uj)
+				       bool mlag, bool uj)
 {
 	struct in_addr ifaddr;
 	struct interface *ifp;
@@ -950,6 +950,9 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 		pim_ifp = ifp->info;
 
 		if (!pim_ifp)
+			continue;
+
+		if (mlag == true && pim_ifp->activeactive == false)
 			continue;
 
 		if (strcmp(ifname, "detail") && strcmp(ifname, ifp->name))
@@ -1380,7 +1383,7 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 }
 
 static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
-				bool uj)
+				bool mlag, bool uj)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1398,6 +1401,9 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 		pim_ifp = ifp->info;
 
 		if (!pim_ifp)
+			continue;
+
+		if (mlag == true && pim_ifp->activeactive == false)
 			continue;
 
 		pim_nbrs = pim_ifp->pim_neighbor_list->count;
@@ -4295,6 +4301,113 @@ DEFUN (show_ip_igmp_statistics,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_ip_pim_mlag_summary,
+       show_ip_pim_mlag_summary_cmd,
+       "show ip pim mlag summary [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       "MLAG\n"
+       "status and stats\n"
+       JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	char role_buf[MLAG_ROLE_STRSIZE];
+	char addr_buf[INET_ADDRSTRLEN];
+
+	if (uj) {
+		json_object *json = NULL;
+		json_object *json_stat = NULL;
+
+		json = json_object_new_object();
+		if (router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)
+			json_object_boolean_true_add(json, "mlagConnUp");
+		if (router->mlag_flags & PIM_MLAGF_PEER_CONN_UP)
+			json_object_boolean_true_add(json, "mlagPeerConnUp");
+		if (router->mlag_flags & PIM_MLAGF_PEER_ZEBRA_UP)
+			json_object_boolean_true_add(json, "mlagPeerZebraUp");
+		json_object_string_add(json, "mlagRole",
+				mlag_role2str(router->mlag_role,
+					role_buf, sizeof(role_buf)));
+		inet_ntop(AF_INET, &router->local_vtep_ip,
+				addr_buf, INET_ADDRSTRLEN);
+		json_object_string_add(json, "localVtepIp", addr_buf);
+		inet_ntop(AF_INET, &router->anycast_vtep_ip,
+				addr_buf, INET_ADDRSTRLEN);
+		json_object_string_add(json, "anycastVtepIp", addr_buf);
+		json_object_string_add(json, "peerlinkRif",
+				router->peerlink_rif);
+
+		json_stat = json_object_new_object();
+		json_object_int_add(json_stat, "mlagConnFlaps",
+				router->mlag_stats.mlagd_session_downs);
+		json_object_int_add(json_stat, "mlagPeerConnFlaps",
+				router->mlag_stats.peer_session_downs);
+		json_object_int_add(json_stat, "mlagPeerZebraFlaps",
+				router->mlag_stats.peer_zebra_downs);
+		json_object_int_add(json_stat, "mrouteAddRx",
+				router->mlag_stats.msg.mroute_add_rx);
+		json_object_int_add(json_stat, "mrouteAddTx",
+				router->mlag_stats.msg.mroute_add_tx);
+		json_object_int_add(json_stat, "mrouteDelRx",
+				router->mlag_stats.msg.mroute_del_rx);
+		json_object_int_add(json_stat, "mrouteDelTx",
+				router->mlag_stats.msg.mroute_del_tx);
+		json_object_int_add(json_stat, "mlagStatusUpdates",
+				router->mlag_stats.msg.mlag_status_updates);
+		json_object_int_add(json_stat, "peerZebraStatusUpdates",
+			router->mlag_stats.msg.peer_zebra_status_updates);
+		json_object_int_add(json_stat, "pimStatusUpdates",
+				router->mlag_stats.msg.pim_status_updates);
+		json_object_int_add(json_stat, "vxlanUpdates",
+				router->mlag_stats.msg.vxlan_updates);
+		json_object_object_add(json, "connStats", json_stat);
+
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "MLAG daemon connection: %s\n",
+		(router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)
+			? "up" : "down");
+	vty_out(vty, "MLAG peer state: %s\n",
+		(router->mlag_flags & PIM_MLAGF_PEER_CONN_UP)
+			? "up" : "down");
+	vty_out(vty, "Zebra peer state: %s\n",
+		(router->mlag_flags & PIM_MLAGF_PEER_ZEBRA_UP)
+			? "up" : "down");
+	vty_out(vty, "MLAG role: %s\n",
+		mlag_role2str(router->mlag_role, role_buf, sizeof(role_buf)));
+	inet_ntop(AF_INET, &router->local_vtep_ip,
+			addr_buf, INET_ADDRSTRLEN);
+	vty_out(vty, "Local VTEP IP: %s\n", addr_buf);
+	inet_ntop(AF_INET, &router->anycast_vtep_ip,
+			addr_buf, INET_ADDRSTRLEN);
+	vty_out(vty, "Anycast VTEP IP: %s\n", addr_buf);
+	vty_out(vty, "Peerlink: %s\n", router->peerlink_rif);
+	vty_out(vty, "Session flaps: mlagd: %d mlag-peer: %d zebra-peer: %d\n",
+			router->mlag_stats.mlagd_session_downs,
+			router->mlag_stats.peer_session_downs,
+			router->mlag_stats.peer_zebra_downs);
+	vty_out(vty, "Message Statistics:\n");
+	vty_out(vty, "  mroute adds: rx: %d, tx: %d\n",
+			router->mlag_stats.msg.mroute_add_rx,
+			router->mlag_stats.msg.mroute_add_tx);
+	vty_out(vty, "  mroute dels: rx: %d, tx: %d\n",
+			router->mlag_stats.msg.mroute_del_rx,
+			router->mlag_stats.msg.mroute_del_tx);
+	vty_out(vty, "  peer zebra status updates: %d\n",
+			router->mlag_stats.msg.peer_zebra_status_updates);
+	vty_out(vty, "  PIM status updates: %d\n",
+			router->mlag_stats.msg.pim_status_updates);
+	vty_out(vty, "  VxLAN updates: %d\n",
+			router->mlag_stats.msg.vxlan_updates);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_pim_assert,
        show_ip_pim_assert_cmd,
        "show ip pim [vrf NAME] assert",
@@ -4377,10 +4490,11 @@ DEFUN (show_ip_pim_assert_winner_metric,
 
 DEFUN (show_ip_pim_interface,
        show_ip_pim_interface_cmd,
-       "show ip pim [vrf NAME] interface [detail|WORD] [json]",
+       "show ip pim [mlag] [vrf NAME] interface [detail|WORD] [json]",
        SHOW_STR
        IP_STR
        PIM_STR
+       "MLAG\n"
        VRF_CMD_HELP_STR
        "PIM interface information\n"
        "Detailed output\n"
@@ -4390,36 +4504,47 @@ DEFUN (show_ip_pim_interface,
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
 	bool uj = use_json(argc, argv);
+	bool mlag = false;
 
 	if (!vrf)
 		return CMD_WARNING;
 
+	if (argv_find(argv, argc, "mlag", &idx))
+		mlag = true;
+
 	if (argv_find(argv, argc, "WORD", &idx)
 	    || argv_find(argv, argc, "detail", &idx))
-		pim_show_interfaces_single(vrf->info, vty, argv[idx]->arg, uj);
+		pim_show_interfaces_single(vrf->info, vty, argv[idx]->arg, mlag,
+					   uj);
 	else
-		pim_show_interfaces(vrf->info, vty, uj);
+		pim_show_interfaces(vrf->info, vty, mlag, uj);
 
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_pim_interface_vrf_all,
        show_ip_pim_interface_vrf_all_cmd,
-       "show ip pim vrf all interface [detail|WORD] [json]",
+       "show ip pim [mlag] vrf all interface [detail|WORD] [json]",
        SHOW_STR
        IP_STR
        PIM_STR
+       "MLAG\n"
        VRF_CMD_HELP_STR
        "PIM interface information\n"
        "Detailed output\n"
        "interface name\n"
        JSON_STR)
 {
-	int idx = 6;
+	int idx = 2;
 	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
 	bool first = true;
+	bool mlag = false;
 
+	if (argv_find(argv, argc, "mlag", &idx))
+		mlag = true;
+
+	idx = 6;
 	if (uj)
 		vty_out(vty, "{ ");
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
@@ -4433,9 +4558,9 @@ DEFUN (show_ip_pim_interface_vrf_all,
 		if (argv_find(argv, argc, "WORD", &idx)
 		    || argv_find(argv, argc, "detail", &idx))
 			pim_show_interfaces_single(vrf->info, vty,
-						   argv[idx]->arg, uj);
+						   argv[idx]->arg, mlag, uj);
 		else
-			pim_show_interfaces(vrf->info, vty, uj);
+			pim_show_interfaces(vrf->info, vty, mlag, uj);
 	}
 	if (uj)
 		vty_out(vty, "}\n");
@@ -4621,113 +4746,6 @@ DEFUN (show_ip_pim_local_membership,
 		return CMD_WARNING;
 
 	pim_show_membership(vrf->info, vty, uj);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_pim_mlag_summary,
-       show_ip_pim_mlag_summary_cmd,
-       "show ip pim mlag summary [json]",
-       SHOW_STR
-       IP_STR
-       PIM_STR
-       "MLAG\n"
-       "status and stats\n"
-       JSON_STR)
-{
-	bool uj = use_json(argc, argv);
-	char role_buf[MLAG_ROLE_STRSIZE];
-	char addr_buf[INET_ADDRSTRLEN];
-
-	if (uj) {
-		json_object *json = NULL;
-		json_object *json_stat = NULL;
-
-		json = json_object_new_object();
-		if (router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)
-			json_object_boolean_true_add(json, "mlagConnUp");
-		if (router->mlag_flags & PIM_MLAGF_PEER_CONN_UP)
-			json_object_boolean_true_add(json, "mlagPeerConnUp");
-		if (router->mlag_flags & PIM_MLAGF_PEER_ZEBRA_UP)
-			json_object_boolean_true_add(json, "mlagPeerZebraUp");
-		json_object_string_add(json, "mlagRole",
-				mlag_role2str(router->mlag_role,
-					role_buf, sizeof(role_buf)));
-		inet_ntop(AF_INET, &router->local_vtep_ip,
-				addr_buf, INET_ADDRSTRLEN);
-		json_object_string_add(json, "localVtepIp", addr_buf);
-		inet_ntop(AF_INET, &router->anycast_vtep_ip,
-				addr_buf, INET_ADDRSTRLEN);
-		json_object_string_add(json, "anycastVtepIp", addr_buf);
-		json_object_string_add(json, "peerlinkRif",
-				router->peerlink_rif);
-
-		json_stat = json_object_new_object();
-		json_object_int_add(json_stat, "mlagConnFlaps",
-				router->mlag_stats.mlagd_session_downs);
-		json_object_int_add(json_stat, "mlagPeerConnFlaps",
-				router->mlag_stats.peer_session_downs);
-		json_object_int_add(json_stat, "mlagPeerZebraFlaps",
-				router->mlag_stats.peer_zebra_downs);
-		json_object_int_add(json_stat, "mrouteAddRx",
-				router->mlag_stats.msg.mroute_add_rx);
-		json_object_int_add(json_stat, "mrouteAddTx",
-				router->mlag_stats.msg.mroute_add_tx);
-		json_object_int_add(json_stat, "mrouteDelRx",
-				router->mlag_stats.msg.mroute_del_rx);
-		json_object_int_add(json_stat, "mrouteDelTx",
-				router->mlag_stats.msg.mroute_del_tx);
-		json_object_int_add(json_stat, "mlagStatusUpdates",
-				router->mlag_stats.msg.mlag_status_updates);
-		json_object_int_add(json_stat, "peerZebraStatusUpdates",
-			router->mlag_stats.msg.peer_zebra_status_updates);
-		json_object_int_add(json_stat, "pimStatusUpdates",
-				router->mlag_stats.msg.pim_status_updates);
-		json_object_int_add(json_stat, "vxlanUpdates",
-				router->mlag_stats.msg.vxlan_updates);
-		json_object_object_add(json, "connStats", json_stat);
-
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-		return CMD_SUCCESS;
-	}
-
-	vty_out(vty, "MLAG daemon connection: %s\n",
-		(router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)
-			? "up" : "down");
-	vty_out(vty, "MLAG peer state: %s\n",
-		(router->mlag_flags & PIM_MLAGF_PEER_CONN_UP)
-			? "up" : "down");
-	vty_out(vty, "Zebra peer state: %s\n",
-		(router->mlag_flags & PIM_MLAGF_PEER_ZEBRA_UP)
-			? "up" : "down");
-	vty_out(vty, "MLAG role: %s\n",
-		mlag_role2str(router->mlag_role, role_buf, sizeof(role_buf)));
-	inet_ntop(AF_INET, &router->local_vtep_ip,
-			addr_buf, INET_ADDRSTRLEN);
-	vty_out(vty, "Local VTEP IP: %s\n", addr_buf);
-	inet_ntop(AF_INET, &router->anycast_vtep_ip,
-			addr_buf, INET_ADDRSTRLEN);
-	vty_out(vty, "Anycast VTEP IP: %s\n", addr_buf);
-	vty_out(vty, "Peerlink: %s\n", router->peerlink_rif);
-	vty_out(vty, "Session flaps: mlagd: %d mlag-peer: %d zebra-peer: %d\n",
-			router->mlag_stats.mlagd_session_downs,
-			router->mlag_stats.peer_session_downs,
-			router->mlag_stats.peer_zebra_downs);
-	vty_out(vty, "Message Statistics:\n");
-	vty_out(vty, "  mroute adds: rx: %d, tx: %d\n",
-			router->mlag_stats.msg.mroute_add_rx,
-			router->mlag_stats.msg.mroute_add_tx);
-	vty_out(vty, "  mroute dels: rx: %d, tx: %d\n",
-			router->mlag_stats.msg.mroute_del_rx,
-			router->mlag_stats.msg.mroute_del_tx);
-	vty_out(vty, "  peer zebra status updates: %d\n",
-			router->mlag_stats.msg.peer_zebra_status_updates);
-	vty_out(vty, "  PIM status updates: %d\n",
-			router->mlag_stats.msg.pim_status_updates);
-	vty_out(vty, "  VxLAN updates: %d\n",
-			router->mlag_stats.msg.vxlan_updates);
 
 	return CMD_SUCCESS;
 }
@@ -8035,13 +8053,13 @@ DEFPY_HIDDEN (pim_test_sg_keepalive,
 	return CMD_SUCCESS;
 }
 
-DEFPY_HIDDEN (interface_ip_pim_activeactive,
-	      interface_ip_pim_activeactive_cmd,
-	      "[no$no] ip pim active-active",
-	      NO_STR
-	      IP_STR
-	      PIM_STR
-	      "Mark interface as Active-Active for MLAG operations, Hidden because not finished yet\n")
+DEFPY (interface_ip_pim_activeactive,
+       interface_ip_pim_activeactive_cmd,
+       "[no$no] ip pim active-active",
+       NO_STR
+       IP_STR
+       PIM_STR
+       "Mark interface as Active-Active for MLAG operations, Hidden because not finished yet\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct pim_interface *pim_ifp;
@@ -8050,6 +8068,11 @@ DEFPY_HIDDEN (interface_ip_pim_activeactive,
 		vty_out(vty, "Could not enable PIM SM active-active on interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+
+        if (PIM_DEBUG_MLAG)
+                zlog_debug("%sConfiguring PIM active-active on Interface: %s",
+                           no ? "Un-":" ", ifp->name);
 
 	pim_ifp = ifp->info;
 	if (no)

@@ -37,6 +37,12 @@ extern void pim_mlag_deregister(void);
 extern int pim_zebra_mlag_process_up(void);
 extern int pim_zebra_mlag_process_down(void);
 extern int pim_zebra_mlag_handle_msg(struct stream *msg, int len);
+
+/* pm_zpthread.c */
+extern int pim_mlag_signal_zpthread(void);
+extern void pim_zpthread_init(void);
+extern void pim_zpthread_terminate(void);
+
 extern void pim_mlag_up_local_add(struct pim_instance *pim,
 		struct pim_upstream *upstream);
 extern void pim_mlag_up_local_del(struct pim_instance *pim,
