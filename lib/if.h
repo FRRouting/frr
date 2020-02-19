@@ -602,6 +602,24 @@ extern void if_destroy_via_zapi(struct interface *ifp);
 
 extern const struct frr_yang_module_info frr_interface_info;
 
+struct yang_data *lib_interface_state_if_index_get_elem(const char *xpath,
+							const void *list_entry);
+struct yang_data *lib_interface_state_mtu_get_elem(const char *xpath,
+						   const void *list_entry);
+struct yang_data *lib_interface_state_mtu6_get_elem(const char *xpath,
+						    const void *list_entry);
+struct yang_data *lib_interface_state_speed_get_elem(const char *xpath,
+						     const void *list_entry);
+struct yang_data *lib_interface_state_metric_get_elem(const char *xpath,
+						      const void *list_entry);
+struct yang_data *lib_interface_state_flags_get_elem(const char *xpath,
+						     const void *list_entry);
+struct yang_data *lib_interface_state_type_get_elem(const char *xpath,
+						    const void *list_entry);
+struct yang_data *
+lib_interface_state_phy_address_get_elem(const char *xpath,
+					 const void *list_entry);
+
 #ifdef __cplusplus
 }
 #endif

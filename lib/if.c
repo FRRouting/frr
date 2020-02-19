@@ -1667,6 +1667,96 @@ static int lib_interface_description_destroy(enum nb_event event,
 	return NB_OK;
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/state/if-index
+ */
+struct yang_data *lib_interface_state_if_index_get_elem(const char *xpath,
+							const void *list_entry)
+{
+	const struct interface *ifp = list_entry;
+
+	return yang_data_new_int32(xpath, ifp->ifindex);
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/state/mtu
+ */
+struct yang_data *lib_interface_state_mtu_get_elem(const char *xpath,
+						   const void *list_entry)
+{
+	const struct interface *ifp = list_entry;
+
+	return yang_data_new_uint16(xpath, ifp->mtu);
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/state/mtu6
+ */
+struct yang_data *lib_interface_state_mtu6_get_elem(const char *xpath,
+						    const void *list_entry)
+{
+	const struct interface *ifp = list_entry;
+
+	return yang_data_new_uint32(xpath, ifp->mtu6);
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/state/speed
+ */
+struct yang_data *lib_interface_state_speed_get_elem(const char *xpath,
+						     const void *list_entry)
+{
+	const struct interface *ifp = list_entry;
+
+	return yang_data_new_uint32(xpath, ifp->speed);
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/state/metric
+ */
+struct yang_data *lib_interface_state_metric_get_elem(const char *xpath,
+						      const void *list_entry)
+{
+	const struct interface *ifp = list_entry;
+
+	return yang_data_new_uint32(xpath, ifp->metric);
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/state/flags
+ */
+struct yang_data *lib_interface_state_flags_get_elem(const char *xpath,
+						     const void *list_entry)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/state/type
+ */
+struct yang_data *lib_interface_state_type_get_elem(const char *xpath,
+						    const void *list_entry)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/state/phy-address
+ */
+struct yang_data *
+lib_interface_state_phy_address_get_elem(const char *xpath,
+					 const void *list_entry)
+{
+	const struct interface *ifp = list_entry;
+	struct ethaddr macaddr;
+
+	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
+
+	return yang_data_new_mac(xpath, &macaddr);
+}
+
 /* clang-format off */
 
 const struct frr_yang_module_info frr_interface_info = {
@@ -1690,6 +1780,54 @@ const struct frr_yang_module_info frr_interface_info = {
 				.destroy = lib_interface_description_destroy,
 				.cli_show = cli_show_interface_desc,
 			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/if-index",
+			.cbs = {
+				.get_elem = lib_interface_state_if_index_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/mtu",
+			.cbs = {
+				.get_elem = lib_interface_state_mtu_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/mtu6",
+			.cbs = {
+				.get_elem = lib_interface_state_mtu6_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/speed",
+			.cbs = {
+				.get_elem = lib_interface_state_speed_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/metric",
+			.cbs = {
+				.get_elem = lib_interface_state_metric_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/flags",
+			.cbs = {
+				.get_elem = lib_interface_state_flags_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/type",
+			.cbs = {
+				.get_elem = lib_interface_state_type_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/state/phy-address",
+			.cbs = {
+				.get_elem = lib_interface_state_phy_address_get_elem,
+			}
 		},
 		{
 			.xpath = NULL,
