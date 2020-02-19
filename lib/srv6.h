@@ -119,9 +119,9 @@ static inline void *sid_copy(struct in6_addr *dst,
 const char *
 seg6local_action2str(uint32_t action);
 
-const char *
-seg6local_context2str(char *str, size_t size,
-		struct seg6local_context *ctx, uint32_t action);
+const char *seg6local_context2str(char *str, size_t size,
+				  const struct seg6local_context *ctx,
+				  uint32_t action);
 
 int snprintf_seg6_segs(char *str,
 		size_t size, const struct seg6_segs *segs);

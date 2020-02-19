@@ -76,7 +76,8 @@ int snprintf_seg6_segs(char *str,
 }
 
 const char *seg6local_context2str(char *str, size_t size,
-		struct seg6local_context *ctx, uint32_t action)
+				  const struct seg6local_context *ctx,
+				  uint32_t action)
 {
 	char b0[128];
 
