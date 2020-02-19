@@ -1386,7 +1386,6 @@ int isis_if_delete_hook(struct interface *ifp)
 	if (ifp && ifp->info) {
 		circuit = ifp->info;
 		isis_csm_state_change(IF_DOWN_FROM_Z, circuit, circuit->area);
-		isis_csm_state_change(ISIS_DISABLE, circuit, circuit->area);
 	}
 
 	return 0;
