@@ -1,0 +1,11 @@
+{
+  "frr-pathd:pathd": {
+    "sr-policy": [
+      {
+        "color": 1,
+        "endpoint": "1.0.0.0",
+        "is-operational": false
+      }
+    ]
+  }
+}
