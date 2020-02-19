@@ -174,6 +174,13 @@ PIM interface commands allow you to configure an interface as either a Receiver
 or a interface that you would like to form pim neighbors on. If the interface
 is in a vrf, enter the interface command with the vrf keyword at the end.
 
+.. index:: ip pim active-active
+.. clicmd:: ip pim active-active
+
+   Turn on pim active-active configuration for a Vxlan interface.  This
+   command will not do anything if you do not have the underlying ability
+   of a mlag implementation.
+
 .. index:: ip pim bfd
 .. clicmd:: ip pim bfd
 
@@ -392,6 +399,11 @@ cause great confusion.
 
    Display information about interfaces PIM is using.
 
+.. index:: show ip pim mlag [vrf NAME] interface [detail|WORD] [json]
+.. clicmd:: show ip pim mlag [vrf NAME|all] interface [detail|WORD] [json]
+
+   Display mlag interface information.
+
 .. index:: show ip pim [vrf NAME] join [A.B.C.D [A.B.C.D]] [json]
 .. clicmd:: show ip pim join
 
@@ -403,6 +415,11 @@ cause great confusion.
 .. clicmd:: show ip pim local-membership
 
    Display information about PIM interface local-membership.
+
+.. index:: show ip pim mlag summary [json]
+.. clicmd:: show ip pim mlag summary [json]
+
+   Display mlag information state that PIM is keeping track of.
 
 .. index:: show ip pim neighbor
 .. clicmd:: show ip pim neighbor
