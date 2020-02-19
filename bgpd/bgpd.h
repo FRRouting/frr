@@ -1490,6 +1490,7 @@ struct bgp_nlri {
 #define BGP_ORIGIN_IGP                           0
 #define BGP_ORIGIN_EGP                           1
 #define BGP_ORIGIN_INCOMPLETE                    2
+#define BGP_ORIGIN_UNSPECIFIED                 255
 
 /* BGP notify message codes.  */
 #define BGP_NOTIFY_HEADER_ERR                    1

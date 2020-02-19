@@ -6270,6 +6270,9 @@ void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	else if (aggregate->egp_origin_count > 0)
 		origin = BGP_ORIGIN_EGP;
 
+	if (aggregate->origin != BGP_ORIGIN_UNSPECIFIED)
+		origin = aggregate->origin;
+
 	if (aggregate->as_set) {
 		if (aggregate->aspath)
 			/* Retrieve aggregate route's as-path.
@@ -6434,6 +6437,9 @@ static void bgp_add_route_to_aggregate(struct bgp *bgp, struct prefix *aggr_p,
 	else if (aggregate->egp_origin_count > 0)
 		origin = BGP_ORIGIN_EGP;
 
+	if (aggregate->origin != BGP_ORIGIN_UNSPECIFIED)
+		origin = aggregate->origin;
+
 	if (aggregate->as_set) {
 		/* Compute aggregate route's as-path.
 		 */
@@ -6565,6 +6571,9 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 	else if (aggregate->egp_origin_count > 0)
 		origin = BGP_ORIGIN_EGP;
 
+	if (aggregate->origin != BGP_ORIGIN_UNSPECIFIED)
+		origin = aggregate->origin;
+
 	if (aggregate->as_set) {
 		/* Retrieve aggregate route's as-path.
 		 */
@@ -6660,6 +6669,19 @@ void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 #define AGGREGATE_AS_SET       1
 #define AGGREGATE_AS_UNSET     0
 
+static const char *bgp_origin2str(uint8_t origin)
+{
+	switch (origin) {
+	case BGP_ORIGIN_IGP:
+		return "igp";
+	case BGP_ORIGIN_EGP:
+		return "egp";
+	case BGP_ORIGIN_INCOMPLETE:
+		return "incomplete";
+	}
+	return "n/a";
+}
+
 static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 			       afi_t afi, safi_t safi)
 {
@@ -6753,8 +6775,9 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 }
 
 static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
-			     safi_t safi, const char *rmap, uint8_t summary_only,
-			     uint8_t as_set)
+			     safi_t safi, const char *rmap,
+			     uint8_t summary_only, uint8_t as_set,
+			     uint8_t origin)
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
@@ -6818,6 +6841,12 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 
 	aggregate->as_set = as_set_new;
 	aggregate->safi = safi;
+	/* Override ORIGIN attribute if defined.
+	 * E.g.: Cisco and Juniper set ORIGIN for aggregated address
+	 * to IGP which is not what rfc4271 says.
+	 * This enables the same behavior, optionally.
+	 */
+	aggregate->origin = origin;
 
 	if (rmap) {
 		XFREE(MTYPE_ROUTE_MAP_NAME, aggregate->rmap.name);
@@ -6837,7 +6866,7 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 
 DEFUN (aggregate_address,
        aggregate_address_cmd,
-       "aggregate-address A.B.C.D/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD]",
+       "aggregate-address A.B.C.D/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD] [origin <egp|igp|incomplete>]",
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n"
        "Generate AS set path information\n"
@@ -6845,12 +6874,17 @@ DEFUN (aggregate_address,
        "Filter more specific routes from updates\n"
        "Generate AS set path information\n"
        "Apply route map to aggregate network\n"
-       "Name of route map\n")
+       "Name of route map\n"
+       "BGP origin code\n"
+       "Remote EGP\n"
+       "Local IGP\n"
+       "Unknown heritage\n")
 {
 	int idx = 0;
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
 	char *prefix = argv[idx]->arg;
 	char *rmap = NULL;
+	uint8_t origin = BGP_ORIGIN_UNSPECIFIED;
 	int as_set = argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET
 							   : AGGREGATE_AS_UNSET;
 	idx = 0;
@@ -6863,13 +6897,23 @@ DEFUN (aggregate_address,
 	if (idx)
 		rmap = argv[idx]->arg;
 
-	return bgp_aggregate_set(vty, prefix, AFI_IP, bgp_node_safi(vty),
-				 rmap, summary_only, as_set);
+	idx = 0;
+	if (argv_find(argv, argc, "origin", &idx)) {
+		if (strncmp(argv[idx + 1]->arg, "igp", 2) == 0)
+			origin = BGP_ORIGIN_IGP;
+		if (strncmp(argv[idx + 1]->arg, "egp", 1) == 0)
+			origin = BGP_ORIGIN_EGP;
+		if (strncmp(argv[idx + 1]->arg, "incomplete", 2) == 0)
+			origin = BGP_ORIGIN_INCOMPLETE;
+	}
+
+	return bgp_aggregate_set(vty, prefix, AFI_IP, bgp_node_safi(vty), rmap,
+				 summary_only, as_set, origin);
 }
 
 DEFUN (aggregate_address_mask,
        aggregate_address_mask_cmd,
-       "aggregate-address A.B.C.D A.B.C.D [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD]",
+       "aggregate-address A.B.C.D A.B.C.D [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD] [origin <egp|igp|incomplete>]",
        "Configure BGP aggregate entries\n"
        "Aggregate address\n"
        "Aggregate mask\n"
@@ -6878,7 +6922,11 @@ DEFUN (aggregate_address_mask,
        "Filter more specific routes from updates\n"
        "Generate AS set path information\n"
        "Apply route map to aggregate network\n"
-       "Name of route map\n")
+       "Name of route map\n"
+       "BGP origin code\n"
+       "Remote EGP\n"
+       "Local IGP\n"
+       "Unknown heritage\n")
 {
 	int idx = 0;
 	argv_find(argv, argc, "A.B.C.D", &idx);
@@ -6886,6 +6934,7 @@ DEFUN (aggregate_address_mask,
 	char *mask = argv[idx + 1]->arg;
 	bool rmap_found;
 	char *rmap = NULL;
+	uint8_t origin = BGP_ORIGIN_UNSPECIFIED;
 	int as_set = argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET
 							   : AGGREGATE_AS_UNSET;
 	idx = 0;
@@ -6905,13 +6954,23 @@ DEFUN (aggregate_address_mask,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	idx = 0;
+	if (argv_find(argv, argc, "origin", &idx)) {
+		if (strncmp(argv[idx + 1]->arg, "igp", 2) == 0)
+			origin = BGP_ORIGIN_IGP;
+		if (strncmp(argv[idx + 1]->arg, "egp", 1) == 0)
+			origin = BGP_ORIGIN_EGP;
+		if (strncmp(argv[idx + 1]->arg, "incomplete", 2) == 0)
+			origin = BGP_ORIGIN_INCOMPLETE;
+	}
+
 	return bgp_aggregate_set(vty, prefix_str, AFI_IP, bgp_node_safi(vty),
-				 rmap, summary_only, as_set);
+				 rmap, summary_only, as_set, origin);
 }
 
 DEFUN (no_aggregate_address,
        no_aggregate_address_cmd,
-       "no aggregate-address A.B.C.D/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD]",
+       "no aggregate-address A.B.C.D/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD] [origin <egp|igp|incomplete>]",
        NO_STR
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n"
@@ -6920,7 +6979,11 @@ DEFUN (no_aggregate_address,
        "Filter more specific routes from updates\n"
        "Generate AS set path information\n"
        "Apply route map to aggregate network\n"
-       "Name of route map\n")
+       "Name of route map\n"
+       "BGP origin code\n"
+       "Remote EGP\n"
+       "Local IGP\n"
+       "Unknown heritage\n")
 {
 	int idx = 0;
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
@@ -6930,7 +6993,7 @@ DEFUN (no_aggregate_address,
 
 DEFUN (no_aggregate_address_mask,
        no_aggregate_address_mask_cmd,
-       "no aggregate-address A.B.C.D A.B.C.D [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD]",
+       "no aggregate-address A.B.C.D A.B.C.D [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD] [origin <egp|igp|incomplete>]",
        NO_STR
        "Configure BGP aggregate entries\n"
        "Aggregate address\n"
@@ -6940,7 +7003,11 @@ DEFUN (no_aggregate_address_mask,
        "Filter more specific routes from updates\n"
        "Generate AS set path information\n"
        "Apply route map to aggregate network\n"
-       "Name of route map\n")
+       "Name of route map\n"
+       "BGP origin code\n"
+       "Remote EGP\n"
+       "Local IGP\n"
+       "Unknown heritage\n")
 {
 	int idx = 0;
 	argv_find(argv, argc, "A.B.C.D", &idx);
@@ -6960,7 +7027,7 @@ DEFUN (no_aggregate_address_mask,
 
 DEFUN (ipv6_aggregate_address,
        ipv6_aggregate_address_cmd,
-       "aggregate-address X:X::X:X/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD]",
+       "aggregate-address X:X::X:X/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD] [origin <egp|igp|incomplete>]",
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n"
        "Generate AS set path information\n"
@@ -6968,13 +7035,18 @@ DEFUN (ipv6_aggregate_address,
        "Filter more specific routes from updates\n"
        "Generate AS set path information\n"
        "Apply route map to aggregate network\n"
-       "Name of route map\n")
+       "Name of route map\n"
+       "BGP origin code\n"
+       "Remote EGP\n"
+       "Local IGP\n"
+       "Unknown heritage\n")
 {
 	int idx = 0;
 	argv_find(argv, argc, "X:X::X:X/M", &idx);
 	char *prefix = argv[idx]->arg;
 	char *rmap = NULL;
 	bool rmap_found;
+	uint8_t origin = BGP_ORIGIN_UNSPECIFIED;
 	int as_set = argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET
 							   : AGGREGATE_AS_UNSET;
 
@@ -6987,13 +7059,23 @@ DEFUN (ipv6_aggregate_address,
 	if (rmap_found)
 		rmap = argv[idx]->arg;
 
+	idx = 0;
+	if (argv_find(argv, argc, "origin", &idx)) {
+		if (strncmp(argv[idx + 1]->arg, "igp", 2) == 0)
+			origin = BGP_ORIGIN_IGP;
+		if (strncmp(argv[idx + 1]->arg, "egp", 1) == 0)
+			origin = BGP_ORIGIN_EGP;
+		if (strncmp(argv[idx + 1]->arg, "incomplete", 2) == 0)
+			origin = BGP_ORIGIN_INCOMPLETE;
+	}
+
 	return bgp_aggregate_set(vty, prefix, AFI_IP6, SAFI_UNICAST, rmap,
-				 sum_only, as_set);
+				 sum_only, as_set, origin);
 }
 
 DEFUN (no_ipv6_aggregate_address,
        no_ipv6_aggregate_address_cmd,
-       "no aggregate-address X:X::X:X/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD]",
+       "no aggregate-address X:X::X:X/M [<as-set [summary-only]|summary-only [as-set]>] [route-map WORD] [origin <egp|igp|incomplete>]",
        NO_STR
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n"
@@ -7002,7 +7084,11 @@ DEFUN (no_ipv6_aggregate_address,
        "Filter more specific routes from updates\n"
        "Generate AS set path information\n"
        "Apply route map to aggregate network\n"
-       "Name of route map\n")
+       "Name of route map\n"
+       "BGP origin code\n"
+       "Remote EGP\n"
+       "Local IGP\n"
+       "Unknown heritage\n")
 {
 	int idx = 0;
 	argv_find(argv, argc, "X:X::X:X/M", &idx);
@@ -12920,6 +13006,10 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 		if (bgp_aggregate->rmap.name)
 			vty_out(vty, " route-map %s", bgp_aggregate->rmap.name);
+
+		if (bgp_aggregate->origin != BGP_ORIGIN_UNSPECIFIED)
+			vty_out(vty, " origin %s",
+				bgp_origin2str(bgp_aggregate->origin));
 
 		vty_out(vty, "\n");
 	}
