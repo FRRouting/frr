@@ -6578,18 +6578,18 @@ static int pim_cmd_spt_switchover(struct pim_instance *pim,
 
 	switch (pim->spt.switchover) {
 	case PIM_SPT_IMMEDIATE:
-		XFREE(MTYPE_PIM_SPT_PLIST_NAME, pim->spt.plist);
+		XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 
 		pim_upstream_add_lhr_star_pimreg(pim);
 		break;
 	case PIM_SPT_INFINITY:
 		pim_upstream_remove_lhr_star_pimreg(pim, plist);
 
-		XFREE(MTYPE_PIM_SPT_PLIST_NAME, pim->spt.plist);
+		XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 
 		if (plist)
 			pim->spt.plist =
-				XSTRDUP(MTYPE_PIM_SPT_PLIST_NAME, plist);
+				XSTRDUP(MTYPE_PIM_PLIST_NAME, plist);
 		break;
 	}
 
