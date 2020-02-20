@@ -50,6 +50,7 @@ const char *const PIM_ALL_IGMP_ROUTERS = MCAST_ALL_IGMP_ROUTERS;
 DEFINE_MTYPE_STATIC(PIMD, ROUTER, "PIM Router information");
 
 struct pim_router *router = NULL;
+struct in_addr qpim_all_pim_routers_addr;
 
 void pim_prefix_list_update(struct prefix_list *plist)
 {
