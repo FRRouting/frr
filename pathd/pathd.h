@@ -43,8 +43,13 @@ enum srte_candidate_type {
 	SRTE_CANDIDATE_TYPE_DYNAMIC = 1,
 };
 
+struct srte_segment_list;
+
 struct srte_segment_entry {
 	RB_ENTRY(srte_segment_entry) entry;
+
+	/* The segment list the entry belong to */
+	struct srte_segment_list *segment_list;
 
 	/* Index of the Label. */
 	uint32_t index;
@@ -64,6 +69,12 @@ struct srte_segment_list {
 
 	/* Nexthops. */
 	struct srte_segment_entry_head segments;
+
+	/* Status flags. */
+	uint16_t flags;
+#define F_SEGMENT_LIST_NEW 0x0002
+#define F_SEGMENT_LIST_MODIFIED 0x0004
+#define F_SEGMENT_LIST_DELETED 0x0008
 };
 RB_HEAD(srte_segment_list_head, srte_segment_list);
 RB_PROTOTYPE(srte_segment_list_head, srte_segment_list, entry,
@@ -129,6 +140,11 @@ struct srte_policy {
 
 	/* Candidate Paths */
 	struct srte_candidate_head candidate_paths;
+	/* Status flags. */
+	uint16_t flags;
+#define F_POLICY_NEW 0x0002
+#define F_POLICY_MODIFIED 0x0004
+#define F_POLICY_DELETED 0x0008
 };
 RB_HEAD(srte_policy_head, srte_policy);
 RB_PROTOTYPE(srte_policy_head, srte_policy, entry, srte_policy_compare)
@@ -150,14 +166,14 @@ void srte_segment_list_del(struct srte_segment_list *segment_list);
 struct srte_segment_list *srte_segment_list_find(const char *name);
 struct srte_segment_entry *
 srte_segment_entry_add(struct srte_segment_list *segment_list, uint32_t index);
-void srte_segment_entry_del(struct srte_segment_list *segment_list,
-			    struct srte_segment_entry *segment);
+void srte_segment_entry_del(struct srte_segment_entry *segment);
 struct srte_policy *srte_policy_add(uint32_t color, struct ipaddr *endpoint);
 void srte_policy_del(struct srte_policy *policy);
 struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint);
 void srte_policy_update_binding_sid(struct srte_policy *policy,
 				    uint32_t binding_sid);
-void srte_policy_update_candidates(struct srte_policy *policy);
+void srte_apply_changes(void);
+void srte_policy_apply_changes(struct srte_policy *policy);
 struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
 					  uint32_t preference);
 void srte_candidate_del(struct srte_candidate *candidate);

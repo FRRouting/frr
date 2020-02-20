@@ -77,6 +77,7 @@ RB_GENERATE(srte_policy_head, srte_policy, entry, srte_policy_compare)
 
 struct srte_policy_head srte_policies = RB_INITIALIZER(&srte_policies);
 
+
 struct srte_segment_list *srte_segment_list_add(const char *name)
 {
 	struct srte_segment_list *segment_list;
@@ -109,16 +110,16 @@ srte_segment_entry_add(struct srte_segment_list *segment_list, uint32_t index)
 	struct srte_segment_entry *segment;
 
 	segment = XCALLOC(MTYPE_PATH_SEGMENT_LIST, sizeof(*segment));
+	segment->segment_list = segment_list;
 	segment->index = index;
 	RB_INSERT(srte_segment_entry_head, &segment_list->segments, segment);
 
 	return segment;
 }
 
-void srte_segment_entry_del(struct srte_segment_list *segment_list,
-			    struct srte_segment_entry *segment)
+void srte_segment_entry_del(struct srte_segment_entry *segment)
 {
-	RB_REMOVE(srte_segment_entry_head, &segment_list->segments, segment);
+	RB_REMOVE(srte_segment_entry_head, &segment->segment_list->segments, segment);
 	XFREE(MTYPE_PATH_SEGMENT_LIST, segment);
 }
 
@@ -192,7 +193,32 @@ srte_policy_best_candidate(const struct srte_policy *policy)
 	return NULL;
 }
 
-void srte_policy_update_candidates(struct srte_policy *policy)
+void srte_apply_changes(void) {
+	struct srte_policy *policy, *safe_pol;
+	struct srte_segment_list *segment_list, *safe_sl;
+
+	RB_FOREACH_SAFE (policy, srte_policy_head, &srte_policies, safe_pol) {
+		if (CHECK_FLAG(policy->flags, F_POLICY_DELETED)) {
+			srte_policy_del(policy);
+			continue;
+		}
+		srte_policy_apply_changes(policy);
+		UNSET_FLAG(policy->flags, F_POLICY_NEW);
+		UNSET_FLAG(policy->flags, F_POLICY_MODIFIED);
+	}
+
+	RB_FOREACH_SAFE (segment_list, srte_segment_list_head,
+	                 &srte_segment_lists, safe_sl) {
+		if (CHECK_FLAG(segment_list->flags, F_SEGMENT_LIST_DELETED)) {
+			srte_segment_list_del(segment_list);
+			continue;
+		}
+		UNSET_FLAG(segment_list->flags, F_SEGMENT_LIST_NEW);
+		UNSET_FLAG(segment_list->flags, F_SEGMENT_LIST_MODIFIED);
+	}
+}
+
+void srte_policy_apply_changes(struct srte_policy *policy)
 {
 	struct srte_candidate *candidate, *safe;
 	struct srte_candidate *old_best_candidate;
@@ -233,18 +259,28 @@ void srte_policy_update_candidates(struct srte_policy *policy)
 			path_zebra_add_sr_policy(
 				policy, new_best_candidate->segment_list);
 		}
-	} else if (new_best_candidate &&
-		   CHECK_FLAG(new_best_candidate->flags,
-			      F_CANDIDATE_MODIFIED)) {
-		/* The best candidate path is the same, but some attributes
-		 * like its segment list changed.
+	} else if (new_best_candidate) {
+		/* The best candidate path did not change, but some of its
+		 * attributes or its segment list may have changed.
 		 */
-		/* TODO: add debug guard. */
-		zlog_debug("SR-TE(%s, %u): best candidate %s changed", endpoint,
-			   policy->color, new_best_candidate->name);
 
-		path_zebra_add_sr_policy(
+		bool candidate_changed = CHECK_FLAG(new_best_candidate->flags,
+			                            F_CANDIDATE_MODIFIED);
+		bool segment_list_changed =
+			new_best_candidate->segment_list
+		        && CHECK_FLAG(new_best_candidate->segment_list->flags,
+			              F_SEGMENT_LIST_MODIFIED);
+
+	        if (candidate_changed || segment_list_changed) {
+			/* TODO: add debug guard. */
+			zlog_debug("SR-TE(%s, %u): best candidate %s changed",
+			           endpoint,
+				   policy->color,
+				   new_best_candidate->name);
+
+			path_zebra_add_sr_policy(
 				policy, new_best_candidate->segment_list);
+		}
 	}
 
 	RB_FOREACH_SAFE (candidate, srte_candidate_head,
@@ -256,6 +292,10 @@ void srte_policy_update_candidates(struct srte_policy *policy)
 		} else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_NEW)) {
 			hook_call(pathd_candidate_created, candidate);
 		} else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_MODIFIED)) {
+			hook_call(pathd_candidate_updated, candidate);
+		} else if (candidate->segment_list
+		           && CHECK_FLAG(candidate->segment_list->flags,
+		                         F_SEGMENT_LIST_MODIFIED)) {
 			hook_call(pathd_candidate_updated, candidate);
 		}
 

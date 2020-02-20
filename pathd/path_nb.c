@@ -28,6 +28,13 @@ const struct frr_yang_module_info frr_pathd_info = {
 	.name = "frr-pathd",
 	.nodes = {
 		{
+			.xpath = "/frr-pathd:pathd",
+			.cbs = {
+				.apply_finish = pathd_apply_finish,
+			},
+			.priority = NB_DFLT_PRIORITY + 1
+		},
+		{
 			.xpath = "/frr-pathd:pathd/segment-list",
 			.cbs = {
 				.create = pathd_te_segment_list_create,
@@ -61,7 +68,6 @@ const struct frr_yang_module_info frr_pathd_info = {
 				.create = pathd_te_sr_policy_create,
 				.cli_show = cli_show_te_path_sr_policy,
 				.destroy = pathd_te_sr_policy_destroy,
-				.apply_finish = pathd_te_sr_policy_apply_finish,
 				.get_next = pathd_te_sr_policy_get_next,
 				.get_keys = pathd_te_sr_policy_get_keys,
 				.lookup_entry = pathd_te_sr_policy_lookup_entry,

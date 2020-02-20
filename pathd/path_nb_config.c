@@ -25,6 +25,14 @@
 #include "pathd/path_nb.h"
 
 /*
+ * XPath: /frr-pathd:pathd
+ */
+void pathd_apply_finish(struct nb_cb_apply_finish_args *args)
+{
+	srte_apply_changes();
+}
+
+/*
  * XPath: /frr-pathd:pathd/segment-list
  */
 int pathd_te_segment_list_create(struct nb_cb_create_args *args)
@@ -38,6 +46,7 @@ int pathd_te_segment_list_create(struct nb_cb_create_args *args)
 	name = yang_dnode_get_string(args->dnode, "./name");
 	segment_list = srte_segment_list_add(name);
 	nb_running_set_entry(args->dnode, segment_list);
+	SET_FLAG(segment_list->flags, F_SEGMENT_LIST_NEW);
 
 	return NB_OK;
 }
@@ -50,7 +59,7 @@ int pathd_te_segment_list_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	segment_list = nb_running_unset_entry(args->dnode);
-	srte_segment_list_del(segment_list);
+	SET_FLAG(segment_list->flags, F_SEGMENT_LIST_DELETED);
 
 	return NB_OK;
 }
@@ -71,21 +80,21 @@ int pathd_te_segment_list_segment_create(struct nb_cb_create_args *args)
 	index = yang_dnode_get_uint32(args->dnode, "./index");
 	segment = srte_segment_entry_add(segment_list, index);
 	nb_running_set_entry(args->dnode, segment);
+	SET_FLAG(segment_list->flags, F_SEGMENT_LIST_MODIFIED);
 
 	return NB_OK;
 }
 
 int pathd_te_segment_list_segment_destroy(struct nb_cb_destroy_args *args)
 {
-	struct srte_segment_list *segment_list;
 	struct srte_segment_entry *segment;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	segment_list = nb_running_get_entry(args->dnode, NULL, true);
-	segment = nb_running_unset_entry(args->dnode);
-	srte_segment_entry_del(segment_list, segment);
+	segment = nb_running_get_entry(args->dnode, NULL, true);
+	srte_segment_entry_del(segment);
+	SET_FLAG(segment->segment_list->flags, F_SEGMENT_LIST_MODIFIED);
 
 	return NB_OK;
 }
@@ -105,6 +114,7 @@ int pathd_te_segment_list_segment_sid_value_modify(
 	segment = nb_running_get_entry(args->dnode, NULL, true);
 	sid_value = yang_dnode_get_uint32(args->dnode, NULL);
 	segment->sid_value = sid_value;
+	SET_FLAG(segment->segment_list->flags, F_SEGMENT_LIST_MODIFIED);
 
 	return NB_OK;
 }
@@ -126,6 +136,7 @@ int pathd_te_sr_policy_create(struct nb_cb_create_args *args)
 	policy = srte_policy_add(color, &endpoint);
 
 	nb_running_set_entry(args->dnode, policy);
+	SET_FLAG(policy->flags, F_POLICY_NEW);
 
 	return NB_OK;
 }
@@ -138,17 +149,9 @@ int pathd_te_sr_policy_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	policy = nb_running_unset_entry(args->dnode);
-	srte_policy_del(policy);
+	SET_FLAG(policy->flags, F_POLICY_DELETED);
 
 	return NB_OK;
-}
-
-void pathd_te_sr_policy_apply_finish(struct nb_cb_apply_finish_args *args)
-{
-	struct srte_policy *policy;
-
-	policy = nb_running_get_entry(args->dnode, NULL, true);
-	srte_policy_update_candidates(policy);
 }
 
 /*
@@ -165,6 +168,7 @@ int pathd_te_sr_policy_name_modify(struct nb_cb_modify_args *args)
 	policy = nb_running_get_entry(args->dnode, NULL, true);
 	name = yang_dnode_get_string(args->dnode, NULL);
 	strlcpy(policy->name, name, sizeof(policy->name));
+	SET_FLAG(policy->flags, F_POLICY_MODIFIED);
 
 	return NB_OK;
 }
@@ -178,6 +182,7 @@ int pathd_te_sr_policy_name_destroy(struct nb_cb_destroy_args *args)
 
 	policy = nb_running_get_entry(args->dnode, NULL, true);
 	policy->name[0] = '\0';
+	SET_FLAG(policy->flags, F_POLICY_MODIFIED);
 
 	return NB_OK;
 }
@@ -204,6 +209,7 @@ int pathd_te_sr_policy_binding_sid_modify(struct nb_cb_modify_args *args)
 		break;
 	case NB_EV_APPLY:
 		srte_policy_update_binding_sid(policy, binding_sid);
+		SET_FLAG(policy->flags, F_POLICY_MODIFIED);
 		break;
 	}
 
@@ -219,6 +225,7 @@ int pathd_te_sr_policy_binding_sid_destroy(struct nb_cb_destroy_args *args)
 
 	policy = nb_running_get_entry(args->dnode, NULL, true);
 	srte_policy_update_binding_sid(policy, MPLS_LABEL_NONE);
+	SET_FLAG(policy->flags, F_POLICY_MODIFIED);
 
 	return NB_OK;
 }
