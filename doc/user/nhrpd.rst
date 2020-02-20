@@ -199,6 +199,31 @@ NHRP Events
 
    Configure the Unix path for the event socket.
 
+.. _show-nhrp:
+
+Show  NHRP
+==========
+
+.. index::  show [ip|ipv6] nhrp cache [json]
+.. clicmd:: show [ip|ipv6] nhrp cache [json]
+
+   Dump the cache entries.
+
+.. index::  show [ip|ipv6] nhrp opennhrp [json]
+.. clicmd:: show [ip|ipv6] nhrp opennhrp [json]
+
+   Dump the cache entries with opennhrp format.
+
+.. index::  show [ip|ipv6] nhrp nhs [json]
+.. clicmd:: show [ip|ipv6] nhrp nhs [json]
+
+   Dump the hub context.
+
+.. index::  show dmvpn [json]
+.. clicmd:: show dmvpn [json]
+
+   Dump the security contexts.
+
 Configuration Example
 =====================
 
