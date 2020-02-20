@@ -324,14 +324,13 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 	struct prefix_sg sg;
 	uint32_t *bits;
 	int i_am_rp = 0;
-	struct pim_interface *pim_ifp = NULL;
-
-	pim_ifp = ifp->info;
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_instance *pim = pim_ifp->pim;
 
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
 	ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
 
-	if (!pim_rp_check_is_my_ip_address(pim_ifp->pim, dest_addr)) {
+	if (!pim_rp_check_is_my_ip_address(pim, dest_addr)) {
 		if (PIM_DEBUG_PIM_REG) {
 			char dest[INET_ADDRSTRLEN];
 
@@ -375,7 +374,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 	sg.src = ip_hdr->ip_src;
 	sg.grp = ip_hdr->ip_dst;
 
-	i_am_rp = I_am_RP(pim_ifp->pim, sg.grp);
+	i_am_rp = I_am_RP(pim, sg.grp);
 
 	if (PIM_DEBUG_PIM_REG) {
 		char src_str[INET_ADDRSTRLEN];
@@ -387,7 +386,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 
 	if (i_am_rp
 	    && (dest_addr.s_addr
-		== ((RP(pim_ifp->pim, sg.grp))->rpf_addr.u.prefix4.s_addr))) {
+		== ((RP(pim, sg.grp))->rpf_addr.u.prefix4.s_addr))) {
 		sentRegisterStop = 0;
 
 		if (*bits & PIM_REGISTER_BORDER_BIT) {
@@ -411,14 +410,13 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 			}
 		}
 
-		struct pim_upstream *upstream =
-			pim_upstream_find(pim_ifp->pim, &sg);
+		struct pim_upstream *upstream = pim_upstream_find(pim, &sg);
 		/*
 		 * If we don't have a place to send ignore the packet
 		 */
 		if (!upstream) {
 			upstream = pim_upstream_add(
-				pim_ifp->pim, &sg, ifp,
+				pim, &sg, ifp,
 				PIM_UPSTREAM_FLAG_MASK_SRC_STREAM, __func__,
 				NULL);
 			if (!upstream) {
@@ -452,9 +450,8 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		}
 
 		if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
-		    || ((SwitchToSptDesiredOnRp(pim_ifp->pim, &sg))
-			&& pim_upstream_inherited_olist(pim_ifp->pim, upstream)
-				   == 0)) {
+		    || ((SwitchToSptDesiredOnRp(pim, &sg))
+			&& pim_upstream_inherited_olist(pim, upstream) == 0)) {
 			pim_register_stop_send(ifp, &sg, dest_addr, src_addr);
 			sentRegisterStop = 1;
 		} else {
@@ -463,15 +460,13 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 					   upstream->sptbit);
 		}
 		if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
-		    || (SwitchToSptDesiredOnRp(pim_ifp->pim, &sg))) {
+		    || (SwitchToSptDesiredOnRp(pim, &sg))) {
 			if (sentRegisterStop) {
 				pim_upstream_keep_alive_timer_start(
-					upstream,
-					pim_ifp->pim->rp_keep_alive_time);
+					upstream, pim->rp_keep_alive_time);
 			} else {
 				pim_upstream_keep_alive_timer_start(
-					upstream,
-					pim_ifp->pim->keep_alive_time);
+					upstream, pim->keep_alive_time);
 			}
 		}
 
