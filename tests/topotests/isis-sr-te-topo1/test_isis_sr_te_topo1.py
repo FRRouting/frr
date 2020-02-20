@@ -195,6 +195,23 @@ def test_srte_config_step1():
                                    "show yang operational-data /frr-pathd:pathd pathd",
                                    "step1/show_operational_data.ref")
 
+def test_srte_config_with_candidate_step1():
+    logger.info("Test (step 1): SR-TE config")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
+        tgen.net[rname].cmd(''' \
+            vtysh -c "conf t" \
+                  -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
+                  -c "candidate-path preference 100 name default explicit segment-list default"''')
+        router_compare_json_output(rname,
+                                   "show yang operational-data /frr-pathd:pathd pathd",
+                                   "step1/show_operational_data_with_candidate.ref")
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
