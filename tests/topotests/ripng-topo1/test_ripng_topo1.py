@@ -145,7 +145,6 @@ def test_router_running():
 
     print("\n\n** Check if FRR/Quagga is running on each Router node")
     print("******************************************\n")
-    sleep(5)
 
     # Starting Routers
     for i in range(1, 4):
@@ -169,8 +168,8 @@ def test_converge_protocols():
     print("\n\n** Waiting for protocols convergence")
     print("******************************************\n")
 
-    # Not really implemented yet - just sleep 60 secs for now
-    sleep(60)
+    # Not really implemented yet - just sleep 11 secs for now
+    sleep(11)
 
     # Make sure that all daemons are running
     for i in range(1, 4):

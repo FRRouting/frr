@@ -151,8 +151,7 @@ def setup_module(module):
         net['r%s' % i].startRouter()
 
     # Starting PE Hosts and init ExaBGP on each of them
-    print('*** Starting BGP on all 8 Peers in 10s')
-    sleep(10)
+    print('*** Starting BGP on all 8 Peers')
     for i in range(1, 9):
         net['peer%s' % i].cmd('cp %s/exabgp.env /etc/exabgp/exabgp.env' % thisDir)
         net['peer%s' % i].cmd('cp %s/peer%s/* /etc/exabgp/' % (thisDir, i))
@@ -191,7 +190,6 @@ def test_router_running():
 
     print("\n\n** Check if FRR/Quagga is running on each Router node")
     print("******************************************\n")
-    sleep(5)
 
     # Starting Routers
     for i in range(1, 2):
@@ -215,7 +213,7 @@ def test_bgp_converge():
     # Wait for BGP to converge  (All Neighbors in either Full or TwoWay State)
     print("\n\n** Verify for BGP to converge")
     print("******************************************\n")
-    timeout = 60
+    timeout = 125
     while timeout > 0:
         print("Timeout in %s: " % timeout),
         sys.stdout.flush()
@@ -240,9 +238,9 @@ def test_bgp_converge():
         bgpStatus = net['r%s' % i].cmd('vtysh -c "show ip bgp view %s summary"' % view)
         assert False, "BGP did not converge:\n%s" % bgpStatus
 
-    # Wait for an extra 30s to announce all routes
-    print('Waiting 30s for routes to be announced');
-    sleep(30)
+    # Wait for an extra 5s to announce all routes
+    print('Waiting 5s for routes to be announced');
+    sleep(5)
     
     print("BGP converged.")
 
