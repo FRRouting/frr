@@ -131,14 +131,14 @@
 #define PIM_UPDATE_SOURCE_DUP           -10
 #define PIM_GROUP_BAD_ADDR_MASK_COMBO   -11
 
-const char *const PIM_ALL_SYSTEMS;
-const char *const PIM_ALL_ROUTERS;
-const char *const PIM_ALL_PIM_ROUTERS;
-const char *const PIM_ALL_IGMP_ROUTERS;
+extern const char *const PIM_ALL_SYSTEMS;
+extern const char *const PIM_ALL_ROUTERS;
+extern const char *const PIM_ALL_PIM_ROUTERS;
+extern const char *const PIM_ALL_IGMP_ROUTERS;
 
 extern struct pim_router *router;
 extern struct zebra_privs_t pimd_privs;
-struct in_addr qpim_all_pim_routers_addr;
+extern struct in_addr qpim_all_pim_routers_addr;
 extern uint8_t qpim_ecmp_enable;
 extern uint8_t qpim_ecmp_rebalance_enable;
 
