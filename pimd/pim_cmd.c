@@ -4779,11 +4779,11 @@ static void pim_show_mlag_up_entry_detail(struct vrf *vrf,
 
 		own_str[0] = '\0';
 		if (pim_up_mlag_is_local(up))
-			strcpy(own_str + strlen(own_str), "L");
+			strlcat(own_str, "L", sizeof(own_str));
 		if (up->flags & (PIM_UPSTREAM_FLAG_MASK_MLAG_PEER))
-			strcpy(own_str + strlen(own_str), "P");
+			strlcat(own_str, "P", sizeof(own_str));
 		if (up->flags & (PIM_UPSTREAM_FLAG_MASK_MLAG_INTERFACE))
-			strcpy(own_str + strlen(own_str), "I");
+			strlcat(own_str, "I", sizeof(own_str));
 		/* XXX - fixup, print paragraph output */
 		vty_out(vty,
 				"%-15s %-15s %-6s %-11u %-10d %2s\n",
@@ -4824,20 +4824,20 @@ static void pim_show_mlag_up_detail(struct vrf *vrf,
 		 */
 		if (group) {
 			if (strcmp(src_str, src_or_group) ||
-					strcmp(grp_str, group))
+			    strcmp(grp_str, group))
 				continue;
 		} else {
 			if (strcmp(src_str, src_or_group) &&
-					strcmp(grp_str, src_or_group))
+			    strcmp(grp_str, src_or_group))
 				continue;
 		}
 		pim_show_mlag_up_entry_detail(vrf, vty, up,
-				src_str, grp_str, json);
+					      src_str, grp_str, json);
 	}
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -4907,11 +4907,11 @@ static void pim_show_mlag_up_vrf(struct vrf *vrf, struct vty *vty, bool uj)
 
 			own_str[0] = '\0';
 			if (pim_up_mlag_is_local(up))
-				strcpy(own_str + strlen(own_str), "L");
+				strlcat(own_str, "L", sizeof(own_str));
 			if (up->flags & (PIM_UPSTREAM_FLAG_MASK_MLAG_PEER))
-				strcpy(own_str + strlen(own_str), "P");
+				strlcat(own_str, "P", sizeof(own_str));
 			if (up->flags & (PIM_UPSTREAM_FLAG_MASK_MLAG_INTERFACE))
-				strcpy(own_str + strlen(own_str), "I");
+				strlcat(own_str, "I", sizeof(own_str));
 			vty_out(vty,
 				"%-15s %-15s %-6s %-11u %-10u %2s\n",
 				src_str, grp_str, own_str,
@@ -4972,7 +4972,7 @@ DEFUN(show_ip_pim_mlag_up, show_ip_pim_mlag_up_cmd,
 
 	pim_show_mlag_help_string(vty, uj);
 
-	if (src_or_group || group)
+	if (src_or_group)
 		pim_show_mlag_up_detail(vrf, vty, src_or_group, group, uj);
 	else
 		pim_show_mlag_up_vrf(vrf, vty, uj);
