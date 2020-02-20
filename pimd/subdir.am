@@ -135,6 +135,7 @@ clippy_scan += \
 	# end
 
 pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP)
+pimd_pimd_LDFLAGS = $(AM_LDFLAGS) $(PIMD_SAN_FLAGS)
 
 pimd_test_igmpv3_join_LDADD = lib/libfrr.la
 pimd_test_igmpv3_join_SOURCES = pimd/test_igmpv3_join.c
