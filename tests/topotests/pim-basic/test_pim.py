@@ -46,14 +46,18 @@ class PIMTopo(Topo):
         "Build function"
         tgen = get_topogen(self)
 
-        for routern in range(1, 3):
+        for routern in range(1, 4):
             tgen.add_router('r{}'.format(routern))
 
         tgen.add_router('rp')
 
+        #   rp ------ r1 -------- r2
+        #              \
+        #               --------- r3
         # r1 -> .1
         # r2 -> .2
         # rp -> .3
+        # r3 -> .4
         # loopback network is 10.254.0.X/32
         #
         # r1 <- sw1 -> r2
@@ -70,6 +74,10 @@ class PIMTopo(Topo):
         sw.add_link(tgen.gears['r1'])
         sw.add_link(tgen.gears['rp'])
 
+        # 10.0.40.0/24
+        sw = tgen.add_switch('sw3')
+        sw.add_link(tgen.gears['r1'])
+        sw.add_link(tgen.gears['r3'])
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -130,12 +138,15 @@ def test_pim_send_mcast_stream():
         pytest.skip(tgen.errors)
 
     rp = tgen.gears['rp']
+    r3 = tgen.gears['r3']
     r2 = tgen.gears['r2']
     r1 = tgen.gears['r1']
 
     # Let's establish a S,G stream from r2 -> r1
     CWD = os.path.dirname(os.path.realpath(__file__))
     r2.run("{}/mcast-tx.py --ttl 5 --count 5 --interval 10 229.1.1.1 r2-eth0 > /tmp/bar".format(CWD))
+    # And from r3 -> r1
+    r3.run("{}/mcast-tx.py --ttl 5 --count 5 --interval 10 229.1.1.1 r3-eth0 > /tmp/bar".format(CWD))
 
     # Let's see that it shows up and we have established some basic state
     out = r1.vtysh_cmd("show ip pim upstream json", isjson=True)
