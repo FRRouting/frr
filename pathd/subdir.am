@@ -30,7 +30,6 @@ pathd_libpath_a_SOURCES = \
 	# end
 
 noinst_HEADERS += \
-	pathd/path_main.h \
 	pathd/path_memory.h \
 	pathd/path_errors.h \
 	pathd/path_nb.h \

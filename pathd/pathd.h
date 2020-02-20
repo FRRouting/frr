@@ -160,6 +160,9 @@ extern struct srte_segment_list_head srte_segment_lists;
 extern struct srte_policy_head srte_policies;
 extern struct zebra_privs_t pathd_privs;
 
+/* master thread, defined in path_main.c */
+extern struct thread_master *master;
+
 /* pathd.c */
 struct srte_segment_list *srte_segment_list_add(const char *name);
 void srte_segment_list_del(struct srte_segment_list *segment_list);
