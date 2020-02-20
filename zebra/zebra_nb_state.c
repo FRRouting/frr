@@ -22,6 +22,94 @@
 #include "libfrr.h"
 #include "zebra_nb.h"
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/up-count
+ */
+struct yang_data *
+lib_interface_zebra_state_up_count_get_elem(const char *xpath,
+					    const void *list_entry)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/down-count
+ */
+struct yang_data *
+lib_interface_zebra_state_down_count_get_elem(const char *xpath,
+					      const void *list_entry)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/zif-type
+ */
+struct yang_data *
+lib_interface_zebra_state_zif_type_get_elem(const char *xpath,
+					    const void *list_entry)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/ptm-status
+ */
+struct yang_data *
+lib_interface_zebra_state_ptm_status_get_elem(const char *xpath,
+					      const void *list_entry)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/vlan-id
+ */
+struct yang_data *
+lib_interface_zebra_state_vlan_id_get_elem(const char *xpath,
+					   const void *list_entry)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/vni-id
+ */
+struct yang_data *
+lib_interface_zebra_state_vni_id_get_elem(const char *xpath,
+					  const void *list_entry)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/remote-vtep
+ */
+struct yang_data *
+lib_interface_zebra_state_remote_vtep_get_elem(const char *xpath,
+					       const void *list_entry)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/mcast-group
+ */
+struct yang_data *
+lib_interface_zebra_state_mcast_group_get_elem(const char *xpath,
+					       const void *list_entry)
+{
+	/* TODO: implement me. */
+	return NULL;
+}
+
 const void *lib_vrf_ribs_rib_get_next(const void *parent_list_entry,
 				      const void *list_entry)
 {

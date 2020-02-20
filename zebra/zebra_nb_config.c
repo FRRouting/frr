@@ -1007,11 +1007,11 @@ int zebra_debugs_debug_mlag_destroy(enum nb_event event,
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ip4-addr-list
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ip-addrs
  */
-int lib_interface_zebra_ip4_addr_list_create(enum nb_event event,
-					     const struct lyd_node *dnode,
-					     union nb_resource *resource)
+int lib_interface_zebra_ip_addrs_create(enum nb_event event,
+					const struct lyd_node *dnode,
+					union nb_resource *resource)
 {
 	switch (event) {
 	case NB_EV_VALIDATE:
@@ -1025,8 +1025,8 @@ int lib_interface_zebra_ip4_addr_list_create(enum nb_event event,
 	return NB_OK;
 }
 
-int lib_interface_zebra_ip4_addr_list_destroy(enum nb_event event,
-					      const struct lyd_node *dnode)
+int lib_interface_zebra_ip_addrs_destroy(enum nb_event event,
+					 const struct lyd_node *dnode)
 {
 	switch (event) {
 	case NB_EV_VALIDATE:
@@ -1041,11 +1041,11 @@ int lib_interface_zebra_ip4_addr_list_destroy(enum nb_event event,
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ip4-addr-list/ip4-peer
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ip-addrs/label
  */
-int lib_interface_zebra_ip4_addr_list_ip4_peer_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource)
+int lib_interface_zebra_ip_addrs_label_modify(enum nb_event event,
+					      const struct lyd_node *dnode,
+					      union nb_resource *resource)
 {
 	switch (event) {
 	case NB_EV_VALIDATE:
@@ -1059,8 +1059,8 @@ int lib_interface_zebra_ip4_addr_list_ip4_peer_modify(
 	return NB_OK;
 }
 
-int lib_interface_zebra_ip4_addr_list_ip4_peer_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
+int lib_interface_zebra_ip_addrs_label_destroy(enum nb_event event,
+					       const struct lyd_node *dnode)
 {
 	switch (event) {
 	case NB_EV_VALIDATE:
@@ -1075,11 +1075,11 @@ int lib_interface_zebra_ip4_addr_list_ip4_peer_destroy(
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ip4-addr-list/label
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ip-addrs/ip4-peer
  */
-int lib_interface_zebra_ip4_addr_list_label_modify(enum nb_event event,
-						   const struct lyd_node *dnode,
-						   union nb_resource *resource)
+int lib_interface_zebra_ip_addrs_ip4_peer_modify(enum nb_event event,
+						 const struct lyd_node *dnode,
+						 union nb_resource *resource)
 {
 	switch (event) {
 	case NB_EV_VALIDATE:
@@ -1093,76 +1093,8 @@ int lib_interface_zebra_ip4_addr_list_label_modify(enum nb_event event,
 	return NB_OK;
 }
 
-int lib_interface_zebra_ip4_addr_list_label_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
-{
-	switch (event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ip6-addr-list
- */
-int lib_interface_zebra_ip6_addr_list_create(enum nb_event event,
-					     const struct lyd_node *dnode,
-					     union nb_resource *resource)
-{
-	switch (event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int lib_interface_zebra_ip6_addr_list_destroy(enum nb_event event,
-					      const struct lyd_node *dnode)
-{
-	switch (event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ip6-addr-list/label
- */
-int lib_interface_zebra_ip6_addr_list_label_modify(enum nb_event event,
-						   const struct lyd_node *dnode,
-						   union nb_resource *resource)
-{
-	switch (event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-int lib_interface_zebra_ip6_addr_list_label_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
+int lib_interface_zebra_ip_addrs_ip4_peer_destroy(enum nb_event event,
+						  const struct lyd_node *dnode)
 {
 	switch (event) {
 	case NB_EV_VALIDATE:

@@ -323,38 +323,24 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ip4-addr-list",
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ip-addrs",
 			.cbs = {
-				.create = lib_interface_zebra_ip4_addr_list_create,
-				.destroy = lib_interface_zebra_ip4_addr_list_destroy,
+				.create = lib_interface_zebra_ip_addrs_create,
+				.destroy = lib_interface_zebra_ip_addrs_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ip4-addr-list/ip4-peer",
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ip-addrs/label",
 			.cbs = {
-				.modify = lib_interface_zebra_ip4_addr_list_ip4_peer_modify,
-				.destroy = lib_interface_zebra_ip4_addr_list_ip4_peer_destroy,
+				.modify = lib_interface_zebra_ip_addrs_label_modify,
+				.destroy = lib_interface_zebra_ip_addrs_label_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ip4-addr-list/label",
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ip-addrs/ip4-peer",
 			.cbs = {
-				.modify = lib_interface_zebra_ip4_addr_list_label_modify,
-				.destroy = lib_interface_zebra_ip4_addr_list_label_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ip6-addr-list",
-			.cbs = {
-				.create = lib_interface_zebra_ip6_addr_list_create,
-				.destroy = lib_interface_zebra_ip6_addr_list_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ip6-addr-list/label",
-			.cbs = {
-				.modify = lib_interface_zebra_ip6_addr_list_label_modify,
-				.destroy = lib_interface_zebra_ip6_addr_list_label_destroy,
+				.modify = lib_interface_zebra_ip_addrs_ip4_peer_modify,
+				.destroy = lib_interface_zebra_ip_addrs_ip4_peer_destroy,
 			}
 		},
 		{
@@ -383,6 +369,54 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_interface_zebra_bandwidth_modify,
 				.destroy = lib_interface_zebra_bandwidth_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/up-count",
+			.cbs = {
+				.get_elem = lib_interface_zebra_state_up_count_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/down-count",
+			.cbs = {
+				.get_elem = lib_interface_zebra_state_down_count_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/zif-type",
+			.cbs = {
+				.get_elem = lib_interface_zebra_state_zif_type_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/ptm-status",
+			.cbs = {
+				.get_elem = lib_interface_zebra_state_ptm_status_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/vlan-id",
+			.cbs = {
+				.get_elem = lib_interface_zebra_state_vlan_id_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/vni-id",
+			.cbs = {
+				.get_elem = lib_interface_zebra_state_vni_id_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/remote-vtep",
+			.cbs = {
+				.get_elem = lib_interface_zebra_state_remote_vtep_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/state/mcast-group",
+			.cbs = {
+				.get_elem = lib_interface_zebra_state_mcast_group_get_elem,
 			}
 		},
 		{
