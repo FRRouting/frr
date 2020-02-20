@@ -468,9 +468,7 @@ static int32_t zebra_gr_route_stale_delete_timer_expiry(struct thread *thread)
 		LOG_GR("%s: Client %s all starle routes processed", __func__,
 		       zebra_route_string(client->proto));
 
-		if (info->current_prefix != NULL)
-			XFREE(MTYPE_TMP, info->current_prefix);
-		info->current_prefix = NULL;
+		XFREE(MTYPE_TMP, info->current_prefix);
 		info->current_afi = 0;
 		zebra_gr_delete_stale_client(info);
 	}
