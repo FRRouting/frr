@@ -182,8 +182,23 @@ def router_compare_json_output(rname, command, reference):
 #
 # Step 1
 #
+# Basic Testing with one SR Policy and a single Candidate Path
+#
+def test_srte_init_step1():
+    logger.info("Test (step 1): wait for IS-IS convergence / label distribution")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ['rt1', 'rt6']:
+        router_compare_json_output(rname,
+                                   "show mpls table json",
+                                   "step1/show_mpls_table_without_candidate.ref")
+
 def test_srte_config_step1():
-    logger.info("Test (step 1): SR-TE config")
+    logger.info("Test (step 1): bare SR Policy should not be operational")
     tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
@@ -196,7 +211,7 @@ def test_srte_config_step1():
                                    "step1/show_operational_data.ref")
 
 def test_srte_config_add_candidate_step1():
-    logger.info("Test (step 1): SR-TE config")
+    logger.info("Test (step 1): add single Candidate Path, SR Policy should be operational")
     tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
@@ -212,8 +227,21 @@ def test_srte_config_add_candidate_step1():
                                    "show yang operational-data /frr-pathd:pathd pathd",
                                    "step1/show_operational_data_with_candidate.ref")
 
+def test_srte_config_add_candidate_check_mpls_table_step1():
+    logger.info("Test (step 1): check MPLS table regarding the added Candidate Path")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ['rt1', 'rt6']:
+        router_compare_json_output(rname,
+                                   "show mpls table json",
+                                   "step1/show_mpls_table_with_candidate.ref")
+
 def test_srte_config_remove_candidate_step1():
-    logger.info("Test (step 1): SR-TE config")
+    logger.info("Test (step 1): remove single Candidate Path, SR Policy should not be operational anymore")
     tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
