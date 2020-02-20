@@ -20,6 +20,7 @@
 #include <zebra.h>
 
 #include "ldpd.h"
+#include "ldpe.h"
 #include "lde.h"
 #include "log.h"
 
@@ -325,6 +326,7 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 {
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
+	struct iface		*iface;
 
 	fn = (struct fec_node *)fec_find(&ft, fec);
 	if (fn == NULL)
@@ -333,9 +335,21 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 		fn->data = data;
 
 	fnh = fec_nh_find(fn, af, nexthop, ifindex, route_type, route_instance);
-	if (fnh == NULL)
+	if (fnh == NULL) {
 		fnh = fec_nh_add(fn, af, nexthop, ifindex, route_type,
 		    route_instance);
+		/*
+		 * Ordered Control: if not a connected route and not a route
+		 * learned over an interface not running LDP and not a PW
+		 * then mark to wait until we receive labelmap msg before
+		 * installing in kernel and sending to peer
+		 */
+		iface = if_lookup(ldeconf, ifindex);
+		if ((ldeconf->flags & F_LDPD_ORDERED_CONTROL) &&
+		    !connected && iface != NULL && fec->type != FEC_TYPE_PWID)
+			fnh->flags |= F_FEC_NH_DEFER;
+	}
+
 	fnh->flags |= F_FEC_NH_NEW;
 	if (connected)
 		fnh->flags |= F_FEC_NH_CONNECTED;
@@ -374,15 +388,25 @@ lde_kernel_update(struct fec *fec)
 	struct fec_nh		*fnh, *safe;
 	struct lde_nbr		*ln;
 	struct lde_map		*me;
+	struct iface		*iface;
 
 	fn = (struct fec_node *)fec_find(&ft, fec);
 	if (fn == NULL)
 		return;
 
 	LIST_FOREACH_SAFE(fnh, &fn->nexthops, entry, safe) {
-		if (fnh->flags & F_FEC_NH_NEW)
+		if (fnh->flags & F_FEC_NH_NEW) {
 			fnh->flags &= ~F_FEC_NH_NEW;
-		else {
+			/*
+			 * if LDP configured on interface or a static route
+			 * clear flag else treat fec as a connected route
+			 */
+			iface = if_lookup(ldeconf,fnh->ifindex);
+			if (iface || fnh->route_type == ZEBRA_ROUTE_STATIC)
+				fnh->flags &=~F_FEC_NH_NO_LDP;
+			else
+				fnh->flags |= F_FEC_NH_NO_LDP;
+		} else {
 			lde_send_delete_klabel(fn, fnh);
 			fec_nh_del(fnh);
 		}
@@ -445,6 +469,7 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 	struct lde_req		*lre;
 	struct lde_map		*me;
 	struct l2vpn_pw		*pw;
+	bool			 send_map = false;
 
 	lde_map2fec(map, ln->id, &fec);
 
@@ -525,6 +550,15 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 			if (!lde_address_find(ln, fnh->af, &fnh->nexthop))
 				continue;
 
+			/*
+			 * Ordered Control: labelmap msg received from
+			 * NH so clear flag and send labelmap msg to
+			 * peer
+			 */
+			if (ldeconf->flags & F_LDPD_ORDERED_CONTROL) {
+				send_map = true;
+				fnh->flags &= ~F_FEC_NH_DEFER;
+			}
 			fnh->remote_label = map->label;
 			lde_send_change_klabel(fn, fnh);
 			break;
@@ -558,6 +592,15 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 	 * loop detection. LMp.28 - LMp.30 are unnecessary because we are
 	 * merging capable.
 	 */
+
+	/*
+	 * Ordered Control: just received a labelmap for this fec from NH so
+	 * need to send labelmap to all peers
+	 * LMp.20 - LMp21 Execute procedure to send Label Mapping
+	 */
+	if (send_map && fn->local_label != NO_LABEL)
+		RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+			lde_send_labelmapping(ln, fn, 1);
 }
 
 void
@@ -757,6 +800,7 @@ lde_check_withdraw(struct map *map, struct lde_nbr *ln)
 	struct fec_nh		*fnh;
 	struct lde_map		*me;
 	struct l2vpn_pw		*pw;
+	struct lde_nbr		*lnbr;
 
 	/* wildcard label withdraw */
 	if (map->type == MAP_TYPE_WILDCARD ||
@@ -803,6 +847,26 @@ lde_check_withdraw(struct map *map, struct lde_nbr *ln)
 	if (me && (map->label == NO_LABEL || map->label == me->map.label))
 		/* LWd.4: remove record of previously received lbl mapping */
 		lde_map_del(ln, me, 0);
+
+	/* Ordered Control: additional withdraw steps */
+	if (ldeconf->flags & F_LDPD_ORDERED_CONTROL) {
+		/* LWd.8: for each neighbor other that src of withdraw msg */
+		RB_FOREACH(lnbr, nbr_tree, &lde_nbrs) {
+			if (ln->peerid == lnbr->peerid)
+				continue;
+
+			/* LWd.9: check if previously sent a label mapping */
+			me = (struct lde_map *)fec_find(&lnbr->sent_map,
+			    &fn->fec);
+			/*
+			 * LWd.10: does label sent to peer "map" to withdraw
+			 * label
+			 */
+			if (me)
+				/* LWd.11: send label withdraw */
+				lde_send_labelwithdraw(lnbr, fn, NULL, NULL);
+		}
+	}
 }
 
 void
@@ -813,6 +877,7 @@ lde_check_withdraw_wcard(struct map *map, struct lde_nbr *ln)
 	struct fec_nh	*fnh;
 	struct lde_map	*me;
 	struct l2vpn_pw	*pw;
+	struct lde_nbr  *lnbr;
 
 	/* LWd.2: send label release */
 	lde_send_labelrelease(ln, NULL, map, map->label);
@@ -859,6 +924,26 @@ lde_check_withdraw_wcard(struct map *map, struct lde_nbr *ln)
 			 * label mapping
 			 */
 			lde_map_del(ln, me, 0);
+
+		/* Ordered Control: additional withdraw steps */
+		if (ldeconf->flags & F_LDPD_ORDERED_CONTROL) {
+			/* LWd.8: for each neighbor other that src of withdraw msg */
+			RB_FOREACH(lnbr, nbr_tree, &lde_nbrs) {
+				if (ln->peerid == lnbr->peerid)
+					continue;
+
+				/* LWd.9: check if previously sent a label mapping */
+				me = (struct lde_map *)fec_find(&lnbr->sent_map,
+					&fn->fec);
+				/*
+				 * LWd.10: does label sent to peer "map" to withdraw
+				 * label
+				 */
+				if (me)
+					/* LWd.11: send label withdraw */
+					lde_send_labelwithdraw(lnbr, fn, NULL, NULL);
+			}
+		}
 	}
 }
 
