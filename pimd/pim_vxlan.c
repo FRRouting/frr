@@ -1099,9 +1099,9 @@ void pim_vxlan_add_term_dev(struct pim_instance *pim,
 
 	if (PIM_DEBUG_VXLAN)
 		zlog_debug("vxlan term oif cfg changed from %s to %s",
-				pim->vxlan.term_if_cfg ?
-				pim->vxlan.term_if_cfg->name : "-",
-				ifp->name);
+			   pim->vxlan.term_if_cfg ?
+			   pim->vxlan.term_if_cfg->name : "-",
+			   ifp->name);
 
 	pim->vxlan.term_if_cfg = ifp;
 
@@ -1117,8 +1117,8 @@ void pim_vxlan_add_term_dev(struct pim_instance *pim,
 		 * vxlan termination device
 		 */
 		pim_if_create_pimreg(pim);
-		pim_ifp = pim_if_new(ifp, false /*igmp*/, true /*pim*/,
-				false /*pimreg*/, true /*vxlan_term*/);
+		(void)pim_if_new(ifp, false /*igmp*/, true /*pim*/,
+				 false /*pimreg*/, true /*vxlan_term*/);
 	}
 }
 
