@@ -568,7 +568,7 @@ static void zserv_client_free(struct zserv *client)
 
 		close(client->sock);
 
-		if (!client->gr_instance_count) {
+		if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
 			nroutes = rib_score_proto(client->proto,
 						  client->instance);
 			zlog_notice(
@@ -610,7 +610,7 @@ static void zserv_client_free(struct zserv *client)
 	 * If any instance are graceful restart enabled,
 	 * client is not deleted
 	 */
-	if (!client->gr_instance_count) {
+	if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
 		if (IS_ZEBRA_DEBUG_EVENT)
 			zlog_debug("%s: Deleting client %s", __func__,
 				   zebra_route_string(client->proto));
