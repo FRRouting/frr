@@ -1212,6 +1212,7 @@ def create_route_maps(tgen, input_dict, build=False):
                         set_action = set_data.setdefault("set_action", None)
                         nexthop = set_data.setdefault("nexthop", None)
                         origin = set_data.setdefault("origin", None)
+			mtu = set_data.setdefault("mtu", None)
 
                         # Local Preference
                         if local_preference:
@@ -1281,6 +1282,10 @@ def create_route_maps(tgen, input_dict, build=False):
                         if weight:
                             rmap_data.append("set weight {}".format(
                                 weight))
+
+			if mtu:
+			    rmap_data.append("set mtu {}".format(mtu))
+
                         if ipv6_data:
                             nexthop = ipv6_data.setdefault("nexthop", None)
                             if nexthop:

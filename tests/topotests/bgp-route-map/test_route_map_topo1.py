@@ -577,6 +577,9 @@ def test_route_map_with_action_values_combination_of_prefix_action_p0(
                                     "prefix_lists":
                                         "pf_list_1_{}".format(addr_type)
                                 }
+                            },
+                            "set": {
+                                "mtu": 300
                             }
                         }
                     ]
