@@ -257,6 +257,91 @@ def test_srte_config_remove_candidate_step1():
                                    "show yang operational-data /frr-pathd:pathd pathd",
                                    "step1/show_operational_data.ref")
 
+#
+# Step 2
+#
+# Testing the Candidate Path selection
+#
+def test_srte_config_add_two_candidates_step2():
+    logger.info("Test (step 2): second Candidate Path has higher Priority")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
+        for pref, cand_name in [('100', 'first'), ('200', 'second')]:
+            tgen.net[rname].cmd(''' \
+                vtysh -c "conf t" \
+                      -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
+                      -c "candidate-path preference ''' + pref + ''' name ''' + cand_name + ''' explicit segment-list default"''')
+        router_compare_json_output(rname,
+                                   "show yang operational-data /frr-pathd:pathd pathd",
+                                   "step2/show_operational_data_with_two_candidates.ref")
+
+    # cleanup
+    for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
+        for pref in ['100', '200']:
+            tgen.net[rname].cmd(''' \
+                vtysh -c "conf t" \
+                      -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
+                      -c "no candidate-path preference ''' + pref + '''"''')
+
+def test_srte_config_add_two_candidates_reverse_step2():
+    logger.info("Test (step 2): second Candidate Path has lower Priority")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
+        for pref, cand_name in [('200', 'first'), ('100', 'second')]:
+            tgen.net[rname].cmd(''' \
+                vtysh -c "conf t" \
+                      -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
+                      -c "candidate-path preference ''' + pref + ''' name ''' + cand_name + ''' explicit segment-list default"''')
+        router_compare_json_output(rname,
+                                   "show yang operational-data /frr-pathd:pathd pathd",
+                                   "step2/show_operational_data_with_two_candidates.ref")
+
+    # cleanup
+    for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
+        for pref in ['100', '200']:
+            tgen.net[rname].cmd(''' \
+                vtysh -c "conf t" \
+                      -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
+                      -c "no candidate-path preference ''' + pref + '''"''')
+
+def test_srte_config_remove_best_candidate_step2():
+    logger.info("Test (step 2): delete the Candidate Path with higher priority")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
+        for pref, cand_name in [('100', 'first'), ('200', 'second')]:
+            tgen.net[rname].cmd(''' \
+                vtysh -c "conf t" \
+                      -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
+                      -c "candidate-path preference ''' + pref + ''' name ''' + cand_name + ''' explicit segment-list default"''')
+
+    # Delete candidate with higher priority
+    for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
+        tgen.net[rname].cmd(''' \
+            vtysh -c "conf t" \
+                  -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
+                  -c "no candidate-path preference 200"''')
+
+    # Candidate with lower priority should get active now
+    for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
+        router_compare_json_output(rname,
+                                   "show yang operational-data /frr-pathd:pathd pathd",
+                                   "step2/show_operational_data_with_single_candidate.ref")
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
