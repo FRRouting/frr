@@ -389,6 +389,33 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		== ((RP(pim, sg.grp))->rpf_addr.u.prefix4.s_addr))) {
 		sentRegisterStop = 0;
 
+		if (pim->register_plist) {
+			struct prefix_list *plist;
+			struct prefix src;
+
+			plist = prefix_list_lookup(AFI_IP, pim->register_plist);
+
+			src.family = AF_INET;
+			src.prefixlen = IPV4_MAX_PREFIXLEN;
+			src.u.prefix4 = sg.src;
+
+			if (prefix_list_apply(plist, &src) == PREFIX_DENY) {
+				pim_register_stop_send(ifp, &sg, dest_addr,
+						       src_addr);
+				if (PIM_DEBUG_PIM_PACKETS) {
+					char src_str[INET_ADDRSTRLEN];
+
+					pim_inet4_dump("<src?>", src_addr,
+						       src_str,
+						       sizeof(src_str));
+					zlog_debug("%s: Sending register-stop to %s for %pSG4 due to prefix-list denial, dropping packet",
+						   __func__, src_str, &sg);
+				}
+
+				return 0;
+			}
+		}
+
 		if (*bits & PIM_REGISTER_BORDER_BIT) {
 			struct in_addr pimbr = pim_br_get_pmbr(&sg);
 			if (PIM_DEBUG_PIM_PACKETS)
