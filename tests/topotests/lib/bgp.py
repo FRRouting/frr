@@ -1473,7 +1473,7 @@ def verify_best_path_as_per_bgp_attribute(tgen, addr_type, router, input_dict,
                 # - rule is IGP>EGP>INCOMPLETE
                 _next_hop = [key for (key, value) in
                              attribute_dict.iteritems()
-                             if value == "IGP"][0]
+                             if value == "igp"][0]
                 compare = ""
 
             # MED  attribute

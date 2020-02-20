@@ -18,7 +18,7 @@
                 "metric": 0,
                 "weight": 0,
                 "peerId": "2001:db8:4::1",
-                "origin": "IGP",
+                "origin": "igp",
                 "nexthops": [
                     { "ip": "2001:db8:4::1",
                       "afi": "ipv6",
@@ -41,7 +41,7 @@
                 "metric": 0,
                 "weight": 0,
                 "peerId": "2001:db8:4::1",
-                "origin": "IGP",
+                "origin": "igp",
                 "nexthops": [
                     {
                         "ip": "2001:db8:4::1",
@@ -64,7 +64,7 @@
                 "metric": 0,
               "weight": 32768,
                 "peerId": "(unspec)",
-                "origin": "IGP",
+                "origin": "igp",
                 "nexthops": [
                     {
                         "ip": "::",
@@ -87,7 +87,7 @@
                 "metric": 0,
                 "weight": 32768,
                 "peerId": "(unspec)",
-                "origin": "IGP",
+                "origin": "igp",
                 "nexthops": [
                     {
                         "ip": "::",

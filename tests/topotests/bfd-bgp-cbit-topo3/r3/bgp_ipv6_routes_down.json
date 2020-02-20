@@ -17,7 +17,7 @@
                 "metric": 0,
                 "weight": 32768,
                 "peerId": "(unspec)",
-                "origin": "IGP",
+                "origin": "igp",
                 "nexthops": [
                     {
                         "ip": "::",
@@ -40,7 +40,7 @@
                 "metric": 0,
                 "weight": 32768,
                 "peerId": "(unspec)",
-                "origin": "IGP",
+                "origin": "igp",
                 "nexthops": [
                     {
                         "ip": "::",

@@ -107,7 +107,7 @@ def test_bgp_aggregate_address_origin():
         expected = {
             'paths': [
                 {
-                    'origin': 'IGP'
+                    'origin': 'igp'
                 }
             ]
         }
