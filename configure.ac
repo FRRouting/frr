@@ -363,6 +363,7 @@ if test "$enable_libfuzzer" = "yes"; then
     ZEBRA_SAN_FLAGS="-fsanitize=fuzzer"
     OSPFD_SAN_FLAGS="-fsanitize=fuzzer"
     VRRPD_SAN_FLAGS="-fsanitize=fuzzer"
+    PIMD_SAN_FLAGS="-fsanitize=fuzzer"
     AC_DEFINE([FUZZING_LIBFUZZER], [1], [Compiling and linking with libFuzzer])
   ])
 fi
@@ -371,6 +372,7 @@ AC_SUBST([BGPD_SAN_FLAGS])
 AC_SUBST([ZEBRA_SAN_FLAGS])
 AC_SUBST([OSPFD_SAN_FLAGS])
 AC_SUBST([VRRPD_SAN_FLAGS])
+AC_SUBST([PIMD_SAN_FLAGS])
 
 dnl frr-format.so
 if test "$with_frr_format" != "no" -a "$with_frr_format" != "yes" -a -n "$with_frr_format"; then

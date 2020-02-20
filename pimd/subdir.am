@@ -133,6 +133,7 @@ nodist_pimd_pimd_SOURCES = \
 	yang/frr-pim-rp.yang.c \
 	# end
 
+pimd_pimd_LDFLAGS = $(AM_LDFLAGS) $(PIMD_SAN_FLAGS)
 pimd_pimd_LDADD = pimd/libpim.a lib/libfrr.la $(LIBCAP)
 pimd_pimd_SOURCES = pimd/pim_main.c
 
