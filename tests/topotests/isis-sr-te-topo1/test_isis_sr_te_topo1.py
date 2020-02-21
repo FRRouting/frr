@@ -203,11 +203,11 @@ def cmp_json_output(rname, command, reference, exact=False):
 def cmp_json_output_exact(rname, command, reference):
     return cmp_json_output(rname, command, reference, True)
 
-def add_candidate_path(router, endpoint, pref, name):
+def add_candidate_path(router, endpoint, pref, name, segment_list='default'):
     router.cmd(''' \
         vtysh -c "conf t" \
               -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
-              -c "candidate-path preference ''' + str(pref) + ''' name ''' + name + ''' explicit segment-list default"''')
+              -c "candidate-path preference ''' + str(pref) + ''' name ''' + name + ''' explicit segment-list ''' + segment_list + '''"''')
 
 def delete_candidate_path(router, endpoint, pref):
     router.cmd(''' \
@@ -244,7 +244,7 @@ def test_srte_add_candidate_check_mpls_table_step1():
 # Checking pathd operational data using a single SR Policy and a single Candidate Path
 #
 def test_srte_bare_policy_step2():
-    setup_testcase("Test (step 1): bare SR Policy should not be operational")
+    setup_testcase("Test (step 2): bare SR Policy should not be operational")
 
     for rname in ['rt1', 'rt6']:
         cmp_json_output_exact(rname,
@@ -252,7 +252,7 @@ def test_srte_bare_policy_step2():
                               "step2/show_operational_data.ref")
 
 def test_srte_add_candidate_check_operational_data_step2():
-    tgen = setup_testcase("Test (step 1): add single Candidate Path, SR Policy should be operational")
+    tgen = setup_testcase("Test (step 2): add single Candidate Path, SR Policy should be operational")
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         add_candidate_path(tgen.net[rname], endpoint, 100, 'default')
@@ -261,7 +261,7 @@ def test_srte_add_candidate_check_operational_data_step2():
                               "step2/show_operational_data_with_candidate.ref")
 
 def test_srte_config_remove_candidate_check_operational_data_step2():
-    tgen = setup_testcase("Test (step 1): remove single Candidate Path, SR Policy should not be operational anymore")
+    tgen = setup_testcase("Test (step 2): remove single Candidate Path, SR Policy should not be operational anymore")
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         delete_candidate_path(tgen.net[rname], endpoint, 100)
@@ -275,7 +275,7 @@ def test_srte_config_remove_candidate_check_operational_data_step2():
 # Testing the Candidate Path selection
 #
 def test_srte_add_two_candidates_step3():
-    tgen = setup_testcase("Test (step 2): second Candidate Path has higher Priority")
+    tgen = setup_testcase("Test (step 3): second Candidate Path has higher Priority")
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         for pref, cand_name in [('100', 'first'), ('200', 'second')]:
@@ -290,7 +290,7 @@ def test_srte_add_two_candidates_step3():
             delete_candidate_path(tgen.net[rname], endpoint, pref)
 
 def test_srte_add_two_candidates_with_reverse_priority_step3():
-    tgen = setup_testcase("Test (step 2): second Candidate Path has lower Priority")
+    tgen = setup_testcase("Test (step 3): second Candidate Path has lower Priority")
 
     # Use reversed priorities here
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
@@ -306,7 +306,7 @@ def test_srte_add_two_candidates_with_reverse_priority_step3():
             delete_candidate_path(tgen.net[rname], endpoint, pref)
 
 def test_srte_remove_best_candidate_step3():
-    tgen = setup_testcase("Test (step 2): delete the Candidate Path with higher priority")
+    tgen = setup_testcase("Test (step 3): delete the Candidate Path with higher priority")
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         for pref, cand_name in [('100', 'first'), ('200', 'second')]:
@@ -323,6 +323,24 @@ def test_srte_remove_best_candidate_step3():
                               "step3/show_operational_data_with_single_candidate.ref")
         # cleanup
         delete_candidate_path(tgen.net[rname], endpoint, 100)
+
+#
+# Step 4
+#
+# Checking the MPLS table using a single SR Policy and a Candidate Path with different Segment Lists
+#
+def test_srte_change_segment_list_check_mpls_table_step4():
+    tgen = setup_testcase("Test (step 4): check MPLS table for changed Segment List")
+
+    for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
+        add_candidate_path(tgen.net[rname], endpoint, 100, 'default')
+	# now change the segment list name
+        add_candidate_path(tgen.net[rname], endpoint, 100, 'default', 'test')
+        cmp_json_output(rname,
+                        "show mpls table json",
+                        "step4/show_mpls_table.ref")
+        delete_candidate_path(tgen.net[rname], endpoint, 100)
+
 
 # Memory leak test template
 def test_memory_leak():
