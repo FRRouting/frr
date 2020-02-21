@@ -38,6 +38,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_cli.h"
 #include "zebra/zebra_defaults.h"
+#include "zebra/zebra_nhrp.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 

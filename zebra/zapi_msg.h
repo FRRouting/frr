@@ -6,6 +6,8 @@
  *   Copyright (C) 2015-2018  Cumulus Networks, Inc.
  *   et al.
  */
+#ifndef _ZAPI_MSG_H
+#define _ZAPI_MSG_H
 
 #include "lib/if.h"
 #include "lib/vrf.h"
@@ -121,6 +123,11 @@ extern void zebra_install_6pe_resolved_route(int cmd, struct prefix *p,
 					     struct rnh *rnh,
 					     struct zebra_vrf *zvrf);
 
+DECLARE_HOOK(zebra_nflog_configure,
+	     (int nflog_group, struct zebra_vrf *zvrf), (nflog_group, zvrf));
+
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* _ZAPI_MSG_H */

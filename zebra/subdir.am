@@ -120,6 +120,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_neigh.c \
 	zebra/zserv.c \
 	zebra/zebra_pm.c \
+	zebra/zebra_nhrp.c \
 	# end
 
 clippy_scan += \
@@ -135,6 +136,7 @@ clippy_scan += \
 	zebra/dpdk/zebra_dplane_dpdk_vty.c \
 	zebra/label_manager.c \
 	zebra/zebra_cli.c \
+	zebra/zebra_nhrp.c \
 	# end
 
 noinst_HEADERS += \
@@ -207,6 +209,7 @@ noinst_HEADERS += \
 	zebra/dpdk/zebra_dplane_dpdk.h \
 	zebra/dpdk/zebra_dplane_dpdk_private.h \
 	zebra/zebra_pm.h \
+	zebra/zebra_nhrp.h \
 	zebra/zebra_defaults.h \
 	# end
 

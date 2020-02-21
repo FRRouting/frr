@@ -2064,6 +2064,35 @@ module frr-zebra {
           }
       }
 
+      container nhrp-6wind {
+        description
+          "Zebra 6WIND NHRP parameters";
+        leaf ipv4-6wind {
+          type boolean;
+          default "false";
+          description
+            "6WIND NHRP fast-path notification for IPv4";
+        }
+        leaf ipv6-6wind {
+          type boolean;
+          default "false";
+          description
+            "6WIND NHRP fast-path notification for IPv6";
+        }
+        leaf ipv4-nflog {
+          type boolean;
+          default "false";
+          description
+            "Netfilter log notification for IPv4";
+        }
+        leaf ipv6-nflog {
+          type boolean;
+          default "false";
+          description
+            "Netfilter log notification for IPv6";
+        }
+      }
+
       leaf bandwidth {
         type uint32 {
           range "1..1000000";
@@ -2838,6 +2867,14 @@ module frr-zebra {
           "Resolve IPv4 nexthops via the default route. This is true by default
            for traditional profile and false by default for datacenter profile.
            Removing the leaf sets it back to the default value for the profile.";
+      }
+
+      leaf nhrp-6wind-port {
+        type uint16 {
+          range "1..65535";
+        }
+        description
+          "6WIND NHRP fast-path notification port.";
       }
 
       container netns {

@@ -30,6 +30,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/table_manager.h"
 #include "zebra/zebra_defaults.h"
+#include "zebra/zebra_nhrp.h"
 
 /*
  * XPath: /frr-zebra:zebra/mcast-rpf-lookup
@@ -1268,6 +1269,82 @@ int lib_interface_zebra_mpls_destroy(struct nb_cb_destroy_args *args)
 	zif->mpls_config = DFLT_ZEBRA_MPLS;
 
 	/* keep the state as it is */
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/nhrp-6wind/ipv4-6wind
+ */
+int lib_interface_zebra_ip_nhrp_6wind_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	bool enabled;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	enabled = yang_dnode_get_bool(args->dnode, NULL);
+
+	zebra_nhrp_interface_configure(ifp, true, AFI_IP, enabled);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/nhrp-6wind/ipv6-6wind
+ */
+int lib_interface_zebra_ipv6_nhrp_6wind_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	bool enabled;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	enabled = yang_dnode_get_bool(args->dnode, NULL);
+
+	zebra_nhrp_interface_configure(ifp, true, AFI_IP6, enabled);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/nhrp-6wind/ipv4-nflog
+ */
+int lib_interface_zebra_ip_nhrp_nflog_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	bool enabled;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	enabled = yang_dnode_get_bool(args->dnode, NULL);
+
+	zebra_nhrp_interface_configure(ifp, false, AFI_IP, enabled);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/nhrp-6wind/ipv6-nflog
+ */
+int lib_interface_zebra_ipv6_nhrp_nflog_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	bool enabled;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	enabled = yang_dnode_get_bool(args->dnode, NULL);
+
+	zebra_nhrp_interface_configure(ifp, false, AFI_IP, enabled);
 
 	return NB_OK;
 }
@@ -3656,6 +3733,33 @@ int lib_vrf_zebra_ipv6_resolve_via_default_destroy(struct nb_cb_destroy_args *ar
 	zvrf->zebra_rnh_ipv6_default_route = resolve_via_default;
 
 	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, NULL, SAFI_UNICAST);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/nhrp-6wind-port
+ */
+int lib_vrf_zebra_nhrp_6wind_port_modify(struct nb_cb_modify_args *args)
+{
+	uint16_t port;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	port = yang_dnode_get_uint16(args->dnode, NULL);
+
+	zebra_nhrp_6wind_connection(true, port);
+
+	return NB_OK;
+}
+
+int lib_vrf_zebra_nhrp_6wind_port_destroy(struct nb_cb_destroy_args *args)
+{
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	zebra_nhrp_6wind_connection(false, 0);
 
 	return NB_OK;
 }

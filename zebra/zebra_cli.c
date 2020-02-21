@@ -147,6 +147,106 @@ static void lib_interface_zebra_mpls_cli_write(struct vty *vty,
 		vty_out(vty, " mpls disable\n");
 }
 
+DEFPY_YANG (iface_ip_nhrp_6wind_onoff,
+       iface_ip_nhrp_6wind_onoff_cmd,
+       "[no$no] ip nhrp 6wind",
+       NO_STR
+       IP_STR
+       GRE_NHRP_STR
+       GRE_NHRP_6WIND_STR)
+{
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/nhrp-6wind/ipv4-6wind",
+			      NB_OP_CREATE, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void lib_interface_zebra_ip_nhrp_6wind_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (enabled)
+		vty_out(vty, " ip nhrp 6wind\n");
+	else if (show_defaults)
+		vty_out(vty, " no ip nhrp 6wind\n");
+}
+
+DEFPY_YANG (iface_ipv6_nhrp_6wind_onoff,
+       iface_ipv6_nhrp_6wind_onoff_cmd,
+       "[no$no] ipv6 nhrp 6wind",
+       NO_STR
+       IPV6_STR
+       GRE_NHRP_STR
+       GRE_NHRP_6WIND_STR)
+{
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/nhrp-6wind/ipv6-6wind",
+			      NB_OP_CREATE, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void lib_interface_zebra_ipv6_nhrp_6wind_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (enabled)
+		vty_out(vty, " ipv6 nhrp 6wind\n");
+	else if (show_defaults)
+		vty_out(vty, " no ipv6 nhrp 6wind\n");
+}
+
+DEFPY_YANG (iface_ip_nflog_onoff,
+       iface_ip_nflog_onoff_cmd,
+       "[no$no] ip nhrp nflog",
+       NO_STR
+       IP_STR
+       GRE_NHRP_STR
+       "Netfilter log notification\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/nhrp-6wind/ipv4-nflog",
+			      NB_OP_CREATE, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void lib_interface_zebra_ip_nhrp_nflog_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (enabled)
+		vty_out(vty, " ip nhrp nflog\n");
+	else if (show_defaults)
+		vty_out(vty, " no ip nhrp nflog\n");
+}
+
+DEFPY_YANG (iface_ipv6_nflog_onoff,
+       iface_ipv6_nflog_onoff_cmd,
+       "[no$no] ipv6 nhrp nflog",
+       NO_STR
+       IPV6_STR
+       GRE_NHRP_STR
+       "Netfilter log notification\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-zebra:zebra/nhrp-6wind/ipv6-nflog",
+			      NB_OP_CREATE, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void lib_interface_zebra_ipv6_nhrp_nflog_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (enabled)
+		vty_out(vty, " ipv6 nhrp nflog\n");
+	else if (show_defaults)
+		vty_out(vty, " no ipv6 nhrp nflog\n");
+}
+
 DEFPY_YANG (linkdetect,
 	linkdetect_cmd,
 	"[no] link-detect",
@@ -2223,6 +2323,31 @@ static void lib_vrf_zebra_ipv6_resolve_via_default_cli_write(
 	}
 }
 
+DEFPY_YANG(zebra_nhrp_6wind_port, zebra_nhrp_6wind_port_cmd,
+	   "[no$no] nhrp 6wind [(1-65535)$port]",
+	   NO_STR GRE_NHRP_STR GRE_NHRP_6WIND_STR "Port number to connect to\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/nhrp-6wind-port",
+				      NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/nhrp-6wind-port",
+				      NB_OP_MODIFY, port_str);
+
+	return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
+					VRF_DEFAULT_NAME);
+}
+
+static void lib_vrf_zebra_nhrp_6wind_port_cli_write(struct vty *vty,
+						    const struct lyd_node *dnode,
+						    bool show_defaults)
+{
+	uint16_t zebra_nhrp_6wind_port = yang_dnode_get_uint16(dnode, NULL);
+
+	if (zebra_nhrp_6wind_port)
+		vty_out(vty, "nhrp 6wind %u\n", zebra_nhrp_6wind_port);
+}
+
 DEFPY_YANG (mpls_fec_nexthop_resolution, mpls_fec_nexthop_resolution_cmd,
       "[no$no] mpls fec nexthop-resolution",
       NO_STR
@@ -2692,6 +2817,22 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.cbs.cli_show = lib_interface_zebra_mpls_cli_write,
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/nhrp-6wind/ipv4-6wind",
+			.cbs.cli_show = lib_interface_zebra_ip_nhrp_6wind_cli_write,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/nhrp-6wind/ipv6-6wind",
+			.cbs.cli_show = lib_interface_zebra_ipv6_nhrp_6wind_cli_write,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/nhrp-6wind/ipv4-nflog",
+			.cbs.cli_show = lib_interface_zebra_ip_nhrp_nflog_cli_write,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/nhrp-6wind/ipv6-nflog",
+			.cbs.cli_show = lib_interface_zebra_ipv6_nhrp_nflog_cli_write,
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params",
 			.cbs.cli_show = lib_interface_zebra_link_params_cli_write,
 			.cbs.cli_show_end = lib_interface_zebra_link_params_cli_write_end,
@@ -2881,6 +3022,10 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.cbs.cli_show = lib_vrf_zebra_ipv6_resolve_via_default_cli_write,
 		},
 		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/nhrp-6wind-port",
+			.cbs.cli_show = lib_vrf_zebra_nhrp_6wind_port_cli_write,
+		},
+		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/netns/table-range",
 			.cbs.cli_show = lib_vrf_zebra_netns_table_range_cli_write,
 		},
@@ -2945,6 +3090,11 @@ void zebra_cli_init(void)
 	install_element(INTERFACE_NODE, &zebra_evpn_es_bypass_cmd);
 	install_element(INTERFACE_NODE, &zebra_evpn_mh_uplink_cmd);
 
+	install_element(INTERFACE_NODE, &iface_ip_nflog_onoff_cmd);
+	install_element(INTERFACE_NODE, &iface_ip_nhrp_6wind_onoff_cmd);
+	install_element(INTERFACE_NODE, &iface_ipv6_nflog_onoff_cmd);
+	install_element(INTERFACE_NODE, &iface_ipv6_nhrp_6wind_onoff_cmd);
+
 #if defined(HAVE_RTADV)
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_fast_retrans_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_retrans_interval_cmd);
@@ -2993,6 +3143,8 @@ void zebra_cli_init(void)
 	install_element(CONFIG_NODE, &ipv6_nht_default_route_cmd);
 	install_element(VRF_NODE, &ip_nht_default_route_cmd);
 	install_element(VRF_NODE, &ipv6_nht_default_route_cmd);
+
+	install_element(CONFIG_NODE, &zebra_nhrp_6wind_port_cmd);
 
 	install_element(CONFIG_NODE, &mpls_fec_nexthop_resolution_cmd);
 	install_element(VRF_NODE, &mpls_fec_nexthop_resolution_cmd);

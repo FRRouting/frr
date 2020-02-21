@@ -52,6 +52,7 @@
 #include "zebra/zebra_srv6_vty.h"
 #include "zebra/zebra_tracker_nb.h"
 #include "zebra/zebra_pm.h"
+#include "zebra/zebra_nhrp.h"
 
 #define ZEBRA_PTM_SUPPORT
 

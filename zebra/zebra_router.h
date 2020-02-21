@@ -240,6 +240,7 @@ struct zebra_router {
 
 extern struct zebra_router zrouter;
 extern uint32_t rcvbufsize;
+extern struct zebra_privs_t zserv_privs;
 
 extern void zebra_router_init(bool asic_offload, bool notify_on_ack);
 extern void zebra_router_cleanup(void);

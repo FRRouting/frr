@@ -54,6 +54,7 @@
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_srte.h"
+#include "zebra/zebra_nhrp.h"
 
 /* context to manage dumps in multiple tables or vrfs */
 struct route_show_ctx {
@@ -4374,6 +4375,8 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_ipv6_forwarding_cmd);
 
 	zebra_tracker_init();
+
+	zebra_nhrp_6wind_init();
 
 	/* Route-map */
 	zebra_route_map_init();

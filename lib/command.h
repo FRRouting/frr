@@ -524,6 +524,9 @@ struct cmd_node {
 #define BFD_INTEGRATION_SOURCEV4_STR "Use IPv4 source for BFD session\n"
 #define BFD_INTEGRATION_SOURCEV6_STR "Use IPv4 source for BFD session\n"
 
+#define GRE_NHRP_STR	   "Nhrp Notification Mecanism\n"
+#define GRE_NHRP_6WIND_STR "Nhrp 6wind fast-path notification\n"
+
 /* Prototypes. */
 extern void install_node(struct cmd_node *node);
 extern void install_default(enum node_type);

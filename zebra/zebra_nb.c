@@ -384,6 +384,30 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/nhrp-6wind/ipv4-6wind",
+			.cbs = {
+				.modify = lib_interface_zebra_ip_nhrp_6wind_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/nhrp-6wind/ipv6-6wind",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv6_nhrp_6wind_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/nhrp-6wind/ipv4-nflog",
+			.cbs = {
+				.modify = lib_interface_zebra_ip_nhrp_nflog_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/nhrp-6wind/ipv6-nflog",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv6_nhrp_nflog_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-params",
 			.cbs = {
 				.create = lib_interface_zebra_link_params_create,
@@ -856,6 +880,13 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.cbs = {
 				.modify = lib_vrf_zebra_ipv6_resolve_via_default_modify,
 				.destroy = lib_vrf_zebra_ipv6_resolve_via_default_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/nhrp-6wind-port",
+			.cbs = {
+				.modify = lib_vrf_zebra_nhrp_6wind_port_modify,
+				.destroy = lib_vrf_zebra_nhrp_6wind_port_destroy,
 			}
 		},
 		{
