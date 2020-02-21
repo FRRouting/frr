@@ -163,6 +163,16 @@ def teardown_module(mod):
     # This function tears down the whole topology.
     tgen.stop_topology()
 
+def setup_testcase(msg):
+    logger.info(msg)
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    return tgen
+
 def router_compare_json_output(rname, command, reference):
     "Compare router JSON output"
 
@@ -197,12 +207,7 @@ def delete_candidate_path(router, endpoint, pref):
 # Basic Testing with one SR Policy and a single Candidate Path
 #
 def test_srte_init_step1():
-    logger.info("Test (step 1): wait for IS-IS convergence / label distribution")
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+    setup_testcase("Test (step 1): wait for IS-IS convergence / label distribution")
 
     for rname in ['rt1', 'rt6']:
         router_compare_json_output(rname,
@@ -210,12 +215,7 @@ def test_srte_init_step1():
                                    "step1/show_mpls_table_without_candidate.ref")
 
 def test_srte_config_step1():
-    logger.info("Test (step 1): bare SR Policy should not be operational")
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+    setup_testcase("Test (step 1): bare SR Policy should not be operational")
 
     for rname in ['rt1', 'rt6']:
         router_compare_json_output(rname,
@@ -223,12 +223,7 @@ def test_srte_config_step1():
                                    "step1/show_operational_data.ref")
 
 def test_srte_config_add_candidate_step1():
-    logger.info("Test (step 1): add single Candidate Path, SR Policy should be operational")
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+    tgen = setup_testcase("Test (step 1): add single Candidate Path, SR Policy should be operational")
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         add_candidate_path(tgen.net[rname], endpoint, 100, 'default')
@@ -237,12 +232,7 @@ def test_srte_config_add_candidate_step1():
                                    "step1/show_operational_data_with_candidate.ref")
 
 def test_srte_config_add_candidate_check_mpls_table_step1():
-    logger.info("Test (step 1): check MPLS table regarding the added Candidate Path")
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+    setup_testcase("Test (step 1): check MPLS table regarding the added Candidate Path")
 
     for rname in ['rt1', 'rt6']:
         router_compare_json_output(rname,
@@ -250,12 +240,7 @@ def test_srte_config_add_candidate_check_mpls_table_step1():
                                    "step1/show_mpls_table_with_candidate.ref")
 
 def test_srte_config_remove_candidate_step1():
-    logger.info("Test (step 1): remove single Candidate Path, SR Policy should not be operational anymore")
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+    tgen = setup_testcase("Test (step 1): remove single Candidate Path, SR Policy should not be operational anymore")
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         delete_candidate_path(tgen.net[rname], endpoint, 100)
@@ -269,12 +254,7 @@ def test_srte_config_remove_candidate_step1():
 # Testing the Candidate Path selection
 #
 def test_srte_config_add_two_candidates_step2():
-    logger.info("Test (step 2): second Candidate Path has higher Priority")
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+    tgen = setup_testcase("Test (step 2): second Candidate Path has higher Priority")
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         for pref, cand_name in [('100', 'first'), ('200', 'second')]:
@@ -289,12 +269,7 @@ def test_srte_config_add_two_candidates_step2():
             delete_candidate_path(tgen.net[rname], endpoint, pref)
 
 def test_srte_config_add_two_candidates_reverse_step2():
-    logger.info("Test (step 2): second Candidate Path has lower Priority")
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+    tgen = setup_testcase("Test (step 2): second Candidate Path has lower Priority")
 
     # Use reversed priorities here
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
@@ -310,12 +285,7 @@ def test_srte_config_add_two_candidates_reverse_step2():
             delete_candidate_path(tgen.net[rname], endpoint, pref)
 
 def test_srte_config_remove_best_candidate_step2():
-    logger.info("Test (step 2): delete the Candidate Path with higher priority")
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+    tgen = setup_testcase("Test (step 2): delete the Candidate Path with higher priority")
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         for pref, cand_name in [('100', 'first'), ('200', 'second')]:
