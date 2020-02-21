@@ -627,15 +627,15 @@ void pim_neighbor_delete(struct interface *ifp, struct pim_neighbor *neigh,
 	if (!PIM_OPTION_IS_SET(neigh->hello_options,
 			       PIM_OPTION_MASK_LAN_PRUNE_DELAY)) {
 		/* update num. of neighbors without hello option lan_delay */
-
-		--pim_ifp->pim_number_of_nonlandelay_neighbors;
+		pim_ifp->pim_number_of_nonlandelay_neighbors = MAX(
+			pim_ifp->pim_number_of_nonlandelay_neighbors - 1, 0);
 	}
 
 	if (!PIM_OPTION_IS_SET(neigh->hello_options,
 			       PIM_OPTION_MASK_DR_PRIORITY)) {
 		/* update num. of neighbors without dr_pri */
-
-		--pim_ifp->pim_dr_num_nondrpri_neighbors;
+		pim_ifp->pim_dr_num_nondrpri_neighbors =
+			MAX(pim_ifp->pim_dr_num_nondrpri_neighbors - 1, 0);
 	}
 
 	zassert(neigh->propagation_delay_msec
