@@ -179,6 +179,18 @@ def router_compare_json_output(rname, command, reference):
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
 
+def add_candidate_path(router, endpoint, pref, name):
+    router.cmd(''' \
+        vtysh -c "conf t" \
+              -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
+              -c "candidate-path preference ''' + str(pref) + ''' name ''' + name + ''' explicit segment-list default"''')
+
+def delete_candidate_path(router, endpoint, pref):
+    router.cmd(''' \
+        vtysh -c "conf t" \
+              -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
+              -c "no candidate-path preference ''' + str(pref) + '''"''')
+
 #
 # Step 1
 #
@@ -219,10 +231,7 @@ def test_srte_config_add_candidate_step1():
         pytest.skip(tgen.errors)
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
-        tgen.net[rname].cmd(''' \
-            vtysh -c "conf t" \
-                  -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
-                  -c "candidate-path preference 100 name default explicit segment-list default"''')
+        add_candidate_path(tgen.net[rname], endpoint, 100, 'default')
         router_compare_json_output(rname,
                                    "show yang operational-data /frr-pathd:pathd pathd",
                                    "step1/show_operational_data_with_candidate.ref")
@@ -249,10 +258,7 @@ def test_srte_config_remove_candidate_step1():
         pytest.skip(tgen.errors)
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
-        tgen.net[rname].cmd(''' \
-            vtysh -c "conf t" \
-                  -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
-                  -c "no candidate-path preference 100"''')
+        delete_candidate_path(tgen.net[rname], endpoint, 100)
         router_compare_json_output(rname,
                                    "show yang operational-data /frr-pathd:pathd pathd",
                                    "step1/show_operational_data.ref")
@@ -272,10 +278,7 @@ def test_srte_config_add_two_candidates_step2():
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         for pref, cand_name in [('100', 'first'), ('200', 'second')]:
-            tgen.net[rname].cmd(''' \
-                vtysh -c "conf t" \
-                      -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
-                      -c "candidate-path preference ''' + pref + ''' name ''' + cand_name + ''' explicit segment-list default"''')
+            add_candidate_path(tgen.net[rname], endpoint, pref, cand_name)
         router_compare_json_output(rname,
                                    "show yang operational-data /frr-pathd:pathd pathd",
                                    "step2/show_operational_data_with_two_candidates.ref")
@@ -283,10 +286,7 @@ def test_srte_config_add_two_candidates_step2():
     # cleanup
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         for pref in ['100', '200']:
-            tgen.net[rname].cmd(''' \
-                vtysh -c "conf t" \
-                      -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
-                      -c "no candidate-path preference ''' + pref + '''"''')
+            delete_candidate_path(tgen.net[rname], endpoint, pref)
 
 def test_srte_config_add_two_candidates_reverse_step2():
     logger.info("Test (step 2): second Candidate Path has lower Priority")
@@ -296,12 +296,10 @@ def test_srte_config_add_two_candidates_reverse_step2():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    # Use reversed priorities here
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         for pref, cand_name in [('200', 'first'), ('100', 'second')]:
-            tgen.net[rname].cmd(''' \
-                vtysh -c "conf t" \
-                      -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
-                      -c "candidate-path preference ''' + pref + ''' name ''' + cand_name + ''' explicit segment-list default"''')
+            add_candidate_path(tgen.net[rname], endpoint, pref, cand_name)
         router_compare_json_output(rname,
                                    "show yang operational-data /frr-pathd:pathd pathd",
                                    "step2/show_operational_data_with_two_candidates.ref")
@@ -309,10 +307,7 @@ def test_srte_config_add_two_candidates_reverse_step2():
     # cleanup
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         for pref in ['100', '200']:
-            tgen.net[rname].cmd(''' \
-                vtysh -c "conf t" \
-                      -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
-                      -c "no candidate-path preference ''' + pref + '''"''')
+            delete_candidate_path(tgen.net[rname], endpoint, pref)
 
 def test_srte_config_remove_best_candidate_step2():
     logger.info("Test (step 2): delete the Candidate Path with higher priority")
@@ -324,17 +319,11 @@ def test_srte_config_remove_best_candidate_step2():
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         for pref, cand_name in [('100', 'first'), ('200', 'second')]:
-            tgen.net[rname].cmd(''' \
-                vtysh -c "conf t" \
-                      -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
-                      -c "candidate-path preference ''' + pref + ''' name ''' + cand_name + ''' explicit segment-list default"''')
+            add_candidate_path(tgen.net[rname], endpoint, pref, cand_name)
 
     # Delete candidate with higher priority
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
-        tgen.net[rname].cmd(''' \
-            vtysh -c "conf t" \
-                  -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
-                  -c "no candidate-path preference 200"''')
+        delete_candidate_path(tgen.net[rname], endpoint, 200)
 
     # Candidate with lower priority should get active now
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
