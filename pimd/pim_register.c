@@ -325,6 +325,11 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 	struct pim_instance *pim = pim_ifp->pim;
 
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
+
+	if (tlv_buf_size
+	    < (int)(PIM_MSG_REGISTER_BIT_RESERVED_LEN + sizeof(struct ip))) {
+		return 0;
+	}
 	ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
 
 	if (!pim_rp_check_is_my_ip_address(pim, dest_addr)) {
