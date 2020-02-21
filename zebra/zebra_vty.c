@@ -33,6 +33,7 @@
 #include "routemap.h"
 #include "srcdest_table.h"
 #include "vxlan.h"
+#include "hook.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zserv.h"
@@ -87,6 +88,9 @@ static void show_nexthop_detail_helper(struct vty *vty,
 				       const struct nexthop *nexthop,
 				       bool is_backup);
 
+
+DEFINE_HOOK(zebra_vty_config_write,
+	    (struct vty *vty), (vty));
 
 DEFUN (ip_multicast_mode,
        ip_multicast_mode_cmd,
@@ -3666,6 +3670,7 @@ static int config_write_protocol(struct vty *vty)
 	netlink_config_write_helper(vty);
 #endif /* HAVE_NETLINK */
 
+	hook_call(zebra_vty_config_write, vty);
 	return 1;
 }
 

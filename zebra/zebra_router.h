@@ -23,6 +23,7 @@
 #define __ZEBRA_ROUTER_H__
 
 #include "lib/mlag.h"
+#include "hook.h"
 
 #include "zebra/zebra_ns.h"
 
@@ -213,6 +214,7 @@ struct zebra_router {
 #define GRACEFUL_RESTART_TIME 60
 
 extern struct zebra_router zrouter;
+extern struct zebra_privs_t zserv_privs;
 
 extern void zebra_router_init(bool asic_offload, bool notify_on_ack);
 extern void zebra_router_cleanup(void);
@@ -257,6 +259,8 @@ extern bool zebra_router_notify_on_ack(void);
 
 /* zebra_northbound.c */
 extern const struct frr_yang_module_info frr_zebra_info;
+
+DECLARE_HOOK(zebra_vty_config_write, (struct vty *vty), (vty));
 
 #ifdef __cplusplus
 }

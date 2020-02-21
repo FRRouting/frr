@@ -18,11 +18,14 @@ vtysh_scan += \
 	zebra/zebra_routemap.c \
 	zebra/zebra_vty.c \
 	zebra/zserv.c \
+	zebra/zebra_nhrp.c \
 	# end
 
 # can be loaded as DSO - always include for vtysh
 vtysh_scan += zebra/irdp_interface.c
 vtysh_scan += zebra/zebra_fpm.c
+# can be loaded as DSO - always include for vtysh
+vtysh_scan += zebra/zebra_nhrp.c
 
 vtysh_daemons += zebra
 
@@ -40,6 +43,9 @@ module_LTLIBRARIES += zebra/zebra_cumulus_mlag.la
 endif
 if WRAP_SCRIPT
 module_LTLIBRARIES += zebra/zebra_wrap_script.la
+endif
+if ZEBRA_NHRP
+module_LTLIBRARIES += zebra/zebra_nhrp.la
 endif
 
 # Dataplane sample plugin
@@ -131,6 +137,7 @@ clippy_scan += \
 	zebra/zebra_mlag_vty.c \
 	zebra/zebra_routemap.c \
 	zebra/zebra_vty.c \
+	zebra/zebra_nhrp.c \
 	# end
 
 noinst_HEADERS += \
@@ -249,3 +256,9 @@ if WRAP_SCRIPT
 zebra_zebra_wrap_script_la_SOURCES = zebra/zebra_wrap_script.c
 zebra_zebra_wrap_script_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 endif
+
+if ZEBRA_NHRP
+zebra_zebra_nhrp_la_SOURCES = zebra/zebra_nhrp.c
+zebra_zebra_nhrp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+endif
+

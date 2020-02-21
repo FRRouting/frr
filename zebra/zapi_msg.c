@@ -69,6 +69,9 @@ static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
 
 extern struct zebra_privs_t zserv_privs;
 
+DEFINE_HOOK(zebra_nflog_configure,
+	    (int nflog_group, struct zebra_vrf *zvrf), (nflog_group, zvrf));
+
 /* Encoding helpers -------------------------------------------------------- */
 
 static void zserv_encode_interface(struct stream *s, struct interface *ifp)
@@ -3405,6 +3408,7 @@ static inline void zebra_nflog_register(ZAPI_HANDLER_ARGS)
 	vrf_bitmap_set(client->nfloginfo, zvrf_id(zvrf));
 
 	kernel_nflog_register(zvrf, true, group);
+	hook_call(zebra_nflog_configure, group, zvrf);
  stream_failure:
 	return;
 }
@@ -3421,6 +3425,7 @@ static inline void zebra_nflog_unregister(ZAPI_HANDLER_ARGS)
 		return;
 	vrf_bitmap_unset(client->nfloginfo, zvrf_id(zvrf));
 
+	hook_call(zebra_nflog_configure, 0, zvrf);
 	kernel_nflog_register(zvrf, false, group);
 stream_failure:
 	return;

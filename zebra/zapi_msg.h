@@ -19,6 +19,8 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
+#ifndef _ZAPI_MSG_H
+#define _ZAPI_MSG_H
 
 #include "lib/if.h"
 #include "lib/vrf.h"
@@ -121,6 +123,11 @@ extern void zsend_nflog_notify(int cmd,
 			       uint16_t protocol_type,
 			       uint8_t *payload, int len);
 
+DECLARE_HOOK(zebra_nflog_configure,
+	     (int nflog_group, struct zebra_vrf *zvrf), (nflog_group, zvrf));
+
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* _ZAPI_MSG_H */
