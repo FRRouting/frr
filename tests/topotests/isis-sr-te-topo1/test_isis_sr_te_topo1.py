@@ -204,7 +204,7 @@ def delete_candidate_path(router, endpoint, pref):
 #
 # Step 1
 #
-# Basic Testing with one SR Policy and a single Candidate Path
+# Checking the MPLS table using a single SR Policy and a single Candidate Path
 #
 def test_srte_init_step1():
     setup_testcase("Test (step 1): wait for IS-IS convergence / label distribution")
@@ -214,46 +214,53 @@ def test_srte_init_step1():
                                    "show mpls table json",
                                    "step1/show_mpls_table_without_candidate.ref")
 
-def test_srte_config_step1():
+def test_srte_add_candidate_check_mpls_table_step1():
+    tgen = setup_testcase("Test (step 1): check MPLS table regarding the added Candidate Path")
+
+    for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
+        add_candidate_path(tgen.net[rname], endpoint, 100, 'default')
+        router_compare_json_output(rname,
+                                   "show mpls table json",
+                                   "step1/show_mpls_table_with_candidate.ref")
+        delete_candidate_path(tgen.net[rname], endpoint, 100)
+
+#
+# Step 2
+#
+# Checking pathd operational data using a single SR Policy and a single Candidate Path
+#
+def test_srte_bare_policy_step2():
     setup_testcase("Test (step 1): bare SR Policy should not be operational")
 
     for rname in ['rt1', 'rt6']:
         router_compare_json_output(rname,
                                    "show yang operational-data /frr-pathd:pathd pathd",
-                                   "step1/show_operational_data.ref")
+                                   "step2/show_operational_data.ref")
 
-def test_srte_config_add_candidate_step1():
+def test_srte_add_candidate_check_operational_data_step2():
     tgen = setup_testcase("Test (step 1): add single Candidate Path, SR Policy should be operational")
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         add_candidate_path(tgen.net[rname], endpoint, 100, 'default')
         router_compare_json_output(rname,
                                    "show yang operational-data /frr-pathd:pathd pathd",
-                                   "step1/show_operational_data_with_candidate.ref")
+                                   "step2/show_operational_data_with_candidate.ref")
 
-def test_srte_config_add_candidate_check_mpls_table_step1():
-    setup_testcase("Test (step 1): check MPLS table regarding the added Candidate Path")
-
-    for rname in ['rt1', 'rt6']:
-        router_compare_json_output(rname,
-                                   "show mpls table json",
-                                   "step1/show_mpls_table_with_candidate.ref")
-
-def test_srte_config_remove_candidate_step1():
+def test_srte_config_remove_candidate_check_operational_data_step2():
     tgen = setup_testcase("Test (step 1): remove single Candidate Path, SR Policy should not be operational anymore")
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         delete_candidate_path(tgen.net[rname], endpoint, 100)
         router_compare_json_output(rname,
                                    "show yang operational-data /frr-pathd:pathd pathd",
-                                   "step1/show_operational_data.ref")
+                                   "step2/show_operational_data.ref")
 
 #
-# Step 2
+# Step 3
 #
 # Testing the Candidate Path selection
 #
-def test_srte_config_add_two_candidates_step2():
+def test_srte_add_two_candidates_step3():
     tgen = setup_testcase("Test (step 2): second Candidate Path has higher Priority")
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
@@ -261,14 +268,14 @@ def test_srte_config_add_two_candidates_step2():
             add_candidate_path(tgen.net[rname], endpoint, pref, cand_name)
         router_compare_json_output(rname,
                                    "show yang operational-data /frr-pathd:pathd pathd",
-                                   "step2/show_operational_data_with_two_candidates.ref")
+                                   "step3/show_operational_data_with_two_candidates.ref")
 
     # cleanup
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         for pref in ['100', '200']:
             delete_candidate_path(tgen.net[rname], endpoint, pref)
 
-def test_srte_config_add_two_candidates_reverse_step2():
+def test_srte_add_two_candidates_with_reverse_priority_step3():
     tgen = setup_testcase("Test (step 2): second Candidate Path has lower Priority")
 
     # Use reversed priorities here
@@ -277,14 +284,14 @@ def test_srte_config_add_two_candidates_reverse_step2():
             add_candidate_path(tgen.net[rname], endpoint, pref, cand_name)
         router_compare_json_output(rname,
                                    "show yang operational-data /frr-pathd:pathd pathd",
-                                   "step2/show_operational_data_with_two_candidates.ref")
+                                   "step3/show_operational_data_with_two_candidates.ref")
 
     # cleanup
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         for pref in ['100', '200']:
             delete_candidate_path(tgen.net[rname], endpoint, pref)
 
-def test_srte_config_remove_best_candidate_step2():
+def test_srte_remove_best_candidate_step3():
     tgen = setup_testcase("Test (step 2): delete the Candidate Path with higher priority")
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
@@ -299,7 +306,9 @@ def test_srte_config_remove_best_candidate_step2():
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
         router_compare_json_output(rname,
                                    "show yang operational-data /frr-pathd:pathd pathd",
-                                   "step2/show_operational_data_with_single_candidate.ref")
+                                   "step3/show_operational_data_with_single_candidate.ref")
+        # cleanup
+        delete_candidate_path(tgen.net[rname], endpoint, 100)
 
 # Memory leak test template
 def test_memory_leak():
