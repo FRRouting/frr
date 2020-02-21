@@ -27,6 +27,8 @@
 int pcep_lib_connect(struct pcc_state *pcc_state);
 void pcep_lib_disconnect(struct pcc_state *pcc_state);
 double_linked_list *pcep_lib_format_path(struct path *path);
+void pcep_lib_parse_capabilities(struct pcc_caps *caps,
+				 double_linked_list *objs);
 struct path *pcep_lib_parse_path(double_linked_list *objs);
 void pcep_lib_free_path(struct path *path);
 

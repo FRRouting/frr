@@ -44,6 +44,7 @@ THREAD_DATA char _debug_buff[DEBUG_BUFF_SIZE];
 
 static void _format_pcc_opts(int ps, struct pcc_opts *ops);
 static void _format_pce_opts(int ps, struct pce_opts *ops);
+static void _format_pcc_caps(int ps, struct pcc_caps *caps);
 static void _format_pcc_state(int ps, struct pcc_state *state);
 static void _format_ctrl_state(int ps, struct ctrl_state *state);
 static void _format_path(int ps, struct path *path);
@@ -570,7 +571,6 @@ void _format_pcc_opts(int ps, struct pcc_opts *opts)
 		PCEP_FORMAT("\n");
 		PCEP_FORMAT("%*saddr: %pI4\n", ps2, "", &opts->addr);
 		PCEP_FORMAT("%*sport: %i\n", ps2, "", opts->port);
-		PCEP_FORMAT("%*s}\n", ps, "");
 	}
 }
 
@@ -583,10 +583,15 @@ void _format_pce_opts(int ps, struct pce_opts *opts)
 		PCEP_FORMAT("\n");
 		PCEP_FORMAT("%*saddr: %pI4\n", ps2, "", &opts->addr);
 		PCEP_FORMAT("%*sport: %i\n", ps2, "", opts->port);
-		PCEP_FORMAT("%*s}\n", ps, "");
 	}
 }
 
+void _format_pcc_caps(int ps, struct pcc_caps *caps)
+{
+	int ps2 = ps + DEBUG_IDENT_SIZE;
+	PCEP_FORMAT("\n");
+	PCEP_FORMAT("%*slsp_update: %d\n", ps2, "", caps->lsp_update);
+}
 
 void _format_pcc_state(int ps, struct pcc_state *state)
 {
@@ -607,6 +612,8 @@ void _format_pcc_state(int ps, struct pcc_state *state)
 			PCEP_FORMAT("%*ssess: <PCC SESSION %p>\n", ps2, "",
 				    state->sess);
 		}
+		PCEP_FORMAT("%*scaps: ", ps2, "");
+		_format_pcc_caps(ps2, &state->caps);
 	}
 }
 

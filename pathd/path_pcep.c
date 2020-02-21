@@ -74,6 +74,9 @@ static int pcep_pcc_disable(struct ctrl_state *ctrl_state,
 static void pcep_pcc_handle_pcep_event(struct ctrl_state *ctrl_state,
 				       struct pcc_state *pcc_state,
 				       pcep_event *event);
+static void pcep_pcc_handle_open(struct ctrl_state *ctrl_state,
+				 struct pcc_state *pcc_state,
+				 struct pcep_message *msg);
 static void pcep_pcc_handle_message(struct ctrl_state *ctrl_state,
 				    struct pcc_state *pcc_state,
 				    struct pcep_message *msg);
@@ -377,8 +380,8 @@ void pcep_pcc_handle_pcep_event(struct ctrl_state *ctrl_state,
 		PCEP_DEBUG("Received PCEP message");
 		PCEP_DEBUG_PCEP("%s", format_pcep_message(event->message));
 		if (CONNECTING == pcc_state->status) {
-			assert(PCEP_TYPE_OPEN
-			       == event->message->msg_header->type);
+			pcep_pcc_handle_open(ctrl_state, pcc_state,
+					     event->message);
 			break;
 		}
 		assert(SYNCHRONIZING == pcc_state->status
@@ -391,6 +394,13 @@ void pcep_pcc_handle_pcep_event(struct ctrl_state *ctrl_state,
 			  format_pcep_event(event));
 		break;
 	}
+}
+
+void pcep_pcc_handle_open(struct ctrl_state *ctrl_state,
+			  struct pcc_state *pcc_state, struct pcep_message *msg)
+{
+	assert(PCEP_TYPE_OPEN == msg->msg_header->type);
+	pcep_lib_parse_capabilities(&pcc_state->caps, msg->obj_list);
 }
 
 void pcep_pcc_handle_message(struct ctrl_state *ctrl_state,

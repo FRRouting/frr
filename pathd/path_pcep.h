@@ -135,6 +135,10 @@ struct srpid_map_data {
 	uint32_t srpid;
 };
 
+struct pcc_caps {
+	bool lsp_update;
+};
+
 struct pcc_state {
 	int id;
 	enum pcc_status status;
@@ -150,6 +154,7 @@ struct pcc_state {
 	struct plspid_map_head plspid_map;
 	struct nbkey_map_head nbkey_map;
 	struct srpid_map_head srpid_map;
+	struct pcc_caps caps;
 };
 
 struct ctrl_state {

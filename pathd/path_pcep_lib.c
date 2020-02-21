@@ -24,6 +24,8 @@
 #include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_debug.h"
 
+static void pcep_lib_parse_open(struct pcc_caps *caps,
+				struct pcep_object_open *open);
 static void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp *srp);
 static void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp);
 static void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero);
@@ -164,6 +166,62 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	dll_append(objs, ero);
 
 	return objs;
+}
+
+void pcep_lib_parse_capabilities(struct pcc_caps *caps,
+				 double_linked_list *objs)
+{
+	double_linked_list_node *node;
+
+	struct pcep_object_header *obj;
+	struct pcep_object_open *open = NULL;
+
+	for (node = objs->head; node != NULL; node = node->next_node) {
+		obj = (struct pcep_object_header *)node->data;
+		switch (CLASS_TYPE(obj->object_class, obj->object_type)) {
+		case CLASS_TYPE(PCEP_OBJ_CLASS_OPEN, PCEP_OBJ_TYPE_OPEN):
+			assert(NULL == open);
+			open = (struct pcep_object_open *)obj;
+			pcep_lib_parse_open(caps, open);
+			break;
+		default:
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_OBJECT,
+				  "Unexpected PCEP object %s (%u) / %s (%u)",
+				  pcep_object_class_name(obj->object_class),
+				  obj->object_class,
+				  pcep_object_type_name(obj->object_class,
+							obj->object_type),
+				  obj->object_type);
+			break;
+		}
+	}
+}
+
+void pcep_lib_parse_open(struct pcc_caps *caps, struct pcep_object_open *open)
+{
+	double_linked_list *tlvs = open->header.tlv_list;
+	double_linked_list_node *node;
+	struct pcep_object_tlv_header *tlv_header;
+	struct pcep_object_tlv_stateful_pce_capability *tlv;
+
+	for (node = tlvs->head; node != NULL; node = node->next_node) {
+		tlv_header = (struct pcep_object_tlv_header *)node->data;
+		switch (tlv_header->type) {
+		case PCEP_OBJ_TLV_TYPE_STATEFUL_PCE_CAPABILITY:
+			tlv = (struct pcep_object_tlv_stateful_pce_capability *)
+				tlv_header;
+			caps->lsp_update = tlv->flag_u_lsp_update_capability;
+			break;
+		case PCEP_OBJ_TLV_TYPE_SR_PCE_CAPABILITY:
+			break;
+		default:
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_TLV,
+				  "Unexpected OPEN's TLV %s (%u)",
+				  pcep_tlv_type_name(tlv_header->type),
+				  tlv_header->type);
+			break;
+		}
+	}
 }
 
 struct path *pcep_lib_parse_path(double_linked_list *objs)
