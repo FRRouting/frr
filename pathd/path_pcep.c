@@ -61,6 +61,8 @@ struct pcep_glob *pcep_g = &pcep_glob_space;
 /* PCC Functions */
 static struct pcc_state *pcep_pcc_initialize(struct ctrl_state *ctrl_state,
 					     int index);
+static void update_tag(struct ctrl_state *ctrl_state,
+		       struct pcc_state *pcc_state);
 static void pcep_pcc_finalize(struct ctrl_state *ctrl_state,
 			      struct pcc_state *pcc_state);
 static int pcep_pcc_update(struct ctrl_state *ctrl_state,
@@ -246,13 +248,27 @@ struct pcc_state *pcep_pcc_initialize(struct ctrl_state *ctrl_state, int index)
 
 	struct pcc_state *pcc_state = XCALLOC(MTYPE_PCEP, sizeof(*pcc_state));
 
-	PCEP_DEBUG("PCC initializing...");
-
 	pcc_state->id = index;
 	pcc_state->status = DISCONNECTED;
 	pcc_state->next_plspid = 1;
 
+	update_tag(ctrl_state, pcc_state);
+
+	PCEP_DEBUG("%s PCC initialized", pcc_state->tag);
+
 	return pcc_state;
+}
+
+void update_tag(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
+{
+	if (NULL != pcc_state->pce_opts) {
+		snprintfrr(pcc_state->tag, sizeof(pcc_state->tag),
+			   "%pI4:%i (%u)", &pcc_state->pce_opts->addr,
+			   pcc_state->pce_opts->port, pcc_state->id);
+	} else {
+		snprintfrr(pcc_state->tag, sizeof(pcc_state->tag), "(%u)",
+			   pcc_state->id);
+	}
 }
 
 void pcep_pcc_finalize(struct ctrl_state *ctrl_state,
@@ -261,7 +277,7 @@ void pcep_pcc_finalize(struct ctrl_state *ctrl_state,
 	assert(NULL != ctrl_state);
 	assert(NULL != pcc_state);
 
-	PCEP_DEBUG("PCC finalizing...");
+	PCEP_DEBUG("%s PCC finalizing...", pcc_state->tag);
 
 	pcep_pcc_disable(ctrl_state, pcc_state);
 
@@ -302,6 +318,8 @@ int pcep_pcc_update(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
 	pcc_state->pcc_opts = pcc_opts;
 	pcc_state->pce_opts = pce_opts;
 
+	update_tag(ctrl_state, pcc_state);
+
 	return pcep_pcc_enable(ctrl_state, pcc_state);
 }
 
@@ -311,8 +329,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 
 	int ret;
 
-	PCEP_DEBUG("PCC connecting to %pI4:%d", &pcc_state->pce_opts->addr,
-		   pcc_state->pce_opts->port);
+	PCEP_DEBUG("%s PCC connecting", pcc_state->tag);
 
 	if ((ret = pcep_lib_connect(pcc_state))) {
 		flog_warn(EC_PATH_PCEP_LIB_CONNECT,
@@ -340,7 +357,7 @@ int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	case CONNECTING:
 	case SYNCHRONIZING:
 	case OPERATING:
-		PCEP_DEBUG("Disconnecting PCC...");
+		PCEP_DEBUG("%s Disconnecting PCC...", pcc_state->tag);
 		pcep_lib_disconnect(pcc_state);
 		pcc_state->status = DISCONNECTED;
 		return 0;
@@ -352,14 +369,12 @@ int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 void pcep_pcc_handle_pcep_event(struct ctrl_state *ctrl_state,
 				struct pcc_state *pcc_state, pcep_event *event)
 {
-	PCEP_DEBUG("Received PCEP event: %s",
+	PCEP_DEBUG("%s Received PCEP event: %s", pcc_state->tag,
 		   pcep_event_type_name(event->event_type));
 	switch (event->event_type) {
 	case PCC_CONNECTED_TO_PCE:
 		assert(CONNECTING == pcc_state->status);
-		PCEP_DEBUG("Connection established to PCE %pI4:%i",
-			   &pcc_state->pce_opts->addr,
-			   pcc_state->pce_opts->port);
+		PCEP_DEBUG("%s Connection established", pcc_state->tag);
 		pcc_state->status = SYNCHRONIZING;
 		pcc_state->retry_count = 0;
 		pcc_state->synchronized = false;
@@ -377,8 +392,8 @@ void pcep_pcc_handle_pcep_event(struct ctrl_state *ctrl_state,
 		pcep_pcc_schedule_reconnect(ctrl_state, pcc_state);
 		break;
 	case MESSAGE_RECEIVED:
-		PCEP_DEBUG("Received PCEP message");
-		PCEP_DEBUG_PCEP("%s", format_pcep_message(event->message));
+		PCEP_DEBUG_PCEP("%s Received PCEP message: %s", pcc_state->tag,
+				format_pcep_message(event->message));
 		if (CONNECTING == pcc_state->status) {
 			pcep_pcc_handle_open(ctrl_state, pcc_state,
 					     event->message);
@@ -430,7 +445,7 @@ void pcep_pcc_lsp_update(struct ctrl_state *ctrl_state,
 
 	pcep_pcc_push_srpid(pcc_state, path);
 
-	PCEP_DEBUG("Received LSP update");
+	PCEP_DEBUG("%s Received LSP update", pcc_state->tag);
 	PCEP_DEBUG_PATH("%s", format_path(path));
 
 	pcep_thread_update_path(ctrl_state, pcc_state, path);
@@ -440,14 +455,15 @@ void pcep_pcc_lsp_initiate(struct ctrl_state *ctrl_state,
 			   struct pcc_state *pcc_state,
 			   struct pcep_message *msg)
 {
-	PCEP_DEBUG("Received LSP initiate, not supported yet");
+	PCEP_DEBUG("%s Received LSP initiate, not supported yet",
+		   pcc_state->tag);
 }
 
 void pcep_pcc_send(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
 		   struct pcep_message *msg)
 {
-	PCEP_DEBUG("Sending PCEP message");
-	PCEP_DEBUG_PCEP("%s", format_pcep_message(msg));
+	PCEP_DEBUG_PCEP("%s Sending PCEP message: %s", pcc_state->tag,
+			format_pcep_message(msg));
 	send_message(pcc_state->sess, msg, true);
 }
 
@@ -557,8 +573,8 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 	    && (PCEP_LSP_OPERATIONAL_DOWN != path->status)) {
 		orig_status = path->status;
 		path->status = PCEP_LSP_OPERATIONAL_DOWN;
-		PCEP_DEBUG("Sending path (ODL FIX)");
-		PCEP_DEBUG_PATH("%s", format_path(path));
+		PCEP_DEBUG_PATH("%s Sending path %s (ODL FIX): %s",
+				pcc_state->tag, path->name, format_path(path));
 		objs = pcep_lib_format_path(path);
 		report = pcep_msg_create_report(objs);
 		pcep_pcc_send(ctrl_state, pcc_state, report);
@@ -566,8 +582,8 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 		path->srp_id = 0;
 	}
 
-	PCEP_DEBUG("Sending path");
-	PCEP_DEBUG_PATH("%s", format_path(path));
+	PCEP_DEBUG_PATH("%s Sending path %s: %s", pcc_state->tag, path->name,
+			format_path(path));
 	objs = pcep_lib_format_path(path);
 	report = pcep_msg_create_report(objs);
 	pcep_pcc_send(ctrl_state, pcc_state, report);
@@ -581,15 +597,18 @@ void pcep_pcc_handle_pathd_event(struct ctrl_state *ctrl_state,
 		return;
 	switch (type) {
 	case CANDIDATE_CREATED:
-		PCEP_DEBUG("Candidate path %s created", path->name);
+		PCEP_DEBUG("%s Candidate path %s created", pcc_state->tag,
+			   path->name);
 		pcep_pcc_send_report(ctrl_state, pcc_state, path);
 		break;
 	case CANDIDATE_UPDATED:
-		PCEP_DEBUG("Candidate path %s updated", path->name);
+		PCEP_DEBUG("%s Candidate path %s updated", pcc_state->tag,
+			   path->name);
 		pcep_pcc_send_report(ctrl_state, pcc_state, path);
 		break;
 	case CANDIDATE_REMOVED:
-		PCEP_DEBUG("Candidate path %s removed", path->name);
+		PCEP_DEBUG("%s Candidate path %s removed", pcc_state->tag,
+			   path->name);
 		path->was_removed = true;
 		pcep_pcc_send_report(ctrl_state, pcc_state, path);
 		break;
@@ -836,6 +855,7 @@ void pcep_thread_start_sync(struct ctrl_state *ctrl_state,
 	assert(NULL != ctrl_state);
 	assert(NULL != pcc_state);
 
+	PCEP_DEBUG("%s Starting PCE synchronization", pcc_state->tag);
 	thread_add_event(ctrl_state->main, pcep_main_start_sync_event, NULL,
 			 pcc_state->id, NULL);
 }
@@ -1000,8 +1020,7 @@ int pcep_thread_pcc_sync_path_event(struct thread *thread)
 	assert(SYNCHRONIZING == status);
 	assert(path->is_synching);
 
-	PCEP_DEBUG("Synchronizing path %s to PCE %pI4:%i", path->name,
-		   &pcc_state->pce_opts->addr, pcc_state->pce_opts->port);
+	PCEP_DEBUG("%s Synchronizing path %s", pcc_state->tag, path->name);
 	pcep_pcc_send_report(ctrl_state, pcc_state, path);
 	pcep_lib_free_path(path);
 
@@ -1036,9 +1055,7 @@ int pcep_thread_pcc_sync_done_event(struct thread *thread)
 		pcc_state->synchronized = true;
 		pcc_state->status = OPERATING;
 
-		PCEP_DEBUG("PCE %pI4:%i synchronized",
-			   &pcc_state->pce_opts->addr,
-			   pcc_state->pce_opts->port);
+		PCEP_DEBUG("%s Synchronization done", pcc_state->tag);
 	}
 
 	return 0;
@@ -1213,7 +1230,6 @@ DEFUN(pcep_cli_debug, pcep_cli_debug_cmd,
 
 	if (3 < argc) {
 		for (i = (3 + no); i < argc; i++) {
-			zlog_debug("ARG: %s", argv[i]->arg);
 			if (0 == strcmp("path", argv[i]->arg)) {
 				DEBUG_FLAGS_SET(&pcep_g->dbg,
 						PCEP_DEBUG_MODE_PATH, true);
