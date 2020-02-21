@@ -1501,12 +1501,22 @@ static json_object *nhlfe_json(zebra_nhlfe_t *nhlfe)
 {
 	char buf[BUFSIZ];
 	json_object *json_nhlfe = NULL;
+	json_object *json_label_stack;
 	struct nexthop *nexthop = nhlfe->nexthop;
+	int i;
 
 	json_nhlfe = json_object_new_object();
 	json_object_string_add(json_nhlfe, "type", nhlfe_type2str(nhlfe->type));
 	json_object_int_add(json_nhlfe, "outLabel",
 			    nexthop->nh_label->label[0]);
+
+	json_label_stack = json_object_new_array();
+	json_object_object_add(json_nhlfe, "outLabelStack", json_label_stack);
+	for (i = 0; i < nexthop->nh_label->num_labels; i++)
+		json_object_array_add(
+			json_label_stack,
+			json_object_new_int(nexthop->nh_label->label[i]));
+
 	json_object_int_add(json_nhlfe, "distance", nhlfe->distance);
 
 	if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED))

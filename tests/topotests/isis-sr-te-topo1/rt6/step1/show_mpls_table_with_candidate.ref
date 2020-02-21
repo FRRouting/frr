@@ -6,6 +6,10 @@
       {
         "type":"SR-TE",
         "outLabel":16020,
+        "outLabelStack":[
+          16020,
+          16010
+        ],
         "distance":150,
         "installed":true,
         "nexthop":"10.0.7.4"
