@@ -4400,10 +4400,10 @@ DEFUN (no_set_distance,
 
 DEFUN (set_local_pref,
        set_local_pref_cmd,
-       "set local-preference (0-4294967295)",
+       "set local-preference WORD",
        SET_STR
        "BGP local preference path attribute\n"
-       "Preference value\n")
+       "Preference value (0-4294967295)\n")
 {
 	int idx_number = 2;
 	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
@@ -4413,11 +4413,11 @@ DEFUN (set_local_pref,
 
 DEFUN (no_set_local_pref,
        no_set_local_pref_cmd,
-       "no set local-preference [(0-4294967295)]",
+       "no set local-preference [WORD]",
        NO_STR
        SET_STR
        "BGP local preference path attribute\n"
-       "Preference value\n")
+       "Preference value (0-4294967295)\n")
 {
 	int idx_localpref = 3;
 	if (argc <= idx_localpref)
