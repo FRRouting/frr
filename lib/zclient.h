@@ -38,6 +38,7 @@
 
 #include "mlag.h"
 #include "srte.h"
+#include "srv6.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -215,6 +216,11 @@ typedef enum {
 	ZEBRA_NHG_NOTIFY_OWNER,
 	ZEBRA_EVPN_REMOTE_NH_ADD,
 	ZEBRA_EVPN_REMOTE_NH_DEL,
+	ZEBRA_SRV6_LOCATOR_ADD,
+	ZEBRA_SRV6_LOCATOR_DELETE,
+	ZEBRA_SRV6_MANAGER_CONNECT,
+	ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK,
+	ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK,
 	ZEBRA_ERROR,
 	ZEBRA_CLIENT_CAPABILITIES,
 	ZEBRA_OPAQUE_MESSAGE,
@@ -375,6 +381,11 @@ struct zclient {
 	int (*mlag_process_down)(void);
 	int (*mlag_handle_msg)(struct stream *msg, int len);
 	int (*nhg_notify_owner)(ZAPI_CALLBACK_ARGS);
+	int (*srv6_locator_add)(ZAPI_CALLBACK_ARGS);
+	int (*srv6_locator_delete)(ZAPI_CALLBACK_ARGS);
+	int (*srv6_function_add)(ZAPI_CALLBACK_ARGS);
+	int (*srv6_function_delete)(ZAPI_CALLBACK_ARGS);
+	void (*process_srv6_locator_chunk)(ZAPI_CALLBACK_ARGS);
 	int (*handle_error)(enum zebra_error_types error);
 	int (*opaque_msg_handler)(ZAPI_CALLBACK_ARGS);
 	int (*opaque_register_handler)(ZAPI_CALLBACK_ARGS);
@@ -991,6 +1002,11 @@ extern int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 			      uint32_t *start, uint32_t *end);
 extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
+extern int srv6_manager_connect(struct zclient *zclient);
+extern int srv6_manager_get_locator_chunk(struct zclient *zclient,
+					  const char *locator_name);
+extern int srv6_manager_release_locator_chunk(struct zclient *zclient,
+					      const char *locator_name);
 
 extern enum zclient_send_status zebra_send_sr_policy(struct zclient *zclient,
 						     int cmd,
