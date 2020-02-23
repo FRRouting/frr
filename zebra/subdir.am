@@ -132,6 +132,7 @@ clippy_scan += \
 	zebra/zebra_mlag_vty.c \
 	zebra/zebra_routemap.c \
 	zebra/zebra_vty.c \
+	zebra/zebra_srv6_vty.c \
 	# end
 
 noinst_HEADERS += \
