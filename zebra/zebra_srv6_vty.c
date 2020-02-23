@@ -31,7 +31,9 @@
 #include "lib/json.h"
 
 #include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/zebra_vrf.h"
+#include "zebra/zebra_srv6.h"
 #include "zebra/zebra_srv6_vty.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/redistribute.h"
@@ -70,6 +72,108 @@ static struct cmd_node srv6_loc_node = {
 	.prompt = "%s(config-srv6-locator)# "
 };
 
+DEFUN (show_srv6_locator,
+       show_srv6_locator_cmd,
+       "show segment-routing srv6 locator [json]",
+       SHOW_STR
+       "Segment Routing\n"
+       "Segment Routing SRv6\n"
+       "Locator Information\n"
+       JSON_STR)
+{
+	const bool uj = use_json(argc, argv);
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct srv6_locator *locator;
+	struct listnode *node;
+	char str[256];
+	int id;
+	json_object *json = NULL;
+	json_object *json_locators = NULL;
+	json_object *json_locator = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_locators = json_object_new_array();
+		json_object_object_add(json, "locators", json_locators);
+
+		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
+			json_locator = srv6_locator_json(locator);
+			if (!json_locator)
+				continue;
+			json_object_array_add(json_locators, json_locator);
+
+		}
+
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(json,
+					JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	} else {
+		vty_out(vty, "Locator:\n");
+		vty_out(vty, "Name                 ID      Prefix                   Status\n");
+		vty_out(vty, "-------------------- ------- ------------------------ -------\n");
+
+		id = 1;
+		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
+			prefix2str(&locator->prefix, str, sizeof(str));
+			vty_out(vty, "%-20s %7d %-24s %s\n",
+				locator->name, id, str,
+				locator->status_up ? "Up" : "Down");
+			++id;
+		}
+		vty_out(vty, "\n");
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_srv6_locator_detail,
+       show_srv6_locator_detail_cmd,
+       "show segment-routing srv6 locator NAME detail [json]",
+       SHOW_STR
+       "Segment Routing\n"
+       "Segment Routing SRv6\n"
+       "Locator Information\n"
+       "Locator Name\n"
+       "Detailed information\n"
+       JSON_STR)
+{
+	const bool uj = use_json(argc, argv);
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct srv6_locator *locator;
+	struct listnode *node;
+	char str[256];
+	const char *locator_name = argv[4]->arg;
+
+	if (uj) {
+		vty_out(vty, "JSON format isn't supported\n");
+		return CMD_WARNING;
+	} else {
+		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
+			if (strcmp(locator->name, locator_name) != 0) {
+				continue;
+			}
+
+			prefix2str(&locator->prefix, str, sizeof(str));
+			vty_out(vty, "Name: %s\n", locator->name);
+			vty_out(vty, "Prefix: %s\n", str);
+			vty_out(vty, "Function-Bit-Len: %u\n",
+				locator->function_bits_length);
+
+			vty_out(vty, "Chunks:\n");
+			struct listnode *node;
+			struct srv6_locator_chunk *chunk;
+			for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, node, chunk)) {
+				prefix2str(&chunk->prefix, str, sizeof(str));
+				vty_out(vty, "- prefix: %s, owner: %s\n", str,
+					zebra_route_string(chunk->proto));
+			}
+		}
+
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (segment_routing,
             segment_routing_cmd,
             "segment-routing",
@@ -103,12 +207,106 @@ DEFUN_NOSH (srv6_locator,
             "Segment Routing SRv6 locator\n"
             "Specify locator-name\n")
 {
+	struct srv6_locator *locator = NULL;
+
+	locator = zebra_srv6_locator_lookup(argv[1]->arg);
+	if (locator) {
+		VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
+		locator->status_up = true;
+		return CMD_SUCCESS;
+	}
+
+	locator = srv6_locator_alloc(argv[1]->arg);
+	if (!locator) {
+		vty_out(vty, "%% Alloc failed\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	locator->status_up = true;
+
+	VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
 	vty->node = SRV6_LOC_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUN (locator_prefix,
+       locator_prefix_cmd,
+       "prefix X:X::X:X/M [func-bits (8-64)]",
+       "Configure SRv6 locator prefix\n"
+       "Specify SRv6 locator prefix\n"
+       "Configure SRv6 locator function length in bits\n"
+       "Specify SRv6 locator function length in bits\n")
+{
+	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
+	struct prefix_ipv6 prefix;
+	struct srv6_locator_chunk *chunk = NULL;
+	struct listnode *node = NULL;
+	uint8_t function_bits_length = 16;
+	int ret;
+
+	ret = str2prefix_ipv6(argv[1]->arg, &prefix);
+	if (ret <= 0) {
+		vty_out(vty, "%% Malformed address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	apply_mask_ipv6(&prefix);
+
+	if (argc >= 3)
+		function_bits_length = strtoul(argv[3]->arg, NULL, 10);
+
+	locator->prefix = prefix;
+	locator->function_bits_length = function_bits_length;
+
+	if (list_isempty(locator->chunks)) {
+		chunk = srv6_locator_chunk_alloc();
+		chunk->prefix = prefix;
+		chunk->proto = 0;
+		listnode_add(locator->chunks, chunk);
+	} else {
+		for (ALL_LIST_ELEMENTS_RO(locator->chunks, node, chunk)) {
+			uint8_t zero[16] = {0};
+			if (memcmp(&chunk->prefix.prefix, zero, 16) == 0) {
+				struct zserv *client;
+				struct listnode *client_node;
+				chunk->prefix = prefix;
+				for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, client_node, client)) {
+					if (client->proto != chunk->proto)
+						continue;
+					struct srv6_locator *tmp;
+					srv6_manager_get_locator_chunk_call(
+							&tmp, client, locator->name, VRF_DEFAULT);
+				}
+			}
+		}
+	}
+
+	zebra_srv6_locator_add(locator);
 	return CMD_SUCCESS;
 }
 
 static int zebra_sr_config(struct vty *vty)
 {
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct listnode *node;
+	struct srv6_locator *locator;
+	char str[256];
+
+	vty_out(vty, "!\n");
+	if (zebra_srv6_is_enable()) {
+		vty_out(vty, "segment-routing\n");
+		vty_out(vty, " srv6\n");
+		vty_out(vty, "  locators\n");
+		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
+			inet_ntop(AF_INET6, &locator->prefix.prefix,
+				  str, sizeof(str));
+			vty_out(vty, "   locator %s\n", locator->name);
+			vty_out(vty, "    prefix %s/%u\n", str,
+				locator->prefix.prefixlen);
+			vty_out(vty, "   !\n");
+		}
+		vty_out(vty, "  !\n");
+		vty_out(vty, " !\n");
+		vty_out(vty, "!\n");
+	}
 	return 0;
 }
 
@@ -129,4 +327,11 @@ void zebra_srv6_vty_init(void)
 	install_element(SEGMENT_ROUTING_NODE, &srv6_cmd);
 	install_element(SRV6_NODE, &srv6_locators_cmd);
 	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
+
+	/* Command for configuration */
+	install_element(SRV6_LOC_NODE, &locator_prefix_cmd);
+
+	/* Command for operation */
+	install_element(VIEW_NODE, &show_srv6_locator_cmd);
+	install_element(VIEW_NODE, &show_srv6_locator_detail_cmd);
 }
