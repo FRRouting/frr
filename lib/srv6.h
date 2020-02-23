@@ -21,10 +21,14 @@
 #define _FRR_SRV6_H
 
 #include <zebra.h>
+#include "prefix.h"
+#include "json.h"
+
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
 #define SRV6_MAX_SIDS 16
+#define SRV6_LOCNAME_SIZE 256
 
 #ifdef __cplusplus
 extern "C" {
@@ -67,6 +71,27 @@ struct seg6local_context {
 	struct in_addr nh4;
 	struct in6_addr nh6;
 	uint32_t table;
+};
+
+struct srv6_locator {
+	char name[SRV6_LOCNAME_SIZE];
+	struct prefix_ipv6 prefix;
+	uint8_t function_bits_length;
+	int algonum;
+	uint64_t current;
+	bool status_up;
+	struct list *chunks;
+
+	QOBJ_FIELDS;
+};
+DECLARE_QOBJ_TYPE(srv6_locator);
+
+struct srv6_locator_chunk {
+	uint8_t keep;
+	uint8_t proto;
+	uint16_t instance;
+	uint32_t session_id;
+	struct prefix_ipv6 prefix;
 };
 
 static inline const char *seg6_mode2str(enum seg6_mode_t mode)
@@ -125,6 +150,13 @@ const char *seg6local_context2str(char *str, size_t size,
 
 int snprintf_seg6_segs(char *str,
 		size_t size, const struct seg6_segs *segs);
+
+extern struct srv6_locator *srv6_locator_alloc(const char *name);
+extern struct srv6_locator_chunk *srv6_locator_chunk_alloc(void);
+extern void srv6_locator_free(struct srv6_locator *locator);
+extern void srv6_locator_chunk_free(struct srv6_locator_chunk *chunk);
+json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk);
+json_object *srv6_locator_json(const struct srv6_locator *loc);
 
 #ifdef __cplusplus
 }
