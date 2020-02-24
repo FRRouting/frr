@@ -123,7 +123,7 @@ class Config(object):
         log.info('Loading Config object from file %s', filename)
 
         try:
-            file_output = subprocess.check_output([str(bindir + '/vtysh'), '-m', '-f', filename, '--config_dir', confdir],
+            file_output = subprocess.check_output([str(bindir + '/vtysh'), '-m', '-f', filename, '--config_dir', confdir, '--vty_socket', args.vty_socket],
                                                   stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             ve = VtyshMarkException(e)
@@ -154,7 +154,7 @@ class Config(object):
 
         try:
             config_text = subprocess.check_output(
-                bindir + "/vtysh --config_dir " + confdir + " -c 'show run " + daemon + "' | /usr/bin/tail -n +4 | " + bindir + "/vtysh --config_dir " + confdir + " -m -f -",
+                bindir + "/vtysh --config_dir " + confdir + " --vty_socket " + args.vty_socket + " -c 'show run " + daemon + "' | /usr/bin/tail -n +4 | " + bindir + "/vtysh --config_dir " + confdir + " --vty_socket " + args.vty_socket + " -m -f -",
                 shell=True, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             ve = VtyshMarkException(e)
@@ -556,6 +556,8 @@ def line_to_vtysh_conft(ctx_keys, line, delete, bindir, confdir):
     cmd.append(str(bindir + '/vtysh'))
     cmd.append('--config_dir')
     cmd.append(confdir)
+    cmd.append('--vty_socket')
+    cmd.append(args.vty_socket)
     cmd.append('-c')
     cmd.append('conf t')
 
@@ -1135,7 +1137,7 @@ def vtysh_config_available(bindir, confdir):
     """
 
     try:
-        cmd = [str(bindir + '/vtysh'), '--config_dir', confdir, '-c', 'conf t']
+        cmd = [str(bindir + '/vtysh'), '--config_dir', confdir, '--vty_socket', args.vty_socket, '-c', 'conf t']
         output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).strip()
 
         if 'VTY configuration is locked by other VTY' in output.decode('utf-8'):
@@ -1167,6 +1169,7 @@ if __name__ == '__main__':
     parser.add_argument('--confdir', help='path to the daemon config files', default='/etc/frr')
     parser.add_argument('--rundir', help='path for the temp config file', default='/var/run/frr')
     parser.add_argument('--daemon', help='daemon for which want to replace the config', default='')
+    parser.add_argument('--vty_socket', help='socket to be used by vtysh to connect to the daemons', default='/var/run')
 
     args = parser.parse_args()
 
@@ -1224,6 +1227,13 @@ if __name__ == '__main__':
     # verify that the daemon, if specified, is valid
     if args.daemon and args.daemon not in ['zebra', 'bgpd', 'fabricd', 'isisd', 'ospf6d', 'ospfd', 'pbrd', 'pimd', 'ripd', 'ripngd', 'sharpd', 'staticd', 'vrrpd', 'ldpd']:
         msg = "Daemon %s is not a valid option for 'show running-config'" % args.daemon
+        print(msg)
+        log.error(msg)
+        sys.exit(1)
+
+    # verify that the vty_socket, if specified, is valid
+    if args.vty_socket and not os.path.isdir(args.vty_socket):
+        msg = 'vty_socket %s is not a valid path' % args.vty_socket
         print(msg)
         log.error(msg)
         sys.exit(1)
@@ -1444,7 +1454,7 @@ if __name__ == '__main__':
                             fh.write(line + '\n')
 
                     try:
-                        subprocess.check_output([str(args.bindir + '/vtysh'), '--config_dir', args.confdir, '-f', filename], stderr=subprocess.STDOUT)
+                        subprocess.check_output([str(args.bindir + '/vtysh'), '--config_dir', args.confdir, '-f', filename, '--vty_socket', args.vty_socket], stderr=subprocess.STDOUT)
                     except subprocess.CalledProcessError as e:
                         log.warning("frr-reload.py failed due to\n%s" % e.output)
                         reload_ok = False
@@ -1453,7 +1463,7 @@ if __name__ == '__main__':
         # Make these changes persistent
         target = str(args.confdir + '/frr.conf')
         if args.overwrite or (not args.daemon and args.filename != target):
-            subprocess.call([str(args.bindir + '/vtysh'), '--config_dir', args.confdir, '-c', 'write'])
+            subprocess.call([str(args.bindir + '/vtysh'), '--config_dir', args.confdir, '--vty_socket', args.vty_socket, '-c', 'write'])
 
     if not reload_ok:
         sys.exit(1)
