@@ -387,7 +387,7 @@ static int64_t prefix_new_seq_get(struct prefix_list *plist)
 	int64_t newseq;
 	struct prefix_list_entry *pentry;
 
-	maxseq = newseq = 0;
+	maxseq = 0;
 
 	for (pentry = plist->head; pentry; pentry = pentry->next) {
 		if (maxseq < pentry->seq)
