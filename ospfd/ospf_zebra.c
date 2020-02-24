@@ -1002,7 +1002,6 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 void ospf_distribute_list_update(struct ospf *ospf, int type,
 				 unsigned short instance)
 {
-	struct route_table *rt;
 	struct ospf_external *ext;
 	void **args = XCALLOC(MTYPE_OSPF_DIST_ARGS, sizeof(void *) * 2);
 
@@ -1011,7 +1010,7 @@ void ospf_distribute_list_update(struct ospf *ospf, int type,
 
 	/* External info does not exist. */
 	ext = ospf_external_lookup(ospf, type, instance);
-	if (!ext || !(rt = EXTERNAL_INFO(ext))) {
+	if (!ext || !EXTERNAL_INFO(ext)) {
 		XFREE(MTYPE_OSPF_DIST_ARGS, args);
 		return;
 	}
