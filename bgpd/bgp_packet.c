@@ -1303,8 +1303,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 
 	/* Open option part parse. */
 	if (optlen != 0) {
-		if ((ret = bgp_open_option_parse(peer, optlen, &mp_capability))
-		    < 0)
+		if (bgp_open_option_parse(peer, optlen, &mp_capability) < 0)
 			return BGP_Stop;
 	} else {
 		if (bgp_debug_neighbor_events(peer))
@@ -1346,7 +1345,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 		return BGP_Stop;
 
 	/* Get sockname. */
-	if ((ret = bgp_getsockname(peer)) < 0) {
+	if (bgp_getsockname(peer) < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s: bgp_getsockname() failed for peer: %s",
 			     __FUNCTION__, peer->host);
@@ -1972,13 +1971,13 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 					} else
 						p_pnt = p_end;
 
-					if ((ok = (p_pnt < p_end)))
+					if (p_pnt < p_end)
 						orfp.ge =
 							*p_pnt++; /* value
 								     checked in
 								     prefix_bgp_orf_set()
 								     */
-					if ((ok = (p_pnt < p_end)))
+					if (p_pnt < p_end)
 						orfp.le =
 							*p_pnt++; /* value
 								     checked in
