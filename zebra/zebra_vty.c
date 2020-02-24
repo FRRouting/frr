@@ -1532,10 +1532,8 @@ DEFPY (show_route,
 
 	if (vrf_all) {
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-			struct route_table *route_table;
-
 			if ((zvrf = vrf->info) == NULL
-			    || (route_table = zvrf->table[afi][SAFI_UNICAST]) == NULL)
+			    || (zvrf->table[afi][SAFI_UNICAST] == NULL))
 				continue;
 
 			if (table_all)
