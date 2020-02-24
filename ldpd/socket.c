@@ -209,7 +209,7 @@ sock_set_nonblock(int fd)
 
 	flags |= O_NONBLOCK;
 
-	if ((flags = fcntl(fd, F_SETFL, flags)) == -1)
+	if (fcntl(fd, F_SETFL, flags) == -1)
 		fatal("fcntl F_SETFL");
 }
 
@@ -223,7 +223,7 @@ sock_set_cloexec(int fd)
 
 	flags |= FD_CLOEXEC;
 
-	if ((flags = fcntl(fd, F_SETFD, flags)) == -1)
+	if (fcntl(fd, F_SETFD, flags) == -1)
 		fatal("fcntl F_SETFD");
 }
 
