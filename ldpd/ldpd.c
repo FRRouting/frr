@@ -1514,33 +1514,35 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 
 	RB_FOREACH_SAFE(nbrp, nbrp_head, &conf->nbrp_tree, ntmp) {
 		/* find deleted nbrps */
-		if ((xn = nbr_params_find(xconf, nbrp->lsr_id)) == NULL) {
-			switch (ldpd_process) {
-			case PROC_LDP_ENGINE:
-				nbr = nbr_find_ldpid(nbrp->lsr_id.s_addr);
-				if (nbr) {
-					session_shutdown(nbr, S_SHUTDOWN, 0, 0);
+		if (nbr_params_find(xconf, nbrp->lsr_id) != NULL)
+			continue;
+
+		switch (ldpd_process) {
+		case PROC_LDP_ENGINE:
+			nbr = nbr_find_ldpid(nbrp->lsr_id.s_addr);
+			if (nbr) {
+				session_shutdown(nbr, S_SHUTDOWN, 0, 0);
 #ifdef __OpenBSD__
-					pfkey_remove(nbr);
+				pfkey_remove(nbr);
 #else
-					sock_set_md5sig(
-					    (ldp_af_global_get(&global,
-					    nbr->af))->ldp_session_socket,
-					    nbr->af, &nbr->raddr, NULL);
+				sock_set_md5sig(
+					(ldp_af_global_get(&global, nbr->af))
+						->ldp_session_socket,
+					nbr->af, &nbr->raddr, NULL);
 #endif
-					nbr->auth.method = AUTH_NONE;
-					if (nbr_session_active_role(nbr))
-						nbr_establish_connection(nbr);
-				}
-				break;
-			case PROC_LDE_ENGINE:
-			case PROC_MAIN:
-				break;
+				nbr->auth.method = AUTH_NONE;
+				if (nbr_session_active_role(nbr))
+					nbr_establish_connection(nbr);
 			}
-			RB_REMOVE(nbrp_head, &conf->nbrp_tree, nbrp);
-			free(nbrp);
+			break;
+		case PROC_LDE_ENGINE:
+		case PROC_MAIN:
+			break;
 		}
+		RB_REMOVE(nbrp_head, &conf->nbrp_tree, nbrp);
+		free(nbrp);
 	}
+
 	RB_FOREACH_SAFE(xn, nbrp_head, &xconf->nbrp_tree, ntmp) {
 		/* find new nbrps */
 		if ((nbrp = nbr_params_find(conf, xn->lsr_id)) == NULL) {
