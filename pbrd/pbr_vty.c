@@ -88,8 +88,7 @@ DEFUN_NOSH(no_pbr_map, no_pbr_map_cmd, "no pbr-map PBRMAP [seq (1-700)]",
 
 DEFPY(pbr_set_table_range,
       pbr_set_table_range_cmd,
-      "[no] pbr table range (10000-4294966272)$lb (10000-4294966272)$ub",
-      NO_STR
+      "pbr table range (10000-4294966272)$lb (10000-4294966272)$ub",
       PBR_STR
       "Set table ID range\n"
       "Set table ID range\n"
@@ -113,6 +112,19 @@ DEFPY(pbr_set_table_range,
 	return ret;
 }
 
+DEFPY(no_pbr_set_table_range, no_pbr_set_table_range_cmd,
+      "no pbr table range [(10000-4294966272)$lb (10000-4294966272)$ub]",
+      NO_STR
+      PBR_STR
+      "Set table ID range\n"
+      "Set table ID range\n"
+      "Lower bound for table ID range\n"
+      "Upper bound for table ID range\n")
+{
+	pbr_nht_set_tableid_range(PBR_NHT_DEFAULT_LOW_TABLEID,
+				  PBR_NHT_DEFAULT_HIGH_TABLEID);
+	return CMD_SUCCESS;
+}
 
 DEFPY(pbr_map_match_src, pbr_map_match_src_cmd,
 	"[no] match src-ip <A.B.C.D/M|X:X::X:X/M>$prefix",
@@ -854,6 +866,7 @@ void pbr_vty_init(void)
 	install_element(CONFIG_NODE, &pbr_map_cmd);
 	install_element(CONFIG_NODE, &no_pbr_map_cmd);
 	install_element(CONFIG_NODE, &pbr_set_table_range_cmd);
+	install_element(CONFIG_NODE, &no_pbr_set_table_range_cmd);
 	install_element(INTERFACE_NODE, &pbr_policy_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_src_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_dst_cmd);
