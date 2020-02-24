@@ -1904,7 +1904,11 @@ void bgp_zebra_terminate_radv(struct bgp *bgp, struct peer *peer)
 		zlog_debug("%u: Terminating RA for peer %s", bgp->vrf_id,
 			   peer->host);
 
-	zclient_send_interface_radv_req(zclient, bgp->vrf_id, peer->ifp, 0, 0);
+	if (peer->ifp)
+		zclient_send_interface_radv_req(zclient, bgp->vrf_id, peer->ifp,
+						false, 0);
+	else
+		bgp_nht_dereg_enhe_capability_intfs(peer);
 }
 
 int bgp_zebra_advertise_subnet(struct bgp *bgp, int advertise, vni_t vni)

@@ -2585,6 +2585,10 @@ int peer_group_delete(struct peer_group *group)
 
 	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 		other = peer->doppelganger;
+
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+			bgp_nht_dereg_enhe_capability_intfs(peer);
+
 		peer_delete(peer);
 		if (other && other->status != Deleted) {
 			other->group = NULL;
@@ -2628,6 +2632,9 @@ int peer_group_remote_as_delete(struct peer_group *group)
 
 	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 		other = peer->doppelganger;
+
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+			bgp_nht_dereg_enhe_capability_intfs(peer);
 
 		peer_delete(peer);
 
@@ -4071,6 +4078,10 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 		/* Update flag override state accordingly. */
 		COND_FLAG(peer->flags_override, flag, set != invert);
 
+		if (flag == PEER_FLAG_CAPABILITY_ENHE)
+			set ? bgp_nht_reg_enhe_capability_intfs(peer)
+			    : bgp_nht_dereg_enhe_capability_intfs(peer);
+
 		/* Execute flag action on peer. */
 		if (action.type == peer_change_reset)
 			peer_flag_modify_action(peer, flag);
@@ -4079,8 +4090,6 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 		return 0;
 	}
 
-	if (set && flag == PEER_FLAG_CAPABILITY_ENHE)
-		bgp_nht_register_enhe_capability_interfaces(peer);
 
 	/*
 	 * Update peer-group members, unless they are explicitely overriding
@@ -4105,8 +4114,9 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 		/* Update flag on peer-group member. */
 		COND_FLAG(member->flags, flag, set != member_invert);
 
-		if (set && flag == PEER_FLAG_CAPABILITY_ENHE)
-			bgp_nht_register_enhe_capability_interfaces(member);
+		if (flag == PEER_FLAG_CAPABILITY_ENHE)
+			set ? bgp_nht_reg_enhe_capability_intfs(member)
+			    : bgp_nht_dereg_enhe_capability_intfs(member);
 
 		/* Execute flag action on peer-group member. */
 		if (action.type == peer_change_reset)

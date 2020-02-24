@@ -862,7 +862,7 @@ void bgp_nht_register_nexthops(struct bgp *bgp)
 	}
 }
 
-void bgp_nht_register_enhe_capability_interfaces(struct peer *peer)
+void bgp_nht_reg_enhe_capability_intfs(struct peer *peer)
 {
 	struct bgp *bgp;
 	struct bgp_node *rn;
@@ -881,7 +881,7 @@ void bgp_nht_register_enhe_capability_interfaces(struct peer *peer)
 
 	if (!sockunion2hostprefix(&peer->su, &p)) {
 		if (BGP_DEBUG(nht, NHT))
-			zlog_debug("%s: Unable to convert prefix to sockunion",
+			zlog_debug("%s: Unable to convert sockunion to prefix",
 				   __PRETTY_FUNCTION__);
 		return;
 	}
@@ -905,9 +905,66 @@ void bgp_nht_register_enhe_capability_interfaces(struct peer *peer)
 		if (!ifp)
 			continue;
 
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug("%s: enabling RA packets on %s for enhe",
+				   __PRETTY_FUNCTION__, ifp->name);
+
 		zclient_send_interface_radv_req(zclient,
 						nhop->vrf_id,
 						ifp, true,
 						BGP_UNNUM_DEFAULT_RA_INTERVAL);
+	}
+}
+
+void bgp_nht_dereg_enhe_capability_intfs(struct peer *peer)
+{
+	struct bgp *bgp;
+	struct bgp_node *rn;
+	struct bgp_nexthop_cache *bnc;
+	struct nexthop *nhop;
+	struct interface *ifp;
+	struct prefix p;
+
+	if (peer->ifp)
+		return;
+
+	bgp = peer->bgp;
+
+	if (!bgp->nexthop_cache_table[AFI_IP6])
+		return;
+
+	if (!sockunion2hostprefix(&peer->su, &p)) {
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug("%s: Unable to convert sockunion to prefix",
+				   __PRETTY_FUNCTION__);
+		return;
+	}
+
+	if (p.family != AF_INET6)
+		return;
+
+	rn = bgp_node_lookup(bgp->nexthop_cache_table[AFI_IP6], &p);
+	if (!rn)
+		return;
+
+	bnc = bgp_node_get_bgp_nexthop_info(rn);
+	if (!bnc)
+		return;
+
+	if (peer != bnc->nht_info)
+		return;
+
+	for (nhop = bnc->nexthop; nhop; nhop = nhop->next) {
+		ifp = if_lookup_by_index(nhop->ifindex, nhop->vrf_id);
+
+		if (!ifp)
+			continue;
+
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug("%s: disabling RA packets on %s for enhe",
+				   __PRETTY_FUNCTION__, ifp->name);
+
+		zclient_send_interface_radv_req(zclient, nhop->vrf_id, ifp,
+						false, 0);
 	}
 }
