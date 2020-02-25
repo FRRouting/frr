@@ -1,3 +1,9 @@
+frr (7.3-1) unstable; urgency=medium
+
+  * new upstream release
+
+ -- David Lamparter <equinox-debian@diac24.net>  Tue, 25 Feb 2020 17:45:16 +0100
+
 frr (7.2.1-1) unstable; urgency=medium
 
   * new upstream release
