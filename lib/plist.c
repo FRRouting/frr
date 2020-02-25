@@ -303,6 +303,8 @@ static void prefix_list_delete(struct prefix_list *plist)
 
 	/* If prefix-list contain prefix_list_entry free all of it. */
 	for (pentry = plist->head; pentry; pentry = next) {
+		route_map_notify_pentry_dependencies(plist->name, pentry,
+						     RMAP_EVENT_PLIST_DELETED);
 		next = pentry->next;
 		prefix_list_trie_del(plist, pentry);
 		prefix_list_entry_free(pentry);
@@ -518,6 +520,8 @@ static void prefix_list_entry_delete(struct prefix_list *plist,
 	else
 		plist->tail = pentry->prev;
 
+	route_map_notify_pentry_dependencies(plist->name, pentry,
+					     RMAP_EVENT_PLIST_DELETED);
 	prefix_list_entry_free(pentry);
 
 	plist->count--;
@@ -630,6 +634,9 @@ static void prefix_list_entry_add(struct prefix_list *plist,
 
 	/* Increment count. */
 	plist->count++;
+
+	route_map_notify_pentry_dependencies(plist->name, pentry,
+					     RMAP_EVENT_PLIST_ADDED);
 
 	/* Run hook function. */
 	if (plist->master->add_hook)
