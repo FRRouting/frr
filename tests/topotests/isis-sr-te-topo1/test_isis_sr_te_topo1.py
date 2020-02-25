@@ -371,7 +371,7 @@ def test_srte_route_map_with_sr_policy_check_nextop_step5():
 
     add_candidate_path('rt1', '6.6.6.6', 100, 'default')
     # this is a workaround for now since the BGP routes are not refreshed on config change
-    print(get_topogen().net['rt1'].cmd('vtysh -c "clear ip bgp *"'))
+    get_topogen().net['rt1'].cmd('vtysh -c "clear ip bgp *"')
     cmp_json_output('rt1',
                     "show ip route bgp json",
                     "step5/show_ip_route_bgp.ref")
