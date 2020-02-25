@@ -1293,16 +1293,13 @@ def verify_bgp_attributes(tgen, addr_type, dut, static_routes, rmap_name,
         for static_route in static_routes:
             cmd = "show bgp {} {} json".format(addr_type, static_route)
             show_bgp_json = run_frr_cmd(rnode, cmd, isjson=True)
-            print("show_bgp_json $$$$$", show_bgp_json)
 
             dict_to_test = []
             tmp_list = []
             for rmap_router in input_dict.keys():
                 for rmap, values in input_dict[rmap_router][
                         "route_maps"].items():
-                    print("rmap == rmap_name $$$$1", rmap, rmap_name)
                     if rmap == rmap_name:
-                        print("rmap == rmap_name $$$$", rmap, rmap_name)
                         dict_to_test = values
                         for rmap_dict in values:
                             if seq_id is not None:
@@ -1318,7 +1315,6 @@ def verify_bgp_attributes(tgen, addr_type, dut, static_routes, rmap_name,
                         if tmp_list:
                             dict_to_test = tmp_list
 
-                        print("dict_to_test $$$$", dict_to_test)
                         for rmap_dict in dict_to_test:
                             if "set" in rmap_dict:
                                 for criteria in rmap_dict["set"].keys():
