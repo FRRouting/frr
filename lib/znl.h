@@ -8,8 +8,7 @@
  */
 
 #include <zebra.h>
-#include <lib/ns.h>
-#include "zbuf.h"
+#include <lib/zbuf.h>
 
 #define ZNL_BUFFER_SIZE		8192
 
@@ -27,5 +26,6 @@ struct rtattr *znl_rta_nested_push(struct zbuf *zb, uint16_t type);
 void znl_rta_nested_complete(struct zbuf *zb, struct rtattr *rta);
 
 struct rtattr *znl_rta_pull(struct zbuf *zb, struct zbuf *payload);
-
+struct ns;
 int znl_open(int protocol, int groups, struct ns *ns);
+int znl_open_vrf(int protocol, int groups, vrf_id_t vrf_id);

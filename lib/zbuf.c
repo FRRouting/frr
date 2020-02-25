@@ -11,22 +11,19 @@
 #include "config.h"
 #endif
 
-#include <sys/uio.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+#include <zebra.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
 #include "zebra.h"
 
-#include "rib.h" /* for ZEBRA memory group */
 #include "zbuf.h"
 #include "memory.h"
 
 #define ERRNO_IO_RETRY(EN) (((EN) == EAGAIN) || ((EN) == EWOULDBLOCK) || ((EN) == EINTR))
 
-DEFINE_MTYPE_STATIC(ZEBRA, ZBUF_DATA, "NHRPD zbuf data");
+DEFINE_MTYPE_STATIC(LIB, ZBUF_DATA, "zbuf data");
 
 struct zbuf *zbuf_alloc(size_t size)
 {

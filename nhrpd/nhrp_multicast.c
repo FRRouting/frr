@@ -211,8 +211,10 @@ void netlink_mcast_set_nflog_group(struct nhrp_vrf *nhrp_vrf, int nlgroup)
 	}
 	nhrp_vrf->netlink_mcast_nflog_group = nlgroup;
 	if (nlgroup) {
-		nhrp_vrf->netlink_mcast_log_fd = znl_open(NETLINK_NETFILTER, 0,
-							  nhrp_vrf->vrf_id);
+		frr_with_privs(&nhrpd_privs) {
+			nhrp_vrf->netlink_mcast_log_fd = znl_open_vrf(NETLINK_NETFILTER, 0,
+								      nhrp_vrf->vrf_id);
+		}
 		if (nhrp_vrf->netlink_mcast_log_fd < 0)
 			return;
 

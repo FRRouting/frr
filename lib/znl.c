@@ -11,6 +11,10 @@
 #include "config.h"
 #endif
 
+#include <zebra.h>
+#include <lib/ns.h>
+#include <lib/vrf.h>
+
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
@@ -143,21 +147,22 @@ struct rtattr *znl_rta_pull(struct zbuf *zb, struct zbuf *payload)
 	return rta;
 }
 
-int znl_open(int protocol, int groups, struct ns *ns)
+static int znl_open_internal(int protocol, int groups, struct ns *ns,
+			     vrf_id_t vrf_id)
 {
 	int fd;
 	struct sockaddr_nl snl;
 	ns_id_t ns_id = NS_DEFAULT;
 	struct ns *ns_local = ns;
-	int ret;
+	int ret, val;
 
-	if (ns_local)
+	if (ns_local) {
 		ns_id = ns->ns_id;
-	else
-		ns_local = ns_get_default();
-	frr_with_privs(&zserv_privs) {
 		fd = ns_socket(AF_NETLINK, SOCK_RAW, protocol, ns_id);
-	}
+	} else if (vrf_id != VRF_UNKNOWN) {
+		fd = vrf_socket(AF_NETLINK, SOCK_RAW, protocol, vrf_id, NULL);
+	} else
+		return -1;
 	if (fd < 0) {
 		zlog_err("Can't open socket %d ( err %s)", protocol,
 			 safe_strerror(errno));
@@ -168,31 +173,40 @@ int znl_open(int protocol, int groups, struct ns *ns)
 	snl.nl_family = AF_NETLINK;
 	snl.nl_groups = groups;
 
-	frr_with_privs(&zserv_privs) {
+	if (ns_local) {
 		ns_switch_to_netns(ns_local->name);
 		/* Bind the socket to the netlink structure for anything. */
 		bind(fd, (struct sockaddr *)&snl, sizeof snl);
 		ns_switchback_to_initial();
+	} else {
+		vrf_switch_to_netns(vrf_id);
+		/* Bind the socket to the netlink structure for anything. */
+		bind(fd, (struct sockaddr *)&snl, sizeof snl);
+		vrf_switchback_to_initial();
 	}
 
-	if (fd < 0)
-		return -1;
-
-	frr_with_privs(&zserv_privs) {
-		int val;
-
+	if (ns_local)
 		ns_switch_to_netns(ns_local->name);
-		val =  fcntl(fd, F_GETFL, 0);
-		ret = fcntl(fd, F_SETFL, val | O_NONBLOCK);
+	else
+		vrf_switch_to_netns(vrf_id);
+	val =  fcntl(fd, F_GETFL, 0);
+	ret = fcntl(fd, F_SETFL, val | O_NONBLOCK);
+	if (ns_local)
 		ns_switchback_to_initial();
-	}
+	else
+		vrf_switchback_to_initial();
 	if (ret < 0)
 		goto error;
-	frr_with_privs(&zserv_privs) {
+
+	if (ns_local)
 		ns_switch_to_netns(ns_local->name);
-		ret = fcntl(fd, F_SETFD, FD_CLOEXEC);
+	else
+		vrf_switch_to_netns(vrf_id);
+	ret = fcntl(fd, F_SETFD, FD_CLOEXEC);
+	if (ns_local)
 		ns_switchback_to_initial();
-	}
+	else
+		vrf_switchback_to_initial();
 	if (ret < 0)
 		goto error;
 
@@ -200,4 +214,14 @@ int znl_open(int protocol, int groups, struct ns *ns)
 error:
 	close(fd);
 	return -1;
+}
+
+int znl_open_vrf(int protocol, int groups, vrf_id_t vrf_id)
+{
+	return znl_open_internal(protocol, groups, NULL, vrf_id);
+}
+
+int znl_open(int protocol, int groups, struct ns *ns)
+{
+	return znl_open_internal(protocol, groups, ns, VRF_UNKNOWN);
 }

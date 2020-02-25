@@ -28,8 +28,6 @@ nhrpd_nhrpd_SOURCES = \
 	nhrpd/nhrp_vty.c \
 	nhrpd/reqid.c \
 	nhrpd/vici.c \
-	nhrpd/zbuf.c \
-	nhrpd/znl.c \
 	# end
 
 nhrpd/nhrp_vty_clippy.c: $(CLIPPY_DEPS)
@@ -37,13 +35,10 @@ nhrpd/nhrp_vty.$(OBJEXT): nhrpd/nhrp_vty_clippy.c
 
 noinst_HEADERS += \
 	nhrpd/debug.h \
-	nhrpd/list.h \
 	nhrpd/netlink.h \
 	nhrpd/nhrp_errors.h \
 	nhrpd/nhrp_protocol.h \
 	nhrpd/nhrpd.h \
 	nhrpd/os.h \
 	nhrpd/vici.h \
-	nhrpd/zbuf.h \
-	nhrpd/znl.h \
 	# end

@@ -36,6 +36,7 @@
 #include "vrf.h"
 #include "mpls.h"
 #include "lib_errors.h"
+#include "zbuf.h"
 
 #include <linux/netfilter/nfnetlink_log.h>
 
@@ -51,8 +52,7 @@
 #include "zebra/if_netlink.h"
 #include "zebra/rule_netlink.h"
 #include "zebra/zebra_errors.h"
-#include "zebra/zbuf.h"
-#include "zebra/znl.h"
+#include "lib/znl.h"
 #include "zebra/zapi_msg.h"
 
 #ifndef SO_RCVBUFFORCE
@@ -1526,7 +1526,9 @@ int netlink_log_register(struct zebra_ns *zns, int group)
 	struct nfulnl_msg_config_cmd cmd;
 	struct zbuf *zb = zbuf_alloc(512);
 
-	zns->netlink_nflog_sock = znl_open(NETLINK_NETFILTER, 0, zns->ns);
+	frr_with_privs(&zserv_privs) {
+		zns->netlink_nflog_sock = znl_open(NETLINK_NETFILTER, 0, zns->ns);
+	}
 	memset(&cmd, 0, sizeof(struct nfulnl_msg_config_cmd));
 	n = znl_nlmsg_push(zb, (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_CONFIG,
 			   NLM_F_REQUEST | NLM_F_ACK);
