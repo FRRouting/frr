@@ -235,6 +235,18 @@ def delete_candidate_path(rname, endpoint, pref):
               -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
               -c "no candidate-path preference ''' + str(pref) + '''"''')
 
+def add_segment(rname, name, index, label):
+    get_topogen().net[rname].cmd(''' \
+        vtysh -c "conf t" \
+              -c "segment-list ''' + name + '''" \
+              -c "index ''' + str(index) + ''' mpls label ''' + str(label) + '''"''')
+
+def delete_segment(rname, name, index):
+    get_topogen().net[rname].cmd(''' \
+        vtysh -c "conf t" \
+              -c "segment-list ''' + name + '''" \
+              -c "no index ''' + str(index) + '''"''')
+
 #
 # Step 1
 #
@@ -347,7 +359,7 @@ def test_srte_remove_best_candidate_step3():
 #
 # Step 4
 #
-# Checking the MPLS table using a single SR Policy and a Candidate Path with different Segment Lists
+# Checking MPLS table with a single SR Policy and a Candidate Path with different Segment Lists and other modifications
 #
 def test_srte_change_segment_list_check_mpls_table_step4():
     setup_testcase("Test (step 4): check MPLS table for changed Segment List")
@@ -360,6 +372,30 @@ def test_srte_change_segment_list_check_mpls_table_step4():
                         "show mpls table json",
                         "step4/show_mpls_table.ref")
         delete_candidate_path(rname, endpoint, 100)
+
+def test_srte_segment_list_add_segment_check_mpls_table_step4():
+    setup_testcase("Test (step 4): check MPLS table for added (then changed and finally deleted) segment")
+
+    add_candidate_path('rt1', '6.6.6.6', 100, 'default', 'test')
+
+    # first add a new segment
+    add_segment('rt1', 'test', 25, 16050)
+    cmp_json_output('rt1',
+                    "show mpls table json",
+                    "step4/show_mpls_table_add_segment.ref")
+
+    # ... then change it ...
+    add_segment('rt1', 'test', 25, 16030)
+    cmp_json_output('rt1',
+                    "show mpls table json",
+                    "step4/show_mpls_table_change_segment.ref")
+
+    # ... and finally delete it
+    delete_segment('rt1', 'test', 25)
+    cmp_json_output('rt1',
+                    "show mpls table json",
+                    "step4/show_mpls_table.ref")
+    delete_candidate_path('rt1', '6.6.6.6', 100)
 
 #
 # Step 5
