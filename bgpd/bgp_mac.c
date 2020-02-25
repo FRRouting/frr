@@ -284,11 +284,13 @@ static void bgp_mac_remove_ifp_internal(struct bgp_self_mac *bsm, char *ifname,
 	}
 
 	if (bsm->ifp_list->count == 0) {
+		struct ethaddr mac = *macaddr;
+
 		hash_release(bm->self_mac_hash, bsm);
 		list_delete(&bsm->ifp_list);
 		XFREE(MTYPE_BSM, bsm);
 
-		bgp_mac_rescan_all_evpn_tables(macaddr);
+		bgp_mac_rescan_all_evpn_tables(&mac);
 	}
 }
 

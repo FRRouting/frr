@@ -30,6 +30,7 @@
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_mpls.h"
+#include "zebra/zebra_nhg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -107,6 +108,11 @@ enum dplane_op_e {
 	DPLANE_OP_ROUTE_UPDATE,
 	DPLANE_OP_ROUTE_DELETE,
 	DPLANE_OP_ROUTE_NOTIFY,
+
+	/* Nexthop update */
+	DPLANE_OP_NH_INSTALL,
+	DPLANE_OP_NH_UPDATE,
+	DPLANE_OP_NH_DELETE,
 
 	/* LSP update */
 	DPLANE_OP_LSP_INSTALL,
@@ -269,6 +275,17 @@ const struct nexthop_group *dplane_ctx_get_ng(
 const struct nexthop_group *dplane_ctx_get_old_ng(
 	const struct zebra_dplane_ctx *ctx);
 
+/* Accessors for nexthop information */
+uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx);
+afi_t dplane_ctx_get_nhe_afi(const struct zebra_dplane_ctx *ctx);
+vrf_id_t dplane_ctx_get_nhe_vrf_id(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_get_nhe_type(const struct zebra_dplane_ctx *ctx);
+const struct nexthop_group *
+dplane_ctx_get_nhe_ng(const struct zebra_dplane_ctx *ctx);
+const struct nh_grp *
+dplane_ctx_get_nhe_nh_grp(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
+
 /* Accessors for LSP information */
 mpls_label_t dplane_ctx_get_in_label(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_in_label(struct zebra_dplane_ctx *ctx,
@@ -285,7 +302,8 @@ zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
 				    enum nexthop_types_t nh_type,
 				    union g_addr *gate,
 				    ifindex_t ifindex,
-				    mpls_label_t out_label);
+				    uint8_t num_labels,
+				    mpls_label_t out_labels[]);
 
 const zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(
 	const struct zebra_dplane_ctx *ctx);
@@ -328,6 +346,7 @@ const struct ethaddr *dplane_ctx_mac_get_addr(
 	const struct zebra_dplane_ctx *ctx);
 const struct in_addr *dplane_ctx_mac_get_vtep_ip(
 	const struct zebra_dplane_ctx *ctx);
+ifindex_t dplane_ctx_mac_get_br_ifindex(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for neighbor information */
 const struct ipaddr *dplane_ctx_neigh_get_ipaddr(
@@ -372,6 +391,16 @@ enum zebra_dplane_result dplane_route_notif_update(
 	enum dplane_op_e op,
 	struct zebra_dplane_ctx *ctx);
 
+
+/* Forward ref of nhg_hash_entry */
+struct nhg_hash_entry;
+/*
+ * Enqueue a nexthop change operation for the dataplane.
+ */
+enum zebra_dplane_result dplane_nexthop_add(struct nhg_hash_entry *nhe);
+enum zebra_dplane_result dplane_nexthop_update(struct nhg_hash_entry *nhe);
+enum zebra_dplane_result dplane_nexthop_delete(struct nhg_hash_entry *nhe);
+
 /*
  * Enqueue LSP change operations for the dataplane.
  */
@@ -402,12 +431,14 @@ enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
  * Enqueue evpn mac operations for the dataplane.
  */
 enum zebra_dplane_result dplane_mac_add(const struct interface *ifp,
+					const struct interface *bridge_ifp,
 					vlanid_t vid,
 					const struct ethaddr *mac,
 					struct in_addr vtep_ip,
 					bool sticky);
 
 enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
+					const struct interface *bridge_ifp,
 					vlanid_t vid,
 					const struct ethaddr *mac,
 					struct in_addr vtep_ip);

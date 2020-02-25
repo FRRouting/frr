@@ -78,7 +78,7 @@ struct host {
 	int encrypt;
 
 	/* Banner configuration. */
-	const char *motd;
+	char *motd;
 	char *motdfile;
 };
 
@@ -165,7 +165,7 @@ enum node_type {
 
 extern vector cmdvec;
 extern const struct message tokennames[];
-extern const char *node_names[];
+extern const char *const node_names[];
 
 /* Node which has some commands and prompt string and configuration
    function pointer . */
@@ -217,7 +217,7 @@ struct cmd_node {
 
 /* helper defines for end-user DEFUN* macros */
 #define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum)     \
-	static struct cmd_element cmdname = {                                  \
+	static const struct cmd_element cmdname = {                            \
 		.string = cmdstr,                                              \
 		.func = funcname,                                              \
 		.doc = helpstr,                                                \
@@ -412,20 +412,20 @@ struct cmd_node {
 #define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor IPv6 address\nInterface name or neighbor tag\n"
 #define NEIGHBOR_ADDR_STR3 "Neighbor address\nIPv6 address\nInterface name\n"
 
-/* Dameons lists */
+/* Daemons lists */
 #define DAEMONS_STR                                                            \
-	"For the zebra daemon\nFor the rip daemon\nFor the ripng daemon\nFor the ospf daemon\nFor the ospfv6 daemon\nFor the bgp daemon\nFor the isis daemon\nFor the pbr daemon\nFor the fabricd daemon\nFor the pim daemon\nFor the static daemon\nFor the sharpd daemon\nFor the vrrpd daemon\n"
+	"For the zebra daemon\nFor the rip daemon\nFor the ripng daemon\nFor the ospf daemon\nFor the ospfv6 daemon\nFor the bgp daemon\nFor the isis daemon\nFor the pbr daemon\nFor the fabricd daemon\nFor the pim daemon\nFor the static daemon\nFor the sharpd daemon\nFor the vrrpd daemon\nFor the ldpd daemon\n"
 #define DAEMONS_LIST                                                           \
-	"<zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pbrd|fabricd|pimd|staticd|sharpd|vrrpd>"
+	"<zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pbrd|fabricd|pimd|staticd|sharpd|vrrpd|ldpd>"
 
 /* Prototypes. */
 extern void install_node(struct cmd_node *, int (*)(struct vty *));
 extern void install_default(enum node_type);
-extern void install_element(enum node_type, struct cmd_element *);
+extern void install_element(enum node_type, const struct cmd_element *);
 
 /* known issue with uninstall_element:  changes to cmd_token->attr (i.e.
  * deprecated/hidden) are not reversed. */
-extern void uninstall_element(enum node_type, struct cmd_element *);
+extern void uninstall_element(enum node_type, const struct cmd_element *);
 
 /* Concatenates argv[shift] through argv[argc-1] into a single NUL-terminated
    string with a space between each element (allocated using
@@ -499,6 +499,7 @@ extern void host_config_set(const char *);
 extern void print_version(const char *);
 
 extern int cmd_banner_motd_file(const char *);
+extern void cmd_banner_motd_line(const char *line);
 
 /* struct host global, ick */
 extern struct host host;

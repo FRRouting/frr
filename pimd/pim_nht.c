@@ -177,7 +177,6 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 	struct pim_nexthop_cache *pnc = NULL;
 	struct pim_nexthop_cache lookup;
 	struct zclient *zclient = NULL;
-	struct listnode *upnode = NULL;
 	struct pim_upstream *upstream = NULL;
 
 	zclient = pim_zebra_zclient_get();
@@ -190,8 +189,8 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 			/* Release the (*, G)upstream from pnc->upstream_hash,
 			 * whose Group belongs to the RP getting deleted
 			 */
-			for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode,
-				upstream)) {
+			frr_each (rb_pim_upstream, &pim->upstream_head,
+				  upstream) {
 				struct prefix grp;
 				struct rp_info *trp_info;
 
@@ -441,37 +440,22 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 {
 	struct pim_instance *pim = (struct pim_instance *)arg;
 	struct pim_upstream *up = (struct pim_upstream *)bucket->data;
-	int vif_index = 0;
 
 	enum pim_rpf_result rpf_result;
 	struct pim_rpf old;
 
 	old.source_nexthop.interface = up->rpf.source_nexthop.interface;
-	rpf_result = pim_rpf_update(pim, up, &old);
-	if (rpf_result == PIM_RPF_FAILURE) {
-		pim_upstream_rpf_clear(pim, up);
-		return HASHWALK_CONTINUE;
-	}
+	rpf_result = pim_rpf_update(pim, up, &old, __func__);
 
-	/* update kernel multicast forwarding cache (MFC) */
-	if (up->rpf.source_nexthop.interface) {
-		ifindex_t ifindex = up->rpf.source_nexthop.interface->ifindex;
+	/* update kernel multicast forwarding cache (MFC); if the
+	 * RPF nbr is now unreachable the MFC has already been updated
+	 * by pim_rpf_clear
+	 */
+	if (rpf_result != PIM_RPF_FAILURE)
+		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
-		vif_index = pim_if_find_vifindex_by_ifindex(pim, ifindex);
-		/* Pass Current selected NH vif index to mroute download
-		 */
-		if (vif_index)
-			pim_scan_individual_oil(up->channel_oil, vif_index);
-		else {
-			if (PIM_DEBUG_PIM_NHT)
-				zlog_debug(
-					"%s: NHT upstream %s channel_oil IIF %s vif_index is not valid",
-					__PRETTY_FUNCTION__, up->sg_str,
-					up->rpf.source_nexthop.interface->name);
-		}
-	}
-
-	if (rpf_result == PIM_RPF_CHANGED)
+	if (rpf_result == PIM_RPF_CHANGED ||
+		(rpf_result == PIM_RPF_FAILURE && old.source_nexthop.interface))
 		pim_zebra_upstream_rpf_changed(pim, up, &old);
 
 
@@ -480,7 +464,8 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 			__PRETTY_FUNCTION__, up->sg_str, pim->vrf->name,
 			old.source_nexthop.interface
 			? old.source_nexthop.interface->name : "Unknown",
-			up->rpf.source_nexthop.interface->name);
+			up->rpf.source_nexthop.interface
+			? up->rpf.source_nexthop.interface->name : "Unknown");
 	}
 
 	return HASHWALK_CONTINUE;

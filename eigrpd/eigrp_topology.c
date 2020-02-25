@@ -197,7 +197,7 @@ void eigrp_prefix_entry_delete(struct eigrp *eigrp, struct route_table *table,
 	list_delete(&pe->entries);
 	list_delete(&pe->rij);
 	eigrp_zebra_route_delete(eigrp, pe->destination);
-	prefix_free(pe->destination);
+	prefix_free(&pe->destination);
 
 	rn->info = NULL;
 	route_unlock_node(rn); // Lookup above

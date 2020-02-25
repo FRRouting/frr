@@ -55,11 +55,14 @@ static void eigrp_network_run_interface(struct eigrp *, struct prefix *,
 
 int eigrp_sock_init(struct vrf *vrf)
 {
-	int eigrp_sock;
+	int eigrp_sock = -1;
 	int ret;
 #ifdef IP_HDRINCL
 	int hincl = 1;
 #endif
+
+	if (!vrf)
+		return eigrp_sock;
 
 	frr_with_privs(&eigrpd_privs) {
 		eigrp_sock = vrf_socket(
@@ -324,8 +327,7 @@ int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 	if (!IPV4_ADDR_SAME(&pref->u.prefix4, &p->u.prefix4))
 		return 0;
 
-	prefix_ipv4_free(rn->info);
-	rn->info = NULL;
+	prefix_ipv4_free((struct prefix_ipv4 **)&rn->info);
 	route_unlock_node(rn); /* initial reference */
 
 	/* Find interfaces that not configured already.  */

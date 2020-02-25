@@ -152,8 +152,8 @@ static int ripng_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 void ripng_redistribute_conf_update(struct ripng *ripng, int type)
 {
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0,
-			     ripng->vrf->vrf_id);
+	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6,
+				type, 0, ripng->vrf->vrf_id);
 }
 
 void ripng_redistribute_conf_delete(struct ripng *ripng, int type)
@@ -242,10 +242,6 @@ void zebra_init(struct thread_master *master)
 	zclient_init(zclient, ZEBRA_ROUTE_RIPNG, 0, &ripngd_privs);
 
 	zclient->zebra_connected = ripng_zebra_connected;
-	zclient->interface_up = ripng_interface_up;
-	zclient->interface_down = ripng_interface_down;
-	zclient->interface_add = ripng_interface_add;
-	zclient->interface_delete = ripng_interface_delete;
 	zclient->interface_address_add = ripng_interface_address_add;
 	zclient->interface_address_delete = ripng_interface_address_delete;
 	zclient->interface_vrf_update = ripng_interface_vrf_update;

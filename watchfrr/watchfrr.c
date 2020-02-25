@@ -25,7 +25,6 @@
 #include <sigevent.h>
 #include <lib/version.h>
 #include "command.h"
-#include "memory_vty.h"
 #include "libfrr.h"
 #include "lib_errors.h"
 
@@ -76,7 +75,7 @@ typedef enum {
 	PHASE_WAITING_ZEBRA_UP
 } restart_phase_t;
 
-static const char *phase_str[] = {
+static const char *const phase_str[] = {
 	"Idle",
 	"Startup",
 	"Stop jobs running",
@@ -144,7 +143,7 @@ typedef enum {
 #define IS_UP(DMN)                                                             \
 	(((DMN)->state == DAEMON_UP) || ((DMN)->state == DAEMON_UNRESPONSIVE))
 
-static const char *state_str[] = {
+static const char *const state_str[] = {
 	"Init", "Down", "Connecting", "Up", "Unresponsive",
 };
 
@@ -159,6 +158,15 @@ struct daemon {
 	struct thread *t_write;
 	struct daemon *next;
 	struct restart_info restart;
+
+	/*
+	 * For a given daemon, if we've turned on ignore timeouts
+	 * ignore the timeout value and assume everything is ok
+	 * This is for daemon debugging w/ gdb after we have started
+	 * FRR and realize we have something that needs to be looked
+	 * at
+	 */
+	bool ignore_timeout;
 };
 
 #define OPTION_MINRESTART 2000
@@ -191,6 +199,25 @@ static void phase_check(void);
 static void restart_done(struct daemon *dmn);
 
 static const char *progname;
+
+void watchfrr_set_ignore_daemon(struct vty *vty, const char *dname, bool ignore)
+{
+	struct daemon *dmn;
+
+	for (dmn = gs.daemons; dmn; dmn = dmn->next) {
+		if (strncmp(dmn->name, dname, strlen(dmn->name)) == 0)
+			break;
+	}
+
+	if (dmn) {
+		dmn->ignore_timeout = ignore;
+		vty_out(vty, "%s switching to %s\n", dmn->name,
+			ignore ? "ignore" : "watch");
+	} else
+		vty_out(vty, "%s is not configured for running at the moment",
+			dname);
+}
+
 static void printhelp(FILE *target)
 {
 	fprintf(target,
@@ -432,12 +459,20 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 		return -1;
 	}
 
+#if defined HAVE_SYSTEMD
+	char buffer[512];
+
+	snprintf(buffer, sizeof(buffer), "restarting %s", restart->name);
+	systemd_send_status(buffer);
+#endif
+
 	/* Note: time_elapsed test must come before the force test, since we
 	   need
 	   to make sure that delay is initialized for use below in updating the
 	   restart interval. */
 	if ((time_elapsed(&delay, &restart->time)->tv_sec < restart->interval)
 	    && !force) {
+
 		if (gs.loglevel > LOG_DEBUG + 1)
 			zlog_debug(
 				"postponing %s %s: "
@@ -462,6 +497,9 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 			restart->pid = 0;
 	}
 
+#if defined HAVE_SYSTEMD
+	systemd_send_status("FRR Operational");
+#endif
 	/* Calculate the new restart interval. */
 	if (update_interval) {
 		if (delay.tv_sec > 2 * gs.max_restart_interval)
@@ -533,7 +571,9 @@ static int wakeup_init(struct thread *t_wakeup)
 static void restart_done(struct daemon *dmn)
 {
 	if (dmn->state != DAEMON_DOWN) {
-		zlog_warn("wtf?");
+		zlog_warn(
+			"Daemon: %s: is in %s state but expected it to be in DAEMON_DOWN state",
+			dmn->name, state_str[dmn->state]);
 		return;
 	}
 	if (dmn->t_wakeup)
@@ -677,6 +717,7 @@ static void daemon_send_ready(int exitcode)
 		fclose(fp);
 #if defined HAVE_SYSTEMD
 	systemd_send_started(master, 0);
+	systemd_send_status("FRR Operational");
 #endif
 	sent = 1;
 }
@@ -961,6 +1002,8 @@ static int wakeup_no_answer(struct thread *t_wakeup)
 
 	dmn->t_wakeup = NULL;
 	dmn->state = DAEMON_UNRESPONSIVE;
+	if (dmn->ignore_timeout)
+		return 0;
 	flog_err(EC_WATCHFRR_CONNECTION,
 		 "%s state -> unresponsive : no response yet to ping "
 		 "sent %ld seconds ago",
@@ -1014,7 +1057,8 @@ void watchfrr_status(struct vty *vty)
 			(long)gs.restart.pid);
 
 	for (dmn = gs.daemons; dmn; dmn = dmn->next) {
-		vty_out(vty, "  %-20s %s\n", dmn->name, state_str[dmn->state]);
+		vty_out(vty, "  %-20s %s%s", dmn->name, state_str[dmn->state],
+			dmn->ignore_timeout ? "/Ignoring Timeout\n" : "\n");
 		if (dmn->restart.pid)
 			vty_out(vty, "      restart running, pid %ld\n",
 				(long)dmn->restart.pid);

@@ -1385,7 +1385,8 @@ static void ospf6_routemap_rule_match_address_prefixlist_free(void *rule)
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-struct route_map_rule_cmd ospf6_routemap_rule_match_address_prefixlist_cmd = {
+static const struct route_map_rule_cmd
+		ospf6_routemap_rule_match_address_prefixlist_cmd = {
 	"ipv6 address prefix-list",
 	ospf6_routemap_rule_match_address_prefixlist,
 	ospf6_routemap_rule_match_address_prefixlist_compile,
@@ -1427,10 +1428,13 @@ static void ospf6_routemap_rule_match_interface_free(void *rule)
 }
 
 /* Route map commands for interface matching. */
-struct route_map_rule_cmd ospf6_routemap_rule_match_interface_cmd = {
-	"interface", ospf6_routemap_rule_match_interface,
+static const struct route_map_rule_cmd
+		ospf6_routemap_rule_match_interface_cmd = {
+	"interface",
+	ospf6_routemap_rule_match_interface,
 	ospf6_routemap_rule_match_interface_compile,
-	ospf6_routemap_rule_match_interface_free};
+	ospf6_routemap_rule_match_interface_free
+};
 
 /* Match function for matching route tags */
 static enum route_map_cmd_result_t
@@ -1447,8 +1451,11 @@ ospf6_routemap_rule_match_tag(void *rule, const struct prefix *p,
 	return RMAP_NOMATCH;
 }
 
-static struct route_map_rule_cmd ospf6_routemap_rule_match_tag_cmd = {
-	"tag", ospf6_routemap_rule_match_tag, route_map_rule_tag_compile,
+static const struct route_map_rule_cmd
+		ospf6_routemap_rule_match_tag_cmd = {
+	"tag",
+	ospf6_routemap_rule_match_tag,
+	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
 };
 
@@ -1482,8 +1489,10 @@ static void ospf6_routemap_rule_set_metric_type_free(void *rule)
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-struct route_map_rule_cmd ospf6_routemap_rule_set_metric_type_cmd = {
-	"metric-type", ospf6_routemap_rule_set_metric_type,
+static const struct route_map_rule_cmd
+		ospf6_routemap_rule_set_metric_type_cmd = {
+	"metric-type",
+	ospf6_routemap_rule_set_metric_type,
 	ospf6_routemap_rule_set_metric_type_compile,
 	ospf6_routemap_rule_set_metric_type_free,
 };
@@ -1517,8 +1526,10 @@ static void ospf6_routemap_rule_set_metric_free(void *rule)
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-struct route_map_rule_cmd ospf6_routemap_rule_set_metric_cmd = {
-	"metric", ospf6_routemap_rule_set_metric,
+static const struct route_map_rule_cmd
+		ospf6_routemap_rule_set_metric_cmd = {
+	"metric",
+	ospf6_routemap_rule_set_metric,
 	ospf6_routemap_rule_set_metric_compile,
 	ospf6_routemap_rule_set_metric_free,
 };
@@ -1555,8 +1566,10 @@ static void ospf6_routemap_rule_set_forwarding_free(void *rule)
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-struct route_map_rule_cmd ospf6_routemap_rule_set_forwarding_cmd = {
-	"forwarding-address", ospf6_routemap_rule_set_forwarding,
+static const struct route_map_rule_cmd
+		ospf6_routemap_rule_set_forwarding_cmd = {
+	"forwarding-address",
+	ospf6_routemap_rule_set_forwarding,
 	ospf6_routemap_rule_set_forwarding_compile,
 	ospf6_routemap_rule_set_forwarding_free,
 };
@@ -1576,8 +1589,11 @@ ospf6_routemap_rule_set_tag(void *rule, const struct prefix *p,
 	return RMAP_OKAY;
 }
 
-static struct route_map_rule_cmd ospf6_routemap_rule_set_tag_cmd = {
-	"tag", ospf6_routemap_rule_set_tag, route_map_rule_tag_compile,
+static const struct route_map_rule_cmd
+		ospf6_routemap_rule_set_tag_cmd = {
+	"tag",
+	ospf6_routemap_rule_set_tag,
+	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
 };
 
@@ -1593,7 +1609,6 @@ static int route_map_command_status(struct vty *vty, enum rmap_compile_rets ret)
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
-	case RMAP_DUPLICATE_RULE:
 		break;
 	}
 
@@ -1843,7 +1858,7 @@ DEFUN (show_ipv6_ospf6_redistribute,
 	return CMD_SUCCESS;
 }
 
-struct ospf6_lsa_handler as_external_handler = {
+static const struct ospf6_lsa_handler as_external_handler = {
 	.lh_type = OSPF6_LSTYPE_AS_EXTERNAL,
 	.lh_name = "AS-External",
 	.lh_short_name = "ASE",

@@ -26,6 +26,7 @@ dev_RSTFILES = \
 	doc/developer/building.rst \
 	doc/developer/cli.rst \
 	doc/developer/conf.py \
+	doc/developer/frr-release-procedure.rst \
 	doc/developer/hooks.rst \
 	doc/developer/include-compile.rst \
 	doc/developer/index.rst \
@@ -33,7 +34,6 @@ dev_RSTFILES = \
 	doc/developer/lists.rst \
 	doc/developer/locking.rst \
 	doc/developer/logging.rst \
-	doc/developer/maintainer-release-build.rst \
 	doc/developer/memtypes.rst \
 	doc/developer/modules.rst \
 	doc/developer/next-hop-tracking.rst \
@@ -55,6 +55,7 @@ EXTRA_DIST += \
 	$(dev_RSTFILES) \
 	doc/developer/draft-zebra-00.ms \
 	doc/developer/ldpd-basic-test-setup.md \
+	doc/developer/release-announcement-template.md \
 	# end
 
 DEVBUILD = doc/developer/_build

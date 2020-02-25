@@ -430,9 +430,9 @@ void ospf_delete_opaque_functab(uint8_t lsa_type, uint8_t opaque_type)
 				/* Cleanup internal control information, if it
 				 * still remains. */
 				if (functab->oipt != NULL) {
+					free_opaque_info_owner(functab->oipt);
 					free_opaque_info_per_type(
 						functab->oipt);
-					free_opaque_info_owner(functab->oipt);
 				}
 
 				/* Dequeue listnode entry from the list. */
@@ -554,8 +554,8 @@ register_opaque_info_per_type(struct ospf_opaque_functab *functab,
 	case OSPF_OPAQUE_AS_LSA:
 		top = ospf_lookup_by_vrf_id(new->vrf_id);
 		if (new->area != NULL && (top = new->area->ospf) == NULL) {
-			free_opaque_info_per_type((void *)oipt);
 			free_opaque_info_owner(oipt);
+			free_opaque_info_per_type(oipt);
 			oipt = NULL;
 			goto out; /* This case may not exist. */
 		}
@@ -567,8 +567,8 @@ register_opaque_info_per_type(struct ospf_opaque_functab *functab,
 			EC_OSPF_LSA_UNEXPECTED,
 			"register_opaque_info_per_type: Unexpected LSA-type(%u)",
 			new->data->type);
-		free_opaque_info_per_type((void *)oipt);
 		free_opaque_info_owner(oipt);
+		free_opaque_info_per_type(oipt);
 		oipt = NULL;
 		goto out; /* This case may not exist. */
 	}

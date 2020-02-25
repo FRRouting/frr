@@ -4,7 +4,68 @@ frr (@VERSION@-0) UNRELEASED; urgency=medium
     remove and replace when creating releases!
     (tools/tarsource.sh will handle this)
 
- -- FRRouting-Dev <dev@lists.frrouting.org>  Fri, 17 Jan 2020 16:41:00 +0200
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Thu, 25 Oct 2018 16:36:50 +0200
+
+frr (7.3-0) testing; urgency=medium
+
+  * BGPd
+  *    EVPN PIP Support
+  *    Route Aggregation code speed ups
+  *    BGP Vector I/O speed ups
+  *    New CLI: `set distance XXX`
+  *    New CLI: `aggregate-address A.B.C.D/M route-map WORD`
+  *    New CLI: `bgp reject-as-sets`
+  *    New CLI: `advertise pip ...`
+  *    New CLI: `match evpn rd ASN:NN_OR_IP-ADDRESS:NN`
+  *    New CLI: `show bgp l2vpn evpn community|large-community X`
+  *    New CLI: `show bgp l2vpn evpn A.B.C.D`
+  *    Auto-completion for clear bgp command
+  *    Add ability to set tcp socket buffer size
+  * OSPFd
+  *    Partial MPLS TE support
+  * PBRd
+  *    New CLI: `set vrf unchanged|NAME`
+  * BFDd
+  *    VRF Support
+  *    New CLI: 'show bfd peers brief'
+  *    New CLI: 'clear bfd peer ...'
+  * PIMd
+  *    Significant Speedups in accessing Internal Data for higher scale
+  *    Support for joining any-source Multicast
+  *    Updated CLI: 'show ip pim upstream-join-desired'
+  *    New CLI: 'show ip pim channel'
+  *    Debug Cleanup
+  *    MLAG experimental support
+  * VRRPd
+  *    VRF Support
+  *    Northbound Conversion- NHRPd
+  * LDPd
+  * vtysh
+  *    New CLI: `banner motd line LINE...`
+  * yang
+  *    New CLI: `show yang operational-data XPATH`
+  *    New CLI: `debug northbound`
+  * Zebra
+  *    Nexthop Group support
+  *    New CLI: 'debug zebra nexthop [detail]'
+  *    New CLI: 'show router-id'
+  *    MLAG experimental support
+  * watchfrr
+  *    Additional status messages of system state to systemd
+  *    New CLI: `watchfrr ignore DAEMON`
+  * Others
+  *    As always all daemons have received too many bug fixes to fully list
+  *    There has been a significant focus on increasing test coverage
+  * Change in Behavior:
+  *    ISISd
+  *       All areas created default automatically to level-1-2
+  *    Zebra
+  *       Nexthop Group Installation in Kernel is turned on by default
+          if the kernel supports-    New CLI: 'show nexthop-group rib [singleton]'
+  *    Man Pages
+  *       Renamed to frr-* to remove collision with other packages
+
+ -- Martin Winter <mwinter@opensourcerouting.org>  Fri, 14 Feb 2020 02:20:00 +0200
 
 frr (7.2-1) testing; urgency=medium
 

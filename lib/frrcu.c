@@ -55,6 +55,7 @@
 #include "atomlist.h"
 
 DEFINE_MTYPE_STATIC(LIB, RCU_THREAD,    "RCU thread")
+DEFINE_MTYPE_STATIC(LIB, RCU_NEXT,      "RCU sequence barrier")
 
 DECLARE_ATOMLIST(rcu_heads, struct rcu_head, head)
 
@@ -225,7 +226,7 @@ static void rcu_bump(void)
 {
 	struct rcu_next *rn;
 
-	rn = XMALLOC(MTYPE_RCU_THREAD, sizeof(*rn));
+	rn = XMALLOC(MTYPE_RCU_NEXT, sizeof(*rn));
 
 	/* note: each RCUA_NEXT item corresponds to exactly one seqno bump.
 	 * This means we don't need to communicate which seqno is which
@@ -268,7 +269,7 @@ static void rcu_bump(void)
 	 * "last item is being deleted - start over" case, and then we may end
 	 * up accessing old RCU queue items that are already free'd.
 	 */
-	rcu_free_internal(MTYPE_RCU_THREAD, rn, head_free);
+	rcu_free_internal(MTYPE_RCU_NEXT, rn, head_free);
 
 	/* Only allow the RCU sweeper to run after these 2 items are queued.
 	 *

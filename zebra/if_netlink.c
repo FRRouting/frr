@@ -66,6 +66,7 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/kernel_netlink.h"
+#include "zebra/rt_netlink.h"
 #include "zebra/if_netlink.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_vxlan.h"
@@ -365,7 +366,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 	}
 }
 
-static uint32_t get_iflink_speed(struct interface *interface)
+static uint32_t get_iflink_speed(struct interface *interface, int *error)
 {
 	struct ifreq ifdata;
 	struct ethtool_cmd ecmd;
@@ -373,6 +374,8 @@ static uint32_t get_iflink_speed(struct interface *interface)
 	int rc;
 	const char *ifname = interface->name;
 
+	if (error)
+		*error = 0;
 	/* initialize struct */
 	memset(&ifdata, 0, sizeof(ifdata));
 
@@ -393,6 +396,9 @@ static uint32_t get_iflink_speed(struct interface *interface)
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug("Failure to read interface %s speed: %d %s",
 					   ifname, errno, safe_strerror(errno));
+			/* no vrf socket creation may probably mean vrf issue */
+			if (error)
+				*error = -1;
 			return 0;
 		}
 	/* Get the current link state for the interface */
@@ -404,6 +410,9 @@ static uint32_t get_iflink_speed(struct interface *interface)
 			zlog_debug(
 				"IOCTL failure to read interface %s speed: %d %s",
 				ifname, errno, safe_strerror(errno));
+		/* no device means interface unreachable */
+		if (errno == ENODEV && error)
+			*error = -1;
 		ecmd.speed_hi = 0;
 		ecmd.speed = 0;
 	}
@@ -413,9 +422,9 @@ static uint32_t get_iflink_speed(struct interface *interface)
 	return ((uint32_t)ecmd.speed_hi << 16) | ecmd.speed;
 }
 
-uint32_t kernel_get_speed(struct interface *ifp)
+uint32_t kernel_get_speed(struct interface *ifp, int *error)
 {
-	return get_iflink_speed(ifp);
+	return get_iflink_speed(ifp, error);
 }
 
 static int netlink_extract_bridge_info(struct rtattr *link_data,
@@ -598,7 +607,6 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
 	ifindex_t bond_ifindex = IFINDEX_INTERNAL;
 	struct zebra_if *zif;
-	struct vrf *vrf = NULL;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -682,7 +690,6 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (tb[IFLA_LINK])
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
-	vrf = vrf_get(vrf_id, NULL);
 	/* Add interface.
 	 * We add by index first because in some cases such as the master
 	 * interface, we have the index before we have the name. Fixing
@@ -691,12 +698,13 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	 */
 	ifp = if_get_by_ifindex(ifi->ifi_index, vrf_id);
 	set_ifindex(ifp, ifi->ifi_index, zns); /* add it to ns struct */
-	strlcpy(ifp->name, name, sizeof(ifp->name));
-	IFNAME_RB_INSERT(vrf, ifp);
+
+	if_set_name(ifp, name);
+
 	ifp->flags = ifi->ifi_flags & 0x0000fffff;
 	ifp->mtu6 = ifp->mtu = *(uint32_t *)RTA_DATA(tb[IFLA_MTU]);
 	ifp->metric = 0;
-	ifp->speed = get_iflink_speed(ifp);
+	ifp->speed = get_iflink_speed(ifp, NULL);
 	ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 
 	/* Set zebra interface type */
@@ -800,6 +808,23 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 
 	/* fixup linkages */
 	zebra_if_update_all_links();
+	return 0;
+}
+
+/**
+ * interface_addr_lookup_netlink() - Look up interface addresses
+ *
+ * @zns:	Zebra netlink socket
+ * Return:	Result status
+ */
+static int interface_addr_lookup_netlink(struct zebra_ns *zns)
+{
+	int ret;
+	struct zebra_dplane_info dp_info;
+	struct nlsock *netlink_cmd = &zns->netlink_cmd;
+
+	/* Capture key info from ns struct */
+	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
 
 	/* Get IPv4 address of the interfaces. */
 	ret = netlink_request_intf_addr(netlink_cmd, AF_INET, RTM_GETADDR, 0);
@@ -1032,7 +1057,8 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	/* addr is primary key, SOL if we don't have one */
 	if (addr == NULL) {
-		zlog_debug("%s: NULL address", __func__);
+		zlog_debug("%s: Local Interface Address is NULL for %s",
+			   __func__, ifp->name);
 		return -1;
 	}
 
@@ -1095,6 +1121,14 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			connected_delete_ipv6(ifp, (struct in6_addr *)addr,
 					      NULL, ifa->ifa_prefixlen);
 	}
+
+
+	/*
+	 * Linux kernel does not send route delete on interface down/addr del
+	 * so we have to re-process routes it owns (i.e. kernel routes)
+	 */
+	if (h->nlmsg_type != RTM_NEWADDR)
+		rib_update(RIB_UPDATE_KERNEL);
 
 	return 0;
 }
@@ -1324,6 +1358,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 							"Intf %s(%u) has gone DOWN",
 							name, ifp->ifindex);
 					if_down(ifp);
+					rib_update(RIB_UPDATE_KERNEL);
 				} else if (if_is_operative(ifp)) {
 					/* Must notify client daemons of new
 					 * interface status. */
@@ -1363,6 +1398,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 							"Intf %s(%u) has gone DOWN",
 							name, ifp->ifindex);
 					if_down(ifp);
+					rib_update(RIB_UPDATE_KERNEL);
 				}
 			}
 
@@ -1375,6 +1411,13 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 							       bridge_ifindex);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp) || was_bond_slave)
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex);
+		}
+
+		zif = ifp->info;
+		if (zif) {
+			XFREE(MTYPE_TMP, zif->desc);
+			if (desc)
+				zif->desc = XSTRDUP(MTYPE_TMP, desc);
 		}
 	} else {
 		/* Delete interface notification from kernel */
@@ -1400,13 +1443,6 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 		if (!IS_ZEBRA_IF_VRF(ifp))
 			if_delete_update(ifp);
-	}
-
-	zif = ifp->info;
-	if (zif) {
-		XFREE(MTYPE_TMP, zif->desc);
-		if (desc)
-			zif->desc = XSTRDUP(MTYPE_TMP, desc);
 	}
 
 	return 0;
@@ -1442,6 +1478,13 @@ int netlink_protodown(struct interface *ifp, bool down)
 void interface_list(struct zebra_ns *zns)
 {
 	interface_lookup_netlink(zns);
+	/* We add routes for interface address,
+	 * so we need to get the nexthop info
+	 * from the kernel before we can do that
+	 */
+	netlink_nexthop_read(zns);
+
+	interface_addr_lookup_netlink(zns);
 }
 
 #endif /* GNU_LINUX */

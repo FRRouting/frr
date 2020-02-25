@@ -139,6 +139,8 @@ extern void rcu_enqueue(struct rcu_head *head, const struct rcu_action *action);
 #define rcu_free(mtype, ptr, field)                                            \
 	do {                                                                   \
 		typeof(ptr) _ptr = (ptr);                                      \
+		if (!_ptr)                                                     \
+			break;                                                 \
 		struct rcu_head *_rcu_head = &_ptr->field;                     \
 		static const struct rcu_action _rcu_action = {                 \
 			.type = RCUA_FREE,                                     \

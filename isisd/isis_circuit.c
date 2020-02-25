@@ -58,8 +58,11 @@
 #include "isisd/isis_mt.h"
 #include "isisd/isis_errors.h"
 #include "isisd/isis_tx_queue.h"
+#include "isisd/isis_nb.h"
 
 DEFINE_QOBJ_TYPE(isis_circuit)
+
+DEFINE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp))
 
 /*
  * Prototypes.
@@ -134,8 +137,6 @@ struct isis_circuit *isis_circuit_new(void)
 		circuit->level_arg[i].circuit = circuit;
 	}
 #endif /* ifndef FABRICD */
-
-	circuit->mtc = mpls_te_circuit_new();
 
 	circuit_mt_init(circuit);
 
@@ -266,8 +267,11 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 		ipv4->prefix = connected->address->u.prefix4;
 		listnode_add(circuit->ip_addrs, ipv4);
 
-		/* Update MPLS TE Local IP address parameter */
-		set_circuitparams_local_ipaddr(circuit->mtc, ipv4->prefix);
+		/* Update Local IP address parameter if MPLS TE is enable */
+		if (circuit->ext && IS_MPLS_TE(circuit->ext)) {
+			circuit->ext->local_addr.s_addr = ipv4->prefix.s_addr;
+			SET_SUBTLV(circuit->ext, EXT_LOCAL_ADDR);
+		}
 
 		if (circuit->area)
 			lsp_regenerate_schedule(circuit->area, circuit->is_type,
@@ -334,7 +338,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 
 		if (ip) {
 			listnode_delete(circuit->ip_addrs, ip);
-			prefix_ipv4_free(ip);
+			prefix_ipv4_free(&ip);
 			if (circuit->area)
 				lsp_regenerate_schedule(circuit->area,
 							circuit->is_type, 0);
@@ -354,7 +358,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 			zlog_warn("End of addresses");
 		}
 
-		prefix_ipv4_free(ipv4);
+		prefix_ipv4_free(&ipv4);
 	}
 	if (connected->address->family == AF_INET6) {
 		ipv6 = prefix_ipv6_new();
@@ -370,7 +374,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 			}
 			if (ip6) {
 				listnode_delete(circuit->ipv6_link, ip6);
-				prefix_ipv6_free(ip6);
+				prefix_ipv6_free(&ip6);
 				found = 1;
 			}
 		} else {
@@ -382,7 +386,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 			}
 			if (ip6) {
 				listnode_delete(circuit->ipv6_non_link, ip6);
-				prefix_ipv6_free(ip6);
+				prefix_ipv6_free(&ip6);
 				found = 1;
 			}
 		}
@@ -413,7 +417,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 			lsp_regenerate_schedule(circuit->area, circuit->is_type,
 						0);
 
-		prefix_ipv6_free(ipv6);
+		prefix_ipv6_free(&ipv6);
 	}
 	return;
 }
@@ -478,6 +482,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
 		isis_circuit_add_addr(circuit, conn);
+
 }
 
 void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
@@ -521,7 +526,6 @@ void isis_circuit_if_bind(struct isis_circuit *circuit, struct interface *ifp)
 		assert(ifp->info == circuit);
 	else
 		ifp->info = circuit;
-	isis_link_params_update(circuit, ifp);
 }
 
 void isis_circuit_if_unbind(struct isis_circuit *circuit, struct interface *ifp)
@@ -1388,6 +1392,51 @@ int isis_if_delete_hook(struct interface *ifp)
 	return 0;
 }
 
+static int isis_ifp_create(struct interface *ifp)
+{
+	if (if_is_operative(ifp))
+		isis_csm_state_change(IF_UP_FROM_Z, circuit_scan_by_ifp(ifp),
+				      ifp);
+
+	hook_call(isis_if_new_hook, ifp);
+
+	return 0;
+}
+
+static int isis_ifp_up(struct interface *ifp)
+{
+	isis_csm_state_change(IF_UP_FROM_Z, circuit_scan_by_ifp(ifp), ifp);
+
+	return 0;
+}
+
+static int isis_ifp_down(struct interface *ifp)
+{
+	struct isis_circuit *circuit;
+
+	circuit = isis_csm_state_change(IF_DOWN_FROM_Z,
+					circuit_scan_by_ifp(ifp), ifp);
+	if (circuit)
+		SET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);
+
+	return 0;
+}
+
+static int isis_ifp_destroy(struct interface *ifp)
+{
+	if (if_is_operative(ifp))
+		zlog_warn("Zebra: got delete of %s, but interface is still up",
+			  ifp->name);
+
+	isis_csm_state_change(IF_DOWN_FROM_Z, circuit_scan_by_ifp(ifp), ifp);
+
+	/* Cannot call if_delete because we should retain the pseudo interface
+	   in case there is configuration info attached to it. */
+	if_delete_retain(ifp);
+
+	return 0;
+}
+
 void isis_circuit_init(void)
 {
 	/* Initialize Zebra interface data structure */
@@ -1397,4 +1446,6 @@ void isis_circuit_init(void)
 	/* Install interface node */
 	install_node(&interface_node, isis_interface_config_write);
 	if_cmd_init();
+	if_zapi_callbacks(isis_ifp_create, isis_ifp_up,
+			  isis_ifp_down, isis_ifp_destroy);
 }

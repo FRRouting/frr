@@ -28,7 +28,6 @@
 #endif
 
 #include "command.h"
-#include "memory_vty.h"
 #include "graph.h"
 #include "linklist.h"
 #include "command_match.h"
@@ -39,9 +38,9 @@ DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command desc")
 
 /** headers **/
 void grammar_sandbox_init(void);
-void pretty_print_graph(struct vty *vty, struct graph_node *, int, int,
-			struct graph_node **, size_t);
-void init_cmdgraph(struct vty *, struct graph **);
+static void pretty_print_graph(struct vty *vty, struct graph_node *, int, int,
+			       struct graph_node **, size_t);
+static void init_cmdgraph(struct vty *, struct graph **);
 
 /** shim interface commands **/
 static struct graph *nodegraph = NULL, *nodegraph_free = NULL;
@@ -492,8 +491,9 @@ void grammar_sandbox_init(void)
  * @param start the node to take as the root
  * @param level indent level for recursive calls, always pass 0
  */
-void pretty_print_graph(struct vty *vty, struct graph_node *start, int level,
-			int desc, struct graph_node **stack, size_t stackpos)
+static void pretty_print_graph(struct vty *vty, struct graph_node *start,
+			       int level, int desc, struct graph_node **stack,
+			       size_t stackpos)
 {
 	// print this node
 	char tokennum[32];
@@ -551,7 +551,7 @@ void pretty_print_graph(struct vty *vty, struct graph_node *start, int level,
 }
 
 /** stuff that should go in command.c + command.h */
-void init_cmdgraph(struct vty *vty, struct graph **graph)
+static void init_cmdgraph(struct vty *vty, struct graph **graph)
 {
 	// initialize graph, add start noe
 	*graph = graph_new();

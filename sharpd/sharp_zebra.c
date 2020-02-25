@@ -46,51 +46,19 @@ struct zclient *zclient = NULL;
 /* For registering threads. */
 extern struct thread_master *master;
 
-static struct interface *zebra_interface_if_lookup(struct stream *s)
-{
-	char ifname_tmp[INTERFACE_NAMSIZ];
-
-	/* Read interface name. */
-	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
-
-	/* And look it up. */
-	return if_lookup_by_name(ifname_tmp, VRF_DEFAULT);
-}
-
 /* Inteface addition message from zebra. */
-static int interface_add(ZAPI_CALLBACK_ARGS)
+static int sharp_ifp_create(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-
-	if (!ifp->info)
-		return 0;
-
 	return 0;
 }
 
-static int interface_delete(ZAPI_CALLBACK_ARGS)
+static int sharp_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	/* zebra_interface_state_read () updates interface structure in iflist
-	 */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
-
 	return 0;
 }
 
 static int interface_address_add(ZAPI_CALLBACK_ARGS)
 {
-
 	zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	return 0;
@@ -105,23 +73,17 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 	if (!c)
 		return 0;
 
-	connected_free(c);
+	connected_free(&c);
 	return 0;
 }
 
-static int interface_state_up(ZAPI_CALLBACK_ARGS)
+static int sharp_ifp_up(struct interface *ifp)
 {
-
-	zebra_interface_if_lookup(zclient->ibuf);
-
 	return 0;
 }
 
-static int interface_state_down(ZAPI_CALLBACK_ARGS)
+static int sharp_ifp_down(struct interface *ifp)
 {
-
-	zebra_interface_state_read(zclient->ibuf, vrf_id);
-
 	return 0;
 }
 
@@ -243,6 +205,15 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 static void zebra_connected(struct zclient *zclient)
 {
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+
+	/*
+	 * Do not actually turn this on yet
+	 * This is just the start of the infrastructure needed here
+	 * This can be fixed at a later time.
+	 *
+	 *	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
+	 *			ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+	 */
 }
 
 void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
@@ -272,6 +243,8 @@ void route_add(struct prefix *p, vrf_id_t vrf_id,
 		api_nh = &api.nexthops[i];
 		api_nh->vrf_id = nh->vrf_id;
 		api_nh->type = nh->type;
+		api_nh->weight = nh->weight;
+
 		switch (nh->type) {
 		case NEXTHOP_TYPE_IPV4:
 			api_nh->gate = nh->gate;
@@ -294,6 +267,17 @@ void route_add(struct prefix *p, vrf_id_t vrf_id,
 			api_nh->bh_type = nh->bh_type;
 			break;
 		}
+
+		if (nh->nh_label && nh->nh_label->num_labels > 0) {
+			int j;
+
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
+
+			api_nh->label_num = nh->nh_label->num_labels;
+			for (j = 0; j < nh->nh_label->num_labels; j++)
+				api_nh->labels[j] = nh->nh_label->label[j];
+		}
+
 		i++;
 	}
 	api.nexthop_num = i;
@@ -338,28 +322,13 @@ void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import,
 			  __PRETTY_FUNCTION__);
 }
 
-static int sharp_nexthop_update(ZAPI_CALLBACK_ARGS)
+static int sharp_debug_nexthops(struct zapi_route *api)
 {
-	struct sharp_nh_tracker *nht;
-	struct zapi_route nhr;
-	char buf[PREFIX_STRLEN];
 	int i;
+	char buf[PREFIX_STRLEN];
 
-	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
-		zlog_warn("%s: Decode of update failed", __PRETTY_FUNCTION__);
-
-		return 0;
-	}
-
-	zlog_debug("Received update for %s",
-		   prefix2str(&nhr.prefix, buf, sizeof(buf)));
-
-	nht = sharp_nh_tracker_get(&nhr.prefix);
-	nht->nhop_num = nhr.nexthop_num;
-	nht->updates++;
-
-	for (i = 0; i < nhr.nexthop_num; i++) {
-		struct zapi_nexthop *znh = &nhr.nexthops[i];
+	for (i = 0; i < api->nexthop_num; i++) {
+		struct zapi_nexthop *znh = &api->nexthops[i];
 
 		switch (znh->type) {
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
@@ -389,6 +358,45 @@ static int sharp_nexthop_update(ZAPI_CALLBACK_ARGS)
 			break;
 		}
 	}
+
+	return i;
+}
+static int sharp_nexthop_update(ZAPI_CALLBACK_ARGS)
+{
+	struct sharp_nh_tracker *nht;
+	struct zapi_route nhr;
+
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+		zlog_warn("%s: Decode of update failed", __PRETTY_FUNCTION__);
+
+		return 0;
+	}
+
+	zlog_debug("Received update for %pFX", &nhr.prefix);
+
+	nht = sharp_nh_tracker_get(&nhr.prefix);
+	nht->nhop_num = nhr.nexthop_num;
+	nht->updates++;
+
+	sharp_debug_nexthops(&nhr);
+
+	return 0;
+}
+
+static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
+{
+	struct zapi_route api;
+
+	if (zapi_route_decode(zclient->ibuf, &api) < 0)
+		zlog_warn("%s: Decode of redistribute failed: %d",
+			  __PRETTY_FUNCTION__,
+			  ZEBRA_REDISTRIBUTE_ROUTE_ADD);
+
+	zlog_debug("%s: %pFX (%s)", zserv_command_string(cmd),
+		   &api.prefix, zebra_route_string(api.type));
+
+	sharp_debug_nexthops(&api);
+
 	return 0;
 }
 
@@ -398,17 +406,19 @@ void sharp_zebra_init(void)
 {
 	struct zclient_options opt = {.receive_notify = true};
 
+	if_zapi_callbacks(sharp_ifp_create, sharp_ifp_up,
+			  sharp_ifp_down, sharp_ifp_destroy);
+
 	zclient = zclient_new(master, &opt);
 
 	zclient_init(zclient, ZEBRA_ROUTE_SHARP, 0, &sharp_privs);
 	zclient->zebra_connected = zebra_connected;
-	zclient->interface_add = interface_add;
-	zclient->interface_delete = interface_delete;
-	zclient->interface_up = interface_state_up;
-	zclient->interface_down = interface_state_down;
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
 	zclient->route_notify_owner = route_notify_owner;
 	zclient->nexthop_update = sharp_nexthop_update;
 	zclient->import_check_update = sharp_nexthop_update;
+
+	zclient->redistribute_route_add = sharp_redistribute_route;
+	zclient->redistribute_route_del = sharp_redistribute_route;
 }

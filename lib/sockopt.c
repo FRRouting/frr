@@ -72,6 +72,21 @@ int getsockopt_so_sendbuf(const int sock)
 	return optval;
 }
 
+int getsockopt_so_recvbuf(const int sock)
+{
+	uint32_t optval;
+	socklen_t optlen = sizeof(optval);
+	int ret = getsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char *)&optval,
+			     &optlen);
+	if (ret < 0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "fd %d: can't getsockopt SO_RCVBUF: %d (%s)", sock,
+			     errno, safe_strerror(errno));
+		return ret;
+	}
+	return optval;
+}
+
 static void *getsockopt_cmsg_data(struct msghdr *msgh, int level, int type)
 {
 	struct cmsghdr *cmsg;
@@ -103,21 +118,6 @@ int setsockopt_ipv6_pktinfo(int sock, int val)
 		flog_err(EC_LIB_SOCKET, "can't setsockopt IPV6_PKTINFO : %s",
 			 safe_strerror(errno));
 #endif /* INIA_IPV6 */
-	return ret;
-}
-
-/* Set multicast hops val to the socket. */
-int setsockopt_ipv6_checksum(int sock, int val)
-{
-	int ret;
-
-#ifdef GNU_LINUX
-	ret = setsockopt(sock, IPPROTO_RAW, IPV6_CHECKSUM, &val, sizeof(val));
-#else
-	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_CHECKSUM, &val, sizeof(val));
-#endif /* GNU_LINUX */
-	if (ret < 0)
-		flog_err(EC_LIB_SOCKET, "can't setsockopt IPV6_CHECKSUM");
 	return ret;
 }
 

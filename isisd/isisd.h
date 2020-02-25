@@ -58,11 +58,11 @@ extern struct zebra_privs_t isisd_privs;
 
 /* uncomment if you are a developer in bug hunt */
 /* #define EXTREME_DEBUG  */
-/* #define EXTREME_DICT_DEBUG */
 
 struct fabricd;
 
 struct isis {
+	vrf_id_t vrf_id;
 	unsigned long process_id;
 	int sysid_set;
 	uint8_t sysid[ISIS_SYS_ID_LEN]; /* SystemID for this IS */
@@ -190,7 +190,7 @@ struct isis_area {
 DECLARE_QOBJ_TYPE(isis_area)
 
 void isis_init(void);
-void isis_new(unsigned long);
+void isis_new(unsigned long process_id, vrf_id_t vrf_id);
 struct isis_area *isis_area_create(const char *);
 struct isis_area *isis_area_lookup(const char *);
 int isis_area_get(struct vty *vty, const char *area_tag);
@@ -218,52 +218,6 @@ int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
 				   const char *passwd, uint8_t snp_auth);
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				  const char *passwd, uint8_t snp_auth);
-
-extern const struct frr_yang_module_info frr_isisd_info;
-extern void isis_northbound_init(void);
-
-/* YANG northbound notifications */
-extern void isis_notif_db_overload(const struct isis_area *area, bool overload);
-extern void isis_notif_lsp_too_large(const struct isis_circuit *circuit,
-				     uint32_t pdu_size, const char *lsp_id);
-extern void isis_notif_if_state_change(const struct isis_circuit *circuit,
-				       bool down);
-extern void isis_notif_corrupted_lsp(const struct isis_area *area,
-				     const char *lsp_id); /* currently unused */
-extern void isis_notif_lsp_exceed_max(const struct isis_area *area,
-				      const char *lsp_id);
-extern void
-isis_notif_max_area_addr_mismatch(const struct isis_circuit *circuit,
-				  uint8_t max_area_addrs, const char *raw_pdu);
-extern void
-isis_notif_authentication_type_failure(const struct isis_circuit *circuit,
-				       const char *raw_pdu);
-extern void
-isis_notif_authentication_failure(const struct isis_circuit *circuit,
-				  const char *raw_pdu);
-extern void isis_notif_adj_state_change(const struct isis_adjacency *adj,
-					int new_state, const char *reason);
-extern void isis_notif_reject_adjacency(const struct isis_circuit *circuit,
-					const char *reason,
-					const char *raw_pdu);
-extern void isis_notif_area_mismatch(const struct isis_circuit *circuit,
-				     const char *raw_pdu);
-extern void isis_notif_lsp_received(const struct isis_circuit *circuit,
-				    const char *lsp_id, uint32_t seqno,
-				    uint32_t timestamp, const char *sys_id);
-extern void isis_notif_lsp_gen(const struct isis_area *area, const char *lsp_id,
-			       uint32_t seqno, uint32_t timestamp);
-extern void isis_notif_id_len_mismatch(const struct isis_circuit *circuit,
-				       uint8_t rcv_id_len, const char *raw_pdu);
-extern void isis_notif_version_skew(const struct isis_circuit *circuit,
-				    uint8_t version, const char *raw_pdu);
-extern void isis_notif_lsp_error(const struct isis_circuit *circuit,
-				 const char *lsp_id, const char *raw_pdu,
-				 uint32_t offset, uint8_t tlv_type);
-extern void isis_notif_seqno_skipped(const struct isis_circuit *circuit,
-				     const char *lsp_id);
-extern void isis_notif_own_lsp_purge(const struct isis_circuit *circuit,
-				     const char *lsp_id);
 
 /* Master of threads. */
 extern struct thread_master *master;

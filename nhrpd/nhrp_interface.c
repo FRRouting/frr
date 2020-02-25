@@ -296,15 +296,8 @@ void nhrp_interface_update(struct interface *ifp)
 	}
 }
 
-int nhrp_interface_add(ZAPI_CALLBACK_ARGS)
+int nhrp_ifp_create(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	/* read and add the interface in the iflist. */
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-	if (ifp == NULL)
-		return 0;
-
 	debugf(NHRP_DEBUG_IF, "if-add: %s, ifindex: %u, hw_type: %d %s",
 	       ifp->name, ifp->ifindex, ifp->ll_type,
 	       if_link_type_str(ifp->ll_type));
@@ -314,49 +307,28 @@ int nhrp_interface_add(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-int nhrp_interface_delete(ZAPI_CALLBACK_ARGS)
+int nhrp_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	ifp = zebra_interface_state_read(s, vrf_id);
-	if (ifp == NULL)
-		return 0;
-
 	debugf(NHRP_DEBUG_IF, "if-delete: %s", ifp->name);
 
 	nhrp_interface_update(ifp);
 
-	if_set_index(ifp, IFINDEX_INTERNAL);
-
 	return 0;
 }
 
-int nhrp_interface_up(ZAPI_CALLBACK_ARGS)
+int nhrp_ifp_up(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-	if (ifp == NULL)
-		return 0;
-
 	debugf(NHRP_DEBUG_IF, "if-up: %s", ifp->name);
 	nhrp_interface_update_nbma(ifp);
 
 	return 0;
 }
 
-int nhrp_interface_down(ZAPI_CALLBACK_ARGS)
+int nhrp_ifp_down(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-	if (ifp == NULL)
-		return 0;
-
 	debugf(NHRP_DEBUG_IF, "if-down: %s", ifp->name);
 	nhrp_interface_update(ifp);
+
 	return 0;
 }
 
@@ -392,7 +364,7 @@ int nhrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 	nhrp_interface_update_address(
 		ifc->ifp, family2afi(PREFIX_FAMILY(ifc->address)), 0);
-	connected_free(ifc);
+	connected_free(&ifc);
 
 	return 0;
 }

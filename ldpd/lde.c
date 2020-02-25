@@ -520,7 +520,8 @@ lde_dispatch_parent(struct thread *thread)
 			switch (imsg.hdr.type) {
 			case IMSG_NETWORK_ADD:
 				lde_kernel_insert(&fec, kr->af, &kr->nexthop,
-				    kr->ifindex, kr->priority,
+				    kr->ifindex, kr->route_type,
+				    kr->route_instance,
 				    kr->flags & F_CONNECTED, NULL);
 				break;
 			case IMSG_NETWORK_UPDATE:
@@ -747,7 +748,8 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		kr.ifindex = fnh->ifindex;
 		kr.local_label = fn->local_label;
 		kr.remote_label = fnh->remote_label;
-		kr.priority = fnh->priority;
+		kr.route_type = fnh->route_type;
+		kr.route_instance = fnh->route_instance;
 
 		lde_imsg_compose_parent(IMSG_KLABEL_CHANGE, 0, &kr,
 		    sizeof(kr));
@@ -761,7 +763,8 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		kr.ifindex = fnh->ifindex;
 		kr.local_label = fn->local_label;
 		kr.remote_label = fnh->remote_label;
-		kr.priority = fnh->priority;
+		kr.route_type = fnh->route_type;
+		kr.route_instance = fnh->route_instance;
 
 		lde_imsg_compose_parent(IMSG_KLABEL_CHANGE, 0, &kr,
 		    sizeof(kr));
@@ -798,7 +801,8 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		kr.ifindex = fnh->ifindex;
 		kr.local_label = fn->local_label;
 		kr.remote_label = fnh->remote_label;
-		kr.priority = fnh->priority;
+		kr.route_type = fnh->route_type;
+		kr.route_instance = fnh->route_instance;
 
 		lde_imsg_compose_parent(IMSG_KLABEL_DELETE, 0, &kr,
 		    sizeof(kr));
@@ -812,7 +816,8 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 		kr.ifindex = fnh->ifindex;
 		kr.local_label = fn->local_label;
 		kr.remote_label = fnh->remote_label;
-		kr.priority = fnh->priority;
+		kr.route_type = fnh->route_type;
+		kr.route_instance = fnh->route_instance;
 
 		lde_imsg_compose_parent(IMSG_KLABEL_DELETE, 0, &kr,
 		    sizeof(kr));

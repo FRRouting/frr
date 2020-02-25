@@ -55,9 +55,6 @@ DEFINE_MTYPE_STATIC(OSPFD, OSPF_EXTERNAL, "OSPF External route table")
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute")
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_DIST_ARGS, "OSPF Distribute arguments")
 
-DEFINE_HOOK(ospf_if_update, (struct interface * ifp), (ifp))
-DEFINE_HOOK(ospf_if_delete, (struct interface * ifp), (ifp))
-
 /* Zebra structure to hold current status. */
 struct zclient *zclient = NULL;
 
@@ -97,167 +94,6 @@ static int ospf_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-/* Inteface addition message from zebra. */
-static int ospf_interface_add(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp = NULL;
-	struct ospf *ospf = NULL;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-	if (ifp == NULL)
-		return 0;
-
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug(
-			"Zebra: interface add %s vrf %s[%u] index %d flags %llx metric %d mtu %d speed %u",
-			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
-			ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu,
-			ifp->speed);
-
-	assert(ifp->info);
-
-	if (IF_DEF_PARAMS(ifp)
-	    && !OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp), type)) {
-		SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
-		IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
-	}
-
-	ospf = ospf_lookup_by_vrf_id(vrf_id);
-	if (!ospf)
-		return 0;
-
-	ospf_if_recalculate_output_cost(ifp);
-
-	ospf_if_update(ospf, ifp);
-
-	hook_call(ospf_if_update, ifp);
-
-	return 0;
-}
-
-static int ospf_interface_delete(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct stream *s;
-	struct route_node *rn;
-
-	s = zclient->ibuf;
-	/* zebra_interface_state_read() updates interface structure in iflist */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug(
-			"Zebra: interface delete %s vrf %s[%u] index %d flags %llx metric %d mtu %d",
-			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
-			ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
-
-	hook_call(ospf_if_delete, ifp);
-
-	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn))
-		if (rn->info)
-			ospf_if_free((struct ospf_interface *)rn->info);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
-	return 0;
-}
-
-static struct interface *zebra_interface_if_lookup(struct stream *s,
-						   vrf_id_t vrf_id)
-{
-	char ifname_tmp[INTERFACE_NAMSIZ];
-
-	/* Read interface name. */
-	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
-
-	/* And look it up. */
-	return if_lookup_by_name(ifname_tmp, vrf_id);
-}
-
-static int ospf_interface_state_up(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct ospf_interface *oi;
-	struct route_node *rn;
-
-	ifp = zebra_interface_if_lookup(zclient->ibuf, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	/* Interface is already up. */
-	if (if_is_operative(ifp)) {
-		/* Temporarily keep ifp values. */
-		struct interface if_tmp;
-		memcpy(&if_tmp, ifp, sizeof(struct interface));
-
-		zebra_interface_if_set_value(zclient->ibuf, ifp);
-
-		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-			zlog_debug(
-				"Zebra: Interface[%s] state update speed %u -> %u, bw  %d -> %d",
-				ifp->name, if_tmp.speed, ifp->speed,
-				if_tmp.bandwidth, ifp->bandwidth);
-
-		ospf_if_recalculate_output_cost(ifp);
-
-		if (if_tmp.mtu != ifp->mtu) {
-			if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-				zlog_debug(
-					"Zebra: Interface[%s] MTU change %u -> %u.",
-					ifp->name, if_tmp.mtu, ifp->mtu);
-
-			/* Must reset the interface (simulate down/up) when MTU
-			 * changes. */
-			ospf_if_reset(ifp);
-		}
-		return 0;
-	}
-
-	zebra_interface_if_set_value(zclient->ibuf, ifp);
-
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("Zebra: Interface[%s] state change to up.",
-			   ifp->name);
-
-	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
-		if ((oi = rn->info) == NULL)
-			continue;
-
-		ospf_if_up(oi);
-	}
-
-	return 0;
-}
-
-static int ospf_interface_state_down(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct ospf_interface *oi;
-	struct route_node *node;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("Zebra: Interface[%s] state change to down.",
-			   ifp->name);
-
-	for (node = route_top(IF_OIFS(ifp)); node; node = route_next(node)) {
-		if ((oi = node->info) == NULL)
-			continue;
-		ospf_if_down(oi);
-	}
-
-	return 0;
-}
-
 static int ospf_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
@@ -283,7 +119,7 @@ static int ospf_interface_address_add(ZAPI_CALLBACK_ARGS)
 
 	ospf_if_update(ospf, c->ifp);
 
-	hook_call(ospf_if_update, c->ifp);
+	ospf_if_interface(c->ifp);
 
 	return 0;
 }
@@ -314,7 +150,7 @@ static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 	rn = route_node_lookup(IF_OIFS(ifp), &p);
 	if (!rn) {
-		connected_free(c);
+		connected_free(&c);
 		return 0;
 	}
 
@@ -325,9 +161,9 @@ static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	/* Call interface hook functions to clean up */
 	ospf_if_free(oi);
 
-	hook_call(ospf_if_update, c->ifp);
+	ospf_if_interface(c->ifp);
 
-	connected_free(c);
+	connected_free(&c);
 
 	return 0;
 }
@@ -1524,10 +1360,6 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient_init(zclient, ZEBRA_ROUTE_OSPF, instance, &ospfd_privs);
 	zclient->zebra_connected = ospf_zebra_connected;
 	zclient->router_id_update = ospf_router_id_update_zebra;
-	zclient->interface_add = ospf_interface_add;
-	zclient->interface_delete = ospf_interface_delete;
-	zclient->interface_up = ospf_interface_state_up;
-	zclient->interface_down = ospf_interface_state_down;
 	zclient->interface_address_add = ospf_interface_address_add;
 	zclient->interface_address_delete = ospf_interface_address_delete;
 	zclient->interface_link_params = ospf_interface_link_params;

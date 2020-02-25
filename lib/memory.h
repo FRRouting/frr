@@ -101,54 +101,43 @@ struct memgroup {
 		*_mg_##mname.ref = _mg_##mname.next;                           \
 	}
 
-
-/* the array is a trick to make the "MTYPE_FOO" name work as a pointer without
- * putting a & in front of it, so we can do "XMALLOC(MTYPE_FOO, ...)" instead
- * of "XMALLOC(&MTYPE_FOO, ...)".
- */
 #define DECLARE_MTYPE(name)                                                    \
-	extern struct memtype _mt_##name;                                      \
 	extern struct memtype MTYPE_##name[1];                                 \
 	/* end */
 
 #define DEFINE_MTYPE_ATTR(group, mname, attr, desc)                            \
-	attr struct memtype _mt_##mname                                        \
-		__attribute__((section(".data.mtypes"))) = {                   \
+	attr struct memtype MTYPE_##mname[1]                                   \
+		__attribute__((section(".data.mtypes"))) = { {                 \
 			.name = desc,                                          \
 			.next = NULL,                                          \
 			.n_alloc = 0,                                          \
 			.size = 0,                                             \
 			.ref = NULL,                                           \
-	};                                                                     \
+	} };                                                                   \
 	static void _mtinit_##mname(void) __attribute__((_CONSTRUCTOR(1001))); \
 	static void _mtinit_##mname(void)                                      \
 	{                                                                      \
 		if (_mg_##group.insert == NULL)                                \
 			_mg_##group.insert = &_mg_##group.types;               \
-		_mt_##mname.ref = _mg_##group.insert;                          \
-		*_mg_##group.insert = &_mt_##mname;                            \
-		_mg_##group.insert = &_mt_##mname.next;                        \
+		MTYPE_##mname->ref = _mg_##group.insert;                       \
+		*_mg_##group.insert = MTYPE_##mname;                           \
+		_mg_##group.insert = &MTYPE_##mname->next;                      \
 	}                                                                      \
 	static void _mtfini_##mname(void) __attribute__((_DESTRUCTOR(1001)));  \
 	static void _mtfini_##mname(void)                                      \
 	{                                                                      \
-		if (_mt_##mname.next)                                          \
-			_mt_##mname.next->ref = _mt_##mname.ref;               \
-		*_mt_##mname.ref = _mt_##mname.next;                           \
+		if (MTYPE_##mname->next)                                       \
+			MTYPE_##mname->next->ref = MTYPE_##mname->ref;         \
+		*MTYPE_##mname->ref = MTYPE_##mname->next;                     \
 	}                                                                      \
 	/* end */
 
-/* can't quite get gcc to emit the alias correctly, so asm-alias it is :/ */
 #define DEFINE_MTYPE(group, name, desc)                                        \
 	DEFINE_MTYPE_ATTR(group, name, , desc)                                 \
-	__asm__(".equiv MTYPE_" #name ", _mt_" #name "\n\t"                    \
-		".global MTYPE_" #name "\n");                                  \
 	/* end */
-/* and this one's borked on clang, it drops static on aliases :/, so... asm */
+
 #define DEFINE_MTYPE_STATIC(group, name, desc)                                 \
 	DEFINE_MTYPE_ATTR(group, name, static, desc)                           \
-	extern struct memtype MTYPE_##name[1];                                 \
-	__asm__(".equiv MTYPE_" #name ", _mt_" #name "\n");                    \
 	/* end */
 
 DECLARE_MGROUP(LIB)

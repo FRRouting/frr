@@ -35,8 +35,11 @@ DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives")
 static void *fpt_run(void *arg);
 static int fpt_halt(struct frr_pthread *fpt, void **res);
 
+/* misc sigs */
+static void frr_pthread_destroy_nolock(struct frr_pthread *fpt);
+
 /* default frr_pthread attributes */
-struct frr_pthread_attr frr_pthread_attr_default = {
+const struct frr_pthread_attr frr_pthread_attr_default = {
 	.start = fpt_run,
 	.stop = fpt_halt,
 };
@@ -51,18 +54,27 @@ void frr_pthread_init(void)
 {
 	frr_with_mutex(&frr_pthread_list_mtx) {
 		frr_pthread_list = list_new();
-		frr_pthread_list->del = (void (*)(void *))&frr_pthread_destroy;
 	}
 }
 
 void frr_pthread_finish(void)
 {
+	frr_pthread_stop_all();
+
 	frr_with_mutex(&frr_pthread_list_mtx) {
+		struct listnode *n, *nn;
+		struct frr_pthread *fpt;
+
+		for (ALL_LIST_ELEMENTS(frr_pthread_list, n, nn, fpt)) {
+			listnode_delete(frr_pthread_list, fpt);
+			frr_pthread_destroy_nolock(fpt);
+		}
+
 		list_delete(&frr_pthread_list);
 	}
 }
 
-struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
+struct frr_pthread *frr_pthread_new(const struct frr_pthread_attr *attr,
 				    const char *name, const char *os_name)
 {
 	struct frr_pthread *fpt = NULL;
@@ -97,10 +109,9 @@ struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
 	return fpt;
 }
 
-void frr_pthread_destroy(struct frr_pthread *fpt)
+static void frr_pthread_destroy_nolock(struct frr_pthread *fpt)
 {
 	thread_master_free(fpt->master);
-
 	pthread_mutex_destroy(&fpt->mtx);
 	pthread_mutex_destroy(fpt->running_cond_mtx);
 	pthread_cond_destroy(fpt->running_cond);
@@ -108,6 +119,15 @@ void frr_pthread_destroy(struct frr_pthread *fpt)
 	XFREE(MTYPE_PTHREAD_PRIM, fpt->running_cond_mtx);
 	XFREE(MTYPE_PTHREAD_PRIM, fpt->running_cond);
 	XFREE(MTYPE_FRR_PTHREAD, fpt);
+}
+
+void frr_pthread_destroy(struct frr_pthread *fpt)
+{
+	frr_with_mutex(&frr_pthread_list_mtx) {
+		listnode_delete(frr_pthread_list, fpt);
+	}
+
+	frr_pthread_destroy_nolock(fpt);
 }
 
 int frr_pthread_set_name(struct frr_pthread *fpt)
@@ -183,8 +203,11 @@ void frr_pthread_stop_all(void)
 	frr_with_mutex(&frr_pthread_list_mtx) {
 		struct listnode *n;
 		struct frr_pthread *fpt;
-		for (ALL_LIST_ELEMENTS_RO(frr_pthread_list, n, fpt))
-			frr_pthread_stop(fpt, NULL);
+		for (ALL_LIST_ELEMENTS_RO(frr_pthread_list, n, fpt)) {
+			if (atomic_load_explicit(&fpt->running,
+						 memory_order_relaxed))
+				frr_pthread_stop(fpt, NULL);
+		}
 	}
 }
 

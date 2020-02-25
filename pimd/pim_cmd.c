@@ -61,6 +61,7 @@
 #include "pim_nht.h"
 #include "pim_bfd.h"
 #include "pim_vxlan.h"
+#include "pim_mlag.h"
 #include "bfd.h"
 #include "pim_bsm.h"
 
@@ -913,7 +914,6 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 	struct in_addr ifaddr;
 	struct interface *ifp;
 	struct listnode *neighnode;
-	struct listnode *upnode;
 	struct pim_interface *pim_ifp;
 	struct pim_neighbor *neigh;
 	struct pim_upstream *up;
@@ -1051,8 +1051,7 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 					    pim_ifp->pim_dr_election_changes);
 
 			// FHR
-			for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode,
-						  up)) {
+			frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 				if (ifp != up->rpf.source_nexthop.interface)
 					continue;
 
@@ -1214,8 +1213,7 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 
 			// FHR
 			print_header = 1;
-			for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode,
-						  up)) {
+			frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 				if (!up->rpf.source_nexthop.interface)
 					continue;
 
@@ -1385,7 +1383,6 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 				bool uj)
 {
 	struct interface *ifp;
-	struct listnode *upnode;
 	struct pim_interface *pim_ifp;
 	struct pim_upstream *up;
 	int fhr = 0;
@@ -1407,7 +1404,7 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 		pim_ifchannels = pim_if_ifchannel_count(pim_ifp);
 		fhr = 0;
 
-		for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up))
+		frr_each (rb_pim_upstream, &pim->upstream_head, up)
 			if (ifp == up->rpf.source_nexthop.interface)
 				if (up->flags & PIM_UPSTREAM_FLAG_MASK_FHR)
 					fhr++;
@@ -1974,7 +1971,6 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 			   const char *src_or_group, const char *group, bool uj)
 {
 	struct channel_oil *c_oil;
-	struct listnode *node;
 	json_object *json = NULL;
 	json_object *json_group = NULL;
 	json_object *json_ifp_in = NULL;
@@ -1988,19 +1984,27 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 		json = json_object_new_object();
 	} else {
 		vty_out(vty,
-			"Codes: J -> Pim Join, I -> IGMP Report, S -> Source, * -> Inherited from (*,G), V -> VxLAN");
+			"Codes: J -> Pim Join, I -> IGMP Report, S -> Source, * -> Inherited from (*,G), V -> VxLAN, M -> Muted");
 		vty_out(vty,
-			"\nInstalled Source           Group            IIF               OIL\n");
+			"\nActive Source           Group            RPT  IIF               OIL\n");
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
 		char grp_str[INET_ADDRSTRLEN];
 		char src_str[INET_ADDRSTRLEN];
 		char in_ifname[INTERFACE_NAMSIZ + 1];
 		char out_ifname[INTERFACE_NAMSIZ + 1];
 		int oif_vif_index;
 		struct interface *ifp_in;
+		bool isRpt;
 		first_oif = 1;
+
+		if ((c_oil->up &&
+			PIM_UPSTREAM_FLAG_TEST_USE_RPT(c_oil->up->flags)) ||
+			c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
+			isRpt = true;
+		else
+			isRpt = false;
 
 		pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, grp_str,
 			       sizeof(grp_str));
@@ -2055,6 +2059,12 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						       json_ifp_in);
 				json_object_int_add(json_source, "Installed",
 						    c_oil->installed);
+				if (isRpt)
+					json_object_boolean_true_add(
+							json_source, "isRpt");
+				else
+					json_object_boolean_false_add(
+							json_source, "isRpt");
 				json_object_int_add(json_source, "RefCount",
 						    c_oil->oil_ref_count);
 				json_object_int_add(json_source, "OilListSize",
@@ -2073,8 +2083,9 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						    c_oil->cc.wrong_if);
 			}
 		} else {
-			vty_out(vty, "%-9d %-15s  %-15s  %-16s  ",
-				c_oil->installed, src_str, grp_str, in_ifname);
+			vty_out(vty, "%-6d %-15s  %-15s  %-3s  %-16s  ",
+					c_oil->installed, src_str, grp_str,
+					isRpt ? "y" : "n", in_ifname);
 		}
 
 		for (oif_vif_index = 0; oif_vif_index < MAXVIFS;
@@ -2117,25 +2128,7 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 			} else {
 				if (first_oif) {
 					first_oif = 0;
-					vty_out(vty, "%s(%c%c%c%c)", out_ifname,
-						(c_oil->oif_flags[oif_vif_index]
-						 & PIM_OIF_FLAG_PROTO_IGMP)
-							? 'I'
-							: ' ',
-						(c_oil->oif_flags[oif_vif_index]
-						 & PIM_OIF_FLAG_PROTO_PIM)
-							? 'J'
-							: ' ',
-						(c_oil->oif_flags[oif_vif_index]
-						 & PIM_OIF_FLAG_PROTO_VXLAN)
-							? 'V'
-							: ' ',
-						(c_oil->oif_flags[oif_vif_index]
-						 & PIM_OIF_FLAG_PROTO_STAR)
-							? '*'
-							: ' ');
-				} else
-					vty_out(vty, ", %s(%c%c%c%c)",
+					vty_out(vty, "%s(%c%c%c%c%c)",
 						out_ifname,
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_IGMP)
@@ -2152,6 +2145,33 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_STAR)
 							? '*'
+							: ' ',
+						(c_oil->oif_flags[oif_vif_index]
+						 & PIM_OIF_FLAG_MUTE)
+							? 'M'
+							: ' ');
+				} else
+					vty_out(vty, ", %s(%c%c%c%c%c)",
+						out_ifname,
+						(c_oil->oif_flags[oif_vif_index]
+						 & PIM_OIF_FLAG_PROTO_IGMP)
+							? 'I'
+							: ' ',
+						(c_oil->oif_flags[oif_vif_index]
+						 & PIM_OIF_FLAG_PROTO_PIM)
+							? 'J'
+							: ' ',
+						(c_oil->oif_flags[oif_vif_index]
+						 & PIM_OIF_FLAG_PROTO_VXLAN)
+							? 'V'
+							: ' ',
+						(c_oil->oif_flags[oif_vif_index]
+						 & PIM_OIF_FLAG_PROTO_STAR)
+							? '*'
+							: ' ',
+						(c_oil->oif_flags[oif_vif_index]
+						 & PIM_OIF_FLAG_MUTE)
+							? 'M'
 							: ' ');
 			}
 		}
@@ -2404,7 +2424,6 @@ static const char *pim_reg_state2brief_str(enum pim_reg_state reg_state,
 static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 			      struct prefix_sg *sg, bool uj)
 {
-	struct listnode *upnode;
 	struct pim_upstream *up;
 	time_t now;
 	json_object *json = NULL;
@@ -2419,7 +2438,7 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty,
 			"Iif             Source          Group           State       Uptime   JoinTimer RSTimer   KATimer   RefCnt\n");
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		char src_str[INET_ADDRSTRLEN];
 		char grp_str[INET_ADDRSTRLEN];
 		char uptime[10];
@@ -2553,7 +2572,7 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 	}
 }
 
-static void pim_show_join_desired_helper(struct pim_instance *pim,
+static void pim_show_channel_helper(struct pim_instance *pim,
 					 struct vty *vty,
 					 struct pim_interface *pim_ifp,
 					 struct pim_ifchannel *ch,
@@ -2612,7 +2631,7 @@ static void pim_show_join_desired_helper(struct pim_instance *pim,
 	}
 }
 
-static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
+static void pim_show_channel(struct pim_instance *pim, struct vty *vty,
 				  bool uj)
 {
 	struct pim_interface *pim_ifp;
@@ -2636,9 +2655,75 @@ static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 
 		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			/* scan all interfaces */
-			pim_show_join_desired_helper(pim, vty, pim_ifp, ch,
+			pim_show_channel_helper(pim, vty, pim_ifp, ch,
 						     json, uj);
 		}
+	}
+
+	if (uj) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+}
+
+static void pim_show_join_desired_helper(struct pim_instance *pim,
+					 struct vty *vty,
+					 struct pim_upstream *up,
+					 json_object *json, bool uj)
+{
+	json_object *json_group = NULL;
+	char src_str[INET_ADDRSTRLEN];
+	char grp_str[INET_ADDRSTRLEN];
+	json_object *json_row = NULL;
+
+	pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
+	pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
+
+	if (uj) {
+		json_object_object_get_ex(json, grp_str, &json_group);
+
+		if (!json_group) {
+			json_group = json_object_new_object();
+			json_object_object_add(json, grp_str, json_group);
+		}
+
+		json_row = json_object_new_object();
+		json_object_pim_upstream_add(json_row, up);
+		json_object_string_add(json_row, "source", src_str);
+		json_object_string_add(json_row, "group", grp_str);
+
+		if (pim_upstream_evaluate_join_desired(pim, up))
+			json_object_boolean_true_add(json_row,
+						     "evaluateJoinDesired");
+
+		json_object_object_add(json_group, src_str, json_row);
+
+	} else {
+		vty_out(vty, "%-15s %-15s %-6s\n",
+			src_str, grp_str,
+			pim_upstream_evaluate_join_desired(pim, up) ? "yes"
+								    : "no");
+	}
+}
+
+static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
+				  bool uj)
+{
+	struct pim_upstream *up;
+
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
+	else
+		vty_out(vty,
+			"Source          Group           EvalJD\n");
+
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
+		/* scan all interfaces */
+		pim_show_join_desired_helper(pim, vty, up,
+				json, uj);
 	}
 
 	if (uj) {
@@ -2651,7 +2736,6 @@ static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 static void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty,
 				  bool uj)
 {
-	struct listnode *upnode;
 	struct pim_upstream *up;
 	json_object *json = NULL;
 	json_object *json_group = NULL;
@@ -2663,7 +2747,7 @@ static void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty,
 			"Source          Group           RpfIface         RibNextHop      RpfAddress     \n");
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		char src_str[INET_ADDRSTRLEN];
 		char grp_str[INET_ADDRSTRLEN];
 		char rpf_nexthop_str[PREFIX_STRLEN];
@@ -2784,7 +2868,6 @@ static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
 
 static void pim_show_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 {
-	struct listnode *up_node;
 	struct pim_upstream *up;
 	time_t now = pim_time_monotonic_sec();
 	json_object *json = NULL;
@@ -2801,7 +2884,7 @@ static void pim_show_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 			"Source          Group           RpfIface         RpfAddress      RibNextHop      Metric Pref\n");
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, up_node, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		char src_str[INET_ADDRSTRLEN];
 		char grp_str[INET_ADDRSTRLEN];
 		char rpf_addr_str[PREFIX_STRLEN];
@@ -3841,11 +3924,8 @@ static void clear_mroute(struct pim_instance *pim)
 	}
 
 	/* clean up all upstreams*/
-	if (pim->upstream_list) {
-		while (pim->upstream_list->count) {
-			up = listnode_head(pim->upstream_list);
-			pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
-		}
+	while ((up = rb_pim_upstream_first(&pim->upstream_head))) {
+		pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
 	}
 }
 
@@ -4437,6 +4517,90 @@ DEFUN (show_ip_pim_join_vrf_all,
 	return CMD_WARNING;
 }
 
+static void pim_show_jp_agg_helper(struct vty *vty,
+		struct interface *ifp,
+		struct pim_neighbor *neigh,
+		struct pim_upstream *up,
+		int is_join)
+{
+	char src_str[INET_ADDRSTRLEN];
+	char grp_str[INET_ADDRSTRLEN];
+	char rpf_str[INET_ADDRSTRLEN];
+
+	pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
+	pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
+			/* pius->address.s_addr */
+	pim_inet4_dump("<rpf?>", neigh->source_addr, rpf_str, sizeof(rpf_str));
+
+	vty_out(vty, "%-16s %-15s %-15s %-15s %5s\n",
+			ifp->name, rpf_str, src_str,
+			grp_str, is_join?"J":"P");
+}
+
+static void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	struct listnode *n_node;
+	struct pim_neighbor *neigh;
+	struct listnode *jag_node;
+	struct pim_jp_agg_group *jag;
+	struct listnode *js_node;
+	struct pim_jp_sources *js;
+
+	vty_out(vty,
+			"Interface        RPF Nbr         Source          Group           State\n");
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		pim_ifp = ifp->info;
+		if (!pim_ifp)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list,
+					n_node, neigh)) {
+			for (ALL_LIST_ELEMENTS_RO(neigh->upstream_jp_agg,
+						jag_node, jag)) {
+				for (ALL_LIST_ELEMENTS_RO(jag->sources,
+							js_node, js)) {
+					pim_show_jp_agg_helper(vty,
+							ifp, neigh, js->up,
+							js->is_join);
+				}
+			}
+		}
+	}
+}
+
+DEFPY (show_ip_pim_jp_agg,
+       show_ip_pim_jp_agg_cmd,
+       "show ip pim [vrf NAME] jp-agg",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "join prune aggregation list\n")
+{
+	struct vrf *v;
+	struct pim_instance *pim;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v) {
+		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
+		return CMD_WARNING;
+	}
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_jp_agg_list(pim, vty);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_pim_local_membership,
        show_ip_pim_local_membership_cmd,
        "show ip pim [vrf NAME] local-membership [json]",
@@ -4697,6 +4861,28 @@ DEFUN (show_ip_pim_upstream_vrf_all,
 			vty_out(vty, "VRF: %s\n", vrf->name);
 		pim_show_upstream(vrf->info, vty, &sg, uj);
 	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_pim_channel,
+       show_ip_pim_channel_cmd,
+       "show ip pim [vrf NAME] channel [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM downstream channel info\n"
+       JSON_STR)
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	bool uj = use_json(argc, argv);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	pim_show_channel(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -5222,7 +5408,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 	now = pim_time_monotonic_sec();
 
 	/* print list of PIM and IGMP routes */
-	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
 		found_oif = 0;
 		first = 1;
 		if (!c_oil->installed && !uj)
@@ -5290,6 +5476,16 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 
 			ttl = c_oil->oil.mfcc_ttls[oif_vif_index];
 			if (ttl < 1)
+				continue;
+
+			/* do not display muted OIFs */
+			if (c_oil->oif_flags[oif_vif_index]
+					& PIM_OIF_FLAG_MUTE)
+				continue;
+
+			if (c_oil->oil.mfcc_parent == oif_vif_index &&
+					!pim_mroute_allow_iif_in_oil(c_oil,
+						oif_vif_index))
 				continue;
 
 			ifp_out = pim_if_find_by_vif_index(pim, oif_vif_index);
@@ -5620,7 +5816,7 @@ DEFUN (clear_ip_mroute_count,
 		return CMD_WARNING;
 
 	pim = vrf->info;
-	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
+	frr_each(rb_pim_oil, &pim->channel_oil_head, c_oil) {
 		if (!c_oil->installed)
 			continue;
 
@@ -5655,7 +5851,7 @@ static void show_mroute_count(struct pim_instance *pim, struct vty *vty)
 		"Source          Group           LastUsed Packets Bytes WrongIf  \n");
 
 	/* Print PIM and IGMP route counts */
-	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
 
@@ -5760,7 +5956,7 @@ static void show_mroute_summary(struct pim_instance *pim, struct vty *vty)
 
 	vty_out(vty, "Mroute Type    Installed/Total\n");
 
-	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
+	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
 		if (!c_oil->installed) {
 			if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
 				starg_sw_mroute_cnt++;
@@ -5993,12 +6189,6 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 	if (result == PIM_RP_PFXLIST_IN_USE) {
 		vty_out(vty,
 			"%% The same prefix-list cannot be applied to multiple RPs\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (result == PIM_GROUP_BAD_ADDR_MASK_COMBO) {
-		vty_out(vty, "%% Inconsistent address and mask: %s\n",
-			group);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -6347,6 +6537,7 @@ static int pim_ssm_cmd_worker(struct pim_instance *pim, struct vty *vty,
 			      const char *plist)
 {
 	int result = pim_ssm_range_set(pim, pim->vrf_id, plist);
+	int ret = CMD_WARNING_CONFIG_FAILED;
 
 	if (result == PIM_SSM_ERR_NONE)
 		return CMD_SUCCESS;
@@ -6357,12 +6548,13 @@ static int pim_ssm_cmd_worker(struct pim_instance *pim, struct vty *vty,
 		break;
 	case PIM_SSM_ERR_DUP:
 		vty_out(vty, "%% duplicate config\n");
+		ret = CMD_WARNING;
 		break;
 	default:
 		vty_out(vty, "%% ssm range config failed\n");
 	}
 
-	return CMD_WARNING_CONFIG_FAILED;
+	return ret;
 }
 
 DEFUN (ip_pim_ssm_prefix_list,
@@ -6711,7 +6903,7 @@ DEFUN (interface_no_ip_igmp,
 
 DEFUN (interface_ip_igmp_join,
        interface_ip_igmp_join_cmd,
-       "ip igmp join A.B.C.D A.B.C.D",
+       "ip igmp join A.B.C.D [A.B.C.D]",
        IP_STR
        IFACE_IGMP_STR
        "IGMP join multicast group\n"
@@ -6737,12 +6929,21 @@ DEFUN (interface_ip_igmp_join,
 	}
 
 	/* Source address */
-	source_str = argv[idx_ipv4_2]->arg;
-	result = inet_pton(AF_INET, source_str, &source_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad source address %s: errno=%d: %s\n",
-			source_str, errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
+	if (argc == (idx_ipv4_2 + 1)) {
+		source_str = argv[idx_ipv4_2]->arg;
+		result = inet_pton(AF_INET, source_str, &source_addr);
+		if (result <= 0) {
+			vty_out(vty, "Bad source address %s: errno=%d: %s\n",
+				source_str, errno, safe_strerror(errno));
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		/* Reject 0.0.0.0. Reserved for any source. */
+		if (source_addr.s_addr == INADDR_ANY) {
+			vty_out(vty, "Bad source address %s\n", source_str);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		source_addr.s_addr = INADDR_ANY;
 	}
 
 	CMD_FERR_RETURN(pim_if_igmp_join_add(ifp, group_addr, source_addr),
@@ -6753,7 +6954,7 @@ DEFUN (interface_ip_igmp_join,
 
 DEFUN (interface_no_ip_igmp_join,
        interface_no_ip_igmp_join_cmd,
-       "no ip igmp join A.B.C.D A.B.C.D",
+       "no ip igmp join A.B.C.D [A.B.C.D]",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
@@ -6780,12 +6981,22 @@ DEFUN (interface_no_ip_igmp_join,
 	}
 
 	/* Source address */
-	source_str = argv[idx_ipv4_2]->arg;
-	result = inet_pton(AF_INET, source_str, &source_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad source address %s: errno=%d: %s\n",
-			source_str, errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
+	if (argc == (idx_ipv4_2 + 1)) {
+		source_str = argv[idx_ipv4_2]->arg;
+		result = inet_pton(AF_INET, source_str, &source_addr);
+		if (result <= 0) {
+			vty_out(vty, "Bad source address %s: errno=%d: %s\n",
+				source_str, errno, safe_strerror(errno));
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		/* Reject 0.0.0.0. Reserved for any source. */
+		if (source_addr.s_addr == INADDR_ANY) {
+			vty_out(vty, "Bad source address %s\n", source_str);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		source_str = "*";
+		source_addr.s_addr = INADDR_ANY;
 	}
 
 	result = pim_if_igmp_join_del(ifp, group_addr, source_addr);
@@ -7464,9 +7675,9 @@ DEFPY_HIDDEN (interface_ip_pim_activeactive,
 
 	pim_ifp = ifp->info;
 	if (no)
-		pim_ifp->activeactive = false;
+		pim_if_unconfigure_mlag_dualactive(pim_ifp);
 	else
-		pim_ifp->activeactive = true;
+		pim_if_configure_mlag_dualactive(pim_ifp);
 
 	return CMD_SUCCESS;
 }
@@ -7650,55 +7861,7 @@ DEFUN(interface_no_ip_pim_boundary_oil,
 
 DEFUN (interface_ip_mroute,
        interface_ip_mroute_cmd,
-       "ip mroute INTERFACE A.B.C.D",
-       IP_STR
-       "Add multicast route\n"
-       "Outgoing interface name\n"
-       "Group address\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
-	int idx_interface = 2;
-	int idx_ipv4 = 3;
-	struct interface *oif;
-	const char *oifname;
-	const char *grp_str;
-	struct in_addr grp_addr;
-	struct in_addr src_addr;
-	int result;
-
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-	pim = pim_ifp->pim;
-
-	oifname = argv[idx_interface]->arg;
-	oif = if_lookup_by_name(oifname, pim->vrf_id);
-	if (!oif) {
-		vty_out(vty, "No such interface name %s\n", oifname);
-		return CMD_WARNING;
-	}
-
-	grp_str = argv[idx_ipv4]->arg;
-	result = inet_pton(AF_INET, grp_str, &grp_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad group address %s: errno=%d: %s\n", grp_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
-
-	src_addr.s_addr = INADDR_ANY;
-
-	if (pim_static_add(pim, iif, oif, grp_addr, src_addr)) {
-		vty_out(vty, "Failed to add route\n");
-		return CMD_WARNING;
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (interface_ip_mroute_source,
-       interface_ip_mroute_source_cmd,
-       "ip mroute INTERFACE A.B.C.D A.B.C.D",
+       "ip mroute INTERFACE A.B.C.D [A.B.C.D]",
        IP_STR
        "Add multicast route\n"
        "Outgoing interface name\n"
@@ -7710,7 +7873,6 @@ DEFUN (interface_ip_mroute_source,
 	struct pim_instance *pim;
 	int idx_interface = 2;
 	int idx_ipv4 = 3;
-	int idx_ipv4_2 = 4;
 	struct interface *oif;
 	const char *oifname;
 	const char *grp_str;
@@ -7737,16 +7899,21 @@ DEFUN (interface_ip_mroute_source,
 		return CMD_WARNING;
 	}
 
-	src_str = argv[idx_ipv4_2]->arg;
-	result = inet_pton(AF_INET, src_str, &src_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad source address %s: errno=%d: %s\n", src_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
+        if (argc == (idx_ipv4 + 1)) {
+                src_addr.s_addr = INADDR_ANY;
+        }
+        else {
+                src_str = argv[idx_ipv4 + 1]->arg;
+                result = inet_pton(AF_INET, src_str, &src_addr);
+                if (result <= 0) {
+                        vty_out(vty, "Bad source address %s: errno=%d: %s\n", src_str,
+                                errno, safe_strerror(errno));
+                        return CMD_WARNING;
+                }
+        }
 
 	if (pim_static_add(pim, iif, oif, grp_addr, src_addr)) {
-		vty_out(vty, "Failed to add route\n");
+		vty_out(vty, "Failed to add static mroute\n");
 		return CMD_WARNING;
 	}
 
@@ -7755,56 +7922,7 @@ DEFUN (interface_ip_mroute_source,
 
 DEFUN (interface_no_ip_mroute,
        interface_no_ip_mroute_cmd,
-       "no ip mroute INTERFACE A.B.C.D",
-       NO_STR
-       IP_STR
-       "Add multicast route\n"
-       "Outgoing interface name\n"
-       "Group Address\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
-	int idx_interface = 3;
-	int idx_ipv4 = 4;
-	struct interface *oif;
-	const char *oifname;
-	const char *grp_str;
-	struct in_addr grp_addr;
-	struct in_addr src_addr;
-	int result;
-
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-	pim = pim_ifp->pim;
-
-	oifname = argv[idx_interface]->arg;
-	oif = if_lookup_by_name(oifname, pim->vrf_id);
-	if (!oif) {
-		vty_out(vty, "No such interface name %s\n", oifname);
-		return CMD_WARNING;
-	}
-
-	grp_str = argv[idx_ipv4]->arg;
-	result = inet_pton(AF_INET, grp_str, &grp_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad group address %s: errno=%d: %s\n", grp_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
-
-	src_addr.s_addr = INADDR_ANY;
-
-	if (pim_static_del(pim, iif, oif, grp_addr, src_addr)) {
-		vty_out(vty, "Failed to remove route\n");
-		return CMD_WARNING;
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (interface_no_ip_mroute_source,
-       interface_no_ip_mroute_source_cmd,
-       "no ip mroute INTERFACE A.B.C.D A.B.C.D",
+       "no ip mroute INTERFACE A.B.C.D [A.B.C.D]",
        NO_STR
        IP_STR
        "Add multicast route\n"
@@ -7817,7 +7935,6 @@ DEFUN (interface_no_ip_mroute_source,
 	struct pim_instance *pim;
 	int idx_interface = 3;
 	int idx_ipv4 = 4;
-	int idx_ipv4_2 = 5;
 	struct interface *oif;
 	const char *oifname;
 	const char *grp_str;
@@ -7844,16 +7961,21 @@ DEFUN (interface_no_ip_mroute_source,
 		return CMD_WARNING;
 	}
 
-	src_str = argv[idx_ipv4_2]->arg;
-	result = inet_pton(AF_INET, src_str, &src_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad source address %s: errno=%d: %s\n", src_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
+        if (argc == (idx_ipv4 + 1)) {
+                src_addr.s_addr = INADDR_ANY;
+        }
+        else {
+                src_str = argv[idx_ipv4 + 1]->arg;
+                result = inet_pton(AF_INET, src_str, &src_addr);
+                if (result <= 0) {
+                        vty_out(vty, "Bad source address %s: errno=%d: %s\n", src_str,
+                                errno, safe_strerror(errno));
+                        return CMD_WARNING;
+                }
+        }
 
 	if (pim_static_del(pim, iif, oif, grp_addr, src_addr)) {
-		vty_out(vty, "Failed to remove route\n");
+		vty_out(vty, "Failed to remove static mroute\n");
 		return CMD_WARNING;
 	}
 
@@ -8381,6 +8503,20 @@ DEFUN (no_debug_pim_zebra,
        DEBUG_PIM_ZEBRA_STR)
 {
 	PIM_DONT_DEBUG_ZEBRA;
+	return CMD_SUCCESS;
+}
+
+DEFUN(debug_pim_mlag, debug_pim_mlag_cmd, "debug pim mlag",
+      DEBUG_STR DEBUG_PIM_STR DEBUG_PIM_MLAG_STR)
+{
+	PIM_DO_DEBUG_MLAG;
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_debug_pim_mlag, no_debug_pim_mlag_cmd, "no debug pim mlag",
+      NO_STR DEBUG_STR DEBUG_PIM_STR DEBUG_PIM_MLAG_STR)
+{
+	PIM_DONT_DEBUG_MLAG;
 	return CMD_SUCCESS;
 }
 
@@ -10310,9 +10446,7 @@ void pim_cmd_init(void)
 
 	// Static mroutes NEB
 	install_element(INTERFACE_NODE, &interface_ip_mroute_cmd);
-	install_element(INTERFACE_NODE, &interface_ip_mroute_source_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_mroute_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ip_mroute_source_cmd);
 
 	install_element(VIEW_NODE, &show_ip_igmp_interface_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_interface_vrf_all_cmd);
@@ -10333,6 +10467,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_interface_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_join_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_join_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_jp_agg_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_local_membership_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_neighbor_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_neighbor_vrf_all_cmd);
@@ -10343,6 +10478,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_state_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_upstream_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_upstream_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_channel_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_upstream_join_desired_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_upstream_rpf_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_rp_cmd);
@@ -10410,6 +10546,8 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &no_debug_ssmpingd_cmd);
 	install_element(ENABLE_NODE, &debug_pim_zebra_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_zebra_cmd);
+	install_element(ENABLE_NODE, &debug_pim_mlag_cmd);
+	install_element(ENABLE_NODE, &no_debug_pim_mlag_cmd);
 	install_element(ENABLE_NODE, &debug_pim_vxlan_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_vxlan_cmd);
 	install_element(ENABLE_NODE, &debug_msdp_cmd);

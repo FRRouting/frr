@@ -29,7 +29,7 @@
 #include "libfrr.h"
 
 #include "ripd/ripd.h"
-#include "ripd/rip_cli.h"
+#include "ripd/rip_nb.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "ripd/rip_cli_clippy.c"
 #endif
@@ -1001,6 +1001,7 @@ DEFPY (clear_ip_rip,
        VRF_CMD_HELP_STR)
 {
 	struct list *input;
+	int ret;
 
 	input = list_new();
 	if (vrf) {
@@ -1011,7 +1012,11 @@ DEFPY (clear_ip_rip,
 		listnode_add(input, yang_vrf);
 	}
 
-	return nb_cli_rpc("/frr-ripd:clear-rip-route", input, NULL);
+	ret = nb_cli_rpc("/frr-ripd:clear-rip-route", input, NULL);
+
+	list_delete(&input);
+
+	return ret;
 }
 
 void rip_cli_init(void)

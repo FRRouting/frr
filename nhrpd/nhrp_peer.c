@@ -657,7 +657,7 @@ enum packet_type_t {
 	PACKET_INDICATION,
 };
 
-static struct {
+static const struct {
 	enum packet_type_t type;
 	const char *name;
 	void (*handler)(struct nhrp_packet_parser *);

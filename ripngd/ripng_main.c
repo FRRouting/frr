@@ -27,7 +27,6 @@
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
-#include "memory_vty.h"
 #include "thread.h"
 #include "log.h"
 #include "prefix.h"
@@ -39,6 +38,7 @@
 #include "libfrr.h"
 
 #include "ripngd/ripngd.h"
+#include "ripngd/ripng_nb.h"
 
 /* RIPngd options. */
 struct option longopts[] = {{0}};
@@ -112,7 +112,7 @@ struct quagga_signal_t ripng_signals[] = {
 	},
 };
 
-static const struct frr_yang_module_info *ripngd_yang_modules[] = {
+static const struct frr_yang_module_info *const ripngd_yang_modules[] = {
 	&frr_interface_info,
 	&frr_ripngd_info,
 };

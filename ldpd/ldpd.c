@@ -120,7 +120,7 @@ char ctl_sock_path[MAXPATHLEN];
 
 /* LDPd options. */
 #define OPTION_CTLSOCK 1001
-static struct option longopts[] =
+static const struct option longopts[] =
 {
 	{ "ctl_socket",  required_argument, NULL, OPTION_CTLSOCK},
 	{ "instance",    required_argument, NULL, 'n'},
@@ -177,7 +177,7 @@ static struct quagga_signal_t ldp_signals[] =
 	}
 };
 
-static const struct frr_yang_module_info *ldpd_yang_modules[] = {
+static const struct frr_yang_module_info *const ldpd_yang_modules[] = {
 };
 
 FRR_DAEMON_INFO(ldpd, LDP,

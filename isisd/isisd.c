@@ -57,6 +57,7 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/fabricd.h"
+#include "isisd/isis_nb.h"
 
 struct isis *isis = NULL;
 
@@ -75,12 +76,13 @@ int clear_isis_neighbor_common(struct vty *, const char *id);
 int isis_config_write(struct vty *);
 
 
-void isis_new(unsigned long process_id)
+void isis_new(unsigned long process_id, vrf_id_t vrf_id)
 {
 	isis = XCALLOC(MTYPE_ISIS, sizeof(struct isis));
 	/*
 	 * Default values
 	 */
+	isis->vrf_id = vrf_id;
 	isis->max_area_addrs = 3;
 	isis->process_id = process_id;
 	isis->router_id = 0;
@@ -105,13 +107,10 @@ struct isis_area *isis_area_create(const char *area_tag)
 
 	/*
 	 * Fabricd runs only as level-2.
-	 * For IS-IS, the first instance is level-1-2 rest are level-1,
-	 * unless otherwise configured
+	 * For IS-IS, the default is level-1-2
 	 */
-	if (fabricd) {
+	if (fabricd)
 		area->is_type = IS_LEVEL_2;
-	} else if (listcount(isis->area_list) == 0)
-		area->is_type = IS_LEVEL_1_AND_2;
 	else
 		area->is_type = yang_get_default_enum(
 			"/frr-isisd:isis/instance/is-type");

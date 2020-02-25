@@ -64,7 +64,7 @@ extern int bgp_stop(struct peer *peer);
 extern void bgp_timer_set(struct peer *);
 extern int bgp_routeadv_timer(struct thread *);
 extern void bgp_fsm_change_status(struct peer *peer, int status);
-extern const char *peer_down_str[];
+extern const char *const peer_down_str[];
 extern void bgp_update_delay_end(struct bgp *);
 extern void bgp_maxmed_update(struct bgp *);
 extern int bgp_maxmed_onstartup_configured(struct bgp *);
@@ -88,6 +88,5 @@ extern void bgp_adjust_routeadv(struct peer *);
 
 #include "hook.h"
 DECLARE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
-DECLARE_HOOK(peer_established, (struct peer * peer), (peer))
 
 #endif /* _QUAGGA_BGP_FSM_H */

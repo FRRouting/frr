@@ -71,9 +71,46 @@ struct zebra_mlag_info {
 
 	/* The system mac being used */
 	struct ethaddr mac;
+	/*
+	 * Zebra will open the communication channel with MLAGD only if any
+	 * clients are interested and it is controlled dynamically based on
+	 * client registers & un-registers.
+	 */
+	uint32_t clients_interested_cnt;
+
+	/* coomunication channel with MLAGD is established */
+	bool connected;
+
+	/* connection retry timer is running */
+	bool timer_running;
+
+	/* Holds the client data(unencoded) that need to be pushed to MCLAGD*/
+	struct stream_fifo *mlag_fifo;
+
+	/*
+	 * A new Kernel thread will be created to post the data to MCLAGD.
+	 * where as, read will be performed from the zebra main thread, because
+	 * read involves accessing client registartion data structures.
+	 */
+	struct frr_pthread *zebra_pth_mlag;
+
+	/* MLAG Thread context 'master' */
+	struct thread_master *th_master;
+
+	/*
+	 * Event for Initial MLAG Connection setup & Data Read
+	 * Read can be performed only after successful connection establishment,
+	 * so no issues.
+	 *
+	 */
+	struct thread *t_read;
+	/* Event for MLAG write */
+	struct thread *t_write;
 };
 
 struct zebra_router {
+	atomic_bool in_shutdown;
+
 	/* Thread master */
 	struct thread_master *master;
 
@@ -130,6 +167,12 @@ struct zebra_router {
 	 * Time for when we sweep the rib from old routes
 	 */
 	time_t startup_time;
+
+	/*
+	 * The hash of nexthop groups associated with this router
+	 */
+	struct hash *nhgs;
+	struct hash *nhgs_id;
 };
 
 #define GRACEFUL_RESTART_TIME 60
@@ -137,6 +180,7 @@ struct zebra_router {
 extern struct zebra_router zrouter;
 
 extern void zebra_router_init(void);
+extern void zebra_router_cleanup(void);
 extern void zebra_router_terminate(void);
 
 extern struct route_table *zebra_router_find_table(struct zebra_vrf *zvrf,
@@ -151,6 +195,7 @@ extern void zebra_router_release_table(struct zebra_vrf *zvrf, uint32_t tableid,
 extern int zebra_router_config_write(struct vty *vty);
 
 extern void zebra_router_sweep_route(void);
+extern void zebra_router_sweep_nhgs(void);
 
 extern void zebra_router_show_table_summary(struct vty *vty);
 

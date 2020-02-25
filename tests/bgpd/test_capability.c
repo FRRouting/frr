@@ -912,17 +912,18 @@ int main(void)
 
 	qobj_init();
 	master = thread_master_create(NULL);
-	bgp_master_init(master);
+	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE);
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 
+	frr_pthread_init();
 	bgp_pthreads_init();
 	bgp_pth_ka->running = true;
 
 	if (fileno(stdout) >= 0)
 		tty = isatty(fileno(stdout));
 
-	if (bgp_get(&bgp, &asn, NULL, BGP_INSTANCE_TYPE_DEFAULT))
+	if (bgp_get(&bgp, &asn, NULL, BGP_INSTANCE_TYPE_DEFAULT) < 0)
 		return -1;
 
 	peer = peer_create_accept(bgp);

@@ -290,7 +290,7 @@ void ospf_lsa_data_free(struct lsa_header *lsah)
 
 const char *dump_lsa_key(struct ospf_lsa *lsa)
 {
-	static char buf[] = {"Type255,id(255.255.255.255),ar(255.255.255.255)"};
+	static char buf[sizeof("Type255,id(255.255.255.255),ar(255.255.255.255)")+1];
 	struct lsa_header *lsah;
 
 	if (lsa != NULL && (lsah = lsa->data) != NULL) {
@@ -2437,7 +2437,7 @@ static struct ospf_lsa *ospf_summary_asbr_lsa_install(struct ospf *ospf,
 #if 0
       /* These don't exist yet... */
       ospf_summary_incremental_update(new);
-      /* Isn't this done by the above call? 
+      /* Isn't this done by the above call?
 	 - RFC 2328 Section 16.5 implies it should be */
       /* ospf_ase_calculate_schedule(); */
 #else  /* #if 0 */
@@ -3202,45 +3202,6 @@ int ospf_lsa_different(struct ospf_lsa *l1, struct ospf_lsa *l2)
 	return 0;
 }
 
-#ifdef ORIGINAL_CODING
-void ospf_lsa_flush_self_originated(struct ospf_neighbor *nbr,
-				    struct ospf_lsa *self, struct ospf_lsa *new)
-{
-	uint32_t seqnum;
-
-	/* Adjust LS Sequence Number. */
-	seqnum = ntohl(new->data->ls_seqnum) + 1;
-	self->data->ls_seqnum = htonl(seqnum);
-
-	/* Recalculate LSA checksum. */
-	ospf_lsa_checksum(self->data);
-
-	/* Reflooding LSA. */
-	/*  RFC2328  Section 13.3
-		  On non-broadcast networks, separate	Link State Update
-		  packets must be sent, as unicasts, to each adjacent	neighbor
-		  (i.e., those in state Exchange or greater).	 The destination
-		  IP addresses for these packets are the neighbors' IP
-		  addresses.   */
-	if (nbr->oi->type == OSPF_IFTYPE_NBMA) {
-		struct route_node *rn;
-		struct ospf_neighbor *onbr;
-
-		for (rn = route_top(nbr->oi->nbrs); rn; rn = route_next(rn))
-			if ((onbr = rn->info) != NULL)
-				if (onbr != nbr->oi->nbr_self
-				    && onbr->status >= NSM_Exchange)
-					ospf_ls_upd_send_lsa(
-						onbr, self,
-						OSPF_SEND_PACKET_DIRECT);
-	} else
-		ospf_ls_upd_send_lsa(nbr, self, OSPF_SEND_PACKET_INDIRECT);
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-		zlog_debug("LSA[Type%d:%s]: Flush self-originated LSA",
-			   self->data->type, inet_ntoa(self->data->id));
-}
-#else  /* ORIGINAL_CODING */
 int ospf_lsa_flush_schedule(struct ospf *ospf, struct ospf_lsa *lsa)
 {
 	if (lsa == NULL || !IS_LSA_SELF(lsa))
@@ -3345,7 +3306,6 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 
 	return;
 }
-#endif /* ORIGINAL_CODING */
 
 /* If there is self-originated LSA, then return 1, otherwise return 0. */
 /* An interface-independent version of ospf_lsa_is_self_originated */

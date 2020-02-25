@@ -39,6 +39,7 @@
 #include "pbr_memory.h"
 #include "pbr_zebra.h"
 #include "pbr_debug.h"
+#include "pbr_vrf.h"
 
 DEFINE_MTYPE_STATIC(PBRD, PBR_INTERFACE, "PBR Interface")
 
@@ -59,43 +60,28 @@ struct pbr_interface *pbr_if_new(struct interface *ifp)
 }
 
 /* Inteface addition message from zebra. */
-static int interface_add(ZAPI_CALLBACK_ARGS)
+int pbr_ifp_create(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-
-	if (!ifp)
-		return 0;
-
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s", __PRETTY_FUNCTION__, ifp->name);
 
 	if (!ifp->info)
 		pbr_if_new(ifp);
 
+	/* Update nexthops tracked from a `set nexthop` command */
 	pbr_nht_nexthop_interface_update(ifp);
+
+	pbr_map_policy_interface_update(ifp, true);
 
 	return 0;
 }
 
-static int interface_delete(ZAPI_CALLBACK_ARGS)
+int pbr_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	/* zebra_interface_state_read () updates interface structure in iflist
-	 */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s", __PRETTY_FUNCTION__, ifp->name);
 
-	if_set_index(ifp, IFINDEX_INTERNAL);
+	pbr_map_policy_interface_update(ifp, false);
 
 	return 0;
 }
@@ -129,16 +115,12 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 	       "%s: %s deleted %s", __PRETTY_FUNCTION__, c->ifp->name,
 	       prefix2str(c->address, buf, sizeof(buf)));
 
-	connected_free(c);
+	connected_free(&c);
 	return 0;
 }
 
-static int interface_state_up(ZAPI_CALLBACK_ARGS)
+int pbr_ifp_up(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s is up", __PRETTY_FUNCTION__, ifp->name);
 
@@ -147,16 +129,35 @@ static int interface_state_up(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int interface_state_down(ZAPI_CALLBACK_ARGS)
+int pbr_ifp_down(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s is down", __PRETTY_FUNCTION__, ifp->name);
 
 	pbr_nht_nexthop_interface_update(ifp);
+
+	return 0;
+}
+
+static int interface_vrf_update(ZAPI_CALLBACK_ARGS)
+{
+	struct interface *ifp;
+	vrf_id_t new_vrf_id;
+
+	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
+					      &new_vrf_id);
+
+	if (!ifp) {
+		DEBUGD(&pbr_dbg_zebra, "%s: VRF change interface not found",
+		       __func__);
+
+		return 0;
+	}
+
+	DEBUGD(&pbr_dbg_zebra, "%s: %s VRF change %u -> %u", __func__,
+	       ifp->name, vrf_id, new_vrf_id);
+
+	if_update_to_new_vrf(ifp, new_vrf_id);
 
 	return 0;
 }
@@ -233,22 +234,20 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 	switch (note) {
 	case ZAPI_RULE_FAIL_INSTALL:
 		pbrms->installed &= ~installed;
-		DEBUGD(&pbr_dbg_zebra,
-		       "%s: Received RULE_FAIL_INSTALL: %" PRIu64,
-		       __PRETTY_FUNCTION__, pbrms->installed);
 		break;
 	case ZAPI_RULE_INSTALLED:
 		pbrms->installed |= installed;
-		DEBUGD(&pbr_dbg_zebra, "%s: Received RULE_INSTALLED: %" PRIu64,
-		       __PRETTY_FUNCTION__, pbrms->installed);
 		break;
 	case ZAPI_RULE_FAIL_REMOVE:
+		/* Don't change state on rule removal failure */
+		break;
 	case ZAPI_RULE_REMOVED:
 		pbrms->installed &= ~installed;
-		DEBUGD(&pbr_dbg_zebra, "%s: Received RULE REMOVED: %" PRIu64,
-		       __PRETTY_FUNCTION__, pbrms->installed);
 		break;
 	}
+
+	DEBUGD(&pbr_dbg_zebra, "%s: Received %s: %" PRIu64, __func__,
+	       zapi_rule_notify_owner2str(note), pbrms->installed);
 
 	pbr_map_final_interface_deletion(pbrms->parent, pmi);
 
@@ -280,6 +279,7 @@ static void route_add_helper(struct zapi_route *api, struct nexthop_group nhg,
 		api_nh = &api->nexthops[i];
 		api_nh->vrf_id = nhop->vrf_id;
 		api_nh->type = nhop->type;
+		api_nh->weight = nhop->weight;
 		switch (nhop->type) {
 		case NEXTHOP_TYPE_IPV4:
 			api_nh->gate.ipv4 = nhop->gate.ipv4;
@@ -447,12 +447,9 @@ void pbr_zebra_init(void)
 
 	zclient_init(zclient, ZEBRA_ROUTE_PBR, 0, &pbr_privs);
 	zclient->zebra_connected = zebra_connected;
-	zclient->interface_add = interface_add;
-	zclient->interface_delete = interface_delete;
-	zclient->interface_up = interface_state_up;
-	zclient->interface_down = interface_state_down;
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
+	zclient->interface_vrf_update = interface_vrf_update;
 	zclient->route_notify_owner = route_notify_owner;
 	zclient->rule_notify_owner = rule_notify_owner;
 	zclient->nexthop_update = pbr_zebra_nexthop_update;
@@ -482,6 +479,12 @@ void pbr_send_rnh(struct nexthop *nhop, bool reg)
 		p.family = AF_INET6;
 		memcpy(&p.u.prefix6, &nhop->gate.ipv6, 16);
 		p.prefixlen = 128;
+		if (IN6_IS_ADDR_LINKLOCAL(&nhop->gate.ipv6))
+			/*
+			 * Don't bother tracking link locals, just track their
+			 * interface state.
+			 */
+			return;
 		break;
 	}
 
@@ -509,6 +512,26 @@ static void pbr_encode_pbr_map_sequence_prefix(struct stream *s,
 	stream_put(s, &p->u.prefix, prefix_blen(p));
 }
 
+static void
+pbr_encode_pbr_map_sequence_vrf(struct stream *s,
+				const struct pbr_map_sequence *pbrms,
+				const struct interface *ifp)
+{
+	struct pbr_vrf *pbr_vrf;
+
+	if (pbrms->vrf_unchanged)
+		pbr_vrf = pbr_vrf_lookup_by_id(ifp->vrf_id);
+	else
+		pbr_vrf = pbr_vrf_lookup_by_name(pbrms->vrf_name);
+
+	if (!pbr_vrf) {
+		DEBUGD(&pbr_dbg_zebra, "%s: VRF not found", __func__);
+		return;
+	}
+
+	stream_putl(s, pbr_vrf->vrf->data.l.table_id);
+}
+
 static void pbr_encode_pbr_map_sequence(struct stream *s,
 					struct pbr_map_sequence *pbrms,
 					struct interface *ifp)
@@ -527,7 +550,10 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 	pbr_encode_pbr_map_sequence_prefix(s, pbrms->dst, family);
 	stream_putw(s, 0);  /* dst port */
 	stream_putl(s, pbrms->mark);
-	if (pbrms->nhgrp_name)
+
+	if (pbrms->vrf_unchanged || pbrms->vrf_lookup)
+		pbr_encode_pbr_map_sequence_vrf(s, pbrms, ifp);
+	else if (pbrms->nhgrp_name)
 		stream_putl(s, pbr_nht_get_table(pbrms->nhgrp_name));
 	else if (pbrms->nhg)
 		stream_putl(s, pbr_nht_get_table(pbrms->internal_nhg_name));

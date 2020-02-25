@@ -51,9 +51,15 @@ DEFINE_HOOK(ospf6_neighbor_change,
 
 unsigned char conf_debug_ospf6_neighbor = 0;
 
-const char *ospf6_neighbor_state_str[] = {
+const char *const ospf6_neighbor_state_str[] = {
 	"None",    "Down",     "Attempt", "Init", "Twoway",
 	"ExStart", "ExChange", "Loading", "Full", NULL};
+
+const char *const ospf6_neighbor_event_str[] = {
+	"NoEvent",      "HelloReceived", "2-WayReceived",   "NegotiationDone",
+	"ExchangeDone", "LoadingDone",   "AdjOK?",	  "SeqNumberMismatch",
+	"BadLSReq",     "1-WayReceived", "InactivityTimer",
+};
 
 int ospf6_neighbor_cmp(void *va, void *vb)
 {
@@ -112,11 +118,15 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 
 void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 {
-	struct ospf6_lsa *lsa;
+	struct ospf6_lsa *lsa, *lsa_next;
+	const struct route_node *iterend;
 
 	ospf6_lsdb_remove_all(on->summary_list);
 	ospf6_lsdb_remove_all(on->request_list);
-	for (ALL_LSDB(on->retrans_list, lsa)) {
+
+	for (iterend = ospf6_lsdb_head(on->retrans_list, 0, 0, 0, &lsa); lsa;
+	     lsa = lsa_next) {
+		lsa_next = ospf6_lsdb_next(iterend, lsa);
 		ospf6_decrement_retrans_count(lsa);
 		ospf6_lsdb_remove(lsa, on->retrans_list);
 	}
@@ -287,7 +297,8 @@ int twoway_received(struct thread *thread)
 int negotiation_done(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
-	struct ospf6_lsa *lsa;
+	struct ospf6_lsa *lsa, *lsa_next;
+	const struct route_node *iterend;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
 	assert(on);
@@ -301,7 +312,10 @@ int negotiation_done(struct thread *thread)
 	/* clear ls-list */
 	ospf6_lsdb_remove_all(on->summary_list);
 	ospf6_lsdb_remove_all(on->request_list);
-	for (ALL_LSDB(on->retrans_list, lsa)) {
+
+	for (iterend = ospf6_lsdb_head(on->retrans_list, 0, 0, 0, &lsa); lsa;
+	     lsa = lsa_next) {
+		lsa_next = ospf6_lsdb_next(iterend, lsa);
 		ospf6_decrement_retrans_count(lsa);
 		ospf6_lsdb_remove(lsa, on->retrans_list);
 	}
@@ -495,7 +509,8 @@ int seqnumber_mismatch(struct thread *thread)
 int bad_lsreq(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
-	struct ospf6_lsa *lsa;
+	struct ospf6_lsa *lsa, *lsa_next;
+	const struct route_node *iterend;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
 	assert(on);
@@ -514,7 +529,10 @@ int bad_lsreq(struct thread *thread)
 
 	ospf6_lsdb_remove_all(on->summary_list);
 	ospf6_lsdb_remove_all(on->request_list);
-	for (ALL_LSDB(on->retrans_list, lsa)) {
+
+	for (iterend = ospf6_lsdb_head(on->retrans_list, 0, 0, 0, &lsa); lsa;
+	     lsa = lsa_next) {
+		lsa_next = ospf6_lsdb_next(iterend, lsa);
 		ospf6_decrement_retrans_count(lsa);
 		ospf6_lsdb_remove(lsa, on->retrans_list);
 	}
@@ -532,7 +550,8 @@ int bad_lsreq(struct thread *thread)
 int oneway_received(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
-	struct ospf6_lsa *lsa;
+	struct ospf6_lsa *lsa, *lsa_next;
+	const struct route_node *iterend;
 
 	on = (struct ospf6_neighbor *)THREAD_ARG(thread);
 	assert(on);
@@ -549,7 +568,9 @@ int oneway_received(struct thread *thread)
 
 	ospf6_lsdb_remove_all(on->summary_list);
 	ospf6_lsdb_remove_all(on->request_list);
-	for (ALL_LSDB(on->retrans_list, lsa)) {
+	for (iterend = ospf6_lsdb_head(on->retrans_list, 0, 0, 0, &lsa); lsa;
+	     lsa = lsa_next) {
+		lsa_next = ospf6_lsdb_next(iterend, lsa);
 		ospf6_decrement_retrans_count(lsa);
 		ospf6_lsdb_remove(lsa, on->retrans_list);
 	}
@@ -618,7 +639,7 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on)
 	snprintf(deadtime, sizeof(deadtime), "%02ld:%02ld:%02ld", h, m, s);
 
 	/* Neighbor State */
-	if (if_is_pointopoint(on->ospf6_if->interface))
+	if (on->ospf6_if->type == OSPF_IFTYPE_POINTOPOINT)
 		snprintf(nstate, sizeof(nstate), "PointToPoint");
 	else {
 		if (on->router_id == on->drouter)

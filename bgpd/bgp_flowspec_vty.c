@@ -294,7 +294,7 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 	}
 	if (!path)
 		return;
-	if (path->attr && path->attr->ecommunity) {
+	if (path->attr->ecommunity) {
 		/* Print attribute */
 		attr = path->attr;
 		s = ecommunity_ecom2str(attr->ecommunity,

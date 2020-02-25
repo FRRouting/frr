@@ -11,6 +11,13 @@ vrf aware and can work within the context of vrf's in order to
 do S,G mrouting.  Additionally PIM can be used in the EVPN underlay
 network for optimizing forwarding of overlay BUM traffic.
 
+.. note::
+
+   On Linux for PIM-SM operation you *must* have kernel version 4.18 or greater.
+   To use PIM for EVPN BUM forwarding, kernels 5.0 or greater are required.
+   OpenBSD has no multicast support and FreeBSD, NetBSD and Solaris only
+   have support for SSM.
+
 .. _starting-and-stopping-pimd:
 
 Starting and Stopping pimd
@@ -197,23 +204,24 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Set the pim hello and hold interval for a interface.
 
-.. index:: ip pim sm
-.. clicmd:: ip pim sm
+.. index:: ip pim
+.. clicmd:: ip pim
 
    Tell pim that we would like to use this interface to form pim neighbors
-   over. Please note we will *not* accept igmp reports over this interface with
-   this command.
+   over. Please note that this command does not enable the reception of IGMP
+   reports on the interface. Refer to the next `ip igmp` command for IGMP
+   management.
 
 .. index:: ip igmp
 .. clicmd:: ip igmp
 
    Tell pim to receive IGMP reports and Query on this interface. The default
-   version is v3. This command is useful on the LHR.
+   version is v3. This command is useful on a LHR.
 
-.. index:: ip igmp join A.B.C.D A.B.C.D
-.. clicmd:: ip igmp join A.B.C.D A.B.C.D
+.. index:: ip igmp join A.B.C.D [A.B.C.D]
+.. clicmd:: ip igmp join A.B.C.D [A.B.C.D]
 
-   Join multicast source-group on an interface.
+   Join multicast group or source-group on an interface.
 
 .. index:: ip igmp query-interval (1-1800)
 .. clicmd:: ip igmp query-interval (1-1800)
@@ -250,6 +258,13 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Set the IGMP last member query interval in deciseconds. The default value is
    10 deciseconds. 'no' form of this command is used to to configure back to the
    default value.
+
+.. index:: ip mroute INTERFACE A.B.C.D [A.B.C.D]
+.. clicmd:: ip mroute INTERFACE A.B.C.D [A.B.C.D]
+
+   Set a static multicast route for a traffic coming on the current interface to
+   be forwarded on the given interface if the traffic matches the group address
+   and optionally the source address.
 
 .. _pim-multicast-rib-insertion:
 

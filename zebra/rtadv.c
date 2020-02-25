@@ -58,10 +58,10 @@ DEFINE_MTYPE_STATIC(ZEBRA, RTADV_PREFIX, "Router Advertisement Prefix")
 
 /* If RFC2133 definition is used. */
 #ifndef IPV6_JOIN_GROUP
-#define IPV6_JOIN_GROUP  IPV6_ADD_MEMBERSHIP 
+#define IPV6_JOIN_GROUP  IPV6_ADD_MEMBERSHIP
 #endif
 #ifndef IPV6_LEAVE_GROUP
-#define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP 
+#define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP
 #endif
 
 #define ALLNODE   "ff02::1"
@@ -72,7 +72,9 @@ DEFINE_MTYPE_STATIC(ZEBRA, RTADV_DNSSL, "Router Advertisement DNSSL")
 
 /* Order is intentional.  Matches RFC4191.  This array is also used for
    command matching, so only modify with care. */
-const char *rtadv_pref_strs[] = {"medium", "high", "INVALID", "low", 0};
+static const char *const rtadv_pref_strs[] = {
+	"medium", "high", "INVALID", "low", 0
+};
 
 enum rtadv_event {
 	RTADV_START,
@@ -164,7 +166,8 @@ static int rtadv_recv_packet(struct zebra_vrf *zvrf, int sock, uint8_t *buf,
 #define RTADV_MSG_SIZE 4096
 
 /* Send router advertisement packet. */
-static void rtadv_send_packet(int sock, struct interface *ifp)
+static void rtadv_send_packet(int sock, struct interface *ifp,
+			      ipv6_nd_suppress_ra_status stop)
 {
 	struct msghdr msg;
 	struct iovec iov;
@@ -250,7 +253,10 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 		zif->rtadv.AdvDefaultLifetime != -1
 			? zif->rtadv.AdvDefaultLifetime
 			: MAX(1, 0.003 * zif->rtadv.MaxRtrAdvInterval);
-	rtadv->nd_ra_router_lifetime = htons(pkt_RouterLifetime);
+
+	/* send RA lifetime of 0 before stopping. rfc4861/6.2.5 */
+	rtadv->nd_ra_router_lifetime =
+		(stop == RA_SUPPRESS) ? htons(0) : htons(pkt_RouterLifetime);
 	rtadv->nd_ra_reachable = htonl(zif->rtadv.AdvReachableTime);
 	rtadv->nd_ra_retransmit = htonl(0);
 
@@ -495,7 +501,8 @@ static int rtadv_timer(struct thread *thread)
 			zif = ifp->info;
 
 			if (zif->rtadv.AdvSendAdvertisements) {
-				if (zif->rtadv.inFastRexmit) {
+				if (zif->rtadv.inFastRexmit
+				    && zif->rtadv.UseFastRexmit) {
 					/* We assume we fast rexmit every sec so
 					 * no
 					 * additional vars */
@@ -509,7 +516,7 @@ static int rtadv_timer(struct thread *thread)
 							ifp->name);
 
 					rtadv_send_packet(rtadv_get_socket(zvrf),
-							  ifp);
+							  ifp, RA_ENABLE);
 				} else {
 					zif->rtadv.AdvIntervalTimer -= period;
 					if (zif->rtadv.AdvIntervalTimer <= 0) {
@@ -523,7 +530,7 @@ static int rtadv_timer(struct thread *thread)
 								.MaxRtrAdvInterval;
 						rtadv_send_packet(
 							  rtadv_get_socket(zvrf),
-							  ifp);
+							  ifp, RA_ENABLE);
 					}
 				}
 			}
@@ -535,9 +542,28 @@ static int rtadv_timer(struct thread *thread)
 static void rtadv_process_solicit(struct interface *ifp)
 {
 	struct zebra_vrf *zvrf = vrf_info_lookup(ifp->vrf_id);
+	struct zebra_if *zif;
 
 	assert(zvrf);
-	rtadv_send_packet(rtadv_get_socket(zvrf), ifp);
+	zif = ifp->info;
+
+	/*
+	 * If FastRetransmit is enabled, send the RA immediately.
+	 * If not enabled but it has been more than MIN_DELAY_BETWEEN_RAS
+	 * (3 seconds) since the last RA was sent, send it now and reset
+	 * the timer to start at the max (configured) again.
+	 * If not enabled and it is less than 3 seconds since the last
+	 * RA packet was sent, set the timer for 3 seconds so the next
+	 * one will be sent with a minimum of 3 seconds between RAs.
+	 * RFC4861 sec 6.2.6
+	 */
+	if ((zif->rtadv.UseFastRexmit)
+	    || (zif->rtadv.AdvIntervalTimer <=
+		(zif->rtadv.MaxRtrAdvInterval - MIN_DELAY_BETWEEN_RAS))) {
+		rtadv_send_packet(rtadv_get_socket(zvrf), ifp, RA_ENABLE);
+		zif->rtadv.AdvIntervalTimer = zif->rtadv.MaxRtrAdvInterval;
+	} else
+		zif->rtadv.AdvIntervalTimer = MIN_DELAY_BETWEEN_RAS;
 }
 
 /*
@@ -889,6 +915,8 @@ static void ipv6_nd_suppress_ra_set(struct interface *ifp,
 	if (status == RA_SUPPRESS) {
 		/* RA is currently enabled */
 		if (zif->rtadv.AdvSendAdvertisements) {
+			rtadv_send_packet(rtadv_get_socket(zvrf), ifp,
+					  RA_SUPPRESS);
 			zif->rtadv.AdvSendAdvertisements = 0;
 			zif->rtadv.AdvIntervalTimer = 0;
 			zvrf->rtadv.adv_if_count--;
@@ -904,9 +932,12 @@ static void ipv6_nd_suppress_ra_set(struct interface *ifp,
 			zif->rtadv.AdvIntervalTimer = 0;
 			zvrf->rtadv.adv_if_count++;
 
-			if (zif->rtadv.MaxRtrAdvInterval >= 1000) {
-				/* Enable Fast RA only when RA interval is in
-				 * secs */
+			if ((zif->rtadv.MaxRtrAdvInterval >= 1000)
+			    && zif->rtadv.UseFastRexmit) {
+				/*
+				 * Enable Fast RA only when RA interval is in
+				 * secs and Fast RA retransmit is enabled
+				 */
 				zif->rtadv.inFastRexmit = 1;
 				zif->rtadv.NumFastReXmitsRemain =
 					RTADV_NUM_FAST_REXMITS;
@@ -996,6 +1027,38 @@ stream_failure:
 	return;
 }
 
+/*
+ * send router lifetime value of zero in RAs on this interface since we're
+ * ceasing to advertise and want to let our neighbors know.
+ * RFC 4861 secion 6.2.5
+ */
+void rtadv_stop_ra(struct interface *ifp)
+{
+	struct zebra_if *zif;
+	struct zebra_vrf *zvrf;
+
+	zif = ifp->info;
+	zvrf = vrf_info_lookup(ifp->vrf_id);
+
+	if (zif->rtadv.AdvSendAdvertisements)
+		rtadv_send_packet(rtadv_get_socket(zvrf), ifp, RA_SUPPRESS);
+}
+
+/*
+ * send router lifetime value of zero in RAs on all interfaces since we're
+ * ceasing to advertise globally and want to let all of our neighbors know
+ * RFC 4861 secion 6.2.5
+ */
+void rtadv_stop_ra_all(void)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
+			rtadv_stop_ra(ifp);
+}
+
 void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS)
 {
 	zebra_interface_radv_set(client, hdr, msg, zvrf, 0);
@@ -1003,6 +1066,51 @@ void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS)
 void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS)
 {
 	zebra_interface_radv_set(client, hdr, msg, zvrf, 1);
+}
+
+DEFUN (ipv6_nd_ra_fast_retrans,
+	ipv6_nd_ra_fast_retrans_cmd,
+	"ipv6 nd ra-fast-retrans",
+	"Interface IPv6 config commands\n"
+	"Neighbor discovery\n"
+	"Fast retransmit of RA packets\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zif = ifp->info;
+
+	if (if_is_loopback(ifp)
+	    || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK)) {
+		vty_out(vty,
+			"Cannot configure IPv6 Router Advertisements on this  interface\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	zif->rtadv.UseFastRexmit = true;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_nd_ra_fast_retrans,
+	no_ipv6_nd_ra_fast_retrans_cmd,
+	"no ipv6 nd ra-fast-retrans",
+	NO_STR
+	"Interface IPv6 config commands\n"
+	"Neighbor discovery\n"
+	"Fast retransmit of RA packets\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zif = ifp->info;
+
+	if (if_is_loopback(ifp)
+	    || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK)) {
+		vty_out(vty,
+			"Cannot configure IPv6 Router Advertisements on this  interface\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	zif->rtadv.UseFastRexmit = false;
+
+	return CMD_SUCCESS;
 }
 
 DEFUN (ipv6_nd_suppress_ra,
@@ -1963,6 +2071,10 @@ static int nd_dump_vty(struct vty *vty, struct interface *ifp)
 				"  ND router advertisements are sent every "
 				"%d seconds\n",
 				interval / 1000);
+		if (!rtadv->UseFastRexmit)
+			vty_out(vty,
+				"  ND router advertisements do not use fast retransmit\n");
+
 		if (rtadv->AdvDefaultLifetime != -1)
 			vty_out(vty,
 				"  ND router advertisements live for %d seconds\n",
@@ -2033,6 +2145,9 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 
 	if (zif->rtadv.AdvIntervalOption)
 		vty_out(vty, " ipv6 nd adv-interval-option\n");
+
+	if (!zif->rtadv.UseFastRexmit)
+		vty_out(vty, " no ipv6 nd ra-fast-retrans\n");
 
 	if (zif->rtadv.AdvDefaultLifetime != -1)
 		vty_out(vty, " ipv6 nd ra-lifetime %d\n",
@@ -2182,6 +2297,8 @@ void rtadv_cmd_init(void)
 	hook_register(zebra_if_extra_info, nd_dump_vty);
 	hook_register(zebra_if_config_wr, rtadv_config_write);
 
+	install_element(INTERFACE_NODE, &ipv6_nd_ra_fast_retrans_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_fast_retrans_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_suppress_ra_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_suppress_ra_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_interval_cmd);

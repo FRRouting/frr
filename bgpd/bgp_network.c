@@ -320,6 +320,14 @@ static int bgp_get_instance_for_inc_conn(int sock, struct bgp **bgp_inst)
 #endif
 }
 
+static void bgp_socket_set_buffer_size(const int fd)
+{
+	if (getsockopt_so_sendbuf(fd) < (int)bm->socket_buffer)
+		setsockopt_so_sendbuf(fd, bm->socket_buffer);
+	if (getsockopt_so_recvbuf(fd) < (int)bm->socket_buffer)
+		setsockopt_so_recvbuf(fd, bm->socket_buffer);
+}
+
 /* Accept bgp connection. */
 static int bgp_accept(struct thread *thread)
 {
@@ -371,8 +379,7 @@ static int bgp_accept(struct thread *thread)
 		return -1;
 	}
 
-	/* Set socket send buffer size */
-	setsockopt_so_sendbuf(bgp_sock, BGP_SOCKET_SNDBUF_SIZE);
+	bgp_socket_set_buffer_size(bgp_sock);
 
 	/* Check remote IP address */
 	peer1 = peer_lookup(bgp, &su);
@@ -621,8 +628,7 @@ int bgp_connect(struct peer *peer)
 
 	set_nonblocking(peer->fd);
 
-	/* Set socket send buffer size */
-	setsockopt_so_sendbuf(peer->fd, BGP_SOCKET_SNDBUF_SIZE);
+	bgp_socket_set_buffer_size(peer->fd);
 
 	if (bgp_set_socket_ttl(peer, peer->fd) < 0)
 		return -1;

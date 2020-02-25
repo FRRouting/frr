@@ -62,10 +62,16 @@
 #define BGP_PREFIX_SID_LABEL_INDEX     1
 #define BGP_PREFIX_SID_IPV6            2
 #define BGP_PREFIX_SID_ORIGINATOR_SRGB 3
+#define BGP_PREFIX_SID_SRV6_L3_SERVICE 5
+#define BGP_PREFIX_SID_SRV6_L2_SERVICE 6
 
 #define BGP_PREFIX_SID_LABEL_INDEX_LENGTH      7
 #define BGP_PREFIX_SID_IPV6_LENGTH            19
 #define BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH  6
+
+#define BGP_ATTR_NH_AFI(afi, attr) \
+	((afi != AFI_L2VPN) ? afi : \
+	((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) ? AFI_IP : AFI_IP6))
 
 /* PMSI tunnel types (RFC 6514) */
 
@@ -206,6 +212,12 @@ struct attr {
 
 	/* EVPN local router-mac */
 	struct ethaddr rmac;
+
+	/* Distance as applied by Route map */
+	uint8_t distance;
+
+	/* rmap set table */
+	uint32_t rmap_table_id;
 };
 
 /* rmap_change_flags definition */
@@ -307,7 +319,7 @@ extern int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 extern int bgp_mp_unreach_parse(struct bgp_attr_parser_args *args,
 				struct bgp_nlri *);
 extern bgp_attr_parse_ret_t
-bgp_attr_prefix_sid(int32_t tlength, struct bgp_attr_parser_args *args,
+bgp_attr_prefix_sid(struct bgp_attr_parser_args *args,
 		    struct bgp_nlri *mp_update);
 
 extern struct bgp_attr_encap_subtlv *

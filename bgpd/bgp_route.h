@@ -114,6 +114,10 @@ struct bgp_path_info_extra {
 	mpls_label_t label[BGP_MAX_LABELS];
 	uint32_t num_labels;
 
+	/* af specific flags */
+	uint16_t af_flags;
+#define BGP_EVPN_MACIP_TYPE_SVI_IP (1 << 0)
+
 #if ENABLE_BGP_VNC
 	union {
 
@@ -236,9 +240,9 @@ struct bgp_path_info {
 #define BGP_ROUTE_NORMAL       0
 #define BGP_ROUTE_STATIC       1
 #define BGP_ROUTE_AGGREGATE    2
-#define BGP_ROUTE_REDISTRIBUTE 3 
+#define BGP_ROUTE_REDISTRIBUTE 3
 #ifdef ENABLE_BGP_VNC
-# define BGP_ROUTE_RFP          4 
+# define BGP_ROUTE_RFP          4
 #endif
 #define BGP_ROUTE_IMPORTED     5        /* from another bgp instance/safi */
 

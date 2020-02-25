@@ -182,6 +182,7 @@ struct bmp_active {
 	unsigned addrpos, addrtotal;
 	union sockunion addrs[8];
 	int socket;
+	const char *last_err;
 	struct thread *t_timer, *t_read, *t_write;
 };
 

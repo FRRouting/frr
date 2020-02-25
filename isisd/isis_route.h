@@ -44,6 +44,11 @@ struct isis_route_info {
 	struct list *nexthops;
 };
 
+DECLARE_HOOK(isis_route_update_hook,
+	     (struct isis_area * area, struct prefix *prefix,
+	      struct isis_route_info *route_info),
+	     (area, prefix, route_info))
+
 struct isis_route_info *isis_route_create(struct prefix *prefix,
 					  struct prefix_ipv6 *src_p,
 					  uint32_t cost,

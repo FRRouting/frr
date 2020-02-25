@@ -54,6 +54,7 @@
  */
 static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 {
+	uint8_t protocol = RTPROT_ZEBRA;
 	int family;
 	int bytelen;
 	struct {
@@ -78,13 +79,15 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 	req.frh.family = family;
 	req.frh.action = FR_ACT_TO_TBL;
 
+	addattr_l(&req.n, sizeof(req),
+		  FRA_PROTOCOL, &protocol, sizeof(protocol));
+
 	/* rule's pref # */
 	addattr32(&req.n, sizeof(req), FRA_PRIORITY, rule->rule.priority);
 
 	/* interface on which applied */
-	if (rule->ifp)
-		addattr_l(&req.n, sizeof(req), FRA_IFNAME, rule->ifp->name,
-			  strlen(rule->ifp->name) + 1);
+	addattr_l(&req.n, sizeof(req), FRA_IFNAME, rule->ifname,
+		  strlen(rule->ifname) + 1);
 
 	/* source IP, if specified */
 	if (IS_RULE_FILTERING_ON_SRC_IP(rule)) {
@@ -118,8 +121,7 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 		zlog_debug(
 			"Tx %s family %s IF %s(%u) Pref %u Fwmark %u Src %s Dst %s Table %u",
 			nl_msg_type_to_str(cmd), nl_family_to_str(family),
-			rule->ifp ? rule->ifp->name : "Unknown",
-			rule->ifp ? rule->ifp->ifindex : 0, rule->rule.priority,
+			rule->ifname, rule->rule.ifindex, rule->rule.priority,
 			rule->rule.filter.fwmark,
 			prefix2str(&rule->rule.filter.src_ip, buf1,
 				   sizeof(buf1)),
@@ -223,12 +225,14 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (tb[FRA_IFNAME] == NULL)
 		return 0;
 
-	/* If we don't know the interface, we don't care. */
 	ifname = (char *)RTA_DATA(tb[FRA_IFNAME]);
 	zns = zebra_ns_lookup(ns_id);
-	rule.ifp = if_lookup_by_name_per_ns(zns, ifname);
-	if (!rule.ifp)
+
+	/* If we don't know the interface, we don't care. */
+	if (!if_lookup_by_name_per_ns(zns, ifname))
 		return 0;
+
+	strlcpy(rule.ifname, ifname, sizeof(rule.ifname));
 
 	if (tb[FRA_PRIORITY])
 		rule.rule.priority = *(uint32_t *)RTA_DATA(tb[FRA_PRIORITY]);
@@ -264,8 +268,8 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		zlog_debug(
 			"Rx %s family %s IF %s(%u) Pref %u Src %s Dst %s Table %u",
 			nl_msg_type_to_str(h->nlmsg_type),
-			nl_family_to_str(frh->family), rule.ifp->name,
-			rule.ifp->ifindex, rule.rule.priority,
+			nl_family_to_str(frh->family), rule.ifname,
+			rule.rule.ifindex, rule.rule.priority,
 			prefix2str(&rule.rule.filter.src_ip, buf1,
 				   sizeof(buf1)),
 			prefix2str(&rule.rule.filter.dst_ip, buf2,

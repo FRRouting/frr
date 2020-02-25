@@ -59,6 +59,11 @@ struct rtadv_prefix {
 #endif
 };
 
+/* RFC4861 minimum delay between RAs  */
+#ifndef MIN_DELAY_BETWEEN_RAS
+#define MIN_DELAY_BETWEEN_RAS        3000
+#endif
+
 /* RFC4584 Extension to Sockets API for Mobile IPv6 */
 
 #ifndef ND_OPT_ADV_INTERVAL
@@ -126,8 +131,6 @@ struct nd_opt_dnssl { /* DNS search list option [RFC8106 5.2] */
 } __attribute__((__packed__));
 #endif
 
-extern const char *rtadv_pref_strs[];
-
 #endif /* HAVE_RTADV */
 
 typedef enum {
@@ -137,6 +140,8 @@ typedef enum {
 
 extern void rtadv_init(struct zebra_vrf *zvrf);
 extern void rtadv_terminate(struct zebra_vrf *zvrf);
+extern void rtadv_stop_ra(struct interface *ifp);
+extern void rtadv_stop_ra_all(void);
 extern void rtadv_cmd_init(void);
 extern void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS);
 extern void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS);

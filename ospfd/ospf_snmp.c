@@ -2257,8 +2257,6 @@ static uint8_t *ospfNbrEntry(struct variable *v, oid *name, size_t *length,
 	if (!nbr)
 		return NULL;
 	oi = nbr->oi;
-	if (!oi)
-		return NULL;
 
 	/* Return the current value of the variable */
 	switch (v->magic) {

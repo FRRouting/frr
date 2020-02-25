@@ -1915,6 +1915,7 @@ DEFUN (mac_access_list,
 	argv_find(argv, argc, "X:X:X:X:X:X", &idx);
 	if (idx)
 		mac = argv[idx]->arg;
+	assert(mac);
 
 	return filter_set_zebra(vty, argv[2]->arg, seq, permit_deny, AFI_L2VPN,
 				mac, 0, 1);
@@ -1952,6 +1953,7 @@ DEFUN (no_mac_access_list,
 	argv_find(argv, argc, "X:X:X:X:X:X", &idx);
 	if (idx)
 		mac = argv[idx]->arg;
+	assert(mac);
 
 	return filter_set_zebra(vty, argv[2]->arg, seq, permit_deny, AFI_L2VPN,
 				mac, 0, 0);
@@ -2050,6 +2052,7 @@ DEFUN (access_list_exact,
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
 	if (idx)
 		prefix = argv[idx]->arg;
+	assert(prefix);
 
 	idx = 0;
 	if (argv_find(argv, argc, "exact-match", &idx))
@@ -2122,6 +2125,7 @@ DEFUN (no_access_list_exact,
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
 	if (idx)
 		prefix = argv[idx]->arg;
+	assert(prefix);
 
 	idx = 0;
 	if (argv_find(argv, argc, "exact-match", &idx))
@@ -2143,7 +2147,7 @@ DEFUN (no_access_list_any,
        "Specify packets to forward\n"
        "Prefix to match. e.g. 10.0.0.0/8\n")
 {
-	int idx_word = 1;
+	int idx_word = 2;
 	int idx = 0;
 	char *seq = NULL;
 	char *permit_deny = NULL;
@@ -2348,7 +2352,7 @@ DEFUN (no_ipv6_access_list_exact,
 {
 	int idx = 0;
 	int exact = 0;
-	int idx_word = 2;
+	int idx_word = 3;
 	char *seq = NULL;
 	char *permit_deny = NULL;
 	char *prefix = NULL;
@@ -2367,6 +2371,7 @@ DEFUN (no_ipv6_access_list_exact,
 	argv_find(argv, argc, "X:X::X:X/M", &idx);
 	if (idx)
 		prefix = argv[idx]->arg;
+	assert(prefix);
 
 	idx = 0;
 	if (argv_find(argv, argc, "exact-match", &idx))
@@ -2389,7 +2394,7 @@ DEFUN (no_ipv6_access_list_any,
        "Specify packets to forward\n"
        "Any prefixi to match\n")
 {
-	int idx_word = 2;
+	int idx_word = 3;
 	int idx = 0;
 	char *seq = NULL;
 	char *permit_deny = NULL;
@@ -2493,8 +2498,8 @@ DEFUN (no_ipv6_access_list_remark_comment,
 	return no_ipv6_access_list_remark(self, vty, argc, argv);
 }
 
-void config_write_access_zebra(struct vty *, struct filter *);
-void config_write_access_cisco(struct vty *, struct filter *);
+static void config_write_access_zebra(struct vty *, struct filter *);
+static void config_write_access_cisco(struct vty *, struct filter *);
 
 /* show access-list command. */
 static int filter_show(struct vty *vty, const char *name, afi_t afi)
@@ -2680,7 +2685,7 @@ DEFUN (show_ipv6_access_list_name,
 	return filter_show(vty, argv[idx_word]->arg, AFI_IP6);
 }
 
-void config_write_access_cisco(struct vty *vty, struct filter *mfilter)
+static void config_write_access_cisco(struct vty *vty, struct filter *mfilter)
 {
 	struct filter_cisco *filter;
 
@@ -2719,7 +2724,7 @@ void config_write_access_cisco(struct vty *vty, struct filter *mfilter)
 	}
 }
 
-void config_write_access_zebra(struct vty *vty, struct filter *mfilter)
+static void config_write_access_zebra(struct vty *vty, struct filter *mfilter)
 {
 	struct filter_zebra *filter;
 	struct prefix *p;

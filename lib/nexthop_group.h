@@ -44,10 +44,21 @@ void nexthop_group_delete(struct nexthop_group **nhg);
 
 void nexthop_group_copy(struct nexthop_group *to,
 			struct nexthop_group *from);
+
+/*
+ * Copy a list of nexthops in 'nh' to an nhg, enforcing canonical sort order
+ */
+void nexthop_group_copy_nh_sorted(struct nexthop_group *nhg,
+				  const struct nexthop *nh);
+
 void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 		   struct nexthop *rparent);
 
+uint32_t nexthop_group_hash_no_recurse(const struct nexthop_group *nhg);
 uint32_t nexthop_group_hash(const struct nexthop_group *nhg);
+void nexthop_group_mark_duplicates(struct nexthop_group *nhg);
+void nexthop_group_add_sorted(struct nexthop_group *nhg,
+			      struct nexthop *nexthop);
 
 /* The following for loop allows to iterate over the nexthop
  * structure of routes.
@@ -67,12 +78,6 @@ uint32_t nexthop_group_hash(const struct nexthop_group *nhg);
 	(nhop);								\
 	(nhop) = nexthop_next(nhop)
 
-
-struct nexthop_hold {
-	char *nhvrf_name;
-	union sockunion *addr;
-	char *intf;
-};
 
 struct nexthop_group_cmd {
 
@@ -110,8 +115,15 @@ void nexthop_group_disable_vrf(struct vrf *vrf);
 void nexthop_group_interface_state_change(struct interface *ifp,
 					  ifindex_t oldifindex);
 
-extern struct nexthop *nexthop_exists(struct nexthop_group *nhg,
-				      struct nexthop *nh);
+extern struct nexthop *nexthop_exists(const struct nexthop_group *nhg,
+				      const struct nexthop *nh);
+/* This assumes ordered */
+extern bool nexthop_group_equal_no_recurse(const struct nexthop_group *nhg1,
+					   const struct nexthop_group *nhg2);
+
+/* This assumes ordered */
+extern bool nexthop_group_equal(const struct nexthop_group *nhg1,
+				const struct nexthop_group *nhg2);
 
 extern struct nexthop_group_cmd *nhgc_find(const char *name);
 
@@ -120,7 +132,11 @@ extern void nexthop_group_write_nexthop(struct vty *vty, struct nexthop *nh);
 /* Return the number of nexthops in this nhg */
 extern uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg);
 extern uint8_t
+nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg);
+extern uint8_t
 nexthop_group_active_nexthop_num(const struct nexthop_group *nhg);
+extern uint8_t
+nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg);
 
 #ifdef __cplusplus
 }

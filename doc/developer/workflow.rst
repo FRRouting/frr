@@ -113,6 +113,9 @@ Security fixes are backported to all releases less than or equal to at least one
 year old. Security fixes may also be backported to older releases depending on
 severity.
 
+For detailed instructions on how to produce an FRR release, refer to
+:ref:`frr-release-procedure`.
+
 
 Long term support branches ( LTS )
 -----------------------------------------
@@ -159,6 +162,34 @@ request. This would require the LTS maintainer to ensure that all more recent
 releases have support for this feature request. Moreover, introducing features
 requests may result in breaking the stability of the branch. LTS branches are first
 done to bring long term support for stability.
+
+Development Branches
+--------------------
+
+Occassionally the community will desire the ability to work together
+on a feature that is considered useful to FRR.  In this case the
+parties may ask the Maintainers for the creation of a development
+branch in the main FRR repository.  Requirements for this to happen
+are:
+
+- A one paragraph description of the feature being implemented to
+  allow for the facilitation of discussion about the feature.  This
+  might include pointers to relevant RFC's or presentations that
+  explain what is planned.  This is intended to set a somewhat
+  low bar for organization.
+- A branch maintainer must be named.  This person is responsible for
+  keeping the branch up to date, and general communication about the
+  project with the other FRR Maintainers.  Additionally this person
+  must already be a FRR Maintainer.
+- Commits to this branch must follow the normal PR and commit process
+  as outlined in other areas of this document.  The goal of this is
+  to prevent the current state where large features are submitted
+  and are so large they are difficult to review.
+
+After a development branch has completed the work together, a final
+review can be made and the branch merged into master.  If a development
+branch is becomes un-maintained or not being actively worked on after
+three months then the Maintainers can decide to remove the branch.
 
 Changelog
 ---------
@@ -252,7 +283,10 @@ Pre-submission Checklist
    -  ``make test``
 
 - In the case of a major new feature or other significant change, document
-  plans for continued maintenance of the feature
+  plans for continued maintenance of the feature.  In addition it is a
+  requirement that automated testing must be written that exercises
+  the new feature within our existing CI infrastructure.  Also the 
+  addition of automated testing to cover any pull request is encouraged.
 
 .. _signing-off:
 
@@ -261,6 +295,11 @@ Signing Off
 Code submitted to FRR must be signed off. We have the same requirements for
 using the signed-off-by process as the Linux kernel. In short, you must include
 a ``Signed-off-by`` tag in every patch.
+
+An easy way to do this is to use ``git commit -s`` where ``-s`` will automatically
+append a signed-off line to the end of your commit message. Also, if you commit
+and forgot to add the line you can use ``git commit --amend -s`` to add the
+signed-off line to the last commit.
 
 ``Signed-off-by`` is a developer's certification that they have the right to
 submit the patch for inclusion into the project. It is an agreement to the
@@ -416,6 +455,10 @@ Guidelines for code review
   may originate with a reviewer or document agreement reached on Slack,
   the Development mailing list, or the weekly technical meeting.
 
+- Reviewers may ask for new automated testing if they feel that the
+  code change is large enough/significant enough to warrant such
+  a requirement.
+
 
 Coding Practices & Style
 ========================
@@ -499,8 +542,11 @@ your new claim at the end of the list.
 Code Formatting
 ---------------
 
-FRR uses Linux kernel style except where noted below. Code which does not
-comply with these style guidelines will not be accepted.
+C Code
+^^^^^^
+
+For C code, FRR uses Linux kernel style except where noted below. Code which
+does not comply with these style guidelines will not be accepted.
 
 The project provides multiple tools to allow you to correctly style your code
 as painlessly as possible, primarily built around ``clang-format``.
@@ -707,6 +753,28 @@ BSD coding style applies to:
 
 -  ``ldpd/``
 
+YANG
+^^^^
+
+FRR uses YANG to define data models for its northbound interface. YANG models
+should follow conventions used by the IETF standard models. From a practical
+standpoint, this corresponds to the output produced by the ``yanglint`` tool
+included in the ``libyang`` project, which is used by FRR to parse and validate
+YANG models. You should run the following command on all YANG documents you
+write:
+
+.. code-block:: console
+
+   yanglint -f yang <model>
+
+The output of this command should be identical to the input file. The sole
+exception to this is comments. ``yanglint`` does not support comments and will
+strip them from its output. You may include comments in your YANG documents,
+but they should be indented appropriately (use spaces). Where possible,
+comments should be eschewed in favor of a suitable ``description`` statement.
+
+In short, a diff between your input file and the output of ``yanglint`` should
+either be empty or contain only comments.
 
 Specific Exceptions
 ^^^^^^^^^^^^^^^^^^^

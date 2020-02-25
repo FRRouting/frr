@@ -117,6 +117,8 @@ struct ospf_if_info {
 	struct route_table *oifs;
 	unsigned int
 		membership_counts[MEMBER_MAX]; /* multicast group refcnts */
+
+	uint32_t curr_mtu;
 };
 
 struct ospf_interface;
@@ -321,7 +323,12 @@ extern int ospf_interface_neighbor_count(struct ospf_interface *oi);
    state of the interface. */
 extern void ospf_if_set_multicast(struct ospf_interface *);
 
+extern void ospf_if_interface(struct interface *ifp);
+
 DECLARE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd))
 DECLARE_HOOK(ospf_vl_delete, (struct ospf_vl_data * vd), (vd))
+
+DECLARE_HOOK(ospf_if_update, (struct interface * ifp), (ifp))
+DECLARE_HOOK(ospf_if_delete, (struct interface * ifp), (ifp))
 
 #endif /* _ZEBRA_OSPF_INTERFACE_H */

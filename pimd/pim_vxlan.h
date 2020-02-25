@@ -115,6 +115,13 @@ static inline bool pim_vxlan_is_orig_mroute(struct pim_vxlan_sg *vxlan_sg)
 	return (vxlan_sg->sg.src.s_addr != 0);
 }
 
+static inline bool pim_vxlan_is_local_sip(struct pim_upstream *up)
+{
+	return (up->sg.src.s_addr != INADDR_ANY) &&
+		up->rpf.source_nexthop.interface &&
+		if_is_loopback_or_vrf(up->rpf.source_nexthop.interface);
+}
+
 extern struct pim_vxlan *pim_vxlan_p;
 extern struct pim_vxlan_sg *pim_vxlan_sg_find(struct pim_instance *pim,
 					    struct prefix_sg *sg);

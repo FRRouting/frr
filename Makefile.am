@@ -125,6 +125,7 @@ include doc/manpages/subdir.am
 include doc/developer/subdir.am
 include include/subdir.am
 include lib/subdir.am
+include mlag/subdir.am
 include zebra/subdir.am
 include watchfrr/subdir.am
 include qpb/subdir.am
@@ -226,8 +227,6 @@ EXTRA_DIST += \
 	zebra/Makefile \
 	vrrpd/Makefile \
 	# end
-
-noinst_HEADERS += defaults.h
 
 clean-local: clean-python
 .PHONY: clean-python

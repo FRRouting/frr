@@ -67,7 +67,7 @@ static char vrf_default_name[VRF_NAMSIZ] = VRF_DEFAULT_NAME_INTERNAL;
 static int debug_vrf = 0;
 
 /* Holding VRF hooks  */
-struct vrf_master {
+static struct vrf_master {
 	int (*vrf_new_hook)(struct vrf *);
 	int (*vrf_delete_hook)(struct vrf *);
 	int (*vrf_enable_hook)(struct vrf *);
@@ -199,9 +199,14 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 
 	/* Set name */
 	if (name && vrf->name[0] != '\0' && strcmp(name, vrf->name)) {
+		/* update the vrf name */
 		RB_REMOVE(vrf_name_head, &vrfs_by_name, vrf);
+		strlcpy(vrf->data.l.netns_name,
+			name, NS_NAMSIZ);
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
+		if (vrf->vrf_id == VRF_DEFAULT)
+			vrf_set_default_name(vrf->name, false);
 	} else if (name && vrf->name[0] == '\0') {
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
@@ -550,7 +555,6 @@ void vrf_terminate(void)
 	}
 }
 
-/* Create a socket for the VRF. */
 int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
 	       const char *interfacename)
 {
@@ -747,7 +751,7 @@ DEFUN (no_vrf,
 }
 
 
-struct cmd_node vrf_node = {VRF_NODE, "%s(config-vrf)# ", 1};
+static struct cmd_node vrf_node = {VRF_NODE, "%s(config-vrf)# ", 1};
 
 DEFUN_NOSH (vrf_netns,
        vrf_netns_cmd,
@@ -878,7 +882,8 @@ void vrf_set_default_name(const char *default_name, bool force)
 			   def_vrf->vrf_id);
 		return;
 	}
-
+	if (strmatch(vrf_default_name, default_name))
+		return;
 	snprintf(vrf_default_name, VRF_NAMSIZ, "%s", default_name);
 	if (def_vrf) {
 		if (force)

@@ -99,6 +99,9 @@ static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_NEWRULE, "RTM_NEWRULE"},
 					   {RTM_DELRULE, "RTM_DELRULE"},
 					   {RTM_GETRULE, "RTM_GETRULE"},
+					   {RTM_NEWNEXTHOP, "RTM_NEWNEXTHOP"},
+					   {RTM_DELNEXTHOP, "RTM_DELNEXTHOP"},
+					   {RTM_GETNEXTHOP, "RTM_GETNEXTHOP"},
 					   {0}};
 
 static const struct message rtproto_str[] = {
@@ -287,10 +290,26 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		return netlink_neigh_change(h, ns_id);
 	case RTM_DELNEIGH:
 		return netlink_neigh_change(h, ns_id);
+	case RTM_GETNEIGH:
+		/*
+		 * Kernel in some situations when it expects
+		 * user space to resolve arp entries, we will
+		 * receive this notification.  As we don't
+		 * need this notification and as that
+		 * we don't want to spam the log file with
+		 * below messages, just ignore.
+		 */
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Received RTM_GETNEIGH, ignoring");
+		break;
 	case RTM_NEWRULE:
 		return netlink_rule_change(h, ns_id, startup);
 	case RTM_DELRULE:
 		return netlink_rule_change(h, ns_id, startup);
+	case RTM_NEWNEXTHOP:
+		return netlink_nexthop_change(h, ns_id, startup);
+	case RTM_DELNEXTHOP:
+		return netlink_nexthop_change(h, ns_id, startup);
 	default:
 		/*
 		 * If we have received this message then
@@ -573,6 +592,7 @@ struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type)
 	struct rtattr *nest = NLMSG_TAIL(n);
 
 	addattr_l(n, maxlen, type, NULL, 0);
+	nest->rta_type |= NLA_F_NESTED;
 	return nest;
 }
 
@@ -587,6 +607,7 @@ struct rtattr *rta_nest(struct rtattr *rta, int maxlen, int type)
 	struct rtattr *nest = RTA_TAIL(rta);
 
 	rta_addattr_l(rta, maxlen, type, NULL, 0);
+	nest->rta_type |= NLA_F_NESTED;
 	return nest;
 }
 
@@ -884,15 +905,20 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 							msg_type,
 							err->msg.nlmsg_seq,
 							err->msg.nlmsg_pid);
-				} else
-					flog_err(
-						EC_ZEBRA_UNEXPECTED_MESSAGE,
-						"%s error: %s, type=%s(%u), seq=%u, pid=%u",
-						nl->name,
-						safe_strerror(-errnum),
-						nl_msg_type_to_str(msg_type),
-						msg_type, err->msg.nlmsg_seq,
-						err->msg.nlmsg_pid);
+				} else {
+					if ((msg_type != RTM_GETNEXTHOP)
+					    || !startup)
+						flog_err(
+							EC_ZEBRA_UNEXPECTED_MESSAGE,
+							"%s error: %s, type=%s(%u), seq=%u, pid=%u",
+							nl->name,
+							safe_strerror(-errnum),
+							nl_msg_type_to_str(
+								msg_type),
+							msg_type,
+							err->msg.nlmsg_seq,
+							err->msg.nlmsg_pid);
+				}
 
 				return -1;
 			}
@@ -1096,7 +1122,8 @@ void kernel_init(struct zebra_ns *zns)
 		RTMGRP_IPV4_MROUTE             |
 		RTMGRP_NEIGH                   |
 		((uint32_t) 1 << (RTNLGRP_IPV4_RULE - 1)) |
-		((uint32_t) 1 << (RTNLGRP_IPV6_RULE - 1));
+		((uint32_t) 1 << (RTNLGRP_IPV6_RULE - 1)) |
+		((uint32_t) 1 << (RTNLGRP_NEXTHOP - 1));
 
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);

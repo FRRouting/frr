@@ -95,7 +95,7 @@ static void peer_process(struct hash_bucket *hb, void *arg)
 	static struct timeval ka = {0}; // peer->v_keepalive as a timeval
 	static struct timeval diff;     // ka - elapsed
 
-	static struct timeval tolerance = {0, 100000};
+	static const struct timeval tolerance = {0, 100000};
 
 	uint32_t v_ka = atomic_load_explicit(&pkat->peer->v_keepalive,
 					     memory_order_relaxed);

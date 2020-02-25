@@ -234,9 +234,9 @@ static void bgp_dump_routes_index_table(struct bgp *bgp)
 	stream_put_in_addr(obuf, &bgp->router_id);
 
 	/* View name */
-	if (bgp->name) {
-		stream_putw(obuf, strlen(bgp->name));
-		stream_put(obuf, bgp->name, strlen(bgp->name));
+	if (bgp->name_pretty) {
+		stream_putw(obuf, strlen(bgp->name_pretty));
+		stream_put(obuf, bgp->name_pretty, strlen(bgp->name_pretty));
 	} else {
 		stream_putw(obuf, 0);
 	}
@@ -494,13 +494,13 @@ static void bgp_dump_common(struct stream *obuf, struct peer *peer,
 }
 
 /* Dump BGP status change. */
-void bgp_dump_state(struct peer *peer, int status_old, int status_new)
+int bgp_dump_state(struct peer *peer)
 {
 	struct stream *obuf;
 
 	/* If dump file pointer is disabled return immediately. */
 	if (bgp_dump_all.fp == NULL)
-		return;
+		return 0;
 
 	/* Make dump stream. */
 	obuf = bgp_dump_obuf;
@@ -510,8 +510,8 @@ void bgp_dump_state(struct peer *peer, int status_old, int status_new)
 			bgp_dump_all.type);
 	bgp_dump_common(obuf, peer, 1); /* force this in as4speak*/
 
-	stream_putw(obuf, status_old);
-	stream_putw(obuf, status_new);
+	stream_putw(obuf, peer->ostatus);
+	stream_putw(obuf, peer->status);
 
 	/* Set length. */
 	bgp_dump_set_size(obuf, MSG_PROTOCOL_BGP4MP);
@@ -519,6 +519,7 @@ void bgp_dump_state(struct peer *peer, int status_old, int status_new)
 	/* Write to the stream. */
 	fwrite(STREAM_DATA(obuf), stream_get_endp(obuf), 1, bgp_dump_all.fp);
 	fflush(bgp_dump_all.fp);
+	return 0;
 }
 
 static void bgp_dump_packet_func(struct bgp_dump *bgp_dump, struct peer *peer,
@@ -867,6 +868,7 @@ void bgp_dump_init(void)
 	install_element(CONFIG_NODE, &no_dump_bgp_all_cmd);
 
 	hook_register(bgp_packet_dump, bgp_dump_packet);
+	hook_register(peer_status_changed, bgp_dump_state);
 }
 
 void bgp_dump_finish(void)
@@ -878,4 +880,5 @@ void bgp_dump_finish(void)
 	stream_free(bgp_dump_obuf);
 	bgp_dump_obuf = NULL;
 	hook_unregister(bgp_packet_dump, bgp_dump_packet);
+	hook_unregister(peer_status_changed, bgp_dump_state);
 }

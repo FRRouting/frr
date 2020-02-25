@@ -119,7 +119,7 @@ static void zebra_redistribute(struct zserv *client, int type,
 
 			srcdest_rnode_prefixes(rn, &dst_p, &src_p);
 
-			if (IS_ZEBRA_DEBUG_EVENT)
+			if (IS_ZEBRA_DEBUG_RIB)
 				zlog_debug(
 					"%s: client %s %s(%u) checking: selected=%d, type=%d, distance=%d, metric=%d zebra_check_addr=%d",
 					__func__,
@@ -201,7 +201,7 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 			send_redistribute = 1;
 
 		if (send_redistribute) {
-			if (IS_ZEBRA_DEBUG_EVENT) {
+			if (IS_ZEBRA_DEBUG_RIB) {
 				zlog_debug(
 					   "%s: client %s %s(%u), type=%d, distance=%d, metric=%d",
 					   __func__,
@@ -637,13 +637,15 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	struct route_entry *newre;
 	struct route_entry *same;
 	struct prefix p;
+	struct nexthop_group *ng;
 	route_map_result_t ret = RMAP_PERMITMATCH;
 	afi_t afi;
 
 	afi = family2afi(rn->p.family);
 	if (rmap_name)
 		ret = zebra_import_table_route_map_check(
-			afi, re->type, re->instance, &rn->p, re->ng.nexthop,
+			afi, re->type, re->instance, &rn->p,
+			re->nhe->nhg->nexthop,
 			zvrf->vrf->vrf_id, re->tag, rmap_name);
 
 	if (ret != RMAP_PERMITMATCH) {
@@ -676,12 +678,13 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	newre->metric = re->metric;
 	newre->mtu = re->mtu;
 	newre->table = zvrf->table_id;
-	newre->nexthop_num = 0;
 	newre->uptime = monotime(NULL);
 	newre->instance = re->table;
-	route_entry_copy_nexthops(newre, re->ng.nexthop);
 
-	rib_add_multipath(afi, SAFI_UNICAST, &p, NULL, newre);
+	ng = nexthop_group_new();
+	copy_nexthops(&ng->nexthop, re->nhe->nhg->nexthop, NULL);
+
+	rib_add_multipath(afi, SAFI_UNICAST, &p, NULL, newre, ng);
 
 	return 0;
 }
@@ -696,8 +699,9 @@ int zebra_del_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	prefix_copy(&p, &rn->p);
 
 	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_TABLE,
-		   re->table, re->flags, &p, NULL, re->ng.nexthop,
-		   zvrf->table_id, re->metric, re->distance, false);
+		   re->table, re->flags, &p, NULL, re->nhe->nhg->nexthop,
+		   re->nhe_id, zvrf->table_id, re->metric, re->distance,
+		   false);
 
 	return 0;
 }
@@ -718,8 +722,8 @@ int zebra_import_table(afi_t afi, vrf_id_t vrf_id, uint32_t table_id,
 	if (afi >= AFI_MAX)
 		return (-1);
 
-	table = zebra_vrf_table_with_table_id(afi, SAFI_UNICAST, vrf_id,
-					      table_id);
+	table = zebra_vrf_get_table_with_table_id(afi, SAFI_UNICAST, vrf_id,
+						  table_id);
 	if (table == NULL) {
 		return 0;
 	} else if (IS_ZEBRA_DEBUG_RIB) {
@@ -830,8 +834,8 @@ static void zebra_import_table_rm_update_vrf_afi(struct zebra_vrf *zvrf,
 	if ((!rmap_name) || (strcmp(rmap_name, rmap) != 0))
 		return;
 
-	table = zebra_vrf_table_with_table_id(afi, SAFI_UNICAST,
-					      zvrf->vrf->vrf_id, table_id);
+	table = zebra_vrf_get_table_with_table_id(afi, SAFI_UNICAST,
+						  zvrf->vrf->vrf_id, table_id);
 	if (!table) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug("%s: Table id=%d not found", __func__,

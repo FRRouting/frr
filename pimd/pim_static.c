@@ -138,7 +138,7 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 			} else {
 				/* input interface changed */
 				s_route->iif = iif_index;
-				pim_channel_oil_change_iif(pim, &s_route->c_oil,
+				pim_static_mroute_iif_update(&s_route->c_oil,
 							   iif_index,
 							   __PRETTY_FUNCTION__);
 
@@ -179,7 +179,7 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 
 	s_route->c_oil.pim = pim;
 
-	if (pim_mroute_add(&s_route->c_oil, __PRETTY_FUNCTION__)) {
+	if (pim_static_mroute_add(&s_route->c_oil, __PRETTY_FUNCTION__)) {
 		char gifaddr_str[INET_ADDRSTRLEN];
 		char sifaddr_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<ifaddr?>", group, gifaddr_str,
@@ -264,7 +264,7 @@ int pim_static_del(struct pim_instance *pim, struct interface *iif,
 			if (s_route->c_oil.oil_ref_count <= 0
 				    ? pim_mroute_del(&s_route->c_oil,
 						     __PRETTY_FUNCTION__)
-				    : pim_mroute_add(&s_route->c_oil,
+				    : pim_static_mroute_add(&s_route->c_oil,
 						     __PRETTY_FUNCTION__)) {
 				char gifaddr_str[INET_ADDRSTRLEN];
 				char sifaddr_str[INET_ADDRSTRLEN];

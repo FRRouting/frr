@@ -29,7 +29,7 @@
 #include "libfrr.h"
 
 #include "ripngd/ripngd.h"
-#include "ripngd/ripng_cli.h"
+#include "ripngd/ripng_nb.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "ripngd/ripng_cli_clippy.c"
 #endif
@@ -485,6 +485,7 @@ DEFPY (clear_ipv6_rip,
        VRF_CMD_HELP_STR)
 {
 	struct list *input;
+	int ret;
 
 	input = list_new();
 	if (vrf) {
@@ -495,7 +496,11 @@ DEFPY (clear_ipv6_rip,
 		listnode_add(input, yang_vrf);
 	}
 
-	return nb_cli_rpc("/frr-ripngd:clear-ripng-route", input, NULL);
+	ret = nb_cli_rpc("/frr-ripngd:clear-ripng-route", input, NULL);
+
+	list_delete(&input);
+
+	return ret;
 }
 
 void ripng_cli_init(void)

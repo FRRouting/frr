@@ -143,7 +143,7 @@ static int rpki_sync_socket_rtr;
 static int rpki_sync_socket_bgpd;
 
 static struct cmd_node rpki_node = {RPKI_NODE, "%s(config-rpki)# ", 1};
-static struct route_map_rule_cmd route_match_rpki_cmd = {
+static const struct route_map_rule_cmd route_match_rpki_cmd = {
 	"rpki", route_match, route_match_compile, route_match_free};
 
 static void *malloc_wrapper(size_t size)
@@ -406,7 +406,7 @@ static int bgpd_sync_callback(struct thread *thread)
 		}
 	}
 
-	prefix_free(prefix);
+	prefix_free(&prefix);
 	return 0;
 }
 
@@ -1234,7 +1234,8 @@ DEFPY (show_rpki_prefix,
 		const struct pfx_record *record = &matches[i];
 
 		if (record->max_len >= prefix->prefixlen
-		    && ((asn != 0 && asn == record->asn) || asn == 0)) {
+		    && ((asn != 0 && (uint32_t)asn == record->asn)
+			|| asn == 0)) {
 			print_record(&matches[i], vty);
 		}
 	}
@@ -1420,7 +1421,6 @@ DEFUN (match_rpki,
 			vty_out(vty, "%% BGP Argument is malformed.\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		case RMAP_COMPILE_SUCCESS:
-		case RMAP_DUPLICATE_RULE:
 			/*
 			 * Intentionally doing nothing here
 			 */
@@ -1443,7 +1443,8 @@ DEFUN (no_match_rpki,
 	VTY_DECLVAR_CONTEXT(route_map_index, index);
 	enum rmap_compile_rets ret;
 
-	ret = route_map_delete_match(index, "rpki", argv[3]->arg);
+	ret = route_map_delete_match(index, "rpki", argv[3]->arg,
+				     RMAP_EVENT_MATCH_DELETED);
 	if (ret) {
 		switch (ret) {
 		case RMAP_RULE_MISSING:
@@ -1453,7 +1454,6 @@ DEFUN (no_match_rpki,
 			vty_out(vty, "%% BGP Argument is malformed.\n");
 			break;
 		case RMAP_COMPILE_SUCCESS:
-		case RMAP_DUPLICATE_RULE:
 			/*
 			 * Nothing to do here
 			 */

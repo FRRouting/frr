@@ -39,7 +39,7 @@ void babelz_zebra_init(void);
 struct zclient *zclient;
 
 /* Debug types */
-static struct {
+static const struct {
     int type;
     int str_min_len;
     const char *str;
@@ -240,10 +240,6 @@ void babelz_zebra_init(void)
     zclient_init(zclient, ZEBRA_ROUTE_BABEL, 0, &babeld_privs);
 
     zclient->zebra_connected = babel_zebra_connected;
-    zclient->interface_add = babel_interface_add;
-    zclient->interface_delete = babel_interface_delete;
-    zclient->interface_up = babel_interface_up;
-    zclient->interface_down = babel_interface_down;
     zclient->interface_address_add = babel_interface_address_add;
     zclient->interface_address_delete = babel_interface_address_delete;
     zclient->redistribute_route_add = babel_zebra_read_route;

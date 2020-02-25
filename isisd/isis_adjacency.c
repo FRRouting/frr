@@ -48,6 +48,7 @@
 #include "isisd/isis_mt.h"
 #include "isisd/isis_tlvs.h"
 #include "isisd/fabricd.h"
+#include "isisd/isis_nb.h"
 
 extern struct isis *isis;
 
@@ -254,6 +255,7 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 			reason ? reason : "unspecified");
 	}
 
+	circuit->adj_state_changes++;
 #ifndef FABRICD
 	/* send northbound notification */
 	isis_notif_adj_state_change(adj, new_state, reason);
@@ -372,6 +374,20 @@ void isis_adj_print(struct isis_adjacency *adj)
 	zlog_debug("Speaks: %s", nlpid2string(&adj->nlpids));
 
 	return;
+}
+
+const char *isis_adj_yang_state(enum isis_adj_state state)
+{
+	switch (state) {
+	case ISIS_ADJ_DOWN:
+		return "down";
+	case ISIS_ADJ_UP:
+		return "up";
+	case ISIS_ADJ_INITIALIZING:
+		return "init";
+	default:
+		return "failed";
+	}
 }
 
 int isis_adj_expire(struct thread *thread)

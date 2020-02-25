@@ -98,7 +98,7 @@ struct frr_daemon_info {
 
 	struct zebra_privs_t *privs;
 
-	const struct frr_yang_module_info **yang_modules;
+	const struct frr_yang_module_info *const *yang_modules;
 	size_t n_yang_modules;
 
 	bool log_always;

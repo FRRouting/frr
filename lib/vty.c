@@ -89,7 +89,7 @@ static char *vty_ipv6_accesslist_name = NULL;
 static vector Vvty_serv_thread;
 
 /* Current directory. */
-char vty_cwd[MAXPATHLEN];
+static char vty_cwd[MAXPATHLEN];
 
 /* Login password check. */
 static int no_password_check = 0;
@@ -2341,8 +2341,7 @@ static void vty_read_file(struct nb_config *config, FILE *confp)
 	 * Automatically commit the candidate configuration after
 	 * reading the configuration file.
 	 */
-	if (config == NULL && vty->candidate_config
-	    && frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL) {
+	if (config == NULL) {
 		ret = nb_candidate_commit(vty->candidate_config, NB_CLIENT_CLI,
 					  vty, true, "Read configuration file",
 					  NULL);
@@ -2582,22 +2581,17 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 	vty->private_config = private_config;
 	vty->xpath_index = 0;
 
-	pthread_rwlock_rdlock(&running_config->lock);
-	{
-		if (private_config) {
-			vty->candidate_config = nb_config_dup(running_config);
+	if (private_config) {
+		vty->candidate_config = nb_config_dup(running_config);
+		vty->candidate_config_base = nb_config_dup(running_config);
+		vty_out(vty,
+			"Warning: uncommitted changes will be discarded on exit.\n\n");
+	} else {
+		vty->candidate_config = vty_shared_candidate_config;
+		if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL)
 			vty->candidate_config_base =
 				nb_config_dup(running_config);
-			vty_out(vty,
-				"Warning: uncommitted changes will be discarded on exit.\n\n");
-		} else {
-			vty->candidate_config = vty_shared_candidate_config;
-			if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL)
-				vty->candidate_config_base =
-					nb_config_dup(running_config);
-		}
 	}
-	pthread_rwlock_unlock(&running_config->lock);
 
 	return CMD_SUCCESS;
 }

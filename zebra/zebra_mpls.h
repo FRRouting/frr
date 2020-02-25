@@ -200,7 +200,8 @@ zebra_nhlfe_t *zebra_mpls_lsp_add_nhlfe(zebra_lsp_t *lsp,
 					enum nexthop_types_t gtype,
 					union g_addr *gate,
 					ifindex_t ifindex,
-					mpls_label_t out_label);
+					uint8_t num_labels,
+					mpls_label_t out_labels[]);
 
 /* Free an allocated NHLFE */
 void zebra_mpls_nhlfe_del(zebra_nhlfe_t *nhlfe);
@@ -269,18 +270,25 @@ void zebra_mpls_print_fec(struct vty *vty, struct zebra_vrf *zvrf,
  */
 int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 		    struct prefix *prefix, enum nexthop_types_t gtype,
-		    union g_addr *gate, ifindex_t ifindex, uint8_t distance,
-		    mpls_label_t out_label);
+		    union g_addr *gate, ifindex_t ifindex, uint8_t route_type,
+		    unsigned short route_instance, mpls_label_t out_label);
+
+/*
+ * Uninstall all NHLFEs bound to a single FEC.
+ */
+int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
+		       struct prefix *prefix, uint8_t route_type,
+		       unsigned short route_instance);
 
 /*
  * Install/update a NHLFE for an LSP in the forwarding table. This may be
  * a new LSP entry or a new NHLFE for an existing in-label or an update of
- * the out-label for an existing NHLFE (update case).
+ * the out-label(s) for an existing NHLFE (update case).
  */
 int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
-		     mpls_label_t in_label, mpls_label_t out_label,
-		     enum nexthop_types_t gtype, union g_addr *gate,
-		     ifindex_t ifindex);
+		     mpls_label_t in_label, uint8_t num_out_labels,
+		     mpls_label_t out_labels[], enum nexthop_types_t gtype,
+		     union g_addr *gate, ifindex_t ifindex);
 
 /*
  * Uninstall a particular NHLFE in the forwarding table. If this is
@@ -291,15 +299,10 @@ int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		       union g_addr *gate, ifindex_t ifindex);
 
 /*
- * Uninstall all LDP NHLFEs for a particular LSP forwarding entry.
- * If no other NHLFEs exist, the entry would be deleted.
+ * Uninstall all NHLFEs for a particular LSP forwarding entry.
  */
-void mpls_ldp_lsp_uninstall_all(struct hash_bucket *bucket, void *ctxt);
-
-/*
- * Uninstall all LDP FEC-To-NHLFE (FTN) bindings of the given address-family.
- */
-void mpls_ldp_ftn_uninstall_all(struct zebra_vrf *zvrf, int afi);
+int mpls_lsp_uninstall_all_vrf(struct zebra_vrf *zvrf, enum lsp_types_t type,
+			       mpls_label_t in_label);
 
 /*
  * Uninstall all Segment Routing NHLFEs for a particular LSP forwarding entry.
@@ -426,7 +429,7 @@ static inline uint8_t lsp_distance(enum lsp_types_t type)
 		return (route_distance(ZEBRA_ROUTE_BGP));
 	case ZEBRA_LSP_NONE:
 	case ZEBRA_LSP_SHARP:
-	case ZEBRA_LSP_SR:
+	case ZEBRA_LSP_OSPF_SR:
 		return 150;
 	}
 
@@ -448,8 +451,12 @@ static inline enum lsp_types_t lsp_type_from_re_type(int re_type)
 	switch (re_type) {
 	case ZEBRA_ROUTE_STATIC:
 		return ZEBRA_LSP_STATIC;
+	case ZEBRA_ROUTE_LDP:
+		return ZEBRA_LSP_LDP;
 	case ZEBRA_ROUTE_BGP:
 		return ZEBRA_LSP_BGP;
+	case ZEBRA_ROUTE_OSPF:
+		return ZEBRA_LSP_OSPF_SR;
 	case ZEBRA_ROUTE_SHARP:
 		return ZEBRA_LSP_SHARP;
 	default:
@@ -469,7 +476,7 @@ static inline int re_type_from_lsp_type(enum lsp_types_t lsp_type)
 		return ZEBRA_ROUTE_LDP;
 	case ZEBRA_LSP_BGP:
 		return ZEBRA_ROUTE_BGP;
-	case ZEBRA_LSP_SR:
+	case ZEBRA_LSP_OSPF_SR:
 		return ZEBRA_ROUTE_OSPF;
 	case ZEBRA_LSP_NONE:
 		return ZEBRA_ROUTE_KERNEL;
@@ -496,8 +503,8 @@ static inline const char *nhlfe_type2str(enum lsp_types_t lsp_type)
 		return "LDP";
 	case ZEBRA_LSP_BGP:
 		return "BGP";
-	case ZEBRA_LSP_SR:
-		return "SR";
+	case ZEBRA_LSP_OSPF_SR:
+		return "SR (OSPF)";
 	case ZEBRA_LSP_SHARP:
 		return "SHARP";
 	case ZEBRA_LSP_NONE:

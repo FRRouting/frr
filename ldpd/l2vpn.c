@@ -249,7 +249,7 @@ l2vpn_pw_init(struct l2vpn_pw *pw)
 
 	l2vpn_pw_fec(pw, &fec);
 	lde_kernel_insert(&fec, AF_INET, (union ldpd_addr*)&pw->lsr_id, 0, 0,
-	    0, (void *)pw);
+	    0, 0, (void *)pw);
 	lde_kernel_update(&fec);
 }
 
@@ -260,7 +260,7 @@ l2vpn_pw_exit(struct l2vpn_pw *pw)
 	struct zapi_pw	 zpw;
 
 	l2vpn_pw_fec(pw, &fec);
-	lde_kernel_remove(&fec, AF_INET, (union ldpd_addr*)&pw->lsr_id, 0, 0);
+	lde_kernel_remove(&fec, AF_INET, (union ldpd_addr*)&pw->lsr_id, 0, 0, 0);
 	lde_kernel_update(&fec);
 
 	pw2zpw(pw, &zpw);
@@ -433,7 +433,7 @@ l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm)
 	if (pw == NULL)
 		return;
 
-	fnh = fec_nh_find(fn, AF_INET, (union ldpd_addr *)&ln->id, 0, 0);
+	fnh = fec_nh_find(fn, AF_INET, (union ldpd_addr *)&ln->id, 0, 0, 0);
 	if (fnh == NULL)
 		return;
 
@@ -482,7 +482,7 @@ l2vpn_recv_pw_status_wcard(struct lde_nbr *ln, struct notify_msg *nm)
 		}
 
 		fnh = fec_nh_find(fn, AF_INET, (union ldpd_addr *)&ln->id,
-		    0, 0);
+		    0, 0, 0);
 		if (fnh == NULL)
 			continue;
 

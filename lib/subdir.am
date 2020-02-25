@@ -18,6 +18,7 @@ lib_libfrr_la_SOURCES = \
 	lib/command_parse.y \
 	lib/csv.c \
 	lib/debug.c \
+	lib/defaults.c \
 	lib/distribute.c \
 	lib/ferr.c \
 	lib/filter.c \
@@ -40,13 +41,13 @@ lib_libfrr_la_SOURCES = \
 	lib/json.c \
 	lib/keychain.c \
 	lib/lib_errors.c \
+	lib/lib_vty.c \
 	lib/libfrr.c \
 	lib/linklist.c \
 	lib/log.c \
 	lib/log_vty.c \
 	lib/md5.c \
 	lib/memory.c \
-	lib/memory_vty.c \
 	lib/mlag.c \
 	lib/module.c \
 	lib/mpls.c \
@@ -104,6 +105,7 @@ lib_libfrr_la_SOURCES = \
 nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-interface.yang.c \
 	yang/frr-route-types.yang.c \
+	yang/ietf/ietf-routing-types.yang.c \
 	yang/frr-module-translator.yang.c \
 	# end
 
@@ -113,6 +115,7 @@ vtysh_scan += \
 	$(top_srcdir)/lib/if.c \
 	$(top_srcdir)/lib/if_rmap.c \
 	$(top_srcdir)/lib/keychain.c \
+	$(top_srcdir)/lib/lib_vty.c \
 	$(top_srcdir)/lib/nexthop_group.c \
 	$(top_srcdir)/lib/plist.c \
 	$(top_srcdir)/lib/routemap.c \
@@ -155,6 +158,7 @@ pkginclude_HEADERS += \
 	lib/csv.h \
 	lib/db.h \
 	lib/debug.h \
+	lib/defaults.h \
 	lib/distribute.h \
 	lib/ferr.h \
 	lib/filter.h \
@@ -178,6 +182,7 @@ pkginclude_HEADERS += \
 	lib/json.h \
 	lib/keychain.h \
 	lib/lib_errors.h \
+	lib/lib_vty.h \
 	lib/libfrr.h \
 	lib/libospf.h \
 	lib/linklist.h \
@@ -185,7 +190,6 @@ pkginclude_HEADERS += \
 	lib/log_vty.h \
 	lib/md5.h \
 	lib/memory.h \
-	lib/memory_vty.h \
 	lib/module.h \
 	lib/monotime.h \
 	lib/mpls.h \

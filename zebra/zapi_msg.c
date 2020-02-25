@@ -64,6 +64,7 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_mlag.h"
+#include "zebra/connected.h"
 
 /* Encoding helpers -------------------------------------------------------- */
 
@@ -145,6 +146,25 @@ static int zserv_encode_nexthop(struct stream *s, struct nexthop *nexthop)
 		break;
 	}
 	return 1;
+}
+
+/*
+ * Zebra error addition adds error type.
+ *
+ *
+ *  0                   1
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |      enum zebra_error_types   |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ */
+static void zserv_encode_error(struct stream *s, enum zebra_error_types error)
+{
+	stream_put(s, &error, sizeof(error));
+
+	/* Write packet size. */
+	stream_putw_at(s, 0, stream_get_endp(s));
 }
 
 /* Send handlers ----------------------------------------------------------- */
@@ -522,7 +542,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
 	struct nexthop *nexthop;
-	int count = 0;
+	uint8_t count = 0;
 	afi_t afi;
 	size_t stream_size =
 		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
@@ -559,18 +579,15 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 		memcpy(&api.src_prefix, src_p, sizeof(api.src_prefix));
 	}
 
-	/* Nexthops. */
-	if (re->nexthop_active_num) {
-		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-		api.nexthop_num = re->nexthop_active_num;
-	}
-	for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next) {
+	for (nexthop = re->nhe->nhg->nexthop;
+	     nexthop; nexthop = nexthop->next) {
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
 
 		api_nh = &api.nexthops[count];
 		api_nh->vrf_id = nexthop->vrf_id;
 		api_nh->type = nexthop->type;
+		api_nh->weight = nexthop->weight;
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_BLACKHOLE:
 			api_nh->bh_type = nexthop->bh_type;
@@ -593,6 +610,12 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 			api_nh->ifindex = nexthop->ifindex;
 		}
 		count++;
+	}
+
+	/* Nexthops. */
+	if (count) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+		api.nexthop_num = count;
 	}
 
 	/* Attributes. */
@@ -665,7 +688,8 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 		 * nexthop we are looking up. Therefore, we will just iterate
 		 * over the top chain of nexthops.
 		 */
-		for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
+		for (nexthop = re->nhe->nhg->nexthop; nexthop;
+		     nexthop = nexthop->next)
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 				num += zserv_encode_nexthop(s, nexthop);
 
@@ -783,10 +807,7 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 	stream_putl(s, rule->rule.seq);
 	stream_putl(s, rule->rule.priority);
 	stream_putl(s, rule->rule.unique);
-	if (rule->ifp)
-		stream_putl(s, rule->ifp->ifindex);
-	else
-		stream_putl(s, 0);
+	stream_putl(s, rule->rule.ifindex);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -1023,7 +1044,7 @@ static int zsend_table_manager_connect_response(struct zserv *client,
 
 /* Inbound message handling ------------------------------------------------ */
 
-int cmd2type[] = {
+const int cmd2type[] = {
 	[ZEBRA_NEXTHOP_REGISTER] = RNH_NEXTHOP_TYPE,
 	[ZEBRA_NEXTHOP_UNREGISTER] = RNH_NEXTHOP_TYPE,
 	[ZEBRA_IMPORT_ROUTE_REGISTER] = RNH_IMPORT_CHECK_TYPE,
@@ -1394,9 +1415,11 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	struct prefix_ipv6 *src_p = NULL;
 	struct route_entry *re;
 	struct nexthop *nexthop = NULL;
+	struct nexthop_group *ng = NULL;
 	int i, ret;
 	vrf_id_t vrf_id = 0;
 	struct ipaddr vtep_ip;
+	struct interface *ifp;
 
 	s = msg;
 	if (zapi_route_decode(s, &api) < 0) {
@@ -1410,11 +1433,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		char buf_prefix[PREFIX_STRLEN];
 
 		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
-		zlog_debug("%s: p=%s, ZAPI_MESSAGE_LABEL: %sset, flags=0x%x",
-			   __func__, buf_prefix,
-			   (CHECK_FLAG(api.message, ZAPI_MESSAGE_LABEL) ? ""
-									: "un"),
-			   api.flags);
+		zlog_debug("%s: p=%s, flags=0x%x",
+			   __func__, buf_prefix, api.flags);
 	}
 
 	/* Allocate new route. */
@@ -1425,7 +1445,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	re->flags = api.flags;
 	re->uptime = monotime(NULL);
 	re->vrf_id = vrf_id;
-	if (api.tableid && vrf_id == VRF_DEFAULT)
+
+	if (api.tableid)
 		re->table = api.tableid;
 	else
 		re->table = zvrf->table_id;
@@ -1436,9 +1457,13 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  "%s: received a route without nexthops for prefix %pFX from client %s",
 			  __func__, &api.prefix,
 			  zebra_route_string(client->proto));
+
 		XFREE(MTYPE_RE, re);
 		return;
 	}
+
+	/* Use temporary list of nexthops */
+	ng = nexthop_group_new();
 
 	/*
 	 * TBD should _all_ of the nexthop add operations use
@@ -1454,8 +1479,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 
 		switch (api_nh->type) {
 		case NEXTHOP_TYPE_IFINDEX:
-			nexthop = route_entry_nexthop_ifindex_add(
-				re, api_nh->ifindex, api_nh->vrf_id);
+			nexthop = nexthop_from_ifindex(api_nh->ifindex,
+						       api_nh->vrf_id);
 			break;
 		case NEXTHOP_TYPE_IPV4:
 			if (IS_ZEBRA_DEBUG_RECV) {
@@ -1466,8 +1491,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				zlog_debug("%s: nh=%s, vrf_id=%d", __func__,
 					   nhbuf, api_nh->vrf_id);
 			}
-			nexthop = route_entry_nexthop_ipv4_add(
-				re, &api_nh->gate.ipv4, NULL, api_nh->vrf_id);
+			nexthop = nexthop_from_ipv4(&api_nh->gate.ipv4,
+						    NULL, api_nh->vrf_id);
 			break;
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 
@@ -1483,10 +1508,13 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 					__func__, nhbuf, api_nh->vrf_id,
 					re->vrf_id, ifindex);
 			}
-			nexthop = route_entry_nexthop_ipv4_ifindex_add(
-				re, &api_nh->gate.ipv4, NULL, ifindex,
+			nexthop = nexthop_from_ipv4_ifindex(
+				&api_nh->gate.ipv4, NULL, ifindex,
 				api_nh->vrf_id);
 
+			ifp = if_lookup_by_index(ifindex, api_nh->vrf_id);
+			if (ifp && connected_is_unnumbered(ifp))
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
 			/* Special handling for IPv4 routes sourced from EVPN:
 			 * the nexthop and associated MAC need to be installed.
 			 */
@@ -1501,15 +1529,15 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			}
 			break;
 		case NEXTHOP_TYPE_IPV6:
-			nexthop = route_entry_nexthop_ipv6_add(
-				re, &api_nh->gate.ipv6, api_nh->vrf_id);
+			nexthop = nexthop_from_ipv6(&api_nh->gate.ipv6,
+						    api_nh->vrf_id);
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			memset(&vtep_ip, 0, sizeof(struct ipaddr));
 			ifindex = api_nh->ifindex;
-			nexthop = route_entry_nexthop_ipv6_ifindex_add(
-				re, &api_nh->gate.ipv6, ifindex,
-				api_nh->vrf_id);
+			nexthop = nexthop_from_ipv6_ifindex(&api_nh->gate.ipv6,
+							    ifindex,
+							    api_nh->vrf_id);
 
 			/* Special handling for IPv6 routes sourced from EVPN:
 			 * the nexthop and associated MAC need to be installed.
@@ -1524,8 +1552,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			}
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
-			nexthop = route_entry_nexthop_blackhole_add(
-				re, api_nh->bh_type);
+			nexthop = nexthop_from_blackhole(api_nh->bh_type);
 			break;
 		}
 
@@ -1534,15 +1561,19 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 				"%s: Nexthops Specified: %d but we failed to properly create one",
 				__PRETTY_FUNCTION__, api.nexthop_num);
-			nexthops_free(re->ng.nexthop);
+			nexthop_group_delete(&ng);
 			XFREE(MTYPE_RE, re);
 			return;
 		}
-		if (api_nh->onlink)
+
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
 
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_WEIGHT))
+			nexthop->weight = api_nh->weight;
+
 		/* MPLS labels for BGP-LU or Segment Routing */
-		if (CHECK_FLAG(api.message, ZAPI_MESSAGE_LABEL)
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL)
 		    && api_nh->type != NEXTHOP_TYPE_IFINDEX
 		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
 			enum lsp_types_t label_type;
@@ -1560,6 +1591,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 					   api_nh->label_num,
 					   &api_nh->labels[0]);
 		}
+
+		/* Add new nexthop to temporary list */
+		nexthop_group_add_sorted(ng, nexthop);
 	}
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE))
@@ -1576,14 +1610,14 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		flog_warn(EC_ZEBRA_RX_SRCDEST_WRONG_AFI,
 			  "%s: Received SRC Prefix but afi is not v6",
 			  __PRETTY_FUNCTION__);
-		nexthops_free(re->ng.nexthop);
+		nexthop_group_delete(&ng);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
 		src_p = &api.src_prefix;
 
-	ret = rib_add_multipath(afi, api.safi, &api.prefix, src_p, re);
+	ret = rib_add_multipath(afi, api.safi, &api.prefix, src_p, re, ng);
 
 	/* Stats */
 	switch (api.prefix.family) {
@@ -1624,13 +1658,13 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
 		src_p = &api.src_prefix;
 
-	if (api.vrf_id == VRF_DEFAULT && api.tableid != 0)
+	if (api.tableid)
 		table_id = api.tableid;
 	else
 		table_id = zvrf->table_id;
 
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &api.prefix, src_p, NULL, table_id, api.metric,
+		   api.flags, &api.prefix, src_p, NULL, 0, table_id, api.metric,
 		   api.distance, false);
 
 	/* Stats */
@@ -1750,88 +1784,146 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 	vrf_bitmap_unset(client->ridinfo, zvrf_id(zvrf));
 }
 
-static void zread_mpls_labels(ZAPI_HANDLER_ARGS)
+/*
+ * Handle request to create an MPLS LSP.
+ *
+ * A single message can fully specify an LSP with multiple nexthops.
+ *
+ * When the optional ZAPI_LABELS_FTN flag is set, the specified FEC (route) is
+ * updated to use the received label(s).
+ */
+static void zread_mpls_labels_add(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
-	enum lsp_types_t type;
-	struct prefix prefix;
-	enum nexthop_types_t gtype;
-	union g_addr gate;
-	ifindex_t ifindex;
-	mpls_label_t in_label, out_label;
-	uint8_t distance;
+	struct zapi_labels zl;
 
 	/* Get input stream.  */
 	s = msg;
-
-	/* Get data. */
-	STREAM_GETC(s, type);
-	STREAM_GETL(s, prefix.family);
-	switch (prefix.family) {
-	case AF_INET:
-		STREAM_GET(&prefix.u.prefix4.s_addr, s, IPV4_MAX_BYTELEN);
-		STREAM_GETC(s, prefix.prefixlen);
-		if (prefix.prefixlen > IPV4_MAX_BITLEN) {
-			zlog_debug(
-				"%s: Specified prefix length %d is greater than a v4 address can support",
-				__PRETTY_FUNCTION__, prefix.prefixlen);
-			return;
-		}
-		STREAM_GET(&gate.ipv4.s_addr, s, IPV4_MAX_BYTELEN);
-		break;
-	case AF_INET6:
-		STREAM_GET(&prefix.u.prefix6, s, 16);
-		STREAM_GETC(s, prefix.prefixlen);
-		if (prefix.prefixlen > IPV6_MAX_BITLEN) {
-			zlog_debug(
-				"%s: Specified prefix length %d is greater than a v6 address can support",
-				__PRETTY_FUNCTION__, prefix.prefixlen);
-			return;
-		}
-		STREAM_GET(&gate.ipv6, s, 16);
-		break;
-	default:
-		zlog_debug("%s: Specified AF %d is not supported for this call",
-			   __PRETTY_FUNCTION__, prefix.family);
-		return;
-	}
-	STREAM_GETL(s, ifindex);
-	STREAM_GETC(s, distance);
-	STREAM_GETL(s, in_label);
-	STREAM_GETL(s, out_label);
-
-	switch (prefix.family) {
-	case AF_INET:
-		if (ifindex)
-			gtype = NEXTHOP_TYPE_IPV4_IFINDEX;
-		else
-			gtype = NEXTHOP_TYPE_IPV4;
-		break;
-	case AF_INET6:
-		if (ifindex)
-			gtype = NEXTHOP_TYPE_IPV6_IFINDEX;
-		else
-			gtype = NEXTHOP_TYPE_IPV6;
-		break;
-	default:
+	if (zapi_labels_decode(s, &zl) < 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Unable to decode zapi_labels sent",
+				   __PRETTY_FUNCTION__);
 		return;
 	}
 
 	if (!mpls_enabled)
 		return;
 
-	if (hdr->command == ZEBRA_MPLS_LABELS_ADD) {
-		mpls_lsp_install(zvrf, type, in_label, out_label, gtype, &gate,
-				 ifindex);
-		mpls_ftn_update(1, zvrf, type, &prefix, gtype, &gate, ifindex,
-				distance, out_label);
-	} else if (hdr->command == ZEBRA_MPLS_LABELS_DELETE) {
-		mpls_lsp_uninstall(zvrf, type, in_label, gtype, &gate, ifindex);
-		mpls_ftn_update(0, zvrf, type, &prefix, gtype, &gate, ifindex,
-				distance, out_label);
+	for (int i = 0; i < zl.nexthop_num; i++) {
+		struct zapi_nexthop_label *znh;
+
+		znh = &zl.nexthops[i];
+		mpls_lsp_install(zvrf, zl.type, zl.local_label, 1, &znh->label,
+				 znh->type, &znh->address, znh->ifindex);
+
+		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
+			mpls_ftn_update(1, zvrf, zl.type, &zl.route.prefix,
+					znh->type, &znh->address, znh->ifindex,
+					zl.route.type, zl.route.instance,
+					znh->label);
 	}
-stream_failure:
-	return;
+}
+
+/*
+ * Handle request to delete an MPLS LSP.
+ *
+ * An LSP is identified by its type and local label. When the received message
+ * doesn't contain any nexthop, the whole LSP is deleted. Otherwise, only the
+ * listed LSP nexthops (aka NHLFEs) are deleted.
+ *
+ * When the optional ZAPI_LABELS_FTN flag is set, the labels of the specified
+ * FEC (route) nexthops are deleted.
+ */
+static void zread_mpls_labels_delete(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct zapi_labels zl;
+
+	/* Get input stream.  */
+	s = msg;
+	if (zapi_labels_decode(s, &zl) < 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Unable to decode zapi_labels sent",
+				   __PRETTY_FUNCTION__);
+		return;
+	}
+
+	if (!mpls_enabled)
+		return;
+
+	if (zl.nexthop_num > 0) {
+		for (int i = 0; i < zl.nexthop_num; i++) {
+			struct zapi_nexthop_label *znh;
+
+			znh = &zl.nexthops[i];
+			mpls_lsp_uninstall(zvrf, zl.type, zl.local_label,
+					   znh->type, &znh->address,
+					   znh->ifindex);
+
+			if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
+				mpls_ftn_update(0, zvrf, zl.type,
+						&zl.route.prefix, znh->type,
+						&znh->address, znh->ifindex,
+						zl.route.type,
+						zl.route.instance, znh->label);
+		}
+	} else {
+		mpls_lsp_uninstall_all_vrf(zvrf, zl.type, zl.local_label);
+
+		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
+			mpls_ftn_uninstall(zvrf, zl.type, &zl.route.prefix,
+					   zl.route.type, zl.route.instance);
+	}
+}
+
+/*
+ * Handle request to add an MPLS LSP or change an existing one.
+ *
+ * A single message can fully specify an LSP with multiple nexthops.
+ *
+ * When the optional ZAPI_LABELS_FTN flag is set, the specified FEC (route) is
+ * updated to use the received label(s).
+ *
+ * NOTE: zebra will use route replace semantics (make-before-break) to update
+ * the LSP in the forwarding plane if that's supported by the underlying
+ * platform.
+ */
+static void zread_mpls_labels_replace(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	struct zapi_labels zl;
+
+	/* Get input stream.  */
+	s = msg;
+	if (zapi_labels_decode(s, &zl) < 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Unable to decode zapi_labels sent",
+				   __PRETTY_FUNCTION__);
+		return;
+	}
+
+	if (!mpls_enabled)
+		return;
+
+	mpls_lsp_uninstall_all_vrf(zvrf, zl.type, zl.local_label);
+	if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
+		mpls_ftn_uninstall(zvrf, zl.type, &zl.route.prefix,
+				   zl.route.type, zl.route.instance);
+
+	for (int i = 0; i < zl.nexthop_num; i++) {
+		struct zapi_nexthop_label *znh;
+
+		znh = &zl.nexthops[i];
+		mpls_lsp_install(zvrf, zl.type, zl.local_label, 1, &znh->label,
+				 znh->type, &znh->address, znh->ifindex);
+
+		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN)) {
+			mpls_ftn_update(1, zvrf, zl.type, &zl.route.prefix,
+					znh->type, &znh->address, znh->ifindex,
+					zl.route.type, zl.route.instance,
+					znh->label);
+		}
+	}
 }
 
 /* Send response to a table manager connect request to client */
@@ -2222,10 +2314,11 @@ static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 					   ifp->ifindex);
 	}
 
-	if (nlabel != MPLS_LABEL_NONE)
-		mpls_lsp_install(def_zvrf, ltype, nlabel,
-				 MPLS_LABEL_IMPLICIT_NULL, NEXTHOP_TYPE_IFINDEX,
-				 NULL, ifp->ifindex);
+	if (nlabel != MPLS_LABEL_NONE) {
+		mpls_label_t out_label = MPLS_LABEL_IMPLICIT_NULL;
+		mpls_lsp_install(def_zvrf, ltype, nlabel, 1, &out_label,
+				 NEXTHOP_TYPE_IFINDEX, NULL, ifp->ifindex);
+	}
 
 	zvrf->label[afi] = nlabel;
 stream_failure:
@@ -2237,7 +2330,6 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 	struct zebra_pbr_rule zpr;
 	struct stream *s;
 	uint32_t total, i;
-	ifindex_t ifindex;
 
 	s = msg;
 	STREAM_GETL(s, total);
@@ -2262,17 +2354,20 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		STREAM_GETW(s, zpr.rule.filter.dst_port);
 		STREAM_GETL(s, zpr.rule.filter.fwmark);
 		STREAM_GETL(s, zpr.rule.action.table);
-		STREAM_GETL(s, ifindex);
+		STREAM_GETL(s, zpr.rule.ifindex);
 
-		if (ifindex) {
-			zpr.ifp = if_lookup_by_index_per_ns(
-						zvrf->zns,
-						ifindex);
-			if (!zpr.ifp) {
+		if (zpr.rule.ifindex) {
+			struct interface *ifp;
+
+			ifp = if_lookup_by_index_per_ns(zvrf->zns,
+							zpr.rule.ifindex);
+			if (!ifp) {
 				zlog_debug("Failed to lookup ifindex: %u",
-					   ifindex);
+					   zpr.rule.ifindex);
 				return;
 			}
+
+			strlcpy(zpr.ifname, ifp->name, sizeof(zpr.ifname));
 		}
 
 		if (!is_default_prefix(&zpr.rule.filter.src_ip))
@@ -2392,6 +2487,13 @@ static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
 		/* calculate backpointer */
 		zpi.backpointer =
 			zebra_pbr_lookup_ipset_pername(ipset.ipset_name);
+
+		if (!zpi.backpointer) {
+			zlog_warn("ipset name specified: %s does not exist",
+				  ipset.ipset_name);
+			goto stream_failure;
+		}
+
 		if (hdr->command == ZEBRA_IPSET_ENTRY_ADD)
 			zebra_pbr_add_ipset_entry(&zpi);
 		else
@@ -2440,7 +2542,37 @@ stream_failure:
 	return;
 }
 
-void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
+static void zsend_error_msg(struct zserv *client, enum zebra_error_types error,
+			    struct zmsghdr *bad_hdr)
+{
+
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_ERROR, bad_hdr->vrf_id);
+
+	zserv_encode_error(s, error);
+
+	client->error_cnt++;
+	zserv_send_message(client, s);
+}
+
+static void zserv_error_no_vrf(ZAPI_HANDLER_ARGS)
+{
+	if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
+		zlog_debug("ZAPI message specifies unknown VRF: %d",
+			   hdr->vrf_id);
+
+	return zsend_error_msg(client, ZEBRA_NO_VRF, hdr);
+}
+
+static void zserv_error_invalid_msg_type(ZAPI_HANDLER_ARGS)
+{
+	zlog_info("Zebra received unknown command %d", hdr->command);
+
+	return zsend_error_msg(client, ZEBRA_INVALID_MSG_TYPE, hdr);
+}
+
+void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTER_ID_ADD] = zread_router_id_add,
 	[ZEBRA_ROUTER_ID_DELETE] = zread_router_id_delete,
 	[ZEBRA_INTERFACE_ADD] = zread_interface_add,
@@ -2474,8 +2606,9 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_INTERFACE_ENABLE_RADV] = NULL,
 	[ZEBRA_INTERFACE_DISABLE_RADV] = NULL,
 #endif
-	[ZEBRA_MPLS_LABELS_ADD] = zread_mpls_labels,
-	[ZEBRA_MPLS_LABELS_DELETE] = zread_mpls_labels,
+	[ZEBRA_MPLS_LABELS_ADD] = zread_mpls_labels_add,
+	[ZEBRA_MPLS_LABELS_DELETE] = zread_mpls_labels_delete,
+	[ZEBRA_MPLS_LABELS_REPLACE] = zread_mpls_labels_replace,
 	[ZEBRA_IPMR_ROUTE_STATS] = zebra_ipmr_route_stats,
 	[ZEBRA_LABEL_MANAGER_CONNECT] = zread_label_manager_request,
 	[ZEBRA_LABEL_MANAGER_CONNECT_ASYNC] = zread_label_manager_request,
@@ -2510,6 +2643,9 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_IPTABLE_DELETE] = zread_iptable,
 	[ZEBRA_VXLAN_FLOOD_CONTROL] = zebra_vxlan_flood_control,
 	[ZEBRA_VXLAN_SG_REPLAY] = zebra_vxlan_sg_replay,
+	[ZEBRA_MLAG_CLIENT_REGISTER] = zebra_mlag_client_register,
+	[ZEBRA_MLAG_CLIENT_UNREGISTER] = zebra_mlag_client_unregister,
+	[ZEBRA_MLAG_FORWARD_MSG] = zebra_mlag_forward_client_msg,
 };
 
 #if defined(HANDLE_ZAPI_FUZZING)
@@ -2561,16 +2697,12 @@ void zserv_handle_commands(struct zserv *client, struct stream *msg)
 
 	/* lookup vrf */
 	zvrf = zebra_vrf_lookup_by_id(hdr.vrf_id);
-	if (!zvrf) {
-		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("ZAPI message specifies unknown VRF: %d",
-				   hdr.vrf_id);
-		return;
-	}
+	if (!zvrf)
+		return zserv_error_no_vrf(client, &hdr, msg, zvrf);
 
 	if (hdr.command >= array_size(zserv_handlers)
 	    || zserv_handlers[hdr.command] == NULL)
-		zlog_info("Zebra received unknown command %d", hdr.command);
-	else
-		zserv_handlers[hdr.command](client, &hdr, msg, zvrf);
+		return zserv_error_invalid_msg_type(client, &hdr, msg, zvrf);
+
+	zserv_handlers[hdr.command](client, &hdr, msg, zvrf);
 }

@@ -111,7 +111,7 @@ struct quagga_signal_t sharp_signals[] = {
 
 #define SHARP_VTY_PORT 2614
 
-static const struct frr_yang_module_info *sharpd_yang_modules[] = {
+static const struct frr_yang_module_info *const sharpd_yang_modules[] = {
 };
 
 FRR_DAEMON_INFO(sharpd, SHARP, .vty_port = SHARP_VTY_PORT,

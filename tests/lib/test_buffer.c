@@ -20,7 +20,7 @@
 
 #include <zebra.h>
 #include <memory.h>
-#include <memory_vty.h>
+#include <lib_vty.h>
 #include <buffer.h>
 
 struct thread_master *master;
@@ -32,7 +32,7 @@ int main(int argc, char **argv)
 	char junk[3];
 	char c = 'a';
 
-	memory_init();
+	lib_cmd_init();
 
 	if ((argc != 2) || (sscanf(argv[1], "%d%1s", &n, junk) != 1)) {
 		fprintf(stderr, "Usage: %s <number of chars to simulate>\n",

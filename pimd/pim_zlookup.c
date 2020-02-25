@@ -180,6 +180,14 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			zclient_lookup_failed(zlookup);
 			return -1;
 		}
+
+		if (command == ZEBRA_ERROR) {
+			enum zebra_error_types error;
+
+			zapi_error_decode(s, &error);
+			/* Do nothing with it for now */
+			return -1;
+		}
 	}
 
 	raddr.s_addr = stream_get_ipv4(s);
@@ -338,7 +346,8 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 
 	s = zlookup->obuf;
 	stream_reset(s);
-	zclient_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB, pim->vrf_id);
+	zclient_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB,
+			      pim->vrf->vrf_id);
 	stream_put_in_addr(s, &addr);
 	stream_putw_at(s, 0, stream_get_endp(s));
 

@@ -23,7 +23,7 @@
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
-#include "memory_vty.h"
+#include "lib_vty.h"
 #include "log.h"
 #include "northbound.h"
 
@@ -271,7 +271,7 @@ const struct frr_yang_module_info frr_test_module_info = {
 };
 /* clang-format on */
 
-static const struct frr_yang_module_info *modules[] = {
+static const struct frr_yang_module_info *const modules[] = {
 	&frr_test_module_info,
 };
 
@@ -412,7 +412,7 @@ int main(int argc, char **argv)
 	cmd_init(1);
 	cmd_hostname_set("test");
 	vty_init(master, false);
-	memory_init();
+	lib_cmd_init();
 	yang_init();
 	nb_init(master, modules, array_size(modules));
 

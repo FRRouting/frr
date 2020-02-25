@@ -43,10 +43,10 @@
 
 /* If RFC2133 definition is used. */
 #ifndef IPV6_JOIN_GROUP
-#define IPV6_JOIN_GROUP  IPV6_ADD_MEMBERSHIP 
+#define IPV6_JOIN_GROUP  IPV6_ADD_MEMBERSHIP
 #endif
 #ifndef IPV6_LEAVE_GROUP
-#define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP 
+#define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP
 #endif
 
 DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_IF, "ripng interface")
@@ -196,19 +196,8 @@ static int ripng_if_down(struct interface *ifp)
 }
 
 /* Inteface link up message processing. */
-int ripng_interface_up(ZAPI_CALLBACK_ARGS)
+static int ripng_ifp_up(struct interface *ifp)
 {
-	struct stream *s;
-	struct interface *ifp;
-
-	/* zebra_interface_state_read() updates interface structure in iflist.
-	 */
-	s = zclient->ibuf;
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
 	if (IS_RIPNG_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface up %s vrf %u index %d flags %llx metric %d mtu %d",
@@ -230,19 +219,8 @@ int ripng_interface_up(ZAPI_CALLBACK_ARGS)
 }
 
 /* Inteface link down message processing. */
-int ripng_interface_down(ZAPI_CALLBACK_ARGS)
+static int ripng_ifp_down(struct interface *ifp)
 {
-	struct stream *s;
-	struct interface *ifp;
-
-	/* zebra_interface_state_read() updates interface structure in iflist.
-	 */
-	s = zclient->ibuf;
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
 	ripng_interface_sync(ifp);
 	ripng_if_down(ifp);
 
@@ -256,11 +234,8 @@ int ripng_interface_down(ZAPI_CALLBACK_ARGS)
 }
 
 /* Inteface addition message from zebra. */
-int ripng_interface_add(ZAPI_CALLBACK_ARGS)
+static int ripng_ifp_create(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
 	ripng_interface_sync(ifp);
 
 	if (IS_RIPNG_DEBUG_ZEBRA)
@@ -281,19 +256,8 @@ int ripng_interface_add(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-int ripng_interface_delete(ZAPI_CALLBACK_ARGS)
+static int ripng_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	/*  zebra_interface_state_read() updates interface structure in iflist
-	 */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
 	ripng_interface_sync(ifp);
 	if (if_is_up(ifp)) {
 		ripng_if_down(ifp);
@@ -303,10 +267,6 @@ int ripng_interface_delete(ZAPI_CALLBACK_ARGS)
 		"interface delete %s vrf %u index %d flags %#llx metric %d mtu %d",
 		ifp->name, ifp->vrf_id, ifp->ifindex,
 		(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
-
-	/* To support pseudo interface do not free interface structure.  */
-	/* if_delete(ifp); */
-	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	return 0;
 }
@@ -470,7 +430,7 @@ int ripng_interface_address_delete(ZAPI_CALLBACK_ARGS)
 			/* Check wether this prefix needs to be removed. */
 			ripng_apply_address_del(ifc);
 		}
-		connected_free(ifc);
+		connected_free(&ifc);
 	}
 
 	return 0;
@@ -999,4 +959,6 @@ void ripng_if_init(void)
 	/* Install interface node. */
 	install_node(&interface_node, interface_config_write);
 	if_cmd_init();
+	if_zapi_callbacks(ripng_ifp_create, ripng_ifp_up,
+			  ripng_ifp_down, ripng_ifp_destroy);
 }

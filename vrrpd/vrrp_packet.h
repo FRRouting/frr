@@ -28,8 +28,6 @@
 
 #define VRRP_TYPE_ADVERTISEMENT 1
 
-extern const char *vrrp_packet_names[16];
-
 /*
  * Shared header for VRRPv2/v3 packets.
  */

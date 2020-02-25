@@ -27,7 +27,6 @@
 #include "thread.h"
 #include <lib/version.h>
 #include "memory.h"
-#include "memory_vty.h"
 #include "prefix.h"
 #include "log.h"
 #include "privs.h"
@@ -75,6 +74,7 @@ static const struct option longopts[] = {
 	{"ecmp", required_argument, NULL, 'e'},
 	{"int_num", required_argument, NULL, 'I'},
 	{"no_zebra", no_argument, NULL, 'Z'},
+	{"socket_size", required_argument, NULL, 's'},
 	{0}};
 
 /* signal definitions */
@@ -269,12 +269,20 @@ static int bgp_vrf_enable(struct vrf *vrf)
 		zlog_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
 
 	bgp = bgp_lookup_by_name(vrf->name);
-	if (bgp) {
+	if (bgp && bgp->vrf_id != vrf->vrf_id) {
 		if (bgp->name && strmatch(vrf->name, VRF_DEFAULT_NAME)) {
 			XFREE(MTYPE_BGP, bgp->name);
 			bgp->name = NULL;
 			XFREE(MTYPE_BGP, bgp->name_pretty);
 			bgp->name_pretty = XSTRDUP(MTYPE_BGP, "VRF default");
+			bgp->inst_type = BGP_INSTANCE_TYPE_DEFAULT;
+#if ENABLE_BGP_VNC
+			if (!bgp->rfapi) {
+				bgp->rfapi = bgp_rfapi_new(bgp);
+				assert(bgp->rfapi);
+				assert(bgp->rfapi_cfg);
+			}
+#endif /* ENABLE_BGP_VNC */
 		}
 		old_vrf_id = bgp->vrf_id;
 		/* We have instance configured, link to VRF and make it "up". */
@@ -343,7 +351,7 @@ static int bgp_vrf_disable(struct vrf *vrf)
 static void bgp_vrf_init(void)
 {
 	vrf_init(bgp_vrf_new, bgp_vrf_enable, bgp_vrf_disable,
-		 bgp_vrf_delete, NULL);
+		 bgp_vrf_delete, bgp_vrf_enable);
 }
 
 static void bgp_vrf_terminate(void)
@@ -351,7 +359,7 @@ static void bgp_vrf_terminate(void)
 	vrf_terminate();
 }
 
-static const struct frr_yang_module_info *bgpd_yang_modules[] = {
+static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
 };
 
 FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
@@ -378,17 +386,19 @@ int main(int argc, char **argv)
 	int no_zebra_flag = 0;
 	int skip_runas = 0;
 	int instance = 0;
+	int buffer_size = BGP_SOCKET_SNDBUF_SIZE;
 
 	frr_preinit(&bgpd_di, argc, argv);
 	frr_opt_add(
-		"p:l:SnZe:I:" DEPRECATED_OPTIONS, longopts,
+		"p:l:SnZe:I:s:" DEPRECATED_OPTIONS, longopts,
 		"  -p, --bgp_port     Set BGP listen port number (0 means do not listen).\n"
 		"  -l, --listenon     Listen on specified address (implies -n)\n"
 		"  -n, --no_kernel    Do not install route to kernel.\n"
 		"  -Z, --no_zebra     Do not communicate with Zebra.\n"
 		"  -S, --skip_runas   Skip capabilities checks, and changing user and group IDs.\n"
 		"  -e, --ecmp         Specify ECMP to use.\n"
-		"  -I, --int_num      Set instance number (label-manager)\n");
+		"  -I, --int_num      Set instance number (label-manager)\n"
+		"  -s, --socket_size  Set BGP peer socket send buffer size\n");
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -444,6 +454,9 @@ int main(int argc, char **argv)
 				zlog_err("Instance %i out of range (0..%u)",
 					 instance, (unsigned short)-1);
 			break;
+		case 's':
+			buffer_size = atoi(optarg);
+			break;
 		default:
 			frr_help_exit(1);
 			break;
@@ -453,7 +466,7 @@ int main(int argc, char **argv)
 		memset(&bgpd_privs, 0, sizeof(bgpd_privs));
 
 	/* BGP master init. */
-	bgp_master_init(frr_init());
+	bgp_master_init(frr_init(), buffer_size);
 	bm->port = bgp_port;
 	if (bgp_port == 0)
 		bgp_option_set(BGP_OPT_NO_LISTEN);

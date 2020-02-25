@@ -39,7 +39,7 @@ listing of ECMP nexthops used to forward packets for when a pbr-map is matched.
    sub-mode where you can specify individual nexthops.  To exit this mode type
    exit or end as per normal conventions for leaving a sub-mode.
 
-.. clicmd:: nexthop [A.B.C.D|X:X::X:XX] [interface] [nexthop-vrf NAME]
+.. clicmd:: nexthop [A.B.C.D|X:X::X:XX] [interface] [nexthop-vrf NAME] [label LABELS]
 
    Create a v4 or v6 nexthop.  All normal rules for creating nexthops that you
    are used to are allowed here.  The syntax was intentionally kept the same as
@@ -106,6 +106,20 @@ end destination.
 
    Use this individual nexthop as the place to forward packets when the match
    commands have matched a packet.
+
+.. clicmd:: set vrf unchanged|NAME
+
+   If unchanged is set, the rule will use the vrf table the interface is in
+   as its lookup. If NAME is specified, the rule will use that vrf table as
+   its lookup.
+
+   Not supported with NETNS VRF backend.
+
+.. clicmd:: show pbr map [NAME] [detail]
+
+   Display pbr maps either all or by ``NAME``. If ``detail`` is set, it will
+   give information about the rules unique ID used internally and some extra
+   debugging information about install state for the nexthop/nexthop group.
 
 .. _pbr-policy:
 

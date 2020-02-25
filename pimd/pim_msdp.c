@@ -126,7 +126,12 @@ static void pim_msdp_sa_upstream_del(struct pim_msdp_sa *sa)
 	if (PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags)) {
 		PIM_UPSTREAM_FLAG_UNSET_SRC_MSDP(up->flags);
 		sa->flags |= PIM_MSDP_SAF_UP_DEL_IN_PROG;
-		pim_upstream_del(sa->pim, up, __PRETTY_FUNCTION__);
+		up = pim_upstream_del(sa->pim, up, __PRETTY_FUNCTION__);
+		/* re-eval joinDesired; clearing peer-msdp-sa flag can
+		 * cause JD to change
+		 */
+		if (up)
+			pim_upstream_update_join_desired(sa->pim, up);
 		sa->flags &= ~PIM_MSDP_SAF_UP_DEL_IN_PROG;
 	}
 
@@ -445,10 +450,9 @@ static bool pim_msdp_sa_local_add_ok(struct pim_upstream *up)
 		return false;
 	}
 
-	if (!up->t_ka_timer) {
+	if (!pim_upstream_is_kat_running(up))
 		/* stream is not active */
 		return false;
-	}
 
 	if (!I_am_RP(pim, up->sg.grp)) {
 		/* we are not RP for the group */
@@ -561,11 +565,9 @@ void pim_msdp_sa_local_update(struct pim_upstream *up)
 static void pim_msdp_sa_local_setup(struct pim_instance *pim)
 {
 	struct pim_upstream *up;
-	struct listnode *up_node;
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, up_node, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up)
 		pim_msdp_sa_local_update(up);
-	}
 }
 
 /* whenever the RP changes we need to re-evaluate the "local" SA-cache */

@@ -392,11 +392,13 @@ extern const char *afi2str(afi_t afi);
 
 /* Check bit of the prefix. */
 extern unsigned int prefix_bit(const uint8_t *prefix, const uint16_t prefixlen);
-extern unsigned int prefix6_bit(const struct in6_addr *prefix,
-				const uint16_t prefixlen);
 
 extern struct prefix *prefix_new(void);
-extern void prefix_free(struct prefix *);
+extern void prefix_free(struct prefix **p);
+/*
+ * Function to handle prefix_free being used as a del function.
+ */
+extern void prefix_free_lists(void *arg);
 extern const char *prefix_family_str(const struct prefix *);
 extern int prefix_blen(const struct prefix *);
 extern int str2prefix(const char *, struct prefix *);
@@ -407,6 +409,8 @@ extern void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
 				char *buf, int buf_size);
 extern const char *prefix_sg2str(const struct prefix_sg *sg, char *str);
 extern const char *prefix2str(union prefixconstptr, char *, int);
+extern int evpn_type5_prefix_match(const struct prefix *evpn_pfx,
+				   const struct prefix *match_pfx);
 extern int prefix_match(const struct prefix *, const struct prefix *);
 extern int prefix_match_network_statement(const struct prefix *,
 					  const struct prefix *);
@@ -424,8 +428,6 @@ extern void apply_mask(struct prefix *);
 #define prefix_copy(a, b) ({ memset(a, 0, sizeof(*a)); prefix_copy(a, b); })
 #endif
 
-extern struct prefix *sockunion2prefix(const union sockunion *dest,
-				       const union sockunion *mask);
 extern struct prefix *sockunion2hostprefix(const union sockunion *,
 					   struct prefix *p);
 extern void prefix2sockunion(const struct prefix *, union sockunion *);
@@ -433,7 +435,7 @@ extern void prefix2sockunion(const struct prefix *, union sockunion *);
 extern int str2prefix_eth(const char *, struct prefix_eth *);
 
 extern struct prefix_ipv4 *prefix_ipv4_new(void);
-extern void prefix_ipv4_free(struct prefix_ipv4 *);
+extern void prefix_ipv4_free(struct prefix_ipv4 **p);
 extern int str2prefix_ipv4(const char *, struct prefix_ipv4 *);
 extern void apply_mask_ipv4(struct prefix_ipv4 *);
 
@@ -447,8 +449,6 @@ extern void apply_classful_mask_ipv4(struct prefix_ipv4 *);
 
 extern uint8_t ip_masklen(struct in_addr);
 extern void masklen2ip(const int, struct in_addr *);
-/* returns the network portion of the host address */
-extern in_addr_t ipv4_network_addr(in_addr_t hostaddr, int masklen);
 /* given the address of a host on a network and the network mask length,
  * calculate the broadcast address for that network;
  * special treatment for /31: returns the address of the other host
@@ -458,7 +458,7 @@ extern in_addr_t ipv4_broadcast_addr(in_addr_t hostaddr, int masklen);
 extern int netmask_str2prefix_str(const char *, const char *, char *);
 
 extern struct prefix_ipv6 *prefix_ipv6_new(void);
-extern void prefix_ipv6_free(struct prefix_ipv6 *);
+extern void prefix_ipv6_free(struct prefix_ipv6 **p);
 extern int str2prefix_ipv6(const char *, struct prefix_ipv6 *);
 extern void apply_mask_ipv6(struct prefix_ipv6 *);
 
@@ -478,7 +478,6 @@ extern unsigned prefix_hash_key(const void *pp);
 
 extern int str_to_esi(const char *str, esi_t *esi);
 extern char *esi_to_str(const esi_t *esi, char *buf, int size);
-extern void prefix_hexdump(const struct prefix *p);
 extern void prefix_evpn_hexdump(const struct prefix_evpn *p);
 
 static inline int ipv6_martian(struct in6_addr *addr)

@@ -74,7 +74,7 @@ const struct message tokennames[] = {
 	{0},
 };
 
-const char *node_names[] = {
+const char *const node_names[] = {
 	"auth",			    // AUTH_NODE,
 	"view",			    // VIEW_NODE,
 	"auth enable",		    // AUTH_ENABLE_NODE,
@@ -197,9 +197,6 @@ static struct cmd_node enable_node = {
 };
 
 static struct cmd_node config_node = {CONFIG_NODE, "%s(config)# ", 1};
-
-/* Default motd string. */
-static const char *default_motd = FRR_DEFAULT_MOTD;
 
 static const struct facility_map {
 	int facility;
@@ -373,7 +370,7 @@ const char *cmd_prompt(enum node_type node)
 }
 
 /* Install a command into a node. */
-void install_element(enum node_type ntype, struct cmd_element *cmd)
+void install_element(enum node_type ntype, const struct cmd_element *cmd)
 {
 	struct cmd_node *cnode;
 
@@ -395,7 +392,7 @@ void install_element(enum node_type ntype, struct cmd_element *cmd)
 		exit(EXIT_FAILURE);
 	}
 
-	if (hash_lookup(cnode->cmd_hash, cmd) != NULL) {
+	if (hash_lookup(cnode->cmd_hash, (void *)cmd) != NULL) {
 		fprintf(stderr,
 			"%s[%s]:\n"
 			"\tnode %d (%s) already has this command installed.\n"
@@ -404,7 +401,7 @@ void install_element(enum node_type ntype, struct cmd_element *cmd)
 		return;
 	}
 
-	assert(hash_get(cnode->cmd_hash, cmd, hash_alloc_intern));
+	assert(hash_get(cnode->cmd_hash, (void *)cmd, hash_alloc_intern));
 
 	struct graph *graph = graph_new();
 	struct cmd_token *token =
@@ -416,13 +413,13 @@ void install_element(enum node_type ntype, struct cmd_element *cmd)
 	cmd_graph_merge(cnode->cmdgraph, graph, +1);
 	graph_delete_graph(graph);
 
-	vector_set(cnode->cmd_vector, cmd);
+	vector_set(cnode->cmd_vector, (void *)cmd);
 
 	if (ntype == VIEW_NODE)
 		install_element(ENABLE_NODE, cmd);
 }
 
-void uninstall_element(enum node_type ntype, struct cmd_element *cmd)
+void uninstall_element(enum node_type ntype, const struct cmd_element *cmd)
 {
 	struct cmd_node *cnode;
 
@@ -444,7 +441,7 @@ void uninstall_element(enum node_type ntype, struct cmd_element *cmd)
 		exit(EXIT_FAILURE);
 	}
 
-	if (hash_release(cnode->cmd_hash, cmd) == NULL) {
+	if (hash_release(cnode->cmd_hash, (void *)cmd) == NULL) {
 		fprintf(stderr,
 			"%s[%s]:\n"
 			"\tnode %d (%s) does not have this command installed.\n"
@@ -453,7 +450,7 @@ void uninstall_element(enum node_type ntype, struct cmd_element *cmd)
 		return;
 	}
 
-	vector_unset_value(cnode->cmd_vector, cmd);
+	vector_unset_value(cnode->cmd_vector, (void *)cmd);
 
 	struct graph *graph = graph_new();
 	struct cmd_token *token =
@@ -592,6 +589,10 @@ static int config_write_host(struct vty *vty)
 
 		if (host.motdfile)
 			vty_out(vty, "banner motd file %s\n", host.motdfile);
+		else if (host.motd
+			 && strncmp(host.motd, FRR_DEFAULT_MOTD,
+				    strlen(host.motd)))
+			vty_out(vty, "banner motd line %s\n", host.motd);
 		else if (!host.motd)
 			vty_out(vty, "no banner motd\n");
 	}
@@ -1061,8 +1062,10 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 			vty->num_cfg_changes = 0;
 			memset(&vty->cfg_changes, 0, sizeof(vty->cfg_changes));
 
-			/* Regenerate candidate configuration. */
-			if (frr_get_cli_mode() == FRR_CLI_CLASSIC)
+			/* Regenerate candidate configuration if necessary. */
+			if (frr_get_cli_mode() == FRR_CLI_CLASSIC
+			    && running_config->version
+				       > vty->candidate_config->version)
 				nb_config_replace(vty->candidate_config,
 						  running_config, true);
 		}
@@ -1133,6 +1136,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 		return saved_ret;
 
 	if (ret != CMD_SUCCESS && ret != CMD_WARNING
+	    && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	    && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED) {
 		/* This assumes all nodes above CONFIG_NODE are childs of
 		 * CONFIG_NODE */
@@ -1144,6 +1148,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 			ret = cmd_execute_command_real(vline, FILTER_RELAXED,
 						       vty, cmd);
 			if (ret == CMD_SUCCESS || ret == CMD_WARNING
+			    || ret == CMD_ERR_AMBIGUOUS || ret == CMD_ERR_INCOMPLETE
 			    || ret == CMD_NOT_MY_INSTANCE
 			    || ret == CMD_WARNING_CONFIG_FAILED)
 				return ret;
@@ -1328,6 +1333,7 @@ int command_config_read_one_line(struct vty *vty,
 	if (!(use_daemon && ret == CMD_SUCCESS_DAEMON)
 	    && !(!use_daemon && ret == CMD_ERR_NOTHING_TODO)
 	    && ret != CMD_SUCCESS && ret != CMD_WARNING
+	    && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	    && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED
 	    && vty->node != CONFIG_NODE) {
 		int saved_node = vty->node;
@@ -1336,6 +1342,7 @@ int command_config_read_one_line(struct vty *vty,
 		while (!(use_daemon && ret == CMD_SUCCESS_DAEMON)
 		       && !(!use_daemon && ret == CMD_ERR_NOTHING_TODO)
 		       && ret != CMD_SUCCESS && ret != CMD_WARNING
+		       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 		       && vty->node > CONFIG_NODE) {
 			vty->node = node_parent(vty->node);
 			if (vty->xpath_index > 0)
@@ -1568,18 +1575,6 @@ DEFUN (show_version,
 	return CMD_SUCCESS;
 }
 
-/* "Set" version ... ignore version tags */
-DEFUN (frr_version_defaults,
-       frr_version_defaults_cmd,
-       "frr <version|defaults> LINE...",
-       "FRRouting global parameters\n"
-       "version configuration was written by\n"
-       "set of configuration defaults used\n"
-       "version string\n")
-{
-	return CMD_SUCCESS;
-}
-
 /* Help display function for all node. */
 DEFUN (config_help,
        config_help_cmd,
@@ -1653,7 +1648,7 @@ int cmd_list_cmds(struct vty *vty, int do_permute)
 		permute(vector_slot(node->cmdgraph->nodes, 0), vty);
 	else {
 		/* loop over all commands at this node */
-		struct cmd_element *element = NULL;
+		const struct cmd_element *element = NULL;
 		for (unsigned int i = 0; i < vector_active(node->cmd_vector);
 		     i++)
 			if ((element = vector_slot(node->cmd_vector, i))
@@ -1707,25 +1702,25 @@ static int vty_write_config(struct vty *vty)
 	if (host.noconfig)
 		return CMD_SUCCESS;
 
+	nb_cli_show_config_prepare(running_config, false);
+
 	if (vty->type == VTY_TERM) {
 		vty_out(vty, "\nCurrent configuration:\n");
 		vty_out(vty, "!\n");
 	}
 
+	if (strcmp(frr_defaults_version(), FRR_VER_SHORT))
+		vty_out(vty, "! loaded from %s\n", frr_defaults_version());
 	vty_out(vty, "frr version %s\n", FRR_VER_SHORT);
-	vty_out(vty, "frr defaults %s\n", DFLT_NAME);
+	vty_out(vty, "frr defaults %s\n", frr_defaults_profile());
 	vty_out(vty, "!\n");
 
-	pthread_rwlock_rdlock(&running_config->lock);
-	{
-		for (i = 0; i < vector_active(cmdvec); i++)
-			if ((node = vector_slot(cmdvec, i)) && node->func
-			    && (node->vtysh || vty->type != VTY_SHELL)) {
-				if ((*node->func)(vty))
-					vty_out(vty, "!\n");
-			}
-	}
-	pthread_rwlock_unlock(&running_config->lock);
+	for (i = 0; i < vector_active(cmdvec); i++)
+		if ((node = vector_slot(cmdvec, i)) && node->func
+		    && (node->vtysh || vty->type != VTY_SHELL)) {
+			if ((*node->func)(vty))
+				vty_out(vty, "!\n");
+		}
 
 	if (vty->type == VTY_TERM) {
 		vty_out(vty, "end\n");
@@ -2664,6 +2659,13 @@ int cmd_banner_motd_file(const char *file)
 	return success;
 }
 
+void cmd_banner_motd_line(const char *line)
+{
+	if (host.motd)
+		XFREE(MTYPE_HOST, host.motd);
+	host.motd = XSTRDUP(MTYPE_HOST, line);
+}
+
 DEFUN (banner_motd_file,
        banner_motd_file_cmd,
        "banner motd file FILE",
@@ -2684,6 +2686,26 @@ DEFUN (banner_motd_file,
 	return cmd;
 }
 
+DEFUN (banner_motd_line,
+       banner_motd_line_cmd,
+       "banner motd line LINE...",
+       "Set banner\n"
+       "Banner for motd\n"
+       "Banner from an input\n"
+       "Text\n")
+{
+	int idx = 0;
+	char *motd;
+
+	argv_find(argv, argc, "LINE", &idx);
+	motd = argv_concat(argv, argc, idx);
+
+	cmd_banner_motd_line(motd);
+	XFREE(MTYPE_TMP, motd);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (banner_motd_default,
        banner_motd_default_cmd,
        "banner motd default",
@@ -2691,7 +2713,7 @@ DEFUN (banner_motd_default,
        "Strings for motd\n"
        "Default string\n")
 {
-	host.motd = default_motd;
+	cmd_banner_motd_line(FRR_DEFAULT_MOTD);
 	return CMD_SUCCESS;
 }
 
@@ -2860,7 +2882,7 @@ void cmd_init(int terminal)
 	host.config = NULL;
 	host.noconfig = (terminal < 0);
 	host.lines = -1;
-	host.motd = default_motd;
+	cmd_banner_motd_line(FRR_DEFAULT_MOTD);
 	host.motdfile = NULL;
 
 	/* Install top nodes. */
@@ -2909,7 +2931,6 @@ void cmd_init(int terminal)
 	install_element(CONFIG_NODE, &no_hostname_cmd);
 	install_element(CONFIG_NODE, &domainname_cmd);
 	install_element(CONFIG_NODE, &no_domainname_cmd);
-	install_element(CONFIG_NODE, &frr_version_defaults_cmd);
 
 	if (terminal > 0) {
 		install_element(CONFIG_NODE, &debug_memstats_cmd);
@@ -2940,6 +2961,7 @@ void cmd_init(int terminal)
 		install_element(CONFIG_NODE, &no_service_password_encrypt_cmd);
 		install_element(CONFIG_NODE, &banner_motd_default_cmd);
 		install_element(CONFIG_NODE, &banner_motd_file_cmd);
+		install_element(CONFIG_NODE, &banner_motd_line_cmd);
 		install_element(CONFIG_NODE, &no_banner_motd_cmd);
 		install_element(CONFIG_NODE, &service_terminal_length_cmd);
 		install_element(CONFIG_NODE, &no_service_terminal_length_cmd);
@@ -2984,6 +3006,7 @@ void cmd_terminate(void)
 	XFREE(MTYPE_HOST, host.logfile);
 	XFREE(MTYPE_HOST, host.motdfile);
 	XFREE(MTYPE_HOST, host.config);
+	XFREE(MTYPE_HOST, host.motd);
 
 	list_delete(&varhandlers);
 	qobj_finish();

@@ -59,7 +59,7 @@ void pim_register_join(struct pim_upstream *up)
 	}
 
 	pim_channel_add_oif(up->channel_oil, pim->regiface,
-			    PIM_OIF_FLAG_PROTO_PIM);
+			    PIM_OIF_FLAG_PROTO_PIM, __func__);
 	up->reg_state = PIM_REG_JOIN;
 	pim_vxlan_update_sg_reg_state(pim, up, true /*reg_join*/);
 }
@@ -145,7 +145,7 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	case PIM_REG_JOIN:
 		upstream->reg_state = PIM_REG_PRUNE;
 		pim_channel_del_oif(upstream->channel_oil, pim->regiface,
-				    PIM_OIF_FLAG_PROTO_PIM);
+				    PIM_OIF_FLAG_PROTO_PIM, __func__);
 		pim_upstream_start_register_stop_timer(upstream, 0);
 		pim_vxlan_update_sg_reg_state(pim, upstream,
 			false/*reg_join*/);
@@ -232,7 +232,7 @@ void pim_null_register_send(struct pim_upstream *up)
 
 	pim_ifp = up->rpf.source_nexthop.interface->info;
 	if (!pim_ifp) {
-		if (PIM_DEBUG_TRACE)
+		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"%s: Cannot send null-register for %s no valid iif",
 				__PRETTY_FUNCTION__, up->sg_str);
@@ -241,7 +241,7 @@ void pim_null_register_send(struct pim_upstream *up)
 
 	rpg = RP(pim_ifp->pim, up->sg.grp);
 	if (!rpg) {
-		if (PIM_DEBUG_TRACE)
+		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"%s: Cannot send null-register for %s no RPF to the RP",
 				__PRETTY_FUNCTION__, up->sg_str);
@@ -260,7 +260,7 @@ void pim_null_register_send(struct pim_upstream *up)
 	src = pim_ifp->primary_address;
 	if (PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(up->flags)) {
 		if (!pim_vxlan_get_register_src(pim_ifp->pim, up, &src)) {
-			if (PIM_DEBUG_TRACE)
+			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug(
 					"%s: Cannot send null-register for %s vxlan-aa PIP unavailable",
 					__PRETTY_FUNCTION__, up->sg_str);
@@ -452,10 +452,9 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		}
 
 		if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
-		    || ((SwitchToSptDesired(pim_ifp->pim, &sg))
+		    || ((SwitchToSptDesiredOnRp(pim_ifp->pim, &sg))
 			&& pim_upstream_inherited_olist(pim_ifp->pim, upstream)
 				   == 0)) {
-			// pim_scan_individual_oil (upstream->channel_oil);
 			pim_register_stop_send(ifp, &sg, dest_addr, src_addr);
 			sentRegisterStop = 1;
 		} else {
@@ -464,7 +463,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 					   upstream->sptbit);
 		}
 		if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
-		    || (SwitchToSptDesired(pim_ifp->pim, &sg))) {
+		    || (SwitchToSptDesiredOnRp(pim_ifp->pim, &sg))) {
 			if (sentRegisterStop) {
 				pim_upstream_keep_alive_timer_start(
 					upstream,

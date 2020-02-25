@@ -153,7 +153,7 @@ static int _ptm_msg_address(struct stream *msg, int family, const void *addr)
 	return 0;
 }
 
-int ptm_bfd_notify(struct bfd_session *bs)
+int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 {
 	struct stream *msg;
 
@@ -204,12 +204,15 @@ int ptm_bfd_notify(struct bfd_session *bs)
 	_ptm_msg_address(msg, bs->key.family, &bs->key.peer);
 
 	/* BFD status */
-	switch (bs->ses_state) {
+	switch (notify_state) {
 	case PTM_BFD_UP:
 		stream_putl(msg, BFD_STATUS_UP);
 		break;
 
 	case PTM_BFD_ADM_DOWN:
+		stream_putl(msg, BFD_STATUS_ADMIN_DOWN);
+		break;
+
 	case PTM_BFD_DOWN:
 	case PTM_BFD_INIT:
 		stream_putl(msg, BFD_STATUS_DOWN);
@@ -376,6 +379,9 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 			log_error("ptm-read: vrf id %u could not be identified", vrf_id);
 			return -1;
 		}
+	} else {
+		bpc->bpc_has_vrfname = true;
+		strlcpy(bpc->bpc_vrfname, VRF_DEFAULT_NAME, sizeof(bpc->bpc_vrfname));
 	}
 
 	STREAM_GETC(msg, bpc->bpc_cbit);
@@ -429,7 +435,7 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 		return;
 	}
 
-	ptm_bfd_notify(bs);
+	ptm_bfd_notify(bs, bs->ses_state);
 }
 
 static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
@@ -458,6 +464,10 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 	if (bs->refcount ||
 	    BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
 		return;
+
+	bs->ses_state = PTM_BFD_ADM_DOWN;
+	ptm_bfd_snd(bs, 0);
+
 	ptm_bfd_sess_del(&bpc);
 }
 
@@ -620,6 +630,11 @@ void bfdd_sessions_enable_vrf(struct vrf *vrf)
 	/* it may affect configs without interfaces */
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
 		bs = bso->bso_bs;
+		/* update name */
+		if (bs->vrf && bs->vrf == vrf) {
+			if (!strmatch(bs->key.vrfname, vrf->name))
+				bfd_session_update_vrf_name(bs, vrf);
+		}
 		if (bs->vrf)
 			continue;
 		if (bs->key.vrfname[0] &&
@@ -655,32 +670,9 @@ void bfdd_sessions_disable_vrf(struct vrf *vrf)
 	}
 }
 
-static int bfdd_interface_update(ZAPI_CALLBACK_ARGS)
+static int bfd_ifp_destroy(struct interface *ifp)
 {
-	struct interface *ifp;
-
-	/*
-	 * `zebra_interface_add_read` will handle the interface creation
-	 * on `lib/if.c`. We'll use that data structure instead of
-	 * rolling our own.
-	 */
-	if (cmd == ZEBRA_INTERFACE_ADD) {
-		ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-		if (ifp == NULL)
-			return 0;
-
-		bfdd_sessions_enable_interface(ifp);
-		return 0;
-	}
-
-	/* Update interface information. */
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-	if (ifp == NULL)
-		return 0;
-
 	bfdd_sessions_disable_interface(ifp);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	return 0;
 }
@@ -735,8 +727,16 @@ static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static int bfd_ifp_create(struct interface *ifp)
+{
+	bfdd_sessions_enable_interface(ifp);
+
+	return 0;
+}
+
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 {
+	if_zapi_callbacks(bfd_ifp_create, NULL, NULL, bfd_ifp_destroy);
 	zclient = zclient_new(master, &zclient_options_default);
 	assert(zclient != NULL);
 	zclient_init(zclient, ZEBRA_ROUTE_BFD, 0, bfdd_priv);
@@ -750,10 +750,6 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 
 	/* Send replay request on zebra connect. */
 	zclient->zebra_connected = bfdd_zebra_connected;
-
-	/* Learn interfaces from zebra instead of the OS. */
-	zclient->interface_add = bfdd_interface_update;
-	zclient->interface_delete = bfdd_interface_update;
 
 	/* Learn about interface VRF. */
 	zclient->interface_vrf_update = bfdd_interface_vrf_update;

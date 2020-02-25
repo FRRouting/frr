@@ -131,7 +131,7 @@ void pim_rp_init(struct pim_instance *pim)
 
 	rn = route_node_get(pim->rp_table, &rp_info->group);
 	rn->info = rp_info;
-	if (PIM_DEBUG_TRACE)
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
 			"Allocated: %p for rp_info: %p(224.0.0.0/4) Lock: %d",
 			rn, rp_info, rn->lock);
@@ -245,7 +245,7 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	}
 
 	rp_info = rn->info;
-	if (PIM_DEBUG_TRACE) {
+	if (PIM_DEBUG_PIM_TRACE) {
 		char buf[PREFIX_STRLEN];
 
 		route_unlock_node(rn);
@@ -274,6 +274,7 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 static void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim)
 {
 	pim_msdp_i_am_rp_changed(pim);
+	pim_upstream_reeval_use_rpt(pim);
 }
 
 void pim_rp_prefix_list_update(struct pim_instance *pim,
@@ -348,7 +349,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 	pim_rp_set_upstream_addr(pim, &new_upstream_addr, up->sg.src,
 				 up->sg.grp);
 
-	if (PIM_DEBUG_TRACE)
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: pim upstream update for  old upstream %s",
 			   __PRETTY_FUNCTION__,
 			   inet_ntoa(old_upstream_addr));
@@ -366,7 +367,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 		nht_p.family = AF_INET;
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = old_upstream_addr;
-		if (PIM_DEBUG_TRACE) {
+		if (PIM_DEBUG_PIM_TRACE) {
 			char buf[PREFIX2STR_BUFFER];
 
 			prefix2str(&nht_p, buf, sizeof(buf));
@@ -381,27 +382,17 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 
 	old_rpf.source_nexthop.interface = up->rpf.source_nexthop.interface;
 
-	rpf_result = pim_rpf_update(pim, up, &old_rpf);
+	rpf_result = pim_rpf_update(pim, up, &old_rpf, __func__);
 	if (rpf_result == PIM_RPF_FAILURE)
 		pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
 
 	/* update kernel multicast forwarding cache (MFC) */
-	if (up->rpf.source_nexthop.interface && up->channel_oil) {
-		ifindex_t ifindex = up->rpf.source_nexthop.interface->ifindex;
-		int vif_index = pim_if_find_vifindex_by_ifindex(pim, ifindex);
-		/* Pass Current selected NH vif index to mroute download */
-		if (vif_index)
-			pim_scan_individual_oil(up->channel_oil, vif_index);
-		else {
-			if (PIM_DEBUG_PIM_NHT)
-				zlog_debug(
-				  "%s: NHT upstream %s channel_oil IIF %s vif_index is not valid",
-				  __PRETTY_FUNCTION__, up->sg_str,
-				  up->rpf.source_nexthop.interface->name);
-		}
-	}
+	if (up->rpf.source_nexthop.interface && up->channel_oil)
+		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
-	if (rpf_result == PIM_RPF_CHANGED)
+	if (rpf_result == PIM_RPF_CHANGED ||
+			(rpf_result == PIM_RPF_FAILURE &&
+			 old_rpf.source_nexthop.interface))
 		pim_zebra_upstream_rpf_changed(pim, up, &old_rpf);
 
 	pim_zebra_update_all_interfaces(pim);
@@ -455,7 +446,6 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	struct prefix nht_p;
 	struct route_node *rn;
 	struct pim_upstream *up;
-	struct listnode *upnode;
 
 	if (rp_addr.s_addr == INADDR_ANY ||
 	    rp_addr.s_addr == INADDR_NONE)
@@ -563,8 +553,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 					__PRETTY_FUNCTION__, buf, buf1);
 			}
 
-			for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode,
-						  up)) {
+			frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 				/* Find (*, G) upstream whose RP is not
 				 * configured yet
 				 */
@@ -650,7 +639,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	rn = route_node_get(pim->rp_table, &rp_info->group);
 	rn->info = rp_info;
 
-	if (PIM_DEBUG_TRACE) {
+	if (PIM_DEBUG_PIM_TRACE) {
 		char buf[PREFIX_STRLEN];
 
 		zlog_debug("Allocated: %p for rp_info: %p(%s) Lock: %d", rn,
@@ -659,7 +648,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 			   rn->lock);
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (up->sg.src.s_addr == INADDR_ANY) {
 			struct prefix grp;
 			struct rp_info *trp_info;
@@ -732,7 +721,6 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 	bool was_plist = false;
 	struct rp_info *trp_info;
 	struct pim_upstream *up;
-	struct listnode *upnode;
 	struct bsgrp_node *bsgrp = NULL;
 	struct bsm_rpinfo *bsrp = NULL;
 	char grp_str[PREFIX2STR_BUFFER];
@@ -755,7 +743,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 		was_plist = true;
 	}
 
-	if (PIM_DEBUG_TRACE)
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: Delete RP %s for the group %s",
 			   __PRETTY_FUNCTION__, rp_str, grp_str);
 
@@ -769,7 +757,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 		if (bsgrp) {
 			bsrp = listnode_head(bsgrp->bsrp_list);
 			if (bsrp) {
-				if (PIM_DEBUG_TRACE) {
+				if (PIM_DEBUG_PIM_TRACE) {
 					char bsrp_str[INET_ADDRSTRLEN];
 
 					if (!inet_ntop(AF_INET, bsrp, bsrp_str,
@@ -784,7 +772,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 						     group, RP_SRC_BSR);
 			}
 		} else {
-			if (PIM_DEBUG_TRACE)
+			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug(
 					"%s: BSM RP not found for the group %s",
 					__PRETTY_FUNCTION__, grp_str);
@@ -809,7 +797,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 	rp_all = pim_rp_find_match_group(pim, &g_all);
 
 	if (rp_all == rp_info) {
-		for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+		frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 			/* Find the upstream (*, G) whose upstream address is
 			 * same as the deleted RP
 			 */
@@ -843,7 +831,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 					EC_LIB_DEVELOPMENT,
 					"Expected rn->info to be equal to rp_info");
 
-			if (PIM_DEBUG_TRACE) {
+			if (PIM_DEBUG_PIM_TRACE) {
 				char buf[PREFIX_STRLEN];
 
 				zlog_debug(
@@ -861,7 +849,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 
 	pim_rp_refresh_group_to_rp_mapping(pim);
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		/* Find the upstream (*, G) whose upstream address is same as
 		 * the deleted RP
 		 */
@@ -902,7 +890,6 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 	int result = 0;
 	struct rp_info *rp_info = NULL;
 	struct pim_upstream *up;
-	struct listnode *upnode;
 
 	rn = route_node_lookup(pim->rp_table, &group);
 	if (!rn) {
@@ -926,10 +913,11 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 		}
 	}
 
+	nht_p.family = AF_INET;
+	nht_p.prefixlen = IPV4_MAX_BITLEN;
+
 	/* Deregister old RP addr with Zebra NHT */
 	if (rp_info->rp.rpf_addr.u.prefix4.s_addr != INADDR_ANY) {
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
 		if (PIM_DEBUG_PIM_NHT_RP) {
 			char buf[PREFIX2STR_BUFFER];
@@ -950,7 +938,7 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 
 	listnode_add_sort(pim->rp_list, rp_info);
 
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (up->sg.src.s_addr == INADDR_ANY) {
 			struct prefix grp;
 			struct rp_info *trp_info;
@@ -1056,6 +1044,7 @@ void pim_rp_check_on_if_add(struct pim_interface *pim_ifp)
 
 	if (i_am_rp_changed) {
 		pim_msdp_i_am_rp_changed(pim);
+		pim_upstream_reeval_use_rpt(pim);
 	}
 }
 
@@ -1098,6 +1087,7 @@ void pim_i_am_rp_re_evaluate(struct pim_instance *pim)
 
 	if (i_am_rp_changed) {
 		pim_msdp_i_am_rp_changed(pim);
+		pim_upstream_reeval_use_rpt(pim);
 	}
 }
 
@@ -1264,7 +1254,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 		json = json_object_new_object();
 	else
 		vty_out(vty,
-			"RP address       group/prefix-list   OIF         I am RP     Source\n");
+			"RP address       group/prefix-list   OIF               I am RP    Source\n");
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (!pim_rpf_addr_is_inaddr_none(&rp_info->rp)) {
 			char buf[48];
@@ -1341,7 +1331,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 					vty_out(vty, "%-16s  ", "(Unknown)");
 
 				if (rp_info->i_am_rp)
-					vty_out(vty, "yes\n");
+					vty_out(vty, "yes");
 				else
 					vty_out(vty, "no");
 

@@ -9,7 +9,8 @@ RUN source /src/alpine/APKBUILD.in \
 		--no-cache \
 		--update-cache \
 		$makedepends \
-		gzip
+		gzip \
+	&& pip install pytest
 
 COPY . /src
 ARG PKGVER
@@ -29,6 +30,8 @@ RUN echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/reposit
 		abuild \
 		alpine-conf \
 		alpine-sdk \
+		py-pip \
+	&& pip install pytest \
 	&& setup-apkcache /var/cache/apk \
 	&& mkdir -p /pkgs/apk \
 	&& echo 'builder ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
@@ -39,6 +42,7 @@ USER builder
 RUN cd /dist \
 	&& abuild-keygen -a -n \
 	&& abuild checksum \
+	&& git init \
 	&& abuild -r -P /pkgs/apk
 
 # This stage installs frr from the apk

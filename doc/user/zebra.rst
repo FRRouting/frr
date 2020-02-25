@@ -292,6 +292,62 @@ Link Parameters Commands
 
 .. _zebra-vrf:
 
+Administrative Distance
+=======================
+
+Administrative distance allows FRR to make decisions about what routes
+should be installed in the rib based upon the originating protocol.
+The lowest Admin Distance is the route selected.  This is purely a
+subjective decision about ordering and care has been taken to choose
+the same distances that other routing suites have choosen.
+
++------------+-----------+
+| Protocol   | Distance  |
++------------+-----------+
+| System     | 0         |
++------------+-----------+
+| Kernel     | 0         |
++------------+-----------+
+| Connect    | 0         |
++------------+-----------+
+| Static     | 1         |
++------------+-----------+
+| NHRP       | 10        |
++------------+-----------+
+| EBGP       | 20        |
++------------+-----------+
+| EIGRP      | 90        |
++------------+-----------+
+| BABEL      | 100       |
++------------+-----------+
+| OSPF       | 110       |
++------------+-----------+
+| ISIS       | 115       |
++------------+-----------+
+| OPENFABRIC | 115       |
++------------+-----------+
+| RIP        | 120       |
++------------+-----------+
+| Table      | 150       |
++------------+-----------+
+| SHARP      | 150       |
++------------+-----------+
+| IBGP       | 200       |
++------------+-----------+
+| PBR        | 200       |
++------------+-----------+
+
+An admin distance of 255 indicates to Zebra that the route should not be
+installed into the Data Plane.  Additionally routes with an admin distance
+of 255 will not be redistributed.
+
+Zebra does treat Kernel routes as special case for the purposes of Admin
+Distance.  Upon learning about a route that is not originated by FRR
+we read the metric value as a uint32_t.  The top byte of the value
+is interpreted as the Administrative Distance and the low three bytes
+are read in as the metric.  This special case is to facilitate VRF
+default routes.
+
 Virtual Routing and Forwarding
 ==============================
 
@@ -373,6 +429,14 @@ commands in relationship to VRF. Here is an extract of some of those commands:
 
    This command will dump the routing tables within the vrf scope. If `vrf all`
    is executed, all routing tables will be dumped.
+
+.. index:: show <ip|ipv6> route summary [vrf VRF] [table TABLENO] [prefix]
+.. clicmd:: show <ip|ipv6> route summary [vrf VRF] [table TABLENO] [prefix]
+
+   This command will dump a summary output of the specified VRF and TABLENO
+   combination.  If neither VRF or TABLENO is specified FRR defaults to
+   the default vrf and default table.  If prefix is specified dump the
+   number of prefix routes.
 
 By using the :option:`-n` option, the *Linux network namespace* will be mapped
 over the *Zebra* VRF. One nice feature that is possible by handling *Linux
@@ -599,19 +663,30 @@ kernel.
 .. clicmd:: ip protocol PROTOCOL route-map ROUTEMAP
 
    Apply a route-map filter to routes for the specified protocol. PROTOCOL can
-   be **any** or one of
+   be: 
 
-   - system,
-   - kernel,
+   - any,
+   - babel,
+   - bgp,
    - connected,
-   - static,
-   - rip,
-   - ripng,
+   - eigrp,
+   - isis,
+   - kernel,
+   - nhrp,
+   - openfabric,
    - ospf,
    - ospf6,
-   - isis,
-   - bgp,
-   - hsls.
+   - rip,
+   - sharp,
+   - static,
+   - ripng,
+   - table,
+   - vnc.
+
+   If you choose any as the option that will cause all protocols that are sending
+   routes to zebra.  You can specify a :dfn:`ip protocol PROTOCOL route-map ROUTEMAP`
+   on a per vrf basis, by entering this command under vrf mode for the vrf you
+   want to apply the route-map against.
 
 .. index:: set src ADDRESS
 .. clicmd:: set src ADDRESS
@@ -764,8 +839,22 @@ zebra Terminal Mode Commands
 .. index:: show ipv6 route
 .. clicmd:: show ipv6 route
 
-.. index:: show interface
-.. clicmd:: show interface
+.. index:: show [ip|ipv6] route [PREFIX] [nexthop-group]
+.. clicmd:: show [ip|ipv6] route [PREFIX] [nexthop-group]
+
+   Display detailed information about a route. If [nexthop-group] is
+   included, it will display the nexthop group ID the route is using as well.
+
+.. index:: show interface [NAME] [{vrf VRF|brief}] [nexthop-group]
+.. clicmd:: show interface [NAME] [{vrf VRF|brief}] [nexthop-group]
+
+.. index:: show interface [NAME] [{vrf all|brief}] [nexthop-group]
+.. clicmd:: show interface [NAME] [{vrf all|brief}] [nexthop-group]
+
+   Display interface information. If no extra information is added, it will
+   dump information on all interfaces. If [NAME] is specified, it will display
+   detailed information about that single interface. If [nexthop-group] is
+   specified, it will display nexthop groups pointing out that interface.
 
 .. index:: show ip prefix-list [NAME]
 .. clicmd:: show ip prefix-list [NAME]
@@ -821,4 +910,32 @@ zebra Terminal Mode Commands
 
    Reset statistics related to the zebra code that interacts with the
    optional Forwarding Plane Manager (FPM) component.
+
+.. index:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]]
+.. clicmd:: show nexthop-group rib [ID] [vrf NAME]
+
+   Display nexthop groups created by zebra.  The [vrf NAME] option
+   is only meaningful if you have started zebra with the --vrfwnetns
+   option as that nexthop groups are per namespace in linux.
+   If you specify singleton you would like to see the singleton
+   nexthop groups that do have an afi.
+
+
+Router-id
+=========
+
+Many routing protocols require a router-id to be configured. To have a
+consistent router-id across all daemons, the following commands are available
+to configure and display the router-id:
+
+.. index:: [no] router-id A.B.C.D [vrf NAME]
+.. clicmd:: [no] router-id A.B.C.D [vrf NAME]
+
+   Configure the router-id of this router.
+
+.. index:: show router-id [vrf NAME]
+.. clicmd:: show router-id [vrf NAME]
+
+   Display the user configured router-id.
+
 

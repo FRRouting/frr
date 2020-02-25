@@ -215,8 +215,8 @@ struct ospf6_route_table {
 #define OSPF6_ROUTE_TABLE_CREATE(s, t)                                         \
 	ospf6_route_table_create(OSPF6_SCOPE_TYPE_##s, OSPF6_TABLE_TYPE_##t)
 
-extern const char *ospf6_dest_type_str[OSPF6_DEST_TYPE_MAX];
-extern const char *ospf6_dest_type_substr[OSPF6_DEST_TYPE_MAX];
+extern const char *const ospf6_dest_type_str[OSPF6_DEST_TYPE_MAX];
+extern const char *const ospf6_dest_type_substr[OSPF6_DEST_TYPE_MAX];
 #define OSPF6_DEST_TYPE_NAME(x)                                                \
 	(0 < (x) && (x) < OSPF6_DEST_TYPE_MAX ? ospf6_dest_type_str[(x)]       \
 					      : ospf6_dest_type_str[0])
@@ -224,8 +224,8 @@ extern const char *ospf6_dest_type_substr[OSPF6_DEST_TYPE_MAX];
 	(0 < (x) && (x) < OSPF6_DEST_TYPE_MAX ? ospf6_dest_type_substr[(x)]    \
 					      : ospf6_dest_type_substr[0])
 
-extern const char *ospf6_path_type_str[OSPF6_PATH_TYPE_MAX];
-extern const char *ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
+extern const char *const ospf6_path_type_str[OSPF6_PATH_TYPE_MAX];
+extern const char *const ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
 #define OSPF6_PATH_TYPE_NAME(x)                                                \
 	(0 < (x) && (x) < OSPF6_PATH_TYPE_MAX ? ospf6_path_type_str[(x)]       \
 					      : ospf6_path_type_str[0])

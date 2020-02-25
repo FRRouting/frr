@@ -29,7 +29,6 @@
 #include "command.h"
 #include "vty.h"
 #include "memory.h"
-#include "memory_vty.h"
 #include "stream.h"
 #include "if.h"
 #include "privs.h"
@@ -57,6 +56,7 @@
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_mt.h"
 #include "isisd/fabricd.h"
+#include "isisd/isis_nb.h"
 
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
@@ -161,7 +161,7 @@ struct quagga_signal_t isisd_signals[] = {
 };
 
 
-static const struct frr_yang_module_info *isisd_yang_modules[] = {
+static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 	&frr_interface_info,
 #ifndef FABRICD
 	&frr_isisd_info,
@@ -243,7 +243,7 @@ int main(int argc, char **argv, char **envp)
 	mt_init();
 
 	/* create the global 'isis' instance */
-	isis_new(1);
+	isis_new(1, VRF_DEFAULT);
 
 	isis_zebra_init(master);
 	isis_bfd_init();

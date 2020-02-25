@@ -53,7 +53,12 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_bfd.h"
 
-static const char *ospf_network_type_str[] = {
+FRR_CFG_DEFAULT_BOOL(OSPF_LOG_ADJACENCY_CHANGES,
+	{ .val_long = true, .match_profile = "datacenter", },
+	{ .val_long = false },
+)
+
+static const char *const ospf_network_type_str[] = {
 	"Null",	"POINTOPOINT", "BROADCAST", "NBMA", "POINTOMULTIPOINT",
 	"VIRTUALLINK", "LOOPBACK"};
 
@@ -138,6 +143,7 @@ static struct ospf *ospf_cmd_lookup_ospf(struct vty *vty,
 	struct ospf *ospf = NULL;
 	int idx_vrf = 0, idx_inst = 0;
 	const char *vrf_name = NULL;
+	bool created = false;
 
 	*instance = 0;
 	if (argv_find(argv, argc, "(1-65535)", &idx_inst))
@@ -149,16 +155,21 @@ static struct ospf *ospf_cmd_lookup_ospf(struct vty *vty,
 			vrf_name = NULL;
 		if (enable) {
 			/* Allocate VRF aware instance */
-			ospf = ospf_get(*instance, vrf_name);
+			ospf = ospf_get(*instance, vrf_name, &created);
 		} else {
 			ospf = ospf_lookup_by_inst_name(*instance, vrf_name);
 		}
 	} else {
 		if (enable) {
-			ospf = ospf_get(*instance, NULL);
+			ospf = ospf_get(*instance, NULL, &created);
 		} else {
 			ospf = ospf_lookup_instance(*instance);
 		}
+	}
+
+	if (created) {
+		if (DFLT_OSPF_LOG_ADJACENCY_CHANGES)
+			SET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
 	}
 
 	return ospf;
@@ -2622,11 +2633,14 @@ ALIAS(no_ospf_write_multiplier, no_write_multiplier_cmd,
       "Write multiplier\n"
       "Maximum number of interface serviced per write\n")
 
-const char *ospf_abr_type_descr_str[] = {"Unknown", "Standard (RFC2328)",
-					 "Alternative IBM", "Alternative Cisco",
-					 "Alternative Shortcut"};
+static const char *const ospf_abr_type_descr_str[] = {
+	"Unknown", "Standard (RFC2328)", "Alternative IBM",
+	"Alternative Cisco", "Alternative Shortcut"
+};
 
-const char *ospf_shortcut_mode_descr_str[] = {"Default", "Enabled", "Disabled"};
+static const char *const ospf_shortcut_mode_descr_str[] = {
+	"Default", "Enabled", "Disabled"
+};
 
 static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 			      json_object *json_areas, bool use_json)
@@ -4151,7 +4165,7 @@ DEFUN (show_ip_ospf_interface_traffic,
 
 static void show_ip_ospf_neighbour_header(struct vty *vty)
 {
-	vty_out(vty, "\n%-15s %3s %-15s %9s %-15s %-20s %5s %5s %5s\n",
+	vty_out(vty, "\n%-15s %3s %-15s %9s %-15s %-32s %5s %5s %5s\n",
 		"Neighbor ID", "Pri", "State", "Dead Time", "Address",
 		"Interface", "RXmtL", "RqstL", "DBsmL");
 }
@@ -4257,7 +4271,7 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 							timebuf,
 							sizeof(timebuf)));
 				vty_out(vty, "%-15s ", inet_ntoa(nbr->src));
-				vty_out(vty, "%-20s %5ld %5ld %5d\n",
+				vty_out(vty, "%-32s %5ld %5ld %5d\n",
 					IF_NAME(oi),
 					ospf_ls_retransmit_count(nbr),
 					ospf_ls_request_count(nbr),
@@ -4521,7 +4535,7 @@ static int show_ip_ospf_neighbor_all_common(struct vty *vty, struct ospf *ospf,
 						"-", nbr_nbma->priority, "Down",
 						"-");
 					vty_out(vty,
-						"%-15s %-20s %5d %5d %5d\n",
+						"%-32s %-20s %5d %5d %5d\n",
 						inet_ntoa(nbr_nbma->addr),
 						IF_NAME(oi), 0, 0, 0);
 				}
@@ -5767,7 +5781,7 @@ static int show_lsa_summary(struct vty *vty, struct ospf_lsa *lsa, int self)
 	return 0;
 }
 
-static const char *show_database_desc[] = {
+static const char *const show_database_desc[] = {
 	"unknown",
 	"Router Link States",
 	"Net Link States",
@@ -5782,7 +5796,7 @@ static const char *show_database_desc[] = {
 	"AS-external Opaque-LSA",
 };
 
-static const char *show_database_header[] = {
+static const char *const show_database_header[] = {
 	"",
 	"Link ID         ADV Router      Age  Seq#       CkSum  Link count",
 	"Link ID         ADV Router      Age  Seq#       CkSum",
@@ -5834,7 +5848,7 @@ static void show_ip_ospf_database_header(struct vty *vty, struct ospf_lsa *lsa)
 	vty_out(vty, "  Length: %d\n\n", ntohs(lsa->data->length));
 }
 
-const char *link_type_desc[] = {
+static const char *const link_type_desc[] = {
 	"(null)",
 	"another Router (point-to-point)",
 	"a Transit Network",
@@ -5842,12 +5856,12 @@ const char *link_type_desc[] = {
 	"a Virtual Link",
 };
 
-const char *link_id_desc[] = {
+static const char *const link_id_desc[] = {
 	"(null)", "Neighboring Router ID", "Designated Router address",
 	"Net",    "Neighboring Router ID",
 };
 
-const char *link_data_desc[] = {
+static const char *const link_data_desc[] = {
 	"(null)",       "Router Interface address", "Router Interface address",
 	"Network Mask", "Router Interface address",
 };
@@ -6047,7 +6061,7 @@ static int show_opaque_lsa_detail(struct vty *vty, struct ospf_lsa *lsa)
 	return 0;
 }
 
-int (*show_function[])(struct vty *, struct ospf_lsa *) = {
+int (*const show_function[])(struct vty *, struct ospf_lsa *) = {
 	NULL,
 	show_router_lsa_detail,
 	show_network_lsa_detail,
@@ -9646,7 +9660,7 @@ DEFUN (show_ip_ospf_vrfs,
 	struct ospf *ospf = NULL;
 	struct listnode *node = NULL;
 	int count = 0;
-	static char header[] = "Name                       Id     RouterId  ";
+	static const char header[] = "Name                       Id     RouterId  ";
 
 	if (uj) {
 		json = json_object_new_object();
@@ -9703,16 +9717,23 @@ DEFUN (show_ip_ospf_vrfs,
 	return CMD_SUCCESS;
 }
 
-const char *ospf_abr_type_str[] = {"unknown", "standard", "ibm", "cisco",
-				   "shortcut"};
+static const char *const ospf_abr_type_str[] = {
+	"unknown", "standard", "ibm", "cisco", "shortcut"
+};
 
-const char *ospf_shortcut_mode_str[] = {"default", "enable", "disable"};
+static const char *const ospf_shortcut_mode_str[] = {
+	"default", "enable", "disable"
+};
 
-const char *ospf_int_type_str[] = {"unknown", /* should never be used. */
-				   "point-to-point", "broadcast",
-				   "non-broadcast",  "point-to-multipoint",
-				   "virtual-link", /* should never be used. */
-				   "loopback"};
+static const char *const ospf_int_type_str[] = {
+	"unknown", /* should never be used. */
+	"point-to-point",
+	"broadcast",
+	"non-broadcast",
+	"point-to-multipoint",
+	"virtual-link", /* should never be used. */
+	"loopback"
+};
 
 static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 {
@@ -10348,9 +10369,9 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES)) {
 		if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
 			vty_out(vty, " log-adjacency-changes detail\n");
-		else if (!DFLT_OSPF_LOG_ADJACENCY_CHANGES)
+		else if (!SAVE_OSPF_LOG_ADJACENCY_CHANGES)
 			vty_out(vty, " log-adjacency-changes\n");
-	} else if (DFLT_OSPF_LOG_ADJACENCY_CHANGES) {
+	} else if (SAVE_OSPF_LOG_ADJACENCY_CHANGES) {
 		vty_out(vty, " no log-adjacency-changes\n");
 	}
 
@@ -10661,7 +10682,7 @@ static void ospf_interface_clear(struct interface *ifp)
 
 DEFUN (clear_ip_ospf_interface,
        clear_ip_ospf_interface_cmd,
-       "clear ip ospf [vrf <NAME>] interface [IFNAME]",
+       "clear ip ospf [vrf NAME] interface [IFNAME]",
        CLEAR_STR
        IP_STR
        "OSPF information\n"

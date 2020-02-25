@@ -21,6 +21,7 @@
 
 #include "libfrr.h"
 #include "version.h"
+#include "defaults.h"
 #include "log.h"
 #include "lib_errors.h"
 #include "command.h"
@@ -40,6 +41,7 @@ struct debug nb_dbg_cbs_state = {0, "Northbound callbacks: state"};
 struct debug nb_dbg_cbs_rpc = {0, "Northbound callbacks: RPCs"};
 struct debug nb_dbg_notif = {0, "Northbound notifications"};
 struct debug nb_dbg_events = {0, "Northbound events"};
+struct debug nb_dbg_libyang = {0, "libyang debugging"};
 
 struct nb_config *vty_shared_candidate_config;
 static struct thread_master *master;
@@ -84,19 +86,11 @@ void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 
 int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 {
-	struct nb_config *candidate_transitory;
 	char xpath_base[XPATH_MAXLEN] = {};
 	bool error = false;
 	int ret;
 
 	VTY_CHECK_XPATH;
-
-	/*
-	 * Create a copy of the candidate configuration. For consistency, we
-	 * need to ensure that either all changes made by the command are
-	 * accepted or none are.
-	 */
-	candidate_transitory = nb_config_dup(vty->candidate_config);
 
 	/* Parse the base XPath format string. */
 	if (xpath_base_fmt) {
@@ -137,7 +131,7 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 			flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
 				  "%s: unknown data path: %s", __func__, xpath);
 			error = true;
-			break;
+			continue;
 		}
 
 		/* If the value is not set, get the default if it exists. */
@@ -149,7 +143,7 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 		 * Ignore "not found" errors when editing the candidate
 		 * configuration.
 		 */
-		ret = nb_candidate_edit(candidate_transitory, nb_node,
+		ret = nb_candidate_edit(vty->candidate_config, nb_node,
 					change->operation, xpath, NULL, data);
 		yang_data_free(data);
 		if (ret != NB_OK && ret != NB_ERR_NOT_FOUND) {
@@ -159,28 +153,19 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 				__func__, nb_operation_name(change->operation),
 				xpath);
 			error = true;
-			break;
+			continue;
 		}
 	}
 
 	if (error) {
-		nb_config_free(candidate_transitory);
-
-		switch (frr_get_cli_mode()) {
-		case FRR_CLI_CLASSIC:
-			vty_out(vty, "%% Configuration failed.\n\n");
-			break;
-		case FRR_CLI_TRANSACTIONAL:
-			vty_out(vty,
-				"%% Failed to edit candidate configuration.\n\n");
-			break;
-		}
+		/*
+		 * Failure to edit the candidate configuration should never
+		 * happen in practice, unless there's a bug in the code. When
+		 * that happens, log the error but otherwise ignore it.
+		 */
+		vty_out(vty, "%% Failed to edit configuration.\n\n");
 		vty_show_libyang_errors(vty, ly_native_ctx);
-
-		return CMD_WARNING_CONFIG_FAILED;
 	}
-
-	nb_config_replace(vty->candidate_config, candidate_transitory, false);
 
 	/* Do an implicit "commit" when using the classic CLI mode. */
 	if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
@@ -193,13 +178,8 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 				"Please check the logs for more details.\n");
 
 			/* Regenerate candidate for consistency. */
-			pthread_rwlock_rdlock(&running_config->lock);
-			{
-				nb_config_replace(vty->candidate_config,
-						  running_config, true);
-			}
-			pthread_rwlock_unlock(&running_config->lock);
-
+			nb_config_replace(vty->candidate_config, running_config,
+					  true);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
@@ -307,12 +287,7 @@ static int nb_cli_commit(struct vty *vty, bool force,
 
 	/* "confirm" parameter. */
 	if (confirmed_timeout) {
-		pthread_rwlock_rdlock(&running_config->lock);
-		{
-			vty->confirmed_commit_rollback =
-				nb_config_dup(running_config);
-		}
-		pthread_rwlock_unlock(&running_config->lock);
+		vty->confirmed_commit_rollback = nb_config_dup(running_config);
 
 		vty->t_confirmed_commit_timeout = NULL;
 		thread_add_timer(master, nb_cli_confirmed_commit_timeout, vty,
@@ -326,13 +301,8 @@ static int nb_cli_commit(struct vty *vty, bool force,
 	/* Map northbound return code to CLI return code. */
 	switch (ret) {
 	case NB_OK:
-		pthread_rwlock_rdlock(&running_config->lock);
-		{
-			nb_config_replace(vty->candidate_config_base,
-					  running_config, true);
-		}
-		pthread_rwlock_unlock(&running_config->lock);
-
+		nb_config_replace(vty->candidate_config_base, running_config,
+				  true);
 		vty_out(vty,
 			"%% Configuration committed successfully (Transaction ID #%u).\n\n",
 			transaction_id);
@@ -453,6 +423,27 @@ static struct lyd_node *ly_iter_next_up(const struct lyd_node *elem)
 	return elem->parent;
 }
 
+/* Prepare the configuration for display. */
+void nb_cli_show_config_prepare(struct nb_config *config, bool with_defaults)
+{
+	/* Nothing to do for daemons that don't implement any YANG module. */
+	if (config->dnode == NULL)
+		return;
+
+	lyd_schema_sort(config->dnode, 1);
+
+	/*
+	 * Call lyd_validate() only to create default child nodes, ignoring
+	 * any possible validation error. This doesn't need to be done when
+	 * displaying the running configuration since it's always fully
+	 * validated.
+	 */
+	if (config != running_config)
+		(void)lyd_validate(&config->dnode,
+				   LYD_OPT_CONFIG | LYD_OPT_WHENAUTODEL,
+				   ly_native_ctx);
+}
+
 void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
 			    bool with_defaults)
 {
@@ -496,7 +487,7 @@ static void nb_cli_show_config_cmds(struct vty *vty, struct nb_config *config,
 	vty_out(vty, "Configuration:\n");
 	vty_out(vty, "!\n");
 	vty_out(vty, "frr version %s\n", FRR_VER_SHORT);
-	vty_out(vty, "frr defaults %s\n", DFLT_NAME);
+	vty_out(vty, "frr defaults %s\n", frr_defaults_profile());
 
 	LY_TREE_FOR (config->dnode, root)
 		nb_cli_show_dnode_cmds(vty, root, with_defaults);
@@ -545,6 +536,8 @@ static int nb_cli_show_config(struct vty *vty, struct nb_config *config,
 			      struct yang_translator *translator,
 			      bool with_defaults)
 {
+	nb_cli_show_config_prepare(config, with_defaults);
+
 	switch (format) {
 	case NB_CFG_FMT_CMDS:
 		nb_cli_show_config_cmds(vty, config, with_defaults);
@@ -729,12 +722,7 @@ DEFPY (config_update,
 		return CMD_WARNING;
 	}
 
-	pthread_rwlock_rdlock(&running_config->lock);
-	{
-		nb_config_replace(vty->candidate_config_base, running_config,
-				  true);
-	}
-	pthread_rwlock_unlock(&running_config->lock);
+	nb_config_replace(vty->candidate_config_base, running_config, true);
 
 	vty_out(vty, "%% Candidate configuration updated successfully.\n\n");
 
@@ -834,12 +822,8 @@ DEFPY (show_config_running,
 		}
 	}
 
-	pthread_rwlock_rdlock(&running_config->lock);
-	{
-		nb_cli_show_config(vty, running_config, format, translator,
-				   !!with_defaults);
-	}
-	pthread_rwlock_unlock(&running_config->lock);
+	nb_cli_show_config(vty, running_config, format, translator,
+			   !!with_defaults);
 
 	return CMD_SUCCESS;
 }
@@ -953,68 +937,57 @@ DEFPY (show_config_compare,
 	struct nb_config *config2, *config_transaction2 = NULL;
 	int ret = CMD_WARNING;
 
-	/*
-	 * For simplicity, lock the running configuration regardless if it's
-	 * going to be used or not.
-	 */
-	pthread_rwlock_rdlock(&running_config->lock);
-	{
-		if (c1_candidate)
-			config1 = vty->candidate_config;
-		else if (c1_running)
-			config1 = running_config;
-		else {
-			config_transaction1 = nb_db_transaction_load(c1_tid);
-			if (!config_transaction1) {
-				vty_out(vty,
-					"%% Transaction %u does not exist\n\n",
-					(unsigned int)c1_tid);
-				goto exit;
-			}
-			config1 = config_transaction1;
+	if (c1_candidate)
+		config1 = vty->candidate_config;
+	else if (c1_running)
+		config1 = running_config;
+	else {
+		config_transaction1 = nb_db_transaction_load(c1_tid);
+		if (!config_transaction1) {
+			vty_out(vty, "%% Transaction %u does not exist\n\n",
+				(unsigned int)c1_tid);
+			goto exit;
 		}
-
-		if (c2_candidate)
-			config2 = vty->candidate_config;
-		else if (c2_running)
-			config2 = running_config;
-		else {
-			config_transaction2 = nb_db_transaction_load(c2_tid);
-			if (!config_transaction2) {
-				vty_out(vty,
-					"%% Transaction %u does not exist\n\n",
-					(unsigned int)c2_tid);
-				goto exit;
-			}
-			config2 = config_transaction2;
-		}
-
-		if (json)
-			format = NB_CFG_FMT_JSON;
-		else if (xml)
-			format = NB_CFG_FMT_XML;
-		else
-			format = NB_CFG_FMT_CMDS;
-
-		if (translator_family) {
-			translator = yang_translator_find(translator_family);
-			if (!translator) {
-				vty_out(vty,
-					"%% Module translator \"%s\" not found\n",
-					translator_family);
-				goto exit;
-			}
-		}
-
-		ret = nb_cli_show_config_compare(vty, config1, config2, format,
-						 translator);
-	exit:
-		if (config_transaction1)
-			nb_config_free(config_transaction1);
-		if (config_transaction2)
-			nb_config_free(config_transaction2);
+		config1 = config_transaction1;
 	}
-	pthread_rwlock_unlock(&running_config->lock);
+
+	if (c2_candidate)
+		config2 = vty->candidate_config;
+	else if (c2_running)
+		config2 = running_config;
+	else {
+		config_transaction2 = nb_db_transaction_load(c2_tid);
+		if (!config_transaction2) {
+			vty_out(vty, "%% Transaction %u does not exist\n\n",
+				(unsigned int)c2_tid);
+			goto exit;
+		}
+		config2 = config_transaction2;
+	}
+
+	if (json)
+		format = NB_CFG_FMT_JSON;
+	else if (xml)
+		format = NB_CFG_FMT_XML;
+	else
+		format = NB_CFG_FMT_CMDS;
+
+	if (translator_family) {
+		translator = yang_translator_find(translator_family);
+		if (!translator) {
+			vty_out(vty, "%% Module translator \"%s\" not found\n",
+				translator_family);
+			goto exit;
+		}
+	}
+
+	ret = nb_cli_show_config_compare(vty, config1, config2, format,
+					 translator);
+exit:
+	if (config_transaction1)
+		nb_config_free(config_transaction1);
+	if (config_transaction2)
+		nb_config_free(config_transaction2);
 
 	return ret;
 }
@@ -1610,7 +1583,7 @@ DEFPY (rollback_config,
 /* Debug CLI commands. */
 static struct debug *nb_debugs[] = {
 	&nb_dbg_cbs_config, &nb_dbg_cbs_state, &nb_dbg_cbs_rpc,
-	&nb_dbg_notif,      &nb_dbg_events,
+	&nb_dbg_notif,      &nb_dbg_events,    &nb_dbg_libyang,
 };
 
 static const char *const nb_debugs_conflines[] = {
@@ -1619,6 +1592,7 @@ static const char *const nb_debugs_conflines[] = {
 	"debug northbound callbacks rpc",
 	"debug northbound notifications",
 	"debug northbound events",
+	"debug northbound libyang",
 };
 
 DEFINE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set));
@@ -1643,6 +1617,7 @@ DEFPY (debug_nb,
 	    callbacks$cbs [{configuration$cbs_cfg|state$cbs_state|rpc$cbs_rpc}]\
 	    |notifications$notifications\
 	    |events$events\
+	    |libyang$libyang\
           >]",
        NO_STR
        DEBUG_STR
@@ -1652,7 +1627,8 @@ DEFPY (debug_nb,
        "State\n"
        "RPC\n"
        "Notifications\n"
-       "Events\n")
+       "Events\n"
+       "libyang debugging\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
 
@@ -1670,10 +1646,16 @@ DEFPY (debug_nb,
 		DEBUG_MODE_SET(&nb_dbg_notif, mode, !no);
 	if (events)
 		DEBUG_MODE_SET(&nb_dbg_events, mode, !no);
+	if (libyang) {
+		DEBUG_MODE_SET(&nb_dbg_libyang, mode, !no);
+		yang_debugging_set(!no);
+	}
 
 	/* no specific debug --> act on all of them */
-	if (strmatch(argv[argc - 1]->text, "northbound"))
+	if (strmatch(argv[argc - 1]->text, "northbound")) {
 		nb_debug_set_all(mode, !no);
+		yang_debugging_set(!no);
+	}
 
 	return CMD_SUCCESS;
 }

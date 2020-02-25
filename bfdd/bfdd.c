@@ -23,6 +23,7 @@
 #include "filter.h"
 
 #include "bfd.h"
+#include "bfdd_nb.h"
 #include "lib/version.h"
 
 
@@ -108,7 +109,7 @@ static struct quagga_signal_t bfd_signals[] = {
 	},
 };
 
-static const struct frr_yang_module_info *bfdd_yang_modules[] = {
+static const struct frr_yang_module_info *const bfdd_yang_modules[] = {
 	&frr_interface_info,
 	&frr_bfdd_info,
 };
@@ -121,7 +122,7 @@ FRR_DAEMON_INFO(bfdd, BFD, .vty_port = 2617,
 		.n_yang_modules = array_size(bfdd_yang_modules))
 
 #define OPTION_CTLSOCK 1001
-static struct option longopts[] = {
+static const struct option longopts[] = {
 	{"bfdctl", required_argument, NULL, OPTION_CTLSOCK},
 	{0}
 };
@@ -132,7 +133,7 @@ static struct option longopts[] = {
  */
 struct bfd_global bglobal;
 
-struct bfd_diag_str_list diag_list[] = {
+const struct bfd_diag_str_list diag_list[] = {
 	{.str = "control-expired", .type = BD_CONTROL_EXPIRED},
 	{.str = "echo-failed", .type = BD_ECHO_FAILED},
 	{.str = "neighbor-down", .type = BD_NEIGHBOR_DOWN},
@@ -144,7 +145,7 @@ struct bfd_diag_str_list diag_list[] = {
 	{.str = NULL},
 };
 
-struct bfd_state_str_list state_list[] = {
+const struct bfd_state_str_list state_list[] = {
 	{.str = "admin-down", .type = PTM_BFD_ADM_DOWN},
 	{.str = "down", .type = PTM_BFD_DOWN},
 	{.str = "init", .type = PTM_BFD_INIT},

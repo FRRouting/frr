@@ -293,6 +293,12 @@ struct interface {
 	struct route_node *node;
 	vrf_id_t vrf_id;
 
+	/*
+	 * Has the end users entered `interface XXXX` from the cli in some
+	 * fashion?
+	 */
+	bool configured;
+
 	QOBJ_FIELDS
 };
 
@@ -473,7 +479,11 @@ extern int if_cmp_name_func(const char *p1, const char *p2);
  * else think before you use VRF_UNKNOWN
  */
 extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
-extern struct interface *if_create(const char *name, vrf_id_t vrf_id);
+
+/* Create new interface, adds to name list only */
+extern struct interface *if_create_name(const char *name, vrf_id_t vrf_id);
+
+/* Create new interface, adds to index list only */
 extern struct interface *if_create_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index_all_vrf(ifindex_t);
@@ -486,13 +496,15 @@ extern struct interface *if_lookup_prefix(struct prefix *prefix,
 size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 			   struct interface ***result, vrf_id_t vrf_id);
 
-/* These 3 functions are to be used when the ifname argument is terminated
-   by a '\0' character: */
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
 extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
 extern struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
+
+/* Sets the index and adds to index list */
 extern void if_set_index(struct interface *ifp, ifindex_t ifindex);
+/* Sets the name and adds to name list */
+extern void if_set_name(struct interface *ifp, const char *name);
 
 /* Delete the interface, but do not free the structure, and leave it in the
    interface list.  It is often advisable to leave the pseudo interface
@@ -501,7 +513,7 @@ extern void if_delete_retain(struct interface *);
 
 /* Delete and free the interface structure: calls if_delete_retain and then
    deletes it from the interface list and frees the structure. */
-extern void if_delete(struct interface *);
+extern void if_delete(struct interface **ifp);
 
 extern int if_is_up(const struct interface *ifp);
 extern int if_is_running(const struct interface *ifp);
@@ -531,7 +543,7 @@ extern ifindex_t ifname2ifindex(const char *ifname, vrf_id_t vrf_id);
 
 /* Connected address functions. */
 extern struct connected *connected_new(void);
-extern void connected_free(struct connected *);
+extern void connected_free(struct connected **connected);
 extern void connected_add(struct interface *, struct connected *);
 extern struct connected *
 connected_add_by_prefix(struct interface *, struct prefix *, struct prefix *);
@@ -541,6 +553,7 @@ extern struct connected *connected_lookup_prefix(struct interface *,
 						 struct prefix *);
 extern struct connected *connected_lookup_prefix_exact(struct interface *,
 						       struct prefix *);
+extern unsigned int connected_count_by_family(struct interface *, int family);
 extern struct nbr_connected *nbr_connected_new(void);
 extern void nbr_connected_free(struct nbr_connected *);
 struct nbr_connected *nbr_connected_check(struct interface *, struct prefix *);
@@ -552,6 +565,16 @@ void if_link_params_free(struct interface *);
 
 /* Northbound. */
 extern void if_cmd_init(void);
+extern void if_zapi_callbacks(int (*create)(struct interface *ifp),
+			      int (*up)(struct interface *ifp),
+			      int (*down)(struct interface *ifp),
+			      int (*destroy)(struct interface *ifp));
+
+extern void if_new_via_zapi(struct interface *ifp);
+extern void if_up_via_zapi(struct interface *ifp);
+extern void if_down_via_zapi(struct interface *ifp);
+extern void if_destroy_via_zapi(struct interface *ifp);
+
 extern const struct frr_yang_module_info frr_interface_info;
 
 #ifdef __cplusplus

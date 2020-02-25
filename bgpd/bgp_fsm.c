@@ -57,12 +57,12 @@
 #include "bgpd/bgp_zebra.h"
 
 DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
-DEFINE_HOOK(peer_established, (struct peer * peer), (peer))
+DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer))
 
 /* Definition of display strings corresponding to FSM events. This should be
  * kept consistent with the events defined in bgpd.h
  */
-static const char *bgp_event_str[] = {
+static const char *const bgp_event_str[] = {
 	NULL,
 	"BGP_Start",
 	"BGP_Stop",
@@ -101,7 +101,7 @@ static int bgp_peer_reg_with_nht(struct peer *peer)
 {
 	int connected = 0;
 
-	if (peer->sort == BGP_PEER_EBGP && peer->ttl == 1
+	if (peer->sort == BGP_PEER_EBGP && peer->ttl == BGP_DEFAULT_TTL
 	    && !CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
 	    && !bgp_flag_check(peer->bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 		connected = 1;
@@ -163,6 +163,14 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	bgp_reads_off(peer);
 	bgp_writes_off(from_peer);
 	bgp_reads_off(from_peer);
+
+	/*
+	 * Before exchanging FD remove doppelganger from
+	 * keepalive peer hash. It could be possible conf peer
+	 * fd is set to -1. If blocked on lock then keepalive
+	 * thread can access peer pointer with fd -1.
+	 */
+	bgp_keepalives_off(from_peer);
 
 	BGP_TIMER_OFF(peer->t_routeadv);
 	BGP_TIMER_OFF(peer->t_connect);
@@ -522,7 +530,7 @@ int bgp_routeadv_timer(struct thread *thread)
 }
 
 /* BGP Peer Down Cause */
-const char *peer_down_str[] = {"",
+const char *const peer_down_str[] = {"",
 			       "Router ID changed",
 			       "Remote AS changed",
 			       "Local AS change",
@@ -962,8 +970,6 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 	struct bgp *bgp;
 	uint32_t peer_count;
 
-	bgp_dump_state(peer, peer->status, status);
-
 	bgp = peer->bgp;
 	peer_count = bgp->established_peers;
 
@@ -1024,6 +1030,9 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 
 	/* Save event that caused status change. */
 	peer->last_major_event = peer->cur_event;
+
+	/* Operations after status change */
+	hook_call(peer_status_changed, peer);
 
 	if (status == Established)
 		UNSET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
@@ -1323,7 +1332,7 @@ static int bgp_connect_check(struct thread *thread)
 
 	/* If getsockopt is fail, this is fatal error. */
 	if (ret < 0) {
-		zlog_info("can't get sockopt for nonblocking connect: %d(%s)",
+		zlog_err("can't get sockopt for nonblocking connect: %d(%s)",
 			  errno, safe_strerror(errno));
 		BGP_EVENT_ADD(peer, TCP_fatal_error);
 		return -1;
@@ -1358,8 +1367,9 @@ static int bgp_connect_success(struct peer *peer)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s: bgp_getsockname(): failed for peer %s, fd %d",
 			     __FUNCTION__, peer->host, peer->fd);
-		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
-				0); /* internal error */
+		bgp_notify_send(
+			peer, BGP_NOTIFY_FSM_ERR,
+			BGP_NOTIFY_SUBCODE_UNSPECIFIC); /* internal error */
 		bgp_writes_on(peer);
 		return -1;
 	}
@@ -1657,8 +1667,6 @@ static int bgp_establish(struct peer *peer)
 				   peer->host);
 	}
 
-	hook_call(peer_established, peer);
-
 	/* Reset uptime, turn on keepalives, send current table. */
 	if (!peer->v_holdtime)
 		bgp_keepalives_on(peer);
@@ -1879,7 +1887,7 @@ static const struct {
 		{bgp_fsm_open, OpenConfirm}, /* Receive_OPEN_message         */
 		{bgp_fsm_event_error, Idle}, /* Receive_KEEPALIVE_message    */
 		{bgp_fsm_event_error, Idle}, /* Receive_UPDATE_message       */
-		{bgp_stop_with_error, Idle}, /* Receive_NOTIFICATION_message */
+		{bgp_fsm_event_error, Idle}, /* Receive_NOTIFICATION_message */
 		{bgp_fsm_exeption, Idle},    /* Clearing_Completed           */
 	},
 	{

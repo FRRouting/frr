@@ -1420,7 +1420,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 			 "%s [FSM] Update packet received under status %s",
 			 peer->host,
 			 lookup_msg(bgp_status_msg, peer->status, NULL));
-		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR, 0);
+		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
+				BGP_NOTIFY_SUBCODE_UNSPECIFIC);
 		return BGP_Stop;
 	}
 
@@ -1657,10 +1658,11 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 			if (peer->nsf[afi][safi])
 				bgp_clear_stale_route(peer, afi, safi);
 
-			zlog_info("%%NOTIFICATION: rcvd End-of-RIB for %s from %s in vrf %s",
-				  get_afi_safi_str(afi, safi, false), peer->host,
-				  vrf ? vrf->name : VRF_DEFAULT_NAME);
-		}
+                        zlog_info(
+                            "%s: rcvd End-of-RIB for %s from %s in vrf %s",
+                            __func__, get_afi_safi_str(afi, safi, false),
+                            peer->host, vrf ? vrf->name : VRF_DEFAULT_NAME);
+                }
 	}
 
 	/* Everything is done.  We unintern temporary structures which
@@ -1792,7 +1794,8 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 			"%s [Error] Route refresh packet received under status %s",
 			peer->host,
 			lookup_msg(bgp_status_msg, peer->status, NULL));
-		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR, 0);
+		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
+				BGP_NOTIFY_SUBCODE_UNSPECIFIC);
 		return BGP_Stop;
 	}
 
@@ -1827,7 +1830,8 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 		    < 5) {
 			zlog_info("%s ORF route refresh length error",
 				  peer->host);
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE, 0);
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
 			return BGP_Stop;
 		}
 
@@ -2061,7 +2065,8 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		 * length. */
 		if (pnt + 3 > end) {
 			zlog_info("%s Capability length error", peer->host);
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE, 0);
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
 			return BGP_Stop;
 		}
 		action = *pnt;
@@ -2072,7 +2077,8 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		    && action != CAPABILITY_ACTION_UNSET) {
 			zlog_info("%s Capability Action Value error %d",
 				  peer->host, action);
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE, 0);
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
 			return BGP_Stop;
 		}
 
@@ -2084,7 +2090,8 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		/* Capability length check. */
 		if ((pnt + hdr->length + 3) > end) {
 			zlog_info("%s Capability length error", peer->host);
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE, 0);
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
 			return BGP_Stop;
 		}
 
@@ -2188,7 +2195,8 @@ int bgp_capability_receive(struct peer *peer, bgp_size_t size)
 			"%s [Error] Dynamic capability packet received under status %s",
 			peer->host,
 			lookup_msg(bgp_status_msg, peer->status, NULL));
-		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR, 0);
+		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
+				BGP_NOTIFY_SUBCODE_UNSPECIFIC);
 		return BGP_Stop;
 	}
 

@@ -570,8 +570,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 	vty_out(vty, "  Created: %s", timestamp_string(updgrp->uptime));
 	filter = &updgrp->conf->filter[updgrp->afi][updgrp->safi];
 	if (filter->map[RMAP_OUT].name)
-		vty_out(vty, "  Outgoing route map: %s%s\n",
-			filter->map[RMAP_OUT].map ? "X" : "",
+		vty_out(vty, "  Outgoing route map: %s\n",
 			filter->map[RMAP_OUT].name);
 	vty_out(vty, "  MRAI value (seconds): %d\n", updgrp->conf->v_routeadv);
 	if (updgrp->conf->change_local_as)
@@ -613,6 +612,9 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 			subgrp->peer_refreshes_combined);
 		vty_out(vty, "    Merge checks triggered: %u\n",
 			subgrp->merge_checks_triggered);
+		vty_out(vty, "    Coalesce Time: %u%s\n",
+			(UPDGRP_INST(subgrp->update_group))->coalesce_time,
+			subgrp->t_coalesce ? "(Running)" : "");
 		vty_out(vty, "    Version: %" PRIu64 "\n", subgrp->version);
 		vty_out(vty, "    Packet queue length: %d\n",
 			bpacket_queue_length(SUBGRP_PKTQ(subgrp)));
@@ -915,7 +917,7 @@ static void update_subgroup_remove_peer_internal(struct update_subgroup *subgrp,
 
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
 		zlog_debug("peer %s deleted from subgroup s%"
-			   PRIu64 "peer cnt %d",
+			   PRIu64 " peer cnt %d",
 			   paf->peer->host, subgrp->id, subgrp->peer_count);
 	SUBGRP_INCR_STAT(subgrp, prune_events);
 }

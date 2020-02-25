@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.60])
 
-AC_INIT([frr], [7.2.1], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [7.3], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -328,10 +328,17 @@ if test "$enable_thread_sanitizer" = "yes"; then
   ])
 fi
 if test "$enable_memory_sanitizer" = "yes"; then
-  AC_C_FLAG([-fsanitize=thread -fPIE -pie], [
-    AC_MSG_ERROR([$CC does not support Thread Sanitizer.])
+  AC_C_FLAG([-fsanitize=memory -fPIE -pie], [
+    AC_MSG_ERROR([$CC does not support Memory Sanitizer.])
   ], [
-    SAN_FLAGS="-fsanitize=memory -fPIE -pie"
+    SAN_FLAGS="$SAN_FLAGS -fsanitize=memory -fPIE -pie"
+  ])
+fi
+if test "$enable_undefined_sanitizer" = "yes"; then
+  AC_C_FLAG([-fsanitize=undefined], [
+    AC_MSG_ERROR([$CC does not support UndefinedBehaviorSanitizer.])
+  ], [
+    SAN_FLAGS="$SAN_FLAGS -fsanitize=undefined"
   ])
 fi
 AC_SUBST([SAN_FLAGS])
@@ -536,6 +543,8 @@ AC_ARG_ENABLE([backtrace],
   AS_HELP_STRING([--disable-backtrace,], [disable crash backtraces (default autodetect)]))
 AC_ARG_ENABLE([time-check],
   AS_HELP_STRING([--disable-time-check], [disable slow thread warning messages]))
+AC_ARG_ENABLE([cpu-time],
+  AS_HELP_STRING([--disable-cpu-time], [disable cpu usage data gathering]))
 AC_ARG_ENABLE([pcreposix],
   AS_HELP_STRING([--enable-pcreposix], [enable using PCRE Posix libs for regex functions]))
 AC_ARG_ENABLE([fpm],
@@ -574,6 +583,8 @@ AC_ARG_ENABLE([thread-sanitizer],
   AS_HELP_STRING([--enable-thread-sanitizer], [enable ThreadSanitizer support for detecting data races]))
 AC_ARG_ENABLE([memory-sanitizer],
   AS_HELP_STRING([--enable-memory-sanitizer], [enable MemorySanitizer support for detecting uninitialized memory reads]))
+AC_ARG_ENABLE([undefined-sanitizer],
+  AS_HELP_STRING([--undefined-sanitizer], [enable UndefinedBehaviorSanitizer support for detecting undefined behavior]))
 AC_ARG_WITH([crypto],
   AS_HELP_STRING([--with-crypto=<internal|openssl>], [choose between different implementations of cryptographic functions(default value is --with-crypto=internal)]))
 
@@ -614,6 +625,14 @@ if test x"${enable_time_check}" != x"no" ; then
   fi
 fi
 
+case "${enable_cpu_time}" in
+  "no")
+  AC_DEFINE([EXCLUDE_CPU_TIME], [1], [Exclude getrusage data gathering])
+  ;;
+  "*")
+  ;;
+esac
+
 case "${enable_systemd}" in
   "no") ;;
   "yes")
@@ -633,6 +652,7 @@ fi
 
 if test "${enable_datacenter}" = "yes" ; then
   AC_DEFINE([HAVE_DATACENTER], [1], [Compile extensions for a DataCenter])
+  AC_MSG_WARN([The --enable-datacenter compile time option is deprecated.  Please modify the init script to pass -F datacenter to the daemons instead.])
   DFLT_NAME="datacenter"
 else
   DFLT_NAME="traditional"
@@ -1050,6 +1070,8 @@ FRR_INCLUDES
 
 dnl V6 headers are checked below, after we check for v6
 
+is_linux=false
+
 AC_MSG_CHECKING([which operating system interface to use])
 case "$host_os" in
   sunos* | solaris2*)
@@ -1078,6 +1100,8 @@ case "$host_os" in
     dnl how to fix it but no real progress on implementation
     dnl when they fix it, remove this
     AC_DEFINE([IPV6_MINHOPCOUNT], [73], [Linux ipv6 Min Hop Count])
+
+    is_linux=true
     ;;
   openbsd*)
     AC_MSG_RESULT([OpenBSD])
@@ -1105,6 +1129,7 @@ case "$host_os" in
     ;;
 esac
 AM_CONDITIONAL([SOLARIS], [test "${SOLARIS}" = "solaris"])
+AM_CONDITIONAL([LINUX], [${is_linux}])
 
 AC_SYS_LARGEFILE
 
@@ -1143,6 +1168,7 @@ dnl ##########################################################################
 #
 # Logic for protobuf support.
 #
+PROTO3=false
 if test "$enable_protobuf" = "yes"; then
   # Check for protoc & protoc-c
 
@@ -1157,9 +1183,15 @@ if test "$enable_protobuf" = "yes"; then
   PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 0.14],, [
     AC_MSG_FAILURE([protobuf requested but libprotobuf-c not found.  Install protobuf-c.])
   ])
-  AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h], [], [
-    AC_MSG_FAILURE([protobuf requested but protobuf-c.h not found.  Install protobuf-c.])
-  ])
+
+  PROTO3=true
+  AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h],
+                  [AC_CHECK_DECLS(PROTOBUF_C_LABEL_NONE,
+                                  AC_DEFINE([HAVE_PROTOBUF_VERSION_3],
+                                            [1], [Have Protobuf version 3]),
+                                  [PROTO3=false],
+                                  [#include <google/protobuf-c/protobuf-c.h>])],
+                  [PROTO3=false && AC_MSG_FAILURE([protobuf requested but protobuf-c.h not found.  Install protobuf-c.])])
 
   AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
 fi
@@ -1452,6 +1484,12 @@ if test "x$enable_pcreposix" = "xyes"; then
 fi
 AC_SUBST([HAVE_LIBPCREPOSIX])
 
+dnl ##########################################################################
+dnl test "${enable_clippy_only}" != "yes"
+fi
+dnl END OF LARGE if block
+dnl ##########################################################################
+
 dnl ------------------
 dnl check C-Ares library
 dnl ------------------
@@ -1461,12 +1499,6 @@ PKG_CHECK_MODULES([CARES], [libcares], [
   c_ares_found=false
 ])
 AM_CONDITIONAL([CARES], [$c_ares_found])
-
-dnl ##########################################################################
-dnl test "${enable_clippy_only}" != "yes"
-fi
-dnl END OF LARGE if block
-dnl ##########################################################################
 
 
 dnl ----------------------------------------------------------------------------
@@ -1535,9 +1567,11 @@ case "$host_os" in
       no)
         ;;
       yes)
+	if test "${enable_clippy_only}" != "yes"; then
         if test "$c_ares_found" != "true" ; then
           AC_MSG_ERROR([nhrpd requires libcares.  Please install c-ares and its -dev headers.])
         fi
+	fi
         NHRPD="nhrpd"
         ;;
       *)
@@ -2041,8 +2075,10 @@ if test "${enable_capabilities}" != "no"; then
 
   case "$host_os" in
   linux*)
+    if test "${enable_clippy_only}" != "yes"; then
     if test "$frr_ac_lcaps" != "yes"; then
       AC_MSG_ERROR([libcap and/or its headers were not found.  Running FRR without libcap support built in causes a huge performance penalty.])
+    fi
     fi
     ;;
   esac
@@ -2251,6 +2287,7 @@ AM_CONDITIONAL([SNMP], [test "x$SNMP_METHOD" = "xagentx"])
 AM_CONDITIONAL([IRDP], [$IRDP])
 AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
 AM_CONDITIONAL([HAVE_PROTOBUF], [test "x$enable_protobuf" = "xyes"])
+AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
 dnl daemons
 AM_CONDITIONAL([VTYSH], [test "x$VTYSH" = "xvtysh"])
 AM_CONDITIONAL([ZEBRA], [test "${enable_zebra}" != "no"])

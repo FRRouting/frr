@@ -23,13 +23,16 @@
 #include "lib/if.h"
 #include "lib/ipaddr.h"
 #include "lib/json.h"
+#include "lib/northbound_cli.h"
 #include "lib/prefix.h"
 #include "lib/termtable.h"
 #include "lib/vty.h"
+#include "lib/vrf.h"
 
 #include "vrrp.h"
 #include "vrrp_debug.h"
 #include "vrrp_vty.h"
+#include "vrrp_zebra.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "vrrpd/vrrp_vty_clippy.c"
 #endif
@@ -39,22 +42,16 @@
 #define VRRP_VRID_STR "Virtual Router ID\n"
 #define VRRP_PRIORITY_STR "Virtual Router Priority\n"
 #define VRRP_ADVINT_STR "Virtual Router Advertisement Interval\n"
-#define VRRP_IP_STR "Virtual Router IPv4 address\n"
+#define VRRP_IP_STR "Virtual Router IP address\n"
 #define VRRP_VERSION_STR "VRRP protocol version\n"
 
-#define VROUTER_GET_VTY(_vty, _ifp, _vrid, _vr)                                \
-	do {                                                                   \
-		_vr = vrrp_lookup(_ifp, _vrid);                                \
-		if (!_vr) {                                                    \
-			vty_out(_vty,                                          \
-				"%% Please configure VRRP instance %u\n",      \
-				(unsigned int)_vrid);                          \
-			return CMD_WARNING_CONFIG_FAILED;                      \
-		}                                                              \
-	} while (0)
+#define VRRP_XPATH_ENTRY VRRP_XPATH "[virtual-router-id='%ld']"
 
 /* clang-format off */
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group
+ */
 DEFPY(vrrp_vrid,
       vrrp_vrid_cmd,
       "[no] vrrp (1-255)$vrid [version (2-3)]",
@@ -64,27 +61,34 @@ DEFPY(vrrp_vrid,
       VRRP_VERSION_STR
       VRRP_VERSION_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+	char valbuf[20];
 
-	struct vrrp_vrouter *vr = vrrp_lookup(ifp, vrid);
+	snprintf(valbuf, sizeof(valbuf), "%ld", version ? version : vd.version);
 
-	if (version == 0)
-		version = 3;
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./version", NB_OP_MODIFY, valbuf);
+	}
 
-	if (no && vr)
-		vrrp_vrouter_destroy(vr);
-	else if (no && !vr)
-		vty_out(vty, "%% VRRP instance %ld does not exist on %s\n",
-			vrid, ifp->name);
-	else if (!vr)
-		vrrp_vrouter_create(ifp, vrid, version);
-	else if (vr)
-		vty_out(vty, "%% VRRP instance %ld already exists on %s\n",
-			vrid, ifp->name);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
+void cli_show_vrrp(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	const char *vrid = yang_dnode_get_string(dnode, "./virtual-router-id");
+	const char *ver = yang_dnode_get_string(dnode, "./version");
+
+	vty_out(vty, " vrrp %s", vrid);
+	if (show_defaults || !yang_dnode_is_default(dnode, "./version"))
+		vty_out(vty, " version %s", ver);
+	vty_out(vty, "\n");
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/shutdown
+ */
 DEFPY(vrrp_shutdown,
       vrrp_shutdown_cmd,
       "[no] vrrp (1-255)$vrid shutdown",
@@ -93,73 +97,114 @@ DEFPY(vrrp_shutdown,
       VRRP_VRID_STR
       "Force VRRP router into administrative shutdown\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+	nb_cli_enqueue_change(vty, "./shutdown", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
-	struct vrrp_vrouter *vr;
-
-	VROUTER_GET_VTY(vty, ifp, vrid, vr);
-
-	if (!no) {
-		if (vr->v4->fsm.state != VRRP_STATE_INITIALIZE)
-			vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
-		if (vr->v6->fsm.state != VRRP_STATE_INITIALIZE)
-			vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
-		vr->shutdown = true;
-	} else {
-		vr->shutdown = false;
-		vrrp_check_start(vr);
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
+void cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
+		       bool show_defaults)
+{
+	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
+	const bool shut = yang_dnode_get_bool(dnode, NULL);
+
+	vty_out(vty, " %svrrp %s shutdown\n", shut ? "" : "no ", vrid);
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/priority
+ */
 DEFPY(vrrp_priority,
       vrrp_priority_cmd,
-      "[no] vrrp (1-255)$vrid priority (1-254)",
+      "vrrp (1-255)$vrid priority (1-254)",
+      VRRP_STR
+      VRRP_VRID_STR
+      VRRP_PRIORITY_STR
+      "Priority value")
+{
+	nb_cli_enqueue_change(vty, "./priority", NB_OP_MODIFY, priority_str);
+
+	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/priority
+ */
+DEFPY(no_vrrp_priority,
+      no_vrrp_priority_cmd,
+      "no vrrp (1-255)$vrid priority [(1-254)]",
       NO_STR
       VRRP_STR
       VRRP_VRID_STR
       VRRP_PRIORITY_STR
       "Priority value")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+	nb_cli_enqueue_change(vty, "./priority", NB_OP_MODIFY, NULL);
 
-	struct vrrp_vrouter *vr;
-	uint8_t newprio = no ? vd.priority : priority;
-
-	VROUTER_GET_VTY(vty, ifp, vrid, vr);
-
-	vrrp_set_priority(vr, newprio);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
+void cli_show_priority(struct vty *vty, struct lyd_node *dnode,
+		       bool show_defaults)
+{
+	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
+	const char *prio = yang_dnode_get_string(dnode, NULL);
+
+	vty_out(vty, " vrrp %s priority %s\n", vrid, prio);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/advertisement-interval
+ */
 DEFPY(vrrp_advertisement_interval,
       vrrp_advertisement_interval_cmd,
-      "[no] vrrp (1-255)$vrid advertisement-interval (10-40950)",
+      "vrrp (1-255)$vrid advertisement-interval (10-40950)",
+      VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
+      "Advertisement interval in milliseconds; must be multiple of 10")
+{
+	char val[20];
+
+	/* all internal computations are in centiseconds */
+	advertisement_interval /= CS2MS;
+	snprintf(val, sizeof(val), "%ld", advertisement_interval);
+	nb_cli_enqueue_change(vty, "./advertisement-interval", NB_OP_MODIFY,
+			      val);
+
+	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/advertisement-interval
+ */
+DEFPY(no_vrrp_advertisement_interval,
+      no_vrrp_advertisement_interval_cmd,
+      "no vrrp (1-255)$vrid advertisement-interval [(10-40950)]",
       NO_STR VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
       "Advertisement interval in milliseconds; must be multiple of 10")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+	nb_cli_enqueue_change(vty, "./advertisement-interval", NB_OP_MODIFY,
+			      NULL);
 
-	struct vrrp_vrouter *vr;
-	uint16_t newadvint =
-		no ? vd.advertisement_interval * 10 : advertisement_interval;
-
-	if (newadvint % 10 != 0) {
-		vty_out(vty, "%% Value must be a multiple of 10\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* all internal computations are in centiseconds */
-	newadvint /= CS2MS;
-
-	VROUTER_GET_VTY(vty, ifp, vrid, vr);
-	vrrp_set_advertisement_interval(vr, newadvint);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
+void cli_show_advertisement_interval(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
+	uint16_t advint = yang_dnode_get_uint16(dnode, NULL);
+
+	vty_out(vty, " vrrp %s advertisement-interval %u\n", vrid,
+		advint * CS2MS);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/v4/virtual-address
+ */
 DEFPY(vrrp_ip,
       vrrp_ip_cmd,
       "[no] vrrp (1-255)$vrid ip A.B.C.D",
@@ -169,51 +214,25 @@ DEFPY(vrrp_ip,
       "Add IPv4 address\n"
       VRRP_IP_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int op = no ? NB_OP_DESTROY : NB_OP_CREATE;
+	nb_cli_enqueue_change(vty, "./v4/virtual-address", op, ip_str);
 
-	struct vrrp_vrouter *vr;
-	bool deactivated = false;
-	bool activated = false;
-	bool failed = false;
-	int ret = CMD_SUCCESS;
-	int oldstate;
-
-	VROUTER_GET_VTY(vty, ifp, vrid, vr);
-
-	bool will_activate = (vr->v4->fsm.state == VRRP_STATE_INITIALIZE);
-
-	if (no) {
-		oldstate = vr->v4->fsm.state;
-		failed = vrrp_del_ipv4(vr, ip);
-		vrrp_check_start(vr);
-		deactivated = (vr->v4->fsm.state == VRRP_STATE_INITIALIZE
-			       && oldstate != VRRP_STATE_INITIALIZE);
-	} else {
-		oldstate = vr->v4->fsm.state;
-		failed = vrrp_add_ipv4(vr, ip);
-		vrrp_check_start(vr);
-		activated = (vr->v4->fsm.state != VRRP_STATE_INITIALIZE
-			     && oldstate == VRRP_STATE_INITIALIZE);
-	}
-
-	if (activated)
-		vty_out(vty, "%% Activated IPv4 Virtual Router %ld\n", vrid);
-	if (deactivated)
-		vty_out(vty, "%% Deactivated IPv4 Virtual Router %ld\n", vrid);
-	if (failed) {
-		vty_out(vty, "%% Failed to %s virtual IP\n",
-			no ? "remove" : "add");
-		ret = CMD_WARNING_CONFIG_FAILED;
-		if (will_activate && !activated) {
-			vty_out(vty,
-				"%% Failed to activate IPv4 Virtual Router %ld\n",
-				vrid);
-		}
-	}
-
-	return ret;
+	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
+void cli_show_ip(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	const char *vrid =
+		yang_dnode_get_string(dnode, "../../virtual-router-id");
+	const char *ipv4 = yang_dnode_get_string(dnode, NULL);
+
+	vty_out(vty, " vrrp %s ip %s\n", vrid, ipv4);
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/v6/virtual-address
+ */
 DEFPY(vrrp_ip6,
       vrrp_ip6_cmd,
       "[no] vrrp (1-255)$vrid ipv6 X:X::X:X",
@@ -223,57 +242,24 @@ DEFPY(vrrp_ip6,
       "Add IPv6 address\n"
       VRRP_IP_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int op = no ? NB_OP_DESTROY : NB_OP_CREATE;
+	nb_cli_enqueue_change(vty, "./v6/virtual-address", op, ipv6_str);
 
-	struct vrrp_vrouter *vr;
-	bool deactivated = false;
-	bool activated = false;
-	bool failed = false;
-	int ret = CMD_SUCCESS;
-	int oldstate;
-
-	VROUTER_GET_VTY(vty, ifp, vrid, vr);
-
-	if (vr->version != 3) {
-		vty_out(vty,
-			"%% Cannot add IPv6 address to VRRPv2 virtual router\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	bool will_activate = (vr->v6->fsm.state == VRRP_STATE_INITIALIZE);
-
-	if (no) {
-		oldstate = vr->v6->fsm.state;
-		failed = vrrp_del_ipv6(vr, ipv6);
-		vrrp_check_start(vr);
-		deactivated = (vr->v6->fsm.state == VRRP_STATE_INITIALIZE
-			       && oldstate != VRRP_STATE_INITIALIZE);
-	} else {
-		oldstate = vr->v6->fsm.state;
-		failed = vrrp_add_ipv6(vr, ipv6);
-		vrrp_check_start(vr);
-		activated = (vr->v6->fsm.state != VRRP_STATE_INITIALIZE
-			     && oldstate == VRRP_STATE_INITIALIZE);
-	}
-
-	if (activated)
-		vty_out(vty, "%% Activated IPv6 Virtual Router %ld\n", vrid);
-	if (deactivated)
-		vty_out(vty, "%% Deactivated IPv6 Virtual Router %ld\n", vrid);
-	if (failed) {
-		vty_out(vty, "%% Failed to %s virtual IP\n",
-			no ? "remove" : "add");
-		ret = CMD_WARNING_CONFIG_FAILED;
-		if (will_activate && !activated) {
-			vty_out(vty,
-				"%% Failed to activate IPv6 Virtual Router %ld\n",
-				vrid);
-		}
-	}
-
-	return ret;
+	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
+void cli_show_ipv6(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+{
+	const char *vrid =
+		yang_dnode_get_string(dnode, "../../virtual-router-id");
+	const char *ipv6 = yang_dnode_get_string(dnode, NULL);
+
+	vty_out(vty, " vrrp %s ipv6 %s\n", vrid, ipv6);
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group/preempt
+ */
 DEFPY(vrrp_preempt,
       vrrp_preempt_cmd,
       "[no] vrrp (1-255)$vrid preempt",
@@ -282,17 +268,22 @@ DEFPY(vrrp_preempt,
       VRRP_VRID_STR
       "Preempt mode\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+	nb_cli_enqueue_change(vty, "./preempt", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
-	struct vrrp_vrouter *vr;
-
-	VROUTER_GET_VTY(vty, ifp, vrid, vr);
-
-	vr->preempt_mode = !no;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
+void cli_show_preempt(struct vty *vty, struct lyd_node *dnode,
+		      bool show_defaults)
+{
+	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
+	const bool pre = yang_dnode_get_bool(dnode, NULL);
+
+	vty_out(vty, " %svrrp %s preempt\n", pre ? "" : "no ", vrid);
+}
+
+/* XXX: yang conversion */
 DEFPY(vrrp_autoconfigure,
       vrrp_autoconfigure_cmd,
       "[no] vrrp autoconfigure [version (2-3)]",
@@ -312,6 +303,7 @@ DEFPY(vrrp_autoconfigure,
 	return CMD_SUCCESS;
 }
 
+/* XXX: yang conversion */
 DEFPY(vrrp_default,
       vrrp_default_cmd,
       "[no] vrrp default <advertisement-interval$adv (10-40950)$advint|preempt$p|priority$prio (1-254)$prioval|shutdown$s>",
@@ -326,8 +318,9 @@ DEFPY(vrrp_default,
       "Force VRRP router into administrative shutdown\n")
 {
 	if (adv) {
-		if (advint % 10 != 0) {
-			vty_out(vty, "%% Value must be a multiple of 10\n");
+		if (advint % CS2MS != 0) {
+			vty_out(vty, "%% Value must be a multiple of %u\n",
+				(unsigned int)CS2MS);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		/* all internal computations are in centiseconds */
@@ -722,6 +715,35 @@ DEFUN_NOSH (show_debugging_vrrp,
 
 /* clang-format on */
 
+/*
+ * Write per interface VRRP config.
+ */
+static int vrrp_config_write_interface(struct vty *vty)
+{
+	struct vrf *vrf;
+	int write = 0;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		struct interface *ifp;
+
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			struct lyd_node *dnode;
+
+			dnode = yang_dnode_get(
+				running_config->dnode,
+				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
+				ifp->name, vrf->name);
+			if (dnode == NULL)
+				continue;
+
+			write = 1;
+			nb_cli_show_dnode_cmds(vty, dnode, false);
+		}
+	}
+
+	return write;
+}
+
 static struct cmd_node interface_node = {INTERFACE_NODE, "%s(config-if)# ", 1};
 static struct cmd_node debug_node = {DEBUG_NODE, "", 1};
 static struct cmd_node vrrp_node = {VRRP_NODE, "", 1};
@@ -743,7 +765,9 @@ void vrrp_vty_init(void)
 	install_element(INTERFACE_NODE, &vrrp_vrid_cmd);
 	install_element(INTERFACE_NODE, &vrrp_shutdown_cmd);
 	install_element(INTERFACE_NODE, &vrrp_priority_cmd);
+	install_element(INTERFACE_NODE, &no_vrrp_priority_cmd);
 	install_element(INTERFACE_NODE, &vrrp_advertisement_interval_cmd);
+	install_element(INTERFACE_NODE, &no_vrrp_advertisement_interval_cmd);
 	install_element(INTERFACE_NODE, &vrrp_ip_cmd);
 	install_element(INTERFACE_NODE, &vrrp_ip6_cmd);
 	install_element(INTERFACE_NODE, &vrrp_preempt_cmd);

@@ -49,7 +49,7 @@ RB_GENERATE(nbr_addr_head, nbr, addr_tree, nbr_addr_compare)
 RB_GENERATE(nbr_pid_head, nbr, pid_tree, nbr_pid_compare)
 RB_GENERATE(nbrp_head, nbr_params, entry, nbr_params_compare)
 
-struct {
+const struct {
 	int		state;
 	enum nbr_event	event;
 	enum nbr_action	action;

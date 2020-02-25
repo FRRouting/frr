@@ -39,6 +39,7 @@ unsigned long zebra_debug_vxlan;
 unsigned long zebra_debug_pw;
 unsigned long zebra_debug_dplane;
 unsigned long zebra_debug_mlag;
+unsigned long zebra_debug_nexthop;
 
 DEFINE_HOOK(zebra_debug_show_debugging, (struct vty *vty), (vty));
 
@@ -103,6 +104,10 @@ DEFUN_NOSH (show_debugging_zebra,
 		vty_out(vty, "  Zebra dataplane debugging is on\n");
 	if (IS_ZEBRA_DEBUG_MLAG)
 		vty_out(vty, "  Zebra mlag debugging is on\n");
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		vty_out(vty, "  Zebra detailed nexthop debugging is on\n");
+	else if (IS_ZEBRA_DEBUG_NHG)
+		vty_out(vty, "  Zebra nexthop debugging is on\n");
 
 	hook_call(zebra_debug_show_debugging, vty);
 	return CMD_SUCCESS;
@@ -443,6 +448,28 @@ DEFUN (no_debug_zebra_dplane,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_zebra_nexthop,
+       debug_zebra_nexthop_cmd,
+       "[no$no] debug zebra nexthop [detail$detail]",
+       NO_STR
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug zebra nexthop events\n"
+       "Detailed information\n")
+{
+	if (no)
+		zebra_debug_nexthop = 0;
+	else {
+		SET_FLAG(zebra_debug_nexthop, ZEBRA_DEBUG_NHG);
+
+		if (detail)
+			SET_FLAG(zebra_debug_nexthop,
+				 ZEBRA_DEBUG_NHG_DETAILED);
+	}
+
+	return CMD_SUCCESS;
+}
+
 /* Debug node. */
 struct cmd_node debug_node = {DEBUG_NODE, "", /* Debug node has no interface. */
 			      1};
@@ -530,6 +557,14 @@ static int config_write_debug(struct vty *vty)
 		write++;
 	}
 
+	if (CHECK_FLAG(zebra_debug_nexthop, ZEBRA_DEBUG_NHG_DETAILED)) {
+		vty_out(vty, "debug zebra nexthop detail\n");
+		write++;
+	} else if (CHECK_FLAG(zebra_debug_nexthop, ZEBRA_DEBUG_NHG)) {
+		vty_out(vty, "debug zebra nexthop\n");
+		write++;
+	}
+
 	return write;
 }
 
@@ -546,6 +581,7 @@ void zebra_debug_init(void)
 	zebra_debug_dplane = 0;
 	zebra_debug_mlag = 0;
 	zebra_debug_nht = 0;
+	zebra_debug_nexthop = 0;
 
 	install_node(&debug_node, config_write_debug);
 
@@ -563,6 +599,7 @@ void zebra_debug_init(void)
 	install_element(ENABLE_NODE, &debug_zebra_fpm_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_dplane_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_mlag_cmd);
+	install_element(ENABLE_NODE, &debug_zebra_nexthop_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_events_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_nht_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_mpls_cmd);
@@ -585,6 +622,7 @@ void zebra_debug_init(void)
 	install_element(CONFIG_NODE, &debug_zebra_rib_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_fpm_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_dplane_cmd);
+	install_element(CONFIG_NODE, &debug_zebra_nexthop_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_events_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_nht_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_mpls_cmd);

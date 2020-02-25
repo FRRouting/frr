@@ -37,6 +37,7 @@
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_network.h"
 
 #define VT100_RESET "\x1b[0m"
 #define VT100_RED "\x1b[31m"
@@ -1026,7 +1027,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		parse_ret = bgp_mp_unreach_parse(&attr_args, &nlri);
 		break;
 	case BGP_ATTR_PREFIX_SID:
-		parse_ret = bgp_attr_prefix_sid(t->len, &attr_args, &nlri);
+		parse_ret = bgp_attr_prefix_sid(&attr_args, &nlri);
 		break;
 	default:
 		printf("unknown type");
@@ -1078,7 +1079,7 @@ int main(void)
 	cmd_init(0);
 	bgp_vty_init();
 	master = thread_master_create("test mp attr");
-	bgp_master_init(master);
+	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE);
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	bgp_attr_init();
@@ -1086,7 +1087,7 @@ int main(void)
 	if (fileno(stdout) >= 0)
 		tty = isatty(fileno(stdout));
 
-	if (bgp_get(&bgp, &asn, NULL, BGP_INSTANCE_TYPE_DEFAULT))
+	if (bgp_get(&bgp, &asn, NULL, BGP_INSTANCE_TYPE_DEFAULT) < 0)
 		return -1;
 
 	peer = peer_create_accept(bgp);

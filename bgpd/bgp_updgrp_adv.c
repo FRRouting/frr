@@ -315,8 +315,9 @@ static int subgroup_coalesce_timer(struct thread *thread)
 	subgrp = THREAD_ARG(thread);
 	if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
 		zlog_debug("u%" PRIu64 ":s%" PRIu64
-			   " announcing routes upon coalesce timer expiry",
-			   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id);
+			   " announcing routes upon coalesce timer expiry(%u ms)",
+			   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id,
+			   subgrp->v_coalesce),
 	subgrp->t_coalesce = NULL;
 	subgrp->v_coalesce = 0;
 	subgroup_announce_route(subgrp);
@@ -701,12 +702,11 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 {
 	struct bgp *bgp;
 	struct attr attr;
+	struct attr *new_attr = &attr;
 	struct aspath *aspath;
-	struct bgp_path_info tmp_info;
 	struct prefix p;
 	struct peer *from;
 	struct bgp_node *rn;
-	struct bgp_path_info *ri;
 	struct peer *peer;
 	route_map_result_t ret = RMAP_DENYMATCH;
 	afi_t afi;
@@ -746,37 +746,33 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	}
 
 	if (peer->default_rmap[afi][safi].name) {
+		struct attr attr_tmp = attr;
+		struct bgp_path_info bpi_rmap = {0};
+
+		bpi_rmap.peer = bgp->peer_self;
+		bpi_rmap.attr = &attr_tmp;
+
 		SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_DEFAULT);
+
+		/* Iterate over the RIB to see if we can announce
+		 * the default route. We announce the default
+		 * route only if route-map has a match.
+		 */
 		for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
 		     rn = bgp_route_next(rn)) {
-			for (ri = bgp_node_get_bgp_path_info(rn);
-			     ri; ri = ri->next) {
-				struct attr dummy_attr;
+			ret = route_map_apply(peer->default_rmap[afi][safi].map,
+					      &rn->p, RMAP_BGP, &bpi_rmap);
 
-				/* Provide dummy so the route-map can't modify
-				 * the attributes */
-				dummy_attr = *ri->attr;
-				tmp_info.peer = ri->peer;
-				tmp_info.attr = &dummy_attr;
-
-				ret = route_map_apply(
-					peer->default_rmap[afi][safi].map,
-					&rn->p, RMAP_BGP, &tmp_info);
-
-				/* The route map might have set attributes. If
-				 * we don't flush them
-				 * here, they will be leaked. */
-				bgp_attr_flush(&dummy_attr);
-				if (ret != RMAP_DENYMATCH)
-					break;
-			}
 			if (ret != RMAP_DENYMATCH)
 				break;
 		}
 		bgp->peer_self->rmap_type = 0;
+		new_attr = bgp_attr_intern(&attr_tmp);
 
-		if (ret == RMAP_DENYMATCH)
+		if (ret == RMAP_DENYMATCH) {
+			bgp_attr_flush(&attr_tmp);
 			withdraw = 1;
+		}
 	}
 
 	if (withdraw) {
@@ -788,12 +784,12 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 				SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
 
 			if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
-				bgp_attr_add_gshut_community(&attr);
+				bgp_attr_add_gshut_community(new_attr);
 			}
 
 			SET_FLAG(subgrp->sflags,
 				 SUBGRP_STATUS_DEFAULT_ORIGINATE);
-			subgroup_default_update_packet(subgrp, &attr, from);
+			subgroup_default_update_packet(subgrp, new_attr, from);
 
 			/* The 'neighbor x.x.x.x default-originate' default will
 			 * act as an

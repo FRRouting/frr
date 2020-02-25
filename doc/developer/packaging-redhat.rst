@@ -3,7 +3,7 @@
 Packaging Red Hat
 =================
 
-Tested on CentOS 6, CentOS 7 and Fedora 24.
+Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
 
 1. On CentOS 6, refer to :ref:`building-centos6` for details on installing
    sufficiently up-to-date package versions to enable building FRR.
@@ -22,13 +22,29 @@ Tested on CentOS 6, CentOS 7 and Fedora 24.
 
       yum install systemd-devel
 
+   For CentOS 7 and CentOS 8, the package will be built using python3
+   and requires additional python3 packages::
+
+       yum install python3-devel python3-sphinx
+
+   .. note::
+
+     For CentOS 8 you need to install ``platform-python-devel`` package
+     to provide ``/usr/bin/pathfix.py``::
+
+       yum install platform-python-devel
+
+
    If ``yum`` is not present on your system, use ``dnf`` instead.
 
-3. Checkout FRR::
+   You should enable ``PowerTools`` repo if using CentOS 8 which
+   is disabled by default.
+
+4. Checkout FRR::
 
       git clone https://github.com/frrouting/frr.git frr
 
-4. Run Bootstrap and make distribution tar.gz::
+5. Run Bootstrap and make distribution tar.gz::
 
       cd frr
       ./bootstrap.sh
@@ -40,7 +56,7 @@ Tested on CentOS 6, CentOS 7 and Fedora 24.
       The only ``configure`` option respected when building RPMs is
       ``--with-pkg-extra-version``.
 
-5. Create RPM directory structure and populate with sources::
+6. Create RPM directory structure and populate with sources::
 
      mkdir rpmbuild
      mkdir rpmbuild/SOURCES
@@ -48,7 +64,7 @@ Tested on CentOS 6, CentOS 7 and Fedora 24.
      cp redhat/*.spec rpmbuild/SPECS/
      cp frr*.tar.gz rpmbuild/SOURCES/
 
-6. Edit :file:`rpm/SPECS/frr.spec` with configuration as needed.
+7. Edit :file:`rpm/SPECS/frr.spec` with configuration as needed.
 
    Look at the beginning of the file and adjust the following parameters to
    enable or disable features as required::
@@ -73,7 +89,7 @@ Tested on CentOS 6, CentOS 7 and Fedora 24.
       %{!?with_pimd:          %global  with_pimd          1 }
       %{!?with_rpki:          %global  with_rpki          0 }
 
-7. Build the RPM::
+8. Build the RPM::
 
       rpmbuild --define "_topdir `pwd`/rpmbuild" -ba rpmbuild/SPECS/frr.spec
 

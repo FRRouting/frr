@@ -521,10 +521,7 @@ extern int offset_list_cmp(struct rip_offset_list *o1,
 
 extern void rip_vrf_init(void);
 extern void rip_vrf_terminate(void);
-
-/* YANG notifications */
-extern void ripd_notif_send_auth_type_failure(const char *ifname);
-extern void ripd_notif_send_auth_failure(const char *ifname);
+extern void rip_cli_init(void);
 
 extern struct zebra_privs_t ripd_privs;
 extern struct rip_instance_head rip_instances;
@@ -534,9 +531,5 @@ extern struct thread_master *master;
 
 DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc))
 DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc))
-
-/* Northbound. */
-extern void rip_cli_init(void);
-extern const struct frr_yang_module_info frr_ripd_info;
 
 #endif /* _ZEBRA_RIP_H */

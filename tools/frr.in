@@ -21,6 +21,7 @@ VTYSH="@vtysh_bin@" # /usr/bin/vtysh
 FRR_USER="@enable_user@" # frr
 FRR_GROUP="@enable_group@" # frr
 FRR_VTY_GROUP="@enable_vty_group@" # frrvty
+FRR_DEFAULT_PROFILE="@DFLT_NAME@" # traditional / datacenter
 
 # Local Daemon selection may be done by using /etc/frr/daemons.
 # See /usr/share/doc/frr/README.Debian.gz for further information.
@@ -151,7 +152,7 @@ start()
 			--pidfile=`pidfile $dmn-$inst` \
 			--exec "$D_PATH/$dmn" \
 			-- \
-			`eval echo "$""$dmn""_options"` -n "$inst"
+			`eval echo "$""$dmn""_options"` $frr_global_options -n "$inst"
 	else
 		if ! check_daemon $dmn; then
 			echo -n " (binary does not exist)"
@@ -164,14 +165,14 @@ start()
 				--pidfile=`pidfile $dmn` \
 				--exec "$valgrind" \
 				-- --trace-children=no --leak-check=full --log-file=/var/log/frr/$dmn-valgrind.log $D_PATH/$dmn \
-				`eval echo "$""$dmn""_options"`
+				`eval echo "$""$dmn""_options"` $frr_global_options
 		else
 			${SSD} \
 				--start \
 				--pidfile=`pidfile $dmn` \
 				--exec "$D_PATH/$dmn" \
 				-- \
-				`eval echo "$""$dmn""_options"`
+				`eval echo "$""$dmn""_options"` $frr_global_options
 		fi
 	fi
 
@@ -188,7 +189,7 @@ start()
 			--pidfile=`pidfile staticd` \
 			--exec "$D_PATH/staticd" \
 			-- \
-			`eval echo "$"staticd"_options"`
+			`eval echo "$"staticd"_options"` $frr_global_options
 	fi
 }
 
@@ -511,6 +512,18 @@ fi
 # Read configuration variable file if it is present
 [ -r /etc/default/frr ] && . /etc/default/frr
 
+if test -z "$frr_profile"; then
+	# try to autodetect config profile
+	if test -d /etc/cumulus; then
+		frr_profile=datacenter
+	# elif test ...; then
+	# -- add your distro/system here
+	elif test -n "$FRR_DEFAULT_PROFILE"; then
+		frr_profile="$FRR_DEFAULT_PROFILE"
+	fi
+fi
+test -n "$frr_profile" && frr_global_options="$frr_global_options -F $frr_profile"
+
 MAX_INSTANCES=${MAX_INSTANCES:=5}
 
 # Set priority of un-startable daemons to 'no' and substitute 'yes' to '0'
@@ -561,7 +574,7 @@ case "$1" in
 			stop_prio 0 $dmn
 		fi
 
-		if [ [ -n "$dmn" ] && [ "$dmn" != "zebra" ] ]; then
+		if [ -n "$dmn" -a "$dmn" != "zebra" ]; then
 			[ -n "$dmn" ] && eval "${dmn/-/_}=0"
 			start_watchfrr
 		fi

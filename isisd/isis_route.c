@@ -49,8 +49,16 @@
 #include "isis_route.h"
 #include "isis_zebra.h"
 
+DEFINE_HOOK(isis_route_update_hook,
+	    (struct isis_area * area, struct prefix *prefix,
+	     struct isis_route_info *route_info),
+	    (area, prefix, route_info))
+
 static struct isis_nexthop *nexthoplookup(struct list *nexthops, int family,
 					  union g_addr *ip, ifindex_t ifindex);
+static void isis_route_update(struct isis_area *area, struct prefix *prefix,
+			      struct prefix_ipv6 *src_p,
+			      struct isis_route_info *route_info);
 
 static struct isis_nexthop *isis_nexthop_create(int family, union g_addr *ip,
 						ifindex_t ifindex)
@@ -316,7 +324,7 @@ struct isis_route_info *isis_route_create(struct prefix *prefix,
 	return route_info;
 }
 
-static void isis_route_delete(struct route_node *rode,
+static void isis_route_delete(struct isis_area *area, struct route_node *rode,
 			      struct route_table *table)
 {
 	struct isis_route_info *rinfo;
@@ -343,11 +351,35 @@ static void isis_route_delete(struct route_node *rode,
 		UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE);
 		if (isis->debugs & DEBUG_RTE_EVENTS)
 			zlog_debug("ISIS-Rte: route delete  %s", buff);
-		isis_zebra_route_update(prefix, src_p, rinfo);
+		isis_route_update(area, prefix, src_p, rinfo);
 	}
 	isis_route_info_delete(rinfo);
 	rode->info = NULL;
 	route_unlock_node(rode);
+}
+
+static void isis_route_update(struct isis_area *area, struct prefix *prefix,
+			      struct prefix_ipv6 *src_p,
+			      struct isis_route_info *route_info)
+{
+	if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ACTIVE)) {
+		if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
+			return;
+
+		isis_zebra_route_add_route(prefix, src_p, route_info);
+		hook_call(isis_route_update_hook, area, prefix, route_info);
+
+		SET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
+		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
+	} else {
+		if (!CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
+			return;
+
+		isis_zebra_route_del_route(prefix, src_p, route_info);
+		hook_call(isis_route_update_hook, area, prefix, route_info);
+
+		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
+	}
 }
 
 static void _isis_route_verify_table(struct isis_area *area,
@@ -390,7 +422,7 @@ static void _isis_route_verify_table(struct isis_area *area,
 				buff);
 		}
 
-		isis_zebra_route_update(dst_p, src_p, rinfo);
+		isis_route_update(area, dst_p, src_p, rinfo);
 
 		if (CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE))
 			continue;
@@ -399,7 +431,7 @@ static void _isis_route_verify_table(struct isis_area *area,
 		 * directly for
 		 * validating => no problems with deleting routes. */
 		if (!tables) {
-			isis_route_delete(rnode, table);
+			isis_route_delete(area, rnode, table);
 			continue;
 		}
 
@@ -422,7 +454,7 @@ static void _isis_route_verify_table(struct isis_area *area,
 			route_unlock_node(drnode);
 		}
 
-		isis_route_delete(rnode, table);
+		isis_route_delete(area, rnode, table);
 	}
 }
 

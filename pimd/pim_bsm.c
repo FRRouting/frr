@@ -290,8 +290,7 @@ void pim_bsm_proc_free(struct pim_instance *pim)
 		pim_free_bsgrp_data(bsgrp);
 	}
 
-	if (pim->global_scope.bsrp_table)
-		route_table_finish(pim->global_scope.bsrp_table);
+	route_table_finish(pim->global_scope.bsrp_table);
 }
 
 static bool is_hold_time_elapsed(void *data)
@@ -683,8 +682,13 @@ static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,
 		return false;
 	}
 
-	pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address, dst_addr,
-		     buf, len, ifp->name);
+	if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
+			 dst_addr, buf, len, ifp->name)) {
+		zlog_warn("%s: Could not send BSM message on interface: %s",
+			  __PRETTY_FUNCTION__, ifp->name);
+		return false;
+	}
+
 	pim_ifp->pim_ifstat_bsm_tx++;
 	pim_ifp->pim->bsm_sent++;
 	return true;
@@ -1028,7 +1032,8 @@ static uint32_t hash_calc_on_grp_rp(struct prefix group, struct in_addr rp,
 	else
 		grpaddr = grpaddr & mask;
 	rp_add = ntohl(rp.s_addr);
-	temp = 1103515245 * ((1103515245 * grpaddr + 12345) ^ rp_add) + 12345;
+	temp = 1103515245 * ((1103515245 * (uint64_t)grpaddr + 12345) ^ rp_add)
+	       + 12345;
 	hash = temp & (0x7fffffff);
 	return hash;
 }

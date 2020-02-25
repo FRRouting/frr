@@ -498,6 +498,11 @@ static inline void zfpm_write_off(void)
 	THREAD_WRITE_OFF(zfpm_g->t_write);
 }
 
+static inline void zfpm_connect_off(void)
+{
+	THREAD_TIMER_OFF(zfpm_g->t_connect);
+}
+
 /*
  * zfpm_conn_up_thread_cb
  *
@@ -711,7 +716,6 @@ static void zfpm_connection_down(const char *detail)
 	 * Start thread to clean up state after the connection goes down.
 	 */
 	assert(!zfpm_g->t_conn_down);
-	zfpm_debug("Starting conn_down thread");
 	zfpm_rnodes_iter_init(&zfpm_g->t_conn_down_state.iter);
 	zfpm_g->t_conn_down = NULL;
 	thread_add_timer_msec(zfpm_g->master, zfpm_conn_down_thread_cb, NULL, 0,
@@ -732,7 +736,6 @@ static int zfpm_read_cb(struct thread *thread)
 	fpm_msg_hdr_t *hdr;
 
 	zfpm_g->stats.read_cb_calls++;
-	zfpm_g->t_read = NULL;
 
 	/*
 	 * Check if async connect is now done.
@@ -805,8 +808,6 @@ static int zfpm_read_cb(struct thread *thread)
 		if (nbyte != (ssize_t)(msg_len - already))
 			goto done;
 	}
-
-	zfpm_debug("Read out a full fpm message");
 
 	/*
 	 * Just throw it away for now.
@@ -1160,7 +1161,6 @@ static int zfpm_write_cb(struct thread *thread)
 	int num_writes;
 
 	zfpm_g->stats.write_cb_calls++;
-	zfpm_g->t_write = NULL;
 
 	/*
 	 * Check if async connect is now done.
@@ -1244,12 +1244,11 @@ static int zfpm_connect_cb(struct thread *t)
 	int sock, ret;
 	struct sockaddr_in serv;
 
-	zfpm_g->t_connect = NULL;
 	assert(zfpm_g->state == ZFPM_STATE_ACTIVE);
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
-		zfpm_debug("Failed to create socket for connect(): %s",
+		zlog_err("Failed to create socket for connect(): %s",
 			   strerror(errno));
 		zfpm_g->stats.connect_no_sock++;
 		return 0;
@@ -2032,11 +2031,24 @@ static int zfpm_init(struct thread_master *master)
 	return 0;
 }
 
+static int zfpm_fini(void)
+{
+	zfpm_write_off();
+	zfpm_read_off();
+	zfpm_connect_off();
+
+	zfpm_stop_stats_timer();
+
+	hook_unregister(rib_update, zfpm_trigger_update);
+	return 0;
+}
+
 static int zebra_fpm_module_init(void)
 {
 	hook_register(rib_update, zfpm_trigger_update);
 	hook_register(zebra_rmac_update, zfpm_trigger_rmac_update);
 	hook_register(frr_late_init, zfpm_init);
+	hook_register(frr_early_fini, zfpm_fini);
 	return 0;
 }
 

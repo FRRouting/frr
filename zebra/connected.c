@@ -65,7 +65,7 @@ static void connected_withdraw(struct connected *ifc)
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)) {
 		listnode_delete(ifc->ifp->connected, ifc);
-		connected_free(ifc);
+		connected_free(&ifc);
 	}
 }
 
@@ -177,7 +177,7 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 		 */
 		if (connected_same(current, ifc)) {
 			/* nothing to do */
-			connected_free(ifc);
+			connected_free(&ifc);
 			return;
 		}
 
@@ -199,7 +199,7 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 void connected_up(struct interface *ifp, struct connected *ifc)
 {
 	afi_t afi;
-	struct prefix p;
+	struct prefix p = {0};
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
@@ -251,10 +251,10 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	metric = (ifc->metric < (uint32_t)METRIC_MAX) ?
 				ifc->metric : ifp->metric;
 	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
-		0, 0, &p, NULL, &nh, zvrf->table_id, metric, 0, 0, 0);
+		0, 0, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
 
 	rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
-		0, 0, &p, NULL, &nh, zvrf->table_id, metric, 0, 0, 0);
+		0, 0, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
@@ -385,7 +385,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 			return;
 		break;
 	default:
-		zlog_info("Unknown AFI: %s", afi2str(afi));
+		zlog_warn("Unknown AFI: %s", afi2str(afi));
 		break;
 	}
 
@@ -393,11 +393,11 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	 * Same logic as for connected_up(): push the changes into the
 	 * head.
 	 */
-	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
-		   0, 0, &p, NULL, &nh, zvrf->table_id, 0, 0, false);
+	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
+		   0, &p, NULL, &nh, 0, zvrf->table_id, 0, 0, false);
 
 	rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
-		   0, 0, &p, NULL, &nh, zvrf->table_id, 0, 0, false);
+		   0, 0, &p, NULL, &nh, 0, zvrf->table_id, 0, 0, false);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {

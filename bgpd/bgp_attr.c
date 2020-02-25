@@ -512,8 +512,8 @@ unsigned int attrhash_key_make(const void *p)
 	MIX(attr->mp_nexthop_len);
 	key = jhash(attr->mp_nexthop_global.s6_addr, IPV6_MAX_BYTELEN, key);
 	key = jhash(attr->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
-	MIX(attr->nh_ifindex);
-	MIX(attr->nh_lla_ifindex);
+	MIX3(attr->nh_ifindex, attr->nh_lla_ifindex, attr->distance);
+	MIX(attr->rmap_table_id);
 
 	return key;
 }
@@ -540,6 +540,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && attr1->lcommunity == attr2->lcommunity
 		    && attr1->cluster == attr2->cluster
 		    && attr1->transit == attr2->transit
+		    && attr1->rmap_table_id == attr2->rmap_table_id
 		    && (attr1->encap_tunneltype == attr2->encap_tunneltype)
 		    && encap_same(attr1->encap_subtlvs, attr2->encap_subtlvs)
 #if ENABLE_BGP_VNC
@@ -555,7 +556,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 				      &attr2->originator_id)
 		    && overlay_index_same(attr1, attr2)
 		    && attr1->nh_ifindex == attr2->nh_ifindex
-		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex)
+		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex
+		    && attr1->distance == attr2->distance)
 			return true;
 	}
 
@@ -1684,8 +1686,8 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 #define BGP_MP_REACH_MIN_SIZE 5
 #define LEN_LEFT	(length - (stream_get_getp(s) - start))
 	if ((length > STREAM_READABLE(s)) || (length < BGP_MP_REACH_MIN_SIZE)) {
-		zlog_info("%s: %s sent invalid length, %lu", __func__,
-			  peer->host, (unsigned long)length);
+		zlog_info("%s: %s sent invalid length, %lu, of MP_REACH_NLRI",
+			  __func__, peer->host, (unsigned long)length);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
@@ -1701,7 +1703,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		 */
 		if (bgp_debug_update(peer, NULL, NULL, 0))
 			zlog_debug(
-				"%s: MP_REACH received AFI %s or SAFI %s is unrecognized",
+				"%s sent unrecognizable AFI, %s or, SAFI, %s, of MP_REACH_NLRI",
 				peer->host, iana_afi2str(pkt_afi),
 				iana_safi2str(pkt_safi));
 		return BGP_ATTR_PARSE_ERROR;
@@ -1712,7 +1714,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 
 	if (LEN_LEFT < attr->mp_nexthop_len) {
 		zlog_info(
-			"%s: %s, MP nexthop length, %u, goes past end of attribute",
+			"%s: %s sent next-hop length, %u, in MP_REACH_NLRI which goes past the end of attribute",
 			__func__, peer->host, attr->mp_nexthop_len);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
@@ -1721,7 +1723,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	switch (attr->mp_nexthop_len) {
 	case 0:
 		if (safi != SAFI_FLOWSPEC) {
-			zlog_info("%s: (%s) Wrong multiprotocol next hop length: %d",
+			zlog_info("%s: %s sent wrong next-hop length, %d, in MP_REACH_NLRI",
 				  __func__, peer->host, attr->mp_nexthop_len);
 			return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 		}
@@ -1753,7 +1755,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		stream_get(&attr->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
 		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
 			if (!peer->nexthop.ifp) {
-				zlog_warn("%s: Received a V6/VPNV6 Global attribute but address is a V6 LL and we have no peer interface information, withdrawing",
+				zlog_warn("%s sent a v6 global attribute but address is a V6 LL and there's no peer interface information. Hence, withdrawing",
 					  peer->host);
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
@@ -1770,7 +1772,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		stream_get(&attr->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
 		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
 			if (!peer->nexthop.ifp) {
-				zlog_warn("%s: Received V6/VPNV6 Global and LL attribute but global address is a V6 LL and we have no peer interface information, withdrawing",
+				zlog_warn("%s sent a v6 global and LL attribute but global address is a V6 LL and there's no peer interface information. Hence, withdrawing",
 					  peer->host);
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
@@ -1788,7 +1790,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 
 			if (bgp_debug_update(peer, NULL, NULL, 1))
 				zlog_debug(
-					"%s rcvd nexthops %s, %s -- ignoring non-LL value",
+					"%s sent next-hops %s and %s. Ignoring non-LL value",
 					peer->host,
 					inet_ntop(AF_INET6,
 						  &attr->mp_nexthop_global,
@@ -1800,21 +1802,21 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
 		}
 		if (!peer->nexthop.ifp) {
-			zlog_warn("%s: Received a V6 LL nexthop and we have no peer interface information, withdrawing",
+			zlog_warn("%s sent a v6 LL next-hop and there's no peer interface information. Hence, withdrawing",
 				  peer->host);
 			return BGP_ATTR_PARSE_WITHDRAW;
 		}
 		attr->nh_lla_ifindex = peer->nexthop.ifp->ifindex;
 		break;
 	default:
-		zlog_info("%s: (%s) Wrong multiprotocol next hop length: %d",
+		zlog_info("%s: %s sent wrong next-hop length, %d, in MP_REACH_NLRI",
 			  __func__, peer->host, attr->mp_nexthop_len);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
 	if (!LEN_LEFT) {
-		zlog_info("%s: (%s) Failed to read SNPA and NLRI(s)", __func__,
-			  peer->host);
+		zlog_info("%s: %s sent SNPA which couldn't be read",
+			  __func__, peer->host);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
@@ -1830,12 +1832,13 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	/* must have nrli_len, what is left of the attribute */
 	nlri_len = LEN_LEFT;
 	if (nlri_len > STREAM_READABLE(s)) {
-		zlog_info("%s: (%s) Failed to read NLRI", __func__, peer->host);
+		zlog_info("%s: %s sent MP_REACH_NLRI which couldn't be read",
+			  __func__, peer->host);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
 	if (!nlri_len) {
-		zlog_info("%s: (%s) No Reachability, Treating as a EOR marker",
+		zlog_info("%s: %s sent a zero-length NLRI. Hence, treating as a EOR marker",
 			  __func__, peer->host);
 
 		mp_update->afi = afi;
@@ -2042,8 +2045,8 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
 		length -= 4;
 
 		if (tlv_length != length) {
-			zlog_info("%s: tlv_length(%d) != length(%d)", __func__,
-				  tlv_length, length);
+			zlog_info("%s: tlv_length(%d) != length(%d)",
+				  __func__, tlv_length, length);
 		}
 	}
 
@@ -2133,8 +2136,7 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
  * Read an individual SID value returning how much data we have read
  * Returns 0 if there was an error that needs to be passed up the stack
  */
-static bgp_attr_parse_ret_t bgp_attr_psid_sub(int32_t type,
-					      int32_t length,
+static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 					      struct bgp_attr_parser_args *args,
 					      struct bgp_nlri *mp_update)
 {
@@ -2147,11 +2149,12 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(int32_t type,
 	int srgb_count;
 
 	if (type == BGP_PREFIX_SID_LABEL_INDEX) {
-		if (length != BGP_PREFIX_SID_LABEL_INDEX_LENGTH) {
-			flog_err(
-				EC_BGP_ATTR_LEN,
-				"Prefix SID label index length is %d instead of %d",
-				length, BGP_PREFIX_SID_LABEL_INDEX_LENGTH);
+		if (STREAM_READABLE(peer->curr) < length
+		    || length != BGP_PREFIX_SID_LABEL_INDEX_LENGTH) {
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Prefix SID label index length is %" PRIu16
+				 " instead of %u",
+				 length, BGP_PREFIX_SID_LABEL_INDEX_LENGTH);
 			return bgp_attr_malformed(args,
 						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 						  args->total);
@@ -2183,9 +2186,11 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(int32_t type,
 
 	/* Placeholder code for the IPv6 SID type */
 	else if (type == BGP_PREFIX_SID_IPV6) {
-		if (length != BGP_PREFIX_SID_IPV6_LENGTH) {
+		if (STREAM_READABLE(peer->curr) < length
+		    || length != BGP_PREFIX_SID_IPV6_LENGTH) {
 			flog_err(EC_BGP_ATTR_LEN,
-				 "Prefix SID IPv6 length is %d instead of %d",
+				 "Prefix SID IPv6 length is %" PRIu16
+				 " instead of %u",
 				 length, BGP_PREFIX_SID_IPV6_LENGTH);
 			return bgp_attr_malformed(args,
 						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -2201,15 +2206,54 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(int32_t type,
 
 	/* Placeholder code for the Originator SRGB type */
 	else if (type == BGP_PREFIX_SID_ORIGINATOR_SRGB) {
-		/* Ignore flags */
+		/*
+		 * ietf-idr-bgp-prefix-sid-05:
+		 *     Length is the total length of the value portion of the
+		 *     TLV: 2 + multiple of 6.
+		 *
+		 * peer->curr stream readp should be at the beginning of the 16
+		 * bit flag field at this point in the code.
+		 */
+
+		/*
+		 * Check that the TLV length field is sane: at least 2 bytes of
+		 * flag, and at least 1 SRGB (these are 6 bytes each)
+		 */
+		if (length < (2 + BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH)) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Prefix SID Originator SRGB length field claims length of %" PRIu16 " bytes, but the minimum for this TLV type is %u",
+				length,
+				2 + BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH);
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
+		}
+
+		/*
+		 * Check that we actually have at least as much data as
+		 * specified by the length field
+		 */
+		if (STREAM_READABLE(peer->curr) < length) {
+			flog_err(EC_BGP_ATTR_LEN,
+				 "Prefix SID Originator SRGB specifies length %" PRIu16 ", but only %zu bytes remain",
+				 length, STREAM_READABLE(peer->curr));
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
+		}
+
+		/*
+		 * Check that the portion of the TLV containing the sequence of
+		 * SRGBs corresponds to a multiple of the SRGB size; to get
+		 * that length, we skip the 16 bit flags field
+		 */
 		stream_getw(peer->curr);
-
 		length -= 2;
-
 		if (length % BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH) {
 			flog_err(
 				EC_BGP_ATTR_LEN,
-				"Prefix SID Originator SRGB length is %d, it must be a multiple of %d ",
+				"Prefix SID Originator SRGB length field claims attribute SRGB sequence section is %" PRIu16 "bytes, but it must be a multiple of %u",
 				length, BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH);
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -2224,15 +2268,41 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(int32_t type,
 		}
 	}
 
+	/*
+	 * Placeholder code for Unsupported TLV
+	 *  - SRv6 L3 Service TLV (type5)
+	 *  - SRv6 L2 Service TLV (type6)
+	 */
+	else if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE
+	    || type == BGP_PREFIX_SID_SRV6_L2_SERVICE) {
+
+		if (STREAM_READABLE(peer->curr) < length) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Prefix SID SRv6 length is %" PRIu16
+				" - too long, only %zu remaining in this UPDATE",
+				length, STREAM_READABLE(peer->curr));
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
+		}
+
+		if (bgp_debug_update(peer, NULL, NULL, 1))
+			zlog_debug(
+				"%s attr Prefix-SID sub-type=%u is not supported, skipped",
+				peer->host, type);
+
+		stream_forward_getp(peer->curr, length);
+	}
+
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
 /* Prefix SID attribute
  * draft-ietf-idr-bgp-prefix-sid-05
  */
-bgp_attr_parse_ret_t
-bgp_attr_prefix_sid(int32_t tlength, struct bgp_attr_parser_args *args,
-		    struct bgp_nlri *mp_update)
+bgp_attr_parse_ret_t bgp_attr_prefix_sid(struct bgp_attr_parser_args *args,
+					 struct bgp_nlri *mp_update)
 {
 	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
@@ -2240,31 +2310,40 @@ bgp_attr_prefix_sid(int32_t tlength, struct bgp_attr_parser_args *args,
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID);
 
-	while (tlength) {
-		int32_t type, length;
+	uint8_t type;
+	uint16_t length;
+	size_t headersz = sizeof(type) + sizeof(length);
+
+	while (STREAM_READABLE(peer->curr) > 0) {
+
+		if (STREAM_READABLE(peer->curr) < headersz) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Malformed Prefix SID attribute - insufficent data (need %zu for attribute header, have %zu remaining in UPDATE)",
+				headersz, STREAM_READABLE(peer->curr));
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
+		}
 
 		type = stream_getc(peer->curr);
 		length = stream_getw(peer->curr);
+
+		if (STREAM_READABLE(peer->curr) < length) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Malformed Prefix SID attribute - insufficient data (need %" PRIu8
+				" for attribute body, have %zu remaining in UPDATE)",
+				length, STREAM_READABLE(peer->curr));
+			return bgp_attr_malformed(args,
+						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+						  args->total);
+		}
 
 		ret = bgp_attr_psid_sub(type, length, args, mp_update);
 
 		if (ret != BGP_ATTR_PARSE_PROCEED)
 			return ret;
-		/*
-		 * Subtract length + the T and the L
-		 * since length is the Vector portion
-		 */
-		tlength -= length + 3;
-
-		if (tlength < 0) {
-			flog_err(
-				EC_BGP_ATTR_LEN,
-				"Prefix SID internal length %d causes us to read beyond the total Prefix SID length",
-				length);
-			return bgp_attr_malformed(args,
-						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
-						  args->total);
-		}
 	}
 
 	return BGP_ATTR_PARSE_PROCEED;
@@ -2660,8 +2739,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 					     startp);
 			break;
 		case BGP_ATTR_PREFIX_SID:
-			ret = bgp_attr_prefix_sid(length,
-						  &attr_args, mp_update);
+			ret = bgp_attr_prefix_sid(&attr_args, mp_update);
 			break;
 		case BGP_ATTR_PMSI_TUNNEL:
 			ret = bgp_attr_pmsi_tunnel(&attr_args);
@@ -2888,7 +2966,9 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 
 	/* Nexthop AFI */
 	if (afi == AFI_IP
-	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST))
+	    && (safi == SAFI_UNICAST ||
+		safi == SAFI_LABELED_UNICAST ||
+		safi == SAFI_MULTICAST))
 		nh_afi = peer_cap_enhe(peer, afi, safi) ? AFI_IP6 : AFI_IP;
 	else
 		nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->mp_nexthop_len);

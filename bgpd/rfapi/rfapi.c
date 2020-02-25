@@ -388,15 +388,13 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 	     bpi = bpi->next) {
 
 		vnc_zlog_debug_verbose(
-			"%s: trying bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc.export.rfapi_handle=%p, local_pref=%u",
+			"%s: trying bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc.export.rfapi_handle=%p, local_pref=%" PRIu64,
 			__func__, bpi, bpi->peer, bpi->type, bpi->sub_type,
 			(bpi->extra ? bpi->extra->vnc.export.rfapi_handle
 				    : NULL),
-			((bpi->attr
-			  && CHECK_FLAG(bpi->attr->flag,
-					ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
-				 ? bpi->attr->local_pref
-				 : 0));
+			CHECK_FLAG(bpi->attr->flag,
+				   ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)
+				   ? bpi->attr->local_pref : 0));
 
 		if (bpi->peer == peer && bpi->type == type
 		    && bpi->sub_type == sub_type && bpi->extra
@@ -880,12 +878,12 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		attr.nexthop.s_addr = nexthop->addr.v4.s_addr;
 
 		attr.mp_nexthop_global_in = nexthop->addr.v4;
-		attr.mp_nexthop_len = 4;
+		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 		break;
 
 	case AF_INET6:
 		attr.mp_nexthop_global = nexthop->addr.v6;
-		attr.mp_nexthop_len = 16;
+		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 		break;
 
 	default:
@@ -3192,12 +3190,8 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	optary[opt_next].type = RFAPI_VN_OPTION_TYPE_L2ADDR;
-	if (opt_next) {
-		optary[opt_next - 1].next = optary + opt_next;
-	} else {
-		opt = optary;
-	}
-	++opt_next;
+	opt = optary;
+
 	/* L2 option parsing END */
 
 	/* TBD fixme */

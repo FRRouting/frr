@@ -72,77 +72,6 @@ static int isis_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int isis_zebra_if_add(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-
-	if (if_is_operative(ifp))
-		isis_csm_state_change(IF_UP_FROM_Z, circuit_scan_by_ifp(ifp),
-				      ifp);
-
-	return 0;
-}
-
-static int isis_zebra_if_del(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (!ifp)
-		return 0;
-
-	if (if_is_operative(ifp))
-		zlog_warn("Zebra: got delete of %s, but interface is still up",
-			  ifp->name);
-
-	isis_csm_state_change(IF_DOWN_FROM_Z, circuit_scan_by_ifp(ifp), ifp);
-
-	/* Cannot call if_delete because we should retain the pseudo interface
-	   in case there is configuration info attached to it. */
-	if_delete_retain(ifp);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
-
-	return 0;
-}
-
-static int isis_zebra_if_state_up(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	isis_csm_state_change(IF_UP_FROM_Z, circuit_scan_by_ifp(ifp), ifp);
-
-	return 0;
-}
-
-static int isis_zebra_if_state_down(ZAPI_CALLBACK_ARGS)
-{
-	struct interface *ifp;
-	struct isis_circuit *circuit;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	circuit = isis_csm_state_change(IF_DOWN_FROM_Z,
-					circuit_scan_by_ifp(ifp), ifp);
-	if (circuit)
-		SET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);
-
-	return 0;
-}
-
 static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
@@ -199,7 +128,7 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 
 	if (if_is_operative(ifp))
 		isis_circuit_del_addr(circuit_scan_by_ifp(ifp), c);
-	connected_free(c);
+	connected_free(&c);
 
 	return 0;
 }
@@ -219,9 +148,9 @@ static int isis_zebra_link_params(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static void isis_zebra_route_add_route(struct prefix *prefix,
-				       struct prefix_ipv6 *src_p,
-				       struct isis_route_info *route_info)
+void isis_zebra_route_add_route(struct prefix *prefix,
+				struct prefix_ipv6 *src_p,
+				struct isis_route_info *route_info)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -229,7 +158,7 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 	struct listnode *node;
 	int count = 0;
 
-	if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
+	if (zclient->sock < 0)
 		return;
 
 	memset(&api, 0, sizeof(api));
@@ -255,7 +184,7 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 			break;
 		api_nh = &api.nexthops[count];
 		if (fabricd)
-			api_nh->onlink = true;
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		api_nh->vrf_id = VRF_DEFAULT;
 
 		switch (nexthop->family) {
@@ -292,17 +221,15 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 	api.nexthop_num = count;
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
-	SET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
-	UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
 }
 
-static void isis_zebra_route_del_route(struct prefix *prefix,
-				       struct prefix_ipv6 *src_p,
-				       struct isis_route_info *route_info)
+void isis_zebra_route_del_route(struct prefix *prefix,
+				struct prefix_ipv6 *src_p,
+				struct isis_route_info *route_info)
 {
 	struct zapi_route api;
 
-	if (!CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
+	if (zclient->sock < 0)
 		return;
 
 	memset(&api, 0, sizeof(api));
@@ -316,20 +243,6 @@ static void isis_zebra_route_del_route(struct prefix *prefix,
 	}
 
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
-	UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
-}
-
-void isis_zebra_route_update(struct prefix *prefix,
-			     struct prefix_ipv6 *src_p,
-			     struct isis_route_info *route_info)
-{
-	if (zclient->sock < 0)
-		return;
-
-	if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ACTIVE))
-		isis_zebra_route_add_route(prefix, src_p, route_info);
-	else
-		isis_zebra_route_del_route(prefix, src_p, route_info);
 }
 
 static int isis_zebra_read(ZAPI_CALLBACK_ARGS)
@@ -400,10 +313,6 @@ void isis_zebra_init(struct thread_master *master)
 	zclient_init(zclient, PROTO_TYPE, 0, &isisd_privs);
 	zclient->zebra_connected = isis_zebra_connected;
 	zclient->router_id_update = isis_router_id_update_zebra;
-	zclient->interface_add = isis_zebra_if_add;
-	zclient->interface_delete = isis_zebra_if_del;
-	zclient->interface_up = isis_zebra_if_state_up;
-	zclient->interface_down = isis_zebra_if_state_down;
 	zclient->interface_address_add = isis_zebra_if_address_add;
 	zclient->interface_address_delete = isis_zebra_if_address_del;
 	zclient->interface_link_params = isis_zebra_link_params;

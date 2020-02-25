@@ -27,7 +27,6 @@
 #include "filter.h"
 #include "memory.h"
 #include "zebra_memory.h"
-#include "memory_vty.h"
 #include "prefix.h"
 #include "log.h"
 #include "plist.h"
@@ -36,7 +35,6 @@
 #include "vrf.h"
 #include "libfrr.h"
 #include "routemap.h"
-#include "frr_pthread.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"
@@ -85,7 +83,7 @@ uint32_t nl_rcvbufsize = 4194304;
 
 #define OPTION_V6_RR_SEMANTICS 2000
 /* Command line options. */
-struct option longopts[] = {
+const struct option longopts[] = {
 	{"batch", no_argument, NULL, 'b'},
 	{"allow_delete", no_argument, NULL, 'a'},
 	{"keep_kernel", no_argument, NULL, 'k'},
@@ -143,6 +141,12 @@ static void sigint(void)
 
 	zlog_notice("Terminating on signal");
 
+	atomic_store_explicit(&zrouter.in_shutdown, true,
+			      memory_order_relaxed);
+
+	/* send RA lifetime of 0 before stopping. rfc4861/6.2.5 */
+	rtadv_stop_ra_all();
+
 	frr_early_fini();
 
 	zebra_dplane_pre_finish();
@@ -163,6 +167,7 @@ static void sigint(void)
 		}
 	if (zrouter.lsp_process_q)
 		work_queue_free_and_null(&zrouter.lsp_process_q);
+
 	vrf_terminate();
 
 	ns_walk_func(zebra_ns_early_shutdown);
@@ -226,7 +231,7 @@ struct quagga_signal_t zebra_signals[] = {
 	},
 };
 
-static const struct frr_yang_module_info *zebra_yang_modules[] = {
+static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 	&frr_interface_info,
 };
 
@@ -374,9 +379,6 @@ int main(int argc, char **argv)
 	}
 
 	zrouter.master = frr_init();
-
-	/* Initialize pthread library */
-	frr_pthread_init();
 
 	/* Zebra related initialize. */
 	zebra_router_init();

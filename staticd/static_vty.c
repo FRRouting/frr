@@ -35,7 +35,6 @@
 #ifndef VTYSH_EXTRACT_PL
 #include "staticd/static_vty_clippy.c"
 #endif
-
 static struct static_vrf *static_vty_get_unknown_vrf(struct vty *vty,
 						     const char *vrf_name)
 {
@@ -427,15 +426,15 @@ static int static_route_leak(
 
 	/* Null0 static route.  */
 	if (ifname != NULL) {
-		if (strncasecmp(ifname, "Null0", strlen(ifname)) == 0
-		    || strncasecmp(ifname, "reject", strlen(ifname)) == 0
-		    || strncasecmp(ifname, "blackhole", strlen(ifname)) == 0) {
+		if (strcasecmp(ifname, "Null0") == 0
+		    || strcasecmp(ifname, "reject") == 0
+		    || strcasecmp(ifname, "blackhole") == 0) {
 			if (vty)
 				vty_out(vty,
-					"%% Nexthop interface cannot be Null0, reject or blackhole\n");
+					"%% Nexthop interface name can not be from reserved keywords (Null0, reject, blackhole)\n");
 			else
 				zlog_warn(
-					"%s: Nexthop interface cannot be Null0, reject or blackhole for %s",
+					"%s: %s: Nexthop interface name can not be from reserved keywords (Null0, reject, blackhole)",
 					__PRETTY_FUNCTION__, dest_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
@@ -479,6 +478,23 @@ static int static_route_leak(
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		gatep = &gate;
+
+		if (afi == AFI_IP && !negate) {
+			if (if_lookup_exact_address(&gatep->ipv4, AF_INET,
+							svrf->vrf->vrf_id))
+				if (vty)
+					vty_out(vty,
+						"%% Warning!! Local connected address is configured as Gateway IP(%s)\n",
+						gate_str);
+		} else if (afi == AFI_IP6 && !negate) {
+			if (if_lookup_exact_address(&gatep->ipv6, AF_INET6,
+							svrf->vrf->vrf_id))
+				if (vty)
+					vty_out(vty,
+						"%% Warning!! Local connected address is configured as Gateway IPv6(%s)\n",
+						gate_str);
+		}
+
 	}
 
 	if (gate_str == NULL && ifname == NULL)

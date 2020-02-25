@@ -50,12 +50,12 @@
 
 extern struct isis *isis;
 
-static const char *csm_statestr[] = {"C_STATE_NA", "C_STATE_INIT",
+static const char *const csm_statestr[] = {"C_STATE_NA", "C_STATE_INIT",
 				     "C_STATE_CONF", "C_STATE_UP"};
 
 #define STATE2STR(S) csm_statestr[S]
 
-static const char *csm_eventstr[] = {
+static const char *const csm_eventstr[] = {
 	"NO_STATE",     "ISIS_ENABLE",    "IF_UP_FROM_Z",
 	"ISIS_DISABLE", "IF_DOWN_FROM_Z",
 };

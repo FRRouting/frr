@@ -245,26 +245,20 @@ static void pim_vxlan_orig_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
 		 * for nht
 		 */
 		if (up)
-			pim_rpf_update(vxlan_sg->pim, up, NULL);
+			pim_rpf_update(vxlan_sg->pim, up, NULL, __func__);
 	}
 }
 
 static void pim_vxlan_orig_mr_up_iif_update(struct pim_vxlan_sg *vxlan_sg)
 {
-	int vif_index;
-
 	/* update MFC with the new IIF */
 	pim_upstream_fill_static_iif(vxlan_sg->up, vxlan_sg->iif);
-	vif_index = pim_if_find_vifindex_by_ifindex(vxlan_sg->pim,
-			vxlan_sg->iif->ifindex);
-	if (vif_index > 0)
-		pim_scan_individual_oil(vxlan_sg->up->channel_oil,
-				vif_index);
+	pim_upstream_mroute_iif_update(vxlan_sg->up->channel_oil, __func__);
 
 	if (PIM_DEBUG_VXLAN)
-		zlog_debug("vxlan SG %s orig mroute-up updated with iif %s vifi %d",
+		zlog_debug("vxlan SG %s orig mroute-up updated with iif %s",
 			vxlan_sg->sg_str,
-			vxlan_sg->iif?vxlan_sg->iif->name:"-", vif_index);
+			vxlan_sg->iif?vxlan_sg->iif->name:"-");
 
 }
 
@@ -292,6 +286,7 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 	struct pim_upstream *up;
 	int flags = 0;
 	struct prefix nht_p;
+	struct pim_instance *pim = vxlan_sg->pim;
 
 	if (vxlan_sg->up) {
 		/* nothing to do */
@@ -346,9 +341,15 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 			pim_delete_tracked_nexthop(vxlan_sg->pim,
 				&nht_p, up, NULL, false);
 		}
+		/* We are acting FHR; clear out use_rpt setting if any */
+		pim_upstream_update_use_rpt(up, false /*update_mroute*/);
 		pim_upstream_ref(up, flags, __PRETTY_FUNCTION__);
 		vxlan_sg->up = up;
 		pim_vxlan_orig_mr_up_iif_update(vxlan_sg);
+		/* mute pimreg on origination mroutes */
+		if (pim->regiface)
+			pim_channel_update_oif_mute(up->channel_oil,
+					pim->regiface->info);
 	} else {
 		up = pim_upstream_add(vxlan_sg->pim, &vxlan_sg->sg,
 				vxlan_sg->iif, flags,
@@ -373,6 +374,8 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 
 	/* update the inherited OIL */
 	pim_upstream_inherited_olist(vxlan_sg->pim, up);
+	if (!up->channel_oil->installed)
+		pim_upstream_mroute_add(up->channel_oil, __func__);
 }
 
 static void pim_vxlan_orig_mr_oif_add(struct pim_vxlan_sg *vxlan_sg)
@@ -386,7 +389,8 @@ static void pim_vxlan_orig_mr_oif_add(struct pim_vxlan_sg *vxlan_sg)
 
 	vxlan_sg->flags |= PIM_VXLAN_SGF_OIF_INSTALLED;
 	pim_channel_add_oif(vxlan_sg->up->channel_oil,
-		vxlan_sg->orig_oif, PIM_OIF_FLAG_PROTO_VXLAN);
+		vxlan_sg->orig_oif, PIM_OIF_FLAG_PROTO_VXLAN,
+		__func__);
 }
 
 static void pim_vxlan_orig_mr_oif_del(struct pim_vxlan_sg *vxlan_sg)
@@ -405,7 +409,7 @@ static void pim_vxlan_orig_mr_oif_del(struct pim_vxlan_sg *vxlan_sg)
 
 	vxlan_sg->flags &= ~PIM_VXLAN_SGF_OIF_INSTALLED;
 	pim_channel_del_oif(vxlan_sg->up->channel_oil,
-		orig_oif, PIM_OIF_FLAG_PROTO_VXLAN);
+			orig_oif, PIM_OIF_FLAG_PROTO_VXLAN, __func__);
 }
 
 static inline struct interface *pim_vxlan_orig_mr_oif_get(

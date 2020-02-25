@@ -523,14 +523,14 @@ int bfd_recv_cb(struct thread *t)
 	bool is_mhop;
 	ssize_t mlen = 0;
 	uint8_t ttl = 0;
-	vrf_id_t vrfid = VRF_DEFAULT;
+	vrf_id_t vrfid;
 	ifindex_t ifindex = IFINDEX_INTERNAL;
 	struct sockaddr_any local, peer;
 	uint8_t msgbuf[1516];
 	struct bfd_vrf_global *bvrf = THREAD_ARG(t);
 
-	if (bvrf)
-		vrfid = bvrf->vrf->vrf_id;
+	vrfid = bvrf->vrf->vrf_id;
+
 	/* Schedule next read. */
 	bfd_sd_reschedule(bvrf, sd);
 

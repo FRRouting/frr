@@ -156,6 +156,9 @@ struct bgp_master {
 	/* BGP-EVPN VRF ID. Defaults to default VRF (if any) */
 	struct bgp* bgp_evpn;
 
+	/* How big should we set the socket buffer size */
+	uint32_t socket_buffer;
+
 	bool terminating;	/* global flag that sigint terminate seen */
 	QOBJ_FIELDS
 };
@@ -454,6 +457,7 @@ struct bgp {
 	/* BGP default timer.  */
 	uint32_t default_holdtime;
 	uint32_t default_keepalive;
+	uint32_t default_connect_retry;
 
 	/* BGP graceful restart */
 	uint32_t restart_time;
@@ -500,6 +504,13 @@ struct bgp {
 	int ebgp_requires_policy;
 #define DEFAULT_EBGP_POLICY_DISABLED 0
 #define DEFAULT_EBGP_POLICY_ENABLED 1
+
+	/* draft-ietf-idr-deprecate-as-set-confed-set
+	 * Reject aspaths with AS_SET and/or AS_CONFED_SET.
+	 */
+	bool reject_as_sets;
+#define BGP_REJECT_AS_SETS_DISABLED 0
+#define BGP_REJECT_AS_SETS_ENABLED 1
 
 	struct bgp_evpn_info *evpn_info;
 
@@ -1200,6 +1211,7 @@ struct peer {
 #define PEER_DOWN_NBR_ADDR              28 /* Waiting for peer IPv6 IP Addr */
 #define PEER_DOWN_VRF_UNINIT            29 /* Associated VRF is not init yet */
 #define PEER_DOWN_NOAFI_ACTIVATED       30 /* No AFI/SAFI activated for peer */
+#define PEER_DOWN_AS_SETS_REJECT        31 /* Reject routes with AS_SET */
 	size_t last_reset_cause_size;
 	uint8_t last_reset_cause[BGP_MAX_PACKET_SIZE];
 
@@ -1221,6 +1233,9 @@ struct peer {
 	/* hostname and domainname advertised by host */
 	char *hostname;
 	char *domainname;
+
+	/* Sender side AS path loop detection. */
+	bool as_path_loop_detection;
 
 	QOBJ_FIELDS
 };
@@ -1415,13 +1430,17 @@ struct bgp_nlri {
 #define BGP_EVENTS_MAX                          15
 
 /* BGP timers default value.  */
-/* note: the DFLT_ ones depend on compile-time "defaults" selection */
 #define BGP_INIT_START_TIMER                     1
-#define BGP_DEFAULT_HOLDTIME                      DFLT_BGP_HOLDTIME
-#define BGP_DEFAULT_KEEPALIVE                     DFLT_BGP_KEEPALIVE
+/* The following 3 are RFC defaults that are overridden in bgp_vty.c with
+ * version-/profile-specific values.  The values here do not matter, they only
+ * exist to provide a clear layering separation between core and CLI.
+ */
+#define BGP_DEFAULT_HOLDTIME                   180
+#define BGP_DEFAULT_KEEPALIVE                   60
+#define BGP_DEFAULT_CONNECT_RETRY              120
+
 #define BGP_DEFAULT_EBGP_ROUTEADV                0
 #define BGP_DEFAULT_IBGP_ROUTEADV                0
-#define BGP_DEFAULT_CONNECT_RETRY                 DFLT_BGP_TIMERS_CONNECT
 
 /* BGP default local preference.  */
 #define BGP_DEFAULT_LOCAL_PREF                 100
@@ -1443,9 +1462,6 @@ struct bgp_nlri {
 /* Default configuration settings for bgpd.  */
 #define BGP_VTY_PORT                          2605
 #define BGP_DEFAULT_CONFIG             "bgpd.conf"
-
-/* Check AS path loop when we send NLRI.  */
-/* #define BGP_SEND_ASPATH_CHECK */
 
 /* BGP Dynamic Neighbors feature */
 #define BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT    100
@@ -1469,6 +1485,7 @@ enum bgp_clear_type {
 
 /* BGP error codes.  */
 #define BGP_SUCCESS                               0
+#define BGP_CREATED                               1
 #define BGP_ERR_INVALID_VALUE                    -1
 #define BGP_ERR_INVALID_FLAG                     -2
 #define BGP_ERR_INVALID_AS                       -3
@@ -1577,7 +1594,8 @@ extern char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 
 extern int bgp_config_write(struct vty *);
 
-extern void bgp_master_init(struct thread_master *master);
+extern void bgp_master_init(struct thread_master *master,
+			    const int buffer_size);
 
 extern void bgp_init(unsigned short instance);
 extern void bgp_pthreads_run(void);
@@ -1614,7 +1632,8 @@ extern int bgp_confederation_peers_check(struct bgp *, as_t);
 extern int bgp_confederation_peers_add(struct bgp *, as_t);
 extern int bgp_confederation_peers_remove(struct bgp *, as_t);
 
-extern int bgp_timers_set(struct bgp *, uint32_t keepalive, uint32_t holdtime);
+extern int bgp_timers_set(struct bgp *, uint32_t keepalive, uint32_t holdtime,
+			  uint32_t connect_retry);
 extern int bgp_timers_unset(struct bgp *);
 
 extern int bgp_default_local_preference_set(struct bgp *, uint32_t);
@@ -1939,5 +1958,8 @@ extern struct peer *peer_new(struct bgp *bgp);
 
 extern struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 					const char *ip_str, bool use_json);
+
+/* Hooks */
+DECLARE_HOOK(peer_status_changed, (struct peer * peer), (peer))
 
 #endif /* _QUAGGA_BGPD_H */

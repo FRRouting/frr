@@ -26,6 +26,10 @@
 #define SOL_IP IPPROTO_IP
 #endif
 
+#ifndef MCAST_JOIN_GROUP
+#define MCAST_JOIN_GROUP 42
+#endif
+
 #ifndef MCAST_JOIN_SOURCE_GROUP
 #define MCAST_JOIN_SOURCE_GROUP 46
 struct group_source_req {
@@ -58,8 +62,12 @@ static int pim_igmp_join_source(int fd, ifindex_t ifindex,
 
 	req.gsr_interface = ifindex;
 
-	return setsockopt(fd, SOL_IP, MCAST_JOIN_SOURCE_GROUP, &req,
-			  sizeof(req));
+	if (source_addr.s_addr == INADDR_ANY)
+		return setsockopt(fd, SOL_IP, MCAST_JOIN_GROUP, &req,
+				  sizeof(req));
+	else
+		return setsockopt(fd, SOL_IP, MCAST_JOIN_SOURCE_GROUP, &req,
+				  sizeof(req));
 }
 
 #endif /* PIM_IGMP_JOIN_H */

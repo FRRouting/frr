@@ -484,8 +484,7 @@ static struct bgp_path_info *rfapiBgpInfoCreate(struct attr *attr,
 
 	new = info_make(type, sub_type, 0, peer, attr, NULL);
 
-	if (attr)
-		new->attr = bgp_attr_intern(attr);
+	new->attr = bgp_attr_intern(attr);
 
 	bgp_path_info_extra_get(new);
 	if (prd) {
@@ -516,9 +515,8 @@ static void rfapiBgpInfoFree(struct bgp_path_info *goner)
 		peer_unlock(goner->peer);
 	}
 
-	if (goner->attr) {
-		bgp_attr_unintern(&goner->attr);
-	}
+	bgp_attr_unintern(&goner->attr);
+
 	if (goner->extra)
 		bgp_path_info_extra_free(&goner->extra);
 	XFREE(MTYPE_BGP_ROUTE, goner);
@@ -1113,9 +1111,6 @@ static int rfapiVpnBiSamePtUn(struct bgp_path_info *bpi1,
 	if (!bpi1 || !bpi2)
 		return 0;
 
-	if (!bpi1->attr || !bpi2->attr)
-		return 0;
-
 	/*
 	 * VN address comparisons
 	 */
@@ -1299,13 +1294,10 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 		memcpy(&vo->v.l2addr.macaddr, &rn->p.u.prefix_eth.octet,
 		       ETH_ALEN);
 		/* only low 3 bytes of this are significant */
-		if (bpi->attr) {
-			(void)rfapiEcommunityGetLNI(
-				bpi->attr->ecommunity,
-				&vo->v.l2addr.logical_net_id);
-			(void)rfapiEcommunityGetEthernetTag(
-				bpi->attr->ecommunity, &vo->v.l2addr.tag_id);
-		}
+		(void)rfapiEcommunityGetLNI(bpi->attr->ecommunity,
+					    &vo->v.l2addr.logical_net_id);
+		(void)rfapiEcommunityGetEthernetTag(bpi->attr->ecommunity,
+						    &vo->v.l2addr.tag_id);
 
 		/* local_nve_id comes from lower byte of RD type */
 		vo->v.l2addr.local_nve_id = bpi->extra->vnc.import.rd.val[1];
@@ -1325,129 +1317,117 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 		}
 	}
 
-	if (bpi->attr) {
-		bgp_encap_types tun_type = BGP_ENCAP_TYPE_MPLS; /*Default*/
-		new->prefix.cost = rfapiRfpCost(bpi->attr);
+	bgp_encap_types tun_type = BGP_ENCAP_TYPE_MPLS; /*Default*/
+	new->prefix.cost = rfapiRfpCost(bpi->attr);
 
-		struct bgp_attr_encap_subtlv *pEncap;
+	struct bgp_attr_encap_subtlv *pEncap;
 
-		switch (BGP_MP_NEXTHOP_FAMILY(bpi->attr->mp_nexthop_len)) {
-		case AF_INET:
-			new->vn_address.addr_family = AF_INET;
-			new->vn_address.addr.v4 =
-				bpi->attr->mp_nexthop_global_in;
-			break;
+	switch (BGP_MP_NEXTHOP_FAMILY(bpi->attr->mp_nexthop_len)) {
+	case AF_INET:
+		new->vn_address.addr_family = AF_INET;
+		new->vn_address.addr.v4 = bpi->attr->mp_nexthop_global_in;
+		break;
 
-		case AF_INET6:
-			new->vn_address.addr_family = AF_INET6;
-			new->vn_address.addr.v6 = bpi->attr->mp_nexthop_global;
+	case AF_INET6:
+		new->vn_address.addr_family = AF_INET6;
+		new->vn_address.addr.v6 = bpi->attr->mp_nexthop_global;
+		break;
+
+	default:
+		zlog_warn("%s: invalid vpn nexthop length: %d", __func__,
+			  bpi->attr->mp_nexthop_len);
+		rfapi_free_next_hop_list(new);
+		return NULL;
+	}
+
+	for (pEncap = bpi->attr->vnc_subtlvs; pEncap; pEncap = pEncap->next) {
+		switch (pEncap->type) {
+		case BGP_VNC_SUBTLV_TYPE_LIFETIME:
+			/* use configured lifetime, not attr lifetime */
 			break;
 
 		default:
-			zlog_warn("%s: invalid vpn nexthop length: %d",
-				  __func__, bpi->attr->mp_nexthop_len);
-			rfapi_free_next_hop_list(new);
-			return NULL;
+			zlog_warn("%s: unknown VNC option type %d", __func__,
+				  pEncap->type);
+
+			break;
 		}
+	}
 
-		for (pEncap = bpi->attr->vnc_subtlvs; pEncap;
-		     pEncap = pEncap->next) {
-			switch (pEncap->type) {
-			case BGP_VNC_SUBTLV_TYPE_LIFETIME:
-				/* use configured lifetime, not attr lifetime */
-				break;
-
-			default:
-				zlog_warn("%s: unknown VNC option type %d",
-					  __func__, pEncap->type);
-
-
-				break;
-			}
+	bgp_attr_extcom_tunnel_type(bpi->attr, &tun_type);
+	if (tun_type == BGP_ENCAP_TYPE_MPLS) {
+		struct prefix p;
+		/* MPLS carries UN address in next hop */
+		rfapiNexthop2Prefix(bpi->attr, &p);
+		if (p.family != 0) {
+			rfapiQprefix2Raddr(&p, &new->un_address);
+			have_vnc_tunnel_un = 1;
 		}
+	}
 
-		bgp_attr_extcom_tunnel_type(bpi->attr, &tun_type);
-		if (tun_type == BGP_ENCAP_TYPE_MPLS) {
-			struct prefix p;
-			/* MPLS carries UN address in next hop */
-			rfapiNexthop2Prefix(bpi->attr, &p);
-			if (p.family != 0) {
-				rfapiQprefix2Raddr(&p, &new->un_address);
+	for (pEncap = bpi->attr->encap_subtlvs; pEncap; pEncap = pEncap->next) {
+		switch (pEncap->type) {
+		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+			/*
+			 * Overrides ENCAP UN address, if any
+			 */
+			switch (pEncap->length) {
+
+			case 8:
+				new->un_address.addr_family = AF_INET;
+				memcpy(&new->un_address.addr.v4, pEncap->value,
+				       4);
 				have_vnc_tunnel_un = 1;
-			}
-		}
+				break;
 
-		for (pEncap = bpi->attr->encap_subtlvs; pEncap;
-		     pEncap = pEncap->next) {
-			switch (pEncap->type) {
-			case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-				/*
-				 * Overrides ENCAP UN address, if any
-				 */
-				switch (pEncap->length) {
-
-				case 8:
-					new->un_address.addr_family = AF_INET;
-					memcpy(&new->un_address.addr.v4,
-					       pEncap->value, 4);
-					have_vnc_tunnel_un = 1;
-					break;
-
-				case 20:
-					new->un_address.addr_family = AF_INET6;
-					memcpy(&new->un_address.addr.v6,
-					       pEncap->value, 16);
-					have_vnc_tunnel_un = 1;
-					break;
-
-				default:
-					zlog_warn(
-						"%s: invalid tunnel subtlv UN addr length (%d) for bpi %p",
-						__func__, pEncap->length, bpi);
-				}
+			case 20:
+				new->un_address.addr_family = AF_INET6;
+				memcpy(&new->un_address.addr.v6, pEncap->value,
+				       16);
+				have_vnc_tunnel_un = 1;
 				break;
 
 			default:
 				zlog_warn(
-					"%s: unknown Encap Attribute option type %d",
-					__func__, pEncap->type);
-
-
-				break;
+					"%s: invalid tunnel subtlv UN addr length (%d) for bpi %p",
+					__func__, pEncap->length, bpi);
 			}
-		}
+			break;
 
-		new->un_options = rfapi_encap_tlv_to_un_option(bpi->attr);
+		default:
+			zlog_warn("%s: unknown Encap Attribute option type %d",
+				  __func__, pEncap->type);
+			break;
+		}
+	}
+
+	new->un_options = rfapi_encap_tlv_to_un_option(bpi->attr);
 
 #if DEBUG_ENCAP_MONITOR
-		vnc_zlog_debug_verbose("%s: line %d: have_vnc_tunnel_un=%d",
-				       __func__, __LINE__, have_vnc_tunnel_un);
+	vnc_zlog_debug_verbose("%s: line %d: have_vnc_tunnel_un=%d", __func__,
+			       __LINE__, have_vnc_tunnel_un);
 #endif
 
-		if (!have_vnc_tunnel_un && bpi->extra) {
-			/*
-			 * use cached UN address from ENCAP route
-			 */
-			new->un_address.addr_family =
-				bpi->extra->vnc.import.un_family;
-			switch (new->un_address.addr_family) {
-			case AF_INET:
-				new->un_address.addr.v4 =
-					bpi->extra->vnc.import.un.addr4;
-				break;
-			case AF_INET6:
-				new->un_address.addr.v6 =
-					bpi->extra->vnc.import.un.addr6;
-				break;
-			default:
-				zlog_warn(
-					"%s: invalid UN addr family (%d) for bpi %p",
-					__func__, new->un_address.addr_family,
-					bpi);
-				rfapi_free_next_hop_list(new);
-				return NULL;
-				break;
-			}
+	if (!have_vnc_tunnel_un && bpi->extra) {
+		/*
+		 * use cached UN address from ENCAP route
+		 */
+		new->un_address.addr_family = bpi->extra->vnc.import.un_family;
+		switch (new->un_address.addr_family) {
+		case AF_INET:
+			new->un_address.addr.v4 =
+				bpi->extra->vnc.import.un.addr4;
+			break;
+		case AF_INET6:
+			new->un_address.addr.v6 =
+				bpi->extra->vnc.import.un.addr6;
+			break;
+		default:
+			zlog_warn("%s: invalid UN addr family (%d) for bpi %p",
+				  __func__, new->un_address.addr_family, bpi);
+			rfapi_free_next_hop_list(new);
+			return NULL;
+			break;
 		}
 	}
 
@@ -1532,7 +1512,7 @@ static int rfapiNhlAddNodeRoutes(
 	}
 
 	seen_nexthops =
-		skiplist_new(0, vnc_prefix_cmp, (void (*)(void *))prefix_free);
+		skiplist_new(0, vnc_prefix_cmp, prefix_free_lists);
 
 	for (bpi = rn->info; bpi; bpi = bpi->next) {
 
@@ -2607,12 +2587,6 @@ static int rfapiAttrNexthopAddrDifferent(struct prefix *p1, struct prefix *p2)
 static void rfapiCopyUnEncap2VPN(struct bgp_path_info *encap_bpi,
 				 struct bgp_path_info *vpn_bpi)
 {
-	if (!encap_bpi->attr) {
-		zlog_warn("%s: no encap bpi attr/extra, can't copy UN address",
-			  __func__);
-		return;
-	}
-
 	if (!vpn_bpi || !vpn_bpi->extra) {
 		zlog_warn("%s: no vpn  bpi attr/extra, can't copy UN address",
 			  __func__);
@@ -4385,7 +4359,7 @@ rfapiImportTableRefAdd(struct bgp *bgp, struct ecommunity *rt_import_list,
 		it->rt_import_list = ecommunity_dup(rt_import_list);
 		it->rfg = rfg;
 		it->monitor_exterior_orphans =
-			skiplist_new(0, NULL, (void (*)(void *))prefix_free);
+			skiplist_new(0, NULL, prefix_free_lists);
 
 		/*
 		 * fill import route tables from RIBs
@@ -4510,10 +4484,9 @@ static void rfapiDeleteRemotePrefixesIt(
 				vnc_zlog_debug_verbose("%s: examining bpi %p",
 						       __func__, bpi);
 
-				if (bpi->attr) {
-					if (!rfapiGetNexthop(bpi->attr, &qpt))
-						qpt_valid = 1;
-				}
+				if (!rfapiGetNexthop(bpi->attr, &qpt))
+					qpt_valid = 1;
+
 				if (vn) {
 					if (!qpt_valid
 					    || !prefix_match(vn, &qpt)) {

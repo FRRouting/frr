@@ -1339,7 +1339,7 @@ int main(void)
 {
 	int i = 0;
 	qobj_init();
-	bgp_master_init(thread_master_create(NULL));
+	bgp_master_init(thread_master_create(NULL), BGP_SOCKET_SNDBUF_SIZE);
 	master = bm->master;
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	bgp_attr_init();
@@ -1379,6 +1379,7 @@ int main(void)
 
 	i = 0;
 
+	frr_pthread_init();
 	bgp_pthreads_init();
 	bgp_pth_ka->running = true;
 

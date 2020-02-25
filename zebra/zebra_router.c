@@ -154,6 +154,11 @@ void zebra_router_sweep_route(void)
 	}
 }
 
+void zebra_router_sweep_nhgs(void)
+{
+	zebra_nhg_sweep_table(zrouter.nhgs_id);
+}
+
 static void zebra_router_free_table(struct zebra_router_table *zrt)
 {
 	void *table_info;
@@ -218,6 +223,11 @@ void zebra_router_terminate(void)
 	zebra_vxlan_disable();
 	zebra_mlag_terminate();
 
+	hash_clean(zrouter.nhgs, zebra_nhg_hash_free);
+	hash_free(zrouter.nhgs);
+	hash_clean(zrouter.nhgs_id, NULL);
+	hash_free(zrouter.nhgs_id);
+
 	hash_clean(zrouter.rules_hash, zebra_pbr_rules_free);
 	hash_free(zrouter.rules_hash);
 
@@ -255,4 +265,11 @@ void zebra_router_init(void)
 	zrouter.iptable_hash = hash_create_size(8, zebra_pbr_iptable_hash_key,
 						zebra_pbr_iptable_hash_equal,
 						"IPtable Hash Entry");
+
+	zrouter.nhgs =
+		hash_create_size(8, zebra_nhg_hash_key, zebra_nhg_hash_equal,
+				 "Zebra Router Nexthop Groups");
+	zrouter.nhgs_id =
+		hash_create_size(8, zebra_nhg_id_key, zebra_nhg_hash_id_equal,
+				 "Zebra Router Nexthop Groups ID index");
 }

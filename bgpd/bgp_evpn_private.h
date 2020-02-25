@@ -188,6 +188,16 @@ struct bgp_evpn_info {
 	/* EVPN enable - advertise svi macip routes */
 	int advertise_svi_macip;
 
+	/* PIP feature knob */
+	bool advertise_pip;
+	/* PIP IP (sys ip) */
+	struct in_addr pip_ip;
+	struct in_addr pip_ip_static;
+	/* PIP MAC (sys MAC) */
+	struct ethaddr pip_rmac;
+	struct ethaddr pip_rmac_static;
+	struct ethaddr pip_rmac_zebra;
+	bool is_anycast_mac;
 };
 
 static inline int is_vrf_rd_configured(struct bgp *bgp_vrf)
@@ -501,6 +511,16 @@ static inline int is_es_local(struct evpnes *es)
 	return CHECK_FLAG(es->flags, EVPNES_LOCAL) ? 1 : 0;
 }
 
+static inline bool bgp_evpn_is_svi_macip_enabled(struct bgpevpn *vpn)
+{
+	struct bgp *bgp_evpn = NULL;
+
+	bgp_evpn = bgp_get_evpn();
+
+	return (bgp_evpn->evpn_info->advertise_svi_macip ||
+		vpn->advertise_svi_macip);
+}
+
 extern void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf,
 						     afi_t afi, safi_t safi,
 						     bool add);
@@ -543,4 +563,5 @@ extern struct evpnes *bgp_evpn_es_new(struct bgp *bgp, esi_t *esi,
 				      struct ipaddr *originator_ip);
 extern void bgp_evpn_es_free(struct bgp *bgp, struct evpnes *es);
 extern bool bgp_evpn_lookup_l3vni_l2vni_table(vni_t vni);
+extern int update_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn);
 #endif /* _BGP_EVPN_PRIVATE_H */

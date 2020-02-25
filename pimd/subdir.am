@@ -62,6 +62,7 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_zebra.c \
 	pimd/pim_zlookup.c \
 	pimd/pim_vxlan.c \
+	pimd/pim_mlag.c \
 	pimd/pimd.c \
 	# end
 
@@ -114,6 +115,7 @@ noinst_HEADERS += \
 	pimd/pim_zebra.h \
 	pimd/pim_zlookup.h \
 	pimd/pim_vxlan.h \
+	pimd/pim_mlag.h \
 	pimd/pim_vxlan_instance.h \
 	pimd/pimd.h \
 	pimd/mtracebis_netlink.h \

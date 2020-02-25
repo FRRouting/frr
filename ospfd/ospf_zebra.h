@@ -87,7 +87,4 @@ extern void ospf_zebra_init(struct thread_master *, unsigned short);
 extern void ospf_zebra_vrf_register(struct ospf *ospf);
 extern void ospf_zebra_vrf_deregister(struct ospf *ospf);
 
-DECLARE_HOOK(ospf_if_update, (struct interface * ifp), (ifp))
-DECLARE_HOOK(ospf_if_delete, (struct interface * ifp), (ifp))
-
 #endif /* _ZEBRA_OSPF_ZEBRA_H */

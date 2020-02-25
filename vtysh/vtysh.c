@@ -492,6 +492,7 @@ static int vtysh_execute_func(const char *line, int pager)
 	 */
 	while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON
 	       && ret != CMD_WARNING && ret != CMD_WARNING_CONFIG_FAILED
+	       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	       && vty->node > CONFIG_NODE) {
 		vty->node = node_parent(vty->node);
 		ret = cmd_execute(vty, line, &cmd, 1);
@@ -724,19 +725,19 @@ int vtysh_mark_file(const char *filename)
 		switch (vty->node) {
 		case LDP_IPV4_IFACE_NODE:
 			if (strncmp(vty_buf_copy, "   ", 3)) {
-				vty_out(vty, "  end\n");
+				vty_out(vty, " exit-ldp-if\n");
 				vty->node = LDP_IPV4_NODE;
 			}
 			break;
 		case LDP_IPV6_IFACE_NODE:
 			if (strncmp(vty_buf_copy, "   ", 3)) {
-				vty_out(vty, "  end\n");
+				vty_out(vty, " exit-ldp-if\n");
 				vty->node = LDP_IPV6_NODE;
 			}
 			break;
 		case LDP_PSEUDOWIRE_NODE:
 			if (strncmp(vty_buf_copy, "  ", 2)) {
-				vty_out(vty, " end\n");
+				vty_out(vty, " exit\n");
 				vty->node = LDP_L2VPN_NODE;
 			}
 			break;
@@ -777,6 +778,7 @@ int vtysh_mark_file(const char *filename)
 		 */
 		while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON
 		       && ret != CMD_WARNING && ret != CMD_WARNING_CONFIG_FAILED
+		       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 		       && vty->node > CONFIG_NODE) {
 			vty->node = node_parent(vty->node);
 			ret = cmd_execute_command_strict(vline, vty, &cmd);
@@ -1337,7 +1339,7 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 }
 
 DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
-	"router bgp [(1-4294967295)$instasn [<view|vrf> WORD]]",
+	"router bgp [(1-4294967295) [<view|vrf> WORD]]",
 	ROUTER_STR BGP_STR AS_STR
 	"BGP view\nBGP VRF\n"
 	"View/VRF name\n")
@@ -2161,7 +2163,8 @@ DEFUNSH(VTYSH_ZEBRA, vtysh_pseudowire, vtysh_pseudowire_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_nexthop_group, vtysh_nexthop_group_cmd,
+DEFUNSH(VTYSH_NH_GROUP,
+	vtysh_nexthop_group, vtysh_nexthop_group_cmd,
 	"nexthop-group NHGNAME",
 	"Nexthop Group configuration\n"
 	"Name of the Nexthop Group\n")
@@ -2170,7 +2173,7 @@ DEFUNSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_nexthop_group, vtysh_nexthop_group_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_no_nexthop_group_cmd,
+DEFSH(VTYSH_NH_GROUP, vtysh_no_nexthop_group_cmd,
       "no nexthop-group NHGNAME",
       NO_STR
       "Nexthop Group Configuration\n"
@@ -2207,13 +2210,15 @@ DEFUNSH(VTYSH_VRF, vtysh_quit_vrf, vtysh_quit_vrf_cmd, "quit",
 	return vtysh_exit_vrf(self, vty, argc, argv);
 }
 
-DEFUNSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_exit_nexthop_group, vtysh_exit_nexthop_group_cmd,
+DEFUNSH(VTYSH_NH_GROUP,
+	vtysh_exit_nexthop_group, vtysh_exit_nexthop_group_cmd,
 	"exit", "Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit(vty);
 }
 
-DEFUNSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_quit_nexthop_group, vtysh_quit_nexthop_group_cmd,
+DEFUNSH(VTYSH_NH_GROUP,
+	vtysh_quit_nexthop_group, vtysh_quit_nexthop_group_cmd,
 	"quit", "Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit_nexthop_group(self, vty, argc, argv);
@@ -2253,6 +2258,7 @@ DEFUN (vtysh_show_poll,
 	return ret;
 }
 
+#ifndef EXCLUDE_CPU_TIME
 DEFUN (vtysh_show_thread,
        vtysh_show_thread_cmd,
        "show thread cpu [FILTER]",
@@ -2279,6 +2285,7 @@ DEFUN (vtysh_show_thread,
 		}
 	return ret;
 }
+#endif
 
 DEFUN (vtysh_show_work_queues,
        vtysh_show_work_queues_cmd,
@@ -2419,6 +2426,55 @@ DEFUN (vtysh_show_error_code,
 		log_ref_display(vty, arg, json);
 	}
 
+	return CMD_SUCCESS;
+}
+
+/* Northbound. */
+DEFUN (show_yang_operational_data,
+       show_yang_operational_data_cmd,
+       "show yang operational-data XPATH\
+         [{\
+	   format <json|xml>\
+	   |translate WORD\
+	 }]" DAEMONS_LIST,
+       SHOW_STR
+       "YANG information\n"
+       "Show YANG operational data\n"
+       "XPath expression specifying the YANG data path\n"
+       "Set the output format\n"
+       "JavaScript Object Notation\n"
+       "Extensible Markup Language\n"
+       "Translate operational data\n"
+       "YANG module translator\n"
+       DAEMONS_STR)
+{
+	int idx_protocol = argc - 1;
+	char *fcmd = argv_concat(argv, argc - 1, 0);
+	int ret = vtysh_client_execute_name(argv[idx_protocol]->text, fcmd);
+	XFREE(MTYPE_TMP, fcmd);
+	return ret;
+}
+
+DEFUNSH(VTYSH_ALL, debug_nb,
+	debug_nb_cmd,
+	"[no] debug northbound\
+	   [<\
+	    callbacks [{configuration|state|rpc}]\
+	    |notifications\
+	    |events\
+	    |libyang\
+	   >]",
+	NO_STR
+	DEBUG_STR
+	"Northbound debugging\n"
+	"Callbacks\n"
+	"Configuration\n"
+	"State\n"
+	"RPC\n"
+	"Notifications\n"
+	"Events\n"
+	"libyang debugging\n")
+{
 	return CMD_SUCCESS;
 }
 
@@ -4018,12 +4074,19 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &vtysh_debug_memstats_cmd);
 	install_element(CONFIG_NODE, &vtysh_debug_memstats_cmd);
 
+	/* northbound */
+	install_element(VIEW_NODE, &show_yang_operational_data_cmd);
+	install_element(ENABLE_NODE, &debug_nb_cmd);
+	install_element(CONFIG_NODE, &debug_nb_cmd);
+
 	/* misc lib show commands */
 	install_element(VIEW_NODE, &vtysh_show_memory_cmd);
 	install_element(VIEW_NODE, &vtysh_show_modules_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);
+#ifndef EXCLUDE_CPU_TIME
 	install_element(VIEW_NODE, &vtysh_show_thread_cmd);
+#endif
 	install_element(VIEW_NODE, &vtysh_show_poll_cmd);
 
 	/* Logging */

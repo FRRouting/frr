@@ -120,6 +120,7 @@ extern int aspath_confed_check(struct aspath *);
 extern int aspath_left_confed_check(struct aspath *);
 extern unsigned long aspath_count(void);
 extern unsigned int aspath_count_hops(const struct aspath *);
+extern bool aspath_check_as_sets(struct aspath *aspath);
 extern unsigned int aspath_count_confeds(struct aspath *);
 extern unsigned int aspath_size(struct aspath *);
 extern as_t aspath_highest(struct aspath *);
@@ -134,8 +135,16 @@ extern uint8_t *aspath_snmp_pathseg(struct aspath *, size_t *);
 
 extern void bgp_compute_aggregate_aspath(struct bgp_aggregate *aggregate,
 					 struct aspath *aspath);
+
+extern void bgp_compute_aggregate_aspath_hash(struct bgp_aggregate *aggregate,
+					      struct aspath *aspath);
+extern void bgp_compute_aggregate_aspath_val(struct bgp_aggregate *aggregate);
 extern void bgp_remove_aspath_from_aggregate(struct bgp_aggregate *aggregate,
 					     struct aspath *aspath);
+extern void bgp_remove_aspath_from_aggregate_hash(
+						struct bgp_aggregate *aggregate,
+						struct aspath *aspath);
+
 extern void bgp_aggr_aspath_remove(void *arg);
 
 #endif /* _QUAGGA_BGP_ASPATH_H */

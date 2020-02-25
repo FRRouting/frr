@@ -10,7 +10,6 @@
         {
           "interfaceName": "r1-eth0",
           "interfaceIndex": 2,
-          "flags": 1,
           "active": true,
           "afi": "ipv6"
         }

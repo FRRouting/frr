@@ -29,6 +29,7 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_network.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -1388,9 +1389,10 @@ static void bgp_startup(void)
 	master = thread_master_create(NULL);
 	yang_init();
 	nb_init(master, NULL, 0);
-	bgp_master_init(master);
+	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	frr_pthread_init();
 	bgp_init(0);
 	bgp_pthreads_run();
 }

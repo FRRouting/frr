@@ -21,7 +21,6 @@
 #include "version.h"
 #include "log.h"
 #include "memory.h"
-#include "memory_vty.h"
 #include "command.h"
 #include "libfrr.h"
 
@@ -116,7 +115,7 @@ static struct quagga_signal_t sighandlers[] = {
 	},
 };
 
-static const struct frr_yang_module_info *nhrpd_yang_modules[] = {
+static const struct frr_yang_module_info *const nhrpd_yang_modules[] = {
 	&frr_interface_info,
 };
 
@@ -152,6 +151,8 @@ int main(int argc, char **argv)
 	nhrp_vc_init();
 	nhrp_packet_init();
 	vici_init();
+	if_zapi_callbacks(nhrp_ifp_create, nhrp_ifp_up,
+			  nhrp_ifp_down, nhrp_ifp_destroy);
 	nhrp_zebra_init();
 	nhrp_shortcut_init();
 

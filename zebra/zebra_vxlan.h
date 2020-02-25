@@ -141,7 +141,8 @@ extern void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
 					struct zebra_vrf *zvrf, vni_t vni,
 					bool use_json);
 extern void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf,
-				  vni_t vni, bool use_json);
+				  vni_t vni, bool use_json,
+				  json_object *json_array);
 extern void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 				   bool use_json);
 extern void zebra_vxlan_print_vnis_detail(struct vty *vty,
@@ -217,6 +218,8 @@ extern int zebra_vxlan_clear_dup_detect_vni(struct vty *vty,
 extern void zebra_vxlan_handle_result(struct zebra_dplane_ctx *ctx);
 
 extern void zebra_evpn_init(void);
+extern void zebra_vxlan_macvlan_up(struct interface *ifp);
+extern void zebra_vxlan_macvlan_down(struct interface *ifp);
 
 #ifdef __cplusplus
 }

@@ -32,7 +32,6 @@ extern "C" {
  * To turn on systemd compilation, use --enable-systemd on
  * configure run.
  */
-void systemd_send_information(const char *info);
 void systemd_send_stopping(void);
 
 /*
@@ -41,6 +40,11 @@ void systemd_send_stopping(void);
  *                process?
  */
 void systemd_send_started(struct thread_master *master, int the_process);
+
+/*
+ * status - A status string to send to systemd
+ */
+void systemd_send_status(const char *status);
 
 #ifdef __cplusplus
 }

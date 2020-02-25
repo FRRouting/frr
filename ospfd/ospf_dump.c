@@ -501,23 +501,6 @@ static void ospf_packet_ls_ack_dump(struct stream *s, uint16_t length)
 	stream_set_getp(s, sp);
 }
 
-/* Expects header to be in host order */
-void ospf_ip_header_dump(struct ip *iph)
-{
-	/* IP Header dump. */
-	zlog_debug("ip_v %d", iph->ip_v);
-	zlog_debug("ip_hl %d", iph->ip_hl);
-	zlog_debug("ip_tos %d", iph->ip_tos);
-	zlog_debug("ip_len %d", iph->ip_len);
-	zlog_debug("ip_id %u", (uint32_t)iph->ip_id);
-	zlog_debug("ip_off %u", (uint32_t)iph->ip_off);
-	zlog_debug("ip_ttl %d", iph->ip_ttl);
-	zlog_debug("ip_p %d", iph->ip_p);
-	zlog_debug("ip_sum 0x%x", (uint32_t)iph->ip_sum);
-	zlog_debug("ip_src %s", inet_ntoa(iph->ip_src));
-	zlog_debug("ip_dst %s", inet_ntoa(iph->ip_dst));
-}
-
 static void ospf_header_dump(struct ospf_header *ospfh)
 {
 	char buf[9];

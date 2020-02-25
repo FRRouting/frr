@@ -28,6 +28,7 @@
 #include "lib/hook.h"
 #include "lib/if.h"
 #include "lib/linklist.h"
+#include "lib/northbound.h"
 #include "lib/privs.h"
 #include "lib/stream.h"
 #include "lib/thread.h"
@@ -46,6 +47,8 @@
 #define VRRP_LOGPFX_FAM "[%s] "
 
 /* Default defaults */
+#define VRRP_XPATH_FULL "/frr-interface:lib/interface/frr-vrrpd:vrrp/vrrp-group"
+#define VRRP_XPATH "./frr-vrrpd:vrrp/vrrp-group"
 #define VRRP_DEFAULT_PRIORITY 100
 #define VRRP_DEFAULT_ADVINT 100
 #define VRRP_DEFAULT_PREEMPT true
@@ -57,8 +60,12 @@
 
 DECLARE_MGROUP(VRRPD)
 
+/* Northbound */
+extern const struct frr_yang_module_info frr_vrrpd_info;
+
 /* Configured defaults */
 struct vrrp_defaults {
+	uint8_t version;
 	uint8_t priority;
 	uint16_t advertisement_interval;
 	bool preempt_mode;
@@ -340,7 +347,7 @@ void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
 /*
  * Add an IPvX address to a VRRP Virtual Router.
  *
- * r
+ * vr
  *    Virtual Router to add IPvx address to
  *
  * ip
@@ -354,7 +361,7 @@ void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
  *    -1 on error
  *     0 otherwise
  */
-int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip);
+int vrrp_add_ip(struct vrrp_vrouter *vr, struct ipaddr *ip);
 
 /*
  * Add an IPv4 address to a VRRP Virtual Router.
@@ -397,7 +404,7 @@ int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
 /*
  * Remove an IP address from a VRRP Virtual Router.
  *
- * r
+ * vr
  *    Virtual Router to remove IP address from
  *
  * ip
@@ -413,7 +420,7 @@ int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
  *    -1 on error
  *     0 otherwise
  */
-int vrrp_del_ip(struct vrrp_router *r, struct ipaddr *ip);
+int vrrp_del_ip(struct vrrp_vrouter *vr, struct ipaddr *ip);
 
 /*
  * Remove an IPv4 address from a VRRP Virtual Router.
@@ -465,8 +472,7 @@ int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
 #define VRRP_EVENT_STARTUP 0
 #define VRRP_EVENT_SHUTDOWN 1
 
-extern const char *vrrp_state_names[3];
-extern const char *vrrp_event_names[2];
+extern const char *const vrrp_state_names[3];
 
 /*
  * This hook called whenever the state of a Virtual Router changes, after the
@@ -544,17 +550,6 @@ void vrrp_if_address_del(struct interface *ifp);
 /* Other ------------------------------------------------------------------- */
 
 /*
- * Write interface block-level configuration to vty.
- *
- * vty
- *    vty to write config to
- *
- * Returns:
- *    # of lines written
- */
-int vrrp_config_write_interface(struct vty *vty);
-
-/*
  * Write global level configuration to vty.
  *
  * vty
@@ -568,6 +563,6 @@ int vrrp_config_write_global(struct vty *vty);
 /*
  * Find VRRP Virtual Router by Virtual Router ID
  */
-struct vrrp_vrouter *vrrp_lookup(struct interface *ifp, uint8_t vrid);
+struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid);
 
 #endif /* __VRRP_H__ */

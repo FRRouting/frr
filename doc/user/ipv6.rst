@@ -77,6 +77,20 @@ Router Advertisement
    Default: ``600000``
 
 .. index::
+   single: ipv6 nd ra-fast-retrans
+   single: no ipv6 nd ra-fast-retrans
+.. clicmd:: [no] ipv6 nd ra-fast-retrans
+
+   RFC4861 states that consecutive RA packets should be sent no more
+   frequently than three seconds apart. FRR by default allows faster
+   transmissions of RA packets in order to speed convergence and
+   neighbor establishment, particularly for unnumbered peering.  By
+   turning off ipv6 nd ra-fast-retrans, the implementation is
+   compliant with the RFC at the cost of slower convergence
+   and neighbor establishment.
+   Default: enabled
+
+.. index::
    single: ipv6 nd ra-lifetime (0-9000)
    single: no ipv6 nd ra-lifetime [(0-9000)]
 .. clicmd:: [no] ipv6 nd ra-lifetime [(0-9000)]

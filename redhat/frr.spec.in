@@ -63,6 +63,13 @@
 %endif
 %endif
 
+# Check for python version - use python2.7 on CentOS 6, otherwise python3
+%if 0%{?rhel} && 0%{?rhel} < 7
+    %global use_python2 1
+%else
+    %global use_python2 0
+%endif
+
 # If init system is systemd, then always enable watchfrr
 %if "%{initsystem}" == "systemd"
     %global with_watchfrr 1
@@ -169,8 +176,17 @@ BuildRequires:  libyang-devel >= 0.16.74
 BuildRequires:  python27-devel
 BuildRequires:  python27-sphinx
 %else
+%if %{use_python2}
 BuildRequires:  python-devel >= 2.7
 BuildRequires:  python-sphinx
+%else
+BuildRequires:  python3-devel
+BuildRequires:  python3-sphinx
+%endif
+%endif
+%if 0%{?rhel} > 7
+#platform-python-devel is needed for /usr/bin/pathfix.py
+BuildRequires:  platform-python-devel
 %endif
 Requires:       initscripts
 %if %{with_pam}
@@ -217,8 +233,18 @@ Contributed/3rd party tools which may be of use with frr.
 
 %package pythontools
 Summary: python tools for frr
-BuildRequires: python
-Requires: python-ipaddress
+%if 0%{?rhel} && 0%{?rhel} < 7
+#python27 is available from ius community repo for RedHat/CentOS 6
+BuildRequires:  python27
+Requires:  python27-ipaddress
+%else
+%if %{use_python2}
+BuildRequires:  python2
+Requires:  python2-ipaddress
+%else
+BuildRequires:  python3
+%endif
+%endif
 Group: System Environment/Daemons
 
 %description pythontools
@@ -358,6 +384,16 @@ developing OSPF-API and frr applications.
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
+%if %{use_python2}
+# Change frr-reload.py to use python2.7
+sed -e '1c #!/usr/bin/python2.7' -i %{zeb_src}/tools/frr-reload.py
+sed -e '1c #!/usr/bin/python2.7' -i %{zeb_src}/tools/generate_support_bundle.py
+%else
+# Change frr-reload.py to use python3
+sed -e '1c #!/usr/bin/python3' -i %{zeb_src}/tools/frr-reload.py
+sed -e '1c #!/usr/bin/python3' -i %{zeb_src}/tools/generate_support_bundle.py
+%endif
+
 pushd doc
 make info
 popd
@@ -397,6 +433,11 @@ install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate %{buildroot}%{_sysconfdir}/logrotate.d/frr
 install -d -m750 %{buildroot}%{rundir}
 
+%if 0%{?rhel} > 7 || 0%{?fedora} > 29
+# avoid `ERROR: ambiguous python shebang in` errors
+pathfix.py -pni "%{__python3} %{py3_shbang_opts}" %{buildroot}/usr/lib/frr/*.py
+%py_byte_compile %{__python3} %{buildroot}/usr/lib/frr/*.py
+%endif
 
 %pre
 # add vty_group
@@ -428,7 +469,7 @@ zebra_spec_add_service ()
 {
     # Add port /etc/services entry if it isn't already there
     if [ -f %{_sysconfdir}/services ] && \
-        ! %__sed -e 's/#.*$//' %{_sysconfdir}/services | %__grep -wq $1 ; then
+        ! %__sed -e 's/#.*$//' %{_sysconfdir}/services 2>/dev/null | %__grep -wq $1 ; then
         echo "$1        $2          # $3"  >> %{_sysconfdir}/services
     fi
 }
@@ -633,6 +674,7 @@ fi
 %if %{with_rpki}
     %{_libdir}/frr/modules/bgpd_rpki.so
 %endif
+%{_libdir}/frr/modules/zebra_cumulus_mlag.so
 %{_libdir}/frr/modules/zebra_irdp.so
 %{_libdir}/frr/modules/bgpd_bmp.so
 %{_bindir}/*
@@ -656,9 +698,17 @@ fi
 
 
 %files pythontools
+%{_sbindir}/generate_support_bundle.py
+%{_sbindir}/frr-reload.py
+%if 0%{?rhel} > 7 || 0%{?fedora} > 29
+%{_sbindir}/__pycache__/*
+%else
+%{_sbindir}/generate_support_bundle.pyc
+%{_sbindir}/generate_support_bundle.pyo
 %{_sbindir}/frr-reload.py
 %{_sbindir}/frr-reload.pyc
 %{_sbindir}/frr-reload.pyo
+%endif
 
 
 %files devel
@@ -678,7 +728,65 @@ fi
 
 
 %changelog
-* Fri Jan 17 2020 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Fri Feb 14 2020 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- BGPd
+-    EVPN PIP Support
+-    Route Aggregation code speed ups
+-    BGP Vector I/O speed ups
+-    New CLI: `set distance XXX`
+-    New CLI: `aggregate-address A.B.C.D/M route-map WORD`
+-    New CLI: `bgp reject-as-sets`
+-    New CLI: `advertise pip ...`
+-    New CLI: `match evpn rd ASN:NN_OR_IP-ADDRESS:NN`
+-    New CLI: `show bgp l2vpn evpn community|large-community X`
+-    New CLI: `show bgp l2vpn evpn A.B.C.D`
+-    Auto-completion for clear bgp command
+-    Add ability to set tcp socket buffer size
+- OSPFd
+-    Partial MPLS TE support
+- PBRd
+-    New CLI: `set vrf unchanged|NAME`
+- BFDd
+-    VRF Support
+-    New CLI: 'show bfd peers brief'
+-    New CLI: 'clear bfd peer ...'
+- PIMd
+-    Significant Speedups in accessing Internal Data for higher scale
+-    Support for joining any-source Multicast
+-    Updated CLI: 'show ip pim upstream-join-desired'
+-    New CLI: 'show ip pim channel'
+-    Debug Cleanup
+-    MLAG experimental support
+- VRRPd
+-    VRF Support
+-    Northbound Conversion- NHRPd
+- LDPd
+- vtysh
+-    New CLI: `banner motd line LINE...`
+- yang
+-    New CLI: `show yang operational-data XPATH`
+-    New CLI: `debug northbound`
+- Zebra
+-    Nexthop Group support
+-    New CLI: 'debug zebra nexthop [detail]'
+-    New CLI: 'show router-id'
+-    MLAG experimental support
+- watchfrr
+-    Additional status messages of system state to systemd
+-    New CLI: `watchfrr ignore DAEMON`
+- Others
+-    As always all daemons have received too many bug fixes to fully list
+-    There has been a significant focus on increasing test coverage
+- Change in Behavior:
+-    ISISd
+-       All areas created default automatically to level-1-2
+-    Zebra
+-       Nexthop Group Installation in Kernel is turned on by default
+        if the kernel supports-    New CLI: 'show nexthop-group rib [singleton]'
+-    Man Pages
+-       Renamed to frr-* to remove collision with other packages
+
+* Fri Jan 17 2020 Martin Winter <mwinter@opensourcerouting.org> - 7.2.1
 - BGPd
 -   Fix Addpath issue
 -   Do not apply eBGP policy for iBGP peers
@@ -716,6 +824,9 @@ fi
 - Others
 -   Rename man pages (to avoid conflicts with other packages)
 -   Various other fixes for code cleanup and memory leaks 
+
+* Fri Dec 27 2019 Donatas Abraitis <donatas.abraitis@gmail.com>
+- Add CentOS 8 support
 
 * Tue Oct 15 2019 Martin Winter <mwinter@opensourcerouting.org> - 7.2
 - ALL Daemons

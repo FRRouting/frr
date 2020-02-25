@@ -767,7 +767,7 @@ static void delete_from_neigh_addr(struct interface *ifp,
 						other_neigh_str, ifp->name);
 
 					listnode_delete(neigh->prefix_list, p);
-					prefix_free(p);
+					prefix_free(&p);
 				}
 			}
 

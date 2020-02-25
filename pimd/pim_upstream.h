@@ -80,6 +80,12 @@
  * associated with an upstream
  */
 #define PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE             (1 << 19)
+/* By default as SG entry will use the SPT for forwarding traffic
+ * unless it was setup as a result of a Prune(S,G,rpt) from a
+ * downstream router and has JoinDesired(S,G) as False.
+ * This flag is only relevant for (S,G) entries.
+ */
+#define PIM_UPSTREAM_FLAG_MASK_USE_RPT                 (1 << 20)
 
 #define PIM_UPSTREAM_FLAG_ALL 0xFFFFFFFF
 
@@ -103,6 +109,7 @@
 #define PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN)
 #define PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF)
 #define PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(flags) ((flags) &PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE)
+#define PIM_UPSTREAM_FLAG_TEST_USE_RPT(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_USE_RPT)
 
 #define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED_UPDATED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
@@ -122,6 +129,7 @@
 #define PIM_UPSTREAM_FLAG_SET_SRC_VXLAN_TERM(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM)
 #define PIM_UPSTREAM_FLAG_SET_MLAG_VXLAN(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN)
 #define PIM_UPSTREAM_FLAG_SET_MLAG_NON_DF(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF)
+#define PIM_UPSTREAM_FLAG_SET_USE_RPT(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_USE_RPT)
 
 #define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED_UPDATED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
@@ -142,6 +150,7 @@
 #define PIM_UPSTREAM_FLAG_UNSET_MLAG_VXLAN(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN)
 #define PIM_UPSTREAM_FLAG_UNSET_MLAG_NON_DF(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF)
 #define PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE)
+#define PIM_UPSTREAM_FLAG_UNSET_USE_RPT(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_USE_RPT)
 
 enum pim_upstream_state {
 	PIM_UPSTREAM_NOTJOINED,
@@ -160,6 +169,7 @@ enum pim_upstream_sptbit {
 	PIM_UPSTREAM_SPTBIT_TRUE
 };
 
+PREDECL_RBTREE_UNIQ(rb_pim_upstream);
 /*
   Upstream (S,G) channel in Joined state
   (S,G) in the "Not Joined" state is not represented
@@ -188,6 +198,8 @@ enum pim_upstream_sptbit {
 
 */
 struct pim_upstream {
+	struct pim_instance *pim;
+	struct rb_pim_upstream_item upstream_rb;
 	struct pim_upstream *parent;
 	struct in_addr upstream_addr;     /* Who we are talking to */
 	struct in_addr upstream_register; /*Who we received a register from*/
@@ -232,6 +244,11 @@ struct pim_upstream {
 	int64_t state_transition; /* Record current state uptime */
 };
 
+static inline bool pim_upstream_is_kat_running(struct pim_upstream *up)
+{
+	return (up->t_ka_timer != NULL);
+}
+
 struct pim_upstream *pim_upstream_find(struct pim_instance *pim,
 				       struct prefix_sg *sg);
 struct pim_upstream *pim_upstream_find_or_add(struct prefix_sg *sg,
@@ -250,6 +267,9 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 int pim_upstream_evaluate_join_desired(struct pim_instance *pim,
 				       struct pim_upstream *up);
 int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
+						 struct pim_ifchannel *ch,
+						 struct pim_ifchannel *starch);
+int pim_upstream_eval_inherit_if(struct pim_upstream *up,
 						 struct pim_ifchannel *ch,
 						 struct pim_ifchannel *starch);
 void pim_upstream_update_join_desired(struct pim_instance *pim,
@@ -274,9 +294,9 @@ void pim_upstream_update_my_assert_metric(struct pim_upstream *up);
 void pim_upstream_keep_alive_timer_start(struct pim_upstream *up,
 					 uint32_t time);
 
-int pim_upstream_switch_to_spt_desired(struct pim_instance *pim,
+int pim_upstream_switch_to_spt_desired_on_rp(struct pim_instance *pim,
 				       struct prefix_sg *sg);
-#define SwitchToSptDesired(pim, sg) pim_upstream_switch_to_spt_desired (pim, sg)
+#define SwitchToSptDesiredOnRp(pim, sg) pim_upstream_switch_to_spt_desired_on_rp (pim, sg)
 int pim_upstream_is_sg_rpt(struct pim_upstream *up);
 
 void pim_upstream_set_sptbit(struct pim_upstream *up,
@@ -308,7 +328,11 @@ void pim_upstream_init(struct pim_instance *pim);
 void pim_upstream_terminate(struct pim_instance *pim);
 
 void join_timer_start(struct pim_upstream *up);
-int pim_upstream_compare(void *arg1, void *arg2);
+int pim_upstream_compare(const struct pim_upstream *up1,
+			 const struct pim_upstream *up2);
+DECLARE_RBTREE_UNIQ(rb_pim_upstream, struct pim_upstream, upstream_rb,
+		    pim_upstream_compare)
+
 void pim_upstream_register_reevaluate(struct pim_instance *pim);
 
 void pim_upstream_add_lhr_star_pimreg(struct pim_instance *pim);
@@ -324,4 +348,7 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 		struct pim_upstream *up);
 void pim_upstream_fill_static_iif(struct pim_upstream *up,
 				struct interface *incoming);
+void pim_upstream_update_use_rpt(struct pim_upstream *up,
+		bool update_mroute);
+void pim_upstream_reeval_use_rpt(struct pim_instance *pim);
 #endif /* PIM_UPSTREAM_H */

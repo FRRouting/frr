@@ -643,7 +643,7 @@ int ifm_read(struct if_msghdr *ifm)
 		if (ifp == NULL) {
 			/* Interface that zebra was not previously aware of, so
 			 * create. */
-			ifp = if_create(ifname, VRF_DEFAULT);
+			ifp = if_create_name(ifname, VRF_DEFAULT);
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug("%s: creating ifp for ifindex %d",
 					   __func__, ifm->ifm_index);
@@ -1139,16 +1139,17 @@ void rtm_read(struct rt_msghdr *rtm)
 	 */
 	if (rtm->rtm_type == RTM_CHANGE)
 		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
-			   0, zebra_flags, &p, NULL, NULL, RT_TABLE_MAIN,
-			   0, 0, true);
+			   0, zebra_flags, &p, NULL, NULL, 0, RT_TABLE_MAIN, 0,
+			   0, true);
 	if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 	    || rtm->rtm_type == RTM_CHANGE)
 		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL, 0,
-			zebra_flags, &p, NULL, &nh, RT_TABLE_MAIN, 0, 0, 0, 0);
+			zebra_flags, &p, NULL, &nh, 0, RT_TABLE_MAIN,
+			0, 0, 0, 0);
 	else
 		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
-			   0, zebra_flags, &p, NULL, &nh, RT_TABLE_MAIN,
-			   0, 0, true);
+			   0, zebra_flags, &p, NULL, &nh, 0, RT_TABLE_MAIN, 0,
+			   0, true);
 }
 
 /* Interface function for the kernel routing table updates.  Support

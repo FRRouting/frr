@@ -7,6 +7,9 @@ Route Maps
 Route maps provide a means to both filter and/or apply actions to route, hence
 allowing policy to be applied to routes.
 
+For a route reflector to apply a ``route-map`` to reflected routes, be sure to
+include ``bgp route-reflector allow-outbound-policy`` in ``router bgp`` mode.
+
 Route maps are an ordered list of route map entries. Each entry may specify up
 to four distinct sets of clauses:
 
@@ -270,6 +273,12 @@ Route Map Set Command
 
    Set the BGP local preference to `local_pref`.
 
+.. index:: [no] set distance DISTANCE
+.. clicmd:: [no] set distance DISTANCE
+
+   Set the Administrative distance to DISTANCE to use for the route.
+   This is only locally significant and will not be dispersed to peers.
+
 .. index:: set weight WEIGHT
 .. clicmd:: set weight WEIGHT
 
@@ -299,6 +308,11 @@ Route Map Set Command
 .. clicmd:: set origin ORIGIN <egp|igp|incomplete>
 
    Set BGP route origin.
+
+.. index:: set table (1-4294967295)
+.. clicmd:: set table (1-4294967295)
+
+   Set the BGP table to a given table identifier
 
 .. _route-map-call-command:
 

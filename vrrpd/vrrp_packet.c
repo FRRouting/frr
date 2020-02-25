@@ -33,7 +33,7 @@
 DEFINE_MTYPE_STATIC(VRRPD, VRRP_PKT, "VRRP packet")
 
 /* clang-format off */
-const char *vrrp_packet_names[16] = {
+static const char *const vrrp_packet_names[16] = {
 	[0] = "Unknown",
 	[VRRP_TYPE_ADVERTISEMENT] = "ADVERTISEMENT",
 	[2] = "Unknown",

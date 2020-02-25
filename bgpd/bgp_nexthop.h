@@ -88,7 +88,9 @@ extern int bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
 extern int bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer);
 extern int bgp_multiaccess_check_v6(struct in6_addr nexthop, struct peer *peer);
 extern int bgp_config_write_scan_time(struct vty *);
-extern int bgp_nexthop_self(struct bgp *, struct in_addr);
+extern int bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
+				uint8_t sub_type, struct attr *attr,
+				struct bgp_node *rn);
 extern struct bgp_nexthop_cache *bnc_new(void);
 extern void bnc_free(struct bgp_nexthop_cache *bnc);
 extern void bnc_nexthop_free(struct bgp_nexthop_cache *bnc);

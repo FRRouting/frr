@@ -32,7 +32,7 @@
  * Wrapper this silliness if we
  * don't have systemd
  */
-void systemd_send_information(const char *info)
+static void systemd_send_information(const char *info)
 {
 #if defined HAVE_SYSTEMD
 	sd_notify(0, info);
@@ -86,14 +86,15 @@ static int systemd_get_watchdog_time(int the_process)
 
 void systemd_send_stopping(void)
 {
+	systemd_send_information("STATUS=");
 	systemd_send_information("STOPPING=1");
 }
 
 /*
  * How many seconds should we wait between watchdog sends
  */
-int wsecs = 0;
-struct thread_master *systemd_master = NULL;
+static int wsecs = 0;
+static struct thread_master *systemd_master = NULL;
 
 static int systemd_send_watchdog(struct thread *t)
 {
@@ -115,4 +116,12 @@ void systemd_send_started(struct thread_master *m, int the_process)
 	systemd_send_information("READY=1");
 	if (wsecs != 0)
 		thread_add_timer(m, systemd_send_watchdog, m, wsecs, NULL);
+}
+
+void systemd_send_status(const char *status)
+{
+	char buffer[1024];
+
+	snprintf(buffer, sizeof(buffer), "STATUS=%s", status);
+	systemd_send_information(buffer);
 }
