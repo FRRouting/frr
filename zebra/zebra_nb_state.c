@@ -21,6 +21,7 @@
 #include "northbound.h"
 #include "libfrr.h"
 #include "zebra_nb.h"
+#include "zebra/interface.h"
 
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/up-count
@@ -29,8 +30,12 @@ struct yang_data *
 lib_interface_zebra_state_up_count_get_elem(const char *xpath,
 					    const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct interface *ifp = list_entry;
+	struct zebra_if *zebra_if;
+
+	zebra_if = ifp->info;
+
+	return yang_data_new_uint16(xpath, zebra_if->up_count);
 }
 
 /*
@@ -40,8 +45,12 @@ struct yang_data *
 lib_interface_zebra_state_down_count_get_elem(const char *xpath,
 					      const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct interface *ifp = list_entry;
+	struct zebra_if *zebra_if;
+
+	zebra_if = ifp->info;
+
+	return yang_data_new_uint16(xpath, zebra_if->down_count);
 }
 
 /*
@@ -73,8 +82,17 @@ struct yang_data *
 lib_interface_zebra_state_vlan_id_get_elem(const char *xpath,
 					   const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct interface *ifp = list_entry;
+	struct zebra_if *zebra_if;
+	struct zebra_l2info_vlan *vlan_info;
+
+	if (!IS_ZEBRA_IF_VLAN(ifp))
+		return NULL;
+
+	zebra_if = ifp->info;
+	vlan_info = &zebra_if->l2info.vl;
+
+	return yang_data_new_uint16(xpath, vlan_info->vid);
 }
 
 /*
@@ -84,8 +102,17 @@ struct yang_data *
 lib_interface_zebra_state_vni_id_get_elem(const char *xpath,
 					  const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct interface *ifp = list_entry;
+	struct zebra_if *zebra_if;
+	struct zebra_l2info_vxlan *vxlan_info;
+
+	if (!IS_ZEBRA_IF_VXLAN(ifp))
+		return NULL;
+
+	zebra_if = ifp->info;
+	vxlan_info = &zebra_if->l2info.vxl;
+
+	return yang_data_new_uint32(xpath, vxlan_info->vni);
 }
 
 /*
@@ -95,8 +122,17 @@ struct yang_data *
 lib_interface_zebra_state_remote_vtep_get_elem(const char *xpath,
 					       const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct interface *ifp = list_entry;
+	struct zebra_if *zebra_if;
+	struct zebra_l2info_vxlan *vxlan_info;
+
+	if (!IS_ZEBRA_IF_VXLAN(ifp))
+		return NULL;
+
+	zebra_if = ifp->info;
+	vxlan_info = &zebra_if->l2info.vxl;
+
+	return yang_data_new_ipv4(xpath, &vxlan_info->vtep_ip);
 }
 
 /*
@@ -106,8 +142,17 @@ struct yang_data *
 lib_interface_zebra_state_mcast_group_get_elem(const char *xpath,
 					       const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct interface *ifp = list_entry;
+	struct zebra_if *zebra_if;
+	struct zebra_l2info_vxlan *vxlan_info;
+
+	if (!IS_ZEBRA_IF_VXLAN(ifp))
+		return NULL;
+
+	zebra_if = ifp->info;
+	vxlan_info = &zebra_if->l2info.vxl;
+
+	return yang_data_new_ipv4(xpath, &vxlan_info->mcast_grp);
 }
 
 const void *lib_vrf_ribs_rib_get_next(const void *parent_list_entry,
