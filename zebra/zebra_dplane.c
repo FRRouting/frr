@@ -1513,9 +1513,9 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 
 	/* Copy nexthops; recursive info is included too */
 	copy_nexthops(&(ctx->u.rinfo.zd_ng.nexthop),
-		      re->nhe->nhg->nexthop, NULL);
+		      re->nhe->nhg.nexthop, NULL);
 
-	/* Ensure that the dplane's nexthops flags are clear. */
+	/* Ensure that the dplane nexthops' flags are clear. */
 	for (ALL_NEXTHOPS(ctx->u.rinfo.zd_ng, nexthop))
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 
@@ -1596,9 +1596,9 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 	ctx->u.rinfo.nhe.vrf_id = nhe->vrf_id;
 	ctx->u.rinfo.nhe.type = nhe->type;
 
-	nexthop_group_copy(&(ctx->u.rinfo.nhe.ng), nhe->nhg);
+	nexthop_group_copy(&(ctx->u.rinfo.nhe.ng), &(nhe->nhg));
 
-	/* If its a group, convert it to a grp array of ids */
+	/* If this is a group, convert it to a grp array of ids */
 	if (!zebra_nhg_depends_is_empty(nhe)
 	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
 		ctx->u.rinfo.nhe.nh_grp_count = zebra_nhg_nhe2grp(
@@ -1753,7 +1753,7 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 
 			if (re)
 				copy_nexthops(&(ctx->u.pw.nhg.nexthop),
-					      re->nhe->nhg->nexthop, NULL);
+					      re->nhe->nhg.nexthop, NULL);
 
 			route_unlock_node(rn);
 		}
@@ -1849,7 +1849,7 @@ dplane_route_update_internal(struct route_node *rn,
 			 * We'll need these to do per-nexthop deletes.
 			 */
 			copy_nexthops(&(ctx->u.rinfo.zd_old_ng.nexthop),
-				      old_re->nhe->nhg->nexthop, NULL);
+				      old_re->nhe->nhg.nexthop, NULL);
 #endif	/* !HAVE_NETLINK */
 		}
 

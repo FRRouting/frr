@@ -515,7 +515,7 @@ static inline struct nexthop_group *rib_active_nhg(struct route_entry *re)
 	if (re->fib_ng.nexthop)
 		return &(re->fib_ng);
 	else
-		return re->nhe->nhg;
+		return &(re->nhe->nhg);
 }
 
 extern void zebra_vty_init(void);
