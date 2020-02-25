@@ -10619,6 +10619,49 @@ DEFUN (show_ip_bgp_statistics_all,
 }
 
 /* BGP route print out function without JSON */
+DEFUN (show_ip_bgp_l2vpn_evpn_statistics,
+       show_ip_bgp_l2vpn_evpn_statistics_cmd,
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [l2vpn [evpn]] statistics [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       L2VPN_HELP_STR
+       EVPN_HELP_STR
+       "BGP RIB advertisement statistics\n"
+       JSON_STR)
+{
+	afi_t afi = AFI_L2VPN;
+	safi_t safi = SAFI_EVPN;
+	struct bgp *bgp = NULL;
+	int idx = 0, ret;
+	bool uj = use_json(argc, argv);
+	struct json_object *json_afi_safi = NULL, *json = NULL;
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
+					    &bgp, false);
+	if (!idx)
+		return CMD_WARNING;
+
+	if (uj)
+		json_afi_safi = json_object_new_array();
+	else
+		json_afi_safi = NULL;
+
+	ret = bgp_table_stats(vty, bgp, afi, safi, json_afi_safi);
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_object_add(json, get_afi_safi_str(afi, safi, true),
+				       json_afi_safi);
+		vty_out(vty, "%s", json_object_to_json_string_ext(
+					  json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+	return ret;
+}
+
+/* BGP route print out function without JSON */
 DEFUN (show_ip_bgp_afi_safi_statistics,
        show_ip_bgp_afi_safi_statistics_cmd,
        "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]\
@@ -13365,6 +13408,7 @@ void bgp_route_init(void)
 	install_element(VIEW_NODE, &show_ip_bgp_instance_all_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_afi_safi_statistics_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_statistics_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_json_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_route_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_regexp_cmd);
