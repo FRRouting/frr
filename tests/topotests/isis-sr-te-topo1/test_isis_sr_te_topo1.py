@@ -61,6 +61,18 @@ test_isis_sr_te_topo1.py:
               +----------+ 6.6.6.6 +-----------+
                   eth-rt4|         |eth-rt5
                          +---------+
+                              |eth-dst (.1)
+                              |
+                              |10.0.11.0/24
+                              |
+                              |eth-rt6 (.2)
+                         +---------+
+                         |         |
+                         |   DST   |
+                         | 9.9.9.2 |
+                         |         |
+                         +---------+
+
 """
 
 import os
@@ -93,7 +105,7 @@ class TemplateTopo(Topo):
         #
         # Define FRR Routers
         #
-        for router in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6']:
+        for router in ['rt1', 'rt2', 'rt3', 'rt4', 'rt5', 'rt6', 'dst']:
             tgen.add_router(router)
 
         #
@@ -132,6 +144,10 @@ class TemplateTopo(Topo):
         switch.add_link(tgen.gears['rt5'], nodeif="eth-rt6")
         switch.add_link(tgen.gears['rt6'], nodeif="eth-rt5")
 
+        switch = tgen.add_switch('s9')
+        switch.add_link(tgen.gears['rt6'], nodeif="eth-dst")
+        switch.add_link(tgen.gears['dst'], nodeif="eth-rt6")
+
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(TemplateTopo, mod.__name__)
@@ -152,6 +168,10 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_PATH,
             os.path.join(CWD, '{}/pathd.conf'.format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_BGP,
+            os.path.join(CWD, '{}/bgpd.conf'.format(rname))
         )
 
     tgen.start_router()
@@ -341,6 +361,20 @@ def test_srte_change_segment_list_check_mpls_table_step4():
                         "step4/show_mpls_table.ref")
         delete_candidate_path(rname, endpoint, 100)
 
+#
+# Step 5
+#
+# Checking the nexthop using a single SR Policy and a Candidate Path with configured route-map
+#
+def test_srte_route_map_with_sr_policy_check_nextop_step5():
+    setup_testcase("Test (step 5): recursive nexthop learned through BGP neighbour should be aligned with SR Policy from route-map")
+
+    add_candidate_path('rt1', '6.6.6.6', 100, 'default')
+    # this is a workaround for now since the BGP routes are not refreshed on config change
+    print(get_topogen().net['rt1'].cmd('vtysh -c "clear ip bgp *"'))
+    cmp_json_output('rt1',
+                    "show ip route bgp json",
+                    "step5/show_ip_route_bgp.ref")
 
 # Memory leak test template
 def test_memory_leak():
