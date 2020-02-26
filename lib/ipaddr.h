@@ -119,10 +119,13 @@ static inline void ipv4_mapped_ipv6_to_ipv4(struct in6_addr *in6,
 	memcpy(in, (char *)in6 + 12, sizeof(struct in_addr));
 }
 
+/*
+ * Check if a struct ipaddr has nonzero value
+ */
 static inline bool ipaddr_isset(struct ipaddr *ip)
 {
 	static struct ipaddr a = {};
-	return (0 == memcmp(&a, ip, sizeof(struct ipaddr)));
+	return (0 != memcmp(&a, ip, sizeof(struct ipaddr)));
 }
 
 #ifdef __cplusplus
