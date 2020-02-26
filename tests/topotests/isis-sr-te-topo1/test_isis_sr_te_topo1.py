@@ -247,6 +247,18 @@ def delete_segment(rname, name, index):
               -c "segment-list ''' + name + '''" \
               -c "no index ''' + str(index) + '''"''')
 
+def create_sr_policy(rname, endpoint, bsid):
+    get_topogen().net[rname].cmd(''' \
+        vtysh -c "conf t" \
+              -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
+              -c "name default" \
+              -c "binding-sid ''' + str(bsid) + '''"''')
+
+def delete_sr_policy(rname, endpoint):
+    get_topogen().net[rname].cmd(''' \
+        vtysh -c "conf t" \
+              -c "no sr-policy color 1 endpoint ''' + endpoint + '''"''')
+
 #
 # Step 1
 #
@@ -264,6 +276,22 @@ def test_srte_add_candidate_check_mpls_table_step1():
     setup_testcase("Test (step 1): check MPLS table regarding the added Candidate Path")
 
     for rname, endpoint in [('rt1', '6.6.6.6'), ('rt6', '1.1.1.1')]:
+        add_candidate_path(rname, endpoint, 100, 'default')
+        cmp_json_output(rname,
+                        "show mpls table json",
+                        "step1/show_mpls_table_with_candidate.ref")
+        delete_candidate_path(rname, endpoint, 100)
+
+def test_srte_reinstall_sr_policy_check_mpls_table_step1():
+    setup_testcase("Test (step 1): check MPLS table after the SR Policy was removed and reinstalled")
+
+    for rname, endpoint, bsid in [('rt1', '6.6.6.6', 1111), ('rt6', '1.1.1.1', 6666)]:
+        add_candidate_path(rname, endpoint, 100, 'default')
+        delete_sr_policy(rname, endpoint)
+        cmp_json_output(rname,
+                        "show mpls table json",
+                        "step1/show_mpls_table_without_candidate.ref")
+        create_sr_policy(rname, endpoint, bsid)
         add_candidate_path(rname, endpoint, 100, 'default')
         cmp_json_output(rname,
                         "show mpls table json",
