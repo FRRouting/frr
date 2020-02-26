@@ -217,6 +217,7 @@ static void pim_vxlan_orig_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
 			vxlan_sg->sg_str);
 
 	vxlan_sg->up = NULL;
+
 	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_ORIG) {
 		/* clear out all the vxlan properties */
 		up->flags &= ~(PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_ORIG |
@@ -748,14 +749,8 @@ struct pim_vxlan_sg *pim_vxlan_sg_add(struct pim_instance *pim,
 	return vxlan_sg;
 }
 
-void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg)
+static void pim_vxlan_sg_del_item(struct pim_vxlan_sg *vxlan_sg)
 {
-	struct pim_vxlan_sg *vxlan_sg;
-
-	vxlan_sg = pim_vxlan_sg_find(pim, sg);
-	if (!vxlan_sg)
-		return;
-
 	vxlan_sg->flags |= PIM_VXLAN_SGF_DEL_IN_PROG;
 
 	pim_vxlan_del_work(vxlan_sg);
@@ -765,12 +760,22 @@ void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg)
 	else
 		pim_vxlan_term_mr_del(vxlan_sg);
 
-	hash_release(vxlan_sg->pim->vxlan.sg_hash, vxlan_sg);
-
 	if (PIM_DEBUG_VXLAN)
 		zlog_debug("vxlan SG %s free", vxlan_sg->sg_str);
 
 	XFREE(MTYPE_PIM_VXLAN_SG, vxlan_sg);
+}
+
+void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg)
+{
+	struct pim_vxlan_sg *vxlan_sg;
+
+	vxlan_sg = pim_vxlan_sg_find(pim, sg);
+	if (!vxlan_sg)
+		return;
+
+	pim_vxlan_sg_del_item(vxlan_sg);
+	hash_release(pim->vxlan.sg_hash, vxlan_sg);
 }
 
 /******************************* MLAG handling *******************************/
@@ -1147,7 +1152,8 @@ void pim_vxlan_init(struct pim_instance *pim)
 void pim_vxlan_exit(struct pim_instance *pim)
 {
 	if (pim->vxlan.sg_hash) {
-		hash_clean(pim->vxlan.sg_hash, NULL);
+		hash_clean(pim->vxlan.sg_hash,
+			   (void (*)(void *))pim_vxlan_sg_del_item);
 		hash_free(pim->vxlan.sg_hash);
 		pim->vxlan.sg_hash = NULL;
 	}
