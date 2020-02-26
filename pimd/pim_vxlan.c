@@ -1158,3 +1158,8 @@ void pim_vxlan_exit(struct pim_instance *pim)
 		pim->vxlan.sg_hash = NULL;
 	}
 }
+
+void pim_vxlan_terminate(void)
+{
+	pim_vxlan_work_timer_setup(false);
+}
