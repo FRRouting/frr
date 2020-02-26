@@ -85,8 +85,16 @@ static void pim_vxlan_do_reg_work(void)
 			if (PIM_DEBUG_VXLAN)
 				zlog_debug("vxlan SG %s periodic NULL register",
 						vxlan_sg->sg_str);
-			pim_null_register_send(vxlan_sg->up);
-			++work_cnt;
+
+			/*
+			 * If we are on the work queue *and* the rpf
+			 * has been lost on the vxlan_sg->up let's
+			 * make sure that we don't send it.
+			 */
+			if (vxlan_sg->up->rpf.source_nexthop.interface) {
+				pim_null_register_send(vxlan_sg->up);
+				++work_cnt;
+			}
 		}
 
 		if (work_cnt > vxlan_info.max_work_cnt) {
