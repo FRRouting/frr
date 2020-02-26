@@ -44,7 +44,7 @@ THREAD_DATA char _debug_buff[DEBUG_BUFF_SIZE];
 
 static void _format_pcc_opts(int ps, struct pcc_opts *ops);
 static void _format_pce_opts(int ps, struct pce_opts *ops);
-static void _format_pcc_caps(int ps, struct pcc_caps *caps);
+static void _format_pcc_caps(int ps, struct pcep_caps *caps);
 static void _format_pcc_state(int ps, struct pcc_state *state);
 static void _format_ctrl_state(int ps, struct ctrl_state *state);
 static void _format_path(int ps, struct path *path);
@@ -56,6 +56,7 @@ static void _format_pcep_object(int ps, struct pcep_object_header *obj);
 static void _format_pcep_object_details(int ps, struct pcep_object_header *obj);
 static void _format_pcep_object_error(int ps, struct pcep_object_error *obj);
 static void _format_pcep_object_open(int ps, struct pcep_object_open *obj);
+static void _format_pcep_object_rp(int ps, struct pcep_object_rp *obj);
 static void _format_pcep_object_srp(int ps, struct pcep_object_srp *obj);
 static void _format_pcep_object_lsp(int psps, struct pcep_object_lsp *obj);
 static void
@@ -586,11 +587,11 @@ void _format_pce_opts(int ps, struct pce_opts *opts)
 	}
 }
 
-void _format_pcc_caps(int ps, struct pcc_caps *caps)
+void _format_pcc_caps(int ps, struct pcep_caps *caps)
 {
 	int ps2 = ps + DEBUG_IDENT_SIZE;
 	PCEP_FORMAT("\n");
-	PCEP_FORMAT("%*slsp_update: %d\n", ps2, "", caps->lsp_update);
+	PCEP_FORMAT("%*sis_stateful: %d\n", ps2, "", caps->is_stateful);
 }
 
 void _format_pcc_state(int ps, struct pcc_state *state)
@@ -841,6 +842,9 @@ void _format_pcep_object_details(int ps, struct pcep_object_header *obj)
 	case TUP(PCEP_OBJ_CLASS_OPEN, PCEP_OBJ_TYPE_OPEN):
 		_format_pcep_object_open(ps, (struct pcep_object_open *)obj);
 		break;
+	case TUP(PCEP_OBJ_CLASS_RP, PCEP_OBJ_TYPE_RP):
+		_format_pcep_object_rp(ps, (struct pcep_object_rp *)obj);
+		break;
 	case TUP(PCEP_OBJ_CLASS_SRP, PCEP_OBJ_TYPE_SRP):
 		_format_pcep_object_srp(ps, (struct pcep_object_srp *)obj);
 		break;
@@ -877,6 +881,18 @@ void _format_pcep_object_open(int ps, struct pcep_object_open *obj)
 	PCEP_FORMAT("%*sopen_deadtimer: %u\n", ps, "", obj->open_deadtimer);
 	PCEP_FORMAT("%*sopen_sid: %u\n", ps, "", obj->open_sid);
 }
+
+void _format_pcep_object_rp(int ps, struct pcep_object_rp *obj)
+{
+	PCEP_FORMAT("%*spriority: %u\n", ps, "", obj->priority);
+	PCEP_FORMAT("%*sflag_reoptimization: %u\n", ps, "",
+		    obj->flag_reoptimization);
+	PCEP_FORMAT("%*sflag_bidirectional: %u\n", ps, "",
+		    obj->flag_bidirectional);
+	PCEP_FORMAT("%*sflag_strict: %u\n", ps, "", obj->flag_strict);
+	PCEP_FORMAT("%*srequest_id: %u\n", ps, "", obj->request_id);
+}
+
 
 void _format_pcep_object_srp(int ps, struct pcep_object_srp *obj)
 {
@@ -955,18 +971,6 @@ void _format_pcep_object_ro_ipv4(int ps, struct pcep_ro_subobj_ipv4 *obj)
 	PCEP_FORMAT("%*sflag_local_protection: %u\n", ps, "",
 		    obj->flag_local_protection);
 }
-
-enum pcep_sr_subobj_nai nai_type;
-bool flag_f;
-bool flag_s;
-bool flag_c;
-bool flag_m;
-
-/* The SID and NAI are optional depending on the flags,
- * and the NAI can be variable length */
-uint32_t sid;
-double_linked_list *nai_list; /* double linked list of in_addr or in6_addr */
-
 
 void _format_pcep_object_ro_sr(int ps, struct pcep_ro_subobj_sr *obj)
 {

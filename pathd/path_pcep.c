@@ -88,6 +88,9 @@ static void pcep_pcc_lsp_update(struct ctrl_state *ctrl_state,
 static void pcep_pcc_lsp_initiate(struct ctrl_state *ctrl_state,
 				  struct pcc_state *pcc_state,
 				  struct pcep_message *msg);
+static void pcep_pcc_computation_reply(struct ctrl_state *ctrl_state,
+				       struct pcc_state *pcc_state,
+				       struct pcep_message *msg);
 static void pcep_pcc_send(struct ctrl_state *ctrl_state,
 			  struct pcc_state *pcc_state,
 			  struct pcep_message *msg);
@@ -99,6 +102,9 @@ static void pcep_pcc_lookup_nbkey(struct pcc_state *pcc_state,
 				  struct path *path);
 static void pcep_pcc_push_srpid(struct pcc_state *pcc_state, struct path *path);
 static void pcep_pcc_pop_srpid(struct pcc_state *pcc_state, struct path *path);
+static uint32_t pcep_pcc_push_req(struct pcc_state *pcc_state,
+				  struct lsp_nb_key *nbkey);
+static bool pcep_pcc_pop_req(struct pcc_state *pcc_state, struct path *path);
 static void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 				 struct pcc_state *pcc_state,
 				 struct path *path);
@@ -106,6 +112,14 @@ static void pcep_pcc_handle_pathd_event(struct ctrl_state *ctrl_state,
 					struct pcc_state *pcc_state,
 					enum pathd_event_type type,
 					struct path *path);
+static void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
+			       struct pcc_state *pcc_state, struct path *path);
+static void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
+			       struct pcc_state *pcc_state);
+static void pcep_pcc_comp_req(struct ctrl_state *ctrl_state,
+			      struct pcc_state *pcc_state,
+			      struct lsp_nb_key *nb_key);
+
 
 /* pceplib logging callback */
 static int pceplib_logging_cb(int level, const char *fmt, va_list args);
@@ -170,6 +184,9 @@ static uint32_t nbkey_map_hash(const struct nbkey_map_data *e);
 static int srpid_map_cmp(const struct srpid_map_data *a,
 			 const struct srpid_map_data *b);
 static uint32_t srpid_map_hash(const struct srpid_map_data *e);
+static int req_map_cmp(const struct req_map_data *a,
+		       const struct req_map_data *b);
+static uint32_t req_map_hash(const struct req_map_data *e);
 
 DECLARE_HASH(plspid_map, struct plspid_map_data, mi, plspid_map_cmp,
 	     plspid_map_hash)
@@ -177,6 +194,7 @@ DECLARE_HASH(nbkey_map, struct nbkey_map_data, mi, nbkey_map_cmp,
 	     nbkey_map_hash)
 DECLARE_HASH(srpid_map, struct srpid_map_data, mi, srpid_map_cmp,
 	     srpid_map_hash)
+DECLARE_HASH(req_map, struct req_map_data, mi, req_map_cmp, req_map_hash)
 
 static struct cmd_node pcc_node = {
         .name = "pcc",
@@ -239,6 +257,18 @@ static uint32_t srpid_map_hash(const struct srpid_map_data *e)
 	return e->plspid;
 }
 
+static int req_map_cmp(const struct req_map_data *a,
+		       const struct req_map_data *b)
+{
+	CMP_RETURN(a->reqid, b->reqid);
+	return 0;
+}
+
+static uint32_t req_map_hash(const struct req_map_data *e)
+{
+	return e->reqid;
+}
+
 
 /* ------------ PCC Functions ------------ */
 
@@ -250,6 +280,7 @@ struct pcc_state *pcep_pcc_initialize(struct ctrl_state *ctrl_state, int index)
 
 	pcc_state->id = index;
 	pcc_state->status = DISCONNECTED;
+	pcc_state->next_reqid = 1;
 	pcc_state->next_plspid = 1;
 
 	update_tag(ctrl_state, pcc_state);
@@ -416,6 +447,8 @@ void pcep_pcc_handle_open(struct ctrl_state *ctrl_state,
 {
 	assert(PCEP_TYPE_OPEN == msg->msg_header->type);
 	pcep_lib_parse_capabilities(&pcc_state->caps, msg->obj_list);
+	if (pcc_state->pcc_opts->force_stateless)
+		pcc_state->caps.is_stateful = false;
 }
 
 void pcep_pcc_handle_message(struct ctrl_state *ctrl_state,
@@ -428,6 +461,9 @@ void pcep_pcc_handle_message(struct ctrl_state *ctrl_state,
 		break;
 	case PCEP_TYPE_UPDATE:
 		pcep_pcc_lsp_update(ctrl_state, pcc_state, msg);
+		break;
+	case PCEP_TYPE_PCREP:
+		pcep_pcc_computation_reply(ctrl_state, pcc_state, msg);
 		break;
 	default:
 		break;
@@ -457,6 +493,25 @@ void pcep_pcc_lsp_initiate(struct ctrl_state *ctrl_state,
 {
 	PCEP_DEBUG("%s Received LSP initiate, not supported yet",
 		   pcc_state->tag);
+}
+
+void pcep_pcc_computation_reply(struct ctrl_state *ctrl_state,
+				struct pcc_state *pcc_state,
+				struct pcep_message *msg)
+{
+	struct path *path;
+	path = pcep_lib_parse_path(msg->obj_list);
+	if (!pcep_pcc_pop_req(pcc_state, path)) {
+		/* TODO: check the rate of bad computation reply and close
+		 * the connection if more that a given rate.
+		 */
+		return;
+	}
+
+	PCEP_DEBUG("%s Received computation reply", pcc_state->tag);
+	PCEP_DEBUG_PATH("%s", format_path(path));
+
+	pcep_thread_update_path(ctrl_state, pcc_state, path);
 }
 
 void pcep_pcc_send(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
@@ -557,6 +612,45 @@ void pcep_pcc_pop_srpid(struct pcc_state *pcc_state, struct path *path)
 	XFREE(MTYPE_PCEP, srpid_mapping);
 }
 
+uint32_t pcep_pcc_push_req(struct pcc_state *pcc_state,
+			   struct lsp_nb_key *nbkey)
+{
+	struct req_map_data *req_mapping;
+	uint32_t reqid = pcc_state->next_reqid;
+
+	req_mapping = XCALLOC(MTYPE_PCEP, sizeof(*req_mapping));
+	req_mapping->reqid = reqid;
+	req_mapping->nbkey = *nbkey;
+
+	assert(NULL == req_map_find(&pcc_state->req_map, req_mapping));
+	req_map_add(&pcc_state->req_map, req_mapping);
+
+	pcc_state->next_reqid += 1;
+	/* Wrapping is allowed, but 0 is not a valid id */
+	if (0 == pcc_state->next_reqid)
+		pcc_state->next_reqid = 1;
+
+	return reqid;
+}
+
+bool pcep_pcc_pop_req(struct pcc_state *pcc_state, struct path *path)
+{
+	struct req_map_data key, *req_mapping;
+
+	key.reqid = path->req_id;
+
+	req_mapping = req_map_find(&pcc_state->req_map, &key);
+	if (NULL == req_mapping)
+		return false;
+
+	req_map_del(&pcc_state->req_map, req_mapping);
+
+	path->nbkey = req_mapping->nbkey;
+
+	XFREE(MTYPE_PCEP, req_mapping);
+	return true;
+}
+
 void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 			  struct pcc_state *pcc_state, struct path *path)
 {
@@ -599,20 +693,104 @@ void pcep_pcc_handle_pathd_event(struct ctrl_state *ctrl_state,
 	case CANDIDATE_CREATED:
 		PCEP_DEBUG("%s Candidate path %s created", pcc_state->tag,
 			   path->name);
-		pcep_pcc_send_report(ctrl_state, pcc_state, path);
+		if (pcc_state->caps.is_stateful)
+			pcep_pcc_send_report(ctrl_state, pcc_state, path);
+		else if (path->is_delegated)
+			pcep_pcc_comp_req(ctrl_state, pcc_state, &path->nbkey);
 		break;
 	case CANDIDATE_UPDATED:
 		PCEP_DEBUG("%s Candidate path %s updated", pcc_state->tag,
 			   path->name);
-		pcep_pcc_send_report(ctrl_state, pcc_state, path);
+		if (pcc_state->caps.is_stateful)
+			pcep_pcc_send_report(ctrl_state, pcc_state, path);
 		break;
 	case CANDIDATE_REMOVED:
 		PCEP_DEBUG("%s Candidate path %s removed", pcc_state->tag,
 			   path->name);
 		path->was_removed = true;
-		pcep_pcc_send_report(ctrl_state, pcc_state, path);
+		if (pcc_state->caps.is_stateful)
+			pcep_pcc_send_report(ctrl_state, pcc_state, path);
 		break;
 	}
+}
+
+void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
+			struct pcc_state *pcc_state, struct path *path)
+{
+	assert(SYNCHRONIZING == pcc_state->status);
+	assert(path->is_synching);
+
+	if (pcc_state->caps.is_stateful) {
+		/* PCE supports LSP updates, just sync all the path */
+		PCEP_DEBUG("%s Synchronizing path %s", pcc_state->tag,
+			   path->name);
+		pcep_pcc_send_report(ctrl_state, pcc_state, path);
+	} else if (path->is_delegated) {
+		/* PCE doesn't supports LSP updates, trigger computation
+		 * request instead of synchronizing if the path is to be
+		 * delegated.
+		 */
+		pcep_pcc_comp_req(ctrl_state, pcc_state, &path->nbkey);
+	}
+}
+
+void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
+			struct pcc_state *pcc_state)
+{
+	if (pcc_state->caps.is_stateful) {
+		struct path *path = pcep_lib_new_path();
+		*path = (struct path){.name = NULL,
+				      .srp_id = 0,
+				      .plsp_id = 0,
+				      .status = PCEP_LSP_OPERATIONAL_DOWN,
+				      .do_remove = false,
+				      .go_active = false,
+				      .was_created = false,
+				      .was_removed = false,
+				      .is_synching = false,
+				      .is_delegated = false,
+				      .first = NULL};
+		pcep_pcc_send_report(ctrl_state, pcc_state, path);
+		pcep_lib_free_path(path);
+	}
+
+	pcc_state->synchronized = true;
+	pcc_state->status = OPERATING;
+
+	PCEP_DEBUG("%s Synchronization done", pcc_state->tag);
+}
+
+void pcep_pcc_comp_req(struct ctrl_state *ctrl_state,
+		       struct pcc_state *pcc_state, struct lsp_nb_key *nbkey)
+{
+	uint32_t reqid;
+	double_linked_list *rp_tlvs;
+	struct pcep_object_tlv_path_setup_type *setup_type_tlv;
+	struct pcep_object_rp *rp;
+	struct pcep_object_endpoints_ipv4 *endpoints;
+	struct pcep_message *msg;
+
+	/* TODO: Add support for IPv6 */
+	assert(IS_IPADDR_V4(&nbkey->endpoint));
+	/* The source address need to be defined explicitly for now */
+	assert(INADDR_ANY != pcc_state->pcc_opts->addr.s_addr);
+
+	reqid = pcep_pcc_push_req(pcc_state, nbkey);
+	/* TODO: Add a timer to retry the computation request */
+
+	PCEP_DEBUG("%s Sending computation request for path from %pI4 to %pI4",
+		   pcc_state->tag, &pcc_state->pcc_opts->addr,
+		   &nbkey->endpoint.ipaddr_v4);
+
+	rp_tlvs = dll_initialize();
+	setup_type_tlv = pcep_tlv_create_path_setup_type(SR_TE_PST);
+	dll_append(rp_tlvs, setup_type_tlv);
+
+	rp = pcep_obj_create_rp(0, false, false, false, reqid, rp_tlvs);
+	endpoints = pcep_obj_create_endpoint_ipv4(&pcc_state->pcc_opts->addr,
+						  &nbkey->endpoint.ipaddr_v4);
+	msg = pcep_msg_create_request(rp, endpoints, NULL);
+	pcep_pcc_send(ctrl_state, pcc_state, msg);
 }
 
 /* ------------ pceplib logging callback ------------ */
@@ -1012,16 +1190,10 @@ int pcep_thread_pcc_sync_path_event(struct thread *thread)
 	int pcc_id = event->pcc_id;
 	struct path *path = event->path;
 	struct pcc_state *pcc_state = ctrl_state->pcc[pcc_id];
-	enum pcc_status status = pcc_state->status;
 
 	XFREE(MTYPE_PCEP, event);
-
 	assert(NULL != path);
-	assert(SYNCHRONIZING == status);
-	assert(path->is_synching);
-
-	PCEP_DEBUG("%s Synchronizing path %s", pcc_state->tag, path->name);
-	pcep_pcc_send_report(ctrl_state, pcc_state, path);
+	pcep_pcc_sync_path(ctrl_state, pcc_state, path);
 	pcep_lib_free_path(path);
 
 	return 0;
@@ -1031,31 +1203,11 @@ int pcep_thread_pcc_sync_done_event(struct thread *thread)
 {
 	struct ctrl_state *ctrl_state = THREAD_ARG(thread);
 	struct pcc_state *pcc_state;
-	struct path *path;
 	int pcc_id = THREAD_VAL(thread);
 
 	if (pcc_id < ctrl_state->pcc_count) {
 		pcc_state = ctrl_state->pcc[pcc_id];
-
-		path = XCALLOC(MTYPE_PCEP, sizeof(*path));
-		*path = (struct path){.name = NULL,
-				      .srp_id = 0,
-				      .plsp_id = 0,
-				      .status = PCEP_LSP_OPERATIONAL_DOWN,
-				      .do_remove = false,
-				      .go_active = false,
-				      .was_created = false,
-				      .was_removed = false,
-				      .is_synching = false,
-				      .is_delegated = false,
-				      .first = NULL};
-		pcep_pcc_send_report(ctrl_state, pcc_state, path);
-		pcep_lib_free_path(path);
-
-		pcc_state->synchronized = true;
-		pcc_state->status = OPERATING;
-
-		PCEP_DEBUG("%s Synchronization done", pcc_state->tag);
+		pcep_pcc_sync_done(ctrl_state, pcc_state);
 	}
 
 	return 0;
@@ -1134,7 +1286,7 @@ int pcep_main_update_path_event(struct thread *thread)
 /* ------------ CLI Functions ------------ */
 
 DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
-	   "pcc [ip A.B.C.D] [port (1024-65535)]",
+	   "pcc [ip A.B.C.D] [port (1024-65535)] [force_stateless]",
 	   "PCC source ip and port\n"
 	   "PCC source ip A.B.C.D\n"
 	   "PCC source port port")
@@ -1142,26 +1294,43 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 	struct in_addr pcc_addr;
 	uint32_t pcc_port = PCEP_DEFAULT_PORT;
 	struct pcc_opts *opts;
+	bool force_stateless = false;
+	int i = 1;
 
 	pcc_addr.s_addr = INADDR_ANY;
 
-	if (2 < argc) {
-		if (0 == strcmp("ip", argv[1]->arg)) {
-			if (!inet_pton(AF_INET, argv[2]->arg, &pcc_addr.s_addr))
+	while (i < argc) {
+		if (0 == strcmp("ip", argv[i]->arg)) {
+			i++;
+			if (i >= argc)
+				return CMD_ERR_NO_MATCH;
+			if (!inet_pton(AF_INET, argv[i]->arg, &pcc_addr.s_addr))
 				return CMD_ERR_INCOMPLETE;
-		} else {
-			pcc_port = atoi(argv[2]->arg);
+			i++;
+			continue;
 		}
-		if (4 < argc) {
-			if (0 == strcmp("port", argv[3]->arg)) {
-				pcc_port = atoi(argv[4]->arg);
-			}
+		if (0 == strcmp("port", argv[i]->arg)) {
+			i++;
+			if (i >= argc)
+				return CMD_ERR_NO_MATCH;
+			pcc_port = atoi(argv[4]->arg);
+			if (0 == pcc_port)
+				return CMD_ERR_INCOMPLETE;
+			i++;
+			continue;
 		}
+		if (0 == strcmp("force_stateless", argv[i]->arg)) {
+			force_stateless = true;
+			i++;
+			continue;
+		}
+		return CMD_ERR_NO_MATCH;
 	}
 
 	opts = XCALLOC(MTYPE_PCEP, sizeof(*opts));
 	opts->addr = pcc_addr;
 	opts->port = pcc_port;
+	opts->force_stateless = force_stateless;
 
 	if (pcep_controller_pcc_update_options(opts))
 		return CMD_WARNING;

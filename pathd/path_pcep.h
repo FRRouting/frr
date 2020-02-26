@@ -109,6 +109,7 @@ struct pce_opts {
 struct pcc_opts {
 	struct in_addr addr;
 	short port;
+	bool force_stateless;
 };
 
 struct lsp_nb_key {
@@ -120,6 +121,7 @@ struct lsp_nb_key {
 PREDECL_HASH(plspid_map)
 PREDECL_HASH(nbkey_map)
 PREDECL_HASH(srpid_map)
+PREDECL_HASH(req_map)
 
 struct plspid_map_data {
 	struct plspid_map_item mi;
@@ -139,8 +141,14 @@ struct srpid_map_data {
 	uint32_t srpid;
 };
 
-struct pcc_caps {
-	bool lsp_update;
+struct req_map_data {
+	struct req_map_item mi;
+	uint32_t reqid;
+	struct lsp_nb_key nbkey;
+};
+
+struct pcep_caps {
+	bool is_stateful;
 };
 
 struct pcc_state {
@@ -155,11 +163,13 @@ struct pcc_state {
 	bool synchronized;
 	struct thread *t_reconnect;
 	struct thread *t_update_opts;
+	uint32_t next_reqid;
 	uint32_t next_plspid;
 	struct plspid_map_head plspid_map;
 	struct nbkey_map_head nbkey_map;
 	struct srpid_map_head srpid_map;
-	struct pcc_caps caps;
+	struct req_map_head req_map;
+	struct pcep_caps caps;
 };
 
 struct ctrl_state {
@@ -224,6 +234,9 @@ struct path {
 	/* The request identifier from the PCE, when getting a path from the
 	   PCE. See draft-ietf-pce-stateful-pce */
 	uint32_t srp_id;
+	/* The request identifier from the PCC , when getting a path from the
+	   PCE after a computation request. See rfc5440, section-7.4 */
+	uint32_t req_id;
 	/* The name of the path */
 	char *name;
 	/* The operational status of the path */

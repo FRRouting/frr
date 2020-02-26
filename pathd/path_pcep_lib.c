@@ -24,8 +24,9 @@
 #include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_debug.h"
 
-static void pcep_lib_parse_open(struct pcc_caps *caps,
+static void pcep_lib_parse_open(struct pcep_caps *caps,
 				struct pcep_object_open *open);
+static void pcep_lib_parse_rp(struct path *path, struct pcep_object_rp *rp);
 static void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp *srp);
 static void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp);
 static void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero);
@@ -48,7 +49,8 @@ int pcep_lib_connect(struct pcc_state *pcc_state)
 	config->src_pcep_port = pcc_state->pcc_opts->port;
 	config->src_ip = pcc_state->pcc_opts->addr;
 
-	config->support_stateful_pce_lsp_update = true;
+	config->support_stateful_pce_lsp_update =
+		!pcc_state->pcc_opts->force_stateless;
 	config->support_pce_lsp_instantiation = false;
 	config->support_include_db_version = false;
 	config->support_lsp_triggered_resync = false;
@@ -168,7 +170,7 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	return objs;
 }
 
-void pcep_lib_parse_capabilities(struct pcc_caps *caps,
+void pcep_lib_parse_capabilities(struct pcep_caps *caps,
 				 double_linked_list *objs)
 {
 	double_linked_list_node *node;
@@ -197,7 +199,7 @@ void pcep_lib_parse_capabilities(struct pcc_caps *caps,
 	}
 }
 
-void pcep_lib_parse_open(struct pcc_caps *caps, struct pcep_object_open *open)
+void pcep_lib_parse_open(struct pcep_caps *caps, struct pcep_object_open *open)
 {
 	double_linked_list *tlvs = open->header.tlv_list;
 	double_linked_list_node *node;
@@ -210,7 +212,7 @@ void pcep_lib_parse_open(struct pcc_caps *caps, struct pcep_object_open *open)
 		case PCEP_OBJ_TLV_TYPE_STATEFUL_PCE_CAPABILITY:
 			tlv = (struct pcep_object_tlv_stateful_pce_capability *)
 				tlv_header;
-			caps->lsp_update = tlv->flag_u_lsp_update_capability;
+			caps->is_stateful = tlv->flag_u_lsp_update_capability;
 			break;
 		case PCEP_OBJ_TLV_TYPE_SR_PCE_CAPABILITY:
 			break;
@@ -230,15 +232,21 @@ struct path *pcep_lib_parse_path(double_linked_list *objs)
 	double_linked_list_node *node;
 
 	struct pcep_object_header *obj;
+	struct pcep_object_rp *rp = NULL;
 	struct pcep_object_srp *srp = NULL;
 	struct pcep_object_lsp *lsp = NULL;
 	struct pcep_object_ro *ero = NULL;
 
-	path = XCALLOC(MTYPE_PCEP, sizeof(*path));
+	path = pcep_lib_new_path();
 
 	for (node = objs->head; node != NULL; node = node->next_node) {
 		obj = (struct pcep_object_header *)node->data;
 		switch (CLASS_TYPE(obj->object_class, obj->object_type)) {
+		case CLASS_TYPE(PCEP_OBJ_CLASS_RP, PCEP_OBJ_TYPE_RP):
+			assert(NULL == rp);
+			rp = (struct pcep_object_rp *)obj;
+			pcep_lib_parse_rp(path, rp);
+			break;
 		case CLASS_TYPE(PCEP_OBJ_CLASS_SRP, PCEP_OBJ_TYPE_SRP):
 			assert(NULL == srp);
 			srp = (struct pcep_object_srp *)obj;
@@ -269,6 +277,30 @@ struct path *pcep_lib_parse_path(double_linked_list *objs)
 	}
 
 	return path;
+}
+
+void pcep_lib_parse_rp(struct path *path, struct pcep_object_rp *rp)
+{
+	double_linked_list *tlvs = rp->header.tlv_list;
+	double_linked_list_node *node;
+	struct pcep_object_tlv_header *tlv;
+
+	/* We ignore flags and priority for now */
+	path->req_id = rp->request_id;
+
+	for (node = tlvs->head; node != NULL; node = node->next_node) {
+		tlv = (struct pcep_object_tlv_header *)node->data;
+		switch (tlv->type) {
+		case PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE:
+			// TODO: enforce the path setup type is SR_TE_PST
+			break;
+		default:
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_TLV,
+				  "Unexpected RP's TLV %s (%u)",
+				  pcep_tlv_type_name(tlv->type), tlv->type);
+			break;
+		}
+	}
 }
 
 void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp *srp)
@@ -359,9 +391,7 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 	/* Only support IPv4 node with SID */
 	assert(!sr->flag_s);
 
-	hop = XCALLOC(MTYPE_PCEP, sizeof(*hop));
-	memset(hop, 0, sizeof(*hop));
-
+	hop = pcep_lib_new_hop();
 	*hop = (struct path_hop){
 		.next = next,
 		.is_loose = sr->ro_subobj.flag_subobj_loose_hop,
@@ -387,6 +417,22 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 			.ipv4_node = {.addr = {.s_addr = addr->s_addr}}};
 	}
 
+	return hop;
+}
+
+struct path *pcep_lib_new_path(void)
+{
+	struct path *path;
+	path = XCALLOC(MTYPE_PCEP, sizeof(*path));
+	memset(path, 0, sizeof(*path));
+	return path;
+}
+
+struct path_hop *pcep_lib_new_hop(void)
+{
+	struct path_hop *hop;
+	hop = XCALLOC(MTYPE_PCEP, sizeof(*hop));
+	memset(hop, 0, sizeof(*hop));
 	return hop;
 }
 
