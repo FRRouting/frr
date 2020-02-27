@@ -40,16 +40,15 @@ struct nh_grp {
 PREDECL_RBTREE_UNIQ(nhg_connected_tree);
 
 /*
- * Hashtables contiaining entries found in `zebra_router`.
+ * Hashtables containing nhg entries is in `zebra_router`.
  */
-
 struct nhg_hash_entry {
 	uint32_t id;
 	afi_t afi;
 	vrf_id_t vrf_id;
 	int type;
 
-	struct nexthop_group *nhg;
+	struct nexthop_group nhg;
 
 	/* If this is not a group, it
 	 * will be a single nexthop

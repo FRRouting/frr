@@ -54,7 +54,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, RNH, "Nexthop tracking object")
 
 static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 		       struct route_node *rn);
-static void copy_state(struct rnh *rnh, struct route_entry *re,
+static void copy_state(struct rnh *rnh, const struct route_entry *re,
 		       struct route_node *rn);
 static int compare_state(struct route_entry *r1, struct route_entry *r2);
 static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
@@ -384,7 +384,7 @@ static void zebra_rnh_clear_nexthop_rnh_filters(struct route_entry *re)
 	struct nexthop *nexthop;
 
 	if (re) {
-		for (nexthop = re->nhe->nhg->nexthop; nexthop;
+		for (nexthop = re->nhe->nhg.nexthop; nexthop;
 		     nexthop = nexthop->next) {
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_RNH_FILTERED);
 		}
@@ -403,7 +403,7 @@ static int zebra_rnh_apply_nht_rmap(afi_t afi, struct zebra_vrf *zvrf,
 	route_map_result_t ret;
 
 	if (prn && re) {
-		for (nexthop = re->nhe->nhg->nexthop; nexthop;
+		for (nexthop = re->nhe->nhg.nexthop; nexthop;
 		     nexthop = nexthop->next) {
 			ret = zebra_nht_route_map_check(
 				afi, proto, &prn->p, zvrf, re, nexthop);
@@ -688,7 +688,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			/* Just being SELECTED isn't quite enough - must
 			 * have an installed nexthop to be useful.
 			 */
-			for (ALL_NEXTHOPS_PTR(re->nhe->nhg, nexthop)) {
+			for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
 				if (rnh_nexthop_valid(re, nexthop))
 					break;
 			}
@@ -707,7 +707,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 					break;
 				if (re->type == ZEBRA_ROUTE_NHRP) {
 
-					for (nexthop = re->nhe->nhg->nexthop;
+					for (nexthop = re->nhe->nhg.nexthop;
 					     nexthop;
 					     nexthop = nexthop->next)
 						if (nexthop->type
@@ -945,7 +945,7 @@ static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 	XFREE(MTYPE_RE, re);
 }
 
-static void copy_state(struct rnh *rnh, struct route_entry *re,
+static void copy_state(struct rnh *rnh, const struct route_entry *re,
 		       struct route_node *rn)
 {
 	struct route_entry *state;
@@ -966,9 +966,8 @@ static void copy_state(struct rnh *rnh, struct route_entry *re,
 	state->status = re->status;
 
 	state->nhe = zebra_nhg_alloc();
-	state->nhe->nhg = nexthop_group_new();
 
-	nexthop_group_copy(state->nhe->nhg, re->nhe->nhg);
+	nexthop_group_copy(&(state->nhe->nhg), &(re->nhe->nhg));
 	rnh->state = state;
 }
 
@@ -986,12 +985,12 @@ static int compare_state(struct route_entry *r1, struct route_entry *r2)
 	if (r1->metric != r2->metric)
 		return 1;
 
-	if (nexthop_group_nexthop_num(r1->nhe->nhg)
-	    != nexthop_group_nexthop_num(r2->nhe->nhg))
+	if (nexthop_group_nexthop_num(&(r1->nhe->nhg))
+	    != nexthop_group_nexthop_num(&(r2->nhe->nhg)))
 		return 1;
 
-	if (nexthop_group_hash(r1->nhe->nhg) !=
-	    nexthop_group_hash(r2->nhe->nhg))
+	if (nexthop_group_hash(&(r1->nhe->nhg)) !=
+	    nexthop_group_hash(&(r2->nhe->nhg)))
 		return 1;
 
 	return 0;
@@ -1043,7 +1042,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		num = 0;
 		nump = stream_get_endp(s);
 		stream_putc(s, 0);
-		for (ALL_NEXTHOPS_PTR(re->nhe->nhg, nh))
+		for (ALL_NEXTHOPS(re->nhe->nhg, nh))
 			if (rnh_nexthop_valid(re, nh)) {
 				zapi_nexthop_from_nexthop(&znh, nh);
 				zapi_nexthop_encode(s, &znh, 0 /* flags */);
@@ -1114,7 +1113,7 @@ static void print_rnh(struct route_node *rn, struct vty *vty)
 	if (rnh->state) {
 		vty_out(vty, " resolved via %s\n",
 			zebra_route_string(rnh->state->type));
-		for (nexthop = rnh->state->nhe->nhg->nexthop; nexthop;
+		for (nexthop = rnh->state->nhe->nhg.nexthop; nexthop;
 		     nexthop = nexthop->next)
 			print_nh(nexthop, vty);
 	} else

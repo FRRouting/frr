@@ -216,7 +216,8 @@ struct nexthop_group *nexthop_group_new(void)
 	return XCALLOC(MTYPE_NEXTHOP_GROUP, sizeof(struct nexthop_group));
 }
 
-void nexthop_group_copy(struct nexthop_group *to, struct nexthop_group *from)
+void nexthop_group_copy(struct nexthop_group *to,
+			const struct nexthop_group *from)
 {
 	/* Copy everything, including recursive info */
 	copy_nexthops(&to->nexthop, from->nexthop, NULL);
