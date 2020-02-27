@@ -306,7 +306,9 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	struct nhrp_packet_header *hdr;
 	struct interface *ifp;
 	struct nhrp_interface *nifp;
+	struct nhrp_afi_data *if_ad;
 	struct nhrp_peer *peer;
+	struct nhrp_cie_header *cie;
 
 	if (nhrp_route_address(NULL, &s->addr, NULL, &peer)
 	    != NHRP_ROUTE_NBMA_NEXTHOP)
@@ -336,7 +338,16 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	 *  - MTU: MTU of the source station
 	 *  - Holding Time: Max time to cache the source information
 	 * */
-	/* FIXME: Send holding time, and MTU */
+	/* FIXME: push CIE for each local protocol address */
+	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, NULL, NULL);
+	cie->prefix_length = 0xff;
+	if_ad = &nifp->afi[family2afi(sockunion_family(&s->addr))];
+	cie->holding_time = htons(if_ad->holdtime);
+	cie->mtu = htons(if_ad->mtu);
+	debugf(NHRP_DEBUG_COMMON,
+	       "Shortcut res_req: set cie holdtime to %u "
+	       "and mtu to %u. shortcut's holdtime is %u.",
+	       ntohs(cie->holding_time), ntohs(cie->mtu), s->holding_time);
 
 	nhrp_ext_request(zb, hdr, ifp);
 
