@@ -53,14 +53,22 @@ static int nhrp_shortcut_do_expire(struct thread *t)
 static void nhrp_shortcut_cache_notify(struct notifier_block *n,
 				       unsigned long cmd)
 {
+	char buf[PREFIX_STRLEN];
+
 	struct nhrp_shortcut *s =
 		container_of(n, struct nhrp_shortcut, cache_notifier);
 
 	switch (cmd) {
 	case NOTIFY_CACHE_UP:
 		if (!s->route_installed) {
-			nhrp_route_announce(1, s->type, s->p, NULL,
-					    &s->cache->remote_addr, 0);
+			debugf(NHRP_DEBUG_ROUTE,
+			       "Shortcut: route install "
+			       "%s nh (unspec) dev %s",
+			       prefix2str(s->p, buf, sizeof(buf)),
+			       s->cache->ifp->name);
+
+			nhrp_route_announce(1, s->type, s->p, s->cache->ifp,
+					    NULL, 0);
 			s->route_installed = 1;
 		}
 		break;
@@ -84,6 +92,8 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 					 enum nhrp_cache_type type,
 					 struct nhrp_cache *c, int holding_time)
 {
+	char buf[2][PREFIX_STRLEN];
+
 	s->type = type;
 	if (c != s->cache) {
 		if (s->cache) {
@@ -98,13 +108,32 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 				/* Force renewal of Zebra announce on prefix
 				 * change */
 				s->route_installed = 0;
+				debugf(NHRP_DEBUG_ROUTE,
+				       "Shortcut: forcing route install to "
+				       "announce prefix change for peer %s "
+				       "ht %u cur nbma %s dev %s",
+				       sockunion2str(&s->cache->remote_addr,
+						     buf[0], sizeof(buf[0])),
+				       holding_time,
+				       sockunion2str(
+					       &s->cache->cur.remote_nbma_natoa,
+					       buf[1], sizeof(buf[1])),
+				       s->cache->ifp->name);
 				nhrp_shortcut_cache_notify(&s->cache_notifier,
 							   NOTIFY_CACHE_UP);
 			}
 		}
-		if (!s->cache || !s->cache->route_installed)
+		if (!s->cache || !s->cache->route_installed) {
+			debugf(NHRP_DEBUG_ROUTE,
+			       "Shortcut: notify cache down "
+			       "because cache?%s or ri?%s",
+			       s->cache ? "yes" : "no",
+			       s->cache ? (s->cache->route_installed ? "yes"
+								     : "no")
+					: "n/a");
 			nhrp_shortcut_cache_notify(&s->cache_notifier,
 						   NOTIFY_CACHE_DOWN);
+		}
 	}
 	if (s->type == NHRP_CACHE_NEGATIVE && !s->route_installed) {
 		nhrp_route_announce(1, s->type, s->p, NULL, NULL, 0);
@@ -141,6 +170,7 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 	rn = route_node_lookup(shortcut_rib[afi], s->p);
 	if (rn) {
 		XFREE(MTYPE_NHRP_SHORTCUT, rn->info);
+		rn->info = NULL;
 		route_unlock_node(rn);
 		route_unlock_node(rn);
 	}
@@ -190,11 +220,10 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	struct nhrp_extension_header *ext;
 	struct nhrp_cie_header *cie;
 	struct nhrp_cache *c = NULL;
-	union sockunion *proto, cie_proto, *nbma, *nbma_natoa, cie_nbma,
-		nat_nbma;
+	union sockunion *proto, cie_proto, *nbma, cie_nbma, nat_nbma;
 	struct prefix prefix, route_prefix;
 	struct zbuf extpl;
-	char bufp[PREFIX_STRLEN], buf[3][SU_ADDRSTRLEN];
+	char bufp[PREFIX_STRLEN], buf[4][SU_ADDRSTRLEN];
 	int holding_time = pp->if_ad->holdtime;
 
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
@@ -262,39 +291,58 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	}
 
 	debugf(NHRP_DEBUG_COMMON,
-	       "Shortcut: %s is at proto %s cie-nbma %s nat-nbma %s cie-holdtime %d",
+	       "Shortcut: %s is at proto %s dst_proto %s cie-nbma %s nat-nbma "
+	       "%s cie-holdtime %d",
 	       prefix2str(&prefix, bufp, sizeof bufp),
-	       sockunion2str(proto, buf[0], sizeof buf[0]),
-	       sockunion2str(&cie_nbma, buf[1], sizeof buf[1]),
-	       sockunion2str(&nat_nbma, buf[2], sizeof buf[2]),
+	       sockunion2str(proto, buf[0], sizeof(buf[0])),
+	       sockunion2str(&pp->dst_proto, buf[1], sizeof(buf[1])),
+	       sockunion2str(&cie_nbma, buf[2], sizeof(buf[2])),
+	       sockunion2str(&nat_nbma, buf[3], sizeof(buf[3])),
 	       htons(cie->holding_time));
 
 	/* Update cache entry for the protocol to nbma binding */
-	if (sockunion_family(&nat_nbma) != AF_UNSPEC) {
+	if (sockunion_family(&nat_nbma) != AF_UNSPEC)
 		nbma = &nat_nbma;
-		nbma_natoa = &cie_nbma;
-	} else {
+	else
 		nbma = &cie_nbma;
-		nbma_natoa = NULL;
-	}
+
 	if (sockunion_family(nbma)) {
 		c = nhrp_cache_get(pp->ifp, proto, 1);
 		if (c) {
-			nhrp_cache_update_binding(c, NHRP_CACHE_CACHED,
+			debugf(NHRP_DEBUG_COMMON,
+			       "Shortcut: cache found, update binding");
+			nhrp_cache_update_binding(c, NHRP_CACHE_DYNAMIC,
 						  holding_time,
 						  nhrp_peer_get(pp->ifp, nbma),
-						  htons(cie->mtu), nbma_natoa);
+						  htons(cie->mtu), nbma);
+		} else {
+			debugf(NHRP_DEBUG_COMMON,
+			       "Shortcut: no cache for nbma %s", buf[2]);
 		}
 	}
 
 	/* Update shortcut entry for subnet to protocol gw binding */
-	if (c && !sockunion_same(proto, &pp->dst_proto)) {
+	if (c) {
 		ps = nhrp_shortcut_get(&prefix);
 		if (ps) {
 			ps->addr = s->addr;
-			nhrp_shortcut_update_binding(ps, NHRP_CACHE_CACHED, c,
+			debugf(NHRP_DEBUG_COMMON,
+			       "Shortcut: "
+			       "calling nhrp_shortcut_update_binding");
+			nhrp_shortcut_update_binding(ps, NHRP_CACHE_DYNAMIC, c,
 						     holding_time);
+		} else {
+			debugf(NHRP_DEBUG_COMMON,
+			       "Shortcut: proto diff but no ps");
 		}
+	} else {
+		debugf(NHRP_DEBUG_COMMON,
+		       "NO Shortcut because c NULL?%s or "
+		       "same proto?%s",
+		       c ? "no" : "yes",
+		       proto && pp && sockunion_same(proto, &pp->dst_proto)
+			       ? "yes"
+			       : "no");
 	}
 
 	debugf(NHRP_DEBUG_COMMON, "Shortcut: Resolution reply handled");
