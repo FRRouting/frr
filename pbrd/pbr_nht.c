@@ -853,7 +853,7 @@ void pbr_nht_nexthop_update(struct zapi_route *nhr)
 }
 
 static void
-pbr_nht_individual_nexthop_interface_update_lookup(struct hash_bucket *b,
+pbr_nht_individual_nexthop_interface_update_lookup(struct hash_backet *b,
 						   void *data)
 {
 	struct pbr_nexthop_cache *pnhc = b->data;
@@ -871,7 +871,7 @@ pbr_nht_individual_nexthop_interface_update_lookup(struct hash_bucket *b,
 		pnhi->valid += 1;
 }
 
-static void pbr_nht_nexthop_interface_update_lookup(struct hash_bucket *b,
+static void pbr_nht_nexthop_interface_update_lookup(struct hash_backet *b,
 						    void *data)
 {
 	struct pbr_nexthop_group_cache *pnhgc = b->data;
