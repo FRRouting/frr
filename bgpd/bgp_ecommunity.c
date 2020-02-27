@@ -1026,7 +1026,7 @@ static void *bgp_aggr_ecommunty_hash_alloc(void *p)
 	return ecommunity;
 }
 
-static void bgp_aggr_ecommunity_prepare(struct hash_backet *hb, void *arg)
+static void bgp_aggr_ecommunity_prepare(struct hash_bucket *hb, void *arg)
 {
 	struct ecommunity *hb_ecommunity = hb->data;
 	struct ecommunity **aggr_ecommunity = arg;
