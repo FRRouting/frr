@@ -143,6 +143,8 @@ void srte_policy_del(struct srte_policy *policy)
 
 	path_zebra_delete_sr_policy(policy);
 
+	path_zebra_release_label(policy->binding_sid);
+
 	while (!RB_EMPTY(srte_candidate_head, &policy->candidate_paths)) {
 		candidate =
 			RB_ROOT(srte_candidate_head, &policy->candidate_paths);
