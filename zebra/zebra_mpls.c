@@ -93,6 +93,8 @@ static void lsp_processq_del(struct work_queue *wq, void *data);
 static void lsp_processq_complete(struct work_queue *wq);
 static int lsp_processq_add(zebra_lsp_t *lsp);
 static void *lsp_alloc(void *p);
+/* Free lsp; sets caller's pointer to NULL */
+static void lsp_free(struct hash *lsp_table, zebra_lsp_t **plsp);
 
 static char *nhlfe2str(zebra_nhlfe_t *nhlfe, char *buf, int size);
 static int nhlfe_nhop_match(zebra_nhlfe_t *nhlfe, enum nexthop_types_t gtype,
@@ -250,14 +252,8 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 		if (lsp_processq_add(lsp))
 			return -1;
 	} else if (!lsp->nhlfe_list
-		   && !CHECK_FLAG(lsp->flags, LSP_FLAG_SCHEDULED)) {
-		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug("Free LSP in-label %u flags 0x%x",
-				   lsp->ile.in_label, lsp->flags);
-
-		lsp = hash_release(lsp_table, &lsp->ile);
-		XFREE(MTYPE_LSP, lsp);
-	}
+		   && !CHECK_FLAG(lsp->flags, LSP_FLAG_SCHEDULED))
+		lsp_free(lsp_table, &lsp);
 
 	return 0;
 }
@@ -313,14 +309,8 @@ static int lsp_uninstall(struct zebra_vrf *zvrf, mpls_label_t label)
 		if (lsp_processq_add(lsp))
 			return -1;
 	} else if (!lsp->nhlfe_list
-		   && !CHECK_FLAG(lsp->flags, LSP_FLAG_SCHEDULED)) {
-		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug("Del LSP in-label %u flags 0x%x",
-				   lsp->ile.in_label, lsp->flags);
-
-		lsp = hash_release(lsp_table, &lsp->ile);
-		XFREE(MTYPE_LSP, lsp);
-	}
+		   && !CHECK_FLAG(lsp->flags, LSP_FLAG_SCHEDULED))
+		lsp_free(lsp_table, &lsp);
 
 	return 0;
 }
@@ -1047,14 +1037,8 @@ static void lsp_processq_del(struct work_queue *wq, void *data)
 			nhlfe_del(nhlfe);
 	}
 
-	if (!lsp->nhlfe_list) {
-		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug("Free LSP in-label %u flags 0x%x",
-				   lsp->ile.in_label, lsp->flags);
-
-		lsp = hash_release(lsp_table, &lsp->ile);
-		XFREE(MTYPE_LSP, lsp);
-	}
+	if (!lsp->nhlfe_list)
+		lsp_free(lsp_table, &lsp);
 }
 
 /*
@@ -1101,6 +1085,37 @@ static void *lsp_alloc(void *p)
 		zlog_debug("Alloc LSP in-label %u", lsp->ile.in_label);
 
 	return ((void *)lsp);
+}
+
+/*
+ * Dtor for an LSP: remove from ile hash, release any internal allocations,
+ * free LSP object.
+ */
+static void lsp_free(struct hash *lsp_table, zebra_lsp_t **plsp)
+{
+	zebra_lsp_t *lsp;
+	zebra_nhlfe_t *nhlfe, *nhlfe_next;
+
+	if (plsp == NULL || *plsp == NULL)
+		return;
+
+	lsp = *plsp;
+
+	if (IS_ZEBRA_DEBUG_MPLS)
+		zlog_debug("Free LSP in-label %u flags 0x%x",
+			   lsp->ile.in_label, lsp->flags);
+
+	/* Free nhlfes, if any. */
+	for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe_next) {
+		nhlfe_next = nhlfe->next;
+
+		nhlfe_del(nhlfe);
+	}
+
+	hash_release(lsp_table, &lsp->ile);
+	XFREE(MTYPE_LSP, lsp);
+
+	*plsp = NULL;
 }
 
 /*
@@ -1334,14 +1349,8 @@ static int mpls_lsp_uninstall_all(struct hash *lsp_table, zebra_lsp_t *lsp,
 		if (lsp_processq_add(lsp))
 			return -1;
 	} else if (!lsp->nhlfe_list
-		   && !CHECK_FLAG(lsp->flags, LSP_FLAG_SCHEDULED)) {
-		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug("Free LSP in-label %u flags 0x%x",
-				   lsp->ile.in_label, lsp->flags);
-
-		lsp = hash_release(lsp_table, &lsp->ile);
-		XFREE(MTYPE_LSP, lsp);
-	}
+		   && !CHECK_FLAG(lsp->flags, LSP_FLAG_SCHEDULED))
+		lsp_free(lsp_table, &lsp);
 
 	return 0;
 }
@@ -2872,14 +2881,9 @@ int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 
 		/* Free LSP entry if no other NHLFEs and not scheduled. */
 		if (!lsp->nhlfe_list
-		    && !CHECK_FLAG(lsp->flags, LSP_FLAG_SCHEDULED)) {
-			if (IS_ZEBRA_DEBUG_MPLS)
-				zlog_debug("Free LSP in-label %u flags 0x%x",
-					   lsp->ile.in_label, lsp->flags);
+		    && !CHECK_FLAG(lsp->flags, LSP_FLAG_SCHEDULED))
+			lsp_free(lsp_table, &lsp);
 
-			lsp = hash_release(lsp_table, &lsp->ile);
-			XFREE(MTYPE_LSP, lsp);
-		}
 	}
 	return 0;
 }
