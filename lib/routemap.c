@@ -2257,7 +2257,7 @@ static void route_map_pentry_update(route_map_event_t event,
 	}
 }
 
-static void route_map_pentry_process_dependency(struct hash_backet *backet,
+static void route_map_pentry_process_dependency(struct hash_bucket *backet,
 						void *data)
 {
 	char *rmap_name = NULL;
