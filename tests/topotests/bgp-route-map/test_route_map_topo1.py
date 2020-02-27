@@ -71,7 +71,7 @@ from time import sleep
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
+sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -102,7 +102,7 @@ ADDR_TYPES = check_address_types()
 # Reading the data from JSON File for topology and configuration creation
 jsonFile = "{}/bgp_route_map_topo1.json".format(CWD)
 try:
-    with open(jsonFile, 'r') as topoJson:
+    with open(jsonFile, "r") as topoJson:
         topo = json.load(topoJson)
 except IOError:
     assert False, "Could not read file {}".format(jsonFile)
@@ -442,11 +442,12 @@ def test_route_map_inbound_outbound_same_neighbor_p0(request):
             }
         }
 
-        result = verify_rib(tgen, adt, dut, input_dict_2, protocol=protocol)
+        result = verify_rib(tgen, adt, dut, input_dict_2, protocol=protocol,
+                            expected=False)
         assert result is not True, "Testcase {} : Failed \n"
-        "Expected behavior: routes are not present in rib \n"
-        "Error: {}".format(
+        "routes are not present in rib \n Error: {}".format(
             tc_name, result)
+        logger.info("Expected behaviour: {}".format(result))
 
         # Verifying RIB routes
         dut = "r4"
@@ -461,11 +462,12 @@ def test_route_map_inbound_outbound_same_neighbor_p0(request):
                 ]
             }
         }
-        result = verify_rib(tgen, adt, dut, input_dict, protocol=protocol)
+        result = verify_rib(tgen, adt, dut, input_dict, protocol=protocol,
+                            expected=False)
         assert result is not True, "Testcase {} : Failed \n "
-        "Expected behavior: routes are not present in rib \n "
-        "Error: {}".format(
+        "routes are not present in rib \n Error: {}".format(
             tc_name, result)
+        logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
 
@@ -649,10 +651,14 @@ def test_route_map_with_action_values_combination_of_prefix_action_p0(
             }
         }
 
-        result = verify_rib(tgen, adt, dut, input_dict_2, protocol=protocol)
+        #tgen.mininet_cli()
+        result = verify_rib(tgen, adt, dut, input_dict_2, protocol=protocol,
+                            expected=False)
         if "deny" in [prefix_action, rmap_action]:
-            assert result is not True, "Testcase {} : Failed \n Error: {}".\
+            assert result is not True, "Testcase {} : Failed \n "
+            "Routes are still present \n Error: {}".\
                 format(tc_name, result)
+            logger.info("Expected behaviour: {}".format(result))
         else:
             assert result is True, "Testcase {} : Failed \n Error: {}".format(
                 tc_name, result)
