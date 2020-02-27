@@ -240,7 +240,7 @@ assign_specific_label_chunk(uint8_t proto, unsigned short instance,
 		if (lmc->proto != NO_PROTO)
 			return NULL;
 
-		if (end < lmc->end) {
+		if (end <= lmc->end) {
 			last_node = node;
 			break;
 		}
