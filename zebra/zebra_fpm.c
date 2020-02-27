@@ -70,7 +70,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, FPM_MAC_INFO, "FPM_MAC_INFO");
 #define ZFPM_STATS_IVL_SECS        10
 #define FPM_MAX_MAC_MSG_LEN 512
 
-static void zfpm_iterate_rmac_table(struct hash_backet *backet, void *args);
+static void zfpm_iterate_rmac_table(struct hash_bucket *backet, void *args);
 
 /*
  * Structure that holds state for iterating over all route_node
@@ -1647,7 +1647,7 @@ static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
  * Iterate over all the RMAC entries for the given L3VNI
  * and enqueue the RMAC for FPM processing.
  */
-static void zfpm_trigger_rmac_update_wrapper(struct hash_backet *backet,
+static void zfpm_trigger_rmac_update_wrapper(struct hash_bucket *backet,
 					     void *args)
 {
 	zebra_mac_t *zrmac = (zebra_mac_t *)backet->data;
@@ -1661,7 +1661,7 @@ static void zfpm_trigger_rmac_update_wrapper(struct hash_backet *backet,
  * This function iterates over all the L3VNIs to trigger
  * FPM updates for RMACs currently available.
  */
-static void zfpm_iterate_rmac_table(struct hash_backet *backet, void *args)
+static void zfpm_iterate_rmac_table(struct hash_bucket *backet, void *args)
 {
 	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)backet->data;
 
