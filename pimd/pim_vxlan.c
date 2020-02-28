@@ -475,7 +475,7 @@ static void pim_vxlan_orig_mr_del(struct pim_vxlan_sg *vxlan_sg)
 	pim_vxlan_orig_mr_up_del(vxlan_sg);
 }
 
-static void pim_vxlan_orig_mr_iif_update(struct hash_backet *backet, void *arg)
+static void pim_vxlan_orig_mr_iif_update(struct hash_bucket *backet, void *arg)
 {
 	struct interface *ifp;
 	struct pim_vxlan_sg *vxlan_sg = (struct pim_vxlan_sg *)backet->data;
@@ -788,8 +788,8 @@ bool pim_vxlan_do_mlag_reg(void)
  * to the MLAG peer which may mroute it over the underlay if there are any
  * interested receivers.
  */
-static void pim_vxlan_sg_peerlink_oif_update(struct hash_backet *backet,
-		void *arg)
+static void pim_vxlan_sg_peerlink_oif_update(struct hash_bucket *backet,
+					     void *arg)
 {
 	struct interface *new_oif = (struct interface *)arg;
 	struct pim_vxlan_sg *vxlan_sg = (struct pim_vxlan_sg *)backet->data;
@@ -927,8 +927,7 @@ static void pim_vxlan_up_cost_update(struct pim_instance *pim,
 	}
 }
 
-static void pim_vxlan_term_mr_cost_update(struct hash_backet *backet,
-		void *arg)
+static void pim_vxlan_term_mr_cost_update(struct hash_bucket *backet, void *arg)
 {
 	struct interface *old_peerlink_rif = (struct interface *)arg;
 	struct pim_vxlan_sg *vxlan_sg = (struct pim_vxlan_sg *)backet->data;
@@ -953,8 +952,8 @@ static void pim_vxlan_term_mr_cost_update(struct hash_backet *backet,
 				old_peerlink_rif);
 }
 
-static void pim_vxlan_sg_peerlink_rif_update(struct hash_backet *backet,
-		void *arg)
+static void pim_vxlan_sg_peerlink_rif_update(struct hash_bucket *backet,
+					     void *arg)
 {
 	pim_vxlan_orig_mr_iif_update(backet, NULL);
 	pim_vxlan_term_mr_cost_update(backet, arg);
@@ -1012,7 +1011,7 @@ static void pim_vxlan_set_peerlink_rif(struct pim_instance *pim,
 	}
 }
 
-static void pim_vxlan_term_mr_oif_update(struct hash_backet *backet, void *arg)
+static void pim_vxlan_term_mr_oif_update(struct hash_bucket *backet, void *arg)
 {
 	struct interface *ifp = (struct interface *)arg;
 	struct pim_vxlan_sg *vxlan_sg = (struct pim_vxlan_sg *)backet->data;
