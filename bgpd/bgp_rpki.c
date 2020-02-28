@@ -1366,7 +1366,7 @@ static int bgp_rpki_write_vrf(struct vty *vty, struct vrf *vrf)
 		vty_out(vty, "%s rpki polling_period %d\n",
 			sep, rpki_vrf->polling_period);
 	if (rpki_vrf->retry_interval != RETRY_INTERVAL_DEFAULT)
-		vty_out(vty, "%s rpki retry-interval %d\n",
+		vty_out(vty, "%s rpki retry_interval %d\n",
 			sep, rpki_vrf->retry_interval);
 	if (rpki_vrf->expire_interval != EXPIRE_INTERVAL_DEFAULT)
 		vty_out(vty, "%s rpki expire_interval %d\n",
