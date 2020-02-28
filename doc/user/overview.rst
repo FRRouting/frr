@@ -292,6 +292,8 @@ BGP
   :t:`BGP/MPLS IP Virtual Private Networks (VPNs). Y. Rekhter. Feb 2006.`
 - :rfc:`4659`
   :t:`BGP-MPLS IP Virtual Private Network (VPN) Extension for IPv6 VPN. J. De Clercq, D. Ooms, M. Carugi, F. Le Faucheur. September 2006.`
+- :rfc:`4893`
+  :t:`BGP Support for Four-octet AS Number Space. Q. Vohra, E. Chen May 2007.`
 - :rfc:`5004`
   :t:`Avoid BGP Best Path Transitions from One External to Another. E. Chen & S. Sangli. September 2007 (Partial support).`
 - :rfc:`5082`
