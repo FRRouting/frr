@@ -22,6 +22,7 @@
 #include "libfrr.h"
 #include "zebra_nb.h"
 #include "zebra/interface.h"
+#include "zebra/zebra_router.h"
 
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/up-count
@@ -158,13 +159,60 @@ lib_interface_zebra_state_mcast_group_get_elem(const char *xpath,
 const void *lib_vrf_ribs_rib_get_next(const void *parent_list_entry,
 				      const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	struct vrf *vrf = (struct vrf *)parent_list_entry;
+	struct zebra_router_table *zrt =
+		(struct zebra_router_table *)list_entry;
+
+	struct zebra_vrf *zvrf;
+	afi_t afi;
+	safi_t safi;
+
+	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+
+	if (list_entry == NULL) {
+		afi = AFI_IP;
+		safi = SAFI_UNICAST;
+
+		zrt = zebra_router_find_zrt(zvrf, zvrf->table_id, afi, safi);
+		if (zrt == NULL)
+			return NULL;
+	} else {
+		zrt = RB_NEXT(zebra_router_table_head, zrt);
+		/* vrf_id/ns_id do not match, only walk for the given VRF */
+		while (zrt && zrt->ns_id != zvrf->zns->ns_id)
+			zrt = RB_NEXT(zebra_router_table_head, zrt);
+	}
+
+	return zrt;
 }
 
 int lib_vrf_ribs_rib_get_keys(const void *list_entry,
 			      struct yang_list_keys *keys)
 {
+	const struct zebra_router_table *zrt = list_entry;
+	// struct vrf *vrf;
+
+	assert(zrt);
+
+	keys->num = 2;
+
+	snprintf(keys->key[0], sizeof(keys->key[0]), "%s",
+		 "frr-zebra:ipv4-unicast");
+	/* TODO: implement key[0], afi-safi identityref */
+	snprintf(keys->key[1], sizeof(keys->key[1]), "%" PRIu32, zrt->tableid);
+#if 0
+	if (!vrf_is_backend_netns()) {
+		zlog_debug("vrf backed netns ns_id %u", zrt->ns_id);
+		return NB_ERR_INCONSISTENCY;
+	}
+	vrf = vrf_lookup_by_id((vrf_id_t)zrt->ns_id);
+
+	if (!vrf) {
+		zlog_debug("vrf is not found for ns_id %u", zrt->ns_id);
+		return NB_ERR_INCONSISTENCY;
+	}
+#endif
+
 	/* TODO: implement me. */
 	return NB_OK;
 }
@@ -172,8 +220,15 @@ int lib_vrf_ribs_rib_get_keys(const void *list_entry,
 const void *lib_vrf_ribs_rib_lookup_entry(const void *parent_list_entry,
 					  const struct yang_list_keys *keys)
 {
-	/* TODO: implement me. */
-	return NULL;
+	struct vrf *vrf = (struct vrf *)parent_list_entry;
+	// uint32_t tableid = strtoul(keys->key[1], NULL, 10);
+	struct zebra_vrf *zvrf;
+	afi_t afi = AFI_IP;
+	safi_t safi = SAFI_UNICAST;
+
+	zvrf = zebra_vrf_lookup_by_id(vrf->vrf_id);
+
+	return zebra_router_find_zrt(zvrf, zvrf->table_id, afi, safi);
 }
 
 /*
@@ -182,14 +237,30 @@ const void *lib_vrf_ribs_rib_lookup_entry(const void *parent_list_entry,
 const void *lib_vrf_ribs_rib_route_get_next(const void *parent_list_entry,
 					    const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct zebra_router_table *zrt = parent_list_entry;
+	const struct route_node *rn = list_entry;
+
+	if (list_entry == NULL) {
+		rn = route_top(zrt->table);
+	} else {
+		rn = srcdest_route_next((struct route_node *)rn);
+	}
+
+	return rn;
 }
 
 int lib_vrf_ribs_rib_route_get_keys(const void *list_entry,
 				    struct yang_list_keys *keys)
 {
-	/* TODO: implement me. */
+	const struct route_node *rn = list_entry;
+	char dst_buf[PREFIX_STRLEN];
+	const struct prefix *dst_p;
+
+	srcdest_rnode_prefixes(rn, &dst_p, NULL);
+	keys->num = 1;
+	strlcpy(keys->key[0], prefix2str(dst_p, dst_buf, sizeof(dst_p)),
+		sizeof(keys->key[0]));
+
 	return NB_OK;
 }
 
@@ -197,8 +268,21 @@ const void *
 lib_vrf_ribs_rib_route_lookup_entry(const void *parent_list_entry,
 				    const struct yang_list_keys *keys)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct zebra_router_table *zrt = parent_list_entry;
+	struct prefix p;
+	struct route_node *rn;
+
+	yang_str2prefix(keys->key[0], &p);
+
+	rn = route_node_lookup(zrt->table, &p);
+
+	if (!rn) {
+		char buf[PREFIX_STRLEN];
+		zlog_debug("prefix %s is not present in route table",
+			   prefix2str(&p, buf, sizeof(buf)));
+	}
+
+	return rn;
 }
 
 /*
@@ -207,8 +291,9 @@ lib_vrf_ribs_rib_route_lookup_entry(const void *parent_list_entry,
 struct yang_data *lib_vrf_ribs_rib_route_prefix_get_elem(const char *xpath,
 							 const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct route_node *rn = list_entry;
+
+	return yang_data_new_prefix(xpath, &rn->p);
 }
 
 /*
@@ -218,8 +303,9 @@ const void *
 lib_vrf_ribs_rib_route_route_entry_get_next(const void *parent_list_entry,
 					    const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	struct route_entry *re = NULL;
+
+	return re;
 }
 
 int lib_vrf_ribs_rib_route_route_entry_get_keys(const void *list_entry,

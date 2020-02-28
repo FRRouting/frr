@@ -186,6 +186,9 @@ extern void zebra_router_init(void);
 extern void zebra_router_cleanup(void);
 extern void zebra_router_terminate(void);
 
+extern struct zebra_router_table *zebra_router_find_zrt(struct zebra_vrf *zvrf,
+							uint32_t tableid,
+							afi_t afi, safi_t safi);
 extern struct route_table *zebra_router_find_table(struct zebra_vrf *zvrf,
 						   uint32_t tableid, afi_t afi,
 						   safi_t safi);
