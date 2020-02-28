@@ -642,7 +642,6 @@ module frr-zebra {
           type identityref {
             base afi-safi-type;
           }
-          mandatory true;
           description
             "AFI, SAFI name.";
         }

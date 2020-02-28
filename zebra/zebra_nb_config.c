@@ -29,6 +29,7 @@
 #include "zebra_nb.h"
 #include "zebra/interface.h"
 #include "zebra/connected.h"
+#include "zebra/zebra_router.h"
 
 /*
  * XPath: /frr-zebra:zebra/mcast-rpf-lookup
@@ -1220,12 +1221,40 @@ int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args)
  */
 int lib_vrf_ribs_rib_create(struct nb_cb_create_args *args)
 {
+	struct vrf *vrf;
+	afi_t afi = AFI_IP;
+	safi_t safi = SAFI_UNICAST;
+	struct zebra_vrf *zvrf;
+	struct zebra_router_table *zrt;
+	uint32_t table_id;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, false);
+	zvrf = vrf_info_lookup(vrf->vrf_id);
+	table_id = yang_dnode_get_uint32(args->dnode, "./table-id");
+	if (!table_id)
+		table_id = zvrf->table_id;
+
+	/* TODO: once identityref nb wrapper available, parse
+	 * afi-safi-name and feed into the creation of the table
+	 */
+
+	zrt = zebra_router_find_zrt(zvrf, table_id, afi, safi);
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if (!zrt) {
+			zlog_debug("%s: vrf %s table is not found.", __func__,
+				   vrf->name);
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+
+		nb_running_set_entry(args->dnode, zrt);
+
 		break;
 	}
 
@@ -1234,14 +1263,10 @@ int lib_vrf_ribs_rib_create(struct nb_cb_create_args *args)
 
 int lib_vrf_ribs_rib_destroy(struct nb_cb_destroy_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	nb_running_unset_entry(args->dnode);
 
 	return NB_OK;
 }
