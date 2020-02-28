@@ -44,7 +44,7 @@ static int64_t bgp_clist_new_seq_get(struct community_list *list)
 	int64_t newseq;
 	struct community_entry *entry;
 
-	maxseq = newseq = 0;
+	maxseq = 0;
 
 	for (entry = list->head; entry; entry = entry->next) {
 		if (maxseq < entry->seq)

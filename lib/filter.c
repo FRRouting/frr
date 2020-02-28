@@ -412,7 +412,7 @@ static int64_t filter_new_seq_get(struct access_list *access)
 	int64_t newseq;
 	struct filter *filter;
 
-	maxseq = newseq = 0;
+	maxseq = 0;
 
 	for (filter = access->head; filter; filter = filter->next) {
 		if (maxseq < filter->seq)

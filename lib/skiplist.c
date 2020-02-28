@@ -378,7 +378,7 @@ int skiplist_next_value(register struct skiplist *l, /* in */
 			void **valuePointer,	 /* in/out */
 			void **cursor)		     /* in/out */
 {
-	register int k, m;
+	register int k;
 	register struct skiplistnode *p, *q;
 
 	CHECKLAST(l);
@@ -389,7 +389,7 @@ int skiplist_next_value(register struct skiplist *l, /* in */
 
 	if (!cursor || !*cursor) {
 		p = l->header;
-		k = m = l->level;
+		k = l->level;
 
 		/*
 		 * Find matching key

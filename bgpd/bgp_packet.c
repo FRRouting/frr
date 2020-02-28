@@ -1303,8 +1303,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 
 	/* Open option part parse. */
 	if (optlen != 0) {
-		if ((ret = bgp_open_option_parse(peer, optlen, &mp_capability))
-		    < 0)
+		if (bgp_open_option_parse(peer, optlen, &mp_capability) < 0)
 			return BGP_Stop;
 	} else {
 		if (bgp_debug_neighbor_events(peer))
@@ -1346,7 +1345,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 		return BGP_Stop;
 
 	/* Get sockname. */
-	if ((ret = bgp_getsockname(peer)) < 0) {
+	if (bgp_getsockname(peer) < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s: bgp_getsockname() failed for peer: %s",
 			     __FUNCTION__, peer->host);
@@ -1972,38 +1971,29 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 					} else
 						p_pnt = p_end;
 
-					if ((ok = (p_pnt < p_end)))
-						orfp.ge =
-							*p_pnt++; /* value
-								     checked in
-								     prefix_bgp_orf_set()
-								     */
-					if ((ok = (p_pnt < p_end)))
-						orfp.le =
-							*p_pnt++; /* value
-								     checked in
-								     prefix_bgp_orf_set()
-								     */
+					/* val checked in prefix_bgp_orf_set */
+					if (p_pnt < p_end)
+						orfp.ge = *p_pnt++;
+
+					/* val checked in prefix_bgp_orf_set */
+					if (p_pnt < p_end)
+						orfp.le = *p_pnt++;
+
 					if ((ok = (p_pnt < p_end)))
 						orfp.p.prefixlen = *p_pnt++;
-					orfp.p.family = afi2family(
-						afi); /* afi checked already  */
 
-					psize = PSIZE(
-						orfp.p.prefixlen); /* 0 if not
-								      ok */
-					if (psize
-					    > prefix_blen(
-						      &orfp.p)) /* valid for
-								   family ?   */
-					{
+					/* afi checked already */
+					orfp.p.family = afi2family(afi);
+
+					/* 0 if not ok */
+					psize = PSIZE(orfp.p.prefixlen);
+					/* valid for family ? */
+					if (psize > prefix_blen(&orfp.p)) {
 						ok = 0;
 						psize = prefix_blen(&orfp.p);
 					}
-					if (psize
-					    > (p_end - p_pnt)) /* valid for
-								  packet ?   */
-					{
+					/* valid for packet ? */
+					if (psize > (p_end - p_pnt)) {
 						ok = 0;
 						psize = p_end - p_pnt;
 					}

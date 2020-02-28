@@ -2184,6 +2184,7 @@ void rfapiRibPendingDeleteRoute(struct bgp *bgp, struct rfapi_import_table *it,
 				rfapiRibUpdatePendingNode(
 					bgp, m->rfd, it, it_node,
 					m->rfd->response_lifetime);
+				agg_unlock_node(rn);
 			}
 		}
 

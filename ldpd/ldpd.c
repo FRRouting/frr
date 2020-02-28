@@ -858,7 +858,6 @@ ldp_acl_request(struct imsgev *iev, char *acl_name, int af,
     union ldpd_addr *addr, uint8_t prefixlen)
 {
 	struct imsg	 imsg;
-	ssize_t		 n;
 	struct acl_check acl_check;
 
 	if (acl_name[0] == '\0')
@@ -876,9 +875,9 @@ ldp_acl_request(struct imsgev *iev, char *acl_name, int af,
 	imsg_flush(&iev->ibuf);
 
 	/* receive (blocking) and parse result */
-	if ((n = imsg_read(&iev->ibuf)) == -1)
+	if (imsg_read(&iev->ibuf) == -1)
 		fatal("imsg_read error");
-	if ((n = imsg_get(&iev->ibuf, &imsg)) == -1)
+	if (imsg_get(&iev->ibuf, &imsg) == -1)
 		fatal("imsg_get");
 	if (imsg.hdr.type != IMSG_ACL_CHECK ||
 	    imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(int))
@@ -1408,7 +1407,7 @@ merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 
 	RB_FOREACH_SAFE(iface, iface_head, &conf->iface_tree, itmp) {
 		/* find deleted interfaces */
-		if ((xi = if_lookup_name(xconf, iface->name)) == NULL) {
+		if (if_lookup_name(xconf, iface->name) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDP_ENGINE:
 				ldpe_if_exit(iface);
@@ -1469,7 +1468,7 @@ merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 			continue;
 
 		/* find deleted tnbrs */
-		if ((xt = tnbr_find(xconf, tnbr->af, &tnbr->addr)) == NULL) {
+		if (tnbr_find(xconf, tnbr->af, &tnbr->addr) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDP_ENGINE:
 				tnbr->flags &= ~F_TNBR_CONFIGURED;
@@ -1515,33 +1514,35 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 
 	RB_FOREACH_SAFE(nbrp, nbrp_head, &conf->nbrp_tree, ntmp) {
 		/* find deleted nbrps */
-		if ((xn = nbr_params_find(xconf, nbrp->lsr_id)) == NULL) {
-			switch (ldpd_process) {
-			case PROC_LDP_ENGINE:
-				nbr = nbr_find_ldpid(nbrp->lsr_id.s_addr);
-				if (nbr) {
-					session_shutdown(nbr, S_SHUTDOWN, 0, 0);
+		if (nbr_params_find(xconf, nbrp->lsr_id) != NULL)
+			continue;
+
+		switch (ldpd_process) {
+		case PROC_LDP_ENGINE:
+			nbr = nbr_find_ldpid(nbrp->lsr_id.s_addr);
+			if (nbr) {
+				session_shutdown(nbr, S_SHUTDOWN, 0, 0);
 #ifdef __OpenBSD__
-					pfkey_remove(nbr);
+				pfkey_remove(nbr);
 #else
-					sock_set_md5sig(
-					    (ldp_af_global_get(&global,
-					    nbr->af))->ldp_session_socket,
-					    nbr->af, &nbr->raddr, NULL);
+				sock_set_md5sig(
+					(ldp_af_global_get(&global, nbr->af))
+						->ldp_session_socket,
+					nbr->af, &nbr->raddr, NULL);
 #endif
-					nbr->auth.method = AUTH_NONE;
-					if (nbr_session_active_role(nbr))
-						nbr_establish_connection(nbr);
-				}
-				break;
-			case PROC_LDE_ENGINE:
-			case PROC_MAIN:
-				break;
+				nbr->auth.method = AUTH_NONE;
+				if (nbr_session_active_role(nbr))
+					nbr_establish_connection(nbr);
 			}
-			RB_REMOVE(nbrp_head, &conf->nbrp_tree, nbrp);
-			free(nbrp);
+			break;
+		case PROC_LDE_ENGINE:
+		case PROC_MAIN:
+			break;
 		}
+		RB_REMOVE(nbrp_head, &conf->nbrp_tree, nbrp);
+		free(nbrp);
 	}
+
 	RB_FOREACH_SAFE(xn, nbrp_head, &xconf->nbrp_tree, ntmp) {
 		/* find new nbrps */
 		if ((nbrp = nbr_params_find(conf, xn->lsr_id)) == NULL) {
@@ -1624,7 +1625,7 @@ merge_l2vpns(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 
 	RB_FOREACH_SAFE(l2vpn, l2vpn_head, &conf->l2vpn_tree, ltmp) {
 		/* find deleted l2vpns */
-		if ((xl = l2vpn_find(xconf, l2vpn->name)) == NULL) {
+		if (l2vpn_find(xconf, l2vpn->name) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
 				l2vpn_exit(l2vpn);
@@ -1680,7 +1681,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 	/* merge intefaces */
 	RB_FOREACH_SAFE(lif, l2vpn_if_head, &l2vpn->if_tree, ftmp) {
 		/* find deleted interfaces */
-		if ((xf = l2vpn_if_find(xl, lif->ifname)) == NULL) {
+		if (l2vpn_if_find(xl, lif->ifname) == NULL) {
 			RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
 			free(lif);
 		}
@@ -1706,7 +1707,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 	/* merge active pseudowires */
 	RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_tree, ptmp) {
 		/* find deleted active pseudowires */
-		if ((xp = l2vpn_pw_find_active(xl, pw->ifname)) == NULL) {
+		if (l2vpn_pw_find_active(xl, pw->ifname) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
 				l2vpn_pw_exit(pw);
@@ -1807,7 +1808,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 	/* merge inactive pseudowires */
 	RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree, ptmp) {
 		/* find deleted inactive pseudowires */
-		if ((xp = l2vpn_pw_find_inactive(xl, pw->ifname)) == NULL) {
+		if (l2vpn_pw_find_inactive(xl, pw->ifname) == NULL) {
 			RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 			free(pw);
 		}

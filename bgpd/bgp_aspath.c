@@ -793,7 +793,7 @@ static int assegments_parse(struct stream *s, size_t length,
 		if (head)
 			prev->next = seg;
 		else /* it's the first segment */
-			head = prev = seg;
+			head = seg;
 
 		for (i = 0; i < segh.length; i++)
 			seg->as[i] =

@@ -755,10 +755,9 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 			if ((type == NHRP_EXTENSION_REVERSE_TRANSIT_NHS)
 			    == (packet_types[hdr->type].type == PACKET_REPLY)) {
 				/* Check NHS list for forwarding loop */
-				while ((cie = nhrp_cie_pull(&extpl, pp->hdr,
-							    &cie_nbma,
-							    &cie_protocol))
-				       != NULL) {
+				while (nhrp_cie_pull(&extpl, pp->hdr,
+						     &cie_nbma,
+						     &cie_protocol) != NULL) {
 					if (sockunion_same(&p->vc->remote.nbma,
 							   &cie_nbma))
 						goto err;
