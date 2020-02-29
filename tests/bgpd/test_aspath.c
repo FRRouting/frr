@@ -966,7 +966,7 @@ static int validate(struct aspath *as, const struct test_spec *sp)
 
 	/* Excercise AS4 parsing a bit, with a dogfood test */
 	if (!s)
-		s = stream_new(4096);
+		s = stream_new(BGP_MAX_PACKET_SIZE);
 	bytes4 = aspath_put(s, as, 1);
 	as4 = make_aspath(STREAM_DATA(s), bytes4, 1);
 
