@@ -1281,6 +1281,7 @@ static int handle_attr_test(struct aspath_tests *t)
 	peer.host = (char *)"none";
 	peer.fd = -1;
 	peer.cap = t->cap;
+	peer.max_packet_size = BGP_MAX_PACKET_SIZE;
 
 	stream_write(peer.curr, t->attrheader, t->len);
 	datalen = aspath_put(peer.curr, asp, t->as4 == AS4_DATA);
