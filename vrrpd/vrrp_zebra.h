@@ -24,6 +24,11 @@
 
 #include "lib/if.h"
 
+#ifdef FUZZING
+#include "lib/zclient.h"
+extern struct zclient *zclient;
+#endif
+
 extern void vrrp_zebra_init(void);
 extern void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable);
 extern int vrrp_zclient_send_interface_protodown(struct interface *ifp,

@@ -32,7 +32,11 @@
 
 #define VRRP_LOGPFX "[ZEBRA] "
 
+#ifndef FUZZING
 static struct zclient *zclient;
+#else
+struct zclient *zclient;
+#endif
 
 static void vrrp_zebra_debug_if_state(struct interface *ifp, vrf_id_t vrf_id,
 				      const char *func)
