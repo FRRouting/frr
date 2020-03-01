@@ -21,6 +21,7 @@
 #ifndef _ZEBRA_ZCLIENT_H
 #define _ZEBRA_ZCLIENT_H
 
+#define FUZZING 1
 /* For struct zapi_route. */
 #include "prefix.h"
 #include "ipaddr.h"
@@ -1261,6 +1262,10 @@ struct zapi_client_close_info {
 	uint16_t instance;
 	uint32_t session_id;
 };
+
+#ifdef FUZZING
+int zclient_read_fuzz(struct zclient *zclient, const uint8_t *data, size_t len);
+#endif
 
 /* Decode incoming client close notify */
 extern int zapi_client_close_notify_decode(struct stream *s,
