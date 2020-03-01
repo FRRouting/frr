@@ -1763,6 +1763,13 @@ static int zclient_interface_add(struct zclient *zclient, vrf_id_t vrf_id)
 	STREAM_GET(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* Lookup/create interface by name. */
+	if (!vrf_get(vrf_id, NULL)) {
+		zlog_debug(
+			"Rx'd interface add from Zebra, but VRF %u does not exist",
+			vrf_id);
+		return -1;
+	}
+
 	ifp = if_get_by_name(ifname_tmp, vrf_id);
 
 	zebra_interface_if_set_value(s, ifp);
