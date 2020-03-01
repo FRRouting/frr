@@ -215,6 +215,7 @@ extern bool stream_getl2(struct stream *s, uint32_t *l);
 extern uint32_t stream_getl_from(struct stream *, size_t);
 extern uint64_t stream_getq(struct stream *);
 extern uint64_t stream_getq_from(struct stream *, size_t);
+bool stream_getq2(struct stream *s, uint64_t *q);
 extern uint32_t stream_get_ipv4(struct stream *);
 
 /* IEEE-754 floats */
@@ -398,6 +399,25 @@ static inline const uint8_t *ptr_get_be32(const uint8_t *ptr, uint32_t *out)
 	do {                                                                   \
 		uint32_t _pval;                                                \
 		if (!stream_getl2((S), &_pval))                                \
+			goto stream_failure;                                   \
+		(P) = _pval;                                                   \
+	} while (0)
+
+#define STREAM_GETF(S, P)                                                      \
+	do {                                                                   \
+		union {                                                        \
+			float r;                                               \
+			uint32_t d;                                            \
+		} _pval;                                                       \
+		if (stream_getl2((S), &_pval.d))                               \
+			goto stream_failure;                                   \
+		(P) = _pval.r;                                                 \
+	} while (0)
+
+#define STREAM_GETQ(S, P)                                                      \
+	do {                                                                   \
+		uint64_t _pval;                                                \
+		if (!stream_getq2((S), &_pval))                                \
 			goto stream_failure;                                   \
 		(P) = _pval;                                                   \
 	} while (0)
