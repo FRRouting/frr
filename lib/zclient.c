@@ -1756,7 +1756,7 @@ static void zclient_vrf_delete(struct zclient *zclient, vrf_id_t vrf_id)
 static int zclient_interface_add(struct zclient *zclient, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
-	char ifname_tmp[INTERFACE_NAMSIZ];
+	char ifname_tmp[INTERFACE_NAMSIZ + 1] = {};
 	struct stream *s = zclient->ibuf;
 
 	/* Read interface name. */
