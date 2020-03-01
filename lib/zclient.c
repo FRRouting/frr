@@ -49,8 +49,8 @@ enum event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };
 /* Prototype for event manager. */
 static void zclient_event(enum event, struct zclient *);
 
-static void zebra_interface_if_set_value(struct stream *s,
-					 struct interface *ifp);
+static int zebra_interface_if_set_value(struct stream *s,
+					struct interface *ifp);
 
 struct zclient_options zclient_options_default = {.receive_notify = false,
 						  .synchronous = false};
@@ -1635,33 +1635,34 @@ int zebra_redistribute_default_send(int command, struct zclient *zclient,
 }
 
 /* Get prefix in ZServ format; family should be filled in on prefix */
-static void zclient_stream_get_prefix(struct stream *s, struct prefix *p)
+static int zclient_stream_get_prefix(struct stream *s, struct prefix *p)
 {
 	size_t plen = prefix_blen(p);
 	uint8_t c;
 	p->prefixlen = 0;
 
 	if (plen == 0)
-		return;
+		return -1;
 
-	stream_get(&p->u.prefix, s, plen);
+	STREAM_GET(&p->u.prefix, s, plen);
 	STREAM_GETC(s, c);
 	p->prefixlen = MIN(plen * 8, c);
 
+	return 0;
 stream_failure:
-	return;
+	return -1;
 }
 
 /* Router-id update from zebra daemon. */
-void zebra_router_id_update_read(struct stream *s, struct prefix *rid)
+int zebra_router_id_update_read(struct stream *s, struct prefix *rid)
 {
 	/* Fetch interface address. */
 	STREAM_GETC(s, rid->family);
 
-	zclient_stream_get_prefix(s, rid);
+	return zclient_stream_get_prefix(s, rid);
 
 stream_failure:
-	return;
+	return -1;
 }
 
 /* Interface addition from zebra daemon. */
@@ -1710,15 +1711,15 @@ stream_failure:
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-static void zclient_vrf_add(struct zclient *zclient, vrf_id_t vrf_id)
+static int zclient_vrf_add(struct zclient *zclient, vrf_id_t vrf_id)
 {
 	struct vrf *vrf;
 	char vrfname_tmp[VRF_NAMSIZ];
 	struct vrf_data data;
 
-	stream_get(&data, zclient->ibuf, sizeof(struct vrf_data));
+	STREAM_GET(&data, zclient->ibuf, sizeof(struct vrf_data));
 	/* Read interface name. */
-	stream_get(vrfname_tmp, zclient->ibuf, VRF_NAMSIZ);
+	STREAM_GET(vrfname_tmp, zclient->ibuf, VRF_NAMSIZ);
 
 	/* Lookup/create vrf by vrf_id. */
 	vrf = vrf_get(vrf_id, vrfname_tmp);
@@ -1728,6 +1729,10 @@ static void zclient_vrf_add(struct zclient *zclient, vrf_id_t vrf_id)
 	if (vrf_id == VRF_DEFAULT)
 		vrf_set_default_name(vrfname_tmp, false);
 	vrf_enable(vrf);
+
+	return 0;
+stream_failure:
+	return -1;
 }
 
 static void zclient_vrf_delete(struct zclient *zclient, vrf_id_t vrf_id)
@@ -1748,14 +1753,14 @@ static void zclient_vrf_delete(struct zclient *zclient, vrf_id_t vrf_id)
 	vrf_delete(vrf);
 }
 
-static void zclient_interface_add(struct zclient *zclient, vrf_id_t vrf_id)
+static int zclient_interface_add(struct zclient *zclient, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 	char ifname_tmp[INTERFACE_NAMSIZ];
 	struct stream *s = zclient->ibuf;
 
 	/* Read interface name. */
-	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
+	STREAM_GET(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* Lookup/create interface by name. */
 	ifp = if_get_by_name(ifname_tmp, vrf_id);
@@ -1763,6 +1768,10 @@ static void zclient_interface_add(struct zclient *zclient, vrf_id_t vrf_id)
 	zebra_interface_if_set_value(s, ifp);
 
 	if_new_via_zapi(ifp);
+
+	return 0;
+stream_failure:
+	return -1;
 }
 
 /*
@@ -1777,7 +1786,7 @@ struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 	char ifname_tmp[INTERFACE_NAMSIZ];
 
 	/* Read interface name. */
-	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
+	STREAM_GET(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* Lookup this by interface index. */
 	ifp = if_lookup_by_name(ifname_tmp, vrf_id);
@@ -1791,6 +1800,8 @@ struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 	zebra_interface_if_set_value(s, ifp);
 
 	return ifp;
+stream_failure:
+	return NULL;
 }
 
 static void zclient_interface_delete(struct zclient *zclient, vrf_id_t vrf_id)
@@ -1844,21 +1855,23 @@ static void zclient_handle_error(ZAPI_CALLBACK_ARGS)
 		(*zclient->handle_error)(error);
 }
 
-static void link_params_set_value(struct stream *s, struct if_link_params *iflp)
+static int link_params_set_value(struct stream *s, struct if_link_params *iflp)
 {
 
 	if (iflp == NULL)
-		return;
+		return -1;
 
-	iflp->lp_status = stream_getl(s);
-	iflp->te_metric = stream_getl(s);
-	iflp->max_bw = stream_getf(s);
-	iflp->max_rsv_bw = stream_getf(s);
-	uint32_t bwclassnum = stream_getl(s);
+	uint32_t bwclassnum;
+
+	STREAM_GETL(s, iflp->lp_status);
+	STREAM_GETL(s, iflp->te_metric);
+	STREAM_GETF(s, iflp->max_bw);
+	STREAM_GETF(s, iflp->max_rsv_bw);
+	STREAM_GETL(s, bwclassnum);
 	{
 		unsigned int i;
 		for (i = 0; i < bwclassnum && i < MAX_CLASS_TYPE; i++)
-			iflp->unrsv_bw[i] = stream_getf(s);
+			STREAM_GETF(s, iflp->unrsv_bw[i]);
 		if (i < bwclassnum)
 			flog_err(
 				EC_LIB_ZAPI_MISSMATCH,
@@ -1866,19 +1879,23 @@ static void link_params_set_value(struct stream *s, struct if_link_params *iflp)
 				" - outdated library?",
 				__func__, bwclassnum, MAX_CLASS_TYPE);
 	}
-	iflp->admin_grp = stream_getl(s);
-	iflp->rmt_as = stream_getl(s);
+	STREAM_GETL(s, iflp->admin_grp);
+	STREAM_GETL(s, iflp->rmt_as);
 	iflp->rmt_ip.s_addr = stream_get_ipv4(s);
 
-	iflp->av_delay = stream_getl(s);
-	iflp->min_delay = stream_getl(s);
-	iflp->max_delay = stream_getl(s);
-	iflp->delay_var = stream_getl(s);
+	STREAM_GETL(s, iflp->av_delay);
+	STREAM_GETL(s, iflp->min_delay);
+	STREAM_GETL(s, iflp->max_delay);
+	STREAM_GETL(s, iflp->delay_var);
 
-	iflp->pkt_loss = stream_getf(s);
-	iflp->res_bw = stream_getf(s);
-	iflp->ava_bw = stream_getf(s);
-	iflp->use_bw = stream_getf(s);
+	STREAM_GETF(s, iflp->pkt_loss);
+	STREAM_GETF(s, iflp->res_bw);
+	STREAM_GETF(s, iflp->ava_bw);
+	STREAM_GETF(s, iflp->use_bw);
+
+	return 0;
+stream_failure:
+	return -1;
 }
 
 struct interface *zebra_interface_link_params_read(struct stream *s,
@@ -1887,9 +1904,7 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 	struct if_link_params *iflp;
 	ifindex_t ifindex;
 
-	assert(s);
-
-	ifindex = stream_getl(s);
+	STREAM_GETL(s, ifindex);
 
 	struct interface *ifp = if_lookup_by_index(ifindex, vrf_id);
 
@@ -1903,47 +1918,142 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 	if ((iflp = if_link_params_get(ifp)) == NULL)
 		return NULL;
 
-	link_params_set_value(s, iflp);
+	if (link_params_set_value(s, iflp) != 0)
+		goto stream_failure;
 
 	return ifp;
+
+stream_failure:
+	return NULL;
 }
 
-static void zebra_interface_if_set_value(struct stream *s,
-					 struct interface *ifp)
+static int zebra_interface_if_set_value(struct stream *s, struct interface *ifp)
 {
+	int rc;
 	uint8_t link_params_status = 0;
 	ifindex_t old_ifindex;
 
-	old_ifindex = ifp->ifindex;
+	/*
+	 * XXX:
+	 * Copy interface structure to temporary one. This way if stream
+	 * processing fails partway through, we can safely destroy the
+	 * temporary copy without ever affecting the actual interface, which
+	 * would leave us in a "torn write" situation. If everything succeeds,
+	 * we copy the temporary structure back to the real one and destroy the
+	 * temporary structure.
+	 *
+	 * Obviously all fields of the ifp that could be modified need to be
+	 * copied, so any heap blocks need to be deep copied. In both failure
+	 * and success cases, we need to properly free any allocations that
+	 * result from this deep copy. When modifying this code, take care.
+	 */
+	struct interface ifp_tmp = {};
+	memcpy(&ifp_tmp, ifp, sizeof(struct interface));
+
+	/* Not safe to use ifp_tmp in the context of an RB tree */
+	memset(&ifp_tmp.name_entry, 0x00, sizeof(ifp_tmp.name_entry));
+	memset(&ifp_tmp.index_entry, 0x00, sizeof(ifp_tmp.index_entry));
+
+	bool ifp_has_link_params = (bool)!!ifp->link_params;
+
+	if (ifp_has_link_params) {
+		if_link_params_get(&ifp_tmp);
+		memcpy(ifp_tmp.link_params, ifp->link_params,
+		       sizeof(struct if_link_params));
+	}
+
+	/* Read params message */
+
+	old_ifindex = ifp_tmp.ifindex;
+
 	/* Read interface's index. */
-	if_set_index(ifp, stream_getl(s));
-	ifp->status = stream_getc(s);
+	STREAM_GETL(s, ifp_tmp.ifindex);
+	STREAM_GETC(s, ifp_tmp.status);
 
 	/* Read interface's value. */
-	ifp->flags = stream_getq(s);
-	ifp->ptm_enable = stream_getc(s);
-	ifp->ptm_status = stream_getc(s);
-	ifp->metric = stream_getl(s);
-	ifp->speed = stream_getl(s);
-	ifp->mtu = stream_getl(s);
-	ifp->mtu6 = stream_getl(s);
-	ifp->bandwidth = stream_getl(s);
-	ifp->link_ifindex = stream_getl(s);
-	ifp->ll_type = stream_getl(s);
-	ifp->hw_addr_len = stream_getl(s);
-	if (ifp->hw_addr_len)
-		stream_get(ifp->hw_addr, s,
-			   MIN(ifp->hw_addr_len, INTERFACE_HWADDR_MAX));
+	STREAM_GETQ(s, ifp_tmp.flags);
+	STREAM_GETC(s, ifp_tmp.ptm_enable);
+	STREAM_GETC(s, ifp_tmp.ptm_status);
+	STREAM_GETL(s, ifp_tmp.metric);
+	STREAM_GETL(s, ifp_tmp.speed);
+	STREAM_GETL(s, ifp_tmp.mtu);
+	STREAM_GETL(s, ifp_tmp.mtu6);
+	STREAM_GETL(s, ifp_tmp.bandwidth);
+	STREAM_GETL(s, ifp_tmp.link_ifindex);
+	STREAM_GETL(s, ifp_tmp.ll_type);
+	STREAM_GETL(s, ifp_tmp.hw_addr_len);
+	if (ifp_tmp.hw_addr_len)
+		STREAM_GET(ifp_tmp.hw_addr, s,
+			   MIN(ifp_tmp.hw_addr_len, INTERFACE_HWADDR_MAX));
 
 	/* Read Traffic Engineering status */
-	link_params_status = stream_getc(s);
+	STREAM_GETC(s, link_params_status);
 	/* Then, Traffic Engineering parameters if any */
 	if (link_params_status) {
-		struct if_link_params *iflp = if_link_params_get(ifp);
-		link_params_set_value(s, iflp);
+		/* if_link_params_get can XCALLOC if they don't exist, beware */
+		struct if_link_params *iflp = if_link_params_get(&ifp_tmp);
+		if (link_params_set_value(s, iflp) != 0)
+			goto stream_failure;
+	}
+
+	/* Success - apply changes to ifp_tmp to ifp */
+
+	/*
+	 * Note: we cannot directly memcpy() because this will overwrite the
+	 * rb_entry, causing many hours of pain
+	 */
+	if (if_set_index(ifp, ifp_tmp.ifindex) < 0)
+		goto stream_failure;
+	ifp->status = ifp_tmp.status;
+	ifp->flags = ifp_tmp.flags;
+	ifp->ptm_enable = ifp_tmp.ptm_enable;
+	ifp->ptm_status = ifp_tmp.ptm_status;
+	ifp->metric = ifp_tmp.metric;
+	ifp->speed = ifp_tmp.speed;
+	ifp->mtu = ifp_tmp.mtu;
+	ifp->mtu6 = ifp_tmp.mtu6;
+	ifp->bandwidth = ifp_tmp.bandwidth;
+	ifp->link_ifindex = ifp_tmp.link_ifindex;
+	ifp->ll_type = ifp_tmp.ll_type;
+	ifp->hw_addr_len = ifp_tmp.hw_addr_len;
+	ifp->link_params = ifp_tmp.link_params;
+
+	/*
+	 * If ifp had no link params, and link_params_status was nonzero, then
+	 * if_link_params_get created them. We just copied the pointer to ifp,
+	 * so in this case, we use move semantics, and NULL ifp_tmp.link_params
+	 * after copying. This way we do not free ifp->link_params in our later
+	 * free call by virtue of freeing ifp_tmp.link_params, which would make
+	 * ifp->link_params a dangling pointer.
+	 *
+	 * If ifp had no link params, and link_params_status was zero, then the
+	 * pointer is still NULL, and we MUST NOT copy; memcpy(0, _, x != 0) is
+	 * undefined behavior. Nothing was created, so we do not have to free
+	 * either.
+	 *
+	 * If it did have link params, we duplicated them for modification
+	 * purposes, and need to copy if something was changed. This handles
+	 * all four cases.
+	 */
+	if (!ifp_has_link_params && ifp_tmp.link_params != NULL)
+		ifp_tmp.link_params = NULL;
+	if (ifp_has_link_params && link_params_status != 0) {
+		assert(ifp->link_params != NULL && ifp_tmp.link_params != NULL);
+		memcpy(ifp->link_params, ifp_tmp.link_params,
+		       sizeof(struct if_link_params));
 	}
 
 	nexthop_group_interface_state_change(ifp, old_ifindex);
+
+	rc = 0;
+	goto cleanup;
+stream_failure:
+	rc = -1;
+cleanup:
+	/* Free copied resources */
+	if_link_params_free(&ifp_tmp);
+
+	return rc;
 }
 
 size_t zebra_interface_link_params_write(struct stream *s,
@@ -2042,7 +2152,7 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 	memset(&d, 0, sizeof(d));
 
 	/* Get interface index. */
-	ifindex = stream_getl(s);
+	STREAM_GETL(s, ifindex);
 
 	/* Lookup index. */
 	ifp = if_lookup_by_index(ifindex, vrf_id);
@@ -2055,16 +2165,17 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 	}
 
 	/* Fetch flag. */
-	ifc_flags = stream_getc(s);
+	STREAM_GETC(s, ifc_flags);
 
 	/* Fetch interface address. */
-	d.family = p.family = stream_getc(s);
+	STREAM_GETC(s, d.family);
 	plen = prefix_blen(&d);
 
-	zclient_stream_get_prefix(s, &p);
+	if (zclient_stream_get_prefix(s, &p) != 0)
+		goto stream_failure;
 
 	/* Fetch destination address. */
-	stream_get(&d.u.prefix, s, plen);
+	STREAM_GET(&d.u.prefix, s, plen);
 
 	/* N.B. NULL destination pointers are encoded as all zeroes */
 	dp = memconstant(&d.u.prefix, 0, plen) ? NULL : &d;
@@ -2100,6 +2211,9 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 	}
 
 	return ifc;
+
+stream_failure:
+	return NULL;
 }
 
 /*
@@ -2135,7 +2249,7 @@ zebra_interface_nbr_address_read(int type, struct stream *s, vrf_id_t vrf_id)
 	struct nbr_connected *ifc;
 
 	/* Get interface index. */
-	ifindex = stream_getl(s);
+	STREAM_GETL(s, ifindex);
 
 	/* Lookup index. */
 	ifp = if_lookup_by_index(ifindex, vrf_id);
@@ -2148,9 +2262,9 @@ zebra_interface_nbr_address_read(int type, struct stream *s, vrf_id_t vrf_id)
 		return NULL;
 	}
 
-	p.family = stream_getc(s);
-	stream_get(&p.u.prefix, s, prefix_blen(&p));
-	p.prefixlen = stream_getc(s);
+	STREAM_GETC(s, p.family);
+	STREAM_GET(&p.u.prefix, s, prefix_blen(&p));
+	STREAM_GETC(s, p.prefixlen);
 
 	if (type == ZEBRA_INTERFACE_NBR_ADDRESS_ADD) {
 		/* Currently only supporting P2P links, so any new RA source
@@ -2174,6 +2288,9 @@ zebra_interface_nbr_address_read(int type, struct stream *s, vrf_id_t vrf_id)
 	}
 
 	return ifc;
+
+stream_failure:
+	return NULL;
 }
 
 struct interface *zebra_interface_vrf_update_read(struct stream *s,
@@ -2185,7 +2302,7 @@ struct interface *zebra_interface_vrf_update_read(struct stream *s,
 	vrf_id_t new_id;
 
 	/* Read interface name. */
-	stream_get(ifname, s, INTERFACE_NAMSIZ);
+	STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
 
 	/* Lookup interface. */
 	ifp = if_lookup_by_name(ifname, vrf_id);
@@ -2197,10 +2314,13 @@ struct interface *zebra_interface_vrf_update_read(struct stream *s,
 	}
 
 	/* Fetch new VRF Id. */
-	new_id = stream_getl(s);
+	STREAM_GETL(s, new_id);
 
 	*new_vrf_id = new_id;
 	return ifp;
+
+stream_failure:
+	return NULL;
 }
 
 /* filter unwanted messages until the expected one arrives */
@@ -2309,8 +2429,11 @@ int lm_label_manager_connect(struct zclient *zclient, int async)
 	s = zclient->ibuf;
 
 	/* read instance and proto */
-	uint8_t proto = stream_getc(s);
-	uint16_t instance = stream_getw(s);
+	uint8_t proto;
+	uint16_t instance;
+
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
 
 	/* sanity */
 	if (proto != zclient->redist_default)
@@ -2325,11 +2448,14 @@ int lm_label_manager_connect(struct zclient *zclient, int async)
 			instance, zclient->instance);
 
 	/* result code */
-	result = stream_getc(s);
+	STREAM_GETC(s, result);
 	if (zclient_debug)
 		zlog_debug("LM connect-response received, result %u", result);
 
 	return (int)result;
+
+stream_failure:
+	return -1;
 }
 
 /*
@@ -2437,8 +2563,11 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 	s = zclient->ibuf;
 
 	/* read proto and instance */
-	uint8_t proto = stream_getc(s);
-	uint16_t instance = stream_getw(s);
+	uint8_t proto;
+	uint8_t instance;
+
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
 
 	/* sanities */
 	if (proto != zclient->redist_default)
@@ -2460,10 +2589,10 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 	}
 
 	/* keep */
-	response_keep = stream_getc(s);
+	STREAM_GETC(s, response_keep);
 	/* start and end labels */
-	*start = stream_getl(s);
-	*end = stream_getl(s);
+	STREAM_GETL(s, *start);
+	STREAM_GETL(s, *end);
 
 	/* not owning this response */
 	if (keep != response_keep) {
@@ -2485,6 +2614,9 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 			   response_keep);
 
 	return 0;
+
+stream_failure:
+	return -1;
 }
 
 /**
@@ -2874,7 +3006,7 @@ int zebra_send_pw(struct zclient *zclient, int command, struct zapi_pw *pw)
 /*
  * Receive PW status update from Zebra and send it to LDE process.
  */
-void zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
+int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
 {
 	struct stream *s;
 
@@ -2883,8 +3015,12 @@ void zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
 
 	/* Get data. */
 	stream_get(pw->ifname, s, IF_NAMESIZE);
-	pw->ifindex = stream_getl(s);
-	pw->status = stream_getl(s);
+	STREAM_GETL(s, pw->ifindex);
+	STREAM_GETL(s, pw->status);
+
+	return 0;
+stream_failure:
+	return -1;
 }
 
 static void zclient_capability_decode(ZAPI_CALLBACK_ARGS)
