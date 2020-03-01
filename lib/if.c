@@ -1249,8 +1249,6 @@ struct if_link_params *if_link_params_get(struct interface *ifp)
 
 	struct if_link_params *iflp =
 		XCALLOC(MTYPE_IF_LINK_PARAMS, sizeof(struct if_link_params));
-	if (iflp == NULL)
-		return NULL;
 
 	/* Set TE metric equal to standard metric */
 	iflp->te_metric = ifp->metric;
@@ -1278,8 +1276,6 @@ struct if_link_params *if_link_params_get(struct interface *ifp)
 
 void if_link_params_free(struct interface *ifp)
 {
-	if (ifp->link_params == NULL)
-		return;
 	XFREE(MTYPE_IF_LINK_PARAMS, ifp->link_params);
 }
 
