@@ -3433,6 +3433,290 @@ stream_failure:
 	return -1;
 }
 
+#ifdef FUZZING
+int zclient_read_fuzz(struct zclient *zclient, const uint8_t *data, size_t len)
+{
+	uint16_t length, command;
+	uint8_t marker, version;
+	vrf_id_t vrf_id;
+
+	/* Length check. */
+	if (len > STREAM_SIZE(zclient->ibuf)) {
+		struct stream *ns;
+		flog_err(
+			EC_LIB_ZAPI_ENCODE,
+			"%s: message size %zu exceeds buffer size %lu, expanding...",
+			__func__, len,
+			(unsigned long)STREAM_SIZE(zclient->ibuf));
+		ns = stream_new(len);
+		stream_free(zclient->ibuf);
+		zclient->ibuf = ns;
+	}
+
+	if (len < ZEBRA_HEADER_SIZE) {
+		flog_err(EC_LIB_ZAPI_MISSMATCH,
+			 "%s: socket %d message length %zu is less than %d ",
+			 __func__, zclient->sock, len, ZEBRA_HEADER_SIZE);
+		return -1;
+	}
+
+	stream_reset(zclient->ibuf);
+	stream_put(zclient->ibuf, data, len);
+
+	length = stream_getw(zclient->ibuf);
+	marker = stream_getc(zclient->ibuf);
+	version = stream_getc(zclient->ibuf);
+	vrf_id = stream_getl(zclient->ibuf);
+	command = stream_getw(zclient->ibuf);
+
+	if (marker != ZEBRA_HEADER_MARKER || version != ZSERV_VERSION) {
+		flog_err(
+			EC_LIB_ZAPI_MISSMATCH,
+			"%s: socket %d version mismatch, marker %d, version %d",
+			__func__, zclient->sock, marker, version);
+		return -1;
+	}
+
+	length -= ZEBRA_HEADER_SIZE;
+
+	zlog_debug("zclient 0x%p command %s VRF %u", (void *)zclient,
+		   zserv_command_string(command), vrf_id);
+
+	switch (command) {
+	case ZEBRA_CAPABILITIES:
+		zclient_capability_decode(command, zclient, length, vrf_id);
+		break;
+	case ZEBRA_ROUTER_ID_UPDATE:
+		if (zclient->router_id_update)
+			(*zclient->router_id_update)(command, zclient, length,
+						     vrf_id);
+		break;
+	case ZEBRA_VRF_ADD:
+		zclient_vrf_add(zclient, vrf_id);
+		break;
+	case ZEBRA_VRF_DELETE:
+		zclient_vrf_delete(zclient, vrf_id);
+		break;
+	case ZEBRA_INTERFACE_ADD:
+		zclient_interface_add(zclient, vrf_id);
+		break;
+	case ZEBRA_INTERFACE_DELETE:
+		zclient_interface_delete(zclient, vrf_id);
+		break;
+	case ZEBRA_INTERFACE_ADDRESS_ADD:
+		if (zclient->interface_address_add)
+			(*zclient->interface_address_add)(command, zclient,
+							  length, vrf_id);
+		break;
+	case ZEBRA_INTERFACE_ADDRESS_DELETE:
+		if (zclient->interface_address_delete)
+			(*zclient->interface_address_delete)(command, zclient,
+							     length, vrf_id);
+		break;
+	case ZEBRA_INTERFACE_BFD_DEST_UPDATE:
+		if (zclient->interface_bfd_dest_update)
+			(*zclient->interface_bfd_dest_update)(command, zclient,
+							      length, vrf_id);
+		break;
+	case ZEBRA_INTERFACE_NBR_ADDRESS_ADD:
+		if (zclient->interface_nbr_address_add)
+			(*zclient->interface_nbr_address_add)(command, zclient,
+							      length, vrf_id);
+		break;
+	case ZEBRA_INTERFACE_NBR_ADDRESS_DELETE:
+		if (zclient->interface_nbr_address_delete)
+			(*zclient->interface_nbr_address_delete)(
+				command, zclient, length, vrf_id);
+		break;
+	case ZEBRA_INTERFACE_UP:
+		zclient_interface_up(zclient, vrf_id);
+		break;
+	case ZEBRA_INTERFACE_DOWN:
+		zclient_interface_down(zclient, vrf_id);
+		break;
+	case ZEBRA_INTERFACE_VRF_UPDATE:
+		if (zclient->interface_vrf_update)
+			(*zclient->interface_vrf_update)(command, zclient,
+							 length, vrf_id);
+		break;
+	case ZEBRA_NEXTHOP_UPDATE:
+		if (zclient_debug)
+			zlog_debug("zclient rcvd nexthop update");
+		if (zclient->nexthop_update)
+			(*zclient->nexthop_update)(command, zclient, length,
+						   vrf_id);
+		break;
+	case ZEBRA_IMPORT_CHECK_UPDATE:
+		if (zclient_debug)
+			zlog_debug("zclient rcvd import check update");
+		if (zclient->import_check_update)
+			(*zclient->import_check_update)(command, zclient,
+							length, vrf_id);
+		break;
+	case ZEBRA_BFD_DEST_REPLAY:
+		if (zclient->bfd_dest_replay)
+			(*zclient->bfd_dest_replay)(command, zclient, length,
+						    vrf_id);
+		break;
+	case ZEBRA_REDISTRIBUTE_ROUTE_ADD:
+		if (zclient->redistribute_route_add)
+			(*zclient->redistribute_route_add)(command, zclient,
+							   length, vrf_id);
+		break;
+	case ZEBRA_REDISTRIBUTE_ROUTE_DEL:
+		if (zclient->redistribute_route_del)
+			(*zclient->redistribute_route_del)(command, zclient,
+							   length, vrf_id);
+		break;
+	case ZEBRA_INTERFACE_LINK_PARAMS:
+		if (zclient->interface_link_params)
+			(*zclient->interface_link_params)(command, zclient,
+							  length, vrf_id);
+		break;
+	case ZEBRA_FEC_UPDATE:
+		if (zclient_debug)
+			zlog_debug("zclient rcvd fec update");
+		if (zclient->fec_update)
+			(*zclient->fec_update)(command, zclient, length);
+		break;
+	case ZEBRA_LOCAL_ES_ADD:
+		if (zclient->local_es_add)
+			(*zclient->local_es_add)(command, zclient, length,
+						 vrf_id);
+		break;
+	case ZEBRA_LOCAL_ES_DEL:
+		if (zclient->local_es_del)
+			(*zclient->local_es_del)(command, zclient, length,
+						 vrf_id);
+		break;
+	case ZEBRA_VNI_ADD:
+		if (zclient->local_vni_add)
+			(*zclient->local_vni_add)(command, zclient, length,
+						  vrf_id);
+		break;
+	case ZEBRA_VNI_DEL:
+		if (zclient->local_vni_del)
+			(*zclient->local_vni_del)(command, zclient, length,
+						  vrf_id);
+		break;
+	case ZEBRA_L3VNI_ADD:
+		if (zclient->local_l3vni_add)
+			(*zclient->local_l3vni_add)(command, zclient, length,
+						    vrf_id);
+		break;
+	case ZEBRA_L3VNI_DEL:
+		if (zclient->local_l3vni_del)
+			(*zclient->local_l3vni_del)(command, zclient, length,
+						    vrf_id);
+		break;
+	case ZEBRA_MACIP_ADD:
+		if (zclient->local_macip_add)
+			(*zclient->local_macip_add)(command, zclient, length,
+						    vrf_id);
+		break;
+	case ZEBRA_MACIP_DEL:
+		if (zclient->local_macip_del)
+			(*zclient->local_macip_del)(command, zclient, length,
+						    vrf_id);
+		break;
+	case ZEBRA_IP_PREFIX_ROUTE_ADD:
+		if (zclient->local_ip_prefix_add)
+			(*zclient->local_ip_prefix_add)(command, zclient,
+							length, vrf_id);
+		break;
+	case ZEBRA_IP_PREFIX_ROUTE_DEL:
+		if (zclient->local_ip_prefix_del)
+			(*zclient->local_ip_prefix_del)(command, zclient,
+							length, vrf_id);
+		break;
+	case ZEBRA_PW_STATUS_UPDATE:
+		if (zclient->pw_status_update)
+			(*zclient->pw_status_update)(command, zclient, length,
+						     vrf_id);
+		break;
+	case ZEBRA_ROUTE_NOTIFY_OWNER:
+		if (zclient->route_notify_owner)
+			(*zclient->route_notify_owner)(command, zclient, length,
+						       vrf_id);
+		break;
+	case ZEBRA_RULE_NOTIFY_OWNER:
+		if (zclient->rule_notify_owner)
+			(*zclient->rule_notify_owner)(command, zclient, length,
+						      vrf_id);
+		break;
+	case ZEBRA_GET_LABEL_CHUNK:
+		if (zclient->label_chunk)
+			(*zclient->label_chunk)(command, zclient, length,
+						vrf_id);
+		break;
+	case ZEBRA_IPSET_NOTIFY_OWNER:
+		if (zclient->ipset_notify_owner)
+			(*zclient->ipset_notify_owner)(command, zclient, length,
+						      vrf_id);
+		break;
+	case ZEBRA_IPSET_ENTRY_NOTIFY_OWNER:
+		if (zclient->ipset_entry_notify_owner)
+			(*zclient->ipset_entry_notify_owner)(command,
+						     zclient, length,
+						     vrf_id);
+		break;
+	case ZEBRA_IPTABLE_NOTIFY_OWNER:
+		if (zclient->iptable_notify_owner)
+			(*zclient->iptable_notify_owner)(command,
+						 zclient, length,
+						 vrf_id);
+		break;
+	case ZEBRA_VXLAN_SG_ADD:
+		if (zclient->vxlan_sg_add)
+			(*zclient->vxlan_sg_add)(command, zclient, length,
+						    vrf_id);
+		break;
+	case ZEBRA_VXLAN_SG_DEL:
+		if (zclient->vxlan_sg_del)
+			(*zclient->vxlan_sg_del)(command, zclient, length,
+						    vrf_id);
+		break;
+	case ZEBRA_MLAG_PROCESS_UP:
+		zclient_mlag_process_up(command, zclient, length, vrf_id);
+		break;
+	case ZEBRA_MLAG_PROCESS_DOWN:
+		zclient_mlag_process_down(command, zclient, length, vrf_id);
+		break;
+	case ZEBRA_MLAG_FORWARD_MSG:
+		zclient_mlag_handle_msg(command, zclient, length, vrf_id);
+		break;
+	case ZEBRA_ERROR:
+		zclient_handle_error(command, zclient, length, vrf_id);
+		break;
+	case ZEBRA_OPAQUE_MESSAGE:
+		if (zclient->opaque_msg_handler)
+			(*zclient->opaque_msg_handler)(command, zclient, length,
+						       vrf_id);
+		break;
+	case ZEBRA_OPAQUE_REGISTER:
+		if (zclient->opaque_register_handler)
+			(*zclient->opaque_register_handler)(command, zclient,
+							    length, vrf_id);
+		break;
+	case ZEBRA_OPAQUE_UNREGISTER:
+		if (zclient->opaque_unregister_handler)
+			(*zclient->opaque_unregister_handler)(command, zclient,
+							    length, vrf_id);
+		break;
+	default:
+		break;
+	}
+
+	if (zclient->sock < 0)
+		/* Connection was closed during packet processing. */
+		return -1;
+
+	stream_reset(zclient->ibuf);
+
+	return 0;
+}
+#endif
+
 /* Zebra client message read function. */
 static int zclient_read(struct thread *thread)
 {

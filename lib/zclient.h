@@ -21,6 +21,7 @@
 #ifndef _ZEBRA_ZCLIENT_H
 #define _ZEBRA_ZCLIENT_H
 
+#define FUZZING 1
 /* For struct zapi_route. */
 #include "prefix.h"
 
@@ -956,6 +957,9 @@ enum zapi_opaque_registry {
  * Returns 0 for success or -1 on an I/O error.
  */
 extern int zclient_send_hello(struct zclient *client);
+#ifdef FUZZING
+int zclient_read_fuzz(struct zclient *zclient, const uint8_t *data, size_t len);
+#endif
 
 extern int zclient_send_neigh_discovery_req(struct zclient *zclient,
 					    const struct interface *ifp,
