@@ -101,9 +101,12 @@ RB_PROTOTYPE(vrf_name_head, vrf, name_entry, vrf_name_compare)
 DECLARE_QOBJ_TYPE(vrf)
 
 /* Allow VRF with netns as backend */
-#define VRF_BACKEND_VRF_LITE   0
-#define VRF_BACKEND_NETNS      1
-#define VRF_BACKEND_UNKNOWN    2
+enum vrf_backend_type {
+	VRF_BACKEND_VRF_LITE,
+	VRF_BACKEND_NETNS,
+	VRF_BACKEND_UNKNOWN,
+	VRF_BACKEND_MAX,
+};
 
 extern struct vrf_id_head vrfs_by_id;
 extern struct vrf_name_head vrfs_by_name;
@@ -292,10 +295,10 @@ extern void vrf_install_commands(void);
  * VRF utilities
  */
 
-/* API for configuring VRF backend
- * should be called from zebra only
+/*
+ * API for configuring VRF backend
  */
-extern void vrf_configure_backend(int vrf_backend_netns);
+extern int vrf_configure_backend(enum vrf_backend_type backend);
 extern int vrf_get_backend(void);
 extern int vrf_is_backend_netns(void);
 
