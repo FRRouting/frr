@@ -23,6 +23,8 @@
 #include <pcep_pcc_api.h>
 #include <pcep-objects.h>
 #include "pathd/path_pcep.h"
+#include "pathd/path_pcep_controller.h"
+#include "pathd/path_pcep_pcc.h"
 #include "pathd/path_pcep_lib.h"
 
 const char *pcc_status_name(enum pcc_status status);

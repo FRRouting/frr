@@ -24,6 +24,13 @@
 #include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_debug.h"
 
+#define CLASS_TYPE(CLASS, TYPE) (((CLASS) << 16) | (TYPE))
+
+/* pceplib logging callback */
+static int pceplib_logging_cb(int level, const char *fmt, va_list args);
+
+/* Internal functions */
+static double_linked_list *pcep_lib_format_path(struct path *path);
 static void pcep_lib_parse_open(struct pcep_caps *caps,
 				struct pcep_object_open *open);
 static void pcep_lib_parse_rp(struct path *path, struct pcep_object_rp *rp);
@@ -33,24 +40,45 @@ static void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero);
 static struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 					      struct pcep_ro_subobj_sr *sr);
 
-int pcep_lib_connect(struct pcc_state *pcc_state)
+/* ------------ API Functions ------------ */
+
+int pcep_lib_initialize(void)
 {
-	assert(NULL != pcc_state);
-	assert(NULL != pcc_state->pcc_opts);
-	assert(NULL != pcc_state->pce_opts);
-	assert(NULL == pcc_state->config);
-	assert(NULL == pcc_state->sess);
+	PCEP_DEBUG("Initializing pceplib");
+	if (!initialize_pcc()) {
+		flog_err(EC_PATH_PCEP_PCC_INIT, "failed to initialize pceplib");
+		return 1;
+	}
+
+	/* Register pceplib logging callback */
+	register_logger(pceplib_logging_cb);
+	return 0;
+}
+
+void pcep_lib_finalize(void)
+{
+	PCEP_DEBUG("Finalizing pceplib");
+	if (!destroy_pcc()) {
+		flog_err(EC_PATH_PCEP_PCC_FINI, "failed to finalize pceplib");
+	}
+}
+
+
+pcep_session *pcep_lib_connect(struct pcc_opts *pcc_opts,
+			       struct pce_opts *pce_opts)
+{
+	assert(NULL != pcc_opts);
+	assert(NULL != pce_opts);
 
 	pcep_configuration *config;
 	pcep_session *sess;
 
 	config = create_default_pcep_configuration();
-	config->dst_pcep_port = pcc_state->pce_opts->port;
-	config->src_pcep_port = pcc_state->pcc_opts->port;
-	config->src_ip = pcc_state->pcc_opts->addr;
+	config->dst_pcep_port = pce_opts->port;
+	config->src_pcep_port = pcc_opts->port;
+	config->src_ip = pcc_opts->addr;
 
-	config->support_stateful_pce_lsp_update =
-		!pcc_state->pcc_opts->force_stateless;
+	config->support_stateful_pce_lsp_update = !pcc_opts->force_stateless;
 	config->support_pce_lsp_instantiation = false;
 	config->support_include_db_version = false;
 	config->support_lsp_triggered_resync = false;
@@ -59,29 +87,142 @@ int pcep_lib_connect(struct pcc_state *pcc_state)
 	config->support_sr_te_pst = true;
 	config->pcc_can_resolve_nai_to_sid = false;
 
-	sess = connect_pce(config, &pcc_state->pce_opts->addr);
+	sess = connect_pce(config, &pce_opts->addr);
+	destroy_pcep_configuration(config);
+	return sess;
+}
 
-	if (NULL == sess)
-		return 1;
+void pcep_lib_disconnect(pcep_session *sess)
+{
+	assert(NULL != sess);
+	disconnect_pce(sess);
+}
 
-	pcc_state->config = config;
-	pcc_state->sess = sess;
+struct pcep_message *pcep_lib_format_report(struct path *path)
+{
+	double_linked_list *objs = pcep_lib_format_path(path);
+	return pcep_msg_create_report(objs);
+}
 
+struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,
+					     struct ipaddr *dst)
+{
+	/* TODO: Add support for IPv6 */
+	assert(IS_IPADDR_V4(src));
+	assert(IS_IPADDR_V4(dst));
+
+	double_linked_list *rp_tlvs;
+	struct pcep_object_tlv_path_setup_type *setup_type_tlv;
+	struct pcep_object_rp *rp;
+	struct pcep_object_endpoints_ipv4 *endpoints;
+
+	rp_tlvs = dll_initialize();
+	setup_type_tlv = pcep_tlv_create_path_setup_type(SR_TE_PST);
+	dll_append(rp_tlvs, setup_type_tlv);
+
+	rp = pcep_obj_create_rp(0, false, false, false, reqid, rp_tlvs);
+	endpoints =
+		pcep_obj_create_endpoint_ipv4(&src->ipaddr_v4, &dst->ipaddr_v4);
+	return pcep_msg_create_request(rp, endpoints, NULL);
+}
+
+struct path *pcep_lib_parse_path(struct pcep_message *msg)
+{
+	struct path *path;
+	double_linked_list *objs = msg->obj_list;
+	double_linked_list_node *node;
+
+	struct pcep_object_header *obj;
+	struct pcep_object_rp *rp = NULL;
+	struct pcep_object_srp *srp = NULL;
+	struct pcep_object_lsp *lsp = NULL;
+	struct pcep_object_ro *ero = NULL;
+
+	path = pcep_new_path();
+
+	for (node = objs->head; node != NULL; node = node->next_node) {
+		obj = (struct pcep_object_header *)node->data;
+		switch (CLASS_TYPE(obj->object_class, obj->object_type)) {
+		case CLASS_TYPE(PCEP_OBJ_CLASS_RP, PCEP_OBJ_TYPE_RP):
+			assert(NULL == rp);
+			rp = (struct pcep_object_rp *)obj;
+			pcep_lib_parse_rp(path, rp);
+			break;
+		case CLASS_TYPE(PCEP_OBJ_CLASS_SRP, PCEP_OBJ_TYPE_SRP):
+			assert(NULL == srp);
+			srp = (struct pcep_object_srp *)obj;
+			pcep_lib_parse_srp(path, srp);
+			break;
+		case CLASS_TYPE(PCEP_OBJ_CLASS_LSP, PCEP_OBJ_TYPE_LSP):
+			/* Only support single LSP per message */
+			assert(NULL == lsp);
+			lsp = (struct pcep_object_lsp *)obj;
+			pcep_lib_parse_lsp(path, lsp);
+			break;
+		case CLASS_TYPE(PCEP_OBJ_CLASS_ERO, PCEP_OBJ_TYPE_ERO):
+			/* Only support single ERO per message */
+			assert(NULL == ero);
+			ero = (struct pcep_object_ro *)obj;
+			pcep_lib_parse_ero(path, ero);
+			break;
+		default:
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_OBJECT,
+				  "Unexpected PCEP object %s (%u) / %s (%u)",
+				  pcep_object_class_name(obj->object_class),
+				  obj->object_class,
+				  pcep_object_type_name(obj->object_class,
+							obj->object_type),
+				  obj->object_type);
+			break;
+		}
+	}
+
+	return path;
+}
+
+void pcep_lib_parse_capabilities(struct pcep_message *msg,
+				 struct pcep_caps *caps)
+{
+	double_linked_list *objs = msg->obj_list;
+	double_linked_list_node *node;
+
+	struct pcep_object_header *obj;
+	struct pcep_object_open *open = NULL;
+
+	for (node = objs->head; node != NULL; node = node->next_node) {
+		obj = (struct pcep_object_header *)node->data;
+		switch (CLASS_TYPE(obj->object_class, obj->object_type)) {
+		case CLASS_TYPE(PCEP_OBJ_CLASS_OPEN, PCEP_OBJ_TYPE_OPEN):
+			assert(NULL == open);
+			open = (struct pcep_object_open *)obj;
+			pcep_lib_parse_open(caps, open);
+			break;
+		default:
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_OBJECT,
+				  "Unexpected PCEP object %s (%u) / %s (%u)",
+				  pcep_object_class_name(obj->object_class),
+				  obj->object_class,
+				  pcep_object_type_name(obj->object_class,
+							obj->object_type),
+				  obj->object_type);
+			break;
+		}
+	}
+}
+
+
+/* ------------ pceplib logging callback ------------ */
+
+int pceplib_logging_cb(int priority, const char *fmt, va_list args)
+{
+	char buffer[1024];
+	snprintf(buffer, sizeof(buffer), fmt, args);
+	PCEP_DEBUG_PCEPLIB(priority, "pceplib: %s", buffer);
 	return 0;
 }
 
-void pcep_lib_disconnect(struct pcc_state *pcc_state)
-{
-	assert(NULL != pcc_state);
-	assert(NULL != pcc_state->config);
-	assert(NULL != pcc_state->sess);
 
-	disconnect_pce(pcc_state->sess);
-	destroy_pcep_configuration(pcc_state->config);
-
-	pcc_state->config = NULL;
-	pcc_state->sess = NULL;
-}
+/* ------------ Internal Functions ------------ */
 
 double_linked_list *pcep_lib_format_path(struct path *path)
 {
@@ -170,35 +311,6 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	return objs;
 }
 
-void pcep_lib_parse_capabilities(struct pcep_caps *caps,
-				 double_linked_list *objs)
-{
-	double_linked_list_node *node;
-
-	struct pcep_object_header *obj;
-	struct pcep_object_open *open = NULL;
-
-	for (node = objs->head; node != NULL; node = node->next_node) {
-		obj = (struct pcep_object_header *)node->data;
-		switch (CLASS_TYPE(obj->object_class, obj->object_type)) {
-		case CLASS_TYPE(PCEP_OBJ_CLASS_OPEN, PCEP_OBJ_TYPE_OPEN):
-			assert(NULL == open);
-			open = (struct pcep_object_open *)obj;
-			pcep_lib_parse_open(caps, open);
-			break;
-		default:
-			flog_warn(EC_PATH_PCEP_UNEXPECTED_OBJECT,
-				  "Unexpected PCEP object %s (%u) / %s (%u)",
-				  pcep_object_class_name(obj->object_class),
-				  obj->object_class,
-				  pcep_object_type_name(obj->object_class,
-							obj->object_type),
-				  obj->object_type);
-			break;
-		}
-	}
-}
-
 void pcep_lib_parse_open(struct pcep_caps *caps, struct pcep_object_open *open)
 {
 	double_linked_list *tlvs = open->header.tlv_list;
@@ -217,66 +329,13 @@ void pcep_lib_parse_open(struct pcep_caps *caps, struct pcep_object_open *open)
 		case PCEP_OBJ_TLV_TYPE_SR_PCE_CAPABILITY:
 			break;
 		default:
-			flog_warn(EC_PATH_PCEP_UNEXPECTED_TLV,
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
 				  "Unexpected OPEN's TLV %s (%u)",
 				  pcep_tlv_type_name(tlv_header->type),
 				  tlv_header->type);
 			break;
 		}
 	}
-}
-
-struct path *pcep_lib_parse_path(double_linked_list *objs)
-{
-	struct path *path;
-	double_linked_list_node *node;
-
-	struct pcep_object_header *obj;
-	struct pcep_object_rp *rp = NULL;
-	struct pcep_object_srp *srp = NULL;
-	struct pcep_object_lsp *lsp = NULL;
-	struct pcep_object_ro *ero = NULL;
-
-	path = pcep_lib_new_path();
-
-	for (node = objs->head; node != NULL; node = node->next_node) {
-		obj = (struct pcep_object_header *)node->data;
-		switch (CLASS_TYPE(obj->object_class, obj->object_type)) {
-		case CLASS_TYPE(PCEP_OBJ_CLASS_RP, PCEP_OBJ_TYPE_RP):
-			assert(NULL == rp);
-			rp = (struct pcep_object_rp *)obj;
-			pcep_lib_parse_rp(path, rp);
-			break;
-		case CLASS_TYPE(PCEP_OBJ_CLASS_SRP, PCEP_OBJ_TYPE_SRP):
-			assert(NULL == srp);
-			srp = (struct pcep_object_srp *)obj;
-			pcep_lib_parse_srp(path, srp);
-			break;
-		case CLASS_TYPE(PCEP_OBJ_CLASS_LSP, PCEP_OBJ_TYPE_LSP):
-			/* Only support single LSP per message */
-			assert(NULL == lsp);
-			lsp = (struct pcep_object_lsp *)obj;
-			pcep_lib_parse_lsp(path, lsp);
-			break;
-		case CLASS_TYPE(PCEP_OBJ_CLASS_ERO, PCEP_OBJ_TYPE_ERO):
-			/* Only support single ERO per message */
-			assert(NULL == ero);
-			ero = (struct pcep_object_ro *)obj;
-			pcep_lib_parse_ero(path, ero);
-			break;
-		default:
-			flog_warn(EC_PATH_PCEP_UNEXPECTED_OBJECT,
-				  "Unexpected PCEP object %s (%u) / %s (%u)",
-				  pcep_object_class_name(obj->object_class),
-				  obj->object_class,
-				  pcep_object_type_name(obj->object_class,
-							obj->object_type),
-				  obj->object_type);
-			break;
-		}
-	}
-
-	return path;
 }
 
 void pcep_lib_parse_rp(struct path *path, struct pcep_object_rp *rp)
@@ -295,7 +354,7 @@ void pcep_lib_parse_rp(struct path *path, struct pcep_object_rp *rp)
 			// TODO: enforce the path setup type is SR_TE_PST
 			break;
 		default:
-			flog_warn(EC_PATH_PCEP_UNEXPECTED_TLV,
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
 				  "Unexpected RP's TLV %s (%u)",
 				  pcep_tlv_type_name(tlv->type), tlv->type);
 			break;
@@ -319,7 +378,7 @@ void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp *srp)
 			// TODO: enforce the path setup type is SR_TE_PST
 			break;
 		default:
-			flog_warn(EC_PATH_PCEP_UNEXPECTED_TLV,
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
 				  "Unexpected SRP's TLV %s (%u)",
 				  pcep_tlv_type_name(tlv->type), tlv->type);
 			break;
@@ -348,7 +407,7 @@ void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp)
 		tlv = (struct pcep_object_tlv_header *)node->data;
 		switch (tlv->type) {
 		default:
-			flog_warn(EC_PATH_PCEP_UNEXPECTED_TLV,
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
 				  "Unexpected LSP TLV %s (%u)",
 				  pcep_tlv_type_name(tlv->type), tlv->type);
 			break;
@@ -372,7 +431,7 @@ void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero)
 				hop, (struct pcep_ro_subobj_sr *)obj);
 			break;
 		default:
-			flog_warn(EC_PATH_PCEP_UNEXPECTED_ERO_SUBOBJ,
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_ERO_SUBOBJ,
 				  "Unexpected ERO sub-object %s (%u)",
 				  pcep_ro_type_name(obj->ro_subobj_type),
 				  obj->ro_subobj_type);
@@ -391,7 +450,7 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 	/* Only support IPv4 node with SID */
 	assert(!sr->flag_s);
 
-	hop = pcep_lib_new_hop();
+	hop = pcep_new_hop();
 	*hop = (struct path_hop){
 		.next = next,
 		.is_loose = sr->ro_subobj.flag_subobj_loose_hop,
@@ -418,36 +477,4 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 	}
 
 	return hop;
-}
-
-struct path *pcep_lib_new_path(void)
-{
-	struct path *path;
-	path = XCALLOC(MTYPE_PCEP, sizeof(*path));
-	memset(path, 0, sizeof(*path));
-	return path;
-}
-
-struct path_hop *pcep_lib_new_hop(void)
-{
-	struct path_hop *hop;
-	hop = XCALLOC(MTYPE_PCEP, sizeof(*hop));
-	memset(hop, 0, sizeof(*hop));
-	return hop;
-}
-
-void pcep_lib_free_path(struct path *path)
-{
-	struct path_hop *hop;
-
-	hop = path->first;
-	while (NULL != hop) {
-		struct path_hop *next = hop->next;
-		XFREE(MTYPE_PCEP, hop);
-		hop = next;
-	}
-	if (NULL != path->name) {
-		XFREE(MTYPE_PCEP, path->name);
-	}
-	XFREE(MTYPE_PCEP, path);
 }

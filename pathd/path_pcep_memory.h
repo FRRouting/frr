@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2018  NetDEF, Inc.
- *                     Sebastien Merle
+ * Copyright (C) 2019  NetDEF, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -17,26 +16,11 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef __PATH_ERRORS_H__
-#define __PATH_ERRORS_H__
+#ifndef _FRR_PATH_PCEP_MEMORY_H_
+#define _FRR_PATH_PCEP_MEMORY_H_
 
-#include "lib/ferr.h"
+#include "pathd/path_memory.h"
 
-enum path_log_refs {
-	EC_PATH_PCEP_INIT = PATH_FERR_START,
-	EC_PATH_SYSTEM_CALL,
-	EC_PATH_PCEP_PCC_INIT,
-	EC_PATH_PCEP_PCC_FINI,
-	EC_PATH_PCEP_PCC_CONF_UPDATE,
-	EC_PATH_PCEP_LIB_CONNECT,
-	EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
-	EC_PATH_PCEP_UNEXPECTED_PCEP_MESSAGE,
-	EC_PATH_PCEP_UNEXPECTED_PCEPLIB_EVENT,
-	EC_PATH_PCEP_UNEXPECTED_PCEP_OBJECT,
-	EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
-	EC_PATH_PCEP_UNEXPECTED_PCEP_ERO_SUBOBJ
-};
+DECLARE_MTYPE(PCEP)
 
-extern void path_error_init(void);
-
-#endif
+#endif /* _FRR_PATH_PCEP_MEMORY_H_ */

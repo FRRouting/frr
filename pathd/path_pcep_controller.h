@@ -1,0 +1,74 @@
+/*
+ * Copyright (C) 2018  NetDEF, Inc.
+ *                     Sebastien Merle
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
+
+#ifndef _PATH_PCEP_CONTROLLER_H_
+#define _PATH_PCEP_CONTROLLER_H_
+
+#include "pathd/path_pcep.h"
+
+
+enum pcep_main_event_type {
+	PCEP_MAIN_EVENT_UNDEFINED = 0,
+	PCEP_MAIN_EVENT_START_SYNC,
+	PCEP_MAIN_EVENT_UPDATE_CANDIDATE
+};
+
+typedef int (*pcep_main_event_handler_t)(enum pcep_main_event_type type,
+					 int pcc_id, void *payload);
+
+enum pcep_pathd_event_type {
+	PCEP_PATH_UNDEFINED = 0,
+	PCEP_PATH_CREATED,
+	PCEP_PATH_UPDATED,
+	PCEP_PATH_REMOVED
+};
+
+struct ctrl_state {
+	struct thread_master *main;
+	struct thread_master *self;
+	pcep_main_event_handler_t main_event_handler;
+	struct thread *t_poll;
+	struct pcc_opts *pcc_opts;
+	int pcc_count;
+	struct pcc_state *pcc[MAX_PCC];
+};
+
+/* Functions called from the main thread */
+int pcep_ctrl_initialize(struct thread_master *main_thread,
+			 struct frr_pthread **fpt,
+			 pcep_main_event_handler_t event_handler);
+int pcep_ctrl_finalize(struct frr_pthread **fpt);
+int pcep_ctrl_update_pcc_options(struct frr_pthread *fpt,
+				 struct pcc_opts *opts);
+int pcep_ctrl_update_pce_options(struct frr_pthread *fpt, int pcc_id,
+				 struct pce_opts *opts);
+int pcep_ctrl_disconnect_pcc(struct frr_pthread *fpt, int pcc_id);
+int pcep_ctrl_pathd_event(struct frr_pthread *fpt,
+			  enum pcep_pathd_event_type type, struct path *path);
+int pcep_ctrl_sync_path(struct frr_pthread *fpt, int pcc_id, struct path *path);
+int pcep_ctrl_sync_done(struct frr_pthread *fpt, int pcc_id);
+
+/* Functions called from the controller thread */
+void pcep_thread_start_sync(struct ctrl_state *ctrl_state, int pcc_id);
+void pcep_thread_update_path(struct ctrl_state *ctrl_state, int pcc_id,
+			     struct path *path);
+void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
+				    int retry_count, struct thread **thread);
+
+#endif // _PATH_PCEP_CONTROLLER_H_

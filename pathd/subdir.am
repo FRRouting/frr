@@ -30,15 +30,18 @@ pathd_libpath_a_SOURCES = \
 	# end
 
 noinst_HEADERS += \
-	pathd/path_memory.h \
 	pathd/path_errors.h \
+	pathd/path_memory.h \
 	pathd/path_nb.h \
+	pathd/path_pcep.h \
+	pathd/path_pcep_controller.h \
+	pathd/path_pcep_debug.h \
+	pathd/path_pcep_lib.h \
+	pathd/path_pcep_memory.h \
+	pathd/path_pcep_nb.h \
+	pathd/path_pcep_pcc.h \
 	pathd/path_zebra.h \
 	pathd/pathd.h \
-	pathd/path_pcep.h \
-	pathd/path_pcep_lib.h \
-	pathd/path_pcep_nb.h \
-	pathd/path_pcep_debug.h \
 	# end
 
 pathd/path_cli_clippy.c: $(CLIPPY_DEPS)
@@ -52,9 +55,12 @@ pathd_pathd_LDADD = pathd/libpath.a lib/libfrr.la $(LIBCAP)
 
 pathd_pathd_pcep_la_SOURCES = \
 	pathd/path_pcep.c \
-	pathd/path_pcep_lib.c \
-	pathd/path_pcep_nb.c \
+	pathd/path_pcep_controller.c \
 	pathd/path_pcep_debug.c \
+	pathd/path_pcep_lib.c \
+	pathd/path_pcep_memory.c \
+	pathd/path_pcep_nb.c \
+	pathd/path_pcep_pcc.c \
 	# end
 pathd_pathd_pcep_la_CFLAGS = $(WERROR)
 pathd_pathd_pcep_la_LDFLAGS = -avoid-version -module -shared -export-dynamic

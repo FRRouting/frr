@@ -24,15 +24,16 @@
 #include <pcep_pcc_api.h>
 #include "pathd/path_pcep.h"
 
-int pcep_lib_connect(struct pcc_state *pcc_state);
-void pcep_lib_disconnect(struct pcc_state *pcc_state);
-double_linked_list *pcep_lib_format_path(struct path *path);
-void pcep_lib_parse_capabilities(struct pcep_caps *caps,
-				 double_linked_list *objs);
-struct path *pcep_lib_parse_path(double_linked_list *objs);
-struct path *pcep_lib_new_path(void);
-struct path_hop *pcep_lib_new_hop(void);
-void pcep_lib_free_path(struct path *path);
-
+int pcep_lib_initialize(void);
+void pcep_lib_finalize(void);
+pcep_session *pcep_lib_connect(struct pcc_opts *pcc_opts,
+			       struct pce_opts *pce_opts);
+void pcep_lib_disconnect(pcep_session *sess);
+struct pcep_message *pcep_lib_format_report(struct path *path);
+struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,
+					     struct ipaddr *dst);
+struct path *pcep_lib_parse_path(struct pcep_message *msg);
+void pcep_lib_parse_capabilities(struct pcep_message *msg,
+				 struct pcep_caps *caps);
 
 #endif // _PATH_PCEP_LIB_H_

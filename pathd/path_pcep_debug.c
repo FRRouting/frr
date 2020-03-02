@@ -86,15 +86,15 @@ static void _format_pcep_object_tlv_path_setup_type(
 const char *pcc_status_name(enum pcc_status status)
 {
 	switch (status) {
-	case INITIALIZED:
+	case PCEP_PCC_INITIALIZED:
 		return "INITIALIZED";
-	case DISCONNECTED:
+	case PCEP_PCC_DISCONNECTED:
 		return "DISCONNECTED";
-	case CONNECTING:
+	case PCEP_PCC_CONNECTING:
 		return "CONNECTING";
-	case SYNCHRONIZING:
+	case PCEP_PCC_SYNCHRONIZING:
 		return "SYNCHRONIZING";
-	case OPERATING:
+	case PCEP_PCC_OPERATING:
 		return "OPERATING";
 	default:
 		return "UNKNOWN";

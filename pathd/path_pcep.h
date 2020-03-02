@@ -22,16 +22,14 @@
 
 #include <stdbool.h>
 #include <debug.h>
-#include <pcep_pcc_api.h>
-#include <pcep_pcc_api.h>
 #include <pcep_utils_logging.h>
+#include <pcep_pcc_api.h>
 #include "mpls.h"
-#include "typesafe.h"
-#include "pathd/path_memory.h"
+#include "pathd/path_pcep_memory.h"
 
+#define PCEP_DEFAULT_PORT 4189
 #define MAX_PCC 1
 #define MAX_TAG_SIZE 50
-#define CLASS_TYPE(CLASS, TYPE) (((CLASS) << 16) | (TYPE))
 #define PCEP_DEBUG_MODE_BASIC 0x01
 #define PCEP_DEBUG_MODE_PATH 0x02
 #define PCEP_DEBUG_MODE_PCEP 0x04
@@ -80,27 +78,6 @@
 		}                                                              \
 	} while (0)
 
-
-enum pcc_status {
-	INITIALIZED = 0,
-	DISCONNECTED,
-	CONNECTING,
-	SYNCHRONIZING,
-	OPERATING
-};
-
-enum pathd_event_type {
-	CANDIDATE_CREATED = 0,
-	CANDIDATE_UPDATED,
-	CANDIDATE_REMOVED
-};
-
-struct pcep_glob {
-	struct debug dbg;
-	struct thread_master *master;
-	struct frr_pthread *fpt;
-};
-
 struct pce_opts {
 	struct in_addr addr;
 	short port;
@@ -118,74 +95,15 @@ struct lsp_nb_key {
 	uint32_t preference;
 };
 
-PREDECL_HASH(plspid_map)
-PREDECL_HASH(nbkey_map)
-PREDECL_HASH(srpid_map)
-PREDECL_HASH(req_map)
-
-struct plspid_map_data {
-	struct plspid_map_item mi;
-	struct lsp_nb_key nbkey;
-	uint32_t plspid;
-};
-
-struct nbkey_map_data {
-	struct nbkey_map_item mi;
-	struct lsp_nb_key nbkey;
-	uint32_t plspid;
-};
-
-struct srpid_map_data {
-	struct srpid_map_item mi;
-	uint32_t plspid;
-	uint32_t srpid;
-};
-
-struct req_map_data {
-	struct req_map_item mi;
-	uint32_t reqid;
-	struct lsp_nb_key nbkey;
-};
-
-struct pcep_caps {
-	bool is_stateful;
-};
-
-struct pcc_state {
-	int id;
-	char tag[MAX_TAG_SIZE];
-	enum pcc_status status;
-	struct pcc_opts *pcc_opts;
-	struct pce_opts *pce_opts;
-	pcep_configuration *config;
-	pcep_session *sess;
-	uint32_t retry_count;
-	bool synchronized;
-	struct thread *t_reconnect;
-	struct thread *t_update_opts;
-	uint32_t next_reqid;
-	uint32_t next_plspid;
-	struct plspid_map_head plspid_map;
-	struct nbkey_map_head nbkey_map;
-	struct srpid_map_head srpid_map;
-	struct req_map_head req_map;
-	struct pcep_caps caps;
-};
-
-struct ctrl_state {
-	struct thread_master *main;
-	struct thread_master *self;
-	struct thread *t_poll;
-	struct pcc_opts *pcc_opts;
-	int pcc_count;
-	struct pcc_state *pcc[MAX_PCC];
-};
-
 struct sid_mpls {
 	mpls_label_t label;
 	uint8_t traffic_class;
 	bool is_bottom;
 	uint8_t ttl;
+};
+
+struct pcep_caps {
+	bool is_stateful;
 };
 
 union sid {
@@ -263,40 +181,17 @@ struct path {
 	struct path_hop *first;
 };
 
-struct event_pcc_update {
-	struct ctrl_state *ctrl_state;
-	struct pcc_opts *pcc_opts;
-};
-
-struct event_pce_update {
-	struct ctrl_state *ctrl_state;
-	int pcc_id;
-	struct pce_opts *pce_opts;
-};
-
-typedef int (*pcc_cb_t)(struct ctrl_state *ctrl_state,
-			struct pcc_state *pcc_state);
-
-struct event_pcc_cb {
-	struct ctrl_state *ctrl_state;
-	int pcc_id;
-	pcc_cb_t cb;
-};
-
-struct event_pcc_path {
-	struct ctrl_state *ctrl_state;
-	int pcc_id;
-	struct path *path;
-};
-
-struct event_pathd {
-	struct ctrl_state *ctrl_state;
-	enum pathd_event_type type;
-	struct path *path;
+struct pcep_glob {
+	struct debug dbg;
+	struct thread_master *master;
+	struct frr_pthread *fpt;
 };
 
 extern struct pcep_glob *pcep_g;
 
-DECLARE_MTYPE(PCEP)
+/* Path Helper Functions */
+struct path *pcep_new_path(void);
+struct path_hop *pcep_new_hop(void);
+void pcep_free_path(struct path *path);
 
 #endif // _PATH_PCEP_H_

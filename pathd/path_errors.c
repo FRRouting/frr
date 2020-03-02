@@ -62,25 +62,37 @@ static struct log_ref ferr_path_warn[] = {
                 .suggestion = "Check the connectivity between the PCC and the PCE"
         },
         {
-                .code = EC_PATH_PCEP_UNEXPECTED_EVENT,
+                .code = EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
+                .title = "Recoverable internal error",
+                .description = "Some recoverable internal error",
+                .suggestion = "Open an Issue with all relevant log files"
+        },
+        {
+                .code = EC_PATH_PCEP_UNEXPECTED_PCEP_MESSAGE,
+                .title = "Unexpected pcep message",
+                .description = "The PCEP module received an unexpected pcep message",
+                .suggestion = "Open an Issue with all relevant log files"
+        },
+        {
+                .code = EC_PATH_PCEP_UNEXPECTED_PCEPLIB_EVENT,
                 .title = "Unexpected pceplib event",
                 .description = "The PCEP module received an unexpected event from pceplib",
                 .suggestion = "Open an Issue with all relevant log files"
         },
         {
-                .code = EC_PATH_PCEP_UNEXPECTED_OBJECT,
+                .code = EC_PATH_PCEP_UNEXPECTED_PCEP_OBJECT,
                 .title = "Unexpected PCEP object",
                 .description = "The PCEP module received an unexpected PCEP object from a PCE",
                 .suggestion = "Open an Issue with all relevant log files"
         },
         {
-                .code = EC_PATH_PCEP_UNEXPECTED_TLV,
+                .code = EC_PATH_PCEP_UNEXPECTED_PCEP_TLV,
                 .title = "Unexpected PCEP TLV",
                 .description = "The PCEP module received an unexpected PCEP TLV from a PCE",
                 .suggestion = "Open an Issue with all relevant log files"
         },
         {
-                .code = EC_PATH_PCEP_UNEXPECTED_ERO_SUBOBJ,
+                .code = EC_PATH_PCEP_UNEXPECTED_PCEP_ERO_SUBOBJ,
                 .title = "Unexpected PCEP ERO sub-object",
                 .description = "The PCEP module received an unexpected PCEP ERO sub-object from a PCE",
                 .suggestion = "Open an Issue with all relevant log files"
