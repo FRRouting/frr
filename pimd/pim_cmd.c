@@ -1706,7 +1706,10 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags));
 		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
 			json_object_int_add(json_row, "SGRpt", 1);
-
+		if (PIM_IF_FLAG_TEST_PROTO_PIM(ch->flags))
+			json_object_int_add(json_row, "protocolPim", 1);
+		if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
+			json_object_int_add(json_row, "protocolIgmp", 1);
 		json_object_object_get_ex(json_iface, ch_grp_str, &json_grp);
 		if (!json_grp) {
 			json_grp = json_object_new_object();

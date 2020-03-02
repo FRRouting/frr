@@ -835,7 +835,7 @@ void igmp_source_forward_stop(struct igmp_source *source)
 void pim_forward_start(struct pim_ifchannel *ch)
 {
 	struct pim_upstream *up = ch->upstream;
-	uint32_t mask = PIM_OIF_FLAG_PROTO_PIM;
+	uint32_t mask = 0;
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		char source_str[INET_ADDRSTRLEN];
@@ -853,8 +853,11 @@ void pim_forward_start(struct pim_ifchannel *ch)
 			   inet_ntoa(up->upstream_addr));
 	}
 
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
+	if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
 		mask = PIM_OIF_FLAG_PROTO_IGMP;
+
+	if (PIM_IF_FLAG_TEST_PROTO_PIM(ch->flags))
+		mask |= PIM_OIF_FLAG_PROTO_PIM;
 
 	pim_channel_add_oif(up->channel_oil, ch->interface,
 			mask, __func__);
