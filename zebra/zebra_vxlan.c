@@ -101,8 +101,6 @@ static void *zvni_neigh_alloc(void *p);
 static zebra_neigh_t *zvni_neigh_add(zebra_vni_t *zvni, struct ipaddr *ip,
 				     struct ethaddr *mac);
 static int zvni_neigh_del(zebra_vni_t *zvni, zebra_neigh_t *n);
-static void zvni_neigh_del_from_vtep(zebra_vni_t *zvni, int uninstall,
-				     struct in_addr *r_vtep_ip);
 static void zvni_neigh_del_all(zebra_vni_t *zvni, int uninstall, int upd_client,
 			       uint32_t flags);
 static zebra_neigh_t *zvni_neigh_lookup(zebra_vni_t *zvni, struct ipaddr *ip);
@@ -156,8 +154,6 @@ static bool mac_cmp(const void *p1, const void *p2);
 static void *zvni_mac_alloc(void *p);
 static zebra_mac_t *zvni_mac_add(zebra_vni_t *zvni, struct ethaddr *macaddr);
 static int zvni_mac_del(zebra_vni_t *zvni, zebra_mac_t *mac);
-static void zvni_mac_del_from_vtep(zebra_vni_t *zvni, int uninstall,
-				   struct in_addr *r_vtep_ip);
 static void zvni_mac_del_all(zebra_vni_t *zvni, int uninstall, int upd_client,
 			     uint32_t flags);
 static zebra_mac_t *zvni_mac_lookup(zebra_vni_t *zvni, struct ethaddr *macaddr);
@@ -2302,26 +2298,6 @@ static void zvni_neigh_del_hash_entry(struct hash_bucket *bucket, void *arg)
 }
 
 /*
- * Delete all neighbor entries from specific VTEP for a particular VNI.
- */
-static void zvni_neigh_del_from_vtep(zebra_vni_t *zvni, int uninstall,
-				     struct in_addr *r_vtep_ip)
-{
-	struct neigh_walk_ctx wctx;
-
-	if (!zvni->neigh_table)
-		return;
-
-	memset(&wctx, 0, sizeof(struct neigh_walk_ctx));
-	wctx.zvni = zvni;
-	wctx.uninstall = uninstall;
-	wctx.flags = DEL_REMOTE_NEIGH_FROM_VTEP;
-	wctx.r_vtep_ip = *r_vtep_ip;
-
-	hash_iterate(zvni->neigh_table, zvni_neigh_del_hash_entry, &wctx);
-}
-
-/*
  * Delete all neighbor entries for this VNI.
  */
 static void zvni_neigh_del_all(zebra_vni_t *zvni, int uninstall, int upd_client,
@@ -3484,26 +3460,6 @@ static void zvni_mac_del_hash_entry(struct hash_bucket *bucket, void *arg)
 	}
 
 	return;
-}
-
-/*
- * Delete all MAC entries from specific VTEP for a particular VNI.
- */
-static void zvni_mac_del_from_vtep(zebra_vni_t *zvni, int uninstall,
-				   struct in_addr *r_vtep_ip)
-{
-	struct mac_walk_ctx wctx;
-
-	if (!zvni->mac_table)
-		return;
-
-	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
-	wctx.zvni = zvni;
-	wctx.uninstall = uninstall;
-	wctx.flags = DEL_REMOTE_MAC_FROM_VTEP;
-	wctx.r_vtep_ip = *r_vtep_ip;
-
-	hash_iterate(zvni->mac_table, zvni_mac_del_hash_entry, &wctx);
 }
 
 /*
@@ -5875,14 +5831,11 @@ static void process_remote_macip_del(vni_t vni,
 	zns = zebra_ns_lookup(NS_DEFAULT);
 	vxl = &zif->l2info.vxl;
 
-	/* The remote VTEP specified is normally expected to exist, but
-	 * it is possible that the peer may delete the VTEP before deleting
-	 * any MACs referring to the VTEP, in which case the handler (see
-	 * remote_vtep_del) would have already deleted the MACs.
+	/* It is possible remote vtep del request is processed prior to
+	 * remote macip route delete. remote_vtep_del does not clean up
+	 * the macip route delete. Explicite withdraw of the macip route
+	 * is expected to recieve. This handler removes the remote route.
 	 */
-	if (!zvni_vtep_find(zvni, &vtep_ip))
-		return;
-
 	mac = zvni_mac_lookup(zvni, macaddr);
 	if (ipa_len)
 		n = zvni_neigh_lookup(zvni, ipaddr);
@@ -8284,8 +8237,6 @@ void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS)
 		if (!zvtep)
 			continue;
 
-		zvni_neigh_del_from_vtep(zvni, 1, &vtep_ip);
-		zvni_mac_del_from_vtep(zvni, 1, &vtep_ip);
 		zvni_vtep_uninstall(zvni, &vtep_ip);
 		zvni_vtep_del(zvni, zvtep);
 	}
