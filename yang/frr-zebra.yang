@@ -286,36 +286,6 @@ module frr-zebra {
   // End of ip6-route
 
   /*
-   * IP Prefix Route object.
-   */
-
-  grouping ip-route {
-    description
-      "An IPv4/IPv6 prefix route.";
-    leaf prefix {
-      type inet:ip-prefix;
-      description
-        "The route's prefix.";
-    }
-
-    leaf protocol {
-      when "'../../afi-safi-name' = 'ipv4-unicast'";
-      type frr-route-types:frr-route-types-v4;
-      description
-        "The protocol owning the route.";
-    }
-
-    leaf protocol-v6 {
-      when "'../../afi-safi-name' = 'ipv6-unicast'";
-      type frr-route-types:frr-route-types-v6;
-      description
-        "The protocol owning the route.";
-    }
-
-    uses route-common;
-  }
-
-  /*
    * Information about EVPN VNIs
    */
 
@@ -597,7 +567,27 @@ module frr-zebra {
         list route {
           key "prefix";
           config false;
-          uses ip-route;
+          leaf prefix {
+             type inet:ip-prefix;
+             description
+                "The route's prefix.";
+          }
+
+          leaf protocol {
+             when "'../../afi-safi-name' = 'ipv4-unicast'";
+             type frr-route-types:frr-route-types-v4;
+             description
+                "The protocol owning the route.";
+          }
+
+          leaf protocol-v6 {
+             when "'../../afi-safi-name' = 'ipv6-unicast'";
+             type frr-route-types:frr-route-types-v6;
+             description
+                "The protocol owning the route.";
+          }
+
+          uses route-common;
         }
       }
     }
