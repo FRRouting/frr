@@ -5634,14 +5634,20 @@ DEFUN (show_ip_pim_statistics,
 	return CMD_SUCCESS;
 }
 
-static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty)
+static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
+				      bool uj)
 {
 	struct interface *ifp;
+	json_object *json = NULL;
+	json_object *json_row = NULL;
 
 	vty_out(vty, "\n");
 
-	vty_out(vty,
-		"Interface        Address            ifi Vif  PktsIn PktsOut    BytesIn   BytesOut\n");
+	if (uj)
+		json = json_object_new_object();
+	else
+		vty_out(vty,
+			"Interface        Address            ifi Vif  PktsIn PktsOut    BytesIn   BytesOut\n");
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
@@ -5665,12 +5671,43 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty)
 		}
 
 		ifaddr = pim_ifp->primary_address;
+		if (uj) {
+			json_row = json_object_new_object();
+			json_object_string_add(json_row, "name", ifp->name);
+			json_object_string_add(json_row, "state",
+					       if_is_up(ifp) ? "up" : "down");
+			json_object_string_add(
+				json_row, "address",
+				inet_ntoa(pim_ifp->primary_address));
+			json_object_int_add(json_row, "ifIndex", ifp->ifindex);
+			json_object_int_add(json_row, "vif",
+					    pim_ifp->mroute_vif_index);
+			json_object_int_add(json_row, "pktsIn",
+					    (unsigned long)vreq.icount);
+			json_object_int_add(json_row, "pktsOut",
+					    (unsigned long)vreq.ocount);
+			json_object_int_add(json_row, "bytesIn",
+					    (unsigned long)vreq.ibytes);
+			json_object_int_add(json_row, "bytesOut",
+					    (unsigned long)vreq.obytes);
+			json_object_object_add(json, ifp->name, json_row);
+		} else {
+			vty_out(vty,
+				"%-16s %-15s %3d %3d %7lu %7lu %10lu %10lu\n",
+				ifp->name, inet_ntoa(ifaddr), ifp->ifindex,
+				pim_ifp->mroute_vif_index,
+				(unsigned long)vreq.icount,
+				(unsigned long)vreq.ocount,
+				(unsigned long)vreq.ibytes,
+				(unsigned long)vreq.obytes);
+		}
+	}
 
-		vty_out(vty, "%-16s %-15s %3d %3d %7lu %7lu %10lu %10lu\n",
-			ifp->name, inet_ntoa(ifaddr), ifp->ifindex,
-			pim_ifp->mroute_vif_index, (unsigned long)vreq.icount,
-			(unsigned long)vreq.ocount, (unsigned long)vreq.ibytes,
-			(unsigned long)vreq.obytes);
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
 	}
 }
 
@@ -5717,7 +5754,7 @@ static void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
 
 	show_scan_oil_stats(pim, vty, now);
 
-	show_multicast_interfaces(pim, vty);
+	show_multicast_interfaces(pim, vty, false);
 }
 
 DEFUN (show_ip_multicast,
@@ -5763,6 +5800,60 @@ DEFUN (show_ip_multicast_vrf_all,
 			vty_out(vty, "VRF: %s\n", vrf->name);
 		pim_cmd_show_ip_multicast_helper(vrf->info, vty);
 	}
+	if (uj)
+		vty_out(vty, "}\n");
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(show_ip_multicast_count,
+      show_ip_multicast_count_cmd,
+      "show ip multicast count [vrf NAME] [json]",
+      SHOW_STR IP_STR
+      "Multicast global information\n"
+      "Data packet count\n"
+      VRF_CMD_HELP_STR JSON_STR)
+{
+	int idx = 3;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	bool uj = use_json(argc, argv);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	show_multicast_interfaces(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(show_ip_multicast_count_vrf_all,
+      show_ip_multicast_count_vrf_all_cmd,
+      "show ip multicast count vrf all [json]",
+      SHOW_STR IP_STR
+      "Multicast global information\n"
+      "Data packet count\n"
+      VRF_CMD_HELP_STR JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+
+		show_multicast_interfaces(vrf->info, vty, uj);
+	}
+
 	if (uj)
 		vty_out(vty, "}\n");
 
@@ -10894,6 +10985,8 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_bsr_cmd);
 	install_element(VIEW_NODE, &show_ip_multicast_cmd);
 	install_element(VIEW_NODE, &show_ip_multicast_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ip_multicast_count_cmd);
+	install_element(VIEW_NODE, &show_ip_multicast_count_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_mroute_cmd);
 	install_element(VIEW_NODE, &show_ip_mroute_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_mroute_count_cmd);
