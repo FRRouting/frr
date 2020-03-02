@@ -898,8 +898,12 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 	}
 
 	/* Update prior route. */
-	if (new != old)
-		UNSET_FLAG(old->status, ROUTE_ENTRY_CHANGED);
+	if (new != old) {
+		if (RIB_KERNEL_ROUTE(old))
+			SET_FLAG(old->status, ROUTE_ENTRY_REMOVED);
+		else
+			UNSET_FLAG(old->status, ROUTE_ENTRY_CHANGED);
+	}
 
 	/* Clear changed flag. */
 	UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
