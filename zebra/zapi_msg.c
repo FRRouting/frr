@@ -1826,7 +1826,9 @@ static void zread_mpls_labels_add(ZAPI_HANDLER_ARGS)
 		struct zapi_nexthop *znh;
 
 		znh = &zl.nexthops[i];
-		mpls_lsp_install(zvrf, zl.type, zl.local_label, 1, znh->labels,
+
+		mpls_lsp_install(zvrf, zl.type, zl.local_label,
+				 znh->label_num, znh->labels,
 				 znh->type, &znh->gate, znh->ifindex);
 
 		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
@@ -1929,7 +1931,7 @@ static void zread_mpls_labels_replace(ZAPI_HANDLER_ARGS)
 
 		znh = &zl.nexthops[i];
 		mpls_lsp_install(zvrf, zl.type, zl.local_label,
-				 1, znh->labels, znh->type,
+				 znh->label_num, znh->labels, znh->type,
 				 &znh->gate, znh->ifindex);
 
 		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN)) {
