@@ -515,8 +515,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	if ((size < BGP_HEADER_SIZE) || !validate_header(p)) {
 		goto done;
 	}
-	fprintf(stderr, "good header\n");
-
 
 	ringbuf_peek(p->ibuf_work, BGP_MARKER_SIZE, &pktsize, sizeof(pktsize));
 	pktsize = ntohs(pktsize);
