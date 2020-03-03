@@ -11506,12 +11506,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 				vty_out(vty, "\n");
 
-				/* Gracefull Restart */
+				/* Graceful Restart */
 				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)
 				    || CHECK_FLAG(p->cap,
 						  PEER_CAP_RESTART_ADV)) {
 					vty_out(vty,
-						"    Graceful Restart Capabilty:");
+						"    Graceful Restart Capability:");
 					if (CHECK_FLAG(p->cap,
 						       PEER_CAP_RESTART_ADV))
 						vty_out(vty, " advertised");
