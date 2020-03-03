@@ -495,7 +495,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	p = FuzzingPeer;
 #endif /* FUZZING_LIBFUZZER */
 
+	ringbuf_reset(p->ibuf_work);
 	ringbuf_put(p->ibuf_work, data, size);
+
+	int result = 0;
+	unsigned char pktbuf[BGP_MAX_PACKET_SIZE];
+	uint16_t pktsize = 0;
 
 	/*
 	 * Simulate the read process done by bgp_process_reads().
@@ -512,10 +517,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	}
 	fprintf(stderr, "good header\n");
 
-
-	int result = 0;
-	unsigned char pktbuf[BGP_MAX_PACKET_SIZE];
-	uint16_t pktsize = 0;
 
 	ringbuf_peek(p->ibuf_work, BGP_MARKER_SIZE, &pktsize, sizeof(pktsize));
 	pktsize = ntohs(pktsize);
