@@ -970,7 +970,7 @@ static void isis_sr_adj_sid_install_uninstall(bool install,
 					      const struct sr_adjacency *sra)
 {
 	struct zapi_labels zl;
-	struct zapi_nexthop_label *znh;
+	struct zapi_nexthop *znh;
 	int cmd;
 
 	cmd = install ? ZEBRA_MPLS_LABELS_ADD : ZEBRA_MPLS_LABELS_DELETE;
@@ -980,13 +980,13 @@ static void isis_sr_adj_sid_install_uninstall(bool install,
 	zl.local_label = sra->nexthop.label;
 	zl.nexthop_num = 1;
 	znh = &zl.nexthops[0];
-	znh->family = sra->nexthop.family;
-	znh->address = sra->nexthop.address;
+	znh->gate = sra->nexthop.address;
 	znh->type = (sra->nexthop.family == AF_INET)
 			    ? NEXTHOP_TYPE_IPV4_IFINDEX
 			    : NEXTHOP_TYPE_IPV6_IFINDEX;
 	znh->ifindex = sra->adj->circuit->interface->ifindex;
-	znh->label = MPLS_LABEL_IMPLICIT_NULL;
+	znh->label_num = 1;
+	znh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
 
 	(void)zebra_send_mpls_labels(zclient, cmd, &zl);
 }

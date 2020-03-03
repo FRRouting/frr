@@ -257,7 +257,7 @@ void isis_zebra_route_del_route(struct prefix *prefix,
 void isis_zebra_install_prefix_sid(const struct sr_prefix *srp)
 {
 	struct zapi_labels zl;
-	struct zapi_nexthop_label *znh;
+	struct zapi_nexthop *znh;
 	struct listnode *node;
 	struct isis_nexthop *nexthop;
 	struct interface *ifp;
@@ -280,7 +280,8 @@ void isis_zebra_install_prefix_sid(const struct sr_prefix *srp)
 		znh = &zl.nexthops[zl.nexthop_num++];
 		znh->type = NEXTHOP_TYPE_IFINDEX;
 		znh->ifindex = ifp->ifindex;
-		znh->label = MPLS_LABEL_IMPLICIT_NULL;
+		znh->label_num = 1;
+		znh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
 		break;
 	case ISIS_SR_PREFIX_REMOTE:
 		/* Update route in the RIB too. */
@@ -301,10 +302,10 @@ void isis_zebra_install_prefix_sid(const struct sr_prefix *srp)
 			znh->type = (srp->prefix.family == AF_INET)
 					    ? NEXTHOP_TYPE_IPV4_IFINDEX
 					    : NEXTHOP_TYPE_IPV6_IFINDEX;
-			znh->family = nexthop->family;
-			znh->address = nexthop->ip;
+			znh->gate = nexthop->ip;
 			znh->ifindex = nexthop->ifindex;
-			znh->label = nexthop->sr.label;
+			znh->label_num = 1;
+			znh->labels[0] = nexthop->sr.label;
 		}
 		break;
 	}
