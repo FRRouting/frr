@@ -1688,7 +1688,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 	}
 	RB_FOREACH_SAFE(xf, l2vpn_if_head, &xl->if_tree, ftmp) {
 		/* find new interfaces */
-		if ((lif = l2vpn_if_find(l2vpn, xf->ifname)) == NULL) {
+		if (l2vpn_if_find(l2vpn, xf->ifname) == NULL) {
 			COPY(lif, xf);
 			RB_INSERT(l2vpn_if_head, &l2vpn->if_tree, lif);
 			lif->l2vpn = l2vpn;
