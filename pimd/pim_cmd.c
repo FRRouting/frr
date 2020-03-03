@@ -7056,6 +7056,9 @@ static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
 
 static void igmp_sock_query_reschedule(struct igmp_sock *igmp)
 {
+	if (igmp->mtrace_only)
+		return;
+
 	if (igmp->t_igmp_query_timer) {
 		/* other querier present */
 		zassert(igmp->t_igmp_query_timer);
