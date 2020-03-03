@@ -1637,7 +1637,16 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
-		if (ifp && if_is_operative(ifp))
+		/*
+		 * If the interface exists and its operative or its a kernel
+		 * route and interface is up, its active. We trust kernel routes
+		 * to be good.
+		 */
+		if (ifp
+		    && (if_is_operative(ifp)
+			|| (if_is_up(ifp)
+			    && (re->type == ZEBRA_ROUTE_KERNEL
+				|| re->type == ZEBRA_ROUTE_SYSTEM))))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
