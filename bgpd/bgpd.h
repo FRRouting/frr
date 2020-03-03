@@ -1185,10 +1185,10 @@ struct peer {
 #define PEER_DOWN_REMOTE_AS_CHANGE       2 /* neighbor remote-as command */
 #define PEER_DOWN_LOCAL_AS_CHANGE        3 /* neighbor local-as command */
 #define PEER_DOWN_CLID_CHANGE            4 /* bgp cluster-id command */
-#define PEER_DOWN_CONFED_ID_CHANGE       5 /* bgp confederation identifier command */
+#define PEER_DOWN_CONFED_ID_CHANGE       5 /* bgp confederation id command */
 #define PEER_DOWN_CONFED_PEER_CHANGE     6 /* bgp confederation peer command */
-#define PEER_DOWN_RR_CLIENT_CHANGE       7 /* neighbor route-reflector-client command */
-#define PEER_DOWN_RS_CLIENT_CHANGE       8 /* neighbor route-server-client command */
+#define PEER_DOWN_RR_CLIENT_CHANGE       7 /* neighbor rr-client command */
+#define PEER_DOWN_RS_CLIENT_CHANGE       8 /* neighbor rs-client command */
 #define PEER_DOWN_UPDATE_SOURCE_CHANGE   9 /* neighbor update-source command */
 #define PEER_DOWN_AF_ACTIVATE           10 /* neighbor activate command */
 #define PEER_DOWN_USER_SHUTDOWN         11 /* neighbor shutdown command */
@@ -1212,6 +1212,13 @@ struct peer {
 #define PEER_DOWN_VRF_UNINIT            29 /* Associated VRF is not init yet */
 #define PEER_DOWN_NOAFI_ACTIVATED       30 /* No AFI/SAFI activated for peer */
 #define PEER_DOWN_AS_SETS_REJECT        31 /* Reject routes with AS_SET */
+#define PEER_DOWN_WAITING_OPEN          32 /* Waiting for open to succeed */
+#define PEER_DOWN_PFX_COUNT             33 /* Reached received prefix count */
+	/*
+	 * Remember to update peer_down_str in bgp_fsm.c when you add
+	 * a new value to the last_reset reason
+	 */
+
 	size_t last_reset_cause_size;
 	uint8_t last_reset_cause[BGP_MAX_PACKET_SIZE];
 
