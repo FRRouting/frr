@@ -1057,6 +1057,7 @@ def compare_context_objects(newconf, running):
     # Compare the two Config objects to find the lines that we need to add/del
     lines_to_add = []
     lines_to_del = []
+    seglist_to_del = []
     delete_bgpd = False
 
     # Find contexts that are in newconf but not in running
@@ -1118,6 +1119,11 @@ def compare_context_objects(newconf, running):
                   (running_ctx_keys[:2], None) in lines_to_del):
                 continue
 
+            # Segment lists can only be deleted after we removed all the candidate paths that
+            # use them, so add them to a separate array that is going to be appended at the end
+            elif running_ctx_keys[0].startswith('segment-list'):
+                seglist_to_del.append((running_ctx_keys, None))
+
             # Non-global context
             elif running_ctx_keys and not any("address-family" in key for key in running_ctx_keys):
                 lines_to_del.append((running_ctx_keys, None))
@@ -1129,6 +1135,10 @@ def compare_context_objects(newconf, running):
             else:
                 for line in running_ctx.lines:
                     lines_to_del.append((running_ctx_keys, line))
+
+    # if we have some segment list commands to delete, append them to lines_to_del
+    if len(seglist_to_del) > 0:
+        lines_to_del.extend(seglist_to_del)
 
     # Find the lines within each context to add
     # Find the lines within each context to del
@@ -1237,7 +1247,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # verify that the daemon, if specified, is valid
-    if args.daemon and args.daemon not in ['zebra', 'bgpd', 'fabricd', 'isisd', 'ospf6d', 'ospfd', 'pbrd', 'pimd', 'ripd', 'ripngd', 'sharpd', 'staticd', 'vrrpd', 'ldpd']:
+    if args.daemon and args.daemon not in ['zebra', 'bgpd', 'fabricd', 'isisd', 'ospf6d', 'ospfd', 'pbrd', 'pimd', 'ripd', 'ripngd', 'sharpd', 'staticd', 'vrrpd', 'ldpd', 'pathd']:
         msg = "Daemon %s is not a valid option for 'show running-config'" % args.daemon
         print(msg)
         log.error(msg)

@@ -290,7 +290,7 @@ static int static_route_leak(
 	uint8_t type;
 	struct static_nh_label snh_label;
 	uint32_t table_id = 0;
-	uint32_t color = 0;
+	uint32_t color;
 
 	ret = str2prefix(dest_str, &p);
 	if (ret <= 0) {
@@ -668,7 +668,7 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 			vty_out(vty, "nexthop-vrf %s ", shr->nhvrf_name);
 		if (shr->onlink)
 			vty_out(vty, "onlink");
-		if (shr->color_str)
+		if (shr->label_str)
 			vty_out(vty, "color %s ", shr->color_str);
 		vty_out(vty, "\n");
 	}
@@ -746,7 +746,7 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 			/*
 			 * SR-TE color
 			 */
-			if (si->color != 0)
+			if (si->color)
 				vty_out(vty, " color %u", si->color);
 
 			vty_out(vty, "\n");
