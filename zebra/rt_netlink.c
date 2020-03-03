@@ -772,12 +772,13 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			} else
 				nh_vrf_id = vrf_id;
 
+			nh.vrf_id = nh_vrf_id;
 			if (prefsrc)
 				memcpy(&nh.src, prefsrc, sz);
 			if (gate)
 				memcpy(&nh.gate, gate, sz);
 
-			rib_delete(afi, SAFI_UNICAST, nh_vrf_id, proto, 0, flags,
+			rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags,
 				   &p, &src_p, &nh, table, metric, distance,
 				   true);
 		} else {
