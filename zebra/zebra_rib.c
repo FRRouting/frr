@@ -3172,7 +3172,7 @@ void rib_update(rib_update_event_t event)
 			      &t_rib_update_threads[event]))
 		rib_update_ctx_fini(&ctx); /* Already scheduled */
 	else if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("%s: Schedued VRF (ALL), event %s", __func__,
+		zlog_debug("%s: Scheduled VRF (ALL), event %s", __func__,
 			   rib_update_event2str(event));
 }
 
