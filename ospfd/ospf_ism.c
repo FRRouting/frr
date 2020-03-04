@@ -183,17 +183,22 @@ static void ospf_dr_change(struct ospf *ospf, struct route_table *nbrs)
 	struct route_node *rn;
 	struct ospf_neighbor *nbr;
 
-	for (rn = route_top(nbrs); rn; rn = route_next(rn))
-		if ((nbr = rn->info) != NULL)
-			/* Ignore 0.0.0.0 node*/
-			if (nbr->router_id.s_addr != INADDR_ANY)
-				/* Is neighbor upper 2-Way? */
-				if (nbr->state >= NSM_TwoWay)
-					/* Ignore myself. */
-					if (!IPV4_ADDR_SAME(&nbr->router_id,
-							    &ospf->router_id))
-						OSPF_NSM_EVENT_SCHEDULE(
-							nbr, NSM_AdjOK);
+	for (rn = route_top(nbrs); rn; rn = route_next(rn)) {
+		nbr = rn->info;
+
+		if (!nbr)
+			continue;
+
+		/*
+		 * Ignore 0.0.0.0 node
+		 * Is neighbor 2-Way?
+		 * Ignore myself
+		 */
+		if (nbr->router_id.s_addr != INADDR_ANY
+		    && nbr->state >= NSM_TwoWay
+		    && !IPV4_ADDR_SAME(&nbr->router_id, &ospf->router_id))
+			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_AdjOK);
+	}
 }
 
 static int ospf_dr_election(struct ospf_interface *oi)
