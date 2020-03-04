@@ -200,6 +200,18 @@ Debugging
 Displaying RPKI
 ---------------
 
+.. index:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)]
+.. clicmd:: show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)]
+
+   Display validated prefixes received from the cache servers filtered
+   by the specified prefix.
+
+.. index:: show rpki as-number ASN
+.. clicmd:: show rpki as-number ASN
+
+   Display validated prefixes received from the cache servers filtered
+   by ASN.
+
 .. index:: show rpki prefix-table
 .. clicmd:: show rpki prefix-table
 
