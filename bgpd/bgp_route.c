@@ -299,7 +299,7 @@ static int bgp_node_set_defer_flag(struct bgp_node *rn, bool delete)
 {
 	struct peer *peer;
 	struct bgp_path_info *old_pi, *nextpi;
-	bool set_flag = 0;
+	bool set_flag = false;
 	struct bgp *bgp = NULL;
 	struct bgp_table *table = NULL;
 	afi_t afi = 0;
@@ -339,7 +339,7 @@ static int bgp_node_set_defer_flag(struct bgp_node *rn, bool delete)
 		 */
 		if (CHECK_FLAG(old_pi->flags, BGP_PATH_STALE)
 		    && (old_pi->sub_type == BGP_ROUTE_NORMAL)) {
-			set_flag = 1;
+			set_flag = true;
 		} else {
 			/* If the peer is graceful restart capable and peer is
 			 * restarting mode, set the flag BGP_NODE_SELECT_DEFER
@@ -349,7 +349,7 @@ static int bgp_node_set_defer_flag(struct bgp_node *rn, bool delete)
 			    && BGP_PEER_RESTARTING_MODE(peer)
 			    && (old_pi
 				&& old_pi->sub_type == BGP_ROUTE_NORMAL)) {
-				set_flag = 1;
+				set_flag = true;
 			}
 		}
 		if (set_flag)
