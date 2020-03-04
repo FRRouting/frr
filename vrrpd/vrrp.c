@@ -2347,11 +2347,11 @@ static bool vrrp_hash_cmp(const void *arg1, const void *arg2)
 	const struct vrrp_vrouter *vr2 = arg2;
 
 	if (vr1->ifp != vr2->ifp)
-		return 0;
+		return false;
 	if (vr1->vrid != vr2->vrid)
-		return 0;
+		return false;
 
-	return 1;
+	return true;
 }
 
 void vrrp_init(void)

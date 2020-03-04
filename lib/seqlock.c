@@ -254,7 +254,7 @@ bool seqlock_check(struct seqlock *sqlo, seqlock_val_t val)
 
 	cur = atomic_load_explicit(&sqlo->pos, memory_order_relaxed);
 	if (!(cur & SEQLOCK_HELD))
-		return 1;
+		return true;
 	cur = SEQLOCK_VAL(cur) - val - 1;
 	assert(cur < 0x40000000 || cur > 0xc0000000);
 	return cur < 0x80000000;

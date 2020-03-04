@@ -255,7 +255,7 @@ bool pim_nexthop_match(struct pim_instance *pim, struct in_addr addr,
 	int num_ifindex;
 
 	if (addr.s_addr == INADDR_NONE)
-		return 0;
+		return false;
 
 	memset(nexthop_tab, 0,
 	       sizeof(struct pim_zlookup_nexthop) * MULTIPATH_NUM);
@@ -268,7 +268,7 @@ bool pim_nexthop_match(struct pim_instance *pim, struct in_addr addr,
 		zlog_warn(
 			"%s %s: could not find nexthop ifindex for address %s",
 			__FILE__, __PRETTY_FUNCTION__, addr_str);
-		return 0;
+		return false;
 	}
 
 	while (i < num_ifindex) {
@@ -319,12 +319,12 @@ bool pim_nexthop_match(struct pim_instance *pim, struct in_addr addr,
 
 		if (nexthop_tab[i].nexthop_addr.u.prefix4.s_addr
 		    == ip_src.s_addr)
-			return 1;
+			return true;
 
 		i++;
 	}
 
-	return 0;
+	return false;
 }
 
 /* Given a source address and a neighbor address, check if the neighbor is one
@@ -348,7 +348,7 @@ bool pim_nexthop_match_nht_cache(struct pim_instance *pim, struct in_addr addr,
 
 	pnc = pim_nexthop_cache_find(pim, &rpf);
 	if (!pnc || !pnc->nexthop_num)
-		return 0;
+		return false;
 
 	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
 		first_ifindex = nh_node->ifindex;
@@ -398,10 +398,10 @@ bool pim_nexthop_match_nht_cache(struct pim_instance *pim, struct in_addr addr,
 		}
 
 		if (nh_node->gate.ipv4.s_addr == ip_src.s_addr)
-			return 1;
+			return true;
 	}
 
-	return 0;
+	return false;
 }
 
 void pim_rp_nexthop_del(struct rp_info *rp_info)
