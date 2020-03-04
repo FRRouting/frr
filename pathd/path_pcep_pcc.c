@@ -327,12 +327,16 @@ void pcep_pcc_pcep_event_handler(struct ctrl_state *ctrl_state,
 		PCEP_DEBUG("%s Starting PCE synchronization", pcc_state->tag);
 		pcep_thread_start_sync(ctrl_state, pcc_state->id);
 		break;
+	case PCC_RCVD_INVALID_OPEN:
+		PCEP_DEBUG("%s Received invalid OPEN message", pcc_state->tag);
+		PCEP_DEBUG_PCEP("%s PCEP message: %s", pcc_state->tag,
+				format_pcep_message(event->message));
+		break;
 	case PCE_CLOSED_SOCKET:
 	case PCE_SENT_PCEP_CLOSE:
 	case PCE_DEAD_TIMER_EXPIRED:
 	case PCE_OPEN_KEEP_WAIT_TIMER_EXPIRED:
 	case PCC_PCEP_SESSION_CLOSED:
-	case PCC_RCVD_INVALID_OPEN:
 	case PCC_RCVD_MAX_INVALID_MSGS:
 	case PCC_RCVD_MAX_UNKOWN_MSGS:
 		pcep_pcc_disable(ctrl_state, pcc_state);
