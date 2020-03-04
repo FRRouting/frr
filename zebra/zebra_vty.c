@@ -1024,13 +1024,116 @@ DEFUN (ip_nht_default_route,
 	return CMD_SUCCESS;
 }
 
+/*
+ * Helper that prints out a nexthop in an nhe/nhg
+ */
+static void show_nhg_nh_helper(struct vty *vty, const struct nexthop *nexthop)
+{
+	char buf[SRCDEST2STR_BUFFER];
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		vty_out(vty, " %s", inet_ntoa(nexthop->gate.ipv4));
+		if (nexthop->ifindex)
+			vty_out(vty, ", %s",
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		vty_out(vty, " %s",
+			inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
+				  sizeof(buf)));
+		if (nexthop->ifindex)
+			vty_out(vty, ", %s",
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
+		break;
+
+	case NEXTHOP_TYPE_IFINDEX:
+		vty_out(vty, " directly connected %s",
+			ifindex2ifname(nexthop->ifindex,
+				       nexthop->vrf_id));
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		vty_out(vty, " unreachable");
+		switch (nexthop->bh_type) {
+		case BLACKHOLE_REJECT:
+			vty_out(vty, " (ICMP unreachable)");
+			break;
+		case BLACKHOLE_ADMINPROHIB:
+			vty_out(vty, " (ICMP admin-prohibited)");
+			break;
+		case BLACKHOLE_NULL:
+			vty_out(vty, " (blackhole)");
+			break;
+		case BLACKHOLE_UNSPEC:
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+
+	struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
+
+	if (vrf)
+		vty_out(vty, " (vrf %s)", vrf->name);
+	else
+		vty_out(vty, " (vrf UNKNOWN)");
+
+	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+		vty_out(vty, " inactive");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
+		vty_out(vty, " onlink");
+
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+		vty_out(vty, " (recursive)");
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		if (nexthop->src.ipv4.s_addr) {
+			if (inet_ntop(AF_INET, &nexthop->src.ipv4, buf,
+				      sizeof(buf)))
+				vty_out(vty, ", src %s", buf);
+		}
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any)) {
+			if (inet_ntop(AF_INET6, &nexthop->src.ipv6, buf,
+				      sizeof(buf)))
+				vty_out(vty, ", src %s", buf);
+		}
+		break;
+	default:
+		break;
+	}
+
+	/* Label information */
+	if (nexthop->nh_label && nexthop->nh_label->num_labels) {
+		vty_out(vty, ", label %s",
+			mpls_label2str(nexthop->nh_label->num_labels,
+				       nexthop->nh_label->label, buf,
+				       sizeof(buf), 1));
+	}
+
+	if (nexthop->weight)
+		vty_out(vty, ", weight %u", nexthop->weight);
+
+	vty_out(vty, "\n");
+
+}
+
 static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 {
 	struct nexthop *nexthop = NULL;
 	struct nhg_connected *rb_node_dep = NULL;
-	char buf[SRCDEST2STR_BUFFER];
-
 	struct vrf *nhe_vrf = vrf_lookup_by_id(nhe->vrf_id);
+	struct nexthop_group *backup_nhg;
 
 	vty_out(vty, "ID: %u\n", nhe->id);
 	vty_out(vty, "     RefCnt: %d\n", nhe->refcnt);
@@ -1062,6 +1165,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 		vty_out(vty, "\n");
 	}
 
+	/* Output nexthops */
 	for (ALL_NEXTHOPS(nhe->nhg, nexthop)) {
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			vty_out(vty, "          ");
@@ -1069,100 +1173,23 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 			/* Make recursive nexthops a bit more clear */
 			vty_out(vty, "       ");
 
-		switch (nexthop->type) {
-		case NEXTHOP_TYPE_IPV4:
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			vty_out(vty, " %s", inet_ntoa(nexthop->gate.ipv4));
-			if (nexthop->ifindex)
-				vty_out(vty, ", %s",
-					ifindex2ifname(nexthop->ifindex,
-						       nexthop->vrf_id));
-			break;
-		case NEXTHOP_TYPE_IPV6:
-		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			vty_out(vty, " %s",
-				inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
-					  sizeof(buf)));
-			if (nexthop->ifindex)
-				vty_out(vty, ", %s",
-					ifindex2ifname(nexthop->ifindex,
-						       nexthop->vrf_id));
-			break;
+		show_nhg_nh_helper(vty, nexthop);
+	}
 
-		case NEXTHOP_TYPE_IFINDEX:
-			vty_out(vty, " directly connected %s",
-				ifindex2ifname(nexthop->ifindex,
-					       nexthop->vrf_id));
-			break;
-		case NEXTHOP_TYPE_BLACKHOLE:
-			vty_out(vty, " unreachable");
-			switch (nexthop->bh_type) {
-			case BLACKHOLE_REJECT:
-				vty_out(vty, " (ICMP unreachable)");
-				break;
-			case BLACKHOLE_ADMINPROHIB:
-				vty_out(vty, " (ICMP admin-prohibited)");
-				break;
-			case BLACKHOLE_NULL:
-				vty_out(vty, " (blackhole)");
-				break;
-			case BLACKHOLE_UNSPEC:
-				break;
-			}
-			break;
-		default:
-			break;
+	/* Output backup nexthops (if any) */
+	backup_nhg = zebra_nhg_get_backup_nhg(nhe);
+	if (backup_nhg) {
+		vty_out(vty, "     Backups:\n");
+
+		for (ALL_NEXTHOPS_PTR(backup_nhg, nexthop)) {
+			if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+				vty_out(vty, "          ");
+			else
+				/* Make recursive nexthops a bit more clear */
+				vty_out(vty, "       ");
+
+			show_nhg_nh_helper(vty, nexthop);
 		}
-
-		struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
-
-		if (vrf)
-			vty_out(vty, " (vrf %s)", vrf->name);
-		else
-			vty_out(vty, " (vrf UNKNOWN)");
-
-		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-			vty_out(vty, " inactive");
-
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
-			vty_out(vty, " onlink");
-
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-			vty_out(vty, " (recursive)");
-
-		switch (nexthop->type) {
-		case NEXTHOP_TYPE_IPV4:
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			if (nexthop->src.ipv4.s_addr) {
-				if (inet_ntop(AF_INET, &nexthop->src.ipv4, buf,
-					      sizeof(buf)))
-					vty_out(vty, ", src %s", buf);
-			}
-			break;
-		case NEXTHOP_TYPE_IPV6:
-		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any)) {
-				if (inet_ntop(AF_INET6, &nexthop->src.ipv6, buf,
-					      sizeof(buf)))
-					vty_out(vty, ", src %s", buf);
-			}
-			break;
-		default:
-			break;
-		}
-
-		/* Label information */
-		if (nexthop->nh_label && nexthop->nh_label->num_labels) {
-			vty_out(vty, ", label %s",
-				mpls_label2str(nexthop->nh_label->num_labels,
-					       nexthop->nh_label->label, buf,
-					       sizeof(buf), 1));
-		}
-
-		if (nexthop->weight)
-			vty_out(vty, ", weight %u", nexthop->weight);
-
-		vty_out(vty, "\n");
 	}
 
 	if (!zebra_nhg_dependents_is_empty(nhe)) {
