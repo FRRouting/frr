@@ -1086,7 +1086,7 @@ int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
 			       sizeof(addr_str));
 
 	memset(&nhop, 0, sizeof(nhop));
-	if (!pim_ecmp_nexthop_lookup(pim, &nhop, src, grp, 0)) {
+	if (!pim_ecmp_nexthop_lookup(pim, &nhop, src, grp, 1)) {
 		if (PIM_DEBUG_PIM_NHT)
 			zlog_debug(
 				"%s: could not find nexthop ifindex for address %s(%s)",
