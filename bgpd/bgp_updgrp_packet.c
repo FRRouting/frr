@@ -330,8 +330,6 @@ void bpacket_queue_remove_peer(struct peer_af *paf)
 
 	q = PAF_PKTQ(paf);
 	assert(q);
-	if (!q)
-		return;
 
 	LIST_REMOVE(paf, pkt_train);
 	paf->next_pkt_to_send = NULL;

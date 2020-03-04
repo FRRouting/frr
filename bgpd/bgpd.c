@@ -1200,8 +1200,6 @@ struct peer *peer_new(struct bgp *bgp)
 
 	/* bgp argument is absolutely required */
 	assert(bgp);
-	if (!bgp)
-		return NULL;
 
 	/* Allocate new peer. */
 	peer = XCALLOC(MTYPE_BGP_PEER, sizeof(struct peer));

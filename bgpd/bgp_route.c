@@ -122,8 +122,6 @@ struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 	struct bgp_node *prn = NULL;
 
 	assert(table);
-	if (!table)
-		return NULL;
 
 	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
 	    || (safi == SAFI_EVPN)) {
@@ -4909,8 +4907,6 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 #endif
 
 	assert(bgp_static);
-	if (!bgp_static)
-		return;
 
 	rn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, NULL);
 
