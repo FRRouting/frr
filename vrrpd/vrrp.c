@@ -2219,15 +2219,47 @@ void vrrp_if_del(struct interface *ifp)
 	vrrp_if_down(ifp);
 
 	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
-		if ((vr->v4->mvl_ifp == ifp || vr->ifp == ifp)
-		    && vr->v4->fsm.state != VRRP_STATE_INITIALIZE) {
-			vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
-			vr->v4->mvl_ifp = NULL;
-		} else if ((vr->v6->mvl_ifp == ifp || vr->ifp == ifp)
-			   && vr->v6->fsm.state != VRRP_STATE_INITIALIZE) {
-			vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
-			vr->v6->mvl_ifp = NULL;
+		if (vr->v4->mvl_ifp == ifp || vr->ifp == ifp) {
+			/*
+			 * If either of our interfaces goes away, we need to
+			 * down the session
+			 */
+			if (vr->v4->fsm.state != VRRP_STATE_INITIALIZE)
+				vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
+
+			/*
+			 * If it was the macvlan, then it wasn't explicitly
+			 * configured and will be deleted when we return from
+			 * this function, so we need to lose the reference
+			 */
+			if (ifp == vr->v4->mvl_ifp)
+				vr->v4->mvl_ifp = NULL;
+
+		} else if (vr->v6->mvl_ifp == ifp || vr->ifp == ifp) {
+			/*
+			 * If either of our interfaces goes away, we need to
+			 * down the session
+			 */
+			if (vr->v6->fsm.state != VRRP_STATE_INITIALIZE)
+				vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
+
+			/*
+			 * If it was the macvlan, then it wasn't explicitly
+			 * configured and will be deleted when we return from
+			 * this function, so we need to lose the reference
+			 */
+			if (ifp == vr->v6->mvl_ifp)
+				vr->v6->mvl_ifp = NULL;
 		}
+
+		/*
+		 * We shouldn't need to lose the reference if it's the primary
+		 * interface, because that was configured explicitly in our
+		 * config, and thus will be kept as a stub; to avoid stupid
+		 * bugs, double check that
+		 */
+		if (ifp == vr->ifp)
+			assert(ifp->configured);
 	}
 
 	list_delete(&vrs);
