@@ -122,6 +122,8 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	struct prefix_sg sg;
 	int l;
 
+	++pim_ifp->pim_ifstat_reg_stop_recv;
+
 	memset(&sg, 0, sizeof(struct prefix_sg));
 	l = pim_parse_addr_group(&sg, buf, buf_size);
 	buf += l;
