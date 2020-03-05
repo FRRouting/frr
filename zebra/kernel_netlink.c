@@ -697,8 +697,7 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
 			 * but noticing it for later.
 			 */
 			err_nlh = &err->msg;
-			zlog_debug("%s: Received %s extended Ack",
-				   __PRETTY_FUNCTION__,
+			zlog_debug("%s: Received %s extended Ack", __func__,
 				   nl_msg_type_to_str(err_nlh->nlmsg_type));
 		}
 	}
@@ -844,7 +843,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 					if (IS_ZEBRA_DEBUG_KERNEL) {
 						zlog_debug(
 							"%s: %s ACK: type=%s(%u), seq=%u, pid=%u",
-							__FUNCTION__, nl->name,
+							__func__, nl->name,
 							nl_msg_type_to_str(
 								err->msg.nlmsg_type),
 							err->msg.nlmsg_type,

@@ -186,13 +186,12 @@ static void pim_mlag_up_peer_add(struct mlag_mroute_add *msg)
 		 * doesn't already exist.
 		 */
 		if (!PIM_UPSTREAM_FLAG_TEST_MLAG_PEER(up->flags))
-			pim_upstream_ref(up,
-					PIM_UPSTREAM_FLAG_MASK_MLAG_PEER,
-					__PRETTY_FUNCTION__);
+			pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_MLAG_PEER,
+					 __func__);
 	} else {
 		PIM_UPSTREAM_FLAG_SET_MLAG_PEER(flags);
-		up = pim_upstream_add(pim, &sg, NULL /*iif*/, flags,
-				__PRETTY_FUNCTION__, NULL /*if_ch*/);
+		up = pim_upstream_add(pim, &sg, NULL /*iif*/, flags, __func__,
+				      NULL /*if_ch*/);
 
 		if (!up) {
 			if (PIM_DEBUG_MLAG)
@@ -218,7 +217,7 @@ static void pim_mlag_up_peer_deref(struct pim_instance *pim,
 		return;
 
 	PIM_UPSTREAM_FLAG_UNSET_MLAG_PEER(up->flags);
-	up = pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
+	up = pim_upstream_del(pim, up, __func__);
 	if (up)
 		pim_mlag_up_df_role_elect(pim, up);
 }
@@ -306,7 +305,7 @@ static void pim_mlag_up_peer_del_all(void)
 			 * This is the deletion of the reference added
 			 * above
 			 */
-			pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
+			pim_upstream_del(pim, up, __func__);
 		}
 	}
 

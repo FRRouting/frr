@@ -684,7 +684,7 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 			zlog_info(
 				"%s:[%s:%s], %s -> %s): "
 				"scheduling new router-LSA origination",
-				__PRETTY_FUNCTION__, inet_ntoa(nbr->router_id),
+				__func__, inet_ntoa(nbr->router_id),
 				ospf_get_name(oi->ospf),
 				lookup_msg(ospf_nsm_state_msg, old_state, NULL),
 				lookup_msg(ospf_nsm_state_msg, state, NULL));

@@ -600,8 +600,9 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 	/* Don't try to register if Zebra doesn't know of this instance. */
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: No zebra instance to talk to, not installing remote macip",
-				   __PRETTY_FUNCTION__);
+			zlog_debug(
+				"%s: No zebra instance to talk to, not installing remote macip",
+				__func__);
 		return 0;
 	}
 	s = zclient->obuf;
@@ -662,8 +663,9 @@ static int bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 	/* Don't try to register if Zebra doesn't know of this instance. */
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: No zebra instance to talk to, not installing remote vtep",
-				   __PRETTY_FUNCTION__);
+			zlog_debug(
+				"%s: No zebra instance to talk to, not installing remote vtep",
+				__func__);
 		return 0;
 	}
 

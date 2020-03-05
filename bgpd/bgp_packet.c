@@ -1348,7 +1348,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	if (bgp_getsockname(peer) < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s: bgp_getsockname() failed for peer: %s",
-			     __FUNCTION__, peer->host);
+			     __func__, peer->host);
 		return BGP_Stop;
 	}
 

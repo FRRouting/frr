@@ -126,7 +126,7 @@ static int igmp_source_timer(struct thread *t)
 			       sizeof(source_str));
 		zlog_debug(
 			"%s: Source timer expired for group %s source %s on %s",
-			__PRETTY_FUNCTION__, group_str, source_str,
+			__func__, group_str, source_str,
 			group->group_igmp_sock->interface->name);
 	}
 
@@ -332,8 +332,7 @@ void igmp_source_free(struct igmp_source *source)
 static void source_channel_oil_detach(struct igmp_source *source)
 {
 	if (source->source_channel_oil) {
-		pim_channel_oil_del(source->source_channel_oil,
-				    __PRETTY_FUNCTION__);
+		pim_channel_oil_del(source->source_channel_oil, __func__);
 		source->source_channel_oil = NULL;
 	}
 }
@@ -378,7 +377,7 @@ void igmp_source_delete(struct igmp_source *source)
 			       sizeof(source_str));
 		zlog_warn(
 			"%s: forwarding=ON(!) IGMP source %s for group %s from socket %d interface %s",
-			__PRETTY_FUNCTION__, source_str, group_str,
+			__func__, source_str, group_str,
 			group->group_igmp_sock->fd,
 			group->group_igmp_sock->interface->name);
 		/* warning only */
@@ -545,8 +544,8 @@ void igmpv3_report_isin(struct igmp_sock *igmp, struct in_addr from,
 			struct in_addr group_addr, int num_sources,
 			struct in_addr *sources)
 {
-	on_trace(__PRETTY_FUNCTION__, igmp->interface, from, group_addr,
-		 num_sources, sources);
+	on_trace(__func__, igmp->interface, from, group_addr, num_sources,
+		 sources);
 
 	allow(igmp, from, group_addr, num_sources, sources);
 }
@@ -654,8 +653,7 @@ void igmpv3_report_isex(struct igmp_sock *igmp, struct in_addr from,
 	struct interface *ifp = igmp->interface;
 	struct igmp_group *group;
 
-	on_trace(__PRETTY_FUNCTION__, ifp, from, group_addr, num_sources,
-		 sources);
+	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
 	if (pim_is_group_filtered(ifp->info, &group_addr))
 		return;
@@ -774,8 +772,7 @@ void igmpv3_report_toin(struct igmp_sock *igmp, struct in_addr from,
 	struct interface *ifp = igmp->interface;
 	struct igmp_group *group;
 
-	on_trace(__PRETTY_FUNCTION__, ifp, from, group_addr, num_sources,
-		 sources);
+	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
 	/*
 	 * If the requested filter mode is INCLUDE *and* the requested source
@@ -937,8 +934,7 @@ void igmpv3_report_toex(struct igmp_sock *igmp, struct in_addr from,
 	struct interface *ifp = igmp->interface;
 	struct igmp_group *group;
 
-	on_trace(__PRETTY_FUNCTION__, ifp, from, group_addr, num_sources,
-		 sources);
+	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
 	/* non-existant group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
@@ -964,8 +960,8 @@ void igmpv3_report_allow(struct igmp_sock *igmp, struct in_addr from,
 			 struct in_addr group_addr, int num_sources,
 			 struct in_addr *sources)
 {
-	on_trace(__PRETTY_FUNCTION__, igmp->interface, from, group_addr,
-		 num_sources, sources);
+	on_trace(__func__, igmp->interface, from, group_addr, num_sources,
+		 sources);
 
 	allow(igmp, from, group_addr, num_sources, sources);
 }
@@ -1469,8 +1465,7 @@ void igmpv3_report_block(struct igmp_sock *igmp, struct in_addr from,
 	struct interface *ifp = igmp->interface;
 	struct igmp_group *group;
 
-	on_trace(__PRETTY_FUNCTION__, ifp, from, group_addr, num_sources,
-		 sources);
+	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
 	/* non-existant group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
@@ -1524,7 +1519,7 @@ void igmp_group_timer_lower_to_lmqt(struct igmp_group *group)
 			       sizeof(group_str));
 		zlog_debug(
 			"%s: group %s on %s: LMQC=%d LMQI=%d dsec LMQT=%d msec",
-			__PRETTY_FUNCTION__, group_str, ifname, lmqc, lmqi_dsec,
+			__func__, group_str, ifname, lmqc, lmqi_dsec,
 			lmqt_msec);
 	}
 
@@ -1564,8 +1559,8 @@ void igmp_source_timer_lower_to_lmqt(struct igmp_source *source)
 			       sizeof(source_str));
 		zlog_debug(
 			"%s: group %s source %s on %s: LMQC=%d LMQI=%d dsec LMQT=%d msec",
-			__PRETTY_FUNCTION__, group_str, source_str, ifname,
-			lmqc, lmqi_dsec, lmqt_msec);
+			__func__, group_str, source_str, ifname, lmqc,
+			lmqi_dsec, lmqt_msec);
 	}
 
 	igmp_source_timer_on(group, source, lmqt_msec);
@@ -1593,8 +1588,7 @@ void igmp_v3_send_query(struct igmp_group *group, int fd, const char *ifname,
 		flog_err(
 			EC_LIB_DEVELOPMENT,
 			"%s %s: unable to send: msg_size=%zd larger than query_buf_size=%d",
-			__FILE__, __PRETTY_FUNCTION__, msg_size,
-			query_buf_size);
+			__FILE__, __func__, msg_size, query_buf_size);
 		return;
 	}
 
@@ -1691,7 +1685,7 @@ void igmp_v3_send_query(struct igmp_group *group, int fd, const char *ifname,
 				       sizeof(group_str));
 			zlog_warn(
 				"%s: to %s on %s: group=%s sources=%d: s_flag is clear for general query!",
-				__PRETTY_FUNCTION__, dst_str, ifname, group_str,
+				__func__, dst_str, ifname, group_str,
 				num_sources);
 		}
 	}

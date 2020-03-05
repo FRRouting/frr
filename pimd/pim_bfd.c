@@ -125,7 +125,7 @@ static void pim_bfd_reg_dereg_nbr(struct pim_neighbor *nbr, int command)
 		char str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<bfd_nbr?>", nbr->source_addr, str,
 			       sizeof(str));
-		zlog_debug("%s Nbr %s %s with BFD", __PRETTY_FUNCTION__, str,
+		zlog_debug("%s Nbr %s %s with BFD", __func__, str,
 			   bfd_get_command_dbg_str(command));
 	}
 
@@ -199,8 +199,8 @@ void pim_bfd_if_param_set(struct interface *ifp, uint32_t min_rx,
 
 	if (pim_ifp->bfd_info) {
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug("%s: interface %s has bfd_info",
-				   __PRETTY_FUNCTION__, ifp->name);
+			zlog_debug("%s: interface %s has bfd_info", __func__,
+				   ifp->name);
 	}
 	if (command)
 		pim_bfd_reg_dereg_all_nbr(ifp, command);

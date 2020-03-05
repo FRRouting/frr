@@ -595,8 +595,8 @@ bool pbr_map_check_valid(const char *name)
 	pbrm = pbrm_find(name);
 	if (!pbrm) {
 		DEBUGD(&pbr_dbg_map,
-		       "%s: Specified PBR-MAP(%s) does not exist?",
-		       __PRETTY_FUNCTION__, name);
+		       "%s: Specified PBR-MAP(%s) does not exist?", __func__,
+		       name);
 		return false;
 	}
 
@@ -726,8 +726,8 @@ void pbr_map_check(struct pbr_map_sequence *pbrms)
 	bool install;
 
 	pbrm = pbrms->parent;
-	DEBUGD(&pbr_dbg_map, "%s: for %s(%u)", __PRETTY_FUNCTION__,
-	       pbrm->name, pbrms->seqno);
+	DEBUGD(&pbr_dbg_map, "%s: for %s(%u)", __func__, pbrm->name,
+	       pbrms->seqno);
 	if (pbr_map_check_valid(pbrm->name))
 		DEBUGD(&pbr_dbg_map, "We are totally valid %s",
 		       pbrm->name);
@@ -735,16 +735,13 @@ void pbr_map_check(struct pbr_map_sequence *pbrms)
 	if (pbrms->reason == PBR_MAP_VALID_SEQUENCE_NUMBER) {
 		install = true;
 		DEBUGD(&pbr_dbg_map, "%s: Installing %s(%u) reason: %" PRIu64,
-		       __PRETTY_FUNCTION__, pbrm->name, pbrms->seqno,
-		       pbrms->reason);
+		       __func__, pbrm->name, pbrms->seqno, pbrms->reason);
 		DEBUGD(&pbr_dbg_map,
 		       "\tSending PBR_MAP_POLICY_INSTALL event");
 	} else {
 		install = false;
-		DEBUGD(&pbr_dbg_map,
-		       "%s: Removing %s(%u) reason: %" PRIu64,
-		       __PRETTY_FUNCTION__, pbrm->name,
-		       pbrms->seqno, pbrms->reason);
+		DEBUGD(&pbr_dbg_map, "%s: Removing %s(%u) reason: %" PRIu64,
+		       __func__, pbrm->name, pbrms->seqno, pbrms->reason);
 	}
 
 	if (install)

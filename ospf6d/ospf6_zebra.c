@@ -64,10 +64,9 @@ static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV)) {
 		char buf[INET_ADDRSTRLEN];
 
-		zlog_debug("%s: zebra router-id %s update",
-			   __PRETTY_FUNCTION__,
-			   inet_ntop(AF_INET, &router_id.u.prefix4,
-				     buf, INET_ADDRSTRLEN));
+		zlog_debug("%s: zebra router-id %s update", __func__,
+			   inet_ntop(AF_INET, &router_id.u.prefix4, buf,
+				     INET_ADDRSTRLEN));
 	}
 
 	ospf6_router_id_update();

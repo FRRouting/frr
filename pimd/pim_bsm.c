@@ -145,8 +145,7 @@ static struct bsgrp_node *pim_bsm_new_bsgrp_node(struct route_table *rt,
 
 	rn = route_node_get(rt, grp);
 	if (!rn) {
-		zlog_warn("%s: route node creation failed",
-			  __PRETTY_FUNCTION__);
+		zlog_warn("%s: route node creation failed", __func__);
 		return NULL;
 	}
 	bsgrp = XCALLOC(MTYPE_PIM_BSGRP_NODE, sizeof(struct bsgrp_node));
@@ -180,7 +179,7 @@ static int pim_on_bs_timer(struct thread *t)
 
 	if (PIM_DEBUG_BSM)
 		zlog_debug("%s: Bootstrap Timer expired for scope: %d",
-			   __PRETTY_FUNCTION__, scope->sz_id);
+			   __func__, scope->sz_id);
 
 	/* Remove next hop tracking for the bsr */
 	nht_p.family = AF_INET;
@@ -189,7 +188,7 @@ static int pim_on_bs_timer(struct thread *t)
 	if (PIM_DEBUG_BSM) {
 		prefix2str(&nht_p, buf, sizeof(buf));
 		zlog_debug("%s: Deregister BSR addr %s with Zebra NHT",
-			   __PRETTY_FUNCTION__, buf);
+			   __func__, buf);
 	}
 	pim_delete_tracked_nexthop(scope->pim, &nht_p, NULL, NULL,
 				   is_bsr_tracking);
@@ -209,8 +208,7 @@ static int pim_on_bs_timer(struct thread *t)
 		bsgrp_node = (struct bsgrp_node *)rn->info;
 		if (!bsgrp_node) {
 			if (PIM_DEBUG_BSM)
-				zlog_debug("%s: bsgrp_node is null",
-					   __PRETTY_FUNCTION__);
+				zlog_debug("%s: bsgrp_node is null", __func__);
 			continue;
 		}
 		/* Give grace time for rp to continue for another hold time */
@@ -231,8 +229,8 @@ static int pim_on_bs_timer(struct thread *t)
 static void pim_bs_timer_stop(struct bsm_scope *scope)
 {
 	if (PIM_DEBUG_BSM)
-		zlog_debug("%s : BS timer being stopped of sz: %d",
-			   __PRETTY_FUNCTION__, scope->sz_id);
+		zlog_debug("%s : BS timer being stopped of sz: %d", __func__,
+			   scope->sz_id);
 	THREAD_OFF(scope->bs_timer);
 }
 
@@ -240,14 +238,14 @@ static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout)
 {
 	if (!scope) {
 		if (PIM_DEBUG_BSM)
-			zlog_debug("%s : Invalid scope(NULL).",
-				   __PRETTY_FUNCTION__);
+			zlog_debug("%s : Invalid scope(NULL).", __func__);
 		return;
 	}
 	THREAD_OFF(scope->bs_timer);
 	if (PIM_DEBUG_BSM)
-		zlog_debug("%s : starting bs timer for scope %d with timeout %d secs",
-			   __PRETTY_FUNCTION__, scope->sz_id, bs_timeout);
+		zlog_debug(
+			"%s : starting bs timer for scope %d with timeout %d secs",
+			__func__, scope->sz_id, bs_timeout);
 	thread_add_timer(router->master, pim_on_bs_timer, scope, bs_timeout,
 			 &scope->bs_timer);
 }
@@ -376,8 +374,7 @@ static void pim_g2rp_timer_start(struct bsm_rpinfo *bsrp, int hold_time)
 {
 	if (!bsrp) {
 		if (PIM_DEBUG_BSM)
-			zlog_debug("%s : Invalid brsp(NULL).",
-				   __PRETTY_FUNCTION__);
+			zlog_debug("%s : Invalid brsp(NULL).", __func__);
 		return;
 	}
 	THREAD_OFF(bsrp->g2rp_timer);
@@ -386,8 +383,7 @@ static void pim_g2rp_timer_start(struct bsm_rpinfo *bsrp, int hold_time)
 
 		zlog_debug(
 			"%s : starting g2rp timer for grp: %s - rp: %s with timeout  %d secs(Actual Hold time : %d secs)",
-			__PRETTY_FUNCTION__,
-			prefix2str(&bsrp->bsgrp_node->group, buf, 48),
+			__func__, prefix2str(&bsrp->bsgrp_node->group, buf, 48),
 			inet_ntoa(bsrp->rp_address), hold_time,
 			bsrp->rp_holdtime);
 	}
@@ -411,7 +407,7 @@ static void pim_g2rp_timer_stop(struct bsm_rpinfo *bsrp)
 		char buf[48];
 
 		zlog_debug("%s : stopping g2rp timer for grp: %s - rp: %s",
-			   __PRETTY_FUNCTION__,
+			   __func__,
 			   prefix2str(&bsrp->bsgrp_node->group, buf, 48),
 			   inet_ntoa(bsrp->rp_address));
 	}
@@ -466,8 +462,7 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 	if (!rn || (prefix_same(&rp_all->group, &bsgrp_node->group)
 		    && pim_rpf_addr_is_inaddr_none(&rp_all->rp))) {
 		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: Route node doesn't exist",
-				   __PRETTY_FUNCTION__);
+			zlog_debug("%s: Route node doesn't exist", __func__);
 		if (pend)
 			pim_rp_new(pim, pend->rp_address, bsgrp_node->group,
 				   NULL, RP_SRC_BSR);
@@ -507,7 +502,7 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 			if (PIM_DEBUG_BSM) {
 				zlog_debug(
 					"%s: Both bsrp and partial list are empty",
-					__PRETTY_FUNCTION__);
+					__func__);
 			}
 			pim_free_bsgrp_node(bsgrp_node->scope->bsrp_table,
 					    &bsgrp_node->group);
@@ -523,7 +518,7 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 					    &bsgrp_node->group);
 			if (PIM_DEBUG_BSM) {
 				zlog_debug("%s:Pend List is null,del grp node",
-					   __PRETTY_FUNCTION__);
+					   __func__);
 			}
 			pim_free_bsgrp_data(bsgrp_node);
 			return;
@@ -540,7 +535,7 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
 					"%s: Partial list is empty, static rp exists",
-					__PRETTY_FUNCTION__);
+					__func__);
 			pim_free_bsgrp_node(bsgrp_node->scope->bsrp_table,
 					    &bsgrp_node->group);
 			pim_free_bsgrp_data(bsgrp_node);
@@ -587,8 +582,8 @@ static bool pim_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr,
 			char bsr_str[INET_ADDRSTRLEN];
 
 			pim_inet4_dump("<bsr?>", bsr, bsr_str, sizeof(bsr_str));
-			zlog_debug("%s : No route to BSR address %s",
-				   __PRETTY_FUNCTION__, bsr_str);
+			zlog_debug("%s : No route to BSR address %s", __func__,
+				   bsr_str);
 		}
 		return false;
 	}
@@ -634,7 +629,7 @@ static void pim_bsm_update(struct pim_instance *pim, struct in_addr bsr,
 				prefix2str(&nht_p, buf, sizeof(buf));
 				zlog_debug(
 					"%s: Deregister BSR addr %s with Zebra NHT",
-					__PRETTY_FUNCTION__, buf);
+					__func__, buf);
 			}
 			pim_delete_tracked_nexthop(pim, &nht_p, NULL, NULL,
 						   is_bsr_tracking);
@@ -645,7 +640,7 @@ static void pim_bsm_update(struct pim_instance *pim, struct in_addr bsr,
 			prefix2str(&nht_p, buf, sizeof(buf));
 			zlog_debug(
 				"%s: NHT Register BSR addr %s with Zebra NHT",
-				__PRETTY_FUNCTION__, buf);
+				__func__, buf);
 		}
 
 		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
@@ -670,21 +665,21 @@ static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,
 	if (!pim_ifp) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s: Pim interface not available for %s",
-				   __PRETTY_FUNCTION__, ifp->name);
+				   __func__, ifp->name);
 		return false;
 	}
 
 	if (pim_ifp->pim_sock_fd == -1) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s: Pim sock not available for %s",
-				   __PRETTY_FUNCTION__, ifp->name);
+				   __func__, ifp->name);
 		return false;
 	}
 
 	if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
 			 dst_addr, buf, len, ifp->name)) {
 		zlog_warn("%s: Could not send BSM message on interface: %s",
-			  __PRETTY_FUNCTION__, ifp->name);
+			  __func__, ifp->name);
 		return false;
 	}
 
@@ -715,11 +710,11 @@ static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
 	if (pim_mtu < (PIM_MIN_BSM_LEN)) {
 		zlog_warn(
 			"%s: mtu(pim mtu: %d) size less than minimum bootstrap len",
-			__PRETTY_FUNCTION__, pim_mtu);
+			__func__, pim_mtu);
 		if (PIM_DEBUG_BSM)
 			zlog_debug(
 				"%s: mtu (pim mtu:%d) less than minimum bootstrap len",
-				__PRETTY_FUNCTION__, pim_mtu);
+				__func__, pim_mtu);
 		return false;
 	}
 
@@ -886,8 +881,7 @@ static void pim_bsm_fwd_whole_sz(struct pim_instance *pim, uint8_t *buf,
 						dst_addr, no_fwd);
 			if (PIM_DEBUG_BSM)
 				zlog_debug("%s: pim_bsm_frag_send returned %s",
-					   __PRETTY_FUNCTION__,
-					   ret ? "TRUE" : "FALSE");
+					   __func__, ret ? "TRUE" : "FALSE");
 		} else {
 			pim_msg_build_header(buf, len, PIM_MSG_TYPE_BOOTSTRAP,
 					     no_fwd);
@@ -895,7 +889,7 @@ static void pim_bsm_fwd_whole_sz(struct pim_instance *pim, uint8_t *buf,
 				if (PIM_DEBUG_BSM)
 					zlog_debug(
 						"%s: pim_bsm_send_intf returned false",
-						__PRETTY_FUNCTION__);
+						__func__);
 			}
 		}
 	}
@@ -997,7 +991,7 @@ struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 	if (!rn) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s: Route node doesn't exist for the group",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 		return NULL;
 	}
 	bsgrp = rn->info;
@@ -1063,12 +1057,12 @@ static bool pim_install_bsm_grp_rp(struct pim_instance *pim,
 		if (PIM_DEBUG_BSM)
 			zlog_debug(
 				"%s, bs_rpinfo node added to the partial bs_rplist.\r\n",
-				__PRETTY_FUNCTION__);
+				__func__);
 		return true;
 	}
 
 	if (PIM_DEBUG_BSM)
-		zlog_debug("%s: list node not added\n", __PRETTY_FUNCTION__);
+		zlog_debug("%s: list node not added\n", __func__);
 
 	XFREE(MTYPE_PIM_BSRP_NODE, bsm_rpinfo);
 	return false;
@@ -1087,7 +1081,7 @@ static void pim_update_pending_rp_cnt(struct bsm_scope *sz,
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
 					"%s,Received a new BSM ,so clear the pending bs_rpinfo list.\r\n",
-					__PRETTY_FUNCTION__);
+					__func__);
 			list_delete_all_node(bsgrp->partial_bsrp_list);
 			bsgrp->pend_rp_cnt = total_rp_count;
 		}
@@ -1114,7 +1108,7 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
 					"%s: buflen received %d is less than the internal data structure of the packet would suggest",
-					__PRETTY_FUNCTION__, buflen);
+					__func__, buflen);
 			return false;
 		}
 		/* Extract Group tlv from BSM */
@@ -1127,7 +1121,7 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 				       sizeof(grp_str));
 			zlog_debug(
 				"%s, Group %s  Rpcount:%d Fragment-Rp-count:%d\r\n",
-				__PRETTY_FUNCTION__, grp_str, grpinfo.rp_count,
+				__func__, grp_str, grpinfo.rp_count,
 				grpinfo.frag_rp_count);
 		}
 
@@ -1142,7 +1136,7 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 					       grp_str, sizeof(grp_str));
 				zlog_debug(
 					"%s, Rp count is zero for group: %s\r\n",
-					__PRETTY_FUNCTION__, grp_str);
+					__func__, grp_str);
 			}
 			return false;
 		}
@@ -1150,8 +1144,9 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 		group.family = AF_INET;
 		if (grpinfo.group.mask > IPV4_MAX_BITLEN) {
 			if (PIM_DEBUG_BSM)
-				zlog_debug("%s, v4 prefix length specified: %d is too long",
-					   __PRETTY_FUNCTION__, grpinfo.group.mask);
+				zlog_debug(
+					"%s, v4 prefix length specified: %d is too long",
+					__func__, grpinfo.group.mask);
 			return false;
 		}
 		group.prefixlen = grpinfo.group.mask;
@@ -1164,7 +1159,7 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
 					"%s, Create new  BSM Group node.\r\n",
-					__PRETTY_FUNCTION__);
+					__func__);
 
 			/* create a new node to be added to the tree. */
 			bsgrp = pim_bsm_new_bsgrp_node(scope->bsrp_table,
@@ -1173,7 +1168,7 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 			if (!bsgrp) {
 				zlog_debug(
 					"%s, Failed to get the BSM group node.\r\n",
-					__PRETTY_FUNCTION__);
+					__func__);
 				continue;
 			}
 
@@ -1191,7 +1186,7 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 				if (PIM_DEBUG_BSM)
 					zlog_debug(
 						"%s, buflen received: %u is less than the internal data structure of the packet would suggest",
-						__PRETTY_FUNCTION__, buflen);
+						__func__, buflen);
 				return false;
 			}
 
@@ -1208,8 +1203,8 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 					       rp_str, sizeof(rp_str));
 				zlog_debug(
 					"%s, Rp address - %s; pri:%d hold:%d\r\n",
-					__PRETTY_FUNCTION__, rp_str,
-					rpinfo.rp_pri, rpinfo.rp_holdtime);
+					__func__, rp_str, rpinfo.rp_pri,
+					rpinfo.rp_holdtime);
 			}
 
 			/* Call Install api to update grp-rp mappings */
@@ -1223,7 +1218,7 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
 					"%s, Recvd all the rps for this group, so bsrp list with penidng rp list.",
-					__PRETTY_FUNCTION__);
+					__func__);
 			/* replace the bsrp_list with pending list */
 			pim_instate_pend_list(bsgrp);
 		}
@@ -1249,7 +1244,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 	if (!pim_ifp) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s: multicast not enabled on interface %s",
-				   __PRETTY_FUNCTION__, ifp->name);
+				   __func__, ifp->name);
 		return -1;
 	}
 
@@ -1259,8 +1254,8 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 
 	/* Drop if bsm processing is disabled on interface */
 	if (!pim_ifp->bsm_enable) {
-		zlog_warn("%s: BSM not enabled on interface %s",
-			  __PRETTY_FUNCTION__, ifp->name);
+		zlog_warn("%s: BSM not enabled on interface %s", __func__,
+			  ifp->name);
 		pim_ifp->pim_ifstat_bsm_cfg_miss++;
 		pim->bsm_dropped++;
 		return -1;
@@ -1268,8 +1263,9 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 
 	if (buf_size < (PIM_MSG_HEADER_LEN + sizeof(struct bsm_hdr))) {
 		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: received buffer length of %d which is too small to properly decode",
-				   __PRETTY_FUNCTION__, buf_size);
+			zlog_debug(
+				"%s: received buffer length of %d which is too small to properly decode",
+				__func__, buf_size);
 		return -1;
 	}
 
@@ -1291,7 +1287,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
 					"%s : Administratively scoped range BSM received",
-					__PRETTY_FUNCTION__);
+					__func__);
 			pim_ifp->pim_ifstat_bsm_invalid_sz++;
 			pim->bsm_dropped++;
 			return -1;
@@ -1302,7 +1298,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 	if (!is_preferred_bsr(pim, bshdr->bsr_addr.addr, bshdr->bsr_prio)) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s : Received a non-preferred BSM",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 		pim->bsm_dropped++;
 		return -1;
 	}
@@ -1316,7 +1312,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
 					"%s : nofwd_bsm received on %s when accpt_nofwd_bsm false",
-					__PRETTY_FUNCTION__, bsr_str);
+					__func__, bsr_str);
 			pim->bsm_dropped++;
 			pim_ifp->pim_ifstat_ucast_bsm_cfg_miss++;
 			return -1;
@@ -1331,7 +1327,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 				if (PIM_DEBUG_BSM)
 					zlog_debug(
 						"%s : RPF check fail for BSR address %s",
-						__PRETTY_FUNCTION__, bsr_str);
+						__func__, bsr_str);
 				pim->bsm_dropped++;
 				return -1;
 			}
@@ -1345,7 +1341,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
 					"%s : Unicast BSM not enabled on interface %s",
-					__PRETTY_FUNCTION__, ifp->name);
+					__func__, ifp->name);
 			pim_ifp->pim_ifstat_ucast_bsm_cfg_miss++;
 			pim->bsm_dropped++;
 			return -1;
@@ -1354,15 +1350,14 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 	} else {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s : Invalid destination address",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 		pim->bsm_dropped++;
 		return -1;
 	}
 
 	if (empty_bsm) {
 		if (PIM_DEBUG_BSM)
-			zlog_debug("%s : Empty Pref BSM received",
-				   __PRETTY_FUNCTION__);
+			zlog_debug("%s : Empty Pref BSM received", __func__);
 	}
 	/* Parse Update bsm rp table and install/uninstall rp if required */
 	if (!pim_bsm_parse_install_g2rp(
@@ -1371,8 +1366,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 		    (buf_size - PIM_BSM_HDR_LEN - PIM_MSG_HEADER_LEN),
 		    frag_tag)) {
 		if (PIM_DEBUG_BSM) {
-			zlog_debug("%s, Parsing BSM failed.\r\n",
-				   __PRETTY_FUNCTION__);
+			zlog_debug("%s, Parsing BSM failed.\r\n", __func__);
 		}
 		pim->bsm_dropped++;
 		return -1;
@@ -1385,7 +1379,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 	if (pim_ifp->pim->global_scope.bsm_frag_tag != frag_tag) {
 		if (PIM_DEBUG_BSM) {
 			zlog_debug("%s: Current frag tag: %d Frag teg rcvd: %d",
-				   __PRETTY_FUNCTION__,
+				   __func__,
 				   pim_ifp->pim->global_scope.bsm_frag_tag,
 				   frag_tag);
 		}

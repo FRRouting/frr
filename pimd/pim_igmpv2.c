@@ -109,7 +109,7 @@ int igmp_v2_recv_report(struct igmp_sock *igmp, struct in_addr from,
 	struct in_addr group_addr;
 	char group_str[INET_ADDRSTRLEN];
 
-	on_trace(__PRETTY_FUNCTION__, igmp->interface, from);
+	on_trace(__func__, igmp->interface, from);
 
 	if (igmp->mtrace_only)
 		return 0;
@@ -158,7 +158,7 @@ int igmp_v2_recv_leave(struct igmp_sock *igmp, struct in_addr from,
 	struct in_addr group_addr;
 	char group_str[INET_ADDRSTRLEN];
 
-	on_trace(__PRETTY_FUNCTION__, igmp->interface, from);
+	on_trace(__func__, igmp->interface, from);
 
 	if (igmp->mtrace_only)
 		return 0;

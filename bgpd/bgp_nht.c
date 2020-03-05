@@ -153,7 +153,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 			if (BGP_DEBUG(nht, NHT)) {
 				zlog_debug(
 					"%s: Attempting to register with unknown AFI %d (not %d or %d)",
-					__FUNCTION__, afi, AFI_IP, AFI_IP6);
+					__func__, afi, AFI_IP, AFI_IP6);
 			}
 			return 0;
 		}
@@ -338,7 +338,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug("%s[%s]: Failure to decode nexthop update",
-				   __PRETTY_FUNCTION__, bgp->name_pretty);
+				   __func__, bgp->name_pretty);
 		return;
 	}
 
@@ -563,7 +563,7 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 		if (BGP_DEBUG(nht, NHT)) {
 			zlog_debug(
 				"%s: Attempting to make prefix with unknown AFI %d (not %d or %d)",
-				__FUNCTION__, afi, AFI_IP, AFI_IP6);
+				__func__, afi, AFI_IP, AFI_IP6);
 		}
 		break;
 	}
@@ -591,15 +591,17 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 	/* Don't try to register if Zebra doesn't know of this instance. */
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bnc->bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: No zebra instance to talk to, not installing NHT entry",
-				   __PRETTY_FUNCTION__);
+			zlog_debug(
+				"%s: No zebra instance to talk to, not installing NHT entry",
+				__func__);
 		return;
 	}
 
 	if (!bgp_zebra_num_connects()) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: We have not connected yet, cannot send nexthops",
-				   __PRETTY_FUNCTION__);
+			zlog_debug(
+				"%s: We have not connected yet, cannot send nexthops",
+				__func__);
 	}
 	p = &(bnc->node->p);
 	if ((command == ZEBRA_NEXTHOP_REGISTER
@@ -801,9 +803,10 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 
 		if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED)) {
 			if (BGP_DEBUG(nht, NHT))
-				zlog_debug("%s: Updating peer (%s(%s)) status with NHT",
-					   __FUNCTION__, peer->host,
-					   peer->bgp->name_pretty);
+				zlog_debug(
+					"%s: Updating peer (%s(%s)) status with NHT",
+					__func__, peer->host,
+					peer->bgp->name_pretty);
 			bgp_fsm_event_update(peer, valid_nexthops);
 			SET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
 		}
@@ -882,7 +885,7 @@ void bgp_nht_register_enhe_capability_interfaces(struct peer *peer)
 	if (!sockunion2hostprefix(&peer->su, &p)) {
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug("%s: Unable to convert prefix to sockunion",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 		return;
 	}
 

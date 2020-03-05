@@ -468,7 +468,7 @@ static void *route_set_metric_compile(const char *arg)
 	if (metric > RIP_METRIC_INFINITY) {
 		zlog_info(
 			"%s: Metric specified: %ld is greater than RIP_METRIC_INFINITY, using INFINITY instead",
-			__PRETTY_FUNCTION__, metric);
+			__func__, metric);
 		mod->metric = RIP_METRIC_INFINITY;
 	} else
 		mod->metric = metric;

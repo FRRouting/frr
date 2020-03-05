@@ -2376,9 +2376,9 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 	}
 
 	if (IS_DEBUG_OSPF_PACKET(0, RECV))
-		zlog_debug("%s: fd %d(%s) on interface %d(%s)",
-			   __PRETTY_FUNCTION__, fd, ospf_get_name(ospf),
-			   ifindex, *ifp ? (*ifp)->name : "Unknown");
+		zlog_debug("%s: fd %d(%s) on interface %d(%s)", __func__, fd,
+			   ospf_get_name(ospf), ifindex,
+			   *ifp ? (*ifp)->name : "Unknown");
 	return ibuf;
 }
 
@@ -2984,8 +2984,7 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 			if (IS_DEBUG_OSPF_PACKET(0, RECV))
 				zlog_debug(
 					"%s: Unable to determine incoming interface from: %s(%s)",
-					__PRETTY_FUNCTION__,
-					inet_ntoa(iph->ip_src),
+					__func__, inet_ntoa(iph->ip_src),
 					ospf_get_name(ospf));
 			return OSPF_READ_CONTINUE;
 		}
@@ -3689,7 +3688,7 @@ static void ospf_hello_send_sub(struct ospf_interface *oi, in_addr_t addr)
 		if (oi->ospf->vrf_id)
 			zlog_debug(
 				"%s: Hello Tx interface %s ospf vrf %s id %u",
-				__PRETTY_FUNCTION__, oi->ifp->name,
+				__func__, oi->ifp->name,
 				ospf_vrf_id_to_name(oi->ospf->vrf_id),
 				oi->ospf->vrf_id);
 	}

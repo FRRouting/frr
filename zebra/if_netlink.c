@@ -616,10 +616,10 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct ifinfomsg));
 	if (len < 0) {
-		zlog_err("%s: Message received from netlink is of a broken size: %d %zu",
-			 __PRETTY_FUNCTION__,
-			 h->nlmsg_len,
-			 (size_t)NLMSG_LENGTH(sizeof(struct ifinfomsg)));
+		zlog_err(
+			"%s: Message received from netlink is of a broken size: %d %zu",
+			__func__, h->nlmsg_len,
+			(size_t)NLMSG_LENGTH(sizeof(struct ifinfomsg)));
 		return -1;
 	}
 
@@ -975,10 +975,10 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct ifaddrmsg));
 	if (len < 0) {
-		zlog_err("%s: Message received from netlink is of a broken size: %d %zu",
-			 __PRETTY_FUNCTION__,
-			 h->nlmsg_len,
-			 (size_t)NLMSG_LENGTH(sizeof(struct ifaddrmsg)));
+		zlog_err(
+			"%s: Message received from netlink is of a broken size: %d %zu",
+			__func__, h->nlmsg_len,
+			(size_t)NLMSG_LENGTH(sizeof(struct ifaddrmsg)));
 		return -1;
 	}
 
@@ -1176,9 +1176,10 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct ifinfomsg));
 	if (len < 0) {
-		zlog_err("%s: Message received from netlink is of a broken size %d %zu",
-			 __PRETTY_FUNCTION__, h->nlmsg_len,
-			 (size_t)NLMSG_LENGTH(sizeof(struct ifinfomsg)));
+		zlog_err(
+			"%s: Message received from netlink is of a broken size %d %zu",
+			__func__, h->nlmsg_len,
+			(size_t)NLMSG_LENGTH(sizeof(struct ifinfomsg)));
 		return -1;
 	}
 

@@ -236,9 +236,8 @@ int zclient_socket_connect(struct zclient *zclient)
 	ret = connect(sock, (struct sockaddr *)&zclient_addr, zclient_addr_len);
 	if (ret < 0) {
 		if (zclient_debug)
-			zlog_debug("%s connect failure: %d(%s)",
-				   __PRETTY_FUNCTION__, errno,
-				   safe_strerror(errno));
+			zlog_debug("%s connect failure: %d(%s)", __func__,
+				   errno, safe_strerror(errno));
 		close(sock);
 		return -1;
 	}
@@ -958,7 +957,7 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 	if (api->type >= ZEBRA_ROUTE_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "%s: Specified route type (%u) is not a legal value\n",
-			 __PRETTY_FUNCTION__, api->type);
+			 __func__, api->type);
 		return -1;
 	}
 	stream_putc(s, api->type);
@@ -970,7 +969,7 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 	if (api->safi < SAFI_UNICAST || api->safi >= SAFI_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "%s: Specified route SAFI (%u) is not a legal value\n",
-			 __PRETTY_FUNCTION__, api->safi);
+			 __func__, api->safi);
 		return -1;
 	}
 	stream_putc(s, api->safi);
@@ -1122,7 +1121,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	if (api->type >= ZEBRA_ROUTE_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "%s: Specified route type: %d is not a legal value\n",
-			 __PRETTY_FUNCTION__, api->type);
+			 __func__, api->type);
 		return -1;
 	}
 
@@ -1133,7 +1132,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	if (api->safi < SAFI_UNICAST || api->safi >= SAFI_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "%s: Specified route SAFI (%u) is not a legal value\n",
-			 __PRETTY_FUNCTION__, api->safi);
+			 __func__, api->safi);
 		return -1;
 	}
 
@@ -1146,7 +1145,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 			flog_err(
 				EC_LIB_ZAPI_ENCODE,
 				"%s: V4 prefixlen is %d which should not be more than 32",
-				__PRETTY_FUNCTION__, api->prefix.prefixlen);
+				__func__, api->prefix.prefixlen);
 			return -1;
 		}
 		break;
@@ -1155,14 +1154,14 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 			flog_err(
 				EC_LIB_ZAPI_ENCODE,
 				"%s: v6 prefixlen is %d which should not be more than 128",
-				__PRETTY_FUNCTION__, api->prefix.prefixlen);
+				__func__, api->prefix.prefixlen);
 			return -1;
 		}
 		break;
 	default:
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Specified family %d is not v4 or v6",
-			 __PRETTY_FUNCTION__, api->prefix.family);
+			 "%s: Specified family %d is not v4 or v6", __func__,
+			 api->prefix.family);
 		return -1;
 	}
 	STREAM_GET(&api->prefix.u.prefix, s, PSIZE(api->prefix.prefixlen));
@@ -1174,7 +1173,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 			flog_err(
 				EC_LIB_ZAPI_ENCODE,
 				"%s: SRC Prefix prefixlen received: %d is too large",
-				__PRETTY_FUNCTION__, api->src_prefix.prefixlen);
+				__func__, api->src_prefix.prefixlen);
 			return -1;
 		}
 		STREAM_GET(&api->src_prefix.prefix, s,
@@ -1185,7 +1184,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 			flog_err(
 				EC_LIB_ZAPI_ENCODE,
 				"%s: SRC prefix specified in some manner that makes no sense",
-				__PRETTY_FUNCTION__);
+				__func__);
 			return -1;
 		}
 	}
@@ -1309,8 +1308,7 @@ bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 	STREAM_GETL(s, ifi);
 
 	if (zclient_debug)
-		zlog_debug("%s: %u %u %u %u", __PRETTY_FUNCTION__, seq, prio,
-			   uni, ifi);
+		zlog_debug("%s: %u %u %u %u", __func__, seq, prio, uni, ifi);
 	*seqno = seq;
 	*priority = prio;
 	*unique = uni;
@@ -1332,7 +1330,7 @@ bool zapi_ipset_notify_decode(struct stream *s, uint32_t *unique,
 	STREAM_GETL(s, uni);
 
 	if (zclient_debug)
-		zlog_debug("%s: %u", __PRETTY_FUNCTION__, uni);
+		zlog_debug("%s: %u", __func__, uni);
 	*unique = uni;
 
 	return true;
@@ -1354,7 +1352,7 @@ bool zapi_ipset_entry_notify_decode(struct stream *s, uint32_t *unique,
 	STREAM_GET(ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
 
 	if (zclient_debug)
-		zlog_debug("%s: %u", __PRETTY_FUNCTION__, uni);
+		zlog_debug("%s: %u", __func__, uni);
 	*unique = uni;
 
 	return true;
@@ -1374,7 +1372,7 @@ bool zapi_iptable_notify_decode(struct stream *s,
 	STREAM_GETL(s, uni);
 
 	if (zclient_debug)
-		zlog_debug("%s: %u", __PRETTY_FUNCTION__, uni);
+		zlog_debug("%s: %u", __func__, uni);
 	*unique = uni;
 
 	return true;
@@ -2664,8 +2662,7 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 			if (zl->route.prefix.prefixlen > IPV4_MAX_BITLEN) {
 				zlog_debug(
 					"%s: Specified prefix length %d is greater than a v4 address can support",
-					__PRETTY_FUNCTION__,
-					zl->route.prefix.prefixlen);
+					__func__, zl->route.prefix.prefixlen);
 				return -1;
 			}
 			STREAM_GET(&zl->route.prefix.u.prefix4.s_addr, s,
@@ -2675,8 +2672,7 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 			if (zl->route.prefix.prefixlen > IPV6_MAX_BITLEN) {
 				zlog_debug(
 					"%s: Specified prefix length %d is greater than a v6 address can support",
-					__PRETTY_FUNCTION__,
-					zl->route.prefix.prefixlen);
+					__func__, zl->route.prefix.prefixlen);
 				return -1;
 			}
 			STREAM_GET(&zl->route.prefix.u.prefix6, s, psize);
@@ -2684,7 +2680,7 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 		default:
 			flog_err(EC_LIB_ZAPI_ENCODE,
 				 "%s: Specified family %u is not v4 or v6",
-				 __PRETTY_FUNCTION__, zl->route.prefix.family);
+				 __func__, zl->route.prefix.family);
 			return -1;
 		}
 

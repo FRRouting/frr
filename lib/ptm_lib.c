@@ -143,7 +143,7 @@ int ptm_lib_append_msg(ptm_lib_handle_t *hdl, void *ctxt, const char *key,
 	csv_record_t *mh_rec, *rec;
 
 	if (!p_ctxt) {
-		ERRLOG("%s: no context \n", __FUNCTION__);
+		ERRLOG("%s: no context \n", __func__);
 		return -1;
 	}
 
@@ -154,7 +154,7 @@ int ptm_lib_append_msg(ptm_lib_handle_t *hdl, void *ctxt, const char *key,
 	/* append to the hdr record */
 	rec = csv_append_record(csv, rec, 1, key);
 	if (!rec) {
-		ERRLOG("%s: Could not append key \n", __FUNCTION__);
+		ERRLOG("%s: Could not append key \n", __func__);
 		return -1;
 	}
 
@@ -162,7 +162,7 @@ int ptm_lib_append_msg(ptm_lib_handle_t *hdl, void *ctxt, const char *key,
 	/* append to the data record */
 	rec = csv_append_record(csv, rec, 1, val);
 	if (!rec) {
-		ERRLOG("%s: Could not append val \n", __FUNCTION__);
+		ERRLOG("%s: Could not append val \n", __func__);
 		return -1;
 	}
 
@@ -186,7 +186,7 @@ int ptm_lib_init_msg(ptm_lib_handle_t *hdl, int cmd_id, int type, void *in_ctxt,
 	csv = csv_init(NULL, NULL, PTMLIB_MSG_SZ);
 
 	if (!csv) {
-		ERRLOG("%s: Could not allocate csv \n", __FUNCTION__);
+		ERRLOG("%s: Could not allocate csv \n", __func__);
 		return -1;
 	}
 
@@ -194,7 +194,7 @@ int ptm_lib_init_msg(ptm_lib_handle_t *hdl, int cmd_id, int type, void *in_ctxt,
 				     cmd_id, hdl->client_name);
 
 	if (!rec) {
-		ERRLOG("%s: Could not allocate record \n", __FUNCTION__);
+		ERRLOG("%s: Could not allocate record \n", __func__);
 		csv_clean(csv);
 		csv_free(csv);
 		return -1;
@@ -202,7 +202,7 @@ int ptm_lib_init_msg(ptm_lib_handle_t *hdl, int cmd_id, int type, void *in_ctxt,
 
 	p_ctxt = calloc(1, sizeof(*p_ctxt));
 	if (!p_ctxt) {
-		ERRLOG("%s: Could not allocate context \n", __FUNCTION__);
+		ERRLOG("%s: Could not allocate context \n", __func__);
 		csv_clean(csv);
 		csv_free(csv);
 		return -1;
@@ -234,7 +234,7 @@ int ptm_lib_cleanup_msg(ptm_lib_handle_t *hdl, void *ctxt)
 	csv_t *csv;
 
 	if (!p_ctxt) {
-		ERRLOG("%s: no context \n", __FUNCTION__);
+		ERRLOG("%s: no context \n", __func__);
 		return -1;
 	}
 
@@ -254,7 +254,7 @@ int ptm_lib_complete_msg(ptm_lib_handle_t *hdl, void *ctxt, char *buf, int *len)
 	csv_record_t *rec;
 
 	if (!p_ctxt) {
-		ERRLOG("%s: no context \n", __FUNCTION__);
+		ERRLOG("%s: no context \n", __func__);
 		return -1;
 	}
 
@@ -268,7 +268,7 @@ int ptm_lib_complete_msg(ptm_lib_handle_t *hdl, void *ctxt, char *buf, int *len)
 	/* parse csv contents into string */
 	if (buf && len) {
 		if (csv_serialize(csv, buf, *len)) {
-			ERRLOG("%s: cannot serialize\n", __FUNCTION__);
+			ERRLOG("%s: cannot serialize\n", __func__);
 			return -1;
 		}
 		*len = csvlen(csv);
@@ -425,8 +425,7 @@ int ptm_lib_process_msg(ptm_lib_handle_t *hdl, int fd, char *inbuf, int inlen,
 		csv_decode(csv, inbuf);
 		p_ctxt = calloc(1, sizeof(*p_ctxt));
 		if (!p_ctxt) {
-			ERRLOG("%s: Could not allocate context \n",
-			       __FUNCTION__);
+			ERRLOG("%s: Could not allocate context \n", __func__);
 			csv_clean(csv);
 			csv_free(csv);
 			return -1;

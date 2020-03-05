@@ -210,9 +210,10 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 
 	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 	if (!zvrf) {
-		flog_err(EC_ZEBRA_VRF_NOT_FOUND,
-			 "%s: Received Up for interface but no associated zvrf: %d",
-			 __PRETTY_FUNCTION__, ifp->vrf_id);
+		flog_err(
+			EC_ZEBRA_VRF_NOT_FOUND,
+			"%s: Received Up for interface but no associated zvrf: %d",
+			__func__, ifp->vrf_id);
 		return;
 	}
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
@@ -355,9 +356,10 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 
 	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 	if (!zvrf) {
-		flog_err(EC_ZEBRA_VRF_NOT_FOUND,
-			 "%s: Received Up for interface but no associated zvrf: %d",
-			 __PRETTY_FUNCTION__, ifp->vrf_id);
+		flog_err(
+			EC_ZEBRA_VRF_NOT_FOUND,
+			"%s: Received Up for interface but no associated zvrf: %d",
+			__func__, ifp->vrf_id);
 		return;
 	}
 

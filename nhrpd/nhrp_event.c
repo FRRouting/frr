@@ -200,7 +200,7 @@ static int evmgr_reconnect(struct thread *t)
 	fd = sock_open_unix(nhrp_event_socket_path);
 	if (fd < 0) {
 		zlog_warn("%s: failure connecting nhrp-event socket: %s",
-			  __PRETTY_FUNCTION__, strerror(errno));
+			  __func__, strerror(errno));
 		zbufq_reset(&evmgr->obuf);
 		thread_add_timer(master, evmgr_reconnect, evmgr, 10,
 				 &evmgr->t_reconnect);

@@ -146,8 +146,8 @@ int wheel_add_item(struct timer_wheel *wheel, void *item)
 	slot = (*wheel->slot_key)(item);
 
 	if (debug_timer_wheel)
-		zlog_debug("%s: Inserting %p: %lld %lld", __PRETTY_FUNCTION__,
-			   item, slot, slot % wheel->slots);
+		zlog_debug("%s: Inserting %p: %lld %lld", __func__, item, slot,
+			   slot % wheel->slots);
 	listnode_add(wheel->wheel_slot_lists[slot % wheel->slots], item);
 
 	return 0;
@@ -160,8 +160,8 @@ int wheel_remove_item(struct timer_wheel *wheel, void *item)
 	slot = (*wheel->slot_key)(item);
 
 	if (debug_timer_wheel)
-		zlog_debug("%s: Removing %p: %lld %lld", __PRETTY_FUNCTION__,
-			   item, slot, slot % wheel->slots);
+		zlog_debug("%s: Removing %p: %lld %lld", __func__, item, slot,
+			   slot % wheel->slots);
 	listnode_delete(wheel->wheel_slot_lists[slot % wheel->slots], item);
 
 	return 0;

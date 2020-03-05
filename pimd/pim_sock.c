@@ -153,7 +153,7 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
 		flog_err(
 			EC_LIB_DEVELOPMENT,
 			"%s %s: Missing IP_PKTINFO and IP_RECVDSTADDR: unable to get dst addr from recvmsg()",
-			__FILE__, __PRETTY_FUNCTION__);
+			__FILE__, __func__);
 		close(fd);
 		return PIM_SOCK_ERR_DSTADDR;
 #endif
@@ -231,8 +231,8 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
 	}
 
 	if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf)))
-		zlog_warn("%s: Failure to set buffer size to %d",
-			  __PRETTY_FUNCTION__, rcvbuf);
+		zlog_warn("%s: Failure to set buffer size to %d", __func__,
+			  rcvbuf);
 
 	{
 		long flags;

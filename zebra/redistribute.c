@@ -346,14 +346,13 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 
 	if (afi == 0 || afi >= AFI_MAX) {
 		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
-			  "%s: Specified afi %d does not exist",
-			  __PRETTY_FUNCTION__, afi);
+			  "%s: Specified afi %d does not exist", __func__, afi);
 		return;
 	}
 
 	if (type == 0 || type >= ZEBRA_ROUTE_MAX) {
 		zlog_debug("%s: Specified Route Type %d does not exist",
-			   __PRETTY_FUNCTION__, type);
+			   __func__, type);
 		return;
 	}
 
@@ -395,14 +394,13 @@ void zebra_redistribute_delete(ZAPI_HANDLER_ARGS)
 
 	if (afi == 0 || afi >= AFI_MAX) {
 		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
-			  "%s: Specified afi %d does not exist",
-			  __PRETTY_FUNCTION__, afi);
+			  "%s: Specified afi %d does not exist", __func__, afi);
 		return;
 	}
 
 	if (type == 0 || type >= ZEBRA_ROUTE_MAX) {
 		zlog_debug("%s: Specified Route Type %d does not exist",
-			   __PRETTY_FUNCTION__, type);
+			   __func__, type);
 		return;
 	}
 
@@ -429,8 +427,7 @@ void zebra_redistribute_default_add(ZAPI_HANDLER_ARGS)
 
 	if (afi == 0 || afi >= AFI_MAX) {
 		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
-			  "%s: Specified afi %u does not exist",
-			  __PRETTY_FUNCTION__, afi);
+			  "%s: Specified afi %u does not exist", __func__, afi);
 		return;
 	}
 
@@ -449,8 +446,7 @@ void zebra_redistribute_default_delete(ZAPI_HANDLER_ARGS)
 
 	if (afi == 0 || afi >= AFI_MAX) {
 		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
-			  "%s: Specified afi %u does not exist",
-			  __PRETTY_FUNCTION__, afi);
+			  "%s: Specified afi %u does not exist", __func__, afi);
 		return;
 	}
 

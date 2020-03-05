@@ -115,8 +115,8 @@ void pim_init(void)
 		flog_err(
 			EC_LIB_SOCKET,
 			"%s %s: could not solve %s to group address: errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, PIM_ALL_PIM_ROUTERS,
-			errno, safe_strerror(errno));
+			__FILE__, __func__, PIM_ALL_PIM_ROUTERS, errno,
+			safe_strerror(errno));
 		zassert(0);
 		return;
 	}

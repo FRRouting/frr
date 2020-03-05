@@ -254,8 +254,8 @@ static int host_rb_entry_compare(const struct host_rb_entry *hle1,
 		return memcmp(&hle1->p.u.prefix6, &hle2->p.u.prefix6,
 			      IPV6_MAX_BYTELEN);
 	} else {
-		zlog_debug("%s: Unexpected family type: %d",
-			   __PRETTY_FUNCTION__, hle1->p.family);
+		zlog_debug("%s: Unexpected family type: %d", __func__,
+			   hle1->p.family);
 		return 0;
 	}
 }
@@ -590,8 +590,8 @@ static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
 	if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				   "%s: duplicate addr MAC %s IP %s flags 0x%x skip installing, learn count %u recover time %u",
-					   __PRETTY_FUNCTION__,
+				"%s: duplicate addr MAC %s IP %s flags 0x%x skip installing, learn count %u recover time %u",
+				__func__,
 				prefix_mac2str(&nbr->emac, buf, sizeof(buf)),
 				ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
 				nbr->flags, nbr->dad_count,
@@ -631,7 +631,7 @@ static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"%s: duplicate addr MAC %s IP %s flags 0x%x detection time passed, reset learn count %u",
-				__PRETTY_FUNCTION__,
+				__func__,
 				prefix_mac2str(&nbr->emac, buf, sizeof(buf)),
 				ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
 				nbr->flags, nbr->dad_count);
@@ -681,10 +681,12 @@ static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
 					"%s: duplicate addr MAC %s IP %s flags 0x%x auto recovery time %u start",
-				   __PRETTY_FUNCTION__,
-				   prefix_mac2str(&nbr->emac, buf, sizeof(buf)),
-				   ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
-				   nbr->flags, zvrf->dad_freeze_time);
+					__func__,
+					prefix_mac2str(&nbr->emac, buf,
+						       sizeof(buf)),
+					ipaddr2str(&nbr->ip, buf1,
+						   sizeof(buf1)),
+					nbr->flags, zvrf->dad_freeze_time);
 
 			thread_add_timer(zrouter.master,
 				zebra_vxlan_dad_ip_auto_recovery_exp,
@@ -3426,11 +3428,10 @@ static bool zvni_check_mac_del_from_db(struct mac_walk_ctx *wctx,
 		if (IS_ZEBRA_DEBUG_VXLAN) {
 			char buf[ETHER_ADDR_STRLEN];
 
-			zlog_debug("%s: Del MAC %s flags 0x%x",
-				   __PRETTY_FUNCTION__,
-				   prefix_mac2str(&mac->macaddr,
-						  buf, sizeof(buf)),
-				   mac->flags);
+			zlog_debug(
+				"%s: Del MAC %s flags 0x%x", __func__,
+				prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
+				mac->flags);
 		}
 		wctx->uninstall = 0;
 
@@ -5881,7 +5882,7 @@ static void process_remote_macip_del(vni_t vni,
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
 					"%s: IP %s (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
-					__PRETTY_FUNCTION__,
+					__func__,
 					ipaddr2str(ipaddr, buf1, sizeof(buf1)),
 					n->flags,
 					vlan_if ? vlan_if->name : "Unknown");
@@ -5911,11 +5912,12 @@ static void process_remote_macip_del(vni_t vni,
 		    CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE) &&
 		    CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug("%s: MAC %s (flags 0x%x) is remote and duplicate, read kernel for local entry",
-					   __PRETTY_FUNCTION__,
-					   prefix_mac2str(macaddr, buf,
-							  sizeof(buf)),
-					   mac->flags);
+				zlog_debug(
+					"%s: MAC %s (flags 0x%x) is remote and duplicate, read kernel for local entry",
+					__func__,
+					prefix_mac2str(macaddr, buf,
+						       sizeof(buf)),
+					mac->flags);
 			macfdb_read_specific_mac(zns, zif->brslave_info.br_if,
 						 macaddr, vxl->access_vlan);
 		}
@@ -6981,8 +6983,7 @@ int zebra_vxlan_clear_dup_detect_vni_ip(struct vty *vty,
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("%s: clear neigh %s in dup state, flags 0x%x seq %u",
-			   __PRETTY_FUNCTION__, buf, nbr->flags,
-			   nbr->loc_seq);
+			   __func__, buf, nbr->flags, nbr->loc_seq);
 
 	UNSET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
 	nbr->dad_count = 0;
@@ -7075,10 +7076,8 @@ static void zvni_clear_dup_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 
 	if (IS_ZEBRA_DEBUG_VXLAN) {
 		ipaddr2str(&nbr->ip, buf, sizeof(buf));
-		zlog_debug(
-		"%s: clear neigh %s dup state, flags 0x%x seq %u",
-			   __PRETTY_FUNCTION__, buf,
-			   nbr->flags, nbr->loc_seq);
+		zlog_debug("%s: clear neigh %s dup state, flags 0x%x seq %u",
+			   __func__, buf, nbr->flags, nbr->loc_seq);
 	}
 
 	UNSET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
@@ -7513,9 +7512,10 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 	zvni = zvni_from_svi(ifp, link_if);
 	if (!zvni) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("%s: Del neighbor %s VNI is not present for interface %s",
-				   __PRETTY_FUNCTION__,
-				   ipaddr2str(ip, buf, sizeof(buf)), ifp->name);
+			zlog_debug(
+				"%s: Del neighbor %s VNI is not present for interface %s",
+				__func__, ipaddr2str(ip, buf, sizeof(buf)),
+				ifp->name);
 		return 0;
 	}
 
@@ -7558,8 +7558,8 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 
 	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
 	if (!zvrf) {
-		zlog_debug("%s: VNI %u vrf lookup failed.",
-				   __PRETTY_FUNCTION__, zvni->vni);
+		zlog_debug("%s: VNI %u vrf lookup failed.", __func__,
+			   zvni->vni);
 		return -1;
 	}
 
@@ -8173,7 +8173,7 @@ void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS)
 	if (!is_evpn_enabled()) {
 		zlog_debug(
 			"%s: EVPN is not enabled yet we have received a vtep del command",
-			__PRETTY_FUNCTION__);
+			__func__);
 		return;
 	}
 
@@ -8263,7 +8263,7 @@ void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS)
 	if (!is_evpn_enabled()) {
 		zlog_debug(
 			"%s: EVPN not enabled yet we received a vtep_add zapi call",
-			__PRETTY_FUNCTION__);
+			__func__);
 		return;
 	}
 
@@ -9178,12 +9178,12 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 		zl3vni->mac_vlan_if = zl3vni_map_to_mac_vlan_if(zl3vni);
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("%s: l3vni %u svi_if %s mac_vlan_if %s",
-				   __PRETTY_FUNCTION__, vni,
-				   zl3vni->svi_if ?
-				   zl3vni->svi_if->name : "NIL",
-				   zl3vni->mac_vlan_if ?
-				   zl3vni->mac_vlan_if->name : "NIL");
+			zlog_debug(
+				"%s: l3vni %u svi_if %s mac_vlan_if %s",
+				__func__, vni,
+				zl3vni->svi_if ? zl3vni->svi_if->name : "NIL",
+				zl3vni->mac_vlan_if ? zl3vni->mac_vlan_if->name
+						    : "NIL");
 
 		/* formulate l2vni list */
 		hash_iterate(zvrf_evpn->vni_table, zvni_add_to_l3vni_list,
@@ -9736,12 +9736,12 @@ static int zebra_vxlan_dad_ip_auto_recovery_exp(struct thread *t)
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("%s: duplicate addr MAC %s IP %s flags 0x%x learn count %u vni %u auto recovery expired",
-			  __PRETTY_FUNCTION__,
-			  prefix_mac2str(&nbr->emac, buf2, sizeof(buf2)),
-			  ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
-			  nbr->flags,
-			  nbr->dad_count, zvni->vni);
+		zlog_debug(
+			"%s: duplicate addr MAC %s IP %s flags 0x%x learn count %u vni %u auto recovery expired",
+			__func__,
+			prefix_mac2str(&nbr->emac, buf2, sizeof(buf2)),
+			ipaddr2str(&nbr->ip, buf1, sizeof(buf1)), nbr->flags,
+			nbr->dad_count, zvni->vni);
 
 	UNSET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
 	nbr->dad_count = 0;

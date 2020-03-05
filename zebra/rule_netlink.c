@@ -201,9 +201,10 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct fib_rule_hdr));
 	if (len < 0) {
-		zlog_err("%s: Message received from netlink is of a broken size: %d %zu",
-			 __PRETTY_FUNCTION__, h->nlmsg_len,
-			 (size_t)NLMSG_LENGTH(sizeof(struct fib_rule_hdr)));
+		zlog_err(
+			"%s: Message received from netlink is of a broken size: %d %zu",
+			__func__, h->nlmsg_len,
+			(size_t)NLMSG_LENGTH(sizeof(struct fib_rule_hdr)));
 		return -1;
 	}
 

@@ -136,7 +136,7 @@ void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 		if (bfd_debug)
 			zlog_debug(
 				"%s: Suppressing BFD peer reg/dereg messages",
-				__FUNCTION__);
+				__func__);
 		return;
 	}
 
@@ -146,7 +146,7 @@ void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 			zlog_debug(
 				"%s: Can't send BFD peer register, Zebra client not "
 				"established",
-				__FUNCTION__);
+				__func__);
 		return;
 	}
 
@@ -454,7 +454,7 @@ void bfd_client_sendmsg(struct zclient *zclient, int command,
 			zlog_debug(
 				"%s: Can't send BFD client register, Zebra client not "
 				"established",
-				__FUNCTION__);
+				__func__);
 		return;
 	}
 

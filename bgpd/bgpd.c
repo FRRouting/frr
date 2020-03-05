@@ -3226,7 +3226,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Registering BGP instance %s to zebra",
-				   __PRETTY_FUNCTION__, name);
+				   __func__, name);
 		bgp_zebra_instance_register(bgp);
 	}
 

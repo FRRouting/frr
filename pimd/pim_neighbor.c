@@ -133,8 +133,7 @@ int pim_if_dr_election(struct interface *ifp)
 			pim_inet4_dump("<new_dr?>", pim_ifp->pim_dr_addr,
 				       dr_new_str, sizeof(dr_new_str));
 			zlog_debug("%s: DR was %s now is %s on interface %s",
-				   __PRETTY_FUNCTION__, dr_old_str, dr_new_str,
-				   ifp->name);
+				   __func__, dr_old_str, dr_new_str, ifp->name);
 		}
 
 		pim_ifp->pim_dr_election_last =
@@ -251,7 +250,7 @@ void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
 		pim_inet4_dump("<src?>", neigh->source_addr, src_str,
 			       sizeof(src_str));
 		zlog_debug("%s: starting %u sec timer for neighbor %s on %s",
-			   __PRETTY_FUNCTION__, neigh->holdtime, src_str,
+			   __func__, neigh->holdtime, src_str,
 			   neigh->interface->name);
 	}
 
@@ -269,7 +268,7 @@ static int on_neighbor_jp_timer(struct thread *t)
 		pim_inet4_dump("<src?>", neigh->source_addr, src_str,
 			       sizeof(src_str));
 		zlog_debug("%s:Sending JP Agg to %s on %s with %d groups",
-			   __PRETTY_FUNCTION__, src_str, neigh->interface->name,
+			   __func__, src_str, neigh->interface->name,
 			   neigh->upstream_jp_agg->count);
 	}
 
@@ -338,7 +337,7 @@ pim_neighbor_new(struct interface *ifp, struct in_addr source_addr,
 
 	if (PIM_DEBUG_PIM_EVENTS) {
 		zlog_debug("%s: creating PIM neighbor %s on interface %s",
-			   __PRETTY_FUNCTION__, src_str, ifp->name);
+			   __func__, src_str, ifp->name);
 	}
 
 	zlog_info("PIM NEIGHBOR UP: neighbor %s on interface %s", src_str,
@@ -502,7 +501,7 @@ pim_neighbor_add(struct interface *ifp, struct in_addr source_addr,
 	if (PIM_DEBUG_PIM_TRACE_DETAIL) {
 		char str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<nht_nbr?>", source_addr, str, sizeof(str));
-		zlog_debug("%s: neighbor %s added ", __PRETTY_FUNCTION__, str);
+		zlog_debug("%s: neighbor %s added ", __func__, str);
 	}
 	/*
 	  RFC 4601: 4.3.2.  DR Election
@@ -657,7 +656,7 @@ void pim_neighbor_delete(struct interface *ifp, struct pim_neighbor *neigh,
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_debug("%s: deleting PIM neighbor %s on interface %s",
-			   __PRETTY_FUNCTION__, src_str, ifp->name);
+			   __func__, src_str, ifp->name);
 	}
 
 	// De-Register PIM Neighbor with BFD
@@ -793,7 +792,7 @@ void pim_neighbor_update(struct pim_neighbor *neigh,
 #ifdef DUMP_PREFIX_LIST
 	zlog_debug(
 		"%s: DUMP_PREFIX_LIST old_prefix_list=%x old_size=%d new_prefix_list=%x new_size=%d",
-		__PRETTY_FUNCTION__, (unsigned)neigh->prefix_list,
+		__func__, (unsigned)neigh->prefix_list,
 		neigh->prefix_list ? (int)listcount(neigh->prefix_list) : -1,
 		(unsigned)addr_list,
 		addr_list ? (int)listcount(addr_list) : -1);
@@ -804,7 +803,7 @@ void pim_neighbor_update(struct pim_neighbor *neigh,
 			flog_err(
 				EC_LIB_DEVELOPMENT,
 				"%s: internal error: trying to replace same prefix list=%p",
-				__PRETTY_FUNCTION__, (void *)addr_list);
+				__func__, (void *)addr_list);
 		}
 	} else {
 		/* Delete existing secondary address list */
