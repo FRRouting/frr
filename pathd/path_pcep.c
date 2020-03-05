@@ -274,10 +274,11 @@ DEFUN(pcep_cli_no_pce, pcep_cli_no_pce_cmd, "no pce", NO_STR "Disable pce\n")
 }
 
 DEFUN(pcep_cli_debug, pcep_cli_debug_cmd,
-      "[no] debug pathd pcep [path] [message] [pceplib]",
+      "[no] debug pathd pcep [basic] [path] [message] [pceplib]",
       NO_STR DEBUG_STR
       "pathd debugging\n"
-      "pcep basic debugging\n"
+      "pcep module debugging\n"
+      "module basic debugging\n"
       "path structures debugging\n"
       "pcep message debugging\n"
       "pceplib debugging\n")
@@ -287,25 +288,21 @@ DEFUN(pcep_cli_debug, pcep_cli_debug_cmd,
 	int i;
 
 	DEBUG_MODE_SET(&pcep_g->dbg, mode, !no);
-	DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC, !no);
-	DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PATH, false);
-	DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP, false);
-	DEBUG_FLAGS_SET(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEPLIB, false);
-
-	if (no)
-		return CMD_SUCCESS;
 
 	if (3 < argc) {
 		for (i = (3 + no); i < argc; i++) {
-			if (0 == strcmp("path", argv[i]->arg)) {
+			if (0 == strcmp("basic", argv[i]->arg)) {
 				DEBUG_FLAGS_SET(&pcep_g->dbg,
-						PCEP_DEBUG_MODE_PATH, true);
+						PCEP_DEBUG_MODE_BASIC, !no);
+			} else if (0 == strcmp("path", argv[i]->arg)) {
+				DEBUG_FLAGS_SET(&pcep_g->dbg,
+						PCEP_DEBUG_MODE_PATH, !no);
 			} else if (0 == strcmp("message", argv[i]->arg)) {
 				DEBUG_FLAGS_SET(&pcep_g->dbg,
-						PCEP_DEBUG_MODE_PCEP, true);
+						PCEP_DEBUG_MODE_PCEP, !no);
 			} else if (0 == strcmp("pceplib", argv[i]->arg)) {
 				DEBUG_FLAGS_SET(&pcep_g->dbg,
-						PCEP_DEBUG_MODE_PCEPLIB, true);
+						PCEP_DEBUG_MODE_PCEPLIB, !no);
 			}
 		}
 	}
