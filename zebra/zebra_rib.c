@@ -632,10 +632,11 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 		if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
 			char buf[PREFIX_STRLEN];
 
-			zlog_debug("%s: %s Being examined for Nexthop Tracking Count: %zd",
-				   __PRETTY_FUNCTION__,
-				   srcdest_rnode2str(rn, buf, sizeof(buf)),
-				   dest ? rnh_list_count(&dest->nht) : 0);
+			zlog_debug(
+				"%s: %s Being examined for Nexthop Tracking Count: %zd",
+				__func__,
+				srcdest_rnode2str(rn, buf, sizeof(buf)),
+				dest ? rnh_list_count(&dest->nht) : 0);
 		}
 		if (!dest) {
 			rn = rn->parent;

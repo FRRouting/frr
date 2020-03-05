@@ -52,8 +52,8 @@
 
 #define EXPECT_TRUE(expr, res)                                                 \
 	if (!(expr)) {                                                         \
-		printf("Test failure in %s line %u: %s\n", __FUNCTION__,       \
-		       __LINE__, #expr);                                       \
+		printf("Test failure in %s line %u: %s\n", __func__, __LINE__, \
+		       #expr);                                                 \
 		(res) = TEST_FAILED;                                           \
 	}
 

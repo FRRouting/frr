@@ -532,7 +532,7 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
 		prefix2str(&route->prefix, buf, sizeof(buf));
 		zlog_debug("%s: AS-External %u route add %s cost %u(%u) nh %u",
-			   __PRETTY_FUNCTION__,
+			   __func__,
 			   (route->path.type == OSPF6_PATH_TYPE_EXTERNAL1) ? 1
 									   : 2,
 			   buf, route->path.cost, route->path.u.cost_e2,
@@ -892,8 +892,7 @@ static int ospf6_asbr_routemap_update_timer(struct thread *thread)
 	if (ospf6->rmap[arg_type].map) {
 		if (IS_OSPF6_DEBUG_ASBR)
 			zlog_debug("%s: route-map %s update, reset redist %s",
-				   __PRETTY_FUNCTION__,
-				   ospf6->rmap[arg_type].name,
+				   __func__, ospf6->rmap[arg_type].name,
 				   ZROUTE_NAME(arg_type));
 
 		ospf6_zebra_no_redistribute(arg_type);
@@ -917,8 +916,8 @@ void ospf6_asbr_distribute_list_update(int type)
 	args[1] = (void *)((ptrdiff_t)type);
 
 	if (IS_OSPF6_DEBUG_ASBR)
-		zlog_debug("%s: trigger redistribute %s reset thread",
-			   __PRETTY_FUNCTION__, ZROUTE_NAME(type));
+		zlog_debug("%s: trigger redistribute %s reset thread", __func__,
+			   ZROUTE_NAME(type));
 
 	ospf6->t_distribute_update = NULL;
 	thread_add_timer_msec(master, ospf6_asbr_routemap_update_timer,
@@ -943,7 +942,7 @@ static void ospf6_asbr_routemap_update(const char *mapname)
 				if (IS_OSPF6_DEBUG_ASBR)
 					zlog_debug(
 						"%s: route-map %s update, reset redist %s",
-						__PRETTY_FUNCTION__, mapname,
+						__func__, mapname,
 						ZROUTE_NAME(type));
 
 				route_map_counter_increment(

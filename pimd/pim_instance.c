@@ -101,7 +101,7 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 					 hash_name);
 
 	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s: NHT rpf hash init ", __PRETTY_FUNCTION__);
+		zlog_debug("%s: NHT rpf hash init ", __func__);
 
 	pim->ssm_info = pim_ssm_init();
 
@@ -165,7 +165,7 @@ static int pim_vrf_enable(struct vrf *vrf)
 {
 	struct pim_instance *pim = (struct pim_instance *)vrf->info;
 
-	zlog_debug("%s: for %s", __PRETTY_FUNCTION__, vrf->name);
+	zlog_debug("%s: for %s", __func__, vrf->name);
 
 	pim_mroute_socket_enable(pim);
 

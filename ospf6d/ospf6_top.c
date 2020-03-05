@@ -111,7 +111,7 @@ static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
 		inet_ntop(AF_INET, &brouter_id, brouter_name,
 			  sizeof(brouter_name));
 		zlog_debug("%s: brouter %s add with adv router %x nh count %u",
-			   __PRETTY_FUNCTION__, brouter_name,
+			   __func__, brouter_name,
 			   route->path.origin.adv_router,
 			   listcount(route->nh_list));
 	}
@@ -131,7 +131,7 @@ static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
 		inet_ntop(AF_INET, &brouter_id, brouter_name,
 			  sizeof(brouter_name));
 		zlog_debug("%s: brouter %p %s del with adv router %x nh %u",
-			   __PRETTY_FUNCTION__, (void *)route, brouter_name,
+			   __func__, (void *)route, brouter_name,
 			   route->path.origin.adv_router,
 			   listcount(route->nh_list));
 	}

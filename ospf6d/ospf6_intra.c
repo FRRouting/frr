@@ -1636,7 +1636,7 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 		return;
 
 	if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
-		zlog_debug("%s: LSA %s found", __PRETTY_FUNCTION__, lsa->name);
+		zlog_debug("%s: LSA %s found", __func__, lsa->name);
 
 	oa = OSPF6_AREA(lsa->lsdb->data);
 
@@ -1732,21 +1732,22 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 		if (old) {
 			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
 				prefix2str(&route->prefix, buf, sizeof(buf));
-				zlog_debug("%s Update route: %s old cost %u new cost %u paths %u nh %u",
-					   __PRETTY_FUNCTION__, buf,
-					   old->path.cost, route->path.cost,
-					   listcount(route->paths),
-					   listcount(route->nh_list));
+				zlog_debug(
+					"%s Update route: %s old cost %u new cost %u paths %u nh %u",
+					__func__, buf, old->path.cost,
+					route->path.cost,
+					listcount(route->paths),
+					listcount(route->nh_list));
 			}
 			ospf6_intra_prefix_route_ecmp_path(oa, old, route);
 		} else {
 			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
 				prefix2str(&route->prefix, buf, sizeof(buf));
-				zlog_debug("%s route %s add with cost %u paths %u nh %u",
-					   __PRETTY_FUNCTION__, buf,
-					   route->path.cost,
-					   listcount(route->paths),
-					   listcount(route->nh_list));
+				zlog_debug(
+					"%s route %s add with cost %u paths %u nh %u",
+					__func__, buf, route->path.cost,
+					listcount(route->paths),
+					listcount(route->nh_list));
 			}
 			ospf6_route_add(route, oa->route_table);
 		}
@@ -1859,8 +1860,7 @@ void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa *lsa)
 	char buf[PREFIX2STR_BUFFER];
 
 	if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
-		zlog_debug("%s: %s disappearing", __PRETTY_FUNCTION__,
-			   lsa->name);
+		zlog_debug("%s: %s disappearing", __func__, lsa->name);
 
 	oa = OSPF6_AREA(lsa->lsdb->data);
 
@@ -1917,12 +1917,12 @@ void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa *lsa)
 				if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
 					prefix2str(&route->prefix, buf,
 						   sizeof(buf));
-					zlog_debug("%s: route remove %s with path type %u cost %u paths %u nh %u",
-						   __PRETTY_FUNCTION__, buf,
-						   route->path.type,
-						   route->path.cost,
-						   listcount(route->paths),
-						   listcount(route->nh_list));
+					zlog_debug(
+						"%s: route remove %s with path type %u cost %u paths %u nh %u",
+						__func__, buf, route->path.type,
+						route->path.cost,
+						listcount(route->paths),
+						listcount(route->nh_list));
 				}
 				ospf6_route_remove(route, oa->route_table);
 			}
@@ -2054,8 +2054,8 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 
 	if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID(oa->area_id) ||
 	    IS_OSPF6_DEBUG_ROUTE(MEMORY))
-		zlog_info("%s: border-router calculation for area %s",
-			  __PRETTY_FUNCTION__, oa->name);
+		zlog_info("%s: border-router calculation for area %s", __func__,
+			  oa->name);
 
 	hook_add = oa->ospf6->brouter_table->hook_add;
 	hook_remove = oa->ospf6->brouter_table->hook_remove;
@@ -2161,10 +2161,11 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 
 			if (ospf6_route_lookup(&adv_prefix, oa->spf_table)) {
 				if (IS_OSPF6_DEBUG_BROUTER) {
-					zlog_debug("%s: keep inter brouter %s as adv router 0x%x found in spf",
-						   __PRETTY_FUNCTION__,
-						   brouter_name,
-					brouter->path.origin.adv_router);
+					zlog_debug(
+						"%s: keep inter brouter %s as adv router 0x%x found in spf",
+						__func__, brouter_name,
+						brouter->path.origin
+							.adv_router);
 					ospf6_brouter_debug_print(brouter);
 				}
 				UNSET_FLAG(brouter->flag, OSPF6_ROUTE_REMOVE);
@@ -2183,9 +2184,9 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 				       brouter_id)
 			    || IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID(
 				       oa->area_id))
-				zlog_info("%s: brouter %s disappears via area %s",
-					  __PRETTY_FUNCTION__, brouter_name,
-					  oa->name);
+				zlog_info(
+					"%s: brouter %s disappears via area %s",
+					__func__, brouter_name, oa->name);
 			/* This is used to protect nbrouter from removed from
 			 * the table. For an example, ospf6_abr_examin_summary,
 			 * removes brouters which are marked for remove.
@@ -2201,8 +2202,7 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 			    || IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID(
 				       oa->area_id))
 				zlog_info("%s: brouter %s appears via area %s",
-					  __PRETTY_FUNCTION__, brouter_name,
-					  oa->name);
+					  __func__, brouter_name, oa->name);
 
 			/* newly added */
 			if (hook_add)
@@ -2229,7 +2229,7 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 	if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID(oa->area_id) ||
 	    IS_OSPF6_DEBUG_ROUTE(MEMORY))
 		zlog_info("%s: border-router calculation for area %s: done",
-			  __PRETTY_FUNCTION__, oa->name);
+			  __func__, oa->name);
 }
 
 static const struct ospf6_lsa_handler router_handler = {

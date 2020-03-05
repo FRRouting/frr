@@ -696,7 +696,7 @@ static int bgp_capability_hostname(struct peer *peer,
 		flog_warn(
 			EC_BGP_CAPABILITY_INVALID_DATA,
 			"%s: Received malformed hostname capability from peer %s",
-			__FUNCTION__, peer->host);
+			__func__, peer->host);
 		return -1;
 	}
 
@@ -720,7 +720,7 @@ static int bgp_capability_hostname(struct peer *peer,
 		flog_warn(
 			EC_BGP_CAPABILITY_INVALID_DATA,
 			"%s: Received invalid domain name len (hostname capability) from peer %s",
-			__FUNCTION__, peer->host);
+			__func__, peer->host);
 		return -1;
 	}
 
@@ -729,7 +729,7 @@ static int bgp_capability_hostname(struct peer *peer,
 		flog_warn(
 			EC_BGP_CAPABILITY_INVALID_DATA,
 			"%s: Received runt domain name (hostname capability) from peer %s",
-			__FUNCTION__, peer->host);
+			__func__, peer->host);
 		return -1;
 	}
 

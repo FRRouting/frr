@@ -119,7 +119,7 @@ void pim_sock_delete(struct interface *ifp, const char *delete_message)
 	if (!ifp->info) {
 		flog_err(EC_PIM_CONFIG,
 			 "%s: %s: but PIM not enabled on interface %s (!)",
-			 __PRETTY_FUNCTION__, delete_message, ifp->name);
+			 __func__, delete_message, ifp->name);
 		return;
 	}
 
@@ -233,7 +233,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 			ifp->name, ip_hdr->ip_ttl, header->ver, pim_msg_len,
 			checksum);
 		if (PIM_DEBUG_PIM_PACKETDUMP_RECV) {
-			pim_pkt_dump(__PRETTY_FUNCTION__, pim_msg, pim_msg_len);
+			pim_pkt_dump(__func__, pim_msg, pim_msg_len);
 		}
 	}
 
@@ -258,8 +258,8 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
 					"%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
-					__FILE__, __PRETTY_FUNCTION__,
-					header->type, src_str, ifp->name);
+					__FILE__, __func__, header->type,
+					src_str, ifp->name);
 			return -1;
 		}
 		pim_neighbor_timer_reset(neigh, neigh->holdtime);
@@ -273,8 +273,8 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
 					"%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
-					__FILE__, __PRETTY_FUNCTION__,
-					header->type, src_str, ifp->name);
+					__FILE__, __func__, header->type,
+					src_str, ifp->name);
 			return -1;
 		}
 		pim_neighbor_timer_reset(neigh, neigh->holdtime);
@@ -347,15 +347,15 @@ static int pim_sock_read(struct thread *t)
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
 					"%s: Received incoming pim packet on interface(%s:%d) not yet configured for pim",
-					__PRETTY_FUNCTION__,
-					ifp ? ifp->name : "Unknown", ifindex);
+					__func__, ifp ? ifp->name : "Unknown",
+					ifindex);
 			goto done;
 		}
 		int fail = pim_pim_packet(ifp, buf, len);
 		if (fail) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("%s: pim_pim_packet() return=%d",
-					   __PRETTY_FUNCTION__, fail);
+					   __func__, fail);
 			goto done;
 		}
 
@@ -519,8 +519,8 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 					       sizeof(dst_str));
 				zlog_warn(
 					"%s: sendto() failure to %s: fd=%d msg_size=%zd: errno=%d: %s",
-					__PRETTY_FUNCTION__, dst_str, fd, len,
-					errno, safe_strerror(errno));
+					__func__, dst_str, fd, len, errno,
+					safe_strerror(errno));
 			}
 			return -1;
 		}
@@ -588,9 +588,8 @@ int pim_msg_send(int fd, struct in_addr src, struct in_addr dst,
 	if (PIM_DEBUG_PIM_PACKETS) {
 		char dst_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<dst?>", dst, dst_str, sizeof(dst_str));
-		zlog_debug("%s: to %s on %s: msg_size=%d checksum=%x",
-			   __PRETTY_FUNCTION__, dst_str, ifname, pim_msg_size,
-			   header->checksum);
+		zlog_debug("%s: to %s on %s: msg_size=%d checksum=%x", __func__,
+			   dst_str, ifname, pim_msg_size, header->checksum);
 	}
 
 	memset(&to, 0, sizeof(to));
@@ -599,7 +598,7 @@ int pim_msg_send(int fd, struct in_addr src, struct in_addr dst,
 	tolen = sizeof(to);
 
 	if (PIM_DEBUG_PIM_PACKETDUMP_SEND) {
-		pim_pkt_dump(__PRETTY_FUNCTION__, pim_msg, pim_msg_size);
+		pim_pkt_dump(__func__, pim_msg, pim_msg_size);
 	}
 
 	pim_msg_send_frame(fd, (char *)buffer, sendlen, (struct sockaddr *)&to,
@@ -622,7 +621,7 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 			       sizeof(dst_str));
 		zlog_debug(
 			"%s: to %s on %s: holdt=%u prop_d=%u overr_i=%u dis_join_supp=%d dr_prio=%u gen_id=%08x addrs=%d",
-			__PRETTY_FUNCTION__, dst_str, ifp->name, holdtime,
+			__func__, dst_str, ifp->name, holdtime,
 			pim_ifp->pim_propagation_delay_msec,
 			pim_ifp->pim_override_interval_msec,
 			PIM_IF_TEST_PIM_CAN_DISABLE_JOIN_SUPRESSION(
@@ -655,7 +654,7 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 		if (PIM_DEBUG_PIM_HELLO) {
 			zlog_debug(
 				"%s: could not send PIM message on interface %s",
-				__PRETTY_FUNCTION__, ifp->name);
+				__func__, ifp->name);
 		}
 		return -2;
 	}

@@ -75,7 +75,7 @@ static int pim_is_grp_standard_ssm(struct prefix *group)
 		if (!str2prefix(PIM_SSM_STANDARD_RANGE, &group_ssm))
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "%s: Failure to Read Group Address: %s",
-				 __PRETTY_FUNCTION__, PIM_SSM_STANDARD_RANGE);
+				 __func__, PIM_SSM_STANDARD_RANGE);
 
 		first = 0;
 	}

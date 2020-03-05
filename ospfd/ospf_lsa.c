@@ -2858,7 +2858,7 @@ void ospf_lsa_maxage_delete(struct ospf *ospf, struct ospf_lsa *lsa)
 	} else {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: lsa %s is not found in maxage db.",
-				   __PRETTY_FUNCTION__, dump_lsa_key(lsa));
+				   __func__, dump_lsa_key(lsa));
 	}
 }
 

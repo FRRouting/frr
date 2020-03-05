@@ -232,8 +232,8 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 							&route->prefix)), buf,
 						  sizeof(buf));
 					zlog_debug(
-						"%s: route %s with cost %u is not best, ignore."
-						, __PRETTY_FUNCTION__, buf,
+						"%s: route %s with cost %u is not best, ignore.",
+						__func__, buf,
 						route->path.cost);
 				}
 				return 0;
@@ -246,9 +246,10 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 				if (is_debug) {
 					prefix2str(&route->prefix, buf,
 						   sizeof(buf));
-					zlog_debug("%s: intra-prefix route %s with cost %u is not best, ignore."
-					   , __PRETTY_FUNCTION__, buf,
-					   route->path.cost);
+					zlog_debug(
+						"%s: intra-prefix route %s with cost %u is not best, ignore.",
+						__func__, buf,
+						route->path.cost);
 				}
 				return 0;
 			}

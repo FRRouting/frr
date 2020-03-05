@@ -231,8 +231,7 @@ void pim_ifchannel_delete_all(struct interface *ifp)
 	while (!RB_EMPTY(pim_ifchannel_rb, &pim_ifp->ifchannel_rb)) {
 		ch = RB_ROOT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
 
-		pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__,
-				ch, PIM_IFJOIN_NOINFO);
+		pim_ifchannel_ifjoin_switch(__func__, ch, PIM_IFJOIN_NOINFO);
 		pim_ifchannel_delete(ch);
 	}
 }
@@ -438,7 +437,7 @@ struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
 
 	if (!pim_ifp) {
 		zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__, pim_str_sg_dump(sg), ifp->name);
+			  __func__, pim_str_sg_dump(sg), ifp->name);
 		return NULL;
 	}
 
@@ -459,7 +458,7 @@ static void ifmembership_set(struct pim_ifchannel *ch,
 
 	if (PIM_DEBUG_PIM_EVENTS) {
 		zlog_debug("%s: (S,G)=%s membership now is %s on interface %s",
-			   __PRETTY_FUNCTION__, ch->sg_str,
+			   __func__, ch->sg_str,
 			   membership == PIM_IFMEMBERSHIP_INCLUDE ? "INCLUDE"
 								  : "NOINFO",
 			   ch->interface->name);
@@ -564,8 +563,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 
 	RB_INSERT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb, ch);
 
-	up = pim_upstream_add(pim_ifp->pim, sg, NULL, up_flags,
-			      __PRETTY_FUNCTION__, ch);
+	up = pim_upstream_add(pim_ifp->pim, sg, NULL, up_flags, __func__, ch);
 
 	ch->upstream = up;
 
@@ -591,7 +589,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 		PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(ch->flags);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: ifchannel %s is created ", __PRETTY_FUNCTION__,
+		zlog_debug("%s: ifchannel %s is created ", __func__,
 			   ch->sg_str);
 
 	return ch;
@@ -600,7 +598,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 static void ifjoin_to_noinfo(struct pim_ifchannel *ch, bool ch_del)
 {
 	pim_forward_stop(ch, !ch_del);
-	pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_NOINFO);
+	pim_ifchannel_ifjoin_switch(__func__, ch, PIM_IFJOIN_NOINFO);
 	if (ch_del)
 		delete_on_noinfo(ch);
 }
@@ -612,7 +610,7 @@ static int on_ifjoin_expiry_timer(struct thread *t)
 	ch = THREAD_ARG(t);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: ifchannel %s expiry timer", __PRETTY_FUNCTION__,
+		zlog_debug("%s: ifchannel %s expiry timer", __func__,
 			   ch->sg_str);
 
 	ifjoin_to_noinfo(ch, true);
@@ -633,7 +631,7 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
 			"%s: IFCHANNEL%s %s Prune Pending Timer Popped",
-			__PRETTY_FUNCTION__, pim_str_sg_dump(&ch->sg),
+			__func__, pim_str_sg_dump(&ch->sg),
 			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags));
 
 	if (ch->ifjoin_state == PIM_IFJOIN_PRUNE_PENDING) {
@@ -695,8 +693,8 @@ static void check_recv_upstream(int is_join, struct interface *recv_ifp,
 
 	if (pim_rpf_addr_is_inaddr_any(&up->rpf)) {
 		/* RPF'(S,G) not found */
-		zlog_warn("%s %s: RPF'%s not found", __FILE__,
-			  __PRETTY_FUNCTION__, up->sg_str);
+		zlog_warn("%s %s: RPF'%s not found", __FILE__, __func__,
+			  up->sg_str);
 		return;
 	}
 
@@ -709,8 +707,8 @@ static void check_recv_upstream(int is_join, struct interface *recv_ifp,
 			      sizeof(rpf_str));
 		zlog_warn(
 			"%s %s: (S,G)=%s upstream=%s not directed to RPF'(S,G)=%s on interface %s",
-			__FILE__, __PRETTY_FUNCTION__, up->sg_str, up_str,
-			rpf_str, recv_ifp->name);
+			__FILE__, __func__, up->sg_str, up_str, rpf_str,
+			recv_ifp->name);
 		return;
 	}
 	/* upstream directed to RPF'(S,G) */
@@ -761,7 +759,7 @@ static int nonlocal_upstream(int is_join, struct interface *recv_ifp,
 		char up_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
 		zlog_warn("%s: recv %s (S,G)=%s to non-local upstream=%s on %s",
-			  __PRETTY_FUNCTION__, is_join ? "join" : "prune",
+			  __func__, is_join ? "join" : "prune",
 			  pim_str_sg_dump(sg), up_str, recv_ifp->name);
 	}
 
@@ -778,8 +776,7 @@ static int nonlocal_upstream(int is_join, struct interface *recv_ifp,
 static void pim_ifchannel_ifjoin_handler(struct pim_ifchannel *ch,
 		struct pim_interface *pim_ifp)
 {
-	pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
-			PIM_IFJOIN_JOIN);
+	pim_ifchannel_ifjoin_switch(__func__, ch, PIM_IFJOIN_JOIN);
 	PIM_IF_FLAG_UNSET_S_G_RPT(ch->flags);
 	/* check if the interface qualifies as an immediate
 	 * OIF
@@ -833,8 +830,7 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		pim_inet4_dump("<neigh?>", neigh_addr, neigh_str,
 			       sizeof(neigh_str));
 		zlog_warn("%s: Assert Loser recv Join%s from %s on %s",
-			  __PRETTY_FUNCTION__, ch->sg_str, neigh_str,
-			  ifp->name);
+			  __func__, ch->sg_str, neigh_str, ifp->name);
 
 		assert_action_a5(ch);
 	}
@@ -844,8 +840,7 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 
 	switch (ch->ifjoin_state) {
 	case PIM_IFJOIN_NOINFO:
-		pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
-					    PIM_IFJOIN_JOIN);
+		pim_ifchannel_ifjoin_switch(__func__, ch, PIM_IFJOIN_JOIN);
 		if (pim_macro_chisin_oiflist(ch)) {
 			pim_upstream_inherited_olist(pim_ifp->pim,
 						     ch->upstream);
@@ -861,7 +856,7 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 			 & PIM_UPSTREAM_FLAG_MASK_SRC_LHR)) {
 			pim_upstream_ref(ch->upstream,
 					 PIM_UPSTREAM_FLAG_MASK_SRC_LHR,
-					 __PRETTY_FUNCTION__);
+					 __func__);
 			pim_upstream_keep_alive_timer_start(
 				ch->upstream, pim_ifp->pim->keep_alive_time);
 		}
@@ -903,7 +898,7 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		break;
 	case PIM_IFJOIN_PRUNE:
 		if (source_flags & PIM_ENCODE_RPT_BIT)
-			pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
+			pim_ifchannel_ifjoin_switch(__func__, ch,
 						    PIM_IFJOIN_NOINFO);
 		else
 			pim_ifchannel_ifjoin_handler(ch, pim_ifp);
@@ -912,7 +907,7 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
 			THREAD_OFF(ch->t_ifjoin_expiry_timer);
-			pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
+			pim_ifchannel_ifjoin_switch(__func__, ch,
 						    PIM_IFJOIN_NOINFO);
 		} else {
 			pim_ifchannel_ifjoin_handler(ch, pim_ifp);
@@ -948,8 +943,8 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"%s: Received prune with no relevant ifchannel %s%s state: %d",
-				__PRETTY_FUNCTION__, ifp->name,
-				pim_str_sg_dump(sg), source_flags);
+				__func__, ifp->name, pim_str_sg_dump(sg),
+				source_flags);
 		return;
 	}
 
@@ -995,7 +990,7 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 	case PIM_IFJOIN_JOIN:
 		THREAD_OFF(ch->t_ifjoin_expiry_timer);
 
-		pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
+		pim_ifchannel_ifjoin_switch(__func__, ch,
 					    PIM_IFJOIN_PRUNE_PENDING);
 
 		if (listcount(pim_ifp->pim_neighbor_list) > 1)
@@ -1214,9 +1209,8 @@ void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch)
 		pim_inet4_dump("<src?>", ch->sg.src, src_str, sizeof(src_str));
 		pim_inet4_dump("<grp?>", ch->sg.grp, grp_str, sizeof(grp_str));
 		zlog_debug("%s: CouldAssert(%s,%s,%s) changed from %d to %d",
-			   __PRETTY_FUNCTION__, src_str, grp_str,
-			   ch->interface->name, old_couldassert,
-			   new_couldassert);
+			   __func__, src_str, grp_str, ch->interface->name,
+			   old_couldassert, new_couldassert);
 	}
 
 	if (new_couldassert) {
@@ -1263,8 +1257,7 @@ void pim_ifchannel_update_my_assert_metric(struct pim_ifchannel *ch)
 			       new_addr_str, sizeof(new_addr_str));
 		zlog_debug(
 			"%s: my_assert_metric(%s,%s,%s) changed from %u,%u,%u,%s to %u,%u,%u,%s",
-			__PRETTY_FUNCTION__, src_str, grp_str,
-			ch->interface->name,
+			__func__, src_str, grp_str, ch->interface->name,
 			ch->ifassert_my_metric.rpt_bit_flag,
 			ch->ifassert_my_metric.metric_preference,
 			ch->ifassert_my_metric.route_metric, old_addr_str,
@@ -1298,8 +1291,8 @@ void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch)
 		pim_inet4_dump("<grp?>", ch->sg.grp, grp_str, sizeof(grp_str));
 		zlog_debug(
 			"%s: AssertTrackingDesired(%s,%s,%s) changed from %d to %d",
-			__PRETTY_FUNCTION__, src_str, grp_str,
-			ch->interface->name, old_atd, new_atd);
+			__func__, src_str, grp_str, ch->interface->name,
+			old_atd, new_atd);
 	}
 
 	if (new_atd) {

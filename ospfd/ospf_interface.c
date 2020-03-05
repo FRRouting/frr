@@ -272,8 +272,8 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u created",
-			   __PRETTY_FUNCTION__, ifp->name,
-			   ospf_get_name(ospf), ospf->vrf_id);
+			   __func__, ifp->name, ospf_get_name(ospf),
+			   ospf->vrf_id);
 
 	return oi;
 }
@@ -349,7 +349,7 @@ void ospf_if_free(struct ospf_interface *oi)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u deleted",
-			   __PRETTY_FUNCTION__, oi->ifp->name,
+			   __func__, oi->ifp->name,
 			   ospf_vrf_id_to_name(oi->ifp->vrf_id),
 			   oi->ifp->vrf_id);
 

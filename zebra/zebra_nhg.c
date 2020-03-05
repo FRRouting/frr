@@ -1693,7 +1693,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug("\t%s: Unable to find a active nexthop",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 		return 0;
 	}
 
@@ -1722,7 +1722,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	zvrf = zebra_vrf_lookup_by_id(nexthop->vrf_id);
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug("\t%s: zvrf is NULL", __PRETTY_FUNCTION__);
+			zlog_debug("\t%s: zvrf is NULL", __func__);
 		return CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
 

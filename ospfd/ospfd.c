@@ -220,7 +220,7 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"%s: Create new ospf instance with vrf_name %s vrf_id %u",
-				__PRETTY_FUNCTION__, name, new->vrf_id);
+				__func__, name, new->vrf_id);
 	} else {
 		new->vrf_id = VRF_DEFAULT;
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -1308,7 +1308,7 @@ void ospf_if_update(struct ospf *ospf, struct interface *ifp)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
 			"%s: interface %s ifp->vrf_id %u ospf vrf %s vrf_id %u router_id %s",
-			__PRETTY_FUNCTION__, ifp->name, ifp->vrf_id,
+			__func__, ifp->name, ifp->vrf_id,
 			ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id,
 			inet_ntoa(ospf->router_id));
 
@@ -2019,8 +2019,8 @@ void ospf_vrf_unlink(struct ospf *ospf, struct vrf *vrf)
 static int ospf_vrf_new(struct vrf *vrf)
 {
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF Created: %s(%u)", __PRETTY_FUNCTION__,
-			   vrf->name, vrf->vrf_id);
+		zlog_debug("%s: VRF Created: %s(%u)", __func__, vrf->name,
+			   vrf->vrf_id);
 
 	return 0;
 }
@@ -2029,8 +2029,8 @@ static int ospf_vrf_new(struct vrf *vrf)
 static int ospf_vrf_delete(struct vrf *vrf)
 {
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF Deletion: %s(%u)", __PRETTY_FUNCTION__,
-			   vrf->name, vrf->vrf_id);
+		zlog_debug("%s: VRF Deletion: %s(%u)", __func__, vrf->name,
+			   vrf->vrf_id);
 
 	return 0;
 }
@@ -2113,8 +2113,8 @@ static int ospf_vrf_disable(struct vrf *vrf)
 		return 0;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF %s id %d disabled.", __PRETTY_FUNCTION__,
-			   vrf->name, vrf->vrf_id);
+		zlog_debug("%s: VRF %s id %d disabled.", __func__, vrf->name,
+			   vrf->vrf_id);
 
 	ospf = ospf_lookup_by_name(vrf->name);
 	if (ospf) {
@@ -2126,8 +2126,8 @@ static int ospf_vrf_disable(struct vrf *vrf)
 		ospf_vrf_unlink(ospf, vrf);
 		ospf->oi_running = 0;
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: ospf old_vrf_id %d unlinked",
-				   __PRETTY_FUNCTION__, old_vrf_id);
+			zlog_debug("%s: ospf old_vrf_id %d unlinked", __func__,
+				   old_vrf_id);
 		thread_cancel(ospf->t_read);
 		close(ospf->fd);
 		ospf->fd = -1;

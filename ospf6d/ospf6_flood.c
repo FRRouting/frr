@@ -258,8 +258,8 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 	if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)
 	    || IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type))
 		zlog_debug("%s Install LSA: %s age %d seqnum %x in LSDB.",
-			   __PRETTY_FUNCTION__, lsa->name,
-			   ntohs(lsa->header->age), ntohl(lsa->header->seqnum));
+			   __func__, lsa->name, ntohs(lsa->header->age),
+			   ntohl(lsa->header->seqnum));
 
 	/* actually install */
 	lsa->installed = now;
@@ -1004,7 +1004,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 				if (is_debug)
 					zlog_debug(
 						"%s: Current copy of LSA %s is MAXAGE, but new has recent Age.",
-						old->name, __PRETTY_FUNCTION__);
+						old->name, __func__);
 
 				ospf6_lsa_purge(old);
 				if (new->header->adv_router

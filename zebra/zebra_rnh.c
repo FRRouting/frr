@@ -111,8 +111,8 @@ static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 		char buf[PREFIX_STRLEN];
 		char buf1[PREFIX_STRLEN];
 
-		zlog_debug("%s: %u:%s removed from tracking on %s",
-			   __PRETTY_FUNCTION__, rnh->vrf_id,
+		zlog_debug("%s: %u:%s removed from tracking on %s", __func__,
+			   rnh->vrf_id,
 			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
 			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
 	}
@@ -137,8 +137,8 @@ static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
 		char buf[PREFIX_STRLEN];
 		char buf1[PREFIX_STRLEN];
 
-		zlog_debug("%s: %u:%s added for tracking on %s",
-			   __PRETTY_FUNCTION__, rnh->vrf_id,
+		zlog_debug("%s: %u:%s added for tracking on %s", __func__,
+			   rnh->vrf_id,
 			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
 			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
 	}
@@ -452,8 +452,8 @@ zebra_rnh_resolve_import_entry(struct zebra_vrf *zvrf, afi_t afi,
 		char buf[PREFIX_STRLEN];
 		char buf1[PREFIX_STRLEN];
 
-		zlog_debug("%s: %u:%s Resolved Import Entry to %s",
-			   __PRETTY_FUNCTION__, rnh->vrf_id,
+		zlog_debug("%s: %u:%s Resolved Import Entry to %s", __func__,
+			   rnh->vrf_id,
 			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
 			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
 	}

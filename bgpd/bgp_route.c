@@ -2926,8 +2926,7 @@ static int bgp_maximum_prefix_restart_timer(struct thread *thread)
 			peer->host);
 
 	if ((peer_clear(peer, NULL) < 0) && bgp_debug_neighbor_events(peer))
-		zlog_debug("%s: %s peer_clear failed",
-			   __PRETTY_FUNCTION__, peer->host);
+		zlog_debug("%s: %s peer_clear failed", __func__, peer->host);
 
 	return 0;
 }
@@ -3732,7 +3731,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 							  ->nexthop,
 						  buf1, INET6_ADDRSTRLEN);
 					zlog_debug("%s(%s): NH unresolved",
-						   __FUNCTION__, buf1);
+						   __func__, buf1);
 				}
 				bgp_path_info_unset_flag(rn, pi,
 							 BGP_PATH_VALID);
@@ -3880,8 +3879,8 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 				inet_ntop(AF_INET,
 					  (const void *)&attr_new->nexthop,
 					  buf1, INET6_ADDRSTRLEN);
-				zlog_debug("%s(%s): NH unresolved",
-					   __FUNCTION__, buf1);
+				zlog_debug("%s(%s): NH unresolved", __func__,
+					   buf1);
 			}
 			bgp_path_info_unset_flag(rn, new, BGP_PATH_VALID);
 		}
@@ -5040,7 +5039,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 							  INET6_ADDRSTRLEN);
 						zlog_debug(
 							"%s(%s): Route not in table, not advertising",
-							__FUNCTION__, buf1);
+							__func__, buf1);
 					}
 					bgp_path_info_unset_flag(
 						rn, pi, BGP_PATH_VALID);
@@ -5089,7 +5088,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 					  INET6_ADDRSTRLEN);
 				zlog_debug(
 					"%s(%s): Route not in table, not advertising",
-					__FUNCTION__, buf1);
+					__func__, buf1);
 			}
 			bgp_path_info_unset_flag(rn, new, BGP_PATH_VALID);
 		}

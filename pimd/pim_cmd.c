@@ -7415,7 +7415,7 @@ static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
 		pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
 			       sizeof(ifaddr_str));
 		zlog_debug("%s: Querier %s on %s reconfig query_interval=%d",
-			   __PRETTY_FUNCTION__, ifaddr_str, ifp->name,
+			   __func__, ifaddr_str, ifp->name,
 			   pim_ifp->igmp_default_query_interval);
 	}
 
