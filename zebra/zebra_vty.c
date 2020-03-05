@@ -241,25 +241,13 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		vty_out(vty, "\n");
 
 		time_t uptime;
-		struct tm tm;
 
 		uptime = monotime(NULL);
 		uptime -= re->uptime;
-		gmtime_r(&uptime, &tm);
 
-		vty_out(vty, "  Last update ");
+		frrtime_to_interval(uptime, buf, sizeof(buf));
 
-		if (uptime < ONE_DAY_SECOND)
-			vty_out(vty, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
-				tm.tm_sec);
-		else if (uptime < ONE_WEEK_SECOND)
-			vty_out(vty, "%dd%02dh%02dm", tm.tm_yday, tm.tm_hour,
-				tm.tm_min);
-		else
-			vty_out(vty, "%02dw%dd%02dh", tm.tm_yday / 7,
-				tm.tm_yday - ((tm.tm_yday / 7) * 7),
-				tm.tm_hour);
-		vty_out(vty, " ago\n");
+		vty_out(vty, "  Last update %s ago\n", buf);
 
 		if (show_ng)
 			vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
@@ -402,14 +390,15 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	json_object *json_route = NULL;
 	json_object *json_labels = NULL;
 	time_t uptime;
-	struct tm tm;
 	struct vrf *vrf = NULL;
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 	struct nexthop_group *nhg;
+	char up_str[MONOTIME_STRLEN];
 
 	uptime = monotime(NULL);
 	uptime -= re->uptime;
-	gmtime_r(&uptime, &tm);
+
+	frrtime_to_interval(uptime, up_str, sizeof(up_str));
 
 	/* If showing fib information, use the fib view of the
 	 * nexthops.
@@ -474,18 +463,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		json_object_int_add(json_route, "internalNextHopActiveNum",
 				    nexthop_group_active_nexthop_num(
 					    &(re->nhe->nhg)));
-		if (uptime < ONE_DAY_SECOND)
-			sprintf(buf, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
-				tm.tm_sec);
-		else if (uptime < ONE_WEEK_SECOND)
-			sprintf(buf, "%dd%02dh%02dm", tm.tm_yday, tm.tm_hour,
-				tm.tm_min);
-		else
-			sprintf(buf, "%02dw%dd%02dh", tm.tm_yday / 7,
-				tm.tm_yday - ((tm.tm_yday / 7) * 7),
-				tm.tm_hour);
 
-		json_object_string_add(json_route, "uptime", buf);
+		json_object_string_add(json_route, "uptime", up_str);
 
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 			json_nexthop = json_object_new_object();
@@ -774,17 +753,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 					       sizeof(buf), 1));
 		}
 
-		if (uptime < ONE_DAY_SECOND)
-			vty_out(vty, ", %02d:%02d:%02d", tm.tm_hour,
-				tm.tm_min, tm.tm_sec);
-		else if (uptime < ONE_WEEK_SECOND)
-			vty_out(vty, ", %dd%02dh%02dm", tm.tm_yday,
-				tm.tm_hour, tm.tm_min);
-		else
-			vty_out(vty, ", %02dw%dd%02dh", tm.tm_yday / 7,
-				tm.tm_yday - ((tm.tm_yday / 7) * 7),
-				tm.tm_hour);
-		vty_out(vty, "\n");
+		vty_out(vty, ", %s\n", up_str);
 	}
 }
 
