@@ -858,7 +858,7 @@ void zserv_event(struct zserv *client, enum zserv_event event)
 #define ZEBRA_TIME_BUF 32
 static char *zserv_time_buf(time_t *time1, char *buf, int buflen)
 {
-	struct tm *tm;
+	struct tm tm;
 	time_t now;
 
 	assert(buf != NULL);
@@ -872,17 +872,17 @@ static char *zserv_time_buf(time_t *time1, char *buf, int buflen)
 
 	now = monotime(NULL);
 	now -= *time1;
-	tm = gmtime(&now);
+	gmtime_r(&now, &tm);
 
 	if (now < ONE_DAY_SECOND)
-		snprintf(buf, buflen, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-			 tm->tm_sec);
+		snprintf(buf, buflen, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
+			 tm.tm_sec);
 	else if (now < ONE_WEEK_SECOND)
-		snprintf(buf, buflen, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-			 tm->tm_min);
+		snprintf(buf, buflen, "%dd%02dh%02dm", tm.tm_yday, tm.tm_hour,
+			 tm.tm_min);
 	else
-		snprintf(buf, buflen, "%02dw%dd%02dh", tm->tm_yday / 7,
-			 tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
+		snprintf(buf, buflen, "%02dw%dd%02dh", tm.tm_yday / 7,
+			 tm.tm_yday - ((tm.tm_yday / 7) * 7), tm.tm_hour);
 	return buf;
 }
 
@@ -1001,7 +1001,7 @@ static void zebra_show_stale_client_detail(struct vty *vty,
 					   struct zserv *client)
 {
 	char buf[PREFIX2STR_BUFFER];
-	struct tm *tm;
+	struct tm tm;
 	struct timeval tv;
 	time_t uptime;
 	struct client_gr_info *info = NULL;
@@ -1030,22 +1030,23 @@ static void zebra_show_stale_client_detail(struct vty *vty,
 				s = (struct zserv *)(info->stale_client_ptr);
 				uptime = monotime(&tv);
 				uptime -= s->restart_time;
-				tm = gmtime(&uptime);
+				gmtime_r(&uptime, &tm);
+
 				vty_out(vty, "Last restart time : ");
 				if (uptime < ONE_DAY_SECOND)
 					vty_out(vty, "%02d:%02d:%02d",
-						tm->tm_hour, tm->tm_min,
-						tm->tm_sec);
+						tm.tm_hour, tm.tm_min,
+						tm.tm_sec);
 				else if (uptime < ONE_WEEK_SECOND)
 					vty_out(vty, "%dd%02dh%02dm",
-						tm->tm_yday, tm->tm_hour,
-						tm->tm_min);
+						tm.tm_yday, tm.tm_hour,
+						tm.tm_min);
 				else
 					vty_out(vty, "%02dw%dd%02dh",
-						tm->tm_yday / 7,
-						tm->tm_yday - ((tm->tm_yday / 7)
+						tm.tm_yday / 7,
+						tm.tm_yday - ((tm.tm_yday / 7)
 							       * 7),
-						tm->tm_hour);
+						tm.tm_hour);
 				vty_out(vty, "  ago\n");
 
 				vty_out(vty, "Stalepath removal time: %d sec\n",

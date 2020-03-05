@@ -328,7 +328,7 @@ static void bfd_last_update(time_t last_update, char *buf, size_t len)
 {
 	time_t curr;
 	time_t diff;
-	struct tm *tm;
+	struct tm tm;
 	struct timeval tv;
 
 	/* If no BFD satatus update has ever been received, print `never'. */
@@ -341,10 +341,10 @@ static void bfd_last_update(time_t last_update, char *buf, size_t len)
 	monotime(&tv);
 	curr = tv.tv_sec;
 	diff = curr - last_update;
-	tm = gmtime(&diff);
+	gmtime_r(&diff, &tm);
 
-	snprintf(buf, len, "%d:%02d:%02d:%02d", tm->tm_yday, tm->tm_hour,
-		 tm->tm_min, tm->tm_sec);
+	snprintf(buf, len, "%d:%02d:%02d:%02d", tm.tm_yday, tm.tm_hour,
+		 tm.tm_min, tm.tm_sec);
 }
 
 /*

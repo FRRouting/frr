@@ -241,24 +241,24 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		vty_out(vty, "\n");
 
 		time_t uptime;
-		struct tm *tm;
+		struct tm tm;
 
 		uptime = monotime(NULL);
 		uptime -= re->uptime;
-		tm = gmtime(&uptime);
+		gmtime_r(&uptime, &tm);
 
 		vty_out(vty, "  Last update ");
 
 		if (uptime < ONE_DAY_SECOND)
-			vty_out(vty, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-				tm->tm_sec);
+			vty_out(vty, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
+				tm.tm_sec);
 		else if (uptime < ONE_WEEK_SECOND)
-			vty_out(vty, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-				tm->tm_min);
+			vty_out(vty, "%dd%02dh%02dm", tm.tm_yday, tm.tm_hour,
+				tm.tm_min);
 		else
-			vty_out(vty, "%02dw%dd%02dh", tm->tm_yday / 7,
-				tm->tm_yday - ((tm->tm_yday / 7) * 7),
-				tm->tm_hour);
+			vty_out(vty, "%02dw%dd%02dh", tm.tm_yday / 7,
+				tm.tm_yday - ((tm.tm_yday / 7) * 7),
+				tm.tm_hour);
 		vty_out(vty, " ago\n");
 
 		if (show_ng)
@@ -402,14 +402,14 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	json_object *json_route = NULL;
 	json_object *json_labels = NULL;
 	time_t uptime;
-	struct tm *tm;
+	struct tm tm;
 	struct vrf *vrf = NULL;
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 	struct nexthop_group *nhg;
 
 	uptime = monotime(NULL);
 	uptime -= re->uptime;
-	tm = gmtime(&uptime);
+	gmtime_r(&uptime, &tm);
 
 	/* If showing fib information, use the fib view of the
 	 * nexthops.
@@ -475,15 +475,15 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				    nexthop_group_active_nexthop_num(
 					    &(re->nhe->nhg)));
 		if (uptime < ONE_DAY_SECOND)
-			sprintf(buf, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-				tm->tm_sec);
+			sprintf(buf, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
+				tm.tm_sec);
 		else if (uptime < ONE_WEEK_SECOND)
-			sprintf(buf, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-				tm->tm_min);
+			sprintf(buf, "%dd%02dh%02dm", tm.tm_yday, tm.tm_hour,
+				tm.tm_min);
 		else
-			sprintf(buf, "%02dw%dd%02dh", tm->tm_yday / 7,
-				tm->tm_yday - ((tm->tm_yday / 7) * 7),
-				tm->tm_hour);
+			sprintf(buf, "%02dw%dd%02dh", tm.tm_yday / 7,
+				tm.tm_yday - ((tm.tm_yday / 7) * 7),
+				tm.tm_hour);
 
 		json_object_string_add(json_route, "uptime", buf);
 
@@ -775,15 +775,15 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		}
 
 		if (uptime < ONE_DAY_SECOND)
-			vty_out(vty, ", %02d:%02d:%02d", tm->tm_hour,
-				tm->tm_min, tm->tm_sec);
+			vty_out(vty, ", %02d:%02d:%02d", tm.tm_hour,
+				tm.tm_min, tm.tm_sec);
 		else if (uptime < ONE_WEEK_SECOND)
-			vty_out(vty, ", %dd%02dh%02dm", tm->tm_yday,
-				tm->tm_hour, tm->tm_min);
+			vty_out(vty, ", %dd%02dh%02dm", tm.tm_yday,
+				tm.tm_hour, tm.tm_min);
 		else
-			vty_out(vty, ", %02dw%dd%02dh", tm->tm_yday / 7,
-				tm->tm_yday - ((tm->tm_yday / 7) * 7),
-				tm->tm_hour);
+			vty_out(vty, ", %02dw%dd%02dh", tm.tm_yday / 7,
+				tm.tm_yday - ((tm.tm_yday / 7) * 7),
+				tm.tm_hour);
 		vty_out(vty, "\n");
 	}
 }

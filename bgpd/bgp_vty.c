@@ -10657,28 +10657,31 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 		/* read timer */
 		time_t uptime;
-		struct tm *tm;
+		struct tm tm;
 
 		uptime = bgp_clock();
 		uptime -= p->readtime;
-		tm = gmtime(&uptime);
+		gmtime_r(&uptime, &tm);
+
 		json_object_int_add(json_neigh, "bgpTimerLastRead",
-				    (tm->tm_sec * 1000) + (tm->tm_min * 60000)
-					    + (tm->tm_hour * 3600000));
+				    (tm.tm_sec * 1000) + (tm.tm_min * 60000)
+					    + (tm.tm_hour * 3600000));
 
 		uptime = bgp_clock();
 		uptime -= p->last_write;
-		tm = gmtime(&uptime);
+		gmtime_r(&uptime, &tm);
+
 		json_object_int_add(json_neigh, "bgpTimerLastWrite",
-				    (tm->tm_sec * 1000) + (tm->tm_min * 60000)
-					    + (tm->tm_hour * 3600000));
+				    (tm.tm_sec * 1000) + (tm.tm_min * 60000)
+					    + (tm.tm_hour * 3600000));
 
 		uptime = bgp_clock();
 		uptime -= p->update_time;
-		tm = gmtime(&uptime);
+		gmtime_r(&uptime, &tm);
+
 		json_object_int_add(json_neigh, "bgpInUpdateElapsedTimeMsecs",
-				    (tm->tm_sec * 1000) + (tm->tm_min * 60000)
-					    + (tm->tm_hour * 3600000));
+				    (tm.tm_sec * 1000) + (tm.tm_min * 60000)
+					    + (tm.tm_hour * 3600000));
 
 		/* Configured timer values. */
 		json_object_int_add(json_neigh, "bgpTimerHoldTimeMsecs",
@@ -11841,15 +11844,16 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	} else {
 		if (use_json) {
 			time_t uptime;
-			struct tm *tm;
+			struct tm tm;
 
 			uptime = bgp_clock();
 			uptime -= p->resettime;
-			tm = gmtime(&uptime);
+			gmtime_r(&uptime, &tm);
+
 			json_object_int_add(json_neigh, "lastResetTimerMsecs",
-					    (tm->tm_sec * 1000)
-						    + (tm->tm_min * 60000)
-						    + (tm->tm_hour * 3600000));
+					    (tm.tm_sec * 1000)
+						    + (tm.tm_min * 60000)
+						    + (tm.tm_hour * 3600000));
 			bgp_show_peer_reset(NULL, p, json_neigh, true);
 		} else {
 			vty_out(vty, "  Last reset %s, ",
