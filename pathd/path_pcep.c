@@ -43,13 +43,6 @@
 static struct pcep_glob pcep_glob_space = {.dbg = {0, "pathd module: pcep"}};
 struct pcep_glob *pcep_g = &pcep_glob_space;
 
-static struct cmd_node pcc_node = {
-        .name = "pcc",
-        .node = PCC_NODE,
-        .parent_node = CONFIG_NODE,
-        .prompt = "%s(config-pcc)# ",
-};
-
 /* Main Thread Even Handler */
 static int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 				   void *payload);
@@ -64,13 +57,21 @@ static int pathd_candidate_removed_handler(struct srte_candidate *candidate);
 /* CLI Functions */
 static int pcep_cli_debug_config_write(struct vty *vty);
 static int pcep_cli_debug_set_all(uint32_t flags, bool set);
+static int pcep_cli_pcc_config_write(struct vty *vty);
 static void pcep_cli_init(void);
-
 
 /* Module Functions */
 static int pcep_module_finish(void);
 static int pcep_module_late_init(struct thread_master *tm);
 static int pcep_module_init(void);
+
+static struct cmd_node pcc_node = {
+        .name = "pcc",
+        .node = PCC_NODE,
+        .parent_node = CONFIG_NODE,
+        .prompt = "%s(config-pcc)# ",
+        .config_write = pcep_cli_pcc_config_write,
+};
 
 /* ------------ Path Helper Functions ------------ */
 
@@ -187,9 +188,11 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 	   "PCC source port value\n"
 	   "Force the PCC to use computation requests\n")
 {
+	/* TODO: Add support for IPv6 */
+
 	struct in_addr pcc_addr;
 	uint32_t pcc_port = PCEP_DEFAULT_PORT;
-	struct pcc_opts *opts;
+	struct pcc_opts *opts, *opts_copy;
 	bool force_stateless = false;
 	int i = 1;
 
@@ -231,6 +234,12 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 	if (pcep_ctrl_update_pcc_options(pcep_g->fpt, opts))
 		return CMD_WARNING;
 
+	if (NULL != pcep_g->pcc_opts)
+		XFREE(MTYPE_PCEP, pcep_g->pcc_opts);
+	opts_copy = XCALLOC(MTYPE_PCEP, sizeof(*opts));
+	opts_copy = memcpy(opts_copy, opts, sizeof(*opts));
+	pcep_g->pcc_opts = opts_copy;
+
 	VTY_PUSH_CONTEXT_NULL(PCC_NODE);
 
 	return CMD_SUCCESS;
@@ -244,9 +253,12 @@ DEFUN(pcep_cli_pce_opts, pcep_cli_pce_opts_cmd,
       "Remote PCE server port\n"
       "Remote PCE server port value\n")
 {
+	/* TODO: Add support for multiple PCE */
+	/* TODO: Add support for IPv6 */
+
 	struct in_addr pce_addr;
 	uint32_t pce_port = PCEP_DEFAULT_PORT;
-	struct pce_opts *pce_opts;
+	struct pce_opts *pce_opts, *pce_opts_copy;
 
 	int ip_idx = 2;
 	int port_idx = 4;
@@ -264,12 +276,22 @@ DEFUN(pcep_cli_pce_opts, pcep_cli_pce_opts_cmd,
 	if (pcep_ctrl_update_pce_options(pcep_g->fpt, 1, pce_opts))
 		return CMD_WARNING;
 
+	if (NULL != pcep_g->pce_opts[0])
+		XFREE(MTYPE_PCEP, pcep_g->pce_opts[0]);
+	pce_opts_copy = XCALLOC(MTYPE_PCEP, sizeof(*pce_opts));
+	pce_opts_copy = memcpy(pce_opts_copy, pce_opts, sizeof(*pce_opts));
+	pcep_g->pce_opts[0] = pce_opts_copy;
+
 	return CMD_SUCCESS;
 }
 
 DEFUN(pcep_cli_no_pce, pcep_cli_no_pce_cmd, "no pce", NO_STR "Disable pce\n")
 {
+	/* TODO: Add support for multiple PCE */
+
 	pcep_ctrl_disconnect_pcc(pcep_g->fpt, 1);
+	if (NULL != pcep_g->pce_opts[0])
+		XFREE(MTYPE_PCEP, pcep_g->pce_opts[0]);
 	return CMD_SUCCESS;
 }
 
@@ -312,8 +334,21 @@ DEFUN(pcep_cli_debug, pcep_cli_debug_cmd,
 
 int pcep_cli_debug_config_write(struct vty *vty)
 {
-	if (DEBUG_MODE_CHECK(&pcep_g->dbg, DEBUG_MODE_CONF))
-		vty_out(vty, "debug pathd pcep\n");
+	char buff[128] = "";
+
+	if (DEBUG_MODE_CHECK(&pcep_g->dbg, DEBUG_MODE_CONF)) {
+		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_BASIC))
+			csnprintfrr(buff, sizeof(buff), " basic");
+		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PATH))
+			csnprintfrr(buff, sizeof(buff), " path");
+		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEP))
+			csnprintfrr(buff, sizeof(buff), " message");
+		if (DEBUG_FLAGS_CHECK(&pcep_g->dbg, PCEP_DEBUG_MODE_PCEPLIB))
+			csnprintfrr(buff, sizeof(buff), " pceplib");
+		vty_out(vty, "debug pathd pcep%s\n", buff);
+		buff[0] = 0;
+		return 1;
+	}
 
 	return 0;
 }
@@ -327,6 +362,41 @@ int pcep_cli_debug_set_all(uint32_t flags, bool set)
 		DEBUG_CLEAR(&pcep_g->dbg);
 
 	return 0;
+}
+
+int pcep_cli_pcc_config_write(struct vty *vty)
+{
+	/* TODO: Add support for IPv6 */
+
+	char buff[128] = "";
+	int lines = 0;
+
+	if (NULL != pcep_g->pcc_opts) {
+		if (INADDR_ANY != pcep_g->pcc_opts->addr.s_addr)
+			csnprintfrr(buff, sizeof(buff), " ip %pI4",
+			            &pcep_g->pcc_opts->addr);
+		if (PCEP_DEFAULT_PORT != pcep_g->pcc_opts->port)
+			csnprintfrr(buff, sizeof(buff), " port %d",
+			            pcep_g->pcc_opts->port);
+		vty_out(vty, "pcc%s\n", buff);
+		buff[0] = 0;
+		lines++;
+
+		for (int i = 0; i < MAX_PCC; i++) {
+			struct pce_opts *pce_opts = pcep_g->pce_opts[i];
+			if (NULL != pce_opts) {
+				if (PCEP_DEFAULT_PORT != pce_opts->port)
+					csnprintfrr(buff, sizeof(buff),
+					            " port %d", pce_opts->port);
+				vty_out(vty, " pce ip %pI4%s\n",
+				        &pce_opts->addr, buff);
+				buff[0] = 0;
+				lines++;
+			}
+		}
+	}
+
+	return lines;
 }
 
 void pcep_cli_init(void)
@@ -378,11 +448,21 @@ int pcep_module_finish(void)
 	pcep_ctrl_finalize(&pcep_g->fpt);
 	pcep_lib_finalize();
 
+	if (NULL != pcep_g->pcc_opts)
+		XFREE(MTYPE_PCEP, pcep_g->pcc_opts);
+	for (int i = 0; i < MAX_PCC; i++)
+		if (NULL != pcep_g->pce_opts[i])
+			XFREE(MTYPE_PCEP, pcep_g->pce_opts[i]);
+
 	return 0;
 }
 
 int pcep_module_init(void)
 {
+	pcep_g->pcc_opts = NULL;
+	for (int i = 0; i < MAX_PCC; i++)
+		pcep_g->pce_opts[i] = NULL;
+
 	hook_register(frr_late_init, pcep_module_late_init);
 	return 0;
 }

@@ -185,6 +185,9 @@ struct pcep_glob {
 	struct debug dbg;
 	struct thread_master *master;
 	struct frr_pthread *fpt;
+	/* Copy of the PCC/PCE configurations for display purpose */
+	struct pcc_opts *pcc_opts;
+	struct pce_opts *pce_opts[MAX_PCC];
 };
 
 extern struct pcep_glob *pcep_g;
