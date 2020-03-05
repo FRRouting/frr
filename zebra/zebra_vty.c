@@ -915,8 +915,8 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	}
 }
 
-static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf, afi_t afi,
-				 bool use_fib, bool use_json,
+static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf,
+				 afi_t afi, bool use_fib, bool use_json,
 				 route_tag_t tag,
 				 const struct prefix *longer_prefix_p,
 				 bool supernets_only, int type,
@@ -934,12 +934,12 @@ static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf, afi_t 
 		if (zrt->afi != afi ||
 		    zrt->safi != SAFI_UNICAST)
 			continue;
-		if (zrt->table)
-			do_show_ip_route(vty, zvrf_name(zvrf), afi,
-					 SAFI_UNICAST, use_fib, use_json,
-					 tag, longer_prefix_p,
-					 supernets_only, type,
-					 ospf_instance_id, zrt->tableid);
+
+		do_show_ip_route(vty, zvrf_name(zvrf), afi,
+				 SAFI_UNICAST, use_fib, use_json,
+				 tag, longer_prefix_p,
+				 supernets_only, type,
+				 ospf_instance_id, zrt->tableid);
 	}
 }
 
