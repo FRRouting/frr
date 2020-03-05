@@ -2506,6 +2506,12 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		}
 
 		/* Configure from Info */
+		if (attr->srv6_vpn) {
+			flog_err(EC_BGP_ATTRIBUTE_REPEATED,
+				 "Prefix SID SRv6 VPN field repeated");
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_MAL_ATTR, args->total);
+		}
 		attr->srv6_vpn = XMALLOC(MTYPE_BGP_SRV6_VPN,
 					 sizeof(struct bgp_attr_srv6_vpn));
 		attr->srv6_vpn->refcnt = 0;
@@ -2543,6 +2549,12 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		}
 
 		/* Configure from Info */
+		if (attr->srv6_l3vpn) {
+			flog_err(EC_BGP_ATTRIBUTE_REPEATED,
+				 "Prefix SID SRv6 L3VPN field repeated");
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_MAL_ATTR, args->total);
+		}
 		attr->srv6_l3vpn = XMALLOC(MTYPE_BGP_SRV6_L3VPN,
 					   sizeof(struct bgp_attr_srv6_l3vpn));
 		attr->srv6_l3vpn->sid_flags = sid_flags;
