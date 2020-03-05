@@ -795,7 +795,12 @@ struct thread_master *frr_init_fast(void)
 
 	zprivs_init(di->privs);
 	master = thread_master_create(NULL);
+
+/* We don't want signal handlers for fuzzing, libFuzzer uses signals for
+ * process control */
+#if 0
 	signal_init(master, di->n_signals, di->signals);
+#endif
 
 #if 0
 #ifdef HAVE_SQLITE3
