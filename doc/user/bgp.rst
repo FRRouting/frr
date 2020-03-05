@@ -2646,7 +2646,14 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    These commands display BGP routes for the specific routing table indicated by
    the selected afi and the selected safi. If no afi and no safi value is given,
-   the command falls back to the default IPv6 routing table
+   the command falls back to the default IPv6 routing table.
+   For EVPN prefixes, you can display the full BGP table for this AFI/SAFI
+   using the standard `show bgp [afi] [safi]` syntax.
+
+.. index:: show bgp l2vpn evpn route [type <macip|2|multicast|3|es|4|prefix|5>]
+.. clicmd:: show bgp l2vpn evpn route [type <macip|2|multicast|3|es|4|prefix|5>]
+
+   Additionally, you can also filter this output by route type.
 
 .. index:: show bgp [afi] [safi] summary
 .. clicmd:: show bgp [afi] [safi] summary
