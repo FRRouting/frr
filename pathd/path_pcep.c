@@ -209,7 +209,7 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 			i++;
 			if (i >= argc)
 				return CMD_ERR_NO_MATCH;
-			pcc_port = atoi(argv[4]->arg);
+			pcc_port = atoi(argv[i]->arg);
 			if (0 == pcc_port)
 				return CMD_ERR_INCOMPLETE;
 			i++;
