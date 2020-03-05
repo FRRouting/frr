@@ -669,7 +669,8 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 						zebra_route_string(re->type));
 				continue;
 			}
-			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
+			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED) &&
+			    !CHECK_FLAG(re->flags, ZEBRA_FLAG_FIB_OVERRIDE)) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 					zlog_debug(
 						"\tRoute Entry %s !selected",
