@@ -2512,9 +2512,8 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_MAL_ATTR, args->total);
 		}
-		attr->srv6_vpn = XMALLOC(MTYPE_BGP_SRV6_VPN,
+		attr->srv6_vpn = XCALLOC(MTYPE_BGP_SRV6_VPN,
 					 sizeof(struct bgp_attr_srv6_vpn));
-		attr->srv6_vpn->refcnt = 0;
 		attr->srv6_vpn->sid_flags = sid_flags;
 		sid_copy(&attr->srv6_vpn->sid, &ipv6_sid);
 	}
@@ -2555,7 +2554,7 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_MAL_ATTR, args->total);
 		}
-		attr->srv6_l3vpn = XMALLOC(MTYPE_BGP_SRV6_L3VPN,
+		attr->srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
 					   sizeof(struct bgp_attr_srv6_l3vpn));
 		attr->srv6_l3vpn->sid_flags = sid_flags;
 		attr->srv6_l3vpn->endpoint_behavior = endpoint_behavior;
