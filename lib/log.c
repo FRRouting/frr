@@ -220,11 +220,11 @@ size_t quagga_timestamp(int timestamp_precision, char *buf, size_t buflen)
 
 	/* first, we update the cache if the time has changed */
 	if (cache.last != clock.tv_sec) {
-		struct tm *tm;
+		struct tm tm;
 		cache.last = clock.tv_sec;
-		tm = localtime(&cache.last);
+		localtime_r(&cache.last, &tm);
 		cache.len = strftime(cache.buf, sizeof(cache.buf),
-				     "%Y/%m/%d %H:%M:%S", tm);
+				     "%Y/%m/%d %H:%M:%S", &tm);
 	}
 	/* note: it's not worth caching the subsecond part, because
 	   chances are that back-to-back calls are not sufficiently close

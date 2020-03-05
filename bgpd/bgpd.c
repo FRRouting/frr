@@ -6846,7 +6846,7 @@ char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 		  json_object *json)
 {
 	time_t uptime1, epoch_tbuf;
-	struct tm *tm;
+	struct tm tm;
 
 	/* If there is no connection has been done before print `never'. */
 	if (uptime2 == 0) {
@@ -6861,21 +6861,21 @@ char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 	/* Get current time. */
 	uptime1 = bgp_clock();
 	uptime1 -= uptime2;
-	tm = gmtime(&uptime1);
+	gmtime_r(&uptime1, &tm);
 
 	if (uptime1 < ONE_DAY_SECOND)
-		snprintf(buf, len, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-			 tm->tm_sec);
+		snprintf(buf, len, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
+			 tm.tm_sec);
 	else if (uptime1 < ONE_WEEK_SECOND)
-		snprintf(buf, len, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-			 tm->tm_min);
+		snprintf(buf, len, "%dd%02dh%02dm", tm.tm_yday, tm.tm_hour,
+			 tm.tm_min);
 	else if (uptime1 < ONE_YEAR_SECOND)
-		snprintf(buf, len, "%02dw%dd%02dh", tm->tm_yday / 7,
-			 tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
+		snprintf(buf, len, "%02dw%dd%02dh", tm.tm_yday / 7,
+			 tm.tm_yday - ((tm.tm_yday / 7) * 7), tm.tm_hour);
 	else
-		snprintf(buf, len, "%02dy%02dw%dd", tm->tm_year - 70,
-			 tm->tm_yday / 7,
-			 tm->tm_yday - ((tm->tm_yday / 7) * 7));
+		snprintf(buf, len, "%02dy%02dw%dd", tm.tm_year - 70,
+			 tm.tm_yday / 7,
+			 tm.tm_yday - ((tm.tm_yday / 7) * 7));
 
 	if (use_json) {
 		epoch_tbuf = time(NULL) - uptime1;
