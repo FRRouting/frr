@@ -2447,7 +2447,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 	}
 
 	for (; index; index = index->next) {
-		if (skip_match_clause == false) {
+		if (!skip_match_clause) {
 			/* Apply this index. */
 			match_ret = route_map_apply_match(&index->match_list,
 							  prefix, type, object);

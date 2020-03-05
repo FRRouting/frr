@@ -202,7 +202,7 @@ void pbr_map_reason_string(unsigned int reason, char *buf, int size)
 void pbr_map_final_interface_deletion(struct pbr_map *pbrm,
 				      struct pbr_map_interface *pmi)
 {
-	if (pmi->delete == true && !pbr_map_interface_is_installed(pbrm, pmi)) {
+	if (pmi->delete && !pbr_map_interface_is_installed(pbrm, pmi)) {
 		listnode_delete(pbrm->incoming, pmi);
 		pmi->pbrm = NULL;
 

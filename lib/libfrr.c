@@ -383,7 +383,7 @@ static int frr_opt(int opt)
 		exit(0);
 		break;
 	case 'd':
-		di->daemon_mode = 1;
+		di->daemon_mode = true;
 		break;
 	case 'M':
 		oc = XMALLOC(MTYPE_TMP, sizeof(*oc));
@@ -467,12 +467,12 @@ static int frr_opt(int opt)
 	case 'C':
 		if (di->flags & FRR_NO_CFG_PID_DRY)
 			return 1;
-		di->dryrun = 1;
+		di->dryrun = true;
 		break;
 	case 't':
 		if (di->flags & FRR_NO_CFG_PID_DRY)
 			return 1;
-		di->terminal = 1;
+		di->terminal = true;
 		break;
 	case 'z':
 		di->zpathspace = true;

@@ -605,7 +605,7 @@ int32_t zebra_mlag_test_mlag_internal(const char *none, const char *primary,
 		zsend_capabilities_all_clients();
 		if (zrouter.mlag_info.role != MLAG_ROLE_NONE) {
 			if (zrouter.mlag_info.clients_interested_cnt == 0
-			    && test_mlag_in_progress == false) {
+			    && !test_mlag_in_progress) {
 				if (zrouter.mlag_info.zebra_pth_mlag == NULL)
 					zebra_mlag_spawn_pthread();
 				zrouter.mlag_info.clients_interested_cnt++;
@@ -613,7 +613,7 @@ int32_t zebra_mlag_test_mlag_internal(const char *none, const char *primary,
 				hook_call(zebra_mlag_private_open_channel);
 			}
 		} else {
-			if (test_mlag_in_progress == true) {
+			if (test_mlag_in_progress) {
 				test_mlag_in_progress = false;
 				zrouter.mlag_info.clients_interested_cnt--;
 				hook_call(zebra_mlag_private_close_channel);
@@ -790,7 +790,7 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 					vrf_name_len);
 			}
 		}
-		if (cleanup == false) {
+		if (!cleanup) {
 			Bulk_msg.mroute_add = pay_load;
 			len = zebra_mlag_mroute_add_bulk__pack(&Bulk_msg,
 							       tmp_buf);
@@ -804,7 +804,7 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 			XFREE(MTYPE_MLAG_PBUF, pay_load[i]);
 		}
 		XFREE(MTYPE_MLAG_PBUF, pay_load);
-		if (cleanup == true)
+		if (cleanup)
 			return -1;
 	} break;
 	case MLAG_MROUTE_DEL_BULK: {

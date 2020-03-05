@@ -953,7 +953,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			thread_add_timer_msec(
 				master, vrrp_master_down_timer_expire, r,
 				r->skew_time * CS2MS, &r->t_master_down_timer);
-		} else if (r->vr->preempt_mode == false
+		} else if (!r->vr->preempt_mode
 			   || pkt->hdr.priority >= r->priority) {
 			if (r->vr->version == 3) {
 				r->master_adver_interval =
@@ -965,7 +965,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 					      vrrp_master_down_timer_expire, r,
 					      r->master_down_interval * CS2MS,
 					      &r->t_master_down_timer);
-		} else if (r->vr->preempt_mode == true
+		} else if (r->vr->preempt_mode
 			   && pkt->hdr.priority < r->priority) {
 			/* Discard advertisement */
 			DEBUGD(&vrrp_dbg_proto,
@@ -1834,7 +1834,7 @@ static int vrrp_autoconfig_if_add(struct interface *ifp)
 		created = true;
 	}
 
-	if (!vr || vr->autoconf == false)
+	if (!vr || !vr->autoconf)
 		return 0;
 
 	if (!created) {
@@ -2347,11 +2347,11 @@ static bool vrrp_hash_cmp(const void *arg1, const void *arg2)
 	const struct vrrp_vrouter *vr2 = arg2;
 
 	if (vr1->ifp != vr2->ifp)
-		return 0;
+		return false;
 	if (vr1->vrid != vr2->vrid)
-		return 0;
+		return false;
 
-	return 1;
+	return true;
 }
 
 void vrrp_init(void)

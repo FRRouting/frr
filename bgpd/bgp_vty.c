@@ -9440,7 +9440,7 @@ static void bgp_show_neighnor_graceful_restart_rbit(struct vty *vty,
 						    bool use_json,
 						    json_object *json)
 {
-	bool rbit_status = 0;
+	bool rbit_status = false;
 
 	if (!use_json)
 		vty_out(vty, "\n    R bit: ");
@@ -9450,9 +9450,9 @@ static void bgp_show_neighnor_graceful_restart_rbit(struct vty *vty,
 	    && (p->status == Established)) {
 
 		if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_BIT_RCV))
-			rbit_status = 1;
+			rbit_status = true;
 		else
-			rbit_status = 0;
+			rbit_status = false;
 	}
 
 	if (rbit_status) {

@@ -2039,7 +2039,7 @@ static void prefix_list_reset_afi(afi_t afi, int orf)
 	assert(master->str.head == NULL);
 	assert(master->str.tail == NULL);
 
-	master->seqnum = 1;
+	master->seqnum = true;
 	master->recent = NULL;
 }
 

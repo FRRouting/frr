@@ -1151,7 +1151,7 @@ static inline bool pim_upstream_is_msdp_peer_sa(struct pim_upstream *up)
  *           AND inherited_olist(S,G) != NULL ) )
  *   }
  */
-int pim_upstream_evaluate_join_desired(struct pim_instance *pim,
+bool pim_upstream_evaluate_join_desired(struct pim_instance *pim,
 				       struct pim_upstream *up)
 {
 	bool empty_imm_oil;

@@ -58,7 +58,7 @@ static const char *execname = NULL;
 
 void frrmod_init(struct frrmod_runtime *modinfo)
 {
-	modinfo->finished_loading = 1;
+	modinfo->finished_loading = true;
 	*frrmod_last = modinfo;
 	frrmod_last = &modinfo->next;
 
@@ -134,7 +134,7 @@ struct frrmod_runtime *frrmod_load(const char *spec, const char *dir, char *err,
 		goto out_fail;
 	}
 
-	rtinfo->finished_loading = 1;
+	rtinfo->finished_loading = true;
 
 	*frrmod_last = rtinfo;
 	frrmod_last = &rtinfo->next;

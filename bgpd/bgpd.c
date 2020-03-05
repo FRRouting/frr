@@ -3148,7 +3148,7 @@ int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
 		/*
 		 * suppress vrf socket
 		 */
-		if (create == false) {
+		if (!create) {
 			bgp_close_vrf_socket(bgp);
 			return 0;
 		}
