@@ -165,11 +165,6 @@ module frr-zebra {
   grouping route-common {
     description
       "Common information about a route.";
-    leaf vrf {
-      type frr-vrf:vrf-ref;
-      description
-        "The route's vrf name.";
-    }
 
     leaf distance {
       type uint8;
@@ -572,22 +567,24 @@ module frr-zebra {
              description
                 "The route's prefix.";
           }
+          list route-entry {
+            key "protocol";
+            leaf protocol {
+               type frr-route-types:frr-route-types-v4;
+               //TODO: Use unified route types done in PR 5183 when it is merged.
+               //type frr-route-types:frr-route-types;
+               description
+                  "The protocol owning the route.";
+            }
 
-          leaf protocol {
-             when "'../../afi-safi-name' = 'ipv4-unicast'";
-             type frr-route-types:frr-route-types-v4;
-             description
-                "The protocol owning the route.";
+            leaf instance {
+              type uint16;
+              must "../protocol = \"ospf\"";
+              description
+              "Retrieve routes from a specific OSPF instance.";
+            }
+            uses route-common;
           }
-
-          leaf protocol-v6 {
-             when "'../../afi-safi-name' = 'ipv6-unicast'";
-             type frr-route-types:frr-route-types-v6;
-             description
-                "The protocol owning the route.";
-          }
-
-          uses route-common;
         }
       }
     }
@@ -1937,7 +1934,7 @@ module frr-zebra {
     uses ribs;
   }
 
-  augment "/frr-vrf:lib/frr-vrf:vrf/ribs/rib/route/nexthop-group/frr-nexthops/nexthop" {
+  augment "/frr-vrf:lib/frr-vrf:vrf/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop" {
     uses frr-nh:frr-nexthop-operational;
   }
 
