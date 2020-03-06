@@ -240,16 +240,15 @@ static int pim_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 	if (!pim_ifp->bfd_info) {
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug("%s: pim interface %s BFD is disabled ",
-				   __PRETTY_FUNCTION__, ifp->name);
+				   __func__, ifp->name);
 		return 0;
 	}
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		char buf[PREFIX2STR_BUFFER];
 		prefix2str(&p, buf, sizeof(buf));
-		zlog_debug("%s: interface %s bfd destination %s %s",
-			   __PRETTY_FUNCTION__, ifp->name, buf,
-			   bfd_get_status_str(status));
+		zlog_debug("%s: interface %s bfd destination %s %s", __func__,
+			   ifp->name, buf, bfd_get_status_str(status));
 	}
 
 	for (ALL_LIST_ELEMENTS(pim_ifp->pim_neighbor_list, neigh_node,
@@ -265,7 +264,7 @@ static int pim_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 				pim_inet4_dump("<nht_nbr?>", neigh->source_addr,
 					       str, sizeof(str));
 				zlog_debug("%s: bfd status is same for nbr %s",
-					   __PRETTY_FUNCTION__, str);
+					   __func__, str);
 			}
 			continue;
 		}
@@ -275,8 +274,7 @@ static int pim_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 		bfd_info->last_update = tv.tv_sec;
 
 		if (PIM_DEBUG_PIM_TRACE) {
-			zlog_debug("%s: status %s old_status %s",
-				   __PRETTY_FUNCTION__,
+			zlog_debug("%s: status %s old_status %s", __func__,
 				   bfd_get_status_str(status),
 				   bfd_get_status_str(old_status));
 		}
@@ -328,8 +326,7 @@ static int pim_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 						       sizeof(str));
 					zlog_debug(
 						"%s: Replaying Pim Neigh %s to BFD vrf_id %u",
-						__PRETTY_FUNCTION__, str,
-						vrf->vrf_id);
+						__func__, str, vrf->vrf_id);
 				}
 				pim_bfd_reg_dereg_nbr(neigh,
 						      ZEBRA_BFD_DEST_UPDATE);

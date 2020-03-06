@@ -65,10 +65,9 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 					 &data, data_len);
 			if (err) {
 				zlog_warn(
-					  "%s %s: failure: setsockopt(fd=%d,IPPROTO_IP, MRT_TABLE=%d): errno=%d: %s",
-					  __FILE__, __PRETTY_FUNCTION__,
-					  pim->mroute_socket, data, errno,
-					  safe_strerror(errno));
+					"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP, MRT_TABLE=%d): errno=%d: %s",
+					__FILE__, __func__, pim->mroute_socket,
+					data, errno, safe_strerror(errno));
 				return -1;
 			}
 
@@ -86,11 +85,10 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 				 opt, &data, data_len);
 		if (err) {
 			zlog_warn(
-				  "%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,%s=%d): errno=%d: %s",
-				  __FILE__, __PRETTY_FUNCTION__,
-				  pim->mroute_socket,
-				  enable ? "MRT_INIT" : "MRT_DONE", data, errno,
-				  safe_strerror(errno));
+				"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,%s=%d): errno=%d: %s",
+				__FILE__, __func__, pim->mroute_socket,
+				enable ? "MRT_INIT" : "MRT_DONE", data, errno,
+				safe_strerror(errno));
 			return -1;
 		}
 	}

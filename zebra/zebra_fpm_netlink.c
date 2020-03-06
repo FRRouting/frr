@@ -300,8 +300,7 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 		return 1;
 
 	if (!re) {
-		zfpm_debug("%s: Expected non-NULL re pointer",
-			   __PRETTY_FUNCTION__);
+		zfpm_debug("%s: Expected non-NULL re pointer", __func__);
 		return 0;
 	}
 

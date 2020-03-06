@@ -373,7 +373,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 			if (is_debug)
 				zlog_debug(
 					"%s: Send LSA %s (age %d) update now",
-					__PRETTY_FUNCTION__, lsa->name,
+					__func__, lsa->name,
 					ntohs(lsa->header->age));
 			ospf6_lsupdate_send_neighbor_now(on, lsa);
 			continue;

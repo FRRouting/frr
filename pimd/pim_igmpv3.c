@@ -1133,7 +1133,7 @@ static int group_retransmit_sources(struct igmp_group *group,
 					       group_str, sizeof(group_str));
 				zlog_warn(
 					"%s: group %s on %s: s_flag=1 unable to fit %d sources into buf_size=%zu (max_sources=%d)",
-					__PRETTY_FUNCTION__, group_str,
+					__func__, group_str,
 					igmp->interface->name,
 					num_sources_tosend1, sizeof(query_buf1),
 					query_buf1_max_sources);
@@ -1177,9 +1177,9 @@ static int group_retransmit_sources(struct igmp_group *group,
 				       sizeof(group_str));
 			zlog_warn(
 				"%s: group %s on %s: s_flag=0 unable to fit %d sources into buf_size=%zu (max_sources=%d)",
-				__PRETTY_FUNCTION__, group_str,
-				igmp->interface->name, num_sources_tosend2,
-				sizeof(query_buf2), query_buf2_max_sources);
+				__func__, group_str, igmp->interface->name,
+				num_sources_tosend2, sizeof(query_buf2),
+				query_buf2_max_sources);
 		} else {
 			/*
 			  RFC3376: 4.1.12. IP Destination Addresses for Queries

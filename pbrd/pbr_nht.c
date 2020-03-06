@@ -431,13 +431,13 @@ static afi_t pbr_nht_which_afi(struct nexthop_group nhg,
 
 	if (!bh && v6 && v4)
 		DEBUGD(&pbr_dbg_nht,
-		       "%s: Saw both V6 and V4 nexthops...using %s",
-		       __PRETTY_FUNCTION__, afi2str(install_afi));
+		       "%s: Saw both V6 and V4 nexthops...using %s", __func__,
+		       afi2str(install_afi));
 	if (bh && (v6 || v4))
 		DEBUGD(&pbr_dbg_nht,
 		       "%s: Saw blackhole nexthop(s) with %s%s%s nexthop(s), using AFI_MAX.",
-		       __PRETTY_FUNCTION__, v4 ? "v4" : "",
-		       (v4 && v6) ? " and " : "", v6 ? "v6" : "");
+		       __func__, v4 ? "v4" : "", (v4 && v6) ? " and " : "",
+		       v6 ? "v6" : "");
 
 	return install_afi;
 }
@@ -485,7 +485,7 @@ void pbr_nht_change_group(const char *name)
 	if (!pnhgc) {
 		DEBUGD(&pbr_dbg_nht,
 		       "%s: Could not find nexthop-group cache w/ name '%s'",
-		       __PRETTY_FUNCTION__, name);
+		       __func__, name);
 		return;
 	}
 
@@ -579,7 +579,7 @@ struct pbr_nexthop_group_cache *pbr_nht_add_group(const char *name)
 	if (!pbr_nht_get_next_tableid(true)) {
 		zlog_warn(
 			"%s: Exhausted all table identifiers; cannot create nexthop-group cache for nexthop-group '%s'",
-			__PRETTY_FUNCTION__, name);
+			__func__, name);
 		return NULL;
 	}
 
@@ -587,14 +587,13 @@ struct pbr_nexthop_group_cache *pbr_nht_add_group(const char *name)
 
 	if (!nhgc) {
 		DEBUGD(&pbr_dbg_nht, "%s: Could not find nhgc with name: %s\n",
-		       __PRETTY_FUNCTION__, name);
+		       __func__, name);
 		return NULL;
 	}
 
 	snprintf(lookup.name, sizeof(lookup.name), "%s", name);
 	pnhgc = hash_get(pbr_nhg_hash, &lookup, pbr_nhgc_alloc);
-	DEBUGD(&pbr_dbg_nht, "%s: Retrieved NHGC @ %p", __PRETTY_FUNCTION__,
-	       pnhgc);
+	DEBUGD(&pbr_dbg_nht, "%s: Retrieved NHGC @ %p", __func__, pnhgc);
 
 	for (ALL_NEXTHOPS(nhgc->nhg, nhop)) {
 		struct pbr_nexthop_cache lookupc;

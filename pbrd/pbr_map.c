@@ -327,8 +327,7 @@ void pbr_map_vrf_update(const struct pbr_vrf *pbr_vrf)
 	       enabled ? "enabled" : "disabled");
 
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
-		DEBUGD(&pbr_dbg_map, "%s: Looking at %s", __PRETTY_FUNCTION__,
-		       pbrm->name);
+		DEBUGD(&pbr_dbg_map, "%s: Looking at %s", __func__, pbrm->name);
 		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
 			pbrms_vrf_update(pbrms, pbr_vrf);
 	}
@@ -417,8 +416,7 @@ struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique, ifindex_t ifindex,
 			for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, snode,
 						  pbrms)) {
 				DEBUGD(&pbr_dbg_map, "%s: Comparing %u to %u",
-				       __PRETTY_FUNCTION__, pbrms->unique,
-				       unique);
+				       __func__, pbrms->unique, unique);
 				if (pbrms->unique == unique)
 					return pbrms;
 			}
@@ -611,8 +609,7 @@ void pbr_map_schedule_policy_from_nhg(const char *nh_group)
 	struct listnode *node;
 
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
-		DEBUGD(&pbr_dbg_map, "%s: Looking at %s", __PRETTY_FUNCTION__,
-		       pbrm->name);
+		DEBUGD(&pbr_dbg_map, "%s: Looking at %s", __func__, pbrm->name);
 		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms)) {
 			DEBUGD(&pbr_dbg_map, "\tNH Grp name: %s",
 			       pbrms->nhgrp_name ?
@@ -643,16 +640,15 @@ void pbr_map_policy_install(const char *name)
 	struct listnode *node, *inode;
 	struct pbr_map_interface *pmi;
 
-	DEBUGD(&pbr_dbg_map, "%s: for %s", __PRETTY_FUNCTION__, name);
+	DEBUGD(&pbr_dbg_map, "%s: for %s", __func__, name);
 	pbrm = pbrm_find(name);
 	if (!pbrm)
 		return;
 
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms)) {
 		DEBUGD(&pbr_dbg_map,
-		       "%s: Looking at what to install %s(%u) %d %d",
-		       __PRETTY_FUNCTION__, name, pbrms->seqno, pbrm->valid,
-		       pbrms->nhs_installed);
+		       "%s: Looking at what to install %s(%u) %d %d", __func__,
+		       name, pbrms->seqno, pbrm->valid, pbrms->nhs_installed);
 
 		if (pbrm->valid && pbrms->nhs_installed
 		    && pbrm->incoming->count) {

@@ -443,12 +443,11 @@ static void zebra_vxlan_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				   "%s: duplicate addr MAC %s flags 0x%x skip update to client, learn count %u recover time %u",
-				   __PRETTY_FUNCTION__,
-				   prefix_mac2str(&mac->macaddr, buf,
-						  sizeof(buf)),
-				   mac->flags, mac->dad_count,
-				   zvrf->dad_freeze_time);
+				"%s: duplicate addr MAC %s flags 0x%x skip update to client, learn count %u recover time %u",
+				__func__,
+				prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
+				mac->flags, mac->dad_count,
+				zvrf->dad_freeze_time);
 
 		/* For duplicate MAC do not update
 		 * client but update neigh due to
@@ -479,11 +478,10 @@ static void zebra_vxlan_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 	if (reset_params) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				   "%s: duplicate addr MAC %s flags 0x%x detection time passed, reset learn count %u"
-				   , __PRETTY_FUNCTION__,
-				   prefix_mac2str(&mac->macaddr, buf,
-						  sizeof(buf)),
-				   mac->flags, mac->dad_count);
+				"%s: duplicate addr MAC %s flags 0x%x detection time passed, reset learn count %u",
+				__func__,
+				prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
+				mac->flags, mac->dad_count);
 
 		mac->dad_count = 0;
 		/* Start dup. addr detection (DAD) start time,
@@ -547,8 +545,8 @@ static void zebra_vxlan_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 		if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"%s: duplicate addr MAC %s flags 0x%x auto recovery time %u start"
-					, __PRETTY_FUNCTION__,
+					"%s: duplicate addr MAC %s flags 0x%x auto recovery time %u start",
+					__func__,
 					prefix_mac2str(&mac->macaddr, buf,
 						       sizeof(buf)),
 					mac->flags, zvrf->dad_freeze_time);
@@ -9787,12 +9785,11 @@ static int zebra_vxlan_dad_mac_auto_recovery_exp(struct thread *t)
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("%s: duplicate addr mac %s flags 0x%x learn count %u host count %u auto recovery expired",
-			    __PRETTY_FUNCTION__,
-			    prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
-			    mac->flags,
-			    mac->dad_count,
-			    listcount(mac->neigh_list));
+		zlog_debug(
+			"%s: duplicate addr mac %s flags 0x%x learn count %u host count %u auto recovery expired",
+			__func__,
+			prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
+			mac->flags, mac->dad_count, listcount(mac->neigh_list));
 
 	/* Remove all IPs as duplicate associcated with this MAC */
 	for (ALL_LIST_ELEMENTS_RO(mac->neigh_list, node, nbr)) {

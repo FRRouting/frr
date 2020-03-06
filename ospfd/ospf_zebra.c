@@ -957,8 +957,8 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 	if (IS_DEBUG_OSPF_EVENT) {
 		zlog_debug(
 			"%s: ospf distribute-list update arg_type %d vrf %s id %d",
-			__PRETTY_FUNCTION__, arg_type,
-			ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id);
+			__func__, arg_type, ospf_vrf_id_to_name(ospf->vrf_id),
+			ospf->vrf_id);
 	}
 
 	/* foreach all external info. */

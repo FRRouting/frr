@@ -53,8 +53,7 @@ static void dr_election_by_addr(struct interface *ifp)
 	pim_ifp->pim_dr_addr = pim_ifp->primary_address;
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug("%s: on interface %s", __PRETTY_FUNCTION__,
-			   ifp->name);
+		zlog_debug("%s: on interface %s", __func__, ifp->name);
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, node, neigh)) {
@@ -79,14 +78,14 @@ static void dr_election_by_pri(struct interface *ifp)
 	dr_pri = pim_ifp->pim_dr_priority;
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug("%s: dr pri %u on interface %s", __PRETTY_FUNCTION__,
-			   dr_pri, ifp->name);
+		zlog_debug("%s: dr pri %u on interface %s", __func__, dr_pri,
+			   ifp->name);
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, node, neigh)) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_info("%s: neigh pri %u addr %x if dr addr %x",
-				  __PRETTY_FUNCTION__, neigh->dr_priority,
+				  __func__, neigh->dr_priority,
 				  ntohl(neigh->source_addr.s_addr),
 				  ntohl(pim_ifp->pim_dr_addr.s_addr));
 		}
@@ -389,7 +388,7 @@ static void delete_prefix_list(struct pim_neighbor *neigh)
 				       sizeof(addr_str));
 			zlog_debug(
 				"%s: DUMP_PREFIX_LIST neigh=%x prefix_list=%x prefix=%x addr=%s [%d/%d]",
-				__PRETTY_FUNCTION__, (unsigned)neigh,
+				__func__, (unsigned)neigh,
 				(unsigned)neigh->prefix_list, (unsigned)p,
 				addr_str, i, list_size);
 			++i;

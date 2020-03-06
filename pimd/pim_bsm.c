@@ -335,7 +335,7 @@ static int pim_on_g2rp_timer(struct thread *t)
 	rn = route_node_lookup(pim->rp_table, &bsgrp_node->group);
 
 	if (!rn) {
-		zlog_warn("%s: Route node doesn't exist", __PRETTY_FUNCTION__);
+		zlog_warn("%s: Route node doesn't exist", __func__);
 		return 0;
 	}
 
@@ -910,8 +910,8 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 	if (PIM_DEBUG_BSM) {
 		pim_inet4_dump("<src?>", neigh->source_addr, neigh_src_str,
 			       sizeof(neigh_src_str));
-		zlog_debug("%s: New neighbor %s seen on %s",
-			   __PRETTY_FUNCTION__, neigh_src_str, ifp->name);
+		zlog_debug("%s: New neighbor %s seen on %s", __func__,
+			   neigh_src_str, ifp->name);
 	}
 
 	pim_ifp = ifp->info;
@@ -921,13 +921,13 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 		if (PIM_DEBUG_BSM)
 			zlog_debug(
 				"%s: It is not DR, so don't forward BSM packet",
-				__PRETTY_FUNCTION__);
+				__func__);
 	}
 
 	if (!pim_ifp->bsm_enable) {
 		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: BSM proc not enabled on %s",
-				   __PRETTY_FUNCTION__, ifp->name);
+			zlog_debug("%s: BSM proc not enabled on %s", __func__,
+				   ifp->name);
 		return ret;
 	}
 
@@ -936,20 +936,20 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 	if (!scope->bsm_list->count) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s: BSM list for the scope is empty",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 		return ret;
 	}
 
 	if (!pim_ifp->ucast_bsm_accept) {
 		dst_addr = qpim_all_pim_routers_addr;
 		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: Sending BSM mcast to %s",
-				   __PRETTY_FUNCTION__, neigh_src_str);
+			zlog_debug("%s: Sending BSM mcast to %s", __func__,
+				   neigh_src_str);
 	} else {
 		dst_addr = neigh->source_addr;
 		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: Sending BSM ucast to %s",
-				   __PRETTY_FUNCTION__, neigh_src_str);
+			zlog_debug("%s: Sending BSM ucast to %s", __func__,
+				   neigh_src_str);
 	}
 	pim_mtu = ifp->mtu - MAX_IP_HDR_LEN;
 	pim_hello_require(ifp);
@@ -962,7 +962,7 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 				if (PIM_DEBUG_BSM)
 					zlog_debug(
 						"%s: pim_bsm_frag_send failed",
-						__PRETTY_FUNCTION__);
+						__func__);
 			}
 		} else {
 			/* Pim header needs to be constructed */
@@ -974,7 +974,7 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 				if (PIM_DEBUG_BSM)
 					zlog_debug(
 						"%s: pim_bsm_frag_send failed",
-						__PRETTY_FUNCTION__);
+						__func__);
 			}
 		}
 	}

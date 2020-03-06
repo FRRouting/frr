@@ -188,15 +188,15 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	   ref count will take care of it.
 	*/
 	if (ch->upstream->ref_count > 0)
-		pim_upstream_del(pim_ifp->pim, ch->upstream,
-			__PRETTY_FUNCTION__);
+		pim_upstream_del(pim_ifp->pim, ch->upstream, __func__);
 
 	else {
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug("%s: Avoiding deletion of upstream with ref_count %d "
-				   "from ifchannel(%s): %s", __PRETTY_FUNCTION__,
-				   ch->upstream->ref_count, ch->interface->name,
-				   ch->sg_str);
+			zlog_debug(
+				"%s: Avoiding deletion of upstream with ref_count %d "
+				"from ifchannel(%s): %s",
+				__func__, ch->upstream->ref_count,
+				ch->interface->name, ch->sg_str);
 	}
 
 	ch->upstream = NULL;
@@ -213,8 +213,8 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	RB_REMOVE(pim_ifchannel_rb, &pim_ifp->ifchannel_rb, ch);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: ifchannel entry %s is deleted ",
-			   __PRETTY_FUNCTION__, ch->sg_str);
+		zlog_debug("%s: ifchannel entry %s is deleted ", __func__,
+			   ch->sg_str);
 
 	XFREE(MTYPE_PIM_IFCHANNEL, ch);
 }
@@ -263,7 +263,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 		if (PIM_DEBUG_PIM_EVENTS) {
 			zlog_debug(
 				"%s calledby %s: non-transition on state %d (%s)",
-				__PRETTY_FUNCTION__, caller, new_state,
+				__func__, caller, new_state,
 				pim_ifchannel_ifjoin_name(new_state, 0));
 		}
 		return;
@@ -286,8 +286,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 					if (PIM_DEBUG_PIM_TRACE)
 						zlog_debug(
 							"%s %s: Prune(S,G)=%s from %s",
-							__FILE__,
-							__PRETTY_FUNCTION__,
+							__FILE__, __func__,
 							child->sg_str,
 							up->sg_str);
 					if (!c_oil)
@@ -313,8 +312,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 					if (PIM_DEBUG_PIM_TRACE)
 						zlog_debug(
 							"%s %s: Join(S,G)=%s from %s",
-							__FILE__,
-							__PRETTY_FUNCTION__,
+							__FILE__, __func__,
 							child->sg_str,
 							up->sg_str);
 
@@ -1050,16 +1048,15 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 	if (!pim_ifp) {
 		if (PIM_DEBUG_EVENTS)
 			zlog_debug("%s:%s Expected pim interface setup for %s",
-				   __PRETTY_FUNCTION__,
-				   pim_str_sg_dump(sg), ifp->name);
+				   __func__, pim_str_sg_dump(sg), ifp->name);
 		return 0;
 	}
 
 	if (!PIM_IF_TEST_PIM(pim_ifp->options)) {
 		if (PIM_DEBUG_EVENTS)
-			zlog_debug("%s:%s PIM is not configured on this interface %s",
-				   __PRETTY_FUNCTION__,
-				   pim_str_sg_dump(sg), ifp->name);
+			zlog_debug(
+				"%s:%s PIM is not configured on this interface %s",
+				__func__, pim_str_sg_dump(sg), ifp->name);
 		return 0;
 	}
 
@@ -1071,8 +1068,7 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 			if (PIM_DEBUG_PIM_EVENTS)
 				zlog_debug(
 					"%s: local membership (S,G)=%s ignored as group is SSM",
-					__PRETTY_FUNCTION__,
-					pim_str_sg_dump(sg));
+					__func__, pim_str_sg_dump(sg));
 			return 1;
 		}
 	}
@@ -1093,9 +1089,8 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 		for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child)) {
 			if (PIM_DEBUG_EVENTS)
 				zlog_debug("%s %s: IGMP (S,G)=%s(%s) from %s",
-					   __FILE__, __PRETTY_FUNCTION__,
-					   child->sg_str, ifp->name,
-					   up->sg_str);
+					   __FILE__, __func__, child->sg_str,
+					   ifp->name, up->sg_str);
 
 			ch = pim_ifchannel_find(ifp, &child->sg);
 			if (pim_upstream_evaluate_join_desired_interface(
@@ -1167,9 +1162,8 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 
 			if (PIM_DEBUG_EVENTS)
 				zlog_debug("%s %s: Prune(S,G)=%s(%s) from %s",
-					   __FILE__, __PRETTY_FUNCTION__,
-					   up->sg_str, ifp->name,
-					   child->sg_str);
+					   __FILE__, __func__, up->sg_str,
+					   ifp->name, child->sg_str);
 
 			ch = pim_ifchannel_find(ifp, &child->sg);
 			/*
@@ -1361,7 +1355,7 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s: %s %s eom: %d join %u", __PRETTY_FUNCTION__,
+			"%s: %s %s eom: %d join %u", __func__,
 			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
 			ch->sg_str, eom, join);
 	if (!ch->sources)
