@@ -131,6 +131,9 @@ struct zserv {
 
 	bool notify_owner;
 
+	/* Indicates if client is synchronous. */
+	bool synchronous;
+
 	/* client's protocol */
 	uint8_t proto;
 	uint16_t instance;
