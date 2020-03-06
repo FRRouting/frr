@@ -566,5 +566,5 @@ int connected_is_unnumbered(struct interface *ifp)
 			return CHECK_FLAG(connected->flags,
 					  ZEBRA_IFA_UNNUMBERED);
 	}
-	return 1;
+	return 0;
 }
