@@ -79,7 +79,7 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 	if (!iif_index || !oif_index || iif_index == -1 || oif_index == -1) {
 		zlog_warn(
 			"%s %s: Unable to add static route: Invalid interface index(iif=%d,oif=%d)",
-			__FILE__, __PRETTY_FUNCTION__, iif_index, oif_index);
+			__FILE__, __func__, iif_index, oif_index);
 		return -2;
 	}
 
@@ -88,7 +88,7 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 		/* looped MFC entry */
 		zlog_warn(
 			"%s %s: Unable to add static route: Looped MFC entry(iif=%d,oif=%d)",
-			__FILE__, __PRETTY_FUNCTION__, iif_index, oif_index);
+			__FILE__, __func__, iif_index, oif_index);
 		return -4;
 	}
 #endif
@@ -109,9 +109,8 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 					       sizeof(sifaddr_str));
 				zlog_warn(
 					"%s %s: Unable to add static route: Route already exists (iif=%d,oif=%d,group=%s,source=%s)",
-					__FILE__, __PRETTY_FUNCTION__,
-					iif_index, oif_index, gifaddr_str,
-					sifaddr_str);
+					__FILE__, __func__, iif_index,
+					oif_index, gifaddr_str, sifaddr_str);
 				return -3;
 			}
 
@@ -138,9 +137,8 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 			} else {
 				/* input interface changed */
 				s_route->iif = iif_index;
-				pim_static_mroute_iif_update(&s_route->c_oil,
-							   iif_index,
-							   __PRETTY_FUNCTION__);
+				pim_static_mroute_iif_update(
+					&s_route->c_oil, iif_index, __func__);
 
 #ifdef PIM_ENFORCE_LOOPFREE_MFC
 				/* check to make sure the new input was not an
@@ -179,7 +177,7 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 
 	s_route->c_oil.pim = pim;
 
-	if (pim_static_mroute_add(&s_route->c_oil, __PRETTY_FUNCTION__)) {
+	if (pim_static_mroute_add(&s_route->c_oil, __func__)) {
 		char gifaddr_str[INET_ADDRSTRLEN];
 		char sifaddr_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<ifaddr?>", group, gifaddr_str,
@@ -188,8 +186,8 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 			       sizeof(sifaddr_str));
 		zlog_warn(
 			"%s %s: Unable to add static route(iif=%d,oif=%d,group=%s,source=%s)",
-			__FILE__, __PRETTY_FUNCTION__, iif_index, oif_index,
-			gifaddr_str, sifaddr_str);
+			__FILE__, __func__, iif_index, oif_index, gifaddr_str,
+			sifaddr_str);
 
 		/* Need to put s_route back to the way it was */
 		if (original_s_route) {
@@ -223,7 +221,7 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 			       sizeof(sifaddr_str));
 		zlog_debug(
 			"%s: Static route added(iif=%d,oif=%d,group=%s,source=%s)",
-			__PRETTY_FUNCTION__, iif_index, oif_index, gifaddr_str,
+			__func__, iif_index, oif_index, gifaddr_str,
 			sifaddr_str);
 	}
 
@@ -245,7 +243,7 @@ int pim_static_del(struct pim_instance *pim, struct interface *iif,
 	if (!iif_index || !oif_index) {
 		zlog_warn(
 			"%s %s: Unable to remove static route: Invalid interface index(iif=%d,oif=%d)",
-			__FILE__, __PRETTY_FUNCTION__, iif_index, oif_index);
+			__FILE__, __func__, iif_index, oif_index);
 		return -2;
 	}
 
@@ -262,10 +260,9 @@ int pim_static_del(struct pim_instance *pim, struct interface *iif,
 			 * route, otherwise set the route with the new outputs
 			 */
 			if (s_route->c_oil.oil_ref_count <= 0
-				    ? pim_mroute_del(&s_route->c_oil,
-						     __PRETTY_FUNCTION__)
+				    ? pim_mroute_del(&s_route->c_oil, __func__)
 				    : pim_static_mroute_add(&s_route->c_oil,
-						     __PRETTY_FUNCTION__)) {
+							    __func__)) {
 				char gifaddr_str[INET_ADDRSTRLEN];
 				char sifaddr_str[INET_ADDRSTRLEN];
 				pim_inet4_dump("<ifaddr?>", group, gifaddr_str,
@@ -274,9 +271,8 @@ int pim_static_del(struct pim_instance *pim, struct interface *iif,
 					       sizeof(sifaddr_str));
 				zlog_warn(
 					"%s %s: Unable to remove static route(iif=%d,oif=%d,group=%s,source=%s)",
-					__FILE__, __PRETTY_FUNCTION__,
-					iif_index, oif_index, gifaddr_str,
-					sifaddr_str);
+					__FILE__, __func__, iif_index,
+					oif_index, gifaddr_str, sifaddr_str);
 
 				s_route->oif_ttls[oif_index] = 1;
 				s_route->c_oil.oil.mfcc_ttls[oif_index] = 1;
@@ -301,8 +297,8 @@ int pim_static_del(struct pim_instance *pim, struct interface *iif,
 					       sizeof(sifaddr_str));
 				zlog_debug(
 					"%s: Static route removed(iif=%d,oif=%d,group=%s,source=%s)",
-					__PRETTY_FUNCTION__, iif_index,
-					oif_index, gifaddr_str, sifaddr_str);
+					__func__, iif_index, oif_index,
+					gifaddr_str, sifaddr_str);
 			}
 
 			break;
@@ -318,8 +314,8 @@ int pim_static_del(struct pim_instance *pim, struct interface *iif,
 			       sizeof(sifaddr_str));
 		zlog_warn(
 			"%s %s: Unable to remove static route: Route does not exist(iif=%d,oif=%d,group=%s,source=%s)",
-			__FILE__, __PRETTY_FUNCTION__, iif_index, oif_index,
-			gifaddr_str, sifaddr_str);
+			__FILE__, __func__, iif_index, oif_index, gifaddr_str,
+			sifaddr_str);
 		return -3;
 	}
 

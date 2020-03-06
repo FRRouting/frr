@@ -445,17 +445,15 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 	if (rpf->source_nexthop.interface)
 		pim_ifp = rpf->source_nexthop.interface->info;
 	else {
-		zlog_warn("%s: RPF interface is not present",
-			  __PRETTY_FUNCTION__);
+		zlog_warn("%s: RPF interface is not present", __func__);
 		return -1;
 	}
 
-	on_trace(__PRETTY_FUNCTION__, rpf->source_nexthop.interface,
-		rpf->rpf_addr.u.prefix4);
+	on_trace(__func__, rpf->source_nexthop.interface,
+		 rpf->rpf_addr.u.prefix4);
 
 	if (!pim_ifp) {
-		zlog_warn("%s: multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__,
+		zlog_warn("%s: multicast not enabled on interface %s", __func__,
 			  rpf->source_nexthop.interface->name);
 		return -1;
 	}
@@ -466,7 +464,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			pim_inet4_dump("<dst?>", rpf->rpf_addr.u.prefix4,
 				       dst_str, sizeof(dst_str));
 			zlog_debug("%s: upstream=%s is myself on interface %s",
-				   __PRETTY_FUNCTION__, dst_str,
+				   __func__, dst_str,
 				   rpf->source_nexthop.interface->name);
 		}
 		return 0;
@@ -515,7 +513,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 				       sizeof(grp_str));
 			zlog_debug(
 				"%s: sending (G)=%s to upstream=%s on interface %s",
-				__PRETTY_FUNCTION__, grp_str, dst_str,
+				__func__, grp_str, dst_str,
 				rpf->source_nexthop.interface->name);
 		}
 
@@ -530,7 +528,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 					 rpf->source_nexthop.interface->name)) {
 				zlog_warn(
 					"%s: could not send PIM message on interface %s",
-					__PRETTY_FUNCTION__,
+					__func__,
 					rpf->source_nexthop.interface->name);
 			}
 
@@ -571,8 +569,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"%s: interface %s num_joins %u num_prunes %u",
-				__PRETTY_FUNCTION__,
-				rpf->source_nexthop.interface->name,
+				__func__, rpf->source_nexthop.interface->name,
 				ntohs(grp->joins), ntohs(grp->prunes));
 
 		grp = (struct pim_jp_groups *)curr_ptr;
@@ -587,7 +584,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 					 rpf->source_nexthop.interface->name)) {
 				zlog_warn(
 					"%s: could not send PIM message on interface %s",
-					__PRETTY_FUNCTION__,
+					__func__,
 					rpf->source_nexthop.interface->name);
 			}
 
@@ -606,8 +603,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 				 rpf->source_nexthop.interface->name)) {
 			zlog_warn(
 				"%s: could not send PIM message on interface %s",
-				__PRETTY_FUNCTION__,
-				rpf->source_nexthop.interface->name);
+				__func__, rpf->source_nexthop.interface->name);
 		}
 	}
 	return 0;

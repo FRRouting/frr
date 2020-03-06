@@ -710,7 +710,7 @@ void zebra_pbr_del_iptable(struct zebra_pbr_iptable *iptable)
 		XFREE(MTYPE_TMP, lookup);
 	} else
 		zlog_debug("%s: IPTable being deleted we know nothing about",
-			   __PRETTY_FUNCTION__);
+			   __func__);
 }
 
 /*

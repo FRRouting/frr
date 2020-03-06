@@ -2060,8 +2060,8 @@ static int ospf_vrf_enable(struct vrf *vrf)
 	int ret = 0;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF %s id %u enabled", __PRETTY_FUNCTION__,
-			   vrf->name, vrf->vrf_id);
+		zlog_debug("%s: VRF %s id %u enabled", __func__, vrf->name,
+			   vrf->vrf_id);
 
 	ospf = ospf_lookup_by_name(vrf->name);
 	if (ospf) {
@@ -2075,8 +2075,7 @@ static int ospf_vrf_enable(struct vrf *vrf)
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"%s: ospf linked to vrf %s vrf_id %u (old id %u)",
-				__PRETTY_FUNCTION__, vrf->name, ospf->vrf_id,
-				old_vrf_id);
+				__func__, vrf->name, ospf->vrf_id, old_vrf_id);
 
 		if (old_vrf_id != ospf->vrf_id) {
 			frr_with_privs(&ospfd_privs) {

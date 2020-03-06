@@ -1089,7 +1089,7 @@ void ospf6_remove_temp_router_lsa(struct ospf6_area *area)
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
 			zlog_debug(
 				"%s Remove LSA %s lsa->lock %u lsdb count %u",
-				__PRETTY_FUNCTION__, lsa->name, lsa->lock,
+				__func__, lsa->name, lsa->lock,
 				area->temp_router_lsa_lsdb->count);
 		ospf6_lsdb_remove(lsa, area->temp_router_lsa_lsdb);
 	}

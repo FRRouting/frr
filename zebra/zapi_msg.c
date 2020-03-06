@@ -790,8 +790,7 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 	struct stream *s;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
-			   rule->rule.unique);
+		zlog_debug("%s: Notifying %u", __func__, rule->rule.unique);
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		if (rule->sock == client->sock)
@@ -823,8 +822,7 @@ void zsend_ipset_notify_owner(struct zebra_pbr_ipset *ipset,
 	struct stream *s;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
-			   ipset->unique);
+		zlog_debug("%s: Notifying %u", __func__, ipset->unique);
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		if (ipset->sock == client->sock)
@@ -853,8 +851,7 @@ void zsend_ipset_entry_notify_owner(struct zebra_pbr_ipset_entry *ipset,
 	struct stream *s;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
-			   ipset->unique);
+		zlog_debug("%s: Notifying %u", __func__, ipset->unique);
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		if (ipset->sock == client->sock)
@@ -883,8 +880,7 @@ void zsend_iptable_notify_owner(struct zebra_pbr_iptable *iptable,
 	struct stream *s;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
-			   iptable->unique);
+		zlog_debug("%s: Notifying %u", __func__, iptable->unique);
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		if (iptable->sock == client->sock)

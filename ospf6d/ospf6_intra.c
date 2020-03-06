@@ -1022,8 +1022,9 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 	 */
 	if (oa->intra_prefix_originate) {
 		if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
-			zlog_debug("%s: Re-originate intra prefix LSA, Current full nbrs %u",
-				   __PRETTY_FUNCTION__, oa->full_nbrs);
+			zlog_debug(
+				"%s: Re-originate intra prefix LSA, Current full nbrs %u",
+				__func__, oa->full_nbrs);
 		if (old)
 			ospf6_lsa_purge_multi_ls_id(oa, old);
 		oa->intra_prefix_originate = 0;
@@ -1401,9 +1402,10 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
 				prefix2str(&old_route->prefix, buf,
 					   sizeof(buf));
-				zlog_debug("%s: route %s cost old %u new %u is not same, replace route",
-					   __PRETTY_FUNCTION__, buf,
-					   o_path->cost, route->path.cost);
+				zlog_debug(
+					"%s: route %s cost old %u new %u is not same, replace route",
+					__func__, buf, o_path->cost,
+					route->path.cost);
 			}
 
 			/* Remove selected current path's nh from
@@ -1458,10 +1460,11 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 				if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
 					prefix2str(&old_route->prefix, buf,
 						   sizeof(buf));
-					zlog_debug("%s: route %s old cost %u new cost %u, delete old entry.",
-						   __PRETTY_FUNCTION__, buf,
-						   old_route->path.cost,
-						   route->path.cost);
+					zlog_debug(
+						"%s: route %s old cost %u new cost %u, delete old entry.",
+						__func__, buf,
+						old_route->path.cost,
+						route->path.cost);
 				}
 				if (oa->route_table->hook_remove)
 					ospf6_route_remove(old_route,
@@ -1516,13 +1519,13 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 						   sizeof(buf));
 					zlog_debug(
 						"%s: route %s %p another path added with nh %u, effective paths %u nh %u",
-						__PRETTY_FUNCTION__, buf,
+						__func__, buf,
 						(void *)old_route,
 						listcount(ecmp_path->nh_list),
-						old_route->paths ?
-						listcount(old_route->paths) : 0,
+						old_route->paths ? listcount(
+							old_route->paths)
+								 : 0,
 						listcount(old_route->nh_list));
-
 				}
 			} else {
 				list_delete_all_node(o_path->nh_list);
@@ -1540,9 +1543,9 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 							oa->spf_table);
 				if (ls_entry == NULL) {
 					if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
-						zlog_debug("%s: ls_prfix %s ls_entry not found.",
-							   __PRETTY_FUNCTION__,
-							   buf);
+						zlog_debug(
+							"%s: ls_prfix %s ls_entry not found.",
+							__func__, buf);
 					continue;
 				}
 				lsa = ospf6_lsdb_lookup(o_path->origin.type,
@@ -1559,9 +1562,9 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 						o_path->origin.id, &adv_prefix);
 						prefix2str(&adv_prefix, buf,
 							   sizeof(buf));
-						zlog_debug("%s: adv_router %s lsa not found",
-							   __PRETTY_FUNCTION__,
-							   buf);
+						zlog_debug(
+							"%s: adv_router %s lsa not found",
+							__func__, buf);
 					}
 					continue;
 				}
@@ -1587,12 +1590,13 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 
 			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
 				prefix2str(&route->prefix, buf, sizeof(buf));
-				zlog_debug("%s: route %s %p with final effective paths %u nh%u",
-					   __PRETTY_FUNCTION__, buf,
-					   (void *)old_route,
-					   old_route->paths ?
-					   listcount(old_route->paths) : 0,
-					   listcount(old_route->nh_list));
+				zlog_debug(
+					"%s: route %s %p with final effective paths %u nh%u",
+					__func__, buf, (void *)old_route,
+					old_route->paths
+						? listcount(old_route->paths)
+						: 0,
+					listcount(old_route->nh_list));
 			}
 
 			/* used in intra_route_calculation() to add to
@@ -1784,7 +1788,7 @@ static void ospf6_intra_prefix_lsa_remove_update_route(struct ospf6_lsa *lsa,
 			prefix2str(&route->prefix, buf, sizeof(buf));
 			zlog_debug(
 				"%s: route %s path found with cost %u nh %u to remove.",
-				__PRETTY_FUNCTION__, buf, o_path->cost,
+				__func__, buf, o_path->cost,
 				listcount(o_path->nh_list));
 		}
 
@@ -1820,11 +1824,10 @@ static void ospf6_intra_prefix_lsa_remove_update_route(struct ospf6_lsa *lsa,
 
 		if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
 			prefix2str(&route->prefix, buf, sizeof(buf));
-			zlog_debug("%s: route %s update paths %u nh %u",
-				   __PRETTY_FUNCTION__, buf,
-				   route->paths ? listcount(route->paths) : 0,
-				   route->nh_list ? listcount(route->nh_list)
-				   : 0);
+			zlog_debug(
+				"%s: route %s update paths %u nh %u", __func__,
+				buf, route->paths ? listcount(route->paths) : 0,
+				route->nh_list ? listcount(route->nh_list) : 0);
 		}
 
 		/* Update Global Route table and

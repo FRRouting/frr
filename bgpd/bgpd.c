@@ -3398,8 +3398,9 @@ int bgp_delete(struct bgp *bgp)
 	/* Deregister from Zebra, if needed */
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: deregistering this bgp %s instance from zebra",
-				   __PRETTY_FUNCTION__, bgp->name);
+			zlog_debug(
+				"%s: deregistering this bgp %s instance from zebra",
+				__func__, bgp->name);
 		bgp_zebra_instance_deregister(bgp);
 	}
 

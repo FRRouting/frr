@@ -69,8 +69,7 @@ void pim_socket_ip_hdr(int fd)
 
 		if (setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)))
 			zlog_err("%s: Could not turn on IP_HDRINCL option: %s",
-				 __PRETTY_FUNCTION__, safe_strerror(errno));
-
+				 __func__, safe_strerror(errno));
 	}
 }
 

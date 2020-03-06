@@ -240,7 +240,7 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 		flog_err(
 			EC_LIB_DEVELOPMENT,
 			"%s: BUG We should have found default group information\n",
-			__PRETTY_FUNCTION__);
+			__func__);
 		return best;
 	}
 
@@ -550,7 +550,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 				prefix2str(&rp_all->group, buf1, sizeof(buf1));
 				zlog_debug(
 					"%s: NHT Register rp_all addr %s grp %s ",
-					__PRETTY_FUNCTION__, buf, buf1);
+					__func__, buf, buf1);
 			}
 
 			frr_each (rb_pim_upstream, &pim->upstream_head, up) {
@@ -676,7 +676,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 		prefix2str(&nht_p, buf, sizeof(buf));
 		prefix2str(&rp_info->group, buf1, sizeof(buf1));
 		zlog_debug("%s: NHT Register RP addr %s grp %s with Zebra ",
-			   __PRETTY_FUNCTION__, buf, buf1);
+			   __func__, buf, buf1);
 	}
 	pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, false, NULL);
 	if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop, &nht_p,
@@ -1394,8 +1394,7 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 					      sizeof(str));
 				zlog_debug(
 					"%s: addr %s new nexthop addr %s interface %s",
-					__PRETTY_FUNCTION__, str, str1,
-					ifp1->name);
+					__func__, str, str1, ifp1->name);
 			}
 		}
 	}

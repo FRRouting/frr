@@ -178,7 +178,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
 			"%s(%s): Delete %s[%s] ref count: %d , flags: %d c_oil ref count %d (Pre decrement)",
-			__PRETTY_FUNCTION__, name, up->sg_str, pim->vrf->name,
+			__func__, name, up->sg_str, pim->vrf->name,
 			up->ref_count, up->flags,
 			up->channel_oil->oil_ref_count);
 
@@ -221,7 +221,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 		notify_msdp = true;
 	}
 
-	pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
+	pim_mroute_del(up->channel_oil, __func__);
 	upstream_channel_oil_detach(up);
 
 	for (ALL_LIST_ELEMENTS(up->ifchannels, node, nnode, ch))
@@ -256,8 +256,9 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 		if (PIM_DEBUG_PIM_TRACE) {
 			char buf[PREFIX2STR_BUFFER];
 			prefix2str(&nht_p, buf, sizeof(buf));
-			zlog_debug("%s: Deregister upstream %s addr %s with Zebra NHT",
-				   __PRETTY_FUNCTION__, up->sg_str, buf);
+			zlog_debug(
+				"%s: Deregister upstream %s addr %s with Zebra NHT",
+				__func__, up->sg_str, buf);
 		}
 		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL, false);
 	}

@@ -514,7 +514,7 @@ void pim_if_addr_add(struct connected *ifc)
 		char buf[BUFSIZ];
 		prefix2str(ifc->address, buf, BUFSIZ);
 		zlog_debug("%s: %s ifindex=%d connected IP address %s %s",
-			   __PRETTY_FUNCTION__, ifp->name, ifp->ifindex, buf,
+			   __func__, ifp->name, ifp->ifindex, buf,
 			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
@@ -522,7 +522,7 @@ void pim_if_addr_add(struct connected *ifc)
 
 	ifaddr = ifc->address->u.prefix4;
 
-	detect_address_change(ifp, 0, __PRETTY_FUNCTION__);
+	detect_address_change(ifp, 0, __func__);
 
 	// if (ifc->address->family != AF_INET)
 	//  return;
@@ -570,8 +570,8 @@ void pim_if_addr_add(struct connected *ifc)
 						source_str, sizeof(source_str));
 					zlog_warn(
 						"%s: igmp_join_sock() failure for IGMP group %s source %s on interface %s",
-						__PRETTY_FUNCTION__, group_str,
-						source_str, ifp->name);
+						__func__, group_str, source_str,
+						ifp->name);
 					/* warning only */
 				} else
 					ij->sock_fd = join_fd;
@@ -876,7 +876,7 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 		if (PIM_INADDR_IS_ANY(p->u.prefix4)) {
 			zlog_warn(
 				"%s: null IPv4 address connected to interface %s",
-				__PRETTY_FUNCTION__, ifp->name);
+				__func__, ifp->name);
 			continue;
 		}
 
@@ -1128,8 +1128,8 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
-		zlog_warn("%s: multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__, ifp->name);
+		zlog_warn("%s: multicast not enabled on interface %s", __func__,
+			  ifp->name);
 		return 0;
 	}
 
@@ -1154,7 +1154,7 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
 		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
 		zlog_debug(
 			"%s: neighbor not found for address %s on interface %s",
-			__PRETTY_FUNCTION__, addr_str, ifp->name);
+			__func__, addr_str, ifp->name);
 	}
 
 	return NULL;
@@ -1379,8 +1379,8 @@ static void pim_if_igmp_join_del_all(struct interface *ifp)
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
-		zlog_warn("%s: multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__, ifp->name);
+		zlog_warn("%s: multicast not enabled on interface %s", __func__,
+			  ifp->name);
 		return;
 	}
 

@@ -3927,7 +3927,7 @@ static void clear_mroute(struct pim_instance *pim)
 
 	/* clean up all upstreams*/
 	while ((up = rb_pim_upstream_first(&pim->upstream_head))) {
-		pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
+		pim_upstream_del(pim, up, __func__);
 	}
 }
 

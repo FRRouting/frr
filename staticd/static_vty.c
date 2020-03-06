@@ -591,7 +591,7 @@ void static_config_install_delayed_routes(struct static_vrf *svrf)
 		if (installed != CMD_SUCCESS)
 			zlog_debug(
 				"%s: Attempt to install %s as a route and it was rejected",
-				__PRETTY_FUNCTION__, shr->dest_str);
+				__func__, shr->dest_str);
 		listnode_delete(static_list, shr);
 		static_list_delete(shr);
 	}

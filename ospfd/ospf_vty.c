@@ -619,8 +619,7 @@ DEFUN (ospf_network_area,
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"%s ospf vrf %s num of %u ip osp area x config",
-				__PRETTY_FUNCTION__,
-				ospf->name ? ospf->name : "NIL",
+				__func__, ospf->name ? ospf->name : "NIL",
 				ospf->if_ospf_cli_count);
 		return CMD_WARNING_CONFIG_FAILED;
 	}

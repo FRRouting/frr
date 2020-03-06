@@ -47,8 +47,8 @@ static int wheel_timer_thread_helper(struct thread *t)
 	curr_slot = wheel->curr_slot % wheel->slots;
 
 	if (debug_timer_wheel)
-		zlog_debug("%s: Wheel Slot: %lld(%lld) count: %d",
-			   __PRETTY_FUNCTION__, wheel->curr_slot, curr_slot,
+		zlog_debug("%s: Wheel Slot: %lld(%lld) count: %d", __func__,
+			   wheel->curr_slot, curr_slot,
 			   listcount(wheel->wheel_slot_lists[curr_slot]));
 
 	for (ALL_LIST_ELEMENTS(wheel->wheel_slot_lists[curr_slot], node,

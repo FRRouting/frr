@@ -1418,7 +1418,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"\t%s: Onlink and interface: %u[%u] does not exist",
-					__PRETTY_FUNCTION__, nexthop->ifindex,
+					__func__, nexthop->ifindex,
 					nexthop->vrf_id);
 			return 0;
 		}
@@ -1429,14 +1429,14 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"\t%s: Onlink and interface %s is not operative",
-					__PRETTY_FUNCTION__, ifp->name);
+					__func__, ifp->name);
 			return 0;
 		}
 		if (!if_is_operative(ifp)) {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"\t%s: Interface %s is not unnumbered",
-					__PRETTY_FUNCTION__, ifp->name);
+					__func__, ifp->name);
 			return 0;
 		}
 	}
@@ -1448,7 +1448,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
 				"\t:%s: Attempting to install a max prefixlength route through itself",
-				__PRETTY_FUNCTION__);
+				__func__);
 		return 0;
 	}
 
@@ -1475,8 +1475,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	zvrf = zebra_vrf_lookup_by_id(nexthop->vrf_id);
 	if (!table || !zvrf) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug("\t%s: Table not found",
-				   __PRETTY_FUNCTION__);
+			zlog_debug("\t%s: Table not found", __func__);
 		return 0;
 	}
 
@@ -1495,7 +1494,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 					zlog_debug(
 						"\t%s: Matched against ourself and prefix length is not max bit length",
-						__PRETTY_FUNCTION__);
+						__func__);
 				return 0;
 			}
 
@@ -1508,7 +1507,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"\t:%s: Resolved against default route",
-					__PRETTY_FUNCTION__);
+					__func__);
 			return 0;
 		}
 
@@ -1560,7 +1559,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug("\t%s: Recursion failed to find",
-					   __PRETTY_FUNCTION__);
+					   __func__);
 			return resolved;
 		} else if (re->type == ZEBRA_ROUTE_STATIC) {
 			resolved = 0;
@@ -1582,14 +1581,13 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"\t%s: Static route unable to resolve",
-					__PRETTY_FUNCTION__);
+					__func__);
 			return resolved;
 		} else {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 				zlog_debug(
 					"\t%s: Route Type %s has not turned on recursion",
-					__PRETTY_FUNCTION__,
-					zebra_route_string(re->type));
+					__func__, zebra_route_string(re->type));
 				if (re->type == ZEBRA_ROUTE_BGP
 				    && !CHECK_FLAG(re->flags, ZEBRA_FLAG_IBGP))
 					zlog_debug(
@@ -1599,8 +1597,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		}
 	}
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("\t%s: Nexthop did not lookup in table",
-			   __PRETTY_FUNCTION__);
+		zlog_debug("\t%s: Nexthop did not lookup in table", __func__);
 	return 0;
 }
 

@@ -643,8 +643,8 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			char buf[PREFIX_STRLEN];
 			char buf1[PREFIX_STRLEN];
 
-			zlog_debug("%s: %u:%s Possible Match to %s",
-				   __PRETTY_FUNCTION__, rnh->vrf_id,
+			zlog_debug("%s: %u:%s Possible Match to %s", __func__,
+				   rnh->vrf_id,
 				   prefix2str(&rnh->node->p, buf, sizeof(buf)),
 				   srcdest_rnode2str(rn, buf1, sizeof(buf)));
 		}
