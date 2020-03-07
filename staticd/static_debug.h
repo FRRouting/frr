@@ -29,7 +29,7 @@
 #include "lib/debug.h"
 
 /* staticd debugging records */
-struct debug static_dbg_events;
+extern struct debug static_dbg_events;
 
 /*
  * Initialize staticd debugging.
