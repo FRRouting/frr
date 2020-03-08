@@ -216,7 +216,7 @@ rip_request_neighbor (struct in_addr addr)
 {
   struct sockaddr_in to;
 
-  memset (&to, 0, sizeof (struct sockaddr_in));
+  memset (&to, 0, sizeof(struct sockaddr_in));
   to.sin_port = htons (RIP_PORT_DEFAULT);
   to.sin_addr = addr;
 

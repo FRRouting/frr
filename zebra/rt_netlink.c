@@ -564,7 +564,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		return -1;
 	}
 
-	memset(tb, 0, sizeof tb);
+	memset(tb, 0, sizeof(tb));
 	netlink_parse_rtattr(tb, RTA_MAX, RTM_RTA(rtm), len);
 
 	if (rtm->rtm_flags & RTM_F_CLONED)
@@ -639,7 +639,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	if (tb[RTA_METRICS]) {
 		struct rtattr *mxrta[RTAX_MAX + 1];
 
-		memset(mxrta, 0, sizeof mxrta);
+		memset(mxrta, 0, sizeof(mxrta));
 		netlink_parse_rtattr(mxrta, RTAX_MAX, RTA_DATA(tb[RTA_METRICS]),
 				     RTA_PAYLOAD(tb[RTA_METRICS]));
 
@@ -849,7 +849,7 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct rtmsg));
 
-	memset(tb, 0, sizeof tb);
+	memset(tb, 0, sizeof(tb));
 	netlink_parse_rtattr(tb, RTA_MAX, RTM_RTA(rtm), len);
 
 	if (tb[RTA_TABLE])
@@ -2640,7 +2640,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	}
 
 	/* Parse attributes and extract fields of interest. */
-	memset(tb, 0, sizeof tb);
+	memset(tb, 0, sizeof(tb));
 	netlink_parse_rtattr(tb, NDA_MAX, NDA_RTA(ndm), len);
 
 	if (!tb[NDA_LLADDR]) {
@@ -3050,7 +3050,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	zif = (struct zebra_if *)ifp->info;
 
 	/* Parse attributes and extract fields of interest. */
-	memset(tb, 0, sizeof tb);
+	memset(tb, 0, sizeof(tb));
 	netlink_parse_rtattr(tb, NDA_MAX, NDA_RTA(ndm), len);
 
 	if (!tb[NDA_DST]) {

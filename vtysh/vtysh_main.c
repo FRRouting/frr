@@ -237,7 +237,7 @@ static void log_it(const char *line)
 	if (!user)
 		user = "boot";
 
-	strftime(tod, sizeof tod, "%Y%m%d-%H:%M.%S", &tmp);
+	strftime(tod, sizeof(tod), "%Y%m%d-%H:%M.%S", &tmp);
 
 	fprintf(logfile, "%s:%s %s\n", tod, user, line);
 }

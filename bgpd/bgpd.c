@@ -4031,7 +4031,7 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 	struct peer_flag_action action;
 
 	memset(&action, 0, sizeof(struct peer_flag_action));
-	size = sizeof peer_flag_action_list / sizeof(struct peer_flag_action);
+	size = sizeof(peer_flag_action_list) / sizeof(struct peer_flag_action);
 
 	invert = CHECK_FLAG(peer->flags_invert, flag);
 	found = peer_flag_action_set(peer_flag_action_list, size, &action,
@@ -4137,7 +4137,7 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	bgp_peer_sort_t ptype;
 
 	memset(&action, 0, sizeof(struct peer_flag_action));
-	size = sizeof peer_af_flag_action_list
+	size = sizeof(peer_af_flag_action_list)
 	       / sizeof(struct peer_flag_action);
 
 	invert = CHECK_FLAG(peer->af_flags_invert[afi][safi], flag);

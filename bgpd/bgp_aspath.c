@@ -41,9 +41,9 @@
 #define AS_HEADER_SIZE 2
 
 /* Now FOUR octets are used for AS value. */
-#define AS_VALUE_SIZE         sizeof (as_t)
+#define AS_VALUE_SIZE         sizeof(as_t)
 /* This is the old one */
-#define AS16_VALUE_SIZE	      sizeof (as16_t)
+#define AS16_VALUE_SIZE	      sizeof(as16_t)
 
 /* Maximum protocol segment length value */
 #define AS_SEGMENT_MAX		255
@@ -768,7 +768,7 @@ static int assegments_parse(struct stream *s, size_t length,
 		     * on more, than 8 bits (otherwise it's a warning, bug
 		     * #564).
 		     */
-		    || ((sizeof segh.length > 1)
+		    || ((sizeof(segh.length) > 1)
 			&& (0x10 + segh.length > 0x10 + AS_SEGMENT_MAX))) {
 			if (head)
 				assegment_free_all(head);

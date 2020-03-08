@@ -136,7 +136,7 @@ static void nhrp_reg_peer_notify(struct notifier_block *n, unsigned long cmd)
 	case NOTIFY_PEER_MTU_CHANGED:
 		debugf(NHRP_DEBUG_COMMON, "NHS: Flush timer for %s",
 		       sockunion2str(&r->peer->vc->remote.nbma, buf,
-				     sizeof buf));
+				     sizeof(buf)));
 		THREAD_TIMER_OFF(r->t_register);
 		thread_add_timer_msec(master, nhrp_reg_send_req, r, 10,
 				      &r->t_register);
@@ -162,7 +162,7 @@ static int nhrp_reg_send_req(struct thread *t)
 	if (!nhrp_peer_check(r->peer, 2)) {
 		debugf(NHRP_DEBUG_COMMON, "NHS: Waiting link for %s",
 		       sockunion2str(&r->peer->vc->remote.nbma, buf1,
-				     sizeof buf1));
+				     sizeof(buf1)));
 		thread_add_timer(master, nhrp_reg_send_req, r, 120,
 				 &r->t_register);
 		return 0;

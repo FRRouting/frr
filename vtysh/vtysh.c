@@ -3670,7 +3670,7 @@ char *vtysh_prompt(void)
 {
 	static char buf[512];
 
-	snprintf(buf, sizeof buf, cmd_prompt(vty->node), cmd_hostname_get());
+	snprintf(buf, sizeof(buf), cmd_prompt(vty->node), cmd_hostname_get());
 	return buf;
 }
 

@@ -295,7 +295,7 @@ static void *route_match_metric_compile(const char *arg)
 {
 	//  uint32_t *metric;
 	//
-	//  metric = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (uint32_t));
+	//  metric = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
 	//  *metric = atoi (arg);
 	//
 	//  if(*metric > 0)
@@ -574,7 +574,7 @@ static void *route_match_tag_compile(const char *arg)
 {
 	//  unsigned short *tag;
 	//
-	//  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (unsigned short));
+	//  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof(unsigned short));
 	//  *tag = atoi (arg);
 	//
 	//  return tag;
@@ -667,7 +667,7 @@ static void *route_set_metric_compile(const char *arg)
 	//    return NULL;*/
 	//
 	//  mod = XMALLOC (MTYPE_ROUTE_MAP_COMPILED,
-	//    sizeof (struct rip_metric_modifier));
+	//    sizeof(struct rip_metric_modifier));
 	//  mod->type = type;
 	//  mod->metric = metric;
 
@@ -718,7 +718,7 @@ static void *route_set_ip_nexthop_compile(const char *arg)
 	//  int ret;
 	//  struct in_addr *address;
 	//
-	//  address = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct
+	//  address = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof(struct
 	//  in_addr));
 	//
 	//  ret = inet_aton (arg, address);
@@ -775,7 +775,7 @@ static void *route_set_tag_compile(const char *arg)
 {
 	//  unsigned short *tag;
 	//
-	//  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (unsigned short));
+	//  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof(unsigned short));
 	//  *tag = atoi (arg);
 	//
 	//  return tag;

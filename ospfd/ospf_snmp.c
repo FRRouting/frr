@@ -2463,7 +2463,7 @@ static void ospfTrapNbrStateChange(struct ospf_neighbor *on)
 
 	smux_trap(ospf_variables, array_size(ospf_variables), ospf_trap_oid,
 		  array_size(ospf_trap_oid), ospf_oid,
-		  sizeof ospf_oid / sizeof(oid), index, IN_ADDR_SIZE + 1,
+		  sizeof(ospf_oid) / sizeof(oid), index, IN_ADDR_SIZE + 1,
 		  ospfNbrTrapList, array_size(ospfNbrTrapList), NBRSTATECHANGE);
 }
 
@@ -2478,7 +2478,7 @@ static void ospfTrapVirtNbrStateChange(struct ospf_neighbor *on)
 
 	smux_trap(ospf_variables, array_size(ospf_variables), ospf_trap_oid,
 		  array_size(ospf_trap_oid), ospf_oid,
-		  sizeof ospf_oid / sizeof(oid), index, IN_ADDR_SIZE + 1,
+		  sizeof(ospf_oid) / sizeof(oid), index, IN_ADDR_SIZE + 1,
 		  ospfVirtNbrTrapList, array_size(ospfVirtNbrTrapList),
 		  VIRTNBRSTATECHANGE);
 }
@@ -2517,7 +2517,7 @@ static void ospfTrapIfStateChange(struct ospf_interface *oi)
 
 	smux_trap(ospf_variables, array_size(ospf_variables), ospf_trap_oid,
 		  array_size(ospf_trap_oid), ospf_oid,
-		  sizeof ospf_oid / sizeof(oid), index, IN_ADDR_SIZE + 1,
+		  sizeof(ospf_oid) / sizeof(oid), index, IN_ADDR_SIZE + 1,
 		  ospfIfTrapList, array_size(ospfIfTrapList), IFSTATECHANGE);
 }
 
@@ -2532,7 +2532,7 @@ static void ospfTrapVirtIfStateChange(struct ospf_interface *oi)
 
 	smux_trap(ospf_variables, array_size(ospf_variables), ospf_trap_oid,
 		  array_size(ospf_trap_oid), ospf_oid,
-		  sizeof ospf_oid / sizeof(oid), index, IN_ADDR_SIZE + 1,
+		  sizeof(ospf_oid) / sizeof(oid), index, IN_ADDR_SIZE + 1,
 		  ospfVirtIfTrapList, array_size(ospfVirtIfTrapList),
 		  VIRTIFSTATECHANGE);
 }

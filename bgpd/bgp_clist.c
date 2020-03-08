@@ -654,7 +654,7 @@ community_regexp_delete (struct community *com, regex_t * reg)
 	i = 0;
 	while (i < com->size)
 	{
-		memcpy (&comval, com_nthval (com, i), sizeof (uint32_t));
+		memcpy (&comval, com_nthval (com, i), sizeof(uint32_t));
 		comval = ntohl (comval);
 
 		switch (comval) {

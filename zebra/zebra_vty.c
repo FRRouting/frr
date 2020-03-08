@@ -286,7 +286,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
 				vty_out(vty, " %s",
 					inet_ntop(AF_INET6, &nexthop->gate.ipv6,
-						  buf, sizeof buf));
+						  buf, sizeof(buf)));
 				if (nexthop->ifindex)
 					vty_out(vty, ", via %s",
 						ifindex2ifname(
@@ -348,7 +348,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				if (nexthop->src.ipv4.s_addr) {
 					if (inet_ntop(AF_INET,
 						      &nexthop->src.ipv4,
-						      addrstr, sizeof addrstr))
+						      addrstr, sizeof(addrstr)))
 						vty_out(vty, ", src %s",
 							addrstr);
 				}
@@ -359,7 +359,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 						    &in6addr_any)) {
 					if (inet_ntop(AF_INET6,
 						      &nexthop->src.ipv6,
-						      addrstr, sizeof addrstr))
+						      addrstr, sizeof(addrstr)))
 						vty_out(vty, ", src %s",
 							addrstr);
 				}
@@ -378,7 +378,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 					mpls_label2str(
 						nexthop->nh_label->num_labels,
 						nexthop->nh_label->label, buf,
-						sizeof buf, 1));
+						sizeof(buf), 1));
 			}
 
 			if (nexthop->weight)
@@ -424,7 +424,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		json_nexthops = json_object_new_array();
 
 		json_object_string_add(json_route, "prefix",
-				       srcdest_rnode2str(rn, buf, sizeof buf));
+				       srcdest_rnode2str(rn, buf, sizeof(buf)));
 		json_object_string_add(json_route, "protocol",
 				       zebra_route_string(re->type));
 
@@ -526,7 +526,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				json_object_string_add(
 					json_nexthop, "ip",
 					inet_ntop(AF_INET6, &nexthop->gate.ipv6,
-						  buf, sizeof buf));
+						  buf, sizeof(buf)));
 				json_object_string_add(json_nexthop, "afi",
 						       "ipv6");
 
@@ -606,7 +606,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				if (nexthop->src.ipv4.s_addr) {
 					if (inet_ntop(AF_INET,
 						      &nexthop->src.ipv4, buf,
-						      sizeof buf))
+						      sizeof(buf)))
 						json_object_string_add(
 							json_nexthop, "source",
 							buf);
@@ -618,7 +618,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 						    &in6addr_any)) {
 					if (inet_ntop(AF_INET6,
 						      &nexthop->src.ipv6, buf,
-						      sizeof buf))
+						      sizeof(buf)))
 						json_object_string_add(
 							json_nexthop, "source",
 							buf);
@@ -667,7 +667,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 					? '>'
 					: ' ',
 				re_status_output_char(re, nexthop),
-				srcdest_rnode2str(rn, buf, sizeof buf));
+				srcdest_rnode2str(rn, buf, sizeof(buf)));
 
 			/* Distance and metric display. */
 			if (((re->type == ZEBRA_ROUTE_CONNECT) &&
@@ -694,7 +694,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			vty_out(vty, " via %s",
 				inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
-					  sizeof buf));
+					  sizeof(buf)));
 			if (nexthop->ifindex)
 				vty_out(vty, ", %s",
 					ifindex2ifname(nexthop->ifindex,
@@ -750,7 +750,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			if (nexthop->src.ipv4.s_addr) {
 				if (inet_ntop(AF_INET, &nexthop->src.ipv4, buf,
-					      sizeof buf))
+					      sizeof(buf)))
 					vty_out(vty, ", src %s", buf);
 			}
 			break;
@@ -758,7 +758,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any)) {
 				if (inet_ntop(AF_INET6, &nexthop->src.ipv6, buf,
-					      sizeof buf))
+					      sizeof(buf)))
 					vty_out(vty, ", src %s", buf);
 			}
 			break;
@@ -771,7 +771,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			vty_out(vty, ", label %s",
 				mpls_label2str(nexthop->nh_label->num_labels,
 					       nexthop->nh_label->label, buf,
-					       sizeof buf, 1));
+					       sizeof(buf), 1));
 		}
 
 		if (uptime < ONE_DAY_SECOND)

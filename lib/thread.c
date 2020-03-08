@@ -171,7 +171,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	struct thread_master *m;
 	struct listnode *ln;
 
-	memset(&tmp, 0, sizeof tmp);
+	memset(&tmp, 0, sizeof(tmp));
 	tmp.funcname = "TOTAL";
 	tmp.types = filter;
 

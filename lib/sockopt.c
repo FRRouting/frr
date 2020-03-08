@@ -683,7 +683,7 @@ int sockopt_tcp_signature_ext(int sock, union sockunion *su, uint16_t prefixlen,
 #endif /* GNU_LINUX */
 
 	if ((ret = setsockopt(sock, IPPROTO_TCP, optname, &md5sig,
-			      sizeof md5sig))
+			      sizeof(md5sig)))
 	    < 0) {
 		/* ENOENT is harmless.  It is returned when we clear a password
 		   for which

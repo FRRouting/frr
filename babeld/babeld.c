@@ -138,7 +138,7 @@ babel_create_routing_process (void)
     assert (babel_routing_process == NULL);
 
     /* Allocaste Babel instance. */
-    babel_routing_process = XCALLOC (MTYPE_BABEL, sizeof (struct babel));
+    babel_routing_process = XCALLOC(MTYPE_BABEL, sizeof(struct babel));
 
     /* Initialize timeouts */
     gettime(&babel_now);
