@@ -86,6 +86,8 @@ static struct imsgev	*iev_lde, *iev_lde_sync;
 static pid_t		 ldpe_pid;
 static pid_t		 lde_pid;
 
+enum ldpd_process ldpd_process;
+
 #define LDP_DEFAULT_CONFIG	"ldpd.conf"
 #define LDP_VTY_PORT		2612
 
