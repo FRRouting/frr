@@ -97,6 +97,8 @@ static struct quagga_signal_t ldpe_signals[] =
 	},
 };
 
+char *pkt_ptr; /* packet buffer */
+
 /* label distribution protocol engine */
 void
 ldpe(void)
