@@ -56,6 +56,12 @@
 *.pb.cc
 *_clippy.c
 
+### gcov outputs
+
+*.gcno
+*.gcov
+*.gcda
+
 ### dist
 
 *.tar.?z

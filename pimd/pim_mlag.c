@@ -210,17 +210,20 @@ static void pim_mlag_up_peer_add(struct mlag_mroute_add *msg)
  * - if a local entry continues to exisy and has a MLAG OIF DF election
  *   is re-run (at the end of which the local entry will be the DF).
  */
-static void pim_mlag_up_peer_deref(struct pim_instance *pim,
-		struct pim_upstream *up)
+static struct pim_upstream *pim_mlag_up_peer_deref(struct pim_instance *pim,
+						   struct pim_upstream *up)
 {
 	if (!PIM_UPSTREAM_FLAG_TEST_MLAG_PEER(up->flags))
-		return;
+		return up;
 
 	PIM_UPSTREAM_FLAG_UNSET_MLAG_PEER(up->flags);
 	up = pim_upstream_del(pim, up, __func__);
 	if (up)
 		pim_mlag_up_df_role_elect(pim, up);
+
+	return up;
 }
+
 static void pim_mlag_up_peer_del(struct mlag_mroute_del *msg)
 {
 	struct pim_upstream *up;
@@ -256,7 +259,7 @@ static void pim_mlag_up_peer_del(struct mlag_mroute_del *msg)
 		return;
 	}
 
-	pim_mlag_up_peer_deref(pim, up);
+	(void)pim_mlag_up_peer_deref(pim, up);
 }
 
 /* When we lose connection to the local MLAG daemon we can drop all peer
@@ -300,12 +303,13 @@ static void pim_mlag_up_peer_del_all(void)
 			up = listnode_head(temp);
 			listnode_delete(temp, up);
 
-			pim_mlag_up_peer_deref(pim, up);
+			up = pim_mlag_up_peer_deref(pim, up);
 			/*
 			 * This is the deletion of the reference added
 			 * above
 			 */
-			pim_upstream_del(pim, up, __func__);
+			if (up)
+				pim_upstream_del(pim, up, __func__);
 		}
 	}
 
