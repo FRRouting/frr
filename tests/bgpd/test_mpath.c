@@ -75,7 +75,7 @@ struct testcase_t__ {
 
 /* need these to link in libbgp */
 struct thread_master *master = NULL;
-struct zclient *zclient;
+extern struct zclient *zclient;
 struct zebra_privs_t bgpd_privs = {
 	.user = NULL,
 	.group = NULL,
