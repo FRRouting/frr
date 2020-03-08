@@ -54,9 +54,6 @@ static struct imsgev	*iev_lde;
 static struct thread	*pfkey_ev;
 #endif
 
-/* Master of threads. */
-struct thread_master *master;
-
 /* ldpe privileges */
 static zebra_capabilities_t _caps_p [] =
 {
