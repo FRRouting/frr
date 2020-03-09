@@ -1655,7 +1655,15 @@ int pim_ifp_down(struct interface *ifp)
 			if_is_operative(ifp));
 	}
 
+        if (!ifp->info) {
+		if (PIM_DEBUG_ZEBRA)
+                zlog_debug("%s: %s is not pim enabled", __PRETTY_FUNCTION__,
+			   ifp->name);
+                return 0;
+	}
+
 	if (!if_is_operative(ifp)) {
+		pim_ifchannel_membership_clear(ifp);
 		pim_ifchannel_delete_all(ifp);
 		/*
 		  pim_if_addr_del_all() suffices for shutting down IGMP,
@@ -1668,13 +1676,10 @@ int pim_ifp_down(struct interface *ifp)
 		  threads,
 		  and kills all neighbors.
 		*/
-		if (ifp->info) {
-			pim_sock_delete(ifp, "link down");
-		}
+		pim_sock_delete(ifp, "link down");
 	}
 
-	if (ifp->info)
-		pim_if_del_vif(ifp);
+	pim_if_del_vif(ifp);
 
 	return 0;
 }
