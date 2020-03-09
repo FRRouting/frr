@@ -1655,11 +1655,11 @@ int pim_ifp_down(struct interface *ifp)
 			if_is_operative(ifp));
 	}
 
-        if (!ifp->info) {
+	if (!ifp->info) {
 		if (PIM_DEBUG_ZEBRA)
-                zlog_debug("%s: %s is not pim enabled", __PRETTY_FUNCTION__,
-			   ifp->name);
-                return 0;
+			zlog_debug("%s: %s is not pim enabled",
+				   __PRETTY_FUNCTION__, ifp->name);
+		return 0;
 	}
 
 	if (!if_is_operative(ifp)) {

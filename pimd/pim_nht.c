@@ -482,10 +482,11 @@ static int pim_update_upstream_nh(struct pim_instance *pim,
 	return 0;
 }
 
-static int pim_upstream_nh_if_update_helper(struct hash_backet *backet, void *arg)
+static int pim_upstream_nh_if_update_helper(struct hash_bucket *bucket,
+					    void *arg)
 {
-	struct pim_nexthop_cache *pnc = (struct pim_nexthop_cache *)
-					 backet->data;
+	struct pim_nexthop_cache *pnc =
+		(struct pim_nexthop_cache *)bucket->data;
 	struct pnc_hash_walk_data *pwd = (struct pnc_hash_walk_data *)arg;
 	struct pim_instance *pim = pwd->pim;
 	struct interface *ifp = pwd->ifp;
@@ -495,7 +496,7 @@ static int pim_upstream_nh_if_update_helper(struct hash_backet *backet, void *ar
 	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
 		first_ifindex = nh_node->ifindex;
 		if (ifp != if_lookup_by_index(first_ifindex, pim->vrf_id))
-			return HASHWALK_CONTINUE;
+			continue;
 
 		if (pnc->upstream_hash->count)
 			pim_update_upstream_nh(pim, pnc);
@@ -503,8 +504,7 @@ static int pim_upstream_nh_if_update_helper(struct hash_backet *backet, void *ar
 	return HASHWALK_CONTINUE;
 }
 
-int pim_upstream_nh_if_update(struct pim_instance *pim,
-			struct interface *ifp)
+int pim_upstream_nh_if_update(struct pim_instance *pim, struct interface *ifp)
 {
 	struct pnc_hash_walk_data pwd;
 
@@ -562,8 +562,8 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 	memset(&ifps, 0, sizeof(ifps));
 
 	// Current Nexthop is VALID, check to stay on the current path.
-	if (nexthop->interface && nexthop->interface->info &&
-	    ((struct pim_interface *)nexthop->interface->info)->options
+	if (nexthop->interface && nexthop->interface->info
+	    && ((struct pim_interface *)nexthop->interface->info)->options
 	    && nexthop->mrib_nexthop_addr.u.prefix4.s_addr
 		       != PIM_NET_INADDR_ANY) {
 		/* User configured knob to explicitly switch
@@ -693,12 +693,13 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			continue;
 		}
 
-		if (!PIM_IF_TEST_PIM(((struct pim_interface *)ifp->info)->options)) {
+		if (!PIM_IF_TEST_PIM(
+			    ((struct pim_interface *)ifp->info)->options)) {
 			if (PIM_DEBUG_PIM_NHT) {
 				char addr_str[INET_ADDRSTRLEN];
 
 				pim_inet4_dump("<addr?>", src->u.prefix4,
-						addr_str, sizeof(addr_str));
+					       addr_str, sizeof(addr_str));
 				zlog_debug(
 					"%s: pim not enabled on input interface %s(%s) (ifindex=%d, RPF for source %s)",
 					__PRETTY_FUNCTION__, ifp->name,
@@ -1068,19 +1069,19 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 			continue;
 		}
 
-		if (!PIM_IF_TEST_PIM(((struct pim_interface *)ifp->info)->options)) {
+		if (!PIM_IF_TEST_PIM(
+			    ((struct pim_interface *)ifp->info)->options)) {
 			if (PIM_DEBUG_PIM_NHT)
 				zlog_debug(
-                                        "%s: pim not enabled on input interface %s(%s) (ifindex=%d, RPF for source %s)",
-                                        __PRETTY_FUNCTION__, ifp->name,
-                                        pim->vrf->name, first_ifindex,
-                                        addr_str);
-                        if (i == mod_val)
-                                mod_val++;
-                        i++;
-                        continue;
-                }
-
+					"%s: pim not enabled on input interface %s(%s) (ifindex=%d, RPF for source %s)",
+					__PRETTY_FUNCTION__, ifp->name,
+					pim->vrf->name, first_ifindex,
+					addr_str);
+			if (i == mod_val)
+				mod_val++;
+			i++;
+			continue;
+		}
 		if (neighbor_needed
 		    && !pim_if_connected_to_source(ifp, src->u.prefix4)) {
 			nbr = nbrs[i];

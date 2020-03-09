@@ -81,6 +81,5 @@ bool pim_nexthop_match(struct pim_instance *pim, struct in_addr addr,
 		       struct in_addr ip_src);
 bool pim_nexthop_match_nht_cache(struct pim_instance *pim, struct in_addr addr,
 				 struct in_addr ip_src);
-int pim_upstream_nh_if_update(struct pim_instance *pim,
-			struct interface *ifp);
+int pim_upstream_nh_if_update(struct pim_instance *pim, struct interface *ifp);
 #endif
