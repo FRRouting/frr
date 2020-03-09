@@ -8153,8 +8153,6 @@ static int pim_cmd_interface_delete(struct interface *ifp)
 
 	PIM_IF_DONT_PIM(pim_ifp->options);
 
-	pim_if_membership_clear(ifp);
-
 	/*
 	  pim_sock_delete() removes all neighbors from
 	  pim_ifp->pim_neighbor_list.
