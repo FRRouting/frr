@@ -1094,14 +1094,6 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 		return 0;
 	}
 
-	if (!PIM_IF_TEST_PIM(pim_ifp->options)) {
-		if (PIM_DEBUG_EVENTS)
-			zlog_debug(
-				"%s:%s PIM is not configured on this interface %s",
-				__func__, pim_str_sg_dump(sg), ifp->name);
-		return 0;
-	}
-
 	pim = pim_ifp->pim;
 
 	/* skip (*,G) ch creation if G is of type SSM */
