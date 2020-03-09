@@ -1175,8 +1175,6 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 	pim_ifp = ifp->info;
 	if (!pim_ifp)
 		return;
-	if (!PIM_IF_TEST_PIM(pim_ifp->options))
-		return;
 
 	orig = ch = pim_ifchannel_find(ifp, sg);
 	if (!ch)

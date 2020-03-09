@@ -158,6 +158,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 		if (PIM_DEBUG_ZEBRA) {
 			char nexthop_str[PREFIX_STRLEN];
 			char addr_str[INET_ADDRSTRLEN];
+
 			pim_addr_dump("<nexthop?>",
 				      &nexthop_tab[i].nexthop_addr, nexthop_str,
 				      sizeof(nexthop_str));
