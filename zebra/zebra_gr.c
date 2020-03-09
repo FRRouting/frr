@@ -127,8 +127,7 @@ static void zebra_gr_client_info_delte(struct zserv *client,
 
 	THREAD_OFF(info->t_stale_removal);
 
-	if (info->current_prefix)
-		XFREE(MTYPE_TMP, info->current_prefix);
+	XFREE(MTYPE_TMP, info->current_prefix);
 
 	LOG_GR("%s: Instance info is being deleted for client %s", __func__,
 	       zebra_route_string(client->proto));
