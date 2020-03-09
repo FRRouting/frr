@@ -446,7 +446,7 @@ DECLARE_QOBJ_TYPE(l2vpn)
 #define L2VPN_TYPE_VPLS		2
 
 /* ldp_conf */
-enum ldpd_process {
+extern enum ldpd_process {
 	PROC_MAIN,
 	PROC_LDP_ENGINE,
 	PROC_LDE_ENGINE
