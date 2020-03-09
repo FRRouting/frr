@@ -53,6 +53,11 @@ struct pim_nexthop_cache {
 	bool bsr_tracking;
 };
 
+struct pnc_hash_walk_data {
+	struct pim_instance *pim;
+	struct interface *ifp;
+};
+
 int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS);
 int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 			      struct pim_upstream *up, struct rp_info *rp,
@@ -76,5 +81,6 @@ bool pim_nexthop_match(struct pim_instance *pim, struct in_addr addr,
 		       struct in_addr ip_src);
 bool pim_nexthop_match_nht_cache(struct pim_instance *pim, struct in_addr addr,
 				 struct in_addr ip_src);
-
+int pim_upstream_nh_if_update(struct pim_instance *pim,
+			struct interface *ifp);
 #endif

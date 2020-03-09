@@ -139,6 +139,19 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 					addr_str);
 			}
 			i++;
+
+		} else if (!PIM_IF_TEST_PIM(((struct pim_interface *)ifp->info)->options)) {
+			if (PIM_DEBUG_ZEBRA) {
+				char addr_str[INET_ADDRSTRLEN];
+				pim_inet4_dump("<addr?>", addr, addr_str,
+					sizeof(addr_str));
+				zlog_debug(
+					"%s: pim not enabled on input interface %s (ifindex=%d, RPF for source %s)",
+					__PRETTY_FUNCTION__, ifp->name,
+					first_ifindex, addr_str);
+			}
+			i++;
+
 		} else if (neighbor_needed
 			   && !pim_if_connected_to_source(ifp, addr)) {
 			nbr = pim_neighbor_find(
