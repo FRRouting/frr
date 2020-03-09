@@ -210,7 +210,7 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 	char buf[SU_ADDRSTRLEN];
 
 	debugf(NHRP_DEBUG_COMMON, "cache: %s %s: %s", c->ifp->name,
-	       sockunion2str(&c->remote_addr, buf, sizeof buf),
+	       sockunion2str(&c->remote_addr, buf, sizeof(buf)),
 	       (const char *)arg);
 
 	nhrp_reqid_free(&nhrp_event_reqid, r);
@@ -301,7 +301,7 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 			c->cur.remote_nbma_natoa = *nbma_oa;
 		else
 			memset(&c->cur.remote_nbma_natoa, 0,
-			       sizeof c->cur.remote_nbma_natoa);
+			       sizeof(c->cur.remote_nbma_natoa));
 		nhrp_peer_unref(p);
 	} else {
 		c->new.type = type;

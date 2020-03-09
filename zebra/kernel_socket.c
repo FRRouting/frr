@@ -1371,7 +1371,7 @@ static int kernel_read(struct thread *thread)
 	/* Fetch routing socket. */
 	sock = THREAD_FD(thread);
 
-	nbytes = read(sock, &buf, sizeof buf);
+	nbytes = read(sock, &buf, sizeof(buf));
 
 	if (nbytes <= 0) {
 		if (nbytes < 0 && errno != EWOULDBLOCK && errno != EAGAIN)

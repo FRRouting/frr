@@ -303,7 +303,7 @@ static void vici_recv_sa(struct vici_conn *vici, struct zbuf *msg, int event)
 	if (ctx.kill_ikesa && ctx.ike_uniqueid) {
 		debugf(NHRP_DEBUG_COMMON, "VICI: Deleting IKE_SA %u",
 		       ctx.ike_uniqueid);
-		snprintf(buf, sizeof buf, "%u", ctx.ike_uniqueid);
+		snprintf(buf, sizeof(buf), "%u", ctx.ike_uniqueid);
 		vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike-id",
 				    strlen(buf), buf, VICI_END);
 	}
@@ -527,8 +527,8 @@ void vici_request_vc(const char *profile, union sockunion *src,
 	struct vici_conn *vici = &vici_connection;
 	char buf[2][SU_ADDRSTRLEN];
 
-	sockunion2str(src, buf[0], sizeof buf[0]);
-	sockunion2str(dst, buf[1], sizeof buf[1]);
+	sockunion2str(src, buf[0], sizeof(buf[0]));
+	sockunion2str(dst, buf[1], sizeof(buf[1]));
 
 	vici_submit_request(vici, "initiate", VICI_KEY_VALUE, "child",
 			    strlen(profile), profile, VICI_KEY_VALUE, "timeout",

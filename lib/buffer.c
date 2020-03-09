@@ -288,7 +288,7 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 	/* Previously print out is performed. */
 	if (erase_flag) {
 		iov[iov_index].iov_base = erase;
-		iov[iov_index].iov_len = sizeof erase;
+		iov[iov_index].iov_len = sizeof(erase);
 		iov_index++;
 	}
 
@@ -341,7 +341,7 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 	/* In case of `more' display need. */
 	if (b->tail && (b->tail->sp < b->tail->cp) && !no_more_flag) {
 		iov[iov_index].iov_base = more;
-		iov[iov_index].iov_len = sizeof more;
+		iov[iov_index].iov_len = sizeof(more);
 		iov_index++;
 	}
 

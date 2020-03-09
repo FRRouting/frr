@@ -386,7 +386,7 @@ static void ospf_packet_db_desc_dump(struct stream *s, uint16_t length)
 	zlog_debug("  Options %d (%s)", dd->options,
 		   ospf_options_dump(dd->options));
 	zlog_debug("  Flags %d (%s)", dd->flags,
-		   ospf_dd_flags_dump(dd->flags, dd_flags, sizeof dd_flags));
+		   ospf_dd_flags_dump(dd->flags, dd_flags, sizeof(dd_flags)));
 	zlog_debug("  Sequence Number 0x%08lx",
 		   (unsigned long)ntohl(dd->dd_seqnum));
 

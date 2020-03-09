@@ -271,7 +271,7 @@ static int ripng_recv_packet(int sock, uint8_t *buf, int bufsize,
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
 	msg.msg_control = (void *)adata;
-	msg.msg_controllen = sizeof adata;
+	msg.msg_controllen = sizeof(adata);
 	iov.iov_base = buf;
 	iov.iov_len = bufsize;
 

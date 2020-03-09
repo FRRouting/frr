@@ -143,7 +143,7 @@ int pim_encode_addr_ucast(uint8_t *buf, struct prefix *p)
 	}
 }
 
-#define group_ipv4_encoding_len (4 + sizeof (struct in_addr))
+#define group_ipv4_encoding_len (4 + sizeof(struct in_addr))
 
 /*
  * Encoded-Group addresses take the following format:

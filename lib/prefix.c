@@ -1082,7 +1082,7 @@ struct prefix *prefix_new(void)
 {
 	struct prefix *p;
 
-	p = XCALLOC(MTYPE_PREFIX, sizeof *p);
+	p = XCALLOC(MTYPE_PREFIX, sizeof(*p));
 	return p;
 }
 

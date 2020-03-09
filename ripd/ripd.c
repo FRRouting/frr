@@ -104,7 +104,7 @@ static int sockopt_broadcast(int sock)
 	int on = 1;
 
 	ret = setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (char *)&on,
-			 sizeof on);
+			 sizeof(on));
 	if (ret < 0) {
 		zlog_warn("can't set sockopt SO_BROADCAST to socket %d", sock);
 		return -1;

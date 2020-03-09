@@ -95,7 +95,7 @@ static void netlink_neigh_msg(struct nlmsghdr *msg, struct zbuf *zb)
 
 	if (msg->nlmsg_type == RTM_GETNEIGH) {
 		debugf(NHRP_DEBUG_KERNEL, "Netlink: who-has %s dev %s",
-		       sockunion2str(&addr, buf, sizeof buf), ifp->name);
+		       sockunion2str(&addr, buf, sizeof(buf)), ifp->name);
 
 		if (c->cur.type >= NHRP_CACHE_CACHED) {
 			nhrp_cache_set_used(c, 1);
@@ -104,7 +104,7 @@ static void netlink_neigh_msg(struct nlmsghdr *msg, struct zbuf *zb)
 		}
 	} else {
 		debugf(NHRP_DEBUG_KERNEL, "Netlink: update %s dev %s nud %x",
-		       sockunion2str(&addr, buf, sizeof buf), ifp->name,
+		       sockunion2str(&addr, buf, sizeof(buf)), ifp->name,
 		       ndm->ndm_state);
 
 		state = (msg->nlmsg_type == RTM_NEWNEIGH) ? ndm->ndm_state

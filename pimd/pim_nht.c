@@ -217,7 +217,7 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 
 		if (PIM_DEBUG_PIM_NHT) {
 			char buf[PREFIX_STRLEN];
-			prefix2str(addr, buf, sizeof buf);
+			prefix2str(addr, buf, sizeof(buf));
 			zlog_debug(
 				"%s: NHT %s(%s) rp_list count:%d upstream count:%ld",
 				__func__, buf, pim->vrf->name,

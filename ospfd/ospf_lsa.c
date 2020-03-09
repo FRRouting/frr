@@ -434,7 +434,7 @@ static char link_info_set(struct stream **s, struct in_addr id,
 			/* we futz the size here for simplicity, really we need
 			 * to account
 			 * for just:
-			 * IP Header - (sizeof (struct ip))
+			 * IP Header - (sizeof(struct ip))
 			 * OSPF Header - OSPF_HEADER_SIZE
 			 * LSA Header - OSPF_LSA_HEADER_SIZE
 			 * MD5 auth data, if MD5 is configured -

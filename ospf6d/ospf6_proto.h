@@ -71,7 +71,7 @@ struct ospf6_prefix {
 #define OSPF6_PREFIX_OPTION_P  (1 << 3)  /* Propagate (NSSA) */
 
 /* caddr_t OSPF6_PREFIX_BODY (struct ospf6_prefix *); */
-#define OSPF6_PREFIX_BODY(x) ((caddr_t)(x) + sizeof (struct ospf6_prefix))
+#define OSPF6_PREFIX_BODY(x) ((caddr_t)(x) + sizeof(struct ospf6_prefix))
 
 /* size_t OSPF6_PREFIX_SPACE (int prefixlength); */
 #define OSPF6_PREFIX_SPACE(x) ((((x) + 31) / 32) * 4)

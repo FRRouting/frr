@@ -613,9 +613,9 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 
 	vty_out(ctx->vty, "%-8s %-8s %-24s %-24s %c%c%c    %s\n", c->ifp->name,
 		nhrp_cache_type_str[c->cur.type],
-		sockunion2str(&c->remote_addr, buf[0], sizeof buf[0]),
+		sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0])),
 		c->cur.peer ? sockunion2str(&c->cur.peer->vc->remote.nbma,
-					    buf[1], sizeof buf[1])
+					    buf[1], sizeof(buf[1]))
 			    : "-",
 		c->used ? 'U' : ' ', c->t_timeout ? 'T' : ' ',
 		c->t_auth ? 'A' : ' ',
@@ -637,10 +637,10 @@ static void show_ip_nhrp_nhs(struct nhrp_nhs *n, struct nhrp_registration *reg,
 
 	vty_out(vty, "%-8s %-24s %-16s %-16s\n", n->ifp->name, n->nbma_fqdn,
 		(reg && reg->peer) ? sockunion2str(&reg->peer->vc->remote.nbma,
-						   buf[0], sizeof buf[0])
+						   buf[0], sizeof(buf[0]))
 				   : "-",
 		sockunion2str(reg ? &reg->proto_addr : &n->proto_addr, buf[1],
-			      sizeof buf[1]));
+			      sizeof(buf[1])));
 }
 
 static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
@@ -658,8 +658,8 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 
 	c = s->cache;
 	vty_out(ctx->vty, "%-8s %-24s %-24s %s\n", nhrp_cache_type_str[s->type],
-		prefix2str(s->p, buf1, sizeof buf1),
-		c ? sockunion2str(&c->remote_addr, buf2, sizeof buf2) : "",
+		prefix2str(s->p, buf1, sizeof(buf1)),
+		c ? sockunion2str(&c->remote_addr, buf2, sizeof(buf2)) : "",
 		(c && c->cur.peer) ? c->cur.peer->vc->remote.id : "");
 }
 
@@ -678,19 +678,19 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 		nhrp_cache_type_str[c->cur.type],
 		(c->cur.peer && c->cur.peer->online) ? " up" : "",
 		c->used ? " used" : "",
-		sockunion2str(&c->remote_addr, buf, sizeof buf),
+		sockunion2str(&c->remote_addr, buf, sizeof(buf)),
 		8 * family2addrsize(sockunion_family(&c->remote_addr)));
 
 	if (c->cur.peer) {
 		vty_out(ctx->vty, "NBMA-Address: %s\n",
 			sockunion2str(&c->cur.peer->vc->remote.nbma, buf,
-				      sizeof buf));
+				      sizeof(buf)));
 	}
 
 	if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC) {
 		vty_out(ctx->vty, "NBMA-NAT-OA-Address: %s\n",
 			sockunion2str(&c->cur.remote_nbma_natoa, buf,
-				      sizeof buf));
+				      sizeof(buf)));
 	}
 
 	vty_out(ctx->vty, "\n\n");
@@ -741,8 +741,8 @@ static void show_dmvpn_entry(struct nhrp_vc *vc, void *ctx)
 	char buf[2][SU_ADDRSTRLEN];
 
 	vty_out(vty, "%-24s %-24s %c      %-4d %-24s\n",
-		sockunion2str(&vc->local.nbma, buf[0], sizeof buf[0]),
-		sockunion2str(&vc->remote.nbma, buf[1], sizeof buf[1]),
+		sockunion2str(&vc->local.nbma, buf[0], sizeof(buf[0])),
+		sockunion2str(&vc->remote.nbma, buf[1], sizeof(buf[1])),
 		notifier_active(&vc->notifier_list) ? 'n' : ' ', vc->ipsec,
 		vc->remote.id);
 }
@@ -824,11 +824,11 @@ static void interface_config_write_nhrp_map(struct nhrp_cache *c, void *data)
 		return;
 
 	vty_out(vty, " %s nhrp map %s %s\n", ctx->aficmd,
-		sockunion2str(&c->remote_addr, buf[0], sizeof buf[0]),
+		sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0])),
 		c->cur.type == NHRP_CACHE_LOCAL
 			? "local"
 			: sockunion2str(&c->cur.peer->vc->remote.nbma, buf[1],
-					sizeof buf[1]));
+					sizeof(buf[1])));
 }
 
 static int interface_config_write(struct vty *vty)
@@ -904,7 +904,7 @@ static int interface_config_write(struct vty *vty)
 						? "dynamic"
 						: sockunion2str(
 							  &nhs->proto_addr, buf,
-							  sizeof buf),
+							  sizeof(buf)),
 					nhs->nbma_fqdn);
 			}
 		}

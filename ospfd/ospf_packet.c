@@ -725,7 +725,7 @@ static int ospf_write(struct thread *thread)
 		 * but.. */
 		if (sizeof(struct ip)
 		    > (unsigned int)(iph.ip_hl << OSPF_WRITE_IPHL_SHIFT))
-			iph.ip_hl++; /* we presume sizeof struct ip cant
+			iph.ip_hl++; /* we presume sizeof(struct ip) cant
 					overflow ip_hl.. */
 
 		iph.ip_v = IPVERSION;
@@ -3250,7 +3250,7 @@ static int ospf_make_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 
 	switch (ospf_auth_type(oi)) {
 	case OSPF_AUTH_NULL:
-		/* memset (ospfh->u.auth_data, 0, sizeof (ospfh->u.auth_data));
+		/* memset (ospfh->u.auth_data, 0, sizeof(ospfh->u.auth_data));
 		 */
 		break;
 	case OSPF_AUTH_SIMPLE:
@@ -3273,7 +3273,7 @@ static int ospf_make_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 		/* note: the seq is done in ospf_make_md5_digest() */
 		break;
 	default:
-		/* memset (ospfh->u.auth_data, 0, sizeof (ospfh->u.auth_data));
+		/* memset (ospfh->u.auth_data, 0, sizeof(ospfh->u.auth_data));
 		 */
 		break;
 	}

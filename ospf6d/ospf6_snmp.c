@@ -1356,7 +1356,7 @@ static int ospf6TrapNbrStateChange(struct ospf6_neighbor *on, int next_state,
 
 	smux_trap(ospfv3_variables, array_size(ospfv3_variables),
 		  ospfv3_trap_oid, array_size(ospfv3_trap_oid), ospfv3_oid,
-		  sizeof ospfv3_oid / sizeof(oid), index, 3, ospf6NbrTrapList,
+		  sizeof(ospfv3_oid) / sizeof(oid), index, 3, ospf6NbrTrapList,
 		  array_size(ospf6NbrTrapList), NBRSTATECHANGE);
 	return 0;
 }
@@ -1378,7 +1378,7 @@ static int ospf6TrapIfStateChange(struct ospf6_interface *oi, int next_state,
 
 	smux_trap(ospfv3_variables, array_size(ospfv3_variables),
 		  ospfv3_trap_oid, array_size(ospfv3_trap_oid), ospfv3_oid,
-		  sizeof ospfv3_oid / sizeof(oid), index, 2, ospf6IfTrapList,
+		  sizeof(ospfv3_oid) / sizeof(oid), index, 2, ospf6IfTrapList,
 		  array_size(ospf6IfTrapList), IFSTATECHANGE);
 	return 0;
 }

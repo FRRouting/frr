@@ -869,7 +869,7 @@ static int bgpTrapEstablished(struct peer *peer)
 
 	smux_trap(bgp_variables, array_size(bgp_variables), bgp_trap_oid,
 		  array_size(bgp_trap_oid), bgp_oid,
-		  sizeof bgp_oid / sizeof(oid), index, IN_ADDR_SIZE,
+		  sizeof(bgp_oid) / sizeof(oid), index, IN_ADDR_SIZE,
 		  bgpTrapList, array_size(bgpTrapList), BGPESTABLISHED);
 	return 0;
 }
@@ -888,7 +888,7 @@ static int bgpTrapBackwardTransition(struct peer *peer)
 
 	smux_trap(bgp_variables, array_size(bgp_variables), bgp_trap_oid,
 		  array_size(bgp_trap_oid), bgp_oid,
-		  sizeof bgp_oid / sizeof(oid), index, IN_ADDR_SIZE,
+		  sizeof(bgp_oid) / sizeof(oid), index, IN_ADDR_SIZE,
 		  bgpTrapList, array_size(bgpTrapList), BGPBACKWARDTRANSITION);
 	return 0;
 }
