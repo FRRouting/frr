@@ -443,6 +443,7 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 {
 	const struct ip *ip_hdr = (const struct ip *)buf;
 	struct pim_interface *pim_ifp;
+	struct pim_instance *pim;
 	struct pim_ifchannel *ch;
 	struct pim_upstream *up;
 	struct prefix_sg star_g;
@@ -465,16 +466,18 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 
 	star_g = sg;
 	star_g.src.s_addr = INADDR_ANY;
-#if 0
-  ch = pim_ifchannel_find(ifp, &star_g);
-  if (ch)
-    {
-      if (PIM_DEBUG_MROUTE)
-	zlog_debug ("WRVIFWHOLE (*,G)=%s found ifchannel on interface %s",
-		    pim_str_sg_dump (&star_g), ifp->name);
-      return -1;
-    }
-#endif
+
+	pim = pim_ifp->pim;
+	/*
+	 * If the incoming interface is the pimreg, then
+	 * we know the callback is associated with a pim register
+	 * packet and there is nothing to do here as that
+	 * normal pim processing will see the packet and allow
+	 * us to do the right thing.
+	 */
+	if (ifp == pim->regiface) {
+		return 0;
+	}
 
 	up = pim_upstream_find(pim_ifp->pim, &sg);
 	if (up) {
@@ -502,8 +505,17 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 		 * the pimreg period, so I believe we can ignore this packet
 		 */
 		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
-			// No if channel, but upstream we are at the RP.
-			if (pim_nexthop_lookup(pim_ifp->pim, &source,
+			/*
+			 * No if channel, but upstream we are at the RP.
+			 *
+			 * This could be a anycast RP too and we may
+			 * not have received a register packet from
+			 * the source here at all.  So gracefully
+			 * bow out of doing a nexthop lookup and
+			 * setting the SPTBIT to true
+			 */
+			if (up->upstream_register.s_addr != INADDR_ANY &&
+			    pim_nexthop_lookup(pim_ifp->pim, &source,
 					       up->upstream_register, 0)) {
 				pim_register_stop_send(source.interface, &sg,
 						       pim_ifp->primary_address,

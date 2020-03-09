@@ -78,6 +78,8 @@ static int zebra_mlag_read(struct thread *thread)
 	uint32_t h_msglen;
 	uint32_t tot_len, curr_len = mlag_rd_buf_offset;
 
+	zrouter.mlag_info.t_read = NULL;
+
 	/*
 	 * Received message in sock_stream looks like below
 	 * | len-1 (4 Bytes) | payload-1 (len-1) |
@@ -157,8 +159,6 @@ static int zebra_mlag_read(struct thread *thread)
 static int zebra_mlag_connect(struct thread *thread)
 {
 	struct sockaddr_un svr = {0};
-	struct ucred ucred;
-	socklen_t len = 0;
 
 	/* Reset the Timer-running flag */
 	zrouter.mlag_info.timer_running = false;
@@ -182,11 +182,8 @@ static int zebra_mlag_connect(struct thread *thread)
 				 &zrouter.mlag_info.t_read);
 		return 0;
 	}
-	len = sizeof(struct ucred);
-	ucred.pid = getpid();
 
 	set_nonblocking(mlag_socket);
-	setsockopt(mlag_socket, SOL_SOCKET, SO_PEERCRED, &ucred, len);
 
 	if (IS_ZEBRA_DEBUG_MLAG)
 		zlog_debug("%s: Connection with MLAG is established ",

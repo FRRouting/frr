@@ -57,6 +57,7 @@
 static void join_timer_stop(struct pim_upstream *up);
 static void
 pim_upstream_update_assert_tracking_desired(struct pim_upstream *up);
+static bool pim_upstream_sg_running_proc(struct pim_upstream *up);
 
 /*
  * A (*,G) or a (*,*) is going away
@@ -140,6 +141,18 @@ static struct pim_upstream *pim_upstream_find_parent(struct pim_instance *pim,
 
 		if (up)
 			listnode_add(up->sources, child);
+
+		/*
+		 * In case parent is MLAG entry copy the data to child
+		 */
+		if (up && PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags)) {
+			PIM_UPSTREAM_FLAG_SET_MLAG_INTERFACE(child->flags);
+			if (PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->flags))
+				PIM_UPSTREAM_FLAG_SET_MLAG_NON_DF(child->flags);
+			else
+				PIM_UPSTREAM_FLAG_UNSET_MLAG_NON_DF(
+					child->flags);
+		}
 
 		return up;
 	}
@@ -853,8 +866,22 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->ifchannels = list_new();
 	up->ifchannels->cmp = (int (*)(void *, void *))pim_ifchannel_compare;
 
-	if (up->sg.src.s_addr != INADDR_ANY)
+	if (up->sg.src.s_addr != INADDR_ANY) {
 		wheel_add_item(pim->upstream_sg_wheel, up);
+
+		/* Inherit the DF role from the parent (*, G) entry for
+		 * VxLAN BUM groups
+		 */
+		if (up->parent
+		    && PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(up->parent->flags)
+		    && PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->parent->flags)) {
+			PIM_UPSTREAM_FLAG_SET_MLAG_NON_DF(up->flags);
+			if (PIM_DEBUG_VXLAN)
+				zlog_debug(
+					"upstream %s inherited mlag non-df flag from parent",
+					up->sg_str);
+		}
+	}
 
 	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)
 	    || PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags)) {
@@ -885,24 +912,12 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		}
 	}
 
-	/* If (S, G) inherit the MLAG_VXLAN from the parent
-	 * (*, G) entry.
-	 */
-	if ((up->sg.src.s_addr != INADDR_ANY) &&
-		up->parent &&
-		PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(up->parent->flags) &&
-		!PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(up->flags)) {
-		PIM_UPSTREAM_FLAG_SET_MLAG_VXLAN(up->flags);
-		if (PIM_DEBUG_VXLAN)
-			zlog_debug("upstream %s inherited mlag vxlan flag from parent",
-					up->sg_str);
-	}
-
 	/* send the entry to the MLAG peer */
 	/* XXX - duplicate send is possible here if pim_rpf_update
 	 * successfully resolved the nexthop
 	 */
-	if (pim_up_mlag_is_local(up))
+	if (pim_up_mlag_is_local(up)
+	    || PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags))
 		pim_mlag_up_local_add(pim, up);
 
 	if (PIM_DEBUG_PIM_TRACE) {
@@ -917,7 +932,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 
 uint32_t pim_up_mlag_local_cost(struct pim_upstream *up)
 {
-	if (!(pim_up_mlag_is_local(up)))
+	if (!(pim_up_mlag_is_local(up))
+	    && !(up->flags & PIM_UPSTREAM_FLAG_MASK_MLAG_INTERFACE))
 		return router->infinite_assert_metric.route_metric;
 
 	if ((up->rpf.source_nexthop.interface ==
@@ -1438,6 +1454,11 @@ static int pim_upstream_keep_alive_timer(struct thread *t)
 
 	up = THREAD_ARG(t);
 
+	/* pull the stats and re-check */
+	if (pim_upstream_sg_running_proc(up))
+		/* kat was restarted because of new activity */
+		return 0;
+
 	pim_upstream_keep_alive_timer_proc(up);
 	return 0;
 }
@@ -1751,6 +1772,7 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 				   up->sg_str);
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp;
 		if (!ifp->info)
 			continue;
 
@@ -1764,6 +1786,12 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 		if (!ch && !starch)
 			continue;
 
+		pim_ifp = ifp->info;
+		if (PIM_I_am_DualActive(pim_ifp)
+		    && PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags)
+		    && (PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(up->flags)
+			|| !PIM_UPSTREAM_FLAG_TEST_MLAG_PEER(up->flags)))
+			continue;
 		if (pim_upstream_evaluate_join_desired_interface(up, ch,
 								 starch)) {
 			int flag = PIM_OIF_FLAG_PROTO_PIM;
@@ -1943,39 +1971,14 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 	return false;
 }
 
-/*
- * Code to check and see if we've received packets on a S,G mroute
- * and if so to set the SPT bit appropriately
- */
-static void pim_upstream_sg_running(void *arg)
+static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 {
-	struct pim_upstream *up = (struct pim_upstream *)arg;
-	struct pim_instance *pim = up->channel_oil->pim;
+	bool rv = false;
+	struct pim_instance *pim = up->pim;
 
-	// No packet can have arrived here if this is the case
-	if (!up->channel_oil->installed) {
-		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug("%s: %s%s is not installed in mroute",
-				   __func__, up->sg_str, pim->vrf->name);
-		return;
-	}
+	if (!up->channel_oil->installed)
+		return rv;
 
-	/*
-	 * This is a bit of a hack
-	 * We've noted that we should rescan but
-	 * we've missed the window for doing so in
-	 * pim_zebra.c for some reason.  I am
-	 * only doing this at this point in time
-	 * to get us up and working for the moment
-	 */
-	if (up->channel_oil->oil_inherited_rescan) {
-		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug(
-				"%s: Handling unscanned inherited_olist for %s[%s]",
-				__func__, up->sg_str, pim->vrf->name);
-		pim_upstream_inherited_olist_decide(pim, up);
-		up->channel_oil->oil_inherited_rescan = 0;
-	}
 	pim_mroute_update_counters(up->channel_oil);
 
 	// Have we seen packets?
@@ -1989,7 +1992,7 @@ static void pim_upstream_sg_running(void *arg)
 				up->channel_oil->cc.pktcnt,
 				up->channel_oil->cc.lastused / 100);
 		}
-		return;
+		return rv;
 	}
 
 	if (pim_upstream_kat_start_ok(up)) {
@@ -2007,14 +2010,55 @@ static void pim_upstream_sg_running(void *arg)
 			pim_upstream_fhr_kat_start(up);
 		}
 		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
-	} else if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(up->flags))
+		rv = true;
+	} else if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(up->flags)) {
 		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
+		rv = true;
+	}
 
 	if ((up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE) &&
 	    (up->rpf.source_nexthop.interface)) {
 		pim_upstream_set_sptbit(up, up->rpf.source_nexthop.interface);
 	}
-	return;
+
+	return rv;
+}
+
+/*
+ * Code to check and see if we've received packets on a S,G mroute
+ * and if so to set the SPT bit appropriately
+ */
+static void pim_upstream_sg_running(void *arg)
+{
+	struct pim_upstream *up = (struct pim_upstream *)arg;
+	struct pim_instance *pim = up->channel_oil->pim;
+
+	// No packet can have arrived here if this is the case
+	if (!up->channel_oil->installed) {
+		if (PIM_DEBUG_TRACE)
+			zlog_debug("%s: %s%s is not installed in mroute",
+				   __func__, up->sg_str, pim->vrf->name);
+		return;
+	}
+
+	/*
+	 * This is a bit of a hack
+	 * We've noted that we should rescan but
+	 * we've missed the window for doing so in
+	 * pim_zebra.c for some reason.  I am
+	 * only doing this at this point in time
+	 * to get us up and working for the moment
+	 */
+	if (up->channel_oil->oil_inherited_rescan) {
+		if (PIM_DEBUG_TRACE)
+			zlog_debug(
+				"%s: Handling unscanned inherited_olist for %s[%s]",
+				__func__, up->sg_str, pim->vrf->name);
+		pim_upstream_inherited_olist_decide(pim, up);
+		up->channel_oil->oil_inherited_rescan = 0;
+	}
+
+	pim_upstream_sg_running_proc(up);
 }
 
 void pim_upstream_add_lhr_star_pimreg(struct pim_instance *pim)

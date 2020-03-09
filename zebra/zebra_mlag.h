@@ -46,6 +46,7 @@ extern uint32_t mlag_rd_buf_offset;
 
 static inline void zebra_mlag_reset_read_buffer(void)
 {
+	memset(mlag_wr_buffer, 0, ZEBRA_MLAG_BUF_LIMIT);
 	mlag_rd_buf_offset = 0;
 }
 

@@ -157,6 +157,7 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
 int pim_macro_chisin_pim_include(const struct pim_ifchannel *ch)
 {
 	struct pim_interface *pim_ifp = ch->interface->info;
+	bool mlag_active = false;
 
 	if (!pim_ifp) {
 		zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
@@ -172,9 +173,21 @@ int pim_macro_chisin_pim_include(const struct pim_ifchannel *ch)
 	if (ch->ifassert_winner.s_addr == pim_ifp->primary_address.s_addr)
 		return 1; /* true */
 
+	/*
+	 * When we have a activeactive interface we need to signal
+	 * that this interface is interesting to the upstream
+	 * decision to JOIN *if* we are syncing over the interface
+	 */
+	if (pim_ifp->activeactive) {
+		struct pim_upstream *up = ch->upstream;
+
+		if (PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags))
+			mlag_active = true;
+	}
+
 	return (
 		/* I_am_DR( I ) ? */
-		PIM_I_am_DR(pim_ifp) &&
+		(PIM_I_am_DR(pim_ifp) || mlag_active) &&
 		/* lost_assert(S,G,I) == false ? */
 		(!pim_macro_ch_lost_assert(ch)));
 }

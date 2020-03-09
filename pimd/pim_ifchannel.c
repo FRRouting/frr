@@ -43,6 +43,7 @@
 #include "pim_upstream.h"
 #include "pim_ssm.h"
 #include "pim_rp.h"
+#include "pim_mlag.h"
 
 RB_GENERATE(pim_ifchannel_rb, pim_ifchannel, pim_ifp_rb, pim_ifchannel_compare);
 
@@ -127,8 +128,28 @@ static void pim_ifchannel_find_new_children(struct pim_ifchannel *ch)
 void pim_ifchannel_delete(struct pim_ifchannel *ch)
 {
 	struct pim_interface *pim_ifp;
+	struct pim_upstream *up;
 
 	pim_ifp = ch->interface->info;
+
+	if (PIM_DEBUG_PIM_TRACE)
+		zlog_debug("%s: ifchannel entry %s(%s) del start", __func__,
+			   ch->sg_str, ch->interface->name);
+
+	if (PIM_I_am_DualActive(pim_ifp)) {
+		if (PIM_DEBUG_MLAG)
+			zlog_debug(
+				"%s: if-chnanel-%s is deleted from a Dual "
+				"active Interface",
+				__func__, ch->sg_str);
+		/* Post Delete only if it is the last Dual-active Interface */
+		if (ch->upstream->dualactive_ifchannel_count == 1) {
+			pim_mlag_up_local_del(pim_ifp->pim, ch->upstream);
+			PIM_UPSTREAM_FLAG_UNSET_MLAG_INTERFACE(
+				ch->upstream->flags);
+		}
+		ch->upstream->dualactive_ifchannel_count--;
+	}
 
 	if (ch->upstream->channel_oil) {
 		uint32_t mask = PIM_OIF_FLAG_PROTO_PIM;
@@ -181,14 +202,14 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 
 	listnode_delete(ch->upstream->ifchannels, ch);
 
-	pim_upstream_update_join_desired(pim_ifp->pim, ch->upstream);
+	up = ch->upstream;
 
 	/* upstream is common across ifchannels, check if upstream's
 	   ifchannel list is empty before deleting upstream_del
 	   ref count will take care of it.
 	*/
 	if (ch->upstream->ref_count > 0)
-		pim_upstream_del(pim_ifp->pim, ch->upstream, __func__);
+		up = pim_upstream_del(pim_ifp->pim, ch->upstream, __func__);
 
 	else {
 		if (PIM_DEBUG_PIM_TRACE)
@@ -217,6 +238,9 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 			   ch->sg_str);
 
 	XFREE(MTYPE_PIM_IFCHANNEL, ch);
+
+	if (up)
+		pim_upstream_update_join_desired(pim_ifp->pim, up);
 }
 
 void pim_ifchannel_delete_all(struct interface *ifp)
@@ -586,9 +610,27 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 	else
 		PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(ch->flags);
 
+	/*
+	 * advertise MLAG Data to MLAG peer
+	 */
+	if (PIM_I_am_DualActive(pim_ifp)) {
+		up->dualactive_ifchannel_count++;
+		/* Sync once for upstream */
+		if (up->dualactive_ifchannel_count == 1) {
+			PIM_UPSTREAM_FLAG_SET_MLAG_INTERFACE(up->flags);
+			pim_mlag_up_local_add(pim_ifp->pim, up);
+		}
+		if (PIM_DEBUG_MLAG)
+			zlog_debug(
+				"%s: New Dual active if-chnanel is added to upstream:%s "
+				"count:%d, flags:0x%x",
+				__func__, up->sg_str,
+				up->dualactive_ifchannel_count, up->flags);
+	}
+
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: ifchannel %s is created ", __func__,
-			   ch->sg_str);
+		zlog_debug("%s: ifchannel %s(%s) is created ", __func__,
+			   ch->sg_str, ch->interface->name);
 
 	return ch;
 }
@@ -1073,6 +1115,9 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 		}
 	}
 
+	/* vxlan term mroutes use ipmr-lo as local member to
+	 * pull down multicast vxlan tunnel traffic
+	 */
 	up_flags = is_vxlan ? PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM :
 		PIM_UPSTREAM_FLAG_MASK_SRC_IGMP;
 	ch = pim_ifchannel_add(ifp, sg, 0, up_flags);
