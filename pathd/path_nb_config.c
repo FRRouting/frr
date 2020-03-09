@@ -285,10 +285,24 @@ int pathd_te_sr_policy_candidate_path_name_modify(
 	struct srte_candidate *candidate;
 	const char *name;
 
-	if (args->event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY && args->event != NB_EV_VALIDATE)
 		return NB_OK;
 
+	if (args->event == NB_EV_VALIDATE) {
+		candidate = nb_running_get_entry(
+			NULL, "/frr-pathd:pathd/sr-policy/candidate-path",
+			false);
+		/* the candidate name is fixed after setting it once */
+		if (candidate && strlen(candidate->name) > 0) {
+			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
+				  "The candidate name is fixed!");
+			return NB_ERR_RESOURCE;
+		} else
+			return NB_OK;
+	}
+
 	candidate = nb_running_get_entry(args->dnode, NULL, true);
+
 	name = yang_dnode_get_string(args->dnode, NULL);
 	strlcpy(candidate->name, name, sizeof(candidate->name));
 	SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
