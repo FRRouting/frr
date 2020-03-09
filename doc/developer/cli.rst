@@ -101,7 +101,7 @@ Definition Grammar
 FRR uses its own grammar for defining CLI commands. The grammar draws from
 syntax commonly seen in \*nix manpages and should be fairly intuitive. The
 parser is implemented in Bison and the lexer in Flex. These may be found in
-``lib/command_lex.l`` and ``lib/command_parse.y``, respectively.
+``lib/command_parse.y`` and ``lib/command_lex.l``, respectively.
 
     **ProTip**: if you define a new command and find that the parser is
     throwing syntax or other errors, the parser is the last place you want
