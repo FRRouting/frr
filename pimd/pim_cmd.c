@@ -5772,6 +5772,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 	int oif_vif_index;
 	struct interface *ifp_in;
 	char proto[100];
+	char mroute_uptime[10];
 
 	if (uj) {
 		json = json_object_new_object();
@@ -5807,6 +5808,10 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 		else
 			strlcpy(in_ifname, "<iif?>", sizeof(in_ifname));
 
+
+		pim_time_uptime(mroute_uptime, sizeof(mroute_uptime),
+				now - c_oil->mroute_creation);
+
 		if (uj) {
 
 			/* Find the group, create it if it doesn't exist */
@@ -5840,13 +5845,14 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 			json_object_int_add(json_source, "OilInheritedRescan",
 					    c_oil->oil_inherited_rescan);
 			json_object_string_add(json_source, "iif", in_ifname);
+			json_object_string_add(json_source, "upTime",
+					       mroute_uptime);
 			json_oil = NULL;
 		}
 
 		for (oif_vif_index = 0; oif_vif_index < MAXVIFS;
 		     ++oif_vif_index) {
 			struct interface *ifp_out;
-			char mroute_uptime[10];
 			int ttl;
 
 			ttl = c_oil->oil.mfcc_ttls[oif_vif_index];
@@ -5864,9 +5870,6 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 				continue;
 
 			ifp_out = pim_if_find_by_vif_index(pim, oif_vif_index);
-			pim_time_uptime(
-				mroute_uptime, sizeof(mroute_uptime),
-				now - c_oil->mroute_creation);
 			found_oif = 1;
 
 			if (ifp_out)
@@ -5952,6 +5955,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 					src_str[0] = '\0';
 					grp_str[0] = '\0';
 					in_ifname[0] = '\0';
+					mroute_uptime[0] = '\0';
 					first = 0;
 				}
 			}
