@@ -151,10 +151,15 @@ Route Map Match Command
 
    Matches the specified `prefix-len`. This is a Zebra specific command.
 
-.. index:: match ip next-hop IPV4_ADDR
-.. clicmd:: match ip next-hop IPV4_ADDR
+.. index:: match ip next-hop address IPV4_ADDR
+.. clicmd:: match ip next-hop address IPV4_ADDR
 
-   Matches the specified `ipv4_addr`.
+   This is a BGP specific match command. Matches the specified `ipv4_addr`.
+
+.. index:: match ipv6 next-hop IPV6_ADDR
+.. clicmd:: match ipv6 next-hop IPV6_ADDR
+
+   This is a BGP specific match command. Matches the specified `ipv6_addr`.
 
 .. index:: match as-path AS_PATH
 .. clicmd:: match as-path AS_PATH
