@@ -5790,13 +5790,18 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 	int oif_vif_index;
 	struct interface *ifp_in;
 	char proto[100];
+	char state_str[PIM_REG_STATE_STR_LEN];
 	char mroute_uptime[10];
 
 	if (uj) {
 		json = json_object_new_object();
 	} else {
+		vty_out(vty, "IP Multicast Routing Table\n");
+		vty_out(vty, "Flags: S- Sparse, C - Connected, P - Pruned\n");
 		vty_out(vty,
-			"Source          Group           Proto  Input            Output           TTL  Uptime\n");
+			"       R - RP-bit set, F - Register flag, T - SPT-bit set\n");
+		vty_out(vty,
+			"\nSource          Group           Flags       Proto  Input            Output           TTL  Uptime\n");
 	}
 
 	now = pim_time_monotonic_sec();
@@ -5819,6 +5824,23 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 			       sizeof(grp_str));
 		pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, src_str,
 			       sizeof(src_str));
+
+		strlcpy(state_str, "S", sizeof(state_str));
+		/* When a non DR receives a igmp join, it creates a (*,G)
+		 * channel_oil without any upstream creation */
+		if (c_oil->up) {
+			if (PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(c_oil->up->flags))
+				strlcat(state_str, "C", sizeof(state_str));
+			if (pim_upstream_is_sg_rpt(c_oil->up))
+				strlcat(state_str, "R", sizeof(state_str));
+			if (PIM_UPSTREAM_FLAG_TEST_FHR(c_oil->up->flags))
+				strlcat(state_str, "F", sizeof(state_str));
+			if (c_oil->up->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
+				strlcat(state_str, "T", sizeof(state_str));
+		}
+		if (pim_channel_oil_empty(c_oil))
+			strlcat(state_str, "P", sizeof(state_str));
+
 		ifp_in = pim_if_find_by_vif_index(pim, c_oil->oil.mfcc_parent);
 
 		if (ifp_in)
@@ -5842,7 +5864,8 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 			}
 
 			/* Find the source nested under the group, create it if
-			 * it doesn't exist */
+			 * it doesn't exist
+			 */
 			json_object_object_get_ex(json_group, src_str,
 						  &json_source);
 
@@ -5965,14 +5988,16 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 				}
 
 				vty_out(vty,
-					"%-15s %-15s %-6s %-16s %-16s %-3d  %8s\n",
-					src_str, grp_str, proto, in_ifname,
-					out_ifname, ttl, mroute_uptime);
+					"%-15s %-15s %-15s %-6s %-16s %-16s %-3d  %8s\n",
+					src_str, grp_str, state_str, proto,
+					in_ifname, out_ifname, ttl,
+					mroute_uptime);
 
 				if (first) {
 					src_str[0] = '\0';
 					grp_str[0] = '\0';
 					in_ifname[0] = '\0';
+					state_str[0] = '\0';
 					mroute_uptime[0] = '\0';
 					first = 0;
 				}
@@ -5980,9 +6005,10 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 		}
 
 		if (!uj && !found_oif) {
-			vty_out(vty, "%-15s %-15s %-6s %-16s %-16s %-3d  %8s\n",
-				src_str, grp_str, "none", in_ifname, "none", 0,
-				"--:--:--");
+			vty_out(vty,
+				"%-15s %-15s %-15s %-6s %-16s %-16s %-3d  %8s\n",
+				src_str, grp_str, state_str, "none", in_ifname,
+				"none", 0, "--:--:--");
 		}
 	}
 
