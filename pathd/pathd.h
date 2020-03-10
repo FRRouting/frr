@@ -41,6 +41,7 @@ enum srte_policy_status {
 enum srte_candidate_type {
 	SRTE_CANDIDATE_TYPE_EXPLICIT = 0,
 	SRTE_CANDIDATE_TYPE_DYNAMIC = 1,
+	SRTE_CANDIDATE_TYPE_UNDEFINED = 2,
 };
 
 struct srte_segment_list;

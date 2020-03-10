@@ -384,11 +384,33 @@ int pathd_te_sr_policy_candidate_path_type_modify(
 {
 	struct srte_candidate *candidate;
 	enum srte_candidate_type type;
+	char xpath[XPATH_MAXLEN];
+	char xpath_buf[XPATH_MAXLEN];
 
-	if (args->event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY && args->event != NB_EV_VALIDATE)
 		return NB_OK;
 
+	/* the candidate type is fixed after setting it once, this is checked
+	 * here */
+	if (args->event == NB_EV_VALIDATE) {
+		/* first get the precise path to the candidate path */
+		yang_dnode_get_path(args->dnode, xpath_buf, sizeof(xpath_buf));
+		snprintf(xpath, sizeof(xpath), "%s%s", xpath_buf, "/..");
+
+		candidate = nb_running_get_entry_non_rec(NULL, xpath, false);
+
+		/* then check if it exists and if the type was provided */
+		if (candidate
+		    && candidate->type != SRTE_CANDIDATE_TYPE_UNDEFINED) {
+			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
+				  "The candidate type is fixed!");
+			return NB_ERR_RESOURCE;
+		} else
+			return NB_OK;
+	}
+
 	candidate = nb_running_get_entry(args->dnode, NULL, true);
+
 	type = yang_dnode_get_enum(args->dnode, NULL);
 	candidate->type = type;
 	SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
