@@ -39,6 +39,7 @@
 #include "pim_static.h"
 #include "pim_rp.h"
 #include "pim_ssm.h"
+#include "pim_vxlan.h"
 #include "pim_zlookup.h"
 #include "pim_zebra.h"
 
@@ -135,6 +136,7 @@ void pim_terminate(void)
 	prefix_list_delete_hook(NULL);
 	prefix_list_reset();
 
+	pim_vxlan_terminate();
 	pim_vrf_terminate();
 
 	zclient = pim_zebra_zclient_get();

@@ -148,4 +148,6 @@ extern bool pim_vxlan_do_mlag_reg(void);
 extern void pim_vxlan_inherit_mlag_flags(struct pim_instance *pim,
 		struct pim_upstream *up, bool inherit);
 
+/* Shutdown of PIM stop the thread */
+extern void pim_vxlan_terminate(void);
 #endif /* PIM_VXLAN_H */
