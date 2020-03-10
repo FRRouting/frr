@@ -1165,6 +1165,14 @@ extern void *nb_running_get_entry(const struct lyd_node *dnode,
 				  const char *xpath, bool abort_if_not_found);
 
 /*
+ * Same as 'nb_running_get_entry', but doesn't search within parent nodes
+ * recursively if an user point is not found.
+ */
+extern void *nb_running_get_entry_non_rec(const struct lyd_node *dnode,
+					  const char *xpath,
+					  bool abort_if_not_found);
+
+/*
  * Return a human-readable string representing a northbound event.
  *
  * event
