@@ -304,6 +304,8 @@ BGP
   :t:`The Resource Public Key Infrastructure (RPKI) to Router Protocol. R. Bush, R. Austein. January 2013.`
 - :rfc:`6811`
   :t:`BGP Prefix Origin Validation. P. Mohapatra, J. Scudder, D. Ward, R. Bush, R. Austein. January 2013.`
+- :rfc:`7607`
+  :t:`Codification of AS 0 Processing. W. Kumari, R. Bush, H. Schiller, K. Patel. August 2015.`
 - :rfc:`7611`
   :t:`BGP ACCEPT_OWN Community Attribute. J. Uttaro, P. Mohapatra, D. Smith, R. Raszuk, J. Scudder. August 2015.`
 - :rfc:`7999`
