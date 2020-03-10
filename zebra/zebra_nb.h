@@ -340,58 +340,132 @@ const void *lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_get_next(
 	const void *parent_list_entry, const void *list_entry);
 int lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_get_keys(
 	const void *list_entry, struct yang_list_keys *keys);
+int lib_vrf_ribs_rib_create(enum nb_event event, const struct lyd_node *dnode,
+			    union nb_resource *resource);
+int lib_vrf_ribs_rib_destroy(enum nb_event event, const struct lyd_node *dnode);
+const void *lib_vrf_ribs_rib_get_next(const void *parent_list_entry,
+				      const void *list_entry);
+int lib_vrf_ribs_rib_get_keys(const void *list_entry,
+			      struct yang_list_keys *keys);
+const void *lib_vrf_ribs_rib_lookup_entry(const void *parent_list_entry,
+					  const struct yang_list_keys *keys);
+const void *lib_vrf_ribs_rib_route_get_next(const void *parent_list_entry,
+					    const void *list_entry);
+int lib_vrf_ribs_rib_route_get_keys(const void *list_entry,
+				    struct yang_list_keys *keys);
 const void *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_lookup_entry(
+lib_vrf_ribs_rib_route_lookup_entry(const void *parent_list_entry,
+				    const struct yang_list_keys *keys);
+struct yang_data *
+lib_vrf_ribs_rib_route_prefix_get_elem(const char *xpath,
+				       const void *list_entry);
+const void *
+lib_vrf_ribs_rib_route_route_entry_get_next(const void *parent_list_entry,
+					    const void *list_entry);
+int lib_vrf_ribs_rib_route_route_entry_get_keys(const void *list_entry,
+						struct yang_list_keys *keys);
+const void *lib_vrf_ribs_rib_route_route_entry_lookup_entry(
 	const void *parent_list_entry, const struct yang_list_keys *keys);
 struct yang_data *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_nh_type_get_elem(
+lib_vrf_ribs_rib_route_route_entry_protocol_get_elem(const char *xpath,
+						     const void *list_entry);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_instance_get_elem(const char *xpath,
+						     const void *list_entry);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_distance_get_elem(const char *xpath,
+						     const void *list_entry);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_metric_get_elem(const char *xpath,
+						   const void *list_entry);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_tag_get_elem(const char *xpath,
+						const void *list_entry);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_selected_get_elem(const char *xpath,
+						     const void *list_entry);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_installed_get_elem(const char *xpath,
+						      const void *list_entry);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_failed_get_elem(const char *xpath,
+						   const void *list_entry);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_queued_get_elem(const char *xpath,
+						   const void *list_entry);
+struct yang_data *lib_vrf_ribs_rib_route_route_entry_internal_flags_get_elem(
+	const char *xpath, const void *list_entry);
+struct yang_data *lib_vrf_ribs_rib_route_route_entry_internal_status_get_elem(
 	const char *xpath, const void *list_entry);
 struct yang_data *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_vrf_get_elem(
-	const char *xpath, const void *list_entry);
+lib_vrf_ribs_rib_route_route_entry_uptime_get_elem(const char *xpath,
+						   const void *list_entry);
+const void *lib_vrf_ribs_rib_route_route_entry_nexthop_group_get_next(
+	const void *parent_list_entry, const void *list_entry);
+int lib_vrf_ribs_rib_route_route_entry_nexthop_group_get_keys(
+	const void *list_entry, struct yang_list_keys *keys);
+const void *lib_vrf_ribs_rib_route_route_entry_nexthop_group_lookup_entry(
+	const void *parent_list_entry, const struct yang_list_keys *keys);
 struct yang_data *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_gateway_get_elem(
-	const char *xpath, const void *list_entry);
-struct yang_data *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_interface_get_elem(
-	const char *xpath, const void *list_entry);
-struct yang_data *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_bh_type_get_elem(
-	const char *xpath, const void *list_entry);
-struct yang_data *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_onlink_get_elem(
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_name_get_elem(
 	const char *xpath, const void *list_entry);
 const void *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_next(
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_next(
 	const void *parent_list_entry, const void *list_entry);
-int lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_keys(
+int lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_keys(
 	const void *list_entry, struct yang_list_keys *keys);
 const void *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_lookup_entry(
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_lookup_entry(
 	const void *parent_list_entry, const struct yang_list_keys *keys);
 struct yang_data *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_id_get_elem(
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_nh_type_get_elem(
 	const char *xpath, const void *list_entry);
 struct yang_data *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_label_get_elem(
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_vrf_get_elem(
 	const char *xpath, const void *list_entry);
 struct yang_data *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_get_elem(
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_gateway_get_elem(
 	const char *xpath, const void *list_entry);
 struct yang_data *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_get_elem(
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_interface_get_elem(
 	const char *xpath, const void *list_entry);
 struct yang_data *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_duplicate_get_elem(
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_bh_type_get_elem(
 	const char *xpath, const void *list_entry);
 struct yang_data *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_recursive_get_elem(
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_onlink_get_elem(
+	const char *xpath, const void *list_entry);
+const void *
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_next(
+	const void *parent_list_entry, const void *list_entry);
+int lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_keys(
+	const void *list_entry, struct yang_list_keys *keys);
+const void *
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_lookup_entry(
+	const void *parent_list_entry, const struct yang_list_keys *keys);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_id_get_elem(
 	const char *xpath, const void *list_entry);
 struct yang_data *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_active_get_elem(
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_label_get_elem(
 	const char *xpath, const void *list_entry);
 struct yang_data *
-lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_fib_get_elem(
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_get_elem(
+	const char *xpath, const void *list_entry);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_get_elem(
+	const char *xpath, const void *list_entry);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_duplicate_get_elem(
+	const char *xpath, const void *list_entry);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_recursive_get_elem(
+	const char *xpath, const void *list_entry);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_active_get_elem(
+	const char *xpath, const void *list_entry);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_fib_get_elem(
 	const char *xpath, const void *list_entry);
 
 #endif
