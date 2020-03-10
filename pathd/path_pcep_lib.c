@@ -216,7 +216,7 @@ void pcep_lib_parse_capabilities(struct pcep_message *msg,
 int pceplib_logging_cb(int priority, const char *fmt, va_list args)
 {
 	char buffer[1024];
-	snprintf(buffer, sizeof(buffer), fmt, args);
+	vsnprintf(buffer, sizeof(buffer), fmt, args);
 	PCEP_DEBUG_PCEPLIB(priority, "pceplib: %s", buffer);
 	return 0;
 }
