@@ -809,8 +809,7 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 			if (!pay_load[i])
 				continue;
 
-			if (pay_load[i]->vrf_name)
-				XFREE(MTYPE_MLAG_PBUF, pay_load[i]->vrf_name);
+			XFREE(MTYPE_MLAG_PBUF, pay_load[i]->vrf_name);
 			if (pay_load[i]->owner_id == MLAG_OWNER_INTERFACE
 			    && pay_load[i]->intf_name)
 				XFREE(MTYPE_MLAG_PBUF, pay_load[i]->intf_name);
@@ -880,8 +879,7 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s, uint32_t *msg_type)
 			if (!pay_load[i])
 				continue;
 
-			if (pay_load[i]->vrf_name)
-				XFREE(MTYPE_MLAG_PBUF, pay_load[i]->vrf_name);
+			XFREE(MTYPE_MLAG_PBUF, pay_load[i]->vrf_name);
 			if (pay_load[i]->owner_id == MLAG_OWNER_INTERFACE
 			    && pay_load[i]->intf_name)
 				XFREE(MTYPE_MLAG_PBUF, pay_load[i]->intf_name);
