@@ -1123,7 +1123,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 			(struct thread *)bpi->extra->vnc.import.timer;
 		remaining = thread_timer_remain_second(t);
 
-#if RFAPI_REGISTRATIONS_REPORT_AGE
+#ifdef RFAPI_REGISTRATIONS_REPORT_AGE
 		/*
 		 * Calculate when the timer started. Doing so here saves
 		 * us a timestamp field in "struct bgp_path_info".
@@ -1311,7 +1311,7 @@ static int rfapiShowRemoteRegistrationsIt(struct bgp *bgp, void *stream,
 					}
 					fp(out, "%s", HVTYNL);
 					if (show_expiring) {
-#if RFAPI_REGISTRATIONS_REPORT_AGE
+#ifdef RFAPI_REGISTRATIONS_REPORT_AGE
 						agetype = "Age";
 #else
 						agetype = "Remaining";

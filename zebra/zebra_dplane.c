@@ -3331,7 +3331,7 @@ skip_one:
 	return 0;
 }
 
-#if DPLANE_TEST_PROVIDER
+#ifdef DPLANE_TEST_PROVIDER
 
 /*
  * Test dataplane provider plugin
@@ -3415,7 +3415,7 @@ static void dplane_provider_init(void)
 		zlog_err("Unable to register kernel dplane provider: %d",
 			 ret);
 
-#if DPLANE_TEST_PROVIDER
+#ifdef DPLANE_TEST_PROVIDER
 	/* Optional test provider ... */
 	ret = dplane_provider_register("Test",
 				       DPLANE_PRIO_PRE_KERNEL,

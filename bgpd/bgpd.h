@@ -555,7 +555,7 @@ struct bgp {
 
 	struct bgp_addpath_bgp_data tx_addpath;
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	struct rfapi_cfg *rfapi_cfg;
 	struct rfapi *rfapi;
 #endif
@@ -1482,7 +1482,7 @@ struct bgp_nlri {
 #define BGP_ATTR_ENCAP                          23
 #define BGP_ATTR_LARGE_COMMUNITIES              32
 #define BGP_ATTR_PREFIX_SID                     40
-#if ENABLE_BGP_VNC_ATTR
+#ifdef ENABLE_BGP_VNC_ATTR
 #define BGP_ATTR_VNC                           255
 #endif
 

@@ -2150,7 +2150,7 @@ int rfapi_close(void *handle)
 
 	vnc_zlog_debug_verbose("%s: rfd=%p", __func__, rfd);
 
-#if RFAPI_WHO_IS_CALLING_ME
+#ifdef RFAPI_WHO_IS_CALLING_ME
 #ifdef HAVE_GLIBC_BACKTRACE
 #define RFAPI_DEBUG_BACKTRACE_NENTRIES 5
 	{

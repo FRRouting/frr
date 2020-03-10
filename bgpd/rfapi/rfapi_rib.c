@@ -479,7 +479,7 @@ void rfapiRibClear(struct rfapi_descriptor *rfd)
 		bgp = rfd->bgp;
 	else
 		bgp = bgp_get_default();
-#if DEBUG_L2_EXTRA
+#ifdef DEBUG_L2_EXTRA
 	vnc_zlog_debug_verbose("%s: rfd=%p", __func__, rfd);
 #endif
 
@@ -1487,7 +1487,7 @@ static void rib_do_callback_onepass(struct rfapi_descriptor *rfd, afi_t afi)
 	struct rfapi_next_hop_entry *tail = NULL;
 	struct agg_node *rn;
 
-#if DEBUG_L2_EXTRA
+#ifdef DEBUG_L2_EXTRA
 	vnc_zlog_debug_verbose("%s: rfd=%p, afi=%d", __func__, rfd, afi);
 #endif
 
@@ -1812,7 +1812,7 @@ int rfapiRibFTDFilterRecentPrefix(
 	if (it_rn->p.family == AF_ETHERNET)
 		return 0;
 
-#if DEBUG_FTD_FILTER_RECENT
+#ifdef DEBUG_FTD_FILTER_RECENT
 	{
 		char buf_pfx[PREFIX_STRLEN];
 
@@ -1825,7 +1825,7 @@ int rfapiRibFTDFilterRecentPrefix(
 	 * prefix covers target address, so allow prefix
 	 */
 	if (prefix_match(&it_rn->p, pfx_target_original)) {
-#if DEBUG_FTD_FILTER_RECENT
+#ifdef DEBUG_FTD_FILTER_RECENT
 		vnc_zlog_debug_verbose("%s: prefix covers target, allowed",
 				       __func__);
 #endif
@@ -1840,7 +1840,7 @@ int rfapiRibFTDFilterRecentPrefix(
 	if (trn->lock > 1)
 		agg_unlock_node(trn);
 
-#if DEBUG_FTD_FILTER_RECENT
+#ifdef DEBUG_FTD_FILTER_RECENT
 	vnc_zlog_debug_verbose("%s: last sent time %lu, last allowed time %lu",
 			       __func__, prefix_time,
 			       rfd->ftd_last_allowed_time);
@@ -2311,7 +2311,7 @@ static int print_rib_sl(int (*fp)(void *, const char *, ...), struct vty *vty,
 			*p = 0;
 
 		rfapiFormatSeconds(ri->lifetime, str_lifetime, BUFSIZ);
-#if RFAPI_REGISTRATIONS_REPORT_AGE
+#ifdef RFAPI_REGISTRATIONS_REPORT_AGE
 		rfapiFormatAge(ri->last_sent_time, str_age, BUFSIZ);
 #else
 		{
@@ -2451,12 +2451,12 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 					   "   %-20s %-15s %-15s %4s %-8s %-8s\n",
 					   "Prefix", "Registered VN",
 					   "Registered UN", "Cost", "Lifetime",
-#if RFAPI_REGISTRATIONS_REPORT_AGE
+#ifdef RFAPI_REGISTRATIONS_REPORT_AGE
 					   "Age"
 #else
 					   "Remaining"
 #endif
-					   );
+					);
 				}
 				if (!printednve) {
 					char str_vn[BUFSIZ];
