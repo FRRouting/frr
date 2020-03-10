@@ -284,15 +284,21 @@ int pathd_te_sr_policy_candidate_path_name_modify(
 {
 	struct srte_candidate *candidate;
 	const char *name;
+	char xpath[XPATH_MAXLEN];
+	char xpath_buf[XPATH_MAXLEN];
 
 	if (args->event != NB_EV_APPLY && args->event != NB_EV_VALIDATE)
 		return NB_OK;
 
+	/* the candidate name is fixed after setting it once, this is checked here */
 	if (args->event == NB_EV_VALIDATE) {
-		candidate = nb_running_get_entry(
-			NULL, "/frr-pathd:pathd/sr-policy/candidate-path",
-			false);
-		/* the candidate name is fixed after setting it once */
+		/* first get the precise path to the candidate path */
+		yang_dnode_get_path(args->dnode, xpath_buf, sizeof(xpath_buf));
+		snprintf(xpath, sizeof(xpath), "%s%s", xpath_buf, "/..");
+
+		candidate = nb_running_get_entry_non_rec(NULL, xpath, false);
+
+		/* then check if it exists and if the name was provided */
 		if (candidate && strlen(candidate->name) > 0) {
 			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
 				  "The candidate name is fixed!");
