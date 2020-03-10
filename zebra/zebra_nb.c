@@ -410,195 +410,197 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/protocol",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_protocol_get_elem,
+				.get_next = lib_vrf_ribs_rib_route_route_entry_get_next,
+				.get_keys = lib_vrf_ribs_rib_route_route_entry_get_keys,
+				.lookup_entry = lib_vrf_ribs_rib_route_route_entry_lookup_entry,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/protocol-v6",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/protocol",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_protocol_v6_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_protocol_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/vrf",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/instance",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_vrf_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_instance_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/distance",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/distance",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_distance_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_distance_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/metric",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/metric",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_metric_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_metric_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/tag",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/tag",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_tag_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_tag_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/selected",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/selected",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_selected_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_selected_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/installed",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/installed",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_installed_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_installed_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/failed",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/failed",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_failed_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_failed_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/queued",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/queued",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_queued_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_queued_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/internal-flags",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/internal-flags",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_internal_flags_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_internal_flags_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/internal-status",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/internal-status",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_internal_status_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_internal_status_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/uptime",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/uptime",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_uptime_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_uptime_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group",
 			.cbs = {
-				.get_next = lib_vrf_ribs_rib_route_nexthop_group_get_next,
-				.get_keys = lib_vrf_ribs_rib_route_nexthop_group_get_keys,
-				.lookup_entry = lib_vrf_ribs_rib_route_nexthop_group_lookup_entry,
+				.get_next = lib_vrf_ribs_rib_route_route_entry_nexthop_group_get_next,
+				.get_keys = lib_vrf_ribs_rib_route_route_entry_nexthop_group_get_keys,
+				.lookup_entry = lib_vrf_ribs_rib_route_route_entry_nexthop_group_lookup_entry,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/name",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/name",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_name_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_name_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop",
 			.cbs = {
-				.get_next = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_get_next,
-				.get_keys = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_get_keys,
-				.lookup_entry = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_lookup_entry,
+				.get_next = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_next,
+				.get_keys = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_keys,
+				.lookup_entry = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_lookup_entry,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/nh-type",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/nh-type",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_nh_type_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_nh_type_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/vrf",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/vrf",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_vrf_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_vrf_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/gateway",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/gateway",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_gateway_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_gateway_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/interface",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/interface",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_interface_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_interface_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/bh-type",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/bh-type",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_bh_type_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_bh_type_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/onlink",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/onlink",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_onlink_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_onlink_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry",
 			.cbs = {
-				.get_next = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_next,
-				.get_keys = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_keys,
-				.lookup_entry = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_lookup_entry,
+				.get_next = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_next,
+				.get_keys = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_keys,
+				.lookup_entry = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_lookup_entry,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/id",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/id",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_id_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_id_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/label",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/label",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_label_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_label_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/ttl",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/ttl",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/traffic-class",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/mpls-label-stack/entry/traffic-class",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/duplicate",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/duplicate",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_duplicate_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_duplicate_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/recursive",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/recursive",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_recursive_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_recursive_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/active",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/active",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_active_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_active_get_elem,
 			}
 		},
 		{
-			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/nexthop-group/frr-nexthops/nexthop/fib",
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/fib",
 			.cbs = {
-				.get_elem = lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_fib_get_elem,
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_fib_get_elem,
 			}
 		},
 		{
