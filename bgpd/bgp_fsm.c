@@ -1935,6 +1935,7 @@ static int bgp_establish(struct peer *peer)
 	hash_release(peer->bgp->peerhash, peer);
 	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 
+	bgp_bfd_deregister_peer(peer);
 	bgp_bfd_register_peer(peer);
 	return ret;
 }
