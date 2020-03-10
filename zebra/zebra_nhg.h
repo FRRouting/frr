@@ -187,11 +187,17 @@ void zebra_nhg_free(struct nhg_hash_entry *nhe);
 /* In order to clear a generic hash, we need a generic api, sigh. */
 void zebra_nhg_hash_free(void *p);
 
+/* Init an nhe, for use in a hash lookup for example. There's some fuzziness
+ * if the nhe represents only a single nexthop, so we try to capture that
+ * variant also.
+ */
+void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi,
+		    const struct nexthop *nh);
+
 /* Allocate, free backup nexthop info objects */
 struct nhg_backup_info *zebra_nhg_backup_alloc(void);
 void zebra_nhg_backup_free(struct nhg_backup_info **p);
 
-struct nhg_hash_entry *zebra_nhg_get_backup_nhe(struct nhg_hash_entry *nhe);
 struct nexthop_group *zebra_nhg_get_backup_nhg(struct nhg_hash_entry *nhe);
 
 extern struct nhg_hash_entry *zebra_nhg_resolve(struct nhg_hash_entry *nhe);
@@ -228,9 +234,13 @@ extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
 /* Del via kernel */
 extern int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id);
 
-/* Find via route creation */
+/* Find an nhe based on a nexthop_group */
 extern struct nhg_hash_entry *
 zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg, afi_t rt_afi);
+
+/* Find an nhe based on a route's nhe, used during route creation */
+struct nhg_hash_entry *
+zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi);
 
 /* Reference counter functions */
 extern void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe);

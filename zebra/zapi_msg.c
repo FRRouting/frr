@@ -1783,12 +1783,23 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	/* Include backup info with the route */
-	memset(&nhe, 0, sizeof(nhe));
+	/* Include backup info with the route. We use a temporary nhe here;
+	 * if this is a new/unknown nhe, a new copy will be allocated
+	 * and stored.
+	 */
+	zebra_nhe_init(&nhe, afi, ng->nexthop);
 	nhe.nhg.nexthop = ng->nexthop;
 	nhe.backup_info = bnhg;
 	ret = rib_add_multipath_nhe(afi, api.safi, &api.prefix, src_p,
 				    re, &nhe);
+
+	/* At this point, these allocations are not needed: 're' has been
+	 * retained or freed, and if 're' still exists, it is using
+	 * a reference to a shared group object.
+	 */
+	nexthop_group_delete(&ng);
+	if (bnhg)
+		zebra_nhg_backup_free(&bnhg);
 
 	/* Stats */
 	switch (api.prefix.family) {

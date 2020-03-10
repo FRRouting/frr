@@ -213,7 +213,7 @@ static void route_entry_attach_ref(struct route_entry *re,
 
 int route_entry_update_nhe(struct route_entry *re, struct nhg_hash_entry *new)
 {
-	struct nhg_hash_entry *old = NULL;
+	struct nhg_hash_entry *old;
 	int ret = 0;
 
 	if (new == NULL) {
@@ -223,7 +223,7 @@ int route_entry_update_nhe(struct route_entry *re, struct nhg_hash_entry *new)
 		goto done;
 	}
 
-	if (re->nhe_id != new->id) {
+	if ((re->nhe_id != 0) && (re->nhe_id != new->id)) {
 		old = re->nhe;
 
 		route_entry_attach_ref(re, new);
@@ -2619,15 +2619,11 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 	struct route_node *rn;
 	struct route_entry *same = NULL;
 	int ret = 0;
-	struct nexthop_group *ng;
 
 	if (!re || !re_nhe)
 		return -1;
 
 	assert(!src_p || !src_p->prefixlen || afi == AFI_IP6);
-
-	/* TODO */
-	ng = &(re_nhe->nhg);
 
 	/* Lookup table.  */
 	table = zebra_vrf_get_table_with_table_id(afi, safi, re->vrf_id,
@@ -2647,7 +2643,8 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 			return -1;
 		}
 	} else {
-		nhe = zebra_nhg_rib_find(0, ng, afi);
+		/* Lookup nhe from route information */
+		nhe = zebra_nhg_rib_find_nhe(re_nhe, afi);
 		if (!nhe) {
 			char buf[PREFIX_STRLEN] = "";
 			char buf2[PREFIX_STRLEN] = "";
@@ -2752,7 +2749,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		      struct nexthop_group *ng)
 {
 	int ret;
-	struct nhg_hash_entry nhe = {};
+	struct nhg_hash_entry nhe;
 
 	if (!re)
 		return -1;
@@ -2764,6 +2761,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	/*
 	 * Use a temporary nhe to convey info to the common/main api.
 	 */
+	zebra_nhe_init(&nhe, afi, (ng ? ng->nexthop : NULL));
 	if (ng)
 		nhe.nhg.nexthop = ng->nexthop;
 	else if (re->nhe_id > 0)
