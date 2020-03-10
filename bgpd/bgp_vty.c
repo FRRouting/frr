@@ -7304,7 +7304,7 @@ ALIAS (af_label_vpn_export,
 
 DEFPY (af_nexthop_vpn_export,
        af_nexthop_vpn_export_cmd,
-       "[no] nexthop vpn export <A.B.C.D|X:X::X:X>$nexthop_str",
+       "[no] nexthop vpn export [<A.B.C.D|X:X::X:X>$nexthop_su]",
        NO_STR
        "Specify next hop to use for VRF advertised prefixes\n"
        "Between current address-family and vpn\n"
@@ -7315,14 +7315,14 @@ DEFPY (af_nexthop_vpn_export,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	afi_t afi;
 	struct prefix p;
-	int idx = 0;
-	int yes = 1;
 
-	if (argv_find(argv, argc, "no", &idx))
-		yes = 0;
+	if (!no) {
+		if (!nexthop_su) {
+			vty_out(vty, "%% Nexthop required\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 
-	if (yes) {
-		if (!sockunion2hostprefix(nexthop_str, &p))
+		if (!sockunion2hostprefix(nexthop_su, &p))
 			return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -7336,7 +7336,7 @@ DEFPY (af_nexthop_vpn_export,
 	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
 			   bgp_get_default(), bgp);
 
-	if (yes) {
+	if (!no) {
 		bgp->vpn_policy[afi].tovpn_nexthop = p;
 		SET_FLAG(bgp->vpn_policy[afi].flags,
 			 BGP_VPN_POLICY_TOVPN_NEXTHOP_SET);
@@ -7351,14 +7351,6 @@ DEFPY (af_nexthop_vpn_export,
 
 	return CMD_SUCCESS;
 }
-
-ALIAS (af_nexthop_vpn_export,
-       af_no_nexthop_vpn_export_cmd,
-       "no nexthop vpn export",
-       NO_STR
-       "Specify next hop to use for VRF advertised prefixes\n"
-       "Between current address-family and vpn\n"
-       "For routes leaked from current address-family to vpn\n")
 
 static int vpn_policy_getdirs(struct vty *vty, const char *dstr, int *dodir)
 {
@@ -16613,8 +16605,6 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &af_no_rd_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &af_no_label_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_no_label_vpn_export_cmd);
-	install_element(BGP_IPV4_NODE, &af_no_nexthop_vpn_export_cmd);
-	install_element(BGP_IPV6_NODE, &af_no_nexthop_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &af_no_rt_vpn_imexport_cmd);
 	install_element(BGP_IPV6_NODE, &af_no_rt_vpn_imexport_cmd);
 	install_element(BGP_IPV4_NODE, &af_no_route_map_vpn_imexport_cmd);
