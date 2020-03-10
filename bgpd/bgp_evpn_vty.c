@@ -4098,7 +4098,7 @@ DEFUN(show_bgp_l2vpn_evpn_summary,
  */
 DEFUN(show_bgp_l2vpn_evpn_route,
       show_bgp_l2vpn_evpn_route_cmd,
-      "show bgp l2vpn evpn route [detail] [type <macip|multicast|es|prefix>] [json]",
+      "show bgp l2vpn evpn route [detail] [type <macip|2|multicast|3|es|4|prefix|5>] [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -4107,8 +4107,12 @@ DEFUN(show_bgp_l2vpn_evpn_route,
       "Display Detailed Information\n"
       "Specify Route type\n"
       "MAC-IP (Type-2) route\n"
+      "MAC-IP (Type-2) route\n"
+      "Multicast (Type-3) route\n"
       "Multicast (Type-3) route\n"
       "Ethernet Segment (Type-4) route\n"
+      "Ethernet Segment (Type-4) route\n"
+      "Prefix (Type-5) route\n"
       "Prefix (Type-5) route\n"
       JSON_STR)
 {
@@ -4131,13 +4135,17 @@ DEFUN(show_bgp_l2vpn_evpn_route,
 	/* get the type */
 	if (argv_find(argv, argc, "type", &type_idx)) {
 		/* Specific type is requested */
-		if (strncmp(argv[type_idx + 1]->arg, "ma", 2) == 0)
+		if ((strncmp(argv[type_idx + 1]->arg, "ma", 2) == 0)
+		    || (strmatch(argv[type_idx + 1]->arg, "2")))
 			type = BGP_EVPN_MAC_IP_ROUTE;
-		else if (strncmp(argv[type_idx + 1]->arg, "mu", 2) == 0)
+		else if ((strncmp(argv[type_idx + 1]->arg, "mu", 2) == 0)
+			 || (strmatch(argv[type_idx + 1]->arg, "3")))
 			type = BGP_EVPN_IMET_ROUTE;
-		else if (strncmp(argv[type_idx + 1]->arg, "e", 1) == 0)
+		else if ((strncmp(argv[type_idx + 1]->arg, "e", 1) == 0)
+			 || (strmatch(argv[type_idx + 1]->arg, "4")))
 			type = BGP_EVPN_ES_ROUTE;
-		else if (strncmp(argv[type_idx + 1]->arg, "p", 1) == 0)
+		else if ((strncmp(argv[type_idx + 1]->arg, "p", 1) == 0)
+			 || (strmatch(argv[type_idx + 1]->arg, "5")))
 			type = BGP_EVPN_IP_PREFIX_ROUTE;
 		else
 			return CMD_WARNING;
