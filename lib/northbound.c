@@ -2046,24 +2046,29 @@ void *nb_running_unset_entry(const struct lyd_node *dnode)
 	return entry;
 }
 
-void *nb_running_get_entry(const struct lyd_node *dnode, const char *xpath,
-			   bool abort_if_not_found)
+static void *nb_running_get_entry_worker(const struct lyd_node *dnode,
+					 const char *xpath,
+					 bool abort_if_not_found,
+					 bool rec_search)
 {
 	const struct lyd_node *orig_dnode = dnode;
 	char xpath_buf[XPATH_MAXLEN];
+	bool rec_flag = true;
 
 	assert(dnode || xpath);
 
 	if (!dnode)
 		dnode = yang_dnode_get(running_config->dnode, xpath);
 
-	while (dnode) {
+	while (rec_flag && dnode) {
 		struct nb_config_entry *config, s;
 
 		yang_dnode_get_path(dnode, s.xpath, sizeof(s.xpath));
 		config = hash_lookup(running_config_entries, &s);
 		if (config)
 			return config->entry;
+
+		rec_flag = rec_search;
 
 		dnode = dnode->parent;
 	}
@@ -2076,6 +2081,20 @@ void *nb_running_get_entry(const struct lyd_node *dnode, const char *xpath,
 		 "%s: failed to find entry [xpath %s]", __func__, xpath_buf);
 	zlog_backtrace(LOG_ERR);
 	abort();
+}
+
+void *nb_running_get_entry(const struct lyd_node *dnode, const char *xpath,
+			   bool abort_if_not_found)
+{
+	return nb_running_get_entry_worker(dnode, xpath, abort_if_not_found,
+					   true);
+}
+
+void *nb_running_get_entry_non_rec(const struct lyd_node *dnode,
+				   const char *xpath, bool abort_if_not_found)
+{
+	return nb_running_get_entry_worker(dnode, xpath, abort_if_not_found,
+					   false);
 }
 
 /* Logging functions. */
