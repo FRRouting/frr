@@ -4108,8 +4108,8 @@ DEFUN(show_bgp_l2vpn_evpn_route,
       "Specify Route type\n"
       "MAC-IP (Type-2) route\n"
       "Multicast (Type-3) route\n"
-      "Ethernet Segment (type-4) route \n"
-      "Prefix (type-5 )route\n"
+      "Ethernet Segment (Type-4) route\n"
+      "Prefix (Type-5) route\n"
       JSON_STR)
 {
 	struct bgp *bgp;
