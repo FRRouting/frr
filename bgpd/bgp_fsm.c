@@ -1129,7 +1129,7 @@ int bgp_stop(struct peer *peer)
 	peer->nsf_af_count = 0;
 
 	/* deregister peer */
-	if (peer->last_reset != PEER_DOWN_BFD_DOWN)
+	if (peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE)
 		bgp_bfd_deregister_peer(peer);
 
 	if (peer_dynamic_neighbor(peer)
