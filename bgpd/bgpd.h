@@ -1281,9 +1281,7 @@ struct peer {
 	 * - This does *not* contain the filter values, rather it contains
 	 *   whether the filter in filter (struct bgp_filter) is peer-specific.
 	 */
-	uint8_t filter_override[AFI_MAX][SAFI_MAX][(FILTER_MAX > RMAP_MAX)
-							   ? FILTER_MAX
-							   : RMAP_MAX];
+	uint8_t filter_override[AFI_MAX][SAFI_MAX][FILTER_MAX];
 #define PEER_FT_DISTRIBUTE_LIST       (1 << 0) /* distribute-list */
 #define PEER_FT_FILTER_LIST           (1 << 1) /* filter-list */
 #define PEER_FT_PREFIX_LIST           (1 << 2) /* prefix-list */
