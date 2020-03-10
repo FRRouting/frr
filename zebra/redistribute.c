@@ -75,6 +75,10 @@ static void zebra_redistribute_default(struct zserv *client, vrf_id_t vrf_id)
 	struct route_entry *newre;
 
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+
+		if (!vrf_bitmap_check(client->redist_default[afi], vrf_id))
+			continue;
+
 		/* Lookup table.  */
 		table = zebra_vrf_table(afi, SAFI_UNICAST, vrf_id);
 		if (!table)
