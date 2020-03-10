@@ -165,7 +165,7 @@ bool seqlock_timedwait(struct seqlock *sqlo, seqlock_val_t val,
 /*
  * ABS_REALTIME - used on NetBSD, Solaris and OSX
  */
-#if TIME_ABS_REALTIME
+#ifdef TIME_ABS_REALTIME
 #define time_arg1 &abs_rt
 #define time_arg2 NULL
 #define time_prep
@@ -187,7 +187,7 @@ bool seqlock_timedwait(struct seqlock *sqlo, seqlock_val_t val,
 /*
  * RELATIVE - used on OpenBSD (might get a patch to get absolute monotime)
  */
-#elif TIME_RELATIVE
+#elif defined(TIME_RELATIVE)
 	struct timespec reltime;
 
 #define time_arg1 abs_monotime_limit

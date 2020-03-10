@@ -1455,7 +1455,7 @@ static int ripng_update(struct thread *t)
 		if (ri->passive)
 			continue;
 
-#if RIPNG_ADVANCED
+#ifdef RIPNG_ADVANCED
 		if (ri->ri_send == RIPNG_SEND_OFF) {
 			if (IS_RIPNG_DEBUG_EVENT)
 				zlog_debug(

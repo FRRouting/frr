@@ -47,7 +47,7 @@
 #include "bgpd/rfapi/vnc_import_bgp.h"
 #include "bgpd/rfapi/vnc_debug.h"
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 
 #undef BGP_VNC_DEBUG_MATCH_GROUP
 
@@ -168,7 +168,7 @@ struct rfapi_nve_group_cfg *bgp_rfapi_cfg_match_group(struct rfapi_cfg *hc,
 		agg_unlock_node(rn_un);
 	}
 
-#if BGP_VNC_DEBUG_MATCH_GROUP
+#ifdef BGP_VNC_DEBUG_MATCH_GROUP
 	{
 		char buf[PREFIX_STRLEN];
 

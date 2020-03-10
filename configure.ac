@@ -1026,7 +1026,7 @@ AC_CHECK_HEADERS([net/if_var.h], [], [], [FRR_INCLUDES])
 
 m4_define([FRR_INCLUDES],
 FRR_INCLUDES
-[#if HAVE_NET_IF_VAR_H
+[#ifdef HAVE_NET_IF_VAR_H
 # include <net/if_var.h>
 #endif
 ])dnl
@@ -1061,22 +1061,22 @@ FRR_INCLUDES
 [
 #include <sys/un.h>
 #include <netinet/in_systm.h>
-#if HAVE_NETINET_IN_VAR_H
+#ifdef HAVE_NETINET_IN_VAR_H
 # include <netinet/in_var.h>
 #endif
-#if HAVE_NET_IF_DL_H
+#ifdef HAVE_NET_IF_DL_H
 # include <net/if_dl.h>
 #endif
-#if HAVE_NET_NETOPT_H
+#ifdef HAVE_NET_NETOPT_H
 # include <net/netopt.h>
 #endif
 #include <net/route.h>
-#if HAVE_INET_ND_H
+#ifdef HAVE_INET_ND_H
 # include <inet/nd.h>
 #endif
 #include <arpa/inet.h>
 /* Required for IDRP */
-#if HAVE_NETINET_IP_ICMP_H
+#ifdef HAVE_NETINET_IP_ICMP_H
 # include <netinet/ip_icmp.h>
 #endif
 ])dnl
@@ -1401,7 +1401,7 @@ AC_CHECK_HEADERS([linux/mroute.h], [], [],[
 
 m4_define([FRR_INCLUDES],
 FRR_INCLUDES
-[#if HAVE_LINUX_MROUTE_H
+[#ifdef HAVE_LINUX_MROUTE_H
 # include <linux/mroute.h>
 #endif
 ])dnl
@@ -1415,7 +1415,7 @@ AC_CHECK_HEADERS([netinet/ip_mroute.h], [], [],[
 
 m4_define([FRR_INCLUDES],
 FRR_INCLUDES
-[#if HAVE_NETINET_IP_MROUTE_H
+[#ifdef HAVE_NETINET_IP_MROUTE_H
 # include <netinet/ip_mroute.h>
 #endif
 ])dnl
@@ -1528,17 +1528,17 @@ AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h \
 
 m4_define([FRR_INCLUDES],dnl
 FRR_INCLUDES
-[#if HAVE_NETINET6_IN6_H
+[#ifdef HAVE_NETINET6_IN6_H
 #include <netinet6/in6.h>
 #endif
-#if HAVE_NETINET_IN6_VAR_H
+#ifdef HAVE_NETINET_IN6_VAR_H
 #include <netinet/in6_var.h>
 #endif
 #include <netinet/icmp6.h>
-#if HAVE_NETINET6_IN6_VAR_H
+#ifdef HAVE_NETINET6_IN6_VAR_H
 # include <netinet6/in6_var.h>
 #endif
-#if HAVE_NETINET6_ND6_H
+#ifdef HAVE_NETINET6_ND6_H
 # include <netinet6/nd6.h>
 #endif
 ])dnl

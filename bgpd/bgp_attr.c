@@ -47,7 +47,7 @@
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_encap_types.h"
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #include "bgp_encap_types.h"
 #include "bgp_vnc_types.h"
@@ -79,7 +79,7 @@ static const struct message attr_str[] = {
 	{BGP_ATTR_AS_PATHLIMIT, "AS_PATHLIMIT"},
 	{BGP_ATTR_PMSI_TUNNEL, "PMSI_TUNNEL_ATTRIBUTE"},
 	{BGP_ATTR_ENCAP, "ENCAP"},
-#if ENABLE_BGP_VNC_ATTR
+#ifdef ENABLE_BGP_VNC_ATTR
 	{BGP_ATTR_VNC, "VNC"},
 #endif
 	{BGP_ATTR_LARGE_COMMUNITIES, "LARGE_COMMUNITY"},
@@ -199,7 +199,7 @@ static void cluster_finish(void)
 }
 
 static struct hash *encap_hash = NULL;
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 static struct hash *vnc_hash = NULL;
 #endif
 static struct hash *srv6_l3vpn_hash;
@@ -247,7 +247,7 @@ void bgp_attr_flush_encap(struct attr *attr)
 		encap_free(attr->encap_subtlvs);
 		attr->encap_subtlvs = NULL;
 	}
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	if (attr->vnc_subtlvs) {
 		encap_free(attr->vnc_subtlvs);
 		attr->vnc_subtlvs = NULL;
@@ -309,7 +309,7 @@ static void *encap_hash_alloc(void *p)
 
 typedef enum {
 	ENCAP_SUBTLV_TYPE,
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	VNC_SUBTLV_TYPE
 #endif
 } encap_subtlv_type;
@@ -319,7 +319,7 @@ encap_intern(struct bgp_attr_encap_subtlv *encap, encap_subtlv_type type)
 {
 	struct bgp_attr_encap_subtlv *find;
 	struct hash *hash = encap_hash;
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	if (type == VNC_SUBTLV_TYPE)
 		hash = vnc_hash;
 #endif
@@ -341,7 +341,7 @@ static void encap_unintern(struct bgp_attr_encap_subtlv **encapp,
 
 	if (encap->refcnt == 0) {
 		struct hash *hash = encap_hash;
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 		if (type == VNC_SUBTLV_TYPE)
 			hash = vnc_hash;
 #endif
@@ -368,7 +368,7 @@ static void encap_init(void)
 {
 	encap_hash = hash_create(encap_hash_key_make, encap_hash_cmp,
 				 "BGP Encap Hash");
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	vnc_hash = hash_create(encap_hash_key_make, encap_hash_cmp,
 			       "BGP VNC Hash");
 #endif
@@ -379,7 +379,7 @@ static void encap_finish(void)
 	hash_clean(encap_hash, (void (*)(void *))encap_free);
 	hash_free(encap_hash);
 	encap_hash = NULL;
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	hash_clean(vnc_hash, (void (*)(void *))encap_free);
 	hash_free(vnc_hash);
 	vnc_hash = NULL;
@@ -660,7 +660,7 @@ unsigned int attrhash_key_make(const void *p)
 		MIX(transit_hash_key_make(attr->transit));
 	if (attr->encap_subtlvs)
 		MIX(encap_hash_key_make(attr->encap_subtlvs));
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	if (attr->vnc_subtlvs)
 		MIX(encap_hash_key_make(attr->vnc_subtlvs));
 #endif
@@ -698,7 +698,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && attr1->rmap_table_id == attr2->rmap_table_id
 		    && (attr1->encap_tunneltype == attr2->encap_tunneltype)
 		    && encap_same(attr1->encap_subtlvs, attr2->encap_subtlvs)
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 		    && encap_same(attr1->vnc_subtlvs, attr2->vnc_subtlvs)
 #endif
 		    && IPV6_ADDR_SAME(&attr1->mp_nexthop_global,
@@ -780,7 +780,7 @@ static void *bgp_attr_hash_alloc(void *p)
 	if (val->encap_subtlvs) {
 		val->encap_subtlvs = NULL;
 	}
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	if (val->vnc_subtlvs) {
 		val->vnc_subtlvs = NULL;
 	}
@@ -856,7 +856,7 @@ struct attr *bgp_attr_intern(struct attr *attr)
 		else
 			attr->srv6_vpn->refcnt++;
 	}
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	if (attr->vnc_subtlvs) {
 		if (!attr->vnc_subtlvs->refcnt)
 			attr->vnc_subtlvs = encap_intern(attr->vnc_subtlvs,
@@ -1041,7 +1041,7 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	if (attr->encap_subtlvs)
 		encap_unintern(&attr->encap_subtlvs, ENCAP_SUBTLV_TYPE);
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	if (attr->vnc_subtlvs)
 		encap_unintern(&attr->vnc_subtlvs, VNC_SUBTLV_TYPE);
 #endif
@@ -1125,7 +1125,7 @@ void bgp_attr_flush(struct attr *attr)
 		encap_free(attr->encap_subtlvs);
 		attr->encap_subtlvs = NULL;
 	}
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	if (attr->vnc_subtlvs && !attr->vnc_subtlvs->refcnt) {
 		encap_free(attr->vnc_subtlvs);
 		attr->vnc_subtlvs = NULL;
@@ -2265,7 +2265,7 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
 			subtype = stream_getc(BGP_INPUT(peer));
 			sublength = stream_getc(BGP_INPUT(peer));
 			length -= 2;
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 		} else {
 			subtype = stream_getw(BGP_INPUT(peer));
 			sublength = stream_getw(BGP_INPUT(peer));
@@ -2304,7 +2304,7 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
 			} else {
 				attr->encap_subtlvs = tlv;
 			}
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 		} else {
 			struct bgp_attr_encap_subtlv *stlv_last;
 			for (stlv_last = attr->vnc_subtlvs;
@@ -3019,7 +3019,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 		case BGP_ATTR_EXT_COMMUNITIES:
 			ret = bgp_attr_ext_communities(&attr_args);
 			break;
-#if ENABLE_BGP_VNC_ATTR
+#ifdef ENABLE_BGP_VNC_ATTR
 		case BGP_ATTR_VNC:
 #endif
 		case BGP_ATTR_ENCAP:
@@ -3171,7 +3171,7 @@ done:
 		if (attr->encap_subtlvs)
 			attr->encap_subtlvs = encap_intern(attr->encap_subtlvs,
 							   ENCAP_SUBTLV_TYPE);
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 		if (attr->vnc_subtlvs)
 			attr->vnc_subtlvs = encap_intern(attr->vnc_subtlvs,
 							 VNC_SUBTLV_TYPE);
@@ -3190,7 +3190,7 @@ done:
 		assert(attr->transit->refcnt > 0);
 	if (attr->encap_subtlvs)
 		assert(attr->encap_subtlvs->refcnt > 0);
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	if (attr->vnc_subtlvs)
 		assert(attr->vnc_subtlvs->refcnt > 0);
 #endif
@@ -3440,7 +3440,7 @@ static void bgp_packet_mpattr_tea(struct bgp *bgp, struct peer *peer,
 		attrhdrlen = 1 + 1;   /* subTLV T + L */
 		break;
 
-#if ENABLE_BGP_VNC_ATTR
+#ifdef ENABLE_BGP_VNC_ATTR
 	case BGP_ATTR_VNC:
 		attrname = "VNC";
 		subtlvs = attr->vnc_subtlvs;
@@ -3491,7 +3491,7 @@ static void bgp_packet_mpattr_tea(struct bgp *bgp, struct peer *peer,
 		if (attrtype == BGP_ATTR_ENCAP) {
 			stream_putc(s, st->type);
 			stream_putc(s, st->length);
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 		} else {
 			stream_putw(s, st->type);
 			stream_putw(s, st->length);
@@ -3976,7 +3976,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		/* Tunnel Encap attribute */
 		bgp_packet_mpattr_tea(bgp, peer, s, attr, BGP_ATTR_ENCAP);
 
-#if ENABLE_BGP_VNC_ATTR
+#ifdef ENABLE_BGP_VNC_ATTR
 		/* VNC attribute */
 		bgp_packet_mpattr_tea(bgp, peer, s, attr, BGP_ATTR_VNC);
 #endif
