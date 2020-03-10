@@ -1142,6 +1142,15 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 		return BGP_Stop;
 	}
 
+	/* Codification of AS 0 Processing */
+	if (remote_as == BGP_AS_ZERO) {
+		flog_err(EC_BGP_PKT_OPEN, "%s bad OPEN, got AS set to 0",
+			 peer->host);
+		bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
+				BGP_NOTIFY_OPEN_BAD_PEER_AS);
+		return BGP_Stop;
+	}
+
 	if (remote_as == BGP_AS_TRANS) {
 		/* Take the AS4 from the capability.  We must have received the
 		 * capability now!  Otherwise we have a asn16 peer who uses

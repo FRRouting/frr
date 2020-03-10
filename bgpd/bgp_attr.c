@@ -1398,6 +1398,15 @@ static int bgp_attr_aspath(struct bgp_attr_parser_args *args)
 					  0);
 	}
 
+	/* Codification of AS 0 Processing */
+	if (aspath_check_as_zero(attr->aspath)) {
+		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
+			 "Malformed AS path, contains BGP_AS_ZERO(0) from %s",
+			 peer->host);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
+					  0);
+	}
+
 	/* Set aspath attribute flag. */
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS_PATH);
 
@@ -1465,6 +1474,15 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
 			 "Malformed AS4 path from %s, length is %d", peer->host,
 			 length);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
+					  0);
+	}
+
+	/* Codification of AS 0 Processing */
+	if (aspath_check_as_zero(*as4_path)) {
+		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
+			 "Malformed AS4 path, contains BGP_AS_ZERO(0) from %s",
+			 peer->host);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
 					  0);
 	}
@@ -1615,6 +1633,7 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
+	as_t aggregator_as;
 
 	int wantedlen = 6;
 
@@ -1632,9 +1651,19 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 	}
 
 	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV))
-		attr->aggregator_as = stream_getl(peer->curr);
+		aggregator_as = stream_getl(peer->curr);
 	else
-		attr->aggregator_as = stream_getw(peer->curr);
+		aggregator_as = stream_getw(peer->curr);
+
+	/* Codification of AS 0 Processing */
+	if (aggregator_as == BGP_AS_ZERO) {
+		flog_err(EC_BGP_ATTR_LEN,
+			 "AGGREGATOR attribute is BGP_AS_ZERO(0)");
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
+					  args->total);
+	}
+
+	attr->aggregator_as = aggregator_as;
 	attr->aggregator_addr.s_addr = stream_get_ipv4(peer->curr);
 
 	/* Set atomic aggregate flag. */
@@ -1652,6 +1681,7 @@ bgp_attr_as4_aggregator(struct bgp_attr_parser_args *args,
 	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
+	as_t aggregator_as;
 
 	if (length != 8) {
 		flog_err(EC_BGP_ATTR_LEN, "New Aggregator length is not 8 [%d]",
@@ -1660,7 +1690,16 @@ bgp_attr_as4_aggregator(struct bgp_attr_parser_args *args,
 					  0);
 	}
 
-	*as4_aggregator_as = stream_getl(peer->curr);
+	/* Codification of AS 0 Processing */
+	aggregator_as = stream_getl(peer->curr);
+	if (aggregator_as == BGP_AS_ZERO) {
+		flog_err(EC_BGP_ATTR_LEN,
+			 "AS4_AGGREGATOR attribute is BGP_AS_ZERO(0)");
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
+					  0);
+	}
+
+	*as4_aggregator_as = aggregator_as;
 	as4_aggregator_addr->s_addr = stream_get_ipv4(peer->curr);
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR);
