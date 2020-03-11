@@ -604,7 +604,7 @@ AC_ARG_WITH([crypto],
 #if openssl, else use the internal
 AS_IF([test x"${with_crypto}" = x"openssl"], [
 AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
-if test $ac_cv_lib_crypto_EVP_DigestInit = no; then
+if test "$ac_cv_lib_crypto_EVP_DigestInit" = "no"; then
   AC_MSG_ERROR([build with openssl has been specified but openssl library was not found on your system])
 else
   AC_DEFINE([CRYPTO_OPENSSL], [1], [Compile with openssl support])
@@ -650,7 +650,7 @@ case "${enable_systemd}" in
   "no") ;;
   "yes")
   AC_CHECK_LIB([systemd], [sd_notify], [LIBS="$LIBS -lsystemd"])
-  if test $ac_cv_lib_systemd_sd_notify = no; then
+  if test "$ac_cv_lib_systemd_sd_notify" = "no"; then
     AC_MSG_ERROR([enable systemd has been specified but systemd development env not found on your system])
   else
     AC_DEFINE([HAVE_SYSTEMD], [1], [Compile systemd support in])
@@ -1243,11 +1243,11 @@ case "${enable_vtysh}" in
   LIBS="$prev_libs"
 
   AC_CHECK_HEADER([readline/history.h])
-  if test $ac_cv_header_readline_history_h = no;then
+  if test "$ac_cv_header_readline_history_h" = "no"; then
     AC_MSG_ERROR([readline is too old to have readline/history.h, please update to the latest readline library.])
   fi
   AC_CHECK_LIB([readline], [rl_completion_matches], [true], [], [$LIBREADLINE])
-  if test $ac_cv_lib_readline_rl_completion_matches = no; then
+  if test "$ac_cv_lib_readline_rl_completion_matches" = "no"; then
     AC_DEFINE([rl_completion_matches], [completion_matches], [Old readline])
   fi
   AC_CHECK_LIB([readline], [append_history], [frr_cv_append_history=yes], [frr_cv_append_history=no], [$LIBREADLINE])
@@ -1366,8 +1366,8 @@ case "$host_os" in
     ISIS_METHOD_MACRO="ISIS_METHOD_DLPI"
     ;;
   *)
-    if test $ac_cv_header_net_bpf_h = no; then
-      if test $ac_cv_header_sys_dlpi_h = no; then
+    if test "$ac_cv_header_net_bpf_h" = no; then
+      if test "$ac_cv_header_sys_dlpi_h" = no; then
         AC_MSG_RESULT([none])
         if test "${enable_isisd}" = yes -o "${enable_fabricd}" = yes; then
           AC_MSG_FAILURE([IS-IS support requested but no packet backend found])
@@ -1473,7 +1473,7 @@ AC_CHECK_HEADER([netinet/tcp.h],
     AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)],
    [],
    FRR_INCLUDES)
-if test $ac_cv_have_decl_TCP_MD5SIG = no; then
+if test "$ac_cv_have_decl_TCP_MD5SIG" = no; then
   AC_CHECK_HEADER([linux/tcp.h],
        [m4_define([MD5_INCLUDES],
           FRR_INCLUDES
@@ -2252,7 +2252,7 @@ if test "${localstatedir}" = '${prefix}/var'; then
 else
   frr_statedir=${localstatedir}
 fi
-if test $frr_statedir = "/dev/null"; then
+if test "$frr_statedir" = "/dev/null"; then
     AC_MSG_ERROR([STATE DIRECTORY NOT FOUND! FIX OR SPECIFY --localstatedir!])
 fi
 AC_MSG_RESULT([${frr_statedir}])
