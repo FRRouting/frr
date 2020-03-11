@@ -122,7 +122,7 @@ AC_ARG_ENABLE([pkgsrcrcdir],
 			 pkgsrcrcdir="$enableval",)
 dnl XXX add --pkgsrcrcdir to autoconf standard directory list somehow
 AC_SUBST([pkgsrcrcdir])
-AM_CONDITIONAL([PKGSRC], [test "x$pkgsrcrcdir" != "x"])
+AM_CONDITIONAL([PKGSRC], [test "$pkgsrcrcdir" != ""])
 
 AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directory (${libdir}/frr/modules)])], [
 	moduledir="$withval"
@@ -242,8 +242,8 @@ CC="${CC% -std=c99}"
 AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
 
 dnl if the user has specified any CFLAGS, override our settings
-if test "x${enable_gcov}" = "xyes"; then
-   if test "z$orig_cflags" = "z"; then
+if test "${enable_gcov}" = "yes"; then
+   if test "$orig_cflags" = ""; then
       AC_C_FLAG([-coverage])
       AC_C_FLAG([-O0])
    fi
@@ -251,7 +251,7 @@ if test "x${enable_gcov}" = "xyes"; then
    LDFLAGS="${LDFLAGS} -lgcov"
 fi
 
-if test "x${enable_clang_coverage}" = "xyes"; then
+if test "${enable_clang_coverage}" = "yes"; then
    AC_C_FLAG([-fprofile-instr-generate], [
      AC_MSG_ERROR([$CC does not support -fprofile-instr-generate.])
    ])
@@ -260,13 +260,13 @@ if test "x${enable_clang_coverage}" = "xyes"; then
    ])
 fi
 
-if test "x${enable_dev_build}" = "xyes"; then
+if test "${enable_dev_build}" = "yes"; then
    AC_DEFINE([DEV_BUILD], [1], [Build for development])
-   if test "z$orig_cflags" = "z"; then
+   if test "$orig_cflags" = ""; then
       AC_C_FLAG([-g3])
       AC_C_FLAG([-O0])
    fi
-   if test "x${enable_lua}" = "xyes"; then
+   if test "${enable_lua}" = "yes"; then
       AX_PROG_LUA([5.3])
       AX_LUA_HEADERS
       AX_LUA_LIBS([
@@ -275,15 +275,15 @@ if test "x${enable_dev_build}" = "xyes"; then
       ])
    fi
 else
-   if test "x${enable_lua}" = "xyes"; then
+   if test "${enable_lua}" = "yes"; then
       AC_MSG_ERROR([Lua is not meant to be built/used outside of development at this time])
    fi
-   if test "z$orig_cflags" = "z"; then
+   if test "$orig_cflags" = ""; then
       AC_C_FLAG([-g])
       AC_C_FLAG([-O2])
    fi
 fi
-AM_CONDITIONAL([DEV_BUILD], [test "x$enable_dev_build" = "xyes"])
+AM_CONDITIONAL([DEV_BUILD], [test "$enable_dev_build" = "yes"])
 
 dnl always want these CFLAGS
 AC_C_FLAG([-fno-omit-frame-pointer])
@@ -295,7 +295,7 @@ AC_C_FLAG([-Wmissing-declarations])
 AC_C_FLAG([-Wpointer-arith])
 AC_C_FLAG([-Wbad-function-cast])
 AC_C_FLAG([-Wwrite-strings])
-if test "x${enable_gcc_ultra_verbose}" = "xyes" ; then
+if test "${enable_gcc_ultra_verbose}" = "yes" ; then
   AC_C_FLAG([-Wcast-qual])
   AC_C_FLAG([-Wstrict-prototypes])
   AC_C_FLAG([-Wmissing-noreturn])
@@ -318,7 +318,7 @@ dnl for some reason the string consts get 'promoted' to char *,
 dnl triggering a const to non-const conversion warning.
 AC_C_FLAG([-diag-disable 3179])
 
-if test "x${enable_werror}" = "xyes" ; then
+if test "${enable_werror}" = "yes" ; then
   WERROR="-Werror"
 fi
 AC_SUBST([WERROR])
@@ -400,7 +400,7 @@ if test "$enable_shared" != "yes"; then
   AC_MSG_ERROR([FRR cannot be built with --disable-shared.  If you want statically linked daemons, use --enable-shared --enable-static --enable-static-bin])
 fi
 AC_SUBST([AC_LDFLAGS])
-AM_CONDITIONAL([STATIC_BIN], [test "x$enable_static_bin" = "xyes"])
+AM_CONDITIONAL([STATIC_BIN], [test "$enable_static_bin" = "yes"])
 
 dnl $AR and $RANLIB are set by LT_INIT above
 AC_MSG_CHECKING([whether $AR supports D option])
@@ -451,7 +451,7 @@ AC_ARG_WITH([pkg-extra-version],
 ], [])
 AC_ARG_WITH([pkg-git-version],
 	AS_HELP_STRING([--with-pkg-git-version], [add git information to MOTD and build version string]),
-	[ test "x$withval" != "xno" && with_pkg_git_version="yes" ])
+	[ test "$withval" != "no" && with_pkg_git_version="yes" ])
 AC_ARG_WITH([clippy],
   AS_HELP_STRING([--with-clippy=PATH], [use external clippy helper program]))
 AC_ARG_WITH([vtysh_pager],
@@ -602,23 +602,23 @@ AC_ARG_WITH([crypto],
   AS_HELP_STRING([--with-crypto=<internal|openssl>], [choose between different implementations of cryptographic functions(default value is --with-crypto=internal)]))
 
 #if openssl, else use the internal
-AS_IF([test x"${with_crypto}" = x"openssl"], [
+AS_IF([test "${with_crypto}" = "openssl"], [
 AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
 if test "$ac_cv_lib_crypto_EVP_DigestInit" = "no"; then
   AC_MSG_ERROR([build with openssl has been specified but openssl library was not found on your system])
 else
   AC_DEFINE([CRYPTO_OPENSSL], [1], [Compile with openssl support])
 fi
-], [test x"${with_crypto}" = x"internal" || test x"${with_crypto}" = x"" ], [AC_DEFINE([CRYPTO_INTERNAL], [1], [Compile with internal cryptographic implementation])
+], [test "${with_crypto}" = "internal" || test "${with_crypto}" = "" ], [AC_DEFINE([CRYPTO_INTERNAL], [1], [Compile with internal cryptographic implementation])
 ], [AC_MSG_ERROR([Unknown value for --with-crypto])]
 )
 
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS([json-c/json.h])
 AC_CHECK_LIB([json-c], [json_object_get], [LIBS="$LIBS -ljson-c"], [], [-lm])
-if test "$ac_cv_lib_json_c_json_object_get" = no; then
+if test "$ac_cv_lib_json_c_json_object_get" = "no"; then
   AC_CHECK_LIB([json], [json_object_get], [LIBS="$LIBS -ljson"])
-  if test "$ac_cv_lib_json_json_object_get" = no; then
+  if test "$ac_cv_lib_json_json_object_get" = "no"; then
       AC_MSG_ERROR([libjson is needed to compile])
   fi
 fi
@@ -630,8 +630,8 @@ AC_ARG_ENABLE([dev_build],
 AC_ARG_ENABLE([lua],
     AS_HELP_STRING([--enable-lua], [Build Lua scripting]))
 
-if test x"${enable_time_check}" != x"no" ; then
-  if test x"${enable_time_check}" = x"yes" -o x"${enable_time_check}" = "x" ; then
+if test "${enable_time_check}" != "no" ; then
+  if test "${enable_time_check}" = "yes" -o "${enable_time_check}" = "" ; then
     AC_DEFINE([CONSUMED_TIME_CHECK], [5000000], [Consumed Time Check])
   else
     AC_DEFINE_UNQUOTED([CONSUMED_TIME_CHECK], [$enable_time_check], [Consumed Time Check])
@@ -738,28 +738,28 @@ else
   AC_MSG_RESULT([no])
 fi
 
-if test x"${enable_user}" = x"no"; then
+if test "${enable_user}" = "no"; then
   enable_user=""
 else
-  if test x"${enable_user}" = x"yes" || test x"${enable_user}" = x""; then
+  if test "${enable_user}" = "yes" || test "${enable_user}" = ""; then
     enable_user="frr"
   fi
   AC_DEFINE_UNQUOTED([FRR_USER], ["${enable_user}"], [frr User])
 fi
 
-if test x"${enable_group}" = x"no"; then
+if test "${enable_group}" = "no"; then
   enable_group=""
 else
-  if test x"${enable_group}" = x"yes" || test x"${enable_group}" = x""; then
+  if test "${enable_group}" = "yes" || test "${enable_group}" = ""; then
     enable_group="frr"
   fi
   AC_DEFINE_UNQUOTED([FRR_GROUP], ["${enable_group}"], [frr Group])
 fi
 
-if test x"${enable_vty_group}" = x"yes" ; then
+if test "${enable_vty_group}" = "yes" ; then
   AC_MSG_ERROR([--enable-vty-group requires a group as argument, not yes])
-elif test x"${enable_vty_group}" != x""; then
-  if test x"${enable_vty_group}" != x"no"; then
+elif test "${enable_vty_group}" != ""; then
+  if test "${enable_vty_group}" != "no"; then
     AC_DEFINE_UNQUOTED([VTY_GROUP], ["${enable_vty_group}"], [VTY Sockets Group])
   fi
 fi
@@ -784,7 +784,7 @@ case "${enable_multipath}" in
     ;;
   "")
     ;;
-  *)           
+  *)
     AC_MSG_FAILURE([Please specify digit to enable multipath ARG])
     ;;
 esac
@@ -796,12 +796,12 @@ AC_DEFINE_UNQUOTED([VTYSH_PAGER], ["$VTYSH_PAGER"], [What pager to use])
 dnl --------------------
 dnl Enable code coverage
 dnl --------------------
-AM_CONDITIONAL([HAVE_GCOV], [test '!' "$enable_gcov" = no])
+AM_CONDITIONAL([HAVE_GCOV], [test "$enable_gcov" != "no"])
 
 dnl ------------------------------------
 dnl Alpine only accepts numeric versions
 dnl ------------------------------------
-if test "x${enable_numeric_version}" != "x" ; then
+if test "${enable_numeric_version}" != "" ; then
   VERSION="`echo ${VERSION} | tr -c -d '[[.0-9]]'`"
   PACKAGE_VERSION="`echo ${PACKAGE_VERSION} | tr -c -d '[[.0-9]]'`"
 fi
@@ -810,7 +810,7 @@ dnl -----------------------------------
 dnl Add extra version string to package
 dnl name, string and version fields.
 dnl -----------------------------------
-if test "x${EXTRAVERSION}" != "x" ; then
+if test "${EXTRAVERSION}" != "" ; then
   VERSION="${VERSION}${EXTRAVERSION}"
   PACKAGE_VERSION="${PACKAGE_VERSION}${EXTRAVERSION}"
   AC_SUBST(PACKAGE_EXTRAVERSION, ["${EXTRAVERSION}"])
@@ -818,17 +818,17 @@ if test "x${EXTRAVERSION}" != "x" ; then
 fi
 AC_SUBST([EXTRAVERSION])
 
-if test "x$with_pkg_git_version" = "xyes"; then
+if test "$with_pkg_git_version" = "yes"; then
 	if test -d "${srcdir}/.git"; then
 		AC_DEFINE([GIT_VERSION], [1], [include git version info])
 	else	with_pkg_git_version="no"
 		AC_MSG_WARN([--with-pkg-git-version given, but this is not a git checkout])
 	fi
 fi
-AM_CONDITIONAL([GIT_VERSION], [test "x$with_pkg_git_version" = "xyes"])
+AM_CONDITIONAL([GIT_VERSION], [test "$with_pkg_git_version" = "yes"])
 
 AC_CHECK_TOOL([OBJCOPY], [objcopy], [:])
-if test "x${OBJCOPY}" != "x:"; then
+if test "${OBJCOPY}" != ":"; then
   AC_CACHE_CHECK([for .interp value to use], [frr_cv_interp], [
     frr_cv_interp=""
     AC_LINK_IFELSE([AC_LANG_SOURCE([[int main() { return 0; }]])], [
@@ -1490,7 +1490,7 @@ AC_CHECK_LIB([resolv], [res_init])
 dnl ---------------------------
 dnl check system has PCRE regexp
 dnl ---------------------------
-if test "x$enable_pcreposix" = "xyes"; then
+if test "$enable_pcreposix" = "yes"; then
   AC_CHECK_LIB([pcreposix], [regexec], [], [
     AC_MSG_ERROR([--enable-pcreposix given but unable to find libpcreposix])
   ])
@@ -1569,7 +1569,7 @@ else
   esac
 fi
 
-if test "$ac_cv_lib_json_c_json_object_get" = "no" -a "x$BFDD" = "xbfdd"; then
+if test "$ac_cv_lib_json_c_json_object_get" = "no" -a "$BFDD" = "bfdd"; then
   AC_MSG_ERROR(["you must use json-c library to use bfdd"])
 fi
 
@@ -1653,7 +1653,7 @@ dnl check Net-SNMP library
 dnl ------------------
 if test "${enable_snmp}" != "" -a "${enable_snmp}" != "no"; then
    AC_PATH_TOOL([NETSNMP_CONFIG], [net-snmp-config], [no])
-   if test x"$NETSNMP_CONFIG" = x"no"; then
+   if test "$NETSNMP_CONFIG" = "no"; then
       AC_MSG_ERROR([--enable-snmp given but unable to find net-snmp-config])
    fi
    SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
@@ -1726,7 +1726,7 @@ dnl confd
 dnl ---------------
 if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
    AC_CHECK_PROG([CONFD], [confd], [confd], [/bin/false], "${enable_confd}/bin")
-   if test "x$CONFD" = "x/bin/false"; then
+   if test "$CONFD" = "/bin/false"; then
       AC_MSG_ERROR([confd was not found on your system.])]
    fi
    CONFD_CFLAGS="-I${enable_confd}/include -L${enable_confd}/lib"
@@ -1769,12 +1769,12 @@ fi
 dnl ------
 dnl ZeroMQ
 dnl ------
-if test "x$enable_zeromq" != "xno"; then
+if test "$enable_zeromq" != "no"; then
   PKG_CHECK_MODULES([ZEROMQ], [libzmq >= 4.0.0], [
     AC_DEFINE([HAVE_ZEROMQ], [1], [Enable ZeroMQ support])
     ZEROMQ=true
   ], [
-    if test "x$enable_zeromq" = "xyes"; then
+    if test "$enable_zeromq" = "yes"; then
       AC_MSG_ERROR([configuration specifies --enable-zeromq but libzmq was not found])
     fi
   ])
@@ -2060,11 +2060,11 @@ if test "${enable_capabilities}" != "no"; then
      frr_ac_keepcaps="yes"],
      AC_MSG_RESULT([no])
   )
-  if test x"${frr_ac_keepcaps}" = x"yes"; then
+  if test "${frr_ac_keepcaps}" = "yes"; then
     AC_CHECK_HEADERS([sys/capability.h])
   fi
-  if test x"${ac_cv_header_sys_capability_h}" = x"yes"; then
-    AC_CHECK_LIB([cap], [cap_init], 
+  if test "${ac_cv_header_sys_capability_h}" = "yes"; then
+    AC_CHECK_LIB([cap], [cap_init],
       [AC_DEFINE([HAVE_LCAPS], [1], [Capabilities])
        LIBCAP="-lcap"
        frr_ac_lcaps="yes"]
@@ -2081,8 +2081,8 @@ if test "${enable_capabilities}" != "no"; then
      ]
    )
   fi
-  if test x"${frr_ac_scaps}" = x"yes" \
-       -o x"${frr_ac_lcaps}" = x"yes"; then
+  if test "${frr_ac_scaps}" = "yes" \
+       -o "${frr_ac_lcaps}" = "yes"; then
     AC_DEFINE([HAVE_CAPABILITIES], [1], [capabilities])
   fi
 
@@ -2106,8 +2106,8 @@ AC_SUBST([LIBCAP])
 
 dnl ---------------------------
 dnl check for glibc 'backtrace'
-dnl --------------------------- 
-if test x"${enable_backtrace}" != x"no" ; then
+dnl ---------------------------
+if test "${enable_backtrace}" != "no" ; then
   backtrace_ok=no
   PKG_CHECK_MODULES([UNWIND], [libunwind], [
     AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
@@ -2144,7 +2144,7 @@ if test x"${enable_backtrace}" != x"no" ; then
     fi
   fi
 
-  if test x"${enable_backtrace}" = x"yes" -a x"${backtrace_ok}" = x"no"; then
+  if test "${enable_backtrace}" = "yes" -a "${backtrace_ok}" = "no"; then
     dnl user explicitly requested backtrace but we failed to find support
     AC_MSG_FAILURE([failed to find backtrace or libunwind support])
   fi
@@ -2265,8 +2265,8 @@ AC_DEFINE_UNQUOTED([DAEMON_VTY_DIR], ["$frr_statedir%s%s"], [daemon vty director
 AC_DEFINE_UNQUOTED([DAEMON_DB_DIR], ["$frr_statedir"], [daemon database directory])
 
 dnl autoconf does this, but it does it too late...
-test "x$prefix" = "xNONE" && prefix=$ac_default_prefix
-test "x$exec_prefix" = "xNONE" && exec_prefix='${prefix}'
+test "$prefix" = "NONE" && prefix=$ac_default_prefix
+test "$exec_prefix" = "NONE" && exec_prefix='${prefix}'
 
 dnl get the full path, recursing through variables...
 vtysh_bin="$bindir/vtysh"
@@ -2299,33 +2299,33 @@ AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to w
 
 dnl various features
 AM_CONDITIONAL([SUPPORT_REALMS], [test "${enable_realms}" = "yes"])
-AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != "xno"])
+AM_CONDITIONAL([ENABLE_BGP_VNC], [test "${enable_bgp_vnc}" != "no"])
 AM_CONDITIONAL([BGP_BMP], [$bgpd_bmp])
 dnl northbound
 AM_CONDITIONAL([SQLITE3], [$SQLITE3])
-AM_CONDITIONAL([CONFD], [test "x$enable_confd" != "x"])
-AM_CONDITIONAL([SYSREPO], [test "x$enable_sysrepo" = "xyes"])
-AM_CONDITIONAL([GRPC], [test "x$enable_grpc" = "xyes"])
-AM_CONDITIONAL([ZEROMQ], [test "x$ZEROMQ" = "xtrue"])
+AM_CONDITIONAL([CONFD], [test "$enable_confd" != ""])
+AM_CONDITIONAL([SYSREPO], [test "$enable_sysrepo" = "yes"])
+AM_CONDITIONAL([GRPC], [test "$enable_grpc" = "yes"])
+AM_CONDITIONAL([ZEROMQ], [test "$ZEROMQ" = "true"])
 dnl plugins
-AM_CONDITIONAL([RPKI], [test "x$RPKI" = "xtrue"])
-AM_CONDITIONAL([SNMP], [test "x$SNMP_METHOD" = "xagentx"])
+AM_CONDITIONAL([RPKI], [test "$RPKI" = "true"])
+AM_CONDITIONAL([SNMP], [test "$SNMP_METHOD" = "agentx"])
 AM_CONDITIONAL([IRDP], [$IRDP])
-AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
-AM_CONDITIONAL([HAVE_PROTOBUF], [test "x$enable_protobuf" = "xyes"])
+AM_CONDITIONAL([FPM], [test "$enable_fpm" = "yes"])
+AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
 dnl daemons
-AM_CONDITIONAL([VTYSH], [test "x$VTYSH" = "xvtysh"])
+AM_CONDITIONAL([VTYSH], [test "$VTYSH" = "vtysh"])
 AM_CONDITIONAL([ZEBRA], [test "${enable_zebra}" != "no"])
-AM_CONDITIONAL([BGPD], [test "x${enable_bgpd}" != "no"])
+AM_CONDITIONAL([BGPD], [test "${enable_bgpd}" != "no"])
 AM_CONDITIONAL([RIPD], [test "${enable_ripd}" != "no"])
 AM_CONDITIONAL([OSPFD], [test "${enable_ospfd}" != "no"])
 AM_CONDITIONAL([LDPD], [test "${enable_ldpd}" != "no"])
-AM_CONDITIONAL([BFDD], [test "x$BFDD" = "xbfdd"])
-AM_CONDITIONAL([NHRPD], [test "x$NHRPD" = "xnhrpd"])
+AM_CONDITIONAL([BFDD], [test "$BFDD" = "bfdd"])
+AM_CONDITIONAL([NHRPD], [test "$NHRPD" = "nhrpd"])
 AM_CONDITIONAL([EIGRPD], [test "${enable_eigrpd}" != "no"])
-AM_CONDITIONAL([WATCHFRR], [test "x$WATCHFRR" = "xwatchfrr"])
-AM_CONDITIONAL([OSPFCLIENT], [test "x$OSPFCLIENT" = "xospfclient"])
+AM_CONDITIONAL([WATCHFRR], [test "$WATCHFRR" = "watchfrr"])
+AM_CONDITIONAL([OSPFCLIENT], [test "$OSPFCLIENT" = "ospfclient"])
 AM_CONDITIONAL([RIPNGD], [test "${enable_ripngd}" != "no"])
 AM_CONDITIONAL([BABELD], [test "${enable_babeld}" != "no"])
 AM_CONDITIONAL([OSPF6D], [test "${enable_ospf6d}" != "no"])
@@ -2371,7 +2371,7 @@ AC_CONFIG_COMMANDS([lib/route_types.h], [
 	PERL="$PERL"
 ])
 
-AS_IF([test "x$with_pkg_git_version" = "xyes"], [
+AS_IF([test "$with_pkg_git_version" = "yes"], [
     AC_CONFIG_COMMANDS([lib/gitversion.h], [
 	dst="${ac_abs_top_builddir}/lib/gitversion.h"
 	${PERL} "${ac_abs_top_srcdir}/lib/gitversion.pl" \
