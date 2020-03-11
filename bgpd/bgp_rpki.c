@@ -101,6 +101,7 @@ struct rpki_for_each_record_arg {
 	struct vty *vty;
 	unsigned int *prefix_amount;
 	as_t as;
+	struct json_object *json;
 };
 
 struct rpki_vrf {
@@ -128,7 +129,8 @@ static int start(struct rpki_vrf *rpki_vrf);
 static void stop(struct rpki_vrf *rpki_vrf);
 static int reset(bool force, struct rpki_vrf *rpki_vrf);
 static struct rtr_mgr_group *get_connected_group(struct rpki_vrf *rpki_vrf);
-static void print_prefix_table(struct vty *vty, struct rpki_vrf *rpki_vrf);
+static void print_prefix_table(struct vty *vty, struct rpki_vrf *rpki_vrf,
+			       struct json_object *json);
 static void install_cli_commands(void);
 static int config_write(struct vty *vty);
 static int config_on_exit(struct vty *vty);
@@ -148,7 +150,8 @@ static struct cache *find_cache(const uint8_t preference,
 				struct list *cache_list);
 static int add_tcp_cache(struct rpki_vrf *rpki_vrf, const char *host,
 			  const char *port, const uint8_t preference);
-static void print_record(const struct pfx_record *record, struct vty *vty);
+static void print_record(const struct pfx_record *record, struct vty *vty,
+			 struct json_object *json);
 static int is_synchronized(struct rpki_vrf *rpki);
 static int is_running(struct rpki_vrf *rpki);
 static void route_match_free(void *rule);
@@ -420,13 +423,26 @@ static struct cache *find_cache(const uint8_t preference,
 	return NULL;
 }
 
-static void print_record(const struct pfx_record *record, struct vty *vty)
+static void print_record(const struct pfx_record *record, struct vty *vty,
+			 struct json_object *json_table)
 {
 	char ip[INET6_ADDRSTRLEN];
+	struct json_object *json_entry = NULL;
 
 	lrtr_ip_addr_to_str(&record->prefix, ip, sizeof(ip));
-	vty_out(vty, "%-40s   %3u - %3u   %10u\n", ip, record->min_len,
-		record->max_len, record->asn);
+
+	if (json_table) {
+		json_entry = json_object_new_object();
+		json_object_string_add(json_entry, "prefix", ip);
+		json_object_int_add(json_entry, "prefixLengthMin", record->min_len);
+		json_object_int_add(json_entry, "prefixLengthMax", record->max_len);
+		json_object_int_add(json_entry, "asNumberOrigin", record->asn);
+		json_object_array_add(json_table, json_entry);
+	} else {
+		vty_out(vty, "%-40s   %3u - %3u   %10u\n",
+			ip, record->min_len,
+			record->max_len, record->asn);
+	}
 }
 
 static void print_record_by_asn(const struct pfx_record *record, void *data)
@@ -436,7 +452,7 @@ static void print_record_by_asn(const struct pfx_record *record, void *data)
 
 	if (record->asn == arg->as) {
 		(*arg->prefix_amount)++;
-		print_record(record, vty);
+		print_record(record, vty, arg->json);
 	}
 }
 
@@ -447,7 +463,7 @@ static void print_record_cb(const struct pfx_record *record, void *data)
 
 	(*arg->prefix_amount)++;
 
-	print_record(record, vty);
+	print_record(record, vty, arg->json);
 }
 
 static struct rtr_mgr_group *get_groups(struct list *cache_list)
@@ -908,8 +924,11 @@ static struct rtr_mgr_group *get_connected_group(struct rpki_vrf *rpki_vrf)
 	return rtr_mgr_get_first_group(rpki_vrf->rtr_config);
 }
 
-static void print_prefix_table_by_asn(struct vty *vty, as_t as, struct rpki_vrf *rpki_vrf)
+static void print_prefix_table_by_asn(struct vty *vty, as_t as,
+				      struct rpki_vrf *rpki_vrf,
+				      struct json_object *json)
 {
+	struct json_object *json_table = NULL;
 	unsigned int number_of_ipv4_prefixes = 0;
 	unsigned int number_of_ipv6_prefixes = 0;
 	struct rtr_mgr_group *group = get_connected_group(rpki_vrf);
@@ -922,54 +941,98 @@ static void print_prefix_table_by_asn(struct vty *vty, as_t as, struct rpki_vrf 
 		return;
 
 	if (!group) {
-		vty_out(vty, "Cannot find a connected group.\n");
+		if (json)
+			json_object_string_add(json, "error",
+					       "noConnectedGroup");
+		else
+			vty_out(vty, "Cannot find a connected group.\n");
 		return;
 	}
 
 	struct pfx_table *pfx_table = group->sockets[0]->pfx_table;
 
-	vty_out(vty, "RPKI/RTR prefix table\n");
-	vty_out(vty, "%-40s %s  %s\n", "Prefix", "Prefix Length", "Origin-AS");
+	if (!json) {
+		vty_out(vty, "RPKI/RTR prefix table\n");
+		vty_out(vty, "%-40s %s  %s\n", "Prefix", "Prefix Length", "Origin-AS");
+	}
+
+	if (json) {
+		json_table = json_object_new_array();
+		arg.json = json_table;
+	} else
+		arg.json = NULL;
 
 	arg.prefix_amount = &number_of_ipv4_prefixes;
 	pfx_table_for_each_ipv4_record(pfx_table, print_record_by_asn, &arg);
+	if (json && number_of_ipv4_prefixes) {
+		json_object_object_add(json, "tableIpv4", json_table);
+		json_table = json_object_new_array();
+		arg.json = json_table;
+	}
 
 	arg.prefix_amount = &number_of_ipv6_prefixes;
 	pfx_table_for_each_ipv6_record(pfx_table, print_record_by_asn, &arg);
+	if (json && number_of_ipv6_prefixes)
+		json_object_object_add(json, "tableIpv6", json_table);
+	else
+		json_object_free(json_table);
 
-	vty_out(vty, "Number of IPv4 Prefixes: %u\n", number_of_ipv4_prefixes);
-	vty_out(vty, "Number of IPv6 Prefixes: %u\n", number_of_ipv6_prefixes);
+	if (!json) {
+		vty_out(vty, "Number of IPv4 Prefixes: %u\n", number_of_ipv4_prefixes);
+		vty_out(vty, "Number of IPv6 Prefixes: %u\n", number_of_ipv6_prefixes);
+	}
 }
 
-static void print_prefix_table(struct vty *vty, struct rpki_vrf *rpki_vrf)
+static void print_prefix_table(struct vty *vty, struct rpki_vrf *rpki_vrf,
+			       struct json_object *json)
 {
 	struct rpki_for_each_record_arg arg;
 
 	unsigned int number_of_ipv4_prefixes = 0;
 	unsigned int number_of_ipv6_prefixes = 0;
 	struct rtr_mgr_group *group;
+	struct json_object *json_table = NULL;
 
 	if (!rpki_vrf)
 		return;
 	group = get_connected_group(rpki_vrf);
 	arg.vty = vty;
+	arg.json = NULL;
 
 	if (!group)
 		return;
 
 	struct pfx_table *pfx_table = group->sockets[0]->pfx_table;
 
-	vty_out(vty, "RPKI/RTR prefix table\n");
-	vty_out(vty, "%-40s %s  %s\n", "Prefix", "Prefix Length", "Origin-AS");
-
+	if (!json) {
+		vty_out(vty, "RPKI/RTR prefix table\n");
+		vty_out(vty, "%-40s %s  %s\n", "Prefix", "Prefix Length", "Origin-AS");
+	}
 	arg.prefix_amount = &number_of_ipv4_prefixes;
+	if (json) {
+		json_table = json_object_new_array();
+		arg.json = json_table;
+	}
 	pfx_table_for_each_ipv4_record(pfx_table, print_record_cb, &arg);
 
 	arg.prefix_amount = &number_of_ipv6_prefixes;
+	json_object_int_add(json, "tableIpv4Count", number_of_ipv4_prefixes);
+	if (json && number_of_ipv4_prefixes) {
+		json_object_object_add(json, "tableIpv4", json_table);
+		json_table = json_object_new_array();
+		arg.json = json_table;
+	}
 	pfx_table_for_each_ipv6_record(pfx_table, print_record_cb, &arg);
-
-	vty_out(vty, "Number of IPv4 Prefixes: %u\n", number_of_ipv4_prefixes);
-	vty_out(vty, "Number of IPv6 Prefixes: %u\n", number_of_ipv6_prefixes);
+	json_object_int_add(json, "tableIpv6Count", number_of_ipv6_prefixes);
+	if (json && number_of_ipv6_prefixes) {
+		json_object_object_add(json, "tableIpv6", json_table);
+	} else {
+		json_object_free(json_table);
+	}
+	if (!json) {
+		vty_out(vty, "Number of IPv4 Prefixes: %u\n", number_of_ipv4_prefixes);
+		vty_out(vty, "Number of IPv6 Prefixes: %u\n", number_of_ipv6_prefixes);
+	}
 }
 
 static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
@@ -1776,103 +1839,191 @@ DEFPY (no_rpki_cache,
 
 DEFUN (show_rpki_prefix_table,
        show_rpki_prefix_table_cmd,
-       "show rpki prefix-table [vrf NAME]",
+       "show rpki prefix-table [vrf NAME] [json]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Show validated prefixes which were received from RPKI Cache\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       JSON_STR)
 {
 	struct listnode *cache_node;
 	struct cache *cache;
 	struct rpki_vrf *rpki_vrf;
-	int idx_vrf = 4;
+	int idx_vrf = 0;
 	struct vrf *vrf;
 	char *vrfname = NULL;
+	bool uj = use_json(argc, argv);
+	struct json_object *json_all = NULL;
 
-	if (argc == 5) {
-		vrf = vrf_lookup_by_name(argv[idx_vrf]->arg);
+	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
+		vrfname = argv[idx_vrf + 1]->arg;
+		vrf = vrf_lookup_by_name(vrfname);
 		if (!vrf)
 			return CMD_SUCCESS;
-		if (vrf->vrf_id != VRF_DEFAULT)
-			vrfname = vrf->name;
+		if (vrf->vrf_id == VRF_DEFAULT)
+			vrfname = NULL;
 	}
 
 	rpki_vrf = find_rpki_vrf(vrfname);
 	if (!rpki_vrf)
 		return CMD_SUCCESS;
+
+	if (uj) {
+		json_all = json_object_new_object();
+		if (vrfname)
+			json_object_string_add(json_all, "vrf", vrfname);
+		else
+			json_object_string_add(json_all, "vrf",
+					       VRF_DEFAULT_NAME);
+	}
+
 	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node, cache)) {
-		if (cache->type == TCP)
-			vty_out(vty, "host: %s port: %s\n",
+		if (cache->type == TCP) {
+			if (json_all) {
+				json_object_string_add(json_all, "type","tcp");
+				json_object_string_add(json_all, "host",
+						       cache->tr_config.tcp_config->host);
+				json_object_int_add(json_all, "port",
+						    atoi(cache->tr_config.tcp_config->port));
+			} else
+				vty_out(vty, "host: %s port: %s\n",
 				cache->tr_config.tcp_config->host,
 				cache->tr_config.tcp_config->port);
-		else
-			vty_out(vty, "host: %s port: %u SSH\n",
-				cache->tr_config.ssh_config->host,
-				cache->tr_config.ssh_config->port);
+		} else {
+			if (json_all) {
+				json_object_string_add(json_all, "type","ssh");
+				json_object_string_add(json_all, "host",
+						       cache->tr_config.ssh_config->host);
+				json_object_int_add(json_all, "port",
+						    cache->tr_config.ssh_config->port);
+			} else
+				vty_out(vty, "host: %s port: %u SSH\n",
+					cache->tr_config.ssh_config->host,
+					cache->tr_config.ssh_config->port);
+		}
 	}
 	if (is_synchronized(rpki_vrf))
-		print_prefix_table(vty, rpki_vrf);
-	else
-		vty_out(vty, "No connection to RPKI cache server.\n");
-
+		print_prefix_table(vty, rpki_vrf, json_all);
+	else {
+		if (json_all)
+			json_object_string_add(json_all, "error",
+					       "noConnectedRpkiCacheServer");
+		else
+			vty_out(vty, "No connection to RPKI cache server.\n");
+	}
+	if (uj) {
+		vty_out(vty, "%s", json_object_to_json_string_ext(
+					  json_all, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_all);
+	}
 	return CMD_SUCCESS;
 }
 
 DEFPY(show_rpki_as_number, show_rpki_as_number_cmd,
-      "show rpki as-number (1-4294967295)$by_asn [vrf NAME$vrfname]",
+      "show rpki as-number (1-4294967295)$by_asn [vrf NAME$vrfname] [json]",
       SHOW_STR RPKI_OUTPUT_STRING
       "Lookup by ASN in prefix table\n"
       "AS Number\n"
-      VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       JSON_STR)
 {
 	struct rpki_vrf *rpki_vrf;
 	char *vrf_name = NULL;
 	struct vrf *vrf;
+	bool uj = use_json(argc, argv);
+	struct json_object *json_all = NULL;
 
 	if (vrfname && !strmatch(vrfname, VRF_DEFAULT_NAME)) {
 		vrf = vrf_lookup_by_name(vrfname);
 		if (!vrf)
 			return CMD_SUCCESS;
 		vrf_name = vrf->name;
+		if (vrf->vrf_id == VRF_DEFAULT)
+			vrf_name = NULL;
 	}
 	/* assume default vrf */
 	rpki_vrf = find_rpki_vrf(vrf_name);
 
-	if (!is_synchronized(rpki_vrf)) {
-		vty_out(vty, "No Connection to RPKI cache server.\n");
+	if (uj) {
+		json_all = json_object_new_object();
+		if (vrfname)
+			json_object_string_add(json_all, "vrf", vrf_name);
+		else
+			json_object_string_add(json_all, "vrf",
+					       VRF_DEFAULT_NAME);
+	}
+
+	if (!rpki_vrf || !is_synchronized(rpki_vrf)) {
+		if (json_all) {
+			json_object_string_add(json_all, "error",
+					       "noConnectedRpkiCacheServer");
+			vty_out(vty, "%s", json_object_to_json_string_ext(
+					  json_all, JSON_C_TO_STRING_PRETTY));
+			json_object_free(json_all);
+		} else
+			vty_out(vty, "No Connection to RPKI cache server.\n");
 		return CMD_WARNING;
 	}
 
-	print_prefix_table_by_asn(vty, by_asn, rpki_vrf);
+	print_prefix_table_by_asn(vty, by_asn, rpki_vrf, json_all);
+	if (json_all) {
+		vty_out(vty, "%s", json_object_to_json_string_ext(
+			  json_all, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_all);
+	}
 	return CMD_SUCCESS;
 }
 
 DEFPY (show_rpki_prefix,
        show_rpki_prefix_cmd,
-       "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)$asn] [vrf NAME$vrfname]",
+       "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)$asn] [vrf NAME$vrfname] [json]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Lookup IP prefix and optionally ASN in prefix table\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "AS Number\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       JSON_STR)
 {
 	struct rpki_vrf *rpki_vrf;
 	struct vrf *vrf;
 	char *vrf_name = NULL;
+	bool uj = use_json(argc, argv);
+	struct json_object *json_all = NULL;
+	struct json_object *json_table = NULL;
 
 	if (vrfname && !strmatch(vrfname, VRF_DEFAULT_NAME)) {
 		vrf = vrf_lookup_by_name(vrfname);
 		if (!vrf)
 			return CMD_SUCCESS;
 		vrf_name = vrf->name;
+		if (vrf->vrf_id == VRF_DEFAULT)
+			vrf_name = NULL;
 	}
 
 	rpki_vrf = find_rpki_vrf(vrf_name);
 
-	if (!rpki_vrf || !is_synchronized(rpki_vrf)) {
-		vty_out(vty, "No Connection to RPKI cache server.\n");
+	if (!rpki_vrf)
+		return CMD_SUCCESS;
+
+	if (uj) {
+		json_all = json_object_new_object();
+		if (vrfname)
+			json_object_string_add(json_all, "vrf", vrfname);
+		else
+			json_object_string_add(json_all, "vrf",
+					       VRF_DEFAULT_NAME);
+	}
+	if (!is_synchronized(rpki_vrf)) {
+		if (json_all) {
+			json_object_string_add(json_all, "error",
+					       "noConnectedRpkiCacheServer");
+			vty_out(vty, "%s", json_object_to_json_string_ext(
+					  json_all, JSON_C_TO_STRING_PRETTY));
+			json_object_free(json_all);
+		} else
+			vty_out(vty, "No Connection to RPKI cache server.\n");
 		return CMD_WARNING;
 	}
 
@@ -1884,7 +2035,14 @@ DEFPY (show_rpki_prefix,
 	memcpy(addr_str, prefix_str, addr_len);
 
 	if (lrtr_ip_str_to_addr(addr_str, &addr) != 0) {
-		vty_out(vty, "Invalid IP prefix\n");
+		if (json_all) {
+			json_object_string_add(json_all, "error",
+					       "invalidIpPrefix");
+			vty_out(vty, "%s", json_object_to_json_string_ext(
+					  json_all, JSON_C_TO_STRING_PRETTY));
+			json_object_free(json_all);
+		} else
+			vty_out(vty, "Invalid IP prefix\n");
 		return CMD_WARNING;
 	}
 
@@ -1896,183 +2054,331 @@ DEFPY (show_rpki_prefix,
 				  &match_count, asn, &addr,
 				 prefix->prefixlen, &result)
 	    != PFX_SUCCESS) {
-		vty_out(vty, "Prefix lookup failed");
+		if (json_all) {
+			json_object_string_add(json_all, "error",
+					       "prefixLookupFailed");
+			vty_out(vty, "%s", json_object_to_json_string_ext(
+					  json_all, JSON_C_TO_STRING_PRETTY));
+			json_object_free(json_all);
+		} else
+			vty_out(vty, "Prefix lookup failed\n");
 		return CMD_WARNING;
 	}
 
-	vty_out(vty, "%-40s %s  %s\n", "Prefix", "Prefix Length", "Origin-AS");
+	if (uj)
+		json_table = json_object_new_array();
+	else
+		vty_out(vty, "%-40s %s  %s\n", "Prefix", "Prefix Length", "Origin-AS");
 	for (size_t i = 0; i < match_count; ++i) {
 		const struct pfx_record *record = &matches[i];
 
 		if (record->max_len >= prefix->prefixlen
 		    && ((asn != 0 && (uint32_t)asn == record->asn)
 			|| asn == 0)) {
-			print_record(&matches[i], vty);
+			print_record(&matches[i], vty, json_table);
 		}
 	}
-
+	if (json_all) {
+		json_object_object_add(json_all, "entries", json_table);
+		vty_out(vty, "%s", json_object_to_json_string_ext(
+					  json_all, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_all);
+	}
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_rpki_cache_server,
        show_rpki_cache_server_cmd,
-       "show rpki cache-server [vrf NAME]",
+       "show rpki cache-server [vrf NAME] [json]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "SHOW configured cache server\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       JSON_STR)
 {
 	struct listnode *cache_node;
 	struct cache *cache;
 	struct rpki_vrf *rpki_vrf;
-	int idx_vrf = 4;
+	int idx_vrf = 0;
 	struct vrf *vrf;
 	char *vrfname = NULL;
+	bool uj = use_json(argc, argv);
+	struct json_object *json_all = NULL, *json_entry = NULL;
+	struct json_object *json_table = NULL;
 
-	if (argc == 5) {
-		vrf = vrf_lookup_by_name(argv[idx_vrf]->arg);
+	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
+		vrfname = argv[idx_vrf + 1]->arg;
+		vrf = vrf_lookup_by_name(vrfname);
 		if (!vrf)
 			return CMD_SUCCESS;
-		if (vrf->vrf_id != VRF_DEFAULT)
-			vrfname = vrf->name;
+		if (vrf->vrf_id == VRF_DEFAULT)
+			vrfname = NULL;
 	}
 
 	rpki_vrf = find_rpki_vrf(vrfname);
 	if (!rpki_vrf)
 		return CMD_SUCCESS;
 
+	if (uj) {
+		json_all = json_object_new_object();
+		if (vrfname)
+			json_object_string_add(json_all, "vrf", vrfname);
+		else
+			json_object_string_add(json_all, "vrf",
+					       VRF_DEFAULT_NAME);
+	}
+	json_table = json_object_new_array();
 	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node, cache)) {
+		if (uj)
+			json_entry = json_object_new_object();
 		if (cache->type == TCP) {
-			vty_out(vty, "host: %s port: %s\n",
-				cache->tr_config.tcp_config->host,
-				cache->tr_config.tcp_config->port);
+			if (json_entry) {
+				json_object_string_add(json_entry, "type", "tcp");
+				json_object_string_add(json_entry, "host",
+						       cache->tr_config.tcp_config->host);
+				json_object_int_add(json_entry, "port",
+						    atoi(cache->tr_config.tcp_config->port));
+			} else
+				vty_out(vty, "host: %s port: %s\n",
+					cache->tr_config.tcp_config->host,
+					cache->tr_config.tcp_config->port);
 
 #if defined(FOUND_SSH)
 		} else if (cache->type == SSH) {
-			vty_out(vty,
-				"host: %s port: %d username: %s server_hostkey_path: %s client_privkey_path: %s\n",
-				cache->tr_config.ssh_config->host,
-				cache->tr_config.ssh_config->port,
-				cache->tr_config.ssh_config->username,
-				cache->tr_config.ssh_config
+			if (json_entry) {
+				json_object_string_add(json_entry, "type", "tcp");
+				json_object_string_add(json_entry, "host",
+						       cache->tr_config.ssh_config->host);
+				json_object_int_add(json_entry, "port",
+						    cache->tr_config.ssh_config->port);
+				json_object_string_add(json_entry, "username",
+						       cache->tr_config.ssh_config->username);
+				json_object_string_add(json_entry, "serverHostKeyPath",
+						       cache->tr_config.ssh_config
+						       ->server_hostkey_path);
+				json_object_string_add(json_entry, "clientPrivKeyPath",
+						       cache->tr_config.ssh_config
+						       ->client_privkey_path);
+			} else {
+				vty_out(vty,
+					"host: %s port: %d username: %s server_hostkey_path: %s client_privkey_path: %s\n",
+					cache->tr_config.ssh_config->host,
+					cache->tr_config.ssh_config->port,
+					cache->tr_config.ssh_config->username,
+					cache->tr_config.ssh_config
 					->server_hostkey_path,
-				cache->tr_config.ssh_config
+					cache->tr_config.ssh_config
 					->client_privkey_path);
+			}
 #endif
 		}
+		if (json_table)
+			json_object_array_add(json_table, json_entry);
 	}
-
+	if (json_all)
+		json_object_object_add(json_all, "table", json_table);
+	if (uj) {
+		vty_out(vty, "%s", json_object_to_json_string_ext(
+					  json_all, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_all);
+	}
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_rpki_cache_connection,
        show_rpki_cache_connection_cmd,
-       "show rpki cache-connection [vrf NAME]",
+       "show rpki cache-connection [vrf NAME] [json]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Show to which RPKI Cache Servers we have a connection\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       JSON_STR)
 {
 	struct rpki_vrf *rpki_vrf;
-	int idx_vrf = 4;
+	int idx_vrf = 0;
 	struct vrf *vrf;
 	char *vrfname = NULL;
+	bool uj = use_json(argc, argv);
+	struct json_object *json_list = NULL, *json_entry = NULL;
+	struct json_object *json_all = NULL;
 
-	if (argc == 5) {
-		vrf = vrf_lookup_by_name(argv[idx_vrf]->arg);
+	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
+		vrfname = argv[idx_vrf + 1]->arg;
+		vrf = vrf_lookup_by_name(vrfname);
 		if (!vrf)
 			return CMD_SUCCESS;
-		if (vrf->vrf_id != VRF_DEFAULT)
-			vrfname = vrf->name;
+		if (vrf->vrf_id == VRF_DEFAULT)
+			vrfname = NULL;
 	}
 
 	rpki_vrf = find_rpki_vrf(vrfname);
 	if (!rpki_vrf)
 		return CMD_SUCCESS;
 
-	if (!is_synchronized(rpki_vrf)) {
-		vty_out(vty, "No connection to RPKI cache server.\n");
-
-		return CMD_SUCCESS;
+	if (uj) {
+		json_all = json_object_new_object();
+		if (vrfname)
+			json_object_string_add(json_all, "vrf", vrfname);
+		else
+			json_object_string_add(json_all, "vrf",
+					       VRF_DEFAULT_NAME);
 	}
+	if (is_synchronized(rpki_vrf)) {
+		struct listnode *cache_node;
+		struct cache *cache;
+		struct rtr_mgr_group *group = get_connected_group(rpki_vrf);
 
-	struct listnode *cache_node;
-	struct cache *cache;
-	struct rtr_mgr_group *group = get_connected_group(rpki_vrf);
-
-	if (!group || !rpki_vrf->cache_list) {
-		vty_out(vty, "Cannot find a connected group.\n");
-		return CMD_SUCCESS;
-	}
-	vty_out(vty, "Connected to group %d\n", group->preference);
-	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node,
-				  cache)) {
-		if (cache->preference == group->preference) {
-			struct tr_tcp_config *tcp_config;
+		if (!group || !rpki_vrf->cache_list) {
+			if (json_all)
+				json_object_string_add(json_all, "error",
+						       "noConnectedGroup");
+			else
+				vty_out(vty, "Cannot find a connected group.\n");
+			return CMD_SUCCESS;
+		}
+		if (json_all)
+			json_object_int_add(json_all, "group",
+					    group->preference);
+		else
+			vty_out(vty, "Connected to group %d\n", group->preference);
+		if (uj)
+			json_list = json_object_new_array();
+		for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list,
+					  cache_node, cache)) {
+			if (uj)
+				json_entry = json_object_new_object();
+			if (cache->preference == group->preference) {
+				struct tr_tcp_config *tcp_config;
 #if defined(FOUND_SSH)
-			struct tr_ssh_config *ssh_config;
+				struct tr_ssh_config *ssh_config;
 #endif
 
-			switch (cache->type) {
-			case TCP:
-				tcp_config = cache->tr_config.tcp_config;
-				vty_out(vty, "rpki tcp cache %s %s pref %hhu\n",
-					tcp_config->host, tcp_config->port,
-					cache->preference);
-				break;
+				switch (cache->type) {
+				case TCP:
+					tcp_config =
+						cache->tr_config.tcp_config;
+					if (json_entry) {
+						json_object_string_add(json_entry, "type", "tcp");
+						json_object_string_add(json_entry, "host",
+								       tcp_config->host);
+						json_object_int_add(json_entry, "port",
+								    atoi(tcp_config->port));
+					} else
+						vty_out(vty,
+							"rpki tcp cache %s %s pref %hhu\n",
+							tcp_config->host,
+							tcp_config->port,
+							cache->preference);
+					break;
 
 #if defined(FOUND_SSH)
-			case SSH:
-				ssh_config = cache->tr_config.ssh_config;
-				vty_out(vty, "rpki ssh cache %s %u pref %hhu\n",
-					ssh_config->host, ssh_config->port,
-					cache->preference);
-				break;
+				case SSH:
+					ssh_config =
+						cache->tr_config.ssh_config;
+					if (json_entry) {
+						json_object_string_add(json_entry, "type", "ssh");
+						json_object_string_add(json_entry, "host",
+								       ssh_config->host);
+						json_object_int_add(json_entry, "port",
+								       ssh_config->port);
+					} else
+						vty_out(vty,
+							"rpki ssh cache %s %u pref %hhu\n",
+							ssh_config->host,
+							ssh_config->port,
+							cache->preference);
+					break;
 #endif
 
-			default:
-				break;
+				default:
+					break;
+				}
+				if (json_entry) {
+					json_object_int_add(json_entry, "preference",
+							    cache->preference);
+					json_object_array_add(json_list, json_entry);
+				}
 			}
 		}
+		if (json_all)
+			json_object_object_add(json_all, "cache", json_list);
+	} else {
+		if (json_all)
+			json_object_string_add(json_all, "error",
+					       "noConnectedRpkiCacheServer");
+		else
+			vty_out(vty, "No connection to RPKI cache server.\n");
 	}
-
+	if (uj) {
+		vty_out(vty, "%s", json_object_to_json_string_ext(
+					  json_all, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_all);
+	}
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_rpki_configuration,
        show_rpki_configuration_cmd,
-       "show rpki configuration [vrf NAME]",
+       "show rpki configuration [vrf NAME] [json]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Show RPKI configuration\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       JSON_STR)
 {
 	struct rpki_vrf *rpki_vrf;
-	int idx_vrf = 4;
+	int idx_vrf = 0;
 	struct vrf *vrf;
 	char *vrfname = NULL;
+	bool uj = use_json(argc, argv);
+	struct json_object *json_all = NULL;
 
-	if (argc == 5) {
-		vrf = vrf_lookup_by_name(argv[idx_vrf]->arg);
+	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
+		vrfname = argv[idx_vrf + 1]->arg;
+		vrf = vrf_lookup_by_name(vrfname);
 		if (!vrf)
 			return CMD_SUCCESS;
-		if (vrf->vrf_id != VRF_DEFAULT)
-			vrfname = vrf->name;
+		if (vrf->vrf_id == VRF_DEFAULT)
+			vrfname = NULL;
 	}
 
 	rpki_vrf = find_rpki_vrf(vrfname);
 	if (!rpki_vrf)
 		return CMD_SUCCESS;
-	vty_out(vty, "rpki is %s",
-		listcount(rpki_vrf->cache_list) ? "Enabled" : "Disabled");
-	if (!listcount(rpki_vrf->cache_list))
-		return CMD_SUCCESS;
-	vty_out(vty, " (%d cache servers configured)",
-		listcount(rpki_vrf->cache_list));
-	vty_out(vty, "\n");
-	vty_out(vty, "\tpolling period %d\n", rpki_vrf->polling_period);
-	vty_out(vty, "\tretry interval %d\n", rpki_vrf->retry_interval);
-	vty_out(vty, "\texpire interval %d\n", rpki_vrf->expire_interval);
+	if (uj) {
+		json_all = json_object_new_object();
+		if (vrfname)
+			json_object_string_add(json_all, "vrf", vrfname);
+		else
+			json_object_string_add(json_all, "vrf",
+					       VRF_DEFAULT_NAME);
+		json_object_int_add(json_all, "cacheListCount",
+				    listcount(rpki_vrf->cache_list));
+	} else
+		vty_out(vty, "rpki is %s",
+			listcount(rpki_vrf->cache_list) ? "Enabled" : "Disabled");
+	if (listcount(rpki_vrf->cache_list)) {
+		if (json_all) {
+			json_object_int_add(json_all, "pollingPeriod",
+					    rpki_vrf->polling_period);
+			json_object_int_add(json_all, "pollingInterval",
+					    rpki_vrf->retry_interval);
+			json_object_int_add(json_all, "expireInterval",
+					    rpki_vrf->expire_interval);
+		} else {
+			vty_out(vty, " (%d cache servers configured)",
+				listcount(rpki_vrf->cache_list));
+			vty_out(vty, "\n");
+			vty_out(vty, "\tpolling_period %d\n", rpki_vrf->polling_period);
+			vty_out(vty, "\tretry-interval %d\n", rpki_vrf->retry_interval);
+			vty_out(vty, "\texpire-interval %d\n", rpki_vrf->expire_interval);
+		}
+	}
+	if (uj) {
+		vty_out(vty, "%s", json_object_to_json_string_ext(
+					  json_all, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_all);
+	}
 	return CMD_SUCCESS;
 }
 
