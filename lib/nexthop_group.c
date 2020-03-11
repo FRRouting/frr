@@ -492,8 +492,7 @@ static void nhgl_delete(struct nexthop_hold *nh)
 
 	XFREE(MTYPE_TMP, nh->nhvrf_name);
 
-	if (nh->addr)
-		sockunion_free(nh->addr);
+	sockunion_free(nh->addr);
 
 	XFREE(MTYPE_TMP, nh->labels);
 

@@ -1399,8 +1399,7 @@ DECLARE_QOBJ_TYPE(peer)
 	} while (0)
 #define PEER_SU_ATTR_INHERIT(peer, group, attr)                                \
 	do {                                                                   \
-		if ((peer)->attr)                                              \
-			sockunion_free((peer)->attr);                          \
+		sockunion_free((peer)->attr);                                  \
 		if ((group)->conf->attr)                                       \
 			(peer)->attr = sockunion_dup((group)->conf->attr);     \
 		else                                                           \

@@ -696,15 +696,8 @@ int bgp_connect(struct peer *peer)
 /* After TCP connection is established.  Get local address and port. */
 int bgp_getsockname(struct peer *peer)
 {
-	if (peer->su_local) {
-		sockunion_free(peer->su_local);
-		peer->su_local = NULL;
-	}
-
-	if (peer->su_remote) {
-		sockunion_free(peer->su_remote);
-		peer->su_remote = NULL;
-	}
+	sockunion_free(peer->su_local);
+	sockunion_free(peer->su_remote);
 
 	peer->su_local = sockunion_getsockname(peer->fd);
 	if (!peer->su_local)

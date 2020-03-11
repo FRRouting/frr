@@ -1528,15 +1528,8 @@ int bgp_start(struct peer *peer)
 	 * session
 	 */
 	/* Connection information. */
-	if (peer->su_local) {
-		sockunion_free(peer->su_local);
-		peer->su_local = NULL;
-	}
-
-	if (peer->su_remote) {
-		sockunion_free(peer->su_remote);
-		peer->su_remote = NULL;
-	}
+	sockunion_free(peer->su_local);
+	sockunion_free(peer->su_remote);
 
 	/* Clear remote router-id. */
 	peer->remote_id.s_addr = INADDR_ANY;

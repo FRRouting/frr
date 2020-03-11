@@ -1009,10 +1009,7 @@ static void peer_free(struct peer *peer)
 	XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
 
 	/* Update source configuration.  */
-	if (peer->update_source) {
-		sockunion_free(peer->update_source);
-		peer->update_source = NULL;
-	}
+	sockunion_free(peer->update_source);
 
 	XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
 
@@ -1340,17 +1337,13 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 
 	/* update-source apply */
 	if (peer_src->update_source) {
-		if (peer_dst->update_source)
-			sockunion_free(peer_dst->update_source);
+		sockunion_free(peer_dst->update_source);
 		XFREE(MTYPE_PEER_UPDATE_SOURCE, peer_dst->update_if);
 		peer_dst->update_source =
 			sockunion_dup(peer_src->update_source);
 	} else if (peer_src->update_if) {
 		XFREE(MTYPE_PEER_UPDATE_SOURCE, peer_dst->update_if);
-		if (peer_dst->update_source) {
-			sockunion_free(peer_dst->update_source);
-			peer_dst->update_source = NULL;
-		}
+		sockunion_free(peer_dst->update_source);
 		peer_dst->update_if =
 			XSTRDUP(MTYPE_PEER_UPDATE_SOURCE, peer_src->update_if);
 	}
@@ -2339,15 +2332,8 @@ int peer_delete(struct peer *peer)
 	}
 
 	/* Local and remote addresses. */
-	if (peer->su_local) {
-		sockunion_free(peer->su_local);
-		peer->su_local = NULL;
-	}
-
-	if (peer->su_remote) {
-		sockunion_free(peer->su_remote);
-		peer->su_remote = NULL;
-	}
+	sockunion_free(peer->su_local);
+	sockunion_free(peer->su_remote);
 
 	/* Free filter related memory.  */
 	FOREACH_AFI_SAFI (afi, safi) {
