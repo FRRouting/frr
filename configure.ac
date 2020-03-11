@@ -197,7 +197,7 @@ AC_DEFUN([AC_C_FLAG], [{
 	CFLAGS="$ac_c_flag_save"
 	AC_LANG_POP([C])
     ])
-    if test "${cachename}" = "yes"; then
+    if test "$cachename" = "yes"; then
 	m4_if([$3], [], [CFLAGS="$CFLAGS $1"], [$3])
     else
 	:
@@ -242,7 +242,7 @@ CC="${CC% -std=c99}"
 AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
 
 dnl if the user has specified any CFLAGS, override our settings
-if test "${enable_gcov}" = "yes"; then
+if test "$enable_gcov" = "yes"; then
    if test "$orig_cflags" = ""; then
       AC_C_FLAG([-coverage])
       AC_C_FLAG([-O0])
@@ -251,7 +251,7 @@ if test "${enable_gcov}" = "yes"; then
    LDFLAGS="${LDFLAGS} -lgcov"
 fi
 
-if test "${enable_clang_coverage}" = "yes"; then
+if test "$enable_clang_coverage" = "yes"; then
    AC_C_FLAG([-fprofile-instr-generate], [
      AC_MSG_ERROR([$CC does not support -fprofile-instr-generate.])
    ])
@@ -260,13 +260,13 @@ if test "${enable_clang_coverage}" = "yes"; then
    ])
 fi
 
-if test "${enable_dev_build}" = "yes"; then
+if test "$enable_dev_build" = "yes"; then
    AC_DEFINE([DEV_BUILD], [1], [Build for development])
    if test "$orig_cflags" = ""; then
       AC_C_FLAG([-g3])
       AC_C_FLAG([-O0])
    fi
-   if test "${enable_lua}" = "yes"; then
+   if test "$enable_lua" = "yes"; then
       AX_PROG_LUA([5.3])
       AX_LUA_HEADERS
       AX_LUA_LIBS([
@@ -275,7 +275,7 @@ if test "${enable_dev_build}" = "yes"; then
       ])
    fi
 else
-   if test "${enable_lua}" = "yes"; then
+   if test "$enable_lua" = "yes"; then
       AC_MSG_ERROR([Lua is not meant to be built/used outside of development at this time])
    fi
    if test "$orig_cflags" = ""; then
@@ -295,7 +295,7 @@ AC_C_FLAG([-Wmissing-declarations])
 AC_C_FLAG([-Wpointer-arith])
 AC_C_FLAG([-Wbad-function-cast])
 AC_C_FLAG([-Wwrite-strings])
-if test "${enable_gcc_ultra_verbose}" = "yes" ; then
+if test "$enable_gcc_ultra_verbose" = "yes" ; then
   AC_C_FLAG([-Wcast-qual])
   AC_C_FLAG([-Wstrict-prototypes])
   AC_C_FLAG([-Wmissing-noreturn])
@@ -318,7 +318,7 @@ dnl for some reason the string consts get 'promoted' to char *,
 dnl triggering a const to non-const conversion warning.
 AC_C_FLAG([-diag-disable 3179])
 
-if test "${enable_werror}" = "yes" ; then
+if test "$enable_werror" = "yes" ; then
   WERROR="-Werror"
 fi
 AC_SUBST([WERROR])
@@ -602,18 +602,18 @@ AC_ARG_WITH([crypto],
   AS_HELP_STRING([--with-crypto=<internal|openssl>], [choose between different implementations of cryptographic functions(default value is --with-crypto=internal)]))
 
 #if openssl, else use the internal
-AS_IF([test "${with_crypto}" = "openssl"], [
+AS_IF([test "$with_crypto" = "openssl"], [
 AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
 if test "$ac_cv_lib_crypto_EVP_DigestInit" = "no"; then
   AC_MSG_ERROR([build with openssl has been specified but openssl library was not found on your system])
 else
   AC_DEFINE([CRYPTO_OPENSSL], [1], [Compile with openssl support])
 fi
-], [test "${with_crypto}" = "internal" || test "${with_crypto}" = "" ], [AC_DEFINE([CRYPTO_INTERNAL], [1], [Compile with internal cryptographic implementation])
+], [test "$with_crypto" = "internal" || test "$with_crypto" = "" ], [AC_DEFINE([CRYPTO_INTERNAL], [1], [Compile with internal cryptographic implementation])
 ], [AC_MSG_ERROR([Unknown value for --with-crypto])]
 )
 
-AS_IF([test "${enable_clippy_only}" != "yes"], [
+AS_IF([test "$enable_clippy_only" != "yes"], [
 AC_CHECK_HEADERS([json-c/json.h])
 AC_CHECK_LIB([json-c], [json_object_get], [LIBS="$LIBS -ljson-c"], [], [-lm])
 if test "$ac_cv_lib_json_c_json_object_get" = "no"; then
@@ -630,8 +630,8 @@ AC_ARG_ENABLE([dev_build],
 AC_ARG_ENABLE([lua],
     AS_HELP_STRING([--enable-lua], [Build Lua scripting]))
 
-if test "${enable_time_check}" != "no" ; then
-  if test "${enable_time_check}" = "yes" -o "${enable_time_check}" = "" ; then
+if test "$enable_time_check" != "no" ; then
+  if test "$enable_time_check" = "yes" -o "$enable_time_check" = "" ; then
     AC_DEFINE([CONSUMED_TIME_CHECK], [5000000], [Consumed Time Check])
   else
     AC_DEFINE_UNQUOTED([CONSUMED_TIME_CHECK], [$enable_time_check], [Consumed Time Check])
@@ -659,11 +659,11 @@ case "${enable_systemd}" in
   "*") ;;
 esac
 
-if test "${enable_rr_semantics}" != "no" ; then
+if test "$enable_rr_semantics" != "no" ; then
   AC_DEFINE([HAVE_V6_RR_SEMANTICS], [1], [Compile in v6 Route Replacement Semantics])
 fi
 
-if test "${enable_datacenter}" = "yes" ; then
+if test "$enable_datacenter" = "yes" ; then
   AC_DEFINE([HAVE_DATACENTER], [1], [Compile extensions for a DataCenter])
   AC_MSG_WARN([The --enable-datacenter compile time option is deprecated.  Please modify the init script to pass -F datacenter to the daemons instead.])
   DFLT_NAME="datacenter"
@@ -671,22 +671,22 @@ else
   DFLT_NAME="traditional"
 fi
 
-if test "${enable_fuzzing}" = "yes" ; then
+if test "$enable_fuzzing" = "yes" ; then
   AC_DEFINE([HANDLE_ZAPI_FUZZING], [1], [Compile extensions to use with a fuzzer])
 fi
 
-if test "${enable_netlink_fuzzing}" = "yes" ; then
+if test "$enable_netlink_fuzzing" = "yes" ; then
   AC_DEFINE([HANDLE_NETLINK_FUZZING], [1], [Compile extensions to use with a fuzzer for netlink])
 fi
 
-if test "${enable_cumulus}" = "yes" ; then
+if test "$enable_cumulus" = "yes" ; then
   AC_DEFINE([HAVE_CUMULUS], [1], [Compile Special Cumulus Code in])
 fi
 
 AC_SUBST([DFLT_NAME])
 AC_DEFINE_UNQUOTED([DFLT_NAME], ["$DFLT_NAME"], [Name of the configuration default set])
 
-if test "${enable_shell_access}" = "yes"; then
+if test "$enable_shell_access" = "yes"; then
    AC_DEFINE([HAVE_SHELL_ACCESS], [1], [Allow user to use ssh/telnet/bash, be aware this is considered insecure])
 fi
 
@@ -702,15 +702,15 @@ AS_IF([test "$host" = "$build"], [
 
 FRR_PYTHON_MODULES([pytest])
 
-if test "${enable_doc}" != "no"; then
+if test "$enable_doc" != "no"; then
   FRR_PYTHON_MODULES([sphinx], , [
-    if test "${enable_doc}" = "yes"; then
+    if test "$enable_doc" = "yes"; then
       AC_MSG_ERROR([Documentation was explicitly requested with --enable-doc but sphinx is not available for $PYTHON. Please disable docs or install sphinx.])
     fi
   ])
 fi
-AM_CONDITIONAL([DOC], [test "${enable_doc}" != "no" -a "$frr_py_mod_sphinx" != "false"])
-AM_CONDITIONAL([DOC_HTML], [test "${enable_doc_html}" = "yes"])
+AM_CONDITIONAL([DOC], [test "$enable_doc" != "no" -a "$frr_py_mod_sphinx" != "false"])
+AM_CONDITIONAL([DOC_HTML], [test "$enable_doc_html" = "yes"])
 
 FRR_PYTHON_MOD_EXEC([sphinx], [--version], [
   PYSPHINX="-m sphinx"
@@ -731,35 +731,35 @@ fi
 #
 
 AC_MSG_CHECKING([if zebra should be configurable to send Route Advertisements])
-if test "${enable_rtadv}" != "no"; then
+if test "$enable_rtadv" != "no"; then
   AC_MSG_RESULT([yes])
   AC_DEFINE([HAVE_RTADV], [1], [Enable IPv6 Routing Advertisement support])
 else
   AC_MSG_RESULT([no])
 fi
 
-if test "${enable_user}" = "no"; then
+if test "$enable_user" = "no"; then
   enable_user=""
 else
-  if test "${enable_user}" = "yes" || test "${enable_user}" = ""; then
+  if test "$enable_user" = "yes" || test "$enable_user" = ""; then
     enable_user="frr"
   fi
   AC_DEFINE_UNQUOTED([FRR_USER], ["${enable_user}"], [frr User])
 fi
 
-if test "${enable_group}" = "no"; then
+if test "$enable_group" = "no"; then
   enable_group=""
 else
-  if test "${enable_group}" = "yes" || test "${enable_group}" = ""; then
+  if test "$enable_group" = "yes" || test "$enable_group" = ""; then
     enable_group="frr"
   fi
   AC_DEFINE_UNQUOTED([FRR_GROUP], ["${enable_group}"], [frr Group])
 fi
 
-if test "${enable_vty_group}" = "yes" ; then
+if test "$enable_vty_group" = "yes" ; then
   AC_MSG_ERROR([--enable-vty-group requires a group as argument, not yes])
-elif test "${enable_vty_group}" != ""; then
-  if test "${enable_vty_group}" != "no"; then
+elif test "$enable_vty_group" != ""; then
+  if test "$enable_vty_group" != "no"; then
     AC_DEFINE_UNQUOTED([VTY_GROUP], ["${enable_vty_group}"], [VTY Sockets Group])
   fi
 fi
@@ -801,7 +801,7 @@ AM_CONDITIONAL([HAVE_GCOV], [test "$enable_gcov" != "no"])
 dnl ------------------------------------
 dnl Alpine only accepts numeric versions
 dnl ------------------------------------
-if test "${enable_numeric_version}" != "" ; then
+if test "$enable_numeric_version" != "" ; then
   VERSION="`echo ${VERSION} | tr -c -d '[[.0-9]]'`"
   PACKAGE_VERSION="`echo ${PACKAGE_VERSION} | tr -c -d '[[.0-9]]'`"
 fi
@@ -810,7 +810,7 @@ dnl -----------------------------------
 dnl Add extra version string to package
 dnl name, string and version fields.
 dnl -----------------------------------
-if test "${EXTRAVERSION}" != "" ; then
+if test "$EXTRAVERSION" != "" ; then
   VERSION="${VERSION}${EXTRAVERSION}"
   PACKAGE_VERSION="${PACKAGE_VERSION}${EXTRAVERSION}"
   AC_SUBST(PACKAGE_EXTRAVERSION, ["${EXTRAVERSION}"])
@@ -828,7 +828,7 @@ fi
 AM_CONDITIONAL([GIT_VERSION], [test "$with_pkg_git_version" = "yes"])
 
 AC_CHECK_TOOL([OBJCOPY], [objcopy], [:])
-if test "${OBJCOPY}" != ":"; then
+if test "$OBJCOPY" != ":"; then
   AC_CACHE_CHECK([for .interp value to use], [frr_cv_interp], [
     frr_cv_interp=""
     AC_LINK_IFELSE([AC_LANG_SOURCE([[int main() { return 0; }]])], [
@@ -1123,7 +1123,7 @@ case "$host_os" in
     AC_DEFINE([KAME], [1], [KAME IPv6])
     AC_DEFINE([BSD_V6_SYSCTL], [1], [BSD v6 sysctl to turn on and off forwarding])
 
-    if test "x${enable_pimd}" != "xno"; then
+    if test "$enable_pimd" != "no"; then
       case "$host_os" in
       openbsd6.0)
         ;;
@@ -1141,7 +1141,7 @@ case "$host_os" in
     AC_DEFINE([BSD_V6_SYSCTL], [1], [BSD v6 sysctl to turn on and off forwarding])
     ;;
 esac
-AM_CONDITIONAL([SOLARIS], [test "${SOLARIS}" = "solaris"])
+AM_CONDITIONAL([SOLARIS], [test "$SOLARIS" = "solaris"])
 AM_CONDITIONAL([LINUX], [${is_linux}])
 
 AC_SYS_LARGEFILE
@@ -1149,7 +1149,7 @@ AC_SYS_LARGEFILE
 dnl ------------------------
 dnl Integrated REALMS option
 dnl ------------------------
-if test "${enable_realms}" = "yes"; then
+if test "$enable_realms" = "yes"; then
     case "$host_os" in
       linux*)
        AC_DEFINE([SUPPORT_REALMS], [1], [Realms support])
@@ -1175,7 +1175,7 @@ AC_CHECK_FUNCS([ \
 
 dnl ##########################################################################
 dnl LARGE if block spans a lot of "configure"!
-if test "${enable_clippy_only}" != "yes"; then
+if test "$enable_clippy_only" != "yes"; then
 dnl ##########################################################################
 
 #
@@ -1369,7 +1369,7 @@ case "$host_os" in
     if test "$ac_cv_header_net_bpf_h" = "no"; then
       if test "$ac_cv_header_sys_dlpi_h" = "no"; then
         AC_MSG_RESULT([none])
-        if test "${enable_isisd}" = "yes" -o "${enable_fabricd}" = "yes"; then
+        if test "$enable_isisd" = "yes" -o "$enable_fabricd" = "yes"; then
           AC_MSG_FAILURE([IS-IS support requested but no packet backend found])
         fi
         AC_MSG_WARN([*** IS-IS support will not be built ***])
@@ -1498,7 +1498,7 @@ fi
 AC_SUBST([HAVE_LIBPCREPOSIX])
 
 dnl ##########################################################################
-dnl test "${enable_clippy_only}" != "yes"
+dnl test "$enable_clippy_only" != "yes"
 fi
 dnl END OF LARGE if block
 dnl ##########################################################################
@@ -1547,7 +1547,7 @@ dnl --------------------
 dnl Daemon disable check
 dnl --------------------
 
-AS_IF([test "${enable_ldpd}" != "no"], [
+AS_IF([test "$enable_ldpd" != "no"], [
   AC_DEFINE([HAVE_LDPD], [1], [ldpd])
 ])
 
@@ -1580,7 +1580,7 @@ case "$host_os" in
       no)
         ;;
       yes)
-	if test "${enable_clippy_only}" != "yes"; then
+	if test "$enable_clippy_only" != "yes"; then
         if test "$c_ares_found" != "true" ; then
           AC_MSG_ERROR([nhrpd requires libcares.  Please install c-ares and its -dev headers.])
         fi
@@ -1595,34 +1595,34 @@ case "$host_os" in
     esac
     ;;
   *)
-    if test "${enable_nhrpd}" = "yes"; then
+    if test "$enable_nhrpd" = "yes"; then
       AC_MSG_ERROR([nhrpd requires kernel APIs that are only present on Linux.])
     fi
     ;;
 esac
 
-if test "${enable_watchfrr}" = "no";then
+if test "$enable_watchfrr" = "no";then
   WATCHFRR=""
 else
   WATCHFRR="watchfrr"
 fi
 
 OSPFCLIENT=""
-if test "${enable_ospfapi}" != "no";then
+if test "$enable_ospfapi" != "no";then
     AC_DEFINE([SUPPORT_OSPF_API], [1], [OSPFAPI])
 
-  if test "${enable_ospfclient}" != "no";then
+  if test "$enable_ospfclient" != "no";then
       OSPFCLIENT="ospfclient"
   fi
 fi
 
-if test "${enable_bgp_announce}" = "no";then
+if test "$enable_bgp_announce" = "no";then
   AC_DEFINE([DISABLE_BGP_ANNOUNCE], [1], [Disable BGP installation to zebra])
 else
   AC_DEFINE([DISABLE_BGP_ANNOUNCE], [0], [Disable BGP installation to zebra])
 fi
 
-if test "${enable_bgp_vnc}" != "no";then
+if test "$enable_bgp_vnc" != "no";then
   AC_DEFINE([ENABLE_BGP_VNC], [1], [Enable BGP VNC support])
 fi
 
@@ -1645,13 +1645,13 @@ esac
 
 dnl ##########################################################################
 dnl LARGE if block
-if test "${enable_clippy_only}" != "yes"; then
+if test "$enable_clippy_only" != "yes"; then
 dnl ##########################################################################
 
 dnl ------------------
 dnl check Net-SNMP library
 dnl ------------------
-if test "${enable_snmp}" != "" -a "${enable_snmp}" != "no"; then
+if test "$enable_snmp" != "" -a "$enable_snmp" != "no"; then
    AC_PATH_TOOL([NETSNMP_CONFIG], [net-snmp-config], [no])
    if test "$NETSNMP_CONFIG" = "no"; then
       AC_MSG_ERROR([--enable-snmp given but unable to find net-snmp-config])
@@ -1783,7 +1783,7 @@ fi
 dnl ------------------------------------
 dnl Enable RPKI and add librtr to libs
 dnl ------------------------------------
-if test "${enable_rpki}" = "yes"; then
+if test "$enable_rpki" = "yes"; then
   PKG_CHECK_MODULES([RTRLIB], [rtrlib >= 0.5.0],
       [RPKI=true],
       [RPKI=false
@@ -1852,7 +1852,7 @@ if test "$frr_cv_rtld_di_linkmap" = "yes"; then
 fi
 
 dnl ##########################################################################
-dnl test "${enable_clippy_only}" != "yes"
+dnl test "$enable_clippy_only" != "yes"
 fi
 dnl END OF LARGE if block
 dnl ##########################################################################
@@ -2052,7 +2052,7 @@ fi
 dnl -------------------
 dnl capabilities checks
 dnl -------------------
-if test "${enable_capabilities}" != "no"; then
+if test "$enable_capabilities" != "no"; then
   AC_MSG_CHECKING([whether prctl PR_SET_KEEPCAPS is available])
   AC_TRY_COMPILE([#include <sys/prctl.h>], [prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);],
     [AC_MSG_RESULT([yes])
@@ -2060,10 +2060,10 @@ if test "${enable_capabilities}" != "no"; then
      frr_ac_keepcaps="yes"],
      AC_MSG_RESULT([no])
   )
-  if test "${frr_ac_keepcaps}" = "yes"; then
+  if test "$frr_ac_keepcaps" = "yes"; then
     AC_CHECK_HEADERS([sys/capability.h])
   fi
-  if test "${ac_cv_header_sys_capability_h}" = "yes"; then
+  if test "$ac_cv_header_sys_capability_h" = "yes"; then
     AC_CHECK_LIB([cap], [cap_init],
       [AC_DEFINE([HAVE_LCAPS], [1], [Capabilities])
        LIBCAP="-lcap"
@@ -2081,14 +2081,14 @@ if test "${enable_capabilities}" != "no"; then
      ]
    )
   fi
-  if test "${frr_ac_scaps}" = "yes" \
-       -o "${frr_ac_lcaps}" = "yes"; then
+  if test "$frr_ac_scaps" = "yes" \
+       -o "$frr_ac_lcaps" = "yes"; then
     AC_DEFINE([HAVE_CAPABILITIES], [1], [capabilities])
   fi
 
   case "$host_os" in
   linux*)
-    if test "${enable_clippy_only}" != "yes"; then
+    if test "$enable_clippy_only" != "yes"; then
     if test "$frr_ac_lcaps" != "yes"; then
       AC_MSG_ERROR([libcap and/or its headers were not found.  Running FRR without libcap support built in causes a huge performance penalty.])
     fi
@@ -2107,7 +2107,7 @@ AC_SUBST([LIBCAP])
 dnl ---------------------------
 dnl check for glibc 'backtrace'
 dnl ---------------------------
-if test "${enable_backtrace}" != "no" ; then
+if test "$enable_backtrace" != "no" ; then
   backtrace_ok=no
   PKG_CHECK_MODULES([UNWIND], [libunwind], [
     AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
@@ -2144,7 +2144,7 @@ if test "${enable_backtrace}" != "no" ; then
     fi
   fi
 
-  if test "${enable_backtrace}" = "yes" -a "${backtrace_ok}" = "no"; then
+  if test "$enable_backtrace" = "yes" -a "$backtrace_ok" = "no"; then
     dnl user explicitly requested backtrace but we failed to find support
     AC_MSG_FAILURE([failed to find backtrace or libunwind support])
   fi
@@ -2221,7 +2221,7 @@ dnl configure date
 dnl ----------
 dev_version=`echo $VERSION | grep dev`
 #don't expire deprecated code in non 'dev' branch
-if test "${dev_version}" = ""; then
+if test "$dev_version" = ""; then
    CONFDATE=0
 else
    CONFDATE=`date '+%Y%m%d'`
@@ -2232,12 +2232,12 @@ dnl ------------------------------
 dnl set paths for state directory
 dnl ------------------------------
 AC_MSG_CHECKING([directory to use for state file])
-if test "${prefix}" = "NONE"; then
+if test "$prefix" = "NONE"; then
   frr_statedir_prefix="";
 else
   frr_statedir_prefix=${prefix}
 fi
-if test "${localstatedir}" = '${prefix}/var'; then
+if test "$localstatedir" = '${prefix}/var'; then
   for FRR_STATE_DIR in ${frr_statedir_prefix}/var/run dnl
 			${frr_statedir_prefix}/var/adm dnl
 			${frr_statedir_prefix}/etc dnl
@@ -2298,8 +2298,8 @@ AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data m
 AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
 
 dnl various features
-AM_CONDITIONAL([SUPPORT_REALMS], [test "${enable_realms}" = "yes"])
-AM_CONDITIONAL([ENABLE_BGP_VNC], [test "${enable_bgp_vnc}" != "no"])
+AM_CONDITIONAL([SUPPORT_REALMS], [test "$enable_realms" = "yes"])
+AM_CONDITIONAL([ENABLE_BGP_VNC], [test "$enable_bgp_vnc" != "no"])
 AM_CONDITIONAL([BGP_BMP], [$bgpd_bmp])
 dnl northbound
 AM_CONDITIONAL([SQLITE3], [$SQLITE3])
@@ -2316,26 +2316,26 @@ AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
 dnl daemons
 AM_CONDITIONAL([VTYSH], [test "$VTYSH" = "vtysh"])
-AM_CONDITIONAL([ZEBRA], [test "${enable_zebra}" != "no"])
-AM_CONDITIONAL([BGPD], [test "${enable_bgpd}" != "no"])
-AM_CONDITIONAL([RIPD], [test "${enable_ripd}" != "no"])
-AM_CONDITIONAL([OSPFD], [test "${enable_ospfd}" != "no"])
-AM_CONDITIONAL([LDPD], [test "${enable_ldpd}" != "no"])
+AM_CONDITIONAL([ZEBRA], [test "$enable_zebra" != "no"])
+AM_CONDITIONAL([BGPD], [test "$enable_bgpd" != "no"])
+AM_CONDITIONAL([RIPD], [test "$enable_ripd" != "no"])
+AM_CONDITIONAL([OSPFD], [test "$enable_ospfd" != "no"])
+AM_CONDITIONAL([LDPD], [test "$enable_ldpd" != "no"])
 AM_CONDITIONAL([BFDD], [test "$BFDD" = "bfdd"])
 AM_CONDITIONAL([NHRPD], [test "$NHRPD" = "nhrpd"])
-AM_CONDITIONAL([EIGRPD], [test "${enable_eigrpd}" != "no"])
+AM_CONDITIONAL([EIGRPD], [test "$enable_eigrpd" != "no"])
 AM_CONDITIONAL([WATCHFRR], [test "$WATCHFRR" = "watchfrr"])
 AM_CONDITIONAL([OSPFCLIENT], [test "$OSPFCLIENT" = "ospfclient"])
-AM_CONDITIONAL([RIPNGD], [test "${enable_ripngd}" != "no"])
-AM_CONDITIONAL([BABELD], [test "${enable_babeld}" != "no"])
-AM_CONDITIONAL([OSPF6D], [test "${enable_ospf6d}" != "no"])
-AM_CONDITIONAL([ISISD], [test "${enable_isisd}" != "no"])
-AM_CONDITIONAL([PIMD], [test "${enable_pimd}" != "no"])
-AM_CONDITIONAL([PBRD], [test "${enable_pbrd}" != "no"])
-AM_CONDITIONAL([SHARPD], [test "${enable_sharpd}" = "yes"])
-AM_CONDITIONAL([STATICD], [test "${enable_staticd}" != "no"])
-AM_CONDITIONAL([FABRICD], [test "${enable_fabricd}" != "no"])
-AM_CONDITIONAL([VRRPD], [test "${enable_vrrpd}" != "no"])
+AM_CONDITIONAL([RIPNGD], [test "$enable_ripngd" != "no"])
+AM_CONDITIONAL([BABELD], [test "$enable_babeld" != "no"])
+AM_CONDITIONAL([OSPF6D], [test "$enable_ospf6d" != "no"])
+AM_CONDITIONAL([ISISD], [test "$enable_isisd" != "no"])
+AM_CONDITIONAL([PIMD], [test "$enable_pimd" != "no"])
+AM_CONDITIONAL([PBRD], [test "$enable_pbrd" != "no"])
+AM_CONDITIONAL([SHARPD], [test "$enable_sharpd" = "yes"])
+AM_CONDITIONAL([STATICD], [test "$enable_staticd" != "no"])
+AM_CONDITIONAL([FABRICD], [test "$enable_fabricd" != "no"])
+AM_CONDITIONAL([VRRPD], [test "$enable_vrrpd" != "no"])
 
 AC_CONFIG_FILES([Makefile],[sed -e 's/^#AUTODERP# //' -i Makefile])
 
@@ -2363,7 +2363,7 @@ AC_CONFIG_COMMANDS([lib/route_types.h], [
 	${PERL} "${ac_abs_top_srcdir}/lib/route_types.pl" \
 		< "${ac_abs_top_srcdir}/lib/route_types.txt" \
 		> "${dst}.tmp"
-	test -f "${dst}" \
+	test -f "$dst" \
 		&& diff "${dst}.tmp" "${dst}" >/dev/null 2>/dev/null \
 		&& rm "${dst}.tmp" \
 		|| mv "${dst}.tmp" "${dst}"
@@ -2377,7 +2377,7 @@ AS_IF([test "$with_pkg_git_version" = "yes"], [
 	${PERL} "${ac_abs_top_srcdir}/lib/gitversion.pl" \
 		"${ac_abs_top_srcdir}" \
 		> "${dst}.tmp"
-	test -f "${dst}" \
+	test -f "$dst" \
 		&& diff "${dst}.tmp" "${dst}" >/dev/null 2>/dev/null \
 		&& rm "${dst}.tmp" \
 		|| mv "${dst}.tmp" "${dst}"
@@ -2414,7 +2414,7 @@ zebra protobuf enabled  : ${enable_protobuf:-no}
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."
 
-if test "${enable_doc}" != "no" -a "$frr_py_mod_sphinx" = "false"; then
+if test "$enable_doc" != "no" -a "$frr_py_mod_sphinx" = "false"; then
   AC_MSG_WARN([sphinx is missing but required to build documentation])
 fi
 if test "$frr_py_mod_pytest" = "false"; then
