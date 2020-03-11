@@ -358,8 +358,7 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 	       != NULL) {
 		prefix_len = cie->prefix_length;
 		debugf(NHRP_DEBUG_COMMON,
-		       "shortcut res_rep: parsing CIE with "
-		       "prefixlen=%u",
+		       "shortcut res_rep: parsing CIE with prefixlen=%u",
 		       prefix_len);
 		if (prefix_len == 0 || prefix_len >= hostprefix_len)
 			prefix_len = hostprefix_len;
@@ -386,8 +385,7 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 
 		holdtime = htons(cie->holding_time);
 		debugf(NHRP_DEBUG_COMMON,
-		       "shortcut res_rep: holdtime is %u "
-		       "(if 0, using %u)",
+		       "shortcut res_rep: holdtime is %u (if 0, using %u)",
 		       holdtime, pp->if_ad->holdtime);
 		if (!holdtime)
 			holdtime = pp->if_ad->holdtime;
@@ -395,17 +393,15 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 		c = nhrp_cache_get(ifp, proto_addr, 1);
 		if (!c) {
 			debugf(NHRP_DEBUG_COMMON,
-			       "shortcut res_rep: no cache "
-			       "found");
+			       "shortcut res_rep: no cache found");
 			cie->code = NHRP_CODE_INSUFFICIENT_RESOURCES;
 			continue;
 		}
 		if (nbma_addr)
-			sockunion2str(nbma_addr, buf, sizeof buf);
+			sockunion2str(nbma_addr, buf, sizeof(buf));
 
 		debugf(NHRP_DEBUG_COMMON,
-		       "shortcut res_rep: updating "
-		       "binding for nmba addr %s",
+		       "shortcut res_rep: updating binding for nmba addr %s",
 		       nbma_addr ? buf : "(NULL)");
 		if (!nhrp_cache_update_binding(c, NHRP_CACHE_DYNAMIC, holdtime,
 					       nhrp_peer_ref(pp->peer),

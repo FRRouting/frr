@@ -62,8 +62,7 @@ static void nhrp_shortcut_cache_notify(struct notifier_block *n,
 	case NOTIFY_CACHE_UP:
 		if (!s->route_installed) {
 			debugf(NHRP_DEBUG_ROUTE,
-			       "Shortcut: route install "
-			       "%s nh (unspec) dev %s",
+			       "Shortcut: route install %s nh (unspec) dev %s",
 			       prefix2str(s->p, buf, sizeof(buf)),
 			       s->cache->ifp->name);
 
@@ -109,9 +108,7 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 				 * change */
 				s->route_installed = 0;
 				debugf(NHRP_DEBUG_ROUTE,
-				       "Shortcut: forcing route install to "
-				       "announce prefix change for peer %s "
-				       "ht %u cur nbma %s dev %s",
+				       "Shortcut: forcing renewal of zebra announce on prefix change peer %s ht %u cur nbma %s dev %s",
 				       sockunion2str(&s->cache->remote_addr,
 						     buf[0], sizeof(buf[0])),
 				       holding_time,
@@ -125,8 +122,7 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 		}
 		if (!s->cache || !s->cache->route_installed) {
 			debugf(NHRP_DEBUG_ROUTE,
-			       "Shortcut: notify cache down "
-			       "because cache?%s or ri?%s",
+			       "Shortcut: notify cache down because cache?%s or ri?%s",
 			       s->cache ? "yes" : "no",
 			       s->cache ? (s->cache->route_installed ? "yes"
 								     : "no")
@@ -326,8 +322,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 		if (ps) {
 			ps->addr = s->addr;
 			debugf(NHRP_DEBUG_COMMON,
-			       "Shortcut: "
-			       "calling nhrp_shortcut_update_binding");
+			       "Shortcut: calling update_binding");
 			nhrp_shortcut_update_binding(ps, NHRP_CACHE_DYNAMIC, c,
 						     holding_time);
 		} else {
@@ -336,8 +331,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 		}
 	} else {
 		debugf(NHRP_DEBUG_COMMON,
-		       "NO Shortcut because c NULL?%s or "
-		       "same proto?%s",
+		       "NO Shortcut because c NULL?%s or same proto?%s",
 		       c ? "no" : "yes",
 		       proto && pp && sockunion_same(proto, &pp->dst_proto)
 			       ? "yes"
@@ -392,8 +386,7 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	cie->holding_time = htons(if_ad->holdtime);
 	cie->mtu = htons(if_ad->mtu);
 	debugf(NHRP_DEBUG_COMMON,
-	       "Shortcut res_req: set cie holdtime to %u "
-	       "and mtu to %u. shortcut's holdtime is %u.",
+	       "Shortcut res_req: set cie ht to %u and mtu to %u. shortcut ht is %u",
 	       ntohs(cie->holding_time), ntohs(cie->mtu), s->holding_time);
 
 	nhrp_ext_request(zb, hdr, ifp);

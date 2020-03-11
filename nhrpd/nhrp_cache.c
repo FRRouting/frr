@@ -131,9 +131,7 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 			 * nbma.
 			 */
 			debugf(NHRP_DEBUG_COMMON,
-			       "cache (peer check ok, remote_nbma_natoa is set): "
-			       "Update binding for %s dev %s from (deleted) "
-			       "peer.vc.nbma %s to %s",
+			       "cache (remote_nbma_natoa set): Update binding for %s dev %s from (deleted) peer.vc.nbma %s to %s",
 			       sockunion2str(&c->remote_addr, buf[0],
 					     sizeof(buf[0])),
 			       p->ifp->name,
@@ -145,11 +143,9 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 			netlink_update_binding(p->ifp, &c->remote_addr,
 					       &c->cur.remote_nbma_natoa);
 		} else {
-			// update binding to peer->vc->remote->nbma
+			/* update binding to peer->vc->remote->nbma */
 			debugf(NHRP_DEBUG_COMMON,
-			       "cache (peer check ok, remote_nbma_natoa unspec): "
-			       "Update binding for %s dev %s from (deleted) "
-			       "to peer.vc.nbma %s",
+			       "cache (remote_nbma_natoa unspec): Update binding for %s dev %s from (deleted) to peer.vc.nbma %s",
 			       sockunion2str(&c->remote_addr, buf[0],
 					     sizeof(buf[0])),
 			       p->ifp->name,
@@ -174,12 +170,11 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 			c->route_installed = 1;
 		}
 	} else {
-		// debug the reason for peer check fail
+		/* debug the reason for peer check fail */
 		if (p) {
 			nifp = p->ifp->info;
 			debugf(NHRP_DEBUG_COMMON,
-			       "cache (peer check failed: "
-			       "online?%d requested?%d ipsec?%d)",
+			       "cache (peer check failed: online?%d requested?%d ipsec?%d)",
 			       p->online, p->requested,
 			       nifp->ipsec_profile ? 1 : 0);
 		} else
@@ -280,21 +275,21 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 
 		if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC) {
 			debugf(NHRP_DEBUG_COMMON,
-			       "cache: update binding for %s dev %s from "
-			       "(deleted) peer.vc.nbma %s to %s",
+			       "cache: update binding for %s dev %s from (deleted) peer.vc.nbma %s to %s",
 			       sockunion2str(&c->remote_addr, buf[0],
-					     sizeof buf[0]),
+					     sizeof(buf[0])),
 			       c->ifp->name,
 			       (c->cur.peer ? sockunion2str(
 					&c->cur.peer->vc->remote.nbma, buf[1],
-					sizeof buf[1])
+					sizeof(buf[1]))
 					    : "(no peer)"),
 			       sockunion2str(&c->cur.remote_nbma_natoa, buf[2],
-					     sizeof buf[2]));
+					     sizeof(buf[2])));
 
-			netlink_update_binding(c->cur.peer->ifp,
-					       &c->remote_addr,
-					       &c->cur.remote_nbma_natoa);
+			if (c->cur.peer)
+				netlink_update_binding(
+					c->cur.peer->ifp, &c->remote_addr,
+					&c->cur.remote_nbma_natoa);
 		}
 
 		nhrp_cache_update_route(c);
@@ -341,6 +336,7 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 			      uint32_t mtu, union sockunion *nbma_oa)
 {
 	char buf[2][SU_ADDRSTRLEN];
+
 	if (c->cur.type > type || c->new.type > type) {
 		nhrp_peer_unref(p);
 		return 0;
@@ -368,21 +364,21 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 	nhrp_cache_reset_new(c);
 	if (c->cur.type == type && c->cur.peer == p && c->cur.mtu == mtu) {
 		debugf(NHRP_DEBUG_COMMON,
-		       "cache: same type %u, updating "
-		       "expiry and changing nbma addr from %s to %s",
+		       "cache: same type %u, updating expiry and changing nbma addr from %s to %s",
 		       type, buf[0], nbma_oa ? buf[1] : "(NULL)");
 		if (holding_time > 0)
 			c->cur.expires = monotime(NULL) + holding_time;
+
 		if (nbma_oa)
 			c->cur.remote_nbma_natoa = *nbma_oa;
 		else
 			memset(&c->cur.remote_nbma_natoa, 0,
 			       sizeof(c->cur.remote_nbma_natoa));
+
 		nhrp_peer_unref(p);
 	} else {
 		debugf(NHRP_DEBUG_COMMON,
-		       "cache: new type %u/%u, or peer %s, "
-		       "or mtu %u/%u, nbma %s --> %s (map %d)",
+		       "cache: new type %u/%u, or peer %s, or mtu %u/%u, nbma %s --> %s (map %d)",
 		       c->cur.type, type, (c->cur.peer == p) ? "same" : "diff",
 		       c->cur.mtu, mtu, buf[0], nbma_oa ? buf[1] : "(NULL)",
 		       c->map);

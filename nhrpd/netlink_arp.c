@@ -70,6 +70,7 @@ static void netlink_neigh_msg(struct nlmsghdr *msg, struct zbuf *zb)
 	char buf[4][SU_ADDRSTRLEN];
 	int state;
 
+	memset(&lladdr, 0, sizeof(lladdr));
 	ndm = znl_pull(zb, sizeof(*ndm));
 	if (!ndm)
 		return;
@@ -98,8 +99,7 @@ static void netlink_neigh_msg(struct nlmsghdr *msg, struct zbuf *zb)
 		return;
 
 	debugf(NHRP_DEBUG_KERNEL,
-	       "Netlink: %s %s dev %s lladdr %s nud 0x%x "
-	       "cache used %u type %u",
+	       "Netlink: %s %s dev %s lladdr %s nud 0x%x cache used %u type %u",
 	       (msg->nlmsg_type == RTM_GETNEIGH)
 		       ? "who-has"
 		       : (msg->nlmsg_type == RTM_NEWNEIGH) ? "new-neigh"
@@ -112,8 +112,7 @@ static void netlink_neigh_msg(struct nlmsghdr *msg, struct zbuf *zb)
 		if (c->cur.type >= NHRP_CACHE_CACHED) {
 			nhrp_cache_set_used(c, 1);
 			debugf(NHRP_DEBUG_KERNEL,
-			       "Netlink: update binding for %s dev %s from c "
-			       "%s peer.vc.nbma %s to lladdr %s",
+			       "Netlink: update binding for %s dev %s from c %s peer.vc.nbma %s to lladdr %s",
 			       sockunion2str(&addr, buf[0], sizeof(buf[0])),
 			       ifp->name,
 			       sockunion2str(&c->cur.remote_nbma_natoa, buf[1],
