@@ -687,9 +687,9 @@ static struct nh_grp *nhg_ctx_get_grp(struct nhg_ctx *ctx)
 	return ctx->u.grp;
 }
 
-static struct nhg_ctx *nhg_ctx_new()
+static struct nhg_ctx *nhg_ctx_new(void)
 {
-	struct nhg_ctx *new = NULL;
+	struct nhg_ctx *new;
 
 	new = XCALLOC(MTYPE_NHG_CTX, sizeof(struct nhg_ctx));
 
