@@ -93,7 +93,7 @@ static int str2metric(const char *str, int *metric)
 		return 0;
 
 	*metric = strtol(str, NULL, 10);
-	if (*metric < 0 && *metric > 16777214) {
+	if (*metric < 0 || *metric > 16777214) {
 		/* vty_out (vty, "OSPF metric value is invalid\n"); */
 		return 0;
 	}
