@@ -197,7 +197,7 @@ AC_DEFUN([AC_C_FLAG], [{
 	CFLAGS="$ac_c_flag_save"
 	AC_LANG_POP([C])
     ])
-    if test "${cachename}" = yes; then
+    if test "${cachename}" = "yes"; then
 	m4_if([$3], [], [CFLAGS="$CFLAGS $1"], [$3])
     else
 	:
@@ -295,7 +295,7 @@ AC_C_FLAG([-Wmissing-declarations])
 AC_C_FLAG([-Wpointer-arith])
 AC_C_FLAG([-Wbad-function-cast])
 AC_C_FLAG([-Wwrite-strings])
-if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
+if test "x${enable_gcc_ultra_verbose}" = "xyes" ; then
   AC_C_FLAG([-Wcast-qual])
   AC_C_FLAG([-Wstrict-prototypes])
   AC_C_FLAG([-Wmissing-noreturn])
@@ -318,7 +318,7 @@ dnl for some reason the string consts get 'promoted' to char *,
 dnl triggering a const to non-const conversion warning.
 AC_C_FLAG([-diag-disable 3179])
 
-if test x"${enable_werror}" = x"yes" ; then
+if test "x${enable_werror}" = "xyes" ; then
   WERROR="-Werror"
 fi
 AC_SUBST([WERROR])
@@ -369,7 +369,7 @@ AX_PTHREAD([
 AC_SEARCH_LIBS([pthread_condattr_setclock], [],
 		[frr_cv_pthread_condattr_setclock=yes],
 		[frr_cv_pthread_condattr_setclock=no])
-if test "$frr_cv_pthread_condattr_setclock" = yes; then
+if test "$frr_cv_pthread_condattr_setclock" = "yes"; then
   AC_DEFINE([HAVE_PTHREAD_CONDATTR_SETCLOCK], [1], [Have pthread.h pthread_condattr_setclock])
 fi
 
@@ -631,7 +631,7 @@ AC_ARG_ENABLE([lua],
     AS_HELP_STRING([--enable-lua], [Build Lua scripting]))
 
 if test x"${enable_time_check}" != x"no" ; then
-  if test x"${enable_time_check}" = x"yes" -o x"${enable_time_check}" = x ; then
+  if test x"${enable_time_check}" = x"yes" -o x"${enable_time_check}" = "x" ; then
     AC_DEFINE([CONSUMED_TIME_CHECK], [5000000], [Consumed Time Check])
   else
     AC_DEFINE_UNQUOTED([CONSUMED_TIME_CHECK], [$enable_time_check], [Consumed Time Check])
@@ -1251,7 +1251,7 @@ case "${enable_vtysh}" in
     AC_DEFINE([rl_completion_matches], [completion_matches], [Old readline])
   fi
   AC_CHECK_LIB([readline], [append_history], [frr_cv_append_history=yes], [frr_cv_append_history=no], [$LIBREADLINE])
-  if test "$frr_cv_append_history" = yes; then
+  if test "$frr_cv_append_history" = "yes"; then
     AC_DEFINE([HAVE_APPEND_HISTORY], [1], [Have history.h append_history])
   fi
   ;;
@@ -1366,10 +1366,10 @@ case "$host_os" in
     ISIS_METHOD_MACRO="ISIS_METHOD_DLPI"
     ;;
   *)
-    if test "$ac_cv_header_net_bpf_h" = no; then
-      if test "$ac_cv_header_sys_dlpi_h" = no; then
+    if test "$ac_cv_header_net_bpf_h" = "no"; then
+      if test "$ac_cv_header_sys_dlpi_h" = "no"; then
         AC_MSG_RESULT([none])
-        if test "${enable_isisd}" = yes -o "${enable_fabricd}" = yes; then
+        if test "${enable_isisd}" = "yes" -o "${enable_fabricd}" = "yes"; then
           AC_MSG_FAILURE([IS-IS support requested but no packet backend found])
         fi
         AC_MSG_WARN([*** IS-IS support will not be built ***])
@@ -1473,7 +1473,7 @@ AC_CHECK_HEADER([netinet/tcp.h],
     AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)],
    [],
    FRR_INCLUDES)
-if test "$ac_cv_have_decl_TCP_MD5SIG" = no; then
+if test "$ac_cv_have_decl_TCP_MD5SIG" = "no"; then
   AC_CHECK_HEADER([linux/tcp.h],
        [m4_define([MD5_INCLUDES],
           FRR_INCLUDES
@@ -1569,7 +1569,7 @@ else
   esac
 fi
 
-if test "$ac_cv_lib_json_c_json_object_get" = no -a "x$BFDD" = "xbfdd"; then
+if test "$ac_cv_lib_json_c_json_object_get" = "no" -a "x$BFDD" = "xbfdd"; then
   AC_MSG_ERROR(["you must use json-c library to use bfdd"])
 fi
 
@@ -1827,7 +1827,7 @@ AC_CACHE_CHECK([for dlinfo(RTLD_DI_ORIGIN)], [frr_cv_rtld_di_origin], [
     frr_cv_rtld_di_origin=no
   ])
 ])
-if test "$frr_cv_rtld_di_origin" = yes; then
+if test "$frr_cv_rtld_di_origin" = "yes"; then
   AC_DEFINE([HAVE_DLINFO_ORIGIN], [1], [Have dlinfo RTLD_DI_ORIGIN])
 fi
 
@@ -1847,7 +1847,7 @@ AC_CACHE_CHECK([for dlinfo(RTLD_DI_LINKMAP)], [frr_cv_rtld_di_linkmap], [
     frr_cv_rtld_di_linkmap=no
   ])
 ])
-if test "$frr_cv_rtld_di_linkmap" = yes; then
+if test "$frr_cv_rtld_di_linkmap" = "yes"; then
   AC_DEFINE([HAVE_DLINFO_LINKMAP], [1], [Have dlinfo RTLD_DI_LINKMAP])
 fi
 
@@ -2134,7 +2134,7 @@ if test x"${enable_backtrace}" != x"no" ; then
       ])
       ;;
     esac
-    if test "$backtrace_ok" = no; then
+    if test "$backtrace_ok" = "no"; then
       AC_CHECK_HEADER([execinfo.h], [
         AC_SEARCH_LIBS([backtrace], [execinfo], [
           AC_DEFINE([HAVE_GLIBC_BACKTRACE], [1], [Glibc backtrace])
@@ -2178,7 +2178,7 @@ struct mallinfo ac_x; ac_x = mallinfo ();
     frr_cv_mallinfo=no
   ])
 ])
-if test "$frr_cv_mallinfo" = yes; then
+if test "$frr_cv_mallinfo" = "yes"; then
   AC_DEFINE([HAVE_MALLINFO], [1], [mallinfo])
 fi
 
@@ -2265,8 +2265,8 @@ AC_DEFINE_UNQUOTED([DAEMON_VTY_DIR], ["$frr_statedir%s%s"], [daemon vty director
 AC_DEFINE_UNQUOTED([DAEMON_DB_DIR], ["$frr_statedir"], [daemon database directory])
 
 dnl autoconf does this, but it does it too late...
-test "x$prefix" = xNONE && prefix=$ac_default_prefix
-test "x$exec_prefix" = xNONE && exec_prefix='${prefix}'
+test "x$prefix" = "xNONE" && prefix=$ac_default_prefix
+test "x$exec_prefix" = "xNONE" && exec_prefix='${prefix}'
 
 dnl get the full path, recursing through variables...
 vtysh_bin="$bindir/vtysh"
@@ -2299,7 +2299,7 @@ AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to w
 
 dnl various features
 AM_CONDITIONAL([SUPPORT_REALMS], [test "${enable_realms}" = "yes"])
-AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
+AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != "xno"])
 AM_CONDITIONAL([BGP_BMP], [$bgpd_bmp])
 dnl northbound
 AM_CONDITIONAL([SQLITE3], [$SQLITE3])
@@ -2414,9 +2414,9 @@ zebra protobuf enabled  : ${enable_protobuf:-no}
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."
 
-if test "${enable_doc}" != "no" -a "$frr_py_mod_sphinx" = false; then
+if test "${enable_doc}" != "no" -a "$frr_py_mod_sphinx" = "false"; then
   AC_MSG_WARN([sphinx is missing but required to build documentation])
 fi
-if test "$frr_py_mod_pytest" = false; then
+if test "$frr_py_mod_pytest" = "false"; then
   AC_MSG_WARN([pytest is missing, unit tests cannot be performed])
 fi
