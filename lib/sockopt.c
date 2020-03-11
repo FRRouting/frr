@@ -90,12 +90,11 @@ int getsockopt_so_recvbuf(const int sock)
 static void *getsockopt_cmsg_data(struct msghdr *msgh, int level, int type)
 {
 	struct cmsghdr *cmsg;
-	void *ptr = NULL;
 
 	for (cmsg = CMSG_FIRSTHDR(msgh); cmsg != NULL;
 	     cmsg = CMSG_NXTHDR(msgh, cmsg))
 		if (cmsg->cmsg_level == level && cmsg->cmsg_type == type)
-			return (ptr = CMSG_DATA(cmsg));
+			return CMSG_DATA(cmsg);
 
 	return NULL;
 }
@@ -684,7 +683,7 @@ int sockopt_tcp_signature_ext(int sock, union sockunion *su, uint16_t prefixlen,
 #endif /* GNU_LINUX */
 
 	if ((ret = setsockopt(sock, IPPROTO_TCP, optname, &md5sig,
-			      sizeof md5sig))
+			      sizeof(md5sig)))
 	    < 0) {
 		/* ENOENT is harmless.  It is returned when we clear a password
 		   for which

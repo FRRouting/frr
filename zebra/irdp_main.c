@@ -190,7 +190,7 @@ static void irdp_send(struct interface *ifp, struct prefix *p, struct stream *s)
 
 	if (irdp->flags & IF_DEBUG_MESSAGES)
 		zlog_debug("IRDP: TX Advert on %s %s Holdtime=%d Preference=%d",
-			   ifp->name, prefix2str(p, buf, sizeof buf),
+			   ifp->name, prefix2str(p, buf, sizeof(buf)),
 			   irdp->flags & IF_SHUTDOWN ? 0 : irdp->Lifetime,
 			   get_pref(irdp, p));
 

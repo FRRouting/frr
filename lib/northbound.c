@@ -996,7 +996,7 @@ static int nb_transaction_process(enum nb_event event,
 		 * Only try to release resources that were allocated
 		 * successfully.
 		 */
-		if (event == NB_EV_ABORT && change->prepare_ok == false)
+		if (event == NB_EV_ABORT && !change->prepare_ok)
 			break;
 
 		/* Call the appropriate callback. */

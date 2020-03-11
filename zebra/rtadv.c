@@ -130,7 +130,7 @@ static int rtadv_recv_packet(struct zebra_vrf *zvrf, int sock, uint8_t *buf,
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
 	msg.msg_control = (void *)adata;
-	msg.msg_controllen = sizeof adata;
+	msg.msg_controllen = sizeof(adata);
 	iov.iov_base = buf;
 	iov.iov_len = buflen;
 
@@ -1118,18 +1118,31 @@ void rtadv_stop_ra(struct interface *ifp)
 }
 
 /*
- * send router lifetime value of zero in RAs on all interfaces since we're
+ * Send router lifetime value of zero in RAs on all interfaces since we're
  * ceasing to advertise globally and want to let all of our neighbors know
  * RFC 4861 secion 6.2.5
+ *
+ * Delete all ipv6 global prefixes added to the router advertisement prefix
+ * lists prior to ceasing.
  */
 void rtadv_stop_ra_all(void)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
+	struct listnode *node, *nnode;
+	struct zebra_if *zif;
+	struct rtadv_prefix *rprefix;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		FOR_ALL_INTERFACES (vrf, ifp)
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			zif = ifp->info;
+
+			for (ALL_LIST_ELEMENTS(zif->rtadv.AdvPrefixList,
+					       node, nnode, rprefix))
+				rtadv_prefix_reset(zif, rprefix);
+
 			rtadv_stop_ra(ifp);
+		}
 }
 
 void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS)
@@ -2425,7 +2438,7 @@ static int if_join_all_router(int sock, struct interface *ifp)
 	mreq.ipv6mr_interface = ifp->ifindex;
 
 	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_JOIN_GROUP, (char *)&mreq,
-			 sizeof mreq);
+			 sizeof(mreq));
 	if (ret < 0)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s(%u): Failed to join group, socket %u error %s",
@@ -2451,7 +2464,7 @@ static int if_leave_all_router(int sock, struct interface *ifp)
 	mreq.ipv6mr_interface = ifp->ifindex;
 
 	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP, (char *)&mreq,
-			 sizeof mreq);
+			 sizeof(mreq));
 	if (ret < 0)
 		flog_err_sys(
 			EC_LIB_SOCKET,

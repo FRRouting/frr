@@ -273,6 +273,16 @@ Route Map Set Command
 
    Set the BGP local preference to `local_pref`.
 
+.. index:: set local-preference +LOCAL_PREF
+.. clicmd:: set local-preference +LOCAL_PREF
+
+   Add the BGP local preference to an existing `local_pref`.
+
+.. index:: set local-preference -LOCAL_PREF
+.. clicmd:: set local-preference -LOCAL_PREF
+
+   Subtract the BGP local preference from an existing `local_pref`.
+
 .. index:: [no] set distance DISTANCE
 .. clicmd:: [no] set distance DISTANCE
 

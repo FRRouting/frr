@@ -318,8 +318,7 @@ void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import,
 	}
 
 	if (zclient_send_rnh(zclient, command, p, connected, vrf_id) < 0)
-		zlog_warn("%s: Failure to send nexthop to zebra",
-			  __PRETTY_FUNCTION__);
+		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
 
 static int sharp_debug_nexthops(struct zapi_route *api)
@@ -367,7 +366,7 @@ static int sharp_nexthop_update(ZAPI_CALLBACK_ARGS)
 	struct zapi_route nhr;
 
 	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
-		zlog_warn("%s: Decode of update failed", __PRETTY_FUNCTION__);
+		zlog_warn("%s: Decode of update failed", __func__);
 
 		return 0;
 	}
@@ -388,8 +387,7 @@ static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
 	struct zapi_route api;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
-		zlog_warn("%s: Decode of redistribute failed: %d",
-			  __PRETTY_FUNCTION__,
+		zlog_warn("%s: Decode of redistribute failed: %d", __func__,
 			  ZEBRA_REDISTRIBUTE_ROUTE_ADD);
 
 	zlog_debug("%s: %pFX (%s)", zserv_command_string(cmd),

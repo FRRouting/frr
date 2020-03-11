@@ -412,8 +412,8 @@ void hmac_md5(unsigned char *text, int text_len, unsigned char *key,
 	 */
 
 	/* start out by storing key in pads */
-	bzero(k_ipad, sizeof k_ipad);
-	bzero(k_opad, sizeof k_opad);
+	bzero(k_ipad, sizeof(k_ipad));
+	bzero(k_opad, sizeof(k_opad));
 	bcopy(key, k_ipad, key_len);
 	bcopy(key, k_opad, key_len);
 

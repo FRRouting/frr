@@ -52,8 +52,8 @@
 
 #define EXPECT_TRUE(expr, res)                                                 \
 	if (!(expr)) {                                                         \
-		printf("Test failure in %s line %u: %s\n", __FUNCTION__,       \
-		       __LINE__, #expr);                                       \
+		printf("Test failure in %s line %u: %s\n", __func__, __LINE__, \
+		       #expr);                                                 \
 		(res) = TEST_FAILED;                                           \
 	}
 
@@ -75,7 +75,7 @@ struct testcase_t__ {
 
 /* need these to link in libbgp */
 struct thread_master *master = NULL;
-struct zclient *zclient;
+extern struct zclient *zclient;
 struct zebra_privs_t bgpd_privs = {
 	.user = NULL,
 	.group = NULL,

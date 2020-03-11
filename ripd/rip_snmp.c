@@ -553,7 +553,7 @@ static uint8_t *rip2PeerTable(struct variable *v, oid name[], size_t *length,
        * - don't support this variable, at all
        * Currently, we do the latter...
        */
-      *val_len = sizeof (time_t);
+      *val_len = sizeof(time_t);
       uptime = peer->uptime; /* now - snmp_agent_startup - peer->uptime */
       return (uint8_t *) &uptime;
 #else

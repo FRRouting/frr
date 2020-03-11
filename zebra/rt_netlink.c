@@ -213,7 +213,7 @@ static inline int zebra2proto(int proto)
 		 */
 		zlog_debug(
 			"%s: Please add this protocol(%d) to proper rt_netlink.c handling",
-			__PRETTY_FUNCTION__, proto);
+			__func__, proto);
 		proto = RTPROT_ZEBRA;
 		break;
 	}
@@ -280,7 +280,7 @@ static inline int proto2zebra(int proto, int family, bool is_nexthop)
 		 */
 		zlog_debug(
 			"%s: Please add this protocol(%d) to proper rt_netlink.c handling",
-			__PRETTY_FUNCTION__, proto);
+			__func__, proto);
 		proto = ZEBRA_ROUTE_KERNEL;
 		break;
 	}
@@ -439,7 +439,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 				flog_warn(
 					EC_ZEBRA_UNKNOWN_INTERFACE,
 					"%s: Unknown interface %u specified, defaulting to VRF_DEFAULT",
-					__PRETTY_FUNCTION__, index);
+					__func__, index);
 				nh_vrf_id = VRF_DEFAULT;
 			}
 		} else
@@ -557,13 +557,14 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct rtmsg));
 	if (len < 0) {
-		zlog_err("%s: Message received from netlink is of a broken size %d %zu",
-			 __PRETTY_FUNCTION__, h->nlmsg_len,
-			 (size_t)NLMSG_LENGTH(sizeof(struct rtmsg)));
+		zlog_err(
+			"%s: Message received from netlink is of a broken size %d %zu",
+			__func__, h->nlmsg_len,
+			(size_t)NLMSG_LENGTH(sizeof(struct rtmsg)));
 		return -1;
 	}
 
-	memset(tb, 0, sizeof tb);
+	memset(tb, 0, sizeof(tb));
 	netlink_parse_rtattr(tb, RTA_MAX, RTM_RTA(rtm), len);
 
 	if (rtm->rtm_flags & RTM_F_CLONED)
@@ -638,7 +639,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	if (tb[RTA_METRICS]) {
 		struct rtattr *mxrta[RTAX_MAX + 1];
 
-		memset(mxrta, 0, sizeof mxrta);
+		memset(mxrta, 0, sizeof(mxrta));
 		netlink_parse_rtattr(mxrta, RTAX_MAX, RTA_DATA(tb[RTA_METRICS]),
 				     RTA_PAYLOAD(tb[RTA_METRICS]));
 
@@ -848,7 +849,7 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct rtmsg));
 
-	memset(tb, 0, sizeof tb);
+	memset(tb, 0, sizeof(tb));
 	netlink_parse_rtattr(tb, RTA_MAX, RTM_RTA(rtm), len);
 
 	if (tb[RTA_TABLE])
@@ -951,10 +952,10 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct rtmsg));
 	if (len < 0) {
-		zlog_err("%s: Message received from netlink is of a broken size: %d %zu",
-			 __PRETTY_FUNCTION__,
-			 h->nlmsg_len,
-			 (size_t)NLMSG_LENGTH(sizeof(struct rtmsg)));
+		zlog_err(
+			"%s: Message received from netlink is of a broken size: %d %zu",
+			__func__, h->nlmsg_len,
+			(size_t)NLMSG_LENGTH(sizeof(struct rtmsg)));
 		return -1;
 	}
 
@@ -2296,7 +2297,7 @@ static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
 		flog_warn(
 			EC_ZEBRA_UNKNOWN_INTERFACE,
 			"%s: Unknown nexthop interface %u received, defaulting to VRF_DEFAULT",
-			__PRETTY_FUNCTION__, nh.ifindex);
+			__func__, nh.ifindex);
 
 		nh.vrf_id = VRF_DEFAULT;
 	}
@@ -2386,7 +2387,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (len < 0) {
 		zlog_warn(
 			"%s: Message received from netlink is of a broken size %d %zu",
-			__PRETTY_FUNCTION__, h->nlmsg_len,
+			__func__, h->nlmsg_len,
 			(size_t)NLMSG_LENGTH(sizeof(struct nhmsg)));
 		return -1;
 	}
@@ -2606,7 +2607,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	if (!ifp || !ifp->info) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("\t%s without associated interface: %u",
-				   __PRETTY_FUNCTION__, ndm->ndm_ifindex);
+				   __func__, ndm->ndm_ifindex);
 		return 0;
 	}
 
@@ -2614,7 +2615,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	if (!IS_ZEBRA_IF_BRIDGE_SLAVE(ifp)) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("\t%s Not interested in %s, not a slave",
-				   __PRETTY_FUNCTION__, ifp->name);
+				   __func__, ifp->name);
 		return 0;
 	}
 
@@ -2622,7 +2623,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	if (ndm->ndm_state & NUD_PERMANENT) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("\t%s Entry is PERMANENT, dropping",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 		return 0;
 	}
 
@@ -2639,7 +2640,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	}
 
 	/* Parse attributes and extract fields of interest. */
-	memset(tb, 0, sizeof tb);
+	memset(tb, 0, sizeof(tb));
 	netlink_parse_rtattr(tb, NDA_MAX, NDA_RTA(ndm), len);
 
 	if (!tb[NDA_LLADDR]) {
@@ -2871,8 +2872,7 @@ static int netlink_request_specific_mac_in_bridge(struct zebra_ns *zns,
 	addattr32(&req.n, sizeof(req), NDA_MASTER, br_if->ifindex);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: Tx family %s IF %s(%u) MAC %s vid %u",
-			   __PRETTY_FUNCTION__,
+		zlog_debug("%s: Tx family %s IF %s(%u) MAC %s vid %u", __func__,
 			   nl_family_to_str(req.ndm.ndm_family), br_if->name,
 			   br_if->ifindex,
 			   prefix_mac2str(mac, buf, sizeof(buf)), vid);
@@ -3050,7 +3050,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	zif = (struct zebra_if *)ifp->info;
 
 	/* Parse attributes and extract fields of interest. */
-	memset(tb, 0, sizeof tb);
+	memset(tb, 0, sizeof(tb));
 	netlink_parse_rtattr(tb, NDA_MAX, NDA_RTA(ndm), len);
 
 	if (!tb[NDA_DST]) {
@@ -3303,10 +3303,8 @@ int netlink_neigh_read_specific_ip(struct ipaddr *ip,
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("%s: neigh request IF %s(%u) IP %s vrf_id %u",
-			   __PRETTY_FUNCTION__, vlan_if->name,
-			   vlan_if->ifindex,
-			   ipaddr2str(ip, buf, sizeof(buf)),
-			   vlan_if->vrf_id);
+			   __func__, vlan_if->name, vlan_if->ifindex,
+			   ipaddr2str(ip, buf, sizeof(buf)), vlan_if->vrf_id);
 
 	ret = netlink_request_specific_neigh_in_vlan(zns, RTM_GETNEIGH, ip,
 					    vlan_if->ifindex);
@@ -3330,9 +3328,10 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 	/* Length validity. */
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct ndmsg));
 	if (len < 0) {
-		zlog_err("%s: Message received from netlink is of a broken size %d %zu",
-			 __PRETTY_FUNCTION__, h->nlmsg_len,
-			 (size_t)NLMSG_LENGTH(sizeof(struct ndmsg)));
+		zlog_err(
+			"%s: Message received from netlink is of a broken size %d %zu",
+			__func__, h->nlmsg_len,
+			(size_t)NLMSG_LENGTH(sizeof(struct ndmsg)));
 		return -1;
 	}
 

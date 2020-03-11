@@ -686,7 +686,7 @@ build_arg_table(struct typetable *types, va_list ap, union arg **argtable)
 
 	if (types->tablemax >= STATIC_ARG_TBL_SIZE) {
 		*argtable = (union arg *)
-		    malloc (sizeof (union arg) * (types->tablemax + 1));
+		    malloc (sizeof(union arg) * (types->tablemax + 1));
 		if (*argtable == NULL)
 			return;
 	}

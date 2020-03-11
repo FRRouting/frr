@@ -287,8 +287,8 @@ static int static_route_leak(
 		if (vty)
 			vty_out(vty, "%% Malformed address\n");
 		else
-			zlog_warn("%s: Malformed address: %s",
-				  __PRETTY_FUNCTION__, dest_str);
+			zlog_warn("%s: Malformed address: %s", __func__,
+				  dest_str);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -302,8 +302,7 @@ static int static_route_leak(
 					vty_out(vty, "%% Malformed address\n");
 				else
 					zlog_warn("%s: Malformed address: %s",
-						  __PRETTY_FUNCTION__,
-						  mask_str);
+						  __func__, mask_str);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			p.prefixlen = ip_masklen(mask);
@@ -320,7 +319,7 @@ static int static_route_leak(
 				else
 					zlog_warn(
 						"%s: Malformed source address: %s",
-						__PRETTY_FUNCTION__, src_str);
+						__func__, src_str);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			src_p = (struct prefix_ipv6 *)&src;
@@ -351,10 +350,9 @@ static int static_route_leak(
 				    "%% Table %s overlaps vrf table %u\n",
 				    table_str, svrf->vrf->data.l.table_id);
 			else
-				zlog_warn(
-				    "%s: Table %s overlaps vrf table %u",
-				    __PRETTY_FUNCTION__,
-				    table_str, svrf->vrf->data.l.table_id);
+				zlog_warn("%s: Table %s overlaps vrf table %u",
+					  __func__, table_str,
+					  svrf->vrf->data.l.table_id);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
@@ -379,7 +377,7 @@ static int static_route_leak(
 			else
 				zlog_warn(
 					"%s: MPLS not turned on in kernel ignoring static route to %s",
-					__PRETTY_FUNCTION__, dest_str);
+					__func__, dest_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		int rc = mpls_str2label(label_str, &snh_label.num_labels,
@@ -392,7 +390,7 @@ static int static_route_leak(
 				else
 					zlog_warn(
 						"%s: Malformed labels specified for route %s",
-						__PRETTY_FUNCTION__, dest_str);
+						__func__, dest_str);
 				break;
 			case -2:
 				if (vty)
@@ -403,7 +401,7 @@ static int static_route_leak(
 				else
 					zlog_warn(
 						"%s: Cannot use reserved labels (%d-%d) for %s",
-						__PRETTY_FUNCTION__,
+						__func__,
 						MPLS_LABEL_RESERVED_MIN,
 						MPLS_LABEL_RESERVED_MAX,
 						dest_str);
@@ -416,8 +414,8 @@ static int static_route_leak(
 				else
 					zlog_warn(
 						"%s: Too many labels, Enter %d or fewer for %s",
-						__PRETTY_FUNCTION__,
-						MPLS_MAX_LABELS, dest_str);
+						__func__, MPLS_MAX_LABELS,
+						dest_str);
 				break;
 			}
 			return CMD_WARNING_CONFIG_FAILED;
@@ -439,7 +437,7 @@ static int static_route_leak(
 			else
 				zlog_warn(
 					"%s: %s: Nexthop interface name can not be from reserved keywords (Null0, reject, blackhole)",
-					__PRETTY_FUNCTION__, dest_str);
+					__func__, dest_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
@@ -462,8 +460,7 @@ static int static_route_leak(
 					flag_str);
 			else
 				zlog_warn("%s: Malformed flag %s for %s",
-					  __PRETTY_FUNCTION__, flag_str,
-					  dest_str);
+					  __func__, flag_str, dest_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
@@ -477,8 +474,7 @@ static int static_route_leak(
 			else
 				zlog_warn(
 					"%s: Malformed nexthop address %s for %s",
-					__PRETTY_FUNCTION__, gate_str,
-					dest_str);
+					__func__, gate_str, dest_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		gatep = &gate;
@@ -595,7 +591,7 @@ void static_config_install_delayed_routes(struct static_vrf *svrf)
 		if (installed != CMD_SUCCESS)
 			zlog_debug(
 				"%s: Attempt to install %s as a route and it was rejected",
-				__PRETTY_FUNCTION__, shr->dest_str);
+				__func__, shr->dest_str);
 		listnode_delete(static_list, shr);
 		static_list_delete(shr);
 	}

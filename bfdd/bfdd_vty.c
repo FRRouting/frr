@@ -474,7 +474,7 @@ static void _display_peer_brief(struct vty *vty, struct bfd_session *bs)
 	}
 }
 
-static void _display_peer_brief_iter(struct hash_backet *hb, void *arg)
+static void _display_peer_brief_iter(struct hash_bucket *hb, void *arg)
 {
 	struct bfd_vrf_tuple *bvt = arg;
 	struct vty *vty;
@@ -500,7 +500,7 @@ static void _display_peers_brief(struct vty *vty, const char *vrfname, bool use_
 
 	bvt.vrfname = vrfname;
 
-	if (use_json == false) {
+	if (!use_json) {
 		bvt.vty = vty;
 
 		vty_out(vty, "Session count: %lu\n", bfd_get_session_count());

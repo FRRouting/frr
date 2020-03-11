@@ -101,8 +101,6 @@ static void *zvni_neigh_alloc(void *p);
 static zebra_neigh_t *zvni_neigh_add(zebra_vni_t *zvni, struct ipaddr *ip,
 				     struct ethaddr *mac);
 static int zvni_neigh_del(zebra_vni_t *zvni, zebra_neigh_t *n);
-static void zvni_neigh_del_from_vtep(zebra_vni_t *zvni, int uninstall,
-				     struct in_addr *r_vtep_ip);
 static void zvni_neigh_del_all(zebra_vni_t *zvni, int uninstall, int upd_client,
 			       uint32_t flags);
 static zebra_neigh_t *zvni_neigh_lookup(zebra_vni_t *zvni, struct ipaddr *ip);
@@ -156,8 +154,6 @@ static bool mac_cmp(const void *p1, const void *p2);
 static void *zvni_mac_alloc(void *p);
 static zebra_mac_t *zvni_mac_add(zebra_vni_t *zvni, struct ethaddr *macaddr);
 static int zvni_mac_del(zebra_vni_t *zvni, zebra_mac_t *mac);
-static void zvni_mac_del_from_vtep(zebra_vni_t *zvni, int uninstall,
-				   struct in_addr *r_vtep_ip);
 static void zvni_mac_del_all(zebra_vni_t *zvni, int uninstall, int upd_client,
 			     uint32_t flags);
 static zebra_mac_t *zvni_mac_lookup(zebra_vni_t *zvni, struct ethaddr *macaddr);
@@ -225,7 +221,7 @@ static void zebra_vxlan_sg_deref(struct in_addr local_vtep_ip,
 				struct in_addr mcast_grp);
 static void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip,
 				struct in_addr mcast_grp);
-static void zebra_vxlan_sg_cleanup(struct hash_backet *backet, void *arg);
+static void zebra_vxlan_sg_cleanup(struct hash_bucket *bucket, void *arg);
 
 static void zvni_send_mac_to_client(zebra_vni_t *zvn);
 static void zvni_send_neigh_to_client(zebra_vni_t *zvni);
@@ -258,8 +254,8 @@ static int host_rb_entry_compare(const struct host_rb_entry *hle1,
 		return memcmp(&hle1->p.u.prefix6, &hle2->p.u.prefix6,
 			      IPV6_MAX_BYTELEN);
 	} else {
-		zlog_debug("%s: Unexpected family type: %d",
-			   __PRETTY_FUNCTION__, hle1->p.family);
+		zlog_debug("%s: Unexpected family type: %d", __func__,
+			   hle1->p.family);
 		return 0;
 	}
 }
@@ -447,12 +443,11 @@ static void zebra_vxlan_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				   "%s: duplicate addr MAC %s flags 0x%x skip update to client, learn count %u recover time %u",
-				   __PRETTY_FUNCTION__,
-				   prefix_mac2str(&mac->macaddr, buf,
-						  sizeof(buf)),
-				   mac->flags, mac->dad_count,
-				   zvrf->dad_freeze_time);
+				"%s: duplicate addr MAC %s flags 0x%x skip update to client, learn count %u recover time %u",
+				__func__,
+				prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
+				mac->flags, mac->dad_count,
+				zvrf->dad_freeze_time);
 
 		/* For duplicate MAC do not update
 		 * client but update neigh due to
@@ -483,11 +478,10 @@ static void zebra_vxlan_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 	if (reset_params) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				   "%s: duplicate addr MAC %s flags 0x%x detection time passed, reset learn count %u"
-				   , __PRETTY_FUNCTION__,
-				   prefix_mac2str(&mac->macaddr, buf,
-						  sizeof(buf)),
-				   mac->flags, mac->dad_count);
+				"%s: duplicate addr MAC %s flags 0x%x detection time passed, reset learn count %u",
+				__func__,
+				prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
+				mac->flags, mac->dad_count);
 
 		mac->dad_count = 0;
 		/* Start dup. addr detection (DAD) start time,
@@ -551,8 +545,8 @@ static void zebra_vxlan_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 		if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"%s: duplicate addr MAC %s flags 0x%x auto recovery time %u start"
-					, __PRETTY_FUNCTION__,
+					"%s: duplicate addr MAC %s flags 0x%x auto recovery time %u start",
+					__func__,
 					prefix_mac2str(&mac->macaddr, buf,
 						       sizeof(buf)),
 					mac->flags, zvrf->dad_freeze_time);
@@ -594,8 +588,8 @@ static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
 	if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				   "%s: duplicate addr MAC %s IP %s flags 0x%x skip installing, learn count %u recover time %u",
-					   __PRETTY_FUNCTION__,
+				"%s: duplicate addr MAC %s IP %s flags 0x%x skip installing, learn count %u recover time %u",
+				__func__,
 				prefix_mac2str(&nbr->emac, buf, sizeof(buf)),
 				ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
 				nbr->flags, nbr->dad_count,
@@ -635,7 +629,7 @@ static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"%s: duplicate addr MAC %s IP %s flags 0x%x detection time passed, reset learn count %u",
-				__PRETTY_FUNCTION__,
+				__func__,
 				prefix_mac2str(&nbr->emac, buf, sizeof(buf)),
 				ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
 				nbr->flags, nbr->dad_count);
@@ -685,10 +679,12 @@ static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
 					"%s: duplicate addr MAC %s IP %s flags 0x%x auto recovery time %u start",
-				   __PRETTY_FUNCTION__,
-				   prefix_mac2str(&nbr->emac, buf, sizeof(buf)),
-				   ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
-				   nbr->flags, zvrf->dad_freeze_time);
+					__func__,
+					prefix_mac2str(&nbr->emac, buf,
+						       sizeof(buf)),
+					ipaddr2str(&nbr->ip, buf1,
+						   sizeof(buf1)),
+					nbr->flags, zvrf->dad_freeze_time);
 
 			thread_add_timer(zrouter.master,
 				zebra_vxlan_dad_ip_auto_recovery_exp,
@@ -2302,26 +2298,6 @@ static void zvni_neigh_del_hash_entry(struct hash_bucket *bucket, void *arg)
 }
 
 /*
- * Delete all neighbor entries from specific VTEP for a particular VNI.
- */
-static void zvni_neigh_del_from_vtep(zebra_vni_t *zvni, int uninstall,
-				     struct in_addr *r_vtep_ip)
-{
-	struct neigh_walk_ctx wctx;
-
-	if (!zvni->neigh_table)
-		return;
-
-	memset(&wctx, 0, sizeof(struct neigh_walk_ctx));
-	wctx.zvni = zvni;
-	wctx.uninstall = uninstall;
-	wctx.flags = DEL_REMOTE_NEIGH_FROM_VTEP;
-	wctx.r_vtep_ip = *r_vtep_ip;
-
-	hash_iterate(zvni->neigh_table, zvni_neigh_del_hash_entry, &wctx);
-}
-
-/*
  * Delete all neighbor entries for this VNI.
  */
 static void zvni_neigh_del_all(zebra_vni_t *zvni, int uninstall, int upd_client,
@@ -3450,11 +3426,10 @@ static bool zvni_check_mac_del_from_db(struct mac_walk_ctx *wctx,
 		if (IS_ZEBRA_DEBUG_VXLAN) {
 			char buf[ETHER_ADDR_STRLEN];
 
-			zlog_debug("%s: Del MAC %s flags 0x%x",
-				   __PRETTY_FUNCTION__,
-				   prefix_mac2str(&mac->macaddr,
-						  buf, sizeof(buf)),
-				   mac->flags);
+			zlog_debug(
+				"%s: Del MAC %s flags 0x%x", __func__,
+				prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
+				mac->flags);
 		}
 		wctx->uninstall = 0;
 
@@ -3484,26 +3459,6 @@ static void zvni_mac_del_hash_entry(struct hash_bucket *bucket, void *arg)
 	}
 
 	return;
-}
-
-/*
- * Delete all MAC entries from specific VTEP for a particular VNI.
- */
-static void zvni_mac_del_from_vtep(zebra_vni_t *zvni, int uninstall,
-				   struct in_addr *r_vtep_ip)
-{
-	struct mac_walk_ctx wctx;
-
-	if (!zvni->mac_table)
-		return;
-
-	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
-	wctx.zvni = zvni;
-	wctx.uninstall = uninstall;
-	wctx.flags = DEL_REMOTE_MAC_FROM_VTEP;
-	wctx.r_vtep_ip = *r_vtep_ip;
-
-	hash_iterate(zvni->mac_table, zvni_mac_del_hash_entry, &wctx);
 }
 
 /*
@@ -5875,14 +5830,11 @@ static void process_remote_macip_del(vni_t vni,
 	zns = zebra_ns_lookup(NS_DEFAULT);
 	vxl = &zif->l2info.vxl;
 
-	/* The remote VTEP specified is normally expected to exist, but
-	 * it is possible that the peer may delete the VTEP before deleting
-	 * any MACs referring to the VTEP, in which case the handler (see
-	 * remote_vtep_del) would have already deleted the MACs.
+	/* It is possible remote vtep del request is processed prior to
+	 * remote macip route delete. remote_vtep_del does not clean up
+	 * the macip route delete. Explicite withdraw of the macip route
+	 * is expected to recieve. This handler removes the remote route.
 	 */
-	if (!zvni_vtep_find(zvni, &vtep_ip))
-		return;
-
 	mac = zvni_mac_lookup(zvni, macaddr);
 	if (ipa_len)
 		n = zvni_neigh_lookup(zvni, ipaddr);
@@ -5928,7 +5880,7 @@ static void process_remote_macip_del(vni_t vni,
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
 					"%s: IP %s (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
-					__PRETTY_FUNCTION__,
+					__func__,
 					ipaddr2str(ipaddr, buf1, sizeof(buf1)),
 					n->flags,
 					vlan_if ? vlan_if->name : "Unknown");
@@ -5958,11 +5910,12 @@ static void process_remote_macip_del(vni_t vni,
 		    CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE) &&
 		    CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug("%s: MAC %s (flags 0x%x) is remote and duplicate, read kernel for local entry",
-					   __PRETTY_FUNCTION__,
-					   prefix_mac2str(macaddr, buf,
-							  sizeof(buf)),
-					   mac->flags);
+				zlog_debug(
+					"%s: MAC %s (flags 0x%x) is remote and duplicate, read kernel for local entry",
+					__func__,
+					prefix_mac2str(macaddr, buf,
+						       sizeof(buf)),
+					mac->flags);
 			macfdb_read_specific_mac(zns, zif->brslave_info.br_if,
 						 macaddr, vxl->access_vlan);
 		}
@@ -7028,8 +6981,7 @@ int zebra_vxlan_clear_dup_detect_vni_ip(struct vty *vty,
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("%s: clear neigh %s in dup state, flags 0x%x seq %u",
-			   __PRETTY_FUNCTION__, buf, nbr->flags,
-			   nbr->loc_seq);
+			   __func__, buf, nbr->flags, nbr->loc_seq);
 
 	UNSET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
 	nbr->dad_count = 0;
@@ -7122,10 +7074,8 @@ static void zvni_clear_dup_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 
 	if (IS_ZEBRA_DEBUG_VXLAN) {
 		ipaddr2str(&nbr->ip, buf, sizeof(buf));
-		zlog_debug(
-		"%s: clear neigh %s dup state, flags 0x%x seq %u",
-			   __PRETTY_FUNCTION__, buf,
-			   nbr->flags, nbr->loc_seq);
+		zlog_debug("%s: clear neigh %s dup state, flags 0x%x seq %u",
+			   __func__, buf, nbr->flags, nbr->loc_seq);
 	}
 
 	UNSET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
@@ -7560,9 +7510,10 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 	zvni = zvni_from_svi(ifp, link_if);
 	if (!zvni) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("%s: Del neighbor %s VNI is not present for interface %s",
-				   __PRETTY_FUNCTION__,
-				   ipaddr2str(ip, buf, sizeof(buf)), ifp->name);
+			zlog_debug(
+				"%s: Del neighbor %s VNI is not present for interface %s",
+				__func__, ipaddr2str(ip, buf, sizeof(buf)),
+				ifp->name);
 		return 0;
 	}
 
@@ -7605,8 +7556,8 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 
 	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
 	if (!zvrf) {
-		zlog_debug("%s: VNI %u vrf lookup failed.",
-				   __PRETTY_FUNCTION__, zvni->vni);
+		zlog_debug("%s: VNI %u vrf lookup failed.", __func__,
+			   zvni->vni);
 		return -1;
 	}
 
@@ -8220,7 +8171,7 @@ void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS)
 	if (!is_evpn_enabled()) {
 		zlog_debug(
 			"%s: EVPN is not enabled yet we have received a vtep del command",
-			__PRETTY_FUNCTION__);
+			__func__);
 		return;
 	}
 
@@ -8284,8 +8235,6 @@ void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS)
 		if (!zvtep)
 			continue;
 
-		zvni_neigh_del_from_vtep(zvni, 1, &vtep_ip);
-		zvni_mac_del_from_vtep(zvni, 1, &vtep_ip);
 		zvni_vtep_uninstall(zvni, &vtep_ip);
 		zvni_vtep_del(zvni, zvtep);
 	}
@@ -8312,7 +8261,7 @@ void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS)
 	if (!is_evpn_enabled()) {
 		zlog_debug(
 			"%s: EVPN not enabled yet we received a vtep_add zapi call",
-			__PRETTY_FUNCTION__);
+			__func__);
 		return;
 	}
 
@@ -9227,12 +9176,12 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 		zl3vni->mac_vlan_if = zl3vni_map_to_mac_vlan_if(zl3vni);
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("%s: l3vni %u svi_if %s mac_vlan_if %s",
-				   __PRETTY_FUNCTION__, vni,
-				   zl3vni->svi_if ?
-				   zl3vni->svi_if->name : "NIL",
-				   zl3vni->mac_vlan_if ?
-				   zl3vni->mac_vlan_if->name : "NIL");
+			zlog_debug(
+				"%s: l3vni %u svi_if %s mac_vlan_if %s",
+				__func__, vni,
+				zl3vni->svi_if ? zl3vni->svi_if->name : "NIL",
+				zl3vni->mac_vlan_if ? zl3vni->mac_vlan_if->name
+						    : "NIL");
 
 		/* formulate l2vni list */
 		hash_iterate(zvrf_evpn->vni_table, zvni_add_to_l3vni_list,
@@ -9785,12 +9734,12 @@ static int zebra_vxlan_dad_ip_auto_recovery_exp(struct thread *t)
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("%s: duplicate addr MAC %s IP %s flags 0x%x learn count %u vni %u auto recovery expired",
-			  __PRETTY_FUNCTION__,
-			  prefix_mac2str(&nbr->emac, buf2, sizeof(buf2)),
-			  ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
-			  nbr->flags,
-			  nbr->dad_count, zvni->vni);
+		zlog_debug(
+			"%s: duplicate addr MAC %s IP %s flags 0x%x learn count %u vni %u auto recovery expired",
+			__func__,
+			prefix_mac2str(&nbr->emac, buf2, sizeof(buf2)),
+			ipaddr2str(&nbr->ip, buf1, sizeof(buf1)), nbr->flags,
+			nbr->dad_count, zvni->vni);
 
 	UNSET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
 	nbr->dad_count = 0;
@@ -9836,12 +9785,11 @@ static int zebra_vxlan_dad_mac_auto_recovery_exp(struct thread *t)
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("%s: duplicate addr mac %s flags 0x%x learn count %u host count %u auto recovery expired",
-			    __PRETTY_FUNCTION__,
-			    prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
-			    mac->flags,
-			    mac->dad_count,
-			    listcount(mac->neigh_list));
+		zlog_debug(
+			"%s: duplicate addr mac %s flags 0x%x learn count %u host count %u auto recovery expired",
+			__func__,
+			prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
+			mac->flags, mac->dad_count, listcount(mac->neigh_list));
 
 	/* Remove all IPs as duplicate associcated with this MAC */
 	for (ALL_LIST_ELEMENTS_RO(mac->neigh_list, node, nbr)) {
@@ -10102,14 +10050,14 @@ static void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip,
 	zebra_vxlan_sg_do_ref(zvrf, local_vtep_ip, mcast_grp);
 }
 
-static void zebra_vxlan_sg_cleanup(struct hash_backet *backet, void *arg)
+static void zebra_vxlan_sg_cleanup(struct hash_bucket *backet, void *arg)
 {
 	zebra_vxlan_sg_t *vxlan_sg = (zebra_vxlan_sg_t *)backet->data;
 
 	zebra_vxlan_sg_del(vxlan_sg);
 }
 
-static void zebra_vxlan_sg_replay_send(struct hash_backet *backet, void *arg)
+static void zebra_vxlan_sg_replay_send(struct hash_bucket *backet, void *arg)
 {
 	zebra_vxlan_sg_t *vxlan_sg = (zebra_vxlan_sg_t *)backet->data;
 

@@ -67,7 +67,7 @@ send_address(struct nbr *nbr, int af, struct if_addr_head *addr_list,
 		fatalx("send_address: unknown af");
 	}
 
-	while ((if_addr = LIST_FIRST(addr_list)) != NULL) {
+	while (LIST_FIRST(addr_list) != NULL) {
 		/*
 		 * Send as many addresses as possible - respect the session's
 		 * negotiated maximum pdu length.

@@ -45,7 +45,7 @@ void pim_rpf_set_refresh_time(struct pim_instance *pim)
 	pim->last_route_change_time = pim_time_monotonic_usec();
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: vrf(%s) New last route change time: %" PRId64,
-			   __PRETTY_FUNCTION__, pim->vrf->name,
+			   __func__, pim->vrf->name,
 			   pim->last_route_change_time);
 }
 
@@ -78,9 +78,9 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 			pim_addr_dump("<nexthop?>", &nexthop->mrib_nexthop_addr,
 				      nexthop_str, sizeof(nexthop_str));
 			zlog_debug(
-				"%s: Using last lookup for %s at %lld, %" PRId64 " addr %s",
-				__PRETTY_FUNCTION__, addr_str,
-				nexthop->last_lookup_time,
+				"%s: Using last lookup for %s at %lld, %" PRId64
+				" addr %s",
+				__func__, addr_str, nexthop->last_lookup_time,
 				pim->last_route_change_time, nexthop_str);
 		}
 		pim->nexthop_lookups_avoided++;
@@ -92,8 +92,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 				       sizeof(addr_str));
 			zlog_debug(
 				"%s: Looking up: %s, last lookup time: %lld, %" PRId64,
-				__PRETTY_FUNCTION__, addr_str,
-				nexthop->last_lookup_time,
+				__func__, addr_str, nexthop->last_lookup_time,
 				pim->last_route_change_time);
 		}
 	}
@@ -107,7 +106,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
 		zlog_warn(
 			"%s %s: could not find nexthop ifindex for address %s",
-			__FILE__, __PRETTY_FUNCTION__, addr_str);
+			__FILE__, __func__, addr_str);
 		return false;
 	}
 
@@ -122,8 +121,8 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 					       sizeof(addr_str));
 				zlog_debug(
 					"%s %s: could not find interface for ifindex %d (address %s)",
-					__FILE__, __PRETTY_FUNCTION__,
-					first_ifindex, addr_str);
+					__FILE__, __func__, first_ifindex,
+					addr_str);
 			}
 			i++;
 			continue;
@@ -136,8 +135,8 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 					       sizeof(addr_str));
 				zlog_debug(
 					"%s: multicast not enabled on input interface %s (ifindex=%d, RPF for source %s)",
-					__PRETTY_FUNCTION__, ifp->name,
-					first_ifindex, addr_str);
+					__func__, ifp->name, first_ifindex,
+					addr_str);
 			}
 			i++;
 		} else if (neighbor_needed
@@ -166,8 +165,8 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 				       sizeof(addr_str));
 			zlog_debug(
 				"%s %s: found nexthop %s for address %s: interface %s ifindex=%d metric=%d pref=%d",
-				__FILE__, __PRETTY_FUNCTION__, nexthop_str,
-				addr_str, ifp->name, first_ifindex,
+				__FILE__, __func__, nexthop_str, addr_str,
+				ifp->name, first_ifindex,
 				nexthop_tab[i].route_metric,
 				nexthop_tab[i].protocol_distance);
 		}
@@ -383,7 +382,7 @@ static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
 
 	if (!up->rpf.source_nexthop.interface) {
 		zlog_warn("%s: missing RPF interface for upstream (S,G)=%s",
-			  __PRETTY_FUNCTION__, up->sg_str);
+			  __func__, up->sg_str);
 
 		rpf_addr.s_addr = PIM_NET_INADDR_ANY;
 		return rpf_addr;
@@ -415,7 +414,7 @@ int pim_rpf_addr_is_inaddr_none(struct pim_rpf *rpf)
 	case AF_INET:
 		return rpf->rpf_addr.u.prefix4.s_addr == INADDR_NONE;
 	case AF_INET6:
-		zlog_warn("%s: v6 Unimplmeneted", __PRETTY_FUNCTION__);
+		zlog_warn("%s: v6 Unimplmeneted", __func__);
 		return 1;
 	default:
 		return 0;
@@ -430,7 +429,7 @@ int pim_rpf_addr_is_inaddr_any(struct pim_rpf *rpf)
 	case AF_INET:
 		return rpf->rpf_addr.u.prefix4.s_addr == INADDR_ANY;
 	case AF_INET6:
-		zlog_warn("%s: v6 Unimplmented", __PRETTY_FUNCTION__);
+		zlog_warn("%s: v6 Unimplmented", __func__);
 		return 1;
 	default:
 		return 0;

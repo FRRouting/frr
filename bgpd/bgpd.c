@@ -1200,8 +1200,6 @@ struct peer *peer_new(struct bgp *bgp)
 
 	/* bgp argument is absolutely required */
 	assert(bgp);
-	if (!bgp)
-		return NULL;
 
 	/* Allocate new peer. */
 	peer = XCALLOC(MTYPE_BGP_PEER, sizeof(struct peer));
@@ -3148,7 +3146,7 @@ int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
 		/*
 		 * suppress vrf socket
 		 */
-		if (create == false) {
+		if (!create) {
 			bgp_close_vrf_socket(bgp);
 			return 0;
 		}
@@ -3228,7 +3226,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Registering BGP instance %s to zebra",
-				   __PRETTY_FUNCTION__, name);
+				   __func__, name);
 		bgp_zebra_instance_register(bgp);
 	}
 
@@ -3400,8 +3398,9 @@ int bgp_delete(struct bgp *bgp)
 	/* Deregister from Zebra, if needed */
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: deregistering this bgp %s instance from zebra",
-				   __PRETTY_FUNCTION__, bgp->name);
+			zlog_debug(
+				"%s: deregistering this bgp %s instance from zebra",
+				__func__, bgp->name);
 		bgp_zebra_instance_deregister(bgp);
 	}
 
@@ -4032,7 +4031,7 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 	struct peer_flag_action action;
 
 	memset(&action, 0, sizeof(struct peer_flag_action));
-	size = sizeof peer_flag_action_list / sizeof(struct peer_flag_action);
+	size = sizeof(peer_flag_action_list) / sizeof(struct peer_flag_action);
 
 	invert = CHECK_FLAG(peer->flags_invert, flag);
 	found = peer_flag_action_set(peer_flag_action_list, size, &action,
@@ -4138,7 +4137,7 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	bgp_peer_sort_t ptype;
 
 	memset(&action, 0, sizeof(struct peer_flag_action));
-	size = sizeof peer_af_flag_action_list
+	size = sizeof(peer_af_flag_action_list)
 	       / sizeof(struct peer_flag_action);
 
 	invert = CHECK_FLAG(peer->af_flags_invert[afi][safi], flag);
@@ -6848,7 +6847,7 @@ char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 		  json_object *json)
 {
 	time_t uptime1, epoch_tbuf;
-	struct tm *tm;
+	struct tm tm;
 
 	/* If there is no connection has been done before print `never'. */
 	if (uptime2 == 0) {
@@ -6863,21 +6862,21 @@ char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 	/* Get current time. */
 	uptime1 = bgp_clock();
 	uptime1 -= uptime2;
-	tm = gmtime(&uptime1);
+	gmtime_r(&uptime1, &tm);
 
 	if (uptime1 < ONE_DAY_SECOND)
-		snprintf(buf, len, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-			 tm->tm_sec);
+		snprintf(buf, len, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
+			 tm.tm_sec);
 	else if (uptime1 < ONE_WEEK_SECOND)
-		snprintf(buf, len, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-			 tm->tm_min);
+		snprintf(buf, len, "%dd%02dh%02dm", tm.tm_yday, tm.tm_hour,
+			 tm.tm_min);
 	else if (uptime1 < ONE_YEAR_SECOND)
-		snprintf(buf, len, "%02dw%dd%02dh", tm->tm_yday / 7,
-			 tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
+		snprintf(buf, len, "%02dw%dd%02dh", tm.tm_yday / 7,
+			 tm.tm_yday - ((tm.tm_yday / 7) * 7), tm.tm_hour);
 	else
-		snprintf(buf, len, "%02dy%02dw%dd", tm->tm_year - 70,
-			 tm->tm_yday / 7,
-			 tm->tm_yday - ((tm->tm_yday / 7) * 7));
+		snprintf(buf, len, "%02dy%02dw%dd", tm.tm_year - 70,
+			 tm.tm_yday / 7,
+			 tm.tm_yday - ((tm.tm_yday / 7) * 7));
 
 	if (use_json) {
 		epoch_tbuf = time(NULL) - uptime1;

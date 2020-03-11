@@ -32,6 +32,76 @@ extern struct zclient *zclient;
 
 #define PIM_MLAG_METADATA_LEN 4
 
+/*********************ACtual Data processing *****************************/
+/* TBD: There can be duplicate updates to FIB***/
+#define PIM_MLAG_ADD_OIF_TO_OIL(ch, ch_oil)                                    \
+	do {                                                                   \
+		if (PIM_DEBUG_MLAG)                                            \
+			zlog_debug(                                            \
+				"%s: add Dual-active Interface to %s "         \
+				"to oil:%s",                                   \
+				__func__, ch->interface->name, ch->sg_str);    \
+		pim_channel_add_oif(ch_oil, ch->interface,                     \
+				    PIM_OIF_FLAG_PROTO_IGMP, __func__);        \
+	} while (0)
+
+#define PIM_MLAG_DEL_OIF_TO_OIL(ch, ch_oil)                                    \
+	do {                                                                   \
+		if (PIM_DEBUG_MLAG)                                            \
+			zlog_debug(                                            \
+				"%s: del Dual-active Interface to %s "         \
+				"to oil:%s",                                   \
+				__func__, ch->interface->name, ch->sg_str);    \
+		pim_channel_del_oif(ch_oil, ch->interface,                     \
+				    PIM_OIF_FLAG_PROTO_IGMP, __func__);        \
+	} while (0)
+
+
+static void pim_mlag_calculate_df_for_ifchannels(struct pim_upstream *up,
+						 bool is_df)
+{
+	struct listnode *chnode;
+	struct listnode *chnextnode;
+	struct pim_ifchannel *ch;
+	struct pim_interface *pim_ifp = NULL;
+	struct channel_oil *ch_oil = NULL;
+
+	ch_oil = (up) ? up->channel_oil : NULL;
+
+	if (!ch_oil)
+		return;
+
+	if (PIM_DEBUG_MLAG)
+		zlog_debug("%s: Calculating DF for Dual active if-channel%s",
+			   __func__, up->sg_str);
+
+	for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
+		pim_ifp = (ch->interface) ? ch->interface->info : NULL;
+		if (!pim_ifp || !PIM_I_am_DualActive(pim_ifp))
+			continue;
+
+		if (is_df)
+			PIM_MLAG_ADD_OIF_TO_OIL(ch, ch_oil);
+		else
+			PIM_MLAG_DEL_OIF_TO_OIL(ch, ch_oil);
+	}
+}
+
+static void pim_mlag_inherit_mlag_flags(struct pim_upstream *up, bool is_df)
+{
+	struct listnode *listnode;
+	struct pim_upstream *child;
+
+	for (ALL_LIST_ELEMENTS_RO(up->sources, listnode, child)) {
+		PIM_UPSTREAM_FLAG_SET_MLAG_PEER(child->flags);
+		if (is_df)
+			PIM_UPSTREAM_FLAG_UNSET_MLAG_NON_DF(child->flags);
+		else
+			PIM_UPSTREAM_FLAG_SET_MLAG_NON_DF(child->flags);
+		pim_mlag_calculate_df_for_ifchannels(child, is_df);
+	}
+}
+
 /******************************* pim upstream sync **************************/
 /* Update DF role for the upstream entry and return true on role change */
 bool pim_mlag_up_df_role_update(struct pim_instance *pim,
@@ -58,6 +128,15 @@ bool pim_mlag_up_df_role_update(struct pim_instance *pim,
 	else
 		PIM_UPSTREAM_FLAG_SET_MLAG_NON_DF(up->flags);
 
+
+	/*
+	 * This Upstream entry synced to peer Because of Dual-active
+	 * Interface configuration
+	 */
+	if (PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags)) {
+		pim_mlag_calculate_df_for_ifchannels(up, is_df);
+		pim_mlag_inherit_mlag_flags(up, is_df);
+	}
 
 	/* If the DF role has changed check if ipmr-lo needs to be
 	 * muted/un-muted. Active-Active devices and vxlan termination
@@ -91,7 +170,8 @@ static bool pim_mlag_up_df_role_elect(struct pim_instance *pim,
 	uint32_t local_cost;
 	bool rv;
 
-	if (!pim_up_mlag_is_local(up))
+	if (!pim_up_mlag_is_local(up)
+	    && !PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags))
 		return false;
 
 	/* We are yet to rx a status update from the local MLAG daemon so
@@ -186,13 +266,12 @@ static void pim_mlag_up_peer_add(struct mlag_mroute_add *msg)
 		 * doesn't already exist.
 		 */
 		if (!PIM_UPSTREAM_FLAG_TEST_MLAG_PEER(up->flags))
-			pim_upstream_ref(up,
-					PIM_UPSTREAM_FLAG_MASK_MLAG_PEER,
-					__PRETTY_FUNCTION__);
+			pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_MLAG_PEER,
+					 __func__);
 	} else {
 		PIM_UPSTREAM_FLAG_SET_MLAG_PEER(flags);
-		up = pim_upstream_add(pim, &sg, NULL /*iif*/, flags,
-				__PRETTY_FUNCTION__, NULL /*if_ch*/);
+		up = pim_upstream_add(pim, &sg, NULL /*iif*/, flags, __func__,
+				      NULL /*if_ch*/);
 
 		if (!up) {
 			if (PIM_DEBUG_MLAG)
@@ -211,17 +290,20 @@ static void pim_mlag_up_peer_add(struct mlag_mroute_add *msg)
  * - if a local entry continues to exisy and has a MLAG OIF DF election
  *   is re-run (at the end of which the local entry will be the DF).
  */
-static void pim_mlag_up_peer_deref(struct pim_instance *pim,
-		struct pim_upstream *up)
+static struct pim_upstream *pim_mlag_up_peer_deref(struct pim_instance *pim,
+						   struct pim_upstream *up)
 {
 	if (!PIM_UPSTREAM_FLAG_TEST_MLAG_PEER(up->flags))
-		return;
+		return up;
 
 	PIM_UPSTREAM_FLAG_UNSET_MLAG_PEER(up->flags);
-	up = pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
+	up = pim_upstream_del(pim, up, __func__);
 	if (up)
 		pim_mlag_up_df_role_elect(pim, up);
+
+	return up;
 }
+
 static void pim_mlag_up_peer_del(struct mlag_mroute_del *msg)
 {
 	struct pim_upstream *up;
@@ -257,7 +339,7 @@ static void pim_mlag_up_peer_del(struct mlag_mroute_del *msg)
 		return;
 	}
 
-	pim_mlag_up_peer_deref(pim, up);
+	(void)pim_mlag_up_peer_deref(pim, up);
 }
 
 /* When we lose connection to the local MLAG daemon we can drop all peer
@@ -301,24 +383,17 @@ static void pim_mlag_up_peer_del_all(void)
 			up = listnode_head(temp);
 			listnode_delete(temp, up);
 
-			pim_mlag_up_peer_deref(pim, up);
+			up = pim_mlag_up_peer_deref(pim, up);
 			/*
 			 * This is the deletion of the reference added
 			 * above
 			 */
-			pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
+			if (up)
+				pim_upstream_del(pim, up, __func__);
 		}
 	}
 
 	list_delete(&temp);
-}
-
-static int pim_mlag_signal_zpthread(void)
-{
-	/* XXX - This is a temporary stub; the MLAG thread code is planned for
-	 * a separate commit
-	 */
-    return (0);
 }
 
 /* Send upstream entry to the local MLAG daemon (which will subsequently
@@ -426,7 +501,8 @@ static void pim_mlag_up_local_replay(void)
 	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
 		pim = vrf->info;
 		frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-			if (pim_up_mlag_is_local(up))
+			if (pim_up_mlag_is_local(up)
+			    || PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(up->flags))
 				pim_mlag_up_local_add_send(pim, up);
 		}
 	}
@@ -447,7 +523,9 @@ static void pim_mlag_up_local_reeval(bool mlagd_send, const char *reason_code)
 	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
 		pim = vrf->info;
 		frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-			if (!pim_up_mlag_is_local(up))
+			if (!pim_up_mlag_is_local(up)
+			    && !PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(
+				    up->flags))
 				continue;
 			/* if role changes re-send to peer */
 			if (pim_mlag_up_df_role_elect(pim, up) &&
@@ -691,8 +769,9 @@ int pim_zebra_mlag_handle_msg(struct stream *s, int len)
 	struct mlag_msg mlag_msg;
 	char buf[ZLOG_FILTER_LENGTH_MAX];
 	int rc = 0;
+	size_t length;
 
-	rc = mlag_lib_decode_mlag_hdr(s, &mlag_msg);
+	rc = mlag_lib_decode_mlag_hdr(s, &mlag_msg, &length);
 	if (rc)
 		return (rc);
 
@@ -731,7 +810,7 @@ int pim_zebra_mlag_handle_msg(struct stream *s, int len)
 	case MLAG_MROUTE_ADD: {
 		struct mlag_mroute_add msg;
 
-		rc = mlag_lib_decode_mroute_add(s, &msg);
+		rc = mlag_lib_decode_mroute_add(s, &msg, &length);
 		if (rc)
 			return (rc);
 		pim_mlag_process_mroute_add(msg);
@@ -739,7 +818,7 @@ int pim_zebra_mlag_handle_msg(struct stream *s, int len)
 	case MLAG_MROUTE_DEL: {
 		struct mlag_mroute_del msg;
 
-		rc = mlag_lib_decode_mroute_del(s, &msg);
+		rc = mlag_lib_decode_mroute_del(s, &msg, &length);
 		if (rc)
 			return (rc);
 		pim_mlag_process_mroute_del(msg);
@@ -749,8 +828,7 @@ int pim_zebra_mlag_handle_msg(struct stream *s, int len)
 		int i;
 
 		for (i = 0; i < mlag_msg.msg_cnt; i++) {
-
-			rc = mlag_lib_decode_mroute_add(s, &msg);
+			rc = mlag_lib_decode_mroute_add(s, &msg, &length);
 			if (rc)
 				return (rc);
 			pim_mlag_process_mroute_add(msg);
@@ -761,8 +839,7 @@ int pim_zebra_mlag_handle_msg(struct stream *s, int len)
 		int i;
 
 		for (i = 0; i < mlag_msg.msg_cnt; i++) {
-
-			rc = mlag_lib_decode_mroute_del(s, &msg);
+			rc = mlag_lib_decode_mroute_del(s, &msg, &length);
 			if (rc)
 				return (rc);
 			pim_mlag_process_mroute_del(msg);
@@ -781,6 +858,12 @@ int pim_zebra_mlag_process_up(void)
 	if (PIM_DEBUG_MLAG)
 		zlog_debug("%s: Received Process-Up from Mlag", __func__);
 
+	/*
+	 * Incase of local MLAG restart, PIM needs to replay all the data
+	 * since MLAG is empty.
+	 */
+	router->connected_to_mlag = true;
+	router->mlag_flags |= PIM_MLAGF_LOCAL_CONN_UP;
 	return 0;
 }
 
@@ -873,7 +956,7 @@ static int pim_mlag_deregister_handler(struct thread *thread)
 void pim_mlag_deregister(void)
 {
 	/* if somebody still interested in the MLAG channel skip de-reg */
-	if (router->pim_mlag_intf_cnt)
+	if (router->pim_mlag_intf_cnt || pim_vxlan_do_mlag_reg())
 		return;
 
 	/* not registered; nothing do */
@@ -890,10 +973,6 @@ void pim_if_configure_mlag_dualactive(struct pim_interface *pim_ifp)
 {
 	if (!pim_ifp || !pim_ifp->pim || pim_ifp->activeactive == true)
 		return;
-
-	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: Configuring active-active on Interface: %s",
-			   __func__, "NULL");
 
 	pim_ifp->activeactive = true;
 	if (pim_ifp->pim)
@@ -920,10 +999,6 @@ void pim_if_unconfigure_mlag_dualactive(struct pim_interface *pim_ifp)
 	if (!pim_ifp || !pim_ifp->pim || pim_ifp->activeactive == false)
 		return;
 
-	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: UnConfiguring active-active on Interface: %s",
-			   __func__, "NULL");
-
 	pim_ifp->activeactive = false;
 	pim_ifp->pim->inst_mlag_intf_cnt--;
 
@@ -940,6 +1015,7 @@ void pim_if_unconfigure_mlag_dualactive(struct pim_interface *pim_ifp)
 		 * De-register to Zebra
 		 */
 		pim_mlag_deregister();
+		pim_mlag_param_reset();
 	}
 }
 

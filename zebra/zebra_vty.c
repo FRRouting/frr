@@ -241,30 +241,30 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		vty_out(vty, "\n");
 
 		time_t uptime;
-		struct tm *tm;
+		struct tm tm;
 
 		uptime = monotime(NULL);
 		uptime -= re->uptime;
-		tm = gmtime(&uptime);
+		gmtime_r(&uptime, &tm);
 
 		vty_out(vty, "  Last update ");
 
 		if (uptime < ONE_DAY_SECOND)
-			vty_out(vty, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-				tm->tm_sec);
+			vty_out(vty, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
+				tm.tm_sec);
 		else if (uptime < ONE_WEEK_SECOND)
-			vty_out(vty, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-				tm->tm_min);
+			vty_out(vty, "%dd%02dh%02dm", tm.tm_yday, tm.tm_hour,
+				tm.tm_min);
 		else
-			vty_out(vty, "%02dw%dd%02dh", tm->tm_yday / 7,
-				tm->tm_yday - ((tm->tm_yday / 7) * 7),
-				tm->tm_hour);
+			vty_out(vty, "%02dw%dd%02dh", tm.tm_yday / 7,
+				tm.tm_yday - ((tm.tm_yday / 7) * 7),
+				tm.tm_hour);
 		vty_out(vty, " ago\n");
 
 		if (show_ng)
 			vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
 
-		for (ALL_NEXTHOPS_PTR(re->nhe->nhg, nexthop)) {
+		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
 			char addrstr[32];
 
 			vty_out(vty, "  %c%s",
@@ -286,7 +286,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
 				vty_out(vty, " %s",
 					inet_ntop(AF_INET6, &nexthop->gate.ipv6,
-						  buf, sizeof buf));
+						  buf, sizeof(buf)));
 				if (nexthop->ifindex)
 					vty_out(vty, ", via %s",
 						ifindex2ifname(
@@ -348,7 +348,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				if (nexthop->src.ipv4.s_addr) {
 					if (inet_ntop(AF_INET,
 						      &nexthop->src.ipv4,
-						      addrstr, sizeof addrstr))
+						      addrstr, sizeof(addrstr)))
 						vty_out(vty, ", src %s",
 							addrstr);
 				}
@@ -359,7 +359,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 						    &in6addr_any)) {
 					if (inet_ntop(AF_INET6,
 						      &nexthop->src.ipv6,
-						      addrstr, sizeof addrstr))
+						      addrstr, sizeof(addrstr)))
 						vty_out(vty, ", src %s",
 							addrstr);
 				}
@@ -378,7 +378,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 					mpls_label2str(
 						nexthop->nh_label->num_labels,
 						nexthop->nh_label->label, buf,
-						sizeof buf, 1));
+						sizeof(buf), 1));
 			}
 
 			if (nexthop->weight)
@@ -402,14 +402,14 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	json_object *json_route = NULL;
 	json_object *json_labels = NULL;
 	time_t uptime;
-	struct tm *tm;
+	struct tm tm;
 	struct vrf *vrf = NULL;
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 	struct nexthop_group *nhg;
 
 	uptime = monotime(NULL);
 	uptime -= re->uptime;
-	tm = gmtime(&uptime);
+	gmtime_r(&uptime, &tm);
 
 	/* If showing fib information, use the fib view of the
 	 * nexthops.
@@ -417,14 +417,14 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	if (is_fib)
 		nhg = rib_active_nhg(re);
 	else
-		nhg = re->nhe->nhg;
+		nhg = &(re->nhe->nhg);
 
 	if (json) {
 		json_route = json_object_new_object();
 		json_nexthops = json_object_new_array();
 
 		json_object_string_add(json_route, "prefix",
-				       srcdest_rnode2str(rn, buf, sizeof buf));
+				       srcdest_rnode2str(rn, buf, sizeof(buf)));
 		json_object_string_add(json_route, "protocol",
 				       zebra_route_string(re->type));
 
@@ -470,20 +470,20 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		json_object_int_add(json_route, "internalFlags",
 				    re->flags);
 		json_object_int_add(json_route, "internalNextHopNum",
-				    nexthop_group_nexthop_num(re->nhe->nhg));
+				    nexthop_group_nexthop_num(&(re->nhe->nhg)));
 		json_object_int_add(json_route, "internalNextHopActiveNum",
 				    nexthop_group_active_nexthop_num(
-					    re->nhe->nhg));
+					    &(re->nhe->nhg)));
 		if (uptime < ONE_DAY_SECOND)
-			sprintf(buf, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-				tm->tm_sec);
+			sprintf(buf, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
+				tm.tm_sec);
 		else if (uptime < ONE_WEEK_SECOND)
-			sprintf(buf, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-				tm->tm_min);
+			sprintf(buf, "%dd%02dh%02dm", tm.tm_yday, tm.tm_hour,
+				tm.tm_min);
 		else
-			sprintf(buf, "%02dw%dd%02dh", tm->tm_yday / 7,
-				tm->tm_yday - ((tm->tm_yday / 7) * 7),
-				tm->tm_hour);
+			sprintf(buf, "%02dw%dd%02dh", tm.tm_yday / 7,
+				tm.tm_yday - ((tm.tm_yday / 7) * 7),
+				tm.tm_hour);
 
 		json_object_string_add(json_route, "uptime", buf);
 
@@ -526,7 +526,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				json_object_string_add(
 					json_nexthop, "ip",
 					inet_ntop(AF_INET6, &nexthop->gate.ipv6,
-						  buf, sizeof buf));
+						  buf, sizeof(buf)));
 				json_object_string_add(json_nexthop, "afi",
 						       "ipv6");
 
@@ -606,7 +606,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				if (nexthop->src.ipv4.s_addr) {
 					if (inet_ntop(AF_INET,
 						      &nexthop->src.ipv4, buf,
-						      sizeof buf))
+						      sizeof(buf)))
 						json_object_string_add(
 							json_nexthop, "source",
 							buf);
@@ -618,7 +618,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 						    &in6addr_any)) {
 					if (inet_ntop(AF_INET6,
 						      &nexthop->src.ipv6, buf,
-						      sizeof buf))
+						      sizeof(buf)))
 						json_object_string_add(
 							json_nexthop, "source",
 							buf);
@@ -667,7 +667,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 					? '>'
 					: ' ',
 				re_status_output_char(re, nexthop),
-				srcdest_rnode2str(rn, buf, sizeof buf));
+				srcdest_rnode2str(rn, buf, sizeof(buf)));
 
 			/* Distance and metric display. */
 			if (((re->type == ZEBRA_ROUTE_CONNECT) &&
@@ -694,7 +694,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			vty_out(vty, " via %s",
 				inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
-					  sizeof buf));
+					  sizeof(buf)));
 			if (nexthop->ifindex)
 				vty_out(vty, ", %s",
 					ifindex2ifname(nexthop->ifindex,
@@ -750,7 +750,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			if (nexthop->src.ipv4.s_addr) {
 				if (inet_ntop(AF_INET, &nexthop->src.ipv4, buf,
-					      sizeof buf))
+					      sizeof(buf)))
 					vty_out(vty, ", src %s", buf);
 			}
 			break;
@@ -758,7 +758,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any)) {
 				if (inet_ntop(AF_INET6, &nexthop->src.ipv6, buf,
-					      sizeof buf))
+					      sizeof(buf)))
 					vty_out(vty, ", src %s", buf);
 			}
 			break;
@@ -771,19 +771,19 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			vty_out(vty, ", label %s",
 				mpls_label2str(nexthop->nh_label->num_labels,
 					       nexthop->nh_label->label, buf,
-					       sizeof buf, 1));
+					       sizeof(buf), 1));
 		}
 
 		if (uptime < ONE_DAY_SECOND)
-			vty_out(vty, ", %02d:%02d:%02d", tm->tm_hour,
-				tm->tm_min, tm->tm_sec);
+			vty_out(vty, ", %02d:%02d:%02d", tm.tm_hour,
+				tm.tm_min, tm.tm_sec);
 		else if (uptime < ONE_WEEK_SECOND)
-			vty_out(vty, ", %dd%02dh%02dm", tm->tm_yday,
-				tm->tm_hour, tm->tm_min);
+			vty_out(vty, ", %dd%02dh%02dm", tm.tm_yday,
+				tm.tm_hour, tm.tm_min);
 		else
-			vty_out(vty, ", %02dw%dd%02dh", tm->tm_yday / 7,
-				tm->tm_yday - ((tm->tm_yday / 7) * 7),
-				tm->tm_hour);
+			vty_out(vty, ", %02dw%dd%02dh", tm.tm_yday / 7,
+				tm.tm_yday - ((tm.tm_yday / 7) * 7),
+				tm.tm_hour);
 		vty_out(vty, "\n");
 	}
 }
@@ -915,8 +915,8 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	}
 }
 
-static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf, afi_t afi,
-				 bool use_fib, bool use_json,
+static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf,
+				 afi_t afi, bool use_fib, bool use_json,
 				 route_tag_t tag,
 				 const struct prefix *longer_prefix_p,
 				 bool supernets_only, int type,
@@ -934,12 +934,12 @@ static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf, afi_t 
 		if (zrt->afi != afi ||
 		    zrt->safi != SAFI_UNICAST)
 			continue;
-		if (zrt->table)
-			do_show_ip_route(vty, zvrf_name(zvrf), afi,
-					 SAFI_UNICAST, use_fib, use_json,
-					 tag, longer_prefix_p,
-					 supernets_only, type,
-					 ospf_instance_id, zrt->tableid);
+
+		do_show_ip_route(vty, zvrf_name(zvrf), afi,
+				 SAFI_UNICAST, use_fib, use_json,
+				 tag, longer_prefix_p,
+				 supernets_only, type,
+				 ospf_instance_id, zrt->tableid);
 	}
 }
 
@@ -1093,7 +1093,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 		vty_out(vty, "\n");
 	}
 
-	for (ALL_NEXTHOPS_PTR(nhe->nhg, nexthop)) {
+	for (ALL_NEXTHOPS(nhe->nhg, nexthop)) {
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			vty_out(vty, "          ");
 		else
@@ -1532,10 +1532,8 @@ DEFPY (show_route,
 
 	if (vrf_all) {
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-			struct route_table *route_table;
-
 			if ((zvrf = vrf->info) == NULL
-			    || (route_table = zvrf->table[afi][SAFI_UNICAST]) == NULL)
+			    || (zvrf->table[afi][SAFI_UNICAST] == NULL))
 				continue;
 
 			if (table_all)
@@ -1953,7 +1951,7 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 				fib_cnt[ZEBRA_ROUTE_TOTAL]++;
 				fib_cnt[re->type]++;
 			}
-			for (nexthop = re->nhe->nhg->nexthop; (!cnt && nexthop);
+			for (nexthop = re->nhe->nhg.nexthop; (!cnt && nexthop);
 			     nexthop = nexthop->next) {
 				cnt++;
 				rib_cnt[ZEBRA_ROUTE_TOTAL]++;

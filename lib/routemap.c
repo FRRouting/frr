@@ -2257,7 +2257,7 @@ static void route_map_pentry_update(route_map_event_t event,
 	}
 }
 
-static void route_map_pentry_process_dependency(struct hash_backet *backet,
+static void route_map_pentry_process_dependency(struct hash_bucket *backet,
 						void *data)
 {
 	char *rmap_name = NULL;
@@ -2447,7 +2447,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 	}
 
 	for (; index; index = index->next) {
-		if (skip_match_clause == false) {
+		if (!skip_match_clause) {
 			/* Apply this index. */
 			match_ret = route_map_apply_match(&index->match_list,
 							  prefix, type, object);
@@ -2684,8 +2684,7 @@ static void route_map_print_dependency(struct hash_bucket *bucket, void *data)
 	char *rmap_name = dep_data->rname;
 	char *dep_name = data;
 
-	zlog_debug("%s: Dependency for %s: %s", __FUNCTION__, dep_name,
-		   rmap_name);
+	zlog_debug("%s: Dependency for %s: %s", __func__, dep_name, rmap_name);
 }
 
 static int route_map_dep_update(struct hash *dephash, const char *dep_name,

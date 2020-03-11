@@ -264,7 +264,7 @@ int smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
 	      uint8_t sptrap)
 {
 	oid objid_snmptrap[] = {1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0};
-	size_t objid_snmptrap_len = sizeof objid_snmptrap / sizeof(oid);
+	size_t objid_snmptrap_len = sizeof(objid_snmptrap) / sizeof(oid);
 	oid notification_oid[MAX_OID_LEN];
 	size_t notification_oid_len;
 	unsigned int i;

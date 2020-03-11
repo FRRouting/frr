@@ -2455,7 +2455,7 @@ static void ospfTrapNbrStateChange(struct ospf_neighbor *on)
 
 	ospf_nbr_state_message(on, msgbuf, sizeof(msgbuf));
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_info("%s: trap sent: %s now %s", __PRETTY_FUNCTION__,
+		zlog_info("%s: trap sent: %s now %s", __func__,
 			  inet_ntoa(on->address.u.prefix4), msgbuf);
 
 	oid_copy_addr(index, &(on->address.u.prefix4), IN_ADDR_SIZE);
@@ -2463,7 +2463,7 @@ static void ospfTrapNbrStateChange(struct ospf_neighbor *on)
 
 	smux_trap(ospf_variables, array_size(ospf_variables), ospf_trap_oid,
 		  array_size(ospf_trap_oid), ospf_oid,
-		  sizeof ospf_oid / sizeof(oid), index, IN_ADDR_SIZE + 1,
+		  sizeof(ospf_oid) / sizeof(oid), index, IN_ADDR_SIZE + 1,
 		  ospfNbrTrapList, array_size(ospfNbrTrapList), NBRSTATECHANGE);
 }
 
@@ -2478,7 +2478,7 @@ static void ospfTrapVirtNbrStateChange(struct ospf_neighbor *on)
 
 	smux_trap(ospf_variables, array_size(ospf_variables), ospf_trap_oid,
 		  array_size(ospf_trap_oid), ospf_oid,
-		  sizeof ospf_oid / sizeof(oid), index, IN_ADDR_SIZE + 1,
+		  sizeof(ospf_oid) / sizeof(oid), index, IN_ADDR_SIZE + 1,
 		  ospfVirtNbrTrapList, array_size(ospfVirtNbrTrapList),
 		  VIRTNBRSTATECHANGE);
 }
@@ -2508,7 +2508,7 @@ static void ospfTrapIfStateChange(struct ospf_interface *oi)
 	oid index[sizeof(oid) * (IN_ADDR_SIZE + 1)];
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_info("%s: trap sent: %s now %s", __PRETTY_FUNCTION__,
+		zlog_info("%s: trap sent: %s now %s", __func__,
 			  inet_ntoa(oi->address->u.prefix4),
 			  lookup_msg(ospf_ism_state_msg, oi->state, NULL));
 
@@ -2517,7 +2517,7 @@ static void ospfTrapIfStateChange(struct ospf_interface *oi)
 
 	smux_trap(ospf_variables, array_size(ospf_variables), ospf_trap_oid,
 		  array_size(ospf_trap_oid), ospf_oid,
-		  sizeof ospf_oid / sizeof(oid), index, IN_ADDR_SIZE + 1,
+		  sizeof(ospf_oid) / sizeof(oid), index, IN_ADDR_SIZE + 1,
 		  ospfIfTrapList, array_size(ospfIfTrapList), IFSTATECHANGE);
 }
 
@@ -2532,7 +2532,7 @@ static void ospfTrapVirtIfStateChange(struct ospf_interface *oi)
 
 	smux_trap(ospf_variables, array_size(ospf_variables), ospf_trap_oid,
 		  array_size(ospf_trap_oid), ospf_oid,
-		  sizeof ospf_oid / sizeof(oid), index, IN_ADDR_SIZE + 1,
+		  sizeof(ospf_oid) / sizeof(oid), index, IN_ADDR_SIZE + 1,
 		  ospfVirtIfTrapList, array_size(ospfVirtIfTrapList),
 		  VIRTIFSTATECHANGE);
 }

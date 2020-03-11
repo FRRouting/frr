@@ -127,8 +127,7 @@ static void zebra_gr_client_info_delte(struct zserv *client,
 
 	THREAD_OFF(info->t_stale_removal);
 
-	if (info->current_prefix)
-		XFREE(MTYPE_TMP, info->current_prefix);
+	XFREE(MTYPE_TMP, info->current_prefix);
 
 	LOG_GR("%s: Instance info is being deleted for client %s", __func__,
 	       zebra_route_string(client->proto));
@@ -265,30 +264,31 @@ void zebra_gr_client_reconnect(struct zserv *client)
 	}
 
 	/* Copy the timers */
-	if (old_client) {
-		client->gr_instance_count = old_client->gr_instance_count;
-		client->restart_time = old_client->restart_time;
+	if (!old_client)
+		return;
 
-		LOG_GR("%s : old client %s, gr_instance_count %d", __func__,
-		       zebra_route_string(old_client->proto),
-		       old_client->gr_instance_count);
+	client->gr_instance_count = old_client->gr_instance_count;
+	client->restart_time = old_client->restart_time;
 
-		if (TAILQ_FIRST(&old_client->gr_info_queue)) {
-			TAILQ_CONCAT(&client->gr_info_queue,
-				     &old_client->gr_info_queue, gr_info);
-			TAILQ_INIT(&old_client->gr_info_queue);
-		}
+	LOG_GR("%s : old client %s, gr_instance_count %d", __func__,
+	       zebra_route_string(old_client->proto),
+	       old_client->gr_instance_count);
 
-		TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
-			info->stale_client_ptr = client;
-			info->stale_client = false;
-		}
-
-		/* Delete the stale client */
-		listnode_delete(zrouter.stale_client_list, old_client);
-		/* Delete old client */
-		XFREE(MTYPE_TMP, old_client);
+	if (TAILQ_FIRST(&old_client->gr_info_queue)) {
+		TAILQ_CONCAT(&client->gr_info_queue, &old_client->gr_info_queue,
+			     gr_info);
+		TAILQ_INIT(&old_client->gr_info_queue);
 	}
+
+	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
+		info->stale_client_ptr = client;
+		info->stale_client = false;
+	}
+
+	/* Delete the stale client */
+	listnode_delete(zrouter.stale_client_list, old_client);
+	/* Delete old client */
+	XFREE(MTYPE_TMP, old_client);
 }
 
 /*
@@ -425,6 +425,12 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
+	/* GR only for dynamic clients */
+	if (client->proto <= ZEBRA_ROUTE_CONNECT) {
+		LOG_GR("%s: GR capabilities for client %s not supported",
+		       __func__, zebra_route_string(client->proto));
+		return;
+	}
 	/* Call the capabilities handler */
 	zebra_client_capabilities_handler(client, &api);
 }

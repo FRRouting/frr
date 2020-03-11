@@ -158,12 +158,12 @@ const char *ospf_timeval_dump(struct timeval *t, char *buf, size_t size)
 #define HOUR_IN_SECONDS		(60*MINUTE_IN_SECONDS)
 #define DAY_IN_SECONDS		(24*HOUR_IN_SECONDS)
 #define WEEK_IN_SECONDS		(7*DAY_IN_SECONDS)
-	unsigned long w, d, h, m, s, ms, us;
+	unsigned long w, d, h, m, ms, us;
 
 	if (!t)
 		return "inactive";
 
-	w = d = h = m = s = ms = us = 0;
+	w = d = h = m = ms = 0;
 	memset(buf, 0, size);
 
 	us = t->tv_usec;
@@ -386,7 +386,7 @@ static void ospf_packet_db_desc_dump(struct stream *s, uint16_t length)
 	zlog_debug("  Options %d (%s)", dd->options,
 		   ospf_options_dump(dd->options));
 	zlog_debug("  Flags %d (%s)", dd->flags,
-		   ospf_dd_flags_dump(dd->flags, dd_flags, sizeof dd_flags));
+		   ospf_dd_flags_dump(dd->flags, dd_flags, sizeof(dd_flags)));
 	zlog_debug("  Sequence Number 0x%08lx",
 		   (unsigned long)ntohl(dd->dd_seqnum));
 

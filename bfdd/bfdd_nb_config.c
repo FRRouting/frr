@@ -383,7 +383,7 @@ int bfdd_bfd_sessions_single_hop_administrative_down_modify(
 
 	bs = nb_running_get_entry(dnode, NULL, true);
 
-	if (shutdown == false) {
+	if (!shutdown) {
 		if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
 			return NB_OK;
 
@@ -447,7 +447,7 @@ int bfdd_bfd_sessions_single_hop_echo_mode_modify(enum nb_event event,
 
 	bs = nb_running_get_entry(dnode, NULL, true);
 
-	if (echo == false) {
+	if (!echo) {
 		if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
 			return NB_OK;
 

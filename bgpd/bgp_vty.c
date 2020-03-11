@@ -753,7 +753,7 @@ static void bgp_clear_vty_error(struct vty *vty, struct peer *peer, afi_t afi,
 }
 
 static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
-			  struct listnode *nnode, enum bgp_clear_type stype)
+			  struct listnode **nnode, enum bgp_clear_type stype)
 {
 	int ret = 0;
 
@@ -767,7 +767,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 				continue;
 
 			if (stype == BGP_CLEAR_SOFT_NONE)
-				ret = peer_clear(peer, &nnode);
+				ret = peer_clear(peer, nnode);
 			else
 				ret = peer_clear_soft(peer, tmp_afi, tmp_safi,
 						      stype);
@@ -782,7 +782,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 				continue;
 
 			if (stype == BGP_CLEAR_SOFT_NONE)
-				ret = peer_clear(peer, &nnode);
+				ret = peer_clear(peer, nnode);
 			else
 				ret = peer_clear_soft(peer, afi,
 						      tmp_safi, stype);
@@ -793,7 +793,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 			return 1;
 
 		if (stype == BGP_CLEAR_SOFT_NONE)
-			ret = peer_clear(peer, &nnode);
+			ret = peer_clear(peer, nnode);
 		else
 			ret = peer_clear_soft(peer, afi, safi, stype);
 	}
@@ -826,7 +826,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
 				gr_router_detected = true;
 
-			ret = bgp_peer_clear(peer, afi, safi, nnode,
+			ret = bgp_peer_clear(peer, afi, safi, &nnode,
 							  stype);
 
 			if (ret < 0)
@@ -901,7 +901,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		}
 
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			ret = bgp_peer_clear(peer, afi, safi, nnode, stype);
+			ret = bgp_peer_clear(peer, afi, safi, &nnode, stype);
 
 			if (ret < 0)
 				bgp_clear_vty_error(vty, peer, afi, safi, ret);
@@ -928,7 +928,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
 				gr_router_detected = true;
 
-			ret = bgp_peer_clear(peer, afi, safi, nnode, stype);
+			ret = bgp_peer_clear(peer, afi, safi, &nnode, stype);
 
 			if (ret < 0)
 				bgp_clear_vty_error(vty, peer, afi, safi, ret);
@@ -965,7 +965,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
 				gr_router_detected = true;
 
-			ret = bgp_peer_clear(peer, afi, safi, nnode, stype);
+			ret = bgp_peer_clear(peer, afi, safi, &nnode, stype);
 
 			if (ret < 0)
 				bgp_clear_vty_error(vty, peer, afi, safi, ret);
@@ -7304,7 +7304,7 @@ ALIAS (af_label_vpn_export,
 
 DEFPY (af_nexthop_vpn_export,
        af_nexthop_vpn_export_cmd,
-       "[no] nexthop vpn export <A.B.C.D|X:X::X:X>$nexthop_str",
+       "[no] nexthop vpn export [<A.B.C.D|X:X::X:X>$nexthop_su]",
        NO_STR
        "Specify next hop to use for VRF advertised prefixes\n"
        "Between current address-family and vpn\n"
@@ -7315,14 +7315,14 @@ DEFPY (af_nexthop_vpn_export,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	afi_t afi;
 	struct prefix p;
-	int idx = 0;
-	int yes = 1;
 
-	if (argv_find(argv, argc, "no", &idx))
-		yes = 0;
+	if (!no) {
+		if (!nexthop_su) {
+			vty_out(vty, "%% Nexthop required\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 
-	if (yes) {
-		if (!sockunion2hostprefix(nexthop_str, &p))
+		if (!sockunion2hostprefix(nexthop_su, &p))
 			return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -7336,7 +7336,7 @@ DEFPY (af_nexthop_vpn_export,
 	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
 			   bgp_get_default(), bgp);
 
-	if (yes) {
+	if (!no) {
 		bgp->vpn_policy[afi].tovpn_nexthop = p;
 		SET_FLAG(bgp->vpn_policy[afi].flags,
 			 BGP_VPN_POLICY_TOVPN_NEXTHOP_SET);
@@ -7351,14 +7351,6 @@ DEFPY (af_nexthop_vpn_export,
 
 	return CMD_SUCCESS;
 }
-
-ALIAS (af_nexthop_vpn_export,
-       af_no_nexthop_vpn_export_cmd,
-       "no nexthop vpn export",
-       NO_STR
-       "Specify next hop to use for VRF advertised prefixes\n"
-       "Between current address-family and vpn\n"
-       "For routes leaked from current address-family to vpn\n")
 
 static int vpn_policy_getdirs(struct vty *vty, const char *dstr, int *dodir)
 {
@@ -9440,7 +9432,7 @@ static void bgp_show_neighnor_graceful_restart_rbit(struct vty *vty,
 						    bool use_json,
 						    json_object *json)
 {
-	bool rbit_status = 0;
+	bool rbit_status = false;
 
 	if (!use_json)
 		vty_out(vty, "\n    R bit: ");
@@ -9450,9 +9442,9 @@ static void bgp_show_neighnor_graceful_restart_rbit(struct vty *vty,
 	    && (p->status == Established)) {
 
 		if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_BIT_RCV))
-			rbit_status = 1;
+			rbit_status = true;
 		else
-			rbit_status = 0;
+			rbit_status = false;
 	}
 
 	if (rbit_status) {
@@ -10657,28 +10649,31 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 		/* read timer */
 		time_t uptime;
-		struct tm *tm;
+		struct tm tm;
 
 		uptime = bgp_clock();
 		uptime -= p->readtime;
-		tm = gmtime(&uptime);
+		gmtime_r(&uptime, &tm);
+
 		json_object_int_add(json_neigh, "bgpTimerLastRead",
-				    (tm->tm_sec * 1000) + (tm->tm_min * 60000)
-					    + (tm->tm_hour * 3600000));
+				    (tm.tm_sec * 1000) + (tm.tm_min * 60000)
+					    + (tm.tm_hour * 3600000));
 
 		uptime = bgp_clock();
 		uptime -= p->last_write;
-		tm = gmtime(&uptime);
+		gmtime_r(&uptime, &tm);
+
 		json_object_int_add(json_neigh, "bgpTimerLastWrite",
-				    (tm->tm_sec * 1000) + (tm->tm_min * 60000)
-					    + (tm->tm_hour * 3600000));
+				    (tm.tm_sec * 1000) + (tm.tm_min * 60000)
+					    + (tm.tm_hour * 3600000));
 
 		uptime = bgp_clock();
 		uptime -= p->update_time;
-		tm = gmtime(&uptime);
+		gmtime_r(&uptime, &tm);
+
 		json_object_int_add(json_neigh, "bgpInUpdateElapsedTimeMsecs",
-				    (tm->tm_sec * 1000) + (tm->tm_min * 60000)
-					    + (tm->tm_hour * 3600000));
+				    (tm.tm_sec * 1000) + (tm.tm_min * 60000)
+					    + (tm.tm_hour * 3600000));
 
 		/* Configured timer values. */
 		json_object_int_add(json_neigh, "bgpTimerHoldTimeMsecs",
@@ -11506,12 +11501,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 				vty_out(vty, "\n");
 
-				/* Gracefull Restart */
+				/* Graceful Restart */
 				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)
 				    || CHECK_FLAG(p->cap,
 						  PEER_CAP_RESTART_ADV)) {
 					vty_out(vty,
-						"    Graceful Restart Capabilty:");
+						"    Graceful Restart Capability:");
 					if (CHECK_FLAG(p->cap,
 						       PEER_CAP_RESTART_ADV))
 						vty_out(vty, " advertised");
@@ -11841,15 +11836,16 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	} else {
 		if (use_json) {
 			time_t uptime;
-			struct tm *tm;
+			struct tm tm;
 
 			uptime = bgp_clock();
 			uptime -= p->resettime;
-			tm = gmtime(&uptime);
+			gmtime_r(&uptime, &tm);
+
 			json_object_int_add(json_neigh, "lastResetTimerMsecs",
-					    (tm->tm_sec * 1000)
-						    + (tm->tm_min * 60000)
-						    + (tm->tm_hour * 3600000));
+					    (tm.tm_sec * 1000)
+						    + (tm.tm_min * 60000)
+						    + (tm.tm_hour * 3600000));
 			bgp_show_peer_reset(NULL, p, json_neigh, true);
 		} else {
 			vty_out(vty, "  Last reset %s, ",
@@ -16609,8 +16605,6 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &af_no_rd_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &af_no_label_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_no_label_vpn_export_cmd);
-	install_element(BGP_IPV4_NODE, &af_no_nexthop_vpn_export_cmd);
-	install_element(BGP_IPV6_NODE, &af_no_nexthop_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &af_no_rt_vpn_imexport_cmd);
 	install_element(BGP_IPV6_NODE, &af_no_rt_vpn_imexport_cmd);
 	install_element(BGP_IPV4_NODE, &af_no_route_map_vpn_imexport_cmd);

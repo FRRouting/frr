@@ -237,6 +237,8 @@ struct pim_upstream {
 	struct channel_oil *channel_oil;
 	struct list *sources;
 	struct list *ifchannels;
+	/* Counter for Dual active ifchannels*/
+	uint32_t dualactive_ifchannel_count;
 
 	enum pim_upstream_state join_state;
 	enum pim_reg_state reg_state;
@@ -303,8 +305,8 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 				      struct pim_upstream *up,
 				      const char *name);
 
-int pim_upstream_evaluate_join_desired(struct pim_instance *pim,
-				       struct pim_upstream *up);
+bool pim_upstream_evaluate_join_desired(struct pim_instance *pim,
+					struct pim_upstream *up);
 int pim_upstream_evaluate_join_desired_interface(struct pim_upstream *up,
 						 struct pim_ifchannel *ch,
 						 struct pim_ifchannel *starch);

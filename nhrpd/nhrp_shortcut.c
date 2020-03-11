@@ -32,7 +32,7 @@ static void nhrp_shortcut_check_use(struct nhrp_shortcut *s)
 
 	if (s->expiring && s->cache && s->cache->used) {
 		debugf(NHRP_DEBUG_ROUTE, "Shortcut %s used and expiring",
-		       prefix2str(s->p, buf, sizeof buf));
+		       prefix2str(s->p, buf, sizeof(buf)));
 		nhrp_shortcut_send_resolution_req(s);
 	}
 }
@@ -162,7 +162,7 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
 
 	debugf(NHRP_DEBUG_ROUTE, "Shortcut %s purged",
-	       prefix2str(s->p, buf, sizeof buf));
+	       prefix2str(s->p, buf, sizeof(buf)));
 
 	nhrp_shortcut_update_binding(s, NHRP_CACHE_INVALID, NULL, 0);
 
@@ -202,7 +202,7 @@ static struct nhrp_shortcut *nhrp_shortcut_get(struct prefix *p)
 		s->p = &rn->p;
 
 		debugf(NHRP_DEBUG_ROUTE, "Shortcut %s created",
-		       prefix2str(s->p, buf, sizeof buf));
+		       prefix2str(s->p, buf, sizeof(buf)));
 	} else {
 		s = rn->info;
 		route_unlock_node(rn);
@@ -246,7 +246,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	}
 
 	/* Parse extensions */
-	memset(&nat_nbma, 0, sizeof nat_nbma);
+	memset(&nat_nbma, 0, sizeof(nat_nbma));
 	while ((ext = nhrp_ext_pull(&pp->extensions, &extpl)) != NULL) {
 		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
 		case NHRP_EXTENSION_NAT_ADDRESS:
@@ -260,8 +260,8 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	if (!sockunion_same(&cie_proto, &pp->dst_proto)) {
 		debugf(NHRP_DEBUG_COMMON,
 		       "Shortcut: Warning dst_proto altered from %s to %s",
-		       sockunion2str(&cie_proto, buf[0], sizeof buf[0]),
-		       sockunion2str(&pp->dst_proto, buf[1], sizeof buf[1]));
+		       sockunion2str(&cie_proto, buf[0], sizeof(buf[0])),
+		       sockunion2str(&pp->dst_proto, buf[1], sizeof(buf[1])));
 	}
 
 	/* One or more CIEs should be given as reply, we support only one */
@@ -291,9 +291,8 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	}
 
 	debugf(NHRP_DEBUG_COMMON,
-	       "Shortcut: %s is at proto %s dst_proto %s cie-nbma %s nat-nbma "
-	       "%s cie-holdtime %d",
-	       prefix2str(&prefix, bufp, sizeof bufp),
+	       "Shortcut: %s is at proto %s dst_proto %s cie-nbma %s nat-nbma %s cie-holdtime %d",
+	       prefix2str(&prefix, bufp, sizeof(bufp)),
 	       sockunion2str(proto, buf[0], sizeof(buf[0])),
 	       sockunion2str(&pp->dst_proto, buf[1], sizeof(buf[1])),
 	       sockunion2str(&cie_nbma, buf[2], sizeof(buf[2])),

@@ -300,8 +300,7 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 		return 1;
 
 	if (!re) {
-		zfpm_debug("%s: Expected non-NULL re pointer",
-			   __PRETTY_FUNCTION__);
+		zfpm_debug("%s: Expected non-NULL re pointer", __func__);
 		return 0;
 	}
 
@@ -309,7 +308,7 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 	ri->rtm_type = RTN_UNICAST;
 	ri->metric = &re->metric;
 
-	for (ALL_NEXTHOPS_PTR(re->nhe->nhg, nexthop)) {
+	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
 		if (ri->num_nhs >= zrouter.multipath_num)
 			break;
 
@@ -570,7 +569,7 @@ int zfpm_netlink_encode_route(int cmd, rib_dest_t *dest, struct route_entry *re,
 	if (!netlink_route_info_fill(ri, cmd, dest, re))
 		return 0;
 
-	zfpm_log_route_info(ri, __FUNCTION__);
+	zfpm_log_route_info(ri, __func__);
 
 	return netlink_route_info_encode(ri, in_buf, in_buf_len);
 }

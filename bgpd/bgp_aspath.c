@@ -41,9 +41,9 @@
 #define AS_HEADER_SIZE 2
 
 /* Now FOUR octets are used for AS value. */
-#define AS_VALUE_SIZE         sizeof (as_t)
+#define AS_VALUE_SIZE         sizeof(as_t)
 /* This is the old one */
-#define AS16_VALUE_SIZE	      sizeof (as16_t)
+#define AS16_VALUE_SIZE	      sizeof(as16_t)
 
 /* Maximum protocol segment length value */
 #define AS_SEGMENT_MAX		255
@@ -768,7 +768,7 @@ static int assegments_parse(struct stream *s, size_t length,
 		     * on more, than 8 bits (otherwise it's a warning, bug
 		     * #564).
 		     */
-		    || ((sizeof segh.length > 1)
+		    || ((sizeof(segh.length) > 1)
 			&& (0x10 + segh.length > 0x10 + AS_SEGMENT_MAX))) {
 			if (head)
 				assegment_free_all(head);
@@ -793,7 +793,7 @@ static int assegments_parse(struct stream *s, size_t length,
 		if (head)
 			prev->next = seg;
 		else /* it's the first segment */
-			head = prev = seg;
+			head = seg;
 
 		for (i = 0; i < segh.length; i++)
 			seg->as[i] =
@@ -2127,7 +2127,7 @@ static void *bgp_aggr_aspath_hash_alloc(void *p)
 	return aspath;
 }
 
-static void bgp_aggr_aspath_prepare(struct hash_backet *hb, void *arg)
+static void bgp_aggr_aspath_prepare(struct hash_bucket *hb, void *arg)
 {
 	struct aspath *hb_aspath = hb->data;
 	struct aspath **aggr_aspath = arg;

@@ -948,7 +948,7 @@ void ospf_lsa_flush_area(struct ospf_lsa *lsa, struct ospf_area *area)
 	   retransmissions */
 	lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: MAXAGE set to LSA %s", __PRETTY_FUNCTION__,
+		zlog_debug("%s: MAXAGE set to LSA %s", __func__,
 			   inet_ntoa(lsa->data->id));
 	monotime(&lsa->tv_recv);
 	lsa->tv_orig = lsa->tv_recv;

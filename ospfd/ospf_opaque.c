@@ -1557,8 +1557,8 @@ struct ospf_lsa *ospf_opaque_lsa_install(struct ospf_lsa *lsa, int rt_recalc)
 		ospf_lsa_unlock(&oipi->lsa);
 		oipi->lsa = ospf_lsa_lock(lsa);
 	}
-	/* Register the new lsa entry and get its control info. */
-	else if ((oipi = register_opaque_lsa(lsa)) == NULL) {
+	/* Register the new lsa entry */
+	else if (register_opaque_lsa(lsa) == NULL) {
 		flog_warn(EC_OSPF_LSA,
 			  "ospf_opaque_lsa_install: register_opaque_lsa() ?");
 		goto out;

@@ -44,7 +44,7 @@ static int64_t bgp_clist_new_seq_get(struct community_list *list)
 	int64_t newseq;
 	struct community_entry *entry;
 
-	maxseq = newseq = 0;
+	maxseq = 0;
 
 	for (entry = list->head; entry; entry = entry->next) {
 		if (maxseq < entry->seq)
@@ -654,7 +654,7 @@ community_regexp_delete (struct community *com, regex_t * reg)
 	i = 0;
 	while (i < com->size)
 	{
-		memcpy (&comval, com_nthval (com, i), sizeof (uint32_t));
+		memcpy (&comval, com_nthval (com, i), sizeof(uint32_t));
 		comval = ntohl (comval);
 
 		switch (comval) {

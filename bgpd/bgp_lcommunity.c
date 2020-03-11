@@ -550,7 +550,7 @@ static void *bgp_aggr_lcommunty_hash_alloc(void *p)
 	return lcommunity;
 }
 
-static void bgp_aggr_lcommunity_prepare(struct hash_backet *hb, void *arg)
+static void bgp_aggr_lcommunity_prepare(struct hash_bucket *hb, void *arg)
 {
 	struct lcommunity *hb_lcommunity = hb->data;
 	struct lcommunity **aggr_lcommunity = arg;

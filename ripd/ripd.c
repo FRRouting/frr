@@ -104,7 +104,7 @@ static int sockopt_broadcast(int sock)
 	int on = 1;
 
 	ret = setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (char *)&on,
-			 sizeof on);
+			 sizeof(on));
 	if (ret < 0) {
 		zlog_warn("can't set sockopt SO_BROADCAST to socket %d", sock);
 		return -1;
@@ -3020,20 +3020,20 @@ void rip_ecmp_disable(struct rip *rip)
 static void rip_vty_out_uptime(struct vty *vty, struct rip_info *rinfo)
 {
 	time_t clock;
-	struct tm *tm;
+	struct tm tm;
 #define TIME_BUF 25
 	char timebuf[TIME_BUF];
 	struct thread *thread;
 
 	if ((thread = rinfo->t_timeout) != NULL) {
 		clock = thread_timer_remain_second(thread);
-		tm = gmtime(&clock);
-		strftime(timebuf, TIME_BUF, "%M:%S", tm);
+		gmtime_r(&clock, &tm);
+		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
 		vty_out(vty, "%5s", timebuf);
 	} else if ((thread = rinfo->t_garbage_collect) != NULL) {
 		clock = thread_timer_remain_second(thread);
-		tm = gmtime(&clock);
-		strftime(timebuf, TIME_BUF, "%M:%S", tm);
+		gmtime_r(&clock, &tm);
+		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
 		vty_out(vty, "%5s", timebuf);
 	}
 }

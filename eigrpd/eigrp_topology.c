@@ -138,7 +138,7 @@ void eigrp_prefix_entry_add(struct route_table *topology,
 
 			zlog_debug(
 				"%s: %s Should we have found this entry in the topo table?",
-				__PRETTY_FUNCTION__,
+				__func__,
 				prefix2str(pe->destination, buf, sizeof(buf)));
 		}
 		route_unlock_node(rn);
@@ -402,7 +402,7 @@ eigrp_topology_update_distance(struct eigrp_fsm_action_message *msg)
 		break;
 	default:
 		flog_err(EC_LIB_DEVELOPMENT, "%s: Please implement handler",
-			 __PRETTY_FUNCTION__);
+			 __func__);
 		break;
 	}
 distance_done:

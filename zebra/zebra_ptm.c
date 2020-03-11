@@ -390,7 +390,7 @@ static int zebra_ptm_socket_init(void)
 	if (set_nonblocking(sock) < 0) {
 		if (IS_ZEBRA_DEBUG_EVENT)
 			zlog_debug("%s: Unable to set socket non blocking[%s]",
-				   __PRETTY_FUNCTION__, safe_strerror(errno));
+				   __func__, safe_strerror(errno));
 		close(sock);
 		return -1;
 	}

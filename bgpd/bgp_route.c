@@ -122,8 +122,6 @@ struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 	struct bgp_node *prn = NULL;
 
 	assert(table);
-	if (!table)
-		return NULL;
 
 	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
 	    || (safi == SAFI_EVPN)) {
@@ -299,7 +297,7 @@ static int bgp_node_set_defer_flag(struct bgp_node *rn, bool delete)
 {
 	struct peer *peer;
 	struct bgp_path_info *old_pi, *nextpi;
-	bool set_flag = 0;
+	bool set_flag = false;
 	struct bgp *bgp = NULL;
 	struct bgp_table *table = NULL;
 	afi_t afi = 0;
@@ -339,7 +337,7 @@ static int bgp_node_set_defer_flag(struct bgp_node *rn, bool delete)
 		 */
 		if (CHECK_FLAG(old_pi->flags, BGP_PATH_STALE)
 		    && (old_pi->sub_type == BGP_ROUTE_NORMAL)) {
-			set_flag = 1;
+			set_flag = true;
 		} else {
 			/* If the peer is graceful restart capable and peer is
 			 * restarting mode, set the flag BGP_NODE_SELECT_DEFER
@@ -349,7 +347,7 @@ static int bgp_node_set_defer_flag(struct bgp_node *rn, bool delete)
 			    && BGP_PEER_RESTARTING_MODE(peer)
 			    && (old_pi
 				&& old_pi->sub_type == BGP_ROUTE_NORMAL)) {
-				set_flag = 1;
+				set_flag = true;
 			}
 		}
 		if (set_flag)
@@ -2926,8 +2924,7 @@ static int bgp_maximum_prefix_restart_timer(struct thread *thread)
 			peer->host);
 
 	if ((peer_clear(peer, NULL) < 0) && bgp_debug_neighbor_events(peer))
-		zlog_debug("%s: %s peer_clear failed",
-			   __PRETTY_FUNCTION__, peer->host);
+		zlog_debug("%s: %s peer_clear failed", __func__, peer->host);
 
 	return 0;
 }
@@ -3732,7 +3729,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 							  ->nexthop,
 						  buf1, INET6_ADDRSTRLEN);
 					zlog_debug("%s(%s): NH unresolved",
-						   __FUNCTION__, buf1);
+						   __func__, buf1);
 				}
 				bgp_path_info_unset_flag(rn, pi,
 							 BGP_PATH_VALID);
@@ -3880,8 +3877,8 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 				inet_ntop(AF_INET,
 					  (const void *)&attr_new->nexthop,
 					  buf1, INET6_ADDRSTRLEN);
-				zlog_debug("%s(%s): NH unresolved",
-					   __FUNCTION__, buf1);
+				zlog_debug("%s(%s): NH unresolved", __func__,
+					   buf1);
 			}
 			bgp_path_info_unset_flag(rn, new, BGP_PATH_VALID);
 		}
@@ -4909,8 +4906,6 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 #endif
 
 	assert(bgp_static);
-	if (!bgp_static)
-		return;
 
 	rn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, NULL);
 
@@ -5040,7 +5035,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 							  INET6_ADDRSTRLEN);
 						zlog_debug(
 							"%s(%s): Route not in table, not advertising",
-							__FUNCTION__, buf1);
+							__func__, buf1);
 					}
 					bgp_path_info_unset_flag(
 						rn, pi, BGP_PATH_VALID);
@@ -5089,7 +5084,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 					  INET6_ADDRSTRLEN);
 				zlog_debug(
 					"%s(%s): Route not in table, not advertising",
-					__FUNCTION__, buf1);
+					__func__, buf1);
 			}
 			bgp_path_info_unset_flag(rn, new, BGP_PATH_VALID);
 		}
