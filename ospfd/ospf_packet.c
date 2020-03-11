@@ -2335,24 +2335,6 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 
 	ip_len = iph->ip_len;
 
-#if !defined(GNU_LINUX) && (OpenBSD < 200311) && (__FreeBSD_version < 1000000)
-	/*
-	 * Kernel network code touches incoming IP header parameters,
-	 * before protocol specific processing.
-	 *
-	 *   1) Convert byteorder to host representation.
-	 *      --> ip_len, ip_id, ip_off
-	 *
-	 *   2) Adjust ip_len to strip IP header size!
-	 *      --> If user process receives entire IP packet via RAW
-	 *          socket, it must consider adding IP header size to
-	 *          the "ip_len" field of "ip" structure.
-	 *
-	 * For more details, see <netinet/ip_input.c>.
-	 */
-	ip_len = ip_len + (iph->ip_hl << 2);
-#endif
-
 #if defined(__DragonFly__)
 	/*
 	 * in DragonFly's raw socket, ip_len/ip_off are read
