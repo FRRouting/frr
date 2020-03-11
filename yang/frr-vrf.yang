@@ -16,11 +16,13 @@ module frr-vrf {
       "Initial revision.";
   }
 
-  /*
-   * Network namespace feature
-   */
-  feature netns {
-    description "Abstracts network namespace as VRF.";
+  typedef vrf-ref {
+    type leafref {
+      path "/frr-vrf:lib/frr-vrf:vrf/frr-vrf:name";
+      require-instance false;
+    }
+    description
+      "Reference to a VRF";
   }
 
   container lib {
@@ -36,40 +38,23 @@ module frr-vrf {
           "VRF name.";
       }
 
-      leaf id {
-        type uint32 {
-          range "0..4294967295";
-        }
+      container state {
         config false;
-        description
-          "VRF Id.";
-      }
-
-      leaf active {
-        type boolean;
-        default "false";
-        config false;
-        description
-          "VRF active in kernel.";
-      }
-
-      container netns {
-        if-feature "netns";
-        leaf name {
-          type string;
+        leaf id {
+          type uint32 {
+            range "0..4294967295";
+          }
           description
-            "Namespace name.";
+            "VRF Id.";
+        }
+
+        leaf active {
+          type boolean;
+          default "false";
+          description
+            "VRF active in kernel.";
         }
       }
     }
-  }
-
-  typedef vrf-ref {
-    type leafref {
-      require-instance false;
-      path "/frr-vrf:lib/frr-vrf:vrf/frr-vrf:name";
-    }
-    description
-      "Reference to a VRF";
   }
 }
