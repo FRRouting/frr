@@ -74,6 +74,7 @@ static const char *yang_module_imp_clb(const char *mod_name,
 
 static const char *const frr_native_modules[] = {
 	"frr-interface",
+	"frr-vrf",
 	"frr-ripd",
 	"frr-ripngd",
 	"frr-isisd",
