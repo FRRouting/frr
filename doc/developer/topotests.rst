@@ -18,13 +18,10 @@ Installing Mininet Infrastructure
 
 .. code:: shell
 
-   apt-get install mininet
-   apt-get install python-pip
-   apt-get install iproute
-   pip install ipaddr
-   pip install "pytest<5"
-   pip install exabgp==3.4.17 (Newer 4.0 version of exabgp is not yet
-   supported)
+   apt-get install -y mininet python-pip iproute python-setuptools gdb
+   # ExaBGP > 4.0 is not supported
+   # ZIPP seems to have dropped support for Python2 as of 2.0.0
+   pip install ipaddr "pytest<5" exabgp==3.4.17 zipp==1.2.0
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
 
 Enable Coredumps
