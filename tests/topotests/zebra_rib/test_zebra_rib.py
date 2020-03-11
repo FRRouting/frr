@@ -155,6 +155,84 @@ def test_memory_leak():
 
     tgen.report_memory_leaks()
 
+def test_zebra_remove_route_on_interface_del():
+    "Test that zebra removes routes when an interface is deleted"
+    logger.info("Test that zebra removes routes when an interface is deleted")
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip('skipped because of router(s) failure')
+
+    r1 = tgen.gears['r1']
+
+    r1.run('ip link add test1 type veth peer name test2')
+    r1.run('ip link set test1 up')
+    r1.run('ip route add 10.0.0.1/32 dev test1')
+
+    json_file = '{}/r1/direct_route_before.json'.format(CWD)
+    expected = json.loads(open(json_file).read())
+
+    # Verify that zebra added the route successfully
+    test_func = partial(topotest.router_json_cmp,
+                        r1,
+                        'show ip route 10.0.0.1 json',
+                        expected)
+    _, result = topotest.run_and_expect(test_func, None, count=2, wait=.5)
+    assertmsg = 'JSON doesn\'t match before deleting interface'
+    assert result is None, assertmsg
+
+    r1.run('ip link del test1')
+
+    # Verify that zebra no longer knows about the route
+    expected = '% Network not in table'
+    test_func = partial(topotest.router_output_cmp,
+                        r1,
+                        'show ip route 10.0.0.1 json',
+                        expected)
+    result, diff = topotest.run_and_expect(test_func, '', count=2, wait=.5)
+    assertmsg = 'Zebra still has a route present for 10.0.0.1: %s' % diff
+    assert result, assertmsg
+
+
+def test_zebra_remove_route_on_interface_down():
+    "Test that zebra removes routes when an interface goes down"
+    logger.info("Test that zebra removes routes when an interface goes down")
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip('skipped because of router(s) failure')
+
+    r1 = tgen.gears['r1']
+
+    r1.run('ip link add test1 type veth peer name test2')
+    r1.run('ip link set test1 up')
+    r1.run('ip route add 10.0.0.1/32 dev test1')
+
+    json_file = '{}/r1/direct_route_before.json'.format(CWD)
+    expected = json.loads(open(json_file).read())
+
+    # Verify that zebra added the route successfully
+    test_func = partial(topotest.router_json_cmp,
+                        r1,
+                        'show ip route 10.0.0.1 json',
+                        expected)
+    _, result = topotest.run_and_expect(test_func, None, count=2, wait=.5)
+    assertmsg = 'JSON doesn\'t match before deleting interface'
+    assert result is None, assertmsg
+
+    r1.run('ip link set test1 down')
+
+    # Verify that zebra no longer knows about the route
+    expected = '% Network not in table'
+    test_func = partial(topotest.router_output_cmp,
+                        r1,
+                        'show ip route 10.0.0.1 json',
+                        expected)
+    result, diff = topotest.run_and_expect(test_func, '', count=2, wait=.5)
+    assertmsg = 'Zebra still has a route present for 10.0.0.1: %s' % diff
+    assert result, assertmsg
+
+
+
+
 if __name__ == '__main__':
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
