@@ -54,7 +54,8 @@ module frr-vrf {
       }
 
       container netns {
-        if-feature "netns";
+        /* FIXME: libyang support is required */
+        /* if-feature "netns"; */
         leaf name {
           type string;
           description

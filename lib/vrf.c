@@ -36,6 +36,7 @@
 #include "privs.h"
 #include "nexthop_group.h"
 #include "lib_errors.h"
+#include "northbound.h"
 
 /* default VRF ID value used when VRF backend is not NETNS */
 #define VRF_DEFAULT_INTERNAL 0
@@ -1010,3 +1011,198 @@ vrf_id_t vrf_generate_id(void)
 
 	return ++vrf_id_local;
 }
+
+/* ------- Northbound callbacks ------- */
+
+/*
+ * XPath: /frr-vrf:lib/vrf
+ */
+static int lib_vrf_create(enum nb_event event, const struct lyd_node *dnode,
+			  union nb_resource *resource)
+{
+	const char *vrfname;
+	struct vrf *vrfp;
+
+	vrfname = yang_dnode_get_string(dnode, "./name");
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrfp = vrf_get(VRF_UNKNOWN, vrfname);
+
+	nb_running_set_entry(dnode, vrfp);
+#if 0
+	switch (event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+#endif
+
+	return NB_OK;
+}
+
+static int lib_vrf_destroy(enum nb_event event, const struct lyd_node *dnode)
+{
+	struct vrf *vrfp;
+
+
+	switch (event) {
+	case NB_EV_VALIDATE:
+		vrfp = nb_running_get_entry(dnode, NULL, true);
+		if (CHECK_FLAG(vrfp->status, VRF_ACTIVE)) {
+			zlog_debug("%s Only inactive VRFs can be deleted",
+				   __func__);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrfp = nb_running_unset_entry(dnode);
+		/* Clear configured flag and invoke delete. */
+		UNSET_FLAG(vrfp->status, VRF_CONFIGURED);
+		vrf_delete(vrfp);
+		break;
+	}
+
+	return NB_OK;
+}
+
+static const void *lib_vrf_get_next(const void *parent_list_entry,
+				    const void *list_entry)
+{
+	struct vrf *vrfp = (struct vrf *)list_entry;
+
+	if (list_entry == NULL) {
+		vrfp = RB_MIN(vrf_name_head, &vrfs_by_name);
+	} else {
+		vrfp = RB_NEXT(vrf_name_head, vrfp);
+	}
+
+	return vrfp;
+}
+
+static int lib_vrf_get_keys(const void *list_entry, struct yang_list_keys *keys)
+{
+	struct vrf *vrfp = (struct vrf *)list_entry;
+
+	keys->num = 1;
+	strlcpy(keys->key[0], vrfp->name, sizeof(keys->key[0]));
+
+	return NB_OK;
+}
+
+static const void *lib_vrf_lookup_entry(const void *parent_list_entry,
+					const struct yang_list_keys *keys)
+{
+	const char *vrfname = keys->key[0];
+
+	struct vrf *vrf = vrf_lookup_by_name(vrfname);
+
+	return vrf;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/id
+ */
+static struct yang_data *lib_vrf_id_get_elem(const char *xpath,
+					     const void *list_entry)
+{
+	struct vrf *vrfp = (struct vrf *)list_entry;
+
+	return yang_data_new_uint32(xpath, vrfp->vrf_id);
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/active
+ */
+static struct yang_data *lib_vrf_active_get_elem(const char *xpath,
+						 const void *list_entry)
+{
+	struct vrf *vrfp = (struct vrf *)list_entry;
+
+	if (vrfp->status == VRF_ACTIVE)
+		return yang_data_new_bool(
+			xpath, vrfp->status == VRF_ACTIVE ? true : false);
+
+	return NULL;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/netns/name
+ */
+static int lib_vrf_netns_name_modify(enum nb_event event,
+				     const struct lyd_node *dnode,
+				     union nb_resource *resource)
+{
+	switch (event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int lib_vrf_netns_name_destroy(enum nb_event event,
+				      const struct lyd_node *dnode)
+{
+	switch (event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		/* TODO: implement me. */
+		break;
+	}
+
+	return NB_OK;
+}
+
+/* clang-format off */
+const struct frr_yang_module_info frr_vrf_info = {
+	.name = "frr-vrf",
+	.nodes = {
+		{
+			.xpath = "/frr-vrf:lib/vrf",
+			.cbs = {
+				.create = lib_vrf_create,
+				.destroy = lib_vrf_destroy,
+				.get_next = lib_vrf_get_next,
+				.get_keys = lib_vrf_get_keys,
+				.lookup_entry = lib_vrf_lookup_entry,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/id",
+			.cbs = {
+				.get_elem = lib_vrf_id_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/active",
+			.cbs = {
+				.get_elem = lib_vrf_active_get_elem,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/netns/name",
+			.cbs = {
+				.modify = lib_vrf_netns_name_modify,
+				.destroy = lib_vrf_netns_name_destroy,
+			}
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
+
