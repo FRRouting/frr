@@ -52,26 +52,26 @@ Example:
 .. index:: pce ip ENDPOINT
 .. clicmd:: pce ip ENDPOINT
 
-.. index:: segment-list NAME
-.. clicmd:: segment-list NAME
+.. index:: [no] segment-list NAME
+.. clicmd:: [no] segment-list NAME
 
-.. index:: index INDEX mpls label LABEL
-.. clicmd:: index INDEX mpls label LABEL
+.. index:: [no] index INDEX mpls label LABEL
+.. clicmd:: [no] index INDEX mpls label LABEL
 
-.. index:: sr-policy color COLOR endpoint ENDPOINT
-.. clicmd:: sr-policy color COLOR endpoint ENDPOINT
+.. index:: [no] sr-policy color COLOR endpoint ENDPOINT
+.. clicmd:: [no] sr-policy color COLOR endpoint ENDPOINT
 
-.. index:: name NAME
-.. clicmd:: name NAME
+.. index:: [no] name NAME
+.. clicmd:: [no] name NAME
 
-.. index:: binding-sid LABEL
-.. clicmd:: binding-sid LABEL
+.. index:: [no] binding-sid LABEL
+.. clicmd:: [no] binding-sid LABEL
 
-.. index:: candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME
-.. clicmd:: candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME
+.. index:: [no] candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME
+.. clicmd:: [no] candidate-path preference PREFERENCE name NAME explicit segment-list SEGMENT-LIST-NAME
 
-.. index:: candidate-path preference PREFERENCE name NAME dynamic
-.. clicmd:: candidate-path preference PREFERENCE name NAME dynamic
+.. index:: [no] candidate-path preference PREFERENCE name NAME dynamic
+.. clicmd:: [no] candidate-path preference PREFERENCE name NAME dynamic
 
 
 Introspection
