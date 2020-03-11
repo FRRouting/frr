@@ -247,6 +247,7 @@ static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 	&frr_interface_info,
 	&frr_route_map_info,
 	&frr_zebra_info,
+	&frr_vrf_info,
 };
 
 FRR_DAEMON_INFO(
