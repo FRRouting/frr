@@ -35,6 +35,8 @@
 struct nh_grp {
 	uint32_t id;
 	uint8_t weight;
+	/* Dataplanes may need all the nexhtop info when sending the group */
+	struct nexthop nexthop;
 };
 
 PREDECL_RBTREE_UNIQ(nhg_connected_tree);

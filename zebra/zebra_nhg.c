@@ -1868,6 +1868,8 @@ uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
 			grp[i].id = depend->id;
 			/* We aren't using weights for anything right now */
 			grp[i].weight = depend->nhg.nexthop->weight;
+			nexthop_copy_no_recurse(&grp[i].nexthop,
+						depend->nhg.nexthop, NULL);
 			i++;
 		}
 
