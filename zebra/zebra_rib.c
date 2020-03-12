@@ -435,12 +435,6 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 		return;
 	}
 
-
-	/*
-	 * Install the resolved nexthop object first.
-	 */
-	zebra_nhg_install_kernel(re->nhe);
-
 	/*
 	 * If this is a replace to a new RE let the originator of the RE
 	 * know that they've lost
@@ -1127,6 +1121,27 @@ static void rib_process(struct route_node *rn)
 	 * fib == selected */
 	bool selected_changed = new_selected && CHECK_FLAG(new_selected->status,
 							   ROUTE_ENTRY_CHANGED);
+
+	if (new_fib) {
+		/*
+		 * Install the nexthop object first.
+		 */
+		zebra_nhg_install_kernel(new_fib->nhe);
+
+		/*
+		 * Wait for nexthop object to install before updating fib.
+		 */
+		if (!rib_nhg_installed(new_fib)) {
+			SET_FLAG(new_fib->status, ROUTE_ENTRY_NH_WAIT);
+
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHG)
+				zlog_debug(
+					"%u:%s: Waiting on NH id=%u install for new_fib %p",
+					vrf_id, buf, new_fib->nhe->id,
+					(void *)new_fib);
+			return;
+		}
+	}
 
 	/* Update fib according to selection results */
 	if (new_fib && old_fib)
@@ -2985,6 +3000,9 @@ static const char *rib_update_event2str(rib_update_event_t event)
 	case RIB_UPDATE_RMAP_CHANGE:
 		ret = "RIB_UPDATE_RMAP_CHANGE";
 		break;
+	case RIB_UPDATE_NH_INSTALL:
+		ret = "RIB_UPDATE_NH_INSTALL";
+		break;
 	case RIB_UPDATE_OTHER:
 		ret = "RIB_UPDATE_OTHER";
 		break;
@@ -3005,6 +3023,24 @@ static void rib_update_route_node(struct route_node *rn, int type)
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
 		if (type == ZEBRA_ROUTE_ALL || type == re->type) {
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
+			re_changed = true;
+		}
+	}
+
+	if (re_changed)
+		rib_queue_add(rn);
+}
+
+/* Schedule route nodes to be processed if had entries waiting NH install */
+static void rib_update_route_node_nh_install(struct route_node *rn)
+{
+	struct route_entry *re, *next;
+	bool re_changed = false;
+
+	RNODE_FOREACH_RE_SAFE (rn, re, next) {
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_NH_WAIT)
+		    && rib_nhg_installed(re)) {
+			UNSET_FLAG(re->status, ROUTE_ENTRY_NH_WAIT);
 			re_changed = true;
 		}
 	}
@@ -3052,6 +3088,9 @@ void rib_update_table(struct route_table *table, rib_update_event_t event)
 		switch (event) {
 		case RIB_UPDATE_KERNEL:
 			rib_update_route_node(rn, ZEBRA_ROUTE_KERNEL);
+			break;
+		case RIB_UPDATE_NH_INSTALL:
+			rib_update_route_node_nh_install(rn);
 			break;
 		case RIB_UPDATE_RMAP_CHANGE:
 		case RIB_UPDATE_OTHER:

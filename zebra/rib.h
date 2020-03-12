@@ -142,6 +142,8 @@ struct route_entry {
 #define ROUTE_ENTRY_INSTALLED        0x10
 /* Route has Failed installation into the Data Plane in some manner */
 #define ROUTE_ENTRY_FAILED           0x20
+/* Route is waiting on NH installation in the Data Plane */
+#define ROUTE_ENTRY_NH_WAIT          0x40
 
 	/* Sequence value incremented for each dataplane operation */
 	uint32_t dplane_sequence;
@@ -308,6 +310,7 @@ typedef struct rib_tables_iter_t_ {
 typedef enum {
 	RIB_UPDATE_KERNEL,
 	RIB_UPDATE_RMAP_CHANGE,
+	RIB_UPDATE_NH_INSTALL,
 	RIB_UPDATE_OTHER,
 	RIB_UPDATE_MAX
 } rib_update_event_t;
@@ -516,6 +519,19 @@ static inline struct nexthop_group *rib_active_nhg(struct route_entry *re)
 		return &(re->fib_ng);
 	else
 		return &(re->nhe->nhg);
+}
+
+/*
+ * Is Route Entry Nexthop Object installed and ready to use?
+ */
+static inline bool rib_nhg_installed(const struct route_entry *re)
+{
+	/* Check the installed flag of the fully resolved Nexthop Object */
+	if (CHECK_FLAG(zebra_nhg_resolve(re->nhe)->flags,
+		       NEXTHOP_GROUP_INSTALLED))
+		return true;
+
+	return false;
 }
 
 extern void zebra_vty_init(void);

@@ -836,6 +836,9 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe)
 
 	frr_each_safe(nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep)
 		zebra_nhg_set_valid(rb_node_dep->nhe);
+
+	/* Schedule route to be processed/installed now */
+	rib_update(RIB_UPDATE_NH_INSTALL);
 }
 
 /*
