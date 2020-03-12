@@ -75,7 +75,7 @@ struct dplane_nexthop_info {
 	vrf_id_t vrf_id;
 	int type;
 
-	struct nexthop_group ng;
+	struct nexthop nexthop;
 	struct nh_grp nh_grp[MULTIPATH_NUM];
 	uint8_t nh_grp_count;
 };
@@ -484,14 +484,9 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
 	case DPLANE_OP_NH_DELETE: {
-		if ((*pctx)->u.rinfo.nhe.ng.nexthop) {
-			/* This deals with recursive nexthops too */
-			nexthops_free((*pctx)->u.rinfo.nhe.ng.nexthop);
-
-			(*pctx)->u.rinfo.nhe.ng.nexthop = NULL;
-		}
-
 		/* Labels may have been allocated */
+		nexthop_del_labels(&(*pctx)->u.rinfo.nhe.nexthop);
+
 		for (int i = 0; i < (*pctx)->u.rinfo.nhe.nh_grp_count; i++)
 			nexthop_del_labels(
 				&(*pctx)->u.rinfo.nhe.nh_grp[i].nexthop);
@@ -1093,11 +1088,11 @@ int dplane_ctx_get_nhe_type(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rinfo.nhe.type;
 }
 
-const struct nexthop_group *
-dplane_ctx_get_nhe_ng(const struct zebra_dplane_ctx *ctx)
+const struct nexthop *
+dplane_ctx_get_nhe_nexthop(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
-	return &(ctx->u.rinfo.nhe.ng);
+	return &(ctx->u.rinfo.nhe.nexthop);
 }
 
 const struct nh_grp *
@@ -1602,13 +1597,16 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 	ctx->u.rinfo.nhe.vrf_id = nhe->vrf_id;
 	ctx->u.rinfo.nhe.type = nhe->type;
 
-	nexthop_group_copy(&(ctx->u.rinfo.nhe.ng), &(nhe->nhg));
-
 	/* If this is a group, convert it to a grp array of ids */
 	if (!zebra_nhg_depends_is_empty(nhe)
 	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
 		ctx->u.rinfo.nhe.nh_grp_count = zebra_nhg_nhe2grp(
 			ctx->u.rinfo.nhe.nh_grp, nhe, MULTIPATH_NUM);
+	else {
+		/* Singleton nexthop */
+		nexthop_copy_no_recurse(&ctx->u.rinfo.nhe.nexthop,
+					nhe->nhg.nexthop, NULL);
+	}
 
 	zvrf = vrf_info_lookup(nhe->vrf_id);
 

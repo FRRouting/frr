@@ -1996,7 +1996,7 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 				dplane_ctx_get_nhe_nh_grp_count(ctx));
 		else {
 			const struct nexthop *nh =
-				dplane_ctx_get_nhe_ng(ctx)->nexthop;
+				dplane_ctx_get_nhe_nexthop(ctx);
 			afi_t afi = dplane_ctx_get_nhe_afi(ctx);
 
 			if (afi == AFI_IP)
