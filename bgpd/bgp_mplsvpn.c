@@ -1532,7 +1532,10 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 			ecom = bgp->vpn_policy[afi].rtlist[edir];
 			for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].
 						  export_vrf, node, vname)) {
-				bgp_import = bgp_lookup_by_name(vname);
+				if (strcmp(vname, VRF_DEFAULT_NAME) == 0)
+					bgp_import = bgp_get_default();
+				else
+					bgp_import = bgp_lookup_by_name(vname);
 				if (!bgp_import)
 					continue;
 
@@ -1572,7 +1575,10 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 			ecom = bgp->vpn_policy[afi].rtlist[edir];
 			for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].
 						  export_vrf, node, vname)) {
-				bgp_import = bgp_lookup_by_name(vname);
+				if (strcmp(vname, VRF_DEFAULT_NAME) == 0)
+					bgp_import = bgp_get_default();
+				else
+					bgp_import = bgp_lookup_by_name(vname);
 				if (!bgp_import)
 					continue;
 				if (bgp_import->vpn_policy[afi].rtlist[idir])

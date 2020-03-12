@@ -2588,7 +2588,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	struct interface *br_if;
 	struct ethaddr mac;
 	vlanid_t vid = 0;
-	struct prefix vtep_ip;
+	struct in_addr vtep_ip;
 	int vid_present = 0, dst_present = 0;
 	char buf[ETHER_ADDR_STRLEN];
 	char vid_buf[20];
@@ -2601,66 +2601,25 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	if (!is_evpn_enabled())
 		return 0;
 
-	/* The interface should exist. */
-	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
-					ndm->ndm_ifindex);
-	if (!ifp || !ifp->info) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("\t%s without associated interface: %u",
-				   __func__, ndm->ndm_ifindex);
-		return 0;
-	}
-
-	/* The interface should be something we're interested in. */
-	if (!IS_ZEBRA_IF_BRIDGE_SLAVE(ifp)) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("\t%s Not interested in %s, not a slave",
-				   __func__, ifp->name);
-		return 0;
-	}
-
-	/* Drop "permanent" entries. */
-	if (ndm->ndm_state & NUD_PERMANENT) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("\t%s Entry is PERMANENT, dropping",
-				   __func__);
-		return 0;
-	}
-
-	zif = (struct zebra_if *)ifp->info;
-	if ((br_if = zif->brslave_info.br_if) == NULL) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug(
-				"%s family %s IF %s(%u) brIF %u - no bridge master",
-				nl_msg_type_to_str(h->nlmsg_type),
-				nl_family_to_str(ndm->ndm_family), ifp->name,
-				ndm->ndm_ifindex,
-				zif->brslave_info.bridge_ifindex);
-		return 0;
-	}
-
-	/* Parse attributes and extract fields of interest. */
-	memset(tb, 0, sizeof(tb));
+	/* Parse attributes and extract fields of interest. Do basic
+	 * validation of the fields.
+	 */
+	memset(tb, 0, sizeof tb);
 	netlink_parse_rtattr(tb, NDA_MAX, NDA_RTA(ndm), len);
 
 	if (!tb[NDA_LLADDR]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s family %s IF %s(%u) brIF %u - no LLADDR",
+			zlog_debug("%s AF_BRIDGE IF %u - no LLADDR",
 				   nl_msg_type_to_str(h->nlmsg_type),
-				   nl_family_to_str(ndm->ndm_family), ifp->name,
-				   ndm->ndm_ifindex,
-				   zif->brslave_info.bridge_ifindex);
+				   ndm->ndm_ifindex);
 		return 0;
 	}
 
 	if (RTA_PAYLOAD(tb[NDA_LLADDR]) != ETH_ALEN) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"%s family %s IF %s(%u) brIF %u - LLADDR is not MAC, len %lu",
-				nl_msg_type_to_str(h->nlmsg_type),
-				nl_family_to_str(ndm->ndm_family), ifp->name,
-				ndm->ndm_ifindex,
-				zif->brslave_info.bridge_ifindex,
+				"%s AF_BRIDGE IF %u - LLADDR is not MAC, len %lu",
+				nl_msg_type_to_str(h->nlmsg_type), ndm->ndm_ifindex,
 				(unsigned long)RTA_PAYLOAD(tb[NDA_LLADDR]));
 		return 0;
 	}
@@ -2676,23 +2635,41 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	if (tb[NDA_DST]) {
 		/* TODO: Only IPv4 supported now. */
 		dst_present = 1;
-		vtep_ip.family = AF_INET;
-		vtep_ip.prefixlen = IPV4_MAX_BITLEN;
-		memcpy(&(vtep_ip.u.prefix4.s_addr), RTA_DATA(tb[NDA_DST]),
+		memcpy(&vtep_ip.s_addr, RTA_DATA(tb[NDA_DST]),
 		       IPV4_MAX_BYTELEN);
-		sprintf(dst_buf, " dst %s", inet_ntoa(vtep_ip.u.prefix4));
+		sprintf(dst_buf, " dst %s", inet_ntoa(vtep_ip));
+	}
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("Rx %s AF_BRIDGE IF %u%s st 0x%x fl 0x%x MAC %s%s",
+			   nl_msg_type_to_str(h->nlmsg_type),
+			   ndm->ndm_ifindex, vid_present ? vid_buf : "",
+			   ndm->ndm_state, ndm->ndm_flags,
+			   prefix_mac2str(&mac, buf, sizeof(buf)),
+			   dst_present ? dst_buf : "");
+
+	/* The interface should exist. */
+	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
+					ndm->ndm_ifindex);
+	if (!ifp || !ifp->info)
+		return 0;
+
+	/* The interface should be something we're interested in. */
+	if (!IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
+		return 0;
+
+	zif = (struct zebra_if *)ifp->info;
+	if ((br_if = zif->brslave_info.br_if) == NULL) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"%s AF_BRIDGE IF %s(%u) brIF %u - no bridge master",
+				nl_msg_type_to_str(h->nlmsg_type), ifp->name,
+				ndm->ndm_ifindex,
+				zif->brslave_info.bridge_ifindex);
+		return 0;
 	}
 
 	sticky = !!(ndm->ndm_state & NUD_NOARP);
-
-	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("Rx %s family %s IF %s(%u)%s %sMAC %s%s",
-			   nl_msg_type_to_str(h->nlmsg_type),
-			   nl_family_to_str(ndm->ndm_family), ifp->name,
-			   ndm->ndm_ifindex, vid_present ? vid_buf : "",
-			   sticky ? "sticky " : "",
-			   prefix_mac2str(&mac, buf, sizeof(buf)),
-			   dst_present ? dst_buf : "");
 
 	if (filter_vlan && vid != filter_vlan) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -2707,6 +2684,13 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	 * so perform an implicit delete of any local entry (if it exists).
 	 */
 	if (h->nlmsg_type == RTM_NEWNEIGH) {
+                /* Drop "permanent" entries. */
+                if (ndm->ndm_state & NUD_PERMANENT) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("\tDropping entry because of NUD_PERMANENT");
+                        return 0;
+		}
+
 		if (IS_ZEBRA_IF_VXLAN(ifp))
 			return zebra_vxlan_check_del_local_mac(ifp, br_if, &mac,
 							       vid);
@@ -2716,16 +2700,20 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	}
 
 	/* This is a delete notification.
+	 * Ignore the notification with IP dest as it may just signify that the
+	 * MAC has moved from remote to local. The exception is the special
+	 * all-zeros MAC that represents the BUM flooding entry; we may have
+	 * to readd it. Otherwise,
 	 *  1. For a MAC over VxLan, check if it needs to be refreshed(readded)
 	 *  2. For a MAC over "local" interface, delete the mac
 	 * Note: We will get notifications from both bridge driver and VxLAN
 	 * driver.
-	 * Ignore the notification from VxLan driver as it is also generated
-	 * when mac moves from remote to local.
 	 */
 	if (dst_present) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("\tNo Destination Present");
+		u_char zero_mac[6] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+
+		if (!memcmp(zero_mac, mac.octet, ETH_ALEN))
+			return zebra_vxlan_check_readd_vtep(ifp, vtep_ip);
 		return 0;
 	}
 
@@ -3284,6 +3272,15 @@ static int netlink_request_specific_neigh_in_vlan(struct zebra_ns *zns,
 	}
 
 	addattr_l(&req.n, sizeof(req), NDA_DST, &ip->ip.addr, ipa_len);
+
+	if (IS_ZEBRA_DEBUG_KERNEL) {
+		char buf[INET6_ADDRSTRLEN];
+
+		zlog_debug("%s: Tx %s family %s IF %u IP %s flags 0x%x",
+			   __func__, nl_msg_type_to_str(type),
+			   nl_family_to_str(req.ndm.ndm_family), ifindex,
+			   ipaddr2str(ip, buf, sizeof(buf)), req.n.nlmsg_flags);
+	}
 
 	return netlink_request(&zns->netlink_cmd, &req.n);
 }

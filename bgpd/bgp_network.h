@@ -23,6 +23,7 @@
 
 #define BGP_SOCKET_SNDBUF_SIZE 65536
 
+extern void bgp_dump_listener_info(struct vty *vty);
 extern int bgp_socket(struct bgp *bgp, unsigned short port,
 		      const char *address);
 extern void bgp_close_vrf_socket(struct bgp *bgp);

@@ -7788,6 +7788,52 @@ stream_failure:
 }
 
 /*
+ * Handle remote vtep delete by kernel; re-add the vtep if we have it
+ */
+int zebra_vxlan_check_readd_vtep(struct interface *ifp,
+				 struct in_addr vtep_ip)
+{
+	struct zebra_if *zif;
+	struct zebra_vrf *zvrf = NULL;
+	struct zebra_l2info_vxlan *vxl;
+	vni_t vni;
+	zebra_vni_t *zvni = NULL;
+	zebra_vtep_t *zvtep = NULL;
+
+	zif = ifp->info;
+	assert(zif);
+	vxl = &zif->l2info.vxl;
+	vni = vxl->vni;
+
+	/* If EVPN is not enabled, nothing to do. */
+	if (!is_evpn_enabled())
+		return 0;
+
+	/* Locate VRF corresponding to interface. */
+	zvrf = vrf_info_lookup(ifp->vrf_id);
+	if (!zvrf)
+		return -1;
+
+	/* Locate hash entry; it is expected to exist. */
+	zvni = zvni_lookup(vni);
+	if (!zvni)
+		return 0;
+
+	/* If the remote vtep entry doesn't exists nothing to do */
+	zvtep = zvni_vtep_find(zvni, &vtep_ip);
+	if (!zvtep)
+		return 0;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug(
+			"Del MAC for remote VTEP %s intf %s(%u) VNI %u - readd",
+			inet_ntoa(vtep_ip), ifp->name, ifp->ifindex, vni);
+
+	zvni_vtep_install(zvni, zvtep);
+	return 0;
+}
+
+/*
  * Handle notification of MAC add/update over VxLAN. If the kernel is notifying
  * us, this must involve a multihoming scenario. Treat this as implicit delete
  * of any prior local MAC.

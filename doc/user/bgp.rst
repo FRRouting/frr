@@ -2412,6 +2412,12 @@ Debugging
 
    Show all enabled debugs.
 
+.. index:: show bgp listeners
+.. clicmd:: show bgp listeners
+
+   Display Listen sockets and the vrf that created them.  Useful for debugging of when
+   listen is not working and this is considered a developer debug statement.
+
 .. index:: [no] debug bgp neighbor-events
 .. clicmd:: [no] debug bgp neighbor-events
 

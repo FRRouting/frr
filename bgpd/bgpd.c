@@ -4071,6 +4071,9 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 		/* Update flag override state accordingly. */
 		COND_FLAG(peer->flags_override, flag, set != invert);
 
+		if (set && flag == PEER_FLAG_CAPABILITY_ENHE)
+			bgp_nht_register_enhe_capability_interfaces(peer);
+
 		/* Execute flag action on peer. */
 		if (action.type == peer_change_reset)
 			peer_flag_modify_action(peer, flag);
@@ -4078,9 +4081,6 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
-
-	if (set && flag == PEER_FLAG_CAPABILITY_ENHE)
-		bgp_nht_register_enhe_capability_interfaces(peer);
 
 	/*
 	 * Update peer-group members, unless they are explicitely overriding
