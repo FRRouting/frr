@@ -142,7 +142,7 @@ static uint16_t neigh_state_to_netlink(uint16_t dplane_state)
 }
 
 
-static inline int is_selfroute(int proto)
+static inline bool is_selfroute(int proto)
 {
 	if ((proto == RTPROT_BGP) || (proto == RTPROT_OSPF)
 	    || (proto == RTPROT_ZSTATIC) || (proto == RTPROT_ZEBRA)
@@ -151,10 +151,10 @@ static inline int is_selfroute(int proto)
 	    || (proto == RTPROT_LDP) || (proto == RTPROT_BABEL)
 	    || (proto == RTPROT_RIP) || (proto == RTPROT_SHARP)
 	    || (proto == RTPROT_PBR) || (proto == RTPROT_OPENFABRIC)) {
-		return 1;
+		return true;
 	}
 
-	return 0;
+	return false;
 }
 
 static inline int zebra2proto(int proto)
@@ -513,6 +513,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	struct prefix p;
 	struct prefix_ipv6 src_p = {};
 	vrf_id_t vrf_id;
+	bool selfroute;
 
 	char anyaddr[16] = {0};
 
@@ -574,8 +575,9 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	if (rtm->rtm_protocol == RTPROT_KERNEL)
 		return 0;
 
-	if (!startup && is_selfroute(rtm->rtm_protocol)
-	    && h->nlmsg_type == RTM_NEWROUTE) {
+	selfroute = is_selfroute(rtm->rtm_protocol);
+
+	if (!startup && selfroute && h->nlmsg_type == RTM_NEWROUTE) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("Route type: %d Received that we think we have originated, ignoring",
 				   rtm->rtm_protocol);
@@ -602,7 +604,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	}
 
 	/* Route which inserted by Zebra. */
-	if (is_selfroute(rtm->rtm_protocol)) {
+	if (selfroute) {
 		flags |= ZEBRA_FLAG_SELFROUTE;
 		proto = proto2zebra(rtm->rtm_protocol, rtm->rtm_family, false);
 	}
