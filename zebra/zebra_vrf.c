@@ -104,7 +104,8 @@ static int zebra_vrf_new(struct vrf *vrf)
 
 	router_id_init(zvrf);
 
-	if (!vrf_is_backend_netns()) vrf_table_id_add(&vrfs_by_table_id, zvrf);
+	if (!vrf_is_backend_netns())
+		vrf_table_id_add(&vrfs_by_table_id, zvrf);
 
 	return 0;
 }
@@ -257,7 +258,8 @@ static int zebra_vrf_delete(struct vrf *vrf)
 		zlog_debug("VRF %s id %u deleted", zvrf_name(zvrf),
 			   zvrf_id(zvrf));
 
-	if (!vrf_is_backend_netns()) vrf_table_id_del(&vrfs_by_table_id, zvrf);
+	if (!vrf_is_backend_netns())
+		vrf_table_id_del(&vrfs_by_table_id, zvrf);
 
 	/* clean-up work queues */
 	for (i = 0; i < MQ_SIZE; i++) {
@@ -345,11 +347,14 @@ int zebra_vrf_has_config(struct zebra_vrf *zvrf)
 	return 0;
 }
 
-int zebra_vrf_compare_table_id(const struct zebra_vrf *a, const struct zebra_vrf *b) {
+int zebra_vrf_compare_table_id(const struct zebra_vrf *a,
+			       const struct zebra_vrf *b)
+{
 	return (a->table_id - b->table_id);
 }
 
-unsigned zebra_vrf_hash_table_id(const struct zebra_vrf *v) {
+unsigned zebra_vrf_hash_table_id(const struct zebra_vrf *v)
+{
 	return ((unsigned)v->table_id);
 }
 
