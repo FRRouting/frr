@@ -146,15 +146,6 @@ def test_zebra_kernel_override():
     _, result = topotest.run_and_expect(test_func, None, count=2, wait=.5)
     assert result is None, '"r1" JSON output mismatches'
 
-
-def test_memory_leak():
-    "Run the memory leak test and report results."
-    tgen = get_topogen()
-    if not tgen.is_memleak_enabled():
-        pytest.skip('Memory leak test/report is disabled')
-
-    tgen.report_memory_leaks()
-
 def test_zebra_remove_route_on_interface_del():
     "Test that zebra removes routes when an interface is deleted"
     logger.info("Test that zebra removes routes when an interface is deleted")
@@ -230,8 +221,13 @@ def test_zebra_remove_route_on_interface_down():
     assertmsg = 'Zebra still has a route present for 10.0.0.1: %s' % diff
     assert result, assertmsg
 
+def test_memory_leak():
+    "Run the memory leak test and report results."
+    tgen = get_topogen()
+    if not tgen.is_memleak_enabled():
+        pytest.skip('Memory leak test/report is disabled')
 
-
+    tgen.report_memory_leaks()
 
 if __name__ == '__main__':
     args = ["-s"] + sys.argv[1:]
