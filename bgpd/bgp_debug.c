@@ -209,13 +209,8 @@ static void bgp_debug_list_free(struct list *list)
 	if (list)
 		for (ALL_LIST_ELEMENTS(list, node, nnode, filter)) {
 			listnode_delete(list, filter);
-
-			if (filter->p)
-				prefix_free(&filter->p);
-
-			if (filter->host)
-				XFREE(MTYPE_BGP_DEBUG_STR, filter->host);
-
+			prefix_free(&filter->p);
+			XFREE(MTYPE_BGP_DEBUG_STR, filter->host);
 			XFREE(MTYPE_BGP_DEBUG_FILTER, filter);
 		}
 }

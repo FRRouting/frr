@@ -887,11 +887,8 @@ void connected_free(struct connected **connected)
 {
 	struct connected *ptr = *connected;
 
-	if (ptr->address)
-		prefix_free(&ptr->address);
-
-	if (ptr->destination)
-		prefix_free(&ptr->destination);
+	prefix_free(&ptr->address);
+	prefix_free(&ptr->destination);
 
 	XFREE(MTYPE_CONNECTED_LABEL, ptr->label);
 
