@@ -55,6 +55,11 @@ struct other_route_table {
 	struct route_table *table;
 };
 
+/* these are needed to declare hash table */
+int zebra_vrf_compare_table_id(const struct zebra_vrf *, const struct zebra_vrf *);
+unsigned zebra_vrf_hash_table_id(const struct zebra_vrf *);
+
+PREDECL_HASH(vrf_table_id)
 /* Routing table instance.  */
 struct zebra_vrf {
 	/* Back pointer */
@@ -177,11 +182,16 @@ struct zebra_vrf {
 
 	int zebra_rnh_ip_default_route;
 	int zebra_rnh_ipv6_default_route;
+
+	struct vrf_table_id_item nodehash;
 };
+DECLARE_HASH(vrf_table_id, struct zebra_vrf, nodehash, zebra_vrf_compare_table_id, zebra_vrf_hash_table_id)
 #define PROTO_RM_NAME(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].name
 #define NHT_RM_NAME(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].name
 #define PROTO_RM_MAP(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].map
 #define NHT_RM_MAP(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].map
+
+extern struct vrf_table_id_head vrfs_by_table_id;
 
 /*
  * special macro to allow us to get the correct zebra_vrf
