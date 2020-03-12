@@ -314,7 +314,7 @@ extern void zserv_read_file(char *input);
 #endif
 
 /* TODO */
-int zebra_finalize(struct thread *event);
+__attribute__((__noreturn__)) int zebra_finalize(struct thread *event);
 
 /*
  * Graceful restart functions.
