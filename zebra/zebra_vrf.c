@@ -51,6 +51,8 @@ static void zebra_rnhtable_node_cleanup(struct route_table *table,
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_VRF, "ZEBRA VRF")
 DEFINE_MTYPE_STATIC(ZEBRA, OTHER_TABLE, "Other Table")
 
+struct vrf_table_id_head vrfs_by_table_id;
+
 /* VRF information update. */
 static void zebra_vrf_add_update(struct zebra_vrf *zvrf)
 {
@@ -101,6 +103,9 @@ static int zebra_vrf_new(struct vrf *vrf)
 	otable_init(&zvrf->other_tables);
 
 	router_id_init(zvrf);
+
+	if (!vrf_is_backend_netns()) vrf_table_id_add(&vrfs_by_table_id, zvrf);
+
 	return 0;
 }
 
@@ -252,6 +257,8 @@ static int zebra_vrf_delete(struct vrf *vrf)
 		zlog_debug("VRF %s id %u deleted", zvrf_name(zvrf),
 			   zvrf_id(zvrf));
 
+	if (!vrf_is_backend_netns()) vrf_table_id_del(&vrfs_by_table_id, zvrf);
+
 	/* clean-up work queues */
 	for (i = 0; i < MQ_SIZE; i++) {
 		struct listnode *lnode, *nnode;
@@ -336,6 +343,14 @@ int zebra_vrf_has_config(struct zebra_vrf *zvrf)
 		return 1;
 
 	return 0;
+}
+
+int zebra_vrf_compare_table_id(const struct zebra_vrf *a, const struct zebra_vrf *b) {
+	return (a->table_id - b->table_id);
+}
+
+unsigned zebra_vrf_hash_table_id(const struct zebra_vrf *v) {
+	return ((unsigned)v->table_id);
 }
 
 /* Lookup the routing table in a VRF based on both VRF-Id and table-id.
@@ -548,6 +563,8 @@ void zebra_vrf_init(void)
 {
 	vrf_init(zebra_vrf_new, zebra_vrf_enable, zebra_vrf_disable,
 		 zebra_vrf_delete, zebra_vrf_update);
+
+	vrf_table_id_init(&vrfs_by_table_id);
 
 	vrf_cmd_init(vrf_config_write, &zserv_privs);
 }
