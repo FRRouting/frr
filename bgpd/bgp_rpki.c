@@ -130,7 +130,7 @@ static void stop(struct rpki_vrf *rpki_vrf);
 static int reset(bool force, struct rpki_vrf *rpki_vrf);
 static struct rtr_mgr_group *get_connected_group(struct rpki_vrf *rpki_vrf);
 static void print_prefix_table(struct vty *vty, struct rpki_vrf *rpki_vrf,
-			       struct json_object *json);
+			       struct json_object *json, bool count_only);
 static void install_cli_commands(void);
 static int config_write(struct vty *vty);
 static int config_on_exit(struct vty *vty);
@@ -464,6 +464,13 @@ static void print_record_cb(const struct pfx_record *record, void *data)
 	(*arg->prefix_amount)++;
 
 	print_record(record, vty, arg->json);
+}
+
+static void count_record_cb(const struct pfx_record *record, void *data)
+{
+	struct rpki_for_each_record_arg *arg = data;
+
+	(*arg->prefix_amount)++;
 }
 
 static struct rtr_mgr_group *get_groups(struct list *cache_list)
@@ -974,7 +981,7 @@ static void print_prefix_table_by_asn(struct vty *vty, as_t as,
 	pfx_table_for_each_ipv6_record(pfx_table, print_record_by_asn, &arg);
 	if (json && number_of_ipv6_prefixes)
 		json_object_object_add(json, "tableIpv6", json_table);
-	else
+	else if (json_table)
 		json_object_free(json_table);
 
 	if (!json) {
@@ -984,7 +991,7 @@ static void print_prefix_table_by_asn(struct vty *vty, as_t as,
 }
 
 static void print_prefix_table(struct vty *vty, struct rpki_vrf *rpki_vrf,
-			       struct json_object *json)
+			       struct json_object *json, bool count_only)
 {
 	struct rpki_for_each_record_arg arg;
 
@@ -1004,30 +1011,40 @@ static void print_prefix_table(struct vty *vty, struct rpki_vrf *rpki_vrf,
 
 	struct pfx_table *pfx_table = group->sockets[0]->pfx_table;
 
-	if (!json) {
+	if (!json && !count_only) {
 		vty_out(vty, "RPKI/RTR prefix table\n");
 		vty_out(vty, "%-40s %s  %s\n", "Prefix", "Prefix Length", "Origin-AS");
 	}
 	arg.prefix_amount = &number_of_ipv4_prefixes;
-	if (json) {
+	if (json && !count_only) {
 		json_table = json_object_new_array();
 		arg.json = json_table;
 	}
-	pfx_table_for_each_ipv4_record(pfx_table, print_record_cb, &arg);
+	if (!count_only)
+		pfx_table_for_each_ipv4_record(pfx_table, print_record_cb, &arg);
+	else
+		pfx_table_for_each_ipv4_record(pfx_table, count_record_cb, &arg);
 
 	arg.prefix_amount = &number_of_ipv6_prefixes;
-	json_object_int_add(json, "tableIpv4Count", number_of_ipv4_prefixes);
-	if (json && number_of_ipv4_prefixes) {
+	if (json)
+		json_object_int_add(json, "tableIpv4Count", number_of_ipv4_prefixes);
+	if (json && number_of_ipv4_prefixes && !count_only) {
 		json_object_object_add(json, "tableIpv4", json_table);
 		json_table = json_object_new_array();
 		arg.json = json_table;
 	}
-	pfx_table_for_each_ipv6_record(pfx_table, print_record_cb, &arg);
-	json_object_int_add(json, "tableIpv6Count", number_of_ipv6_prefixes);
-	if (json && number_of_ipv6_prefixes) {
-		json_object_object_add(json, "tableIpv6", json_table);
-	} else {
-		json_object_free(json_table);
+	if (!count_only)
+		pfx_table_for_each_ipv6_record(pfx_table, print_record_cb, &arg);
+	else
+		pfx_table_for_each_ipv6_record(pfx_table, count_record_cb, &arg);
+	if (json)
+		json_object_int_add(json, "tableIpv6Count", number_of_ipv6_prefixes);
+	if (!count_only) {
+		if (json && number_of_ipv6_prefixes) {
+			json_object_object_add(json, "tableIpv6", json_table);
+		} else if (json_table) {
+			json_object_free(json_table);
+		}
 	}
 	if (!json) {
 		vty_out(vty, "Number of IPv4 Prefixes: %u\n", number_of_ipv4_prefixes);
@@ -1837,40 +1854,40 @@ DEFPY (no_rpki_cache,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_rpki_prefix_table,
+DEFPY (show_rpki_prefix_table,
        show_rpki_prefix_table_cmd,
-       "show rpki prefix-table [vrf NAME] [json]",
+       "show rpki <prefix-table|prefix-count>$prefixkind [vrf NAME$vrfname] [json]",
        SHOW_STR
        RPKI_OUTPUT_STRING
        "Show validated prefixes which were received from RPKI Cache\n"
+       "Show prefixes count which were received from RPKI Cache\n"
        VRF_CMD_HELP_STR
        JSON_STR)
 {
 	struct listnode *cache_node;
 	struct cache *cache;
 	struct rpki_vrf *rpki_vrf;
-	int idx_vrf = 0;
 	struct vrf *vrf;
-	char *vrfname = NULL;
+	char *vrf_name = NULL;
 	bool uj = use_json(argc, argv);
 	struct json_object *json_all = NULL;
 
-	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
-		vrfname = argv[idx_vrf + 1]->arg;
+	if (vrfname && !strmatch(vrfname, VRF_DEFAULT_NAME)) {
 		vrf = vrf_lookup_by_name(vrfname);
 		if (!vrf)
 			return CMD_SUCCESS;
+		vrf_name = vrf->name;
 		if (vrf->vrf_id == VRF_DEFAULT)
-			vrfname = NULL;
+			vrf_name = NULL;
 	}
 
-	rpki_vrf = find_rpki_vrf(vrfname);
+	rpki_vrf = find_rpki_vrf(vrf_name);
 	if (!rpki_vrf)
 		return CMD_SUCCESS;
 
 	if (uj) {
 		json_all = json_object_new_object();
-		if (vrfname)
+		if (vrf_name)
 			json_object_string_add(json_all, "vrf", vrfname);
 		else
 			json_object_string_add(json_all, "vrf",
@@ -1902,9 +1919,12 @@ DEFUN (show_rpki_prefix_table,
 					cache->tr_config.ssh_config->port);
 		}
 	}
-	if (is_synchronized(rpki_vrf))
-		print_prefix_table(vty, rpki_vrf, json_all);
-	else {
+	if (is_synchronized(rpki_vrf)) {
+		if (strmatch(prefixkind, "prefix-count"))
+		    print_prefix_table(vty, rpki_vrf, json_all, true);
+		else
+		    print_prefix_table(vty, rpki_vrf, json_all, false);
+	} else {
 		if (json_all)
 			json_object_string_add(json_all, "error",
 					       "noConnectedRpkiCacheServer");
