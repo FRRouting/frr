@@ -329,7 +329,7 @@ sock_set_ipv4_tos(int fd, int tos)
 }
 
 int
-sock_set_ipv4_recvif(int fd, int enable)
+sock_set_ipv4_recvif(int fd, ifindex_t enable)
 {
 	return (setsockopt_ifindex(AF_INET, fd, enable));
 }

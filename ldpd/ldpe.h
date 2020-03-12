@@ -92,7 +92,7 @@ struct nbr {
 	struct in_addr		 id;		/* lsr id */
 	union ldpd_addr		 laddr;		/* local address */
 	union ldpd_addr		 raddr;		/* remote address */
-	uint32_t		 raddr_scope;	/* remote address scope (v6) */
+	ifindex_t		 raddr_scope;	/* remote address scope (v6) */
 	time_t			 uptime;
 	int			 fd;
 	int			 state;
@@ -208,7 +208,7 @@ void		 ldpe_reset_ds_nbrs(void);
 void		 ldpe_remove_dynamic_tnbrs(int);
 void		 ldpe_stop_init_backoff(int);
 struct ctl_conn;
-void		 ldpe_iface_ctl(struct ctl_conn *, unsigned int);
+void		 ldpe_iface_ctl(struct ctl_conn *c, ifindex_t ifidx);
 void		 ldpe_adj_ctl(struct ctl_conn *);
 void		 ldpe_adj_detail_ctl(struct ctl_conn *);
 void		 ldpe_nbr_ctl(struct ctl_conn *);
@@ -219,7 +219,7 @@ void		 mapping_list_clr(struct mapping_head *);
 struct iface	*if_new(const char *);
 void		 ldpe_if_init(struct iface *);
 void		 ldpe_if_exit(struct iface *);
-struct iface	*if_lookup(struct ldpd_conf *, unsigned short);
+struct iface	*if_lookup(struct ldpd_conf *c, ifindex_t ifidx);
 struct iface	*if_lookup_name(struct ldpd_conf *, const char *);
 void		 if_update_info(struct iface *, struct kif *);
 struct iface_af *iface_af_get(struct iface *, int);

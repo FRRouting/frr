@@ -109,7 +109,7 @@ ldpe_if_exit(struct iface *iface)
 }
 
 struct iface *
-if_lookup(struct ldpd_conf *xconf, unsigned short ifindex)
+if_lookup(struct ldpd_conf *xconf, ifindex_t ifindex)
 {
 	struct iface *iface;
 
