@@ -56,7 +56,8 @@ struct other_route_table {
 };
 
 /* these are needed to declare hash table */
-int zebra_vrf_compare_table_id(const struct zebra_vrf *, const struct zebra_vrf *);
+int zebra_vrf_compare_table_id(const struct zebra_vrf *,
+			       const struct zebra_vrf *);
 unsigned zebra_vrf_hash_table_id(const struct zebra_vrf *);
 
 PREDECL_HASH(vrf_table_id)
@@ -185,7 +186,8 @@ struct zebra_vrf {
 
 	struct vrf_table_id_item nodehash;
 };
-DECLARE_HASH(vrf_table_id, struct zebra_vrf, nodehash, zebra_vrf_compare_table_id, zebra_vrf_hash_table_id)
+DECLARE_HASH(vrf_table_id, struct zebra_vrf, nodehash,
+	     zebra_vrf_compare_table_id, zebra_vrf_hash_table_id)
 #define PROTO_RM_NAME(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].name
 #define NHT_RM_NAME(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].name
 #define PROTO_RM_MAP(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].map
