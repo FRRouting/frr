@@ -476,7 +476,7 @@ as_t aspath_leftmost(struct aspath *aspath)
 }
 
 /* Return 1 if there are any 4-byte ASes in the path */
-unsigned int aspath_has_as4(struct aspath *aspath)
+bool aspath_has_as4(struct aspath *aspath)
 {
 	struct assegment *seg = aspath->segments;
 	unsigned int i;
@@ -484,10 +484,10 @@ unsigned int aspath_has_as4(struct aspath *aspath)
 	while (seg) {
 		for (i = 0; i < seg->length; i++)
 			if (seg->as[i] > BGP_AS_MAX)
-				return 1;
+				return true;
 		seg = seg->next;
 	}
-	return 0;
+	return false;
 }
 
 /* Convert aspath structure to string expression. */
@@ -1113,16 +1113,16 @@ struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2)
 /* When a BGP router receives an UPDATE with an MP_REACH_NLRI
    attribute, check the leftmost AS number in the AS_PATH attribute is
    or not the peer's AS number. */
-int aspath_firstas_check(struct aspath *aspath, as_t asno)
+bool aspath_firstas_check(struct aspath *aspath, as_t asno)
 {
 	if ((aspath == NULL) || (aspath->segments == NULL))
-		return 0;
+		return false;
 
 	if (aspath->segments && (aspath->segments->type == AS_SEQUENCE)
 	    && (aspath->segments->as[0] == asno))
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 unsigned int aspath_get_first_as(struct aspath *aspath)
@@ -1178,12 +1178,12 @@ int aspath_loop_check(struct aspath *aspath, as_t asno)
 }
 
 /* When all of AS path is private AS return 1.  */
-int aspath_private_as_check(struct aspath *aspath)
+bool aspath_private_as_check(struct aspath *aspath)
 {
 	struct assegment *seg;
 
 	if (!(aspath && aspath->segments))
-		return 0;
+		return false;
 
 	seg = aspath->segments;
 
@@ -1192,20 +1192,20 @@ int aspath_private_as_check(struct aspath *aspath)
 
 		for (i = 0; i < seg->length; i++) {
 			if (!BGP_AS_IS_PRIVATE(seg->as[i]))
-				return 0;
+				return false;
 		}
 		seg = seg->next;
 	}
-	return 1;
+	return true;
 }
 
 /* Return True if the entire ASPATH consist of the specified ASN */
-int aspath_single_asn_check(struct aspath *aspath, as_t asn)
+bool aspath_single_asn_check(struct aspath *aspath, as_t asn)
 {
 	struct assegment *seg;
 
 	if (!(aspath && aspath->segments))
-		return 0;
+		return false;
 
 	seg = aspath->segments;
 
@@ -1214,11 +1214,11 @@ int aspath_single_asn_check(struct aspath *aspath, as_t asn)
 
 		for (i = 0; i < seg->length; i++) {
 			if (seg->as[i] != asn)
-				return 0;
+				return false;
 		}
 		seg = seg->next;
 	}
-	return 1;
+	return true;
 }
 
 /* Replace all instances of the target ASN with our own ASN */
@@ -1337,37 +1337,37 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 
 /* AS path confed check.  If aspath contains confed set or sequence then return
  * 1. */
-int aspath_confed_check(struct aspath *aspath)
+bool aspath_confed_check(struct aspath *aspath)
 {
 	struct assegment *seg;
 
 	if (!(aspath && aspath->segments))
-		return 0;
+		return false;
 
 	seg = aspath->segments;
 
 	while (seg) {
 		if (seg->type == AS_CONFED_SET
 		    || seg->type == AS_CONFED_SEQUENCE)
-			return 1;
+			return true;
 		seg = seg->next;
 	}
-	return 0;
+	return false;
 }
 
 /* Leftmost AS path segment confed check.  If leftmost AS segment is of type
   AS_CONFED_SEQUENCE or AS_CONFED_SET then return 1.  */
-int aspath_left_confed_check(struct aspath *aspath)
+bool aspath_left_confed_check(struct aspath *aspath)
 {
 
 	if (!(aspath && aspath->segments))
-		return 0;
+		return false;
 
 	if ((aspath->segments->type == AS_CONFED_SEQUENCE)
 	    || (aspath->segments->type == AS_CONFED_SET))
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 /* Merge as1 to as2.  as2 should be uninterned aspath. */
@@ -1604,13 +1604,13 @@ struct aspath *aspath_add_seq(struct aspath *aspath, as_t asno)
 
 /* Compare leftmost AS value for MED check.  If as1's leftmost AS and
    as2's leftmost AS is same return 1. */
-int aspath_cmp_left(const struct aspath *aspath1, const struct aspath *aspath2)
+bool aspath_cmp_left(const struct aspath *aspath1, const struct aspath *aspath2)
 {
 	const struct assegment *seg1;
 	const struct assegment *seg2;
 
 	if (!(aspath1 && aspath2))
-		return 0;
+		return false;
 
 	seg1 = aspath1->segments;
 	seg2 = aspath2->segments;
@@ -1618,7 +1618,7 @@ int aspath_cmp_left(const struct aspath *aspath1, const struct aspath *aspath2)
 	/* If both paths are originated in this AS then we do want to compare
 	 * MED */
 	if (!seg1 && !seg2)
-		return 1;
+		return true;
 
 	/* find first non-confed segments for each */
 	while (seg1 && ((seg1->type == AS_CONFED_SEQUENCE)
@@ -1632,12 +1632,12 @@ int aspath_cmp_left(const struct aspath *aspath1, const struct aspath *aspath2)
 	/* Check as1's */
 	if (!(seg1 && seg2 && (seg1->type == AS_SEQUENCE)
 	      && (seg2->type == AS_SEQUENCE)))
-		return 0;
+		return false;
 
 	if (seg1->as[0] == seg2->as[0])
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 /* Truncate an aspath after a number of hops, and put the hops remaining

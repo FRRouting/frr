@@ -87,7 +87,7 @@ extern struct aspath *aspath_add_seq_n(struct aspath *, as_t, unsigned);
 extern struct aspath *aspath_add_seq(struct aspath *, as_t);
 extern struct aspath *aspath_add_confed_seq(struct aspath *, as_t);
 extern bool aspath_cmp(const void *as1, const void *as2);
-extern int aspath_cmp_left(const struct aspath *, const struct aspath *);
+extern bool aspath_cmp_left(const struct aspath *, const struct aspath *);
 extern bool aspath_cmp_left_confed(const struct aspath *as1,
 				   const struct aspath *as2xs);
 extern struct aspath *aspath_delete_confed_seq(struct aspath *);
@@ -106,8 +106,8 @@ extern unsigned int aspath_key_make(const void *);
 extern unsigned int aspath_get_first_as(struct aspath *);
 extern unsigned int aspath_get_last_as(struct aspath *);
 extern int aspath_loop_check(struct aspath *, as_t);
-extern int aspath_private_as_check(struct aspath *);
-extern int aspath_single_asn_check(struct aspath *, as_t asn);
+extern bool aspath_private_as_check(struct aspath *);
+extern bool aspath_single_asn_check(struct aspath *, as_t asn);
 extern struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 						  as_t target_asn,
 						  as_t our_asn);
@@ -115,9 +115,9 @@ extern struct aspath *aspath_replace_private_asns(struct aspath *aspath,
 						  as_t asn, as_t peer_asn);
 extern struct aspath *aspath_remove_private_asns(struct aspath *aspath,
 						 as_t peer_asn);
-extern int aspath_firstas_check(struct aspath *, as_t);
-extern int aspath_confed_check(struct aspath *);
-extern int aspath_left_confed_check(struct aspath *);
+extern bool aspath_firstas_check(struct aspath *, as_t);
+extern bool aspath_confed_check(struct aspath *);
+extern bool aspath_left_confed_check(struct aspath *);
 extern unsigned long aspath_count(void);
 extern unsigned int aspath_count_hops(const struct aspath *);
 extern bool aspath_check_as_sets(struct aspath *aspath);
@@ -128,7 +128,7 @@ extern as_t aspath_leftmost(struct aspath *);
 extern size_t aspath_put(struct stream *, struct aspath *, int);
 
 extern struct aspath *aspath_reconcile_as4(struct aspath *, struct aspath *);
-extern unsigned int aspath_has_as4(struct aspath *);
+extern bool aspath_has_as4(struct aspath *);
 
 /* For SNMP BGP4PATHATTRASPATHSEGMENT, might be useful for debug */
 extern uint8_t *aspath_snmp_pathseg(struct aspath *, size_t *);
