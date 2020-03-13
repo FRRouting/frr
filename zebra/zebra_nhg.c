@@ -638,7 +638,7 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 {
 	bool created = false;
 	bool recursive = false;
-	struct nhg_hash_entry *newnhe;
+	struct nhg_hash_entry *newnhe, *backup_nhe;
 	struct nexthop *nh = NULL;
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
@@ -724,14 +724,20 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 		}
 	}
 
-	/* If there are backup nexthops, add them to the
-	 * depends tree also. The rules here are a little different.
-	 */
+	if (recursive)
+		SET_FLAG((*nhe)->flags, NEXTHOP_GROUP_RECURSIVE);
+
 	if (zebra_nhg_get_backup_nhg(newnhe) == NULL ||
 	    zebra_nhg_get_backup_nhg(newnhe)->nexthop == NULL)
-		goto backups_done;
+		goto done;
 
-	nh = zebra_nhg_get_backup_nhg(newnhe)->nexthop;
+	/* If there are backup nexthops, add them to the backup
+	 * depends tree. The rules here are a little different.
+	 */
+	recursive = false;
+	backup_nhe = newnhe->backup_info->nhe;
+
+	nh = backup_nhe->nhg.nexthop;
 
 	/* Singleton recursive NH */
 	if (nh->next == NULL &&
@@ -741,7 +747,7 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 				   __func__, nh);
 
 		/* Single recursive nexthop */
-		handle_recursive_depend(&newnhe->nhg_depends,
+		handle_recursive_depend(&backup_nhe->nhg_depends,
 					nh->resolved, afi);
 		recursive = true;
 	} else {
@@ -754,15 +760,13 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 						      NEXTHOP_FLAG_RECURSIVE) ?
 					   "(R)" : "");
 
-			depends_find_add(&newnhe->nhg_depends,
+			depends_find_add(&backup_nhe->nhg_depends,
 					 nh, afi);
 		}
 	}
 
-backups_done:
-
 	if (recursive)
-		SET_FLAG((*nhe)->flags, NEXTHOP_GROUP_RECURSIVE);
+		SET_FLAG(backup_nhe->flags, NEXTHOP_GROUP_RECURSIVE);
 
 done:
 
@@ -2401,6 +2405,16 @@ static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp,
 			i++;
 		}
 	}
+
+	if (nhe->backup_info == NULL || nhe->backup_info->nhe == NULL)
+		goto done;
+
+	/* TODO -- For now, we are not trying to use or install any
+	 * backup info in this nexthop-id path: we aren't prepared
+	 * to use the backups here yet. We're just debugging what we find.
+	 */
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: skipping backup nhe",  __func__);
 
 done:
 	return i;
