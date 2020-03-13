@@ -2486,7 +2486,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 	 */
 	if (CHECK_FLAG(rn->flags, BGP_NODE_SELECT_DEFER)) {
 		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug("SELECT_DEFER falg set for route %p", rn);
+			zlog_debug("SELECT_DEFER flag set for route %p", rn);
 		return;
 	}
 
