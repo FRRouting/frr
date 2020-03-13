@@ -303,7 +303,7 @@ static vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 	} else {
 		target.table_id = table_id;
 		zvrf = vrf_table_id_find(&vrfs_by_table_id, &target);
-		if (table_id == zvrf->table_id)
+		if (zvrf && table_id == zvrf->table_id)
 			return zvrf_id(zvrf);
 	}
 
