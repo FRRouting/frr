@@ -264,12 +264,20 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 
 		if_dnode = yang_dnode_get(
 			running_config->dnode,
-			"/frr-interface:lib/interface[name='%s'][vrf='%s']/vrf",
+			"/frr-interface:lib/interface[name='%s'][vrf='%s']",
 			ifp->name, old_vrf->name);
 		if (if_dnode) {
-			nb_running_unset_entry(if_dnode->parent);
-			yang_dnode_change_leaf(if_dnode, vrf->name);
-			nb_running_set_entry(if_dnode->parent, ifp);
+			nb_running_unset_entry(if_dnode);
+			lyd_free(if_dnode);
+			running_config->version++;
+		}
+
+		if_dnode = yang_dnode_new_path(
+			running_config->dnode,
+			"/frr-interface:lib/interface[name='%s'][vrf='%s']",
+			ifp->name, vrf->name);
+		if (if_dnode) {
+			nb_running_set_entry(if_dnode, ifp);
 			running_config->version++;
 		}
 	}

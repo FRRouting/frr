@@ -393,6 +393,23 @@ const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
 	return dnode->schema->name;
 }
 
+struct lyd_node *yang_dnode_new_path(struct lyd_node *dnode,
+				     const char *xpath_fmt, ...)
+{
+	va_list ap;
+	char xpath[XPATH_MAXLEN];
+	struct lyd_node *dnode_ret = NULL;
+
+	va_start(ap, xpath_fmt);
+	vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+	va_end(ap);
+
+	dnode_ret = lyd_new_path(dnode, ly_native_ctx, xpath, NULL, 0,
+				 LYD_PATH_OPT_UPDATE);
+
+	return dnode_ret;
+}
+
 struct lyd_node *yang_dnode_get(const struct lyd_node *dnode,
 				const char *xpath_fmt, ...)
 {

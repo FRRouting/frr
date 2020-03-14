@@ -328,6 +328,22 @@ extern const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
 					      const char *xpath_fmt, ...);
 
 /*
+ * Create a libyang data node by its YANG data path.
+ *
+ * dnode
+ *    Base libyang data node to operate on.
+ *
+ * xpath_fmt
+ *    XPath expression (absolute or relative).
+ *
+ * Returns:
+ *    Pointer to newly created libyang data node.
+ */
+extern struct lyd_node *yang_dnode_new_path(struct lyd_node *dnode,
+					    const char *xpath_fmt, ...)
+	PRINTFRR(2, 3);
+
+/*
  * Find a libyang data node by its YANG data path.
  *
  * dnode
