@@ -1447,7 +1447,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 			 peer->host,
 			 lookup_msg(bgp_status_msg, peer->status, NULL));
 		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
-				BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+				bgp_fsm_error_subcode(peer->status));
 		return BGP_Stop;
 	}
 
@@ -1859,7 +1859,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 			peer->host,
 			lookup_msg(bgp_status_msg, peer->status, NULL));
 		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
-				BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+				bgp_fsm_error_subcode(peer->status));
 		return BGP_Stop;
 	}
 
@@ -2251,7 +2251,7 @@ int bgp_capability_receive(struct peer *peer, bgp_size_t size)
 			peer->host,
 			lookup_msg(bgp_status_msg, peer->status, NULL));
 		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
-				BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+				bgp_fsm_error_subcode(peer->status));
 		return BGP_Stop;
 	}
 

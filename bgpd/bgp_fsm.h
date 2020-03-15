@@ -121,6 +121,7 @@ extern void bgp_update_delay_end(struct bgp *);
 extern void bgp_maxmed_update(struct bgp *);
 extern int bgp_maxmed_onstartup_configured(struct bgp *);
 extern int bgp_maxmed_onstartup_active(struct bgp *);
+extern int bgp_fsm_error_subcode(int status);
 
 /**
  * Start the route advertisement timer (that honors MRAI) for all the

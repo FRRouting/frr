@@ -170,6 +170,16 @@ static const struct message bgp_notify_capability_msg[] = {
 	{BGP_NOTIFY_CAPABILITY_MALFORMED_CODE, "/Malformed Capability Value"},
 	{0}};
 
+static const struct message bgp_notify_fsm_msg[] = {
+	{BGP_NOTIFY_FSM_ERR_SUBCODE_UNSPECIFIC, "/Unspecific"},
+	{BGP_NOTIFY_FSM_ERR_SUBCODE_OPENSENT,
+	 "/Receive Unexpected Message in OpenSent State"},
+	{BGP_NOTIFY_FSM_ERR_SUBCODE_OPENCONFIRM,
+	 "/Receive Unexpected Message in OpenConfirm State"},
+	{BGP_NOTIFY_FSM_ERR_SUBCODE_ESTABLISHED,
+	 "/Receive Unexpected Message in Established State"},
+	{0}};
+
 /* Origin strings. */
 const char *const bgp_origin_str[] = {"i", "e", "?"};
 const char *const bgp_origin_long_str[] = {"IGP", "EGP", "incomplete"};
@@ -471,7 +481,8 @@ const char *bgp_notify_subcode_str(char code, char subcode)
 	case BGP_NOTIFY_HOLD_ERR:
 		break;
 	case BGP_NOTIFY_FSM_ERR:
-		break;
+		return lookup_msg(bgp_notify_fsm_msg, subcode,
+				  "Unrecognized Error Subcode");
 	case BGP_NOTIFY_CEASE:
 		return lookup_msg(bgp_notify_cease_msg, subcode,
 				  "Unrecognized Error Subcode");
