@@ -102,3 +102,4 @@ compile_commands.json
 .dirstamp
 refix
 .vscode
+.kitchen
