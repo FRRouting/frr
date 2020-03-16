@@ -1499,6 +1499,12 @@ struct bgp_nlri {
 #define BGP_NOTIFY_CEASE                         6
 #define BGP_NOTIFY_CAPABILITY_ERR                7
 
+/* Subcodes for BGP Finite State Machine Error */
+#define BGP_NOTIFY_FSM_ERR_SUBCODE_UNSPECIFIC  0
+#define BGP_NOTIFY_FSM_ERR_SUBCODE_OPENSENT    1
+#define BGP_NOTIFY_FSM_ERR_SUBCODE_OPENCONFIRM 2
+#define BGP_NOTIFY_FSM_ERR_SUBCODE_ESTABLISHED 3
+
 #define BGP_NOTIFY_SUBCODE_UNSPECIFIC            0
 
 /* BGP_NOTIFY_HEADER_ERR sub codes.  */

@@ -885,6 +885,27 @@ void bgp_maxmed_update(struct bgp *bgp)
 	}
 }
 
+int bgp_fsm_error_subcode(int status)
+{
+	int fsm_err_subcode = BGP_NOTIFY_FSM_ERR_SUBCODE_UNSPECIFIC;
+
+	switch (status) {
+	case OpenSent:
+		fsm_err_subcode = BGP_NOTIFY_FSM_ERR_SUBCODE_OPENSENT;
+		break;
+	case OpenConfirm:
+		fsm_err_subcode = BGP_NOTIFY_FSM_ERR_SUBCODE_OPENCONFIRM;
+		break;
+	case Established:
+		fsm_err_subcode = BGP_NOTIFY_FSM_ERR_SUBCODE_ESTABLISHED;
+		break;
+	default:
+		break;
+	}
+
+	return fsm_err_subcode;
+}
+
 /* The maxmed onstartup timer expiry callback. */
 static int bgp_maxmed_onstartup_timer(struct thread *thread)
 {
@@ -1455,9 +1476,8 @@ static int bgp_connect_success(struct peer *peer)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s: bgp_getsockname(): failed for peer %s, fd %d",
 			     __func__, peer->host, peer->fd);
-		bgp_notify_send(
-			peer, BGP_NOTIFY_FSM_ERR,
-			BGP_NOTIFY_SUBCODE_UNSPECIFIC); /* internal error */
+		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
+				bgp_fsm_error_subcode(peer->status));
 		bgp_writes_on(peer);
 		return -1;
 	}
@@ -1657,7 +1677,8 @@ static int bgp_fsm_event_error(struct peer *peer)
 	flog_err(EC_BGP_FSM, "%s [FSM] unexpected packet received in state %s",
 		 peer->host, lookup_msg(bgp_status_msg, peer->status, NULL));
 
-	return bgp_stop_with_notify(peer, BGP_NOTIFY_FSM_ERR, 0);
+	return bgp_stop_with_notify(peer, BGP_NOTIFY_FSM_ERR,
+				    bgp_fsm_error_subcode(peer->status));
 }
 
 /* Hold timer expire.  This is error of BGP connection. So cut the
