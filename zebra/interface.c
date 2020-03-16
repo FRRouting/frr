@@ -1271,45 +1271,65 @@ static const char *zebra_ziftype_2str(zebra_iftype_t zif_type)
 	}
 }
 
-/* Interface's brief information print out to vty interface. */
-static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
+static void if_status_brief_vty(struct vty *vty, struct interface *ifp,
+				struct vrf *vrf, bool first_pfx_printed)
+{
+	if (first_pfx_printed) {
+		vty_out(vty, "%-16s", "");
+
+		if (if_is_up(ifp)) {
+			vty_out(vty, "%-8s", "up");
+			if (CHECK_FLAG(ifp->status,
+				       ZEBRA_INTERFACE_LINKDETECTION)) {
+				if (if_is_running(ifp))
+					vty_out(vty, "%-16s", "up");
+				else
+					vty_out(vty, "%-16s", "down");
+			} else
+				vty_out(vty, "%-16s", "unknown");
+		} else
+			vty_out(vty, "%-8s%-16s", "down", "down");
+
+		vty_out(vty, "%-16s", vrf->name);
+	} else {
+		vty_out(vty, "%-16s", ifp->name);
+
+		if (if_is_up(ifp)) {
+			vty_out(vty, "%-8s", "up");
+			if (CHECK_FLAG(ifp->status,
+				       ZEBRA_INTERFACE_LINKDETECTION)) {
+				if (if_is_running(ifp))
+					vty_out(vty, "%-16s", "up");
+				else
+					vty_out(vty, "%-16s", "down");
+			} else
+				vty_out(vty, "%-16s", "unknown");
+		} else
+			vty_out(vty, "%-8s%-16s", "down", "down");
+
+		vty_out(vty, "%-16s", vrf->name);
+	}
+}
+
+static void ifs_ip_dump_brief_vty(struct vty *vty, struct interface *ifp,
+				  struct vrf *vrf, enum ipaddr_type_t ipa_type)
 {
 	struct connected *connected;
 	struct listnode *node;
 	struct route_node *rn;
 	struct zebra_if *zebra_if;
 	struct prefix *p;
-	struct interface *ifp;
-	bool print_header = true;
+	char global_pfx[PREFIX_STRLEN] = {0};
+	char buf[PREFIX_STRLEN] = {0};
+	bool first_pfx_printed = false;
 
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		char global_pfx[PREFIX_STRLEN] = {0};
-		char buf[PREFIX_STRLEN] = {0};
-		bool first_pfx_printed = false;
+	zebra_if = ifp->info;
 
-		if (print_header) {
-			vty_out(vty, "%-16s%-8s%-16s%s\n", "Interface",
-				"Status", "VRF", "Addresses");
-			vty_out(vty, "%-16s%-8s%-16s%s\n", "---------",
-				"------", "---", "---------");
-			print_header = false; /* We have at least 1 iface */
-		}
-		zebra_if = ifp->info;
-
-		vty_out(vty, "%-16s", ifp->name);
-
-		if (if_is_up(ifp))
-			vty_out(vty, "%-8s", "up");
-		else
-			vty_out(vty, "%-8s", "down");
-
-		vty_out(vty, "%-16s", vrf->name);
-
+	if (ipa_type == IPADDR_V4) {
 		for (rn = route_top(zebra_if->ipv4_subnets); rn;
 		     rn = route_next(rn)) {
 			if (!rn->info)
 				continue;
-			uint32_t list_size = listcount((struct list *)rn->info);
 
 			for (ALL_LIST_ELEMENTS_RO((struct list *)rn->info, node,
 						  connected)) {
@@ -1318,16 +1338,67 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 					p = connected->address;
 					prefix2str(p, buf, sizeof(buf));
 					if (first_pfx_printed) {
-						/* padding to prepare row only for ip addr */
-						vty_out(vty, "%-40s", "");
-						if (list_size > 1)
-							vty_out(vty, "+ ");
+						if_status_brief_vty(
+							vty, ifp, vrf,
+							first_pfx_printed);
+
 						vty_out(vty, "%s\n", buf);
-					} else {
-						if (list_size > 1)
-							vty_out(vty, "+ ");
+					} else
 						vty_out(vty, "%s\n", buf);
-					}
+
+					first_pfx_printed = true;
+					break;
+				}
+			}
+		}
+	} else if (ipa_type == IPADDR_V6) {
+		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
+			    && !CHECK_FLAG(connected->flags,
+					   ZEBRA_IFA_SECONDARY)
+			    && (connected->address->family == AF_INET6)) {
+				p = connected->address;
+				/* Don't print link local pfx */
+				if (!IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6)) {
+					prefix2str(p, global_pfx,
+						   PREFIX_STRLEN);
+					if (first_pfx_printed) {
+						if_status_brief_vty(
+							vty, ifp, vrf,
+							first_pfx_printed);
+
+						vty_out(vty, "%s\n",
+							global_pfx);
+					} else
+						vty_out(vty, "%s\n",
+							global_pfx);
+
+					first_pfx_printed = true;
+					break;
+				}
+			}
+		}
+	} else if (ipa_type == IPADDR_NONE) {
+		for (rn = route_top(zebra_if->ipv4_subnets); rn;
+		     rn = route_next(rn)) {
+			if (!rn->info)
+				continue;
+
+			for (ALL_LIST_ELEMENTS_RO((struct list *)rn->info, node,
+						  connected)) {
+				if (!CHECK_FLAG(connected->flags,
+						ZEBRA_IFA_SECONDARY)) {
+					p = connected->address;
+					prefix2str(p, buf, sizeof(buf));
+					if (first_pfx_printed) {
+						if_status_brief_vty(
+							vty, ifp, vrf,
+							first_pfx_printed);
+
+						vty_out(vty, "%s\n", buf);
+					} else
+						vty_out(vty, "%s\n", buf);
+
 					first_pfx_printed = true;
 					break;
 				}
@@ -1348,31 +1419,56 @@ static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
 				p = connected->address;
 				/* Don't print link local pfx */
 				if (!IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6)) {
-					prefix2str(p, global_pfx, PREFIX_STRLEN);
+					prefix2str(p, global_pfx,
+						   PREFIX_STRLEN);
 					if (first_pfx_printed) {
-						/* padding to prepare row only for ip addr */
-						vty_out(vty, "%-40s", "");
-						if (v6_list_size > 1)
-							vty_out(vty, "+ ");
-						vty_out(vty, "%s\n", global_pfx);
-					} else {
-						if (v6_list_size > 1)
-							vty_out(vty, "+ ");
-						vty_out(vty, "%s\n", global_pfx);
-					}
+						if_status_brief_vty(
+							vty, ifp, vrf,
+							first_pfx_printed);
+
+						vty_out(vty, "%s\n",
+							global_pfx);
+					} else
+						vty_out(vty, "%s\n",
+							global_pfx);
+
 					first_pfx_printed = true;
 					break;
 				}
 			}
 		}
-		if (!first_pfx_printed)
-			vty_out(vty, "\n");
+	}
+	if (!first_pfx_printed)
+		vty_out(vty, "\n");
+}
+
+/* Interface's brief information print out to vty interface. */
+static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf,
+			       enum ipaddr_type_t ipa_type)
+{
+	struct interface *ifp;
+	bool print_header = true;
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		bool first_pfx_printed = false;
+
+		if (print_header) {
+			vty_out(vty, "%-16s%-8s%-16s%-16s%s\n", "Interface",
+				"Status", "Protocol", "VRF", "Addresses");
+			vty_out(vty, "%-16s%-8s%-16s%-16s%s\n", "---------",
+				"------", "--------", "---", "---------");
+			print_header = false; /* We have at least 1 iface */
+		}
+
+		if_status_brief_vty(vty, ifp, vrf, first_pfx_printed);
+		ifs_ip_dump_brief_vty(vty, ifp, vrf, ipa_type);
 	}
 	vty_out(vty, "\n");
 }
 
 /* Interface's information print out to vty interface. */
-static void if_dump_vty(struct vty *vty, struct interface *ifp)
+static void if_dump_vty(struct vty *vty, struct interface *ifp,
+			enum ipaddr_type_t ipa_type)
 {
 	struct connected *connected;
 	struct nbr_connected *nbr_connected;
@@ -1446,19 +1542,37 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vty_out(vty, "\n");
 	}
 
-	for (rn = route_top(zebra_if->ipv4_subnets); rn; rn = route_next(rn)) {
-		if (!rn->info)
-			continue;
+	if (ipa_type == IPADDR_V4) {
+		for (rn = route_top(zebra_if->ipv4_subnets); rn;
+		     rn = route_next(rn)) {
+			if (!rn->info)
+				continue;
 
-		for (ALL_LIST_ELEMENTS_RO((struct list *)rn->info, node,
-					  connected))
-			connected_dump_vty(vty, connected);
-	}
+			for (ALL_LIST_ELEMENTS_RO((struct list *)rn->info, node,
+						  connected))
+				connected_dump_vty(vty, connected);
+		}
+	} else if (ipa_type == IPADDR_V6) {
+		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected))
+			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
+			    && (connected->address->family == AF_INET6))
+				connected_dump_vty(vty, connected);
+	} else if (ipa_type == IPADDR_NONE) {
+		for (rn = route_top(zebra_if->ipv4_subnets); rn;
+		     rn = route_next(rn)) {
+			if (!rn->info)
+				continue;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
-		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
-		    && (connected->address->family == AF_INET6))
-			connected_dump_vty(vty, connected);
+			for (ALL_LIST_ELEMENTS_RO((struct list *)rn->info, node,
+						  connected))
+				connected_dump_vty(vty, connected);
+		}
+
+		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
+			    && (connected->address->family == AF_INET6))
+				connected_dump_vty(vty, connected);
+		}
 	}
 
 	vty_out(vty, "  Interface Type %s\n",
@@ -1664,6 +1778,20 @@ static void interface_update_stats(void)
 #endif /* HAVE_NET_RT_IFLIST */
 }
 
+static enum ipaddr_type_t parse_ipa_type(const char *ip_version)
+{
+	enum ipaddr_type_t ipa_type = IPADDR_NONE;
+
+	if (!ip_version)
+		return ipa_type;
+	if (strmatch(ip_version, "ipv4"))
+		ipa_type = IPADDR_V4;
+	else if (strmatch(ip_version, "ipv6"))
+		ipa_type = IPADDR_V6;
+
+	return ipa_type;
+}
+
 struct cmd_node interface_node = {INTERFACE_NODE, "%s(config-if)# ", 1};
 
 #ifndef VTYSH_EXTRACT_PL
@@ -1671,12 +1799,12 @@ struct cmd_node interface_node = {INTERFACE_NODE, "%s(config-if)# ", 1};
 #endif
 /* Show all interfaces to vty. */
 DEFPY(show_interface, show_interface_cmd,
-      "show interface [vrf NAME$vrf_name] [brief$brief]",
-      SHOW_STR
-      "Interface status and configuration\n"
-      VRF_CMD_HELP_STR
+      "show [<ipv4|ipv6>$ip_version] interface [vrf NAME$vrf_name] [brief$brief]",
+      SHOW_STR IP_STR IPV6_STR
+      "Interface status and configuration\n" VRF_CMD_HELP_STR
       "Interface status and configuration summary\n")
 {
+	enum ipaddr_type_t ipa_type;
 	struct vrf *vrf;
 	struct interface *ifp;
 	vrf_id_t vrf_id = VRF_DEFAULT;
@@ -1686,14 +1814,15 @@ DEFPY(show_interface, show_interface_cmd,
 	if (vrf_name)
 		VRF_GET_ID(vrf_id, vrf_name, false);
 
+	ipa_type = parse_ipa_type(ip_version);
+
 	/* All interface print. */
 	vrf = vrf_lookup_by_id(vrf_id);
 	if (brief) {
-		ifs_dump_brief_vty(vty, vrf);
+		ifs_dump_brief_vty(vty, vrf, ipa_type);
 	} else {
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			if_dump_vty(vty, ifp);
-		}
+		FOR_ALL_INTERFACES (vrf, ifp)
+			if_dump_vty(vty, ifp, ipa_type);
 	}
 
 	return CMD_SUCCESS;
@@ -1701,26 +1830,27 @@ DEFPY(show_interface, show_interface_cmd,
 
 
 /* Show all interfaces to vty. */
-DEFPY (show_interface_vrf_all,
-       show_interface_vrf_all_cmd,
-       "show interface vrf all [brief$brief]",
-       SHOW_STR
-       "Interface status and configuration\n"
-       VRF_ALL_CMD_HELP_STR
-       "Interface status and configuration summary\n")
+DEFPY(show_interface_vrf_all, show_interface_vrf_all_cmd,
+      "show [<ipv4|ipv6>$ip_version] interface vrf all [brief$brief]",
+      SHOW_STR IP_STR IPV6_STR
+      "Interface status and configuration\n" VRF_ALL_CMD_HELP_STR
+      "Interface status and configuration summary\n")
 {
+	enum ipaddr_type_t ipa_type;
 	struct vrf *vrf;
 	struct interface *ifp;
 
 	interface_update_stats();
 
+	ipa_type = parse_ipa_type(ip_version);
+
 	/* All interface print. */
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (brief) {
-			ifs_dump_brief_vty(vty, vrf);
+			ifs_dump_brief_vty(vty, vrf, ipa_type);
 		} else {
 			FOR_ALL_INTERFACES (vrf, ifp)
-				if_dump_vty(vty, ifp);
+				if_dump_vty(vty, ifp, ipa_type);
 		}
 	}
 
@@ -1729,22 +1859,32 @@ DEFPY (show_interface_vrf_all,
 
 /* Show specified interface to vty. */
 
-DEFUN (show_interface_name_vrf,
-       show_interface_name_vrf_cmd,
-       "show interface IFNAME vrf NAME",
-       SHOW_STR
-       "Interface status and configuration\n"
-       "Interface name\n"
-       VRF_CMD_HELP_STR)
+DEFUN(show_interface_name_vrf, show_interface_name_vrf_cmd,
+      "show [<ipv4|ipv6>] interface IFNAME vrf NAME",
+      SHOW_STR IP_STR IPV6_STR
+      "Interface status and configuration\n"
+      "Interface name\n" VRF_CMD_HELP_STR)
 {
-	int idx_ifname = 2;
-	int idx_name = 4;
+	int idx_ipatype = 1;
+	int idx_ifname = 3;
+	int idx_name = 5;
 	struct interface *ifp;
 	vrf_id_t vrf_id;
+	enum ipaddr_type_t ipa_type;
 
 	interface_update_stats();
 
+	if (!(argv_find(argv, argc, "ipv4", &idx_ipatype))
+	    && !(argv_find(argv, argc, "ipv6", &idx_ipatype))) {
+		idx_ifname = 2;
+		idx_name = 4;
+	}
+
+	vty_out(vty, "%d\n", idx_name);
+
 	VRF_GET_ID(vrf_id, argv[idx_name]->arg, false);
+
+	ipa_type = parse_ipa_type(argv[idx_ipatype]->arg);
 
 	/* Specified interface print. */
 	ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id);
@@ -1753,33 +1893,40 @@ DEFUN (show_interface_name_vrf,
 			argv[idx_ifname]->arg);
 		return CMD_WARNING;
 	}
-	if_dump_vty(vty, ifp);
+	if_dump_vty(vty, ifp, ipa_type);
 
 	return CMD_SUCCESS;
 }
 
 /* Show specified interface to vty. */
-DEFUN (show_interface_name_vrf_all,
-       show_interface_name_vrf_all_cmd,
-       "show interface IFNAME [vrf all]",
-       SHOW_STR
-       "Interface status and configuration\n"
-       "Interface name\n"
-       VRF_ALL_CMD_HELP_STR)
+DEFUN(show_interface_name_vrf_all, show_interface_name_vrf_all_cmd,
+      "show [ipv4|ipv6] interface IFNAME [vrf all]",
+      SHOW_STR IP_STR IPV6_STR
+      "Interface status and configuration\n"
+      "Interface name\n" VRF_ALL_CMD_HELP_STR)
 {
-	int idx_ifname = 2;
+	int idx_ipatype = 1;
+	int idx_ifname = 3;
+	enum ipaddr_type_t ipa_type;
 	struct vrf *vrf;
 	struct interface *ifp;
 	int found = 0;
 
 	interface_update_stats();
 
+	if (!(argv_find(argv, argc, "ipv4", &idx_ipatype))
+	    && !(argv_find(argv, argc, "ipv6", &idx_ipatype))) {
+		idx_ifname = 2;
+	}
+
+	ipa_type = parse_ipa_type(argv[idx_ipatype]->arg);
+
 	/* All interface print. */
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		/* Specified interface print. */
 		ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf->vrf_id);
 		if (ifp) {
-			if_dump_vty(vty, ifp);
+			if_dump_vty(vty, ifp, ipa_type);
 			found++;
 		}
 	}
