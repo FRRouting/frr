@@ -53,6 +53,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_routemap.h"
 
 #if defined(HANDLE_NETLINK_FUZZING)
 #include "zebra/kernel_netlink.h"
@@ -179,7 +180,13 @@ static void sigint(void)
 
 	access_list_reset();
 	prefix_list_reset();
-	route_map_finish();
+	/*
+	 * zebra_routemap_finish will
+	 * 1 set rmap upd timer to 0 so that rmap update wont be scheduled again
+	 * 2 Put off the rmap update thread
+	 * 3 route_map_finish
+	 */
+	zebra_routemap_finish();
 
 	list_delete(&zrouter.client_list);
 

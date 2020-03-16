@@ -1793,6 +1793,15 @@ static void zebra_route_map_set_delay_timer(uint32_t value)
 	}
 }
 
+void zebra_routemap_finish(void)
+{
+	/* Set zebra_rmap_update_timer to 0 so that it wont schedule again */
+	zebra_rmap_update_timer = 0;
+	/* Thread off if any scheduled already */
+	THREAD_TIMER_OFF(zebra_t_rmap_update);
+	route_map_finish();
+}
+
 void zebra_route_map_write_delay_timer(struct vty *vty)
 {
 	if (vty && (zebra_rmap_update_timer != ZEBRA_RMAP_DEFAULT_UPDATE_TIMER))
