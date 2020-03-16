@@ -83,6 +83,7 @@ struct static_hold_route {
 	char *label_str;
 	char *table_str;
 	bool onlink;
+	char *color_str;
 
 	/* processed & masked destination, used for config display */
 	struct prefix dest;
@@ -119,6 +120,7 @@ static void static_list_delete(struct static_hold_route *shr)
 	XFREE(MTYPE_STATIC_ROUTE, shr->distance_str);
 	XFREE(MTYPE_STATIC_ROUTE, shr->label_str);
 	XFREE(MTYPE_STATIC_ROUTE, shr->table_str);
+	XFREE(MTYPE_STATIC_ROUTE, shr->color_str);
 
 	XFREE(MTYPE_STATIC_ROUTE, shr);
 }
@@ -179,6 +181,11 @@ static int static_list_compare(void *arg1, void *arg2)
 	if (ret)
 		return ret;
 
+	ret = static_list_compare_helper(shr1->color_str,
+					 shr2->color_str);
+	if (ret)
+		return ret;
+
 	return static_list_compare_helper(shr1->label_str, shr2->label_str);
 }
 
@@ -190,7 +197,7 @@ static int zebra_static_route_holdem(
 	const char *dest_str, const char *mask_str, const char *src_str,
 	const char *gate_str, const char *ifname, const char *flag_str,
 	const char *tag_str, const char *distance_str, const char *label_str,
-	const char *table_str, bool onlink)
+	const char *table_str, bool onlink, const char *color_str)
 {
 	struct static_hold_route *shr, *lookup;
 	struct listnode *node;
@@ -226,6 +233,8 @@ static int zebra_static_route_holdem(
 		shr->label_str = XSTRDUP(MTYPE_STATIC_ROUTE, label_str);
 	if (table_str)
 		shr->table_str = XSTRDUP(MTYPE_STATIC_ROUTE, table_str);
+	if (color_str)
+		shr->color_str = XSTRDUP(MTYPE_STATIC_ROUTE, color_str);
 
 	for (ALL_LIST_ELEMENTS_RO(static_list, node, lookup)) {
 		if (static_list_compare(shr, lookup) == 0)
@@ -339,7 +348,7 @@ static int static_route_leak(
 		return zebra_static_route_holdem(
 			svrf, nh_svrf, afi, safi, negate, &p, dest_str,
 			mask_str, src_str, gate_str, ifname, flag_str, tag_str,
-			distance_str, label_str, table_str, onlink);
+			distance_str, label_str, table_str, onlink, color_str);
 	}
 
 	if (table_str) {
@@ -659,6 +668,8 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 			vty_out(vty, "nexthop-vrf %s ", shr->nhvrf_name);
 		if (shr->onlink)
 			vty_out(vty, "onlink");
+		if (shr->label_str)
+			vty_out(vty, "color %s ", shr->color_str);
 		vty_out(vty, "\n");
 	}
 
@@ -731,6 +742,12 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 
 			if (si->onlink)
 				vty_out(vty, " onlink");
+
+			/*
+			 * SR-TE color
+			 */
+			if (si->color)
+				vty_out(vty, " color %u", si->color);
 
 			vty_out(vty, "\n");
 
