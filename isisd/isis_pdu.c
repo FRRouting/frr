@@ -1652,7 +1652,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 
 	if (length != expected_length) {
 		flog_err(EC_ISIS_PACKET,
-			 "Exepected fixed header length = %" PRIu8
+			 "Expected fixed header length = %" PRIu8
 			 " but got %" PRIu8,
 			 expected_length, length);
 		return ISIS_ERROR;

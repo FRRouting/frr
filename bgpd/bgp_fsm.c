@@ -2538,7 +2538,7 @@ int bgp_neighbor_graceful_restart(struct peer *peer, int peer_gr_cmd)
 		peer->peer_gr_present_state = peer_new_state;
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug(
-				"[BGP_GR] Succesfully change the state of the peer to : %s : !",
+				"[BGP_GR] Successfully change the state of the peer to : %s : !",
 				print_peer_gr_mode(peer_new_state));
 
 		return BGP_GR_SUCCESS;

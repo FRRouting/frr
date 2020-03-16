@@ -2266,7 +2266,7 @@ static int unpack_tlv_spine_leaf(enum isis_tlv_context context,
 
 	sbuf_push(log, indent, "Unpacking Spine Leaf Extension TLV...\n");
 	if (tlv_len < 2) {
-		sbuf_push(log, indent, "WARNING: Unexepected TLV size\n");
+		sbuf_push(log, indent, "WARNING: Unexpected TLV size\n");
 		stream_forward_getp(s, tlv_len);
 		return 0;
 	}
@@ -2382,7 +2382,7 @@ static int unpack_tlv_threeway_adj(enum isis_tlv_context context,
 
 	sbuf_push(log, indent, "Unpacking P2P Three-Way Adjacency TLV...\n");
 	if (tlv_len != 5 && tlv_len != 15) {
-		sbuf_push(log, indent, "WARNING: Unexepected TLV size\n");
+		sbuf_push(log, indent, "WARNING: Unexpected TLV size\n");
 		stream_forward_getp(s, tlv_len);
 		return 0;
 	}

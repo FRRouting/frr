@@ -322,7 +322,7 @@ static int zebra_mlag_post_data_from_main_thread(struct thread *thread)
 	STREAM_GETL(s, msg_type);
 	if (IS_ZEBRA_DEBUG_MLAG)
 		zlog_debug(
-			"%s: Posting MLAG data for msg_type:0x%x to interested cleints",
+			"%s: Posting MLAG data for msg_type:0x%x to interested clients",
 			__func__, msg_type);
 
 	msg_len = s->endp - ZEBRA_MLAG_METADATA_LEN;
@@ -364,7 +364,7 @@ stream_failure:
 
 /*
  * Start the MLAG Thread, this will be used to write client data on to
- * MLAG Process and to read the data from MLAG and post to cleints.
+ * MLAG Process and to read the data from MLAG and post to clients.
  * when all clients are un-registered, this Thread will be
  * suspended.
  */

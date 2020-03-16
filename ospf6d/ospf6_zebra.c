@@ -256,7 +256,7 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request)
 	    && ospf6_route_is_same(request, request->next)) {
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
 			zlog_debug(
-				"  Best-path removal resulted Sencondary addition");
+				"  Best-path removal resulted Secondary addition");
 		type = ADD;
 		request = request->next;
 	}

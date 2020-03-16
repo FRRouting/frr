@@ -1189,7 +1189,7 @@ static void vnc_direct_add_rn_group_rd(struct bgp *bgp,
 		}
 		if (rfg->label > MPLS_LABEL_MAX) {
 			vnc_zlog_debug_verbose(
-				"%s: VRF \"%s\" is missing defaul label configuration.\n",
+				"%s: VRF \"%s\" is missing default label configuration.\n",
 				__func__, rfg->name);
 			return;
 		}

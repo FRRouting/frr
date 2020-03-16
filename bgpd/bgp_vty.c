@@ -11627,7 +11627,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			json_object_object_add(
 				json_neigh, "gracefulRestartInfo", json_grace);
 		} else {
-			vty_out(vty, "  Graceful restart informations:\n");
+			vty_out(vty, "  Graceful restart information:\n");
 			if ((p->status == Established)
 			    && CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
 
