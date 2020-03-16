@@ -668,7 +668,7 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 			vty_out(vty, "nexthop-vrf %s ", shr->nhvrf_name);
 		if (shr->onlink)
 			vty_out(vty, "onlink");
-		if (shr->label_str)
+		if (shr->color_str)
 			vty_out(vty, "color %s ", shr->color_str);
 		vty_out(vty, "\n");
 	}
