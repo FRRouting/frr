@@ -290,7 +290,7 @@ static int static_route_leak(
 	uint8_t type;
 	struct static_nh_label snh_label;
 	uint32_t table_id = 0;
-	uint32_t color;
+	uint32_t color = 0;
 
 	ret = str2prefix(dest_str, &p);
 	if (ret <= 0) {
@@ -746,7 +746,7 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 			/*
 			 * SR-TE color
 			 */
-			if (si->color)
+			if (si->color != 0)
 				vty_out(vty, " color %u", si->color);
 
 			vty_out(vty, "\n");
