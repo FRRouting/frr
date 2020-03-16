@@ -155,165 +155,172 @@ struct yang_data *lib_interface_zebra_state_remote_vtep_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *lib_interface_zebra_state_mcast_group_get_elem(
 	struct nb_cb_get_elem_args *args);
-int lib_vrf_ribs_rib_create(struct nb_cb_create_args *args);
-int lib_vrf_ribs_rib_destroy(struct nb_cb_destroy_args *args);
-const void *lib_vrf_ribs_rib_get_next(struct nb_cb_get_next_args *args);
-int lib_vrf_ribs_rib_get_keys(struct nb_cb_get_keys_args *args);
-const void *lib_vrf_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args);
-const void *lib_vrf_ribs_rib_route_get_next(struct nb_cb_get_next_args *args);
-int lib_vrf_ribs_rib_route_get_keys(struct nb_cb_get_keys_args *args);
+int lib_vrf_zebra_ribs_rib_create(struct nb_cb_create_args *args);
+int lib_vrf_zebra_ribs_rib_destroy(struct nb_cb_destroy_args *args);
+const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args);
+int lib_vrf_zebra_ribs_rib_get_keys(struct nb_cb_get_keys_args *args);
 const void *
-lib_vrf_ribs_rib_route_lookup_entry(struct nb_cb_lookup_entry_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_prefix_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_protocol_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_protocol_v6_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_vrf_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_distance_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_metric_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_tag_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_selected_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_installed_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_failed_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_queued_get_elem(struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_internal_flags_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_internal_status_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_uptime_get_elem(struct nb_cb_get_elem_args *args);
+lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args);
 const void *
-lib_vrf_ribs_rib_route_nexthop_group_get_next(struct nb_cb_get_next_args *args);
-int lib_vrf_ribs_rib_route_nexthop_group_get_keys(
-	struct nb_cb_get_keys_args *args);
-const void *lib_vrf_ribs_rib_route_nexthop_group_lookup_entry(
-	struct nb_cb_lookup_entry_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_nexthop_group_name_get_elem(
+lib_vrf_zebra_ribs_rib_route_get_next(struct nb_cb_get_next_args *args);
+int lib_vrf_zebra_ribs_rib_route_get_keys(struct nb_cb_get_keys_args *args);
+const void *
+lib_vrf_zebra_ribs_rib_route_lookup_entry(struct nb_cb_lookup_entry_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_prefix_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_zebra_ribs_rib_route_protocol_get_elem(
 	struct nb_cb_get_elem_args *args);
-const void *lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_get_next(
+struct yang_data *lib_vrf_zebra_ribs_rib_route_protocol_v6_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_vrf_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_zebra_ribs_rib_route_distance_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_metric_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_tag_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_zebra_ribs_rib_route_selected_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_zebra_ribs_rib_route_installed_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_failed_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_queued_get_elem(struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_zebra_ribs_rib_route_internal_flags_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_zebra_ribs_rib_route_internal_status_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_uptime_get_elem(struct nb_cb_get_elem_args *args);
+const void *lib_vrf_zebra_ribs_rib_route_nexthop_group_get_next(
 	struct nb_cb_get_next_args *args);
-int lib_vrf_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_get_keys(
+int lib_vrf_zebra_ribs_rib_route_nexthop_group_get_keys(
 	struct nb_cb_get_keys_args *args);
-int lib_vrf_ribs_rib_create(struct nb_cb_create_args *args);
-int lib_vrf_ribs_rib_destroy(struct nb_cb_destroy_args *args);
-const void *lib_vrf_ribs_rib_get_next(struct nb_cb_get_next_args *args);
-int lib_vrf_ribs_rib_get_keys(struct nb_cb_get_keys_args *args);
-const void *lib_vrf_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args);
-const void *lib_vrf_ribs_rib_route_get_next(struct nb_cb_get_next_args *args);
-int lib_vrf_ribs_rib_route_get_keys(struct nb_cb_get_keys_args *args);
-const void *
-lib_vrf_ribs_rib_route_lookup_entry(struct nb_cb_lookup_entry_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_prefix_get_elem(struct nb_cb_get_elem_args *args);
-const void *
-lib_vrf_ribs_rib_route_route_entry_get_next(struct nb_cb_get_next_args *args);
-int lib_vrf_ribs_rib_route_route_entry_get_keys(
-	struct nb_cb_get_keys_args *args);
-const void *lib_vrf_ribs_rib_route_route_entry_lookup_entry(
+const void *lib_vrf_zebra_ribs_rib_route_nexthop_group_lookup_entry(
 	struct nb_cb_lookup_entry_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_route_entry_protocol_get_elem(
+struct yang_data *lib_vrf_zebra_ribs_rib_route_nexthop_group_name_get_elem(
 	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_route_entry_instance_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_route_entry_distance_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_route_entry_metric_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_route_entry_tag_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_route_entry_selected_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_route_entry_installed_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_route_entry_failed_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_route_entry_queued_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_route_entry_internal_flags_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_route_entry_internal_status_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *lib_vrf_ribs_rib_route_route_entry_uptime_get_elem(
-	struct nb_cb_get_elem_args *args);
-const void *lib_vrf_ribs_rib_route_route_entry_nexthop_group_get_next(
+const void *
+lib_vrf_zebra_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_get_next(
 	struct nb_cb_get_next_args *args);
-int lib_vrf_ribs_rib_route_route_entry_nexthop_group_get_keys(
+int lib_vrf_zebra_ribs_rib_route_nexthop_group_frr_nexthops_nexthop_get_keys(
 	struct nb_cb_get_keys_args *args);
-const void *lib_vrf_ribs_rib_route_route_entry_nexthop_group_lookup_entry(
-	struct nb_cb_lookup_entry_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_name_get_elem(
-	struct nb_cb_get_elem_args *args);
+int lib_vrf_zebra_ribs_rib_create(struct nb_cb_create_args *args);
+int lib_vrf_zebra_ribs_rib_destroy(struct nb_cb_destroy_args *args);
+const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args);
+int lib_vrf_zebra_ribs_rib_get_keys(struct nb_cb_get_keys_args *args);
 const void *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_next(
+lib_vrf_zebra_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args);
+const void *
+lib_vrf_zebra_ribs_rib_route_get_next(struct nb_cb_get_next_args *args);
+int lib_vrf_zebra_ribs_rib_route_get_keys(struct nb_cb_get_keys_args *args);
+const void *
+lib_vrf_zebra_ribs_rib_route_lookup_entry(struct nb_cb_lookup_entry_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_prefix_get_elem(struct nb_cb_get_elem_args *args);
+const void *lib_vrf_zebra_ribs_rib_route_route_entry_get_next(
 	struct nb_cb_get_next_args *args);
-int lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_keys(
+int lib_vrf_zebra_ribs_rib_route_route_entry_get_keys(
 	struct nb_cb_get_keys_args *args);
-const void *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_lookup_entry(
+const void *lib_vrf_zebra_ribs_rib_route_route_entry_lookup_entry(
 	struct nb_cb_lookup_entry_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_nh_type_get_elem(
+struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_protocol_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_instance_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_distance_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_metric_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_tag_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_selected_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_installed_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_failed_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_queued_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_vrf_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_internal_flags_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_gateway_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_internal_status_get_elem(
 	struct nb_cb_get_elem_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_interface_get_elem(
+struct yang_data *lib_vrf_zebra_ribs_rib_route_route_entry_uptime_get_elem(
 	struct nb_cb_get_elem_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_bh_type_get_elem(
-	struct nb_cb_get_elem_args *args);
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_onlink_get_elem(
-	struct nb_cb_get_elem_args *args);
-const void *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_next(
+const void *lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_get_next(
 	struct nb_cb_get_next_args *args);
-int lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_keys(
+int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_get_keys(
 	struct nb_cb_get_keys_args *args);
-const void *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_lookup_entry(
+const void *lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_lookup_entry(
 	struct nb_cb_lookup_entry_args *args);
 struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_id_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_name_get_elem(
+	struct nb_cb_get_elem_args *args);
+const void *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_next(
+	struct nb_cb_get_next_args *args);
+int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_keys(
+	struct nb_cb_get_keys_args *args);
+const void *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_lookup_entry(
+	struct nb_cb_lookup_entry_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_nh_type_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_label_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_vrf_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_gateway_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_interface_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_duplicate_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_bh_type_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_recursive_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_onlink_get_elem(
+	struct nb_cb_get_elem_args *args);
+const void *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_next(
+	struct nb_cb_get_next_args *args);
+int lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_keys(
+	struct nb_cb_get_keys_args *args);
+const void *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_lookup_entry(
+	struct nb_cb_lookup_entry_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_id_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_active_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_label_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_fib_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_get_elem(
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_weight_get_elem(
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_duplicate_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_recursive_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_active_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_fib_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_weight_get_elem(
 	struct nb_cb_get_elem_args *args);
 
 #ifdef __cplusplus

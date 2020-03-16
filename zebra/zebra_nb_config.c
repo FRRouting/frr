@@ -1217,9 +1217,9 @@ int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib
  */
-int lib_vrf_ribs_rib_create(struct nb_cb_create_args *args)
+int lib_vrf_zebra_ribs_rib_create(struct nb_cb_create_args *args)
 {
 	struct vrf *vrf;
 	afi_t afi = AFI_IP;
@@ -1261,7 +1261,7 @@ int lib_vrf_ribs_rib_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int lib_vrf_ribs_rib_destroy(struct nb_cb_destroy_args *args)
+int lib_vrf_zebra_ribs_rib_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
