@@ -79,6 +79,9 @@ try:
 except IOError:
     assert False, "Could not read file {}".format(jsonFile)
 
+#Global Variable
+KEEPALIVETIMER = 2
+HOLDDOWNTIMER = 6
 
 class CreateTopo(Topo):
     """
@@ -292,8 +295,8 @@ def test_bgp_timers_functionality(request):
                                 "r2": {
                                     "dest_link":{
                                         "r1": {
-                                            "keepalivetimer": 60,
-                                            "holddowntimer": 180,
+                                            "keepalivetimer": KEEPALIVETIMER,
+                                            "holddowntimer": HOLDDOWNTIMER
                                         }
                                     }
                                 }
@@ -317,8 +320,6 @@ def test_bgp_timers_functionality(request):
         format(tc_name, result)
 
     write_test_footer(tc_name)
-
-
 
 
 def test_static_routes(request):
