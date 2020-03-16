@@ -9634,11 +9634,25 @@ DEFUN (no_ip_msdp_mesh_group_source,
        "mesh group local address\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	if (argc == 7)
-		return ip_no_msdp_mesh_group_cmd_worker(pim, vty, argv[6]->arg);
+
+	return ip_no_msdp_mesh_group_source_cmd_worker(pim, vty, argv[4]->arg);
+}
+
+DEFUN (no_ip_msdp_mesh_group,
+       no_ip_msdp_mesh_group_cmd,
+       "no ip msdp mesh-group [WORD]",
+       NO_STR
+       IP_STR
+       CFG_MSDP_STR
+       "Delete MSDP mesh-group\n"
+       "mesh group name")
+{
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+
+	if (argc == 5)
+		return ip_no_msdp_mesh_group_cmd_worker(pim, vty, argv[4]->arg);
 	else
-		return ip_no_msdp_mesh_group_source_cmd_worker(pim, vty,
-							       argv[4]->arg);
+		return ip_no_msdp_mesh_group_cmd_worker(pim, vty, NULL);
 }
 
 static void print_empty_json_obj(struct vty *vty)
@@ -11024,6 +11038,8 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ip_msdp_mesh_group_source_cmd);
 	install_element(CONFIG_NODE, &no_ip_msdp_mesh_group_source_cmd);
 	install_element(VRF_NODE, &no_ip_msdp_mesh_group_source_cmd);
+	install_element(CONFIG_NODE, &no_ip_msdp_mesh_group_cmd);
+	install_element(VRF_NODE, &no_ip_msdp_mesh_group_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_peer_detail_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_peer_detail_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_sa_detail_cmd);

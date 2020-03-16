@@ -1286,7 +1286,9 @@ enum pim_msdp_err pim_msdp_mg_del(struct pim_instance *pim,
 	struct pim_msdp_mg *mg = pim->msdp.mg;
 	struct pim_msdp_mg_mbr *mbr;
 
-	if (!mg || strcmp(mg->mesh_group_name, mesh_group_name)) {
+	if (!mg
+	    || (mesh_group_name
+		&& strcmp(mg->mesh_group_name, mesh_group_name))) {
 		return PIM_MSDP_ERR_NO_MG;
 	}
 
