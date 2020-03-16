@@ -563,6 +563,7 @@ module frr-zebra {
              description
                 "The route's prefix.";
           }
+
           list route-entry {
             key "protocol";
             leaf protocol {
@@ -1927,10 +1928,12 @@ module frr-zebra {
   augment "/frr-vrf:lib/frr-vrf:vrf" {
     description
       "Extends VRF model with Zebra-related parameters.";
-    uses ribs;
+    container zebra {
+      uses ribs;
+    }
   }
 
-  augment "/frr-vrf:lib/frr-vrf:vrf/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop" {
+  augment "/frr-vrf:lib/frr-vrf:vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop" {
     uses frr-nh:frr-nexthop-operational;
   }
 
