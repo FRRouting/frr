@@ -232,6 +232,8 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 	}
 	pim_register_join(up);
+	/* if we have receiver, inherit from parent */
+	pim_upstream_inherited_olist_decide(pim_ifp->pim, up);
 
 	return 0;
 }
