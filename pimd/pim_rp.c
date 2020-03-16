@@ -248,12 +248,13 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	if (PIM_DEBUG_PIM_TRACE) {
 		char buf[PREFIX_STRLEN];
 
-		route_unlock_node(rn);
 		zlog_debug("Lookedup: %p for rp_info: %p(%s) Lock: %d", rn,
 			   rp_info,
 			   prefix2str(&rp_info->group, buf, sizeof(buf)),
 			   rn->lock);
 	}
+
+	route_unlock_node(rn);
 
 	if (!best)
 		return rp_info;
