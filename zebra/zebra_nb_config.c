@@ -1324,10 +1324,11 @@ int lib_interface_zebra_bandwidth_destroy(enum nb_event event,
 }
 
 /*
- * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib
  */
-int lib_vrf_ribs_rib_create(enum nb_event event, const struct lyd_node *dnode,
-			    union nb_resource *resource)
+int lib_vrf_zebra_ribs_rib_create(enum nb_event event,
+				  const struct lyd_node *dnode,
+				  union nb_resource *resource)
 {
 	// uint32_t table_id;
 	const char *vrf_name;
@@ -1369,7 +1370,8 @@ int lib_vrf_ribs_rib_create(enum nb_event event, const struct lyd_node *dnode,
 	return NB_OK;
 }
 
-int lib_vrf_ribs_rib_destroy(enum nb_event event, const struct lyd_node *dnode)
+int lib_vrf_zebra_ribs_rib_destroy(enum nb_event event,
+				   const struct lyd_node *dnode)
 {
 	if (event != NB_EV_APPLY)
 		return NB_OK;
