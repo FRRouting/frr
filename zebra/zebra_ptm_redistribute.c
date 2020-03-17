@@ -59,6 +59,9 @@ static int zsend_interface_bfd_update(int cmd, struct zserv *client,
 	stream_put(s, &sp->u.prefix, blen);
 	stream_putc(s, sp->prefixlen);
 
+	/* c-bit bullshit */
+	stream_putc(s, 0);
+
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
