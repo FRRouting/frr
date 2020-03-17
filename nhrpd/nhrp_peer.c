@@ -314,23 +314,29 @@ void nhrp_peer_send(struct nhrp_peer *p, struct zbuf *zb)
 	zbuf_reset(zb);
 }
 
-static void nhrp_handle_resolution_req(struct nhrp_packet_parser *p)
+static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 {
+	struct interface *ifp = pp->ifp;
 	struct zbuf *zb, payload;
 	struct nhrp_packet_header *hdr;
 	struct nhrp_cie_header *cie;
 	struct nhrp_extension_header *ext;
-	struct nhrp_interface *nifp;
+	struct nhrp_cache *c;
+	union sockunion cie_nbma, cie_proto, *proto_addr, *nbma_addr;
+	int holdtime, prefix_len, hostprefix_len;
+	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_peer *peer;
+	size_t paylen;
+	char buf[SU_ADDRSTRLEN];
 
-	if (!(p->if_ad->flags & NHRP_IFF_SHORTCUT)) {
+	if (!(pp->if_ad->flags & NHRP_IFF_SHORTCUT)) {
 		debugf(NHRP_DEBUG_COMMON, "Shortcuts disabled");
 		/* FIXME: Send error indication? */
 		return;
 	}
 
-	if (p->if_ad->network_id && p->route_type == NHRP_ROUTE_OFF_NBMA
-	    && p->route_prefix.prefixlen < 8) {
+	if (pp->if_ad->network_id && pp->route_type == NHRP_ROUTE_OFF_NBMA
+	    && pp->route_prefix.prefixlen < 8) {
 		debugf(NHRP_DEBUG_COMMON,
 		       "Shortcut to more generic than /8 dropped");
 		return;
@@ -338,45 +344,101 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *p)
 
 	debugf(NHRP_DEBUG_COMMON, "Parsing and replying to Resolution Req");
 
-	if (nhrp_route_address(p->ifp, &p->src_proto, NULL, &peer)
+	if (nhrp_route_address(ifp, &pp->src_proto, NULL, &peer)
 	    != NHRP_ROUTE_NBMA_NEXTHOP)
 		return;
 
-#if 0
-	/* FIXME: Update requestors binding if CIE specifies holding time */
-	nhrp_cache_update_binding(
-			NHRP_CACHE_CACHED, &p->src_proto,
-			nhrp_peer_get(p->ifp, &p->src_nbma),
-			htons(cie->holding_time));
-#endif
+	/* Copy payload CIE */
+	hostprefix_len = 8 * sockunion_get_addrlen(&pp->if_ad->addr);
+	paylen = zbuf_used(&pp->payload);
+	debugf(NHRP_DEBUG_COMMON, "shortcut res_rep: paylen %zu", paylen);
 
-	nifp = peer->ifp->info;
+	while ((cie = nhrp_cie_pull(&pp->payload, pp->hdr, &cie_nbma,
+				    &cie_proto))
+	       != NULL) {
+		prefix_len = cie->prefix_length;
+		debugf(NHRP_DEBUG_COMMON,
+		       "shortcut res_rep: parsing CIE with prefixlen=%u",
+		       prefix_len);
+		if (prefix_len == 0 || prefix_len >= hostprefix_len)
+			prefix_len = hostprefix_len;
+
+		if (prefix_len != hostprefix_len
+		    && !(pp->hdr->flags
+			 & htons(NHRP_FLAG_REGISTRATION_UNIQUE))) {
+			cie->code = NHRP_CODE_BINDING_NON_UNIQUE;
+			continue;
+		}
+
+		/* We currently support only unique prefix registrations */
+		if (prefix_len != hostprefix_len) {
+			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
+			continue;
+		}
+
+		proto_addr = (sockunion_family(&cie_proto) == AF_UNSPEC)
+				     ? &pp->src_proto
+				     : &cie_proto;
+		nbma_addr = (sockunion_family(&cie_nbma) == AF_UNSPEC)
+				    ? &pp->src_nbma
+				    : &cie_nbma;
+
+		holdtime = htons(cie->holding_time);
+		debugf(NHRP_DEBUG_COMMON,
+		       "shortcut res_rep: holdtime is %u (if 0, using %u)",
+		       holdtime, pp->if_ad->holdtime);
+		if (!holdtime)
+			holdtime = pp->if_ad->holdtime;
+
+		c = nhrp_cache_get(ifp, proto_addr, 1);
+		if (!c) {
+			debugf(NHRP_DEBUG_COMMON,
+			       "shortcut res_rep: no cache found");
+			cie->code = NHRP_CODE_INSUFFICIENT_RESOURCES;
+			continue;
+		}
+		if (nbma_addr)
+			sockunion2str(nbma_addr, buf, sizeof(buf));
+
+		debugf(NHRP_DEBUG_COMMON,
+		       "shortcut res_rep: updating binding for nmba addr %s",
+		       nbma_addr ? buf : "(NULL)");
+		if (!nhrp_cache_update_binding(c, NHRP_CACHE_DYNAMIC, holdtime,
+					       nhrp_peer_ref(pp->peer),
+					       htons(cie->mtu), nbma_addr)) {
+			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
+			continue;
+		}
+
+		cie->code = NHRP_CODE_SUCCESS;
+	}
 
 	/* Create reply */
 	zb = zbuf_alloc(1500);
-	hdr = nhrp_packet_push(zb, NHRP_PACKET_RESOLUTION_REPLY, &p->src_nbma,
-			       &p->src_proto, &p->dst_proto);
+	hdr = nhrp_packet_push(zb, NHRP_PACKET_RESOLUTION_REPLY, &pp->src_nbma,
+			       &pp->src_proto, &pp->dst_proto);
 
 	/* Copied information from request */
-	hdr->flags =
-		p->hdr->flags & htons(NHRP_FLAG_RESOLUTION_SOURCE_IS_ROUTER
-				      | NHRP_FLAG_RESOLUTION_SOURCE_STABLE);
+	hdr->flags = pp->hdr->flags
+		     & htons(NHRP_FLAG_RESOLUTION_SOURCE_IS_ROUTER
+			     | NHRP_FLAG_RESOLUTION_SOURCE_STABLE);
 	hdr->flags |= htons(NHRP_FLAG_RESOLUTION_DESTINATION_STABLE
 			    | NHRP_FLAG_RESOLUTION_AUTHORATIVE);
-	hdr->u.request_id = p->hdr->u.request_id;
+	hdr->u.request_id = pp->hdr->u.request_id;
 
-	/* CIE payload */
+	/* CIE payload for the reply packet */
 	cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, &nifp->nbma,
-			    &p->if_ad->addr);
-	cie->holding_time = htons(p->if_ad->holdtime);
-	cie->mtu = htons(p->if_ad->mtu);
-	if (p->if_ad->network_id && p->route_type == NHRP_ROUTE_OFF_NBMA)
-		cie->prefix_length = p->route_prefix.prefixlen;
+			    &pp->if_ad->addr);
+	cie->holding_time = htons(pp->if_ad->holdtime);
+	cie->mtu = htons(pp->if_ad->mtu);
+	if (pp->if_ad->network_id && pp->route_type == NHRP_ROUTE_OFF_NBMA)
+		cie->prefix_length = pp->route_prefix.prefixlen;
 	else
-		cie->prefix_length = 8 * sockunion_get_addrlen(&p->if_ad->addr);
+		cie->prefix_length =
+			8 * sockunion_get_addrlen(&pp->if_ad->addr);
 
 	/* Handle extensions */
-	while ((ext = nhrp_ext_pull(&p->extensions, &payload)) != NULL) {
+	while ((ext = nhrp_ext_pull(&pp->extensions, &payload)) != NULL) {
 		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
 		case NHRP_EXTENSION_NAT_ADDRESS:
 			if (sockunion_family(&nifp->nat_nbma) == AF_UNSPEC)
@@ -386,13 +448,13 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *p)
 			if (!ext)
 				goto err;
 			cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS,
-					    &nifp->nat_nbma, &p->if_ad->addr);
+					    &nifp->nat_nbma, &pp->if_ad->addr);
 			if (!cie)
 				goto err;
 			nhrp_ext_complete(zb, ext);
 			break;
 		default:
-			if (nhrp_ext_reply(zb, hdr, p->ifp, ext, &payload) < 0)
+			if (nhrp_ext_reply(zb, hdr, ifp, ext, &payload) < 0)
 				goto err;
 			break;
 		}
@@ -657,7 +719,7 @@ enum packet_type_t {
 	PACKET_INDICATION,
 };
 
-static const struct {
+static struct {
 	enum packet_type_t type;
 	const char *name;
 	void (*handler)(struct nhrp_packet_parser *);
@@ -897,11 +959,15 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 	if (extoff) {
 		assert(zb->head > zb->buf);
 		uint32_t header_offset = zb->head - zb->buf;
-		if ((extoff >= realsize) || (extoff < (header_offset))) {
-			info = "extoff larger than packet, or smaller than header";
+		if (extoff >= realsize) {
+			info = "extoff larger than packet";
 			goto drop;
 		}
-		paylen = extoff - (zb->head - zb->buf);
+		if (extoff < header_offset) {
+			info = "extoff smaller than header offset";
+			goto drop;
+		}
+		paylen = extoff - header_offset;
 	} else {
 		paylen = zbuf_used(zb);
 	}
