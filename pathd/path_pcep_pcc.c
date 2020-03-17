@@ -184,6 +184,11 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	assert(PCEP_PCC_DISCONNECTED == pcc_state->status);
 	assert(NULL == pcc_state->sess);
 
+	if (NULL != pcc_state->t_reconnect) {
+		thread_cancel(pcc_state->t_reconnect);
+		pcc_state->t_reconnect = NULL;
+	}
+
 	PCEP_DEBUG("%s PCC connecting", pcc_state->tag);
 
 	pcc_state->sess =
