@@ -562,20 +562,12 @@ void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 
 void vty_out_timestr(struct vty *vty, time_t uptime)
 {
-	struct tm tm;
 	time_t difftime = time(NULL);
+	char buf[MONOTIME_STRLEN];
+
 	difftime -= uptime;
 
-	gmtime_r(&difftime, &tm);
+	frrtime_to_interval(difftime, buf, sizeof(buf));
 
-	if (difftime < ONE_DAY_SECOND)
-		vty_out(vty, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
-			tm.tm_sec);
-	else if (difftime < ONE_WEEK_SECOND)
-		vty_out(vty, "%dd%02dh%02dm", tm.tm_yday, tm.tm_hour,
-			tm.tm_min);
-	else
-		vty_out(vty, "%02dw%dd%02dh", tm.tm_yday / 7,
-			tm.tm_yday - ((tm.tm_yday / 7) * 7), tm.tm_hour);
-	vty_out(vty, " ago");
+	vty_out(vty, "%s ago", buf);
 }
