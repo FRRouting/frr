@@ -74,6 +74,20 @@ Example:
 .. clicmd:: [no] candidate-path preference PREFERENCE name NAME dynamic
 
 
+PCE and Segment Routing draft 07
+--------------------------------
+
+Most PCE currently only support draft 07 of the pcep extension for segment
+routing. For the PCC to work with these PCE, the flag `sr-draft07` needs to be
+specified:
+
+.. code-block:: frr
+
+	pcc
+	 pce ip 127.0.0.1 sr-draft07
+	!
+
+
 Introspection
 =============
 
