@@ -1791,6 +1791,22 @@ if test "$enable_rpki" = "yes"; then
   )
 fi
 
+dnl -------------------------------------
+dnl VRRP is only supported on linux
+dnl -------------------------------------
+if test "$enable_vrrpd" != "no"; then
+AC_MSG_CHECKING([for VRRP OS support])
+case "$host_os" in
+  linux*)
+    AC_MSG_RESULT([yes])
+    ;;
+  *)
+    AC_MSG_RESULT([no])
+    enable_vrrpd="no"
+    ;;
+esac
+fi
+
 dnl ------------------------------------------
 dnl Check whether rtrlib was build with ssh support
 dnl ------------------------------------------
