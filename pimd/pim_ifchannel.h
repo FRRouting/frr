@@ -69,13 +69,30 @@ struct pim_assert_metric {
 #define PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(flags) ((flags) &= ~PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)
 
 /*
- * Flat to tell us if the ifchannel is (S,G,rpt)
+ * Flag to tell us if the ifchannel is (S,G,rpt)
  */
 #define PIM_IF_FLAG_MASK_S_G_RPT         (1 << 2)
 #define PIM_IF_FLAG_TEST_S_G_RPT(flags)  ((flags) & PIM_IF_FLAG_MASK_S_G_RPT)
 #define PIM_IF_FLAG_SET_S_G_RPT(flags)   ((flags) |= PIM_IF_FLAG_MASK_S_G_RPT)
 #define PIM_IF_FLAG_UNSET_S_G_RPT(flags) ((flags) &= ~PIM_IF_FLAG_MASK_S_G_RPT)
 
+/*
+ * Flag to tell us if the ifchannel is proto PIM
+ */
+#define PIM_IF_FLAG_MASK_PROTO_PIM (1 << 3)
+#define PIM_IF_FLAG_TEST_PROTO_PIM(flags) ((flags)&PIM_IF_FLAG_MASK_PROTO_PIM)
+#define PIM_IF_FLAG_SET_PROTO_PIM(flags) ((flags) |= PIM_IF_FLAG_MASK_PROTO_PIM)
+#define PIM_IF_FLAG_UNSET_PROTO_PIM(flags)                                     \
+	((flags) &= ~PIM_IF_FLAG_MASK_PROTO_PIM)
+/*
+ * Flag to tell us if the ifchannel is proto IGMP
+ */
+#define PIM_IF_FLAG_MASK_PROTO_IGMP (1 << 4)
+#define PIM_IF_FLAG_TEST_PROTO_IGMP(flags) ((flags)&PIM_IF_FLAG_MASK_PROTO_IGMP)
+#define PIM_IF_FLAG_SET_PROTO_IGMP(flags)                                      \
+	((flags) |= PIM_IF_FLAG_MASK_PROTO_IGMP)
+#define PIM_IF_FLAG_UNSET_PROTO_IGMP(flags)                                    \
+	((flags) &= ~PIM_IF_FLAG_MASK_PROTO_IGMP)
 /*
   Per-interface (S,G) state
 */

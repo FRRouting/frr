@@ -628,6 +628,12 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 				up->dualactive_ifchannel_count, up->flags);
 	}
 
+	if (up_flags == PIM_UPSTREAM_FLAG_MASK_SRC_PIM)
+		PIM_IF_FLAG_SET_PROTO_PIM(ch->flags);
+
+	if (up_flags == PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
+		PIM_IF_FLAG_SET_PROTO_IGMP(ch->flags);
+
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: ifchannel %s(%s) is created ", __func__,
 			   ch->sg_str, ch->interface->name);
