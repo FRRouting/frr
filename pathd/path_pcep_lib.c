@@ -87,6 +87,9 @@ pcep_session *pcep_lib_connect(struct pcc_opts *pcc_opts,
 	config->support_sr_te_pst = true;
 	config->pcc_can_resolve_nai_to_sid = false;
 
+	config->pcep_msg_versioning->draft_ietf_pce_segment_routing_07
+		= pce_opts->draft07;
+
 	sess = connect_pce(config, &pce_opts->addr);
 	destroy_pcep_configuration(config);
 	return sess;

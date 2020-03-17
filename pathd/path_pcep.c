@@ -246,12 +246,13 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 }
 
 DEFUN(pcep_cli_pce_opts, pcep_cli_pce_opts_cmd,
-      "pce ip A.B.C.D [port (1024-65535)]",
+      "pce ip A.B.C.D [port (1024-65535)] [sr-draft07]",
       "PCE configuration\n"
       "PCE address\n"
       "Remote PCE server IPv4 address\n"
       "Remote PCE server port\n"
-      "Remote PCE server port value\n")
+      "Remote PCE server port value\n"
+      "Use the draft 07 of PCEP segemnt routing\n")
 {
 	/* TODO: Add support for multiple PCE */
 	/* TODO: Add support for IPv6 */
@@ -259,19 +260,41 @@ DEFUN(pcep_cli_pce_opts, pcep_cli_pce_opts_cmd,
 	struct in_addr pce_addr;
 	uint32_t pce_port = PCEP_DEFAULT_PORT;
 	struct pce_opts *pce_opts, *pce_opts_copy;
+	bool draft07 = false;
+	int i = 1;
 
-	int ip_idx = 2;
-	int port_idx = 4;
-
-	if (!inet_pton(AF_INET, argv[ip_idx]->arg, &pce_addr.s_addr))
+	if (0 != strcmp("ip", argv[i]->arg))
+		return CMD_ERR_NO_MATCH;
+	i++;
+	if (i >= argc)
+		return CMD_ERR_NO_MATCH;
+	if (!inet_pton(AF_INET, argv[i]->arg, &pce_addr.s_addr))
 		return CMD_ERR_INCOMPLETE;
+	i++;
 
-	if (argc > port_idx)
-		pce_port = atoi(argv[port_idx]->arg);
+	while (i < argc) {
+		if (0 == strcmp("port", argv[i]->arg)) {
+			i++;
+			if (i >= argc)
+				return CMD_ERR_NO_MATCH;
+			pce_port = atoi(argv[i]->arg);
+			if (0 == pce_port)
+				return CMD_ERR_INCOMPLETE;
+			i++;
+			continue;
+		}
+		if (0 == strcmp("sr-draft07", argv[i]->arg)) {
+			draft07 = true;
+			i++;
+			continue;
+		}
+		return CMD_ERR_NO_MATCH;
+	}
 
 	pce_opts = XCALLOC(MTYPE_PCEP, sizeof(*pce_opts));
 	pce_opts->addr = pce_addr;
 	pce_opts->port = pce_port;
+	pce_opts->draft07 = draft07;
 
 	if (pcep_ctrl_update_pce_options(pcep_g->fpt, 1, pce_opts))
 		return CMD_WARNING;
