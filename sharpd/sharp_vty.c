@@ -337,9 +337,127 @@ DEFUN_NOSH (show_debugging_sharpd,
 	    DEBUG_STR
 	    "Sharp Information\n")
 {
-	vty_out(vty, "Sharp debugging status\n");
+	vty_out(vty, "Sharp debugging status:\n");
 
 	return CMD_SUCCESS;
+}
+
+DEFPY(sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
+      "sharp lsp (0-100000)$inlabel\
+        nexthop-group NHGNAME$nhgname\
+        [prefix A.B.C.D/M$pfx\
+       " FRR_IP_REDIST_STR_SHARPD "$type_str [instance (0-255)$instance]]",
+      "Sharp Routing Protocol\n"
+      "Add an LSP\n"
+      "The ingress label to use\n"
+      "Use nexthops from a nexthop-group\n"
+      "The nexthop-group name\n"
+      "Label a prefix\n"
+      "The v4 prefix to label\n"
+      FRR_IP_REDIST_HELP_STR_SHARPD
+      "Instance to use\n"
+      "Instance\n")
+{
+	struct nexthop_group_cmd *nhgc = NULL;
+	struct prefix p = {};
+	int type = 0;
+
+	/* We're offered a v4 prefix */
+	if (pfx->family > 0 && type_str) {
+		p.family = pfx->family;
+		p.prefixlen = pfx->prefixlen;
+		p.u.prefix4 = pfx->prefix;
+
+		type = proto_redistnum(AFI_IP, type_str);
+		if (type < 0) {
+			vty_out(vty, "%%  Unknown route type '%s'\n", type_str);
+			return CMD_WARNING;
+		}
+	} else if (pfx->family > 0 || type_str) {
+		vty_out(vty, "%%  Must supply both prefix and type\n");
+		return CMD_WARNING;
+	}
+
+	nhgc = nhgc_find(nhgname);
+	if (!nhgc) {
+		vty_out(vty, "%%  Nexthop-group '%s' does not exist\n",
+			nhgname);
+		return CMD_WARNING;
+	}
+
+	if (nhgc->nhg.nexthop == NULL) {
+		vty_out(vty, "%%  Nexthop-group '%s' is empty\n", nhgname);
+		return CMD_WARNING;
+	}
+
+	if (sharp_install_lsps_helper(true, pfx->family > 0 ? &p : NULL,
+				      type, instance, inlabel,
+				      &(nhgc->nhg)) == 0)
+		return CMD_SUCCESS;
+	else {
+		vty_out(vty, "%% LSP install failed!\n");
+		return CMD_WARNING;
+	}
+}
+
+DEFPY(sharp_remove_lsp_prefix_v4, sharp_remove_lsp_prefix_v4_cmd,
+      "sharp remove lsp \
+        (0-100000)$inlabel\
+        nexthop-group NHGNAME$nhgname\
+        [prefix A.B.C.D/M$pfx\
+       " FRR_IP_REDIST_STR_SHARPD "$type_str [instance (0-255)$instance]]",
+      "Sharp Routing Protocol\n"
+      "Remove data\n"
+      "Remove an LSP\n"
+      "The ingress label\n"
+      "Use nexthops from a nexthop-group\n"
+      "The nexthop-group name\n"
+      "Specify a v4 prefix\n"
+      "The v4 prefix to label\n"
+      FRR_IP_REDIST_HELP_STR_SHARPD
+      "Routing instance\n"
+      "Instance to use\n")
+{
+	struct nexthop_group_cmd *nhgc = NULL;
+	struct prefix p = {};
+	int type = 0;
+
+	/* We're offered a v4 prefix */
+	if (pfx->family > 0 && type_str) {
+		p.family = pfx->family;
+		p.prefixlen = pfx->prefixlen;
+		p.u.prefix4 = pfx->prefix;
+
+		type = proto_redistnum(AFI_IP, type_str);
+		if (type < 0) {
+			vty_out(vty, "%%  Unknown route type '%s'\n", type_str);
+			return CMD_WARNING;
+		}
+	} else if (pfx->family > 0 || type_str) {
+		vty_out(vty, "%%  Must supply both prefix and type\n");
+		return CMD_WARNING;
+	}
+
+	nhgc = nhgc_find(nhgname);
+	if (!nhgc) {
+		vty_out(vty, "%%  Nexthop-group '%s' does not exist\n",
+			nhgname);
+		return CMD_WARNING;
+	}
+
+	if (nhgc->nhg.nexthop == NULL) {
+		vty_out(vty, "%%  Nexthop-group '%s' is empty\n", nhgname);
+		return CMD_WARNING;
+	}
+
+	if (sharp_install_lsps_helper(false, pfx->family > 0 ? &p : NULL,
+				      type, instance, inlabel,
+				      &(nhgc->nhg)) == 0)
+		return CMD_SUCCESS;
+	else {
+		vty_out(vty, "%% LSP remove failed!\n");
+		return CMD_WARNING;
+	}
 }
 
 void sharp_vty_init(void)
@@ -351,6 +469,8 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &sharp_nht_data_dump_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v6_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v4_cmd);
+	install_element(ENABLE_NODE, &sharp_lsp_prefix_v4_cmd);
+	install_element(ENABLE_NODE, &sharp_remove_lsp_prefix_v4_cmd);
 
 	install_element(VIEW_NODE, &show_debugging_sharpd_cmd);
 
