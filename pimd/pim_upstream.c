@@ -462,9 +462,25 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 		return;
 	}
 
-	join_timer_remain_msec = pim_time_timer_remain_msec(up->t_join_timer);
 	t_override_msec =
 		pim_if_t_override_msec(up->rpf.source_nexthop.interface);
+
+	if (up->t_join_timer) {
+		join_timer_remain_msec =
+			pim_time_timer_remain_msec(up->t_join_timer);
+	} else {
+		/* upstream join tracked with neighbor jp timer */
+		struct pim_neighbor *nbr;
+
+		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
+					up->rpf.rpf_addr.u.prefix4);
+		if (nbr)
+			join_timer_remain_msec =
+				pim_time_timer_remain_msec(nbr->jp_timer);
+		else
+			/* Manipulate such that override takes place */
+			join_timer_remain_msec = t_override_msec + 1;
+	}
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		char rpf_str[INET_ADDRSTRLEN];
