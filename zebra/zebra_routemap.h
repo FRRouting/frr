@@ -56,4 +56,5 @@ zebra_nht_route_map_check(afi_t afi, int client_proto, const struct prefix *p,
 }
 #endif
 
+extern void zebra_routemap_finish(void);
 #endif
