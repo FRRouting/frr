@@ -140,18 +140,19 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 
 	if ((source_flags & PIM_RPT_BIT_MASK)
 	    && (source_flags & PIM_WILDCARD_BIT_MASK)) {
-		struct pim_rpf *rp = RP(pim_ifp->pim, sg->grp);
+		/*
+		 * RFC 4601 Section 4.5.2:
+		 * Received Prune(*,G) messages are processed even if the
+		 * RP in the message does not match RP(G).
+		 */
+		if (PIM_DEBUG_PIM_TRACE) {
+			char received_rp[INET_ADDRSTRLEN];
 
-		if (!rp) {
-			if (PIM_DEBUG_PIM_TRACE)
-				zlog_debug(
-					"%s: RP for %pSG4 completely failed lookup",
-					__func__, sg);
-			return;
+			pim_inet4_dump("<received?>", sg->src, received_rp,
+				       sizeof(received_rp));
+			zlog_debug("%s: Prune received with RP(%s) for %pSG4",
+				   __func__, received_rp, sg);
 		}
-		// Ignoring Prune *,G's at the moment.
-		if (sg->src.s_addr != rp->rpf_addr.u.prefix4.s_addr)
-			return;
 
 		sg->src.s_addr = INADDR_ANY;
 	}
