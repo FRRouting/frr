@@ -66,6 +66,14 @@ Certain signals have special meanings to *pimd*.
    prefix of group ranges covered. This command is vrf aware, to configure for
    a vrf, enter the vrf submode.
 
+.. index:: ip pim register-accept-list PLIST
+.. clicmd:: ip pim register-accept-list PLIST
+
+   When pim receives a register packet the source of the packet will be compared
+   to the prefix-list specified, PLIST, and if a permit is received normal
+   processing continues.  If a deny is returned for the source address of the
+   register packet a register stop message is sent to the source.
+
 .. index:: ip pim spt-switchover infinity-and-beyond
 .. clicmd:: ip pim spt-switchover infinity-and-beyond
 

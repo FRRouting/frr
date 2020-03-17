@@ -216,6 +216,11 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 			ssm->plist_name);
 		++writes;
 	}
+	if (pim->register_plist) {
+		vty_out(vty, "%sip pim register-accept-list %s\n", spaces,
+			pim->register_plist);
+		++writes;
+	}
 	if (pim->spt.switchover == PIM_SPT_INFINITY) {
 		if (pim->spt.plist)
 			vty_out(vty,

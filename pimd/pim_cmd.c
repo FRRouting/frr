@@ -6628,18 +6628,18 @@ static int pim_cmd_spt_switchover(struct pim_instance *pim,
 
 	switch (pim->spt.switchover) {
 	case PIM_SPT_IMMEDIATE:
-		XFREE(MTYPE_PIM_SPT_PLIST_NAME, pim->spt.plist);
+		XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 
 		pim_upstream_add_lhr_star_pimreg(pim);
 		break;
 	case PIM_SPT_INFINITY:
 		pim_upstream_remove_lhr_star_pimreg(pim, plist);
 
-		XFREE(MTYPE_PIM_SPT_PLIST_NAME, pim->spt.plist);
+		XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 
 		if (plist)
 			pim->spt.plist =
-				XSTRDUP(MTYPE_PIM_SPT_PLIST_NAME, plist);
+				XSTRDUP(MTYPE_PIM_PLIST_NAME, plist);
 		break;
 	}
 
@@ -6698,6 +6698,26 @@ DEFUN (no_ip_pim_spt_switchover_infinity_plist,
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
 	return pim_cmd_spt_switchover(pim, PIM_SPT_IMMEDIATE, NULL);
+}
+
+DEFPY (pim_register_accept_list,
+       pim_register_accept_list_cmd,
+       "[no] ip pim register-accept-list WORD$word",
+       NO_STR
+       IP_STR
+       PIM_STR
+       "Only accept registers from a specific source prefix list\n"
+       "Prefix-List name\n")
+{
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+
+	if (no)
+		XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
+	else {
+		XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
+		pim->register_plist = XSTRDUP(MTYPE_PIM_PLIST_NAME, word);
+	}
+	return CMD_SUCCESS;
 }
 
 DEFUN (ip_pim_joinprune_time,
@@ -10798,6 +10818,8 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE,
 			&no_ip_pim_spt_switchover_infinity_plist_cmd);
 	install_element(VRF_NODE, &no_ip_pim_spt_switchover_infinity_plist_cmd);
+	install_element(CONFIG_NODE, &pim_register_accept_list_cmd);
+	install_element(VRF_NODE, &pim_register_accept_list_cmd);
 	install_element(CONFIG_NODE, &ip_pim_joinprune_time_cmd);
 	install_element(VRF_NODE, &ip_pim_joinprune_time_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_joinprune_time_cmd);
