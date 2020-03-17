@@ -428,6 +428,22 @@ bool aspath_check_as_sets(struct aspath *aspath)
 	return false;
 }
 
+/* Check if aspath has BGP_AS_ZERO */
+bool aspath_check_as_zero(struct aspath *aspath)
+{
+	struct assegment *seg = aspath->segments;
+	unsigned int i;
+
+	while (seg) {
+		for (i = 0; i < seg->length; i++)
+			if (seg->as[i] == BGP_AS_ZERO)
+				return true;
+		seg = seg->next;
+	}
+
+	return false;
+}
+
 /* Estimate size aspath /might/ take if encoded into an
  * ASPATH attribute.
  *

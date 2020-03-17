@@ -39,6 +39,7 @@
 #define BGP_PRIVATE_AS4_MAX     4294967294U
 
 /* we leave BGP_AS_MAX as the 16bit AS MAX number.  */
+#define BGP_AS_ZERO		          0
 #define BGP_AS_MAX		     65535U
 #define BGP_AS4_MAX		4294967295U
 /* Transition 16Bit AS as defined by IANA */
@@ -121,6 +122,7 @@ extern bool aspath_left_confed_check(struct aspath *);
 extern unsigned long aspath_count(void);
 extern unsigned int aspath_count_hops(const struct aspath *);
 extern bool aspath_check_as_sets(struct aspath *aspath);
+extern bool aspath_check_as_zero(struct aspath *aspath);
 extern unsigned int aspath_count_confeds(struct aspath *);
 extern unsigned int aspath_size(struct aspath *);
 extern as_t aspath_highest(struct aspath *);
