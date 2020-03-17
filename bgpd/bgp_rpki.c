@@ -94,6 +94,7 @@ enum return_values { SUCCESS = 0, ERROR = -1 };
 struct rpki_for_each_record_arg {
 	struct vty *vty;
 	unsigned int *prefix_amount;
+	as_t as;
 };
 
 static int start(void);
@@ -271,6 +272,17 @@ static void print_record(const struct pfx_record *record, struct vty *vty)
 	lrtr_ip_addr_to_str(&record->prefix, ip, sizeof(ip));
 	vty_out(vty, "%-40s   %3u - %3u   %10u\n", ip, record->min_len,
 		record->max_len, record->asn);
+}
+
+static void print_record_by_asn(const struct pfx_record *record, void *data)
+{
+	struct rpki_for_each_record_arg *arg = data;
+	struct vty *vty = arg->vty;
+
+	if (record->asn == arg->as) {
+		(*arg->prefix_amount)++;
+		print_record(record, vty);
+	}
 }
 
 static void print_record_cb(const struct pfx_record *record, void *data)
@@ -619,6 +631,36 @@ static struct rtr_mgr_group *get_connected_group(void)
 		return NULL;
 
 	return rtr_mgr_get_first_group(rtr_config);
+}
+
+static void print_prefix_table_by_asn(struct vty *vty, as_t as)
+{
+	unsigned int number_of_ipv4_prefixes = 0;
+	unsigned int number_of_ipv6_prefixes = 0;
+	struct rtr_mgr_group *group = get_connected_group();
+	struct rpki_for_each_record_arg arg;
+
+	arg.vty = vty;
+	arg.as = as;
+
+	if (!group) {
+		vty_out(vty, "Cannot find a connected group.\n");
+		return;
+	}
+
+	struct pfx_table *pfx_table = group->sockets[0]->pfx_table;
+
+	vty_out(vty, "RPKI/RTR prefix table\n");
+	vty_out(vty, "%-40s %s  %s\n", "Prefix", "Prefix Length", "Origin-AS");
+
+	arg.prefix_amount = &number_of_ipv4_prefixes;
+	pfx_table_for_each_ipv4_record(pfx_table, print_record_by_asn, &arg);
+
+	arg.prefix_amount = &number_of_ipv6_prefixes;
+	pfx_table_for_each_ipv6_record(pfx_table, print_record_by_asn, &arg);
+
+	vty_out(vty, "Number of IPv4 Prefixes: %u\n", number_of_ipv4_prefixes);
+	vty_out(vty, "Number of IPv6 Prefixes: %u\n", number_of_ipv6_prefixes);
 }
 
 static void print_prefix_table(struct vty *vty)
@@ -1190,6 +1232,21 @@ DEFUN (show_rpki_prefix_table,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_rpki_as_number, show_rpki_as_number_cmd,
+      "show rpki as-number (1-4294967295)$by_asn",
+      SHOW_STR RPKI_OUTPUT_STRING
+      "Lookup by ASN in prefix table\n"
+      "AS Number\n")
+{
+	if (!is_synchronized()) {
+		vty_out(vty, "No Connection to RPKI cache server.\n");
+		return CMD_WARNING;
+	}
+
+	print_prefix_table_by_asn(vty, by_asn);
+	return CMD_SUCCESS;
+}
+
 DEFPY (show_rpki_prefix,
        show_rpki_prefix_cmd,
        "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [(1-4294967295)$asn]",
@@ -1523,6 +1580,7 @@ static void install_cli_commands(void)
 	install_element(VIEW_NODE, &show_rpki_cache_connection_cmd);
 	install_element(VIEW_NODE, &show_rpki_cache_server_cmd);
 	install_element(VIEW_NODE, &show_rpki_prefix_cmd);
+	install_element(VIEW_NODE, &show_rpki_as_number_cmd);
 
 	/* Install debug commands */
 	install_element(CONFIG_NODE, &debug_rpki_cmd);
