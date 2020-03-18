@@ -2,7 +2,12 @@
 # libfrr
 #
 lib_LTLIBRARIES += lib/libfrr.la
-lib_libfrr_la_LDFLAGS = -version-info 0:0:0 -Xlinker -e_libfrr_version
+lib_libfrr_la_LDFLAGS = -version-info 0:0:0
+
+if LINUX
+lib_libfrr_la_LDFLAGS += -Xlinker -e_libfrr_version
+endif
+
 lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(LIBM)
 
 lib_libfrr_la_SOURCES = \
