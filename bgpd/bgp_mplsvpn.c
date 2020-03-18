@@ -744,10 +744,15 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 	struct ecommunity *old_ecom;
 	struct ecommunity *new_ecom;
 
+	/* Export with the 'from' instance's export RTs. */
+	/* If doing VRF-to-VRF leaking, strip existing RTs first. */
 	old_ecom = static_attr.ecommunity;
 	if (old_ecom) {
-		new_ecom = ecommunity_merge(
-			ecommunity_dup(old_ecom),
+		new_ecom = ecommunity_dup(old_ecom);
+		if (CHECK_FLAG(bgp_vrf->af_flags[afi][SAFI_UNICAST],
+				BGP_CONFIG_VRF_TO_VRF_EXPORT))
+			ecommunity_strip_rts(new_ecom);
+		new_ecom = ecommunity_merge(new_ecom,
 			bgp_vrf->vpn_policy[afi]
 				.rtlist[BGP_VPN_POLICY_DIR_TOVPN]);
 		if (!old_ecom->refcnt)
@@ -1086,6 +1091,20 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 
 	/* shallow copy */
 	static_attr = *path_vpn->attr;
+
+	struct ecommunity *old_ecom;
+	struct ecommunity *new_ecom;
+
+	/* If doing VRF-to-VRF leaking, strip RTs. */
+	old_ecom = static_attr.ecommunity;
+	if (old_ecom && CHECK_FLAG(bgp_vrf->af_flags[afi][safi],
+				BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
+		new_ecom = ecommunity_dup(old_ecom);
+		ecommunity_strip_rts(new_ecom);
+		static_attr.ecommunity = new_ecom;
+		if (!old_ecom->refcnt)
+			ecommunity_free(&old_ecom);
+	}
 
 	/*
 	 * Nexthop: stash and clear
