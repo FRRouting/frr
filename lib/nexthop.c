@@ -415,10 +415,8 @@ void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t type,
 /* Free label information of nexthop, if present. */
 void nexthop_del_labels(struct nexthop *nexthop)
 {
-	if (nexthop->nh_label) {
-		XFREE(MTYPE_NH_LABEL, nexthop->nh_label);
-		nexthop->nh_label_type = ZEBRA_LSP_NONE;
-	}
+	XFREE(MTYPE_NH_LABEL, nexthop->nh_label);
+	nexthop->nh_label_type = ZEBRA_LSP_NONE;
 }
 
 const char *nexthop2str(const struct nexthop *nexthop, char *str, int size)
