@@ -173,8 +173,7 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 	afi = family2afi(p->family);
 	if (!afi) {
 		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
-			  "%s: Unknown AFI/SAFI prefix received\n",
-			  __FUNCTION__);
+			  "%s: Unknown AFI/SAFI prefix received\n", __func__);
 		return;
 	}
 	if (!zebra_check_addr(p)) {
