@@ -200,6 +200,25 @@ static void bgp_bfd_update_peer(struct peer *peer)
 	bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_UPDATE);
 }
 
+/**
+ * bgp_bfd_reset_peer - reinitialise bfd
+ * ensures that bfd state machine is restarted
+ * to be synced with remote bfd
+ */
+void bgp_bfd_reset_peer(struct peer *peer)
+{
+	struct bfd_info *bfd_info;
+
+	if (!peer->bfd_info)
+		return;
+	bfd_info = (struct bfd_info *)peer->bfd_info;
+
+	/* if status is not down, reset bfd */
+	if (bfd_info->status != BFD_STATUS_DOWN)
+		bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_DEREGISTER);
+	bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_REGISTER);
+}
+
 /*
  * bgp_bfd_update_type - update session type with BFD through zebra.
  */

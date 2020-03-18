@@ -31,6 +31,8 @@ extern void bgp_bfd_register_peer(struct peer *peer);
 
 extern void bgp_bfd_deregister_peer(struct peer *peer);
 
+extern void bgp_bfd_reset_peer(struct peer *peer);
+
 extern void bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer,
 				      char *addr);
 
