@@ -2107,6 +2107,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 	if (debug)
 		prefix2str(&rn->p, pfx_buf, sizeof(pfx_buf));
 
+	rn->reason = bgp_path_selection_none;
 	/* bgp deterministic-med */
 	new_select = NULL;
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED)) {
@@ -2186,6 +2187,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 	new_select = NULL;
 	for (pi = bgp_node_get_bgp_path_info(rn);
 	     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
+		enum bgp_path_selection_reason reason;
+
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 			old_select = pi;
 
@@ -2226,8 +2229,12 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 
 		bgp_path_info_unset_flag(rn, pi, BGP_PATH_DMED_CHECK);
 
+		reason = rn->reason;
 		if (bgp_path_info_cmp(bgp, pi, new_select, &paths_eq, mpath_cfg,
 				      debug, pfx_buf, afi, safi, &rn->reason)) {
+			if (new_select == NULL &&
+			    reason != bgp_path_selection_none)
+				rn->reason = reason;
 			new_select = pi;
 		}
 	}
