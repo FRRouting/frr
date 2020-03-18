@@ -82,9 +82,11 @@ struct bgp_addrv6 {
 extern void bgp_connected_add(struct bgp *bgp, struct connected *c);
 extern void bgp_connected_delete(struct bgp *bgp, struct connected *c);
 extern int bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
-					   struct update_subgroup *subgrp);
+					   struct update_subgroup *subgrp,
+					   struct peer *exclude);
 extern int bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
-					   struct update_subgroup *subgrp);
+					   struct update_subgroup *subgrp,
+					   struct peer *exclude);
 extern int bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer);
 extern int bgp_multiaccess_check_v6(struct in6_addr nexthop, struct peer *peer);
 extern int bgp_config_write_scan_time(struct vty *);

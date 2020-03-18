@@ -612,7 +612,8 @@ int bgp_multiaccess_check_v6(struct in6_addr nexthop, struct peer *peer)
 }
 
 int bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
-			struct update_subgroup *subgrp)
+				    struct update_subgroup *subgrp,
+				    struct peer *exclude)
 {
 	struct bgp_node *rn1 = NULL, *rn2 = NULL;
 	struct peer_af *paf = NULL;
@@ -632,6 +633,9 @@ int bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
 		return 0;
 
 	SUBGRP_FOREACH_PEER (subgrp, paf) {
+		/* Skip peer we're told to exclude - e.g., source of route. */
+		if (paf->peer == exclude)
+			continue;
 
 		p.u.prefix6 = paf->peer->su.sin6.sin6_addr;
 		rn2 = bgp_node_match(bgp->connected_table[AFI_IP6], &p);
@@ -650,7 +654,8 @@ int bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
 }
 
 int bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
-				    struct update_subgroup *subgrp)
+				    struct update_subgroup *subgrp,
+				    struct peer *exclude)
 {
 	struct bgp_node *rn1, *rn2;
 	struct peer_af *paf;
@@ -670,6 +675,10 @@ int bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 		return 0;
 
 	SUBGRP_FOREACH_PEER (subgrp, paf) {
+		/* Skip peer we're told to exclude - e.g., source of route. */
+		if (paf->peer == exclude)
+			continue;
+
 		p.u.prefix4 = paf->peer->su.sin.sin_addr;
 
 		rn2 = bgp_node_match(bgp->connected_table[AFI_IP], &p);
