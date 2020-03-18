@@ -85,9 +85,12 @@ int mlag_lib_decode_mlag_hdr(struct stream *s, struct mlag_msg *msg,
 			     size_t *length)
 {
 #define LIB_MLAG_HDR_LENGTH 8
+	if (s == NULL || msg == NULL)
+		return -1;
+
 	*length = stream_get_endp(s);
 
-	if (s == NULL || msg == NULL || *length < LIB_MLAG_HDR_LENGTH)
+	if (*length < LIB_MLAG_HDR_LENGTH)
 		return -1;
 
 	*length -= LIB_MLAG_HDR_LENGTH;
