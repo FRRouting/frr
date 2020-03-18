@@ -961,7 +961,7 @@ static inline void pim_mroute_copy(struct mfcctl *oil,
 static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 {
 	struct pim_instance *pim = c_oil->pim;
-	struct mfcctl tmp_oil;
+	struct mfcctl tmp_oil = { {0} };
 	int err;
 
 	pim->mroute_add_last = pim_time_monotonic_sec();
