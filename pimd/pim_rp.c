@@ -1294,10 +1294,16 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 						json_row, "outboundInterface",
 						rp_info->rp.source_nexthop
 							.interface->name);
-
+				else
+					json_object_string_add(
+						json_row, "outboundInterface",
+						"Unknown");
 				if (rp_info->i_am_rp)
 					json_object_boolean_true_add(json_row,
 								     "iAmRP");
+				else
+					json_object_boolean_false_add(json_row,
+								      "iAmRP");
 
 				if (rp_info->plist)
 					json_object_string_add(json_row,
