@@ -892,36 +892,46 @@ extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *ecom,
 extern int ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 			    uint8_t subtype)
 {
-	uint8_t *p;
+	uint8_t *p, *q, *new;
 	int c, found = 0;
 	/* When this is fist value, just add it.  */
 	if (ecom == NULL || ecom->val == NULL) {
 		return 0;
 	}
 
-	/* If the value already exists in the structure return 0.  */
+	/* Check if any existing ext community matches. */
+	/* Certain extended communities like the Route Target can be present
+	 * multiple times, handle that.
+	 */
 	c = 0;
 	for (p = ecom->val; c < ecom->size; p += ECOMMUNITY_SIZE, c++) {
-		if (p[0] == type && p[1] == subtype) {
-			found = 1;
-			break;
-		}
+		if (p[0] == type && p[1] == subtype)
+			found++;
 	}
+	/* If no matching ext community exists, return. */
 	if (found == 0)
 		return 0;
-	/* Strip The selected value */
-	ecom->size--;
-	/* size is reduced. no memmove to do */
-	p = XMALLOC(MTYPE_ECOMMUNITY_VAL, ecom->size * ECOMMUNITY_SIZE);
-	if (c != 0)
-		memcpy(p, ecom->val, c * ECOMMUNITY_SIZE);
-	if ((ecom->size - c) != 0)
-		memcpy(p + (c)*ECOMMUNITY_SIZE,
-		       ecom->val + (c + 1) * ECOMMUNITY_SIZE,
-		       (ecom->size - c) * ECOMMUNITY_SIZE);
-	/* shift last ecommunities */
-	XFREE(MTYPE_ECOMMUNITY, ecom->val);
-	ecom->val = p;
+
+	/* Handle the case where everything needs to be stripped. */
+	if (found == ecom->size) {
+		XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
+		ecom->size = 0;
+		return 1;
+	}
+
+	/* Strip matching ext community(ies). */
+	new = XMALLOC(MTYPE_ECOMMUNITY_VAL,
+		      (ecom->size - found) * ECOMMUNITY_SIZE);
+	q = new;
+	for (c = 0, p = ecom->val; c < ecom->size; c++, p += ECOMMUNITY_SIZE) {
+		if (!(p[0] == type && p[1] == subtype)) {
+			memcpy(q, p, ECOMMUNITY_SIZE);
+			q += ECOMMUNITY_SIZE;
+		}
+	}
+	XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
+	ecom->val = new;
+	ecom->size -= found;
 	return 1;
 }
 
