@@ -1340,6 +1340,8 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 			      bytelen);
 		rtnh->rtnh_len += sizeof(struct rtattr) + bytelen;
 		rtnh->rtnh_ifindex = nexthop->ifindex;
+		if (nexthop->weight)
+			rtnh->rtnh_hops = nexthop->weight - 1;
 
 		if (nexthop->rmap_src.ipv4.s_addr != INADDR_ANY)
 			*src = &nexthop->rmap_src;
