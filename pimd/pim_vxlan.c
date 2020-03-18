@@ -788,8 +788,8 @@ void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg)
 	if (!vxlan_sg)
 		return;
 
-	pim_vxlan_sg_del_item(vxlan_sg);
 	hash_release(pim->vxlan.sg_hash, vxlan_sg);
+	pim_vxlan_sg_del_item(vxlan_sg);
 }
 
 /******************************* MLAG handling *******************************/
