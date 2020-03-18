@@ -69,14 +69,12 @@ struct memgroup {
 
 #define DECLARE_MGROUP(name) extern struct memgroup _mg_##name
 #define _DEFINE_MGROUP(mname, desc, ...)                                       \
-	struct memgroup _mg_##mname                                            \
-		__attribute__((section(".data.mgroups"))) = {                  \
-			.name = desc,                                          \
-			.types = NULL,                                         \
-			.next = NULL,                                          \
-			.insert = NULL,                                        \
-			.ref = NULL,                                           \
-			__VA_ARGS__                                            \
+	struct memgroup _mg_##mname _DATA_SECTION("mgroups") = {               \
+		.name = desc,                                                  \
+		.types = NULL,                                                 \
+		.next = NULL,                                                  \
+		.insert = NULL,                                                \
+		.ref = NULL,                                                   \
 	};                                                                     \
 	static void _mginit_##mname(void) __attribute__((_CONSTRUCTOR(1000))); \
 	static void _mginit_##mname(void)                                      \
@@ -105,13 +103,12 @@ struct memgroup {
 	/* end */
 
 #define DEFINE_MTYPE_ATTR(group, mname, attr, desc)                            \
-	attr struct memtype MTYPE_##mname[1]                                   \
-		__attribute__((section(".data.mtypes"))) = { {                 \
-			.name = desc,                                          \
-			.next = NULL,                                          \
-			.n_alloc = 0,                                          \
-			.size = 0,                                             \
-			.ref = NULL,                                           \
+	attr struct memtype MTYPE_##mname[1] _DATA_SECTION("mtypes") = { {     \
+		.name = desc,                                                  \
+		.next = NULL,                                                  \
+		.n_alloc = 0,                                                  \
+		.size = 0,                                                     \
+		.ref = NULL,                                                   \
 	} };                                                                   \
 	static void _mtinit_##mname(void) __attribute__((_CONSTRUCTOR(1001))); \
 	static void _mtinit_##mname(void)                                      \
