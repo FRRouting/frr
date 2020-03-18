@@ -1122,16 +1122,6 @@ case "$host_os" in
     AC_DEFINE([OPEN_BSD], [1], [OpenBSD])
     AC_DEFINE([KAME], [1], [KAME IPv6])
     AC_DEFINE([BSD_V6_SYSCTL], [1], [BSD v6 sysctl to turn on and off forwarding])
-
-    if test "$enable_pimd" != "no"; then
-      case "$host_os" in
-      openbsd6.0)
-        ;;
-      openbsd[6-9]*)
-        AC_MSG_FAILURE([pimd cannot be enabled as PIM support has been removed from OpenBSD 6.1])
-        ;;
-      esac
-    fi
     ;;
   *)
     AC_MSG_RESULT([BSD])
@@ -1789,6 +1779,22 @@ if test "$enable_rpki" = "yes"; then
       [RPKI=false
       AC_MSG_ERROR([rtrlib was not found on your system or is too old.])]
   )
+fi
+
+dnl ------------------------------------
+dnl pimd is not supported on OpenBSD
+dnl ------------------------------------
+if test "$enable_pimd" != "no"; then
+AC_MSG_CHECKING([for pimd OS support])
+case "$host_os" in
+  openbsd*)
+    AC_MSG_RESULT([no])
+    enable_pimd="no"
+    ;;
+  *)
+    AC_MSG_RESULT([yes])
+    ;;
+esac
 fi
 
 dnl -------------------------------------
