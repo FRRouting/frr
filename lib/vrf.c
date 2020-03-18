@@ -595,7 +595,7 @@ int vrf_get_backend(void)
 
 int vrf_configure_backend(enum vrf_backend_type backend)
 {
-	if (backend > VRF_BACKEND_MAX)
+	if (backend < 0 || backend >= VRF_BACKEND_MAX)
 		return -1;
 
 	vrf_backend = backend;
