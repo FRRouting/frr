@@ -779,6 +779,7 @@ void pim_neighbor_update(struct pim_neighbor *neigh,
 			 uint32_t dr_priority, struct list *addr_list)
 {
 	struct pim_interface *pim_ifp = neigh->interface->info;
+	uint32_t old, new;
 
 	/* Received holdtime ? */
 	if (PIM_OPTION_IS_SET(hello_options, PIM_OPTION_MASK_HOLDTIME)) {
@@ -818,6 +819,16 @@ void pim_neighbor_update(struct pim_neighbor *neigh,
 	neigh->prefix_list = addr_list;
 
 	update_dr_priority(neigh, hello_options, dr_priority);
+	new = PIM_OPTION_IS_SET(hello_options, PIM_OPTION_MASK_LAN_PRUNE_DELAY);
+	old = PIM_OPTION_IS_SET(neigh->hello_options,
+				PIM_OPTION_MASK_LAN_PRUNE_DELAY);
+
+	if (old != new) {
+		if (old)
+			++pim_ifp->pim_number_of_nonlandelay_neighbors;
+		else
+			--pim_ifp->pim_number_of_nonlandelay_neighbors;
+	}
 	/*
 	  Copy flags
 	 */
