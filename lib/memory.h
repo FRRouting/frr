@@ -75,15 +75,20 @@ struct memgroup {
  *         but MGROUP_* aren't.
  */
 
+#ifdef __MACH__
+#define ATTRIBUTE_MGROUPS __attribute__((section("__DATA,mgroups")))
+#else
+#define ATTRIBUTE_MGROUPS __attribute__((section(".data.mgroups")))
+#endif
+
 #define DECLARE_MGROUP(name) extern struct memgroup _mg_##name;
 #define DEFINE_MGROUP(mname, desc)                                             \
-	struct memgroup _mg_##mname                                            \
-		__attribute__((section(".data.mgroups"))) = {                  \
-			.name = desc,                                          \
-			.types = NULL,                                         \
-			.next = NULL,                                          \
-			.insert = NULL,                                        \
-			.ref = NULL,                                           \
+	struct memgroup _mg_##mname ATTRIBUTE_MGROUPS = {                      \
+		.name = desc,                                                  \
+		.types = NULL,                                                 \
+		.next = NULL,                                                  \
+		.insert = NULL,                                                \
+		.ref = NULL,                                                   \
 	};                                                                     \
 	static void _mginit_##mname(void) __attribute__((_CONSTRUCTOR(1000))); \
 	static void _mginit_##mname(void)                                      \
@@ -101,19 +106,25 @@ struct memgroup {
 		*_mg_##mname.ref = _mg_##mname.next;                           \
 	}
 
+
 #define DECLARE_MTYPE(name)                                                    \
 	extern struct memtype MTYPE_##name[1];                                 \
 	/* end */
 
+#ifdef __MACH__
+#define ATTRIBUTE_MTYPES __attribute__((section("__DATA,mtypes")))
+#else
+#define ATTRIBUTE_MTYPES __attribute__((section(".data.mtypes")))
+#endif
+
 #define DEFINE_MTYPE_ATTR(group, mname, attr, desc)                            \
-	attr struct memtype MTYPE_##mname[1]                                   \
-		__attribute__((section(".data.mtypes"))) = { {                 \
-			.name = desc,                                          \
-			.next = NULL,                                          \
-			.n_alloc = 0,                                          \
-			.size = 0,                                             \
-			.ref = NULL,                                           \
-	} };                                                                   \
+	attr struct memtype MTYPE_##mname[1] ATTRIBUTE_MTYPES = {{             \
+		.name = desc,                                                  \
+		.next = NULL,                                                  \
+		.n_alloc = 0,                                                  \
+		.size = 0,                                                     \
+		.ref = NULL,                                                   \
+	}};                                                                    \
 	static void _mtinit_##mname(void) __attribute__((_CONSTRUCTOR(1001))); \
 	static void _mtinit_##mname(void)                                      \
 	{                                                                      \
@@ -121,7 +132,7 @@ struct memgroup {
 			_mg_##group.insert = &_mg_##group.types;               \
 		MTYPE_##mname->ref = _mg_##group.insert;                       \
 		*_mg_##group.insert = MTYPE_##mname;                           \
-		_mg_##group.insert = &MTYPE_##mname->next;                      \
+		_mg_##group.insert = &MTYPE_##mname->next;                     \
 	}                                                                      \
 	static void _mtfini_##mname(void) __attribute__((_DESTRUCTOR(1001)));  \
 	static void _mtfini_##mname(void)                                      \
