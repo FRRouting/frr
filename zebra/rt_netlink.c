@@ -1111,7 +1111,8 @@ static int build_label_stack(struct mpls_label_stack *nh_label,
  * @param nlmsg: nlmsghdr structure to fill in.
  * @param req_size: The size allocated for the message.
  */
-static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
+static void _netlink_route_build_singlepath(const struct prefix *p,
+					    const char *routedesc, int bytelen,
 					    const struct nexthop *nexthop,
 					    struct nlmsghdr *nlmsg,
 					    struct rtmsg *rtmsg,
@@ -1176,9 +1177,8 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				" 5549: _netlink_route_build_singlepath() (%s): "
-				"nexthop via %s %s if %u(%u)",
-				routedesc, ipv4_ll_buf, label_buf,
+				" 5549: _netlink_route_build_singlepath() (%s): %pFX nexthop via %s %s if %u(%u)",
+				routedesc, p, ipv4_ll_buf, label_buf,
 				nexthop->ifindex, nexthop->vrf_id);
 		return;
 	}
@@ -1202,9 +1202,8 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"netlink_route_multipath() (%s): "
-				"nexthop via %s %s if %u(%u)",
-				routedesc, inet_ntoa(nexthop->gate.ipv4),
+				"netlink_route_multipath() (%s): %pFX nexthop via %s %s if %u(%u)",
+				routedesc, p, inet_ntoa(nexthop->gate.ipv4),
 				label_buf, nexthop->ifindex, nexthop->vrf_id);
 	}
 
@@ -1225,9 +1224,8 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"netlink_route_multipath() (%s): "
-				"nexthop via %s %s if %u(%u)",
-				routedesc, inet6_ntoa(nexthop->gate.ipv6),
+				"netlink_route_multipath() (%s): %pFX nexthop via %s %s if %u(%u)",
+				routedesc, p, inet6_ntoa(nexthop->gate.ipv6),
 				label_buf, nexthop->ifindex, nexthop->vrf_id);
 	}
 
@@ -1251,9 +1249,9 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"netlink_route_multipath() (%s): "
-				"nexthop via if %u(%u)",
-				routedesc, nexthop->ifindex, nexthop->vrf_id);
+				"netlink_route_multipath() (%s): %pFX nexthop via if %u(%u)",
+				routedesc, p, nexthop->ifindex,
+				nexthop->vrf_id);
 	}
 }
 
@@ -1273,12 +1271,11 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
  * @param src: pointer pointing to a location where
  *             the prefsrc should be stored.
  */
-static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
-					   const struct nexthop *nexthop,
-					   struct rtattr *rta,
-					   struct rtnexthop *rtnh,
-					   struct rtmsg *rtmsg,
-					   const union g_addr **src)
+static void
+_netlink_route_build_multipath(const struct prefix *p, const char *routedesc,
+			       int bytelen, const struct nexthop *nexthop,
+			       struct rtattr *rta, struct rtnexthop *rtnh,
+			       struct rtmsg *rtmsg, const union g_addr **src)
 {
 	mpls_lse_t out_lse[MPLS_MAX_LABELS];
 	char label_buf[256];
@@ -1350,9 +1347,8 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				" 5549: netlink_route_build_multipath() (%s): "
-				"nexthop via %s %s if %u",
-				routedesc, ipv4_ll_buf, label_buf,
+				" 5549: netlink_route_build_multipath() (%s): %pFX nexthop via %s %s if %u",
+				routedesc, p, ipv4_ll_buf, label_buf,
 				nexthop->ifindex);
 		return;
 	}
@@ -1369,9 +1365,8 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"netlink_route_multipath() (%s): "
-				"nexthop via %s %s if %u",
-				routedesc, inet_ntoa(nexthop->gate.ipv4),
+				"netlink_route_multipath() (%s): %pFX nexthop via %s %s if %u",
+				routedesc, p, inet_ntoa(nexthop->gate.ipv4),
 				label_buf, nexthop->ifindex);
 	}
 	if (nexthop->type == NEXTHOP_TYPE_IPV6
@@ -1387,9 +1382,8 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"netlink_route_multipath() (%s): "
-				"nexthop via %s %s if %u",
-				routedesc, inet6_ntoa(nexthop->gate.ipv6),
+				"netlink_route_multipath() (%s): %pFX nexthop via %s %s if %u",
+				routedesc, p, inet6_ntoa(nexthop->gate.ipv6),
 				label_buf, nexthop->ifindex);
 	}
 
@@ -1410,16 +1404,16 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"netlink_route_multipath() (%s): "
-				"nexthop via if %u",
-				routedesc, nexthop->ifindex);
+				"netlink_route_multipath() (%s): %pFX nexthop via if %u",
+				routedesc, p, nexthop->ifindex);
 	}
 
 	if (nexthop->weight)
 		rtnh->rtnh_hops = nexthop->weight - 1;
 }
 
-static inline void _netlink_mpls_build_singlepath(const char *routedesc,
+static inline void _netlink_mpls_build_singlepath(const struct prefix *p,
+						  const char *routedesc,
 						  const zebra_nhlfe_t *nhlfe,
 						  struct nlmsghdr *nlmsg,
 						  struct rtmsg *rtmsg,
@@ -1430,23 +1424,24 @@ static inline void _netlink_mpls_build_singlepath(const char *routedesc,
 
 	family = NHLFE_FAMILY(nhlfe);
 	bytelen = (family == AF_INET ? 4 : 16);
-	_netlink_route_build_singlepath(routedesc, bytelen, nhlfe->nexthop,
+	_netlink_route_build_singlepath(p, routedesc, bytelen, nhlfe->nexthop,
 					nlmsg, rtmsg, req_size, cmd);
 }
 
 
 static inline void
-_netlink_mpls_build_multipath(const char *routedesc, const zebra_nhlfe_t *nhlfe,
-			      struct rtattr *rta, struct rtnexthop *rtnh,
-			      struct rtmsg *rtmsg, const union g_addr **src)
+_netlink_mpls_build_multipath(const struct prefix *p, const char *routedesc,
+			      const zebra_nhlfe_t *nhlfe, struct rtattr *rta,
+			      struct rtnexthop *rtnh, struct rtmsg *rtmsg,
+			      const union g_addr **src)
 {
 	int bytelen;
 	uint8_t family;
 
 	family = NHLFE_FAMILY(nhlfe);
 	bytelen = (family == AF_INET ? 4 : 16);
-	_netlink_route_build_multipath(routedesc, bytelen, nhlfe->nexthop, rta,
-				       rtnh, rtmsg, src);
+	_netlink_route_build_multipath(p, routedesc, bytelen, nhlfe->nexthop,
+				       rta, rtnh, rtmsg, src);
 }
 
 
@@ -1646,6 +1641,10 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 	}
 
 	if (kernel_nexthops_supported()) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"netlink_route_multipath(): %pFX nhg_id is %u",
+				p, dplane_ctx_get_nhe_id(ctx));
 		/* Kernel supports nexthop objects */
 		addattr32(&req.n, sizeof(req), RTA_NH_ID,
 			  dplane_ctx_get_nhe_id(ctx));
@@ -1732,7 +1731,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 						    : "single-path";
 
 				_netlink_route_build_singlepath(
-					routedesc, bytelen, nexthop, &req.n,
+					p, routedesc, bytelen, nexthop, &req.n,
 					&req.r, sizeof(req), cmd);
 				nexthop_num++;
 				break;
@@ -1802,8 +1801,8 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 				nexthop_num++;
 
 				_netlink_route_build_multipath(
-					routedesc, bytelen, nexthop, rta, rtnh,
-					&req.r, &src1);
+					p, routedesc, bytelen, nexthop, rta,
+					rtnh, &req.r, &src1);
 				rtnh = RTNH_NEXT(rtnh);
 
 				if (!setsrc && src1) {
@@ -3466,6 +3465,7 @@ int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 	unsigned int nexthop_num;
 	const char *routedesc;
 	int route_type;
+	struct prefix p = {0};
 
 	struct {
 		struct nlmsghdr n;
@@ -3552,8 +3552,7 @@ int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 						  NEXTHOP_FLAG_FIB)))) {
 				/* Add the gateway */
 				_netlink_mpls_build_singlepath(
-					routedesc, nhlfe,
-					&req.n, &req.r,
+					&p, routedesc, nhlfe, &req.n, &req.r,
 					sizeof(req), cmd);
 
 				nexthop_num++;
@@ -3593,9 +3592,9 @@ int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 				nexthop_num++;
 
 				/* Build the multipath */
-				_netlink_mpls_build_multipath(routedesc, nhlfe,
-							      rta, rtnh, &req.r,
-							      &src1);
+				_netlink_mpls_build_multipath(&p, routedesc,
+							      nhlfe, rta, rtnh,
+							      &req.r, &src1);
 				rtnh = RTNH_NEXT(rtnh);
 			}
 		}
