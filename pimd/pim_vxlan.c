@@ -253,8 +253,17 @@ static void pim_vxlan_orig_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
 		/* if there are other references register the source
 		 * for nht
 		 */
-		if (up)
-			pim_rpf_update(vxlan_sg->pim, up, NULL, __func__);
+		if (up) {
+			enum pim_rpf_result r;
+
+			r = pim_rpf_update(vxlan_sg->pim, up, NULL, __func__);
+			if (r == PIM_RPF_FAILURE) {
+				if (PIM_DEBUG_VXLAN)
+					zlog_debug(
+						"vxlan SG %s rpf_update failure",
+						vxlan_sg->sg_str);
+			}
+		}
 	}
 }
 
