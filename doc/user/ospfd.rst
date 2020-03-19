@@ -569,14 +569,18 @@ Interfaces
    If you have a lot of interfaces, and/or a lot of subnets, then enabling OSPF
    via this command may result in a slight performance improvement.
 
-.. index:: ip ospf authentication-key AUTH_KEY
-.. clicmd:: ip ospf authentication-key AUTH_KEY
+.. index:: ip ospf authentication-key [101] AUTH_KEY
+.. clicmd:: ip ospf authentication-key [101] AUTH_KEY
 
 .. index:: no ip ospf authentication-key
 .. clicmd:: no ip ospf authentication-key
 
    Set OSPF authentication key to a simple password. After setting `AUTH_KEY`,
    all OSPF packets are authenticated. `AUTH_KEY` has length up to 8 chars.
+
+   The optional "101" keyword indicates that the password is in encrypted
+   form. Encrypted passwords are encoded in base64. Please see
+   :ref:`protocol-key-encryption` for further details.
 
    Simple text password authentication is insecure and deprecated in favour of
    MD5 HMAC authentication.
@@ -598,8 +602,8 @@ Interfaces
    non-volatile storage and restored at boot if MD5 authentication is to be
    expected to work reliably.
 
-.. index:: ip ospf message-digest-key KEYID md5 KEY
-.. clicmd:: ip ospf message-digest-key KEYID md5 KEY
+.. index:: ip ospf message-digest-key KEYID md5 [101] KEY
+.. clicmd:: ip ospf message-digest-key KEYID md5 [101] KEY
 
 .. index:: no ip ospf message-digest-key
 .. clicmd:: no ip ospf message-digest-key
@@ -612,6 +616,10 @@ Interfaces
 
    KEY is the actual message digest key, of up to 16 chars (larger strings will
    be truncated), and is associated with the given KEYID.
+
+   The optional "101" keyword indicates that the message digest key
+   is in encrypted form. Encrypted passwords are encoded in base64.
+   Please see :ref:`protocol-key-encryption` for further details.
 
 .. index:: ip ospf cost (1-65535)
 .. clicmd:: ip ospf cost (1-65535)

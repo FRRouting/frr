@@ -32,6 +32,7 @@
 #include "log.h"
 #include "zclient.h"
 #include "bfd.h"
+#include "keycrypt.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_spf.h"
@@ -525,6 +526,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, priority);
 	UNSET_IF_PARAM(oip, type);
 	UNSET_IF_PARAM(oip, auth_simple);
+	UNSET_IF_PARAM(oip, auth_simple_encrypted);
 	UNSET_IF_PARAM(oip, auth_crypt);
 	UNSET_IF_PARAM(oip, auth_type);
 
@@ -568,6 +570,7 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, priority)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, type)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_simple)
+	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_simple_encrypted)
 	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_type)
 	    && listcount(oip->auth_crypt) == 0
 	    && ntohl(oip->network_lsa_seqnum) != OSPF_INITIAL_SEQUENCE_NUMBER) {
@@ -1205,6 +1208,8 @@ int ospf_crypt_key_delete(struct list *auth_crypt, uint8_t key_id)
 
 	for (ALL_LIST_ELEMENTS(auth_crypt, node, nnode, ck)) {
 		if (ck->key_id == key_id) {
+			XFREE(MTYPE_KEYCRYPT_CIPHER_B64,
+			      ck->auth_key_encrypted);
 			listnode_delete(auth_crypt, ck);
 			XFREE(MTYPE_OSPF_CRYPT_KEY, ck);
 			return 1;
