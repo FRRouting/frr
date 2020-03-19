@@ -11,6 +11,7 @@
 #include "zebra.h"
 #include <linux/if_packet.h>
 
+#include "nhrpd.h"
 #include "nhrp_protocol.h"
 #include "os.h"
 
@@ -68,7 +69,7 @@ int os_sendmsg(const uint8_t *buf, size_t len, int ifindex, const uint8_t *addr,
 }
 
 int os_recvmsg(uint8_t *buf, size_t *len, int *ifindex, uint8_t *addr,
-	       size_t *addrlen, int fd)
+	       size_t *addrlen, int fd, struct nhrp_vrf *nhrp_vrf)
 {
 	struct sockaddr_ll lladdr;
 	struct iovec iov = {
@@ -89,6 +90,11 @@ int os_recvmsg(uint8_t *buf, size_t *len, int *ifindex, uint8_t *addr,
 	*len = r;
 	*ifindex = lladdr.sll_ifindex;
 
+	/* point to point interface. remote is encoded in gre_info */
+	if (nhrp_interface_is_ptop(nhrp_vrf, *ifindex, addr, addrlen))
+		return 0;
+
+	/* point to multipoint interface. remote is encoded in ssl_addr */
 	if (*addrlen <= (size_t)lladdr.sll_addr) {
 		if (memcmp(lladdr.sll_addr, "\x00\x00\x00\x00", 4) != 0) {
 			memcpy(addr, lladdr.sll_addr, lladdr.sll_halen);

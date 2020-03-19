@@ -615,3 +615,22 @@ void nhrp_interface_set_source(struct interface *ifp, const char *ifname,
 
 	nhrp_interface_update_nbma(ifp, NULL);
 }
+
+int nhrp_interface_is_ptop(struct nhrp_vrf *nhrp_vrf, int ifindex,
+			   uint8_t *addr, size_t *addrlen)
+{
+	struct nhrp_gre_info gre_info, *val;
+
+	if (!nhrp_vrf)
+		return 0;
+	memset(&gre_info, 0, sizeof(struct nhrp_gre_info));
+	gre_info.ifindex = ifindex;
+	val = hash_lookup(nhrp_vrf->nhrp_gre_list, &gre_info);
+	/* no interface or remote address not set */
+	if (!val || val->vtep_ip_remote.s_addr == INADDR_ANY)
+		return 0;
+	/* remote address set, return it */
+	*addrlen = 4;
+	memcpy(addr, &val->vtep_ip_remote.s_addr, *addrlen);
+	return 1;
+}
