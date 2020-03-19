@@ -2513,39 +2513,138 @@ int bgp_neighbors_neighbor_peer_group_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+static struct peer *bgp_unnumbered_neighbor_peer_lookup(struct bgp *bgp,
+							const char *peer_str,
+							char *errmsg,
+							size_t errmsg_len)
+{
+	struct peer *peer = NULL;
+
+	/*
+	 * Not IP, could match either peer configured on interface or a
+	 * group.
+	 */
+	peer = peer_lookup_by_conf_if(bgp, peer_str);
+	if (!peer) {
+		snprintf(errmsg, errmsg_len,
+			 "Specify remote-as or peer-group commands first");
+		return NULL;
+	}
+	if (peer_dynamic_neighbor(peer)) {
+		snprintf(errmsg, errmsg_len,
+			 "Operation not allowed on a dynamic neighbor\n");
+		return NULL;
+	}
+
+	return peer;
+}
+
+static struct peer *bgp_peer_group_peer_lookup(struct bgp *bgp,
+					       const char *peer_str)
+{
+	struct peer_group *group = NULL;
+
+	group = peer_group_lookup(bgp, peer_str);
+
+	if (group)
+		return group->conf;
+
+	return NULL;
+}
+
+enum bgp_nb_password_type {
+	NEIGHBOR,
+	NEIGHBOR_UNNUMBERED,
+	PEER_GROUP,
+};
+
+static int bgp_neighbor_password_modify_common(enum bgp_nb_password_type type,
+					       struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const char *peer_str;
+	const char *password_in;
+	const char *passwrd_str;
+	size_t pwlen;
+	struct peer *peer = NULL;
+	bool is_encrypted = false;
+
+	password_in = yang_dnode_get_string(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!strncmp(password_in, "101 ", 4))
+			is_encrypted = true;
+		if (!is_encrypted) {
+			pwlen = strlen(password_in);
+			if ((pwlen < 1) || (pwlen > 254)) {
+				zlog_err(
+					"%s: plaintext password length %zu not in range 1..254",
+					__func__, pwlen);
+				return NB_ERR_VALIDATION;
+			}
+		}
+		/*
+		 * per design requirements not to lose encrypted passwords,
+		 * always accept them
+		 */
+		return NB_OK;
+
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+		switch (type) {
+		case NEIGHBOR:
+			peer_str = yang_dnode_get_string(args->dnode,
+							 "../remote-address");
+			peer = bgp_neighbor_peer_lookup(
+				bgp, peer_str, args->errmsg, args->errmsg_len);
+			break;
+		case NEIGHBOR_UNNUMBERED:
+			peer_str = yang_dnode_get_string(args->dnode,
+							 "../interface");
+			peer = bgp_unnumbered_neighbor_peer_lookup(
+				bgp, peer_str, args->errmsg, args->errmsg_len);
+			break;
+		case PEER_GROUP:
+			peer_str = yang_dnode_get_string(args->dnode,
+							 "../peer-group-name");
+			peer = bgp_peer_group_peer_lookup(bgp, peer_str);
+			break;
+		}
+		if (!peer)
+			return NB_ERR_INCONSISTENCY;
+
+		if (!strncmp(password_in, "101 ", 4)) {
+			is_encrypted = true;
+			passwrd_str = password_in + 4;
+		} else {
+			passwrd_str = password_in;
+		}
+
+		int ret;
+
+		ret = peer_password_set(peer, passwrd_str, is_encrypted, NULL);
+		if (bgp_nb_errmsg_return(args->errmsg, args->errmsg_len, ret))
+			return NB_ERR_INCONSISTENCY;
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/password
  */
 int bgp_neighbors_neighbor_password_modify(struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *passwrd_str;
-	struct peer *peer;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str =
-			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		passwrd_str = yang_dnode_get_string(args->dnode, NULL);
-
-		peer_password_set(peer, passwrd_str);
-
-		break;
-	}
-
-	return NB_OK;
+	return bgp_neighbor_password_modify_common(NEIGHBOR, args);
 }
 
 int bgp_neighbors_neighbor_password_destroy(struct nb_cb_destroy_args *args)
@@ -4291,30 +4390,6 @@ int bgp_neighbors_neighbor_afi_safis_afi_safi_enabled_destroy(
 	return NB_OK;
 }
 
-static struct peer *bgp_unnumbered_neighbor_peer_lookup(struct bgp *bgp,
-							const char *peer_str,
-							char *errmsg,
-							size_t errmsg_len)
-{
-	struct peer *peer = NULL;
-
-	/* Not IP, could match either peer configured on interface or a
-	 * group. */
-	peer = peer_lookup_by_conf_if(bgp, peer_str);
-	if (!peer) {
-		snprintf(errmsg, errmsg_len,
-			 "Specify remote-as or peer-group commands first");
-		return NULL;
-	}
-	if (peer_dynamic_neighbor(peer)) {
-		snprintf(errmsg, errmsg_len,
-			 "Operation not allowed on a dynamic neighbor\n");
-		return NULL;
-	}
-
-	return peer;
-}
-
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor
@@ -4561,31 +4636,7 @@ int bgp_neighbors_unnumbered_neighbor_peer_group_destroy(
 int bgp_neighbors_unnumbered_neighbor_password_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *passwrd_str;
-	struct peer *peer = NULL;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode, "../interface");
-		peer = bgp_unnumbered_neighbor_peer_lookup(
-			bgp, peer_str, args->errmsg, args->errmsg_len);
-		if (!peer)
-			return NB_ERR_INCONSISTENCY;
-
-		passwrd_str = yang_dnode_get_string(args->dnode, NULL);
-		peer_password_set(peer, passwrd_str);
-
-		break;
-	}
-
-	return NB_OK;
+	return bgp_neighbor_password_modify_common(NEIGHBOR_UNNUMBERED, args);
 }
 
 int bgp_neighbors_unnumbered_neighbor_password_destroy(
@@ -6307,19 +6358,6 @@ int bgp_neighbors_unnumbered_neighbor_afi_safis_afi_safi_enabled_destroy(
 	return NB_OK;
 }
 
-static struct peer *bgp_peer_group_peer_lookup(struct bgp *bgp,
-					       const char *peer_str)
-{
-	struct peer_group *group = NULL;
-
-	group = peer_group_lookup(bgp, peer_str);
-
-	if (group)
-		return group->conf;
-
-	return NULL;
-}
-
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group
@@ -6477,29 +6515,7 @@ int bgp_peer_groups_peer_group_ipv6_listen_range_destroy(
  */
 int bgp_peer_groups_peer_group_password_modify(struct nb_cb_modify_args *args)
 {
-	struct bgp *bgp;
-	const char *peer_str;
-	const char *passwrd_str;
-	struct peer *peer = NULL;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		peer_str = yang_dnode_get_string(args->dnode,
-						 "../peer-group-name");
-		peer = bgp_peer_group_peer_lookup(bgp, peer_str);
-
-		passwrd_str = yang_dnode_get_string(args->dnode, NULL);
-		peer_password_set(peer, passwrd_str);
-
-		break;
-	}
-
-	return NB_OK;
+	return bgp_neighbor_password_modify_common(PEER_GROUP, args);
 }
 
 int bgp_peer_groups_peer_group_password_destroy(struct nb_cb_destroy_args *args)

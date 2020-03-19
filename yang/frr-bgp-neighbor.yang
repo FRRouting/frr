@@ -48,9 +48,9 @@ submodule frr-bgp-neighbor {
 
   grouping neighbor-parameters {
     leaf password {
-      type string {
-        length "1..254";
-      }
+      // Note: length checking done in C handler because limit is dependent
+      // on plaintext vs. encrypted
+      type string;
       description
         "Actual password.";
     }

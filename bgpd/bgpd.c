@@ -45,6 +45,8 @@
 #include "lib/json.h"
 #include "frr_pthread.h"
 #include "bitfield.h"
+#include "keycrypt.h"
+#include "libfrr.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -1337,6 +1339,7 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->bgp = bgp_lock(bgp);
 	peer = peer_lock(peer); /* initial reference */
 	peer->password = NULL;
+	peer->password_encrypted = NULL;
 
 	/* Set default flags. */
 	FOREACH_AFI_SAFI (afi, safi) {
@@ -1446,6 +1449,10 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	if (peer_src->password && !peer_dst->password)
 		peer_dst->password =
 			XSTRDUP(MTYPE_PEER_PASSWORD, peer_src->password);
+	if (peer_src->password_encrypted && !peer_dst->password_encrypted)
+		peer_dst->password_encrypted =
+			XSTRDUP(MTYPE_KEYCRYPT_CIPHER_B64,
+				peer_src->password_encrypted);
 
 	FOREACH_AFI_SAFI (afi, safi) {
 		peer_dst->afc[afi][safi] = peer_src->afc[afi][safi];
@@ -2421,6 +2428,8 @@ int peer_delete(struct peer *peer)
 		    && !CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR))
 			bgp_md5_unset(peer);
 	}
+	if (peer->password_encrypted)
+		XFREE(MTYPE_KEYCRYPT_CIPHER_B64, peer->password_encrypted);
 
 	bgp_timer_set(peer); /* stops all timers for Deleted */
 
@@ -5816,22 +5825,121 @@ int peer_local_as_unset(struct peer *peer)
 }
 
 /* Set password for authenticating with the peer. */
-int peer_password_set(struct peer *peer, const char *password)
+int peer_password_set(struct peer *peer, const char *password_in,
+		      bool is_encrypted, const char **ppCryptoErrorString)
 {
 	struct peer *member;
 	struct listnode *node, *nnode;
-	int len = password ? strlen(password) : 0;
 	int ret = BGP_SUCCESS;
+	const char *password;
 
-	if ((len < PEER_PASSWORD_MINLEN) || (len > PEER_PASSWORD_MAXLEN))
-		return BGP_ERR_INVALID_VALUE;
+	char *passwdPlain;
+	char *passwdCrypt;
+	char errstr[80];
+
+	if (ppCryptoErrorString)
+		*ppCryptoErrorString = NULL;
+
+	/* length test must be done on the cleartext */
+	int len = password_in ? strlen(password_in) : 0;
+
+	if (is_encrypted) {
+		if (!len) {
+			zlog_err("%s: %s", __func__,
+				 "encrypted password is zero-length");
+			return BGP_ERR_INVALID_VALUE;
+		}
+	} else {
+		if ((len < PEER_PASSWORD_MINLEN)
+		    || (len > PEER_PASSWORD_MAXLEN)) {
+			zlog_err("%s: %s", __func__,
+				 "plaintext password invalid length");
+			return BGP_ERR_INVALID_VALUE;
+		}
+	}
+
+	enum keycrypt_err krc;
+
+	krc = keycrypt_build_passwords(password_in, is_encrypted,
+				       MTYPE_PEER_PASSWORD, &passwdPlain,
+				       &passwdCrypt);
+	if (krc) {
+		if (ppCryptoErrorString)
+			*ppCryptoErrorString = keycrypt_strerror(krc);
+		zlog_err("%s: %s", __func__, keycrypt_strerror(krc));
+	}
+
+	/*
+	 * Free old encrypted password, if any. The way to transition
+	 * from an encrypted password to a cleartext password is to
+	 * turn off "service password-encryption" and then explicitly
+	 * set the password in cleartext.
+	 *
+	 * Design requirement is to conserve new encrypted password even
+	 * if we are unable to decrypt.
+	 */
+	XFREE(MTYPE_KEYCRYPT_CIPHER_B64, peer->password_encrypted);
+	peer->password_encrypted = passwdCrypt; /* may be NULL */
+
+	if (is_encrypted && passwdPlain) {
+		/*
+		 * Since we must accept any encrypted password, we have
+		 * to handle various kinds of invalid plaintext here.
+		 */
+		int len = strlen(passwdPlain);
+
+		if (len > PEER_PASSWORD_MAXLEN) {
+			/* truncate */
+			passwdPlain[PEER_PASSWORD_MAXLEN] = '\0';
+			if (ppCryptoErrorString)
+				*ppCryptoErrorString =
+				    "Decrypted password too long, truncated";
+		} else if (!len) {
+			/* empty password */
+			XFREE(MTYPE_PEER_PASSWORD, passwdPlain);
+			if (ppCryptoErrorString)
+				*ppCryptoErrorString =
+				    "Decrypted to invalid 0-length password";
+			/*
+			 * fall through and get caught by !passwdPlain check
+			 * below
+			 */
+		}
+	}
+
+	bool changed = false;
+
+	if (passwdPlain) {
+		if (!CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD))
+			changed = true;
+		else if (strcmp(passwdPlain, peer->password))
+			changed = true;
+	} else {
+		/*
+		 * We reach here if provided password was encrypted and we
+		 * are unable to decrypt (or if decrypted password was
+		 * 0-length). This situation is equivalent to clearing the
+		 * password.
+		 */
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD))
+			return peer_password_unset(peer);
+	}
+
+	/*
+	 * no change to cleartext version of password - we are done
+	 */
+	if (!changed) {
+		XFREE(MTYPE_PEER_PASSWORD, passwdPlain);
+		return BGP_SUCCESS;
+	}
+
+	password = passwdPlain; /* tmp ref to dynamic space */
 
 	/* Set flag and configuration on peer. */
 	peer_flag_set(peer, PEER_FLAG_PASSWORD);
-	if (peer->password && strcmp(peer->password, password) == 0)
-		return 0;
+
 	XFREE(MTYPE_PEER_PASSWORD, peer->password);
-	peer->password = XSTRDUP(MTYPE_PEER_PASSWORD, password);
+	peer->password = passwdPlain;
 
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
@@ -5848,8 +5956,12 @@ int peer_password_set(struct peer *peer, const char *password)
 		 */
 		if (BGP_PEER_SU_UNSPEC(peer))
 			return BGP_SUCCESS;
-		return (bgp_md5_set(peer) >= 0) ? BGP_SUCCESS
-						: BGP_ERR_TCPSIG_FAILED;
+		if (bgp_md5_set(peer) >= 0)
+			return BGP_SUCCESS;
+		ret = BGP_ERR_TCPSIG_FAILED;
+		if (bgp_nb_errmsg_return(errstr, sizeof(errstr), ret))
+			zlog_err("%s: %s", __func__, errstr);
+		return ret;
 	}
 
 	/*
@@ -5892,6 +6004,9 @@ int peer_password_set(struct peer *peer, const char *password)
 	for (ALL_LIST_ELEMENTS_RO(peer->group->listen_range[AFI_IP6], ln, lr))
 		bgp_md5_set_prefix(peer->bgp, lr, password);
 
+	if (bgp_nb_errmsg_return(errstr, sizeof(errstr), ret))
+		zlog_err("%s: %s", __func__, errstr);
+
 	return ret;
 }
 
@@ -5908,10 +6023,15 @@ int peer_password_unset(struct peer *peer)
 		peer_flag_inherit(peer, PEER_FLAG_PASSWORD);
 		PEER_STR_ATTR_INHERIT(peer, peer->group, password,
 				      MTYPE_PEER_PASSWORD);
+		PEER_STR_ATTR_INHERIT(peer, peer->group, password_encrypted,
+				      MTYPE_KEYCRYPT_CIPHER_B64);
 	} else {
 		/* Otherwise remove flag and configuration from peer. */
 		peer_flag_unset(peer, PEER_FLAG_PASSWORD);
 		XFREE(MTYPE_PEER_PASSWORD, peer->password);
+		if (peer->password_encrypted)
+			XFREE(MTYPE_KEYCRYPT_CIPHER_B64,
+			      peer->password_encrypted);
 	}
 
 	/* Check if handling a regular peer. */
@@ -5942,6 +6062,9 @@ int peer_password_unset(struct peer *peer)
 		/* Remove flag and configuration on peer-group member. */
 		UNSET_FLAG(member->flags, PEER_FLAG_PASSWORD);
 		XFREE(MTYPE_PEER_PASSWORD, member->password);
+		if (member->password_encrypted)
+			XFREE(MTYPE_KEYCRYPT_CIPHER_B64,
+			      member->password_encrypted);
 
 		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->status))
@@ -7524,6 +7647,131 @@ static const struct cmd_variable_handler bgp_viewvrf_var_handlers[] = {
 	{.completions = NULL},
 };
 
+static void bgp_keycrypt_state_change(bool now_encrypting)
+{
+	struct bgp *bgp;
+	struct peer *peer;
+	struct peer_group *group;
+	struct listnode *node, *nnode;
+	struct listnode *mnode, *mnnode;
+
+	/*
+	 * change from encrypting to non-encrypting has no effect on
+	 * previously-encrypted protocol keys: they remain encrypted.
+	 */
+	if (!now_encrypting)
+		return;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
+
+		/* skip all auto created vrf as they dont have user config */
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
+			continue;
+
+		/* peer-group */
+		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
+			peer = group->conf;
+			if (!CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD))
+				continue;
+
+			/* skip if there is no cleartext string to encrypt */
+			if (!peer->password)
+				continue;
+
+			/* skip if we already have an encrypted string */
+			if (peer->password_encrypted)
+				continue;
+
+			if (keycrypt_encrypt(
+				    peer->password, strlen(peer->password),
+				    &(peer->password_encrypted), NULL)) {
+				zlog_err(
+					"%s: can't encrypt for peer group \"%s\"",
+					__func__, group->name);
+			}
+		}
+
+		/* Normal neighbor configuration. */
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+				continue;
+
+			if (!CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD))
+				continue;
+
+			/* skip if there is no cleartext string to encrypt */
+			if (!peer->password)
+				continue;
+
+			/* skip if we already have an encrypted string */
+			if (peer->password_encrypted)
+				continue;
+
+			if (keycrypt_encrypt(
+				    peer->password, strlen(peer->password),
+				    &(peer->password_encrypted), NULL)) {
+				zlog_err(
+					"%s: can't encrypt for peer \"%s\"",
+					__func__, (peer->host ? peer->host :
+					"unknown"));
+			}
+		}
+	}
+}
+
+static void bgp_keycrypt_encryption_show_status(struct vty *vty,
+						const char *indentstr)
+{
+	struct bgp *bgp;
+	struct peer *peer;
+	struct peer_group *group;
+	struct listnode *node, *nnode;
+	struct listnode *mnode, *mnnode;
+
+	uint peer_group_keys = 0;
+	uint peer_group_keys_encrypted = 0;
+
+	uint peer_keys = 0;
+	uint peer_keys_encrypted = 0;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
+
+		/* skip all auto created vrf as they dont have user config */
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
+			continue;
+
+		/* peer-group */
+		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
+			peer = group->conf;
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD))
+				++peer_group_keys;
+			/* can have encrypted without plaintext if decrypt fails
+			 */
+			if (peer->password_encrypted)
+				++peer_group_keys_encrypted;
+		}
+
+		/* Normal neighbor configuration. */
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+				continue;
+
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD))
+				++peer_keys;
+			/* can have encrypted without plaintext if decrypt fails
+			 */
+			if (peer->password_encrypted)
+				++peer_keys_encrypted;
+		}
+	}
+
+	vty_out(vty, "%s%s: peer-group passwords: %u, encrypted: %u\n",
+		indentstr, frr_protoname, peer_group_keys,
+		peer_group_keys_encrypted);
+	vty_out(vty, "%s     neighbor (peer) passwords: %u, encrypted: %u\n",
+		indentstr, peer_keys, peer_keys_encrypted);
+}
+
 struct frr_pthread *bgp_pth_io;
 struct frr_pthread *bgp_pth_ka;
 
@@ -7614,6 +7862,11 @@ void bgp_init(unsigned short instance)
 	bgp_bfd_init();
 
 	cmd_variable_handler_register(bgp_viewvrf_var_handlers);
+
+	keycrypt_init();
+	keycrypt_register_protocol_callback(bgp_keycrypt_state_change);
+	keycrypt_register_protocol_show_callback(
+		bgp_keycrypt_encryption_show_status);
 }
 
 void bgp_terminate(void)
