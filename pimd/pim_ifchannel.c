@@ -955,7 +955,10 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		 * triggering Join/Prune message.
 		 */
 		THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
-		if (source_flags & PIM_ENCODE_RPT_BIT) {
+
+		/* Check if SGRpt join Received */
+		if ((source_flags & PIM_ENCODE_RPT_BIT)
+		    && (sg->src.s_addr != INADDR_ANY)) {
 			/*
 			 * Transitions from Prune-Pending State (Rcv SGRpt Join)
 			 * RFC 7761 Sec 4.5.3:
