@@ -156,6 +156,8 @@ struct path {
 	/* The request identifier from the PCC , when getting a path from the
 	   PCE after a computation request. See rfc5440, section-7.4 */
 	uint32_t req_id;
+	/* The RSVP tunnel idendentifer required by the LSP IDENTIFIER TLV */
+	uint16_t tunnel_id;
 	/* The name of the path */
 	char *name;
 	/* The operational status of the path */

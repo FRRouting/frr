@@ -119,6 +119,7 @@ struct pcc_state *pcep_pcc_initialize(struct ctrl_state *ctrl_state, int index)
 	pcc_state->status = PCEP_PCC_DISCONNECTED;
 	pcc_state->next_reqid = 1;
 	pcc_state->next_plspid = 1;
+	pcc_state->next_tid = 1;
 
 	update_tag(ctrl_state, pcc_state);
 
@@ -498,6 +499,17 @@ void send_report(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
 	struct pcep_message *report;
 	enum pcep_lsp_operational_status orig_status;
 
+	if (IS_IPADDR_V6(&pcc_state->pcc_opts->addr)) {
+		path->sender.ipa_type = IPADDR_V6;
+		memcpy(&path->sender.ipaddr_v6,
+		       &pcc_state->pcc_opts->addr.ipaddr_v6,
+		       sizeof(struct in6_addr));
+
+	} else {
+		path->sender.ipa_type = IPADDR_V4;
+		path->sender.ipaddr_v4 = pcc_state->pcc_opts->addr.ipaddr_v4;
+	}
+
 	lookup_plspid(pcc_state, path);
 	pop_srpid(pcc_state, path);
 
@@ -575,17 +587,21 @@ void lookup_plspid(struct pcc_state *pcc_state, struct path *path)
 				XCALLOC(MTYPE_PCEP, sizeof(*plspid_mapping));
 			plspid_mapping->nbkey = key.nbkey;
 			plspid_mapping->plspid = pcc_state->next_plspid;
+			plspid_mapping->tid = pcc_state->next_tid;
 			plspid_map_add(&pcc_state->plspid_map, plspid_mapping);
 			nbkey_mapping =
 				XCALLOC(MTYPE_PCEP, sizeof(*nbkey_mapping));
 			nbkey_mapping->nbkey = key.nbkey;
 			nbkey_mapping->plspid = pcc_state->next_plspid;
+			nbkey_mapping->tid = pcc_state->next_tid;
 			nbkey_map_add(&pcc_state->nbkey_map, nbkey_mapping);
 			pcc_state->next_plspid++;
+			pcc_state->next_tid++;
 			// FIXME: Send some error to the PCE isntead of crashing
 			assert(1048576 > pcc_state->next_plspid);
 		}
 		path->plsp_id = plspid_mapping->plspid;
+		path->tunnel_id = plspid_mapping->tid;
 	}
 }
 
@@ -598,6 +614,7 @@ void lookup_nbkey(struct pcc_state *pcc_state, struct path *path)
 	mapping = nbkey_map_find(&pcc_state->nbkey_map, &key);
 	assert(NULL != mapping);
 	path->nbkey = mapping->nbkey;
+	path->tunnel_id = mapping->tid;
 }
 
 void push_srpid(struct pcc_state *pcc_state, struct path *path)

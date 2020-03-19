@@ -150,6 +150,7 @@ int pcep_main_event_start_sync_cb(struct path *path, void *arg)
 {
 	int *pcc_id = (int *)arg;
 	path->is_synching = true;
+	path->go_active = true;
 	pcep_ctrl_sync_path(pcep_g->fpt, *pcc_id, path);
 	return 1;
 }
@@ -252,7 +253,7 @@ DEFUN(show_pcep_counters, show_pcep_counters_cmd, "show pcep counters",
 
 DEFUN_NOSH(
 	pcep_cli_pcc, pcep_cli_pcc_cmd,
-	"pcc [<ip A.B.C.D | ipv6 X:X::X:X>] [port (1024-65535)] [force_stateless]",
+	"pcc <ip A.B.C.D | ipv6 X:X::X:X> [port (1024-65535)] [force_stateless]",
 	"PCC configuration\n"
 	"PCC source ip\n"
 	"PCC source IPv4 address\n"
@@ -269,31 +270,32 @@ DEFUN_NOSH(
 	bool force_stateless = false;
 	int i = 1;
 
-	pcc_addr.ipaddr_v6 = in6addr_any;
+	/* Get the first argument, should be either ip or ipv6 */
+	pcc_addr.ipa_type = IPADDR_V4;
+	if (0 == strcmp("ipv6", argv[i]->arg)) {
+		pcc_addr.ipa_type = IPADDR_V6;
+	} else if (0 != strcmp("ip", argv[i]->arg)) {
+		return CMD_ERR_NO_MATCH;
+	}
 
+	/* Get the first argument value */
+	i++;
+	if (i >= argc) {
+		return CMD_ERR_NO_MATCH;
+	}
+	if (IS_IPADDR_V6(&pcc_addr)) {
+		if (!inet_pton(AF_INET6, argv[i]->arg, &pcc_addr.ipaddr_v6)) {
+			return CMD_ERR_INCOMPLETE;
+		}
+	} else {
+		if (!inet_pton(AF_INET, argv[i]->arg, &pcc_addr.ipaddr_v4)) {
+			return CMD_ERR_INCOMPLETE;
+		}
+	}
+
+	/* Handle the rest of the arguments */
+	i++;
 	while (i < argc) {
-		if (0 == strcmp("ipv6", argv[i]->arg)) {
-			i++;
-			if (i >= argc)
-				return CMD_ERR_NO_MATCH;
-			if (!inet_pton(AF_INET6, argv[i]->arg,
-				       &pcc_addr.ipaddr_v6))
-				return CMD_ERR_INCOMPLETE;
-			pcc_addr.ipa_type = IPADDR_V6;
-			i++;
-			continue;
-		}
-		if (0 == strcmp("ip", argv[i]->arg)) {
-			i++;
-			if (i >= argc)
-				return CMD_ERR_NO_MATCH;
-			if (!inet_pton(AF_INET, argv[i]->arg,
-				       &pcc_addr.ipaddr_v4.s_addr))
-				return CMD_ERR_INCOMPLETE;
-			pcc_addr.ipa_type = IPADDR_V4;
-			i++;
-			continue;
-		}
 		if (0 == strcmp("port", argv[i]->arg)) {
 			i++;
 			if (i >= argc)

@@ -698,6 +698,8 @@ void _format_path(int ps, struct path *path)
 			PCEP_FORMAT("%*sname: %s\n", ps2, "", path->name);
 		}
 		PCEP_FORMAT("%*ssrp_id: %u\n", ps2, "", path->srp_id);
+		PCEP_FORMAT("%*sreq_id: %u\n", ps2, "", path->req_id);
+		PCEP_FORMAT("%*stunnel_id: %u\n", ps2, "", path->tunnel_id);
 		PCEP_FORMAT("%*sstatus: %s (%u)\n", ps2, "",
 			    pcep_lsp_status_name(path->status), path->status);
 		PCEP_FORMAT("%*sdo_remove: %u\n", ps2, "", path->do_remove);

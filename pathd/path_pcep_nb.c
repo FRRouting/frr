@@ -154,7 +154,7 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 		.srp_id = 0,
 		.status = status,
 		.do_remove = false,
-		.go_active = false,
+		.go_active = is_delegated,
 		.was_created = candidate->protocol_origin == SRTE_ORIGIN_PCEP,
 		.was_removed = false,
 		.is_synching = false,

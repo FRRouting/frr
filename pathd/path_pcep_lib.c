@@ -297,9 +297,22 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 							   strlen(path->name));
 		dll_append(lsp_tlvs, tlv);
 	}
-	tlv = (struct pcep_object_tlv_header *)
-		pcep_tlv_create_ipv4_lsp_identifiers(&addr_null, &addr_null, 0,
-						     0, &addr_null);
+
+	if (0 == path->plsp_id) {
+		tlv = (struct pcep_object_tlv_header *)
+			pcep_tlv_create_ipv4_lsp_identifiers(
+				&addr_null, &addr_null, 0, 0, &addr_null);
+	} else {
+		/* TODO: Add support for IPv6 */
+		assert(IS_IPADDR_V4(&path->sender));
+		assert(IS_IPADDR_V4(&path->nbkey.endpoint));
+
+		tlv = (struct pcep_object_tlv_header *)
+			pcep_tlv_create_ipv4_lsp_identifiers(
+				&path->sender.ipaddr_v4,
+				&path->nbkey.endpoint.ipaddr_v4, path->plsp_id,
+				path->tunnel_id, &path->sender.ipaddr_v4);
+	}
 	assert(NULL != tlv);
 	dll_append(lsp_tlvs, tlv);
 	lsp = pcep_obj_create_lsp(
