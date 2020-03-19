@@ -299,6 +299,7 @@ struct rip_interface {
 
 	/* RIPv2 authentication string. */
 	char *auth_str;
+	char *auth_str_encrypted;
 
 	/* RIPv2 authentication key chain. */
 	char *key_chain;

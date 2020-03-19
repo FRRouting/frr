@@ -537,9 +537,7 @@ module frr-ripd {
         description
           "Choose whether to use a simple password or a key-chain.";
         leaf authentication-password {
-          type string {
-            length "1..16";
-          }
+          type string;
           description
             "Authentication string.";
         }
