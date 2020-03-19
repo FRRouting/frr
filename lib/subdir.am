@@ -3,7 +3,7 @@
 #
 lib_LTLIBRARIES += lib/libfrr.la
 lib_libfrr_la_LDFLAGS = -version-info 0:0:0 -Xlinker -e_libfrr_version
-lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBM)
+lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBM) $(LIBRESSL_LIBS)
 
 lib_libfrr_la_SOURCES = \
 	lib/agg_table.c \
@@ -42,6 +42,7 @@ lib_libfrr_la_SOURCES = \
 	lib/jhash.c \
 	lib/json.c \
 	lib/keychain.c \
+	lib/keycrypt.c \
 	lib/ldp_sync.c \
 	lib/lib_errors.c \
 	lib/lib_vty.c \
@@ -137,6 +138,7 @@ vtysh_scan += \
 	lib/if.c \
 	lib/if_rmap.c \
 	lib/keychain.c \
+	lib/keycrypt.c \
 	lib/lib_vty.c \
 	lib/nexthop_group.c \
 	lib/plist.c \
@@ -202,6 +204,7 @@ pkginclude_HEADERS += \
 	lib/jhash.h \
 	lib/json.h \
 	lib/keychain.h \
+	lib/keycrypt.h \
 	lib/ldp_sync.h \
 	lib/lib_errors.h \
 	lib/lib_vty.h \

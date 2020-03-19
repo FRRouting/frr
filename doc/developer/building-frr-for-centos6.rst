@@ -130,6 +130,18 @@ Install libyang and its dependencies:
    sudo yum install ./rpms/RPMS/x86_64/libyang-0.16.111-0.x86_64.rpm ./rpms/RPMS/x86_64/libyang-devel-0.16.111-0.x86_64.rpm
    cd ../..
 
+Install newer version openssl (Package versions are too old):
+
+.. code-block:: shell
+
+   wget https://www.openssl.org/source/old/1.1.1/openssl-1.1.1e.tar.gz
+   tar zxvf openssl-1.1.1e.tar.gz
+   cd openssl-1.1.1e
+   ./config --prefix=/usr
+   make
+   sudo make install
+   cd ..
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 
@@ -174,6 +186,7 @@ an example.)
         --disable-exampledir \
         --disable-ldpd \
         --enable-fpm \
+        --with-crypto=openssl \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion
     make

@@ -8,6 +8,7 @@ AM_CFLAGS = \
 	$(SQLITE3_CFLAGS) \
 	$(UNWIND_CFLAGS) \
 	$(SAN_FLAGS) \
+	$(LIBRESSL_CFLAGS) \
 	$(WERROR) \
 	# end
 AM_CPPFLAGS = \

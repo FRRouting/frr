@@ -209,7 +209,15 @@ Basic Config Commands
 .. index:: service password-encryption
 .. clicmd:: service password-encryption
 
-   Encrypt password.
+   Encrypt password.  Login passwords can always be encrypted while
+   support for encryption of particular protocol passwords,
+   authentication strings, or keys is per protocol and is dependent on
+   the presence of a properly formatted `Encryption key file`_.
+
+   .. note::
+
+      Once encrypted, there is no way to display the unencrypted
+      form, even if "no service password-encryption" is specified.
 
 .. index:: service advanced-vty
 .. clicmd:: service advanced-vty
@@ -434,6 +442,159 @@ Puppet, etc.), upgrade considerations differ somewhat:
    configuration generation to a newer ``frr version`` as appropriate.  Perform
    the same checks as when rolling out upgrades.
 
+
+.. _protocol-key-encryption:
+
+Protocol key encryption
+-----------------------
+
+Various routing protocols include configurable passwords, authentication
+strings, or other sorts of key strings that will be referred to in this
+section as "protocol keys." Historically, FRR has written these protocol keys
+as plain text to configuration files and to the command-line interface.
+
+In some environments, it is preferable to encrypt these strings in saved
+and displayed configuration, because these data are sometimes shared widely
+as part of organizational debugging or coordination processes. The protocol
+key encryption feature is designed to prevent inadvertent disclosure of
+protocol keys in configuration written to files and to the command-line
+interface.
+
+This feature covers two scenarios: exposure of a plaintext protocol
+key in a configuration file and exposure on an administrator's terminal
+via the command-line interface. Config files (e.g., frr.conf, bgpd.conf,
+ripd.conf, ldpd.conf, ospfd.conf) generated when protocol keys are encrypted
+do not contain plain-text protocol keys. Therefore, sharing or transmitting
+such files only exposes the protocol key cipher-text. Similarly,
+when protocol keys are encrypted, configuration data printed to the
+command-line interface via commands such as ``show running-config`` 
+expose only the protocol key cipher-text so the corresponding plain-text
+is not visible to observers.
+
+The protocol key encryption feature is not a comprehensive security
+mechanism. Depending on routing protocol specifications, these protocol
+keys may be sent over network interfaces in plain-text or in weakly
+encrypted form. Privileged users on the FRR host can read private key
+files, read process memory, or use other means to extract protocol keys
+from the running system.  This feature also does not protect plain-text
+protocol keys in-flight via networked management interfaces (for example,
+CLI or NETCONF). It also does not protect plain-text passwords in
+previously-saved configuration files, nor does it cause plain-text 
+passwords that are entered by an administrator to a command-line interface
+and echoed to the terminal to be made invisible on the terminal.
+
+When ``service password-encryption`` is specified in the configuration,
+FRR will attempt to encrypt any plain-text protocol keys using RSA
+public-key encryption. After encryption, even if
+``no service password-encryption`` is specified, only the
+encrypted form will appear in saved and displayed configuration.
+
+A single RSA private key file is used for encryption and decryption
+operations within each protocol daemon. The private key file contains
+numerical parameters enabling formation of both a private key and its
+corresponding public key. Protocol keys are encrypted using the public
+key and decrypted with the private key.
+
+Encrypted protocol keys are encoded as base64 strings. Note that RSA
+encryption imposes a size limit on the protocol key slightly less than
+the size of the RSA key. As RSA keys are typically 128 bytes or more
+and protocol keys are typically 16 bytes or fewer, it is unlikely
+that this limit will be reached.
+
+In the CLI and text configuration files, encrypted protocol keys are
+prefixed with the keyword "101" to distinguish them from plain-text
+protocol keys.
+
+The information needed by FRR to use an encrypted protocol key
+resides in two places:
+
+   * The protocol key cipher-text, which is prefixed by ``101``
+     and typically resides in frr.conf; and
+   * The encryption key file (described below)
+
+FRR combines these two data to obtain the protocol key plain-text 
+which it uses internally.
+
+   .. note::
+
+      FRR must be built with a cryptographic library for this feature
+      to be enabled. If libgcrypt is available at build time, it will
+      be used. Otherwise, ``--with-crypto=openssl`` or
+      ``--with-crypto=libressl`` may be specified explicitly when
+      configuring the build to cause the corresponding cryptographic
+      library to be used.
+
+   .. note::
+      Support for this feature is protocol-specific.  See each protocol's
+      configuration documentation to check which protocol password,
+      authentication string, or key configuration commands support a
+      ``101`` keyword.
+
+Encryption key file
+^^^^^^^^^^^^^^^^^^^
+
+Protocol key encryption depends on a single RSA private key file. The
+private key comprises a list of numerical values and is a superset
+of the corresponding public key elements. The private key may be in
+either PKCS1 or PKCS8 format.
+
+The private key file should be placed in the same directory as the
+daemon configuration files and named "frr_pk_rsa". Each protocol daemon
+determines the path to this directory by examining the path it used
+to read its configuration file at startup. If this path is empty (for
+example, when using integrated configuration via vtysh), then the
+directory "sysconfdir" as specified in the build configuration will
+be used.
+
+The open-source projects openssl, libressl, and gnutls contain tools
+that can generate the required private key file format.
+
+In the following examples, substitute the path to the FRR configuration
+directory for ``<confdir>``.
+
+To generate the private key file file using the openssl/libressl tool:
+
+.. code-block:: shell
+
+   chown frr <confdir>
+   chmod 0700 <confdir>
+   openssl genpkey -algorithm RSA -out <confdir>/frr_pk_rsa
+   chown frr <confdir>/frr_pk_rsa
+   chmod 0400 <confdir>/frr_pk_rsa
+
+To generate the private key file file using the gnutls tool:
+
+.. code-block:: shell
+
+   chown frr <confdir>
+   chmod 0700 <confdir>
+   certtool --generate-privkey --key-type=rsa --null-password --outfile <confdir>/frr_pk_rsa
+   chown frr <confdir>/frr_pk_rsa
+   chmod 0400 <confdir>/frr_pk_rsa
+
+
+.. note::
+
+      If the key file is not available, encryption of new protocol
+      passwords, authentication strings, and keys will be disabled,
+      and decryption of previously-encrypted strings will fail. Once
+      the key file is restored, normal encryption and decryption
+      operation can occur. If the key file is lost, previously-encrypted
+      strings are not recoverable. New encrypted strings can be generated
+      by configuring the original plain-text passwords and encrypting with
+      a new key file.
+
+Protocol key encryption status
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. index:: show keycrypt status
+.. clicmd:: show keycrypt status
+
+   Display status of protocol key encryption:
+
+* enable/disable
+* keyfile path and readability
+* encryption backend type and version
+* counts of plain/encrypted keys per daemon
 
 .. _terminal-mode-commands:
 

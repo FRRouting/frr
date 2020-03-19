@@ -2517,12 +2517,16 @@ bool vty_read_config(struct nb_config *config, const char *config_file,
 			fullpath = config_default_dir;
 	}
 
+	/*
+	 * set config file path before reading config file so that
+	 * keycrypt can find its private key file during config processing
+	 */
+	host_config_set(fullpath);
+
 	vty_read_file(config, confp);
 	read_success = true;
 
 	fclose(confp);
-
-	host_config_set(fullpath);
 
 tmp_free_and_out:
 	XFREE(MTYPE_TMP, tmp);
