@@ -25,6 +25,7 @@
 #include "ldpe.h"
 #include "lde.h"
 #include "log.h"
+#include "keycrypt.h"
 
 static __inline int	 nbr_id_compare(const struct nbr *, const struct nbr *);
 static __inline int	 nbr_addr_compare(const struct nbr *,

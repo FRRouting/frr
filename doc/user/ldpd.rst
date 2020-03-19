@@ -134,13 +134,17 @@ LDP Configuration
    the IPv4 or IPv6 transport-address used by the LDP protocol to talk on this
    interface.
 
-.. index:: neighbor A.B.C.D password PASSWORD
-.. clicmd:: [no] neighbor A.B.C.D password PASSWORD
+.. index:: neighbor A.B.C.D password [101] PASSWORD
+.. clicmd:: [no] neighbor A.B.C.D password [101] PASSWORD
 
    The following command located under MPLS router node configures the router
    of a LDP device. This device, if found, will have to comply with the
    configured password. PASSWORD is a clear text password wit its digest sent
    through the network.
+
+   The optional "101" keyword indicates that the password is in encrypted
+   form. Encrypted passwords are encoded in base64. Please see
+   :ref:`protocol-key-encryption` for further details.
 
 .. index:: neighbor A.B.C.D holdtime HOLDTIME
 .. clicmd:: [no] neighbor A.B.C.D holdtime HOLDTIME
