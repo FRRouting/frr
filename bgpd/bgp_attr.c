@@ -2650,7 +2650,7 @@ bgp_attr_parse_ret_t bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 		if (STREAM_READABLE(peer->curr) < length) {
 			flog_err(
 				EC_BGP_ATTR_LEN,
-				"Malformed Prefix SID attribute - insufficient data (need %" PRIu8
+				"Malformed Prefix SID attribute - insufficient data (need %" PRIu16
 				" for attribute body, have %zu remaining in UPDATE)",
 				length, STREAM_READABLE(peer->curr));
 			return bgp_attr_malformed(args,
