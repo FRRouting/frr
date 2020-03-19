@@ -2382,8 +2382,7 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
  * Returns 0 if there was an error that needs to be passed up the stack
  */
 static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
-					      struct bgp_attr_parser_args *args,
-					      struct bgp_nlri *mp_update)
+					      struct bgp_attr_parser_args *args)
 {
 	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
@@ -2421,15 +2420,6 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		/* Store label index; subsequently, we'll check on
 		 * address-family */
 		attr->label_index = label_index;
-
-		/*
-		 * Ignore the Label index attribute unless received for
-		 * labeled-unicast
-		 * SAFI.
-		 */
-		if (!mp_update->length
-		    || mp_update->safi != SAFI_LABELED_UNICAST)
-			attr->label_index = BGP_INVALID_LABEL_INDEX;
 	}
 
 	/* Placeholder code for the IPv6 SID type */
@@ -2628,8 +2618,7 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 /* Prefix SID attribute
  * draft-ietf-idr-bgp-prefix-sid-05
  */
-bgp_attr_parse_ret_t bgp_attr_prefix_sid(struct bgp_attr_parser_args *args,
-					 struct bgp_nlri *mp_update)
+bgp_attr_parse_ret_t bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 {
 	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
@@ -2640,8 +2629,10 @@ bgp_attr_parse_ret_t bgp_attr_prefix_sid(struct bgp_attr_parser_args *args,
 	uint8_t type;
 	uint16_t length;
 	size_t headersz = sizeof(type) + sizeof(length);
+	size_t psid_parsed_length = 0;
 
-	while (STREAM_READABLE(peer->curr) > 0) {
+	while (STREAM_READABLE(peer->curr) > 0
+	       && psid_parsed_length < args->length) {
 
 		if (STREAM_READABLE(peer->curr) < headersz) {
 			flog_err(
@@ -2667,10 +2658,23 @@ bgp_attr_parse_ret_t bgp_attr_prefix_sid(struct bgp_attr_parser_args *args,
 						  args->total);
 		}
 
-		ret = bgp_attr_psid_sub(type, length, args, mp_update);
+		ret = bgp_attr_psid_sub(type, length, args);
 
 		if (ret != BGP_ATTR_PARSE_PROCEED)
 			return ret;
+
+		psid_parsed_length += length + headersz;
+
+		if (psid_parsed_length > args->length) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Malformed Prefix SID attribute - TLV overflow by attribute (need %zu"
+				" for TLV length, have %zu overflowed in UPDATE)",
+				length + headersz, psid_parsed_length - (length + headersz));
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
+		}
 	}
 
 	return BGP_ATTR_PARSE_PROCEED;
@@ -3066,7 +3070,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 					     startp);
 			break;
 		case BGP_ATTR_PREFIX_SID:
-			ret = bgp_attr_prefix_sid(&attr_args, mp_update);
+			ret = bgp_attr_prefix_sid(&attr_args);
 			break;
 		case BGP_ATTR_PMSI_TUNNEL:
 			ret = bgp_attr_pmsi_tunnel(&attr_args);
@@ -3112,6 +3116,17 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 			goto done;
 		}
 	}
+
+	/*
+	 * draft-ietf-idr-bgp-prefix-sid-27#section-3:
+	 * About Prefix-SID path attribute,
+	 * Label-Index TLV(type1) and The Originator SRGB TLV(type-3)
+	 * may only appear in a BGP Prefix-SID attribute attached to
+	 * IPv4/IPv6 Labeled Unicast prefixes ([RFC8277]).
+	 * It MUST be ignored when received for other BGP AFI/SAFI combinations.
+	 */
+	if (!attr->mp_nexthop_len || mp_update->safi != SAFI_LABELED_UNICAST)
+		attr->label_index = BGP_INVALID_LABEL_INDEX;
 
 	/* Check final read pointer is same as end pointer. */
 	if (BGP_INPUT_PNT(peer) != endp) {

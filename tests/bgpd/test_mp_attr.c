@@ -951,12 +951,19 @@ static struct test_segment mp_prefix_sid[] = {
 		"PREFIX-SID",
 		"PREFIX-SID Test 1",
 		{
-			0x01, 0x00, 0x07,
-			0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x02,
-			0x03, 0x00, 0x08, 0x00,
-			0x00, 0x0a, 0x1b, 0xfe,
-			0x00, 0x00, 0x0a
+			/* TLV[0] Latel-Index TLV */
+			0x01,                    /* Type 0x01:Label-Index */
+			0x00, 0x07,              /* Length */
+			0x00,                    /* RESERVED */
+			0x00, 0x00,              /* Flags */
+			0x00, 0x00, 0x00, 0x02,  /* Label Index */
+
+			/* TLV[1] SRGB TLV */
+			0x03,                    /* Type 0x03:SRGB */
+			0x00, 0x08,              /* Length */
+			0x00, 0x00,              /* Flags */
+			0x0a, 0x1b, 0xfe,        /* SRGB[0] first label */
+			0x00, 0x00, 0x0a         /* SRBG[0] nb-labels in range */
 		},
 		.len = 21,
 		.parses = SHOULD_PARSE,
@@ -1027,7 +1034,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		parse_ret = bgp_mp_unreach_parse(&attr_args, &nlri);
 		break;
 	case BGP_ATTR_PREFIX_SID:
-		parse_ret = bgp_attr_prefix_sid(&attr_args, &nlri);
+		parse_ret = bgp_attr_prefix_sid(&attr_args);
 		break;
 	default:
 		printf("unknown type");
