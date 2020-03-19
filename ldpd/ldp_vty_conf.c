@@ -29,6 +29,9 @@
 #include "if.h"
 #include "vty.h"
 #include "ldp_vty.h"
+#include "libfrr.h"
+#include "memory.h"
+#include "keycrypt.h"
 
 static int	 ldp_config_write(struct vty *);
 static void	 ldp_af_iface_config_write(struct vty *, int);
@@ -300,9 +303,22 @@ ldp_config_write(struct vty *vty)
 				    "disable\n",inet_ntoa(nbrp->lsr_id));
 		}
 
-		if (nbrp->auth.method == AUTH_MD5SIG)
-			vty_out (vty, " neighbor %s password %s\n",
-			    inet_ntoa(nbrp->lsr_id),nbrp->auth.md5key);
+		if (nbrp->auth.method == AUTH_MD5SIG) {
+			const char *pfx;
+			char *str;
+			if (nbrp->auth.md5key_encrypted[0]) {
+				if (!nbrp->auth.md5key[0])
+					vty_out(vty,
+						"!!! Error: Unable to decrypt the following string\n");
+				pfx = "101 ";
+				str = nbrp->auth.md5key_encrypted;
+			} else {
+				pfx = "";
+				str = nbrp->auth.md5key;
+			}
+			vty_out(vty, " neighbor %s password %s%s\n",
+				inet_ntoa(nbrp->lsr_id), pfx, str);
+		}
 	}
 
 	ldp_af_config_write(vty, AF_INET, ldpd_conf, &ldpd_conf->ipv4);
@@ -311,6 +327,74 @@ ldp_config_write(struct vty *vty)
 	vty_out (vty, "!\n");
 
 	return (1);
+}
+
+void ldpd_keycrypt_encryption_show_status(struct vty *vty,
+					  const char *indentstr)
+{
+	struct nbr_params *nbrp;
+	uint md5_keys = 0;
+	uint md5_keys_encrypted = 0;
+
+	RB_FOREACH (nbrp, nbrp_head, &ldpd_conf->nbrp_tree) {
+		if (nbrp->auth.method == AUTH_MD5SIG) {
+			if (nbrp->auth.md5key_encrypted[0])
+				++md5_keys_encrypted;
+			if (nbrp->auth.md5key[0])
+				++md5_keys;
+		}
+	}
+
+	vty_out(vty, "%s%s: neighbor passwords: %u, encrypted: %u\n", indentstr,
+		frr_protoname, md5_keys, md5_keys_encrypted);
+}
+
+void ldpd_keycrypt_state_change(bool now_encrypting)
+{
+	/*
+	 * change from encrypting to non-encrypting has no effect on
+	 * previously-encrypted protocol keys: they remain encrypted.
+	 */
+	if (!now_encrypting)
+		return;
+
+	struct nbr_params *nbrp;
+
+	RB_FOREACH (nbrp, nbrp_head, &ldpd_conf->nbrp_tree) {
+
+		char *pCryptText;
+		size_t CryptTextLen;
+
+		/* skip if we already have an encrypted string */
+		if (nbrp->auth.md5key_encrypted[0])
+			continue;
+
+		/* skip if there is no cleartext string to encrypt */
+		if (!nbrp->auth.md5key[0])
+			continue;
+
+		if (keycrypt_encrypt(nbrp->auth.md5key,
+				     strlen(nbrp->auth.md5key), &pCryptText,
+				     &CryptTextLen)) {
+
+			zlog_err("%s: can't encrypt neighbor password for %s",
+				 __func__, inet_ntoa(nbrp->lsr_id));
+		} else {
+			/* encrypt success */
+			if (CryptTextLen
+			    <= sizeof(nbrp->auth.md5key_encrypted)) {
+				strlcpy(nbrp->auth.md5key_encrypted, pCryptText,
+					sizeof(nbrp->auth.md5key_encrypted));
+			} else {
+				zlog_err(
+					"%s: can't save encrypted neighbor password"
+					": too big (%zu > %zu)",
+					__func__, CryptTextLen,
+					sizeof(nbrp->auth.md5key_encrypted));
+			}
+			XFREE(MTYPE_KEYCRYPT_CIPHER_B64, pCryptText);
+		}
+	}
 }
 
 static void
@@ -1042,9 +1126,9 @@ ldp_vty_trans_pref_ipv4(struct vty *vty, const char *negate)
 	return (CMD_SUCCESS);
 }
 
-int
-ldp_vty_neighbor_password(struct vty *vty, const char *negate, struct in_addr lsr_id,
-    const char *password_str)
+int ldp_vty_neighbor_password(struct vty *vty, const char *negate,
+			      struct in_addr lsr_id, const char *password_str,
+			      bool is_encrypted)
 {
 	size_t			 password_len;
 	struct nbr_params	*nbrp;
@@ -1068,21 +1152,72 @@ ldp_vty_neighbor_password(struct vty *vty, const char *negate, struct in_addr ls
 		memset(&nbrp->auth, 0, sizeof(nbrp->auth));
 		nbrp->auth.method = AUTH_NONE;
 	} else {
+		char *passwdPlain;
+		char *passwdCrypt;
+		keycrypt_err_t krc;
+
 		if (nbrp == NULL) {
 			nbrp = nbr_params_new(lsr_id);
 			RB_INSERT(nbrp_head, &vty_conf->nbrp_tree, nbrp);
 			QOBJ_REG(nbrp, nbr_params);
-		} else if (nbrp->auth.method == AUTH_MD5SIG &&
-		    strcmp(nbrp->auth.md5key, password_str) == 0)
-			return (CMD_SUCCESS);
+		}
 
-		password_len = strlcpy(nbrp->auth.md5key, password_str,
-		    sizeof(nbrp->auth.md5key));
-		if (password_len >= sizeof(nbrp->auth.md5key))
-			vty_out(vty, "%% password has been truncated to %zu "
-			    "characters.", sizeof(nbrp->auth.md5key) - 1);
-		nbrp->auth.md5key_len = strlen(nbrp->auth.md5key);
-		nbrp->auth.method = AUTH_MD5SIG;
+		krc = keycrypt_build_passwords(password_str, is_encrypted,
+					       MTYPE_TMP, &passwdPlain,
+					       &passwdCrypt);
+		if (krc) {
+			zlog_err("%s: %s", __func__, keycrypt_strerror(krc));
+		}
+
+		if (passwdCrypt) {
+			if (strlen(passwdCrypt)
+			    < sizeof(nbrp->auth.md5key_encrypted)) {
+
+				strlcpy(nbrp->auth.md5key_encrypted,
+					passwdCrypt,
+					sizeof(nbrp->auth.md5key_encrypted));
+			} else {
+				zlog_err(
+					"%s: can't save encrypted neighbor password"
+					": too big (%zu > %zu)",
+					__func__, strlen(passwdCrypt) + 1,
+					sizeof(nbrp->auth.md5key_encrypted));
+			}
+			XFREE(MTYPE_KEYCRYPT_CIPHER_B64, passwdCrypt);
+		}
+
+		if (passwdPlain) {
+			if (nbrp->auth.method == AUTH_MD5SIG
+			    && strcmp(nbrp->auth.md5key, password_str) == 0) {
+
+				XFREE(MTYPE_TMP, passwdPlain);
+				return (CMD_SUCCESS);
+			}
+
+			password_len = strlcpy(nbrp->auth.md5key, passwdPlain,
+					       sizeof(nbrp->auth.md5key));
+			XFREE(MTYPE_TMP, passwdPlain);
+			if (password_len >= sizeof(nbrp->auth.md5key))
+				vty_out(vty,
+					"%% password has been truncated to %zu "
+					"characters.",
+					sizeof(nbrp->auth.md5key) - 1);
+			nbrp->auth.md5key_len = strlen(nbrp->auth.md5key);
+			nbrp->auth.method = AUTH_MD5SIG;
+		} else {
+			/*
+			 * We reach here if provided password was encrypted and
+			 * we are unable to decrypt (or if decrypted password
+			 * was 0-length).
+			 *
+			 * We want to retain the encrypted password for saving
+			 * in future config-writes. But the on-the-wire
+			 * password will be incorrect.
+			 */
+			nbrp->auth.md5key[0] = 0;
+			nbrp->auth.md5key_len = 0;
+			nbrp->auth.method = AUTH_MD5SIG;
+		}
 	}
 
 	ldp_config_apply(vty, vty_conf);

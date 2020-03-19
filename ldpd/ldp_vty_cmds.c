@@ -174,14 +174,22 @@ DEFPY  (ldp_dual_stack_cisco_interop,
 
 DEFPY  (ldp_neighbor_password,
 	ldp_neighbor_password_cmd,
-	"[no] neighbor A.B.C.D$neighbor password WORD$password",
+	"[no] neighbor A.B.C.D$neighbor password [101] WORD$password",
 	NO_STR
 	"Configure neighbor parameters\n"
 	"LDP Id of neighbor\n"
 	"Configure password for MD5 authentication\n"
+	"Encrypted password follows\n"
 	"The password\n")
 {
-	return (ldp_vty_neighbor_password(vty, no, neighbor, password));
+	int idx_101 = 0;
+	bool is_encrypted = false;
+
+	if (argv_find(argv, argc, "101", &idx_101))
+		is_encrypted = true;
+
+	return (ldp_vty_neighbor_password(vty, no, neighbor, password,
+					  is_encrypted));
 }
 
 DEFPY  (ldp_neighbor_session_holdtime,

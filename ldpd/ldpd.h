@@ -46,6 +46,7 @@
 #define LDPD_OPT_NOACTION	0x00000004
 
 #define TCP_MD5_KEY_LEN		80
+#define TCP_MD5_KEY_LEN_ENCR 400 /* base64 encrypted max */
 
 #define	RT_BUF_SIZE		16384
 #define	MAX_RTSOCK_BUF		128 * 1024
@@ -353,6 +354,8 @@ struct nbr_params {
 		enum auth_method	 method;
 		char			 md5key[TCP_MD5_KEY_LEN];
 		uint8_t			 md5key_len;
+		/* size of md5key_encrypted limits RSA key length */
+		char md5key_encrypted[TCP_MD5_KEY_LEN_ENCR];
 	} auth;
 	uint8_t			 flags;
 	QOBJ_FIELDS

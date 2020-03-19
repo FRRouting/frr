@@ -43,6 +43,7 @@
 #include "qobj.h"
 #include "libfrr.h"
 #include "lib_errors.h"
+#include "keycrypt.h"
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int);
@@ -357,6 +358,11 @@ main(int argc, char *argv[])
 	access_list_init();
 	ldp_vty_init();
 	ldp_zebra_init(master);
+
+	keycrypt_init();
+	keycrypt_register_protocol_callback(ldpd_keycrypt_state_change);
+	keycrypt_register_protocol_show_callback(
+		ldpd_keycrypt_encryption_show_status);
 
 	/*
 	 * Create base configuration with sane defaults. All configuration
@@ -1625,6 +1631,8 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		nbrp->auth.method = xn->auth.method;
 		strlcpy(nbrp->auth.md5key, xn->auth.md5key,
 		    sizeof(nbrp->auth.md5key));
+		strlcpy(nbrp->auth.md5key_encrypted, xn->auth.md5key_encrypted,
+			sizeof(nbrp->auth.md5key_encrypted));
 		nbrp->auth.md5key_len = xn->auth.md5key_len;
 		nbrp->flags = xn->flags;
 
