@@ -8,8 +8,12 @@ Routing Protocol is "RIPng"
   Default version control: send version 1, receive version 1 
     Interface        Send  Recv
     r1-eth1          1     1  
+    r1-eth2          1     1  
+    r1-eth3          1     1  
   Routing for Networks:
     fc00:5::/64
+    r1-eth2
+    r1-eth3
   Routing Information Sources:
     Gateway          BadPackets BadRoutes  Distance Last Update
     fe80::XXXX:XXXX:XXXX:XXXX 

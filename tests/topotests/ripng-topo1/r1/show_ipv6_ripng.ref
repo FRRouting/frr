@@ -12,3 +12,7 @@ R(n) fc00:7::/64
                   fe80::XXXX:XXXX:XXXX:XXXX   r1-eth1    3    0  XX:XX
 R(n) fc00:7:1111::/64
                   fe80::XXXX:XXXX:XXXX:XXXX   r1-eth1    3    0  XX:XX
+C(i) fc00:98:0:1::/64
+                  ::                          self       1    0
+C(i) fc00:99:0:1::/64
+                  ::                          self       1    0
