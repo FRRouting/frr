@@ -1252,14 +1252,18 @@ Configuring Peers
 .. index:: neighbor PEER port PORT
 .. clicmd:: neighbor PEER port PORT
 
-.. index:: [no] neighbor PEER password PASSWORD
-.. clicmd:: [no] neighbor PEER password PASSWORD
+.. index:: [no] neighbor PEER [101] password PASSWORD
+.. clicmd:: [no] neighbor PEER [101] password PASSWORD
 
    Set a MD5 password to be used with the tcp socket that is being used
    to connect to the remote peer.  Please note if you are using this
    command with a large number of peers on linux you should consider
    modifying the `net.core.optmem_max` sysctl to a larger value to
    avoid out of memory errors from the linux kernel.
+
+   The optional "101" keyword indicates that the password is in encrypted
+   form. Encrypted passwords are encoded in base64. Please see
+   :ref:`protocol-key-encryption` for further details.
 
 .. index:: neighbor PEER send-community
 .. clicmd:: neighbor PEER send-community
