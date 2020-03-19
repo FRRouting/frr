@@ -151,9 +151,8 @@ def teardown_module(mod):
     tgen.stop_topology()
     _lt = None
 
-
 def ltemplateTest(
-    script, SkipIfFailed=True, CallOnFail=None, CheckFuncStr=None, KeepGoing=False
+    script, SkipIfFailed=True, CallOnFail=None, CheckFuncStr=None, KeepGoing=False, LogTag=None
 ):
     global _lt
     if _lt == None or _lt.prestarthooksuccess != True:
@@ -165,6 +164,8 @@ def ltemplateTest(
             logger.error("Could not find script file: " + script)
             assert "Could not find script file: " + script
     logger.info("Starting template test: " + script)
+    if LogTag != None:
+        logger.info("LogTag: " + LogTag)
     numEntry = luNumFail()
 
     if SkipIfFailed and tgen.routers_have_failure():
