@@ -86,6 +86,11 @@ int os_recvmsg(uint8_t *buf, size_t *len, int *ifindex, uint8_t *addr,
 	*len = r;
 	*ifindex = lladdr.sll_ifindex;
 
+	/* point to point interface. remote is encoded in gre_info */
+	if (nhrp_interface_is_ptop(*ifindex, addr, addrlen))
+		return 0;
+
+	/* point to multipoint interface. remote is encoded in ssl_addr */
 	if (*addrlen <= (size_t)lladdr.sll_addr) {
 		if (memcmp(lladdr.sll_addr, "\x00\x00\x00\x00", 4) != 0) {
 			memcpy(addr, lladdr.sll_addr, lladdr.sll_halen);
