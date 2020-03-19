@@ -27,6 +27,7 @@
 #include "command.h"
 #include "northbound_cli.h"
 #include "libfrr.h"
+#include "keycrypt.h"
 
 #include "ripd/ripd.h"
 #include "ripd/rip_nb.h"
@@ -890,14 +891,21 @@ void cli_show_ip_rip_authentication_scheme(struct vty *vty,
  */
 DEFPY_YANG (ip_rip_authentication_string,
        ip_rip_authentication_string_cmd,
-       "ip rip authentication string LINE$password",
+       "ip rip authentication string [101] LINE$password",
        IP_STR
        "Routing Information Protocol\n"
        "Authentication control\n"
        "Authentication string\n"
+       "Encrypted string follows\n"
        "Authentication string\n")
 {
-	if (strlen(password) > 16) {
+	int idx_101 = 0;
+	bool is_encrypted = false;
+	int rc;
+
+	if (argv_find(argv, argc, "101", &idx_101))
+		is_encrypted = true;
+	if (!is_encrypted && (strlen(password) > 16)) {
 		vty_out(vty,
 			"%% RIPv2 authentication string must be shorter than 16\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -910,20 +918,41 @@ DEFPY_YANG (ip_rip_authentication_string,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	nb_cli_enqueue_change(vty, "./authentication-password", NB_OP_MODIFY,
-			      password);
+	if (is_encrypted) {
+		char *pw;
+		size_t len;
 
-	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
+		/*
+		 * Hack! to work around temporary incorrect yang model
+		 */
+		len = 4 + strlen(password) + 1;
+		pw = XMALLOC(MTYPE_TMP, len);
+		strlcpy(pw, "101 ", len);
+		strlcat(pw, password, len);
+		nb_cli_enqueue_change(vty, "./authentication-password",
+				      NB_OP_MODIFY, pw);
+		rc = nb_cli_apply_changes(vty, "./frr-ripd:rip");
+		XFREE(MTYPE_TMP, pw);
+
+	} else {
+
+		nb_cli_enqueue_change(vty, "./authentication-password",
+				      NB_OP_MODIFY, password);
+		rc = nb_cli_apply_changes(vty, "./frr-ripd:rip");
+	}
+
+	return rc;
 }
 
 DEFPY_YANG (no_ip_rip_authentication_string,
        no_ip_rip_authentication_string_cmd,
-       "no ip rip authentication string [LINE]",
+       "no ip rip authentication string [101] [LINE]",
        NO_STR
        IP_STR
        "Routing Information Protocol\n"
        "Authentication control\n"
        "Authentication string\n"
+       "Encrypted string follows\n"
        "Authentication string\n")
 {
 	nb_cli_enqueue_change(vty, "./authentication-password", NB_OP_DESTROY,
@@ -936,8 +965,35 @@ void cli_show_ip_rip_authentication_string(struct vty *vty,
 					   struct lyd_node *dnode,
 					   bool show_defaults)
 {
-	vty_out(vty, " ip rip authentication string %s\n",
-		yang_dnode_get_string(dnode, NULL));
+	struct interface *ifp;
+	struct rip_interface *ri;
+	const char *pfx;
+	char *str;
+
+	/*
+	 * getting at the ifp->info breaks the assumptions of
+	 * the NB interface architecture (viz., that we can show
+	 * pending or default values). We need to model the
+	 * encrypted string as an alternate kind of authentication
+	 * string in the YANG model. This is a quick and dirty
+	 * hack to make the CLI work.
+	 */
+	ifp = nb_running_get_entry(dnode, NULL, true);
+	ri = ifp->info;
+
+	if (ri->auth_str_encrypted) {
+		pfx = "101 ";
+		str = ri->auth_str_encrypted;
+		if (!ri->auth_str) {
+			vty_out(vty,
+				"!!! Error: Unable to decrypt the following string\n");
+		}
+	} else {
+		pfx = "";
+		str = ri->auth_str;
+	}
+
+	vty_out(vty, " ip rip authentication string %s%s\n", pfx, str);
 }
 
 /*
@@ -1019,6 +1075,70 @@ DEFPY_YANG (clear_ip_rip,
 	return ret;
 }
 
+static void rip_keycrypt_state_change(bool now_encrypting)
+{
+	/*
+	 * change from encrypting to non-encrypting has no effect on
+	 * previously-encrypted protocol keys: they remain encrypted.
+	 */
+	if (!now_encrypting)
+		return;
+
+	struct vrf *vrf = NULL;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		struct interface *ifp;
+
+		FOR_ALL_INTERFACES (vrf, ifp) {
+
+			struct rip_interface *ri = ifp->info;
+
+			/* skip if there is no cleartext string to encrypt */
+			if (!ri->auth_str)
+				continue;
+
+			/* skip if we already have an encrypted string */
+			if (ri->auth_str_encrypted)
+				continue;
+
+			if (keycrypt_encrypt(ri->auth_str, strlen(ri->auth_str),
+					     &ri->auth_str_encrypted, NULL)) {
+				zlog_err(
+					"%s: interface %s vrf %s: can't encrypt",
+					__func__, ifp->name,
+					((ifp->vrf_id == VRF_DEFAULT)
+						 ? "default"
+						 : vrf->name));
+			}
+		}
+	}
+}
+
+static void rip_keycrypt_encryption_show_status(struct vty *vty,
+						const char *indentstr)
+{
+	uint auth_str = 0;
+	uint auth_str_encrypted = 0;
+
+	struct vrf *vrf = NULL;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		struct interface *ifp;
+
+		FOR_ALL_INTERFACES (vrf, ifp) {
+
+			struct rip_interface *ri = ifp->info;
+
+			if (ri->auth_str)
+				++auth_str;
+			if (ri->auth_str_encrypted)
+				++auth_str_encrypted;
+		}
+	}
+	vty_out(vty, "%s%s: authentication strings: %u, encrypted: %u\n",
+		indentstr, frr_protoname, auth_str, auth_str_encrypted);
+}
+
 void rip_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_rip_cmd);
@@ -1059,4 +1179,9 @@ void rip_cli_init(void)
 			&no_ip_rip_authentication_key_chain_cmd);
 
 	install_element(ENABLE_NODE, &clear_ip_rip_cmd);
+
+	keycrypt_init();
+	keycrypt_register_protocol_callback(rip_keycrypt_state_change);
+	keycrypt_register_protocol_show_callback(
+		rip_keycrypt_encryption_show_status);
 }

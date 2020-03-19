@@ -29,6 +29,7 @@
 #include "routemap.h"
 #include "northbound.h"
 #include "libfrr.h"
+#include "keycrypt.h"
 
 #include "ripd/ripd.h"
 #include "ripd/rip_nb.h"
@@ -956,6 +957,13 @@ int lib_interface_rip_authentication_scheme_md5_auth_length_destroy(
 	return NB_OK;
 }
 
+struct tmp_rip_auth_password_strings {
+	char *pPlainText;
+	char *pCryptText;
+};
+DEFINE_MTYPE_STATIC(RIPD, TMP_AUTH_PASSWORD_STRINGS,
+		    "provisional NB password strings");
+
 /*
  * XPath: /frr-interface:lib/interface/frr-ripd:rip/authentication-password
  */
@@ -964,15 +972,98 @@ int lib_interface_rip_authentication_password_modify(
 {
 	struct interface *ifp;
 	struct rip_interface *ri;
+	const char *password_in;
+	bool is_encrypted = false;
+	size_t pwlen;
+	struct tmp_rip_auth_password_strings *pwstrs;
 
-	if (args->event != NB_EV_APPLY)
+	password_in = yang_dnode_get_string(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!strncmp(password_in, "101 ", 4)) { /* hack! */
+			is_encrypted = true;
+			password_in = password_in + 4;
+		}
+		if (!is_encrypted) {
+			pwlen = strlen(password_in);
+			if ((pwlen < 1) || (pwlen > 16)) {
+				zlog_err(
+					"%s: plaintext password length %zu not in range 1-16",
+					__func__, pwlen);
+				return NB_ERR_VALIDATION;
+			}
+		}
+		/*
+		 * per design requirements not to lose encrypted passwords,
+		 * always accept them
+		 */
 		return NB_OK;
+
+	case NB_EV_PREPARE:
+		if (!strncmp(password_in, "101 ", 4)) { /* hack! */
+			is_encrypted = true;
+			password_in = password_in + 4;
+		}
+
+		pwstrs = XCALLOC(MTYPE_TMP_AUTH_PASSWORD_STRINGS,
+				 sizeof(struct tmp_rip_auth_password_strings));
+		args->resource->ptr = pwstrs;
+
+		enum keycrypt_err krc;
+
+		krc = keycrypt_build_passwords(
+			password_in, is_encrypted, MTYPE_RIP_INTERFACE_STRING,
+			&(pwstrs->pPlainText), &(pwstrs->pCryptText));
+		if (krc)
+			zlog_err("%s: %s", __func__, keycrypt_strerror(krc));
+
+		/*
+		 * Since we must accept any encrypted password, we have
+		 * to handle various kinds of invalid plaintext here.
+		 */
+		if (is_encrypted && pwstrs->pPlainText) {
+			int len = strlen(pwstrs->pPlainText);
+
+			if (len > 16) {
+				/* truncate */
+				pwstrs->pPlainText[16] = '\0';
+				zlog_err(
+					"%s: Decrypted password too long, truncated",
+					__func__);
+			} else if (!len) {
+				/* empty password */
+				XFREE(MTYPE_RIP_INTERFACE_STRING,
+				      pwstrs->pPlainText);
+				zlog_err(
+					"%s: Decrypted to invalid 0-length password",
+					__func__);
+			}
+		}
+
+		return NB_OK;
+
+	case NB_EV_ABORT:
+		pwstrs = args->resource->ptr;
+		XFREE(MTYPE_RIP_INTERFACE_STRING, pwstrs->pPlainText);
+		XFREE(MTYPE_KEYCRYPT_CIPHER_B64, pwstrs->pCryptText);
+		XFREE(MTYPE_TMP_AUTH_PASSWORD_STRINGS, args->resource->ptr);
+		return NB_OK;
+
+	case NB_EV_APPLY:
+		/* fall through */
+		break;
+	}
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	ri = ifp->info;
 	XFREE(MTYPE_RIP_INTERFACE_STRING, ri->auth_str);
-	ri->auth_str = XSTRDUP(MTYPE_RIP_INTERFACE_STRING,
-			       yang_dnode_get_string(args->dnode, NULL));
+	XFREE(MTYPE_KEYCRYPT_CIPHER_B64, ri->auth_str_encrypted);
+
+	pwstrs = args->resource->ptr;
+
+	ri->auth_str = pwstrs->pPlainText;	   /* may be NULL */
+	ri->auth_str_encrypted = pwstrs->pCryptText; /* may be NULL */
 
 	return NB_OK;
 }
@@ -989,6 +1080,7 @@ int lib_interface_rip_authentication_password_destroy(
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	ri = ifp->info;
 	XFREE(MTYPE_RIP_INTERFACE_STRING, ri->auth_str);
+	XFREE(MTYPE_KEYCRYPT_CIPHER_B64, ri->auth_str_encrypted);
 
 	return NB_OK;
 }

@@ -552,14 +552,18 @@ To prevent such unauthenticated querying of routes disable RIPv1,
 
    Set the interface with RIPv2 simple password authentication.
 
-.. index:: ip rip authentication string STRING
-.. clicmd:: ip rip authentication string STRING
+.. index:: ip rip authentication string [101] STRING
+.. clicmd:: ip rip authentication string [101] STRING
 
-.. index:: ip rip authentication string STRING
-.. clicmd:: no ip rip authentication string STRING
+.. index:: ip rip authentication string [101] STRING
+.. clicmd:: no ip rip authentication string [101] STRING
 
    RIP version 2 has simple text authentication. This command sets
    authentication string. The string must be shorter than 16 characters.
+
+   The optional "101" keyword indicates that the authentication string
+   is in encrypted form. Encrypted strings are encoded in base64. Please
+   see :ref:`protocol-key-encryption` for further details.
 
 .. index:: ip rip authentication key-chain KEY-CHAIN
 .. clicmd:: ip rip authentication key-chain KEY-CHAIN
