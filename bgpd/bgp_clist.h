@@ -165,13 +165,13 @@ extern struct community_list *
 community_list_lookup(struct community_list_handler *c, const char *name,
 		      uint32_t name_hash, int master);
 
-extern int community_list_match(struct community *, struct community_list *);
-extern int ecommunity_list_match(struct ecommunity *, struct community_list *);
-extern int lcommunity_list_match(struct lcommunity *, struct community_list *);
-extern int community_list_exact_match(struct community *,
-				      struct community_list *);
-extern int lcommunity_list_exact_match(struct lcommunity *lcom,
-				       struct community_list *list);
+extern bool community_list_match(struct community *, struct community_list *);
+extern bool ecommunity_list_match(struct ecommunity *, struct community_list *);
+extern bool lcommunity_list_match(struct lcommunity *, struct community_list *);
+extern bool community_list_exact_match(struct community *,
+				       struct community_list *);
+extern bool lcommunity_list_exact_match(struct lcommunity *lcom,
+					struct community_list *list);
 extern struct community *community_list_match_delete(struct community *,
 						     struct community_list *);
 extern struct lcommunity *
