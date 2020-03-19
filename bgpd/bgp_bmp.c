@@ -664,8 +664,7 @@ static int bmp_peer_established(struct peer *peer)
 		return 0;
 
 	/* Check if this peer just went to Established */
-	if ((peer->last_major_event != OpenConfirm) ||
-	    !(peer_established(peer)))
+	if ((peer->ostatus != OpenConfirm) || !(peer_established(peer)))
 		return 0;
 
 	if (peer->doppelganger && (peer->doppelganger->status != Deleted)) {
