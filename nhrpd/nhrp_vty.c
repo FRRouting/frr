@@ -763,7 +763,7 @@ DEFUN(show_dmvpn, show_dmvpn_cmd,
 static void clear_nhrp_cache(struct nhrp_cache *c, void *data)
 {
 	struct info_ctx *ctx = data;
-	if (c->cur.type <= NHRP_CACHE_CACHED) {
+	if (c->cur.type <= NHRP_CACHE_DYNAMIC) {
 		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL);
 		ctx->count++;
 	}
