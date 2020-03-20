@@ -179,7 +179,8 @@ extern int qmem_walk(qmem_walk_fn *func, void *arg);
 extern int log_memstats(FILE *fp, const char *);
 #define log_memstats_stderr(prefix) log_memstats(stderr, prefix)
 
-extern void memory_oom(size_t size, const char *name);
+extern __attribute__((__noreturn__)) void memory_oom(size_t size,
+						     const char *name);
 
 #ifdef __cplusplus
 }
