@@ -61,7 +61,7 @@ void pim_register_join(struct pim_upstream *up)
 	pim_channel_add_oif(up->channel_oil, pim->regiface,
 			    PIM_OIF_FLAG_PROTO_PIM, __func__);
 	up->reg_state = PIM_REG_JOIN;
-	pim_vxlan_update_sg_reg_state(pim, up, true /*reg_join*/);
+	pim_vxlan_update_sg_reg_state(pim, up, true);
 }
 
 void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg,
@@ -108,13 +108,39 @@ void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg,
 	++pinfo->pim_ifstat_reg_stop_send;
 }
 
+static void pim_reg_stop_upstream(struct pim_instance *pim,
+				  struct pim_upstream *up)
+{
+	switch (up->reg_state) {
+	case PIM_REG_NOINFO:
+	case PIM_REG_PRUNE:
+		return;
+	case PIM_REG_JOIN:
+		up->reg_state = PIM_REG_PRUNE;
+		pim_channel_del_oif(up->channel_oil, pim->regiface,
+				    PIM_OIF_FLAG_PROTO_PIM, __func__);
+		pim_upstream_start_register_stop_timer(up, 0);
+		pim_vxlan_update_sg_reg_state(pim, up, false);
+		break;
+	case PIM_REG_JOIN_PENDING:
+		up->reg_state = PIM_REG_PRUNE;
+		pim_upstream_start_register_stop_timer(up, 0);
+		return;
+	}
+}
+
 int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
-	struct pim_upstream *upstream = NULL;
+	struct pim_upstream *up = NULL;
+	struct pim_rpf *rp;
+	pim_addr rpf_addr;
 	pim_sgaddr sg;
+	struct listnode *up_node;
+	struct pim_upstream *child;
 	bool wrong_af = false;
+	bool handling_star = false;
 	int l;
 
 	++pim_ifp->pim_ifstat_reg_stop_recv;
@@ -130,30 +156,62 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 		return 0;
 	}
 
-	upstream = pim_upstream_find(pim, &sg);
-	if (!upstream) {
-		return 0;
-	}
 
 	if (PIM_DEBUG_PIM_REG)
-		zlog_debug("Received Register stop for %s", upstream->sg_str);
+		zlog_debug("Received Register stop for %pSG", &sg);
 
-	switch (upstream->reg_state) {
-	case PIM_REG_NOINFO:
-	case PIM_REG_PRUNE:
-		return 0;
-	case PIM_REG_JOIN:
-		upstream->reg_state = PIM_REG_PRUNE;
-		pim_channel_del_oif(upstream->channel_oil, pim->regiface,
-				    PIM_OIF_FLAG_PROTO_PIM, __func__);
-		pim_upstream_start_register_stop_timer(upstream, 0);
-		pim_vxlan_update_sg_reg_state(pim, upstream,
-			false/*reg_join*/);
-		break;
-	case PIM_REG_JOIN_PENDING:
-		upstream->reg_state = PIM_REG_PRUNE;
-		pim_upstream_start_register_stop_timer(upstream, 0);
-		return 0;
+	rp = RP(pim_ifp->pim, sg.grp);
+	if (rp) {
+		rpf_addr = pim_addr_from_prefix(&rp->rpf_addr);
+		if (pim_addr_cmp(sg.src, rpf_addr) == 0) {
+			handling_star = true;
+			sg.src = PIMADDR_ANY;
+		}
+	}
+
+	/*
+	 * RFC 7761 Sec 4.4.1
+	 * Handling Register-Stop(*,G) Messages at the DR:
+	 *   A Register-Stop(*,G) should be treated as a
+	 *   Register-Stop(S,G) for all (S,G) Register state
+	 *   machines that are not in the NoInfo state.
+	 */
+	up = pim_upstream_find(pim, &sg);
+	if (up) {
+		/*
+		 * If the upstream find actually found a particular
+		 * S,G then we *know* that the following for loop
+		 * is not going to execute and this is ok
+		 */
+		for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child)) {
+			if (PIM_DEBUG_PIM_REG)
+				zlog_debug("Executing Reg stop for %s",
+					   child->sg_str);
+
+			pim_reg_stop_upstream(pim, child);
+		}
+
+		if (PIM_DEBUG_PIM_REG)
+			zlog_debug("Executing Reg stop for %s", up->sg_str);
+		pim_reg_stop_upstream(pim, up);
+	} else {
+		if (!handling_star)
+			return 0;
+		/*
+		 * Unfortunately pim was unable to find a *,G
+		 * but pim may still actually have individual
+		 * S,G's that need to be processed.  In that
+		 * case pim must do the expensive walk to find
+		 * and stop
+		 */
+		frr_each (rb_pim_upstream, &pim->upstream_head, up) {
+			if (pim_addr_cmp(up->sg.grp, sg.grp) == 0) {
+				if (PIM_DEBUG_PIM_REG)
+					zlog_debug("Executing Reg stop for %s",
+						   up->sg_str);
+				pim_reg_stop_upstream(pim, up);
+			}
+		}
 	}
 
 	return 0;
