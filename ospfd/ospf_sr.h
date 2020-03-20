@@ -51,6 +51,13 @@
 #define SID_INDEX	4
 #define SID_INDEX_SIZE(U) (U)
 
+/* Macro to log debug message */
+#define osr_debug(...)                                                         \
+	do {                                                                   \
+		if (IS_DEBUG_OSPF_SR)                                          \
+			zlog_debug(__VA_ARGS__);                               \
+	} while (0)
+
 /* SID/Label Sub TLV - section 2.1 */
 #define SUBTLV_SID_LABEL		1
 #define SUBTLV_SID_LABEL_SIZE		8
@@ -180,15 +187,12 @@ struct sr_srgb {
 };
 
 /* SID type to make difference between loopback interfaces and others */
-enum sid_type { PREF_SID, ADJ_SID, LAN_ADJ_SID };
+enum sid_type { PREF_SID, LOCAL_SID, ADJ_SID, LAN_ADJ_SID };
 
 /* Structure aggregating all OSPF Segment Routing information for the node */
 struct ospf_sr_db {
 	/* Status of Segment Routing: enable or disable */
 	bool enabled;
-
-	/* Ongoing Update following an OSPF SPF */
-	bool update;
 
 	/* Flooding Scope: Area = 10 or AS = 11 */
 	uint8_t scope;
@@ -237,7 +241,6 @@ struct sr_node {
 
 /* Segment Routing - NHLFE info: support IPv4 Only */
 struct sr_nhlfe {
-	struct prefix_ipv4 prefv4;
 	struct in_addr nexthop;
 	ifindex_t ifindex;
 	mpls_label_t label_in;
@@ -251,6 +254,9 @@ struct sr_link {
 	/* 24-bit Opaque-ID field value according to RFC 7684 specification */
 	uint32_t instance;
 
+	/* Interface address */
+	struct in_addr itf_addr;
+
 	/* Flags to manage this link parameters. */
 	uint8_t flags[2];
 
@@ -258,7 +264,7 @@ struct sr_link {
 	uint32_t sid[2];
 	enum sid_type type;
 
-	/* SR NHLFE for this link */
+	/* SR NHLFE (Primary + Backup) for this link */
 	struct sr_nhlfe nhlfe[2];
 
 	/* Back pointer to SR Node which advertise this Link */
@@ -271,6 +277,9 @@ struct sr_prefix {
 	/* 24-bit Opaque-ID field value according to RFC 7684 specification */
 	uint32_t instance;
 
+	/* Prefix itself */
+	struct prefix_ipv4 prefv4;
+
 	/* Flags to manage this prefix parameters. */
 	uint8_t flags;
 
@@ -278,17 +287,17 @@ struct sr_prefix {
 	uint32_t sid;
 	enum sid_type type;
 
-	/* SR NHLFE for this prefix */
+	/* Incoming label for this prefix */
+	mpls_label_t label_in;
+
+	/* Back pointer to OSPF Route for remote prefix */
+	struct ospf_route *or;
+
+	/* NHLFE for local prefix */
 	struct sr_nhlfe nhlfe;
 
 	/* Back pointer to SR Node which advertise this Prefix */
 	struct sr_node *srn;
-
-	/*
-	 * Pointer to SR Node which is the next hop for this Prefix
-	 * or NULL if next hop is the destination of the prefix
-	 */
-	struct sr_node *nexthop;
 };
 
 /* Prototypes definition */
@@ -306,7 +315,7 @@ extern void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa);
 /* Segment Routing configuration functions */
 extern uint32_t get_ext_link_label_value(void);
 extern void ospf_sr_config_write_router(struct vty *vty);
-extern void ospf_sr_update_prefix(struct interface *ifp, struct prefix *p);
+extern void ospf_sr_update_local_prefix(struct interface *ifp, struct prefix *p);
 /* Segment Routing re-routing function */
-extern void ospf_sr_update_timer_add(struct ospf *ospf);
+extern void ospf_sr_update_task(struct ospf *ospf);
 #endif /* _FRR_OSPF_SR_H */

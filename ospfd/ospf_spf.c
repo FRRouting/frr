@@ -1369,7 +1369,7 @@ static int ospf_spf_calculate_timer(struct thread *thread)
 	abr_time = monotime_since(&start_time, NULL);
 
 	/* Schedule Segment Routing update */
-	ospf_sr_update_timer_add(ospf);
+	ospf_sr_update_task(ospf);
 
 	total_spf_time =
 		monotime_since(&spf_start_time, &ospf->ts_spf_duration);
