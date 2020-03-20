@@ -131,7 +131,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	safi_t safi;
 	int fd;
 	int status, pstatus;
-	unsigned char last_evt, last_maj_evt;
+	enum bgp_fsm_events last_evt, last_maj_evt;
 
 	assert(from_peer != NULL);
 
@@ -2184,7 +2184,7 @@ static const struct {
 /* Execute event process. */
 int bgp_event(struct thread *thread)
 {
-	int event;
+	enum bgp_fsm_events event;
 	struct peer *peer;
 	int ret;
 
@@ -2196,7 +2196,7 @@ int bgp_event(struct thread *thread)
 	return (ret);
 }
 
-int bgp_event_update(struct peer *peer, int event)
+int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 {
 	int next;
 	int ret = 0;

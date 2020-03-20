@@ -838,6 +838,24 @@ struct bgp_peer_gr {
 	bgp_peer_gr_action_ptr action_fun;
 };
 
+/* BGP finite state machine events.  */
+enum bgp_fsm_events {
+	BGP_Start = 1,
+	BGP_Stop,
+	TCP_connection_open,
+	TCP_connection_closed,
+	TCP_connection_open_failed,
+	TCP_fatal_error,
+	ConnectRetry_timer_expired,
+	Hold_Timer_expired,
+	KeepAlive_timer_expired,
+	Receive_OPEN_message,
+	Receive_KEEPALIVE_message,
+	Receive_UPDATE_message,
+	Receive_NOTIFICATION_message,
+	Clearing_Completed,
+	BGP_EVENTS_MAX,
+};
 
 /* BGP neighbor structure. */
 struct peer {
@@ -902,9 +920,9 @@ struct peer {
 	/* FSM events, stored for debug purposes.
 	 * Note: uchar used for reduced memory usage.
 	 */
-	unsigned char cur_event;
-	unsigned char last_event;
-	unsigned char last_major_event;
+	enum bgp_fsm_events cur_event;
+	enum bgp_fsm_events last_event;
+	enum bgp_fsm_events last_major_event;
 
 	/* Peer index, used for dumping TABLE_DUMP_V2 format */
 	uint16_t table_dump_index;
@@ -1560,23 +1578,6 @@ struct bgp_nlri {
 #define Clearing                                 7
 #define Deleted                                  8
 #define BGP_STATUS_MAX                           9
-
-/* BGP finite state machine events.  */
-#define BGP_Start                                1
-#define BGP_Stop                                 2
-#define TCP_connection_open                      3
-#define TCP_connection_closed                    4
-#define TCP_connection_open_failed               5
-#define TCP_fatal_error                          6
-#define ConnectRetry_timer_expired               7
-#define Hold_Timer_expired                       8
-#define KeepAlive_timer_expired                  9
-#define Receive_OPEN_message                    10
-#define Receive_KEEPALIVE_message               11
-#define Receive_UPDATE_message                  12
-#define Receive_NOTIFICATION_message            13
-#define Clearing_Completed                      14
-#define BGP_EVENTS_MAX                          15
 
 /* BGP timers default value.  */
 #define BGP_INIT_START_TIMER                     1
