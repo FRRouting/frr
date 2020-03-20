@@ -858,7 +858,7 @@ static int bgpTrapEstablished(struct peer *peer)
 	oid index[sizeof(oid) * IN_ADDR_SIZE];
 
 	/* Check if this peer just went to Established */
-	if ((peer->last_major_event != OpenConfirm) || !(peer_established(peer)))
+	if ((peer->ostatus != OpenConfirm) || !(peer_established(peer)))
 		return 0;
 
 	ret = inet_aton(peer->host, &addr);
