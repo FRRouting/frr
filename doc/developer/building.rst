@@ -26,3 +26,4 @@ Building FRR
    building-frr-for-ubuntu1404
    building-frr-for-ubuntu1604
    building-frr-for-ubuntu1804
+   building-frr-for-archlinux
