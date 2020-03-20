@@ -2106,12 +2106,10 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 				DISCARD_LSA(lsa, 4);
 			}
 
-#ifndef FUZZING
 			/* Actual flooding procedure. */
 			if (ospf_flood(oi->ospf, nbr, current, lsa)
 			    < 0) /* Trap NSSA later. */
 				DISCARD_LSA(lsa, 5);
-#endif
 			continue;
 		}
 
