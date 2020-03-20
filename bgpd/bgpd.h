@@ -857,6 +857,19 @@ enum bgp_fsm_events {
 	BGP_EVENTS_MAX,
 };
 
+/* BGP finite state machine status.  */
+enum bgp_fsm_status {
+	Idle = 1,
+	Connect,
+	Active,
+	OpenSent,
+	OpenConfirm,
+	Established,
+	Clearing,
+	Deleted,
+	BGP_STATUS_MAX,
+};
+
 /* BGP neighbor structure. */
 struct peer {
 	/* BGP structure.  */
@@ -914,8 +927,8 @@ struct peer {
 	struct peer *doppelganger;
 
 	/* Status of the peer. */
-	int status;
-	int ostatus;
+	enum bgp_fsm_status status;
+	enum bgp_fsm_status ostatus;
 
 	/* FSM events, stored for debug purposes.
 	 * Note: uchar used for reduced memory usage.
@@ -1567,17 +1580,6 @@ struct bgp_nlri {
 #define BGP_NOTIFY_CAPABILITY_INVALID_ACTION     1
 #define BGP_NOTIFY_CAPABILITY_INVALID_LENGTH     2
 #define BGP_NOTIFY_CAPABILITY_MALFORMED_CODE     3
-
-/* BGP finite state machine status.  */
-#define Idle                                     1
-#define Connect                                  2
-#define Active                                   3
-#define OpenSent                                 4
-#define OpenConfirm                              5
-#define Established                              6
-#define Clearing                                 7
-#define Deleted                                  8
-#define BGP_STATUS_MAX                           9
 
 /* BGP timers default value.  */
 #define BGP_INIT_START_TIMER                     1

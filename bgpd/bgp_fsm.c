@@ -130,7 +130,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	afi_t afi;
 	safi_t safi;
 	int fd;
-	int status, pstatus;
+	enum bgp_fsm_status status, pstatus;
 	enum bgp_fsm_events last_evt, last_maj_evt;
 
 	assert(from_peer != NULL);
@@ -455,6 +455,10 @@ void bgp_timer_set(struct peer *peer)
 		BGP_TIMER_OFF(peer->t_holdtime);
 		bgp_keepalives_off(peer);
 		BGP_TIMER_OFF(peer->t_routeadv);
+		break;
+	case BGP_STATUS_MAX:
+		flog_err(EC_LIB_DEVELOPMENT,
+			 "BGP_STATUS_MAX while a legal state is not valid state for the FSM");
 		break;
 	}
 }
@@ -2037,7 +2041,7 @@ void bgp_fsm_event_update(struct peer *peer, int valid)
 /* Finite State Machine structure */
 static const struct {
 	int (*func)(struct peer *);
-	int next_state;
+	enum bgp_fsm_status next_state;
 } FSM[BGP_STATUS_MAX - 1][BGP_EVENTS_MAX - 1] = {
 	{
 		/* Idle state: In Idle state, all events other than BGP_Start is
@@ -2198,7 +2202,7 @@ int bgp_event(struct thread *thread)
 
 int bgp_event_update(struct peer *peer, enum bgp_fsm_events event)
 {
-	int next;
+	enum bgp_fsm_status next;
 	int ret = 0;
 	struct peer *other;
 	int passive_conn = 0;
