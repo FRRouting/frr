@@ -51,7 +51,7 @@ struct bgp_route_evpn {
 	union gw_addr gw_ip;
 };
 
-extern int str2esi(const char *str, struct eth_segment_id *id);
+extern bool str2esi(const char *str, struct eth_segment_id *id);
 extern char *esi2str(struct eth_segment_id *id);
 extern char *ecom_mac2str(char *ecom_mac);
 

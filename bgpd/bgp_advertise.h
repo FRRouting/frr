@@ -139,10 +139,10 @@ struct bgp_synchronize {
 #define BGP_ADJ_IN_DEL(N, A) BGP_PATH_INFO_DEL(N, A, adj_in)
 
 /* Prototypes.  */
-extern int bgp_adj_out_lookup(struct peer *, struct bgp_node *, uint32_t);
+extern bool bgp_adj_out_lookup(struct peer *, struct bgp_node *, uint32_t);
 extern void bgp_adj_in_set(struct bgp_node *, struct peer *, struct attr *,
 			   uint32_t);
-extern int bgp_adj_in_unset(struct bgp_node *, struct peer *, uint32_t);
+extern bool bgp_adj_in_unset(struct bgp_node *, struct peer *, uint32_t);
 extern void bgp_adj_in_remove(struct bgp_node *, struct bgp_adj_in *);
 
 extern void bgp_sync_init(struct peer *);

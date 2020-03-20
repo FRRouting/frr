@@ -54,8 +54,7 @@ extern bool bgp_flowspec_contains_prefix(struct prefix *pfs,
 					 struct prefix *input,
 					 int prefix_check);
 
-extern int bgp_flowspec_get_first_nh(struct bgp *bgp,
-				     struct bgp_path_info *pi,
-				     struct prefix *nh);
+extern bool bgp_flowspec_get_first_nh(struct bgp *bgp, struct bgp_path_info *pi,
+				      struct prefix *nh);
 
 #endif /* _FRR_BGP_FLOWSPEC_UTIL_H */

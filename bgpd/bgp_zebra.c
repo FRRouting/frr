@@ -66,19 +66,19 @@
 struct zclient *zclient = NULL;
 
 /* Can we install into zebra? */
-static inline int bgp_install_info_to_zebra(struct bgp *bgp)
+static inline bool bgp_install_info_to_zebra(struct bgp *bgp)
 {
 	if (zclient->sock <= 0)
-		return 0;
+		return false;
 
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
 		zlog_debug(
 			"%s: No zebra instance to talk to, not installing information",
 			__func__);
-		return 0;
+		return false;
 	}
 
-	return 1;
+	return true;
 }
 
 int zclient_num_connects;
@@ -928,8 +928,8 @@ bgp_path_info_to_ipv6_nexthop(struct bgp_path_info *path, ifindex_t *ifindex)
 	return nexthop;
 }
 
-static int bgp_table_map_apply(struct route_map *map, struct prefix *p,
-			       struct bgp_path_info *path)
+static bool bgp_table_map_apply(struct route_map *map, struct prefix *p,
+				struct bgp_path_info *path)
 {
 	route_map_result_t ret;
 
@@ -937,7 +937,7 @@ static int bgp_table_map_apply(struct route_map *map, struct prefix *p,
 	bgp_attr_flush(path->attr);
 
 	if (ret != RMAP_DENYMATCH)
-		return 1;
+		return true;
 
 	if (bgp_debug_zebra(p)) {
 		if (p->family == AF_INET) {
@@ -965,7 +965,7 @@ static int bgp_table_map_apply(struct route_map *map, struct prefix *p,
 					  buf[1], sizeof(buf[1])));
 		}
 	}
-	return 0;
+	return false;
 }
 
 static struct thread *bgp_tm_thread_connect;
@@ -1058,12 +1058,10 @@ int bgp_zebra_get_table_range(uint32_t chunk_size,
 	return 0;
 }
 
-static int update_ipv4nh_for_route_install(int nh_othervrf,
-					   struct bgp *nh_bgp,
-					   struct in_addr *nexthop,
-					   struct attr *attr,
-					   bool is_evpn,
-					   struct zapi_nexthop *api_nh)
+static bool update_ipv4nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
+					    struct in_addr *nexthop,
+					    struct attr *attr, bool is_evpn,
+					    struct zapi_nexthop *api_nh)
 {
 	api_nh->gate.ipv4 = *nexthop;
 	api_nh->vrf_id = nh_bgp->vrf_id;
@@ -1083,15 +1081,16 @@ static int update_ipv4nh_for_route_install(int nh_othervrf,
 	} else
 		api_nh->type = NEXTHOP_TYPE_IPV4;
 
-	return 1;
+	return true;
 }
 
-static int
-update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
-				struct in6_addr *nexthop,
-				ifindex_t ifindex, struct bgp_path_info *pi,
-				struct bgp_path_info *best_pi, bool is_evpn,
-				struct zapi_nexthop *api_nh)
+static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
+					    struct in6_addr *nexthop,
+					    ifindex_t ifindex,
+					    struct bgp_path_info *pi,
+					    struct bgp_path_info *best_pi,
+					    bool is_evpn,
+					    struct zapi_nexthop *api_nh)
 {
 	struct attr *attr;
 
@@ -1108,7 +1107,7 @@ update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 			api_nh->ifindex = attr->nh_ifindex;
 		} else if (IN6_IS_ADDR_LINKLOCAL(nexthop)) {
 			if (ifindex == 0)
-				return 0;
+				return false;
 			api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 			api_nh->ifindex = ifindex;
 		} else {
@@ -1136,7 +1135,7 @@ update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 			}
 
 			if (ifindex == 0)
-				return 0;
+				return false;
 			api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 			api_nh->ifindex = ifindex;
 		} else {
@@ -1146,7 +1145,7 @@ update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 	}
 	api_nh->gate.ipv6 = *nexthop;
 
-	return 1;
+	return true;
 }
 
 void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
@@ -1660,11 +1659,11 @@ int bgp_redistribute_resend(struct bgp *bgp, afi_t afi, int type,
 }
 
 /* Redistribute with route-map specification.  */
-int bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
-			      struct route_map *route_map)
+bool bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
+			       struct route_map *route_map)
 {
 	if (red->rmap.name && (strcmp(red->rmap.name, name) == 0))
-		return 0;
+		return false;
 
 	XFREE(MTYPE_ROUTE_MAP_NAME, red->rmap.name);
 	/* Decrement the count for existing routemap and
@@ -1675,18 +1674,18 @@ int bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
 	red->rmap.map = route_map;
 	route_map_counter_increment(red->rmap.map);
 
-	return 1;
+	return true;
 }
 
 /* Redistribute with metric specification.  */
-int bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
-				afi_t afi, int type, uint32_t metric)
+bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
+				 afi_t afi, int type, uint32_t metric)
 {
 	struct bgp_node *rn;
 	struct bgp_path_info *pi;
 
 	if (red->redist_metric_flag && red->redist_metric == metric)
-		return 0;
+		return false;
 
 	red->redist_metric_flag = 1;
 	red->redist_metric = metric;
@@ -1713,7 +1712,7 @@ int bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 		}
 	}
 
-	return 1;
+	return true;
 }
 
 /* Unset redistribution.  */

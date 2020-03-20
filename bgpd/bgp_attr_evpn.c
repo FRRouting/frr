@@ -54,25 +54,25 @@ void bgp_add_routermac_ecom(struct attr *attr, struct ethaddr *routermac)
  * format accepted: AA:BB:CC:DD:EE:FF:GG:HH:II:JJ
  * if id is null, check only is done
  */
-int str2esi(const char *str, struct eth_segment_id *id)
+bool str2esi(const char *str, struct eth_segment_id *id)
 {
 	unsigned int a[ESI_LEN];
 	int i;
 
 	if (!str)
-		return 0;
+		return false;
 	if (sscanf(str, "%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x", a + 0, a + 1,
 		   a + 2, a + 3, a + 4, a + 5, a + 6, a + 7, a + 8, a + 9)
 	    != ESI_LEN) {
 		/* error in incoming str length */
-		return 0;
+		return false;
 	}
 	/* valid mac address */
 	if (!id)
-		return 1;
+		return true;
 	for (i = 0; i < ESI_LEN; ++i)
 		id->val[i] = a[i] & 0xff;
-	return 1;
+	return true;
 }
 
 char *esi2str(struct eth_segment_id *id)

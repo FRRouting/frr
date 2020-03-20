@@ -1013,15 +1013,15 @@ static int bgp_auth_parse(struct peer *peer, size_t length)
 	return -1;
 }
 
-static int strict_capability_same(struct peer *peer)
+static bool strict_capability_same(struct peer *peer)
 {
 	int i, j;
 
 	for (i = AFI_IP; i < AFI_MAX; i++)
 		for (j = SAFI_UNICAST; j < SAFI_MAX; j++)
 			if (peer->afc[i][j] != peer->afc_nego[i][j])
-				return 0;
-	return 1;
+				return false;
+	return true;
 }
 
 /* peek into option, stores ASN to *as4 if the AS4 capability was found.

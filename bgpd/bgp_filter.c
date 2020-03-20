@@ -302,12 +302,9 @@ static void as_list_delete(struct as_list *aslist)
 	as_list_free(aslist);
 }
 
-static int as_list_empty(struct as_list *aslist)
+static bool as_list_empty(struct as_list *aslist)
 {
-	if (aslist->head == NULL && aslist->tail == NULL)
-		return 1;
-	else
-		return 0;
+	return aslist->head == NULL && aslist->tail == NULL;
 }
 
 static void as_list_filter_delete(struct as_list *aslist,
@@ -337,11 +334,9 @@ static void as_list_filter_delete(struct as_list *aslist,
 	XFREE(MTYPE_AS_STR, name);
 }
 
-static int as_filter_match(struct as_filter *asfilter, struct aspath *aspath)
+static bool as_filter_match(struct as_filter *asfilter, struct aspath *aspath)
 {
-	if (bgp_regexec(asfilter->reg, aspath) != REG_NOMATCH)
-		return 1;
-	return 0;
+	return bgp_regexec(asfilter->reg, aspath) != REG_NOMATCH;
 }
 
 /* Apply AS path filter to AS. */
@@ -374,26 +369,25 @@ void as_list_delete_hook(void (*func)(const char *))
 	as_list_master.delete_hook = func;
 }
 
-static int as_list_dup_check(struct as_list *aslist, struct as_filter *new)
+static bool as_list_dup_check(struct as_list *aslist, struct as_filter *new)
 {
 	struct as_filter *asfilter;
 
 	for (asfilter = aslist->head; asfilter; asfilter = asfilter->next) {
 		if (asfilter->type == new->type
 		    && strcmp(asfilter->reg_str, new->reg_str) == 0)
-			return 1;
+			return true;
 	}
-	return 0;
+	return false;
 }
 
-int config_bgp_aspath_validate(const char *regstr)
+bool config_bgp_aspath_validate(const char *regstr)
 {
 	char valid_chars[] = "1234567890_^|[,{}() ]$*+.?-\\";
 
 	if (strspn(regstr, valid_chars) == strlen(regstr))
-		return 1;
-
-	return 0;
+		return true;
+	return false;
 }
 
 DEFUN(as_path, bgp_as_path_cmd,

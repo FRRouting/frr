@@ -506,8 +506,8 @@ extern void bgp_clear_route(struct peer *, afi_t, safi_t);
 extern void bgp_clear_route_all(struct peer *);
 extern void bgp_clear_adj_in(struct peer *, afi_t, safi_t);
 extern void bgp_clear_stale_route(struct peer *, afi_t, safi_t);
-extern int bgp_outbound_policy_exists(struct peer *, struct bgp_filter *);
-extern int bgp_inbound_policy_exists(struct peer *, struct bgp_filter *);
+extern bool bgp_outbound_policy_exists(struct peer *, struct bgp_filter *);
+extern bool bgp_inbound_policy_exists(struct peer *, struct bgp_filter *);
 
 extern struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 					 safi_t safi, struct prefix *p,
@@ -529,7 +529,7 @@ extern void bgp_path_info_path_with_addpath_rx_str(struct bgp_path_info *pi,
 
 extern int bgp_nlri_parse_ip(struct peer *, struct attr *, struct bgp_nlri *);
 
-extern int bgp_maximum_prefix_overflow(struct peer *, afi_t, safi_t, int);
+extern bool bgp_maximum_prefix_overflow(struct peer *, afi_t, safi_t, int);
 
 extern void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 				 const union g_addr *nexthop, ifindex_t ifindex,
@@ -614,15 +614,15 @@ extern void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 				  struct bgp_path_info *path, int display,
 				  json_object *json);
 
-extern int subgroup_process_announce_selected(struct update_subgroup *subgrp,
-					      struct bgp_path_info *selected,
-					      struct bgp_node *rn,
-					      uint32_t addpath_tx_id);
+extern void subgroup_process_announce_selected(struct update_subgroup *subgrp,
+					       struct bgp_path_info *selected,
+					       struct bgp_node *rn,
+					       uint32_t addpath_tx_id);
 
-extern int subgroup_announce_check(struct bgp_node *rn,
-				   struct bgp_path_info *pi,
-				   struct update_subgroup *subgrp,
-				   struct prefix *p, struct attr *attr);
+extern bool subgroup_announce_check(struct bgp_node *rn,
+				    struct bgp_path_info *pi,
+				    struct update_subgroup *subgrp,
+				    struct prefix *p, struct attr *attr);
 
 extern void bgp_peer_clear_node_queue_drain_immediate(struct peer *peer);
 extern void bgp_process_queues_drain_immediate(void);
@@ -646,8 +646,8 @@ extern void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 			       struct bgp_path_info_pair *result, afi_t afi,
 			       safi_t safi);
 extern void bgp_zebra_clear_route_change_flags(struct bgp_node *rn);
-extern int bgp_zebra_has_route_changed(struct bgp_node *rn,
-				       struct bgp_path_info *selected);
+extern bool bgp_zebra_has_route_changed(struct bgp_node *rn,
+					struct bgp_path_info *selected);
 
 extern void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 					struct bgp_node *rn,

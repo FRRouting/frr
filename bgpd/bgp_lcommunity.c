@@ -59,8 +59,8 @@ static void lcommunity_hash_free(struct lcommunity *lcom)
    structure, we don't add the value.  Newly added value is sorted by
    numerical order.  When the value is added to the structure return 1
    else return 0.  */
-static int lcommunity_add_val(struct lcommunity *lcom,
-			      struct lcommunity_val *lval)
+static bool lcommunity_add_val(struct lcommunity *lcom,
+			       struct lcommunity_val *lval)
 {
 	uint8_t *p;
 	int ret;
@@ -71,7 +71,7 @@ static int lcommunity_add_val(struct lcommunity *lcom,
 		lcom->size++;
 		lcom->val = XMALLOC(MTYPE_LCOMMUNITY_VAL, lcom_length(lcom));
 		memcpy(lcom->val, lval->val, LCOMMUNITY_SIZE);
-		return 1;
+		return true;
 	}
 
 	/* If the value already exists in the structure return 0.  */
@@ -79,7 +79,7 @@ static int lcommunity_add_val(struct lcommunity *lcom,
 	for (p = lcom->val; c < lcom->size; p += LCOMMUNITY_SIZE, c++) {
 		ret = memcmp(p, lval->val, LCOMMUNITY_SIZE);
 		if (ret == 0)
-			return 0;
+			return false;
 		if (ret > 0)
 			break;
 	}
@@ -94,7 +94,7 @@ static int lcommunity_add_val(struct lcommunity *lcom,
 		(lcom->size - 1 - c) * LCOMMUNITY_SIZE);
 	memcpy(lcom->val + c * LCOMMUNITY_SIZE, lval->val, LCOMMUNITY_SIZE);
 
-	return 1;
+	return true;
 }
 
 /* This function takes pointer to Large Communites strucutre then
@@ -456,7 +456,7 @@ struct lcommunity *lcommunity_str2com(const char *str)
 	return lcom;
 }
 
-int lcommunity_include(struct lcommunity *lcom, uint8_t *ptr)
+bool lcommunity_include(struct lcommunity *lcom, uint8_t *ptr)
 {
 	int i;
 	uint8_t *lcom_ptr;
@@ -464,25 +464,25 @@ int lcommunity_include(struct lcommunity *lcom, uint8_t *ptr)
 	for (i = 0; i < lcom->size; i++) {
 		lcom_ptr = lcom->val + (i * LCOMMUNITY_SIZE);
 		if (memcmp(ptr, lcom_ptr, LCOMMUNITY_SIZE) == 0)
-			return 1;
+			return true;
 	}
-	return 0;
+	return false;
 }
 
-int lcommunity_match(const struct lcommunity *lcom1,
-		     const struct lcommunity *lcom2)
+bool lcommunity_match(const struct lcommunity *lcom1,
+		      const struct lcommunity *lcom2)
 {
 	int i = 0;
 	int j = 0;
 
 	if (lcom1 == NULL && lcom2 == NULL)
-		return 1;
+		return true;
 
 	if (lcom1 == NULL || lcom2 == NULL)
-		return 0;
+		return false;
 
 	if (lcom1->size < lcom2->size)
-		return 0;
+		return false;
 
 	/* Every community on com2 needs to be on com1 for this to match */
 	while (i < lcom1->size && j < lcom2->size) {
@@ -494,9 +494,9 @@ int lcommunity_match(const struct lcommunity *lcom1,
 	}
 
 	if (j == lcom2->size)
-		return 1;
+		return true;
 	else
-		return 0;
+		return false;
 }
 
 /* Delete one lcommunity. */

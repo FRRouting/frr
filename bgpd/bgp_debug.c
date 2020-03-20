@@ -184,8 +184,8 @@ static const struct message bgp_notify_fsm_msg[] = {
 const char *const bgp_origin_str[] = {"i", "e", "?"};
 const char *const bgp_origin_long_str[] = {"IGP", "EGP", "incomplete"};
 
-static int bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
-				       struct prefix *p);
+static void bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
+					struct prefix *p);
 /* Given a string return a pointer the corresponding peer structure */
 static struct peer *bgp_find_peer(struct vty *vty, const char *peer_str)
 {
@@ -315,8 +315,8 @@ static void bgp_debug_list_add_entry(struct list *list, const char *host,
 	listnode_add(list, filter);
 }
 
-static int bgp_debug_list_remove_entry(struct list *list, const char *host,
-				       struct prefix *p)
+static bool bgp_debug_list_remove_entry(struct list *list, const char *host,
+					struct prefix *p)
 {
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
@@ -326,21 +326,21 @@ static int bgp_debug_list_remove_entry(struct list *list, const char *host,
 			listnode_delete(list, filter);
 			XFREE(MTYPE_BGP_DEBUG_STR, filter->host);
 			XFREE(MTYPE_BGP_DEBUG_FILTER, filter);
-			return 1;
+			return true;
 		} else if (p && filter->p->prefixlen == p->prefixlen
 			   && prefix_match(filter->p, p)) {
 			listnode_delete(list, filter);
 			prefix_free(&filter->p);
 			XFREE(MTYPE_BGP_DEBUG_FILTER, filter);
-			return 1;
+			return true;
 		}
 	}
 
-	return 0;
+	return false;
 }
 
-static int bgp_debug_list_has_entry(struct list *list, const char *host,
-				    const struct prefix *p)
+static bool bgp_debug_list_has_entry(struct list *list, const char *host,
+				     const struct prefix *p)
 {
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
@@ -348,32 +348,32 @@ static int bgp_debug_list_has_entry(struct list *list, const char *host,
 	for (ALL_LIST_ELEMENTS(list, node, nnode, filter)) {
 		if (host) {
 			if (strcmp(filter->host, host) == 0) {
-				return 1;
+				return true;
 			}
 		} else if (p) {
 			if (filter->p->prefixlen == p->prefixlen
 			    && prefix_match(filter->p, p)) {
-				return 1;
+				return true;
 			}
 		}
 	}
 
-	return 0;
+	return false;
 }
 
-int bgp_debug_peer_updout_enabled(char *host)
+bool bgp_debug_peer_updout_enabled(char *host)
 {
 	return (bgp_debug_list_has_entry(bgp_debug_update_out_peers, host,
 					 NULL));
 }
 
 /* Dump attribute. */
-int bgp_dump_attr(struct attr *attr, char *buf, size_t size)
+bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 {
 	char addrbuf[BUFSIZ];
 
 	if (!attr)
-		return 0;
+		return false;
 
 	buf[0] = '\0';
 
@@ -455,9 +455,9 @@ int bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 	}
 
 	if (strlen(buf) > 1)
-		return 1;
+		return true;
 	else
-		return 0;
+		return false;
 }
 
 const char *bgp_notify_code_str(char code)
@@ -561,8 +561,8 @@ static void bgp_debug_clear_updgrp_update_dbg(struct bgp *bgp)
 	update_group_walk(bgp, update_group_clear_update_dbg, NULL);
 }
 
-static int bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
-				       struct prefix *p)
+static void bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
+					struct prefix *p)
 {
 	char evpn_desc[PREFIX2STR_BUFFER + INET_ADDRSTRLEN];
 	char buf[PREFIX2STR_BUFFER];
@@ -601,8 +601,6 @@ static int bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
 	}
 
 	vty_out(vty, "%s %s\n", desc, evpn_desc);
-
-	return 0;
 }
 
 static int bgp_debug_parse_evpn_prefix(struct vty *vty, struct cmd_token **argv,
@@ -2491,8 +2489,8 @@ int bgp_debug_keepalive(struct peer *peer)
 				  bgp_debug_keepalive_peers);
 }
 
-int bgp_debug_update(struct peer *peer, struct prefix *p,
-		     struct update_group *updgrp, unsigned int inbound)
+bool bgp_debug_update(struct peer *peer, struct prefix *p,
+		      struct update_group *updgrp, unsigned int inbound)
 {
 	char *host = NULL;
 
@@ -2503,7 +2501,7 @@ int bgp_debug_update(struct peer *peer, struct prefix *p,
 		if (bgp_debug_per_peer(host, term_bgp_debug_update,
 				       BGP_DEBUG_UPDATE_IN,
 				       bgp_debug_update_in_peers))
-			return 1;
+			return true;
 	}
 
 	/* outbound */
@@ -2511,12 +2509,12 @@ int bgp_debug_update(struct peer *peer, struct prefix *p,
 		if (bgp_debug_per_peer(host, term_bgp_debug_update,
 				       BGP_DEBUG_UPDATE_OUT,
 				       bgp_debug_update_out_peers))
-			return 1;
+			return true;
 
 		/* Check if update debugging implicitly enabled for the group.
 		 */
 		if (updgrp && UPDGRP_DBG_ON(updgrp))
-			return 1;
+			return true;
 	}
 
 
@@ -2524,34 +2522,34 @@ int bgp_debug_update(struct peer *peer, struct prefix *p,
 		if (bgp_debug_per_prefix(p, term_bgp_debug_update,
 					 BGP_DEBUG_UPDATE_PREFIX,
 					 bgp_debug_update_prefixes))
-			return 1;
+			return true;
 	}
 
-	return 0;
+	return false;
 }
 
-int bgp_debug_bestpath(struct prefix *p)
+bool bgp_debug_bestpath(struct prefix *p)
 {
 	if (BGP_DEBUG(bestpath, BESTPATH)) {
 		if (bgp_debug_per_prefix(p, term_bgp_debug_bestpath,
 					 BGP_DEBUG_BESTPATH,
 					 bgp_debug_bestpath_prefixes))
-			return 1;
+			return true;
 	}
 
-	return 0;
+	return false;
 }
 
-int bgp_debug_zebra(struct prefix *p)
+bool bgp_debug_zebra(struct prefix *p)
 {
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		if (bgp_debug_per_prefix(p, term_bgp_debug_zebra,
 					 BGP_DEBUG_ZEBRA,
 					 bgp_debug_zebra_prefixes))
-			return 1;
+			return true;
 	}
 
-	return 0;
+	return false;
 }
 
 const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,

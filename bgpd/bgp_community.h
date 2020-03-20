@@ -77,7 +77,7 @@ extern void community_unintern(struct community **);
 extern char *community_str(struct community *, bool make_json);
 extern unsigned int community_hash_make(const struct community *);
 extern struct community *community_str2com(const char *);
-extern int community_match(const struct community *, const struct community *);
+extern bool community_match(const struct community *, const struct community *);
 extern bool community_cmp(const struct community *c1,
 			  const struct community *c2);
 extern struct community *community_merge(struct community *,
@@ -85,7 +85,7 @@ extern struct community *community_merge(struct community *,
 extern struct community *community_delete(struct community *,
 					  struct community *);
 extern struct community *community_dup(struct community *);
-extern int community_include(struct community *, uint32_t);
+extern bool community_include(struct community *, uint32_t);
 extern void community_del_val(struct community *, uint32_t *);
 extern unsigned long community_count(void);
 extern struct hash *community_hash(void);

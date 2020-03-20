@@ -128,7 +128,7 @@ static int community_compare(const void *a1, const void *a2)
 	return 0;
 }
 
-int community_include(struct community *com, uint32_t val)
+bool community_include(struct community *com, uint32_t val)
 {
 	int i;
 
@@ -136,9 +136,8 @@ int community_include(struct community *com, uint32_t val)
 
 	for (i = 0; i < com->size; i++)
 		if (memcmp(&val, com_nthval(com, i), sizeof(uint32_t)) == 0)
-			return 1;
-
-	return 0;
+			return true;
+	return false;
 }
 
 uint32_t community_val_get(struct community *com, int i)
@@ -564,19 +563,19 @@ unsigned int community_hash_make(const struct community *com)
 	return jhash2(pnt, com->size, 0x43ea96c1);
 }
 
-int community_match(const struct community *com1, const struct community *com2)
+bool community_match(const struct community *com1, const struct community *com2)
 {
 	int i = 0;
 	int j = 0;
 
 	if (com1 == NULL && com2 == NULL)
-		return 1;
+		return true;
 
 	if (com1 == NULL || com2 == NULL)
-		return 0;
+		return false;
 
 	if (com1->size < com2->size)
-		return 0;
+		return false;
 
 	/* Every community on com2 needs to be on com1 for this to match */
 	while (i < com1->size && j < com2->size) {
@@ -586,9 +585,9 @@ int community_match(const struct community *com1, const struct community *com2)
 	}
 
 	if (j == com2->size)
-		return 1;
+		return true;
 	else
-		return 0;
+		return false;
 }
 
 /* If two aspath have same value then return 1 else return 0. This

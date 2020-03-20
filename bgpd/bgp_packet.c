@@ -587,7 +587,7 @@ void bgp_open_send(struct peer *peer)
  * @param peer
  * @return 0
  */
-static int bgp_write_notify(struct peer *peer)
+static void bgp_write_notify(struct peer *peer)
 {
 	int ret, val;
 	uint8_t type;
@@ -597,7 +597,7 @@ static int bgp_write_notify(struct peer *peer)
 	s = stream_fifo_pop(peer->obuf);
 
 	if (!s)
-		return 0;
+		return;
 
 	assert(stream_get_endp(s) >= BGP_HEADER_SIZE);
 
@@ -617,7 +617,7 @@ static int bgp_write_notify(struct peer *peer)
 	if (ret <= 0) {
 		stream_free(s);
 		BGP_EVENT_ADD(peer, TCP_fatal_error);
-		return 0;
+		return;
 	}
 
 	/* Disable Nagle, make NOTIFY packet go out right away */
@@ -649,8 +649,6 @@ static int bgp_write_notify(struct peer *peer)
 	BGP_EVENT_ADD(peer, BGP_Stop);
 
 	stream_free(s);
-
-	return 0;
 }
 
 /*
