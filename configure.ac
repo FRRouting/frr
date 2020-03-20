@@ -1782,11 +1782,15 @@ if test "$enable_rpki" = "yes"; then
 fi
 
 dnl ------------------------------------
-dnl pimd is not supported on OpenBSD
+dnl pimd is not supported on OpenBSD and MacOS
 dnl ------------------------------------
 if test "$enable_pimd" != "no"; then
 AC_MSG_CHECKING([for pimd OS support])
 case "$host_os" in
+  darwin*)
+    AC_MSG_RESULT([no])
+    enable_pimd="no"
+    ;;
   openbsd*)
     AC_MSG_RESULT([no])
     enable_pimd="no"
