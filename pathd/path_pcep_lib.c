@@ -275,6 +275,9 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	struct pcep_object_srp *srp;
 	struct pcep_object_lsp *lsp;
 	struct pcep_object_ro *ero;
+	struct pcep_object_lspa *lspa;
+	struct pcep_object_bandwidth *bandwidth;
+	struct pcep_object_metric *metric;
 
 	memset(&addr_null, 0, sizeof(addr_null));
 
@@ -289,14 +292,9 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	srp = pcep_obj_create_srp(path->do_remove, path->srp_id, srp_tlvs);
 	assert(NULL != srp);
 	dll_append(objs, srp);
+
 	/* LSP object */
 	lsp_tlvs = dll_initialize();
-	if (NULL != path->name) {
-		tlv = (struct pcep_object_tlv_header *)
-			pcep_tlv_create_symbolic_path_name(path->name,
-							   strlen(path->name));
-		dll_append(lsp_tlvs, tlv);
-	}
 
 	if (0 == path->plsp_id) {
 		tlv = (struct pcep_object_tlv_header *)
@@ -315,6 +313,13 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	}
 	assert(NULL != tlv);
 	dll_append(lsp_tlvs, tlv);
+	if (NULL != path->name) {
+		tlv = (struct pcep_object_tlv_header *)
+			pcep_tlv_create_symbolic_path_name(path->name,
+							   strlen(path->name));
+		assert(NULL != tlv);
+		dll_append(lsp_tlvs, tlv);
+	}
 	lsp = pcep_obj_create_lsp(
 		path->plsp_id, path->status, path->was_created /* C Flag */,
 		path->go_active /* A Flag */, path->was_removed /* R Flag */,
@@ -362,6 +367,28 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	ero = pcep_obj_create_ero(ero_objs);
 	assert(NULL != ero);
 	dll_append(objs, ero);
+
+	if (0 == path->plsp_id) {
+		return objs;
+	}
+
+	/* OPTIONAL OBJECTS */
+	lspa = pcep_obj_create_lspa(0, 0, 0, 7, 7, true);
+	assert(NULL != lspa);
+	dll_append(objs, lspa);
+	bandwidth = pcep_obj_create_bandwidth(0);
+	assert(NULL != bandwidth);
+	dll_append(objs, bandwidth);
+	bandwidth = pcep_obj_create_bandwidth(0);
+	assert(NULL != bandwidth);
+	bandwidth->header.object_type = PCEP_OBJ_TYPE_BANDWIDTH_CISCO;
+	dll_append(objs, bandwidth);
+	metric = pcep_obj_create_metric(PCEP_METRIC_TE, false, false, 0);
+	assert(NULL != metric);
+	dll_append(objs, metric);
+	metric = pcep_obj_create_metric(PCEP_METRIC_DISJOINTNESS, true, false, 0);
+	assert(NULL != metric);
+	dll_append(objs, metric);
 
 	return objs;
 }
