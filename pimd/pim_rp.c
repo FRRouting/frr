@@ -554,21 +554,40 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 			}
 
 			frr_each (rb_pim_upstream, &pim->upstream_head, up) {
+				struct prefix grp;
+				struct rp_info *trp_info;
+
+				grp.family = AF_INET;
+				grp.prefixlen = IPV4_MAX_BITLEN;
+				grp.u.prefix4 = up->sg.grp;
+				trp_info = pim_rp_find_match_group(pim, &grp);
+
+				/* Operate on entries where RP is changing */
+				if (trp_info != rp_all)
+					continue;
 				/* Find (*, G) upstream whose RP is not
 				 * configured yet
 				 */
 				if ((up->upstream_addr.s_addr == INADDR_ANY)
 				    && (up->sg.src.s_addr == INADDR_ANY)) {
-					struct prefix grp;
-					struct rp_info *trp_info;
-
-					grp.family = AF_INET;
-					grp.prefixlen = IPV4_MAX_BITLEN;
-					grp.u.prefix4 = up->sg.grp;
-					trp_info = pim_rp_find_match_group(
-						pim, &grp);
-					if (trp_info == rp_all)
-						pim_upstream_update(pim, up);
+					pim_upstream_update(pim, up);
+					continue;
+				}
+				/*
+				 * Find S,G where we are FHR and change the
+				 * register state to register join so that
+				 * register message is triggered on next data
+				 * packet which is punted up through pimreg
+				 * which will go to new RP.
+				 */
+				if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)
+				    && (up->reg_state != PIM_REG_NOINFO)) {
+					THREAD_TIMER_OFF(up->t_rs_timer);
+					up->reg_state = PIM_REG_JOIN;
+					pim_channel_add_oif(
+						up->channel_oil, pim->regiface,
+						PIM_OIF_FLAG_PROTO_PIM,
+						__func__);
 				}
 			}
 
@@ -649,7 +668,8 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	}
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		if (up->sg.src.s_addr == INADDR_ANY) {
+		if ((up->sg.src.s_addr == INADDR_ANY)
+		    || PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
 			struct prefix grp;
 			struct rp_info *trp_info;
 
@@ -658,8 +678,28 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 			grp.u.prefix4 = up->sg.grp;
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
-			if (trp_info == rp_info)
+			/* Operate on entries where RP is changing */
+			if (trp_info != rp_info)
+				continue;
+
+			if (up->sg.src.s_addr == INADDR_ANY) {
 				pim_upstream_update(pim, up);
+				continue;
+			}
+			/*
+			 * Find S,G where we are FHR and change the
+			 * register state to register join so that
+			 * register message is triggered on next data
+			 * packet which is punted up through pimreg which will
+			 * go to new RP.
+			 */
+			if (up->reg_state != PIM_REG_NOINFO) {
+				THREAD_TIMER_OFF(up->t_rs_timer);
+				up->reg_state = PIM_REG_JOIN;
+				pim_channel_add_oif(
+					up->channel_oil, pim->regiface,
+					PIM_OIF_FLAG_PROTO_PIM, __func__);
+			}
 		}
 	}
 
@@ -821,6 +861,33 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 		return PIM_SUCCESS;
 	}
 
+	/*
+	 * Find S,G where we are FHR and change the register state to register
+	 * join so that register message is triggered on next data packet which
+	 * is punted up through pimreg which will go to new RP.
+	 */
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
+		if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)
+		    && (up->reg_state != PIM_REG_NOINFO)) {
+			struct prefix grp;
+			struct rp_info *trp_info;
+
+			grp.family = AF_INET;
+			grp.prefixlen = IPV4_MAX_BITLEN;
+			grp.u.prefix4 = up->sg.grp;
+			trp_info = pim_rp_find_match_group(pim, &grp);
+
+			/* Operate on entries where RP is changing */
+			if (trp_info != rp_info)
+				continue;
+
+			THREAD_TIMER_OFF(up->t_rs_timer);
+			up->reg_state = PIM_REG_JOIN;
+			pim_channel_add_oif(up->channel_oil, pim->regiface,
+					    PIM_OIF_FLAG_PROTO_PIM, __func__);
+		}
+	}
+
 	listnode_delete(pim->rp_list, rp_info);
 
 	if (!was_plist) {
@@ -939,7 +1006,8 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 	listnode_add_sort(pim->rp_list, rp_info);
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		if (up->sg.src.s_addr == INADDR_ANY) {
+		if ((up->sg.src.s_addr == INADDR_ANY)
+		    || PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
 			struct prefix grp;
 			struct rp_info *trp_info;
 
@@ -948,8 +1016,28 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 			grp.u.prefix4 = up->sg.grp;
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
-			if (trp_info == rp_info)
+			/* Operate on entries where RP is changing */
+			if (trp_info != rp_info)
+				continue;
+
+			if (up->sg.src.s_addr == INADDR_ANY) {
 				pim_upstream_update(pim, up);
+				continue;
+			}
+			/*
+			 * Find S,G where we are FHR and change the
+			 * register state to register join so that
+			 * register message is triggered on next data
+			 * packet which is punted up through pimreg which will
+			 * go to new RP.
+			 */
+			if (up->reg_state != PIM_REG_NOINFO) {
+				THREAD_TIMER_OFF(up->t_rs_timer);
+				up->reg_state = PIM_REG_JOIN;
+				pim_channel_add_oif(
+					up->channel_oil, pim->regiface,
+					PIM_OIF_FLAG_PROTO_PIM, __func__);
+			}
 		}
 	}
 
