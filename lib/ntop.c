@@ -165,7 +165,7 @@ inet4:
 	return dst;
 }
 
-#ifndef INET_NTOP_NO_OVERRIDE
+#if !defined(INET_NTOP_NO_OVERRIDE) && !defined(__APPLE__)
 /* we want to override libc inet_ntop, but make sure it shows up in backtraces
  * as frr_inet_ntop (to avoid confusion while debugging)
  */
