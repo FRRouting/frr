@@ -1398,8 +1398,8 @@ void cli_show_ip_isis_metric(struct vty *vty, struct lyd_node *dnode,
 	if (strmatch(l1, l2))
 		vty_out(vty, " isis metric %s\n", l1);
 	else {
-		vty_out(vty, " isis metric %s level-1\n", l1);
-		vty_out(vty, " isis metric %s level-2\n", l2);
+		vty_out(vty, " isis metric level-1 %s\n", l1);
+		vty_out(vty, " isis metric level-2 %s\n", l2);
 	}
 }
 
