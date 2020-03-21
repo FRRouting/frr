@@ -1875,16 +1875,9 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 		struct bgp_path_info_extra dummy_rmap_path_extra = {0};
 		struct attr dummy_attr = {0};
 
-		memset(&rmap_path, 0, sizeof(struct bgp_path_info));
-		rmap_path.peer = peer;
-		rmap_path.attr = attr;
-		rmap_path.net = rn;
-
-		if (pi->extra) {
-			memcpy(&dummy_rmap_path_extra, pi->extra,
-			       sizeof(struct bgp_path_info_extra));
-			rmap_path.extra = &dummy_rmap_path_extra;
-		}
+		/* Fill temp path_info */
+		prep_for_rmap_apply(&rmap_path, &dummy_rmap_path_extra,
+				    rn, pi, peer, attr);
 
 		/* don't confuse inbound and outbound setting */
 		RESET_FLAG(attr->rmap_change_flags);
@@ -2693,17 +2686,31 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 			/* apply the route-map */
 			if (bgp->adv_cmd_rmap[afi][safi].map) {
 				route_map_result_t ret;
+				struct bgp_path_info rmap_path;
+				struct bgp_path_info_extra rmap_path_extra;
+				struct attr dummy_attr;
+
+				dummy_attr = *new_select->attr;
+
+				/* Fill temp path_info */
+				prep_for_rmap_apply(
+					&rmap_path, &rmap_path_extra,
+					rn, new_select, new_select->peer,
+					&dummy_attr);
+
+				RESET_FLAG(dummy_attr.rmap_change_flags);
 
 				ret = route_map_apply(
 					bgp->adv_cmd_rmap[afi][safi].map,
-					&rn->p, RMAP_BGP, new_select);
-				if (ret == RMAP_PERMITMATCH)
-					bgp_evpn_advertise_type5_route(
-						bgp, &rn->p, new_select->attr,
-						afi, safi);
-				else
+					&rn->p, RMAP_BGP, &rmap_path);
+				if (ret == RMAP_DENYMATCH) {
+					bgp_attr_flush(&dummy_attr);
 					bgp_evpn_withdraw_type5_route(
 						bgp, &rn->p, afi, safi);
+				} else
+					bgp_evpn_advertise_type5_route(
+						bgp, &rn->p, &dummy_attr,
+						afi, safi);
 			} else {
 				bgp_evpn_advertise_type5_route(bgp,
 							       &rn->p,
