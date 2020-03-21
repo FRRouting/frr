@@ -202,4 +202,13 @@ extern void bgp_remove_ecomm_from_aggregate_hash(
 					struct ecommunity *ecommunity);
 extern void bgp_aggr_ecommunity_remove(void *arg);
 
+
+static inline void ecommunity_strip_rts(struct ecommunity *ecom)
+{
+	uint8_t subtype = ECOMMUNITY_ROUTE_TARGET;
+
+	ecommunity_strip(ecom, ECOMMUNITY_ENCODE_AS, subtype);
+	ecommunity_strip(ecom, ECOMMUNITY_ENCODE_IP, subtype);
+	ecommunity_strip(ecom, ECOMMUNITY_ENCODE_AS4, subtype);
+}
 #endif /* _QUAGGA_BGP_ECOMMUNITY_H */
