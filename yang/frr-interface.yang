@@ -38,7 +38,11 @@ module frr-interface {
       }
 
       leaf vrf {
-        type frr-vrf:vrf-ref;
+        type string {
+          length "1..16";
+        }
+        /* yang version 0.16 having issue accessing leafref. */ 
+        /* type frr-vrf:vrf-ref;*/
         description
           "VRF this interface is associated with.";
       }
