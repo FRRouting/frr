@@ -2528,12 +2528,12 @@ bool bgp_debug_update(struct peer *peer, const struct prefix *p,
 	return false;
 }
 
-bool bgp_debug_bestpath(struct prefix *p)
+bool bgp_debug_bestpath(struct bgp_node *rn)
 {
 	if (BGP_DEBUG(bestpath, BESTPATH)) {
-		if (bgp_debug_per_prefix(p, term_bgp_debug_bestpath,
-					 BGP_DEBUG_BESTPATH,
-					 bgp_debug_bestpath_prefixes))
+		if (bgp_debug_per_prefix(
+			    &rn->p, term_bgp_debug_bestpath,
+			    BGP_DEBUG_BESTPATH, bgp_debug_bestpath_prefixes))
 			return true;
 	}
 

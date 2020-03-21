@@ -457,7 +457,7 @@ void bgp_path_info_mpath_update(struct bgp_node *rn,
 	old_mpath_count = 0;
 	prev_mpath = new_best;
 	mp_node = listhead(mp_list);
-	debug = bgp_debug_bestpath(&rn->p);
+	debug = bgp_debug_bestpath(rn);
 
 	if (debug)
 		prefix2str(&rn->p, pfx_buf, sizeof(pfx_buf));

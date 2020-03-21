@@ -2096,7 +2096,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 	do_mpath =
 		(mpath_cfg->maxpaths_ebgp > 1 || mpath_cfg->maxpaths_ibgp > 1);
 
-	debug = bgp_debug_bestpath(&rn->p);
+	debug = bgp_debug_bestpath(rn);
 
 	if (debug)
 		prefix2str(&rn->p, pfx_buf, sizeof(pfx_buf));
@@ -2450,7 +2450,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
 		if (rn)
-			debug = bgp_debug_bestpath(&rn->p);
+			debug = bgp_debug_bestpath(rn);
 		if (debug) {
 			prefix2str(&rn->p, pfx_buf, sizeof(pfx_buf));
 			zlog_debug(
@@ -2477,7 +2477,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 
 	struct prefix *p = &rn->p;
 
-	debug = bgp_debug_bestpath(&rn->p);
+	debug = bgp_debug_bestpath(rn);
 	if (debug) {
 		prefix2str(&rn->p, pfx_buf, sizeof(pfx_buf));
 		zlog_debug("%s: p=%s afi=%s, safi=%s start", __func__, pfx_buf,
