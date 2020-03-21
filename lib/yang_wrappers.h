@@ -114,6 +114,9 @@ extern const char *yang_get_default_string(const char *xpath_fmt, ...);
 extern void yang_get_default_string_buf(char *buf, size_t size,
 					const char *xpath_fmt, ...);
 
+/* empty */
+extern struct yang_data *yang_data_new_empty(const char *xpath);
+
 /* ip prefix */
 extern void yang_str2prefix(const char *value, union prefixptr prefix);
 extern struct yang_data *yang_data_new_prefix(const char *xpath,

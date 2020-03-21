@@ -783,6 +783,14 @@ void yang_get_default_string_buf(char *buf, size_t size, const char *xpath_fmt,
 }
 
 /*
+ * Primitive type: empty.
+ */
+struct yang_data *yang_data_new_empty(const char *xpath)
+{
+	return yang_data_new(xpath, NULL);
+}
+
+/*
  * Derived type: IP prefix.
  */
 void yang_str2prefix(const char *value, union prefixptr prefix)
