@@ -24,11 +24,6 @@ module frr-ripngd {
   description
     "This module defines a model for managing FRR ripngd daemon.";
 
-  revision 2019-09-09 {
-    description
-      "Changed interface references to use
-      frr-interface:interface-ref typedef";
-  }
   revision 2018-11-27 {
     description
       "Initial revision.";
@@ -76,7 +71,9 @@ module frr-ripngd {
           "Enable RIPng on the specified IPv6 network.";
       }
       leaf-list interface {
-        type frr-interface:interface-ref;
+        type string {
+          length "1..16";
+        }
         description
           "Enable RIPng on the specified interface.";
       }
@@ -85,15 +82,7 @@ module frr-ripngd {
         description
           "Offset-list to modify route metric.";
         leaf interface {
-          type union {
-            type frr-interface:interface-ref;
-            type enumeration {
-              enum '*' {
-                description
-                  "Match all interfaces.";
-              }
-            }
-          }
+          type string;
           description
             "Interface to match. Use '*' to match all interfaces.";
         }
@@ -129,7 +118,9 @@ module frr-ripngd {
         }
       }
       leaf-list passive-interface {
-        type frr-interface:interface-ref;
+        type string {
+          length "1..16";
+        }
         description
           "A list of interfaces where the sending of RIPng packets
            is disabled.";
