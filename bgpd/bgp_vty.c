@@ -533,7 +533,7 @@ int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 	return *idx;
 }
 
-static int peer_address_self_check(struct bgp *bgp, union sockunion *su)
+static bool peer_address_self_check(struct bgp *bgp, union sockunion *su)
 {
 	struct interface *ifp = NULL;
 
@@ -545,9 +545,9 @@ static int peer_address_self_check(struct bgp *bgp, union sockunion *su)
 					      bgp->vrf_id);
 
 	if (ifp)
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 /* Utility function for looking up peer from VTY.  */
@@ -14086,7 +14086,8 @@ static bool peergroup_filter_check(struct peer *peer, afi_t afi, safi_t safi,
 /* Return true if the addpath type is set for peer and different from
  * peer-group.
  */
-static int peergroup_af_addpath_check(struct peer *peer, afi_t afi, safi_t safi)
+static bool peergroup_af_addpath_check(struct peer *peer, afi_t afi,
+				       safi_t safi)
 {
 	enum bgp_addpath_strat type, g_type;
 
@@ -14097,15 +14098,15 @@ static int peergroup_af_addpath_check(struct peer *peer, afi_t afi, safi_t safi)
 			g_type = peer->group->conf->addpath_type[afi][safi];
 
 			if (type != g_type)
-				return 1;
+				return true;
 			else
-				return 0;
+				return false;
 		}
 
-		return 1;
+		return true;
 	}
 
-	return 0;
+	return false;
 }
 
 /* This is part of the address-family block (unicast only) */

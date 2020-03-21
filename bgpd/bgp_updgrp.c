@@ -831,17 +831,17 @@ void update_subgroup_inherit_info(struct update_subgroup *to,
  *
  * Returns true if the subgroup was deleted.
  */
-static int update_subgroup_check_delete(struct update_subgroup *subgrp)
+static bool update_subgroup_check_delete(struct update_subgroup *subgrp)
 {
 	if (!subgrp)
-		return 0;
+		return false;
 
 	if (!LIST_EMPTY(&(subgrp->peers)))
-		return 0;
+		return false;
 
 	update_subgroup_delete(subgrp);
 
-	return 1;
+	return true;
 }
 
 /*
@@ -982,7 +982,7 @@ static struct update_subgroup *update_subgroup_find(struct update_group *updgrp,
  * Returns true if this subgroup is in a state that allows it to be
  * merged into another subgroup.
  */
-static int update_subgroup_ready_for_merge(struct update_subgroup *subgrp)
+static bool update_subgroup_ready_for_merge(struct update_subgroup *subgrp)
 {
 
 	/*
@@ -990,13 +990,13 @@ static int update_subgroup_ready_for_merge(struct update_subgroup *subgrp)
 	 * out to peers.
 	 */
 	if (!bpacket_queue_is_empty(SUBGRP_PKTQ(subgrp)))
-		return 0;
+		return false;
 
 	/*
 	 * Not ready if there enqueued updates waiting to be encoded.
 	 */
 	if (!advertise_list_is_empty(subgrp))
-		return 0;
+		return false;
 
 	/*
 	 * Don't attempt to merge a subgroup that needs a refresh. For one,
@@ -1004,9 +1004,9 @@ static int update_subgroup_ready_for_merge(struct update_subgroup *subgrp)
 	 * another group.
 	 */
 	if (update_subgroup_needs_refresh(subgrp))
-		return 0;
+		return false;
 
-	return 1;
+	return true;
 }
 
 /*
@@ -1095,13 +1095,13 @@ static void update_subgroup_merge(struct update_subgroup *subgrp,
  * Returns true if the subgroup has been merged. The subgroup pointer
  * should not be accessed in this case.
  */
-int update_subgroup_check_merge(struct update_subgroup *subgrp,
-				const char *reason)
+bool update_subgroup_check_merge(struct update_subgroup *subgrp,
+				 const char *reason)
 {
 	struct update_subgroup *target;
 
 	if (!update_subgroup_ready_for_merge(subgrp))
-		return 0;
+		return false;
 
 	/*
 	 * Look for a subgroup to merge into.
@@ -1112,10 +1112,10 @@ int update_subgroup_check_merge(struct update_subgroup *subgrp,
 	}
 
 	if (!target)
-		return 0;
+		return false;
 
 	update_subgroup_merge(subgrp, target, reason);
-	return 1;
+	return true;
 }
 
 /*
@@ -1143,14 +1143,14 @@ static int update_subgroup_merge_check_thread_cb(struct thread *thread)
  *
  * Returns true if a merge check will be performed shortly.
  */
-int update_subgroup_trigger_merge_check(struct update_subgroup *subgrp,
-					int force)
+bool update_subgroup_trigger_merge_check(struct update_subgroup *subgrp,
+					 int force)
 {
 	if (subgrp->t_merge_check)
-		return 1;
+		return true;
 
 	if (!force && !update_subgroup_ready_for_merge(subgrp))
-		return 0;
+		return false;
 
 	subgrp->t_merge_check = NULL;
 	thread_add_timer_msec(bm->master, update_subgroup_merge_check_thread_cb,
@@ -1158,7 +1158,7 @@ int update_subgroup_trigger_merge_check(struct update_subgroup *subgrp,
 
 	SUBGRP_INCR_STAT(subgrp, merge_checks_triggered);
 
-	return 1;
+	return true;
 }
 
 /*
@@ -1212,8 +1212,8 @@ static int update_subgroup_copy_packets(struct update_subgroup *dest,
 	return count;
 }
 
-static int updgrp_prefix_list_update(struct update_group *updgrp,
-				     const char *name)
+static bool updgrp_prefix_list_update(struct update_group *updgrp,
+				      const char *name)
 {
 	struct peer *peer;
 	struct bgp_filter *filter;
@@ -1225,13 +1225,13 @@ static int updgrp_prefix_list_update(struct update_group *updgrp,
 	    && (strcmp(name, PREFIX_LIST_OUT_NAME(filter)) == 0)) {
 		PREFIX_LIST_OUT(filter) = prefix_list_lookup(
 			UPDGRP_AFI(updgrp), PREFIX_LIST_OUT_NAME(filter));
-		return 1;
+		return true;
 	}
-	return 0;
+	return false;
 }
 
-static int updgrp_filter_list_update(struct update_group *updgrp,
-				     const char *name)
+static bool updgrp_filter_list_update(struct update_group *updgrp,
+				      const char *name)
 {
 	struct peer *peer;
 	struct bgp_filter *filter;
@@ -1243,13 +1243,13 @@ static int updgrp_filter_list_update(struct update_group *updgrp,
 	    && (strcmp(name, FILTER_LIST_OUT_NAME(filter)) == 0)) {
 		FILTER_LIST_OUT(filter) =
 			as_list_lookup(FILTER_LIST_OUT_NAME(filter));
-		return 1;
+		return true;
 	}
-	return 0;
+	return false;
 }
 
-static int updgrp_distribute_list_update(struct update_group *updgrp,
-					 const char *name)
+static bool updgrp_distribute_list_update(struct update_group *updgrp,
+					  const char *name)
 {
 	struct peer *peer;
 	struct bgp_filter *filter;
@@ -1261,9 +1261,9 @@ static int updgrp_distribute_list_update(struct update_group *updgrp,
 	    && (strcmp(name, DISTRIBUTE_OUT_NAME(filter)) == 0)) {
 		DISTRIBUTE_OUT(filter) = access_list_lookup(
 			UPDGRP_AFI(updgrp), DISTRIBUTE_OUT_NAME(filter));
-		return 1;
+		return true;
 	}
-	return 0;
+	return false;
 }
 
 static int updgrp_route_map_update(struct update_group *updgrp,

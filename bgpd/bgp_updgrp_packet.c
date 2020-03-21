@@ -226,11 +226,11 @@ unsigned int bpacket_queue_hwm_length(struct bpacket_queue *q)
 	return q->hwm_count - 1;
 }
 
-int bpacket_queue_is_full(struct bgp *bgp, struct bpacket_queue *q)
+bool bpacket_queue_is_full(struct bgp *bgp, struct bpacket_queue *q)
 {
 	if (q->curr_count >= bgp->default_subgroup_pkt_queue_max)
-		return 1;
-	return 0;
+		return true;
+	return false;
 }
 
 void bpacket_add_peer(struct bpacket *pkt, struct peer_af *paf)
@@ -656,22 +656,22 @@ static void bpacket_attr_vec_arr_update(struct bpacket_attr_vec_arr *vecarr,
 /*
  * Return if there are packets to build for this subgroup.
  */
-int subgroup_packets_to_build(struct update_subgroup *subgrp)
+bool subgroup_packets_to_build(struct update_subgroup *subgrp)
 {
 	struct bgp_advertise *adv;
 
 	if (!subgrp)
-		return 0;
+		return false;
 
 	adv = bgp_adv_fifo_first(&subgrp->sync->withdraw);
 	if (adv)
-		return 1;
+		return true;
 
 	adv = bgp_adv_fifo_first(&subgrp->sync->update);
 	if (adv)
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 /* Make BGP update packet.  */

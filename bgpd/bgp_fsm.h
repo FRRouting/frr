@@ -119,8 +119,8 @@ extern void bgp_fsm_change_status(struct peer *peer, int status);
 extern const char *const peer_down_str[];
 extern void bgp_update_delay_end(struct bgp *);
 extern void bgp_maxmed_update(struct bgp *);
-extern int bgp_maxmed_onstartup_configured(struct bgp *);
-extern int bgp_maxmed_onstartup_active(struct bgp *);
+extern bool bgp_maxmed_onstartup_configured(struct bgp *);
+extern bool bgp_maxmed_onstartup_active(struct bgp *);
 extern int bgp_fsm_error_subcode(int status);
 
 /**

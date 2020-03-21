@@ -53,10 +53,10 @@ extern struct bgp_redist *bgp_redist_add(struct bgp *, afi_t, uint8_t,
 extern int bgp_redistribute_set(struct bgp *, afi_t, int, unsigned short,
 				bool changed);
 extern int bgp_redistribute_resend(struct bgp *, afi_t, int, unsigned short);
-extern int bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
-				     struct route_map *route_map);
-extern int bgp_redistribute_metric_set(struct bgp *, struct bgp_redist *, afi_t,
-				       int, uint32_t);
+extern bool bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
+				      struct route_map *route_map);
+extern bool bgp_redistribute_metric_set(struct bgp *, struct bgp_redist *,
+					afi_t, int, uint32_t);
 extern int bgp_redistribute_unset(struct bgp *, afi_t, int, unsigned short);
 extern int bgp_redistribute_unreg(struct bgp *, afi_t, int, unsigned short);
 

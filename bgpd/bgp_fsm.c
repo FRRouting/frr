@@ -664,32 +664,29 @@ static int bgp_graceful_deferral_timer_expire(struct thread *thread)
 	return bgp_best_path_select_defer(bgp, afi, safi);
 }
 
-static int bgp_update_delay_applicable(struct bgp *bgp)
+static bool bgp_update_delay_applicable(struct bgp *bgp)
 {
 	/* update_delay_over flag should be reset (set to 0) for any new
 	   applicability of the update-delay during BGP process lifetime.
 	   And it should be set after an occurence of the update-delay is
 	   over)*/
 	if (!bgp->update_delay_over)
-		return 1;
-
-	return 0;
+		return true;
+	return false;
 }
 
-int bgp_update_delay_active(struct bgp *bgp)
+bool bgp_update_delay_active(struct bgp *bgp)
 {
 	if (bgp->t_update_delay)
-		return 1;
-
-	return 0;
+		return true;
+	return false;
 }
 
-int bgp_update_delay_configured(struct bgp *bgp)
+bool bgp_update_delay_configured(struct bgp *bgp)
 {
 	if (bgp->v_update_delay)
-		return 1;
-
-	return 0;
+		return true;
+	return false;
 }
 
 /* Do the post-processing needed when bgp comes out of the read-only mode
@@ -840,28 +837,25 @@ void bgp_adjust_routeadv(struct peer *peer)
 	}
 }
 
-static int bgp_maxmed_onstartup_applicable(struct bgp *bgp)
+static bool bgp_maxmed_onstartup_applicable(struct bgp *bgp)
 {
 	if (!bgp->maxmed_onstartup_over)
-		return 1;
-
-	return 0;
+		return true;
+	return false;
 }
 
-int bgp_maxmed_onstartup_configured(struct bgp *bgp)
+bool bgp_maxmed_onstartup_configured(struct bgp *bgp)
 {
 	if (bgp->v_maxmed_onstartup != BGP_MAXMED_ONSTARTUP_UNCONFIGURED)
-		return 1;
-
-	return 0;
+		return true;
+	return false;
 }
 
-int bgp_maxmed_onstartup_active(struct bgp *bgp)
+bool bgp_maxmed_onstartup_active(struct bgp *bgp)
 {
 	if (bgp->t_maxmed_onstartup)
-		return 1;
-
-	return 0;
+		return true;
+	return false;
 }
 
 void bgp_maxmed_update(struct bgp *bgp)

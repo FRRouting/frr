@@ -130,14 +130,14 @@ static struct cluster_list *cluster_parse(struct in_addr *pnt, int length)
 	return cluster;
 }
 
-int cluster_loop_check(struct cluster_list *cluster, struct in_addr originator)
+bool cluster_loop_check(struct cluster_list *cluster, struct in_addr originator)
 {
 	int i;
 
 	for (i = 0; i < cluster->length / 4; i++)
 		if (cluster->list[i].s_addr == originator.s_addr)
-			return 1;
-	return 0;
+			return true;
+	return false;
 }
 
 static unsigned int cluster_hash_key_make(const void *p)
@@ -263,16 +263,16 @@ void bgp_attr_flush_encap(struct attr *attr)
  *
  * This algorithm could be made faster if needed
  */
-static int encap_same(const struct bgp_attr_encap_subtlv *h1,
-		      const struct bgp_attr_encap_subtlv *h2)
+static bool encap_same(const struct bgp_attr_encap_subtlv *h1,
+		       const struct bgp_attr_encap_subtlv *h2)
 {
 	const struct bgp_attr_encap_subtlv *p;
 	const struct bgp_attr_encap_subtlv *q;
 
 	if (h1 == h2)
-		return 1;
+		return true;
 	if (h1 == NULL || h2 == NULL)
-		return 0;
+		return false;
 
 	for (p = h1; p; p = p->next) {
 		for (q = h2; q; q = q->next) {
@@ -283,7 +283,7 @@ static int encap_same(const struct bgp_attr_encap_subtlv *h1,
 			}
 		}
 		if (!q)
-			return 0;
+			return false;
 	}
 
 	for (p = h2; p; p = p->next) {
@@ -295,10 +295,10 @@ static int encap_same(const struct bgp_attr_encap_subtlv *h1,
 			}
 		}
 		if (!q)
-			return 0;
+			return false;
 	}
 
-	return 1;
+	return true;
 }
 
 static void *encap_hash_alloc(void *p)
@@ -1274,7 +1274,7 @@ const uint8_t attr_flags_values[] = {
 };
 static const size_t attr_flags_values_max = array_size(attr_flags_values) - 1;
 
-static int bgp_attr_flag_invalid(struct bgp_attr_parser_args *args)
+static bool bgp_attr_flag_invalid(struct bgp_attr_parser_args *args)
 {
 	uint8_t mask = BGP_ATTR_FLAG_EXTLEN;
 	const uint8_t flags = args->flags;
@@ -1282,9 +1282,9 @@ static int bgp_attr_flag_invalid(struct bgp_attr_parser_args *args)
 
 	/* there may be attributes we don't know about */
 	if (attr_code > attr_flags_values_max)
-		return 0;
+		return false;
 	if (attr_flags_values[attr_code] == 0)
-		return 0;
+		return false;
 
 	/* RFC4271, "For well-known attributes, the Transitive bit MUST be set
 	 * to
@@ -1296,7 +1296,7 @@ static int bgp_attr_flag_invalid(struct bgp_attr_parser_args *args)
 			EC_BGP_ATTR_FLAG,
 			"%s well-known attributes must have transitive flag set (%x)",
 			lookup_msg(attr_str, attr_code, NULL), flags);
-		return 1;
+		return true;
 	}
 
 	/* "For well-known attributes and for optional non-transitive
@@ -1309,7 +1309,7 @@ static int bgp_attr_flag_invalid(struct bgp_attr_parser_args *args)
 				 "%s well-known attribute "
 				 "must NOT have the partial flag set (%x)",
 				 lookup_msg(attr_str, attr_code, NULL), flags);
-			return 1;
+			return true;
 		}
 		if (CHECK_FLAG(flags, BGP_ATTR_FLAG_OPTIONAL)
 		    && !CHECK_FLAG(flags, BGP_ATTR_FLAG_TRANS)) {
@@ -1317,7 +1317,7 @@ static int bgp_attr_flag_invalid(struct bgp_attr_parser_args *args)
 				 "%s optional + transitive attribute "
 				 "must NOT have the partial flag set (%x)",
 				 lookup_msg(attr_str, attr_code, NULL), flags);
-			return 1;
+			return true;
 		}
 	}
 
@@ -1329,10 +1329,10 @@ static int bgp_attr_flag_invalid(struct bgp_attr_parser_args *args)
 		SET_FLAG(mask, BGP_ATTR_FLAG_PARTIAL);
 
 	if ((flags & ~mask) == attr_flags_values[attr_code])
-		return 0;
+		return false;
 
 	bgp_attr_flags_diagnose(args, attr_flags_values[attr_code]);
-	return 1;
+	return true;
 }
 
 /* Get origin attribute of the update message. */
@@ -3562,7 +3562,7 @@ void bgp_packet_mpattr_end(struct stream *s, size_t sizep)
 	stream_putw_at(s, sizep, (stream_get_endp(s) - sizep) - 2);
 }
 
-static int bgp_append_local_as(struct peer *peer, afi_t afi, safi_t safi)
+static bool bgp_append_local_as(struct peer *peer, afi_t afi, safi_t safi)
 {
 	if (!BGP_AS_IS_PRIVATE(peer->local_as)
 	    || (BGP_AS_IS_PRIVATE(peer->local_as)
@@ -3574,8 +3574,8 @@ static int bgp_append_local_as(struct peer *peer, afi_t afi, safi_t safi)
 			       PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE)
 		&& !CHECK_FLAG(peer->af_flags[afi][safi],
 			       PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE)))
-		return 1;
-	return 0;
+		return true;
+	return false;
 }
 
 /* Make attribute packet. */

@@ -320,13 +320,12 @@ void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *router_id)
 	}
 }
 
-int bgp_router_id_static_set(struct bgp *bgp, struct in_addr id)
+void bgp_router_id_static_set(struct bgp *bgp, struct in_addr id)
 {
 	bgp->router_id_static = id;
 	bgp_router_id_set(bgp,
 			  id.s_addr != INADDR_ANY ? &id : &bgp->router_id_zebra,
 			  true /* is config */);
-	return 0;
 }
 
 /* BGP's cluster-id control. */
@@ -393,25 +392,21 @@ time_t bgp_clock(void)
 }
 
 /* BGP timer configuration.  */
-int bgp_timers_set(struct bgp *bgp, uint32_t keepalive, uint32_t holdtime,
-		   uint32_t connect_retry)
+void bgp_timers_set(struct bgp *bgp, uint32_t keepalive, uint32_t holdtime,
+		    uint32_t connect_retry)
 {
 	bgp->default_keepalive =
 		(keepalive < holdtime / 3 ? keepalive : holdtime / 3);
 	bgp->default_holdtime = holdtime;
 	bgp->default_connect_retry = connect_retry;
-
-	return 0;
 }
 
 /* mostly for completeness - CLI uses its own defaults */
-int bgp_timers_unset(struct bgp *bgp)
+void bgp_timers_unset(struct bgp *bgp)
 {
 	bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
 	bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
 	bgp->default_connect_retry = BGP_DEFAULT_CONNECT_RETRY;
-
-	return 0;
 }
 
 /* BGP confederation configuration.  */
@@ -499,18 +494,18 @@ int bgp_confederation_id_unset(struct bgp *bgp)
 }
 
 /* Is an AS part of the confed or not? */
-int bgp_confederation_peers_check(struct bgp *bgp, as_t as)
+bool bgp_confederation_peers_check(struct bgp *bgp, as_t as)
 {
 	int i;
 
 	if (!bgp)
-		return 0;
+		return false;
 
 	for (i = 0; i < bgp->confed_peers_cnt; i++)
 		if (bgp->confed_peers[i] == as)
-			return 1;
+			return true;
 
-	return 0;
+	return false;
 }
 
 /* Add an AS to the confederation set.  */
@@ -1415,8 +1410,8 @@ static int bgp_peer_conf_if_to_su_update_v4(struct peer *peer,
 	return 0;
 }
 
-static int bgp_peer_conf_if_to_su_update_v6(struct peer *peer,
-					    struct interface *ifp)
+static bool bgp_peer_conf_if_to_su_update_v6(struct peer *peer,
+					     struct interface *ifp)
 {
 	struct nbr_connected *ifc_nbr;
 
@@ -1430,10 +1425,10 @@ static int bgp_peer_conf_if_to_su_update_v6(struct peer *peer,
 		peer->su.sin6.sin6_len = sizeof(struct sockaddr_in6);
 #endif
 		peer->su.sin6.sin6_scope_id = ifp->ifindex;
-		return 1;
+		return true;
 	}
 
-	return 0;
+	return false;
 }
 
 /*
@@ -2084,18 +2079,18 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 	return ret;
 }
 
-static int non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
-				       safi_t safi)
+static bool non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
+					safi_t safi)
 {
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		flog_err(EC_BGP_PEER_GROUP, "%s was called for peer-group %s",
 			 __func__, peer->host);
-		return 1;
+		return true;
 	}
 
 	/* Nothing to do if we've already deactivated this peer */
 	if (!peer->afc[afi][safi])
-		return 0;
+		return false;
 
 	/* De-activate the address family configuration. */
 	peer->afc[afi][safi] = 0;
@@ -2104,7 +2099,7 @@ static int non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 		flog_err(EC_BGP_PEER_DELETE,
 			 "couldn't delete af structure for peer %s(%s, %s)",
 			 peer->host, afi2str(afi), safi2str(safi));
-		return 1;
+		return true;
 	}
 
 	if (peer->status == Established) {
@@ -2130,7 +2125,7 @@ static int non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 		}
 	}
 
-	return 0;
+	return false;
 }
 
 int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
@@ -2547,15 +2542,14 @@ int peer_group_remote_as(struct bgp *bgp, const char *group_name, as_t *as,
 	return 0;
 }
 
-int peer_notify_unconfig(struct peer *peer)
+void peer_notify_unconfig(struct peer *peer)
 {
 	if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
 		bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 				BGP_NOTIFY_CEASE_PEER_UNCONFIG);
-	return 0;
 }
 
-int peer_group_notify_unconfig(struct peer_group *group)
+void peer_group_notify_unconfig(struct peer_group *group)
 {
 	struct peer *peer, *other;
 	struct listnode *node, *nnode;
@@ -2568,7 +2562,6 @@ int peer_group_notify_unconfig(struct peer_group *group)
 		} else
 			peer_notify_unconfig(peer);
 	}
-	return 0;
 }
 
 int peer_group_delete(struct peer_group *group)
@@ -3771,10 +3764,10 @@ static void peer_drop_dynamic_neighbor(struct peer *peer)
 }
 
 /* If peer is configured at least one address family return 1. */
-int peer_active(struct peer *peer)
+bool peer_active(struct peer *peer)
 {
 	if (BGP_PEER_SU_UNSPEC(peer))
-		return 0;
+		return false;
 	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST]
 	    || peer->afc[AFI_IP][SAFI_LABELED_UNICAST]
 	    || peer->afc[AFI_IP][SAFI_MPLS_VPN] || peer->afc[AFI_IP][SAFI_ENCAP]
@@ -3786,12 +3779,12 @@ int peer_active(struct peer *peer)
 	    || peer->afc[AFI_IP6][SAFI_ENCAP]
 	    || peer->afc[AFI_IP6][SAFI_FLOWSPEC]
 	    || peer->afc[AFI_L2VPN][SAFI_EVPN])
-		return 1;
-	return 0;
+		return true;
+	return false;
 }
 
 /* If peer is negotiated at least one address family return 1. */
-int peer_active_nego(struct peer *peer)
+bool peer_active_nego(struct peer *peer)
 {
 	if (peer->afc_nego[AFI_IP][SAFI_UNICAST]
 	    || peer->afc_nego[AFI_IP][SAFI_MULTICAST]
@@ -3806,8 +3799,8 @@ int peer_active_nego(struct peer *peer)
 	    || peer->afc_nego[AFI_IP6][SAFI_ENCAP]
 	    || peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
 	    || peer->afc_nego[AFI_L2VPN][SAFI_EVPN])
-		return 1;
-	return 0;
+		return true;
+	return false;
 }
 
 void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
@@ -4308,18 +4301,16 @@ int peer_af_flag_unset(struct peer *peer, afi_t afi, safi_t safi, uint32_t flag)
 }
 
 
-int peer_tx_shutdown_message_set(struct peer *peer, const char *msg)
+void peer_tx_shutdown_message_set(struct peer *peer, const char *msg)
 {
 	XFREE(MTYPE_PEER_TX_SHUTDOWN_MSG, peer->tx_shutdown_message);
 	peer->tx_shutdown_message =
 		msg ? XSTRDUP(MTYPE_PEER_TX_SHUTDOWN_MSG, msg) : NULL;
-	return 0;
 }
 
-int peer_tx_shutdown_message_unset(struct peer *peer)
+void peer_tx_shutdown_message_unset(struct peer *peer)
 {
 	XFREE(MTYPE_PEER_TX_SHUTDOWN_MSG, peer->tx_shutdown_message);
-	return 0;
 }
 
 
@@ -4426,20 +4417,16 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 }
 
 /* Neighbor description. */
-int peer_description_set(struct peer *peer, const char *desc)
+void peer_description_set(struct peer *peer, const char *desc)
 {
 	XFREE(MTYPE_PEER_DESC, peer->desc);
 
 	peer->desc = XSTRDUP(MTYPE_PEER_DESC, desc);
-
-	return 0;
 }
 
-int peer_description_unset(struct peer *peer)
+void peer_description_unset(struct peer *peer)
 {
 	XFREE(MTYPE_PEER_DESC, peer->desc);
-
-	return 0;
 }
 
 /* Neighbor update-source. */
@@ -4789,16 +4776,14 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 	return 0;
 }
 
-int peer_port_set(struct peer *peer, uint16_t port)
+void peer_port_set(struct peer *peer, uint16_t port)
 {
 	peer->port = port;
-	return 0;
 }
 
-int peer_port_unset(struct peer *peer)
+void peer_port_unset(struct peer *peer)
 {
 	peer->port = BGP_PORT_DEFAULT;
-	return 0;
 }
 
 /*

@@ -385,13 +385,13 @@ int vpn_leak_label_callback(
 	return 0;
 }
 
-static int ecom_intersect(struct ecommunity *e1, struct ecommunity *e2)
+static bool ecom_intersect(struct ecommunity *e1, struct ecommunity *e2)
 {
 	int i;
 	int j;
 
 	if (!e1 || !e2)
-		return 0;
+		return false;
 
 	for (i = 0; i < e1->size; ++i) {
 		for (j = 0; j < e2->size; ++j) {
@@ -399,11 +399,11 @@ static int ecom_intersect(struct ecommunity *e1, struct ecommunity *e2)
 				    e2->val + (j * ECOMMUNITY_SIZE),
 				    ECOMMUNITY_SIZE)) {
 
-				return 1;
+				return true;
 			}
 		}
 	}
-	return 0;
+	return false;
 }
 
 static bool labels_same(struct bgp_path_info *bpi, mpls_label_t *label,

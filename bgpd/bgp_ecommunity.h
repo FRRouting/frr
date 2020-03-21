@@ -165,22 +165,22 @@ extern unsigned int ecommunity_hash_make(const void *);
 extern struct ecommunity *ecommunity_str2com(const char *, int, int);
 extern char *ecommunity_ecom2str(struct ecommunity *, int, int);
 extern void ecommunity_strfree(char **s);
-extern int ecommunity_match(const struct ecommunity *,
-			    const struct ecommunity *);
+extern bool ecommunity_match(const struct ecommunity *,
+			     const struct ecommunity *);
 extern char *ecommunity_str(struct ecommunity *);
 extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *,
 						uint8_t, uint8_t);
-extern int ecommunity_add_val(struct ecommunity *ecom,
-			      struct ecommunity_val *eval);
+extern bool ecommunity_add_val(struct ecommunity *ecom,
+			       struct ecommunity_val *eval);
 
 /* for vpn */
 extern struct ecommunity *ecommunity_new(void);
-extern int ecommunity_add_val(struct ecommunity *, struct ecommunity_val *);
-extern int ecommunity_strip(struct ecommunity *ecom, uint8_t type,
-			    uint8_t subtype);
+extern bool ecommunity_add_val(struct ecommunity *, struct ecommunity_val *);
+extern bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
+			     uint8_t subtype);
 extern struct ecommunity *ecommunity_new(void);
-extern int ecommunity_del_val(struct ecommunity *ecom,
-			      struct ecommunity_val *eval);
+extern bool ecommunity_del_val(struct ecommunity *ecom,
+			       struct ecommunity_val *eval);
 struct bgp_pbr_entry_action;
 extern int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
 			       struct bgp_pbr_entry_action *api);
