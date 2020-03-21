@@ -37,6 +37,7 @@
 #include "nexthop_group.h"
 #include "lib_errors.h"
 #include "northbound.h"
+#include "northbound_cli.h"
 
 /* default VRF ID value used when VRF backend is not NETNS */
 #define VRF_DEFAULT_INTERNAL 0
@@ -613,6 +614,8 @@ int vrf_handler_create(struct vty *vty, const char *vrfname,
 		       struct vrf **vrf)
 {
 	struct vrf *vrfp;
+	char xpath_list[XPATH_MAXLEN];
+	int ret;
 
 	if (strlen(vrfname) > VRF_NAMSIZ) {
 		if (vty)
@@ -627,13 +630,24 @@ int vrf_handler_create(struct vty *vty, const char *vrfname,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	vrfp = vrf_get(VRF_UNKNOWN, vrfname);
+	if (vty) {
+		snprintf(xpath_list, sizeof(xpath_list),
+			 "/frr-vrf:lib/vrf[name='%s']", vrfname);
 
-	if (vty)
-		VTY_PUSH_CONTEXT(VRF_NODE, vrfp);
+		nb_cli_enqueue_change(vty, xpath_list, NB_OP_CREATE, NULL);
+		ret = nb_cli_apply_changes(vty, xpath_list);
+		if (ret == CMD_SUCCESS) {
+			VTY_PUSH_XPATH(VRF_NODE, xpath_list);
+			vrfp = vrf_lookup_by_name(vrfname);
+			if (vrfp)
+				VTY_PUSH_CONTEXT(VRF_NODE, vrfp);
+		}
+	} else {
+		vrfp = vrf_get(VRF_UNKNOWN, vrfname);
 
-	if (vrf)
-		*vrf = vrfp;
+		if (vrf)
+			*vrf = vrfp;
+	}
 	return CMD_SUCCESS;
 }
 
@@ -736,6 +750,7 @@ DEFUN (no_vrf,
        "VRF's name\n")
 {
 	const char *vrfname = argv[2]->arg;
+	char xpath_list[XPATH_MAXLEN];
 
 	struct vrf *vrfp;
 
@@ -751,11 +766,11 @@ DEFUN (no_vrf,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	/* Clear configured flag and invoke delete. */
-	UNSET_FLAG(vrfp->status, VRF_CONFIGURED);
-	vrf_delete(vrfp);
+	snprintf(xpath_list, sizeof(xpath_list), "/frr-vrf:lib/vrf[name='%s']",
+		 vrfname);
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, xpath_list, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, xpath_list);
 }
 
 
@@ -1048,7 +1063,6 @@ static int lib_vrf_destroy(enum nb_event event, const struct lyd_node *dnode)
 {
 	struct vrf *vrfp;
 
-
 	switch (event) {
 	case NB_EV_VALIDATE:
 		vrfp = nb_running_get_entry(dnode, NULL, true);
@@ -1063,6 +1077,7 @@ static int lib_vrf_destroy(enum nb_event event, const struct lyd_node *dnode)
 		break;
 	case NB_EV_APPLY:
 		vrfp = nb_running_unset_entry(dnode);
+
 		/* Clear configured flag and invoke delete. */
 		UNSET_FLAG(vrfp->status, VRF_CONFIGURED);
 		vrf_delete(vrfp);
