@@ -73,7 +73,7 @@ static const uint8_t ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
 static const uint8_t ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
 #endif
 
-static char sock_buff[8192];
+static char sock_buff[16384];
 
 static int open_bpf_dev(struct isis_circuit *circuit)
 {
