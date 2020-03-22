@@ -155,9 +155,9 @@ static int bgp_reuse_timer(struct thread *t)
 			if (bdi->lastrecord == BGP_RECORD_UPDATE) {
 				bgp_path_info_unset_flag(bdi->rn, bdi->path,
 							 BGP_PATH_HISTORY);
-				bgp_aggregate_increment(bgp, &bdi->rn->p,
-							bdi->path, bdi->afi,
-							bdi->safi);
+				bgp_aggregate_increment(
+					bgp, bgp_node_get_prefix(bdi->rn),
+					bdi->path, bdi->afi, bdi->safi);
 				bgp_process(bgp, bdi->rn, bdi->afi, bdi->safi);
 			}
 

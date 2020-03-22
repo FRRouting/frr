@@ -1813,7 +1813,8 @@ int rfapiRibFTDFilterRecentPrefix(
 	{
 		char buf_pfx[PREFIX_STRLEN];
 
-		prefix2str(&it_rn->p, buf_pfx, sizeof(buf_pfx));
+		prefix2str(agg_node_get_prefix(it_rn), buf_pfx,
+			   sizeof(buf_pfx));
 		vnc_zlog_debug_verbose("%s: prefix %s", __func__, buf_pfx);
 	}
 #endif
@@ -1994,7 +1995,8 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		}
 		vnc_zlog_debug_verbose(
 			"%s: RIB skiplist for this prefix follows", __func__);
-		rfapiRibShowRibSl(NULL, &rn->p, (struct skiplist *)rn->info);
+		rfapiRibShowRibSl(NULL, agg_node_get_prefix(rn),
+				  (struct skiplist *)rn->info);
 #endif
 
 

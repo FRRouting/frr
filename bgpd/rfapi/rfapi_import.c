@@ -4213,9 +4213,11 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 						safi))(
 						it, /* which import table */
 						FIF_ACTION_UPDATE, bpi->peer,
-						NULL, &rn2->p, /* prefix */
+						NULL, bgp_node_get_prefix(rn2),
 						NULL, afi,
-						(struct prefix_rd *)&rn1->p,
+						(struct prefix_rd *)
+							bgp_node_get_prefix(
+								rn1),
 						bpi->attr, bpi->type,
 						bpi->sub_type, &label);
 				}

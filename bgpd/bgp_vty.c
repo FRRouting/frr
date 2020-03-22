@@ -7955,27 +7955,32 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 
 	if (safi == SAFI_MPLS_VPN) {
 		for (rn = bgp_table_top(rib); rn; rn = bgp_route_next(rn)) {
-			if (prd && memcmp(rn->p.u.val, prd->val, 8) != 0)
+			const struct prefix *rn_p = bgp_node_get_prefix(rn);
+
+			if (prd && memcmp(rn_p->u.val, prd->val, 8) != 0)
 				continue;
 
 			table = bgp_node_get_bgp_table_info(rn);
-			if (table != NULL) {
+			if (table == NULL)
+				continue;
 
-				if ((rm = bgp_node_match(table, &match))
-				    != NULL) {
-					if (rm->p.prefixlen
-					    == match.prefixlen) {
-						SET_FLAG(rm->flags,
-							 BGP_NODE_USER_CLEAR);
-						bgp_process(bgp, rm, afi, safi);
-					}
-					bgp_unlock_node(rm);
+			if ((rm = bgp_node_match(table, &match)) != NULL) {
+				const struct prefix *rm_p =
+					bgp_node_get_prefix(rm);
+
+				if (rm_p->prefixlen == match.prefixlen) {
+					SET_FLAG(rm->flags,
+						 BGP_NODE_USER_CLEAR);
+					bgp_process(bgp, rm, afi, safi);
 				}
+				bgp_unlock_node(rm);
 			}
 		}
 	} else {
 		if ((rn = bgp_node_match(rib, &match)) != NULL) {
-			if (rn->p.prefixlen == match.prefixlen) {
+			const struct prefix *rn_p = bgp_node_get_prefix(rn);
+
+			if (rn_p->prefixlen == match.prefixlen) {
 				SET_FLAG(rn->flags, BGP_NODE_USER_CLEAR);
 				bgp_process(bgp, rn, afi, safi);
 			}

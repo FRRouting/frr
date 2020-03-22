@@ -941,7 +941,7 @@ afibreak:
 				return true;
 			}
 			bmp->syncpeerid = 0;
-			prefix_copy(&bmp->syncpos, &bn->p);
+			prefix_copy(&bmp->syncpos, bgp_node_get_prefix(bn));
 		}
 
 		if (bmp->targets->afimon[afi][safi] & BMP_MON_POSTPOLICY) {
@@ -989,12 +989,14 @@ afibreak:
 		bmp->syncpeerid = adjin->peer->qobj_node.nid;
 	}
 
+	const struct prefix *bn_p = bgp_node_get_prefix(bn);
+
 	if (bpi)
-		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L, &bn->p, bpi->attr,
+		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L, bn_p, bpi->attr,
 			    afi, safi, bpi->uptime);
 	if (adjin)
-		bmp_monitor(bmp, adjin->peer, 0, &bn->p, adjin->attr,
-			    afi, safi, adjin->uptime);
+		bmp_monitor(bmp, adjin->peer, 0, bn_p, adjin->attr, afi, safi,
+			    adjin->uptime);
 
 	return true;
 }
@@ -1131,16 +1133,13 @@ static void bmp_process_one(struct bmp_targets *bt, struct bgp *bgp,
 	struct bmp *bmp;
 	struct bmp_queue_entry *bqe, bqeref;
 	size_t refcount;
-	char buf[256];
-
-	prefix2str(&bn->p, buf, sizeof(buf));
 
 	refcount = bmp_session_count(&bt->sessions);
 	if (refcount == 0)
 		return;
 
 	memset(&bqeref, 0, sizeof(bqeref));
-	prefix_copy(&bqeref.p, &bn->p);
+	prefix_copy(&bqeref.p, bgp_node_get_prefix(bn));
 	bqeref.peerid = peer->qobj_node.nid;
 	bqeref.afi = afi;
 	bqeref.safi = safi;

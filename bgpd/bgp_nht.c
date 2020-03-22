@@ -130,6 +130,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	struct bgp_nexthop_cache *bnc;
 	struct prefix p;
 	int is_bgp_static_route = 0;
+	const struct prefix *bnc_p;
 
 	if (pi) {
 		is_bgp_static_route = ((pi->type == ZEBRA_ROUTE_BGP)
@@ -181,6 +182,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		}
 	}
 
+	bnc_p = bgp_node_get_prefix(bnc->node);
+
 	bgp_unlock_node(rn);
 	if (is_bgp_static_route) {
 		SET_FLAG(bnc->flags, BGP_STATIC_ROUTE);
@@ -226,8 +229,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	if (bgp_route->inst_type == BGP_INSTANCE_TYPE_VIEW) {
 		SET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
 		SET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
-	} else if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED) &&
-		   !is_default_host_route(&bnc->node->p))
+	} else if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED)
+		   && !is_default_host_route(bnc_p))
 		register_zebra_rnh(bnc, is_bgp_static_route);
 
 	if (pi && pi->nexthop != bnc) {
@@ -528,7 +531,7 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 				    ? 1
 				    : 0;
 	struct bgp_node *net = pi->net;
-	struct prefix *p_orig = &net->p;
+	const struct prefix *p_orig = bgp_node_get_prefix(net);
 
 	if (p_orig->family == AF_FLOWSPEC) {
 		if (!pi->peer)
@@ -541,8 +544,8 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 	case AFI_IP:
 		p->family = AF_INET;
 		if (is_bgp_static) {
-			p->u.prefix4 = pi->net->p.u.prefix4;
-			p->prefixlen = pi->net->p.prefixlen;
+			p->u.prefix4 = p_orig->u.prefix4;
+			p->prefixlen = p_orig->prefixlen;
 		} else {
 			p->u.prefix4 = pi->attr->nexthop;
 			p->prefixlen = IPV4_MAX_BITLEN;
@@ -552,8 +555,8 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 		p->family = AF_INET6;
 
 		if (is_bgp_static) {
-			p->u.prefix6 = pi->net->p.u.prefix6;
-			p->prefixlen = pi->net->p.prefixlen;
+			p->u.prefix6 = p_orig->u.prefix6;
+			p->prefixlen = p_orig->prefixlen;
 		} else {
 			p->u.prefix6 = pi->attr->mp_nexthop_global;
 			p->prefixlen = IPV6_MAX_BITLEN;
@@ -581,7 +584,7 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
  */
 static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 {
-	struct prefix *p;
+	const struct prefix *p;
 	bool exact_match = false;
 	int ret;
 
@@ -603,7 +606,7 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 				"%s: We have not connected yet, cannot send nexthops",
 				__func__);
 	}
-	p = &(bnc->node->p);
+	p = bgp_node_get_prefix(bnc->node);
 	if ((command == ZEBRA_NEXTHOP_REGISTER
 	     || command == ZEBRA_IMPORT_ROUTE_REGISTER)
 	    && (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)
@@ -691,6 +694,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	struct bgp_table *table;
 	safi_t safi;
 	struct bgp *bgp_path;
+	const struct prefix *p;
 
 	if (BGP_DEBUG(nht, NHT)) {
 		char buf[PREFIX2STR_BUFFER];
@@ -710,7 +714,8 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 
 		rn = path->net;
 		assert(rn && bgp_node_table(rn));
-		afi = family2afi(rn->p.family);
+		p = bgp_node_get_prefix(rn);
+		afi = family2afi(p->family);
 		table = bgp_node_table(rn);
 		safi = table->safi;
 
@@ -744,27 +749,23 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 				bgp_isvalid_nexthop(bnc) ? 1 : 0;
 		}
 
-		if (BGP_DEBUG(nht, NHT)) {
-			char buf[PREFIX_STRLEN];
-
-			prefix2str(&rn->p, buf, PREFIX_STRLEN);
-			zlog_debug("%s: prefix %s (vrf %s) %svalid",
-				__func__, buf, bgp_path->name,
-				(bnc_is_valid_nexthop ? "" : "not "));
-		}
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug("%s: prefix %pRN (vrf %s) %svalid", __func__,
+				   rn, bgp_path->name,
+				   (bnc_is_valid_nexthop ? "" : "not "));
 
 		if ((CHECK_FLAG(path->flags, BGP_PATH_VALID) ? 1 : 0)
 		    != bnc_is_valid_nexthop) {
 			if (CHECK_FLAG(path->flags, BGP_PATH_VALID)) {
-				bgp_aggregate_decrement(bgp_path, &rn->p,
-							path, afi, safi);
+				bgp_aggregate_decrement(bgp_path, p, path, afi,
+							safi);
 				bgp_path_info_unset_flag(rn, path,
 							 BGP_PATH_VALID);
 			} else {
 				bgp_path_info_set_flag(rn, path,
 						       BGP_PATH_VALID);
-				bgp_aggregate_increment(bgp_path, &rn->p,
-							path, afi, safi);
+				bgp_aggregate_increment(bgp_path, p, path, afi,
+							safi);
 			}
 		}
 
@@ -780,14 +781,13 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		    || CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
 			SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
 
-		if (safi == SAFI_EVPN &&
-		    bgp_evpn_is_prefix_nht_supported(&rn->p)) {
+		if (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p)) {
 			if (CHECK_FLAG(path->flags, BGP_PATH_VALID))
-				bgp_evpn_import_route(bgp_path, afi, safi,
-						      &rn->p, path);
+				bgp_evpn_import_route(bgp_path, afi, safi, p,
+						      path);
 			else
-				bgp_evpn_unimport_route(bgp_path, afi, safi,
-							&rn->p, path);
+				bgp_evpn_unimport_route(bgp_path, afi, safi, p,
+							path);
 		}
 
 		bgp_process(bgp_path, rn, afi, safi);

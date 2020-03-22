@@ -1273,7 +1273,7 @@ static void rfapiMonitorEthDetachImport(
 #if DEBUG_L2_EXTRA
 	char buf_prefix[PREFIX_STRLEN];
 
-	prefix2str(&rn->p, buf_prefix, sizeof(buf_prefix));
+	prefix2str(agg_node_get_prefix(rn), buf_prefix, sizeof(buf_prefix));
 #endif
 
 	/*

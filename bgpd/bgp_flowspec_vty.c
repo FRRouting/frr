@@ -409,8 +409,8 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 		}
 		for (; pi; pi = pi->next) {
 			total_count++;
-			route_vty_out_flowspec(vty, &rn->p, pi, display,
-					       json_paths);
+			route_vty_out_flowspec(vty, bgp_node_get_prefix(rn), pi,
+					       display, json_paths);
 		}
 		if (use_json) {
 			vty_out(vty, "%s\n",
@@ -554,18 +554,18 @@ extern int bgp_flowspec_display_match_per_ip(afi_t afi, struct bgp_table *rib,
 					     json_object *json_paths)
 {
 	struct bgp_node *rn;
-	struct prefix *prefix;
+	const struct prefix *prefix;
 	int display = 0;
 
 	for (rn = bgp_table_top(rib); rn; rn = bgp_route_next(rn)) {
-		prefix = &rn->p;
+		prefix = bgp_node_get_prefix(rn);
 
 		if (prefix->family != AF_FLOWSPEC)
 			continue;
 
 		if (bgp_flowspec_contains_prefix(prefix, match, prefix_check)) {
 			route_vty_out_flowspec(
-				vty, &rn->p, bgp_node_get_bgp_path_info(rn),
+				vty, prefix, bgp_node_get_bgp_path_info(rn),
 				use_json ? NLRI_STRING_FORMAT_JSON
 					 : NLRI_STRING_FORMAT_LARGE,
 				json_paths);

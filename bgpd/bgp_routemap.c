@@ -1015,7 +1015,7 @@ route_match_rd(void *rule, const struct prefix *prefix,
 	       route_map_object_t type, void *object)
 {
 	struct prefix_rd *prd_rule = NULL;
-	struct prefix_rd *prd_route = NULL;
+	const struct prefix_rd *prd_route = NULL;
 	struct bgp_path_info *path = NULL;
 
 	if (type == RMAP_BGP) {
@@ -1028,7 +1028,8 @@ route_match_rd(void *rule, const struct prefix *prefix,
 		if (path->net == NULL || path->net->prn == NULL)
 			return RMAP_NOMATCH;
 
-		prd_route = (struct prefix_rd *)&path->net->prn->p;
+		prd_route =
+			(struct prefix_rd *)bgp_node_get_prefix(path->net->prn);
 		if (memcmp(prd_route->val, prd_rule->val, ECOMMUNITY_SIZE) == 0)
 			return RMAP_MATCH;
 	}
@@ -3637,14 +3638,17 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 			bgp_static->rmap.map = map;
 
 			if (route_update && !bgp_static->backdoor) {
-				if (bgp_debug_zebra(&bn->p))
+				const struct prefix *bn_p =
+					bgp_node_get_prefix(bn);
+
+				if (bgp_debug_zebra(bn_p))
 					zlog_debug(
 						"Processing route_map %s update on static route %s",
 						rmap_name,
-						inet_ntop(bn->p.family,
-							  &bn->p.u.prefix, buf,
+						inet_ntop(bn_p->family,
+							  &bn_p->u.prefix, buf,
 							  INET6_ADDRSTRLEN));
-				bgp_static_update(bgp, &bn->p, bgp_static, afi,
+				bgp_static_update(bgp, bn_p, bgp_static, afi,
 						  safi);
 			}
 		}
@@ -3666,14 +3670,17 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 			aggregate->rmap.map = map;
 
 			if (route_update) {
-				if (bgp_debug_zebra(&bn->p))
+				const struct prefix *bn_p =
+					bgp_node_get_prefix(bn);
+
+				if (bgp_debug_zebra(bn_p))
 					zlog_debug(
 						"Processing route_map %s update on aggregate-address route %s",
 						rmap_name,
-						inet_ntop(bn->p.family,
-							  &bn->p.u.prefix, buf,
+						inet_ntop(bn_p->family,
+							  &bn_p->u.prefix, buf,
 							  INET6_ADDRSTRLEN));
-				bgp_aggregate_route(bgp, &bn->p, afi, safi,
+				bgp_aggregate_route(bgp, bn_p, afi, safi,
 						    aggregate);
 			}
 		}

@@ -438,10 +438,10 @@ static void revalidate_bgp_node(struct bgp_node *bgp_node, afi_t afi,
 			label = path->extra->label;
 			num_labels = path->extra->num_labels;
 		}
-		ret = bgp_update(ain->peer, &bgp_node->p, ain->addpath_rx_id,
-				 ain->attr, afi, safi, ZEBRA_ROUTE_BGP,
-				 BGP_ROUTE_NORMAL, NULL, label, num_labels, 1,
-				 NULL);
+		ret = bgp_update(ain->peer, bgp_node_get_prefix(bgp_node),
+				 ain->addpath_rx_id, ain->attr, afi, safi,
+				 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label,
+				 num_labels, 1, NULL);
 
 		if (ret < 0)
 			return;

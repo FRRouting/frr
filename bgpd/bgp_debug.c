@@ -2532,7 +2532,7 @@ bool bgp_debug_bestpath(struct bgp_node *rn)
 {
 	if (BGP_DEBUG(bestpath, BESTPATH)) {
 		if (bgp_debug_per_prefix(
-			    &rn->p, term_bgp_debug_bestpath,
+			    bgp_node_get_prefix(rn), term_bgp_debug_bestpath,
 			    BGP_DEBUG_BESTPATH, bgp_debug_bestpath_prefixes))
 			return true;
 	}
