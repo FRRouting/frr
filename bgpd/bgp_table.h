@@ -217,7 +217,7 @@ static inline struct bgp_node *bgp_route_next_until(struct bgp_node *node,
  * bgp_node_get
  */
 static inline struct bgp_node *bgp_node_get(struct bgp_table *const table,
-					    struct prefix *p)
+					    const struct prefix *p)
 {
 	return bgp_node_from_rnode(route_node_get(table->route_table, p));
 }
@@ -226,7 +226,7 @@ static inline struct bgp_node *bgp_node_get(struct bgp_table *const table,
  * bgp_node_lookup
  */
 static inline struct bgp_node *
-bgp_node_lookup(const struct bgp_table *const table, struct prefix *p)
+bgp_node_lookup(const struct bgp_table *const table, const struct prefix *p)
 {
 	return bgp_node_from_rnode(route_node_lookup(table->route_table, p));
 }
@@ -243,7 +243,7 @@ static inline struct bgp_node *bgp_lock_node(struct bgp_node *node)
  * bgp_node_match
  */
 static inline struct bgp_node *bgp_node_match(const struct bgp_table *table,
-					      struct prefix *p)
+					      const struct prefix *p)
 {
 	return bgp_node_from_rnode(route_node_match(table->route_table, p));
 }
@@ -277,7 +277,7 @@ static inline unsigned long bgp_table_count(const struct bgp_table *const table)
  * bgp_table_get_next
  */
 static inline struct bgp_node *bgp_table_get_next(const struct bgp_table *table,
-						  struct prefix *p)
+						  const struct prefix *p)
 {
 	return bgp_node_from_rnode(route_table_get_next(table->route_table, p));
 }
@@ -347,7 +347,8 @@ static inline uint64_t bgp_table_version(struct bgp_table *table)
 	return table->version;
 }
 
-void bgp_table_range_lookup(const struct bgp_table *table, struct prefix *p,
+void bgp_table_range_lookup(const struct bgp_table *table,
+			    const struct prefix *p,
 			    uint8_t maxlen, struct list *matches);
 
 
