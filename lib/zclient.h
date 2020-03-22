@@ -738,7 +738,7 @@ extern void zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_statu
 
 extern int zclient_route_send(uint8_t, struct zclient *, struct zapi_route *);
 extern int zclient_send_rnh(struct zclient *zclient, int command,
-			    struct prefix *p, bool exact_match,
+			    const struct prefix *p, bool exact_match,
 			    vrf_id_t vrf_id);
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags);
