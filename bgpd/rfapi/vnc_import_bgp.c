@@ -2028,7 +2028,8 @@ void vnc_import_bgp_exterior_add_route_interior(
 	struct agg_node *rn_interior,       /* VPN IT node */
 	struct bgp_path_info *bpi_interior) /* VPN IT route */
 {
-	afi_t afi = family2afi(rn_interior->p.family);
+	const struct prefix *p = agg_node_get_prefix(rn_interior);
+	afi_t afi = family2afi(p->family);
 	struct agg_node *par;
 	struct bgp_path_info *bpi_exterior;
 	struct prefix *pfx_exterior; /* exterior pfx */
@@ -2058,13 +2059,8 @@ void vnc_import_bgp_exterior_add_route_interior(
 	}
 
 	/*debugging */
-	{
-		char str_pfx[PREFIX_STRLEN];
-
-		prefix2str(&rn_interior->p, str_pfx, sizeof(str_pfx));
-		vnc_zlog_debug_verbose("%s: interior prefix=%s, bpi type=%d",
-				       __func__, str_pfx, bpi_interior->type);
-	}
+	vnc_zlog_debug_verbose("%s: interior prefix=%pRN, bpi type=%d",
+			       __func__, rn_interior, bpi_interior->type);
 
 	if (RFAPI_HAS_MONITOR_EXTERIOR(rn_interior)) {
 
@@ -2179,7 +2175,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 			rfapiUnicastNexthop2Prefix(afi, bpi_exterior->attr,
 						   &pfx_nexthop);
 
-			if (prefix_match(&rn_interior->p, &pfx_nexthop)) {
+			if (prefix_match(p, &pfx_nexthop)) {
 
 				struct bgp_path_info *bpi;
 				struct prefix_rd *prd;
@@ -2322,7 +2318,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 		rfapiUnicastNexthop2Prefix(afi, bpi_exterior->attr,
 					   &pfx_nexthop);
 
-		if (prefix_match(&rn_interior->p, &pfx_nexthop)) {
+		if (prefix_match(p, &pfx_nexthop)) {
 
 			struct prefix_rd *prd;
 			struct attr new_attr;
@@ -2410,7 +2406,8 @@ void vnc_import_bgp_exterior_del_route_interior(
 	struct agg_node *rn_interior,       /* VPN IT node */
 	struct bgp_path_info *bpi_interior) /* VPN IT route */
 {
-	afi_t afi = family2afi(rn_interior->p.family);
+	const struct prefix *p = agg_node_get_prefix(rn_interior);
+	afi_t afi = family2afi(p->family);
 	struct agg_node *par;
 	struct bgp_path_info *bpi_exterior;
 	struct prefix *pfx_exterior; /* exterior pfx */
@@ -2444,14 +2441,8 @@ void vnc_import_bgp_exterior_del_route_interior(
 	}
 
 	/*debugging */
-	{
-		char str_pfx[PREFIX_STRLEN];
-
-		prefix2str(&rn_interior->p, str_pfx, sizeof(str_pfx));
-
-		vnc_zlog_debug_verbose("%s: interior prefix=%s, bpi type=%d",
-				       __func__, str_pfx, bpi_interior->type);
-	}
+	vnc_zlog_debug_verbose("%s: interior prefix=%pRN, bpi type=%d",
+			       __func__, rn_interior, bpi_interior->type);
 
 	/*
 	 * Remove constructed routes based on the deleted interior route

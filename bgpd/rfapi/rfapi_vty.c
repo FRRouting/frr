@@ -194,7 +194,7 @@ int rfapiQprefix2Raddr(struct prefix *qprefix, struct rfapi_ip_addr *raddr)
  * Translate Quagga prefix to RFAPI prefix
  */
 /* rprefix->cost set to 0 */
-void rfapiQprefix2Rprefix(struct prefix *qprefix,
+void rfapiQprefix2Rprefix(const struct prefix *qprefix,
 			  struct rfapi_ip_prefix *rprefix)
 {
 	memset(rprefix, 0, sizeof(struct rfapi_ip_prefix));
@@ -743,7 +743,6 @@ static void rfapiDebugPrintMonitorEncap(void *stream,
 void rfapiShowItNode(void *stream, struct agg_node *rn)
 {
 	struct bgp_path_info *bpi;
-	char buf[BUFSIZ];
 
 	int (*fp)(void *, const char *, ...);
 	struct vty *vty;
@@ -753,9 +752,7 @@ void rfapiShowItNode(void *stream, struct agg_node *rn)
 	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
 		return;
 
-	fp(out, "%s/%d @%p #%d%s",
-	   rfapi_ntop(rn->p.family, &rn->p.u.prefix, buf, BUFSIZ),
-	   rn->p.prefixlen, rn, rn->lock, HVTYNL);
+	fp(out, "%pRN @%p #%d%s", rn, rn, rn->lock, HVTYNL);
 
 	for (bpi = rn->info; bpi; bpi = bpi->next) {
 		rfapiPrintBi(stream, bpi);
@@ -782,14 +779,15 @@ void rfapiShowImportTable(void *stream, const char *label, struct agg_table *rt,
 
 	for (rn = agg_route_top(rt); rn; rn = agg_route_next(rn)) {
 		struct bgp_path_info *bpi;
+		const struct prefix *p = agg_node_get_prefix(rn);
 
-		if (rn->p.family == AF_ETHERNET) {
-			rfapiEthAddr2Str(&rn->p.u.prefix_eth, buf, BUFSIZ);
+		if (p->family == AF_ETHERNET) {
+			rfapiEthAddr2Str(&p->u.prefix_eth, buf, BUFSIZ);
 		} else {
-			inet_ntop(rn->p.family, &rn->p.u.prefix, buf, BUFSIZ);
+			inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ);
 		}
 
-		fp(out, "%s/%d @%p #%d%s", buf, rn->p.prefixlen, rn,
+		fp(out, "%s/%d @%p #%d%s", buf, p->prefixlen, rn,
 		   rn->lock - 1, /* account for loop iterator locking */
 		   HVTYNL);
 
@@ -868,6 +866,8 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 		if (rfd->mon) {
 			for (rn = agg_route_top(rfd->mon); rn;
 			     rn = agg_route_next(rn)) {
+				const struct prefix *p =
+					agg_node_get_prefix(rn);
 				struct rfapi_monitor_vpn *m;
 				char buf_remain[BUFSIZ];
 				char buf_pfx[BUFSIZ];
@@ -879,9 +879,8 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 
 				++queries_total;
 
-				if (pfx_match
-				    && !prefix_match(pfx_match, &rn->p)
-				    && !prefix_match(&rn->p, pfx_match))
+				if (pfx_match && !prefix_match(pfx_match, p)
+				    && !prefix_match(p, pfx_match))
 					continue;
 
 				++queries_displayed;
@@ -1028,6 +1027,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	char buf_vn[BUFSIZ];
 	char buf_lifetime[BUFSIZ];
 	int nlines = 0;
+	const struct prefix *p = agg_node_get_prefix(rn);
 
 	if (!stream)
 		return 0; /* for debug log, print into buf & call output once */
@@ -1040,8 +1040,8 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	 */
 	buf_pfx[0] = 0;
 	snprintf(buf_pfx, BUFSIZ, "%s/%d",
-		 rfapi_ntop(rn->p.family, &rn->p.u.prefix, buf_ntop, BUFSIZ),
-		 rn->p.prefixlen);
+		 rfapi_ntop(p->family, &p->u.prefix, buf_ntop, BUFSIZ),
+		 p->prefixlen);
 	buf_pfx[BUFSIZ - 1] = 0;
 	nlines++;
 
@@ -1155,7 +1155,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	}
 	fp(out, "%s", HVTYNL);
 
-	if (rn->p.family == AF_ETHERNET) {
+	if (p->family == AF_ETHERNET) {
 		/*
 		 * If there is a corresponding IP address && != VN address,
 		 * print that on the next line
@@ -1221,13 +1221,13 @@ static int rfapiShowRemoteRegistrationsIt(struct bgp *bgp, void *stream,
 
 		for (rn = agg_route_top(it->imported_vpn[afi]); rn;
 		     rn = agg_route_next(rn)) {
-
+			const struct prefix *p = agg_node_get_prefix(rn);
 			struct bgp_path_info *bpi;
 			int count_only;
 
 			/* allow for wider or more narrow mask from user */
-			if (prefix_only && !prefix_match(prefix_only, &rn->p)
-			    && !prefix_match(&rn->p, prefix_only))
+			if (prefix_only && !prefix_match(prefix_only, p)
+			    && !prefix_match(p, prefix_only))
 				count_only = 1;
 			else
 				count_only = 0;

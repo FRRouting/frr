@@ -167,7 +167,7 @@ extern void rfapiMonitorResponseRemovalOn(struct bgp *bgp);
 extern void rfapiMonitorExtraPrune(safi_t safi, struct agg_node *rn);
 
 extern void rfapiMonitorTimersRestart(struct rfapi_descriptor *rfd,
-				      struct prefix *p);
+				      const struct prefix *p);
 
 extern void rfapiMonitorItNodeChanged(struct rfapi_import_table *import_table,
 				      struct agg_node *it_node,

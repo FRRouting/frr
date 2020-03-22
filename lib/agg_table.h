@@ -155,6 +155,12 @@ static inline struct agg_table *agg_get_table(struct agg_node *node)
 	return (struct agg_table *)route_table_get_info(node->table);
 }
 
+static inline const struct prefix *
+agg_node_get_prefix(const struct agg_node *node)
+{
+	return &node->p;
+}
+
 #ifdef __cplusplus
 }
 #endif

@@ -272,9 +272,6 @@ struct rfapi {
 			    ? ((prefix)->prefixlen == 128)                     \
 			    : 0))
 
-extern void rfapiQprefix2Rprefix(struct prefix *qprefix,
-				 struct rfapi_ip_prefix *rprefix);
-
 extern int rfapi_find_rfd(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 			  struct rfapi_ip_addr *un_addr,
 			  struct rfapi_descriptor **rfd);

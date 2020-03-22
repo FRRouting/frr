@@ -4028,7 +4028,7 @@ filtered:
 	return 0;
 }
 
-int bgp_withdraw(struct peer *peer, struct prefix *p, uint32_t addpath_id,
+int bgp_withdraw(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 struct attr *attr, afi_t afi, safi_t safi, int type,
 		 int sub_type, struct prefix_rd *prd, mpls_label_t *label,
 		 uint32_t num_labels, struct bgp_route_evpn *evpn)
