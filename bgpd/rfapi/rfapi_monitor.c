@@ -1103,10 +1103,10 @@ static void rfapiMonitorEthTimerRestart(struct rfapi_monitor_eth *m)
 			 m->rfd->response_lifetime, &m->timer);
 }
 
-static int mon_eth_cmp(void *a, void *b)
+static int mon_eth_cmp(const void *a, const void *b)
 {
-	struct rfapi_monitor_eth *m1;
-	struct rfapi_monitor_eth *m2;
+	const struct rfapi_monitor_eth *m1;
+	const struct rfapi_monitor_eth *m2;
 
 	int i;
 

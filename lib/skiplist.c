@@ -112,7 +112,7 @@ static int randomLevel(void)
 	return level;
 }
 
-static int default_cmp(void *key1, void *key2)
+static int default_cmp(const void *key1, const void *key2)
 {
 	if (key1 < key2)
 		return -1;
@@ -126,7 +126,8 @@ unsigned int skiplist_count(struct skiplist *l)
 	return l->count;
 }
 
-struct skiplist *skiplist_new(int flags, int (*cmp)(void *key1, void *key2),
+struct skiplist *skiplist_new(int flags,
+			      int (*cmp)(const void *key1, const void *key2),
 			      void (*del)(void *val))
 {
 	struct skiplist *new;
@@ -329,8 +330,8 @@ int skiplist_delete(register struct skiplist *l, register void *key,
  * Also set a cursor for use with skiplist_next_value.
  */
 int skiplist_first_value(register struct skiplist *l, /* in */
-			 register void *key,	  /* in */
-			 void **valuePointer,	 /* out */
+			 register const void *key,    /* in */
+			 void **valuePointer,	      /* out */
 			 void **cursor)		      /* out */
 {
 	register int k;
@@ -374,7 +375,7 @@ int skiplist_search(register struct skiplist *l, register void *key,
  * last element with the given key, -1 is returned.
  */
 int skiplist_next_value(register struct skiplist *l, /* in */
-			register void *key,	  /* in */
+			register const void *key,	  /* in */
 			void **valuePointer,	 /* in/out */
 			void **cursor)		     /* in/out */
 {

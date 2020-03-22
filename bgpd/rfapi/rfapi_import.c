@@ -2006,10 +2006,10 @@ static void rfapiBgpInfoDetach(struct agg_node *rn, struct bgp_path_info *bpi)
 /*
  * For L3-indexed import tables
  */
-static int rfapi_bi_peer_rd_cmp(void *b1, void *b2)
+static int rfapi_bi_peer_rd_cmp(const void *b1, const void *b2)
 {
-	struct bgp_path_info *bpi1 = b1;
-	struct bgp_path_info *bpi2 = b2;
+	const struct bgp_path_info *bpi1 = b1;
+	const struct bgp_path_info *bpi2 = b2;
 
 	/*
 	 * Compare peers
@@ -2022,8 +2022,9 @@ static int rfapi_bi_peer_rd_cmp(void *b1, void *b2)
 	/*
 	 * compare RDs
 	 */
-	return vnc_prefix_cmp((struct prefix *)&bpi1->extra->vnc.import.rd,
-			      (struct prefix *)&bpi2->extra->vnc.import.rd);
+	return vnc_prefix_cmp(
+		(const struct prefix *)&bpi1->extra->vnc.import.rd,
+		(const struct prefix *)&bpi2->extra->vnc.import.rd);
 }
 
 /*
@@ -2031,10 +2032,10 @@ static int rfapi_bi_peer_rd_cmp(void *b1, void *b2)
  * The BPIs in these tables should ALWAYS have an aux_prefix set because
  * they arrive via IPv4 or IPv6 advertisements.
  */
-static int rfapi_bi_peer_rd_aux_cmp(void *b1, void *b2)
+static int rfapi_bi_peer_rd_aux_cmp(const void *b1, const void *b2)
 {
-	struct bgp_path_info *bpi1 = b1;
-	struct bgp_path_info *bpi2 = b2;
+	const struct bgp_path_info *bpi1 = b1;
+	const struct bgp_path_info *bpi2 = b2;
 	int rc;
 
 	/*

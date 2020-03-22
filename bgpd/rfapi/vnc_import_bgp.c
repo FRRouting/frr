@@ -128,14 +128,14 @@ struct prefix_bag {
 static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 				  0xf8, 0xfc, 0xfe, 0xff};
 
-int vnc_prefix_cmp(void *pfx1, void *pfx2)
+int vnc_prefix_cmp(const void *pfx1, const void *pfx2)
 {
 	int offset;
 	int shift;
 	uint8_t mask;
 
-	struct prefix *p1 = pfx1;
-	struct prefix *p2 = pfx2;
+	const struct prefix *p1 = pfx1;
+	const struct prefix *p2 = pfx2;
 
 	if (p1->family < p2->family)
 		return -1;

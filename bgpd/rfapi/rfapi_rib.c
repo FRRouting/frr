@@ -388,10 +388,10 @@ extern void rfapi_rib_key_init(struct prefix *prefix, /* may be NULL */
 /*
  * Compares two <struct rfapi_rib_key>s
  */
-int rfapi_rib_key_cmp(void *k1, void *k2)
+int rfapi_rib_key_cmp(const void *k1, const void *k2)
 {
-	struct rfapi_rib_key *a = (struct rfapi_rib_key *)k1;
-	struct rfapi_rib_key *b = (struct rfapi_rib_key *)k2;
+	const struct rfapi_rib_key *a = (struct rfapi_rib_key *)k1;
+	const struct rfapi_rib_key *b = (struct rfapi_rib_key *)k2;
 	int ret;
 
 	if (!a || !b)

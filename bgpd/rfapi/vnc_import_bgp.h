@@ -32,7 +32,7 @@
 
 extern uint32_t calc_local_pref(struct attr *attr, struct peer *peer);
 
-extern int vnc_prefix_cmp(void *pfx1, void *pfx2);
+extern int vnc_prefix_cmp(const void *pfx1, const void *pfx2);
 
 extern void vnc_import_bgp_add_route(struct bgp *bgp, struct prefix *prefix,
 				     struct bgp_path_info *info);

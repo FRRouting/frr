@@ -122,9 +122,9 @@ static bool neighbor_entry_hash_cmp(const void *a, const void *b)
 	return memcmp(na->id, nb->id, sizeof(na->id)) == 0;
 }
 
-static int neighbor_entry_list_cmp(void *a, void *b)
+static int neighbor_entry_list_cmp(const void *a, const void *b)
 {
-	struct neighbor_entry *na = a, *nb = b;
+	const struct neighbor_entry *na = a, *nb = b;
 
 	return -memcmp(na->id, nb->id, sizeof(na->id));
 }

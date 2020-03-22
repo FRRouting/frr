@@ -2754,10 +2754,10 @@ static void nve_addr_free(void *hap)
 	XFREE(MTYPE_RFAPI_NVE_ADDR, hap);
 }
 
-static int nve_addr_cmp(void *k1, void *k2)
+static int nve_addr_cmp(const void *k1, const void *k2)
 {
-	struct nve_addr *a = (struct nve_addr *)k1;
-	struct nve_addr *b = (struct nve_addr *)k2;
+	const struct nve_addr *a = (struct nve_addr *)k1;
+	const struct nve_addr *b = (struct nve_addr *)k2;
 	int ret = 0;
 
 	if (!a || !b) {

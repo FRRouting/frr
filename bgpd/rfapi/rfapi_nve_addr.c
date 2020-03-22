@@ -58,10 +58,10 @@ static void logdifferent(const char *tag, struct rfapi_nve_addr *a,
 #endif
 
 
-int rfapi_nve_addr_cmp(void *k1, void *k2)
+int rfapi_nve_addr_cmp(const void *k1, const void *k2)
 {
-	struct rfapi_nve_addr *a = (struct rfapi_nve_addr *)k1;
-	struct rfapi_nve_addr *b = (struct rfapi_nve_addr *)k2;
+	const struct rfapi_nve_addr *a = (struct rfapi_nve_addr *)k1;
+	const struct rfapi_nve_addr *b = (struct rfapi_nve_addr *)k2;
 	int ret = 0;
 
 	if (!a || !b) {
