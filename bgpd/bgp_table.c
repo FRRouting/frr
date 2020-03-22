@@ -187,7 +187,8 @@ bgp_route_next_until_maxlen(struct bgp_node *node, const struct bgp_node *limit,
 	return NULL;
 }
 
-void bgp_table_range_lookup(const struct bgp_table *table, struct prefix *p,
+void bgp_table_range_lookup(const struct bgp_table *table,
+			    const struct prefix *p,
 			    uint8_t maxlen, struct list *matches)
 {
 	struct bgp_node *node = bgp_node_from_rnode(table->route_table->top);
