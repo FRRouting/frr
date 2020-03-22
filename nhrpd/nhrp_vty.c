@@ -12,6 +12,7 @@
 #include "zclient.h"
 #include "stream.h"
 #include "filter.h"
+#include "json.h"
 
 #include "nhrpd.h"
 #include "netlink.h"
@@ -594,6 +595,7 @@ struct info_ctx {
 	struct vty *vty;
 	afi_t afi;
 	int count;
+	struct json_object *json;
 };
 
 static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
@@ -601,22 +603,60 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 	struct info_ctx *ctx = pctx;
 	struct vty *vty = ctx->vty;
 	char buf[2][SU_ADDRSTRLEN];
+	struct json_object *json = NULL;
 
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
 		return;
 
-	if (!ctx->count) {
+
+	if (!ctx->count && !ctx->json) {
 		vty_out(vty, "%-8s %-8s %-24s %-24s %-6s %s\n", "Iface", "Type",
 			"Protocol", "NBMA", "Flags", "Identity");
 	}
 	ctx->count++;
 
+	sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0]));
+	if (c->cur.peer)
+		sockunion2str(&c->cur.peer->vc->remote.nbma,
+			      buf[1], sizeof(buf[1]));
+	else
+		snprintf(buf[1], sizeof(buf[1]), "-");
+
+	if (json) {
+		json = json_object_new_object();
+		json_object_string_add(json, "interface", c->ifp->name);
+		json_object_string_add(json, "type",
+				       nhrp_cache_type_str[c->cur.type]);
+		json_object_string_add(json, "protocol", buf[0]);
+		json_object_string_add(json, "nbma", buf[1]);
+
+		if (c->used)
+			json_object_boolean_true_add(json, "used");
+		else
+			json_object_boolean_false_add(json, "used");
+
+		if (c->t_timeout)
+			json_object_boolean_true_add(json, "timeout");
+		else
+			json_object_boolean_false_add(json, "timeout");
+
+		if (c->t_auth)
+			json_object_boolean_true_add(json, "auth");
+		else
+			json_object_boolean_false_add(json, "auth");
+
+		if (c->cur.peer)
+			json_object_string_add(json, "identity",
+					       c->cur.peer->vc->remote.id);
+		else
+			json_object_string_add(json, "identity", "-");
+
+		json_object_array_add(ctx->json, json);
+		return;
+	}
 	vty_out(ctx->vty, "%-8s %-8s %-24s %-24s %c%c%c    %s\n", c->ifp->name,
 		nhrp_cache_type_str[c->cur.type],
-		sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0])),
-		c->cur.peer ? sockunion2str(&c->cur.peer->vc->remote.nbma,
-					    buf[1], sizeof(buf[1]))
-			    : "-",
+		buf[0], buf[1],
 		c->used ? 'U' : ' ', c->t_timeout ? 'T' : ' ',
 		c->t_auth ? 'A' : ' ',
 		c->cur.peer ? c->cur.peer->vc->remote.id : "-");
@@ -628,19 +668,35 @@ static void show_ip_nhrp_nhs(struct nhrp_nhs *n, struct nhrp_registration *reg,
 	struct info_ctx *ctx = pctx;
 	struct vty *vty = ctx->vty;
 	char buf[2][SU_ADDRSTRLEN];
+	struct json_object *json = NULL;
 
-	if (!ctx->count) {
+	if (!ctx->count && !ctx->json) {
 		vty_out(vty, "%-8s %-24s %-16s %-16s\n", "Iface", "FQDN",
 			"NBMA", "Protocol");
 	}
 	ctx->count++;
 
+	if (reg && reg->peer)
+		sockunion2str(&reg->peer->vc->remote.nbma,
+			      buf[0], sizeof(buf[0]));
+	else
+		snprintf(buf[0], sizeof(buf[0]), "-");
+	sockunion2str(reg ? &reg->proto_addr : &n->proto_addr, buf[1],
+		      sizeof(buf[1]));
+
+	if (ctx->json) {
+		json = json_object_new_object();
+		json_object_string_add(json, "interface", n->ifp->name);
+		json_object_string_add(json, "fqdn", n->nbma_fqdn);
+		json_object_string_add(json, "nbma", buf[0]);
+		json_object_string_add(json, "protocol", buf[1]);
+
+		json_object_array_add(ctx->json, json);
+		return;
+	}
+
 	vty_out(vty, "%-8s %-24s %-16s %-16s\n", n->ifp->name, n->nbma_fqdn,
-		(reg && reg->peer) ? sockunion2str(&reg->peer->vc->remote.nbma,
-						   buf[0], sizeof(buf[0]))
-				   : "-",
-		sockunion2str(reg ? &reg->proto_addr : &n->proto_addr, buf[1],
-			      sizeof(buf[1])));
+		buf[0], buf[1]);
 }
 
 static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
@@ -649,6 +705,7 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 	struct nhrp_cache *c;
 	struct vty *vty = ctx->vty;
 	char buf1[PREFIX_STRLEN], buf2[SU_ADDRSTRLEN];
+	struct json_object *json = NULL;
 
 	if (!ctx->count) {
 		vty_out(vty, "%-8s %-24s %-24s %s\n", "Type", "Prefix", "Via",
@@ -657,20 +714,82 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 	ctx->count++;
 
 	c = s->cache;
-	vty_out(ctx->vty, "%-8s %-24s %-24s %s\n", nhrp_cache_type_str[s->type],
-		prefix2str(s->p, buf1, sizeof(buf1)),
-		c ? sockunion2str(&c->remote_addr, buf2, sizeof(buf2)) : "",
+	if (c)
+		sockunion2str(&c->remote_addr, buf2, sizeof(buf2));
+	prefix2str(s->p, buf1, sizeof(buf1));
+
+	if (ctx->json) {
+		json = json_object_new_object();
+		json_object_string_add(json, "type",
+				       nhrp_cache_type_str[s->type]);
+		json_object_string_add(json, "prefix", buf1);
+
+		if (c)
+			json_object_string_add(json, "via", buf2);
+
+		if (c && c->cur.peer)
+			json_object_string_add(json, "identity",
+					       c->cur.peer->vc->remote.id);
+		else
+			json_object_string_add(json, "identity", "");
+
+		json_object_array_add(ctx->json, json);
+		return;
+	}
+
+	vty_out(ctx->vty, "%-8s %-24s %-24s %s\n",
+		nhrp_cache_type_str[s->type],
+		buf1, buf2,
 		(c && c->cur.peer) ? c->cur.peer->vc->remote.id : "");
 }
 
 static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 {
 	struct info_ctx *ctx = pctx;
-	char buf[SU_ADDRSTRLEN];
+	char buf[3][SU_ADDRSTRLEN];
+	struct json_object *json = NULL;
+
 
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
 		return;
 
+	sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0]));
+	if (c->cur.peer)
+		sockunion2str(&c->cur.peer->vc->remote.nbma, buf[1],
+			      sizeof(buf[1]));
+	if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC)
+		sockunion2str(&c->cur.remote_nbma_natoa, buf[2],
+			      sizeof(buf[2]));
+	if (ctx->json) {
+		json = json_object_new_object();
+		json_object_string_add(json, "type",
+				       nhrp_cache_type_str[c->cur.type]);
+
+		if (c->cur.peer && c->cur.peer->online)
+			json_object_boolean_true_add(json, "up");
+		else
+			json_object_boolean_false_add(json, "up");
+
+		if (c->used)
+			json_object_boolean_true_add(json, "used");
+		else
+			json_object_boolean_false_add(json, "used");
+
+		json_object_string_add(json, "protocolAddress", buf[0]);
+		json_object_int_add(json, "protocolAddressSize",
+				    8 * family2addrsize(sockunion_family
+							(&c->remote_addr)));
+
+		if (c->cur.peer)
+			json_object_string_add(json, "nbmaAddress", buf[1]);
+
+		if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC)
+			json_object_string_add(json, "nbmaNatOaAddress",
+					       buf[2]);
+
+		json_object_array_add(ctx->json, json);
+		return;
+	}
 	vty_out(ctx->vty,
 		"Type: %s\n"
 		"Flags:%s%s\n"
@@ -678,40 +797,45 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 		nhrp_cache_type_str[c->cur.type],
 		(c->cur.peer && c->cur.peer->online) ? " up" : "",
 		c->used ? " used" : "",
-		sockunion2str(&c->remote_addr, buf, sizeof(buf)),
+		buf[0],
 		8 * family2addrsize(sockunion_family(&c->remote_addr)));
 
-	if (c->cur.peer) {
-		vty_out(ctx->vty, "NBMA-Address: %s\n",
-			sockunion2str(&c->cur.peer->vc->remote.nbma, buf,
-				      sizeof(buf)));
-	}
+	if (c->cur.peer)
+		vty_out(ctx->vty, "NBMA-Address: %s\n", buf[1]);
 
-	if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC) {
-		vty_out(ctx->vty, "NBMA-NAT-OA-Address: %s\n",
-			sockunion2str(&c->cur.remote_nbma_natoa, buf,
-				      sizeof(buf)));
-	}
+	if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC)
+		vty_out(ctx->vty, "NBMA-NAT-OA-Address: %s\n", buf[2]);
 
 	vty_out(ctx->vty, "\n\n");
 }
 
 DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
-	"show " AFI_CMD " nhrp [cache|nhs|shortcut|opennhrp]",
+	"show " AFI_CMD " nhrp [cache|nhs|shortcut|opennhrp] [json]",
 	SHOW_STR
 	AFI_STR
 	"NHRP information\n"
 	"Forwarding cache information\n"
 	"Next hop server information\n"
 	"Shortcut information\n"
-	"opennhrpctl style cache dump\n")
+	"opennhrpctl style cache dump\n"
+	JSON_STR)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	struct info_ctx ctx = {
-		.vty = vty, .afi = cmd_to_afi(argv[1]),
+		.vty = vty, .afi = cmd_to_afi(argv[1]), .json = NULL
 	};
+	bool uj = use_json(argc, argv);
+	struct json_object *json_path = NULL;
+	struct json_object *json_vrf = NULL, *json_vrf_path = NULL;
+	int ret = CMD_SUCCESS;
 
+	if (uj) {
+		json_vrf = json_object_new_object();
+		json_vrf_path = json_object_new_object();
+		json_path = json_object_new_array();
+		ctx.json = json_path;
+	}
 	if (argc <= 3 || argv[3]->text[0] == 'c') {
 		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_cache_foreach(ifp, show_ip_nhrp_cache, &ctx);
@@ -721,42 +845,97 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	} else if (argv[3]->text[0] == 's') {
 		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx);
 	} else {
-		vty_out(vty, "Status: ok\n\n");
+		if (!ctx.json)
+			vty_out(vty, "Status: ok\n\n");
+		else
+			json_object_string_add(json_vrf, "status", "ok");
+
 		ctx.count++;
 		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
 	}
 
+	if (uj)
+		json_object_int_add(json_vrf, "entriesCount", ctx.count);
 	if (!ctx.count) {
-		vty_out(vty, "%% No entries\n");
-		return CMD_WARNING;
+		if (!ctx.json)
+			vty_out(vty, "%% No entries\n");
+		ret = CMD_WARNING;
 	}
-
-	return CMD_SUCCESS;
+	if (uj) {
+		json_object_object_add(json_vrf_path, "attr", json_vrf);
+		json_object_object_add(json_vrf_path, "table", ctx.json);
+		vty_out(vty, "%s",
+			json_object_to_json_string_ext(
+			       json_vrf_path, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_vrf_path);
+	}
+	return ret;
 }
+
+struct dmvpn_cfg {
+	struct vty *vty;
+	struct json_object *json;
+};
 
 static void show_dmvpn_entry(struct nhrp_vc *vc, void *ctx)
 {
-	struct vty *vty = ctx;
+	struct dmvpn_cfg *ctxt = ctx;
+	struct vty *vty;
 	char buf[2][SU_ADDRSTRLEN];
+	struct json_object *json = NULL;
 
-	vty_out(vty, "%-24s %-24s %c      %-4d %-24s\n",
-		sockunion2str(&vc->local.nbma, buf[0], sizeof(buf[0])),
-		sockunion2str(&vc->remote.nbma, buf[1], sizeof(buf[1])),
-		notifier_active(&vc->notifier_list) ? 'n' : ' ', vc->ipsec,
-		vc->remote.id);
+	if (!ctxt || !ctxt->vty)
+		return;
+	vty = ctxt->vty;
+	sockunion2str(&vc->local.nbma, buf[0], sizeof(buf[0]));
+	sockunion2str(&vc->remote.nbma, buf[1], sizeof(buf[1]));
+	if (ctxt->json) {
+		json = json_object_new_object();
+		json_object_string_add(json, "src", buf[0]);
+		json_object_string_add(json, "dst", buf[1]);
+
+		if (notifier_active(&vc->notifier_list))
+			json_object_boolean_true_add(json, "notifierActive");
+		else
+			json_object_boolean_false_add(json, "notifierActive");
+
+		json_object_int_add(json, "sas", vc->ipsec);
+		json_object_string_add(json, "identity", vc->remote.id);
+		json_object_array_add(ctxt->json, json);
+	} else {
+		vty_out(vty, "%-24s %-24s %c      %-4d %-24s\n",
+			buf[0], buf[1], notifier_active(&vc->notifier_list) ?
+			'n' : ' ', vc->ipsec, vc->remote.id);
+	}
 }
 
 DEFUN(show_dmvpn, show_dmvpn_cmd,
-	"show dmvpn",
+	"show dmvpn [json]",
 	SHOW_STR
-	"DMVPN information\n")
+	"DMVPN information\n"
+	JSON_STR)
 {
-	vty_out(vty, "%-24s %-24s %-6s %-4s %-24s\n", "Src", "Dst", "Flags",
-		"SAs", "Identity");
+	bool uj = use_json(argc, argv);
+	struct dmvpn_cfg ctxt;
+	struct json_object *json_path = NULL;
 
-	nhrp_vc_foreach(show_dmvpn_entry, vty);
-
+	ctxt.vty = vty;
+	if (!uj) {
+		ctxt.json = NULL;
+		vty_out(vty, "%-24s %-24s %-6s %-4s %-24s\n",
+			"Src", "Dst", "Flags", "SAs", "Identity");
+	} else {
+		json_path = json_object_new_array();
+		ctxt.json = json_path;
+	}
+	nhrp_vc_foreach(show_dmvpn_entry, &ctxt);
+	if (uj) {
+		vty_out(vty, "%s",
+			json_object_to_json_string_ext(
+			       json_path, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_path);
+	}
 	return CMD_SUCCESS;
 }
 
