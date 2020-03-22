@@ -601,16 +601,16 @@ extern struct bgp_path_info *info_make(int type, int sub_type,
 				       struct peer *peer, struct attr *attr,
 				       struct bgp_node *rn);
 
-extern void route_vty_out(struct vty *vty, struct prefix *p,
+extern void route_vty_out(struct vty *vty, const struct prefix *p,
 			  struct bgp_path_info *path, int display, safi_t safi,
 			  json_object *json_paths);
-extern void route_vty_out_tag(struct vty *vty, struct prefix *p,
+extern void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 			      struct bgp_path_info *path, int display,
 			      safi_t safi, json_object *json);
 extern void route_vty_out_tmp(struct vty *vty, struct prefix *p,
 			      struct attr *attr, safi_t safi, bool use_json,
 			      json_object *json_ar);
-extern void route_vty_out_overlay(struct vty *vty, struct prefix *p,
+extern void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 				  struct bgp_path_info *path, int display,
 				  json_object *json);
 
@@ -629,7 +629,7 @@ extern void bgp_process_queues_drain_immediate(void);
 
 /* for encap/vpn */
 extern struct bgp_node *bgp_afi_node_lookup(struct bgp_table *table, afi_t afi,
-					    safi_t safi, struct prefix *p,
+					    safi_t safi, const struct prefix *p,
 					    struct prefix_rd *prd);
 extern void bgp_path_info_restore(struct bgp_node *rn,
 				  struct bgp_path_info *path);

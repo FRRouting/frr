@@ -4130,7 +4130,7 @@ void bgp_attr_finish(void)
 
 /* Make attribute packet. */
 void bgp_dump_routes_attr(struct stream *s, struct attr *attr,
-			  struct prefix *prefix)
+			  const struct prefix *prefix)
 {
 	unsigned long cp;
 	unsigned long len;

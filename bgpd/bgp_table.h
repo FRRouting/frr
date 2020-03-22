@@ -226,7 +226,7 @@ static inline struct bgp_node *bgp_node_get(struct bgp_table *const table,
  * bgp_node_lookup
  */
 static inline struct bgp_node *
-bgp_node_lookup(const struct bgp_table *const table, struct prefix *p)
+bgp_node_lookup(const struct bgp_table *const table, const struct prefix *p)
 {
 	return bgp_node_from_rnode(route_node_lookup(table->route_table, p));
 }

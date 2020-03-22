@@ -146,7 +146,7 @@ struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 }
 
 struct bgp_node *bgp_afi_node_lookup(struct bgp_table *table, afi_t afi,
-				     safi_t safi, struct prefix *p,
+				     safi_t safi, const struct prefix *p,
 				     struct prefix_rd *prd)
 {
 	struct bgp_node *rn;
@@ -7342,7 +7342,7 @@ void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,
 }
 
 /* Static function to display route. */
-static void route_vty_out_route(struct prefix *p, struct vty *vty,
+static void route_vty_out_route(const struct prefix *p, struct vty *vty,
 				json_object *json)
 {
 	int len = 0;
@@ -7499,7 +7499,7 @@ static char *bgp_nexthop_hostname(struct peer *peer, struct attr *attr)
 }
 
 /* called from terminal list command */
-void route_vty_out(struct vty *vty, struct prefix *p,
+void route_vty_out(struct vty *vty, const struct prefix *p,
 		   struct bgp_path_info *path, int display, safi_t safi,
 		   json_object *json_paths)
 {
@@ -8095,7 +8095,7 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 		vty_out(vty, "\n");
 }
 
-void route_vty_out_tag(struct vty *vty, struct prefix *p,
+void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 		       struct bgp_path_info *path, int display, safi_t safi,
 		       json_object *json)
 {
@@ -8188,7 +8188,7 @@ void route_vty_out_tag(struct vty *vty, struct prefix *p,
 	}
 }
 
-void route_vty_out_overlay(struct vty *vty, struct prefix *p,
+void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 			   struct bgp_path_info *path, int display,
 			   json_object *json_paths)
 {

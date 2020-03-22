@@ -76,9 +76,8 @@ static int bgp_flowspec_call_non_opaque_decode(uint8_t *nlri_content, int len,
 	return ret;
 }
 
-bool bgp_flowspec_contains_prefix(struct prefix *pfs,
-				 struct prefix *input,
-				 int prefix_check)
+bool bgp_flowspec_contains_prefix(const struct prefix *pfs,
+				  struct prefix *input, int prefix_check)
 {
 	uint32_t offset = 0;
 	int type;

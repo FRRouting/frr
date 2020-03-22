@@ -393,7 +393,7 @@ int rfapiStream2Vty(void *stream,			   /* input */
 }
 
 /* called from bgpd/bgp_vty.c'route_vty_out() */
-void rfapi_vty_out_vncinfo(struct vty *vty, struct prefix *p,
+void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 			   struct bgp_path_info *bpi, safi_t safi)
 {
 	char *s;
