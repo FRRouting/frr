@@ -86,13 +86,13 @@ static inline struct agg_node *agg_route_next(struct agg_node *node)
 }
 
 static inline struct agg_node *agg_node_get(struct agg_table *table,
-					    struct prefix *p)
+					    const struct prefix *p)
 {
 	return agg_node_from_rnode(route_node_get(table->route_table, p));
 }
 
 static inline struct agg_node *
-agg_node_lookup(const struct agg_table *const table, struct prefix *p)
+agg_node_lookup(const struct agg_table *const table, const struct prefix *p)
 {
 	return agg_node_from_rnode(route_node_lookup(table->route_table, p));
 }
@@ -109,7 +109,7 @@ static inline struct agg_node *agg_route_next_until(struct agg_node *node,
 }
 
 static inline struct agg_node *agg_node_match(struct agg_table *table,
-					      struct prefix *p)
+					      const struct prefix *p)
 {
 	return agg_node_from_rnode(route_node_match(table->route_table, p));
 }
