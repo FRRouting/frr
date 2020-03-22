@@ -590,8 +590,9 @@ extern void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 				    struct bgp_path_info *path, afi_t afi,
 				    safi_t safi);
 
-extern uint8_t bgp_distance_apply(struct prefix *p, struct bgp_path_info *path,
-				  afi_t afi, safi_t safi, struct bgp *bgp);
+extern uint8_t bgp_distance_apply(const struct prefix *p,
+				  struct bgp_path_info *path, afi_t afi,
+				  safi_t safi, struct bgp *bgp);
 
 extern afi_t bgp_node_afi(struct vty *);
 extern safi_t bgp_node_safi(struct vty *);
@@ -622,7 +623,7 @@ extern void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 extern bool subgroup_announce_check(struct bgp_node *rn,
 				    struct bgp_path_info *pi,
 				    struct update_subgroup *subgrp,
-				    struct prefix *p, struct attr *attr);
+				    const struct prefix *p, struct attr *attr);
 
 extern void bgp_peer_clear_node_queue_drain_immediate(struct peer *peer);
 extern void bgp_process_queues_drain_immediate(void);

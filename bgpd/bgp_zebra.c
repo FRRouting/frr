@@ -928,7 +928,7 @@ bgp_path_info_to_ipv6_nexthop(struct bgp_path_info *path, ifindex_t *ifindex)
 	return nexthop;
 }
 
-static bool bgp_table_map_apply(struct route_map *map, struct prefix *p,
+static bool bgp_table_map_apply(struct route_map *map, const struct prefix *p,
 				struct bgp_path_info *path)
 {
 	route_map_result_t ret;
@@ -1148,7 +1148,7 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 	return true;
 }
 
-void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
+void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 			struct bgp_path_info *info, struct bgp *bgp, afi_t afi,
 			safi_t safi)
 {
