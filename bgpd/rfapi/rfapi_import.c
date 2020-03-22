@@ -2153,7 +2153,7 @@ static void rfapiItBiIndexDump(struct agg_node *rn)
 static struct bgp_path_info *rfapiItBiIndexSearch(
 	struct agg_node *rn, /* Import table VPN node */
 	struct prefix_rd *prd, struct peer *peer,
-	struct prefix *aux_prefix) /* optional L3 addr for L2 ITs */
+	const struct prefix *aux_prefix) /* optional L3 addr for L2 ITs */
 {
 	struct skiplist *sl;
 	int rc;
@@ -2847,11 +2847,13 @@ rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 }
 
 
-typedef void(rfapi_bi_filtered_import_f)(struct rfapi_import_table *, int,
-					 struct peer *, void *, struct prefix *,
-					 struct prefix *, afi_t,
-					 struct prefix_rd *, struct attr *,
-					 uint8_t, uint8_t, uint32_t *);
+typedef void(rfapi_bi_filtered_import_f)(struct rfapi_import_table *table,
+					 int action, struct peer *peer,
+					 void *rfd, const struct prefix *prefix,
+					 const struct prefix *aux_prefix,
+					 afi_t afi, struct prefix_rd *prd,
+					 struct attr *attr, uint8_t type,
+					 uint8_t sub_type, uint32_t *label);
 
 
 static void rfapiExpireEncapNow(struct rfapi_import_table *it,
@@ -2900,11 +2902,11 @@ static int rfapiGetNexthop(struct attr *attr, struct prefix *prefix)
 static void rfapiBgpInfoFilteredImportEncap(
 	struct rfapi_import_table *import_table, int action, struct peer *peer,
 	void *rfd, /* set for looped back routes */
-	struct prefix *p,
-	struct prefix *aux_prefix, /* Unused for encap routes */
+	const struct prefix *p,
+	const struct prefix *aux_prefix, /* Unused for encap routes */
 	afi_t afi, struct prefix_rd *prd,
 	struct attr *attr, /* part of bgp_path_info */
-	uint8_t type,      /* part of bgp_path_info */
+	uint8_t type,	   /* part of bgp_path_info */
 	uint8_t sub_type,  /* part of bgp_path_info */
 	uint32_t *label)   /* part of bgp_path_info */
 {
@@ -3361,11 +3363,11 @@ static void rfapiExpireVpnNow(struct rfapi_import_table *it,
 void rfapiBgpInfoFilteredImportVPN(
 	struct rfapi_import_table *import_table, int action, struct peer *peer,
 	void *rfd, /* set for looped back routes */
-	struct prefix *p,
-	struct prefix *aux_prefix, /* AFI_L2VPN: optional IP */
+	const struct prefix *p,
+	const struct prefix *aux_prefix, /* AFI_L2VPN: optional IP */
 	afi_t afi, struct prefix_rd *prd,
 	struct attr *attr, /* part of bgp_path_info */
-	uint8_t type,      /* part of bgp_path_info */
+	uint8_t type,	   /* part of bgp_path_info */
 	uint8_t sub_type,  /* part of bgp_path_info */
 	uint32_t *label)   /* part of bgp_path_info */
 {
@@ -3840,11 +3842,11 @@ void rfapiBgpInfoFilteredImportVPN(
 static void rfapiBgpInfoFilteredImportBadSafi(
 	struct rfapi_import_table *import_table, int action, struct peer *peer,
 	void *rfd, /* set for looped back routes */
-	struct prefix *p,
-	struct prefix *aux_prefix, /* AFI_L2VPN: optional IP */
+	const struct prefix *p,
+	const struct prefix *aux_prefix, /* AFI_L2VPN: optional IP */
 	afi_t afi, struct prefix_rd *prd,
 	struct attr *attr, /* part of bgp_path_info */
-	uint8_t type,      /* part of bgp_path_info */
+	uint8_t type,	   /* part of bgp_path_info */
 	uint8_t sub_type,  /* part of bgp_path_info */
 	uint32_t *label)   /* part of bgp_path_info */
 {
@@ -3870,7 +3872,7 @@ rfapiBgpInfoFilteredImportFunction(safi_t safi)
 
 void rfapiProcessUpdate(struct peer *peer,
 			void *rfd, /* set when looped from RFP/RFAPI */
-			struct prefix *p, struct prefix_rd *prd,
+			const struct prefix *p, struct prefix_rd *prd,
 			struct attr *attr, afi_t afi, safi_t safi, uint8_t type,
 			uint8_t sub_type, uint32_t *label)
 {
@@ -3954,7 +3956,7 @@ void rfapiProcessUpdate(struct peer *peer,
 }
 
 
-void rfapiProcessWithdraw(struct peer *peer, void *rfd, struct prefix *p,
+void rfapiProcessWithdraw(struct peer *peer, void *rfd, const struct prefix *p,
 			  struct prefix_rd *prd, struct attr *attr, afi_t afi,
 			  safi_t safi, uint8_t type, int kill)
 {

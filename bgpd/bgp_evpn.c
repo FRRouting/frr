@@ -3524,7 +3524,7 @@ static int install_uninstall_route_in_vnis(struct bgp *bgp, afi_t afi,
  * Install or uninstall route for appropriate VNIs/ESIs.
  */
 static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
-					struct prefix *p,
+					const struct prefix *p,
 					struct bgp_path_info *pi, int import)
 {
 	struct prefix_evpn *evp = (struct prefix_evpn *)p;
@@ -5550,7 +5550,7 @@ void bgp_evpn_es_free(struct bgp *bgp, struct evpnes *es)
  * Import evpn route from global table to VNI/VRF/ESI.
  */
 int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,
-			  struct prefix *p, struct bgp_path_info *pi)
+			  const struct prefix *p, struct bgp_path_info *pi)
 {
 	return install_uninstall_evpn_route(bgp, afi, safi, p, pi, 1);
 }
@@ -5559,7 +5559,7 @@ int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,
  * Unimport evpn route from VNI/VRF/ESI.
  */
 int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
-			    struct prefix *p, struct bgp_path_info *pi)
+			    const struct prefix *p, struct bgp_path_info *pi)
 {
 	return install_uninstall_evpn_route(bgp, afi, safi, p, pi, 0);
 }
@@ -6280,7 +6280,7 @@ int bgp_evpn_get_type5_prefixlen(struct prefix *pfx)
 /*
  * Should we register nexthop for this EVPN prefix for nexthop tracking?
  */
-bool bgp_evpn_is_prefix_nht_supported(struct prefix *pfx)
+bool bgp_evpn_is_prefix_nht_supported(const struct prefix *pfx)
 {
 	struct prefix_evpn *evp = (struct prefix_evpn *)pfx;
 

@@ -510,7 +510,7 @@ extern bool bgp_outbound_policy_exists(struct peer *, struct bgp_filter *);
 extern bool bgp_inbound_policy_exists(struct peer *, struct bgp_filter *);
 
 extern struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
-					 safi_t safi, struct prefix *p,
+					 safi_t safi, const struct prefix *p,
 					 struct prefix_rd *prd);
 extern struct bgp_path_info *bgp_path_info_lock(struct bgp_path_info *path);
 extern struct bgp_path_info *bgp_path_info_unlock(struct bgp_path_info *path);
@@ -558,9 +558,12 @@ extern int bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *,
 				 const char *, const char *, const char *);
 
 /* this is primarily for MPLS-VPN */
-extern int bgp_update(struct peer *, struct prefix *, uint32_t, struct attr *,
-		      afi_t, safi_t, int, int, struct prefix_rd *,
-		      mpls_label_t *, uint32_t, int, struct bgp_route_evpn *);
+extern int bgp_update(struct peer *peer, const struct prefix *p,
+		      uint32_t addpath_id, struct attr *attr,
+		      afi_t afi, safi_t safi, int type, int sub_type,
+		      struct prefix_rd *prd, mpls_label_t *label,
+		      uint32_t num_labels, int soft_reconfig,
+		      struct bgp_route_evpn *evpn);
 extern int bgp_withdraw(struct peer *, struct prefix *, uint32_t, struct attr *,
 			afi_t, safi_t, int, int, struct prefix_rd *,
 			mpls_label_t *, uint32_t, struct bgp_route_evpn *);
@@ -583,10 +586,10 @@ extern void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 				 safi_t safi, struct bgp_aggregate *aggregate);
 extern void bgp_aggregate_route(struct bgp *bgp, struct prefix *p, afi_t afi,
 				safi_t safi, struct bgp_aggregate *aggregate);
-extern void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
+extern void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p,
 				    struct bgp_path_info *path, afi_t afi,
 				    safi_t safi);
-extern void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
+extern void bgp_aggregate_decrement(struct bgp *bgp, const struct prefix *p,
 				    struct bgp_path_info *path, afi_t afi,
 				    safi_t safi);
 

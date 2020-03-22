@@ -358,7 +358,7 @@ void bgp_mac_del_mac_entry(struct interface *ifp)
  * An example: router-mac attribute in any of evpn update
  * requires to compare against local mac.
  */
-bool bgp_mac_exist(struct ethaddr *mac)
+bool bgp_mac_exist(const struct ethaddr *mac)
 {
 	struct bgp_self_mac lookup;
 	struct bgp_self_mac *bsm;
@@ -379,9 +379,9 @@ bool bgp_mac_exist(struct ethaddr *mac)
  * mac against any of local assigned (SVIs) MAC
  * address.
  */
-bool bgp_mac_entry_exists(struct prefix *p)
+bool bgp_mac_entry_exists(const struct prefix *p)
 {
-	struct prefix_evpn *pevpn = (struct prefix_evpn *)p;
+	const struct prefix_evpn *pevpn = (const struct prefix_evpn *)p;
 
 	if (pevpn->family != AF_EVPN)
 		return false;

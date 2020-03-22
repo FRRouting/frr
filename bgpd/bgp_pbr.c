@@ -685,9 +685,9 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 }
 
 /* return -1 if build or validation failed */
-int bgp_pbr_build_and_validate_entry(struct prefix *p,
-					    struct bgp_path_info *path,
-					    struct bgp_pbr_entry_main *api)
+int bgp_pbr_build_and_validate_entry(const struct prefix *p,
+				     struct bgp_path_info *path,
+				     struct bgp_pbr_entry_main *api)
 {
 	int ret;
 	int i, action_count = 0;
@@ -2610,7 +2610,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 	}
 }
 
-void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
+void bgp_pbr_update_entry(struct bgp *bgp, const struct prefix *p,
 			  struct bgp_path_info *info, afi_t afi, safi_t safi,
 			  bool nlri_update)
 {

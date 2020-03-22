@@ -116,7 +116,7 @@ DEFINE_HOOK(bgp_process,
 
 
 struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
-				  safi_t safi, struct prefix *p,
+				  safi_t safi, const struct prefix *p,
 				  struct prefix_rd *prd)
 {
 	struct bgp_node *rn;
@@ -1202,7 +1202,8 @@ int bgp_path_info_cmp_compatible(struct bgp *bgp, struct bgp_path_info *new,
 	return ret;
 }
 
-static enum filter_type bgp_input_filter(struct peer *peer, struct prefix *p,
+static enum filter_type bgp_input_filter(struct peer *peer,
+					 const struct prefix *p,
 					 struct attr *attr, afi_t afi,
 					 safi_t safi)
 {
@@ -1322,7 +1323,7 @@ static bool bgp_cluster_filter(struct peer *peer, struct attr *attr)
 	return false;
 }
 
-static int bgp_input_modifier(struct peer *peer, struct prefix *p,
+static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 			      struct attr *attr, afi_t afi, safi_t safi,
 			      const char *rmap_name, mpls_label_t *label,
 			      uint32_t num_labels, struct bgp_node *rn)
@@ -3258,7 +3259,7 @@ static bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 	return ret;
 }
 
-int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
+int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	       struct attr *attr, afi_t afi, safi_t safi, int type,
 	       int sub_type, struct prefix_rd *prd, mpls_label_t *label,
 	       uint32_t num_labels, int soft_reconfig,
@@ -6614,7 +6615,7 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 			      lcommunity, atomic_aggregate, aggregate);
 }
 
-void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
+void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p,
 			     struct bgp_path_info *pi, afi_t afi, safi_t safi)
 {
 	struct bgp_node *child;
@@ -6647,7 +6648,7 @@ void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 	bgp_unlock_node(child);
 }
 
-void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
+void bgp_aggregate_decrement(struct bgp *bgp, const struct prefix *p,
 			     struct bgp_path_info *del, afi_t afi, safi_t safi)
 {
 	struct bgp_node *child;

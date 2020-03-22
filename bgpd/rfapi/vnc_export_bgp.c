@@ -1633,7 +1633,7 @@ void vnc_direct_bgp_vpn_disable(struct bgp *bgp, afi_t afi)
  * caller do it?
  */
 void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
-				 struct prefix *prefix, struct peer *peer,
+				 const struct prefix *prefix, struct peer *peer,
 				 struct attr *attr)
 {
 	struct vnc_export_info *eti;
@@ -1757,7 +1757,7 @@ static int vncExportWithdrawTimer(struct thread *t)
  * caller do it?
  */
 void vnc_direct_bgp_rh_del_route(struct bgp *bgp, afi_t afi,
-				 struct prefix *prefix, struct peer *peer)
+				 const struct prefix *prefix, struct peer *peer)
 {
 	struct vnc_export_info *eti;
 

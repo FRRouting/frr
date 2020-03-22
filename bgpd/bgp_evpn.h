@@ -164,9 +164,11 @@ extern void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
 extern int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 			       struct bgp_nlri *packet, int withdraw);
 extern int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,
-				 struct prefix *p, struct bgp_path_info *ri);
+				 const struct prefix *p,
+				 struct bgp_path_info *ri);
 extern int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
-				   struct prefix *p, struct bgp_path_info *ri);
+				   const struct prefix *p,
+				   struct bgp_path_info *ri);
 extern int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp);
 extern int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni,
 				    struct ethaddr *mac, struct ipaddr *ip,
@@ -194,7 +196,7 @@ extern void bgp_evpn_cleanup_on_disable(struct bgp *bgp);
 extern void bgp_evpn_cleanup(struct bgp *bgp);
 extern void bgp_evpn_init(struct bgp *bgp);
 extern int bgp_evpn_get_type5_prefixlen(struct prefix *pfx);
-extern bool bgp_evpn_is_prefix_nht_supported(struct prefix *pfx);
+extern bool bgp_evpn_is_prefix_nht_supported(const struct prefix *pfx);
 extern void update_advertise_vrf_routes(struct bgp *bgp_vrf);
 
 #endif /* _QUAGGA_BGP_EVPN_H */

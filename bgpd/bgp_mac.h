@@ -36,7 +36,7 @@ void bgp_mac_dump_table(struct vty *vty);
 /*
  * Function to lookup the prefix and see if we have a matching mac
  */
-bool bgp_mac_entry_exists(struct prefix *p);
-bool bgp_mac_exist(struct ethaddr *mac);
+bool bgp_mac_entry_exists(const struct prefix *p);
+bool bgp_mac_exist(const struct ethaddr *mac);
 
 #endif
