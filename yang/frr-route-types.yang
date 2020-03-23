@@ -191,6 +191,18 @@ module frr-route-types {
         description "Routes installed by VNC directly (non-frr)";
         value 18;
       }
+      enum vnc-direct-rh {
+        description "Routes installed by VNC via BGP (resolve NVE mode)";
+        value 19;
+      }
+      enum bgp-direct {
+        description "Routes installed by BGP to VNC.";
+        value 20;
+      }
+      enum bgp-direct-ext {
+        description "Routes installed by BGP to VNC VNE groups";
+        value 21;
+      }
       enum babel {
         description "Routes installed by babel protocol";
         value 22;

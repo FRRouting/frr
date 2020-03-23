@@ -193,11 +193,11 @@ module frr-route-map {
                 value 102;
               }
               enum source-protocol {
-                description "Match prefix length";
+                description "Match source protocol";
                 value 103;
               }
               enum source-instance {
-                description "Match prefix length";
+                description "Match source protocol instance";
                 value 104;
               }
             }
