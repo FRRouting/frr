@@ -186,7 +186,7 @@ uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr, uint8_t *sticky)
 	 * one.
 	 */
 	for (i = 0; i < ecom->size; i++) {
-		uint8_t *pnt;
+		const uint8_t *pnt;
 		uint8_t type, sub_type;
 		uint32_t seq_num;
 

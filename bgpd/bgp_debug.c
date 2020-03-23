@@ -2404,7 +2404,7 @@ void bgp_debug_init(void)
 /* Return true if this prefix is on the per_prefix_list of prefixes to debug
  * for BGP_DEBUG_TYPE
  */
-static int bgp_debug_per_prefix(struct prefix *p,
+static int bgp_debug_per_prefix(const struct prefix *p,
 				unsigned long term_bgp_debug_type,
 				unsigned int BGP_DEBUG_TYPE,
 				struct list *per_prefix_list)
@@ -2489,7 +2489,7 @@ int bgp_debug_keepalive(struct peer *peer)
 				  bgp_debug_keepalive_peers);
 }
 
-bool bgp_debug_update(struct peer *peer, struct prefix *p,
+bool bgp_debug_update(struct peer *peer, const struct prefix *p,
 		      struct update_group *updgrp, unsigned int inbound)
 {
 	char *host = NULL;
@@ -2540,7 +2540,7 @@ bool bgp_debug_bestpath(struct prefix *p)
 	return false;
 }
 
-bool bgp_debug_zebra(struct prefix *p)
+bool bgp_debug_zebra(const struct prefix *p)
 {
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		if (bgp_debug_per_prefix(p, term_bgp_debug_zebra,

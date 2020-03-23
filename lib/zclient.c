@@ -690,8 +690,9 @@ static int zclient_connect(struct thread *t)
 	return zclient_start(zclient);
 }
 
-int zclient_send_rnh(struct zclient *zclient, int command, struct prefix *p,
-		     bool exact_match, vrf_id_t vrf_id)
+int zclient_send_rnh(struct zclient *zclient, int command,
+		     const struct prefix *p, bool exact_match,
+		     vrf_id_t vrf_id)
 {
 	struct stream *s;
 

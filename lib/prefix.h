@@ -531,7 +531,7 @@ static inline int is_host_route(struct prefix *p)
 	return 0;
 }
 
-static inline int is_default_host_route(struct prefix *p)
+static inline int is_default_host_route(const struct prefix *p)
 {
 	if (p->family == AF_INET) {
 		return (p->u.prefix4.s_addr == INADDR_ANY &&

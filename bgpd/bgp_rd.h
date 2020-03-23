@@ -54,11 +54,11 @@ struct rd_vnc_eth {
 };
 #endif
 
-extern uint16_t decode_rd_type(uint8_t *pnt);
+extern uint16_t decode_rd_type(const uint8_t *pnt);
 extern void encode_rd_type(uint16_t, uint8_t *);
 
-extern void decode_rd_as(uint8_t *pnt, struct rd_as *rd_as);
-extern void decode_rd_as4(uint8_t *pnt, struct rd_as *rd_as);
+extern void decode_rd_as(const uint8_t *pnt, struct rd_as *rd_as);
+extern void decode_rd_as4(const uint8_t *pnt, struct rd_as *rd_as);
 extern void decode_rd_ip(uint8_t *pnt, struct rd_ip *rd_ip);
 #if ENABLE_BGP_VNC
 extern void decode_rd_vnc_eth(uint8_t *pnt, struct rd_vnc_eth *rd_vnc_eth);

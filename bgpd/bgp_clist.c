@@ -545,7 +545,7 @@ static char *lcommunity_str_get(struct lcommunity *lcom, int i)
 	uint32_t localdata1;
 	uint32_t localdata2;
 	char *str;
-	uint8_t *ptr;
+	const uint8_t *ptr;
 	char *pnt;
 
 	ptr = lcom->val + (i * LCOMMUNITY_SIZE);

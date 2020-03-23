@@ -1241,7 +1241,8 @@ static enum filter_type bgp_input_filter(struct peer *peer, struct prefix *p,
 #undef FILTER_EXIST_WARN
 }
 
-static enum filter_type bgp_output_filter(struct peer *peer, struct prefix *p,
+static enum filter_type bgp_output_filter(struct peer *peer,
+					  const struct prefix *p,
 					  struct attr *attr, afi_t afi,
 					  safi_t safi)
 {
@@ -1544,8 +1545,8 @@ static void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
 }
 
 bool subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
-			     struct update_subgroup *subgrp, struct prefix *p,
-			     struct attr *attr)
+			     struct update_subgroup *subgrp,
+			     const struct prefix *p, struct attr *attr)
 {
 	struct bgp_filter *filter;
 	struct peer *from;
@@ -12296,7 +12297,7 @@ static int bgp_distance_unset(struct vty *vty, const char *distance_str,
 }
 
 /* Apply BGP information to distance method. */
-uint8_t bgp_distance_apply(struct prefix *p, struct bgp_path_info *pinfo,
+uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 			   afi_t afi, safi_t safi, struct bgp *bgp)
 {
 	struct bgp_node *rn;

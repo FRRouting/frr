@@ -1040,7 +1040,7 @@ int rfapiEcommunityGetEthernetTag(struct ecommunity *ecom, uint16_t *tag_id)
 		for (i = 0; i < ecom->size; ++i) {
 			as_t as = 0;
 			int encode = 0;
-			uint8_t *p = ecom->val + (i * ECOMMUNITY_SIZE);
+			const uint8_t *p = ecom->val + (i * ECOMMUNITY_SIZE);
 
 			/* High-order octet of type. */
 			encode = *p++;

@@ -178,7 +178,7 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
 	int i;
 	int len;
 	char *str_buf;
-	uint8_t *pnt;
+	const uint8_t *pnt;
 	uint32_t global, local1, local2;
 	json_object *json_lcommunity_list = NULL;
 	json_object *json_string = NULL;
