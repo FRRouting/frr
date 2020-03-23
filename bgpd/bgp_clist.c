@@ -311,9 +311,9 @@ static void community_list_delete(struct community_list_master *cm,
 	community_list_free(list);
 }
 
-static int community_list_empty_p(struct community_list *list)
+static bool community_list_empty_p(struct community_list *list)
 {
-	return (list->head == NULL && list->tail == NULL) ? 1 : 0;
+	return list->head == NULL && list->tail == NULL;
 }
 
 /* Delete community-list entry from the list.  */
@@ -497,7 +497,7 @@ static char *community_str_get(struct community *com, int i)
 
 /* Internal function to perform regular expression match for
  * a single community. */
-static int community_regexp_include(regex_t *reg, struct community *com, int i)
+static bool community_regexp_include(regex_t *reg, struct community *com, int i)
 {
 	char *str;
 	int rv;
@@ -514,16 +514,12 @@ static int community_regexp_include(regex_t *reg, struct community *com, int i)
 
 	XFREE(MTYPE_COMMUNITY_STR, str);
 
-	if (rv == 0)
-		return 1;
-
-	/* No match.  */
-	return 0;
+	return rv == 0;
 }
 
 /* Internal function to perform regular expression match for community
    attribute.  */
-static int community_regexp_match(struct community *com, regex_t *reg)
+static bool community_regexp_match(struct community *com, regex_t *reg)
 {
 	const char *str;
 
@@ -536,10 +532,10 @@ static int community_regexp_match(struct community *com, regex_t *reg)
 
 	/* Regular expression match.  */
 	if (regexec(reg, str, 0, NULL, 0) == 0)
-		return 1;
+		return true;
 
 	/* No match.  */
-	return 0;
+	return false;
 }
 
 static char *lcommunity_str_get(struct lcommunity *lcom, int i)
@@ -574,8 +570,8 @@ static char *lcommunity_str_get(struct lcommunity *lcom, int i)
 
 /* Internal function to perform regular expression match for
  * a single community. */
-static int lcommunity_regexp_include(regex_t *reg, struct lcommunity *lcom,
-				     int i)
+static bool lcommunity_regexp_include(regex_t *reg, struct lcommunity *lcom,
+				      int i)
 {
 	char *str;
 
@@ -589,15 +585,15 @@ static int lcommunity_regexp_include(regex_t *reg, struct lcommunity *lcom,
 	/* Regular expression match.  */
 	if (regexec(reg, str, 0, NULL, 0) == 0) {
 		XFREE(MTYPE_LCOMMUNITY_STR, str);
-		return 1;
+		return true;
 	}
 
 	XFREE(MTYPE_LCOMMUNITY_STR, str);
 	/* No match.  */
-	return 0;
+	return false;
 }
 
-static int lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
+static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 {
 	const char *str;
 
@@ -610,14 +606,14 @@ static int lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 
 	/* Regular expression match.  */
 	if (regexec(reg, str, 0, NULL, 0) == 0)
-		return 1;
+		return true;
 
 	/* No match.  */
-	return 0;
+	return false;
 }
 
 
-static int ecommunity_regexp_match(struct ecommunity *ecom, regex_t *reg)
+static bool ecommunity_regexp_match(struct ecommunity *ecom, regex_t *reg)
 {
 	const char *str;
 
@@ -630,10 +626,10 @@ static int ecommunity_regexp_match(struct ecommunity *ecom, regex_t *reg)
 
 	/* Regular expression match.  */
 	if (regexec(reg, str, 0, NULL, 0) == 0)
-		return 1;
+		return true;
 
 	/* No match.  */
-	return 0;
+	return false;
 }
 
 #if 0
@@ -718,125 +714,113 @@ community_regexp_delete (struct community *com, regex_t * reg)
 
 /* When given community attribute matches to the community-list return
    1 else return 0.  */
-int community_list_match(struct community *com, struct community_list *list)
+bool community_list_match(struct community *com, struct community_list *list)
 {
 	struct community_entry *entry;
 
 	for (entry = list->head; entry; entry = entry->next) {
 		if (entry->any)
-			return entry->direct == COMMUNITY_PERMIT ? 1 : 0;
+			return entry->direct == COMMUNITY_PERMIT;
 
 		if (entry->style == COMMUNITY_LIST_STANDARD) {
 			if (community_include(entry->u.com, COMMUNITY_INTERNET))
-				return entry->direct == COMMUNITY_PERMIT ? 1
-									 : 0;
+				return entry->direct == COMMUNITY_PERMIT;
 
 			if (community_match(com, entry->u.com))
-				return entry->direct == COMMUNITY_PERMIT ? 1
-									 : 0;
+				return entry->direct == COMMUNITY_PERMIT;
 		} else if (entry->style == COMMUNITY_LIST_EXPANDED) {
 			if (community_regexp_match(com, entry->reg))
-				return entry->direct == COMMUNITY_PERMIT ? 1
-									 : 0;
+				return entry->direct == COMMUNITY_PERMIT;
 		}
 	}
-	return 0;
+	return false;
 }
 
-int lcommunity_list_match(struct lcommunity *lcom, struct community_list *list)
+bool lcommunity_list_match(struct lcommunity *lcom, struct community_list *list)
 {
 	struct community_entry *entry;
 
 	for (entry = list->head; entry; entry = entry->next) {
 		if (entry->any)
-			return entry->direct == COMMUNITY_PERMIT ? 1 : 0;
+			return entry->direct == COMMUNITY_PERMIT;
 
 		if (entry->style == LARGE_COMMUNITY_LIST_STANDARD) {
 			if (lcommunity_match(lcom, entry->u.lcom))
-				return entry->direct == COMMUNITY_PERMIT ? 1
-									 : 0;
+				return entry->direct == COMMUNITY_PERMIT;
 		} else if (entry->style == LARGE_COMMUNITY_LIST_EXPANDED) {
 			if (lcommunity_regexp_match(lcom, entry->reg))
-				return entry->direct == COMMUNITY_PERMIT ? 1
-									 : 0;
+				return entry->direct == COMMUNITY_PERMIT;
 		}
 	}
-	return 0;
+	return false;
 }
 
 
 /* Perform exact matching.  In case of expanded large-community-list, do
  * same thing as lcommunity_list_match().
  */
-int lcommunity_list_exact_match(struct lcommunity *lcom,
-			       struct community_list *list)
+bool lcommunity_list_exact_match(struct lcommunity *lcom,
+				 struct community_list *list)
 {
 	struct community_entry *entry;
 
 	for (entry = list->head; entry; entry = entry->next) {
 		if (entry->any)
-			return entry->direct == COMMUNITY_PERMIT ? 1 : 0;
+			return entry->direct == COMMUNITY_PERMIT;
 
 		if (entry->style == LARGE_COMMUNITY_LIST_STANDARD) {
 			if (lcommunity_cmp(lcom, entry->u.com))
-				return entry->direct == COMMUNITY_PERMIT ? 1
-									 : 0;
+				return entry->direct == COMMUNITY_PERMIT;
 		} else if (entry->style == LARGE_COMMUNITY_LIST_EXPANDED) {
 			if (lcommunity_regexp_match(lcom, entry->reg))
-				return entry->direct == COMMUNITY_PERMIT ? 1
-									 : 0;
+				return entry->direct == COMMUNITY_PERMIT;
 		}
 	}
-	return 0;
+	return false;
 }
 
-int ecommunity_list_match(struct ecommunity *ecom, struct community_list *list)
+bool ecommunity_list_match(struct ecommunity *ecom, struct community_list *list)
 {
 	struct community_entry *entry;
 
 	for (entry = list->head; entry; entry = entry->next) {
 		if (entry->any)
-			return entry->direct == COMMUNITY_PERMIT ? 1 : 0;
+			return entry->direct == COMMUNITY_PERMIT;
 
 		if (entry->style == EXTCOMMUNITY_LIST_STANDARD) {
 			if (ecommunity_match(ecom, entry->u.ecom))
-				return entry->direct == COMMUNITY_PERMIT ? 1
-									 : 0;
+				return entry->direct == COMMUNITY_PERMIT;
 		} else if (entry->style == EXTCOMMUNITY_LIST_EXPANDED) {
 			if (ecommunity_regexp_match(ecom, entry->reg))
-				return entry->direct == COMMUNITY_PERMIT ? 1
-									 : 0;
+				return entry->direct == COMMUNITY_PERMIT;
 		}
 	}
-	return 0;
+	return false;
 }
 
 /* Perform exact matching.  In case of expanded community-list, do
    same thing as community_list_match().  */
-int community_list_exact_match(struct community *com,
-			       struct community_list *list)
+bool community_list_exact_match(struct community *com,
+				struct community_list *list)
 {
 	struct community_entry *entry;
 
 	for (entry = list->head; entry; entry = entry->next) {
 		if (entry->any)
-			return entry->direct == COMMUNITY_PERMIT ? 1 : 0;
+			return entry->direct == COMMUNITY_PERMIT;
 
 		if (entry->style == COMMUNITY_LIST_STANDARD) {
 			if (community_include(entry->u.com, COMMUNITY_INTERNET))
-				return entry->direct == COMMUNITY_PERMIT ? 1
-									 : 0;
+				return entry->direct == COMMUNITY_PERMIT;
 
 			if (community_cmp(com, entry->u.com))
-				return entry->direct == COMMUNITY_PERMIT ? 1
-									 : 0;
+				return entry->direct == COMMUNITY_PERMIT;
 		} else if (entry->style == COMMUNITY_LIST_EXPANDED) {
 			if (community_regexp_match(com, entry->reg))
-				return entry->direct == COMMUNITY_PERMIT ? 1
-									 : 0;
+				return entry->direct == COMMUNITY_PERMIT;
 		}
 	}
-	return 0;
+	return false;
 }
 
 /* Delete all permitted communities in the list from com.  */
@@ -900,8 +884,8 @@ struct community *community_list_match_delete(struct community *com,
 
 /* To avoid duplicated entry in the community-list, this function
    compares specified entry to existing entry.  */
-static int community_list_dup_check(struct community_list *list,
-				    struct community_entry *new)
+static bool community_list_dup_check(struct community_list *list,
+				     struct community_entry *new)
 {
 	struct community_entry *entry;
 
@@ -916,32 +900,32 @@ static int community_list_dup_check(struct community_list *list,
 			continue;
 
 		if (entry->any)
-			return 1;
+			return true;
 
 		switch (entry->style) {
 		case COMMUNITY_LIST_STANDARD:
 			if (community_cmp(entry->u.com, new->u.com))
-				return 1;
+				return true;
 			break;
 		case LARGE_COMMUNITY_LIST_STANDARD:
 			if (lcommunity_cmp(entry->u.lcom, new->u.lcom))
-				return 1;
+				return true;
 			break;
 		case EXTCOMMUNITY_LIST_STANDARD:
 			if (ecommunity_cmp(entry->u.ecom, new->u.ecom))
-				return 1;
+				return true;
 			break;
 		case COMMUNITY_LIST_EXPANDED:
 		case EXTCOMMUNITY_LIST_EXPANDED:
 		case LARGE_COMMUNITY_LIST_EXPANDED:
 			if (strcmp(entry->config, new->config) == 0)
-				return 1;
+				return true;
 			break;
 		default:
 			break;
 		}
 	}
-	return 0;
+	return false;
 }
 
 /* Set community-list.  */
@@ -1104,7 +1088,7 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 }
 
 /* Helper to check if every octet do not exceed UINT_MAX */
-static int lcommunity_list_valid(const char *community)
+static bool lcommunity_list_valid(const char *community)
 {
 	int octets = 0;
 	char **splits;
@@ -1114,10 +1098,10 @@ static int lcommunity_list_valid(const char *community)
 
 	for (int i = 0; i < num; i++) {
 		if (strtoul(splits[i], NULL, 10) > UINT_MAX)
-			return 0;
+			return false;
 
 		if (strlen(splits[i]) == 0)
-			return 0;
+			return false;
 
 		octets++;
 		XFREE(MTYPE_TMP, splits[i]);
@@ -1125,9 +1109,9 @@ static int lcommunity_list_valid(const char *community)
 	XFREE(MTYPE_TMP, splits);
 
 	if (octets < 3)
-		return 0;
+		return false;
 
-	return 1;
+	return true;
 }
 
 /* Set lcommunity-list.  */
