@@ -867,7 +867,7 @@ DEFPY(ip_route_address_interface,
       "Table to configure\n"
       "The table number to configure\n"
       VRF_CMD_HELP_STR
-      "Treat the nexthop as directly attached to the interface")
+      "Treat the nexthop as directly attached to the interface\n")
 {
 	struct static_vrf *svrf;
 	struct static_vrf *nh_svrf;
@@ -935,7 +935,7 @@ DEFPY(ip_route_address_interface_vrf,
       "Table to configure\n"
       "The table number to configure\n"
       VRF_CMD_HELP_STR
-      "Treat the nexthop as directly attached to the interface")
+      "Treat the nexthop as directly attached to the interface\n")
 {
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	const char *flag = NULL;
@@ -1211,7 +1211,7 @@ DEFPY(ipv6_route_address_interface,
       "Table to configure\n"
       "The table number to configure\n"
       VRF_CMD_HELP_STR
-      "Treat the nexthop as directly attached to the interface")
+      "Treat the nexthop as directly attached to the interface\n")
 {
 	struct static_vrf *svrf;
 	struct static_vrf *nh_svrf;
@@ -1279,7 +1279,7 @@ DEFPY(ipv6_route_address_interface_vrf,
       "Table to configure\n"
       "The table number to configure\n"
       VRF_CMD_HELP_STR
-      "Treat the nexthop as directly attached to the interface")
+      "Treat the nexthop as directly attached to the interface\n")
 {
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	struct static_vrf *svrf = vrf->info;
