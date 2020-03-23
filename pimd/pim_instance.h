@@ -168,6 +168,7 @@ struct pim_instance {
 	struct route_table *rp_table;
 
 	int iface_vif_index[MAXVIFS];
+	int mcast_if_count;
 
 	struct rb_pim_oil_head channel_oil_head;
 

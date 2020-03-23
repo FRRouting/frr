@@ -186,6 +186,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_sock_reset(ifp);
 
 	pim_if_add_vif(ifp, ispimreg, is_vxlan_term);
+	pim_ifp->pim->mcast_if_count++;
 
 	return pim_ifp;
 }
@@ -209,6 +210,7 @@ void pim_if_delete(struct interface *ifp)
 	pim_neighbor_delete_all(ifp, "Interface removed from configuration");
 
 	pim_if_del_vif(ifp);
+	pim_ifp->pim->mcast_if_count--;
 
 	list_delete(&pim_ifp->igmp_socket_list);
 	list_delete(&pim_ifp->pim_neighbor_list);
@@ -1583,8 +1585,14 @@ int pim_ifp_create(struct interface *ifp)
 	}
 
 	if (!strncmp(ifp->name, PIM_VXLAN_TERM_DEV_NAME,
-		     sizeof(PIM_VXLAN_TERM_DEV_NAME)))
-		pim_vxlan_add_term_dev(pim, ifp);
+		     sizeof(PIM_VXLAN_TERM_DEV_NAME))) {
+		if (pim->mcast_if_count < MAXVIFS)
+			pim_vxlan_add_term_dev(pim, ifp);
+		else
+			zlog_warn(
+				"%s: Cannot enable pim on %s. MAXVIFS(%d) reached. Deleting and readding the vxlan termimation device after unconfiguring pim from other interfaces may succeed.",
+				__func__, ifp->name, MAXVIFS);
+	}
 
 	return 0;
 }
