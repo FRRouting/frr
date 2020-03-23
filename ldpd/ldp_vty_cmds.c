@@ -221,6 +221,15 @@ DEFPY  (ldp_router_id,
 	return (ldp_vty_router_id(vty, no, address));
 }
 
+DEFPY  (ldp_ordered_control,
+        ldp_ordered_control_cmd,
+        "[no] ordered-control",
+        NO_STR
+        "Configure LDP ordered label distribution control mode\n")
+{
+	return (ldp_vty_ordered_control(vty, no));
+}
+
 DEFPY  (ldp_discovery_targeted_hello_accept,
 	ldp_discovery_targeted_hello_accept_cmd,
 	"[no] discovery targeted-hello accept [from <(1-199)|(1300-2699)|WORD>$from_acl]",
@@ -807,6 +816,7 @@ ldp_vty_init (void)
 	install_element(LDP_NODE, &ldp_neighbor_session_holdtime_cmd);
 	install_element(LDP_NODE, &ldp_neighbor_ttl_security_cmd);
 	install_element(LDP_NODE, &ldp_router_id_cmd);
+	install_element(LDP_NODE, &ldp_ordered_control_cmd);
 
 	install_element(LDP_IPV4_NODE, &ldp_discovery_link_holdtime_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_discovery_targeted_holdtime_cmd);

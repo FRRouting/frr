@@ -61,6 +61,8 @@ static void		 lde_label_list_init(void);
 static int		 lde_get_label_chunk(void);
 static void		 on_get_label_chunk_response(uint32_t start, uint32_t end);
 static uint32_t		 lde_get_next_label(void);
+static bool		 lde_fec_connected(const struct fec_node *);
+static bool		 lde_fec_outside_mpls_network(const struct fec_node *);
 
 RB_GENERATE(nbr_tree, lde_nbr, entry, lde_nbr_compare)
 RB_GENERATE(lde_map_head, lde_map, entry, lde_map_compare)
@@ -658,18 +660,31 @@ lde_acl_check(char *acl_name, int af, union ldpd_addr *addr, uint8_t prefixlen)
 	return ldp_acl_request(iev_main_sync, acl_name, af, addr, prefixlen);
 }
 
+static bool lde_fec_connected(const struct fec_node *fn)
+{
+	struct fec_nh *fnh;
+
+	LIST_FOREACH(fnh, &fn->nexthops, entry)
+		if (fnh->flags & F_FEC_NH_CONNECTED)
+			return true;
+
+	return false;
+}
+
+static bool lde_fec_outside_mpls_network(const struct fec_node *fn)
+{
+	struct fec_nh *fnh;
+
+	LIST_FOREACH(fnh, &fn->nexthops, entry)
+		if (!(fnh->flags & F_FEC_NH_NO_LDP))
+			return false;
+
+	return true;
+}
+
 uint32_t
 lde_update_label(struct fec_node *fn)
 {
-	struct fec_nh	*fnh;
-	int		 connected = 0;
-
-	LIST_FOREACH(fnh, &fn->nexthops, entry) {
-		if (fnh->flags & F_FEC_NH_CONNECTED) {
-			connected = 1;
-			break;
-		}
-	}
 
 	/* should we allocate a label for this fec? */
 	switch (fn->fec.type) {
@@ -695,7 +710,14 @@ lde_update_label(struct fec_node *fn)
 		break;
 	}
 
-	if (connected) {
+	/*
+	 * If connected interface act as egress for fec.
+	 * If LDP is not configured on an interface but there
+	 * are other NHs with interfaces configured with LDP
+	 * then don't act as an egress for the fec, otherwise
+	 * act as an egress for the fec
+	 */
+	if (lde_fec_connected(fn) || lde_fec_outside_mpls_network(fn)) {
 		/* choose implicit or explicit-null depending on configuration */
 		switch (fn->fec.type) {
 		case FEC_TYPE_IPV4:
@@ -734,6 +756,13 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 	struct kroute	 kr;
 	struct zapi_pw	 zpw;
 	struct l2vpn_pw	*pw;
+
+	/*
+	 * Ordered Control: don't program label into HW until a
+	 * labelmap msg has been received from upstream router
+	 */
+	if (fnh->flags & F_FEC_NH_DEFER)
+		return;
 
 	switch (fn->fec.type) {
 	case FEC_TYPE_IPV4:
@@ -901,6 +930,27 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 	struct lde_req		*lre;
 	struct map		 map;
 	struct l2vpn_pw		*pw;
+	struct fec_nh		*fnh;
+	bool			 allow = false;
+
+	/*
+	 * Ordered Control: do not send a labelmap msg until
+	 * a labelmap message is received from downstream router
+	 * and don't send labelmap back to downstream router
+	 */
+	if (ldeconf->flags & F_LDPD_ORDERED_CONTROL) {
+		LIST_FOREACH(fnh, &fn->nexthops, entry) {
+			if (fnh->flags & F_FEC_NH_DEFER)
+				continue;
+
+			if (lde_address_find(ln, fnh->af, &fnh->nexthop))
+				return;
+			allow = true;
+			break;
+		}
+		if (!allow)
+			return;
+	}
 
 	/*
 	 * We shouldn't send a new label mapping if we have a pending
@@ -1241,6 +1291,7 @@ lde_nbr_del(struct lde_nbr *ln)
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
 	struct l2vpn_pw		*pw;
+	struct lde_nbr		*lnbr;
 
 	if (ln == NULL)
 		return;
@@ -1256,6 +1307,25 @@ lde_nbr_del(struct lde_nbr *ln)
 				if (!lde_address_find(ln, fnh->af,
 				    &fnh->nexthop))
 					continue;
+
+				/*
+				 * Ordered Control: must mark any non-connected
+				 * NH to wait until we receive a labelmap msg
+				 * before installing in kernel and sending to
+				 * peer, must do this as NHs are not removed
+				 * when lsps go down.  Also send label withdraw
+				 * to other neighbors for all fecs from neighbor
+				 * going down
+				 */
+				if (ldeconf->flags & F_LDPD_ORDERED_CONTROL) {
+					fnh->flags |= F_FEC_NH_DEFER;
+
+					RB_FOREACH(lnbr, nbr_tree, &lde_nbrs) {
+						if (ln->peerid == lnbr->peerid)
+							continue;
+						lde_send_labelwithdraw(lnbr, fn, NULL, NULL);
+					}
+				}
 				break;
 			case FEC_TYPE_PWID:
 				if (f->u.pwid.lsr_id.s_addr != ln->id.s_addr)

@@ -1285,6 +1285,14 @@ merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		conf->rtr_id = xconf->rtr_id;
 	}
 
+	/*
+	 * Configuration of ordered-control or independent-control
+	 * requires resetting all neighborships.
+	 */
+	if ((conf->flags & F_LDPD_ORDERED_CONTROL) !=
+	    (xconf->flags & F_LDPD_ORDERED_CONTROL))
+		ldpe_reset_nbrs(AF_UNSPEC);
+
 	conf->lhello_holdtime = xconf->lhello_holdtime;
 	conf->lhello_interval = xconf->lhello_interval;
 	conf->thello_holdtime = xconf->thello_holdtime;
