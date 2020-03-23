@@ -821,7 +821,7 @@ struct fpm_rmac_arg {
 	zebra_l3vni_t *zl3vni;
 };
 
-static void fpm_enqueue_rmac_table(struct hash_backet *backet, void *arg)
+static void fpm_enqueue_rmac_table(struct hash_bucket *backet, void *arg)
 {
 	struct fpm_rmac_arg *fra = arg;
 	zebra_mac_t *zrmac = backet->data;
@@ -851,7 +851,7 @@ static void fpm_enqueue_rmac_table(struct hash_backet *backet, void *arg)
 	}
 }
 
-static void fpm_enqueue_l3vni_table(struct hash_backet *backet, void *arg)
+static void fpm_enqueue_l3vni_table(struct hash_bucket *backet, void *arg)
 {
 	struct fpm_rmac_arg *fra = arg;
 	zebra_l3vni_t *zl3vni = backet->data;
@@ -903,14 +903,14 @@ static int fpm_rib_reset(struct thread *t)
 /*
  * The next three function will handle RMAC table reset.
  */
-static void fpm_unset_rmac_table(struct hash_backet *backet, void *arg)
+static void fpm_unset_rmac_table(struct hash_bucket *backet, void *arg)
 {
 	zebra_mac_t *zrmac = backet->data;
 
 	UNSET_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT);
 }
 
-static void fpm_unset_l3vni_table(struct hash_backet *backet, void *arg)
+static void fpm_unset_l3vni_table(struct hash_bucket *backet, void *arg)
 {
 	zebra_l3vni_t *zl3vni = backet->data;
 
