@@ -366,7 +366,7 @@ static inline void encode_na_flag_extcomm(struct ecommunity_val *eval,
 		eval->val[2] |= ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG;
 }
 
-static inline void ip_prefix_from_type5_prefix(struct prefix_evpn *evp,
+static inline void ip_prefix_from_type5_prefix(const struct prefix_evpn *evp,
 					       struct prefix *ip)
 {
 	memset(ip, 0, sizeof(struct prefix));
@@ -392,7 +392,7 @@ static inline int is_evpn_prefix_default(const struct prefix *evp)
 		1 : 0);
 }
 
-static inline void ip_prefix_from_type2_prefix(struct prefix_evpn *evp,
+static inline void ip_prefix_from_type2_prefix(const struct prefix_evpn *evp,
 					       struct prefix *ip)
 {
 	memset(ip, 0, sizeof(struct prefix));
@@ -409,7 +409,7 @@ static inline void ip_prefix_from_type2_prefix(struct prefix_evpn *evp,
 	}
 }
 
-static inline void ip_prefix_from_evpn_prefix(struct prefix_evpn *evp,
+static inline void ip_prefix_from_evpn_prefix(const struct prefix_evpn *evp,
 					      struct prefix *ip)
 {
 	if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
@@ -432,8 +432,9 @@ static inline void build_evpn_type2_prefix(struct prefix_evpn *p,
 		memcpy(&p->prefix.macip_addr.ip, ip, sizeof(*ip));
 }
 
-static inline void build_type5_prefix_from_ip_prefix(struct prefix_evpn *evp,
-						     struct prefix *ip_prefix)
+static inline void
+build_type5_prefix_from_ip_prefix(struct prefix_evpn *evp,
+				  const struct prefix *ip_prefix)
 {
 	struct ipaddr ip;
 

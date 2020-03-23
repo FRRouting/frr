@@ -252,7 +252,7 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 	}
 }
 
-void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
+void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 			    struct bgp_path_info *path, int display,
 			    json_object *json_paths)
 {

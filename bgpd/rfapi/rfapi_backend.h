@@ -56,7 +56,7 @@ extern void vnc_zebra_withdraw(struct prefix *p,
 			       struct bgp_path_info *old_select);
 
 
-extern void rfapi_vty_out_vncinfo(struct vty *vty, struct prefix *p,
+extern void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 				  struct bgp_path_info *bpi, safi_t safi);
 
 
