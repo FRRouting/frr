@@ -555,7 +555,7 @@ struct ecommunity *ecommunity_str2com(const char *str, int type,
 	return ecom;
 }
 
-static int ecommunity_rt_soo_str(char *buf, size_t bufsz, uint8_t *pnt,
+static int ecommunity_rt_soo_str(char *buf, size_t bufsz, const uint8_t *pnt,
 				 int type, int sub_type, int format)
 {
 	int len = 0;

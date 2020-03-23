@@ -37,7 +37,7 @@
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
 
-uint16_t decode_rd_type(uint8_t *pnt)
+uint16_t decode_rd_type(const uint8_t *pnt)
 {
 	uint16_t v;
 
@@ -60,7 +60,7 @@ void encode_rd_type(uint16_t v, uint8_t *pnt)
 }
 
 /* type == RD_TYPE_AS */
-void decode_rd_as(uint8_t *pnt, struct rd_as *rd_as)
+void decode_rd_as(const uint8_t *pnt, struct rd_as *rd_as)
 {
 	rd_as->as = (uint16_t)*pnt++ << 8;
 	rd_as->as |= (uint16_t)*pnt++;
@@ -68,7 +68,7 @@ void decode_rd_as(uint8_t *pnt, struct rd_as *rd_as)
 }
 
 /* type == RD_TYPE_AS4 */
-void decode_rd_as4(uint8_t *pnt, struct rd_as *rd_as)
+void decode_rd_as4(const uint8_t *pnt, struct rd_as *rd_as)
 {
 	pnt = ptr_get_be32(pnt, &rd_as->as);
 	rd_as->val = ((uint16_t)*pnt++ << 8);

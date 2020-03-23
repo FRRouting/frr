@@ -59,7 +59,7 @@ struct vni_walk_ctx {
 static void display_vrf_import_rt(struct vty *vty, struct vrf_irt_node *irt,
 				  json_object *json)
 {
-	uint8_t *pnt;
+	const uint8_t *pnt;
 	uint8_t type, sub_type;
 	struct ecommunity_as eas;
 	struct ecommunity_ip eip;
@@ -167,7 +167,7 @@ static void show_vrf_import_rt_entry(struct hash_bucket *bucket, void *args[])
 static void display_import_rt(struct vty *vty, struct irt_node *irt,
 			      json_object *json)
 {
-	uint8_t *pnt;
+	const uint8_t *pnt;
 	uint8_t type, sub_type;
 	struct ecommunity_as eas;
 	struct ecommunity_ip eip;
