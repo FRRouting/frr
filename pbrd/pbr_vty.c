@@ -423,7 +423,6 @@ DEFPY(pbr_map_vrf, pbr_map_vrf_cmd,
       "Use the interface's VRF for lookup\n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
-	int ret = CMD_SUCCESS;
 
 	if (no) {
 		pbr_map_delete_vrf(pbrms);
@@ -434,28 +433,51 @@ DEFPY(pbr_map_vrf, pbr_map_vrf_cmd,
 		pbrms->vrf_lookup = false;
 		pbrms->vrf_unchanged = false;
 
-		goto done;
+		return CMD_SUCCESS;
 	}
 
 	if (pbrms->nhgrp_name || pbrms->nhg) {
 		vty_out(vty,
 			"A `set nexthop/nexthop-group XX` command already exits, please remove that first\n");
-		ret = CMD_WARNING_CONFIG_FAILED;
-		goto done;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (pbrms->vrf_lookup || pbrms->vrf_unchanged) {
-		vty_out(vty, SET_VRF_EXISTS_STR);
-		ret = CMD_WARNING_CONFIG_FAILED;
-		goto done;
+	/*
+	 * Determine if a set vrf * command already exists.
+	 *
+	 * If its equivalent, just return success.
+	 *
+	 * Else, return failure, we don't allow atomic swaps yet.
+	 */
+	if (vrf_name && pbrms->vrf_lookup) {
+		/* New vrf specified and one already exists */
+
+		/* Is this vrf different from one already configured? */
+		if (strncmp(pbrms->vrf_name, vrf_name, sizeof(pbrms->vrf_name))
+		    != 0)
+			goto vrf_exists;
+
+		return CMD_SUCCESS;
+
+	} else if (!vrf_name && pbrms->vrf_unchanged) {
+		/* Unchanged specified and unchanged already exists */
+		return CMD_SUCCESS;
+
+	} else if (vrf_name && pbrms->vrf_unchanged) {
+		/* New vrf specified and unchanged is already set */
+		goto vrf_exists;
+
+	} else if (!vrf_name && pbrms->vrf_lookup) {
+		/* Unchanged specified and vrf to lookup already exists */
+		goto vrf_exists;
 	}
 
+	/* Create new lookup VRF or Unchanged */
 	if (vrf_name) {
 		if (!pbr_vrf_lookup_by_name(vrf_name)) {
 			vty_out(vty, "Specified: %s is non-existent\n",
 				vrf_name);
-			ret = CMD_WARNING_CONFIG_FAILED;
-			goto done;
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 
 		pbrms->vrf_lookup = true;
@@ -465,8 +487,11 @@ DEFPY(pbr_map_vrf, pbr_map_vrf_cmd,
 
 	pbr_map_check(pbrms);
 
-done:
-	return ret;
+	return CMD_SUCCESS;
+
+vrf_exists:
+	vty_out(vty, SET_VRF_EXISTS_STR);
+	return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFPY (pbr_policy,
