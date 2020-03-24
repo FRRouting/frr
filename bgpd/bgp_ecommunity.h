@@ -39,6 +39,7 @@
 /* Low-order octet of the Extended Communities type field.  */
 #define ECOMMUNITY_ROUTE_TARGET             0x02
 #define ECOMMUNITY_SITE_ORIGIN              0x03
+#define ECOMMUNITY_LINK_BANDWIDTH           0x04
 #define ECOMMUNITY_TRAFFIC_RATE             0x06 /* Flow Spec */
 #define ECOMMUNITY_TRAFFIC_ACTION           0x07
 #define ECOMMUNITY_REDIRECT_VRF             0x08
