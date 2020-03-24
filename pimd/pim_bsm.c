@@ -601,7 +601,8 @@ static bool is_preferred_bsr(struct pim_instance *pim, struct in_addr bsr,
 		return true;
 
 	else if (bsr_prio == pim->global_scope.current_bsr_prio) {
-		if (bsr.s_addr >= pim->global_scope.current_bsr.s_addr)
+		if (ntohl(bsr.s_addr)
+		    >= ntohl(pim->global_scope.current_bsr.s_addr))
 			return true;
 		else
 			return false;
