@@ -532,7 +532,7 @@ static struct ecommunity *vnc_route_origin_ecom(struct agg_node *rn)
 			       &bpi->attr->mp_nexthop_global_in.s_addr, 4);
 			roec.val[6] = 0;
 			roec.val[7] = 0;
-			ecommunity_add_val(new, &roec);
+			ecommunity_add_val(new, &roec, false, false);
 			break;
 		case AF_INET6:
 			/* No support for IPv6 addresses in extended communities
@@ -563,7 +563,7 @@ static struct ecommunity *vnc_route_origin_ecom_single(struct in_addr *origin)
 
 	new = ecommunity_new();
 	assert(new);
-	ecommunity_add_val(new, &roec);
+	ecommunity_add_val(new, &roec, false, false);
 
 	if (!new->size) {
 		ecommunity_free(&new);

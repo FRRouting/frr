@@ -738,7 +738,8 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 				ecom_copy.val[0] &=
 					~ECOMMUNITY_ENCODE_TRANS_EXP;
 				ecom_copy.val[1] = ECOMMUNITY_ROUTE_TARGET;
-				ecommunity_add_val(eckey, &ecom_copy);
+				ecommunity_add_val(eckey, &ecom_copy,
+						   false, false);
 
 				api_action->action = ACTION_REDIRECT;
 				api_action->u.redirect_vrf =

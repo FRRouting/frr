@@ -74,10 +74,16 @@ static void ecommunity_hash_free(struct ecommunity *ecom)
    Attribute structure.  When the value is already exists in the
    structure, we don't add the value.  Newly added value is sorted by
    numerical order.  When the value is added to the structure return 1
-   else return 0.  */
-bool ecommunity_add_val(struct ecommunity *ecom, struct ecommunity_val *eval)
+   else return 0.
+   The additional parameters 'unique' and 'overwrite' ensure a particular
+   extended community (based on type and sub-type) is present only
+   once and whether the new value should replace what is existing or
+   not.
+*/
+bool ecommunity_add_val(struct ecommunity *ecom, struct ecommunity_val *eval,
+			bool unique, bool overwrite)
 {
-	int c;
+	int c, ins_idx;
 
 	/* When this is fist value, just add it. */
 	if (ecom->val == NULL) {
@@ -88,25 +94,45 @@ bool ecommunity_add_val(struct ecommunity *ecom, struct ecommunity_val *eval)
 	}
 
 	/* If the value already exists in the structure return 0.  */
+	/* check also if the extended community itself exists. */
 	c = 0;
+	ins_idx = -1;
 	for (uint8_t *p = ecom->val; c < ecom->size;
 	     p += ECOMMUNITY_SIZE, c++) {
+		if (unique) {
+			if (p[0] == eval->val[0] &&
+			    p[1] == eval->val[1]) {
+				if (overwrite) {
+					memcpy(p, eval->val, ECOMMUNITY_SIZE);
+					return 1;
+				}
+				return 0;
+			}
+		}
 		int ret = memcmp(p, eval->val, ECOMMUNITY_SIZE);
 		if (ret == 0)
-			return false;
-		else if (ret > 0)
-			break;
+			return 0;
+		if (ret > 0) {
+			if (!unique)
+				break;
+			if (ins_idx == -1)
+				ins_idx = c;
+		}
 	}
+
+	if (ins_idx == -1)
+		ins_idx = c;
 
 	/* Add the value to the structure with numerical sorting.  */
 	ecom->size++;
 	ecom->val = XREALLOC(MTYPE_ECOMMUNITY_VAL, ecom->val,
 			     ecom->size * ECOMMUNITY_SIZE);
 
-	memmove(ecom->val + ((c + 1) * ECOMMUNITY_SIZE),
-		ecom->val + (c * ECOMMUNITY_SIZE),
-		(ecom->size - 1 - c) * ECOMMUNITY_SIZE);
-	memcpy(ecom->val + (c * ECOMMUNITY_SIZE), eval->val, ECOMMUNITY_SIZE);
+	memmove(ecom->val + ((ins_idx + 1) * ECOMMUNITY_SIZE),
+		ecom->val + (ins_idx * ECOMMUNITY_SIZE),
+		(ecom->size - 1 - ins_idx) * ECOMMUNITY_SIZE);
+	memcpy(ecom->val + (ins_idx * ECOMMUNITY_SIZE),
+	       eval->val, ECOMMUNITY_SIZE);
 
 	return true;
 }
@@ -128,7 +154,7 @@ struct ecommunity *ecommunity_uniq_sort(struct ecommunity *ecom)
 	for (i = 0; i < ecom->size; i++) {
 		eval = (struct ecommunity_val *)(ecom->val
 						 + (i * ECOMMUNITY_SIZE));
-		ecommunity_add_val(new, eval);
+		ecommunity_add_val(new, eval, false, false);
 	}
 	return new;
 }
@@ -543,7 +569,7 @@ struct ecommunity *ecommunity_str2com(const char *str, int type,
 			if (ecom == NULL)
 				ecom = ecommunity_new();
 			eval.val[1] = type;
-			ecommunity_add_val(ecom, &eval);
+			ecommunity_add_val(ecom, &eval, false, false);
 			break;
 		case ecommunity_token_unknown:
 		default:
@@ -927,8 +953,8 @@ extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *ecom,
 /* remove ext. community matching type and subtype
  * return 1 on success ( removed ), 0 otherwise (not present)
  */
-extern bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
-			     uint8_t subtype)
+bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
+		      uint8_t subtype)
 {
 	uint8_t *p, *q, *new;
 	int c, found = 0;

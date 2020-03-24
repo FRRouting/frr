@@ -548,7 +548,7 @@ static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl)
 	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
 
 	ecomadd = ecommunity_new();
-	ecommunity_add_val(ecomadd, &eval);
+	ecommunity_add_val(ecomadd, &eval, false, false);
 	for (ALL_LIST_ELEMENTS_RO(rtl, node, ecom))
 		if (ecommunity_cmp(ecomadd, ecom))
 			ecom_found = true;
@@ -4633,7 +4633,7 @@ void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl)
 	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
 
 	ecom_auto = ecommunity_new();
-	ecommunity_add_val(ecom_auto, &eval);
+	ecommunity_add_val(ecom_auto, &eval, false, false);
 	node_to_del = NULL;
 
 	for (ALL_LIST_ELEMENTS(rtl, node, nnode, ecom)) {
