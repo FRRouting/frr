@@ -148,6 +148,12 @@ void route_map_instance_show(struct vty *vty, struct lyd_node *dnode,
 		SKIP_RULE("ipv6 next-hop type");
 		SKIP_RULE("metric");
 		SKIP_RULE("tag");
+		/* Zebra specific match conditions. */
+		SKIP_RULE("ip address prefix-len");
+		SKIP_RULE("ipv6 address prefix-len");
+		SKIP_RULE("ip next-hop prefix-len");
+		SKIP_RULE("source-protocol");
+		SKIP_RULE("source-instance");
 
 		vty_out(vty, " match %s %s\n", rmr->cmd->str,
 			rmr->rule_str ? rmr->rule_str : "");
@@ -158,6 +164,8 @@ void route_map_instance_show(struct vty *vty, struct lyd_node *dnode,
 		/* Skip all sets implemented by northbound. */
 		SKIP_RULE("metric");
 		SKIP_RULE("tag");
+		/* Zebra specific set actions. */
+		SKIP_RULE("src");
 
 		vty_out(vty, " set %s %s\n", rmr->cmd->str,
 			rmr->rule_str ? rmr->rule_str : "");
@@ -666,8 +674,25 @@ void route_map_condition_show(struct vty *vty, struct lyd_node *dnode,
 		vty_out(vty, " match tag %s\n",
 			yang_dnode_get_string(dnode, "./tag"));
 		break;
-	case 100:
-		/* NOTHING: custom field, should be handled by daemon. */
+	case 100: /* ipv4-prefix-length */
+		vty_out(vty, " match ip address prefix-len %s\n",
+			yang_dnode_get_string(dnode,"./frr-zebra:ipv4-prefix-length"));
+		break;
+	case 101: /* ipv6-prefix-length */
+		vty_out(vty, " match ipv6 address prefix-len %s\n",
+			yang_dnode_get_string(dnode, "./frr-zebra:ipv6-prefix-length"));
+		break;
+	case 102: /* ipv4-next-hop-prefix-length */
+		vty_out(vty, " match ip next-hop prefix-len %s\n",
+			yang_dnode_get_string(dnode, "./frr-zebra:ipv4-prefix-length"));
+		break;
+	case 103: /* source-protocol */
+		vty_out(vty, " match source-protocol %s\n",
+			yang_dnode_get_string(dnode, "./frr-zebra:source-protocol"));
+		break;
+	case 104: /* source-instance */
+		vty_out(vty, " match source-instance %s\n",
+			yang_dnode_get_string(dnode, "./frr-zebra:source-instance"));
 		break;
 	}
 }
@@ -868,8 +893,13 @@ void route_map_action_show(struct vty *vty, struct lyd_node *dnode,
 		vty_out(vty, " set tag %s\n",
 			yang_dnode_get_string(dnode, "./tag"));
 		break;
-	case 100:
-		/* NOTHING: custom field, should be handled by daemon. */
+	case 100: /* source */
+		if (yang_dnode_exists(dnode, "./frr-zebra:source-v4"))
+			vty_out(vty, " set src %s\n",
+				yang_dnode_get_string(dnode, "./frr-zebra:source-v4"));
+		else
+			vty_out(vty, " set src %s\n",
+				yang_dnode_get_string(dnode, "./frr-zebra:source-v6"));
 		break;
 	}
 }
