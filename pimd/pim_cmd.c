@@ -3023,7 +3023,7 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim->global_scope.bsm_list, bsmnode, bsm)) {
-		char grp_str[INET_ADDRSTRLEN];
+		char grp_str[PREFIX_STRLEN];
 		char rp_str[INET_ADDRSTRLEN];
 		char bsr_str[INET_ADDRSTRLEN];
 		struct bsmmsg_grpinfo *group;
@@ -3192,7 +3192,7 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 		if (!bsgrp)
 			continue;
 
-		char grp_str[INET_ADDRSTRLEN];
+		char grp_str[PREFIX_STRLEN];
 
 		prefix2str(&bsgrp->group, grp_str, sizeof(grp_str));
 
