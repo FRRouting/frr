@@ -53,6 +53,16 @@ struct ospf6_area {
 	/* Brouter traversal protection */
 	int intra_brouter_calc;
 
+	/*
+	 * Temporary fix to avoid the race condition
+	 * #8  in ospf6_abr_examin_summary
+	 * #9  in ospf6_abr_examin_brouter
+	 * #10 in ospf6_top_brouter_hook_add
+	 * #11 in ospf6_route_add
+	 * #12 in ospf6_abr_examin_summary
+	 */
+	int running_ospf6_abr_examin_summary;
+
 	/* OSPF interface list */
 	struct list *if_list;
 
