@@ -277,7 +277,7 @@ static void pim_addr_change(struct interface *ifp)
 	  1) Before an interface goes down or changes primary IP address, a
 	  Hello message with a zero HoldTime should be sent immediately
 	  (with the old IP address if the IP address changed).
-	  -- FIXME See CAVEAT C13
+	  -- Done at the caller of the function as new ip already updated here
 
 	  2) After an interface has changed its IP address, it MUST send a
 	  Hello message with its new IP address.
@@ -322,6 +322,10 @@ static int detect_primary_address_change(struct interface *ifp,
 	}
 
 	if (changed) {
+		/* Before updating pim_ifp send Hello time with 0 hold time */
+		if (PIM_IF_TEST_PIM(pim_ifp->options)) {
+			pim_hello_send(ifp, 0 /* zero-sec holdtime */);
+		}
 		pim_ifp->primary_address = new_prim_addr;
 	}
 

@@ -42,7 +42,6 @@
 #include "pim_bsm.h"
 
 static int on_pim_hello_send(struct thread *t);
-static int pim_hello_send(struct interface *ifp, uint16_t holdtime);
 
 static const char *pim_pim_msgtype2str(enum pim_msg_type type)
 {
@@ -689,7 +688,7 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 	return 0;
 }
 
-static int pim_hello_send(struct interface *ifp, uint16_t holdtime)
+int pim_hello_send(struct interface *ifp, uint16_t holdtime)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
