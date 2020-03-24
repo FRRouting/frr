@@ -875,6 +875,17 @@ static void pim_bsm_fwd_whole_sz(struct pim_instance *pim, uint8_t *buf,
 		pim_ifp = ifp->info;
 		if ((!pim_ifp) || (!pim_ifp->bsm_enable))
 			continue;
+
+		/*
+		 * RFC 5059 Sec 3.4:
+		 * When a Bootstrap message is forwarded, it is forwarded out
+		 * of every multicast-capable interface that has PIM neighbors.
+		 *
+		 * So skipping pim interfaces with no neighbors.
+		 */
+		if (listcount(pim_ifp->pim_neighbor_list) == 0)
+			continue;
+
 		pim_hello_require(ifp);
 		pim_mtu = ifp->mtu - MAX_IP_HDR_LEN;
 		if (pim_mtu < len) {
