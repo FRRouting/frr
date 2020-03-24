@@ -64,10 +64,10 @@ void oid2in_addr(oid oid[], int len, struct in_addr *addr)
 		*pnt++ = oid[i];
 }
 
-void oid_copy_addr(oid oid[], struct in_addr *addr, int len)
+void oid_copy_addr(oid oid[], const struct in_addr *addr, int len)
 {
 	int i;
-	uint8_t *pnt;
+	const uint8_t *pnt;
 
 	if (len == 0)
 		return;

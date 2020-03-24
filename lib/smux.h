@@ -105,7 +105,7 @@ extern int smux_trap(struct variable *, size_t, const oid *, size_t,
 extern int oid_compare(const oid *, int, const oid *, int);
 extern void oid2in_addr(oid[], int, struct in_addr *);
 extern void *oid_copy(void *, const void *, size_t);
-extern void oid_copy_addr(oid[], struct in_addr *, int);
+extern void oid_copy_addr(oid[], const struct in_addr *, int);
 
 #ifdef __cplusplus
 }
