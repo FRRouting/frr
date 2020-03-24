@@ -444,6 +444,32 @@ struct attr *bgp_path_info_mpath_attr(struct bgp_path_info *path)
 }
 
 /*
+ * bgp_path_info_chkwtd
+ *
+ * Given bestpath bgp_path_info, return if we should attempt to
+ * do weighted ECMP or not
+ */
+bool bgp_path_info_mpath_chkwtd(struct bgp_path_info *path)
+{
+	if (!path->mpath)
+		return false;
+	return (path->mpath->mp_flags & BGP_MP_LB_ALL);
+}
+
+/*
+ * bgp_path_info_mpath_attr
+ *
+ * Given bestpath bgp_path_info, return cumulative bandwidth
+ * computed for all multipaths with bandwidth info
+ */
+uint64_t bgp_path_info_mpath_cumbw(struct bgp_path_info *path)
+{
+	if (!path->mpath)
+		return 0;
+	return path->mpath->cum_bw;
+}
+
+/*
  * bgp_path_info_mpath_attr_set
  *
  * Sets the aggregated attribute into bestpath's mpath element

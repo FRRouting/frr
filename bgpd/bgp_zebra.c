@@ -1148,6 +1148,12 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 	return true;
 }
 
+static uint32_t bgp_zebra_nhop_weight(uint32_t bw, uint64_t tot_bw)
+{
+	uint64_t tmp = (uint64_t)bw * 100;
+	return ((uint32_t)(tmp / tot_bw));
+}
+
 void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 			struct bgp_path_info *info, struct bgp *bgp, afi_t afi,
 			safi_t safi)
@@ -1170,6 +1176,8 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 	char buf_prefix[PREFIX_STRLEN];	/* filled in if we are debugging */
 	bool is_evpn;
 	int nh_updated;
+	bool do_wt_ecmp;
+	uint64_t cum_bw = 0;
 
 	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
 	 * know of this instance.
@@ -1240,6 +1248,12 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
+
+	/* Determine if we're doing weighted ECMP or not */
+	do_wt_ecmp = bgp_path_info_mpath_chkwtd(info);
+	if (do_wt_ecmp)
+		cum_bw = bgp_path_info_mpath_cumbw(info);
+
 	for (mpinfo = info; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
 		if (valid_nh_count >= multipath_num)
 			break;
@@ -1356,6 +1370,11 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 		}
 		memcpy(&api_nh->rmac, &(mpinfo->attr->rmac),
 		       sizeof(struct ethaddr));
+
+		/* Update next hop's weight for weighted ECMP */
+		if (do_wt_ecmp)
+			api_nh->weight = bgp_zebra_nhop_weight(
+				mpinfo->attr->link_bw, cum_bw);
 		valid_nh_count++;
 	}
 
@@ -1435,9 +1454,10 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 				snprintf(eth_buf, sizeof(eth_buf), " RMAC %s",
 					 prefix_mac2str(&api_nh->rmac,
 							buf1, sizeof(buf1)));
-			zlog_debug("  nhop [%d]: %s if %u VRF %u %s %s",
+			zlog_debug("  nhop [%d]: %s if %u VRF %u wt %u %s %s",
 				   i + 1, nh_buf, api_nh->ifindex,
-				   api_nh->vrf_id, label_buf, eth_buf);
+				   api_nh->vrf_id, api_nh->weight,
+				   label_buf, eth_buf);
 		}
 	}
 
