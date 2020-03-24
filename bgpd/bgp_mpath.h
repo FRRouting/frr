@@ -40,8 +40,8 @@ struct bgp_path_info_mpath {
 
 	/* Flags - relevant as noted. */
 	uint16_t mp_flags;
-/* Attached to best path, indicates that all multipaths have link-bandwidth */
-#define BGP_MP_LB_ALL 0x1
+#define BGP_MP_LB_PRESENT 0x1 /* Link-bandwidth present for >= 1 path */
+#define BGP_MP_LB_ALL 0x2 /* Link-bandwidth present for all multipaths */
 
 	/* Aggregated attribute for advertising multipath route */
 	struct attr *mp_attr;
@@ -86,7 +86,8 @@ bgp_path_info_mpath_next(struct bgp_path_info *path);
 /* Accessors for multipath information */
 extern uint32_t bgp_path_info_mpath_count(struct bgp_path_info *path);
 extern struct attr *bgp_path_info_mpath_attr(struct bgp_path_info *path);
-extern bool bgp_path_info_mpath_chkwtd(struct bgp_path_info *path);
+extern bool bgp_path_info_mpath_chkwtd(struct bgp *bgp,
+				       struct bgp_path_info *path);
 extern uint64_t bgp_path_info_mpath_cumbw(struct bgp_path_info *path);
 
 #endif /* _QUAGGA_BGP_MPATH_H */

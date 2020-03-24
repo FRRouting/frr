@@ -23,6 +23,9 @@
 
 #include "vxlan.h"
 
+/* Default weight for next hop, if doing weighted ECMP. */
+#define BGP_ZEBRA_DEFAULT_NHOP_WEIGHT 1
+
 extern void bgp_zebra_init(struct thread_master *master,
 			   unsigned short instance);
 extern void bgp_zebra_init_tm_connect(struct bgp *bgp);

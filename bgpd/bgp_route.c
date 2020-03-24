@@ -2066,7 +2066,7 @@ bool subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 	 * been explicitly set by user policy.
 	 */
 	if (nh_reset &&
-	    bgp_path_info_mpath_chkwtd(pi) &&
+	    bgp_path_info_mpath_chkwtd(bgp, pi) &&
 	    (cum_bw = bgp_path_info_mpath_cumbw(pi)) != 0 &&
 	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET))
 		attr->ecommunity = ecommunity_replace_linkbw(

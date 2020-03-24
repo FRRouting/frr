@@ -1148,10 +1148,29 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 	return true;
 }
 
-static uint32_t bgp_zebra_nhop_weight(uint32_t bw, uint64_t tot_bw)
+static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
+					uint64_t tot_bw, uint32_t *nh_weight)
 {
-	uint64_t tmp = (uint64_t)bw * 100;
-	return ((uint32_t)(tmp / tot_bw));
+	uint32_t bw;
+	uint64_t tmp;
+
+	bw = attr->link_bw;
+	/* zero link-bandwidth and link-bandwidth not present are treated
+	 * as the same situation.
+	 */
+	if (!bw) {
+		/* the only situations should be if we're either told
+		 * to skip or use default weight.
+		 */
+		if (bgp->lb_handling == BGP_LINK_BW_SKIP_MISSING)
+			return false;
+		*nh_weight = BGP_ZEBRA_DEFAULT_NHOP_WEIGHT;
+	} else {
+		tmp = (uint64_t)bw * 100;
+		*nh_weight = ((uint32_t)(tmp / tot_bw));
+	}
+
+	return true;
 }
 
 void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
@@ -1250,15 +1269,18 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 	metric = info->attr->med;
 
 	/* Determine if we're doing weighted ECMP or not */
-	do_wt_ecmp = bgp_path_info_mpath_chkwtd(info);
+	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
 	if (do_wt_ecmp)
 		cum_bw = bgp_path_info_mpath_cumbw(info);
 
 	for (mpinfo = info; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
+		uint32_t nh_weight;
+
 		if (valid_nh_count >= multipath_num)
 			break;
 
 		*mpinfo_cp = *mpinfo;
+		nh_weight = 0;
 
 		/* Get nexthop address-family */
 		if (p->family == AF_INET
@@ -1271,6 +1293,15 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 		else
 			continue;
 
+		/* If processing for weighted ECMP, determine the next hop's
+		 * weight. Based on user setting, we may skip the next hop
+		 * in some situations.
+		 */
+		if (do_wt_ecmp) {
+			if (!bgp_zebra_use_nhop_weighted(bgp, mpinfo->attr,
+							 cum_bw, &nh_weight))
+				continue;
+		}
 		api_nh = &api.nexthops[valid_nh_count];
 		if (nh_family == AF_INET) {
 			if (bgp_debug_zebra(&api.prefix)) {
@@ -1370,11 +1401,8 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 		}
 		memcpy(&api_nh->rmac, &(mpinfo->attr->rmac),
 		       sizeof(struct ethaddr));
+		api_nh->weight = nh_weight;
 
-		/* Update next hop's weight for weighted ECMP */
-		if (do_wt_ecmp)
-			api_nh->weight = bgp_zebra_nhop_weight(
-				mpinfo->attr->link_bw, cum_bw);
 		valid_nh_count++;
 	}
 

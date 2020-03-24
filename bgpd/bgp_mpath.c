@@ -419,6 +419,10 @@ static void bgp_path_info_mpath_lb_update(struct bgp_path_info *path, bool set,
 			return;
 	}
 	if (set) {
+		if (cum_bw)
+			SET_FLAG(mpath->mp_flags, BGP_MP_LB_PRESENT);
+		else
+			UNSET_FLAG(mpath->mp_flags, BGP_MP_LB_PRESENT);
 		if (all_paths_lb)
 			SET_FLAG(mpath->mp_flags, BGP_MP_LB_ALL);
 		else
@@ -446,14 +450,24 @@ struct attr *bgp_path_info_mpath_attr(struct bgp_path_info *path)
 /*
  * bgp_path_info_chkwtd
  *
- * Given bestpath bgp_path_info, return if we should attempt to
- * do weighted ECMP or not
+ * Return if we should attempt to do weighted ECMP or not
+ * The path passed in is the bestpath.
  */
-bool bgp_path_info_mpath_chkwtd(struct bgp_path_info *path)
+bool bgp_path_info_mpath_chkwtd(struct bgp *bgp, struct bgp_path_info *path)
 {
-	if (!path->mpath)
+	/* Check if told to ignore weights or not multipath */
+	if (bgp->lb_handling == BGP_LINK_BW_IGNORE_BW || !path->mpath)
 		return false;
-	return (path->mpath->mp_flags & BGP_MP_LB_ALL);
+
+	/* All paths in multipath should have associated weight (bandwidth)
+	 * unless told explicitly otherwise.
+	 */
+	if (bgp->lb_handling != BGP_LINK_BW_SKIP_MISSING &&
+	    bgp->lb_handling != BGP_LINK_BW_DEFWT_4_MISSING)
+		return (path->mpath->mp_flags & BGP_MP_LB_ALL);
+
+	/* At least one path should have bandwidth. */
+	return (path->mpath->mp_flags & BGP_MP_LB_PRESENT);
 }
 
 /*
