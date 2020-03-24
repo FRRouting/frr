@@ -24,19 +24,33 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgpd.h"
 
+/* Refer to rfc7153 for the IANA registry definitions. These are
+ * updated by other standards like rfc7674.
+ */
 /* High-order octet of the Extended Communities type field.  */
 #define ECOMMUNITY_ENCODE_AS                0x00
 #define ECOMMUNITY_ENCODE_IP                0x01
 #define ECOMMUNITY_ENCODE_AS4               0x02
 #define ECOMMUNITY_ENCODE_OPAQUE            0x03
 #define ECOMMUNITY_ENCODE_EVPN              0x06
-#define ECOMMUNITY_ENCODE_TRANS_EXP         0x80 /* Flow Spec */
 #define ECOMMUNITY_ENCODE_REDIRECT_IP_NH    0x08 /* Flow Spec */
+/* Generic Transitive Experimental */
+#define ECOMMUNITY_ENCODE_TRANS_EXP         0x80
+
 /* RFC7674 */
 #define ECOMMUNITY_EXTENDED_COMMUNITY_PART_2 0x81
 #define ECOMMUNITY_EXTENDED_COMMUNITY_PART_3 0x82
 
+/* Non-transitive extended community types. */
+#define ECOMMUNITY_ENCODE_AS_NON_TRANS      0x40
+#define ECOMMUNITY_ENCODE_IP_NON_TRANS      0x41
+#define ECOMMUNITY_ENCODE_AS4_NON_TRANS     0x42
+#define ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS  0x43
+
 /* Low-order octet of the Extended Communities type field.  */
+/* Note: This really depends on the high-order octet. This means that
+ * multiple definitions for the same value are possible.
+ */
 #define ECOMMUNITY_ROUTE_TARGET             0x02
 #define ECOMMUNITY_SITE_ORIGIN              0x03
 #define ECOMMUNITY_LINK_BANDWIDTH           0x04

@@ -611,6 +611,33 @@ static int ecommunity_rt_soo_str(char *buf, size_t bufsz, const uint8_t *pnt,
 	return len;
 }
 
+static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt)
+{
+	int len = 0;
+	as_t as;
+	uint32_t bw;
+	char bps_buf[20] = {0};
+
+#define ONE_GBPS_BYTES (1000 * 1000 * 1000 / 8)
+#define ONE_MBPS_BYTES (1000 * 1000 / 8)
+#define ONE_KBPS_BYTES (1000 / 8)
+
+	as = (*pnt++ << 8);
+	as |= (*pnt++);
+	pnt = ptr_get_be32(pnt, &bw);
+	if (bw >= ONE_GBPS_BYTES)
+		sprintf(bps_buf, "%.3f Gbps", (float)(bw/ONE_GBPS_BYTES));
+	else if (bw >= ONE_MBPS_BYTES)
+		sprintf(bps_buf, "%.3f Mbps", (float)(bw/ONE_MBPS_BYTES));
+	else if (bw >= ONE_KBPS_BYTES)
+		sprintf(bps_buf, "%.3f Kbps", (float)(bw/ONE_KBPS_BYTES));
+	else
+		sprintf(bps_buf, "%u bps", bw * 8);
+
+	len = snprintf(buf, bufsz, "LB:%u:%u (%s)", as, bw, bps_buf);
+	return len;
+}
+
 /* Convert extended community attribute to string.
 
    Due to historical reason of industry standard implementation, there
@@ -686,6 +713,11 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						  INET_ADDRSTRLEN);
 					snprintf(encbuf, sizeof(encbuf),
 						 "NH:%s:%d", ipv4str, pnt[5]);
+				} else if (sub_type ==
+					   ECOMMUNITY_LINK_BANDWIDTH &&
+					   type == ECOMMUNITY_ENCODE_AS) {
+					ecommunity_lb_str(encbuf,
+						sizeof(encbuf), pnt);
 				} else
 					unk_ecom = 1;
 			} else {
@@ -820,6 +852,12 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					(uint8_t)mac.octet[4],
 					(uint8_t)mac.octet[5]);
 			} else
+				unk_ecom = 1;
+		} else if (type == ECOMMUNITY_ENCODE_AS_NON_TRANS) {
+			sub_type = *pnt++;
+			if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
+				ecommunity_lb_str(encbuf, sizeof(encbuf), pnt);
+			else
 				unk_ecom = 1;
 		} else {
 			sub_type = *pnt++;
