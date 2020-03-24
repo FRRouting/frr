@@ -611,7 +611,7 @@ static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 
 		if (IS_DEBUG_OSPF_PACKET(type - 1, SEND)) {
 			zlog_debug(
-				"ospf_write_frags: sent id %d, off %d, len %d to %s\n",
+				"ospf_write_frags: sent id %d, off %d, len %d to %s",
 				iph->ip_id, iph->ip_off, iph->ip_len,
 				inet_ntoa(iph->ip_dst));
 		}

@@ -1063,7 +1063,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
-			"rnh_register msg from client %s: hdr->length=%d, type=%s vrf=%u\n",
+			"rnh_register msg from client %s: hdr->length=%d, type=%s vrf=%u",
 			zebra_route_string(client->proto), hdr->length,
 			(type == RNH_NEXTHOP_TYPE) ? "nexthop" : "route",
 			zvrf->vrf->vrf_id);
@@ -1152,7 +1152,7 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
-			"rnh_unregister msg from client %s: hdr->length=%d vrf: %u\n",
+			"rnh_unregister msg from client %s: hdr->length=%d vrf: %u",
 			zebra_route_string(client->proto), hdr->length,
 			zvrf->vrf->vrf_id);
 
