@@ -63,6 +63,7 @@
 #include "bgpd/bgp_pbr.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_encap_types.h"
+#include "bgpd/bgp_mpath.h"
 
 #if ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
@@ -2552,6 +2553,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix,
 	struct ecommunity ecom_lb = {0};
 	struct ecommunity_val lb_eval;
 	uint32_t bw_bytes = 0;
+	uint16_t mpath_count = 0;
 	struct ecommunity *new_ecom;
 	struct ecommunity *old_ecom;
 	as_t as;
@@ -2566,8 +2568,27 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix,
 
 	/* Build link bandwidth extended community */
 	as = (peer->bgp->as > BGP_AS_MAX) ? BGP_AS_TRANS : peer->bgp->as;
-	if (rels->lb_type == RMAP_ECOMM_LB_SET_VALUE)
+	if (rels->lb_type == RMAP_ECOMM_LB_SET_VALUE) {
 		bw_bytes = ((uint64_t)(rels->bw * 1000 * 1000))/8;
+	} else if (rels->lb_type == RMAP_ECOMM_LB_SET_CUMUL) {
+		/* process this only for the best path. */
+		if (!CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
+			return RMAP_OKAY;
+
+		bw_bytes = (uint32_t)bgp_path_info_mpath_cumbw(path);
+		if (!bw_bytes)
+			return RMAP_OKAY;
+
+	} else if (rels->lb_type == RMAP_ECOMM_LB_SET_NUM_MPATH) {
+
+		/* process this only for the best path. */
+		if (!CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
+			return RMAP_OKAY;
+
+		bw_bytes = ((uint64_t)(peer->bgp->lb_ref_bw * 1000 * 1000))/8;
+		mpath_count = bgp_path_info_mpath_count(path) + 1;
+		bw_bytes *= mpath_count;
+	}
 
 	encode_lb_extcomm(as, bw_bytes, rels->non_trans, &lb_eval);
 

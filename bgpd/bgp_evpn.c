@@ -1132,6 +1132,7 @@ static int evpn_es_route_select_install(struct bgp *bgp,
 						   old_select->attr->nexthop);
 		}
 		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
+		UNSET_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG);
 		bgp_zebra_clear_route_change_flags(rn);
 		return ret;
 	}
@@ -1152,6 +1153,7 @@ static int evpn_es_route_select_install(struct bgp *bgp,
 		bgp_path_info_set_flag(rn, new_select, BGP_PATH_SELECTED);
 		bgp_path_info_unset_flag(rn, new_select, BGP_PATH_ATTR_CHANGED);
 		UNSET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_CHG);
+		UNSET_FLAG(new_select->flags, BGP_PATH_LINK_BW_CHG);
 	}
 
 	if (new_select && new_select->type == ZEBRA_ROUTE_BGP
@@ -1211,6 +1213,7 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 				bgp, vpn, (const struct prefix_evpn *)bgp_node_get_prefix(rn),
 				old_select);
 		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
+		UNSET_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG);
 		bgp_zebra_clear_route_change_flags(rn);
 		return ret;
 	}
@@ -1230,6 +1233,7 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 		bgp_path_info_set_flag(rn, new_select, BGP_PATH_SELECTED);
 		bgp_path_info_unset_flag(rn, new_select, BGP_PATH_ATTR_CHANGED);
 		UNSET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_CHG);
+		UNSET_FLAG(new_select->flags, BGP_PATH_LINK_BW_CHG);
 	}
 
 	if (new_select && new_select->type == ZEBRA_ROUTE_BGP

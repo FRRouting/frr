@@ -500,7 +500,7 @@ void bgp_path_info_mpath_update(struct bgp_node *rn,
 {
 	uint16_t maxpaths, mpath_count, old_mpath_count;
 	uint32_t bwval;
-	uint64_t cum_bw;
+	uint64_t cum_bw, old_cum_bw;
 	struct listnode *mp_node, *mp_next_node;
 	struct bgp_path_info *cur_mpath, *new_mpath, *next_mpath, *prev_mpath;
 	int mpath_changed, debug;
@@ -513,7 +513,7 @@ void bgp_path_info_mpath_update(struct bgp_node *rn,
 	mpath_count = 0;
 	cur_mpath = NULL;
 	old_mpath_count = 0;
-	cum_bw = 0;
+	old_cum_bw = cum_bw = 0;
 	prev_mpath = new_best;
 	mp_node = listhead(mp_list);
 	debug = bgp_debug_bestpath(rn);
@@ -530,6 +530,7 @@ void bgp_path_info_mpath_update(struct bgp_node *rn,
 	if (old_best) {
 		cur_mpath = bgp_path_info_mpath_first(old_best);
 		old_mpath_count = bgp_path_info_mpath_count(old_best);
+		old_cum_bw = bgp_path_info_mpath_cumbw(old_best);
 		bgp_path_info_mpath_count_set(old_best, 0);
 		bgp_path_info_mpath_lb_update(old_best, false, false, 0);
 		bgp_path_info_mpath_dequeue(old_best);
@@ -537,9 +538,10 @@ void bgp_path_info_mpath_update(struct bgp_node *rn,
 
 	if (debug)
 		zlog_debug(
-			"%pRN: starting mpath update, newbest %s num candidates %d old-mpath-count %d",
+			"%pRN: starting mpath update, newbest %s num candidates %d old-mpath-count %d old-cum-bw u%" PRIu64,
 			rn, new_best ? new_best->peer->host : "NONE",
-			mp_list ? listcount(mp_list) : 0, old_mpath_count);
+			mp_list ? listcount(mp_list) : 0,
+			old_mpath_count, old_cum_bw);
 
 	/*
 	 * We perform an ordered walk through both lists in parallel.
@@ -728,6 +730,9 @@ void bgp_path_info_mpath_update(struct bgp_node *rn,
 		if (mpath_changed
 		    || (bgp_path_info_mpath_count(new_best) != old_mpath_count))
 			SET_FLAG(new_best->flags, BGP_PATH_MULTIPATH_CHG);
+		if ((mpath_count - 1) != old_mpath_count ||
+		    old_cum_bw != cum_bw)
+			SET_FLAG(new_best->flags, BGP_PATH_LINK_BW_CHG);
 	}
 }
 
@@ -752,6 +757,7 @@ void bgp_mp_dmed_deselect(struct bgp_path_info *dmed_best)
 
 	bgp_path_info_mpath_count_set(dmed_best, 0);
 	UNSET_FLAG(dmed_best->flags, BGP_PATH_MULTIPATH_CHG);
+	UNSET_FLAG(dmed_best->flags, BGP_PATH_LINK_BW_CHG);
 	assert(bgp_path_info_mpath_first(dmed_best) == NULL);
 }
 

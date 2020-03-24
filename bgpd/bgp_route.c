@@ -2394,7 +2394,8 @@ bool bgp_zebra_has_route_changed(struct bgp_node *rn,
 	 * when the best path has an attribute change anyway.
 	 */
 	if (CHECK_FLAG(selected->flags, BGP_PATH_IGP_CHANGED)
-	    || CHECK_FLAG(selected->flags, BGP_PATH_MULTIPATH_CHG))
+	    || CHECK_FLAG(selected->flags, BGP_PATH_MULTIPATH_CHG)
+	    || CHECK_FLAG(selected->flags, BGP_PATH_LINK_BW_CHG))
 		return true;
 
 	/*
@@ -2563,12 +2564,11 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 							   bgp, afi, safi);
 			}
 		}
-		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
-		bgp_zebra_clear_route_change_flags(rn);
 
 		/* If there is a change of interest to peers, reannounce the
 		 * route. */
 		if (CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED)
+		    || CHECK_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG)
 		    || CHECK_FLAG(rn->flags, BGP_NODE_LABEL_CHANGED)) {
 			group_announce_route(bgp, afi, safi, rn, new_select);
 
@@ -2583,6 +2583,9 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 			UNSET_FLAG(rn->flags, BGP_NODE_LABEL_CHANGED);
 		}
 
+		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
+		UNSET_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG);
+		bgp_zebra_clear_route_change_flags(rn);
 		UNSET_FLAG(rn->flags, BGP_NODE_PROCESS_SCHEDULED);
 		return;
 	}
@@ -2613,6 +2616,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 		bgp_path_info_set_flag(rn, new_select, BGP_PATH_SELECTED);
 		bgp_path_info_unset_flag(rn, new_select, BGP_PATH_ATTR_CHANGED);
 		UNSET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_CHG);
+		UNSET_FLAG(new_select->flags, BGP_PATH_LINK_BW_CHG);
 	}
 
 #if ENABLE_BGP_VNC
