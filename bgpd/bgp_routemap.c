@@ -2622,15 +2622,29 @@ static void *route_set_ecommunity_lb_compile(const char *arg)
 	struct rmap_ecomm_lb_set *rels;
 	uint8_t lb_type;
 	uint32_t bw = 0;
+	char bw_str[40] = {0};
+	char *p, *str;
+	bool non_trans = false;
 
-	if (strcmp(arg, "cumulative") == 0)
+	str = (char *)arg;
+	p = strchr(arg, ' ');
+	if (p) {
+		int len;
+
+		len = p - arg;
+		memcpy(bw_str, arg, len);
+		non_trans = true;
+		str = bw_str;
+	}
+
+	if (strcmp(str, "cumulative") == 0)
 		lb_type = RMAP_ECOMM_LB_SET_CUMUL;
-	else if (strcmp(arg, "num-multipaths") == 0)
+	else if (strcmp(str, "num-multipaths") == 0)
 		lb_type = RMAP_ECOMM_LB_SET_NUM_MPATH;
 	else {
 		char *end = NULL;
 
-		bw = strtoul(arg, &end, 10);
+		bw = strtoul(str, &end, 10);
 		if (*end != '\0')
 			return NULL;
 		lb_type = RMAP_ECOMM_LB_SET_VALUE;
@@ -2640,7 +2654,7 @@ static void *route_set_ecommunity_lb_compile(const char *arg)
 		       sizeof(struct rmap_ecomm_lb_set));
 	rels->lb_type = lb_type;
 	rels->bw = bw;
-	rels->non_trans = false;
+	rels->non_trans = non_trans;
 
 	return rels;
 }
