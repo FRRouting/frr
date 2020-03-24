@@ -595,8 +595,15 @@ int vrf_get_backend(void)
 
 int vrf_configure_backend(enum vrf_backend_type backend)
 {
-	if (backend < 0 || backend >= VRF_BACKEND_MAX)
+	/* Work around issue in old gcc */
+	switch (backend) {
+	case VRF_BACKEND_UNKNOWN:
+	case VRF_BACKEND_NETNS:
+	case VRF_BACKEND_VRF_LITE:
+		break;
+	default:
 		return -1;
+	}
 
 	vrf_backend = backend;
 	vrf_backend_configured = 1;
