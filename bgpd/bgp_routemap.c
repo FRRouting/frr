@@ -2531,6 +2531,106 @@ static const struct route_map_rule_cmd route_set_ecommunity_soo_cmd = {
 	route_set_ecommunity_free,
 };
 
+/* `set extcommunity bandwidth' */
+
+struct rmap_ecomm_lb_set {
+	uint8_t lb_type;
+#define RMAP_ECOMM_LB_SET_VALUE 1
+#define RMAP_ECOMM_LB_SET_CUMUL 2
+#define RMAP_ECOMM_LB_SET_NUM_MPATH 3
+	bool non_trans;
+	uint32_t bw;
+};
+
+static enum route_map_cmd_result_t
+route_set_ecommunity_lb(void *rule, const struct prefix *prefix,
+			route_map_object_t type, void *object)
+{
+	struct rmap_ecomm_lb_set *rels = rule;
+	struct bgp_path_info *path;
+	struct peer *peer;
+	struct ecommunity ecom_lb = {0};
+	struct ecommunity_val lb_eval;
+	uint32_t bw_bytes = 0;
+	struct ecommunity *new_ecom;
+	struct ecommunity *old_ecom;
+	as_t as;
+
+	if (type != RMAP_BGP)
+		return RMAP_OKAY;
+
+	path = object;
+	peer = path->peer;
+	if (!peer || !peer->bgp)
+		return RMAP_ERROR;
+
+	/* Build link bandwidth extended community */
+	as = (peer->bgp->as > BGP_AS_MAX) ? BGP_AS_TRANS : peer->bgp->as;
+	if (rels->lb_type == RMAP_ECOMM_LB_SET_VALUE)
+		bw_bytes = ((uint64_t)(rels->bw * 1000 * 1000))/8;
+
+	encode_lb_extcomm(as, bw_bytes, rels->non_trans, &lb_eval);
+	ecom_lb.size = 1;
+	ecom_lb.val = (uint8_t *)lb_eval.val;
+
+	/* add to route or merge with existing */
+	old_ecom = path->attr->ecommunity;
+	if (old_ecom) {
+		new_ecom = ecommunity_merge(ecommunity_dup(old_ecom), &ecom_lb);
+		if (!old_ecom->refcnt)
+			ecommunity_free(&old_ecom);
+	} else
+		new_ecom = ecommunity_dup(&ecom_lb);
+
+	/* new_ecom will be intern()'d or attr_flush()'d in call stack */
+	path->attr->ecommunity = new_ecom;
+	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
+
+
+	return RMAP_OKAY;
+}
+
+static void *route_set_ecommunity_lb_compile(const char *arg)
+{
+	struct rmap_ecomm_lb_set *rels;
+	uint8_t lb_type;
+	uint32_t bw = 0;
+
+	if (strcmp(arg, "cumulative") == 0)
+		lb_type = RMAP_ECOMM_LB_SET_CUMUL;
+	else if (strcmp(arg, "num-multipaths") == 0)
+		lb_type = RMAP_ECOMM_LB_SET_NUM_MPATH;
+	else {
+		char *end = NULL;
+
+		bw = strtoul(arg, &end, 10);
+		if (*end != '\0')
+			return NULL;
+		lb_type = RMAP_ECOMM_LB_SET_VALUE;
+	}
+
+	rels = XCALLOC(MTYPE_ROUTE_MAP_COMPILED,
+		       sizeof(struct rmap_ecomm_lb_set));
+	rels->lb_type = lb_type;
+	rels->bw = bw;
+	rels->non_trans = false;
+
+	return rels;
+}
+
+static void route_set_ecommunity_lb_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Set community rule structure. */
+struct route_map_rule_cmd route_set_ecommunity_lb_cmd = {
+	"extcommunity bandwidth",
+	route_set_ecommunity_lb,
+	route_set_ecommunity_lb_compile,
+	route_set_ecommunity_lb_free,
+};
+
 /* `set origin ORIGIN' */
 
 /* For origin set. */
@@ -5004,6 +5104,53 @@ ALIAS (no_set_ecommunity_soo,
        "GP extended community attribute\n"
        "Site-of-Origin extended community\n")
 
+DEFUN (set_ecommunity_lb,
+       set_ecommunity_lb_cmd,
+       "set extcommunity bandwidth <(1-25600)|cumulative|num-multipaths> [non-transitive]",
+       SET_STR
+       "BGP extended community attribute\n"
+       "Link bandwidth extended community\n"
+       "Bandwidth value in Mbps\n"
+       "Cumulative bandwidth of all multipaths (outbound-only)\n"
+       "Internally computed bandwidth based on number of multipaths (outbound-only)\n"
+       "Attribute is set as non-transitive\n")
+{
+	int idx_lb = 3;
+	int ret;
+	char *str;
+
+	str = argv_concat(argv, argc, idx_lb);
+	ret = generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
+			      "extcommunity bandwidth", str);
+	XFREE(MTYPE_TMP, str);
+	return ret;
+}
+
+
+DEFUN (no_set_ecommunity_lb,
+       no_set_ecommunity_lb_cmd,
+       "no set extcommunity bandwidth <(1-25600)|cumulative|num-multipaths> [non-transitive]",
+       NO_STR
+       SET_STR
+       "BGP extended community attribute\n"
+       "Link bandwidth extended community\n"
+       "Bandwidth value in Mbps\n"
+       "Cumulative bandwidth of all multipaths (outbound-only)\n"
+       "Internally computed bandwidth based on number of multipaths (outbound-only)\n"
+       "Attribute is set as non-transitive\n")
+{
+	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
+				  "extcommunity bandwidth", NULL);
+}
+
+ALIAS (no_set_ecommunity_lb,
+       no_set_ecommunity_lb_short_cmd,
+       "no set extcommunity bandwidth",
+       NO_STR
+       SET_STR
+       "BGP extended community attribute\n"
+       "Link bandwidth extended community\n")
+
 DEFUN (set_origin,
        set_origin_cmd,
        "set origin <egp|igp|incomplete>",
@@ -5549,6 +5696,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_originator_id_cmd);
 	route_map_install_set(&route_set_ecommunity_rt_cmd);
 	route_map_install_set(&route_set_ecommunity_soo_cmd);
+	route_map_install_set(&route_set_ecommunity_lb_cmd);
 	route_map_install_set(&route_set_tag_cmd);
 	route_map_install_set(&route_set_label_index_cmd);
 
@@ -5632,6 +5780,9 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_ecommunity_soo_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_soo_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_soo_short_cmd);
+	install_element(RMAP_NODE, &set_ecommunity_lb_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_lb_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_lb_short_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
 	install_element(RMAP_NODE, &set_vpn_nexthop_cmd);
 	install_element(RMAP_NODE, &no_set_vpn_nexthop_cmd);

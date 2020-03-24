@@ -151,6 +151,26 @@ static inline void encode_route_target_as4(as_t as, uint16_t val,
 	eval->val[7] = val & 0xff;
 }
 
+/*
+ * Encode BGP Link Bandwidth extended community
+ *  bandwidth (bw) is in bytes-per-sec
+ */
+static inline void encode_lb_extcomm(as_t as, uint32_t bw, bool non_trans,
+				     struct ecommunity_val *eval)
+{
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_AS;
+	if (non_trans)
+		eval->val[0] |= ECOMMUNITY_FLAG_NON_TRANSITIVE;
+	eval->val[1] = ECOMMUNITY_LINK_BANDWIDTH;
+	eval->val[2] = (as >> 8) & 0xff;
+	eval->val[3] = as & 0xff;
+	eval->val[4] = (bw >> 24) & 0xff;
+	eval->val[5] = (bw >> 16) & 0xff;
+	eval->val[6] = (bw >> 8) & 0xff;
+	eval->val[7] = bw & 0xff;
+}
+
 extern void ecommunity_init(void);
 extern void ecommunity_finish(void);
 extern void ecommunity_free(struct ecommunity **);
