@@ -2188,6 +2188,7 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 
 	/* Fetch interface address. */
 	STREAM_GETC(s, d.family);
+	p.family = d.family;
 	plen = prefix_blen(&d);
 
 	if (zclient_stream_get_prefix(s, &p) != 0)
