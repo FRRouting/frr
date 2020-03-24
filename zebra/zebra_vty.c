@@ -806,6 +806,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 		show_route_nexthop_helper(vty, re, nexthop);
 
+		if (nexthop->weight)
+			vty_out(vty, ", weight %u", nexthop->weight);
+
 		vty_out(vty, ", %s\n", up_str);
 
 		/* Check for backup info */
