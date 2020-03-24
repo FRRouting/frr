@@ -1805,8 +1805,9 @@ void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	vpn_leak_prechange(idir, afi, bgp_get_default(), to_bgp);
 
 	if (to_bgp->vpn_policy[afi].import_vrf->count == 0) {
-		UNSET_FLAG(to_bgp->af_flags[afi][safi],
-			   BGP_CONFIG_VRF_TO_VRF_IMPORT);
+		if (!to_bgp->vpn_policy[afi].rmap[idir])
+			UNSET_FLAG(to_bgp->af_flags[afi][safi],
+				   BGP_CONFIG_VRF_TO_VRF_IMPORT);
 		if (to_bgp->vpn_policy[afi].rtlist[idir])
 			ecommunity_free(&to_bgp->vpn_policy[afi].rtlist[idir]);
 	} else {

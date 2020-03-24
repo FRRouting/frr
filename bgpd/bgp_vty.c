@@ -7520,8 +7520,7 @@ ALIAS (af_route_map_vpn_imexport,
        "For routes leaked from current address-family to vpn\n")
 
 DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
-      "[no] import vrf route-map RMAP$rmap_str",
-      NO_STR
+      "import vrf route-map RMAP$rmap_str",
       "Import routes from another VRF\n"
       "Vrf routes being filtered\n"
       "Specify route map\n"
@@ -7530,12 +7529,7 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	vpn_policy_direction_t dir = BGP_VPN_POLICY_DIR_FROMVPN;
 	afi_t afi;
-	int idx = 0;
-	int yes = 1;
 	struct bgp *bgp_default;
-
-	if (argv_find(argv, argc, "no", &idx))
-		yes = 0;
 
 	afi = vpn_policy_getafi(vty, bgp, true);
 	if (afi == AFI_MAX)
@@ -7559,35 +7553,56 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 
 	vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
 
-	if (yes) {
-		if (bgp->vpn_policy[afi].rmap_name[dir])
-			XFREE(MTYPE_ROUTE_MAP_NAME,
-			      bgp->vpn_policy[afi].rmap_name[dir]);
-		bgp->vpn_policy[afi].rmap_name[dir] =
-			XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
-		bgp->vpn_policy[afi].rmap[dir] =
-			route_map_lookup_warn_noexist(vty, rmap_str);
-		if (!bgp->vpn_policy[afi].rmap[dir])
-			return CMD_SUCCESS;
-	} else {
-		if (bgp->vpn_policy[afi].rmap_name[dir])
-			XFREE(MTYPE_ROUTE_MAP_NAME,
-			      bgp->vpn_policy[afi].rmap_name[dir]);
-		bgp->vpn_policy[afi].rmap_name[dir] = NULL;
-		bgp->vpn_policy[afi].rmap[dir] = NULL;
-	}
+	if (bgp->vpn_policy[afi].rmap_name[dir])
+		XFREE(MTYPE_ROUTE_MAP_NAME,
+		      bgp->vpn_policy[afi].rmap_name[dir]);
+	bgp->vpn_policy[afi].rmap_name[dir] =
+		XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
+	bgp->vpn_policy[afi].rmap[dir] =
+		route_map_lookup_warn_noexist(vty, rmap_str);
+	if (!bgp->vpn_policy[afi].rmap[dir])
+		return CMD_SUCCESS;
+
+	SET_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+		 BGP_CONFIG_VRF_TO_VRF_IMPORT);
 
 	vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
 
 	return CMD_SUCCESS;
 }
 
-ALIAS(af_import_vrf_route_map, af_no_import_vrf_route_map_cmd,
-      "no import vrf route-map",
+DEFPY(af_no_import_vrf_route_map, af_no_import_vrf_route_map_cmd,
+      "no import vrf route-map [RMAP$rmap_str]",
       NO_STR
       "Import routes from another VRF\n"
       "Vrf routes being filtered\n"
-      "Specify route map\n")
+      "Specify route map\n"
+      "name of route-map\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	vpn_policy_direction_t dir = BGP_VPN_POLICY_DIR_FROMVPN;
+	afi_t afi;
+
+	afi = vpn_policy_getafi(vty, bgp, true);
+	if (afi == AFI_MAX)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
+
+	if (bgp->vpn_policy[afi].rmap_name[dir])
+		XFREE(MTYPE_ROUTE_MAP_NAME,
+		      bgp->vpn_policy[afi].rmap_name[dir]);
+	bgp->vpn_policy[afi].rmap_name[dir] = NULL;
+	bgp->vpn_policy[afi].rmap[dir] = NULL;
+
+	if (bgp->vpn_policy[afi].import_vrf->count == 0)
+		UNSET_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+			   BGP_CONFIG_VRF_TO_VRF_IMPORT);
+
+	vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
+
+	return CMD_SUCCESS;
+}
 
 DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
       "[no] import vrf VIEWVRFNAME$import_name",
@@ -7610,6 +7625,11 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 
 	if (import_name == NULL) {
 		vty_out(vty, "%% Missing import name\n");
+		return CMD_WARNING;
+	}
+
+	if (strcmp(import_name, "route-map") == 0) {
+		vty_out(vty, "%% Must include route-map name\n");
 		return CMD_WARNING;
 	}
 
@@ -14116,7 +14136,8 @@ static void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 	int indent = 2;
 
 	if (bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_FROMVPN]) {
-		if (listcount(bgp->vpn_policy[afi].import_vrf))
+		if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+			       BGP_CONFIG_VRF_TO_VRF_IMPORT))
 			vty_out(vty, "%*simport vrf route-map %s\n", indent, "",
 				bgp->vpn_policy[afi]
 				.rmap_name[BGP_VPN_POLICY_DIR_FROMVPN]);
