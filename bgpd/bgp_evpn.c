@@ -4297,13 +4297,14 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	return ret;
 }
 
-static void evpn_mpattr_encode_type5(struct stream *s, struct prefix *p,
-				     struct prefix_rd *prd, mpls_label_t *label,
-				     uint32_t num_labels, struct attr *attr)
+static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
+				     const struct prefix_rd *prd,
+				     mpls_label_t *label, uint32_t num_labels,
+				     struct attr *attr)
 {
 	int len;
 	char temp[16];
-	struct evpn_addr *p_evpn_p;
+	const struct evpn_addr *p_evpn_p;
 
 	memset(&temp, 0, 16);
 	if (p->family != AF_EVPN)
@@ -5030,8 +5031,8 @@ char *bgp_evpn_route2str(const struct prefix_evpn *p, char *buf, int len)
 /*
  * Encode EVPN prefix in Update (MP_REACH)
  */
-void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
-			    struct prefix_rd *prd, mpls_label_t *label,
+void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
+			    const struct prefix_rd *prd, mpls_label_t *label,
 			    uint32_t num_labels, struct attr *attr,
 			    int addpath_encode, uint32_t addpath_tx_id)
 {
@@ -6264,7 +6265,7 @@ void bgp_evpn_vrf_delete(struct bgp *bgp_vrf)
 /*
  * Get the prefixlen of the ip prefix carried within the type5 evpn route.
  */
-int bgp_evpn_get_type5_prefixlen(struct prefix *pfx)
+int bgp_evpn_get_type5_prefixlen(const struct prefix *pfx)
 {
 	struct prefix_evpn *evp = (struct prefix_evpn *)pfx;
 

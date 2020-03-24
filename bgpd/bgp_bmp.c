@@ -765,8 +765,8 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags)
 	stream_free(s);
 }
 
-static struct stream *bmp_update(struct prefix *p, struct peer *peer,
-		struct attr *attr, afi_t afi, safi_t safi)
+static struct stream *bmp_update(const struct prefix *p, struct peer *peer,
+				 struct attr *attr, afi_t afi, safi_t safi)
 {
 	struct bpacket_attr_vec_arr vecarr;
 	struct stream *s;
@@ -813,7 +813,8 @@ static struct stream *bmp_update(struct prefix *p, struct peer *peer,
 	return s;
 }
 
-static struct stream *bmp_withdraw(struct prefix *p, afi_t afi, safi_t safi)
+static struct stream *bmp_withdraw(const struct prefix *p, afi_t afi,
+				   safi_t safi)
 {
 	struct stream *s;
 	size_t attrlen_pos = 0, mp_start, mplen_pos;
@@ -853,7 +854,7 @@ static struct stream *bmp_withdraw(struct prefix *p, afi_t afi, safi_t safi)
 }
 
 static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
-			struct prefix *p, struct attr *attr, afi_t afi,
+			const struct prefix *p, struct attr *attr, afi_t afi,
 			safi_t safi, time_t uptime)
 {
 	struct stream *hdr, *msg;

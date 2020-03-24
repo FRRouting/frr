@@ -58,8 +58,9 @@ vnc_eti_get(struct bgp *bgp, vnc_export_type_t etype, const struct prefix *p,
 extern void vnc_eti_delete(struct vnc_export_info *goner);
 
 extern struct vnc_export_info *
-vnc_eti_checktimer(struct bgp *bgp, vnc_export_type_t etype, struct prefix *p,
-		   struct peer *peer, uint8_t type, uint8_t subtype);
+vnc_eti_checktimer(struct bgp *bgp, vnc_export_type_t etype,
+		   const struct prefix *p, struct peer *peer, uint8_t type,
+		   uint8_t subtype);
 
 
 #endif /* _QUAGGA_VNC_VNC_EXPORT_TABLE_H_ */

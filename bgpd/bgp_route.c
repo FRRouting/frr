@@ -1381,7 +1381,7 @@ static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 	return RMAP_PERMIT;
 }
 
-static int bgp_output_modifier(struct peer *peer, struct prefix *p,
+static int bgp_output_modifier(struct peer *peer, const struct prefix *p,
 			       struct attr *attr, afi_t afi, safi_t safi,
 			       const char *rmap_name)
 {
@@ -4910,7 +4910,7 @@ static void bgp_static_free(struct bgp_static *bgp_static)
 	XFREE(MTYPE_BGP_STATIC, bgp_static);
 }
 
-void bgp_static_update(struct bgp *bgp, struct prefix *p,
+void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 		       struct bgp_static *bgp_static, afi_t afi, safi_t safi)
 {
 	struct bgp_node *rn;
@@ -5139,7 +5139,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 	aspath_unintern(&attr.aspath);
 }
 
-void bgp_static_withdraw(struct bgp *bgp, struct prefix *p, afi_t afi,
+void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			 safi_t safi)
 {
 	struct bgp_node *rn;
@@ -5173,7 +5173,7 @@ void bgp_static_withdraw(struct bgp *bgp, struct prefix *p, afi_t afi,
 /*
  * Used for SAFI_MPLS_VPN and SAFI_ENCAP
  */
-static void bgp_static_withdraw_safi(struct bgp *bgp, struct prefix *p,
+static void bgp_static_withdraw_safi(struct bgp *bgp, const struct prefix *p,
 				     afi_t afi, safi_t safi,
 				     struct prefix_rd *prd)
 {
@@ -5208,7 +5208,7 @@ static void bgp_static_withdraw_safi(struct bgp *bgp, struct prefix *p,
 	bgp_unlock_node(rn);
 }
 
-static void bgp_static_update_safi(struct bgp *bgp, struct prefix *p,
+static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 				   struct bgp_static *bgp_static, afi_t afi,
 				   safi_t safi)
 {
@@ -6058,14 +6058,11 @@ static bool bgp_aggregate_info_same(struct bgp_path_info *pi, uint8_t origin,
 	return true;
 }
 
-static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
-				  struct prefix *p, uint8_t origin,
-				  struct aspath *aspath,
-				  struct community *community,
-				  struct ecommunity *ecommunity,
-				  struct lcommunity *lcommunity,
-				  uint8_t atomic_aggregate,
-				  struct bgp_aggregate *aggregate)
+static void bgp_aggregate_install(
+	struct bgp *bgp, afi_t afi, safi_t safi, const struct prefix *p,
+	uint8_t origin, struct aspath *aspath, struct community *community,
+	struct ecommunity *ecommunity, struct lcommunity *lcommunity,
+	uint8_t atomic_aggregate, struct bgp_aggregate *aggregate)
 {
 	struct bgp_node *rn;
 	struct bgp_table *table;
@@ -6142,9 +6139,8 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 }
 
 /* Update an aggregate as routes are added/removed from the BGP table */
-void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
-				afi_t afi, safi_t safi,
-				struct bgp_aggregate *aggregate)
+void bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
+			 safi_t safi, struct bgp_aggregate *aggregate)
 {
 	struct bgp_table *table;
 	struct bgp_node *top;
@@ -6314,8 +6310,8 @@ void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 			      aggregate);
 }
 
-void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
-				 safi_t safi, struct bgp_aggregate *aggregate)
+void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
+			  safi_t safi, struct bgp_aggregate *aggregate)
 {
 	struct bgp_table *table;
 	struct bgp_node *top;
@@ -6405,7 +6401,8 @@ void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 	bgp_unlock_node(top);
 }
 
-static void bgp_add_route_to_aggregate(struct bgp *bgp, struct prefix *aggr_p,
+static void bgp_add_route_to_aggregate(struct bgp *bgp,
+				       const struct prefix *aggr_p,
 				       struct bgp_path_info *pinew, afi_t afi,
 				       safi_t safi,
 				       struct bgp_aggregate *aggregate)
@@ -6511,7 +6508,7 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 					    safi_t safi,
 					    struct bgp_path_info *pi,
 					    struct bgp_aggregate *aggregate,
-					    struct prefix *aggr_p)
+					    const struct prefix *aggr_p)
 {
 	uint8_t origin;
 	struct aspath *aspath = NULL;
@@ -7934,8 +7931,9 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 }
 
 /* called from terminal list command */
-void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
-		       safi_t safi, bool use_json, json_object *json_ar)
+void route_vty_out_tmp(struct vty *vty, const struct prefix *p,
+		       struct attr *attr, safi_t safi, bool use_json,
+		       json_object *json_ar)
 {
 	json_object *json_status = NULL;
 	json_object *json_net = NULL;
@@ -8314,9 +8312,10 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 }
 
 /* dampening route */
-static void damp_route_vty_out(struct vty *vty, struct prefix *p,
-			       struct bgp_path_info *path, int display, afi_t afi,
-			       safi_t safi, bool use_json, json_object *json)
+static void damp_route_vty_out(struct vty *vty, const struct prefix *p,
+			       struct bgp_path_info *path, int display,
+			       afi_t afi, safi_t safi, bool use_json,
+			       json_object *json)
 {
 	struct attr *attr;
 	int len;
@@ -8378,9 +8377,10 @@ static void damp_route_vty_out(struct vty *vty, struct prefix *p,
 }
 
 /* flap route */
-static void flap_route_vty_out(struct vty *vty, struct prefix *p,
-			       struct bgp_path_info *path, int display, afi_t afi,
-			       safi_t safi, bool use_json, json_object *json)
+static void flap_route_vty_out(struct vty *vty, const struct prefix *p,
+			       struct bgp_path_info *path, int display,
+			       afi_t afi, safi_t safi, bool use_json,
+			       json_object *json)
 {
 	struct attr *attr;
 	struct bgp_damp_info *bdi;

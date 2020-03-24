@@ -898,7 +898,7 @@ int stream_put_prefix(struct stream *s, const struct prefix *p)
 }
 
 /* Put NLRI with label */
-int stream_put_labeled_prefix(struct stream *s, struct prefix *p,
+int stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
 			      mpls_label_t *label, int addpath_encode,
 			      uint32_t addpath_tx_id)
 {
