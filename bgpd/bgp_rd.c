@@ -76,7 +76,7 @@ void decode_rd_as4(const uint8_t *pnt, struct rd_as *rd_as)
 }
 
 /* type == RD_TYPE_IP */
-void decode_rd_ip(uint8_t *pnt, struct rd_ip *rd_ip)
+void decode_rd_ip(const uint8_t *pnt, struct rd_ip *rd_ip)
 {
 	memcpy(&rd_ip->ip, pnt, 4);
 	pnt += 4;

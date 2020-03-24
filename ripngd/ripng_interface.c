@@ -867,17 +867,12 @@ int ripng_network_write(struct vty *vty, struct ripng *ripng)
 	unsigned int i;
 	const char *ifname;
 	struct agg_node *node;
-	char buf[BUFSIZ];
 
 	/* Write enable network. */
 	for (node = agg_route_top(ripng->enable_network); node;
 	     node = agg_route_next(node))
-		if (node->info) {
-			struct prefix *p = &node->p;
-			vty_out(vty, "    %s/%d\n",
-				inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
-				p->prefixlen);
-		}
+		if (node->info)
+			vty_out(vty, "    %pRN\n", node);
 
 	/* Write enable interface. */
 	for (i = 0; i < vector_active(ripng->enable_if); i++)

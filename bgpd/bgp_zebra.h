@@ -36,8 +36,9 @@ extern void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 			       struct bgp_path_info *path, struct bgp *bgp,
 			       afi_t afi, safi_t safi);
 extern void bgp_zebra_announce_table(struct bgp *, afi_t, safi_t);
-extern void bgp_zebra_withdraw(struct prefix *p, struct bgp_path_info *path,
-			       struct bgp *bgp, safi_t safi);
+extern void bgp_zebra_withdraw(const struct prefix *p,
+			       struct bgp_path_info *path, struct bgp *bgp,
+			       safi_t safi);
 
 extern void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer);
 extern void bgp_zebra_terminate_radv(struct bgp *bgp, struct peer *peer);

@@ -158,7 +158,8 @@ int ripngd_instance_state_routes_route_get_keys(const void *list_entry,
 	const struct agg_node *rn = list_entry;
 
 	keys->num = 1;
-	(void)prefix2str(&rn->p, keys->key[0], sizeof(keys->key[0]));
+	(void)prefix2str(agg_node_get_prefix(rn), keys->key[0],
+			 sizeof(keys->key[0]));
 
 	return NB_OK;
 }
@@ -191,7 +192,7 @@ ripngd_instance_state_routes_route_prefix_get_elem(const char *xpath,
 	const struct agg_node *rn = list_entry;
 	const struct ripng_info *rinfo = listnode_head(rn->info);
 
-	return yang_data_new_ipv6p(xpath, &rinfo->rp->p);
+	return yang_data_new_ipv6p(xpath, agg_node_get_prefix(rinfo->rp));
 }
 
 /*

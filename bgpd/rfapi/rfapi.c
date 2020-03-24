@@ -355,7 +355,7 @@ int rfapi_check(void *handle)
 
 void del_vnc_route(struct rfapi_descriptor *rfd,
 		   struct peer *peer, /* rfd->peer for RFP regs */
-		   struct bgp *bgp, safi_t safi, struct prefix *p,
+		   struct bgp *bgp, safi_t safi, const struct prefix *p,
 		   struct prefix_rd *prd, uint8_t type, uint8_t sub_type,
 		   struct rfapi_nexthop *lnh, int kill)
 {
@@ -557,7 +557,7 @@ void rfapi_vn_options_free(struct rfapi_vn_option *p)
 
 /* Based on bgp_redistribute_add() */
 void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
-		   struct bgp *bgp, int safi, struct prefix *p,
+		   struct bgp *bgp, int safi, const struct prefix *p,
 		   struct prefix_rd *prd, struct rfapi_ip_addr *nexthop,
 		   uint32_t *local_pref,
 		   uint32_t *lifetime, /* NULL => dont send lifetime */

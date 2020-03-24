@@ -68,7 +68,7 @@ struct skiplist {
 	 * Returns -1 if val1 < val2, 0 if equal?, 1 if val1 > val2.
 	 * Used as definition of sorted for listnode_add_sort
 	 */
-	int (*cmp)(void *val1, void *val2);
+	int (*cmp)(const void *val1, const void *val2);
 
 	/* callback to free user-owned data when listnode is deleted. supplying
 	 * this callback is very much encouraged!
@@ -81,8 +81,9 @@ struct skiplist {
 extern struct skiplist *
 skiplist_new(/* encouraged: set list.del callback on new lists */
 	     int flags,
-	     int (*cmp)(void *key1, void *key2), /* NULL => default cmp */
-	     void (*del)(void *val));		 /* NULL => no auto val free */
+	     int (*cmp)(const void *key1,
+			const void *key2), /* NULL => default cmp */
+	     void (*del)(void *val));	   /* NULL => no auto val free */
 
 extern void skiplist_free(struct skiplist *);
 
@@ -96,12 +97,12 @@ extern int skiplist_search(register struct skiplist *l, register void *key,
 			   void **valuePointer);
 
 extern int skiplist_first_value(register struct skiplist *l, /* in */
-				register void *key,	  /* in */
-				void **valuePointer,	 /* in/out */
+				register const void *key,    /* in */
+				void **valuePointer,	     /* in/out */
 				void **cursor);		     /* out */
 
 extern int skiplist_next_value(register struct skiplist *l, /* in */
-			       register void *key,	  /* in */
+			       register const void *key,	  /* in */
 			       void **valuePointer,	 /* in/out */
 			       void **cursor);		    /* in/out */
 

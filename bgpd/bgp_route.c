@@ -116,7 +116,7 @@ DEFINE_HOOK(bgp_process,
 
 
 struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
-				  safi_t safi, struct prefix *p,
+				  safi_t safi, const struct prefix *p,
 				  struct prefix_rd *prd)
 {
 	struct bgp_node *rn;
@@ -1202,7 +1202,8 @@ int bgp_path_info_cmp_compatible(struct bgp *bgp, struct bgp_path_info *new,
 	return ret;
 }
 
-static enum filter_type bgp_input_filter(struct peer *peer, struct prefix *p,
+static enum filter_type bgp_input_filter(struct peer *peer,
+					 const struct prefix *p,
 					 struct attr *attr, afi_t afi,
 					 safi_t safi)
 {
@@ -1322,7 +1323,7 @@ static bool bgp_cluster_filter(struct peer *peer, struct attr *attr)
 	return false;
 }
 
-static int bgp_input_modifier(struct peer *peer, struct prefix *p,
+static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 			      struct attr *attr, afi_t afi, safi_t safi,
 			      const char *rmap_name, mpls_label_t *label,
 			      uint32_t num_labels, struct bgp_node *rn)
@@ -2096,7 +2097,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 	do_mpath =
 		(mpath_cfg->maxpaths_ebgp > 1 || mpath_cfg->maxpaths_ibgp > 1);
 
-	debug = bgp_debug_bestpath(&rn->p);
+	debug = bgp_debug_bestpath(rn);
 
 	if (debug)
 		prefix2str(&rn->p, pfx_buf, sizeof(pfx_buf));
@@ -2450,7 +2451,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
 		if (rn)
-			debug = bgp_debug_bestpath(&rn->p);
+			debug = bgp_debug_bestpath(rn);
 		if (debug) {
 			prefix2str(&rn->p, pfx_buf, sizeof(pfx_buf));
 			zlog_debug(
@@ -2477,7 +2478,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 
 	struct prefix *p = &rn->p;
 
-	debug = bgp_debug_bestpath(&rn->p);
+	debug = bgp_debug_bestpath(rn);
 	if (debug) {
 		prefix2str(&rn->p, pfx_buf, sizeof(pfx_buf));
 		zlog_debug("%s: p=%s afi=%s, safi=%s start", __func__, pfx_buf,
@@ -3258,7 +3259,7 @@ static bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 	return ret;
 }
 
-int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
+int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	       struct attr *attr, afi_t afi, safi_t safi, int type,
 	       int sub_type, struct prefix_rd *prd, mpls_label_t *label,
 	       uint32_t num_labels, int soft_reconfig,
@@ -4027,7 +4028,7 @@ filtered:
 	return 0;
 }
 
-int bgp_withdraw(struct peer *peer, struct prefix *p, uint32_t addpath_id,
+int bgp_withdraw(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 struct attr *attr, afi_t afi, safi_t safi, int type,
 		 int sub_type, struct prefix_rd *prd, mpls_label_t *label,
 		 uint32_t num_labels, struct bgp_route_evpn *evpn)
@@ -6614,7 +6615,7 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 			      lcommunity, atomic_aggregate, aggregate);
 }
 
-void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
+void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p,
 			     struct bgp_path_info *pi, afi_t afi, safi_t safi)
 {
 	struct bgp_node *child;
@@ -6647,7 +6648,7 @@ void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 	bgp_unlock_node(child);
 }
 
-void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
+void bgp_aggregate_decrement(struct bgp *bgp, const struct prefix *p,
 			     struct bgp_path_info *del, afi_t afi, safi_t safi)
 {
 	struct bgp_node *child;

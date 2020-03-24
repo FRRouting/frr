@@ -1087,7 +1087,8 @@ void ripng_redistribute_withdraw(struct ripng *ripng, int type)
 
 				if (IS_RIPNG_DEBUG_EVENT) {
 					struct prefix_ipv6 *p =
-						(struct prefix_ipv6 *)&rp->p;
+						(struct prefix_ipv6 *)
+							agg_node_get_prefix(rp);
 
 					zlog_debug(
 						"Poisone %s/%d on the interface %s [withdraw]",
@@ -1619,7 +1620,7 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 			 * following
 			 * information.
 			 */
-			p = (struct prefix_ipv6 *)&rp->p;
+			p = (struct prefix_ipv6 *)agg_node_get_prefix(rp);
 			rinfo->metric_out = rinfo->metric;
 			rinfo->tag_out = rinfo->tag;
 			memset(&rinfo->nexthop_out, 0,
@@ -1761,7 +1762,7 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 			 * following
 			 * information.
 			 */
-			p = (struct prefix_ipv6 *)&rp->p;
+			p = (struct prefix_ipv6 *)agg_node_get_prefix(rp);
 			aggregate->metric_set = 0;
 			aggregate->metric_out = aggregate->metric;
 			aggregate->tag_out = aggregate->tag;
@@ -2053,7 +2054,6 @@ DEFUN (show_ipv6_ripng,
 	struct agg_node *rp;
 	struct ripng_info *rinfo;
 	struct ripng_aggregate *aggregate;
-	struct prefix_ipv6 *p;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL;
 	int len;
@@ -2085,15 +2085,11 @@ DEFUN (show_ipv6_ripng,
 
 	for (rp = agg_route_top(ripng->table); rp; rp = agg_route_next(rp)) {
 		if ((aggregate = rp->aggregate) != NULL) {
-			p = (struct prefix_ipv6 *)&rp->p;
-
 #ifdef DEBUG
-			vty_out(vty, "R(a) %d/%d %s/%d ", aggregate->count,
-				aggregate->suppress, inet6_ntoa(p->prefix),
-				p->prefixlen);
+			vty_out(vty, "R(a) %d/%d %pRN ", aggregate->count,
+				aggregate->suppress, rp);
 #else
-			vty_out(vty, "R(a) %s/%d ", inet6_ntoa(p->prefix),
-				p->prefixlen);
+			vty_out(vty, "R(a) %pRN ", rp);
 #endif /* DEBUG */
 			vty_out(vty, "\n");
 			vty_out(vty, "%*s", 18, " ");
@@ -2105,19 +2101,15 @@ DEFUN (show_ipv6_ripng,
 
 		if ((list = rp->info) != NULL)
 			for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
-				p = (struct prefix_ipv6 *)&rp->p;
-
 #ifdef DEBUG
-				vty_out(vty, "%c(%s) 0/%d %s/%d ",
+				vty_out(vty, "%c(%s) 0/%d %pRN ",
 					zebra_route_char(rinfo->type),
 					ripng_route_subtype_print(rinfo),
-					rinfo->suppress, inet6_ntoa(p->prefix),
-					p->prefixlen);
+					rinfo->suppress, rp);
 #else
-				vty_out(vty, "%c(%s) %s/%d ",
+				vty_out(vty, "%c(%s) %pRN ",
 					zebra_route_char(rinfo->type),
-					ripng_route_subtype_print(rinfo),
-					inet6_ntoa(p->prefix), p->prefixlen);
+					ripng_route_subtype_print(rinfo), rp);
 #endif /* DEBUG */
 				vty_out(vty, "\n");
 				vty_out(vty, "%*s", 18, " ");

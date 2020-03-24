@@ -147,7 +147,7 @@ extern void rfapi_rib_key_init(struct prefix *prefix, /* may be NULL */
 			       struct prefix *aux,    /* may be NULL */
 			       struct rfapi_rib_key *rk);
 
-extern int rfapi_rib_key_cmp(void *k1, void *k2);
+extern int rfapi_rib_key_cmp(const void *k1, const void *k2);
 
 extern void rfapiAdbFree(struct rfapi_adb *adb);
 

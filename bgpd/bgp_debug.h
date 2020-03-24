@@ -168,7 +168,7 @@ extern int bgp_debug_neighbor_events(struct peer *peer);
 extern int bgp_debug_keepalive(struct peer *peer);
 extern bool bgp_debug_update(struct peer *peer, const struct prefix *p,
 			     struct update_group *updgrp, unsigned int inbound);
-extern bool bgp_debug_bestpath(struct prefix *p);
+extern bool bgp_debug_bestpath(struct bgp_node *rn);
 extern bool bgp_debug_zebra(const struct prefix *p);
 
 extern const char *bgp_debug_rdpfxpath2str(afi_t, safi_t, struct prefix_rd *,
