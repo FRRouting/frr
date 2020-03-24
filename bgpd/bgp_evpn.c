@@ -744,6 +744,7 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 	bgp_encap_types tnl_type;
 	struct listnode *node, *nnode;
 	struct ecommunity *ecom;
+	struct ecommunity *old_ecom;
 	struct list *vrf_export_rtl = NULL;
 
 	/* Encap */
@@ -754,7 +755,14 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 	ecom_encap.val = (uint8_t *)eval.val;
 
 	/* Add Encap */
-	attr->ecommunity = ecommunity_dup(&ecom_encap);
+	if (attr->ecommunity) {
+		old_ecom = attr->ecommunity;
+		ecom = ecommunity_merge(ecommunity_dup(old_ecom), &ecom_encap);
+		if (!old_ecom->refcnt)
+			ecommunity_free(&old_ecom);
+	} else
+		ecom = ecommunity_dup(&ecom_encap);
+	attr->ecommunity = ecom;
 
 	/* Add the export RTs for L3VNI/VRF */
 	vrf_export_rtl = bgp_vrf->vrf_export_rtl;
