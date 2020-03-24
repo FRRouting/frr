@@ -260,6 +260,15 @@ class Config(object):
                     not line):
                 continue
 
+            # some config lines appear for all daemons, which is an issue when computing the diff per-daemon
+            # so skip those if daemon is set and it's not zebra
+            if daemon and daemon is not "zebra":
+                if (line.startswith("ip prefix-list") or
+                        line.startswith("ipv6 prefix-list") or
+                        line.startswith("route-map") or
+                        line.startswith("access-list")):
+                    continue
+
             self.lines.append(line)
 
         self.load_contexts()
