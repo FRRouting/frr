@@ -1666,6 +1666,23 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 		/* Kernel supports nexthop objects */
 		addattr32(&req.n, sizeof(req), RTA_NH_ID,
 			  dplane_ctx_get_nhe_id(ctx));
+
+		/* Have to determine src still */
+		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
+			if (setsrc)
+				break;
+
+			setsrc = nexthop_set_src(nexthop, family, &src);
+		}
+
+		if (setsrc) {
+			if (family == AF_INET)
+				addattr_l(&req.n, sizeof(req), RTA_PREFSRC,
+					  &src.ipv4, bytelen);
+			else if (family == AF_INET6)
+				addattr_l(&req.n, sizeof(req), RTA_PREFSRC,
+					  &src.ipv6, bytelen);
+		}
 		goto skip;
 	}
 
