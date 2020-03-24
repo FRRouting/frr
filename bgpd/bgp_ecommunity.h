@@ -238,6 +238,8 @@ extern void bgp_remove_ecomm_from_aggregate_hash(
 extern void bgp_aggr_ecommunity_remove(void *arg);
 extern const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom,
 						uint32_t *bw);
+extern struct ecommunity *ecommunity_replace_linkbw(as_t as,
+				struct ecommunity *ecom, uint64_t cum_bw);
 
 static inline void ecommunity_strip_rts(struct ecommunity *ecom)
 {

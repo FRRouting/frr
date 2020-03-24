@@ -2609,6 +2609,10 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix,
 	path->attr->ecommunity = new_ecom;
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 
+	/* Mark that route-map has set link bandwidth; used in attribute
+	 * setting decisions.
+	 */
+	SET_FLAG(path->attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET);
 
 	return RMAP_OKAY;
 }

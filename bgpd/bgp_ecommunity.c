@@ -1268,3 +1268,44 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint32_t *bw)
 
 	return NULL;
 }
+
+
+struct ecommunity *ecommunity_replace_linkbw(as_t as,
+					     struct ecommunity *ecom,
+					     uint64_t cum_bw)
+{
+	struct ecommunity *new;
+	struct ecommunity_val lb_eval;
+	const uint8_t *eval;
+	uint8_t type;
+	uint32_t cur_bw;
+
+	/* Nothing to replace if link-bandwidth doesn't exist or
+	 * is non-transitive - just return existing extcommunity.
+	 */
+	new = ecom;
+	if (!ecom || !ecom->size)
+		return new;
+
+	eval = ecommunity_linkbw_present(ecom, &cur_bw);
+	if (!eval)
+		return new;
+
+	type = *eval;
+	if (type & ECOMMUNITY_FLAG_NON_TRANSITIVE)
+		return new;
+
+	/* Transitive link-bandwidth exists, replace with the passed
+	 * (cumulative) bandwidth value. We need to create a new
+	 * extcommunity for this - refer to AS-Path replace function
+	 * for reference.
+	 */
+	if (cum_bw > 0xFFFFFFFF)
+		cum_bw = 0xFFFFFFFF;
+	encode_lb_extcomm(as > BGP_AS_MAX ? BGP_AS_TRANS : as, cum_bw,
+			  false, &lb_eval);
+	new = ecommunity_dup(ecom);
+	ecommunity_add_val(new, &lb_eval, true, true);
+
+	return new;
+}
