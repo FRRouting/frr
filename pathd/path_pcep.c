@@ -411,6 +411,9 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 				if (PCEP_DEFAULT_PORT != pce_opts->port)
 					csnprintfrr(buff, sizeof(buff),
 					            " port %d", pce_opts->port);
+				if (true == pce_opts->draft07)
+					csnprintfrr(buff, sizeof(buff),
+					            " sr-draft07");
 				vty_out(vty, " pce ip %pI4%s\n",
 				        &pce_opts->addr, buff);
 				buff[0] = 0;
