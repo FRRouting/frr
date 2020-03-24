@@ -390,7 +390,7 @@ uint32_t bgp_path_info_mpath_count(struct bgp_path_info *path)
  * Sets the count of multipaths into bestpath's mpath element
  */
 static void bgp_path_info_mpath_count_set(struct bgp_path_info *path,
-					  uint32_t count)
+					  uint16_t count)
 {
 	struct bgp_path_info_mpath *mpath;
 	if (!count && !path->mpath)

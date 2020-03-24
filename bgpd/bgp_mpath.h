@@ -36,10 +36,18 @@ struct bgp_path_info_mpath {
 	struct bgp_path_info *mp_info;
 
 	/* When attached to best path, the number of selected multipaths */
-	uint32_t mp_count;
+	uint16_t mp_count;
+
+	/* Flags - relevant as noted. */
+	uint16_t mp_flags;
+/* Attached to best path, indicates that all multipaths have link-bandwidth */
+#define BGP_MP_LB_ALL 0x1
 
 	/* Aggregated attribute for advertising multipath route */
 	struct attr *mp_attr;
+
+	/* Cumulative bandiwdth of all multipaths - attached to best path. */
+	uint64_t cum_bw;
 };
 
 /* Functions to support maximum-paths configuration */
