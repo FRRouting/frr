@@ -1411,7 +1411,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		if (!ifp) {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
-					"\t%s: Onlink and interface: %u[%u] does not exist",
+					"        %s: Onlink and interface: %u[%u] does not exist",
 					__func__, nexthop->ifindex,
 					nexthop->vrf_id);
 			return 0;
@@ -1422,14 +1422,14 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
-					"\t%s: Onlink and interface %s is not operative",
+					"        %s: Onlink and interface %s is not operative",
 					__func__, ifp->name);
 			return 0;
 		}
 		if (!if_is_operative(ifp)) {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
-					"\t%s: Interface %s is not unnumbered",
+					"        %s: Interface %s is not unnumbered",
 					__func__, ifp->name);
 			return 0;
 		}
@@ -1441,7 +1441,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		&& memcmp(&nexthop->gate.ipv6, &top->p.u.prefix6, 16) == 0)) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
-				"\t:%s: Attempting to install a max prefixlength route through itself",
+				"        :%s: Attempting to install a max prefixlength route through itself",
 				__func__);
 		return 0;
 	}
@@ -1469,7 +1469,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	zvrf = zebra_vrf_lookup_by_id(nexthop->vrf_id);
 	if (!table || !zvrf) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug("\t%s: Table not found", __func__);
+			zlog_debug("        %s: Table not found", __func__);
 		return 0;
 	}
 
@@ -1487,7 +1487,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			    || ((afi == AFI_IP6) && (rn->p.prefixlen != 128))) {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 					zlog_debug(
-						"\t%s: Matched against ourself and prefix length is not max bit length",
+						"        %s: Matched against ourself and prefix length is not max bit length",
 						__func__);
 				return 0;
 			}
@@ -1500,7 +1500,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		    && !rnh_resolve_via_default(zvrf, p.family)) {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
-					"\t:%s: Resolved against default route",
+					"        :%s: Resolved against default route",
 					__func__);
 			return 0;
 		}
@@ -1552,8 +1552,9 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				re->nexthop_mtu = match->mtu;
 
 			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
-				zlog_debug("\t%s: Recursion failed to find",
-					   __func__);
+				zlog_debug(
+					"        %s: Recursion failed to find",
+					__func__);
 			return resolved;
 		} else if (re->type == ZEBRA_ROUTE_STATIC) {
 			resolved = 0;
@@ -1574,24 +1575,25 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
-					"\t%s: Static route unable to resolve",
+					"        %s: Static route unable to resolve",
 					__func__);
 			return resolved;
 		} else {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 				zlog_debug(
-					"\t%s: Route Type %s has not turned on recursion",
+					"        %s: Route Type %s has not turned on recursion",
 					__func__, zebra_route_string(re->type));
 				if (re->type == ZEBRA_ROUTE_BGP
 				    && !CHECK_FLAG(re->flags, ZEBRA_FLAG_IBGP))
 					zlog_debug(
-						"\tEBGP: see \"disable-ebgp-connected-route-check\" or \"disable-connected-check\"");
+						"        EBGP: see \"disable-ebgp-connected-route-check\" or \"disable-connected-check\"");
 			}
 			return 0;
 		}
 	}
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("\t%s: Nexthop did not lookup in table", __func__);
+		zlog_debug("        %s: Nexthop did not lookup in table",
+			   __func__);
 	return 0;
 }
 
@@ -1683,8 +1685,9 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	}
 	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug("\t%s: Unable to find a active nexthop",
-				   __func__);
+			zlog_debug(
+				"        %s: Unable to find a active nexthop",
+				__func__);
 		return 0;
 	}
 
@@ -1713,7 +1716,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	zvrf = zebra_vrf_lookup_by_id(nexthop->vrf_id);
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug("\t%s: zvrf is NULL", __func__);
+			zlog_debug("        %s: zvrf is NULL", __func__);
 		return CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
 

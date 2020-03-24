@@ -268,7 +268,7 @@ void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 	/* Add DISTANCE_INFINITY check. */
 	if (old_re && (old_re->distance == DISTANCE_INFINITY)) {
 		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("\tSkipping due to Infinite Distance");
+			zlog_debug("        Skipping due to Infinite Distance");
 		return;
 	}
 

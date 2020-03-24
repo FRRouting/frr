@@ -2676,7 +2676,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 
 	if (filter_vlan && vid != filter_vlan) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("\tFiltered due to filter vlan: %d",
+			zlog_debug("        Filtered due to filter vlan: %d",
 				   filter_vlan);
 		return 0;
 	}
@@ -2690,8 +2690,9 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
                 /* Drop "permanent" entries. */
                 if (ndm->ndm_state & NUD_PERMANENT) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("\tDropping entry because of NUD_PERMANENT");
-                        return 0;
+				zlog_debug(
+					"        Dropping entry because of NUD_PERMANENT");
+			return 0;
 		}
 
 		if (IS_ZEBRA_IF_VXLAN(ifp))

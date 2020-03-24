@@ -178,7 +178,7 @@ static int parse_peer_config(struct json_object *jo, struct bfd_peer_cfg *bpc)
 	int family_type = (bpc->bpc_ipv4) ? AF_INET : AF_INET6;
 	int error = 0;
 
-	log_debug("\tpeer: %s", bpc->bpc_ipv4 ? "ipv4" : "ipv6");
+	log_debug("        peer: %s", bpc->bpc_ipv4 ? "ipv4" : "ipv6");
 
 	JSON_FOREACH (jo, joi, join) {
 		key = json_object_iter_peek_name(&joi);
@@ -186,7 +186,7 @@ static int parse_peer_config(struct json_object *jo, struct bfd_peer_cfg *bpc)
 
 		if (strcmp(key, "multihop") == 0) {
 			bpc->bpc_mhop = json_object_get_boolean(jo_val);
-			log_debug("\tmultihop: %s",
+			log_debug("        multihop: %s",
 				  bpc->bpc_mhop ? "true" : "false");
 		} else if (strcmp(key, "peer-address") == 0) {
 			sval = json_object_get_string(jo_val);
@@ -197,7 +197,7 @@ static int parse_peer_config(struct json_object *jo, struct bfd_peer_cfg *bpc)
 					__func__, __LINE__, sval);
 				error++;
 			}
-			log_debug("\tpeer-address: %s", sval);
+			log_debug("        peer-address: %s", sval);
 		} else if (strcmp(key, "local-address") == 0) {
 			sval = json_object_get_string(jo_val);
 			if (strtosa(sval, &bpc->bpc_local) != 0
@@ -208,18 +208,19 @@ static int parse_peer_config(struct json_object *jo, struct bfd_peer_cfg *bpc)
 					__func__, __LINE__, sval);
 				error++;
 			}
-			log_debug("\tlocal-address: %s", sval);
+			log_debug("        local-address: %s", sval);
 		} else if (strcmp(key, "local-interface") == 0) {
 			bpc->bpc_has_localif = true;
 			sval = json_object_get_string(jo_val);
 			if (strlcpy(bpc->bpc_localif, sval,
 				    sizeof(bpc->bpc_localif))
 			    > sizeof(bpc->bpc_localif)) {
-				log_debug("\tlocal-interface: %s (truncated)",
-					  sval);
+				log_debug(
+					"        local-interface: %s (truncated)",
+					sval);
 				error++;
 			} else {
-				log_debug("\tlocal-interface: %s", sval);
+				log_debug("        local-interface: %s", sval);
 			}
 		} else if (strcmp(key, "vrf-name") == 0) {
 			bpc->bpc_has_vrfname = true;
@@ -227,43 +228,44 @@ static int parse_peer_config(struct json_object *jo, struct bfd_peer_cfg *bpc)
 			if (strlcpy(bpc->bpc_vrfname, sval,
 				    sizeof(bpc->bpc_vrfname))
 			    > sizeof(bpc->bpc_vrfname)) {
-				log_debug("\tvrf-name: %s (truncated)", sval);
+				log_debug("        vrf-name: %s (truncated)",
+					  sval);
 				error++;
 			} else {
-				log_debug("\tvrf-name: %s", sval);
+				log_debug("        vrf-name: %s", sval);
 			}
 		} else if (strcmp(key, "detect-multiplier") == 0) {
 			bpc->bpc_detectmultiplier =
 				json_object_get_int64(jo_val);
 			bpc->bpc_has_detectmultiplier = true;
-			log_debug("\tdetect-multiplier: %u",
+			log_debug("        detect-multiplier: %u",
 				  bpc->bpc_detectmultiplier);
 		} else if (strcmp(key, "receive-interval") == 0) {
 			bpc->bpc_recvinterval = json_object_get_int64(jo_val);
 			bpc->bpc_has_recvinterval = true;
-			log_debug("\treceive-interval: %llu",
+			log_debug("        receive-interval: %llu",
 				  bpc->bpc_recvinterval);
 		} else if (strcmp(key, "transmit-interval") == 0) {
 			bpc->bpc_txinterval = json_object_get_int64(jo_val);
 			bpc->bpc_has_txinterval = true;
-			log_debug("\ttransmit-interval: %llu",
+			log_debug("        transmit-interval: %llu",
 				  bpc->bpc_txinterval);
 		} else if (strcmp(key, "echo-interval") == 0) {
 			bpc->bpc_echointerval = json_object_get_int64(jo_val);
 			bpc->bpc_has_echointerval = true;
-			log_debug("\techo-interval: %llu",
+			log_debug("        echo-interval: %llu",
 				  bpc->bpc_echointerval);
 		} else if (strcmp(key, "create-only") == 0) {
 			bpc->bpc_createonly = json_object_get_boolean(jo_val);
-			log_debug("\tcreate-only: %s",
+			log_debug("        create-only: %s",
 				  bpc->bpc_createonly ? "true" : "false");
 		} else if (strcmp(key, "shutdown") == 0) {
 			bpc->bpc_shutdown = json_object_get_boolean(jo_val);
-			log_debug("\tshutdown: %s",
+			log_debug("        shutdown: %s",
 				  bpc->bpc_shutdown ? "true" : "false");
 		} else if (strcmp(key, "echo-mode") == 0) {
 			bpc->bpc_echo = json_object_get_boolean(jo_val);
-			log_debug("\techo-mode: %s",
+			log_debug("        echo-mode: %s",
 				  bpc->bpc_echo ? "true" : "false");
 		} else if (strcmp(key, "label") == 0) {
 			bpc->bpc_has_label = true;
@@ -271,10 +273,11 @@ static int parse_peer_config(struct json_object *jo, struct bfd_peer_cfg *bpc)
 			if (strlcpy(bpc->bpc_label, sval,
 				    sizeof(bpc->bpc_label))
 			    > sizeof(bpc->bpc_label)) {
-				log_debug("\tlabel: %s (truncated)", sval);
+				log_debug("        label: %s (truncated)",
+					  sval);
 				error++;
 			} else {
-				log_debug("\tlabel: %s", sval);
+				log_debug("        label: %s", sval);
 			}
 		} else {
 			sval = json_object_get_string(jo_val);
@@ -309,7 +312,7 @@ static int parse_peer_label_config(struct json_object *jo,
 	if (pl == NULL)
 		return 1;
 
-	log_debug("\tpeer-label: %s", sval);
+	log_debug("        peer-label: %s", sval);
 
 	/* Translate the label into BFD address keys. */
 	bs_to_bpc(pl->pl_bs, bpc);
