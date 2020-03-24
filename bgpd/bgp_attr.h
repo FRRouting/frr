@@ -250,6 +250,9 @@ struct attr {
 
 	/* rmap set table */
 	uint32_t rmap_table_id;
+
+	/* Link bandwidth value, if any. */
+	uint32_t link_bw;
 };
 
 /* rmap_change_flags definition */
@@ -409,5 +412,4 @@ static inline uint32_t mac_mobility_seqnum(struct attr *attr)
 {
 	return (attr) ? attr->mm_seqnum : 0;
 }
-
 #endif /* _QUAGGA_BGP_ATTR_H */
