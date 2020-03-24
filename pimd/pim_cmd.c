@@ -5807,7 +5807,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty,
 			"       R - RP-bit set, F - Register flag, T - SPT-bit set\n");
 		vty_out(vty,
-			"\nSource          Group           Flags       Proto  Input            Output           TTL  Uptime\n");
+			"\nSource          Group           Flags   Proto  Input            Output           TTL  Uptime\n");
 	}
 
 	now = pim_time_monotonic_sec();
