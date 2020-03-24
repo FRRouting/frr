@@ -1228,59 +1228,47 @@ int proto_redistnum(int afi, const char *s)
 	return -1;
 }
 
-void zlog_hexdump(const void *mem, unsigned int len)
+void zlog_hexdump(const void *mem, size_t len)
 {
-	unsigned long i = 0;
-	unsigned int j = 0;
-	unsigned int columns = 8;
-	/*
-	 * 19 bytes for 0xADDRESS:
-	 * 24 bytes for data; 2 chars plus a space per data byte
-	 *  1 byte for space
-	 *  8 bytes for ASCII representation
-	 *  1 byte for a newline
-	 * =====================
-	 * 53 bytes per 8 bytes of data
-	 *  1 byte for null term
-	 */
-	size_t bs = ((len / 8) + 1) * 53 + 1;
-	char buf[bs];
-	char *s = buf;
-	const unsigned char *memch = mem;
+	char line[64];
+	const uint8_t *src = mem;
+	const uint8_t *end = src + len;
 
-	memset(buf, 0, sizeof(buf));
-
-	for (i = 0; i < len + ((len % columns) ? (columns - len % columns) : 0);
-	     i++) {
-		/* print offset */
-		if (i % columns == 0)
-			s += snprintf(s, bs - (s - buf),
-				      "0x%016lx: ", (unsigned long)memch + i);
-
-		/* print hex data */
-		if (i < len)
-			s += snprintf(s, bs - (s - buf), "%02x ", memch[i]);
-
-		/* end of block, just aligning for ASCII dump */
-		else
-			s += snprintf(s, bs - (s - buf), "   ");
-
-		/* print ASCII dump */
-		if (i % columns == (columns - 1)) {
-			for (j = i - (columns - 1); j <= i; j++) {
-				/* end of block not really printing */
-				if (j >= len)
-					s += snprintf(s, bs - (s - buf), " ");
-				else if (isprint(memch[j]))
-					s += snprintf(s, bs - (s - buf), "%c",
-						      memch[j]);
-				else /* other char */
-					s += snprintf(s, bs - (s - buf), ".");
-			}
-			s += snprintf(s, bs - (s - buf), "\n");
-		}
+	if (len == 0) {
+		zlog_debug("%016lx: (zero length / no data)", (long)src);
+		return;
 	}
-	zlog_debug("\n%s", buf);
+
+	while (src < end) {
+		struct fbuf fb = {
+			.buf = line,
+			.pos = line,
+			.len = sizeof(line),
+		};
+		const uint8_t *lineend = src + 8;
+		unsigned line_bytes = 0;
+
+		bprintfrr(&fb, "%016lx: ", (long)src);
+
+		while (src < lineend && src < end) {
+			bprintfrr(&fb, "%02x ", *src++);
+			line_bytes++;
+		}
+		if (line_bytes < 8)
+			bprintfrr(&fb, "%*s", (8 - line_bytes) * 3, "");
+
+		src -= line_bytes;
+		while (src < lineend && src < end && fb.pos < fb.buf + fb.len) {
+			uint8_t byte = *src++;
+
+			if (isprint(byte))
+				*fb.pos++ = byte;
+			else
+				*fb.pos++ = '.';
+		}
+
+		zlog_debug("%.*s", (int)(fb.pos - fb.buf), fb.buf);
+	}
 }
 
 const char *zlog_sanitize(char *buf, size_t bufsz, const void *in, size_t inlen)
