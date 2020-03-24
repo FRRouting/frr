@@ -738,7 +738,6 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 					   struct attr *attr)
 {
 	struct ecommunity ecom_encap;
-	struct ecommunity ecom_rmac;
 	struct ecommunity_val eval;
 	struct ecommunity_val eval_rmac;
 	bgp_encap_types tnl_type;
@@ -772,12 +771,8 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 
 	/* add the router mac extended community */
 	if (!is_zero_mac(&attr->rmac)) {
-		memset(&ecom_rmac, 0, sizeof(ecom_rmac));
 		encode_rmac_extcomm(&eval_rmac, &attr->rmac);
-		ecom_rmac.size = 1;
-		ecom_rmac.val = (uint8_t *)eval_rmac.val;
-		attr->ecommunity =
-			ecommunity_merge(attr->ecommunity, &ecom_rmac);
+		ecommunity_add_val(attr->ecommunity, &eval_rmac, true, true);
 	}
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
@@ -799,7 +794,6 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 	struct ecommunity ecom_encap;
 	struct ecommunity ecom_sticky;
 	struct ecommunity ecom_default_gw;
-	struct ecommunity ecom_rmac;
 	struct ecommunity ecom_na;
 	struct ecommunity_val eval;
 	struct ecommunity_val eval_sticky;
@@ -853,12 +847,8 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 
 	/* Add RMAC, if told to. */
 	if (add_l3_ecomm) {
-		memset(&ecom_rmac, 0, sizeof(ecom_rmac));
 		encode_rmac_extcomm(&eval_rmac, &attr->rmac);
-		ecom_rmac.size = 1;
-		ecom_rmac.val = (uint8_t *)eval_rmac.val;
-		attr->ecommunity =
-			ecommunity_merge(attr->ecommunity, &ecom_rmac);
+		ecommunity_add_val(attr->ecommunity, &eval_rmac, true, true);
 	}
 
 	/* Add default gateway, if needed. */
