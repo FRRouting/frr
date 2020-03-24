@@ -811,7 +811,7 @@ static int add_tcp_cache(const char *host, const char *port,
 {
 	struct rtr_socket *rtr_socket;
 	struct tr_tcp_config *tcp_config =
-		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_tcp_config));
+		XCALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_tcp_config));
 	struct tr_socket *tr_socket =
 		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_socket));
 	struct cache *cache =
@@ -845,7 +845,7 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 			 const uint8_t preference)
 {
 	struct tr_ssh_config *ssh_config =
-		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_ssh_config));
+		XCALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_ssh_config));
 	struct cache *cache =
 		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct cache));
 	struct tr_socket *tr_socket =
