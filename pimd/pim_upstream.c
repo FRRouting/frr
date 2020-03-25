@@ -1697,10 +1697,12 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 	case PIM_REG_JOIN:
 		break;
 	case PIM_REG_PRUNE:
+		/* This is equalent to Couldreg -> False */
 		if (!up->rpf.source_nexthop.interface) {
 			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug("%s: up %s RPF is not present",
 					   __func__, up->sg_str);
+			up->reg_state = PIM_REG_NOINFO;
 			return 0;
 		}
 
