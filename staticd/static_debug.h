@@ -3,7 +3,7 @@
  * Copyright (C) 2019 Volta Networks Inc.
  * Mark Stapp
  *
- * This file is part of Free Range Routing (FRR).
+ * This file is part of FRRouting (FRR).
  *
  * GNU Zebra is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the

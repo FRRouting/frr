@@ -12,7 +12,7 @@ module frr-deviations-ietf-rip {
   }
 
   organization
-    "Free Range Routing";
+    "FRRouting";
 
   contact
     "FRR Users List:       <mailto:frog@lists.frrouting.org>

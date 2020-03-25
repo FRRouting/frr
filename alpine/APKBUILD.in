@@ -2,7 +2,7 @@
 pkgname=frr
 pkgver=@VERSION@
 pkgrel=0
-pkgdesc="Free Range Routing is a fork of quagga"
+pkgdesc="FRRouting is a fork of quagga"
 url="https://frrouting.org/"
 arch="x86_64"
 license="GPL-2.0"
