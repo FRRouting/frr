@@ -168,6 +168,7 @@ static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 	&frr_isisd_info,
 #endif /* ifndef FABRICD */
 	&frr_route_map_info,
+	&frr_vrf_info,
 };
 
 #ifdef FABRICD
