@@ -43,8 +43,25 @@ extern "C" {
 #define ETH_ALEN 6
 #endif
 
+/* value of first byte of ESI */
+#define ESI_TYPE_ARBITRARY 0  /* */
+#define ESI_TYPE_LACP      1  /* <> */
+#define ESI_TYPE_BRIDGE    2  /* <Root bridge Mac-6B>:<Root Br Priority-2B>:00 */
+#define ESI_TYPE_MAC       3  /* <Syst Mac Add-6B>:<Local Discriminator Value-3B> */
+#define ESI_TYPE_ROUTER    4  /* <RouterId-4B>:<Local Discriminator Value-4B> */
+#define ESI_TYPE_AS        5  /* <AS-4B>:<Local Discriminator Value-4B> */
+
+#define MAX_ESI {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+
+
 #define ESI_BYTES 10
 #define ESI_STR_LEN (3 * ESI_BYTES)
+
+/* Maximum number of VTEPs per-ES -
+ * XXX - temporary limit for allocating strings etc.
+ */
+#define ES_VTEP_MAX_CNT 10
+#define ES_VTEP_LIST_STR_SZ (ES_VTEP_MAX_CNT * 16)
 
 #define ETHER_ADDR_STRLEN (3*ETH_ALEN)
 /*
@@ -64,12 +81,14 @@ struct ethaddr {
 #define PREFIX_LEN_ROUTE_TYPE_5_IPV6 (30*8)
 
 typedef struct esi_t_ {
-	uint8_t val[10];
+	uint8_t val[ESI_BYTES];
 } esi_t;
 
 struct evpn_ead_addr {
 	esi_t esi;
 	uint32_t eth_tag;
+	uint8_t ip_prefix_length;
+	struct ipaddr ip;
 };
 
 struct evpn_macip_addr {
@@ -217,6 +236,8 @@ struct prefix_evpn {
 
 static inline int is_evpn_prefix_ipaddr_none(const struct prefix_evpn *evp)
 {
+	if (evp->prefix.route_type == 1)
+		return IS_IPADDR_NONE(&(evp)->prefix.ead_addr.ip);
 	if (evp->prefix.route_type == 2)
 		return IS_IPADDR_NONE(&(evp)->prefix.macip_addr.ip);
 	if (evp->prefix.route_type == 3)
@@ -230,6 +251,8 @@ static inline int is_evpn_prefix_ipaddr_none(const struct prefix_evpn *evp)
 
 static inline int is_evpn_prefix_ipaddr_v4(const struct prefix_evpn *evp)
 {
+	if (evp->prefix.route_type == 1)
+		return IS_IPADDR_V4(&(evp)->prefix.ead_addr.ip);
 	if (evp->prefix.route_type == 2)
 		return IS_IPADDR_V4(&(evp)->prefix.macip_addr.ip);
 	if (evp->prefix.route_type == 3)
@@ -243,6 +266,8 @@ static inline int is_evpn_prefix_ipaddr_v4(const struct prefix_evpn *evp)
 
 static inline int is_evpn_prefix_ipaddr_v6(const struct prefix_evpn *evp)
 {
+	if (evp->prefix.route_type == 1)
+		return IS_IPADDR_V6(&(evp)->prefix.ead_addr.ip);
 	if (evp->prefix.route_type == 2)
 		return IS_IPADDR_V6(&(evp)->prefix.macip_addr.ip);
 	if (evp->prefix.route_type == 3)
