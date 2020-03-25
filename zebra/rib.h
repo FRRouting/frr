@@ -251,11 +251,21 @@ DECLARE_LIST(re_list, struct route_entry, next);
 	     (re) && ((next) = re_list_next(&((dest)->routes), (re)), 1);      \
 	     (re) = (next))
 
+#define RE_DEST_FIRST_ROUTE(dest, re)                                          \
+	((re) = (dest) ? re_list_first(&((dest)->routes)) : NULL)
+
+#define RE_DEST_NEXT_ROUTE(dest, re)                                           \
+	((re) = (dest) ? re_list_next(&((dest)->routes), (re)) : NULL)
+
 #define RNODE_FOREACH_RE(rn, re)                                               \
 	RE_DEST_FOREACH_ROUTE (rib_dest_from_rnode(rn), re)
 
 #define RNODE_FOREACH_RE_SAFE(rn, re, next)                                    \
 	RE_DEST_FOREACH_ROUTE_SAFE (rib_dest_from_rnode(rn), re, next)
+
+#define RNODE_FIRST_RE(rn, re) RE_DEST_FIRST_ROUTE(rib_dest_from_rnode(rn), re)
+
+#define RNODE_NEXT_RE(rn, re) RE_DEST_NEXT_ROUTE(rib_dest_from_rnode(rn), re)
 
 #if defined(HAVE_RTADV)
 /* Structure which hold status of router advertisement. */
