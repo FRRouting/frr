@@ -1331,17 +1331,16 @@ int lib_vrf_zebra_ribs_rib_create(enum nb_event event,
 				  union nb_resource *resource)
 {
 	// uint32_t table_id;
-	const char *vrf_name;
 	struct vrf *vrf;
 	afi_t afi = AFI_IP;
 	safi_t safi = SAFI_UNICAST;
 	struct zebra_vrf *zvrf;
 	struct zebra_router_table *zrt;
 
-	vrf_name = nb_running_get_entry(dnode, NULL, false);
-	vrf = vrf_lookup_by_name(vrf_name);
+	vrf = nb_running_get_entry(dnode, NULL, false);
 	zvrf = vrf_info_lookup(vrf->vrf_id);
 
+	// TODO: parse afi-safi-name and table_id
 	// table_id = yang_dnode_get_uint32(dnode, "./table-id");
 	zlog_debug("%s: vrf %s", __PRETTY_FUNCTION__, vrf->name);
 
@@ -1379,8 +1378,10 @@ int lib_vrf_zebra_ribs_rib_destroy(enum nb_event event,
 	struct zebra_router_table *zrt;
 
 	zrt = nb_running_unset_entry(dnode);
-	if (!zrt)
+	if (!zrt) {
+		zlog_debug("%s: zrt is not found", __func__);
 		return NB_ERR_INCONSISTENCY;
+	}
 
 	return NB_OK;
 }
