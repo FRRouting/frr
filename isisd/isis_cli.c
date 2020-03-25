@@ -1456,8 +1456,8 @@ void cli_show_ip_isis_hello_interval(struct vty *vty, struct lyd_node *dnode,
 	if (strmatch(l1, l2))
 		vty_out(vty, " isis hello-interval %s\n", l1);
 	else {
-		vty_out(vty, " isis hello-interval %s level-1\n", l1);
-		vty_out(vty, " isis hello-interval %s level-2\n", l2);
+		vty_out(vty, " isis hello-interval level-1 %s\n", l1);
+		vty_out(vty, " isis hello-interval level-2 %s\n", l2);
 	}
 }
 
@@ -1514,8 +1514,8 @@ void cli_show_ip_isis_hello_multi(struct vty *vty, struct lyd_node *dnode,
 	if (strmatch(l1, l2))
 		vty_out(vty, " isis hello-multiplier %s\n", l1);
 	else {
-		vty_out(vty, " isis hello-multiplier %s level-1\n", l1);
-		vty_out(vty, " isis hello-multiplier %s level-2\n", l2);
+		vty_out(vty, " isis hello-multiplier level-1 %s\n", l1);
+		vty_out(vty, " isis hello-multiplier level-2 %s\n", l2);
 	}
 }
 
