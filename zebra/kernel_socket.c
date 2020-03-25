@@ -1393,7 +1393,7 @@ static int kernel_read(struct thread *thread)
 	 */
 	if (rtm->rtm_msglen != nbytes) {
 		zlog_debug(
-			"kernel_read: rtm->rtm_msglen %d, nbytes %d, type %d\n",
+			"kernel_read: rtm->rtm_msglen %d, nbytes %d, type %d",
 			rtm->rtm_msglen, nbytes, rtm->rtm_type);
 		return -1;
 	}

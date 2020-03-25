@@ -1780,7 +1780,7 @@ static uint16_t show_vty_link_subtlv_unrsv_bw(struct vty *vty,
 				i, fval1, i + 1, fval2);
 		else
 			zlog_debug(
-				"      [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)",
+				"      [%d]: %g (Bytes/sec),  [%d]: %g (Bytes/sec)",
 				i, fval1, i + 1, fval2);
 	}
 

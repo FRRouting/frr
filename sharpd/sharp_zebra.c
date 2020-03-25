@@ -353,7 +353,7 @@ static int sharp_debug_nexthops(struct zapi_route *api)
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 		case NEXTHOP_TYPE_IPV4:
 			zlog_debug(
-				"\tNexthop %s, type: %d, ifindex: %d, vrf: %d, label_num: %d",
+				"        Nexthop %s, type: %d, ifindex: %d, vrf: %d, label_num: %d",
 				inet_ntop(AF_INET, &znh->gate.ipv4.s_addr, buf,
 					  sizeof(buf)),
 				znh->type, znh->ifindex, znh->vrf_id,
@@ -362,18 +362,18 @@ static int sharp_debug_nexthops(struct zapi_route *api)
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 		case NEXTHOP_TYPE_IPV6:
 			zlog_debug(
-				"\tNexthop %s, type: %d, ifindex: %d, vrf: %d, label_num: %d",
+				"        Nexthop %s, type: %d, ifindex: %d, vrf: %d, label_num: %d",
 				inet_ntop(AF_INET6, &znh->gate.ipv6, buf,
 					  sizeof(buf)),
 				znh->type, znh->ifindex, znh->vrf_id,
 				znh->label_num);
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
-			zlog_debug("\tNexthop IFINDEX: %d, ifindex: %d",
+			zlog_debug("        Nexthop IFINDEX: %d, ifindex: %d",
 				   znh->type, znh->ifindex);
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
-			zlog_debug("\tNexthop blackhole");
+			zlog_debug("        Nexthop blackhole");
 			break;
 		}
 	}

@@ -1401,13 +1401,13 @@ static int ospf_spf_calculate_timer(struct thread *thread)
 
 	if (IS_DEBUG_OSPF_EVENT) {
 		zlog_info("SPF Processing Time(usecs): %ld", total_spf_time);
-		zlog_info("\t    SPF Time: %ld", spf_time);
-		zlog_info("\t   InterArea: %ld", ia_time);
-		zlog_info("\t       Prune: %ld", prune_time);
-		zlog_info("\tRouteInstall: %ld", rt_time);
+		zlog_info("            SPF Time: %ld", spf_time);
+		zlog_info("           InterArea: %ld", ia_time);
+		zlog_info("               Prune: %ld", prune_time);
+		zlog_info("        RouteInstall: %ld", rt_time);
 		if (IS_OSPF_ABR(ospf))
-			zlog_info("\t         ABR: %ld (%d areas)", abr_time,
-				  areas_processed);
+			zlog_info("                 ABR: %ld (%d areas)",
+				  abr_time, areas_processed);
 		zlog_info("Reason(s) for SPF: %s", rbuf);
 	}
 

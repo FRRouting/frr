@@ -345,8 +345,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 		} else {
 			prefix2str(connected->address, buf, sizeof(buf));
 			zlog_warn(
-				"Nonexistent ip address %s removal attempt from \
-                      circuit %s",
+				"Nonexistent ip address %s removal attempt from circuit %s",
 				buf, circuit->interface->name);
 			zlog_warn("Current ip addresses on %s:",
 				  circuit->interface->name);
@@ -394,8 +393,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 		if (!found) {
 			prefix2str(connected->address, buf, sizeof(buf));
 			zlog_warn(
-				"Nonexistent ip address %s removal attempt from \
-		      circuit %s",
+				"Nonexistent ip address %s removal attempt from circuit %s",
 				buf, circuit->interface->name);
 			zlog_warn("Current ip addresses on %s:",
 				  circuit->interface->name);

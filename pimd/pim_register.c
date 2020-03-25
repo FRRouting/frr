@@ -186,7 +186,7 @@ void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 	if (!pinfo) {
 		if (PIM_DEBUG_PIM_REG)
 			zlog_debug(
-				"%s: Interface: %s not configured for pim to trasmit on!\n",
+				"%s: Interface: %s not configured for pim to transmit on!",
 				__func__, ifp->name);
 		return;
 	}

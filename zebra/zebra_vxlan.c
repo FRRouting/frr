@@ -3059,7 +3059,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("\tUnable to find vrf for: %d",
+			zlog_debug("        Unable to find vrf for: %d",
 				   zvni->vxlan_if->vrf_id);
 		return -1;
 	}
@@ -3094,7 +3094,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 			if (!mac_different && is_router == cur_is_router) {
 				if (IS_ZEBRA_DEBUG_VXLAN)
 					zlog_debug(
-						"\tIgnoring entry mac is the same and is_router == cur_is_router");
+						"        Ignoring entry mac is the same and is_router == cur_is_router");
 				n->ifindex = ifp->ifindex;
 				return 0;
 			}
@@ -3126,7 +3126,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 				else {
 					if (IS_ZEBRA_DEBUG_VXLAN)
 						zlog_debug(
-							"\tNeighbor active and frozen");
+							"        Neighbor active and frozen");
 				}
 				return 0;
 			}
@@ -3271,7 +3271,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 					     n->flags, n->loc_seq);
 	} else {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("\tNeighbor on hold not sending");
+			zlog_debug("        Neighbor on hold not sending");
 	}
 	return 0;
 }
@@ -8034,7 +8034,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 	if (!zvni) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"\tAdd/Update %sMAC %s intf %s(%u) VID %u, could not find VNI",
+				"        Add/Update %sMAC %s intf %s(%u) VID %u, could not find VNI",
 				sticky ? "sticky " : "",
 				prefix_mac2str(macaddr, buf, sizeof(buf)),
 				ifp->name, ifp->ifindex, vid);
@@ -8044,7 +8044,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 	if (!zvni->vxlan_if) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"\tVNI %u hash %p doesn't have intf upon local MAC ADD",
+				"        VNI %u hash %p doesn't have intf upon local MAC ADD",
 				zvni->vni, zvni);
 		return -1;
 	}
@@ -8052,7 +8052,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("\tNo Vrf found for vrf_id: %d",
+			zlog_debug("        No Vrf found for vrf_id: %d",
 				   zvni->vxlan_if->vrf_id);
 		return -1;
 	}
@@ -8105,7 +8105,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 			    && mac->fwd_info.local.vid == vid) {
 				if (IS_ZEBRA_DEBUG_VXLAN)
 					zlog_debug(
-						"\tAdd/Update %sMAC %s intf %s(%u) VID %u -> VNI %u, "
+						"        Add/Update %sMAC %s intf %s(%u) VID %u -> VNI %u, "
 						"entry exists and has not changed ",
 						sticky ? "sticky " : "",
 						prefix_mac2str(macaddr, buf,

@@ -353,7 +353,7 @@ void isis_adj_print(struct isis_adjacency *adj)
 	if (dyn)
 		zlog_debug("%s", dyn->hostname);
 
-	zlog_debug("SystemId %20s SNPA %s, level %d\nHolding Time %d",
+	zlog_debug("SystemId %20s SNPA %s, level %d; Holding Time %d",
 		   sysid_print(adj->sysid), snpa_print(adj->snpa), adj->level,
 		   adj->hold_time);
 	if (adj->ipv4_address_count) {

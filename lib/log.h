@@ -152,7 +152,7 @@ extern void zlog_backtrace_sigsafe(int priority, void *program_counter);
 extern size_t quagga_timestamp(int timestamp_precision /* # subsecond digits */,
 			       char *buf, size_t buflen);
 
-extern void zlog_hexdump(const void *mem, unsigned int len);
+extern void zlog_hexdump(const void *mem, size_t len);
 extern const char *zlog_sanitize(char *buf, size_t bufsz, const void *in,
 				 size_t inlen);
 

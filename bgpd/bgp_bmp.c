@@ -385,15 +385,15 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 			stream_put(s, bbpeer->open_tx, bbpeer->open_tx_len);
 		else {
 			stream_put(s, dummy_open, sizeof(dummy_open));
-			zlog_warn("bmp: missing TX OPEN message for peer %s\n",
-					peer->host);
+			zlog_warn("bmp: missing TX OPEN message for peer %s",
+				  peer->host);
 		}
 		if (bbpeer && bbpeer->open_rx)
 			stream_put(s, bbpeer->open_rx, bbpeer->open_rx_len);
 		else {
 			stream_put(s, dummy_open, sizeof(dummy_open));
-			zlog_warn("bmp: missing RX OPEN message for peer %s\n",
-					peer->host);
+			zlog_warn("bmp: missing RX OPEN message for peer %s",
+				  peer->host);
 		}
 
 		if (peer->desc)
@@ -1342,8 +1342,7 @@ static int bmp_accept(struct thread *thread)
 	/* We can handle IPv4 or IPv6 socket. */
 	bmp_sock = sockunion_accept(bl->sock, &su);
 	if (bmp_sock < 0) {
-		zlog_info("bmp: accept_sock failed: %s\n",
-                          safe_strerror (errno));
+		zlog_info("bmp: accept_sock failed: %s", safe_strerror(errno));
 		return -1;
 	}
 	bmp_open(bl->targets, bmp_sock);

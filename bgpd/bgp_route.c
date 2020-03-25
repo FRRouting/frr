@@ -6846,7 +6846,7 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 		if (as_set == AGGREGATE_AS_SET) {
 			as_set_new = AGGREGATE_AS_UNSET;
 			zlog_warn(
-				"%s: Ignoring as-set because `bgp reject-as-sets` is enabled.\n",
+				"%s: Ignoring as-set because `bgp reject-as-sets` is enabled.",
 				__func__);
 			vty_out(vty,
 				"Ignoring as-set because `bgp reject-as-sets` is enabled.\n");

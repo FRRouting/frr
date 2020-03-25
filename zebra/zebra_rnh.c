@@ -471,7 +471,7 @@ zebra_rnh_resolve_import_entry(struct zebra_vrf *zvrf, afi_t afi,
 		*prn = rn;
 
 	if (!re && IS_ZEBRA_DEBUG_NHT_DETAILED)
-		zlog_debug("\tRejected due to removed or is a bgp route");
+		zlog_debug("        Rejected due to removed or is a bgp route");
 
 	return re;
 }
@@ -656,7 +656,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 		    && !rnh_resolve_via_default(zvrf, rn->p.family)) {
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 				zlog_debug(
-					"\tNot allowed to resolve through default prefix");
+					"        Not allowed to resolve through default prefix");
 			return NULL;
 		}
 
@@ -665,7 +665,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 					zlog_debug(
-						"\tRoute Entry %s removed",
+						"        Route Entry %s removed",
 						zebra_route_string(re->type));
 				continue;
 			}
@@ -673,7 +673,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			    !CHECK_FLAG(re->flags, ZEBRA_FLAG_FIB_OVERRIDE)) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 					zlog_debug(
-						"\tRoute Entry %s !selected",
+						"        Route Entry %s !selected",
 						zebra_route_string(re->type));
 				continue;
 			}
@@ -681,7 +681,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			if (CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED)) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 					zlog_debug(
-						"\tRoute Entry %s queued",
+						"        Route Entry %s queued",
 						zebra_route_string(re->type));
 				continue;
 			}
@@ -697,7 +697,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			if (nexthop == NULL) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 					zlog_debug(
-						"\tRoute Entry %s no nexthops",
+						"        Route Entry %s no nexthops",
 						zebra_route_string(re->type));
 				continue;
 			}
@@ -732,7 +732,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 		else {
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 				zlog_debug(
-					"\tNexthop must be connected, cannot recurse up");
+					"        Nexthop must be connected, cannot recurse up");
 			return NULL;
 		}
 	}

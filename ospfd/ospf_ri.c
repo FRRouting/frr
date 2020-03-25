@@ -1382,9 +1382,8 @@ static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
 				zlog_debug("    Algorithm %d: Strict SPF", i);
 				break;
 			default:
-				zlog_debug(
-					"    Algorithm %d: Unknown value %d\n",
-					i, algo->value[i]);
+				zlog_debug("    Algorithm %d: Unknown value %d",
+					   i, algo->value[i]);
 				break;
 			}
 	}

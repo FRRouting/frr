@@ -1068,13 +1068,13 @@ static bool pim_install_bsm_grp_rp(struct pim_instance *pim,
 	if (listnode_add_sort_nodup(grpnode->partial_bsrp_list, bsm_rpinfo)) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug(
-				"%s, bs_rpinfo node added to the partial bs_rplist.\r\n",
+				"%s, bs_rpinfo node added to the partial bs_rplist.",
 				__func__);
 		return true;
 	}
 
 	if (PIM_DEBUG_BSM)
-		zlog_debug("%s: list node not added\n", __func__);
+		zlog_debug("%s: list node not added", __func__);
 
 	XFREE(MTYPE_PIM_BSRP_NODE, bsm_rpinfo);
 	return false;
@@ -1092,7 +1092,7 @@ static void pim_update_pending_rp_cnt(struct bsm_scope *sz,
 		if (bsm_frag_tag != bsgrp->frag_tag) {
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
-					"%s,Received a new BSM ,so clear the pending bs_rpinfo list.\r\n",
+					"%s,Received a new BSM ,so clear the pending bs_rpinfo list.",
 					__func__);
 			list_delete_all_node(bsgrp->partial_bsrp_list);
 			bsgrp->pend_rp_cnt = total_rp_count;
@@ -1132,7 +1132,7 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 			pim_inet4_dump("<Group?>", grpinfo.group.addr, grp_str,
 				       sizeof(grp_str));
 			zlog_debug(
-				"%s, Group %s  Rpcount:%d Fragment-Rp-count:%d\r\n",
+				"%s, Group %s  Rpcount:%d Fragment-Rp-count:%d",
 				__func__, grp_str, grpinfo.rp_count,
 				grpinfo.frag_rp_count);
 		}
@@ -1146,9 +1146,8 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 
 				pim_inet4_dump("<Group?>", grpinfo.group.addr,
 					       grp_str, sizeof(grp_str));
-				zlog_debug(
-					"%s, Rp count is zero for group: %s\r\n",
-					__func__, grp_str);
+				zlog_debug("%s, Rp count is zero for group: %s",
+					   __func__, grp_str);
 			}
 			return false;
 		}
@@ -1169,9 +1168,8 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 
 		if (!bsgrp) {
 			if (PIM_DEBUG_BSM)
-				zlog_debug(
-					"%s, Create new  BSM Group node.\r\n",
-					__func__);
+				zlog_debug("%s, Create new  BSM Group node.",
+					   __func__);
 
 			/* create a new node to be added to the tree. */
 			bsgrp = pim_bsm_new_bsgrp_node(scope->bsrp_table,
@@ -1179,7 +1177,7 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 
 			if (!bsgrp) {
 				zlog_debug(
-					"%s, Failed to get the BSM group node.\r\n",
+					"%s, Failed to get the BSM group node.",
 					__func__);
 				continue;
 			}
@@ -1214,7 +1212,7 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 				pim_inet4_dump("<Rpaddr?>", rpinfo.rpaddr.addr,
 					       rp_str, sizeof(rp_str));
 				zlog_debug(
-					"%s, Rp address - %s; pri:%d hold:%d\r\n",
+					"%s, Rp address - %s; pri:%d hold:%d",
 					__func__, rp_str, rpinfo.rp_pri,
 					rpinfo.rp_holdtime);
 			}
@@ -1378,7 +1376,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 		    (buf_size - PIM_BSM_HDR_LEN - PIM_MSG_HEADER_LEN),
 		    frag_tag)) {
 		if (PIM_DEBUG_BSM) {
-			zlog_debug("%s, Parsing BSM failed.\r\n", __func__);
+			zlog_debug("%s, Parsing BSM failed.", __func__);
 		}
 		pim->bsm_dropped++;
 		return -1;

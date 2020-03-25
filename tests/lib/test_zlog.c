@@ -34,12 +34,14 @@ static bool test_zlog_hexdump(void)
 	unsigned int nl = 1;
 
 	do {
-		long d[nl];
+		uint8_t d[nl];
 
 		for (unsigned int i = 0; i < nl; i++)
 			d[i] = random();
-		zlog_hexdump(d, nl * sizeof(long));
-	} while (++nl * sizeof(long) <= MAXDATA);
+		zlog_hexdump(d, nl - 1);
+
+		nl += 1 + (nl / 2);
+	} while (nl <= MAXDATA);
 
 	return true;
 }

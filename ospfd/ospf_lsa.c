@@ -2805,7 +2805,7 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 			if (CHECK_FLAG(lsa->flags, OSPF_LSA_PREMATURE_AGE)) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
-						"originating new lsa for lsa 0x%p\n",
+						"originating new lsa for lsa 0x%p",
 						(void *)lsa);
 				ospf_lsa_refresh(ospf, lsa);
 			}
