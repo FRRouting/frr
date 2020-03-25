@@ -30,6 +30,7 @@
 #include "zebra/interface.h"
 #include "zebra/connected.h"
 #include "zebra/zebra_router.h"
+#include "zebra/debug.h"
 
 /*
  * XPath: /frr-zebra:zebra/mcast-rpf-lookup
@@ -1222,11 +1223,12 @@ int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args)
 int lib_vrf_zebra_ribs_rib_create(struct nb_cb_create_args *args)
 {
 	struct vrf *vrf;
-	afi_t afi = AFI_IP;
-	safi_t safi = SAFI_UNICAST;
+	afi_t afi;
+	safi_t safi;
 	struct zebra_vrf *zvrf;
 	struct zebra_router_table *zrt;
 	uint32_t table_id;
+	const char *afi_safi_name;
 
 	vrf = nb_running_get_entry(args->dnode, NULL, false);
 	zvrf = vrf_info_lookup(vrf->vrf_id);
@@ -1234,9 +1236,8 @@ int lib_vrf_zebra_ribs_rib_create(struct nb_cb_create_args *args)
 	if (!table_id)
 		table_id = zvrf->table_id;
 
-	/* TODO: once identityref nb wrapper available, parse
-	 * afi-safi-name and feed into the creation of the table
-	 */
+	afi_safi_name = yang_dnode_get_string(args->dnode, "./afi-safi-name");
+	zebra_afi_safi_identity2value(afi_safi_name, &afi, &safi);
 
 	zrt = zebra_router_find_zrt(zvrf, table_id, afi, safi);
 
