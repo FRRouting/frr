@@ -1929,8 +1929,10 @@ static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp,
 
 			/* Check for duplicate IDs, ignore if found. */
 			for (int j = 0; j < i; j++) {
-				if (depend->id == grp[j].id)
+				if (depend->id == grp[j].id) {
 					duplicate = true;
+					break;
+				}
 			}
 
 			if (duplicate) {
