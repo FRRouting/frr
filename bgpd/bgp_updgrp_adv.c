@@ -74,13 +74,13 @@ static int bgp_adj_out_compare(const struct bgp_adj_out *o1,
 }
 RB_GENERATE(bgp_adj_out_rb, bgp_adj_out, adj_entry, bgp_adj_out_compare);
 
-static inline struct bgp_adj_out *adj_lookup(struct bgp_node *rn,
+static inline struct bgp_adj_out *adj_lookup(struct bgp_dest *dest,
 					     struct update_subgroup *subgrp,
 					     uint32_t addpath_tx_id)
 {
 	struct bgp_adj_out lookup;
 
-	if (!rn || !subgrp)
+	if (!dest || !subgrp)
 		return NULL;
 
 	/* update-groups that do not support addpath will pass 0 for
@@ -88,7 +88,7 @@ static inline struct bgp_adj_out *adj_lookup(struct bgp_node *rn,
 	lookup.subgroup = subgrp;
 	lookup.addpath_tx_id = addpath_tx_id;
 
-	return RB_FIND(bgp_adj_out_rb, &rn->adj_out, &lookup);
+	return RB_FIND(bgp_adj_out_rb, &dest->adj_out, &lookup);
 }
 
 static void adj_free(struct bgp_adj_out *adj)
@@ -110,11 +110,11 @@ static void subgrp_withdraw_stale_addpath(struct updwalk_context *ctx,
 
 	/* Look through all of the paths we have advertised for this rn and send
 	 * a withdraw for the ones that are no longer present */
-	RB_FOREACH_SAFE (adj, bgp_adj_out_rb, &ctx->rn->adj_out, adj_next) {
+	RB_FOREACH_SAFE (adj, bgp_adj_out_rb, &ctx->dest->adj_out, adj_next) {
 
 		if (adj->subgroup == subgrp) {
-			for (pi = bgp_node_get_bgp_path_info(ctx->rn);
-			     pi; pi = pi->next) {
+			for (pi = bgp_dest_get_bgp_path_info(ctx->dest); pi;
+			     pi = pi->next) {
 				id = bgp_addpath_id_for_peer(peer, afi, safi,
 					&pi->tx_addpath);
 
@@ -125,7 +125,7 @@ static void subgrp_withdraw_stale_addpath(struct updwalk_context *ctx,
 
 			if (!pi) {
 				subgroup_process_announce_selected(
-					subgrp, NULL, ctx->rn,
+					subgrp, NULL, ctx->dest,
 					adj->addpath_tx_id);
 			}
 		}
@@ -150,8 +150,8 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 
 	if (BGP_DEBUG(update, UPDATE_OUT))
 		zlog_debug("%s: afi=%s, safi=%s, p=%pRN", __func__,
-			   afi2str(afi), safi2str(safi), ctx->rn);
-
+			   afi2str(afi), safi2str(safi),
+			   bgp_dest_to_rnode(ctx->dest));
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
 
@@ -165,14 +165,14 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 			if (addpath_capable) {
 				subgrp_withdraw_stale_addpath(ctx, subgrp);
 
-				for (pi = bgp_node_get_bgp_path_info(ctx->rn);
+				for (pi = bgp_dest_get_bgp_path_info(ctx->dest);
 				     pi; pi = pi->next) {
 					/* Skip the bestpath for now */
 					if (pi == ctx->pi)
 						continue;
 
 					subgroup_process_announce_selected(
-						subgrp, pi, ctx->rn,
+						subgrp, pi, ctx->dest,
 						bgp_addpath_id_for_peer(
 							peer, afi, safi,
 							&pi->tx_addpath));
@@ -184,7 +184,7 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 				 */
 				if (ctx->pi)
 					subgroup_process_announce_selected(
-						subgrp, ctx->pi, ctx->rn,
+						subgrp, ctx->pi, ctx->dest,
 						bgp_addpath_id_for_peer(
 							peer, afi, safi,
 							&ctx->pi->tx_addpath));
@@ -194,7 +194,7 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 			else {
 				if (ctx->pi) {
 					subgroup_process_announce_selected(
-						subgrp, ctx->pi, ctx->rn,
+						subgrp, ctx->pi, ctx->dest,
 						bgp_addpath_id_for_peer(
 							peer, afi, safi,
 							&ctx->pi->tx_addpath));
@@ -203,12 +203,12 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 					 * had advertised and
 					 * send a withdraw */
 					RB_FOREACH_SAFE (adj, bgp_adj_out_rb,
-							 &ctx->rn->adj_out,
+							 &ctx->dest->adj_out,
 							 adj_next) {
 						if (adj->subgroup == subgrp) {
 							subgroup_process_announce_selected(
 								subgrp, NULL,
-								ctx->rn,
+								ctx->dest,
 								adj->addpath_tx_id);
 						}
 					}
@@ -226,7 +226,7 @@ static void subgrp_show_adjq_vty(struct update_subgroup *subgrp,
 	struct bgp_table *table;
 	struct bgp_adj_out *adj;
 	unsigned long output_count;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 	int header1 = 1;
 	struct bgp *bgp;
 	int header2 = 1;
@@ -239,10 +239,10 @@ static void subgrp_show_adjq_vty(struct update_subgroup *subgrp,
 
 	output_count = 0;
 
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		const struct prefix *rn_p = bgp_node_get_prefix(rn);
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 
-		RB_FOREACH (adj, bgp_adj_out_rb, &rn->adj_out)
+		RB_FOREACH (adj, bgp_adj_out_rb, &dest->adj_out)
 			if (adj->subgroup == subgrp) {
 				if (header1) {
 					vty_out(vty,
@@ -260,16 +260,17 @@ static void subgrp_show_adjq_vty(struct update_subgroup *subgrp,
 				}
 				if ((flags & UPDWALK_FLAGS_ADVQUEUE) && adj->adv
 				    && adj->adv->baa) {
-					route_vty_out_tmp(
-						vty, rn_p, adj->adv->baa->attr,
-						SUBGRP_SAFI(subgrp), 0, NULL);
+					route_vty_out_tmp(vty, dest_p,
+							  adj->adv->baa->attr,
+							  SUBGRP_SAFI(subgrp),
+							  0, NULL);
 					output_count++;
 				}
 				if ((flags & UPDWALK_FLAGS_ADVERTISED)
 				    && adj->attr) {
-					route_vty_out_tmp(vty, rn_p, adj->attr,
-							  SUBGRP_SAFI(subgrp),
-							  0, NULL);
+					route_vty_out_tmp(
+						vty, dest_p, adj->attr,
+						SUBGRP_SAFI(subgrp), 0, NULL);
 					output_count++;
 				}
 			}
@@ -386,7 +387,7 @@ static int update_group_announce_rrc_walkcb(struct update_group *updgrp,
  * primarily its association with the subgroup and the prefix.
  */
 struct bgp_adj_out *bgp_adj_out_alloc(struct update_subgroup *subgrp,
-				      struct bgp_node *rn,
+				      struct bgp_dest *dest,
 				      uint32_t addpath_tx_id)
 {
 	struct bgp_adj_out *adj;
@@ -395,10 +396,10 @@ struct bgp_adj_out *bgp_adj_out_alloc(struct update_subgroup *subgrp,
 	adj->subgroup = subgrp;
 	adj->addpath_tx_id = addpath_tx_id;
 
-	if (rn) {
-		RB_INSERT(bgp_adj_out_rb, &rn->adj_out, adj);
-		bgp_lock_node(rn);
-		adj->rn = rn;
+	if (dest) {
+		RB_INSERT(bgp_adj_out_rb, &dest->adj_out, adj);
+		bgp_dest_lock_node(dest);
+		adj->dest = dest;
 	}
 
 	TAILQ_INSERT_TAIL(&(subgrp->adjq), adj, subgrp_adj_train);
@@ -445,7 +446,7 @@ bgp_advertise_clean_subgroup(struct update_subgroup *subgrp,
 	return next;
 }
 
-void bgp_adj_out_set_subgroup(struct bgp_node *rn,
+void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 			      struct update_subgroup *subgrp, struct attr *attr,
 			      struct bgp_path_info *path)
 {
@@ -464,14 +465,14 @@ void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 
 	/* Look for adjacency information. */
 	adj = adj_lookup(
-		rn, subgrp,
+		dest, subgrp,
 		bgp_addpath_id_for_peer(peer, afi, safi, &path->tx_addpath));
 
 	if (!adj) {
 		adj = bgp_adj_out_alloc(
-			subgrp, rn,
+			subgrp, dest,
 			bgp_addpath_id_for_peer(peer, afi, safi,
-					      &path->tx_addpath));
+						&path->tx_addpath));
 		if (!adj)
 			return;
 	}
@@ -481,7 +482,7 @@ void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 	adj->adv = bgp_advertise_new();
 
 	adv = adj->adv;
-	adv->rn = rn;
+	adv->dest = dest;
 	assert(adv->pathi == NULL);
 	/* bgp_path_info adj_out reference */
 	adv->pathi = bgp_path_info_lock(path);
@@ -509,14 +510,14 @@ void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 
 	bgp_adv_fifo_add_tail(&subgrp->sync->update, adv);
 
-	subgrp->version = max(subgrp->version, rn->version);
+	subgrp->version = max(subgrp->version, dest->version);
 }
 
 /* The only time 'withdraw' will be false is if we are sending
  * the "neighbor x.x.x.x default-originate" default and need to clear
  * bgp_adj_out for the 0.0.0.0/0 route in the BGP table.
  */
-void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
+void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 				struct update_subgroup *subgrp, char withdraw,
 				uint32_t addpath_tx_id)
 {
@@ -528,7 +529,7 @@ void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
 		return;
 
 	/* Lookup existing adjacency */
-	if ((adj = adj_lookup(rn, subgrp, addpath_tx_id)) != NULL) {
+	if ((adj = adj_lookup(dest, subgrp, addpath_tx_id)) != NULL) {
 		/* Clean up previous advertisement.  */
 		if (adj->adv)
 			bgp_advertise_clean_subgroup(subgrp, adj);
@@ -538,14 +539,14 @@ void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
 		 * the default route at the peer.
 		 */
 		if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)
-		    && is_default_prefix(&rn->p))
+		    && is_default_prefix(bgp_dest_get_prefix(dest)))
 			return;
 
 		if (adj->attr && withdraw) {
 			/* We need advertisement structure.  */
 			adj->adv = bgp_advertise_new();
 			adv = adj->adv;
-			adv->rn = rn;
+			adv->dest = dest;
 			adv->adj = adj;
 
 			/* Note if we need to trigger a packet write */
@@ -560,19 +561,19 @@ void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
 				subgroup_trigger_write(subgrp);
 		} else {
 			/* Remove myself from adjacency. */
-			RB_REMOVE(bgp_adj_out_rb, &rn->adj_out, adj);
+			RB_REMOVE(bgp_adj_out_rb, &dest->adj_out, adj);
 
 			/* Free allocated information.  */
 			adj_free(adj);
 
-			bgp_unlock_node(rn);
+			bgp_dest_unlock_node(dest);
 		}
 	}
 
-	subgrp->version = max(subgrp->version, rn->version);
+	subgrp->version = max(subgrp->version, dest->version);
 }
 
-void bgp_adj_out_remove_subgroup(struct bgp_node *rn, struct bgp_adj_out *adj,
+void bgp_adj_out_remove_subgroup(struct bgp_dest *dest, struct bgp_adj_out *adj,
 				 struct update_subgroup *subgrp)
 {
 	if (adj->attr)
@@ -581,7 +582,7 @@ void bgp_adj_out_remove_subgroup(struct bgp_node *rn, struct bgp_adj_out *adj,
 	if (adj->adv)
 		bgp_advertise_clean_subgroup(subgrp, adj);
 
-	RB_REMOVE(bgp_adj_out_rb, &rn->adj_out, adj);
+	RB_REMOVE(bgp_adj_out_rb, &dest->adj_out, adj);
 	adj_free(adj);
 }
 
@@ -594,9 +595,9 @@ void subgroup_clear_table(struct update_subgroup *subgrp)
 	struct bgp_adj_out *aout, *taout;
 
 	SUBGRP_FOREACH_ADJ_SAFE (subgrp, aout, taout) {
-		struct bgp_node *rn = aout->rn;
-		bgp_adj_out_remove_subgroup(rn, aout, subgrp);
-		bgp_unlock_node(rn);
+		struct bgp_dest *dest = aout->dest;
+		bgp_adj_out_remove_subgroup(dest, aout, subgrp);
+		bgp_dest_unlock_node(dest);
 	}
 }
 
@@ -606,7 +607,7 @@ void subgroup_clear_table(struct update_subgroup *subgrp)
 void subgroup_announce_table(struct update_subgroup *subgrp,
 			     struct bgp_table *table)
 {
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 	struct bgp_path_info *ri;
 	struct attr attr;
 	struct peer *peer;
@@ -630,19 +631,19 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 			  PEER_FLAG_DEFAULT_ORIGINATE))
 		subgroup_default_originate(subgrp, 0);
 
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		const struct prefix *rn_p = bgp_node_get_prefix(rn);
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 
-		for (ri = bgp_node_get_bgp_path_info(rn); ri; ri = ri->next)
+		for (ri = bgp_dest_get_bgp_path_info(dest); ri; ri = ri->next)
 
 			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)
 			    || (addpath_capable
 				&& bgp_addpath_tx_path(
 					   peer->addpath_type[afi][safi],
 					   ri))) {
-				if (subgroup_announce_check(rn, ri, subgrp,
-							    rn_p, &attr))
-					bgp_adj_out_set_subgroup(rn, subgrp,
+				if (subgroup_announce_check(dest, ri, subgrp,
+							    dest_p, &attr))
+					bgp_adj_out_set_subgroup(dest, subgrp,
 								 &attr, ri);
 				else {
 					/* If default originate is enabled for
@@ -654,11 +655,11 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 					if (CHECK_FLAG(
 						    peer->af_flags[afi][safi],
 						    PEER_FLAG_DEFAULT_ORIGINATE)
-					    && is_default_prefix(&rn->p))
+					    && is_default_prefix(bgp_dest_get_prefix(dest)))
 						break;
 
 					bgp_adj_out_unset_subgroup(
-						rn, subgrp, 1,
+						dest, subgrp, 1,
 						bgp_addpath_id_for_peer(
 							peer, afi, safi,
 							&ri->tx_addpath));
@@ -689,7 +690,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
  */
 void subgroup_announce_route(struct update_subgroup *subgrp)
 {
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 	struct bgp_table *table;
 	struct peer *onlypeer;
 
@@ -712,9 +713,9 @@ void subgroup_announce_route(struct update_subgroup *subgrp)
 	    && SUBGRP_SAFI(subgrp) != SAFI_EVPN)
 		subgroup_announce_table(subgrp, NULL);
 	else
-		for (rn = bgp_table_top(update_subgroup_rib(subgrp)); rn;
-		     rn = bgp_route_next(rn)) {
-			table = bgp_node_get_bgp_table_info(rn);
+		for (dest = bgp_table_top(update_subgroup_rib(subgrp)); dest;
+		     dest = bgp_route_next(dest)) {
+			table = bgp_dest_get_bgp_table_info(dest);
 			if (!table)
 				continue;
 			subgroup_announce_table(subgrp, table);
@@ -729,7 +730,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	struct aspath *aspath;
 	struct prefix p;
 	struct peer *from;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
 	struct peer *peer;
 	struct bgp_adj_out *adj;
@@ -779,11 +780,11 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 		 * the default route. We announce the default
 		 * route only if route-map has a match.
 		 */
-		for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
-		     rn = bgp_route_next(rn)) {
+		for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
+		     dest = bgp_route_next(dest)) {
 			ret = route_map_apply(peer->default_rmap[afi][safi].map,
-					      bgp_node_get_prefix(rn), RMAP_BGP,
-					      &bpi_rmap);
+					      bgp_dest_get_prefix(dest),
+					      RMAP_BGP, &bpi_rmap);
 
 			if (ret != RMAP_DENYMATCH)
 				break;
@@ -803,7 +804,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	memset(&p, 0, sizeof(p));
 	p.family = afi2family(afi);
 	p.prefixlen = 0;
-	rn = bgp_afi_node_lookup(bgp->rib[afi][safi], afi, safi, &p, NULL);
+	dest = bgp_afi_node_lookup(bgp->rib[afi][safi], afi, safi, &p, NULL);
 
 	if (withdraw) {
 		/* Withdraw the default route advertised using default
@@ -816,15 +817,17 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 		/* If default route is present in the local RIB, advertise the
 		 * route
 		 */
-		if (rn != NULL) {
-			for (pi = bgp_node_get_bgp_path_info(rn); pi;
+		if (dest != NULL) {
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
 			     pi = pi->next) {
 				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 					if (subgroup_announce_check(
-						    rn, pi, subgrp, &rn->p,
+						    dest, pi, subgrp,
+						    bgp_dest_get_prefix(dest),
 						    &attr))
 						bgp_adj_out_set_subgroup(
-							rn, subgrp, &attr, pi);
+							dest, subgrp, &attr,
+							pi);
 			}
 		}
 	} else {
@@ -838,12 +841,12 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 			 * clear adj_out for the 0.0.0.0/0 prefix in the BGP
 			 * table.
 			 */
-			if (rn != NULL) {
+			if (dest != NULL) {
 				/* Remove the adjacency for the previously
 				 * advertised default route
 				 */
 				adj = adj_lookup(
-				       rn, subgrp,
+				       dest, subgrp,
 				       BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
 				if (adj != NULL) {
 					/* Clean up previous advertisement.  */
@@ -852,13 +855,13 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 							subgrp, adj);
 
 					/* Remove  from adjacency. */
-					RB_REMOVE(bgp_adj_out_rb, &rn->adj_out,
-						  adj);
+					RB_REMOVE(bgp_adj_out_rb,
+						  &dest->adj_out, adj);
 
 					/* Free allocated information.  */
 					adj_free(adj);
 
-					bgp_unlock_node(rn);
+					bgp_dest_unlock_node(dest);
 				}
 			}
 
@@ -915,11 +918,11 @@ void subgroup_announce_all(struct update_subgroup *subgrp)
  * input route.
  */
 void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
-			  struct bgp_node *rn, struct bgp_path_info *pi)
+			  struct bgp_dest *dest, struct bgp_path_info *pi)
 {
 	struct updwalk_context ctx;
 	ctx.pi = pi;
-	ctx.rn = rn;
+	ctx.dest = dest;
 	update_group_af_walk(bgp, afi, safi, group_announce_route_walkcb, &ctx);
 }
 

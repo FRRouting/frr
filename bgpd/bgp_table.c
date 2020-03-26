@@ -69,7 +69,7 @@ static struct route_node *bgp_node_create(route_table_delegate_t *delegate,
 	node = XCALLOC(MTYPE_BGP_NODE, sizeof(struct bgp_node));
 
 	RB_INIT(bgp_adj_out_rb, &node->adj_out);
-	return bgp_node_to_rnode(node);
+	return bgp_dest_to_rnode(node);
 }
 
 /*
@@ -80,7 +80,7 @@ static void bgp_node_destroy(route_table_delegate_t *delegate,
 {
 	struct bgp_node *bgp_node;
 	struct bgp_table *rt;
-	bgp_node = bgp_node_from_rnode(node);
+	bgp_node = bgp_dest_from_rnode(node);
 	rt = table->info;
 
 	if (rt->bgp) {
@@ -140,7 +140,7 @@ void bgp_delete_listnode(struct bgp_node *node)
 	 * route node in gr_info
 	 */
 	if (CHECK_FLAG(node->flags, BGP_NODE_SELECT_DEFER)) {
-		table = bgp_node_table(node);
+		table = bgp_dest_table(node);
 
 		if (table) {
 			bgp = table->bgp;
@@ -149,7 +149,7 @@ void bgp_delete_listnode(struct bgp_node *node)
 		} else
 			return;
 
-		rn = bgp_node_to_rnode(node);
+		rn = bgp_dest_to_rnode(node);
 
 		if (bgp && rn && rn->lock == 1) {
 			/* Delete the route from the selection pending list */
@@ -167,7 +167,7 @@ void bgp_delete_listnode(struct bgp_node *node)
 struct bgp_node *bgp_table_subtree_lookup(const struct bgp_table *table,
 					  const struct prefix *p)
 {
-	struct bgp_node *node = bgp_node_from_rnode(table->route_table->top);
+	struct bgp_node *node = bgp_dest_from_rnode(table->route_table->top);
 	struct bgp_node *matched = NULL;
 
 	if (node == NULL)
@@ -175,7 +175,7 @@ struct bgp_node *bgp_table_subtree_lookup(const struct bgp_table *table,
 
 
 	while (node) {
-		const struct prefix *node_p = bgp_node_get_prefix(node);
+		const struct prefix *node_p = bgp_dest_get_prefix(node);
 
 		if (node_p->prefixlen >= p->prefixlen) {
 			if (!prefix_match(p, node_p))
@@ -193,13 +193,13 @@ struct bgp_node *bgp_table_subtree_lookup(const struct bgp_table *table,
 			break;
 		}
 
-		node = bgp_node_from_rnode(node->link[prefix_bit(
+		node = bgp_dest_from_rnode(node->link[prefix_bit(
 			&p->u.prefix, node_p->prefixlen)]);
 	}
 
 	if (!matched)
 		return NULL;
 
-	bgp_lock_node(matched);
+	bgp_dest_lock_node(matched);
 	return matched;
 }

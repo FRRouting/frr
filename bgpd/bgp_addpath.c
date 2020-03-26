@@ -180,14 +180,14 @@ bool bgp_addpath_tx_path(enum bgp_addpath_strat strat, struct bgp_path_info *pi)
 
 static void bgp_addpath_flush_type_rn(struct bgp *bgp, afi_t afi, safi_t safi,
 				      enum bgp_addpath_strat addpath_type,
-				      struct bgp_node *rn)
+				      struct bgp_dest *dest)
 {
 	struct bgp_path_info *pi;
 
 	idalloc_drain_pool(
 		bgp->tx_addpath.id_allocators[afi][safi][addpath_type],
-		&(rn->tx_addpath.free_ids[addpath_type]));
-	for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
+		&(dest->tx_addpath.free_ids[addpath_type]));
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 		if (pi->tx_addpath.addpath_tx_id[addpath_type]
 		    != IDALLOC_INVALID) {
 			idalloc_free(
@@ -210,24 +210,24 @@ static void bgp_addpath_flush_type_rn(struct bgp *bgp, afi_t afi, safi_t safi,
 static void bgp_addpath_flush_type(struct bgp *bgp, afi_t afi, safi_t safi,
 				   enum bgp_addpath_strat addpath_type)
 {
-	struct bgp_node *rn, *nrn;
+	struct bgp_dest *dest, *ndest;
 
-	for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
-	     rn = bgp_route_next(rn)) {
+	for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
+	     dest = bgp_route_next(dest)) {
 		if (safi == SAFI_MPLS_VPN) {
 			struct bgp_table *table;
 
-			table = bgp_node_get_bgp_table_info(rn);
+			table = bgp_dest_get_bgp_table_info(dest);
 			if (!table)
 				continue;
 
-			for (nrn = bgp_table_top(table); nrn;
-			     nrn = bgp_route_next(nrn))
+			for (ndest = bgp_table_top(table); ndest;
+			     ndest = bgp_route_next(ndest))
 				bgp_addpath_flush_type_rn(bgp, afi, safi,
-							  addpath_type, nrn);
+							  addpath_type, ndest);
 		} else {
 			bgp_addpath_flush_type_rn(bgp, afi, safi, addpath_type,
-						  rn);
+						  dest);
 		}
 	}
 
@@ -257,7 +257,7 @@ static void bgp_addpath_populate_path(struct id_alloc *allocator,
 static void bgp_addpath_populate_type(struct bgp *bgp, afi_t afi, safi_t safi,
 				    enum bgp_addpath_strat addpath_type)
 {
-	struct bgp_node *rn, *nrn;
+	struct bgp_dest *dest, *ndest;
 	char buf[200];
 	struct id_alloc *allocator;
 
@@ -276,25 +276,25 @@ static void bgp_addpath_populate_type(struct bgp *bgp, afi_t afi, safi_t safi,
 
 	allocator = bgp->tx_addpath.id_allocators[afi][safi][addpath_type];
 
-	for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
-	     rn = bgp_route_next(rn)) {
+	for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
+	     dest = bgp_route_next(dest)) {
 		struct bgp_path_info *bi;
 
 		if (safi == SAFI_MPLS_VPN) {
 			struct bgp_table *table;
 
-			table = bgp_node_get_bgp_table_info(rn);
+			table = bgp_dest_get_bgp_table_info(dest);
 			if (!table)
 				continue;
 
-			for (nrn = bgp_table_top(table); nrn;
-			     nrn = bgp_route_next(nrn))
-				for (bi = bgp_node_get_bgp_path_info(nrn); bi;
+			for (ndest = bgp_table_top(table); ndest;
+			     ndest = bgp_route_next(ndest))
+				for (bi = bgp_dest_get_bgp_path_info(ndest); bi;
 				     bi = bi->next)
 					bgp_addpath_populate_path(allocator, bi,
 								  addpath_type);
 		} else {
-			for (bi = bgp_node_get_bgp_path_info(rn); bi;
+			for (bi = bgp_dest_get_bgp_path_info(dest); bi;
 			     bi = bi->next)
 				bgp_addpath_populate_path(allocator, bi,
 							  addpath_type);
@@ -426,8 +426,8 @@ void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
  * best-per-as updates from needing to do a separate withdraw and update just to
  * swap out which path is sent.
  */
-void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_node *bn, afi_t afi,
-			  safi_t safi)
+void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_dest *bn, afi_t afi,
+			    safi_t safi)
 {
 	int i;
 	struct bgp_path_info *pi;
@@ -442,7 +442,7 @@ void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_node *bn, afi_t afi,
 			continue;
 
 		/* Free Unused IDs back to the pool.*/
-		for (pi = bgp_node_get_bgp_path_info(bn); pi; pi = pi->next) {
+		for (pi = bgp_dest_get_bgp_path_info(bn); pi; pi = pi->next) {
 			if (pi->tx_addpath.addpath_tx_id[i] != IDALLOC_INVALID
 			    && !bgp_addpath_tx_path(i, pi)) {
 				idalloc_free_to_pool(pool_ptr,
@@ -453,7 +453,7 @@ void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_node *bn, afi_t afi,
 		}
 
 		/* Give IDs to paths that need them (pulling from the pool) */
-		for (pi = bgp_node_get_bgp_path_info(bn); pi; pi = pi->next) {
+		for (pi = bgp_dest_get_bgp_path_info(bn); pi; pi = pi->next) {
 			if (pi->tx_addpath.addpath_tx_id[i] == IDALLOC_INVALID
 			    && bgp_addpath_tx_path(i, pi)) {
 				pi->tx_addpath.addpath_tx_id[i] =

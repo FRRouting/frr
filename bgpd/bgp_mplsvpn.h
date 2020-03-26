@@ -233,7 +233,7 @@ static inline bool is_route_injectable_into_vpn(struct bgp_path_info *pi)
 {
 	struct bgp_path_info *parent_pi;
 	struct bgp_table *table;
-	struct bgp_node *rn;
+	struct bgp_dest *dest;
 
 	if (pi->sub_type != BGP_ROUTE_IMPORTED ||
 	    !pi->extra ||
@@ -241,10 +241,10 @@ static inline bool is_route_injectable_into_vpn(struct bgp_path_info *pi)
 		return true;
 
 	parent_pi = (struct bgp_path_info *)pi->extra->parent;
-	rn = parent_pi->net;
-	if (!rn)
+	dest = parent_pi->net;
+	if (!dest)
 		return true;
-	table = bgp_node_table(rn);
+	table = bgp_dest_table(dest);
 	if (table &&
 	    (table->afi == AFI_IP || table->afi == AFI_IP6) &&
 	    table->safi == SAFI_MPLS_VPN)

@@ -922,7 +922,7 @@ afibreak:
 	}
 
 	struct bgp_table *table = bmp->targets->bgp->rib[afi][safi];
-	struct bgp_node *bn;
+	struct bgp_dest *bn;
 	struct bgp_path_info *bpi = NULL, *bpiter;
 	struct bgp_adj_in *adjin = NULL, *adjiter;
 
@@ -943,7 +943,7 @@ afibreak:
 				return true;
 			}
 			bmp->syncpeerid = 0;
-			prefix_copy(&bmp->syncpos, bgp_node_get_prefix(bn));
+			prefix_copy(&bmp->syncpos, bgp_dest_get_prefix(bn));
 		}
 
 		if (bmp->targets->afimon[afi][safi] & BMP_MON_POSTPOLICY) {
@@ -991,7 +991,7 @@ afibreak:
 		bmp->syncpeerid = adjin->peer->qobj_node.nid;
 	}
 
-	const struct prefix *bn_p = bgp_node_get_prefix(bn);
+	const struct prefix *bn_p = bgp_dest_get_prefix(bn);
 
 	if (bpi)
 		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L, bn_p, bpi->attr,
@@ -1025,7 +1025,7 @@ static bool bmp_wrqueue(struct bmp *bmp, struct pullwr *pullwr)
 {
 	struct bmp_queue_entry *bqe;
 	struct peer *peer;
-	struct bgp_node *bn;
+	struct bgp_dest *bn;
 	bool written = false;
 
 	bqe = bmp_pull(bmp);
@@ -1129,8 +1129,8 @@ static void bmp_wrerr(struct bmp *bmp, struct pullwr *pullwr, bool eof)
 	bmp_free(bmp);
 }
 
-static void bmp_process_one(struct bmp_targets *bt, struct bgp *bgp,
-		afi_t afi, safi_t safi, struct bgp_node *bn, struct peer *peer)
+static void bmp_process_one(struct bmp_targets *bt, struct bgp *bgp, afi_t afi,
+			    safi_t safi, struct bgp_dest *bn, struct peer *peer)
 {
 	struct bmp *bmp;
 	struct bmp_queue_entry *bqe, bqeref;
@@ -1141,7 +1141,7 @@ static void bmp_process_one(struct bmp_targets *bt, struct bgp *bgp,
 		return;
 
 	memset(&bqeref, 0, sizeof(bqeref));
-	prefix_copy(&bqeref.p, bgp_node_get_prefix(bn));
+	prefix_copy(&bqeref.p, bgp_dest_get_prefix(bn));
 	bqeref.peerid = peer->qobj_node.nid;
 	bqeref.afi = afi;
 	bqeref.safi = safi;
@@ -1169,7 +1169,7 @@ static void bmp_process_one(struct bmp_targets *bt, struct bgp *bgp,
 }
 
 static int bmp_process(struct bgp *bgp, afi_t afi, safi_t safi,
-			struct bgp_node *bn, struct peer *peer, bool withdraw)
+		       struct bgp_dest *bn, struct peer *peer, bool withdraw)
 {
 	struct bmp_bgp *bmpbgp = bmp_bgp_find(peer->bgp);
 	struct bmp_targets *bt;

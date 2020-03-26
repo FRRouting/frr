@@ -1177,8 +1177,8 @@ static void update_subgroup_copy_adj_out(struct update_subgroup *source,
 		/*
 		 * Copy the adj out.
 		 */
-		aout_copy =
-			bgp_adj_out_alloc(dest, aout->rn, aout->addpath_tx_id);
+		aout_copy = bgp_adj_out_alloc(dest, aout->dest,
+					      aout->addpath_tx_id);
 		aout_copy->attr =
 			aout->attr ? bgp_attr_intern(aout->attr) : NULL;
 	}

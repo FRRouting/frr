@@ -137,34 +137,37 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 					 struct bgp_table *table,
 					 struct ethaddr *macaddr)
 {
-	struct bgp_node *prn, *rn;
+	struct bgp_dest *pdest, *dest;
 	struct bgp_path_info *pi;
 
-	for (prn = bgp_table_top(table); prn; prn = bgp_route_next(prn)) {
-		struct bgp_table *sub = prn->info;
-		const struct prefix *prn_p = bgp_node_get_prefix(prn);
+	for (pdest = bgp_table_top(table); pdest;
+	     pdest = bgp_route_next(pdest)) {
+		struct bgp_table *sub = pdest->info;
+		const struct prefix *pdest_p = bgp_dest_get_prefix(pdest);
 
 		if (!sub)
 			continue;
 
-		for (rn = bgp_table_top(sub); rn; rn = bgp_route_next(rn)) {
-			bool rn_affected;
-			const struct prefix *p = bgp_node_get_prefix(rn);
-			const struct prefix_evpn *pevpn = (const struct prefix_evpn *)p;
+		for (dest = bgp_table_top(sub); dest;
+		     dest = bgp_route_next(dest)) {
+			bool dest_affected;
+			const struct prefix *p = bgp_dest_get_prefix(dest);
+			struct prefix_evpn *pevpn = (struct prefix_evpn *)dest;
 			struct prefix_rd prd;
 			uint32_t num_labels = 0;
 			mpls_label_t *label_pnt = NULL;
 			struct bgp_route_evpn evpn;
 
-			if (pevpn->family == AF_EVPN &&
-			    pevpn->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE &&
-			    memcmp(&p->u.prefix_evpn.macip_addr.mac,
-				   macaddr, ETH_ALEN) == 0)
-				rn_affected = true;
+			if (pevpn->family == AF_EVPN
+			    && pevpn->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
+			    && memcmp(&p->u.prefix_evpn.macip_addr.mac, macaddr,
+				      ETH_ALEN)
+				       == 0)
+				dest_affected = true;
 			else
-				rn_affected = false;
+				dest_affected = false;
 
-			for (pi = rn->info; pi; pi = pi->next) {
+			for (pi = dest->info; pi; pi = pi->next) {
 				if (pi->peer == peer)
 					break;
 			}
@@ -176,8 +179,8 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			 * If the mac address is not the same then
 			 * we don't care and since we are looking
 			 */
-			if ((memcmp(&pi->attr->rmac, macaddr, ETH_ALEN) != 0) &&
-			    !rn_affected)
+			if ((memcmp(&pi->attr->rmac, macaddr, ETH_ALEN) != 0)
+			    && !dest_affected)
 				continue;
 
 			if (pi->extra)
@@ -187,7 +190,7 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 
 			prd.family = AF_UNSPEC;
 			prd.prefixlen = 64;
-			memcpy(&prd.val, prn_p->u.val, 8);
+			memcpy(&prd.val, pdest_p->u.val, 8);
 
 			if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
 				if (bgp_debug_update(peer, p, NULL, 1)) {
@@ -216,7 +219,7 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 						 1, &evpn);
 
 			if (ret < 0)
-				bgp_unlock_node(rn);
+				bgp_dest_unlock_node(dest);
 		}
 	}
 }
