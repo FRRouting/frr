@@ -23,6 +23,10 @@
 
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_IF, "NHRP interface")
 
+static void nhrp_interface_update_cache_config(struct interface *ifp,
+					       bool available,
+					       uint8_t family);
+
 static int nhrp_if_new_hook(struct interface *ifp)
 {
 	struct nhrp_interface *nifp;
@@ -311,9 +315,66 @@ int nhrp_ifp_destroy(struct interface *ifp)
 {
 	debugf(NHRP_DEBUG_IF, "if-delete: %s", ifp->name);
 
+	nhrp_interface_update_cache_config(ifp, false, AF_INET);
+	nhrp_interface_update_cache_config(ifp, false, AF_INET6);
 	nhrp_interface_update(ifp);
 
 	return 0;
+}
+
+struct map_ctx {
+	int family;
+	bool enabled;
+};
+
+static void interface_config_update_nhrp_map(struct nhrp_cache_config *cc, void *data)
+{
+	struct map_ctx *ctx = data;
+	struct interface *ifp = cc->ifp;
+	struct nhrp_cache *c;
+	union sockunion nbma_addr;
+
+	if (sockunion_family(&cc->remote_addr) != ctx->family)
+		return;
+
+	/* gre layer not ready */
+	if (ifp->vrf_id == VRF_UNKNOWN)
+		return;
+
+	c = nhrp_cache_get(ifp, &cc->remote_addr, ctx->enabled ? 1 : 0);
+	if (!c && !ctx->enabled)
+		return;
+	/* suppress */
+	if (!ctx->enabled) {
+		if (c && c->map) {
+			nhrp_cache_update_binding(c, c->cur.type, -1,
+						  nhrp_peer_get(ifp, &nbma_addr), 0, NULL);
+		}
+		return;
+	}
+	/* create */
+	c->map = 1;
+	if (cc->type == NHRP_CACHE_LOCAL)
+		nhrp_cache_update_binding(c, NHRP_CACHE_LOCAL, 0, NULL, 0,
+					  NULL);
+	else {
+		nhrp_cache_update_binding(c, NHRP_CACHE_STATIC, 0,
+					  nhrp_peer_get(ifp, &cc->nbma), 0,
+					  NULL);
+	}
+}
+
+static void nhrp_interface_update_cache_config(struct interface *ifp, bool available, uint8_t family)
+{
+	struct map_ctx mapctx;
+
+	mapctx = (struct map_ctx){
+		.family = family,
+		.enabled = available
+	};
+	nhrp_cache_config_foreach(ifp, interface_config_update_nhrp_map,
+				  &mapctx);
+
 }
 
 int nhrp_ifp_up(struct interface *ifp)
@@ -345,7 +406,7 @@ int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS)
 
 	nhrp_interface_update_address(
 		ifc->ifp, family2afi(PREFIX_FAMILY(ifc->address)), 0);
-
+	nhrp_interface_update_cache_config(ifc->ifp, true, PREFIX_FAMILY(ifc->address));
 	return 0;
 }
 
