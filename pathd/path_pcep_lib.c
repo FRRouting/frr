@@ -278,6 +278,7 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	struct pcep_object_lspa *lspa;
 	struct pcep_object_bandwidth *bandwidth;
 	struct pcep_object_metric *metric;
+	char unknown_lsp_tlv_data[6] = "\x00\x00\x00\x00\x10\x00";
 
 	memset(&addr_null, 0, sizeof(addr_null));
 
@@ -320,6 +321,12 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 		assert(NULL != tlv);
 		dll_append(lsp_tlvs, tlv);
 	}
+	tlv = (struct pcep_object_tlv_header *)
+	       pcep_tlv_create_tlv_arbitrary(unknown_lsp_tlv_data,
+	                                     sizeof(unknown_lsp_tlv_data),
+	                                     65505);
+	assert(NULL != tlv);
+	dll_append(lsp_tlvs, tlv);
 	lsp = pcep_obj_create_lsp(
 		path->plsp_id, path->status, path->was_created /* C Flag */,
 		path->go_active /* A Flag */, path->was_removed /* R Flag */,
