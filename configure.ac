@@ -641,21 +641,26 @@ AC_ARG_ENABLE([memory-sanitizer],
 AC_ARG_ENABLE([undefined-sanitizer],
   AS_HELP_STRING([--undefined-sanitizer], [enable UndefinedBehaviorSanitizer support for detecting undefined behavior]))
 AC_ARG_WITH([crypto],
-  AS_HELP_STRING([--with-crypto=<internal|openssl>], [choose between different implementations of cryptographic functions(default value is --with-crypto=internal)]))
+  AS_HELP_STRING([--with-crypto=<internal|openssl>], [choose between different implementations of cryptographic functions(default value is --with-crypto=openssl)]))
 AC_ARG_WITH([frr-format],
   AS_HELP_STRING([--with-frr-format[=<.../frr-format.so>]], [use frr-format GCC plugin]))
 
 #if openssl, else use the internal
-AS_IF([test "$with_crypto" = "openssl"], [
-AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
-if test "$ac_cv_lib_crypto_EVP_DigestInit" = "no"; then
-  AC_MSG_ERROR([build with openssl has been specified but openssl library was not found on your system])
-else
-  AC_DEFINE([CRYPTO_OPENSSL], [1], [Compile with openssl support])
+have_crypto="no"
+if test "$with_crypto" = "" || test "$with_crypto" = "openssl" ; then
+   AC_CHECK_LIB([crypto], [PEM_read_bio_PrivateKey], [have_crypto=yes], [have_crypto=no], [])
+   AC_CHECK_LIB([crypto], [EVP_MD_CTX_new], [] , [have_crypto=no], [])
+   AC_CHECK_LIB([crypto], [EVP_DigestInit], [] , [have_crypto=no], [])
+   if test "$have_crypto" == "yes" ; then
+      LIBS="$LIBS -lcrypto"
+      AC_DEFINE([CRYPTO_OPENSSL], [1], [Compile with openssl cryptographic support])
+   elif test "$with_crypto" != "" ; then
+      AC_MSG_ERROR([configuration specifies --with-crypto=openssl but up to date libcrypto not found])
+   fi
 fi
-], [test "$with_crypto" = "internal" || test "$with_crypto" = "" ], [AC_DEFINE([CRYPTO_INTERNAL], [1], [Compile with internal cryptographic implementation])
-], [AC_MSG_ERROR([Unknown value for --with-crypto])]
-)
+if test "$have_crypto" = "no" ; then
+   AC_DEFINE([CRYPTO_INTERNAL], [1], [Compile with internal cryptographic implementation])
+fi
 
 AS_IF([test "$enable_clippy_only" != "yes"], [
 AC_CHECK_HEADERS([json-c/json.h])
