@@ -1655,19 +1655,20 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 	else
 		aggregator_as = stream_getw(peer->curr);
 
-	/* Codification of AS 0 Processing */
-	if (aggregator_as == BGP_AS_ZERO) {
-		flog_err(EC_BGP_ATTR_LEN,
-			 "AGGREGATOR attribute is BGP_AS_ZERO(0)");
-		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
-					  args->total);
-	}
-
 	attr->aggregator_as = aggregator_as;
 	attr->aggregator_addr.s_addr = stream_get_ipv4(peer->curr);
 
 	/* Set atomic aggregate flag. */
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR);
+
+	/* Codification of AS 0 Processing */
+	if (aggregator_as == BGP_AS_ZERO) {
+		flog_err(EC_BGP_ATTR_LEN,
+			 "AGGREGATOR AS number is 0 for aspath: %s",
+			 aspath_print(attr->aspath));
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
+					  args->total);
+	}
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -1690,19 +1691,20 @@ bgp_attr_as4_aggregator(struct bgp_attr_parser_args *args,
 					  0);
 	}
 
-	/* Codification of AS 0 Processing */
 	aggregator_as = stream_getl(peer->curr);
-	if (aggregator_as == BGP_AS_ZERO) {
-		flog_err(EC_BGP_ATTR_LEN,
-			 "AS4_AGGREGATOR attribute is BGP_AS_ZERO(0)");
-		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
-					  0);
-	}
-
 	*as4_aggregator_as = aggregator_as;
 	as4_aggregator_addr->s_addr = stream_get_ipv4(peer->curr);
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR);
+
+	/* Codification of AS 0 Processing */
+	if (aggregator_as == BGP_AS_ZERO) {
+		flog_err(EC_BGP_ATTR_LEN,
+			 "AS4_AGGREGATOR AS number is 0 for aspath: %s",
+			 aspath_print(attr->aspath));
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
+					  0);
+	}
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
