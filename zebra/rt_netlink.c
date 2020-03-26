@@ -1754,7 +1754,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 				break;
 			}
 		}
-		if (setsrc && (cmd == RTM_NEWROUTE)) {
+		if (setsrc) {
 			if (family == AF_INET)
 				addattr_l(&req.n, sizeof(req), RTA_PREFSRC,
 					  &src.ipv4, bytelen);
@@ -1807,7 +1807,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 				}
 			}
 		}
-		if (setsrc && (cmd == RTM_NEWROUTE)) {
+		if (setsrc) {
 			if (family == AF_INET)
 				addattr_l(&req.n, sizeof(req), RTA_PREFSRC,
 					  &src.ipv4, bytelen);
