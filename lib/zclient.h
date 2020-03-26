@@ -607,6 +607,11 @@ zapi_rule_notify_owner2str(enum zapi_rule_notify_owner note)
 #define ZEBRA_MACIP_TYPE_ROUTER_FLAG           0x04 /* Router Flag - proxy NA */
 #define ZEBRA_MACIP_TYPE_OVERRIDE_FLAG         0x08 /* Override Flag */
 #define ZEBRA_MACIP_TYPE_SVI_IP                0x10 /* SVI MAC-IP */
+#define ZEBRA_MACIP_TYPE_PROXY_ADVERT          0x20 /* Not locally active */
+#define ZEBRA_MACIP_TYPE_SYNC_PATH             0x40 /* sync path */
+/* XXX - flags is an u8; that needs to be changed to u32 if you need
+ * to allocate past 0x80
+ */
 
 enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
 
