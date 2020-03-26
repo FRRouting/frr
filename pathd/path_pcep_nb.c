@@ -167,7 +167,8 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 struct path_hop *path_nb_list_path_hops(struct srte_segment_list *segment_list)
 {
 	struct srte_segment_entry *segment;
-	struct path_hop *hop, *last_hop = NULL;
+	struct path_hop *hop = NULL, *last_hop = NULL;
+
 	RB_FOREACH_REVERSE (segment, srte_segment_entry_head,
 			    &segment_list->segments) {
 		hop = pcep_new_hop();
