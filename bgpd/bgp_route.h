@@ -513,7 +513,7 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 
 /* called before bgp_process() */
 DECLARE_HOOK(bgp_process,
-	     (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
+	     (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
 	      struct peer *peer, bool withdraw),
 	     (bgp, afi, safi, bn, peer, withdraw))
 

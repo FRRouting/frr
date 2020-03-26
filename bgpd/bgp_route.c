@@ -111,7 +111,7 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 #define VRFID_NONE_STR "-"
 
 DEFINE_HOOK(bgp_process,
-	    (struct bgp * bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
+	    (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
 	     struct peer *peer, bool withdraw),
 	    (bgp, afi, safi, bn, peer, withdraw))
 
@@ -2625,7 +2625,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	 */
 	if (CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER)) {
 		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug("SELECT_DEFER falg set for route %p", dest);
+			zlog_debug("SELECT_DEFER flag set for route %p", dest);
 		return;
 	}
 
