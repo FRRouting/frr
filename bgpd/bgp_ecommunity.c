@@ -813,6 +813,30 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					    ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG))
 					strlcpy(encbuf, "ND:Router Flag",
 						sizeof(encbuf));
+			} else if (*pnt
+				   == ECOMMUNITY_EVPN_SUBTYPE_ES_IMPORT_RT) {
+				struct ethaddr mac;
+
+				pnt++;
+				memcpy(&mac, pnt, ETH_ALEN);
+				snprintf(encbuf,
+					sizeof(encbuf),
+					"ES-Import-Rt:%02x:%02x:%02x:%02x:%02x:%02x",
+					(uint8_t)mac.octet[0],
+					(uint8_t)mac.octet[1],
+					(uint8_t)mac.octet[2],
+					(uint8_t)mac.octet[3],
+					(uint8_t)mac.octet[4],
+					(uint8_t)mac.octet[5]);
+			} else if (*pnt
+				   == ECOMMUNITY_EVPN_SUBTYPE_ESI_LABEL) {
+				uint8_t flags = *++pnt;
+
+				snprintf(encbuf,
+					sizeof(encbuf), "ESI-label-Rt:%s",
+					(flags &
+					 ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG) ?
+					"SA":"AA");
 			} else
 				unk_ecom = 1;
 		} else if (type == ECOMMUNITY_ENCODE_REDIRECT_IP_NH) {
@@ -868,21 +892,6 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			} else if (sub_type == ECOMMUNITY_TRAFFIC_MARKING) {
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:marking %u", *(pnt + 5));
-			} else if (*pnt
-				   == ECOMMUNITY_EVPN_SUBTYPE_ES_IMPORT_RT) {
-				struct ethaddr mac;
-
-				memcpy(&mac, pnt, ETH_ALEN);
-
-				snprintf(
-					encbuf, sizeof(encbuf),
-					"ES-Import-Rt:%02x:%02x:%02x:%02x:%02x:%02x",
-					(uint8_t)mac.octet[0],
-					(uint8_t)mac.octet[1],
-					(uint8_t)mac.octet[2],
-					(uint8_t)mac.octet[3],
-					(uint8_t)mac.octet[4],
-					(uint8_t)mac.octet[5]);
 			} else
 				unk_ecom = 1;
 		} else if (type == ECOMMUNITY_ENCODE_AS_NON_TRANS) {
