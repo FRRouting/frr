@@ -176,7 +176,7 @@ extern int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni,
 					int state);
 extern int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni,
 				    struct ethaddr *mac, struct ipaddr *ip,
-				    uint8_t flags, uint32_t seq);
+				    uint8_t flags, uint32_t seq, esi_t *esi);
 extern int bgp_evpn_local_l3vni_add(vni_t vni, vrf_id_t vrf_id,
 				    struct ethaddr *rmac,
 				    struct ethaddr *vrr_rmac,

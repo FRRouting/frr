@@ -165,6 +165,9 @@ struct bgp_master {
 	/* How big should we set the socket buffer size */
 	uint32_t socket_buffer;
 
+	/* EVPN multihoming */
+	struct bgp_evpn_mh_info *mh_info;
+
 	bool terminating;	/* global flag that sigint terminate seen */
 	QOBJ_FIELDS
 };
@@ -659,9 +662,6 @@ struct bgp {
 	struct vpn_policy vpn_policy[AFI_MAX];
 
 	struct bgp_pbr_config *bgp_pbr_cfg;
-
-	/* local esi hash table */
-	struct hash *esihash;
 
 	/* Count of peers in established state */
 	uint32_t established_peers;
