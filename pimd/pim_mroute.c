@@ -486,7 +486,10 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 		struct pim_upstream *parent;
 		struct pim_nexthop source;
 		struct pim_rpf *rpf = RP(pim_ifp->pim, sg.grp);
-		if (!rpf || !rpf->source_nexthop.interface)
+
+		/* No RPF or No RPF interface or No mcast on RPF interface */
+		if (!rpf || !rpf->source_nexthop.interface
+		    || !rpf->source_nexthop.interface->info)
 			return 0;
 
 		/*
