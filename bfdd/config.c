@@ -243,17 +243,17 @@ static int parse_peer_config(struct json_object *jo, struct bfd_peer_cfg *bpc)
 		} else if (strcmp(key, "receive-interval") == 0) {
 			bpc->bpc_recvinterval = json_object_get_int64(jo_val);
 			bpc->bpc_has_recvinterval = true;
-			log_debug("        receive-interval: %llu",
+			log_debug("        receive-interval: %" PRIu64,
 				  bpc->bpc_recvinterval);
 		} else if (strcmp(key, "transmit-interval") == 0) {
 			bpc->bpc_txinterval = json_object_get_int64(jo_val);
 			bpc->bpc_has_txinterval = true;
-			log_debug("        transmit-interval: %llu",
+			log_debug("        transmit-interval: %" PRIu64,
 				  bpc->bpc_txinterval);
 		} else if (strcmp(key, "echo-interval") == 0) {
 			bpc->bpc_echointerval = json_object_get_int64(jo_val);
 			bpc->bpc_has_echointerval = true;
-			log_debug("        echo-interval: %llu",
+			log_debug("        echo-interval: %" PRIu64,
 				  bpc->bpc_echointerval);
 		} else if (strcmp(key, "create-only") == 0) {
 			bpc->bpc_createonly = json_object_get_boolean(jo_val);

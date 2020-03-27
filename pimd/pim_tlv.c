@@ -473,7 +473,7 @@ int pim_parse_addr_ucast(struct prefix *p, const uint8_t *buf, int buf_size)
 	case PIM_MSG_ADDRESS_FAMILY_IPV4:
 		if ((addr + sizeof(struct in_addr)) > pastend) {
 			zlog_warn(
-				"%s: IPv4 unicast address overflow: left=%zd needed=%zu",
+				"%s: IPv4 unicast address overflow: left=%td needed=%zu",
 				__func__, pastend - addr,
 				sizeof(struct in_addr));
 			return -3;
@@ -489,7 +489,7 @@ int pim_parse_addr_ucast(struct prefix *p, const uint8_t *buf, int buf_size)
 	case PIM_MSG_ADDRESS_FAMILY_IPV6:
 		if ((addr + sizeof(struct in6_addr)) > pastend) {
 			zlog_warn(
-				"%s: IPv6 unicast address overflow: left=%zd needed %zu",
+				"%s: IPv6 unicast address overflow: left=%td needed %zu",
 				__func__, pastend - addr,
 				sizeof(struct in6_addr));
 			return -3;
@@ -548,7 +548,7 @@ int pim_parse_addr_group(struct prefix_sg *sg, const uint8_t *buf, int buf_size)
 
 		if ((addr + sizeof(struct in_addr)) > pastend) {
 			zlog_warn(
-				"%s: IPv4 group address overflow: left=%zd needed=%zu from",
+				"%s: IPv4 group address overflow: left=%td needed=%zu from",
 				__func__, pastend - addr,
 				sizeof(struct in_addr));
 			return -3;
@@ -607,7 +607,7 @@ int pim_parse_addr_source(struct prefix_sg *sg, uint8_t *flags,
 	case PIM_MSG_ADDRESS_FAMILY_IPV4:
 		if ((addr + sizeof(struct in_addr)) > pastend) {
 			zlog_warn(
-				"%s: IPv4 source address overflow: left=%zd needed=%zu",
+				"%s: IPv4 source address overflow: left=%td needed=%zu",
 				__func__, pastend - addr,
 				sizeof(struct in_addr));
 			return -3;
