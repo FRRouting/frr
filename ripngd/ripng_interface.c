@@ -911,6 +911,8 @@ void ripng_interface_sync(struct interface *ifp)
 
 static int ripng_if_new_hook(struct interface *ifp)
 {
+	if (ifp->info)
+		return 0;
 	ifp->info = ri_new();
 	ripng_interface_sync(ifp);
 

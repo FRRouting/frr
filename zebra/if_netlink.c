@@ -83,6 +83,7 @@ static void set_ifindex(struct interface *ifp, ifindex_t ifi_index,
 			struct zebra_ns *zns)
 {
 	struct interface *oifp;
+	bool  if_update_needed = false;
 
 	if (((oifp = if_lookup_by_index_per_ns(zns, ifi_index)) != NULL)
 	    && (oifp != ifp)) {
@@ -104,7 +105,11 @@ static void set_ifindex(struct interface *ifp, ifindex_t ifi_index,
 			if_delete_update(oifp);
 		}
 	}
+	if (ifp->ifindex != ifi_index && ifi_index != IFINDEX_INTERNAL)
+		if_update_needed = true;
 	if_set_index(ifp, ifi_index);
+	if (if_update_needed)
+		if_update(ifp);
 }
 
 /* Utility function to parse hardware link-layer address and update ifp */

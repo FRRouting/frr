@@ -654,6 +654,8 @@ int ospf_if_new_hook(struct interface *ifp)
 {
 	int rc = 0;
 
+	if (ifp->info)
+		return 0;
 	ifp->info = XCALLOC(MTYPE_OSPF_IF_INFO, sizeof(struct ospf_if_info));
 
 	IF_OIFS(ifp) = route_table_init();

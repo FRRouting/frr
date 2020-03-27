@@ -70,6 +70,8 @@ static int nhrp_if_new_hook(struct interface *ifp)
 	struct nhrp_interface *nifp;
 	afi_t afi;
 
+	if (ifp->info)
+		return 0;
 	nifp = XCALLOC(MTYPE_NHRP_IF, sizeof(struct nhrp_interface));
 
 	ifp->info = nifp;

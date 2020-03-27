@@ -611,6 +611,11 @@ struct interface *if_get_by_name_vrf(const char *name, struct vrf *vrf)
 	return if_create_name_vrf(name, vrf);
 }
 
+void if_update(struct interface *ifp)
+{
+	hook_call(if_add, ifp);
+}
+
 /* Get interface by name if given name interface doesn't exist create
    one. */
 struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)

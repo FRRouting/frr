@@ -510,6 +510,7 @@ extern int if_cmp_name_func(const char *p1, const char *p2);
  * This is useful for vrf route-leaking.  So more than anything
  * else think before you use VRF_UNKNOWN
  */
+extern void if_update(struct interface *ifp);
 extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
 
 /* Create new interface, adds to name list only */

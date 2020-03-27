@@ -1287,6 +1287,8 @@ babel_if_init(void)
 static int
 babel_if_new_hook (struct interface *ifp)
 {
+    if (ifp->info)
+       return 0;
     ifp->info = babel_interface_allocate();
     return 0;
 }

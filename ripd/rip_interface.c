@@ -1182,6 +1182,8 @@ void rip_interface_sync(struct interface *ifp)
 /* Called when interface structure allocated. */
 static int rip_interface_new_hook(struct interface *ifp)
 {
+	if (ifp->info)
+		return 0;
 	ifp->info = rip_interface_new();
 	rip_interface_sync(ifp);
 

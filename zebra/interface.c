@@ -126,6 +126,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 {
 	struct zebra_if *zebra_if;
 
+	if (ifp->info)
+		return 0;
 	zebra_if = XCALLOC(MTYPE_ZINFO, sizeof(struct zebra_if));
 	zebra_if->ifp = ifp;
 
