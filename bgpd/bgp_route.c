@@ -1644,8 +1644,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		mpls_label_t label = bgp_adv_label(dest, pi, peer, afi, safi);
 		if (!bgp_is_valid_label(&label)) {
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
-				zlog_debug("u%" PRIu64 ":s%" PRIu64
-					   " %s/%d is filtered - no label (%p)",
+				zlog_debug("u%" PRIu64 ":s%" PRIu64" %s/%d is filtered - no label (%p)",
 					   subgrp->update_group->id, subgrp->id,
 					   inet_ntop(p->family, &p->u.prefix,
 						     buf, SU_ADDRSTRLEN),
@@ -2991,8 +2990,7 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			return false;
 
 		zlog_info(
-			"%%MAXPFXEXCEED: No. of %s prefix received from %s %" PRIu32
-			" exceed, limit %" PRIu32,
+			"%%MAXPFXEXCEED: No. of %s prefix received from %s %u exceed, limit %u",
 			get_afi_safi_str(afi, safi, false), peer->host,
 			peer->pcount[afi][safi], peer->pmax[afi][safi]);
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_LIMIT);
@@ -3053,8 +3051,7 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 			return false;
 
 		zlog_info(
-			"%%MAXPFX: No. of %s prefix received from %s reaches %" PRIu32
-			", max %" PRIu32,
+			"%%MAXPFX: No. of %s prefix received from %s reaches %u, max %u",
 			get_afi_safi_str(afi, safi, false), peer->host,
 			peer->pcount[afi][safi], peer->pmax[afi][safi]);
 		SET_FLAG(peer->af_sflags[afi][safi],
@@ -9604,8 +9601,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 
 	if (use_json && !*json_header_depth) {
 		vty_out(vty,
-			"{\n \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64
-			",\n \"routerId\": \"%s\",\n \"defaultLocPrf\": %u,\n"
+			"{\n \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64",\n \"routerId\": \"%s\",\n \"defaultLocPrf\": %u,\n"
 			" \"localAS\": %u,\n \"routes\": { ",
 			bgp->vrf_id == VRF_UNKNOWN ? -1 : (int)bgp->vrf_id,
 			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
@@ -9790,8 +9786,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			}
 
 			if (!use_json && header) {
-				vty_out(vty, "BGP table version is %" PRIu64
-					", local router ID is %s, vrf id ",
+				vty_out(vty, "BGP table version is %" PRIu64", local router ID is %s, vrf id ",
 					table->version,
 					inet_ntoa(bgp->router_id));
 				if (bgp->vrf_id == VRF_UNKNOWN)
@@ -11786,7 +11781,7 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 				get_afi_safi_str(afi, safi, false));
 		}
 
-		vty_out(vty, "PfxCt: %" PRIu32 "\n", peer->pcount[afi][safi]);
+		vty_out(vty, "PfxCt: %u\n", peer->pcount[afi][safi]);
 		vty_out(vty, "\nCounts from RIB table walk:\n\n");
 
 		for (i = 0; i < PCOUNT_MAX; i++)
@@ -12019,8 +12014,7 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 				json, "bgpOriginatingDefaultNetwork",
 				(afi == AFI_IP) ? "0.0.0.0/0" : "::/0");
 		} else {
-			vty_out(vty, "BGP table version is %" PRIu64
-				     ", local router ID is %s, vrf id ",
+			vty_out(vty, "BGP table version is %" PRIu64", local router ID is %s, vrf id ",
 				table->version, inet_ntoa(bgp->router_id));
 			if (bgp->vrf_id == VRF_UNKNOWN)
 				vty_out(vty, "%s", VRFID_NONE_STR);
@@ -12167,8 +12161,7 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 								json_ocode);
 						} else {
 							vty_out(vty,
-								"BGP table version is %" PRIu64
-								", local router ID is %s, vrf id ",
+								"BGP table version is %" PRIu64", local router ID is %s, vrf id ",
 								table->version,
 								inet_ntoa(
 									bgp->router_id));

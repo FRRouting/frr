@@ -103,7 +103,7 @@ lib_interface_vrrp_vrrp_group_get_keys(struct nb_cb_get_keys_args *args)
 	const struct vrrp_vrouter *vr = args->list_entry;
 
 	args->keys->num = 1;
-	snprintf(args->keys->key[0], sizeof(args->keys->key[0]), "%" PRIu32,
+	snprintf(args->keys->key[0], sizeof(args->keys->key[0]), "%u",
 		 vr->vrid);
 
 	return NB_OK;

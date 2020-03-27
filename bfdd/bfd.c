@@ -924,8 +924,7 @@ int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc)
 
 	/* This pointer is being referenced, don't let it be deleted. */
 	if (bs->refcount > 0) {
-		zlog_err("session-delete: refcount failure: %" PRIu64
-			 " references",
+		zlog_err("session-delete: refcount failure: %" PRIu64" references",
 			 bs->refcount);
 		return -1;
 	}

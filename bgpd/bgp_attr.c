@@ -765,8 +765,7 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 		inet_ntop(AF_INET6, &attr->srv6_vpn->sid, sid_str, BUFSIZ);
 
 	vty_out(vty,
-		"\tflags: %" PRIu64
-		" med: %u local_pref: %u origin: %u weight: %u label: %u sid: %s\n",
+		"\tflags: %" PRIu64" med: %u local_pref: %u origin: %u weight: %u label: %u sid: %s\n",
 		attr->flag, attr->med, attr->local_pref, attr->origin,
 		attr->weight, attr->label, sid_str);
 }
@@ -2399,8 +2398,7 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		if (STREAM_READABLE(peer->curr) < length
 		    || length != BGP_PREFIX_SID_LABEL_INDEX_LENGTH) {
 			flog_err(EC_BGP_ATTR_LEN,
-				 "Prefix SID label index length is %" PRIu16
-				 " instead of %u",
+				 "Prefix SID label index length is %hu instead of %u",
 				 length, BGP_PREFIX_SID_LABEL_INDEX_LENGTH);
 			return bgp_attr_malformed(args,
 						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -2427,8 +2425,7 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		if (STREAM_READABLE(peer->curr) < length
 		    || length != BGP_PREFIX_SID_IPV6_LENGTH) {
 			flog_err(EC_BGP_ATTR_LEN,
-				 "Prefix SID IPv6 length is %" PRIu16
-				 " instead of %u",
+				 "Prefix SID IPv6 length is %hu instead of %u",
 				 length, BGP_PREFIX_SID_IPV6_LENGTH);
 			return bgp_attr_malformed(args,
 						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -2460,7 +2457,7 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		if (length < (2 + BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH)) {
 			flog_err(
 				EC_BGP_ATTR_LEN,
-				"Prefix SID Originator SRGB length field claims length of %" PRIu16 " bytes, but the minimum for this TLV type is %u",
+				"Prefix SID Originator SRGB length field claims length of %hu bytes, but the minimum for this TLV type is %u",
 				length,
 				2 + BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH);
 			return bgp_attr_malformed(
@@ -2474,7 +2471,7 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		 */
 		if (STREAM_READABLE(peer->curr) < length) {
 			flog_err(EC_BGP_ATTR_LEN,
-				 "Prefix SID Originator SRGB specifies length %" PRIu16 ", but only %zu bytes remain",
+				 "Prefix SID Originator SRGB specifies length %hu, but only %zu bytes remain",
 				 length, STREAM_READABLE(peer->curr));
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -2491,7 +2488,7 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		if (length % BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH) {
 			flog_err(
 				EC_BGP_ATTR_LEN,
-				"Prefix SID Originator SRGB length field claims attribute SRGB sequence section is %" PRIu16 "bytes, but it must be a multiple of %u",
+				"Prefix SID Originator SRGB length field claims attribute SRGB sequence section is %hubytes, but it must be a multiple of %u",
 				length, BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH);
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -2511,8 +2508,7 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		if (STREAM_READABLE(peer->curr) < length
 		    || length != BGP_PREFIX_SID_VPN_SID_LENGTH) {
 			flog_err(EC_BGP_ATTR_LEN,
-				 "Prefix SID VPN SID length is %" PRIu16
-				 " instead of %u",
+				 "Prefix SID VPN SID length is %hu instead of %u",
 				 length, BGP_PREFIX_SID_VPN_SID_LENGTH);
 			return bgp_attr_malformed(args,
 						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -2552,8 +2548,7 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		if (STREAM_READABLE(peer->curr) < length
 		    || length != BGP_PREFIX_SID_SRV6_L3_SERVICE_LENGTH) {
 			flog_err(EC_BGP_ATTR_LEN,
-				 "Prefix SID SRv6 L3-Service length is %" PRIu16
-				 " instead of %u",
+				 "Prefix SID SRv6 L3-Service length is %hu instead of %u",
 				 length, BGP_PREFIX_SID_SRV6_L3_SERVICE_LENGTH);
 			return bgp_attr_malformed(args,
 				 BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -2596,8 +2591,7 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		if (STREAM_READABLE(peer->curr) < length) {
 			flog_err(
 				EC_BGP_ATTR_LEN,
-				"Prefix SID SRv6 length is %" PRIu16
-				" - too long, only %zu remaining in this UPDATE",
+				"Prefix SID SRv6 length is %hu - too long, only %zu remaining in this UPDATE",
 				length, STREAM_READABLE(peer->curr));
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -2650,8 +2644,7 @@ bgp_attr_parse_ret_t bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 		if (STREAM_READABLE(peer->curr) < length) {
 			flog_err(
 				EC_BGP_ATTR_LEN,
-				"Malformed Prefix SID attribute - insufficient data (need %" PRIu16
-				" for attribute body, have %zu remaining in UPDATE)",
+				"Malformed Prefix SID attribute - insufficient data (need %hu for attribute body, have %zu remaining in UPDATE)",
 				length, STREAM_READABLE(peer->curr));
 			return bgp_attr_malformed(args,
 						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,

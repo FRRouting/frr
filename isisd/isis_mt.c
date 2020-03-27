@@ -72,7 +72,7 @@ const char *isis_mtid2str(uint16_t mtid)
 	case ISIS_MT_IPV6_DSTSRC:
 		return "ipv6-dstsrc";
 	default:
-		snprintf(buf, sizeof(buf), "%" PRIu16, mtid);
+		snprintf(buf, sizeof(buf), "%hu", mtid);
 		return buf;
 	}
 }
