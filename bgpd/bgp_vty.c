@@ -9351,8 +9351,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					memory_order_relaxed);
 
 				vty_out(vty,
-					"4 %10u %9u %9u %8" PRIu64
-					" %4zu %4zu %8s",
+					"4 %10u %9u %9u %8" PRIu64" %4zu %4zu %8s",
 					peer->as, PEER_TOTAL_RX(peer),
 					PEER_TOTAL_TX(peer),
 					peer->version[afi][safi], inq_count,
@@ -9371,7 +9370,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 								"(Policy)");
 						else
 							vty_out(vty,
-								" %12" PRIu32,
+								" %12u",
 								peer->pcount
 									[afi]
 									[pfx_rcd_safi]);
@@ -9389,7 +9388,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 								"(Policy)");
 						else
 							vty_out(vty,
-								" %8" PRIu32,
+								" %8u",
 								(PAF_SUBGRP(
 									 paf))
 									->scount);
@@ -9406,7 +9405,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 							lookup_msg(bgp_status_msg,
 								   peer->status, NULL));
 
-					vty_out(vty, " %8" PRIu32, 0);
+					vty_out(vty, " %8u", 0);
 				}
 				vty_out(vty, "\n");
 			}
@@ -10429,8 +10428,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 
 		paf = peer_af_find(p, afi, safi);
 		if (paf && PAF_SUBGRP(paf)) {
-			vty_out(vty, "  Update group %" PRIu64
-				     ", subgroup %" PRIu64 "\n",
+			vty_out(vty, "  Update group %" PRIu64", subgroup %" PRIu64 "\n",
 				PAF_UPDGRP(paf)->id, PAF_SUBGRP(paf)->id);
 			vty_out(vty, "  Packet Queue length %d\n",
 				bpacket_queue_virtual_length(paf));
@@ -10681,20 +10679,20 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				filter->usmap.name);
 
 		/* Receive prefix count */
-		vty_out(vty, "  %" PRIu32 " accepted prefixes\n",
+		vty_out(vty, "  %u accepted prefixes\n",
 			p->pcount[afi][safi]);
 
 		/* maximum-prefix-out */
 		if (CHECK_FLAG(p->af_flags[afi][safi],
 			       PEER_FLAG_MAX_PREFIX_OUT))
 			vty_out(vty,
-				"  Maximum allowed prefixes sent %" PRIu32 "\n",
+				"  Maximum allowed prefixes sent %u\n",
 				p->pmax_out[afi][safi]);
 
 		/* Maximum prefix */
 		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX)) {
 			vty_out(vty,
-				"  Maximum prefixes allowed %" PRIu32 "%s\n",
+				"  Maximum prefixes allowed %u%s\n",
 				p->pmax[afi][safi],
 				CHECK_FLAG(p->af_flags[afi][safi],
 					   PEER_FLAG_MAX_PREFIX_WARNING)
@@ -13521,10 +13519,10 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 	conf = group->conf;
 
 	if (conf->as_type == AS_SPECIFIED || conf->as_type == AS_EXTERNAL) {
-		vty_out(vty, "\nBGP peer-group %s, remote AS %" PRIu32 "\n",
+		vty_out(vty, "\nBGP peer-group %s, remote AS %u\n",
 			group->name, conf->as);
 	} else if (conf->as_type == AS_INTERNAL) {
-		vty_out(vty, "\nBGP peer-group %s, remote AS %" PRIu32 "\n",
+		vty_out(vty, "\nBGP peer-group %s, remote AS %u\n",
 			group->name, group->bgp->as);
 	} else {
 		vty_out(vty, "\nBGP peer-group %s\n", group->name);
@@ -15043,7 +15041,7 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 
 	/* maximum-prefix. */
 	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_MAX_PREFIX)) {
-		vty_out(vty, "  neighbor %s maximum-prefix %" PRIu32, addr,
+		vty_out(vty, "  neighbor %s maximum-prefix %u", addr,
 			peer->pmax[afi][safi]);
 
 		if (peer->pmax_threshold[afi][safi]
@@ -15061,7 +15059,7 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 
 	/* maximum-prefix-out */
 	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_MAX_PREFIX_OUT))
-		vty_out(vty, "  neighbor %s maximum-prefix-out %" PRIu32 "\n",
+		vty_out(vty, "  neighbor %s maximum-prefix-out %u\n",
 			addr, peer->pmax_out[afi][safi]);
 
 	/* Route server client. */
@@ -18096,8 +18094,7 @@ static int community_list_config_write(struct vty *vty)
 	for (list = cm->str.head; list; list = list->next)
 		for (entry = list->head; entry; entry = entry->next) {
 			vty_out(vty,
-				"bgp extcommunity-list %s %s seq %" PRId64
-				" %s %s\n",
+				"bgp extcommunity-list %s %s seq %" PRId64" %s %s\n",
 				entry->style == EXTCOMMUNITY_LIST_STANDARD
 					? "standard"
 					: "expanded",
@@ -18115,8 +18112,7 @@ static int community_list_config_write(struct vty *vty)
 	for (list = cm->num.head; list; list = list->next)
 		for (entry = list->head; entry; entry = entry->next) {
 			vty_out(vty,
-				"bgp large-community-list %s seq %" PRId64
-				" %s %s\n",
+				"bgp large-community-list %s seq %" PRId64" %s %s\n",
 				list->name, entry->seq,
 				community_direct_str(entry->direct),
 				community_list_config_str(entry));
@@ -18125,8 +18121,7 @@ static int community_list_config_write(struct vty *vty)
 	for (list = cm->str.head; list; list = list->next)
 		for (entry = list->head; entry; entry = entry->next) {
 			vty_out(vty,
-				"bgp large-community-list %s %s seq %" PRId64
-				" %s %s\n",
+				"bgp large-community-list %s %s seq %" PRId64" %s %s\n",
 
 				entry->style == LARGE_COMMUNITY_LIST_STANDARD
 					? "standard"

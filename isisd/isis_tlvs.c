@@ -200,12 +200,12 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 
 	/* Standard metrics */
 	if (IS_SUBTLV(exts, EXT_ADM_GRP))
-		sbuf_push(buf, indent, "Administrative Group: 0x%" PRIx32 "\n",
+		sbuf_push(buf, indent, "Administrative Group: 0x%x\n",
 			exts->adm_group);
 	if (IS_SUBTLV(exts, EXT_LLRI)) {
-		sbuf_push(buf, indent, "Link Local  ID: %" PRIu32 "\n",
+		sbuf_push(buf, indent, "Link Local  ID: %u\n",
 			  exts->local_llri);
-		sbuf_push(buf, indent, "Link Remote ID: %" PRIu32 "\n",
+		sbuf_push(buf, indent, "Link Remote ID: %u\n",
 			  exts->remote_llri);
 	}
 	if (IS_SUBTLV(exts, EXT_LOCAL_ADDR))
@@ -243,7 +243,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			  exts->te_metric);
 	if (IS_SUBTLV(exts, EXT_RMT_AS))
 		sbuf_push(buf, indent,
-			  "Inter-AS TE Remote AS number: %" PRIu32 "\n",
+			  "Inter-AS TE Remote AS number: %u\n",
 			  exts->remote_as);
 	if (IS_SUBTLV(exts, EXT_RMT_IP))
 		sbuf_push(buf, indent,
@@ -252,19 +252,18 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 	/* Extended metrics */
 	if (IS_SUBTLV(exts, EXT_DELAY))
 		sbuf_push(buf, indent,
-			  "%s Average Link Delay: %" PRIu32 " (micro-sec)\n",
+			  "%s Average Link Delay: %u (micro-sec)\n",
 			  IS_ANORMAL(exts->delay) ? "Anomalous" : "Normal",
 			  exts->delay);
 	if (IS_SUBTLV(exts, EXT_MM_DELAY)) {
-		sbuf_push(buf, indent, "%s Min/Max Link Delay: %" PRIu32 " / %"
-			  PRIu32 " (micro-sec)\n",
+		sbuf_push(buf, indent, "%s Min/Max Link Delay: %u / %u (micro-sec)\n",
 			  IS_ANORMAL(exts->min_delay) ? "Anomalous" : "Normal",
 			  exts->min_delay & TE_EXT_MASK,
 			  exts->max_delay & TE_EXT_MASK);
 	}
 	if (IS_SUBTLV(exts, EXT_DELAY_VAR)) {
 		sbuf_push(buf, indent,
-			  "Delay Variation: %" PRIu32 " (micro-sec)\n",
+			  "Delay Variation: %u (micro-sec)\n",
 			  exts->delay_var & TE_EXT_MASK);
 	}
 	if (IS_SUBTLV(exts, EXT_PKT_LOSS))
@@ -297,8 +296,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				continue;
 			sbuf_push(
 				buf, indent,
-				"Adjacency-SID: %" PRIu32 ", Weight: %" PRIu8
-				", Flags: F:%c B:%c, V:%c, L:%c, S:%c, P:%c\n",
+				"Adjacency-SID: %u, Weight: %hhu, Flags: F:%c B:%c, V:%c, L:%c, S:%c, P:%c\n",
 				adj->sid, adj->weight,
 				adj->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG ? '1'
 									  : '0',
@@ -327,9 +325,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				&& (lan->family != AF_INET6)))
 				continue;
 			sbuf_push(buf, indent,
-				  "Lan-Adjacency-SID: %" PRIu32
-				  ", Weight: %" PRIu8
-				  ", Flags: F:%c B:%c, V:%c, L:%c, S:%c, P:%c\n"
+				  "Lan-Adjacency-SID: %u, Weight: %hhu, Flags: F:%c B:%c, V:%c, L:%c, S:%c, P:%c\n"
 				  "  Neighbor-ID: %s\n",
 				  lan->sid, lan->weight,
 				  lan->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
@@ -542,7 +538,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 		subtlv_type = stream_getc(s);
 		subtlv_len = stream_getc(s);
 		if (subtlv_len > len - sum) {
-			sbuf_push(log, indent, "TLV %" PRIu8 ": Available data %" PRIu8 " is less than TLV size %u !\n",
+			sbuf_push(log, indent, "TLV %hhu: Available data %hhu is less than TLV size %u !\n",
 				  subtlv_type, len - sum, subtlv_len);
 			return 1;
 		}
@@ -812,11 +808,11 @@ static void format_item_prefix_sid(uint16_t mtid, struct isis_item *i,
 
 	sbuf_push(buf, indent, "SR Prefix-SID ");
 	if (sid->flags & ISIS_PREFIX_SID_VALUE) {
-		sbuf_push(buf, 0, "Label: %" PRIu32 ", ", sid->value);
+		sbuf_push(buf, 0, "Label: %u, ", sid->value);
 	} else {
-		sbuf_push(buf, 0, "Index: %" PRIu32 ", ", sid->value);
+		sbuf_push(buf, 0, "Index: %u, ", sid->value);
 	}
-	sbuf_push(buf, 0, "Algorithm: %" PRIu8 ", ", sid->algorithm);
+	sbuf_push(buf, 0, "Algorithm: %hhu, ", sid->algorithm);
 	sbuf_push(buf, 0, "Flags:%s%s%s%s%s%s\n",
 		  sid->flags & ISIS_PREFIX_SID_READVERTISED ? " READVERTISED"
 							    : "",
@@ -865,7 +861,7 @@ static int unpack_item_prefix_sid(uint16_t mtid, uint8_t len, struct stream *s,
 
 	if (len < 5) {
 		sbuf_push(log, indent,
-			  "Not enough data left. (expected 5 or more bytes, got %" PRIu8 ")\n",
+			  "Not enough data left. (expected 5 or more bytes, got %hhu)\n",
 			  len);
 		return 1;
 	}
@@ -884,7 +880,7 @@ static int unpack_item_prefix_sid(uint16_t mtid, uint8_t len, struct stream *s,
 					: ISIS_SUBTLV_PREFIX_SID_SIZE + 1;
 	if (len != expected_size) {
 		sbuf_push(log, indent,
-			  "TLV size differs from expected size. (expected %u but got %" PRIu8 ")\n",
+			  "TLV size differs from expected size. (expected %u but got %hhu)\n",
 			  expected_size, len);
 		return 1;
 	}
@@ -960,7 +956,7 @@ static int unpack_subtlv_ipv6_source_prefix(enum isis_tlv_context context,
 
 	if (tlv_len < 1) {
 		sbuf_push(log, indent,
-			  "Not enough data left. (expected 1 or more bytes, got %" PRIu8 ")\n",
+			  "Not enough data left. (expected 1 or more bytes, got %hhu)\n",
 			  tlv_len);
 		return 1;
 	}
@@ -975,7 +971,7 @@ static int unpack_subtlv_ipv6_source_prefix(enum isis_tlv_context context,
 	if (tlv_len != 1 + PSIZE(p.prefixlen)) {
 		sbuf_push(
 			log, indent,
-			"TLV size differs from expected size for the prefixlen. (expected %u but got %" PRIu8 ")\n",
+			"TLV size differs from expected size for the prefixlen. (expected %u but got %hhu)\n",
 			1 + PSIZE(p.prefixlen), tlv_len);
 		return 1;
 	}
@@ -1147,8 +1143,7 @@ static int unpack_item_area_address(uint16_t mtid, uint8_t len,
 	if (len < 1) {
 		sbuf_push(
 			log, indent,
-			"Not enough data left. (Expected 1 byte of address length, got %" PRIu8
-			")\n",
+			"Not enough data left. (Expected 1 byte of address length, got %hhu)\n",
 			len);
 		goto out;
 	}
@@ -1157,15 +1152,14 @@ static int unpack_item_area_address(uint16_t mtid, uint8_t len,
 	rv->len = stream_getc(s);
 
 	if (len < 1 + rv->len) {
-		sbuf_push(log, indent, "Not enough data left. (Expected %" PRIu8
-				       " bytes of address, got %" PRIu8 ")\n",
+		sbuf_push(log, indent, "Not enough data left. (Expected %hhu bytes of address, got %hhu)\n",
 			  rv->len, len - 1);
 		goto out;
 	}
 
 	if (rv->len < 1 || rv->len > 20) {
 		sbuf_push(log, indent,
-			  "Implausible area address length %" PRIu8 "\n",
+			  "Implausible area address length %hhu\n",
 			  rv->len);
 		goto out;
 	}
@@ -1197,7 +1191,7 @@ static void format_item_oldstyle_reach(uint16_t mtid, struct isis_item *i,
 {
 	struct isis_oldstyle_reach *r = (struct isis_oldstyle_reach *)i;
 
-	sbuf_push(buf, indent, "IS Reachability: %s (Metric: %" PRIu8 ")\n",
+	sbuf_push(buf, indent, "IS Reachability: %s (Metric: %hhu)\n",
 		  isis_format_id(r->id, 7), r->metric);
 }
 
@@ -1232,8 +1226,7 @@ static int unpack_item_oldstyle_reach(uint16_t mtid, uint8_t len,
 	if (len < 11) {
 		sbuf_push(
 			log, indent,
-			"Not enough data left.(Expected 11 bytes of reach information, got %" PRIu8
-			")\n",
+			"Not enough data left.(Expected 11 bytes of reach information, got %hhu)\n",
 			len);
 		return 1;
 	}
@@ -1298,8 +1291,7 @@ static int unpack_item_lan_neighbor(uint16_t mtid, uint8_t len,
 	if (len < 6) {
 		sbuf_push(
 			log, indent,
-			"Not enough data left.(Expected 6 bytes of mac, got %" PRIu8
-			")\n",
+			"Not enough data left.(Expected 6 bytes of mac, got %hhu)\n",
 			len);
 		return 1;
 	}
@@ -1332,8 +1324,7 @@ static void format_item_lsp_entry(uint16_t mtid, struct isis_item *i,
 	struct isis_lsp_entry *e = (struct isis_lsp_entry *)i;
 
 	sbuf_push(buf, indent,
-		  "LSP Entry: %s, seq 0x%08" PRIx32 ", cksum 0x%04" PRIx16
-		  ", lifetime %" PRIu16 "s\n",
+		  "LSP Entry: %s, seq 0x%08x, cksum 0x%04hx, lifetime %hus\n",
 		  isis_format_id(e->id, 8), e->seqno, e->checksum,
 		  e->rem_lifetime);
 }
@@ -1367,7 +1358,7 @@ static int unpack_item_lsp_entry(uint16_t mtid, uint8_t len, struct stream *s,
 	if (len < 16) {
 		sbuf_push(
 			log, indent,
-			"Not enough data left. (Expected 16 bytes of LSP info, got %" PRIu8,
+			"Not enough data left. (Expected 16 bytes of LSP info, got %hhu",
 			len);
 		return 1;
 	}
@@ -1465,8 +1456,7 @@ static int unpack_item_extended_reach(uint16_t mtid, uint8_t len,
 
 	if (len < 11) {
 		sbuf_push(log, indent,
-			  "Not enough data left. (expected 11 or more bytes, got %"
-			  PRIu8 ")\n",
+			  "Not enough data left. (expected 11 or more bytes, got %hhu)\n",
 			  len);
 		goto out;
 	}
@@ -1478,13 +1468,12 @@ static int unpack_item_extended_reach(uint16_t mtid, uint8_t len,
 
 	if ((size_t)len < ((size_t)11) + subtlv_len) {
 		sbuf_push(log, indent,
-			  "Not enough data left for subtlv size %" PRIu8
-			  ", there are only %" PRIu8 " bytes left.\n",
+			  "Not enough data left for subtlv size %hhu, there are only %hhu bytes left.\n",
 			  subtlv_len, len - 11);
 		goto out;
 	}
 
-	sbuf_push(log, indent, "Storing %" PRIu8 " bytes of subtlvs\n",
+	sbuf_push(log, indent, "Storing %hhu bytes of subtlvs\n",
 		  subtlv_len);
 
 	if (subtlv_len) {
@@ -1523,7 +1512,7 @@ static void format_item_oldstyle_ip_reach(uint16_t mtid, struct isis_item *i,
 	struct isis_oldstyle_ip_reach *r = (struct isis_oldstyle_ip_reach *)i;
 	char prefixbuf[PREFIX2STR_BUFFER];
 
-	sbuf_push(buf, indent, "IP Reachability: %s (Metric: %" PRIu8 ")\n",
+	sbuf_push(buf, indent, "IP Reachability: %s (Metric: %hhu)\n",
 		  prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)),
 		  r->metric);
 }
@@ -1561,8 +1550,7 @@ static int unpack_item_oldstyle_ip_reach(uint16_t mtid, uint8_t len,
 	if (len < 12) {
 		sbuf_push(
 			log, indent,
-			"Not enough data left.(Expected 12 bytes of reach information, got %" PRIu8
-			")\n",
+			"Not enough data left.(Expected 12 bytes of reach information, got %hhu)\n",
 			len);
 		return 1;
 	}
@@ -1711,8 +1699,7 @@ static int unpack_item_ipv4_address(uint16_t mtid, uint8_t len,
 	if (len < 4) {
 		sbuf_push(
 			log, indent,
-			"Not enough data left.(Expected 4 bytes of IPv4 address, got %" PRIu8
-			")\n",
+			"Not enough data left.(Expected 4 bytes of IPv4 address, got %hhu)\n",
 			len);
 		return 1;
 	}
@@ -1773,8 +1760,7 @@ static int unpack_item_ipv6_address(uint16_t mtid, uint8_t len,
 	if (len < 16) {
 		sbuf_push(
 			log, indent,
-			"Not enough data left.(Expected 16 bytes of IPv6 address, got %" PRIu8
-			")\n",
+			"Not enough data left.(Expected 16 bytes of IPv6 address, got %hhu)\n",
 			len);
 		return 1;
 	}
@@ -1845,8 +1831,7 @@ static int unpack_item_mt_router_info(uint16_t mtid, uint8_t len,
 	if (len < 2) {
 		sbuf_push(
 			log, indent,
-			"Not enough data left.(Expected 2 bytes of MT info, got %" PRIu8
-			")\n",
+			"Not enough data left.(Expected 2 bytes of MT info, got %hhu)\n",
 			len);
 		return 1;
 	}
@@ -2023,7 +2008,7 @@ static int unpack_item_extended_ip_reach(uint16_t mtid, uint8_t len,
 	consume = 5;
 	if (len < consume) {
 		sbuf_push(log, indent,
-			  "Not enough data left. (expected 5 or more bytes, got %" PRIu8 ")\n",
+			  "Not enough data left. (expected 5 or more bytes, got %hhu)\n",
 			  len);
 		goto out;
 	}
@@ -2073,8 +2058,7 @@ static int unpack_item_extended_ip_reach(uint16_t mtid, uint8_t len,
 		consume += subtlv_len;
 		if (len < consume) {
 			sbuf_push(log, indent,
-				  "Expected %" PRIu8
-				  " bytes of subtlvs, but only %u bytes available.\n",
+				  "Expected %hhu bytes of subtlvs, but only %u bytes available.\n",
 				  subtlv_len,
 				  len - 6 - PSIZE(rv->prefix.prefixlen));
 			goto out;
@@ -2207,7 +2191,7 @@ static void format_tlv_spine_leaf(const struct isis_spine_leaf *spine_leaf,
 		if (spine_leaf->tier == ISIS_TIER_UNDEFINED) {
 			sbuf_push(buf, indent, "  Tier: undefined\n");
 		} else {
-			sbuf_push(buf, indent, "  Tier: %" PRIu8 "\n",
+			sbuf_push(buf, indent, "  Tier: %hhu\n",
 				  spine_leaf->tier);
 		}
 	}
@@ -2340,14 +2324,14 @@ static void format_tlv_threeway_adj(const struct isis_threeway_adj *threeway_adj
 	sbuf_push(buf, indent, "  State: %s (%d)\n",
 		  isis_threeway_state_name(threeway_adj->state),
 		  threeway_adj->state);
-	sbuf_push(buf, indent, "  Extended Local Circuit ID: %" PRIu32 "\n",
+	sbuf_push(buf, indent, "  Extended Local Circuit ID: %u\n",
 		  threeway_adj->local_circuit_id);
 	if (!threeway_adj->neighbor_set)
 		return;
 
 	sbuf_push(buf, indent, "  Neighbor System ID: %s\n",
 		  isis_format_id(threeway_adj->neighbor_id, 6));
-	sbuf_push(buf, indent, "  Neighbor Extended Circuit ID: %" PRIu32 "\n",
+	sbuf_push(buf, indent, "  Neighbor Extended Circuit ID: %u\n",
 		  threeway_adj->neighbor_circuit_id);
 }
 
@@ -2506,8 +2490,7 @@ static int unpack_item_ipv6_reach(uint16_t mtid, uint8_t len, struct stream *s,
 	consume = 6;
 	if (len < consume) {
 		sbuf_push(log, indent,
-			  "Not enough data left. (expected 6 or more bytes, got %"
-			  PRIu8 ")\n",
+			  "Not enough data left. (expected 6 or more bytes, got %hhu)\n",
 			  len);
 		goto out;
 	}
@@ -2559,8 +2542,7 @@ static int unpack_item_ipv6_reach(uint16_t mtid, uint8_t len, struct stream *s,
 		consume += subtlv_len;
 		if (len < consume) {
 			sbuf_push(log, indent,
-				  "Expected %" PRIu8
-				  " bytes of subtlvs, but only %u bytes available.\n",
+				  "Expected %hhu bytes of subtlvs, but only %u bytes available.\n",
 				  subtlv_len,
 				  len - 6 - PSIZE(rv->prefix.prefixlen));
 			goto out;
@@ -2910,12 +2892,12 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i,
 	case ISIS_PASSWD_TYPE_HMAC_MD5:
 		for (unsigned int j = 0; j < 16; j++) {
 			snprintf(obuf + 2 * j, sizeof(obuf) - 2 * j,
-				 "%02" PRIx8, auth->value[j]);
+				 "%02hhx", auth->value[j]);
 		}
 		sbuf_push(buf, indent, "  HMAC-MD5: %s\n", obuf);
 		break;
 	default:
-		sbuf_push(buf, indent, "  Unknown (%" PRIu8 ")\n", auth->type);
+		sbuf_push(buf, indent, "  Unknown (%hhu)\n", auth->type);
 		break;
 	}
 }
@@ -2961,8 +2943,7 @@ static int unpack_item_auth(uint16_t mtid, uint8_t len, struct stream *s,
 	if (len < 1) {
 		sbuf_push(
 			log, indent,
-			"Not enough data left.(Expected 1 bytes of auth type, got %" PRIu8
-			")\n",
+			"Not enough data left.(Expected 1 bytes of auth type, got %hhu)\n",
 			len);
 		return 1;
 	}
@@ -2975,8 +2956,7 @@ static int unpack_item_auth(uint16_t mtid, uint8_t len, struct stream *s,
 	if (rv->type == ISIS_PASSWD_TYPE_HMAC_MD5 && rv->length != 16) {
 		sbuf_push(
 			log, indent,
-			"Unexpected auth length for HMAC-MD5 (expected 16, got %" PRIu8
-			")\n",
+			"Unexpected auth length for HMAC-MD5 (expected 16, got %hhu)\n",
 			rv->length);
 		XFREE(MTYPE_ISIS_TLV, rv);
 		return 1;
@@ -3060,8 +3040,7 @@ static int unpack_tlv_purge_originator(enum isis_tlv_context context,
 
 	sbuf_push(log, indent, "Unpacking Purge Originator Identification TLV...\n");
 	if (tlv_len < 7) {
-		sbuf_push(log, indent, "Not enough data left. (Expected at least 7 bytes, got %"
-			  PRIu8 ")\n", tlv_len);
+		sbuf_push(log, indent, "Not enough data left. (Expected at least 7 bytes, got %hhu)\n", tlv_len);
 		return 1;
 	}
 
@@ -3072,8 +3051,7 @@ static int unpack_tlv_purge_originator(enum isis_tlv_context context,
 	} else if (number_of_ids == 2) {
 		poi.sender_set = true;
 	} else {
-		sbuf_push(log, indent, "Got invalid value for number of system IDs: %"
-			  PRIu8 ")\n", number_of_ids);
+		sbuf_push(log, indent, "Got invalid value for number of system IDs: %hhu)\n", number_of_ids);
 		return 1;
 	}
 
@@ -4017,7 +3995,7 @@ static int unpack_tlv_unknown(enum isis_tlv_context context, uint8_t tlv_type,
 {
 	stream_forward_getp(s, tlv_len);
 	sbuf_push(log, indent,
-		  "Skipping unknown TLV %" PRIu8 " (%" PRIu8 " bytes)\n",
+		  "Skipping unknown TLV %hhu (%hhu bytes)\n",
 		  tlv_type, tlv_len);
 	return 0;
 }
@@ -4043,12 +4021,12 @@ static int unpack_tlv(enum isis_tlv_context context, size_t avail_len,
 	tlv_len = stream_getc(stream);
 
 	sbuf_push(log, indent + 2,
-		  "Found TLV of type %" PRIu8 " and len %" PRIu8 ".\n",
+		  "Found TLV of type %hhu and len %hhu.\n",
 		  tlv_type, tlv_len);
 
 	if (avail_len < ((size_t)tlv_len) + 2) {
 		sbuf_push(log, indent + 2,
-			  "Available data %zu too short for claimed TLV len %" PRIu8 ".\n",
+			  "Available data %zu too short for claimed TLV len %hhu.\n",
 			  avail_len - 2, tlv_len);
 		return 1;
 	}

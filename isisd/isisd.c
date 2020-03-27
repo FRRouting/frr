@@ -1344,7 +1344,7 @@ DEFUN (show_isis_summary,
 			if (tier == ISIS_TIER_UNDEFINED)
 				vty_out(vty, "  Tier: undefined\n");
 			else
-				vty_out(vty, "  Tier: %" PRIu8 "\n", tier);
+				vty_out(vty, "  Tier: %hhu\n", tier);
 		}
 
 		if (listcount(area->area_addrs) > 0) {

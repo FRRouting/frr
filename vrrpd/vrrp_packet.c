@@ -222,13 +222,12 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 		/* IP total length check */
 		VRRP_PKT_VCHECK(
 			ntohs(ip->ip_len) == read,
-			"IPv4 packet length field does not match # received bytes; %" PRIu16
-			"!= %zu",
+			"IPv4 packet length field does not match # received bytes; %hu!= %zu",
 			ntohs(ip->ip_len), read);
 
 		/* TTL check */
 		VRRP_PKT_VCHECK(ip->ip_ttl == 255,
-				"IPv4 TTL is %" PRIu8 "; should be 255",
+				"IPv4 TTL is %hhu; should be 255",
 				ip->ip_ttl);
 
 		*pkt = (struct vrrp_pkt *)(buf + (ip->ip_hl << 2));
@@ -256,7 +255,7 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 		uint8_t *hoplimit = CMSG_DATA(c);
 
 		VRRP_PKT_VCHECK(*hoplimit == 255,
-				"IPv6 Hop Limit is %" PRIu8 "; should be 255",
+				"IPv6 Hop Limit is %hhu; should be 255",
 				*hoplimit);
 
 		*pkt = (struct vrrp_pkt *)buf;
@@ -293,11 +292,11 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 	uint16_t chksum = vrrp_pkt_checksum(*pkt, pktsize, src);
 
 	VRRP_PKT_VCHECK((*pkt)->hdr.chksum == chksum,
-			"Bad VRRP checksum %" PRIx16 "; should be %" PRIx16 "",
+			"Bad VRRP checksum %hx; should be %hx",
 			(*pkt)->hdr.chksum, chksum);
 
 	/* Type check */
-	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype & 0x0F) == 1, "Bad type %" PRIu8,
+	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype & 0x0F) == 1, "Bad type %hhu",
 			(*pkt)->hdr.vertype & 0x0f);
 
 	/* Exact size check */
@@ -309,7 +308,7 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 	/* auth type check */
 	if (version == 2)
 		VRRP_PKT_VCHECK((*pkt)->hdr.v2.auth_type == 0,
-				"Bad authentication type %" PRIu8,
+				"Bad authentication type %hhu",
 				(*pkt)->hdr.v2.auth_type);
 
 	/* Addresses check */
@@ -318,7 +317,7 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 
 	for (uint8_t i = 0; i < (*pkt)->hdr.naddr; i++) {
 		VRRP_PKT_VCHECK(inet_ntop(family, p, vbuf, sizeof(vbuf)),
-				"Bad IP address, #%" PRIu8, i);
+				"Bad IP address, #%hhu", i);
 		p += addrsz;
 	}
 
