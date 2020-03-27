@@ -21,25 +21,9 @@
 #ifndef _QUAGGA_BGP_ATTR_EVPN_H
 #define _QUAGGA_BGP_ATTR_EVPN_H
 
-/* value of first byte of ESI */
-#define ESI_TYPE_ARBITRARY 0  /* */
-#define ESI_TYPE_LACP      1  /* <> */
-#define ESI_TYPE_BRIDGE    2  /* <Root bridge Mac-6B>:<Root Br Priority-2B>:00 */
-#define ESI_TYPE_MAC       3  /* <Syst Mac Add-6B>:<Local Discriminator Value-3B> */
-#define ESI_TYPE_ROUTER    4  /* <RouterId-4B>:<Local Discriminator Value-4B> */
-#define ESI_TYPE_AS        5  /* <AS-4B>:<Local Discriminator Value-4B> */
-
-#define MAX_ESI {0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff}
-#define ESI_LEN 10
-
 #define MAX_ET 0xffffffff
 
 struct attr;
-
-/* EVPN ESI */
-struct eth_segment_id {
-	uint8_t val[ESI_LEN];
-};
 
 union gw_addr {
 	struct in_addr ipv4;
@@ -47,12 +31,10 @@ union gw_addr {
 };
 
 struct bgp_route_evpn {
-	struct eth_segment_id eth_s_id;
 	union gw_addr gw_ip;
 };
 
-extern bool str2esi(const char *str, struct eth_segment_id *id);
-extern char *esi2str(struct eth_segment_id *id);
+extern bool str2esi(const char *str, esi_t *id);
 extern char *ecom_mac2str(char *ecom_mac);
 
 extern void bgp_add_routermac_ecom(struct attr *attr,
@@ -68,5 +50,4 @@ extern void bgp_attr_evpn_na_flag(struct attr *attr, uint8_t *router_flag);
 
 extern bool is_zero_gw_ip(const union gw_addr *gw_ip, afi_t afi);
 
-extern bool is_zero_esi(const struct eth_segment_id *esi);
 #endif /* _QUAGGA_BGP_ATTR_EVPN_H */
