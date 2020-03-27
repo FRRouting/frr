@@ -8713,10 +8713,22 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 			json_object_string_add(
 				json_path, "aggregatorId",
 				inet_ntoa(attr->aggregator_addr));
+			if (attr->aggregator_as == BGP_AS_ZERO)
+				json_object_boolean_true_add(
+					json_path, "aggregatorAsMalformed");
+			else
+				json_object_boolean_false_add(
+					json_path, "aggregatorAsMalformed");
 		} else {
-			vty_out(vty, ", (aggregated by %u %s)",
-				attr->aggregator_as,
-				inet_ntoa(attr->aggregator_addr));
+			if (attr->aggregator_as == BGP_AS_ZERO)
+				vty_out(vty,
+					", (aggregated by %u(malformed) %s)",
+					attr->aggregator_as,
+					inet_ntoa(attr->aggregator_addr));
+			else
+				vty_out(vty, ", (aggregated by %u %s)",
+					attr->aggregator_as,
+					inet_ntoa(attr->aggregator_addr));
 		}
 	}
 
