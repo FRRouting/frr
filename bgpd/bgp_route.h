@@ -301,7 +301,7 @@ struct bgp_static {
 	mpls_label_t label;
 
 	/* EVPN */
-	struct eth_segment_id *eth_s_id;
+	esi_t *eth_s_id;
 	struct ethaddr *router_mac;
 	uint16_t encap_tunneltype;
 	struct prefix gatewayIp;
