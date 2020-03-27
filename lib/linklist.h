@@ -43,6 +43,12 @@ struct list {
 	/* invariant: count is the number of listnodes in the list */
 	unsigned int count;
 
+	unsigned int flags;
+/* Indicates that listnode memory is managed by the application and
+ * doesn't need to be freed by this library via listnode_delete etc.
+ */
+#define LINKLIST_FLAG_NODE_MEM_BY_APP (1 << 0)
+
 	/*
 	 * Returns -1 if val1 < val2, 0 if equal?, 1 if val1 > val2.
 	 * Used as definition of sorted for listnode_add_sort
@@ -60,10 +66,14 @@ struct list {
 #define listhead(X) ((X) ? ((X)->head) : NULL)
 #define listhead_unchecked(X) ((X)->head)
 #define listtail(X) ((X) ? ((X)->tail) : NULL)
+#define listtail_unchecked(X) ((X)->tail)
 #define listcount(X) ((X)->count)
 #define list_isempty(X) ((X)->head == NULL && (X)->tail == NULL)
 /* return X->data only if X and X->data are not NULL */
 #define listgetdata(X) (assert(X), assert((X)->data != NULL), (X)->data)
+/* App is going to manage listnode memory */
+#define listset_app_node_mem(X) ((X)->flags |= LINKLIST_FLAG_NODE_MEM_BY_APP)
+#define listnode_init(X, val) ((X)->data = (val))
 
 /*
  * Create a new linked list.
@@ -95,7 +105,7 @@ extern struct listnode *listnode_add(struct list *list, void *data);
  *    list to operate on
  *
  * data
- *    element to add
+ *    If MEM_BY_APP is set this is listnode. Otherwise it is element to add.
  */
 extern void listnode_add_head(struct list *list, void *data);
 
@@ -112,7 +122,7 @@ extern void listnode_add_head(struct list *list, void *data);
  *    list to operate on
  *
  * val
- *    element to add
+ *    If MEM_BY_APP is set this is listnode. Otherwise it is element to add.
  */
 extern void listnode_add_sort(struct list *list, void *val);
 
@@ -128,7 +138,7 @@ extern void listnode_add_sort(struct list *list, void *val);
  *    listnode to insert after
  *
  * data
- *    data to insert
+ *    If MEM_BY_APP is set this is listnode. Otherwise it is element to add.
  *
  * Returns:
  *    pointer to newly created listnode that contains the inserted data
@@ -148,7 +158,7 @@ extern struct listnode *listnode_add_after(struct list *list,
  *    listnode to insert before
  *
  * data
- *    data to insert
+ *    If MEM_BY_APP is set this is listnode. Otherwise it is element to add.
  *
  * Returns:
  *    pointer to newly created listnode that contains the inserted data
@@ -313,7 +323,7 @@ extern void list_filter_out_nodes(struct list *list, bool (*cond)(void *data));
  *    list to operate on
  *
  * val
- *    element to add
+ *    If MEM_BY_APP is set this is listnode. Otherwise it is element to add.
  */
 
 extern bool listnode_add_sort_nodup(struct list *list, void *val);

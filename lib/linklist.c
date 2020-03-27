@@ -38,16 +38,30 @@ static void list_free_internal(struct list *l)
 	XFREE(MTYPE_LINK_LIST, l);
 }
 
+
 /* Allocate new listnode.  Internal use only. */
-static struct listnode *listnode_new(void)
+static struct listnode *listnode_new(struct list *list, void *val)
 {
-	return XCALLOC(MTYPE_LINK_NODE, sizeof(struct listnode));
+	struct listnode *node;
+
+	/* if listnode memory is managed by the app then the val
+	 * passed in is the listnode
+	 */
+	if (list->flags & LINKLIST_FLAG_NODE_MEM_BY_APP) {
+		node = val;
+		node->prev = node->next = NULL;
+	} else {
+		node = XCALLOC(MTYPE_LINK_NODE, sizeof(struct listnode));
+		node->data = val;
+	}
+	return node;
 }
 
 /* Free listnode. */
-static void listnode_free(struct listnode *node)
+static void listnode_free(struct list *list, struct listnode *node)
 {
-	XFREE(MTYPE_LINK_NODE, node);
+	if (!(list->flags & LINKLIST_FLAG_NODE_MEM_BY_APP))
+		XFREE(MTYPE_LINK_NODE, node);
 }
 
 struct listnode *listnode_add(struct list *list, void *val)
@@ -56,10 +70,9 @@ struct listnode *listnode_add(struct list *list, void *val)
 
 	assert(val != NULL);
 
-	node = listnode_new();
+	node = listnode_new(list, val);
 
 	node->prev = list->tail;
-	node->data = val;
 
 	if (list->head == NULL)
 		list->head = node;
@@ -78,10 +91,9 @@ void listnode_add_head(struct list *list, void *val)
 
 	assert(val != NULL);
 
-	node = listnode_new();
+	node = listnode_new(list, val);
 
 	node->next = list->head;
-	node->data = val;
 
 	if (list->head == NULL)
 		list->head = node;
@@ -97,15 +109,22 @@ bool listnode_add_sort_nodup(struct list *list, void *val)
 	struct listnode *n;
 	struct listnode *new;
 	int ret;
+	void *data;
 
 	assert(val != NULL);
 
+	if (list->flags & LINKLIST_FLAG_NODE_MEM_BY_APP) {
+		n = val;
+		data = n->data;
+	} else {
+		data = val;
+	}
+
 	if (list->cmp) {
 		for (n = list->head; n; n = n->next) {
-			ret = (*list->cmp)(val, n->data);
+			ret = (*list->cmp)(data, n->data);
 			if (ret < 0) {
-				new = listnode_new();
-				new->data = val;
+				new = listnode_new(list, val);
 
 				new->next = n;
 				new->prev = n->prev;
@@ -124,8 +143,7 @@ bool listnode_add_sort_nodup(struct list *list, void *val)
 		}
 	}
 
-	new = listnode_new();
-	new->data = val;
+	new = listnode_new(list, val);
 
 	LISTNODE_ATTACH(list, new);
 
@@ -139,8 +157,8 @@ void listnode_add_sort(struct list *list, void *val)
 
 	assert(val != NULL);
 
-	new = listnode_new();
-	new->data = val;
+	new = listnode_new(list, val);
+	val = new->data;
 
 	if (list->cmp) {
 		for (n = list->head; n; n = n->next) {
@@ -177,8 +195,7 @@ struct listnode *listnode_add_after(struct list *list, struct listnode *pp,
 
 	assert(val != NULL);
 
-	nn = listnode_new();
-	nn->data = val;
+	nn = listnode_new(list, val);
 
 	if (pp == NULL) {
 		if (list->head)
@@ -212,8 +229,7 @@ struct listnode *listnode_add_before(struct list *list, struct listnode *pp,
 
 	assert(val != NULL);
 
-	nn = listnode_new();
-	nn->data = val;
+	nn = listnode_new(list, val);
 
 	if (pp == NULL) {
 		if (list->tail)
@@ -276,7 +292,7 @@ void list_delete_all_node(struct list *list)
 		next = node->next;
 		if (*list->del)
 			(*list->del)(node->data);
-		listnode_free(node);
+		listnode_free(list, node);
 	}
 	list->head = list->tail = NULL;
 	list->count = 0;
@@ -336,7 +352,7 @@ void list_delete_node(struct list *list, struct listnode *node)
 	else
 		list->tail = node->prev;
 	list->count--;
-	listnode_free(node);
+	listnode_free(list, node);
 }
 
 void list_sort(struct list *list, int (*cmp)(const void **, const void **))
