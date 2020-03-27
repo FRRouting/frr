@@ -1413,8 +1413,7 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 		return ISIS_ERROR;
 
 	sched_debug(
-		"ISIS (%s): Scheduling regeneration of %s LSPs, %sincluding PSNs"
-		" Caller: %s %s:%d",
+		"ISIS (%s): Scheduling regeneration of %s LSPs, %sincluding PSNs Caller: %s %s:%d",
 		area->area_tag, circuit_t2string(level),
 		all_pseudo ? "" : "not ",
 		func, file, line);
@@ -1444,8 +1443,7 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 			struct timeval remain = thread_timer_remain(
 				area->t_lsp_refresh[lvl - 1]);
 			sched_debug(
-				"ISIS (%s): Regeneration is already pending, nothing todo."
-				" (Due in %lld.%03lld seconds)",
+				"ISIS (%s): Regeneration is already pending, nothing todo. (Due in %lld.%03lld seconds)",
 				area->area_tag, (long long)remain.tv_sec,
 				(long long)remain.tv_usec / 1000);
 			continue;
@@ -1817,8 +1815,7 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 			struct timeval remain = thread_timer_remain(
 				circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
 			sched_debug(
-				"ISIS (%s): Regenerate is already pending, nothing todo."
-				" (Due in %lld.%03lld seconds)",
+				"ISIS (%s): Regenerate is already pending, nothing todo. (Due in %lld.%03lld seconds)",
 				area->area_tag, (long long)remain.tv_sec,
 				(long long)remain.tv_usec / 1000);
 			continue;
@@ -1851,8 +1848,7 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 		} else {
 			timeout = 100;
 			sched_debug(
-				"ISIS (%s): Last generation was more than lsp_gen_interval ago."
-				" Scheduling for execution in %ld ms.",
+				"ISIS (%s): Last generation was more than lsp_gen_interval ago. Scheduling for execution in %ld ms.",
 				area->area_tag, timeout);
 		}
 
@@ -1930,8 +1926,7 @@ int lsp_tick(struct thread *thread)
 
 			if (lsp->age_out == 0) {
 				zlog_debug(
-					"ISIS-Upd (%s): L%u LSP %s seq "
-					"0x%08" PRIx32 " aged out",
+					"ISIS-Upd (%s): L%u LSP %s seq 0x%08" PRIx32 " aged out",
 					area->area_tag, lsp->level,
 					rawlspid_print(lsp->hdr.lsp_id),
 					lsp->hdr.seqno);

@@ -100,8 +100,7 @@ static void isis_redist_install(struct isis_area *area, int level,
 
 	if (!er_table) {
 		zlog_warn(
-			"%s: External reachability table of area %s"
-			" is not initialized.",
+			"%s: External reachability table of area %s is not initialized.",
 			__func__, area->area_tag);
 		return;
 	}
@@ -134,8 +133,7 @@ static void isis_redist_uninstall(struct isis_area *area, int level,
 
 	if (!er_table) {
 		zlog_warn(
-			"%s: External reachability table of area %s"
-			" is not initialized.",
+			"%s: External reachability table of area %s is not initialized.",
 			__func__, area->area_tag);
 		return;
 	}
@@ -310,8 +308,7 @@ void isis_redist_delete(int type, struct prefix *p, struct prefix_ipv6 *src_p)
 		char buf[BUFSIZ];
 		prefix2str(p, buf, sizeof(buf));
 		zlog_warn(
-			"%s: Got a delete for %s route %s, but that route"
-			" was never added.",
+			"%s: Got a delete for %s route %s, but that route was never added.",
 			__func__, zebra_route_string(type), buf);
 		if (ei_node)
 			route_unlock_node(ei_node);
@@ -605,8 +602,7 @@ DEFUN (no_isis_redistribute,
 
 DEFUN (isis_default_originate,
        isis_default_originate_cmd,
-       "default-information originate <ipv4|ipv6>"
-       " [always] [{metric (0-16777215)|route-map WORD}]",
+       "default-information originate <ipv4|ipv6> [always] [{metric (0-16777215)|route-map WORD}]",
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Distribute default route for IPv4\n"

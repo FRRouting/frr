@@ -102,8 +102,7 @@ static int isis_multicast_join(int fd, int registerto, int if_num)
 	}
 #ifdef EXTREME_DEBUG
 	zlog_debug(
-		"isis_multicast_join(): fd=%d, reg_to=%d, if_num=%d, "
-		"address = %02x:%02x:%02x:%02x:%02x:%02x",
+		"isis_multicast_join(): fd=%d, reg_to=%d, if_num=%d, address = %02x:%02x:%02x:%02x:%02x:%02x",
 		fd, registerto, if_num, mreq.mr_address[0], mreq.mr_address[1],
 		mreq.mr_address[2], mreq.mr_address[3], mreq.mr_address[4],
 		mreq.mr_address[5]);
@@ -247,16 +246,13 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 	    || (s_addr.sll_ifindex != (int)circuit->interface->ifindex)) {
 		if (bytesread < 0) {
 			zlog_warn(
-				"isis_recv_packet_bcast(): ifname %s, fd %d, "
-				"bytesread %d, recvfrom(): %s",
+				"isis_recv_packet_bcast(): ifname %s, fd %d, bytesread %d, recvfrom(): %s",
 				circuit->interface->name, circuit->fd,
 				bytesread, safe_strerror(errno));
 		}
 		if (s_addr.sll_ifindex != (int)circuit->interface->ifindex) {
 			zlog_warn(
-				"packet is received on multiple interfaces: "
-				"socket interface %d, circuit interface %d, "
-				"packet type %u",
+				"packet is received on multiple interfaces: socket interface %d, circuit interface %d, packet type %u",
 				s_addr.sll_ifindex, circuit->interface->ifindex,
 				s_addr.sll_pkttype);
 		}

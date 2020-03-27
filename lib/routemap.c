@@ -353,8 +353,7 @@ int generic_match_add(struct vty *vty, struct route_map_index *index,
 				"%% [%s] Argument form is unsupported or malformed.\n",
 				frr_protonameinst);
 		else
-			zlog_warn("Argument form is unsupported or malformed: "
-				  "%s %s", command, arg);
+			zlog_warn("Argument form is unsupported or malformed: %s %s", command, arg);
 		return CMD_WARNING_CONFIG_FAILED;
 	case RMAP_COMPILE_SUCCESS:
 		/*
@@ -405,8 +404,7 @@ int generic_match_delete(struct vty *vty, struct route_map_index *index,
 				"%% [%s] Argument form is unsupported or malformed.\n",
 				frr_protonameinst);
 		else
-			zlog_warn("Argument form is unsupported or malformed: "
-				  "%s %s", command, arg);
+			zlog_warn("Argument form is unsupported or malformed: %s %s", command, arg);
 		retval = CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_SUCCESS:
@@ -441,8 +439,7 @@ int generic_set_add(struct vty *vty, struct route_map_index *index,
 				"%% [%s] Argument form is unsupported or malformed.\n",
 				frr_protonameinst);
 		else
-			zlog_warn("Argument form is unsupported or malformed: "
-				  "%s %s", command, arg);
+			zlog_warn("Argument form is unsupported or malformed: %s %s", command, arg);
 		return CMD_WARNING_CONFIG_FAILED;
 	case RMAP_COMPILE_SUCCESS:
 		break;
@@ -470,8 +467,7 @@ int generic_set_delete(struct vty *vty, struct route_map_index *index,
 				"%% [%s] Argument form is unsupported or malformed.\n",
 				frr_protonameinst);
 		else
-			zlog_warn("Argument form is unsupported or malformed: "
-				  "%s %s", command, arg);
+			zlog_warn("Argument form is unsupported or malformed: %s %s", command, arg);
 		return CMD_WARNING_CONFIG_FAILED;
 	case RMAP_COMPILE_SUCCESS:
 		break;

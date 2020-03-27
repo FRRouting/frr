@@ -3747,8 +3747,7 @@ int rfapi_set_autord_from_vn(struct prefix_rd *rd, struct rfapi_ip_addr *vn)
 	vnc_zlog_debug_verbose("%s: auto-assigning RD", __func__);
 	if (vn->addr_family != AF_INET && vn->addr_family != AF_INET6) {
 		vnc_zlog_debug_verbose(
-			"%s: can't auto-assign RD, VN addr family is not IPv4"
-			"|v6",
+			"%s: can't auto-assign RD, VN addr family is not IPv4|v6",
 			__func__);
 		return EAFNOSUPPORT;
 	}

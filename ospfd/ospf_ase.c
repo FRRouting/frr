@@ -194,20 +194,17 @@ ospf_ase_calculate_asbr_route (struct ospf *ospf,
   if (al->e[0].fwd_addr.s_addr != 0)
     {
       if (IS_DEBUG_OSPF (lsa, LSA))
-	zlog_debug ("ospf_ase_calculate(): "
-		    "Forwarding address is not 0.0.0.0.");
+	zlog_debug ("ospf_ase_calculate(): Forwarding address is not 0.0.0.0.");
 
       if (! ospf_ase_forward_address_check (ospf, al->e[0].fwd_addr))
 	{
 	  if (IS_DEBUG_OSPF (lsa, LSA))
-	    zlog_debug ("ospf_ase_calculate(): "
-			"Forwarding address is one of our addresses, Ignore.");
+	    zlog_debug ("ospf_ase_calculate(): Forwarding address is one of our addresses, Ignore.");
 	  return NULL;
         }
 
       if (IS_DEBUG_OSPF (lsa, LSA))
-	zlog_debug ("ospf_ase_calculate(): "
-		    "Looking up in the Network Routing Table.");
+	zlog_debug ("ospf_ase_calculate(): Looking up in the Network Routing Table.");
 
       /* Looking up the path to the fwd_addr from Network route. */
       asbr.family = AF_INET;
@@ -219,8 +216,7 @@ ospf_ase_calculate_asbr_route (struct ospf *ospf,
       if (rn == NULL)
 	{
 	  if (IS_DEBUG_OSPF (lsa, LSA))
-	    zlog_debug ("ospf_ase_calculate(): "
-			"Couldn't find a route to the forwarding address.");
+	    zlog_debug ("ospf_ase_calculate(): Couldn't find a route to the forwarding address.");
 	  return NULL;
 	}
 
@@ -229,8 +225,7 @@ ospf_ase_calculate_asbr_route (struct ospf *ospf,
       if ((asbr_route = rn->info) == NULL)
 	{
 	  if (IS_DEBUG_OSPF (lsa, LSA))
-	    zlog_debug ("ospf_ase_calculate(): "
-			"Somehow OSPF route to ASBR is lost");
+	    zlog_debug ("ospf_ase_calculate(): Somehow OSPF route to ASBR is lost");
 	  return NULL;
 	}
     }
@@ -393,8 +388,7 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 		if (!ospf_ase_forward_address_check(ospf, al->e[0].fwd_addr)) {
 			if (IS_DEBUG_OSPF(lsa, LSA))
 				zlog_debug(
-					"Route[External]: Forwarding address is our router "
-					"address");
+					"Route[External]: Forwarding address is our router address");
 			return 0;
 		}
 
@@ -407,8 +401,7 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 		if (rn == NULL || (asbr_route = rn->info) == NULL) {
 			if (IS_DEBUG_OSPF(lsa, LSA))
 				zlog_debug(
-					"Route[External]: Can't find route to forwarding "
-					"address");
+					"Route[External]: Can't find route to forwarding address");
 			if (rn)
 				route_unlock_node(rn);
 			return 0;

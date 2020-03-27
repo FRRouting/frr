@@ -1938,8 +1938,7 @@ static void zvni_print(zebra_vni_t *zvni, void **ctxt)
 			" Number of MACs (local and remote) known for this VNI: %u\n",
 			num_macs);
 		vty_out(vty,
-			" Number of ARPs (IPv4 and IPv6, local and remote) "
-			"known for this VNI: %u\n",
+			" Number of ARPs (IPv4 and IPv6, local and remote) known for this VNI: %u\n",
 			num_neigh);
 		vty_out(vty, " Advertise-gw-macip: %s\n",
 			zvni->advertise_gw_macip ? "Yes" : "No");
@@ -4274,8 +4273,7 @@ static int zvni_build_hash_table_ns(struct ns *ns,
 		if (zvrf->zns->ns_id != vxl->link_nsid) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"Intf %s(%u) VNI %u, link not in same "
-					"namespace than BGP EVPN core instance ",
+					"Intf %s(%u) VNI %u, link not in same namespace than BGP EVPN core instance ",
 					ifp->name, ifp->ifindex, vni);
 			continue;
 		}
@@ -5218,8 +5216,7 @@ static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
 		if (zvrf->zns->ns_id != vxl->link_nsid) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"Intf %s(%u) VNI %u, link not in same "
-					"namespace than BGP EVPN core instance ",
+					"Intf %s(%u) VNI %u, link not in same namespace than BGP EVPN core instance ",
 					ifp->name, ifp->ifindex, vxl->vni);
 			continue;
 		}
@@ -8285,8 +8282,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 			    && mac->fwd_info.local.vid == vid) {
 				if (IS_ZEBRA_DEBUG_VXLAN)
 					zlog_debug(
-						"        Add/Update %sMAC %s intf %s(%u) VID %u -> VNI %u, "
-						"entry exists and has not changed ",
+						"        Add/Update %sMAC %s intf %s(%u) VID %u -> VNI %u, entry exists and has not changed ",
 						sticky ? "sticky " : "",
 						prefix_mac2str(macaddr, buf,
 							       sizeof(buf)),
@@ -8434,8 +8430,7 @@ void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS)
 		if (!zvni) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"Failed to locate VNI hash upon remote VTEP DEL, "
-					"VNI %u",
+					"Failed to locate VNI hash upon remote VTEP DEL, VNI %u",
 					vni);
 			continue;
 		}

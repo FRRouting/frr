@@ -1693,8 +1693,7 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 				inet_ntop(bs.key.family, &bs.key.local,
 					  addr_buf, sizeof(addr_buf));
 				zlog_debug(
-					" peer %s found, but ifp %s"
-					" and loc-addr %s ignored",
+					" peer %s found, but ifp %s and loc-addr %s ignored",
 					peer_buf, key.ifname, addr_buf);
 			}
 			return bsp;
@@ -1716,8 +1715,7 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 		bsp = ctx.result;
 		if (bglobal.debug_peer_event)
 			zlog_debug(
-				" peer %s found, but ifp"
-				" and/or loc-addr params ignored",
+				" peer %s found, but ifp and/or loc-addr params ignored",
 				peer_buf);
 	}
 	return bsp;

@@ -662,23 +662,19 @@ main_dispatch_lde(struct thread *thread)
 			switch (imsg.hdr.type) {
 			case IMSG_KPW_ADD:
 				if (kmpw_add(imsg.data))
-					log_warnx("%s: error adding "
-					    "pseudowire", __func__);
+					log_warnx("%s: error adding pseudowire", __func__);
 				break;
 			case IMSG_KPW_DELETE:
 				if (kmpw_del(imsg.data))
-					log_warnx("%s: error deleting "
-					    "pseudowire", __func__);
+					log_warnx("%s: error deleting pseudowire", __func__);
 				break;
 			case IMSG_KPW_SET:
 				if (kmpw_set(imsg.data))
-					log_warnx("%s: error setting "
-					    "pseudowire", __func__);
+					log_warnx("%s: error setting pseudowire", __func__);
 				break;
 			case IMSG_KPW_UNSET:
 				if (kmpw_unset(imsg.data))
-					log_warnx("%s: error unsetting "
-					    "pseudowire", __func__);
+					log_warnx("%s: error unsetting pseudowire", __func__);
 				break;
 			}
 			break;
@@ -857,8 +853,7 @@ main_imsg_send_net_socket(int af, enum socket_type type)
 
 	fd = ldp_create_socket(af, type);
 	if (fd == -1) {
-		log_warnx("%s: failed to create %s socket for address-family "
-		    "%s", __func__, socket_name(type), af_name(af));
+		log_warnx("%s: failed to create %s socket for address-family %s", __func__, socket_name(type), af_name(af));
 		return;
 	}
 

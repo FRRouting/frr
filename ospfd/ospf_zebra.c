@@ -770,8 +770,7 @@ static int ospf_external_lsa_originate_check(struct ospf *ospf,
 	/* If prefix is multicast, then do not originate LSA. */
 	if (IN_MULTICAST(htonl(ei->p.prefix.s_addr))) {
 		zlog_info(
-			"LSA[Type5:%s]: Not originate AS-external-LSA, "
-			"Prefix belongs multicast",
+			"LSA[Type5:%s]: Not originate AS-external-LSA, Prefix belongs multicast",
 			inet_ntoa(ei->p.prefix));
 		return 0;
 	}
@@ -780,8 +779,7 @@ static int ospf_external_lsa_originate_check(struct ospf *ospf,
 	if (is_prefix_default(&ei->p))
 		if (ospf->default_originate == DEFAULT_ORIGINATE_NONE) {
 			zlog_info(
-				"LSA[Type5:0.0.0.0]: Not originate AS-external-LSA "
-				"for default");
+				"LSA[Type5:0.0.0.0]: Not originate AS-external-LSA for default");
 			return 0;
 		}
 

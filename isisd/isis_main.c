@@ -185,8 +185,7 @@ FRR_DAEMON_INFO(isisd, ISIS, .vty_port = ISISD_VTY_PORT,
 		.proghelp = "Implementation of the IS-IS routing protocol.",
 #endif
 		.copyright =
-			"Copyright (c) 2001-2002 Sampo Saaristo,"
-			" Ofer Wald and Hannes Gredler",
+			"Copyright (c) 2001-2002 Sampo Saaristo, Ofer Wald and Hannes Gredler",
 
 		.signals = isisd_signals,
 		.n_signals = array_size(isisd_signals),

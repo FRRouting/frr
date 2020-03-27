@@ -4330,8 +4330,7 @@ static int peer_flag_modify_vty(struct vty *vty, const char *ip_str,
 	 */
 	if (peer->conf_if && (flag == PEER_FLAG_DISABLE_CONNECTED_CHECK)) {
 		vty_out(vty,
-			"%s is directly connected peer, cannot accept disable-"
-			"connected-check\n",
+			"%s is directly connected peer, cannot accept disable-connected-check\n",
 			ip_str);
 		return CMD_WARNING_CONFIG_FAILED;
 	}

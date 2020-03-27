@@ -513,8 +513,7 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 
 	if (!attr[IFLA_VXLAN_LINK]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("IFLA_VXLAN_LINK missing "
-				   "from VXLAN IF message");
+			zlog_debug("IFLA_VXLAN_LINK missing from VXLAN IF message");
 	} else {
 		ifindex_link =
 			*(ifindex_t *)RTA_DATA(attr[IFLA_VXLAN_LINK]);
@@ -1307,8 +1306,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* Add interface notification from kernel */
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
-					"RTM_NEWLINK ADD for %s(%u) vrf_id %u type %d "
-					"sl_type %d master %u flags 0x%x",
+					"RTM_NEWLINK ADD for %s(%u) vrf_id %u type %d sl_type %d master %u flags 0x%x",
 					name, ifi->ifi_index, vrf_id, zif_type,
 					zif_slave_type, bridge_ifindex,
 					ifi->ifi_flags);
@@ -1364,8 +1362,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* VRF change for an interface. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
-					"RTM_NEWLINK vrf-change for %s(%u) "
-					"vrf_id %u -> %u flags 0x%x",
+					"RTM_NEWLINK vrf-change for %s(%u) vrf_id %u -> %u flags 0x%x",
 					name, ifp->ifindex, ifp->vrf_id, vrf_id,
 					ifi->ifi_flags);
 
@@ -1376,8 +1373,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* Interface update. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
-					"RTM_NEWLINK update for %s(%u) "
-					"sl_type %d master %u flags 0x%x",
+					"RTM_NEWLINK update for %s(%u) sl_type %d master %u flags 0x%x",
 					name, ifp->ifindex, zif_slave_type,
 					bridge_ifindex, ifi->ifi_flags);
 

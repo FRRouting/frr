@@ -877,8 +877,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 					if (lsp == NULL
 					    || lsp->hdr.rem_lifetime == 0)
 						zlog_warn(
-							"ISIS-Spf: No LSP %s found for IS adjacency "
-							"L%d on %s (ID %u)",
+							"ISIS-Spf: No LSP %s found for IS adjacency L%d on %s (ID %u)",
 							rawlspid_print(lsp_id),
 							spftree->level,
 							circuit->interface->name,
@@ -915,8 +914,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 			/* if no adj, we are the dis or error */
 			if (!adj && !circuit->u.bc.is_dr[spftree->level - 1]) {
 				zlog_warn(
-					"ISIS-Spf: No adjacency found from root "
-					"to L%d DR %s on %s (ID %d)",
+					"ISIS-Spf: No adjacency found from root to L%d DR %s on %s (ID %d)",
 					spftree->level, rawlspid_print(lsp_id),
 					circuit->interface->name,
 					circuit->circuit_id);
@@ -927,8 +925,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 				lsp_id);
 			if (lsp == NULL || lsp->hdr.rem_lifetime == 0) {
 				zlog_warn(
-					"ISIS-Spf: No lsp (%p) found from root "
-					"to L%d DR %s on %s (ID %d)",
+					"ISIS-Spf: No lsp (%p) found from root to L%d DR %s on %s (ID %d)",
 					(void *)lsp, spftree->level,
 					rawlspid_print(lsp_id),
 					circuit->interface->name,
@@ -1022,8 +1019,7 @@ static void add_to_paths(struct isis_spftree *spftree,
 					  spftree->route_table);
 		else if (IS_DEBUG_SPF_EVENTS)
 			zlog_debug(
-				"ISIS-Spf: no adjacencies do not install route for "
-				"%s depth %d dist %d",
+				"ISIS-Spf: no adjacencies do not install route for %s depth %d dist %d",
 				vid2string(vertex, buff, sizeof(buff)),
 				vertex->depth, vertex->d_N);
 	}
@@ -1262,8 +1258,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 
 	if (IS_DEBUG_SPF_EVENTS) {
 		zlog_debug(
-			"ISIS-Spf (%s) L%d SPF schedule called, lastrun %d sec ago"
-			" Caller: %s %s:%d",
+			"ISIS-Spf (%s) L%d SPF schedule called, lastrun %d sec ago Caller: %s %s:%d",
 			area->area_tag, level, diff, func, file, line);
 	}
 

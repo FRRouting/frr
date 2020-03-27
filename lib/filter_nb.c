@@ -93,8 +93,7 @@ prefix_list_length_validate(const struct lyd_node *dnode)
 	return NB_OK;
 
   log_and_fail:
-	zlog_info("prefix-list: invalid prefix range for %pFX: "
-		  "Make sure that mask length < ge <= le", &p);
+	zlog_info("prefix-list: invalid prefix range for %pFX: Make sure that mask length < ge <= le", &p);
 	return NB_ERR_VALIDATION;
 }
 

@@ -72,8 +72,7 @@ static int solaris_nd(const int cmd, const char *parameter, const int value)
 		snprintf(nd_buf, ND_BUFFER_SIZE, "%s", parameter);
 	else {
 		flog_err_sys(EC_LIB_SYSTEM_CALL,
-			     "internal error - inappropriate command given to "
-			     "solaris_nd()%s:%d",
+			     "internal error - inappropriate command given to solaris_nd()%s:%d",
 			     __FILE__, __LINE__);
 		return -1;
 	}

@@ -491,8 +491,7 @@ uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
 		return rc;
 
 	if (p != NULL) {
-		osr_debug("EXT (%s): Schedule new prefix %pFX with index %u "
-			  "on interface %s", __func__, p, index, ifp->name);
+		osr_debug("EXT (%s): Schedule new prefix %pFX with index %u on interface %s", __func__, p, index, ifp->name);
 
 		/* Set first Extended Prefix then the Prefix SID information */
 		set_ext_prefix(exti, OSPF_PATH_INTRA_AREA, EXT_TLV_PREF_NFLG,
@@ -1006,8 +1005,7 @@ static struct ospf_lsa *ospf_ext_pref_lsa_new(struct ospf_area *area,
 	lsa_header_set(s, options, lsa_type, lsa_id, router_id);
 
 	osr_debug(
-		"EXT (%s): LSA[Type%u:%pI4]: Create an Opaque-LSA Extended "
-		"Prefix Opaque LSA instance",
+		"EXT (%s): LSA[Type%u:%pI4]: Create an Opaque-LSA Extended Prefix Opaque LSA instance",
 		__func__, lsa_type, &lsa_id);
 
 	/* Set opaque-LSA body fields. */
@@ -1064,8 +1062,7 @@ static struct ospf_lsa *ospf_ext_link_lsa_new(struct ospf_area *area,
 	lsa_id.s_addr = htonl(tmp);
 
 	osr_debug(
-		"EXT (%s) LSA[Type%u:%pI4]: Create an Opaque-LSA Extended "
-		"Link Opaque LSA instance",
+		"EXT (%s) LSA[Type%u:%pI4]: Create an Opaque-LSA Extended Link Opaque LSA instance",
 		__func__, lsa_type, &lsa_id);
 
 	/* Set opaque-LSA header fields. */
@@ -1130,8 +1127,7 @@ static int ospf_ext_pref_lsa_originate1(struct ospf_area *area,
 	ospf_flood_through_area(area, NULL /*nbr */, new);
 
 	osr_debug(
-		"EXT (%s): LSA[Type%u:%pI4]: Originate Opaque-LSA"
-		"Extended Prefix Opaque LSA: Area(%pI4), Link(%s)",
+		"EXT (%s): LSA[Type%u:%pI4]: Originate Opaque-LSAExtended Prefix Opaque LSA: Area(%pI4), Link(%s)",
 		__func__, new->data->type, &new->data->id,
 		&area->area_id, exti->ifp->name);
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
@@ -1178,8 +1174,7 @@ static int ospf_ext_link_lsa_originate1(struct ospf_area *area,
 	ospf_flood_through_area(area, NULL /*nbr */, new);
 
 	osr_debug(
-		"EXT (%s): LSA[Type%u:%pI4]: Originate Opaque-LSA "
-		"Extended Link Opaque LSA: Area(%pI4), Link(%s)",
+		"EXT (%s): LSA[Type%u:%pI4]: Originate Opaque-LSA Extended Link Opaque LSA: Area(%pI4), Link(%s)",
 		__func__, new->data->type, &new->data->id,
 		&area->area_id, exti->ifp->name);
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
@@ -1237,8 +1232,7 @@ static int ospf_ext_pref_lsa_originate(void *arg)
 
 		/* Ok, let's try to originate an LSA */
 		osr_debug(
-			"EXT (%s): Let's finally re-originate the LSA 7.0.0.%u "
-			"for Itf %s", __func__, exti->instance,
+			"EXT (%s): Let's finally re-originate the LSA 7.0.0.%u for Itf %s", __func__, exti->instance,
 			exti->ifp ? exti->ifp->name : "");
 		ospf_ext_pref_lsa_originate1(area, exti);
 	}
@@ -1300,8 +1294,7 @@ static int ospf_ext_link_lsa_originate(void *arg)
 
 		/* Ok, let's try to originate an LSA */
 		osr_debug(
-			"EXT (%s): Let's finally reoriginate the LSA 8.0.0.%u "
-			"for Itf %s through the Area %pI4", __func__,
+			"EXT (%s): Let's finally reoriginate the LSA 8.0.0.%u for Itf %s through the Area %pI4", __func__,
 			exti->instance,	exti->ifp ? exti->ifp->name : "-",
 			&area->area_id);
 		ospf_ext_link_lsa_originate1(area, exti);
@@ -1625,8 +1618,7 @@ static uint16_t show_vty_ext_link_rmt_itf_addr(struct vty *vty,
 	top = (struct ext_subtlv_rmt_itf_addr *)tlvh;
 
 	vty_out(vty,
-		"  Remote Interface Address Sub-TLV: Length %u\n	"
-		"Address: %s\n",
+		"  Remote Interface Address Sub-TLV: Length %u\n	Address: %s\n",
 		ntohs(top->header.length), inet_ntoa(top->value));
 
 	return TLV_SIZE(tlvh);
@@ -1639,8 +1631,7 @@ static uint16_t show_vty_ext_link_adj_sid(struct vty *vty,
 	struct ext_subtlv_adj_sid *top = (struct ext_subtlv_adj_sid *)tlvh;
 
 	vty_out(vty,
-		"  Adj-SID Sub-TLV: Length %u\n\tFlags: "
-		"0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\t%s: %u\n",
+		"  Adj-SID Sub-TLV: Length %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\t%s: %u\n",
 		ntohs(top->header.length), top->flags, top->mtid, top->weight,
 		CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG) ? "Label"
 								     : "Index",
@@ -1659,9 +1650,7 @@ static uint16_t show_vty_ext_link_lan_adj_sid(struct vty *vty,
 		(struct ext_subtlv_lan_adj_sid *)tlvh;
 
 	vty_out(vty,
-		"  LAN-Adj-SID Sub-TLV: Length %u\n\tFlags: "
-		"0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\tNeighbor ID: "
-		"%s\n\t%s: %u\n",
+		"  LAN-Adj-SID Sub-TLV: Length %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\tNeighbor ID: %s\n\t%s: %u\n",
 		ntohs(top->header.length), top->flags, top->mtid, top->weight,
 		inet_ntoa(top->neighbor_id),
 		CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG) ? "Label"
@@ -1749,8 +1738,7 @@ static uint16_t show_vty_ext_pref_pref_sid(struct vty *vty,
 		(struct ext_subtlv_prefix_sid *)tlvh;
 
 	vty_out(vty,
-		"  Prefix SID Sub-TLV: Length %u\n\tAlgorithm: "
-		"%u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\t%s: %u\n",
+		"  Prefix SID Sub-TLV: Length %u\n\tAlgorithm: %u\n\tFlags: 0x%x\n\tMT-ID:0x%x\n\t%s: %u\n",
 		ntohs(top->header.length), top->algorithm, top->flags,
 		top->mtid,
 		CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG) ? "Label"

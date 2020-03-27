@@ -558,8 +558,7 @@ static void zprivs_caps_init(struct zebra_privs_t *zprivs)
 	/* nonsensical to have gotten here but not have capabilities */
 	if (!zprivs_state.syscaps_p) {
 		fprintf(stderr,
-			"%s: capabilities enabled, "
-			"but no valid capabilities supplied\n",
+			"%s: capabilities enabled, but no valid capabilities supplied\n",
 			__func__);
 	}
 

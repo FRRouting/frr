@@ -276,8 +276,7 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 			    && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)))) {
 			if (nhlfe->nexthop->nh_label->num_labels > 1) {
 				flog_warn(EC_ZEBRA_MAX_LABELS_PUSH,
-					  "%s: can't push %u labels at once "
-					  "(maximum is 1)",
+					  "%s: can't push %u labels at once (maximum is 1)",
 					  __func__,
 					  nhlfe->nexthop->nh_label->num_labels);
 				continue;

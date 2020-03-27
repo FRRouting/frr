@@ -170,8 +170,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 
 		prefix2str(&api.prefix, buf[0], sizeof(buf[0]));
 		zlog_debug(
-			"Zebra send: route %s %s nexthop %s metric %u"
-			" count %d dev %s",
+			"Zebra send: route %s %s nexthop %s metric %u count %d dev %s",
 			add ? "add" : "del", buf[0],
 			nexthop ? inet_ntop(api.prefix.family, &api_nh->gate,
 					    buf[1], sizeof(buf[1]))

@@ -785,8 +785,7 @@ static void if_dump(const struct interface *ifp)
 		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 
 		zlog_info(
-			"Interface %s vrf %s(%u) index %d metric %d mtu %d "
-			"mtu6 %d %s",
+			"Interface %s vrf %s(%u) index %d metric %d mtu %d mtu6 %d %s",
 			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
 			ifp->metric, ifp->mtu, ifp->mtu6,
 			if_flag_dump(ifp->flags));

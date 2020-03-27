@@ -1244,8 +1244,7 @@ bgp_attr_flags_diagnose(struct bgp_attr_parser_args *args,
 		}
 	if (!seen) {
 		zlog_debug(
-			"Strange, %s called for attr %s, but no problem found with flags"
-			" (real flags 0x%x, desired 0x%x)",
+			"Strange, %s called for attr %s, but no problem found with flags (real flags 0x%x, desired 0x%x)",
 			__func__, lookup_msg(attr_str, attr_code, NULL),
 			real_flags, desired_flags);
 	}
@@ -1311,16 +1310,14 @@ static bool bgp_attr_flag_invalid(struct bgp_attr_parser_args *args)
 	if (CHECK_FLAG(flags, BGP_ATTR_FLAG_PARTIAL)) {
 		if (!CHECK_FLAG(flags, BGP_ATTR_FLAG_OPTIONAL)) {
 			flog_err(EC_BGP_ATTR_FLAG,
-				 "%s well-known attribute "
-				 "must NOT have the partial flag set (%x)",
+				 "%s well-known attribute must NOT have the partial flag set (%x)",
 				 lookup_msg(attr_str, attr_code, NULL), flags);
 			return true;
 		}
 		if (CHECK_FLAG(flags, BGP_ATTR_FLAG_OPTIONAL)
 		    && !CHECK_FLAG(flags, BGP_ATTR_FLAG_TRANS)) {
 			flog_err(EC_BGP_ATTR_FLAG,
-				 "%s optional + transitive attribute "
-				 "must NOT have the partial flag set (%x)",
+				 "%s optional + transitive attribute must NOT have the partial flag set (%x)",
 				 lookup_msg(attr_str, attr_code, NULL), flags);
 			return true;
 		}
@@ -1773,10 +1770,7 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 				/* ignore */
 				if (BGP_DEBUG(as4, AS4))
 					zlog_debug(
-						"[AS4] %s BGP not AS4 capable peer"
-						" send AGGREGATOR != AS_TRANS and"
-						" AS4_AGGREGATOR, so ignore"
-						" AS4_AGGREGATOR and AS4_PATH",
+						"[AS4] %s BGP not AS4 capable peer send AGGREGATOR != AS_TRANS and AS4_AGGREGATOR, so ignore AS4_AGGREGATOR and AS4_PATH",
 						peer->host);
 				ignore_as4_path = 1;
 			} else {
@@ -1794,9 +1788,7 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 			 */
 			if (BGP_DEBUG(as4, AS4))
 				zlog_debug(
-					"[AS4] %s BGP not AS4 capable peer send"
-					" AS4_AGGREGATOR but no AGGREGATOR, will take"
-					" it as if AGGREGATOR with AS_TRANS had been there",
+					"[AS4] %s BGP not AS4 capable peer send AS4_AGGREGATOR but no AGGREGATOR, will take it as if AGGREGATOR with AS_TRANS had been there",
 					peer->host);
 			attr->aggregator_as = as4_aggregator;
 			/* sweep it under the carpet and simulate a "good"
@@ -2676,8 +2668,7 @@ bgp_attr_parse_ret_t bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 		if (psid_parsed_length > args->length) {
 			flog_err(
 				EC_BGP_ATTR_LEN,
-				"Malformed Prefix SID attribute - TLV overflow by attribute (need %zu"
-				" for TLV length, have %zu overflowed in UPDATE)",
+				"Malformed Prefix SID attribute - TLV overflow by attribute (need %zu for TLV length, have %zu overflowed in UPDATE)",
 				length + headersz, psid_parsed_length - (length + headersz));
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
