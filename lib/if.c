@@ -1746,32 +1746,7 @@ lib_interface_state_phy_address_get_elem(const char *xpath,
 }
 
 /* clang-format off */
-
-#if defined(__GNUC__) && ((__GNUC__ - 0) < 5) && !defined(__clang__)
-/* gcc versions before 5.x miscalculate the size for structs with variable
- * length arrays (they just count it as size 0)
- */
-struct frr_yang_module_info_size3 {
-	/* YANG module name. */
-	const char *name;
-
-	/* Northbound callbacks. */
-	const struct {
-		/* Data path of this YANG node. */
-		const char *xpath;
-
-		/* Callbacks implemented for this node. */
-		struct nb_callbacks cbs;
-
-		/* Priority - lower priorities are processed first. */
-		uint32_t priority;
-	} nodes[3];
-};
-
-const struct frr_yang_module_info_size3 frr_interface_info_size3 asm("frr_interface_info") = {
-#else
 const struct frr_yang_module_info frr_interface_info = {
-#endif
 	.name = "frr-interface",
 	.nodes = {
 		{
