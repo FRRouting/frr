@@ -56,6 +56,7 @@
 #include "bgpd/rfapi/vnc_export_bgp.h"
 #endif
 #include "bgpd/bgp_evpn.h"
+#include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_labelpool.h"
 #include "bgpd/bgp_pbr.h"
