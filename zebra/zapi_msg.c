@@ -65,6 +65,8 @@ extern struct zebra_privs_t zserv_privs;
 
 DEFINE_HOOK(zebra_nflog_configure,
 	    (int nflog_group, struct zebra_vrf *zvrf), (nflog_group, zvrf));
+DEFINE_HOOK(zebra_redirect_set,
+	    (struct interface *ifp, int family, int on), (ifp, family, on));
 
 /* Encoding helpers -------------------------------------------------------- */
 
@@ -3839,6 +3841,7 @@ static void zebra_redirect_interface(ZAPI_HANDLER_ARGS)
 	frr_with_privs(&zserv_privs) {
 		if_interface_redirect_set(ifp, family, on);
 	}
+	hook_call(zebra_redirect_set, ifp, family, on);
 	return;
  stream_failure:
 	return;

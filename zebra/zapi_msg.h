@@ -125,6 +125,8 @@ extern void zebra_install_6pe_resolved_route(int cmd, struct prefix *p,
 
 DECLARE_HOOK(zebra_nflog_configure,
 	     (int nflog_group, struct zebra_vrf *zvrf), (nflog_group, zvrf));
+DECLARE_HOOK(zebra_redirect_set,
+	    (struct interface *ifp, int family, int on), (ifp, family, on));
 
 #ifdef __cplusplus
 }

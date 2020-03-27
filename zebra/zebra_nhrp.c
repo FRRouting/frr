@@ -79,9 +79,12 @@ static int zebra_nhrp_6wind_if_delete_hook(struct interface *ifp);
 static int zebra_nhrp_6wind_if_new_hook(struct interface *ifp);
 
 /* internal */
-static void zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
-				 bool on, struct interface *ifp,
-				 int nflog_group);
+static int zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
+				bool on, struct interface *ifp,
+				int nflog_group);
+static int zebra_nhrp_call_only(const char *script, vrf_id_t vrf_id,
+				char *buf_response, int len_buf);
+static void zebra_nhrp_6wind_notify_differ(struct event *event);
 
 #ifndef CLONE_NEWNET
 #define CLONE_NEWNET 0x40000000
@@ -104,11 +107,16 @@ struct hash *zebra_nhrp_list;
 static int zebra_nhrp_6wind_fd;
 static struct event *zebra_nhrp_log_event;
 
+#define NHRP_RETRY_MAX 5
+
 struct zebra_nhrp_ctx {
 	struct interface *ifp; /* backpointer and key */
 	bool nhrp_6wind_notify[AFI_MAX];
 	bool nflog_notify[AFI_MAX];
+	bool nhrp_6wind_notify_differ[AFI_MAX];
 	int nflog_group;
+	struct event *zebra_nhrp_retry_event;
+	int retry[AFI_MAX];
 };
 
 static uint32_t zebra_nhrp_hash_key(const void *arg)
@@ -141,11 +149,17 @@ static void zebra_nhrp_flush_entry(struct zebra_nhrp_ctx *ctx)
 {
 	afi_t afi;
 
+	if (ctx->zebra_nhrp_retry_event) {
+		EVENT_OFF(ctx->zebra_nhrp_retry_event);
+		ctx->zebra_nhrp_retry_event = NULL;
+	}
+	ctx->zebra_nhrp_retry_event = NULL;
 	for (afi = 0; afi < AFI_MAX; afi++) {
 		if (ctx->nhrp_6wind_notify[afi]) {
 			zebra_nhrp_configure(true, afi == AFI_IP ? true : false,
 					     false, ctx->ifp, ctx->nflog_group);
 			ctx->nhrp_6wind_notify[afi] = false;
+			ctx->nhrp_6wind_notify_differ[afi] = false;
 		}
 		if (ctx->nflog_notify[afi]) {
 			zebra_nhrp_configure(false, afi == AFI_IP ? true : false,
@@ -271,20 +285,71 @@ static int zebra_nhrp_6wind_nflog_configure(int nflog_group,
 	return 1;
 }
 
+static void zebra_nhrp_6wind_notify_differ(struct event *event)
+{
+	struct zebra_nhrp_ctx *ctx = EVENT_ARG(event);
+	int ret = 0;
+	afi_t i;
+	bool relaunch = false;
+
+	for (i = 0; i < AFI_MAX; i++) {
+		if (ctx->nhrp_6wind_notify_differ[i]) {
+			ctx->retry[i]++;
+			ret = zebra_nhrp_configure(true, i == AFI_IP ? true : false,
+						   true, ctx->ifp, ctx->nflog_group);
+			if (ret) {
+				if (ctx->retry[i] == NHRP_RETRY_MAX) {
+					zlog_debug("%s(): failed to configure nhrp 6wind for afi %d, if %s",
+						   __func__, i, ctx->ifp->name);
+					ctx->retry[i] = 0;
+					continue;
+				}
+				relaunch = true;
+			} else {
+				ctx->nhrp_6wind_notify_differ[i] = false;
+				ctx->retry[i] = 0;
+			}
+		}
+	}
+	if (relaunch)
+		event_add_timer(zrouter.master, zebra_nhrp_6wind_notify_differ,
+				 ctx, 1, &ctx->zebra_nhrp_retry_event);
+	else
+		ctx->zebra_nhrp_retry_event = NULL;
+}
+
 static int zebra_nhrp_6wind_if_new_hook(struct interface *ifp)
 {
 	struct zebra_nhrp_ctx ctx;
-	int i;
+	struct zebra_nhrp_ctx *ptr;
+	int i, ret = 0;
+	bool replay = false;
 
 	memset(&ctx, 0, sizeof(struct zebra_nhrp_ctx));
 	ctx.ifp = ifp;
 	for (i = 0; i < AFI_MAX; i++) {
 		ctx.nhrp_6wind_notify[i] = false;
 		ctx.nflog_notify[i] = false;
+		ctx.nhrp_6wind_notify_differ[i] = false;
 	}
 	zebra_nhrp_list_init();
-	hash_get(zebra_nhrp_list, &ctx,
-		 zebra_nhrp_alloc);
+	ptr = hash_get(zebra_nhrp_list, &ctx,
+		       zebra_nhrp_alloc);
+	/* XXX no retry mechanism at this point */
+	if (ifp->ifindex != IFINDEX_INTERNAL) {
+		for (i = 0; i < AFI_MAX; i++) {
+			if (ptr->nhrp_6wind_notify_differ[i])
+				ret = zebra_nhrp_configure(true, i == AFI_IP ? true : false,
+						     true, ifp, ptr->nflog_group);
+			if (ret && ptr->nhrp_6wind_notify[i]) {
+				ptr->nhrp_6wind_notify_differ[i] = ptr->nhrp_6wind_notify[i];
+				replay = true;
+			}
+		}
+	}
+	if (replay)
+		event_add_timer(zrouter.master, zebra_nhrp_6wind_notify_differ,
+				 ptr, 1, &ptr->zebra_nhrp_retry_event);
 	return 1;
 }
 
@@ -509,9 +574,15 @@ static int zebra_nhrp_call_only(const char *script, vrf_id_t vrf_id,
 		return -1;
 	}
 	if (buf_response) {
+		buf_response[0] = '\0';
 		do {
 			current_str = fgets(buf_response, len_buf, fp);
 		} while (current_str != NULL);
+		if (strlen(buf_response)) {
+			if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
+				zlog_debug("NHRP : %s", buf_response);
+			return -1;
+		}
 	}
 	vrf_switchback_to_initial();
 
@@ -533,19 +604,21 @@ void zebra_nhrp_6wind_connection(bool on, uint16_t port)
 		return;
 
 	/* fp-cli nhrp-port <port> <vrfid> */
-	snprintf(buf, sizeof(buf), "/usr/bin/fp-cli nhrp-port %d",
+	snprintf(buf, sizeof(buf), "/usr/bin/fp-cli nhrp-port %d 2>&1",
 		 on ? port : 0);
 
 	zebra_nhrp_call_only(buf, VRF_DEFAULT, NULL, 0);
 }
 
-static void zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
-				 bool on, struct interface *ifp,
-				 int nflog_group)
+static int zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
+				bool on, struct interface *ifp,
+				int nflog_group)
 {
 	char buf[500], buf2[100], buf3[110], buf4_ipv4[100], buf4_ipv6[100], buf5_vrf[55];
 	struct vrf *vrf = NULL;
 	char buf_vrf[1000];
+	char retstr[100];
+	int ret;
 
 	memset(buf5_vrf, 0, sizeof(buf5_vrf));
 	/* iptables : /sbin/iptables  -A FORWARD -i gre5 -o gre5 -j NFLOG
@@ -555,7 +628,7 @@ static void zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
 	 */
 	vrf = vrf_lookup_by_id(ifp->vrf->vrf_id);
 	if (!vrf)
-		return;
+		return -1;
 	if (!nhrp_6wind) {
 		snprintf(buf3, sizeof(buf3), " %s%s%s",
 			 "-m hashlimit --hashlimit-name nflog",
@@ -592,22 +665,27 @@ static void zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
 			else {
 				zlog_err("%s(): could not retrieve id from vrf %s (%s)",
 					 __func__, vrf->name, buf_vrf);
-				return;
+				return -1;
 			}
 		}
-		snprintf(buf, sizeof(buf), "/usr/bin/fp-cli nhrp-iface-set %s %s %s %u",
+		snprintf(buf, sizeof(buf), "/usr/bin/fp-cli nhrp-iface-set %s %s %s %u 2>&1",
 			 ifp->name,
 			 is_ipv4 ? "ipv4" : "ipv6",
 			 on ? "on" : "off",
 			 vrid);
 	}
-	zebra_nhrp_call_only(buf, ifp->vrf->vrf_id, NULL, 0);
+	memset(retstr, 0, sizeof(retstr));
+	ret = zebra_nhrp_call_only(buf, ifp->vrf->vrf_id, retstr, sizeof(retstr));
+	if (ret && strlen(retstr))
+		return -1;
+	return 0;
 }
 
 void zebra_nhrp_interface_configure(struct interface *ifp, bool nhrp_6wind,
 				    afi_t afi, bool enabled)
 {
 	struct zebra_nhrp_ctx *ctx;
+	int ret = -1;
 
 	ctx = zebra_nhrp_lookup(ifp);
 	if (!ctx)
@@ -615,8 +693,21 @@ void zebra_nhrp_interface_configure(struct interface *ifp, bool nhrp_6wind,
 
 	ctx->nhrp_6wind_notify[afi] = enabled;
 
-	zebra_nhrp_configure(nhrp_6wind, afi == AFI_IP, enabled, ifp,
-			     ctx->nflog_group);
+	/* will be triggered by if_new_hook() */
+	if (ifp->ifindex == IFINDEX_INTERNAL && enabled) {
+		ctx->nhrp_6wind_notify_differ[afi] = ctx->nhrp_6wind_notify[afi];
+		return;
+	}
+
+	/* retry mechanism */
+	ret = zebra_nhrp_configure(nhrp_6wind, afi == AFI_IP, enabled, ifp,
+		     ctx->nflog_group);
+
+	if (ret && ctx->nhrp_6wind_notify[afi]) {
+		ctx->nhrp_6wind_notify_differ[afi] = ctx->nhrp_6wind_notify[afi];
+		event_add_timer(zrouter.master, zebra_nhrp_6wind_notify_differ,
+				 ctx, 1, &ctx->zebra_nhrp_retry_event);
+	}
 }
 
 void zebra_nhrp_6wind_init()
