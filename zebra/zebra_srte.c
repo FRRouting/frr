@@ -118,7 +118,8 @@ int zebra_sr_policy_validate(struct zebra_sr_policy *policy)
 
 	/* Try to resolve the Binding-SID nexthops. */
 	lsp = mpls_lsp_find(policy->zvrf, zt->labels[0]);
-	if (!lsp || lsp->addr_family != ipaddr_family(&policy->endpoint)) {
+	if (!lsp || !CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)
+	    || lsp->addr_family != ipaddr_family(&policy->endpoint)) {
 		zebra_sr_policy_deactivate(policy);
 		return -1;
 	}
