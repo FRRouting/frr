@@ -180,6 +180,7 @@ struct dplane_mac_info {
 	struct ethaddr mac;
 	struct in_addr vtep_ip;
 	bool is_sticky;
+	uint32_t nhg_id;
 };
 
 /*
@@ -441,7 +442,7 @@ static enum zebra_dplane_result mac_update_common(
 	enum dplane_op_e op, const struct interface *ifp,
 	const struct interface *br_ifp,
 	vlanid_t vid, const struct ethaddr *mac,
-	struct in_addr vtep_ip,	bool sticky);
+	struct in_addr vtep_ip,	bool sticky, uint32_t nhg_id);
 static enum zebra_dplane_result neigh_update_internal(
 	enum dplane_op_e op,
 	const struct interface *ifp,
@@ -1550,6 +1551,12 @@ bool dplane_ctx_mac_is_sticky(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 	return ctx->u.macinfo.is_sticky;
+}
+
+uint32_t dplane_ctx_mac_get_nhg_id(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.macinfo.nhg_id;
 }
 
 const struct ethaddr *dplane_ctx_mac_get_addr(
@@ -2900,13 +2907,14 @@ enum zebra_dplane_result dplane_mac_add(const struct interface *ifp,
 					vlanid_t vid,
 					const struct ethaddr *mac,
 					struct in_addr vtep_ip,
-					bool sticky)
+					bool sticky,
+					uint32_t nhg_id)
 {
 	enum zebra_dplane_result result;
 
 	/* Use common helper api */
 	result = mac_update_common(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp,
-				   vid, mac, vtep_ip, sticky);
+				   vid, mac, vtep_ip, sticky, nhg_id);
 	return result;
 }
 
@@ -2923,7 +2931,7 @@ enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
 
 	/* Use common helper api */
 	result = mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp,
-				   vid, mac, vtep_ip, false);
+				   vid, mac, vtep_ip, false, 0);
 	return result;
 }
 
@@ -2937,7 +2945,8 @@ void dplane_mac_init(struct zebra_dplane_ctx *ctx,
 		     vlanid_t vid,
 		     const struct ethaddr *mac,
 		     struct in_addr vtep_ip,
-		     bool sticky)
+		     bool sticky,
+		     uint32_t nhg_id)
 {
 	struct zebra_ns *zns;
 
@@ -2958,6 +2967,7 @@ void dplane_mac_init(struct zebra_dplane_ctx *ctx,
 	ctx->u.macinfo.mac = *mac;
 	ctx->u.macinfo.vid = vid;
 	ctx->u.macinfo.is_sticky = sticky;
+	ctx->u.macinfo.nhg_id = nhg_id;
 }
 
 /*
@@ -2970,7 +2980,8 @@ mac_update_common(enum dplane_op_e op,
 		  vlanid_t vid,
 		  const struct ethaddr *mac,
 		  struct in_addr vtep_ip,
-		  bool sticky)
+		  bool sticky,
+		  uint32_t nhg_id)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret;
@@ -2990,7 +3001,7 @@ mac_update_common(enum dplane_op_e op,
 	ctx->zd_op = op;
 
 	/* Common init for the ctx */
-	dplane_mac_init(ctx, ifp, br_ifp, vid, mac, vtep_ip, sticky);
+	dplane_mac_init(ctx, ifp, br_ifp, vid, mac, vtep_ip, sticky, nhg_id);
 
 	/* Enqueue for processing on the dplane pthread */
 	ret = dplane_update_enqueue(ctx);
