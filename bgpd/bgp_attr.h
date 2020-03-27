@@ -253,6 +253,9 @@ struct attr {
 
 	/* Link bandwidth value, if any. */
 	uint32_t link_bw;
+
+	/* EVPN ES */
+	esi_t esi;
 };
 
 /* rmap_change_flags definition */

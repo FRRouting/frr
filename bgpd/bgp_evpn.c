@@ -3537,7 +3537,7 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 
 	if (attr) {
 		is_valid_update = true;
-		if (is_zero_mac(&attr->rmac) && is_zero_esi(&evpn.eth_s_id) &&
+		if (is_zero_mac(&attr->rmac) &&
 		    is_zero_gw_ip(&evpn.gw_ip, gw_afi))
 			is_valid_update = false;
 
