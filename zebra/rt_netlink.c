@@ -1515,6 +1515,30 @@ static int netlink_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 			    0);
 }
 
+static bool nexthop_set_src(const struct nexthop *nexthop, int family,
+			    union g_addr *src)
+{
+	if (family == AF_INET) {
+		if (nexthop->rmap_src.ipv4.s_addr != INADDR_ANY) {
+			src->ipv4 = nexthop->rmap_src.ipv4;
+			return true;
+		} else if (nexthop->src.ipv4.s_addr != INADDR_ANY) {
+			src->ipv4 = nexthop->src.ipv4;
+			return true;
+		}
+	} else if (family == AF_INET6) {
+		if (!IN6_IS_ADDR_UNSPECIFIED(&nexthop->rmap_src.ipv6)) {
+			src->ipv6 = nexthop->rmap_src.ipv6;
+			return true;
+		} else if (!IN6_IS_ADDR_UNSPECIFIED(&nexthop->src.ipv6)) {
+			src->ipv6 = nexthop->src.ipv6;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /*
  * Routing table change via netlink interface, using a dataplane context object
  */
@@ -1525,7 +1549,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 	unsigned int nexthop_num;
 	int family;
 	const char *routedesc;
-	int setsrc = 0;
+	bool setsrc = false;
 	union g_addr src;
 	const struct prefix *p, *src_p;
 	uint32_t table_id;
@@ -1641,13 +1665,30 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 	}
 
 	if (kernel_nexthops_supported()) {
+		/* Kernel supports nexthop objects */
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"netlink_route_multipath(): %pFX nhg_id is %u",
 				p, dplane_ctx_get_nhe_id(ctx));
-		/* Kernel supports nexthop objects */
 		addattr32(&req.n, sizeof(req), RTA_NH_ID,
 			  dplane_ctx_get_nhe_id(ctx));
+
+		/* Have to determine src still */
+		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
+			if (setsrc)
+				break;
+
+			setsrc = nexthop_set_src(nexthop, family, &src);
+		}
+
+		if (setsrc) {
+			if (family == AF_INET)
+				addattr_l(&req.n, sizeof(req), RTA_PREFSRC,
+					  &src.ipv4, bytelen);
+			else if (family == AF_INET6)
+				addattr_l(&req.n, sizeof(req), RTA_PREFSRC,
+					  &src.ipv6, bytelen);
+		}
 		goto skip;
 	}
 
@@ -1695,32 +1736,8 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 				if (setsrc)
 					continue;
 
-				if (family == AF_INET) {
-					if (nexthop->rmap_src.ipv4.s_addr
-					    != 0) {
-						src.ipv4 =
-							nexthop->rmap_src.ipv4;
-						setsrc = 1;
-					} else if (nexthop->src.ipv4.s_addr
-						   != 0) {
-						src.ipv4 =
-							nexthop->src.ipv4;
-						setsrc = 1;
-					}
-				} else if (family == AF_INET6) {
-					if (!IN6_IS_ADDR_UNSPECIFIED(
-						    &nexthop->rmap_src.ipv6)) {
-						src.ipv6 =
-							nexthop->rmap_src.ipv6;
-						setsrc = 1;
-					} else if (
-						!IN6_IS_ADDR_UNSPECIFIED(
-							&nexthop->src.ipv6)) {
-						src.ipv6 =
-							nexthop->src.ipv6;
-						setsrc = 1;
-					}
-				}
+				setsrc = nexthop_set_src(nexthop, family, &src);
+
 				continue;
 			}
 
@@ -1737,7 +1754,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 				break;
 			}
 		}
-		if (setsrc && (cmd == RTM_NEWROUTE)) {
+		if (setsrc) {
 			if (family == AF_INET)
 				addattr_l(&req.n, sizeof(req), RTA_PREFSRC,
 					  &src.ipv4, bytelen);
@@ -1763,32 +1780,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 				if (setsrc)
 					continue;
 
-				if (family == AF_INET) {
-					if (nexthop->rmap_src.ipv4.s_addr
-					    != 0) {
-						src.ipv4 =
-							nexthop->rmap_src.ipv4;
-						setsrc = 1;
-					} else if (nexthop->src.ipv4.s_addr
-						   != 0) {
-						src.ipv4 =
-							nexthop->src.ipv4;
-						setsrc = 1;
-					}
-				} else if (family == AF_INET6) {
-					if (!IN6_IS_ADDR_UNSPECIFIED(
-						    &nexthop->rmap_src.ipv6)) {
-						src.ipv6 =
-							nexthop->rmap_src.ipv6;
-						setsrc = 1;
-					} else if (
-						!IN6_IS_ADDR_UNSPECIFIED(
-							&nexthop->src.ipv6)) {
-						src.ipv6 =
-							nexthop->src.ipv6;
-						setsrc = 1;
-					}
-				}
+				setsrc = nexthop_set_src(nexthop, family, &src);
 
 				continue;
 			}
@@ -1815,7 +1807,7 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 				}
 			}
 		}
-		if (setsrc && (cmd == RTM_NEWROUTE)) {
+		if (setsrc) {
 			if (family == AF_INET)
 				addattr_l(&req.n, sizeof(req), RTA_PREFSRC,
 					  &src.ipv4, bytelen);
