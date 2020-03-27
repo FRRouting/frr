@@ -356,6 +356,7 @@ const char *dplane_ctx_get_intf_label(const struct zebra_dplane_ctx *ctx);
 /* Accessors for MAC information */
 vlanid_t dplane_ctx_mac_get_vlan(const struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_mac_is_sticky(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_mac_get_nhg_id(const struct zebra_dplane_ctx *ctx);
 const struct ethaddr *dplane_ctx_mac_get_addr(
 	const struct zebra_dplane_ctx *ctx);
 const struct in_addr *dplane_ctx_mac_get_vtep_ip(
@@ -455,7 +456,8 @@ enum zebra_dplane_result dplane_mac_add(const struct interface *ifp,
 					vlanid_t vid,
 					const struct ethaddr *mac,
 					struct in_addr vtep_ip,
-					bool sticky);
+					bool sticky,
+					uint32_t nhg_id);
 
 enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
 					const struct interface *bridge_ifp,
