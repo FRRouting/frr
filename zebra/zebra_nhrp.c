@@ -476,14 +476,18 @@ static int zebra_nhrp_6wind_if_new_hook(struct interface *ifp)
 
 	memset(&ctx, 0, sizeof(struct zebra_nhrp_ctx));
 	ctx.ifp = ifp;
-	for (i = 0; i < AFI_MAX; i++) {
-		ctx.nhrp_6wind_notify[i] = false;
-		ctx.nflog_notify[i] = false;
-		ctx.nhrp_6wind_notify_differ[i] = false;
-	}
 	zebra_nhrp_list_init();
-	ptr = hash_get(zebra_nhrp_list, &ctx,
-		       zebra_nhrp_alloc);
+	ptr = hash_lookup(zebra_nhrp_list, &ctx);
+	if (!ptr) {
+		ctx.disable_redirect_ipv6 = 0;
+		for (i = 0; i < AFI_MAX; i++) {
+			ctx.nhrp_6wind_notify[i] = false;
+			ctx.nflog_notify[i] = false;
+			ctx.nhrp_6wind_notify_differ[i] = false;
+		}
+		ptr = hash_get(zebra_nhrp_list, &ctx,
+			       zebra_nhrp_alloc);
+	}
 	/* XXX no retry mechanism at this point */
 	if (ifp->ifindex != IFINDEX_INTERNAL) {
 		for (i = 0; i < AFI_MAX; i++) {
