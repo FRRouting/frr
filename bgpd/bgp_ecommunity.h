@@ -76,6 +76,8 @@
 #define ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG		0x01
 #define ECOMMUNITY_EVPN_SUBTYPE_ND_OVERRIDE_FLAG	0x02
 
+#define ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG (1 << 0) /* single-active */
+
 /* Low-order octet of the Extended Communities type field for OPAQUE types */
 #define ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP     0x0c
 
