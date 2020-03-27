@@ -90,10 +90,10 @@ struct ospf6_interface {
 	uint8_t mtu_ignore;
 
 	/* Decision of DR Election */
-	uint32_t drouter;
-	uint32_t bdrouter;
-	uint32_t prev_drouter;
-	uint32_t prev_bdrouter;
+	in_addr_t drouter;
+	in_addr_t bdrouter;
+	in_addr_t prev_drouter;
+	in_addr_t prev_bdrouter;
 
 	/* Linklocal LSA Database: includes Link-LSA */
 	struct ospf6_lsdb *lsdb;

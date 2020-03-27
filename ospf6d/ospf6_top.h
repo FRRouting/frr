@@ -26,7 +26,7 @@
 
 struct ospf6_master {
 
-	uint32_t zebra_router_id;
+	in_addr_t zebra_router_id;
 };
 
 /* ospf6->config_flags */
@@ -41,10 +41,10 @@ struct ospf6 {
 	vrf_id_t vrf_id;
 
 	/* my router id */
-	uint32_t router_id;
+	in_addr_t router_id;
 
 	/* static router id */
-	uint32_t router_id_static;
+	in_addr_t router_id_static;
 
 	struct in_addr router_id_zebra;
 

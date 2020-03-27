@@ -28,7 +28,7 @@ struct ospf6_area {
 	struct ospf6 *ospf6;
 
 	/* Area-ID */
-	uint32_t area_id;
+	in_addr_t area_id;
 
 #define OSPF6_AREA_FMT_DOTTEDQUAD 1
 #define OSPF6_AREA_FMT_DECIMAL    2

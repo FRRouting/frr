@@ -80,8 +80,8 @@
 struct ospf6_lsa_header {
 	uint16_t age;	/* LS age */
 	uint16_t type;       /* LS type */
-	uint32_t id;	 /* Link State ID */
-	uint32_t adv_router; /* Advertising Router */
+	in_addr_t id;	 /* Link State ID */
+	in_addr_t adv_router; /* Advertising Router */
 	uint32_t seqnum;     /* LS sequence number */
 	uint16_t checksum;   /* LS checksum */
 	uint16_t length;     /* LSA length */
