@@ -77,6 +77,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_NHRP, "Gre Nhrp Notify Information");
 static int zebra_nhrp_6wind_nflog_configure(int nflog_group, struct zebra_vrf *zvrf);
 static int zebra_nhrp_6wind_if_delete_hook(struct interface *ifp);
 static int zebra_nhrp_6wind_if_new_hook(struct interface *ifp);
+static int zebra_nhrp_6wind_redirect_set(struct interface *ifp, int family, int on);
 
 /* internal */
 static int zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
@@ -85,6 +86,7 @@ static int zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
 static int zebra_nhrp_call_only(const char *script, vrf_id_t vrf_id,
 				char *buf_response, int len_buf);
 static void zebra_nhrp_6wind_notify_differ(struct event *event);
+static int zebra_nhrp_call_redirect(struct interface *ifp, int on);
 
 #ifndef CLONE_NEWNET
 #define CLONE_NEWNET 0x40000000
@@ -115,6 +117,9 @@ struct zebra_nhrp_ctx {
 	bool nflog_notify[AFI_MAX];
 	bool nhrp_6wind_notify_differ[AFI_MAX];
 	int nflog_group;
+	int disable_redirect_ipv6;
+	int disable_redirect_ipv6_differ;
+	int disable_redirect_ipv6_retry;
 	struct event *zebra_nhrp_retry_event;
 	int retry[AFI_MAX];
 };
@@ -167,6 +172,11 @@ static void zebra_nhrp_flush_entry(struct zebra_nhrp_ctx *ctx)
 			ctx->nflog_notify[afi] = false;
 		}
 	}
+	if (ctx->disable_redirect_ipv6) {
+		zebra_nhrp_call_redirect(ctx->ifp, 0);
+		ctx->disable_redirect_ipv6 = 0;
+		ctx->disable_redirect_ipv6_differ = 0;
+	}
 }
 
 static void zebra_nhrp_list_remove(struct hash_bucket *backet, void *ctxt)
@@ -201,6 +211,7 @@ static void zebra_nhrp_6wind_hook_init(void)
 	hook_register(if_add, zebra_nhrp_6wind_if_new_hook);
 	hook_register(if_del, zebra_nhrp_6wind_if_delete_hook);
 	hook_register(frr_fini, zebra_nhrp_6wind_end);
+	hook_register(zebra_redirect_set, zebra_nhrp_6wind_redirect_set);
 }
 
 static struct zebra_nhrp_ctx *zebra_nhrp_lookup(struct interface *ifp)
@@ -270,6 +281,56 @@ static int zebra_nhrp_6wind_nflog_walker(struct hash_bucket *b, void *data)
 	return HASHWALK_CONTINUE;
 }
 
+static int zebra_nhrp_call_redirect(struct interface *ifp, int on)
+{
+	char buf[200], vrfstr[100], retstr[100];
+	struct vrf *vrf;
+
+	vrf = vrf_lookup_by_id(ifp->vrf->vrf_id);
+	if (!vrf)
+		return -1;
+	memset(vrfstr, 0, sizeof(vrfstr));
+	if (vrf->vrf_id != VRF_DEFAULT)
+		snprintf(vrfstr, sizeof(vrfstr), "ip netns exec %s ", vrf->name);
+	/* a retry mechanism should be put in place */
+	snprintf(buf, sizeof(buf), "%sip6tables %s OUTPUT -o %s -p icmpv6 --icmpv6-type redirect -j DROP",
+		 vrfstr, on ? "-A" : "-D", ifp->name);
+	return zebra_nhrp_call_only(buf, ifp->vrf->vrf_id, retstr, strlen(retstr));
+}
+
+
+static int zebra_nhrp_6wind_redirect_set(struct interface *ifp, int family,
+					 int on)
+{
+	int ret = 0;
+	struct zebra_nhrp_ctx *ctx;
+
+	ctx = zebra_nhrp_lookup(ifp);
+	if (!ctx)
+		return 0;
+
+	if (family != AF_INET6)
+		return 0;
+
+	if (on == ctx->disable_redirect_ipv6)
+		return 0;
+	ctx->disable_redirect_ipv6 = on;
+
+	if (ifp->ifindex == IFINDEX_INTERNAL && on) {
+		ctx->disable_redirect_ipv6_differ = on;
+		return 0;
+	}
+	/* a retry mechanism should be put in place */
+	ret = zebra_nhrp_call_redirect(ifp, ctx->disable_redirect_ipv6);
+	if (ret && ctx->disable_redirect_ipv6) {
+		ctx->disable_redirect_ipv6_differ = on;
+		if (ctx->zebra_nhrp_retry_event)
+			event_add_timer(zrouter.master, zebra_nhrp_6wind_notify_differ,
+					 ctx, 1, &ctx->zebra_nhrp_retry_event);
+	}
+	return 1;
+}
+
 static int zebra_nhrp_6wind_nflog_configure(int nflog_group,
 					    struct zebra_vrf *zvrf)
 {
@@ -311,6 +372,22 @@ static void zebra_nhrp_6wind_notify_differ(struct event *event)
 			}
 		}
 	}
+	if (ctx->disable_redirect_ipv6_differ) {
+		/* a retry mechanism should be put in place */
+		ctx->disable_redirect_ipv6_retry++;
+		ret = zebra_nhrp_call_redirect(ctx->ifp, ctx->disable_redirect_ipv6);
+		if (ret) {
+			if (ctx->disable_redirect_ipv6_retry == NHRP_RETRY_MAX) {
+				zlog_debug("%s(): failed to configure nhrp redirect for if %s",
+					   __func__, ctx->ifp->name);
+				ctx->disable_redirect_ipv6_retry = 0;
+				goto end_function;
+			}
+			relaunch = true;
+		}
+	}
+
+ end_function:
 	if (relaunch)
 		event_add_timer(zrouter.master, zebra_nhrp_6wind_notify_differ,
 				 ctx, 1, &ctx->zebra_nhrp_retry_event);
@@ -346,6 +423,10 @@ static int zebra_nhrp_6wind_if_new_hook(struct interface *ifp)
 				replay = true;
 			}
 		}
+		if (ptr->disable_redirect_ipv6_differ)
+			ret = zebra_nhrp_call_redirect(ifp, ptr->disable_redirect_ipv6);
+		if (ret && ptr->disable_redirect_ipv6)
+			replay = true;
 	}
 	if (replay)
 		event_add_timer(zrouter.master, zebra_nhrp_6wind_notify_differ,
