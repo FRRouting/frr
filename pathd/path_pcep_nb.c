@@ -152,6 +152,7 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 		.plsp_id = 0,
 		.name = name,
 		.srp_id = 0,
+		.binding_sid = policy->binding_sid,
 		.status = status,
 		.do_remove = false,
 		.go_active = is_delegated,

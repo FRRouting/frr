@@ -278,7 +278,8 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	struct pcep_object_lspa *lspa;
 	struct pcep_object_bandwidth *bandwidth;
 	struct pcep_object_metric *metric;
-	char unknown_lsp_tlv_data[6] = "\x00\x00\x00\x00\x10\x00";
+	uint32_t encoded_binding_sid;
+	char binding_sid_lsp_tlv_data[6];
 
 	memset(&addr_null, 0, sizeof(addr_null));
 
@@ -321,12 +322,17 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 		assert(NULL != tlv);
 		dll_append(lsp_tlvs, tlv);
 	}
-	tlv = (struct pcep_object_tlv_header *)
-	       pcep_tlv_create_tlv_arbitrary(unknown_lsp_tlv_data,
-	                                     sizeof(unknown_lsp_tlv_data),
-	                                     65505);
-	assert(NULL != tlv);
-	dll_append(lsp_tlvs, tlv);
+	if (MPLS_LABEL_NONE != path->binding_sid) {
+		memset(binding_sid_lsp_tlv_data, 0, 2);
+		encoded_binding_sid = htonl(path->binding_sid << 12);
+		memcpy(binding_sid_lsp_tlv_data + 2, &encoded_binding_sid, 4);
+		tlv = (struct pcep_object_tlv_header *)
+		       pcep_tlv_create_tlv_arbitrary(binding_sid_lsp_tlv_data,
+		                                     sizeof(binding_sid_lsp_tlv_data),
+		                                     65505);
+		assert(NULL != tlv);
+		dll_append(lsp_tlvs, tlv);
+	}
 	lsp = pcep_obj_create_lsp(
 		path->plsp_id, path->status, path->was_created /* C Flag */,
 		path->go_active /* A Flag */, path->was_removed /* R Flag */,

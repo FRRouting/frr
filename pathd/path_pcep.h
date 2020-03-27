@@ -158,6 +158,8 @@ struct path {
 	uint32_t req_id;
 	/* The RSVP tunnel idendentifer required by the LSP IDENTIFIER TLV */
 	uint16_t tunnel_id;
+	/* Path's binding SID */
+	mpls_label_t binding_sid;
 	/* The name of the path */
 	char *name;
 	/* The operational status of the path */

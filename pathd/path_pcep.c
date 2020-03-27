@@ -82,6 +82,7 @@ struct path *pcep_new_path(void)
 	struct path *path;
 	path = XCALLOC(MTYPE_PCEP, sizeof(*path));
 	memset(path, 0, sizeof(*path));
+	path->binding_sid = MPLS_LABEL_NONE;
 	return path;
 }
 
