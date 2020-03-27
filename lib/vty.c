@@ -231,8 +231,13 @@ int vty_out(struct vty *vty, const char *format, ...)
 				strlen(filtered));
 		break;
 	case VTY_SHELL:
-		fprintf(vty->of, "%s", filtered);
-		fflush(vty->of);
+		if (vty->of) {
+			fprintf(vty->of, "%s", filtered);
+			fflush(vty->of);
+		} else if (vty->of_saved) {
+			fprintf(vty->of_saved, "%s", filtered);
+			fflush(vty->of_saved);
+		}
 		break;
 	case VTY_SHELL_SERV:
 	case VTY_FILE:
