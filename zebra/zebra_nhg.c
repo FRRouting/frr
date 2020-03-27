@@ -1737,6 +1737,36 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	return CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 }
 
+/* Helper function called after resolution to walk nhg rb trees
+ * and toggle the NEXTHOP_GROUP_VALID flag if the nexthop
+ * is active on singleton NHEs.
+ */
+static bool zebra_nhg_set_valid_if_active(struct nhg_hash_entry *nhe)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+	bool valid = false;
+
+	if (!zebra_nhg_depends_is_empty(nhe)) {
+		/* Is at least one depend valid? */
+		frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
+			if (zebra_nhg_set_valid_if_active(rb_node_dep->nhe))
+				valid = true;
+		}
+
+		goto done;
+	}
+
+	/* should be fully resolved singleton at this point */
+	if (CHECK_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+		valid = true;
+
+done:
+	if (valid)
+		SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+
+	return valid;
+}
+
 /*
  * Iterate over all nexthops of the given RIB entry and refresh their
  * ACTIVE flag.  If any nexthop is found to toggle the ACTIVE flag,
@@ -1811,19 +1841,11 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 		route_entry_update_nhe(re, new_nhe);
 	}
 
-	if (curr_active) {
-		struct nhg_hash_entry *nhe = NULL;
-
-		nhe = zebra_nhg_lookup_id(re->nhe_id);
-
-		if (nhe)
-			SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
-		else
-			flog_err(
-				EC_ZEBRA_TABLE_LOOKUP_FAILED,
-				"Active update on NHE id=%u that we do not have in our tables",
-				re->nhe_id);
-	}
+	/* Walk the NHE depends tree and toggle NEXTHOP_GROUP_VALID
+	 * flag where appropriate.
+	 */
+	if (curr_active)
+		zebra_nhg_set_valid_if_active(re->nhe);
 
 	/*
 	 * Do not need these nexthops anymore since they
@@ -1834,16 +1856,33 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	return curr_active;
 }
 
-/* Convert a nhe into a group array */
-uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
-			  int max_num)
+/* Recursively construct a grp array of fully resolved IDs.
+ *
+ * This function allows us to account for groups within groups,
+ * by converting them into a flat array of IDs.
+ *
+ * nh_grp is modified at every level of recursion to append
+ * to it the next unique, fully resolved ID from the entire tree.
+ *
+ *
+ * Note:
+ * I'm pretty sure we only allow ONE level of group within group currently.
+ * But making this recursive just in case that ever changes.
+ */
+static uint8_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp,
+					  uint8_t curr_index,
+					  struct nhg_hash_entry *nhe,
+					  int max_num)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nhg_hash_entry *depend = NULL;
-	uint8_t i = 0;
+	uint8_t i = curr_index;
 
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 		bool duplicate = false;
+
+		if (i >= max_num)
+			goto done;
 
 		depend = rb_node_dep->nhe;
 
@@ -1861,25 +1900,66 @@ uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
 			}
 		}
 
-		/* Check for duplicate IDs, kernel doesn't like that */
-		for (int j = 0; j < i; j++) {
-			if (depend->id == grp[j].id)
-				duplicate = true;
-		}
+		if (!zebra_nhg_depends_is_empty(depend)) {
+			/* This is a group within a group */
+			i = zebra_nhg_nhe2grp_internal(grp, i, depend, max_num);
+		} else {
+			if (!CHECK_FLAG(depend->flags, NEXTHOP_GROUP_VALID)) {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED
+				    || IS_ZEBRA_DEBUG_NHG)
+					zlog_debug(
+						"%s: Nexthop ID (%u) not valid, not appending to dataplane install group",
+						__func__, depend->id);
+				continue;
+			}
 
-		if (!duplicate) {
+			/* If the nexthop not installed/queued for install don't
+			 * put in the ID array.
+			 */
+			if (!(CHECK_FLAG(depend->flags, NEXTHOP_GROUP_INSTALLED)
+			      || CHECK_FLAG(depend->flags,
+					    NEXTHOP_GROUP_QUEUED))) {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED
+				    || IS_ZEBRA_DEBUG_NHG)
+					zlog_debug(
+						"%s: Nexthop ID (%u) not installed or queued for install, not appending to dataplane install group",
+						__func__, depend->id);
+				continue;
+			}
+
+			/* Check for duplicate IDs, ignore if found. */
+			for (int j = 0; j < i; j++) {
+				if (depend->id == grp[j].id) {
+					duplicate = true;
+					break;
+				}
+			}
+
+			if (duplicate) {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED
+				    || IS_ZEBRA_DEBUG_NHG)
+					zlog_debug(
+						"%s: Nexthop ID (%u) is duplicate, not appending to dataplane install group",
+						__func__, depend->id);
+				continue;
+			}
+
 			grp[i].id = depend->id;
-			/* We aren't using weights for anything right now */
 			grp[i].weight = depend->nhg.nexthop->weight;
 			i++;
 		}
-
-		if (i >= max_num)
-			goto done;
 	}
 
 done:
 	return i;
+}
+
+/* Convert a nhe into a group array */
+uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe,
+			  int max_num)
+{
+	/* Call into the recursive function */
+	return zebra_nhg_nhe2grp_internal(grp, 0, nhe, max_num);
 }
 
 void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
@@ -1894,7 +1974,8 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe)
 		zebra_nhg_install_kernel(rb_node_dep->nhe);
 	}
 
-	if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)
+	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)
 	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
 		/* Change its type to us since we are installing it */
 		nhe->type = ZEBRA_ROUTE_NHG;
