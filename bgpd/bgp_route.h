@@ -97,6 +97,7 @@ enum bgp_show_adj_route_type {
 #define BGP_NLRI_PARSE_ERROR_FLOWSPEC_NLRI_SIZELIMIT -12
 #define BGP_NLRI_PARSE_ERROR_FLOWSPEC_BAD_FORMAT -13
 #define BGP_NLRI_PARSE_ERROR_ADDRESS_FAMILY -14
+#define BGP_NLRI_PARSE_ERROR_EVPN_TYPE1_SIZE -15
 #define BGP_NLRI_PARSE_ERROR -32
 
 /* Ancillary information to struct bgp_path_info,
