@@ -347,9 +347,10 @@ static int zebra_nhrp_6wind_redirect_set(struct interface *ifp, int family,
 	if (family != AF_INET6)
 		return 0;
 
-	if (on == ctx->disable_redirect_ipv6)
+	if ((!on &&ctx->disable_redirect_ipv6) ||
+	    (on && !ctx->disable_redirect_ipv6))
 		return 0;
-	ctx->disable_redirect_ipv6 = on;
+	ctx->disable_redirect_ipv6 = !on;
 
 	if (ifp->ifindex == IFINDEX_INTERNAL && on) {
 		ctx->disable_redirect_ipv6_differ = on;

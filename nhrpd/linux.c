@@ -134,6 +134,7 @@ int os_configure_dmvpn(struct interface *ifp, int af,
 
 	switch (af) {
 	case AF_INET:
+	case AF_INET6:
 		nhrp_send_zebra_interface_redirect(ifp, af);
 		break;
 	}
