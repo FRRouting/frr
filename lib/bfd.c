@@ -143,8 +143,7 @@ void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 	if (!zclient || zclient->sock < 0) {
 		if (bfd_debug)
 			zlog_debug(
-				"%s: Can't send BFD peer register, Zebra client not "
-				"established",
+				"%s: Can't send BFD peer register, Zebra client not established",
 				__func__);
 		return;
 	}
@@ -217,8 +216,7 @@ struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 		if (ifp == NULL) {
 			if (bfd_debug)
 				zlog_debug(
-					"zebra_interface_bfd_read: "
-					"Can't find interface by ifindex: %d ",
+					"zebra_interface_bfd_read: Can't find interface by ifindex: %d ",
 					ifindex);
 			return NULL;
 		}
@@ -320,8 +318,7 @@ void bfd_show_param(struct vty *vty, struct bfd_info *bfd_info, int bfd_tag,
 					       json_bfd);
 	} else {
 		vty_out(vty,
-			"  %s%sDetect Multiplier: %d, Min Rx interval: %d,"
-			" Min Tx interval: %d\n",
+			"  %s%sDetect Multiplier: %d, Min Rx interval: %d, Min Tx interval: %d\n",
 			(extra_space) ? "  " : "", (bfd_tag) ? "BFD: " : "  ",
 			bfd_info->detect_mult, bfd_info->required_min_rx,
 			bfd_info->desired_min_tx);
@@ -397,8 +394,7 @@ void bfd_client_sendmsg(struct zclient *zclient, int command,
 	if (!zclient || zclient->sock < 0) {
 		if (bfd_debug)
 			zlog_debug(
-				"%s: Can't send BFD client register, Zebra client not "
-				"established",
+				"%s: Can't send BFD client register, Zebra client not established",
 				__func__);
 		return;
 	}

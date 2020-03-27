@@ -224,8 +224,7 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 	}
 	if ((irdp_sock < 0) && ((irdp_sock = irdp_sock_init()) < 0)) {
 		flog_warn(EC_ZEBRA_IRDP_CANNOT_ACTIVATE_IFACE,
-			  "IRDP: Cannot activate interface %s (cannot create "
-			  "IRDP socket)",
+			  "IRDP: Cannot activate interface %s (cannot create IRDP socket)",
 			  ifp->name);
 		return;
 	}
@@ -503,8 +502,7 @@ DEFUN (ip_irdp_minadvertinterval,
 		return CMD_SUCCESS;
 	} else {
 		vty_out(vty,
-			"%% MinAdvertInterval must be less than or equal to "
-			"MaxAdvertInterval\n");
+			"%% MinAdvertInterval must be less than or equal to MaxAdvertInterval\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 }
@@ -528,8 +526,7 @@ DEFUN (ip_irdp_maxadvertinterval,
 		return CMD_SUCCESS;
 	} else {
 		vty_out(vty,
-			"%% MaxAdvertInterval must be greater than or equal to "
-			"MinAdvertInterval\n");
+			"%% MaxAdvertInterval must be greater than or equal to MinAdvertInterval\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 }

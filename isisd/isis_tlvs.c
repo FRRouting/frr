@@ -884,8 +884,7 @@ static int unpack_item_prefix_sid(uint16_t mtid, uint8_t len, struct stream *s,
 					: ISIS_SUBTLV_PREFIX_SID_SIZE + 1;
 	if (len != expected_size) {
 		sbuf_push(log, indent,
-			  "TLV size differs from expected size. "
-			  "(expected %u but got %" PRIu8 ")\n",
+			  "TLV size differs from expected size. (expected %u but got %" PRIu8 ")\n",
 			  expected_size, len);
 		return 1;
 	}
@@ -976,8 +975,7 @@ static int unpack_subtlv_ipv6_source_prefix(enum isis_tlv_context context,
 	if (tlv_len != 1 + PSIZE(p.prefixlen)) {
 		sbuf_push(
 			log, indent,
-			"TLV size differs from expected size for the prefixlen. "
-			"(expected %u but got %" PRIu8 ")\n",
+			"TLV size differs from expected size for the prefixlen. (expected %u but got %" PRIu8 ")\n",
 			1 + PSIZE(p.prefixlen), tlv_len);
 		return 1;
 	}
@@ -4106,8 +4104,7 @@ int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
 	sbuf_reset(&logbuf);
 	if (avail_len > STREAM_READABLE(stream)) {
 		sbuf_push(&logbuf, indent,
-			  "Stream doesn't contain sufficient data. "
-			  "Claimed %zu, available %zu\n",
+			  "Stream doesn't contain sufficient data. Claimed %zu, available %zu\n",
 			  avail_len, STREAM_READABLE(stream));
 		return 1;
 	}

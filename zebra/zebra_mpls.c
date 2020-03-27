@@ -232,8 +232,7 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 			if (IS_ZEBRA_DEBUG_MPLS) {
 				nhlfe2str(nhlfe, buf, BUFSIZ);
 				zlog_debug(
-					"LSP in-label %u type %d nexthop %s "
-					"out-label changed",
+					"LSP in-label %u type %d nexthop %s out-label changed",
 					lsp->ile.in_label, lsp_type, buf);
 			}
 
@@ -254,8 +253,7 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 			if (IS_ZEBRA_DEBUG_MPLS) {
 				nhlfe2str(nhlfe, buf, BUFSIZ);
 				zlog_debug(
-					"Add LSP in-label %u type %d nexthop %s "
-					"out-label %u",
+					"Add LSP in-label %u type %d nexthop %s out-label %u",
 					lsp->ile.in_label, lsp_type, buf,
 					nexthop->nh_label->label[0]);
 			}
@@ -928,8 +926,7 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 		if (newbest)
 			nhlfe2str(newbest, buf2, sizeof(buf2));
 		zlog_debug(
-			"Process LSP in-label %u oldbest %s newbest %s "
-			"flags 0x%x ecmp# %d",
+			"Process LSP in-label %u oldbest %s newbest %s flags 0x%x ecmp# %d",
 			lsp->ile.in_label, oldbest ? buf : "NULL",
 			newbest ? buf2 : "NULL", lsp->flags, lsp->num_ecmp);
 	}
@@ -3641,8 +3638,7 @@ int zebra_mpls_static_lsp_add(struct zebra_vrf *zvrf, mpls_label_t in_label,
 		if (IS_ZEBRA_DEBUG_MPLS) {
 			snhlfe2str(snhlfe, buf, BUFSIZ);
 			zlog_debug(
-				"Upd static LSP in-label %u nexthop %s "
-				"out-label %u (old %u)",
+				"Upd static LSP in-label %u nexthop %s out-label %u (old %u)",
 				in_label, buf, out_label, snhlfe->out_label);
 		}
 		snhlfe->out_label = out_label;

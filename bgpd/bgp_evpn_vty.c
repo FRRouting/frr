@@ -345,8 +345,7 @@ static void bgp_evpn_show_route_header(struct vty *vty, struct bgp *bgp,
 	vty_out(vty, "BGP table version is %" PRIu64 ", local router ID is %s\n",
 		tbl_ver, inet_ntoa(bgp->router_id));
 	vty_out(vty,
-		"Status codes: s suppressed, d damped, h history, "
-		"* valid, > best, i - internal\n");
+		"Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
 	vty_out(vty, "Origin codes: i - IGP, e - EGP, ? - incomplete\n");
 	vty_out(vty,
 		"EVPN type-2 prefix: [2]:[EthTag]:[MAClen]:[MAC]:[IPlen]:[IP]\n");

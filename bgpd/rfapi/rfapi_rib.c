@@ -646,9 +646,7 @@ static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 			       pEncap->length - 2);
 			if (hop->length > pEncap->length - 2) {
 				zlog_warn(
-					"%s: VNC subtlv length mismatch: "
-					"RFP option says %d, attr says %d "
-					"(shrinking)",
+					"%s: VNC subtlv length mismatch: RFP option says %d, attr says %d (shrinking)",
 					__func__, hop->length,
 					pEncap->length - 2);
 				hop->length = pEncap->length - 2;

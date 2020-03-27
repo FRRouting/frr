@@ -691,8 +691,7 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 			return CMD_SUCCESS;
 		if (vty)
 			vty_out(vty,
-				"NS %s is already configured"
-				" with VRF %u(%s)\n",
+				"NS %s is already configured with VRF %u(%s)\n",
 				ns->name, vrf2->vrf_id, vrf2->name);
 		else
 			zlog_info("NS %s is already configured with VRF %u(%s)",

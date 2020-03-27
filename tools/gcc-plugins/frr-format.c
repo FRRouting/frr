@@ -268,8 +268,7 @@ check_format_string (tree fntype, unsigned HOST_WIDE_INT format_num,
   /* We expect a string object type as the format arg.  */
   if (is_char_ref)
     {
-      error ("format argument should be a %qs reference but"
-	     " a string was found", format_name (expected_format_type));
+      error ("format argument should be a %qs reference but a string was found", format_name (expected_format_type));
       *no_add_attrs = true;
       return false;
     }
@@ -741,8 +740,7 @@ check_function_format (tree attrs, int nargs, tree *argarray,
 			break;
 		    }
 		  if (args != 0)
-		    warning (OPT_Wsuggest_attribute_format, "function %qD "
-			     "might be a candidate for %qs frr_format attribute",
+		    warning (OPT_Wsuggest_attribute_format, "function %qD might be a candidate for %qs frr_format attribute",
 			     current_function_decl,
 			     format_types[info.format_type].name);
 		}
@@ -1534,8 +1532,7 @@ flag_chars_t::validate (const format_kind_info *fki,
 				       : s->long_name);
 	      if (ADJ_STD (t->std) > C_STD_VER)
 		warning_at (format_string_loc, OPT_Wformat_,
-			    "%s does not support %s with"
-			    " the %<%%%c%> %s format",
+			    "%s does not support %s with the %<%%%c%> %s format",
 			    C_STD_NAME (t->std), _(long_name),
 			    format_char, fki->name);
 	    }
@@ -2040,8 +2037,7 @@ argument_parser::find_format_char_info (char format_char)
       format_warning_at_char (format_string_loc, format_string_cst,
 			      format_chars - orig_format_chars,
 			      OPT_Wformat_,
-			      "unknown conversion type character"
-			      " %qc in format",
+			      "unknown conversion type character %qc in format",
 			      format_char);
       return NULL;
     }
@@ -2128,8 +2124,7 @@ argument_parser::give_y2k_warnings (const format_char_info *fci,
     y2k_level = 2;
   if (y2k_level == 3)
     warning_at (format_string_loc, OPT_Wformat_y2k,
-		"%<%%%c%> yields only last 2 digits of "
-		"year in some locales", format_char);
+		"%<%%%c%> yields only last 2 digits of year in some locales", format_char);
   else if (y2k_level == 2)
     warning_at (format_string_loc, OPT_Wformat_y2k,
 		"%<%%%c%> yields only last 2 digits of year",
@@ -2188,9 +2183,7 @@ argument_parser::handle_conversions (const format_char_info *fci,
       format_warning_at_char (format_string_loc, format_string_cst,
 			      format_chars - orig_format_chars,
 			      OPT_Wformat_,
-			      "use of %qs length modifier with %qc type"
-			      " character has either no effect"
-			      " or undefined behavior",
+			      "use of %qs length modifier with %qc type character has either no effect or undefined behavior",
 			      len_modifier.chars, format_char);
       /* Heuristic: skip one argument when an invalid length/type
 	 combination is encountered.  */
@@ -2249,12 +2242,10 @@ check_argument_type (const format_char_info *fci,
 	{
 	  if (suppressed)
 	    warning_at (format_string_loc, OPT_Wformat_,
-			"operand number specified with "
-			"suppressed assignment");
+			"operand number specified with suppressed assignment");
 	  else
 	    warning_at (format_string_loc, OPT_Wformat_,
-			"operand number specified for format "
-			"taking no argument");
+			"operand number specified for format taking no argument");
 	}
     }
   else
@@ -2576,8 +2567,7 @@ check_format_info_main (format_check_results *res,
 	    format_warning_at_char (format_string_loc, format_string_cst,
 				    format_chars - orig_format_chars,
 				    OPT_Wformat_,
-				    "%qc directive redundant after prior "
-				    "occurence of the same", format_char);
+				    "%qc directive redundant after prior occurence of the same", format_char);
 	  else if (!color_begin)
 	    format_warning_at_char (format_string_loc, format_string_cst,
 				    format_chars - orig_format_chars,
@@ -2594,8 +2584,7 @@ check_format_info_main (format_check_results *res,
 	    format_warning_at_char (format_string_loc, format_string_cst,
 				    format_chars - orig_format_chars,
 				    OPT_Wformat_,
-				    "%qc conversion used within a quoted "
-				    "sequence",
+				    "%qc conversion used within a quoted sequence",
 				    format_char);
 	}
 
@@ -2821,16 +2810,14 @@ check_format_types (const substring_loc &fmt_loc,
 		  && i == 0
 		  && cur_param != 0
 		  && integer_zerop (cur_param))
-		warning (OPT_Wformat_, "writing through null pointer "
-			 "(argument %d)", arg_num);
+		warning (OPT_Wformat_, "writing through null pointer (argument %d)", arg_num);
 
 	      /* Check for reading through a NULL pointer.  */
 	      if (types->reading_from_flag
 		  && i == 0
 		  && cur_param != 0
 		  && integer_zerop (cur_param))
-		warning (OPT_Wformat_, "reading through null pointer "
-			 "(argument %d)", arg_num);
+		warning (OPT_Wformat_, "reading through null pointer (argument %d)", arg_num);
 
 	      if (cur_param != 0 && TREE_CODE (cur_param) == ADDR_EXPR)
 		cur_param = TREE_OPERAND (cur_param, 0);
@@ -2849,8 +2836,7 @@ check_format_types (const substring_loc &fmt_loc,
 			  && (CONSTANT_CLASS_P (cur_param)
 			      || (DECL_P (cur_param)
 				  && TREE_READONLY (cur_param))))))
-		warning (OPT_Wformat_, "writing into constant object "
-			 "(argument %d)", arg_num);
+		warning (OPT_Wformat_, "writing into constant object (argument %d)", arg_num);
 
 	      /* If there are extra type qualifiers beyond the first
 		 indirection, then this makes the types technically
@@ -2861,8 +2847,7 @@ check_format_types (const substring_loc &fmt_loc,
 		      || TYPE_VOLATILE (cur_type)
 		      || TYPE_ATOMIC (cur_type)
 		      || TYPE_RESTRICT (cur_type)))
-		warning (OPT_Wformat_, "extra type qualifiers in format "
-			 "argument (argument %d)",
+		warning (OPT_Wformat_, "extra type qualifiers in format argument (argument %d)",
 			 arg_num);
 
 	    }
@@ -3095,8 +3080,7 @@ check_kef_type (const substring_loc &fmt_loc,
 		  || TYPE_VOLATILE (cur_type)
 		  || TYPE_ATOMIC (cur_type)
 		  || TYPE_RESTRICT (cur_type)))
-	    warning (OPT_Wformat_, "extra type qualifiers in format "
-		     "argument (argument %d)",
+	    warning (OPT_Wformat_, "extra type qualifiers in format argument (argument %d)",
 		     arg_num);
 
 	}
@@ -3695,8 +3679,7 @@ format_type_warning (const substring_loc &whole_fmt_loc,
 	format_warning_at_substring
 	  (fmt_loc, &fmt_label, param_loc, &param_label,
 	   corrected_substring, OPT_Wformat_,
-	   "%s %<%s%.*s%> expects argument of type %<%s%s%>, "
-	   "but argument %d has type %qT%s",
+	   "%s %<%s%.*s%> expects argument of type %<%s%s%>, but argument %d has type %qT%s",
 	   gettext (kind_descriptions[kind]),
 	   (kind == CF_KIND_FORMAT ? "%" : ""),
 	   format_length, format_start,
@@ -3716,8 +3699,7 @@ format_type_warning (const substring_loc &whole_fmt_loc,
 	format_warning_at_substring
 	  (fmt_loc, &fmt_label, param_loc, &param_label,
 	   corrected_substring, OPT_Wformat_,
-	   "%s %<%s%.*s%> expects argument of type %<%T%s%>, "
-	   "but argument %d has type %qT%s",
+	   "%s %<%s%.*s%> expects argument of type %<%T%s%>, but argument %d has type %qT%s",
 	   gettext (kind_descriptions[kind]),
 	   (kind == CF_KIND_FORMAT ? "%" : ""),
 	   format_length, format_start,

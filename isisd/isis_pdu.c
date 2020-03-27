@@ -427,8 +427,7 @@ static int process_p2p_hello(struct iih_info *iih)
 
 	if (IS_DEBUG_ADJ_PACKETS) {
 		zlog_debug(
-			"ISIS-Adj (%s): Rcvd P2P IIH from (%s), cir type %s,"
-			" cir id %hhu, length %" PRIu16,
+			"ISIS-Adj (%s): Rcvd P2P IIH from (%s), cir type %s, cir id %hhu, length %" PRIu16,
 			iih->circuit->area->area_tag,
 			iih->circuit->interface->name,
 			circuit_t2string(iih->circuit->is_type),
@@ -900,8 +899,7 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 	/* 7.3.15.1 a) 1 - external domain circuit will discard lsps */
 	if (circuit->ext_domain) {
 		zlog_debug(
-			"ISIS-Upd (%s): LSP %s received at level %d over circuit with "
-			"externalDomain = true",
+			"ISIS-Upd (%s): LSP %s received at level %d over circuit with externalDomain = true",
 			circuit->area->area_tag, rawlspid_print(hdr.lsp_id),
 			level);
 		return ISIS_WARNING;
@@ -910,8 +908,7 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 	/* 7.3.15.1 a) 2,3 - manualL2OnlyMode not implemented */
 	if (!(circuit->is_type & level)) {
 		zlog_debug(
-			"ISIS-Upd (%s): LSP %s received at level %d over circuit of"
-			" type %s",
+			"ISIS-Upd (%s): LSP %s received at level %d over circuit of type %s",
 			circuit->area->area_tag, rawlspid_print(hdr.lsp_id),
 			level, circuit_t2string(circuit->is_type));
 		return ISIS_WARNING;
@@ -1125,9 +1122,7 @@ dontcheckadj:
 				}
 				if (IS_DEBUG_UPDATE_PACKETS)
 					zlog_debug(
-						"ISIS-Upd (%s): (1) "
-						"re-originating LSP %s new seq "
-						"0x%08" PRIx32,
+						"ISIS-Upd (%s): (1) re-originating LSP %s new seq 0x%08" PRIx32,
 						circuit->area->area_tag,
 						rawlspid_print(hdr.lsp_id),
 						lsp->hdr.seqno);
@@ -1314,8 +1309,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 	if (circuit->ext_domain) {
 
 		zlog_debug(
-			"ISIS-Snp (%s): Rcvd L%d %cSNP on %s, "
-			"skipping: circuit externalDomain = true",
+			"ISIS-Snp (%s): Rcvd L%d %cSNP on %s, skipping: circuit externalDomain = true",
 			circuit->area->area_tag, level, typechar,
 			circuit->interface->name);
 
@@ -1325,8 +1319,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 	/* 7.3.15.2 a) 2,3 - manualL2OnlyMode not implemented */
 	if (!(circuit->is_type & level)) {
 		zlog_debug(
-			"ISIS-Snp (%s): Rcvd L%d %cSNP on %s, "
-			"skipping: circuit type %s does not match level %d",
+			"ISIS-Snp (%s): Rcvd L%d %cSNP on %s, skipping: circuit type %s does not match level %d",
 			circuit->area->area_tag, level, typechar,
 			circuit->interface->name,
 			circuit_t2string(circuit->is_type), level);
@@ -1338,8 +1331,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 	if (!is_csnp && (circuit->circ_type == CIRCUIT_T_BROADCAST)
 	    && !circuit->u.bc.is_dr[level - 1]) {
 		zlog_debug(
-			"ISIS-Snp (%s): Rcvd L%d %cSNP from %s on %s, "
-			"skipping: we are not the DIS",
+			"ISIS-Snp (%s): Rcvd L%d %cSNP from %s on %s, skipping: we are not the DIS",
 			circuit->area->area_tag, level, typechar,
 			snpa_print(ssnpa), circuit->interface->name);
 

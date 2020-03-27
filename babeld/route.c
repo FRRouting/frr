@@ -399,16 +399,14 @@ install_route(struct babel_route *route)
         return;
 
     if(!route_feasible(route))
-        flog_err(EC_BABEL_ROUTE, "WARNING: installing unfeasible route "
-                  "(this shouldn't happen).");
+        flog_err(EC_BABEL_ROUTE, "WARNING: installing unfeasible route (this shouldn't happen).");
 
     i = find_route_slot(route->src->prefix, route->src->plen, NULL);
     assert(i >= 0 && i < route_slots);
 
     if(routes[i] != route && routes[i]->installed) {
         flog_err(EC_BABEL_ROUTE,
-		  "WARNING: attempting to install duplicate route "
-                  "(this shouldn't happen).");
+		  "WARNING: attempting to install duplicate route (this shouldn't happen).");
         return;
     }
 
@@ -465,8 +463,7 @@ switch_routes(struct babel_route *old, struct babel_route *new)
         return;
 
     if(!route_feasible(new))
-        flog_err(EC_BABEL_ROUTE, "WARNING: switching to unfeasible route "
-                  "(this shouldn't happen).");
+        flog_err(EC_BABEL_ROUTE, "WARNING: switching to unfeasible route (this shouldn't happen).");
 
     rc = kernel_route(ROUTE_MODIFY, old->src->prefix, old->src->plen,
                       old->nexthop, old->neigh->ifp->ifindex,
@@ -835,8 +832,7 @@ update_route(const unsigned char *router_id,
            in a timely manner.  If the source remains the same, we ignore
            the update. */
         if(!feasible && route->installed) {
-            debugf(BABEL_DEBUG_COMMON,"Unfeasible update for installed route to %s "
-                   "(%s %d %d -> %s %d %d).",
+            debugf(BABEL_DEBUG_COMMON,"Unfeasible update for installed route to %s (%s %d %d -> %s %d %d).",
                    format_prefix(src->prefix, src->plen),
                    format_eui64(route->src->id),
                    route->seqno, route->refmetric,

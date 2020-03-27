@@ -1781,8 +1781,7 @@ void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 	if (oipt->t_opaque_lsa_self != NULL) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"Type-%u Opaque-LSA has already scheduled to"
-				" RE-ORIGINATE: [opaque-type=%u]",
+				"Type-%u Opaque-LSA has already scheduled to RE-ORIGINATE: [opaque-type=%u]",
 				lsa_type,
 				GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)));
 		goto out;
@@ -1799,8 +1798,7 @@ void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
-			"Schedule Type-%u Opaque-LSA to RE-ORIGINATE in %d"
-			" ms later: [opaque-type=%u]",
+			"Schedule Type-%u Opaque-LSA to RE-ORIGINATE in %d ms later: [opaque-type=%u]",
 			lsa_type, delay,
 			GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)));
 
@@ -1919,8 +1917,7 @@ static int ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t)
 	if (n == 0 || !CHECK_FLAG(top->config, OSPF_OPAQUE_CAPABLE)) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"Suspend re-origination of Type-10 Opaque-LSAs"
-				" (opaque-type=%u) for a while...",
+				"Suspend re-origination of Type-10 Opaque-LSAs (opaque-type=%u) for a while...",
 				oipt->opaque_type);
 
 		oipt->status = PROC_SUSPEND;
@@ -1930,8 +1927,7 @@ static int ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
-			"Timer[Type10-LSA]: Re-originate Opaque-LSAs"
-			" (opaque-type=%u) for Area %s",
+			"Timer[Type10-LSA]: Re-originate Opaque-LSAs (opaque-type=%u) for Area %s",
 			oipt->opaque_type, inet_ntoa(area->area_id));
 
 	rc = (*functab->lsa_originator)(area);

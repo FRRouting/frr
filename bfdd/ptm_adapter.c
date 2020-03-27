@@ -152,8 +152,7 @@ static void _ptm_bfd_session_del(struct bfd_session *bs, uint8_t diag)
 		 */
 		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG)) {
 			zlog_err(
-				"ptm-del-session: [%s] session refcount is "
-				"zero but it was configured by CLI",
+				"ptm-del-session: [%s] session refcount is zero but it was configured by CLI",
 				bs_to_string(bs));
 		} else {
 			control_notify_config(BCM_NOTIFY_CONFIG_DELETE, bs);

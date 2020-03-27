@@ -2282,13 +2282,11 @@ static int nd_dump_vty(struct vty *vty, struct interface *ifp)
 		interval = rtadv->MaxRtrAdvInterval;
 		if (interval % 1000)
 			vty_out(vty,
-				"  ND router advertisements are sent every "
-				"%d milliseconds\n",
+				"  ND router advertisements are sent every %d milliseconds\n",
 				interval);
 		else
 			vty_out(vty,
-				"  ND router advertisements are sent every "
-				"%d seconds\n",
+				"  ND router advertisements are sent every %d seconds\n",
 				interval / 1000);
 		if (!rtadv->UseFastRexmit)
 			vty_out(vty,
@@ -2302,8 +2300,7 @@ static int nd_dump_vty(struct vty *vty, struct interface *ifp)
 			vty_out(vty,
 				"  ND router advertisements lifetime tracks ra-interval\n");
 		vty_out(vty,
-			"  ND router advertisement default router preference is "
-			"%s\n",
+			"  ND router advertisement default router preference is %s\n",
 			rtadv_pref_strs[rtadv->DefaultPreference]);
 		if (rtadv->AdvManagedFlag)
 			vty_out(vty,

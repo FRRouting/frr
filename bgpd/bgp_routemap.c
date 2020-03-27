@@ -3756,8 +3756,7 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 
 			if (BGP_DEBUG(zebra, ZEBRA))
 				zlog_debug(
-					"Processing route_map %s update on "
-					"table map",
+					"Processing route_map %s update on table map",
 					rmap_name);
 			if (route_update)
 				bgp_zebra_announce_table(bgp, afi, safi);

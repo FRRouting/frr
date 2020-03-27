@@ -1077,8 +1077,7 @@ static void update_subgroup_merge(struct update_subgroup *subgrp,
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
 		zlog_debug("u%" PRIu64 ":s%" PRIu64
 			   " (%d peers) merged into u%" PRIu64 ":s%" PRIu64
-			   ", "
-			   "trigger: %s",
+			   ", trigger: %s",
 			   subgrp->update_group->id, subgrp->id, peer_count,
 			   target->update_group->id, target->id,
 			   reason ? reason : "unknown");

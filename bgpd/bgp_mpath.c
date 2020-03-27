@@ -739,8 +739,7 @@ void bgp_path_info_mpath_update(struct bgp_dest *dest,
 
 		if (debug)
 			zlog_debug(
-				"%pRN: New mpath count (incl newbest) %d mpath-change %s"
-				" all_paths_lb %d cum_bw u%" PRIu64,
+				"%pRN: New mpath count (incl newbest) %d mpath-change %s all_paths_lb %d cum_bw u%" PRIu64,
 				bgp_dest_to_rnode(dest), mpath_count,
 				mpath_changed ? "YES" : "NO",
 				all_paths_lb, cum_bw);

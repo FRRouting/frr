@@ -1924,8 +1924,7 @@ static int link_params_set_value(struct stream *s, struct if_link_params *iflp)
 		if (i < bwclassnum)
 			flog_err(
 				EC_LIB_ZAPI_MISSMATCH,
-				"%s: received %d > %d (MAX_CLASS_TYPE) bw entries"
-				" - outdated library?",
+				"%s: received %d > %d (MAX_CLASS_TYPE) bw entries - outdated library?",
 				__func__, bwclassnum, MAX_CLASS_TYPE);
 	}
 	STREAM_GETL(s, iflp->admin_grp);

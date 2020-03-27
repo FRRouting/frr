@@ -2707,8 +2707,7 @@ int peer_group_listen_range_del(struct peer_group *group, struct prefix *range)
 		if (prefix_match(prefix, &prefix2)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"Deleting dynamic neighbor %s group %s upon "
-					"delete of listen range %s",
+					"Deleting dynamic neighbor %s group %s upon delete of listen range %s",
 					peer->host, group->name, buf);
 			peer_delete(peer);
 		}
