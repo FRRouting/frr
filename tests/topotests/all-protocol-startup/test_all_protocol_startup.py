@@ -306,7 +306,7 @@ def test_converge_protocols():
         expected = open(v4_routesFile).read().rstrip()
         expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
 
-        actual = net['r%s' %i].cmd('vtysh -c "show ip route" | /usr/bin/tail -n +7 | sort 2> /dev/null').rstrip()
+        actual = net['r%s' %i].cmd('vtysh -c "show ip route" | /usr/bin/tail -n +7 | env LC_ALL=en_US.UTF-8 sort 2> /dev/null').rstrip()
         # Drop time in last update
         actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
         actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
@@ -328,7 +328,7 @@ def test_converge_protocols():
         expected = open(v6_routesFile).read().rstrip()
         expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
 
-        actual = net['r%s' %i].cmd('vtysh -c "show ipv6 route" | /usr/bin/tail -n +7 | sort 2> /dev/null').rstrip()
+        actual = net['r%s' %i].cmd('vtysh -c "show ipv6 route" | /usr/bin/tail -n +7 | env LC_ALL=en_US.UTF-8 sort 2> /dev/null').rstrip()
         # Drop time in last update
         actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
         actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
