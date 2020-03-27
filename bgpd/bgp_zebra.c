@@ -56,11 +56,11 @@
 #include "bgpd/rfapi/vnc_export_bgp.h"
 #endif
 #include "bgpd/bgp_evpn.h"
-#include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_labelpool.h"
 #include "bgpd/bgp_pbr.h"
 #include "bgpd/bgp_evpn_private.h"
+#include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
 
 /* All information about zebra. */
@@ -2499,17 +2499,14 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 }
 
-static int bgp_zebra_process_local_es(ZAPI_CALLBACK_ARGS)
+static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 {
 	esi_t esi;
 	struct bgp *bgp = NULL;
 	struct stream *s = NULL;
 	char buf[ESI_STR_LEN];
-	char buf1[INET6_ADDRSTRLEN];
-	struct ipaddr originator_ip;
-
-	memset(&esi, 0, sizeof(esi_t));
-	memset(&originator_ip, 0, sizeof(struct ipaddr));
+	struct in_addr originator_ip;
+	uint8_t active;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp)
@@ -2517,18 +2514,70 @@ static int bgp_zebra_process_local_es(ZAPI_CALLBACK_ARGS)
 
 	s = zclient->ibuf;
 	stream_get(&esi, s, sizeof(esi_t));
-	stream_get(&originator_ip, s, sizeof(struct ipaddr));
+	originator_ip.s_addr = stream_get_ipv4(s);
+	active = stream_getc(s);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx %s ESI %s originator-ip %s",
-			   (cmd == ZEBRA_LOCAL_ES_ADD) ? "add" : "del",
-			   esi_to_str(&esi, buf, sizeof(buf)),
-			   ipaddr2str(&originator_ip, buf1, sizeof(buf1)));
+		zlog_debug("Rx add ESI %s originator-ip %s active %u",
+				esi_to_str(&esi, buf, sizeof(buf)),
+				inet_ntoa(originator_ip),
+				active);
 
-	if (cmd == ZEBRA_LOCAL_ES_ADD)
-		bgp_evpn_local_es_add(bgp, &esi, &originator_ip);
+	bgp_evpn_local_es_add(bgp, &esi, originator_ip, active);
+
+	return 0;
+}
+
+static int bgp_zebra_process_local_es_del(ZAPI_CALLBACK_ARGS)
+{
+	esi_t esi;
+	struct bgp *bgp = NULL;
+	struct stream *s = NULL;
+	char buf[ESI_STR_LEN];
+
+	memset(&esi, 0, sizeof(esi_t));
+	bgp = bgp_lookup_by_vrf_id(vrf_id);
+	if (!bgp)
+		return 0;
+
+	s = zclient->ibuf;
+	stream_get(&esi, s, sizeof(esi_t));
+
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("Rx del ESI %s",
+				esi_to_str(&esi, buf, sizeof(buf)));
+
+	bgp_evpn_local_es_del(bgp, &esi);
+
+	return 0;
+}
+
+static int bgp_zebra_process_local_es_evi(ZAPI_CALLBACK_ARGS)
+{
+	esi_t esi;
+	vni_t vni;
+	struct bgp *bgp;
+	struct stream *s;
+	char buf[ESI_STR_LEN];
+
+	bgp = bgp_lookup_by_vrf_id(vrf_id);
+	if (!bgp)
+		return 0;
+
+	s = zclient->ibuf;
+	stream_get(&esi, s, sizeof(esi_t));
+	vni = stream_getl(s);
+
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("Rx %s ESI %s VNI %u",
+				ZEBRA_VNI_ADD ? "add" : "del",
+				esi_to_str(&esi, buf, sizeof(buf)), vni);
+
+	if (cmd == ZEBRA_LOCAL_ES_EVI_ADD)
+		bgp_evpn_local_es_evi_add(bgp, &esi, vni);
 	else
-		bgp_evpn_local_es_del(bgp, &esi, &originator_ip);
+		bgp_evpn_local_es_evi_del(bgp, &esi, vni);
+
 	return 0;
 }
 
@@ -2628,6 +2677,8 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 	uint8_t flags = 0;
 	uint32_t seqnum = 0;
 	int state = 0;
+	char buf2[ESI_STR_LEN];
+	esi_t esi;
 
 	memset(&ip, 0, sizeof(ip));
 	s = zclient->ibuf;
@@ -2651,6 +2702,7 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 	if (cmd == ZEBRA_MACIP_ADD) {
 		flags = stream_getc(s);
 		seqnum = stream_getl(s);
+		stream_get(&esi, s, sizeof(esi_t));
 	} else {
 		state = stream_getl(s);
 	}
@@ -2660,15 +2712,15 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%u:Recv MACIP %s flags 0x%x MAC %s IP %s VNI %u seq %u state %d",
+		zlog_debug("%u:Recv MACIP %s f 0x%x MAC %s IP %s VNI %u seq %u state %d ESI %s",
 			   vrf_id, (cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del",
 			   flags, prefix_mac2str(&mac, buf, sizeof(buf)),
 			   ipaddr2str(&ip, buf1, sizeof(buf1)), vni, seqnum,
-			   state);
+			   state, esi_to_str(&esi, buf2, sizeof(buf2)));
 
 	if (cmd == ZEBRA_MACIP_ADD)
 		return bgp_evpn_local_macip_add(bgp, vni, &mac, &ip,
-						flags, seqnum);
+						flags, seqnum, &esi);
 	else
 		return bgp_evpn_local_macip_del(bgp, vni, &mac, &ip, state);
 }
@@ -2801,9 +2853,11 @@ void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->nexthop_update = bgp_read_nexthop_update;
 	zclient->import_check_update = bgp_read_import_check_update;
 	zclient->fec_update = bgp_read_fec_update;
-	zclient->local_es_add = bgp_zebra_process_local_es;
-	zclient->local_es_del = bgp_zebra_process_local_es;
+	zclient->local_es_add = bgp_zebra_process_local_es_add;
+	zclient->local_es_del = bgp_zebra_process_local_es_del;
 	zclient->local_vni_add = bgp_zebra_process_local_vni;
+	zclient->local_es_evi_add = bgp_zebra_process_local_es_evi;
+	zclient->local_es_evi_del = bgp_zebra_process_local_es_evi;
 	zclient->local_vni_del = bgp_zebra_process_local_vni;
 	zclient->local_macip_add = bgp_zebra_process_local_macip;
 	zclient->local_macip_del = bgp_zebra_process_local_macip;

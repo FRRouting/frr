@@ -54,6 +54,7 @@ extern "C" {
 #define MAX_ESI {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
 
+#define EVPN_ETH_TAG_BYTES 4
 #define ESI_BYTES 10
 #define ESI_STR_LEN (3 * ESI_BYTES)
 
