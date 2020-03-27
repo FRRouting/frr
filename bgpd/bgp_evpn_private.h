@@ -560,9 +560,9 @@ extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 		struct in_addr mcast_grp);
 extern void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn);
 extern struct evpnes *bgp_evpn_lookup_es(struct bgp *bgp, esi_t *esi);
-extern struct evpnes *bgp_evpn_es_new(struct bgp *bgp, esi_t *esi,
-				      struct ipaddr *originator_ip);
-extern void bgp_evpn_es_free(struct bgp *bgp, struct evpnes *es);
 extern bool bgp_evpn_lookup_l3vni_l2vni_table(vni_t vni);
 extern int update_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn);
+extern void delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
+				    struct bgp_node *rn,
+				    struct bgp_path_info **pi);
 #endif /* _BGP_EVPN_PRIVATE_H */
