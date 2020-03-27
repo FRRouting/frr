@@ -873,10 +873,8 @@ static void lsp_uninstall_from_kernel(struct hash_bucket *bucket, void *ctxt)
 	zebra_lsp_t *lsp;
 
 	lsp = (zebra_lsp_t *)bucket->data;
-	if (CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
-		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+	if (CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED))
 		(void)dplane_lsp_delete(lsp);
-	}
 }
 
 /*
@@ -954,12 +952,12 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 	} else {
 		/* Installed, may need an update and/or delete. */
 		if (!newbest) {
-			UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 			res = dplane_lsp_delete(lsp);
 
 			/* We do some of the lsp cleanup immediately for
 			 * deletes.
 			 */
+			UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 			clear_nhlfe_installed(lsp);
 
 			switch (res) {
