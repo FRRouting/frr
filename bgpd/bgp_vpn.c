@@ -78,7 +78,9 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 
 	for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
 	     rn = bgp_route_next(rn)) {
-		if (prd && memcmp(rn->p.u.val, prd->val, 8) != 0)
+		const struct prefix *rn_p = bgp_node_get_prefix(rn);
+
+		if (prd && memcmp(rn_p->u.val, prd->val, 8) != 0)
 			continue;
 
 		table = bgp_node_get_bgp_table_info(rn);
@@ -156,9 +158,9 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 #if ENABLE_BGP_VNC
 				struct rd_vnc_eth rd_vnc_eth = {0};
 #endif
-				uint8_t *pnt;
+				const uint8_t *pnt;
 
-				pnt = rn->p.u.val;
+				pnt = rn_p->u.val;
 
 				/* Decode RD type. */
 				type = decode_rd_type(pnt);
@@ -221,9 +223,8 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 				}
 				rd_header = 0;
 			}
-			route_vty_out_tmp(vty, &rm->p, attr,
-					  safi, use_json,
-					  json_routes);
+			route_vty_out_tmp(vty, bgp_node_get_prefix(rm), attr,
+					  safi, use_json, json_routes);
 			output_count++;
 		}
 

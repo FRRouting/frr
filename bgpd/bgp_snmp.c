@@ -761,20 +761,23 @@ static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 			}
 
 			if (min) {
+				const struct prefix *rn_p =
+					bgp_node_get_prefix(rn);
+
 				*length =
 					v->namelen + BGP_PATHATTR_ENTRY_OFFSET;
 
 				offset = name + v->namelen;
-				oid_copy_addr(offset, &rn->p.u.prefix4,
+				oid_copy_addr(offset, &rn_p->u.prefix4,
 					      IN_ADDR_SIZE);
 				offset += IN_ADDR_SIZE;
-				*offset = rn->p.prefixlen;
+				*offset = rn_p->prefixlen;
 				offset++;
 				oid_copy_addr(offset,
 					      &min->peer->su.sin.sin_addr,
 					      IN_ADDR_SIZE);
-				addr->prefix = rn->p.u.prefix4;
-				addr->prefixlen = rn->p.prefixlen;
+				addr->prefix = rn_p->u.prefix4;
+				addr->prefixlen = rn_p->prefixlen;
 
 				bgp_unlock_node(rn);
 

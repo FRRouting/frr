@@ -157,10 +157,11 @@ extern char *bgp_evpn_label2str(mpls_label_t *label, uint32_t num_labels,
 extern char *bgp_evpn_route2str(const struct prefix_evpn *p, char *buf,
 				int len);
 extern void bgp_evpn_route2json(const struct prefix_evpn *p, json_object *json);
-extern void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
-				   struct prefix_rd *prd, mpls_label_t *label,
-				   uint32_t num_labels, struct attr *attr,
-				   int addpath_encode, uint32_t addpath_tx_id);
+extern void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
+				   const struct prefix_rd *prd,
+				   mpls_label_t *label, uint32_t num_labels,
+				   struct attr *attr, int addpath_encode,
+				   uint32_t addpath_tx_id);
 extern int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 			       struct bgp_nlri *packet, int withdraw);
 extern int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,
@@ -195,7 +196,7 @@ extern void bgp_evpn_flood_control_change(struct bgp *bgp);
 extern void bgp_evpn_cleanup_on_disable(struct bgp *bgp);
 extern void bgp_evpn_cleanup(struct bgp *bgp);
 extern void bgp_evpn_init(struct bgp *bgp);
-extern int bgp_evpn_get_type5_prefixlen(struct prefix *pfx);
+extern int bgp_evpn_get_type5_prefixlen(const struct prefix *pfx);
 extern bool bgp_evpn_is_prefix_nht_supported(const struct prefix *pfx);
 extern void update_advertise_vrf_routes(struct bgp *bgp_vrf);
 

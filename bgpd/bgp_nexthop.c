@@ -49,7 +49,7 @@ DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Address Intf String");
 
 char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size)
 {
-	prefix2str(&(bnc->node->p), buf, size);
+	prefix2str(bgp_node_get_prefix(bnc->node), buf, size);
 	return buf;
 }
 
@@ -476,7 +476,7 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 	uint8_t new_afi = afi == AFI_IP ? AF_INET : AF_INET6;
 	struct bgp_addr tmp_addr = {{0}}, *addr = NULL;
 	struct tip_addr tmp_tip, *tip = NULL;
-
+	const struct prefix *p = bgp_node_get_prefix(rn);
 	bool is_bgp_static_route =
 		((type == ZEBRA_ROUTE_BGP) && (sub_type == BGP_ROUTE_STATIC))
 			? true
@@ -489,8 +489,8 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 	switch (new_afi) {
 	case AF_INET:
 		if (is_bgp_static_route) {
-			tmp_addr.p.u.prefix4 = rn->p.u.prefix4;
-			tmp_addr.p.prefixlen = rn->p.prefixlen;
+			tmp_addr.p.u.prefix4 = p->u.prefix4;
+			tmp_addr.p.prefixlen = p->prefixlen;
 		} else {
 			/* Here we need to find out which nexthop to be used*/
 			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
@@ -510,8 +510,8 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 		break;
 	case AF_INET6:
 		if (is_bgp_static_route) {
-			tmp_addr.p.u.prefix6 = rn->p.u.prefix6;
-			tmp_addr.p.prefixlen = rn->p.prefixlen;
+			tmp_addr.p.u.prefix6 = p->u.prefix6;
+			tmp_addr.p.prefixlen = p->prefixlen;
 		} else {
 			tmp_addr.p.u.prefix6 = attr->mp_nexthop_global;
 			tmp_addr.p.prefixlen = IPV6_MAX_BITLEN;
@@ -763,6 +763,7 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail,
 		for (rn = bgp_table_top(table[afi]); rn;
 		     rn = bgp_route_next(rn)) {
 			struct peer *peer;
+			const struct prefix *p = bgp_node_get_prefix(rn);
 
 			bnc = bgp_node_get_bgp_nexthop_info(rn);
 			if (!bnc)
@@ -772,8 +773,7 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail,
 			if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)) {
 				vty_out(vty,
 					" %s valid [IGP metric %d], #paths %d",
-					inet_ntop(rn->p.family,
-						  &rn->p.u.prefix, buf,
+					inet_ntop(p->family, &p->u.prefix, buf,
 						  sizeof(buf)),
 					bnc->metric, bnc->path_count);
 				if (peer)
@@ -787,8 +787,7 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail,
 
 			} else {
 				vty_out(vty, " %s invalid",
-					inet_ntop(rn->p.family,
-						  &rn->p.u.prefix, buf,
+					inet_ntop(p->family, &p->u.prefix, buf,
 						  sizeof(buf)));
 				if (peer)
 					vty_out(vty, ", peer %s", peer->host);

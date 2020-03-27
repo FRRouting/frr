@@ -87,7 +87,7 @@ void decode_rd_ip(const uint8_t *pnt, struct rd_ip *rd_ip)
 
 #if ENABLE_BGP_VNC
 /* type == RD_TYPE_VNC_ETH */
-void decode_rd_vnc_eth(uint8_t *pnt, struct rd_vnc_eth *rd_vnc_eth)
+void decode_rd_vnc_eth(const uint8_t *pnt, struct rd_vnc_eth *rd_vnc_eth)
 {
 	rd_vnc_eth->type = RD_TYPE_VNC_ETH;
 	rd_vnc_eth->local_nve_id = pnt[1];
@@ -159,9 +159,9 @@ out:
 	return lret;
 }
 
-char *prefix_rd2str(struct prefix_rd *prd, char *buf, size_t size)
+char *prefix_rd2str(const struct prefix_rd *prd, char *buf, size_t size)
 {
-	uint8_t *pnt;
+	const uint8_t *pnt;
 	uint16_t type;
 	struct rd_as rd_as;
 	struct rd_ip rd_ip;

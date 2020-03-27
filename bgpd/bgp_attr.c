@@ -898,14 +898,11 @@ struct attr *bgp_attr_default_set(struct attr *attr, uint8_t origin)
 }
 
 /* Create the attributes for an aggregate */
-struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
-				       struct aspath *aspath,
-				       struct community *community,
-				       struct ecommunity *ecommunity,
-				       struct lcommunity *lcommunity,
-				       struct bgp_aggregate *aggregate,
-				       uint8_t atomic_aggregate,
-				       struct prefix *p)
+struct attr *bgp_attr_aggregate_intern(
+	struct bgp *bgp, uint8_t origin, struct aspath *aspath,
+	struct community *community, struct ecommunity *ecommunity,
+	struct lcommunity *lcommunity, struct bgp_aggregate *aggregate,
+	uint8_t atomic_aggregate, const struct prefix *p)
 {
 	struct attr attr;
 	struct attr *new;
@@ -3418,10 +3415,10 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 }
 
 void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
-			      struct prefix *p, struct prefix_rd *prd,
-			      mpls_label_t *label, uint32_t num_labels,
-			      int addpath_encode, uint32_t addpath_tx_id,
-			      struct attr *attr)
+			      const struct prefix *p,
+			      const struct prefix_rd *prd, mpls_label_t *label,
+			      uint32_t num_labels, int addpath_encode,
+			      uint32_t addpath_tx_id, struct attr *attr)
 {
 	if (safi == SAFI_MPLS_VPN) {
 		if (addpath_encode)
@@ -3447,7 +3444,8 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 		stream_put_prefix_addpath(s, p, addpath_encode, addpath_tx_id);
 }
 
-size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi, struct prefix *p)
+size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
+				     const struct prefix *p)
 {
 	int size = PSIZE(p->prefixlen);
 	if (safi == SAFI_MPLS_VPN)
@@ -4081,8 +4079,9 @@ size_t bgp_packet_mpunreach_start(struct stream *s, afi_t afi, safi_t safi)
 	return attrlen_pnt;
 }
 
-void bgp_packet_mpunreach_prefix(struct stream *s, struct prefix *p, afi_t afi,
-				 safi_t safi, struct prefix_rd *prd,
+void bgp_packet_mpunreach_prefix(struct stream *s, const struct prefix *p,
+				 afi_t afi, safi_t safi,
+				 const struct prefix_rd *prd,
 				 mpls_label_t *label, uint32_t num_labels,
 				 int addpath_encode, uint32_t addpath_tx_id,
 				 struct attr *attr)

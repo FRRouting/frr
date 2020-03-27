@@ -544,9 +544,10 @@ extern void bgp_static_add(struct bgp *);
 extern void bgp_static_delete(struct bgp *);
 extern void bgp_static_redo_import_check(struct bgp *);
 extern void bgp_purge_static_redist_routes(struct bgp *bgp);
-extern void bgp_static_update(struct bgp *, struct prefix *,
-			      struct bgp_static *, afi_t, safi_t);
-extern void bgp_static_withdraw(struct bgp *, struct prefix *, afi_t, safi_t);
+extern void bgp_static_update(struct bgp *bgp, const struct prefix *p,
+			      struct bgp_static *s, afi_t afi, safi_t safi);
+extern void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p,
+				afi_t afi, safi_t safi);
 
 extern int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 			       const char *, const char *, const char *,
@@ -584,10 +585,12 @@ extern void bgp_config_write_network(struct vty *, struct bgp *, afi_t, safi_t);
 extern void bgp_config_write_distance(struct vty *, struct bgp *, afi_t,
 				      safi_t);
 
-extern void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
-				 safi_t safi, struct bgp_aggregate *aggregate);
-extern void bgp_aggregate_route(struct bgp *bgp, struct prefix *p, afi_t afi,
-				safi_t safi, struct bgp_aggregate *aggregate);
+extern void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p,
+				 afi_t afi, safi_t safi,
+				 struct bgp_aggregate *aggregate);
+extern void bgp_aggregate_route(struct bgp *bgp, const struct prefix *p,
+				afi_t afi, safi_t safi,
+				struct bgp_aggregate *aggregate);
 extern void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p,
 				    struct bgp_path_info *path, afi_t afi,
 				    safi_t safi);
@@ -613,7 +616,7 @@ extern void route_vty_out(struct vty *vty, const struct prefix *p,
 extern void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 			      struct bgp_path_info *path, int display,
 			      safi_t safi, json_object *json);
-extern void route_vty_out_tmp(struct vty *vty, struct prefix *p,
+extern void route_vty_out_tmp(struct vty *vty, const struct prefix *p,
 			      struct attr *attr, safi_t safi, bool use_json,
 			      json_object *json_ar);
 extern void route_vty_out_overlay(struct vty *vty, const struct prefix *p,

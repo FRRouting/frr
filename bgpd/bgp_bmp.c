@@ -765,8 +765,8 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags)
 	stream_free(s);
 }
 
-static struct stream *bmp_update(struct prefix *p, struct peer *peer,
-		struct attr *attr, afi_t afi, safi_t safi)
+static struct stream *bmp_update(const struct prefix *p, struct peer *peer,
+				 struct attr *attr, afi_t afi, safi_t safi)
 {
 	struct bpacket_attr_vec_arr vecarr;
 	struct stream *s;
@@ -813,7 +813,8 @@ static struct stream *bmp_update(struct prefix *p, struct peer *peer,
 	return s;
 }
 
-static struct stream *bmp_withdraw(struct prefix *p, afi_t afi, safi_t safi)
+static struct stream *bmp_withdraw(const struct prefix *p, afi_t afi,
+				   safi_t safi)
 {
 	struct stream *s;
 	size_t attrlen_pos = 0, mp_start, mplen_pos;
@@ -853,7 +854,7 @@ static struct stream *bmp_withdraw(struct prefix *p, afi_t afi, safi_t safi)
 }
 
 static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags,
-			struct prefix *p, struct attr *attr, afi_t afi,
+			const struct prefix *p, struct attr *attr, afi_t afi,
 			safi_t safi, time_t uptime)
 {
 	struct stream *hdr, *msg;
@@ -940,7 +941,7 @@ afibreak:
 				return true;
 			}
 			bmp->syncpeerid = 0;
-			prefix_copy(&bmp->syncpos, &bn->p);
+			prefix_copy(&bmp->syncpos, bgp_node_get_prefix(bn));
 		}
 
 		if (bmp->targets->afimon[afi][safi] & BMP_MON_POSTPOLICY) {
@@ -988,12 +989,14 @@ afibreak:
 		bmp->syncpeerid = adjin->peer->qobj_node.nid;
 	}
 
+	const struct prefix *bn_p = bgp_node_get_prefix(bn);
+
 	if (bpi)
-		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L, &bn->p, bpi->attr,
+		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L, bn_p, bpi->attr,
 			    afi, safi, bpi->uptime);
 	if (adjin)
-		bmp_monitor(bmp, adjin->peer, 0, &bn->p, adjin->attr,
-			    afi, safi, adjin->uptime);
+		bmp_monitor(bmp, adjin->peer, 0, bn_p, adjin->attr, afi, safi,
+			    adjin->uptime);
 
 	return true;
 }
@@ -1130,16 +1133,13 @@ static void bmp_process_one(struct bmp_targets *bt, struct bgp *bgp,
 	struct bmp *bmp;
 	struct bmp_queue_entry *bqe, bqeref;
 	size_t refcount;
-	char buf[256];
-
-	prefix2str(&bn->p, buf, sizeof(buf));
 
 	refcount = bmp_session_count(&bt->sessions);
 	if (refcount == 0)
 		return;
 
 	memset(&bqeref, 0, sizeof(bqeref));
-	prefix_copy(&bqeref.p, &bn->p);
+	prefix_copy(&bqeref.p, bgp_node_get_prefix(bn));
 	bqeref.peerid = peer->qobj_node.nid;
 	bqeref.afi = afi;
 	bqeref.safi = safi;

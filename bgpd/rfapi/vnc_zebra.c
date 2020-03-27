@@ -304,10 +304,12 @@ static void vnc_redistribute_withdraw(struct bgp *bgp, afi_t afi, uint8_t type)
 	 */
 	for (prn = bgp_table_top(bgp->rib[afi][SAFI_MPLS_VPN]); prn;
 	     prn = bgp_route_next(prn)) {
+		const struct prefix *prn_p = bgp_node_get_prefix(prn);
+
 		memset(&prd, 0, sizeof(prd));
 		prd.family = AF_UNSPEC;
 		prd.prefixlen = 64;
-		memcpy(prd.val, prn->p.u.val, 8);
+		memcpy(prd.val, prn_p->u.val, 8);
 
 		/* This is the per-RD table of prefixes */
 		table = bgp_node_get_bgp_table_info(prn);
@@ -329,7 +331,7 @@ static void vnc_redistribute_withdraw(struct bgp *bgp, afi_t afi, uint8_t type)
 				del_vnc_route(
 					&vncHD1VR, /* use dummy ptr as cookie */
 					vncHD1VR.peer, bgp, SAFI_MPLS_VPN,
-					&(rn->p), &prd, type,
+					bgp_node_get_prefix(rn), &prd, type,
 					BGP_ROUTE_REDISTRIBUTE, NULL, 0);
 			}
 		}

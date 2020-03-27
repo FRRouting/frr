@@ -307,6 +307,7 @@ bgp_dump_route_node_record(int afi, struct bgp_node *rn,
 	struct stream *obuf;
 	size_t sizep;
 	size_t endp;
+	const struct prefix *p = bgp_node_get_prefix(rn);
 
 	obuf = bgp_dump_obuf;
 	stream_reset(obuf);
@@ -325,19 +326,19 @@ bgp_dump_route_node_record(int afi, struct bgp_node *rn,
 	stream_putl(obuf, seq);
 
 	/* Prefix length */
-	stream_putc(obuf, rn->p.prefixlen);
+	stream_putc(obuf, p->prefixlen);
 
 	/* Prefix */
 	if (afi == AFI_IP) {
 		/* We'll dump only the useful bits (those not 0), but have to
 		 * align on 8 bits */
-		stream_write(obuf, (uint8_t *)&rn->p.u.prefix4,
-			     (rn->p.prefixlen + 7) / 8);
+		stream_write(obuf, (uint8_t *)&p->u.prefix4,
+			     (p->prefixlen + 7) / 8);
 	} else if (afi == AFI_IP6) {
 		/* We'll dump only the useful bits (those not 0), but have to
 		 * align on 8 bits */
-		stream_write(obuf, (uint8_t *)&rn->p.u.prefix6,
-			     (rn->p.prefixlen + 7) / 8);
+		stream_write(obuf, (uint8_t *)&p->u.prefix6,
+			     (p->prefixlen + 7) / 8);
 	}
 
 	/* Save where we are now, so we can overwride the entry count later */
@@ -361,7 +362,7 @@ bgp_dump_route_node_record(int afi, struct bgp_node *rn,
 
 		/* Dump attribute. */
 		/* Skip prefix & AFI/SAFI for MP_NLRI */
-		bgp_dump_routes_attr(obuf, path->attr, &rn->p);
+		bgp_dump_routes_attr(obuf, path->attr, p);
 
 		cur_endp = stream_get_endp(obuf);
 		if (cur_endp > BGP_MAX_PACKET_SIZE + BGP_DUMP_MSG_HEADER

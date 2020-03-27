@@ -1184,7 +1184,8 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 		prefix2str(p, buf_prefix, sizeof(buf_prefix));
 
 	if (safi == SAFI_FLOWSPEC) {
-		bgp_pbr_update_entry(bgp, &rn->p, info, afi, safi, true);
+		bgp_pbr_update_entry(bgp, bgp_node_get_prefix(rn),
+				     info, afi, safi, true);
 		return;
 	}
 
@@ -1480,8 +1481,8 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 			     && (pi->sub_type == BGP_ROUTE_NORMAL
 				 || pi->sub_type == BGP_ROUTE_IMPORTED)))
 
-				bgp_zebra_announce(rn, &rn->p, pi, bgp, afi,
-						   safi);
+				bgp_zebra_announce(rn, bgp_node_get_prefix(rn),
+						   pi, bgp, afi, safi);
 }
 
 void bgp_zebra_withdraw(const struct prefix *p, struct bgp_path_info *info,

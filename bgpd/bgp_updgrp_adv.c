@@ -148,12 +148,9 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 	peer = UPDGRP_PEER(updgrp);
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
-	if (BGP_DEBUG(update, UPDATE_OUT)) {
-		char buf_prefix[PREFIX_STRLEN];
-		prefix2str(&ctx->rn->p, buf_prefix, sizeof(buf_prefix));
-		zlog_debug("%s: afi=%s, safi=%s, p=%s", __func__, afi2str(afi),
-			   safi2str(safi), buf_prefix);
-	}
+	if (BGP_DEBUG(update, UPDATE_OUT))
+		zlog_debug("%s: afi=%s, safi=%s, p=%pRN", __func__,
+			   afi2str(afi), safi2str(safi), ctx->rn);
 
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
@@ -242,7 +239,9 @@ static void subgrp_show_adjq_vty(struct update_subgroup *subgrp,
 
 	output_count = 0;
 
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
+	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
+		const struct prefix *rn_p = bgp_node_get_prefix(rn);
+
 		RB_FOREACH (adj, bgp_adj_out_rb, &rn->adj_out)
 			if (adj->subgroup == subgrp) {
 				if (header1) {
@@ -261,20 +260,20 @@ static void subgrp_show_adjq_vty(struct update_subgroup *subgrp,
 				}
 				if ((flags & UPDWALK_FLAGS_ADVQUEUE) && adj->adv
 				    && adj->adv->baa) {
-					route_vty_out_tmp(vty, &rn->p,
-							  adj->adv->baa->attr,
-							  SUBGRP_SAFI(subgrp),
-							  0, NULL);
+					route_vty_out_tmp(
+						vty, rn_p, adj->adv->baa->attr,
+						SUBGRP_SAFI(subgrp), 0, NULL);
 					output_count++;
 				}
 				if ((flags & UPDWALK_FLAGS_ADVERTISED)
 				    && adj->attr) {
-					route_vty_out_tmp(
-						vty, &rn->p, adj->attr,
-						SUBGRP_SAFI(subgrp), 0, NULL);
+					route_vty_out_tmp(vty, rn_p, adj->attr,
+							  SUBGRP_SAFI(subgrp),
+							  0, NULL);
 					output_count++;
 				}
 			}
+	}
 	if (output_count != 0)
 		vty_out(vty, "\nTotal number of prefixes %ld\n", output_count);
 }
@@ -623,7 +622,9 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 			  PEER_FLAG_DEFAULT_ORIGINATE))
 		subgroup_default_originate(subgrp, 0);
 
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
+	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
+		const struct prefix *rn_p = bgp_node_get_prefix(rn);
+
 		for (ri = bgp_node_get_bgp_path_info(rn); ri; ri = ri->next)
 
 			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)
@@ -632,7 +633,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 					   peer->addpath_type[afi][safi],
 					   ri))) {
 				if (subgroup_announce_check(rn, ri, subgrp,
-							    &rn->p, &attr))
+							    rn_p, &attr))
 					bgp_adj_out_set_subgroup(rn, subgrp,
 								 &attr, ri);
 				else
@@ -642,6 +643,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 							peer, afi, safi,
 							&ri->tx_addpath));
 			}
+	}
 
 	/*
 	 * We walked through the whole table -- make sure our version number
@@ -761,7 +763,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 		for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
 		     rn = bgp_route_next(rn)) {
 			ret = route_map_apply(peer->default_rmap[afi][safi].map,
-					      &rn->p, RMAP_BGP, &bpi_rmap);
+					      bgp_node_get_prefix(rn), RMAP_BGP,
+					      &bpi_rmap);
 
 			if (ret != RMAP_DENYMATCH)
 				break;

@@ -165,8 +165,9 @@ void vnc_eti_delete(struct vnc_export_info *goner)
 
 struct vnc_export_info *vnc_eti_checktimer(struct bgp *bgp,
 					   vnc_export_type_t etype,
-					   struct prefix *p, struct peer *peer,
-					   uint8_t type, uint8_t subtype)
+					   const struct prefix *p,
+					   struct peer *peer, uint8_t type,
+					   uint8_t subtype)
 {
 	struct agg_node *etn;
 	struct vnc_export_info *eti;

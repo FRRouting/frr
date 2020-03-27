@@ -2532,7 +2532,7 @@ bool bgp_debug_bestpath(struct bgp_node *rn)
 {
 	if (BGP_DEBUG(bestpath, BESTPATH)) {
 		if (bgp_debug_per_prefix(
-			    &rn->p, term_bgp_debug_bestpath,
+			    bgp_node_get_prefix(rn), term_bgp_debug_bestpath,
 			    BGP_DEBUG_BESTPATH, bgp_debug_bestpath_prefixes))
 			return true;
 	}
@@ -2553,7 +2553,7 @@ bool bgp_debug_zebra(const struct prefix *p)
 }
 
 const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
-				    struct prefix_rd *prd,
+				    const struct prefix_rd *prd,
 				    union prefixconstptr pu,
 				    mpls_label_t *label, uint32_t num_labels,
 				    int addpath_valid, uint32_t addpath_id,

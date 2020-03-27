@@ -674,8 +674,9 @@ static void vnc_import_bgp_add_route_mode_resolve_nve(
 			continue;
 
 		vnc_import_bgp_add_route_mode_resolve_nve_one_rd(
-			(struct prefix_rd *)&bnp->p, table, afi, bgp, prefix,
-			ecom, &local_pref, med, &pfx_unicast_nexthop);
+			(struct prefix_rd *)bgp_node_get_prefix(bnp), table,
+			afi, bgp, prefix, ecom, &local_pref, med,
+			&pfx_unicast_nexthop);
 	}
 
 
@@ -1377,8 +1378,8 @@ vnc_import_bgp_del_route_mode_resolve_nve(struct bgp *bgp, afi_t afi,
 			continue;
 
 		vnc_import_bgp_del_route_mode_resolve_nve_one_rd(
-			(struct prefix_rd *)&bnp->p, table, afi, bgp, prefix,
-			&pfx_unicast_nexthop); /* TBD how is this set? */
+			(struct prefix_rd *)bgp_node_get_prefix(bnp), table,
+			afi, bgp, prefix, &pfx_unicast_nexthop);
 	}
 
 	if (ecom)
@@ -2754,7 +2755,8 @@ void vnc_import_bgp_redist_enable(struct bgp *bgp, afi_t afi)
 			if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED))
 				continue;
 
-			vnc_import_bgp_add_route(bgp, &rn->p, bpi);
+			vnc_import_bgp_add_route(bgp, bgp_node_get_prefix(rn),
+						 bpi);
 		}
 	}
 	vnc_zlog_debug_verbose(
@@ -2795,8 +2797,8 @@ void vnc_import_bgp_exterior_redist_enable(struct bgp *bgp, afi_t afi)
 			if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED))
 				continue;
 
-			vnc_import_bgp_exterior_add_route(bgp_exterior, &rn->p,
-							  bpi);
+			vnc_import_bgp_exterior_add_route(
+				bgp_exterior, bgp_node_get_prefix(rn), bpi);
 		}
 	}
 	vnc_zlog_debug_verbose(
@@ -2842,7 +2844,8 @@ void vnc_import_bgp_exterior_redist_enable_it(
 				continue;
 
 			vnc_import_bgp_exterior_add_route_it(
-				bgp_exterior, &rn->p, bpi, it_only);
+				bgp_exterior, bgp_node_get_prefix(rn), bpi,
+				it_only);
 		}
 	}
 }
@@ -2872,58 +2875,49 @@ void vnc_import_bgp_redist_disable(struct bgp *bgp, afi_t afi)
 	 */
 	for (rn1 = bgp_table_top(bgp->rib[afi][SAFI_MPLS_VPN]); rn1;
 	     rn1 = bgp_route_next(rn1)) {
+		const struct prefix *rn1_p;
 
-		if (bgp_node_has_bgp_path_info_data(rn1)) {
+		if (!bgp_node_has_bgp_path_info_data(rn1))
+			continue;
 
-			for (rn2 = bgp_table_top(
-				     bgp_node_get_bgp_table_info(rn1));
-			     rn2; rn2 = bgp_route_next(rn2)) {
+		rn1_p = bgp_node_get_prefix(rn1);
+		for (rn2 = bgp_table_top(bgp_node_get_bgp_table_info(rn1)); rn2;
+		     rn2 = bgp_route_next(rn2)) {
+			const struct prefix *rn2_p = bgp_node_get_prefix(rn2);
+			struct bgp_path_info *bpi;
+			struct bgp_path_info *nextbpi;
 
-				struct bgp_path_info *bpi;
-				struct bgp_path_info *nextbpi;
+			for (bpi = bgp_node_get_bgp_path_info(rn2); bpi;
+			     bpi = nextbpi) {
 
-				for (bpi = bgp_node_get_bgp_path_info(rn2); bpi;
-				     bpi = nextbpi) {
+				nextbpi = bpi->next;
 
-					nextbpi = bpi->next;
+				if (bpi->type != ZEBRA_ROUTE_BGP_DIRECT)
+					continue;
 
-					if (bpi->type
-					    == ZEBRA_ROUTE_BGP_DIRECT) {
+				struct rfapi_descriptor *rfd;
+				vncHDBgpDirect.peer = bpi->peer;
 
-						struct rfapi_descriptor *rfd;
-						vncHDBgpDirect.peer = bpi->peer;
+				assert(bpi->extra);
 
-						assert(bpi->extra);
+				rfd = bpi->extra->vnc.export.rfapi_handle;
 
-						rfd = bpi->extra->vnc.export
-							      .rfapi_handle;
+				vnc_zlog_debug_verbose(
+					"%s: deleting bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc.export.rfapi_handle=%p [passing rfd=%p]",
+					__func__, bpi, bpi->peer, bpi->type,
+					bpi->sub_type,
+					(bpi->extra ? bpi->extra->vnc.export
+							      .rfapi_handle
+						    : NULL),
+					rfd);
 
-						vnc_zlog_debug_verbose(
-							"%s: deleting bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc.export.rfapi_handle=%p [passing rfd=%p]",
-							__func__, bpi,
-							bpi->peer, bpi->type,
-							bpi->sub_type,
-							(bpi->extra
-								 ? bpi->extra
-									   ->vnc
-									   .export
-									   .rfapi_handle
-								 : NULL),
-							rfd);
+				del_vnc_route(rfd, bpi->peer, bgp,
+					      SAFI_MPLS_VPN, rn2_p,
+					      (struct prefix_rd *)rn1_p,
+					      bpi->type, bpi->sub_type, NULL,
+					      1); /* kill */
 
-
-						del_vnc_route(
-							rfd, bpi->peer, bgp,
-							SAFI_MPLS_VPN, &rn2->p,
-							(struct prefix_rd *)&rn1
-								->p,
-							bpi->type,
-							bpi->sub_type, NULL,
-							1); /* kill */
-
-						vncHDBgpDirect.peer = NULL;
-					}
-				}
+				vncHDBgpDirect.peer = NULL;
 			}
 		}
 	}
@@ -2979,8 +2973,9 @@ void vnc_import_bgp_exterior_redist_disable(struct bgp *bgp, afi_t afi)
 				if (CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED))
 					continue;
 
-				vnc_import_bgp_exterior_del_route(bgp_exterior,
-								  &rn->p, bpi);
+				vnc_import_bgp_exterior_del_route(
+					bgp_exterior, bgp_node_get_prefix(rn),
+					bpi);
 			}
 		}
 #if DEBUG_RHN_LIST
