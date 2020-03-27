@@ -718,6 +718,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && IPV4_ADDR_SAME(&attr1->originator_id,
 				      &attr2->originator_id)
 		    && overlay_index_same(attr1, attr2)
+		    && !memcmp(&attr1->esi, &attr2->esi, sizeof(esi_t))
 		    && attr1->nh_ifindex == attr2->nh_ifindex
 		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex
 		    && attr1->distance == attr2->distance
