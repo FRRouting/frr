@@ -63,6 +63,11 @@ DEFINE_QOBJ_TYPE(bgp_evpn_es)
  * Static function declarations
  */
 static int delete_all_vni_routes(struct bgp *bgp, struct bgpevpn *vpn);
+static void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
+		struct bgpevpn *vpn,
+		struct bgp_node *rn, struct bgp_path_info *local_pi,
+		const char *caller);
+static struct in_addr zero_vtep_ip;
 
 /*
  * Private functions.
@@ -619,13 +624,13 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 		stream_putl(s, ipa_len);
 		stream_put(s, &p->prefix.macip_addr.ip.ip.addr, ipa_len);
 	}
-	/* tape out the VTEP-IP if the ESI is non-zero to avoid incorrect
-	 * mods
+	/* If the ESI is valid that becomes the nexthop; tape out the
+	 * VTEP-IP for that case
 	 */
-	if (memcmp(zero_esi, esi, sizeof(esi_t)))
-		stream_put_in_addr(s, &remote_vtep_ip);
-	else
+	if (bgp_evpn_is_esi_valid(esi))
 		stream_put_in_addr(s, &zero_remote_vtep_ip);
+	else
+		stream_put_in_addr(s, &remote_vtep_ip);
 
 	/* TX flags - MAC sticky status and/or gateway mac */
 	/* Also TX the sequence number of the best route. */
@@ -770,6 +775,7 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 	struct ecommunity_val eval_default_gw;
 	struct ecommunity_val eval_rmac;
 	struct ecommunity_val eval_na;
+	bool proxy;
 
 	bgp_encap_types tnl_type;
 	struct listnode *node, *nnode;
@@ -831,9 +837,10 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 			ecommunity_merge(attr->ecommunity, &ecom_default_gw);
 	}
 
-	if (attr->router_flag) {
+	proxy = !!(attr->es_flags & ATTR_ES_PROXY_ADVERT);
+	if (attr->router_flag || proxy) {
 		memset(&ecom_na, 0, sizeof(ecom_na));
-		encode_na_flag_extcomm(&eval_na, attr->router_flag);
+		encode_na_flag_extcomm(&eval_na, attr->router_flag, proxy);
 		ecom_na.size = 1;
 		ecom_na.val = (uint8_t *)eval_na.val;
 		attr->ecommunity = ecommunity_merge(attr->ecommunity,
@@ -904,20 +911,58 @@ static int evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn,
 	int ret;
 	uint8_t flags;
 	int flood_control;
+	uint32_t seq;
 
 	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 		flags = 0;
-		if (pi->attr->sticky)
-			SET_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
-		if (pi->attr->default_gw)
-			SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
-		if (is_evpn_prefix_ipaddr_v6(p) &&
-		    pi->attr->router_flag)
-			SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
+
+		if (pi->sub_type == BGP_ROUTE_IMPORTED) {
+			if (pi->attr->sticky)
+				SET_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
+			if (pi->attr->default_gw)
+				SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
+			if (is_evpn_prefix_ipaddr_v6(p) &&
+					pi->attr->router_flag)
+				SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
+
+			seq = mac_mobility_seqnum(pi->attr);
+			/* if local ES notify zebra that this is a sync path */
+			if (bgp_evpn_attr_is_local_es(pi->attr)) {
+				SET_FLAG(flags, ZEBRA_MACIP_TYPE_SYNC_PATH);
+				if (bgp_evpn_attr_is_proxy(pi->attr))
+					SET_FLAG(flags,
+						ZEBRA_MACIP_TYPE_PROXY_ADVERT);
+			}
+		} else {
+			if (!bgp_evpn_attr_is_sync(pi->attr))
+				return 0;
+
+			/* if a local path is being turned around and sent
+			 * to zebra it is because it is a sync path on
+			 * a local ES
+			 */
+			SET_FLAG(flags, ZEBRA_MACIP_TYPE_SYNC_PATH);
+			/* supply the highest peer seq number to zebra
+			 * for MM seq syncing
+			 */
+			seq = bgp_evpn_attr_get_sync_seq(pi->attr);
+			/* if any of the paths from the peer have the ROUTER
+			 * flag set install the local entry as a router entry
+			 */
+			if (is_evpn_prefix_ipaddr_v6(p) &&
+					(pi->attr->es_flags &
+					 ATTR_ES_PEER_ROUTER))
+				SET_FLAG(flags,
+						ZEBRA_MACIP_TYPE_ROUTER_FLAG);
+
+			if (!(pi->attr->es_flags & ATTR_ES_PEER_ACTIVE))
+				SET_FLAG(flags,
+						ZEBRA_MACIP_TYPE_PROXY_ADVERT);
+		}
+
 		ret = bgp_zebra_send_remote_macip(
-			bgp, vpn, p, pi->attr->nexthop, 1, flags,
-			mac_mobility_seqnum(pi->attr),
-			bgp_evpn_attr_get_esi(pi->attr));
+				bgp, vpn, p, pi->attr->nexthop, 1, flags,
+				seq, bgp_evpn_attr_get_esi(pi->attr));
 	} else if (p->prefix.route_type == BGP_EVPN_AD_ROUTE) {
 		ret = bgp_evpn_remote_es_evi_add(bgp, vpn, p);
 	} else {
@@ -966,12 +1011,28 @@ static int evpn_zebra_uninstall(struct bgp *bgp, struct bgpevpn *vpn,
  */
 static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
 					struct bgp_node *rn,
-					struct bgp_path_info *old_local)
+					struct bgp_path_info *old_local,
+					struct bgp_path_info *new_select)
 {
 	struct bgp_node *global_rn;
 	struct bgp_path_info *pi;
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT)) {
+		char prefix_buf[PREFIX_STRLEN];
+		char esi_buf[ESI_STR_LEN];
+		char esi_buf2[ESI_STR_LEN];
+		struct prefix_evpn *evp = (struct prefix_evpn *)&rn->p;
+
+		zlog_debug("local path deleted %s es %s; new-path-es %s",
+				prefix2str(evp,
+					prefix_buf, sizeof(prefix_buf)),
+				esi_to_str(&old_local->attr->esi,
+					esi_buf, sizeof(esi_buf)),
+				new_select ? esi_to_str(&new_select->attr->esi,
+					esi_buf2, sizeof(esi_buf2)) : "");
+	}
 
 	/* Locate route node in the global EVPN routing table. Note that
 	 * this table is a 2-level tree (RD-level + Prefix-level) similar to
@@ -1017,12 +1078,15 @@ int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 	new_select = old_and_new.new;
 
 	/* If the best path hasn't changed - see if there is still something to
-	 * update
-	 * to zebra RIB.
+	 * update to zebra RIB.
+	 * Remote routes and SYNC route (i.e. local routes with
+	 * SYNCED_FROM_PEER flag) need to updated to zebra on any attr
+	 * change.
 	 */
 	if (old_select && old_select == new_select
 	    && old_select->type == ZEBRA_ROUTE_BGP
-	    && old_select->sub_type == BGP_ROUTE_IMPORTED
+	    && (old_select->sub_type == BGP_ROUTE_IMPORTED ||
+			bgp_evpn_attr_is_sync(old_select->attr))
 	    && !CHECK_FLAG(rn->flags, BGP_NODE_USER_CLEAR)
 	    && !CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED)
 	    && !bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi)) {
@@ -1054,8 +1118,12 @@ int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 		UNSET_FLAG(new_select->flags, BGP_PATH_LINK_BW_CHG);
 	}
 
+	/* a local entry with the SYNC flag also results in a MAC-IP update
+	 * to zebra
+	 */
 	if (new_select && new_select->type == ZEBRA_ROUTE_BGP
-	    && new_select->sub_type == BGP_ROUTE_IMPORTED) {
+	    && (new_select->sub_type == BGP_ROUTE_IMPORTED ||
+			bgp_evpn_attr_is_sync(new_select->attr))) {
 		ret = evpn_zebra_install(
 			bgp, vpn, (struct prefix_evpn *)bgp_node_get_prefix(rn),
 			new_select);
@@ -1067,11 +1135,13 @@ int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 		 * need to do an implicit delete and withdraw that route from
 		 * peers.
 		 */
-		if (old_select && old_select->peer == bgp->peer_self
-		    && old_select->type == ZEBRA_ROUTE_BGP
-		    && old_select->sub_type == BGP_ROUTE_STATIC
-		    && vpn)
-			evpn_delete_old_local_route(bgp, vpn, rn, old_select);
+		if (new_select->sub_type == BGP_ROUTE_IMPORTED &&
+				old_select && old_select->peer == bgp->peer_self
+				&& old_select->type == ZEBRA_ROUTE_BGP
+				&& old_select->sub_type == BGP_ROUTE_STATIC
+				&& vpn)
+			evpn_delete_old_local_route(bgp, vpn, rn,
+					old_select, new_select);
 	} else {
 		if (old_select && old_select->type == ZEBRA_ROUTE_BGP
 		    && old_select->sub_type == BGP_ROUTE_IMPORTED)
@@ -1092,51 +1162,21 @@ int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 	return ret;
 }
 
-/*
- * Return true if the local ri for this rn is of type gateway mac
- */
-static int evpn_route_is_def_gw(struct bgp *bgp, struct bgp_node *rn)
-{
-	struct bgp_path_info *tmp_pi = NULL;
-	struct bgp_path_info *local_pi = NULL;
-
-	local_pi = NULL;
-	for (tmp_pi = bgp_node_get_bgp_path_info(rn); tmp_pi;
-	     tmp_pi = tmp_pi->next) {
-		if (tmp_pi->peer == bgp->peer_self
-		    && tmp_pi->type == ZEBRA_ROUTE_BGP
-		    && tmp_pi->sub_type == BGP_ROUTE_STATIC)
-			local_pi = tmp_pi;
-	}
-
-	if (!local_pi)
-		return 0;
-
-	return local_pi->attr->default_gw;
-}
-
-
-/*
- * Return true if the local ri for this rn has sticky set
- */
-static int evpn_route_is_sticky(struct bgp *bgp, struct bgp_node *rn)
+static struct bgp_path_info *bgp_evpn_route_get_local_path(
+		struct bgp *bgp, struct bgp_node *rn)
 {
 	struct bgp_path_info *tmp_pi;
-	struct bgp_path_info *local_pi;
+	struct bgp_path_info *local_pi = NULL;
 
-	local_pi = NULL;
 	for (tmp_pi = bgp_node_get_bgp_path_info(rn); tmp_pi;
-	     tmp_pi = tmp_pi->next) {
-		if (tmp_pi->peer == bgp->peer_self
-		    && tmp_pi->type == ZEBRA_ROUTE_BGP
-		    && tmp_pi->sub_type == BGP_ROUTE_STATIC)
+			tmp_pi = tmp_pi->next) {
+		if (bgp_evpn_is_path_local(bgp, tmp_pi)) {
 			local_pi = tmp_pi;
+			break;
+		}
 	}
 
-	if (!local_pi)
-		return 0;
-
-	return local_pi->attr->sticky;
+	return local_pi;
 }
 
 static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
@@ -1302,6 +1342,127 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 	return 0;
 }
 
+static void bgp_evpn_get_sync_info(struct bgp *bgp, esi_t *esi,
+		struct bgp_node *rn, uint32_t loc_seq, uint32_t *max_sync_seq,
+		bool *active_on_peer, bool *peer_router,
+		bool *proxy_from_peer)
+{
+	struct bgp_path_info *tmp_pi;
+	struct bgp_path_info *second_best_path = NULL;
+	uint32_t tmp_mm_seq = 0;
+	esi_t *tmp_esi;
+	int paths_eq;
+
+	/* find the best non-local path. a local path can only be present
+	 * as best path
+	 */
+	for (tmp_pi = bgp_node_get_bgp_path_info(rn); tmp_pi;
+			tmp_pi = tmp_pi->next) {
+		if (tmp_pi->sub_type != BGP_ROUTE_IMPORTED ||
+			!CHECK_FLAG(tmp_pi->flags, BGP_PATH_VALID))
+			continue;
+
+		if (bgp_evpn_path_info_cmp(bgp, tmp_pi,
+				second_best_path, &paths_eq))
+			second_best_path = tmp_pi;
+	}
+
+	if (!second_best_path)
+		return;
+
+	tmp_esi = bgp_evpn_attr_get_esi(second_best_path->attr);
+	/* if this has the same ES desination as the local path
+	 * it is a sync path
+	 */
+	if (!memcmp(esi, tmp_esi, sizeof(esi_t))) {
+		tmp_mm_seq = mac_mobility_seqnum(second_best_path->attr);
+		if (tmp_mm_seq < loc_seq)
+			return;
+
+		/* we have a non-proxy path from the ES peer.  */
+		if (second_best_path->attr->es_flags &
+					ATTR_ES_PROXY_ADVERT) {
+			*proxy_from_peer = true;
+		} else {
+			*active_on_peer = true;
+		}
+
+		if (second_best_path->attr->router_flag)
+			*peer_router = true;
+
+		/* we use both proxy and non-proxy imports to
+		 * determine the max sync sequence
+		 */
+		if (tmp_mm_seq > *max_sync_seq)
+			*max_sync_seq = tmp_mm_seq;
+	}
+}
+
+/* Bubble up sync-info from all paths (non-best) to the local-path.
+ * This is need for MM sequence number syncing and proxy advertisement.
+ * Note: The local path can only exist as a best path in the
+ * VPN route table. It will take precedence over all sync paths.
+ */
+static void update_evpn_route_entry_sync_info(struct bgp *bgp,
+		struct bgp_node *rn, struct attr *attr, uint32_t loc_seq,
+		bool setup_sync)
+{
+	esi_t *esi;
+	struct prefix_evpn *evp = (struct prefix_evpn *)&rn->p;
+
+	if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
+		return;
+
+	esi = bgp_evpn_attr_get_esi(attr);
+	if (bgp_evpn_is_esi_valid(esi)) {
+		if (setup_sync) {
+			uint32_t max_sync_seq = 0;
+			bool active_on_peer = false;
+			bool peer_router = false;
+			bool proxy_from_peer = false;
+
+			bgp_evpn_get_sync_info(bgp, esi, rn, loc_seq,
+					&max_sync_seq, &active_on_peer,
+					&peer_router, &proxy_from_peer);
+			attr->mm_sync_seqnum = max_sync_seq;
+			if (active_on_peer)
+				attr->es_flags |= ATTR_ES_PEER_ACTIVE;
+			else
+				attr->es_flags &= ~ATTR_ES_PEER_ACTIVE;
+			if (proxy_from_peer)
+				attr->es_flags |= ATTR_ES_PEER_PROXY;
+			else
+				attr->es_flags &= ~ATTR_ES_PEER_PROXY;
+			if (peer_router)
+				attr->es_flags |= ATTR_ES_PEER_ROUTER;
+			else
+				attr->es_flags &= ~ATTR_ES_PEER_ROUTER;
+
+			if (BGP_DEBUG(evpn_mh, EVPN_MH_RT)) {
+				char prefix_buf[PREFIX_STRLEN];
+				char esi_buf[ESI_STR_LEN];
+
+				zlog_debug("setup sync info for %s es %s max_seq %d %s%s%s",
+					prefix2str(evp, prefix_buf,
+						sizeof(prefix_buf)),
+					esi_to_str(esi, esi_buf,
+						sizeof(esi_buf)),
+					max_sync_seq,
+					(attr->es_flags & ATTR_ES_PEER_ACTIVE) ?
+					"peer-active " : "",
+					(attr->es_flags & ATTR_ES_PEER_PROXY) ?
+					"peer-proxy " : "",
+					(attr->es_flags & ATTR_ES_PEER_ROUTER) ?
+					"peer-router " : "");
+			}
+		}
+	} else {
+		attr->mm_sync_seqnum = 0;
+		attr->es_flags &= ~ATTR_ES_PEER_ACTIVE;
+		attr->es_flags &= ~ATTR_ES_PEER_PROXY;
+	}
+}
+
 /*
  * Create or update EVPN route entry. This could be in the VNI route table
  * or the global route table.
@@ -1310,7 +1471,8 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 				   afi_t afi, safi_t safi, struct bgp_node *rn,
 				   struct attr *attr, int add,
 				   struct bgp_path_info **pi, uint8_t flags,
-				   uint32_t seq)
+				   uint32_t seq, bool setup_sync,
+				   bool *old_is_sync)
 {
 	struct bgp_path_info *tmp_pi;
 	struct bgp_path_info *local_pi;
@@ -1326,14 +1488,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	memset(&label, 0, sizeof(label));
 
 	/* See if this is an update of an existing route, or a new add. */
-	local_pi = NULL;
-	for (tmp_pi = bgp_node_get_bgp_path_info(rn); tmp_pi;
-	     tmp_pi = tmp_pi->next) {
-		if (tmp_pi->peer == bgp->peer_self
-		    && tmp_pi->type == ZEBRA_ROUTE_BGP
-		    && tmp_pi->sub_type == BGP_ROUTE_STATIC)
-			local_pi = tmp_pi;
-	}
+	local_pi = bgp_evpn_route_get_local_path(bgp, rn);
 
 	/* If route doesn't exist already, create a new one, if told to.
 	 * Otherwise act based on whether the attributes of the route have
@@ -1341,6 +1496,14 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	 */
 	if (!local_pi && !add)
 		return 0;
+
+	if (old_is_sync && local_pi)
+		*old_is_sync = bgp_evpn_attr_is_sync(local_pi->attr);
+
+	/* if a local path is being added with a non-zero esi look
+	 * for SYNC paths from ES peers and bubble up the sync-info
+	 */
+	update_evpn_route_entry_sync_info(bgp, rn, attr, seq, setup_sync);
 
 	/* For non-GW MACs, update MAC mobility seq number, if needed. */
 	if (seq && !CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW))
@@ -1452,7 +1615,8 @@ static void evpn_zebra_reinstall_best_route(struct bgp *bgp,
 	}
 
 	if (curr_select && curr_select->type == ZEBRA_ROUTE_BGP
-			&& curr_select->sub_type == BGP_ROUTE_IMPORTED)
+			&& (curr_select->sub_type == BGP_ROUTE_IMPORTED ||
+				bgp_evpn_attr_is_sync(curr_select->attr)))
 		evpn_zebra_install(bgp, vpn,
 				   (const struct prefix_evpn *)bgp_node_get_prefix(rn),
 				   curr_select);
@@ -1481,7 +1645,7 @@ static void evpn_cleanup_local_non_best_route(struct bgp *bgp,
 	if (bgp_debug_zebra(NULL))
 		zlog_debug("evicting local evpn prefix %pRN as remote won", rn);
 
-	evpn_delete_old_local_route(bgp, vpn, rn, local_pi);
+	evpn_delete_old_local_route(bgp, vpn, rn, local_pi, NULL);
 	bgp_path_info_reap(rn, local_pi);
 
 	/* tell zebra to re-add the best remote path */
@@ -1504,6 +1668,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
 	int route_change;
+	bool old_is_sync = false;
 
 	memset(&attr, 0, sizeof(struct attr));
 
@@ -1516,14 +1681,35 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	attr.default_gw = CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW) ? 1 : 0;
 	attr.router_flag = CHECK_FLAG(flags,
 				      ZEBRA_MACIP_TYPE_ROUTER_FLAG) ? 1 : 0;
-	if (esi)
+	if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT))
+		attr.es_flags |= ATTR_ES_PROXY_ADVERT;
+
+	if (esi && bgp_evpn_is_esi_valid(esi)) {
 		memcpy(&attr.esi, esi, sizeof(esi_t));
+		attr.es_flags |= ATTR_ES_IS_LOCAL;
+	}
+
 	/* PMSI is only needed for type-3 routes */
 	if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE) {
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL);
 		attr.pmsi_tnl_type = PMSI_TNLTYPE_INGR_REPL;
 	}
 
+	if (bgp_debug_zebra(NULL)) {
+		char buf[ETHER_ADDR_STRLEN];
+		char buf1[PREFIX_STRLEN];
+		char buf3[ESI_STR_LEN];
+
+		zlog_debug("VRF %s vni %u type-2 route evp %s RMAC %s nexthop %s esi %s",
+				vpn->bgp_vrf ?
+				vrf_id_to_name(vpn->bgp_vrf->vrf_id) : " ",
+				vpn->vni,
+				prefix2str(p, buf1, sizeof(buf1)),
+				prefix_mac2str(&attr.rmac, buf,
+					sizeof(buf)),
+				inet_ntoa(attr.mp_nexthop_global_in),
+				esi_to_str(esi, buf3, sizeof(buf3)));
+	}
 	/* router mac is only needed for type-2 routes here. */
 	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 		uint8_t af_flags = 0;
@@ -1532,20 +1718,6 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 			SET_FLAG(af_flags, BGP_EVPN_MACIP_TYPE_SVI_IP);
 
 		bgp_evpn_get_rmac_nexthop(vpn, p, &attr, af_flags);
-
-		if (bgp_debug_zebra(NULL)) {
-			char buf[ETHER_ADDR_STRLEN];
-			char buf1[PREFIX_STRLEN];
-
-			zlog_debug("VRF %s vni %u type-2 route evp %s RMAC %s nexthop %s",
-				   vpn->bgp_vrf ?
-				   vrf_id_to_name(vpn->bgp_vrf->vrf_id) : " ",
-				   vpn->vni,
-				   prefix2str(p, buf1, sizeof(buf1)),
-				   prefix_mac2str(&attr.rmac, buf,
-						  sizeof(buf)),
-				   inet_ntoa(attr.mp_nexthop_global_in));
-		}
 	}
 
 	vni2label(vpn->vni, &(attr.label));
@@ -1570,7 +1742,8 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* Create or update route entry. */
 	route_change = update_evpn_route_entry(bgp, vpn, afi, safi, rn, &attr,
-					       1, &pi, flags, seq);
+			1, &pi, flags, seq,
+			true /* setup_sync */, &old_is_sync);
 	assert(pi);
 	attr_new = pi->attr;
 
@@ -1591,9 +1764,25 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	 * to re-add the best remote dest. BGP doesn't retain non-best local
 	 * routes.
 	 */
-	if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
+	if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
 		route_change = 0;
-		evpn_cleanup_local_non_best_route(bgp, vpn, rn, pi);
+	} else {
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
+			route_change = 0;
+			evpn_cleanup_local_non_best_route(bgp, vpn, rn, pi);
+		} else {
+			bool new_is_sync;
+
+			/* If the local path already existed and is still the
+			 * best path we need to also check if it transitioned
+			 * from being a sync path to a non-sync path. If it
+			 * it did we need to notify zebra that the sync-path
+			 * has been removed.
+			 */
+			new_is_sync = bgp_evpn_attr_is_sync(pi->attr);
+			if (!new_is_sync && old_is_sync)
+				evpn_zebra_uninstall(bgp, vpn, p, zero_vtep_ip);
+		}
 	}
 	bgp_path_info_unlock(pi);
 
@@ -1610,7 +1799,8 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 		rn = bgp_global_evpn_node_get(bgp->rib[afi][safi], afi, safi,
 				      p, &vpn->prd);
 		update_evpn_route_entry(bgp, vpn, afi, safi, rn, attr_new, 1,
-					&global_pi, flags, seq);
+				&global_pi, flags, seq,
+				false /* setup_sync */, NULL /* old_is_sync */);
 
 		/* Schedule for processing and unlock node. */
 		bgp_process(bgp, rn, afi, safi);
@@ -1729,23 +1919,151 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	return 0;
 }
 
+static void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
+		struct bgpevpn *vpn, struct bgp_node *rn,
+		struct bgp_path_info *local_pi, const char *caller)
+{
+	afi_t afi = AFI_L2VPN;
+	safi_t safi = SAFI_EVPN;
+	struct bgp_path_info *pi;
+	struct attr attr;
+	struct attr *attr_new;
+	uint32_t seq;
+	int add_l3_ecomm = 0;
+	struct bgp_node *global_rn;
+	struct bgp_path_info *global_pi;
+	struct prefix_evpn *evp = (struct prefix_evpn *)&rn->p;
+	int route_change;
+	bool old_is_sync = false;
+
+	if (CHECK_FLAG(local_pi->flags, BGP_PATH_REMOVED))
+		return;
+
+	/*
+	 * Build attribute per local route as the MAC mobility and
+	 * some other values could differ for different routes. The
+	 * attributes will be shared in the hash table.
+	 */
+	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	attr.nexthop = vpn->originator_ip;
+	attr.mp_nexthop_global_in = vpn->originator_ip;
+	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+	attr.sticky = (local_pi->attr->sticky) ? 1 : 0;
+	attr.router_flag = (local_pi->attr->router_flag) ? 1 : 0;
+	attr.es_flags = local_pi->attr->es_flags;
+	if (local_pi->attr->default_gw) {
+		attr.default_gw = 1;
+		if (is_evpn_prefix_ipaddr_v6(evp))
+			attr.router_flag = 1;
+	}
+	memcpy(&attr.esi, &local_pi->attr->esi, sizeof(esi_t));
+	bgp_evpn_get_rmac_nexthop(vpn, evp, &attr,
+			local_pi->extra->af_flags);
+	vni2label(vpn->vni, &(attr.label));
+	/* Add L3 VNI RTs and RMAC for non IPv6 link-local if
+	 * using L3 VNI for type-2 routes also.
+	 */
+	if ((is_evpn_prefix_ipaddr_v4(evp) ||
+				!IN6_IS_ADDR_LINKLOCAL(
+				&evp->prefix.macip_addr.ip.ipaddr_v6)) &&
+			CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS) &&
+			bgpevpn_get_l3vni(vpn))
+		add_l3_ecomm = 1;
+
+	/* Set up extended community. */
+	build_evpn_route_extcomm(vpn, &attr, add_l3_ecomm);
+	seq = mac_mobility_seqnum(local_pi->attr);
+
+	if (bgp_debug_zebra(NULL)) {
+		char buf[ETHER_ADDR_STRLEN];
+		char buf1[PREFIX_STRLEN];
+		char buf3[ESI_STR_LEN];
+
+		zlog_debug("VRF %s vni %u evp %s RMAC %s nexthop %s esi %s esf 0x%x from %s",
+				vpn->bgp_vrf ?
+				vrf_id_to_name(vpn->bgp_vrf->vrf_id) : " ",
+				vpn->vni,
+				prefix2str(evp, buf1, sizeof(buf1)),
+				prefix_mac2str(&attr.rmac, buf, sizeof(buf)),
+				inet_ntoa(attr.mp_nexthop_global_in),
+				esi_to_str(&attr.esi, buf3, sizeof(buf3)),
+				attr.es_flags, caller);
+	}
+
+	/* Update the route entry. */
+	route_change = update_evpn_route_entry(bgp, vpn, afi, safi,
+			rn, &attr, 0, &pi, 0, seq,
+			true /* setup_sync */, &old_is_sync);
+
+	assert(pi);
+	attr_new = pi->attr;
+	/* lock ri to prevent freeing in evpn_route_select_install */
+	bgp_path_info_lock(pi);
+
+	/* Perform route selection. Normally, the local route in the
+	 * VNI is expected to win and be the best route. However,
+	 * under peculiar situations (e.g., tunnel (next hop) IP change
+	 * that causes best selection to be based on next hop), a
+	 * remote route could win. If the local route is the best,
+	 * ensure it is updated in the global EVPN route table and
+	 * advertised to peers; otherwise, ensure it is evicted and
+	 * (re)install the remote route into zebra.
+	 */
+	evpn_route_select_install(bgp, vpn, rn);
+
+	if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
+		route_change = 0;
+	} else {
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
+			route_change = 0;
+			evpn_cleanup_local_non_best_route(bgp, vpn, rn, pi);
+		} else {
+			bool new_is_sync;
+
+			/* If the local path already existed and is still the
+			 * best path we need to also check if it transitioned
+			 * from being a sync path to a non-sync path. If it
+			 * it did we need to notify zebra that the sync-path
+			 * has been removed.
+			 */
+			new_is_sync = bgp_evpn_attr_is_sync(pi->attr);
+			if (!new_is_sync && old_is_sync)
+				evpn_zebra_uninstall(bgp, vpn,
+						evp, zero_vtep_ip);
+		}
+	}
+
+
+	/* unlock pi */
+	bgp_path_info_unlock(pi);
+
+	if (route_change) {
+		/* Update route in global routing table. */
+		global_rn = bgp_global_evpn_node_get(bgp->rib[afi][safi],
+				afi, safi, evp, &vpn->prd);
+		assert(global_rn);
+		update_evpn_route_entry(bgp, vpn, afi, safi, global_rn,
+				attr_new, 0, &global_pi, 0,
+				mac_mobility_seqnum(attr_new),
+				false /* setup_sync */, NULL /* old_is_sync */);
+
+		/* Schedule for processing and unlock node. */
+		bgp_process(bgp, global_rn, afi, safi);
+		bgp_unlock_node(global_rn);
+	}
+
+	/* Unintern temporary. */
+	aspath_unintern(&attr.aspath);
+}
+
 /*
  * Update all type-2 (MACIP) local routes for this VNI - these should also
  * be scheduled for advertise to peers.
  */
 static int update_all_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 {
-	afi_t afi;
-	safi_t safi;
 	struct bgp_node *rn;
-	struct bgp_path_info *pi, *tmp_pi;
-	struct attr attr;
-	struct attr *attr_new;
-	uint32_t seq;
-	int add_l3_ecomm = 0;
-
-	afi = AFI_L2VPN;
-	safi = SAFI_EVPN;
+	struct bgp_path_info *tmp_pi;
 
 	/* Walk this VNI's route table and update local type-2 routes. For any
 	 * routes updated, update corresponding entry in the global table too.
@@ -1753,8 +2071,6 @@ static int update_all_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	for (rn = bgp_table_top(vpn->route_table); rn;
 	     rn = bgp_route_next(rn)) {
 		const struct prefix_evpn *evp = (const struct prefix_evpn *)bgp_node_get_prefix(rn);
-		struct bgp_node *rd_rn;
-		struct bgp_path_info *global_pi;
 
 		if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
 			continue;
@@ -1771,96 +2087,8 @@ static int update_all_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 		if (!tmp_pi)
 			continue;
 
-		/*
-		 * Build attribute per local route as the MAC mobility and
-		 * some other values could differ for different routes. The
-		 * attributes will be shared in the hash table.
-		 */
-		bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
-		attr.nexthop = vpn->originator_ip;
-		attr.mp_nexthop_global_in = vpn->originator_ip;
-		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
-		bgp_evpn_get_rmac_nexthop(vpn, evp, &attr,
-					  tmp_pi->extra->af_flags);
-
-		if (evpn_route_is_sticky(bgp, rn))
-			attr.sticky = 1;
-		else if (evpn_route_is_def_gw(bgp, rn)) {
-			attr.default_gw = 1;
-			if (is_evpn_prefix_ipaddr_v6(evp))
-				attr.router_flag = 1;
-		}
-
-		if (bgp_debug_zebra(NULL)) {
-			char buf[ETHER_ADDR_STRLEN];
-			char buf1[PREFIX_STRLEN];
-
-			zlog_debug("VRF %s vni %u evp %s RMAC %s nexthop %s",
-				   vpn->bgp_vrf ?
-				   vrf_id_to_name(vpn->bgp_vrf->vrf_id) : " ",
-				   vpn->vni,
-				   prefix2str(evp, buf1, sizeof(buf1)),
-				   prefix_mac2str(&attr.rmac, buf, sizeof(buf)),
-				   inet_ntoa(attr.mp_nexthop_global_in));
-		}
-
-		/* Add L3 VNI RTs and RMAC for non IPv6 link-local if
-		 * using L3 VNI for type-2 routes also.
-		 */
-		if ((is_evpn_prefix_ipaddr_v4(evp) ||
-		     !IN6_IS_ADDR_LINKLOCAL(
-			&evp->prefix.macip_addr.ip.ipaddr_v6)) &&
-		    CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS) &&
-		    bgpevpn_get_l3vni(vpn))
-			add_l3_ecomm = 1;
-
-		/* Set up extended community. */
-		build_evpn_route_extcomm(vpn, &attr, add_l3_ecomm);
-
-		seq = mac_mobility_seqnum(tmp_pi->attr);
-
-		/* Update the route entry. */
-		update_evpn_route_entry(bgp, vpn, afi, safi, rn, &attr, 0, &pi,
-					0, seq);
-
-		/* lock ri to prevent freeing in evpn_route_select_install */
-		bgp_path_info_lock(pi);
-
-		/* Perform route selection. Normally, the local route in the
-		 * VNI is expected to win and be the best route. However,
-		 * under peculiar situations (e.g., tunnel (next hop) IP change
-		 * that causes best selection to be based on next hop), a
-		 * remote route could win. If the local route is the best,
-		 * ensure it is updated in the global EVPN route table and
-		 * advertised to peers; otherwise, ensure it is evicted and
-		 * (re)install the remote route into zebra.
-		 */
-		evpn_route_select_install(bgp, vpn, rn);
-		if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
-			evpn_cleanup_local_non_best_route(bgp, vpn, rn, pi);
-			/* unlock pi */
-			bgp_path_info_unlock(pi);
-		} else {
-			attr_new = pi->attr;
-			/* unlock pi */
-			bgp_path_info_unlock(pi);
-
-			/* Update route in global routing table. */
-			rd_rn = bgp_global_evpn_node_get(bgp->rib[afi][safi],
-					afi, safi, evp, &vpn->prd);
-			assert(rd_rn);
-			update_evpn_route_entry(bgp, vpn, afi, safi, rd_rn,
-						attr_new, 0, &global_pi, 0,
-						mac_mobility_seqnum(attr_new));
-
-			/* Schedule for processing and unlock node. */
-			bgp_process(bgp, rd_rn, afi, safi);
-			bgp_unlock_node(rd_rn);
-		}
-
-		/* Unintern temporary. */
-		aspath_unintern(&attr.aspath);
-
+		bgp_evpn_update_type2_route_entry(bgp, vpn, rn, tmp_pi,
+			__func__);
 	}
 
 	return 0;
@@ -2240,6 +2468,7 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 {
 	struct bgp_node *rn;
 	struct bgp_path_info *pi;
+	struct bgp_path_info *local_pi;
 	struct attr *attr_new;
 	int ret;
 	struct prefix_evpn ad_evp;
@@ -2293,6 +2522,16 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* Perform route selection and update zebra, if required. */
 	ret = evpn_route_select_install(bgp, vpn, rn);
+
+	/* if the best path is a local path with a non-zero ES
+	 * sync info against the local path may need to be updated
+	 * when a remote path is added/updated (including changes
+	 * from sync-path to remote-path)
+	 */
+	local_pi = bgp_evpn_route_get_local_path(bgp, rn);
+	if (local_pi && bgp_evpn_attr_is_local_es(local_pi->attr))
+		bgp_evpn_update_type2_route_entry(bgp, vpn, rn, local_pi,
+			__func__);
 
 	bgp_unlock_node(rn);
 
@@ -2384,6 +2623,7 @@ static int uninstall_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 {
 	struct bgp_node *rn;
 	struct bgp_path_info *pi;
+	struct bgp_path_info *local_pi;
 	int ret;
 	struct prefix_evpn ad_evp;
 
@@ -2416,6 +2656,15 @@ static int uninstall_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* Perform route selection and update zebra, if required. */
 	ret = evpn_route_select_install(bgp, vpn, rn);
+
+	/* if the best path is a local path with a non-zero ES
+	 * sync info against the local path may need to be updated
+	 * when a remote path is deleted
+	 */
+	local_pi = bgp_evpn_route_get_local_path(bgp, rn);
+	if (local_pi && bgp_evpn_attr_is_local_es(local_pi->attr))
+		bgp_evpn_update_type2_route_entry(bgp, vpn, rn, local_pi,
+			__func__);
 
 	/* Unlock route node. */
 	bgp_unlock_node(rn);
@@ -3023,7 +3272,7 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 			 * imoort of an es route for esi2 into esi1
 			 */
 			es = bgp_evpn_es_find(&evp->prefix.es_addr.esi);
-			if (es && is_es_local(es))
+			if (es && bgp_evpn_is_es_local(es))
 				bgp_evpn_es_route_install_uninstall(
 					bgp, es, afi, safi, evp, pi, import);
 		}
@@ -3161,7 +3410,8 @@ static int update_advertise_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 		global_rn = bgp_global_evpn_node_get(bgp->rib[afi][safi],
 				afi, safi, &p, &vpn->prd);
 		update_evpn_route_entry(bgp, vpn, afi, safi, global_rn, attr,
-					1, &pi, 0, mac_mobility_seqnum(attr));
+				1, &pi, 0, mac_mobility_seqnum(attr),
+				false /* setup_sync */, NULL /* old_is_sync */);
 
 		/* Schedule for processing and unlock node. */
 		bgp_process(bgp, global_rn, afi, safi);
@@ -3196,8 +3446,9 @@ static int update_advertise_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 					     evp, &vpn->prd);
 		assert(global_rn);
 		update_evpn_route_entry(bgp, vpn, afi, safi, global_rn, attr, 1,
-					&global_pi, 0,
-					mac_mobility_seqnum(attr));
+				&global_pi, 0,
+				mac_mobility_seqnum(attr),
+				false /* setup_sync */, NULL /* old_is_sync */);
 
 		/* Schedule for processing and unlock node. */
 		bgp_process(bgp, global_rn, afi, safi);
@@ -3365,8 +3616,13 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 	p.prefix.route_type = BGP_EVPN_MAC_IP_ROUTE;
 
 	/* Copy Ethernet Seg Identifier */
-	if (attr)
+	if (attr) {
 		memcpy(&attr->esi, pfx, sizeof(esi_t));
+		if (bgp_evpn_is_esi_local(&attr->esi))
+			attr->es_flags |= ATTR_ES_IS_LOCAL;
+		else
+			attr->es_flags &= ~ATTR_ES_IS_LOCAL;
+	}
 	pfx += sizeof(esi_t);
 
 	/* Copy Ethernet Tag */
@@ -5474,7 +5730,8 @@ void bgp_evpn_init(struct bgp *bgp)
 	 * and freeze time (auto-recovery) is disabled.
 	 */
 	if (bgp->evpn_info) {
-		bgp->evpn_info->dup_addr_detect = true;
+		/* XXX - temporarily disable dad for evpn-mh testing */
+		bgp->evpn_info->dup_addr_detect = false;
 		bgp->evpn_info->dad_time = EVPN_DAD_DEFAULT_TIME;
 		bgp->evpn_info->dad_max_moves = EVPN_DAD_DEFAULT_MAX_MOVES;
 		bgp->evpn_info->dad_freeze = false;
