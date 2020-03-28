@@ -25,47 +25,8 @@
 """
 test_bgp_rr_ibgp_topo1.py: Testing IBGP with RR and no IGP
 
-
-    In a leaf/spine topology with only IBGP connections, where
-    the same network is being redistributed at multiple points
-    in the network ( say a redistribute connected at both leaf and spines )
-    we end up in a state where zebra gets very confused.
-
-    eva# show ip route
-    Codes: K - kernel route, C - connected, S - static, R - RIP,
-           O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
-           T - Table, v - VNC, V - VNC-Direct, A - Babel, D - SHARP,
-           F - PBR, f - OpenFabric,
-           > - selected route, * - FIB route, q - queued route, r - rejected route
-    
-    C>* 192.168.1.0/24 is directly connected, tor1-eth0, 00:00:30
-    C>* 192.168.2.0/24 is directly connected, tor1-eth1, 00:00:30
-    B   192.168.3.0/24 [200/0] via 192.168.4.2 inactive, 00:00:25
-                               via 192.168.6.2 inactive, 00:00:25
-    B>* 192.168.4.0/24 [200/0] via 192.168.2.3, tor1-eth1, 00:00:25
-      *                        via 192.168.6.2 inactive, 00:00:25
-    C>* 192.168.5.0/24 is directly connected, tor1-eth2, 00:00:30
-    B>* 192.168.6.0/24 [200/0] via 192.168.4.2 inactive, 00:00:25
-      *                        via 192.168.5.4, tor1-eth2, 00:00:25
-
-    Effectively we have ibgp routes recursing through ibgp routes
-    and there is no metric to discern whom to listen to.
-    
-    This draft:
-    https://tools.ietf.org/html/draft-ietf-idr-bgp-optimal-route-reflection-19
-    
-    appears to address this issue.  From looking at both cisco and arista
-    deployments they are handling this issue by having the route reflector
-    prefer the localy learned routes over from their clients.
-    
-    Add this topology, in a broken state, so that when we do fix this issue
-    it is a simple matter of touching this topology up and re-adding it
-    to the normal daily builds.  I also wanted to add this topology
-    since it is in a state of `doneness` and I wanted to move onto
-    my normal day job without having to remember about this test.
-    
-    This topology is not configured to be run as part of the normal
-    topotests.
+Ensure that a basic rr topology comes up and correctly passes
+routes around
 
 """
 
@@ -105,7 +66,6 @@ class NetworkTopo(Topo):
         tgen.add_router('tor1')
         tgen.add_router('tor2')
         tgen.add_router('spine1')
-        tgen.add_router('spine2')
 
         # First switch is for a dummy interface (for local network)
         # on tor1
@@ -128,15 +88,6 @@ class NetworkTopo(Topo):
         switch.add_link(tgen.gears['tor2'])
         switch.add_link(tgen.gears['spine1'])
 
-	# 192.168.5.0/24 - tor1 <-> spine2 connection
-        switch = tgen.add_switch('sw5')
-        switch.add_link(tgen.gears['tor1'])
-        switch.add_link(tgen.gears['spine2'])
-
-	# 192.168.6.0/24 - tor2 <-> spine2 connection
-        switch = tgen.add_switch('sw6')
-        switch.add_link(tgen.gears['tor2'])
-        switch.add_link(tgen.gears['spine2'])
 
 #####################################################
 ##
