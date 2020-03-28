@@ -195,7 +195,8 @@ uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr, uint8_t *sticky)
 /*
  * return true if attr contains router flag extended community
  */
-void bgp_attr_evpn_na_flag(struct attr *attr, uint8_t *router_flag)
+void bgp_attr_evpn_na_flag(struct attr *attr,
+		uint8_t *router_flag, bool *proxy)
 {
 	struct ecommunity *ecom;
 	int i;
@@ -217,10 +218,14 @@ void bgp_attr_evpn_na_flag(struct attr *attr, uint8_t *router_flag)
 		if (type == ECOMMUNITY_ENCODE_EVPN &&
 		    sub_type == ECOMMUNITY_EVPN_SUBTYPE_ND) {
 			val = *pnt++;
-			if (val & ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG) {
+
+			if (val & ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG)
 				*router_flag = 1;
-				break;
-			}
+
+			if (val & ECOMMUNITY_EVPN_SUBTYPE_PROXY_FLAG)
+				*proxy = true;
+
+			break;
 		}
 	}
 }

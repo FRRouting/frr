@@ -46,7 +46,8 @@ extern uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr,
 					     uint8_t *sticky);
 extern uint8_t bgp_attr_default_gw(struct attr *attr);
 
-extern void bgp_attr_evpn_na_flag(struct attr *attr, uint8_t *router_flag);
+extern void bgp_attr_evpn_na_flag(struct attr *attr, uint8_t *router_flag,
+		bool *proxy);
 
 extern bool is_zero_gw_ip(const union gw_addr *gw_ip, afi_t afi);
 

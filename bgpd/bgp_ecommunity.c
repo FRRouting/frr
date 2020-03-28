@@ -807,6 +807,11 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					    ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG))
 					strlcpy(encbuf, "ND:Router Flag",
 						sizeof(encbuf));
+				if (CHECK_FLAG(
+					    flags,
+					    ECOMMUNITY_EVPN_SUBTYPE_PROXY_FLAG))
+					strlcpy(encbuf, "ND:Proxy",
+						sizeof(encbuf));
 			} else if (*pnt
 				   == ECOMMUNITY_EVPN_SUBTYPE_ES_IMPORT_RT) {
 				struct ethaddr mac;
