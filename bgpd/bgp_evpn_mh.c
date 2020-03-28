@@ -1473,6 +1473,15 @@ static void bgp_evpn_local_es_do_del(struct bgp *bgp, struct bgp_evpn_es *es)
 	bgp_evpn_es_local_info_clear(es);
 }
 
+bool bgp_evpn_is_esi_local(esi_t *esi)
+{
+	struct bgp_evpn_es *es = NULL;
+
+	/* Lookup ESI hash - should exist. */
+	es = bgp_evpn_es_find(esi);
+	return es ? !!(es->flags & BGP_EVPNES_LOCAL) : false;
+}
+
 int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi)
 {
 	struct bgp_evpn_es *es = NULL;
