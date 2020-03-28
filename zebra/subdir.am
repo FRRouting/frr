@@ -12,6 +12,7 @@ vtysh_scan += \
 	zebra/rtadv.c \
 	zebra/zebra_gr.c \
 	zebra/zebra_mlag_vty.c \
+	zebra/zebra_evpn_mh.c \
 	zebra/zebra_mpls_vty.c \
 	zebra/zebra_ptm.c \
 	zebra/zebra_pw.c \
@@ -107,6 +108,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_vrf.c \
 	zebra/zebra_vty.c \
 	zebra/zebra_vxlan.c \
+	zebra/zebra_evpn_mh.c \
 	zebra/zserv.c \
 	# end
 
@@ -114,6 +116,7 @@ clippy_scan += \
 	zebra/debug.c \
 	zebra/interface.c \
 	zebra/rtadv.c \
+	zebra/zebra_evpn_mh.c \
 	zebra/zebra_mlag_vty.c \
 	zebra/zebra_routemap.c \
 	zebra/zebra_vty.c \
@@ -166,6 +169,7 @@ noinst_HEADERS += \
 	zebra/zebra_vrf.h \
 	zebra/zebra_vxlan.h \
 	zebra/zebra_vxlan_private.h \
+	zebra/zebra_evpn_mh.h \
 	zebra/zserv.h \
 	# end
 
