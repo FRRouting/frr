@@ -215,15 +215,53 @@ struct bgp_evpn_mh_info {
 };
 
 /****************************************************************************/
-static inline int is_es_local(struct bgp_evpn_es *es)
+static inline int bgp_evpn_is_es_local(struct bgp_evpn_es *es)
 {
 	return CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL) ? 1 : 0;
 }
 
 extern esi_t *zero_esi;
+static inline bool bgp_evpn_is_esi_valid(esi_t *esi)
+{
+	return !!memcmp(esi, zero_esi, sizeof(esi_t));
+}
+
 static inline esi_t *bgp_evpn_attr_get_esi(struct attr *attr)
 {
-	return (attr) ? &attr->esi : zero_esi;
+	return attr ? &attr->esi : zero_esi;
+}
+
+static inline bool bgp_evpn_attr_is_sync(struct attr *attr)
+{
+	return attr ? !!(attr->es_flags &
+		(ATTR_ES_PEER_PROXY | ATTR_ES_PEER_ACTIVE)) : false;
+}
+
+static inline uint32_t bgp_evpn_attr_get_sync_seq(struct attr *attr)
+{
+	return attr ?  attr->mm_sync_seqnum : 0;
+}
+
+static inline bool bgp_evpn_attr_is_active_on_peer(struct attr *attr)
+{
+	return attr ?
+		!!(attr->es_flags & ATTR_ES_PEER_ACTIVE) : false;
+}
+
+static inline bool bgp_evpn_attr_is_router_on_peer(struct attr *attr)
+{
+	return attr ?
+		!!(attr->es_flags & ATTR_ES_PEER_ROUTER) : false;
+}
+
+static inline bool bgp_evpn_attr_is_proxy(struct attr *attr)
+{
+	return attr ? !!(attr->es_flags & ATTR_ES_PROXY_ADVERT) : false;
+}
+
+static inline bool bgp_evpn_attr_is_local_es(struct attr *attr)
+{
+	return attr ? !!(attr->es_flags & ATTR_ES_IS_LOCAL) : false;
 }
 
 /****************************************************************************/
@@ -256,5 +294,6 @@ void bgp_evpn_es_evi_show_vni(struct vty *vty, vni_t vni,
 		bool uj, bool detail);
 void bgp_evpn_es_evi_show(struct vty *vty, bool uj, bool detail);
 struct bgp_evpn_es *bgp_evpn_es_find(const esi_t *esi);
+extern bool bgp_evpn_is_esi_local(esi_t *esi);
 
 #endif /* _FRR_BGP_EVPN_MH_H */
