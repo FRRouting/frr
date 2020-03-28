@@ -678,4 +678,6 @@ extern int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 			     enum bgp_show_type type, void *output_arg,
 			     bool use_json);
 extern int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi);
+extern int bgp_evpn_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
+			     struct bgp_path_info *exist, int *paths_eq);
 #endif /* _QUAGGA_BGP_ROUTE_H */
