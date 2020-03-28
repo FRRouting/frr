@@ -49,6 +49,8 @@ enum bgp_path_selection_reason {
 	bgp_path_selection_first,
 	bgp_path_selection_evpn_sticky_mac,
 	bgp_path_selection_evpn_seq,
+	bgp_path_selection_evpn_local_path,
+	bgp_path_selection_evpn_non_proxy,
 	bgp_path_selection_evpn_lower_ip,
 	bgp_path_selection_weight,
 	bgp_path_selection_local_pref,
