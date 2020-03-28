@@ -3243,6 +3243,16 @@ static int zclient_read(struct thread *thread)
 			(*zclient->local_es_del)(command, zclient, length,
 						 vrf_id);
 		break;
+	case ZEBRA_LOCAL_ES_EVI_ADD:
+		if (zclient->local_es_evi_add)
+			(*zclient->local_es_evi_add)(command, zclient, length,
+						 vrf_id);
+		break;
+	case ZEBRA_LOCAL_ES_EVI_DEL:
+		if (zclient->local_es_evi_del)
+			(*zclient->local_es_evi_del)(command, zclient, length,
+						 vrf_id);
+		break;
 	case ZEBRA_VNI_ADD:
 		if (zclient->local_vni_add)
 			(*zclient->local_vni_add)(command, zclient, length,

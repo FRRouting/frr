@@ -25,6 +25,7 @@
 #include "redistribute.h"
 #include "vrf.h"
 #include "hook.h"
+#include "bitfield.h"
 
 #include "zebra/zebra_l2.h"
 #include "zebra/zebra_nhg_private.h"
@@ -41,6 +42,8 @@ extern "C" {
 /* For interface shutdown configuration. */
 #define IF_ZEBRA_SHUTDOWN_OFF    0
 #define IF_ZEBRA_SHUTDOWN_ON     1
+
+#define IF_VLAN_BITMAP_MAX 4096
 
 #if defined(HAVE_RTADV)
 /* Router advertisement parameter.  From RFC4861, RFC6275 and RFC4191. */
@@ -271,8 +274,19 @@ typedef enum {
 
 struct irdp_interface;
 
+/* Ethernet segment info used for setting up EVPN multihoming */
+struct zebra_evpn_es;
+struct zebra_es_if_info {
+	struct ethaddr sysmac;
+	uint32_t lid; /* local-id; has to be unique per-ES-sysmac */
+	struct zebra_evpn_es *es; /* local ES */
+};
+
 /* `zebra' daemon local interface structure. */
 struct zebra_if {
+	/* back pointer to the interface */
+	struct interface *ifp;
+
 	/* Shutdown configuration. */
 	uint8_t shutdown;
 
@@ -346,6 +360,12 @@ struct zebra_if {
 
 	struct zebra_l2info_bondslave bondslave_info;
 
+	/* ethernet segment */
+	struct zebra_es_if_info es_info;
+
+	/* bitmap of vlans associated with this interface */
+	bitfield_t vlan_bitmap;
+
 	/* Link fields - for sub-interfaces. */
 	ifindex_t link_ifindex;
 	struct interface *link;
@@ -368,17 +388,6 @@ DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
 	     (vty, ifp))
 DECLARE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 	     (vty, ifp))
-
-static inline void zebra_if_set_ziftype(struct interface *ifp,
-					zebra_iftype_t zif_type,
-					zebra_slave_iftype_t zif_slave_type)
-{
-	struct zebra_if *zif;
-
-	zif = (struct zebra_if *)ifp->info;
-	zif->zif_type = zif_type;
-	zif->zif_slave_type = zif_slave_type;
-}
 
 #define IS_ZEBRA_IF_VRF(ifp)                                                   \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_VRF)

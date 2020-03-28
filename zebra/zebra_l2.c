@@ -43,6 +43,7 @@
 #include "zebra/rt_netlink.h"
 #include "zebra/zebra_l2.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_evpn_mh.h"
 
 /* definitions */
 
@@ -182,6 +183,7 @@ void zebra_l2_vxlanif_add_update(struct interface *ifp,
 
 	if (add) {
 		memcpy(&zif->l2info.vxl, vxlan_info, sizeof(*vxlan_info));
+		zebra_evpn_vl_vxl_ref(zif->l2info.vxl.access_vlan, zif);
 		zebra_vxlan_if_add(ifp);
 		return;
 	}
@@ -220,6 +222,9 @@ void zebra_l2_vxlanif_update_access_vlan(struct interface *ifp,
 		return;
 
 	zif->l2info.vxl.access_vlan = access_vlan;
+
+	zebra_evpn_vl_vxl_deref(old_access_vlan, zif);
+	zebra_evpn_vl_vxl_ref(zif->l2info.vxl.access_vlan, zif);
 	zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_VLAN_CHANGE);
 }
 
@@ -228,6 +233,12 @@ void zebra_l2_vxlanif_update_access_vlan(struct interface *ifp,
  */
 void zebra_l2_vxlanif_del(struct interface *ifp)
 {
+	struct zebra_if *zif;
+
+	zif = ifp->info;
+	assert(zif);
+
+	zebra_evpn_vl_vxl_deref(zif->l2info.vxl.access_vlan, zif);
 	zebra_vxlan_if_del(ifp);
 }
 
@@ -288,4 +299,44 @@ void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex)
 		zebra_l2_map_slave_to_bond(&zif->bondslave_info, ifp->vrf_id);
 	else if (old_bond_ifindex != IFINDEX_INTERNAL)
 		zebra_l2_unmap_slave_from_bond(&zif->bondslave_info);
+}
+
+void zebra_vlan_bitmap_compute(struct interface *ifp,
+		uint32_t vid_start, uint16_t vid_end)
+{
+	uint32_t vid;
+	struct zebra_if *zif;
+
+	zif = (struct zebra_if *)ifp->info;
+	assert(zif);
+
+	for (vid = vid_start; vid <= vid_end; ++vid)
+		bf_set_bit(zif->vlan_bitmap, vid);
+}
+
+void zebra_vlan_mbr_re_eval(struct interface *ifp, bitfield_t old_vlan_bitmap)
+{
+	uint32_t vid;
+	struct zebra_if *zif;
+
+	zif = (struct zebra_if *)ifp->info;
+	assert(zif);
+
+	if (!bf_cmp(zif->vlan_bitmap, old_vlan_bitmap))
+		/* no change */
+		return;
+
+	bf_for_each_set_bit(zif->vlan_bitmap, vid, IF_VLAN_BITMAP_MAX) {
+		/* if not already set create new reference */
+		if (!bf_test_index(old_vlan_bitmap, vid))
+			zebra_evpn_vl_mbr_ref(vid, zif);
+
+		/* also clear from the old vlan bitmap */
+		bf_release_index(old_vlan_bitmap, vid);
+	}
+
+	/* any bits remaining in the old vlan bitmap are stale references */
+	bf_for_each_set_bit(old_vlan_bitmap, vid, IF_VLAN_BITMAP_MAX) {
+		zebra_evpn_vl_mbr_deref(vid, zif);
+	}
 }

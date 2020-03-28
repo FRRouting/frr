@@ -101,6 +101,10 @@ extern void zebra_l2if_update_bridge_slave(struct interface *ifp,
 
 extern void zebra_l2if_update_bond_slave(struct interface *ifp,
 					 ifindex_t bond_ifindex);
+extern void zebra_vlan_bitmap_compute(struct interface *ifp,
+		uint32_t vid_start, uint16_t vid_end);
+extern void zebra_vlan_mbr_re_eval(struct interface *ifp,
+		bitfield_t vlan_bitmap);
 
 #ifdef __cplusplus
 }
