@@ -157,6 +157,10 @@ typedef enum {
 	ZEBRA_ADVERTISE_ALL_VNI,
 	ZEBRA_LOCAL_ES_ADD,
 	ZEBRA_LOCAL_ES_DEL,
+	ZEBRA_REMOTE_ES_VTEP_ADD,
+	ZEBRA_REMOTE_ES_VTEP_DEL,
+	ZEBRA_LOCAL_ES_EVI_ADD,
+	ZEBRA_LOCAL_ES_EVI_DEL,
 	ZEBRA_VNI_ADD,
 	ZEBRA_VNI_DEL,
 	ZEBRA_L3VNI_ADD,
@@ -321,6 +325,8 @@ struct zclient {
 	int (*fec_update)(int, struct zclient *, uint16_t);
 	int (*local_es_add)(ZAPI_CALLBACK_ARGS);
 	int (*local_es_del)(ZAPI_CALLBACK_ARGS);
+	int (*local_es_evi_add)(ZAPI_CALLBACK_ARGS);
+	int (*local_es_evi_del)(ZAPI_CALLBACK_ARGS);
 	int (*local_vni_add)(ZAPI_CALLBACK_ARGS);
 	int (*local_vni_del)(ZAPI_CALLBACK_ARGS);
 	int (*local_l3vni_add)(ZAPI_CALLBACK_ARGS);
