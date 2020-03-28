@@ -8738,9 +8738,67 @@ static const char *bgp_path_selection_reason2str(
 	return "Invalid (internal error)";
 }
 
-void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
-			  struct bgp_path_info *path, afi_t afi, safi_t safi,
-			  json_object *json_paths)
+static void route_vty_out_detail_es_info(struct vty *vty,
+			  struct attr *attr, json_object *json_path)
+{
+	char esi_buf[ESI_STR_LEN];
+	bool es_local = !!CHECK_FLAG(attr->es_flags, ATTR_ES_IS_LOCAL);
+	bool peer_router = !!CHECK_FLAG(attr->es_flags,
+			ATTR_ES_PEER_ROUTER);
+	bool peer_active = !!CHECK_FLAG(attr->es_flags,
+			ATTR_ES_PEER_ACTIVE);
+	bool peer_proxy = !!CHECK_FLAG(attr->es_flags,
+			ATTR_ES_PEER_PROXY);
+
+	esi_to_str(&attr->esi, esi_buf, sizeof(esi_buf));
+	if (json_path) {
+		json_object *json_es_info = NULL;
+
+		json_object_string_add(
+				json_path, "esi",
+				esi_buf);
+		if (es_local || bgp_evpn_attr_is_sync(attr)) {
+			json_es_info = json_object_new_object();
+			if (es_local)
+				json_object_boolean_true_add(
+						json_es_info, "localEs");
+			if (peer_active)
+				json_object_boolean_true_add(
+						json_es_info, "peerActive");
+			if (peer_proxy)
+				json_object_boolean_true_add(
+						json_es_info, "peerProxy");
+			if (peer_router)
+				json_object_boolean_true_add(
+						json_es_info, "peerRouter");
+			if (attr->mm_sync_seqnum)
+				json_object_int_add(
+						json_es_info, "peerSeq",
+						attr->mm_sync_seqnum);
+			json_object_object_add(
+					json_path, "es_info",
+					json_es_info);
+		}
+	} else {
+		if (bgp_evpn_attr_is_sync(attr))
+			vty_out(vty,
+					"      ESI %s %s peer-info: (%s%s%sMM: %d)\n",
+					esi_buf,
+					es_local ? "local-es":"",
+					peer_proxy ? "proxy " : "",
+					peer_active ? "active ":"",
+					peer_router ? "router ":"",
+					attr->mm_sync_seqnum);
+		else
+			vty_out(vty, "      ESI %s %s\n",
+					esi_buf,
+					es_local ? "local-es":"");
+	}
+}
+
+void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
+		struct bgp_dest *bn, struct bgp_path_info *path,
+		afi_t afi, safi_t safi, json_object *json_paths)
 {
 	char buf[INET6_ADDRSTRLEN];
 	char buf1[BUFSIZ];
@@ -9211,17 +9269,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	if (safi == SAFI_EVPN &&
-			memcmp(&attr->esi, zero_esi, sizeof(esi_t))) {
-		char esi_buf[ESI_STR_LEN];
-
-		esi_to_str(&attr->esi, esi_buf, sizeof(esi_buf));
-		if (json_paths)
-			json_object_string_add(
-					json_path, "esi",
-					esi_buf);
-		else
-			vty_out(vty, "      ESI %s\n",
-					esi_buf);
+			bgp_evpn_is_esi_valid(&attr->esi)) {
+		route_vty_out_detail_es_info(vty, attr, json_path);
 	}
 
 	/* Line 3 display Origin, Med, Locpref, Weight, Tag, valid,
