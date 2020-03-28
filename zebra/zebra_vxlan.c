@@ -2549,7 +2549,8 @@ static int zvni_neigh_install(zebra_vni_t *zvni, zebra_neigh_t *n)
 		flags |= DPLANE_NTF_ROUTER;
 	ZEBRA_NEIGH_SET_ACTIVE(n);
 
-	dplane_neigh_add(vlan_if, &n->ip, &n->emac, flags);
+	dplane_rem_neigh_add(vlan_if, &n->ip, &n->emac, flags,
+			false /*was_static*/);
 
 	return ret;
 }
@@ -2584,7 +2585,7 @@ static int zvni_neigh_uninstall(zebra_vni_t *zvni, zebra_neigh_t *n)
 	ZEBRA_NEIGH_SET_INACTIVE(n);
 	n->loc_seq = 0;
 
-	dplane_neigh_delete(vlan_if, &n->ip);
+	dplane_rem_neigh_delete(vlan_if, &n->ip);
 
 	return 0;
 }
@@ -2607,7 +2608,7 @@ static int zvni_neigh_probe(zebra_vni_t *zvni, zebra_neigh_t *n)
 	if (!vlan_if)
 		return -1;
 
-	dplane_neigh_update(vlan_if, &n->ip, &n->emac);
+	dplane_rem_neigh_update(vlan_if, &n->ip, &n->emac);
 
 	return 0;
 }
@@ -3833,9 +3834,9 @@ static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac)
 	else
 		vid = 0;
 
-	res = dplane_mac_add(zvni->vxlan_if, br_ifp, vid,
+	res = dplane_rem_mac_add(zvni->vxlan_if, br_ifp, vid,
 			     &mac->macaddr, mac->fwd_info.r_vtep_ip, sticky,
-				 nhg_id);
+				 nhg_id, false /*was_static*/);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
 	else
@@ -3884,7 +3885,7 @@ static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac)
 	ifp = zvni->vxlan_if;
 	vtep_ip = mac->fwd_info.r_vtep_ip;
 
-	res = dplane_mac_del(ifp, br_ifp, vid, &mac->macaddr, vtep_ip);
+	res = dplane_rem_mac_del(ifp, br_ifp, vid, &mac->macaddr, vtep_ip);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
 	else
@@ -4674,8 +4675,9 @@ static int zl3vni_rmac_install(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 	else
 		vid = 0;
 
-	res = dplane_mac_add(zl3vni->vxlan_if, br_ifp, vid,
-			     &zrmac->macaddr, zrmac->fwd_info.r_vtep_ip, 0, 0);
+	res = dplane_rem_mac_add(zl3vni->vxlan_if, br_ifp, vid,
+			     &zrmac->macaddr, zrmac->fwd_info.r_vtep_ip, 0, 0,
+				 false /*was_static*/);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
 	else
@@ -4724,7 +4726,7 @@ static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 	else
 		vid = 0;
 
-	res = dplane_mac_del(zl3vni->vxlan_if, br_ifp, vid,
+	res = dplane_rem_mac_del(zl3vni->vxlan_if, br_ifp, vid,
 			     &zrmac->macaddr, zrmac->fwd_info.r_vtep_ip);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
@@ -4903,7 +4905,8 @@ static int zl3vni_nh_install(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
 	if (n->flags & ZEBRA_NEIGH_ROUTER_FLAG)
 		flags |= DPLANE_NTF_ROUTER;
 
-	dplane_neigh_add(zl3vni->svi_if, &n->ip, &n->emac, flags);
+	dplane_rem_neigh_add(zl3vni->svi_if, &n->ip, &n->emac, flags,
+			false /*was_static*/);
 
 	return ret;
 }
@@ -4920,7 +4923,7 @@ static int zl3vni_nh_uninstall(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
 	if (!zl3vni->svi_if || !if_is_operative(zl3vni->svi_if))
 		return 0;
 
-	dplane_neigh_delete(zl3vni->svi_if, &n->ip);
+	dplane_rem_neigh_delete(zl3vni->svi_if, &n->ip);
 
 	return 0;
 }
