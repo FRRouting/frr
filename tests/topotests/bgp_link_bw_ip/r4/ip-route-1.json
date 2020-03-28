@@ -1,0 +1,21 @@
+{
+  "198.10.1.1\/32":[
+    {
+      "prefix":"198.10.1.1\/32",
+      "protocol":"bgp",
+      "selected":true,
+      "nexthops":[
+        {
+          "fib":true,
+          "ip":"11.1.4.2",
+          "weight":1
+        },
+        {
+          "fib":true,
+          "ip":"11.1.4.6",
+          "weight":1
+        }
+      ]
+    }
+  ]
+}
