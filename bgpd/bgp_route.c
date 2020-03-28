@@ -544,6 +544,11 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	uint32_t new_mm_seq;
 	uint32_t exist_mm_seq;
 	int nh_cmp;
+	esi_t *exist_esi;
+	esi_t *new_esi;
+	bool same_esi;
+	bool old_proxy;
+	bool new_proxy;
 
 	*paths_eq = 0;
 
@@ -621,6 +626,47 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			}
 		}
 
+		new_esi = bgp_evpn_attr_get_esi(newattr);
+		exist_esi = bgp_evpn_attr_get_esi(existattr);
+		if (bgp_evpn_is_esi_valid(new_esi) &&
+				!memcmp(new_esi, exist_esi, sizeof(esi_t))) {
+			same_esi = true;
+		} else {
+			same_esi = false;
+		}
+
+		/* If both paths have the same non-zero ES and
+		 * one path is local it wins.
+		 * PS: Note the local path wins even if the remote
+		 * has the higher MM seq. The local path's
+		 * MM seq will be fixed up to match the highest
+		 * rem seq, subsequently.
+		 */
+		if (same_esi) {
+			char esi_buf[ESI_STR_LEN];
+
+			if (bgp_evpn_is_path_local(bgp, new)) {
+				*reason = bgp_path_selection_evpn_local_path;
+				if (debug)
+					zlog_debug(
+						"%s: %s wins over %s as ES %s is same and local",
+						pfx_buf, new_buf, exist_buf,
+						esi_to_str(new_esi, esi_buf,
+						sizeof(esi_buf)));
+				return 1;
+			}
+			if (bgp_evpn_is_path_local(bgp, exist)) {
+				*reason = bgp_path_selection_evpn_local_path;
+				if (debug)
+					zlog_debug(
+						"%s: %s loses to %s as ES %s is same and local",
+						pfx_buf, new_buf, exist_buf,
+						esi_to_str(new_esi, esi_buf,
+						sizeof(esi_buf)));
+				return 0;
+			}
+		}
+
 		new_mm_seq = mac_mobility_seqnum(newattr);
 		exist_mm_seq = mac_mobility_seqnum(existattr);
 
@@ -641,6 +687,30 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 					"%s: %s loses to %s due to MM seq %u < %u",
 					pfx_buf, new_buf, exist_buf, new_mm_seq,
 					exist_mm_seq);
+			return 0;
+		}
+
+		/* if the sequence numbers and ESI are the same and one path
+		 * is non-proxy it wins (over proxy)
+		 */
+		new_proxy = bgp_evpn_attr_is_proxy(newattr);
+		old_proxy = bgp_evpn_attr_is_proxy(existattr);
+		if (same_esi && bgp_evpn_attr_is_local_es(newattr) &&
+				old_proxy != new_proxy) {
+			if (!new_proxy) {
+				*reason = bgp_path_selection_evpn_non_proxy;
+				if (debug)
+					zlog_debug(
+						"%s: %s wins over %s, same seq/es and non-proxy",
+						pfx_buf, new_buf, exist_buf);
+				return 1;
+			}
+
+			*reason = bgp_path_selection_evpn_non_proxy;
+			if (debug)
+				zlog_debug(
+					"%s: %s loses to %s, same seq/es and non-proxy",
+					pfx_buf, new_buf, exist_buf);
 			return 0;
 		}
 
@@ -1174,6 +1244,17 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			   pfx_buf, new_buf, exist_buf);
 
 	return 1;
+}
+
+
+int bgp_evpn_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
+			     struct bgp_path_info *exist, int *paths_eq)
+{
+	enum bgp_path_selection_reason reason;
+	char pfx_buf[PREFIX2STR_BUFFER];
+
+	return bgp_path_info_cmp(bgp, new, exist, paths_eq, NULL, 0, pfx_buf,
+				AFI_L2VPN, SAFI_EVPN, &reason);
 }
 
 /* Compare two bgp route entity.  Return -1 if new is preferred, 1 if exist
@@ -7893,7 +7974,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		vty_out(vty, "%s", bgp_origin_str[attr->origin]);
 
 	if (json_paths) {
-		if (memcmp(&attr->esi, zero_esi, sizeof(esi_t))) {
+		if (bgp_evpn_is_esi_valid(&attr->esi)) {
 			json_object_string_add(json_path, "esi",
 					esi_to_str(&attr->esi,
 					esi_buf, sizeof(esi_buf)));
@@ -7944,7 +8025,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		vty_out(vty, "\n");
 
 		if (safi == SAFI_EVPN) {
-			if (memcmp(&attr->esi, zero_esi, sizeof(esi_t))) {
+			if (bgp_evpn_is_esi_valid(&attr->esi)) {
 				vty_out(vty, "%*s", 20, " ");
 				vty_out(vty, "ESI:%s\n",
 						esi_to_str(&attr->esi,
@@ -8562,6 +8643,10 @@ static const char *bgp_path_selection_reason2str(
 		return "EVPN sequence number";
 	case bgp_path_selection_evpn_lower_ip:
 		return "EVPN lower IP";
+	case bgp_path_selection_evpn_local_path:
+		return "EVPN local ES path";
+	case bgp_path_selection_evpn_non_proxy:
+		return "EVPN non poxy";
 	case bgp_path_selection_weight:
 		return "Weight";
 	case bgp_path_selection_local_pref:
