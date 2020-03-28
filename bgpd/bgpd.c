@@ -4199,6 +4199,19 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 		}
 	}
 
+	/*
+	 * If the peer is a route server client let's not
+	 * muck with the nexthop on the way out the door
+	 */
+	if (flag & PEER_FLAG_RSERVER_CLIENT) {
+		if (set)
+			SET_FLAG(peer->af_flags[afi][safi],
+				 PEER_FLAG_NEXTHOP_UNCHANGED);
+		else
+			UNSET_FLAG(peer->af_flags[afi][safi],
+				   PEER_FLAG_NEXTHOP_UNCHANGED);
+	}
+
 	/* Inherit from peer-group or set/unset flags accordingly. */
 	if (peer_group_active(peer) && set == invert)
 		peer_af_flag_inherit(peer, afi, safi, flag);
