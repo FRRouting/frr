@@ -7560,6 +7560,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 	const char *nexthop_vrfname = VRF_DEFAULT_NAME;
 	char *nexthop_hostname =
 		bgp_nexthop_hostname(path->peer, path->nexthop);
+	char esi_buf[ESI_STR_LEN];
 
 	if (json_paths)
 		json_path = json_object_new_object();
@@ -7937,6 +7938,11 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		vty_out(vty, "%s", bgp_origin_str[attr->origin]);
 
 	if (json_paths) {
+		if (memcmp(&attr->esi, zero_esi, sizeof(esi_t))) {
+			json_object_string_add(json_path, "esi",
+					esi_to_str(&attr->esi,
+					esi_buf, sizeof(esi_buf)));
+		}
 		if (safi == SAFI_EVPN &&
 		    attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) {
 			json_ext_community = json_object_new_object();
@@ -7982,10 +7988,18 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 	} else {
 		vty_out(vty, "\n");
 
-		if (safi == SAFI_EVPN &&
-		    attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) {
-			vty_out(vty, "%*s", 20, " ");
-			vty_out(vty, "%s\n", attr->ecommunity->str);
+		if (safi == SAFI_EVPN) {
+			if (memcmp(&attr->esi, zero_esi, sizeof(esi_t))) {
+				vty_out(vty, "%*s", 20, " ");
+				vty_out(vty, "ESI:%s\n",
+						esi_to_str(&attr->esi,
+						esi_buf, sizeof(esi_buf)));
+			}
+			if (attr->flag &
+				ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) {
+				vty_out(vty, "%*s", 20, " ");
+				vty_out(vty, "%s\n", attr->ecommunity->str);
+			}
 		}
 
 #ifdef ENABLE_BGP_VNC
@@ -9109,6 +9123,20 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		if (json_paths)
 			json_object_boolean_true_add(json_nexthop_global,
 						     "used");
+	}
+
+	if (safi == SAFI_EVPN &&
+			memcmp(&attr->esi, zero_esi, sizeof(esi_t))) {
+		char esi_buf[ESI_STR_LEN];
+
+		esi_to_str(&attr->esi, esi_buf, sizeof(esi_buf));
+		if (json_paths)
+			json_object_string_add(
+					json_path, "esi",
+					esi_buf);
+		else
+			vty_out(vty, "      ESI %s\n",
+					esi_buf);
 	}
 
 	/* Line 3 display Origin, Med, Locpref, Weight, Tag, valid,
