@@ -116,6 +116,12 @@ DEFUN_NOSH (show_debugging_zebra,
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NH)
 		vty_out(vty, "  Zebra EVPN-MH nexthop debugging is on\n");
 
+	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+		vty_out(vty, "  Zebra EVPN-MH MAC debugging is on\n");
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
+		vty_out(vty, "  Zebra EVPN-MH Neigh debugging is on\n");
+
 	hook_call(zebra_debug_show_debugging, vty);
 	return CMD_SUCCESS;
 }
@@ -329,13 +335,15 @@ DEFPY (debug_zebra_mlag,
 
 DEFPY (debug_zebra_evpn_mh,
        debug_zebra_evpn_mh_cmd,
-       "[no$no] debug zebra evpn mh <es$es|nh$nh>",
+       "[no$no] debug zebra evpn mh <es$es|mac$mac|neigh$neigh|nh$nh>",
        NO_STR
        DEBUG_STR
        "Zebra configuration\n"
        "EVPN\n"
        "Multihoming\n"
        "Ethernet Segment Debugging\n"
+       "MAC Debugging\n"
+       "Neigh Debugging\n"
        "Nexthop Debugging\n")
 {
 	if (es) {
@@ -343,6 +351,23 @@ DEFPY (debug_zebra_evpn_mh,
 			UNSET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_ES);
 		else
 			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_ES);
+	}
+
+	if (mac) {
+		if (no)
+			UNSET_FLAG(zebra_debug_evpn_mh,
+					ZEBRA_DEBUG_EVPN_MH_MAC);
+		else
+			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_MAC);
+	}
+
+	if (neigh) {
+		if (no)
+			UNSET_FLAG(zebra_debug_evpn_mh,
+					ZEBRA_DEBUG_EVPN_MH_NEIGH);
+		else
+			SET_FLAG(zebra_debug_evpn_mh,
+					ZEBRA_DEBUG_EVPN_MH_NEIGH);
 	}
 
 	if (nh) {
@@ -594,6 +619,14 @@ static int config_write_debug(struct vty *vty)
 	}
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NH) {
 		vty_out(vty, "debug zebra evpn mh nh\n");
+		write++;
+	}
+	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
+		vty_out(vty, "debug zebra evpn mh mac\n");
+		write++;
+	}
+	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH) {
+		vty_out(vty, "debug zebra evpn mh neigh\n");
 		write++;
 	}
 	if (IS_ZEBRA_DEBUG_PW) {
