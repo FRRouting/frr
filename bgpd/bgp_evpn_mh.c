@@ -1754,7 +1754,7 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 void bgp_evpn_es_show(struct vty *vty, bool uj, bool detail)
 {
 	struct bgp_evpn_es *es;
-	json_object *json_array;
+	json_object *json_array = NULL;
 	json_object *json = NULL;
 
 	if (uj) {
