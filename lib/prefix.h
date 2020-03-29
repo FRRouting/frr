@@ -555,6 +555,8 @@ static inline int is_default_host_route(const struct prefix *p)
 }
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pEA"  (struct ethaddr *)
+
 #pragma FRR printfrr_ext "%pI4"  (struct in_addr *)
 #pragma FRR printfrr_ext "%pI4"  (in_addr_t *)
 

@@ -1317,6 +1317,16 @@ char *esi_to_str(const esi_t *esi, char *buf, int size)
 	return ptr;
 }
 
+printfrr_ext_autoreg_p("EA", printfrr_ea)
+static ssize_t printfrr_ea(char *buf, size_t bsz, const char *fmt,
+			   int prec, const void *ptr)
+{
+	const struct ethaddr *mac = ptr;
+
+	prefix_mac2str(mac, buf, bsz);
+	return 2;
+}
+
 printfrr_ext_autoreg_p("IA", printfrr_ia)
 static ssize_t printfrr_ia(char *buf, size_t bsz, const char *fmt,
 			   int prec, const void *ptr)
