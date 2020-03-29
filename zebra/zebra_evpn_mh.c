@@ -1085,6 +1085,10 @@ static struct zebra_evpn_es *zebra_evpn_es_new(esi_t *esi)
 	listset_app_node_mem(es->es_vtep_list);
 	es->es_vtep_list->cmp = zebra_evpn_es_vtep_cmp;
 
+	/* mac entries associated with the ES */
+	es->mac_list = list_new();
+	listset_app_node_mem(es->mac_list);
+
 	/* reserve a NHG  */
 	es->nhg_id = zebra_evpn_nhid_alloc(true);
 
@@ -1098,15 +1102,15 @@ static struct zebra_evpn_es *zebra_evpn_es_new(esi_t *esi)
  * This just frees appropriate memory, caller should have taken other
  * needed actions.
  */
-static void zebra_evpn_es_free(struct zebra_evpn_es *es)
+static struct zebra_evpn_es *zebra_evpn_es_free(struct zebra_evpn_es *es)
 {
 	/* If the ES has a local or remote reference it cannot be freed.
 	 * Free is also prevented if there are MAC entries referencing
 	 * it.
 	 */
 	if ((es->flags & (ZEBRA_EVPNES_LOCAL | ZEBRA_EVPNES_REMOTE)) ||
-			es->mac_cnt)
-		return;
+			listcount(es->mac_list))
+		return es;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("es %s free", es->esi_str);
@@ -1121,11 +1125,14 @@ static void zebra_evpn_es_free(struct zebra_evpn_es *es)
 	/* cleanup resources maintained against the ES */
 	list_delete(&es->es_evi_list);
 	list_delete(&es->es_vtep_list);
+	list_delete(&es->mac_list);
 
 	/* remove from the VNI-ESI rb tree */
 	RB_REMOVE(zebra_es_rb_head, &zmh_info->es_rb_tree, es);
 
 	XFREE(MTYPE_ZES, es);
+
+	return NULL;
 }
 
 /* Inform BGP about local ES addition */
@@ -1278,6 +1285,21 @@ static void zebra_evpn_es_setup_evis(struct zebra_evpn_es *es)
 	}
 }
 
+static void zebra_evpn_es_local_mac_update(struct zebra_evpn_es *es,
+		bool force_clear_static)
+{
+	zebra_mac_t *mac;
+	struct listnode	*node;
+
+	for (ALL_LIST_ELEMENTS_RO(es->mac_list, node, mac)) {
+		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE)) {
+			zebra_vxlan_sync_mac_dp_install(mac,
+					false /* set_inactive */,
+					force_clear_static, __func__);
+		}
+	}
+}
+
 static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 		struct zebra_if *zif)
 {
@@ -1314,6 +1336,12 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 	 * the zif
 	 */
 	zebra_evpn_es_setup_evis(es);
+	/* if there any local macs referring to the ES as dest we
+	 * need to set the static reference on them if the MAC is
+	 * synced from an ES peer
+	 */
+	zebra_evpn_es_local_mac_update(es,
+			false /* force_clear_static */);
 }
 
 static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es *es)
@@ -1324,6 +1352,12 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es *es)
 		return;
 
 	es->flags &= ~ZEBRA_EVPNES_LOCAL;
+	/* if there any local macs referring to the ES as dest we
+	 * need to clear the static reference on them
+	 */
+	zebra_evpn_es_local_mac_update(es,
+			true /* force_clear_static */);
+
 	/* clear the es from the parent interface */
 	zif = es->zif;
 	zif->es_info.es = NULL;
@@ -1539,11 +1573,11 @@ void zebra_evpn_es_mac_deref_entry(zebra_mac_t *mac)
 	struct zebra_evpn_es *es = mac->es;
 
 	mac->es = NULL;
-	if (!es || !es->mac_cnt)
+	if (!es)
 		return;
 
-	--es->mac_cnt;
-	if (!es->mac_cnt)
+	list_delete_node(es->mac_list, &mac->es_listnode);
+	if (!listcount(es->mac_list))
 		zebra_evpn_es_free(es);
 }
 
@@ -1562,11 +1596,13 @@ bool zebra_evpn_es_mac_ref_entry(zebra_mac_t *mac, struct zebra_evpn_es *es)
 		return true;
 
 	mac->es = es;
-	++es->mac_cnt;
+	listnode_init(&mac->es_listnode, mac);
+	listnode_add(es->mac_list, &mac->es_listnode);
+
 	return true;
 }
 
-void zebra_evpn_es_mac_ref(zebra_mac_t *mac, esi_t *esi)
+bool zebra_evpn_es_mac_ref(zebra_mac_t *mac, esi_t *esi)
 {
 	struct zebra_evpn_es *es;
 
@@ -1577,7 +1613,7 @@ void zebra_evpn_es_mac_ref(zebra_mac_t *mac, esi_t *esi)
 			zlog_debug("auto es %s add on mac ref", es->esi_str);
 	}
 
-	zebra_evpn_es_mac_ref_entry(mac, es);
+	return zebra_evpn_es_mac_ref_entry(mac, es);
 }
 
 /* Inform BGP about local ES-EVI add or del */
@@ -1769,7 +1805,7 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 				(es->flags & ZEBRA_EVPNES_READY_FOR_BGP) ?
 				"yes" : "no");
 		vty_out(vty, " VNI Count: %d\n", listcount(es->es_evi_list));
-		vty_out(vty, " MAC Count: %d\n", es->mac_cnt);
+		vty_out(vty, " MAC Count: %d\n", listcount(es->mac_list));
 		vty_out(vty, " Nexthop group: 0x%x\n", es->nhg_id);
 		vty_out(vty, " VTEPs:\n");
 		for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, zvtep))
@@ -2037,6 +2073,39 @@ static void zebra_evpn_es_get_one_base_vni(void)
 }
 
 /*****************************************************************************/
+void zebra_evpn_mh_config_write(struct vty *vty)
+{
+	if (zmh_info->mac_hold_time != EVPN_MH_MAC_HOLD_TIME_DEF)
+		vty_out(vty, "evpn mh mac-holdtime %ld\n",
+			zmh_info->mac_hold_time);
+
+	if (zmh_info->neigh_hold_time != EVPN_MH_NEIGH_HOLD_TIME_DEF)
+		vty_out(vty, "evpn mh neigh-holdtime %ld\n",
+			zmh_info->neigh_hold_time);
+}
+
+int zebra_evpn_mh_neigh_holdtime_update(struct vty *vty,
+		uint32_t duration, bool set_default)
+{
+	if (set_default)
+		zmh_info->neigh_hold_time = EVPN_MH_NEIGH_HOLD_TIME_DEF;
+
+	zmh_info->neigh_hold_time = duration;
+
+	return 0;
+}
+
+int zebra_evpn_mh_mac_holdtime_update(struct vty *vty,
+		uint32_t duration, bool set_default)
+{
+	if (set_default)
+		duration = EVPN_MH_MAC_HOLD_TIME_DEF;
+
+	zmh_info->mac_hold_time = duration;
+
+	return 0;
+}
+
 void zebra_evpn_interface_init(void)
 {
 	install_element(INTERFACE_NODE, &zebra_evpn_es_id_cmd);
@@ -2047,6 +2116,8 @@ void zebra_evpn_mh_init(void)
 {
 	zrouter.mh_info = XCALLOC(MTYPE_ZMH_INFO, sizeof(*zrouter.mh_info));
 
+	zmh_info->mac_hold_time = EVPN_MH_MAC_HOLD_TIME_DEF;
+	zmh_info->neigh_hold_time = EVPN_MH_NEIGH_HOLD_TIME_DEF;
 	/* setup ES tables */
 	RB_INIT(zebra_es_rb_head, &zmh_info->es_rb_tree);
 	zmh_info->local_es_list = list_new();

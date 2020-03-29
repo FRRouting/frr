@@ -2733,7 +2733,7 @@ static ssize_t netlink_neigh_update_msg_encode(
 			return 0;
 	}
 	if (nfy) {
-		if (!nl_attr_put32(&req->n, datalen, NDA_NOTIFY,
+		if (!nl_attr_put(&req->n, datalen, NDA_NOTIFY,
 				&nfy_flags, sizeof(nfy_flags)))
 			return 0;
 	}
