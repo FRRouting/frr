@@ -22,6 +22,7 @@
 #include "log.h"
 #include "lib_errors.h"
 #include "northbound.h"
+#include "printfrr.h"
 
 static const char *yang_get_default_value(const char *xpath)
 {
@@ -443,7 +444,7 @@ struct yang_data *yang_data_new_int64(const char *xpath, int64_t value)
 {
 	char value_str[BUFSIZ];
 
-	snprintf(value_str, sizeof(value_str), "%" PRId64, value);
+	snprintfrr(value_str, sizeof(value_str), "%" PRId64, value);
 	return yang_data_new(xpath, value_str);
 }
 
@@ -651,7 +652,7 @@ struct yang_data *yang_data_new_uint64(const char *xpath, uint64_t value)
 {
 	char value_str[BUFSIZ];
 
-	snprintf(value_str, sizeof(value_str), "%" PRIu64, value);
+	snprintfrr(value_str, sizeof(value_str), "%" PRIu64, value);
 	return yang_data_new(xpath, value_str);
 }
 

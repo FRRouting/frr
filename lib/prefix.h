@@ -544,6 +544,22 @@ static inline int is_default_host_route(const struct prefix *p)
 	return 0;
 }
 
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pI4"  (struct in_addr *)
+#pragma FRR printfrr_ext "%pI4"  (in_addr_t *)
+
+#pragma FRR printfrr_ext "%pI6"  (struct in6_addr *)
+
+#pragma FRR printfrr_ext "%pFX"  (struct prefix *)
+#pragma FRR printfrr_ext "%pFX"  (struct prefix_ipv4 *)
+#pragma FRR printfrr_ext "%pFX"  (struct prefix_ipv6 *)
+#pragma FRR printfrr_ext "%pFX"  (struct prefix_eth *)
+#pragma FRR printfrr_ext "%pFX"  (struct prefix_evpn *)
+#pragma FRR printfrr_ext "%pFX"  (struct prefix_fs *)
+
+#pragma FRR printfrr_ext "%pSG4" (struct prefix_sg *)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

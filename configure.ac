@@ -182,13 +182,13 @@ dnl - specifically, options to control warnings
 
 AC_USE_SYSTEM_EXTENSIONS
 AC_DEFUN([AC_C_FLAG], [{
-    m4_pushdef([cachename],[m4_translit([frr_cv_$1],[ =-+],[____])])
+    m4_pushdef([cachename],[m4_translit([frr_cv_$1],[ =-+/{}$],[________])])
     AC_CACHE_CHECK([[whether $CC supports $1]], cachename, [
 	AC_LANG_PUSH([C])
 	ac_c_flag_save="$CFLAGS"
 	CFLAGS="$CFLAGS $1"
 	AC_COMPILE_IFELSE(
-		[AC_LANG_PROGRAM([[]])],
+		[AC_LANG_PROGRAM([[$4]])],
 		[
 			cachename=yes
 		], [
@@ -353,6 +353,44 @@ if test "$enable_undefined_sanitizer" = "yes"; then
   ])
 fi
 AC_SUBST([SAN_FLAGS])
+
+dnl frr-format.so
+if test "$with_frr_format" != "no" -a "$with_frr_format" != "yes" -a -n "$with_frr_format"; then
+  AC_C_FLAG([-fplugin=${with_frr_format}], [
+    AC_MSG_ERROR([specified frr-format plugin ($with_frr_format) does not work])
+  ],,[
+#ifndef _FRR_ATTRIBUTE_PRINTFRR
+#error plugin not loaded
+#endif
+#if _FRR_ATTRIBUTE_PRINTFRR < 0x10000
+#error plugin too old
+#endif
+  ])
+elif test "$with_frr_format" = "no"; then
+  : #nothing
+else
+  AC_C_FLAG([-fplugin=tools/gcc-plugins/frr-format.so],[
+    AC_C_FLAG([-fplugin=frr-format],[
+      if test "$with_frr_format" = "yes"; then
+        AC_MSG_ERROR([frr-format plugin requested but not found])
+      fi
+    ],,[
+#ifndef _FRR_ATTRIBUTE_PRINTFRR
+#error plugin not loaded
+#endif
+#if _FRR_ATTRIBUTE_PRINTFRR < 0x10000
+#error plugin too old
+#endif
+    ])
+  ],,[
+#ifndef _FRR_ATTRIBUTE_PRINTFRR
+#error plugin not loaded
+#endif
+#if _FRR_ATTRIBUTE_PRINTFRR < 0x10000
+#error plugin too old
+#endif
+  ])
+fi
 
 dnl ----------
 dnl Essentials
@@ -600,6 +638,8 @@ AC_ARG_ENABLE([undefined-sanitizer],
   AS_HELP_STRING([--undefined-sanitizer], [enable UndefinedBehaviorSanitizer support for detecting undefined behavior]))
 AC_ARG_WITH([crypto],
   AS_HELP_STRING([--with-crypto=<internal|openssl>], [choose between different implementations of cryptographic functions(default value is --with-crypto=internal)]))
+AC_ARG_WITH([frr-format],
+  AS_HELP_STRING([--with-frr-format[=<.../frr-format.so>]], [use frr-format GCC plugin]))
 
 #if openssl, else use the internal
 AS_IF([test "$with_crypto" = "openssl"], [

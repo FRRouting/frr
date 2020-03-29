@@ -1,0 +1,9 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: FRR
+Upstream-Contact: maintainers@frrouting.org, security@frrouting.org
+Source: https://www.frrouting.org/
+
+Files: *
+Copyright:
+  2019-2020 by David Lamparter
+  Code derived from GCC, please refer to gcc package copyright.

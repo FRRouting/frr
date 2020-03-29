@@ -1,0 +1,5 @@
+gcc-frr-plugin (9.3.0d8+equi2) unstable; urgency=medium
+
+  * package created (+equi1 used during development, never released.)
+
+ -- David Lamparter <equinox-debian@diac24.net>  Sun, 29 Mar 2020 08:32:24 +0200

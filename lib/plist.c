@@ -778,7 +778,7 @@ static void __attribute__((unused)) prefix_list_print(struct prefix_list *plist)
 
 			p = &pentry->prefix;
 
-			printf("  seq %" PRId64 " %s %s/%d", pentry->seq,
+			printf("  seq %lld %s %s/%d", (long long)pentry->seq,
 			       prefix_list_type_str(pentry),
 			       inet_ntop(p->family, p->u.val, buf, BUFSIZ),
 			       p->prefixlen);

@@ -471,7 +471,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	if (pnt != lim) {
 		flog_err(
 			EC_BGP_UPDATE_RCV,
-			"%s [Error] Update packet error / L-U (%zu data remaining after parsing)",
+			"%s [Error] Update packet error / L-U (%td data remaining after parsing)",
 			peer->host, lim - pnt);
 		return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 	}
