@@ -1,6 +1,8 @@
 /* some of this stuff doesn't seem to parse properly in coccinelle
  */
 
+#define OPTIMIZE __attribute__((optimize))
+
 #define DEFUN(funcname, cmdname, str, help)                                    \
 	static int funcname(const struct cmd_element *self, struct vty *vty,   \
 			    int argc, struct cmd_token *argv[])
@@ -121,4 +123,34 @@
 	lsa;                                                                   \
 	lsa = ospf6_lsdb_next(iterend, lsa)
 
+#define ALL_NEXTHOPS(head, nhop)					\
+	(nhop) = (head.nexthop);					\
+	(nhop);								\
+	(nhop) = nexthop_next(nhop)
+
+#define ALL_NEXTHOPS_PTR(head, nhop)					\
+	(nhop) = ((head)->nexthop);					\
+	(nhop);								\
+	(nhop) = nexthop_next(nhop)
+
 #define QOBJ_FIELDS struct qobj_node qobj_node;
+
+#define STAILQ_HEAD(name, type)                                                \
+	struct name {                                                          \
+		struct type *stqh_first; /* first element */                   \
+		struct type **stqh_last; /* addr of last next element */       \
+	}
+#define STAILQ_ENTRY(type)                                                     \
+	struct {                                                               \
+		struct type *stqe_next; /* next element */                     \
+	}
+#define TAILQ_HEAD(name, type)                                                 \
+	struct name {                                                          \
+		struct type *tqh_first; /* first element */                    \
+		struct type **tqh_last; /* addr of last next element */        \
+	}
+#define TAILQ_ENTRY(type)                                                      \
+	struct {                                                               \
+		struct type *tqe_next;  /* next element */                     \
+		struct type **tqe_prev; /* address of previous next element */ \
+	}
