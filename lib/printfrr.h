@@ -30,8 +30,7 @@ struct fbuf {
 	size_t len;
 };
 
-#define at(a, b) \
-	PRINTFRR(a, b)
+#define at(a, b) PRINTFRR(a, b)
 #define atn(a, b) \
 	at(a, b) __attribute__((nonnull(1) _RET_NONNULL))
 #define atm(a, b) \
@@ -72,6 +71,16 @@ char *vasnprintfrr(struct memtype *mt, char *out, size_t sz,
 		   const char *fmt, va_list) atn(4, 0);
 char  *asnprintfrr(struct memtype *mt, char *out, size_t sz,
 		   const char *fmt, ...)     atn(4, 5);
+
+#define printfrr(fmt, ...)                                                     \
+	do {                                                                   \
+		char buf[256], *out;                                           \
+		out = asnprintfrr(MTYPE_TMP, buf, sizeof(buf), fmt,            \
+				  ##__VA_ARGS__);                              \
+		fputs(out, stdout);                                            \
+		if (out != buf)                                                \
+			XFREE(MTYPE_TMP, out);                                 \
+	} while (0)
 
 #undef at
 #undef atm
