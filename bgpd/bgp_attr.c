@@ -1579,8 +1579,13 @@ bgp_attr_local_pref(struct bgp_attr_parser_args *args)
 	 * malformed if its length is not equal to 4. If malformed, the
 	 * UPDATE message SHALL be handled using the approach of "treat-as-
 	 * withdraw".
+	 *
+	 * This could be allowed for external neighbor only
+	 * if enabled `neighbor ebgp-allow-local-preference`.
 	 */
-	if (peer->sort == BGP_PEER_IBGP && length != 4) {
+	if ((peer->sort == BGP_PEER_IBGP
+	     || CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_ALLOW_LOCAL_PREF))
+	    && length != 4) {
 		flog_err(EC_BGP_ATTR_LEN,
 			 "LOCAL_PREF attribute length isn't 4 [%u]", length);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -1588,9 +1593,14 @@ bgp_attr_local_pref(struct bgp_attr_parser_args *args)
 	}
 
 	/* If it is contained in an UPDATE message that is received from an
-	   external peer, then this attribute MUST be ignored by the
-	   receiving speaker. */
-	if (peer->sort == BGP_PEER_EBGP) {
+	 * external peer, then this attribute MUST be ignored by the
+	 * receiving speaker.
+	 *
+	 * This could be allowed for external neighbor only
+	 * if enabled `neighbor ebgp-allow-local-preference`.
+	 */
+	if (peer->sort == BGP_PEER_EBGP
+	    && !CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_ALLOW_LOCAL_PREF)) {
 		stream_forward_getp(peer->curr, length);
 		return BGP_ATTR_PARSE_PROCEED;
 	}
@@ -3732,8 +3742,12 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 						   : attr->med));
 	}
 
-	/* Local preference. */
-	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED) {
+	/* Local preference.
+	 * This could be allowed for external neighbor only
+	 * if enabled `neighbor ebgp-allow-local-preference`.
+	 */
+	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED
+	    || CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_ALLOW_LOCAL_PREF)) {
 		stream_putc(s, BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_LOCAL_PREF);
 		stream_putc(s, 4);

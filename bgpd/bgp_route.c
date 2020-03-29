@@ -1778,8 +1778,12 @@ bool subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 	/* For modify attribute, copy it to temporary structure. */
 	*attr = *piattr;
 
-	/* If local-preference is not set. */
-	if ((peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED)
+	/* If local-preference is not set.
+	 * This could be allowed for external neighbor only
+	 * if enabled `neighbor ebgp-allow-local-preference`.
+	 */
+	if ((peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED
+	     || CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_ALLOW_LOCAL_PREF))
 	    && (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))) {
 		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
 		attr->local_pref = bgp->default_local_pref;

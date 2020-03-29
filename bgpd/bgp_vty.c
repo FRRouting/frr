@@ -6788,6 +6788,60 @@ ALIAS_HIDDEN(
 	"Restart interval in minutes\n"
 	"Only give warning message when limit is exceeded\n")
 
+/* Allow local-preference for eBGP. */
+DEFUN(neighbor_local_preference_ebgp, neighbor_local_preference_ebgp_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD> ebgp-allow-local-preference",
+      NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Allow using LOCAL_PREF for eBGP sessions\n")
+{
+	int idx_peer = 1;
+	struct peer *peer;
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct listnode *node, *nnode;
+
+	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	peer_flag_set(peer, PEER_FLAG_EBGP_ALLOW_LOCAL_PREF);
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
+			peer->last_reset = PEER_DOWN_EBGP_ALLOW_LOCAL_PREF;
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_neighbor_local_preference_ebgp, no_neighbor_local_preference_ebgp_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> ebgp-allow-local-preference",
+      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Allow using LOCAL_PREF for eBGP sessions\n")
+{
+	int idx_peer = 2;
+	struct peer *peer;
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct listnode *node, *nnode;
+
+	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	peer_flag_unset(peer, PEER_FLAG_EBGP_ALLOW_LOCAL_PREF);
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
+			peer->last_reset = PEER_DOWN_EBGP_ALLOW_LOCAL_PREF;
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+		}
+	}
+
+	return CMD_SUCCESS;
+}
 
 /* "neighbor allowas-in" */
 DEFUN (neighbor_allowas_in,
@@ -14544,6 +14598,11 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, " neighbor %s sender-as-path-loop-detection\n",
 			addr);
 
+	/* Allow external neighbor using LOCAL_PREF. */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_ALLOW_LOCAL_PREF))
+		vty_out(vty, " neighbor %s ebgp-allow-local-preference\n",
+			addr);
+
 	if (!CHECK_FLAG(peer->peer_gr_new_status_flag,
 			PEER_GRACEFUL_RESTART_NEW_STATE_INHERIT)) {
 
@@ -16482,6 +16541,10 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &no_neighbor_allowas_in_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_allowas_in_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_allowas_in_cmd);
+
+	/* "neighbor ebgp-allow-local-preference" */
+	install_element(BGP_NODE, &neighbor_local_preference_ebgp_cmd);
+	install_element(BGP_NODE, &no_neighbor_local_preference_ebgp_cmd);
 
 	/* address-family commands. */
 	install_element(BGP_NODE, &address_family_ipv4_safi_cmd);
