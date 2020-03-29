@@ -124,6 +124,10 @@ static inline bool ipaddr_isset(struct ipaddr *ip)
 	return (0 != memcmp(&a, ip, sizeof(struct ipaddr)));
 }
 
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pIA"  (struct ipaddr *)
+#endif
+
 #ifdef __cplusplus
 }
 #endif
