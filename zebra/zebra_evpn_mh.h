@@ -69,8 +69,8 @@ struct zebra_evpn_es {
 	/* [!EVPNES_LOCAL] List of remote VTEPs (zebra_evpn_es_vtep) */
 	struct list *es_vtep_list;
 
-	/* zebra_mac_t entries using this ES as destination */
-	uint32_t mac_cnt;
+	/* list of zebra_mac entries using this ES as destination */
+	struct list *mac_list;
 
 	/* Nexthop group id */
 	uint32_t nhg_id;
@@ -171,6 +171,12 @@ struct zebra_evpn_mh_info {
  */
 #define EVPN_NH_ID_TYPE_BIT  (1 << EVPN_NH_ID_TYPE_POS)
 #define EVPN_NHG_ID_TYPE_BIT (2 << EVPN_NH_ID_TYPE_POS)
+
+	/* XXX - re-visit the default hold timer value */
+#define EVPN_MH_MAC_HOLD_TIME_DEF (18 * 60)
+	long mac_hold_time;
+#define EVPN_MH_NEIGH_HOLD_TIME_DEF (18 * 60)
+	long neigh_hold_time;
 };
 
 static inline bool zebra_evpn_mac_is_es_local(zebra_mac_t *mac)
@@ -215,7 +221,7 @@ extern void zebra_evpn_es_evi_show_vni(struct vty *vty, bool uj,
 extern void zebra_evpn_es_mac_deref_entry(zebra_mac_t *mac);
 extern bool zebra_evpn_es_mac_ref_entry(zebra_mac_t *mac,
 		struct zebra_evpn_es *es);
-extern void zebra_evpn_es_mac_ref(zebra_mac_t *mac, esi_t *esi);
+extern bool zebra_evpn_es_mac_ref(zebra_mac_t *mac, esi_t *esi);
 extern struct zebra_evpn_es *zebra_evpn_es_find(esi_t *esi);
 extern void zebra_evpn_interface_init(void);
 extern int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp);
@@ -224,5 +230,10 @@ extern void zebra_evpn_acc_vl_show_detail(struct vty *vty, bool uj);
 extern void zebra_evpn_acc_vl_show_vid(struct vty *vty, bool uj, vlanid_t vid);
 extern void zebra_evpn_if_es_print(struct vty *vty, struct zebra_if *zif);
 extern void zebra_evpn_es_cleanup(void);
+extern int zebra_evpn_mh_mac_holdtime_update(struct vty *vty,
+		uint32_t duration, bool set_default);
+void zebra_evpn_mh_config_write(struct vty *vty);
+int zebra_evpn_mh_neigh_holdtime_update(struct vty *vty,
+		uint32_t duration, bool set_default);
 
 #endif /* _ZEBRA_EVPN_MH_H */
