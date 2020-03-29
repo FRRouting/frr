@@ -315,6 +315,23 @@ struct zebra_mac_t_ {
 #define ZEBRA_MAC_REMOTE_DEF_GW	0x40
 #define ZEBRA_MAC_DUPLICATE 0x80
 #define ZEBRA_MAC_FPM_SENT  0x100 /* whether or not this entry was sent. */
+/* MAC is locally active on an ethernet segment peer */
+#define ZEBRA_MAC_ES_PEER_ACTIVE 0x200
+/* MAC has been proxy-advertised by peers. This means we need to
+ * keep the entry for forwarding but cannot advertise it
+ */
+#define ZEBRA_MAC_ES_PEER_PROXY 0x400
+/* We have not been able to independently establish that the host is
+ * local connected but one or more ES peers claims it is.
+ * We will maintain the entry for forwarding purposes and continue
+ * to advertise it as locally attached but with a "proxy" flag
+ */
+#define ZEBRA_MAC_LOCAL_INACTIVE 0x800
+
+#define ZEBRA_MAC_ALL_LOCAL_FLAGS (ZEBRA_MAC_LOCAL |\
+		ZEBRA_MAC_LOCAL_INACTIVE)
+#define ZEBRA_MAC_ALL_PEER_FLAGS (ZEBRA_MAC_ES_PEER_PROXY |\
+		ZEBRA_MAC_ES_PEER_ACTIVE)
 
 	/* back pointer to zvni */
 	zebra_vni_t     *zvni;
@@ -331,6 +348,8 @@ struct zebra_mac_t_ {
 
 	/* Local or remote ES */
 	struct zebra_evpn_es *es;
+	/* memory used to link the mac to the es */
+	struct listnode es_listnode;
 
 	/* Mobility sequence numbers associated with this entry. */
 	uint32_t rem_seq;
@@ -350,6 +369,14 @@ struct zebra_mac_t_ {
 	struct timeval detect_start_time;
 
 	time_t dad_dup_detect_time;
+
+	/* used for ageing out the PEER_ACTIVE flag */
+	struct thread *hold_timer;
+
+	/* number of neigh entries (using this mac) that have
+	 * ZEBRA_MAC_ES_PEER_ACTIVE or ZEBRA_NEIGH_ES_PEER_PROXY
+	 */
+	uint32_t sync_neigh_cnt;
 };
 
 /*
@@ -379,6 +406,17 @@ struct mac_walk_ctx {
 struct rmac_walk_ctx {
 	struct vty *vty;
 	struct json_object *json;
+};
+
+/* temporary datastruct to pass info between the mac-update and
+ * neigh-update while handling mac-ip routes
+ */
+struct sync_mac_ip_ctx {
+	bool ignore_macip;
+	bool mac_created;
+	bool mac_inactive;
+	bool mac_dp_update_deferred;
+	zebra_mac_t *mac;
 };
 
 #define IS_ZEBRA_NEIGH_ACTIVE(n) (n->state == ZEBRA_NEIGH_ACTIVE)
@@ -423,6 +461,18 @@ struct zebra_neigh_t_ {
 #define ZEBRA_NEIGH_ROUTER_FLAG 0x10
 #define ZEBRA_NEIGH_DUPLICATE 0x20
 #define ZEBRA_NEIGH_SVI_IP 0x40
+/* rxed from an ES peer */
+#define ZEBRA_NEIGH_ES_PEER_ACTIVE 0x80
+/* rxed from an ES peer as a proxy advertisement */
+#define ZEBRA_NEIGH_ES_PEER_PROXY 0x100
+/* We have not been able to independently establish that the host
+ * is local connected
+ */
+#define ZEBRA_NEIGH_LOCAL_INACTIVE 0x200
+#define ZEBRA_NEIGH_ALL_LOCAL_FLAGS (ZEBRA_NEIGH_LOCAL |\
+		ZEBRA_NEIGH_LOCAL_INACTIVE)
+#define ZEBRA_NEIGH_ALL_PEER_FLAGS (ZEBRA_NEIGH_ES_PEER_PROXY |\
+		ZEBRA_NEIGH_ES_PEER_ACTIVE)
 
 	enum zebra_neigh_state state;
 
@@ -450,6 +500,9 @@ struct zebra_neigh_t_ {
 	struct timeval detect_start_time;
 
 	time_t dad_dup_detect_time;
+
+	/* used for ageing out the PEER_ACTIVE flag */
+	struct thread *hold_timer;
 };
 
 /*
@@ -526,5 +579,7 @@ typedef struct zebra_vxlan_sg_ {
 } zebra_vxlan_sg_t;
 
 extern zebra_vni_t *zvni_lookup(vni_t vni);
+extern void zebra_vxlan_sync_mac_dp_install(zebra_mac_t *mac, bool set_inactive,
+		bool force_clear_static, const char *caller);
 
 #endif /* _ZEBRA_VXLAN_PRIVATE_H */
