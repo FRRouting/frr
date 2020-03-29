@@ -489,7 +489,8 @@ void dplane_mac_init(struct zebra_dplane_ctx *ctx,
 		     vlanid_t vid,
 		     const struct ethaddr *mac,
 		     struct in_addr vtep_ip,
-		     bool sticky);
+		     bool sticky,
+		     uint32_t nhg_id, uint32_t update_flags);
 
 /*
  * Enqueue evpn neighbor updates for the dataplane.
