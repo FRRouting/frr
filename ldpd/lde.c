@@ -1637,6 +1637,56 @@ lde_change_egress_label(int af)
 		    NULL, 0);
 }
 
+void
+lde_change_host_label(int af)
+{
+	struct lde_nbr  *ln;
+	struct fec      *f;
+	struct fec_node *fn;
+	uint32_t         new_label;
+
+	RB_FOREACH(f, fec_tree, &ft) {
+		fn = (struct fec_node *)f;
+
+		switch (af) {
+		case AF_INET:
+			if (fn->fec.type != FEC_TYPE_IPV4)
+				continue;
+			break;
+		case AF_INET6:
+			if (fn->fec.type != FEC_TYPE_IPV6)
+				continue;
+			break;
+		default:
+			fatalx("lde_change_host_label: unknown af");
+		}
+
+		/*
+		 * If the local label has changed to NO_LABEL, send a label
+		 * withdraw to all peers.
+		 * If the local label has changed and it's different from
+		 * NO_LABEL, send a label mapping to all peers advertising
+		 * the new label.
+		 * If the local label hasn't changed, do nothing
+		 */
+		new_label = lde_update_label(fn);
+		if (fn->local_label != new_label) {
+			if (new_label == NO_LABEL)
+				RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+					lde_send_labelwithdraw(ln, fn,
+					    NULL, NULL);
+
+			fn->local_label = new_label;
+			if (fn->local_label != NO_LABEL)
+				RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+					lde_send_labelmapping(ln, fn, 0);
+		}
+	}
+	RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+		lde_imsg_compose_ldpe(IMSG_MAPPING_ADD_END, ln->peerid, 0,
+		    NULL, 0);
+}
+
 static int
 lde_address_add(struct lde_nbr *ln, struct lde_addr *lde_addr)
 {

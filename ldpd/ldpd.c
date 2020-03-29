@@ -1319,6 +1319,7 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 	int		 stop_init_backoff = 0;
 	int 		 remove_dynamic_tnbrs = 0;
 	int		 change_egress_label = 0;
+	int		 change_host_label = 0;
 	int		 reset_nbrs_ipv4 = 0;
 	int		 reset_nbrs = 0;
 	int		 update_sockets = 0;
@@ -1349,6 +1350,12 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 	if ((af_conf->flags & F_LDPD_AF_EXPNULL) !=
 	    (xa->flags & F_LDPD_AF_EXPNULL))
 		change_egress_label = 1;
+
+	/* changing config of host only fec filtering */
+	if ((af_conf->flags & F_LDPD_AF_ALLOCHOSTONLY)
+	    != (xa->flags & F_LDPD_AF_ALLOCHOSTONLY))
+		change_host_label = 1;
+
 	af_conf->flags = xa->flags;
 
 	/* update the transport address */
@@ -1358,6 +1365,10 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 	}
 
 	/* update ACLs */
+	if (strcmp(af_conf->acl_label_allocate_for,
+	    xa->acl_label_allocate_for))
+		change_host_label = 1;
+
 	if (strcmp(af_conf->acl_label_advertise_to,
 	    xa->acl_label_advertise_to) ||
 	    strcmp(af_conf->acl_label_advertise_for,
@@ -1391,6 +1402,8 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 	case PROC_LDE_ENGINE:
 		if (change_egress_label)
 			lde_change_egress_label(af);
+		if (change_host_label)
+			lde_change_host_label(af);
 		break;
 	case PROC_LDP_ENGINE:
 		if (stop_init_backoff)
