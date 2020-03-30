@@ -28,6 +28,7 @@
 
 #include <sched.h>
 #endif
+#include <dirent.h>
 
 #include "json.h"
 #include "lib/version.h"
@@ -51,6 +52,7 @@
 #include "zebra/debug.h"
 #include "zebra/zebra_vrf.h"
 
+#include "zebra/zebra_nhrp.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_nhrp_clippy.c"
 #endif
@@ -64,10 +66,22 @@ struct zebra_nhrp_header {
 	uint16_t vrfid;
 }zebra_nhrp_header_t;
 
-#define ZEBRA_GRE_NHRP_6WIND_PORT 36344
-#define ZEBRA_GRE_NHRP_6WIND_ADDRESS "127.0.0.1"
+struct zebra_nhrp_ctx {
+	struct interface *ifp; /* backpointer and key */
+	bool nhrp_6wind_notify[AFI_MAX];
+	bool nflog_notify[AFI_MAX];
+	bool nhrp_6wind_notify_differ[AFI_MAX];
+	int nflog_group;
+	int disable_redirect_ipv6;
+	int disable_redirect_ipv6_differ;
+	int disable_redirect_ipv6_retry;
+	struct thread *zebra_nhrp_retry_thread;
+	int retry[AFI_MAX];
+};
 
-#define ZEBRA_GRE_NHRP_6WIND_RCV_BUF 500
+#define ZEBRA_GRE_NHRP_6WIND_PORT 36344
+
+#define ZEBRA_FASTPATH_CONFIG "/var/run/fast-path/conf"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_NHRP, "Gre Nhrp Notify Information");
 
@@ -89,29 +103,14 @@ static int zebra_nhrp_call_only(const char *script, vrf_id_t vrf_id,
 				char *buf_response, int len_buf);
 static int zebra_nhrp_6wind_notify_differ(struct thread *thread);
 static int zebra_nhrp_call_redirect(struct interface *ifp, int on);
+static bool zebra_nhrp_6wind_action_ctx(struct zebra_nhrp_ctx *ctx);
+
 /* vty */
 #define GRE_NHRP_STR	  "Nhrp Notification Mecanism\n"
 #define GRE_NHRP_6WIND_STR "Nhrp 6wind fast-path notification\n"
 #define IP_STR		"IP information\n"
 #define IPV6_STR	"IPv6 information\n"
 #define AFI_STR		IP_STR IPV6_STR
-
-#ifndef CLONE_NEWNET
-#define CLONE_NEWNET 0x40000000
-/* New network namespace (lo, device, names sockets, etc) */
-#endif
-
-#ifndef HAVE_SETNS
-static inline int setns(int fd, int nstype)
-{
-#ifdef __NR_setns
-	return syscall(__NR_setns, fd, nstype);
-#else
-	errno = EINVAL;
-	return -1;
-#endif
-}
-#endif /* !HAVE_SETNS */
 
 static afi_t cmd_to_afi(const char *tok)
 {
@@ -127,23 +126,11 @@ static const char *afi_to_cmd(afi_t afi)
 
 struct hash *zebra_nhrp_list;
 static int zebra_nhrp_6wind_port;
-static int zebra_nhrp_6wind_fd;
-static struct thread *zebra_nhrp_log_thread;
+int zebra_nhrp_6wind_fd;
+struct thread *zebra_nhrp_log_thread;
+static struct thread *zebra_nhrp_fastpath_thread;
 
 #define NHRP_RETRY_MAX 5
-
-struct zebra_nhrp_ctx {
-	struct interface *ifp; /* backpointer and key */
-	bool nhrp_6wind_notify[AFI_MAX];
-	bool nflog_notify[AFI_MAX];
-	bool nhrp_6wind_notify_differ[AFI_MAX];
-	int nflog_group;
-	int disable_redirect_ipv6;
-	int disable_redirect_ipv6_differ;
-	int disable_redirect_ipv6_retry;
-	struct thread *zebra_nhrp_retry_thread;
-	int retry[AFI_MAX];
-};
 
 static uint32_t zebra_nhrp_hash_key(const void *arg)
 {
@@ -161,6 +148,149 @@ static bool zebra_nhrp_hash_cmp(const void *n1, const void *n2)
 		return false;
 	return true;
 }
+
+bool zebra_nhrp_fastpath_configured;
+static int zebra_nhrp_fastpath_count_unconfigured;
+static int zebra_nhrp_fastpath_count_ok;
+static int zebra_nhrp_fastpath_count_nok;
+static bool zebra_nhrp_6wind_fpn_available;
+
+static int zebra_nhrp_fastpath_restart_walker(struct hash_bucket *b, void *data)
+{
+	struct zebra_nhrp_ctx *ctx = (struct zebra_nhrp_ctx *)b->data;
+	afi_t i;
+	int relaunch;
+
+	for (i = 0; i < AFI_MAX; i++) {
+		if (ctx->nhrp_6wind_notify[i] && !ctx->nhrp_6wind_notify_differ[i]) {
+			ctx->nhrp_6wind_notify_differ[i] = true;
+			ctx->retry[i] = 0;
+		}
+	}
+	if (ctx->disable_redirect_ipv6) {
+		ctx->disable_redirect_ipv6_differ = 1;
+		ctx->disable_redirect_ipv6_retry = 0;
+	}
+
+	/* as fast path restarted, (re)send the commands */
+	relaunch = zebra_nhrp_6wind_action_ctx(ctx);
+	if (relaunch) {
+		if (ctx->zebra_nhrp_retry_thread)
+			THREAD_OFF(ctx->zebra_nhrp_retry_thread);
+		thread_add_timer(zrouter.master, zebra_nhrp_6wind_notify_differ,
+				 ctx, 1, &ctx->zebra_nhrp_retry_thread);
+	}
+	return HASHWALK_CONTINUE;
+}
+
+static int zebra_nhrp_6wind_configure_fastpath(uint16_t port)
+{
+	char retstr[100];
+	char buf[100];
+	int ret;
+
+	memset(retstr, 0, sizeof(retstr));
+	/* fp-cli nhrp-port <port> <vrfid> */
+	snprintf(buf, sizeof(buf), "/usr/bin/fp-cli nhrp-port %d 2>&1",
+		 port);
+	ret = zebra_nhrp_call_only(buf, VRF_DEFAULT, retstr, 0);
+	if (ret && strlen(retstr))
+		return -1;
+	return 0;
+}
+
+static void zebra_nhrp_fastpath_handle_result(bool result)
+{
+	if (result) {
+		zebra_nhrp_fastpath_count_ok++;
+		/* if status changed, updatethe nhrp 6wind
+		 * per interface commands
+		 */
+		if (!zebra_nhrp_6wind_fpn_available) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("%s(): fast-path is up", __func__);
+			/* reconnect */
+			if (zebra_nhrp_6wind_port) {
+				zebra_nhrp_6wind_configure_listen_port(zebra_nhrp_6wind_port);
+				zebra_nhrp_6wind_configure_fastpath(zebra_nhrp_6wind_port);
+			}
+			hash_walk(zebra_nhrp_list, zebra_nhrp_fastpath_restart_walker, NULL);
+			zebra_nhrp_6wind_fpn_available = true;
+		}
+	} else {
+		zebra_nhrp_fastpath_count_nok++;
+		if (zebra_nhrp_6wind_fpn_available) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("%s(): fast-path is down", __func__);
+			zebra_nhrp_6wind_fpn_available = false;
+			if (zebra_nhrp_6wind_port) {
+				zebra_nhrp_6wind_configure_fastpath(0);
+				zebra_nhrp_6wind_configure_listen_port(0);
+			}
+		}
+	}
+}
+
+static int zebra_nhrp_fastpath_monitor(struct thread *thread)
+{
+	DIR *fpdir;
+	int fd = -1, orig, ret = 0;
+	struct interface *ifp;
+
+	frr_with_privs(&zserv_privs) {
+		fpdir = opendir(ZEBRA_FASTPATH_CONFIG);
+	}
+	if (fpdir == NULL) {
+		zebra_nhrp_fastpath_count_unconfigured++;
+		goto end;
+	}
+	zebra_nhrp_fastpath_configured = true;
+
+	/* no need to go further if 6wind fast path not enabled */
+	if (!zebra_nhrp_6wind_port) {
+		goto end;
+	}
+	/* continous monitoring */
+	if (zebra_nhrp_6wind_access(&fd, &orig) < 0) {
+		zebra_nhrp_fastpath_count_unconfigured++;
+		goto end;
+	}
+	/* fast path is on current netns, then lookup fpn0 directly */
+	if ( fd < 0) {
+		ifp = if_lookup_by_name("fpn0", VRF_DEFAULT);
+		if (ifp && if_is_running(ifp))
+			zebra_nhrp_fastpath_handle_result(true);
+		else
+			zebra_nhrp_fastpath_handle_result(false);
+		goto end;
+	}
+	/* if failure to monitor fastpath with netlink */
+	if (zebra_nhrp_netlink_fastpath_parse(fd, orig, &ret) < 0) {
+		goto end;
+	}
+	if (ret)
+		zebra_nhrp_fastpath_handle_result(true);
+	else
+		zebra_nhrp_fastpath_handle_result(false);
+ end:
+	if (fpdir)
+		closedir(fpdir);
+	if (fd >= 0)
+		close(fd);
+	thread_add_timer(zrouter.master, zebra_nhrp_fastpath_monitor,
+			 NULL, 5, &zebra_nhrp_fastpath_thread);
+	return 0;
+}
+
+static void zebra_nhrp_fastpath_init(void)
+{
+	zebra_nhrp_fastpath_configured = false;
+
+	thread_add_timer(zrouter.master, zebra_nhrp_fastpath_monitor,
+			 NULL, 0, &zebra_nhrp_fastpath_thread);
+
+}
+
 
 static void zebra_nhrp_list_init(void)
 {
@@ -417,12 +547,11 @@ static int zebra_nhrp_6wind_write_config_iface(struct vty *vty, struct interface
 	return ret;
 }
 
-static int zebra_nhrp_6wind_notify_differ(struct thread *thread)
+static bool zebra_nhrp_6wind_action_ctx(struct zebra_nhrp_ctx *ctx)
 {
-	struct zebra_nhrp_ctx *ctx = THREAD_ARG(thread);
-	int ret = 0;
+	int relaunch = 0;
 	afi_t i;
-	bool relaunch = false;
+	int ret;
 
 	for (i = 0; i < AFI_MAX; i++) {
 		if (ctx->nhrp_6wind_notify_differ[i]) {
@@ -436,7 +565,7 @@ static int zebra_nhrp_6wind_notify_differ(struct thread *thread)
 					ctx->retry[i] = 0;
 					continue;
 				}
-				relaunch = true;
+				relaunch = 1;
 			} else {
 				ctx->nhrp_6wind_notify_differ[i] = false;
 				ctx->retry[i] = 0;
@@ -454,11 +583,22 @@ static int zebra_nhrp_6wind_notify_differ(struct thread *thread)
 				ctx->disable_redirect_ipv6_retry = 0;
 				goto end_function;
 			}
-			relaunch = true;
+			relaunch = 1;
 		}
 	}
  end_function:
+	return relaunch;
+}
+
+static int zebra_nhrp_6wind_notify_differ(struct thread *thread)
+{
+	struct zebra_nhrp_ctx *ctx = THREAD_ARG(thread);
+	int relaunch;
+
+	relaunch = zebra_nhrp_6wind_action_ctx(ctx);
 	if (relaunch) {
+		if (ctx->zebra_nhrp_retry_thread)
+			THREAD_OFF(ctx->zebra_nhrp_retry_thread);
 		thread_add_timer(zrouter.master, zebra_nhrp_6wind_notify_differ,
 				 ctx, 1, &ctx->zebra_nhrp_retry_thread);
 	} else {
@@ -524,7 +664,7 @@ static int zebra_nhrp_6wind_if_delete_hook(struct interface *ifp)
 	return 0;
 }
 
-static int zebra_nhrp_6wind_log_recv(struct thread *t)
+int zebra_nhrp_6wind_log_recv(struct thread *t)
 {
 	int fd = THREAD_FD(t);
 	char buf[ZEBRA_GRE_NHRP_6WIND_RCV_BUF];
@@ -574,144 +714,6 @@ static int zebra_nhrp_6wind_log_recv(struct thread *t)
 	return 0;
 }
 
-static int zebra_nhrp_6wind_configure_listen_port(uint16_t port)
-{
-	struct sockaddr_in srvaddr;
-	int ret = 0, flags, fd, orig;
-	int rcvbuf;
-	socklen_t rcvbufsz;
-
-	if (zebra_nhrp_6wind_fd >= 0) {
-		THREAD_OFF(zebra_nhrp_log_thread);
-		close(zebra_nhrp_6wind_fd);
-		zebra_nhrp_6wind_fd = -1;
-	}
-	if (!port)
-		return 0;
-
-	frr_with_privs(&zserv_privs) {
-		/* try to open fd fo fast-path */
-		fd = open("/var/run/fast-path/namespaces/net", O_RDONLY | O_CLOEXEC);
-		orig = ns_lookup(NS_DEFAULT)->fd;
-	}
-	if (fd < 0 || orig < 0) {
-		zlog_err("%s(): netns fast-path (%d) or self vrf (%d) could not be read",
-			   __func__, fd, orig);
-		if (fd > 0)
-			close(fd);
-		return -1;
-	}
-	frr_with_privs(&zserv_privs) {
-		ret = setns(fd, CLONE_NEWNET);
-	}
-	if (ret >= 0) {
-		frr_with_privs(&zserv_privs) {
-			zebra_nhrp_6wind_fd = socket(AF_INET, SOCK_DGRAM,
-						     IPPROTO_UDP);
-		}
-	} else {
-		zlog_err("%s(): setns(%u, CLONE_NEWNET) failed: %s",
-			 __func__, fd, strerror(errno));
-		close(fd);
-		return -1;
-	}
-	frr_with_privs(&zserv_privs) {
-		ret = setns(orig, CLONE_NEWNET);
-	}
-	if (ret < 0) {
-		zlog_err("%s(): setns(%u, CLONE_NEWNET) failed: %s",
-			   __func__, orig, strerror(errno));
-		close(fd);
-		return -1;
-	}
-	if (zebra_nhrp_6wind_fd < 0) {
-		close(fd);
-		return -1;
-	}
-	/* set the socket to non-blocking */
-	frr_with_privs(&zserv_privs) {
-		flags = fcntl(zebra_nhrp_6wind_fd, F_GETFL);
-		flags |= O_NONBLOCK;
-		ret = fcntl(zebra_nhrp_6wind_fd, F_SETFL, flags);
-	}
-	if (ret < 0) {
-		zlog_err("%s(): fcntl(O_NONBLOCK) failed: %s", __func__, strerror(errno));
-		close(zebra_nhrp_6wind_fd);
-		close(fd);
-		return -1;
-	}
-	frr_with_privs(&zserv_privs) {
-		flags = fcntl(zebra_nhrp_6wind_fd, F_GETFD);
-		flags |= FD_CLOEXEC;
-		ret = fcntl(zebra_nhrp_6wind_fd, F_SETFD, flags);
-	}
-	if (ret < 0) {
-		zlog_err("%s(): fcntl(F_SETFD CLOEXEC) failed: %s",
-			 __func__, strerror(errno));
-		close(zebra_nhrp_6wind_fd);
-		close(fd);
-		return -1;
-	}
-	memset(&srvaddr, 0, sizeof(srvaddr));
-	srvaddr.sin_family = AF_INET;
-	srvaddr.sin_port = htons(port);
-	srvaddr.sin_addr.s_addr = inet_addr(ZEBRA_GRE_NHRP_6WIND_ADDRESS);
-
-	frr_with_privs(&zserv_privs) {
-		ret = setns(fd, CLONE_NEWNET);
-		if (ret >= 0) {
-			ret = bind(zebra_nhrp_6wind_fd, &srvaddr, sizeof(srvaddr));
-			if (ret < 0) {
-				zlog_err("%s(): bind(%u, 127.0.0.1) failed : %s",
-					 __func__, zebra_nhrp_6wind_fd, strerror(errno));
-			}
-		}
-		ret = setns(orig, CLONE_NEWNET);
-	}
-	if (ret < 0) {
-		zlog_err("%s(): setns(%u, CLONE_NEWNET) failed: %s",
-			 __func__, orig, strerror(errno));
-		close(zebra_nhrp_6wind_fd);
-		close(fd);
-		return -1;
-	}
-	rcvbuf = 0;
-	rcvbufsz = sizeof(rcvbuf);
-	ret = getsockopt(zebra_nhrp_6wind_fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, &rcvbufsz);
-	if (ret < 0) {
-		zlog_err("%s(): getsockopt(RCVBUF) failed: %s", __func__,
-			 strerror(errno));
-		close(zebra_nhrp_6wind_fd);
-		close(fd);
-		return -1;
-	}
-	if (rcvbuf < ZEBRA_GRE_NHRP_6WIND_RCV_BUF) {
-		rcvbuf = ZEBRA_GRE_NHRP_6WIND_RCV_BUF;
-		ret = setsockopt(zebra_nhrp_6wind_fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, rcvbufsz);
-		if (ret < 0) {
-			zlog_err("%s(): getsockopt(RCVBUF) failed: %s", __func__,
-				 strerror(errno));
-			close(zebra_nhrp_6wind_fd);
-			close(fd);
-			return -1;
-		}
-		ret = getsockopt(zebra_nhrp_6wind_fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, &rcvbufsz);
-		if (ret < 0) {
-			zlog_err("%s(): getsockopt(RCVBUF) failed: %s", __func__,
-				 strerror(errno));
-			close(zebra_nhrp_6wind_fd);
-			close(fd);
-			return -1;
-		}
-	}
-	thread_add_read(zrouter.master, zebra_nhrp_6wind_log_recv,
-			NULL,
-			zebra_nhrp_6wind_fd,
-			&zebra_nhrp_log_thread);
-	close(fd);
-	return ret;
-}
-
 static int zebra_nhrp_call_only(const char *script, vrf_id_t vrf_id,
 				char *buf_response, int len_buf)
 {
@@ -750,21 +752,19 @@ static int zebra_nhrp_call_only(const char *script, vrf_id_t vrf_id,
 
 static int zebra_nhrp_6wind_connection(bool on, uint16_t port)
 {
-	char buf[100];
 	int ret = 0;
 
-	if (!on)
+	if (!on) {
 		ret = zebra_nhrp_6wind_configure_listen_port(0);
-	else
+		zebra_nhrp_6wind_port = 0;
+	} else {
 		ret = zebra_nhrp_6wind_configure_listen_port(port);
+		zebra_nhrp_6wind_port = port;
+	}
 	if (ret < 0)
 		return ret;
 
-	/* fp-cli nhrp-port <port> <vrfid> */
-	snprintf(buf, sizeof(buf), "/usr/bin/fp-cli nhrp-port %d 2>&1",
-		 on ? port : 0);
-
-	zebra_nhrp_call_only(buf, VRF_DEFAULT, NULL, 0);
+	zebra_nhrp_6wind_configure_fastpath(on ? port : 0);
 	return 0;
 }
 
@@ -941,12 +941,35 @@ DEFPY(zebra_nhrp_6wind_connect, zebra_nhrp_6wind_connect_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_zebra_nhrp,
+      show_zebra_nhrp_cmd,
+      "show zebra nhrp",
+      SHOW_STR
+      ZEBRA_STR
+      GRE_NHRP_STR)
+{
+	vty_out(vty, "Fast-Path is %s\n",zebra_nhrp_6wind_fpn_available ?
+		"on" : "off");
+	vty_out(vty, "\tFastPath Not Configured Count : %u",
+		zebra_nhrp_fastpath_count_unconfigured);
+	vty_out(vty, "\tFastPath Down Count : %u\n",
+		zebra_nhrp_fastpath_count_nok);
+	vty_out(vty, "\tFastPath Up Count : %u\n",
+		zebra_nhrp_fastpath_count_ok);
+
+	return CMD_SUCCESS;
+}
+
 static int zebra_nhrp_6wind_init(struct thread_master *t)
 {
 	zebra_nhrp_list_init();
+	zebra_nhrp_fastpath_init();
 	zebra_nhrp_6wind_fd = -1;
+	zebra_nhrp_6wind_port = 0;
+	zebra_nhrp_6wind_fpn_available = false;
 	install_element(INTERFACE_NODE, &iface_nflog_onoff_cmd);
 	install_element(INTERFACE_NODE, &iface_nhrp_6wind_onoff_cmd);
 	install_element(CONFIG_NODE, &zebra_nhrp_6wind_connect_cmd);
+	install_element(VIEW_NODE, &show_zebra_nhrp_cmd);
 	return 0;
 }

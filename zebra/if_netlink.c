@@ -1055,8 +1055,8 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 }
 
 /* Request for specific interface or address information from the kernel */
-static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
-				     int type, uint32_t filter_mask)
+int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
+			      int type, uint32_t filter_mask)
 {
 	struct {
 		struct nlmsghdr n;

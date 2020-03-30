@@ -19,6 +19,7 @@ vtysh_scan += \
 	zebra/zebra_vty.c \
 	zebra/zserv.c \
 	zebra/zebra_nhrp.c \
+	zebra/zebra_nhrp_netlink.c \
 	# end
 
 # can be loaded as DSO - always include for vtysh
@@ -194,6 +195,7 @@ noinst_HEADERS += \
 	zebra/zebra_evpn_mh.h \
 	zebra/zserv.h \
 	zebra/list.h \
+	zebra/zebra_nhrp.h \
 	# end
 
 zebra_zebra_irdp_la_SOURCES = \
@@ -258,7 +260,7 @@ zebra_zebra_wrap_script_la_LDFLAGS = -avoid-version -module -shared -export-dyna
 endif
 
 if ZEBRA_NHRP
-zebra_zebra_nhrp_la_SOURCES = zebra/zebra_nhrp.c
+zebra_zebra_nhrp_la_SOURCES = zebra/zebra_nhrp.c zebra/zebra_nhrp_netlink.c
 zebra_zebra_nhrp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 endif
 
