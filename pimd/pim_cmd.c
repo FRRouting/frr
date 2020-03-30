@@ -5816,7 +5816,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 	frr_each (rb_pim_oil, &pim->channel_oil_head, c_oil) {
 		found_oif = 0;
 		first = 1;
-		if (!c_oil->installed && !uj)
+		if (!c_oil->installed)
 			continue;
 
 		if (sg->grp.s_addr != 0 &&
