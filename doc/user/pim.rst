@@ -365,17 +365,30 @@ cause great confusion.
    Source Group.  The keyword `fill` says to fill in all assumed data
    for test/data gathering purposes.
 
-.. index:: show ip mroute count
-.. clicmd:: show ip mroute count
+.. index:: show ip mroute [vrf NAME] count [json]
+.. clicmd:: show ip mroute [vrf NAME] count [json]
 
    Display information about installed into the kernel S,G mroutes and in
-   addition display data about packet flow for the mroutes.
+   addition display data about packet flow for the mroutes for a specific
+   vrf.
 
-.. index:: show ip mroute summary
-.. clicmd:: show ip mroute summary
+.. index:: show ip mroute vrf all count [json]
+.. clicmd:: show ip mroute vrf all count [json]
+
+   Display information about installed into the kernel S,G mroutes and in
+   addition display data about packet flow for the mroutes for all vrfs.
+
+.. index:: show ip mroute [vrf NAME] summary [json]
+.. clicmd:: show ip mroute [vrf NAME] summary [json]
 
    Display total number of S,G mroutes and number of S,G mroutes installed
-   into the kernel.
+   into the kernel for a specific vrf.
+
+.. index:: show ip mroute vrf all summary [json]
+.. clicmd:: show ip mroute vrf all summary [json]
+
+   Display total number of S,G mroutes and number of S,G mroutes
+   installed into the kernel for all vrfs.
 
 .. index:: show ip pim assert
 .. clicmd:: show ip pim assert
