@@ -767,8 +767,8 @@ static uint8_t netlink_parse_lacp_bypass(struct rtattr **linkinfo)
 }
 
 /* Request for specific interface or address information from the kernel */
-static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
-				     int type, uint32_t filter_mask)
+int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
+			      int type, uint32_t filter_mask)
 {
 	struct {
 		struct nlmsghdr n;

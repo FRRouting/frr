@@ -24,6 +24,8 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 
 extern int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int interface_lookup_netlink(struct zebra_ns *zns);
+extern int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
+				     int type, uint32_t filter_mask);
 
 extern int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int netlink_vlan_read(struct zebra_ns *zns);

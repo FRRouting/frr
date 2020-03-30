@@ -121,6 +121,7 @@ zebra_zebra_SOURCES = \
 	zebra/zserv.c \
 	zebra/zebra_pm.c \
 	zebra/zebra_nhrp.c \
+	zebra/zebra_nhrp_netlink.c \
 	# end
 
 clippy_scan += \
