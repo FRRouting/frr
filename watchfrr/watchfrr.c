@@ -318,9 +318,8 @@ static pid_t run_background(char *shell_cmd)
 		}
 	default:
 		/* Parent process: we will reap the child later. */
-		flog_err_sys(EC_LIB_SYSTEM_CALL,
-			     "Forked background command [pid %d]: %s",
-			     (int)child, shell_cmd);
+		zlog_info("Forked background command [pid %d]: %s", (int)child,
+			  shell_cmd);
 		return child;
 	}
 }
@@ -559,9 +558,9 @@ static int wakeup_init(struct thread *t_wakeup)
 
 	dmn->t_wakeup = NULL;
 	if (try_connect(dmn) < 0) {
-		flog_err(EC_WATCHFRR_CONNECTION,
-			 "%s state -> down : initial connection attempt failed",
-			 dmn->name);
+		zlog_info(
+			"%s state -> down : initial connection attempt failed",
+			dmn->name);
 		dmn->state = DAEMON_DOWN;
 	}
 	phase_check();
