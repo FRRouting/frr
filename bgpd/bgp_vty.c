@@ -6590,6 +6590,7 @@ DEFUN(no_neighbor_maximum_prefix_out,
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
+	UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
 	peer->pmax_out[afi][safi] = 0;
 
 	return CMD_SUCCESS;
