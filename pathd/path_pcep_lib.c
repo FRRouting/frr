@@ -18,6 +18,7 @@
  */
 
 #include <debug.h>
+#include <pcep_utils_counters.h>
 #include "pathd/path_errors.h"
 #include "pathd/path_memory.h"
 #include "pathd/path_pcep.h"
@@ -39,6 +40,14 @@ static void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp);
 static void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero);
 static struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 					      struct pcep_ro_subobj_sr *sr);
+static struct counters_group *copy_counter_group(struct counters_group *from);
+static struct counters_subgroup *
+copy_counter_subgroup(struct counters_subgroup *from);
+static struct counter *copy_counter(struct counter *from);
+static void free_counter_group(struct counters_group *group);
+static void free_counter_subgroup(struct counters_subgroup *subgroup);
+static void free_counter(struct counter *counter);
+
 
 /* ------------ API Functions ------------ */
 
@@ -211,6 +220,18 @@ void pcep_lib_parse_capabilities(struct pcep_message *msg,
 			break;
 		}
 	}
+}
+
+struct counters_group *pcep_lib_copy_counters(pcep_session *sess)
+{
+	assert(NULL != sess);
+	assert(NULL != sess->pcep_session_counters);
+	return copy_counter_group(sess->pcep_session_counters);
+}
+
+void pcep_lib_free_counters(struct counters_group *counters)
+{
+	free_counter_group(counters);
 }
 
 
@@ -480,4 +501,74 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 	}
 
 	return hop;
+}
+
+struct counters_group *copy_counter_group(struct counters_group *from)
+{
+	int size, i;
+	struct counters_group *result;
+	if (NULL == from)
+		return NULL;
+	assert(from->max_subgroups >= from->num_subgroups);
+	result = XCALLOC(MTYPE_PCEP, sizeof(*result));
+	memcpy(result, from, sizeof(*result));
+	size = sizeof(struct counters_subgroup *) * from->max_subgroups;
+	result->subgroups = XCALLOC(MTYPE_PCEP, size);
+	for (i = 0; i <= from->num_subgroups; i++)
+		result->subgroups[i] =
+			copy_counter_subgroup(from->subgroups[i]);
+	return result;
+}
+
+struct counters_subgroup *copy_counter_subgroup(struct counters_subgroup *from)
+{
+	int size, i;
+	struct counters_subgroup *result;
+	if (NULL == from)
+		return NULL;
+	assert(from->max_counters >= from->num_counters);
+	result = XCALLOC(MTYPE_PCEP, sizeof(*result));
+	memcpy(result, from, sizeof(*result));
+	size = sizeof(struct counter *) * from->max_counters;
+	result->counters = XCALLOC(MTYPE_PCEP, size);
+	for (i = 0; i <= from->num_counters; i++)
+		result->counters[i] = copy_counter(from->counters[i]);
+	return result;
+}
+
+struct counter *copy_counter(struct counter *from)
+{
+	struct counter *result;
+	if (NULL == from)
+		return NULL;
+	result = XCALLOC(MTYPE_PCEP, sizeof(*result));
+	memcpy(result, from, sizeof(*result));
+	return result;
+}
+
+void free_counter_group(struct counters_group *group)
+{
+	int i;
+	if (NULL == group)
+		return;
+	for (i = 0; i <= group->num_subgroups; i++)
+		free_counter_subgroup(group->subgroups[i]);
+	XFREE(MTYPE_PCEP, group);
+}
+
+void free_counter_subgroup(struct counters_subgroup *subgroup)
+{
+	int i;
+	if (NULL == subgroup)
+		return NULL;
+	for (i = 0; i <= subgroup->num_counters; i++)
+		free_counter(subgroup->counters[i]);
+	XFREE(MTYPE_PCEP, subgroup);
+}
+
+void free_counter(struct counter *counter)
+{
+	if (NULL == counter)
+		return NULL;
+	XFREE(MTYPE_PCEP, counter);
 }

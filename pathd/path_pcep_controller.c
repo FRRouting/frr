@@ -76,6 +76,14 @@ struct pcep_ctrl_timer_data {
 	void *payload;
 };
 
+/* Synchronous call arguments */
+
+struct get_counters_args {
+	struct ctrl_state *ctrl_state;
+	int pcc_id;
+	struct counters_group *counters;
+};
+
 
 /* Internal Functions Called From Main Thread */
 static int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res);
@@ -83,6 +91,7 @@ static int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res);
 /* Internal Functions Called From Controller Thread */
 static int pcep_thread_finish_event_handler(struct thread *thread);
 static void pcep_thread_schedule_poll(struct ctrl_state *ctrl_state);
+static int pcep_thread_get_counters_callback(struct thread *t);
 
 /* Controller Thread Timer Handler */
 static int schedule_thread(struct ctrl_state *ctrl_state, int pcc_id,
@@ -232,6 +241,17 @@ int pcep_ctrl_sync_done(struct frr_pthread *fpt, int pcc_id)
 	return send_to_thread(ctrl_state, pcc_id, EV_SYNC_DONE, 0, NULL);
 }
 
+struct counters_group *pcep_ctrl_get_counters(struct frr_pthread *fpt,
+					      int pcc_id)
+{
+	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
+	struct get_counters_args args = {
+		.ctrl_state = ctrl_state, .pcc_id = pcc_id, .counters = NULL};
+	thread_execute(ctrl_state->self, pcep_thread_get_counters_callback,
+		       &args, 0);
+	return args.counters;
+}
+
 
 /* ------------ Internal Functions Called from Main Thread ------------ */
 
@@ -302,6 +322,24 @@ void pcep_thread_schedule_poll(struct ctrl_state *ctrl_state)
 	assert(NULL == ctrl_state->t_poll);
 	schedule_thread(ctrl_state, 0, TM_POLL, POLL_INTERVAL, NULL,
 			&ctrl_state->t_poll);
+}
+
+int pcep_thread_get_counters_callback(struct thread *t)
+{
+	struct get_counters_args *args = THREAD_ARG(t);
+	assert(NULL != args);
+	struct ctrl_state *ctrl_state = args->ctrl_state;
+	assert(NULL != ctrl_state);
+	struct pcc_state *pcc_state;
+
+	if (args->pcc_id <= ctrl_state->pcc_count) {
+		pcc_state = get_pcc_state(ctrl_state, args->pcc_id);
+		args->counters = pcep_lib_copy_counters(pcc_state->sess);
+		return 0;
+	}
+
+	args->counters = NULL;
+	return 0;
 }
 
 

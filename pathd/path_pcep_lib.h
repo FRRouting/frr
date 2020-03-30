@@ -35,5 +35,7 @@ struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,
 struct path *pcep_lib_parse_path(struct pcep_message *msg);
 void pcep_lib_parse_capabilities(struct pcep_message *msg,
 				 struct pcep_caps *caps);
+struct counters_group *pcep_lib_copy_counters(pcep_session *sess);
+void pcep_lib_free_counters(struct counters_group *counters);
 
 #endif // _PATH_PCEP_LIB_H_

@@ -18,6 +18,7 @@
  */
 
 #include <zebra.h>
+#include <pcep_utils_counters.h>
 
 #include "log.h"
 #include "command.h"
@@ -27,6 +28,7 @@
 #include "northbound.h"
 #include "frr_pthread.h"
 #include "jhash.h"
+#include "termtable.h"
 
 #include "pathd/pathd.h"
 #include "pathd/path_errors.h"
@@ -178,6 +180,75 @@ int pathd_candidate_removed_handler(struct srte_candidate *candidate)
 
 
 /* ------------ CLI Functions ------------ */
+
+DEFUN(show_pcep_counters, show_pcep_counters_cmd, "show pcep counters",
+      SHOW_STR
+      "PCEP info\n"
+      "PCEP counters\n")
+{
+	int i, j, row;
+	time_t diff_time;
+	struct tm *tm_info;
+	char tm_buffer[26];
+	struct counters_group *group;
+	struct counters_subgroup *subgroup;
+	struct counter *counter;
+	const char *group_name, *empty_string = "";
+	struct ttable *tt;
+	char *table;
+
+	group = pcep_ctrl_get_counters(pcep_g->fpt, 1);
+
+	if (NULL == group) {
+		vty_out(vty, "No counters to display.\n\n");
+		return CMD_SUCCESS;
+	}
+
+	diff_time = time(NULL) - group->start_time;
+	tm_info = localtime(&group->start_time);
+	strftime(tm_buffer, sizeof(tm_buffer), "%Y-%m-%d %H:%M:%S", tm_info);
+
+	vty_out(vty, "PCEP counters since %s (%luh %lum %lus):\n", tm_buffer,
+		diff_time / 3600, (diff_time / 60) % 60, diff_time % 60);
+
+	/* Prepare table. */
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "Group|Name|Value");
+	tt->style.cell.rpad = 2;
+	tt->style.corner = '+';
+	ttable_restyle(tt);
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
+
+	for (row = 0, i = 0; i <= group->num_subgroups; i++) {
+		subgroup = group->subgroups[i];
+		if (NULL != subgroup) {
+			group_name = subgroup->counters_subgroup_name;
+			for (j = 0; j <= subgroup->num_counters; j++) {
+				counter = subgroup->counters[j];
+				if (NULL != counter) {
+					ttable_add_row(tt, "%s|%s|%u",
+						       group_name,
+						       counter->counter_name,
+						       counter->counter_value);
+					row++;
+					group_name = empty_string;
+				}
+			}
+			ttable_rowseps(tt, row, BOTTOM, true, '-');
+		}
+	}
+
+	/* Dump the generated table. */
+	table = ttable_dump(tt, "\n");
+	vty_out(vty, "%s\n", table);
+	XFREE(MTYPE_TMP, table);
+
+	ttable_del(tt);
+
+	pcep_lib_free_counters(group);
+
+	return CMD_SUCCESS;
+}
 
 DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 	   "pcc [ip A.B.C.D] [port (1024-65535)] [force_stateless]",
@@ -397,10 +468,10 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 	if (NULL != pcep_g->pcc_opts) {
 		if (INADDR_ANY != pcep_g->pcc_opts->addr.s_addr)
 			csnprintfrr(buff, sizeof(buff), " ip %pI4",
-			            &pcep_g->pcc_opts->addr);
+				    &pcep_g->pcc_opts->addr);
 		if (PCEP_DEFAULT_PORT != pcep_g->pcc_opts->port)
 			csnprintfrr(buff, sizeof(buff), " port %d",
-			            pcep_g->pcc_opts->port);
+				    pcep_g->pcc_opts->port);
 		vty_out(vty, "pcc%s\n", buff);
 		buff[0] = 0;
 		lines++;
@@ -410,12 +481,12 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 			if (NULL != pce_opts) {
 				if (PCEP_DEFAULT_PORT != pce_opts->port)
 					csnprintfrr(buff, sizeof(buff),
-					            " port %d", pce_opts->port);
+						    " port %d", pce_opts->port);
 				if (true == pce_opts->draft07)
 					csnprintfrr(buff, sizeof(buff),
-					            " sr-draft07");
+						    " sr-draft07");
 				vty_out(vty, " pce ip %pI4%s\n",
-				        &pce_opts->addr, buff);
+					&pce_opts->addr, buff);
 				buff[0] = 0;
 				lines++;
 			}
@@ -435,6 +506,7 @@ void pcep_cli_init(void)
 	install_default(PCC_NODE);
 	install_element(CONFIG_NODE, &pcep_cli_debug_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_debug_cmd);
+	install_element(ENABLE_NODE, &show_pcep_counters_cmd);
 	install_element(CONFIG_NODE, &pcep_cli_pcc_cmd);
 	install_element(PCC_NODE, &pcep_cli_pce_opts_cmd);
 	install_element(PCC_NODE, &pcep_cli_no_pce_cmd);
