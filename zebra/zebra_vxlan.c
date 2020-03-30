@@ -121,11 +121,11 @@ static struct interface *zvni_map_to_macvlan(struct interface *br_if,
 
 /* l3-vni next-hop neigh related APIs */
 static zebra_neigh_t *zl3vni_nh_lookup(zebra_l3vni_t *zl3vni,
-				       struct ipaddr *ip);
+				       const struct ipaddr *ip);
 static void *zl3vni_nh_alloc(void *p);
 static zebra_neigh_t *zl3vni_nh_add(zebra_l3vni_t *zl3vni,
-				    struct ipaddr *vtep_ip,
-				    struct ethaddr *rmac);
+				    const struct ipaddr *vtep_ip,
+				    const struct ethaddr *rmac);
 static int zl3vni_nh_del(zebra_l3vni_t *zl3vni, zebra_neigh_t *n);
 static int zl3vni_nh_install(zebra_l3vni_t *zl3vni, zebra_neigh_t *n);
 static int zl3vni_nh_uninstall(zebra_l3vni_t *zl3vni, zebra_neigh_t *n);
@@ -133,10 +133,10 @@ static int zl3vni_nh_uninstall(zebra_l3vni_t *zl3vni, zebra_neigh_t *n);
 /* l3-vni rmac related APIs */
 static void zl3vni_print_rmac_hash(struct hash_bucket *, void *);
 static zebra_mac_t *zl3vni_rmac_lookup(zebra_l3vni_t *zl3vni,
-				       struct ethaddr *rmac);
+				       const struct ethaddr *rmac);
 static void *zl3vni_rmac_alloc(void *p);
 static zebra_mac_t *zl3vni_rmac_add(zebra_l3vni_t *zl3vni,
-				    struct ethaddr *rmac);
+				    const struct ethaddr *rmac);
 static int zl3vni_rmac_del(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac);
 static int zl3vni_rmac_install(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac);
 static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac);
@@ -4434,7 +4434,7 @@ static void zl3vni_cleanup_all(struct hash_bucket *bucket, void *args)
 }
 
 static void rb_find_or_add_host(struct host_rb_tree_entry *hrbe,
-				struct prefix *host)
+				const struct prefix *host)
 {
 	struct host_rb_entry lookup;
 	struct host_rb_entry *hle;
@@ -4473,7 +4473,7 @@ static void rb_delete_host(struct host_rb_tree_entry *hrbe, struct prefix *host)
  * Look up MAC hash entry.
  */
 static zebra_mac_t *zl3vni_rmac_lookup(zebra_l3vni_t *zl3vni,
-				       struct ethaddr *rmac)
+				       const struct ethaddr *rmac)
 {
 	zebra_mac_t tmp;
 	zebra_mac_t *pmac;
@@ -4502,7 +4502,8 @@ static void *zl3vni_rmac_alloc(void *p)
 /*
  * Add RMAC entry to l3-vni
  */
-static zebra_mac_t *zl3vni_rmac_add(zebra_l3vni_t *zl3vni, struct ethaddr *rmac)
+static zebra_mac_t *zl3vni_rmac_add(zebra_l3vni_t *zl3vni,
+				    const struct ethaddr *rmac)
 {
 	zebra_mac_t tmp_rmac;
 	zebra_mac_t *zrmac = NULL;
@@ -4632,9 +4633,10 @@ static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 }
 
 /* handle rmac add */
-static int zl3vni_remote_rmac_add(zebra_l3vni_t *zl3vni, struct ethaddr *rmac,
-				  struct ipaddr *vtep_ip,
-				  struct prefix *host_prefix)
+static int zl3vni_remote_rmac_add(zebra_l3vni_t *zl3vni,
+				  const struct ethaddr *rmac,
+				  const struct ipaddr *vtep_ip,
+				  const struct prefix *host_prefix)
 {
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
@@ -4709,7 +4711,8 @@ static void zl3vni_remote_rmac_del(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac,
 /*
  * Look up nh hash entry on a l3-vni.
  */
-static zebra_neigh_t *zl3vni_nh_lookup(zebra_l3vni_t *zl3vni, struct ipaddr *ip)
+static zebra_neigh_t *zl3vni_nh_lookup(zebra_l3vni_t *zl3vni,
+				       const struct ipaddr *ip)
 {
 	zebra_neigh_t tmp;
 	zebra_neigh_t *n;
@@ -4739,8 +4742,9 @@ static void *zl3vni_nh_alloc(void *p)
 /*
  * Add neighbor entry.
  */
-static zebra_neigh_t *zl3vni_nh_add(zebra_l3vni_t *zl3vni, struct ipaddr *ip,
-				    struct ethaddr *mac)
+static zebra_neigh_t *zl3vni_nh_add(zebra_l3vni_t *zl3vni,
+				    const struct ipaddr *ip,
+				    const struct ethaddr *mac)
 {
 	zebra_neigh_t tmp_n;
 	zebra_neigh_t *n = NULL;
@@ -4822,9 +4826,10 @@ static int zl3vni_nh_uninstall(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
 }
 
 /* add remote vtep as a neigh entry */
-static int zl3vni_remote_nh_add(zebra_l3vni_t *zl3vni, struct ipaddr *vtep_ip,
-				struct ethaddr *rmac,
-				struct prefix *host_prefix)
+static int zl3vni_remote_nh_add(zebra_l3vni_t *zl3vni,
+				const struct ipaddr *vtep_ip,
+				const struct ethaddr *rmac,
+				const struct prefix *host_prefix)
 {
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[ETHER_ADDR_STRLEN];
@@ -5960,9 +5965,9 @@ int is_l3vni_for_prefix_routes_only(vni_t vni)
 }
 
 /* handle evpn route in vrf table */
-void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id, struct ethaddr *rmac,
-				    struct ipaddr *vtep_ip,
-				    struct prefix *host_prefix)
+void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id, const struct ethaddr *rmac,
+				    const struct ipaddr *vtep_ip,
+				    const struct prefix *host_prefix)
 {
 	zebra_l3vni_t *zl3vni = NULL;
 	struct ipaddr ipv4_vtep;

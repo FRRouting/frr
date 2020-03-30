@@ -288,7 +288,7 @@ int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		     mpls_label_t in_label, uint8_t num_out_labels,
 		     mpls_label_t out_labels[], enum nexthop_types_t gtype,
-		     union g_addr *gate, ifindex_t ifindex);
+		     const union g_addr *gate, ifindex_t ifindex);
 
 /*
  * Uninstall a particular NHLFE in the forwarding table. If this is
@@ -296,7 +296,7 @@ int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
  */
 int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		       mpls_label_t in_label, enum nexthop_types_t gtype,
-		       union g_addr *gate, ifindex_t ifindex);
+		       const union g_addr *gate, ifindex_t ifindex);
 
 /*
  * Uninstall all NHLFEs for a particular LSP forwarding entry.

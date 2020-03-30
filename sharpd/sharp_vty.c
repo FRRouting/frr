@@ -162,7 +162,12 @@ DEFPY (install_routes_data_dump,
 
 DEFPY (install_routes,
        install_routes_cmd,
-       "sharp install routes [vrf NAME$vrf_name] <A.B.C.D$start4|X:X::X:X$start6> <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|nexthop-group NHGNAME$nexthop_group> (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
+       "sharp install routes [vrf NAME$vrf_name]\
+	  <A.B.C.D$start4|X:X::X:X$start6>\
+	  <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|\
+	   nexthop-group NHGNAME$nexthop_group>\
+	  [backup$backup <A.B.C.D$backup_nexthop4|X:X::X:X$backup_nexthop6>] \
+	  (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
@@ -175,6 +180,9 @@ DEFPY (install_routes,
        "V6 Nexthop address to use\n"
        "Nexthop-Group to use\n"
        "The Name of the nexthop-group\n"
+       "Backup nexthop to use(Can be an IPv4 or IPv6 address)\n"
+       "Backup V4 Nexthop address to use\n"
+       "Backup V6 Nexthop address to use\n"
        "How many to create\n"
        "Instance to use\n"
        "Instance\n"
@@ -197,6 +205,8 @@ DEFPY (install_routes,
 	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
 	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
+	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
+	memset(&sg.r.backup_nhop_group, 0, sizeof(sg.r.nhop_group));
 
 	if (start4.s_addr != 0) {
 		prefix.family = AF_INET;
@@ -219,6 +229,12 @@ DEFPY (install_routes,
 		return CMD_WARNING;
 	}
 
+	/* Explicit backup not available with named nexthop-group */
+	if (backup && nexthop_group) {
+		vty_out(vty, "%% Invalid: cannot specify both nexthop-group and backup\n");
+		return CMD_WARNING;
+	}
+
 	if (nexthop_group) {
 		struct nexthop_group_cmd *nhgc = nhgc_find(nexthop_group);
 		if (!nhgc) {
@@ -229,6 +245,22 @@ DEFPY (install_routes,
 		}
 
 		sg.r.nhop_group.nexthop = nhgc->nhg.nexthop;
+
+		/* Use group's backup nexthop info if present */
+		if (nhgc->backup_list_name[0]) {
+			struct nexthop_group_cmd *bnhgc =
+				nhgc_find(nhgc->backup_list_name);
+
+			if (!bnhgc) {
+				vty_out(vty, "%% Backup group %s not found for group %s\n",
+					nhgc->backup_list_name,
+					nhgc->name);
+				return CMD_WARNING;
+			}
+
+			sg.r.backup_nhop.vrf_id = vrf->vrf_id;
+			sg.r.backup_nhop_group.nexthop = bnhgc->nhg.nexthop;
+		}
 	} else {
 		if (nexthop4.s_addr != INADDR_ANY) {
 			sg.r.nhop.gate.ipv4 = nexthop4;
@@ -242,11 +274,30 @@ DEFPY (install_routes,
 		sg.r.nhop_group.nexthop = &sg.r.nhop;
 	}
 
+	/* Use single backup nexthop if specified */
+	if (backup) {
+		/* Set flag and index in primary nexthop */
+		SET_FLAG(sg.r.nhop.flags, NEXTHOP_FLAG_HAS_BACKUP);
+		sg.r.nhop.backup_idx = 0;
+
+		if (backup_nexthop4.s_addr != INADDR_ANY) {
+			sg.r.backup_nhop.gate.ipv4 = backup_nexthop4;
+			sg.r.backup_nhop.type = NEXTHOP_TYPE_IPV4;
+		} else {
+			sg.r.backup_nhop.gate.ipv6 = backup_nexthop6;
+			sg.r.backup_nhop.type = NEXTHOP_TYPE_IPV6;
+		}
+
+		sg.r.backup_nhop.vrf_id = vrf->vrf_id;
+		sg.r.backup_nhop_group.nexthop = &sg.r.backup_nhop;
+	}
+
 	sg.r.inst = instance;
 	sg.r.vrf_id = vrf->vrf_id;
 	rts = routes;
-	sharp_install_routes_helper(&prefix, sg.r.vrf_id,
-				    sg.r.inst, &sg.r.nhop_group, rts);
+	sharp_install_routes_helper(&prefix, sg.r.vrf_id, sg.r.inst,
+				    &sg.r.nhop_group, &sg.r.backup_nhop_group,
+				    rts);
 
 	return CMD_SUCCESS;
 }

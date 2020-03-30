@@ -209,10 +209,13 @@ static inline char *label2str(mpls_label_t label, char *buf, size_t len)
 int mpls_str2label(const char *label_str, uint8_t *num_labels,
 		   mpls_label_t *labels);
 
+/* Generic string buffer for label-stack-to-str */
+#define MPLS_LABEL_STRLEN 1024
+
 /*
  * Label to string conversion, labels in string separated by '/'.
  */
-char *mpls_label2str(uint8_t num_labels, mpls_label_t *labels, char *buf,
+char *mpls_label2str(uint8_t num_labels, const mpls_label_t *labels, char *buf,
 		     int len, int pretty);
 
 #ifdef __cplusplus

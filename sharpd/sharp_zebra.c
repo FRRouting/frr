@@ -143,7 +143,9 @@ int sharp_install_lsps_helper(bool install_p, const struct prefix *p,
 }
 
 void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
-				 uint8_t instance, struct nexthop_group *nhg,
+				 uint8_t instance,
+				 const struct nexthop_group *nhg,
+				 const struct nexthop_group *backup_nhg,
 				 uint32_t routes)
 {
 	uint32_t temp, i;
@@ -157,9 +159,13 @@ void sharp_install_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 	} else
 		temp = ntohl(p->u.val32[3]);
 
+	/* Only use backup route/nexthops if present */
+	if (backup_nhg && (backup_nhg->nexthop == NULL))
+		backup_nhg = NULL;
+
 	monotime(&sg.r.t_start);
 	for (i = 0; i < routes; i++) {
-		route_add(p, vrf_id, (uint8_t)instance, nhg);
+		route_add(p, vrf_id, (uint8_t)instance, nhg, backup_nhg);
 		if (v4)
 			p->u.prefix4.s_addr = htonl(++temp);
 		else
@@ -209,6 +215,7 @@ static void handle_repeated(bool installed)
 		sg.r.installed_routes = 0;
 		sharp_install_routes_helper(&p, sg.r.vrf_id, sg.r.inst,
 					    &sg.r.nhop_group,
+					    &sg.r.backup_nhop_group,
 					    sg.r.total_routes);
 	}
 }
@@ -276,8 +283,9 @@ void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
 	zclient_send_vrf_label(zclient, vrf_id, afi, label, ZEBRA_LSP_SHARP);
 }
 
-void route_add(struct prefix *p, vrf_id_t vrf_id,
-	       uint8_t instance, struct nexthop_group *nhg)
+void route_add(const struct prefix *p, vrf_id_t vrf_id,
+	       uint8_t instance, const struct nexthop_group *nhg,
+	       const struct nexthop_group *backup_nhg)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -298,9 +306,26 @@ void route_add(struct prefix *p, vrf_id_t vrf_id,
 		api_nh = &api.nexthops[i];
 
 		zapi_nexthop_from_nexthop(api_nh, nh);
+
 		i++;
 	}
 	api.nexthop_num = i;
+
+	/* Include backup nexthops, if present */
+	if (backup_nhg && backup_nhg->nexthop) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_BACKUP_NEXTHOPS);
+
+		i = 0;
+		for (ALL_NEXTHOPS_PTR(backup_nhg, nh)) {
+			api_nh = &api.backup_nexthops[i];
+
+			zapi_backup_nexthop_from_nexthop(api_nh, nh);
+
+			i++;
+		}
+
+		api.backup_nexthop_num = i;
+	}
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }

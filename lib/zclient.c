@@ -904,6 +904,7 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		}
 	}
 
+	/* If present, set 'weight' flag before encoding flags */
 	if (api_nh->weight)
 		SET_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_WEIGHT);
 
@@ -947,6 +948,10 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_EVPN_ROUTE))
 		stream_put(s, &(api_nh->rmac),
 			   sizeof(struct ethaddr));
+
+	/* Index of backup nexthop */
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP))
+		stream_putc(s, api_nh->backup_idx);
 
 done:
 	return ret;
@@ -1007,6 +1012,10 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 			return -1;
 		}
 
+		/* We canonicalize the nexthops by sorting them; this allows
+		 * zebra to resolve the list of nexthops to a nexthop-group
+		 * more efficiently.
+		 */
 		zapi_nexthop_group_sort(api->nexthops, api->nexthop_num);
 
 		stream_putw(s, api->nexthop_num);
@@ -1022,6 +1031,50 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 
 				flog_err(EC_LIB_ZAPI_ENCODE,
 					 "%s: prefix %s: can't encode %u labels (maximum is %u)",
+					 __func__, buf,
+					 api_nh->label_num,
+					 MPLS_MAX_LABELS);
+				return -1;
+			}
+
+			if (zapi_nexthop_encode(s, api_nh, api->flags) != 0)
+				return -1;
+		}
+	}
+
+	/* Backup nexthops  */
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_BACKUP_NEXTHOPS)) {
+		/* limit the number of nexthops if necessary */
+		if (api->backup_nexthop_num > MULTIPATH_NUM) {
+			char buf[PREFIX2STR_BUFFER];
+
+			prefix2str(&api->prefix, buf, sizeof(buf));
+			flog_err(
+				EC_LIB_ZAPI_ENCODE,
+				"%s: prefix %s: can't encode %u backup nexthops (maximum is %u)",
+				__func__, buf, api->backup_nexthop_num,
+				MULTIPATH_NUM);
+			return -1;
+		}
+
+		/* Note that we do not sort the list of backup nexthops -
+		 * this list is treated as an array and indexed by each
+		 * primary nexthop that is associated with a backup.
+		 */
+
+		stream_putw(s, api->backup_nexthop_num);
+
+		for (i = 0; i < api->backup_nexthop_num; i++) {
+			api_nh = &api->backup_nexthops[i];
+
+			/* MPLS labels for BGP-LU or Segment Routing */
+			if (api_nh->label_num > MPLS_MAX_LABELS) {
+				char buf[PREFIX2STR_BUFFER];
+
+				prefix2str(&api->prefix, buf, sizeof(buf));
+
+				flog_err(EC_LIB_ZAPI_ENCODE,
+					 "%s: prefix %s: backup: can't encode %u labels (maximum is %u)",
 					 __func__, buf,
 					 api_nh->label_num,
 					 MPLS_MAX_LABELS);
@@ -1107,6 +1160,10 @@ static int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_EVPN_ROUTE))
 		STREAM_GET(&(api_nh->rmac), s,
 			   sizeof(struct ethaddr));
+
+	/* Backup nexthop index */
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP))
+		STREAM_GETC(s, api_nh->backup_idx);
 
 	/* Success */
 	ret = 0;
@@ -1208,6 +1265,24 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 		for (i = 0; i < api->nexthop_num; i++) {
 			api_nh = &api->nexthops[i];
+
+			if (zapi_nexthop_decode(s, api_nh, api->flags) != 0)
+				return -1;
+		}
+	}
+
+	/* Backup nexthops. */
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_BACKUP_NEXTHOPS)) {
+		STREAM_GETW(s, api->backup_nexthop_num);
+		if (api->backup_nexthop_num > MULTIPATH_NUM) {
+			flog_err(EC_LIB_ZAPI_ENCODE,
+				 "%s: invalid number of backup nexthops (%u)",
+				 __func__, api->backup_nexthop_num);
+			return -1;
+		}
+
+		for (i = 0; i < api->backup_nexthop_num; i++) {
+			api_nh = &api->backup_nexthops[i];
 
 			if (zapi_nexthop_decode(s, api_nh, api->flags) != 0)
 				return -1;
@@ -1388,7 +1463,7 @@ stream_failure:
 	return false;
 }
 
-struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh)
+struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 {
 	struct nexthop *n = nexthop_new();
 
@@ -1403,6 +1478,11 @@ struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh)
 	if (znh->label_num) {
 		nexthop_add_labels(n, ZEBRA_LSP_NONE, znh->label_num,
 				   znh->labels);
+	}
+
+	if (CHECK_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP)) {
+		SET_FLAG(n->flags, NEXTHOP_FLAG_HAS_BACKUP);
+		n->backup_idx = znh->backup_idx;
 	}
 
 	return n;
@@ -1420,10 +1500,16 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 
 	znh->type = nh->type;
 	znh->vrf_id = nh->vrf_id;
+	znh->weight = nh->weight;
 	znh->ifindex = nh->ifindex;
 	znh->gate = nh->gate;
 
 	if (nh->nh_label && (nh->nh_label->num_labels > 0)) {
+
+		/* Validate */
+		if (nh->nh_label->num_labels > MPLS_MAX_LABELS)
+			return -1;
+
 		for (i = 0; i < nh->nh_label->num_labels; i++)
 			znh->labels[i] = nh->nh_label->label[i];
 
@@ -1431,7 +1517,28 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
 	}
 
+	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
+		znh->backup_idx = nh->backup_idx;
+	}
+
 	return 0;
+}
+
+/*
+ * Wrapper that converts backup nexthop
+ */
+int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
+				     const struct nexthop *nh)
+{
+	int ret;
+
+	/* Ensure that zapi flags are correct: backups don't have backups */
+	ret = zapi_nexthop_from_nexthop(znh, nh);
+	if (ret == 0)
+		UNSET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
+
+	return ret;
 }
 
 /*

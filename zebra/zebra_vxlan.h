@@ -199,9 +199,9 @@ extern void zebra_vxlan_cleanup_tables(struct zebra_vrf *);
 extern void zebra_vxlan_init(void);
 extern void zebra_vxlan_disable(void);
 extern void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id,
-					   struct ethaddr *rmac,
-					   struct ipaddr *ip,
-					   struct prefix *host_prefix);
+					   const struct ethaddr *rmac,
+					   const struct ipaddr *ip,
+					   const struct prefix *host_prefix);
 extern void zebra_vxlan_evpn_vrf_route_del(vrf_id_t vrf_id,
 					   struct ipaddr *vtep_ip,
 					   struct prefix *host_prefix);

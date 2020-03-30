@@ -341,6 +341,9 @@ struct zclient {
 #define ZAPI_MESSAGE_TAG      0x08
 #define ZAPI_MESSAGE_MTU      0x10
 #define ZAPI_MESSAGE_SRCPFX   0x20
+/* Backup nexthops are present */
+#define ZAPI_MESSAGE_BACKUP_NEXTHOPS 0x40
+
 /*
  * This should only be used by a DAEMON that needs to communicate
  * the table being used is not in the VRF.  You must pass the
@@ -377,14 +380,21 @@ struct zapi_nexthop {
 	struct ethaddr rmac;
 
 	uint32_t weight;
+
+	/* Index of backup nexthop */
+	uint8_t backup_idx;
 };
 
 /*
- * ZAPI nexthop flags values
+ * ZAPI nexthop flags values - we're encoding a single octet
+ * initially, so ensure that the on-the-wire encoding continues
+ * to match the number of valid flags.
  */
+
 #define ZAPI_NEXTHOP_FLAG_ONLINK	0x01
 #define ZAPI_NEXTHOP_FLAG_LABEL		0x02
 #define ZAPI_NEXTHOP_FLAG_WEIGHT	0x04
+#define ZAPI_NEXTHOP_FLAG_HAS_BACKUP	0x08 /* Nexthop has a backup */
 
 /*
  * Some of these data structures do not map easily to
@@ -447,6 +457,10 @@ struct zapi_route {
 
 	uint16_t nexthop_num;
 	struct zapi_nexthop nexthops[MULTIPATH_NUM];
+
+	/* Support backup routes for IP FRR, TI-LFA, traffic engineering */
+	uint16_t backup_nexthop_num;
+	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
 
 	uint8_t distance;
 
@@ -769,9 +783,12 @@ bool zapi_iptable_notify_decode(struct stream *s,
 		uint32_t *unique,
 		enum zapi_iptable_notify_owner *note);
 
-extern struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh);
+extern struct nexthop *
+nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh);
 int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 			      const struct nexthop *nh);
+int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
+				     const struct nexthop *nh);
 extern bool zapi_nexthop_update_decode(struct stream *s,
 				       struct zapi_route *nhr);
 

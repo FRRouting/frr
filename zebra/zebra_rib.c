@@ -213,7 +213,7 @@ static void route_entry_attach_ref(struct route_entry *re,
 
 int route_entry_update_nhe(struct route_entry *re, struct nhg_hash_entry *new)
 {
-	struct nhg_hash_entry *old = NULL;
+	struct nhg_hash_entry *old;
 	int ret = 0;
 
 	if (new == NULL) {
@@ -223,7 +223,7 @@ int route_entry_update_nhe(struct route_entry *re, struct nhg_hash_entry *new)
 		goto done;
 	}
 
-	if (re->nhe_id != new->id) {
+	if ((re->nhe_id != 0) && (re->nhe_id != new->id)) {
 		old = re->nhe;
 
 		route_entry_attach_ref(re, new);
@@ -2338,7 +2338,6 @@ static void rib_addnode(struct route_node *rn,
 void rib_unlink(struct route_node *rn, struct route_entry *re)
 {
 	rib_dest_t *dest;
-	struct nhg_hash_entry *nhe = NULL;
 
 	assert(rn && re);
 
@@ -2353,11 +2352,10 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 	if (dest->selected_fib == re)
 		dest->selected_fib = NULL;
 
-	if (re->nhe_id) {
-		nhe = zebra_nhg_lookup_id(re->nhe_id);
-		if (nhe)
-			zebra_nhg_decrement_ref(nhe);
-	} else if (re->nhe->nhg.nexthop)
+	if (re->nhe && re->nhe_id) {
+		assert(re->nhe->id == re->nhe_id);
+		zebra_nhg_decrement_ref(re->nhe);
+	} else if (re->nhe && re->nhe->nhg.nexthop)
 		nexthops_free(re->nhe->nhg.nexthop);
 
 	nexthops_free(re->fib_ng.nexthop);
@@ -2396,11 +2394,75 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 	}
 }
 
+/*
+ * Helper that debugs a single nexthop within a route-entry
+ */
+static void _route_entry_dump_nh(const struct route_entry *re,
+				 const char *straddr,
+				 const struct nexthop *nexthop)
+{
+	char nhname[PREFIX_STRLEN];
+	char backup_str[50];
+	char wgt_str[50];
+	struct interface *ifp;
+	struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_BLACKHOLE:
+		sprintf(nhname, "Blackhole");
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
+		sprintf(nhname, "%s", ifp ? ifp->name : "Unknown");
+		break;
+	case NEXTHOP_TYPE_IPV4:
+		/* fallthrough */
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		inet_ntop(AF_INET, &nexthop->gate, nhname, INET6_ADDRSTRLEN);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		inet_ntop(AF_INET6, &nexthop->gate, nhname, INET6_ADDRSTRLEN);
+		break;
+	}
+
+	backup_str[0] = '\0';
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
+		snprintf(backup_str, sizeof(backup_str), "backup %d,",
+			 (int)nexthop->backup_idx);
+	}
+
+	wgt_str[0] = '\0';
+	if (nexthop->weight)
+		snprintf(wgt_str, sizeof(wgt_str), "wgt %d,", nexthop->weight);
+
+	zlog_debug("%s: %s %s[%u] vrf %s(%u) %s%s with flags %s%s%s%s%s",
+		   straddr, (nexthop->rparent ? "  NH" : "NH"), nhname,
+		   nexthop->ifindex, vrf ? vrf->name : "Unknown",
+		   nexthop->vrf_id,
+		   wgt_str, backup_str,
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)
+		    ? "ACTIVE "
+		    : ""),
+		   (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)
+		    ? "FIB "
+		    : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE)
+		    ? "RECURSIVE "
+		    : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK)
+		    ? "ONLINK "
+		    : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE)
+		    ? "DUPLICATE "
+		    : ""));
+
+}
+
 /* This function dumps the contents of a given RE entry into
  * standard debug log. Calling function name and IP prefix in
  * question are passed as 1st and 2nd arguments.
  */
-
 void _route_entry_dump(const char *func, union prefixconstptr pp,
 		       union prefixconstptr src_pp,
 		       const struct route_entry *re)
@@ -2409,9 +2471,9 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	bool is_srcdst = src_p && src_p->prefixlen;
 	char straddr[PREFIX_STRLEN];
 	char srcaddr[PREFIX_STRLEN];
-	char nhname[PREFIX_STRLEN];
 	struct nexthop *nexthop;
 	struct vrf *vrf = vrf_lookup_by_id(re->vrf_id);
+	struct nexthop_group *nhg;
 
 	zlog_debug("%s: dumping RE entry %p for %s%s%s vrf %s(%u)", func,
 		   (const void *)re, prefix2str(pp, straddr, sizeof(straddr)),
@@ -2422,65 +2484,32 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	zlog_debug("%s: uptime == %lu, type == %u, instance == %d, table == %d",
 		   straddr, (unsigned long)re->uptime, re->type, re->instance,
 		   re->table);
-	zlog_debug(
-		"%s: metric == %u, mtu == %u, distance == %u, flags == %u, status == %u",
-		straddr, re->metric, re->mtu, re->distance, re->flags, re->status);
+	zlog_debug("%s: metric == %u, mtu == %u, distance == %u, flags == %u, status == %u",
+		   straddr, re->metric, re->mtu, re->distance, re->flags,
+		   re->status);
 	zlog_debug("%s: nexthop_num == %u, nexthop_active_num == %u", straddr,
 		   nexthop_group_nexthop_num(&(re->nhe->nhg)),
 		   nexthop_group_active_nexthop_num(&(re->nhe->nhg)));
 
-	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
-		struct interface *ifp;
-		struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
+	/* Dump nexthops */
+	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
+		_route_entry_dump_nh(re, straddr, nexthop);
 
-		switch (nexthop->type) {
-		case NEXTHOP_TYPE_BLACKHOLE:
-			sprintf(nhname, "Blackhole");
-			break;
-		case NEXTHOP_TYPE_IFINDEX:
-			ifp = if_lookup_by_index(nexthop->ifindex,
-						 nexthop->vrf_id);
-			sprintf(nhname, "%s", ifp ? ifp->name : "Unknown");
-			break;
-		case NEXTHOP_TYPE_IPV4:
-			/* fallthrough */
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			inet_ntop(AF_INET, &nexthop->gate, nhname,
-				  INET6_ADDRSTRLEN);
-			break;
-		case NEXTHOP_TYPE_IPV6:
-		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			inet_ntop(AF_INET6, &nexthop->gate, nhname,
-				  INET6_ADDRSTRLEN);
-			break;
-		}
-		zlog_debug("%s: %s %s[%u] vrf %s(%u) with flags %s%s%s%s%s",
-			   straddr, (nexthop->rparent ? "  NH" : "NH"), nhname,
-			   nexthop->ifindex, vrf ? vrf->name : "Unknown",
-			   nexthop->vrf_id,
-			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)
-				    ? "ACTIVE "
-				    : ""),
-			   (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)
-				    ? "FIB "
-				    : ""),
-			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE)
-				    ? "RECURSIVE "
-				    : ""),
-			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK)
-				    ? "ONLINK "
-				    : ""),
-			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE)
-				    ? "DUPLICATE "
-				    : ""));
+	if (zebra_nhg_get_backup_nhg(re->nhe)) {
+		zlog_debug("%s: backup nexthops:", straddr);
+
+		nhg = zebra_nhg_get_backup_nhg(re->nhe);
+		for (ALL_NEXTHOPS_PTR(nhg, nexthop))
+			_route_entry_dump_nh(re, straddr, nexthop);
 	}
+
 	zlog_debug("%s: dump complete", straddr);
 }
 
-/* This is an exported helper to rtm_read() to dump the strange
+/*
+ * This is an exported helper to rtm_read() to dump the strange
  * RE entry found by rib_lookup_ipv4_route()
  */
-
 void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 {
 	struct route_table *table;
@@ -2574,9 +2603,16 @@ void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	}
 }
 
-int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
-		      struct prefix_ipv6 *src_p, struct route_entry *re,
-		      struct nexthop_group *ng)
+/*
+ * Internal route-add implementation; there are a couple of different public
+ * signatures. Callers in this path are responsible for the memory they
+ * allocate: if they allocate a nexthop_group or backup nexthop info, they
+ * must free those objects. If this returns < 0, an error has occurred and the
+ * route_entry 're' has not been captured; the caller should free that also.
+ */
+int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
+			  struct prefix_ipv6 *src_p, struct route_entry *re,
+			  struct nhg_hash_entry *re_nhe)
 {
 	struct nhg_hash_entry *nhe = NULL;
 	struct route_table *table;
@@ -2584,41 +2620,31 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	struct route_entry *same = NULL;
 	int ret = 0;
 
-	if (!re)
-		return 0;
+	if (!re || !re_nhe)
+		return -1;
 
 	assert(!src_p || !src_p->prefixlen || afi == AFI_IP6);
 
 	/* Lookup table.  */
 	table = zebra_vrf_get_table_with_table_id(afi, safi, re->vrf_id,
 						  re->table);
-	if (!table) {
-		if (ng)
-			nexthop_group_delete(&ng);
-		XFREE(MTYPE_RE, re);
-		return 0;
-	}
+	if (!table)
+		return -1;
 
-	if (re->nhe_id) {
-		nhe = zebra_nhg_lookup_id(re->nhe_id);
+	if (re_nhe->id > 0) {
+		nhe = zebra_nhg_lookup_id(re_nhe->id);
 
 		if (!nhe) {
 			flog_err(
 				EC_ZEBRA_TABLE_LOOKUP_FAILED,
 				"Zebra failed to find the nexthop hash entry for id=%u in a route entry",
-				re->nhe_id);
-			XFREE(MTYPE_RE, re);
+				re_nhe->id);
+
 			return -1;
 		}
 	} else {
-		nhe = zebra_nhg_rib_find(0, ng, afi);
-
-		/*
-		 * The nexthops got copied over into an nhe,
-		 * so free them now.
-		 */
-		nexthop_group_delete(&ng);
-
+		/* Lookup nhe from route information */
+		nhe = zebra_nhg_rib_find_nhe(re_nhe, afi);
 		if (!nhe) {
 			char buf[PREFIX_STRLEN] = "";
 			char buf2[PREFIX_STRLEN] = "";
@@ -2631,7 +2657,6 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 				src_p ? prefix2str(src_p, buf2, sizeof(buf2))
 				      : "");
 
-			XFREE(MTYPE_RE, re);
 			return -1;
 		}
 	}
@@ -2709,12 +2734,48 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	ret = 1;
 
 	/* Free implicit route.*/
-	if (same) {
+	if (same)
 		rib_delnode(rn, same);
-		ret = -1;
-	}
 
 	route_unlock_node(rn);
+	return ret;
+}
+
+/*
+ * Add a single route.
+ */
+int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
+		      struct prefix_ipv6 *src_p, struct route_entry *re,
+		      struct nexthop_group *ng)
+{
+	int ret;
+	struct nhg_hash_entry nhe;
+
+	if (!re)
+		return -1;
+
+	/* We either need nexthop(s) or an existing nexthop id */
+	if (ng == NULL && re->nhe_id == 0)
+		return -1;
+
+	/*
+	 * Use a temporary nhe to convey info to the common/main api.
+	 */
+	zebra_nhe_init(&nhe, afi, (ng ? ng->nexthop : NULL));
+	if (ng)
+		nhe.nhg.nexthop = ng->nexthop;
+	else if (re->nhe_id > 0)
+		nhe.id = re->nhe_id;
+
+	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, &nhe);
+
+	/* In this path, the callers expect memory to be freed. */
+	nexthop_group_delete(&ng);
+
+	/* In error cases, free the route also */
+	if (ret < 0)
+		XFREE(MTYPE_RE, re);
+
 	return ret;
 }
 
@@ -3188,6 +3249,9 @@ void rib_sweep_table(struct route_table *table)
 	if (!table)
 		return;
 
+	if (IS_ZEBRA_DEBUG_RIB)
+		zlog_debug("%s: starting", __func__);
+
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
 		RNODE_FOREACH_RE_SAFE (rn, re, next) {
 
@@ -3234,6 +3298,9 @@ void rib_sweep_table(struct route_table *table)
 			rib_delnode(rn, re);
 		}
 	}
+
+	if (IS_ZEBRA_DEBUG_RIB)
+		zlog_debug("%s: ends", __func__);
 }
 
 /* Sweep all RIB tables.  */
