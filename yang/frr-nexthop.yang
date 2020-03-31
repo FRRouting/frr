@@ -15,7 +15,7 @@ module frr-nexthop {
   }
 
   organization
-    "Free Range Routing";
+    "FRRouting";
   contact
     "FRR Users List: <mailto:frog@lists.frrouting.org>
      FRR Development List: <mailto:dev@lists.frrouting.org>";

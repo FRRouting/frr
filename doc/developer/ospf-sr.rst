@@ -22,7 +22,7 @@ Interoperability
 ----------------
 
 * Tested on various topology including point-to-point and LAN interfaces
-  in a mix of Free Range Routing instance and Cisco IOS-XR 6.0.x
+  in a mix of FRRouting instance and Cisco IOS-XR 6.0.x
 * Check OSPF LSA conformity with latest wireshark release 2.5.0-rc
 
 Implementation details
