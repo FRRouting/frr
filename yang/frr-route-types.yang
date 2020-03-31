@@ -106,4 +106,12 @@ module frr-route-types {
       }
     }
   }
+
+  typedef frr-route-types {
+    description "Route types as enumerated in `lib/route_types.txt`";
+    type union {
+      type frr-route-types-v4;
+      type frr-route-types-v6;
+    }
+  }
 }
