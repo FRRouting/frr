@@ -1427,7 +1427,7 @@ void install_element_ospf6_debug_abr(void)
 	install_element(CONFIG_NODE, &no_debug_ospf6_abr_cmd);
 }
 
-static const struct ospf6_lsa_handler inter_prefix_handler = {
+static struct ospf6_lsa_handler inter_prefix_handler = {
 	.lh_type = OSPF6_LSTYPE_INTER_PREFIX,
 	.lh_name = "Inter-Prefix",
 	.lh_short_name = "IAP",
@@ -1435,7 +1435,7 @@ static const struct ospf6_lsa_handler inter_prefix_handler = {
 	.lh_get_prefix_str = ospf6_inter_area_prefix_lsa_get_prefix_str,
 	.lh_debug = 0};
 
-static const struct ospf6_lsa_handler inter_router_handler = {
+static struct ospf6_lsa_handler inter_router_handler = {
 	.lh_type = OSPF6_LSTYPE_INTER_ROUTER,
 	.lh_name = "Inter-Router",
 	.lh_short_name = "IAR",
