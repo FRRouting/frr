@@ -779,7 +779,7 @@ int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
 			cmsg->cmsg_level = IPPROTO_IPV6;
 			cmsg->cmsg_type = IPV6_HOPLIMIT;
 		} else {
-#if BFD_LINUX
+#ifdef BFD_LINUX
 			cmsg->cmsg_level = IPPROTO_IP;
 			cmsg->cmsg_type = IP_TTL;
 #else
