@@ -801,7 +801,8 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			path->extra->igpmetric = 0;
 
 		if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED)
-		    || CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
+		    || CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED)
+		    || path->attr->srte_color != 0)
 			SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
 
 		path_valid = !!CHECK_FLAG(path->flags, BGP_PATH_VALID);

@@ -24,6 +24,7 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_mpls.h"
+#include "zebra/zebra_rnh.h"
 #include "zebra/zapi_msg.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SR_POLICY, "SR Policy")
@@ -92,6 +93,41 @@ struct zebra_sr_policy *zebra_sr_policy_find_by_name(char *name)
 	return NULL;
 }
 
+static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
+{
+	struct rnh *rnh;
+	struct prefix p = {};
+	struct zebra_vrf *zvrf;
+	struct listnode *node;
+	struct zserv *client;
+
+	zvrf = policy->zvrf;
+	switch (policy->endpoint.ipa_type) {
+	case IPADDR_V4:
+		p.family = AF_INET;
+		p.prefixlen = IPV4_MAX_BITLEN;
+		p.u.prefix4 = policy->endpoint.ipaddr_v4;
+		break;
+	case IPADDR_V6:
+		p.family = AF_INET6;
+		p.prefixlen = IPV6_MAX_BITLEN;
+		p.u.prefix6 = policy->endpoint.ipaddr_v6;
+		break;
+	default:
+		flog_warn(EC_LIB_DEVELOPMENT,
+			  "%s: unknown policy endpoint address family: %u",
+			  __func__, policy->endpoint.ipa_type);
+		exit(1);
+	}
+
+	rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), RNH_NEXTHOP_TYPE);
+	if (!rnh)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client))
+		send_client(rnh, client, RNH_NEXTHOP_TYPE, zvrf_id(zvrf));
+}
+
 static void zebra_sr_policy_activate(struct zebra_sr_policy *policy,
 				     zebra_lsp_t *lsp)
 {
@@ -99,6 +135,7 @@ static void zebra_sr_policy_activate(struct zebra_sr_policy *policy,
 	policy->lsp = lsp;
 	zsend_sr_policy_notify_status(policy->color, &policy->endpoint,
 				      policy->name, ZEBRA_SR_POLICY_UP);
+	zebra_sr_policy_notify_update(policy);
 	(void)zebra_sr_policy_bsid_install(policy);
 }
 
@@ -109,6 +146,7 @@ static void zebra_sr_policy_deactivate(struct zebra_sr_policy *policy)
 	policy->lsp = NULL;
 	zsend_sr_policy_notify_status(policy->color, &policy->endpoint,
 				      policy->name, ZEBRA_SR_POLICY_DOWN);
+	zebra_sr_policy_notify_update(policy);
 }
 
 int zebra_sr_policy_validate(struct zebra_sr_policy *policy)

@@ -560,7 +560,7 @@ void free_counter_subgroup(struct counters_subgroup *subgroup)
 {
 	int i;
 	if (NULL == subgroup)
-		return NULL;
+		return;
 	for (i = 0; i <= subgroup->num_counters; i++)
 		free_counter(subgroup->counters[i]);
 	XFREE(MTYPE_PCEP, subgroup);
@@ -569,6 +569,6 @@ void free_counter_subgroup(struct counters_subgroup *subgroup)
 void free_counter(struct counter *counter)
 {
 	if (NULL == counter)
-		return NULL;
+		return;
 	XFREE(MTYPE_PCEP, counter);
 }
