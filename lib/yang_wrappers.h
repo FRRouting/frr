@@ -180,4 +180,6 @@ extern struct yang_data *yang_data_new_mac(const char *xpath,
 					   const struct ethaddr *mac);
 extern void yang_str2mac(const char *value, struct ethaddr *mac);
 
+extern const char *yang_nexthop_type2str(uint32_t ntype);
+
 #endif /* _FRR_NORTHBOUND_WRAPPERS_H_ */
