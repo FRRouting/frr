@@ -41,6 +41,7 @@ struct plspid_map_data {
 	struct lsp_nb_key nbkey;
 	uint32_t plspid;
 	uint16_t tid;
+	uint16_t lspid;
 };
 
 struct nbkey_map_data {
@@ -48,6 +49,7 @@ struct nbkey_map_data {
 	struct lsp_nb_key nbkey;
 	uint32_t plspid;
 	uint16_t tid;
+	uint16_t lspid;
 };
 
 struct srpid_map_data {
@@ -76,6 +78,7 @@ struct pcc_state {
 	uint32_t next_reqid;
 	uint32_t next_plspid;
 	uint16_t next_tid;
+	uint16_t next_lspid;
 	struct plspid_map_head plspid_map;
 	struct nbkey_map_head nbkey_map;
 	struct srpid_map_head srpid_map;

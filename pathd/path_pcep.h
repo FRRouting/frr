@@ -150,6 +150,8 @@ struct path {
 	/* The generated unique PLSP identifier for this path.
 	   See draft-ietf-pce-stateful-pce */
 	uint32_t plsp_id;
+	/* The LSP identifier given in the LSP IDENTIFIER TLV */
+	uint32_t lsp_id;
 	/* The request identifier from the PCE, when getting a path from the
 	   PCE. See draft-ietf-pce-stateful-pce */
 	uint32_t srp_id;
