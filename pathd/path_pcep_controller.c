@@ -38,6 +38,15 @@
 #include "pathd/path_pcep_debug.h"
 
 #define POLL_INTERVAL 1
+#define MAX_RECONNECT_DELAY 120
+
+#define min(a, b)                                                              \
+	({                                                                     \
+		__typeof__(a) _a = (a);                                        \
+		__typeof__(b) _b = (b);                                        \
+		_a <= _b ? _a : _b;                                            \
+	})
+
 
 /* Event handling data structures */
 enum pcep_ctrl_event_type {
@@ -133,6 +142,7 @@ static struct pcc_state *get_pcc_state(struct ctrl_state *ctrl_state,
 				       int pcc_id);
 static void set_pcc_state(struct ctrl_state *ctrl_state,
 			  struct pcc_state *pcc_state);
+static uint32_t backoff_delay(uint32_t max, uint32_t base, uint32_t attempt);
 
 
 /* ------------ API Functions Called from Main Thread ------------ */
@@ -282,9 +292,9 @@ void pcep_thread_update_path(struct ctrl_state *ctrl_state, int pcc_id,
 void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
 				    int retry_count, struct thread **thread)
 {
-	/* TODO: Add exponential backoff */
-	uint32_t delay = 2;
-
+	uint32_t delay = backoff_delay(MAX_RECONNECT_DELAY, 1, retry_count);
+	PCEP_DEBUG("Schedule reconnection in %us (retry %u)", delay,
+		   retry_count);
 	schedule_thread(ctrl_state, pcc_id, TM_RECONNECT_PCC, delay, NULL,
 			thread);
 }
@@ -665,4 +675,12 @@ void set_pcc_state(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 
 	ctrl_state->pcc[pcc_state->id - 1] = pcc_state;
 	ctrl_state->pcc_count = pcc_state->id;
+}
+
+uint32_t backoff_delay(uint32_t max, uint32_t base, uint32_t retry_count)
+{
+	uint32_t a = min(max, base * (1 << retry_count));
+	uint64_t r = rand(), m = RAND_MAX;
+	uint32_t b = (a / 2) + (r * (a / 2)) / m;
+	return b;
 }
