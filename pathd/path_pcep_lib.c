@@ -285,15 +285,17 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 
 	objs = dll_initialize();
 
-	/* SRP object */
-	srp_tlvs = dll_initialize();
-	tlv = (struct pcep_object_tlv_header *)pcep_tlv_create_path_setup_type(
-		SR_TE_PST);
-	assert(NULL != tlv);
-	dll_append(srp_tlvs, tlv);
-	srp = pcep_obj_create_srp(path->do_remove, path->srp_id, srp_tlvs);
-	assert(NULL != srp);
-	dll_append(objs, srp);
+	if (0 != path->plsp_id) {
+		/* SRP object */
+		srp_tlvs = dll_initialize();
+		tlv = (struct pcep_object_tlv_header *)pcep_tlv_create_path_setup_type(
+			SR_TE_PST);
+		assert(NULL != tlv);
+		dll_append(srp_tlvs, tlv);
+		srp = pcep_obj_create_srp(path->do_remove, path->srp_id, srp_tlvs);
+		assert(NULL != srp);
+		dll_append(objs, srp);
+	}
 
 	/* LSP object */
 	lsp_tlvs = dll_initialize();
@@ -322,7 +324,7 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 		assert(NULL != tlv);
 		dll_append(lsp_tlvs, tlv);
 	}
-	if (MPLS_LABEL_NONE != path->binding_sid) {
+	if ((0 != path->plsp_id) && (MPLS_LABEL_NONE != path->binding_sid)) {
 		memset(binding_sid_lsp_tlv_data, 0, 2);
 		encoded_binding_sid = htonl(path->binding_sid << 12);
 		memcpy(binding_sid_lsp_tlv_data + 2, &encoded_binding_sid, 4);
