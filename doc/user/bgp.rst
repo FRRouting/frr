@@ -1283,6 +1283,12 @@ Configuring Peers
 
    Sets a maximum number of prefixes we can send to a given peer.
 
+.. index:: [no] neighbor PEER ebgp-allow-local-preference
+.. clicmd:: [no] neighbor PEER ebgp-allow-local-preference
+
+   Allow using local-preference attribute for this neighbor even if
+   it's an external neighbor.
+
 .. index:: [no] neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
 .. clicmd:: [no] neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
 
