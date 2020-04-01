@@ -31,6 +31,7 @@ enum {
 	NDA_PROTOCOL,  /* Originator of entry */
 	NDA_NH_ID,
 	NDA_NOTIFY,
+	NDA_EXT_FLAGS,
 	__NDA_MAX
 };
 
@@ -48,6 +49,10 @@ enum {
 #define NTF_OFFLOADED   0x20
 #define NTF_STICKY	0x40
 #define NTF_ROUTER	0x80
+
+/* Neighbor Cache Entry extended flags, part of NDA_EXT_FLAGS attribute */
+#define NTF_E_WEAK_OVERRIDE_STATE 0x01
+#define NTF_E_MH_PEER_SYNC 0x02
 
 /*
  *	Neighbor Cache Entry States.
