@@ -430,7 +430,7 @@ def test_aspath_attribute(request):
 
     # Verifying best path
     dut = "r1"
-    attribute = "aspath"
+    attribute = "path"
     for addr_type in ADDR_TYPES:
         result = verify_best_path_as_per_bgp_attribute(tgen, addr_type, dut,
                                                    {"r7": input_dict["r7"]},
@@ -479,7 +479,7 @@ def test_aspath_attribute(request):
                         }
                     },
                     "set": {
-                        "aspath": {
+                        "path": {
                             "as_num": "111 222",
                             "as_action": "prepend"
                         }
@@ -493,7 +493,7 @@ def test_aspath_attribute(request):
                         }
                     },
                     "set": {
-                        "aspath": {
+                        "path": {
                             "as_num": "111 222",
                             "as_action": "prepend"
                         }
@@ -553,7 +553,7 @@ def test_aspath_attribute(request):
 
     # Verifying best path
     dut = "r1"
-    attribute = "aspath"
+    attribute = "path"
     for addr_type in ADDR_TYPES:
         result = verify_best_path_as_per_bgp_attribute(tgen, addr_type, dut,
                                                    {"r7": input_dict["r7"]},
@@ -714,7 +714,7 @@ def test_localpref_attribute(request):
                         }
                     },
                     "set": {
-                        "localpref": 1111
+                        "locPrf": 1111
                     }
                 },
                 {
@@ -726,7 +726,7 @@ def test_localpref_attribute(request):
                         }
                     },
                     "set": {
-                        "localpref": 1111
+                        "locPrf": 1111
                     }
                 }]
             }
@@ -783,7 +783,7 @@ def test_localpref_attribute(request):
 
     # Verifying best path
     dut = "r1"
-    attribute = "localpref"
+    attribute = "locPrf"
     for addr_type in ADDR_TYPES:
         result = verify_best_path_as_per_bgp_attribute(tgen, addr_type, dut,
                                                    {"r7": input_dict["r7"]},
@@ -804,7 +804,7 @@ def test_localpref_attribute(request):
                         }
                     },
                     "set": {
-                        "localpref": 50
+                        "locPrf": 50
                     }
                 },
                 {
@@ -816,7 +816,7 @@ def test_localpref_attribute(request):
                         }
                     },
                     "set": {
-                        "localpref": 50
+                        "locPrf": 50
                     }
                 }]
             }
@@ -828,7 +828,7 @@ def test_localpref_attribute(request):
 
     # Verifying best path
     dut = "r1"
-    attribute = "localpref"
+    attribute = "locPrf"
     for addr_type in ADDR_TYPES:
         result = verify_best_path_as_per_bgp_attribute(tgen, addr_type, dut,
                                                    {"r7": input_dict["r7"]},
@@ -1437,7 +1437,7 @@ def test_med_attribute(request):
                         }
                     },
                     "set": {
-                        "med": 100
+                        "metric": 100
                     }
                 },
                 {
@@ -1449,7 +1449,7 @@ def test_med_attribute(request):
                         }
                     },
                     "set": {
-                        "med": 100
+                        "metric": 100
                     }
                 }]
             }
@@ -1465,7 +1465,7 @@ def test_med_attribute(request):
                         }
                     },
                     "set": {
-                        "med": 10
+                        "metric": 10
                     }
                 },
                 {
@@ -1477,7 +1477,7 @@ def test_med_attribute(request):
                         }
                     },
                     "set": {
-                        "med": 10
+                        "metric": 10
                     }
                 }]
             }
@@ -1593,7 +1593,7 @@ def test_med_attribute(request):
 
     # Verifying best path
     dut = "r1"
-    attribute = "med"
+    attribute = "metric"
     for addr_type in ADDR_TYPES:
         result = verify_best_path_as_per_bgp_attribute(tgen, addr_type, dut,
                                                    input_dict, attribute)
@@ -1613,7 +1613,7 @@ def test_med_attribute(request):
                         }
                     },
                     "set": {
-                        "med": 200
+                        "metric": 200
                     }
                 },
                 {
@@ -1625,7 +1625,7 @@ def test_med_attribute(request):
                         }
                     },
                     "set": {
-                        "med": 200
+                        "metric": 200
                     }
                 }]
             }
@@ -1638,7 +1638,7 @@ def test_med_attribute(request):
 
     # Verifying best path
     dut = "r1"
-    attribute = "med"
+    attribute = "metric"
     for addr_type in ADDR_TYPES:
         result = verify_best_path_as_per_bgp_attribute(tgen, addr_type, dut,
                                                    input_dict, attribute)

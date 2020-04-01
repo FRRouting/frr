@@ -110,7 +110,7 @@ def test_bgp_default_originate_route_map():
         expected = {
             'paths': [
                 {
-                    'med': 123
+                    'metric': 123
                 }
             ]
         }

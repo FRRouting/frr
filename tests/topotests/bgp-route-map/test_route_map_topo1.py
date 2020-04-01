@@ -763,7 +763,7 @@ def test_route_map_multiple_seq_different_match_set_clause_p0(request):
                                 }
                             },
                             "set": {
-                                "aspath": {
+                                "path": {
                                     "as_num": 500
                                 }
                             }
@@ -777,7 +777,7 @@ def test_route_map_multiple_seq_different_match_set_clause_p0(request):
                                 }
                             },
                             "set": {
-                                "localpref": 150,
+                                "locPrf": 150,
                             }
                         },
                         {
@@ -789,7 +789,7 @@ def test_route_map_multiple_seq_different_match_set_clause_p0(request):
                                 }
                             },
                             "set": {
-                                "med": 50
+                                "metric": 50
                             }
                         }
                 ]
@@ -878,7 +878,7 @@ def test_route_map_multiple_seq_different_match_set_clause_p0(request):
                 "route_maps": {
                     "rmap_match_pf_list1": [{
                         "set": {
-                            "med": 50,
+                            "metric": 50,
                         }
                     }],
                 }
@@ -972,8 +972,8 @@ def test_route_map_set_only_no_match_p0(request):
                         {
                             "action": "permit",
                             "set": {
-                                "med": 50,
-                                "localpref": 150,
+                                "metric": 50,
+                                "locPrf": 150,
                                 "weight": 4000
                             }
                         }
@@ -1059,7 +1059,7 @@ def test_route_map_set_only_no_match_p0(request):
                         {
                             "action": "permit",
                             "set": {
-                                "med": 50,
+                                "metric": 50,
                             }
                         }
                     ]
@@ -1176,8 +1176,8 @@ def test_route_map_match_only_no_set_p0(request):
                         "rmap_match_pf_1_{}".format(addr_type): [{
                                 "action": "permit",
                                 "set": {
-                                    "med": 50,
-                                    "localpref": 150,
+                                    "metric": 50,
+                                    "locPrf": 150,
                                 }
                             }
                         ]

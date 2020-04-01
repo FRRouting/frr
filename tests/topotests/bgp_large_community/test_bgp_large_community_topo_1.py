@@ -598,7 +598,7 @@ def config_for_as_path(tgen, topo, tc_name):
                             "community_list": {"id": "ANY"}
                         },
                         "set": {
-                            "aspath": {
+                            "path": {
                                 "as_num": "4000000",
                                 "as_action": "prepend"
                             }

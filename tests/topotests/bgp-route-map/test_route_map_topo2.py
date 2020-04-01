@@ -288,7 +288,7 @@ def test_rmap_match_prefix_list_permit_in_and_outbound_prefixes_p0():
                             }
                         },
                         "set": {
-                            "localpref": 150,
+                            "locPrf": 150,
                             "weight": 100
                         }
                     },
@@ -302,7 +302,7 @@ def test_rmap_match_prefix_list_permit_in_and_outbound_prefixes_p0():
                             }
                         },
                         "set": {
-                            "med": 50
+                            "metric": 50
                         }
                     },
                     ]
@@ -506,7 +506,7 @@ def test_modify_set_match_clauses_in_rmap_p0():
                         }
                     },
                     "set": {
-                        "localpref": 150,
+                        "locPrf": 150,
                     }
                 }],
                 "rmap_match_pf_2_{}".format(addr_type): [{
@@ -518,7 +518,7 @@ def test_modify_set_match_clauses_in_rmap_p0():
                         }
                     },
                     "set": {
-                        "med": 50
+                        "metric": 50
                     }
                 }]
             }
@@ -658,7 +658,7 @@ def test_modify_set_match_clauses_in_rmap_p0():
                     }
                 },
                 "set": {
-                    "localpref": 1000,
+                    "locPrf": 1000,
                 }
             }],
             "rmap_match_pf_2_{}".format(addr_type): [{
@@ -670,7 +670,7 @@ def test_modify_set_match_clauses_in_rmap_p0():
                     }
                 },
                 "set": {
-                    "med": 2000
+                    "metric": 2000
                 }
             }]
         }
@@ -844,7 +844,7 @@ def test_modify_prefix_list_referenced_by_rmap_p0():
                         }
                     },
                     "set": {
-                        "localpref": 150,
+                        "locPrf": 150,
                         "weight": 100
                     }
                 }],
@@ -857,7 +857,7 @@ def test_modify_prefix_list_referenced_by_rmap_p0():
                         }
                     },
                     "set": {
-                        "med": 50
+                        "metric": 50
                     }
                 }]
             }
@@ -1093,7 +1093,7 @@ def test_remove_prefix_list_referenced_by_rmap_p0():
                         }
                     },
                     "set": {
-                        "localpref": 150,
+                        "locPrf": 150,
                     }
                 }],
                 "rmap_match_pf_2_{}".format(addr_type): [{
@@ -1105,7 +1105,7 @@ def test_remove_prefix_list_referenced_by_rmap_p0():
                     }
                     },
                     "set": {
-                        "med": 50
+                        "metric": 50
                     }
                 }]
             }
@@ -1639,7 +1639,7 @@ def test_multiple_match_statement_in_route_map_logical_ORed_p0():
                         }
                     },
                     "set": {
-                        "localpref": 150
+                        "locPrf": 150
                     }
                 }]
             }
@@ -1664,7 +1664,7 @@ def test_multiple_match_statement_in_route_map_logical_ORed_p0():
                     }
                     },
                     "set": {
-                        "localpref": 200
+                        "locPrf": 200
                     }
                 }]
             }
@@ -1894,7 +1894,7 @@ def test_multiple_match_statement_in_route_map_logical_ANDed_p1():
                         }
                         },
                         "set": {
-                            "localpref": 150,
+                            "locPrf": 150,
                         }
                     }]
                 }
@@ -1919,7 +1919,7 @@ def test_multiple_match_statement_in_route_map_logical_ANDed_p1():
                         }
                         },
                         "set": {
-                            "localpref": 150,
+                            "locPrf": 150,
                         }
                     }]
                 }
@@ -2043,7 +2043,7 @@ def test_add_remove_rmap_to_specific_neighbor_p0():
                     }
                     },
                     "set": {
-                        "localpref": 150,
+                        "locPrf": 150,
                     }
                 }]
             }
@@ -2234,7 +2234,7 @@ def test_clear_bgp_and_flap_interface_to_verify_rmap_properties_p0():
                     }
                     },
                     "set": {
-                        "localpref": 150,
+                        "locPrf": 150,
                         "weight": 100
                     }
                 }]
@@ -2578,7 +2578,7 @@ def test_set_localpref_weight_to_ebgp_and_med_to_ibgp_peers_p0():
                                 }
                             },
                                 "set": {
-                                    "med": 50
+                                    "metric": 50
                                 }
                             }],
                     "rmap_match_pf_2_{}".format(addr_type): [{
@@ -2589,7 +2589,7 @@ def test_set_localpref_weight_to_ebgp_and_med_to_ibgp_peers_p0():
                                             addr_type)
                                     }},
                                     "set": {
-                                        "localpref": 150
+                                        "locPrf": 150
                                     }
                                 }],
                             "rmap_match_pf_3_{}".format(addr_type): [{
@@ -2841,9 +2841,9 @@ def test_multiple_set_on_single_sequence_in_rmap_p0():
                     }
                 },
                     "set": {
-                        "localpref": 150,
+                        "locPrf": 150,
                         "weight": 100,
-                        "med": 50
+                        "metric": 50
                     }
                 }]
             }
@@ -2985,7 +2985,7 @@ def test_route_maps_with_continue_clause_p0():
                         }
                         },
                         "set": {
-                            "localpref": 150
+                            "locPrf": 150
                         },
                         "continue": "30"
                     },
@@ -2998,7 +2998,7 @@ def test_route_maps_with_continue_clause_p0():
                         }
                         },
                         "set": {
-                            "med": 200
+                            "metric": 200
                         }
                     },
                     {
@@ -3010,7 +3010,7 @@ def test_route_maps_with_continue_clause_p0():
                         }
                         },
                         "set": {
-                            "med": 100
+                            "metric": 100
                         }
                     }
                 ]
@@ -3167,7 +3167,7 @@ def test_route_maps_with_goto_clause_p0():
                         }
                         },
                         "set": {
-                            "med": 100
+                            "metric": 100
                         }
                     },
                     {
@@ -3179,7 +3179,7 @@ def test_route_maps_with_goto_clause_p0():
                         }
                         },
                         "set": {
-                            "med": 200
+                            "metric": 200
                         }
                     }
                 ]
@@ -3325,7 +3325,7 @@ def test_route_maps_with_call_clause_p0():
                     }
                     },
                     "set": {
-                        "localpref": 150
+                        "locPrf": 150
                     },
                     "call": "rmap_match_pf_2_{}".format(addr_type)
                 }],
@@ -3337,7 +3337,7 @@ def test_route_maps_with_call_clause_p0():
                     }
                     },
                     "set": {
-                        "med": 200
+                        "metric": 200
                     }
                 }]
             }
@@ -3486,7 +3486,7 @@ def test_create_rmap_match_prefix_list_to_deny_in_and_outbound_prefixes_p0():
                     }
                     },
                     "set": {
-                        "localpref": 150,
+                        "locPrf": 150,
                     }
                 }],
                 "rmap_match_pf_2_{}".format(addr_type): [{
@@ -3497,7 +3497,7 @@ def test_create_rmap_match_prefix_list_to_deny_in_and_outbound_prefixes_p0():
                     }
                     },
                     "set": {
-                        "med": 50
+                        "metric": 50
                     }
                 }]
             }

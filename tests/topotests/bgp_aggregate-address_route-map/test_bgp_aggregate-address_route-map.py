@@ -110,7 +110,7 @@ def test_bgp_maximum_prefix_invalid():
         expected = {
             'paths': [
                 {
-                    'med': 123
+                    'metric': 123
                 }
             ]
         }
