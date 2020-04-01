@@ -125,7 +125,7 @@ struct bgp_path_info_extra {
 	struct in6_addr sid[BGP_MAX_SIDS];
 	uint32_t num_sids;
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	union {
 
 		struct {

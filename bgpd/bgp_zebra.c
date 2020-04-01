@@ -51,7 +51,7 @@
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_label.h"
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
 #include "bgpd/rfapi/vnc_export_bgp.h"
 #endif
@@ -1605,7 +1605,7 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
 		if (vrf_bitmap_check(zclient->redist[afi][type], bgp->vrf_id))
 			return CMD_WARNING;
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 		if (EVPN_ENABLED(bgp) && type == ZEBRA_ROUTE_VNC_DIRECT) {
 			vnc_export_bgp_enable(
 				bgp, afi); /* only enables if mode bits cfg'd */
@@ -1766,7 +1766,7 @@ int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
  * they operate within bgpd irrespective of zebra connection
  * status. red lookup fails if there is no zebra connection.
  */
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	if (EVPN_ENABLED(bgp) && type == ZEBRA_ROUTE_VNC_DIRECT) {
 		vnc_export_bgp_disable(bgp, afi);
 	}

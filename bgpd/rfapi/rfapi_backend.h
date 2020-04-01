@@ -21,7 +21,7 @@
 #ifndef _QUAGGA_BGP_RFAPI_BACKEND_H
 #define _QUAGGA_BGP_RFAPI_BACKEND_H
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_nexthop.h"

@@ -68,7 +68,7 @@
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_flowspec.h"
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
 
@@ -15272,7 +15272,7 @@ int bgp_config_write(struct vty *vty)
 
 		hook_call(bgp_inst_config_write, bgp, vty);
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 		bgp_rfapi_cfg_write(vty, bgp);
 #endif
 

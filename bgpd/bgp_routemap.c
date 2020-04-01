@@ -64,7 +64,7 @@
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_encap_types.h"
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
 
@@ -3749,7 +3749,7 @@ static void bgp_route_map_process_update_cb(char *rmap_name)
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 		bgp_route_map_process_update(bgp, rmap_name, 1);
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 		/* zlog_debug("%s: calling vnc_routemap_update", __func__); */
 		vnc_routemap_update(bgp, __func__);
 #endif
@@ -3793,7 +3793,7 @@ static void bgp_route_map_mark_update(const char *rmap_name)
 	} else {
 		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
 			bgp_route_map_process_update(bgp, rmap_name, 0);
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 		zlog_debug("%s: calling vnc_routemap_update", __func__);
 		vnc_routemap_update(bgp, __func__);
 #endif
