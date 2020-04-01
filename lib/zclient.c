@@ -1592,6 +1592,7 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 
 	memset(nhr, 0, sizeof(*nhr));
 
+	STREAM_GETL(s, nhr->message);
 	STREAM_GETW(s, nhr->prefix.family);
 	STREAM_GETC(s, nhr->prefix.prefixlen);
 	switch (nhr->prefix.family) {
@@ -1604,6 +1605,8 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 	default:
 		break;
 	}
+	if (CHECK_FLAG(nhr->message, ZAPI_MESSAGE_SRTE))
+		STREAM_GETL(s, nhr->srte_color);
 
 	STREAM_GETC(s, nhr->type);
 	STREAM_GETW(s, nhr->instance);

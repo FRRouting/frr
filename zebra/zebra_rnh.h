@@ -60,7 +60,8 @@ extern void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
 				  enum rnh_type type, struct prefix *p);
 extern char *rnh_str(struct rnh *rnh, char *buf, int size);
 extern int send_client(struct rnh *rnh, struct zserv *client,
-		       enum rnh_type type, vrf_id_t vrf_id);
+		       enum rnh_type type, vrf_id_t vrf_id,
+		       uint32_t srte_color);
 
 extern int rnh_resolve_via_default(struct zebra_vrf *zvrf, int family);
 

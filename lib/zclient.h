@@ -498,6 +498,9 @@ struct zapi_route {
 	vrf_id_t vrf_id;
 
 	uint32_t tableid;
+
+	/* SR-TE color (used for nexthop updates only). */
+	uint32_t srte_color;
 };
 
 struct zapi_labels {

@@ -125,7 +125,8 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 		return;
 
 	for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client))
-		send_client(rnh, client, RNH_NEXTHOP_TYPE, zvrf_id(zvrf));
+		send_client(rnh, client, RNH_NEXTHOP_TYPE, zvrf_id(zvrf),
+			    policy->color);
 }
 
 static void zebra_sr_policy_activate(struct zebra_sr_policy *policy,
