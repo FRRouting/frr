@@ -213,6 +213,22 @@ def test_ldp_bindings():
     for rname in ['r1', 'r2', 'r3', 'r4']:
         router_compare_json_output(rname, "show mpls ldp binding json", "show_ldp_binding.ref")
 
+def test_ldp_bindings_all_routes():
+    logger.info("Test: verify LDP bindings after host filter removed")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # remove ACL that blocks advertising everything but host routes */
+    cmd = 'vtysh -c \"configure terminal\" -c \"mpls ldp\" -c \"address-family ipv4\" -c \"no label local allocate host-routes\"'
+    tgen.net['r1'].cmd(cmd)
+    sleep(2)
+
+    for rname in ['r1', 'r2', 'r3', 'r4']:
+        router_compare_json_output(rname, "show mpls ldp binding json", "show_ldp_all_binding.ref")
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
