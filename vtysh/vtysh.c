@@ -2877,13 +2877,12 @@ static void backup_config_file(const char *fbackup)
 	strlcat(integrate_sav, CONF_BACKUP_EXT, integrate_sav_sz);
 
 	/* Move current configuration file to backup config file. */
-	if (unlink(integrate_sav) != 0) {
-		vty_out(vty, "Warning: %s unlink failed\n", integrate_sav);
-	}
-	if (rename(fbackup, integrate_sav) != 0) {
-		vty_out(vty, "Error renaming %s to %s\n", fbackup,
-			integrate_sav);
-	}
+	if (unlink(integrate_sav) != 0 && errno != ENOENT)
+		vty_out(vty, "Unlink failed for %s: %s\n", integrate_sav,
+			strerror(errno));
+	if (rename(fbackup, integrate_sav) != 0 && errno != ENOENT)
+		vty_out(vty, "Error renaming %s to %s: %s\n", fbackup,
+			integrate_sav, strerror(errno));
 	free(integrate_sav);
 }
 
