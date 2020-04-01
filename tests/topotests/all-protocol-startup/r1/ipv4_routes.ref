@@ -18,6 +18,9 @@ S>* 4.5.6.12/32 [1/0] is directly connected, r1-eth0, weight 1, XX:XX:XX
 S>* 4.5.6.13/32 [1/0] unreachable (blackhole), weight 1, XX:XX:XX
 S>* 4.5.6.14/32 [1/0] unreachable (blackhole), weight 1, XX:XX:XX
 S   4.5.6.15/32 [255/0] via 192.168.0.2, r1-eth0, weight 1, XX:XX:XX
+S   4.5.6.16/32 [10/0] via 192.168.0.4, r1-eth0, weight 1, XX:XX:XX
+S>* 4.5.6.16/32 [5/0] via 192.168.0.2, r1-eth0, weight 1, XX:XX:XX
+S>* 4.5.6.17/32 [1/0] via 192.168.0.2, r1-eth0, weight 1, XX:XX:XX
 S>* 4.5.6.7/32 [1/0] unreachable (blackhole), weight 1, XX:XX:XX
 S>* 4.5.6.8/32 [1/0] unreachable (blackhole), weight 1, XX:XX:XX
 S>* 4.5.6.9/32 [1/0] unreachable (ICMP unreachable), weight 1, XX:XX:XX
