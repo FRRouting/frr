@@ -46,8 +46,8 @@ import pytest
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
-sys.path.append(os.path.join(CWD, '../lib/'))
+sys.path.append(os.path.join(CWD, "../"))
+sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -65,13 +65,29 @@ from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence, create_router_bgp,
     clear_bgp_and_verify, verify_bgp_rib
+    start_topology,
+    write_test_header,
+    write_test_footer,
+    reset_config_on_routers,
+    verify_rib,
+    create_static_routes,
+    create_route_maps,
+    check_address_types,
+    step,
+)
+from lib.topolog import logger
+from lib.bgp import (
+    verify_bgp_convergence,
+    create_router_bgp,
+    clear_bgp_and_verify,
+    verify_bgp_rib,
 )
 from lib.topojson import build_topo_from_json, build_config_from_json
 
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/bgp_as_allow_in.json".format(CWD)
 try:
-    with open(jsonFile, 'r') as topoJson:
+    with open(jsonFile, "r") as topoJson:
         topo = json.load(topoJson)
 except IOError:
     assert False, "Could not read file {}".format(jsonFile)
@@ -107,7 +123,7 @@ def setup_module(mod):
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
-    logger.info("="*40)
+    logger.info("=" * 40)
 
     logger.info("Running setup_module to create topology")
 
@@ -128,8 +144,9 @@ def setup_module(mod):
 
     # Api call verify whether BGP is converged
     BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
-    assert BGP_CONVERGENCE is True, ("setup_module :Failed \n Error:"
-                                     " {}".format(BGP_CONVERGENCE))
+    assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error:" " {}".format(
+        BGP_CONVERGENCE
+    )
 
     logger.info("Running setup_module() done")
 
@@ -148,9 +165,10 @@ def teardown_module(mod):
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
 
-    logger.info("Testsuite end time: {}".
-                format(time.asctime(time.localtime(time.time()))))
-    logger.info("="*40)
+    logger.info(
+        "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
+    )
+    logger.info("=" * 40)
 
 
 #####################################################
@@ -186,10 +204,7 @@ def test_bgp_allowas_in_p0(request):
         input_dict_4 = {
             "r1": {
                 "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": NEXT_HOP_IP[addr_type]
-                    }
+                    {"network": NETWORK[addr_type], "next_hop": NEXT_HOP_IP[addr_type]}
                 ]
             }
         }
@@ -197,7 +212,8 @@ def test_bgp_allowas_in_p0(request):
         logger.info("Configure static routes")
         result = create_static_routes(tgen, input_dict_4)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
         step("configure redistribute static in Router BGP in R1")
 
@@ -206,11 +222,7 @@ def test_bgp_allowas_in_p0(request):
                 "bgp": {
                     "address_family": {
                         addr_type: {
-                            "unicast": {
-                                "redistribute": [{
-                                    "redist_type": "static"
-                                }]
-                            }
+                            "unicast": {"redistribute": [{"redist_type": "static"}]}
                         }
                     }
                 }
@@ -218,53 +230,62 @@ def test_bgp_allowas_in_p0(request):
         }
         result = create_router_bgp(tgen, topo, input_dict_2)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
-        step('Check BGP table of router R3 using "sh bgp ipv4" and "sh bgp '
-             'ipv6" command.')
-        step("We should not see prefix advertised from R1 in R3's BGP "
-             "table without allowas-in.")
-        logger.info("Verifying %s routes on r3, route should not be present",
-                    addr_type)
-        result = verify_rib(tgen, addr_type, dut, input_dict_4,
-                            next_hop=NEXT_HOP_IP[addr_type],
-                            protocol=protocol, expected=False)
+            tc_name, result
+        )
+        step(
+            'Check BGP table of router R3 using "sh bgp ipv4" and "sh bgp '
+            'ipv6" command.'
+        )
+        step(
+            "We should not see prefix advertised from R1 in R3's BGP "
+            "table without allowas-in."
+        )
+        logger.info("Verifying %s routes on r3, route should not be present", addr_type)
+        result = verify_rib(
+            tgen,
+            addr_type,
+            dut,
+            input_dict_4,
+            next_hop=NEXT_HOP_IP[addr_type],
+            protocol=protocol,
+            expected=False,
+        )
         assert result is not True, "Testcase {} : Failed \n"
         "Expected behavior: routes should not present in rib \n"
         "Error: {}".format(tc_name, result)
 
-        step('Configure allowas-in on R3 for R2.')
+        step("Configure allowas-in on R3 for R2.")
         step("We should see the prefix advertised from R1 in R3's BGP table.")
         # Api call to enable allowas-in in bgp process.
         input_dict_1 = {
             "r3": {
-               "bgp": {
-                   "address_family": {
-                       addr_type: {
-                           "unicast": {
-                               "neighbor": {
-                                   "r2": {
-                                       "dest_link": {
-                                           "r3": {
-                                               "allowas-in": {
-                                                   "number_occurences": 1
-                                               }
-                                           }
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "allowas-in": {"number_occurences": 1}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         result = create_router_bgp(tgen, topo, input_dict_1)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
-        result = verify_rib(tgen, addr_type, dut, input_dict_4,
-                            protocol=protocol)
+            tc_name, result
+        )
+        result = verify_rib(tgen, addr_type, dut, input_dict_4, protocol=protocol)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -300,10 +321,7 @@ def test_bgp_allowas_in_per_addr_family_p0(request):
         input_dict_4 = {
             "r1": {
                 "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": NEXT_HOP_IP[addr_type]
-                    }
+                    {"network": NETWORK[addr_type], "next_hop": NEXT_HOP_IP[addr_type]}
                 ]
             }
         }
@@ -311,7 +329,8 @@ def test_bgp_allowas_in_per_addr_family_p0(request):
         logger.info("Configure static routes")
         result = create_static_routes(tgen, input_dict_4)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
         step("configure redistribute static in Router BGP in R1")
 
@@ -320,11 +339,7 @@ def test_bgp_allowas_in_per_addr_family_p0(request):
                 "bgp": {
                     "address_family": {
                         addr_type: {
-                            "unicast": {
-                                "redistribute": [{
-                                    "redist_type": "static"
-                                }]
-                            }
+                            "unicast": {"redistribute": [{"redist_type": "static"}]}
                         }
                     }
                 }
@@ -332,126 +347,107 @@ def test_bgp_allowas_in_per_addr_family_p0(request):
         }
         result = create_router_bgp(tgen, topo, input_dict_2)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
-    step('Configure allowas-in on R3 for R2 under IPv4 addr-family only')
+    step("Configure allowas-in on R3 for R2 under IPv4 addr-family only")
     # Api call to enable allowas-in in bgp process.
     input_dict_1 = {
         "r3": {
-           "bgp": {
-               "address_family": {
-                   'ipv4': {
-                       "unicast": {
-                           "neighbor": {
-                               "r2": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "allowas-in": {
-                                               "number_occurences": 1
-                                           }
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
-           }
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r3": {"allowas-in": {"number_occurences": 1}}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     result = create_router_bgp(tgen, topo, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     static_route_ipv4 = {
-            "r1": {
-                "static_routes": [
-                    {
-                        "network": NETWORK['ipv4'],
-                        "next_hop": NEXT_HOP_IP['ipv4']
-                    }
-                ]
-            }
+        "r1": {
+            "static_routes": [
+                {"network": NETWORK["ipv4"], "next_hop": NEXT_HOP_IP["ipv4"]}
+            ]
+        }
     }
 
     static_route_ipv6 = {
-            "r1": {
-                "static_routes": [
-                    {
-                        "network": NETWORK['ipv6'],
-                        "next_hop": NEXT_HOP_IP['ipv6']
-                    }
-                ]
-            }
+        "r1": {
+            "static_routes": [
+                {"network": NETWORK["ipv6"], "next_hop": NEXT_HOP_IP["ipv6"]}
+            ]
+        }
     }
-    step("We should see R1 advertised prefix only in IPv4 AFI "
-         "not in IPv6 AFI.")
-    result = verify_rib(tgen, 'ipv4', dut, static_route_ipv4,
-                        protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
-    result = verify_rib(tgen, 'ipv6', dut, static_route_ipv6,
-                        protocol=protocol, expected=False)
+    step("We should see R1 advertised prefix only in IPv4 AFI " "not in IPv6 AFI.")
+    result = verify_rib(tgen, "ipv4", dut, static_route_ipv4, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    result = verify_rib(
+        tgen, "ipv6", dut, static_route_ipv6, protocol=protocol, expected=False
+    )
     assert result is not True, "Testcase {} : Failed \n"
     "Expected behavior: routes are should not be present in ipv6 rib\n"
     " Error: {}".format(tc_name, result)
 
     step("Repeat the same test for IPv6 AFI.")
-    step('Configure allowas-in on R3 for R2 under IPv6 addr-family only')
+    step("Configure allowas-in on R3 for R2 under IPv6 addr-family only")
     # Api call to enable allowas-in in bgp process.
     input_dict_1 = {
         "r3": {
-           "bgp": {
-               "address_family": {
-                   'ipv4': {
-                       "unicast": {
-                           "neighbor": {
-                               "r2": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "allowas-in": {
-                                               "number_occurences": 2,
-                                               "delete": True
-                                           }
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   },
-                   'ipv6': {
-                       "unicast": {
-                           "neighbor": {
-                               "r2": {
-                                   "dest_link": {
-                                       "r3": {
-                                           "allowas-in": {
-                                               "number_occurences": 2
-                                           }
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
-           }
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r3": {
+                                            "allowas-in": {
+                                                "number_occurences": 2,
+                                                "delete": True,
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ipv6": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link": {
+                                        "r3": {"allowas-in": {"number_occurences": 2}}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
         }
     }
     result = create_router_bgp(tgen, topo, input_dict_1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
-    step("We should see R1 advertised prefix only in IPv6 AFI "
-         "not in IPv4 AFI.")
-    result = verify_rib(tgen, 'ipv4', dut, static_route_ipv4,
-                        protocol=protocol, expected=False)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    step("We should see R1 advertised prefix only in IPv6 AFI " "not in IPv4 AFI.")
+    result = verify_rib(
+        tgen, "ipv4", dut, static_route_ipv4, protocol=protocol, expected=False
+    )
     assert result is not True, "Testcase {} : Failed \n"
     "Expected behavior: routes should not be present in ipv4 rib\n"
     " Error: {}".format(tc_name, result)
-    result = verify_rib(tgen, 'ipv6', dut, static_route_ipv6,
-                        protocol=protocol)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    result = verify_rib(tgen, "ipv6", dut, static_route_ipv6, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -481,10 +477,7 @@ def test_bgp_allowas_in_no_of_occurrences_p0(request):
         static_routes = {
             "r1": {
                 "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": NEXT_HOP_IP[addr_type]
-                    }
+                    {"network": NETWORK[addr_type], "next_hop": NEXT_HOP_IP[addr_type]}
                 ]
             }
         }
@@ -492,7 +485,8 @@ def test_bgp_allowas_in_no_of_occurrences_p0(request):
         logger.info("Configure static routes")
         result = create_static_routes(tgen, static_routes)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
         step("configure redistribute static in Router BGP in R1")
 
@@ -501,11 +495,7 @@ def test_bgp_allowas_in_no_of_occurrences_p0(request):
                 "bgp": {
                     "address_family": {
                         addr_type: {
-                            "unicast": {
-                                "redistribute": [{
-                                    "redist_type": "static"
-                                }]
-                            }
+                            "unicast": {"redistribute": [{"redist_type": "static"}]}
                         }
                     }
                 }
@@ -513,28 +503,32 @@ def test_bgp_allowas_in_no_of_occurrences_p0(request):
         }
         result = create_router_bgp(tgen, topo, input_dict_2)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
-    step('Configure a route-map on R1 to prepend AS 4 times.')
+    step("Configure a route-map on R1 to prepend AS 4 times.")
     for addr_type in ADDR_TYPES:
         input_dict_4 = {
             "r1": {
                 "route_maps": {
-                    "ASP_{}".format(addr_type): [{
-                        "action": "permit",
-                        "set": {
-                            "aspath": {
-                                "as_num": "200 200 200 200",
-                                "as_action": "prepend"
-                            }
+                    "ASP_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "set": {
+                                "path": {
+                                    "as_num": "200 200 200 200",
+                                    "as_action": "prepend",
+                                }
+                            },
                         }
-                    }]
+                    ]
                 }
             }
         }
         result = create_route_maps(tgen, input_dict_4)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         step("configure route map in out direction on R1")
         # Configure neighbor for route map
@@ -550,10 +544,10 @@ def test_bgp_allowas_in_no_of_occurrences_p0(request):
                                             "r1": {
                                                 "route_maps": [
                                                     {
-                                                        "name":
-                                                        "ASP_{}".format(
-                                                            addr_type),
-                                                        "direction": "out"
+                                                        "name": "ASP_{}".format(
+                                                            addr_type
+                                                        ),
+                                                        "direction": "out",
                                                     }
                                                 ]
                                             }
@@ -569,86 +563,82 @@ def test_bgp_allowas_in_no_of_occurrences_p0(request):
 
         result = create_router_bgp(tgen, topo, input_dict_7)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     for addr_type in ADDR_TYPES:
         step('Configure "allowas-in 4" on R3 for R2.')
         # Api call to enable allowas-in in bgp process.
         input_dict_1 = {
             "r3": {
-               "bgp": {
-                   "address_family": {
-                       addr_type: {
-                           "unicast": {
-                               "neighbor": {
-                                   "r2": {
-                                       "dest_link": {
-                                           "r3": {
-                                               "allowas-in": {
-                                                   "number_occurences": 4
-                                               }
-                                           }
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "allowas-in": {"number_occurences": 4}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         result = create_router_bgp(tgen, topo, input_dict_1)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
-        result = verify_rib(tgen, addr_type, dut, static_routes,
-                            protocol=protocol, expected=False)
+            tc_name, result
+        )
+        result = verify_rib(
+            tgen, addr_type, dut, static_routes, protocol=protocol, expected=False
+        )
         assert result is not True, "Testcase {} : Failed \n "
         "Expected behavior: routes are should not be present in rib\n"
-        "Error: {}".format(
-            tc_name, result)
+        "Error: {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
         step('Configure "allowas-in 5" on R3 for R2.')
         input_dict_1 = {
             "r3": {
-               "bgp": {
-                   "address_family": {
-                       addr_type: {
-                           "unicast": {
-                               "neighbor": {
-                                   "r2": {
-                                       "dest_link": {
-                                           "r3": {
-                                               "allowas-in": {
-                                                   "number_occurences": 5
-                                               }
-                                           }
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "allowas-in": {"number_occurences": 5}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         result = create_router_bgp(tgen, topo, input_dict_1)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
         static_routes = {
             "r1": {
                 "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": NEXT_HOP_IP[addr_type]
-                    }
+                    {"network": NETWORK[addr_type], "next_hop": NEXT_HOP_IP[addr_type]}
                 ]
             }
         }
-        result = verify_rib(tgen, addr_type, dut, static_routes,
-                            protocol=protocol)
+        result = verify_rib(tgen, addr_type, dut, static_routes, protocol=protocol)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -678,10 +668,7 @@ def test_bgp_allowas_in_sameastoibgp_p1(request):
         static_routes = {
             "r1": {
                 "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": NEXT_HOP_IP[addr_type]
-                    }
+                    {"network": NETWORK[addr_type], "next_hop": NEXT_HOP_IP[addr_type]}
                 ]
             }
         }
@@ -689,7 +676,8 @@ def test_bgp_allowas_in_sameastoibgp_p1(request):
         logger.info("Configure static routes")
         result = create_static_routes(tgen, static_routes)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
         step("configure redistribute static in Router BGP in R1")
 
@@ -698,11 +686,7 @@ def test_bgp_allowas_in_sameastoibgp_p1(request):
                 "bgp": {
                     "address_family": {
                         addr_type: {
-                            "unicast": {
-                                "redistribute": [{
-                                    "redist_type": "static"
-                                }]
-                            }
+                            "unicast": {"redistribute": [{"redist_type": "static"}]}
                         }
                     }
                 }
@@ -710,28 +694,29 @@ def test_bgp_allowas_in_sameastoibgp_p1(request):
         }
         result = create_router_bgp(tgen, topo, input_dict_2)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
-    step('Configure a route-map on R2 to prepend AS 2 times.')
+    step("Configure a route-map on R2 to prepend AS 2 times.")
     for addr_type in ADDR_TYPES:
         input_dict_4 = {
             "r2": {
                 "route_maps": {
-                    "ASP_{}".format(addr_type): [{
-                        "action": "permit",
-                        "set": {
-                            "aspath": {
-                                "as_num": "200 200",
-                                "as_action": "prepend"
-                            }
+                    "ASP_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "set": {
+                                "path": {"as_num": "200 200", "as_action": "prepend"}
+                            },
                         }
-                    }]
+                    ]
                 }
             }
         }
         result = create_route_maps(tgen, input_dict_4)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         step("configure route map in out direction on R2")
         # Configure neighbor for route map
@@ -747,10 +732,11 @@ def test_bgp_allowas_in_sameastoibgp_p1(request):
                                             "r2": {
                                                 "route_maps": [
                                                     {
-                                                        "name":
-                                                        "ASP_{}".format(
-                                                            addr_type),
-                                                        "direction": "out"}
+                                                        "name": "ASP_{}".format(
+                                                            addr_type
+                                                        ),
+                                                        "direction": "out",
+                                                    }
                                                 ]
                                             }
                                         }
@@ -765,79 +751,75 @@ def test_bgp_allowas_in_sameastoibgp_p1(request):
 
         result = create_router_bgp(tgen, topo, input_dict_7)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
         step('Configure "allowas-in 3" on R3 for R1.')
         input_dict_1 = {
             "r3": {
-               "bgp": {
-                   "address_family": {
-                       addr_type: {
-                           "unicast": {
-                               "neighbor": {
-                                   "r2": {
-                                       "dest_link": {
-                                           "r3": {
-                                               "allowas-in": {
-                                                   "number_occurences": 3
-                                               }
-                                           }
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "allowas-in": {"number_occurences": 3}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         result = create_router_bgp(tgen, topo, input_dict_1)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
         input_dict_1 = {
             "r4": {
-               "bgp": {
-                   "address_family": {
-                       addr_type: {
-                           "unicast": {
-                               "neighbor": {
-                                   "r3": {
-                                       "dest_link": {
-                                           "r4": {
-                                               "allowas-in": {
-                                                   "number_occurences": 3
-                                               }
-                                           }
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r3": {
+                                        "dest_link": {
+                                            "r4": {
+                                                "allowas-in": {"number_occurences": 3}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         result = create_router_bgp(tgen, topo, input_dict_1)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
         static_routes = {
             "r1": {
                 "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": NEXT_HOP_IP[addr_type]
-                    }
+                    {"network": NETWORK[addr_type], "next_hop": NEXT_HOP_IP[addr_type]}
                 ]
             }
         }
         dut = "r4"
-        aspath = "100 200 200 200"
-        result = verify_bgp_rib(tgen, addr_type, dut, static_routes,
-                                aspath=aspath)
+        path = "100 200 200 200"
+        result = verify_bgp_rib(tgen, addr_type, dut, static_routes, aspath=path)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -867,10 +849,7 @@ def test_bgp_allowas_in_sameastoebgp_p1(request):
         static_routes = {
             "r1": {
                 "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": NEXT_HOP_IP[addr_type]
-                    }
+                    {"network": NETWORK[addr_type], "next_hop": NEXT_HOP_IP[addr_type]}
                 ]
             }
         }
@@ -878,7 +857,8 @@ def test_bgp_allowas_in_sameastoebgp_p1(request):
         logger.info("Configure static routes")
         result = create_static_routes(tgen, static_routes)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
         step("configure redistribute static in Router BGP in R1")
 
@@ -887,11 +867,7 @@ def test_bgp_allowas_in_sameastoebgp_p1(request):
                 "bgp": {
                     "address_family": {
                         addr_type: {
-                            "unicast": {
-                                "redistribute": [{
-                                    "redist_type": "static"
-                                }]
-                            }
+                            "unicast": {"redistribute": [{"redist_type": "static"}]}
                         }
                     }
                 }
@@ -899,28 +875,29 @@ def test_bgp_allowas_in_sameastoebgp_p1(request):
         }
         result = create_router_bgp(tgen, topo, input_dict_2)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
-    step('Configure a route-map on R2 to prepend AS 2 times.')
+    step("Configure a route-map on R2 to prepend AS 2 times.")
     for addr_type in ADDR_TYPES:
         input_dict_4 = {
             "r2": {
                 "route_maps": {
-                    "ASP_{}".format(addr_type): [{
-                        "action": "permit",
-                        "set": {
-                            "aspath": {
-                                "as_num": "200 200",
-                                "as_action": "prepend"
-                            }
+                    "ASP_{}".format(addr_type): [
+                        {
+                            "action": "permit",
+                            "set": {
+                                "path": {"as_num": "200 200", "as_action": "prepend"}
+                            },
                         }
-                    }]
+                    ]
                 }
             }
         }
         result = create_route_maps(tgen, input_dict_4)
-        assert result is True, 'Testcase {} : Failed \n Error: {}'.format(
-            tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         step("configure route map in out direction on R2")
         # Configure neighbor for route map
@@ -936,10 +913,11 @@ def test_bgp_allowas_in_sameastoebgp_p1(request):
                                             "r2": {
                                                 "route_maps": [
                                                     {
-                                                        "name":
-                                                        "ASP_{}".format(
-                                                            addr_type),
-                                                        "direction": "out"}
+                                                        "name": "ASP_{}".format(
+                                                            addr_type
+                                                        ),
+                                                        "direction": "out",
+                                                    }
                                                 ]
                                             }
                                         }
@@ -954,52 +932,49 @@ def test_bgp_allowas_in_sameastoebgp_p1(request):
 
         result = create_router_bgp(tgen, topo, input_dict_7)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
     for addr_type in ADDR_TYPES:
         step('Configure "allowas-in 3" on R3 for R1.')
         input_dict_1 = {
             "r3": {
-               "bgp": {
-                   "address_family": {
-                       addr_type: {
-                           "unicast": {
-                               "neighbor": {
-                                   "r2": {
-                                       "dest_link": {
-                                           "r3": {
-                                               "allowas-in": {
-                                                   "number_occurences": 3
-                                               }
-                                           }
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
+                "bgp": {
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {
+                                "neighbor": {
+                                    "r2": {
+                                        "dest_link": {
+                                            "r3": {
+                                                "allowas-in": {"number_occurences": 3}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         result = create_router_bgp(tgen, topo, input_dict_1)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
         static_routes = {
             "r1": {
                 "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": NEXT_HOP_IP[addr_type]
-                    }
+                    {"network": NETWORK[addr_type], "next_hop": NEXT_HOP_IP[addr_type]}
                 ]
             }
         }
         dut = "r5"
-        aspath = "200 100 200 200 200"
-        result = verify_bgp_rib(tgen, addr_type, dut, static_routes,
-                                aspath=aspath)
+        path = "200 100 200 200 200"
+        result = verify_bgp_rib(tgen, addr_type, dut, static_routes, aspath=path)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
     write_test_footer(tc_name)
 
 
