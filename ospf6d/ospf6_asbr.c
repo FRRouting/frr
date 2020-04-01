@@ -1853,7 +1853,7 @@ DEFUN (show_ipv6_ospf6_redistribute,
 	return CMD_SUCCESS;
 }
 
-static const struct ospf6_lsa_handler as_external_handler = {
+static struct ospf6_lsa_handler as_external_handler = {
 	.lh_type = OSPF6_LSTYPE_AS_EXTERNAL,
 	.lh_name = "AS-External",
 	.lh_short_name = "ASE",

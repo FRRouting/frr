@@ -2235,7 +2235,7 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 			  __func__, oa->name);
 }
 
-static const struct ospf6_lsa_handler router_handler = {
+static struct ospf6_lsa_handler router_handler = {
 	.lh_type = OSPF6_LSTYPE_ROUTER,
 	.lh_name = "Router",
 	.lh_short_name = "Rtr",
@@ -2243,7 +2243,7 @@ static const struct ospf6_lsa_handler router_handler = {
 	.lh_get_prefix_str = ospf6_router_lsa_get_nbr_id,
 	.lh_debug = 0};
 
-static const struct ospf6_lsa_handler network_handler = {
+static struct ospf6_lsa_handler network_handler = {
 	.lh_type = OSPF6_LSTYPE_NETWORK,
 	.lh_name = "Network",
 	.lh_short_name = "Net",
@@ -2251,7 +2251,7 @@ static const struct ospf6_lsa_handler network_handler = {
 	.lh_get_prefix_str = ospf6_network_lsa_get_ar_id,
 	.lh_debug = 0};
 
-static const struct ospf6_lsa_handler link_handler = {
+static struct ospf6_lsa_handler link_handler = {
 	.lh_type = OSPF6_LSTYPE_LINK,
 	.lh_name = "Link",
 	.lh_short_name = "Lnk",
@@ -2259,7 +2259,7 @@ static const struct ospf6_lsa_handler link_handler = {
 	.lh_get_prefix_str = ospf6_link_lsa_get_prefix_str,
 	.lh_debug = 0};
 
-static const struct ospf6_lsa_handler intra_prefix_handler = {
+static struct ospf6_lsa_handler intra_prefix_handler = {
 	.lh_type = OSPF6_LSTYPE_INTRA_PREFIX,
 	.lh_name = "Intra-Prefix",
 	.lh_short_name = "INP",

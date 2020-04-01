@@ -77,16 +77,16 @@ static struct ospf6_lsa_handler unknown_handler = {
 	.lh_debug = 0 /* No default debug */
 };
 
-void ospf6_install_lsa_handler(const struct ospf6_lsa_handler *handler)
+void ospf6_install_lsa_handler(struct ospf6_lsa_handler *handler)
 {
 	/* type in handler is host byte order */
 	int index = handler->lh_type & OSPF6_LSTYPE_FCODE_MASK;
 	vector_set_index(ospf6_lsa_handler_vector, index, (void *)handler);
 }
 
-const struct ospf6_lsa_handler *ospf6_get_lsa_handler(uint16_t type)
+struct ospf6_lsa_handler *ospf6_get_lsa_handler(uint16_t type)
 {
-	const struct ospf6_lsa_handler *handler = NULL;
+	struct ospf6_lsa_handler *handler = NULL;
 	unsigned int index = ntohs(type) & OSPF6_LSTYPE_FCODE_MASK;
 
 	if (index >= vector_active(ospf6_lsa_handler_vector))

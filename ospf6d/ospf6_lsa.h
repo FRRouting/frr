@@ -237,8 +237,8 @@ extern int ospf6_lsa_checksum_valid(struct ospf6_lsa_header *);
 extern int ospf6_lsa_prohibited_duration(uint16_t type, uint32_t id,
 					 uint32_t adv_router, void *scope);
 
-extern void ospf6_install_lsa_handler(const struct ospf6_lsa_handler *handler);
-extern const struct ospf6_lsa_handler *ospf6_get_lsa_handler(uint16_t type);
+extern void ospf6_install_lsa_handler(struct ospf6_lsa_handler *handler);
+extern struct ospf6_lsa_handler *ospf6_get_lsa_handler(uint16_t type);
 
 extern void ospf6_lsa_init(void);
 extern void ospf6_lsa_terminate(void);
