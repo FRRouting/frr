@@ -243,7 +243,7 @@ def test_BGP_config_with_invalid_ASN_p2(request):
     global BGP_CONVERGENCE
 
     if BGP_CONVERGENCE != True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = request.node.name
@@ -251,26 +251,10 @@ def test_BGP_config_with_invalid_ASN_p2(request):
 
     # Api call to modify AS number
     input_dict = {
-        "r1": {
-            "bgp":{
-                "local_as": 0,
-            }
-        },
-        "r2": {
-            "bgp":{
-                "local_as": 0,
-            }
-        },
-        "r3": {
-            "bgp":{
-                "local_as": 0,
-            }
-        },
-        "r4": {
-            "bgp":{
-                "local_as": 64000,
-            }
-        }
+        "r1": {"bgp": {"local_as": 0,}},
+        "r2": {"bgp": {"local_as": 0,}},
+        "r3": {"bgp": {"local_as": 0,}},
+        "r4": {"bgp": {"local_as": 64000,}},
     }
     result = modify_as_number(tgen, topo, input_dict)
     try:
@@ -291,7 +275,7 @@ def test_BGP_config_with_2byteAS_and_4byteAS_number_p1(request):
     global BGP_CONVERGENCE
 
     if BGP_CONVERGENCE != True:
-        pytest.skip('skipped because of BGP Convergence failure')
+        pytest.skip("skipped because of BGP Convergence failure")
 
     # test case name
     tc_name = request.node.name
@@ -299,42 +283,23 @@ def test_BGP_config_with_2byteAS_and_4byteAS_number_p1(request):
 
     # Api call to modify AS number
     input_dict = {
-        "r1": {
-            "bgp":{
-                "local_as": 131079
-            }
-        },
-        "r2": {
-            "bgp":{
-                "local_as": 131079
-            }
-        },
-        "r3": {
-            "bgp":{
-                "local_as": 131079
-            }
-        },
-        "r4": {
-            "bgp":{
-                "local_as": 111
-            }
-        }
+        "r1": {"bgp": {"local_as": 131079}},
+        "r2": {"bgp": {"local_as": 131079}},
+        "r3": {"bgp": {"local_as": 131079}},
+        "r4": {"bgp": {"local_as": 111}},
     }
     result = modify_as_number(tgen, topo, input_dict)
     if result != True:
-        assert False, "Testcase " + tc_name + " :Failed \n Error: {}".\
-        format(result)
+        assert False, "Testcase " + tc_name + " :Failed \n Error: {}".format(result)
 
     result = verify_as_numbers(tgen, topo, input_dict)
     if result != True:
-        assert False, "Testcase " + tc_name + " :Failed \n Error: {}".\
-        format(result)
+        assert False, "Testcase " + tc_name + " :Failed \n Error: {}".format(result)
 
     # Api call verify whether BGP is converged
     result = verify_bgp_convergence(tgen, topo)
     if result != True:
-        assert False, "Testcase " + tc_name + " :Failed \n Error: {}".\
-            format(result)
+        assert False, "Testcase " + tc_name + " :Failed \n Error: {}".format(result)
 
     write_test_footer(tc_name)
 

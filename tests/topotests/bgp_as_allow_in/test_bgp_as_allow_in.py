@@ -56,15 +56,6 @@ from lib.topogen import Topogen, get_topogen
 
 # Import topoJson from lib, to create topology and initial configuration
 from lib.common_config import (
-    start_topology, write_test_header,
-    write_test_footer, reset_config_on_routers,
-    verify_rib, create_static_routes,
-    create_route_maps, check_address_types, step,
-)
-from lib.topolog import logger
-from lib.bgp import (
-    verify_bgp_convergence, create_router_bgp,
-    clear_bgp_and_verify, verify_bgp_rib
     start_topology,
     write_test_header,
     write_test_footer,
@@ -176,6 +167,7 @@ def teardown_module(mod):
 #   Tests starting
 #
 #####################################################
+
 
 def test_bgp_allowas_in_p0(request):
     """
