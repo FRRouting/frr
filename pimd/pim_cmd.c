@@ -3419,11 +3419,19 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 
 	now = pim_time_monotonic_sec();
 
-	if (uj)
+	if (uj) {
 		json = json_object_new_object();
-	else
+		json_object_int_add(json, "totalGroups", pim->igmp_group_count);
+		json_object_int_add(json, "watermarkLimit",
+				    pim->igmp_watermark_limit);
+	} else {
+		vty_out(vty, "Total IGMP groups: %u\n", pim->igmp_group_count);
+		vty_out(vty, "Watermark warn limit(%s): %u\n",
+			pim->igmp_watermark_limit ? "Set" : "Not Set",
+			pim->igmp_watermark_limit);
 		vty_out(vty,
 			"Interface        Address         Group           Mode Timer    Srcs V Uptime  \n");
+	}
 
 	/* scan interfaces */
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
@@ -6858,6 +6866,35 @@ DEFUN (no_ip_pim_packets,
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
 	router->packet_process = PIM_DEFAULT_PACKET_PROCESS;
+	return CMD_SUCCESS;
+}
+
+DEFPY (igmp_group_watermark,
+       igmp_group_watermark_cmd,
+       "ip igmp watermark-warn (10-60000)$limit",
+       IP_STR
+       IGMP_STR
+       "Configure group limit for watermark warning\n"
+       "Group count to generate watermark warning\n")
+{
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	pim->igmp_watermark_limit = limit;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_igmp_group_watermark,
+       no_igmp_group_watermark_cmd,
+       "no ip igmp watermark-warn [(10-60000)$limit]",
+       NO_STR
+       IP_STR
+       IGMP_STR
+       "Unconfigure group limit for watermark warning\n"
+       "Group count to generate watermark warning\n")
+{
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	pim->igmp_watermark_limit = 0;
+
 	return CMD_SUCCESS;
 }
 
@@ -10893,6 +10930,10 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &no_ip_pim_ecmp_rebalance_cmd);
 	install_element(CONFIG_NODE, &ip_pim_mlag_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_mlag_cmd);
+	install_element(CONFIG_NODE, &igmp_group_watermark_cmd);
+	install_element(VRF_NODE, &igmp_group_watermark_cmd);
+	install_element(CONFIG_NODE, &no_igmp_group_watermark_cmd);
+	install_element(VRF_NODE, &no_igmp_group_watermark_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);

@@ -753,6 +753,39 @@ static void igmp_group_free(struct igmp_group *group)
 	XFREE(MTYPE_PIM_IGMP_GROUP, group);
 }
 
+static void igmp_group_count_incr(struct igmp_sock *igmp)
+{
+	struct pim_interface *pim_ifp = igmp->interface->info;
+
+	if (!pim_ifp)
+		return;
+
+	++pim_ifp->pim->igmp_group_count;
+	if (pim_ifp->pim->igmp_group_count
+	    == pim_ifp->pim->igmp_watermark_limit) {
+		zlog_warn(
+			"IGMP group count reached watermark limit: %u(vrf: %s)",
+			pim_ifp->pim->igmp_group_count,
+			VRF_LOGNAME(pim_ifp->pim->vrf));
+	}
+}
+
+static void igmp_group_count_decr(struct igmp_sock *igmp)
+{
+	struct pim_interface *pim_ifp = igmp->interface->info;
+
+	if (!pim_ifp)
+		return;
+
+	if (pim_ifp->pim->igmp_group_count == 0) {
+		zlog_warn("Cannot decrement igmp group count below 0(vrf: %s)",
+			  VRF_LOGNAME(pim_ifp->pim->vrf));
+		return;
+	}
+
+	--pim_ifp->pim->igmp_group_count;
+}
+
 void igmp_group_delete(struct igmp_group *group)
 {
 	struct listnode *src_node;
@@ -778,6 +811,7 @@ void igmp_group_delete(struct igmp_group *group)
 	}
 
 	group_timer_off(group);
+	igmp_group_count_decr(group->group_igmp_sock);
 	listnode_delete(group->group_igmp_sock->igmp_group_list, group);
 	hash_release(group->group_igmp_sock->igmp_group_hash, group);
 
@@ -1157,6 +1191,8 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 			"Creating new IGMP group %s on socket %d interface %s",
 			group_str, igmp->fd, igmp->interface->name);
 	}
+
+	igmp_group_count_incr(igmp);
 
 	/*
 	  RFC 3376: 6.2.2. Definition of Group Timers
