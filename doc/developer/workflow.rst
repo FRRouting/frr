@@ -992,6 +992,11 @@ Miscellaneous
 When in doubt, follow the guidelines in the Linux kernel style guide, or ask on
 the development mailing list / public Slack instance.
 
+JSON Output
+^^^^^^^^^^^
+
+All JSON keys are to be camelCased, with no spaces.
+
 
 .. _documentation:
 
