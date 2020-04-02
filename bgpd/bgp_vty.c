@@ -73,20 +73,20 @@
 #endif
 
 FRR_CFG_DEFAULT_BOOL(BGP_IMPORT_CHECK,
-	{ .val_long = true, .match_profile = "datacenter", },
-	{ .val_long = false },
+	{ .val_bool = true, .match_profile = "datacenter", },
+	{ .val_bool = false },
 )
 FRR_CFG_DEFAULT_BOOL(BGP_SHOW_HOSTNAME,
-	{ .val_long = true, .match_profile = "datacenter", },
-	{ .val_long = false },
+	{ .val_bool = true, .match_profile = "datacenter", },
+	{ .val_bool = false },
 )
 FRR_CFG_DEFAULT_BOOL(BGP_LOG_NEIGHBOR_CHANGES,
-	{ .val_long = true, .match_profile = "datacenter", },
-	{ .val_long = false },
+	{ .val_bool = true, .match_profile = "datacenter", },
+	{ .val_bool = false },
 )
 FRR_CFG_DEFAULT_BOOL(BGP_DETERMINISTIC_MED,
-	{ .val_long = true, .match_profile = "datacenter", },
-	{ .val_long = false },
+	{ .val_bool = true, .match_profile = "datacenter", },
+	{ .val_bool = false },
 )
 FRR_CFG_DEFAULT_ULONG(BGP_CONNECT_RETRY,
 	{ .val_ulong = 10, .match_profile = "datacenter", },
