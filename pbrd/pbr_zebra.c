@@ -582,9 +582,9 @@ void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	 */
 	stream_putl(s, 1);
 
-	DEBUGD(&pbr_dbg_zebra, "%s: \t%s %s %d %s %u", __func__,
-	       install ? "Installing" : "Deleting", pbrm->name, install,
-	       pmi->ifp->name, pmi->delete);
+	DEBUGD(&pbr_dbg_zebra, "%s: \t%s %s seq %u %d %s %u", __func__,
+	       install ? "Installing" : "Deleting", pbrm->name, pbrms->seqno,
+	       install, pmi->ifp->name, pmi->delete);
 
 	pbr_encode_pbr_map_sequence(s, pbrms, pmi->ifp);
 
