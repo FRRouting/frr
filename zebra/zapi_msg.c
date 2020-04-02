@@ -2225,17 +2225,6 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 	/* call hook to get a chunk using wrapper */
 	lm_get_chunk_call(&lmc, proto, instance, keep, size, base, vrf_id);
 
-	if (!lmc)
-		flog_err(
-			EC_ZEBRA_LM_CANNOT_ASSIGN_CHUNK,
-			"Unable to assign Label Chunk of size %u to %s instance %u",
-			size, zebra_route_string(proto), instance);
-	else
-		if (IS_ZEBRA_DEBUG_PACKET)
-			zlog_debug("Assigned Label Chunk %u - %u to %s instance %u",
-				   lmc->start, lmc->end,
-				   zebra_route_string(proto), instance);
-
 stream_failure:
 	return;
 }
