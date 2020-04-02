@@ -119,7 +119,7 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 	int ret = 0;
 
 	/* Possible payload values */
-	struct path *path = NULL;
+	struct path *path = NULL, *resp = NULL;
 
 	switch (type) {
 	case PCEP_MAIN_EVENT_START_SYNC:
@@ -129,6 +129,18 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 		assert(NULL != payload);
 		path = (struct path *)payload;
 		path_nb_update_path(path);
+		if (0 != path->srp_id) {
+			/* ODL and Cisco requires the first reported
+			   LSP to have a DOWN status, the later status changes
+			   will be comunicated through hook calls */
+			resp = path_nb_get_path(path->nbkey.color,
+						path->nbkey.endpoint,
+						path->nbkey.preference);
+			resp->srp_id = path->srp_id;
+			resp->status = PCEP_LSP_OPERATIONAL_DOWN;
+			pcep_ctrl_pathd_event(pcep_g->fpt, PCEP_PATH_UPDATED,
+					      resp);
+		}
 		break;
 	default:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,

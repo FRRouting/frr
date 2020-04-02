@@ -37,6 +37,14 @@ DEFINE_HOOK(pathd_candidate_updated, (struct srte_candidate * candidate),
 DEFINE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
 	    (candidate))
 
+static void trigger_pathd_candidate_created(struct srte_candidate *candidate);
+static int trigger_pathd_candidate_created_event(struct thread *thread);
+static void trigger_pathd_candidate_updated(struct srte_candidate *candidate);
+static int trigger_pathd_candidate_updated_event(struct thread *thread);
+static void trigger_pathd_candidate_removed(struct srte_candidate *candidate);
+static int trigger_pathd_candidate_removed_event(struct thread *thread);
+
+
 /* Generate rb-tree of Segment List Segment instances. */
 static inline int srte_segment_entry_compare(const struct srte_segment_entry *a,
 					     const struct srte_segment_entry *b)
@@ -149,7 +157,7 @@ void srte_policy_del(struct srte_policy *policy)
 	while (!RB_EMPTY(srte_candidate_head, &policy->candidate_paths)) {
 		candidate =
 			RB_ROOT(srte_candidate_head, &policy->candidate_paths);
-		hook_call(pathd_candidate_removed, candidate);
+		trigger_pathd_candidate_removed(candidate);
 		srte_candidate_del(candidate);
 	}
 
@@ -291,17 +299,17 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 	RB_FOREACH_SAFE (candidate, srte_candidate_head,
 			 &policy->candidate_paths, safe) {
 		if (CHECK_FLAG(candidate->flags, F_CANDIDATE_DELETED)) {
-			hook_call(pathd_candidate_removed, candidate);
+			trigger_pathd_candidate_removed(candidate);
 			srte_candidate_del(candidate);
 			continue;
 		} else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_NEW)) {
-			hook_call(pathd_candidate_created, candidate);
+			trigger_pathd_candidate_created(candidate);
 		} else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_MODIFIED)) {
-			hook_call(pathd_candidate_updated, candidate);
+			trigger_pathd_candidate_updated(candidate);
 		} else if (candidate->segment_list
-			   && CHECK_FLAG(candidate->segment_list->flags,
-					 F_SEGMENT_LIST_MODIFIED)) {
-			hook_call(pathd_candidate_updated, candidate);
+		           && CHECK_FLAG(candidate->segment_list->flags,
+		                         F_SEGMENT_LIST_MODIFIED)) {
+			trigger_pathd_candidate_updated(candidate);
 		}
 
 		UNSET_FLAG(candidate->flags, F_CANDIDATE_NEW);
@@ -371,7 +379,7 @@ void srte_candidate_status_update(struct srte_policy *policy,
 		break;
 	}
 
-	hook_call(pathd_candidate_updated, candidate);
+	trigger_pathd_candidate_updated(candidate);
 }
 
 const char *srte_origin2str(enum srte_protocol_origin origin)
@@ -386,4 +394,40 @@ const char *srte_origin2str(enum srte_protocol_origin origin)
 	default:
 		return "Unknown";
 	}
+}
+
+void trigger_pathd_candidate_created(struct srte_candidate *candidate)
+{
+	thread_add_event(master, trigger_pathd_candidate_created_event,
+			 (void *)candidate, 0, NULL);
+}
+
+int trigger_pathd_candidate_created_event(struct thread *thread)
+{
+	struct srte_candidate *candidate = THREAD_ARG(thread);
+	return hook_call(pathd_candidate_created, candidate);
+}
+
+void trigger_pathd_candidate_updated(struct srte_candidate *candidate)
+{
+	thread_add_event(master, trigger_pathd_candidate_updated_event,
+			 (void *)candidate, 0, NULL);
+}
+
+int trigger_pathd_candidate_updated_event(struct thread *thread)
+{
+	struct srte_candidate *candidate = THREAD_ARG(thread);
+	return hook_call(pathd_candidate_updated, candidate);
+}
+
+void trigger_pathd_candidate_removed(struct srte_candidate *candidate)
+{
+	thread_add_event(master, trigger_pathd_candidate_removed_event,
+			 (void *)candidate, 0, NULL);
+}
+
+int trigger_pathd_candidate_removed_event(struct thread *thread)
+{
+	struct srte_candidate *candidate = THREAD_ARG(thread);
+	return hook_call(pathd_candidate_removed, candidate);
 }

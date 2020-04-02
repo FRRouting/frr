@@ -80,8 +80,6 @@ static void send_comp_request(struct ctrl_state *ctrl_state,
 /* Data Structure Helper Functions */
 static void lookup_plspid(struct pcc_state *pcc_state, struct path *path);
 static void lookup_nbkey(struct pcc_state *pcc_state, struct path *path);
-static void push_srpid(struct pcc_state *pcc_state, struct path *path);
-static void pop_srpid(struct pcc_state *pcc_state, struct path *path);
 static uint32_t push_req(struct pcc_state *pcc_state, struct lsp_nb_key *nbkey);
 static bool pop_req(struct pcc_state *pcc_state, struct path *path);
 
@@ -92,9 +90,6 @@ static uint32_t plspid_map_hash(const struct plspid_map_data *e);
 static int nbkey_map_cmp(const struct nbkey_map_data *a,
 			 const struct nbkey_map_data *b);
 static uint32_t nbkey_map_hash(const struct nbkey_map_data *e);
-static int srpid_map_cmp(const struct srpid_map_data *a,
-			 const struct srpid_map_data *b);
-static uint32_t srpid_map_hash(const struct srpid_map_data *e);
 static int req_map_cmp(const struct req_map_data *a,
 		       const struct req_map_data *b);
 static uint32_t req_map_hash(const struct req_map_data *e);
@@ -104,8 +99,6 @@ DECLARE_HASH(plspid_map, struct plspid_map_data, mi, plspid_map_cmp,
 	     plspid_map_hash)
 DECLARE_HASH(nbkey_map, struct nbkey_map_data, mi, nbkey_map_cmp,
 	     nbkey_map_hash)
-DECLARE_HASH(srpid_map, struct srpid_map_data, mi, srpid_map_cmp,
-	     srpid_map_hash)
 DECLARE_HASH(req_map, struct req_map_data, mi, req_map_cmp, req_map_hash)
 
 
@@ -427,8 +420,6 @@ void handle_pcep_lsp_update(struct ctrl_state *ctrl_state,
 	}
 	lookup_nbkey(pcc_state, path);
 
-	push_srpid(pcc_state, path);
-
 	PCEP_DEBUG("%s Received LSP update", pcc_state->tag);
 	PCEP_DEBUG_PATH("%s", format_path(path));
 
@@ -498,7 +489,6 @@ void send_report(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
 		 struct path *path)
 {
 	struct pcep_message *report;
-	enum pcep_lsp_operational_status orig_status;
 
 	if (IS_IPADDR_V6(&pcc_state->pcc_opts->addr)) {
 		path->sender.ipa_type = IPADDR_V6;
@@ -512,21 +502,6 @@ void send_report(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
 	}
 
 	lookup_plspid(pcc_state, path);
-	pop_srpid(pcc_state, path);
-
-	/* FIXME: Remove this back when ODL is not expecting a DOWN status
-	anymore when installing an LSP */
-	if ((0 != path->srp_id)
-	    && (PCEP_LSP_OPERATIONAL_DOWN != path->status)) {
-		orig_status = path->status;
-		path->status = PCEP_LSP_OPERATIONAL_DOWN;
-		PCEP_DEBUG_PATH("%s Sending path %s (ODL FIX): %s",
-				pcc_state->tag, path->name, format_path(path));
-		report = pcep_lib_format_report(path);
-		send_pcep_message(ctrl_state, pcc_state, report);
-		path->status = orig_status;
-		path->srp_id = 0;
-	}
 
 	PCEP_DEBUG_PATH("%s Sending path %s: %s", pcc_state->tag, path->name,
 			format_path(path));
@@ -622,39 +597,6 @@ void lookup_nbkey(struct pcc_state *pcc_state, struct path *path)
 	path->tunnel_id = mapping->tid;
 }
 
-void push_srpid(struct pcc_state *pcc_state, struct path *path)
-{
-	struct srpid_map_data *srpid_mapping;
-
-	if (0 == path->srp_id)
-		return;
-
-	srpid_mapping = XCALLOC(MTYPE_PCEP, sizeof(*srpid_mapping));
-	srpid_mapping->plspid = path->plsp_id;
-	srpid_mapping->srpid = path->srp_id;
-
-	/* FIXME: When we have correlation between NB commits and hooks call,
-	   multiple concurent calls from the PCE should be supported */
-	assert(NULL == srpid_map_find(&pcc_state->srpid_map, srpid_mapping));
-
-	srpid_map_add(&pcc_state->srpid_map, srpid_mapping);
-}
-
-void pop_srpid(struct pcc_state *pcc_state, struct path *path)
-{
-	struct srpid_map_data key, *srpid_mapping;
-
-	key.plspid = path->plsp_id;
-
-	srpid_mapping = srpid_map_find(&pcc_state->srpid_map, &key);
-	if (NULL == srpid_mapping)
-		return;
-
-	path->srp_id = srpid_mapping->srpid;
-	srpid_map_del(&pcc_state->srpid_map, srpid_mapping);
-	XFREE(MTYPE_PCEP, srpid_mapping);
-}
-
 uint32_t push_req(struct pcc_state *pcc_state, struct lsp_nb_key *nbkey)
 {
 	struct req_map_data *req_mapping;
@@ -735,19 +677,6 @@ static int nbkey_map_cmp(const struct nbkey_map_data *a,
 }
 
 static uint32_t nbkey_map_hash(const struct nbkey_map_data *e)
-{
-	return e->plspid;
-}
-
-
-static int srpid_map_cmp(const struct srpid_map_data *a,
-			 const struct srpid_map_data *b)
-{
-	CMP_RETURN(a->plspid, b->plspid);
-	return 0;
-}
-
-static uint32_t srpid_map_hash(const struct srpid_map_data *e)
 {
 	return e->plspid;
 }

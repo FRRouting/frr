@@ -33,7 +33,6 @@ enum pcc_status {
 
 PREDECL_HASH(plspid_map)
 PREDECL_HASH(nbkey_map)
-PREDECL_HASH(srpid_map)
 PREDECL_HASH(req_map)
 
 struct plspid_map_data {
@@ -50,12 +49,6 @@ struct nbkey_map_data {
 	uint32_t plspid;
 	uint16_t tid;
 	uint16_t lspid;
-};
-
-struct srpid_map_data {
-	struct srpid_map_item mi;
-	uint32_t plspid;
-	uint32_t srpid;
 };
 
 struct req_map_data {
@@ -81,7 +74,6 @@ struct pcc_state {
 	uint16_t next_lspid;
 	struct plspid_map_head plspid_map;
 	struct nbkey_map_head nbkey_map;
-	struct srpid_map_head srpid_map;
 	struct req_map_head req_map;
 	struct pcep_caps caps;
 };
