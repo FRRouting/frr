@@ -1195,9 +1195,23 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 						listcount(old_route->nh_list));
 			}
 		} else {
-			/* adv. router exists in the list, update the nhs */
-			list_delete_all_node(o_path->nh_list);
-			ospf6_copy_nexthops(o_path->nh_list, route->nh_list);
+			struct ospf6_route *tmp_route = ospf6_route_create();
+
+			ospf6_copy_nexthops(tmp_route->nh_list,
+					    o_path->nh_list);
+
+			if (ospf6_route_cmp_nexthops(tmp_route, route) != 0) {
+				/* adv. router exists in the list, update nhs */
+				list_delete_all_node(o_path->nh_list);
+				ospf6_copy_nexthops(o_path->nh_list,
+						    route->nh_list);
+				ospf6_route_delete(tmp_route);
+			} else {
+				/* adv. router has no change in nhs */
+				old_entry_updated = false;
+				ospf6_route_delete(tmp_route);
+				continue;
+			}
 		}
 
 		if (is_debug)
