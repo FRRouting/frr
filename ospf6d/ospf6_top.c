@@ -52,8 +52,8 @@
 DEFINE_QOBJ_TYPE(ospf6)
 
 FRR_CFG_DEFAULT_BOOL(OSPF6_LOG_ADJACENCY_CHANGES,
-	{ .val_long = true, .match_profile = "datacenter", },
-	{ .val_long = false },
+	{ .val_bool = true, .match_profile = "datacenter", },
+	{ .val_bool = false },
 )
 
 /* global ospf6d variable */
