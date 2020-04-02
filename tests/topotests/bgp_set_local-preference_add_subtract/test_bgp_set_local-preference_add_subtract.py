@@ -113,7 +113,7 @@ def test_bgp_set_local_preference():
         expected = {
             'paths': [
                 {
-                    'localpref': 50,
+                    'locPrf': 50,
                     'nexthops': [
                         {
                             'ip': '192.168.255.3'
@@ -121,7 +121,7 @@ def test_bgp_set_local_preference():
                     ]
                 },
                 {
-                    'localpref': 150,
+                    'locPrf': 150,
                     'nexthops': [
                         {
                             'ip': '192.168.255.2'

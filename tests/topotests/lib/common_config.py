@@ -1101,9 +1101,9 @@ def create_route_maps(tgen, input_dict, build=False):
                             "tag": "tag_id"
                         },
                         "set": {
-                            "localpref": 150,
-                            "med": 30,
-                            "aspath": {
+                            "locPrf": 150,
+                            "metric": 30,
+                            "path": {
                                 "num": 20000,
                                 "action": "prepend",
                             },
@@ -1199,10 +1199,10 @@ def create_route_maps(tgen, input_dict, build=False):
                         set_data = rmap_dict["set"]
                         ipv4_data = set_data.setdefault("ipv4", {})
                         ipv6_data = set_data.setdefault("ipv6", {})
-                        local_preference = set_data.setdefault("localpref",
+                        local_preference = set_data.setdefault("locPrf",
                                                                None)
-                        metric = set_data.setdefault("med", None)
-                        as_path = set_data.setdefault("aspath", {})
+                        metric = set_data.setdefault("metric", None)
+                        as_path = set_data.setdefault("path", {})
                         weight = set_data.setdefault("weight", None)
                         community = set_data.setdefault("community", {})
                         large_community = set_data.setdefault(

@@ -130,13 +130,13 @@ def test_bgp_reject_as_sets():
         expected = {
             'advertisedRoutes': {
                 '172.16.0.0/16': {
-                    'asPath': ''
+                    'path': ''
                 },
                 '192.168.254.0/30': {
-                    'asPath': '65003'
+                    'path': '65003'
                 },
                 '192.168.255.0/30': {
-                    'asPath': '65001'
+                    'path': '65001'
                 }
             },
             'totalPrefixCounter': 3

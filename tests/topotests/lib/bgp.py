@@ -1256,7 +1256,7 @@ def verify_bgp_attributes(tgen, addr_type, dut, static_routes, rmap_name,
                         }
                     },
                     "set": {
-                        "localpref": 150,
+                        "locPrf": 150,
                         "weight": 100
                     }
                 }],
@@ -1269,7 +1269,7 @@ def verify_bgp_attributes(tgen, addr_type, dut, static_routes, rmap_name,
                         }
                     },
                     "set": {
-                        "med": 50
+                        "metric": 50
                     }
                 }]
             }
@@ -1406,7 +1406,7 @@ def verify_best_path_as_per_bgp_attribute(tgen, addr_type, router, input_dict,
             }
         }
     }
-    attribute = "localpref"
+    attribute = "locPrf"
     result = verify_best_path_as_per_bgp_attribute(tgen, "ipv4", dut, \
                          input_dict,  attribute)
     Returns
@@ -1443,14 +1443,14 @@ def verify_best_path_as_per_bgp_attribute(tgen, addr_type, router, input_dict,
                 attribute_dict[next_hop_ip] = route_attribute[attribute]
 
             # AS_PATH attribute
-            if attribute == "aspath":
+            if attribute == "path":
                 # Find next_hop for the route have minimum as_path
                 _next_hop = min(attribute_dict, key=lambda x: len(set(
                     attribute_dict[x])))
                 compare = "SHORTEST"
 
             # LOCAL_PREF attribute
-            elif attribute == "localpref":
+            elif attribute == "locPrf":
                 # Find next_hop for the route have highest local preference
                 _next_hop = max(attribute_dict, key=(lambda k:
                                                      attribute_dict[k]))
@@ -1473,7 +1473,7 @@ def verify_best_path_as_per_bgp_attribute(tgen, addr_type, router, input_dict,
                 compare = ""
 
             # MED  attribute
-            elif attribute == "med":
+            elif attribute == "metric":
                 # Find next_hop for the route have LOWEST MED
                 _next_hop = min(attribute_dict, key=(lambda k:
                                                      attribute_dict[k]))
@@ -1548,7 +1548,7 @@ def verify_best_path_as_per_admin_distance(tgen, addr_type, router, input_dict,
                               {"network": "200.50.2.0/32", \
                  "admin_distance": 60, "next_hop": "10.0.0.18"}]
         }}
-    attribute = "localpref"
+    attribute = "locPrf"
     result = verify_best_path_as_per_admin_distance(tgen, "ipv4", dut, \
                         input_dict, attribute):
     Returns
