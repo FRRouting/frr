@@ -762,6 +762,7 @@ output_filter(const unsigned char *id, const unsigned char *prefix,
               unsigned short plen, unsigned int ifindex)
 {
     return babel_filter(1, prefix, plen, ifindex);
+                   fprintf(stderr, "weeeeee\n");
 }
 
 /* There's no redistribute filter in Quagga -- the zebra daemon does its
