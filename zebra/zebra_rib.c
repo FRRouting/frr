@@ -2276,6 +2276,7 @@ rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
 
 	dest = XCALLOC(MTYPE_RIB_DEST, sizeof(rib_dest_t));
 	rnh_list_init(&dest->nht);
+	re_list_init(&dest->routes);
 	route_lock_node(rn); /* rn route table reference */
 	rn->info = dest;
 	dest->rnode = rn;
