@@ -178,7 +178,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	zebra_vxlan_vrf_disable(zvrf);
 
 #if defined(HAVE_RTADV)
-	rtadv_terminate(zvrf);
+	rtadv_vrf_terminate(zvrf);
 #endif
 
 	/* Inform clients that the VRF is now inactive. This is a

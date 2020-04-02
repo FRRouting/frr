@@ -174,6 +174,7 @@ static void sigint(void)
 		work_queue_free_and_null(&zrouter.lsp_process_q);
 
 	vrf_terminate();
+	rtadv_terminate();
 
 	ns_walk_func(zebra_ns_early_shutdown);
 	zebra_ns_notify_close();

@@ -2371,18 +2371,24 @@ void rtadv_init(struct zebra_vrf *zvrf)
 	}
 }
 
-void rtadv_terminate(struct zebra_vrf *zvrf)
+void rtadv_vrf_terminate(struct zebra_vrf *zvrf)
 {
 	rtadv_event(zvrf, RTADV_STOP, 0);
 	if (zvrf->rtadv.sock >= 0) {
 		close(zvrf->rtadv.sock);
 		zvrf->rtadv.sock = -1;
-	} else if (zrouter.rtadv_sock >= 0) {
+	}
+
+	zvrf->rtadv.adv_if_count = 0;
+	zvrf->rtadv.adv_msec_if_count = 0;
+}
+
+void rtadv_terminate(void)
+{
+	if (zrouter.rtadv_sock >= 0) {
 		close(zrouter.rtadv_sock);
 		zrouter.rtadv_sock = -1;
 	}
-	zvrf->rtadv.adv_if_count = 0;
-	zvrf->rtadv.adv_msec_if_count = 0;
 }
 
 void rtadv_cmd_init(void)
