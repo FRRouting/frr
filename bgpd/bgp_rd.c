@@ -33,7 +33,7 @@
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_attr.h"
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
 
@@ -42,7 +42,7 @@ uint16_t decode_rd_type(const uint8_t *pnt)
 	uint16_t v;
 
 	v = ((uint16_t)*pnt++ << 8);
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	/*
 	 * VNC L2 stores LHI in lower byte, so omit it
 	 */
@@ -85,7 +85,7 @@ void decode_rd_ip(const uint8_t *pnt, struct rd_ip *rd_ip)
 	rd_ip->val |= (uint16_t)*pnt;
 }
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 /* type == RD_TYPE_VNC_ETH */
 void decode_rd_vnc_eth(const uint8_t *pnt, struct rd_vnc_eth *rd_vnc_eth)
 {
@@ -186,7 +186,7 @@ char *prefix_rd2str(const struct prefix_rd *prd, char *buf, size_t size)
 			 rd_ip.val);
 		return buf;
 	}
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	else if (type == RD_TYPE_VNC_ETH) {
 		snprintf(buf, size, "LHI:%d, %02x:%02x:%02x:%02x:%02x:%02x",
 			 *(pnt + 1), /* LHI */

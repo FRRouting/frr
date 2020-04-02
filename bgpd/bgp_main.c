@@ -228,7 +228,7 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	community_list_terminate(bgp_clist);
 
 	bgp_vrf_terminate();
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	vnc_zebra_destroy();
 #endif
 	bgp_zebra_destroy();
@@ -275,7 +275,7 @@ static int bgp_vrf_enable(struct vrf *vrf)
 			XFREE(MTYPE_BGP, bgp->name_pretty);
 			bgp->name_pretty = XSTRDUP(MTYPE_BGP, "VRF default");
 			bgp->inst_type = BGP_INSTANCE_TYPE_DEFAULT;
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 			if (!bgp->rfapi) {
 				bgp->rfapi = bgp_rfapi_new(bgp);
 				assert(bgp->rfapi);

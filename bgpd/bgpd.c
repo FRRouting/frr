@@ -65,7 +65,7 @@
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_mplsvpn.h"
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
@@ -2976,7 +2976,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 	bgp->as = *as;
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	if (inst_type != BGP_INSTANCE_TYPE_VRF) {
 		bgp->rfapi = bgp_rfapi_new(bgp);
 		assert(bgp->rfapi);
@@ -3375,7 +3375,7 @@ int bgp_delete(struct bgp *bgp)
 
 /* TODO - Other memory may need to be freed - e.g., NHT */
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	rfapi_delete(bgp);
 #endif
 	bgp_cleanup_routes(bgp);
@@ -5800,7 +5800,7 @@ static void peer_distribute_update(struct access_list *access)
 				}
 			}
 		}
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 		vnc_prefix_list_update(bgp);
 #endif
 	}
@@ -7036,7 +7036,7 @@ void bgp_init(unsigned short instance)
 	/* Init zebra. */
 	bgp_zebra_init(bm->master, instance);
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	vnc_zebra_init(bm->master);
 #endif
 
@@ -7051,7 +7051,7 @@ void bgp_init(unsigned short instance)
 	bgp_route_map_init();
 	bgp_scan_vty_init();
 	bgp_mplsvpn_init();
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	rfapi_init();
 #endif
 	bgp_ethernetvpn_init();

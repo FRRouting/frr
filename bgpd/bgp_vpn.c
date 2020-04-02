@@ -155,7 +155,7 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 				uint16_t type;
 				struct rd_as rd_as = {0};
 				struct rd_ip rd_ip = {0};
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 				struct rd_vnc_eth rd_vnc_eth = {0};
 #endif
 				const uint8_t *pnt;
@@ -171,7 +171,7 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 					decode_rd_as4(pnt + 2, &rd_as);
 				else if (type == RD_TYPE_IP)
 					decode_rd_ip(pnt + 2, &rd_ip);
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 				else if (type == RD_TYPE_VNC_ETH)
 					decode_rd_vnc_eth(pnt, &rd_vnc_eth);
 #endif
@@ -200,7 +200,7 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 						vty_out(vty, "%s:%d",
 							inet_ntoa(rd_ip.ip),
 							rd_ip.val);
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 					else if (type == RD_TYPE_VNC_ETH)
 						vty_out(vty,
 							"%u:%02x:%02x:%02x:%02x:%02x:%02x",

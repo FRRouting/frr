@@ -87,7 +87,7 @@ struct bgp_attr_encap_subtlv {
 	uint8_t value[0]; /* will be extended */
 };
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 /*
  * old rfp<->rfapi representation
  */
@@ -233,7 +233,7 @@ struct attr {
 	uint16_t encap_tunneltype;		     /* grr */
 	struct bgp_attr_encap_subtlv *encap_subtlvs; /* rfc5512 */
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	struct bgp_attr_encap_subtlv *vnc_subtlvs; /* VNC-specific */
 #endif
 	/* EVPN */

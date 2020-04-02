@@ -48,7 +48,7 @@
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_evpn.h"
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
 
@@ -214,7 +214,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 			decode_rd_ip(pnt + 5, &rd_ip);
 			break;
 
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 		case RD_TYPE_VNC_ETH:
 			break;
 #endif
@@ -1282,7 +1282,7 @@ void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,	    /* from */
 		zlog_debug("%s: start (path_vpn=%p)", __func__, path_vpn);
 
 	if (!path_vpn->net) {
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 		/* BGP_ROUTE_RFP routes do not have path_vpn->net set (yet) */
 		if (path_vpn->type == ZEBRA_ROUTE_BGP
 		    && path_vpn->sub_type == BGP_ROUTE_RFP) {
