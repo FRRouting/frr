@@ -300,6 +300,8 @@ BGP
   :t:`The Generalized TTL Security Mechanism (GTSM). V. Gill, J. Heasley, D. Meyer, P. Savola, C. Pingnataro. October 2007.`
 - :rfc:`5575`
   :t:`Dissemination of Flow Specification Rules. P. Marques, N. Sheth, R. Raszuk, B. Greene, J. Mauch, D. McPherson. August 2009`
+- :rfc:`6286`
+  :t:`Autonomous-System-Wide Unique BGP Identifier for BGP-4. E. Chen, J. Yuan, June 2011.`
 - :rfc:`6608`
   :t:`Subcodes for BGP Finite State Machine Error. J. Dong, M. Chen, Huawei Technologies, A. Suryanarayana, Cisco Systems. May 2012.`
 - :rfc:`6810`

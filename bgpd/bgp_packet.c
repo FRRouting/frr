@@ -974,14 +974,21 @@ static int bgp_collision_detect(struct peer *new, struct in_addr remote_id)
 			return -1;
 		} else if ((peer->status == OpenConfirm)
 			   || (peer->status == OpenSent)) {
-			/* 1. The BGP Identifier of the local system is compared
-			   to
-			   the BGP Identifier of the remote system (as specified
-			   in
-			   the OPEN message). */
-
+			/* 1. The BGP Identifier of the local system is
+			 * compared to the BGP Identifier of the remote
+			 * system (as specified in the OPEN message).
+			 *
+			 * If the BGP Identifiers of the peers
+			 * involved in the connection collision
+			 * are identical, then the connection
+			 * initiated by the BGP speaker with the
+			 * larger AS number is preserved.
+			 */
 			if (ntohl(peer->local_id.s_addr)
-			    < ntohl(remote_id.s_addr))
+				    < ntohl(remote_id.s_addr)
+			    || (ntohl(peer->local_id.s_addr)
+					       == ntohl(remote_id.s_addr)
+				       && peer->local_as < peer->as))
 				if (!CHECK_FLAG(peer->sflags,
 						PEER_STATUS_ACCEPT_PEER)) {
 					/* 2. If the value of the local BGP
@@ -1005,10 +1012,13 @@ static int bgp_collision_detect(struct peer *new, struct in_addr remote_id)
 					return -1;
 				}
 			else {
-				if (ntohl(peer->local_id.s_addr) ==
-				    ntohl(remote_id.s_addr))
-					flog_err(EC_BGP_ROUTER_ID_SAME, "Peer's router-id %s is the same as ours",
-						 inet_ntoa(remote_id));
+				if (ntohl(peer->local_id.s_addr)
+					    == ntohl(remote_id.s_addr)
+				    && peer->local_as == peer->as)
+					flog_err(
+						EC_BGP_ROUTER_ID_SAME,
+						"Peer's router-id %s is the same as ours",
+						inet_ntoa(remote_id));
 
 				/* 3. Otherwise, the local system closes newly
 				   created
@@ -1197,10 +1207,17 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 		}
 	}
 
-	/* remote router-id check. */
+	/* rfc6286:
+	 * If the BGP Identifier field of the OPEN message
+	 * is zero, or if it is the same as the BGP Identifier
+	 * of the local BGP speaker and the message is from an
+	 * internal peer, then the Error Subcode is set to
+	 * "Bad BGP Identifier".
+	 */
 	if (remote_id.s_addr == INADDR_ANY
 	    || IPV4_CLASS_DE(ntohl(remote_id.s_addr))
-	    || ntohl(peer->local_id.s_addr) == ntohl(remote_id.s_addr)) {
+	    || (peer->sort == BGP_PEER_IBGP
+		&& ntohl(peer->local_id.s_addr) == ntohl(remote_id.s_addr))) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s bad OPEN, wrong router identifier %s",
 				   peer->host, inet_ntoa(remote_id));
