@@ -218,9 +218,6 @@ extern void multicast_mode_ipv4_set(enum multicast_mode mode);
 
 extern enum multicast_mode multicast_mode_ipv4_get(void);
 
-/* zebra_northbound.c */
-extern const struct frr_yang_module_info frr_zebra_info;
-
 #ifdef __cplusplus
 }
 #endif

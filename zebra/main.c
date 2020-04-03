@@ -36,6 +36,7 @@
 #include "libfrr.h"
 #include "routemap.h"
 
+#include "zebra/zebra_nb.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/rib.h"

@@ -1,5 +1,5 @@
 /*
- * Zebra northbound implementation.
+ * Zebra implementation of northbound state callbacks.
  *
  * Copyright (C) 2019 Network Device Education Foundation, Inc. ("NetDEF")
  *                    Rafael Zalamena
@@ -22,11 +22,7 @@
 
 #include <zebra.h>
 
-#include "lib/command.h"
 #include "lib/log.h"
 #include "lib/northbound.h"
-#include "lib/routemap.h"
 
-#include "zebra/rib.h"
-
-
+#include "zebra/zebra_nb.h"
