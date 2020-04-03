@@ -64,11 +64,25 @@
 #include "pim_mlag.h"
 #include "bfd.h"
 #include "pim_bsm.h"
+#include "lib/northbound_cli.h"
+#include "pim_errors.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim_cmd_clippy.c"
 #endif
 
+void change_query_max_response_time(struct pim_interface *pim_ifp,
+                                           int query_max_response_time_dsec);
+void change_query_interval(struct pim_interface *pim_ifp,
+                                  int query_interval);
+int pim_cmd_igmp_start(struct interface *ifp);
+void pim_if_membership_refresh(struct interface *ifp);
+void pim_if_membership_clear(struct interface *ifp);
+int pim_cmd_spt_switchover(struct pim_instance *pim,
+                        enum pim_spt_switchover spt,
+                        const char *plist);
+int pim_cmd_interface_add(struct interface *ifp);
+int pim_cmd_interface_delete(struct interface *ifp);
 static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1 /* vtysh ? yes */
 };
@@ -92,7 +106,7 @@ static struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
 	return vrf;
 }
 
-static void pim_if_membership_clear(struct interface *ifp)
+void pim_if_membership_clear(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 
@@ -116,7 +130,7 @@ static void pim_if_membership_clear(struct interface *ifp)
   whenever PIM is enabled on the interface in order to collect missed
   local membership information.
  */
-static void pim_if_membership_refresh(struct interface *ifp)
+void pim_if_membership_refresh(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *sock_node;
@@ -6574,7 +6588,7 @@ DEFUN (show_ip_ssmpingd,
 	return CMD_SUCCESS;
 }
 
-static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
+/*static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 			     const char *rp, const char *group,
 			     const char *plist)
 {
@@ -6623,10 +6637,11 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 
 	return CMD_SUCCESS;
 }
+*/
 
-static int pim_cmd_spt_switchover(struct pim_instance *pim,
-				  enum pim_spt_switchover spt,
-				  const char *plist)
+int pim_cmd_spt_switchover(struct pim_instance *pim,
+			enum pim_spt_switchover spt,
+			const char *plist)
 {
 	pim->spt.switchover = spt;
 
@@ -6659,7 +6674,12 @@ DEFUN (ip_pim_spt_switchover_infinity,
        "Never switch to SPT Tree\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_cmd_spt_switchover(pim, PIM_SPT_INFINITY, NULL);
+
+	if (pim->spt.plist)
+		nb_cli_enqueue_change(vty, "./spt-infinity-prefix-list", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./spt-action", NB_OP_MODIFY, "PIM_SPT_INFINITY");
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/spt-switchover", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4");
 }
 
 DEFUN (ip_pim_spt_switchover_infinity_plist,
@@ -6673,7 +6693,11 @@ DEFUN (ip_pim_spt_switchover_infinity_plist,
        "Prefix-List name\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_cmd_spt_switchover(pim, PIM_SPT_INFINITY, argv[5]->arg);
+
+	nb_cli_enqueue_change(vty, "./spt-infinity-prefix-list", NB_OP_MODIFY, argv[5]->arg);
+	nb_cli_enqueue_change(vty, "./spt-action", NB_OP_MODIFY, "PIM_SPT_INFINITY");
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/spt-switchover", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4");
 }
 
 DEFUN (no_ip_pim_spt_switchover_infinity,
@@ -6686,7 +6710,11 @@ DEFUN (no_ip_pim_spt_switchover_infinity,
        "Never switch to SPT Tree\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_cmd_spt_switchover(pim, PIM_SPT_IMMEDIATE, NULL);
+
+	nb_cli_enqueue_change(vty, "./spt-infinity-prefix-list", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./spt-action", NB_OP_MODIFY, "PIM_SPT_IMMEDIATE");
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/spt-switchover", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4");
 }
 
 DEFUN (no_ip_pim_spt_switchover_infinity_plist,
@@ -6701,7 +6729,11 @@ DEFUN (no_ip_pim_spt_switchover_infinity_plist,
        "Prefix-List name\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_cmd_spt_switchover(pim, PIM_SPT_IMMEDIATE, NULL);
+
+	nb_cli_enqueue_change(vty, "./spt-infinity-prefix-list", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./spt-action", NB_OP_MODIFY, "PIM_SPT_IMMEDIATE");
+	
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/spt-switchover", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4");
 }
 
 DEFPY (pim_register_accept_list,
@@ -6733,8 +6765,10 @@ DEFUN (ip_pim_joinprune_time,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	router->t_periodic = atoi(argv[3]->arg);
-	return CMD_SUCCESS;
+
+	nb_cli_enqueue_change(vty, "./join-prune-interval", NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim", "frr-pim:pimd", "pim", vrf->name);
 }
 
 DEFUN (no_ip_pim_joinprune_time,
@@ -6747,8 +6781,10 @@ DEFUN (no_ip_pim_joinprune_time,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	router->t_periodic = PIM_DEFAULT_T_PERIODIC;
-	return CMD_SUCCESS;
+
+	nb_cli_enqueue_change(vty, "./join-prune-interval", NB_OP_MODIFY, PIM_DEFAULT_T_PERIODIC_STR); 
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim", "frr-pim:pimd", "pim", vrf->name);
 }
 
 DEFUN (ip_pim_register_suppress,
@@ -6760,8 +6796,11 @@ DEFUN (ip_pim_register_suppress,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	router->register_suppress_time = atoi(argv[3]->arg);
-	return CMD_SUCCESS;
+
+	nb_cli_enqueue_change(vty, "./register-suppress-time",
+		NB_OP_MODIFY, argv[3]->arg); 
+
+        return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim", "frr-pim:pimd", "pim", vrf->name);
 }
 
 DEFUN (no_ip_pim_register_suppress,
@@ -6774,8 +6813,12 @@ DEFUN (no_ip_pim_register_suppress,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	router->register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
-	return CMD_SUCCESS;
+
+	nb_cli_enqueue_change(vty, "./register-suppress-time",
+		NB_OP_MODIFY, PIM_REGISTER_SUPPRESSION_TIME_DEFAULT_STR);
+
+	return nb_cli_apply_changes(vty,
+	  "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family[address-family='%s']/pim-sm");
 }
 
 DEFUN (ip_pim_rp_keep_alive,
@@ -6788,8 +6831,10 @@ DEFUN (ip_pim_rp_keep_alive,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->rp_keep_alive_time = atoi(argv[4]->arg);
-	return CMD_SUCCESS;
+
+	nb_cli_enqueue_change(vty, "./rp-keep-alive-timer", NB_OP_MODIFY, argv[4]->arg);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim", "frr-pim:pimd", "pim", vrf->name);
 }
 
 DEFUN (no_ip_pim_rp_keep_alive,
@@ -6803,8 +6848,10 @@ DEFUN (no_ip_pim_rp_keep_alive,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->rp_keep_alive_time = PIM_KEEPALIVE_PERIOD;
-	return CMD_SUCCESS;
+
+	nb_cli_enqueue_change(vty, "./rp-keep-alive-timer", NB_OP_MODIFY, PIM_KEEPALIVE_PERIOD_STR);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim", "frr-pim:pimd", "pim", vrf->name);
 }
 
 DEFUN (ip_pim_keep_alive,
@@ -6816,8 +6863,10 @@ DEFUN (ip_pim_keep_alive,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->keep_alive_time = atoi(argv[3]->arg);
-	return CMD_SUCCESS;
+
+	nb_cli_enqueue_change(vty, "./keep-alive-timer", NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim", "frr-pim:pimd", "pim", vrf->name);	
 }
 
 DEFUN (no_ip_pim_keep_alive,
@@ -6830,8 +6879,10 @@ DEFUN (no_ip_pim_keep_alive,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->keep_alive_time = PIM_KEEPALIVE_PERIOD;
-	return CMD_SUCCESS;
+
+	nb_cli_enqueue_change(vty, "./keep-alive-timer", NB_OP_MODIFY, PIM_KEEPALIVE_PERIOD_STR);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim", "frr-pim:pimd", "pim", vrf->name);
 }
 
 DEFUN (ip_pim_packets,
@@ -6843,8 +6894,10 @@ DEFUN (ip_pim_packets,
        "Number of packets\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	router->packet_process = atoi(argv[3]->arg);
-	return CMD_SUCCESS;
+
+	nb_cli_enqueue_change(vty, "./packets", NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim", "frr-pim:pimd", "pim", vrf->name);
 }
 
 DEFUN (no_ip_pim_packets,
@@ -6857,8 +6910,10 @@ DEFUN (no_ip_pim_packets,
        "Number of packets\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	router->packet_process = PIM_DEFAULT_PACKET_PROCESS;
-	return CMD_SUCCESS;
+
+        nb_cli_enqueue_change(vty, "./packets", NB_OP_MODIFY, PIM_DEFAULT_PACKET_PROCESS_STR);
+
+        return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim", "frr-pim:pimd", "pim", vrf->name);
 }
 
 DEFUN (ip_pim_v6_secondary,
@@ -6869,9 +6924,10 @@ DEFUN (ip_pim_v6_secondary,
        "Send v6 secondary addresses\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->send_v6_secondary = 1;
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./send-v6-secondary", NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4");
 }
 
 DEFUN (no_ip_pim_v6_secondary,
@@ -6883,9 +6939,10 @@ DEFUN (no_ip_pim_v6_secondary,
        "Send v6 secondary addresses\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->send_v6_secondary = 0;
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./send-v6-secondary", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4");
 }
 
 DEFUN (ip_pim_rp,
@@ -6898,14 +6955,15 @@ DEFUN (ip_pim_rp,
        "Group Address range to cover\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	int idx_ipv4 = 3;
+	int idx_ipv4 = 4;
 
-	if (argc == (idx_ipv4 + 1))
-		return pim_rp_cmd_worker(pim, vty, argv[idx_ipv4]->arg, NULL,
-					 NULL);
-	else
-		return pim_rp_cmd_worker(pim, vty, argv[idx_ipv4]->arg,
-					 argv[idx_ipv4 + 1]->arg, NULL);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+        const char *group_str = (argc == 5) ? argv[idx_ipv4]->arg : "224.0.0.0/4";
+
+        nb_cli_enqueue_change(vty, "./group-list", NB_OP_CREATE, group_str);
+
+        return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/frr-pim-rp:rp/static-rp/rp-list[rp-address='%s']", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4", argv[3]->arg);
 }
 
 DEFUN (ip_pim_rp_prefix_list,
@@ -6919,7 +6977,11 @@ DEFUN (ip_pim_rp_prefix_list,
        "Name of a prefix-list\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_rp_cmd_worker(pim, vty, argv[3]->arg, NULL, argv[5]->arg);
+
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./prefix-list", NB_OP_MODIFY, argv[5]->arg);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/frr-pim-rp:rp/static-rp/rp-list[rp-address='%s']", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4", argv[3]->arg);
 }
 
 static int pim_no_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
@@ -6982,30 +7044,6 @@ DEFUN (no_ip_pim_rp_prefix_list,
 	return pim_no_rp_cmd_worker(pim, vty, argv[4]->arg, NULL, argv[6]->arg);
 }
 
-static int pim_ssm_cmd_worker(struct pim_instance *pim, struct vty *vty,
-			      const char *plist)
-{
-	int result = pim_ssm_range_set(pim, pim->vrf_id, plist);
-	int ret = CMD_WARNING_CONFIG_FAILED;
-
-	if (result == PIM_SSM_ERR_NONE)
-		return CMD_SUCCESS;
-
-	switch (result) {
-	case PIM_SSM_ERR_NO_VRF:
-		vty_out(vty, "%% VRF doesn't exist\n");
-		break;
-	case PIM_SSM_ERR_DUP:
-		vty_out(vty, "%% duplicate config\n");
-		ret = CMD_WARNING;
-		break;
-	default:
-		vty_out(vty, "%% ssm range config failed\n");
-	}
-
-	return ret;
-}
-
 DEFUN (ip_pim_ssm_prefix_list,
        ip_pim_ssm_prefix_list_cmd,
        "ip pim ssm prefix-list WORD",
@@ -7016,7 +7054,10 @@ DEFUN (ip_pim_ssm_prefix_list,
        "Name of a prefix-list\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_ssm_cmd_worker(pim, vty, argv[4]->arg);
+
+	nb_cli_enqueue_change(vty, "./prefix-list", NB_OP_MODIFY, argv[4]->arg);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/ssm", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4");
 }
 
 DEFUN (no_ip_pim_ssm_prefix_list,
@@ -7029,7 +7070,10 @@ DEFUN (no_ip_pim_ssm_prefix_list,
        "group range prefix-list filter\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_ssm_cmd_worker(pim, vty, NULL);
+
+	nb_cli_enqueue_change(vty, "./prefix-list", NB_OP_DESTROY, NULL);
+
+        return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/ssm", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4");
 }
 
 DEFUN (no_ip_pim_ssm_prefix_list_name,
@@ -7045,8 +7089,13 @@ DEFUN (no_ip_pim_ssm_prefix_list_name,
 	PIM_DECLVAR_CONTEXT(vrf, pim);
 	struct pim_ssm *ssm = pim->ssm_info;
 
-	if (ssm->plist_name && !strcmp(ssm->plist_name, argv[5]->arg))
-		return pim_ssm_cmd_worker(pim, vty, NULL);
+	if (ssm->plist_name && !strcmp(ssm->plist_name, argv[5]->arg)) {
+		nb_cli_enqueue_change(vty, "./prefix-list", NB_OP_MODIFY, NULL);
+
+		return nb_cli_apply_changes(vty,
+          "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family[address-family='%s']/pim-sm/ssm",
+          "frr-routing:ipv4");
+	}
 
 	vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n", argv[5]->arg);
 
@@ -7177,25 +7226,11 @@ DEFUN (ip_ssmpingd,
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
 	int idx_ipv4 = 2;
-	int result;
-	struct in_addr source_addr;
 	const char *source_str = (argc == 3) ? argv[idx_ipv4]->arg : "0.0.0.0";
 
-	result = inet_pton(AF_INET, source_str, &source_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n",
-			source_str, errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	nb_cli_enqueue_change(vty, "./source-ip", NB_OP_CREATE, source_str);
 
-	result = pim_ssmpingd_start(pim, source_addr);
-	if (result) {
-		vty_out(vty, "%% Failure starting ssmpingd for source %s: %d\n",
-			source_str, result);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/ssm-pingd", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4"); 
 }
 
 DEFUN (no_ip_ssmpingd,
@@ -7207,26 +7242,13 @@ DEFUN (no_ip_ssmpingd,
        "Source address\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
+
 	int idx_ipv4 = 3;
-	int result;
-	struct in_addr source_addr;
 	const char *source_str = (argc == 4) ? argv[idx_ipv4]->arg : "0.0.0.0";
 
-	result = inet_pton(AF_INET, source_str, &source_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n",
-			source_str, errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	nb_cli_enqueue_change(vty, "./source-ip", NB_OP_DESTROY, source_str);
 
-	result = pim_ssmpingd_stop(pim, source_addr);
-	if (result) {
-		vty_out(vty, "%% Failure stopping ssmpingd for source %s: %d\n",
-			source_str, result);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/ssm-pingd", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4");
 }
 
 DEFUN (ip_pim_ecmp,
@@ -7237,9 +7259,10 @@ DEFUN (ip_pim_ecmp,
        "Enable PIM ECMP \n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->ecmp_enable = true;
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./ecmp", NB_OP_CREATE, NULL);
+
+        return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim", "frr-pim:pimd", "pim", vrf->name);
 }
 
 DEFUN (no_ip_pim_ecmp,
@@ -7251,9 +7274,10 @@ DEFUN (no_ip_pim_ecmp,
        "Disable PIM ECMP \n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->ecmp_enable = false;
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./ecmp", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim", "frr-pim:pimd", "pim", vrf->name);
 }
 
 DEFUN (ip_pim_ecmp_rebalance,
@@ -7265,10 +7289,11 @@ DEFUN (ip_pim_ecmp_rebalance,
        "Enable PIM ECMP Rebalance\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->ecmp_enable = true;
-	pim->ecmp_rebalance_enable = true;
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./ecmp", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./ecmp-rebalance", NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim", "frr-pim:pimd", "pim", vrf->name);
 }
 
 DEFUN (no_ip_pim_ecmp_rebalance,
@@ -7281,12 +7306,13 @@ DEFUN (no_ip_pim_ecmp_rebalance,
        "Disable PIM ECMP Rebalance\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->ecmp_rebalance_enable = false;
 
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./ecmp-rebalance", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim", "frr-pim:pimd", "pim", vrf->name);
 }
 
-static int pim_cmd_igmp_start(struct vty *vty, struct interface *ifp)
+int pim_cmd_igmp_start(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 	uint8_t need_startup = 0;
@@ -7320,8 +7346,18 @@ DEFUN (interface_ip_igmp,
        IFACE_IGMP_STR)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+/*
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']", NB_OP_CREATE, NULL);
 
-	return pim_cmd_igmp_start(vty, ifp);
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']", NB_OP_CREATE, NULL);
+
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']/igmp-enable", NB_OP_MODIFY, "true");
+
+        return nb_cli_apply_changes(vty, NULL);
+*/
+        nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY, "true");
+
+        return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp,
@@ -7332,22 +7368,18 @@ DEFUN (interface_no_ip_igmp,
        IFACE_IGMP_STR)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+/*
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']", NB_OP_CREATE, NULL);
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']", NB_OP_CREATE, NULL);
 
-	PIM_IF_DONT_IGMP(pim_ifp->options);
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']/igmp-enable", NB_OP_MODIFY, "false");
 
-	pim_if_membership_clear(ifp);
+        return nb_cli_apply_changes(vty, NULL);
+*/
+        nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY, "false");
 
-	pim_if_addr_del_all_igmp(ifp);
-
-	if (!PIM_IF_TEST_PIM(pim_ifp->options)) {
-		pim_if_delete(ifp);
-	}
-
-	return CMD_SUCCESS;
+        return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_ip_igmp_join,
@@ -7530,7 +7562,7 @@ static void igmp_sock_query_reschedule(struct igmp_sock *igmp)
 	}
 }
 
-static void change_query_interval(struct pim_interface *pim_ifp,
+void change_query_interval(struct pim_interface *pim_ifp,
 				  int query_interval)
 {
 	struct listnode *sock_node;
@@ -7544,7 +7576,7 @@ static void change_query_interval(struct pim_interface *pim_ifp,
 	}
 }
 
-static void change_query_max_response_time(struct pim_interface *pim_ifp,
+void change_query_max_response_time(struct pim_interface *pim_ifp,
 					   int query_max_response_time_dsec)
 {
 	struct listnode *sock_node;
@@ -7603,50 +7635,24 @@ DEFUN (interface_ip_igmp_query_interval,
        IFACE_IGMP_QUERY_INTERVAL_STR
        "Query interval in seconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int query_interval;
-	int query_interval_dsec;
-	int ret;
+/*
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']", NB_OP_CREATE, NULL);
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
-	}
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']", NB_OP_CREATE, NULL);
 
-	query_interval = atoi(argv[3]->arg);
-	query_interval_dsec = 10 * query_interval;
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']/query-interval", NB_OP_MODIFY, argv[3]->arg);
 
-	/*
-	  It seems we don't need to check bounds since command.c does it
-	  already, but we verify them anyway for extra safety.
-	*/
-	if (query_interval < IGMP_QUERY_INTERVAL_MIN) {
-		vty_out(vty,
-			"General query interval %d lower than minimum %d\n",
-			query_interval, IGMP_QUERY_INTERVAL_MIN);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (query_interval > IGMP_QUERY_INTERVAL_MAX) {
-		vty_out(vty,
-			"General query interval %d higher than maximum %d\n",
-			query_interval, IGMP_QUERY_INTERVAL_MAX);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	return nb_cli_apply_changes(vty, NULL);
+*/
+        VTY_DECLVAR_CONTEXT(interface, ifp);
+        struct pim_interface *pim_ifp = ifp->info;
 
-	if (query_interval_dsec <= pim_ifp->igmp_query_max_response_time_dsec) {
-		vty_out(vty,
-			"Can't set general query interval %d dsec <= query max response time %d dsec.\n",
-			query_interval_dsec,
-			pim_ifp->igmp_query_max_response_time_dsec);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if(!pim_ifp)
+		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY, "true");
 
-	change_query_interval(pim_ifp, query_interval);
+	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY, argv[3]->arg);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_query_interval,
@@ -7657,28 +7663,25 @@ DEFUN (interface_no_ip_igmp_query_interval,
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_INTERVAL_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int default_query_interval_dsec;
+/*
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']", NB_OP_CREATE, NULL);
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']", NB_OP_CREATE, NULL);
 
-	default_query_interval_dsec = IGMP_GENERAL_QUERY_INTERVAL * 10;
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']/query-interval", NB_OP_MODIFY, "125");
 
-	if (default_query_interval_dsec
-	    <= pim_ifp->igmp_query_max_response_time_dsec) {
-		vty_out(vty,
-			"Can't set default general query interval %d dsec <= query max response time %d dsec.\n",
-			default_query_interval_dsec,
-			pim_ifp->igmp_query_max_response_time_dsec);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	return nb_cli_apply_changes(vty, NULL);*/
+        VTY_DECLVAR_CONTEXT(interface, ifp);
+        struct pim_interface *pim_ifp = ifp->info;
 
-	change_query_interval(pim_ifp, IGMP_GENERAL_QUERY_INTERVAL);
+        if(!pim_ifp)
+                return CMD_SUCCESS;
 
-	return CMD_SUCCESS;
+        nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY, "125");
+
+        return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
+
 
 DEFUN (interface_ip_igmp_version,
        interface_ip_igmp_version_cmd,
@@ -7688,36 +7691,26 @@ DEFUN (interface_ip_igmp_version,
        "IGMP version\n"
        "IGMP version number\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int igmp_version, old_version = 0;
-	int ret;
+/*
+        VTY_DECLVAR_CONTEXT(interface, ifp);
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
-	}
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']", NB_OP_CREATE, NULL);
 
-	igmp_version = atoi(argv[3]->arg);
-	old_version = pim_ifp->igmp_version;
-	pim_ifp->igmp_version = igmp_version;
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']", NB_OP_CREATE, NULL);
 
-	// Check if IGMP is Enabled otherwise, enable on interface
-	if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
-		PIM_IF_DO_IGMP(pim_ifp->options);
-		pim_if_addr_add_all(ifp);
-		pim_if_membership_refresh(ifp);
-		old_version = igmp_version;
-		// avoid refreshing membership again.
-	}
-	/* Current and new version is different refresh existing
-	   membership. Going from 3 -> 2 or 2 -> 3. */
-	if (old_version != igmp_version)
-		pim_if_membership_refresh(ifp);
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']/version", NB_OP_MODIFY, argv[3]->arg);
 
-	return CMD_SUCCESS;
+        return nb_cli_apply_changes(vty, NULL);
+*/
+        VTY_DECLVAR_CONTEXT(interface, ifp);
+        struct pim_interface *pim_ifp = ifp->info;
+
+        if(!pim_ifp)
+                nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY, "true");
+
+        nb_cli_enqueue_change(vty, "./version", NB_OP_MODIFY, argv[3]->arg);
+
+        return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_version,
@@ -7729,15 +7722,25 @@ DEFUN (interface_no_ip_igmp_version,
        "IGMP version\n"
        "IGMP version number\n")
 {
+/*
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']", NB_OP_CREATE, NULL);
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']", NB_OP_CREATE, NULL);
 
-	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']/version", NB_OP_MODIFY, "3");
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
+*/
+        VTY_DECLVAR_CONTEXT(interface, ifp);
+        struct pim_interface *pim_ifp = ifp->info;
+
+        if(!pim_ifp)
+                return CMD_SUCCESS;
+
+        nb_cli_enqueue_change(vty, "./version", NB_OP_MODIFY, "3");
+
+        return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 #define IGMP_QUERY_MAX_RESPONSE_TIME_MIN_DSEC (10)
@@ -7751,32 +7754,25 @@ DEFUN (interface_ip_igmp_query_max_response_time,
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
        "Query response value in deci-seconds\n")
 {
+/*
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int query_max_response_time;
-	int ret;
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']", NB_OP_CREATE, NULL);
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
-	}
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']", NB_OP_CREATE, NULL);
 
-	query_max_response_time = atoi(argv[3]->arg);
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']/query-max-response-time", NB_OP_MODIFY, argv[3]->arg);
 
-	if (query_max_response_time
-	    >= pim_ifp->igmp_default_query_interval * 10) {
-		vty_out(vty,
-			"Can't set query max response time %d sec >= general query interval %d sec\n",
-			query_max_response_time,
-			pim_ifp->igmp_default_query_interval);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	return nb_cli_apply_changes(vty, NULL);
+*/
+        VTY_DECLVAR_CONTEXT(interface, ifp);
+        struct pim_interface *pim_ifp = ifp->info;
 
-	change_query_max_response_time(pim_ifp, query_max_response_time);
+        if(!pim_ifp)
+                nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY, "true");
 
-	return CMD_SUCCESS;
+        nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY, argv[3]->arg);
+
+        return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_query_max_response_time,
@@ -7788,16 +7784,25 @@ DEFUN (interface_no_ip_igmp_query_max_response_time,
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
        "Time for response in deci-seconds\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+/*
+        VTY_DECLVAR_CONTEXT(interface, ifp);
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']", NB_OP_CREATE, NULL);
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']", NB_OP_CREATE, NULL);
 
-	change_query_max_response_time(pim_ifp,
-				       IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']/query-max-response-time", NB_OP_MODIFY, argv[3]->arg);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
+*/
+        VTY_DECLVAR_CONTEXT(interface, ifp);
+        struct pim_interface *pim_ifp = ifp->info;
+
+        if(!pim_ifp)
+                return CMD_SUCCESS;
+
+        nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY, "100");
+
+        return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 #define IGMP_QUERY_MAX_RESPONSE_TIME_MIN_DSEC (10)
@@ -7818,7 +7823,7 @@ DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 	int ret;
 
 	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
+		ret = pim_cmd_igmp_start(ifp);
 		if (ret != CMD_SUCCESS)
 			return ret;
 		pim_ifp = ifp->info;
@@ -7872,23 +7877,25 @@ DEFUN (interface_ip_igmp_last_member_query_count,
        IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR
        "Last member query count\n")
 {
+/*
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int last_member_query_count;
-	int ret;
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']", NB_OP_CREATE, NULL);
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
-	}
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']", NB_OP_CREATE, NULL);
 
-	last_member_query_count = atoi(argv[3]->arg);
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']/robustness-variable", NB_OP_MODIFY, argv[3]->arg);
 
-	pim_ifp->igmp_last_member_query_count = last_member_query_count;
+        return nb_cli_apply_changes(vty, NULL);
+*/
+        VTY_DECLVAR_CONTEXT(interface, ifp);
+        struct pim_interface *pim_ifp = ifp->info;
 
-	return CMD_SUCCESS;
+        if(!pim_ifp)
+		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY, "true");
+
+        nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_MODIFY, argv[3]->arg);
+
+        return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_last_member_query_count,
@@ -7899,16 +7906,25 @@ DEFUN (interface_no_ip_igmp_last_member_query_count,
        IFACE_IGMP_STR
        IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR)
 {
+/*
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']", NB_OP_CREATE, NULL);
+        
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']", NB_OP_CREATE, NULL);
+        
+	nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']/robustness-variable", NB_OP_MODIFY, "2");
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
+*/
+        VTY_DECLVAR_CONTEXT(interface, ifp);
+        struct pim_interface *pim_ifp = ifp->info;
 
-	pim_ifp->igmp_last_member_query_count =
-		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
+        if(!pim_ifp)
+                return CMD_SUCCESS;
 
-	return CMD_SUCCESS;
+        nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_MODIFY, "2");
+
+        return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 #define IGMP_LAST_MEMBER_QUERY_INTERVAL_MIN (1)
@@ -7922,23 +7938,26 @@ DEFUN (interface_ip_igmp_last_member_query_interval,
        IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR
        "Last member query interval in deciseconds\n")
 {
+/*
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-	int last_member_query_interval;
-	int ret;
 
-	if (!pim_ifp) {
-		ret = pim_cmd_igmp_start(vty, ifp);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		pim_ifp = ifp->info;
-	}
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']", NB_OP_CREATE, NULL);
 
-	last_member_query_interval = atoi(argv[3]->arg);
-	pim_ifp->igmp_specific_query_max_response_time_dsec
-		= last_member_query_interval;
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']", NB_OP_CREATE, NULL);
+        
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']/last-member-query-interval", NB_OP_MODIFY, argv[3]->arg);
 
-	return CMD_SUCCESS;
+        return nb_cli_apply_changes(vty, NULL);
+*/
+        VTY_DECLVAR_CONTEXT(interface, ifp);
+        struct pim_interface *pim_ifp = ifp->info;
+
+        if(!pim_ifp)
+		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY, "true");
+
+        nb_cli_enqueue_change(vty, "./last-member-query-interval", NB_OP_MODIFY, argv[3]->arg);
+
+        return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_no_ip_igmp_last_member_query_interval,
@@ -7949,17 +7968,28 @@ DEFUN (interface_no_ip_igmp_last_member_query_interval,
        IFACE_IGMP_STR
        IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR)
 {
+/*
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
 
-	if (!pim_ifp)
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']", NB_OP_CREATE, NULL);
+        
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']", NB_OP_CREATE, NULL);
+        
+        nb_cli_enqueue_change(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-routing:igmp'][name='igmp'][vrf='red']/frr-igmp:igmp/interfaces/interface[interface-name='ens192']/last-member-query-interval", NB_OP_MODIFY, "10");
+        
+        return nb_cli_apply_changes(vty, NULL);
+*/
+        VTY_DECLVAR_CONTEXT(interface, ifp);
+        struct pim_interface *pim_ifp = ifp->info;
+
+        if(!pim_ifp)
 		return CMD_SUCCESS;
 
-	pim_ifp->igmp_specific_query_max_response_time_dsec =
-		IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
+        nb_cli_enqueue_change(vty, "./last-member-query-interval", NB_OP_MODIFY, "10");
 
-	return CMD_SUCCESS;
+        return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
+
 
 DEFUN (interface_ip_pim_drprio,
        interface_ip_pim_drprio_cmd,
@@ -7969,26 +7999,12 @@ DEFUN (interface_ip_pim_drprio,
        "Set the Designated Router Election Priority\n"
        "Value of the new DR Priority\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_number = 3;
-	struct pim_interface *pim_ifp = ifp->info;
-	uint32_t old_dr_prio;
 
-	if (!pim_ifp) {
-		vty_out(vty, "Please enable PIM on interface, first\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_MODIFY, argv[idx_number]->arg);
 
-	old_dr_prio = pim_ifp->pim_dr_priority;
+        return nb_cli_apply_changes(vty, "./frr-pim:pim");
 
-	pim_ifp->pim_dr_priority = strtol(argv[idx_number]->arg, NULL, 10);
-
-	if (old_dr_prio != pim_ifp->pim_dr_priority) {
-		pim_if_dr_election(ifp);
-		pim_hello_restart_now(ifp);
-	}
-
-	return CMD_SUCCESS;
 }
 
 DEFUN (interface_no_ip_pim_drprio,
@@ -8000,21 +8016,9 @@ DEFUN (interface_no_ip_pim_drprio,
        "Revert the Designated Router Priority to default\n"
        "Old Value of the Priority\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
-
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
-		pim_ifp->pim_dr_priority = PIM_DEFAULT_DR_PRIORITY;
-		pim_if_dr_election(ifp);
-		pim_hello_restart_now(ifp);
-	}
-
-	return CMD_SUCCESS;
+        nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_MODIFY, PIM_DEFAULT_DR_PRIORITY_STR);
+        
+        return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFPY_HIDDEN (interface_ip_igmp_query_generate,
@@ -8043,7 +8047,7 @@ DEFPY_HIDDEN (interface_ip_igmp_query_generate,
 	return CMD_SUCCESS;
 }
 
-static int pim_cmd_interface_add(struct interface *ifp)
+int pim_cmd_interface_add(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
@@ -8117,26 +8121,13 @@ DEFPY (interface_ip_pim_activeactive,
        PIM_STR
        "Mark interface as Active-Active for MLAG operations, Hidden because not finished yet\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp;
 
-	if (!no && !pim_cmd_interface_add(ifp)) {
-		vty_out(vty, "Could not enable PIM SM active-active on interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-
-        if (PIM_DEBUG_MLAG)
-                zlog_debug("%sConfiguring PIM active-active on Interface: %s",
-                           no ? "Un-":" ", ifp->name);
-
-	pim_ifp = ifp->info;
 	if (no)
-		pim_if_unconfigure_mlag_dualactive(pim_ifp);
+		nb_cli_enqueue_change(vty, "./active-active", NB_OP_DESTROY, NULL);
 	else
-		pim_if_configure_mlag_dualactive(pim_ifp);
+		nb_cli_enqueue_change(vty, "./active-active", NB_OP_CREATE, NULL);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN_HIDDEN (interface_ip_pim_ssm,
@@ -8146,35 +8137,9 @@ DEFUN_HIDDEN (interface_ip_pim_ssm,
        PIM_STR
        IFACE_PIM_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
+        nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 
-	if (!pim_cmd_interface_add(ifp)) {
-		vty_out(vty, "Could not enable PIM SM on interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	vty_out(vty,
-		"WARN: Enabled PIM SM on interface; configure PIM SSM "
-		"range if needed\n");
-	return CMD_SUCCESS;
-}
-
-static int interface_ip_pim_helper(struct vty *vty)
-{
-	struct pim_interface *pim_ifp;
-
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	if (!pim_cmd_interface_add(ifp)) {
-		vty_out(vty, "Could not enable PIM SM on interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	pim_ifp = ifp->info;
-
-	pim_if_create_pimreg(pim_ifp->pim);
-
-	return CMD_SUCCESS;
+        return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN_HIDDEN (interface_ip_pim_sm,
@@ -8184,7 +8149,9 @@ DEFUN_HIDDEN (interface_ip_pim_sm,
        PIM_STR
        IFACE_PIM_SM_STR)
 {
-	return interface_ip_pim_helper(vty);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");	
 }
 
 DEFUN (interface_ip_pim,
@@ -8193,10 +8160,12 @@ DEFUN (interface_ip_pim,
        IP_STR
        PIM_STR)
 {
-	return interface_ip_pim_helper(vty);
+        nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+        return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
-static int pim_cmd_interface_delete(struct interface *ifp)
+int pim_cmd_interface_delete(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
@@ -8221,17 +8190,6 @@ static int pim_cmd_interface_delete(struct interface *ifp)
 	return 1;
 }
 
-static int interface_no_ip_pim_helper(struct vty *vty)
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	if (!pim_cmd_interface_delete(ifp)) {
-		vty_out(vty, "Unable to delete interface information\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
 DEFUN_HIDDEN (interface_no_ip_pim_ssm,
        interface_no_ip_pim_ssm_cmd,
        "no ip pim ssm",
@@ -8240,7 +8198,9 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
        PIM_STR
        IFACE_PIM_STR)
 {
-	return interface_no_ip_pim_helper(vty);
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN_HIDDEN (interface_no_ip_pim_sm,
@@ -8251,7 +8211,9 @@ DEFUN_HIDDEN (interface_no_ip_pim_sm,
        PIM_STR
        IFACE_PIM_SM_STR)
 {
-	return interface_no_ip_pim_helper(vty);
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (interface_no_ip_pim,
@@ -8261,7 +8223,9 @@ DEFUN (interface_no_ip_pim,
        IP_STR
        PIM_STR)
 {
-	return interface_no_ip_pim_helper(vty);
+        nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+        return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 /* boundaries */
@@ -8274,22 +8238,9 @@ DEFUN(interface_ip_pim_boundary_oil,
       "Filter OIL by group using prefix list\n"
       "Prefix list to filter OIL with\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	int idx = 0;
+        nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_MODIFY, argv[4]->arg);
 
-	argv_find(argv, argc, "WORD", &idx);
-
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-
-	if (pim_ifp->boundary_oil_plist)
-		XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
-
-	pim_ifp->boundary_oil_plist =
-		XSTRDUP(MTYPE_PIM_INTERFACE, argv[idx]->arg);
-
-	/* Interface will be pruned from OIL on next Join */
-	return CMD_SUCCESS;
+        return nb_cli_apply_changes(vty, "./frr-pim:pim/address-family[address-family='%s']", "frr-routing:ipv4");
 }
 
 DEFUN(interface_no_ip_pim_boundary_oil,
@@ -8302,18 +8253,9 @@ DEFUN(interface_no_ip_pim_boundary_oil,
       "Filter OIL by group using prefix list\n"
       "Prefix list to filter OIL with\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	int idx = 0;
+	nb_cli_enqueue_change(vty, "./multicast-boundary-oil", NB_OP_DESTROY, NULL);
 
-	argv_find(argv, argc, "WORD", &idx);
-
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-
-	if (pim_ifp->boundary_oil_plist)
-		XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim/address-family[address-family='%s']", "frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_mroute,
@@ -8325,56 +8267,20 @@ DEFUN (interface_ip_mroute,
        "Group address\n"
        "Source address\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
-	int idx_interface = 2;
-	int idx_ipv4 = 3;
-	struct interface *oif;
-	const char *oifname;
-	const char *grp_str;
-	struct in_addr grp_addr;
-	const char *src_str;
-	struct in_addr src_addr;
-	int result;
+        int idx_interface = 2;
+        int idx_ipv4 = 3;
 
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-	pim = pim_ifp->pim;
+        nb_cli_enqueue_change(vty, "./oif", NB_OP_MODIFY, argv[idx_interface]->arg);
 
-	oifname = argv[idx_interface]->arg;
-	oif = if_lookup_by_name(oifname, pim->vrf_id);
-	if (!oif) {
-		vty_out(vty, "No such interface name %s\n", oifname);
-		return CMD_WARNING;
+	if (argc == (idx_ipv4 + 1)) {
+		return nb_cli_apply_changes(vty, "./frr-pim:pim/address-family[address-family='%s']/mroute[source-addr='%s'][group-addr='%s']",
+                "frr-routing:ipv4", "0.0.0.0", argv[idx_ipv4]->arg);
 	}
 
-	grp_str = argv[idx_ipv4]->arg;
-	result = inet_pton(AF_INET, grp_str, &grp_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad group address %s: errno=%d: %s\n", grp_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
+	else {
+        	return nb_cli_apply_changes(vty, "./frr-pim:pim/address-family[address-family='%s']/mroute[source-addr='%s'][group-addr='%s']",
+			"frr-routing:ipv4", argv[idx_ipv4 + 1]->arg, argv[idx_ipv4]->arg);
 	}
-
-        if (argc == (idx_ipv4 + 1)) {
-                src_addr.s_addr = INADDR_ANY;
-        }
-        else {
-                src_str = argv[idx_ipv4 + 1]->arg;
-                result = inet_pton(AF_INET, src_str, &src_addr);
-                if (result <= 0) {
-                        vty_out(vty, "Bad source address %s: errno=%d: %s\n", src_str,
-                                errno, safe_strerror(errno));
-                        return CMD_WARNING;
-                }
-        }
-
-	if (pim_static_add(pim, iif, oif, grp_addr, src_addr)) {
-		vty_out(vty, "Failed to add static mroute\n");
-		return CMD_WARNING;
-	}
-
-	return CMD_SUCCESS;
 }
 
 DEFUN (interface_no_ip_mroute,
@@ -8387,56 +8293,33 @@ DEFUN (interface_no_ip_mroute,
        "Group Address\n"
        "Source Address\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, iif);
-	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
-	int idx_interface = 3;
 	int idx_ipv4 = 4;
-	struct interface *oif;
-	const char *oifname;
-	const char *grp_str;
-	struct in_addr grp_addr;
-	const char *src_str;
-	struct in_addr src_addr;
-	int result;
+/*
+        int idx_interface = 3;
+	char oif_xpath[VTY_BUFSIZ];
+	const char *oif_name;
 
-	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
-	pim = pim_ifp->pim;
+	sprintf(oif_xpath, "/frr-interface:lib/interface/frr-pim:pim/address-family[address-family=%s]/mroute[source-addr=%s][group-addr=%s]/oif",
+		"frr-routing:ipv4", argv[idx_ipv4 + 1]->arg, argv[idx_ipv4]->arg);
 
-	oifname = argv[idx_interface]->arg;
-	oif = if_lookup_by_name(oifname, pim->vrf_id);
-	if (!oif) {
-		vty_out(vty, "No such interface name %s\n", oifname);
-		return CMD_WARNING;
+	oif_name = yang_dnode_get_string(dnode, oif_xpath);
+
+	if(strcmp(oif_name, argv[idx_interface]->arg))
+		return CMD_WARNING;	
+
+*/
+
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+	if (argc == (idx_ipv4 + 1)) {
+		return nb_cli_apply_changes(vty, "./frr-pim:pim/address-family[address-family='%s']/mroute[source-addr='%s'][group-addr='%s']",
+			"frr-routing:ipv4", "0.0.0.0", argv[idx_ipv4]->arg);
+	}
+	else {
+		return nb_cli_apply_changes(vty, "./frr-pim:pim/address-family[address-family='%s']/mroute[source-addr='%s'][group-addr='%s']",
+                        "frr-routing:ipv4", argv[idx_ipv4 + 1]->arg, argv[idx_ipv4]->arg);
 	}
 
-	grp_str = argv[idx_ipv4]->arg;
-	result = inet_pton(AF_INET, grp_str, &grp_addr);
-	if (result <= 0) {
-		vty_out(vty, "Bad group address %s: errno=%d: %s\n", grp_str,
-			errno, safe_strerror(errno));
-		return CMD_WARNING;
-	}
-
-        if (argc == (idx_ipv4 + 1)) {
-                src_addr.s_addr = INADDR_ANY;
-        }
-        else {
-                src_str = argv[idx_ipv4 + 1]->arg;
-                result = inet_pton(AF_INET, src_str, &src_addr);
-                if (result <= 0) {
-                        vty_out(vty, "Bad source address %s: errno=%d: %s\n", src_str,
-                                errno, safe_strerror(errno));
-                        return CMD_WARNING;
-                }
-        }
-
-	if (pim_static_del(pim, iif, oif, grp_addr, src_addr)) {
-		vty_out(vty, "Failed to remove static mroute\n");
-		return CMD_WARNING;
-	}
-
-	return CMD_SUCCESS;
 }
 
 DEFUN (interface_ip_pim_hello,
@@ -8448,26 +8331,15 @@ DEFUN (interface_ip_pim_hello,
        IFACE_PIM_HELLO_TIME_STR
        IFACE_PIM_HELLO_HOLD_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_time = 3;
-	int idx_hold = 4;
-	struct pim_interface *pim_ifp = ifp->info;
+        int idx_time = 3;  
+        int idx_hold = 4;
+          
+        nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_MODIFY, argv[idx_time]->arg);
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(ifp)) {
-			vty_out(vty, "Could not enable PIM SM on interface\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
+        if (argc == idx_hold + 1) 
+                nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_MODIFY, argv[idx_hold]->arg);
 
-	pim_ifp = ifp->info;
-	pim_ifp->pim_hello_period = strtol(argv[idx_time]->arg, NULL, 10);
-
-	if (argc == idx_hold + 1)
-		pim_ifp->pim_default_holdtime =
-			strtol(argv[idx_hold]->arg, NULL, 10);
-
-	return CMD_SUCCESS;
+        return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (interface_no_ip_pim_hello,
@@ -8480,18 +8352,10 @@ DEFUN (interface_no_ip_pim_hello,
        IFACE_PIM_HELLO_TIME_STR
        IFACE_PIM_HELLO_HOLD_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_MODIFY, PIM_DEFAULT_HELLO_PERIOD_STR); 
+	nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_DESTROY, NULL);
 
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	pim_ifp->pim_hello_period = PIM_DEFAULT_HELLO_PERIOD;
-	pim_ifp->pim_default_holdtime = -1;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (debug_igmp,
@@ -9128,40 +8992,6 @@ DEFUN_NOSH (show_debugging_pim,
 	return CMD_SUCCESS;
 }
 
-static int interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
-{
-	int result;
-	struct in_addr source_addr;
-	int ret = CMD_SUCCESS;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	result = inet_pton(AF_INET, source, &source_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n", source,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	result = pim_update_source_set(ifp, source_addr);
-	switch (result) {
-	case PIM_SUCCESS:
-		break;
-	case PIM_IFACE_NOT_FOUND:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "Pim not enabled on this interface\n");
-		break;
-	case PIM_UPDATE_SOURCE_DUP:
-		ret = CMD_WARNING;
-		vty_out(vty, "%% Source already set to %s\n", source);
-		break;
-	default:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Source set failed\n");
-	}
-
-	return ret;
-}
-
 DEFUN (interface_pim_use_source,
        interface_pim_use_source_cmd,
        "ip pim use-source A.B.C.D",
@@ -9170,7 +9000,9 @@ DEFUN (interface_pim_use_source,
        "Configure primary IP address\n"
        "source ip address\n")
 {
-	return interface_pim_use_src_cmd_worker(vty, argv[3]->arg);
+	nb_cli_enqueue_change(vty, "./use-source", NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim/address-family[address-family='%s']", "frr-routing:ipv4");
 }
 
 DEFUN (interface_no_pim_use_source,
@@ -9182,7 +9014,9 @@ DEFUN (interface_no_pim_use_source,
        "Delete source IP address\n"
        "source ip address\n")
 {
-	return interface_pim_use_src_cmd_worker(vty, "0.0.0.0");
+	nb_cli_enqueue_change(vty, "./use-source", NB_OP_MODIFY, "0.0.0.0");
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim/address-family[address-family='%s']", "frr-routing:ipv4");
 }
 
 DEFUN (ip_pim_bfd,
@@ -9192,25 +9026,19 @@ DEFUN (ip_pim_bfd,
        PIM_STR
        "Enables BFD support\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
 	struct bfd_info *bfd_info = NULL;
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(ifp)) {
-			vty_out(vty, "Could not enable PIM SM on interface\n");
-			return CMD_WARNING;
-		}
+	bfd_info = nb_running_get_entry(NULL, ".", false);
+
+	if (!bfd_info || !CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG)) {
+		nb_cli_enqueue_change(vty, "./min-rx-interval", NB_OP_MODIFY, BFD_DEF_MIN_RX_STR);
+		nb_cli_enqueue_change(vty, "./min-tx-interval", NB_OP_MODIFY, BFD_DEF_MIN_TX_STR);
+		nb_cli_enqueue_change(vty, "./detect_mult", NB_OP_MODIFY, BFD_DEF_DETECT_MULT_STR);
+
+        	return nb_cli_apply_changes(vty, "./frr-pim:pim/bfd");
 	}
-	pim_ifp = ifp->info;
 
-	bfd_info = pim_ifp->bfd_info;
-
-	if (!bfd_info || !CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG))
-		pim_bfd_if_param_set(ifp, BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
-				     BFD_DEF_DETECT_MULT, 1);
-
-	return CMD_SUCCESS;
+	return NB_OK;
 }
 
 DEFUN (no_ip_pim_bfd,
@@ -9221,20 +9049,9 @@ DEFUN (no_ip_pim_bfd,
        PIM_STR
        "Disables BFD support\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	nb_cli_enqueue_change(vty, "./bfd", NB_OP_DESTROY, NULL);
 
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING;
-	}
-
-	if (pim_ifp->bfd_info) {
-		pim_bfd_reg_dereg_all_nbr(ifp, ZEBRA_BFD_DEST_DEREGISTER);
-		bfd_info_free(&(pim_ifp->bfd_info));
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (ip_pim_bsm,
@@ -9244,20 +9061,9 @@ DEFUN (ip_pim_bsm,
        PIM_STR
        "Enables BSM support on the interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+        nb_cli_enqueue_change(vty, "./bsm", NB_OP_CREATE, NULL);
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(ifp)) {
-			vty_out(vty, "Could not enable PIM SM on interface\n");
-			return CMD_WARNING;
-		}
-	}
-
-	pim_ifp = ifp->info;
-	pim_ifp->bsm_enable = true;
-
-	return CMD_SUCCESS;
+        return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (no_ip_pim_bsm,
@@ -9268,17 +9074,9 @@ DEFUN (no_ip_pim_bsm,
        PIM_STR
        "Disables BSM support\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	nb_cli_enqueue_change(vty, "./bsm", NB_OP_DESTROY, NULL);
 
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING;
-	}
-
-	pim_ifp->bsm_enable = false;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (ip_pim_ucast_bsm,
@@ -9288,20 +9086,9 @@ DEFUN (ip_pim_ucast_bsm,
        PIM_STR
        "Accept/Send unicast BSM on the interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+        nb_cli_enqueue_change(vty, "./unicast-bsm", NB_OP_CREATE, NULL);
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(ifp)) {
-			vty_out(vty, "Could not enable PIM SM on interface\n");
-			return CMD_WARNING;
-		}
-	}
-
-	pim_ifp = ifp->info;
-	pim_ifp->ucast_bsm_accept = true;
-
-	return CMD_SUCCESS;
+        return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 DEFUN (no_ip_pim_ucast_bsm,
@@ -9312,17 +9099,9 @@ DEFUN (no_ip_pim_ucast_bsm,
        PIM_STR
        "Block send/receive unicast BSM on this interface\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct pim_interface *pim_ifp = ifp->info;
+	nb_cli_enqueue_change(vty, "./unicast-bsm", NB_OP_DESTROY, "false");
 
-	if (!pim_ifp) {
-		vty_out(vty, "Pim not enabled on this interface\n");
-		return CMD_WARNING;
-	}
-
-	pim_ifp->ucast_bsm_accept = false;
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
 
 #if HAVE_BFDD > 0
@@ -9349,30 +9128,11 @@ DEFUN(
        "Desired min transmit interval\n")
 #endif /* HAVE_BFDD */
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_number = 3;
-	int idx_number_2 = 4;
-	int idx_number_3 = 5;
-	uint32_t rx_val;
-	uint32_t tx_val;
-	uint8_t dm_val;
-	int ret;
-	struct pim_interface *pim_ifp = ifp->info;
+        nb_cli_enqueue_change(vty, "./min-rx-interval", NB_OP_MODIFY, BFD_DEF_MIN_RX_STR);
+        nb_cli_enqueue_change(vty, "./min-tx-interval", NB_OP_MODIFY, BFD_DEF_MIN_TX_STR);
+        nb_cli_enqueue_change(vty, "./detect_mult", NB_OP_MODIFY, BFD_DEF_DETECT_MULT_STR);
 
-	if (!pim_ifp) {
-		if (!pim_cmd_interface_add(ifp)) {
-			vty_out(vty, "Could not enable PIM SM on interface\n");
-			return CMD_WARNING;
-		}
-	}
-
-	if ((ret = bfd_validate_param(
-		     vty, argv[idx_number]->arg, argv[idx_number_2]->arg,
-		     argv[idx_number_3]->arg, &dm_val, &rx_val, &tx_val))
-	    != CMD_SUCCESS)
-		return ret;
-
-	pim_bfd_if_param_set(ifp, rx_val, tx_val, dm_val, 0);
+        return nb_cli_apply_changes(vty, "./frr-pim:pim/bfd");
 
 	return CMD_SUCCESS;
 }
@@ -9386,54 +9146,7 @@ ALIAS(no_ip_pim_bfd, no_ip_pim_bfd_param_cmd,
       "Desired min transmit interval\n")
 #endif /* !HAVE_BFDD */
 
-static int ip_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
-				   const char *peer, const char *local)
-{
-	enum pim_msdp_err result;
-	struct in_addr peer_addr;
-	struct in_addr local_addr;
-	int ret = CMD_SUCCESS;
-
-	result = inet_pton(AF_INET, peer, &peer_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad peer address %s: errno=%d: %s\n", peer,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	result = inet_pton(AF_INET, local, &local_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n", local,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	result = pim_msdp_peer_add(pim, peer_addr, local_addr, "default",
-				   NULL /* mp_p */);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_OOM:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Out of memory\n");
-		break;
-	case PIM_MSDP_ERR_PEER_EXISTS:
-		ret = CMD_WARNING;
-		vty_out(vty, "%% Peer exists\n");
-		break;
-	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Only one mesh-group allowed currently\n");
-		break;
-	default:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% peer add failed\n");
-	}
-
-	return ret;
-}
-
-DEFUN_HIDDEN (ip_msdp_peer,
+DEFUN (ip_msdp_peer,
        ip_msdp_peer_cmd,
        "ip msdp peer A.B.C.D source A.B.C.D",
        IP_STR
@@ -9443,38 +9156,15 @@ DEFUN_HIDDEN (ip_msdp_peer,
        "Source address for TCP connection\n"
        "local ip address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_msdp_peer_cmd_worker(pim, vty, argv[3]->arg, argv[5]->arg);
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./source-ip", NB_OP_MODIFY, argv[5]->arg);
+ 
+	return nb_cli_apply_changes(vty,
+		"/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/msdp/msdp-peer[peer-ip='%s']",
+		argv[3]->arg);
 }
 
-static int ip_no_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
-				      const char *peer)
-{
-	enum pim_msdp_err result;
-	struct in_addr peer_addr;
-
-	result = inet_pton(AF_INET, peer, &peer_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad peer address %s: errno=%d: %s\n", peer,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	result = pim_msdp_peer_del(pim, peer_addr);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_PEER:
-		vty_out(vty, "%% Peer does not exist\n");
-		break;
-	default:
-		vty_out(vty, "%% peer del failed\n");
-	}
-
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (no_ip_msdp_peer,
+DEFUN (no_ip_msdp_peer,
        no_ip_msdp_peer_cmd,
        "no ip msdp peer A.B.C.D",
        NO_STR
@@ -9483,47 +9173,12 @@ DEFUN_HIDDEN (no_ip_msdp_peer,
        "Delete MSDP peer\n"
        "peer ip address\n")
 {
-	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_no_msdp_peer_cmd_worker(pim, vty, argv[4]->arg);
-}
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
-static int ip_msdp_mesh_group_member_cmd_worker(struct pim_instance *pim,
-						struct vty *vty, const char *mg,
-						const char *mbr)
-{
-	enum pim_msdp_err result;
-	struct in_addr mbr_ip;
-	int ret = CMD_SUCCESS;
+	return nb_cli_apply_changes(vty,
+		"/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/msdp/msdp-peer[peer-ip='%s']",
+		argv[4]->arg);
 
-	result = inet_pton(AF_INET, mbr, &mbr_ip);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad member address %s: errno=%d: %s\n", mbr,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	result = pim_msdp_mg_mbr_add(pim, mg, mbr_ip);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_OOM:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Out of memory\n");
-		break;
-	case PIM_MSDP_ERR_MG_MBR_EXISTS:
-		ret = CMD_WARNING;
-		vty_out(vty, "%% mesh-group member exists\n");
-		break;
-	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% Only one mesh-group allowed currently\n");
-		break;
-	default:
-		ret = CMD_WARNING_CONFIG_FAILED;
-		vty_out(vty, "%% member add failed\n");
-	}
-
-	return ret;
 }
 
 DEFUN (ip_msdp_mesh_group_member,
@@ -9537,41 +9192,14 @@ DEFUN (ip_msdp_mesh_group_member,
        "peer ip address\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_msdp_mesh_group_member_cmd_worker(pim, vty, argv[3]->arg,
-						    argv[5]->arg);
+
+	nb_cli_enqueue_change(vty, "./mesh-group-name", NB_OP_MODIFY, argv[3]->arg);
+	nb_cli_enqueue_change(vty, "./member-ip", NB_OP_CREATE, argv[5]->arg);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/msdp/msdp-mesh-group", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4");
+
 }
 
-static int ip_no_msdp_mesh_group_member_cmd_worker(struct pim_instance *pim,
-						   struct vty *vty,
-						   const char *mg,
-						   const char *mbr)
-{
-	enum pim_msdp_err result;
-	struct in_addr mbr_ip;
-
-	result = inet_pton(AF_INET, mbr, &mbr_ip);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad member address %s: errno=%d: %s\n", mbr,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	result = pim_msdp_mg_mbr_del(pim, mg, mbr_ip);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_MG:
-		vty_out(vty, "%% mesh-group does not exist\n");
-		break;
-	case PIM_MSDP_ERR_NO_MG_MBR:
-		vty_out(vty, "%% mesh-group member does not exist\n");
-		break;
-	default:
-		vty_out(vty, "%% mesh-group member del failed\n");
-	}
-
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
-}
 DEFUN (no_ip_msdp_mesh_group_member,
        no_ip_msdp_mesh_group_member_cmd,
        "no ip msdp mesh-group WORD member A.B.C.D",
@@ -9583,42 +9211,20 @@ DEFUN (no_ip_msdp_mesh_group_member,
        "mesh group member\n"
        "peer ip address\n")
 {
+	struct pim_msdp_mg *mg;
+
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_no_msdp_mesh_group_member_cmd_worker(pim, vty, argv[4]->arg,
-						       argv[6]->arg);
+
+	nb_cli_enqueue_change(vty, "./member-ip", NB_OP_DESTROY, argv[6]->arg);
+
+        mg = pim->msdp.mg;
+
+        /* If the mesh-group has valid member or src_ip don't delete it */
+        if (!mg || (!mg->mbr_cnt && (mg->src_ip.s_addr == INADDR_ANY)))
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/msdp/msdp-mesh-group", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4");
 }
-
-static int ip_msdp_mesh_group_source_cmd_worker(struct pim_instance *pim,
-						struct vty *vty, const char *mg,
-						const char *src)
-{
-	enum pim_msdp_err result;
-	struct in_addr src_ip;
-
-	result = inet_pton(AF_INET, src, &src_ip);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad source address %s: errno=%d: %s\n", src,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	result = pim_msdp_mg_src_add(pim, mg, src_ip);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_OOM:
-		vty_out(vty, "%% Out of memory\n");
-		break;
-	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
-		vty_out(vty, "%% Only one mesh-group allowed currently\n");
-		break;
-	default:
-		vty_out(vty, "%% source add failed\n");
-	}
-
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
-}
-
 
 DEFUN (ip_msdp_mesh_group_source,
        ip_msdp_mesh_group_source_cmd,
@@ -9631,47 +9237,11 @@ DEFUN (ip_msdp_mesh_group_source,
        "source ip address for the TCP connection\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_msdp_mesh_group_source_cmd_worker(pim, vty, argv[3]->arg,
-						    argv[5]->arg);
-}
 
-static int ip_no_msdp_mesh_group_source_cmd_worker(struct pim_instance *pim,
-						   struct vty *vty,
-						   const char *mg)
-{
-	enum pim_msdp_err result;
+	nb_cli_enqueue_change(vty, "./mesh-group-name", NB_OP_MODIFY, argv[3]->arg);
+	nb_cli_enqueue_change(vty, "./source-ip", NB_OP_MODIFY, argv[5]->arg);
 
-	result = pim_msdp_mg_src_del(pim, mg);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_MG:
-		vty_out(vty, "%% mesh-group does not exist\n");
-		break;
-	default:
-		vty_out(vty, "%% mesh-group source del failed\n");
-	}
-
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
-}
-
-static int ip_no_msdp_mesh_group_cmd_worker(struct pim_instance *pim,
-					    struct vty *vty, const char *mg)
-{
-	enum pim_msdp_err result;
-
-	result = pim_msdp_mg_del(pim, mg);
-	switch (result) {
-	case PIM_MSDP_ERR_NONE:
-		break;
-	case PIM_MSDP_ERR_NO_MG:
-		vty_out(vty, "%% mesh-group does not exist\n");
-		break;
-	default:
-		vty_out(vty, "%% mesh-group source del failed\n");
-	}
-
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/msdp/msdp-mesh-group", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4");
 }
 
 DEFUN (no_ip_msdp_mesh_group_source,
@@ -9685,12 +9255,19 @@ DEFUN (no_ip_msdp_mesh_group_source,
        "mesh group source\n"
        "mesh group local address\n")
 {
+	struct pim_msdp_mg *mg;
+
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	if (argc == 7)
-		return ip_no_msdp_mesh_group_cmd_worker(pim, vty, argv[6]->arg);
-	else
-		return ip_no_msdp_mesh_group_source_cmd_worker(pim, vty,
-							       argv[4]->arg);
+
+	mg = pim->msdp.mg;
+
+        nb_cli_enqueue_change(vty, "./source-ip", NB_OP_DESTROY, NULL);
+
+	/* If the mesh-group has valid member or src_ip don't delete it */
+        if (!mg || (!mg->mbr_cnt && (mg->src_ip.s_addr == INADDR_ANY)))
+                nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/msdp/msdp-mesh-group", "frr-pim:pimd", "pim", vrf->name, "frr-routing:ipv4");
 }
 
 static void print_empty_json_obj(struct vty *vty)
@@ -10702,7 +10279,7 @@ DEFUN_HIDDEN (show_ip_pim_vxlan_sg_work,
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (no_ip_pim_mlag,
+DEFUN (no_ip_pim_mlag,
        no_ip_pim_mlag_cmd,
        "no ip pim mlag",
        NO_STR
@@ -10710,17 +10287,15 @@ DEFUN_HIDDEN (no_ip_pim_mlag,
        PIM_STR
        "MLAG\n")
 {
-	struct in_addr addr;
+        nb_cli_enqueue_change(vty, "./peerlink-rif", NB_OP_MODIFY, NULL);
+        nb_cli_enqueue_change(vty, "./my-role", NB_OP_MODIFY, "MLAG_ROLE_NONE");
+        nb_cli_enqueue_change(vty, "./peer-state", NB_OP_MODIFY, "false");
+        nb_cli_enqueue_change(vty, "./reg-address", NB_OP_MODIFY, NULL);
 
-	addr.s_addr = 0;
-	pim_vxlan_mlag_update(true/*mlag_enable*/,
-		false/*peer_state*/, MLAG_ROLE_NONE,
-		NULL/*peerlink*/, &addr);
-
-	return CMD_SUCCESS;
+        return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/mlag", "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
 }
 
-DEFUN_HIDDEN (ip_pim_mlag,
+DEFUN (ip_pim_mlag,
        ip_pim_mlag_cmd,
        "ip pim mlag INTERFACE role [primary|secondary] state [up|down] addr A.B.C.D",
        IP_STR
@@ -10736,53 +10311,36 @@ DEFUN_HIDDEN (ip_pim_mlag,
        "configure PIP\n"
        "unique ip address\n")
 {
-	struct interface *ifp;
-	const char *peerlink;
-	uint32_t role;
 	int idx;
-	bool peer_state;
-	int result;
-	struct in_addr reg_addr;
 
 	idx = 3;
-	peerlink = argv[idx]->arg;
-	ifp = if_lookup_by_name(peerlink, VRF_DEFAULT);
-	if (!ifp) {
-		vty_out(vty, "No such interface name %s\n", peerlink);
-		return CMD_WARNING;
-	}
+	nb_cli_enqueue_change(vty, "./peerlink-rif", NB_OP_MODIFY, argv[idx]->arg);
 
 	idx += 2;
 	if (!strcmp(argv[idx]->arg, "primary")) {
-		role = MLAG_ROLE_PRIMARY;
+		nb_cli_enqueue_change(vty, "./my-role", NB_OP_MODIFY, "MLAG_ROLE_PRIMARY");
 	} else if (!strcmp(argv[idx]->arg, "secondary")) {
-		role = MLAG_ROLE_SECONDARY;
+		nb_cli_enqueue_change(vty, "./my-role", NB_OP_MODIFY, "MLAG_ROLE_SECONDARY");
 	} else {
-		vty_out(vty, "unknown MLAG role %s\n", argv[idx]->arg);
-		return CMD_WARNING;
-	}
+                vty_out(vty, "unknown MLAG role %s\n", argv[idx]->arg);
+                return CMD_WARNING;
+        }
 
 	idx += 2;
-	if (!strcmp(argv[idx]->arg, "up")) {
-		peer_state = true;
-	} else if (strcmp(argv[idx]->arg, "down")) {
-		peer_state = false;
-	} else {
-		vty_out(vty, "unknown MLAG state %s\n", argv[idx]->arg);
-		return CMD_WARNING;
-	}
+        if (!strcmp(argv[idx]->arg, "up")) {
+		nb_cli_enqueue_change(vty, "./peer-state", NB_OP_MODIFY, "true"); 
+        } else if (strcmp(argv[idx]->arg, "down")) {
+		nb_cli_enqueue_change(vty, "./peer-state", NB_OP_MODIFY, "false");
+        } else {
+                vty_out(vty, "unknown MLAG state %s\n", argv[idx]->arg);
+                return CMD_WARNING;
+        }
 
-	idx += 2;
-	result = inet_pton(AF_INET, argv[idx]->arg, &reg_addr);
-	if (result <= 0) {
-		vty_out(vty, "%% Bad reg address %s: errno=%d: %s\n",
-			argv[idx]->arg,
-			errno, safe_strerror(errno));
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	pim_vxlan_mlag_update(true, peer_state, role, ifp, &reg_addr);
+        idx += 2;
+		nb_cli_enqueue_change(vty, "./reg-address", NB_OP_MODIFY, argv[idx]->arg);
 
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-pim:pim/address-family[address-family='%s']/mlag", "frr-pim:pimd", "pim", "default", "frr-routing:ipv4");
+
 }
 
 void pim_cmd_init(void)

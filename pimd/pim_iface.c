@@ -53,6 +53,9 @@ static void pim_if_igmp_join_del_all(struct interface *ifp);
 static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
 			  struct in_addr group_addr,
 			  struct in_addr source_addr);
+void detect_address_change(struct interface *ifp, int force_prim_as_any,
+                           const char *caller);
+int pim_update_source_set(struct interface *ifp, struct in_addr source);
 
 void pim_if_init(struct pim_instance *pim)
 {
@@ -443,8 +446,8 @@ static int detect_secondary_address_change(struct interface *ifp,
 	return changed;
 }
 
-static void detect_address_change(struct interface *ifp, int force_prim_as_any,
-				  const char *caller)
+void detect_address_change(struct interface *ifp, int force_prim_as_any,
+			   const char *caller)
 {
 	int changed = 0;
 	struct pim_interface *pim_ifp;

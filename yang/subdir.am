@@ -29,6 +29,8 @@ dist_yangmodels_DATA += yang/frr-route-types.yang
 dist_yangmodels_DATA += yang/frr-routing.yang
 dist_yangmodels_DATA += yang/ietf/ietf-routing-types.yang
 dist_yangmodels_DATA += yang/frr-nexthop.yang
+dist_yangmodels_DATA += yang/frr-pim.yang
+dist_yangmodels_DATA += yang/frr-pim-rp.yang
 dist_yangmodels_DATA += yang/frr-igmp.yang
 
 if BFDD
