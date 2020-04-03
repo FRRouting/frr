@@ -9053,13 +9053,6 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				peer_uptime(peer->uptime, timebuf, BGP_UPTIME_LEN,
 					    use_json, json_peer);
 
-				/*
-				 * Adding "pfxRcd" field to match with the corresponding
-				 * CLI. "prefixReceivedCount" will be deprecated in
-				 * future.
-				 */
-				json_object_int_add(json_peer, "prefixReceivedCount",
-						    peer->pcount[afi][pfx_rcd_safi]);
 				json_object_int_add(json_peer, "pfxRcd",
 						    peer->pcount[afi][pfx_rcd_safi]);
 
