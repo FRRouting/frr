@@ -1543,6 +1543,39 @@ int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
 }
 
 /*
+ * Format some info about a zapi nexthop, for debug or logging.
+ */
+const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
+			     int bufsize)
+{
+	char tmp[INET6_ADDRSTRLEN];
+
+	switch (znh->type) {
+	case NEXTHOP_TYPE_IFINDEX:
+		snprintf(buf, bufsize, "if %u", znh->ifindex);
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		inet_ntop(AF_INET, &znh->gate.ipv4, tmp, sizeof(tmp));
+		snprintf(buf, bufsize, "%s if %u", tmp, znh->ifindex);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		inet_ntop(AF_INET6, &znh->gate.ipv6, tmp, sizeof(tmp));
+		snprintf(buf, bufsize, "%s if %u", tmp, znh->ifindex);
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		snprintf(buf, bufsize, "blackhole");
+		break;
+	default:
+		snprintf(buf, bufsize, "unknown");
+		break;
+	}
+
+	return buf;
+}
+
+/*
  * Decode the nexthop-tracking update message
  */
 bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)

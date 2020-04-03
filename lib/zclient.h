@@ -804,6 +804,8 @@ int zapi_backup_nexthop_from_nexthop(struct zapi_nexthop *znh,
 				     const struct nexthop *nh);
 extern bool zapi_nexthop_update_decode(struct stream *s,
 				       struct zapi_route *nhr);
+const char *zapi_nexthop2str(const struct zapi_nexthop *znh, char *buf,
+			     int bufsize);
 
 /* Decode the zebra error message */
 extern bool zapi_error_decode(struct stream *s, enum zebra_error_types *error);
