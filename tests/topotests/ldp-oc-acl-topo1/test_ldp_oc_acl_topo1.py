@@ -67,7 +67,7 @@ from functools import partial
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
+sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -78,8 +78,10 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+
 class TemplateTopo(Topo):
     "Test topology builder"
+
     def build(self, *_args, **_opts):
         "Build function"
         tgen = get_topogen(self)
@@ -87,24 +89,25 @@ class TemplateTopo(Topo):
         #
         # Define FRR Routers
         #
-        for router in ['r1', 'r2', 'r3', 'r4']:
+        for router in ["r1", "r2", "r3", "r4"]:
             tgen.add_router(router)
 
         #
         # Define connections
         #
-        switch = tgen.add_switch('s0')
-        switch.add_link(tgen.gears['r1'])
-        switch.add_link(tgen.gears['r2'])
+        switch = tgen.add_switch("s0")
+        switch.add_link(tgen.gears["r1"])
+        switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch('s1')
-        switch.add_link(tgen.gears['r2'])
-        switch.add_link(tgen.gears['r3'])
-        switch.add_link(tgen.gears['r4'])
+        switch = tgen.add_switch("s1")
+        switch.add_link(tgen.gears["r2"])
+        switch.add_link(tgen.gears["r3"])
+        switch.add_link(tgen.gears["r4"])
 
-        switch = tgen.add_switch('s2')
-        switch.add_link(tgen.gears['r2'])
-        switch.add_link(tgen.gears['r3'])
+        switch = tgen.add_switch("s2")
+        switch.add_link(tgen.gears["r2"])
+        switch.add_link(tgen.gears["r3"])
+
 
 def setup_module(mod):
     "Sets up the pytest environment"
@@ -116,21 +119,19 @@ def setup_module(mod):
     # For all registered routers, load the zebra configuration file
     for rname, router in router_list.iteritems():
         router.load_config(
-            TopoRouter.RD_ZEBRA,
-            os.path.join(CWD, '{}/zebra.conf'.format(rname))
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
         # Don't start ospfd and ldpd in the CE nodes
-        if router.name[0] == 'r':
+        if router.name[0] == "r":
             router.load_config(
-                TopoRouter.RD_OSPF,
-                os.path.join(CWD, '{}/ospfd.conf'.format(rname))
+                TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
             )
             router.load_config(
-                TopoRouter.RD_LDP,
-                os.path.join(CWD, '{}/ldpd.conf'.format(rname))
+                TopoRouter.RD_LDP, os.path.join(CWD, "{}/ldpd.conf".format(rname))
             )
 
     tgen.start_router()
+
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -146,16 +147,16 @@ def router_compare_json_output(rname, command, reference):
     logger.info('Comparing router "%s" "%s" output', rname, command)
 
     tgen = get_topogen()
-    filename = '{}/{}/{}'.format(CWD, rname, reference)
+    filename = "{}/{}/{}".format(CWD, rname, reference)
     expected = json.loads(open(filename).read())
 
     # Run test function until we get an result. Wait at most 80 seconds.
-    test_func = partial(topotest.router_json_cmp,
-        tgen.gears[rname], command, expected)
+    test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
     _, diff = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
 
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
+
 
 def test_ospf_convergence():
     logger.info("Test: check OSPF adjacencies")
@@ -166,8 +167,11 @@ def test_ospf_convergence():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['r1', 'r2', 'r3', 'r4']:
-        router_compare_json_output(rname, "show ip ospf neighbor json", "show_ip_ospf_neighbor.json")
+    for rname in ["r1", "r2", "r3", "r4"]:
+        router_compare_json_output(
+            rname, "show ip ospf neighbor json", "show_ip_ospf_neighbor.json"
+        )
+
 
 def test_rib():
     logger.info("Test: verify RIB")
@@ -177,8 +181,9 @@ def test_rib():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['r1', 'r2', 'r3', 'r4']:
+    for rname in ["r1", "r2", "r3", "r4"]:
         router_compare_json_output(rname, "show ip route json", "show_ip_route.ref")
+
 
 def test_ldp_adjacencies():
     logger.info("Test: verify LDP adjacencies")
@@ -188,8 +193,11 @@ def test_ldp_adjacencies():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['r1', 'r2', 'r3', 'r4']:
-        router_compare_json_output(rname, "show mpls ldp discovery json", "show_ldp_discovery.ref")
+    for rname in ["r1", "r2", "r3", "r4"]:
+        router_compare_json_output(
+            rname, "show mpls ldp discovery json", "show_ldp_discovery.ref"
+        )
+
 
 def test_ldp_neighbors():
     logger.info("Test: verify LDP neighbors")
@@ -199,8 +207,11 @@ def test_ldp_neighbors():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['r1', 'r2', 'r3', 'r4']:
-        router_compare_json_output(rname, "show mpls ldp neighbor json", "show_ldp_neighbor.ref")
+    for rname in ["r1", "r2", "r3", "r4"]:
+        router_compare_json_output(
+            rname, "show mpls ldp neighbor json", "show_ldp_neighbor.ref"
+        )
+
 
 def test_ldp_bindings():
     logger.info("Test: verify LDP bindings")
@@ -210,8 +221,11 @@ def test_ldp_bindings():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ['r1', 'r2', 'r3', 'r4']:
-        router_compare_json_output(rname, "show mpls ldp binding json", "show_ldp_binding.ref")
+    for rname in ["r1", "r2", "r3", "r4"]:
+        router_compare_json_output(
+            rname, "show mpls ldp binding json", "show_ldp_binding.ref"
+        )
+
 
 def test_ldp_bindings_all_routes():
     logger.info("Test: verify LDP bindings after host filter removed")
@@ -222,22 +236,26 @@ def test_ldp_bindings_all_routes():
         pytest.skip(tgen.errors)
 
     # remove ACL that blocks advertising everything but host routes */
-    cmd = 'vtysh -c \"configure terminal\" -c \"mpls ldp\" -c \"address-family ipv4\" -c \"no label local allocate host-routes\"'
-    tgen.net['r1'].cmd(cmd)
+    cmd = 'vtysh -c "configure terminal" -c "mpls ldp" -c "address-family ipv4" -c "no label local allocate host-routes"'
+    tgen.net["r1"].cmd(cmd)
     sleep(2)
 
-    for rname in ['r1', 'r2', 'r3', 'r4']:
-        router_compare_json_output(rname, "show mpls ldp binding json", "show_ldp_all_binding.ref")
+    for rname in ["r1", "r2", "r3", "r4"]:
+        router_compare_json_output(
+            rname, "show mpls ldp binding json", "show_ldp_all_binding.ref"
+        )
+
 
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
-        pytest.skip('Memory leak test/report is disabled')
+        pytest.skip("Memory leak test/report is disabled")
 
     tgen.report_memory_leaks()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
