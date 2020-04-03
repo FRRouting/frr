@@ -22,6 +22,7 @@
 #include "log.h"
 #include "lib_errors.h"
 #include "northbound.h"
+#include "nexthop.h"
 
 static const char *yang_get_default_value(const char *xpath)
 {
@@ -782,6 +783,14 @@ void yang_get_default_string_buf(char *buf, size_t size, const char *xpath_fmt,
 }
 
 /*
+ * Primitive type: empty.
+ */
+struct yang_data *yang_data_new_empty(const char *xpath)
+{
+	return yang_data_new(xpath, NULL);
+}
+
+/*
  * Derived type: IP prefix.
  */
 void yang_str2prefix(const char *value, union prefixptr prefix)
@@ -1126,4 +1135,31 @@ struct yang_data *yang_data_new_mac(const char *xpath,
 void yang_str2mac(const char *value, struct ethaddr *mac)
 {
     (void)prefix_str2mac(value, mac);
+}
+
+const char *yang_nexthop_type2str(uint32_t ntype)
+{
+	switch (ntype) {
+	case NEXTHOP_TYPE_IFINDEX:
+		return "ifindex";
+		break;
+	case NEXTHOP_TYPE_IPV4:
+		return "ip4";
+		break;
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		return "ip4-ifindex";
+		break;
+	case NEXTHOP_TYPE_IPV6:
+		return "ip6";
+		break;
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		return "ip6-ifindex";
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		return "blackhole";
+		break;
+	default:
+		return "unknown";
+		break;
+	}
 }
