@@ -84,7 +84,7 @@ int main(int argc, char **argv)
 
 	vty_init(master, false);
 	lib_cmd_init();
-	yang_init();
+	yang_init(true);
 	nb_init(master, NULL, 0);
 
 	test_init(argc, argv);

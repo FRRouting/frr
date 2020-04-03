@@ -58,7 +58,7 @@ int main(int argc, char **argv)
 
 	vty_init(master, true);
 	lib_cmd_init();
-	yang_init();
+	yang_init(true);
 	nb_init(master, NULL, 0);
 
 	vty_stdio(vty_do_exit);

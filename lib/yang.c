@@ -628,7 +628,7 @@ void yang_debugging_set(bool enable)
 	}
 }
 
-struct ly_ctx *yang_ctx_new_setup(void)
+struct ly_ctx *yang_ctx_new_setup(bool embedded_modules)
 {
 	struct ly_ctx *ctx;
 	const char *yang_models_path = YANG_MODELS_PATH;
@@ -647,18 +647,21 @@ struct ly_ctx *yang_ctx_new_setup(void)
 	ctx = ly_ctx_new(yang_models_path, LY_CTX_DISABLE_SEARCHDIR_CWD);
 	if (!ctx)
 		return NULL;
-	ly_ctx_set_module_imp_clb(ctx, yang_module_imp_clb, NULL);
+
+	if (embedded_modules)
+		ly_ctx_set_module_imp_clb(ctx, yang_module_imp_clb, NULL);
+
 	return ctx;
 }
 
-void yang_init(void)
+void yang_init(bool embedded_modules)
 {
 	/* Initialize libyang global parameters that affect all containers. */
 	ly_set_log_clb(ly_log_cb, 1);
 	ly_log_options(LY_LOLOG | LY_LOSTORE);
 
 	/* Initialize libyang container for native models. */
-	ly_native_ctx = yang_ctx_new_setup();
+	ly_native_ctx = yang_ctx_new_setup(embedded_modules);
 	if (!ly_native_ctx) {
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);

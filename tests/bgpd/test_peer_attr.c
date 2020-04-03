@@ -1387,7 +1387,7 @@ static void bgp_startup(void)
 	zprivs_init(&bgpd_privs);
 
 	master = thread_master_create(NULL);
-	yang_init();
+	yang_init(true);
 	nb_init(master, NULL, 0);
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
