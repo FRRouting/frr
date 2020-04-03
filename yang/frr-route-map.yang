@@ -210,7 +210,7 @@ module frr-route-map {
             case interface {
               when "./condition = 'interface'";
               leaf interface {
-                type frr-interface:interface-ref;
+                type string;
               }
             }
             case access-list-num {
