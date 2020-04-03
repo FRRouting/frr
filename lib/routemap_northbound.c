@@ -1221,32 +1221,7 @@ lib_route_map_entry_set_action_tag_destroy(enum nb_event event,
 }
 
 /* clang-format off */
-#if defined(__GNUC__) && ((__GNUC__ - 0) < 5) && !defined(__clang__)
-/*
- * gcc versions before 5.x miscalculate the size for structs with variable
- * length arrays (they just count it as size 0)
- */
-struct frr_yang_module_info_sizen {
-	/* YANG module name. */
-	const char *name;
-
-	/* Northbound callbacks. */
-	const struct {
-		/* Data path of this YANG node. */
-		const char *xpath;
-
-		/* Callbacks implemented for this node. */
-		struct nb_callbacks cbs;
-
-		/* Priority - lower priorities are processed first. */
-		uint32_t priority;
-	} nodes[28];
-};
-
-const struct frr_yang_module_info_sizen frr_route_map_info_sizen asm("frr_route_map_info") = {
-#else
 const struct frr_yang_module_info frr_route_map_info = {
-#endif
 	.name = "frr-route-map",
 	.nodes = {
 		{
