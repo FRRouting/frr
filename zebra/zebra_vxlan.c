@@ -10259,7 +10259,7 @@ static int zebra_evpn_pim_cfg_clean_up(struct zserv *client)
 {
 	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
 
-	if (CHECK_FLAG(zvrf->flags, ZEBRA_PIM_SEND_VXLAN_SG)) {
+	if (zvrf && CHECK_FLAG(zvrf->flags, ZEBRA_PIM_SEND_VXLAN_SG)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("VxLAN SG updates to PIM, stop");
 		UNSET_FLAG(zvrf->flags, ZEBRA_PIM_SEND_VXLAN_SG);
