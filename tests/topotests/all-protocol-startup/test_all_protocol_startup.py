@@ -891,7 +891,38 @@ def test_bgp_ipv6():
     # For debugging after starting FRR/Quagga daemons, uncomment the next line
     # CLI(net)
 
+def test_route_map():
+    global fatal_error
+    global net
 
+    if (fatal_error != ""):
+        pytest.skip(fatal_error)
+
+    thisDir = os.path.dirname(os.path.realpath(__file__))
+
+    print("\n\n** Verifying some basic routemap forward references\n")
+    print("*******************************************************\n")
+    failures = 0
+    for i in range(1, 2):
+        refroutemap = '%s/r%s/show_route_map.ref' % (thisDir, i)
+        if os.path.isfile(refroutemap):
+            expected = open(refroutemap).read().rstrip()
+            expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
+
+            actual = net['r%s' %i].cmd('vtysh -c "show route-map" 2> /dev/null').rstrip()
+            actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
+
+            diff = topotest.get_textdiff(actual, expected,
+                                         title1="actual show route-map",
+                                         title2="expected show route-map")
+
+            if diff:
+                sys.stderr.write('r%s failed show route-map command Check:\n%s\n' % (i, diff))
+                failures += 1
+            else:
+                print("r%s ok" %i)
+
+            assert failures == 0, "Show route-map command failed for router r%s:\n%s" % (i, diff)
 
 def test_mpls_interfaces():
     global fatal_error
