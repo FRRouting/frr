@@ -34,7 +34,7 @@ extern "C" {
 #endif
 
 /* Maximum XPath length. */
-#define XPATH_MAXLEN 256
+#define XPATH_MAXLEN 512
 
 /* Maximum list key length. */
 #define LIST_MAXKEYS 8
