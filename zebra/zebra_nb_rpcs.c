@@ -29,15 +29,14 @@
 /*
  * XPath: /frr-zebra:clear-evpn-dup-addr
  */
-int clear_evpn_dup_addr_rpc(const char *xpath, const struct list *input,
-			    struct list *output)
+int clear_evpn_dup_addr_rpc(struct nb_cb_rpc_args *args)
 {
 	struct zebra_vrf *zvrf;
 	int ret = NB_OK;
 	struct yang_data *yang_dup_choice = NULL, *yang_dup_vni = NULL,
 			 *yang_dup_ip = NULL, *yang_dup_mac = NULL;
 
-	yang_dup_choice = yang_data_list_find(input, "%s/%s", xpath,
+	yang_dup_choice = yang_data_list_find(args->input, "%s/%s", args->xpath,
 					      "input/clear-dup-choice");
 
 	zvrf = zebra_vrf_get_evpn();
@@ -51,16 +50,16 @@ int clear_evpn_dup_addr_rpc(const char *xpath, const struct list *input,
 		struct ethaddr mac;
 
 		yang_dup_vni = yang_data_list_find(
-			input, "%s/%s", xpath,
+			args->input, "%s/%s", args->xpath,
 			"input/clear-dup-choice/single-case/vni-id");
 		if (yang_dup_vni) {
 			vni = yang_str2uint32(yang_dup_vni->value);
 
 			yang_dup_mac = yang_data_list_find(
-				input, "%s/%s", xpath,
+				args->input, "%s/%s", args->xpath,
 				"input/clear-dup-choice/single-case/vni-id/mac-addr");
 			yang_dup_ip = yang_data_list_find(
-				input, "%s/%s", xpath,
+				args->input, "%s/%s", args->xpath,
 				"input/clear-dup-choice/single-case/vni-id/vni-ipaddr");
 
 			if (yang_dup_mac) {
@@ -84,8 +83,7 @@ int clear_evpn_dup_addr_rpc(const char *xpath, const struct list *input,
 /*
  * XPath: /frr-zebra:get-route-information
  */
-int get_route_information_rpc(const char *xpath, const struct list *input,
-			      struct list *output)
+int get_route_information_rpc(struct nb_cb_rpc_args *args)
 {
 	/* TODO: implement me. */
 	return NB_ERR_NOT_FOUND;
@@ -94,8 +92,7 @@ int get_route_information_rpc(const char *xpath, const struct list *input,
 /*
  * XPath: /frr-zebra:get-v6-mroute-info
  */
-int get_v6_mroute_info_rpc(const char *xpath, const struct list *input,
-			   struct list *output)
+int get_v6_mroute_info_rpc(struct nb_cb_rpc_args *args)
 {
 	/* TODO: implement me. */
 	return NB_ERR_NOT_FOUND;
@@ -104,8 +101,7 @@ int get_v6_mroute_info_rpc(const char *xpath, const struct list *input,
 /*
  * XPath: /frr-zebra:get-vrf-info
  */
-int get_vrf_info_rpc(const char *xpath, const struct list *input,
-		     struct list *output)
+int get_vrf_info_rpc(struct nb_cb_rpc_args *args)
 {
 	/* TODO: implement me. */
 	return NB_ERR_NOT_FOUND;
@@ -114,8 +110,7 @@ int get_vrf_info_rpc(const char *xpath, const struct list *input,
 /*
  * XPath: /frr-zebra:get-vrf-vni-info
  */
-int get_vrf_vni_info_rpc(const char *xpath, const struct list *input,
-			 struct list *output)
+int get_vrf_vni_info_rpc(struct nb_cb_rpc_args *args)
 {
 	/* TODO: implement me. */
 	return NB_ERR_NOT_FOUND;
@@ -124,8 +119,7 @@ int get_vrf_vni_info_rpc(const char *xpath, const struct list *input,
 /*
  * XPath: /frr-zebra:get-evpn-info
  */
-int get_evpn_info_rpc(const char *xpath, const struct list *input,
-		      struct list *output)
+int get_evpn_info_rpc(struct nb_cb_rpc_args *args)
 {
 	/* TODO: implement me. */
 	return NB_ERR_NOT_FOUND;
@@ -134,8 +128,7 @@ int get_evpn_info_rpc(const char *xpath, const struct list *input,
 /*
  * XPath: /frr-zebra:get-vni-info
  */
-int get_vni_info_rpc(const char *xpath, const struct list *input,
-		     struct list *output)
+int get_vni_info_rpc(struct nb_cb_rpc_args *args)
 {
 	/* TODO: implement me. */
 	return NB_ERR_NOT_FOUND;
@@ -144,8 +137,7 @@ int get_vni_info_rpc(const char *xpath, const struct list *input,
 /*
  * XPath: /frr-zebra:get-evpn-vni-rmac
  */
-int get_evpn_vni_rmac_rpc(const char *xpath, const struct list *input,
-			  struct list *output)
+int get_evpn_vni_rmac_rpc(struct nb_cb_rpc_args *args)
 {
 	/* TODO: implement me. */
 	return NB_ERR_NOT_FOUND;
@@ -154,8 +146,7 @@ int get_evpn_vni_rmac_rpc(const char *xpath, const struct list *input,
 /*
  * XPath: /frr-zebra:get-evpn-vni-nexthops
  */
-int get_evpn_vni_nexthops_rpc(const char *xpath, const struct list *input,
-			      struct list *output)
+int get_evpn_vni_nexthops_rpc(struct nb_cb_rpc_args *args)
 {
 	/* TODO: implement me. */
 	return NB_ERR_NOT_FOUND;
@@ -164,8 +155,7 @@ int get_evpn_vni_nexthops_rpc(const char *xpath, const struct list *input,
 /*
  * XPath: /frr-zebra:get-evpn-macs
  */
-int get_evpn_macs_rpc(const char *xpath, const struct list *input,
-		      struct list *output)
+int get_evpn_macs_rpc(struct nb_cb_rpc_args *args)
 {
 	/* TODO: implement me. */
 	return NB_ERR_NOT_FOUND;
@@ -174,8 +164,7 @@ int get_evpn_macs_rpc(const char *xpath, const struct list *input,
 /*
  * XPath: /frr-zebra:get-evpn-arp-cache
  */
-int get_evpn_arp_cache_rpc(const char *xpath, const struct list *input,
-			   struct list *output)
+int get_evpn_arp_cache_rpc(struct nb_cb_rpc_args *args)
 {
 	/* TODO: implement me. */
 	return NB_ERR_NOT_FOUND;
@@ -184,8 +173,7 @@ int get_evpn_arp_cache_rpc(const char *xpath, const struct list *input,
 /*
  * XPath: /frr-zebra:get-pbr-ipset
  */
-int get_pbr_ipset_rpc(const char *xpath, const struct list *input,
-		      struct list *output)
+int get_pbr_ipset_rpc(struct nb_cb_rpc_args *args)
 {
 	/* TODO: implement me. */
 	return NB_ERR_NOT_FOUND;
@@ -194,8 +182,7 @@ int get_pbr_ipset_rpc(const char *xpath, const struct list *input,
 /*
  * XPath: /frr-zebra:get-pbr-iptable
  */
-int get_pbr_iptable_rpc(const char *xpath, const struct list *input,
-			struct list *output)
+int get_pbr_iptable_rpc(struct nb_cb_rpc_args *args)
 {
 	/* TODO: implement me. */
 	return NB_ERR_NOT_FOUND;
@@ -204,8 +191,7 @@ int get_pbr_iptable_rpc(const char *xpath, const struct list *input,
 /*
  * XPath: /frr-zebra:get-debugs
  */
-int get_debugs_rpc(const char *xpath, const struct list *input,
-		   struct list *output)
+int get_debugs_rpc(struct nb_cb_rpc_args *args)
 {
 	/* TODO: implement me. */
 	return NB_ERR_NOT_FOUND;

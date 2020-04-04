@@ -805,102 +805,147 @@ static int nb_callback_create(const struct nb_node *nb_node,
 			      enum nb_event event, const struct lyd_node *dnode,
 			      union nb_resource *resource)
 {
+	struct nb_cb_create_args args = {};
+
 	nb_log_config_callback(event, NB_OP_CREATE, dnode);
 
-	return nb_node->cbs.create(event, dnode, resource);
+	args.event = event;
+	args.dnode = dnode;
+	args.resource = resource;
+	return nb_node->cbs.create(&args);
 }
 
 static int nb_callback_modify(const struct nb_node *nb_node,
 			      enum nb_event event, const struct lyd_node *dnode,
 			      union nb_resource *resource)
 {
+	struct nb_cb_modify_args args = {};
+
 	nb_log_config_callback(event, NB_OP_MODIFY, dnode);
 
-	return nb_node->cbs.modify(event, dnode, resource);
+	args.event = event;
+	args.dnode = dnode;
+	args.resource = resource;
+	return nb_node->cbs.modify(&args);
 }
 
 static int nb_callback_destroy(const struct nb_node *nb_node,
 			       enum nb_event event,
 			       const struct lyd_node *dnode)
 {
+	struct nb_cb_destroy_args args = {};
+
 	nb_log_config_callback(event, NB_OP_DESTROY, dnode);
 
-	return nb_node->cbs.destroy(event, dnode);
+	args.event = event;
+	args.dnode = dnode;
+	return nb_node->cbs.destroy(&args);
 }
 
 static int nb_callback_move(const struct nb_node *nb_node, enum nb_event event,
 			    const struct lyd_node *dnode)
 {
+	struct nb_cb_move_args args = {};
+
 	nb_log_config_callback(event, NB_OP_MOVE, dnode);
 
-	return nb_node->cbs.move(event, dnode);
+	args.event = event;
+	args.dnode = dnode;
+	return nb_node->cbs.move(&args);
 }
 
 static int nb_callback_pre_validate(const struct nb_node *nb_node,
 				    const struct lyd_node *dnode)
 {
+	struct nb_cb_pre_validate_args args = {};
+
 	nb_log_config_callback(NB_EV_VALIDATE, NB_OP_PRE_VALIDATE, dnode);
 
-	return nb_node->cbs.pre_validate(dnode);
+	args.dnode = dnode;
+	return nb_node->cbs.pre_validate(&args);
 }
 
 static void nb_callback_apply_finish(const struct nb_node *nb_node,
 				     const struct lyd_node *dnode)
 {
+	struct nb_cb_apply_finish_args args = {};
+
 	nb_log_config_callback(NB_EV_APPLY, NB_OP_APPLY_FINISH, dnode);
 
-	nb_node->cbs.apply_finish(dnode);
+	args.dnode = dnode;
+	nb_node->cbs.apply_finish(&args);
 }
 
 struct yang_data *nb_callback_get_elem(const struct nb_node *nb_node,
 				       const char *xpath,
 				       const void *list_entry)
 {
+	struct nb_cb_get_elem_args args = {};
+
 	DEBUGD(&nb_dbg_cbs_state,
 	       "northbound callback (get_elem): xpath [%s] list_entry [%p]",
 	       xpath, list_entry);
 
-	return nb_node->cbs.get_elem(xpath, list_entry);
+	args.xpath = xpath;
+	args.list_entry = list_entry;
+	return nb_node->cbs.get_elem(&args);
 }
 
 const void *nb_callback_get_next(const struct nb_node *nb_node,
 				 const void *parent_list_entry,
 				 const void *list_entry)
 {
+	struct nb_cb_get_next_args args = {};
+
 	DEBUGD(&nb_dbg_cbs_state,
 	       "northbound callback (get_next): node [%s] parent_list_entry [%p] list_entry [%p]",
 	       nb_node->xpath, parent_list_entry, list_entry);
 
-	return nb_node->cbs.get_next(parent_list_entry, list_entry);
+	args.parent_list_entry = parent_list_entry;
+	args.list_entry = list_entry;
+	return nb_node->cbs.get_next(&args);
 }
 
 int nb_callback_get_keys(const struct nb_node *nb_node, const void *list_entry,
 			 struct yang_list_keys *keys)
 {
+	struct nb_cb_get_keys_args args = {};
+
 	DEBUGD(&nb_dbg_cbs_state,
 	       "northbound callback (get_keys): node [%s] list_entry [%p]",
 	       nb_node->xpath, list_entry);
 
-	return nb_node->cbs.get_keys(list_entry, keys);
+	args.list_entry = list_entry;
+	args.keys = keys;
+	return nb_node->cbs.get_keys(&args);
 }
 
 const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 				     const void *parent_list_entry,
 				     const struct yang_list_keys *keys)
 {
+	struct nb_cb_lookup_entry_args args = {};
+
 	DEBUGD(&nb_dbg_cbs_state,
 	       "northbound callback (lookup_entry): node [%s] parent_list_entry [%p]",
 	       nb_node->xpath, parent_list_entry);
 
-	return nb_node->cbs.lookup_entry(parent_list_entry, keys);
+	args.parent_list_entry = parent_list_entry;
+	args.keys = keys;
+	return nb_node->cbs.lookup_entry(&args);
 }
 
 int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 		    const struct list *input, struct list *output)
 {
+	struct nb_cb_rpc_args args = {};
+
 	DEBUGD(&nb_dbg_cbs_rpc, "northbound RPC: %s", xpath);
 
-	return nb_node->cbs.rpc(xpath, input, output);
+	args.xpath = xpath;
+	args.input = input;
+	args.output = output;
+	return nb_node->cbs.rpc(&args);
 }
 
 /*
