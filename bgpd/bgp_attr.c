@@ -119,11 +119,11 @@ static void *cluster_hash_alloc(void *p)
 /* Cluster list related functions. */
 static struct cluster_list *cluster_parse(struct in_addr *pnt, int length)
 {
-	struct cluster_list tmp;
+	struct cluster_list tmp = {};
 	struct cluster_list *cluster;
 
 	tmp.length = length;
-	tmp.list = pnt;
+	tmp.list = length == 0 ? NULL : pnt;
 
 	cluster = hash_get(cluster_hash, &tmp, cluster_hash_alloc);
 	cluster->refcnt++;
@@ -180,14 +180,16 @@ static struct cluster_list *cluster_intern(struct cluster_list *cluster)
 	return find;
 }
 
-void cluster_unintern(struct cluster_list *cluster)
+static void cluster_unintern(struct cluster_list **cluster)
 {
-	if (cluster->refcnt)
-		cluster->refcnt--;
+	if ((*cluster)->refcnt)
+		(*cluster)->refcnt--;
 
-	if (cluster->refcnt == 0) {
-		hash_release(cluster_hash, cluster);
-		cluster_free(cluster);
+	if ((*cluster)->refcnt == 0) {
+		void *p = hash_release(cluster_hash, *cluster);
+		assert(p == *cluster);
+		cluster_free(*cluster);
+		*cluster = NULL;
 	}
 }
 
@@ -1035,7 +1037,7 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES));
 
 	if (attr->cluster)
-		cluster_unintern(attr->cluster);
+		cluster_unintern(&attr->cluster);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST));
 
 	if (attr->transit)
