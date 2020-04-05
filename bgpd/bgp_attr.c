@@ -2252,6 +2252,9 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	bgp_attr_extcom_tunnel_type(attr,
 		(bgp_encap_types *)&attr->encap_tunneltype);
 
+	/* Extract link bandwidth, if any. */
+	(void)ecommunity_linkbw_present(attr->ecommunity, &attr->link_bw);
+
 	return BGP_ATTR_PARSE_PROCEED;
 }
 

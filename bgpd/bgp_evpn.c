@@ -548,7 +548,7 @@ static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl)
 	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
 
 	ecomadd = ecommunity_new();
-	ecommunity_add_val(ecomadd, &eval);
+	ecommunity_add_val(ecomadd, &eval, false, false);
 	for (ALL_LIST_ELEMENTS_RO(rtl, node, ecom))
 		if (ecommunity_cmp(ecomadd, ecom))
 			ecom_found = true;
@@ -738,12 +738,12 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 					   struct attr *attr)
 {
 	struct ecommunity ecom_encap;
-	struct ecommunity ecom_rmac;
 	struct ecommunity_val eval;
 	struct ecommunity_val eval_rmac;
 	bgp_encap_types tnl_type;
 	struct listnode *node, *nnode;
 	struct ecommunity *ecom;
+	struct ecommunity *old_ecom;
 	struct list *vrf_export_rtl = NULL;
 
 	/* Encap */
@@ -754,7 +754,14 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 	ecom_encap.val = (uint8_t *)eval.val;
 
 	/* Add Encap */
-	attr->ecommunity = ecommunity_dup(&ecom_encap);
+	if (attr->ecommunity) {
+		old_ecom = attr->ecommunity;
+		ecom = ecommunity_merge(ecommunity_dup(old_ecom), &ecom_encap);
+		if (!old_ecom->refcnt)
+			ecommunity_free(&old_ecom);
+	} else
+		ecom = ecommunity_dup(&ecom_encap);
+	attr->ecommunity = ecom;
 
 	/* Add the export RTs for L3VNI/VRF */
 	vrf_export_rtl = bgp_vrf->vrf_export_rtl;
@@ -764,12 +771,8 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 
 	/* add the router mac extended community */
 	if (!is_zero_mac(&attr->rmac)) {
-		memset(&ecom_rmac, 0, sizeof(ecom_rmac));
 		encode_rmac_extcomm(&eval_rmac, &attr->rmac);
-		ecom_rmac.size = 1;
-		ecom_rmac.val = (uint8_t *)eval_rmac.val;
-		attr->ecommunity =
-			ecommunity_merge(attr->ecommunity, &ecom_rmac);
+		ecommunity_add_val(attr->ecommunity, &eval_rmac, true, true);
 	}
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
@@ -791,7 +794,6 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 	struct ecommunity ecom_encap;
 	struct ecommunity ecom_sticky;
 	struct ecommunity ecom_default_gw;
-	struct ecommunity ecom_rmac;
 	struct ecommunity ecom_na;
 	struct ecommunity_val eval;
 	struct ecommunity_val eval_sticky;
@@ -845,12 +847,8 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 
 	/* Add RMAC, if told to. */
 	if (add_l3_ecomm) {
-		memset(&ecom_rmac, 0, sizeof(ecom_rmac));
 		encode_rmac_extcomm(&eval_rmac, &attr->rmac);
-		ecom_rmac.size = 1;
-		ecom_rmac.val = (uint8_t *)eval_rmac.val;
-		attr->ecommunity =
-			ecommunity_merge(attr->ecommunity, &ecom_rmac);
+		ecommunity_add_val(attr->ecommunity, &eval_rmac, true, true);
 	}
 
 	/* Add default gateway, if needed. */
@@ -1132,6 +1130,7 @@ static int evpn_es_route_select_install(struct bgp *bgp,
 						   old_select->attr->nexthop);
 		}
 		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
+		UNSET_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG);
 		bgp_zebra_clear_route_change_flags(rn);
 		return ret;
 	}
@@ -1152,6 +1151,7 @@ static int evpn_es_route_select_install(struct bgp *bgp,
 		bgp_path_info_set_flag(rn, new_select, BGP_PATH_SELECTED);
 		bgp_path_info_unset_flag(rn, new_select, BGP_PATH_ATTR_CHANGED);
 		UNSET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_CHG);
+		UNSET_FLAG(new_select->flags, BGP_PATH_LINK_BW_CHG);
 	}
 
 	if (new_select && new_select->type == ZEBRA_ROUTE_BGP
@@ -1211,6 +1211,7 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 				bgp, vpn, (const struct prefix_evpn *)bgp_node_get_prefix(rn),
 				old_select);
 		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
+		UNSET_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG);
 		bgp_zebra_clear_route_change_flags(rn);
 		return ret;
 	}
@@ -1230,6 +1231,7 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 		bgp_path_info_set_flag(rn, new_select, BGP_PATH_SELECTED);
 		bgp_path_info_unset_flag(rn, new_select, BGP_PATH_ATTR_CHANGED);
 		UNSET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_CHG);
+		UNSET_FLAG(new_select->flags, BGP_PATH_LINK_BW_CHG);
 	}
 
 	if (new_select && new_select->type == ZEBRA_ROUTE_BGP
@@ -4633,7 +4635,7 @@ void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl)
 	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
 
 	ecom_auto = ecommunity_new();
-	ecommunity_add_val(ecom_auto, &eval);
+	ecommunity_add_val(ecom_auto, &eval, false, false);
 	node_to_del = NULL;
 
 	for (ALL_LIST_ELEMENTS(rtl, node, nnode, ecom)) {

@@ -765,6 +765,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 						       json_labels);
 			}
 
+			if (nexthop->weight)
+				json_object_int_add(json_nexthop, "weight",
+						    nexthop->weight);
+
 			json_object_array_add(json_nexthops, json_nexthop);
 		}
 
@@ -801,6 +805,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		}
 
 		show_route_nexthop_helper(vty, re, nexthop);
+
+		if (nexthop->weight)
+			vty_out(vty, ", weight %u", nexthop->weight);
 
 		vty_out(vty, ", %s\n", up_str);
 

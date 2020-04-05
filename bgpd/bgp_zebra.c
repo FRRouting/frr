@@ -1148,6 +1148,31 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 	return true;
 }
 
+static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
+					uint64_t tot_bw, uint32_t *nh_weight)
+{
+	uint32_t bw;
+	uint64_t tmp;
+
+	bw = attr->link_bw;
+	/* zero link-bandwidth and link-bandwidth not present are treated
+	 * as the same situation.
+	 */
+	if (!bw) {
+		/* the only situations should be if we're either told
+		 * to skip or use default weight.
+		 */
+		if (bgp->lb_handling == BGP_LINK_BW_SKIP_MISSING)
+			return false;
+		*nh_weight = BGP_ZEBRA_DEFAULT_NHOP_WEIGHT;
+	} else {
+		tmp = (uint64_t)bw * 100;
+		*nh_weight = ((uint32_t)(tmp / tot_bw));
+	}
+
+	return true;
+}
+
 void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 			struct bgp_path_info *info, struct bgp *bgp, afi_t afi,
 			safi_t safi)
@@ -1170,6 +1195,8 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 	char buf_prefix[PREFIX_STRLEN];	/* filled in if we are debugging */
 	bool is_evpn;
 	int nh_updated;
+	bool do_wt_ecmp;
+	uint64_t cum_bw = 0;
 
 	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
 	 * know of this instance.
@@ -1240,11 +1267,20 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
+
+	/* Determine if we're doing weighted ECMP or not */
+	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
+	if (do_wt_ecmp)
+		cum_bw = bgp_path_info_mpath_cumbw(info);
+
 	for (mpinfo = info; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
+		uint32_t nh_weight;
+
 		if (valid_nh_count >= multipath_num)
 			break;
 
 		*mpinfo_cp = *mpinfo;
+		nh_weight = 0;
 
 		/* Get nexthop address-family */
 		if (p->family == AF_INET
@@ -1257,6 +1293,15 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 		else
 			continue;
 
+		/* If processing for weighted ECMP, determine the next hop's
+		 * weight. Based on user setting, we may skip the next hop
+		 * in some situations.
+		 */
+		if (do_wt_ecmp) {
+			if (!bgp_zebra_use_nhop_weighted(bgp, mpinfo->attr,
+							 cum_bw, &nh_weight))
+				continue;
+		}
 		api_nh = &api.nexthops[valid_nh_count];
 		if (nh_family == AF_INET) {
 			if (bgp_debug_zebra(&api.prefix)) {
@@ -1356,6 +1401,8 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 		}
 		memcpy(&api_nh->rmac, &(mpinfo->attr->rmac),
 		       sizeof(struct ethaddr));
+		api_nh->weight = nh_weight;
+
 		valid_nh_count++;
 	}
 
@@ -1435,9 +1482,10 @@ void bgp_zebra_announce(struct bgp_node *rn, const struct prefix *p,
 				snprintf(eth_buf, sizeof(eth_buf), " RMAC %s",
 					 prefix_mac2str(&api_nh->rmac,
 							buf1, sizeof(buf1)));
-			zlog_debug("  nhop [%d]: %s if %u VRF %u %s %s",
+			zlog_debug("  nhop [%d]: %s if %u VRF %u wt %u %s %s",
 				   i + 1, nh_buf, api_nh->ifindex,
-				   api_nh->vrf_id, label_buf, eth_buf);
+				   api_nh->vrf_id, api_nh->weight,
+				   label_buf, eth_buf);
 		}
 	}
 

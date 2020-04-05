@@ -415,7 +415,7 @@ static int process_unicast_route(struct bgp *bgp,		 /* in */
 		localadmin = htons(hc->resolve_nve_roo_local_admin);
 		memcpy(vnc_gateway_magic.val + 6, (char *)&localadmin, 2);
 
-		ecommunity_add_val(*ecom, &vnc_gateway_magic);
+		ecommunity_add_val(*ecom, &vnc_gateway_magic, false, false);
 	}
 
 	return 0;

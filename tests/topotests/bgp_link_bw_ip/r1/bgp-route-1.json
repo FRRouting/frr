@@ -1,0 +1,19 @@
+{
+  "prefix":"198.10.1.1\/32",
+  "paths":[
+    {
+      "valid":true,
+      "bestpath":{
+        "overall":true
+      },
+      "extendedCommunity":{
+        "string":"LB:65301:125000 (1.000 Mbps)"
+      },
+      "nexthops":[
+        {
+          "ip":"11.1.1.2"
+        }
+      ]
+    }
+  ]
+}

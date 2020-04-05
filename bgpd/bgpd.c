@@ -2970,6 +2970,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->rib_stale_time = BGP_DEFAULT_RIB_STALE_TIME;
 	bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
 	bgp->dynamic_neighbors_count = 0;
+	bgp->lb_ref_bw = BGP_LINK_BW_REF_BW;
+	bgp->lb_handling = BGP_LINK_BW_ECMP;
 	bgp->ebgp_requires_policy = DEFAULT_EBGP_POLICY_DISABLED;
 	bgp->reject_as_sets = BGP_REJECT_AS_SETS_DISABLED;
 	bgp_addpath_init_bgp_data(&bgp->tx_addpath);

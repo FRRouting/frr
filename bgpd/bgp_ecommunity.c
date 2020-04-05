@@ -74,10 +74,16 @@ static void ecommunity_hash_free(struct ecommunity *ecom)
    Attribute structure.  When the value is already exists in the
    structure, we don't add the value.  Newly added value is sorted by
    numerical order.  When the value is added to the structure return 1
-   else return 0.  */
-bool ecommunity_add_val(struct ecommunity *ecom, struct ecommunity_val *eval)
+   else return 0.
+   The additional parameters 'unique' and 'overwrite' ensure a particular
+   extended community (based on type and sub-type) is present only
+   once and whether the new value should replace what is existing or
+   not.
+*/
+bool ecommunity_add_val(struct ecommunity *ecom, struct ecommunity_val *eval,
+			bool unique, bool overwrite)
 {
-	int c;
+	int c, ins_idx;
 
 	/* When this is fist value, just add it. */
 	if (ecom->val == NULL) {
@@ -88,25 +94,45 @@ bool ecommunity_add_val(struct ecommunity *ecom, struct ecommunity_val *eval)
 	}
 
 	/* If the value already exists in the structure return 0.  */
+	/* check also if the extended community itself exists. */
 	c = 0;
+	ins_idx = -1;
 	for (uint8_t *p = ecom->val; c < ecom->size;
 	     p += ECOMMUNITY_SIZE, c++) {
+		if (unique) {
+			if (p[0] == eval->val[0] &&
+			    p[1] == eval->val[1]) {
+				if (overwrite) {
+					memcpy(p, eval->val, ECOMMUNITY_SIZE);
+					return 1;
+				}
+				return 0;
+			}
+		}
 		int ret = memcmp(p, eval->val, ECOMMUNITY_SIZE);
 		if (ret == 0)
-			return false;
-		else if (ret > 0)
-			break;
+			return 0;
+		if (ret > 0) {
+			if (!unique)
+				break;
+			if (ins_idx == -1)
+				ins_idx = c;
+		}
 	}
+
+	if (ins_idx == -1)
+		ins_idx = c;
 
 	/* Add the value to the structure with numerical sorting.  */
 	ecom->size++;
 	ecom->val = XREALLOC(MTYPE_ECOMMUNITY_VAL, ecom->val,
 			     ecom->size * ECOMMUNITY_SIZE);
 
-	memmove(ecom->val + ((c + 1) * ECOMMUNITY_SIZE),
-		ecom->val + (c * ECOMMUNITY_SIZE),
-		(ecom->size - 1 - c) * ECOMMUNITY_SIZE);
-	memcpy(ecom->val + (c * ECOMMUNITY_SIZE), eval->val, ECOMMUNITY_SIZE);
+	memmove(ecom->val + ((ins_idx + 1) * ECOMMUNITY_SIZE),
+		ecom->val + (ins_idx * ECOMMUNITY_SIZE),
+		(ecom->size - 1 - ins_idx) * ECOMMUNITY_SIZE);
+	memcpy(ecom->val + (ins_idx * ECOMMUNITY_SIZE),
+	       eval->val, ECOMMUNITY_SIZE);
 
 	return true;
 }
@@ -128,7 +154,7 @@ struct ecommunity *ecommunity_uniq_sort(struct ecommunity *ecom)
 	for (i = 0; i < ecom->size; i++) {
 		eval = (struct ecommunity_val *)(ecom->val
 						 + (i * ECOMMUNITY_SIZE));
-		ecommunity_add_val(new, eval);
+		ecommunity_add_val(new, eval, false, false);
 	}
 	return new;
 }
@@ -543,7 +569,7 @@ struct ecommunity *ecommunity_str2com(const char *str, int type,
 			if (ecom == NULL)
 				ecom = ecommunity_new();
 			eval.val[1] = type;
-			ecommunity_add_val(ecom, &eval);
+			ecommunity_add_val(ecom, &eval, false, false);
 			break;
 		case ecommunity_token_unknown:
 		default:
@@ -608,6 +634,33 @@ static int ecommunity_rt_soo_str(char *buf, size_t bufsz, const uint8_t *pnt,
 	/* consume value */
 	(void)pnt;
 
+	return len;
+}
+
+static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt)
+{
+	int len = 0;
+	as_t as;
+	uint32_t bw;
+	char bps_buf[20] = {0};
+
+#define ONE_GBPS_BYTES (1000 * 1000 * 1000 / 8)
+#define ONE_MBPS_BYTES (1000 * 1000 / 8)
+#define ONE_KBPS_BYTES (1000 / 8)
+
+	as = (*pnt++ << 8);
+	as |= (*pnt++);
+	pnt = ptr_get_be32(pnt, &bw);
+	if (bw >= ONE_GBPS_BYTES)
+		sprintf(bps_buf, "%.3f Gbps", (float)(bw/ONE_GBPS_BYTES));
+	else if (bw >= ONE_MBPS_BYTES)
+		sprintf(bps_buf, "%.3f Mbps", (float)(bw/ONE_MBPS_BYTES));
+	else if (bw >= ONE_KBPS_BYTES)
+		sprintf(bps_buf, "%.3f Kbps", (float)(bw/ONE_KBPS_BYTES));
+	else
+		sprintf(bps_buf, "%u bps", bw * 8);
+
+	len = snprintf(buf, bufsz, "LB:%u:%u (%s)", as, bw, bps_buf);
 	return len;
 }
 
@@ -686,6 +739,11 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						  INET_ADDRSTRLEN);
 					snprintf(encbuf, sizeof(encbuf),
 						 "NH:%s:%d", ipv4str, pnt[5]);
+				} else if (sub_type ==
+					   ECOMMUNITY_LINK_BANDWIDTH &&
+					   type == ECOMMUNITY_ENCODE_AS) {
+					ecommunity_lb_str(encbuf,
+						sizeof(encbuf), pnt);
 				} else
 					unk_ecom = 1;
 			} else {
@@ -821,6 +879,12 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					(uint8_t)mac.octet[5]);
 			} else
 				unk_ecom = 1;
+		} else if (type == ECOMMUNITY_ENCODE_AS_NON_TRANS) {
+			sub_type = *pnt++;
+			if (sub_type == ECOMMUNITY_LINK_BANDWIDTH)
+				ecommunity_lb_str(encbuf, sizeof(encbuf), pnt);
+			else
+				unk_ecom = 1;
 		} else {
 			sub_type = *pnt++;
 			unk_ecom = 1;
@@ -889,8 +953,8 @@ extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *ecom,
 /* remove ext. community matching type and subtype
  * return 1 on success ( removed ), 0 otherwise (not present)
  */
-extern bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
-			     uint8_t subtype)
+bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
+		      uint8_t subtype)
 {
 	uint8_t *p, *q, *new;
 	int c, found = 0;
@@ -1164,4 +1228,84 @@ void bgp_remove_ecomm_from_aggregate_hash(struct bgp_aggregate *aggregate,
 			ecommunity_free(&ret_ecomm);
 		}
 	}
+}
+
+/*
+ * return the BGP link bandwidth extended community, if present;
+ * the actual bandwidth is returned via param
+ */
+const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint32_t *bw)
+{
+	const uint8_t *eval;
+	int i;
+
+	if (bw)
+		*bw = 0;
+
+	if (!ecom || !ecom->size)
+		return NULL;
+
+	for (i = 0; i < ecom->size; i++) {
+		const uint8_t *pnt;
+		uint8_t type, sub_type;
+		uint32_t bwval;
+
+		eval = pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
+		type = *pnt++;
+		sub_type = *pnt++;
+
+		if ((type == ECOMMUNITY_ENCODE_AS ||
+		     type == ECOMMUNITY_ENCODE_AS_NON_TRANS) &&
+		    sub_type == ECOMMUNITY_LINK_BANDWIDTH) {
+			pnt += 2; /* bandwidth is encoded as AS:val */
+			pnt = ptr_get_be32(pnt, &bwval);
+			(void)pnt; /* consume value */
+			if (bw)
+				*bw = bwval;
+			return eval;
+		}
+	}
+
+	return NULL;
+}
+
+
+struct ecommunity *ecommunity_replace_linkbw(as_t as,
+					     struct ecommunity *ecom,
+					     uint64_t cum_bw)
+{
+	struct ecommunity *new;
+	struct ecommunity_val lb_eval;
+	const uint8_t *eval;
+	uint8_t type;
+	uint32_t cur_bw;
+
+	/* Nothing to replace if link-bandwidth doesn't exist or
+	 * is non-transitive - just return existing extcommunity.
+	 */
+	new = ecom;
+	if (!ecom || !ecom->size)
+		return new;
+
+	eval = ecommunity_linkbw_present(ecom, &cur_bw);
+	if (!eval)
+		return new;
+
+	type = *eval;
+	if (type & ECOMMUNITY_FLAG_NON_TRANSITIVE)
+		return new;
+
+	/* Transitive link-bandwidth exists, replace with the passed
+	 * (cumulative) bandwidth value. We need to create a new
+	 * extcommunity for this - refer to AS-Path replace function
+	 * for reference.
+	 */
+	if (cum_bw > 0xFFFFFFFF)
+		cum_bw = 0xFFFFFFFF;
+	encode_lb_extcomm(as > BGP_AS_MAX ? BGP_AS_TRANS : as, cum_bw,
+			  false, &lb_eval);
+	new = ecommunity_dup(ecom);
+	ecommunity_add_val(new, &lb_eval, true, true);
+
+	return new;
 }

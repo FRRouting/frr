@@ -573,7 +573,7 @@ struct rfapi_import_table *rfapiMacImportTableGet(struct bgp *bgp, uint32_t lni)
 		eval.val[7] = (lni >> 0) & 0xff;
 
 		enew = ecommunity_new();
-		ecommunity_add_val(enew, &eval);
+		ecommunity_add_val(enew, &eval, false, false);
 		it->rt_import_list = enew;
 
 		for (afi = AFI_IP; afi < AFI_MAX; ++afi) {

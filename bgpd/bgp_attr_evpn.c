@@ -45,7 +45,7 @@ void bgp_add_routermac_ecom(struct attr *attr, struct ethaddr *routermac)
 	memcpy(&routermac_ecom.val[2], routermac->octet, ETH_ALEN);
 	if (!attr->ecommunity)
 		attr->ecommunity = ecommunity_new();
-	ecommunity_add_val(attr->ecommunity, &routermac_ecom);
+	ecommunity_add_val(attr->ecommunity, &routermac_ecom, false, false);
 	ecommunity_str(attr->ecommunity);
 }
 
