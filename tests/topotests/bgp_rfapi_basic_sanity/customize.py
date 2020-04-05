@@ -75,12 +75,15 @@ from lib.ltemplate import ltemplateRtrCmd
 from mininet.topo import Topo
 
 import shutil
+
 CWD = os.path.dirname(os.path.realpath(__file__))
 # test name based on directory
 TEST = os.path.basename(CWD)
 
+
 class ThisTestTopo(Topo):
     "Test topology builder"
+
     def build(self, *_args, **_opts):
         "Build function"
         tgen = get_topogen(self)
@@ -89,36 +92,37 @@ class ThisTestTopo(Topo):
         # between routers, switches and hosts.
         #
         # Create P/PE routers
-        tgen.add_router('r1')
+        tgen.add_router("r1")
         for routern in range(2, 5):
-            tgen.add_router('r{}'.format(routern))
+            tgen.add_router("r{}".format(routern))
         # Create a switch with just one router connected to it to simulate a
         # empty network.
         switch = {}
-        switch[0] = tgen.add_switch('sw0')
-        switch[0].add_link(tgen.gears['r1'], nodeif='r1-eth0')
-        switch[0].add_link(tgen.gears['r2'], nodeif='r2-eth0')
+        switch[0] = tgen.add_switch("sw0")
+        switch[0].add_link(tgen.gears["r1"], nodeif="r1-eth0")
+        switch[0].add_link(tgen.gears["r2"], nodeif="r2-eth0")
 
-        switch[1] = tgen.add_switch('sw1')
-        switch[1].add_link(tgen.gears['r2'], nodeif='r2-eth1')
-        switch[1].add_link(tgen.gears['r3'], nodeif='r3-eth0')
-        switch[1].add_link(tgen.gears['r4'], nodeif='r4-eth0')
+        switch[1] = tgen.add_switch("sw1")
+        switch[1].add_link(tgen.gears["r2"], nodeif="r2-eth1")
+        switch[1].add_link(tgen.gears["r3"], nodeif="r3-eth0")
+        switch[1].add_link(tgen.gears["r4"], nodeif="r4-eth0")
 
-        switch[2] = tgen.add_switch('sw2')
-        switch[2].add_link(tgen.gears['r2'], nodeif='r2-eth2')
-        switch[2].add_link(tgen.gears['r3'], nodeif='r3-eth1')
+        switch[2] = tgen.add_switch("sw2")
+        switch[2].add_link(tgen.gears["r2"], nodeif="r2-eth2")
+        switch[2].add_link(tgen.gears["r3"], nodeif="r3-eth1")
+
 
 def ltemplatePreRouterStartHook():
     cc = ltemplateRtrCmd()
     tgen = get_topogen()
-    logger.info('pre router-start hook')
-    #check for normal init
+    logger.info("pre router-start hook")
+    # check for normal init
     if len(tgen.net) == 1:
-        logger.info('Topology not configured, skipping setup')
+        logger.info("Topology not configured, skipping setup")
         return False
     return True
 
-def ltemplatePostRouterStartHook():
-    logger.info('post router-start hook')
-    return True
 
+def ltemplatePostRouterStartHook():
+    logger.info("post router-start hook")
+    return True
