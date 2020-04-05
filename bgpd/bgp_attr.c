@@ -152,10 +152,16 @@ static bool cluster_hash_cmp(const void *p1, const void *p2)
 	const struct cluster_list *cluster1 = p1;
 	const struct cluster_list *cluster2 = p2;
 
-	return (cluster1->length == cluster2->length
-		&& (cluster1->list == cluster2->list
-		    || memcmp(cluster1->list, cluster2->list, cluster1->length)
-			       == 0));
+	if (cluster1->list == cluster2->list)
+		return true;
+
+	if (!cluster1->list || !cluster2->list)
+		return false;
+
+	if (cluster1->length != cluster2->length)
+		return false;
+
+	return (memcmp(cluster1->list, cluster2->list, cluster1->length) == 0);
 }
 
 static void cluster_free(struct cluster_list *cluster)
