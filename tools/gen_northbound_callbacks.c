@@ -358,7 +358,7 @@ int main(int argc, char *argv[])
 	if (argc != 1)
 		usage(EXIT_FAILURE);
 
-	yang_init();
+	yang_init(false);
 
 	if (search_path)
 		ly_ctx_set_searchdir(ly_native_ctx, search_path);

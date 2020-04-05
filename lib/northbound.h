@@ -403,6 +403,13 @@ struct nb_node {
 /* The YANG list doesn't contain key leafs. */
 #define F_NB_NODE_KEYLESS_LIST 0x02
 
+/*
+ * HACK: old gcc versions (< 5.x) have a bug that prevents C99 flexible arrays
+ * from working properly on shared libraries. For those compilers, use a fixed
+ * size array to work around the problem.
+ */
+#define YANG_MODULE_MAX_NODES 1024
+
 struct frr_yang_module_info {
 	/* YANG module name. */
 	const char *name;
@@ -417,7 +424,11 @@ struct frr_yang_module_info {
 
 		/* Priority - lower priorities are processed first. */
 		uint32_t priority;
+#if defined(__GNUC__) && ((__GNUC__ - 0) < 5) && !defined(__clang__)
+	} nodes[YANG_MODULE_MAX_NODES + 1];
+#else
 	} nodes[];
+#endif
 };
 
 /* Northbound error codes. */

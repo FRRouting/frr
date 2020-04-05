@@ -1866,6 +1866,13 @@ static void nb_load_callbacks(const struct frr_yang_module_info *module)
 		struct nb_node *nb_node;
 		uint32_t priority;
 
+		if (i > YANG_MODULE_MAX_NODES) {
+			zlog_err(
+				"%s: %s.yang has more than %u nodes. Please increase YANG_MODULE_MAX_NODES to fix this problem.",
+				__func__, module->name, YANG_MODULE_MAX_NODES);
+			exit(1);
+		}
+
 		nb_node = nb_node_find(module->nodes[i].xpath);
 		if (!nb_node) {
 			flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
