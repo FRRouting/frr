@@ -594,9 +594,7 @@ struct bgp {
 	int advertise_all_vni;
 
 	/* RFC 8212 - prevent route leaks. */
-	int ebgp_requires_policy;
-#define DEFAULT_EBGP_POLICY_DISABLED 0
-#define DEFAULT_EBGP_POLICY_ENABLED 1
+	bool ebgp_requires_policy;
 
 	/* draft-ietf-idr-deprecate-as-set-confed-set
 	 * Reject aspaths with AS_SET and/or AS_CONFED_SET.
