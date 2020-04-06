@@ -384,7 +384,7 @@ static void pbr_map_delete_common(struct pbr_map_sequence *pbrms)
 	pbrm->valid = false;
 	pbrms->nhs_installed = false;
 	pbrms->reason |= PBR_MAP_INVALID_NO_NEXTHOPS;
-	pbrms->nhgrp_name = NULL;
+	XFREE(MTYPE_TMP, pbrms->nhgrp_name);
 }
 
 void pbr_map_delete_nexthops(struct pbr_map_sequence *pbrms)
