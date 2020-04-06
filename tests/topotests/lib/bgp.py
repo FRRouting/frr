@@ -209,6 +209,9 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
 
     config_data.append(cmd)
 
+    # Skip RFC8212 in topotests
+    config_data.append("no bgp ebgp-requires-policy")
+
     router_id = bgp_data.setdefault("router_id", None)
     del_router_id = bgp_data.setdefault("del_router_id", False)
     if del_router_id:
