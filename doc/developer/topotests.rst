@@ -360,6 +360,7 @@ This is the recommended test writing routine:
 - Write a topology (Graphviz recommended)
 - Obtain configuration files
 - Write the test itself
+- Format the new code using `black <https://github.com/psf/black>`_
 - Create a Pull Request
 
 Topotest File Hierarchy
@@ -760,6 +761,8 @@ Requirements:
   inside folders named after the equipment.
 - Tests must be able to run without any interaction. To make sure your test
   conforms with this, run it without the :option:`-s` parameter.
+- Use `black <https://github.com/psf/black>`_ code formatter before creating
+  a pull request. This ensures we have a unified code style.
 
 Tips:
 
