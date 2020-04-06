@@ -425,17 +425,21 @@ int main(int argc, char **argv)
 			else
 				bgp_port = tmp_port;
 			break;
-		case 'e':
-			multipath_num = atoi(optarg);
-			if (multipath_num > MULTIPATH_NUM
-			    || multipath_num <= 0) {
+		case 'e': {
+			unsigned long int parsed_multipath =
+				strtoul(optarg, NULL, 10);
+			if (parsed_multipath == 0
+			    || parsed_multipath > MULTIPATH_NUM
+			    || parsed_multipath > UINT_MAX) {
 				flog_err(
 					EC_BGP_MULTIPATH,
-					"Multipath Number specified must be less than %d and greater than 0",
+					"Multipath Number specified must be less than %u and greater than 0",
 					MULTIPATH_NUM);
 				return 1;
 			}
+			multipath_num = parsed_multipath;
 			break;
+		}
 		case 'l':
 			bgp_address = optarg;
 		/* listenon implies -n */

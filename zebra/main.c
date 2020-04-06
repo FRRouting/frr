@@ -331,17 +331,21 @@ int main(int argc, char **argv)
 		case 'a':
 			allow_delete = 1;
 			break;
-		case 'e':
-			zrouter.multipath_num = atoi(optarg);
-			if (zrouter.multipath_num > MULTIPATH_NUM
-			    || zrouter.multipath_num <= 0) {
+		case 'e': {
+			unsigned long int parsed_multipath =
+				strtoul(optarg, NULL, 10);
+			if (parsed_multipath == 0
+			    || parsed_multipath > MULTIPATH_NUM
+			    || parsed_multipath > UINT32_MAX) {
 				flog_err(
 					EC_ZEBRA_BAD_MULTIPATH_NUM,
-					"Multipath Number specified must be less than %d and greater than 0",
+					"Multipath Number specified must be less than %u and greater than 0",
 					MULTIPATH_NUM);
 				return 1;
 			}
+			zrouter.multipath_num = parsed_multipath;
 			break;
+		}
 		case 'o':
 			vrf_default_name_configured = optarg;
 			break;
