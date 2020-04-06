@@ -371,7 +371,7 @@ int isis_instance_lsp_mtu_modify(enum nb_event event,
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/lsp/refresh-interval/level-1
+ * XPath: /frr-isisd:isis/instance/lsp/timers/level-1/refresh-interval
  */
 int isis_instance_lsp_refresh_interval_level_1_modify(
 	enum nb_event event, const struct lyd_node *dnode,
@@ -391,7 +391,7 @@ int isis_instance_lsp_refresh_interval_level_1_modify(
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/lsp/refresh-interval/level-2
+ * XPath: /frr-isisd:isis/instance/lsp/timers/level-2/refresh-interval
  */
 int isis_instance_lsp_refresh_interval_level_2_modify(
 	enum nb_event event, const struct lyd_node *dnode,
@@ -411,7 +411,7 @@ int isis_instance_lsp_refresh_interval_level_2_modify(
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/lsp/maximum-lifetime/level-1
+ * XPath: /frr-isisd:isis/instance/lsp/timers/level-1/maximum-lifetime
  */
 int isis_instance_lsp_maximum_lifetime_level_1_modify(
 	enum nb_event event, const struct lyd_node *dnode,
@@ -431,7 +431,7 @@ int isis_instance_lsp_maximum_lifetime_level_1_modify(
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/lsp/maximum-lifetime/level-2
+ * XPath: /frr-isisd:isis/instance/lsp/timers/level-2/maximum-lifetime
  */
 int isis_instance_lsp_maximum_lifetime_level_2_modify(
 	enum nb_event event, const struct lyd_node *dnode,
@@ -451,7 +451,7 @@ int isis_instance_lsp_maximum_lifetime_level_2_modify(
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/lsp/generation-interval/level-1
+ * XPath: /frr-isisd:isis/instance/lsp/timers/level-1/generation-interval
  */
 int isis_instance_lsp_generation_interval_level_1_modify(
 	enum nb_event event, const struct lyd_node *dnode,
@@ -471,7 +471,7 @@ int isis_instance_lsp_generation_interval_level_1_modify(
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/lsp/generation-interval/level-2
+ * XPath: /frr-isisd:isis/instance/lsp/timers/level-2/generation-interval
  */
 int isis_instance_lsp_generation_interval_level_2_modify(
 	enum nb_event event, const struct lyd_node *dnode,

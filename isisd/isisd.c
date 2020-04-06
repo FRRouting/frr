@@ -137,17 +137,17 @@ struct isis_area *isis_area_create(const char *area_tag)
 	enum isis_metric_style default_style;
 
 	area->max_lsp_lifetime[0] = yang_get_default_uint16(
-		"/frr-isisd:isis/instance/lsp/maximum-lifetime/level-1");
+		"/frr-isisd:isis/instance/lsp/timers/level-1/maximum-lifetime");
 	area->max_lsp_lifetime[1] = yang_get_default_uint16(
-		"/frr-isisd:isis/instance/lsp/maximum-lifetime/level-2");
+		"/frr-isisd:isis/instance/lsp/timers/level-2/maximum-lifetime");
 	area->lsp_refresh[0] = yang_get_default_uint16(
-		"/frr-isisd:isis/instance/lsp/refresh-interval/level-1");
+		"/frr-isisd:isis/instance/lsp/timers/level-1/refresh-interval");
 	area->lsp_refresh[1] = yang_get_default_uint16(
-		"/frr-isisd:isis/instance/lsp/refresh-interval/level-2");
+		"/frr-isisd:isis/instance/lsp/timers/level-2/refresh-interval");
 	area->lsp_gen_interval[0] = yang_get_default_uint16(
-		"/frr-isisd:isis/instance/lsp/generation-interval/level-1");
+		"/frr-isisd:isis/instance/lsp/timers/level-1/generation-interval");
 	area->lsp_gen_interval[1] = yang_get_default_uint16(
-		"/frr-isisd:isis/instance/lsp/generation-interval/level-2");
+		"/frr-isisd:isis/instance/lsp/timers/level-2/generation-interval");
 	area->min_spf_interval[0] = yang_get_default_uint16(
 		"/frr-isisd:isis/instance/spf/minimum-interval/level-1");
 	area->min_spf_interval[1] = yang_get_default_uint16(
