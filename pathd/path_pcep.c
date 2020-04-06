@@ -81,7 +81,6 @@ struct path *pcep_new_path(void)
 {
 	struct path *path;
 	path = XCALLOC(MTYPE_PCEP, sizeof(*path));
-	memset(path, 0, sizeof(*path));
 	path->binding_sid = MPLS_LABEL_NONE;
 	return path;
 }
@@ -90,15 +89,28 @@ struct path_hop *pcep_new_hop(void)
 {
 	struct path_hop *hop;
 	hop = XCALLOC(MTYPE_PCEP, sizeof(*hop));
-	memset(hop, 0, sizeof(*hop));
 	return hop;
+}
+
+struct path_metric *pcep_new_metric(void)
+{
+	struct path_metric *metric;
+	metric = XCALLOC(MTYPE_PCEP, sizeof(*metric));
+	return metric;
 }
 
 void pcep_free_path(struct path *path)
 {
 	struct path_hop *hop;
+	struct path_metric *metric;
 
-	hop = path->first;
+	metric = path->first_metric;
+	while (NULL != metric) {
+		struct path_metric *next = metric->next;
+		XFREE(MTYPE_PCEP, metric);
+		metric = next;
+	}
+	hop = path->first_hop;
 	while (NULL != hop) {
 		struct path_hop *next = hop->next;
 		XFREE(MTYPE_PCEP, hop);

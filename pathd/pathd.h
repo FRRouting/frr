@@ -44,6 +44,11 @@ enum srte_candidate_type {
 	SRTE_CANDIDATE_TYPE_UNDEFINED = 2,
 };
 
+enum srte_candidate_metric_type {
+	SRTE_CANDIDATE_METRIC_TYPE_ABC = 1,
+	SRTE_CANDIDATE_METRIC_TYPE_TE = 2
+};
+
 struct srte_segment_list;
 
 struct srte_segment_entry {
@@ -108,13 +113,29 @@ struct srte_candidate {
 	/* The Type (explicit or dynamic) */
 	enum srte_candidate_type type;
 
-	/* Status flags. */
-	uint16_t flags;
+	/* Flags. */
+	uint32_t flags;
 #define F_CANDIDATE_BEST 0x0001
 #define F_CANDIDATE_NEW 0x0002
 #define F_CANDIDATE_MODIFIED 0x0004
 #define F_CANDIDATE_DELETED 0x0008
+#define F_CANDIDATE_HAS_METRIC_ABC 0x0100
+#define F_CANDIDATE_METRIC_ABC_BOUND 0x200
+#define F_CANDIDATE_METRIC_ABC_COMPUTED 0x400
+#define F_CANDIDATE_HAS_METRIC_TE 0x0800
+#define F_CANDIDATE_METRIC_TE_BOUND 0x1000
+#define F_CANDIDATE_METRIC_TE_COMPUTED 0x2000
+
+	/* Metrics */
+	float metric_abc; /* Agreggate Bandwidth Consumption */
+	float metric_te;
 };
+
+uint32_t attributes;
+float metric_abc;
+float metric_te;
+float bandwidth_whatever;
+
 RB_HEAD(srte_candidate_head, srte_candidate);
 RB_PROTOTYPE(srte_candidate_head, srte_candidate, entry, srte_candidate_compare)
 
@@ -181,6 +202,11 @@ void srte_policy_apply_changes(struct srte_policy *policy);
 struct srte_candidate *srte_candidate_add(struct srte_policy *policy,
 					  uint32_t preference);
 void srte_candidate_del(struct srte_candidate *candidate);
+void srte_candidate_set_metric(struct srte_candidate *candidate,
+			       enum srte_candidate_metric_type type,
+			       float value, bool is_cound, bool is_computed);
+void srte_candidate_unset_metric(struct srte_candidate *candidate,
+				 enum srte_candidate_metric_type type);
 struct srte_candidate *srte_candidate_find(struct srte_policy *policy,
 					   uint32_t preference);
 void srte_candidate_status_update(struct srte_policy *policy,

@@ -20,12 +20,14 @@
 #include <northbound.h>
 #include <yang.h>
 #include <printfrr.h>
+#include <pcep-objects.h>
 #include "pathd/pathd.h"
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_nb.h"
 #include "pathd/path_pcep_debug.h"
 
 #define MAX_XPATH 256
+#define MAX_FLOAT_LEN 22
 
 struct path_nb_list_path_cb_arg {
 	void *arg;
@@ -54,8 +56,15 @@ static void path_nb_add_candidate_path(struct nb_config *config, uint32_t color,
 				       uint32_t discriminator,
 				       uint32_t preference,
 				       const char *segment_list_name);
+static void
+path_nb_add_candidate_path_metric(struct nb_config *config, uint32_t color,
+				  struct ipaddr *endpoint, uint32_t preference,
+				  enum pcep_metric_types type, float value,
+				  bool is_bound, bool is_computed);
+
 static enum pcep_lsp_operational_status
 status_int_to_ext(enum srte_policy_status status);
+static const char *metric_name(enum pcep_metric_types type);
 
 
 struct path *path_nb_get_path(uint32_t color, struct ipaddr endpoint,
@@ -112,6 +121,7 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 	char *name;
 	struct path *path;
 	struct path_hop *hop;
+	struct path_metric *metric;
 	struct srte_policy *policy;
 	struct srte_segment_list *segment_list, key = {};
 	enum pcep_lsp_operational_status status;
@@ -119,6 +129,7 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 
 	policy = candidate->policy;
 	hop = NULL;
+	metric = NULL;
 
 	if (NULL != candidate->segment_list) {
 		strlcpy(key.name, candidate->segment_list->name,
@@ -144,6 +155,28 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 		is_delegated = false;
 		break;
 	}
+	if (CHECK_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_ABC)) {
+		struct path_metric *new_metric = pcep_new_metric();
+		new_metric->next = metric;
+		metric = new_metric;
+		metric->type = PCEP_METRIC_AGGREGATE_BW;
+		metric->value = candidate->metric_abc;
+		metric->is_bound = CHECK_FLAG(candidate->flags,
+					      F_CANDIDATE_METRIC_ABC_BOUND);
+		metric->is_computed = CHECK_FLAG(
+			candidate->flags, F_CANDIDATE_METRIC_ABC_COMPUTED);
+	}
+	if (CHECK_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_TE)) {
+		struct path_metric *new_metric = pcep_new_metric();
+		new_metric->next = metric;
+		metric = new_metric;
+		metric->type = PCEP_METRIC_TE;
+		metric->value = candidate->metric_te;
+		metric->is_bound = CHECK_FLAG(candidate->flags,
+					      F_CANDIDATE_METRIC_ABC_BOUND);
+		metric->is_computed = CHECK_FLAG(
+			candidate->flags, F_CANDIDATE_METRIC_ABC_COMPUTED);
+	}
 	*path = (struct path){
 		.nbkey = (struct lsp_nb_key){.color = policy->color,
 					     .endpoint = policy->endpoint,
@@ -160,7 +193,8 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 		.was_removed = false,
 		.is_synching = false,
 		.is_delegated = is_delegated,
-		.first = hop};
+		.first_hop = hop,
+		.first_metric = metric};
 
 	return path;
 }
@@ -193,17 +227,18 @@ void path_nb_update_path(struct path *path)
 	assert(IPADDR_V4 == path->nbkey.endpoint.ipa_type);
 
 	struct path_hop *hop;
+	struct path_metric *metric;
 	int index;
 	char segment_list_name_buff[11];
 	char *segment_list_name = NULL;
 	struct nb_config *config = nb_config_dup(running_config);
 
-	if (NULL != path->first) {
+	if (NULL != path->first_hop) {
 		snprintf(segment_list_name_buff, sizeof(segment_list_name_buff),
 			 "%u", (uint32_t)rand());
 		segment_list_name = segment_list_name_buff;
 		path_nb_create_segment_list(config, segment_list_name);
-		for (hop = path->first, index = 10; NULL != hop;
+		for (hop = path->first_hop, index = 10; NULL != hop;
 		     hop = hop->next, index += 10) {
 			assert(hop->has_sid);
 			assert(hop->is_mpls);
@@ -216,6 +251,14 @@ void path_nb_update_path(struct path *path)
 	path_nb_add_candidate_path(
 		config, path->nbkey.color, &path->nbkey.endpoint, &path->sender,
 		(uint32_t)rand(), path->nbkey.preference, segment_list_name);
+
+	for (metric = path->first_metric; NULL != metric;
+	     metric = metric->next) {
+		path_nb_add_candidate_path_metric(
+			config, path->nbkey.color, &path->nbkey.endpoint,
+			path->nbkey.preference, metric->type, metric->value,
+			metric->is_bound, metric->is_computed);
+	}
 
 	path_nb_commit_candidate_config(config, "SR Policy Candidate Path");
 	nb_config_free(config);
@@ -327,6 +370,39 @@ void path_nb_add_candidate_path(struct nb_config *config, uint32_t color,
 	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, "dynamic");
 }
 
+void path_nb_add_candidate_path_metric(struct nb_config *config, uint32_t color,
+				       struct ipaddr *endpoint,
+				       uint32_t preference,
+				       enum pcep_metric_types type, float value,
+				       bool is_bound, bool is_computed)
+{
+	char base_xpath[XPATH_MAXLEN];
+	char xpath[XPATH_MAXLEN];
+	char endpoint_str[INET_ADDRSTRLEN];
+	char value_str[MAX_FLOAT_LEN];
+	const char *name;
+
+	ipaddr2str(endpoint, endpoint_str, sizeof(endpoint_str));
+
+	name = metric_name(type);
+	if (NULL == name)
+		return;
+
+	snprintf(
+		base_xpath, sizeof(base_xpath),
+		"/frr-pathd:pathd/sr-policy[color='%u'][endpoint='%s']/candidate-path[preference='%u']/metrics[type='%s']",
+		color, endpoint_str, preference, name);
+	snprintf(xpath, sizeof(xpath), "%s/value", base_xpath);
+	snprintf(value_str, sizeof(value_str), "%.6f", value);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, value_str);
+	snprintf(xpath, sizeof(xpath), "%s/is-bound", base_xpath);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
+				      is_bound ? "true" : "false");
+	snprintf(xpath, sizeof(xpath), "%s/is-computed", base_xpath);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
+				      is_computed ? "true" : "false");
+}
+
 enum pcep_lsp_operational_status
 status_int_to_ext(enum srte_policy_status status)
 {
@@ -339,5 +415,21 @@ status_int_to_ext(enum srte_policy_status status)
 		return PCEP_LSP_OPERATIONAL_GOING_DOWN;
 	default:
 		return PCEP_LSP_OPERATIONAL_DOWN;
+	}
+}
+
+const char *metric_name(enum pcep_metric_types type)
+{
+	switch (type) {
+	case PCEP_METRIC_IGP:
+		return "igp";
+	case PCEP_METRIC_TE:
+		return "te";
+	case PCEP_METRIC_HOP_COUNT:
+		return "hc";
+	case PCEP_METRIC_AGGREGATE_BW:
+		return "abc";
+	default:
+		return NULL;
 	}
 }

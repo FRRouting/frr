@@ -374,7 +374,12 @@ DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
         <\
 	  explicit$type segment-list WORD$list_name\
 	  |dynamic$type\
-	>",
+	>\
+        [[no$no_metrics] metrics\
+        {\
+          [bound$bound_abc] abc$metric_abc [METRIC$metric_abc_value]\
+          |[bound$bound_te] te$metric_te [METRIC$metric_te_value]\
+        }]",
       "Segment Routing Policy Candidate Path\n"
       "Segment Routing Policy Candidate Path Preference\n"
       "Administrative Preference\n"
@@ -383,13 +388,62 @@ DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
       "Explicit Path\n"
       "List of SIDs\n"
       "Name of the Segment List\n"
-      "Dynamic Path\n")
+      "Dynamic Path\n"
+      "No metrics\n"
+      "Metrics\n"
+      "Bound Agreggate Bandwidth Consumption metric\n"
+      "Agreggate Bandwidth Consumption metric\n"
+      "Agreggate Bandwidth Consumption metric value\n"
+      "Bound Traffic engineering metric\n"
+      "Traffic engineering metric\n"
+      "Traffic engineering metric value\n")
 {
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, preference_str);
 	nb_cli_enqueue_change(vty, "./name", NB_OP_MODIFY, name);
 	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "local");
 	nb_cli_enqueue_change(vty, "./originator", NB_OP_MODIFY, "127.0.0.1");
 	nb_cli_enqueue_change(vty, "./type", NB_OP_MODIFY, type);
+
+	if (NULL != no_metrics) {
+		if (NULL != metric_abc) {
+			nb_cli_enqueue_change(vty, "./metrics[type='abc']",
+					      NB_OP_DESTROY, NULL);
+		}
+		if (NULL != metric_te) {
+			nb_cli_enqueue_change(vty, "./metrics[type='te']",
+					      NB_OP_DESTROY, NULL);
+		}
+	} else {
+		if (NULL != metric_abc) {
+			nb_cli_enqueue_change(
+				vty, "./metrics[type='abc']/value",
+				NB_OP_MODIFY,
+				metric_abc_value ? metric_abc_value : "0");
+			if (NULL != bound_abc)
+				nb_cli_enqueue_change(
+					vty, "./metrics[type='abc']/is-bound",
+					NB_OP_MODIFY, "true");
+			else
+				nb_cli_enqueue_change(
+					vty, "./metrics[type='abc']/is-bound",
+					NB_OP_MODIFY, "false");
+		}
+
+		if (NULL != metric_te) {
+			nb_cli_enqueue_change(
+				vty, "./metrics[type='te']/value", NB_OP_MODIFY,
+				metric_te_value ? metric_te_value : "0");
+			if (NULL != bound_te)
+				nb_cli_enqueue_change(
+					vty, "./metrics[type='te']/is-bound",
+					NB_OP_MODIFY, "true");
+			else
+				nb_cli_enqueue_change(
+					vty, "./metrics[type='te']/is-bound",
+					NB_OP_MODIFY, "false");
+		}
+	}
+
 	if (strmatch(type, "explicit"))
 		nb_cli_enqueue_change(vty, "./segment-list-name", NB_OP_MODIFY,
 				      list_name);

@@ -23,6 +23,10 @@
 
 #include "pathd/path_nb.h"
 
+static int dummy_create(struct nb_cb_create_args *args);
+static int dummy_modify(struct nb_cb_modify_args *args);
+static int dummy_destroy(struct nb_cb_destroy_args *args);
+
 /* clang-format off */
 const struct frr_yang_module_info frr_pathd_info = {
 	.name = "frr-pathd",
@@ -150,7 +154,42 @@ const struct frr_yang_module_info frr_pathd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/metrics",
+			.cbs = {
+				.create = dummy_create,
+				.destroy = pathd_te_sr_policy_candidate_path_metrics_destroy,
+				.apply_finish = pathd_te_sr_policy_candidate_path_metrics_apply_finish
+			}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/metrics/value",
+			.cbs = {.modify = dummy_modify, .destroy = dummy_destroy}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/metrics/is-bound",
+			.cbs = {.modify = dummy_modify, .destroy = dummy_destroy}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/metrics/is-computed",
+			.cbs = {.modify = dummy_modify, .destroy = dummy_destroy}
+		},
+		{
 			.xpath = NULL,
 		},
 	}
 };
+
+int dummy_create(struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int dummy_modify(struct nb_cb_modify_args *args)
+{
+	return NB_OK;
+}
+
+int dummy_destroy(struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}

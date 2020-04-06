@@ -141,6 +141,19 @@ struct path_hop {
 	union nai nai;
 };
 
+struct path_metric {
+	/* Pointer to the next metric */
+	struct path_metric *next;
+	/* The metric type */
+	enum pcep_metric_types type;
+	/* If the metric value is bound (a maximum) */
+	bool is_bound;
+	/* If the metric value is computed */
+	bool is_computed;
+	/* The metric value */
+	float value;
+};
+
 struct path {
 	/* The address the path is comming from (only work for the PCE for now)
 	 */
@@ -185,7 +198,9 @@ struct path {
 	   See draft-ietf-pce-stateful-pce, section-7.3, flag D */
 	bool is_delegated;
 	/* Specify the list of hop defining the path */
-	struct path_hop *first;
+	struct path_hop *first_hop;
+	/* Specify the list of metrics */
+	struct path_metric *first_metric;
 };
 
 struct pcep_glob {
@@ -202,6 +217,7 @@ extern struct pcep_glob *pcep_g;
 /* Path Helper Functions */
 struct path *pcep_new_path(void);
 struct path_hop *pcep_new_hop(void);
+struct path_metric *pcep_new_metric(void);
 void pcep_free_path(struct path *path);
 
 #endif // _PATH_PCEP_H_

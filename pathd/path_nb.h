@@ -56,6 +56,10 @@ int pathd_te_sr_policy_candidate_path_get_keys(
 	struct nb_cb_get_keys_args *args);
 const void *pathd_te_sr_policy_candidate_path_lookup_entry(
 	struct nb_cb_lookup_entry_args *args);
+int pathd_te_sr_policy_candidate_path_metrics_destroy(
+	struct nb_cb_destroy_args *args);
+void pathd_te_sr_policy_candidate_path_metrics_apply_finish(
+	struct nb_cb_apply_finish_args *args);
 struct yang_data *
 pathd_te_sr_policy_candidate_path_is_best_candidate_path_get_elem(
 	struct nb_cb_get_elem_args *args);

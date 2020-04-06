@@ -43,7 +43,8 @@ static void trigger_pathd_candidate_updated(struct srte_candidate *candidate);
 static int trigger_pathd_candidate_updated_event(struct thread *thread);
 static void trigger_pathd_candidate_removed(struct srte_candidate *candidate);
 static int trigger_pathd_candidate_removed_event(struct thread *thread);
-
+static const char *
+srte_candidate_metric_name(enum srte_candidate_metric_type type);
 
 /* Generate rb-tree of Segment List Segment instances. */
 static inline int srte_segment_entry_compare(const struct srte_segment_entry *a,
@@ -307,8 +308,8 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 		} else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_MODIFIED)) {
 			trigger_pathd_candidate_updated(candidate);
 		} else if (candidate->segment_list
-		           && CHECK_FLAG(candidate->segment_list->flags,
-		                         F_SEGMENT_LIST_MODIFIED)) {
+			   && CHECK_FLAG(candidate->segment_list->flags,
+					 F_SEGMENT_LIST_MODIFIED)) {
 			trigger_pathd_candidate_updated(candidate);
 		}
 
@@ -338,6 +339,67 @@ void srte_candidate_del(struct srte_candidate *candidate)
 	RB_REMOVE(srte_candidate_head, &srte_policy->candidate_paths,
 		  candidate);
 	XFREE(MTYPE_PATH_SR_CANDIDATE, candidate);
+}
+
+void srte_candidate_set_metric(struct srte_candidate *candidate,
+			       enum srte_candidate_metric_type type,
+			       float value, bool is_bound, bool is_computed)
+{
+	struct srte_policy *policy = candidate->policy;
+	char endpoint[46];
+	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+	zlog_debug(
+		"SR-TE(%s, %u): candidate %s metric %s (%u) set to %f (is-bound: %s; is_computed: %s)",
+		endpoint, policy->color, candidate->name,
+		srte_candidate_metric_name(type), type, value,
+		is_bound ? "true" : "false", is_computed ? "true" : "false");
+	switch (type) {
+	case SRTE_CANDIDATE_METRIC_TYPE_ABC:
+		SET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_ABC);
+		COND_FLAG(candidate->flags, F_CANDIDATE_METRIC_ABC_BOUND,
+			  is_bound);
+		COND_FLAG(candidate->flags, F_CANDIDATE_METRIC_ABC_COMPUTED,
+			  is_computed);
+		candidate->metric_abc = value;
+		break;
+	case SRTE_CANDIDATE_METRIC_TYPE_TE:
+		SET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_TE);
+		COND_FLAG(candidate->flags, F_CANDIDATE_METRIC_TE_BOUND,
+			  is_bound);
+		COND_FLAG(candidate->flags, F_CANDIDATE_METRIC_TE_COMPUTED,
+			  is_computed);
+		candidate->metric_te = value;
+		break;
+	default:
+		break;
+	}
+}
+
+void srte_candidate_unset_metric(struct srte_candidate *candidate,
+				 enum srte_candidate_metric_type type)
+{
+	struct srte_policy *policy = candidate->policy;
+	char endpoint[46];
+	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+	zlog_debug("SR-TE(%s, %u): candidate %s metric %s (%u) unset", endpoint,
+		   policy->color, candidate->name,
+		   srte_candidate_metric_name(type), type);
+	switch (type) {
+	case SRTE_CANDIDATE_METRIC_TYPE_ABC:
+		UNSET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_ABC);
+		UNSET_FLAG(candidate->flags, F_CANDIDATE_METRIC_ABC_BOUND);
+		UNSET_FLAG(candidate->flags, F_CANDIDATE_METRIC_ABC_COMPUTED);
+		candidate->metric_abc = 0;
+		break;
+	case SRTE_CANDIDATE_METRIC_TYPE_TE:
+		UNSET_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_TE);
+		UNSET_FLAG(candidate->flags, F_CANDIDATE_METRIC_TE_BOUND);
+		UNSET_FLAG(candidate->flags, F_CANDIDATE_METRIC_TE_COMPUTED);
+		candidate->metric_te = 0;
+		break;
+	default:
+		break;
+	}
 }
 
 struct srte_candidate *srte_candidate_find(struct srte_policy *policy,
@@ -430,4 +492,16 @@ int trigger_pathd_candidate_removed_event(struct thread *thread)
 {
 	struct srte_candidate *candidate = THREAD_ARG(thread);
 	return hook_call(pathd_candidate_removed, candidate);
+}
+
+const char *srte_candidate_metric_name(enum srte_candidate_metric_type type)
+{
+	switch (type) {
+	case SRTE_CANDIDATE_METRIC_TYPE_ABC:
+		return "ABC";
+	case SRTE_CANDIDATE_METRIC_TYPE_TE:
+		return "TE";
+	default:
+		return "UNKNOWN";
+	}
 }

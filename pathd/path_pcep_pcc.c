@@ -269,7 +269,8 @@ void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 				      .was_removed = false,
 				      .is_synching = false,
 				      .is_delegated = false,
-				      .first = NULL};
+				      .first_hop = NULL,
+				      .first_metric = NULL};
 		send_report(ctrl_state, pcc_state, path);
 		pcep_free_path(path);
 	}

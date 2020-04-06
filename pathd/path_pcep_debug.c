@@ -49,6 +49,7 @@ static void _format_pcc_state(int ps, struct pcc_state *state);
 static void _format_ctrl_state(int ps, struct ctrl_state *state);
 static void _format_path(int ps, struct path *path);
 static void _format_path_hop(int ps, struct path_hop *hop);
+static void _format_path_metric(int ps, struct path_metric *metric);
 static void _format_pcep_event(int ps, pcep_event *event);
 static void _format_pcep_message(int ps, struct pcep_message *msg);
 static void _format_pcep_objects(int ps, double_linked_list *objs);
@@ -62,6 +63,7 @@ static void _format_pcep_object_lsp(int psps, struct pcep_object_lsp *obj);
 static void
 _format_pcep_object_ipv4_endpoint(int ps,
 				  struct pcep_object_endpoints_ipv4 *obj);
+static void _format_pcep_object_metric(int ps, struct pcep_object_metric *obj);
 static void _format_pcep_object_ro(int ps, struct pcep_object_ro *obj);
 static void _format_pcep_object_ro_details(int ps,
 					   struct pcep_object_ro_subobj *ro);
@@ -509,6 +511,56 @@ const char *pcep_nai_type_name(enum pcep_sr_subobj_nai nai_type)
 	}
 }
 
+const char *pcep_metric_type_name(enum pcep_metric_types type)
+{
+	switch (type) {
+	case PCEP_METRIC_IGP:
+		return "IGP";
+	case PCEP_METRIC_TE:
+		return "TE";
+	case PCEP_METRIC_HOP_COUNT:
+		return "HOP_COUNT";
+	case PCEP_METRIC_AGGREGATE_BW:
+		return "AGGREGATE_BW";
+	case PCEP_METRIC_MOST_LOADED_LINK:
+		return "MOST_LOADED_LINK";
+	case PCEP_METRIC_CUMULATIVE_IGP:
+		return "CUMULATIVE_IGP";
+	case PCEP_METRIC_CUMULATIVE_TE:
+		return "CUMULATIVE_TE";
+	case PCEP_METRIC_P2MP_IGP:
+		return "P2MP_IGP";
+	case PCEP_METRIC_P2MP_TE:
+		return "P2MP_TE";
+	case PCEP_METRIC_P2MP_HOP_COUNT:
+		return "P2MP_HOP_COUNT";
+	case PCEP_METRIC_SEGMENT_ID_DEPTH:
+		return "SEGMENT_ID_DEPTH";
+	case PCEP_METRIC_PATH_DELAY:
+		return "PATH_DELAY";
+	case PCEP_METRIC_PATH_DELAY_VARIATION:
+		return "PATH_DELAY_VARIATION";
+	case PCEP_METRIC_PATH_LOSS:
+		return "PATH_LOSS";
+	case PCEP_METRIC_P2MP_PATH_DELAY:
+		return "P2MP_PATH_DELAY";
+	case PCEP_METRIC_P2MP_PATH_DELAY_VARIATION:
+		return "P2MP_PATH_DELAY_VARIATION";
+	case PCEP_METRIC_P2MP_PATH_LOSS:
+		return "P2MP_PATH_LOSS";
+	case PCEP_METRIC_NUM_PATH_ADAPTATIONS:
+		return "NUM_PATH_ADAPTATIONS";
+	case PCEP_METRIC_NUM_PATH_LAYERS:
+		return "NUM_PATH_LAYERS";
+	case PCEP_METRIC_DOMAIN_COUNT:
+		return "DOMAIN_COUNT";
+	case PCEP_METRIC_BORDER_NODE_COUNT:
+		return "BORDER_NODE_COUNT";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 const char *format_pcc_opts(struct pcc_opts *opts)
 {
 	PCEP_FORMAT_INIT();
@@ -710,17 +762,36 @@ void _format_path(int ps, struct path *path)
 		PCEP_FORMAT("%*sis_delegated: %u\n", ps2, "",
 			    path->is_delegated);
 
-		if (NULL == path->first) {
-			PCEP_FORMAT("%*shops: []", ps2, "");
+		if (NULL == path->first_hop) {
+			PCEP_FORMAT("%*shops: []\n", ps2, "");
 		} else {
 			PCEP_FORMAT("%*shops: \n", ps2, "");
-			for (struct path_hop *hop = path->first; NULL != hop;
-			     hop = hop->next) {
+			for (struct path_hop *hop = path->first_hop;
+			     NULL != hop; hop = hop->next) {
 				PCEP_FORMAT("%*s- ", ps3 - 2, "");
 				_format_path_hop(ps3, hop);
 			}
 		}
+		if (NULL == path->first_metric) {
+			PCEP_FORMAT("%*smetrics: []\n", ps2, "");
+		} else {
+			PCEP_FORMAT("%*smetrics: \n", ps2, "");
+			for (struct path_metric *metric = path->first_metric;
+			     NULL != metric; metric = metric->next) {
+				PCEP_FORMAT("%*s- ", ps3 - 2, "");
+				_format_path_metric(ps3, metric);
+			}
+		}
 	}
+}
+
+void _format_path_metric(int ps, struct path_metric *metric)
+{
+	PCEP_FORMAT("type: %s (%u)\n", pcep_metric_type_name(metric->type),
+		    metric->type);
+	PCEP_FORMAT("%*sis_bound: %u\n", ps, "", metric->is_bound);
+	PCEP_FORMAT("%*sis_computed: %u\n", ps, "", metric->is_computed);
+	PCEP_FORMAT("%*svalue: %f\n", ps, "", metric->value);
 }
 
 void _format_path_hop(int ps, struct path_hop *hop)
@@ -872,6 +943,10 @@ void _format_pcep_object_details(int ps, struct pcep_object_header *obj)
 	case TUP(PCEP_OBJ_CLASS_ERO, PCEP_OBJ_TYPE_ERO):
 		_format_pcep_object_ro(ps, (struct pcep_object_ro *)obj);
 		break;
+	case TUP(PCEP_OBJ_CLASS_METRIC, PCEP_OBJ_TYPE_METRIC):
+		_format_pcep_object_metric(ps,
+					   (struct pcep_object_metric *)obj);
+		break;
 	default:
 		PCEP_FORMAT("%*s...\n", ps, "");
 		break;
@@ -931,6 +1006,15 @@ void _format_pcep_object_ipv4_endpoint(int ps,
 {
 	PCEP_FORMAT("%*ssrc_ipv4: %pI4\n", ps, "", &obj->src_ipv4);
 	PCEP_FORMAT("%*sdst_ipv4: %pI4\n", ps, "", &obj->dst_ipv4);
+}
+
+void _format_pcep_object_metric(int ps, struct pcep_object_metric *obj)
+{
+	PCEP_FORMAT("%*stype: %s (%u)\n", ps, "",
+		    pcep_metric_type_name(obj->type), obj->type);
+	PCEP_FORMAT("%*sflag_b: %u\n", ps, "", obj->flag_b);
+	PCEP_FORMAT("%*sflag_c: %u\n", ps, "", obj->flag_c);
+	PCEP_FORMAT("%*svalue: %f\n", ps, "", obj->value);
 }
 
 void _format_pcep_object_ro(int ps, struct pcep_object_ro *obj)

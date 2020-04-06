@@ -344,7 +344,8 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	dll_append(objs, lsp);
 	/*   ERO object */
 	ero_objs = dll_initialize();
-	for (struct path_hop *hop = path->first; NULL != hop; hop = hop->next) {
+	for (struct path_hop *hop = path->first_hop; NULL != hop;
+	     hop = hop->next) {
 		uint32_t sid;
 
 		/* Only supporting MPLS hops with both sid and nai */
@@ -387,10 +388,12 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 		return objs;
 	}
 
-	/* OPTIONAL OBJECTS */
+	/* LSPA Object */
 	lspa = pcep_obj_create_lspa(0, 0, 0, 7, 7, true);
 	assert(NULL != lspa);
 	dll_append(objs, lspa);
+
+	/* Bandwidth Objects */
 	bandwidth = pcep_obj_create_bandwidth(0);
 	bandwidth->header.flag_p = true;
 	assert(NULL != bandwidth);
@@ -400,12 +403,15 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	assert(NULL != bandwidth);
 	bandwidth->header.object_type = PCEP_OBJ_TYPE_BANDWIDTH_CISCO;
 	dll_append(objs, bandwidth);
-	metric = pcep_obj_create_metric(PCEP_METRIC_TE, false, false, 0);
-	assert(NULL != metric);
-	dll_append(objs, metric);
-	metric = pcep_obj_create_metric(PCEP_METRIC_DISJOINTNESS, true, false, 16);
-	assert(NULL != metric);
-	dll_append(objs, metric);
+
+	/* Metric Objects */
+	for (struct path_metric *m = path->first_metric; NULL != m;
+	     m = m->next) {
+		metric = pcep_obj_create_metric(m->type, m->is_bound,
+						m->is_computed, m->value);
+		assert(NULL != metric);
+		dll_append(objs, metric);
+	}
 
 	return objs;
 }
@@ -538,7 +544,7 @@ void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero)
 		}
 	}
 
-	path->first = hop;
+	path->first_hop = hop;
 }
 
 struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
