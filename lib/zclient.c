@@ -2961,6 +2961,33 @@ static void zclient_mlag_handle_msg(ZAPI_CALLBACK_ARGS)
 		(*zclient->mlag_handle_msg)(zclient->ibuf, length);
 }
 
+/* Send an OPAQUE message, contents ... opaque. */
+int zclient_send_opaque(struct zclient *zclient, const uint8_t *data,
+			size_t datasize)
+{
+	int ret;
+	struct stream *s;
+
+	/* Check buffer size */
+	if (STREAM_SIZE(zclient->obuf) < (ZEBRA_HEADER_SIZE + datasize))
+		return -1;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
+
+	/* Send opaque data */
+	stream_write(s, data, datasize);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	ret = zclient_send_message(zclient);
+
+	return ret;
+}
+
 /* Zebra client message read function. */
 static int zclient_read(struct thread *thread)
 {
@@ -3266,6 +3293,12 @@ static int zclient_read(struct thread *thread)
 		break;
 	case ZEBRA_ERROR:
 		zclient_handle_error(command, zclient, length, vrf_id);
+		break;
+	case ZEBRA_OPAQUE_MESSAGE:
+		if (zclient->opaque_msg_handler)
+			(*zclient->opaque_msg_handler)(command, zclient, length,
+						       vrf_id);
+		break;
 	default:
 		break;
 	}

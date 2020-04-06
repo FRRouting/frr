@@ -196,7 +196,8 @@ typedef enum {
 	ZEBRA_MLAG_CLIENT_UNREGISTER,
 	ZEBRA_MLAG_FORWARD_MSG,
 	ZEBRA_ERROR,
-	ZEBRA_CLIENT_CAPABILITIES
+	ZEBRA_CLIENT_CAPABILITIES,
+	ZEBRA_OPAQUE_MESSAGE,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -332,6 +333,7 @@ struct zclient {
 	int (*mlag_process_down)(void);
 	int (*mlag_handle_msg)(struct stream *msg, int len);
 	int (*handle_error)(enum zebra_error_types error);
+	int (*opaque_msg_handler)(ZAPI_CALLBACK_ARGS);
 };
 
 /* Zebra API message flag. */
@@ -816,6 +818,10 @@ extern void zclient_send_mlag_deregister(struct zclient *client);
 
 extern void zclient_send_mlag_data(struct zclient *client,
 				   struct stream *client_s);
+
+/* Send an OPAQUE message, contents ... opaque. */
+int zclient_send_opaque(struct zclient *zclient, const uint8_t *data,
+			size_t datasize);
 
 /* Send the hello message.
  * Returns 0 for success or -1 on an I/O error.
