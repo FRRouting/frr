@@ -1925,8 +1925,7 @@ bool subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 	 * benefit from consistent behavior across different BGP
 	 * implementations.
 	 */
-	if (peer->bgp->ebgp_requires_policy
-	    == DEFAULT_EBGP_POLICY_ENABLED)
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY))
 		if (!bgp_outbound_policy_exists(peer, filter))
 			return false;
 
@@ -3413,7 +3412,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 * benefit from consistent behavior across different BGP
 	 * implementations.
 	 */
-	if (peer->bgp->ebgp_requires_policy == DEFAULT_EBGP_POLICY_ENABLED)
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY))
 		if (!bgp_inbound_policy_exists(peer,
 					       &peer->filter[afi][safi])) {
 			reason = "inbound policy missing";
