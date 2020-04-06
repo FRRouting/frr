@@ -564,6 +564,7 @@ void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
 	pbr_nht_uninstall_nexthop_group(pnhgc, *pbrms->nhg, nh_type);
 
 	hash_release(pbr_nhg_hash, pnhgc);
+	pbr_nhgc_delete(pnhgc);
 
 	nexthop_group_delete(&pbrms->nhg);
 	XFREE(MTYPE_TMP, pbrms->internal_nhg_name);
