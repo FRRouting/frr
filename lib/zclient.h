@@ -200,7 +200,10 @@ typedef enum {
 	ZEBRA_MLAG_CLIENT_UNREGISTER,
 	ZEBRA_MLAG_FORWARD_MSG,
 	ZEBRA_ERROR,
-	ZEBRA_CLIENT_CAPABILITIES
+	ZEBRA_CLIENT_CAPABILITIES,
+	ZEBRA_OPAQUE_MESSAGE,
+	ZEBRA_OPAQUE_REGISTER,
+	ZEBRA_OPAQUE_UNREGISTER,
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -339,6 +342,9 @@ struct zclient {
 	int (*mlag_process_down)(void);
 	int (*mlag_handle_msg)(struct stream *msg, int len);
 	int (*handle_error)(enum zebra_error_types error);
+	int (*opaque_msg_handler)(ZAPI_CALLBACK_ARGS);
+	int (*opaque_register_handler)(ZAPI_CALLBACK_ARGS);
+	int (*opaque_unregister_handler)(ZAPI_CALLBACK_ARGS);
 };
 
 /* Zebra API message flag. */
@@ -832,6 +838,44 @@ extern void zclient_send_mlag_deregister(struct zclient *client);
 
 extern void zclient_send_mlag_data(struct zclient *client,
 				   struct stream *client_s);
+
+/*
+ * Send an OPAQUE message, contents opaque to zebra - but note that
+ * the length of the payload is restricted by the zclient's
+ * outgoing message buffer.
+ * The message header is a message subtype; please use the registry
+ * below to avoid sub-type collisions. Clients use the registration
+ * apis to manage the specific opaque subtypes they want to receive.
+ */
+int zclient_send_opaque(struct zclient *zclient, uint32_t type,
+			const uint8_t *data, size_t datasize);
+
+/* Simple struct to convey registration/unreg requests */
+struct zapi_opaque_reg_info {
+	/* Message subtype */
+	uint32_t type;
+
+	/* Client session tuple */
+	uint8_t proto;
+	uint16_t instance;
+	uint32_t session_id;
+};
+
+int zclient_register_opaque(struct zclient *zclient, uint32_t type);
+int zclient_unregister_opaque(struct zclient *zclient, uint32_t type);
+int zapi_parse_opaque_reg(struct stream *msg,
+			  struct zapi_opaque_reg_info *info);
+
+/*
+ * Registry of opaque message types. Please do not reuse an in-use
+ * type code; some daemons are likely relying on it.
+ */
+enum zapi_opaque_registry {
+	/* Request link-state database dump, at restart for example */
+	LINK_STATE_REQUEST = 1,
+	/* Update containing link-state db info */
+	LINK_STATE_UPDATE = 2,
+};
 
 /* Send the hello message.
  * Returns 0 for success or -1 on an I/O error.

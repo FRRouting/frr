@@ -3112,6 +3112,114 @@ static void zclient_mlag_handle_msg(ZAPI_CALLBACK_ARGS)
 		(*zclient->mlag_handle_msg)(zclient->ibuf, length);
 }
 
+/*
+ * Send an OPAQUE message, contents opaque to zebra. The message header
+ * is a message subtype.
+ */
+int zclient_send_opaque(struct zclient *zclient, uint32_t type,
+			const uint8_t *data, size_t datasize)
+{
+	int ret;
+	struct stream *s;
+
+	/* Check buffer size */
+	if (STREAM_SIZE(zclient->obuf) <
+	    (ZEBRA_HEADER_SIZE + sizeof(type) + datasize))
+		return -1;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_MESSAGE, VRF_DEFAULT);
+
+	/* Send sub-type */
+	stream_putl(s, type);
+
+	/* Send opaque data */
+	stream_write(s, data, datasize);
+
+	/* Put length into the header at the start of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	ret = zclient_send_message(zclient);
+
+	return ret;
+}
+
+/*
+ * Send a registration request for opaque messages with a specified subtype.
+ */
+int zclient_register_opaque(struct zclient *zclient, uint32_t type)
+{
+	int ret;
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_REGISTER, VRF_DEFAULT);
+
+	/* Send sub-type */
+	stream_putl(s, type);
+
+	/* Add zclient info */
+	stream_putc(s, zclient->redist_default);
+	stream_putw(s, zclient->instance);
+	stream_putl(s, zclient->session_id);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	ret = zclient_send_message(zclient);
+
+	return ret;
+}
+
+/*
+ * Send an un-registration request for a specified opaque subtype.
+ */
+int zclient_unregister_opaque(struct zclient *zclient, uint32_t type)
+{
+	int ret;
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_OPAQUE_UNREGISTER, VRF_DEFAULT);
+
+	/* Send sub-type */
+	stream_putl(s, type);
+
+	/* Add zclient info */
+	stream_putc(s, zclient->redist_default);
+	stream_putw(s, zclient->instance);
+	stream_putl(s, zclient->session_id);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	ret = zclient_send_message(zclient);
+
+	return ret;
+}
+
+/* Utility to parse opaque registration info */
+int zapi_parse_opaque_reg(struct stream *s,
+			  struct zapi_opaque_reg_info *info)
+{
+	STREAM_GETL(s, info->type);
+	STREAM_GETC(s, info->proto);
+	STREAM_GETW(s, info->instance);
+	STREAM_GETL(s, info->session_id);
+
+	return 0;
+
+stream_failure:
+
+	return -1;
+}
+
 /* Zebra client message read function. */
 static int zclient_read(struct thread *thread)
 {
@@ -3417,6 +3525,22 @@ static int zclient_read(struct thread *thread)
 		break;
 	case ZEBRA_ERROR:
 		zclient_handle_error(command, zclient, length, vrf_id);
+		break;
+	case ZEBRA_OPAQUE_MESSAGE:
+		if (zclient->opaque_msg_handler)
+			(*zclient->opaque_msg_handler)(command, zclient, length,
+						       vrf_id);
+		break;
+	case ZEBRA_OPAQUE_REGISTER:
+		if (zclient->opaque_register_handler)
+			(*zclient->opaque_register_handler)(command, zclient,
+							    length, vrf_id);
+		break;
+	case ZEBRA_OPAQUE_UNREGISTER:
+		if (zclient->opaque_unregister_handler)
+			(*zclient->opaque_unregister_handler)(command, zclient,
+							    length, vrf_id);
+		break;
 	default:
 		break;
 	}
