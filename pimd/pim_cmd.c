@@ -3319,12 +3319,9 @@ static void pim_show_statistics(struct pim_instance *pim, struct vty *vty,
 
 	if (uj) {
 		json = json_object_new_object();
-		json_object_int_add(json, "Number of Received BSMs",
-				    pim->bsm_rcvd);
-		json_object_int_add(json, "Number of Forwared BSMs",
-				    pim->bsm_sent);
-		json_object_int_add(json, "Number of Dropped BSMs",
-				    pim->bsm_dropped);
+		json_object_int_add(json, "bsmRx", pim->bsm_rcvd);
+		json_object_int_add(json, "bsmTx", pim->bsm_sent);
+		json_object_int_add(json, "bsmDropped", pim->bsm_dropped);
 	} else {
 		vty_out(vty, "BSM Statistics :\n");
 		vty_out(vty, "----------------\n");
@@ -3366,15 +3363,13 @@ static void pim_show_statistics(struct pim_instance *pim, struct vty *vty,
 			json_row = json_object_new_object();
 
 			json_object_string_add(json_row, "If Name", ifp->name);
+			json_object_int_add(json_row, "bsmDroppedConfig",
+					    pim_ifp->pim_ifstat_bsm_cfg_miss);
 			json_object_int_add(
-				json_row,
-				"Number of BSMs dropped due to config miss",
-				pim_ifp->pim_ifstat_bsm_cfg_miss);
-			json_object_int_add(
-				json_row, "Number of unicast BSMs dropped",
+				json_row, "bsmDroppedUnicast",
 				pim_ifp->pim_ifstat_ucast_bsm_cfg_miss);
 			json_object_int_add(json_row,
-					    "Number of BSMs dropped due to invalid scope zone",
+					    "bsmDroppedInvalidScopeZone",
 					    pim_ifp->pim_ifstat_bsm_invalid_sz);
 			json_object_object_add(json, ifp->name, json_row);
 		}
@@ -3776,11 +3771,11 @@ static void pim_show_bsr(struct pim_instance *pim,
 		json_object_string_add(json, "bsr", bsr_str);
 		json_object_int_add(json, "priority",
 				    pim->global_scope.current_bsr_prio);
-		json_object_int_add(json, "fragment_tag",
+		json_object_int_add(json, "fragmentTag",
 				    pim->global_scope.bsm_frag_tag);
 		json_object_string_add(json, "state", bsr_state);
 		json_object_string_add(json, "upTime", uptime);
-		json_object_string_add(json, "last_bsm_seen", last_bsm_seen);
+		json_object_string_add(json, "lastBsmSeen", last_bsm_seen);
 	}
 
 	else {
