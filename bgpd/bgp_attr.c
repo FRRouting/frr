@@ -1894,7 +1894,7 @@ bgp_attr_cluster_list(struct bgp_attr_parser_args *args)
 	 * malformed, the UPDATE message SHALL be handled using the approach
 	 * of "treat-as-withdraw".
 	 */
-	if (length % 4) {
+	if (length == 0 || length % 4) {
 		flog_err(EC_BGP_ATTR_LEN, "Bad cluster list length %d", length);
 
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
