@@ -870,6 +870,9 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
+			if (!trp_info)
+				continue;
+
 			/* RP not found for the group grp */
 			if (pim_rpf_addr_is_inaddr_none(&trp_info->rp)) {
 				pim_upstream_rpf_clear(pim, up);
