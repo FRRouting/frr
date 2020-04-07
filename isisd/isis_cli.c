@@ -402,21 +402,7 @@ DEFPY(no_is_type, no_is_type_cmd,
       "Act as both a station router and an area router\n"
       "Act as an area router only\n")
 {
-	const char *value = NULL;
-	struct isis_area *area;
-
-	area = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-
-	/*
-	 * Put the is-type back to defaults:
-	 * - level-1-2 on first area
-	 * - level-1 for the rest
-	 */
-	if (area && listgetdata(listhead(isis->area_list)) == area)
-		value = "level-1-2";
-	else
-		value = NULL;
-	nb_cli_enqueue_change(vty, "./is-type", NB_OP_MODIFY, value);
+	nb_cli_enqueue_change(vty, "./is-type", NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -527,7 +513,7 @@ DEFPY(no_metric_style, no_metric_style_cmd,
       "Send and accept both styles of TLVs during transition\n"
       "Use new style of TLVs to carry wider metric\n")
 {
-	nb_cli_enqueue_change(vty, "./metric-style", NB_OP_MODIFY, "narrow");
+	nb_cli_enqueue_change(vty, "./metric-style", NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
