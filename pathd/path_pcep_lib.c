@@ -37,6 +37,8 @@ static void pcep_lib_parse_open(struct pcep_caps *caps,
 static void pcep_lib_parse_rp(struct path *path, struct pcep_object_rp *rp);
 static void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp *srp);
 static void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp);
+static void pcep_lib_parse_metric(struct path *path,
+                                  struct pcep_object_metric *obj);
 static void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero);
 static struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 					      struct pcep_ro_subobj_sr *sr);
@@ -165,6 +167,7 @@ struct path *pcep_lib_parse_path(struct pcep_message *msg)
 	struct pcep_object_srp *srp = NULL;
 	struct pcep_object_lsp *lsp = NULL;
 	struct pcep_object_ro *ero = NULL;
+	struct pcep_object_metric *metric = NULL;
 
 	path = pcep_new_path();
 
@@ -192,6 +195,10 @@ struct path *pcep_lib_parse_path(struct pcep_message *msg)
 			assert(NULL == ero);
 			ero = (struct pcep_object_ro *)obj;
 			pcep_lib_parse_ero(path, ero);
+			break;
+		case CLASS_TYPE(PCEP_OBJ_CLASS_METRIC, PCEP_OBJ_TYPE_METRIC):
+			metric = (struct pcep_object_metric *)obj;
+			pcep_lib_parse_metric(path, metric);
 			break;
 		default:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_OBJECT,
@@ -518,6 +525,19 @@ void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp)
 			break;
 		}
 	}
+}
+
+void pcep_lib_parse_metric(struct path *path, struct pcep_object_metric *obj)
+{
+	struct path_metric *metric;
+
+	metric = pcep_new_metric();
+	metric->type = obj->type;
+	metric->is_bound = obj->flag_b;
+	metric->is_computed = obj->flag_c;
+	metric->value = obj->value;
+	metric->next = path->first_metric;
+	path->first_metric = metric;
 }
 
 void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero)
