@@ -30,6 +30,7 @@
 #include "zebra/interface.h"
 #include "zebra/connected.h"
 #include "zebra/zebra_router.h"
+#include "zebra/debug.h"
 
 /*
  * XPath: /frr-zebra:zebra/mcast-rpf-lookup
@@ -1021,7 +1022,8 @@ int lib_interface_zebra_ip_addrs_create(enum nb_event event,
 	char buf[PREFIX_STRLEN] = {0};
 
 	ifp = nb_running_get_entry(dnode, NULL, true);
-	// addr_family = yang_dnode_get_enum(dnode, "./address-family");
+	/* TODO: wrapper for identityref */
+	/* addr_family = yang_dnode_get_enum(dnode, "./address-family"); */
 	yang_dnode_get_prefix(&prefix, dnode, "./ip-prefix");
 	apply_mask(&prefix);
 
@@ -1330,7 +1332,6 @@ int lib_vrf_zebra_ribs_rib_create(enum nb_event event,
 				  const struct lyd_node *dnode,
 				  union nb_resource *resource)
 {
-	// uint32_t table_id;
 	struct vrf *vrf;
 	afi_t afi = AFI_IP;
 	safi_t safi = SAFI_UNICAST;
@@ -1340,19 +1341,19 @@ int lib_vrf_zebra_ribs_rib_create(enum nb_event event,
 	vrf = nb_running_get_entry(dnode, NULL, false);
 	zvrf = vrf_info_lookup(vrf->vrf_id);
 
-	// TODO: parse afi-safi-name and table_id
-	// table_id = yang_dnode_get_uint32(dnode, "./table-id");
-	zlog_debug("%s: vrf %s", __PRETTY_FUNCTION__, vrf->name);
+	/* TODO: parse afi-safi-name and table_id
+	   uint32_t table_id;
+	   table_id = yang_dnode_get_uint32(dnode, "./table-id");
+    */
 
 	zrt = zebra_router_find_zrt(zvrf, zvrf->table_id, afi, safi);
-	// table = zebra_vrf_lookup_table_with_table_id(afi, safi, vrf->vrf_id,
-	// zvrf->table_id);
 
 	switch (event) {
 	case NB_EV_VALIDATE:
 		if (!zrt) {
-			zlog_debug("%s: vrf %s table is not found.",
-				   __PRETTY_FUNCTION__, vrf->name);
+			if (IS_ZEBRA_DEBUG_EVENT)
+				zlog_debug("%s: vrf %s table is not found.",
+					   __PRETTY_FUNCTION__, vrf->name);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -1379,7 +1380,9 @@ int lib_vrf_zebra_ribs_rib_destroy(enum nb_event event,
 
 	zrt = nb_running_unset_entry(dnode);
 	if (!zrt) {
-		zlog_debug("%s: zrt is not found", __func__);
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("%s: zrt is not found", __func__);
+
 		return NB_ERR_INCONSISTENCY;
 	}
 

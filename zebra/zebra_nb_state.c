@@ -317,19 +317,14 @@ lib_vrf_zebra_ribs_rib_route_route_entry_get_next(const void *parent_list_entry,
 	struct route_entry *re = (struct route_entry *)list_entry;
 	struct route_node *rn = (struct route_node *)parent_list_entry;
 
-	if (list_entry == NULL) {
+	if (list_entry == NULL)
 		RNODE_FIRST_RE(rn, re);
-		if (re)
-			zlog_debug(
-				"%s: list_entry is null. route_entry is found.",
-				__func__);
-	} else {
+	else
 		RNODE_NEXT_RE(rn, re);
-		if (re) {
-			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s: next route_entry is found.",
-					   __func__);
-		}
+
+	if (re) {
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("%s: next route_entry is found.", __func__);
 	}
 
 	return re;
@@ -713,19 +708,14 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_nh_t
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
 		return yang_data_new_string(xpath, "ifindex");
-		break;
 	case NEXTHOP_TYPE_IPV4:
 		return yang_data_new_string(xpath, "ip4");
-		break;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		return yang_data_new_string(xpath, "ip4-ifindex");
-		break;
 	case NEXTHOP_TYPE_IPV6:
 		return yang_data_new_string(xpath, "ip6");
-		break;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		return yang_data_new_string(xpath, "ip6-ifindex");
-		break;
 	default:
 		break;
 	}
@@ -774,7 +764,6 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_gate
 	case NEXTHOP_TYPE_IFINDEX:
 		/* No addr here */
 		return yang_data_new_string(xpath, "");
-		break;
 	default:
 		break;
 	}
@@ -819,11 +808,11 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_bh_t
 	const char *xpath, const void *list_entry)
 {
 	struct nexthop *nexthop = (struct nexthop *)list_entry;
+	char type_str[PREFIX2STR_BUFFER] = {'\0'};
 
 	if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
 		return NULL;
 
-	char type_str[PREFIX2STR_BUFFER] = {'\0'};
 	switch (nexthop->bh_type) {
 	case BLACKHOLE_NULL:
 		strlcpy(type_str, "null", 12);
@@ -838,6 +827,7 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_bh_t
 		strlcpy(type_str, "unspec", 12);
 		break;
 	}
+
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("%s: type %s ", __func__, type_str);
 
