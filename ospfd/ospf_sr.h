@@ -291,7 +291,7 @@ struct sr_prefix {
 	mpls_label_t label_in;
 
 	/* Back pointer to OSPF Route for remote prefix */
-	struct ospf_route *or;
+	struct ospf_route *route;
 
 	/* NHLFE for local prefix */
 	struct sr_nhlfe nhlfe;
@@ -315,7 +315,8 @@ extern void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa);
 /* Segment Routing configuration functions */
 extern uint32_t get_ext_link_label_value(void);
 extern void ospf_sr_config_write_router(struct vty *vty);
-extern void ospf_sr_update_local_prefix(struct interface *ifp, struct prefix *p);
+extern void ospf_sr_update_local_prefix(struct interface *ifp,
+					struct prefix *p);
 /* Segment Routing re-routing function */
 extern void ospf_sr_update_task(struct ospf *ospf);
 #endif /* _FRR_OSPF_SR_H */

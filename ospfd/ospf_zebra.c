@@ -1351,6 +1351,7 @@ void ospf_zebra_vrf_deregister(struct ospf *ospf)
 		zclient_send_dereg_requests(zclient, ospf->vrf_id);
 	}
 }
+
 static void ospf_zebra_connected(struct zclient *zclient)
 {
 	/* Send the client registration */

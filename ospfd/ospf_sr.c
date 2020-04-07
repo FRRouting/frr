@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <zebra.h>
 
+#include "printfrr.h"
 #include "command.h"
 #include "hash.h"
 #include "if.h"
@@ -166,6 +167,8 @@ static void sr_node_del(struct sr_node *srn)
 	/* Sanity Check */
 	if (srn == NULL)
 		return;
+
+	osr_debug("  |- Delete SR node for %pI4", &srn->adv_router);
 
 	/* Clean Extended Link */
 	list_delete(&srn->ext_link);
@@ -509,20 +512,20 @@ static int compute_prefix_nhlfe(struct sr_prefix *srp)
 
 
 	/* First determine the nexthop */
-	srp->or = get_nexthop_by_addr(top, srp->prefv4);
+	srp->route = get_nexthop_by_addr(top, srp->prefv4);
 
 	/* Nexthop could be not found when OSPF Adjacency just fire up
 	 * because SPF don't yet populate routing table. This NHLFE will
 	 * be fixed later when SR SPF schedule will be called.
 	 */
-	if (srp->or == NULL)
+	if (srp->route == NULL)
 		return rc;
 
 	/* Compute Input Label with self SRGB */
 	srp->label_in = index2label(srp->sid, OspfSR.srgb);
 
 	rc = 0;
-	for (ALL_LIST_ELEMENTS_RO(srp->or->paths, node, path)) {
+	for (ALL_LIST_ELEMENTS_RO(srp->route->paths, node, path)) {
 
 		osr_debug("    |-  Process new route via %pI4 for this prefix",
 			  &path->nexthop);
@@ -548,8 +551,8 @@ static int compute_prefix_nhlfe(struct sr_prefix *srp)
 		 * This is due to the fact that Extended Link / Prefix could
 		 * be received before corresponding Router Information LSA
 		 */
-		if ((srnext == NULL) || (srnext->srgb.lower_bound == 0)
-		    || (srnext->srgb.range_size == 0))
+		if (srnext == NULL || srnext->srgb.lower_bound == 0
+		    || srnext->srgb.range_size == 0)
 			continue;
 
 		osr_debug("    |-  Found SRGB %u/%u for next hop SR-Node %pI4",
@@ -622,14 +625,15 @@ static inline void update_adj_sid(struct sr_nhlfe n1, struct sr_nhlfe n2)
 }
 
 /* Update NHLFE for Prefix SID */
-static void update_prefix_sid (const struct sr_prefix *srp) {
+static void update_prefix_sid(const struct sr_prefix *srp)
+{
 	struct zapi_labels zl;
 	struct zapi_nexthop *znh;
 	struct listnode *node;
 	struct ospf_path *path;
 
-	osr_debug("    |-  Update Labels %u for Prefix %pFX",
-		  srp->label_in, (struct prefix *)&srp->prefv4);
+	osr_debug("    |-  Update Labels %u for Prefix %pFX", srp->label_in,
+		  (struct prefix *)&srp->prefv4);
 
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
@@ -656,11 +660,10 @@ static void update_prefix_sid (const struct sr_prefix *srp) {
 		zl.route.instance = 0;
 
 		/* Check that SRP contains at least one valid path */
-		if ((srp->or == NULL) || (srp->or->paths == NULL)
-		    || (list_isempty(srp->or->paths))) {
+		if (IS_NO_ROUTE(srp)) {
 			return;
 		}
-		for (ALL_LIST_ELEMENTS_RO(srp->or->paths, node, path)) {
+		for (ALL_LIST_ELEMENTS_RO(srp->route->paths, node, path)) {
 			if (path->srni.label_out == MPLS_INVALID_LABEL)
 				continue;
 
@@ -688,8 +691,8 @@ static void delete_prefix_sid(const struct sr_prefix *srp)
 {
 	struct zapi_labels zl;
 
-	osr_debug("    |-  Delete Labels %u for Prefix %pFX",
-		  srp->label_in, (struct prefix *)&srp->prefv4);
+	osr_debug("    |-  Delete Labels %u for Prefix %pFX", srp->label_in,
+		  (struct prefix *)&srp->prefv4);
 
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
@@ -820,8 +823,7 @@ static struct sr_prefix *get_ext_prefix_sid(struct tlv_header *tlvh)
 				srp->sid = GET_LABEL(ntohl(psid->value));
 			else
 				srp->sid = ntohl(psid->value);
-			IPV4_ADDR_COPY(&srp->prefv4.prefix,
-				       &pref->address);
+			IPV4_ADDR_COPY(&srp->prefv4.prefix, &pref->address);
 			srp->prefv4.prefixlen = pref->pref_length;
 			srp->prefv4.family = AF_INET;
 			apply_mask_ipv4(&srp->prefv4);
@@ -876,10 +878,10 @@ static void update_ext_link_sid(struct sr_node *srn, struct sr_link *srl,
 
 	osr_debug("  |-  Process Extended Link Adj/Lan-SID");
 
-	/* Process only Local Adj/Lan_Adj SID coming from LSA SELF */
-	if (!CHECK_FLAG(srl->flags[0], EXT_SUBTLV_LINK_ADJ_SID_LFLG)
-	    || !CHECK_FLAG(srl->flags[1], EXT_SUBTLV_LINK_ADJ_SID_LFLG)
-	    || !CHECK_FLAG(lsa_flags, OSPF_LSA_SELF))
+	/* Skip Local Adj/Lan_Adj SID coming from neighbors */
+	if (!CHECK_FLAG(lsa_flags, OSPF_LSA_SELF)
+	    && (CHECK_FLAG(srl->flags[0], EXT_SUBTLV_LINK_ADJ_SID_LFLG)
+		|| CHECK_FLAG(srl->flags[1], EXT_SUBTLV_LINK_ADJ_SID_LFLG)))
 		return;
 
 	/* Search for existing Segment Link */
@@ -1039,16 +1041,17 @@ static void update_out_nhlfe(struct hash_bucket *bucket, void *args)
 
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_prefix, node, srp)) {
 		/* Process only SID Index with valid route */
-		if (srp->or == NULL)
+		if (srp->route == NULL)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(srp->or->paths, pnode, path)) {
+		for (ALL_LIST_ELEMENTS_RO(srp->route->paths, pnode, path)) {
 			/* Process only SID Index for next hop without PHP */
 			if ((path->srni.nexthop == NULL)
 			    && (!CHECK_FLAG(srp->flags,
 					    EXT_SUBTLV_PREFIX_SID_NPFLG)))
 				continue;
-			path->srni.label_out = index2label(srp->sid, srnext->srgb);
+			path->srni.label_out =
+				index2label(srp->sid, srnext->srgb);
 			update_prefix_sid(srp);
 		}
 	}
@@ -1067,10 +1070,11 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	struct sr_node *srn;
 	struct tlv_header *tlvh;
 	struct lsa_header *lsah = lsa->data;
-	struct ri_sr_tlv_sid_label_range *ri_srgb;
-	struct ri_sr_tlv_sr_algorithm *algo;
+	struct ri_sr_tlv_sid_label_range *ri_srgb = NULL;
+	struct ri_sr_tlv_sr_algorithm *algo = NULL;
 	struct sr_srgb srgb;
 	uint16_t length = 0, sum = 0;
+	uint8_t msd = 0;
 
 	osr_debug("SR (%s): Process Router Information LSA 4.0.0.%u from %pI4",
 		  __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
@@ -1086,26 +1090,10 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 		return;
 	}
 
-	/* Get SR Node in hash table from Router ID */
-	srn = hash_get(OspfSR.neighbors, (void *)&(lsah->adv_router),
-		       (void *)sr_node_new);
+	/* Search SR Node in hash table from Router ID */
+	srn = (struct sr_node *)hash_lookup(OspfSR.neighbors,
+					    &lsah->adv_router);
 
-	/* Sanity check */
-	if (srn == NULL) {
-		flog_err(EC_OSPF_SR_NODE_CREATE,
-			 "SR (%s): Abort! can't create SR node in hash table",
-			 __func__);
-		return;
-	}
-
-	if ((srn->instance != 0) && (srn->instance != ntohl(lsah->id.s_addr))) {
-		flog_err(EC_OSPF_SR_INVALID_LSA_ID,
-			 "SR (%s): Abort! Wrong "
-			 "LSA ID 4.0.0.%u for SR node %s/%u",
-			 __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
-			 inet_ntoa(lsah->adv_router), srn->instance);
-		return;
-	}
 
 	/* Collect Router Information Sub TLVs */
 	/* Initialize TLV browsing */
@@ -1118,23 +1106,14 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 		switch (ntohs(tlvh->type)) {
 		case RI_SR_TLV_SR_ALGORITHM:
 			algo = (struct ri_sr_tlv_sr_algorithm *)tlvh;
-			int i;
-
-			for (i = 0; i < ntohs(algo->header.length); i++)
-				srn->algo[i] = algo->value[0];
-			for (; i < ALGORITHM_COUNT; i++)
-				srn->algo[i] = SR_ALGORITHM_UNSET;
 			sum += TLV_SIZE(tlvh);
 			break;
 		case RI_SR_TLV_SID_LABEL_RANGE:
 			ri_srgb = (struct ri_sr_tlv_sid_label_range *)tlvh;
-			srgb.range_size = GET_RANGE_SIZE(ntohl(ri_srgb->size));
-			srgb.lower_bound =
-				GET_LABEL(ntohl(ri_srgb->lower.value));
 			sum += TLV_SIZE(tlvh);
 			break;
 		case RI_SR_TLV_NODE_MSD:
-			srn->msd = ((struct ri_sr_tlv_node_msd *)(tlvh))->value;
+			msd = ((struct ri_sr_tlv_node_msd *)(tlvh))->value;
 			sum += TLV_SIZE(tlvh);
 			break;
 		default:
@@ -1143,38 +1122,82 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 		}
 	}
 
-	/* Check that we collect mandatory parameters */
-	if (srn->algo[0] == SR_ALGORITHM_UNSET || srgb.range_size == 0
-	    || srgb.lower_bound == 0) {
-		flog_err(EC_OSPF_SR_NODE_CREATE,
-			 "SR (%s): Missing mandatory parameters. Abort!",
-			 __func__);
-		hash_release(OspfSR.neighbors, &(srn->adv_router));
-		XFREE(MTYPE_OSPF_SR_PARAMS, srn);
+	/* Check if Segment Routing Capabilities has been found */
+	if (ri_srgb == NULL) {
+		/* Skip Router Information without SR capabilities
+		 * advertise by a non SR Node */
+		if (srn == NULL) {
+			return;
+		} else {
+			/* Remove SR Node that advertise Router Information
+			 * without SR capabilities. This could correspond to a
+			 * Node stopping Segment Routing */
+			hash_release(OspfSR.neighbors, &(srn->adv_router));
+			sr_node_del(srn);
+			return;
+		}
+	}
+
+	/* Check that RI LSA belongs to the correct SR Node */
+	if ((srn != NULL) && (srn->instance != 0)
+	    && (srn->instance != ntohl(lsah->id.s_addr))) {
+		flog_err(EC_OSPF_SR_INVALID_LSA_ID,
+			 "SR (%s): Abort! Wrong "
+			 "LSA ID 4.0.0.%u for SR node %pI4/%u",
+			 __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
+			 &lsah->adv_router, srn->instance);
 		return;
 	}
 
+	/* OK. All things look good. Get SRGB */
+	srgb.range_size = GET_RANGE_SIZE(ntohl(ri_srgb->size));
+	srgb.lower_bound = GET_LABEL(ntohl(ri_srgb->lower.value));
+
 	/* Check if it is a new SR Node or not */
-	if (srn->instance == 0) {
+	if (srn == NULL) {
+		/* Get a new SR Node in hash table from Router ID */
+		srn = (struct sr_node *)hash_get(OspfSR.neighbors,
+						 &lsah->adv_router,
+						 (void *)sr_node_new);
+		/* Sanity check */
+		if (srn == NULL) {
+			flog_err(
+				EC_OSPF_SR_NODE_CREATE,
+				"SR (%s): Abort! can't create SR node in hash table",
+				__func__);
+			return;
+		}
 		/* update LSA ID */
 		srn->instance = ntohl(lsah->id.s_addr);
 		/* Copy SRGB */
 		srn->srgb.range_size = srgb.range_size;
 		srn->srgb.lower_bound = srgb.lower_bound;
+		/* Set Algorithm */
+		if (algo != NULL) {
+			int i;
+			for (i = 0; i < ntohs(algo->header.length); i++)
+				srn->algo[i] = algo->value[0];
+			for (; i < ALGORITHM_COUNT; i++)
+				srn->algo[i] = SR_ALGORITHM_UNSET;
+		} else {
+			srn->algo[0] = SR_ALGORITHM_SPF;
+		}
+		/* set MSD */
+		srn->msd = msd;
+		return;
 	}
 
 	/* Check if SRGB has changed */
-	if ((srn->srgb.range_size != srgb.range_size)
-	    || (srn->srgb.lower_bound != srgb.lower_bound)) {
-		srn->srgb.range_size = srgb.range_size;
-		srn->srgb.lower_bound = srgb.lower_bound;
-		/* Update NHLFE if it is a neighbor SR node */
-		if (srn->neighbor == OspfSR.self)
-			hash_iterate(OspfSR.neighbors,
-				     (void (*)(struct hash_bucket *,
-					       void *))update_out_nhlfe,
-				     (void *)srn);
-	}
+	if ((srn->srgb.range_size == srgb.range_size)
+	    && (srn->srgb.lower_bound == srgb.lower_bound))
+		return;
+
+	/* Update SRGB ... */
+	srn->srgb.range_size = srgb.range_size;
+	srn->srgb.lower_bound = srgb.lower_bound;
+	/* ... and NHLFE if it is a neighbor SR node */
+	if (srn->neighbor == OspfSR.self)
+		hash_iterate(OspfSR.neighbors, update_out_nhlfe, srn);
 }
 
 /*
@@ -1186,9 +1209,8 @@ void ospf_sr_ri_lsa_delete(struct ospf_lsa *lsa)
 	struct sr_node *srn;
 	struct lsa_header *lsah = lsa->data;
 
-	osr_debug("SR (%s): Remove SR node %pI4 from lsa_id 4.0.0.%u",
-		  __func__, &lsah->adv_router,
-		  GET_OPAQUE_ID(ntohl(lsah->id.s_addr)));
+	osr_debug("SR (%s): Remove SR node %pI4 from lsa_id 4.0.0.%u", __func__,
+		  &lsah->adv_router, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)));
 
 	/* Sanity check */
 	if (OspfSR.neighbors == NULL) {
@@ -1203,16 +1225,17 @@ void ospf_sr_ri_lsa_delete(struct ospf_lsa *lsa)
 	/* Sanity check */
 	if (srn == NULL) {
 		flog_err(EC_OSPF_SR_NODE_CREATE,
-			 "SR (%s): Abort! no entry in SRDB for SR Node %s",
-			 __func__, inet_ntoa(lsah->adv_router));
+			 "SR (%s): Abort! no entry in SRDB for SR Node %pI4",
+			 __func__, &lsah->adv_router);
 		return;
 	}
 
 	if ((srn->instance != 0) && (srn->instance != ntohl(lsah->id.s_addr))) {
-		flog_err(EC_OSPF_SR_INVALID_LSA_ID,
-			 "SR (%s): Abort! Wrong LSA ID 4.0.0.%u for SR node %s",
-			 __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
-			 inet_ntoa(lsah->adv_router));
+		flog_err(
+			EC_OSPF_SR_INVALID_LSA_ID,
+			"SR (%s): Abort! Wrong LSA ID 4.0.0.%u for SR node %pI4",
+			__func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
+			&lsah->adv_router);
 		return;
 	}
 
@@ -1278,7 +1301,7 @@ void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa)
 	struct listnode *node;
 	struct sr_link *srl;
 	struct sr_node *srn;
-	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
+	struct lsa_header *lsah = lsa->data;
 	uint32_t instance = ntohl(lsah->id.s_addr);
 
 	osr_debug("SR (%s): Remove Extended Link LSA 8.0.0.%u from %pI4",
@@ -1302,8 +1325,8 @@ void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa)
 	 */
 	if (srn == NULL) {
 		flog_err(EC_OSPF_SR_INVALID_DB,
-			 "SR (%s): Stop! no entry in SRDB for SR Node %s",
-			 __func__, inet_ntoa(lsah->adv_router));
+			 "SR (%s): Stop! no entry in SRDB for SR Node %pI4",
+			 __func__, &lsah->adv_router);
 		return;
 	}
 
@@ -1312,18 +1335,13 @@ void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa)
 		if (srl->instance == instance)
 			break;
 
-	/* Remove Segment Link if found */
+	/* Remove Segment Link if found. Note that for Neighbors, only Global
+	 * Adj/Lan-Adj SID are stored in the SR-DB */
 	if ((srl != NULL) && (srl->instance == instance)) {
 		del_adj_sid(srl->nhlfe[0]);
 		del_adj_sid(srl->nhlfe[1]);
 		listnode_delete(srn->ext_link, srl);
 		XFREE(MTYPE_OSPF_SR_PARAMS, srl);
-	} else {
-		flog_err(EC_OSPF_SR_INVALID_DB,
-			 "SR (%s): Didn't found corresponding SR Link 8.0.0.%u "
-			 "for SR Node %s",
-			 __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
-			 inet_ntoa(lsah->adv_router));
 	}
 }
 
@@ -1332,7 +1350,7 @@ void ospf_sr_ext_prefix_lsa_update(struct ospf_lsa *lsa)
 {
 	struct sr_node *srn;
 	struct tlv_header *tlvh;
-	struct lsa_header *lsah = lsa->data;
+	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
 	struct sr_prefix *srp;
 
 	uint16_t length, sum;
@@ -1409,12 +1427,12 @@ void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa)
 	 */
 	if (srn == NULL) {
 		flog_err(EC_OSPF_SR_INVALID_DB,
-			 "SR (%s):  Stop! no entry in SRDB for SR Node %s",
-			 __func__, inet_ntoa(lsah->adv_router));
+			 "SR (%s):  Stop! no entry in SRDB for SR Node %pI4",
+			 __func__, &lsah->adv_router);
 		return;
 	}
 
-	/* Search for corresponding Segment Link */
+	/* Search for corresponding Segment Prefix */
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_prefix, node, srp))
 		if (srp->instance == instance)
 			break;
@@ -1427,9 +1445,9 @@ void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa)
 	} else {
 		flog_err(
 			EC_OSPF_SR_INVALID_DB,
-			"SR (%s): Didn't found corresponding SR Prefix 7.0.0.%u for SR Node %s",
+			"SR (%s): Didn't found corresponding SR Prefix 7.0.0.%u for SR Node %pI4",
 			__func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
-			inet_ntoa(lsah->adv_router));
+			&lsah->adv_router);
 	}
 }
 
@@ -1469,8 +1487,7 @@ void ospf_sr_update_local_prefix(struct interface *ifp, struct prefix *p)
 	 */
 	for (ALL_LIST_ELEMENTS_RO(OspfSR.self->ext_prefix, node, srp)) {
 		if ((srp->nhlfe.ifindex == ifp->ifindex)
-		    || ((IPV4_ADDR_SAME(&srp->prefv4.prefix,
-					&p->u.prefix4))
+		    || ((IPV4_ADDR_SAME(&srp->prefv4.prefix, &p->u.prefix4))
 			&& (srp->prefv4.prefixlen == p->prefixlen))) {
 
 			/* Update Interface & Prefix info */
@@ -1484,14 +1501,15 @@ void ospf_sr_update_local_prefix(struct interface *ifp, struct prefix *p)
 			srp->instance = ospf_ext_schedule_prefix_index(
 				ifp, srp->sid, &srp->prefv4, srp->flags);
 
-			osr_debug("  |-  Update Node SID %pFX - %u for self SR Node",
-				  (struct prefix *)&srp->prefv4, srp->sid);
+			osr_debug(
+				"  |-  Update Node SID %pFX - %u for self SR Node",
+				(struct prefix *)&srp->prefv4, srp->sid);
 
 			/* Install NHLFE if NO-PHP is requested */
 			if (CHECK_FLAG(srp->flags,
 				       EXT_SUBTLV_PREFIX_SID_NPFLG)) {
-				srp->label_in = index2label(
-					srp->sid, OspfSR.self->srgb);
+				srp->label_in = index2label(srp->sid,
+							    OspfSR.self->srgb);
 				srp->nhlfe.label_out = MPLS_LABEL_IMPLICIT_NULL;
 				update_prefix_sid(srp);
 			}
@@ -1567,7 +1585,7 @@ void ospf_sr_update_task(struct ospf *ospf)
 
 	osr_debug("SR (%s): SPF Processing Time(usecs): %lld", __func__,
 		  (stop_time.tv_sec - start_time.tv_sec) * 1000000LL
-		  + (stop_time.tv_usec - start_time.tv_usec));
+			  + (stop_time.tv_usec - start_time.tv_usec));
 }
 
 /*
@@ -1913,8 +1931,8 @@ DEFUN (sr_prefix_sid,
 		new->nhlfe.label_out = MPLS_LABEL_IMPLICIT_NULL;
 	}
 
-	osr_debug("SR (%s): Add new index %u to Prefix %pFX", __func__,
-		  index, (struct prefix *)&new->prefv4);
+	osr_debug("SR (%s): Add new index %u to Prefix %pFX", __func__, index,
+		  (struct prefix *)&new->prefv4);
 
 	/* Get Interface and check if it is a Loopback */
 	ifp = if_lookup_prefix(&p, VRF_DEFAULT);
@@ -1928,7 +1946,8 @@ DEFUN (sr_prefix_sid,
 		listnode_add(OspfSR.self->ext_prefix, new);
 		zlog_info(
 			"Interface for prefix %pFX not found. Deferred LSA "
-			"flooding", &p);
+			"flooding",
+			&p);
 		return CMD_SUCCESS;
 	}
 
@@ -2078,8 +2097,7 @@ static void show_sr_prefix(struct sbuf *sbuf, struct json_object *json,
 	char op[32];
 	int indent = 0;
 
-	snprintf(pref, 19, "%s/%u", inet_ntoa(srp->prefv4.prefix),
-		 srp->prefv4.prefixlen);
+	snprintfrr(pref, 19, "%pFX", (struct prefix *)&srp->prefv4);
 	snprintf(sid, 22, "SR Pfx (idx %u)", srp->sid);
 	if (json) {
 		json_object_string_add(json, "prefix", pref);
@@ -2108,16 +2126,16 @@ static void show_sr_prefix(struct sbuf *sbuf, struct json_object *json,
 			json_object_array_add(json_route, json_obj);
 		} else {
 			sbuf_push(sbuf, 0, "%20s  %9s  %15s\n",
-				sr_op2str(op, 32, srp->label_in,
-					  srp->nhlfe.label_out),
-				itf ? itf->name : "-",
-				inet_ntoa(srp->nhlfe.nexthop));
+				  sr_op2str(op, 32, srp->label_in,
+					    srp->nhlfe.label_out),
+				  itf ? itf->name : "-",
+				  inet_ntoa(srp->nhlfe.nexthop));
 		}
 		return;
 	}
 
 	/* Check if we have a valid path for this prefix */
-	if (srp->or == NULL) {
+	if (srp->route == NULL) {
 		if (!json) {
 			sbuf_push(sbuf, 0, "\n");
 		}
@@ -2125,17 +2143,17 @@ static void show_sr_prefix(struct sbuf *sbuf, struct json_object *json,
 	}
 
 	/* Process list of OSPF paths */
-	for (ALL_LIST_ELEMENTS_RO(srp->or->paths, node, path)) {
+	for (ALL_LIST_ELEMENTS_RO(srp->route->paths, node, path)) {
 		itf = if_lookup_by_index(path->ifindex, VRF_DEFAULT);
 		if (json) {
 			if (!json_route) {
 				json_route = json_object_new_array();
 				json_object_object_add(json, "prefixRoute",
-					json_route);
+						       json_route);
 			}
 			json_obj = json_object_new_object();
 			json_object_int_add(json_obj, "outputLabel",
-					path->srni.label_out);
+					    path->srni.label_out);
 			json_object_string_add(json_obj, "interface",
 					       itf ? itf->name : "-");
 			json_object_string_add(json_obj, "nexthop",
@@ -2143,10 +2161,10 @@ static void show_sr_prefix(struct sbuf *sbuf, struct json_object *json,
 			json_object_array_add(json_route, json_obj);
 		} else {
 			sbuf_push(sbuf, indent, "%20s  %9s  %15s\n",
-				sr_op2str(op, 32, srp->label_in,
-					  path->srni.label_out),
-				itf ? itf->name : "-",
-				inet_ntoa(path->nexthop));
+				  sr_op2str(op, 32, srp->label_in,
+					    path->srni.label_out),
+				  itf ? itf->name : "-",
+				  inet_ntoa(path->nexthop));
 			/* Offset to align information for ECMP */
 			indent = 43;
 		}
@@ -2202,15 +2220,15 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 	} else {
 		sbuf_push(&sbuf, 0, "SR-Node: %s", inet_ntoa(srn->adv_router));
 		sbuf_push(&sbuf, 0, "\tSRGB (Size/Label): %u/%u",
-			srn->srgb.range_size, srn->srgb.lower_bound);
+			  srn->srgb.range_size, srn->srgb.lower_bound);
 		sbuf_push(&sbuf, 0, "\tAlgorithm(s): %s",
-			srn->algo[0] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF");
+			  srn->algo[0] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF");
 		for (int i = 1; i < ALGORITHM_COUNT; i++) {
 			if (srn->algo[i] == SR_ALGORITHM_UNSET)
 				continue;
 			sbuf_push(&sbuf, 0, "/%s",
-				srn->algo[i] == SR_ALGORITHM_SPF ? "SPF"
-								 : "S-SPF");
+				  srn->algo[i] == SR_ALGORITHM_SPF ? "SPF"
+								   : "S-SPF");
 		}
 		if (srn->msd != 0)
 			sbuf_push(&sbuf, 0, "\tMSD: %u", srn->msd);
@@ -2218,12 +2236,11 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 
 	if (!json) {
 		sbuf_push(&sbuf, 0,
-			"\n\n    Prefix or Link       Node or Adj. SID  "
-			"     Label Operation  Interface          Nexthop\n");
-		sbuf_push(
-			&sbuf, 0,
-			"------------------  ---------------------  "
-			"--------------------  ---------  ---------------\n");
+			  "\n\n    Prefix or Link       Node or Adj. SID  "
+			  "     Label Operation  Interface          Nexthop\n");
+		sbuf_push(&sbuf, 0,
+			  "------------------  ---------------------  "
+			  "--------------------  ---------  ---------------\n");
 	}
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_prefix, node, srp)) {
 		if (json) {
@@ -2242,7 +2259,7 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_link, node, srl)) {
-		snprintf(pref, 19, "%s/32", inet_ntoa(srl->itf_addr));
+		snprintfrr(pref, 19, "%pI4/32", &srl->itf_addr);
 		snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[0]);
 		itf = if_lookup_by_index(srl->nhlfe[0].ifindex, VRF_DEFAULT);
 		if (json) {
@@ -2282,18 +2299,18 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 			json_object_array_add(json_link, json_obj);
 		} else {
 			sbuf_push(&sbuf, 0, "%18s  %21s  %20s  %9s  %15s\n",
-				pref, sid, sr_op2str(op, 32,
-					srl->nhlfe[0].label_in,
-					srl->nhlfe[0].label_out),
-				itf ? itf->name : "-",
-				inet_ntoa(srl->nhlfe[0].nexthop));
+				  pref, sid,
+				  sr_op2str(op, 32, srl->nhlfe[0].label_in,
+					    srl->nhlfe[0].label_out),
+				  itf ? itf->name : "-",
+				  inet_ntoa(srl->nhlfe[0].nexthop));
 			snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[1]);
 			sbuf_push(&sbuf, 0, "%18s  %21s  %20s  %9s  %15s\n",
-				pref, sid, sr_op2str(op, 32,
-					srl->nhlfe[1].label_in,
-					srl->nhlfe[1].label_out),
-				itf ? itf->name : "-",
-				inet_ntoa(srl->nhlfe[1].nexthop));
+				  pref, sid,
+				  sr_op2str(op, 32, srl->nhlfe[1].label_in,
+					    srl->nhlfe[1].label_out),
+				  itf ? itf->name : "-",
+				  inet_ntoa(srl->nhlfe[1].nexthop));
 		}
 	}
 	if (json)
