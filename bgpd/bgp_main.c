@@ -38,7 +38,7 @@
 #include "stream.h"
 #include "queue.h"
 #include "vrf.h"
-#include "bfd.h"
+#include "lib/bfd.h"
 #include "libfrr.h"
 #include "ns.h"
 

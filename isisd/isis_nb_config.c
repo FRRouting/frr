@@ -25,7 +25,7 @@
 #include "northbound.h"
 #include "linklist.h"
 #include "log.h"
-#include "bfd.h"
+#include "lib/bfd.h"
 #include "spf_backoff.h"
 #include "lib_errors.h"
 #include "vrf.h"

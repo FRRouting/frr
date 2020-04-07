@@ -38,7 +38,7 @@
 #include "workqueue.h"
 #include "queue.h"
 #include "zclient.h"
-#include "bfd.h"
+#include "lib/bfd.h"
 #include "hash.h"
 #include "jhash.h"
 #include "table.h"

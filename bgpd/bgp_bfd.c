@@ -30,7 +30,7 @@
 #include "buffer.h"
 #include "stream.h"
 #include "zclient.h"
-#include "bfd.h"
+#include "lib/bfd.h"
 #include "lib/json.h"
 #include "filter.h"
 

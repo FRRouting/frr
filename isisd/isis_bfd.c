@@ -20,7 +20,7 @@
 
 #include "zclient.h"
 #include "nexthop.h"
-#include "bfd.h"
+#include "lib/bfd.h"
 #include "lib_errors.h"
 
 #include "isisd/isis_bfd.h"
