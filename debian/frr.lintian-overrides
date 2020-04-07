@@ -6,5 +6,8 @@ frr binary: spelling-error-in-binary usr/lib/frr/zebra writen written
 frr binary: spelling-error-in-binary usr/lib/frr/pimd writen written
 frr binary: spelling-error-in-binary usr/lib/frr/pimd iif if
 
+# prefixed man pages for off-PATH daemons
+manpage-without-executable
+
 # personal name
 spelling-error-in-copyright Ang And

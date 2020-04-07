@@ -52,31 +52,6 @@ used.  This option should only be used for systems that do not have systemd,
 e.g. Ubuntu 14.04.
 
 
-* Why has SNMP support been disabled?
-=====================================
-FRR used to link against the NetSNMP libraries to provide SNMP
-support. Those libraries sadly link against the OpenSSL libraries
-to provide crypto support for SNMPv3 among others.
-OpenSSL now is not compatible with the GNU GENERAL PUBLIC LICENSE (GPL)
-licence that FRR is distributed under. For more explanation read:
-  http://www.gnome.org/~markmc/openssl-and-the-gpl.html
-  http://www.gnu.org/licenses/gpl-faq.html#GPLIncompatibleLibs
-Updating the licence to explicitly allow linking against OpenSSL
-would requite the affirmation of all people that ever contributed
-a significant part to Zebra / Quagga or FRR and thus are the collective
-"copyright holder". That's too much work. Using a shrinked down 
-version of NetSNMP without OpenSSL or convincing the NetSNMP people
-to change to GnuTLS are maybe good solutions but not reachable
-during the last days before the Sarge release :-(
-
-        *BUT*
-
-It is allowed by the used licence mix that you fetch the sources and
-build FRR yourself with SNMP with
-        # apt-get -b source -Ppkg.frr.snmp frr
-Just distributing it in binary form, linked against OpenSSL, is forbidden.
-
-
 * Debian Policy compliance notes
 ================================
 
