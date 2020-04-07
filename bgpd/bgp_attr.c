@@ -1832,7 +1832,8 @@ bgp_attr_community(struct bgp_attr_parser_args *args)
 
 	if (length == 0) {
 		attr->community = NULL;
-		return BGP_ATTR_PARSE_PROCEED;
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+					  args->total);
 	}
 
 	attr->community =
@@ -2173,7 +2174,8 @@ bgp_attr_large_community(struct bgp_attr_parser_args *args)
 	if (length == 0) {
 		attr->lcommunity = NULL;
 		/* Empty extcomm doesn't seem to be invalid per se */
-		return BGP_ATTR_PARSE_PROCEED;
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+					  args->total);
 	}
 
 	attr->lcommunity =
@@ -2202,7 +2204,8 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	if (length == 0) {
 		attr->ecommunity = NULL;
 		/* Empty extcomm doesn't seem to be invalid per se */
-		return BGP_ATTR_PARSE_PROCEED;
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+					  args->total);
 	}
 
 	attr->ecommunity =
