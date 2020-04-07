@@ -483,6 +483,36 @@ DEFPY(no_te_path_sr_policy_candidate_path,
 				    preference_str);
 }
 
+static const char *metric_type_name(enum srte_candidate_metric_type type)
+{
+	switch (type) {
+	case SRTE_CANDIDATE_METRIC_TYPE_ABC:
+		return "abc";
+	case SRTE_CANDIDATE_METRIC_TYPE_TE:
+		return "te";
+	default:
+		return NULL;
+	}
+}
+
+static int config_write_metric(const struct lyd_node *dnode, void *arg)
+{
+	struct vty *vty = arg;
+	enum srte_candidate_metric_type type;
+	bool is_bound = false;
+	float value;
+
+	type = yang_dnode_get_enum(dnode, "./type");
+	value = (float)yang_dnode_get_dec64(dnode, "./value");
+	if (yang_dnode_exists(dnode, "./is-bound"))
+		is_bound = yang_dnode_get_bool(dnode, "./is-bound");
+
+	vty_out(vty, " %s%s %f", is_bound ? "bound " : "",
+		metric_type_name(type), value);
+
+	return YANG_ITER_CONTINUE;
+}
+
 void cli_show_te_path_sr_policy_candidate_path(struct vty *vty,
 					       struct lyd_node *dnode,
 					       bool show_defaults)
@@ -495,6 +525,10 @@ void cli_show_te_path_sr_policy_candidate_path(struct vty *vty,
 	if (strmatch(type, "explicit"))
 		vty_out(vty, " segment-list %s",
 			yang_dnode_get_string(dnode, "./segment-list-name"));
+	if (yang_dnode_exists(dnode, "./metrics"))
+		vty_out(vty, " metrics");
+	yang_dnode_iterate(config_write_metric, vty, dnode, "./metrics");
+
 	vty_out(vty, "\n");
 }
 
