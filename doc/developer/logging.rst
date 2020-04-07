@@ -251,8 +251,12 @@ message buffers in order to improve logging performance.  The following rules
 apply for this buffering:
 
 * Only messages of priority *DEBUG* or *INFO* are buffered.
-* Any higher-priority message causes the entire buffer to be flushed, thus
-  message ordering is preserved properly.
+* Any higher-priority message causes the thread's entire buffer to be flushed,
+  thus message ordering is preserved on a per-thread level.
+* There is no guarantee on ordering between different threads;  in most cases
+  this is arbitrary to begin with since the threads essentially race each
+  other in printing log messages.  If an order is established with some
+  synchronization primitive, add calls to :c:func:`zlog_tls_buffer_flush()`.
 * The buffers are only ever accessed by the thread they are created by.  This
   means no locking is necessary.
 
