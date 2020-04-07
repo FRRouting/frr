@@ -11594,8 +11594,8 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 	struct bgp_table *table;
 	struct bgp_adj_in *ain;
 	struct bgp_adj_out *adj;
-	unsigned long output_count;
-	unsigned long filtered_count;
+	unsigned long output_count = 0;
+	unsigned long filtered_count = 0;
 	struct bgp_node *rn;
 	int header1 = 1;
 	struct bgp *bgp;
@@ -11885,6 +11885,12 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
 					     json, JSON_C_TO_STRING_PRETTY));
+
+		if (!output_count && !filtered_count) {
+			json_object_free(json_scode);
+			json_object_free(json_ocode);
+		}
+
 		json_object_free(json);
 	} else if (output_count > 0) {
 		if (filtered_count > 0)

@@ -12192,13 +12192,19 @@ static int bgp_show_neighbor_graceful_restart(struct vty *vty, struct bgp *bgp,
 					      enum show_type type,
 					      union sockunion *su,
 					      const char *conf_if, afi_t afi,
-					      bool use_json, json_object *json)
+					      bool use_json)
 {
 	struct listnode *node, *nnode;
 	struct peer *peer;
 	int find = 0;
 	safi_t safi = SAFI_UNICAST;
+	json_object *json = NULL;
 	json_object *json_neighbor = NULL;
+
+	if (use_json) {
+		json = json_object_new_object();
+		json_neighbor = json_object_new_object();
+	}
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 
@@ -12208,16 +12214,15 @@ static int bgp_show_neighbor_graceful_restart(struct vty *vty, struct bgp *bgp,
 		if ((peer->afc[afi][safi]) == 0)
 			continue;
 
-		if (use_json)
-			json_neighbor = json_object_new_object();
-
 		if (type == show_all) {
 			bgp_show_peer_gr_status(vty, peer, use_json,
 						json_neighbor);
 
-			if (use_json)
+			if (use_json) {
 				json_object_object_add(json, peer->host,
 						       json_neighbor);
+				json_neighbor = NULL;
+			}
 
 		} else if (type == show_peer) {
 			if (conf_if) {
@@ -12243,8 +12248,10 @@ static int bgp_show_neighbor_graceful_restart(struct vty *vty, struct bgp *bgp,
 						       json_neighbor);
 		}
 
-		if (find)
+		if (find) {
+			json_neighbor = NULL;
 			break;
+		}
 	}
 
 	if (type == show_peer && !find) {
@@ -12257,6 +12264,10 @@ static int bgp_show_neighbor_graceful_restart(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "%s\n",
 			json_object_to_json_string_ext(
 				json, JSON_C_TO_STRING_PRETTY));
+
+		if (json_neighbor)
+			json_object_free(json_neighbor);
+		json_object_free(json);
 	} else {
 		vty_out(vty, "\n");
 	}
@@ -12378,7 +12389,6 @@ static void bgp_show_neighbor_graceful_restart_vty(struct vty *vty,
 	int ret;
 	struct bgp *bgp;
 	union sockunion su;
-	json_object *json = NULL;
 
 	bgp = bgp_get_default();
 
@@ -12389,20 +12399,17 @@ static void bgp_show_neighbor_graceful_restart_vty(struct vty *vty,
 		bgp_show_global_graceful_restart_mode_vty(vty, bgp, use_json,
 							  NULL);
 
-	json = json_object_new_object();
 	if (ip_str) {
 		ret = str2sockunion(ip_str, &su);
 		if (ret < 0)
-			bgp_show_neighbor_graceful_restart(vty, bgp, type, NULL,
-							   ip_str, afi,
-							   use_json, json);
-		else
 			bgp_show_neighbor_graceful_restart(
-				vty, bgp, type, &su, NULL, afi, use_json, json);
+				vty, bgp, type, NULL, ip_str, afi, use_json);
+		else
+			bgp_show_neighbor_graceful_restart(vty, bgp, type, &su,
+							   NULL, afi, use_json);
 	} else
 		bgp_show_neighbor_graceful_restart(vty, bgp, type, NULL, NULL,
-						   afi, use_json, json);
-	json_object_free(json);
+						   afi, use_json);
 }
 
 static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
