@@ -1840,6 +1840,10 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 	if (bgp_notify.code == BGP_NOTIFY_OPEN_ERR
 	    && bgp_notify.subcode == BGP_NOTIFY_OPEN_UNSUP_PARAM)
 		UNSET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
+	else
+	  	zlog_info("Notification received from neighbor %s: %d/%d",
+			  peer->host, bgp_notify.code, bgp_notify.subcode);
+
 
 	bgp_peer_gr_flags_update(peer);
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
