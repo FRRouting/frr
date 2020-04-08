@@ -271,6 +271,7 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			memcpy(&rule.rule.filter.src_ip.u.prefix6,
 			       RTA_DATA(tb[FRA_SRC]), 16);
 		rule.rule.filter.src_ip.prefixlen = frh->src_len;
+		rule.rule.filter.src_ip.family = frh->family;
 		rule.rule.filter.filter_bm |= PBR_FILTER_SRC_IP;
 	}
 
@@ -282,6 +283,7 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			memcpy(&rule.rule.filter.dst_ip.u.prefix6,
 			       RTA_DATA(tb[FRA_DST]), 16);
 		rule.rule.filter.dst_ip.prefixlen = frh->dst_len;
+		rule.rule.filter.dst_ip.family = frh->family;
 		rule.rule.filter.filter_bm |= PBR_FILTER_DST_IP;
 	}
 
