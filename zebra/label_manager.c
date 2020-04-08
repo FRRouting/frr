@@ -446,6 +446,15 @@ int lm_client_connect_response(uint8_t proto, uint16_t instance,
 int lm_get_chunk_response(struct label_manager_chunk *lmc, uint8_t proto,
 			  uint16_t instance, vrf_id_t vrf_id)
 {
+	if (!lmc)
+		flog_err(EC_ZEBRA_LM_CANNOT_ASSIGN_CHUNK,
+			 "Unable to assign Label Chunk to %s instance %u",
+			 zebra_route_string(proto), instance);
+	else if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("Assigned Label Chunk %u - %u to %s instance %u",
+			   lmc->start, lmc->end, zebra_route_string(proto),
+			   instance);
+
 	struct zserv *client = zserv_find_client(proto, instance);
 	if (!client) {
 		zlog_err("%s: could not find client for daemon %s instance %u",
