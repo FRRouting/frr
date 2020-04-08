@@ -989,7 +989,7 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 			rtr_lsa = ospf6_lsdb_next(end, rtr_lsa);
 			continue;
 		}
-		lsa_header = (struct ospf6_lsa_header *)rtr_lsa->header;
+		lsa_header = rtr_lsa->header;
 		total_lsa_length += (ntohs(lsa_header->length) - lsa_length);
 		num_lsa++;
 		rtr_lsa = ospf6_lsdb_next(end, rtr_lsa);
@@ -1027,7 +1027,7 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 	assert(rtr_lsa);
 	if (!OSPF6_LSA_IS_MAXAGE(rtr_lsa)) {
 		/* Append first Link State ID LSA */
-		lsa_header = (struct ospf6_lsa_header *)rtr_lsa->header;
+		lsa_header = rtr_lsa->header;
 		memcpy(new_header, lsa_header, ntohs(lsa_header->length));
 		/* Assign new lsa length as aggregated length. */
 		((struct ospf6_lsa_header *)new_header)->length =
@@ -1057,7 +1057,7 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 		}
 
 		/* Append Next Link State ID LSA */
-		lsa_header = (struct ospf6_lsa_header *)rtr_lsa->header;
+		lsa_header = rtr_lsa->header;
 		memcpy(new_header, (OSPF6_LSA_HEADER_END(rtr_lsa->header) + 4),
 		       (ntohs(lsa_header->length) - lsa_length));
 		new_header += (ntohs(lsa_header->length) - lsa_length);

@@ -3428,7 +3428,7 @@ static void clear_vnc_nve_closer(struct rfapi_local_reg_delete_arg *cda)
 				     &cursor)) {
 
 		if (pValue->rfd) {
-			((struct rfapi_descriptor *)pValue->rfd)->flags |=
+			pValue->rfd->flags |=
 				RFAPI_HD_FLAG_CLOSING_ADMINISTRATIVELY;
 			rfapi_close(pValue->rfd);
 		}

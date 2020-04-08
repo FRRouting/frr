@@ -1787,7 +1787,7 @@ static void ospf_nbr_nbma_add(struct ospf_nbr_nbma *nbr_nbma,
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.u.prefix4 = nbr_nbma->addr;
 
-	rn = route_node_get(oi->nbrs, (struct prefix *)&p);
+	rn = route_node_get(oi->nbrs, &p);
 	if (rn->info) {
 		nbr = rn->info;
 		nbr->nbr_nbma = nbr_nbma;

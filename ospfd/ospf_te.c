@@ -2119,7 +2119,7 @@ static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
 
 static void ospf_mpls_te_show_info(struct vty *vty, struct ospf_lsa *lsa)
 {
-	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
+	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh, *next;
 	uint16_t sum, total;
 	uint16_t (*subfunc)(struct vty * vty, struct tlv_header * tlvh,

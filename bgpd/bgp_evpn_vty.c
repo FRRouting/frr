@@ -2515,8 +2515,7 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 		return;
 	}
 
-	bgp_evpn_route2str((struct prefix_evpn *)&p, prefix_str,
-			   sizeof(prefix_str));
+	bgp_evpn_route2str(&p, prefix_str, sizeof(prefix_str));
 
 	/* Prefix and num paths displayed once per prefix. */
 	route_vty_out_detail_header(vty, bgp, rn, prd, afi, safi, json);
@@ -2574,7 +2573,7 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 	safi = SAFI_EVPN;
 	prefix_cnt = path_cnt = 0;
 
-	prefix_rd2str((struct prefix_rd *)prd, rd_str, sizeof(rd_str));
+	prefix_rd2str(prd, rd_str, sizeof(rd_str));
 
 	rd_rn = bgp_node_lookup(bgp->rib[afi][safi], (struct prefix *)prd);
 	if (!rd_rn)

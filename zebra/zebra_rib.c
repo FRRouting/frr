@@ -261,7 +261,7 @@ struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 		p.prefixlen = IPV6_MAX_PREFIXLEN;
 	}
 
-	rn = route_node_match(table, (struct prefix *)&p);
+	rn = route_node_match(table, &p);
 
 	while (rn) {
 		rib_dest_t *dest;

@@ -436,8 +436,7 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 
 		bgp_address_del(bgp, ifc, addr);
 
-		rn = bgp_node_lookup(bgp->connected_table[AFI_IP6],
-				     (struct prefix *)&p);
+		rn = bgp_node_lookup(bgp->connected_table[AFI_IP6], &p);
 	}
 
 	if (!rn)

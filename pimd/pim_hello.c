@@ -484,7 +484,7 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 		return -1;
 	}
 	if (can_disable_join_suppression) {
-		*((uint8_t *)(curr) + 4) |= 0x80; /* enable T bit */
+		*(curr + 4) |= 0x80; /* enable T bit */
 	}
 	curr = tmp;
 

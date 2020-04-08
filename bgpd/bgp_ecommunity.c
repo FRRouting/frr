@@ -823,7 +823,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			if (sub_type == ECOMMUNITY_REDIRECT_VRF) {
 				char buf[16] = {};
 				ecommunity_rt_soo_str(
-					buf, sizeof(buf), (uint8_t *)pnt,
+					buf, sizeof(buf), pnt,
 					type & ~ECOMMUNITY_ENCODE_TRANS_EXP,
 					ECOMMUNITY_ROUTE_TARGET,
 					ECOMMUNITY_FORMAT_DISPLAY);

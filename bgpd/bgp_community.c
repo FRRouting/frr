@@ -559,7 +559,7 @@ char *community_str(struct community *com, bool make_json)
    hash package.*/
 unsigned int community_hash_make(const struct community *com)
 {
-	uint32_t *pnt = (uint32_t *)com->val;
+	uint32_t *pnt = com->val;
 
 	return jhash2(pnt, com->size, 0x43ea96c1);
 }

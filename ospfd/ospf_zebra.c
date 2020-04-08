@@ -1023,8 +1023,8 @@ void ospf_distribute_list_update(struct ospf *ospf, int type,
 
 	/* Set timer. */
 	ospf->t_distribute_update = NULL;
-	thread_add_timer_msec(master, ospf_distribute_list_update_timer,
-			      (void **)args, ospf->min_ls_interval,
+	thread_add_timer_msec(master, ospf_distribute_list_update_timer, args,
+			      ospf->min_ls_interval,
 			      &ospf->t_distribute_update);
 }
 

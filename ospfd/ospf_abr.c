@@ -708,8 +708,7 @@ void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
 	else
 		full_cost = cost;
 
-	old = ospf_lsa_lookup_by_prefix(area->lsdb, OSPF_SUMMARY_LSA,
-					(struct prefix_ipv4 *)p,
+	old = ospf_lsa_lookup_by_prefix(area->lsdb, OSPF_SUMMARY_LSA, p,
 					area->ospf->router_id);
 	if (old) {
 		if (IS_DEBUG_OSPF_EVENT)
@@ -761,8 +760,7 @@ void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
 			zlog_debug(
 				"ospf_abr_announce_network_to_area(): "
 				"creating new summary");
-		lsa = ospf_summary_lsa_originate((struct prefix_ipv4 *)p,
-						 full_cost, area);
+		lsa = ospf_summary_lsa_originate(p, full_cost, area);
 		/* This will flood through area. */
 
 		if (!lsa) {

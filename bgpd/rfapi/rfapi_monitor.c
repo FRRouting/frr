@@ -870,10 +870,9 @@ void rfapiMonitorItNodeChanged(
 		if ((sl = RFAPI_MONITOR_ETH(rn))) {
 
 			for (cursor = NULL,
-			    rc = skiplist_next(sl, NULL, (void **)&m,
-					       (void **)&cursor);
+			    rc = skiplist_next(sl, NULL, (void **)&m, &cursor);
 			     !rc; rc = skiplist_next(sl, NULL, (void **)&m,
-						     (void **)&cursor)) {
+						     &cursor)) {
 
 				if (skiplist_search(nves_seen, m->rfd, NULL)) {
 					/*

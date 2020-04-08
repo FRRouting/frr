@@ -116,7 +116,7 @@ static void vrf_update_vrf_id(ns_id_t ns_id, void *opaqueptr)
 	vrf->vrf_id = vrf_id;
 	RB_INSERT(vrf_id_head, &vrfs_by_id, vrf);
 	if (old_vrf_id == VRF_UNKNOWN)
-		vrf_enable((struct vrf *)vrf);
+		vrf_enable(vrf);
 }
 
 int vrf_switch_to_netns(vrf_id_t vrf_id)
