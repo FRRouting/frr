@@ -118,7 +118,7 @@ module frr-ripd {
           "Enable RIP on the specified IP network.";
       }
       leaf-list interface {
-        type frr-interface:interface-ref;
+        type string;
         description
           "Enable RIP on the specified interface.";
       }
@@ -179,14 +179,14 @@ module frr-ripd {
       }
       leaf-list passive-interface {
         when "../passive-default = 'false'";
-        type frr-interface:interface-ref;
+        type string;
         description
           "A list of interfaces where the sending of RIP packets
            is disabled.";
       }
       leaf-list non-passive-interface {
         when "../passive-default = 'true'";
-        type frr-interface:interface-ref;
+        type string;
         description
           "A list of interfaces where the sending of RIP packets
            is enabled.";
