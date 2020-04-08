@@ -150,6 +150,43 @@ static void zebra_redistribute(struct zserv *client, int type,
 		}
 }
 
+/*
+ * Function to check if prefix is candidate for
+ * redistribute.
+ */
+static bool zebra_redistribute_check(const struct route_entry *re,
+				     struct zserv *client,
+				     const struct prefix *p, int afi)
+{
+	/* Process only if there is valid re */
+	if (!re)
+		return false;
+
+	/* If default route and redistributed */
+	if (is_default_prefix(p)
+	    && vrf_bitmap_check(client->redist_default[afi], re->vrf_id))
+		return true;
+
+	/* If redistribute in enabled for zebra route all */
+	if (vrf_bitmap_check(client->redist[afi][ZEBRA_ROUTE_ALL], re->vrf_id))
+		return true;
+
+	/*
+	 * If multi-instance then check for route
+	 * redistribution for given instance.
+	 */
+	if (re->instance
+	    && redist_check_instance(&client->mi_redist[afi][re->type],
+				     re->instance))
+		return true;
+
+	/* If redistribution is enabled for give route type. */
+	if (vrf_bitmap_check(client->redist[afi][re->type], re->vrf_id))
+		return true;
+
+	return false;
+}
+
 /* Either advertise a route for redistribution to registered clients or */
 /* withdraw redistribution if add cannot be done for client */
 void redistribute_update(const struct prefix *p, const struct prefix *src_p,
@@ -158,7 +195,6 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
-	int send_redistribute;
 	int afi;
 	char buf[PREFIX_STRLEN];
 
@@ -185,25 +221,7 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
-		send_redistribute = 0;
-
-		if (is_default_prefix(p)
-		    && vrf_bitmap_check(client->redist_default[afi],
-					re->vrf_id))
-			send_redistribute = 1;
-		else if (vrf_bitmap_check(client->redist[afi][ZEBRA_ROUTE_ALL],
-					  re->vrf_id))
-			send_redistribute = 1;
-		else if (re->instance
-			 && redist_check_instance(
-				    &client->mi_redist[afi][re->type],
-				    re->instance))
-			send_redistribute = 1;
-		else if (vrf_bitmap_check(client->redist[afi][re->type],
-					  re->vrf_id))
-			send_redistribute = 1;
-
-		if (send_redistribute) {
+		if (zebra_redistribute_check(re, client, p, afi)) {
 			if (IS_ZEBRA_DEBUG_RIB) {
 				zlog_debug(
 					   "%s: client %s %s(%u), type=%d, distance=%d, metric=%d",
@@ -215,18 +233,9 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 			}
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD,
 						 client, p, src_p, re);
-		} else if (prev_re
-			   && ((re->instance
-				&& redist_check_instance(
-					   &client->mi_redist[afi]
-							     [prev_re->type],
-					   re->instance))
-			       || vrf_bitmap_check(
-					  client->redist[afi][prev_re->type],
-					  re->vrf_id))) {
+		} else if (zebra_redistribute_check(prev_re, client, p, afi))
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_DEL,
 						 client, p, src_p, prev_re);
-		}
 	}
 }
 
@@ -294,45 +303,20 @@ void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 		/* Do not send unsolicited messages to synchronous clients. */
 		if (client->synchronous)
 			continue;
-
-		if (new_re) {
-			/* Skip this client if it will receive an update for the
-			 * 'new' re
-			 */
-			if (is_default_prefix(p)
-			    && vrf_bitmap_check(client->redist_default[afi],
-						new_re->vrf_id))
-				continue;
-			else if (vrf_bitmap_check(
-					 client->redist[afi][ZEBRA_ROUTE_ALL],
-					 new_re->vrf_id))
-				continue;
-			else if (new_re->instance
-				 && redist_check_instance(
-					 &client->mi_redist[afi][new_re->type],
-					 new_re->instance))
-				continue;
-			else if (vrf_bitmap_check(
-					 client->redist[afi][new_re->type],
-					 new_re->vrf_id))
-				continue;
-		}
+		/*
+		 * Skip this client if it will receive an update for the
+		 * 'new' re
+		 */
+		if (zebra_redistribute_check(new_re, client, p, afi))
+			continue;
 
 		/* Send a delete for the 'old' re to any subscribed client. */
-		if (old_re
-		    && (vrf_bitmap_check(client->redist[afi][ZEBRA_ROUTE_ALL],
-					 old_re->vrf_id)
-			|| (old_re->instance
-			    && redist_check_instance(
-				       &client->mi_redist[afi][old_re->type],
-				       old_re->instance))
-			|| vrf_bitmap_check(client->redist[afi][old_re->type],
-					    old_re->vrf_id))) {
+		if (zebra_redistribute_check(old_re, client, p, afi))
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_DEL,
 						 client, p, src_p, old_re);
-		}
 	}
 }
+
 
 void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 {
