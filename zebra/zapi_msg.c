@@ -24,23 +24,16 @@
 #include <libgen.h>
 
 #include "lib/prefix.h"
-#include "lib/command.h"
-#include "lib/if.h"
-#include "lib/thread.h"
 #include "lib/stream.h"
 #include "lib/memory.h"
 #include "lib/table.h"
 #include "lib/network.h"
-#include "lib/sockunion.h"
 #include "lib/log.h"
 #include "lib/zclient.h"
 #include "lib/privs.h"
-#include "lib/network.h"
-#include "lib/buffer.h"
 #include "lib/nexthop.h"
 #include "lib/vrf.h"
 #include "lib/libfrr.h"
-#include "lib/sockopt.h"
 #include "lib/lib_errors.h"
 
 #include "zebra/zebra_router.h"
@@ -52,7 +45,6 @@
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_rnh.h"
-#include "zebra/rt_netlink.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/rtadv.h"
@@ -66,6 +58,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_mlag.h"
 #include "zebra/connected.h"
+#include "zebra/zebra_opaque.h"
 
 /* Encoding helpers -------------------------------------------------------- */
 
@@ -2870,38 +2863,78 @@ static void zserv_write_incoming(struct stream *orig, uint16_t command)
 }
 #endif
 
-void zserv_handle_commands(struct zserv *client, struct stream *msg)
+/*
+ * Process a batch of zapi messages.
+ */
+void zserv_handle_commands(struct zserv *client, struct stream_fifo *fifo)
 {
 	struct zmsghdr hdr;
 	struct zebra_vrf *zvrf;
+	struct stream *msg;
+	struct stream_fifo temp_fifo;
 
-	if (STREAM_READABLE(msg) > ZEBRA_MAX_PACKET_SIZ) {
+	stream_fifo_init(&temp_fifo);
+
+	while (stream_fifo_head(fifo)) {
+		msg = stream_fifo_pop(fifo);
+
+		if (STREAM_READABLE(msg) > ZEBRA_MAX_PACKET_SIZ) {
+			if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
+				zlog_debug(
+					"ZAPI message is %zu bytes long but the maximum packet size is %u; dropping",
+					STREAM_READABLE(msg),
+					ZEBRA_MAX_PACKET_SIZ);
+			goto continue_loop;
+		}
+
+		zapi_parse_header(msg, &hdr);
+
 		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-			zlog_debug(
-				"ZAPI message is %zu bytes long but the maximum packet size is %u; dropping",
-				STREAM_READABLE(msg), ZEBRA_MAX_PACKET_SIZ);
-		return;
-	}
-
-	zapi_parse_header(msg, &hdr);
-
-	if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-		zserv_log_message(NULL, msg, &hdr);
+			zserv_log_message(NULL, msg, &hdr);
 
 #if defined(HANDLE_ZAPI_FUZZING)
-	zserv_write_incoming(msg, hdr.command);
+		zserv_write_incoming(msg, hdr.command);
 #endif
 
-	hdr.length -= ZEBRA_HEADER_SIZE;
+		hdr.length -= ZEBRA_HEADER_SIZE;
 
-	/* lookup vrf */
-	zvrf = zebra_vrf_lookup_by_id(hdr.vrf_id);
-	if (!zvrf)
-		return zserv_error_no_vrf(client, &hdr, msg, zvrf);
+		/* Before checking for a handler function, check for
+		 * special messages that are handled in another module;
+		 * we'll treat these as opaque.
+		 */
+		if (zebra_opaque_handles_msgid(hdr.command)) {
+			/* Reset message buffer */
+			stream_set_getp(msg, 0);
 
-	if (hdr.command >= array_size(zserv_handlers)
-	    || zserv_handlers[hdr.command] == NULL)
-		return zserv_error_invalid_msg_type(client, &hdr, msg, zvrf);
+			stream_fifo_push(&temp_fifo, msg);
 
-	zserv_handlers[hdr.command](client, &hdr, msg, zvrf);
+			/* Continue without freeing the message */
+			msg = NULL;
+			goto continue_loop;
+		}
+
+		/* lookup vrf */
+		zvrf = zebra_vrf_lookup_by_id(hdr.vrf_id);
+		if (!zvrf) {
+			zserv_error_no_vrf(client, &hdr, msg, zvrf);
+			goto continue_loop;
+		}
+
+		if (hdr.command >= array_size(zserv_handlers)
+		    || zserv_handlers[hdr.command] == NULL) {
+			zserv_error_invalid_msg_type(client, &hdr, msg, zvrf);
+			goto continue_loop;
+		}
+
+		zserv_handlers[hdr.command](client, &hdr, msg, zvrf);
+
+continue_loop:
+		stream_free(msg);
+	}
+
+	/* Dispatch any special messages from the temp fifo */
+	if (stream_fifo_head(&temp_fifo) != NULL)
+		zebra_opaque_enqueue_batch(&temp_fifo);
+
+	stream_fifo_deinit(&temp_fifo);
 }

@@ -520,11 +520,9 @@ static int zserv_process_messages(struct thread *thread)
 			need_resched = true;
 	}
 
-	while (stream_fifo_head(cache)) {
-		msg = stream_fifo_pop(cache);
-		zserv_handle_commands(client, msg);
-		stream_free(msg);
-	}
+	/* Process the batch of messages */
+	if (stream_fifo_head(cache))
+		zserv_handle_commands(client, cache);
 
 	stream_fifo_free(cache);
 
