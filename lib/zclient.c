@@ -49,8 +49,8 @@ enum event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };
 /* Prototype for event manager. */
 static void zclient_event(enum event, struct zclient *);
 
-static int zebra_interface_if_set_value(struct stream *s,
-					struct interface *ifp);
+static void zebra_interface_if_set_value(struct stream *s,
+					 struct interface *ifp);
 
 struct zclient_options zclient_options_default = {.receive_notify = false,
 						  .synchronous = false};
@@ -1942,137 +1942,48 @@ stream_failure:
 	return NULL;
 }
 
-static int zebra_interface_if_set_value(struct stream *s, struct interface *ifp)
+static void zebra_interface_if_set_value(struct stream *s,
+					 struct interface *ifp)
 {
-	int rc;
 	uint8_t link_params_status = 0;
-	ifindex_t old_ifindex;
+	ifindex_t old_ifindex, new_ifindex;
 
-	/*
-	 * XXX:
-	 * Copy interface structure to temporary one. This way if stream
-	 * processing fails partway through, we can safely destroy the
-	 * temporary copy without ever affecting the actual interface, which
-	 * would leave us in a "torn write" situation. If everything succeeds,
-	 * we copy the temporary structure back to the real one and destroy the
-	 * temporary structure.
-	 *
-	 * Obviously all fields of the ifp that could be modified need to be
-	 * copied, so any heap blocks need to be deep copied. In both failure
-	 * and success cases, we need to properly free any allocations that
-	 * result from this deep copy. When modifying this code, take care.
-	 */
-	struct interface ifp_tmp = {};
-	memcpy(&ifp_tmp, ifp, sizeof(struct interface));
-
-	/* Not safe to use ifp_tmp in the context of an RB tree */
-	memset(&ifp_tmp.name_entry, 0x00, sizeof(ifp_tmp.name_entry));
-	memset(&ifp_tmp.index_entry, 0x00, sizeof(ifp_tmp.index_entry));
-
-	bool ifp_has_link_params = (bool)!!ifp->link_params;
-
-	if (ifp_has_link_params) {
-		if_link_params_get(&ifp_tmp);
-		memcpy(ifp_tmp.link_params, ifp->link_params,
-		       sizeof(struct if_link_params));
-	}
-
-	/* Read params message */
-
-	old_ifindex = ifp_tmp.ifindex;
-
+	old_ifindex = ifp->ifindex;
 	/* Read interface's index. */
-	STREAM_GETL(s, ifp_tmp.ifindex);
-
-	if (ifp_tmp.ifindex < 0)
-		goto stream_failure;
-
-	STREAM_GETC(s, ifp_tmp.status);
+	STREAM_GETL(s, new_ifindex);
+	if_set_index(ifp, new_ifindex);
+	STREAM_GETC(s, ifp->status);
 
 	/* Read interface's value. */
-	STREAM_GETQ(s, ifp_tmp.flags);
-	STREAM_GETC(s, ifp_tmp.ptm_enable);
-	STREAM_GETC(s, ifp_tmp.ptm_status);
-	STREAM_GETL(s, ifp_tmp.metric);
-	STREAM_GETL(s, ifp_tmp.speed);
-	STREAM_GETL(s, ifp_tmp.mtu);
-	STREAM_GETL(s, ifp_tmp.mtu6);
-	STREAM_GETL(s, ifp_tmp.bandwidth);
-	STREAM_GETL(s, ifp_tmp.link_ifindex);
-	STREAM_GETL(s, ifp_tmp.ll_type);
-	STREAM_GETL(s, ifp_tmp.hw_addr_len);
-	if (ifp_tmp.hw_addr_len)
-		STREAM_GET(ifp_tmp.hw_addr, s,
-			   MIN(ifp_tmp.hw_addr_len, INTERFACE_HWADDR_MAX));
+	STREAM_GETQ(s, ifp->flags);
+	STREAM_GETC(s, ifp->ptm_enable);
+	STREAM_GETC(s, ifp->ptm_status);
+	STREAM_GETL(s, ifp->metric);
+	STREAM_GETL(s, ifp->speed);
+	STREAM_GETL(s, ifp->mtu);
+	STREAM_GETL(s, ifp->mtu6);
+	STREAM_GETL(s, ifp->bandwidth);
+	STREAM_GETL(s, ifp->link_ifindex);
+	STREAM_GETL(s, ifp->ll_type);
+	STREAM_GETL(s, ifp->hw_addr_len);
+	if (ifp->hw_addr_len)
+		STREAM_GET(ifp->hw_addr, s,
+			   MIN(ifp->hw_addr_len, INTERFACE_HWADDR_MAX));
 
 	/* Read Traffic Engineering status */
-	STREAM_GETC(s, link_params_status);
+	link_params_status = stream_getc(s);
 	/* Then, Traffic Engineering parameters if any */
 	if (link_params_status) {
-		/* if_link_params_get can XCALLOC if they don't exist, beware */
-		struct if_link_params *iflp = if_link_params_get(&ifp_tmp);
-		if (link_params_set_value(s, iflp) != 0)
-			goto stream_failure;
-	}
-
-	/* Success - apply changes to ifp_tmp to ifp */
-
-	/*
-	 * Note: we cannot directly memcpy() because this will overwrite the
-	 * rb_entry, causing many hours of pain
-	 */
-	if (if_set_index(ifp, ifp_tmp.ifindex) < 0)
-		goto stream_failure;
-	ifp->status = ifp_tmp.status;
-	ifp->flags = ifp_tmp.flags;
-	ifp->ptm_enable = ifp_tmp.ptm_enable;
-	ifp->ptm_status = ifp_tmp.ptm_status;
-	ifp->metric = ifp_tmp.metric;
-	ifp->speed = ifp_tmp.speed;
-	ifp->mtu = ifp_tmp.mtu;
-	ifp->mtu6 = ifp_tmp.mtu6;
-	ifp->bandwidth = ifp_tmp.bandwidth;
-	ifp->link_ifindex = ifp_tmp.link_ifindex;
-	ifp->ll_type = ifp_tmp.ll_type;
-	ifp->hw_addr_len = ifp_tmp.hw_addr_len;
-	ifp->link_params = ifp_tmp.link_params;
-
-	/*
-	 * If ifp had no link params, and link_params_status was nonzero, then
-	 * if_link_params_get created them. We just copied the pointer to ifp,
-	 * so in this case, we use move semantics, and NULL ifp_tmp.link_params
-	 * after copying. This way we do not free ifp->link_params in our later
-	 * free call by virtue of freeing ifp_tmp.link_params, which would make
-	 * ifp->link_params a dangling pointer.
-	 *
-	 * If ifp had no link params, and link_params_status was zero, then the
-	 * pointer is still NULL, and we MUST NOT copy; memcpy(0, _, x != 0) is
-	 * undefined behavior. Nothing was created, so we do not have to free
-	 * either.
-	 *
-	 * If it did have link params, we duplicated them for modification
-	 * purposes, and need to copy if something was changed. This handles
-	 * all four cases.
-	 */
-	if (!ifp_has_link_params && ifp_tmp.link_params != NULL)
-		ifp_tmp.link_params = NULL;
-	if (ifp_has_link_params && link_params_status != 0) {
-		assert(ifp->link_params != NULL && ifp_tmp.link_params != NULL);
-		memcpy(ifp->link_params, ifp_tmp.link_params,
-		       sizeof(struct if_link_params));
+		struct if_link_params *iflp = if_link_params_get(ifp);
+		link_params_set_value(s, iflp);
 	}
 
 	nexthop_group_interface_state_change(ifp, old_ifindex);
 
-	rc = 0;
-	goto cleanup;
+	return;
 stream_failure:
-	rc = -1;
-cleanup:
-	/* Free copied resources */
-	if_link_params_free(&ifp_tmp);
-
-	return rc;
+	zlog_err("Could not parse interface values; aborting");
+	assert(!"Failed to parse interface values");
 }
 
 size_t zebra_interface_link_params_write(struct stream *s,
