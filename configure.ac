@@ -860,7 +860,7 @@ fi
 AC_SUBST([EXTRAVERSION])
 
 if test "$with_pkg_git_version" = "yes"; then
-	if test -d "${srcdir}/.git"; then
+	if test -e "${srcdir}/.git"; then
 		AC_DEFINE([GIT_VERSION], [1], [include git version info])
 	else	with_pkg_git_version="no"
 		AC_MSG_WARN([--with-pkg-git-version given, but this is not a git checkout])
