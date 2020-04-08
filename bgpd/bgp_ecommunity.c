@@ -650,7 +650,7 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt)
 
 	as = (*pnt++ << 8);
 	as |= (*pnt++);
-	pnt = ptr_get_be32(pnt, &bw);
+	(void)ptr_get_be32(pnt, &bw);
 	if (bw >= ONE_GBPS_BYTES)
 		sprintf(bps_buf, "%.3f Gbps", (float)(bw/ONE_GBPS_BYTES));
 	else if (bw >= ONE_MBPS_BYTES)
