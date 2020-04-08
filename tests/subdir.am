@@ -90,6 +90,7 @@ check_PROGRAMS += \
 endif
 
 tests/lib/cli/test_commands_defun.c: vtysh/vtysh_cmd.c
+	mkdir -p tests/lib/cli
 	sed \
 		-e 's%"vtysh/vtysh\.h"%"tests/helpers/c/tests.h"%' \
 		-e 's/vtysh_init_cmd/test_init_cmd/' \
@@ -99,6 +100,7 @@ tests/lib/cli/test_commands_defun.c: vtysh/vtysh_cmd.c
 CLEANFILES += tests/lib/cli/test_commands_defun.c
 
 tests/isisd/test_fuzz_isis_tlv_tests.h: $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz
+	mkdir -p tests/isisd
 	gzip -d < $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz > "$@"
 CLEANFILES += tests/isisd/test_fuzz_isis_tlv_tests.h
 
