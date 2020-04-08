@@ -61,8 +61,10 @@ struct community {
 #define COMMUNITY_LOCAL_AS                      0xFFFFFF03
 #define COMMUNITY_NO_PEER                       0xFFFFFF04
 
+#define COMMUNITY_SIZE 4
+
 /* Macros of community attribute.  */
-#define com_length(X)    ((X)->size * 4)
+#define com_length(X)    ((X)->size * COMMUNITY_SIZE)
 #define com_lastval(X)   ((X)->val + (X)->size - 1)
 #define com_nthval(X,n)  ((X)->val + (n))
 
