@@ -901,8 +901,8 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 			if (type == ECOMMUNITY_ENCODE_EVPN
 			    && sub_type
 				       == ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY) {
-				ecom_val_ptr = (uint8_t *)(attr->ecommunity->val
-							   + (i * 8));
+				ecom_val_ptr =
+					(attr->ecommunity->val + (i * 8));
 				break;
 			}
 		}

@@ -527,7 +527,7 @@ struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header)
 	/* allocate memory */
 	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
 
-	lsa->header = (struct ospf6_lsa_header *)new_header;
+	lsa->header = new_header;
 
 	/* dump string */
 	ospf6_lsa_printbuf(lsa, lsa->name, sizeof(lsa->name));
@@ -554,7 +554,7 @@ struct ospf6_lsa *ospf6_lsa_create_headeronly(struct ospf6_lsa_header *header)
 	/* allocate memory */
 	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
 
-	lsa->header = (struct ospf6_lsa_header *)new_header;
+	lsa->header = new_header;
 	SET_FLAG(lsa->flag, OSPF6_LSA_HEADERONLY);
 
 	/* dump string */

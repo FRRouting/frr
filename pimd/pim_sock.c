@@ -375,8 +375,7 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 			struct in_pktinfo *i =
 				(struct in_pktinfo *)CMSG_DATA(cmsg);
 			if (to)
-				((struct sockaddr_in *)to)->sin_addr =
-					i->ipi_addr;
+				to->sin_addr = i->ipi_addr;
 			if (tolen)
 				*tolen = sizeof(struct sockaddr_in);
 			if (ifindex)
@@ -391,7 +390,7 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 		    && (cmsg->cmsg_type == IP_RECVDSTADDR)) {
 			struct in_addr *i = (struct in_addr *)CMSG_DATA(cmsg);
 			if (to)
-				((struct sockaddr_in *)to)->sin_addr = *i;
+				to->sin_addr = *i;
 			if (tolen)
 				*tolen = sizeof(struct sockaddr_in);
 

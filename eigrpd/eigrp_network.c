@@ -218,7 +218,7 @@ int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 	struct route_node *rn;
 	struct interface *ifp;
 
-	rn = route_node_get(eigrp->networks, (struct prefix *)p);
+	rn = route_node_get(eigrp->networks, p);
 	if (rn->info) {
 		/* There is already same network statement. */
 		route_unlock_node(rn);

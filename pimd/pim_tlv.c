@@ -121,20 +121,19 @@ int pim_encode_addr_ucast(uint8_t *buf, struct prefix *p)
 {
 	switch (p->family) {
 	case AF_INET:
-		*(uint8_t *)buf =
-			PIM_MSG_ADDRESS_FAMILY_IPV4; /* notice: AF_INET !=
-							PIM_MSG_ADDRESS_FAMILY_IPV4
-							*/
+		*buf = PIM_MSG_ADDRESS_FAMILY_IPV4; /* notice: AF_INET !=
+						       PIM_MSG_ADDRESS_FAMILY_IPV4
+						       */
 		++buf;
-		*(uint8_t *)buf = 0; /* ucast IPv4 native encoding type (RFC
+		*buf = 0; /* ucast IPv4 native encoding type (RFC
 					4601: 4.9.1) */
 		++buf;
 		memcpy(buf, &p->u.prefix4, sizeof(struct in_addr));
 		return ucast_ipv4_encoding_len;
 	case AF_INET6:
-		*(uint8_t *)buf = PIM_MSG_ADDRESS_FAMILY_IPV6;
+		*buf = PIM_MSG_ADDRESS_FAMILY_IPV6;
 		++buf;
-		*(uint8_t *)buf = 0;
+		*buf = 0;
 		++buf;
 		memcpy(buf, &p->u.prefix6, sizeof(struct in6_addr));
 		return ucast_ipv6_encoding_len;
@@ -198,13 +197,13 @@ int pim_encode_addr_group(uint8_t *buf, afi_t afi, int bidir, int scope,
 
 	switch (afi) {
 	case AFI_IP:
-		*(uint8_t *)buf = PIM_MSG_ADDRESS_FAMILY_IPV4;
+		*buf = PIM_MSG_ADDRESS_FAMILY_IPV4;
 		++buf;
-		*(uint8_t *)buf = 0;
+		*buf = 0;
 		++buf;
-		*(uint8_t *)buf = flags;
+		*buf = flags;
 		++buf;
-		*(uint8_t *)buf = 32;
+		*buf = 32;
 		++buf;
 		memcpy(buf, &group, sizeof(struct in_addr));
 		return group_ipv4_encoding_len;

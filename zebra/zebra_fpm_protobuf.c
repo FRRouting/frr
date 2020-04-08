@@ -294,7 +294,7 @@ int zfpm_protobuf_encode_route(rib_dest_t *dest, struct route_entry *re,
 		return 0;
 	}
 
-	len = fpm__message__pack(msg, (uint8_t *)in_buf);
+	len = fpm__message__pack(msg, in_buf);
 	assert(len <= in_buf_len);
 
 	QPB_RESET_STACK_ALLOCATOR(allocator);

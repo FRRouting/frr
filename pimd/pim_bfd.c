@@ -47,7 +47,7 @@ void pim_bfd_write_config(struct vty *vty, struct interface *ifp)
 	if (!pim_ifp)
 		return;
 
-	bfd_info = (struct bfd_info *)pim_ifp->bfd_info;
+	bfd_info = pim_ifp->bfd_info;
 	if (!bfd_info)
 		return;
 
@@ -92,7 +92,7 @@ void pim_bfd_info_nbr_create(struct pim_interface *pim_ifp,
 	if (!neigh->bfd_info)
 		return;
 
-	nbr_bfd_info = (struct bfd_info *)neigh->bfd_info;
+	nbr_bfd_info = neigh->bfd_info;
 	nbr_bfd_info->detect_mult = pim_ifp->bfd_info->detect_mult;
 	nbr_bfd_info->desired_min_tx = pim_ifp->bfd_info->desired_min_tx;
 	nbr_bfd_info->required_min_rx = pim_ifp->bfd_info->required_min_rx;
@@ -118,7 +118,7 @@ static void pim_bfd_reg_dereg_nbr(struct pim_neighbor *nbr, int command)
 	if (!nbr)
 		return;
 	pim_ifp = nbr->interface->info;
-	bfd_info = (struct bfd_info *)pim_ifp->bfd_info;
+	bfd_info = pim_ifp->bfd_info;
 	if (!bfd_info)
 		return;
 	if (PIM_DEBUG_PIM_TRACE) {
@@ -194,8 +194,8 @@ void pim_bfd_if_param_set(struct interface *ifp, uint32_t min_rx,
 
 	if (!pim_ifp)
 		return;
-	bfd_set_param((struct bfd_info **)&(pim_ifp->bfd_info), min_rx, min_tx,
-		      detect_mult, defaults, &command);
+	bfd_set_param(&(pim_ifp->bfd_info), min_rx, min_tx, detect_mult,
+		      defaults, &command);
 
 	if (pim_ifp->bfd_info) {
 		if (PIM_DEBUG_PIM_TRACE)

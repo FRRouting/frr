@@ -1684,7 +1684,7 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext)
 /* Extended Link TLVs */
 static void ospf_ext_link_show_info(struct vty *vty, struct ospf_lsa *lsa)
 {
-	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
+	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
 
@@ -1758,7 +1758,7 @@ static uint16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext)
 /* Extended Prefix TLVs */
 static void ospf_ext_pref_show_info(struct vty *vty, struct ospf_lsa *lsa)
 {
-	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
+	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
 

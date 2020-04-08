@@ -8298,7 +8298,7 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 			mac = ecom_mac2str((char *)routermac->val);
 		if (mac) {
 			if (!json_path) {
-				vty_out(vty, "/%s", (char *)mac);
+				vty_out(vty, "/%s", mac);
 			} else {
 				json_object_string_add(json_overlay, "rmac",
 						       mac);
@@ -12268,7 +12268,7 @@ static int bgp_distance_set(struct vty *vty, const char *distance_str,
 	distance = atoi(distance_str);
 
 	/* Get BGP distance node. */
-	rn = bgp_node_get(bgp_distance_table[afi][safi], (struct prefix *)&p);
+	rn = bgp_node_get(bgp_distance_table[afi][safi], &p);
 	bdistance = bgp_node_get_bgp_distance_info(rn);
 	if (bdistance)
 		bgp_unlock_node(rn);
@@ -12309,8 +12309,7 @@ static int bgp_distance_unset(struct vty *vty, const char *distance_str,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	rn = bgp_node_lookup(bgp_distance_table[afi][safi],
-			     (struct prefix *)&p);
+	rn = bgp_node_lookup(bgp_distance_table[afi][safi], &p);
 	if (!rn) {
 		vty_out(vty, "Can't find specified prefix\n");
 		return CMD_WARNING_CONFIG_FAILED;

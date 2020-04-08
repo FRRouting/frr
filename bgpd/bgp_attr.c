@@ -2178,8 +2178,7 @@ bgp_attr_large_community(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
-	attr->lcommunity =
-		lcommunity_parse((uint8_t *)stream_pnt(peer->curr), length);
+	attr->lcommunity = lcommunity_parse(stream_pnt(peer->curr), length);
 	/* XXX: fix ecommunity_parse to use stream API */
 	stream_forward_getp(peer->curr, length);
 
@@ -2209,7 +2208,7 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	}
 
 	attr->ecommunity =
-		ecommunity_parse((uint8_t *)stream_pnt(peer->curr), length);
+		ecommunity_parse(stream_pnt(peer->curr), length);
 	/* XXX: fix ecommunity_parse to use stream API */
 	stream_forward_getp(peer->curr, length);
 

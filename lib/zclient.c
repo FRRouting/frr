@@ -990,7 +990,7 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 	stream_putc(s, api->prefix.family);
 	psize = PSIZE(api->prefix.prefixlen);
 	stream_putc(s, api->prefix.prefixlen);
-	stream_write(s, (uint8_t *)&api->prefix.u.prefix, psize);
+	stream_write(s, &api->prefix.u.prefix, psize);
 
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRCPFX)) {
 		psize = PSIZE(api->src_prefix.prefixlen);

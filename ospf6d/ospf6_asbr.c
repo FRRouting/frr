@@ -918,8 +918,8 @@ void ospf6_asbr_distribute_list_update(int type)
 			   ZROUTE_NAME(type));
 
 	ospf6->t_distribute_update = NULL;
-	thread_add_timer_msec(master, ospf6_asbr_routemap_update_timer,
-			      (void **)args, OSPF_MIN_LS_INTERVAL,
+	thread_add_timer_msec(master, ospf6_asbr_routemap_update_timer, args,
+			      OSPF_MIN_LS_INTERVAL,
 			      &ospf6->t_distribute_update);
 }
 

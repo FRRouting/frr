@@ -171,8 +171,8 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV)) {
 		char prefixstr[PREFIX2STR_BUFFER], nexthopstr[128];
-		prefix2str((struct prefix *)&api.prefix, prefixstr,
-			   sizeof(prefixstr));
+
+		prefix2str(&api.prefix, prefixstr, sizeof(prefixstr));
 		inet_ntop(AF_INET6, nexthop, nexthopstr, sizeof(nexthopstr));
 
 		zlog_debug(

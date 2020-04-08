@@ -330,7 +330,7 @@ static uint8_t *bgpVersion(struct variable *v, oid name[], size_t *length,
 
 	/* Return octet string length 1. */
 	*var_len = 1;
-	return (uint8_t *)&version;
+	return &version;
 }
 
 static uint8_t *bgpLocalAs(struct variable *v, oid name[], size_t *length,

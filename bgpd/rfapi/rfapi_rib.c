@@ -268,8 +268,8 @@ static void rfapi_info_free(struct rfapi_info *goner)
 		if (goner->timer) {
 			struct rfapi_rib_tcb *tcb;
 
-			tcb = ((struct thread *)goner->timer)->arg;
-			thread_cancel((struct thread *)goner->timer);
+			tcb = goner->timer->arg;
+			thread_cancel(goner->timer);
 			XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 			goner->timer = NULL;
 		}

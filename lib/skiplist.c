@@ -624,7 +624,7 @@ void skiplist_test(struct vty *vty)
 				zlog_debug("%s: (%d:%d)", __func__, i, k);
 			}
 			// keys[k] = (void *)random();
-			keys[k] = (void *)scramble(k);
+			keys[k] = scramble(k);
 			if (skiplist_insert(l, keys[k], keys[k]))
 				zlog_debug("error in insert #%d,#%d", i, k);
 		}
@@ -649,7 +649,7 @@ void skiplist_test(struct vty *vty)
 				zlog_debug("<%d:%d>", i, k);
 			if (skiplist_delete(l, keys[k], keys[k]))
 				zlog_debug("error in delete");
-			keys[k] = (void *)scramble(k ^ 0xf0f0f0f0);
+			keys[k] = scramble(k ^ 0xf0f0f0f0);
 			if (skiplist_insert(l, keys[k], keys[k]))
 				zlog_debug("error in insert #%d,#%d", i, k);
 		}

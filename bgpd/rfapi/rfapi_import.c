@@ -2239,7 +2239,7 @@ static struct bgp_path_info *rfapiItBiIndexSearch(
 
 	bpi_fake.peer = peer;
 	bpi_fake.extra = &bpi_extra;
-	bpi_fake.extra->vnc.import.rd = *(struct prefix_rd *)prd;
+	bpi_fake.extra->vnc.import.rd = *prd;
 	if (aux_prefix) {
 		bpi_fake.extra->vnc.import.aux_prefix = *aux_prefix;
 	} else {

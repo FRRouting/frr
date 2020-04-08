@@ -235,7 +235,7 @@ static const char *next_dirname(const char *s)
 {
 	const char *cur;
 
-	cur = (const char *)s;
+	cur = s;
 
 	if (*cur != '\0') {
 		for (; *cur != '/'; ++cur)
@@ -255,7 +255,7 @@ static void add_namespace(const char *path)
 	const char *nsdirname, *nsname, *cur;
 	struct namespace *namespace;
 
-	cur = (const char *)path;
+	cur = path;
 	nsdirname = nsname = "";
 
 	while ((cur = next_dirname(cur))[0] != '\0') {
@@ -273,7 +273,7 @@ static void add_namespace(const char *path)
 		badusage("invalid namepspace path");
 
 	namespace = xmalloc(sizeof(*namespace));
-	namespace->path = (const char *)path;
+	namespace->path = path;
 	namespace->nstype = nstype;
 	LIST_INSERT_HEAD(&namespace_head, namespace, list);
 }

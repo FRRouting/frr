@@ -1515,8 +1515,8 @@ static void zvni_print_mac_hash_all_vni(struct hash_bucket *bucket, void *ctxt)
 	struct mac_walk_ctx *wctx = ctxt;
 	char vni_str[VNI_STR_LEN];
 
-	vty = (struct vty *)wctx->vty;
-	json = (struct json_object *)wctx->json;
+	vty = wctx->vty;
+	json = wctx->json;
 
 	zvni = (zebra_vni_t *)bucket->data;
 	wctx->zvni = zvni;
@@ -1586,8 +1586,8 @@ static void zvni_print_mac_hash_all_vni_detail(struct hash_bucket *bucket,
 	struct mac_walk_ctx *wctx = ctxt;
 	char vni_str[VNI_STR_LEN];
 
-	vty = (struct vty *)wctx->vty;
-	json = (struct json_object *)wctx->json;
+	vty = wctx->vty;
+	json = wctx->json;
 
 	zvni = (zebra_vni_t *)bucket->data;
 	if (!zvni) {
@@ -3691,7 +3691,7 @@ static struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
 		if (!zif || zif->zif_type != ZEBRA_IF_VLAN
 		    || zif->link != br_if)
 			continue;
-		vl = (struct zebra_l2info_vlan *)&zif->l2info.vl;
+		vl = &zif->l2info.vl;
 
 		if (vl->vid == vid) {
 			found = 1;

@@ -6173,8 +6173,7 @@ static void peer_aslist_update(const char *aslist_name)
 static void peer_aslist_add(char *aslist_name)
 {
 	peer_aslist_update(aslist_name);
-	route_map_notify_dependencies((char *)aslist_name,
-				      RMAP_EVENT_ASLIST_ADDED);
+	route_map_notify_dependencies(aslist_name, RMAP_EVENT_ASLIST_ADDED);
 }
 
 static void peer_aslist_del(const char *aslist_name)

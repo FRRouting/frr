@@ -123,7 +123,7 @@ int get_age(struct ospf_lsa *lsa)
    one-based. */
 uint16_t ospf_lsa_checksum(struct lsa_header *lsa)
 {
-	uint8_t *buffer = (uint8_t *)&lsa->options;
+	uint8_t *buffer = &lsa->options;
 	int options_offset = buffer - (uint8_t *)&lsa->ls_age; /* should be 2 */
 
 	/* Skip the AGE field */
@@ -138,7 +138,7 @@ uint16_t ospf_lsa_checksum(struct lsa_header *lsa)
 
 int ospf_lsa_checksum_valid(struct lsa_header *lsa)
 {
-	uint8_t *buffer = (uint8_t *)&lsa->options;
+	uint8_t *buffer = &lsa->options;
 	int options_offset = buffer - (uint8_t *)&lsa->ls_age; /* should be 2 */
 
 	/* Skip the AGE field */
@@ -2845,8 +2845,7 @@ void ospf_lsa_maxage_delete(struct ospf *ospf, struct ospf_lsa *lsa)
 	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
 	lsa_prefix.u.ptr = (uintptr_t)lsa;
 
-	if ((rn = route_node_lookup(ospf->maxage_lsa,
-				    (struct prefix *)&lsa_prefix))) {
+	if ((rn = route_node_lookup(ospf->maxage_lsa, &lsa_prefix))) {
 		if (rn->info == lsa) {
 			UNSET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
 			ospf_lsa_unlock(&lsa); /* maxage_lsa */
@@ -2888,7 +2887,7 @@ void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa)
 	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
 	lsa_prefix.u.ptr = (uintptr_t)lsa;
 
-	rn = route_node_get(ospf->maxage_lsa, (struct prefix *)&lsa_prefix);
+	rn = route_node_get(ospf->maxage_lsa, &lsa_prefix);
 	if (rn->info != NULL) {
 		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 			zlog_debug(
