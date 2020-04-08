@@ -146,7 +146,7 @@ uint32_t community_val_get(struct community *com, int i)
 	uint32_t val;
 
 	p = (uint8_t *)com->val;
-	p += (i * 4);
+	p += (i * COMMUNITY_SIZE);
 
 	memcpy(&val, p, sizeof(uint32_t));
 
@@ -514,11 +514,11 @@ struct community *community_parse(uint32_t *pnt, unsigned short length)
 	struct community *new;
 
 	/* If length is malformed return NULL. */
-	if (length % 4)
+	if (length % COMMUNITY_SIZE)
 		return NULL;
 
 	/* Make temporary community for hash look up. */
-	tmp.size = length / 4;
+	tmp.size = length / COMMUNITY_SIZE;
 	tmp.val = pnt;
 
 	new = community_uniq_sort(&tmp);
@@ -533,8 +533,9 @@ struct community *community_dup(struct community *com)
 	new = XCALLOC(MTYPE_COMMUNITY, sizeof(struct community));
 	new->size = com->size;
 	if (new->size) {
-		new->val = XMALLOC(MTYPE_COMMUNITY_VAL, com->size * 4);
-		memcpy(new->val, com->val, com->size * 4);
+		new->val = XMALLOC(MTYPE_COMMUNITY_VAL,
+				   com->size * COMMUNITY_SIZE);
+		memcpy(new->val, com->val, com->size * COMMUNITY_SIZE);
 	} else
 		new->val = NULL;
 	return new;
@@ -600,7 +601,8 @@ bool community_cmp(const struct community *com1, const struct community *com2)
 		return false;
 
 	if (com1->size == com2->size)
-		if (memcmp(com1->val, com2->val, com1->size * 4) == 0)
+		if (memcmp(com1->val, com2->val, com1->size * COMMUNITY_SIZE)
+		    == 0)
 			return true;
 	return false;
 }
@@ -610,13 +612,14 @@ struct community *community_merge(struct community *com1,
 				  struct community *com2)
 {
 	if (com1->val)
-		com1->val = XREALLOC(MTYPE_COMMUNITY_VAL, com1->val,
-				     (com1->size + com2->size) * 4);
+		com1->val =
+			XREALLOC(MTYPE_COMMUNITY_VAL, com1->val,
+				 (com1->size + com2->size) * COMMUNITY_SIZE);
 	else
 		com1->val = XMALLOC(MTYPE_COMMUNITY_VAL,
-				    (com1->size + com2->size) * 4);
+				    (com1->size + com2->size) * COMMUNITY_SIZE);
 
-	memcpy(com1->val + com1->size, com2->val, com2->size * 4);
+	memcpy(com1->val + com1->size, com2->val, com2->size * COMMUNITY_SIZE);
 	com1->size += com2->size;
 
 	return com1;
