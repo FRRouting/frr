@@ -533,6 +533,14 @@ void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
 		if (adj->adv)
 			bgp_advertise_clean_subgroup(subgrp, adj);
 
+		/* If default originate is enabled and the route is default
+		 * route, do not send withdraw. This will prevent deletion of
+		 * the default route at the peer.
+		 */
+		if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)
+		    && is_default_prefix(&rn->p))
+			return;
+
 		if (adj->attr && withdraw) {
 			/* We need advertisement structure.  */
 			adj->adv = bgp_advertise_new();
@@ -636,12 +644,25 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 							    rn_p, &attr))
 					bgp_adj_out_set_subgroup(rn, subgrp,
 								 &attr, ri);
-				else
+				else {
+					/* If default originate is enabled for
+					 * the peer, do not send explicit
+					 * withdraw. This will prevent deletion
+					 * of default route advertised through
+					 * default originate
+					 */
+					if (CHECK_FLAG(
+						    peer->af_flags[afi][safi],
+						    PEER_FLAG_DEFAULT_ORIGINATE)
+					    && is_default_prefix(&rn->p))
+						break;
+
 					bgp_adj_out_unset_subgroup(
 						rn, subgrp, 1,
 						bgp_addpath_id_for_peer(
 							peer, afi, safi,
 							&ri->tx_addpath));
+				}
 			}
 	}
 
@@ -709,7 +730,9 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	struct prefix p;
 	struct peer *from;
 	struct bgp_node *rn;
+	struct bgp_path_info *pi;
 	struct peer *peer;
+	struct bgp_adj_out *adj;
 	route_map_result_t ret = RMAP_DENYMATCH;
 	afi_t afi;
 	safi_t safi;
@@ -731,10 +754,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	aspath = attr.aspath;
 
 	attr.local_pref = bgp->default_local_pref;
-
-	memset(&p, 0, sizeof(p));
-	p.family = afi2family(afi);
-	p.prefixlen = 0;
 
 	if ((afi == AFI_IP6) || peer_cap_enhe(peer, afi, safi)) {
 		/* IPv6 global nexthop must be included. */
@@ -778,20 +797,39 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 		}
 	}
 
+	/* Check if the default route is in local BGP RIB which is
+	 * installed through redistribute or network command
+	 */
+	memset(&p, 0, sizeof(p));
+	p.family = afi2family(afi);
+	p.prefixlen = 0;
+	rn = bgp_afi_node_lookup(bgp->rib[afi][safi], afi, safi, &p, NULL);
+
 	if (withdraw) {
+		/* Withdraw the default route advertised using default
+		 * originate
+		 */
 		if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
 			subgroup_default_withdraw_packet(subgrp);
 		UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+
+		/* If default route is present in the local RIB, advertise the
+		 * route
+		 */
+		if (rn != NULL) {
+			for (pi = bgp_node_get_bgp_path_info(rn); pi;
+			     pi = pi->next) {
+				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+					if (subgroup_announce_check(
+						    rn, pi, subgrp, &rn->p,
+						    &attr))
+						bgp_adj_out_set_subgroup(
+							rn, subgrp, &attr, pi);
+			}
+		}
 	} else {
 		if (!CHECK_FLAG(subgrp->sflags,
 				SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
-
-			if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
-				bgp_attr_add_gshut_community(new_attr);
-
-			SET_FLAG(subgrp->sflags,
-				 SUBGRP_STATUS_DEFAULT_ORIGINATE);
-			subgroup_default_update_packet(subgrp, new_attr, from);
 
 			/* The 'neighbor x.x.x.x default-originate' default will
 			 * act as an
@@ -800,15 +838,37 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 			 * clear adj_out for the 0.0.0.0/0 prefix in the BGP
 			 * table.
 			 */
-			memset(&p, 0, sizeof(p));
-			p.family = afi2family(afi);
-			p.prefixlen = 0;
+			if (rn != NULL) {
+				/* Remove the adjacency for the previously
+				 * advertised default route
+				 */
+				adj = adj_lookup(
+				       rn, subgrp,
+				       BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
+				if (adj != NULL) {
+					/* Clean up previous advertisement.  */
+					if (adj->adv)
+						bgp_advertise_clean_subgroup(
+							subgrp, adj);
 
-			rn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi,
-					      &p, NULL);
-			bgp_adj_out_unset_subgroup(
-				rn, subgrp, 0,
-				BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
+					/* Remove  from adjacency. */
+					RB_REMOVE(bgp_adj_out_rb, &rn->adj_out,
+						  adj);
+
+					/* Free allocated information.  */
+					adj_free(adj);
+
+					bgp_unlock_node(rn);
+				}
+			}
+
+			/* Advertise the default route */
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
+				bgp_attr_add_gshut_community(new_attr);
+
+			SET_FLAG(subgrp->sflags,
+				 SUBGRP_STATUS_DEFAULT_ORIGINATE);
+			subgroup_default_update_packet(subgrp, new_attr, from);
 		}
 	}
 
