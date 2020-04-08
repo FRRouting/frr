@@ -173,9 +173,9 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 		metric->type = PCEP_METRIC_TE;
 		metric->value = candidate->metric_te;
 		metric->is_bound = CHECK_FLAG(candidate->flags,
-					      F_CANDIDATE_METRIC_ABC_BOUND);
+					      F_CANDIDATE_METRIC_TE_BOUND);
 		metric->is_computed = CHECK_FLAG(
-			candidate->flags, F_CANDIDATE_METRIC_ABC_COMPUTED);
+			candidate->flags, F_CANDIDATE_METRIC_TE_COMPUTED);
 	}
 	*path = (struct path){
 		.nbkey = (struct lsp_nb_key){.color = policy->color,
