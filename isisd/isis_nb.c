@@ -95,55 +95,43 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
-			.xpath = "/frr-isisd:isis/instance/lsp/refresh-interval",
+			.xpath = "/frr-isisd:isis/instance/lsp/timers",
 			.cbs = {
-				.cli_show = cli_show_isis_lsp_ref_interval,
+				.cli_show = cli_show_isis_lsp_timers,
 			},
 		},
 		{
-			.xpath = "/frr-isisd:isis/instance/lsp/refresh-interval/level-1",
+			.xpath = "/frr-isisd:isis/instance/lsp/timers/level-1/refresh-interval",
 			.cbs = {
 				.modify = isis_instance_lsp_refresh_interval_level_1_modify,
 			},
 		},
 		{
-			.xpath = "/frr-isisd:isis/instance/lsp/refresh-interval/level-2",
-			.cbs = {
-				.modify = isis_instance_lsp_refresh_interval_level_2_modify,
-			},
-		},
-		{
-			.xpath = "/frr-isisd:isis/instance/lsp/maximum-lifetime",
-			.cbs = {
-				.cli_show = cli_show_isis_lsp_max_lifetime,
-			},
-		},
-		{
-			.xpath = "/frr-isisd:isis/instance/lsp/maximum-lifetime/level-1",
+			.xpath = "/frr-isisd:isis/instance/lsp/timers/level-1/maximum-lifetime",
 			.cbs = {
 				.modify = isis_instance_lsp_maximum_lifetime_level_1_modify,
 			},
 		},
 		{
-			.xpath = "/frr-isisd:isis/instance/lsp/maximum-lifetime/level-2",
-			.cbs = {
-				.modify = isis_instance_lsp_maximum_lifetime_level_2_modify,
-			},
-		},
-		{
-			.xpath = "/frr-isisd:isis/instance/lsp/generation-interval",
-			.cbs = {
-				.cli_show = cli_show_isis_lsp_gen_interval,
-			},
-		},
-		{
-			.xpath = "/frr-isisd:isis/instance/lsp/generation-interval/level-1",
+			.xpath = "/frr-isisd:isis/instance/lsp/timers/level-1/generation-interval",
 			.cbs = {
 				.modify = isis_instance_lsp_generation_interval_level_1_modify,
 			},
 		},
 		{
-			.xpath = "/frr-isisd:isis/instance/lsp/generation-interval/level-2",
+			.xpath = "/frr-isisd:isis/instance/lsp/timers/level-2/refresh-interval",
+			.cbs = {
+				.modify = isis_instance_lsp_refresh_interval_level_2_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/lsp/timers/level-2/maximum-lifetime",
+			.cbs = {
+				.modify = isis_instance_lsp_maximum_lifetime_level_2_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/lsp/timers/level-2/generation-interval",
 			.cbs = {
 				.modify = isis_instance_lsp_generation_interval_level_2_modify,
 			},
