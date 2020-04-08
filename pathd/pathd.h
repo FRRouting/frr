@@ -49,6 +49,15 @@ enum srte_candidate_metric_type {
 	SRTE_CANDIDATE_METRIC_TYPE_TE = 2
 };
 
+enum srte_segment_nai_type {
+	SRTE_SEGMENT_NAI_TYPE_NONE = 0,
+	SRTE_SEGMENT_NAI_TYPE_IPV4_NODE = 1,
+	SRTE_SEGMENT_NAI_TYPE_IPV6_NODE = 2,
+	SRTE_SEGMENT_NAI_TYPE_IPV4_ADJACENCY = 3,
+	SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY = 4,
+	SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY = 5
+};
+
 struct srte_segment_list;
 
 struct srte_segment_entry {
@@ -62,6 +71,18 @@ struct srte_segment_entry {
 
 	/* Label Value. */
 	mpls_label_t sid_value;
+
+	/* NAI Type */
+	enum srte_segment_nai_type nai_type;
+	/* NAI local address when nai type is not NONE */
+	struct ipaddr nai_local_addr;
+	/* NAI local interface when nai type is not IPv4 unnumbered adjacency */
+	uint32_t nai_local_iface;
+	/* NAI local interface when nai type is IPv4 or IPv6 adjacency */
+	struct ipaddr nai_remote_addr;
+	/* NAI remote interface when nai type is not IPv4 unnumbered adjacency
+	 */
+	uint32_t nai_remote_iface;
 };
 RB_HEAD(srte_segment_entry_head, srte_segment_entry);
 RB_PROTOTYPE(srte_segment_entry_head, srte_segment_entry, entry,

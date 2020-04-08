@@ -205,14 +205,22 @@ void cli_show_te_path_segment_list(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-pathd:pathd/segment-list/segment
  */
 DEFPY(te_path_segment_list_segment, te_path_segment_list_segment_cmd,
-      "index (0-4294967295)$index mpls label (16-1048575)$label",
+      "index (0-4294967295)$index mpls label (16-1048575)$label "
+      "[nai$has_nai <"
+      "node <A.B.C.D$node_ipv4|X:X::X:X$node_ipv6>"
+      ">]",
       "Index\n"
       "Index Value\n"
       "MPLS or IP Label\n"
       "Label\n"
-      "Label Value\n")
+      "Label Value\n"
+      "Segment NAI\n"
+      "NAI node identifier\n"
+      "NAI IPv4 node identifier\n"
+      "NAI IPv6 node identifier\n")
 {
 	char xpath[XPATH_MAXLEN];
+	const char *node_id;
 
 	snprintf(xpath, sizeof(xpath), "./segment[index='%s']", index_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
@@ -220,6 +228,29 @@ DEFPY(te_path_segment_list_segment, te_path_segment_list_segment_cmd,
 	snprintf(xpath, sizeof(xpath), "./segment[index='%s']/sid-value",
 		 index_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, label_str);
+
+	if (NULL != has_nai) {
+		snprintf(xpath, sizeof(xpath), "./segment[index='%s']/nai/type",
+			 index_str);
+		if (NULL != node_ipv4_str) {
+			nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+					      "ipv4_node");
+			node_id = node_ipv4_str;
+		} else if (NULL != node_ipv6_str) {
+			nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+					      "ipv6_node");
+			node_id = node_ipv6_str;
+		} else {
+			return CMD_ERR_NO_MATCH;
+		}
+		snprintf(xpath, sizeof(xpath),
+			 "./segment[index='%s']/nai/local-address", index_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, node_id);
+	} else {
+		snprintf(xpath, sizeof(xpath), "./segment[index='%s']/nai",
+			 index_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	}
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -242,9 +273,25 @@ void cli_show_te_path_segment_list_segment(struct vty *vty,
 					   struct lyd_node *dnode,
 					   bool show_defaults)
 {
-	vty_out(vty, " index %s mpls label %s\n",
+	vty_out(vty, " index %s mpls label %s",
 		yang_dnode_get_string(dnode, "./index"),
 		yang_dnode_get_string(dnode, "./sid-value"));
+	if (yang_dnode_exists(dnode, "./nai")) {
+		struct ipaddr addr;
+		switch (yang_dnode_get_enum(dnode, "./nai/type")) {
+		case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
+			yang_dnode_get_ip(&addr, dnode, "./nai/local-address");
+			vty_out(vty, " nai node %pI4", &addr.ipaddr_v4);
+			break;
+		case SRTE_SEGMENT_NAI_TYPE_IPV6_NODE:
+			yang_dnode_get_ip(&addr, dnode, "./nai/local-address");
+			vty_out(vty, " nai node %pI6", &addr.ipaddr_v6);
+			break;
+		default:
+			break;
+		}
+	}
+	vty_out(vty, "\n");
 }
 
 /*
@@ -369,17 +416,17 @@ void cli_show_te_path_sr_policy_binding_sid(struct vty *vty,
  */
 DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
       "candidate-path\
-        preference (0-4294967295)$preference\
-        name WORD$name\
-        <\
+	preference (0-4294967295)$preference\
+	name WORD$name\
+	<\
 	  explicit$type segment-list WORD$list_name\
 	  |dynamic$type\
 	>\
-        [[no$no_metrics] metrics\
-        {\
-          [bound$bound_abc] abc$metric_abc [METRIC$metric_abc_value]\
-          |[bound$bound_te] te$metric_te [METRIC$metric_te_value]\
-        }]",
+	[[no$no_metrics] metrics\
+	{\
+	  [bound$bound_abc] abc$metric_abc [METRIC$metric_abc_value]\
+	  |[bound$bound_te] te$metric_te [METRIC$metric_te_value]\
+	}]",
       "Segment Routing Policy Candidate Path\n"
       "Segment Routing Policy Candidate Path Preference\n"
       "Administrative Preference\n"
@@ -460,9 +507,9 @@ DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
 DEFPY(no_te_path_sr_policy_candidate_path,
       no_te_path_sr_policy_candidate_path_cmd,
       "no candidate-path\
-        preference (0-4294967295)$preference\
-        [name WORD\
-        <\
+	preference (0-4294967295)$preference\
+	[name WORD\
+	<\
 	  explicit segment-list WORD\
 	  |dynamic\
 	>]",

@@ -67,6 +67,35 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.priority = NB_DFLT_PRIORITY - 1
 		},
 		{
+			.xpath = "/frr-pathd:pathd/segment-list/segment/nai",
+			.cbs = {
+				.create = dummy_create,
+				.destroy = pathd_te_segment_list_segment_nai_destroy,
+				.apply_finish = pathd_te_segment_list_segment_nai_apply_finish
+			},
+			.priority = NB_DFLT_PRIORITY - 1
+		},
+		{
+			.xpath = "/frr-pathd:pathd/segment-list/segment/nai/type",
+			.cbs = {.modify = dummy_modify}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/segment-list/segment/nai/local-address",
+			.cbs = {.modify = dummy_modify}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/segment-list/segment/nai/local-interface",
+			.cbs = {.modify = dummy_modify, .destroy = dummy_destroy}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/segment-list/segment/nai/remote-address",
+			.cbs = {.modify = dummy_modify, .destroy = dummy_destroy}
+		},
+		{
+			.xpath = "/frr-pathd:pathd/segment-list/segment/nai/remote-interface",
+			.cbs = {.modify = dummy_modify, .destroy = dummy_destroy}
+		},
+		{
 			.xpath = "/frr-pathd:pathd/sr-policy",
 			.cbs = {
 				.create = pathd_te_sr_policy_create,
@@ -163,7 +192,7 @@ const struct frr_yang_module_info frr_pathd_info = {
 		},
 		{
 			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/metrics/value",
-			.cbs = {.modify = dummy_modify, .destroy = dummy_destroy}
+			.cbs = {.modify = dummy_modify}
 		},
 		{
 			.xpath = "/frr-pathd:pathd/sr-policy/candidate-path/metrics/is-bound",
