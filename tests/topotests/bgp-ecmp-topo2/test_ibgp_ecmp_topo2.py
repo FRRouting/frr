@@ -306,7 +306,8 @@ def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
     write_test_footer(tc_name)
 
 
-def test_ecmp_after_clear_bgp(request):
+@pytest.mark.parametrize("test_type", ["redist_static", "advertise_nw"])
+def test_ecmp_after_clear_bgp(request, test_type):
     """ Verify BGP table and RIB in DUT after clear BGP routes and neighbors"""
 
     tc_name = request.node.name
@@ -319,7 +320,7 @@ def test_ecmp_after_clear_bgp(request):
     dut = "r3"
     protocol = "bgp"
 
-    static_or_nw(tgen, topo, tc_name, "redist_static", "r2")
+    static_or_nw(tgen, topo, tc_name, test_type, "r2")
     for addr_type in ADDR_TYPES:
         input_dict_1 = {"r3": {"static_routes": [{"network": NETWORK[addr_type]}]}}
 
@@ -467,7 +468,8 @@ def test_ecmp_remove_redistribute_static(request):
     write_test_footer(tc_name)
 
 
-def test_ecmp_shut_bgp_neighbor(request):
+@pytest.mark.parametrize("test_type", ["redist_static", "advertise_nw"])
+def test_ecmp_shut_bgp_neighbor(request, test_type):
     """ Shut BGP neigbors one by one and verify BGP and routing table updated
         accordingly in DUT """
 
@@ -481,7 +483,7 @@ def test_ecmp_shut_bgp_neighbor(request):
     protocol = "bgp"
 
     reset_config_on_routers(tgen)
-    static_or_nw(tgen, topo, tc_name, "redist_static", "r2")
+    static_or_nw(tgen, topo, tc_name, test_type, "r2")
 
     for addr_type in ADDR_TYPES:
         input_dict = {"r3": {"static_routes": [{"network": NETWORK[addr_type]}]}}
@@ -530,7 +532,7 @@ def test_ecmp_shut_bgp_neighbor(request):
     result = interface_status(tgen, topo, input_dict_1)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    static_or_nw(tgen, topo, tc_name, "redist_static", "r2")
+    static_or_nw(tgen, topo, tc_name, test_type, "r2")
     for addr_type in ADDR_TYPES:
         input_dict = {"r3": {"static_routes": [{"network": NETWORK[addr_type]}]}}
 

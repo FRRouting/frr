@@ -233,6 +233,112 @@ def test_bgp_config_with_4byte_as_number(request):
     write_test_footer(tc_name)
 
 
+def test_BGP_config_with_invalid_ASN_p2(request):
+    """
+    Configure BGP with invalid ASN(ex - 0, reserved ASN) and verify test case
+    ended up with error
+    """
+
+    tgen = get_topogen()
+    global BGP_CONVERGENCE
+
+    if BGP_CONVERGENCE != True:
+        pytest.skip('skipped because of BGP Convergence failure')
+
+    # test case name
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Api call to modify AS number
+    input_dict = {
+        "r1": {
+            "bgp":{
+                "local_as": 0,
+            }
+        },
+        "r2": {
+            "bgp":{
+                "local_as": 0,
+            }
+        },
+        "r3": {
+            "bgp":{
+                "local_as": 0,
+            }
+        },
+        "r4": {
+            "bgp":{
+                "local_as": 64000,
+            }
+        }
+    }
+    result = modify_as_number(tgen, topo, input_dict)
+    try:
+        assert result is True
+    except AssertionError:
+        logger.info("Expected behaviour: {}".format(result))
+        logger.info("BGP config is not created because of invalid ASNs")
+
+    write_test_footer(tc_name)
+
+
+def test_BGP_config_with_2byteAS_and_4byteAS_number_p1(request):
+    """
+    Configure BGP with 4 byte and 2 byte ASN and verify BGP is converged
+    """
+
+    tgen = get_topogen()
+    global BGP_CONVERGENCE
+
+    if BGP_CONVERGENCE != True:
+        pytest.skip('skipped because of BGP Convergence failure')
+
+    # test case name
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Api call to modify AS number
+    input_dict = {
+        "r1": {
+            "bgp":{
+                "local_as": 131079
+            }
+        },
+        "r2": {
+            "bgp":{
+                "local_as": 131079
+            }
+        },
+        "r3": {
+            "bgp":{
+                "local_as": 131079
+            }
+        },
+        "r4": {
+            "bgp":{
+                "local_as": 111
+            }
+        }
+    }
+    result = modify_as_number(tgen, topo, input_dict)
+    if result != True:
+        assert False, "Testcase " + tc_name + " :Failed \n Error: {}".\
+        format(result)
+
+    result = verify_as_numbers(tgen, topo, input_dict)
+    if result != True:
+        assert False, "Testcase " + tc_name + " :Failed \n Error: {}".\
+        format(result)
+
+    # Api call verify whether BGP is converged
+    result = verify_bgp_convergence(tgen, topo)
+    if result != True:
+        assert False, "Testcase " + tc_name + " :Failed \n Error: {}".\
+            format(result)
+
+    write_test_footer(tc_name)
+
+
 def test_bgp_timers_functionality(request):
     """
     Test to modify bgp timers and verify timers functionality.
