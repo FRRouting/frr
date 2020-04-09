@@ -28,12 +28,15 @@
 #define PIM_PIM_BUFSIZE_WRITE (20000)
 
 #define PIM_DEFAULT_HELLO_PERIOD                 (30)   /* seconds, RFC 4601: 4.11 */
+#define PIM_DEFAULT_HELLO_PERIOD_STR             ("30")
 #define PIM_DEFAULT_TRIGGERED_HELLO_DELAY        (5)    /* seconds, RFC 4601: 4.11 */
 #define PIM_DEFAULT_DR_PRIORITY                  (1)    /* RFC 4601: 4.3.1 */
+#define PIM_DEFAULT_DR_PRIORITY_STR              ("1")
 #define PIM_DEFAULT_PROPAGATION_DELAY_MSEC       (500)  /* RFC 4601: 4.11.  Timer Values */
 #define PIM_DEFAULT_OVERRIDE_INTERVAL_MSEC       (2500) /* RFC 4601: 4.11.  Timer Values */
 #define PIM_DEFAULT_CAN_DISABLE_JOIN_SUPPRESSION (0)    /* boolean */
 #define PIM_DEFAULT_T_PERIODIC                   (60)   /* RFC 4601: 4.11.  Timer Values */
+#define PIM_DEFAULT_T_PERIODIC_STR               ("60")
 
 enum pim_msg_type {
 	PIM_MSG_TYPE_HELLO = 0,

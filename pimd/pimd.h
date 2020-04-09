@@ -142,6 +142,7 @@ extern struct in_addr qpim_all_pim_routers_addr;
 extern uint8_t qpim_ecmp_enable;
 extern uint8_t qpim_ecmp_rebalance_enable;
 
+#define PIM_DEFAULT_PACKET_PROCESS_STR "3"
 #define PIM_DEFAULT_PACKET_PROCESS 3
 
 #define PIM_JP_HOLDTIME (router->t_periodic * 7 / 2)
@@ -151,6 +152,7 @@ extern uint8_t qpim_ecmp_rebalance_enable;
  * Default values
  */
 #define PIM_REGISTER_SUPPRESSION_TIME_DEFAULT      (60)
+#define PIM_REGISTER_SUPPRESSION_TIME_DEFAULT_STR  ("60")
 #define PIM_REGISTER_PROBE_TIME_DEFAULT            (5)
 
 #define PIM_DEBUG_PIM_EVENTS (router->debugs & PIM_MASK_PIM_EVENTS)
