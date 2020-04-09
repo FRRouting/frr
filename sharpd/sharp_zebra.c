@@ -89,7 +89,8 @@ static int sharp_ifp_down(struct interface *ifp)
 
 int sharp_install_lsps_helper(bool install_p, const struct prefix *p,
 			      uint8_t type, int instance, uint32_t in_label,
-			      const struct nexthop_group *nhg)
+			      const struct nexthop_group *nhg,
+			      const struct nexthop_group *backup_nhg)
 {
 	struct zapi_labels zl = {};
 	struct zapi_nexthop *znh;
@@ -106,31 +107,67 @@ int sharp_install_lsps_helper(bool install_p, const struct prefix *p,
 		zl.route.instance = instance;
 	}
 
+	/* List of nexthops is optional for delete */
 	i = 0;
-	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
-		znh = &zl.nexthops[i];
+	if (nhg) {
+		for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+			znh = &zl.nexthops[i];
 
-		/* Must have labels to be useful */
-		if (nh->nh_label == NULL || nh->nh_label->num_labels == 0)
-			continue;
+			/* Must have labels to be useful */
+			if (nh->nh_label == NULL ||
+			    nh->nh_label->num_labels == 0)
+				continue;
 
-		if (nh->type == NEXTHOP_TYPE_IFINDEX ||
-		    nh->type == NEXTHOP_TYPE_BLACKHOLE)
-			/* Hmm - can't really deal with these types */
-			continue;
+			if (nh->type == NEXTHOP_TYPE_IFINDEX ||
+			    nh->type == NEXTHOP_TYPE_BLACKHOLE)
+				/* Hmm - can't really deal with these types */
+				continue;
 
-		ret = zapi_nexthop_from_nexthop(znh, nh);
-		if (ret < 0)
-			return -1;
+			ret = zapi_nexthop_from_nexthop(znh, nh);
+			if (ret < 0)
+				return -1;
 
-		i++;
+			i++;
+		}
 	}
 
-	/* Whoops - no nexthops isn't very useful */
-	if (i == 0)
+	/* Whoops - no nexthops isn't very useful for install */
+	if (i == 0 && install_p)
 		return -1;
 
 	zl.nexthop_num = i;
+
+	/* Add optional backup nexthop info. Since these are used by index,
+	 * we can't just skip over an invalid backup nexthop: we will
+	 * invalidate the entire operation.
+	 */
+	if (backup_nhg != NULL) {
+		i = 0;
+		for (ALL_NEXTHOPS_PTR(backup_nhg, nh)) {
+			znh = &zl.backup_nexthops[i];
+
+			/* Must have labels to be useful */
+			if (nh->nh_label == NULL ||
+			    nh->nh_label->num_labels == 0)
+				return -1;
+
+			if (nh->type == NEXTHOP_TYPE_IFINDEX ||
+			    nh->type == NEXTHOP_TYPE_BLACKHOLE)
+				/* Hmm - can't really deal with these types */
+				return -1;
+
+			ret = zapi_nexthop_from_nexthop(znh, nh);
+			if (ret < 0)
+				return -1;
+
+			i++;
+		}
+
+		if (i > 0)
+			SET_FLAG(zl.message, ZAPI_LABELS_HAS_BACKUPS);
+
+		zl.backup_nexthop_num = i;
+	}
 
 	if (install_p)
 		ret = zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_ADD,

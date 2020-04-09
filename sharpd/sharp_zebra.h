@@ -42,5 +42,7 @@ extern void sharp_remove_routes_helper(struct prefix *p, vrf_id_t vrf_id,
 
 int sharp_install_lsps_helper(bool install_p, const struct prefix *p,
 			      uint8_t type, int instance, uint32_t in_label,
-			      const struct nexthop_group *nhg);
+			      const struct nexthop_group *nhg,
+			      const struct nexthop_group *backup_nhg);
+
 #endif

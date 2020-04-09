@@ -410,6 +410,8 @@ DEFPY(sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
       "Instance\n")
 {
 	struct nexthop_group_cmd *nhgc = NULL;
+	struct nexthop_group_cmd *backup_nhgc = NULL;
+	struct nexthop_group *backup_nhg = NULL;
 	struct prefix p = {};
 	int type = 0;
 
@@ -441,9 +443,23 @@ DEFPY(sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
 		return CMD_WARNING;
 	}
 
+	/* Use group's backup nexthop info if present */
+	if (nhgc->backup_list_name[0]) {
+		backup_nhgc = nhgc_find(nhgc->backup_list_name);
+
+		if (!backup_nhgc) {
+			vty_out(vty,
+				"%% Backup group %s not found for group %s\n",
+				nhgc->backup_list_name,
+				nhgname);
+			return CMD_WARNING;
+		}
+		backup_nhg = &(backup_nhgc->nhg);
+	}
+
 	if (sharp_install_lsps_helper(true, pfx->family > 0 ? &p : NULL,
 				      type, instance, inlabel,
-				      &(nhgc->nhg)) == 0)
+				      &(nhgc->nhg), backup_nhg) == 0)
 		return CMD_SUCCESS;
 	else {
 		vty_out(vty, "%% LSP install failed!\n");
@@ -454,7 +470,7 @@ DEFPY(sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
 DEFPY(sharp_remove_lsp_prefix_v4, sharp_remove_lsp_prefix_v4_cmd,
       "sharp remove lsp \
         (0-100000)$inlabel\
-        nexthop-group NHGNAME$nhgname\
+        [nexthop-group NHGNAME$nhgname] \
         [prefix A.B.C.D/M$pfx\
        " FRR_IP_REDIST_STR_SHARPD "$type_str [instance (0-255)$instance]]",
       "Sharp Routing Protocol\n"
@@ -472,6 +488,7 @@ DEFPY(sharp_remove_lsp_prefix_v4, sharp_remove_lsp_prefix_v4_cmd,
 	struct nexthop_group_cmd *nhgc = NULL;
 	struct prefix p = {};
 	int type = 0;
+	struct nexthop_group *nhg = NULL;
 
 	/* We're offered a v4 prefix */
 	if (pfx->family > 0 && type_str) {
@@ -489,21 +506,24 @@ DEFPY(sharp_remove_lsp_prefix_v4, sharp_remove_lsp_prefix_v4_cmd,
 		return CMD_WARNING;
 	}
 
-	nhgc = nhgc_find(nhgname);
-	if (!nhgc) {
-		vty_out(vty, "%%  Nexthop-group '%s' does not exist\n",
-			nhgname);
-		return CMD_WARNING;
-	}
+	if (nhgname) {
+		nhgc = nhgc_find(nhgname);
+		if (!nhgc) {
+			vty_out(vty, "%%  Nexthop-group '%s' does not exist\n",
+				nhgname);
+			return CMD_WARNING;
+		}
 
-	if (nhgc->nhg.nexthop == NULL) {
-		vty_out(vty, "%%  Nexthop-group '%s' is empty\n", nhgname);
-		return CMD_WARNING;
+		if (nhgc->nhg.nexthop == NULL) {
+			vty_out(vty, "%%  Nexthop-group '%s' is empty\n",
+				nhgname);
+			return CMD_WARNING;
+		}
+		nhg = &(nhgc->nhg);
 	}
 
 	if (sharp_install_lsps_helper(false, pfx->family > 0 ? &p : NULL,
-				      type, instance, inlabel,
-				      &(nhgc->nhg)) == 0)
+				      type, instance, inlabel, nhg, NULL) == 0)
 		return CMD_SUCCESS;
 	else {
 		vty_out(vty, "%% LSP remove failed!\n");
