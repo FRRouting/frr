@@ -279,7 +279,6 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 				   rib_dest_t *dest, struct route_entry *re)
 {
 	struct nexthop *nexthop;
-	struct zebra_vrf *zvrf;
 
 	memset(ri, 0, sizeof(*ri));
 
@@ -287,9 +286,7 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 	ri->af = rib_dest_af(dest);
 
 	ri->nlmsg_type = cmd;
-	zvrf = rib_dest_vrf(dest);
-	if (zvrf)
-		ri->rtm_table = zvrf->table_id;
+	ri->rtm_table = rib_dest_table_id(dest);
 	ri->rtm_protocol = RTPROT_UNSPEC;
 
 	/*
