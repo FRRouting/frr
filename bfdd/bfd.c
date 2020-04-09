@@ -1032,20 +1032,19 @@ void bs_final_handler(struct bfd_session *bs)
 	}
 
 	/*
-	 * Calculate detection time based on new timers.
+	 * Calculate transmission time based on new timers.
 	 *
 	 * Transmission calculation:
-	 * We must respect the RequiredMinRxInterval from the remote
-	 * system: if our desired transmission timer is more than the
-	 * minimum receive rate, then we must lower it to at least the
-	 * minimum receive interval.
+	 * Unless specified by exceptions at the end of Section 6.8.7, the
+	 * transmission time will be determined by the system with the
+	 * slowest rate.
 	 *
-	 * RFC 5880, Section 6.8.3.
+	 * RFC 5880, Section 6.8.7.
 	 */
 	if (bs->timers.desired_min_tx > bs->remote_timers.required_min_rx)
-		bs->xmt_TO = bs->remote_timers.required_min_rx;
-	else
 		bs->xmt_TO = bs->timers.desired_min_tx;
+	else
+		bs->xmt_TO = bs->remote_timers.required_min_rx;
 
 	/* Apply new transmission timer immediately. */
 	ptm_bfd_start_xmt_timer(bs, false);
