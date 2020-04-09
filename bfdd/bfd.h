@@ -172,10 +172,6 @@ enum bfd_session_flags {
 	BFD_SESS_FLAG_CBIT = 1 << 9,	/* CBIT is set */
 };
 
-#define BFD_SET_FLAG(field, flag) (field |= flag)
-#define BFD_UNSET_FLAG(field, flag) (field &= ~flag)
-#define BFD_CHECK_FLAG(field, flag) (field & flag)
-
 /* BFD session hash keys */
 struct bfd_key {
 	uint16_t family;

@@ -474,12 +474,12 @@ char *config_notify_config(const char *op, struct bfd_session *bs)
 	json_object_int_add(resp, "remote-echo-interval",
 			    bs->remote_timers.required_min_echo / 1000);
 
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
 		json_object_boolean_true_add(resp, "echo-mode");
 	else
 		json_object_boolean_false_add(resp, "echo-mode");
 
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
 		json_object_boolean_true_add(resp, "shutdown");
 	else
 		json_object_boolean_false_add(resp, "shutdown");
@@ -511,12 +511,12 @@ static int json_object_add_peer(struct json_object *jo, struct bfd_session *bs)
 	char addr_buf[INET6_ADDRSTRLEN];
 
 	/* Add peer 'key' information. */
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6))
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6))
 		json_object_boolean_true_add(jo, "ipv6");
 	else
 		json_object_boolean_false_add(jo, "ipv6");
 
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
 		json_object_boolean_true_add(jo, "multihop");
 		json_object_string_add(jo, "peer-address",
 				       inet_ntop(bs->key.family, &bs->key.peer,

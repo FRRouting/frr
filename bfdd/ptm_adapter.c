@@ -423,9 +423,9 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 		}
 	} else {
 		/* Don't try to change echo/shutdown state. */
-		bpc.bpc_echo = BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
+		bpc.bpc_echo = CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
 		bpc.bpc_shutdown =
-			BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+			CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
 	}
 
 	/* Create client peer notification register. */
@@ -462,7 +462,7 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 	pcn = pcn_lookup(pc, bs);
 	pcn_free(pcn);
 	if (bs->refcount ||
-	    BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
+	    CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
 		return;
 
 	bs->ses_state = PTM_BFD_ADM_DOWN;

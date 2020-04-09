@@ -211,7 +211,7 @@ struct yang_data *bfdd_bfd_sessions_single_hop_stats_detection_mode_get_elem(
 	 *
 	 * TODO: support demand mode.
 	 */
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
 		detection_mode = 1;
 	else
 		detection_mode = 2;

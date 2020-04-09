@@ -76,7 +76,7 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 	ssize_t rv;
 	int sd = -1;
 
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6)) {
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6)) {
 		memset(&sin6, 0, sizeof(sin6));
 		sin6.sin6_family = AF_INET6;
 		memcpy(&sin6.sin6_addr, &bs->key.peer, sizeof(sin6.sin6_addr));
@@ -85,7 +85,7 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 
 		sin6.sin6_port =
 			(port) ? *port
-			       : (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
+			       : (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
 					 ? htons(BFD_DEF_MHOP_DEST_PORT)
 					 : htons(BFD_DEFDESTPORT);
 
@@ -98,7 +98,7 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 		memcpy(&sin.sin_addr, &bs->key.peer, sizeof(sin.sin_addr));
 		sin.sin_port =
 			(port) ? *port
-			       : (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
+			       : (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
 					 ? htons(BFD_DEF_MHOP_DEST_PORT)
 					 : htons(BFD_DEFDESTPORT);
 
@@ -133,15 +133,15 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 
 	if (!bvrf)
 		return;
-	if (!BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
-		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE);
+	if (!CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
+		SET_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE);
 
 	memset(&bep, 0, sizeof(bep));
 	bep.ver = BFD_ECHO_VERSION;
 	bep.len = BFD_ECHO_PKT_LEN;
 	bep.my_discr = htonl(bfd->discrs.my_discr);
 
-	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6)) {
+	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6)) {
 		sd = bvrf->bg_echov6;
 		memset(&sin6, 0, sizeof(sin6));
 		sin6.sin6_family = AF_INET6;
@@ -194,7 +194,7 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 		return -1;
 	}
 
-	if (!BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE)) {
+	if (!CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE)) {
 		log_debug("echo-packet: echo disabled [%s] (id:%u)",
 			  bs_to_string(bfd), my_discr);
 		return -1;
@@ -222,7 +222,7 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 	cp.flags = 0;
 	BFD_SETSTATE(cp.flags, bfd->ses_state);
 
-	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_CBIT))
+	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_CBIT))
 		BFD_SETCBIT(cp.flags, BFD_CBIT);
 
 	BFD_SETDEMANDBIT(cp.flags, BFD_DEF_DEMAND);
@@ -932,7 +932,7 @@ int bp_peer_socket(const struct bfd_session *bs)
 
 	if (bs->key.ifname[0])
 		device_to_bind = (const char *)bs->key.ifname;
-	else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+	else if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
 	    && bs->key.vrfname[0])
 		device_to_bind = (const char *)bs->key.vrfname;
 
@@ -965,7 +965,7 @@ int bp_peer_socket(const struct bfd_session *bs)
 	sin.sin_len = sizeof(sin);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 	memcpy(&sin.sin_addr, &bs->key.local, sizeof(sin.sin_addr));
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) == 0)
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) == 0)
 		sin.sin_addr.s_addr = INADDR_ANY;
 
 	pcount = 0;
@@ -999,7 +999,7 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 
 	if (bs->key.ifname[0])
 		device_to_bind = (const char *)bs->key.ifname;
-	else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+	else if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
 	    && bs->key.vrfname[0])
 		device_to_bind = (const char *)bs->key.vrfname;
 
