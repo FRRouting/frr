@@ -24,6 +24,7 @@
 #include "northbound.h"
 #include "printfrr.h"
 #include "nexthop.h"
+#include "printfrr.h"
 
 static const char *yang_get_default_value(const char *xpath)
 {
@@ -1136,6 +1137,30 @@ struct yang_data *yang_data_new_mac(const char *xpath,
 void yang_str2mac(const char *value, struct ethaddr *mac)
 {
     (void)prefix_str2mac(value, mac);
+}
+
+struct yang_data *yang_data_new_date_and_time(const char *xpath, time_t time)
+{
+	struct tm tm;
+	char timebuf[MONOTIME_STRLEN];
+	struct timeval _time, time_real;
+	char *ts_dot;
+
+	_time.tv_sec = time;
+	_time.tv_usec = 0;
+	monotime_to_realtime(&_time, &time_real);
+
+	gmtime_r(&time_real.tv_sec, &tm);
+
+	/* rfc-3339 format */
+	strftime(timebuf, sizeof(timebuf), "%Y-%m-%dT%H:%M:%S", &tm);
+	ts_dot = timebuf + strlen(timebuf);
+
+	/* microseconds and appends Z */
+	snprintfrr(ts_dot, sizeof(timebuf) - strlen(timebuf), ".%06luZ",
+		   (unsigned long)time_real.tv_usec);
+
+	return yang_data_new(xpath, timebuf);
 }
 
 const char *yang_nexthop_type2str(uint32_t ntype)
