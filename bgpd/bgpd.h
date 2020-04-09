@@ -42,6 +42,7 @@
 #include "vxlan.h"
 #include "bgp_labelpool.h"
 #include "bgp_addpath_types.h"
+#include "bgp_nexthop.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 #define BGP_PEER_MAX_HASH_SIZE 16384
@@ -475,11 +476,11 @@ struct bgp {
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
 
-	/* Route table for next-hop lookup cache. */
-	struct bgp_table *nexthop_cache_table[AFI_MAX];
+	/* Tree for next-hop lookup cache. */
+	struct bgp_nexthop_cache_head nexthop_cache_table[AFI_MAX];
 
-	/* Route table for import-check */
-	struct bgp_table *import_check_table[AFI_MAX];
+	/* Tree for import-check */
+	struct bgp_nexthop_cache_head import_check_table[AFI_MAX];
 
 	struct bgp_table *connected_table[AFI_MAX];
 

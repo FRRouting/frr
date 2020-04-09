@@ -35,7 +35,6 @@
 #include "filter.h"
 
 #include "bgpd/bgpd.h"
-#include "bgpd/bgp_table.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_nexthop.h"
@@ -48,10 +47,18 @@
 
 DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Address Intf String");
 
-char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size)
+static inline int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,
+					    const struct bgp_nexthop_cache *b)
 {
-	prefix2str(bgp_node_get_prefix(bnc->node), buf, size);
-	return buf;
+	return prefix_cmp(&a->prefix, &b->prefix);
+}
+
+RB_GENERATE(bgp_nexthop_cache_head, bgp_nexthop_cache, entry,
+	    bgp_nexthop_cache_compare);
+
+const char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size)
+{
+	return prefix2str(&bnc->prefix, buf, size);
 }
 
 void bnc_nexthop_free(struct bgp_nexthop_cache *bnc)
@@ -59,32 +66,47 @@ void bnc_nexthop_free(struct bgp_nexthop_cache *bnc)
 	nexthops_free(bnc->nexthop);
 }
 
-struct bgp_nexthop_cache *bnc_new(void)
+struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
+				  struct prefix *prefix)
 {
 	struct bgp_nexthop_cache *bnc;
 
 	bnc = XCALLOC(MTYPE_BGP_NEXTHOP_CACHE,
 		      sizeof(struct bgp_nexthop_cache));
+	bnc->prefix = *prefix;
+	bnc->tree = tree;
 	LIST_INIT(&(bnc->paths));
+	RB_INSERT(bgp_nexthop_cache_head, tree, bnc);
+
 	return bnc;
 }
 
 void bnc_free(struct bgp_nexthop_cache *bnc)
 {
 	bnc_nexthop_free(bnc);
+	RB_REMOVE(bgp_nexthop_cache_head, bnc->tree, bnc);
 	XFREE(MTYPE_BGP_NEXTHOP_CACHE, bnc);
 }
 
-/* Reset and free all BGP nexthop cache. */
-static void bgp_nexthop_cache_reset(struct bgp_table *table)
+struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
+				   struct prefix *prefix)
 {
-	struct bgp_node *rn;
+	struct bgp_nexthop_cache bnc = {};
+
+	if (!tree)
+		return NULL;
+
+	bnc.prefix = *prefix;
+	return RB_FIND(bgp_nexthop_cache_head, tree, &bnc);
+}
+
+/* Reset and free all BGP nexthop cache. */
+static void bgp_nexthop_cache_reset(struct bgp_nexthop_cache_head *tree)
+{
 	struct bgp_nexthop_cache *bnc;
 
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		bnc = bgp_node_get_bgp_nexthop_info(rn);
-		if (!bnc)
-			continue;
+        while (!RB_EMPTY(bgp_nexthop_cache_head, tree)) {
+                bnc = RB_ROOT(bgp_nexthop_cache_head, tree);
 
 		while (!LIST_EMPTY(&(bnc->paths))) {
 			struct bgp_path_info *path = LIST_FIRST(&(bnc->paths));
@@ -93,8 +115,6 @@ static void bgp_nexthop_cache_reset(struct bgp_table *table)
 		}
 
 		bnc_free(bnc);
-		bgp_node_set_bgp_nexthop_info(rn, NULL);
-		bgp_unlock_node(rn);
 	}
 }
 
@@ -772,29 +792,24 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 }
 
 static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
-			     struct bgp_node *rn,
 			     struct bgp_nexthop_cache *bnc,
 			     bool specific)
 {
-	char buf[PREFIX2STR_BUFFER];
 	time_t tbuf;
 	struct peer *peer;
-	const struct prefix *p = bgp_node_get_prefix(rn);
 
 	peer = (struct peer *)bnc->nht_info;
 
 	if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)) {
-		vty_out(vty, " %s valid [IGP metric %d], #paths %d",
-			inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf)),
-			bnc->metric, bnc->path_count);
+		vty_out(vty, " %pFX valid [IGP metric %d], #paths %d",
+			&bnc->prefix, bnc->metric, bnc->path_count);
 		if (peer)
 			vty_out(vty, ", peer %s", peer->host);
 		vty_out(vty, "\n");
 		bgp_show_nexthops_detail(vty, bgp, bnc);
 	} else {
-		vty_out(vty, " %s invalid, #paths %d",
-			inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf)),
-			bnc->path_count);
+		vty_out(vty, " %pFX invalid, #paths %d",
+			&bnc->prefix, bnc->path_count);
 		if (peer)
 			vty_out(vty, ", peer %s", peer->host);
 		vty_out(vty, "\n");
@@ -815,29 +830,21 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp,
 			      bool import_table)
 {
-	struct bgp_node *rn;
 	struct bgp_nexthop_cache *bnc;
 	afi_t afi;
-	struct bgp_table **table;
+	struct bgp_nexthop_cache_head (*tree)[AFI_MAX];
 
 	if (import_table)
 		vty_out(vty, "Current BGP import check cache:\n");
 	else
 		vty_out(vty, "Current BGP nexthop cache:\n");
 	if (import_table)
-		table = bgp->import_check_table;
+		tree = &bgp->import_check_table;
 	else
-		table = bgp->nexthop_cache_table;
+		tree = &bgp->nexthop_cache_table;
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		if (!table || !table[afi])
-			continue;
-		for (rn = bgp_table_top(table[afi]); rn;
-		     rn = bgp_route_next(rn)) {
-			bnc = bgp_node_get_bgp_nexthop_info(rn);
-			if (!bnc)
-				continue;
-			bgp_show_nexthop(vty, bgp, rn, bnc, false);
-		}
+		RB_FOREACH (bnc, bgp_nexthop_cache_head, &(*tree)[afi])
+			bgp_show_nexthop(vty, bgp, bnc, false);
 	}
 }
 
@@ -858,27 +865,21 @@ static int show_ip_bgp_nexthop_table(struct vty *vty, const char *name,
 
 	if (nhopip_str) {
 		struct prefix nhop;
-		struct bgp_table **table;
-		struct bgp_node *rn;
+		struct bgp_nexthop_cache_head (*tree)[AFI_MAX];
 		struct bgp_nexthop_cache *bnc;
 
 		if (!str2prefix(nhopip_str, &nhop)) {
 			vty_out(vty, "nexthop address is malformed\n");
 			return CMD_WARNING;
 		}
-		table = import_table ? \
-			bgp->import_check_table : bgp->nexthop_cache_table;
-		rn = bgp_node_lookup(table[family2afi(nhop.family)], &nhop);
-		if (!rn) {
-			vty_out(vty, "specified nexthop is not found\n");
-			return CMD_SUCCESS;
-		}
-		bnc = bgp_node_get_bgp_nexthop_info(rn);
+		tree = import_table ? \
+			&bgp->import_check_table : &bgp->nexthop_cache_table;
+		bnc = bnc_find(tree[family2afi(nhop.family)], &nhop);
 		if (!bnc) {
 			vty_out(vty, "specified nexthop does not have entry\n");
 			return CMD_SUCCESS;
 		}
-		bgp_show_nexthop(vty, bgp, rn, bnc, true);
+		bgp_show_nexthop(vty, bgp, bnc, true);
 	} else
 		bgp_show_nexthops(vty, bgp, import_table);
 
@@ -965,12 +966,10 @@ void bgp_scan_init(struct bgp *bgp)
 	afi_t afi;
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		bgp->nexthop_cache_table[afi] =
-			bgp_table_init(bgp, afi, SAFI_UNICAST);
+		RB_INIT(bgp_nexthop_cache_head, &bgp->nexthop_cache_table[afi]);
+		RB_INIT(bgp_nexthop_cache_head, &bgp->import_check_table[afi]);
 		bgp->connected_table[afi] = bgp_table_init(bgp, afi,
 			SAFI_UNICAST);
-		bgp->import_check_table[afi] =
-			bgp_table_init(bgp, afi, SAFI_UNICAST);
 	}
 }
 
@@ -987,16 +986,12 @@ void bgp_scan_finish(struct bgp *bgp)
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		/* Only the current one needs to be reset. */
-		bgp_nexthop_cache_reset(bgp->nexthop_cache_table[afi]);
-		bgp_table_unlock(bgp->nexthop_cache_table[afi]);
-		bgp->nexthop_cache_table[afi] = NULL;
+		bgp_nexthop_cache_reset(&bgp->nexthop_cache_table[afi]);
+		bgp_nexthop_cache_reset(&bgp->import_check_table[afi]);
 
 		bgp->connected_table[afi]->route_table->cleanup =
 			bgp_connected_cleanup;
 		bgp_table_unlock(bgp->connected_table[afi]);
 		bgp->connected_table[afi] = NULL;
-
-		bgp_table_unlock(bgp->import_check_table[afi]);
-		bgp->import_check_table[afi] = NULL;
 	}
 }

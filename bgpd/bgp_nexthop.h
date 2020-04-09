@@ -24,6 +24,7 @@
 #include "if.h"
 #include "queue.h"
 #include "prefix.h"
+#include "openbsd-tree.h"
 
 #define NEXTHOP_FAMILY(nexthop_len)                                            \
 	(((nexthop_len) == 4 || (nexthop_len) == 12                            \
@@ -38,6 +39,9 @@
 
 /* BGP nexthop cache value structure. */
 struct bgp_nexthop_cache {
+	/* RB-tree entry. */
+	RB_ENTRY(bgp_nexthop_cache) entry;
+
 	/* IGP route's metric. */
 	uint32_t metric;
 
@@ -61,12 +65,18 @@ struct bgp_nexthop_cache {
 #define BGP_NEXTHOP_METRIC_CHANGED    (1 << 1)
 #define BGP_NEXTHOP_CONNECTED_CHANGED (1 << 2)
 
-	struct bgp_node *node;
+	/* Back pointer to the cache tree this entry belongs to. */
+	struct bgp_nexthop_cache_head *tree;
+
+	struct prefix prefix;
 	void *nht_info; /* In BGP, peer session */
 	LIST_HEAD(path_list, bgp_path_info) paths;
 	unsigned int path_count;
 	struct bgp *bgp;
 };
+RB_HEAD(bgp_nexthop_cache_head, bgp_nexthop_cache);
+RB_PROTOTYPE(bgp_nexthop_cache_head, bgp_nexthop_cache, entry,
+	     bgp_nexthop_cache_compare);
 
 /* Own tunnel-ip address structure */
 struct tip_addr {
@@ -78,6 +88,12 @@ struct bgp_addrv6 {
 	struct in6_addr addrv6;
 	struct list *ifp_name_list;
 };
+
+/* Forward declaration(s). */
+struct peer;
+struct update_subgroup;
+struct bgp_node;
+struct attr;
 
 extern void bgp_connected_add(struct bgp *bgp, struct connected *c);
 extern void bgp_connected_delete(struct bgp *bgp, struct connected *c);
@@ -94,10 +110,13 @@ extern int bgp_config_write_scan_time(struct vty *);
 extern bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 			     uint8_t sub_type, struct attr *attr,
 			     struct bgp_node *rn);
-extern struct bgp_nexthop_cache *bnc_new(void);
+extern struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
+					 struct prefix *prefix);
 extern void bnc_free(struct bgp_nexthop_cache *bnc);
+extern struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
+					  struct prefix *prefix);
 extern void bnc_nexthop_free(struct bgp_nexthop_cache *bnc);
-extern char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size);
+extern const char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size);
 extern void bgp_scan_init(struct bgp *bgp);
 extern void bgp_scan_finish(struct bgp *bgp);
 extern void bgp_scan_vty_init(void);
