@@ -666,6 +666,8 @@ void yang_init(void)
 		exit(1);
 	}
 
+//	ly_ctx_set_priv_dup_clb(ly_native_ctx,lyd_node_priv_copy);
+
 	yang_translator_init();
 }
 
