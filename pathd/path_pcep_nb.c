@@ -28,6 +28,8 @@
 
 #define MAX_XPATH 256
 #define MAX_FLOAT_LEN 22
+#define INETADDR4_MAXLEN 16
+#define INETADDR6_MAXLEN 40
 
 struct path_nb_list_path_cb_arg {
 	void *arg;
@@ -48,6 +50,26 @@ static void path_nb_edit_candidate_config(struct nb_config *candidate_config,
 static void path_nb_add_segment_list_segment(struct nb_config *config,
 					     const char *segment_list_name,
 					     uint32_t index, uint32_t label);
+static void
+path_nb_add_segment_list_segment_no_nai(struct nb_config *config,
+					const char *segment_list_name,
+					uint32_t index);
+static void path_nb_add_segment_list_segment_nai_ipv4_node(
+	struct nb_config *config, const char *segment_list_name, uint32_t index,
+	struct ipaddr *ip);
+static void path_nb_add_segment_list_segment_nai_ipv6_node(
+	struct nb_config *config, const char *segment_list_name, uint32_t index,
+	struct ipaddr *ip);
+static void path_nb_add_segment_list_segment_nai_ipv4_adj(
+	struct nb_config *config, const char *segment_list_name, uint32_t index,
+	struct ipaddr *local_ip, struct ipaddr *remote_ip);
+static void path_nb_add_segment_list_segment_nai_ipv6_adj(
+	struct nb_config *config, const char *segment_list_name, uint32_t index,
+	struct ipaddr *local_ip, struct ipaddr *remote_ip);
+static void path_nb_add_segment_list_segment_nai_ipv4_unnumbered_adj(
+	struct nb_config *config, const char *segment_list_name, uint32_t index,
+	struct ipaddr *local_ip, uint32_t local_iface, struct ipaddr *remote_ip,
+	uint32_t remote_iface);
 static void path_nb_create_segment_list(struct nb_config *config,
 					const char *segment_list_name);
 static void path_nb_add_candidate_path(struct nb_config *config, uint32_t color,
@@ -65,7 +87,7 @@ path_nb_add_candidate_path_metric(struct nb_config *config, uint32_t color,
 static enum pcep_lsp_operational_status
 status_int_to_ext(enum srte_policy_status status);
 static const char *metric_name(enum pcep_metric_types type);
-
+static enum pcep_sr_subobj_nai pcep_nai_type(enum srte_segment_nai_type type);
 
 struct path *path_nb_get_path(uint32_t color, struct ipaddr endpoint,
 			      uint32_t preference)
@@ -214,7 +236,33 @@ struct path_hop *path_nb_list_path_hops(struct srte_segment_list *segment_list)
 			.is_mpls = true,
 			.has_attribs = false,
 			.sid = {.mpls = {.label = segment->sid_value}},
-			.has_nai = false};
+			.has_nai =
+				segment->nai_type != SRTE_SEGMENT_NAI_TYPE_NONE,
+			.nai = {.type = pcep_nai_type(segment->nai_type)}};
+		switch (segment->nai_type) {
+		case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
+		case SRTE_SEGMENT_NAI_TYPE_IPV6_NODE:
+			memcpy(&hop->nai.local_addr, &segment->nai_local_addr,
+			       sizeof(struct ipaddr));
+			break;
+		case SRTE_SEGMENT_NAI_TYPE_IPV4_ADJACENCY:
+		case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY:
+			memcpy(&hop->nai.local_addr, &segment->nai_local_addr,
+			       sizeof(struct ipaddr));
+			memcpy(&hop->nai.remote_addr, &segment->nai_remote_addr,
+			       sizeof(struct ipaddr));
+			break;
+		case SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY:
+			memcpy(&hop->nai.local_addr, &segment->nai_local_addr,
+			       sizeof(struct ipaddr));
+			hop->nai.local_iface = segment->nai_local_iface;
+			memcpy(&hop->nai.remote_addr, &segment->nai_remote_addr,
+			       sizeof(struct ipaddr));
+			hop->nai.remote_iface = segment->nai_remote_iface;
+			break;
+		default:
+			break;
+		}
 		last_hop = hop;
 	}
 	return hop;
@@ -245,6 +293,45 @@ void path_nb_update_path(struct path *path)
 			path_nb_add_segment_list_segment(
 				config, segment_list_name, index,
 				hop->sid.mpls.label);
+			if (hop->has_nai) {
+				switch (hop->nai.type) {
+				case PCEP_SR_SUBOBJ_NAI_IPV4_NODE:
+					path_nb_add_segment_list_segment_nai_ipv4_node(
+						config, segment_list_name,
+						index, &hop->nai.local_addr);
+					break;
+				case PCEP_SR_SUBOBJ_NAI_IPV6_NODE:
+					path_nb_add_segment_list_segment_nai_ipv6_node(
+						config, segment_list_name,
+						index, &hop->nai.local_addr);
+					break;
+				case PCEP_SR_SUBOBJ_NAI_IPV4_ADJACENCY:
+					path_nb_add_segment_list_segment_nai_ipv4_adj(
+						config, segment_list_name,
+						index, &hop->nai.local_addr,
+						&hop->nai.remote_addr);
+					break;
+				case PCEP_SR_SUBOBJ_NAI_IPV6_ADJACENCY:
+					path_nb_add_segment_list_segment_nai_ipv6_adj(
+						config, segment_list_name,
+						index, &hop->nai.local_addr,
+						&hop->nai.remote_addr);
+					break;
+				case PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY:
+					path_nb_add_segment_list_segment_nai_ipv4_unnumbered_adj(
+						config, segment_list_name,
+						index, &hop->nai.local_addr,
+						hop->nai.local_iface,
+						&hop->nai.remote_addr,
+						hop->nai.remote_iface);
+					break;
+				default:
+					path_nb_add_segment_list_segment_no_nai(
+						config, segment_list_name,
+						index);
+					break;
+				}
+			}
 		}
 	}
 
@@ -315,6 +402,137 @@ void path_nb_add_segment_list_segment(struct nb_config *config,
 
 	snprintf(xpath, sizeof(xpath), "%s/sid-value", xpath_base);
 	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, label_str);
+}
+
+void path_nb_add_segment_list_segment_no_nai(struct nb_config *config,
+					     const char *segment_list_name,
+					     uint32_t index)
+{
+	char xpath[XPATH_MAXLEN];
+	snprintf(
+		xpath, sizeof(xpath),
+		"/frr-pathd:pathd/segment-list[name='%s']/segment[index='%u']/nai",
+		segment_list_name, index);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_DESTROY, NULL);
+}
+
+void path_nb_add_segment_list_segment_nai_ipv4_node(
+	struct nb_config *config, const char *segment_list_name, uint32_t index,
+	struct ipaddr *ip)
+{
+	char xpath_base[XPATH_MAXLEN];
+	char xpath[XPATH_MAXLEN];
+	char address[INETADDR4_MAXLEN];
+
+	snprintf(
+		xpath_base, sizeof(xpath_base),
+		"/frr-pathd:pathd/segment-list[name='%s']/segment[index='%u']/nai",
+		segment_list_name, index);
+	path_nb_edit_candidate_config(config, xpath_base, NB_OP_CREATE, NULL);
+	snprintf(xpath, sizeof(xpath), "%s/type", xpath_base);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, "ipv4_node");
+	snprintf(xpath, sizeof(xpath), "%s/local-address", xpath_base);
+	snprintfrr(address, sizeof(address), "%pI4", &ip->ipaddr_v4);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, address);
+}
+
+void path_nb_add_segment_list_segment_nai_ipv6_node(
+	struct nb_config *config, const char *segment_list_name, uint32_t index,
+	struct ipaddr *ip)
+{
+	char xpath_base[XPATH_MAXLEN];
+	char xpath[XPATH_MAXLEN];
+	char address[INETADDR6_MAXLEN];
+
+	snprintf(
+		xpath_base, sizeof(xpath_base),
+		"/frr-pathd:pathd/segment-list[name='%s']/segment[index='%u']/nai",
+		segment_list_name, index);
+	path_nb_edit_candidate_config(config, xpath_base, NB_OP_CREATE, NULL);
+	snprintf(xpath, sizeof(xpath), "%s/type", xpath_base);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, "ipv6_node");
+	snprintf(xpath, sizeof(xpath), "%s/local-address", xpath_base);
+	snprintfrr(address, sizeof(address), "%pI6", &ip->ipaddr_v6);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, address);
+}
+
+void path_nb_add_segment_list_segment_nai_ipv4_adj(
+	struct nb_config *config, const char *segment_list_name, uint32_t index,
+	struct ipaddr *local_ip, struct ipaddr *remote_ip)
+{
+	char xpath_base[XPATH_MAXLEN];
+	char xpath[XPATH_MAXLEN];
+	char address[INETADDR4_MAXLEN];
+
+	snprintf(
+		xpath_base, sizeof(xpath_base),
+		"/frr-pathd:pathd/segment-list[name='%s']/segment[index='%u']/nai",
+		segment_list_name, index);
+	path_nb_edit_candidate_config(config, xpath_base, NB_OP_CREATE, NULL);
+	snprintf(xpath, sizeof(xpath), "%s/type", xpath_base);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
+				      "ipv4_adjacency");
+	snprintf(xpath, sizeof(xpath), "%s/local-address", xpath_base);
+	snprintfrr(address, sizeof(address), "%pI4", &local_ip->ipaddr_v4);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, address);
+	snprintf(xpath, sizeof(xpath), "%s/remote-address", xpath_base);
+	snprintfrr(address, sizeof(address), "%pI4", &remote_ip->ipaddr_v4);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, address);
+}
+
+void path_nb_add_segment_list_segment_nai_ipv6_adj(
+	struct nb_config *config, const char *segment_list_name, uint32_t index,
+	struct ipaddr *local_ip, struct ipaddr *remote_ip)
+{
+	char xpath_base[XPATH_MAXLEN];
+	char xpath[XPATH_MAXLEN];
+	char address[INETADDR6_MAXLEN];
+
+	snprintf(
+		xpath_base, sizeof(xpath_base),
+		"/frr-pathd:pathd/segment-list[name='%s']/segment[index='%u']/nai",
+		segment_list_name, index);
+	path_nb_edit_candidate_config(config, xpath_base, NB_OP_CREATE, NULL);
+	snprintf(xpath, sizeof(xpath), "%s/type", xpath_base);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
+				      "ipv6_adjacency");
+	snprintf(xpath, sizeof(xpath), "%s/local-address", xpath_base);
+	snprintfrr(address, sizeof(address), "%pI6", &local_ip->ipaddr_v6);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, address);
+	snprintf(xpath, sizeof(xpath), "%s/remote-address", xpath_base);
+	snprintfrr(address, sizeof(address), "%pI6", &remote_ip->ipaddr_v6);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, address);
+}
+
+void path_nb_add_segment_list_segment_nai_ipv4_unnumbered_adj(
+	struct nb_config *config, const char *segment_list_name, uint32_t index,
+	struct ipaddr *local_ip, uint32_t local_iface, struct ipaddr *remote_ip,
+	uint32_t remote_iface)
+{
+	char xpath_base[XPATH_MAXLEN];
+	char xpath[XPATH_MAXLEN];
+	char address[INETADDR4_MAXLEN];
+
+	snprintf(
+		xpath_base, sizeof(xpath_base),
+		"/frr-pathd:pathd/segment-list[name='%s']/segment[index='%u']/nai",
+		segment_list_name, index);
+	path_nb_edit_candidate_config(config, xpath_base, NB_OP_CREATE, NULL);
+	snprintf(xpath, sizeof(xpath), "%s/type", xpath_base);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
+				      "ipv4_unnumbered_adjacency");
+	snprintf(xpath, sizeof(xpath), "%s/local-address", xpath_base);
+	snprintfrr(address, sizeof(address), "%pI4", &local_ip->ipaddr_v4);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, address);
+	snprintf(xpath, sizeof(xpath), "%s/local-interface", xpath_base);
+	snprintf(address, sizeof(address), "%u", local_iface);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, address);
+	snprintf(xpath, sizeof(xpath), "%s/remote-address", xpath_base);
+	snprintfrr(address, sizeof(address), "%pI4", &remote_ip->ipaddr_v4);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, address);
+	snprintf(xpath, sizeof(xpath), "%s/remote-interface", xpath_base);
+	snprintf(address, sizeof(address), "%u", remote_iface);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, address);
 }
 
 void path_nb_create_segment_list(struct nb_config *config,
@@ -431,5 +649,25 @@ const char *metric_name(enum pcep_metric_types type)
 		return "abc";
 	default:
 		return NULL;
+	}
+}
+
+enum pcep_sr_subobj_nai pcep_nai_type(enum srte_segment_nai_type type)
+{
+	switch (type) {
+	case SRTE_SEGMENT_NAI_TYPE_NONE:
+		return PCEP_SR_SUBOBJ_NAI_ABSENT;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
+		return PCEP_SR_SUBOBJ_NAI_IPV4_NODE;
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_NODE:
+		return PCEP_SR_SUBOBJ_NAI_IPV6_NODE;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_ADJACENCY:
+		return PCEP_SR_SUBOBJ_NAI_IPV4_ADJACENCY;
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY:
+		return PCEP_SR_SUBOBJ_NAI_IPV6_ADJACENCY;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY:
+		return PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY;
+	default:
+		return PCEP_SR_SUBOBJ_NAI_UNKNOWN;
 	}
 }

@@ -112,12 +112,17 @@ union sid {
 	struct sid_mpls mpls;
 };
 
-struct nai_ipv4_node {
-	struct in_addr addr;
-};
-
-union nai {
-	struct nai_ipv4_node ipv4_node;
+struct nai {
+	/* NAI type */
+	enum pcep_sr_subobj_nai type;
+	/* Local IP address*/
+	struct ipaddr local_addr;
+	/* Local interface identifier if the NAI is an unnumbered adjacency */
+	uint32_t local_iface;
+	/* Remote address if the NAI is an adjacency */
+	struct ipaddr remote_addr;
+	/* Remote interface identifier if the NAI is an unnumbered adjacency */
+	uint32_t remote_iface;
 };
 
 struct path_hop {
@@ -135,10 +140,8 @@ struct path_hop {
 	union sid sid;
 	/* Indicate if there ia a NAI for this hop */
 	bool has_nai;
-	/* Indicate Hop's NAI type if available */
-	enum pcep_sr_subobj_nai nai_type;
-	/* Hop's NAI if available */
-	union nai nai;
+	/* NAI if available */
+	struct nai nai;
 };
 
 struct path_metric {

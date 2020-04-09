@@ -140,41 +140,39 @@ int pathd_te_segment_list_segment_nai_destroy(struct nb_cb_destroy_args *args)
 void pathd_te_segment_list_segment_nai_apply_finish(
 	struct nb_cb_apply_finish_args *args)
 {
-	if (yang_dnode_exists(args->dnode, "./nai")) {
-		struct srte_segment_entry *segment;
-		enum srte_segment_nai_type type;
-		segment = nb_running_get_entry(args->dnode, NULL, true);
-		type = yang_dnode_get_enum(args->dnode, "./type");
-		switch (type) {
-		case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
-		case SRTE_SEGMENT_NAI_TYPE_IPV6_NODE:
-			segment->nai_type = type;
-			yang_dnode_get_ip(&segment->nai_local_addr, args->dnode,
-					  "./local-address");
-			break;
-		case SRTE_SEGMENT_NAI_TYPE_IPV4_ADJACENCY:
-		case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY:
-			segment->nai_type = type;
-			yang_dnode_get_ip(&segment->nai_local_addr, args->dnode,
-					  "./local-address");
-			yang_dnode_get_ip(&segment->nai_remote_addr,
-			                  args->dnode, "./remote-address");
-			break;
-		case SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY:
-			segment->nai_type = type;
-			yang_dnode_get_ip(&segment->nai_local_addr, args->dnode,
-					  "./local-address");
-			segment->nai_local_iface = yang_dnode_get_uint32(
-				args->dnode, "./local-interface");
-			yang_dnode_get_ip(&segment->nai_remote_addr,
-			                  args->dnode, "./remote-address");
-			segment->nai_remote_iface = yang_dnode_get_uint32(
-				args->dnode, "./remote-interface");
-			break;
-		default:
-			segment->nai_type = SRTE_SEGMENT_NAI_TYPE_NONE;
-			return;
-		}
+	struct srte_segment_entry *segment;
+	enum srte_segment_nai_type type;
+	segment = nb_running_get_entry(args->dnode, NULL, true);
+	type = yang_dnode_get_enum(args->dnode, "./type");
+	switch (type) {
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_NODE:
+		segment->nai_type = type;
+		yang_dnode_get_ip(&segment->nai_local_addr, args->dnode,
+				  "./local-address");
+		break;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_ADJACENCY:
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY:
+		segment->nai_type = type;
+		yang_dnode_get_ip(&segment->nai_local_addr, args->dnode,
+				  "./local-address");
+		yang_dnode_get_ip(&segment->nai_remote_addr, args->dnode,
+				  "./remote-address");
+		break;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY:
+		segment->nai_type = type;
+		yang_dnode_get_ip(&segment->nai_local_addr, args->dnode,
+				  "./local-address");
+		segment->nai_local_iface =
+			yang_dnode_get_uint32(args->dnode, "./local-interface");
+		yang_dnode_get_ip(&segment->nai_remote_addr, args->dnode,
+				  "./remote-address");
+		segment->nai_remote_iface =
+			yang_dnode_get_uint32(args->dnode, "./remote-interface");
+		break;
+	default:
+		segment->nai_type = SRTE_SEGMENT_NAI_TYPE_NONE;
+		return;
 	}
 }
 

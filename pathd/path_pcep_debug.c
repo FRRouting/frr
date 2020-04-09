@@ -822,11 +822,32 @@ void _format_path_hop(int ps, struct path_hop *hop)
 	PCEP_FORMAT("%*shas_nai: %u\n", ps, "", hop->has_nai);
 	if (hop->has_nai) {
 		PCEP_FORMAT("%*snai_type: %s (%u)\n", ps, "",
-			    pcep_nai_type_name(hop->nai_type), hop->nai_type);
-		switch (hop->nai_type) {
+			    pcep_nai_type_name(hop->nai.type), hop->nai.type);
+		switch (hop->nai.type) {
 		case PCEP_SR_SUBOBJ_NAI_IPV4_NODE:
 			PCEP_FORMAT("%*sNAI: %pI4\n", ps, "",
-				    &hop->nai.ipv4_node.addr);
+				    &hop->nai.local_addr.ipaddr_v4);
+			break;
+		case PCEP_SR_SUBOBJ_NAI_IPV6_NODE:
+			PCEP_FORMAT("%*sNAI: %pI6\n", ps, "",
+				    &hop->nai.local_addr.ipaddr_v6);
+			break;
+		case PCEP_SR_SUBOBJ_NAI_IPV4_ADJACENCY:
+			PCEP_FORMAT("%*sNAI: %pI4/%pI4\n", ps, "",
+				    &hop->nai.local_addr.ipaddr_v4,
+				    &hop->nai.remote_addr.ipaddr_v4);
+			break;
+		case PCEP_SR_SUBOBJ_NAI_IPV6_ADJACENCY:
+			PCEP_FORMAT("%*sNAI: %pI6/%pI6\n", ps, "",
+				    &hop->nai.local_addr.ipaddr_v6,
+				    &hop->nai.remote_addr.ipaddr_v6);
+			break;
+		case PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY:
+			PCEP_FORMAT("%*sNAI: %pI4(%u)/%pI4(%u)\n", ps, "",
+				    &hop->nai.local_addr.ipaddr_v6,
+				    hop->nai.local_iface,
+				    &hop->nai.remote_addr.ipaddr_v6,
+				    hop->nai.remote_iface);
 			break;
 		default:
 			PCEP_FORMAT("%*sNAI: UNSUPPORTED\n", ps, "");
@@ -1072,8 +1093,6 @@ void _format_pcep_object_ro_ipv4(int ps, struct pcep_ro_subobj_ipv4 *obj)
 
 void _format_pcep_object_ro_sr(int ps, struct pcep_ro_subobj_sr *obj)
 {
-	struct in_addr *addr;
-
 	PCEP_FORMAT("%*snai_type = %s (%u)\n", ps, "",
 		    pcep_nai_type_name(obj->nai_type), obj->nai_type);
 	PCEP_FORMAT("%*sflag_f: %u\n", ps, "", obj->flag_f);
@@ -1097,11 +1116,54 @@ void _format_pcep_object_ro_sr(int ps, struct pcep_ro_subobj_sr *obj)
 		}
 	}
 
-	if (obj->flag_f) {
+	if (!obj->flag_f) {
+		struct in_addr *laddr4, *raddr4;
+		struct in6_addr *laddr6, *raddr6;
+		uint32_t *liface, *riface;
+		assert(NULL != obj->nai_list);
+		double_linked_list_node *n = obj->nai_list->head;
+		assert(NULL != n);
+		assert(NULL != n->data);
 		switch (obj->nai_type) {
 		case PCEP_SR_SUBOBJ_NAI_IPV4_NODE:
-			addr = (struct in_addr *)obj->nai_list->head->data;
-			PCEP_FORMAT("%*sNAI: %pI4\n", ps, "", addr);
+			laddr4 = (struct in_addr *)n->data;
+			PCEP_FORMAT("%*sNAI: %pI4\n", ps, "", laddr4);
+			break;
+		case PCEP_SR_SUBOBJ_NAI_IPV6_NODE:
+			laddr6 = (struct in6_addr *)n->data;
+			PCEP_FORMAT("%*sNAI: %pI6\n", ps, "", laddr6);
+			break;
+		case PCEP_SR_SUBOBJ_NAI_IPV4_ADJACENCY:
+			assert(NULL != n->next_node);
+			assert(NULL != n->next_node->data);
+			laddr4 = (struct in_addr *)n->data;
+			raddr4 = (struct in_addr *)n->next_node->data;
+			PCEP_FORMAT("%*sNAI: %pI4/%pI4\n", ps, "", laddr4,
+				    raddr4);
+			break;
+		case PCEP_SR_SUBOBJ_NAI_IPV6_ADJACENCY:
+			assert(NULL != n->next_node);
+			assert(NULL != n->next_node->data);
+			laddr6 = (struct in6_addr *)n->data;
+			raddr6 = (struct in6_addr *)n->next_node->data;
+			PCEP_FORMAT("%*sNAI: %pI6/%pI6\n", ps, "", laddr6,
+				    raddr6);
+			break;
+		case PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY:
+			laddr4 = (struct in_addr *)n->data;
+			n = n->next_node;
+			assert(NULL != n);
+			assert(NULL != n->data);
+			liface = (uint32_t *)n->data;
+			n = n->next_node;
+			assert(NULL != n);
+			assert(NULL != n->data);
+			raddr4 = (struct in_addr *)n->data;
+			assert(NULL != n);
+			assert(NULL != n->data);
+			riface = (uint32_t *)n->data;
+			PCEP_FORMAT("%*sNAI: %pI4(%u)/%pI4(%u)\n", ps, "",
+				    laddr4, *liface, raddr4, *riface);
 			break;
 		default:
 			PCEP_FORMAT("%*sNAI: UNSUPPORTED\n", ps, "");

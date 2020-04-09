@@ -38,7 +38,7 @@ static void pcep_lib_parse_rp(struct path *path, struct pcep_object_rp *rp);
 static void pcep_lib_parse_srp(struct path *path, struct pcep_object_srp *srp);
 static void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp);
 static void pcep_lib_parse_metric(struct path *path,
-                                  struct pcep_object_metric *obj);
+				  struct pcep_object_metric *obj);
 static void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero);
 static struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 					      struct pcep_ro_subobj_sr *sr);
@@ -336,9 +336,9 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 		encoded_binding_sid = htonl(path->binding_sid << 12);
 		memcpy(binding_sid_lsp_tlv_data + 2, &encoded_binding_sid, 4);
 		tlv = (struct pcep_object_tlv_header *)
-		       pcep_tlv_create_tlv_arbitrary(binding_sid_lsp_tlv_data,
-		                                     sizeof(binding_sid_lsp_tlv_data),
-		                                     65505);
+			pcep_tlv_create_tlv_arbitrary(
+				binding_sid_lsp_tlv_data,
+				sizeof(binding_sid_lsp_tlv_data), 65505);
 		assert(NULL != tlv);
 		dll_append(lsp_tlvs, tlv);
 	}
@@ -368,23 +368,78 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 			sid = ENCODE_SR_ERO_SID(hop->sid.mpls.label, 0, 0, 0);
 		}
 
+		ero_obj = NULL;
 		if (hop->has_nai) {
-			/* Only supporting IPv4 nodes */
-			assert(PCEP_SR_SUBOBJ_NAI_IPV4_NODE == hop->nai_type);
-			ero_obj = (struct pcep_object_ro_subobj *)
-				pcep_obj_create_ro_subobj_sr_ipv4_node(
-					hop->is_loose, !hop->has_sid,
-					hop->has_attribs, /* C Flag */
-					hop->is_mpls,	  /* M Flag */
-					sid, &hop->nai.ipv4_node.addr);
-		} else {
+			assert(PCEP_SR_SUBOBJ_NAI_ABSENT != hop->nai.type);
+			assert(PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY
+			       != hop->nai.type);
+			assert(PCEP_SR_SUBOBJ_NAI_UNKNOWN != hop->nai.type);
+			switch (hop->nai.type) {
+			case PCEP_SR_SUBOBJ_NAI_IPV4_NODE:
+				ero_obj = (struct pcep_object_ro_subobj *)
+					pcep_obj_create_ro_subobj_sr_ipv4_node(
+						hop->is_loose, !hop->has_sid,
+						hop->has_attribs, /* C Flag */
+						hop->is_mpls,     /* M Flag */
+						sid,
+						&hop->nai.local_addr.ipaddr_v4);
+				break;
+			case PCEP_SR_SUBOBJ_NAI_IPV6_NODE:
+				ero_obj = (struct pcep_object_ro_subobj *)
+					pcep_obj_create_ro_subobj_sr_ipv6_node(
+						hop->is_loose, !hop->has_sid,
+						hop->has_attribs, /* C Flag */
+						hop->is_mpls,     /* M Flag */
+						sid,
+						&hop->nai.local_addr.ipaddr_v6);
+				break;
+			case PCEP_SR_SUBOBJ_NAI_IPV4_ADJACENCY:
+				ero_obj = (struct pcep_object_ro_subobj *)
+					pcep_obj_create_ro_subobj_sr_ipv4_adj(
+						hop->is_loose, !hop->has_sid,
+						hop->has_attribs, /* C Flag */
+						hop->is_mpls,     /* M Flag */
+						sid,
+						&hop->nai.local_addr.ipaddr_v4,
+						&hop->nai.remote_addr
+							 .ipaddr_v4);
+				break;
+			case PCEP_SR_SUBOBJ_NAI_IPV6_ADJACENCY:
+				ero_obj = (struct pcep_object_ro_subobj *)
+					pcep_obj_create_ro_subobj_sr_ipv6_adj(
+						hop->is_loose, !hop->has_sid,
+						hop->has_attribs, /* C Flag */
+						hop->is_mpls,     /* M Flag */
+						sid,
+						&hop->nai.local_addr.ipaddr_v6,
+						&hop->nai.remote_addr
+							 .ipaddr_v6);
+				break;
+			case PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY:
+				ero_obj = (struct pcep_object_ro_subobj *)
+					pcep_obj_create_ro_subobj_sr_unnumbered_ipv4_adj(
+						hop->is_loose, !hop->has_sid,
+						hop->has_attribs, /* C Flag */
+						hop->is_mpls,     /* M Flag */
+						sid,
+						hop->nai.local_addr.ipaddr_v4
+							.s_addr,
+						hop->nai.local_iface,
+						hop->nai.remote_addr.ipaddr_v4
+							.s_addr,
+						hop->nai.remote_iface);
+				break;
+			default:
+				break;
+			}
+		}
+		if (NULL == ero_obj) {
 			ero_obj = (struct pcep_object_ro_subobj *)
 				pcep_obj_create_ro_subobj_sr_nonai(
 					hop->is_loose, sid,
 					hop->has_attribs, /* C Flag */
 					hop->is_mpls);	  /* M Flag */
 		}
-		assert(NULL != ero_obj);
 		dll_append(ero_objs, ero_obj);
 	}
 	ero = pcep_obj_create_ero(ero_objs);
@@ -587,18 +642,73 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 				 .is_bottom = GET_SR_ERO_SID_S(sr->sid),
 				 .ttl = GET_SR_ERO_SID_TTL(sr->sid)}},
 		.has_nai = !sr->flag_f,
-		.nai_type = sr->nai_type};
+		.nai = {.type = sr->nai_type}};
 
 	if (!sr->flag_f) {
-		/* Only support IPv4 node with IPv4 NAI */
-		assert(PCEP_SR_SUBOBJ_NAI_IPV4_NODE == sr->nai_type);
 		assert(NULL != sr->nai_list);
-		assert(NULL != sr->nai_list->head);
-		assert(NULL != sr->nai_list->head->data);
-		struct in_addr *addr =
-			(struct in_addr *)sr->nai_list->head->data;
-		hop->nai = (union nai){
-			.ipv4_node = {.addr = {.s_addr = addr->s_addr}}};
+		double_linked_list_node *n = sr->nai_list->head;
+		assert(NULL != n);
+		assert(NULL != n->data);
+		switch (sr->nai_type) {
+		case PCEP_SR_SUBOBJ_NAI_IPV4_NODE:
+			hop->nai.local_addr.ipa_type = IPADDR_V4;
+			memcpy(&hop->nai.local_addr.ipaddr_v4, n->data,
+			       sizeof(struct in_addr));
+			break;
+		case PCEP_SR_SUBOBJ_NAI_IPV6_NODE:
+			hop->nai.local_addr.ipa_type = IPADDR_V6;
+			memcpy(&hop->nai.local_addr.ipaddr_v6, n->data,
+			       sizeof(struct in6_addr));
+			break;
+		case PCEP_SR_SUBOBJ_NAI_IPV4_ADJACENCY:
+			hop->nai.local_addr.ipa_type = IPADDR_V4;
+			memcpy(&hop->nai.local_addr.ipaddr_v4, n->data,
+			       sizeof(struct in_addr));
+			n = n->next_node;
+			assert(NULL != n);
+			assert(NULL != n->data);
+			hop->nai.remote_addr.ipa_type = IPADDR_V4;
+			memcpy(&hop->nai.remote_addr.ipaddr_v4, n->data,
+			       sizeof(struct in_addr));
+			break;
+		case PCEP_SR_SUBOBJ_NAI_IPV6_ADJACENCY:
+			hop->nai.local_addr.ipa_type = IPADDR_V6;
+			memcpy(&hop->nai.local_addr.ipaddr_v6, n->data,
+			       sizeof(struct in6_addr));
+			n = n->next_node;
+			assert(NULL != n);
+			assert(NULL != n->data);
+			hop->nai.remote_addr.ipa_type = IPADDR_V6;
+			memcpy(&hop->nai.remote_addr.ipaddr_v6, n->data,
+			       sizeof(struct in6_addr));
+			break;
+		case PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY:
+			hop->nai.local_addr.ipa_type = IPADDR_V4;
+			memcpy(&hop->nai.local_addr.ipaddr_v4, n->data,
+			       sizeof(struct in_addr));
+			n = n->next_node;
+			assert(NULL != n);
+			assert(NULL != n->data);
+			hop->nai.local_iface = *(uint32_t *)n->data;
+			n = n->next_node;
+			assert(NULL != n);
+			assert(NULL != n->data);
+			hop->nai.remote_addr.ipa_type = IPADDR_V4;
+			memcpy(&hop->nai.remote_addr.ipaddr_v4, n->data,
+			       sizeof(struct in_addr));
+			n = n->next_node;
+			assert(NULL != n);
+			assert(NULL != n->data);
+			hop->nai.remote_iface = *(uint32_t *)n->data;
+			break;
+		default:
+			hop->has_nai = false;
+			flog_warn(EC_PATH_PCEP_UNEXPECTED_SR_NAI,
+				  "Unexpected SR segment NAI type %s (%u)",
+				  pcep_nai_type_name(sr->nai_type),
+				  sr->nai_type);
+			break;
+		}
 	}
 
 	return hop;

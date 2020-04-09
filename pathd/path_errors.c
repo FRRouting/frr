@@ -98,6 +98,12 @@ static struct log_ref ferr_path_warn[] = {
                 .suggestion = "Open an Issue with all relevant log files"
         },
         {
+                .code = EC_PATH_PCEP_UNEXPECTED_SR_NAI,
+                .title = "Unexpected PCEP SR segment NAI",
+                .description = "The PCEP module received an SR segment with an unsupported NAI specification from the PCE",
+                .suggestion = "Open an Issue with all relevant log files"
+        },
+        {
                 .code = END_FERR,
         }
 };
