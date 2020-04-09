@@ -50,6 +50,11 @@ DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Address Intf String");
 static inline int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,
 					    const struct bgp_nexthop_cache *b)
 {
+	if (a->srte_color < b->srte_color)
+		return -1;
+	if (a->srte_color > b->srte_color)
+		return 1;
+
 	return prefix_cmp(&a->prefix, &b->prefix);
 }
 
@@ -67,13 +72,14 @@ void bnc_nexthop_free(struct bgp_nexthop_cache *bnc)
 }
 
 struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
-				  struct prefix *prefix)
+				  struct prefix *prefix, uint32_t srte_color)
 {
 	struct bgp_nexthop_cache *bnc;
 
 	bnc = XCALLOC(MTYPE_BGP_NEXTHOP_CACHE,
 		      sizeof(struct bgp_nexthop_cache));
 	bnc->prefix = *prefix;
+	bnc->srte_color = srte_color;
 	bnc->tree = tree;
 	LIST_INIT(&(bnc->paths));
 	RB_INSERT(bgp_nexthop_cache_head, tree, bnc);
@@ -89,7 +95,7 @@ void bnc_free(struct bgp_nexthop_cache *bnc)
 }
 
 struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
-				   struct prefix *prefix)
+				   struct prefix *prefix, uint32_t srte_color)
 {
 	struct bgp_nexthop_cache bnc = {};
 
@@ -97,6 +103,7 @@ struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
 		return NULL;
 
 	bnc.prefix = *prefix;
+	bnc.srte_color = srte_color;
 	return RB_FIND(bgp_nexthop_cache_head, tree, &bnc);
 }
 
@@ -800,6 +807,8 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp,
 
 	peer = (struct peer *)bnc->nht_info;
 
+	if (bnc->srte_color)
+		vty_out(vty, " SR-TE color %u -", bnc->srte_color);
 	if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)) {
 		vty_out(vty, " %pFX valid [IGP metric %d], #paths %d",
 			&bnc->prefix, bnc->metric, bnc->path_count);
@@ -874,7 +883,7 @@ static int show_ip_bgp_nexthop_table(struct vty *vty, const char *name,
 		}
 		tree = import_table ? \
 			&bgp->import_check_table : &bgp->nexthop_cache_table;
-		bnc = bnc_find(tree[family2afi(nhop.family)], &nhop);
+		bnc = bnc_find(tree[family2afi(nhop.family)], &nhop, 0);
 		if (!bnc) {
 			vty_out(vty, "specified nexthop does not have entry\n");
 			return CMD_SUCCESS;

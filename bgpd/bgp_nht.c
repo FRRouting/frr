@@ -72,9 +72,9 @@ static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
 	if (LIST_EMPTY(&(bnc->paths)) && !bnc->nht_info) {
 		if (BGP_DEBUG(nht, NHT)) {
 			char buf[PREFIX2STR_BUFFER];
-			zlog_debug("bgp_unlink_nexthop: freeing bnc %s(%s)",
+			zlog_debug("bgp_unlink_nexthop: freeing bnc %s(%u)(%s)",
 				   bnc_str(bnc, buf, PREFIX2STR_BUFFER),
-				   bnc->bgp->name_pretty);
+				   bnc->srte_color, bnc->bgp->name_pretty);
 		}
 		unregister_zebra_rnh(bnc,
 				     CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE));
@@ -103,7 +103,7 @@ void bgp_unlink_nexthop_by_peer(struct peer *peer)
 	if (!sockunion2hostprefix(&peer->su, &p))
 		return;
 
-	bnc = bnc_find(&peer->bgp->nexthop_cache_table[afi], &p);
+	bnc = bnc_find(&peer->bgp->nexthop_cache_table[afi], &p, 0);
 	if (!bnc)
 		return;
 
@@ -124,6 +124,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	struct bgp_nexthop_cache_head *tree = NULL;
 	struct bgp_nexthop_cache *bnc;
 	struct prefix p;
+	uint32_t srte_color = 0;
 	int is_bgp_static_route = 0;
 
 	if (pi) {
@@ -143,6 +144,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		 * addr */
 		if (make_prefix(afi, pi, &p) < 0)
 			return 1;
+
+		srte_color = pi->attr->srte_color;
 	} else if (peer) {
 		if (!sockunion2hostprefix(&peer->su, &p)) {
 			if (BGP_DEBUG(nht, NHT)) {
@@ -160,16 +163,17 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	else
 		tree = &bgp_nexthop->nexthop_cache_table[afi];
 
-	bnc = bnc_find(tree, &p);
+	bnc = bnc_find(tree, &p, srte_color);
 	if (!bnc) {
-		bnc = bnc_new(tree, &p);
+		bnc = bnc_new(tree, &p, srte_color);
 		bnc->bgp = bgp_nexthop;
 		if (BGP_DEBUG(nht, NHT)) {
 			char buf[PREFIX2STR_BUFFER];
 
-			zlog_debug("Allocated bnc %s(%s) peer %p",
+			zlog_debug("Allocated bnc %s(%u)(%s) peer %p",
 				   bnc_str(bnc, buf, PREFIX2STR_BUFFER),
-				   bnc->bgp->name_pretty, peer);
+				   bnc->srte_color, bnc->bgp->name_pretty,
+				   peer);
 		}
 	}
 
@@ -261,7 +265,7 @@ void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer)
 		return;
 
 	bnc = bnc_find(&peer->bgp->nexthop_cache_table[family2afi(p.family)],
-		       &p);
+		       &p, 0);
 	if (!bnc) {
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(
@@ -324,15 +328,15 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	else if (command == ZEBRA_IMPORT_CHECK_UPDATE)
 		tree = &bgp->import_check_table[family2afi(nhr.prefix.family)];
 
-	bnc = bnc_find(tree, &nhr.prefix);
+	bnc = bnc_find(tree, &nhr.prefix, nhr.srte_color);
 	if (!bnc) {
 		if (BGP_DEBUG(nht, NHT)) {
 			char buf[PREFIX2STR_BUFFER];
 
 			prefix2str(&nhr.prefix, buf, sizeof(buf));
 			zlog_debug(
-				"parse nexthop update(%s(%s)): bnc info not found",
-				buf, bgp->name_pretty);
+				"parse nexthop update(%s(%u)(%s)): bnc info not found",
+				buf, nhr.srte_color, bgp->name_pretty);
 		}
 		return;
 	}
@@ -345,10 +349,10 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 		char buf[PREFIX2STR_BUFFER];
 		prefix2str(&nhr.prefix, buf, sizeof(buf));
 		zlog_debug(
-			"%s(%u): Rcvd NH update %s - metric %d/%d #nhops %d/%d flags 0x%x",
-			bnc->bgp->name_pretty, vrf_id, buf, nhr.metric,
-			bnc->metric, nhr.nexthop_num, bnc->nexthop_num,
-			bnc->flags);
+			"%s(%u): Rcvd NH update %s(%u) - metric %d/%d #nhops %d/%d flags 0x%x",
+			bnc->bgp->name_pretty, vrf_id, buf, bnc->srte_color,
+			nhr.metric, bnc->metric, nhr.nexthop_num,
+			bnc->nexthop_num, bnc->flags);
 	}
 
 	if (nhr.metric != bnc->metric)
@@ -654,8 +658,8 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		char buf[PREFIX2STR_BUFFER];
 		bnc_str(bnc, buf, PREFIX2STR_BUFFER);
 		zlog_debug(
-			"NH update for %s %s flags 0x%x chgflags 0x%x - evaluate paths",
-			buf, bnc->bgp->name_pretty, bnc->flags,
+			"NH update for %s(%u)(%s) - flags 0x%x chgflags 0x%x - evaluate paths",
+			buf, bnc->srte_color, bnc->bgp->name_pretty, bnc->flags,
 			bnc->change_flags);
 	}
 
@@ -862,7 +866,7 @@ void bgp_nht_reg_enhe_cap_intfs(struct peer *peer)
 	if (p.family != AF_INET6)
 		return;
 
-	bnc = bnc_find(&bgp->nexthop_cache_table[AFI_IP6], &p);
+	bnc = bnc_find(&bgp->nexthop_cache_table[AFI_IP6], &p, 0);
 	if (!bnc)
 		return;
 
@@ -904,7 +908,7 @@ void bgp_nht_dereg_enhe_cap_intfs(struct peer *peer)
 	if (p.family != AF_INET6)
 		return;
 
-	bnc = bnc_find(&bgp->nexthop_cache_table[AFI_IP6], &p);
+	bnc = bnc_find(&bgp->nexthop_cache_table[AFI_IP6], &p, 0);
 	if (!bnc)
 		return;
 

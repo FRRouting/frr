@@ -129,6 +129,39 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 			    policy->color);
 }
 
+void zebra_sr_policy_new_rnh(const struct rnh *rnh)
+{
+	struct zebra_sr_policy *policy;
+
+	/* TODO: this needs to be optimized. */
+	RB_FOREACH (policy, zebra_sr_policy_instance_head,
+		    &zebra_sr_policy_instances) {
+		switch (policy->endpoint.ipa_type) {
+		case IPADDR_V4:
+			if (rnh->node->p.u.prefix4.s_addr
+			    != policy->endpoint.ipaddr_v4.s_addr)
+				continue;
+			break;
+		case IPADDR_V6:
+			if (memcmp(&rnh->node->p.u.prefix6,
+				   &policy->endpoint.ipaddr_v6,
+				   IPV6_MAX_BYTELEN)
+			    != 0)
+				continue;
+			break;
+		default:
+			flog_warn(
+				EC_LIB_DEVELOPMENT,
+				"%s: unknown policy endpoint address family: %u",
+				__func__, policy->endpoint.ipa_type);
+			exit(1);
+		}
+
+		zebra_sr_policy_notify_update(policy);
+	}
+
+}
+
 static void zebra_sr_policy_activate(struct zebra_sr_policy *policy,
 				     zebra_lsp_t *lsp)
 {

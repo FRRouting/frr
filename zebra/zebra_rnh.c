@@ -46,6 +46,7 @@
 #include "zebra/debug.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
+#include "zebra/zebra_srte.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_errors.h"
@@ -304,6 +305,7 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 	 * currently multiple daemons expect this behavior
 	 */
 	send_client(rnh, client, type, vrf_id, 0);
+	zebra_sr_policy_new_rnh(rnh);
 }
 
 void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
