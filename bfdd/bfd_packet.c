@@ -214,7 +214,7 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 {
-	struct bfd_pkt cp;
+	struct bfd_pkt cp = {};
 
 	/* Set fields according to section 6.5.7 */
 	cp.diag = bfd->local_diag;
