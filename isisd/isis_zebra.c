@@ -393,7 +393,16 @@ void isis_zebra_redistribute_unset(afi_t afi, int type)
 				     type, 0, VRF_DEFAULT);
 }
 
-/* Label Manager Requests. */
+/* Label Manager Functions */
+
+/**
+ * Request Label Range to the Label Manager.
+ *
+ * @param base		base label of the label range to request
+ * @param chunk_size	size of the label range to request
+ *
+ * @return 	0 on success, -1 on failure
+ */
 int isis_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
 {
 	int ret;
@@ -412,6 +421,12 @@ int isis_zebra_request_label_range(uint32_t base, uint32_t chunk_size)
 	return 0;
 }
 
+/**
+ * Release Label Range to the Label Manager.
+ *
+ * @param start		start of label range to release
+ * @param end		end of label range to release
+ */
 void isis_zebra_release_label_range(uint32_t start, uint32_t end)
 {
 	int ret;
@@ -424,6 +439,12 @@ void isis_zebra_release_label_range(uint32_t start, uint32_t end)
 		zlog_warn("%s: error releasing label range!", __func__);
 }
 
+/**
+ * Get a new Label Chunk from the Label Manager. The new Label Chunk is
+ * added to the Label Chunk list.
+ *
+ * @return 	0 on success, -1 on failure
+ */
 static int isis_zebra_get_label_chunk(void)
 {
 	int ret;
@@ -460,6 +481,11 @@ static int isis_zebra_get_label_chunk(void)
 	return 0;
 }
 
+/**
+ * Request a label from the Label Chunk list.
+ *
+ * @return 	valid label on success or MPLS_INVALID_LABEL on failure
+ */
 mpls_label_t isis_zebra_request_dynamic_label(void)
 {
 	struct label_chunk *label_chunk;
@@ -499,11 +525,24 @@ end:
 	return label;
 }
 
+/**
+ * Delete a Label Chunk.
+ *
+ * @param val	Pointer to the Label Chunk to free
+ */
 static void isis_zebra_del_label_chunk(void *val)
 {
 	free(val);
 }
 
+/**
+ * Release a pre-allocated Label chunk to the Label Manager.
+ *
+ * @param start		start of the label chunk to release
+ * @param end		end of the label chunk to release
+ *
+ * @return	0 on success, -1 on failure
+ */
 static int isis_zebra_release_label_chunk(uint32_t start, uint32_t end)
 {
 	int ret;
@@ -517,6 +556,11 @@ static int isis_zebra_release_label_chunk(uint32_t start, uint32_t end)
 	return 0;
 }
 
+/**
+ * Release a pre-attributes label to the Label Chunk list.
+ *
+ * @param label		Label to be release
+ */
 void isis_zebra_release_dynamic_label(mpls_label_t label)
 {
 	struct listnode *node;
@@ -549,24 +593,38 @@ void isis_zebra_release_dynamic_label(mpls_label_t label)
 	}
 }
 
+/**
+ * Connect to the Label Manager.
+ */
 static void isis_zebra_label_manager_connect(void)
 {
 	/* Connect to label manager. */
 	while (zclient_socket_connect(zclient_sync) < 0) {
-		zlog_warn("%s: error connecting synchronous zclient!",
+		zlog_warn("%s: re-attempt connecting synchronous zclient!",
 			  __func__);
 		sleep(1);
 	}
+	/* make socket non-blocking */
 	set_nonblocking(zclient_sync->sock);
+
+	/* Send hello to notify zebra this is a synchronous client */
+	while (zclient_send_hello(zclient_sync) < 0) {
+		zlog_warn(
+			"%s: re-attempt sending hello for synchronous zclient!",
+			__func__);
+		sleep(1);
+	}
+
+	/* Connect to label manager */
 	while (lm_label_manager_connect(zclient_sync, 0) != 0) {
-		zlog_warn("%s: error connecting to label manager!", __func__);
+		zlog_warn("%s: re-attempt connecting to label manager!", __func__);
 		sleep(1);
 	}
 
 	label_chunk_list = list_new();
 	label_chunk_list->del = isis_zebra_del_label_chunk;
 	while (isis_zebra_get_label_chunk() != 0) {
-		zlog_warn("%s: error getting first label chunk!", __func__);
+		zlog_warn("%s: re-attempt getting first label chunk!", __func__);
 		sleep(1);
 	}
 }
@@ -590,10 +648,17 @@ void isis_zebra_init(struct thread_master *master, int instance)
 	zclient->redistribute_route_del = isis_zebra_read;
 
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &zclient_options_default);
+	struct zclient_options options = zclient_options_default;
+	options.synchronous = true;
+	zclient_sync = zclient_new(master, &options);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_ISIS;
 	zclient_sync->instance = instance;
+	/*
+	 * session_id must be different from default value (0) to distinguish
+	 * the asynchronous socket from the synchronous one
+	 */
+	zclient_sync->session_id = 1;
 	zclient_sync->privs = &isisd_privs;
 }
 
