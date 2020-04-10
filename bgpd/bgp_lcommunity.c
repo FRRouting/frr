@@ -46,6 +46,8 @@ void lcommunity_free(struct lcommunity **lcom)
 {
 	XFREE(MTYPE_LCOMMUNITY_VAL, (*lcom)->val);
 	XFREE(MTYPE_LCOMMUNITY_STR, (*lcom)->str);
+	if ((*lcom)->json)
+		json_object_free((*lcom)->json);
 	XFREE(MTYPE_LCOMMUNITY, *lcom);
 }
 
