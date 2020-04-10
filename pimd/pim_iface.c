@@ -900,15 +900,16 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	 * So let's grab the loopbacks v4 address
 	 * and use that as the primary address
 	 */
-	if (!v4_addrs && v6_addrs && !if_is_loopback(ifp)) {
+	if (!v4_addrs && v6_addrs) {
 		struct interface *lo_ifp;
+
 		// DBS - Come back and check here
 		if (ifp->vrf_id == VRF_DEFAULT)
 			lo_ifp = if_lookup_by_name("lo", vrf->vrf_id);
 		else
 			lo_ifp = if_lookup_by_name(vrf->name, vrf->vrf_id);
 
-		if (lo_ifp)
+		if (lo_ifp && (lo_ifp != ifp))
 			return pim_find_primary_addr(lo_ifp);
 	}
 
