@@ -305,7 +305,7 @@ static void _display_peer_json_iter(struct hash_bucket *hb, void *arg)
 
 	jon = __display_peer_json(bs);
 	if (jon == NULL) {
-		log_warning("%s: not enough memory", __func__);
+		zlog_warn("%s: not enough memory", __func__);
 		return;
 	}
 
@@ -415,7 +415,7 @@ static void _display_peer_counter_json_iter(struct hash_bucket *hb, void *arg)
 
 	jon = __display_peer_counters_json(bs);
 	if (jon == NULL) {
-		log_warning("%s: not enough memory", __func__);
+		zlog_warn("%s: not enough memory", __func__);
 		return;
 	}
 

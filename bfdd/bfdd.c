@@ -49,8 +49,8 @@ void socket_close(int *s)
 		return;
 
 	if (close(*s) != 0)
-		log_error("%s: close(%d): (%d) %s", __func__, *s, errno,
-			  strerror(errno));
+		zlog_err("%s: close(%d): (%d) %s", __func__, *s, errno,
+			 strerror(errno));
 
 	*s = -1;
 }

@@ -425,15 +425,9 @@ void pl_free(struct peer_label *pl);
 /*
  * logging - alias to zebra log
  */
-
-#define log_debug	zlog_debug
-#define log_info	zlog_info
-#define log_warning	zlog_warn
-#define log_error	zlog_err
-
-#define log_fatal(msg, ...)                                                    \
+#define zlog_fatal(msg, ...)                                                   \
 	do {                                                                   \
-		zlog_err(msg, ## __VA_ARGS__);                                 \
+		zlog_err(msg, ##__VA_ARGS__);                                  \
 		assert(!msg);                                                  \
 		abort();                                                       \
 	} while (0)
