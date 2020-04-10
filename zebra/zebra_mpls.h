@@ -99,6 +99,7 @@ struct zebra_nhlfe_t_ {
 #define NHLFE_FLAG_MULTIPATH   (1 << 2)
 #define NHLFE_FLAG_DELETED     (1 << 3)
 #define NHLFE_FLAG_INSTALLED   (1 << 4)
+#define NHLFE_FLAG_IS_BACKUP   (1 << 5)
 
 	uint8_t distance;
 
@@ -136,6 +137,12 @@ struct zebra_lsp_t_ {
 
 	zebra_nhlfe_t *best_nhlfe;
 	uint32_t num_ecmp;
+
+	/* Backup nhlfes, if present. The nexthop in a primary/active nhlfe
+	 * refers to its backup (if any) by index, so the order of this list
+	 * is significant.
+	 */
+	struct nhlfe_list_head backup_nhlfe_list;
 
 	/* Flags */
 	uint32_t flags;
@@ -209,10 +216,31 @@ zebra_nhlfe_t *zebra_mpls_lsp_add_nhlfe(zebra_lsp_t *lsp,
 					union g_addr *gate,
 					ifindex_t ifindex,
 					uint8_t num_labels,
-					mpls_label_t out_labels[]);
+					const mpls_label_t *out_labels);
+
+/* Add or update a backup NHLFE for an LSP; return the object */
+zebra_nhlfe_t *zebra_mpls_lsp_add_backup_nhlfe(zebra_lsp_t *lsp,
+					       enum lsp_types_t lsp_type,
+					       enum nexthop_types_t gtype,
+					       union g_addr *gate,
+					       ifindex_t ifindex,
+					       uint8_t num_labels,
+					       const mpls_label_t *out_labels);
+
+/*
+ * Add NHLFE or backup NHLFE to an LSP based on a nexthop. These just maintain
+ * the LSP and NHLFE objects; nothing is scheduled for processing.
+ * Return: the newly-added object
+ */
+zebra_nhlfe_t *zebra_mpls_lsp_add_nh(zebra_lsp_t *lsp,
+				     enum lsp_types_t lsp_type,
+				     const struct nexthop *nh);
+zebra_nhlfe_t *zebra_mpls_lsp_add_backup_nh(zebra_lsp_t *lsp,
+					    enum lsp_types_t lsp_type,
+					    const struct nexthop *nh);
 
 /* Free an allocated NHLFE */
-void zebra_mpls_nhlfe_del(zebra_nhlfe_t *nhlfe);
+void zebra_mpls_nhlfe_free(zebra_nhlfe_t *nhlfe);
 
 int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 			    uint32_t label, uint32_t label_index,
@@ -295,8 +323,20 @@ int mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
  */
 int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		     mpls_label_t in_label, uint8_t num_out_labels,
-		     mpls_label_t out_labels[], enum nexthop_types_t gtype,
+		     const mpls_label_t *out_labels, enum nexthop_types_t gtype,
 		     const union g_addr *gate, ifindex_t ifindex);
+
+/* Version using a zapi nexthop directly */
+int mpls_lsp_znh_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
+			 mpls_label_t in_label,
+			 const struct zapi_nexthop *znh);
+
+/*
+ * Install/update backup NHLFE for an LSP, using zapi nexthop info.
+ */
+int mpls_lsp_backup_znh_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
+				mpls_label_t in_label,
+				const struct zapi_nexthop *znh);
 
 /*
  * Uninstall a particular NHLFE in the forwarding table. If this is

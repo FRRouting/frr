@@ -1998,6 +1998,9 @@ static void zread_mpls_labels_add(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	struct zapi_labels zl;
+	int ret, i;
+	struct zapi_nexthop *znh;
+	char buf[NEXTHOP_STRLEN];
 
 	/* Get input stream.  */
 	s = msg;
@@ -2011,20 +2014,55 @@ static void zread_mpls_labels_add(ZAPI_HANDLER_ARGS)
 	if (!mpls_enabled)
 		return;
 
-	for (int i = 0; i < zl.nexthop_num; i++) {
-		struct zapi_nexthop *znh;
+	for (i = 0; i < zl.nexthop_num; i++) {
 
 		znh = &zl.nexthops[i];
 
-		mpls_lsp_install(zvrf, zl.type, zl.local_label,
-				 znh->label_num, znh->labels,
-				 znh->type, &znh->gate, znh->ifindex);
+		ret = mpls_lsp_znh_install(zvrf, zl.type, zl.local_label, znh);
+		if (ret < 0) {
+			if (IS_ZEBRA_DEBUG_RECV) {
+				zapi_nexthop2str(znh, buf, sizeof(buf));
+				zlog_debug("%s: Unable to install LSP: label %u, znh %s",
+					   __func__, zl.local_label, buf);
+			}
+			continue;
+		}
 
-		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
-			mpls_ftn_update(1, zvrf, zl.type, &zl.route.prefix,
-					znh->type, &znh->gate, znh->ifindex,
-					zl.route.type, zl.route.instance,
-					znh->labels[0]);
+		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN)) {
+			ret = mpls_ftn_update(1 /*add*/, zvrf, zl.type,
+					      &zl.route.prefix,	znh->type,
+					      &znh->gate, znh->ifindex,
+					      zl.route.type, zl.route.instance,
+					      znh->labels[0]);
+			if (ret < 0) {
+				if (IS_ZEBRA_DEBUG_RECV) {
+					zapi_nexthop2str(znh, buf, sizeof(buf));
+					zlog_debug("%s: Unable to update FEC: label %u, znh %s",
+						   __func__, zl.local_label,
+						   buf);
+				}
+			}
+		}
+	}
+
+	/* Process backup LSPs/nexthop entries also. */
+	if (CHECK_FLAG(zl.message, ZAPI_LABELS_HAS_BACKUPS)) {
+		for (i = 0; i < zl.backup_nexthop_num; i++) {
+
+			znh = &zl.backup_nexthops[i];
+
+			ret = mpls_lsp_backup_znh_install(zvrf, zl.type,
+							  zl.local_label, znh);
+			if (ret < 0) {
+				if (IS_ZEBRA_DEBUG_RECV) {
+					zapi_nexthop2str(znh, buf, sizeof(buf));
+					zlog_debug("%s: Unable to install backup LSP: label %u, znh %s",
+						   __func__, zl.local_label,
+						   buf);
+				}
+				continue;
+			}
+		}
 	}
 }
 
