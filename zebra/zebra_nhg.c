@@ -1865,11 +1865,15 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			resolved = 0;
 			frr_each_safe(nhlfe_list, &policy->lsp->nhlfe_list,
 				      nhlfe) {
-				newhop = nhlfe->nexthop;
+				if (!CHECK_FLAG(nhlfe->flags,
+						NHLFE_FLAG_SELECTED)
+				    || CHECK_FLAG(nhlfe->flags,
+						  NHLFE_FLAG_DELETED))
+					continue;
 				SET_FLAG(nexthop->flags,
 					 NEXTHOP_FLAG_RECURSIVE);
-				nexthop_set_resolved(afi, newhop, nexthop,
-						     policy);
+				nexthop_set_resolved(afi, nhlfe->nexthop,
+						     nexthop, policy);
 				resolved = 1;
 			}
 			if (resolved)
