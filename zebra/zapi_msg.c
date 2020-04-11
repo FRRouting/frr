@@ -2138,10 +2138,7 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 	/* TODO: per-VRF list of SR-TE policies. */
 	policy->zvrf = zvrf;
 
-	if (policy->status == ZEBRA_SR_POLICY_UP)
-		zebra_sr_policy_bsid_uninstall(policy);
-	policy->segment_list = zp.segment_list;
-	zebra_sr_policy_validate(policy);
+	zebra_sr_policy_validate(policy, &zp.segment_list);
 }
 
 static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)

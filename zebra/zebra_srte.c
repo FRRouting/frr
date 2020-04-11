@@ -54,7 +54,7 @@ struct zebra_sr_policy *zebra_sr_policy_add(uint32_t color,
 	policy->color = color;
 	policy->endpoint = *endpoint;
 	strlcpy(policy->name, name, sizeof(policy->name));
-	policy->status = ZEBRA_SR_POLICY_UNKNOWN;
+	policy->status = ZEBRA_SR_POLICY_DOWN;
 	RB_INSERT(zebra_sr_policy_instance_head, &zebra_sr_policy_instances,
 		  policy);
 
@@ -266,36 +266,65 @@ static void zebra_sr_policy_activate(struct zebra_sr_policy *policy,
 {
 	policy->status = ZEBRA_SR_POLICY_UP;
 	policy->lsp = lsp;
+	(void)zebra_sr_policy_bsid_install(policy);
 	zsend_sr_policy_notify_status(policy->color, &policy->endpoint,
 				      policy->name, ZEBRA_SR_POLICY_UP);
 	zebra_sr_policy_notify_update(policy);
-	(void)zebra_sr_policy_bsid_install(policy);
+}
+
+static void zebra_sr_policy_update(struct zebra_sr_policy *policy,
+				   zebra_lsp_t *lsp,
+				   struct zapi_srte_tunnel *old_tunnel)
+{
+	policy->lsp = lsp;
+
+	/* Handle BSID update. */
+	if (policy->segment_list.local_label != old_tunnel->local_label) {
+		zebra_sr_policy_bsid_uninstall(policy, old_tunnel->local_label);
+		(void)zebra_sr_policy_bsid_install(policy);
+	}
+
+	/* Handle segment-list update. */
+	if (policy->segment_list.label_num != old_tunnel->label_num
+	    || memcmp(policy->segment_list.labels, old_tunnel->labels,
+		      sizeof(mpls_label_t) * policy->segment_list.label_num))
+		zebra_sr_policy_notify_update(policy);
 }
 
 static void zebra_sr_policy_deactivate(struct zebra_sr_policy *policy)
 {
-	zebra_sr_policy_bsid_uninstall(policy);
 	policy->status = ZEBRA_SR_POLICY_DOWN;
 	policy->lsp = NULL;
+	zebra_sr_policy_bsid_uninstall(policy,
+				       policy->segment_list.local_label);
 	zsend_sr_policy_notify_status(policy->color, &policy->endpoint,
 				      policy->name, ZEBRA_SR_POLICY_DOWN);
 	zebra_sr_policy_notify_update(policy);
 }
 
-int zebra_sr_policy_validate(struct zebra_sr_policy *policy)
+int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
+			     struct zapi_srte_tunnel *new_tunnel)
 {
-	struct zapi_srte_tunnel *zt = &policy->segment_list;
+	struct zapi_srte_tunnel old_tunnel = policy->segment_list;
 	zebra_lsp_t *lsp;
 
+	if (new_tunnel)
+		policy->segment_list = *new_tunnel;
+
 	/* Try to resolve the Binding-SID nexthops. */
-	lsp = mpls_lsp_find(policy->zvrf, zt->labels[0]);
-	if (!lsp || !(lsp->best_nhlfe)
+	lsp = mpls_lsp_find(policy->zvrf, policy->segment_list.labels[0]);
+	if (!lsp || !lsp->best_nhlfe
 	    || lsp->addr_family != ipaddr_family(&policy->endpoint)) {
-		zebra_sr_policy_deactivate(policy);
+		if (policy->status == ZEBRA_SR_POLICY_UP)
+			zebra_sr_policy_deactivate(policy);
 		return -1;
 	}
 
-	zebra_sr_policy_activate(policy, lsp);
+	/* First label was resolved successfully. */
+	if (policy->status == ZEBRA_SR_POLICY_DOWN)
+		zebra_sr_policy_activate(policy, lsp);
+	else
+		zebra_sr_policy_update(policy, lsp, &old_tunnel);
 
 	return 0;
 }
@@ -324,14 +353,12 @@ int zebra_sr_policy_bsid_install(struct zebra_sr_policy *policy)
 	return 0;
 }
 
-void zebra_sr_policy_bsid_uninstall(struct zebra_sr_policy *policy)
+void zebra_sr_policy_bsid_uninstall(struct zebra_sr_policy *policy,
+				    mpls_label_t old_bsid)
 {
 	struct zapi_srte_tunnel *zt = &policy->segment_list;
 
-	if (zt->local_label == MPLS_LABEL_NONE)
-		return;
-
-	mpls_lsp_uninstall_all_vrf(policy->zvrf, zt->type, zt->local_label);
+	mpls_lsp_uninstall_all_vrf(policy->zvrf, zt->type, old_bsid);
 }
 
 static int zebra_sr_policy_process_label_update(
@@ -341,11 +368,9 @@ static int zebra_sr_policy_process_label_update(
 
 	RB_FOREACH (policy, zebra_sr_policy_instance_head,
 		    &zebra_sr_policy_instances) {
-		struct zapi_srte_tunnel *zt;
 		mpls_label_t next_hop_label;
 
-		zt = &policy->segment_list;
-		next_hop_label = zt->labels[0];
+		next_hop_label = policy->segment_list.labels[0];
 		if (next_hop_label != label)
 			continue;
 
@@ -353,9 +378,7 @@ static int zebra_sr_policy_process_label_update(
 		case ZEBRA_SR_POLICY_LABEL_CREATED:
 		case ZEBRA_SR_POLICY_LABEL_UPDATED:
 		case ZEBRA_SR_POLICY_LABEL_REMOVED:
-			if (policy->status == ZEBRA_SR_POLICY_UP)
-				zebra_sr_policy_bsid_uninstall(policy);
-			zebra_sr_policy_validate(policy);
+			zebra_sr_policy_validate(policy, NULL);
 			break;
 		}
 	}
