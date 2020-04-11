@@ -98,7 +98,6 @@ struct zebra_sr_policy *zebra_sr_policy_find_by_name(char *name)
 static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 						struct zserv *client)
 {
-	const struct nhlfe_list_head *head;
 	const zebra_nhlfe_t *nhlfe;
 	struct stream *s;
 	uint32_t message = 0;
@@ -258,7 +257,6 @@ void zebra_sr_policy_new_rnh(const struct rnh *rnh)
 
 		zebra_sr_policy_notify_update(policy);
 	}
-
 }
 
 static void zebra_sr_policy_activate(struct zebra_sr_policy *policy,

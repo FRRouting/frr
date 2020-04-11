@@ -290,7 +290,8 @@ int pathd_te_sr_policy_candidate_path_name_modify(
 	if (args->event != NB_EV_APPLY && args->event != NB_EV_VALIDATE)
 		return NB_OK;
 
-	/* the candidate name is fixed after setting it once, this is checked here */
+	/* the candidate name is fixed after setting it once, this is checked
+	 * here */
 	if (args->event == NB_EV_VALIDATE) {
 		/* first get the precise path to the candidate path */
 		yang_dnode_get_path(args->dnode, xpath_buf, sizeof(xpath_buf));

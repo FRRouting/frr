@@ -367,8 +367,7 @@ void cli_show_te_path_sr_policy_binding_sid(struct vty *vty,
 /*
  * XPath: /frr-pathd:pathd/sr-policy/candidate-path
  */
-DEFPY(te_path_sr_policy_candidate_path,
-      te_path_sr_policy_candidate_path_cmd,
+DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
       "candidate-path\
         preference (0-4294967295)$preference\
         name WORD$name\

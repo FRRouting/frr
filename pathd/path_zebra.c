@@ -95,8 +95,7 @@ void path_zebra_add_sr_policy(struct srte_policy *policy,
 	zp.segment_list.local_label = policy->binding_sid;
 	zp.segment_list.label_num = 0;
 	RB_FOREACH (segment, srte_segment_entry_head, &segment_list->segments)
-		zp.segment_list
-			.labels[zp.segment_list.label_num++] =
+		zp.segment_list.labels[zp.segment_list.label_num++] =
 			segment->sid_value;
 	policy->status = SRTE_POLICY_STATUS_GOING_UP;
 
@@ -123,8 +122,7 @@ int path_zebra_request_label(mpls_label_t label)
 	int ret;
 	uint32_t start, end;
 
-	ret = lm_get_label_chunk(zclient_sync, 0, label, 1, &start,
-				 &end);
+	ret = lm_get_label_chunk(zclient_sync, 0, label, 1, &start, &end);
 	if (ret < 0) {
 		zlog_warn("%s: error getting label range!", __func__);
 		return -1;

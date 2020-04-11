@@ -119,7 +119,8 @@ srte_segment_entry_add(struct srte_segment_list *segment_list, uint32_t index)
 
 void srte_segment_entry_del(struct srte_segment_entry *segment)
 {
-	RB_REMOVE(srte_segment_entry_head, &segment->segment_list->segments, segment);
+	RB_REMOVE(srte_segment_entry_head, &segment->segment_list->segments,
+		  segment);
 	XFREE(MTYPE_PATH_SEGMENT_LIST, segment);
 }
 
@@ -195,7 +196,8 @@ srte_policy_best_candidate(const struct srte_policy *policy)
 	return NULL;
 }
 
-void srte_apply_changes(void) {
+void srte_apply_changes(void)
+{
 	struct srte_policy *policy, *safe_pol;
 	struct srte_segment_list *segment_list, *safe_sl;
 
@@ -210,7 +212,7 @@ void srte_apply_changes(void) {
 	}
 
 	RB_FOREACH_SAFE (segment_list, srte_segment_list_head,
-	                 &srte_segment_lists, safe_sl) {
+			 &srte_segment_lists, safe_sl) {
 		if (CHECK_FLAG(segment_list->flags, F_SEGMENT_LIST_DELETED)) {
 			srte_segment_list_del(segment_list);
 			continue;
@@ -244,7 +246,8 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 		if (old_best_candidate) {
 			policy->best_candidate = NULL;
 			UNSET_FLAG(old_best_candidate->flags, F_CANDIDATE_BEST);
-			SET_FLAG(old_best_candidate->flags, F_CANDIDATE_MODIFIED);
+			SET_FLAG(old_best_candidate->flags,
+				 F_CANDIDATE_MODIFIED);
 
 			/*
 			 * Rely on replace semantics if there's a new best
@@ -256,7 +259,8 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 		if (new_best_candidate) {
 			policy->best_candidate = new_best_candidate;
 			SET_FLAG(new_best_candidate->flags, F_CANDIDATE_BEST);
-			SET_FLAG(new_best_candidate->flags, F_CANDIDATE_MODIFIED);
+			SET_FLAG(new_best_candidate->flags,
+				 F_CANDIDATE_MODIFIED);
 
 			path_zebra_add_sr_policy(
 				policy, new_best_candidate->segment_list);
@@ -267,17 +271,16 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 		 */
 
 		bool candidate_changed = CHECK_FLAG(new_best_candidate->flags,
-			                            F_CANDIDATE_MODIFIED);
+						    F_CANDIDATE_MODIFIED);
 		bool segment_list_changed =
 			new_best_candidate->segment_list
-		        && CHECK_FLAG(new_best_candidate->segment_list->flags,
-			              F_SEGMENT_LIST_MODIFIED);
+			&& CHECK_FLAG(new_best_candidate->segment_list->flags,
+				      F_SEGMENT_LIST_MODIFIED);
 
-	        if (candidate_changed || segment_list_changed) {
+		if (candidate_changed || segment_list_changed) {
 			/* TODO: add debug guard. */
 			zlog_debug("SR-TE(%s, %u): best candidate %s changed",
-			           endpoint,
-				   policy->color,
+				   endpoint, policy->color,
 				   new_best_candidate->name);
 
 			path_zebra_add_sr_policy(
@@ -296,8 +299,8 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 		} else if (CHECK_FLAG(candidate->flags, F_CANDIDATE_MODIFIED)) {
 			hook_call(pathd_candidate_updated, candidate);
 		} else if (candidate->segment_list
-		           && CHECK_FLAG(candidate->segment_list->flags,
-		                         F_SEGMENT_LIST_MODIFIED)) {
+			   && CHECK_FLAG(candidate->segment_list->flags,
+					 F_SEGMENT_LIST_MODIFIED)) {
 			hook_call(pathd_candidate_updated, candidate);
 		}
 
