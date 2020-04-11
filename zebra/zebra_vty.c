@@ -494,6 +494,10 @@ static void show_route_nexthop_helper(struct vty *vty,
 			if (inet_ntop(AF_INET, &nexthop->src.ipv4, buf,
 				      sizeof(buf)))
 				vty_out(vty, ", src %s", buf);
+			/* SR-TE information */
+			if (nexthop->srte_color)
+				vty_out(vty, ", SR-TE color %u",
+					nexthop->srte_color);
 		}
 		break;
 	case NEXTHOP_TYPE_IPV6:
@@ -770,6 +774,11 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			if (nexthop->weight)
 				json_object_int_add(json_nexthop, "weight",
 						    nexthop->weight);
+
+			if (nexthop->srte_color)
+				json_object_int_add(json_nexthop,
+						    "srteColor",
+						    nexthop->srte_color);
 
 			json_object_array_add(json_nexthops, json_nexthop);
 		}
