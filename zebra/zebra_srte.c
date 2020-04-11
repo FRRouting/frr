@@ -96,6 +96,8 @@ struct zebra_sr_policy *zebra_sr_policy_find_by_name(char *name)
 static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 						struct zserv *client)
 {
+	const struct nhlfe_list_head *head;
+	const zebra_nhlfe_t *nhlfe;
 	struct stream *s;
 	uint32_t message = 0;
 	unsigned long nump;
@@ -130,8 +132,7 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 	stream_putl(s, policy->color);
 
 	num = 0;
-	for (zebra_nhlfe_t *nhlfe = policy->lsp->nhlfe_list; nhlfe;
-	     nhlfe = nhlfe->next) {
+	frr_each(nhlfe_list_const, &policy->lsp->nhlfe_list, nhlfe) {
 		if (!CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)
 		    || CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED))
 			continue;
