@@ -29,6 +29,8 @@
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SR_POLICY, "SR Policy")
 
+static void zebra_sr_policy_deactivate(struct zebra_sr_policy *policy);
+
 /* Generate rb-tree of SR Policy instances. */
 static inline int
 zebra_sr_policy_instance_compare(const struct zebra_sr_policy *a,
@@ -62,7 +64,7 @@ struct zebra_sr_policy *zebra_sr_policy_add(uint32_t color,
 void zebra_sr_policy_del(struct zebra_sr_policy *policy)
 {
 	if (policy->status == ZEBRA_SR_POLICY_UP)
-		zebra_sr_policy_bsid_uninstall(policy);
+		zebra_sr_policy_deactivate(policy);
 	RB_REMOVE(zebra_sr_policy_instance_head, &zebra_sr_policy_instances,
 		  policy);
 	XFREE(MTYPE_ZEBRA_SR_POLICY, policy);
