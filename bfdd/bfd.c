@@ -1111,13 +1111,13 @@ static const char *get_diag_str(int diag)
 	return "N/A";
 }
 
-const char *satostr(struct sockaddr_any *sa)
+const char *satostr(const struct sockaddr_any *sa)
 {
 #define INETSTR_BUFCOUNT 8
 	static char buf[INETSTR_BUFCOUNT][INET6_ADDRSTRLEN];
 	static int bufidx;
-	struct sockaddr_in *sin = &sa->sa_sin;
-	struct sockaddr_in6 *sin6 = &sa->sa_sin6;
+	const struct sockaddr_in *sin = &sa->sa_sin;
+	const struct sockaddr_in6 *sin6 = &sa->sa_sin6;
 
 	bufidx += (bufidx + 1) % INETSTR_BUFCOUNT;
 	buf[bufidx][0] = 0;

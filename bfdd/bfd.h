@@ -529,7 +529,7 @@ void bs_state_handler(struct bfd_session *bs, int nstate);
 void bs_echo_timer_handler(struct bfd_session *bs);
 void bs_final_handler(struct bfd_session *bs);
 void bs_set_slow_timers(struct bfd_session *bs);
-const char *satostr(struct sockaddr_any *sa);
+const char *satostr(const struct sockaddr_any *sa);
 const char *diag2str(uint8_t diag);
 int strtosa(const char *addr, struct sockaddr_any *sa);
 void integer2timestr(uint64_t time, char *buf, size_t buflen);
