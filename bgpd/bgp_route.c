@@ -3239,7 +3239,7 @@ static bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 				       uint8_t type, uint8_t stype,
 				       struct attr *attr, struct bgp_node *rn)
 {
-	bool ret = 0;
+	bool ret = false;
 
 	/* Only validated for unicast and multicast currently. */
 	/* Also valid for EVPN where the nexthop is an IP address. */
