@@ -707,6 +707,38 @@ class TopoRouter(TopoGear):
         self.logger.debug("stopping")
         return self.tgen.net[self.name].stopRouter(wait, assertOnError)
 
+    def startDaemons(self, daemons):
+        """
+        Start Daemons: to start specific daemon(user defined daemon only)
+        * Start daemons (e.g. FRR/Quagga)
+        * Configure daemon logging files
+        """
+        self.logger.debug('starting')
+        nrouter = self.tgen.net[self.name]
+        result = nrouter.startRouterDaemons(daemons)
+
+        # Enable all daemon command logging, logging files
+        # and set them to the start dir.
+        for daemon, enabled in nrouter.daemons.iteritems():
+            for d in daemons:
+                if enabled == 0:
+                    continue
+                self.vtysh_cmd('configure terminal\nlog commands\nlog file {}.log'.\
+                    format(daemon), daemon=daemon)
+
+        if result != '':
+            self.tgen.set_error(result)
+
+        return result
+
+    def killDaemons(self, daemons, wait=True, assertOnError=True):
+        """
+        Kill specific daemon(user defined daemon only)
+        forcefully using SIGKILL
+        """
+        self.logger.debug('Killing daemons using SIGKILL..')
+        return self.tgen.net[self.name].killRouterDaemons(daemons, wait, assertOnError)
+
     def vtysh_cmd(self, command, isjson=False, daemon=None):
         """
         Runs the provided command string in the vty shell and returns a string
