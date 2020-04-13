@@ -305,7 +305,6 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 	 * currently multiple daemons expect this behavior
 	 */
 	send_client(rnh, client, type, vrf_id, 0);
-	zebra_sr_policy_new_rnh(rnh);
 }
 
 void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,

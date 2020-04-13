@@ -59,7 +59,6 @@ void zebra_sr_policy_del(struct zebra_sr_policy *policy);
 struct zebra_sr_policy *zebra_sr_policy_find(uint32_t color,
 					     struct ipaddr *endpoint);
 struct zebra_sr_policy *zebra_sr_policy_find_by_name(char *name);
-void zebra_sr_policy_new_rnh(const struct rnh *rnh);
 int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
 			     struct zapi_srte_tunnel *new_tunnel);
 int zebra_sr_policy_bsid_install(struct zebra_sr_policy *policy);
