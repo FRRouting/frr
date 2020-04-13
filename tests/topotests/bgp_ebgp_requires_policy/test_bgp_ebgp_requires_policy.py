@@ -27,6 +27,16 @@ bgp_ebgp_requires_policy.py:
 
 Test if eBGP sender without a filter applied to the peer is allowed
 to send advertisements.
+
+Scenario 1:
+  r1 has a filter applied for outgoing direction,
+  r2 receives 192.168.255.1/32.
+Scenario 2:
+  r3 hasn't a filter appied for outgoing direction,
+  r4 does not receive 192.168.255.1/32.
+Scenario 3:
+  r5 and r6 establish iBGP session which in turn should ignore
+  RFC8212. All routes for both directions MUST work.
 """
 
 import os
