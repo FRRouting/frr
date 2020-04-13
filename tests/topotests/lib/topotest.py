@@ -1195,21 +1195,6 @@ class Router(Node):
                             errors = ""
                         if assertOnError and len(errors) > 0:
                             assert "Errors found - details follow:" == 0, errors
-
-                    errors = ""
-                    # Check Memory leaks
-                    if pytest.config.getoption('--valgrind'):
-                        mem_leak, mem_data = self.check_mem_leaks_valgrind(
-                            daemon
-                        )
-                        if mem_leak:
-                            for d_name, data in mem_data.items():
-                                if data:
-                                    logger.error(
-                                        "Memory leaks in router [%s] for "
-                                        "daemon [%s]", self.name, daemon)
-                                    errors = "Router [%s] has memory leak, Check" \
-                                             " logs for details." % self.name
             else:
                 daemonsNotRunning.append(daemon)
         if len(daemonsNotRunning) > 0:

@@ -179,7 +179,7 @@ def run_frr_cmd(rnode, cmd, isjson=False):
         raise InvalidCLIError("No actual cmd passed")
 
 
-def create_common_configuration(tgen, router, data, config_type=None, build=False):
+def create_common_configuration(tgen, router, data, config_type=None, build=False, load_config=True):
     """
     API to create object of class FRRConfig and also create frr_json.conf
     file. It will create interface and common configurations and save it to
@@ -216,6 +216,8 @@ def create_common_configuration(tgen, router, data, config_type=None, build=Fals
 
     if build:
         mode = "a"
+    elif not load_config:
+        mode = "a"
     else:
         mode = "w"
 
@@ -236,9 +238,125 @@ def create_common_configuration(tgen, router, data, config_type=None, build=Fals
         frr_cfg_fd.close()
 
     # If configuration applied from build, it will done at last
-    if not build:
+    if not build and load_config:
         load_config_to_router(tgen, router)
 
+    return True
+
+
+def kill_router_daemons(tgen, router, daemons):
+    """
+    Router's current config would be saved to /etc/frr/ for each deamon
+    and deamon would be killed forcefully using SIGKILL.
+
+    * `tgen`  : topogen object
+    * `router`: Device under test
+    * `daemons`: list of daemons to be killed
+    """
+
+    logger.debug("Entering lib API: kill_router_daemons()")
+
+    try:
+        router_list = tgen.routers()
+
+        # Saving router config to /etc/frr, which will be loaded to router
+        # when it starts
+        router_list[router].vtysh_cmd("write memory")
+
+        # Kill Daemons
+        result = router_list[router].killDaemons(daemons)
+        if len(result) > 0:
+            assert "Errors found post shutdown - details follow:" == 0, result
+        return result
+
+    except Exception as e:
+        errormsg = traceback.format_exc()
+        logger.error(errormsg)
+        return errormsg
+
+
+def start_router_daemons(tgen, router, daemons):
+    """
+    Daemons defined by user would be started
+
+    * `tgen`  : topogen object
+    * `router`: Device under test
+    * `daemons`: list of daemons to be killed
+    """
+
+    logger.debug("Entering lib API: start_router_daemons()")
+
+    try:
+        router_list = tgen.routers()
+
+        # Start daemons
+        result = router_list[router].startDaemons(daemons)
+        sleep(5)
+        return result
+
+    except Exception as e:
+        errormsg = traceback.format_exc()
+        logger.error(errormsg)
+        return errormsg
+
+    logger.debug("Exiting lib API: start_router_daemons()")
+    return True
+
+
+def kill_mininet_routers_process(tgen):
+    """
+    Kill all mininet stale router' processes
+
+    * `tgen`  : topogen object
+    """
+
+    router_list = tgen.routers()
+    for rname, router in router_list.iteritems():
+        daemon_list = [
+            "zebra",
+            "ospfd",
+            "ospf6d",
+            "bgpd",
+            "ripd",
+            "ripngd",
+            "isisd",
+            "pimd",
+            "ldpd",
+            "staticd",
+        ]
+        for daemon in daemon_list:
+            router.run("killall -9 {}".format(daemon))
+
+
+def check_router_status(tgen):
+    """
+    Check if all daemons are running for all routers in topology
+
+    * `tgen`  : topogen object
+    """
+
+    logger.debug("Entering lib API: start_router_daemons()")
+
+    try:
+        router_list = tgen.routers()
+        for router, rnode in router_list.iteritems():
+
+            result = rnode.check_router_running()
+            if result != "":
+                daemons = []
+                if "bgpd" in result:
+                    daemons.append("bgpd")
+                if "zebra" in result:
+                    daemons.append("zebra")
+
+                rnode.startDaemons(daemons)
+
+    except Exception as e:
+        errormsg = traceback.format_exc()
+        logger.error(errormsg)
+        return errormsg
+
+    logger.debug("Exiting lib API: start_router_daemons()")
     return True
 
 
@@ -412,6 +530,69 @@ def load_config_to_router(tgen, routerName, save_bkup=False):
 
     logger.debug("Exting API: load_config_to_router")
     return True
+
+
+def get_frr_ipv6_linklocal(tgen, router, intf=None):
+    """
+    API to get the link local ipv6 address of a perticular interface using
+    FRR command 'show interface'
+
+    * `tgen`: tgen onject
+    * `router` : router for which hightest interface should be
+                 calculated
+    * `intf` : interface for which linklocal address needs to be taken
+
+    Usage
+    -----
+    linklocal = get_frr_ipv6_linklocal(tgen, router, "intf1", RED_A)
+
+    Returns
+    -------
+    1) array of interface names to link local ips.
+    """
+
+    router_list = tgen.routers()
+    for rname, rnode in router_list.iteritems():
+        if rname != router:
+            continue
+
+        linklocal = []
+
+        cmd = "show interface"
+
+        ifaces = router_list[router].run('vtysh -c "{}"'.format(cmd))
+
+        # Fix newlines (make them all the same)
+        ifaces = ("\n".join(ifaces.splitlines()) + "\n").splitlines()
+
+        interface = None
+        ll_per_if_count = 0
+        for line in ifaces:
+            # Interface name
+            m = re_search("Interface ([a-zA-Z0-9-]+) is", line)
+            if m:
+                interface = m.group(1).split(" ")[0]
+                ll_per_if_count = 0
+
+            # Interface ip
+            m1 = re_search("inet6 (fe80[:a-fA-F0-9]+[\/0-9]+)", line)
+            if m1:
+                local = m1.group(1)
+                ll_per_if_count += 1
+                if ll_per_if_count > 1:
+                    linklocal += [["%s-%s" % (interface, ll_per_if_count), local]]
+                else:
+                    linklocal += [[interface, local]]
+
+    if linklocal:
+        if intf:
+            return [_linklocal[1] for _linklocal in linklocal if _linklocal[0] == intf][
+                0
+            ].split("/")[0]
+        return linklocal
+    else:
+        errormsg = "Link local ip missing on router {}"
+        return errormsg
 
 
 def start_topology(tgen):
@@ -1741,15 +1922,13 @@ def verify_rib(tgen, addr_type, dut, input_dict, next_hop=None, protocol=None):
                                     if type(next_hop) is not list:
                                         next_hop = [next_hop]
 
-                                    for index, nh in enumerate(next_hop):
-                                        if (
-                                            rib_routes_json[st_rt][0]["nexthops"][
-                                                index
-                                            ]["ip"]
-                                            == nh
-                                        ):
+                                    for nh in next_hop:
+                                        for nh_json in rib_routes_json[st_rt][0]["nexthops"]:
+                                            if nh != nh_json["ip"]:
+                                                continue
                                             nh_found = True
-                                        else:
+
+                                        if not nh_found:
                                             errormsg = (
                                                 "Nexthop {} is Missing"
                                                 " for {} route {} in "
