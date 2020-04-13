@@ -63,6 +63,8 @@ static int zebra_evpn_es_evi_send_to_client(struct zebra_evpn_es *es,
 static void zebra_evpn_local_es_del(struct zebra_evpn_es **esp);
 static int zebra_evpn_local_es_update(struct zebra_if *zif, uint32_t lid,
 		struct ethaddr *sysmac);
+static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
+						const char *caller);
 
 esi_t zero_esi_buf, *zero_esi = &zero_esi_buf;
 
@@ -897,12 +899,23 @@ static void zebra_evpn_nhg_update(struct zebra_evpn_es *es)
 
 		es->flags |= ZEBRA_EVPNES_NHG_ACTIVE;
 		kernel_upd_mac_nhg(es->nhg_id, nh_cnt, nh_ids);
+		if (!(es->flags & ZEBRA_EVPNES_NHG_ACTIVE)) {
+			es->flags |= ZEBRA_EVPNES_NHG_ACTIVE;
+			/* add backup NHG to the br-port */
+			if ((es->flags & ZEBRA_EVPNES_LOCAL))
+				zebra_evpn_es_br_port_dplane_update(es,
+								    __func__);
+		}
 	} else {
 		if (es->flags & ZEBRA_EVPNES_NHG_ACTIVE) {
 			if (IS_ZEBRA_DEBUG_EVPN_MH_NH)
 				zlog_debug("es %s nhg 0x%x del",
 						es->esi_str, es->nhg_id);
 			es->flags &= ~ZEBRA_EVPNES_NHG_ACTIVE;
+			/* remove backup NHG from the br-port */
+			if ((es->flags & ZEBRA_EVPNES_LOCAL))
+				zebra_evpn_es_br_port_dplane_update(es,
+								    __func__);
 			kernel_del_mac_nhg(es->nhg_id);
 		}
 	}
@@ -1017,7 +1030,76 @@ static struct zebra_evpn_es_vtep *zebra_evpn_es_vtep_find(
 	return NULL;
 }
 
-static void zebra_evpn_es_df_change(struct zebra_evpn_es *es, bool new_non_df,
+/* flush all the dataplane br-port info associated with the ES */
+static bool zebra_evpn_es_br_port_dplane_clear(struct zebra_evpn_es *es)
+{
+	struct in_addr sph_filters[ES_VTEP_MAX_CNT];
+
+	if (!(es->flags & ZEBRA_EVPNES_BR_PORT))
+		return false;
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+		zlog_debug("es %s br-port dplane clear", es->esi_str);
+
+	memset(&sph_filters, 0, sizeof(sph_filters));
+	dplane_br_port_update(es->zif->ifp, false /* non_df */, 0, sph_filters,
+			      0 /* backup_nhg_id */);
+	return true;
+}
+
+static inline bool
+zebra_evpn_es_br_port_dplane_update_needed(struct zebra_evpn_es *es)
+{
+	return (es->flags & ZEBRA_EVPNES_NON_DF)
+	       || (es->flags & ZEBRA_EVPNES_NHG_ACTIVE)
+	       || listcount(es->es_vtep_list);
+}
+
+/* returns TRUE if dplane entry was updated */
+static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
+						const char *caller)
+{
+	uint32_t backup_nhg_id;
+	struct in_addr sph_filters[ES_VTEP_MAX_CNT];
+	struct listnode *node = NULL;
+	struct zebra_evpn_es_vtep *es_vtep;
+	uint32_t sph_filter_cnt = 0;
+
+	if (!(es->flags & ZEBRA_EVPNES_LOCAL))
+		return zebra_evpn_es_br_port_dplane_clear(es);
+
+	/* If the ES is not a bridge port there is nothing
+	 * in the dataplane
+	 */
+	if (!(es->flags & ZEBRA_EVPNES_BR_PORT))
+		return false;
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+		zlog_debug("es %s br-port dplane update by %s", es->esi_str, caller);
+	backup_nhg_id = (es->flags & ZEBRA_EVPNES_NHG_ACTIVE) ? es->nhg_id : 0;
+
+	memset(&sph_filters, 0, sizeof(sph_filters));
+	if (listcount(es->es_vtep_list) > ES_VTEP_MAX_CNT) {
+		zlog_warn("es %s vtep count %d exceeds filter cnt %d",
+			  es->esi_str, listcount(es->es_vtep_list),
+			  ES_VTEP_MAX_CNT);
+	} else {
+		for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
+			if (es_vtep->flags & ZEBRA_EVPNES_VTEP_DEL_IN_PROG)
+				continue;
+			sph_filters[sph_filter_cnt] = es_vtep->vtep_ip;
+			++sph_filter_cnt;
+		}
+	}
+
+	dplane_br_port_update(es->zif->ifp, !!(es->flags & ZEBRA_EVPNES_NON_DF),
+			      sph_filter_cnt, sph_filters, backup_nhg_id);
+
+	return true;
+}
+
+/* returns TRUE if dplane entry was updated */
+static bool zebra_evpn_es_df_change(struct zebra_evpn_es *es, bool new_non_df,
 				    const char *caller)
 {
 	bool old_non_df;
@@ -1030,18 +1112,20 @@ static void zebra_evpn_es_df_change(struct zebra_evpn_es *es, bool new_non_df,
 			   new_non_df ? "non-df" : "df");
 
 	if (old_non_df == new_non_df)
-		return;
+		return false;
 
-	if (new_non_df) {
+	if (new_non_df)
 		es->flags |= ZEBRA_EVPNES_NON_DF;
-		/* XXX - Setup a dataplane DF filter to block BUM traffic */
-	} else {
+	else
 		es->flags &= ~ZEBRA_EVPNES_NON_DF;
-		/* XXX - clear the non-DF block filter */
-	}
+
+	/* update non-DF block filter in the dataplane */
+	return zebra_evpn_es_br_port_dplane_update(es, __func__);
 }
 
-static void zebra_evpn_es_run_df_election(struct zebra_evpn_es *es,
+
+/* returns TRUE if dplane entry was updated */
+static bool zebra_evpn_es_run_df_election(struct zebra_evpn_es *es,
 					  const char *caller)
 {
 	struct listnode *node = NULL;
@@ -1052,10 +1136,8 @@ static void zebra_evpn_es_run_df_election(struct zebra_evpn_es *es,
 	 * is no need to setup the BUM block filter
 	 */
 	if (!(es->flags & ZEBRA_EVPNES_LOCAL)
-	    || !zmh_info->es_originator_ip.s_addr) {
-		zebra_evpn_es_df_change(es, new_non_df, caller);
-		return;
-	}
+	    || !zmh_info->es_originator_ip.s_addr)
+		return zebra_evpn_es_df_change(es, new_non_df, caller);
 
 	/* if oper-state is down DF filtering must be on. when the link comes
 	 * up again dataplane should block BUM till FRR has had the chance
@@ -1063,8 +1145,7 @@ static void zebra_evpn_es_run_df_election(struct zebra_evpn_es *es,
 	 */
 	if (!(es->flags & ZEBRA_EVPNES_OPER_UP)) {
 		new_non_df = true;
-		zebra_evpn_es_df_change(es, new_non_df, caller);
-		return;
+		return zebra_evpn_es_df_change(es, new_non_df, caller);
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
@@ -1096,7 +1177,7 @@ static void zebra_evpn_es_run_df_election(struct zebra_evpn_es *es,
 		}
 	}
 
-	zebra_evpn_es_df_change(es, new_non_df, caller);
+	return zebra_evpn_es_df_change(es, new_non_df, caller);
 }
 
 static void zebra_evpn_es_vtep_add(struct zebra_evpn_es *es,
@@ -1105,6 +1186,7 @@ static void zebra_evpn_es_vtep_add(struct zebra_evpn_es *es,
 {
 	struct zebra_evpn_es_vtep *es_vtep;
 	bool old_esr_rxed;
+	bool dplane_updated = false;
 
 	es_vtep = zebra_evpn_es_vtep_find(es, vtep_ip);
 
@@ -1129,14 +1211,18 @@ static void zebra_evpn_es_vtep_add(struct zebra_evpn_es *es,
 			es_vtep->flags &= ~ZEBRA_EVPNES_VTEP_RXED_ESR;
 		es_vtep->df_alg = df_alg;
 		es_vtep->df_pref = df_pref;
-		zebra_evpn_es_run_df_election(es, __func__);
+		dplane_updated = zebra_evpn_es_run_df_election(es, __func__);
 	}
+	/* add the vtep to the SPH list */
+	if (!dplane_updated && (es->flags & ZEBRA_EVPNES_LOCAL))
+		zebra_evpn_es_br_port_dplane_update(es, __func__);
 }
 
 static void zebra_evpn_es_vtep_del(struct zebra_evpn_es *es,
 		struct in_addr vtep_ip)
 {
 	struct zebra_evpn_es_vtep *es_vtep;
+	bool dplane_updated = false;
 
 	es_vtep = zebra_evpn_es_vtep_find(es, vtep_ip);
 
@@ -1144,10 +1230,15 @@ static void zebra_evpn_es_vtep_del(struct zebra_evpn_es *es,
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("es %s vtep %pI4 del",
 					es->esi_str, &vtep_ip);
+		es_vtep->flags |= ZEBRA_EVPNES_VTEP_DEL_IN_PROG;
 		if (es_vtep->flags & ZEBRA_EVPNES_VTEP_RXED_ESR) {
 			es_vtep->flags &= ~ZEBRA_EVPNES_VTEP_RXED_ESR;
-			zebra_evpn_es_run_df_election(es, __func__);
+			dplane_updated =
+				zebra_evpn_es_run_df_election(es, __func__);
 		}
+		/* remove the vtep from the SPH list */
+		if (!dplane_updated && (es->flags & ZEBRA_EVPNES_LOCAL))
+			zebra_evpn_es_br_port_dplane_update(es, __func__);
 		zebra_evpn_es_vtep_free(es_vtep);
 	}
 }
@@ -1449,7 +1540,14 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 			false /* es_evi_re_reval */);
 
 	/* See if the local VTEP can function as DF on the ES */
-	zebra_evpn_es_run_df_election(es, __func__);
+	if (!zebra_evpn_es_run_df_election(es, __func__)) {
+		/* check if the dplane entry needs to be re-programmed as a
+		 * result of some thing other than DF status change
+		 */
+		if (zebra_evpn_es_br_port_dplane_update_needed(es))
+			zebra_evpn_es_br_port_dplane_update(es, __func__);
+	}
+
 
 	/* Setup ES-EVIs for all VxLAN stretched VLANs associated with
 	 * the zif
@@ -1467,6 +1565,7 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
 {
 	struct zebra_if *zif;
 	struct zebra_evpn_es *es = *esp;
+	bool dplane_updated = false;
 
 	if (!(es->flags & ZEBRA_EVPNES_LOCAL))
 		return;
@@ -1474,13 +1573,17 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
 	es->flags &= ~(ZEBRA_EVPNES_LOCAL | ZEBRA_EVPNES_READY_FOR_BGP);
 
 	/* remove the DF filter */
-	zebra_evpn_es_run_df_election(es, __func__);
+	dplane_updated = zebra_evpn_es_run_df_election(es, __func__);
 
 	/* if there any local macs referring to the ES as dest we
 	 * need to clear the static reference on them
 	 */
 	zebra_evpn_es_local_mac_update(es,
 			true /* force_clear_static */);
+
+	/* flush the BUM filters and backup NHG */
+	if (!dplane_updated)
+		zebra_evpn_es_br_port_dplane_clear(es);
 
 	/* clear the es from the parent interface */
 	zif = es->zif;
@@ -1669,6 +1772,11 @@ static int zebra_evpn_remote_es_add(esi_t *esi, struct in_addr vtep_ip,
 			return -1;
 		}
 	}
+
+	if (df_alg != EVPN_MH_DF_ALG_PREF)
+		zlog_warn("remote es %s vtep %s add %s with unsupported df_alg %d",
+			   esi_to_str(esi, buf, sizeof(buf)),
+			   inet_ntoa(vtep_ip), esr_rxed ? "esr" : "", df_alg);
 
 	zebra_evpn_es_vtep_add(es, vtep_ip, esr_rxed, df_alg, df_pref);
 	zebra_evpn_es_remote_info_re_eval(&es);
