@@ -1724,11 +1724,11 @@ static int zclient_vrf_add(struct zclient *zclient, vrf_id_t vrf_id)
 	if (strlen(vrfname_tmp) == 0)
 		goto stream_failure;
 
-	/* Lookup/create vrf by vrf_id. */
+	/* Lookup/create vrf by name, then vrf_id. */
 	vrf = vrf_get(vrf_id, vrfname_tmp);
 
-	/* Maybe it already exists? */
-	if (!vrf && vrf_get(vrf_id, NULL) != NULL)
+	/* If there's already a VRF with this name, don't create vrf */
+	if (!vrf)
 		return 0;
 
 	vrf->data.l.table_id = data.l.table_id;
