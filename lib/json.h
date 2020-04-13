@@ -29,6 +29,20 @@ extern "C" {
 #include <json-c/json.h>
 
 /*
+ * json-c 0.13.99 does not define TRUE/FALSE anymore
+ * the json-c maintainers replaced them with pure 1/0
+ * https://github.com/json-c/json-c/commit/0992aac61f8b
+ */
+#if defined JSON_C_VERSION_NUM && JSON_C_VERSION_NUM >= ((13 << 8) | 99)
+#ifndef FALSE
+#define FALSE 0
+#endif
+#ifndef TRUE
+#define TRUE 1
+#endif
+#endif
+
+/*
  * FRR style JSON iteration.
  * Usage: JSON_FOREACH(...) { ... }
  */
