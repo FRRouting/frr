@@ -80,19 +80,17 @@ static void bfdd_client_deregister(struct stream *msg);
 /*
  * Functions
  */
-#ifdef BFD_DEBUG
-static void debug_printbpc(const char *func, unsigned int line,
-			   struct bfd_peer_cfg *bpc);
-
-static void debug_printbpc(const char *func, unsigned int line,
-			   struct bfd_peer_cfg *bpc)
+static void debug_printbpc(const struct bfd_peer_cfg *bpc, const char *fmt, ...)
 {
-	char addr[3][128];
-	char timers[3][128];
-	char cbit_str[10];
+	char timers[3][128] = {};
+	char addr[3][128] = {};
+	char cbit_str[32];
+	char msgbuf[256];
+	va_list vl;
 
-	addr[0][0] = addr[1][0] = addr[2][0] = timers[0][0] = timers[1][0] =
-		timers[2][0] = 0;
+	/* Avoid debug calculations if it's disabled. */
+	if (bglobal.debug_zebra == false)
+		return;
 
 	snprintf(addr[0], sizeof(addr[0]), "peer:%s", satostr(&bpc->bpc_peer));
 	if (bpc->bpc_local.sa_sin.sin_family)
@@ -107,28 +105,27 @@ static void debug_printbpc(const char *func, unsigned int line,
 		snprintf(addr[2], sizeof(addr[2]), " vrf:%s", bpc->bpc_vrfname);
 
 	if (bpc->bpc_has_recvinterval)
-		snprintf(timers[0], sizeof(timers[0]), " rx:%lu",
+		snprintf(timers[0], sizeof(timers[0]), " rx:%" PRIu64,
 			 bpc->bpc_recvinterval);
 
 	if (bpc->bpc_has_txinterval)
-		snprintf(timers[1], sizeof(timers[1]), " tx:%lu",
+		snprintf(timers[1], sizeof(timers[1]), " tx:%" PRIu64,
 			 bpc->bpc_recvinterval);
 
 	if (bpc->bpc_has_detectmultiplier)
 		snprintf(timers[2], sizeof(timers[2]), " detect-multiplier:%d",
 			 bpc->bpc_detectmultiplier);
 
-	sprintf(cbit_str, "CB %x", bpc->bpc_cbit);
+	snprintf(cbit_str, sizeof(cbit_str), " cbit:0x%02x", bpc->bpc_cbit);
 
-	zlog_debug("%s:%d: %s %s%s%s%s%s%s %s", func, line,
-		   bpc->bpc_mhop ? "multi-hop" : "single-hop", addr[0], addr[1],
-		   addr[2], timers[0], timers[1], timers[2], cbit_str);
+	va_start(vl, fmt);
+	vsnprintf(msgbuf, sizeof(msgbuf), fmt, vl);
+	va_end(vl);
+
+	zlog_debug("%s [mhop:%s %s%s%s%s%s%s%s]", msgbuf,
+		   bpc->bpc_mhop ? "yes" : "no", addr[0], addr[1], addr[2],
+		   timers[0], timers[1], timers[2], cbit_str);
 }
-
-#define DEBUG_PRINTBPC(bpc) debug_printbpc(__FILE__, __LINE__, (bpc))
-#else
-#define DEBUG_PRINTBPC(bpc)
-#endif /* BFD_DEBUG */
 
 static int _ptm_msg_address(struct stream *msg, int family, const void *addr)
 {
@@ -407,7 +404,7 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 	if (_ptm_msg_read(msg, ZEBRA_BFD_DEST_REGISTER, vrf_id, &bpc, &pc) == -1)
 		return;
 
-	DEBUG_PRINTBPC(&bpc);
+	debug_printbpc(&bpc, "ptm-add-dest: register peer");
 
 	/* Find or start new BFD session. */
 	bs = bs_peer_find(&bpc);
@@ -443,7 +440,7 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 	if (_ptm_msg_read(msg, ZEBRA_BFD_DEST_DEREGISTER, vrf_id, &bpc, &pc) == -1)
 		return;
 
-	DEBUG_PRINTBPC(&bpc);
+	debug_printbpc(&bpc, "ptm-del-dest: deregister peer");
 
 	/* Find or start new BFD session. */
 	bs = bs_peer_find(&bpc);
