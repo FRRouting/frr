@@ -43,13 +43,14 @@ void bfd_recvtimer_update(struct bfd_session *bs)
 	bfd_recvtimer_delete(bs);
 
 	/* Don't add event if peer is deactivated. */
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) ||
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) ||
 	    bs->sock == -1)
 		return;
 
 	tv_normalize(&tv);
 #ifdef BFD_EVENT_DEBUG
-	log_debug("%s: sec = %ld, usec = %ld", __func__, tv.tv_sec, tv.tv_usec);
+	zlog_debug("%s: sec = %ld, usec = %ld", __func__, tv.tv_sec,
+		   tv.tv_usec);
 #endif /* BFD_EVENT_DEBUG */
 
 	thread_add_timer_tv(master, bfd_recvtimer_cb, bs, &tv,
@@ -64,13 +65,14 @@ void bfd_echo_recvtimer_update(struct bfd_session *bs)
 	bfd_echo_recvtimer_delete(bs);
 
 	/* Don't add event if peer is deactivated. */
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) ||
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) ||
 	    bs->sock == -1)
 		return;
 
 	tv_normalize(&tv);
 #ifdef BFD_EVENT_DEBUG
-	log_debug("%s: sec = %ld, usec = %ld", __func__, tv.tv_sec, tv.tv_usec);
+	zlog_debug("%s: sec = %ld, usec = %ld", __func__, tv.tv_sec,
+		   tv.tv_usec);
 #endif /* BFD_EVENT_DEBUG */
 
 	thread_add_timer_tv(master, bfd_echo_recvtimer_cb, bs, &tv,
@@ -85,13 +87,14 @@ void bfd_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 	bfd_xmttimer_delete(bs);
 
 	/* Don't add event if peer is deactivated. */
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) ||
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) ||
 	    bs->sock == -1)
 		return;
 
 	tv_normalize(&tv);
 #ifdef BFD_EVENT_DEBUG
-	log_debug("%s: sec = %ld, usec = %ld", __func__, tv.tv_sec, tv.tv_usec);
+	zlog_debug("%s: sec = %ld, usec = %ld", __func__, tv.tv_sec,
+		   tv.tv_usec);
 #endif /* BFD_EVENT_DEBUG */
 
 	thread_add_timer_tv(master, bfd_xmt_cb, bs, &tv, &bs->xmttimer_ev);
@@ -105,13 +108,14 @@ void bfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 	bfd_echo_xmttimer_delete(bs);
 
 	/* Don't add event if peer is deactivated. */
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) ||
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) ||
 	    bs->sock == -1)
 		return;
 
 	tv_normalize(&tv);
 #ifdef BFD_EVENT_DEBUG
-	log_debug("%s: sec = %ld, usec = %ld", __func__, tv.tv_sec, tv.tv_usec);
+	zlog_debug("%s: sec = %ld, usec = %ld", __func__, tv.tv_sec,
+		   tv.tv_usec);
 #endif /* BFD_EVENT_DEBUG */
 
 	thread_add_timer_tv(master, bfd_echo_xmt_cb, bs, &tv,

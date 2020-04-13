@@ -120,9 +120,9 @@ static void debug_printbpc(const char *func, unsigned int line,
 
 	sprintf(cbit_str, "CB %x", bpc->bpc_cbit);
 
-	log_debug("%s:%d: %s %s%s%s%s%s%s %s", func, line,
-		  bpc->bpc_mhop ? "multi-hop" : "single-hop", addr[0], addr[1],
-		  addr[2], timers[0], timers[1], timers[2], cbit_str);
+	zlog_debug("%s:%d: %s %s%s%s%s%s%s %s", func, line,
+		   bpc->bpc_mhop ? "multi-hop" : "single-hop", addr[0], addr[1],
+		   addr[2], timers[0], timers[1], timers[2], cbit_str);
 }
 
 #define DEBUG_PRINTBPC(bpc) debug_printbpc(__FILE__, __LINE__, (bpc))
@@ -260,7 +260,7 @@ static void _ptm_msg_read_address(struct stream *msg, struct sockaddr_any *sa)
 		return;
 
 	default:
-		log_warning("ptm-read-address: invalid family: %d", family);
+		zlog_warn("ptm-read-address: invalid family: %d", family);
 		break;
 	}
 
@@ -316,7 +316,7 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 
 	*pc = pc_new(pid);
 	if (*pc == NULL) {
-		log_debug("ptm-read: failed to allocate memory");
+		zlog_debug("ptm-read: failed to allocate memory");
 		return -1;
 	}
 
@@ -358,7 +358,7 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 		 */
 		STREAM_GETC(msg, ifnamelen);
 		if (ifnamelen >= sizeof(bpc->bpc_localif)) {
-			log_error("ptm-read: interface name is too big");
+			zlog_err("ptm-read: interface name is too big");
 			return -1;
 		}
 
@@ -376,7 +376,8 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 			bpc->bpc_has_vrfname = true;
 			strlcpy(bpc->bpc_vrfname, vrf->name, sizeof(bpc->bpc_vrfname));
 		} else {
-			log_error("ptm-read: vrf id %u could not be identified", vrf_id);
+			zlog_err("ptm-read: vrf id %u could not be identified",
+				 vrf_id);
 			return -1;
 		}
 	} else {
@@ -390,7 +391,7 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 	if (bpc->bpc_local.sa_sin.sin_family != 0
 	    && (bpc->bpc_local.sa_sin.sin_family
 		!= bpc->bpc_peer.sa_sin.sin_family)) {
-		log_warning("ptm-read: peer family doesn't match local type");
+		zlog_warn("ptm-read: peer family doesn't match local type");
 		return -1;
 	}
 
@@ -418,20 +419,21 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 	if (bs == NULL) {
 		bs = ptm_bfd_sess_new(&bpc);
 		if (bs == NULL) {
-			log_debug("ptm-add-dest: failed to create BFD session");
+			zlog_debug(
+				"ptm-add-dest: failed to create BFD session");
 			return;
 		}
 	} else {
 		/* Don't try to change echo/shutdown state. */
-		bpc.bpc_echo = BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
+		bpc.bpc_echo = CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
 		bpc.bpc_shutdown =
-			BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+			CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
 	}
 
 	/* Create client peer notification register. */
 	pcn = pcn_new(pc, bs);
 	if (pcn == NULL) {
-		log_error("ptm-add-dest: failed to registrate notifications");
+		zlog_err("ptm-add-dest: failed to registrate notifications");
 		return;
 	}
 
@@ -454,7 +456,7 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 	/* Find or start new BFD session. */
 	bs = bs_peer_find(&bpc);
 	if (bs == NULL) {
-		log_debug("ptm-del-dest: failed to find BFD session");
+		zlog_debug("ptm-del-dest: failed to find BFD session");
 		return;
 	}
 
@@ -462,7 +464,7 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 	pcn = pcn_lookup(pc, bs);
 	pcn_free(pcn);
 	if (bs->refcount ||
-	    BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
+	    CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
 		return;
 
 	bs->ses_state = PTM_BFD_ADM_DOWN;
@@ -485,14 +487,14 @@ static void bfdd_client_register(struct stream *msg)
 
 	pc = pc_new(pid);
 	if (pc == NULL) {
-		log_error("ptm-add-client: failed to register client: %u", pid);
+		zlog_err("ptm-add-client: failed to register client: %u", pid);
 		return;
 	}
 
 	return;
 
 stream_failure:
-	log_error("ptm-add-client: failed to register client");
+	zlog_err("ptm-add-client: failed to register client");
 }
 
 /*
@@ -509,7 +511,7 @@ static void bfdd_client_deregister(struct stream *msg)
 
 	pc = pc_lookup(pid);
 	if (pc == NULL) {
-		log_debug("ptm-del-client: failed to find client: %u", pid);
+		zlog_debug("ptm-del-client: failed to find client: %u", pid);
 		return;
 	}
 
@@ -518,7 +520,7 @@ static void bfdd_client_deregister(struct stream *msg)
 	return;
 
 stream_failure:
-	log_error("ptm-del-client: failed to deregister client");
+	zlog_err("ptm-del-client: failed to deregister client");
 }
 
 static int bfdd_replay(ZAPI_CALLBACK_ARGS)
@@ -544,14 +546,14 @@ static int bfdd_replay(ZAPI_CALLBACK_ARGS)
 		break;
 
 	default:
-		log_debug("ptm-replay: invalid message type %u", rcmd);
+		zlog_debug("ptm-replay: invalid message type %u", rcmd);
 		return -1;
 	}
 
 	return 0;
 
 stream_failure:
-	log_error("ptm-replay: failed to find command");
+	zlog_err("ptm-replay: failed to find command");
 	return -1;
 }
 

@@ -84,7 +84,7 @@ static void _display_peer_header(struct vty *vty, struct bfd_session *bs)
 		inet_ntop(bs->key.family, &bs->key.peer, addr_buf,
 			  sizeof(addr_buf)));
 
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
 		vty_out(vty, " multihop");
 
 	if (memcmp(&bs->key.local, &zero_addr, sizeof(bs->key.local)))
@@ -143,7 +143,7 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 	vty_out(vty, "\t\tDiagnostics: %s\n", diag2str(bs->local_diag));
 	vty_out(vty, "\t\tRemote diagnostics: %s\n", diag2str(bs->remote_diag));
 	vty_out(vty, "\t\tPeer Type: %s\n",
-		BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) ? "configured" : "dynamic");
+		CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) ? "configured" : "dynamic");
 
 	vty_out(vty, "\t\tLocal timers:\n");
 	vty_out(vty, "\t\t\tDetect-multiplier: %" PRIu32 "\n",
@@ -235,7 +235,7 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 			    bs->timers.required_min_rx / 1000);
 	json_object_int_add(jo, "transmit-interval",
 			    bs->timers.desired_min_tx / 1000);
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
 		json_object_int_add(jo, "echo-interval",
 				    bs->timers.required_min_echo / 1000);
 	else
@@ -305,7 +305,7 @@ static void _display_peer_json_iter(struct hash_bucket *hb, void *arg)
 
 	jon = __display_peer_json(bs);
 	if (jon == NULL) {
-		log_warning("%s: not enough memory", __func__);
+		zlog_warn("%s: not enough memory", __func__);
 		return;
 	}
 
@@ -415,7 +415,7 @@ static void _display_peer_counter_json_iter(struct hash_bucket *hb, void *arg)
 
 	jon = __display_peer_counters_json(bs);
 	if (jon == NULL) {
-		log_warning("%s: not enough memory", __func__);
+		zlog_warn("%s: not enough memory", __func__);
 		return;
 	}
 
@@ -457,7 +457,7 @@ static void _display_peer_brief(struct vty *vty, struct bfd_session *bs)
 {
 	char addr_buf[INET6_ADDRSTRLEN];
 
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
 		vty_out(vty, "%-10u", bs->discrs.my_discr);
 		inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
 		vty_out(vty, " %-40s", addr_buf);

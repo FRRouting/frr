@@ -99,7 +99,7 @@ static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 		/* This session was already configured by another daemon. */
 		if (bs != NULL) {
 			/* Now it is configured also by CLI. */
-			BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+			SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
 			bs->refcount++;
 
 			resource->ptr = bs;
@@ -115,11 +115,11 @@ static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 
 		/* Set configuration flags. */
 		bs->refcount = 1;
-		BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+		SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
 		if (mhop)
-			BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_MH);
+			SET_FLAG(bs->flags, BFD_SESS_FLAG_MH);
 		if (bs->key.family == AF_INET6)
-			BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_IPV6);
+			SET_FLAG(bs->flags, BFD_SESS_FLAG_IPV6);
 
 		resource->ptr = bs;
 		break;
@@ -164,10 +164,10 @@ static int bfd_session_destroy(enum nb_event event,
 	case NB_EV_APPLY:
 		bs = nb_running_unset_entry(dnode);
 		/* CLI is not using this session anymore. */
-		if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) == 0)
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) == 0)
 			break;
 
-		BFD_UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
 		bs->refcount--;
 		/* There are still daemons using it. */
 		if (bs->refcount > 0)
@@ -384,10 +384,10 @@ int bfdd_bfd_sessions_single_hop_administrative_down_modify(
 	bs = nb_running_get_entry(dnode, NULL, true);
 
 	if (!shutdown) {
-		if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
+		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
 			return NB_OK;
 
-		BFD_UNSET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_DOWN;
@@ -396,15 +396,15 @@ int bfdd_bfd_sessions_single_hop_administrative_down_modify(
 		/* Enable all timers. */
 		bfd_recvtimer_update(bs);
 		bfd_xmttimer_update(bs, bs->xmt_TO);
-		if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO)) {
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO)) {
 			bfd_echo_recvtimer_update(bs);
 			bfd_echo_xmttimer_update(bs, bs->echo_xmt_TO);
 		}
 	} else {
-		if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
 			return NB_OK;
 
-		BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+		SET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
 
 		/* Disable all events. */
 		bfd_recvtimer_delete(bs);
@@ -448,18 +448,18 @@ int bfdd_bfd_sessions_single_hop_echo_mode_modify(enum nb_event event,
 	bs = nb_running_get_entry(dnode, NULL, true);
 
 	if (!echo) {
-		if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
+		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
 			return NB_OK;
 
-		BFD_UNSET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
+		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
 		ptm_bfd_echo_stop(bs);
 	} else {
-		if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
 			return NB_OK;
 
-		BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
+		SET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
 		/* Apply setting immediately. */
-		if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
+		if (!CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
 			bs_echo_timer_handler(bs);
 	}
 
