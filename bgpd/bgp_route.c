@@ -10284,7 +10284,7 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 		}
 	} else if (safi == SAFI_EVPN) {
 		struct bgp_node *longest_pfx;
-		bool is_exact_pfxlen_match = FALSE;
+		bool is_exact_pfxlen_match = false;
 
 		for (rn = bgp_table_top(rib); rn; rn = bgp_route_next(rn)) {
 			const struct prefix *rn_p = bgp_node_get_prefix(rn);
@@ -10296,7 +10296,7 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 				continue;
 
 			longest_pfx = NULL;
-			is_exact_pfxlen_match = FALSE;
+			is_exact_pfxlen_match = false;
 			/*
 			 * Search through all the prefixes for a match.  The
 			 * pfx's are enumerated in ascending order of pfxlens.
@@ -10318,7 +10318,7 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 						bgp_evpn_get_type5_prefixlen(
 							rm_p);
 					if (type5_pfxlen == match.prefixlen) {
-						is_exact_pfxlen_match = TRUE;
+						is_exact_pfxlen_match = true;
 						bgp_unlock_node(rm);
 						break;
 					}
