@@ -8076,6 +8076,66 @@ static int pim_cmd_interface_add(struct vty *vty, struct interface *ifp)
 	return 1;
 }
 
+DEFPY_HIDDEN (pim_test_sg_stop_ageing,
+	      pim_test_sg_stop_ageing_cmd,
+	      "test pim [vrf NAME$name] sg-ageing [<stop|allow>]",
+	      "Test code\n"
+	      PIM_STR
+	      VRF_CMD_HELP_STR
+	      "control ageing sg entries\n"
+	      "stop ageing sg entries\n"
+	      "allow ageing sg entries\n")
+{
+	struct pim_upstream *up;
+	struct pim_instance *pim;
+	int idx = 0;
+
+
+	if (!name)
+		pim = pim_get_pim_instance(VRF_DEFAULT);
+	else {
+		struct vrf *vrf = vrf_lookup_by_name(name);
+
+		if (!vrf) {
+			vty_out(vty, "%% Vrf specified: %s does not exist\n",
+				name);
+			return CMD_WARNING;
+		}
+
+		pim = pim_get_pim_instance(vrf->vrf_id);
+	}
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (argv_find(argv, argc, "stop", &idx)) {
+		if (pim->sg_ageing)
+			pim->sg_ageing = false;
+		else
+			return CMD_SUCCESS;
+	}
+
+	if (argv_find(argv, argc, "allow", &idx)) {
+		if (pim->sg_ageing)
+			return CMD_SUCCESS;
+		else
+			pim->sg_ageing = true;
+	}
+
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
+		if (up->sg.src.s_addr == INADDR_ANY)
+			continue;
+		if (pim->sg_ageing)
+			PIM_UPSTREAM_FLAG_UNSET_DISABLE_KAT_EXPIRY(up->flags);
+		else
+			PIM_UPSTREAM_FLAG_SET_DISABLE_KAT_EXPIRY(up->flags);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFPY_HIDDEN (pim_test_sg_keepalive,
 	      pim_test_sg_keepalive_cmd,
 	      "test pim [vrf NAME$name] keepalive-reset A.B.C.D$source A.B.C.D$group",
@@ -10825,6 +10885,7 @@ void pim_cmd_init(void)
 	install_node(&debug_node, pim_debug_config_write);
 
 	install_element(ENABLE_NODE, &pim_test_sg_keepalive_cmd);
+	install_element(ENABLE_NODE, &pim_test_sg_stop_ageing_cmd);
 
 	install_element(CONFIG_NODE, &ip_pim_rp_cmd);
 	install_element(VRF_NODE, &ip_pim_rp_cmd);

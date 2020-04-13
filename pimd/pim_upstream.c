@@ -831,16 +831,24 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 				   __func__);
 	}
 
+	up->flags = flags;
 	up->parent = pim_upstream_find_parent(pim, up);
 	if (up->sg.src.s_addr == INADDR_ANY) {
 		up->sources = list_new();
 		up->sources->cmp =
 			(int (*)(void *, void *))pim_upstream_compare;
-	} else
+	} else {
+		/* sg ageing shall be stopped if configured */
+		if (!pim->sg_ageing) {
+			PIM_UPSTREAM_FLAG_SET_DISABLE_KAT_EXPIRY(up->flags);
+			if (PIM_DEBUG_TRACE)
+				zlog_debug("%s: kat expiry disabled for (%s)\n",
+					   __func__, up->sg_str);
+		}
 		up->sources = NULL;
+	}
 
 	pim_upstream_find_new_children(pim, up);
-	up->flags = flags;
 	up->ref_count = 1;
 	up->t_join_timer = NULL;
 	up->t_ka_timer = NULL;

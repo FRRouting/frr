@@ -87,6 +87,7 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->keep_alive_time = PIM_KEEPALIVE_PERIOD;
 	pim->rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;
 
+	pim->sg_ageing = true;
 	pim->ecmp_enable = false;
 	pim->ecmp_rebalance_enable = false;
 

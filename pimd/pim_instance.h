@@ -181,6 +181,7 @@ struct pim_instance {
 	unsigned int keep_alive_time;
 	unsigned int rp_keep_alive_time;
 
+	bool sg_ageing;
 	bool ecmp_enable;
 	bool ecmp_rebalance_enable;
 	/* No. of Dual active I/fs in pim_instance */
