@@ -419,8 +419,9 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 	if (bs == NULL) {
 		bs = ptm_bfd_sess_new(&bpc);
 		if (bs == NULL) {
-			zlog_debug(
-				"ptm-add-dest: failed to create BFD session");
+			if (bglobal.debug_zebra)
+				zlog_debug(
+					"ptm-add-dest: failed to create BFD session");
 			return;
 		}
 	} else {
@@ -456,7 +457,8 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 	/* Find or start new BFD session. */
 	bs = bs_peer_find(&bpc);
 	if (bs == NULL) {
-		zlog_debug("ptm-del-dest: failed to find BFD session");
+		if (bglobal.debug_zebra)
+			zlog_debug("ptm-del-dest: failed to find BFD session");
 		return;
 	}
 
@@ -511,7 +513,9 @@ static void bfdd_client_deregister(struct stream *msg)
 
 	pc = pc_lookup(pid);
 	if (pc == NULL) {
-		zlog_debug("ptm-del-client: failed to find client: %u", pid);
+		if (bglobal.debug_zebra)
+			zlog_debug("ptm-del-client: failed to find client: %u",
+				   pid);
 		return;
 	}
 
@@ -546,7 +550,8 @@ static int bfdd_replay(ZAPI_CALLBACK_ARGS)
 		break;
 
 	default:
-		zlog_debug("ptm-replay: invalid message type %u", rcmd);
+		if (bglobal.debug_zebra)
+			zlog_debug("ptm-replay: invalid message type %u", rcmd);
 		return -1;
 	}
 
@@ -674,6 +679,9 @@ void bfdd_sessions_disable_vrf(struct vrf *vrf)
 
 static int bfd_ifp_destroy(struct interface *ifp)
 {
+	if (bglobal.debug_zebra)
+		zlog_debug("zclient: delete interface %s", ifp->name);
+
 	bfdd_sessions_disable_interface(ifp);
 
 	return 0;
@@ -719,10 +727,17 @@ static void bfdd_sessions_enable_address(struct connected *ifc)
 static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
+	char buf[64];
 
 	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (ifc == NULL)
 		return 0;
+
+	if (bglobal.debug_zebra)
+		zlog_debug("zclient: %s local address %s",
+			   cmd == ZEBRA_INTERFACE_ADDRESS_ADD ? "add"
+							      : "delete",
+			   prefix2str(ifc->address, buf, sizeof(buf)));
 
 	bfdd_sessions_enable_address(ifc);
 
@@ -731,6 +746,9 @@ static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 
 static int bfd_ifp_create(struct interface *ifp)
 {
+	if (bglobal.debug_zebra)
+		zlog_debug("zclient: add interface %s", ifp->name);
+
 	bfdd_sessions_enable_interface(ifp);
 
 	return 0;

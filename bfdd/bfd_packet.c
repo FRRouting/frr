@@ -112,11 +112,16 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 	rv = sendto(sd, data, datalen, 0, sa, slen);
 	if (rv <= 0) {
-		zlog_debug("packet-send: send failure: %s", strerror(errno));
+		if (bglobal.debug_network)
+			zlog_debug("packet-send: send failure: %s",
+				   strerror(errno));
 		return -1;
 	}
-	if (rv < (ssize_t)datalen)
-		zlog_debug("packet-send: send partial: %s", strerror(errno));
+	if (rv < (ssize_t)datalen) {
+		if (bglobal.debug_network)
+			zlog_debug("packet-send: send partial: %s",
+				   strerror(errno));
+	}
 
 	return 0;
 }
@@ -190,14 +195,16 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 	/* Your discriminator not zero - use it to find session */
 	bfd = bfd_id_lookup(my_discr);
 	if (bfd == NULL) {
-		zlog_debug("echo-packet: no matching session (id:%u)",
-			   my_discr);
+		if (bglobal.debug_network)
+			zlog_debug("echo-packet: no matching session (id:%u)",
+				   my_discr);
 		return -1;
 	}
 
 	if (!CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE)) {
-		zlog_debug("echo-packet: echo disabled [%s] (id:%u)",
-			   bs_to_string(bfd), my_discr);
+		if (bglobal.debug_network)
+			zlog_debug("echo-packet: echo disabled [%s] (id:%u)",
+				   bs_to_string(bfd), my_discr);
 		return -1;
 	}
 
@@ -313,8 +320,9 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 
 			memcpy(&ttlval, CMSG_DATA(cm), sizeof(ttlval));
 			if (ttlval > 255) {
-				zlog_debug("ipv4-recv: invalid TTL: %u",
-					   ttlval);
+				if (bglobal.debug_network)
+					zlog_debug("ipv4-recv: invalid TTL: %u",
+						   ttlval);
 				return -1;
 			}
 			*ttl = ttlval;
@@ -420,8 +428,9 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 		if (cm->cmsg_type == IPV6_HOPLIMIT) {
 			memcpy(&ttlval, CMSG_DATA(cm), sizeof(ttlval));
 			if (ttlval > 255) {
-				zlog_debug("ipv6-recv: invalid TTL: %u",
-					   ttlval);
+				if (bglobal.debug_network)
+					zlog_debug("ipv6-recv: invalid TTL: %u",
+						   ttlval);
 				return -1;
 			}
 
@@ -486,6 +495,10 @@ static void cp_debug(bool mhop, struct sockaddr_any *peer,
 {
 	char buf[512], peerstr[128], localstr[128], portstr[64], vrfstr[64];
 	va_list vl;
+
+	/* Don't to any processing if debug is disabled. */
+	if (bglobal.debug_network == false)
+		return;
 
 	if (peer->sa_sin.sin_family)
 		snprintf(peerstr, sizeof(peerstr), " peer:%s", satostr(peer));
@@ -797,12 +810,14 @@ int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
 	/* Send echo back. */
 	wlen = sendmsg(sd, &msg, 0);
 	if (wlen <= 0) {
-		zlog_debug("udp-send: loopback failure: (%d) %s", errno,
-			   strerror(errno));
+		if (bglobal.debug_network)
+			zlog_debug("udp-send: loopback failure: (%d) %s", errno,
+				   strerror(errno));
 		return -1;
 	} else if (wlen < (ssize_t)datalen) {
-		zlog_debug("udp-send: partial send: %zd expected %zu", wlen,
-			   datalen);
+		if (bglobal.debug_network)
+			zlog_debug("udp-send: partial send: %zd expected %zu",
+				   wlen, datalen);
 		return -1;
 	}
 

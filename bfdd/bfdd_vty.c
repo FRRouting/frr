@@ -738,6 +738,42 @@ DEFPY(bfd_show_peers_brief, bfd_show_peers_brief_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(
+	bfd_debug_peer, bfd_debug_peer_cmd,
+	"[no] debug bfd peer",
+	NO_STR
+	DEBUG_STR
+	"Bidirection Forwarding Detection\n"
+	"Peer events debugging\n")
+{
+	bglobal.debug_peer_event = !no;
+	return CMD_SUCCESS;
+}
+
+DEFPY(
+	bfd_debug_zebra, bfd_debug_zebra_cmd,
+	"[no] debug bfd zebra",
+	NO_STR
+	DEBUG_STR
+	"Bidirection Forwarding Detection\n"
+	"Zebra events debugging\n")
+{
+	bglobal.debug_zebra = !no;
+	return CMD_SUCCESS;
+}
+
+DEFPY(
+	bfd_debug_network, bfd_debug_network_cmd,
+	"[no] debug bfd network",
+	NO_STR
+	DEBUG_STR
+	"Bidirection Forwarding Detection\n"
+	"Network layer debugging\n")
+{
+	bglobal.debug_network = !no;
+	return CMD_SUCCESS;
+}
+
 /*
  * Function definitions.
  */
@@ -842,6 +878,9 @@ DEFUN_NOSH(show_debugging_bfd,
 	   "BFD daemon\n")
 {
 	vty_out(vty, "BFD debugging status:\n");
+	vty_out(vty, "  Peer events debugging.\n");
+	vty_out(vty, "  Zebra events debugging.\n");
+	vty_out(vty, "  Network layer debugging.\n");
 
 	return CMD_SUCCESS;
 }
@@ -863,6 +902,21 @@ static int bfdd_write_config(struct vty *vty)
 	struct lyd_node *dnode;
 	int written = 0;
 
+	if (bglobal.debug_peer_event) {
+		vty_out(vty, "debug bfd peer\n");
+		written = 1;
+	}
+
+	if (bglobal.debug_zebra) {
+		vty_out(vty, "debug bfd zebra\n");
+		written = 1;
+	}
+
+	if (bglobal.debug_network) {
+		vty_out(vty, "debug bfd network\n");
+		written = 1;
+	}
+
 	dnode = yang_dnode_get(running_config->dnode, "/frr-bfdd:bfdd");
 	if (dnode) {
 		nb_cli_show_dnode_cmds(vty, dnode, false);
@@ -881,6 +935,14 @@ void bfdd_vty_init(void)
 	install_element(ENABLE_NODE, &bfd_show_peer_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peers_brief_cmd);
 	install_element(ENABLE_NODE, &show_debugging_bfd_cmd);
+
+	install_element(ENABLE_NODE, &bfd_debug_peer_cmd);
+	install_element(ENABLE_NODE, &bfd_debug_zebra_cmd);
+	install_element(ENABLE_NODE, &bfd_debug_network_cmd);
+
+	install_element(CONFIG_NODE, &bfd_debug_peer_cmd);
+	install_element(CONFIG_NODE, &bfd_debug_zebra_cmd);
+	install_element(CONFIG_NODE, &bfd_debug_network_cmd);
 
 	/* Install BFD node and commands. */
 	install_node(&bfd_node, bfdd_write_config);

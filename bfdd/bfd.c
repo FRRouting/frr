@@ -169,7 +169,9 @@ int bfd_session_enable(struct bfd_session *bs)
 
 	/* Sanity check: don't leak open sockets. */
 	if (bs->sock != -1) {
-		zlog_debug("session-enable: previous socket open");
+		if (bglobal.debug_peer_event)
+			zlog_debug("session-enable: previous socket open");
+
 		close(bs->sock);
 		bs->sock = -1;
 	}
@@ -318,9 +320,10 @@ void ptm_bfd_sess_up(struct bfd_session *bfd)
 
 	if (old_state != bfd->ses_state) {
 		bfd->stats.session_up++;
-		zlog_debug("state-change: [%s] %s -> %s", bs_to_string(bfd),
-			   state_list[old_state].str,
-			   state_list[bfd->ses_state].str);
+		if (bglobal.debug_peer_event)
+			zlog_debug("state-change: [%s] %s -> %s",
+				   bs_to_string(bfd), state_list[old_state].str,
+				   state_list[bfd->ses_state].str);
 	}
 }
 
@@ -357,10 +360,11 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 
 	if (old_state != bfd->ses_state) {
 		bfd->stats.session_down++;
-		zlog_debug("state-change: [%s] %s -> %s reason:%s",
-			   bs_to_string(bfd), state_list[old_state].str,
-			   state_list[bfd->ses_state].str,
-			   get_diag_str(bfd->local_diag));
+		if (bglobal.debug_peer_event)
+			zlog_debug("state-change: [%s] %s -> %s reason:%s",
+				   bs_to_string(bfd), state_list[old_state].str,
+				   state_list[bfd->ses_state].str,
+				   get_diag_str(bfd->local_diag));
 	}
 }
 
@@ -758,7 +762,8 @@ struct bfd_session *bs_registrate(struct bfd_session *bfd)
 	if (bfd->key.ifname[0] || bfd->key.vrfname[0] || bfd->sock == -1)
 		bs_observer_add(bfd);
 
-	zlog_debug("session-new: %s", bs_to_string(bfd));
+	if (bglobal.debug_peer_event)
+		zlog_debug("session-new: %s", bs_to_string(bfd));
 
 	control_notify_config(BCM_NOTIFY_CONFIG_ADD, bfd);
 
@@ -782,7 +787,8 @@ int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc)
 		return -1;
 	}
 
-	zlog_debug("session-delete: %s", bs_to_string(bs));
+	if (bglobal.debug_peer_event)
+		zlog_debug("session-delete: %s", bs_to_string(bs));
 
 	control_notify_config(BCM_NOTIFY_CONFIG_DELETE, bs);
 
@@ -849,8 +855,9 @@ static void bs_down_handler(struct bfd_session *bs, int nstate)
 		break;
 
 	default:
-		zlog_debug("state-change: unhandled neighbor state: %d",
-			   nstate);
+		if (bglobal.debug_peer_event)
+			zlog_debug("state-change: unhandled neighbor state: %d",
+				   nstate);
 		break;
 	}
 }
@@ -877,8 +884,9 @@ static void bs_init_handler(struct bfd_session *bs, int nstate)
 		break;
 
 	default:
-		zlog_debug("state-change: unhandled neighbor state: %d",
-			   nstate);
+		if (bglobal.debug_peer_event)
+			zlog_debug("state-change: unhandled neighbor state: %d",
+				   nstate);
 		break;
 	}
 }
@@ -908,11 +916,11 @@ static void bs_neighbour_admin_down_handler(struct bfd_session *bfd,
 
 	if (old_state != bfd->ses_state) {
 		bfd->stats.session_down++;
-
-		zlog_debug("state-change: [%s] %s -> %s reason:%s",
-			   bs_to_string(bfd), state_list[old_state].str,
-			   state_list[bfd->ses_state].str,
-			   get_diag_str(bfd->local_diag));
+		if (bglobal.debug_peer_event)
+			zlog_debug("state-change: [%s] %s -> %s reason:%s",
+				   bs_to_string(bfd), state_list[old_state].str,
+				   state_list[bfd->ses_state].str,
+				   get_diag_str(bfd->local_diag));
 	}
 }
 
@@ -934,8 +942,9 @@ static void bs_up_handler(struct bfd_session *bs, int nstate)
 		break;
 
 	default:
-		zlog_debug("state-change: unhandled neighbor state: %d",
-			   nstate);
+		if (bglobal.debug_peer_event)
+			zlog_debug("state-change: unhandled neighbor state: %d",
+				   nstate);
 		break;
 	}
 }
@@ -957,8 +966,9 @@ void bs_state_handler(struct bfd_session *bs, int nstate)
 		break;
 
 	default:
-		zlog_debug("state-change: [%s] is in invalid state: %d",
-			   bs_to_string(bs), nstate);
+		if (bglobal.debug_peer_event)
+			zlog_debug("state-change: [%s] is in invalid state: %d",
+				   bs_to_string(bs), nstate);
 		break;
 	}
 }
@@ -1433,12 +1443,14 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 		memset(&bs.key.local, 0, sizeof(bs.key.local));
 		bsp = hash_lookup(bfd_key_hash, &bs);
 		if (bsp) {
-			char addr_buf[INET6_ADDRSTRLEN];
-
-			inet_ntop(bs.key.family, &key.local, addr_buf,
-				  sizeof(addr_buf));
-			zlog_debug(" peer %s found, but loc-addr %s ignored",
-				   peer_buf, addr_buf);
+			if (bglobal.debug_peer_event) {
+				char addr_buf[INET6_ADDRSTRLEN];
+				inet_ntop(bs.key.family, &key.local, addr_buf,
+					  sizeof(addr_buf));
+				zlog_debug(
+					" peer %s found, but loc-addr %s ignored",
+					peer_buf, addr_buf);
+			}
 			return bsp;
 		}
 	}
@@ -1449,8 +1461,9 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 		memset(bs.key.ifname, 0, sizeof(bs.key.ifname));
 		bsp = hash_lookup(bfd_key_hash, &bs);
 		if (bsp) {
-			zlog_debug(" peer %s found, but ifp %s ignored",
-				   peer_buf, key.ifname);
+			if (bglobal.debug_peer_event)
+				zlog_debug(" peer %s found, but ifp %s ignored",
+					   peer_buf, key.ifname);
 			return bsp;
 		}
 	}
@@ -1460,14 +1473,15 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 		memset(&bs.key.local, 0, sizeof(bs.key.local));
 		bsp = hash_lookup(bfd_key_hash, &bs);
 		if (bsp) {
-			char addr_buf[INET6_ADDRSTRLEN];
-
-			inet_ntop(bs.key.family, &bs.key.local, addr_buf,
-				  sizeof(addr_buf));
-			zlog_debug(
-				" peer %s found, but ifp %s"
-				" and loc-addr %s ignored",
-				peer_buf, key.ifname, addr_buf);
+			if (bglobal.debug_peer_event) {
+				char addr_buf[INET6_ADDRSTRLEN];
+				inet_ntop(bs.key.family, &bs.key.local,
+					  addr_buf, sizeof(addr_buf));
+				zlog_debug(
+					" peer %s found, but ifp %s"
+					" and loc-addr %s ignored",
+					peer_buf, key.ifname, addr_buf);
+			}
 			return bsp;
 		}
 	}
@@ -1485,10 +1499,11 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 	/* change key */
 	if (ctx.result) {
 		bsp = ctx.result;
-		zlog_debug(
-			" peer %s found, but ifp"
-			" and/or loc-addr params ignored",
-			peer_buf);
+		if (bglobal.debug_peer_event)
+			zlog_debug(
+				" peer %s found, but ifp"
+				" and/or loc-addr params ignored",
+				peer_buf);
 	}
 	return bsp;
 }
@@ -1676,13 +1691,17 @@ void bfd_sessions_remove_manual(void)
  */
 static int bfd_vrf_new(struct vrf *vrf)
 {
-	zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
+	if (bglobal.debug_zebra)
+		zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
+
 	return 0;
 }
 
 static int bfd_vrf_delete(struct vrf *vrf)
 {
-	zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
+	if (bglobal.debug_zebra)
+		zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
+
 	return 0;
 }
 
@@ -1690,7 +1709,10 @@ static int bfd_vrf_update(struct vrf *vrf)
 {
 	if (!vrf_is_enabled(vrf))
 		return 0;
-	zlog_debug("VRF update: %s(%u)", vrf->name, vrf->vrf_id);
+
+	if (bglobal.debug_zebra)
+		zlog_debug("VRF update: %s(%u)", vrf->name, vrf->vrf_id);
+
 	/* a different name is given; update bfd list */
 	bfdd_sessions_enable_vrf(vrf);
 	return 0;
@@ -1707,7 +1729,10 @@ static int bfd_vrf_enable(struct vrf *vrf)
 		vrf->info = (void *)bvrf;
 	} else
 		bvrf = vrf->info;
-	zlog_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
+
+	if (bglobal.debug_zebra)
+		zlog_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
+
 	if (vrf->vrf_id == VRF_DEFAULT ||
 	    vrf_get_backend() == VRF_BACKEND_NETNS) {
 		if (!bvrf->bg_shop)
@@ -1763,7 +1788,8 @@ static int bfd_vrf_disable(struct vrf *vrf)
 		bfdd_zclient_unregister(vrf->vrf_id);
 	}
 
-	zlog_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
+	if (bglobal.debug_zebra)
+		zlog_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
 
 	/* Disable read/write poll triggering. */
 	THREAD_OFF(bvrf->bg_ev[0]);
