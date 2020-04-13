@@ -586,6 +586,18 @@ the config was written out.
 
    This gathers data about events from zebra that come up through the ZAPI.
 
+PIM Test Commands
+=================
+Test commands are used to simulte some of the testing conditions
+
+.. index:: test pim [vrf NAME$name] sg-ageing [<stop|allow>]
+.. clicmd:: test pim [vrf NAME$name] sg-ageing [<stop|allow>]
+
+   This command stops or allows ageing of sg-entries. When this command is
+   executed with stop option. The ageing for the particular vrf is stopped.
+   On configuring with allow, this will allow to age out of sg entries.
+   This is a hidden command.
+
 PIM Clear Commands
 ==================
 Clear commands reset various variables.
