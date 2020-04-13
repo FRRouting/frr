@@ -397,7 +397,7 @@ DEFPY(sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
       "sharp lsp (0-100000)$inlabel\
         nexthop-group NHGNAME$nhgname\
         [prefix A.B.C.D/M$pfx\
-       " FRR_IP_REDIST_STR_SHARPD "$type_str [instance (0-255)$instance]]",
+       " FRR_IP_REDIST_STR_ZEBRA "$type_str [instance (0-255)$instance]]",
       "Sharp Routing Protocol\n"
       "Add an LSP\n"
       "The ingress label to use\n"
@@ -405,7 +405,7 @@ DEFPY(sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
       "The nexthop-group name\n"
       "Label a prefix\n"
       "The v4 prefix to label\n"
-      FRR_IP_REDIST_HELP_STR_SHARPD
+      FRR_IP_REDIST_HELP_STR_ZEBRA
       "Instance to use\n"
       "Instance\n")
 {
