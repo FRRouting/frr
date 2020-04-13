@@ -149,6 +149,14 @@ static void path_zebra_label_manager_connect(void)
 		sleep(1);
 	}
 	set_nonblocking(zclient_sync->sock);
+
+	/* Send hello to notify zebra this is a synchronous client */
+	while (zclient_send_hello(zclient_sync) < 0) {
+		zlog_warn("%s: Error sending hello for synchronous zclient!",
+			  __func__);
+		sleep(1);
+	}
+
 	while (lm_label_manager_connect(zclient_sync, 0) != 0) {
 		zlog_warn("%s: error connecting to label manager!", __func__);
 		sleep(1);
@@ -157,6 +165,9 @@ static void path_zebra_label_manager_connect(void)
 
 void path_zebra_init(struct thread_master *master)
 {
+	struct zclient_options options = zclient_options_default;
+	options.synchronous = true;
+
 	/* Initialize asynchronous zclient. */
 	zclient = zclient_new(master, &zclient_options_default);
 	zclient_init(zclient, ZEBRA_ROUTE_SRTE, 0, &pathd_privs);
@@ -164,7 +175,7 @@ void path_zebra_init(struct thread_master *master)
 	zclient->sr_policy_notify_status = path_zebra_sr_policy_notify_status;
 
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &zclient_options_default);
+	zclient_sync = zclient_new(master, &options);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_SRTE;
 	zclient_sync->instance = 1;
