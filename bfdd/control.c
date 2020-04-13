@@ -168,8 +168,7 @@ int control_accept(struct thread *t)
 		return 0;
 	}
 
-	if (control_new(csock) == NULL)
-		close(csock);
+	control_new(csock);
 
 	bglobal.bg_csockev = NULL;
 	thread_add_read(master, control_accept, NULL, sd, &bglobal.bg_csockev);
@@ -334,8 +333,6 @@ static int control_queue_enqueue(struct bfd_control_socket *bcs,
 	struct bfd_control_buffer *bcb;
 
 	bcq = control_queue_new(bcs);
-	if (bcq == NULL)
-		return -1;
 
 	bcb = &bcq->bcq_bcb;
 	bcb->bcb_left = sizeof(struct bfd_control_msg) + ntohl(bcm->bcm_length);
@@ -656,8 +653,7 @@ static int notify_add_cb(struct bfd_peer_cfg *bpc, void *arg)
 	if (bs == NULL)
 		return -1;
 
-	if (control_notifypeer_new(bcs, bs) == NULL)
-		return -1;
+	control_notifypeer_new(bcs, bs);
 
 	/* Notify peer status. */
 	_control_notify(bcs, bs);

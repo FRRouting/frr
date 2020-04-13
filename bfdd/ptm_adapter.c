@@ -315,10 +315,6 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 	STREAM_GETL(msg, pid);
 
 	*pc = pc_new(pid);
-	if (*pc == NULL) {
-		zlog_debug("ptm-read: failed to allocate memory");
-		return -1;
-	}
 
 	/* Register/update peer information. */
 	_ptm_msg_read_address(msg, &bpc->bpc_peer);
@@ -404,7 +400,6 @@ stream_failure:
 static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 {
 	struct ptm_client *pc;
-	struct ptm_client_notification *pcn;
 	struct bfd_session *bs;
 	struct bfd_peer_cfg bpc;
 
@@ -432,11 +427,7 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 	}
 
 	/* Create client peer notification register. */
-	pcn = pcn_new(pc, bs);
-	if (pcn == NULL) {
-		zlog_err("ptm-add-dest: failed to registrate notifications");
-		return;
-	}
+	pcn_new(pc, bs);
 
 	ptm_bfd_notify(bs, bs->ses_state);
 }
@@ -481,17 +472,12 @@ static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
  */
 static void bfdd_client_register(struct stream *msg)
 {
-	struct ptm_client *pc;
 	uint32_t pid;
 
 	/* Find or allocate process context data. */
 	STREAM_GETL(msg, pid);
 
-	pc = pc_new(pid);
-	if (pc == NULL) {
-		zlog_err("ptm-add-client: failed to register client: %u", pid);
-		return;
-	}
+	pc_new(pid);
 
 	return;
 

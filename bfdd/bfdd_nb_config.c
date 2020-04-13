@@ -107,8 +107,6 @@ static int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 		}
 
 		bs = bfd_session_new();
-		if (bs == NULL)
-			return NB_ERR_RESOURCE;
 
 		/* Fill the session key. */
 		bfd_session_get_key(mhop, dnode, &bs->key);

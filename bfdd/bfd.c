@@ -526,8 +526,7 @@ int bfd_session_update_label(struct bfd_session *bs, const char *nlabel)
 			return -1;
 		}
 
-		if (pl_new(nlabel, bs) == NULL)
-			return -1;
+		pl_new(nlabel, bs);
 
 		return 0;
 	}
@@ -685,10 +684,6 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 
 	/* Get BFD session storage with its defaults. */
 	bfd = bfd_session_new();
-	if (bfd == NULL) {
-		zlog_err("session-new: allocation failed");
-		return NULL;
-	}
 
 	/*
 	 * Store interface/VRF name in case we need to delay session
