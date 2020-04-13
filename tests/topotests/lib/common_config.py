@@ -1156,10 +1156,16 @@ def generate_ips(network, no_of_ips):
 
         addr_type = validate_ip_address(start_ip)
         if addr_type == "ipv4":
-            start_ip = ipaddress.IPv4Address(frr_unicode(start_ip))
+            if start_ip == "0.0.0.0" and mask == 0 and no_of_ips == 1:
+                ipaddress_list.append("{}/{}".format(start_ip, mask))
+                return ipaddress_list
+            start_ip = ipaddr.IPv4Address(unicode(start_ip))
             step = 2 ** (32 - mask)
         if addr_type == "ipv6":
-            start_ip = ipaddress.IPv6Address(frr_unicode(start_ip))
+            if start_ip == "0::0" and mask == 0 and no_of_ips == 1:
+                ipaddress_list.append("{}/{}".format(start_ip, mask))
+                return ipaddress_list
+            start_ip = ipaddr.IPv6Address(unicode(start_ip))
             step = 2 ** (128 - mask)
 
         next_ip = start_ip
@@ -2238,6 +2244,51 @@ def shutdown_bringup_interface(tgen, dut, intf_name, ifaceaction=False):
         logger.info("Shutting down interface : {}".format(intf_name))
 
     interface_set_status(router_list[dut], intf_name, ifaceaction)
+
+
+def stop_router(tgen, router):
+    """
+    Router's current config would be saved to /tmp/topotest/<suite>/<router>
+    for each deamon and router and its deamons would be stopped.
+
+    * `tgen`  : topogen object
+    * `router`: Device under test
+    """
+
+    router_list = tgen.routers()
+
+    # Saving router config to /etc/frr, which will be loaded to router
+    # when it starts
+    router_list[router].vtysh_cmd("write memory")
+
+    # Stop router
+    router_list[router].stop()
+
+
+def start_router(tgen, router):
+    """
+    Router will be started and config would be loaded from
+    /tmp/topotest/<suite>/<router> for each deamon
+
+    * `tgen`  : topogen object
+    * `router`: Device under test
+    """
+
+    logger.debug("Entering lib API: start_router")
+
+    try:
+        router_list = tgen.routers()
+
+        # Router and its deamons would be started and config would
+        #  be loaded to router for each deamon from /etc/frr
+        router_list[router].start()
+
+    except Exception as e:
+        errormsg = traceback.format_exc()
+        logger.error(errormsg)
+        return errormsg
+
+    logger.debug("Exiting lib API: start_router()")
 
 
 def addKernelRoute(
@@ -3327,7 +3378,12 @@ def verify_prefix_lists(tgen, input_dict):
         for addr_type in prefix_lists_addr:
             if not check_address_types(addr_type):
                 continue
-
+            # show ip prefix list
+            if addr_type == "ipv4":
+                cmd = "show ip prefix-list"
+            else:
+                cmd = "show {} prefix-list".format(addr_type)
+            show_prefix_list = run_frr_cmd(rnode, cmd)
             for prefix_list in prefix_lists_addr[addr_type].keys():
                 if prefix_list in show_prefix_list:
                     errormsg = (
