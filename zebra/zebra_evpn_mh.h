@@ -55,6 +55,10 @@ struct zebra_evpn_es {
  * VTEP is not the DF
  */
 #define ZEBRA_EVPNES_NON_DF        (1 << 5)
+/* When the ES becomes a bridge port we need to activate the BUM non-DF
+ * filter, SPH filter and backup NHG for fast-failover
+ */
+#define ZEBRA_EVPNES_BR_PORT       (1 << 6)
 
 	/* memory used for adding the es to zmh_info->es_rb_tree */
 	RB_ENTRY(zebra_evpn_es) rb_node;
@@ -127,6 +131,7 @@ struct zebra_evpn_es_vtep {
 	uint32_t flags;
 	/* Rxed Type-4 route from this VTEP */
 #define ZEBRA_EVPNES_VTEP_RXED_ESR (1 << 0)
+#define ZEBRA_EVPNES_VTEP_DEL_IN_PROG (1 << 1)
 
 	/* memory used for adding the entry to es->es_vtep_list */
 	struct listnode es_listnode;

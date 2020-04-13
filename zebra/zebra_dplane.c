@@ -2751,7 +2751,7 @@ enum zebra_dplane_result dplane_br_port_update(const struct interface *ifp,
 	if (non_df)
 		flags |= DPLANE_BR_PORT_NON_DF;
 
-	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL || IS_ZEBRA_DEBUG_EVPN_MH_ES) {
 		uint32_t i;
 		char vtep_str[ES_VTEP_LIST_STR_SZ];
 
