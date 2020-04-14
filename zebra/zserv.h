@@ -287,6 +287,21 @@ extern int zserv_send_message(struct zserv *client, struct stream *msg);
 extern struct zserv *zserv_find_client(uint8_t proto, unsigned short instance);
 
 /*
+ * Retrieve a synchronous client by its protocol and instance number.
+ *
+ * proto
+ *    protocol number
+ *
+ * instance
+ *    instance number
+ *
+ * Returns:
+ *    The Zebra API client.
+ */
+extern struct zserv *zserv_find_sync_client(uint8_t proto,
+					    unsigned short instance);
+
+/*
  * Close a client.
  *
  * Kills a client's thread, removes the client from the client list and cleans

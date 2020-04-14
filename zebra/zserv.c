@@ -1070,17 +1070,29 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 		client->v6_route_del_cnt);
 }
 
-struct zserv *zserv_find_client(uint8_t proto, unsigned short instance)
+static struct zserv *find_zclient(uint8_t proto, unsigned short instance,
+				  bool synchronous)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
-		if (client->proto == proto && client->instance == instance)
+		if (client->proto == proto && client->instance == instance
+		    && client->synchronous == synchronous)
 			return client;
 	}
 
 	return NULL;
+}
+
+struct zserv *zserv_find_client(uint8_t proto, unsigned short instance)
+{
+	return find_zclient(proto, instance, false);
+}
+
+struct zserv *zserv_find_sync_client(uint8_t proto, unsigned short instance)
+{
+	return find_zclient(proto, instance, true);
 }
 
 /* This command is for debugging purpose. */

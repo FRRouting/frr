@@ -433,7 +433,7 @@ static int label_manager_get_chunk(struct label_manager_chunk **lmc,
 int lm_client_connect_response(uint8_t proto, uint16_t instance,
 			       vrf_id_t vrf_id, uint8_t result)
 {
-	struct zserv *client = zserv_find_client(proto, instance);
+	struct zserv *client = zserv_find_sync_client(proto, instance);
 	if (!client) {
 		zlog_err("%s: could not find client for daemon %s instance %u",
 			 __func__, zebra_route_string(proto), instance);
@@ -455,7 +455,7 @@ int lm_get_chunk_response(struct label_manager_chunk *lmc, uint8_t proto,
 			   lmc->start, lmc->end, zebra_route_string(proto),
 			   instance);
 
-	struct zserv *client = zserv_find_client(proto, instance);
+	struct zserv *client = zserv_find_sync_client(proto, instance);
 	if (!client) {
 		zlog_err("%s: could not find client for daemon %s instance %u",
 			 __func__, zebra_route_string(proto), instance);
