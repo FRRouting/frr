@@ -888,7 +888,7 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 
 	vty_out(vty, "Client: %s", zebra_route_string(client->proto));
 	if (client->instance)
-		vty_out(vty, " Instance: %d", client->instance);
+		vty_out(vty, " Instance: %u", client->instance);
 	vty_out(vty, "\n");
 
 	vty_out(vty, "------------------------ \n");
@@ -936,32 +936,32 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 
 	vty_out(vty, "Type        Add         Update      Del \n");
 	vty_out(vty, "================================================== \n");
-	vty_out(vty, "IPv4        %-12d%-12d%-12d\n", client->v4_route_add_cnt,
+	vty_out(vty, "IPv4        %-12u%-12u%-12u\n", client->v4_route_add_cnt,
 		client->v4_route_upd8_cnt, client->v4_route_del_cnt);
-	vty_out(vty, "IPv6        %-12d%-12d%-12d\n", client->v6_route_add_cnt,
+	vty_out(vty, "IPv6        %-12u%-12u%-12u\n", client->v6_route_add_cnt,
 		client->v6_route_upd8_cnt, client->v6_route_del_cnt);
-	vty_out(vty, "Redist:v4   %-12d%-12d%-12d\n", client->redist_v4_add_cnt,
+	vty_out(vty, "Redist:v4   %-12u%-12u%-12u\n", client->redist_v4_add_cnt,
 		0, client->redist_v4_del_cnt);
-	vty_out(vty, "Redist:v6   %-12d%-12d%-12d\n", client->redist_v6_add_cnt,
+	vty_out(vty, "Redist:v6   %-12u%-12u%-12u\n", client->redist_v6_add_cnt,
 		0, client->redist_v6_del_cnt);
-	vty_out(vty, "Connected   %-12d%-12d%-12d\n", client->ifadd_cnt, 0,
+	vty_out(vty, "Connected   %-12u%-12u%-12u\n", client->ifadd_cnt, 0,
 		client->ifdel_cnt);
-	vty_out(vty, "BFD peer    %-12d%-12d%-12d\n", client->bfd_peer_add_cnt,
+	vty_out(vty, "BFD peer    %-12u%-12u%-12u\n", client->bfd_peer_add_cnt,
 		client->bfd_peer_upd8_cnt, client->bfd_peer_del_cnt);
-	vty_out(vty, "NHT v4      %-12d%-12d%-12d\n",
+	vty_out(vty, "NHT v4      %-12u%-12u%-12u\n",
 		client->v4_nh_watch_add_cnt, 0, client->v4_nh_watch_rem_cnt);
-	vty_out(vty, "NHT v6      %-12d%-12d%-12d\n",
+	vty_out(vty, "NHT v6      %-12u%-12u%-12u\n",
 		client->v6_nh_watch_add_cnt, 0, client->v6_nh_watch_rem_cnt);
-	vty_out(vty, "VxLAN SG    %-12d%-12d%-12d\n", client->vxlan_sg_add_cnt,
+	vty_out(vty, "VxLAN SG    %-12u%-12u%-12u\n", client->vxlan_sg_add_cnt,
 		0, client->vxlan_sg_del_cnt);
-	vty_out(vty, "Interface Up Notifications: %d\n", client->ifup_cnt);
-	vty_out(vty, "Interface Down Notifications: %d\n", client->ifdown_cnt);
-	vty_out(vty, "VNI add notifications: %d\n", client->vniadd_cnt);
-	vty_out(vty, "VNI delete notifications: %d\n", client->vnidel_cnt);
-	vty_out(vty, "L3-VNI add notifications: %d\n", client->l3vniadd_cnt);
-	vty_out(vty, "L3-VNI delete notifications: %d\n", client->l3vnidel_cnt);
-	vty_out(vty, "MAC-IP add notifications: %d\n", client->macipadd_cnt);
-	vty_out(vty, "MAC-IP delete notifications: %d\n", client->macipdel_cnt);
+	vty_out(vty, "Interface Up Notifications: %u\n", client->ifup_cnt);
+	vty_out(vty, "Interface Down Notifications: %u\n", client->ifdown_cnt);
+	vty_out(vty, "VNI add notifications: %u\n", client->vniadd_cnt);
+	vty_out(vty, "VNI delete notifications: %u\n", client->vnidel_cnt);
+	vty_out(vty, "L3-VNI add notifications: %u\n", client->l3vniadd_cnt);
+	vty_out(vty, "L3-VNI delete notifications: %u\n", client->l3vnidel_cnt);
+	vty_out(vty, "MAC-IP add notifications: %u\n", client->macipadd_cnt);
+	vty_out(vty, "MAC-IP delete notifications: %u\n", client->macipdel_cnt);
 
 	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
 		vty_out(vty, "VRF : %s\n", vrf_id_to_name(info->vrf_id));
