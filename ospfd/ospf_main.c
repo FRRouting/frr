@@ -217,12 +217,15 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	struct ospf *o;
 
 #ifdef FUZZING_LIBFUZZER
-	o = FuzzingCreateOspf();
+	o = FuzzingOspf;
 #else
 	o = FuzzingOspf;
 #endif
 
 	/* Simulate the read process done by ospf_recv_packet */
+	stream_free(o->ibuf);
+	o->ibuf = stream_new(MAX(1, size));
+
 	stream_put(o->ibuf, data, size);
 	{
 		struct ip *iph;
@@ -245,8 +248,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	ospf_read_helper(o);
 
 done:
-	stream_reset(o->ibuf);
-
 	return 0;
 }
 #endif
