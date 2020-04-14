@@ -257,5 +257,6 @@ extern int zebra_evpn_mh_mac_holdtime_update(struct vty *vty,
 void zebra_evpn_mh_config_write(struct vty *vty);
 int zebra_evpn_mh_neigh_holdtime_update(struct vty *vty,
 		uint32_t duration, bool set_default);
+void zebra_evpn_es_local_br_port_update(struct zebra_if *zif);
 
 #endif /* _ZEBRA_EVPN_MH_H */
