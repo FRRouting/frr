@@ -324,10 +324,7 @@ const char *vrf_id_to_name(vrf_id_t vrf_id)
 	struct vrf *vrf;
 
 	vrf = vrf_lookup_by_id(vrf_id);
-	if (vrf)
-		return vrf->name;
-
-	return "n/a";
+	return VRF_LOGNAME(vrf);
 }
 
 vrf_id_t vrf_name_to_id(const char *name)
