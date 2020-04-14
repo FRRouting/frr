@@ -44,8 +44,10 @@ typedef uint32_t pim_hello_options;
 #define PIM_RPT_BIT_MASK      (1 << 0)
 #define PIM_WILDCARD_BIT_MASK (1 << 1)
 
-#define PIM_OPTION_SET(options, option_mask) ((options) |= (option_mask))
-#define PIM_OPTION_UNSET(options, option_mask) ((options) &= ~(option_mask))
+#define PIM_OPTION_SET(options, option_mask)                                   \
+	((options) |= (typeof((options)))(option_mask))
+#define PIM_OPTION_UNSET(options, option_mask)                                 \
+	((options) &= (typeof((options))) ~(option_mask))
 #define PIM_OPTION_IS_SET(options, option_mask) ((options) & (option_mask))
 
 #define PIM_TLV_GET_UINT16(buf)                                                \

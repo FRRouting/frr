@@ -42,7 +42,8 @@ int /* return checksum in low-order 16 bits */
 
 	sum = (sum >> 16) + (sum & 0xffff); /* add high-16 to low-16 */
 	sum += (sum >> 16);		    /* add carry */
-	answer = ~sum; /* ones-complement, then truncate to 16 bits */
+	/* ones-complement, then truncate to 16 bits */
+	answer = (unsigned short)~sum;
 	return (answer);
 }
 
@@ -73,6 +74,7 @@ int in_cksum_with_ph6(struct ipv6_ph *ph, void *data, int nbytes)
    without modifying the buffer; a valid checksum returns 0 */
 uint16_t fletcher_checksum(uint8_t *buffer, const size_t len,
 			   const uint16_t offset)
+	__attribute__((no_sanitize("unsigned-integer-overflow")))
 {
 	uint8_t *p;
 	int x, y, c0, c1;

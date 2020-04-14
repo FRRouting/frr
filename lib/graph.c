@@ -36,6 +36,7 @@ struct graph *graph_new(void)
 }
 
 void graph_delete_graph(struct graph *graph)
+	__attribute__((no_sanitize("unsigned-integer-overflow")))
 {
 	for (unsigned int i = vector_active(graph->nodes); i--; /**/)
 		graph_delete_node(graph, vector_slot(graph->nodes, i));
@@ -75,6 +76,8 @@ static void graph_vector_remove(vector v, unsigned int ix)
 }
 
 void graph_delete_node(struct graph *graph, struct graph_node *node)
+	__attribute__((no_sanitize("unsigned-integer-overflow")))
+
 {
 	if (!node)
 		return;
@@ -122,6 +125,7 @@ struct graph_node *graph_add_edge(struct graph_node *from,
 }
 
 void graph_remove_edge(struct graph_node *from, struct graph_node *to)
+	__attribute__((no_sanitize("unsigned-integer-overflow")))
 {
 	// remove from from to->from
 	for (unsigned int i = vector_active(to->from); i--; /**/)
@@ -138,6 +142,7 @@ void graph_remove_edge(struct graph_node *from, struct graph_node *to)
 }
 
 struct graph_node *graph_find_node(struct graph *graph, void *data)
+	__attribute__((no_sanitize("unsigned-integer-overflow")))
 {
 	struct graph_node *g;
 
@@ -151,6 +156,7 @@ struct graph_node *graph_find_node(struct graph *graph, void *data)
 }
 
 bool graph_has_edge(struct graph_node *from, struct graph_node *to)
+	__attribute__((no_sanitize("unsigned-integer-overflow")))
 {
 	for (unsigned int i = vector_active(from->to); i--; /**/)
 		if (vector_slot(from->to, i) == to)
@@ -162,6 +168,7 @@ bool graph_has_edge(struct graph_node *from, struct graph_node *to)
 static void _graph_dfs(struct graph *graph, struct graph_node *start,
 		       vector visited,
 		       void (*dfs_cb)(struct graph_node *, void *), void *arg)
+	__attribute__((no_sanitize("unsigned-integer-overflow")))
 {
 	/* check that we have not visited this node */
 	for (unsigned int i = 0; i < vector_active(visited); i++) {

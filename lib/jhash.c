@@ -60,6 +60,7 @@
  * the input key.
  */
 uint32_t jhash(const void *key, uint32_t length, uint32_t initval)
+	__attribute__((no_sanitize("unsigned-integer-overflow")))
 {
 	uint32_t a, b, c, len;
 	const uint8_t *k = key;
@@ -166,6 +167,7 @@ uint32_t jhash2(const uint32_t *k, uint32_t length, uint32_t initval)
  *       done at the end is not done here.
  */
 uint32_t jhash_3words(uint32_t a, uint32_t b, uint32_t c, uint32_t initval)
+	__attribute__((no_sanitize("unsigned-integer-overflow")))
 {
 	a += JHASH_GOLDEN_RATIO;
 	b += JHASH_GOLDEN_RATIO;
