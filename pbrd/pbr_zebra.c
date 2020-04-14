@@ -564,7 +564,7 @@ void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	 * has not changed, just return.
 	 *
 	 * If we are not installed and asked
-	 * and asked to delete just return;
+	 * to delete just return.
 	 */
 	if (install && is_installed && !changed)
 		return;
