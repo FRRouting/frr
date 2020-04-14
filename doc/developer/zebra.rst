@@ -9,13 +9,20 @@ Zebra
 Overview of the Zebra Protocol
 ==============================
 
-The Zebra protocol is used by protocol daemons to communicate with the
-**zebra** daemon.
+The Zebra protocol (or ``ZAPI``) is used by protocol daemons to
+communicate with the **zebra** daemon.
 
-Each protocol daemon may request and send information to and from the **zebra**
-daemon such as interface states, routing state, nexthop-validation, and so on.
-Protocol daemons may also install routes with **zebra**. The **zebra** daemon
-manages which routes are installed into the forwarding table with the kernel.
+Each protocol daemon may request and send information to and from the
+**zebra** daemon such as interface states, routing state,
+nexthop-validation, and so on.  Protocol daemons may also install
+routes with **zebra**. The **zebra** daemon manages which routes are
+installed into the forwarding table with the kernel. Some daemons use
+more than one ZAPI connection. This is supported: each ZAPI session is
+identified by a tuple of: ``{protocol, instance, session_id}``. LDPD
+is an example: it uses a second, synchronous ZAPI session to manage
+label blocks. The default value for ``session_id`` is zero; daemons
+who use multiple ZAPI sessions must assign unique values to the
+sessions' ids.
 
 The Zebra protocol is a streaming protocol, with a common header. Version 0
 lacks a version field and is implicitly versioned. Version 1 and all subsequent

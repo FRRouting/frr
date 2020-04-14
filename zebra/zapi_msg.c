@@ -1931,9 +1931,11 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 	unsigned short instance;
 	uint8_t notify;
 	uint8_t synchronous;
+	uint32_t session_id;
 
 	STREAM_GETC(msg, proto);
 	STREAM_GETW(msg, instance);
+	STREAM_GETL(msg, session_id);
 	STREAM_GETC(msg, notify);
 	STREAM_GETC(msg, synchronous);
 	if (notify)
@@ -1953,6 +1955,7 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 
 		client->proto = proto;
 		client->instance = instance;
+		client->session_id = session_id;
 
 		/* Graceful restart processing for client connect */
 		zebra_gr_client_reconnect(client);

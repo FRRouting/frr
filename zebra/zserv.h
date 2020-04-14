@@ -134,9 +134,10 @@ struct zserv {
 	/* Indicates if client is synchronous. */
 	bool synchronous;
 
-	/* client's protocol */
+	/* client's protocol and session info */
 	uint8_t proto;
 	uint16_t instance;
+	uint32_t session_id;
 
 	/*
 	 * Interested for MLAG Updates, and also stores the client
@@ -285,6 +286,24 @@ extern int zserv_send_message(struct zserv *client, struct stream *msg);
  *    The Zebra API client.
  */
 extern struct zserv *zserv_find_client(uint8_t proto, unsigned short instance);
+
+/*
+ * Retrieve a client by its protocol, instance number, and session id.
+ *
+ * proto
+ *    protocol number
+ *
+ * instance
+ *    instance number
+ *
+ * session_id
+ *    session id
+ *
+ * Returns:
+ *    The Zebra API client.
+ */
+struct zserv *zserv_find_client_session(uint8_t proto, unsigned short instance,
+					uint32_t session_id);
 
 /*
  * Close a client.

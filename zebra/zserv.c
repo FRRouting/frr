@@ -889,6 +889,8 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	vty_out(vty, "Client: %s", zebra_route_string(client->proto));
 	if (client->instance)
 		vty_out(vty, " Instance: %u", client->instance);
+	if (client->session_id)
+		vty_out(vty, " [%u]", client->session_id);
 	vty_out(vty, "\n");
 
 	vty_out(vty, "------------------------ \n");
@@ -995,11 +997,16 @@ static void zebra_show_stale_client_detail(struct vty *vty,
 	time_t uptime;
 	struct client_gr_info *info = NULL;
 	struct zserv *s = NULL;
-
-	if (client->instance)
-		vty_out(vty, " Instance: %d", client->instance);
+	bool first_p = true;
 
 	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
+		if (first_p) {
+			if (client->instance)
+				vty_out(vty, " Instance: %u", client->instance);
+			if (client->session_id)
+				vty_out(vty, " [%u]", client->session_id);
+			first_p = false;
+		}
 		vty_out(vty, "VRF : %s\n", vrf_id_to_name(info->vrf_id));
 		vty_out(vty, "Capabilities : ");
 		switch (info->capabilities) {
@@ -1070,17 +1077,24 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 		client->v6_route_del_cnt);
 }
 
-struct zserv *zserv_find_client(uint8_t proto, unsigned short instance)
+struct zserv *zserv_find_client_session(uint8_t proto, unsigned short instance,
+					uint32_t session_id)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
-		if (client->proto == proto && client->instance == instance)
+		if (client->proto == proto && client->instance == instance &&
+		    client->session_id == session_id)
 			return client;
 	}
 
 	return NULL;
+}
+
+struct zserv *zserv_find_client(uint8_t proto, unsigned short instance)
+{
+	return zserv_find_client_session(proto, instance, 0);
 }
 
 /* This command is for debugging purpose. */
