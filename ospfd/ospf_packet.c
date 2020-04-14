@@ -2038,10 +2038,10 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 
 				SET_FLAG(lsa->flags, OSPF_LSA_SELF);
 
-				ospf_opaque_self_originated_lsa_received(nbr,
-									 lsa);
 				ospf_ls_ack_send(nbr, lsa);
 
+				ospf_opaque_self_originated_lsa_received(nbr,
+									 lsa);
 				continue;
 			}
 		}
