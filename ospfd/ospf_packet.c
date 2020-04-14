@@ -2604,7 +2604,7 @@ static unsigned ospf_router_lsa_links_examin(struct router_lsa_link *link,
 {
 	unsigned counted_links = 0, thislinklen;
 
-	while (linkbytes) {
+	while (linkbytes >= OSPF_ROUTER_LSA_LINK_SIZE) {
 		thislinklen =
 			OSPF_ROUTER_LSA_LINK_SIZE + 4 * link->m[0].tos_count;
 		if (thislinklen > linkbytes) {
@@ -2642,26 +2642,32 @@ static unsigned ospf_lsa_examin(struct lsa_header *lsah, const uint16_t lsalen,
 		return MSG_NG;
 	}
 	switch (lsah->type) {
-	case OSPF_ROUTER_LSA:
-		/* RFC2328 A.4.2, LSA header + 4 bytes followed by N>=1
-		 * (12+)-byte link blocks */
-		if (headeronly) {
-			ret = (lsalen - OSPF_LSA_HEADER_SIZE
-			       - OSPF_ROUTER_LSA_MIN_SIZE)
-					      % 4
-				      ? MSG_NG
-				      : MSG_OK;
-			break;
-		}
+	case OSPF_ROUTER_LSA: {
+		/*
+		 * RFC2328 A.4.2, LSA header + 4 bytes followed by N>=0
+		 * (12+)-byte link blocks
+		 */
+		size_t linkbytes_len = lsalen - OSPF_LSA_HEADER_SIZE
+				       - OSPF_ROUTER_LSA_MIN_SIZE;
+
+		/*
+		 * LSA link blocks are variable length but always multiples of
+		 * 4; basic sanity check
+		 */
+		if (linkbytes_len % 4 != 0)
+			return MSG_NG;
+
+		if (headeronly)
+			return MSG_OK;
+
 		rlsa = (struct router_lsa *)lsah;
+
 		ret = ospf_router_lsa_links_examin(
 			(struct router_lsa_link *)rlsa->link,
-			lsalen - OSPF_LSA_HEADER_SIZE - 4, /* skip: basic
-							      header, "flags",
-							      0, "# links" */
-			ntohs(rlsa->links)		   /* 16 bits */
-			);
+			linkbytes_len,
+			ntohs(rlsa->links));
 		break;
+	}
 	case OSPF_AS_EXTERNAL_LSA:
 	/* RFC2328 A.4.5, LSA header + 4 bytes followed by N>=1 12-bytes long
 	 * blocks */
