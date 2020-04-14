@@ -1505,6 +1505,30 @@ static void zebra_evpn_es_local_mac_update(struct zebra_evpn_es *es,
 	}
 }
 
+void zebra_evpn_es_local_br_port_update(struct zebra_if *zif)
+{
+	struct zebra_evpn_es *es = zif->es_info.es;
+	bool old_br_port = !!(es->flags & ZEBRA_EVPNES_BR_PORT);
+	bool new_br_port;
+
+	if (zif->brslave_info.bridge_ifindex != IFINDEX_INTERNAL)
+		es->flags |= ZEBRA_EVPNES_BR_PORT;
+	else
+		es->flags &= ~ZEBRA_EVPNES_BR_PORT;
+
+	new_br_port = !!(es->flags & ZEBRA_EVPNES_BR_PORT);
+	if (old_br_port == new_br_port)
+		return;
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+		zlog_debug("es %s br_port change old %u new %u", es->esi_str,
+			   old_br_port, new_br_port);
+
+	/* update the dataplane br_port attrs */
+	if (new_br_port && zebra_evpn_es_br_port_dplane_update_needed(es))
+		zebra_evpn_es_br_port_dplane_update(es, __func__);
+}
+
 static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 		struct zebra_if *zif)
 {
@@ -1528,6 +1552,9 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 	es->zif = zif;
 	if (if_is_operative(zif->ifp))
 		es->flags |= ZEBRA_EVPNES_OPER_UP;
+
+	if (zif->brslave_info.bridge_ifindex != IFINDEX_INTERNAL)
+		es->flags |= ZEBRA_EVPNES_BR_PORT;
 
 	/* setup base-vni if one doesn't already exist; the ES will get sent
 	 * to BGP as a part of that process
@@ -1589,6 +1616,9 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
 	zif = es->zif;
 	zif->es_info.es = NULL;
 	es->zif = NULL;
+
+	/* clear all local flags associated with the ES */
+	es->flags &= ~(ZEBRA_EVPNES_OPER_UP | ZEBRA_EVPNES_BR_PORT);
 
 	/* remove from the ES list */
 	list_delete_node(zmh_info->local_es_list, &es->local_es_listnode);
@@ -2094,9 +2124,14 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 		vty_out(vty, " Interface: %s\n",
 				(es->zif) ?
 				es->zif->ifp->name : "-");
-		vty_out(vty, " State: %s\n",
-				(es->flags & ZEBRA_EVPNES_OPER_UP) ?
-				"up" : "down");
+		if (es->flags & ZEBRA_EVPNES_LOCAL) {
+			vty_out(vty, " State: %s\n",
+				(es->flags & ZEBRA_EVPNES_OPER_UP) ? "up"
+								   : "down");
+			vty_out(vty, " Bridge port: %s\n",
+				(es->flags & ZEBRA_EVPNES_BR_PORT) ? "yes"
+								   : "no");
+		}
 		vty_out(vty, " Ready for BGP: %s\n",
 				(es->flags & ZEBRA_EVPNES_READY_FOR_BGP) ?
 				"yes" : "no");
