@@ -122,50 +122,96 @@
 #define PIM_UPSTREAM_FLAG_TEST_CAN_BE_LHR(flags) ((flags) & (PIM_UPSTREAM_FLAG_MASK_SRC_IGMP | PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM))
 #define PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(flags) ((flags)&PIM_UPSTREAM_FLAG_MASK_MLAG_INTERFACE)
 
-#define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
-#define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED_UPDATED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
-#define PIM_UPSTREAM_FLAG_SET_FHR(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_FHR)
-#define PIM_UPSTREAM_FLAG_SET_SRC_IGMP(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
-#define PIM_UPSTREAM_FLAG_SET_SRC_PIM(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_PIM)
-#define PIM_UPSTREAM_FLAG_SET_SRC_STREAM(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_STREAM)
-#define PIM_UPSTREAM_FLAG_SET_SRC_MSDP(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_MSDP)
-#define PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE)
-#define PIM_UPSTREAM_FLAG_SET_SRC_LHR(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_LHR)
-#define PIM_UPSTREAM_FLAG_SET_DISABLE_KAT_EXPIRY(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DISABLE_KAT_EXPIRY)
-#define PIM_UPSTREAM_FLAG_SET_STATIC_IIF(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_STATIC_IIF)
-#define PIM_UPSTREAM_FLAG_SET_ALLOW_IIF_IN_OIL(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_ALLOW_IIF_IN_OIL)
-#define PIM_UPSTREAM_FLAG_SET_NO_PIMREG_DATA(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_NO_PIMREG_DATA)
-#define PIM_UPSTREAM_FLAG_SET_FORCE_PIMREG(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_FORCE_PIMREG)
-#define PIM_UPSTREAM_FLAG_SET_SRC_VXLAN_ORIG(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_ORIG)
-#define PIM_UPSTREAM_FLAG_SET_SRC_VXLAN_TERM(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM)
-#define PIM_UPSTREAM_FLAG_SET_MLAG_VXLAN(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN)
-#define PIM_UPSTREAM_FLAG_SET_MLAG_NON_DF(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF)
-#define PIM_UPSTREAM_FLAG_SET_MLAG_PEER(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_MLAG_PEER)
-#define PIM_UPSTREAM_FLAG_SET_USE_RPT(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_USE_RPT)
-#define PIM_UPSTREAM_FLAG_SET_MLAG_INTERFACE(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_MLAG_INTERFACE)
+#define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED(flags)                           \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
+#define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED_UPDATED(flags)                   \
+	((flags) |=                                                            \
+	 (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
+#define PIM_UPSTREAM_FLAG_SET_FHR(flags)                                       \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_FHR)
+#define PIM_UPSTREAM_FLAG_SET_SRC_IGMP(flags)                                  \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
+#define PIM_UPSTREAM_FLAG_SET_SRC_PIM(flags)                                   \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_SRC_PIM)
+#define PIM_UPSTREAM_FLAG_SET_SRC_STREAM(flags)                                \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_SRC_STREAM)
+#define PIM_UPSTREAM_FLAG_SET_SRC_MSDP(flags)                                  \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_SRC_MSDP)
+#define PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(flags)                         \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE)
+#define PIM_UPSTREAM_FLAG_SET_SRC_LHR(flags)                                   \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_SRC_LHR)
+#define PIM_UPSTREAM_FLAG_SET_DISABLE_KAT_EXPIRY(flags)                        \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_DISABLE_KAT_EXPIRY)
+#define PIM_UPSTREAM_FLAG_SET_STATIC_IIF(flags)                                \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_STATIC_IIF)
+#define PIM_UPSTREAM_FLAG_SET_ALLOW_IIF_IN_OIL(flags)                          \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_ALLOW_IIF_IN_OIL)
+#define PIM_UPSTREAM_FLAG_SET_NO_PIMREG_DATA(flags)                            \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_NO_PIMREG_DATA)
+#define PIM_UPSTREAM_FLAG_SET_FORCE_PIMREG(flags)                              \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_FORCE_PIMREG)
+#define PIM_UPSTREAM_FLAG_SET_SRC_VXLAN_ORIG(flags)                            \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_ORIG)
+#define PIM_UPSTREAM_FLAG_SET_SRC_VXLAN_TERM(flags)                            \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM)
+#define PIM_UPSTREAM_FLAG_SET_MLAG_VXLAN(flags)                                \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN)
+#define PIM_UPSTREAM_FLAG_SET_MLAG_NON_DF(flags)                               \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF)
+#define PIM_UPSTREAM_FLAG_SET_MLAG_PEER(flags)                                 \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_MLAG_PEER)
+#define PIM_UPSTREAM_FLAG_SET_USE_RPT(flags)                                   \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_USE_RPT)
+#define PIM_UPSTREAM_FLAG_SET_MLAG_INTERFACE(flags)                            \
+	((flags) |= (typeof((flags)))PIM_UPSTREAM_FLAG_MASK_MLAG_INTERFACE)
 
-#define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
-#define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED_UPDATED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
-#define PIM_UPSTREAM_FLAG_UNSET_FHR(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_FHR)
-#define PIM_UPSTREAM_FLAG_UNSET_SRC_IGMP(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
-#define PIM_UPSTREAM_FLAG_UNSET_SRC_PIM(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_PIM)
-#define PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_STREAM)
-#define PIM_UPSTREAM_FLAG_UNSET_SRC_MSDP(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_MSDP)
-#define PIM_UPSTREAM_FLAG_UNSET_SEND_SG_RPT_PRUNE(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE)
-#define PIM_UPSTREAM_FLAG_UNSET_SRC_LHR(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_LHR)
-#define PIM_UPSTREAM_FLAG_UNSET_DISABLE_KAT_EXPIRY(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DISABLE_KAT_EXPIRY)
-#define PIM_UPSTREAM_FLAG_UNSET_STATIC_IIF(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_STATIC_IIF)
-#define PIM_UPSTREAM_FLAG_UNSET_ALLOW_IIF_IN_OIL(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_ALLOW_IIF_IN_OIL)
-#define PIM_UPSTREAM_FLAG_UNSET_NO_PIMREG_DATA(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_NO_PIMREG_DATA)
-#define PIM_UPSTREAM_FLAG_UNSET_FORCE_PIMREG(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_FORCE_PIMREG)
-#define PIM_UPSTREAM_FLAG_UNSET_SRC_VXLAN_ORIG(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_ORIG)
-#define PIM_UPSTREAM_FLAG_UNSET_SRC_VXLAN_TERM(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM)
-#define PIM_UPSTREAM_FLAG_UNSET_MLAG_VXLAN(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN)
-#define PIM_UPSTREAM_FLAG_UNSET_MLAG_NON_DF(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF)
-#define PIM_UPSTREAM_FLAG_UNSET_MLAG_PEER(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_MLAG_PEER)
-#define PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE)
-#define PIM_UPSTREAM_FLAG_UNSET_USE_RPT(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_USE_RPT)
-#define PIM_UPSTREAM_FLAG_UNSET_MLAG_INTERFACE(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_MLAG_INTERFACE)
+#define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(flags)                         \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
+#define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED_UPDATED(flags)                 \
+	((flags) &=                                                            \
+	 (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
+#define PIM_UPSTREAM_FLAG_UNSET_FHR(flags)                                     \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_FHR)
+#define PIM_UPSTREAM_FLAG_UNSET_SRC_IGMP(flags)                                \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
+#define PIM_UPSTREAM_FLAG_UNSET_SRC_PIM(flags)                                 \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_SRC_PIM)
+#define PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(flags)                              \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_SRC_STREAM)
+#define PIM_UPSTREAM_FLAG_UNSET_SRC_MSDP(flags)                                \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_SRC_MSDP)
+#define PIM_UPSTREAM_FLAG_UNSET_SEND_SG_RPT_PRUNE(flags)                       \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE)
+#define PIM_UPSTREAM_FLAG_UNSET_SRC_LHR(flags)                                 \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_SRC_LHR)
+#define PIM_UPSTREAM_FLAG_UNSET_DISABLE_KAT_EXPIRY(flags)                      \
+	((flags) &=                                                            \
+	 (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_DISABLE_KAT_EXPIRY)
+#define PIM_UPSTREAM_FLAG_UNSET_STATIC_IIF(flags)                              \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_STATIC_IIF)
+#define PIM_UPSTREAM_FLAG_UNSET_ALLOW_IIF_IN_OIL(flags)                        \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_ALLOW_IIF_IN_OIL)
+#define PIM_UPSTREAM_FLAG_UNSET_NO_PIMREG_DATA(flags)                          \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_NO_PIMREG_DATA)
+#define PIM_UPSTREAM_FLAG_UNSET_FORCE_PIMREG(flags)                            \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_FORCE_PIMREG)
+#define PIM_UPSTREAM_FLAG_UNSET_SRC_VXLAN_ORIG(flags)                          \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_ORIG)
+#define PIM_UPSTREAM_FLAG_UNSET_SRC_VXLAN_TERM(flags)                          \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM)
+#define PIM_UPSTREAM_FLAG_UNSET_MLAG_VXLAN(flags)                              \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN)
+#define PIM_UPSTREAM_FLAG_UNSET_MLAG_NON_DF(flags)                             \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF)
+#define PIM_UPSTREAM_FLAG_UNSET_MLAG_PEER(flags)                               \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_MLAG_PEER)
+#define PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(flags)                             \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE)
+#define PIM_UPSTREAM_FLAG_UNSET_USE_RPT(flags)                                 \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_USE_RPT)
+#define PIM_UPSTREAM_FLAG_UNSET_MLAG_INTERFACE(flags)                          \
+	((flags) &= (typeof((flags))) ~PIM_UPSTREAM_FLAG_MASK_MLAG_INTERFACE)
 
 /* The RPF cost is incremented by 10 if the RPF interface is the peerlink-rif.
  * This is used to force the MLAG switch with the lowest cost to the RPF

@@ -58,30 +58,37 @@ struct pim_assert_metric {
 */
 #define PIM_IF_FLAG_MASK_COULD_ASSERT (1 << 0)
 #define PIM_IF_FLAG_TEST_COULD_ASSERT(flags) ((flags) & PIM_IF_FLAG_MASK_COULD_ASSERT)
-#define PIM_IF_FLAG_SET_COULD_ASSERT(flags) ((flags) |= PIM_IF_FLAG_MASK_COULD_ASSERT)
-#define PIM_IF_FLAG_UNSET_COULD_ASSERT(flags) ((flags) &= ~PIM_IF_FLAG_MASK_COULD_ASSERT)
+#define PIM_IF_FLAG_SET_COULD_ASSERT(flags)                                    \
+	((flags) |= (typeof((flags)))PIM_IF_FLAG_MASK_COULD_ASSERT)
+#define PIM_IF_FLAG_UNSET_COULD_ASSERT(flags)                                  \
+	((flags) &= (typeof((flags))) ~PIM_IF_FLAG_MASK_COULD_ASSERT)
 /*
   Flag to detect change in AssertTrackingDesired(S,G,I)
 */
 #define PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED (1 << 1)
 #define PIM_IF_FLAG_TEST_ASSERT_TRACKING_DESIRED(flags) ((flags) & PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)
-#define PIM_IF_FLAG_SET_ASSERT_TRACKING_DESIRED(flags) ((flags) |= PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)
-#define PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(flags) ((flags) &= ~PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)
+#define PIM_IF_FLAG_SET_ASSERT_TRACKING_DESIRED(flags)                         \
+	((flags) |= (typeof((flags)))PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)
+#define PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(flags)                       \
+	((flags) &= (typeof((flags))) ~PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)
 
 /*
  * Flag to tell us if the ifchannel is (S,G,rpt)
  */
 #define PIM_IF_FLAG_MASK_S_G_RPT         (1 << 2)
 #define PIM_IF_FLAG_TEST_S_G_RPT(flags)  ((flags) & PIM_IF_FLAG_MASK_S_G_RPT)
-#define PIM_IF_FLAG_SET_S_G_RPT(flags)   ((flags) |= PIM_IF_FLAG_MASK_S_G_RPT)
-#define PIM_IF_FLAG_UNSET_S_G_RPT(flags) ((flags) &= ~PIM_IF_FLAG_MASK_S_G_RPT)
+#define PIM_IF_FLAG_SET_S_G_RPT(flags)                                         \
+	((flags) |= (typeof((flags)))PIM_IF_FLAG_MASK_S_G_RPT)
+#define PIM_IF_FLAG_UNSET_S_G_RPT(flags)                                       \
+	((flags) &= (typeof((flags))) ~PIM_IF_FLAG_MASK_S_G_RPT)
 
 /*
  * Flag to tell us if the ifchannel is proto PIM
  */
 #define PIM_IF_FLAG_MASK_PROTO_PIM (1 << 3)
 #define PIM_IF_FLAG_TEST_PROTO_PIM(flags) ((flags)&PIM_IF_FLAG_MASK_PROTO_PIM)
-#define PIM_IF_FLAG_SET_PROTO_PIM(flags) ((flags) |= PIM_IF_FLAG_MASK_PROTO_PIM)
+#define PIM_IF_FLAG_SET_PROTO_PIM(flags)                                       \
+	((flags) |= (typeof((flags)))PIM_IF_FLAG_MASK_PROTO_PIM)
 #define PIM_IF_FLAG_UNSET_PROTO_PIM(flags)                                     \
 	((flags) &= ~PIM_IF_FLAG_MASK_PROTO_PIM)
 /*
@@ -90,9 +97,9 @@ struct pim_assert_metric {
 #define PIM_IF_FLAG_MASK_PROTO_IGMP (1 << 4)
 #define PIM_IF_FLAG_TEST_PROTO_IGMP(flags) ((flags)&PIM_IF_FLAG_MASK_PROTO_IGMP)
 #define PIM_IF_FLAG_SET_PROTO_IGMP(flags)                                      \
-	((flags) |= PIM_IF_FLAG_MASK_PROTO_IGMP)
+	((flags) |= (typeof((flags)))PIM_IF_FLAG_MASK_PROTO_IGMP)
 #define PIM_IF_FLAG_UNSET_PROTO_IGMP(flags)                                    \
-	((flags) &= ~PIM_IF_FLAG_MASK_PROTO_IGMP)
+	((flags) &= (typeof((flags))) ~PIM_IF_FLAG_MASK_PROTO_IGMP)
 /*
   Per-interface (S,G) state
 */
