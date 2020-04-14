@@ -1616,7 +1616,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_ROUTE_UPDATE));
 
 #ifdef HAVE_NETLINK
-	if (re->nhe) {
+	{
 		struct nhg_hash_entry *nhe = zebra_nhg_resolve(re->nhe);
 
 		ctx->u.rinfo.nhe.id = nhe->id;

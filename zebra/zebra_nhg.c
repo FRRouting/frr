@@ -459,11 +459,7 @@ uint32_t zebra_nhg_id_key(const void *arg)
 static bool nhg_compare_nexthops(const struct nexthop *nh1,
 				 const struct nexthop *nh2)
 {
-	if (nh1 && !nh2)
-		return false;
-
-	if (!nh1 && nh2)
-		return false;
+	assert(nh1 != NULL && nh2 != NULL);
 
 	/*
 	 * We have to check the active flag of each individual one,
@@ -518,12 +514,16 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 
 	/* Nexthops should be in-order, so we simply compare them in-place */
 	for (nexthop1 = nhe1->nhg.nexthop, nexthop2 = nhe2->nhg.nexthop;
-	     nexthop1 || nexthop2;
+	     nexthop1 && nexthop2;
 	     nexthop1 = nexthop1->next, nexthop2 = nexthop2->next) {
 
 		if (!nhg_compare_nexthops(nexthop1, nexthop2))
 			return false;
 	}
+
+	/* Check for unequal list lengths */
+	if (nexthop1 || nexthop2)
+		return false;
 
 	/* If there's no backup info, comparison is done. */
 	if ((nhe1->backup_info == NULL) && (nhe2->backup_info == NULL))
@@ -550,7 +550,7 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	/* Have to compare the backup nexthops */
 	for (nexthop1 = nhe1->backup_info->nhe->nhg.nexthop,
 	     nexthop2 = nhe2->backup_info->nhe->nhg.nexthop;
-	     nexthop1 || nexthop2;
+	     nexthop1 && nexthop2;
 	     nexthop1 = nexthop1->next, nexthop2 = nexthop2->next) {
 
 		if (!nhg_compare_nexthops(nexthop1, nexthop2))
@@ -1475,9 +1475,7 @@ zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi)
 	}
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: rt_nhe %p (%u)",
-			   __func__, rt_nhe,
-			   rt_nhe ? rt_nhe->id : 0);
+		zlog_debug("%s: rt_nhe %p (%u)", __func__, rt_nhe, rt_nhe->id);
 
 	zebra_nhe_find(&nhe, rt_nhe, NULL, rt_afi);
 
@@ -1568,14 +1566,10 @@ void zebra_nhg_free(struct nhg_hash_entry *nhe)
 		/* Group or singleton? */
 		if (nhe->nhg.nexthop && nhe->nhg.nexthop->next)
 			zlog_debug("%s: nhe %p (%u), refcnt %d",
-				   __func__, nhe,
-				   (nhe ? nhe->id : 0),
-				   (nhe ? nhe->refcnt : 0));
+				   __func__, nhe, nhe->id, nhe->refcnt);
 		else
 			zlog_debug("%s: nhe %p (%u), refcnt %d, NH %pNHv",
-				   __func__, nhe,
-				   (nhe ? nhe->id : 0),
-				   (nhe ? nhe->refcnt : 0),
+				   __func__, nhe, nhe->id, nhe->refcnt,
 				   nhe->nhg.nexthop);
 	}
 
@@ -1942,13 +1936,14 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				nexthop_set_resolved(afi, newhop, nexthop);
 				resolved = 1;
 			}
+
 			if (resolved)
 				re->nexthop_mtu = match->mtu;
-
-			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
+			else if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"        %s: Recursion failed to find",
 					__func__);
+
 			return resolved;
 		} else if (re->type == ZEBRA_ROUTE_STATIC) {
 			resolved = 0;
