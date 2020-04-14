@@ -102,7 +102,7 @@ static bool frr_match_version(const char *name, const char *vspec,
 	int cmp;
 	static struct spec {
 		const char *str;
-		bool dir, eq;
+		int dir, eq;
 	} *s, specs[] = {
 		{"<=", -1, 1},
 		{">=", 1, 1},
