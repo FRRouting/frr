@@ -582,23 +582,39 @@ struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id)
 	return NULL;
 }
 
-void if_set_index(struct interface *ifp, ifindex_t ifindex)
+int if_set_index(struct interface *ifp, ifindex_t ifindex)
 {
 	struct vrf *vrf;
+
+	if (ifp->ifindex == ifindex)
+		return 0;
 
 	vrf = vrf_get(ifp->vrf_id, NULL);
 	assert(vrf);
 
-	if (ifp->ifindex == ifindex)
-		return;
+	/*
+	 * If there is already an interface with this ifindex, we will collide
+	 * on insertion, so don't even try.
+	 */
+	if (if_lookup_by_ifindex(ifindex, ifp->vrf_id))
+		return -1;
 
 	if (ifp->ifindex != IFINDEX_INTERNAL)
 		IFINDEX_RB_REMOVE(vrf, ifp);
 
 	ifp->ifindex = ifindex;
 
-	if (ifp->ifindex != IFINDEX_INTERNAL)
-		IFINDEX_RB_INSERT(vrf, ifp)
+	if (ifp->ifindex != IFINDEX_INTERNAL) {
+		/*
+		 * This should never happen, since we checked if there was
+		 * already an interface with the desired ifindex at the top of
+		 * the function. Nevertheless.
+		 */
+		if (IFINDEX_RB_INSERT(vrf, ifp))
+			return -1;
+	}
+
+	return 0;
 }
 
 void if_set_name(struct interface *ifp, const char *name)
@@ -1249,8 +1265,6 @@ struct if_link_params *if_link_params_get(struct interface *ifp)
 
 	struct if_link_params *iflp =
 		XCALLOC(MTYPE_IF_LINK_PARAMS, sizeof(struct if_link_params));
-	if (iflp == NULL)
-		return NULL;
 
 	/* Set TE metric equal to standard metric */
 	iflp->te_metric = ifp->metric;
@@ -1278,8 +1292,6 @@ struct if_link_params *if_link_params_get(struct interface *ifp)
 
 void if_link_params_free(struct interface *ifp)
 {
-	if (ifp->link_params == NULL)
-		return;
 	XFREE(MTYPE_IF_LINK_PARAMS, ifp->link_params);
 }
 

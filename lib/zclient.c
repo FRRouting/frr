@@ -1635,33 +1635,34 @@ int zebra_redistribute_default_send(int command, struct zclient *zclient,
 }
 
 /* Get prefix in ZServ format; family should be filled in on prefix */
-static void zclient_stream_get_prefix(struct stream *s, struct prefix *p)
+static int zclient_stream_get_prefix(struct stream *s, struct prefix *p)
 {
 	size_t plen = prefix_blen(p);
 	uint8_t c;
 	p->prefixlen = 0;
 
 	if (plen == 0)
-		return;
+		return -1;
 
-	stream_get(&p->u.prefix, s, plen);
+	STREAM_GET(&p->u.prefix, s, plen);
 	STREAM_GETC(s, c);
 	p->prefixlen = MIN(plen * 8, c);
 
+	return 0;
 stream_failure:
-	return;
+	return -1;
 }
 
 /* Router-id update from zebra daemon. */
-void zebra_router_id_update_read(struct stream *s, struct prefix *rid)
+int zebra_router_id_update_read(struct stream *s, struct prefix *rid)
 {
 	/* Fetch interface address. */
 	STREAM_GETC(s, rid->family);
 
-	zclient_stream_get_prefix(s, rid);
+	return zclient_stream_get_prefix(s, rid);
 
 stream_failure:
-	return;
+	return -1;
 }
 
 /* Interface addition from zebra daemon. */
@@ -1710,24 +1711,36 @@ stream_failure:
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-static void zclient_vrf_add(struct zclient *zclient, vrf_id_t vrf_id)
+static int zclient_vrf_add(struct zclient *zclient, vrf_id_t vrf_id)
 {
 	struct vrf *vrf;
-	char vrfname_tmp[VRF_NAMSIZ];
+	char vrfname_tmp[VRF_NAMSIZ + 1] = {};
 	struct vrf_data data;
 
-	stream_get(&data, zclient->ibuf, sizeof(struct vrf_data));
+	STREAM_GET(&data, zclient->ibuf, sizeof(struct vrf_data));
 	/* Read interface name. */
-	stream_get(vrfname_tmp, zclient->ibuf, VRF_NAMSIZ);
+	STREAM_GET(vrfname_tmp, zclient->ibuf, VRF_NAMSIZ);
 
-	/* Lookup/create vrf by vrf_id. */
+	if (strlen(vrfname_tmp) == 0)
+		goto stream_failure;
+
+	/* Lookup/create vrf by name, then vrf_id. */
 	vrf = vrf_get(vrf_id, vrfname_tmp);
+
+	/* If there's already a VRF with this name, don't create vrf */
+	if (!vrf)
+		return 0;
+
 	vrf->data.l.table_id = data.l.table_id;
 	memcpy(vrf->data.l.netns_name, data.l.netns_name, NS_NAMSIZ);
 	/* overwrite default vrf */
 	if (vrf_id == VRF_DEFAULT)
 		vrf_set_default_name(vrfname_tmp, false);
 	vrf_enable(vrf);
+
+	return 0;
+stream_failure:
+	return -1;
 }
 
 static void zclient_vrf_delete(struct zclient *zclient, vrf_id_t vrf_id)
@@ -1748,21 +1761,32 @@ static void zclient_vrf_delete(struct zclient *zclient, vrf_id_t vrf_id)
 	vrf_delete(vrf);
 }
 
-static void zclient_interface_add(struct zclient *zclient, vrf_id_t vrf_id)
+static int zclient_interface_add(struct zclient *zclient, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
-	char ifname_tmp[INTERFACE_NAMSIZ];
+	char ifname_tmp[INTERFACE_NAMSIZ + 1] = {};
 	struct stream *s = zclient->ibuf;
 
 	/* Read interface name. */
-	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
+	STREAM_GET(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* Lookup/create interface by name. */
+	if (!vrf_get(vrf_id, NULL)) {
+		zlog_debug(
+			"Rx'd interface add from Zebra, but VRF %u does not exist",
+			vrf_id);
+		return -1;
+	}
+
 	ifp = if_get_by_name(ifname_tmp, vrf_id);
 
 	zebra_interface_if_set_value(s, ifp);
 
 	if_new_via_zapi(ifp);
+
+	return 0;
+stream_failure:
+	return -1;
 }
 
 /*
@@ -1774,10 +1798,10 @@ static void zclient_interface_add(struct zclient *zclient, vrf_id_t vrf_id)
 struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
-	char ifname_tmp[INTERFACE_NAMSIZ];
+	char ifname_tmp[INTERFACE_NAMSIZ + 1] = {};
 
 	/* Read interface name. */
-	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
+	STREAM_GET(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* Lookup this by interface index. */
 	ifp = if_lookup_by_name(ifname_tmp, vrf_id);
@@ -1791,6 +1815,8 @@ struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 	zebra_interface_if_set_value(s, ifp);
 
 	return ifp;
+stream_failure:
+	return NULL;
 }
 
 static void zclient_interface_delete(struct zclient *zclient, vrf_id_t vrf_id)
@@ -1844,21 +1870,23 @@ static void zclient_handle_error(ZAPI_CALLBACK_ARGS)
 		(*zclient->handle_error)(error);
 }
 
-static void link_params_set_value(struct stream *s, struct if_link_params *iflp)
+static int link_params_set_value(struct stream *s, struct if_link_params *iflp)
 {
 
 	if (iflp == NULL)
-		return;
+		return -1;
 
-	iflp->lp_status = stream_getl(s);
-	iflp->te_metric = stream_getl(s);
-	iflp->max_bw = stream_getf(s);
-	iflp->max_rsv_bw = stream_getf(s);
-	uint32_t bwclassnum = stream_getl(s);
+	uint32_t bwclassnum;
+
+	STREAM_GETL(s, iflp->lp_status);
+	STREAM_GETL(s, iflp->te_metric);
+	STREAM_GETF(s, iflp->max_bw);
+	STREAM_GETF(s, iflp->max_rsv_bw);
+	STREAM_GETL(s, bwclassnum);
 	{
 		unsigned int i;
 		for (i = 0; i < bwclassnum && i < MAX_CLASS_TYPE; i++)
-			iflp->unrsv_bw[i] = stream_getf(s);
+			STREAM_GETF(s, iflp->unrsv_bw[i]);
 		if (i < bwclassnum)
 			flog_err(
 				EC_LIB_ZAPI_MISSMATCH,
@@ -1866,19 +1894,23 @@ static void link_params_set_value(struct stream *s, struct if_link_params *iflp)
 				" - outdated library?",
 				__func__, bwclassnum, MAX_CLASS_TYPE);
 	}
-	iflp->admin_grp = stream_getl(s);
-	iflp->rmt_as = stream_getl(s);
+	STREAM_GETL(s, iflp->admin_grp);
+	STREAM_GETL(s, iflp->rmt_as);
 	iflp->rmt_ip.s_addr = stream_get_ipv4(s);
 
-	iflp->av_delay = stream_getl(s);
-	iflp->min_delay = stream_getl(s);
-	iflp->max_delay = stream_getl(s);
-	iflp->delay_var = stream_getl(s);
+	STREAM_GETL(s, iflp->av_delay);
+	STREAM_GETL(s, iflp->min_delay);
+	STREAM_GETL(s, iflp->max_delay);
+	STREAM_GETL(s, iflp->delay_var);
 
-	iflp->pkt_loss = stream_getf(s);
-	iflp->res_bw = stream_getf(s);
-	iflp->ava_bw = stream_getf(s);
-	iflp->use_bw = stream_getf(s);
+	STREAM_GETF(s, iflp->pkt_loss);
+	STREAM_GETF(s, iflp->res_bw);
+	STREAM_GETF(s, iflp->ava_bw);
+	STREAM_GETF(s, iflp->use_bw);
+
+	return 0;
+stream_failure:
+	return -1;
 }
 
 struct interface *zebra_interface_link_params_read(struct stream *s,
@@ -1887,9 +1919,7 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 	struct if_link_params *iflp;
 	ifindex_t ifindex;
 
-	assert(s);
-
-	ifindex = stream_getl(s);
+	STREAM_GETL(s, ifindex);
 
 	struct interface *ifp = if_lookup_by_index(ifindex, vrf_id);
 
@@ -1903,36 +1933,41 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 	if ((iflp = if_link_params_get(ifp)) == NULL)
 		return NULL;
 
-	link_params_set_value(s, iflp);
+	if (link_params_set_value(s, iflp) != 0)
+		goto stream_failure;
 
 	return ifp;
+
+stream_failure:
+	return NULL;
 }
 
 static void zebra_interface_if_set_value(struct stream *s,
 					 struct interface *ifp)
 {
 	uint8_t link_params_status = 0;
-	ifindex_t old_ifindex;
+	ifindex_t old_ifindex, new_ifindex;
 
 	old_ifindex = ifp->ifindex;
 	/* Read interface's index. */
-	if_set_index(ifp, stream_getl(s));
-	ifp->status = stream_getc(s);
+	STREAM_GETL(s, new_ifindex);
+	if_set_index(ifp, new_ifindex);
+	STREAM_GETC(s, ifp->status);
 
 	/* Read interface's value. */
-	ifp->flags = stream_getq(s);
-	ifp->ptm_enable = stream_getc(s);
-	ifp->ptm_status = stream_getc(s);
-	ifp->metric = stream_getl(s);
-	ifp->speed = stream_getl(s);
-	ifp->mtu = stream_getl(s);
-	ifp->mtu6 = stream_getl(s);
-	ifp->bandwidth = stream_getl(s);
-	ifp->link_ifindex = stream_getl(s);
-	ifp->ll_type = stream_getl(s);
-	ifp->hw_addr_len = stream_getl(s);
+	STREAM_GETQ(s, ifp->flags);
+	STREAM_GETC(s, ifp->ptm_enable);
+	STREAM_GETC(s, ifp->ptm_status);
+	STREAM_GETL(s, ifp->metric);
+	STREAM_GETL(s, ifp->speed);
+	STREAM_GETL(s, ifp->mtu);
+	STREAM_GETL(s, ifp->mtu6);
+	STREAM_GETL(s, ifp->bandwidth);
+	STREAM_GETL(s, ifp->link_ifindex);
+	STREAM_GETL(s, ifp->ll_type);
+	STREAM_GETL(s, ifp->hw_addr_len);
 	if (ifp->hw_addr_len)
-		stream_get(ifp->hw_addr, s,
+		STREAM_GET(ifp->hw_addr, s,
 			   MIN(ifp->hw_addr_len, INTERFACE_HWADDR_MAX));
 
 	/* Read Traffic Engineering status */
@@ -1944,6 +1979,11 @@ static void zebra_interface_if_set_value(struct stream *s,
 	}
 
 	nexthop_group_interface_state_change(ifp, old_ifindex);
+
+	return;
+stream_failure:
+	zlog_err("Could not parse interface values; aborting");
+	assert(!"Failed to parse interface values");
 }
 
 size_t zebra_interface_link_params_write(struct stream *s,
@@ -2042,7 +2082,7 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 	memset(&d, 0, sizeof(d));
 
 	/* Get interface index. */
-	ifindex = stream_getl(s);
+	STREAM_GETL(s, ifindex);
 
 	/* Lookup index. */
 	ifp = if_lookup_by_index(ifindex, vrf_id);
@@ -2055,16 +2095,18 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 	}
 
 	/* Fetch flag. */
-	ifc_flags = stream_getc(s);
+	STREAM_GETC(s, ifc_flags);
 
 	/* Fetch interface address. */
-	d.family = p.family = stream_getc(s);
+	STREAM_GETC(s, d.family);
+	p.family = d.family;
 	plen = prefix_blen(&d);
 
-	zclient_stream_get_prefix(s, &p);
+	if (zclient_stream_get_prefix(s, &p) != 0)
+		goto stream_failure;
 
 	/* Fetch destination address. */
-	stream_get(&d.u.prefix, s, plen);
+	STREAM_GET(&d.u.prefix, s, plen);
 
 	/* N.B. NULL destination pointers are encoded as all zeroes */
 	dp = memconstant(&d.u.prefix, 0, plen) ? NULL : &d;
@@ -2100,6 +2142,9 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 	}
 
 	return ifc;
+
+stream_failure:
+	return NULL;
 }
 
 /*
@@ -2135,7 +2180,7 @@ zebra_interface_nbr_address_read(int type, struct stream *s, vrf_id_t vrf_id)
 	struct nbr_connected *ifc;
 
 	/* Get interface index. */
-	ifindex = stream_getl(s);
+	STREAM_GETL(s, ifindex);
 
 	/* Lookup index. */
 	ifp = if_lookup_by_index(ifindex, vrf_id);
@@ -2148,9 +2193,9 @@ zebra_interface_nbr_address_read(int type, struct stream *s, vrf_id_t vrf_id)
 		return NULL;
 	}
 
-	p.family = stream_getc(s);
-	stream_get(&p.u.prefix, s, prefix_blen(&p));
-	p.prefixlen = stream_getc(s);
+	STREAM_GETC(s, p.family);
+	STREAM_GET(&p.u.prefix, s, prefix_blen(&p));
+	STREAM_GETC(s, p.prefixlen);
 
 	if (type == ZEBRA_INTERFACE_NBR_ADDRESS_ADD) {
 		/* Currently only supporting P2P links, so any new RA source
@@ -2174,18 +2219,21 @@ zebra_interface_nbr_address_read(int type, struct stream *s, vrf_id_t vrf_id)
 	}
 
 	return ifc;
+
+stream_failure:
+	return NULL;
 }
 
 struct interface *zebra_interface_vrf_update_read(struct stream *s,
 						  vrf_id_t vrf_id,
 						  vrf_id_t *new_vrf_id)
 {
-	char ifname[INTERFACE_NAMSIZ];
+	char ifname[INTERFACE_NAMSIZ + 1] = {};
 	struct interface *ifp;
 	vrf_id_t new_id;
 
 	/* Read interface name. */
-	stream_get(ifname, s, INTERFACE_NAMSIZ);
+	STREAM_GET(ifname, s, INTERFACE_NAMSIZ);
 
 	/* Lookup interface. */
 	ifp = if_lookup_by_name(ifname, vrf_id);
@@ -2197,10 +2245,13 @@ struct interface *zebra_interface_vrf_update_read(struct stream *s,
 	}
 
 	/* Fetch new VRF Id. */
-	new_id = stream_getl(s);
+	STREAM_GETL(s, new_id);
 
 	*new_vrf_id = new_id;
 	return ifp;
+
+stream_failure:
+	return NULL;
 }
 
 /* filter unwanted messages until the expected one arrives */
@@ -2309,8 +2360,11 @@ int lm_label_manager_connect(struct zclient *zclient, int async)
 	s = zclient->ibuf;
 
 	/* read instance and proto */
-	uint8_t proto = stream_getc(s);
-	uint16_t instance = stream_getw(s);
+	uint8_t proto;
+	uint16_t instance;
+
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
 
 	/* sanity */
 	if (proto != zclient->redist_default)
@@ -2325,11 +2379,14 @@ int lm_label_manager_connect(struct zclient *zclient, int async)
 			instance, zclient->instance);
 
 	/* result code */
-	result = stream_getc(s);
+	STREAM_GETC(s, result);
 	if (zclient_debug)
 		zlog_debug("LM connect-response received, result %u", result);
 
 	return (int)result;
+
+stream_failure:
+	return -1;
 }
 
 /*
@@ -2437,8 +2494,11 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 	s = zclient->ibuf;
 
 	/* read proto and instance */
-	uint8_t proto = stream_getc(s);
-	uint16_t instance = stream_getw(s);
+	uint8_t proto;
+	uint8_t instance;
+
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
 
 	/* sanities */
 	if (proto != zclient->redist_default)
@@ -2460,10 +2520,10 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 	}
 
 	/* keep */
-	response_keep = stream_getc(s);
+	STREAM_GETC(s, response_keep);
 	/* start and end labels */
-	*start = stream_getl(s);
-	*end = stream_getl(s);
+	STREAM_GETL(s, *start);
+	STREAM_GETL(s, *end);
 
 	/* not owning this response */
 	if (keep != response_keep) {
@@ -2485,6 +2545,9 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 			   response_keep);
 
 	return 0;
+
+stream_failure:
+	return -1;
 }
 
 /**
@@ -2874,7 +2937,7 @@ int zebra_send_pw(struct zclient *zclient, int command, struct zapi_pw *pw)
 /*
  * Receive PW status update from Zebra and send it to LDE process.
  */
-void zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
+int zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
 {
 	struct stream *s;
 
@@ -2883,8 +2946,12 @@ void zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
 
 	/* Get data. */
 	stream_get(pw->ifname, s, IF_NAMESIZE);
-	pw->ifindex = stream_getl(s);
-	pw->status = stream_getl(s);
+	STREAM_GETL(s, pw->ifindex);
+	STREAM_GETL(s, pw->status);
+
+	return 0;
+stream_failure:
+	return -1;
 }
 
 static void zclient_capability_decode(ZAPI_CALLBACK_ARGS)
@@ -2895,7 +2962,14 @@ static void zclient_capability_decode(ZAPI_CALLBACK_ARGS)
 	uint8_t mpls_enabled;
 
 	STREAM_GETL(s, vrf_backend);
-	vrf_configure_backend(vrf_backend);
+
+	if (vrf_backend < 0 || vrf_configure_backend(vrf_backend)) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: Garbage VRF backend type: %d\n", __func__,
+			 vrf_backend);
+		goto stream_failure;
+	}
+
 
 	memset(&cap, 0, sizeof(cap));
 	STREAM_GETC(s, mpls_enabled);
