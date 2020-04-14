@@ -35,7 +35,6 @@ import time
 import os
 import pytest
 import ipaddr
-from time import sleep
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -533,7 +532,7 @@ def test_static_route_2nh_p0_tc_1_ebgp(request):
         step("Reload the FRR router")
         # stop/start -> restart FRR router and verify
         stop_router(tgen, "r2")
-        sleep(5)
+
         start_router(tgen, "r2")
 
         dut = "r2"
@@ -990,7 +989,7 @@ def test_static_route_2nh_admin_dist_p0_tc_2_ebgp(request):
         step("Reload the FRR router")
         # stop/start -> restart FRR router and verify
         stop_router(tgen, "r2")
-        sleep(5)
+
         start_router(tgen, "r2")
 
         step(

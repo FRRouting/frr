@@ -113,7 +113,10 @@
                             "neighbor": {
                                 "r3": {
                                     "dest_link": {
-                                        "r2-link0": {}
+                                        "r2-link0": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        }
                                     }
                                 }
                             }
@@ -124,7 +127,10 @@
                             "neighbor": {
                                 "r3": {
                                     "dest_link": {
-                                        "r2-link0": {}
+                                        "r2-link0": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        }
                                     }
                                 }
                             }
@@ -153,7 +159,10 @@
                             "neighbor": {
                                 "r2": {
                                     "dest_link": {
-                                        "r3-link0": {}
+                                        "r3-link0": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        }
                                     }
                                 }
                             }
@@ -164,7 +173,10 @@
                             "neighbor": {
                                 "r2": {
                                     "dest_link": {
-                                        "r3-link0": {}
+                                        "r3-link0": {
+                                            "keepalivetimer": 1,
+                                            "holddowntimer": 4
+                                        }
                                     }
                                 }
                             }

@@ -36,7 +36,6 @@ import time
 import os
 import pytest
 import ipaddr
-from time import sleep
 from copy import deepcopy
 import random
 from re import search as re_search
@@ -447,7 +446,6 @@ def test_staticroute_with_ecmp_p0_tc3_ebgp(request):
     step("Reload the FRR router")
     # stop/start -> restart FRR router and verify
     stop_router(tgen, "r2")
-    sleep(5)
     start_router(tgen, "r2")
 
     result = verify_rib(
@@ -801,7 +799,6 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ebgp(request):
     step("Reload the FRR router")
     # stop/start -> restart FRR router and verify
     stop_router(tgen, "r2")
-    sleep(5)
     start_router(tgen, "r2")
 
     step(

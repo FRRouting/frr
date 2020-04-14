@@ -26,7 +26,6 @@ Following tests are covered in the script.
 
 - Verify static route are blocked from route-map and prefix-list
     applied in BGP nbrs
-- Verify Static route when FRR connected to 2 TOR
 """
 
 import sys
@@ -36,7 +35,6 @@ import os
 import pytest
 import ipaddr
 import ipaddress
-from time import sleep
 from copy import deepcopy
 
 # Save the Current Working Directory to find configuration files.
@@ -47,14 +45,12 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topogen and topotest helpers
 from mininet.topo import Topo
 from lib.topogen import Topogen, get_topogen
-from time import sleep
 
 from lib.common_config import (
     start_topology,
     write_test_header,
     write_test_footer,
     reset_config_on_routers,
-    verify_kernel_ping,
     verify_rib,
     create_static_routes,
     check_address_types,
@@ -983,227 +979,6 @@ def test_static_routes_rmap_pfxlist_p0_tc7_ibgp(request):
         assert result4 is True, "Testcase {} : Failed.\n Error: {}".format(
             tc_name, result4
         )
-
-    write_test_footer(tc_name)
-
-
-def test_static_routes_tor_p0_tc5_ibgp(request):
-    """Verify Static route when FRR connected to 2 TOR."""
-    tc_name = request.node.name
-    write_test_header(tc_name)
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-    step("Configure link between FRR to FRR1 & FRR2 as shown in the topology.")
-    step("Attach 2 VMs (vm1 & vm2) to FRR, vm3 to FRR1 ,vm4 to FRR2.")
-    step("Configure Ipv4 and ipv6 addresses on all the interfaces.")
-
-    reset_config_on_routers(tgen)
-
-    def_nw = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
-    step(
-        "Configure the static route (ipv4 & ipv6) on FRR to vm3 and vm4 "
-        "with next hop as FRR1 and FRR2 respectively."
-    )
-    for addr_type in ADDR_TYPES:
-        # Enable static routes
-        for vm in ["vm1", "vm2", "vm3", "vm6"]:
-            input_dict_4 = {
-                vm: {
-                    "static_routes": [
-                        {
-                            "network": def_nw[addr_type],
-                            "next_hop": topo["routers"]["r2"]["links"][vm][
-                                addr_type
-                            ].split("/")[0],
-                        }
-                    ]
-                }
-            }
-            logger.info("Configure static routes")
-            result = create_static_routes(tgen, input_dict_4)
-            assert result is True, "Testcase {} : Failed \n Error: {}".format(
-                tc_name, result
-            )
-
-        input_dict_4 = {
-            "vm4": {
-                "static_routes": [
-                    {
-                        "network": def_nw[addr_type],
-                        "next_hop": topo["routers"]["r1"]["links"]["vm4"][
-                            addr_type
-                        ].split("/")[0],
-                    }
-                ]
-            }
-        }
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_dict_4)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        input_dict_4 = {
-            "vm5": {
-                "static_routes": [
-                    {
-                        "network": def_nw[addr_type],
-                        "next_hop": topo["routers"]["r3"]["links"]["vm5"][
-                            addr_type
-                        ].split("/")[0],
-                    }
-                ]
-            }
-        }
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_dict_4)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        input_dict_4 = {
-            "r1": {
-                "static_routes": [
-                    {
-                        "network": topo["routers"]["vm1"]["links"]["r2"][
-                            addr_type
-                        ].split("/")[0]
-                        + "/16",
-                        "next_hop": topo["routers"]["r2"]["links"]["r1-link0"][
-                            addr_type
-                        ].split("/")[0],
-                    },
-                    {
-                        "network": topo["routers"]["vm2"]["links"]["r2"][
-                            addr_type
-                        ].split("/")[0]
-                        + "/16",
-                        "next_hop": topo["routers"]["r2"]["links"]["r1-link0"][
-                            addr_type
-                        ].split("/")[0],
-                    },
-                ]
-            }
-        }
-
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_dict_4)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        # Enable static routes
-        input_dict_4 = {
-            "r3": {
-                "static_routes": [
-                    {
-                        "network": topo["routers"]["vm3"]["links"]["r2"][
-                            addr_type
-                        ].split("/")[0]
-                        + "/16",
-                        "next_hop": topo["routers"]["r2"]["links"]["r3-link0"][
-                            addr_type
-                        ].split("/")[0],
-                    },
-                    {
-                        "network": topo["routers"]["vm6"]["links"]["r2"][
-                            addr_type
-                        ].split("/")[0]
-                        + "/16",
-                        "next_hop": topo["routers"]["r2"]["links"]["r3-link0"][
-                            addr_type
-                        ].split("/")[0],
-                    },
-                ]
-            }
-        }
-
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_dict_4)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
-        # Enable static routes
-        input_dict_4 = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": topo["routers"]["vm4"]["links"]["r1"][
-                            addr_type
-                        ].split("/")[0]
-                        + "/16",
-                        "next_hop": topo["routers"]["r1"]["links"]["r2-link0"][
-                            addr_type
-                        ].split("/")[0],
-                    },
-                    {
-                        "network": topo["routers"]["vm5"]["links"]["r3"][
-                            addr_type
-                        ].split("/")[0]
-                        + "/16",
-                        "next_hop": topo["routers"]["r3"]["links"]["r2-link0"][
-                            addr_type
-                        ].split("/")[0],
-                    },
-                    {
-                        "network": topo["routers"]["vm4"]["links"]["r1"][addr_type],
-                        "next_hop": topo["routers"]["r1"]["links"]["r2-link0"][
-                            addr_type
-                        ].split("/")[0],
-                    },
-                    {
-                        "network": topo["routers"]["vm5"]["links"]["r3"][addr_type],
-                        "next_hop": topo["routers"]["r3"]["links"]["r2-link0"][
-                            addr_type
-                        ].split("/")[0],
-                    },
-                    {
-                        "network": topo["routers"]["r1"]["links"]["vm4"][addr_type],
-                        "next_hop": topo["routers"]["r1"]["links"]["r2-link0"][
-                            addr_type
-                        ].split("/")[0],
-                    },
-                    {
-                        "network": topo["routers"]["r3"]["links"]["vm5"][addr_type],
-                        "next_hop": topo["routers"]["r3"]["links"]["r2-link0"][
-                            addr_type
-                        ].split("/")[0],
-                    },
-                ]
-            }
-        }
-
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_dict_4)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-        sleep(10)
-        step(
-            "Ping from all the vms for both ipv4 and ipv6 address. "
-            "All the ping should pass."
-        )
-
-        step("ping from vm4 to vm1 vm2")
-        vm4tovm1 = topo["routers"]["vm1"]["links"]["r2"][addr_type].split("/")[0]
-        result = verify_kernel_ping(tgen, "vm4", vm4tovm1, count=1, addrtype=addr_type)
-        assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
-
-        vm4tovm2 = topo["routers"]["vm2"]["links"]["r2"][addr_type].split("/")[0]
-        result = verify_kernel_ping(tgen, "vm4", vm4tovm2, count=1, addrtype=addr_type)
-        assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
-
-        step("ping from vm5 to vm3 vm6")
-        vm5tovm3 = topo["routers"]["vm3"]["links"]["r2"][addr_type].split("/")[0]
-        result = verify_kernel_ping(tgen, "vm5", vm5tovm3, count=1, addrtype=addr_type)
-        assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
-
-        vm5tovm6 = topo["routers"]["vm6"]["links"]["r2"][addr_type].split("/")[0]
-        result = verify_kernel_ping(tgen, "vm5", vm5tovm6, count=1, addrtype=addr_type)
-        assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 

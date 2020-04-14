@@ -471,7 +471,7 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
     intf = topo["routers"]["r2"]["links"]["r1-link{}".format(randnum)]["interface"]
     shutdown_bringup_interface(tgen, dut, intf, False)
 
-    sleep(5)
+
 
     step("Random no shut of the nexthop interfaces")
     # Bringup interface
@@ -564,7 +564,7 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
     step("Reload the FRR router")
     # stop/start -> restart FRR router and verify
     stop_router(tgen, "r2")
-    sleep(5)
+
     start_router(tgen, "r2")
 
     step(
@@ -607,7 +607,8 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
         intf = topo["routers"]["r2"]["links"]["r3-link{}".format(intfr)]["interface"]
         shutdown_bringup_interface(tgen, dut, intf, False)
 
-    sleep(200)
+    # sleep for twice the holddowntimer so that bgp deletes the neighbors.
+    sleep(8)
 
     step("verify bgp convergence as all interface are shut")
 
@@ -1046,7 +1047,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ebgp(request):
     step("Reload the FRR router")
     # stop/start -> restart FRR router and verify
     stop_router(tgen, "r2")
-    sleep(5)
+
     start_router(tgen, "r2")
 
     for addr_type in ADDR_TYPES:
@@ -1511,7 +1512,7 @@ def test_static_route_8nh_diff_AD_ebgp_ecmp_p1_tc8_ebgp(request):
     step("Reload the FRR router")
     # stop/start -> restart FRR router and verify
     stop_router(tgen, "r2")
-    sleep(5)
+
     start_router(tgen, "r2")
 
     for addr_type in ADDR_TYPES:
@@ -1950,7 +1951,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
             step("Reload the FRR router")
             # stop/start -> restart FRR router and verify
             stop_router(tgen, "r2")
-            sleep(5)
+
             start_router(tgen, "r2")
 
             step("After reloading, verify that routes are still present in R2.")
@@ -1981,7 +1982,8 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
                 "interface"
             ]
             shutdown_bringup_interface(tgen, dut, intf, False)
-        sleep(180)
+        # sleep for twice the holddowntimer so that bgp deletes the neighbors.
+        sleep(8)
         step("verify bgp convergence as all interface are shut")
 
         bgp_convergence = verify_bgp_convergence(tgen, topo)
@@ -2032,7 +2034,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
             assert result is not True, "Testcase {} : Failed \nError: Routes "
             " are still present in RIB after BGP nbr is down".format(tc_name)
 
-        sleep(5)
+
         dut = "r2"
         for intfr in range(0, 8):
             intf = topo["routers"]["r2"]["links"]["r3-link{}".format(intfr)][
@@ -2040,7 +2042,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
             ]
             shutdown_bringup_interface(tgen, dut, intf, True)
 
-        sleep(5)
+
         dut = "r3"
         for intfr in range(0, 8):
             intf = topo["routers"]["r3"]["links"]["r2-link{}".format(intfr)][

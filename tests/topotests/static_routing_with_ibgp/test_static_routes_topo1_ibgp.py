@@ -35,7 +35,6 @@ import time
 import os
 import pytest
 import ipaddr
-from time import sleep
 from copy import deepcopy
 
 # Save the Current Working Directory to find configuration files.
@@ -532,7 +531,7 @@ def test_static_route_2nh_p0_tc_1_ibgp(request):
         step("Reload the FRR router")
         # stop/start -> restart FRR router and verify
         stop_router(tgen, "r2")
-        sleep(5)
+
         start_router(tgen, "r2")
 
         dut = "r2"
@@ -989,7 +988,7 @@ def test_static_route_2nh_admin_dist_p0_tc_2_ibgp(request):
         step("Reload the FRR router")
         # stop/start -> restart FRR router and verify
         stop_router(tgen, "r2")
-        sleep(5)
+
         start_router(tgen, "r2")
 
         step(
@@ -1069,243 +1068,6 @@ def test_static_route_2nh_admin_dist_p0_tc_2_ibgp(request):
         "not active in RIB".format(tc_name)
 
     write_test_footer(tc_name)
-
-
-"""
-def test_same_rte_from_bgp_static_P0_tc5(request):
-
-    #Verify RIB status when same route advertise via BGP and static
-    #route
-
-
-    tc_name = request.node.name
-    write_test_header(tc_name)
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    NEXT_HOP_IP = populate_nh()
-    step('Configure iBGP IPv4 peering between R2 and R3 router.')
-    reset_config_on_routers(tgen)
-    step(
-        'Configure IPv4 static route (10.1.1.1/24) in R2 with next hop'
-        'N1 (28.1.1.2 ) and N2 (29.1.1.2) , Static route next-hop present'
-        'on R1')
-
-    for addr_type in ADDR_TYPES:
-        input_dict_4 = {
-            "r2": {
-                "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": NEXT_HOP_IP['nh1'][addr_type]
-                    },
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": NEXT_HOP_IP['nh2'][addr_type]
-                    }
-                ]
-            }
-        }
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_dict_4)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
-
-    step('Configure redistribute static in BGP.')
-    for addr_type in ADDR_TYPES:
-        input_dict_2 = {
-            "r2": {
-                "bgp": {
-                    "address_family": {
-                        addr_type: {
-                            "unicast": {
-                                "redistribute": [{
-                                    "redist_type": "static"
-                                }]
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        result = create_router_bgp(tgen, topo, input_dict_2)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
-        step("Verify on R3 , route receive on R3 BGP table ")
-        dut = 'r3'
-        result = verify_bgp_rib(tgen, addr_type, dut, input_dict_4)
-        assert result is True, "Testcase {} : Failed \nError: Route is"
-        " still present in RIB".format(tc_name)
-
-        step("Verify route installed in the RIB and FIB of R3")
-        protocol = 'bgp'
-        result = verify_rib(
-            tgen, addr_type, dut, input_dict_4, protocol=protocol)
-        assert result is True, "Testcase {} : Failed \nError: Route is"
-        " still present in RIB".format(tc_name)
-
-    step(
-        'Configure 2 links/interfaces between R1 and R3 , keep one'
-        'interface in shut (active) state and other interface in no shut'
-        '(inactive) state')
-    dut = 'r3'
-    intf = topo['routers']['r3']['links']['r1-link0']['interface']
-    shutdown_bringup_interface(tgen, dut, intf, False)
-
-    step(
-        'Configure same static route (10.1.1.1/24) in R3 with inactive'
-        'nexthop interface')
-
-    step(
-        'Configure same static route 10.1.1.1/24) again in R3 with'
-        'active nexthop interface')
-    for addr_type in ADDR_TYPES:
-        input_dict_4 = {
-            "r3": {
-                "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": topo['routers']['r1']['links']['r3-link0'][
-                            addr_type]
-                    },
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": topo['routers']['r1']['links']['r3-link1'][
-                            addr_type]
-                    }
-                ]
-            }
-        }
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_dict_4)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
-
-        step(
-            "Verify when static route configure with inactive nexthop , "
-            "verify BGP received route is active in the RIB and FIB")
-        dut = 'r3'
-        result = verify_bgp_rib(tgen, addr_type, dut, input_dict_4)
-        assert result is True, "Testcase {} : Failed \nError: Route is"
-        " missing in BGP RIB".format(tc_name)
-
-        protocol = 'bgp'
-        result = verify_rib(
-            tgen, addr_type, dut, input_dict_4, protocol=protocol, fib=True)
-        assert result is True, "Testcase {} : Failed \nError: Route is"
-        " missing in RIB".format(tc_name)
-
-    step('Remove the redistribute static knob from R2 router')
-    for addr_type in ADDR_TYPES:
-        input_dict_2 = {
-            "r2": {
-                "bgp": {
-                    "address_family": {
-                        addr_type: {
-                            "unicast": {
-                                "redistribute": [{
-                                    "redist_type": "static",
-                                    "delete": True
-                                }]
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        result = create_router_bgp(tgen, topo, input_dict_2)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
-
-        step(
-            "After removing /adding the redistribute static knob , "
-            "BGP received route is deleted and added in RIB of R3 ")
-        dut = 'r3'
-        result = verify_bgp_rib(tgen, addr_type, dut, input_dict_4)
-        assert result is not True, "Testcase {} : Failed \nError: Route is"
-        " still present in RIB".format(tc_name)
-
-        protocol = 'bgp'
-        result = verify_rib(
-            tgen, addr_type, dut, input_dict_4, protocol=protocol, fib=True)
-        assert result is not True, "Testcase {} : Failed \nError: Route is"
-        " still present in RIB".format(tc_name)
-
-    step('Configure the redistribute static knob again on R2 router')
-    for addr_type in ADDR_TYPES:
-        input_dict_2 = {
-            "r2": {
-                "bgp": {
-                    "address_family": {
-                        addr_type: {
-                            "unicast": {
-                                "redistribute": [{
-                                    "redist_type": "static",
-                                }]
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        result = create_router_bgp(tgen, topo, input_dict_2)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
-        dut = 'r3'
-        result = verify_bgp_rib(tgen, addr_type, dut, input_dict_4)
-        assert result is True, "Testcase {} : Failed \nError: Route is"
-        " missing in BGP RIB".format(tc_name)
-
-        protocol = 'bgp'
-        result = verify_rib(
-            tgen, addr_type, dut, input_dict_4, protocol=protocol, fib=True)
-        assert result is True, "Testcase {} : Failed \nError: Route is"
-        " missing in RIB".format(tc_name)
-
-    step(
-        'Remove the static route on R3 configured with active'
-        'interface')
-    for addr_type in ADDR_TYPES:
-        input_dict_4 = {
-            "r3": {
-                "static_routes": [
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": topo['routers']['r1']['links']['r3-link0'][
-                            addr_type],
-                        "delete": True
-                    },
-                    {
-                        "network": NETWORK[addr_type],
-                        "next_hop": topo['routers']['r1']['links']['r3-link1'][
-                            addr_type],
-                        "delete": True
-                    }
-                ]
-            }
-        }
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_dict_4)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
-        step(
-            "After removing the static route with active nexthop verify "
-            "BGP received route is became active in RIB and FIB")
-        dut = 'r3'
-        result = verify_bgp_rib(tgen, addr_type, dut, input_dict_4)
-        assert result is True, "Testcase {} : Failed \nError: Route is"
-        " missing in BGP RIB".format(tc_name)
-
-        protocol = 'bgp'
-        result = verify_rib(
-            tgen, addr_type, dut, input_dict_4, protocol=protocol, fib=True)
-        assert result is True, "Testcase {} : Failed \nError: Route is"
-        " missing in RIB".format(tc_name)
-
-    write_test_footer(tc_name)
-"""
 
 
 if __name__ == "__main__":

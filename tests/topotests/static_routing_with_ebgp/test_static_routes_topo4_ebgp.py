@@ -36,7 +36,6 @@ import os
 import pytest
 import ipaddr
 import ipaddress
-from time import sleep
 from copy import deepcopy
 
 # Save the Current Working Directory to find configuration files.
