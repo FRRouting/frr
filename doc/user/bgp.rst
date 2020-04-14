@@ -1997,6 +1997,18 @@ BGP Extended Communities in Route Map
 
    This command set Site of Origin value.
 
+.. index:: set extcommunity bandwidth <(1-25600) | cumulative | num-multipaths> [non-transitive]
+.. clicmd:: set extcommunity bandwidth <(1-25600) | cumulative | num-multipaths> [non-transitive]
+
+   This command sets the BGP link-bandwidth extended community for the prefix
+   (best path) for which it is applied. The link-bandwidth can be specified as
+   an ``explicit value`` (specified in Mbps), or the router can be told to use
+   the ``cumulative bandwidth`` of all multipaths for the prefix or to compute
+   it based on the ``number of multipaths``.  The link bandwidth extended
+   community is encoded as ``transitive`` unless the set command explicitly
+   configures it as ``non-transitive``.
+
+.. seealso:: :ref:`wecmp_linkbw`
 
 Note that the extended expanded community is only used for `match` rule, not for
 `set` actions.
@@ -3151,6 +3163,8 @@ Example of how to set up a 6-Bone connection.
 .. include:: routeserver.rst
 
 .. include:: rpki.rst
+
+.. include:: wecmp_linkbw.rst
 
 .. include:: flowspec.rst
 

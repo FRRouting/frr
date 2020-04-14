@@ -44,6 +44,7 @@ user_RSTFILES = \
 	doc/user/bfd.rst \
 	doc/user/flowspec.rst \
 	doc/user/watchfrr.rst \
+	doc/user/wecmp_linkbw.rst \
 	# end
 
 EXTRA_DIST += \
