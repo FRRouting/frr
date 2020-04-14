@@ -897,10 +897,9 @@ int pim_zebra_mlag_process_up(void)
 static void pim_mlag_param_reset(void)
 {
 	/* reset the cached params and stats */
-	router->mlag_flags &= ~(PIM_MLAGF_STATUS_RXED |
-			PIM_MLAGF_LOCAL_CONN_UP |
-			PIM_MLAGF_PEER_CONN_UP |
-			PIM_MLAGF_PEER_ZEBRA_UP);
+	router->mlag_flags &=
+		(uint8_t) ~(PIM_MLAGF_STATUS_RXED | PIM_MLAGF_LOCAL_CONN_UP
+			    | PIM_MLAGF_PEER_CONN_UP | PIM_MLAGF_PEER_ZEBRA_UP);
 	router->local_vtep_ip.s_addr = INADDR_ANY;
 	router->anycast_vtep_ip.s_addr = INADDR_ANY;
 	router->mlag_role = MLAG_ROLE_NONE;
