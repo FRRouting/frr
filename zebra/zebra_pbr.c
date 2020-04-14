@@ -431,32 +431,51 @@ static void *pbr_rule_alloc_intern(void *arg)
 	return new;
 }
 
-void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
-{
-	struct zebra_pbr_rule *unique =
-		pbr_rule_lookup_unique(rule);
-
-	(void)hash_get(zrouter.rules_hash, rule, pbr_rule_alloc_intern);
-	(void)kernel_add_pbr_rule(rule);
-	/*
-	 * Rule Replace semantics, if we have an old, install the
-	 * new rule, look above, and then delete the old
-	 */
-	if (unique)
-		zebra_pbr_del_rule(unique);
-}
-
-void zebra_pbr_del_rule(struct zebra_pbr_rule *rule)
+static int pbr_rule_release(struct zebra_pbr_rule *rule)
 {
 	struct zebra_pbr_rule *lookup;
 
 	lookup = hash_lookup(zrouter.rules_hash, rule);
+
+	if (!lookup)
+		return -ENOENT;
+
+	hash_release(zrouter.rules_hash, lookup);
+	XFREE(MTYPE_TMP, lookup);
+
+	return 0;
+}
+
+void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
+{
+	struct zebra_pbr_rule *found;
+
+	/**
+	 * Check if we already have it (this checks via a unique ID, walking
+	 * over the hash table, not via a hash operation).
+	 */
+	found = pbr_rule_lookup_unique(rule);
+
+	(void)hash_get(zrouter.rules_hash, rule, pbr_rule_alloc_intern);
+
+	/* If found, this is an update */
+	if (found) {
+		(void)kernel_update_pbr_rule(found, rule);
+
+		if (pbr_rule_release(found))
+			zlog_debug(
+				"%s: Rule being updated we know nothing about",
+				__PRETTY_FUNCTION__);
+
+	} else
+		(void)kernel_add_pbr_rule(rule);
+}
+
+void zebra_pbr_del_rule(struct zebra_pbr_rule *rule)
+{
 	(void)kernel_del_pbr_rule(rule);
 
-	if (lookup) {
-		hash_release(zrouter.rules_hash, lookup);
-		XFREE(MTYPE_TMP, lookup);
-	} else
+	if (pbr_rule_release(rule))
 		zlog_debug("%s: Rule being deleted we know nothing about",
 			   __func__);
 }

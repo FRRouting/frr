@@ -510,12 +510,26 @@ char *pbr_nht_nexthop_make_name(char *name, size_t l,
 	return buffer;
 }
 
-void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms)
+void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
+				    const struct nexthop *nhop)
 {
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_group_cache find;
 	struct pbr_nexthop_cache *pnhc;
 	struct pbr_nexthop_cache lookup;
+	struct nexthop *nh;
+	char buf[PBR_NHC_NAMELEN];
+
+	pbrms->nhg = nexthop_group_new();
+	pbrms->internal_nhg_name = XSTRDUP(
+		MTYPE_TMP,
+		pbr_nht_nexthop_make_name(pbrms->parent->name, PBR_NHC_NAMELEN,
+					  pbrms->seqno, buf));
+
+	nh = nexthop_new();
+	memcpy(nh, nhop, sizeof(*nh));
+
+	nexthop_group_add_sorted(pbrms->nhg, nh);
 
 	memset(&find, 0, sizeof(find));
 	pbr_nht_nexthop_make_name(pbrms->parent->name, PBR_NHC_NAMELEN,
@@ -539,7 +553,7 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms)
 	pbr_nht_install_nexthop_group(pnhgc, *pbrms->nhg);
 }
 
-void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
+static void pbr_nht_release_individual_nexthop(struct pbr_map_sequence *pbrms)
 {
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_group_cache find;
@@ -547,8 +561,6 @@ void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
 	struct pbr_nexthop_cache lup;
 	struct nexthop *nh;
 	enum nexthop_types_t nh_type = 0;
-
-	pbr_map_delete_nexthops(pbrms);
 
 	memset(&find, 0, sizeof(find));
 	snprintf(find.name, sizeof(find.name), "%s", pbrms->internal_nhg_name);
@@ -564,9 +576,17 @@ void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
 	pbr_nht_uninstall_nexthop_group(pnhgc, *pbrms->nhg, nh_type);
 
 	hash_release(pbr_nhg_hash, pnhgc);
+	pbr_nhgc_delete(pnhgc);
 
 	nexthop_group_delete(&pbrms->nhg);
 	XFREE(MTYPE_TMP, pbrms->internal_nhg_name);
+}
+
+void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
+{
+	pbr_map_delete_nexthops(pbrms);
+
+	pbr_nht_release_individual_nexthop(pbrms);
 }
 
 struct pbr_nexthop_group_cache *pbr_nht_add_group(const char *name)

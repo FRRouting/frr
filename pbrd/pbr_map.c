@@ -145,7 +145,7 @@ static bool pbr_map_interface_is_valid(const struct pbr_map_interface *pmi)
 }
 
 static void pbr_map_pbrms_update_common(struct pbr_map_sequence *pbrms,
-					bool install)
+					bool install, bool changed)
 {
 	struct pbr_map *pbrm;
 	struct listnode *node;
@@ -161,19 +161,19 @@ static void pbr_map_pbrms_update_common(struct pbr_map_sequence *pbrms,
 			if (install && !pbr_map_interface_is_valid(pmi))
 				continue;
 
-			pbr_send_pbr_map(pbrms, pmi, install);
+			pbr_send_pbr_map(pbrms, pmi, install, changed);
 		}
 	}
 }
 
-static void pbr_map_pbrms_install(struct pbr_map_sequence *pbrms)
+static void pbr_map_pbrms_install(struct pbr_map_sequence *pbrms, bool changed)
 {
-	pbr_map_pbrms_update_common(pbrms, true);
+	pbr_map_pbrms_update_common(pbrms, true, changed);
 }
 
 static void pbr_map_pbrms_uninstall(struct pbr_map_sequence *pbrms)
 {
-	pbr_map_pbrms_update_common(pbrms, false);
+	pbr_map_pbrms_update_common(pbrms, false, false);
 }
 
 static const char *const pbr_map_reason_str[] = {
@@ -292,7 +292,7 @@ void pbr_map_policy_interface_update(const struct interface *ifp, bool state_up)
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
 		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi))
 			if (pmi->ifp == ifp && pbr_map_interface_is_valid(pmi))
-				pbr_send_pbr_map(pbrms, pmi, state_up);
+				pbr_send_pbr_map(pbrms, pmi, state_up, false);
 }
 
 static void pbrms_vrf_update(struct pbr_map_sequence *pbrms,
@@ -306,7 +306,7 @@ static void pbrms_vrf_update(struct pbr_map_sequence *pbrms,
 		DEBUGD(&pbr_dbg_map, "\tSeq %u uses vrf %s (%u), updating map",
 		       pbrms->seqno, vrf_name, pbr_vrf_id(pbr_vrf));
 
-		pbr_map_check(pbrms);
+		pbr_map_check(pbrms, false);
 	}
 }
 
@@ -360,7 +360,7 @@ extern void pbr_map_delete(struct pbr_map_sequence *pbrms)
 	pbrm = pbrms->parent;
 
 	for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi))
-		pbr_send_pbr_map(pbrms, pmi, false);
+		pbr_send_pbr_map(pbrms, pmi, false, false);
 
 	if (pbrms->nhg)
 		pbr_nht_delete_individual_nexthop(pbrms);
@@ -384,7 +384,7 @@ static void pbr_map_delete_common(struct pbr_map_sequence *pbrms)
 	pbrm->valid = false;
 	pbrms->nhs_installed = false;
 	pbrms->reason |= PBR_MAP_INVALID_NO_NEXTHOPS;
-	pbrms->nhgrp_name = NULL;
+	XFREE(MTYPE_TMP, pbrms->nhgrp_name);
 }
 
 void pbr_map_delete_nexthops(struct pbr_map_sequence *pbrms)
@@ -619,7 +619,7 @@ void pbr_map_schedule_policy_from_nhg(const char *nh_group)
 			    && (strcmp(nh_group, pbrms->nhgrp_name) == 0)) {
 				pbrms->nhs_installed = true;
 
-				pbr_map_check(pbrms);
+				pbr_map_check(pbrms, false);
 			}
 
 			if (pbrms->nhg
@@ -627,7 +627,7 @@ void pbr_map_schedule_policy_from_nhg(const char *nh_group)
 				== 0)) {
 				pbrms->nhs_installed = true;
 
-				pbr_map_check(pbrms);
+				pbr_map_check(pbrms, false);
 			}
 		}
 	}
@@ -656,7 +656,8 @@ void pbr_map_policy_install(const char *name)
 			       pbrms->seqno);
 			for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi))
 				if (pbr_map_interface_is_valid(pmi))
-					pbr_send_pbr_map(pbrms, pmi, true);
+					pbr_send_pbr_map(pbrms, pmi, true,
+							 false);
 		}
 	}
 }
@@ -668,7 +669,7 @@ void pbr_map_policy_delete(struct pbr_map *pbrm, struct pbr_map_interface *pmi)
 
 
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
-		pbr_send_pbr_map(pbrms, pmi, false);
+		pbr_send_pbr_map(pbrms, pmi, false, false);
 
 	pmi->delete = true;
 }
@@ -710,13 +711,13 @@ void pbr_map_check_nh_group_change(const char *nh_group)
 						     pbrm->incoming, inode,
 						     pmi))
 						pbr_send_pbr_map(pbrms, pmi,
-								 false);
+								 false, false);
 			}
 		}
 	}
 }
 
-void pbr_map_check(struct pbr_map_sequence *pbrms)
+void pbr_map_check(struct pbr_map_sequence *pbrms, bool changed)
 {
 	struct pbr_map *pbrm;
 	bool install;
@@ -741,7 +742,7 @@ void pbr_map_check(struct pbr_map_sequence *pbrms)
 	}
 
 	if (install)
-		pbr_map_pbrms_install(pbrms);
+		pbr_map_pbrms_install(pbrms, changed);
 	else
 		pbr_map_pbrms_uninstall(pbrms);
 }
@@ -755,7 +756,7 @@ void pbr_map_install(struct pbr_map *pbrm)
 		return;
 
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
-		pbr_map_pbrms_install(pbrms);
+		pbr_map_pbrms_install(pbrms, false);
 }
 
 void pbr_map_init(void)

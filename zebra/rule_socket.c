@@ -57,4 +57,12 @@ enum zebra_dplane_result kernel_del_pbr_rule(struct zebra_pbr_rule *rule)
 	return ZEBRA_DPLANE_REQUEST_FAILURE;
 }
 
+enum zebra_dplane_result kernel_update_pbr_rule(struct zebra_pbr_rule *old_rule,
+						struct zebra_pbr_rule *new_rule)
+{
+	flog_err(EC_LIB_UNAVAILABLE, "%s not Implemented for this platform",
+		 __PRETTY_FUNCTION__);
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
+}
+
 #endif

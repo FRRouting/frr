@@ -548,7 +548,7 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 }
 
 void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
-		      struct pbr_map_interface *pmi, bool install)
+		      struct pbr_map_interface *pmi, bool install, bool changed)
 {
 	struct pbr_map *pbrm = pbrms->parent;
 	struct stream *s;
@@ -560,11 +560,13 @@ void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	       pbrm->name, install, is_installed);
 
 	/*
-	 * If we are installed and asked to do so again
-	 * just return.  If we are not installed and asked
-	 * and asked to delete just return;
+	 * If we are installed and asked to do so again and the config
+	 * has not changed, just return.
+	 *
+	 * If we are not installed and asked
+	 * to delete just return.
 	 */
-	if (install && is_installed)
+	if (install && is_installed && !changed)
 		return;
 
 	if (!install && !is_installed)
@@ -582,9 +584,9 @@ void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	 */
 	stream_putl(s, 1);
 
-	DEBUGD(&pbr_dbg_zebra, "%s: \t%s %s %d %s %u", __func__,
-	       install ? "Installing" : "Deleting", pbrm->name, install,
-	       pmi->ifp->name, pmi->delete);
+	DEBUGD(&pbr_dbg_zebra, "%s: \t%s %s seq %u %d %s %u", __func__,
+	       install ? "Installing" : "Deleting", pbrm->name, pbrms->seqno,
+	       install, pmi->ifp->name, pmi->delete);
 
 	pbr_encode_pbr_map_sequence(s, pbrms, pmi->ifp);
 

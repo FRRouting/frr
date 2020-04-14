@@ -126,6 +126,7 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	kernel_init(zns);
 	interface_list(zns);
 	route_read(zns);
+	kernel_read_pbr_rules(zns);
 
 	/* Initiate Table Manager per ZNS */
 	table_manager_enable(ns_id);
