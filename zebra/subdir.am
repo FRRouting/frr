@@ -199,3 +199,13 @@ nodist_zebra_zebra_SOURCES = \
 
 zebra_zebra_cumulus_mlag_la_SOURCES = zebra/zebra_mlag_private.c
 zebra_zebra_cumulus_mlag_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+
+if LINUX
+module_LTLIBRARIES += zebra/dplane_fpm_nl.la
+
+zebra_dplane_fpm_nl_la_SOURCES = zebra/dplane_fpm_nl.c
+zebra_dplane_fpm_nl_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_dplane_fpm_nl_la_LIBADD  =
+
+vtysh_scan += $(top_srcdir)/zebra/dplane_fpm_nl.c
+endif

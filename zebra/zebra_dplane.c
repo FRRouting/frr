@@ -32,6 +32,7 @@
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_vxlan_private.h"
 #include "zebra/rt.h"
 #include "zebra/debug.h"
 
@@ -178,7 +179,6 @@ struct dplane_mac_info {
 	struct ethaddr mac;
 	struct in_addr vtep_ip;
 	bool is_sticky;
-
 };
 
 /*
@@ -401,7 +401,7 @@ static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
 static enum zebra_dplane_result intf_addr_update_internal(
 	const struct interface *ifp, const struct connected *ifc,
 	enum dplane_op_e op);
-static enum zebra_dplane_result mac_update_internal(
+static enum zebra_dplane_result mac_update_common(
 	enum dplane_op_e op, const struct interface *ifp,
 	const struct interface *br_ifp,
 	vlanid_t vid, const struct ethaddr *mac,
@@ -445,6 +445,123 @@ void dplane_enable_sys_route_notifs(void)
 }
 
 /*
+ * Clean up dependent/internal allocations inside a context object
+ */
+static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
+{
+	/*
+	 * Some internal allocations may need to be freed, depending on
+	 * the type of info captured in the ctx.
+	 */
+	switch (ctx->zd_op) {
+	case DPLANE_OP_ROUTE_INSTALL:
+	case DPLANE_OP_ROUTE_UPDATE:
+	case DPLANE_OP_ROUTE_DELETE:
+	case DPLANE_OP_SYS_ROUTE_ADD:
+	case DPLANE_OP_SYS_ROUTE_DELETE:
+	case DPLANE_OP_ROUTE_NOTIFY:
+
+		/* Free allocated nexthops */
+		if (ctx->u.rinfo.zd_ng.nexthop) {
+			/* This deals with recursive nexthops too */
+			nexthops_free(ctx->u.rinfo.zd_ng.nexthop);
+
+			ctx->u.rinfo.zd_ng.nexthop = NULL;
+		}
+
+		/* Free backup info also (if present) */
+		if (ctx->u.rinfo.backup_ng.nexthop) {
+			/* This deals with recursive nexthops too */
+			nexthops_free(ctx->u.rinfo.backup_ng.nexthop);
+
+			ctx->u.rinfo.backup_ng.nexthop = NULL;
+		}
+
+		if (ctx->u.rinfo.zd_old_ng.nexthop) {
+			/* This deals with recursive nexthops too */
+			nexthops_free(ctx->u.rinfo.zd_old_ng.nexthop);
+
+			ctx->u.rinfo.zd_old_ng.nexthop = NULL;
+		}
+
+		if (ctx->u.rinfo.old_backup_ng.nexthop) {
+			/* This deals with recursive nexthops too */
+			nexthops_free(ctx->u.rinfo.old_backup_ng.nexthop);
+
+			ctx->u.rinfo.old_backup_ng.nexthop = NULL;
+		}
+
+		break;
+
+	case DPLANE_OP_NH_INSTALL:
+	case DPLANE_OP_NH_UPDATE:
+	case DPLANE_OP_NH_DELETE: {
+		if (ctx->u.rinfo.nhe.ng.nexthop) {
+			/* This deals with recursive nexthops too */
+			nexthops_free(ctx->u.rinfo.nhe.ng.nexthop);
+
+			ctx->u.rinfo.nhe.ng.nexthop = NULL;
+		}
+		break;
+	}
+
+	case DPLANE_OP_LSP_INSTALL:
+	case DPLANE_OP_LSP_UPDATE:
+	case DPLANE_OP_LSP_DELETE:
+	case DPLANE_OP_LSP_NOTIFY:
+	{
+		zebra_nhlfe_t *nhlfe, *next;
+
+		/* Free allocated NHLFEs */
+		for (nhlfe = ctx->u.lsp.nhlfe_list; nhlfe; nhlfe = next) {
+			next = nhlfe->next;
+
+			zebra_mpls_nhlfe_del(nhlfe);
+		}
+
+		/* Clear pointers in lsp struct, in case we're cacheing
+		 * free context structs.
+		 */
+		ctx->u.lsp.nhlfe_list = NULL;
+		ctx->u.lsp.best_nhlfe = NULL;
+
+		break;
+	}
+
+	case DPLANE_OP_PW_INSTALL:
+	case DPLANE_OP_PW_UNINSTALL:
+		/* Free allocated nexthops */
+		if (ctx->u.pw.nhg.nexthop) {
+			/* This deals with recursive nexthops too */
+			nexthops_free(ctx->u.pw.nhg.nexthop);
+
+			ctx->u.pw.nhg.nexthop = NULL;
+		}
+		break;
+
+	case DPLANE_OP_ADDR_INSTALL:
+	case DPLANE_OP_ADDR_UNINSTALL:
+		/* Maybe free label string, if allocated */
+		if (ctx->u.intf.label != NULL &&
+		    ctx->u.intf.label != ctx->u.intf.label_buf) {
+			free(ctx->u.intf.label);
+			ctx->u.intf.label = NULL;
+		}
+		break;
+
+	case DPLANE_OP_MAC_INSTALL:
+	case DPLANE_OP_MAC_DELETE:
+	case DPLANE_OP_NEIGH_INSTALL:
+	case DPLANE_OP_NEIGH_UPDATE:
+	case DPLANE_OP_NEIGH_DELETE:
+	case DPLANE_OP_VTEP_ADD:
+	case DPLANE_OP_VTEP_DELETE:
+	case DPLANE_OP_NONE:
+		break;
+	}
+}
+
+/*
  * Free a dataplane results context.
  */
 static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
@@ -461,114 +578,19 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 	/* Some internal allocations may need to be freed, depending on
 	 * the type of info captured in the ctx.
 	 */
-	switch ((*pctx)->zd_op) {
-	case DPLANE_OP_ROUTE_INSTALL:
-	case DPLANE_OP_ROUTE_UPDATE:
-	case DPLANE_OP_ROUTE_DELETE:
-	case DPLANE_OP_SYS_ROUTE_ADD:
-	case DPLANE_OP_SYS_ROUTE_DELETE:
-	case DPLANE_OP_ROUTE_NOTIFY:
-
-		/* Free allocated nexthops */
-		if ((*pctx)->u.rinfo.zd_ng.nexthop) {
-			/* This deals with recursive nexthops too */
-			nexthops_free((*pctx)->u.rinfo.zd_ng.nexthop);
-
-			(*pctx)->u.rinfo.zd_ng.nexthop = NULL;
-		}
-
-		/* Free backup info also (if present) */
-		if ((*pctx)->u.rinfo.backup_ng.nexthop) {
-			/* This deals with recursive nexthops too */
-			nexthops_free((*pctx)->u.rinfo.backup_ng.nexthop);
-
-			(*pctx)->u.rinfo.backup_ng.nexthop = NULL;
-		}
-
-		if ((*pctx)->u.rinfo.zd_old_ng.nexthop) {
-			/* This deals with recursive nexthops too */
-			nexthops_free((*pctx)->u.rinfo.zd_old_ng.nexthop);
-
-			(*pctx)->u.rinfo.zd_old_ng.nexthop = NULL;
-		}
-
-		if ((*pctx)->u.rinfo.old_backup_ng.nexthop) {
-			/* This deals with recursive nexthops too */
-			nexthops_free((*pctx)->u.rinfo.old_backup_ng.nexthop);
-
-			(*pctx)->u.rinfo.old_backup_ng.nexthop = NULL;
-		}
-
-		break;
-
-	case DPLANE_OP_NH_INSTALL:
-	case DPLANE_OP_NH_UPDATE:
-	case DPLANE_OP_NH_DELETE: {
-		if ((*pctx)->u.rinfo.nhe.ng.nexthop) {
-			/* This deals with recursive nexthops too */
-			nexthops_free((*pctx)->u.rinfo.nhe.ng.nexthop);
-
-			(*pctx)->u.rinfo.nhe.ng.nexthop = NULL;
-		}
-		break;
-	}
-
-	case DPLANE_OP_LSP_INSTALL:
-	case DPLANE_OP_LSP_UPDATE:
-	case DPLANE_OP_LSP_DELETE:
-	case DPLANE_OP_LSP_NOTIFY:
-	{
-		zebra_nhlfe_t *nhlfe, *next;
-
-		/* Free allocated NHLFEs */
-		for (nhlfe = (*pctx)->u.lsp.nhlfe_list; nhlfe; nhlfe = next) {
-			next = nhlfe->next;
-
-			zebra_mpls_nhlfe_del(nhlfe);
-		}
-
-		/* Clear pointers in lsp struct, in case we're cacheing
-		 * free context structs.
-		 */
-		(*pctx)->u.lsp.nhlfe_list = NULL;
-		(*pctx)->u.lsp.best_nhlfe = NULL;
-
-		break;
-	}
-
-	case DPLANE_OP_PW_INSTALL:
-	case DPLANE_OP_PW_UNINSTALL:
-		/* Free allocated nexthops */
-		if ((*pctx)->u.pw.nhg.nexthop) {
-			/* This deals with recursive nexthops too */
-			nexthops_free((*pctx)->u.pw.nhg.nexthop);
-
-			(*pctx)->u.pw.nhg.nexthop = NULL;
-		}
-		break;
-
-	case DPLANE_OP_ADDR_INSTALL:
-	case DPLANE_OP_ADDR_UNINSTALL:
-		/* Maybe free label string, if allocated */
-		if ((*pctx)->u.intf.label != NULL &&
-		    (*pctx)->u.intf.label != (*pctx)->u.intf.label_buf) {
-			free((*pctx)->u.intf.label);
-			(*pctx)->u.intf.label = NULL;
-		}
-		break;
-
-	case DPLANE_OP_MAC_INSTALL:
-	case DPLANE_OP_MAC_DELETE:
-	case DPLANE_OP_NEIGH_INSTALL:
-	case DPLANE_OP_NEIGH_UPDATE:
-	case DPLANE_OP_NEIGH_DELETE:
-	case DPLANE_OP_VTEP_ADD:
-	case DPLANE_OP_VTEP_DELETE:
-	case DPLANE_OP_NONE:
-		break;
-	}
+	dplane_ctx_free_internal(*pctx);
 
 	XFREE(MTYPE_DP_CTX, *pctx);
+}
+
+/*
+ * Reset an allocated context object for re-use. All internal allocations are
+ * freed and the context is memset.
+ */
+void dplane_ctx_reset(struct zebra_dplane_ctx *ctx)
+{
+	dplane_ctx_free_internal(ctx);
+	memset(ctx, 0, sizeof(*ctx));
 }
 
 /*
@@ -1503,10 +1525,8 @@ static int dplane_ctx_ns_init(struct zebra_dplane_ctx *ctx,
 /*
  * Initialize a context block for a route update from zebra data structs.
  */
-static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
-				 enum dplane_op_e op,
-				 struct route_node *rn,
-				 struct route_entry *re)
+int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
+			  struct route_node *rn, struct route_entry *re)
 {
 	int ret = EINVAL;
 	const struct route_table *table = NULL;
@@ -1515,6 +1535,7 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf;
 	struct nexthop *nexthop;
+	zebra_l3vni_t *zl3vni;
 
 	if (!ctx || !rn || !re)
 		goto done;
@@ -1564,9 +1585,23 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 			      re->nhe->backup_info->nhe->nhg.nexthop, NULL);
 	}
 
-	/* Ensure that the dplane nexthops' flags are clear. */
-	for (ALL_NEXTHOPS(ctx->u.rinfo.zd_ng, nexthop))
+	/*
+	 * Ensure that the dplane nexthops' flags are clear and copy
+	 * encapsulation information.
+	 */
+	for (ALL_NEXTHOPS(ctx->u.rinfo.zd_ng, nexthop)) {
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+
+		/* Check for available encapsulations. */
+		if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE))
+			continue;
+
+		zl3vni = zl3vni_from_vrf(nexthop->vrf_id);
+		if (zl3vni && is_l3vni_oper_up(zl3vni)) {
+			nexthop->nh_encap_type = NET_VXLAN;
+			nexthop->nh_encap.vni = zl3vni->vni;
+		}
+	}
 
 	/* Don't need some info when capturing a system notification */
 	if (op == DPLANE_OP_SYS_ROUTE_ADD ||
@@ -2470,8 +2505,8 @@ enum zebra_dplane_result dplane_mac_add(const struct interface *ifp,
 	enum zebra_dplane_result result;
 
 	/* Use common helper api */
-	result = mac_update_internal(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp,
-				     vid, mac, vtep_ip, sticky);
+	result = mac_update_common(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp,
+				   vid, mac, vtep_ip, sticky);
 	return result;
 }
 
@@ -2487,41 +2522,25 @@ enum zebra_dplane_result dplane_mac_del(const struct interface *ifp,
 	enum zebra_dplane_result result;
 
 	/* Use common helper api */
-	result = mac_update_internal(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp,
-				     vid, mac, vtep_ip, false);
+	result = mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp,
+				   vid, mac, vtep_ip, false);
 	return result;
 }
 
 /*
- * Common helper api for MAC address/vxlan updates
+ * Public api to init an empty context - either newly-allocated or
+ * reset/cleared - for a MAC update.
  */
-static enum zebra_dplane_result
-mac_update_internal(enum dplane_op_e op,
-		    const struct interface *ifp,
-		    const struct interface *br_ifp,
-		    vlanid_t vid,
-		    const struct ethaddr *mac,
-		    struct in_addr vtep_ip,
-		    bool sticky)
+void dplane_mac_init(struct zebra_dplane_ctx *ctx,
+		     const struct interface *ifp,
+		     const struct interface *br_ifp,
+		     vlanid_t vid,
+		     const struct ethaddr *mac,
+		     struct in_addr vtep_ip,
+		     bool sticky)
 {
-	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
-	int ret;
-	struct zebra_dplane_ctx *ctx = NULL;
 	struct zebra_ns *zns;
 
-	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-		char buf1[ETHER_ADDR_STRLEN], buf2[PREFIX_STRLEN];
-
-		zlog_debug("init mac ctx %s: mac %s, ifp %s, vtep %s",
-			   dplane_op2str(op),
-			   prefix_mac2str(mac, buf1, sizeof(buf1)),
-			   ifp->name,
-			   inet_ntop(AF_INET, &vtep_ip, buf2, sizeof(buf2)));
-	}
-
-	ctx = dplane_ctx_alloc();
-
-	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 	ctx->zd_vrf_id = ifp->vrf_id;
 
@@ -2539,6 +2558,39 @@ mac_update_internal(enum dplane_op_e op,
 	ctx->u.macinfo.mac = *mac;
 	ctx->u.macinfo.vid = vid;
 	ctx->u.macinfo.is_sticky = sticky;
+}
+
+/*
+ * Common helper api for MAC address/vxlan updates
+ */
+static enum zebra_dplane_result
+mac_update_common(enum dplane_op_e op,
+		  const struct interface *ifp,
+		  const struct interface *br_ifp,
+		  vlanid_t vid,
+		  const struct ethaddr *mac,
+		  struct in_addr vtep_ip,
+		  bool sticky)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret;
+	struct zebra_dplane_ctx *ctx = NULL;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		char buf1[ETHER_ADDR_STRLEN], buf2[PREFIX_STRLEN];
+
+		zlog_debug("init mac ctx %s: mac %s, ifp %s, vtep %s",
+			   dplane_op2str(op),
+			   prefix_mac2str(mac, buf1, sizeof(buf1)),
+			   ifp->name,
+			   inet_ntop(AF_INET, &vtep_ip, buf2, sizeof(buf2)));
+	}
+
+	ctx = dplane_ctx_alloc();
+	ctx->zd_op = op;
+
+	/* Common init for the ctx */
+	dplane_mac_init(ctx, ifp, br_ifp, vid, mac, vtep_ip, sticky);
 
 	/* Enqueue for processing on the dplane pthread */
 	ret = dplane_update_enqueue(ctx);

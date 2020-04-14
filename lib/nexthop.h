@@ -25,6 +25,7 @@
 
 #include "prefix.h"
 #include "mpls.h"
+#include "vxlan.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,6 +60,10 @@ enum blackhole_type {
 	((type) == NEXTHOP_TYPE_IFINDEX || (type) == NEXTHOP_TYPE_BLACKHOLE)   \
 		? (type)                                                       \
 		: ((type) | 1)
+
+enum nh_encap_type {
+	NET_VXLAN = 100, /* value copied from FPM_NH_ENCAP_VXLAN. */
+};
 
 /* Nexthop structure. */
 struct nexthop {
@@ -123,6 +128,12 @@ struct nexthop {
 	 * only meaningful if the HAS_BACKUP flag is set.
 	 */
 	uint8_t backup_idx;
+
+	/* Encapsulation information. */
+	enum nh_encap_type nh_encap_type;
+	union {
+		vni_t vni;
+	} nh_encap;
 };
 
 /* Backup index value is limited */
