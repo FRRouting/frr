@@ -224,8 +224,10 @@ void pcep_lib_parse_capabilities(struct pcep_message *msg,
 
 struct counters_group *pcep_lib_copy_counters(pcep_session *sess)
 {
-	assert(NULL != sess);
-	assert(NULL != sess->pcep_session_counters);
+	if( !sess || !sess->pcep_session_counters) {
+		return NULL;
+	}
+
 	return copy_counter_group(sess->pcep_session_counters);
 }
 
