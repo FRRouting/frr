@@ -166,6 +166,11 @@ Certain signals have special meanings to *pimd*.
    urib-only
       Lookup in the Unicast Rib only.
 
+.. index:: no ip msdp mesh-group [WORD]
+.. clicmd:: no ip msdp mesh-group [WORD]
+
+   Delete multicast source discovery protocol mesh-group
+
 .. index:: ip igmp generate-query-once [version (2-3)]
 .. clicmd:: ip igmp generate-query-once [version (2-3)]
 
