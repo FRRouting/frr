@@ -1470,8 +1470,6 @@ static int zfpm_trigger_update(struct route_node *rn, const char *reason)
 
 /*
  * Generate Key for FPM MAC info hash entry
- * Key is generated using MAC address and VNI id which should be sufficient
- * to provide uniqueness
  */
 static unsigned int zfpm_mac_info_hash_keymake(const void *p)
 {
@@ -1493,8 +1491,6 @@ static bool zfpm_mac_info_cmp(const void *p1, const void *p2)
 
 	if (memcmp(fpm_mac1->macaddr.octet, fpm_mac2->macaddr.octet, ETH_ALEN)
 			!= 0)
-		return false;
-	if (fpm_mac1->r_vtep_ip.s_addr != fpm_mac2->r_vtep_ip.s_addr)
 		return false;
 	if (fpm_mac1->vni != fpm_mac2->vni)
 		return false;
@@ -1521,7 +1517,6 @@ static void *zfpm_mac_info_alloc(void *p)
 	fpm_mac = XCALLOC(MTYPE_FPM_MAC_INFO, sizeof(struct fpm_mac_info_t));
 
 	memcpy(&fpm_mac->macaddr, &key->macaddr, ETH_ALEN);
-	memcpy(&fpm_mac->r_vtep_ip, &key->r_vtep_ip, sizeof(struct in_addr));
 	fpm_mac->vni = key->vni;
 
 	return (void *)fpm_mac;
@@ -1552,6 +1547,7 @@ static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
 	char buf[ETHER_ADDR_STRLEN];
 	struct fpm_mac_info_t *fpm_mac, key;
 	struct interface *vxlan_if, *svi_if;
+	bool mac_found = false;
 
 	/*
 	 * Ignore if the connection is down. We will update the FPM about
@@ -1572,56 +1568,34 @@ static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
 	memset(&key, 0, sizeof(struct fpm_mac_info_t));
 
 	memcpy(&key.macaddr, &rmac->macaddr, ETH_ALEN);
-	key.r_vtep_ip.s_addr = rmac->fwd_info.r_vtep_ip.s_addr;
 	key.vni = zl3vni->vni;
 
 	/* Check if this MAC is already present in the queue. */
 	fpm_mac = zfpm_mac_info_lookup(&key);
 
 	if (fpm_mac) {
-		if (!!CHECK_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM)
-			== delete) {
-			/*
-			 * MAC is already present in the queue
-			 * with the same op as this one. Do nothing
-			 */
-			zfpm_g->stats.redundant_triggers++;
-			return 0;
-		}
+		mac_found = true;
 
 		/*
-		 * A new op for an already existing fpm_mac_info_t node.
-		 * Update the existing node for the new op.
+		 * If the enqueued op is "add" and current op is "delete",
+		 * this is a noop. So, Unset ZEBRA_MAC_UPDATE_FPM flag.
+		 * While processing FPM queue, we will silently delete this
+		 * MAC entry without sending any update for this MAC.
 		 */
-		if (!delete) {
-			/*
-			 * New op is "add". Previous op is "delete".
-			 * Update the fpm_mac_info_t for the new add.
-			 */
-			fpm_mac->zebra_flags = rmac->flags;
-
-			fpm_mac->vxlan_if = vxlan_if ? vxlan_if->ifindex : 0;
-			fpm_mac->svi_if = svi_if ? svi_if->ifindex : 0;
-
-			UNSET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM);
-			SET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_UPDATE_FPM);
-		} else {
-			/*
-			 * New op is "delete". Previous op is "add".
-			 * Thus, no-op. Unset ZEBRA_MAC_UPDATE_FPM flag.
-			 */
+		if (!CHECK_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM) &&
+		    delete == 1) {
 			SET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM);
 			UNSET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_UPDATE_FPM);
+			return 0;
 		}
-
-		return 0;
+	} else {
+		fpm_mac = hash_get(zfpm_g->fpm_mac_info_table, &key,
+				   zfpm_mac_info_alloc);
+		if (!fpm_mac)
+			return 0;
 	}
 
-	fpm_mac = hash_get(zfpm_g->fpm_mac_info_table, &key,
-			   zfpm_mac_info_alloc);
-	if (!fpm_mac)
-		return 0;
-
+	fpm_mac->r_vtep_ip.s_addr = rmac->fwd_info.r_vtep_ip.s_addr;
 	fpm_mac->zebra_flags = rmac->flags;
 	fpm_mac->vxlan_if = vxlan_if ? vxlan_if->ifindex : 0;
 	fpm_mac->svi_if = svi_if ? svi_if->ifindex : 0;
@@ -1629,8 +1603,11 @@ static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
 	SET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_UPDATE_FPM);
 	if (delete)
 		SET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM);
+	else
+		UNSET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM);
 
-	TAILQ_INSERT_TAIL(&zfpm_g->mac_q, fpm_mac, fpm_mac_q_entries);
+	if (!mac_found)
+		TAILQ_INSERT_TAIL(&zfpm_g->mac_q, fpm_mac, fpm_mac_q_entries);
 
 	zfpm_g->stats.updates_triggered++;
 
