@@ -10545,45 +10545,177 @@ DEFUN (show_ip_bgp_large_community,
 }
 
 static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
-			   safi_t safi);
+			   safi_t safi, struct json_object *json);
 
+
+DEFUN(show_ip_bgp_statistics_all, show_ip_bgp_statistics_all_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] statistics-all [json]",
+      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR
+      "Display number of prefixes for all afi/safi\n" JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	struct bgp *bgp = NULL;
+	safi_t safi;
+	afi_t afi;
+	int idx = 0;
+	struct json_object *json_all = NULL;
+	struct json_object *json_afi_safi = NULL;
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
+					    &bgp, false);
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (uj)
+		json_all = json_object_new_object();
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		/*
+		 * So limit output to those afi/safi pairs that
+		 * actually have something interesting in them
+		 */
+		if (strmatch(get_afi_safi_str(afi, safi, true),
+			     "Unknown")) {
+			continue;
+		}
+		if (uj) {
+			json_afi_safi = json_object_new_array();
+			json_object_object_add(
+					       json_all,
+					       get_afi_safi_str(afi, safi, true),
+					       json_afi_safi);
+		} else {
+			json_afi_safi = NULL;
+		}
+
+		bgp_table_stats(vty, bgp, afi, safi, json_afi_safi);
+	}
+
+	if (uj) {
+		vty_out(vty, "%s",
+			json_object_to_json_string_ext(
+				json_all, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_all);
+	}
+
+	return CMD_SUCCESS;
+}
 
 /* BGP route print out function without JSON */
-DEFUN (show_ip_bgp,
-       show_ip_bgp_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]\
-          <dampening <parameters>\
-           |route-map WORD\
-           |prefix-list WORD\
-           |filter-list WORD\
-           |statistics\
-           |community-list <(1-500)|WORD> [exact-match]\
-           |A.B.C.D/M longer-prefixes\
-           |X:X::X:X/M longer-prefixes\
-	  >",
+DEFUN (show_ip_bgp_l2vpn_evpn_statistics,
+       show_ip_bgp_l2vpn_evpn_statistics_cmd,
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] l2vpn evpn statistics [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
-       "Display detailed information about dampening\n"
-       "Display detail of configured dampening parameters\n"
-       "Display routes matching the route-map\n"
-       "A route-map to match on\n"
-       "Display routes conforming to the prefix-list\n"
-       "Prefix-list name\n"
-       "Display routes conforming to the filter-list\n"
-       "Regular expression access list name\n"
+       L2VPN_HELP_STR
+       EVPN_HELP_STR
        "BGP RIB advertisement statistics\n"
-       "Display routes matching the community-list\n"
-       "community-list number\n"
-       "community-list name\n"
-       "Exact match of the communities\n"
-       "IPv4 prefix\n"
-       "Display route and more specific routes\n"
-       "IPv6 prefix\n"
-       "Display route and more specific routes\n")
+       JSON_STR)
+{
+	afi_t afi;
+	safi_t safi;
+	struct bgp *bgp = NULL;
+	int idx = 0, ret;
+	bool uj = use_json(argc, argv);
+	struct json_object *json_afi_safi = NULL, *json = NULL;
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
+					    &bgp, false);
+	if (!idx)
+		return CMD_WARNING;
+
+	if (uj)
+		json_afi_safi = json_object_new_array();
+	else
+		json_afi_safi = NULL;
+
+	ret = bgp_table_stats(vty, bgp, afi, safi, json_afi_safi);
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_object_add(json, get_afi_safi_str(afi, safi, true),
+				       json_afi_safi);
+		vty_out(vty, "%s", json_object_to_json_string_ext(
+					  json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+	return ret;
+}
+
+/* BGP route print out function without JSON */
+DEFUN(show_ip_bgp_afi_safi_statistics, show_ip_bgp_afi_safi_statistics_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
+      " [" BGP_SAFI_WITH_LABEL_CMD_STR
+      "]]\
+         statistics [json]",
+      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
+	      BGP_SAFI_WITH_LABEL_HELP_STR
+      "BGP RIB advertisement statistics\n" JSON_STR)
+{
+	afi_t afi;
+	safi_t safi;
+	struct bgp *bgp = NULL;
+	int idx = 0, ret;
+	bool uj = use_json(argc, argv);
+	struct json_object *json_afi_safi = NULL, *json = NULL;
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
+					    &bgp, false);
+	if (!idx)
+		return CMD_WARNING;
+
+	if (uj)
+		json_afi_safi = json_object_new_array();
+	else
+		json_afi_safi = NULL;
+
+	ret = bgp_table_stats(vty, bgp, afi, safi, json_afi_safi);
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_object_add(json, get_afi_safi_str(afi, safi, true),
+				       json_afi_safi);
+		vty_out(vty, "%s",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+	return ret;
+}
+
+/* BGP route print out function without JSON */
+DEFUN(show_ip_bgp, show_ip_bgp_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
+      " [" BGP_SAFI_WITH_LABEL_CMD_STR
+      "]]\
+          <dampening <parameters>\
+           |route-map WORD\
+           |prefix-list WORD\
+           |filter-list WORD\
+           |community-list <(1-500)|WORD> [exact-match]\
+           |A.B.C.D/M longer-prefixes\
+           |X:X::X:X/M longer-prefixes\
+         >",
+      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
+	      BGP_SAFI_WITH_LABEL_HELP_STR
+      "Display detailed information about dampening\n"
+      "Display detail of configured dampening parameters\n"
+      "Display routes matching the route-map\n"
+      "A route-map to match on\n"
+      "Display routes conforming to the prefix-list\n"
+      "Prefix-list name\n"
+      "Display routes conforming to the filter-list\n"
+      "Regular expression access list name\n"
+      "Display routes matching the community-list\n"
+      "community-list number\n"
+      "community-list name\n"
+      "Exact match of the communities\n"
+      "IPv4 prefix\n"
+      "Display route and more specific routes\n"
+      "IPv6 prefix\n"
+      "Display route and more specific routes\n")
 {
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
@@ -10608,9 +10740,6 @@ DEFUN (show_ip_bgp,
 	if (argv_find(argv, argc, "filter-list", &idx))
 		return bgp_show_filter_list(vty, bgp, argv[idx + 1]->arg, afi,
 					    safi, bgp_show_type_filter_list);
-
-	if (argv_find(argv, argc, "statistics", &idx))
-		return bgp_table_stats(vty, bgp, afi, safi);
 
 	if (argv_find(argv, argc, "route-map", &idx))
 		return bgp_show_route_map(vty, bgp, argv[idx + 1]->arg, afi,
@@ -11021,22 +11150,33 @@ enum bgp_stats {
 	BGP_STATS_MAX,
 };
 
-static const char *const table_stats_strs[] = {
-		[BGP_STATS_PREFIXES] = "Total Prefixes",
-		[BGP_STATS_TOTPLEN] = "Average prefix length",
-		[BGP_STATS_RIB] = "Total Advertisements",
-		[BGP_STATS_UNAGGREGATEABLE] = "Unaggregateable prefixes",
-		[BGP_STATS_MAX_AGGREGATEABLE] =
-			"Maximum aggregateable prefixes",
-		[BGP_STATS_AGGREGATES] = "BGP Aggregate advertisements",
-		[BGP_STATS_SPACE] = "Address space advertised",
-		[BGP_STATS_ASPATH_COUNT] = "Advertisements with paths",
-		[BGP_STATS_ASPATH_MAXHOPS] = "Longest AS-Path (hops)",
-		[BGP_STATS_ASPATH_MAXSIZE] = "Largest AS-Path (bytes)",
-		[BGP_STATS_ASPATH_TOTHOPS] = "Average AS-Path length (hops)",
-		[BGP_STATS_ASPATH_TOTSIZE] = "Average AS-Path size (bytes)",
-		[BGP_STATS_ASN_HIGHEST] = "Highest public ASN",
-		[BGP_STATS_MAX] = NULL,
+#define TABLE_STATS_IDX_VTY 0
+#define TABLE_STATS_IDX_JSON 1
+
+static const char *table_stats_strs[][2] = {
+	[BGP_STATS_PREFIXES] = {"Total Prefixes", "totalPrefixes"},
+	[BGP_STATS_TOTPLEN] = {"Average prefix length", "averagePrefixLength"},
+	[BGP_STATS_RIB] = {"Total Advertisements", "totalAdvertisements"},
+	[BGP_STATS_UNAGGREGATEABLE] = {"Unaggregateable prefixes",
+				       "unaggregateablePrefixes"},
+	[BGP_STATS_MAX_AGGREGATEABLE] = {"Maximum aggregateable prefixes",
+					 "maximumAggregateablePrefixes"},
+	[BGP_STATS_AGGREGATES] = {"BGP Aggregate advertisements",
+				  "bgpAggregateAdvertisements"},
+	[BGP_STATS_SPACE] = {"Address space advertised",
+			     "addressSpaceAdvertised"},
+	[BGP_STATS_ASPATH_COUNT] = {"Advertisements with paths",
+				    "advertisementsWithPaths"},
+	[BGP_STATS_ASPATH_MAXHOPS] = {"Longest AS-Path (hops)",
+				      "longestAsPath"},
+	[BGP_STATS_ASPATH_MAXSIZE] = {"Largest AS-Path (bytes)",
+				      "largestAsPath"},
+	[BGP_STATS_ASPATH_TOTHOPS] = {"Average AS-Path length (hops)",
+				      "averageAsPathLengthHops"},
+	[BGP_STATS_ASPATH_TOTSIZE] = {"Average AS-Path size (bytes)",
+				      "averageAsPathSizeBytes"},
+	[BGP_STATS_ASN_HIGHEST] = {"Highest public ASN", "highestPublicAsn"},
+	[BGP_STATS_MAX] = {NULL, NULL}
 };
 
 struct bgp_table_stats {
@@ -11161,7 +11301,9 @@ static int bgp_table_stats_walker(struct thread *t)
 	ts->counts[BGP_STATS_MAXBITLEN] = space;
 
 	for (rn = top; rn; rn = bgp_route_next(rn)) {
-		if (ts->table->safi == SAFI_MPLS_VPN) {
+		if (ts->table->safi == SAFI_MPLS_VPN
+		    || ts->table->safi == SAFI_ENCAP
+		    || ts->table->safi == SAFI_EVPN) {
 			struct bgp_table *table;
 
 			table = bgp_node_get_bgp_table_info(rn);
@@ -11181,18 +11323,36 @@ static int bgp_table_stats_walker(struct thread *t)
 }
 
 static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
-			   safi_t safi)
+			   safi_t safi, struct json_object *json_array)
 {
 	struct bgp_table_stats ts;
 	unsigned int i;
+	int ret = CMD_SUCCESS;
+	char temp_buf[20];
+	struct json_object *json = NULL;
+
+	if (json_array)
+		json = json_object_new_object();
 
 	if (!bgp->rib[afi][safi]) {
-		vty_out(vty, "%% No RIB exist's for the AFI(%d)/SAFI(%d)\n",
-			afi, safi);
-		return CMD_WARNING;
+		char warning_msg[50];
+
+		snprintf(warning_msg, sizeof(warning_msg),
+			 "%% No RIB exist's for the AFI(%d)/SAFI(%d)", afi,
+			 safi);
+
+		if (!json)
+			vty_out(vty, "%s\n", warning_msg);
+		else
+			json_object_string_add(json, "warning", warning_msg);
+
+		ret = CMD_WARNING;
+		goto end_table_stats;
 	}
 
-	vty_out(vty, "BGP %s RIB statistics\n", get_afi_safi_str(afi, safi, false));
+	if (!json)
+		vty_out(vty, "BGP %s RIB statistics\n",
+			get_afi_safi_str(afi, safi, false));
 
 	/* labeled-unicast routes live in the unicast table */
 	if (safi == SAFI_LABELED_UNICAST)
@@ -11203,7 +11363,8 @@ static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
 	thread_execute(bm->master, bgp_table_stats_walker, &ts, 0);
 
 	for (i = 0; i < BGP_STATS_MAX; i++) {
-		if (!table_stats_strs[i])
+		if ((!json && !table_stats_strs[i][TABLE_STATS_IDX_VTY])
+		    || (json && !table_stats_strs[i][TABLE_STATS_IDX_JSON]))
 			continue;
 
 		switch (i) {
@@ -11218,54 +11379,166 @@ static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
 #endif
 		case BGP_STATS_ASPATH_TOTHOPS:
 		case BGP_STATS_ASPATH_TOTSIZE:
-			vty_out(vty, "%-30s: ", table_stats_strs[i]);
-			vty_out(vty, "%12.2f",
-				ts.counts[i]
-					? (float)ts.counts[i]
-						  / (float)ts.counts
+			if (!json) {
+				snprintf(
+					temp_buf, sizeof(temp_buf), "%12.2f",
+					ts.counts[i]
+						? (float)ts.counts[i]
+							  / (float)ts.counts
+								    [BGP_STATS_ASPATH_COUNT]
+						: 0);
+				vty_out(vty, "%-30s: %s",
+					table_stats_strs[i]
+							[TABLE_STATS_IDX_VTY],
+					temp_buf);
+			} else {
+				json_object_double_add(
+					json,
+					table_stats_strs[i]
+							[TABLE_STATS_IDX_JSON],
+					ts.counts[i]
+						? (double)ts.counts[i]
+							  / (double)ts.counts
 							    [BGP_STATS_ASPATH_COUNT]
-					: 0);
+						: 0);
+			}
 			break;
 		case BGP_STATS_TOTPLEN:
-			vty_out(vty, "%-30s: ", table_stats_strs[i]);
-			vty_out(vty, "%12.2f",
-				ts.counts[i]
-					? (float)ts.counts[i]
-						  / (float)ts.counts
+			if (!json) {
+				snprintf(
+					temp_buf, sizeof(temp_buf), "%12.2f",
+					ts.counts[i]
+						? (float)ts.counts[i]
+							  / (float)ts.counts
 							    [BGP_STATS_PREFIXES]
-					: 0);
+						: 0);
+				vty_out(vty, "%-30s: %s",
+					table_stats_strs[i]
+							[TABLE_STATS_IDX_VTY],
+					temp_buf);
+			} else {
+				json_object_double_add(
+					json,
+					table_stats_strs[i]
+							[TABLE_STATS_IDX_JSON],
+					ts.counts[i]
+						? (double)ts.counts[i]
+							  / (double)ts.counts
+							    [BGP_STATS_PREFIXES]
+						: 0);
+			}
 			break;
 		case BGP_STATS_SPACE:
-			vty_out(vty, "%-30s: ", table_stats_strs[i]);
-			vty_out(vty, "%12g\n", ts.total_space);
-
-			if (afi == AFI_IP6) {
-				vty_out(vty, "%30s: ", "/32 equivalent ");
-				vty_out(vty, "%12g\n",
-					ts.total_space * pow(2.0, -128 + 32));
-				vty_out(vty, "%30s: ", "/48 equivalent ");
-				vty_out(vty, "%12g\n",
-					ts.total_space * pow(2.0, -128 + 48));
+			if (!json) {
+				snprintf(temp_buf, sizeof(temp_buf), "%12g",
+					 ts.total_space);
+				vty_out(vty, "%-30s: %s\n",
+					table_stats_strs[i]
+							[TABLE_STATS_IDX_VTY],
+					temp_buf);
 			} else {
-				vty_out(vty, "%30s: ", "% announced ");
-				vty_out(vty, "%12.2f\n",
-					ts.total_space * 100. * pow(2.0, -32));
-				vty_out(vty, "%30s: ", "/8 equivalent ");
-				vty_out(vty, "%12.2f\n",
-					ts.total_space * pow(2.0, -32 + 8));
-				vty_out(vty, "%30s: ", "/24 equivalent ");
-				vty_out(vty, "%12.2f\n",
-					ts.total_space * pow(2.0, -32 + 24));
+				json_object_double_add(
+					json,
+					table_stats_strs[i]
+							[TABLE_STATS_IDX_JSON],
+					(double)ts.total_space);
+			}
+			if (afi == AFI_IP6) {
+				if (!json) {
+					snprintf(temp_buf, sizeof(temp_buf),
+						 "%12g",
+						 ts.total_space
+							 * pow(2.0, -128 + 32));
+					vty_out(vty, "%30s: %s\n",
+						"/32 equivalent %s\n",
+						temp_buf);
+				} else {
+					json_object_double_add(
+						json, "/32equivalent",
+						(double)(ts.total_space
+							 * pow(2.0,
+							       -128 + 32)));
+				}
+				if (!json) {
+					snprintf(temp_buf, sizeof(temp_buf),
+						 "%12g",
+						 ts.total_space
+							 * pow(2.0, -128 + 48));
+					vty_out(vty, "%30s: %s\n",
+						"/48 equivalent %s\n",
+						temp_buf);
+				} else {
+					json_object_double_add(
+						json, "/48equivalent",
+						(double)(ts.total_space
+							 * pow(2.0,
+							       -128 + 48)));
+				}
+			} else {
+				if (!json) {
+					snprintf(temp_buf, sizeof(temp_buf),
+						 "%12.2f",
+						 ts.total_space * 100.
+							 * pow(2.0, -32));
+					vty_out(vty, "%30s: %s\n",
+						"% announced ", temp_buf);
+				} else {
+					json_object_double_add(
+						json, "%announced",
+						(double)(ts.total_space * 100.
+							 * pow(2.0, -32)));
+				}
+				if (!json) {
+					snprintf(temp_buf, sizeof(temp_buf),
+						 "%12.2f",
+						 ts.total_space
+							 * pow(2.0, -32 + 8));
+					vty_out(vty, "%30s: %s\n",
+						"/8 equivalent ", temp_buf);
+				} else {
+					json_object_double_add(
+						json, "/8equivalent",
+						(double)(ts.total_space
+							 * pow(2.0, -32 + 8)));
+				}
+				if (!json) {
+					snprintf(temp_buf, sizeof(temp_buf),
+						 "%12.2f",
+						 ts.total_space
+							 * pow(2.0, -32 + 24));
+					vty_out(vty, "%30s: %s\n",
+						"/24 equivalent ", temp_buf);
+				} else {
+					json_object_double_add(
+						json, "/24equivalent",
+						(double)(ts.total_space
+							 * pow(2.0, -32 + 24)));
+				}
 			}
 			break;
 		default:
-			vty_out(vty, "%-30s: ", table_stats_strs[i]);
-			vty_out(vty, "%12llu", ts.counts[i]);
+			if (!json) {
+				snprintf(temp_buf, sizeof(temp_buf), "%12llu",
+					 ts.counts[i]);
+				vty_out(vty, "%-30s: %s",
+					table_stats_strs[i]
+							[TABLE_STATS_IDX_VTY],
+					temp_buf);
+			} else {
+				json_object_int_add(
+					json,
+					table_stats_strs[i]
+							[TABLE_STATS_IDX_JSON],
+					ts.counts[i]);
+			}
 		}
-
-		vty_out(vty, "\n");
+		if (!json)
+			vty_out(vty, "\n");
 	}
-	return CMD_SUCCESS;
+end_table_stats:
+	if (json)
+		json_object_array_add(json_array, json);
+	return ret;
 }
 
 enum bgp_pcounts {
@@ -13147,9 +13420,12 @@ void bgp_route_init(void)
 	/* IPv4 labeled-unicast configuration.  */
 	install_element(VIEW_NODE, &show_ip_bgp_instance_all_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_afi_safi_statistics_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_statistics_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_json_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_route_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_regexp_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_statistics_all_cmd);
 
 	install_element(VIEW_NODE,
 			&show_ip_bgp_instance_neighbor_advertised_route_cmd);

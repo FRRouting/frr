@@ -2677,6 +2677,16 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    Display flap statistics of routes of the selected afi and safi selected.
 
+.. index:: show bgp [afi] [safi] statistics
+.. clicmd:: show bgp [afi] [safi] statistics
+
+   Display statistics of routes of the selected afi and safi.
+
+.. index:: show bgp statistics-all
+.. clicmd:: show bgp statistics-all
+
+   Display statistics of routes of all the afi and safi.
+
 .. _bgp-display-routes-by-community:
 
 Displaying Routes by Community Attribute
