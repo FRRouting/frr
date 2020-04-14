@@ -120,7 +120,7 @@ struct pim_router {
 	struct in_addr anycast_vtep_ip;
 	struct in_addr local_vtep_ip;
 	struct pim_mlag_stats mlag_stats;
-	enum pim_mlag_flags mlag_flags;
+	uint8_t mlag_flags;
 	char peerlink_rif[INTERFACE_NAMSIZ];
 	struct interface *peerlink_rif_p;
 };

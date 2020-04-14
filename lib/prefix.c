@@ -663,7 +663,8 @@ void masklen2ip(const int masklen, struct in_addr *netmask)
 	 * has defined behaviour for << 32 (or has a 64-bit left shift) */
 
 	if (sizeof(unsigned long long) > 4)
-		netmask->s_addr = htonl(0xffffffffULL << (32 - masklen));
+		netmask->s_addr =
+			htonl((uint32_t)(0xffffffffULL << (32 - masklen)));
 	else
 		netmask->s_addr =
 			htonl(masklen ? 0xffffffffU << (32 - masklen) : 0);
