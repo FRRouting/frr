@@ -23,6 +23,7 @@ from time import sleep
 import traceback
 import ipaddr
 import os
+import sys
 from lib import topotest
 from lib.topolog import logger
 
@@ -35,12 +36,14 @@ from lib.common_config import (
     generate_ips,
     validate_ip_address,
     find_interface_with_greater_ip,
-    run_frr_cmd, FRRCFG_FILE,
+    run_frr_cmd,
+    FRRCFG_FILE,
     retry,
 )
 
 LOGDIR = "/tmp/topotests/"
 TMPDIR = None
+
 
 def create_router_bgp(tgen, topo, input_dict=None, build=False, load_config=True):
     """
@@ -64,9 +67,9 @@ def create_router_bgp(tgen, topo, input_dict=None, build=False, load_config=True
                     "graceful-restart": True,
                     "preserve-fw-state": True,
                     "timer": {
-                        "restart-time": 300,
-                        "rib-stale-time": 300,
-                        "select-defer-time": 300,
+                        "restart-time": 30,
+                        "rib-stale-time": 30,
+                        "select-defer-time": 30,
                     }
                 },
                 "address_family": {
@@ -93,21 +96,21 @@ def create_router_bgp(tgen, topo, input_dict=None, build=False, load_config=True
                                     "dest_link": {
                                         "r4": {
                                             "allowas-in": {
-                                                    "number_occurences":2
+                                                    "number_occurences": 2
                                             },
-                                            "graceful-restart": True",
                                             "prefix_lists": [
                                                 {
                                                     "name": "pf_list_1",
                                                     "direction": "in"
                                                 }
                                             ],
-                                            "route_maps": [
-                                                {"name": "RMAP_MED_R3",
-                                                 "direction": "in"}
-                                            ],
+                                            "route_maps": [{
+                                                "name": "RMAP_MED_R3",
+                                                 "direction": "in"
+                                            }],
                                             "next_hop_self": True
-                                        }
+                                        },
+                                        "r1": {"graceful-restart-helper": True}
                                     }
                                 }
                             }
@@ -123,7 +126,7 @@ def create_router_bgp(tgen, topo, input_dict=None, build=False, load_config=True
     -------
     True or False
     """
-    logger.debug("Entering lib API: create_router_bgp()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     result = False
 
     # Flag is used when testing ipv6 over ipv4 or vice-versa
@@ -165,8 +168,12 @@ def create_router_bgp(tgen, topo, input_dict=None, build=False, load_config=True
 
                 if neigh_unicast:
                     data_all_bgp = __create_bgp_unicast_neighbor(
-                        tgen, topo, input_dict, router, afi_test,
-                        config_data=data_all_bgp
+                        tgen,
+                        topo,
+                        input_dict,
+                        router,
+                        afi_test,
+                        config_data=data_all_bgp,
                     )
 
         try:
@@ -179,7 +186,7 @@ def create_router_bgp(tgen, topo, input_dict=None, build=False, load_config=True
             logger.error(errormsg)
             return errormsg
 
-    logger.debug("Exiting lib API: create_router_bgp()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
 
 
@@ -199,7 +206,7 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
     True or False
     """
 
-    logger.debug("Entering lib API: __create_bgp_global()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     bgp_data = input_dict[router]["bgp"]
     del_bgp_action = bgp_data.setdefault("delete", False)
@@ -223,8 +230,6 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
         cmd = "{} vrf {}".format(cmd, vrf_id)
 
     config_data.append(cmd)
-
-    # Skip RFC8212 in topotests
     config_data.append("no bgp ebgp-requires-policy")
 
     router_id = bgp_data.setdefault("router_id", None)
@@ -300,12 +305,13 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
 
                 config_data.append(cmd)
 
-    logger.debug("Exiting lib API: create_bgp_global()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return config_data
 
 
-def __create_bgp_unicast_neighbor(tgen, topo, input_dict, router, afi_test,
-                                  config_data=None):
+def __create_bgp_unicast_neighbor(
+    tgen, topo, input_dict, router, afi_test, config_data=None
+):
     """
     Helper API to create configuration for address-family unicast
 
@@ -319,7 +325,7 @@ def __create_bgp_unicast_neighbor(tgen, topo, input_dict, router, afi_test,
     * `build` : Only for initial setup phase this is set as True.
     """
 
-    logger.debug("Entering lib API: __create_bgp_unicast_neighbor()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     add_neigh = True
     if "router bgp" in config_data:
@@ -428,7 +434,7 @@ def __create_bgp_unicast_neighbor(tgen, topo, input_dict, router, afi_test,
 
             config_data.extend(neigh_addr_data)
 
-    logger.debug("Exiting lib API: __create_bgp_unicast_neighbor()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return config_data
 
 
@@ -445,7 +451,7 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
     """
 
     config_data = []
-    logger.debug("Entering lib API: __create_bgp_neighbor()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     bgp_data = input_dict[router]["bgp"]["address_family"]
     neigh_data = bgp_data[addr_type]["unicast"]["neighbor"]
@@ -520,7 +526,7 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
                 )
                 config_data.append("{} enforce-multihop".format(neigh_cxt))
 
-    logger.debug("Exiting lib API: __create_bgp_unicast_neighbor()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return config_data
 
 
@@ -541,7 +547,7 @@ def __create_bgp_unicast_address_family(
     """
 
     config_data = []
-    logger.debug("Entering lib API: __create_bgp_unicast_neighbor()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     bgp_data = input_dict[router]["bgp"]["address_family"]
     neigh_data = bgp_data[addr_type]["unicast"]["neighbor"]
@@ -573,26 +579,23 @@ def __create_bgp_unicast_address_family(
                         ]
 
             neigh_cxt = "neighbor {}".format(ip_addr)
-            config_data.append("address-family {} unicast".format(
-                addr_type
-            ))
+            config_data.append("address-family {} unicast".format(addr_type))
 
             if activate_addr_family is not None:
-                config_data.append("address-family {} unicast".format(
-                    activate_addr_family))
-
                 config_data.append(
-                    "{} activate".format(neigh_cxt))
+                    "address-family {} unicast".format(activate_addr_family)
+                )
+
+                config_data.append("{} activate".format(neigh_cxt))
 
             if deactivate and activate_addr_family is None:
-               config_data.append(
-                   "no neighbor {} activate".format(deactivate))
+                config_data.append("no neighbor {} activate".format(deactivate))
 
             if deactivate_addr_family is not None:
-                config_data.append("address-family {} unicast".format(
-                    deactivate_addr_family))
                 config_data.append(
-                    "no {} activate".format(neigh_cxt))
+                    "address-family {} unicast".format(deactivate_addr_family)
+                )
+                config_data.append("no {} activate".format(neigh_cxt))
 
             next_hop_self = peer.setdefault("next_hop_self", None)
             send_community = peer.setdefault("send_community", None)
@@ -722,7 +725,7 @@ def modify_bgp_config_when_bgpd_down(tgen, topo, input_dict):
 
     """
 
-    logger.debug("Entering lib API: modify_bgp_config_when_bgpd_down()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     try:
 
         global LOGDIR
@@ -759,7 +762,7 @@ def modify_bgp_config_when_bgpd_down(tgen, topo, input_dict):
         logger.error(errormsg)
         return errormsg
 
-    logger.debug("Exiting lib API: modify_bgp_config_when_bgpd_down")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -801,7 +804,7 @@ def verify_router_id(tgen, topo, input_dict):
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_router_id()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     for router in input_dict.keys():
         if router not in tgen.routers():
             continue
@@ -832,7 +835,7 @@ def verify_router_id(tgen, topo, input_dict):
             )
             return errormsg
 
-    logger.debug("Exiting lib API: verify_router_id()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -857,7 +860,7 @@ def verify_bgp_convergence(tgen, topo):
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_bgp_convergence()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     for router, rnode in tgen.routers().iteritems():
         if "bgp" not in topo["routers"][router]:
             continue
@@ -939,7 +942,7 @@ def modify_as_number(tgen, topo, input_dict):
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: modify_as_number()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     try:
 
         new_topo = deepcopy(topo["routers"])
@@ -966,8 +969,7 @@ def modify_as_number(tgen, topo, input_dict):
         logger.error(errormsg)
         return errormsg
 
-    logger.debug("Exiting lib API: modify_as_number()")
-
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -1001,7 +1003,7 @@ def verify_as_numbers(tgen, topo, input_dict):
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_as_numbers()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     for router in input_dict.keys():
         if router not in tgen.routers():
             continue
@@ -1066,8 +1068,45 @@ def verify_as_numbers(tgen, topo, input_dict):
                             remote_as,
                         )
 
-    logger.debug("Exiting lib API: verify_AS_numbers()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
+
+
+def clear_bgp(tgen, addr_type, router, vrf=None):
+    """
+    This API is to clear bgp neighborship by running
+    clear ip bgp */clear bgp ipv6 * command,
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `addr_type`: ip type ipv4/ipv6
+    * `router`: device under test
+    * `vrf`: vrf name
+
+    Usage
+    -----
+    clear_bgp(tgen, addr_type, "r1")
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    if router not in tgen.routers():
+        return False
+
+    rnode = tgen.routers()[router]
+
+    if vrf:
+        if type(vrf) is not list:
+            vrf = [vrf]
+
+    # Clearing BGP
+    logger.info("Clearing BGP neighborship for router %s..", router)
+    if addr_type == "ipv4":
+        run_frr_cmd(rnode, "clear ip bgp *")
+    elif addr_type == "ipv6":
+        run_frr_cmd(rnode, "clear bgp ipv6 *")
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
 
 
 def clear_bgp_and_verify(tgen, topo, router):
@@ -1093,7 +1132,7 @@ def clear_bgp_and_verify(tgen, topo, router):
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: clear_bgp_and_verify()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     if router not in tgen.routers():
         return False
@@ -1264,7 +1303,7 @@ def clear_bgp_and_verify(tgen, topo, router):
         )
         return errormsg
 
-    logger.debug("Exiting lib API: clear_bgp_and_verify()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -1300,7 +1339,7 @@ def verify_bgp_timers_and_functionality(tgen, topo, input_dict):
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_bgp_timers_and_functionality()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     sleep(5)
     router_list = tgen.routers()
     for router in input_dict.keys():
@@ -1507,7 +1546,7 @@ def verify_bgp_timers_and_functionality(tgen, topo, input_dict):
                                 bgp_neighbor,
                             )
 
-    logger.debug("Exiting lib API: verify_bgp_timers_and_functionality()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -1571,7 +1610,7 @@ def verify_bgp_attributes(
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_bgp_attributes()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     for router, rnode in tgen.routers().iteritems():
         if router != dut:
             continue
@@ -1646,7 +1685,7 @@ def verify_bgp_attributes(
                                         )
                                         return errormsg
 
-    logger.debug("Exiting lib API: verify_bgp_attributes()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -1701,7 +1740,7 @@ def verify_best_path_as_per_bgp_attribute(
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_best_path_as_per_bgp_attribute()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     if router not in tgen.routers():
         return False
 
@@ -1811,7 +1850,7 @@ def verify_best_path_as_per_bgp_attribute(
                     router,
                 )
 
-    logger.debug("Exiting lib API: verify_best_path_as_per_bgp_attribute()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -1850,7 +1889,7 @@ def verify_best_path_as_per_admin_distance(
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_best_path_as_per_admin_distance()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     router_list = tgen.routers()
     if router not in router_list:
         return False
@@ -1922,11 +1961,11 @@ def verify_best_path_as_per_admin_distance(
                 router,
             )
 
-    logger.info("Exiting lib API: verify_best_path_as_per_admin_distance()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
-@retry(attempts=5, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=10, wait=2, return_is_str=True, initial_wait=2)
 def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None):
     """
     This API is to verify whether bgp rib has any
@@ -1956,7 +1995,7 @@ def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None)
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_bgp_rib()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     router_list = tgen.routers()
     additional_nexthops_in_required_nhs = []
@@ -2171,7 +2210,7 @@ def verify_bgp_rib(tgen, addr_type, dut, input_dict, next_hop=None, aspath=None)
                             "routes are: {}\n".format(dut, found_routes)
                         )
 
-    logger.debug("Exiting lib API: verify_bgp_rib()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -2234,7 +2273,7 @@ def verify_graceful_restart(tgen, topo, addr_type, input_dict, dut, peer):
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_graceful_restart()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     for router, rnode in tgen.routers().iteritems():
         if router != dut:
@@ -2272,8 +2311,6 @@ def verify_graceful_restart(tgen, topo, addr_type, input_dict, dut, peer):
                 ),
                 isjson=True,
             )
-
-            logger.info("show_bgp_graceful_json {}".format(show_bgp_graceful_json))
 
             show_bgp_graceful_json_out = show_bgp_graceful_json[neighbor_ip]
 
@@ -2422,7 +2459,7 @@ def verify_graceful_restart(tgen, topo, addr_type, input_dict, dut, peer):
                 )
                 return errormsg
 
-    logger.debug("Exiting lib API: verify_graceful_restart()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -2484,7 +2521,7 @@ def verify_r_bit(tgen, topo, addr_type, input_dict, dut, peer):
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_r_bit()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     for router, rnode in tgen.routers().iteritems():
         if router != dut:
@@ -2540,11 +2577,11 @@ def verify_r_bit(tgen, topo, addr_type, input_dict, dut, peer):
                     errormsg = "[DUT: {}]: Rbit false {}".format(dut, neighbor_ip)
                     return errormsg
 
-    logger.debug("Exiting lib API: verify_r_bit()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
-@retry(attempts=5, wait=2, return_is_str=True, initial_wait=2)
+@retry(attempts=4, wait=2, return_is_str=True, initial_wait=2)
 def verify_eor(tgen, topo, addr_type, input_dict, dut, peer):
     """
     This API is to verify EOR
@@ -2602,7 +2639,7 @@ def verify_eor(tgen, topo, addr_type, input_dict, dut, peer):
     -------
     errormsg(str) or True
     """
-    logger.debug("Entering lib API: verify_eor()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     for router, rnode in tgen.routers().iteritems():
         if router != dut:
@@ -2651,58 +2688,59 @@ def verify_eor(tgen, topo, addr_type, input_dict, dut, peer):
                 )
                 return errormsg
 
-            for afi, afi_data in show_bgp_graceful_json_out.items():
-                if "v4" not in afi and "v6" not in afi:
-                    continue
+            if addr_type == "ipv4":
+                afi = "ipv4Unicast"
+            elif addr_type == "ipv6":
+                afi = "ipv6Unicast"
+            else:
+                errormsg = "Address type %s is not supported" % (addr_type)
+                return errormsg
 
-                eor_json = afi_data["endOfRibStatus"]
-                if "endOfRibSend" in eor_json:
+            eor_json = show_bgp_graceful_json_out[afi]["endOfRibStatus"]
+            if "endOfRibSend" in eor_json:
 
-                    if eor_json["endOfRibSend"]:
-                        logger.info(
-                            "[DUT: %s]: EOR Send true for %s " "%s",
-                            dut,
-                            neighbor_ip,
-                            afi,
-                        )
-                    else:
-                        errormsg = "[DUT: %s]: EOR Send false for %s" " %s" % (
-                            dut,
-                            neighbor_ip,
-                            afi,
-                        )
-                        return errormsg
+                if eor_json["endOfRibSend"]:
+                    logger.info(
+                        "[DUT: %s]: EOR Send true for %s " "%s", dut, neighbor_ip, afi
+                    )
+                else:
+                    errormsg = "[DUT: %s]: EOR Send false for %s" " %s" % (
+                        dut,
+                        neighbor_ip,
+                        afi,
+                    )
+                    return errormsg
 
-                if "endOfRibRecv" in eor_json:
-                    if eor_json["endOfRibRecv"]:
-                        logger.info(
-                            "[DUT: %s]: EOR Recv true %s " "%s", dut, neighbor_ip, afi
-                        )
-                    else:
-                        errormsg = "[DUT: %s]: EOR Recv false %s " "%s" % (
-                            dut,
-                            neighbor_ip,
-                            afi,
-                        )
-                        return errormsg
+            if "endOfRibRecv" in eor_json:
+                if eor_json["endOfRibRecv"]:
+                    logger.info(
+                        "[DUT: %s]: EOR Recv true %s " "%s", dut, neighbor_ip, afi
+                    )
+                else:
+                    errormsg = "[DUT: %s]: EOR Recv false %s " "%s" % (
+                        dut,
+                        neighbor_ip,
+                        afi,
+                    )
+                    return errormsg
 
-                if "endOfRibSentAfterUpdate" in eor_json:
-                    if eor_json["endOfRibSentAfterUpdate"]:
-                        logger.info(
-                            "[DUT: %s]: EOR SendTime true for %s" " %s",
-                            dut,
-                            neighbor_ip,
-                            afi,
-                        )
-                    else:
-                        errormsg = "[DUT: %s]: EOR SendTime false for " "%s %s" % (
-                            dut,
-                            neighbor_ip,
-                            afi,
-                        )
-                        return errormsg
+            if "endOfRibSentAfterUpdate" in eor_json:
+                if eor_json["endOfRibSentAfterUpdate"]:
+                    logger.info(
+                        "[DUT: %s]: EOR SendTime true for %s" " %s",
+                        dut,
+                        neighbor_ip,
+                        afi,
+                    )
+                else:
+                    errormsg = "[DUT: %s]: EOR SendTime false for " "%s %s" % (
+                        dut,
+                        neighbor_ip,
+                        afi,
+                    )
+                    return errormsg
 
-    logger.debug("Exiting lib API: verify_eor()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -2766,7 +2804,7 @@ def verify_f_bit(tgen, topo, addr_type, input_dict, dut, peer):
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_f_bit()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     for router, rnode in tgen.routers().iteritems():
         if router != dut:
@@ -2815,21 +2853,34 @@ def verify_f_bit(tgen, topo, addr_type, input_dict, dut, peer):
                 )
                 return errormsg
 
-            for afi, afi_data in show_bgp_graceful_json_out.items():
-                if "v4" not in afi and "v6" not in afi:
-                    continue
-
-                if afi_data["fBit"]:
+            if "ipv4Unicast" in show_bgp_graceful_json_out:
+                if show_bgp_graceful_json_out["ipv4Unicast"]["fBit"]:
                     logger.info(
-                        "[DUT: {}]: Fbit True for {} {}".format(dut, neighbor_ip, afi)
+                        "[DUT: {}]: Fbit True for {} IPv4"
+                        " Unicast".format(dut, neighbor_ip)
                     )
                 else:
-                    errormsg = "[DUT: {}]: Fbit False for {} {}".format(
-                        dut, neighbor_ip, afi
+                    errormsg = "[DUT: {}]: Fbit False for {} IPv4" " Unicast".format(
+                        dut, neighbor_ip
                     )
                     return errormsg
 
-    logger.debug("Exiting lib API: verify_f_bit()")
+            elif "ipv6Unicast" in show_bgp_graceful_json_out:
+                if show_bgp_graceful_json_out["ipv6Unicast"]["fBit"]:
+                    logger.info(
+                        "[DUT: {}]: Fbit True for {} IPv6"
+                        " Unicast".format(dut, neighbor_ip)
+                    )
+                else:
+                    errormsg = "[DUT: {}]: Fbit False for {} IPv6" " Unicast".format(
+                        dut, neighbor_ip
+                    )
+                    return errormsg
+            else:
+                show_bgp_graceful_json_out["ipv4Unicast"]
+                show_bgp_graceful_json_out["ipv6Unicast"]
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -2879,7 +2930,7 @@ def verify_graceful_restart_timers(tgen, topo, addr_type, input_dict, dut, peer)
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_graceful_restart_timers()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     for router, rnode in tgen.routers().iteritems():
         if router != dut:
@@ -2955,7 +3006,7 @@ def verify_graceful_restart_timers(tgen, topo, addr_type, input_dict, dut, peer)
                                 )
                                 return errormsg
 
-    logger.debug("Exiting lib API: verify_graceful_restart_timers")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
 
 
@@ -2970,20 +3021,20 @@ def verify_gr_address_family(tgen, topo, addr_type, addr_family, dut):
     * `tgen`: topogen object
     * `topo`: input json file data
     * `addr_type` : ip type ipv4/ipv6
-    * `addr_family` : address family type IPV4 Unicast/IPV6 Unicast
+    * `addr_type` : ip type IPV4 Unicast/IPV6 Unicast
     * `dut`: input dut router name
 
     Usage
     -----
-    result = verify_gr_address_family(tgen, topo, addr_type, addr_family,
-        , dut)
+
+    result = verify_gr_address_family(tgen, topo, "ipv4", "ipv4Unicast", "r1")
 
     Returns
     -------
     errormsg(str) or True
     """
 
-    logger.debug("Entering lib API: verify_gr_address_family()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     for router, rnode in tgen.routers().iteritems():
         if router != dut:
@@ -3025,19 +3076,25 @@ def verify_gr_address_family(tgen, topo, addr_type, addr_family, dut):
                 errormsg = "Neighbor ip NOT a match {}".format(neighbor_ip)
                 return errormsg
 
-            if "v4" in addr_family:
-                input_afi = "v4"
-            elif "v6" in addr_family:
-                input_afi = "v6"
-
-            for afi in show_bgp_graceful_json_out.keys():
-                if input_afi not in afi:
-                    continue
-                else:
-                    logger.info("{} present for {} ".format(addr_family, neighbor_ip))
+            if addr_family == "ipv4Unicast":
+                if "ipv4Unicast" in show_bgp_graceful_json_out:
+                    logger.info("ipv4Unicast present for {} ".format(neighbor_ip))
                     return True
+                else:
+                    errormsg = "ipv4Unicast NOT present for {} ".format(neighbor_ip)
+                    return errormsg
+
+            elif addr_family == "ipv6Unicast":
+                if "ipv6Unicast" in show_bgp_graceful_json_out:
+                    logger.info("ipv6Unicast present for {} ".format(neighbor_ip))
+                    return True
+                else:
+                    errormsg = "ipv6Unicast NOT present for {} ".format(neighbor_ip)
+                    return errormsg
             else:
-                errormsg = "{} NOT present for {} ".format(addr_family, neighbor_ip)
+                errormsg = "Aaddress family: {} present for {} ".format(
+                    addr_family, neighbor_ip
+                )
                 return errormsg
 
-    logger.debug("Exiting lib API: verify_gr_address_family()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
