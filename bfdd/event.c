@@ -48,10 +48,6 @@ void bfd_recvtimer_update(struct bfd_session *bs)
 		return;
 
 	tv_normalize(&tv);
-#ifdef BFD_EVENT_DEBUG
-	zlog_debug("%s: sec = %ld, usec = %ld", __func__, tv.tv_sec,
-		   tv.tv_usec);
-#endif /* BFD_EVENT_DEBUG */
 
 	thread_add_timer_tv(master, bfd_recvtimer_cb, bs, &tv,
 			    &bs->recvtimer_ev);
@@ -70,10 +66,6 @@ void bfd_echo_recvtimer_update(struct bfd_session *bs)
 		return;
 
 	tv_normalize(&tv);
-#ifdef BFD_EVENT_DEBUG
-	zlog_debug("%s: sec = %ld, usec = %ld", __func__, tv.tv_sec,
-		   tv.tv_usec);
-#endif /* BFD_EVENT_DEBUG */
 
 	thread_add_timer_tv(master, bfd_echo_recvtimer_cb, bs, &tv,
 			    &bs->echo_recvtimer_ev);
@@ -92,10 +84,6 @@ void bfd_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 		return;
 
 	tv_normalize(&tv);
-#ifdef BFD_EVENT_DEBUG
-	zlog_debug("%s: sec = %ld, usec = %ld", __func__, tv.tv_sec,
-		   tv.tv_usec);
-#endif /* BFD_EVENT_DEBUG */
 
 	thread_add_timer_tv(master, bfd_xmt_cb, bs, &tv, &bs->xmttimer_ev);
 }
@@ -113,10 +101,6 @@ void bfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 		return;
 
 	tv_normalize(&tv);
-#ifdef BFD_EVENT_DEBUG
-	zlog_debug("%s: sec = %ld, usec = %ld", __func__, tv.tv_sec,
-		   tv.tv_usec);
-#endif /* BFD_EVENT_DEBUG */
 
 	thread_add_timer_tv(master, bfd_echo_xmt_cb, bs, &tv,
 			    &bs->echo_xmttimer_ev);

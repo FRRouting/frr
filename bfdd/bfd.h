@@ -393,7 +393,26 @@ struct bfd_global {
 	struct obslist bg_obslist;
 
 	struct zebra_privs_t bfdd_privs;
+
+	/* Debug options. */
+	/* Show all peer state changes events. */
+	bool debug_peer_event;
+	/*
+	 * Show zebra message exchanges:
+	 * - Interface add/delete.
+	 * - Local address add/delete.
+	 * - VRF add/delete.
+	 */
+	bool debug_zebra;
+	/*
+	 * Show network level debug information:
+	 * - Echo packets without session.
+	 * - Unavailable peer sessions.
+	 * - Network system call failures.
+	 */
+	bool debug_network;
 };
+
 extern struct bfd_global bglobal;
 extern const struct bfd_diag_str_list diag_list[];
 extern const struct bfd_state_str_list state_list[];
@@ -510,7 +529,7 @@ void bs_state_handler(struct bfd_session *bs, int nstate);
 void bs_echo_timer_handler(struct bfd_session *bs);
 void bs_final_handler(struct bfd_session *bs);
 void bs_set_slow_timers(struct bfd_session *bs);
-const char *satostr(struct sockaddr_any *sa);
+const char *satostr(const struct sockaddr_any *sa);
 const char *diag2str(uint8_t diag);
 int strtosa(const char *addr, struct sockaddr_any *sa);
 void integer2timestr(uint64_t time, char *buf, size_t buflen);
