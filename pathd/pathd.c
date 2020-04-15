@@ -414,6 +414,10 @@ struct srte_candidate *srte_candidate_find(struct srte_policy *policy,
 void srte_candidate_status_update(struct srte_policy *policy,
 				  struct srte_candidate *candidate, int status)
 {
+	char endpoint[46];
+	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
+	zlog_debug("SR-TE(%s, %u): zebra updated status to %d", endpoint,
+		   policy->color, status);
 	switch (status) {
 	case ZEBRA_SR_POLICY_DOWN:
 		switch (policy->status) {
@@ -426,6 +430,8 @@ void srte_candidate_status_update(struct srte_policy *policy,
 		case SRTE_POLICY_STATUS_DOWN:
 			return;
 		default:
+			zlog_debug("SR-TE(%s, %u): policy is DOWN", endpoint,
+				   policy->color);
 			policy->status = SRTE_POLICY_STATUS_DOWN;
 			break;
 		}
@@ -435,6 +441,8 @@ void srte_candidate_status_update(struct srte_policy *policy,
 		case SRTE_POLICY_STATUS_UP:
 			return;
 		default:
+			zlog_debug("SR-TE(%s, %u): policy is UP", endpoint,
+				   policy->color);
 			policy->status = SRTE_POLICY_STATUS_UP;
 			break;
 		}

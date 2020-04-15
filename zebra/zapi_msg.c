@@ -2178,11 +2178,19 @@ int zsend_sr_policy_notify_status(uint32_t color, struct ipaddr *endpoint,
 
 	client = zserv_find_client(ZEBRA_ROUTE_SRTE, 0);
 	if (!client) {
-		zlog_debug(
-			"Not notifying pathd about changed policy status to %d.",
-			status);
+		if (IS_ZEBRA_DEBUG_PACKET)
+			zlog_debug(
+				"Not notifying pathd about policy %s"
+				" status change to %d",
+				name, status);
 		return 0;
 	}
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug(
+			"Notifying pathd about policy %s status change"
+			" to %d",
+			name, status);
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	stream_reset(s);
