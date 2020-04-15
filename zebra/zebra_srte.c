@@ -250,6 +250,9 @@ static void zebra_sr_policy_update(struct zebra_sr_policy *policy,
 		(void)zebra_sr_policy_bsid_install(policy);
 	}
 
+	zsend_sr_policy_notify_status(policy->color, &policy->endpoint,
+				      policy->name, ZEBRA_SR_POLICY_UP);
+
 	/* Handle segment-list update. */
 	if (policy->segment_list.label_num != old_tunnel->label_num
 	    || memcmp(policy->segment_list.labels, old_tunnel->labels,
