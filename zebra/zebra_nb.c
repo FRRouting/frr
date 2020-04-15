@@ -680,6 +680,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/weight",
+			.cbs = {
+				.get_elem = lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_weight_get_elem,
+			}
+		},
+		{
 			.xpath = NULL,
 		},
 	}

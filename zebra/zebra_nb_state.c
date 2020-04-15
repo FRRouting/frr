@@ -623,3 +623,15 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_fib_get_el
 	/* TODO: implement me. */
 	return NULL;
 }
+
+/*
+ * XPath:
+ * /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group/frr-nexthops/nexthop/weight
+ */
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_weight_get_elem(
+	const char *xpath, const void *list_entry)
+{
+	/* TODO: implement me. */
+	return NULL;
+}

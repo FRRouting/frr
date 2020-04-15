@@ -481,5 +481,8 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_active_get
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_fib_get_elem(
 	const char *xpath, const void *list_entry);
+struct yang_data *
+lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_weight_get_elem(
+	const char *xpath, const void *list_entry);
 
 #endif
