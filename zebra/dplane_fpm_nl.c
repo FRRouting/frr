@@ -369,7 +369,8 @@ static int fpm_write_config(struct vty *vty)
 }
 
 static struct cmd_node fpm_node = {
-	.node = VTY_NODE,
+	.name = "fpm",
+	.node = FPM_NODE,
 	.prompt = "",
 	.config_write = fpm_write_config,
 };

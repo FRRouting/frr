@@ -149,6 +149,7 @@ enum node_type {
 	MPLS_NODE,		 /* MPLS config node */
 	PW_NODE,		 /* Pseudowire config node */
 	VTY_NODE,		 /* Vty node. */
+	FPM_NODE,		 /* Dataplane FPM node. */
 	LINK_PARAMS_NODE,	/* Link-parameters node */
 	BGP_EVPN_VNI_NODE,       /* BGP EVPN VNI */
 	RPKI_NODE,     /* RPKI node for configuration of RPKI cache server
