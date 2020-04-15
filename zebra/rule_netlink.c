@@ -355,7 +355,7 @@ static int netlink_request_rules(struct zebra_ns *zns, int family, int type)
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct fib_rule_hdr));
 	req.frh.family = family;
 
-	return netlink_request(&zns->netlink_cmd, &req.n);
+	return netlink_request(&zns->netlink_cmd, &req);
 }
 
 /*

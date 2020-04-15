@@ -764,7 +764,7 @@ static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
 	if (filter_mask)
 		addattr32(&req.n, sizeof(req), IFLA_EXT_MASK, filter_mask);
 
-	return netlink_request(netlink_cmd, &req.n);
+	return netlink_request(netlink_cmd, &req);
 }
 
 /* Interface lookup by netlink socket. */

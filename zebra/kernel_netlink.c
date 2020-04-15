@@ -1061,10 +1061,11 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 /* Issue request message to kernel via netlink socket. GET messages
  * are issued through this interface.
  */
-int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
+int netlink_request(struct nlsock *nl, void *req)
 {
 	int ret;
 	struct sockaddr_nl snl;
+	struct nlmsghdr *n = (struct nlmsghdr *)req;
 
 	/* Check netlink socket. */
 	if (nl->sock < 0) {
@@ -1082,7 +1083,7 @@ int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
 
 	/* Raise capabilities and send message, then lower capabilities. */
 	frr_with_privs(&zserv_privs) {
-		ret = sendto(nl->sock, (void *)n, n->nlmsg_len, 0,
+		ret = sendto(nl->sock, req, n->nlmsg_len, 0,
 			     (struct sockaddr *)&snl, sizeof(snl));
 	}
 
