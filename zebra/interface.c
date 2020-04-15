@@ -65,7 +65,7 @@ static void if_zebra_speed_update(struct event *thread)
 	 * interfaces not available.
 	 * note that loopback & virtual interfaces can return 0 as speed
 	 */
-	if (error < 0)
+	if (error == INTERFACE_SPEED_ERROR_READ)
 		return;
 
 	if (new_speed != ifp->speed) {
@@ -76,7 +76,7 @@ static void if_zebra_speed_update(struct event *thread)
 		changed = true;
 	}
 
-	if (changed || new_speed == UINT32_MAX) {
+	if (changed || error == INTERFACE_SPEED_ERROR_UNKNOWN) {
 #define SPEED_UPDATE_SLEEP_TIME 5
 #define SPEED_UPDATE_COUNT_MAX (4 * 60 / SPEED_UPDATE_SLEEP_TIME)
 		/*
@@ -91,7 +91,7 @@ static void if_zebra_speed_update(struct event *thread)
 		 * to not update the system to keep track of that.  This
 		 * is far simpler to just stop trying after 4 minutes
 		 */
-		if (new_speed == UINT32_MAX &&
+		if (error == INTERFACE_SPEED_ERROR_UNKNOWN &&
 		    zif->speed_update_count == SPEED_UPDATE_COUNT_MAX)
 			return;
 
