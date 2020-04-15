@@ -1758,7 +1758,6 @@ lib_interface_state_phy_address_get_elem(const char *xpath,
 }
 
 /* clang-format off */
-
 const struct frr_yang_module_info frr_interface_info = {
 	.name = "frr-interface",
 	.nodes = {
