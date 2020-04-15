@@ -480,6 +480,35 @@ static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/*
+ * Send OPAQUE messages, using subtype 'type'.
+ */
+void sharp_opaque_send(uint32_t type, uint32_t count)
+{
+	uint8_t buf[100];
+	int ret;
+	uint32_t i;
+
+	/* Prepare a small payload */
+	for (i = 0; i < sizeof(buf); i++) {
+		if (type < 255)
+			buf[i] = type;
+		else
+			buf[i] = 255;
+	}
+
+	/* Send some messages */
+	for (i = 0; i < count; i++) {
+		ret = zclient_send_opaque(zclient, type, buf, sizeof(buf));
+		if (ret < 0) {
+			zlog_debug("%s: send_opaque() failed => %d",
+				   __func__, ret);
+			break;
+		}
+	}
+
+}
+
 extern struct zebra_privs_t sharp_privs;
 
 void sharp_zebra_init(void)

@@ -547,6 +547,20 @@ DEFPY (logpump,
 	return CMD_SUCCESS;
 }
 
+DEFPY (send_opaque,
+       send_opaque_cmd,
+       "sharp send opaque type (1-255) (1-1000)$count",
+       "Sharp Routing Protocol\n"
+       "Send messages for testing\n"
+       "Send opaque messages\n"
+       "Type code to send\n"
+       "Type code to send\n"
+       "Number of messages to send\n")
+{
+	sharp_opaque_send(type, count);
+	return CMD_SUCCESS;
+}
+
 void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
@@ -559,6 +573,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &sharp_lsp_prefix_v4_cmd);
 	install_element(ENABLE_NODE, &sharp_remove_lsp_prefix_v4_cmd);
 	install_element(ENABLE_NODE, &logpump_cmd);
+	install_element(ENABLE_NODE, &send_opaque_cmd);
 
 	install_element(VIEW_NODE, &show_debugging_sharpd_cmd);
 
