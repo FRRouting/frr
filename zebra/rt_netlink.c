@@ -983,7 +983,7 @@ static int netlink_request_route(struct zebra_ns *zns, int family, int type)
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
 	req.rtm.rtm_family = family;
 
-	return netlink_request(&zns->netlink_cmd, &req.n);
+	return netlink_request(&zns->netlink_cmd, &req);
 }
 
 /* Routing table read function using netlink interface.  Only called
@@ -2492,7 +2492,7 @@ static int netlink_request_nexthop(struct zebra_ns *zns, int family, int type)
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct nhmsg));
 	req.nhm.nh_family = family;
 
-	return netlink_request(&zns->netlink_cmd, &req.n);
+	return netlink_request(&zns->netlink_cmd, &req);
 }
 
 
@@ -2822,7 +2822,7 @@ static int netlink_request_macs(struct nlsock *netlink_cmd, int family,
 	if (master_ifindex)
 		addattr32(&req.n, sizeof(req), IFLA_MASTER, master_ifindex);
 
-	return netlink_request(netlink_cmd, &req.n);
+	return netlink_request(netlink_cmd, &req);
 }
 
 /*
@@ -2925,7 +2925,7 @@ static int netlink_request_specific_mac_in_bridge(struct zebra_ns *zns,
 			vrf_id_to_name(br_if->vrf_id), br_if->vrf_id,
 			prefix_mac2str(mac, buf, sizeof(buf)), vid);
 
-	return netlink_request(&zns->netlink_cmd, &req.n);
+	return netlink_request(&zns->netlink_cmd, &req);
 }
 
 int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
@@ -3225,7 +3225,7 @@ static int netlink_request_neigh(struct nlsock *netlink_cmd, int family,
 	if (ifindex)
 		addattr32(&req.n, sizeof(req), NDA_IFINDEX, ifindex);
 
-	return netlink_request(netlink_cmd, &req.n);
+	return netlink_request(netlink_cmd, &req);
 }
 
 /*
@@ -3313,7 +3313,7 @@ static int netlink_request_specific_neigh_in_vlan(struct zebra_ns *zns,
 			   ipaddr2str(ip, buf, sizeof(buf)), req.n.nlmsg_flags);
 	}
 
-	return netlink_request(&zns->netlink_cmd, &req.n);
+	return netlink_request(&zns->netlink_cmd, &req);
 }
 
 int netlink_neigh_read_specific_ip(struct ipaddr *ip,
