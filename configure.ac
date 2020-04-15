@@ -428,6 +428,9 @@ LT_INIT
 _LT_CONFIG_LIBTOOL([
   patch -N -i "${srcdir}/m4/libtool-whole-archive.patch" libtool >&AS_MESSAGE_LOG_FD || \
     AC_MSG_WARN([Could not patch libtool for static linking support.  Loading modules into a statically linked daemon will fail.])
+  sed -e 's%func_warning "relinking%true #\0%' -i libtool || true
+  sed -e 's%func_warning "remember to run%true #\0%' -i libtool || true
+  sed -e 's%func_warning ".*has not been installed in%true #\0%' -i libtool || true
 ])
 if test "$enable_static_bin" = "yes"; then
   AC_LDFLAGS="-static"
