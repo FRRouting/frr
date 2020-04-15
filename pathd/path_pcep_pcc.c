@@ -195,11 +195,21 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 		pcep_lib_connect(pcc_state->pcc_opts, pcc_state->pce_opts);
 
 	if (NULL == pcc_state->sess) {
-		flog_warn(EC_PATH_PCEP_LIB_CONNECT,
-			  "failed to connect to PCE %pI4:%d from %pI4:%d",
-			  &pcc_state->pce_opts->addr, pcc_state->pce_opts->port,
-			  &pcc_state->pcc_opts->addr,
-			  pcc_state->pcc_opts->port);
+		if (IS_IPADDR_V6(&pcc_state->pce_opts->addr)) {
+		    flog_warn(EC_PATH_PCEP_LIB_CONNECT,
+			      "failed to connect to PCE %pI6:%d from %pI6:%d",
+			      &pcc_state->pce_opts->addr.ipaddr_v6,
+			      pcc_state->pce_opts->port,
+			      &pcc_state->pcc_opts->addr.ipaddr_v6,
+			      pcc_state->pcc_opts->port);
+		} else {
+		    flog_warn(EC_PATH_PCEP_LIB_CONNECT,
+			      "failed to connect to PCE %pI4:%d from %pI4:%d",
+			      &pcc_state->pce_opts->addr.ipaddr_v4,
+			      pcc_state->pce_opts->port,
+			      &pcc_state->pcc_opts->addr.ipaddr_v4,
+			      pcc_state->pcc_opts->port);
+		}
 		schedule_reconnect(ctrl_state, pcc_state);
 		return 0;
 	}
@@ -402,8 +412,13 @@ void handle_pcep_lsp_update(struct ctrl_state *ctrl_state,
 {
 	struct path *path;
 	path = pcep_lib_parse_path(msg);
-	path->sender.ipa_type = IPADDR_V4;
-	path->sender.ipaddr_v4 = pcc_state->pce_opts->addr;
+	if (IS_IPADDR_V6(&pcc_state->pce_opts->addr)) {
+	    path->sender.ipa_type = IPADDR_V6;
+	    memcpy(&path->sender.ipaddr_v6, &pcc_state->pce_opts->addr.ipaddr_v6, sizeof(struct in6_addr));
+	} else {
+	    path->sender.ipa_type = IPADDR_V4;
+	    path->sender.ipaddr_v4 = pcc_state->pce_opts->addr.ipaddr_v4;
+	}
 	lookup_nbkey(pcc_state, path);
 
 	push_srpid(pcc_state, path);
@@ -509,20 +524,28 @@ void send_comp_request(struct ctrl_state *ctrl_state,
 	struct pcep_message *msg;
 	struct ipaddr src;
 
-	/* TODO: Add support for IPv6 */
-	assert(IS_IPADDR_V4(&nbkey->endpoint));
 	/* The source address need to be defined explicitly for now */
-	assert(INADDR_ANY != pcc_state->pcc_opts->addr.s_addr);
+	if (IS_IPADDR_V6(&pcc_state->pcc_opts->addr)) {
+	    assert(0 != memcmp(&in6addr_any, &pcc_state->pcc_opts->addr.ipaddr_v6,
+	                       sizeof(struct in6_addr)));
+	} else {
+	    assert(INADDR_ANY != pcc_state->pcc_opts->addr.ipaddr_v4.s_addr);
+	}
 
 	reqid = push_req(pcc_state, nbkey);
 	/* TODO: Add a timer to retry the computation request */
 
 	PCEP_DEBUG("%s Sending computation request for path from %pI4 to %pI4",
-		   pcc_state->tag, &pcc_state->pcc_opts->addr,
+		   pcc_state->tag, &pcc_state->pcc_opts->addr.ipaddr_v4,
 		   &nbkey->endpoint.ipaddr_v4);
 
-	src.ipa_type = IPADDR_V4;
-	src.ipaddr_v4.s_addr = pcc_state->pcc_opts->addr.s_addr;
+	src.ipa_type = pcc_state->pcc_opts->addr.ipa_type;
+	if (IS_IPADDR_V6(&pcc_state->pcc_opts->addr)) {
+	    memcpy(&src.ipaddr_v6, &pcc_state->pcc_opts->addr.ipaddr_v6,
+	           sizeof(struct in6_addr));
+	} else {
+	    src.ipaddr_v4.s_addr = pcc_state->pcc_opts->addr.ipaddr_v4.s_addr;
+	}
 
 	msg = pcep_lib_format_request(reqid, &src, &nbkey->endpoint);
 	send_pcep_message(ctrl_state, pcc_state, msg);

@@ -184,8 +184,10 @@ int pcep_ctrl_initialize(struct thread_master *main_thread,
 	ctrl_state->t_poll = NULL;
 	ctrl_state->pcc_count = 0;
 	ctrl_state->pcc_opts =
-		XCALLOC(MTYPE_PCEP, sizeof(*ctrl_state->pcc_opts));
-	ctrl_state->pcc_opts->addr.s_addr = INADDR_ANY;
+	XCALLOC(MTYPE_PCEP, sizeof(*ctrl_state->pcc_opts));
+	/* Default to IPv4 */
+	ctrl_state->pcc_opts->addr.ipa_type = IPADDR_V4;
+	ctrl_state->pcc_opts->addr.ipaddr_v4.s_addr = INADDR_ANY;
 	ctrl_state->pcc_opts->port = PCEP_DEFAULT_PORT;
 
 	/* Keep the state reference for events */

@@ -79,13 +79,13 @@
 	} while (0)
 
 struct pce_opts {
-	struct in_addr addr;
+	struct ipaddr addr;
 	short port;
 	bool draft07;
 };
 
 struct pcc_opts {
-	struct in_addr addr;
+	struct ipaddr addr;
 	short port;
 	bool force_stateless;
 };

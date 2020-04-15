@@ -85,7 +85,13 @@ pcep_session *pcep_lib_connect(struct pcc_opts *pcc_opts,
 	config = create_default_pcep_configuration();
 	config->dst_pcep_port = pce_opts->port;
 	config->src_pcep_port = pcc_opts->port;
-	config->src_ip = pcc_opts->addr;
+	if (IS_IPADDR_V6(&pcc_opts->addr)) {
+	    config->is_src_ipv6 = true;
+	    memcpy(&config->src_ip.src_ipv6, &pcc_opts->addr.ipaddr_v6, sizeof(struct in6_addr));
+	} else {
+	    config->is_src_ipv6 = false;
+	    config->src_ip.src_ipv4 = pcc_opts->addr.ipaddr_v4;
+	}
 
 	config->support_stateful_pce_lsp_update = !pcc_opts->force_stateless;
 	config->support_pce_lsp_instantiation = false;
@@ -99,7 +105,11 @@ pcep_session *pcep_lib_connect(struct pcc_opts *pcc_opts,
 	config->pcep_msg_versioning->draft_ietf_pce_segment_routing_07 =
 		pce_opts->draft07;
 
-	sess = connect_pce(config, &pce_opts->addr);
+	if (IS_IPADDR_V6(&pce_opts->addr)) {
+	    sess = connect_pce_ipv6(config, &pce_opts->addr.ipaddr_v6);
+	} else {
+	    sess = connect_pce(config, &pce_opts->addr.ipaddr_v4);
+	}
 	destroy_pcep_configuration(config);
 	return sess;
 }
@@ -119,23 +129,28 @@ struct pcep_message *pcep_lib_format_report(struct path *path)
 struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,
 					     struct ipaddr *dst)
 {
-	/* TODO: Add support for IPv6 */
-	assert(IS_IPADDR_V4(src));
-	assert(IS_IPADDR_V4(dst));
+	assert(src->ipa_type ==dst->ipa_type);
 
 	double_linked_list *rp_tlvs;
 	struct pcep_object_tlv_path_setup_type *setup_type_tlv;
 	struct pcep_object_rp *rp;
-	struct pcep_object_endpoints_ipv4 *endpoints;
+	struct pcep_object_endpoints_ipv4 *endpoints_ipv4;
+	struct pcep_object_endpoints_ipv6 *endpoints_ipv6;
 
 	rp_tlvs = dll_initialize();
 	setup_type_tlv = pcep_tlv_create_path_setup_type(SR_TE_PST);
 	dll_append(rp_tlvs, setup_type_tlv);
 
 	rp = pcep_obj_create_rp(0, false, false, false, reqid, rp_tlvs);
-	endpoints =
-		pcep_obj_create_endpoint_ipv4(&src->ipaddr_v4, &dst->ipaddr_v4);
-	return pcep_msg_create_request(rp, endpoints, NULL);
+	if (IS_IPADDR_V6(src)) {
+	    endpoints_ipv6 =
+		    pcep_obj_create_endpoint_ipv6(&src->ipaddr_v6, &dst->ipaddr_v6);
+	    return pcep_msg_create_request_ipv6(rp, endpoints_ipv6, NULL);
+	} else {
+	    endpoints_ipv4 =
+		    pcep_obj_create_endpoint_ipv4(&src->ipaddr_v4, &dst->ipaddr_v4);
+	    return pcep_msg_create_request(rp, endpoints_ipv4, NULL);
+	}
 }
 
 struct path *pcep_lib_parse_path(struct pcep_message *msg)

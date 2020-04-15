@@ -570,7 +570,11 @@ void _format_pcc_opts(int ps, struct pcc_opts *opts)
 	} else {
 		int ps2 = ps + DEBUG_IDENT_SIZE;
 		PCEP_FORMAT("\n");
-		PCEP_FORMAT("%*saddr: %pI4\n", ps2, "", &opts->addr);
+		if (IS_IPADDR_V6(&opts->addr)) {
+		    PCEP_FORMAT("%*saddr: %pI6\n", ps2, "", &opts->addr.ipaddr_v6);
+		} else {
+		    PCEP_FORMAT("%*saddr: %pI4\n", ps2, "", &opts->addr.ipaddr_v4);
+		}
 		PCEP_FORMAT("%*sport: %i\n", ps2, "", opts->port);
 	}
 }
@@ -582,7 +586,11 @@ void _format_pce_opts(int ps, struct pce_opts *opts)
 	} else {
 		int ps2 = ps + DEBUG_IDENT_SIZE;
 		PCEP_FORMAT("\n");
-		PCEP_FORMAT("%*saddr: %pI4\n", ps2, "", &opts->addr);
+		if (IS_IPADDR_V6(&opts->addr)) {
+		    PCEP_FORMAT("%*saddr: %pI6\n", ps2, "", &opts->addr.ipaddr_v6);
+		} else {
+		    PCEP_FORMAT("%*saddr: %pI4\n", ps2, "", &opts->addr.ipaddr_v4);
+		}
 		PCEP_FORMAT("%*sport: %i\n", ps2, "", opts->port);
 	}
 }
