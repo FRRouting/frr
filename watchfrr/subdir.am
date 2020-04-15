@@ -4,7 +4,7 @@
 
 if WATCHFRR
 sbin_PROGRAMS += watchfrr/watchfrr
-vtysh_scan += $(top_srcdir)/watchfrr/watchfrr_vty.c
+vtysh_scan += watchfrr/watchfrr_vty.c
 man8 += $(MANBUILD)/frr-watchfrr.8
 endif
 

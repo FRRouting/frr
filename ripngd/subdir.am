@@ -6,9 +6,9 @@ if RIPNGD
 noinst_LIBRARIES += ripngd/libripng.a
 sbin_PROGRAMS += ripngd/ripngd
 vtysh_scan += \
-	$(top_srcdir)/ripngd/ripng_cli.c \
-	$(top_srcdir)/ripngd/ripng_debug.c \
-	$(top_srcdir)/ripngd/ripngd.c \
+	ripngd/ripng_cli.c \
+	ripngd/ripng_debug.c \
+	ripngd/ripngd.c \
 	# end
 man8 += $(MANBUILD)/frr-ripngd.8
 endif

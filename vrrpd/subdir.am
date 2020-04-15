@@ -6,7 +6,7 @@ if VRRPD
 noinst_LIBRARIES += vrrpd/libvrrp.a
 sbin_PROGRAMS += vrrpd/vrrpd
 # dist_examples_DATA += staticd/staticd.conf.sample
-vtysh_scan += $(top_srcdir)/vrrpd/vrrp_vty.c
+vtysh_scan += vrrpd/vrrp_vty.c
 man8 += $(MANBUILD)/frr-vrrpd.8
 endif
 

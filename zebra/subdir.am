@@ -6,23 +6,23 @@ if ZEBRA
 sbin_PROGRAMS += zebra/zebra
 dist_examples_DATA += zebra/zebra.conf.sample
 vtysh_scan += \
-	$(top_srcdir)/zebra/debug.c \
-	$(top_srcdir)/zebra/interface.c \
-	$(top_srcdir)/zebra/router-id.c \
-	$(top_srcdir)/zebra/rtadv.c \
-	$(top_srcdir)/zebra/zebra_mlag_vty.c \
-	$(top_srcdir)/zebra/zebra_mpls_vty.c \
-	$(top_srcdir)/zebra/zebra_ptm.c \
-	$(top_srcdir)/zebra/zebra_pw.c \
-	$(top_srcdir)/zebra/zebra_routemap.c \
-	$(top_srcdir)/zebra/zebra_vty.c \
-	$(top_srcdir)/zebra/zserv.c \
-	$(top_srcdir)/zebra/zebra_gr.c \
+	zebra/debug.c \
+	zebra/interface.c \
+	zebra/router-id.c \
+	zebra/rtadv.c \
+	zebra/zebra_mlag_vty.c \
+	zebra/zebra_mpls_vty.c \
+	zebra/zebra_ptm.c \
+	zebra/zebra_pw.c \
+	zebra/zebra_routemap.c \
+	zebra/zebra_vty.c \
+	zebra/zserv.c \
+	zebra/zebra_gr.c \
 	# end
 
 # can be loaded as DSO - always include for vtysh
-vtysh_scan += $(top_srcdir)/zebra/irdp_interface.c
-vtysh_scan += $(top_srcdir)/zebra/zebra_fpm.c
+vtysh_scan += zebra/irdp_interface.c
+vtysh_scan += zebra/zebra_fpm.c
 
 if IRDP
 module_LTLIBRARIES += zebra/zebra_irdp.la

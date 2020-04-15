@@ -6,8 +6,8 @@ if BFDD
 noinst_LIBRARIES += bfdd/libbfd.a
 sbin_PROGRAMS += bfdd/bfdd
 dist_examples_DATA += bfdd/bfdd.conf.sample
-vtysh_scan += $(top_srcdir)/bfdd/bfdd_vty.c
-vtysh_scan += $(top_srcdir)/bfdd/bfdd_cli.c
+vtysh_scan += bfdd/bfdd_vty.c
+vtysh_scan += bfdd/bfdd_cli.c
 man8 += $(MANBUILD)/frr-bfdd.8
 endif
 

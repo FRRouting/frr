@@ -138,7 +138,7 @@ sub scan_file {
            $protocol = "VTYSH_FABRICD";
         }
         else {
-           ($protocol) = ($file =~ /^.*\/([a-z0-9]+)\/[a-zA-Z0-9_\-]+\.c$/);
+           ($protocol) = ($file =~ /^(?:.*\/)?([a-z0-9]+)\/[a-zA-Z0-9_\-]+\.c$/);
            $protocol = "VTYSH_" . uc $protocol;
         }
 
@@ -197,7 +197,7 @@ sub scan_file {
 }
 
 foreach (@ARGV) {
-    if (/\/isisd\//) {
+    if (/(^|\/)isisd\//) {
         # We scan all the IS-IS files twice, once for isisd,
         # once for fabricd. Exceptions are made for the files
         # that are not shared between the two.

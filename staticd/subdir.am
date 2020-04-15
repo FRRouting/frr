@@ -6,7 +6,7 @@ if STATICD
 noinst_LIBRARIES += staticd/libstatic.a
 sbin_PROGRAMS += staticd/staticd
 dist_examples_DATA += staticd/staticd.conf.sample
-vtysh_scan += $(top_srcdir)/staticd/static_vty.c
+vtysh_scan += staticd/static_vty.c
 man8 += $(MANBUILD)/frr-staticd.8
 endif
 

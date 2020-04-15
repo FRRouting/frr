@@ -7,14 +7,14 @@ noinst_LIBRARIES += ospfd/libfrrospf.a
 sbin_PROGRAMS += ospfd/ospfd
 dist_examples_DATA += ospfd/ospfd.conf.sample
 vtysh_scan += \
-	$(top_srcdir)/ospfd/ospf_bfd.c \
-	$(top_srcdir)/ospfd/ospf_dump.c \
-	$(top_srcdir)/ospfd/ospf_opaque.c \
-	$(top_srcdir)/ospfd/ospf_ri.c \
-	$(top_srcdir)/ospfd/ospf_routemap.c \
-	$(top_srcdir)/ospfd/ospf_te.c \
-	$(top_srcdir)/ospfd/ospf_sr.c \
-	$(top_srcdir)/ospfd/ospf_vty.c \
+	ospfd/ospf_bfd.c \
+	ospfd/ospf_dump.c \
+	ospfd/ospf_opaque.c \
+	ospfd/ospf_ri.c \
+	ospfd/ospf_routemap.c \
+	ospfd/ospf_te.c \
+	ospfd/ospf_sr.c \
+	ospfd/ospf_vty.c \
 	# end
 if SNMP
 module_LTLIBRARIES += ospfd/ospfd_snmp.la

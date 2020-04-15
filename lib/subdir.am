@@ -125,21 +125,21 @@ nodist_lib_libfrr_la_SOURCES = \
 	# end
 
 vtysh_scan += \
-	$(top_srcdir)/lib/distribute.c \
-	$(top_srcdir)/lib/filter.c \
-	$(top_srcdir)/lib/if.c \
-	$(top_srcdir)/lib/if_rmap.c \
-	$(top_srcdir)/lib/keychain.c \
-	$(top_srcdir)/lib/lib_vty.c \
-	$(top_srcdir)/lib/nexthop_group.c \
-	$(top_srcdir)/lib/plist.c \
-	$(top_srcdir)/lib/routemap.c \
-	$(top_srcdir)/lib/routemap_cli.c \
-	$(top_srcdir)/lib/vrf.c \
-	$(top_srcdir)/lib/vty.c \
+	lib/distribute.c \
+	lib/filter.c \
+	lib/if.c \
+	lib/if_rmap.c \
+	lib/keychain.c \
+	lib/lib_vty.c \
+	lib/nexthop_group.c \
+	lib/plist.c \
+	lib/routemap.c \
+	lib/routemap_cli.c \
+	lib/vrf.c \
+	lib/vty.c \
 	# end
 # can be loaded as DSO - always include for vtysh
-vtysh_scan += $(top_srcdir)/lib/agentx.c
+vtysh_scan += lib/agentx.c
 
 if SQLITE3
 lib_libfrr_la_LIBADD += $(SQLITE3_LIBS)

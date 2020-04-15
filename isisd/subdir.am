@@ -7,12 +7,12 @@ noinst_LIBRARIES += isisd/libisis.a
 sbin_PROGRAMS += isisd/isisd
 dist_examples_DATA += isisd/isisd.conf.sample
 vtysh_scan += \
-	$(top_srcdir)/isisd/isis_cli.c \
-	$(top_srcdir)/isisd/isis_redist.c \
-	$(top_srcdir)/isisd/isis_spf.c \
-	$(top_srcdir)/isisd/isis_te.c \
-	$(top_srcdir)/isisd/isis_vty_fabricd.c \
-	$(top_srcdir)/isisd/isisd.c \
+	isisd/isis_cli.c \
+	isisd/isis_redist.c \
+	isisd/isis_spf.c \
+	isisd/isis_te.c \
+	isisd/isis_vty_fabricd.c \
+	isisd/isisd.c \
 	# end
 man8 += $(MANBUILD)/frr-isisd.8
 endif
