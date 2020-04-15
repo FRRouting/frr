@@ -622,7 +622,7 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 	else
 		snprintf(buf[1], sizeof(buf[1]), "-");
 
-	if (json) {
+	if (ctx->json) {
 		json = json_object_new_object();
 		json_object_string_add(json, "interface", c->ifp->name);
 		json_object_string_add(json, "type",
