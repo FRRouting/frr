@@ -80,18 +80,21 @@ static int if_zebra_speed_update(struct thread *thread)
 	 * interfaces not available.
 	 * note that loopback & virtual interfaces can return 0 as speed
 	 */
-	if (error < 0)
+	if (error == INTERFACE_SPEED_ERROR_READ)
 		return 1;
 
 	if (new_speed != ifp->speed) {
 		zlog_info("%s: %s old speed: %u new speed: %u", __func__,
 			  ifp->name, ifp->speed, new_speed);
-		ifp->speed = new_speed;
+		if (error == INTERFACE_SPEED_ERROR_UNKNOWN)
+			ifp->speed = 0;
+		else
+			ifp->speed = new_speed;
 		if_add_update(ifp);
 		changed = true;
 	}
 
-	if (changed || new_speed == UINT32_MAX)
+	if (changed || error == INTERFACE_SPEED_ERROR_UNKNOWN)
 		thread_add_timer(zrouter.master, if_zebra_speed_update, ifp, 5,
 				 &zif->speed_update);
 	return 1;

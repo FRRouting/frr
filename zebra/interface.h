@@ -350,6 +350,8 @@ struct zebra_if {
 	ifindex_t link_ifindex;
 	struct interface *link;
 
+#define INTERFACE_SPEED_ERROR_READ    -1
+#define INTERFACE_SPEED_ERROR_UNKNOWN -2
 	struct thread *speed_update;
 
 	/*
