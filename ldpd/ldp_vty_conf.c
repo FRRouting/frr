@@ -1077,7 +1077,7 @@ ldp_vty_neighbor_password(struct vty *vty, const char *negate, struct in_addr ls
 		if (password_len >= sizeof(nbrp->auth.md5key))
 			vty_out(vty, "%% password has been truncated to %zu "
 			    "characters.", sizeof(nbrp->auth.md5key) - 1);
-		nbrp->auth.md5key_len = password_len;
+		nbrp->auth.md5key_len = strlen(nbrp->auth.md5key);
 		nbrp->auth.method = AUTH_MD5SIG;
 	}
 
