@@ -44,6 +44,7 @@ static int	 ldp_interface_address_delete(ZAPI_CALLBACK_ARGS);
 static int	 ldp_zebra_read_route(ZAPI_CALLBACK_ARGS);
 static int	 ldp_zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS);
 static void	 ldp_zebra_connected(struct zclient *);
+static void	 ldp_zebra_filter_update(struct access_list *access);
 
 static struct zclient	*zclient;
 
@@ -515,6 +516,22 @@ ldp_zebra_connected(struct zclient *zclient)
 	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
 }
 
+static void
+ldp_zebra_filter_update(struct access_list *access)
+{
+	struct ldp_access laccess;
+
+	if (access && access->name[0] != '\0') {
+		strlcpy(laccess.name, access->name, sizeof(laccess.name));
+		laccess.type = access->type;
+		debug_evt("%s ACL update filter name %s type %d", __func__,
+		    access->name, access->type);
+
+		main_imsg_compose_both(IMSG_FILTER_UPDATE, &laccess,
+			sizeof(laccess));
+	}
+}
+
 extern struct zebra_privs_t ldpd_privs;
 
 void
@@ -535,6 +552,10 @@ ldp_zebra_init(struct thread_master *master)
 	zclient->redistribute_route_add = ldp_zebra_read_route;
 	zclient->redistribute_route_del = ldp_zebra_read_route;
 	zclient->pw_status_update = ldp_zebra_read_pw_status_update;
+
+	/* Access list initialize. */
+	access_list_add_hook(ldp_zebra_filter_update);
+	access_list_delete_hook(ldp_zebra_filter_update);
 }
 
 void
