@@ -1756,6 +1756,7 @@ static void zclient_sync_init(unsigned short instance)
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
 	zclient_sync->instance = instance;
+	zclient_sync->session_id = 1; /* Distinguish from main session */
 	zclient_sync->privs = &lde_privs;
 
 	while (zclient_socket_connect(zclient_sync) < 0) {

@@ -957,7 +957,6 @@ int zsend_pw_update(struct zserv *client, struct zebra_pw *pw)
 
 /* Send response to a get label chunk request to client */
 int zsend_assign_label_chunk_response(struct zserv *client, vrf_id_t vrf_id,
-				      uint8_t proto, uint16_t instance,
 				      struct label_manager_chunk *lmc)
 {
 	int ret;
@@ -965,9 +964,9 @@ int zsend_assign_label_chunk_response(struct zserv *client, vrf_id_t vrf_id,
 
 	zclient_create_header(s, ZEBRA_GET_LABEL_CHUNK, vrf_id);
 	/* proto */
-	stream_putc(s, proto);
+	stream_putc(s, client->proto);
 	/* instance */
-	stream_putw(s, instance);
+	stream_putw(s, client->instance);
 
 	if (lmc) {
 		/* keep */
@@ -2199,7 +2198,7 @@ static void zread_label_manager_connect(struct zserv *client,
 	client->instance = instance;
 
 	/* call hook for connection using wrapper */
-	lm_client_connect_call(proto, instance, vrf_id);
+	lm_client_connect_call(client, vrf_id);
 
 stream_failure:
 	return;
@@ -2225,8 +2224,10 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 	STREAM_GETL(s, size);
 	STREAM_GETL(s, base);
 
+	assert(proto == client->proto && instance == client->instance);
+
 	/* call hook to get a chunk using wrapper */
-	lm_get_chunk_call(&lmc, proto, instance, keep, size, base, vrf_id);
+	lm_get_chunk_call(&lmc, client, keep, size, base, vrf_id);
 
 stream_failure:
 	return;
@@ -2248,8 +2249,10 @@ static void zread_release_label_chunk(struct zserv *client, struct stream *msg)
 	STREAM_GETL(s, start);
 	STREAM_GETL(s, end);
 
+	assert(proto == client->proto && instance == client->instance);
+
 	/* call hook to release a chunk using wrapper */
-	lm_release_chunk_call(proto, instance, start, end);
+	lm_release_chunk_call(client, start, end);
 
 stream_failure:
 	return;
