@@ -195,31 +195,21 @@ int zebra_debugs_debug_mlag_modify(enum nb_event event,
 				   union nb_resource *resource);
 int zebra_debugs_debug_mlag_destroy(enum nb_event event,
 				    const struct lyd_node *dnode);
-int lib_interface_zebra_ip4_addr_list_create(enum nb_event event,
-					     const struct lyd_node *dnode,
-					     union nb_resource *resource);
-int lib_interface_zebra_ip4_addr_list_destroy(enum nb_event event,
-					      const struct lyd_node *dnode);
-int lib_interface_zebra_ip4_addr_list_ip4_peer_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource);
-int lib_interface_zebra_ip4_addr_list_ip4_peer_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
-int lib_interface_zebra_ip4_addr_list_label_modify(enum nb_event event,
-						   const struct lyd_node *dnode,
-						   union nb_resource *resource);
-int lib_interface_zebra_ip4_addr_list_label_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
-int lib_interface_zebra_ip6_addr_list_create(enum nb_event event,
-					     const struct lyd_node *dnode,
-					     union nb_resource *resource);
-int lib_interface_zebra_ip6_addr_list_destroy(enum nb_event event,
-					      const struct lyd_node *dnode);
-int lib_interface_zebra_ip6_addr_list_label_modify(enum nb_event event,
-						   const struct lyd_node *dnode,
-						   union nb_resource *resource);
-int lib_interface_zebra_ip6_addr_list_label_destroy(
-	enum nb_event event, const struct lyd_node *dnode);
+int lib_interface_zebra_ip_addrs_create(enum nb_event event,
+					const struct lyd_node *dnode,
+					union nb_resource *resource);
+int lib_interface_zebra_ip_addrs_destroy(enum nb_event event,
+					 const struct lyd_node *dnode);
+int lib_interface_zebra_ip_addrs_label_modify(enum nb_event event,
+					      const struct lyd_node *dnode,
+					      union nb_resource *resource);
+int lib_interface_zebra_ip_addrs_label_destroy(enum nb_event event,
+					       const struct lyd_node *dnode);
+int lib_interface_zebra_ip_addrs_ip4_peer_modify(enum nb_event event,
+						 const struct lyd_node *dnode,
+						 union nb_resource *resource);
+int lib_interface_zebra_ip_addrs_ip4_peer_destroy(enum nb_event event,
+						  const struct lyd_node *dnode);
 int lib_interface_zebra_multicast_modify(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource);
@@ -270,6 +260,30 @@ int lib_route_map_entry_set_action_source_v6_modify(
 	union nb_resource *resource);
 int lib_route_map_entry_set_action_source_v6_destroy(
 	enum nb_event event, const struct lyd_node *dnode);
+struct yang_data *
+lib_interface_zebra_state_up_count_get_elem(const char *xpath,
+					    const void *list_entry);
+struct yang_data *
+lib_interface_zebra_state_down_count_get_elem(const char *xpath,
+					      const void *list_entry);
+struct yang_data *
+lib_interface_zebra_state_zif_type_get_elem(const char *xpath,
+					    const void *list_entry);
+struct yang_data *
+lib_interface_zebra_state_ptm_status_get_elem(const char *xpath,
+					      const void *list_entry);
+struct yang_data *
+lib_interface_zebra_state_vlan_id_get_elem(const char *xpath,
+					   const void *list_entry);
+struct yang_data *
+lib_interface_zebra_state_vni_id_get_elem(const char *xpath,
+					  const void *list_entry);
+struct yang_data *
+lib_interface_zebra_state_remote_vtep_get_elem(const char *xpath,
+					       const void *list_entry);
+struct yang_data *
+lib_interface_zebra_state_mcast_group_get_elem(const char *xpath,
+					       const void *list_entry);
 int lib_vrf_ribs_rib_create(enum nb_event event, const struct lyd_node *dnode,
 			    union nb_resource *resource);
 int lib_vrf_ribs_rib_destroy(enum nb_event event, const struct lyd_node *dnode);
