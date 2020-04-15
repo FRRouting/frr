@@ -440,6 +440,17 @@ extern void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 				 ns_id_t ns_id);
 extern void zebra_if_update_all_links(void);
 extern void zebra_if_set_protodown(struct interface *ifp, bool down);
+extern int if_ip_address_install(struct interface *ifp, struct prefix *prefix,
+				 const char *label, struct prefix *pp);
+extern int if_ipv6_address_install(struct interface *ifp, struct prefix *prefix,
+				   const char *label);
+extern int if_ip_address_uinstall(struct interface *ifp, struct prefix *prefix);
+extern int if_shutdown(struct interface *ifp);
+extern int if_no_shutdown(struct interface *ifp);
+extern int if_multicast_set(struct interface *ifp);
+extern int if_multicast_unset(struct interface *ifp);
+extern int if_linkdetect(struct interface *ifp, bool detect);
+extern void if_addr_wakeup(struct interface *ifp);
 
 /* Nexthop group connected functions */
 extern void if_nhg_dependents_add(struct interface *ifp,

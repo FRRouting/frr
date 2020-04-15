@@ -24,9 +24,10 @@
 #include "libfrr.h"
 #include "lib/command.h"
 #include "lib/routemap.h"
-
 #include "zebra/zebra_nb.h"
 #include "zebra/rib.h"
+#include "zebra/interface.h"
+#include "zebra/connected.h"
 
 /*
  * XPath: /frr-zebra:zebra/mcast-rpf-lookup
@@ -1013,12 +1014,38 @@ int lib_interface_zebra_ip_addrs_create(enum nb_event event,
 					const struct lyd_node *dnode,
 					union nb_resource *resource)
 {
+	struct interface *ifp;
+	struct prefix prefix;
+	char buf[PREFIX_STRLEN] = {0};
+
+	ifp = nb_running_get_entry(dnode, NULL, true);
+	// addr_family = yang_dnode_get_enum(dnode, "./address-family");
+	yang_dnode_get_prefix(&prefix, dnode, "./ip-prefix");
+	apply_mask(&prefix);
+
 	switch (event) {
 	case NB_EV_VALIDATE:
+		if (prefix.family == AF_INET
+		    && ipv4_martian(&prefix.u.prefix4)) {
+			zlog_debug("invalid address %s",
+				   prefix2str(&prefix, buf, sizeof(buf)));
+			return NB_ERR_VALIDATION;
+		} else if (prefix.family == AF_INET6
+			   && ipv6_martian(&prefix.u.prefix6)) {
+			zlog_debug("invalid address %s",
+				   prefix2str(&prefix, buf, sizeof(buf)));
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		if (prefix.family == AF_INET)
+			if_ip_address_install(ifp, &prefix, NULL, NULL);
+		else if (prefix.family == AF_INET6)
+			if_ipv6_address_install(ifp, &prefix, NULL);
+
 		break;
 	}
 
@@ -1028,12 +1055,54 @@ int lib_interface_zebra_ip_addrs_create(enum nb_event event,
 int lib_interface_zebra_ip_addrs_destroy(enum nb_event event,
 					 const struct lyd_node *dnode)
 {
+	struct interface *ifp;
+	struct prefix prefix;
+	struct connected *ifc;
+
+	ifp = nb_running_get_entry(dnode, NULL, true);
+	yang_dnode_get_prefix(&prefix, dnode, "./ip-prefix");
+	apply_mask(&prefix);
+
 	switch (event) {
 	case NB_EV_VALIDATE:
+		if (prefix.family == AF_INET) {
+			/* Check current interface address. */
+			ifc = connected_check_ptp(ifp, &prefix, NULL);
+			if (!ifc) {
+				zlog_debug("interface %s Can't find address\n",
+					   ifp->name);
+				return NB_ERR_VALIDATION;
+			}
+		} else if (prefix.family == AF_INET6) {
+			/* Check current interface address. */
+			ifc = connected_check(ifp, &prefix);
+			if (!ifc) {
+				zlog_debug("interface can't find address %s",
+					   ifp->name);
+				return NB_ERR_VALIDATION;
+			}
+		} else
+			return NB_ERR_VALIDATION;
+
+		/* This is not configured address. */
+		if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)) {
+			zlog_debug("interface %s not configured", ifp->name);
+			return NB_ERR_VALIDATION;
+		}
+
+		/* This is not real address or interface is not active. */
+		if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
+		    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
+			listnode_delete(ifp->connected, ifc);
+			connected_free(&ifc);
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		if_ip_address_uinstall(ifp, &prefix);
 		break;
 	}
 
@@ -1115,14 +1184,14 @@ int lib_interface_zebra_multicast_modify(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource)
 {
-	switch (event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct interface *ifp;
+
+	ifp = nb_running_get_entry(dnode, NULL, true);
+
+	if_multicast_set(ifp);
 
 	return NB_OK;
 }
@@ -1130,14 +1199,14 @@ int lib_interface_zebra_multicast_modify(enum nb_event event,
 int lib_interface_zebra_multicast_destroy(enum nb_event event,
 					  const struct lyd_node *dnode)
 {
-	switch (event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct interface *ifp;
+
+	ifp = nb_running_get_entry(dnode, NULL, true);
+
+	if_multicast_unset(ifp);
 
 	return NB_OK;
 }
@@ -1149,14 +1218,16 @@ int lib_interface_zebra_link_detect_modify(enum nb_event event,
 					   const struct lyd_node *dnode,
 					   union nb_resource *resource)
 {
-	switch (event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct interface *ifp;
+	bool link_detect;
+
+	ifp = nb_running_get_entry(dnode, NULL, true);
+	link_detect = yang_dnode_get_bool(dnode, "./link-detect");
+
+	if_linkdetect(ifp, link_detect);
 
 	return NB_OK;
 }
@@ -1164,14 +1235,16 @@ int lib_interface_zebra_link_detect_modify(enum nb_event event,
 int lib_interface_zebra_link_detect_destroy(enum nb_event event,
 					    const struct lyd_node *dnode)
 {
-	switch (event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct interface *ifp;
+	bool link_detect;
+
+	ifp = nb_running_get_entry(dnode, NULL, true);
+	link_detect = yang_dnode_get_bool(dnode, "./link-detect");
+
+	if_linkdetect(ifp, link_detect);
 
 	return NB_OK;
 }
@@ -1183,14 +1256,11 @@ int lib_interface_zebra_shutdown_modify(enum nb_event event,
 					const struct lyd_node *dnode,
 					union nb_resource *resource)
 {
-	switch (event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct interface *ifp;
+
+	ifp = nb_running_get_entry(dnode, NULL, true);
+
+	if_shutdown(ifp);
 
 	return NB_OK;
 }
@@ -1198,14 +1268,11 @@ int lib_interface_zebra_shutdown_modify(enum nb_event event,
 int lib_interface_zebra_shutdown_destroy(enum nb_event event,
 					 const struct lyd_node *dnode)
 {
-	switch (event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	struct interface *ifp;
+
+	ifp = nb_running_get_entry(dnode, NULL, true);
+
+	if_no_shutdown(ifp);
 
 	return NB_OK;
 }
@@ -1217,14 +1284,20 @@ int lib_interface_zebra_bandwidth_modify(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource)
 {
-	switch (event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct interface *ifp;
+	uint32_t bandwidth;
+
+	ifp = nb_running_get_entry(dnode, NULL, true);
+	bandwidth = yang_dnode_get_uint32(dnode, "./bandwidth");
+
+	ifp->bandwidth = bandwidth;
+
+	/* force protocols to recalculate routes due to cost change */
+	if (if_is_operative(ifp))
+		zebra_interface_up_update(ifp);
 
 	return NB_OK;
 }
@@ -1232,14 +1305,18 @@ int lib_interface_zebra_bandwidth_modify(enum nb_event event,
 int lib_interface_zebra_bandwidth_destroy(enum nb_event event,
 					  const struct lyd_node *dnode)
 {
-	switch (event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	struct interface *ifp;
+
+	ifp = nb_running_get_entry(dnode, NULL, true);
+
+	ifp->bandwidth = 0;
+
+	/* force protocols to recalculate routes due to cost change */
+	if (if_is_operative(ifp))
+		zebra_interface_up_update(ifp);
 
 	return NB_OK;
 }
