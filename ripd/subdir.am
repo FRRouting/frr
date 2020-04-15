@@ -35,8 +35,9 @@ ripd_librip_a_SOURCES = \
 	ripd/ripd.c \
 	# end
 
-ripd/rip_cli_clippy.c: $(CLIPPY_DEPS)
-ripd/rip_cli.$(OBJEXT): ripd/rip_cli_clippy.c
+clippy_scan += \
+	ripd/rip_cli.c \
+	# end
 
 noinst_HEADERS += \
 	ripd/rip_debug.h \

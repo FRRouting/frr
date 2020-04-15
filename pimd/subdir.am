@@ -123,8 +123,9 @@ noinst_HEADERS += \
 	pimd/mtracebis_routeget.h \
 	# end
 
-pimd/pim_cmd_clippy.c: $(CLIPPY_DEPS)
-pimd/pim_cmd.$(OBJEXT): pimd/pim_cmd_clippy.c
+clippy_scan += \
+	pimd/pim_cmd.c \
+	# end
 
 pimd_pimd_LDADD = pimd/libpim.a lib/libfrr.la $(LIBCAP)
 pimd_pimd_SOURCES = pimd/pim_main.c

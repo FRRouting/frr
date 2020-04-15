@@ -38,13 +38,10 @@ else
 TESTS_OSPF6D =
 endif
 
-tests/lib/cli/test_cli_clippy.c: $(CLIPPY_DEPS)
-tests/lib/cli/tests_lib_cli_test_cli-test_cli.$(OBJEXT): tests/lib/cli/test_cli_clippy.c
-tests/lib/cli/test_cli-test_cli.$(OBJEXT): tests/lib/cli/test_cli_clippy.c
-
-tests/ospf6d/test_lsdb_clippy.c: $(CLIPPY_DEPS)
-tests/ospf6d/tests_ospf6d_test_lsdb-test_lsdb.$(OBJEXT): tests/ospf6d/test_lsdb_clippy.c
-tests/ospf6d/test_lsdb-test_lsdb.$(OBJEXT): tests/ospf6d/test_lsdb_clippy.c
+clippy_scan += \
+	tests/lib/cli/test_cli.c \
+	tests/ospf6d/test_lsdb.c \
+	# end
 
 check_PROGRAMS = \
 	tests/lib/cxxcompat \

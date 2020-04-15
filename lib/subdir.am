@@ -146,20 +146,15 @@ lib_libfrr_la_LIBADD += $(SQLITE3_LIBS)
 lib_libfrr_la_SOURCES += lib/db.c
 endif
 
-lib/if_clippy.c: $(CLIPPY_DEPS)
-lib/if.lo: lib/if_clippy.c
-lib/plist_clippy.c: $(CLIPPY_DEPS)
-lib/plist.lo: lib/plist_clippy.c
-lib/nexthop_group_clippy.c: $(CLIPPY_DEPS)
-lib/nexthop_group.lo: lib/nexthop_group_clippy.c
-lib/northbound_cli_clippy.c: $(CLIPPY_DEPS)
-lib/northbound_cli.lo: lib/northbound_cli_clippy.c
-lib/routemap_cli_clippy.c: $(CLIPPY_DEPS)
-lib/routemap_cli.lo: lib/routemap_cli_clippy.c
-lib/vty_clippy.c: $(CLIPPY_DEPS)
-lib/vty.lo: lib/vty_clippy.c
-lib/log_vty_clippy.c: $(CLIPPY_DEPS)
-lib/log_vty.lo: lib/log_vty_clippy.c
+clippy_scan += \
+	lib/if.c \
+	lib/log_vty.c \
+	lib/nexthop_group.c \
+	lib/northbound_cli.c \
+	lib/plist.c \
+	lib/routemap_cli.c \
+	lib/vty.c \
+	# end
 
 pkginclude_HEADERS += \
 	lib/agg_table.h \

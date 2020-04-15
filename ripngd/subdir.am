@@ -30,8 +30,9 @@ ripngd_libripng_a_SOURCES = \
 	ripngd/ripngd.c \
 	# end
 
-ripngd/ripng_cli_clippy.c: $(CLIPPY_DEPS)
-ripngd/ripng_cli.$(OBJEXT): ripngd/ripng_cli_clippy.c
+clippy_scan += \
+	ripngd/ripng_cli.c \
+	# end
 
 noinst_HEADERS += \
 	ripngd/ripng_debug.h \

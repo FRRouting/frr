@@ -48,11 +48,10 @@ eigrpdheader_HEADERS = \
 	eigrpd/eigrpd.h \
 	# end
 
-eigrpd/eigrp_vty_clippy.c: $(CLIPPY_DEPS)
-eigrpd/eigrp_vty.$(OBJEXT): eigrpd/eigrp_vty_clippy.c
-
-eigrpd/eigrp_cli_clippy.c: $(CLIPPY_DEPS)
-eigrpd/eigrp_cli.$(OBJEXT): eigrpd/eigrp_cli_clippy.c
+clippy_scan += \
+	eigrpd/eigrp_cli.c \
+	eigrpd/eigrp_vty.c \
+	# end
 
 noinst_HEADERS += \
 	eigrpd/eigrp_const.h \

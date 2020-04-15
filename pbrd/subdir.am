@@ -33,11 +33,10 @@ noinst_HEADERS += \
 	pbrd/pbr_vrf.h \
 	# end
 
-pbrd/pbr_vty_clippy.c: $(CLIPPY_DEPS)
-pbrd/pbr_vty.$(OBJEXT): pbrd/pbr_vty_clippy.c
-
-pbrd/pbr_debug_clippy.c: $(CLIPPY_DEPS)
-pbrd/pbr_debug.$(OBJEXT): pbrd/pbr_debug_clippy.c
+clippy_scan += \
+	pbrd/pbr_debug.c \
+	pbrd/pbr_vty.c \
+	# end
 
 pbrd_pbrd_SOURCES = pbrd/pbr_main.c
 pbrd_pbrd_LDADD = pbrd/libpbr.a lib/libfrr.la $(LIBCAP)

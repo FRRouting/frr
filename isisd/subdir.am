@@ -106,8 +106,9 @@ isisd_libisis_a_SOURCES = \
 	isisd/isis_cli.c \
 	#end
 
-isisd/isis_cli_clippy.c: $(CLIPPY_DEPS)
-isisd/isis_cli.$(OBJEXT): isisd/isis_cli_clippy.c
+clippy_scan += \
+	isisd/isis_cli.c \
+	# end
 
 isisd_isisd_LDADD = isisd/libisis.a $(ISIS_LDADD_COMMON)
 isisd_isisd_SOURCES = $(ISIS_SOURCES)

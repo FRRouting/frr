@@ -72,8 +72,9 @@ ospfdheader_HEADERS = \
 	# end
 endif
 
-ospfd/ospf_vty_clippy.c: $(CLIPPY_DEPS)
-ospfd/ospf_vty.$(OBJEXT): ospfd/ospf_vty_clippy.c
+clippy_scan += \
+	ospfd/ospf_vty.c \
+	# end
 
 noinst_HEADERS += \
 	ospfd/ospf_abr.h \
