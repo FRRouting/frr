@@ -1090,26 +1090,34 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 /* Helper to check if every octet do not exceed UINT_MAX */
 static bool lcommunity_list_valid(const char *community)
 {
-	int octets = 0;
-	char **splits;
-	int num;
+	int octets;
+	char **splits, **communities;
+	int num, num_communities;
 
-	frrstr_split(community, ":", &splits, &num);
+	frrstr_split(community, " ", &communities, &num_communities);
 
-	for (int i = 0; i < num; i++) {
-		if (strtoul(splits[i], NULL, 10) > UINT_MAX)
+	for (int j = 0; j < num_communities; j++) {
+		octets = 0;
+		frrstr_split(communities[j], ":", &splits, &num);
+
+		for (int i = 0; i < num; i++) {
+			if (strtoul(splits[i], NULL, 10) > UINT_MAX)
+				return false;
+
+			if (strlen(splits[i]) == 0)
+				return false;
+
+			octets++;
+			XFREE(MTYPE_TMP, splits[i]);
+		}
+		XFREE(MTYPE_TMP, splits);
+
+		if (octets < 3)
 			return false;
 
-		if (strlen(splits[i]) == 0)
-			return false;
-
-		octets++;
-		XFREE(MTYPE_TMP, splits[i]);
+		XFREE(MTYPE_TMP, communities[j]);
 	}
-	XFREE(MTYPE_TMP, splits);
-
-	if (octets < 3)
-		return false;
+	XFREE(MTYPE_TMP, communities);
 
 	return true;
 }
