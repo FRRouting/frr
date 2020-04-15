@@ -415,6 +415,7 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 	int sd;
 	int rc;
 	const char *ifname = interface->name;
+	uint32_t ret;
 
 	if (error)
 		*error = 0;
@@ -440,7 +441,7 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 					   ifname, errno, safe_strerror(errno));
 			/* no vrf socket creation may probably mean vrf issue */
 			if (error)
-				*error = -1;
+				*error = INTERFACE_SPEED_ERROR_READ;
 			return 0;
 		}
 	/* Get the current link state for the interface */
@@ -454,14 +455,20 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 				ifname, errno, safe_strerror(errno));
 		/* no device means interface unreachable */
 		if (errno == ENODEV && error)
-			*error = -1;
+			*error = INTERFACE_SPEED_ERROR_READ;
 		ecmd.speed_hi = 0;
 		ecmd.speed = 0;
 	}
 
 	close(sd);
 
-	return ((uint32_t)ecmd.speed_hi << 16) | ecmd.speed;
+	ret = ((uint32_t)ecmd.speed_hi << 16) | ecmd.speed;
+	if (ret == UINT32_MAX) {
+		if (error)
+			*error = INTERFACE_SPEED_ERROR_UNKNOWN;
+		ret = 0;
+	}
+	return ret;
 }
 
 uint32_t kernel_get_speed(struct interface *ifp, int *error)
