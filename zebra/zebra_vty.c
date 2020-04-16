@@ -54,6 +54,7 @@
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_nhg.h"
 #include "zebra/interface.h"
+#include "northbound_cli.h"
 
 extern int allow_delete;
 
@@ -2934,17 +2935,29 @@ DEFPY (clear_evpn_dup_addr,
        "IPv4 address\n"
        "IPv6 address\n")
 {
-	struct zebra_vrf *zvrf;
 	struct ipaddr host_ip = {.ipa_type = IPADDR_NONE };
 	int ret = CMD_SUCCESS;
+	struct list *input;
+	struct yang_data *yang_dup = NULL, *yang_dup_ip = NULL,
+			 *yang_dup_mac = NULL;
 
-	zvrf = zebra_vrf_get_evpn();
-	if (vni_str) {
+	input = list_new();
+
+	if (!vni_str) {
+		yang_dup = yang_data_new(
+			"/frr-zebra:clear-evpn-dup-addr/input/clear-dup-choice",
+			"all-case");
+	} else {
+		yang_dup = yang_data_new_uint32(
+			"/frr-zebra:clear-evpn-dup-addr/input/clear-dup-choice/single-case/vni-id",
+			vni);
 		if (!is_zero_mac(&mac->eth_addr)) {
-			ret = zebra_vxlan_clear_dup_detect_vni_mac(vty, zvrf,
-								   vni,
-								   &mac->eth_addr);
-	        } else if (ip) {
+			yang_dup_mac = yang_data_new_mac(
+				"/frr-zebra:clear-evpn-dup-addr/input/clear-dup-choice/single-case/vni-id/mac-addr",
+				&mac->eth_addr);
+			if (yang_dup_mac)
+				listnode_add(input, yang_dup_mac);
+		} else if (ip) {
 			if (sockunion_family(ip) == AF_INET) {
 				host_ip.ipa_type = IPADDR_V4;
 				host_ip.ipaddr_v4.s_addr = sockunion2ip(ip);
@@ -2953,15 +2966,22 @@ DEFPY (clear_evpn_dup_addr,
 				memcpy(&host_ip.ipaddr_v6, &ip->sin6.sin6_addr,
 				       sizeof(struct in6_addr));
 			}
-			ret = zebra_vxlan_clear_dup_detect_vni_ip(vty, zvrf,
-								  vni,
-								  &host_ip);
-		} else
-			ret = zebra_vxlan_clear_dup_detect_vni(vty, zvrf, vni);
 
-	} else {
-		ret = zebra_vxlan_clear_dup_detect_vni_all(vty, zvrf);
+			yang_dup_ip = yang_data_new_ip(
+				"/frr-zebra:clear-evpn-dup-addr/input/clear-dup-choice/single-case/vni-id/vni-ipaddr",
+				&host_ip);
+
+			if (yang_dup_ip)
+				listnode_add(input, yang_dup_ip);
+		}
 	}
+
+	if (yang_dup) {
+		listnode_add(input, yang_dup);
+		ret = nb_cli_rpc("/frr-zebra:clear-evpn-dup-addr", input, NULL);
+	}
+
+	list_delete(&input);
 
 	return ret;
 }

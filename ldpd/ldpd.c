@@ -180,6 +180,7 @@ static struct quagga_signal_t ldp_signals[] =
 };
 
 static const struct frr_yang_module_info *const ldpd_yang_modules[] = {
+	&frr_vrf_info,
 };
 
 FRR_DAEMON_INFO(ldpd, LDP,

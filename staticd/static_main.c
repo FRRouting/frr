@@ -104,6 +104,7 @@ struct quagga_signal_t static_signals[] = {
 };
 
 static const struct frr_yang_module_info *const staticd_yang_modules[] = {
+	&frr_vrf_info,
 };
 
 #define STATIC_VTY_PORT 2616

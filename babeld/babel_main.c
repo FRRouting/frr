@@ -136,10 +136,10 @@ struct option longopts[] =
     { 0 }
   };
 
-static const struct frr_yang_module_info *const babeld_yang_modules[] =
-  {
-    &frr_interface_info,
-  };
+static const struct frr_yang_module_info *const babeld_yang_modules[] = {
+	&frr_interface_info,
+	&frr_vrf_info,
+};
 
 FRR_DAEMON_INFO(babeld, BABELD,
 		.vty_port = BABEL_VTY_PORT,

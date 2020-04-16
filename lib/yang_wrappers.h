@@ -114,6 +114,9 @@ extern const char *yang_get_default_string(const char *xpath_fmt, ...);
 extern void yang_get_default_string_buf(char *buf, size_t size,
 					const char *xpath_fmt, ...);
 
+/* empty */
+extern struct yang_data *yang_data_new_empty(const char *xpath);
+
 /* ip prefix */
 extern void yang_str2prefix(const char *value, union prefixptr prefix);
 extern struct yang_data *yang_data_new_prefix(const char *xpath,
@@ -171,5 +174,12 @@ extern struct yang_data *yang_data_new_ip(const char *xpath,
 extern void yang_dnode_get_ip(struct ipaddr *addr, const struct lyd_node *dnode,
 			      const char *xpath_fmt, ...);
 extern void yang_get_default_ip(struct ipaddr *var, const char *xpath_fmt, ...);
+
+/* mac */
+extern struct yang_data *yang_data_new_mac(const char *xpath,
+					   const struct ethaddr *mac);
+extern void yang_str2mac(const char *value, struct ethaddr *mac);
+
+extern const char *yang_nexthop_type2str(uint32_t ntype);
 
 #endif /* _FRR_NORTHBOUND_WRAPPERS_H_ */
