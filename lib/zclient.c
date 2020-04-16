@@ -388,6 +388,7 @@ int zclient_send_hello(struct zclient *zclient)
 		zclient_create_header(s, ZEBRA_HELLO, VRF_DEFAULT);
 		stream_putc(s, zclient->redist_default);
 		stream_putw(s, zclient->instance);
+		stream_putl(s, zclient->session_id);
 		if (zclient->receive_notify)
 			stream_putc(s, 1);
 		else

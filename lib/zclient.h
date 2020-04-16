@@ -258,6 +258,9 @@ struct zclient {
 	/* Is this a synchronous client? */
 	bool synchronous;
 
+	/* Session id (optional) to support clients with multiple sessions */
+	uint32_t session_id;
+
 	/* Socket to zebra daemon. */
 	int sock;
 
