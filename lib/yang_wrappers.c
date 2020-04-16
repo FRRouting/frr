@@ -1135,7 +1135,7 @@ struct yang_data *yang_data_new_mac(const char *xpath,
 
 void yang_str2mac(const char *value, struct ethaddr *mac)
 {
-    (void)prefix_str2mac(value, mac);
+	(void)prefix_str2mac(value, mac);
 }
 
 const char *yang_nexthop_type2str(uint32_t ntype)
