@@ -72,6 +72,9 @@ int retain_mode = 0;
 /* Allow non-quagga entities to delete quagga routes */
 int allow_delete = 0;
 
+/* Don't delete kernel route. */
+int keep_kernel_mode = 0;
+
 int graceful_restart;
 
 bool v6_rr_semantics = false;
@@ -90,6 +93,7 @@ const struct option longopts[] = {
 	{"allow_delete", no_argument, NULL, 'a'},
 	{"socket", required_argument, NULL, 'z'},
 	{"ecmp", required_argument, NULL, 'e'},
+	{"keep_kernel", no_argument, NULL, 'k'},
 	{"retain", no_argument, NULL, 'r'},
 	{"vrfdefaultname", required_argument, NULL, 'o'},
 	{"graceful_restart", required_argument, NULL, 'K'},
@@ -294,7 +298,7 @@ int main(int argc, char **argv)
 	frr_preinit(&zebra_di, argc, argv);
 
 	frr_opt_add(
-		"baz:e:o:rK:"
+		"bakz:e:o:rK:"
 #ifdef HAVE_NETLINK
 		"s:n"
 #endif
@@ -304,6 +308,7 @@ int main(int argc, char **argv)
 		"  -a, --allow_delete       Allow other processes to delete zebra routes\n"
 		"  -z, --socket             Set path of zebra socket\n"
 		"  -e, --ecmp               Specify ECMP to use.\n"
+		"  -k, --keep_kernel        Don't delete old routes which were installed by zebra.\n"
 		"  -r, --retain             When program terminates, retain added route by zebra.\n"
 		"  -o, --vrfdefaultname     Set default VRF name.\n"
 		"  -K, --graceful_restart   Graceful restart at the kernel level, timer in seconds for expiration\n"
@@ -329,6 +334,13 @@ int main(int argc, char **argv)
 			break;
 		case 'a':
 			allow_delete = 1;
+			break;
+		case 'k':
+			if (graceful_restart) {
+				zlog_err("Graceful Restart initiated, we cannot keep the existing kernel routes");
+				return 1;
+			}
+			keep_kernel_mode = 1;
 			break;
 		case 'e': {
 			unsigned long int parsed_multipath =
@@ -361,6 +373,10 @@ int main(int argc, char **argv)
 			retain_mode = 1;
 			break;
 		case 'K':
+			if (keep_kernel_mode) {
+				zlog_err("Keep Kernel mode specified, graceful restart incompatible");
+				return 1;
+			}
 			graceful_restart = atoi(optarg);
 			break;
 #ifdef HAVE_NETLINK
@@ -440,8 +456,9 @@ int main(int argc, char **argv)
 	* we have to have route_read() called before.
 	*/
 	zrouter.startup_time = monotime(NULL);
-	thread_add_timer(zrouter.master, rib_sweep_route,
-			 NULL, graceful_restart, NULL);
+	if (!keep_kernel_mode)
+		thread_add_timer(zrouter.master, rib_sweep_route,
+				 NULL, graceful_restart, NULL);
 
 	/* Needed for BSD routing socket. */
 	pid = getpid();
