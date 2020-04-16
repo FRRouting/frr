@@ -81,7 +81,7 @@ struct community_entry {
 	uint8_t style;
 
 	/* Any match.  */
-	uint8_t any;
+	bool any;
 
 	/* Sequence number. */
 	int64_t seq;
