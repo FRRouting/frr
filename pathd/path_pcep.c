@@ -250,16 +250,17 @@ DEFUN(show_pcep_counters, show_pcep_counters_cmd, "show pcep counters",
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
-	   "pcc [<ip A.B.C.D | ipv6 X:X::X:X>] [port (1024-65535)] [force_stateless]",
-	   "PCC configuration\n"
-	   "PCC source ip\n"
-	   "PCC source IPv4 address\n"
-	   "PCC source ip\n"
-	   "PCC source IPv6 address\n"
-	   "PCC source port\n"
-	   "PCC source port value\n"
-	   "Force the PCC to use computation requests\n")
+DEFUN_NOSH(
+	pcep_cli_pcc, pcep_cli_pcc_cmd,
+	"pcc [<ip A.B.C.D | ipv6 X:X::X:X>] [port (1024-65535)] [force_stateless]",
+	"PCC configuration\n"
+	"PCC source ip\n"
+	"PCC source IPv4 address\n"
+	"PCC source ip\n"
+	"PCC source IPv6 address\n"
+	"PCC source port\n"
+	"PCC source port value\n"
+	"Force the PCC to use computation requests\n")
 {
 
 	struct ipaddr pcc_addr;
@@ -275,7 +276,8 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 			i++;
 			if (i >= argc)
 				return CMD_ERR_NO_MATCH;
-			if (!inet_pton(AF_INET6, argv[i]->arg, &pcc_addr.ipaddr_v6))
+			if (!inet_pton(AF_INET6, argv[i]->arg,
+				       &pcc_addr.ipaddr_v6))
 				return CMD_ERR_INCOMPLETE;
 			pcc_addr.ipa_type = IPADDR_V6;
 			i++;
@@ -285,7 +287,8 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 			i++;
 			if (i >= argc)
 				return CMD_ERR_NO_MATCH;
-			if (!inet_pton(AF_INET, argv[i]->arg, &pcc_addr.ipaddr_v4.s_addr))
+			if (!inet_pton(AF_INET, argv[i]->arg,
+				       &pcc_addr.ipaddr_v4.s_addr))
 				return CMD_ERR_INCOMPLETE;
 			pcc_addr.ipa_type = IPADDR_V4;
 			i++;
@@ -312,9 +315,10 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 	opts = XCALLOC(MTYPE_PCEP, sizeof(*opts));
 	opts->addr.ipa_type = pcc_addr.ipa_type;
 	if (IS_IPADDR_V6(&pcc_addr)) {
-	    memcpy(&opts->addr.ipaddr_v6, &pcc_addr.ipaddr_v6, sizeof(struct in6_addr));
+		memcpy(&opts->addr.ipaddr_v6, &pcc_addr.ipaddr_v6,
+		       sizeof(struct in6_addr));
 	} else {
-	    opts->addr.ipaddr_v4.s_addr = pcc_addr.ipaddr_v4.s_addr;
+		opts->addr.ipaddr_v4.s_addr = pcc_addr.ipaddr_v4.s_addr;
 	}
 	opts->port = pcc_port;
 	opts->force_stateless = force_stateless;
@@ -366,13 +370,13 @@ DEFUN(pcep_cli_pce_opts, pcep_cli_pce_opts_cmd,
 		return CMD_ERR_NO_MATCH;
 	}
 	if (IS_IPADDR_V6(&pce_addr)) {
-	    if (!inet_pton(AF_INET6, argv[i]->arg, &pce_addr.ipaddr_v6)) {
-		    return CMD_ERR_INCOMPLETE;
-	    }
+		if (!inet_pton(AF_INET6, argv[i]->arg, &pce_addr.ipaddr_v6)) {
+			return CMD_ERR_INCOMPLETE;
+		}
 	} else {
-	    if (!inet_pton(AF_INET, argv[i]->arg, &pce_addr.ipaddr_v4)) {
-		    return CMD_ERR_INCOMPLETE;
-	    }
+		if (!inet_pton(AF_INET, argv[i]->arg, &pce_addr.ipaddr_v4)) {
+			return CMD_ERR_INCOMPLETE;
+		}
 	}
 
 	/* Handle the rest of the arguments */
@@ -399,9 +403,10 @@ DEFUN(pcep_cli_pce_opts, pcep_cli_pce_opts_cmd,
 	pce_opts = XCALLOC(MTYPE_PCEP, sizeof(*pce_opts));
 	pce_opts->addr.ipa_type = pce_addr.ipa_type;
 	if (IS_IPADDR_V6(&pce_addr)) {
-	    memcpy(&pce_opts->addr.ipaddr_v6, &pce_addr.ipaddr_v6, sizeof(struct in6_addr));
+		memcpy(&pce_opts->addr.ipaddr_v6, &pce_addr.ipaddr_v6,
+		       sizeof(struct in6_addr));
 	} else {
-	    pce_opts->addr.ipaddr_v4 = pce_addr.ipaddr_v4;
+		pce_opts->addr.ipaddr_v4 = pce_addr.ipaddr_v4;
 	}
 	pce_opts->port = pce_port;
 	pce_opts->draft07 = draft07;
@@ -504,15 +509,19 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 
 	if (NULL != pcep_g->pcc_opts) {
 		if (IS_IPADDR_V6(&pcep_g->pcc_opts->addr)) {
-		    if (0 != memcmp(&in6addr_any, &pcep_g->pcc_opts->addr.ipaddr_v6, sizeof(struct in6_addr))) {
-			    csnprintfrr(buff, sizeof(buff), " ip %pI6",
-				        &pcep_g->pcc_opts->addr.ipaddr_v6);
-		    }
+			if (0
+			    != memcmp(&in6addr_any,
+				      &pcep_g->pcc_opts->addr.ipaddr_v6,
+				      sizeof(struct in6_addr))) {
+				csnprintfrr(buff, sizeof(buff), " ip %pI6",
+					    &pcep_g->pcc_opts->addr.ipaddr_v6);
+			}
 		} else {
-		    if (INADDR_ANY != pcep_g->pcc_opts->addr.ipaddr_v4.s_addr) {
-			    csnprintfrr(buff, sizeof(buff), " ip %pI4",
-				        &pcep_g->pcc_opts->addr.ipaddr_v4);
-		    }
+			if (INADDR_ANY
+			    != pcep_g->pcc_opts->addr.ipaddr_v4.s_addr) {
+				csnprintfrr(buff, sizeof(buff), " ip %pI4",
+					    &pcep_g->pcc_opts->addr.ipaddr_v4);
+			}
 		}
 		if (PCEP_DEFAULT_PORT != pcep_g->pcc_opts->port)
 			csnprintfrr(buff, sizeof(buff), " port %d",
@@ -529,14 +538,17 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 						    " port %d", pce_opts->port);
 				}
 				if (true == pce_opts->draft07) {
-					csnprintfrr(buff, sizeof(buff), " sr-draft07");
+					csnprintfrr(buff, sizeof(buff),
+						    " sr-draft07");
 				}
 				if (IS_IPADDR_V6(&pce_opts->addr)) {
 					vty_out(vty, " pce ipv6 %pI6%s\n",
-						&pce_opts->addr.ipaddr_v6, buff);
+						&pce_opts->addr.ipaddr_v6,
+						buff);
 				} else {
 					vty_out(vty, " pce ip %pI4%s\n",
-						&pce_opts->addr.ipaddr_v4, buff);
+						&pce_opts->addr.ipaddr_v4,
+						buff);
 				}
 				buff[0] = 0;
 				lines++;

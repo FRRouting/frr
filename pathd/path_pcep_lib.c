@@ -86,11 +86,12 @@ pcep_session *pcep_lib_connect(struct pcc_opts *pcc_opts,
 	config->dst_pcep_port = pce_opts->port;
 	config->src_pcep_port = pcc_opts->port;
 	if (IS_IPADDR_V6(&pcc_opts->addr)) {
-	    config->is_src_ipv6 = true;
-	    memcpy(&config->src_ip.src_ipv6, &pcc_opts->addr.ipaddr_v6, sizeof(struct in6_addr));
+		config->is_src_ipv6 = true;
+		memcpy(&config->src_ip.src_ipv6, &pcc_opts->addr.ipaddr_v6,
+		       sizeof(struct in6_addr));
 	} else {
-	    config->is_src_ipv6 = false;
-	    config->src_ip.src_ipv4 = pcc_opts->addr.ipaddr_v4;
+		config->is_src_ipv6 = false;
+		config->src_ip.src_ipv4 = pcc_opts->addr.ipaddr_v4;
 	}
 
 	config->support_stateful_pce_lsp_update = !pcc_opts->force_stateless;
@@ -106,9 +107,9 @@ pcep_session *pcep_lib_connect(struct pcc_opts *pcc_opts,
 		pce_opts->draft07;
 
 	if (IS_IPADDR_V6(&pce_opts->addr)) {
-	    sess = connect_pce_ipv6(config, &pce_opts->addr.ipaddr_v6);
+		sess = connect_pce_ipv6(config, &pce_opts->addr.ipaddr_v6);
 	} else {
-	    sess = connect_pce(config, &pce_opts->addr.ipaddr_v4);
+		sess = connect_pce(config, &pce_opts->addr.ipaddr_v4);
 	}
 	destroy_pcep_configuration(config);
 	return sess;
@@ -129,7 +130,7 @@ struct pcep_message *pcep_lib_format_report(struct path *path)
 struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,
 					     struct ipaddr *dst)
 {
-	assert(src->ipa_type ==dst->ipa_type);
+	assert(src->ipa_type == dst->ipa_type);
 
 	double_linked_list *rp_tlvs;
 	struct pcep_object_tlv_path_setup_type *setup_type_tlv;
@@ -143,13 +144,13 @@ struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,
 
 	rp = pcep_obj_create_rp(0, false, false, false, reqid, rp_tlvs);
 	if (IS_IPADDR_V6(src)) {
-	    endpoints_ipv6 =
-		    pcep_obj_create_endpoint_ipv6(&src->ipaddr_v6, &dst->ipaddr_v6);
-	    return pcep_msg_create_request_ipv6(rp, endpoints_ipv6, NULL);
+		endpoints_ipv6 = pcep_obj_create_endpoint_ipv6(&src->ipaddr_v6,
+							       &dst->ipaddr_v6);
+		return pcep_msg_create_request_ipv6(rp, endpoints_ipv6, NULL);
 	} else {
-	    endpoints_ipv4 =
-		    pcep_obj_create_endpoint_ipv4(&src->ipaddr_v4, &dst->ipaddr_v4);
-	    return pcep_msg_create_request(rp, endpoints_ipv4, NULL);
+		endpoints_ipv4 = pcep_obj_create_endpoint_ipv4(&src->ipaddr_v4,
+							       &dst->ipaddr_v4);
+		return pcep_msg_create_request(rp, endpoints_ipv4, NULL);
 	}
 }
 
