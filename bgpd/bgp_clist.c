@@ -972,7 +972,7 @@ int community_list_set(struct community_list_handler *ch, const char *name,
 	entry = community_entry_new();
 	entry->direct = direct;
 	entry->style = style;
-	entry->any = (str ? 0 : 1);
+	entry->any = (str ? false : true);
 	entry->u.com = com;
 	entry->reg = regex;
 	entry->seq = seqnum;
@@ -1169,7 +1169,7 @@ int lcommunity_list_set(struct community_list_handler *ch, const char *name,
 	entry = community_entry_new();
 	entry->direct = direct;
 	entry->style = style;
-	entry->any = (str ? 0 : 1);
+	entry->any = (str ? false : true);
 	entry->u.lcom = lcom;
 	entry->reg = regex;
 	entry->seq = seqnum;
@@ -1290,7 +1290,7 @@ int extcommunity_list_set(struct community_list_handler *ch, const char *name,
 	entry = community_entry_new();
 	entry->direct = direct;
 	entry->style = style;
-	entry->any = 0;
+	entry->any = false;
 	if (ecom)
 		entry->config = ecommunity_ecom2str(
 			ecom, ECOMMUNITY_FORMAT_COMMUNITY_LIST, 0);

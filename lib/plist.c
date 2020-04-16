@@ -348,14 +348,14 @@ static void prefix_list_delete(struct prefix_list *plist)
 
 static struct prefix_list_entry *
 prefix_list_entry_make(struct prefix *prefix, enum prefix_list_type type,
-		       int64_t seq, int le, int ge, int any)
+		       int64_t seq, int le, int ge, bool any)
 {
 	struct prefix_list_entry *pentry;
 
 	pentry = prefix_list_entry_new();
 
 	if (any)
-		pentry->any = 1;
+		pentry->any = true;
 
 	prefix_copy(&pentry->prefix, prefix);
 	pentry->type = type;
@@ -851,7 +851,7 @@ static int vty_prefix_list_install(struct vty *vty, afi_t afi, const char *name,
 	struct prefix_list_entry *pentry;
 	struct prefix_list_entry *dup;
 	struct prefix p, p_tmp;
-	int any = 0;
+	bool any = false;
 	int64_t seqnum = -1;
 	int lenum = 0;
 	int genum = 0;
@@ -889,7 +889,7 @@ static int vty_prefix_list_install(struct vty *vty, afi_t afi, const char *name,
 					      (struct prefix_ipv4 *)&p);
 			genum = 0;
 			lenum = IPV4_MAX_BITLEN;
-			any = 1;
+			any = true;
 		} else
 			ret = str2prefix_ipv4(prefix, (struct prefix_ipv4 *)&p);
 
@@ -908,7 +908,7 @@ static int vty_prefix_list_install(struct vty *vty, afi_t afi, const char *name,
 			ret = str2prefix_ipv6("::/0", (struct prefix_ipv6 *)&p);
 			genum = 0;
 			lenum = IPV6_MAX_BITLEN;
-			any = 1;
+			any = true;
 		} else
 			ret = str2prefix_ipv6(prefix, (struct prefix_ipv6 *)&p);
 
@@ -1898,7 +1898,7 @@ int prefix_bgp_orf_set(char *name, afi_t afi, struct orf_prefix *orfp,
 	if (set) {
 		pentry = prefix_list_entry_make(
 			&orfp->p, (permit ? PREFIX_PERMIT : PREFIX_DENY),
-			orfp->seq, orfp->le, orfp->ge, 0);
+			orfp->seq, orfp->le, orfp->ge, false);
 
 		if (prefix_entry_dup_check(plist, pentry)) {
 			prefix_list_entry_free(pentry);
