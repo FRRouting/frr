@@ -276,23 +276,20 @@ DEFUN(show_pcep_counters, show_pcep_counters_cmd, "show pcep counters",
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH(
-	pcep_cli_pcc, pcep_cli_pcc_cmd,
-	"pcc <ip A.B.C.D | ipv6 X:X::X:X> [port (1024-65535)] [force_stateless]",
-	"PCC configuration\n"
-	"PCC source ip\n"
-	"PCC source IPv4 address\n"
-	"PCC source ip\n"
-	"PCC source IPv6 address\n"
-	"PCC source port\n"
-	"PCC source port value\n"
-	"Force the PCC to use computation requests\n")
+DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
+	   "pcc <ip A.B.C.D | ipv6 X:X::X:X> [port (1024-65535)]",
+	   "PCC configuration\n"
+	   "PCC source ip\n"
+	   "PCC source IPv4 address\n"
+	   "PCC source ip\n"
+	   "PCC source IPv6 address\n"
+	   "PCC source port\n"
+	   "PCC source port value\n")
 {
 
 	struct ipaddr pcc_addr;
 	uint32_t pcc_port = PCEP_DEFAULT_PORT;
 	struct pcc_opts *opts, *opts_copy;
-	bool force_stateless = false;
 	int i = 1;
 
 	/* Get the first argument, should be either ip or ipv6 */
@@ -331,12 +328,6 @@ DEFUN_NOSH(
 			i++;
 			continue;
 		}
-		if (0 == strcmp("force_stateless", argv[i]->arg)) {
-			force_stateless = true;
-			i++;
-			continue;
-		}
-		return CMD_ERR_NO_MATCH;
 	}
 
 	opts = XCALLOC(MTYPE_PCEP, sizeof(*opts));
@@ -348,7 +339,6 @@ DEFUN_NOSH(
 		opts->addr.ipaddr_v4.s_addr = pcc_addr.ipaddr_v4.s_addr;
 	}
 	opts->port = pcc_port;
-	opts->force_stateless = force_stateless;
 
 	if (pcep_ctrl_update_pcc_options(pcep_g->fpt, opts))
 		return CMD_WARNING;

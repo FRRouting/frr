@@ -379,8 +379,6 @@ void handle_pcep_open(struct ctrl_state *ctrl_state,
 {
 	assert(PCEP_TYPE_OPEN == msg->msg_header->type);
 	pcep_lib_parse_capabilities(msg, &pcc_state->caps);
-	if (pcc_state->pcc_opts->force_stateless)
-		pcc_state->caps.is_stateful = false;
 }
 
 void handle_pcep_message(struct ctrl_state *ctrl_state,

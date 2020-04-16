@@ -87,7 +87,6 @@ struct pce_opts {
 struct pcc_opts {
 	struct ipaddr addr;
 	short port;
-	bool force_stateless;
 };
 
 struct lsp_nb_key {

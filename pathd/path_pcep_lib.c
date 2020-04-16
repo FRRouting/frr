@@ -96,7 +96,7 @@ pcep_session *pcep_lib_connect(struct pcc_opts *pcc_opts,
 		config->src_ip.src_ipv4 = pcc_opts->addr.ipaddr_v4;
 	}
 
-	config->support_stateful_pce_lsp_update = !pcc_opts->force_stateless;
+	config->support_stateful_pce_lsp_update = true;
 	config->support_pce_lsp_instantiation = false;
 	config->support_include_db_version = false;
 	config->support_lsp_triggered_resync = false;
