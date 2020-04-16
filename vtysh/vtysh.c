@@ -2710,103 +2710,6 @@ DEFUNSH(VTYSH_ALL, no_vtysh_config_enable_password,
 	return CMD_SUCCESS;
 }
 
-/* Log filter */
-DEFUN (vtysh_log_filter,
-       vtysh_log_filter_cmd,
-       "[no] log-filter WORD ["DAEMONS_LIST"]",
-       NO_STR
-       FILTER_LOG_STR
-       "String to filter by\n"
-       DAEMONS_STR)
-{
-	char *filter = NULL;
-	char *daemon = NULL;
-	int found = 0;
-	int idx = 0;
-	int daemon_idx = 2;
-	int total_len = 0;
-	int len = 0;
-
-	char line[ZLOG_FILTER_LENGTH_MAX + 20];
-
-	found = argv_find(argv, argc, "no", &idx);
-	if (found == 1) {
-		len = snprintf(line, sizeof(line), "no log-filter");
-		daemon_idx += 1;
-	} else
-		len = snprintf(line, sizeof(line), "log-filter");
-
-	total_len += len;
-
-	idx = 1;
-	found = argv_find(argv, argc, "WORD", &idx);
-	if (found != 1) {
-		vty_out(vty, "%% No filter string given\n");
-		return CMD_WARNING;
-	}
-	filter = argv[idx]->arg;
-
-	if (strnlen(filter, ZLOG_FILTER_LENGTH_MAX + 1)
-	    > ZLOG_FILTER_LENGTH_MAX) {
-		vty_out(vty, "%% Filter is too long\n");
-		return CMD_WARNING;
-	}
-
-	len = snprintf(line + total_len, sizeof(line) - total_len, " %s\n",
-		       filter);
-
-	if ((len < 0) || (size_t)(total_len + len) > sizeof(line)) {
-		vty_out(vty, "%% Error buffering filter to daemons\n");
-		return CMD_ERR_INCOMPLETE;
-	}
-
-	if (argc >= (daemon_idx + 1))
-		daemon = argv[daemon_idx]->text;
-
-	if (daemon != NULL) {
-		vty_out(vty, "Applying log filter change to %s:\n", daemon);
-		return vtysh_client_execute_name(daemon, line);
-	} else
-		return show_per_daemon(line,
-				       "Applying log filter change to %s:\n");
-}
-
-/* Clear log filters */
-DEFUN (vtysh_log_filter_clear,
-       vtysh_log_filter_clear_cmd,
-       "log-filter clear ["DAEMONS_LIST"]",
-       FILTER_LOG_STR
-       CLEAR_STR
-       DAEMONS_STR)
-{
-	char *daemon = NULL;
-	int daemon_idx = 2;
-
-	char line[] = "clear log-filter\n";
-
-	if (argc >= (daemon_idx + 1))
-		daemon = argv[daemon_idx]->text;
-
-	if (daemon != NULL) {
-		vty_out(vty, "Clearing all filters applied to %s:\n", daemon);
-		return vtysh_client_execute_name(daemon, line);
-	} else
-		return show_per_daemon(line,
-				       "Clearing all filters applied to %s:\n");
-}
-
-/* Show log filter */
-DEFUN (vtysh_show_log_filter,
-       vtysh_show_log_filter_cmd,
-       "show log-filter",
-       SHOW_STR
-       FILTER_LOG_STR)
-{
-	char line[] = "do show log-filter\n";
-
-	return show_per_daemon(line, "Log filters applied to %s:\n");
-}
-
 DEFUN (vtysh_write_terminal,
        vtysh_write_terminal_cmd,
        "write terminal ["DAEMONS_LIST"]",
@@ -4106,9 +4009,6 @@ void vtysh_init_vty(void)
 
 	/* Logging */
 	install_element(VIEW_NODE, &vtysh_show_logging_cmd);
-	install_element(VIEW_NODE, &vtysh_show_log_filter_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_filter_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_filter_clear_cmd);
 	install_element(CONFIG_NODE, &vtysh_log_stdout_cmd);
 	install_element(CONFIG_NODE, &vtysh_log_stdout_level_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_log_stdout_cmd);

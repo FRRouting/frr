@@ -959,7 +959,7 @@ int main(int argc, char **argv) {
 AC_CHECK_HEADERS([pthread_np.h],,, [
 #include <pthread.h>
 ])
-AC_CHECK_FUNCS([pthread_setname_np pthread_set_name_np])
+AC_CHECK_FUNCS([pthread_setname_np pthread_set_name_np pthread_getthreadid_np])
 
 needsync=true
 
@@ -1202,7 +1202,11 @@ dnl other functions
 dnl ---------------
 AC_CHECK_FUNCS([ \
 	strlcat strlcpy \
-	getgrouplist])
+	getgrouplist \
+	openat \
+	unlinkat \
+	posix_fallocate \
+	])
 
 dnl ##########################################################################
 dnl LARGE if block spans a lot of "configure"!
@@ -2197,22 +2201,12 @@ if test "$enable_backtrace" != "no" ; then
   fi
 
   if test "$backtrace_ok" = "no"; then
-    case "$host_os" in
-    sunos* | solaris2*)
-      AC_CHECK_FUNCS([printstack], [
-        AC_DEFINE([HAVE_PRINTSTACK], [1], [Solaris printstack])
+    AC_CHECK_HEADER([execinfo.h], [
+      AC_SEARCH_LIBS([backtrace], [execinfo], [
+        AC_DEFINE([HAVE_GLIBC_BACKTRACE], [1], [Glibc backtrace])
         backtrace_ok=yes
-      ])
-      ;;
-    esac
-    if test "$backtrace_ok" = "no"; then
-      AC_CHECK_HEADER([execinfo.h], [
-        AC_SEARCH_LIBS([backtrace], [execinfo], [
-          AC_DEFINE([HAVE_GLIBC_BACKTRACE], [1], [Glibc backtrace])
-          backtrace_ok=yes
-        ],, [-lm])
-      ])
-    fi
+      ],, [-lm])
+    ])
   fi
 
   if test "$enable_backtrace" = "yes" -a "$backtrace_ok" = "no"; then

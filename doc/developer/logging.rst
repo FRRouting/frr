@@ -1,7 +1,7 @@
 .. _logging:
 
-Developer's Guide to Logging
-============================
+Logging
+=======
 
 One of the most frequent decisions to make while writing code for FRR is what
 to log, what level to log it at, and when to log it.  Here is a list of
@@ -116,8 +116,11 @@ AS-Safety
   while AS-Safe)
 * extensions are only AS-Safe if their printer is AS-Safe
 
+Log levels
+----------
+
 Errors and warnings
--------------------
+^^^^^^^^^^^^^^^^^^^
 
 If it is something that the user will want to look at and maybe do
 something, it is either an **error** or a **warning**.
@@ -163,7 +166,7 @@ Examples for errors:
 
 
 Informational messages
-----------------------
+^^^^^^^^^^^^^^^^^^^^^^
 
 Anything that provides introspection to the user during normal operation
 is an **info** message.
@@ -202,7 +205,7 @@ Examples:
 
 
 Debug messages and asserts
---------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Everything that is only interesting on-demand, or only while developing,
 is a **debug** message.  It might be interesting to the user for a
@@ -239,3 +242,180 @@ Examples:
 * some field that is absolutely needed is :code:`NULL`
 * any other kind of data structure corruption that will cause the daemon
   to crash sooner or later, one way or another
+
+Thread-local buffering
+----------------------
+
+The core logging code in :file:`lib/zlog.c` allows setting up per-thread log
+message buffers in order to improve logging performance.  The following rules
+apply for this buffering:
+
+* Only messages of priority *DEBUG* or *INFO* are buffered.
+* Any higher-priority message causes the thread's entire buffer to be flushed,
+  thus message ordering is preserved on a per-thread level.
+* There is no guarantee on ordering between different threads;  in most cases
+  this is arbitrary to begin with since the threads essentially race each
+  other in printing log messages.  If an order is established with some
+  synchronization primitive, add calls to :c:func:`zlog_tls_buffer_flush()`.
+* The buffers are only ever accessed by the thread they are created by.  This
+  means no locking is necessary.
+
+Both the main/default thread and additional threads created by
+:c:func:`frr_pthread_new()` with the default :c:func:`frr_run()` handler will
+initialize thread-local buffering and call :c:func:`zlog_tls_buffer_flush()`
+when idle.
+
+If some piece of code runs for an extended period, it may be useful to insert
+calls to :c:func:`zlog_tls_buffer_flush()` in appropriate places:
+
+.. c:function:: void zlog_tls_buffer_flush(void)
+
+   Write out any pending log messages that the calling thread may have in its
+   buffer.  This function is safe to call regardless of the per-thread log
+   buffer being set up / in use or not.
+
+When working with threads that do not use the :c:type:`struct thread_master`
+event loop, per-thread buffers can be managed with:
+
+.. c:function:: void zlog_tls_buffer_init(void)
+
+   Set up thread-local buffering for log messages.  This function may be
+   called repeatedly without adverse effects, but remember to call
+   :c:func:`zlog_tls_buffer_fini()` at thread exit.
+
+   .. warning::
+
+      If this function is called, but :c:func:`zlog_tls_buffer_flush()` is
+      not used, log message output will lag behind since messages will only be
+      written out when the buffer is full.
+
+      Exiting the thread without calling :c:func:`zlog_tls_buffer_fini()`
+      will cause buffered log messages to be lost.
+
+.. c:function:: void zlog_tls_buffer_fini(void)
+
+   Flush pending messages and tear down thread-local log message buffering.
+   This function may be called repeatedly regardless of whether
+   :c:func:`zlog_tls_buffer_init()` was ever called.
+
+Log targets
+-----------
+
+The actual logging subsystem (in :file:`lib/zlog.c`) is heavily separated
+from the actual log writers.  It uses an atomic linked-list (`zlog_targets`)
+with RCU to maintain the log targets to be called.  This list is intended to
+function as "backend" only, it **is not used for configuration**.
+
+Logging targets provide their configuration layer on top of this and maintain
+their own capability to enumerate and store their configuration.  Some targets
+(e.g. syslog) are inherently single instance and just stuff their config in
+global variables.  Others (e.g. file/fd output) are multi-instance capable.
+There is another layer boundary here between these and the VTY configuration
+that they use.
+
+Basic internals
+^^^^^^^^^^^^^^^
+
+.. c:type:: struct zlog_target
+
+   This struct needs to be filled in by any log target and then passed to
+   :c:func:`zlog_target_replace()`.  After it has been registered,
+   **RCU semantics apply**.  Most changes to associated data should make a
+   copy, change that, and then replace the entire struct.
+
+   Additional per-target data should be "appended" by embedding this struct
+   into a larger one, for use with `containerof()`, and
+   :c:func:`zlog_target_clone()` and :c:func:`zlog_target_free()` should be
+   used to allocate/free the entire container struct.
+
+   Do not use this structure to maintain configuration.  It should only
+   contain (a copy of) the data needed to perform the actual logging.  For
+   example, the syslog target uses this:
+
+   .. code-block:: c
+
+      struct zlt_syslog {
+          struct zlog_target zt;
+          int syslog_facility;
+      };
+
+      static void zlog_syslog(struct zlog_target *zt, struct zlog_msg *msgs[], size_t nmsgs)
+      {
+          struct zlt_syslog *zte = container_of(zt, struct zlt_syslog, zt);
+          size_t i;
+
+          for (i = 0; i < nmsgs; i++)
+              if (zlog_msg_prio(msgs[i]) <= zt->prio_min)
+                  syslog(zlog_msg_prio(msgs[i]) | zte->syslog_facility, "%s",
+                         zlog_msg_text(msgs[i], NULL));
+      }
+
+
+.. c:function:: struct zlog_target *zlog_target_clone(struct memtype *mt, struct zlog_target *oldzt, size_t size)
+
+   Allocates a logging target struct.  Note that the ``oldzt`` argument may be
+   ``NULL`` to allocate a "from scratch".  If ``oldzt`` is not ``NULL``, the
+   generic bits in :c:type:`struct zlog_target` are copied.  **Target specific
+   bits are not copied.**
+
+.. c:function:: struct zlog_target *zlog_target_replace(struct zlog_target *oldzt, struct zlog_target *newzt)
+
+   Adds, replaces or deletes a logging target (either ``oldzt`` or ``newzt`` may be ``NULL``.)
+
+   Returns ``oldzt`` for freeing.  The target remains possibly in use by
+   other threads until the RCU cycle ends.  This implies you cannot release
+   resources (e.g. memory, file descriptors) immediately.
+
+   The replace operation is not atomic; for a brief period it is possible that
+   messages are delivered on both ``oldzt`` and ``newzt``.
+
+   .. warning::
+
+      ``oldzt`` must remain **functional** until the RCU cycle ends.
+
+.. c:function:: void zlog_target_free(struct memtype *mt, struct zlog_target *zt)
+
+   Counterpart to :c:func:`zlog_target_clone()`, frees a target (using RCU.)
+
+.. c:member:: void (*zlog_target.logfn)(struct zlog_target *zt, struct zlog_msg *msgs[], size_t nmsg)
+
+   Called on a target to deliver "normal" logging messages.  ``msgs`` is an
+   array of opaque structs containing the actual message.  Use ``zlog_msg_*``
+   functions to access message data (this is done to allow some optimizations,
+   e.g.  lazy formatting the message text and timestamp as needed.)
+
+   .. note::
+
+      ``logfn()`` must check each individual message's priority value against
+      the configured ``prio_min``.  While the ``prio_min`` field is common to
+      all targets and used by the core logging code to early-drop unneeded log
+      messages, the array is **not** filtered for each ``logfn()`` call.
+
+.. c:member:: void (*zlog_target.logfn_sigsafe)(struct zlog_target *zt, const char *text, size_t len)
+
+   Called to deliver "exception" logging messages (i.e. SEGV messages.)
+   Must be Async-Signal-Safe (may not allocate memory or call "complicated"
+   libc functions.)  May be ``NULL`` if the log target cannot handle this.
+
+Standard targets
+^^^^^^^^^^^^^^^^
+
+:file:`lib/zlog_targets.c` provides the standard file / fd / syslog targets.
+The syslog target is single-instance while file / fd targets can be
+instantiated as needed.  There are 3 built-in targets that are fully
+autonomous without any config:
+
+- startup logging to `stderr`, until either :c:func:`zlog_startup_end()` or
+  :c:func:`zlog_aux_init()` is called.
+- stdout logging for non-daemon programs using :c:func:`zlog_aux_init()`
+- crashlogs written to :file:`/var/tmp/frr.daemon.crashlog`
+
+The regular CLI/command-line logging setup is handled by :file:`lib/log_vty.c`
+which makes the appropriate instantiations of syslog / file / fd targets.
+
+.. todo::
+
+  :c:func:`zlog_startup_end()` should do an explicit switchover from
+  startup stderr logging to configured logging.  Currently, configured logging
+  starts in parallel as soon as the respective setup is executed.  This results
+  in some duplicate logging.

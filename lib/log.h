@@ -22,20 +22,21 @@
 #ifndef _ZEBRA_LOG_H
 #define _ZEBRA_LOG_H
 
+#include "zassert.h"
+
 #include <syslog.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdarg.h>
+
 #include "lib/hook.h"
+#include "lib/zlog.h"
+#include "lib/zlog_targets.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/* Hook for external logging function */
-DECLARE_HOOK(zebra_ext_log, (int priority, const char *format, va_list args),
-	     (priority, format, args));
 
 /* Here is some guidance on logging levels to use:
  *
@@ -53,41 +54,13 @@ DECLARE_HOOK(zebra_ext_log, (int priority, const char *format, va_list args),
  * please use LOG_ERR instead.
  */
 
-/* If maxlvl is set to ZLOG_DISABLED, then no messages will be sent
-   to that logging destination. */
-#define ZLOG_DISABLED	(LOG_EMERG-1)
-
-typedef enum {
-	ZLOG_DEST_SYSLOG = 0,
-	ZLOG_DEST_STDOUT,
-	ZLOG_DEST_MONITOR,
-	ZLOG_DEST_FILE
-} zlog_dest_t;
-#define ZLOG_NUM_DESTS		(ZLOG_DEST_FILE+1)
-
-extern bool zlog_startup_stderr;
+extern void zlog_rotate(void);
 
 /* Message structure. */
 struct message {
 	int key;
 	const char *str;
 };
-
-/* Open zlog function */
-extern void openzlog(const char *progname, const char *protoname,
-		     uint16_t instance, int syslog_options,
-		     int syslog_facility);
-
-/* Close zlog function. */
-extern void closezlog(void);
-
-/* Handy zlog functions. */
-extern void zlog_err(const char *format, ...) PRINTFRR(1, 2);
-extern void zlog_warn(const char *format, ...) PRINTFRR(1, 2);
-extern void zlog_info(const char *format, ...) PRINTFRR(1, 2);
-extern void zlog_notice(const char *format, ...) PRINTFRR(1, 2);
-extern void zlog_debug(const char *format, ...) PRINTFRR(1, 2);
-extern void zlog(int priority, const char *format, ...) PRINTFRR(2, 3);
 
 /* For logs which have error codes associated with them */
 #define flog_err(ferr_id, format, ...)                                        \
@@ -101,22 +74,15 @@ extern void zlog(int priority, const char *format, ...) PRINTFRR(2, 3);
 
 extern void zlog_thread_info(int log_level);
 
-/* Set logging level for the given destination.  If the log_level
-   argument is ZLOG_DISABLED, then the destination is disabled.
-   This function should not be used for file logging (use zlog_set_file
-   or zlog_reset_file instead). */
-extern void zlog_set_level(zlog_dest_t, int log_level);
-
-/* Set logging to the given filename at the specified level. */
-extern int zlog_set_file(const char *filename, int log_level);
-/* Disable file logging. */
-extern int zlog_reset_file(void);
-
-/* Rotate log. */
-extern int zlog_rotate(void);
-
 #define ZLOG_FILTERS_MAX 100      /* Max # of filters at once */
 #define ZLOG_FILTER_LENGTH_MAX 80 /* 80 character filter limit */
+
+struct zlog_cfg_filterfile {
+	struct zlog_cfg_file parent;
+};
+
+extern void zlog_filterfile_init(struct zlog_cfg_filterfile *zcf);
+extern void zlog_filterfile_fini(struct zlog_cfg_filterfile *zcf);
 
 /* Add/Del/Dump log filters */
 extern void zlog_filter_clear(void);
@@ -175,8 +141,6 @@ extern int proto_redistnum(int afi, const char *s);
 
 extern const char *zserv_command_string(unsigned int command);
 
-
-extern int vzlog_test(int priority);
 
 /* structure useful for avoiding repeated rendering of the same timestamp */
 struct timestamp_control {

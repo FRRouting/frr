@@ -724,6 +724,7 @@ static int fd_poll(struct thread_master *m, struct pollfd *pfds, nfds_t pfdsize,
 		 < 0) // effect a poll (return immediately)
 		timeout = 0;
 
+	zlog_tls_buffer_flush();
 	rcu_read_unlock();
 	rcu_assert_read_unlocked();
 

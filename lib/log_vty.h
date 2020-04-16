@@ -20,5 +20,17 @@
 
 #ifndef __LOG_VTY_H__
 #define __LOG_VTY_H__
-extern void log_filter_cmd_init(void);
+
+#include "lib/hook.h"
+
+struct vty;
+
+extern void log_cmd_init(void);
+extern void log_config_write(struct vty *vty);
+extern int log_level_match(const char *s);
+extern void log_show_syslog(struct vty *vty);
+
+DECLARE_HOOK(zlog_rotate, (), ())
+extern void zlog_rotate(void);
+
 #endif /* __LOG_VTY_H__ */

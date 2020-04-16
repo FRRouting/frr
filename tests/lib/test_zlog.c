@@ -52,9 +52,7 @@ bool (*tests[])(void) = {
 
 int main(int argc, char **argv)
 {
-	openzlog("testzlog", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID,
-		 LOG_ERR);
-	zlog_set_file("test_zlog.log", LOG_DEBUG);
+	zlog_aux_init("NONE: ", ZLOG_DISABLED);
 
 	for (unsigned int i = 0; i < array_size(tests); i++)
 		if (!tests[i]())

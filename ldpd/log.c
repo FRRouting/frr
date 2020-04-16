@@ -24,7 +24,6 @@
 #include "log.h"
 
 #include <lib/log.h>
-#include <lib/log_int.h>
 
 const char	*log_procname;
 

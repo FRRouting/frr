@@ -25,7 +25,6 @@
 #include "lib/memory.h"
 #include "lib/routemap.h"
 #include "lib/log.h"
-#include "lib/log_int.h"
 #include "lib/linklist.h"
 #include "lib/command.h"
 
@@ -371,7 +370,7 @@ int rfapiStream2Vty(void *stream,			   /* input */
 		*fp = (int (*)(void *, const char *, ...))rfapiDebugPrintf;
 		*outstream = NULL;
 		*vty_newline = str_vty_newline(*vty);
-		return (vzlog_test(LOG_DEBUG));
+		return 1;
 	}
 
 	if (((uintptr_t)stream == (uintptr_t)1)

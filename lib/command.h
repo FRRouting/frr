@@ -66,9 +66,6 @@ struct host {
 	/* System wide terminal lines. */
 	int lines;
 
-	/* Log filename. */
-	char *logfile;
-
 	/* config file name of this host */
 	char *config;
 	int noconfig;

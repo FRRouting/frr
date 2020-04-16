@@ -45,6 +45,7 @@ lib_libfrr_la_SOURCES = \
 	lib/libfrr.c \
 	lib/linklist.c \
 	lib/log.c \
+	lib/log_filter.c \
 	lib/log_vty.c \
 	lib/md5.c \
 	lib/memory.c \
@@ -100,6 +101,8 @@ lib_libfrr_la_SOURCES = \
 	lib/yang_translator.c \
 	lib/yang_wrappers.c \
 	lib/zclient.c \
+	lib/zlog.c \
+	lib/zlog_targets.c \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
 	lib/printf/glue.c \
@@ -254,6 +257,8 @@ pkginclude_HEADERS += \
 	lib/zassert.h \
 	lib/zclient.h \
 	lib/zebra.h \
+	lib/zlog.h \
+	lib/zlog_targets.h \
 	lib/pbr.h \
 	# end
 
@@ -265,7 +270,6 @@ nodist_pkginclude_HEADERS += \
 
 noinst_HEADERS += \
 	lib/clippy.h \
-	lib/log_int.h \
 	lib/plist_int.h \
 	lib/printf/printfcommon.h \
 	lib/printf/printflocal.h \
