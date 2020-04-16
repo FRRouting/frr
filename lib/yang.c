@@ -72,6 +72,7 @@ static const char *yang_module_imp_clb(const char *mod_name,
 	return NULL;
 }
 
+/* clang-format off */
 static const char *const frr_native_modules[] = {
 	"frr-interface",
 	"frr-vrf",
@@ -81,6 +82,7 @@ static const char *const frr_native_modules[] = {
 	"frr-vrrpd",
 	"frr-zebra",
 };
+/* clang-format on */
 
 /* Generate the yang_modules tree. */
 static inline int yang_module_compare(const struct yang_module *a,
