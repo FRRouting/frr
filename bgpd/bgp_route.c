@@ -7544,7 +7544,7 @@ static char *bgp_nexthop_hostname(struct peer *peer,
 				  struct bgp_nexthop_cache *bnc)
 {
 	if (peer->hostname
-	    && CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHOW_HOSTNAME)
+	    && CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHOW_HOSTNAME) && bnc
 	    && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
 		return peer->hostname;
 	return NULL;
