@@ -1064,7 +1064,14 @@ static int route_map_config_write(struct vty *vty)
 }
 
 /* Route map node structure. */
-static struct cmd_node rmap_node = {RMAP_NODE, "%s(config-route-map)# ", 1};
+static int route_map_config_write(struct vty *vty);
+static struct cmd_node rmap_node = {
+	.name = "routemap",
+	.node = RMAP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-route-map)# ",
+	.config_write = route_map_config_write,
+};
 
 static void rmap_autocomplete(vector comps, struct cmd_token *token)
 {
@@ -1087,7 +1094,7 @@ void route_map_cli_init(void)
 	cmd_variable_handler_register(rmap_var_handlers);
 
 	/* CLI commands. */
-	install_node(&rmap_node, route_map_config_write);
+	install_node(&rmap_node);
 	install_default(RMAP_NODE);
 	install_element(CONFIG_NODE, &route_map_cmd);
 	install_element(CONFIG_NODE, &no_route_map_cmd);

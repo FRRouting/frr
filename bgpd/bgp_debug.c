@@ -2282,11 +2282,17 @@ static int bgp_config_write_debug(struct vty *vty)
 	return write;
 }
 
-static struct cmd_node debug_node = {DEBUG_NODE, "", 1};
+static int bgp_config_write_debug(struct vty *vty);
+static struct cmd_node debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = bgp_config_write_debug,
+};
 
 void bgp_debug_init(void)
 {
-	install_node(&debug_node, bgp_config_write_debug);
+	install_node(&debug_node);
 
 	install_element(ENABLE_NODE, &show_debugging_bgp_cmd);
 

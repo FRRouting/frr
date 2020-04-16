@@ -1938,8 +1938,15 @@ static int fpm_remote_srv_write(struct vty *vty)
 }
 
 
+static int fpm_remote_srv_write(struct vty *vty);
 /* Zebra node  */
-static struct cmd_node zebra_node = {ZEBRA_NODE, "", 1};
+static struct cmd_node zebra_node = {
+	.name = "zebra",
+	.node = ZEBRA_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "",
+	.config_write = fpm_remote_srv_write,
+};
 
 
 /**
@@ -1976,7 +1983,7 @@ static int zfpm_init(struct thread_master *master)
 	zfpm_stats_init(&zfpm_g->last_ivl_stats);
 	zfpm_stats_init(&zfpm_g->cumulative_stats);
 
-	install_node(&zebra_node, fpm_remote_srv_write);
+	install_node(&zebra_node);
 	install_element(ENABLE_NODE, &show_zebra_fpm_stats_cmd);
 	install_element(ENABLE_NODE, &clear_zebra_fpm_stats_cmd);
 	install_element(CONFIG_NODE, &fpm_remote_ip_cmd);

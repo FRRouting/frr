@@ -104,7 +104,7 @@ static struct rtr_mgr_group *get_connected_group(void);
 static void print_prefix_table(struct vty *vty);
 static void install_cli_commands(void);
 static int config_write(struct vty *vty);
-static void overwrite_exit_commands(void);
+static int config_on_exit(struct vty *vty);
 static void free_cache(struct cache *cache);
 static struct rtr_mgr_group *get_groups(void);
 #if defined(FOUND_SSH)
@@ -143,7 +143,14 @@ static unsigned int retry_interval;
 static int rpki_sync_socket_rtr;
 static int rpki_sync_socket_bgpd;
 
-static struct cmd_node rpki_node = {RPKI_NODE, "%s(config-rpki)# ", 1};
+static struct cmd_node rpki_node = {
+	.name = "rpki",
+	.node = RPKI_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-rpki)# ",
+	.config_write = config_write,
+	.node_exit = config_on_exit,
+};
 static const struct route_map_rule_cmd route_match_rpki_cmd = {
 	"rpki", route_match, route_match_compile, route_match_free};
 
@@ -1394,35 +1401,10 @@ DEFUN (show_rpki_cache_connection,
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (rpki_exit,
-	    rpki_exit_cmd,
-	    "exit",
-	    "Exit rpki configuration and restart rpki session\n")
+static int config_on_exit(struct vty *vty)
 {
 	reset(false);
-
-	vty->node = CONFIG_NODE;
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH (rpki_quit,
-	    rpki_quit_cmd,
-	    "quit",
-	    "Exit rpki configuration mode\n")
-{
-	return rpki_exit(self, vty, argc, argv);
-}
-
-DEFUN_NOSH (rpki_end,
-	    rpki_end_cmd,
-	    "end",
-	    "End rpki configuration, restart rpki session and change to enable mode.\n")
-{
-	int ret = reset(false);
-
-	vty_config_exit(vty);
-	vty->node = ENABLE_NODE;
-	return ret == SUCCESS ? CMD_SUCCESS : CMD_WARNING;
+	return 1;
 }
 
 DEFUN (rpki_reset,
@@ -1516,32 +1498,11 @@ DEFUN (no_match_rpki,
 	return CMD_SUCCESS;
 }
 
-static void overwrite_exit_commands(void)
-{
-	unsigned int i;
-	vector cmd_vector = rpki_node.cmd_vector;
-
-	for (i = 0; i < cmd_vector->active; ++i) {
-		struct cmd_element *cmd = vector_lookup(cmd_vector, i);
-
-		if (strcmp(cmd->string, "exit") == 0
-		    || strcmp(cmd->string, "quit") == 0
-		    || strcmp(cmd->string, "end") == 0) {
-			uninstall_element(RPKI_NODE, cmd);
-		}
-	}
-
-	install_element(RPKI_NODE, &rpki_exit_cmd);
-	install_element(RPKI_NODE, &rpki_quit_cmd);
-	install_element(RPKI_NODE, &rpki_end_cmd);
-}
-
 static void install_cli_commands(void)
 {
 	// TODO: make config write work
-	install_node(&rpki_node, &config_write);
+	install_node(&rpki_node);
 	install_default(RPKI_NODE);
-	overwrite_exit_commands();
 	install_element(CONFIG_NODE, &rpki_cmd);
 	install_element(ENABLE_NODE, &rpki_cmd);
 

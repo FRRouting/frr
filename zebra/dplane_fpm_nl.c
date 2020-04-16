@@ -368,10 +368,11 @@ static int fpm_write_config(struct vty *vty)
 	return written;
 }
 
-struct cmd_node fpm_node = {
-	.node = VTY_NODE,
+static struct cmd_node fpm_node = {
+	.name = "fpm",
+	.node = FPM_NODE,
 	.prompt = "",
-	.vtysh = 1,
+	.config_write = fpm_write_config,
 };
 
 /*
@@ -1103,7 +1104,7 @@ static int fpm_nl_new(struct thread_master *tm)
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("%s register status: %d", prov_name, rv);
 
-	install_node(&fpm_node, fpm_write_config);
+	install_node(&fpm_node);
 	install_element(ENABLE_NODE, &fpm_show_counters_cmd);
 	install_element(ENABLE_NODE, &fpm_show_counters_json_cmd);
 	install_element(ENABLE_NODE, &fpm_reset_counters_cmd);

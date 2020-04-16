@@ -2199,6 +2199,9 @@ void vty_close(struct vty *vty)
 	int i;
 	bool was_stdio = false;
 
+	/* Drop out of configure / transaction if needed. */
+	vty_config_exit(vty);
+
 	/* Cancel threads.*/
 	THREAD_OFF(vty->t_read);
 	THREAD_OFF(vty->t_write);
@@ -2241,9 +2244,6 @@ void vty_close(struct vty *vty)
 		vty->error->del = vty_error_delete;
 		list_delete(&vty->error);
 	}
-
-	/* Check configure. */
-	vty_config_exit(vty);
 
 	/* OK free vty. */
 	XFREE(MTYPE_VTY, vty);
@@ -2605,6 +2605,28 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 
 void vty_config_exit(struct vty *vty)
 {
+	enum node_type node = vty->node;
+	struct cmd_node *cnode;
+
+	/* unlock and jump up to ENABLE_NODE if -and only if- we're
+	 * somewhere below CONFIG_NODE */
+	while (node && node != CONFIG_NODE) {
+		cnode = vector_lookup(cmdvec, node);
+		node = cnode->parent_node;
+	}
+	if (node != CONFIG_NODE)
+		/* called outside config, e.g. vty_close() in ENABLE_NODE */
+		return;
+
+	while (vty->node != ENABLE_NODE)
+		/* will call vty_config_node_exit() below */
+		cmd_exit(vty);
+}
+
+int vty_config_node_exit(struct vty *vty)
+{
+	vty->xpath_index = 0;
+
 	/* Check if there's a pending confirmed commit. */
 	if (vty->t_confirmed_commit_timeout) {
 		vty_out(vty,
@@ -2626,6 +2648,7 @@ void vty_config_exit(struct vty *vty)
 	}
 
 	vty->config = false;
+	return 1;
 }
 
 /* Master of the threads. */
@@ -2989,8 +3012,13 @@ static int vty_config_write(struct vty *vty)
 	return CMD_SUCCESS;
 }
 
+static int vty_config_write(struct vty *vty);
 struct cmd_node vty_node = {
-	VTY_NODE, "%s(config-line)# ", 1,
+	.name = "vty",
+	.node = VTY_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-line)# ",
+	.config_write = vty_config_write,
 };
 
 /* Reset all VTY status. */
@@ -3084,7 +3112,7 @@ void vty_init(struct thread_master *master_thread, bool do_command_logging)
 	Vvty_serv_thread = vector_init(VECTOR_MIN_SIZE);
 
 	/* Install bgp top node. */
-	install_node(&vty_node, vty_config_write);
+	install_node(&vty_node);
 
 	install_element(VIEW_NODE, &config_who_cmd);
 	install_element(VIEW_NODE, &show_history_cmd);

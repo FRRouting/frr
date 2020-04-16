@@ -3327,8 +3327,15 @@ static int config_write_rip(struct vty *vty)
 	return write;
 }
 
+static int config_write_rip(struct vty *vty);
 /* RIP node structure. */
-static struct cmd_node rip_node = {RIP_NODE, "%s(config-router)# ", 1};
+static struct cmd_node rip_node = {
+	.name = "rip",
+	.node = RIP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+	.config_write = config_write_rip,
+};
 
 /* Distribute-list update functions. */
 static void rip_distribute_update(struct distribute_ctx *ctx,
@@ -3731,7 +3738,7 @@ void rip_vrf_terminate(void)
 void rip_init(void)
 {
 	/* Install top nodes. */
-	install_node(&rip_node, config_write_rip);
+	install_node(&rip_node);
 
 	/* Install rip commands. */
 	install_element(VIEW_NODE, &show_ip_rip_cmd);

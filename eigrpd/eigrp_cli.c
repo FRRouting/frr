@@ -838,7 +838,14 @@ void eigrp_cli_show_keychain(struct vty *vty, struct lyd_node *dnode,
 /*
  * CLI installation procedures.
  */
-static struct cmd_node eigrp_node = {EIGRP_NODE, "%s(config-router)# ", 1};
+static int eigrp_config_write(struct vty *vty);
+static struct cmd_node eigrp_node = {
+	.name = "eigrp",
+	.node = EIGRP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+	.config_write = eigrp_config_write,
+};
 
 static int eigrp_config_write(struct vty *vty)
 {
@@ -854,8 +861,14 @@ static int eigrp_config_write(struct vty *vty)
 	return written;
 }
 
-static struct cmd_node eigrp_interface_node = {INTERFACE_NODE,
-					       "%s(config-if)# ", 1};
+static int eigrp_write_interface(struct vty *vty);
+static struct cmd_node eigrp_interface_node = {
+	.name = "interface",
+	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-if)# ",
+	.config_write = eigrp_write_interface,
+};
 
 
 static int eigrp_write_interface(struct vty *vty)
@@ -888,7 +901,7 @@ eigrp_cli_init(void)
 	install_element(CONFIG_NODE, &router_eigrp_cmd);
 	install_element(CONFIG_NODE, &no_router_eigrp_cmd);
 
-	install_node(&eigrp_node, eigrp_config_write);
+	install_node(&eigrp_node);
 	install_default(EIGRP_NODE);
 
 	install_element(EIGRP_NODE, &eigrp_router_id_cmd);
@@ -906,7 +919,7 @@ eigrp_cli_init(void)
 	install_element(EIGRP_NODE, &eigrp_neighbor_cmd);
 	install_element(EIGRP_NODE, &eigrp_redistribute_source_metric_cmd);
 
-	install_node(&eigrp_interface_node, eigrp_write_interface);
+	install_node(&eigrp_interface_node);
 	if_cmd_init();
 
 	install_element(INTERFACE_NODE, &eigrp_if_delay_cmd);

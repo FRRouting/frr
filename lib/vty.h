@@ -323,6 +323,7 @@ extern void vty_log(const char *level, const char *proto, const char *msg,
 extern int vty_config_enter(struct vty *vty, bool private_config,
 			    bool exclusive);
 extern void vty_config_exit(struct vty *);
+extern int vty_config_node_exit(struct vty *);
 extern int vty_shell(struct vty *);
 extern int vty_shell_serv(struct vty *);
 extern void vty_hello(struct vty *);

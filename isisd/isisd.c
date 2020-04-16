@@ -73,7 +73,6 @@ int area_clear_net_title(struct vty *, const char *);
 int show_isis_interface_common(struct vty *, const char *ifname, char);
 int show_isis_neighbor_common(struct vty *, const char *id, char);
 int clear_isis_neighbor_common(struct vty *, const char *id);
-int isis_config_write(struct vty *);
 
 
 void isis_new(unsigned long process_id, vrf_id_t vrf_id)
@@ -784,8 +783,14 @@ DEFUN_NOSH (show_debugging,
 	return CMD_SUCCESS;
 }
 
+static int config_write_debug(struct vty *vty);
 /* Debug node. */
-static struct cmd_node debug_node = {DEBUG_NODE, "", 1};
+static struct cmd_node debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = config_write_debug,
+};
 
 static int config_write_debug(struct vty *vty)
 {
@@ -1852,7 +1857,7 @@ DEFUN (no_log_adj_changes,
 #endif /* ifdef FABRICD */
 #ifdef FABRICD
 /* IS-IS configuration write function */
-int isis_config_write(struct vty *vty)
+static int isis_config_write(struct vty *vty)
 {
 	int write = 0;
 
@@ -2124,9 +2129,16 @@ int isis_config_write(struct vty *vty)
 	return write;
 }
 
+struct cmd_node router_node = {
+	.name = "openfabric",
+	.node = OPENFABRIC_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+	.config_write = isis_config_write,
+};
 #else
 /* IS-IS configuration write function */
-int isis_config_write(struct vty *vty)
+static int isis_config_write(struct vty *vty)
 {
 	int write = 0;
 	struct lyd_node *dnode;
@@ -2139,14 +2151,20 @@ int isis_config_write(struct vty *vty)
 
 	return write;
 }
-#endif /* ifdef FABRICD */
 
-struct cmd_node router_node = {ROUTER_NODE, "%s(config-router)# ", 1};
+struct cmd_node router_node = {
+	.name = "isis",
+	.node = ISIS_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+	.config_write = isis_config_write,
+};
+#endif /* ifdef FABRICD */
 
 void isis_init(void)
 {
 	/* Install IS-IS top node */
-	install_node(&router_node, isis_config_write);
+	install_node(&router_node);
 
 	install_element(VIEW_NODE, &show_isis_summary_cmd);
 
@@ -2167,7 +2185,7 @@ void isis_init(void)
 
 	install_element(ENABLE_NODE, &show_debugging_isis_cmd);
 
-	install_node(&debug_node, config_write_debug);
+	install_node(&debug_node);
 
 	install_element(ENABLE_NODE, &debug_isis_adj_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_adj_cmd);

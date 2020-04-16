@@ -146,6 +146,7 @@ enum node_type {
 	MPLS_NODE,		 /* MPLS config node */
 	PW_NODE,		 /* Pseudowire config node */
 	VTY_NODE,		 /* Vty node. */
+	FPM_NODE,		 /* Dataplane FPM node. */
 	LINK_PARAMS_NODE,	/* Link-parameters node */
 	BGP_EVPN_VNI_NODE,       /* BGP EVPN VNI */
 	RPKI_NODE,     /* RPKI node for configuration of RPKI cache server
@@ -162,22 +163,29 @@ enum node_type {
 
 extern vector cmdvec;
 extern const struct message tokennames[];
-extern const char *const node_names[];
+
+/* for external users depending on struct layout */
+#define FRR_CMD_NODE_20200416
 
 /* Node which has some commands and prompt string and configuration
    function pointer . */
 struct cmd_node {
+	const char *name;
+
 	/* Node index. */
 	enum node_type node;
+	enum node_type parent_node;
 
 	/* Prompt character at vty interface. */
 	const char *prompt;
 
-	/* Is this node's configuration goes to vtysh ? */
-	int vtysh;
-
 	/* Node's configuration write function */
-	int (*func)(struct vty *);
+	int (*config_write)(struct vty *);
+
+	/* called when leaving the node on a VTY session.
+	 * return 1 if normal exit processing should happen, 0 to suppress
+	 */
+	int (*node_exit)(struct vty *);
 
 	/* Node's command graph */
 	struct graph *cmdgraph;
@@ -431,7 +439,7 @@ struct cmd_node {
 #define NO_GR_NEIGHBOR_HELPER_CMD "Undo Graceful Restart Helper command for a neighbor\n"
 
 /* Prototypes. */
-extern void install_node(struct cmd_node *node, int (*)(struct vty *));
+extern void install_node(struct cmd_node *node);
 extern void install_default(enum node_type);
 extern void install_element(enum node_type, const struct cmd_element *);
 

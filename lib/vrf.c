@@ -758,7 +758,12 @@ DEFUN (no_vrf,
 }
 
 
-static struct cmd_node vrf_node = {VRF_NODE, "%s(config-vrf)# ", 1};
+static struct cmd_node vrf_node = {
+	.name = "vrf",
+	.node = VRF_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-vrf)# ",
+};
 
 DEFUN_NOSH (vrf_netns,
        vrf_netns_cmd,
@@ -848,11 +853,17 @@ static int vrf_write_host(struct vty *vty)
 	return 1;
 }
 
-static struct cmd_node vrf_debug_node = {VRF_DEBUG_NODE, "", 1};
+static int vrf_write_host(struct vty *vty);
+static struct cmd_node vrf_debug_node = {
+	.name = "vrf debug",
+	.node = VRF_DEBUG_NODE,
+	.prompt = "",
+	.config_write = vrf_write_host,
+};
 
 void vrf_install_commands(void)
 {
-	install_node(&vrf_debug_node, vrf_write_host);
+	install_node(&vrf_debug_node);
 
 	install_element(CONFIG_NODE, &vrf_debug_cmd);
 	install_element(ENABLE_NODE, &vrf_debug_cmd);
@@ -865,7 +876,8 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty),
 {
 	install_element(CONFIG_NODE, &vrf_cmd);
 	install_element(CONFIG_NODE, &no_vrf_cmd);
-	install_node(&vrf_node, writefunc);
+	vrf_node.config_write = writefunc;
+	install_node(&vrf_node);
 	install_default(VRF_NODE);
 	install_element(VRF_NODE, &vrf_exit_cmd);
 	if (vrf_is_backend_netns() && ns_have_netns()) {

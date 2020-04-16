@@ -1193,8 +1193,13 @@ int rip_show_network_config(struct vty *vty, struct rip *rip)
 	return 0;
 }
 
+static int rip_interface_config_write(struct vty *vty);
 static struct cmd_node interface_node = {
-	INTERFACE_NODE, "%s(config-if)# ", 1,
+	.name = "interface",
+	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-if)# ",
+	.config_write = rip_interface_config_write,
 };
 
 void rip_interface_sync(struct interface *ifp)
@@ -1236,7 +1241,7 @@ void rip_if_init(void)
 	hook_register_prio(if_del, 0, rip_interface_delete_hook);
 
 	/* Install interface node. */
-	install_node(&interface_node, rip_interface_config_write);
+	install_node(&interface_node);
 	if_cmd_init();
 	if_zapi_callbacks(rip_ifp_create, rip_ifp_up,
 			  rip_ifp_down, rip_ifp_destroy);

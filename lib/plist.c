@@ -2044,10 +2044,14 @@ static void prefix_list_reset_afi(afi_t afi, int orf)
 }
 
 
+static int config_write_prefix_ipv4(struct vty *vty);
 /* Prefix-list node. */
-static struct cmd_node prefix_node = {PREFIX_NODE,
-				      "", /* Prefix list has no interface. */
-				      1};
+static struct cmd_node prefix_node = {
+	.name = "ipv4 prefix list",
+	.node = PREFIX_NODE,
+	.prompt = "",
+	.config_write = config_write_prefix_ipv4,
+};
 
 static int config_write_prefix_ipv4(struct vty *vty)
 {
@@ -2085,7 +2089,7 @@ static const struct cmd_variable_handler plist_var_handlers[] = {
 
 static void prefix_list_init_ipv4(void)
 {
-	install_node(&prefix_node, config_write_prefix_ipv4);
+	install_node(&prefix_node);
 
 	install_element(CONFIG_NODE, &ip_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ip_prefix_list_cmd);
@@ -2107,10 +2111,14 @@ static void prefix_list_init_ipv4(void)
 	install_element(ENABLE_NODE, &clear_ip_prefix_list_cmd);
 }
 
+static int config_write_prefix_ipv6(struct vty *vty);
 /* Prefix-list node. */
 static struct cmd_node prefix_ipv6_node = {
-	PREFIX_IPV6_NODE, "", /* Prefix list has no interface. */
-	1};
+	.name = "ipv6 prefix list",
+	.node = PREFIX_IPV6_NODE,
+	.prompt = "",
+	.config_write = config_write_prefix_ipv6,
+};
 
 static int config_write_prefix_ipv6(struct vty *vty)
 {
@@ -2119,7 +2127,7 @@ static int config_write_prefix_ipv6(struct vty *vty)
 
 static void prefix_list_init_ipv6(void)
 {
-	install_node(&prefix_ipv6_node, config_write_prefix_ipv6);
+	install_node(&prefix_ipv6_node);
 
 	install_element(CONFIG_NODE, &ipv6_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_prefix_list_cmd);

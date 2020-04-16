@@ -399,7 +399,7 @@ DEFUN (grammar_findambig,
 			if (!nodegraph)
 				continue;
 			vty_out(vty, "scanning node %d (%s)\n", scannode - 1,
-				node_names[scannode - 1]);
+				cnode->name);
 		}
 
 		commands = cmd_graph_permutations(nodegraph);

@@ -3015,7 +3015,13 @@ DEFUN (no_debug_rmap,
 }
 
 /* Debug node. */
-static struct cmd_node rmap_debug_node = {RMAP_DEBUG_NODE, "", 1};
+static int rmap_config_write_debug(struct vty *vty);
+static struct cmd_node rmap_debug_node = {
+	.name = "route-map debug",
+	.node = RMAP_DEBUG_NODE,
+	.prompt = "",
+	.config_write = rmap_config_write_debug,
+};
 
 /* Configuration write function. */
 static int rmap_config_write_debug(struct vty *vty)
@@ -3242,7 +3248,7 @@ void route_map_init(void)
 	route_map_cli_init();
 
 	/* Install route map top node. */
-	install_node(&rmap_debug_node, rmap_config_write_debug);
+	install_node(&rmap_debug_node);
 
 	/* Install route map commands. */
 	install_element(CONFIG_NODE, &debug_rmap_cmd);

@@ -58,11 +58,13 @@ static void babel_interface_free (babel_interface_nfo *bi);
 
 
 static vector babel_enable_if;                 /* enable interfaces (by cmd). */
-static struct cmd_node babel_interface_node =  /* babeld's interface node.    */
-{
-    INTERFACE_NODE,
-    "%s(config-if)# ",
-    1 /* VTYSH */
+static int interface_config_write(struct vty *vty);
+static struct cmd_node babel_interface_node = {
+    .name = "interface",
+    .node = INTERFACE_NODE,
+    .parent_node = CONFIG_NODE,
+    .prompt = "%s(config-if)# ",
+    .config_write = interface_config_write,
 };
 
 
@@ -1247,7 +1249,7 @@ babel_if_init(void)
     babel_enable_if = vector_init (1);
 
     /* install interface node and commands */
-    install_node (&babel_interface_node, interface_config_write);
+    install_node(&babel_interface_node);
     if_cmd_init();
 
     install_element(BABEL_NODE, &babel_network_cmd);

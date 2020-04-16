@@ -158,9 +158,13 @@ static void agentx_events_update(void)
 }
 
 /* AgentX node. */
-static struct cmd_node agentx_node = {SMUX_NODE,
-				      "", /* AgentX has no interface. */
-				      1};
+static int config_write_agentx(struct vty *vty);
+static struct cmd_node agentx_node = {
+	.name = "smux",
+	.node = SMUX_NODE,
+	.prompt = "",
+	.config_write = config_write_agentx,
+};
 
 /* Logging NetSNMP messages */
 static int agentx_log_callback(int major, int minor, void *serverarg,
@@ -246,7 +250,7 @@ void smux_init(struct thread_master *tm)
 			       agentx_log_callback, NULL);
 	init_agent(FRR_SMUX_NAME);
 
-	install_node(&agentx_node, config_write_agentx);
+	install_node(&agentx_node);
 	install_element(CONFIG_NODE, &agentx_enable_cmd);
 	install_element(CONFIG_NODE, &no_agentx_cmd);
 }

@@ -3478,22 +3478,42 @@ DEFUN_HIDDEN (show_frr,
 }
 
 /* IP node for static routes. */
-static struct cmd_node ip_node = {IP_NODE, "", 1};
-static struct cmd_node protocol_node = {PROTOCOL_NODE, "", 1};
+static int zebra_ip_config(struct vty *vty);
+static struct cmd_node ip_node = {
+	.name = "static ip",
+	.node = IP_NODE,
+	.prompt = "",
+	.config_write = zebra_ip_config,
+};
+static int config_write_protocol(struct vty *vty);
+static struct cmd_node protocol_node = {
+	.name = "protocol",
+	.node = PROTOCOL_NODE,
+	.prompt = "",
+	.config_write = config_write_protocol,
+};
 /* table node for routing tables. */
-static struct cmd_node table_node = {TABLE_NODE,
-				     "", /* This node has no interface. */
-				     1};
-static struct cmd_node forwarding_node = {FORWARDING_NODE,
-					  "", /* This node has no interface. */
-					  1};
+static int config_write_table(struct vty *vty);
+static struct cmd_node table_node = {
+	.name = "table",
+	.node = TABLE_NODE,
+	.prompt = "",
+	.config_write = config_write_table,
+};
+static int config_write_forwarding(struct vty *vty);
+static struct cmd_node forwarding_node = {
+	.name = "forwarding",
+	.node = FORWARDING_NODE,
+	.prompt = "",
+	.config_write = config_write_forwarding,
+};
 
 /* Route VTY.  */
 void zebra_vty_init(void)
 {
 	/* Install configuration write function. */
-	install_node(&table_node, config_write_table);
-	install_node(&forwarding_node, config_write_forwarding);
+	install_node(&table_node);
+	install_node(&forwarding_node);
 
 	install_element(VIEW_NODE, &show_ip_forwarding_cmd);
 	install_element(CONFIG_NODE, &ip_forwarding_cmd);
@@ -3507,8 +3527,8 @@ void zebra_vty_init(void)
 	/* Route-map */
 	zebra_route_map_init();
 
-	install_node(&ip_node, zebra_ip_config);
-	install_node(&protocol_node, config_write_protocol);
+	install_node(&ip_node);
+	install_node(&protocol_node);
 
 	install_element(CONFIG_NODE, &allow_external_route_update_cmd);
 	install_element(CONFIG_NODE, &no_allow_external_route_update_cmd);

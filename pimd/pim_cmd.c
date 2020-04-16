@@ -70,10 +70,19 @@
 #endif
 
 static struct cmd_node interface_node = {
-	INTERFACE_NODE, "%s(config-if)# ", 1 /* vtysh ? yes */
+	.name = "interface",
+	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-if)# ",
+	.config_write = pim_interface_config_write,
 };
 
-static struct cmd_node debug_node = {DEBUG_NODE, "", 1};
+static struct cmd_node debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = pim_debug_config_write,
+};
 
 static struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
 				      const int argc, int *idx)
@@ -10827,11 +10836,10 @@ DEFUN_HIDDEN (ip_pim_mlag,
 
 void pim_cmd_init(void)
 {
-	install_node(&interface_node,
-		     pim_interface_config_write); /* INTERFACE_NODE */
+	install_node(&interface_node); /* INTERFACE_NODE */
 	if_cmd_init();
 
-	install_node(&debug_node, pim_debug_config_write);
+	install_node(&debug_node);
 
 	install_element(ENABLE_NODE, &pim_test_sg_keepalive_cmd);
 

@@ -933,10 +933,13 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	return CMD_SUCCESS;
 }
 
+static int nexthop_group_write(struct vty *vty);
 static struct cmd_node nexthop_group_node = {
-	NH_GROUP_NODE,
-	"%s(config-nh-group)# ",
-	1
+	.name = "nexthop-group",
+	.node = NH_GROUP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-nh-group)# ",
+	.config_write = nexthop_group_write,
 };
 
 void nexthop_group_write_nexthop(struct vty *vty, struct nexthop *nh)
@@ -1210,7 +1213,7 @@ void nexthop_group_init(void (*new)(const char *name),
 
 	cmd_variable_handler_register(nhg_name_handlers);
 
-	install_node(&nexthop_group_node, nexthop_group_write);
+	install_node(&nexthop_group_node);
 	install_element(CONFIG_NODE, &nexthop_group_cmd);
 	install_element(CONFIG_NODE, &no_nexthop_group_cmd);
 

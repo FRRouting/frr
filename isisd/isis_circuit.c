@@ -67,7 +67,6 @@ DEFINE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp))
 /*
  * Prototypes.
  */
-int isis_interface_config_write(struct vty *);
 int isis_if_new_hook(struct interface *);
 int isis_if_delete_hook(struct interface *);
 
@@ -969,7 +968,7 @@ DEFINE_HOOK(isis_circuit_config_write,
 	    (circuit, vty))
 
 #ifdef FABRICD
-int isis_interface_config_write(struct vty *vty)
+static int isis_interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	int write = 0;
@@ -1192,7 +1191,7 @@ int isis_interface_config_write(struct vty *vty)
 	return write;
 }
 #else
-int isis_interface_config_write(struct vty *vty)
+static int isis_interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	int write = 0;
@@ -1336,7 +1335,11 @@ ferr_r isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
 }
 
 struct cmd_node interface_node = {
-	INTERFACE_NODE, "%s(config-if)# ", 1,
+	.name = "interface",
+	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-if)# ",
+	.config_write = isis_interface_config_write,
 };
 
 void isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type)
@@ -1441,7 +1444,7 @@ void isis_circuit_init(void)
 	hook_register_prio(if_del, 0, isis_if_delete_hook);
 
 	/* Install interface node */
-	install_node(&interface_node, isis_interface_config_write);
+	install_node(&interface_node);
 	if_cmd_init();
 	if_zapi_callbacks(isis_ifp_create, isis_ifp_up,
 			  isis_ifp_down, isis_ifp_destroy);

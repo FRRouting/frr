@@ -73,86 +73,6 @@ const struct message tokennames[] = {
 	item(END_TKN),
 	{0},
 };
-
-const char *const node_names[] = {
-	"auth",			    // AUTH_NODE,
-	"view",			    // VIEW_NODE,
-	"auth enable",		    // AUTH_ENABLE_NODE,
-	"enable",		    // ENABLE_NODE,
-	"config",		    // CONFIG_NODE,
-	"debug",		    // DEBUG_NODE,
-	"vrf debug",		    // VRF_DEBUG_NODE,
-	"northbound debug",	    // NORTHBOUND_DEBUG_NODE,
-	"vnc debug",		    // DEBUG_VNC_NODE,
-	"route-map debug",	    /* RMAP_DEBUG_NODE */
-	"resolver debug",	    /* RESOLVER_DEBUG_NODE */
-	"aaa",			    // AAA_NODE,
-	"keychain",		    // KEYCHAIN_NODE,
-	"keychain key",		    // KEYCHAIN_KEY_NODE,
-	"static ip",		    // IP_NODE,
-	"vrf",			    // VRF_NODE,
-	"interface",		    // INTERFACE_NODE,
-	"nexthop-group",            // NH_GROUP_NODE,
-	"zebra",		    // ZEBRA_NODE,
-	"table",		    // TABLE_NODE,
-	"rip",			    // RIP_NODE,
-	"ripng",		    // RIPNG_NODE,
-	"babel",		    // BABEL_NODE,
-	"eigrp",		    // EIGRP_NODE,
-	"bgp",			    // BGP_NODE,
-	"bgp vpnv4",		    // BGP_VPNV4_NODE,
-	"bgp vpnv6",		    // BGP_VPNV6_NODE,
-	"bgp ipv4 unicast",	 // BGP_IPV4_NODE,
-	"bgp ipv4 multicast",       // BGP_IPV4M_NODE,
-	"bgp ipv4 labeled unicast", // BGP_IPV4L_NODE,
-	"bgp ipv6",		    // BGP_IPV6_NODE,
-	"bgp ipv6 multicast",       // BGP_IPV6M_NODE,
-	"bgp ipv6 labeled unicast", // BGP_IPV6L_NODE,
-	"bgp vrf policy",	   // BGP_VRF_POLICY_NODE,
-	"bgp vnc defaults",	 // BGP_VNC_DEFAULTS_NODE,
-	"bgp vnc nve",		    // BGP_VNC_NVE_GROUP_NODE,
-	"bgp vnc l2",		    // BGP_VNC_L2_GROUP_NODE,
-	"rfp defaults",		    // RFP_DEFAULTS_NODE,
-	"bgp evpn",		    // BGP_EVPN_NODE,
-	"ospf",			    // OSPF_NODE,
-	"ospf6",		    // OSPF6_NODE,
-	"ldp",			    // LDP_NODE,
-	"ldp ipv4",		    // LDP_IPV4_NODE,
-	"ldp ipv6",		    // LDP_IPV6_NODE,
-	"ldp ipv4 interface",       // LDP_IPV4_IFACE_NODE,
-	"ldp ipv6 interface",       // LDP_IPV6_IFACE_NODE,
-	"ldp l2vpn",		    // LDP_L2VPN_NODE,
-	"ldp",			    // LDP_PSEUDOWIRE_NODE,
-	"isis",			    // ISIS_NODE,
-	"ipv4 access list",	 // ACCESS_NODE,
-	"ipv4 prefix list",	 // PREFIX_NODE,
-	"ipv6 access list",	 // ACCESS_IPV6_NODE,
-	"MAC access list",	  // ACCESS_MAC_NODE,
-	"ipv6 prefix list",	 // PREFIX_IPV6_NODE,
-	"as list",		    // AS_LIST_NODE,
-	"community list",	   // COMMUNITY_LIST_NODE,
-	"routemap",		    // RMAP_NODE,
-	"pbr-map",		    // PBRMAP_NODE,
-	"smux",			    // SMUX_NODE,
-	"dump",			    // DUMP_NODE,
-	"forwarding",		    // FORWARDING_NODE,
-	"protocol",		    // PROTOCOL_NODE,
-	"mpls",			    // MPLS_NODE,
-	"pw",			    // PW_NODE,
-	"vty",			    // VTY_NODE,
-	"link-params",		    // LINK_PARAMS_NODE,
-	"bgp evpn vni",		    // BGP_EVPN_VNI_NODE,
-	"rpki",			    // RPKI_NODE
-	"bgp ipv4 flowspec",	    /* BGP_FLOWSPECV4_NODE
-				     */
-	"bgp ipv6 flowspec",	    /* BGP_FLOWSPECV6_NODE
-				     */
-	"bfd",			 /* BFD_NODE */
-	"bfd peer",		 /* BFD_PEER_NODE */
-	"openfabric",		    // OPENFABRIC_NODE
-	"vrrp",			    /* VRRP_NODE */
-	"bmp",			 /* BMP_NODE */
-};
 /* clang-format on */
 
 /* Command vector which includes some level of command lists. Normally
@@ -179,24 +99,44 @@ const char *cmd_domainname_get(void)
 	return host.domainname;
 }
 
+static int root_on_exit(struct vty *vty);
+
 /* Standard command node structures. */
 static struct cmd_node auth_node = {
-	AUTH_NODE, "Password: ",
+	.name = "auth",
+	.node = AUTH_NODE,
+	.prompt = "Password: ",
 };
 
 static struct cmd_node view_node = {
-	VIEW_NODE, "%s> ",
+	.name = "view",
+	.node = VIEW_NODE,
+	.prompt = "%s> ",
+	.node_exit = root_on_exit,
 };
 
 static struct cmd_node auth_enable_node = {
-	AUTH_ENABLE_NODE, "Password: ",
+	.name = "auth enable",
+	.node = AUTH_ENABLE_NODE,
+	.prompt = "Password: ",
 };
 
 static struct cmd_node enable_node = {
-	ENABLE_NODE, "%s# ",
+	.name = "enable",
+	.node = ENABLE_NODE,
+	.prompt = "%s# ",
+	.node_exit = root_on_exit,
 };
 
-static struct cmd_node config_node = {CONFIG_NODE, "%s(config)# ", 1};
+static int config_write_host(struct vty *vty);
+static struct cmd_node config_node = {
+	.name = "config",
+	.node = CONFIG_NODE,
+	.parent_node = ENABLE_NODE,
+	.prompt = "%s(config)# ",
+	.config_write = config_write_host,
+	.node_exit = vty_config_node_exit,
+};
 
 /* This is called from main when a daemon is invoked with -v or --version. */
 void print_version(const char *progname)
@@ -286,10 +226,9 @@ static bool cmd_hash_cmp(const void *a, const void *b)
 }
 
 /* Install top node of command vector. */
-void install_node(struct cmd_node *node, int (*func)(struct vty *))
+void install_node(struct cmd_node *node)
 {
 	vector_set_index(cmdvec, node->node, node);
-	node->func = func;
 	node->cmdgraph = graph_new();
 	node->cmd_vector = vector_init(VECTOR_MIN_SIZE);
 	// add start node
@@ -327,9 +266,9 @@ void install_element(enum node_type ntype, const struct cmd_element *cmd)
 	if (cnode == NULL) {
 		fprintf(stderr,
 			"%s[%s]:\n"
-			"\tnode %d (%s) does not exist.\n"
+			"\tnode %d does not exist.\n"
 			"\tplease call install_node() before install_element()\n",
-			cmd->name, cmd->string, ntype, node_names[ntype]);
+			cmd->name, cmd->string, ntype);
 		exit(EXIT_FAILURE);
 	}
 
@@ -338,7 +277,7 @@ void install_element(enum node_type ntype, const struct cmd_element *cmd)
 			"%s[%s]:\n"
 			"\tnode %d (%s) already has this command installed.\n"
 			"\tduplicate install_element call?\n",
-			cmd->name, cmd->string, ntype, node_names[ntype]);
+			cmd->name, cmd->string, ntype, cnode->name);
 		return;
 	}
 
@@ -376,9 +315,9 @@ void uninstall_element(enum node_type ntype, const struct cmd_element *cmd)
 	if (cnode == NULL) {
 		fprintf(stderr,
 			"%s[%s]:\n"
-			"\tnode %d (%s) does not exist.\n"
+			"\tnode %d does not exist.\n"
 			"\tplease call install_node() before uninstall_element()\n",
-			cmd->name, cmd->string, ntype, node_names[ntype]);
+			cmd->name, cmd->string, ntype);
 		exit(EXIT_FAILURE);
 	}
 
@@ -387,7 +326,7 @@ void uninstall_element(enum node_type ntype, const struct cmd_element *cmd)
 			"%s[%s]:\n"
 			"\tnode %d (%s) does not have this command installed.\n"
 			"\tduplicate uninstall_element call?\n",
-			cmd->name, cmd->string, ntype, node_names[ntype]);
+			cmd->name, cmd->string, ntype, cnode->name);
 		return;
 	}
 
@@ -1339,90 +1278,25 @@ DEFUN (config_exit,
 	return CMD_SUCCESS;
 }
 
+static int root_on_exit(struct vty *vty)
+{
+	if (vty_shell(vty))
+		exit(0);
+	else
+		vty->status = VTY_CLOSE;
+	return 0;
+}
+
 void cmd_exit(struct vty *vty)
 {
-	switch (vty->node) {
-	case VIEW_NODE:
-	case ENABLE_NODE:
-		if (vty_shell(vty))
-			exit(0);
-		else
-			vty->status = VTY_CLOSE;
-		break;
-	case CONFIG_NODE:
-		vty->node = ENABLE_NODE;
-		vty_config_exit(vty);
-		break;
-	case INTERFACE_NODE:
-	case PW_NODE:
-	case VRF_NODE:
-	case NH_GROUP_NODE:
-	case ZEBRA_NODE:
-	case BGP_NODE:
-	case RIP_NODE:
-	case EIGRP_NODE:
-	case BABEL_NODE:
-	case RIPNG_NODE:
-	case OSPF_NODE:
-	case OSPF6_NODE:
-	case LDP_NODE:
-	case LDP_L2VPN_NODE:
-	case ISIS_NODE:
-	case OPENFABRIC_NODE:
-	case KEYCHAIN_NODE:
-	case RMAP_NODE:
-	case PBRMAP_NODE:
-	case VTY_NODE:
-	case BFD_NODE:
-		vty->node = CONFIG_NODE;
-		break;
-	case BGP_IPV4_NODE:
-	case BGP_IPV4M_NODE:
-	case BGP_IPV4L_NODE:
-	case BGP_VPNV4_NODE:
-	case BGP_VPNV6_NODE:
-	case BGP_FLOWSPECV4_NODE:
-	case BGP_FLOWSPECV6_NODE:
-	case BGP_VRF_POLICY_NODE:
-	case BGP_VNC_DEFAULTS_NODE:
-	case BGP_VNC_NVE_GROUP_NODE:
-	case BGP_VNC_L2_GROUP_NODE:
-	case BGP_IPV6_NODE:
-	case BGP_IPV6M_NODE:
-	case BGP_EVPN_NODE:
-	case BGP_IPV6L_NODE:
-	case BMP_NODE:
-		vty->node = BGP_NODE;
-		break;
-	case BGP_EVPN_VNI_NODE:
-		vty->node = BGP_EVPN_NODE;
-		break;
-	case LDP_IPV4_NODE:
-	case LDP_IPV6_NODE:
-		vty->node = LDP_NODE;
-		break;
-	case LDP_IPV4_IFACE_NODE:
-		vty->node = LDP_IPV4_NODE;
-		break;
-	case LDP_IPV6_IFACE_NODE:
-		vty->node = LDP_IPV6_NODE;
-		break;
-	case LDP_PSEUDOWIRE_NODE:
-		vty->node = LDP_L2VPN_NODE;
-		break;
-	case KEYCHAIN_KEY_NODE:
-		vty->node = KEYCHAIN_NODE;
-		break;
-	case LINK_PARAMS_NODE:
-		vty->node = INTERFACE_NODE;
-		break;
-	case BFD_PEER_NODE:
-		vty->node = BFD_NODE;
-		break;
-	default:
-		break;
-	}
+	struct cmd_node *cnode = vector_lookup(cmdvec, vty->node);
 
+	if (cnode->node_exit) {
+		if (!cnode->node_exit(vty))
+			return;
+	}
+	if (cnode->parent_node)
+		vty->node = cnode->parent_node;
 	if (vty->xpath_index > 0)
 		vty->xpath_index--;
 }
@@ -1447,7 +1321,6 @@ DEFUN (config_end,
 		vty_config_exit(vty);
 		vty->node = ENABLE_NODE;
 	}
-
 	return CMD_SUCCESS;
 }
 
@@ -1607,9 +1480,8 @@ static int vty_write_config(struct vty *vty)
 	vty_out(vty, "!\n");
 
 	for (i = 0; i < vector_active(cmdvec); i++)
-		if ((node = vector_slot(cmdvec, i)) && node->func
-		    && (node->vtysh || vty->type != VTY_SHELL)) {
-			if ((*node->func)(vty))
+		if ((node = vector_slot(cmdvec, i)) && node->config_write) {
+			if ((*node->config_write)(vty))
 				vty_out(vty, "!\n");
 		}
 
@@ -2350,7 +2222,7 @@ DEFUN(find,
 
 			if (regexec(&exp, cli->string, 0, NULL, 0) == 0)
 				vty_out(vty, "  (%s)  %s\n",
-					node_names[node->node], cli->string);
+					node->name, cli->string);
 		}
 	}
 
@@ -2398,9 +2270,6 @@ void cmd_init(int terminal)
 {
 	struct utsname names;
 
-	if (array_size(node_names) != NODE_TYPE_MAX)
-		assert(!"Update the CLI node description array!");
-
 	uname(&names);
 	qobj_init();
 
@@ -2432,11 +2301,11 @@ void cmd_init(int terminal)
 	host.motdfile = NULL;
 
 	/* Install top nodes. */
-	install_node(&view_node, NULL);
-	install_node(&enable_node, NULL);
-	install_node(&auth_node, NULL);
-	install_node(&auth_enable_node, NULL);
-	install_node(&config_node, config_write_host);
+	install_node(&view_node);
+	install_node(&enable_node);
+	install_node(&auth_node);
+	install_node(&auth_enable_node);
+	install_node(&config_node);
 
 	/* Each node's basic commands. */
 	install_element(VIEW_NODE, &show_version_cmd);

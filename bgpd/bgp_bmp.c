@@ -1772,7 +1772,12 @@ static void bmp_active_setup(struct bmp_active *ba)
 	}
 }
 
-static struct cmd_node bmp_node = {BMP_NODE, "%s(config-bgp-bmp)# "};
+static struct cmd_node bmp_node = {
+	.name = "bmp",
+	.node = BMP_NODE,
+	.parent_node = BGP_NODE,
+	.prompt = "%s(config-bgp-bmp)# "
+};
 
 #define BMP_STR "BGP Monitoring Protocol\n"
 
@@ -2266,7 +2271,7 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 
 static int bgp_bmp_init(struct thread_master *tm)
 {
-	install_node(&bmp_node, NULL);
+	install_node(&bmp_node);
 	install_default(BMP_NODE);
 	install_element(BGP_NODE, &bmp_targets_cmd);
 	install_element(BGP_NODE, &no_bmp_targets_cmd);

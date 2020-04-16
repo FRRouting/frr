@@ -954,9 +954,14 @@ static int interface_config_write(struct vty *vty)
 	return write;
 }
 
+static int interface_config_write(struct vty *vty);
 /* ripngd's interface node. */
 static struct cmd_node interface_node = {
-	INTERFACE_NODE, "%s(config-if)# ", 1 /* VTYSH */
+	.name = "interface",
+	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-if)# ",
+	.config_write = interface_config_write,
 };
 
 /* Initialization of interface. */
@@ -967,7 +972,7 @@ void ripng_if_init(void)
 	hook_register_prio(if_del, 0, ripng_if_delete_hook);
 
 	/* Install interface node. */
-	install_node(&interface_node, interface_config_write);
+	install_node(&interface_node);
 	if_cmd_init();
 	if_zapi_callbacks(ripng_ifp_create, ripng_ifp_up,
 			  ripng_ifp_down, ripng_ifp_destroy);
