@@ -26,6 +26,13 @@
 test_bgp_show_ip_bgp_fqdn.py:
 Test if FQND is visible in `show [ip] bgp` output if
 `bgp default show-hostname` is toggled.
+
+Topology:
+r1 <-- eBGP --> r2 <-- iBGP --> r3
+
+1. Check if both hostname and ip are added to JSON output
+for 172.16.255.254/32 on r2.
+2. Check if only ip is added to JSON output for 172.16.255.254/32 on r3.
 """
 
 import os
@@ -48,12 +55,17 @@ class TemplateTopo(Topo):
     def build(self, *_args, **_opts):
         tgen = get_topogen(self)
 
-        for routern in range(1, 3):
-            tgen.add_router('r{}'.format(routern))
+        for routern in range(1, 4):
+            tgen.add_router("r{}".format(routern))
 
-        switch = tgen.add_switch('s1')
-        switch.add_link(tgen.gears['r1'])
-        switch.add_link(tgen.gears['r2'])
+        switch = tgen.add_switch("s1")
+        switch.add_link(tgen.gears["r1"])
+        switch.add_link(tgen.gears["r2"])
+
+        switch = tgen.add_switch("s2")
+        switch.add_link(tgen.gears["r2"])
+        switch.add_link(tgen.gears["r3"])
+
 
 def setup_module(mod):
     tgen = Topogen(TemplateTopo, mod.__name__)
@@ -83,34 +95,36 @@ def test_bgp_show_ip_bgp_hostname():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears['r2']
-
     def _bgp_converge(router):
-        output = json.loads(router.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
-        expected = {
-            '192.168.255.1': {
-                'bgpState': 'Established',
-                'addressFamilyInfo': {
-                    'ipv4Unicast': {
-                        'acceptedPrefixCounter': 2
-                    }
-                }
-            }
-        }
+        output = json.loads(router.vtysh_cmd("show ip bgp 172.16.255.254/32 json"))
+        expected = {"prefix": "172.16.255.254/32"}
         return topotest.json_cmp(output, expected)
 
     def _bgp_show_nexthop_hostname_and_ip(router):
         output = json.loads(router.vtysh_cmd("show ip bgp json"))
-        for nh in output['routes']['172.16.255.253/32'][0]['nexthops']:
-            if 'hostname' in nh and 'ip' in nh:
+        for nh in output["routes"]["172.16.255.254/32"][0]["nexthops"]:
+            if "hostname" in nh and "ip" in nh:
                 return True
         return False
 
-    test_func = functools.partial(_bgp_converge, router)
+    def _bgp_show_nexthop_ip_only(router):
+        output = json.loads(router.vtysh_cmd("show ip bgp json"))
+        for nh in output["routes"]["172.16.255.254/32"][0]["nexthops"]:
+            if "ip" in nh and not "hostname" in nh:
+                return True
+        return False
+
+    test_func = functools.partial(_bgp_converge, tgen.gears["r2"])
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
-    assert result is None, 'Failed bgp convergence in "{}"'.format(router)
-    assert _bgp_show_nexthop_hostname_and_ip(router) == True
+    test_func = functools.partial(_bgp_converge, tgen.gears["r3"])
+    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+
+    assert result is None, 'Failed bgp convergence in "{}"'.format(tgen.gears["r2"])
+    assert _bgp_show_nexthop_hostname_and_ip(tgen.gears["r2"]) == True
+
+    assert result is None, 'Failed bgp convergence in "{}"'.format(tgen.gears["r3"])
+    assert _bgp_show_nexthop_ip_only(tgen.gears["r3"]) == True
 
 if __name__ == '__main__':
     args = ["-s"] + sys.argv[1:]
