@@ -376,11 +376,10 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 					bpr->priority,
 					bpr->action->table_id);
 			}
-			if (list_began)
-				vty_out(vty, ")");
-			vty_out(vty, "\n");
 		}
-		if (!list_began)
+		if (list_began)
+			vty_out(vty, ")\n");
+		else
 			vty_out(vty, "\tnot installed in PBR\n");
 	}
 }
