@@ -66,6 +66,9 @@ struct mgmt_be_client *mgmt_be_client;
 /* Route retain mode flag. */
 int retain_mode = 0;
 
+/* Don't delete kernel route. */
+int keep_kernel_mode = 0;
+
 int graceful_restart;
 
 /* Receive buffer size for kernel control sockets */
@@ -90,6 +93,7 @@ const struct option longopts[] = {
 	{ "retain", no_argument, NULL, 'r' },
 	{ "graceful_restart", required_argument, NULL, 'K' },
 	{ "asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD },
+	{ "keep_kernel", no_argument, NULL, 'k' },
 #ifdef HAVE_NETLINK
 	{ "vrfwnetns", no_argument, NULL, 'n' },
 	{ "nl-bufsize", required_argument, NULL, 's' },
@@ -329,7 +333,7 @@ int main(int argc, char **argv)
 
 	frr_preinit(&zebra_di, argc, argv);
 
-	frr_opt_add("baz:e:rK:s:R:"
+	frr_opt_add("bakz:e:rK:s:R:"
 #ifdef HAVE_NETLINK
 		    "n"
 #endif
@@ -340,6 +344,7 @@ int main(int argc, char **argv)
 		    "  -z, --socket              Set path of zebra socket\n"
 		    "  -e, --ecmp                Specify ECMP to use.\n"
 		    "  -r, --retain              When program terminates, retain added route by zebra.\n"
+			"  -k, --keep_kernel         Don't delete old routes which were installed by zebra.\n"
 		    "  -K, --graceful_restart    Graceful restart at the kernel level, timer in seconds for expiration\n"
 		    "  -A, --asic-offload        FRR is interacting with an asic underneath the linux kernel\n"
 #ifdef HAVE_NETLINK
@@ -366,6 +371,13 @@ int main(int argc, char **argv)
 			break;
 		case 'a':
 			zrouter.allow_delete = true;
+			break;
+		case 'k':
+			if (graceful_restart) {
+				zlog_err("Graceful Restart initiated, we cannot keep the existing kernel routes");
+				return 1;
+			}
+			keep_kernel_mode = 1;
 			break;
 		case 'e': {
 			unsigned long int parsed_multipath =
@@ -395,6 +407,10 @@ int main(int argc, char **argv)
 			retain_mode = 1;
 			break;
 		case 'K':
+			if (keep_kernel_mode) {
+				zlog_err("Keep Kernel mode specified, graceful restart incompatible");
+				return 1;
+			}
 			graceful_restart = atoi(optarg);
 			break;
 		case 's':
@@ -484,8 +500,9 @@ int main(int argc, char **argv)
 	* we have to have route_read() called before.
 	*/
 	zrouter.startup_time = monotime(NULL);
-	event_add_timer(zrouter.master, rib_sweep_route, NULL, graceful_restart,
-			&zrouter.sweeper);
+	if (!keep_kernel_mode)
+		event_add_timer(zrouter.master, rib_sweep_route, NULL, graceful_restart,
+				&zrouter.sweeper);
 
 	/* Needed for BSD routing socket. */
 	pid = getpid();
