@@ -7540,11 +7540,12 @@ static void route_vty_short_status_out(struct vty *vty,
 		vty_out(vty, " ");
 }
 
-static char *bgp_nexthop_hostname(struct peer *peer, struct attr *attr)
+static char *bgp_nexthop_hostname(struct peer *peer,
+				  struct bgp_nexthop_cache *bnc)
 {
 	if (peer->hostname
 	    && CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHOW_HOSTNAME)
-	    && !(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))
+	    && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
 		return peer->hostname;
 	return NULL;
 }
@@ -7566,7 +7567,8 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 	bool nexthop_othervrf = false;
 	vrf_id_t nexthop_vrfid = VRF_DEFAULT;
 	const char *nexthop_vrfname = VRF_DEFAULT_NAME;
-	char *nexthop_hostname = bgp_nexthop_hostname(path->peer, attr);
+	char *nexthop_hostname =
+		bgp_nexthop_hostname(path->peer, path->nexthop);
 
 	if (json_paths)
 		json_path = json_object_new_object();
@@ -8637,7 +8639,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 	bool nexthop_self =
 		CHECK_FLAG(path->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
 	int i;
-	char *nexthop_hostname = bgp_nexthop_hostname(path->peer, attr);
+	char *nexthop_hostname =
+		bgp_nexthop_hostname(path->peer, path->nexthop);
 
 	if (json_paths) {
 		json_path = json_object_new_object();
