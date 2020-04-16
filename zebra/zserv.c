@@ -1108,12 +1108,17 @@ static void zebra_show_stale_client_detail(struct vty *vty,
 
 	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
 		if (first_p) {
+			vty_out(vty, "Stale Client Information\n");
+			vty_out(vty, "------------------------\n");
+
 			if (client->instance)
 				vty_out(vty, " Instance: %u", client->instance);
 			if (client->session_id)
 				vty_out(vty, " [%u]", client->session_id);
+
 			first_p = false;
 		}
+
 		vty_out(vty, "VRF : %s\n", vrf_id_to_name(info->vrf_id));
 		vty_out(vty, "Capabilities : ");
 		switch (info->capabilities) {
@@ -1248,8 +1253,7 @@ DEFUN (show_zebra_client,
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		zebra_show_client_detail(vty, client);
-		vty_out(vty, "Stale Client Information\n");
-		vty_out(vty, "------------------------\n");
+		/* Show GR info if present */
 		zebra_show_stale_client_detail(vty, client);
 	}
 
