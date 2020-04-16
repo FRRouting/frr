@@ -167,6 +167,9 @@ enum node_type {
 extern vector cmdvec;
 extern const struct message tokennames[];
 
+/* for external users depending on struct layout */
+#define FRR_CMD_NODE_20200416
+
 /* Node which has some commands and prompt string and configuration
    function pointer . */
 struct cmd_node {
