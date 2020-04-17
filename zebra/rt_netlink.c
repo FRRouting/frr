@@ -23,7 +23,6 @@
 #ifdef HAVE_NETLINK
 
 #include <net/if_arp.h>
-#include <linux/if_bridge.h>
 #include <linux/lwtunnel.h>
 #include <linux/mpls_iptunnel.h>
 #include <linux/neighbour.h>
@@ -73,6 +72,21 @@
 
 #ifndef AF_MPLS
 #define AF_MPLS 28
+#endif
+
+/* Re-defining as I am unable to include <linux/if_bridge.h> which has the
+ * UAPI for MAC sync. */
+#ifndef _UAPI_LINUX_IF_BRIDGE_H
+/* FDB notification bits for NDA_NOTIFY:
+ * - BR_FDB_NFY_STATIC - notify on activity/expire even for a static entry
+ * - BR_FDB_NFY_INACTIVE - mark as inactive to avoid double notification,
+ *                         used with BR_FDB_NFY_STATIC (kernel controlled)
+ */
+enum {
+	BR_FDB_NFY_STATIC,
+	BR_FDB_NFY_INACTIVE,
+	BR_FDB_NFY_MAX
+};
 #endif
 
 static vlanid_t filter_vlan = 0;
