@@ -407,4 +407,25 @@ uint32_t kernel_get_speed(struct interface *ifp, int *error)
 	return ifp->speed;
 }
 
+int kernel_upd_mac_nh(uint32_t nh_id, struct in_addr vtep_ip)
+{
+	return 0;
+}
+
+int kernel_del_mac_nh(uint32_t nh_id)
+{
+	return 0;
+}
+
+int kernel_upd_mac_nhg(uint32_t nhg_id, uint32_t nh_cnt,
+		struct nh_grp *nh_ids)
+{
+	return 0;
+}
+
+int kernel_del_mac_nhg(uint32_t nhg_id)
+{
+	return 0;
+}
+
 #endif /* !HAVE_NETLINK */
