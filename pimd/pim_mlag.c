@@ -583,7 +583,9 @@ static void pim_mlag_process_mlagd_state_change(struct mlag_status msg)
 		router->mlag_role = msg.my_role;
 	}
 
-	strcpy(router->peerlink_rif, msg.peerlink_rif);
+	strlcpy(router->peerlink_rif, msg.peerlink_rif,
+		sizeof(router->peerlink_rif));
+
 	/* XXX - handle the case where we may rx the interface name from the
 	 * MLAG daemon before we get the interface from zebra.
 	 */
