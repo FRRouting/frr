@@ -47,6 +47,7 @@
 #include "hook.h"
 #include "lib_errors.h"
 #include "northbound_cli.h"
+#include "network.h"
 
 DEFINE_MTYPE_STATIC(LIB, HOST, "Host config")
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item")
@@ -366,7 +367,7 @@ static char *zencrypt(const char *passwd)
 
 	gettimeofday(&tv, 0);
 
-	to64(&salt[0], random(), 3);
+	to64(&salt[0], frr_weak_random(), 3);
 	to64(&salt[3], tv.tv_usec, 3);
 	salt[5] = '\0';
 

@@ -28,6 +28,7 @@
 #include <zebra.h>
 
 #include "lib/jhash.h"
+#include "lib/network.h"
 
 #include "bfd.h"
 
@@ -236,8 +237,8 @@ static uint32_t ptm_bfd_gen_ID(void)
 	 * random session identification numbers.
 	 */
 	do {
-		session_id = ((random() << 16) & 0xFFFF0000)
-			     | (random() & 0x0000FFFF);
+		session_id = ((frr_weak_random() << 16) & 0xFFFF0000)
+			     | (frr_weak_random() & 0x0000FFFF);
 	} while (session_id == 0 || bfd_id_lookup(session_id) != NULL);
 
 	return session_id;
@@ -258,7 +259,7 @@ void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo)
 	 * between 75% and 90%.
 	 */
 	maxpercent = (bfd->detect_mult == 1) ? 16 : 26;
-	jitter = (xmt_TO * (75 + (random() % maxpercent))) / 100;
+	jitter = (xmt_TO * (75 + (frr_weak_random() % maxpercent))) / 100;
 	/* XXX remove that division above */
 
 	if (is_echo)

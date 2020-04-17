@@ -37,6 +37,7 @@
 #include "privs.h"
 #include "lib_errors.h"
 #include "northbound_cli.h"
+#include "network.h"
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_route.h"
@@ -1545,7 +1546,7 @@ int ripng_triggered_update(struct thread *t)
 	   random interval between 1 and 5 seconds.  If other changes that
 	   would trigger updates occur before the timer expires, a single
 	   update is triggered when the timer expires. */
-	interval = (random() % 5) + 1;
+	interval = (frr_weak_random() % 5) + 1;
 
 	ripng->t_triggered_interval = NULL;
 	thread_add_timer(master, ripng_triggered_interval, ripng, interval,
@@ -1950,7 +1951,7 @@ int ripng_request(struct interface *ifp)
 
 static int ripng_update_jitter(int time)
 {
-	return ((random() % (time + 1)) - (time / 2));
+	return ((frr_weak_random() % (time + 1)) - (time / 2));
 }
 
 void ripng_event(struct ripng *ripng, enum ripng_event event, int sock)

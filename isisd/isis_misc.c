@@ -29,6 +29,7 @@
 #include "hash.h"
 #include "if.h"
 #include "command.h"
+#include "network.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -413,7 +414,7 @@ unsigned long isis_jitter(unsigned long timer, unsigned long jitter)
 	 * most IS-IS timers are no longer than 16 bit
 	 */
 
-	j = 1 + (int)((RANDOM_SPREAD * random()) / (RAND_MAX + 1.0));
+	j = 1 + (int)((RANDOM_SPREAD * frr_weak_random()) / (RAND_MAX + 1.0));
 
 	k = timer - (timer * (100 - jitter)) / 100;
 

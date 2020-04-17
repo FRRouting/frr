@@ -28,6 +28,7 @@ THE SOFTWARE.
 #include "vector.h"
 #include "distribute.h"
 #include "lib_errors.h"
+#include "network.h"
 
 #include "babel_main.h"
 #include "util.h"
@@ -1396,7 +1397,7 @@ babel_interface_allocate (void)
     /* All flags are unset */
     babel_ifp->bucket_time = babel_now.tv_sec;
     babel_ifp->bucket = BUCKET_TOKENS_MAX;
-    babel_ifp->hello_seqno = (random() & 0xFFFF);
+    babel_ifp->hello_seqno = (frr_weak_random() & 0xFFFF);
     babel_ifp->rtt_min = 10000;
     babel_ifp->rtt_max = 120000;
     babel_ifp->max_rtt_penalty = 150;

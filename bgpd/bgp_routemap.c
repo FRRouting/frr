@@ -39,6 +39,7 @@
 #include "hash.h"
 #include "queue.h"
 #include "frrstr.h"
+#include "network.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -1535,7 +1536,7 @@ static enum route_map_cmd_result_t
 route_match_probability(void *rule, const struct prefix *prefix,
 			route_map_object_t type, void *object)
 {
-	long r = random();
+	long r = frr_weak_random();
 
 	switch (*(long *)rule) {
 	case 0:

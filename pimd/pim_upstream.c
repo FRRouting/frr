@@ -29,6 +29,7 @@
 #include "hash.h"
 #include "jhash.h"
 #include "wheel.h"
+#include "network.h"
 
 #include "pimd.h"
 #include "pim_pim.h"
@@ -1762,7 +1763,7 @@ void pim_upstream_start_register_stop_timer(struct pim_upstream *up,
 	if (!null_register) {
 		uint32_t lower = (0.5 * PIM_REGISTER_SUPPRESSION_PERIOD);
 		uint32_t upper = (1.5 * PIM_REGISTER_SUPPRESSION_PERIOD);
-		time = lower + (random() % (upper - lower + 1))
+		time = lower + (frr_weak_random() % (upper - lower + 1))
 		       - PIM_REGISTER_PROBE_PERIOD;
 	} else
 		time = PIM_REGISTER_PROBE_PERIOD;

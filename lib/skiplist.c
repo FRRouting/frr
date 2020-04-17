@@ -61,6 +61,7 @@
 #include "vty.h"
 #include "skiplist.h"
 #include "lib_errors.h"
+#include "network.h"
 
 DEFINE_MTYPE_STATIC(LIB, SKIP_LIST, "Skip List")
 DEFINE_MTYPE_STATIC(LIB, SKIP_LIST_NODE, "Skip Node")
@@ -95,7 +96,7 @@ static int randomLevel(void)
 
 	do {
 		if (randomsLeft <= 0) {
-			randomBits = random();
+			randomBits = frr_weak_random();
 			randomsLeft = BitsInRandom / 2;
 		}
 		b = randomBits & 3;

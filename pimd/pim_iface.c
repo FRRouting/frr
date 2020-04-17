@@ -28,6 +28,7 @@
 #include "plist.h"
 #include "hash.h"
 #include "ferr.h"
+#include "network.h"
 
 #include "pimd.h"
 #include "pim_instance.h"
@@ -1103,7 +1104,8 @@ int pim_if_t_override_msec(struct interface *ifp)
 	effective_override_interval_msec =
 		pim_if_effective_override_interval_msec(ifp);
 
-	t_override_msec = random() % (effective_override_interval_msec + 1);
+	t_override_msec =
+		frr_weak_random() % (effective_override_interval_msec + 1);
 
 	return t_override_msec;
 }
@@ -1181,7 +1183,7 @@ long pim_if_t_suppressed_msec(struct interface *ifp)
 		return 0;
 
 	/* t_suppressed = t_periodic * rand(1.1, 1.4) */
-	ramount = 1100 + (random() % (1400 - 1100 + 1));
+	ramount = 1100 + (frr_weak_random() % (1400 - 1100 + 1));
 	t_suppressed_msec = router->t_periodic * ramount;
 
 	return t_suppressed_msec;

@@ -20,6 +20,7 @@
 #include <zebra.h>
 #include <memory.h>
 #include "log.h"
+#include "network.h"
 
 /* maximum amount of data to hexdump */
 #define MAXDATA 16384
@@ -37,7 +38,7 @@ static bool test_zlog_hexdump(void)
 		uint8_t d[nl];
 
 		for (unsigned int i = 0; i < nl; i++)
-			d[i] = random();
+			d[i] = frr_weak_random();
 		zlog_hexdump(d, nl - 1);
 
 		nl += 1 + (nl / 2);

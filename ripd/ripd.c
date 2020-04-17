@@ -44,6 +44,7 @@
 #include "privs.h"
 #include "lib_errors.h"
 #include "northbound_cli.h"
+#include "network.h"
 
 #include "ripd/ripd.h"
 #include "ripd/rip_nb.h"
@@ -2647,7 +2648,7 @@ static int rip_triggered_update(struct thread *t)
 	 random interval between 1 and 5 seconds.  If other changes that
 	 would trigger updates occur before the timer expires, a single
 	 update is triggered when the timer expires. */
-	interval = (random() % 5) + 1;
+	interval = (frr_weak_random() % 5) + 1;
 
 	rip->t_triggered_interval = NULL;
 	thread_add_timer(master, rip_triggered_interval, rip, interval,
@@ -2844,7 +2845,8 @@ static int rip_update_jitter(unsigned long time)
 	if (jitter_input < JITTER_BOUND)
 		jitter_input = JITTER_BOUND;
 
-	jitter = (((random() % ((jitter_input * 2) + 1)) - jitter_input));
+	jitter = (((frr_weak_random() % ((jitter_input * 2) + 1))
+		   - jitter_input));
 
 	return jitter / JITTER_BOUND;
 }

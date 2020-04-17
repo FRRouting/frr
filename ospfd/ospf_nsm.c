@@ -33,6 +33,7 @@
 #include "table.h"
 #include "log.h"
 #include "command.h"
+#include "network.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -723,7 +724,7 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 	/* Start DD exchange protocol */
 	if (state == NSM_ExStart) {
 		if (nbr->dd_seqnum == 0)
-			nbr->dd_seqnum = (uint32_t)random();
+			nbr->dd_seqnum = (uint32_t)frr_weak_random();
 		else
 			nbr->dd_seqnum++;
 

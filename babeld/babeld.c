@@ -30,6 +30,7 @@ THE SOFTWARE.
 #include "filter.h"
 #include "plist.h"
 #include "lib_errors.h"
+#include "network.h"
 
 #include "babel_main.h"
 #include "babeld.h"
@@ -213,7 +214,7 @@ babel_read_protocol (struct thread *thread)
 static int
 babel_init_routing_process(struct thread *thread)
 {
-    myseqno = (random() & 0xFFFF);
+    myseqno = (frr_weak_random() & 0xFFFF);
     babel_get_myid();
     babel_load_state_file();
     debugf(BABEL_DEBUG_COMMON, "My ID is : %s.", format_eui64(myid));
