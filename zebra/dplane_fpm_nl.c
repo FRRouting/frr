@@ -1026,16 +1026,50 @@ static int fpm_nl_start(struct zebra_dplane_provider *prov)
 	return 0;
 }
 
+static int fpm_nl_finish_early(struct fpm_nl_ctx *fnc)
+{
+	/* Disable all events and close socket. */
+	THREAD_OFF(fnc->t_ribreset);
+	THREAD_OFF(fnc->t_ribwalk);
+	THREAD_OFF(fnc->t_rmacreset);
+	THREAD_OFF(fnc->t_rmacwalk);
+	thread_cancel_async(fnc->fthread->master, &fnc->t_read, NULL);
+	thread_cancel_async(fnc->fthread->master, &fnc->t_write, NULL);
+	thread_cancel_async(fnc->fthread->master, &fnc->t_connect, NULL);
+
+	if (fnc->socket != -1) {
+		close(fnc->socket);
+		fnc->socket = -1;
+	}
+
+	return 0;
+}
+
+static int fpm_nl_finish_late(struct fpm_nl_ctx *fnc)
+{
+	/* Stop the running thread. */
+	frr_pthread_stop(fnc->fthread, NULL);
+
+	/* Free all allocated resources. */
+	pthread_mutex_destroy(&fnc->obuf_mutex);
+	pthread_mutex_destroy(&fnc->ctxqueue_mutex);
+	stream_free(fnc->ibuf);
+	stream_free(fnc->obuf);
+	free(gfnc);
+	gfnc = NULL;
+
+	return 0;
+}
+
 static int fpm_nl_finish(struct zebra_dplane_provider *prov, bool early)
 {
 	struct fpm_nl_ctx *fnc;
 
 	fnc = dplane_provider_get_data(prov);
-	stream_free(fnc->ibuf);
-	stream_free(fnc->obuf);
-	close(fnc->socket);
+	if (early)
+		return fpm_nl_finish_early(fnc);
 
-	return 0;
+	return fpm_nl_finish_late(fnc);
 }
 
 static int fpm_nl_process(struct zebra_dplane_provider *prov)
