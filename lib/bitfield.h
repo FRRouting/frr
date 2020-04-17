@@ -154,6 +154,7 @@ typedef unsigned int word_t;
 	do {                                                                   \
 		if ((v).data) {                                                \
 			free((v).data);                                        \
+			(v).data = NULL;                                       \
 		}                                                              \
 	} while (0)
 
