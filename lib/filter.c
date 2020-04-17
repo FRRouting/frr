@@ -2294,6 +2294,7 @@ DEFUN (ipv6_access_list_exact,
 	if (argv_find(argv, argc, "exact-match", &idx))
 		exact = 1;
 
+	assert(prefix);
 	return filter_set_zebra(vty, argv[idx_word]->arg, seq, permit_deny,
 				AFI_IP6, prefix, exact, 1);
 }
