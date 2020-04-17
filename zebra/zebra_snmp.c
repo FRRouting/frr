@@ -266,9 +266,9 @@ static void check_replace(struct route_node *np2, struct route_entry *re2,
 		return;
 	}
 
-	if (in_addr_cmp(&(*np)->p.u.prefix, &np2->p.u.prefix) < 0)
+	if (prefix_cmp(&(*np)->p, &np2->p) < 0)
 		return;
-	if (in_addr_cmp(&(*np)->p.u.prefix, &np2->p.u.prefix) > 0) {
+	if (prefix_cmp(&(*np)->p, &np2->p) > 0) {
 		*np = np2;
 		*re = re2;
 		return;
