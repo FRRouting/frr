@@ -116,7 +116,7 @@ static int mpls_lsp_uninstall_all(struct hash *lsp_table, zebra_lsp_t *lsp,
 static int mpls_static_lsp_uninstall_all(struct zebra_vrf *zvrf,
 					 mpls_label_t in_label);
 static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty);
-static void lsp_print(zebra_lsp_t *lsp, void *ctxt);
+static void lsp_print(struct vty *vty, zebra_lsp_t *lsp);
 static void *slsp_alloc(void *p);
 static int snhlfe_match(zebra_snhlfe_t *snhlfe, enum nexthop_types_t gtype,
 			const union g_addr *gate, ifindex_t ifindex);
@@ -1489,7 +1489,7 @@ static json_object *nhlfe_json(zebra_nhlfe_t *nhlfe)
 static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty)
 {
 	struct nexthop *nexthop;
-	char buf[BUFSIZ];
+	char buf[MPLS_LABEL_STRLEN];
 
 	nexthop = nhlfe->nexthop;
 	if (!nexthop || !nexthop->nh_label) // unexpected
@@ -1497,7 +1497,9 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty)
 
 	vty_out(vty, " type: %s remote label: %s distance: %d\n",
 		nhlfe_type2str(nhlfe->type),
-		label2str(nexthop->nh_label->label[0], buf, BUFSIZ),
+		mpls_label2str(nexthop->nh_label->num_labels,
+			       nexthop->nh_label->label,
+			       buf, sizeof(buf), 0),
 		nhlfe->distance);
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -1529,19 +1531,36 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty)
 /*
  * Print an LSP forwarding entry.
  */
-static void lsp_print(zebra_lsp_t *lsp, void *ctxt)
+static void lsp_print(struct vty *vty, zebra_lsp_t *lsp)
 {
-	zebra_nhlfe_t *nhlfe;
-	struct vty *vty;
-
-	vty = (struct vty *)ctxt;
+	zebra_nhlfe_t *nhlfe, *backup;
+	int i;
 
 	vty_out(vty, "Local label: %u%s\n", lsp->ile.in_label,
 		CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED) ? " (installed)"
 							   : "");
 
-	frr_each(nhlfe_list, &lsp->nhlfe_list, nhlfe)
+	frr_each(nhlfe_list, &lsp->nhlfe_list, nhlfe) {
 		nhlfe_print(nhlfe, vty);
+
+		if (nhlfe->nexthop &&
+		    CHECK_FLAG(nhlfe->nexthop->flags,
+			       NEXTHOP_FLAG_HAS_BACKUP)) {
+			/* Find backup in backup list */
+
+			i = 0;
+			frr_each(nhlfe_list, &lsp->backup_nhlfe_list, backup) {
+				if (i == nhlfe->nexthop->backup_idx)
+					break;
+				i++;
+			}
+
+			if (backup) {
+				vty_out(vty, "   [backup %d]", i);
+				nhlfe_print(backup, vty);
+			}
+		}
+	}
 }
 
 /*
@@ -3503,7 +3522,7 @@ void zebra_mpls_print_lsp(struct vty *vty, struct zebra_vrf *zvrf,
 					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else
-		lsp_print(lsp, (void *)vty);
+		lsp_print(vty, lsp);
 }
 
 /*
