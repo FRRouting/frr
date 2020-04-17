@@ -784,7 +784,7 @@ static struct ospf_area *ospfStubAreaLookup(struct variable *v, oid name[],
 
 		area = ospf_area_lookup_by_area_id(ospf, *addr);
 
-		if (area->external_routing == OSPF_AREA_STUB)
+		if (area && area->external_routing == OSPF_AREA_STUB)
 			return area;
 		else
 			return NULL;
