@@ -434,8 +434,6 @@ def test_srte_route_map_with_sr_policy_check_nextop_step5():
     setup_testcase("Test (step 5): recursive nexthop learned through BGP neighbour should be aligned with SR Policy from route-map")
 
     add_candidate_path('rt1', '6.6.6.6', 100, 'default')
-    # this is a workaround for now since the BGP routes are not refreshed on config change
-    get_topogen().net['rt1'].cmd('vtysh -c "clear ip bgp *"')
     cmp_json_output('rt1',
                     "show ip route bgp json",
                     "step5/show_ip_route_bgp.ref")
