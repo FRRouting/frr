@@ -788,7 +788,11 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
 				ifp1 = if_lookup_by_index(nexthop->ifindex,
 							  pim->vrf_id);
-				nbr = pim_neighbor_find_if(ifp1);
+
+				if (!ifp1)
+					nbr = NULL;
+				else
+					nbr = pim_neighbor_find_if(ifp1);
 				/* Overwrite with Nbr address as NH addr */
 				if (nbr)
 					nexthop->gate.ipv4 = nbr->source_addr;

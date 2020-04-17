@@ -285,17 +285,17 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			 * If we are sending v6 secondary assume we receive v6
 			 * secondary
 			 */
-			if (pim->send_v6_secondary)
-				nbr = pim_neighbor_find_by_secondary(
-					if_lookup_by_index(
-						nexthop_tab[num_ifindex]
-							.ifindex,
-						nexthop_vrf_id),
-					&p);
+			struct interface *ifp = if_lookup_by_index(
+				nexthop_tab[num_ifindex].ifindex,
+				nexthop_vrf_id);
+
+			if (!ifp)
+				nbr = NULL;
+			else if (pim->send_v6_secondary)
+				nbr = pim_neighbor_find_by_secondary(ifp, &p);
 			else
-				nbr = pim_neighbor_find_if(if_lookup_by_index(
-					nexthop_tab[num_ifindex].ifindex,
-					nexthop_vrf_id));
+				nbr = pim_neighbor_find_if(ifp);
+
 			if (nbr) {
 				nexthop_tab[num_ifindex].nexthop_addr.family =
 					AF_INET;
