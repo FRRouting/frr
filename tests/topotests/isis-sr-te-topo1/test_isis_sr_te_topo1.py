@@ -193,6 +193,9 @@ def setup_testcase(msg):
 
     return tgen
 
+def print_cmd_result(rname, command):
+    print(get_topogen().gears[rname].vtysh_cmd(command, isjson=False))
+
 def compare_json_test(router, command, reference, exact):
     output = router.vtysh_cmd(command, isjson=True)
     result = topotest.json_cmp(output, reference)
@@ -433,10 +436,29 @@ def test_srte_segment_list_add_segment_check_mpls_table_step4():
 def test_srte_route_map_with_sr_policy_check_nextop_step5():
     setup_testcase("Test (step 5): recursive nexthop learned through BGP neighbour should be aligned with SR Policy from route-map")
 
-    add_candidate_path('rt1', '6.6.6.6', 100, 'default')
-    cmp_json_output('rt1',
-                    "show ip route bgp json",
-                    "step5/show_ip_route_bgp.ref")
+
+    # (re-)build the SR Policy two times to ensure that reinstalling still works
+    for i in [1,2]:
+        cmp_json_output('rt1',
+                        "show ip route bgp json",
+                        "step5/show_ip_route_bgp_inactive_srte.ref")
+
+        delete_sr_policy('rt1', '6.6.6.6')
+        cmp_json_output('rt1',
+                        "show ip route bgp json",
+                        "step5/show_ip_route_bgp_inactive_srte.ref")
+
+        create_sr_policy('rt1', '6.6.6.6', 1111)
+        cmp_json_output('rt1',
+                        "show ip route bgp json",
+                        "step5/show_ip_route_bgp_inactive_srte.ref")
+
+        add_candidate_path('rt1', '6.6.6.6', 100, 'default')
+        cmp_json_output('rt1',
+                        "show ip route bgp json",
+                        "step5/show_ip_route_bgp_active_srte.ref")
+
+        delete_candidate_path('rt1', '6.6.6.6', 100)
 
 # Memory leak test template
 def test_memory_leak():
