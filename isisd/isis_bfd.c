@@ -138,7 +138,7 @@ static void bfd_adj_event(struct isis_adjacency *adj, struct prefix *dst,
 		return;
 	}
 
-	isis_adj_state_change(adj, ISIS_ADJ_DOWN, "bfd session went down");
+	isis_adj_state_change(&adj, ISIS_ADJ_DOWN, "bfd session went down");
 }
 
 static int isis_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)

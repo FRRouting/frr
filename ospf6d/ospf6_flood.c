@@ -332,11 +332,12 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 					if (req == on->last_ls_req) {
 						/* sanity check refcount */
 						assert(req->lock >= 2);
-						ospf6_lsa_unlock(req);
+						req = ospf6_lsa_unlock(req);
 						on->last_ls_req = NULL;
 					}
-					ospf6_lsdb_remove(req,
-							  on->request_list);
+					if (req)
+						ospf6_lsdb_remove(
+							req, on->request_list);
 					ospf6_check_nbr_loading(on);
 					continue;
 				}
@@ -348,7 +349,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 						zlog_debug(
 							"Received is newer, remove requesting");
 					if (req == on->last_ls_req) {
-						ospf6_lsa_unlock(req);
+						req = ospf6_lsa_unlock(req);
 						on->last_ls_req = NULL;
 					}
 					if (req)

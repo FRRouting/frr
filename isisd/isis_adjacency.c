@@ -201,13 +201,14 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 		fabricd_initial_sync_hello(adj->circuit);
 
 	if (next_tw_state == ISIS_THREEWAY_DOWN) {
-		isis_adj_state_change(adj, ISIS_ADJ_DOWN, "Neighbor restarted");
+		isis_adj_state_change(&adj, ISIS_ADJ_DOWN,
+				      "Neighbor restarted");
 		return;
 	}
 
 	if (next_tw_state == ISIS_THREEWAY_UP) {
 		if (adj->adj_state != ISIS_ADJ_UP) {
-			isis_adj_state_change(adj, ISIS_ADJ_UP, NULL);
+			isis_adj_state_change(&adj, ISIS_ADJ_UP, NULL);
 			adj->adj_usage = adj_usage;
 		}
 	}
@@ -219,12 +220,13 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 	adj->threeway_state = next_tw_state;
 }
 
-void isis_adj_state_change(struct isis_adjacency *adj,
+void isis_adj_state_change(struct isis_adjacency **padj,
 			   enum isis_adj_state new_state, const char *reason)
 {
+	struct isis_adjacency *adj = *padj;
 	enum isis_adj_state old_state = adj->adj_state;
 	struct isis_circuit *circuit = adj->circuit;
-	bool del;
+	bool del = false;
 
 	adj->adj_state = new_state;
 	if (new_state != old_state) {
@@ -262,7 +264,6 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 #endif /* ifndef FABRICD */
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		del = false;
 		for (int level = IS_LEVEL_1; level <= IS_LEVEL_2; level++) {
 			if ((adj->level & level) == 0)
 				continue;
@@ -299,11 +300,7 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 				lsp_regenerate_schedule_pseudo(circuit, level);
 		}
 
-		if (del)
-			isis_delete_adj(adj);
-
 	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
-		del = false;
 		for (int level = IS_LEVEL_1; level <= IS_LEVEL_2; level++) {
 			if ((adj->level & level) == 0)
 				continue;
@@ -336,9 +333,11 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 				del = true;
 			}
 		}
+	}
 
-		if (del)
-			isis_delete_adj(adj);
+	if (del) {
+		isis_delete_adj(adj);
+		*padj = NULL;
 	}
 }
 
@@ -402,7 +401,7 @@ int isis_adj_expire(struct thread *thread)
 	adj->t_expire = NULL;
 
 	/* trigger the adj expire event */
-	isis_adj_state_change(adj, ISIS_ADJ_DOWN, "holding time expired");
+	isis_adj_state_change(&adj, ISIS_ADJ_DOWN, "holding time expired");
 
 	return 0;
 }

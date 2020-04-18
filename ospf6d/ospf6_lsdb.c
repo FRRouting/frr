@@ -136,7 +136,7 @@ void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 		}
 		/* to free the lookup lock in node get*/
 		route_unlock_node(current);
-		ospf6_lsa_unlock(old);
+		old = ospf6_lsa_unlock(old);
 	}
 
 	ospf6_lsdb_count_assert(lsdb);
@@ -164,7 +164,7 @@ void ospf6_lsdb_remove(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 
 	route_unlock_node(node); /* to free the lookup lock */
 	route_unlock_node(node); /* to free the original lock */
-	ospf6_lsa_unlock(lsa);
+	lsa = ospf6_lsa_unlock(lsa);
 
 	ospf6_lsdb_count_assert(lsdb);
 }
@@ -279,7 +279,7 @@ struct ospf6_lsa *ospf6_lsdb_next(const struct route_node *iterend,
 {
 	struct route_node *node = lsa->rn;
 
-	ospf6_lsa_unlock(lsa);
+	lsa = ospf6_lsa_unlock(lsa);
 
 	do
 		node = route_next_until(node, iterend);
@@ -316,7 +316,7 @@ void ospf6_lsdb_lsa_unlock(struct ospf6_lsa *lsa)
 	if (lsa != NULL) {
 		if (lsa->rn != NULL)
 			route_unlock_node(lsa->rn);
-		ospf6_lsa_unlock(lsa);
+		lsa = ospf6_lsa_unlock(lsa);
 	}
 }
 

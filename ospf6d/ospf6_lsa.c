@@ -608,16 +608,17 @@ void ospf6_lsa_lock(struct ospf6_lsa *lsa)
 }
 
 /* decrement reference counter of struct ospf6_lsa */
-void ospf6_lsa_unlock(struct ospf6_lsa *lsa)
+struct ospf6_lsa *ospf6_lsa_unlock(struct ospf6_lsa *lsa)
 {
 	/* decrement reference counter */
 	assert(lsa->lock > 0);
 	lsa->lock--;
 
 	if (lsa->lock != 0)
-		return;
+		return lsa;
 
 	ospf6_lsa_delete(lsa);
+	return NULL;
 }
 
 
