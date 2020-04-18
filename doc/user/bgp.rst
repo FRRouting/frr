@@ -414,7 +414,11 @@ Require policy on EBGP
 .. index:: [no] bgp ebgp-requires-policy
 .. clicmd:: [no] bgp ebgp-requires-policy
 
-   This command requires incoming and outgoing filters to be applied for eBGP sessions. Without the incoming filter, no routes will be accepted. Without the outgoing filter, no routes will be announced.
+   This command requires incoming and outgoing filters to be applied
+   for eBGP sessions. Without the incoming filter, no routes will be
+   accepted. Without the outgoing filter, no routes will be announced.
+
+   This is enabled by default.
 
 Reject routes with AS_SET or AS_CONFED_SET types
 ------------------------------------------------

@@ -27,6 +27,16 @@ bgp_ebgp_requires_policy.py:
 
 Test if eBGP sender without a filter applied to the peer is allowed
 to send advertisements.
+
+Scenario 1:
+  r1 has a filter applied for outgoing direction,
+  r2 receives 192.168.255.1/32.
+Scenario 2:
+  r3 hasn't a filter appied for outgoing direction,
+  r4 does not receive 192.168.255.1/32.
+Scenario 3:
+  r5 and r6 establish iBGP session which in turn should ignore
+  RFC8212. All routes for both directions MUST work.
 """
 
 import os
@@ -112,27 +122,27 @@ def test_ebgp_requires_policy():
 
     test_func = functools.partial(_bgp_converge, "r2")
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert success is True, 'Failed bgp convergence (r2) in "{}"'.format(router)
+    assert success is True, 'Failed bgp convergence (r2) in "{}"'.format(tgen.gears["r2"])
 
     test_func = functools.partial(_bgp_has_routes, "r2")
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert success is True, 'eBGP policy is not working (r2) in "{}"'.format(router)
+    assert success is True, 'eBGP policy is not working (r2) in "{}"'.format(tgen.gears["r2"])
 
     test_func = functools.partial(_bgp_converge, "r4")
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert success is True, 'Failed bgp convergence (r4) in "{}"'.format(router)
+    assert success is True, 'Failed bgp convergence (r4) in "{}"'.format(tgen.gears["r4"])
 
     test_func = functools.partial(_bgp_has_routes, "r4")
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert success is False, 'eBGP policy is not working (r4) in "{}"'.format(router)
+    assert success is False, 'eBGP policy is not working (r4) in "{}"'.format(tgen.gears["r4"])
 
     test_func = functools.partial(_bgp_converge, "r6")
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert success is True, 'Failed bgp convergence (r6) in "{}"'.format(router)
+    assert success is True, 'Failed bgp convergence (r6) in "{}"'.format(tgen.gears["r6"])
 
     test_func = functools.partial(_bgp_has_routes, "r6")
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert success is True, 'eBGP policy is not working (r6) in "{}"'.format(router)
+    assert success is True, 'eBGP policy is not working (r6) in "{}"'.format(tgen.gears["r6"])
 
 
 if __name__ == "__main__":
