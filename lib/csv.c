@@ -1,5 +1,5 @@
 /* CSV
- * Copyright (C) 2013 Cumulus Networks, Inc.
+ * Copyright (C) 2013,2020  Cumulus Networks, Inc.
  *
  * This file is part of Quagga.
  *
@@ -21,6 +21,8 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+
+#include <zebra.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -419,7 +421,7 @@ void csv_clone_record(csv_t *csv, csv_record_t *in_rec, csv_record_t **out_rec)
 	}
 	rec->record = curr;
 	rec->rec_len = in_rec->rec_len;
-	strcpy(rec->record, in_rec->record);
+	strlcpy(rec->record, in_rec->record, csv->buflen);
 
 	/* decode record into fields */
 	csv_decode_record(rec);
