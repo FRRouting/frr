@@ -1948,9 +1948,9 @@ int ospf6_lsreq_send(struct thread *thread)
 	}
 
 	if (last_req != NULL) {
-		if (on->last_ls_req != NULL) {
-			ospf6_lsa_unlock(on->last_ls_req);
-		}
+		if (on->last_ls_req != NULL)
+			on->last_ls_req = ospf6_lsa_unlock(on->last_ls_req);
+
 		ospf6_lsa_lock(last_req);
 		on->last_ls_req = last_req;
 	}
