@@ -164,7 +164,7 @@ static int process_p2p_hello(struct iih_info *iih)
 		if (memcmp(iih->sys_id, adj->sysid, ISIS_SYS_ID_LEN)) {
 			zlog_debug(
 				"hello source and adjacency do not match, set adj down\n");
-			isis_adj_state_change(adj, ISIS_ADJ_DOWN,
+			isis_adj_state_change(&adj, ISIS_ADJ_DOWN,
 					      "adj do not exist");
 			return ISIS_OK;
 		}
@@ -184,7 +184,7 @@ static int process_p2p_hello(struct iih_info *iih)
 		 * adjacency entry getting added to the lsp tlv neighbor list.
 		 */
 		adj->circuit_t = iih->circ_type;
-		isis_adj_state_change(adj, ISIS_ADJ_INITIALIZING, NULL);
+		isis_adj_state_change(&adj, ISIS_ADJ_INITIALIZING, NULL);
 		adj->sys_type = ISIS_SYSTYPE_UNKNOWN;
 	}
 
@@ -233,7 +233,7 @@ static int process_p2p_hello(struct iih_info *iih)
 					return ISIS_WARNING;
 				} else if (adj->adj_usage == ISIS_ADJ_LEVEL1) {
 					/* (6) down - wrong system */
-					isis_adj_state_change(adj,
+					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
 				}
@@ -254,7 +254,7 @@ static int process_p2p_hello(struct iih_info *iih)
 					   || (adj->adj_usage
 					       == ISIS_ADJ_LEVEL2)) {
 					/* (8) down - wrong system */
-					isis_adj_state_change(adj,
+					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
 				}
@@ -268,7 +268,7 @@ static int process_p2p_hello(struct iih_info *iih)
 					   || (adj->adj_usage
 					       == ISIS_ADJ_LEVEL1AND2)) {
 					/* (8) down - wrong system */
-					isis_adj_state_change(adj,
+					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
 				}
@@ -282,7 +282,7 @@ static int process_p2p_hello(struct iih_info *iih)
 					   || (adj->adj_usage
 					       == ISIS_ADJ_LEVEL2)) {
 					/* (8) down - wrong system */
-					isis_adj_state_change(adj,
+					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
 				}
@@ -304,7 +304,7 @@ static int process_p2p_hello(struct iih_info *iih)
 					   || (adj->adj_usage
 					       == ISIS_ADJ_LEVEL2)) {
 					/* (6) down - wrong system */
-					isis_adj_state_change(adj,
+					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
 				}
@@ -318,7 +318,7 @@ static int process_p2p_hello(struct iih_info *iih)
 				} else if (adj->adj_usage
 					   == ISIS_ADJ_LEVEL1AND2) {
 					/* (6) down - wrong system */
-					isis_adj_state_change(adj,
+					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
 				}
@@ -331,11 +331,11 @@ static int process_p2p_hello(struct iih_info *iih)
 		if (iih->circuit->area->is_type == IS_LEVEL_1) {
 			/* 8.2.5.2 b) 1) is_type L1 and adj is not up */
 			if (adj->adj_state != ISIS_ADJ_UP) {
-				isis_adj_state_change(adj, ISIS_ADJ_DOWN,
+				isis_adj_state_change(&adj, ISIS_ADJ_DOWN,
 						      "Area Mismatch");
 				/* 8.2.5.2 b) 2)is_type L1 and adj is up */
 			} else {
-				isis_adj_state_change(adj, ISIS_ADJ_DOWN,
+				isis_adj_state_change(&adj, ISIS_ADJ_DOWN,
 						      "Down - Area Mismatch");
 			}
 		}
@@ -349,7 +349,7 @@ static int process_p2p_hello(struct iih_info *iih)
 					return ISIS_WARNING;
 				} else if (adj->adj_usage == ISIS_ADJ_LEVEL1) {
 					/* (7) down - area mismatch */
-					isis_adj_state_change(adj,
+					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
 							      "Area Mismatch");
 
@@ -358,7 +358,7 @@ static int process_p2p_hello(struct iih_info *iih)
 					   || (adj->adj_usage
 					       == ISIS_ADJ_LEVEL2)) {
 					/* (7) down - wrong system */
-					isis_adj_state_change(adj,
+					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
 				}
@@ -371,7 +371,7 @@ static int process_p2p_hello(struct iih_info *iih)
 								  ISIS_ADJ_LEVEL2);
 				} else if (adj->adj_usage == ISIS_ADJ_LEVEL1) {
 					/* (7) down - wrong system */
-					isis_adj_state_change(adj,
+					isis_adj_state_change(&adj,
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
 				} else if (adj->adj_usage
@@ -379,12 +379,12 @@ static int process_p2p_hello(struct iih_info *iih)
 					if (iih->circ_type == IS_LEVEL_2) {
 						/* (7) down - wrong system */
 						isis_adj_state_change(
-							adj, ISIS_ADJ_DOWN,
+							&adj, ISIS_ADJ_DOWN,
 							"Wrong System");
 					} else {
 						/* (7) down - area mismatch */
 						isis_adj_state_change(
-							adj, ISIS_ADJ_DOWN,
+							&adj, ISIS_ADJ_DOWN,
 							"Area Mismatch");
 					}
 				}
@@ -393,34 +393,36 @@ static int process_p2p_hello(struct iih_info *iih)
 		}
 	} else {
 		/* down - area mismatch */
-		isis_adj_state_change(adj, ISIS_ADJ_DOWN, "Area Mismatch");
+		isis_adj_state_change(&adj, ISIS_ADJ_DOWN, "Area Mismatch");
 	}
 
-	if (adj->adj_state == ISIS_ADJ_UP && changed) {
-		lsp_regenerate_schedule(adj->circuit->area,
-					isis_adj_usage2levels(adj->adj_usage),
-					0);
-	}
+	if (adj) {
+		if (adj->adj_state == ISIS_ADJ_UP && changed) {
+			lsp_regenerate_schedule(
+				adj->circuit->area,
+				isis_adj_usage2levels(adj->adj_usage), 0);
+		}
 
-	/* 8.2.5.2 c) if the action was up - comparing circuit IDs */
-	/* FIXME - Missing parts */
+		/* 8.2.5.2 c) if the action was up - comparing circuit IDs */
+		/* FIXME - Missing parts */
 
-	/* some of my own understanding of the ISO, why the heck does
-	 * it not say what should I change the system_type to...
-	 */
-	switch (adj->adj_usage) {
-	case ISIS_ADJ_LEVEL1:
-		adj->sys_type = ISIS_SYSTYPE_L1_IS;
-		break;
-	case ISIS_ADJ_LEVEL2:
-		adj->sys_type = ISIS_SYSTYPE_L2_IS;
-		break;
-	case ISIS_ADJ_LEVEL1AND2:
-		adj->sys_type = ISIS_SYSTYPE_L2_IS;
-		break;
-	case ISIS_ADJ_NONE:
-		adj->sys_type = ISIS_SYSTYPE_UNKNOWN;
-		break;
+		/* some of my own understanding of the ISO, why the heck does
+		 * it not say what should I change the system_type to...
+		 */
+		switch (adj->adj_usage) {
+		case ISIS_ADJ_LEVEL1:
+			adj->sys_type = ISIS_SYSTYPE_L1_IS;
+			break;
+		case ISIS_ADJ_LEVEL2:
+			adj->sys_type = ISIS_SYSTYPE_L2_IS;
+			break;
+		case ISIS_ADJ_LEVEL1AND2:
+			adj->sys_type = ISIS_SYSTYPE_L2_IS;
+			break;
+		case ISIS_ADJ_NONE:
+			adj->sys_type = ISIS_SYSTYPE_UNKNOWN;
+			break;
+		}
 	}
 
 	if (isis->debugs & DEBUG_ADJ_PACKETS) {
@@ -455,7 +457,7 @@ static int process_lan_hello(struct iih_info *iih)
 			}
 			adj->level = iih->level;
 		}
-		isis_adj_state_change(adj, ISIS_ADJ_INITIALIZING, NULL);
+		isis_adj_state_change(&adj, ISIS_ADJ_INITIALIZING, NULL);
 
 		if (iih->level == IS_LEVEL_1)
 			adj->sys_type = ISIS_SYSTYPE_L1_IS;
@@ -506,13 +508,13 @@ static int process_lan_hello(struct iih_info *iih)
 	if (adj->adj_state != ISIS_ADJ_UP) {
 		if (own_snpa_found) {
 			isis_adj_state_change(
-				adj, ISIS_ADJ_UP,
+				&adj, ISIS_ADJ_UP,
 				"own SNPA found in LAN Neighbours TLV");
 		}
 	} else {
 		if (!own_snpa_found) {
 			isis_adj_state_change(
-				adj, ISIS_ADJ_INITIALIZING,
+				&adj, ISIS_ADJ_INITIALIZING,
 				"own SNPA not found in LAN Neighbours TLV");
 		}
 	}

@@ -653,7 +653,7 @@ int clear_isis_neighbor_common(struct vty *vty, const char *id)
 								       sysid,
 								       ISIS_SYS_ID_LEN))
 								isis_adj_state_change(
-									adj,
+									&adj,
 									ISIS_ADJ_DOWN,
 									"clear user request");
 					}
@@ -665,7 +665,7 @@ int clear_isis_neighbor_common(struct vty *vty, const char *id)
 				    || !memcmp(adj->sysid, sysid,
 					       ISIS_SYS_ID_LEN))
 					isis_adj_state_change(
-						adj, ISIS_ADJ_DOWN,
+						&adj, ISIS_ADJ_DOWN,
 						"clear user request");
 			}
 		}
