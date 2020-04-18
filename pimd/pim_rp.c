@@ -1261,11 +1261,11 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 			char buf[48];
 
 			if (rp_info->rp_src == RP_SRC_STATIC)
-				strcpy(source, "Static");
+				strlcpy(source, "Static", sizeof(source));
 			else if (rp_info->rp_src == RP_SRC_BSR)
-				strcpy(source, "BSR");
+				strlcpy(source, "BSR", sizeof(source));
 			else
-				strcpy(source, "None");
+				strlcpy(source, "None", sizeof(source));
 			if (uj) {
 				/*
 				 * If we have moved on to a new RP then add the
