@@ -153,7 +153,7 @@ static int if_zebra_new_hook(struct interface *ifp)
 		rtadv->AdvLinkMTU = 0;
 		rtadv->AdvReachableTime = 0;
 		rtadv->AdvRetransTimer = 0;
-		rtadv->AdvCurHopLimit = 0;
+		rtadv->AdvCurHopLimit = RTADV_DEFAULT_HOPLIMIT;
 		rtadv->AdvDefaultLifetime =
 			-1; /* derive from MaxRtrAdvInterval */
 		rtadv->HomeAgentPreference = 0;
