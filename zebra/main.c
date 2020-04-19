@@ -55,6 +55,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_nb.h"
+#include "zebra/zebra_opaque.h"
 
 #if defined(HANDLE_NETLINK_FUZZING)
 #include "zebra/kernel_netlink.h"
@@ -151,17 +152,24 @@ static void sigint(void)
 
 	frr_early_fini();
 
+	/* Stop the opaque module pthread */
+	zebra_opaque_stop();
+
 	zebra_dplane_pre_finish();
 
 	/* Clean up GR related info. */
 	zebra_gr_stale_client_cleanup(zrouter.stale_client_list);
 	list_delete_all_node(zrouter.stale_client_list);
 
+	/* Clean up zapi clients and server module */
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, ln, nn, client))
 		zserv_close_client(client);
 
 	zserv_close();
 	list_delete_all_node(zrouter.client_list);
+
+	/* Once all the zclients are cleaned up, clean up the opaque module */
+	zebra_opaque_finish();
 
 	zebra_ptm_finish();
 
@@ -427,6 +435,7 @@ int main(int argc, char **argv)
 	zebra_mpls_vty_init();
 	zebra_pw_vty_init();
 	zebra_pbr_init();
+	zebra_opaque_init();
 
 /* For debug purpose. */
 /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
@@ -457,6 +466,9 @@ int main(int argc, char **argv)
 
 	/* Start dataplane system */
 	zebra_dplane_start();
+
+	/* Start the ted module, before zserv */
+	zebra_opaque_start();
 
 	/* Start Zebra API server */
 	zserv_start(zserv_path);

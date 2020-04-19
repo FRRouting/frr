@@ -10,6 +10,7 @@ vtysh_scan += \
 	zebra/interface.c \
 	zebra/router-id.c \
 	zebra/rtadv.c \
+	zebra/zebra_gr.c \
 	zebra/zebra_mlag_vty.c \
 	zebra/zebra_mpls_vty.c \
 	zebra/zebra_ptm.c \
@@ -17,7 +18,6 @@ vtysh_scan += \
 	zebra/zebra_routemap.c \
 	zebra/zebra_vty.c \
 	zebra/zserv.c \
-	zebra/zebra_gr.c \
 	# end
 
 # can be loaded as DSO - always include for vtysh
@@ -72,19 +72,30 @@ zebra_zebra_SOURCES = \
 	zebra/rtread_sysctl.c \
 	zebra/rule_netlink.c \
 	zebra/rule_socket.c \
+	zebra/table_manager.c \
+	zebra/zapi_msg.c \
+	zebra/zebra_dplane.c \
+	zebra/zebra_errors.c \
+	zebra/zebra_gr.c \
+	zebra/zebra_l2.c \
 	zebra/zebra_mlag.c \
 	zebra/zebra_mlag_vty.c \
-	zebra/zebra_l2.c \
 	zebra/zebra_memory.c \
-	zebra/zebra_dplane.c \
 	zebra/zebra_mpls.c \
 	zebra/zebra_mpls_netlink.c \
 	zebra/zebra_mpls_openbsd.c \
 	zebra/zebra_mpls_null.c \
 	zebra/zebra_mpls_vty.c \
 	zebra/zebra_mroute.c \
+	zebra/zebra_nb.c \
+	zebra/zebra_nb_config.c \
+	zebra/zebra_nb_rpcs.c \
+	zebra/zebra_nb_state.c \
+	zebra/zebra_netns_id.c \
+	zebra/zebra_netns_notify.c \
 	zebra/zebra_nhg.c \
 	zebra/zebra_ns.c \
+	zebra/zebra_opaque.c \
 	zebra/zebra_pbr.c \
 	zebra/zebra_ptm.c \
 	zebra/zebra_ptm_redistribute.c \
@@ -97,16 +108,6 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_vty.c \
 	zebra/zebra_vxlan.c \
 	zebra/zserv.c \
-	zebra/zebra_netns_id.c \
-	zebra/zebra_netns_notify.c \
-	zebra/table_manager.c \
-	zebra/zapi_msg.c \
-	zebra/zebra_nb.c \
-	zebra/zebra_nb_config.c \
-	zebra/zebra_nb_rpcs.c \
-	zebra/zebra_nb_state.c \
-	zebra/zebra_errors.c \
-	zebra/zebra_gr.c \
 	# end
 
 clippy_scan += \
@@ -137,17 +138,24 @@ noinst_HEADERS += \
 	zebra/rt_netlink.h \
 	zebra/rtadv.h \
 	zebra/rule_netlink.h \
-	zebra/zebra_mlag.h \
-	zebra/zebra_mlag_vty.h \
+	zebra/table_manager.h \
+	zebra/zapi_msg.h \
+	zebra/zebra_dplane.h \
+	zebra/zebra_errors.h \
 	zebra/zebra_fpm_private.h \
 	zebra/zebra_l2.h \
-	zebra/zebra_dplane.h \
 	zebra/zebra_memory.h \
+	zebra/zebra_mlag.h \
+	zebra/zebra_mlag_vty.h \
 	zebra/zebra_mpls.h \
 	zebra/zebra_mroute.h \
+	zebra/zebra_nb.h \
+	zebra/zebra_netns_id.h \
+	zebra/zebra_netns_notify.h \
 	zebra/zebra_nhg.h \
 	zebra/zebra_nhg_private.h \
 	zebra/zebra_ns.h \
+	zebra/zebra_opaque.h \
 	zebra/zebra_pbr.h \
 	zebra/zebra_ptm.h \
 	zebra/zebra_ptm_redistribute.h \
@@ -159,12 +167,6 @@ noinst_HEADERS += \
 	zebra/zebra_vxlan.h \
 	zebra/zebra_vxlan_private.h \
 	zebra/zserv.h \
-	zebra/zebra_netns_id.h \
-	zebra/zebra_netns_notify.h \
-	zebra/table_manager.h \
-	zebra/zapi_msg.h \
-	zebra/zebra_nb.h \
-	zebra/zebra_errors.h \
 	# end
 
 zebra_zebra_irdp_la_SOURCES = \

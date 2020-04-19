@@ -28,7 +28,6 @@
 #include "lib/memory.h"
 #include "lib/queue.h"
 #include "lib/zebra.h"
-#include "zebra/zebra_router.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_dplane.h"
