@@ -509,6 +509,37 @@ void sharp_opaque_send(uint32_t type, uint32_t count)
 
 }
 
+/*
+ * Send OPAQUE registration messages, using subtype 'type'.
+ */
+void sharp_opaque_reg_send(bool is_reg, uint32_t proto, uint32_t instance,
+			   uint32_t session_id, uint32_t type)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	if (is_reg)
+		zclient_create_header(s, ZEBRA_OPAQUE_REGISTER, VRF_DEFAULT);
+	else
+		zclient_create_header(s, ZEBRA_OPAQUE_UNREGISTER, VRF_DEFAULT);
+
+	/* Send sub-type */
+	stream_putl(s, type);
+
+	/* Add zclient info */
+	stream_putc(s, proto);
+	stream_putw(s, instance);
+	stream_putl(s, session_id);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	(void)zclient_send_message(zclient);
+
+}
+
 extern struct zebra_privs_t sharp_privs;
 
 void sharp_zebra_init(void)

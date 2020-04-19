@@ -561,6 +561,32 @@ DEFPY (send_opaque,
 	return CMD_SUCCESS;
 }
 
+DEFPY (send_opaque_reg,
+       send_opaque_reg_cmd,
+       "sharp send opaque <reg$reg | unreg> \
+       " FRR_IP_REDIST_STR_ZEBRA "$proto_str \
+        [{instance (0-1000) | session (1-1000)}] type (1-1000)",
+       "Sharp Routing Protocol\n"
+       "Send messages for testing\n"
+       "Send opaque messages\n"
+       "Send opaque registration\n"
+       "Send opaque unregistration\n"
+       FRR_IP_REDIST_HELP_STR_ZEBRA
+       "Daemon instance\n"
+       "Daemon instance\n"
+       "Session ID\n"
+       "Session ID\n"
+       "Opaque sub-type code\n"
+       "Opaque sub-type code\n")
+{
+	int proto;
+
+	proto = proto_redistnum(AFI_IP, proto_str);
+
+	sharp_opaque_reg_send((reg != NULL), proto, instance, session, type);
+	return CMD_SUCCESS;
+}
+
 void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
@@ -574,6 +600,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &sharp_remove_lsp_prefix_v4_cmd);
 	install_element(ENABLE_NODE, &logpump_cmd);
 	install_element(ENABLE_NODE, &send_opaque_cmd);
+	install_element(ENABLE_NODE, &send_opaque_reg_cmd);
 
 	install_element(VIEW_NODE, &show_debugging_sharpd_cmd);
 

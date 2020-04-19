@@ -44,8 +44,12 @@ int sharp_install_lsps_helper(bool install_p, const struct prefix *p,
 			      uint8_t type, int instance, uint32_t in_label,
 			      const struct nexthop_group *nhg,
 			      const struct nexthop_group *backup_nhg);
+
 /* Send OPAQUE messages, using subtype 'type'. */
 void sharp_opaque_send(uint32_t type, uint32_t count);
 
+/* Send OPAQUE registration messages, using subtype 'type'. */
+void sharp_opaque_reg_send(bool is_reg, uint32_t proto, uint32_t instance,
+			   uint32_t session_id, uint32_t type);
 
 #endif
