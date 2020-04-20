@@ -30,6 +30,10 @@
 
 #include "zebra/zebra_nhg.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Abstraction for connected trees */
 struct nhg_connected {
 	struct nhg_connected_tree_item tree_item;
@@ -69,5 +73,9 @@ nhg_connected_tree_del_nhe(struct nhg_connected_tree_head *head,
 extern struct nhg_hash_entry *
 nhg_connected_tree_add_nhe(struct nhg_connected_tree_head *head,
 			   struct nhg_hash_entry *nhe);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __ZEBRA_NHG_PRIVATE_H__ */

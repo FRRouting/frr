@@ -26,6 +26,10 @@
 #include "lib/nexthop.h"
 #include "lib/nexthop_group.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* This struct is used exclusively for dataplane
  * interaction via a dataplane context.
  *
@@ -268,5 +272,9 @@ extern void zebra_nhg_sweep_table(struct hash *hash);
 /* Nexthop resolution processing */
 struct route_entry; /* Forward ref to avoid circular includes */
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	/* __ZEBRA_NHG_H__ */

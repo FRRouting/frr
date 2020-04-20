@@ -22,6 +22,10 @@
 
 #include "prefix.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* bool */
 extern bool yang_str2bool(const char *value);
 extern struct yang_data *yang_data_new_bool(const char *xpath, bool value);
@@ -181,5 +185,9 @@ extern struct yang_data *yang_data_new_mac(const char *xpath,
 extern void yang_str2mac(const char *value, struct ethaddr *mac);
 
 extern const char *yang_nexthop_type2str(uint32_t ntype);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_NORTHBOUND_WRAPPERS_H_ */

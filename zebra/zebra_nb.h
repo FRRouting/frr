@@ -20,6 +20,10 @@
 #ifndef ZEBRA_ZEBRA_NB_H_
 #define ZEBRA_ZEBRA_NB_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern const struct frr_yang_module_info frr_zebra_info;
 
 /* prototypes */
@@ -484,5 +488,9 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_fib_get_el
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_weight_get_elem(
 	const char *xpath, const void *list_entry);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
