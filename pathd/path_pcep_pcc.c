@@ -111,9 +111,9 @@ struct pcc_state *pcep_pcc_initialize(struct ctrl_state *ctrl_state, int index)
 	pcc_state->id = index;
 	pcc_state->status = PCEP_PCC_DISCONNECTED;
 	pcc_state->next_reqid = 1;
-	pcc_state->next_plspid = 524293;
-	pcc_state->next_tid = 5;
-	pcc_state->next_lspid = 2;
+	pcc_state->next_plspid = 1;
+	pcc_state->next_tid = 1;
+	pcc_state->next_lspid = 1;
 
 	update_tag(ctrl_state, pcc_state);
 
