@@ -544,6 +544,25 @@ int zserv_send_message(struct zserv *client, struct stream *msg)
 	return 0;
 }
 
+/*
+ * Send a batch of messages to a connected Zebra API client.
+ */
+int zserv_send_batch(struct zserv *client, struct stream_fifo *fifo)
+{
+	struct stream *msg;
+
+	frr_with_mutex(&client->obuf_mtx) {
+		msg = stream_fifo_pop(fifo);
+		while (msg) {
+			stream_fifo_push(client->obuf_fifo, msg);
+			msg = stream_fifo_pop(fifo);
+		}
+	}
+
+	zserv_client_event(client, ZSERV_CLIENT_WRITE);
+
+	return 0;
+}
 
 /* Hooks for client connect / disconnect */
 DEFINE_HOOK(zserv_client_connect, (struct zserv *client), (client));

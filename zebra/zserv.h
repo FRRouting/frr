@@ -282,6 +282,17 @@ extern void zserv_start(char *path);
 extern int zserv_send_message(struct zserv *client, struct stream *msg);
 
 /*
+ * Send a batch of messages to a connected Zebra API client.
+ *
+ * client
+ *    the client to send to
+ *
+ * fifo
+ *    the list of messages to send
+ */
+extern int zserv_send_batch(struct zserv *client, struct stream_fifo *fifo);
+
+/*
  * Retrieve a client by its protocol and instance number.
  *
  * proto
