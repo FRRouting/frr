@@ -288,10 +288,10 @@ int pim_socket_join(int fd, struct in_addr group, struct in_addr ifaddr,
 		char group_str[INET_ADDRSTRLEN];
 		char ifaddr_str[INET_ADDRSTRLEN];
 		if (!inet_ntop(AF_INET, &group, group_str, sizeof(group_str)))
-			sprintf(group_str, "<group?>");
+			snprintf(group_str, sizeof(group_str), "<group?>");
 		if (!inet_ntop(AF_INET, &ifaddr, ifaddr_str,
 			       sizeof(ifaddr_str)))
-			sprintf(ifaddr_str, "<ifaddr?>");
+			snprintf(ifaddr_str, sizeof(ifaddr_str), "<ifaddr?>");
 
 		flog_err(
 			EC_LIB_SOCKET,
@@ -304,10 +304,10 @@ int pim_socket_join(int fd, struct in_addr group, struct in_addr ifaddr,
 		char group_str[INET_ADDRSTRLEN];
 		char ifaddr_str[INET_ADDRSTRLEN];
 		if (!inet_ntop(AF_INET, &group, group_str, sizeof(group_str)))
-			sprintf(group_str, "<group?>");
+			snprintf(group_str, sizeof(group_str), "<group?>");
 		if (!inet_ntop(AF_INET, &ifaddr, ifaddr_str,
 			       sizeof(ifaddr_str)))
-			sprintf(ifaddr_str, "<ifaddr?>");
+			snprintf(ifaddr_str, sizeof(ifaddr_str), "<ifaddr?>");
 
 		zlog_debug(
 			"Socket fd=%d joined group %s on interface address %s",

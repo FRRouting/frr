@@ -2972,8 +2972,8 @@ static void rip_distance_show(struct vty *vty, struct rip *rip)
 					"    Address           Distance  List\n");
 				header = 0;
 			}
-			sprintf(buf, "%s/%d", inet_ntoa(rn->p.u.prefix4),
-				rn->p.prefixlen);
+			snprintf(buf, sizeof(buf), "%s/%d",
+				 inet_ntoa(rn->p.u.prefix4), rn->p.prefixlen);
 			vty_out(vty, "    %-20s  %4d  %s\n", buf,
 				rdistance->distance,
 				rdistance->access_list ? rdistance->access_list

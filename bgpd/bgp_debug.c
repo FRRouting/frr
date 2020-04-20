@@ -570,34 +570,39 @@ static void bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
 
 	if (p->u.prefix_evpn.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 		if (is_evpn_prefix_ipaddr_none((struct prefix_evpn *)p)) {
-			sprintf(evpn_desc, "l2vpn evpn type macip mac %s",
-				 prefix_mac2str(
-					&p->u.prefix_evpn.macip_addr.mac,
-					buf2, sizeof(buf2)));
+			snprintf(
+				evpn_desc, sizeof(evpn_desc),
+				"l2vpn evpn type macip mac %s",
+				prefix_mac2str(&p->u.prefix_evpn.macip_addr.mac,
+					       buf2, sizeof(buf2)));
 		} else {
 			uint8_t family = is_evpn_prefix_ipaddr_v4(
 						(struct prefix_evpn *)p) ?
 							AF_INET : AF_INET6;
-			sprintf(evpn_desc, "l2vpn evpn type macip mac %s ip %s",
-				 prefix_mac2str(
-					&p->u.prefix_evpn.macip_addr.mac,
-					buf2, sizeof(buf2)),
-				 inet_ntop(family,
+			snprintf(
+				evpn_desc, sizeof(evpn_desc),
+				"l2vpn evpn type macip mac %s ip %s",
+				prefix_mac2str(&p->u.prefix_evpn.macip_addr.mac,
+					       buf2, sizeof(buf2)),
+				inet_ntop(
+					family,
 					&p->u.prefix_evpn.macip_addr.ip.ip.addr,
 					buf, PREFIX2STR_BUFFER));
 		}
 	} else if (p->u.prefix_evpn.route_type == BGP_EVPN_IMET_ROUTE) {
-		sprintf(evpn_desc, "l2vpn evpn type multicast ip %s",
-			inet_ntoa(p->u.prefix_evpn.imet_addr.ip.ipaddr_v4));
+		snprintf(evpn_desc, sizeof(evpn_desc),
+			 "l2vpn evpn type multicast ip %s",
+			 inet_ntoa(p->u.prefix_evpn.imet_addr.ip.ipaddr_v4));
 	} else if (p->u.prefix_evpn.route_type == BGP_EVPN_IP_PREFIX_ROUTE) {
 		uint8_t family = is_evpn_prefix_ipaddr_v4(
 					(struct prefix_evpn *)p) ? AF_INET
 								: AF_INET6;
-		sprintf(evpn_desc, "l2vpn evpn type prefix ip %s/%d",
-			inet_ntop(family,
-				  &p->u.prefix_evpn.prefix_addr.ip.ip.addr, buf,
-				  PREFIX2STR_BUFFER),
-			p->u.prefix_evpn.prefix_addr.ip_prefix_length);
+		snprintf(evpn_desc, sizeof(evpn_desc),
+			 "l2vpn evpn type prefix ip %s/%d",
+			 inet_ntop(family,
+				   &p->u.prefix_evpn.prefix_addr.ip.ip.addr,
+				   buf, PREFIX2STR_BUFFER),
+			 p->u.prefix_evpn.prefix_addr.ip_prefix_length);
 	}
 
 	vty_out(vty, "%s %s\n", desc, evpn_desc);
@@ -2592,12 +2597,14 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 			char tag_buf2[20];
 
 			bgp_evpn_label2str(label, num_labels, tag_buf2, 20);
-			sprintf(tag_buf, " label %s", tag_buf2);
+			snprintf(tag_buf, sizeof(tag_buf), " label %s",
+				 tag_buf2);
 		} else {
 			uint32_t label_value;
 
 			label_value = decode_label(label);
-			sprintf(tag_buf, " label %u", label_value);
+			snprintf(tag_buf, sizeof(tag_buf), " label %u",
+				 label_value);
 		}
 	}
 

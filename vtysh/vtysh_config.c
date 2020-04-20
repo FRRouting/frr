@@ -543,7 +543,8 @@ void vtysh_config_write(void)
 	}
 
 	if (cmd_domainname_get()) {
-		sprintf(line, "domainname %s", cmd_domainname_get());
+		snprintf(line, sizeof(line), "domainname %s",
+			 cmd_domainname_get());
 		vtysh_config_parse_line(NULL, line);
 	}
 	if (vtysh_write_integrated == WRITE_INTEGRATED_NO)

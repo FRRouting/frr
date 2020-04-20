@@ -607,7 +607,7 @@ static int pid_is_exec(pid_t pid, const struct stat *esb)
 	struct stat sb;
 	char buf[32];
 
-	sprintf(buf, "/proc/%ld/exe", (long)pid);
+	snprintf(buf, sizeof(buf), "/proc/%ld/exe", (long)pid);
 	if (stat(buf, &sb) != 0)
 		return 0;
 	return (sb.st_dev == esb->st_dev && sb.st_ino == esb->st_ino);
@@ -619,7 +619,7 @@ static int pid_is_user(pid_t pid, uid_t uid)
 	struct stat sb;
 	char buf[32];
 
-	sprintf(buf, "/proc/%ld", (long)pid);
+	snprintf(buf, sizeof(buf), "/proc/%ld", (long)pid);
 	if (stat(buf, &sb) != 0)
 		return 0;
 	return (sb.st_uid == uid);
@@ -632,7 +632,7 @@ static int pid_is_cmd(pid_t pid, const char *name)
 	FILE *f;
 	int c;
 
-	sprintf(buf, "/proc/%ld/stat", (long)pid);
+	snprintf(buf, sizeof(buf), "/proc/%ld/stat", (long)pid);
 	f = fopen(buf, "r");
 	if (!f)
 		return 0;

@@ -1960,8 +1960,8 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 					break;
 
 				/* ORF prefix-list name */
-				sprintf(name, "%s.%d.%d", peer->host, afi,
-					safi);
+				snprintf(name, sizeof(name), "%s.%d.%d",
+					 peer->host, afi, safi);
 
 				while (p_pnt < p_end) {
 					/* If the ORF entry is malformed, want

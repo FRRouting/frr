@@ -971,7 +971,7 @@ show_babel_routes_sub(struct babel_route *route, struct vty *vty,
         channels[0] = '\0';
     else {
         int k, j = 0;
-        snprintf(channels, 100, " chan (");
+        snprintf(channels, sizeof(channels), " chan (");
         j = strlen(channels);
         for(k = 0; k < DIVERSITY_HOPS; k++) {
             if(route->channels[k] == 0)

@@ -9263,8 +9263,8 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 
 		char buf1[19];
 
-		snprintf(buf1, 19, "%s/%d", inet_ntoa(rn->p.u.prefix4),
-			 rn->p.prefixlen);
+		snprintf(buf1, sizeof(buf1), "%s/%d",
+			 inet_ntoa(rn->p.u.prefix4), rn->p.prefixlen);
 		json_route = json_object_new_object();
 		if (json) {
 			json_object_object_add(json, buf1, json_route);

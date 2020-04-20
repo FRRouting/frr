@@ -172,9 +172,9 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	char spaces[10];
 
 	if (pim->vrf_id == VRF_DEFAULT)
-		sprintf(spaces, "%s", "");
+		snprintf(spaces, sizeof(spaces), "%s", "");
 	else
-		sprintf(spaces, "%s", " ");
+		snprintf(spaces, sizeof(spaces), "%s", " ");
 
 	writes += pim_msdp_config_write(pim, vty, spaces);
 

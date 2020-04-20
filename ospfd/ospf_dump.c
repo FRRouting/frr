@@ -82,9 +82,8 @@ const char *ospf_area_name_string(struct ospf_area *area)
 		return "-";
 
 	area_id = ntohl(area->area_id.s_addr);
-	snprintf(buf, OSPF_AREA_STRING_MAXLEN, "%d.%d.%d.%d",
-		 (area_id >> 24) & 0xff, (area_id >> 16) & 0xff,
-		 (area_id >> 8) & 0xff, area_id & 0xff);
+	snprintf(buf, sizeof(buf), "%d.%d.%d.%d", (area_id >> 24) & 0xff,
+		 (area_id >> 16) & 0xff, (area_id >> 8) & 0xff, area_id & 0xff);
 	return buf;
 }
 
@@ -100,11 +99,11 @@ const char *ospf_area_desc_string(struct ospf_area *area)
 	type = area->external_routing;
 	switch (type) {
 	case OSPF_AREA_NSSA:
-		snprintf(buf, OSPF_AREA_DESC_STRING_MAXLEN, "%s [NSSA]",
+		snprintf(buf, sizeof(buf), "%s [NSSA]",
 			 ospf_area_name_string(area));
 		break;
 	case OSPF_AREA_STUB:
-		snprintf(buf, OSPF_AREA_DESC_STRING_MAXLEN, "%s [Stub]",
+		snprintf(buf, sizeof(buf), "%s [Stub]",
 			 ospf_area_name_string(area));
 		break;
 	default:
@@ -127,7 +126,7 @@ const char *ospf_if_name_string(struct ospf_interface *oi)
 		return oi->ifp->name;
 
 	ifaddr = ntohl(oi->address->u.prefix4.s_addr);
-	snprintf(buf, OSPF_IF_STRING_MAXLEN, "%s:%d.%d.%d.%d", oi->ifp->name,
+	snprintf(buf, sizeof(buf), "%s:%d.%d.%d.%d", oi->ifp->name,
 		 (ifaddr >> 24) & 0xff, (ifaddr >> 16) & 0xff,
 		 (ifaddr >> 8) & 0xff, ifaddr & 0xff);
 	return buf;
@@ -1669,7 +1668,7 @@ static int config_write_debug(struct vty *vty)
 		return CMD_SUCCESS;
 
 	if (ospf->instance)
-		sprintf(str, " %u", ospf->instance);
+		snprintf(str, sizeof(str), " %u", ospf->instance);
 
 	/* debug ospf ism (status|events|timers). */
 	if (IS_CONF_DEBUG_OSPF(ism, ISM) == OSPF_DEBUG_ISM)

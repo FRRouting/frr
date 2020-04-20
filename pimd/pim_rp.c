@@ -728,7 +728,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 	char rp_str[INET_ADDRSTRLEN];
 
 	if (!inet_ntop(AF_INET, &rp_addr, rp_str, sizeof(rp_str)))
-		sprintf(rp_str, "<rp?>");
+		snprintf(rp_str, sizeof(rp_str), "<rp?>");
 	prefix2str(&group, grp_str, sizeof(grp_str));
 
 	if (plist)
@@ -763,7 +763,9 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 
 					if (!inet_ntop(AF_INET, bsrp, bsrp_str,
 						       sizeof(bsrp_str)))
-						sprintf(bsrp_str, "<bsrp?>");
+						snprintf(bsrp_str,
+							 sizeof(bsrp_str),
+							 "<bsrp?>");
 
 					zlog_debug(
 						"%s: BSM RP %s found for the group %s",

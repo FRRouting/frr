@@ -1860,7 +1860,7 @@ void zebra_routemap_config_write_protocol(struct vty *vty,
 	memset(space, 0, sizeof(space));
 
 	if (zvrf_id(zvrf) != VRF_DEFAULT)
-		sprintf(space, "%s", " ");
+		snprintf(space, sizeof(space), "%s", " ");
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (PROTO_RM_NAME(zvrf, AFI_IP, i))

@@ -130,7 +130,8 @@ static int linux_icmp_redirect_off(const char *iface)
 	char fname[256];
 	int fd, ret = -1;
 
-	sprintf(fname, "/proc/sys/net/ipv4/conf/%s/send_redirects", iface);
+	snprintf(fname, sizeof(fname),
+		 "/proc/sys/net/ipv4/conf/%s/send_redirects", iface);
 	fd = open(fname, O_WRONLY);
 	if (fd < 0)
 		return -1;

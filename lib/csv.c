@@ -640,7 +640,7 @@ static int get_memory_usage(pid_t pid)
 	char buf[4096], status_child[BUFSIZ];
 	char *vm;
 
-	sprintf(status_child, "/proc/%d/status", pid);
+	snprintf(status_child, sizeof(status_child), "/proc/%d/status", pid);
 	if ((fd = open(status_child, O_RDONLY)) < 0)
 		return -1;
 
@@ -672,8 +672,8 @@ int main()
 
 	log_verbose("Mem: %d\n", get_memory_usage(getpid()));
 	csv_init(&csv, buf, 256);
-	sprintf(hdr1, "%4d", 0);
-	sprintf(hdr2, "%4d", 1);
+	snprintf(hdr1, sizeof(hdr1), "%4d", 0);
+	snprintf(hdr2, sizeof(hdr2), "%4d", 1);
 	log_verbose("(%zu/%zu/%d/%d)\n", strlen(hdr1), strlen(hdr2), atoi(hdr1),
 		    atoi(hdr2));
 	rec = csv_encode(&csv, 2, hdr1, hdr2);
@@ -685,8 +685,8 @@ int main()
 	}
 	csv_encode(&csv, 2, "pdfadfadfadsadsaddfdfdsfdsd", "35444554545454545");
 	log_verbose("%s\n", buf);
-	sprintf(hdr1, "%4d", csv.csv_len);
-	sprintf(hdr2, "%4d", 1);
+	snprintf(hdr1, sizeof(hdr1), "%4d", csv.csv_len);
+	snprintf(hdr2, sizeof(hdr2), "%4d", 1);
 	log_verbose("(%zu/%zu/%d/%d)\n", strlen(hdr1), strlen(hdr2), atoi(hdr1),
 		    atoi(hdr2));
 	rec = csv_encode_record(&csv, rec, 2, hdr1, hdr2);

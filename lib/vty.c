@@ -1882,7 +1882,7 @@ static void vty_serv_sock_addrinfo(const char *hostname, unsigned short port)
 	req.ai_flags = AI_PASSIVE;
 	req.ai_family = AF_UNSPEC;
 	req.ai_socktype = SOCK_STREAM;
-	sprintf(port_str, "%d", port);
+	snprintf(port_str, sizeof(port_str), "%d", port);
 	port_str[sizeof(port_str) - 1] = '\0';
 
 	ret = getaddrinfo(hostname, port_str, &req, &ainfo);

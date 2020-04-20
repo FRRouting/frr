@@ -5386,7 +5386,8 @@ void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn)
 
 	vpn->prd.family = AF_UNSPEC;
 	vpn->prd.prefixlen = 64;
-	sprintf(buf, "%s:%hu", inet_ntoa(bgp->router_id), vpn->rd_id);
+	snprintf(buf, sizeof(buf), "%s:%hu", inet_ntoa(bgp->router_id),
+		 vpn->rd_id);
 	(void)str2prefix_rd(buf, &vpn->prd);
 	UNSET_FLAG(vpn->flags, VNI_FLAG_RD_CFGD);
 }
@@ -5529,7 +5530,8 @@ struct evpnes *bgp_evpn_es_new(struct bgp *bgp,
 	bf_assign_index(bm->rd_idspace, es->rd_id);
 	es->prd.family = AF_UNSPEC;
 	es->prd.prefixlen = 64;
-	sprintf(buf, "%s:%hu", inet_ntoa(bgp->router_id), es->rd_id);
+	snprintf(buf, sizeof(buf), "%s:%hu", inet_ntoa(bgp->router_id),
+		 es->rd_id);
 	(void)str2prefix_rd(buf, &es->prd);
 
 	/* Initialize the ES route table */

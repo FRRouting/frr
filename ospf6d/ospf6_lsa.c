@@ -397,10 +397,10 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa)
 			(unsigned long)ntohl(lsa->header->seqnum),
 			handler->lh_get_prefix_str(lsa, buf, sizeof(buf), 0));
 	} else if (type != OSPF6_LSTYPE_UNKNOWN) {
-		sprintf(tmpbuf, "%-4s %-15s%-15s%4hu %8lx",
-			ospf6_lstype_short_name(lsa->header->type), id,
-			adv_router, ospf6_lsa_age_current(lsa),
-			(unsigned long)ntohl(lsa->header->seqnum));
+		snprintf(tmpbuf, sizeof(tmpbuf), "%-4s %-15s%-15s%4hu %8lx",
+			 ospf6_lstype_short_name(lsa->header->type), id,
+			 adv_router, ospf6_lsa_age_current(lsa),
+			 (unsigned long)ntohl(lsa->header->seqnum));
 
 		while (handler->lh_get_prefix_str(lsa, buf, sizeof(buf), cnt)
 		       != NULL) {

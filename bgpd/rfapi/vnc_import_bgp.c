@@ -275,7 +275,12 @@ static void vnc_rhnck(char *tag)
 	vnc_zlog_debug_verbose("%s: vnc_rhnck OK", tag);
 }
 
-#define VNC_RHNCK(n)	do {char buf[BUFSIZ];sprintf(buf,"%s: %s", __func__, #n);vnc_rhnck(buf);} while (0)
+#define VNC_RHNCK(n)                                                           \
+	do {                                                                   \
+		char buf[BUFSIZ];                                              \
+		snprintf(buf, sizeof(buf), "%s: %s", __func__, #n);            \
+		vnc_rhnck(buf);                                                \
+	} while (0)
 
 #else
 

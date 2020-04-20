@@ -8619,8 +8619,9 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 					 peer->notify.code,
 					 peer->notify.subcode);
 
-			sprintf(errorcodesubcode_hexstr, "%02X%02X",
-				peer->notify.code, peer->notify.subcode);
+			snprintf(errorcodesubcode_hexstr,
+				 sizeof(errorcodesubcode_hexstr), "%02X%02X",
+				 peer->notify.code, peer->notify.subcode);
 			json_object_string_add(json_peer,
 					       "lastErrorCodeSubcode",
 					       errorcodesubcode_hexstr);
@@ -8799,12 +8800,14 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				if (peer->hostname
 				    && CHECK_FLAG(bgp->flags,
 						  BGP_FLAG_SHOW_HOSTNAME))
-					sprintf(neighbor_buf, "%s%s(%s) ",
-						dn_flag, peer->hostname,
-						peer->host);
+					snprintf(neighbor_buf,
+						 sizeof(neighbor_buf),
+						 "%s%s(%s) ", dn_flag,
+						 peer->hostname, peer->host);
 				else
-					sprintf(neighbor_buf, "%s%s ", dn_flag,
-						peer->host);
+					snprintf(neighbor_buf,
+						 sizeof(neighbor_buf), "%s%s ",
+						 dn_flag, peer->host);
 
 				len = strlen(neighbor_buf);
 
@@ -9877,7 +9880,8 @@ static void bgp_show_peer_gr_status(struct vty *vty, struct peer *p,
 					: sockunion2str(&p->su, buf,
 							SU_ADDRSTRLEN));
 	} else {
-		sprintf(neighborAddr, "%s%s", dn_flag, p->host);
+		snprintf(neighborAddr, sizeof(neighborAddr), "%s%s", dn_flag,
+			 p->host);
 
 		if (use_json)
 			json_object_string_add(json, "neighborAddr",
@@ -9978,7 +9982,8 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		else
 			json_object_free(json_af);
 
-		sprintf(orf_pfx_name, "%s.%d.%d", p->host, afi, safi);
+		snprintf(orf_pfx_name, sizeof(orf_pfx_name), "%s.%d.%d",
+			 p->host, afi, safi);
 		orf_pfx_count = prefix_bgp_show_prefix_list(
 			NULL, afi, orf_pfx_name, use_json);
 
@@ -10274,7 +10279,8 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				PEER_CAP_ORF_PREFIX_RM_OLD_RCV, use_json, NULL);
 		}
 
-		sprintf(orf_pfx_name, "%s.%d.%d", p->host, afi, safi);
+		snprintf(orf_pfx_name, sizeof(orf_pfx_name), "%s.%d.%d",
+			 p->host, afi, safi);
 		orf_pfx_count = prefix_bgp_show_prefix_list(
 			NULL, afi, orf_pfx_name, use_json);
 

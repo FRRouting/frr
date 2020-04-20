@@ -1945,7 +1945,8 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 
 				if (!inet_ntop(AF_INET, src, src_str,
 					       sizeof(src_str)))
-					sprintf(src_str, "<source?>");
+					snprintf(src_str, sizeof(src_str),
+						 "<source?>");
 
 				zlog_debug(
 					"        Recv IGMP report v3 from %s on %s: record=%d group=%s source=%s",

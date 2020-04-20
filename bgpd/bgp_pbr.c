@@ -605,13 +605,15 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 				    api->fragment[i].value != 4 &&
 				    api->fragment[i].value != 8) {
 					success = false;
-					sprintf(fail_str,
+					snprintf(
+						fail_str, sizeof(fail_str),
 						"Value not valid (%d) for this implementation",
 						api->fragment[i].value);
 				}
 			}
 		} else
-			sprintf(fail_str, "too complex. ignoring");
+			snprintf(fail_str, sizeof(fail_str),
+				 "too complex. ignoring");
 		if (!success) {
 			if (BGP_DEBUG(pbr, PBR))
 				zlog_debug("BGP: match fragment operation (%d) %s",

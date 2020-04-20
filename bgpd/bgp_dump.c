@@ -115,7 +115,8 @@ static FILE *bgp_dump_open_file(struct bgp_dump *bgp_dump)
 	localtime_r(&clock, &tm);
 
 	if (bgp_dump->filename[0] != DIRECTORY_SEP) {
-		sprintf(fullpath, "%s/%s", vty_get_cwd(), bgp_dump->filename);
+		snprintf(fullpath, sizeof(fullpath), "%s/%s", vty_get_cwd(),
+			 bgp_dump->filename);
 		ret = strftime(realpath, MAXPATHLEN, fullpath, &tm);
 	} else
 		ret = strftime(realpath, MAXPATHLEN, bgp_dump->filename, &tm);

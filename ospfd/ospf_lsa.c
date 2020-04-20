@@ -298,7 +298,8 @@ const char *dump_lsa_key(struct ospf_lsa *lsa)
 		strlcpy(id, inet_ntoa(lsah->id), sizeof(id));
 		strlcpy(ar, inet_ntoa(lsah->adv_router), sizeof(ar));
 
-		sprintf(buf, "Type%d,id(%s),ar(%s)", lsah->type, id, ar);
+		snprintf(buf, sizeof(buf), "Type%d,id(%s),ar(%s)", lsah->type,
+			 id, ar);
 	} else
 		strlcpy(buf, "NULL", sizeof(buf));
 

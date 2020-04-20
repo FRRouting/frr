@@ -1961,10 +1961,9 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 			char buf_a[BUFSIZ];
 			char buf_b[BUFSIZ];
 
-			sprintf(buf_a, "%s/%d",
-				inet_ntop(p->family, p->u.val, buf_b,
-					  BUFSIZ),
-				p->prefixlen);
+			snprintf(buf_a, sizeof(buf_a), "%s/%d",
+				 inet_ntop(p->family, p->u.val, buf_b, BUFSIZ),
+				 p->prefixlen);
 
 			json_object_int_add(json_list, "seq", pentry->seq);
 			json_object_string_add(json_list, "seqPrefixListType",

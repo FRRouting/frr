@@ -4627,7 +4627,8 @@ void bgp_rfapi_show_summary(struct bgp *bgp, struct vty *vty)
 		(hc->rfp_cfg.download_type == RFAPI_RFP_DOWNLOAD_PARTIAL
 			 ? "(default)"
 			 : ""));
-	sprintf(tmp, "%u seconds", hc->rfp_cfg.ftd_advertisement_interval);
+	snprintf(tmp, sizeof(tmp), "%u seconds",
+		 hc->rfp_cfg.ftd_advertisement_interval);
 	vty_out(vty, "%-39s %-19s %s\n", "    Advertisement Interval:", tmp,
 		(hc->rfp_cfg.ftd_advertisement_interval
 				 == RFAPI_RFP_CFG_DEFAULT_FTD_ADVERTISEMENT_INTERVAL

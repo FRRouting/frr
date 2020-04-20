@@ -614,8 +614,8 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 	if (stable == NULL)
 		return write;
 
-	sprintf(spacing, "%s%s", (svrf->vrf->vrf_id == VRF_DEFAULT) ? "" : " ",
-		cmd);
+	snprintf(spacing, sizeof(spacing), "%s%s",
+		 (svrf->vrf->vrf_id == VRF_DEFAULT) ? "" : " ", cmd);
 
 	/*
 	 * Static routes for vrfs not fully inited

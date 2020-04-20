@@ -3335,7 +3335,8 @@ int zebra_mpls_write_lsp_config(struct vty *vty, struct zebra_vrf *zvrf)
 				strlcpy(lstr, "implicit-null", sizeof(lstr));
 				break;
 			default:
-				sprintf(lstr, "%u", snhlfe->out_label);
+				snprintf(lstr, sizeof(lstr), "%u",
+					 snhlfe->out_label);
 				break;
 			}
 
