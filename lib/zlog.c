@@ -238,13 +238,12 @@ void zlog_tls_buffer_init(void)
 
 	mmfd = openat(zlog_tmpdirfd, mmpath,
 		      O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
-	fchown(mmfd, zlog_uid, zlog_gid);
-
 	if (mmfd < 0) {
 		zlog_err("failed to open thread log buffer \"%s\": %s",
 			 mmpath, strerror(errno));
 		goto out_anon;
 	}
+	fchown(mmfd, zlog_uid, zlog_gid);
 
 #ifdef HAVE_POSIX_FALLOCATE
 	if (posix_fallocate(mmfd, 0, TLS_LOG_BUF_SIZE) < 0) {
