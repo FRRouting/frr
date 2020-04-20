@@ -605,7 +605,7 @@ static void parse_options(int argc, char *const *argv)
 static int pid_is_exec(pid_t pid, const struct stat *esb)
 {
 	struct stat sb;
-	char buf[32];
+	char buf[PATH_MAX];
 
 	snprintf(buf, sizeof(buf), "/proc/%ld/exe", (long)pid);
 	if (stat(buf, &sb) != 0)
@@ -617,7 +617,7 @@ static int pid_is_exec(pid_t pid, const struct stat *esb)
 static int pid_is_user(pid_t pid, uid_t uid)
 {
 	struct stat sb;
-	char buf[32];
+	char buf[PATH_MAX];
 
 	snprintf(buf, sizeof(buf), "/proc/%ld", (long)pid);
 	if (stat(buf, &sb) != 0)
@@ -628,7 +628,7 @@ static int pid_is_user(pid_t pid, uid_t uid)
 
 static int pid_is_cmd(pid_t pid, const char *name)
 {
-	char buf[32];
+	char buf[PATH_MAX];
 	FILE *f;
 	int c;
 

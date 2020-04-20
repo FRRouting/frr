@@ -9860,7 +9860,8 @@ static void bgp_show_peer_gr_status(struct vty *vty, struct peer *p,
 {
 	char buf[SU_ADDRSTRLEN] = {0};
 	char dn_flag[2] = {0};
-	char neighborAddr[INET6_ADDRSTRLEN] = {0};
+	/* '*' + v6 address of neighbor */
+	char neighborAddr[INET6_ADDRSTRLEN + 1] = {0};
 
 	if (!p->conf_if && peer_dynamic_neighbor(p))
 		dn_flag[0] = '*';

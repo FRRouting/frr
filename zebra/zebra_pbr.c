@@ -877,14 +877,14 @@ static void zebra_pbr_display_icmp(struct vty *vty,
 
 	/* range icmp type */
 	if (zpie->src_port_max || zpie->dst_port_max) {
-		vty_out(vty, ":icmp:[type <%d:%d>;code <%d:%d>",
+		vty_out(vty, ":icmp:[type <%u:%u>;code <%u:%u>",
 			zpie->src_port_min, zpie->src_port_max,
 			zpie->dst_port_min, zpie->dst_port_max);
 	} else {
 		port = ((zpie->src_port_min << 8) & 0xff00) +
 			(zpie->dst_port_min & 0xff);
 		memset(decoded_str, 0, sizeof(decoded_str));
-		snprintf(decoded_str, sizeof(decoded_str), "%d/%d",
+		snprintf(decoded_str, sizeof(decoded_str), "%u/%u",
 			 zpie->src_port_min, zpie->dst_port_min);
 		vty_out(vty, ":icmp:%s",
 			lookup_msg(icmp_typecode_str,

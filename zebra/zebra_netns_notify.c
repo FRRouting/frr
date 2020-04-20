@@ -153,7 +153,7 @@ static int zebra_ns_delete(char *name)
 
 static int zebra_ns_notify_self_identify(struct stat *netst)
 {
-	char net_path[64];
+	char net_path[PATH_MAX];
 	int netns;
 
 	snprintf(net_path, sizeof(net_path), "/proc/self/ns/net");

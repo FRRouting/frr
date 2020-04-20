@@ -637,7 +637,7 @@ void csv_dump(csv_t *csv)
 static int get_memory_usage(pid_t pid)
 {
 	int fd, data, stack;
-	char buf[4096], status_child[BUFSIZ];
+	char buf[4096], status_child[PATH_MAX];
 	char *vm;
 
 	snprintf(status_child, sizeof(status_child), "/proc/%d/status", pid);
