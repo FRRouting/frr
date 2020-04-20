@@ -611,11 +611,9 @@ void lspid_print(uint8_t *lsp_id, char *dest, char dynhost, char frag)
 		dyn = NULL;
 
 	if (dyn)
-		snprintf(id, 
-		         sizeof(id), "%.14s", dyn->hostname);
+		snprintf(id, sizeof(id), "%.14s", dyn->hostname);
 	else if (!memcmp(isis->sysid, lsp_id, ISIS_SYS_ID_LEN) && dynhost)
-		snprintf(id, 
-		         sizeof(id), "%.14s", cmd_hostname_get());
+		snprintf(id, sizeof(id), "%.14s", cmd_hostname_get());
 	else
 		memcpy(id, sysid_print(lsp_id), 15);
 	if (frag)

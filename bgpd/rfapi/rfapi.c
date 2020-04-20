@@ -3506,8 +3506,7 @@ DEFUN (debug_rfapi_show_import,
 						"\nLNI-based Ethernet Tables:\n");
 					first_l2 = 0;
 				}
-				snprintf(buf, sizeof(buf), "L2VPN LNI=%u",
-					 lni);
+				snprintf(buf, sizeof(buf), "L2VPN LNI=%u", lni);
 				rfapiShowImportTable(
 					vty, buf, it->imported_vpn[AFI_L2VPN],
 					1);

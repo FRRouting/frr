@@ -85,4 +85,3 @@
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
 
 #define FOREACH_SAFI(safi) for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-

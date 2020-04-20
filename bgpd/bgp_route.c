@@ -12356,8 +12356,7 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
 		}
 	}
 
-	snprintf(name, 
-		 sizeof(name), "%s.%d.%d", peer->host, afi, safi);
+	snprintf(name, sizeof(name), "%s.%d.%d", peer->host, afi, safi);
 	count = prefix_bgp_show_prefix_list(NULL, afi, name, uj);
 	if (count) {
 		if (!uj)
