@@ -203,7 +203,6 @@ Submitting Patches and Enhancements
 
 FRR accepts patches from two sources:
 
-- Email (git format-patch)
 - GitHub pull request
 
 Contributors are highly encouraged to use GitHub's fork-and-PR workflow. It is
@@ -227,29 +226,6 @@ The title of the pull request should provide a high level technical
 summary of the included patches.  The description should provide
 additional details that will help the reviewer to understand the context
 of the included patches.
-
-Patch Submission via Mailing List
----------------------------------
-
-As an alternative submission method, a patch can be mailed to the
-development mailing list. Patches received on the mailing list will be
-picked up by Patchwork and tested against the latest development branch.
-
-The recommended way to send the patch (or series of NN patches) to the
-list is by using ``git send-email`` as follows (assuming they are the N
-most recent commit(s) in your git history)::
-
-    git send-email -NN --annotate --to=dev@lists.frrouting.org
-
-If your commits do not already contain a ``Signed-off-by`` line, then
-use the following command to add it (after making sure you agree to the
-Developer Certificate of Origin as outlined above)::
-
-    git send-email -NN --annotate --signoff --to=dev@lists.frrouting.org
-
-Submitting multi-commit patches as a GitHub pull request is **strongly
-encouraged** and increases the probability of your patch getting reviewed and
-merged in a timely manner.
 
 .. _license-for-contributions:
 
