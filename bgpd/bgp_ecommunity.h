@@ -94,7 +94,7 @@
 
 /* Extended Communities value is eight octet long.  */
 #define ECOMMUNITY_SIZE                        8
-#define IPV6_ECOMMUNITY_SIZE                   20
+#define IPV6_ECOMMUNITY_SIZE                  20
 
 /* Extended Communities type flag.  */
 #define ECOMMUNITY_FLAG_NON_TRANSITIVE      0x40
@@ -107,7 +107,7 @@ struct ecommunity {
 	/* Size of Each Unit of Extended Communities attribute.
 	 * to differentiate between IPv6 ext comm and ext comm
 	 */
-	int unit_size;
+	uint8_t unit_size;
 
 	/* Size of Extended Communities attribute.  */
 	int size;

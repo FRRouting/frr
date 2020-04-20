@@ -1051,7 +1051,7 @@ static int zebra_pbr_show_ipset_walkcb(struct hash_bucket *bucket, void *arg)
 
 	vty_out(vty, "IPset %s type %s family %s\n", zpi->ipset_name,
 		zebra_pbr_ipset_type2str(zpi->type),
-		zpi->family == AF_INET ? "AF_INET" : "AF_INET6");
+		family2str(zpi->family));
 	unique.vty = vty;
 	unique.zpi = zpi;
 	unique.zns = zns;
@@ -1098,7 +1098,7 @@ void zebra_pbr_show_ipset_list(struct vty *vty, char *ipsetname)
 		}
 		vty_out(vty, "IPset %s type %s family %s\n", ipsetname,
 			zebra_pbr_ipset_type2str(zpi->type),
-			zpi->family == AF_INET ? "AF_INET" : "AF_INET6");
+			family2str(zpi->family));
 		unique.vty = vty;
 		unique.zpi = zpi;
 		unique.zns = zns;

@@ -2296,13 +2296,12 @@ bgp_attr_ipv6_ext_communities(struct bgp_attr_parser_args *args)
 
 	if (length == 0) {
 		attr->ipv6_ecommunity = NULL;
-		/* Empty extcomm doesn't seem to be invalid per se */
-		return BGP_ATTR_PARSE_PROCEED;
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+					  args->total);
 	}
 
 	attr->ipv6_ecommunity =
-		ecommunity_parse_ipv6((uint8_t *)stream_pnt(peer->curr),
-				      length);
+		ecommunity_parse_ipv6(stream_pnt(peer->curr), length);
 	/* XXX: fix ecommunity_parse to use stream API */
 	stream_forward_getp(peer->curr, length);
 

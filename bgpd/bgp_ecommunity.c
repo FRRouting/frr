@@ -792,6 +792,7 @@ static int ecommunity_rt_soo_str_internal(char *buf, size_t bufsz,
 			len = snprintf(buf, bufsz, "%s%u:%u", prefix, eas.as, eas.val);
 		} else {
 			/* this is an IPv6 ext community
+			 * first 16 bytes stands for IPv6 addres
 			 */
 			memcpy(&eip6.ip, pnt, 16);
 			pnt += 16;
