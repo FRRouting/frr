@@ -1935,7 +1935,7 @@ bool subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 	 * and RFC 5065 by eliminating AS_SET and AS_CONFED_SET types,
 	 * and obsoletes RFC 6472.
 	 */
-	if (peer->bgp->reject_as_sets == BGP_REJECT_AS_SETS_ENABLED)
+	if (peer->bgp->reject_as_sets)
 		if (aspath_check_as_sets(attr->aspath))
 			return false;
 
@@ -3425,7 +3425,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 * and RFC 5065 by eliminating AS_SET and AS_CONFED_SET types,
 	 * and obsoletes RFC 6472.
 	 */
-	if (peer->bgp->reject_as_sets == BGP_REJECT_AS_SETS_ENABLED)
+	if (peer->bgp->reject_as_sets)
 		if (aspath_check_as_sets(attr->aspath)) {
 			reason =
 				"as-path contains AS_SET or AS_CONFED_SET type;";
@@ -6890,7 +6890,7 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	 * subsumed by the previously aggregated route) without AS_SET
 	 * or AS_CONFED_SET in the updates.
 	 */
-	if (bgp->reject_as_sets == BGP_REJECT_AS_SETS_ENABLED) {
+	if (bgp->reject_as_sets) {
 		if (as_set == AGGREGATE_AS_SET) {
 			as_set_new = AGGREGATE_AS_UNSET;
 			zlog_warn(

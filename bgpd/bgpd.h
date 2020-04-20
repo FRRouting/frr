@@ -598,8 +598,6 @@ struct bgp {
 	 * Reject aspaths with AS_SET and/or AS_CONFED_SET.
 	 */
 	bool reject_as_sets;
-#define BGP_REJECT_AS_SETS_DISABLED 0
-#define BGP_REJECT_AS_SETS_ENABLED 1
 
 	struct bgp_evpn_info *evpn_info;
 
