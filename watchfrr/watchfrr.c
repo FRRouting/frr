@@ -28,6 +28,7 @@
 #include "libfrr.h"
 #include "lib_errors.h"
 #include "zlog_targets.h"
+#include "network.h"
 
 #include <getopt.h>
 #include <sys/un.h>
@@ -43,7 +44,7 @@
 #endif
 
 /* Macros to help randomize timers. */
-#define JITTER(X) ((random() % ((X)+1))-((X)/2))
+#define JITTER(X) ((frr_weak_random() % ((X)+1))-((X)/2))
 #define FUZZY(X) ((X)+JITTER((X)/20))
 
 #define DEFAULT_PERIOD		5

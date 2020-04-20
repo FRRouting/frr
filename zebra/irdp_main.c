@@ -66,6 +66,7 @@
 #include "if.h"
 #include "sockunion.h"
 #include "log.h"
+#include "network.h"
 
 /* GLOBAL VARS */
 
@@ -233,7 +234,7 @@ int irdp_send_thread(struct thread *t_advert)
 		}
 
 	tmp = irdp->MaxAdvertInterval - irdp->MinAdvertInterval;
-	timer = random() % (tmp + 1);
+	timer = frr_weak_random() % (tmp + 1);
 	timer = irdp->MinAdvertInterval + timer;
 
 	if (irdp->irdp_sent < MAX_INITIAL_ADVERTISEMENTS
@@ -303,7 +304,7 @@ void process_solicit(struct interface *ifp)
 		thread_cancel(irdp->t_advertise);
 	irdp->t_advertise = NULL;
 
-	timer = (random() % MAX_RESPONSE_DELAY) + 1;
+	timer = (frr_weak_random() % MAX_RESPONSE_DELAY) + 1;
 
 	irdp->t_advertise = NULL;
 	thread_add_timer(zrouter.master, irdp_send_thread, ifp, timer,

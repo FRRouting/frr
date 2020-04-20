@@ -39,6 +39,8 @@ THE SOFTWARE.
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "lib/network.h"
+
 #include "babel_main.h"
 #include "babeld.h"
 #include "util.h"
@@ -51,7 +53,7 @@ roughly(int value)
     else if(value <= 1)
         return value;
     else
-        return value * 3 / 4 + random() % (value / 2);
+        return value * 3 / 4 + frr_weak_random() % (value / 2);
 }
 
 /* d = s1 - s2 */
@@ -145,7 +147,7 @@ timeval_min_sec(struct timeval *d, time_t secs)
 {
     if(d->tv_sec == 0 || d->tv_sec > secs) {
         d->tv_sec = secs;
-        d->tv_usec = random() % 1000000;
+        d->tv_usec = frr_weak_random() % 1000000;
     }
 }
 

@@ -33,6 +33,7 @@
 #include "hash.h"
 #include "sockunion.h" /* for inet_aton() */
 #include "checksum.h"
+#include "network.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -3523,7 +3524,8 @@ void ospf_refresher_register_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 		 * 1680s
 		 * and 1740s.
 		 */
-		delay = (random() % (max_delay - min_delay)) + min_delay;
+		delay = (frr_weak_random() % (max_delay - min_delay))
+			+ min_delay;
 
 		current_index = ospf->lsa_refresh_queue.index
 				+ (monotime(NULL) - ospf->lsa_refresher_started)
