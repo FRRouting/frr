@@ -515,6 +515,28 @@ your new claim at the end of the list.
      * ...
      */
 
+Defensive coding requirements
+-----------------------------
+
+In general, code submitted into FRR will be rejected if it uses unsafe
+programming practices.  While there is no enforced overall ruleset, the
+following requirements have achieved consensus:
+
+- ``strcpy``, ``strcat`` and ``sprintf`` are inacceptable without exception.
+  Use ``strlcpy``, ``strlcat`` and ``snprintf`` instead.  (Rationale:  even if
+  you know the operation cannot overflow the buffer, a future code change may
+  inadvertedly introduce an overflow.)
+
+- buffer size arguments, particularly to ``strlcpy`` and ``snprintf``, must
+  use ``sizeof()`` whereever possible.  Particularly, do not use a size
+  constant in these cases.  (Rationale:  changing a buffer to another size
+  constant may leave the write operations on a now-incorrect size limit.)
+
+Other than these specific rules, coding practices from the Linux kernel as
+well as CERT or MISRA C guidelines may provide useful input on safe C code.
+However, these rules are not applied as-is;  some of them expressly collide
+with established practice.
+
 Code Formatting
 ---------------
 
