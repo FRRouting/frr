@@ -260,9 +260,10 @@ DEFUN_HIDDEN (no_config_log_monitor,
 static int set_log_file(struct zlog_cfg_file *target, struct vty *vty,
 			const char *fname, int loglevel)
 {
-	char *p = NULL;
+	char path[MAXPATHLEN + 1];
 	const char *fullpath;
 	bool ok;
+
 
 	/* Path detection. */
 	if (!IS_DIRECTORY_SEP(*fname)) {
@@ -276,16 +277,13 @@ static int set_log_file(struct zlog_cfg_file *target, struct vty *vty,
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
-		p = XMALLOC(MTYPE_TMP, strlen(cwd) + strlen(fname) + 2);
-		sprintf(p, "%s/%s", cwd, fname);
-		fullpath = p;
+		snprintf(path, sizeof(path), "%s/%s", cwd, fname);
+		fullpath = path;
 	} else
 		fullpath = fname;
 
 	target->prio_min = loglevel;
 	ok = zlog_file_set_filename(target, fullpath);
-
-	XFREE(MTYPE_TMP, p);
 
 	if (!ok) {
 		if (vty)

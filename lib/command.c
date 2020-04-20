@@ -1535,7 +1535,8 @@ static int file_write_config(struct vty *vty)
 
 
 	config_file_tmp = XMALLOC(MTYPE_TMP, strlen(config_file) + 8);
-	sprintf(config_file_tmp, "%s.XXXXXX", config_file);
+	snprintf(config_file_tmp, strlen(config_file) + 8, "%s.XXXXXX",
+		 config_file);
 
 	/* Open file to configuration write. */
 	fd = mkstemp(config_file_tmp);

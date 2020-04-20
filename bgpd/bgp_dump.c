@@ -787,32 +787,6 @@ static struct cmd_node bgp_dump_node = {
 	.config_write = config_write_bgp_dump,
 };
 
-#if 0
-char *
-config_time2str (unsigned int interval)
-{
-  static char buf[BUFSIZ];
-
-  buf[0] = '\0';
-
-  if (interval / 3600)
-    {
-      sprintf (buf, "%dh", interval / 3600);
-      interval %= 3600;
-    }
-  if (interval / 60)
-    {
-      sprintf (buf + strlen (buf), "%dm", interval /60);
-      interval %= 60;
-    }
-  if (interval)
-    {
-      sprintf (buf + strlen (buf), "%d", interval);
-    }
-  return buf;
-}
-#endif
-
 static int config_write_bgp_dump(struct vty *vty)
 {
 	if (bgp_dump_all.filename) {

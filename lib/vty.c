@@ -2380,7 +2380,7 @@ static FILE *vty_use_backup_config(const char *fullpath)
 	}
 
 	fullpath_tmp = malloc(strlen(fullpath) + 8);
-	sprintf(fullpath_tmp, "%s.XXXXXX", fullpath);
+	snprintf(fullpath_tmp, strlen(fullpath) + 8, "%s.XXXXXX", fullpath);
 
 	/* Open file to configuration write. */
 	tmp = mkstemp(fullpath_tmp);
