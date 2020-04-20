@@ -262,6 +262,18 @@ def delete_sr_policy(rname, endpoint):
         vtysh -c "conf t" \
               -c "no sr-policy color 1 endpoint ''' + endpoint + '''"''')
 
+def create_prefix_sid(rname, prefix, sid):
+    get_topogen().net[rname].cmd(''' \
+        vtysh -c "conf t" \
+              -c "router isis 1" \
+              -c "segment-routing prefix ''' + prefix + " index " + str(sid) + '''"''')
+
+def delete_prefix_sid(rname, prefix):
+    get_topogen().net[rname].cmd(''' \
+        vtysh -c "conf t" \
+              -c "router isis 1" \
+              -c "no segment-routing prefix "''' + prefix)
+
 #
 # Step 1
 #
@@ -436,7 +448,6 @@ def test_srte_segment_list_add_segment_check_mpls_table_step4():
 def test_srte_route_map_with_sr_policy_check_nextop_step5():
     setup_testcase("Test (step 5): recursive nexthop learned through BGP neighbour should be aligned with SR Policy from route-map")
 
-
     # (re-)build the SR Policy two times to ensure that reinstalling still works
     for i in [1,2]:
         cmp_json_output('rt1',
@@ -459,6 +470,34 @@ def test_srte_route_map_with_sr_policy_check_nextop_step5():
                         "step5/show_ip_route_bgp_active_srte.ref")
 
         delete_candidate_path('rt1', '6.6.6.6', 100)
+
+def test_srte_route_map_with_sr_policy_reinstall_prefix_sid_check_nextop_step5():
+    setup_testcase("Test (step 5): remove and re-install prefix SID on fist path element and check SR Policy activity")
+
+    # first add a candidate path so the SR Policy is active
+    add_candidate_path('rt1', '6.6.6.6', 100, 'default')
+    cmp_json_output_exact('rt1',
+                          "show yang operational-data /frr-pathd:pathd pathd",
+                          "step5/show_operational_data_active.ref")
+
+    # delete prefix SID from first element of the configured path and check
+    # if the SR Policy is inactive since the label can't be resolved anymore
+    delete_prefix_sid('rt5', "5.5.5.5/32")
+    cmp_json_output_exact('rt1',
+                          "show yang operational-data /frr-pathd:pathd pathd",
+                          "step5/show_operational_data_inactive.ref")
+    cmp_json_output('rt1',
+                    "show ip route bgp json",
+                    "step5/show_ip_route_bgp_inactive_srte.ref")
+
+    # re-create the prefix SID and check if the SR Policy is active
+    create_prefix_sid('rt5', "5.5.5.5/32", 50)
+    cmp_json_output_exact('rt1',
+                          "show yang operational-data /frr-pathd:pathd pathd",
+                          "step5/show_operational_data_active.ref")
+    cmp_json_output('rt1',
+                    "show ip route bgp json",
+                    "step5/show_ip_route_bgp_active_srte.ref")
 
 # Memory leak test template
 def test_memory_leak():
