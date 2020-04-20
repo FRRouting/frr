@@ -2067,7 +2067,7 @@ DEFUN(bgp_reject_as_sets, bgp_reject_as_sets_cmd,
 	struct listnode *node, *nnode;
 	struct peer *peer;
 
-	bgp->reject_as_sets = BGP_REJECT_AS_SETS_ENABLED;
+	bgp->reject_as_sets = true;
 
 	/* Reset existing BGP sessions to reject routes
 	 * with aspath containing AS_SET or AS_CONFED_SET.
@@ -2093,7 +2093,7 @@ DEFUN(no_bgp_reject_as_sets, no_bgp_reject_as_sets_cmd,
 	struct listnode *node, *nnode;
 	struct peer *peer;
 
-	bgp->reject_as_sets = BGP_REJECT_AS_SETS_DISABLED;
+	bgp->reject_as_sets = false;
 
 	/* Reset existing BGP sessions to reject routes
 	 * with aspath containing AS_SET or AS_CONFED_SET.
@@ -15082,7 +15082,7 @@ int bgp_config_write(struct vty *vty)
 					: "no ");
 
 		/* draft-ietf-idr-deprecate-as-set-confed-set */
-		if (bgp->reject_as_sets == BGP_REJECT_AS_SETS_ENABLED)
+		if (bgp->reject_as_sets)
 			vty_out(vty, " bgp reject-as-sets\n");
 
 		/* BGP default ipv4-unicast. */

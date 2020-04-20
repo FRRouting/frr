@@ -2972,7 +2972,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->dynamic_neighbors_count = 0;
 	bgp->lb_ref_bw = BGP_LINK_BW_REF_BW;
 	bgp->lb_handling = BGP_LINK_BW_ECMP;
-	bgp->reject_as_sets = BGP_REJECT_AS_SETS_DISABLED;
+	bgp->reject_as_sets = false;
 	bgp_addpath_init_bgp_data(&bgp->tx_addpath);
 
 	bgp->as = *as;
