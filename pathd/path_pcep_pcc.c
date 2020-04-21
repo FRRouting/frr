@@ -112,8 +112,6 @@ struct pcc_state *pcep_pcc_initialize(struct ctrl_state *ctrl_state, int index)
 	pcc_state->status = PCEP_PCC_DISCONNECTED;
 	pcc_state->next_reqid = 1;
 	pcc_state->next_plspid = 1;
-	pcc_state->next_tid = 1;
-	pcc_state->next_lspid = 1;
 
 	update_tag(ctrl_state, pcc_state);
 
@@ -562,25 +560,17 @@ void lookup_plspid(struct pcc_state *pcc_state, struct path *path)
 				XCALLOC(MTYPE_PCEP, sizeof(*plspid_mapping));
 			plspid_mapping->nbkey = key.nbkey;
 			plspid_mapping->plspid = pcc_state->next_plspid;
-			plspid_mapping->lspid = pcc_state->next_lspid;
-			plspid_mapping->tid = pcc_state->next_tid;
 			plspid_map_add(&pcc_state->plspid_map, plspid_mapping);
 			nbkey_mapping =
 				XCALLOC(MTYPE_PCEP, sizeof(*nbkey_mapping));
 			nbkey_mapping->nbkey = key.nbkey;
 			nbkey_mapping->plspid = pcc_state->next_plspid;
-			nbkey_mapping->lspid = pcc_state->next_lspid;
-			nbkey_mapping->tid = pcc_state->next_tid;
 			nbkey_map_add(&pcc_state->nbkey_map, nbkey_mapping);
 			pcc_state->next_plspid++;
-			pcc_state->next_tid++;
-			pcc_state->next_lspid++;
 			// FIXME: Send some error to the PCE isntead of crashing
 			assert(1048576 > pcc_state->next_plspid);
 		}
 		path->plsp_id = plspid_mapping->plspid;
-		path->lsp_id = plspid_mapping->lspid;
-		path->tunnel_id = plspid_mapping->tid;
 	}
 }
 
@@ -593,7 +583,6 @@ void lookup_nbkey(struct pcc_state *pcc_state, struct path *path)
 	mapping = nbkey_map_find(&pcc_state->nbkey_map, &key);
 	assert(NULL != mapping);
 	path->nbkey = mapping->nbkey;
-	path->tunnel_id = mapping->tid;
 }
 
 uint32_t push_req(struct pcc_state *pcc_state, struct lsp_nb_key *nbkey)

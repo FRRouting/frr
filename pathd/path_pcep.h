@@ -165,16 +165,12 @@ struct path {
 	/* The generated unique PLSP identifier for this path.
 	   See draft-ietf-pce-stateful-pce */
 	uint32_t plsp_id;
-	/* The LSP identifier given in the LSP IDENTIFIER TLV */
-	uint32_t lsp_id;
 	/* The request identifier from the PCE, when getting a path from the
 	   PCE. See draft-ietf-pce-stateful-pce */
 	uint32_t srp_id;
 	/* The request identifier from the PCC , when getting a path from the
 	   PCE after a computation request. See rfc5440, section-7.4 */
 	uint32_t req_id;
-	/* The RSVP tunnel idendentifer required by the LSP IDENTIFIER TLV */
-	uint16_t tunnel_id;
 	/* Path's binding SID */
 	mpls_label_t binding_sid;
 	/* The name of the path */

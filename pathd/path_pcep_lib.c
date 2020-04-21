@@ -282,8 +282,6 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	struct pcep_object_srp *srp;
 	struct pcep_object_lsp *lsp;
 	struct pcep_object_ro *ero;
-	struct pcep_object_lspa *lspa;
-	struct pcep_object_bandwidth *bandwidth;
 	struct pcep_object_metric *metric;
 	uint32_t encoded_binding_sid;
 	char binding_sid_lsp_tlv_data[6];
@@ -319,8 +317,8 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 		tlv = (struct pcep_object_tlv_header *)
 			pcep_tlv_create_ipv4_lsp_identifiers(
 				&path->sender.ipaddr_v4,
-				&path->nbkey.endpoint.ipaddr_v4, path->lsp_id,
-				path->tunnel_id, &path->sender.ipaddr_v4);
+				&path->nbkey.endpoint.ipaddr_v4, 0,
+				0, &path->sender.ipaddr_v4);
 	}
 	assert(NULL != tlv);
 	dll_append(lsp_tlvs, tlv);
@@ -449,22 +447,6 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	if (0 == path->plsp_id) {
 		return objs;
 	}
-
-	/* LSPA Object */
-	lspa = pcep_obj_create_lspa(0, 0, 0, 7, 7, true);
-	assert(NULL != lspa);
-	dll_append(objs, lspa);
-
-	/* Bandwidth Objects */
-	bandwidth = pcep_obj_create_bandwidth(0);
-	bandwidth->header.flag_p = true;
-	assert(NULL != bandwidth);
-	dll_append(objs, bandwidth);
-	bandwidth = pcep_obj_create_bandwidth(0);
-	bandwidth->header.flag_p = true;
-	assert(NULL != bandwidth);
-	bandwidth->header.object_type = PCEP_OBJ_TYPE_BANDWIDTH_CISCO;
-	dll_append(objs, bandwidth);
 
 	/* Metric Objects */
 	for (struct path_metric *m = path->first_metric; NULL != m;
