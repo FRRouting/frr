@@ -106,6 +106,9 @@ lib_libfrr_la_SOURCES = \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
 	lib/printf/glue.c \
+        yang/frr-pim.yang.c \
+        yang/frr-pim-rp.yang.c \
+        yang/frr-igmp.yang.c \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \

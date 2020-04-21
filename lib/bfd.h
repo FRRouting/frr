@@ -31,12 +31,15 @@ extern "C" {
 #endif
 
 #define BFD_DEF_MIN_RX 300
+#define BFD_DEF_MIN_RX_STR "300"
 #define BFD_MIN_MIN_RX 50
 #define BFD_MAX_MIN_RX 60000
 #define BFD_DEF_MIN_TX 300
+#define BFD_DEF_MIN_TX_STR "300"
 #define BFD_MIN_MIN_TX 50
 #define BFD_MAX_MIN_TX 60000
 #define BFD_DEF_DETECT_MULT 3
+#define BFD_DEF_DETECT_MULT_STR "3"
 #define BFD_MIN_DETECT_MULT 2
 #define BFD_MAX_DETECT_MULT 255
 

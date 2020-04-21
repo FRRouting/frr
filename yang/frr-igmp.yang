@@ -53,7 +53,6 @@ module frr-igmp {
       type uint8 {
         range "2..3";
       }
-      default "3";
       description
         "IGMP version.";
     }

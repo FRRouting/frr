@@ -49,6 +49,7 @@
 #include "pim_bfd.h"
 #include "pim_mlag.h"
 #include "pim_errors.h"
+#include "pim_nb.h"
 
 extern struct host host;
 
@@ -76,6 +77,10 @@ static const struct frr_yang_module_info *const pimd_yang_modules[] = {
 	&frr_interface_info,
 	&frr_route_map_info,
 	&frr_vrf_info,
+        &frr_routing_info,
+        &frr_pim_info,
+        &frr_pim_rp_info,
+        &frr_igmp_info,
 };
 
 FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,

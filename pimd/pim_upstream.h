@@ -263,6 +263,7 @@ struct pim_upstream {
 	 * KAT(S,G)
 	 */
 	struct thread *t_ka_timer;
+#define PIM_KEEPALIVE_PERIOD_STR "210"
 #define PIM_KEEPALIVE_PERIOD  (210)
 #define PIM_RP_KEEPALIVE_PERIOD                                                \
 	(3 * router->register_suppress_time + router->register_probe_time)

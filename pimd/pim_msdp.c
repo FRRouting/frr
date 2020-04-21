@@ -43,6 +43,7 @@
 #include "pim_msdp.h"
 #include "pim_msdp_packet.h"
 #include "pim_msdp_socket.h"
+#include "pim_errors.h"
 
 // struct pim_msdp pim_msdp, *msdp = &pim_msdp;
 
@@ -1314,11 +1315,13 @@ static enum pim_msdp_err pim_msdp_mg_add(struct pim_instance *pim,
 			return PIM_MSDP_ERR_NONE;
 		}
 		/* currently only one mesh-group can exist at a time */
+		flog_warn(EC_PIM_CONFIG, "Only one mesh-group allowed currently");
 		return PIM_MSDP_ERR_MAX_MESH_GROUPS;
 	}
 
 	pim->msdp.mg = pim_msdp_mg_new(mesh_group_name);
 	if (!pim->msdp.mg) {
+		flog_warn(EC_PIM_CONFIG, "Out of memory");
 		return PIM_MSDP_ERR_OOM;
 	}
 
@@ -1379,6 +1382,7 @@ enum pim_msdp_err pim_msdp_mg_mbr_add(struct pim_instance *pim,
 	mg = pim->msdp.mg;
 	mbr = pim_msdp_mg_mbr_find(pim, mbr_ip);
 	if (mbr) {
+		flog_warn(EC_PIM_CONFIG, "%s: mesh-group member exists", __func__);
 		return PIM_MSDP_ERR_MG_MBR_EXISTS;
 	}
 
@@ -1431,11 +1435,15 @@ enum pim_msdp_err pim_msdp_mg_mbr_del(struct pim_instance *pim,
 	struct pim_msdp_mg *mg = pim->msdp.mg;
 
 	if (!mg || strcmp(mg->mesh_group_name, mesh_group_name)) {
+		flog_warn(EC_PIM_CONFIG, "%s: mesh-group %s does not exist",
+			__func__, mesh_group_name);
 		return PIM_MSDP_ERR_NO_MG;
 	}
 
 	mbr = pim_msdp_mg_mbr_find(pim, mbr_ip);
 	if (!mbr) {
+		flog_warn(EC_PIM_CONFIG, "%s: mesh-group member does not exist",
+			__func__);
 		return PIM_MSDP_ERR_NO_MG_MBR;
 	}
 
@@ -1471,6 +1479,8 @@ enum pim_msdp_err pim_msdp_mg_src_del(struct pim_instance *pim,
 	struct pim_msdp_mg *mg = pim->msdp.mg;
 
 	if (!mg || strcmp(mg->mesh_group_name, mesh_group_name)) {
+		flog_warn(EC_PIM_CONFIG, "%s: mesh-group %s does not exist",
+			__func__, mesh_group_name);
 		return PIM_MSDP_ERR_NO_MG;
 	}
 

@@ -29,6 +29,7 @@
 #include "pimd.h"
 #include "pim_ssm.h"
 #include "pim_zebra.h"
+#include "pim_errors.h"
 
 static void pim_ssm_range_reevaluate(struct pim_instance *pim)
 {
@@ -112,14 +113,18 @@ int pim_ssm_range_set(struct pim_instance *pim, vrf_id_t vrf_id,
 	struct pim_ssm *ssm;
 	int change = 0;
 
-	if (vrf_id != pim->vrf_id)
+	if (vrf_id != pim->vrf_id) {
+		flog_warn(EC_PIM_CONFIG, "VRF doesn't exist");
 		return PIM_SSM_ERR_NO_VRF;
+	}
 
 	ssm = pim->ssm_info;
 	if (plist_name) {
 		if (ssm->plist_name) {
-			if (!strcmp(ssm->plist_name, plist_name))
+			if (!strcmp(ssm->plist_name, plist_name)) {
+				flog_warn(EC_PIM_CONFIG, "duplicate config");
 				return PIM_SSM_ERR_DUP;
+			}
 			XFREE(MTYPE_PIM_FILTER_NAME, ssm->plist_name);
 		}
 		ssm->plist_name = XSTRDUP(MTYPE_PIM_FILTER_NAME, plist_name);
