@@ -277,7 +277,15 @@ static int set_log_file(struct zlog_cfg_file *target, struct vty *vty,
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
-		snprintf(path, sizeof(path), "%s/%s", cwd, fname);
+		int pr = snprintf(path, sizeof(path), "%s/%s", cwd, fname);
+		if (pr < 0 || (unsigned int)pr >= sizeof(path)) {
+			flog_err_sys(
+				EC_LIB_SYSTEM_CALL,
+				"%s: Path too long ('%s/%s'); system maximum is %u",
+				__func__, cwd, fname, MAXPATHLEN);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
 		fullpath = path;
 	} else
 		fullpath = fname;
