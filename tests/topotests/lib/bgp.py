@@ -1616,8 +1616,6 @@ def clear_bgp(tgen, addr_type, router, vrf=None):
     else:
         run_frr_cmd(rnode, "clear bgp *")
 
-    sleep(5)
-
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
 
 
