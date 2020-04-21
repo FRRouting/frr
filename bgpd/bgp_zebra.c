@@ -1939,8 +1939,14 @@ void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer)
 		zlog_debug("%u: Initiating RA for peer %s", bgp->vrf_id,
 			   peer->host);
 
-	zclient_send_interface_radv_req(zclient, bgp->vrf_id, peer->ifp, 1,
-					ra_interval);
+	/*
+	 * If unnumbered peer (peer->ifp) call thru zapi to start RAs.
+	 * If we don't have an ifp pointer, call function to find the
+	 * ifps for a numbered enhe peer to turn RAs on.
+	 */
+	peer->ifp ? zclient_send_interface_radv_req(zclient, bgp->vrf_id,
+						    peer->ifp, 1, ra_interval)
+		  : bgp_nht_reg_enhe_cap_intfs(peer);
 }
 
 void bgp_zebra_terminate_radv(struct bgp *bgp, struct peer *peer)
@@ -1953,7 +1959,14 @@ void bgp_zebra_terminate_radv(struct bgp *bgp, struct peer *peer)
 		zlog_debug("%u: Terminating RA for peer %s", bgp->vrf_id,
 			   peer->host);
 
-	zclient_send_interface_radv_req(zclient, bgp->vrf_id, peer->ifp, 0, 0);
+	/*
+	 * If unnumbered peer (peer->ifp) call thru zapi to stop RAs.
+	 * If we don't have an ifp pointer, call function to find the
+	 * ifps for a numbered enhe peer to turn RAs off.
+	 */
+	peer->ifp ? zclient_send_interface_radv_req(zclient, bgp->vrf_id,
+						    peer->ifp, 0, 0)
+		  : bgp_nht_dereg_enhe_cap_intfs(peer);
 }
 
 int bgp_zebra_advertise_subnet(struct bgp *bgp, int advertise, vni_t vni)
