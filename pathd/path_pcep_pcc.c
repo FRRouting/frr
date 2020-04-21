@@ -127,11 +127,11 @@ void pcep_pcc_finalize(struct ctrl_state *ctrl_state,
 
 	pcep_pcc_disable(ctrl_state, pcc_state);
 
-	if (NULL != pcc_state->pcc_opts) {
+	if (pcc_state->pcc_opts != NULL) {
 		XFREE(MTYPE_PCEP, pcc_state->pcc_opts);
 		pcc_state->pcc_opts = NULL;
 	}
-	if (NULL != pcc_state->pce_opts) {
+	if (pcc_state->pce_opts != NULL) {
 		XFREE(MTYPE_PCEP, pcc_state->pce_opts);
 		pcc_state->pce_opts = NULL;
 	}
@@ -151,10 +151,10 @@ int pcep_pcc_update(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
 		return ret;
 	}
 
-	if (NULL != pcc_state->pcc_opts) {
+	if (pcc_state->pcc_opts != NULL) {
 		XFREE(MTYPE_PCEP, pcc_state->pcc_opts);
 	}
-	if (NULL != pcc_state->pce_opts) {
+	if (pcc_state->pce_opts != NULL) {
 		XFREE(MTYPE_PCEP, pcc_state->pce_opts);
 	}
 
@@ -174,10 +174,10 @@ void pcep_pcc_reconnect(struct ctrl_state *ctrl_state,
 
 int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 {
-	assert(PCEP_PCC_DISCONNECTED == pcc_state->status);
-	assert(NULL == pcc_state->sess);
+	assert(pcc_state->status == PCEP_PCC_DISCONNECTED);
+	assert(pcc_state->sess == NULL);
 
-	if (NULL != pcc_state->t_reconnect) {
+	if (pcc_state->t_reconnect != NULL) {
 		thread_cancel(pcc_state->t_reconnect);
 		pcc_state->t_reconnect = NULL;
 	}
@@ -187,7 +187,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	pcc_state->sess =
 		pcep_lib_connect(pcc_state->pcc_opts, pcc_state->pce_opts);
 
-	if (NULL == pcc_state->sess) {
+	if (pcc_state->sess == NULL) {
 		if (IS_IPADDR_V6(&pcc_state->pce_opts->addr)) {
 			flog_warn(
 				EC_PATH_PCEP_LIB_CONNECT,
@@ -235,7 +235,7 @@ int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 			struct pcc_state *pcc_state, struct path *path)
 {
-	assert(PCEP_PCC_SYNCHRONIZING == pcc_state->status);
+	assert(pcc_state->status == PCEP_PCC_SYNCHRONIZING);
 	assert(path->is_synching);
 
 	if (pcc_state->caps.is_stateful) {
@@ -356,12 +356,12 @@ void pcep_pcc_pcep_event_handler(struct ctrl_state *ctrl_state,
 	case MESSAGE_RECEIVED:
 		PCEP_DEBUG_PCEP("%s Received PCEP message: %s", pcc_state->tag,
 				format_pcep_message(event->message));
-		if (PCEP_PCC_CONNECTING == pcc_state->status) {
+		if (pcc_state->status == PCEP_PCC_CONNECTING) {
 			handle_pcep_open(ctrl_state, pcc_state, event->message);
 			break;
 		}
-		assert(PCEP_PCC_SYNCHRONIZING == pcc_state->status
-		       || PCEP_PCC_OPERATING == pcc_state->status);
+		assert(pcc_state->status == PCEP_PCC_SYNCHRONIZING
+		       || pcc_state->status == PCEP_PCC_OPERATING);
 		handle_pcep_message(ctrl_state, pcc_state, event->message);
 		break;
 	default:
@@ -375,7 +375,7 @@ void pcep_pcc_pcep_event_handler(struct ctrl_state *ctrl_state,
 void handle_pcep_open(struct ctrl_state *ctrl_state,
 		      struct pcc_state *pcc_state, struct pcep_message *msg)
 {
-	assert(PCEP_TYPE_OPEN == msg->msg_header->type);
+	assert(msg->msg_header->type == PCEP_TYPE_OPEN);
 	pcep_lib_parse_capabilities(msg, &pcc_state->caps);
 }
 
@@ -455,7 +455,7 @@ void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 
 void update_tag(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 {
-	if (NULL != pcc_state->pce_opts) {
+	if (pcc_state->pce_opts != NULL) {
 		snprintfrr(pcc_state->tag, sizeof(pcc_state->tag),
 			   "%pI4:%i (%u)", &pcc_state->pce_opts->addr,
 			   pcc_state->pce_opts->port, pcc_state->id);
@@ -515,13 +515,12 @@ void send_comp_request(struct ctrl_state *ctrl_state,
 
 	/* The source address need to be defined explicitly for now */
 	if (IS_IPADDR_V6(&pcc_state->pcc_opts->addr)) {
-		assert(0
-		       != memcmp(&in6addr_any,
-				 &pcc_state->pcc_opts->addr.ipaddr_v6,
-				 sizeof(struct in6_addr)));
+		assert(memcmp(&in6addr_any,
+			      &pcc_state->pcc_opts->addr.ipaddr_v6,
+			      sizeof(struct in6_addr) != 0));
 	} else {
-		assert(INADDR_ANY
-		       != pcc_state->pcc_opts->addr.ipaddr_v4.s_addr);
+		assert(pcc_state->pcc_opts->addr.ipaddr_v4.s_addr
+		       != INADDR_ANY);
 	}
 
 	reqid = push_req(pcc_state, nbkey);
@@ -552,10 +551,10 @@ void lookup_plspid(struct pcc_state *pcc_state, struct path *path)
 	struct plspid_map_data key, *plspid_mapping;
 	struct nbkey_map_data *nbkey_mapping;
 
-	if (0 != path->nbkey.color) {
+	if (path->nbkey.color != 0) {
 		key.nbkey = path->nbkey;
 		plspid_mapping = plspid_map_find(&pcc_state->plspid_map, &key);
-		if (NULL == plspid_mapping) {
+		if (plspid_mapping == NULL) {
 			plspid_mapping =
 				XCALLOC(MTYPE_PCEP, sizeof(*plspid_mapping));
 			plspid_mapping->nbkey = key.nbkey;
@@ -568,7 +567,7 @@ void lookup_plspid(struct pcc_state *pcc_state, struct path *path)
 			nbkey_map_add(&pcc_state->nbkey_map, nbkey_mapping);
 			pcc_state->next_plspid++;
 			// FIXME: Send some error to the PCE isntead of crashing
-			assert(1048576 > pcc_state->next_plspid);
+			assert(pcc_state->next_plspid <= 1048576);
 		}
 		path->plsp_id = plspid_mapping->plspid;
 	}
@@ -578,10 +577,10 @@ void lookup_nbkey(struct pcc_state *pcc_state, struct path *path)
 {
 	struct nbkey_map_data key, *mapping;
 	// TODO: Should give an error to the PCE instead of crashing
-	assert(0 != path->plsp_id);
+	assert(path->plsp_id != 0);
 	key.plspid = path->plsp_id;
 	mapping = nbkey_map_find(&pcc_state->nbkey_map, &key);
-	assert(NULL != mapping);
+	assert(mapping != NULL);
 	path->nbkey = mapping->nbkey;
 }
 
@@ -594,12 +593,12 @@ uint32_t push_req(struct pcc_state *pcc_state, struct lsp_nb_key *nbkey)
 	req_mapping->reqid = reqid;
 	req_mapping->nbkey = *nbkey;
 
-	assert(NULL == req_map_find(&pcc_state->req_map, req_mapping));
+	assert(req_map_find(&pcc_state->req_map, req_mapping) == NULL);
 	req_map_add(&pcc_state->req_map, req_mapping);
 
 	pcc_state->next_reqid += 1;
 	/* Wrapping is allowed, but 0 is not a valid id */
-	if (0 == pcc_state->next_reqid)
+	if (pcc_state->next_reqid == 0)
 		pcc_state->next_reqid = 1;
 
 	return reqid;
@@ -612,7 +611,7 @@ bool pop_req(struct pcc_state *pcc_state, struct path *path)
 	key.reqid = path->req_id;
 
 	req_mapping = req_map_find(&pcc_state->req_map, &key);
-	if (NULL == req_mapping)
+	if (req_mapping == NULL)
 		return false;
 
 	req_map_del(&pcc_state->req_map, req_mapping);

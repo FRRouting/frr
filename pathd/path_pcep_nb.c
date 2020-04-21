@@ -103,11 +103,11 @@ struct path *path_nb_get_path(uint32_t color, struct ipaddr endpoint,
 		 endpoint_str);
 
 	policy = nb_running_get_entry(NULL, xpath, false);
-	if (NULL == policy)
+	if (policy == NULL)
 		return NULL;
 
 	candidate = srte_candidate_find(policy, preference);
-	if (NULL == candidate)
+	if (candidate == NULL)
 		return NULL;
 
 	return candidate_to_path(candidate);
@@ -153,12 +153,12 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 	hop = NULL;
 	metric = NULL;
 
-	if (NULL != candidate->segment_list) {
+	if (candidate->segment_list != NULL) {
 		strlcpy(key.name, candidate->segment_list->name,
 			sizeof(key.name));
 		segment_list = RB_FIND(srte_segment_list_head,
 				       &srte_segment_lists, &key);
-		assert(NULL != segment_list);
+		assert(segment_list != NULL);
 		hop = path_nb_list_path_hops(segment_list);
 	}
 	path = pcep_new_path();
@@ -270,9 +270,9 @@ struct path_hop *path_nb_list_path_hops(struct srte_segment_list *segment_list)
 
 void path_nb_update_path(struct path *path)
 {
-	assert(NULL != path);
-	assert(0 != path->nbkey.preference);
-	assert(IPADDR_V4 == path->nbkey.endpoint.ipa_type);
+	assert(path != NULL);
+	assert(path->nbkey.preference != 0);
+	assert(path->nbkey.endpoint.ipa_type == IPADDR_V4);
 
 	struct path_hop *hop;
 	struct path_metric *metric;
@@ -281,12 +281,12 @@ void path_nb_update_path(struct path *path)
 	char *segment_list_name = NULL;
 	struct nb_config *config = nb_config_dup(running_config);
 
-	if (NULL != path->first_hop) {
+	if (path->first_hop != NULL) {
 		snprintf(segment_list_name_buff, sizeof(segment_list_name_buff),
 			 "%u", (uint32_t)rand());
 		segment_list_name = segment_list_name_buff;
 		path_nb_create_segment_list(config, segment_list_name);
-		for (hop = path->first_hop, index = 10; NULL != hop;
+		for (hop = path->first_hop, index = 10; hop != NULL;
 		     hop = hop->next, index += 10) {
 			assert(hop->has_sid);
 			assert(hop->is_mpls);
@@ -339,7 +339,7 @@ void path_nb_update_path(struct path *path)
 		config, path->nbkey.color, &path->nbkey.endpoint, &path->sender,
 		(uint32_t)rand(), path->nbkey.preference, segment_list_name);
 
-	for (metric = path->first_metric; NULL != metric;
+	for (metric = path->first_metric; metric != NULL;
 	     metric = metric->next) {
 		path_nb_add_candidate_path_metric(
 			config, path->nbkey.color, &path->nbkey.endpoint,

@@ -229,14 +229,14 @@ DEFPY(te_path_segment_list_segment, te_path_segment_list_segment_cmd,
 		 index_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, label_str);
 
-	if (NULL != has_nai) {
+	if (has_nai != NULL) {
 		snprintf(xpath, sizeof(xpath), "./segment[index='%s']/nai/type",
 			 index_str);
-		if (NULL != node_ipv4_str) {
+		if (node_ipv4_str != NULL) {
 			nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
 					      "ipv4_node");
 			node_id = node_ipv4_str;
-		} else if (NULL != node_ipv6_str) {
+		} else if (node_ipv6_str != NULL) {
 			nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
 					      "ipv6_node");
 			node_id = node_ipv6_str;
@@ -451,22 +451,22 @@ DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
 	nb_cli_enqueue_change(vty, "./originator", NB_OP_MODIFY, "127.0.0.1");
 	nb_cli_enqueue_change(vty, "./type", NB_OP_MODIFY, type);
 
-	if (NULL != no_metrics) {
-		if (NULL != metric_abc) {
+	if (no_metrics != NULL) {
+		if (metric_abc != NULL) {
 			nb_cli_enqueue_change(vty, "./metrics[type='abc']",
 					      NB_OP_DESTROY, NULL);
 		}
-		if (NULL != metric_te) {
+		if (metric_te != NULL) {
 			nb_cli_enqueue_change(vty, "./metrics[type='te']",
 					      NB_OP_DESTROY, NULL);
 		}
 	} else {
-		if (NULL != metric_abc) {
+		if (metric_abc != NULL) {
 			nb_cli_enqueue_change(
 				vty, "./metrics[type='abc']/value",
 				NB_OP_MODIFY,
 				metric_abc_value ? metric_abc_value : "0");
-			if (NULL != bound_abc)
+			if (bound_abc != NULL)
 				nb_cli_enqueue_change(
 					vty, "./metrics[type='abc']/is-bound",
 					NB_OP_MODIFY, "true");
@@ -476,11 +476,11 @@ DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
 					NB_OP_MODIFY, "false");
 		}
 
-		if (NULL != metric_te) {
+		if (metric_te != NULL) {
 			nb_cli_enqueue_change(
 				vty, "./metrics[type='te']/value", NB_OP_MODIFY,
 				metric_te_value ? metric_te_value : "0");
-			if (NULL != bound_te)
+			if (bound_te != NULL)
 				nb_cli_enqueue_change(
 					vty, "./metrics[type='te']/is-bound",
 					NB_OP_MODIFY, "true");

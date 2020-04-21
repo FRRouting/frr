@@ -105,18 +105,18 @@ void pcep_free_path(struct path *path)
 	struct path_metric *metric;
 
 	metric = path->first_metric;
-	while (NULL != metric) {
+	while (metric != NULL) {
 		struct path_metric *next = metric->next;
 		XFREE(MTYPE_PCEP, metric);
 		metric = next;
 	}
 	hop = path->first_hop;
-	while (NULL != hop) {
+	while (hop != NULL) {
 		struct path_hop *next = hop->next;
 		XFREE(MTYPE_PCEP, hop);
 		hop = next;
 	}
-	if (NULL != path->name) {
+	if (path->name != NULL) {
 		XFREE(MTYPE_PCEP, path->name);
 	}
 	XFREE(MTYPE_PCEP, path);
@@ -138,7 +138,7 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 		ret = pcep_main_event_start_sync(pcc_id);
 		break;
 	case PCEP_MAIN_EVENT_UPDATE_CANDIDATE:
-		assert(NULL != payload);
+		assert(payload != NULL);
 		path = (struct path *)payload;
 		path_nb_update_path(path);
 		if (0 != path->srp_id) {
@@ -225,7 +225,7 @@ DEFUN(show_pcep_counters, show_pcep_counters_cmd, "show pcep counters",
 
 	group = pcep_ctrl_get_counters(pcep_g->fpt, 1);
 
-	if (NULL == group) {
+	if (group == NULL) {
 		vty_out(vty, "No counters to display.\n\n");
 		return CMD_SUCCESS;
 	}
@@ -247,11 +247,11 @@ DEFUN(show_pcep_counters, show_pcep_counters_cmd, "show pcep counters",
 
 	for (row = 0, i = 0; i <= group->num_subgroups; i++) {
 		subgroup = group->subgroups[i];
-		if (NULL != subgroup) {
+		if (subgroup != NULL) {
 			group_name = subgroup->counters_subgroup_name;
 			for (j = 0; j <= subgroup->num_counters; j++) {
 				counter = subgroup->counters[j];
-				if (NULL != counter) {
+				if (counter != NULL) {
 					ttable_add_row(tt, "%s|%s|%u",
 						       group_name,
 						       counter->counter_name,
@@ -294,9 +294,9 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 
 	/* Get the first argument, should be either ip or ipv6 */
 	pcc_addr.ipa_type = IPADDR_V4;
-	if (0 == strcmp("ipv6", argv[i]->arg)) {
+	if (strcmp("ipv6", argv[i]->arg) == 0) {
 		pcc_addr.ipa_type = IPADDR_V6;
-	} else if (0 != strcmp("ip", argv[i]->arg)) {
+	} else if (strcmp("ip", argv[i]->arg) != 0) {
 		return CMD_ERR_NO_MATCH;
 	}
 
@@ -318,12 +318,12 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 	/* Handle the rest of the arguments */
 	i++;
 	while (i < argc) {
-		if (0 == strcmp("port", argv[i]->arg)) {
+		if (strcmp("port", argv[i]->arg) == 0) {
 			i++;
 			if (i >= argc)
 				return CMD_ERR_NO_MATCH;
 			pcc_port = atoi(argv[i]->arg);
-			if (0 == pcc_port)
+			if (pcc_port == 0)
 				return CMD_ERR_INCOMPLETE;
 			i++;
 			continue;
@@ -343,7 +343,7 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 	if (pcep_ctrl_update_pcc_options(pcep_g->fpt, opts))
 		return CMD_WARNING;
 
-	if (NULL != pcep_g->pcc_opts)
+	if (pcep_g->pcc_opts != NULL)
 		XFREE(MTYPE_PCEP, pcep_g->pcc_opts);
 	opts_copy = XCALLOC(MTYPE_PCEP, sizeof(*opts));
 	opts_copy = memcpy(opts_copy, opts, sizeof(*opts));
@@ -375,9 +375,9 @@ DEFUN(pcep_cli_pce_opts, pcep_cli_pce_opts_cmd,
 
 	/* Get the first argument, should be either ip or ipv6 */
 	pce_addr.ipa_type = IPADDR_V4;
-	if (0 == strcmp("ipv6", argv[i]->arg)) {
+	if (strcmp("ipv6", argv[i]->arg) == 0) {
 		pce_addr.ipa_type = IPADDR_V6;
-	} else if (0 != strcmp("ip", argv[i]->arg)) {
+	} else if (strcmp("ip", argv[i]->arg) != 0) {
 		return CMD_ERR_NO_MATCH;
 	}
 
@@ -399,17 +399,17 @@ DEFUN(pcep_cli_pce_opts, pcep_cli_pce_opts_cmd,
 	/* Handle the rest of the arguments */
 	i++;
 	while (i < argc) {
-		if (0 == strcmp("port", argv[i]->arg)) {
+		if (strcmp("port", argv[i]->arg) == 0) {
 			i++;
 			if (i >= argc)
 				return CMD_ERR_NO_MATCH;
 			pce_port = atoi(argv[i]->arg);
-			if (0 == pce_port)
+			if (pce_port == 0)
 				return CMD_ERR_INCOMPLETE;
 			i++;
 			continue;
 		}
-		if (0 == strcmp("sr-draft07", argv[i]->arg)) {
+		if (strcmp("sr-draft07", argv[i]->arg) == 0) {
 			draft07 = true;
 			i++;
 			continue;
@@ -431,7 +431,7 @@ DEFUN(pcep_cli_pce_opts, pcep_cli_pce_opts_cmd,
 	if (pcep_ctrl_update_pce_options(pcep_g->fpt, 1, pce_opts))
 		return CMD_WARNING;
 
-	if (NULL != pcep_g->pce_opts[0])
+	if (pcep_g->pce_opts[0] != NULL)
 		XFREE(MTYPE_PCEP, pcep_g->pce_opts[0]);
 	pce_opts_copy = XCALLOC(MTYPE_PCEP, sizeof(*pce_opts));
 	pce_opts_copy = memcpy(pce_opts_copy, pce_opts, sizeof(*pce_opts));
@@ -445,7 +445,7 @@ DEFUN(pcep_cli_no_pce, pcep_cli_no_pce_cmd, "no pce", NO_STR "Disable pce\n")
 	/* TODO: Add support for multiple PCE */
 
 	pcep_ctrl_disconnect_pcc(pcep_g->fpt, 1);
-	if (NULL != pcep_g->pce_opts[0])
+	if (pcep_g->pce_opts[0] != NULL)
 		XFREE(MTYPE_PCEP, pcep_g->pce_opts[0]);
 	return CMD_SUCCESS;
 }
@@ -468,16 +468,16 @@ DEFUN(pcep_cli_debug, pcep_cli_debug_cmd,
 
 	if (3 < argc) {
 		for (i = (3 + no); i < argc; i++) {
-			if (0 == strcmp("basic", argv[i]->arg)) {
+			if (strcmp("basic", argv[i]->arg) == 0) {
 				DEBUG_FLAGS_SET(&pcep_g->dbg,
 						PCEP_DEBUG_MODE_BASIC, !no);
-			} else if (0 == strcmp("path", argv[i]->arg)) {
+			} else if (strcmp("path", argv[i]->arg) == 0) {
 				DEBUG_FLAGS_SET(&pcep_g->dbg,
 						PCEP_DEBUG_MODE_PATH, !no);
-			} else if (0 == strcmp("message", argv[i]->arg)) {
+			} else if (strcmp("message", argv[i]->arg) == 0) {
 				DEBUG_FLAGS_SET(&pcep_g->dbg,
 						PCEP_DEBUG_MODE_PCEP, !no);
-			} else if (0 == strcmp("pceplib", argv[i]->arg)) {
+			} else if (strcmp("pceplib", argv[i]->arg) == 0) {
 				DEBUG_FLAGS_SET(&pcep_g->dbg,
 						PCEP_DEBUG_MODE_PCEPLIB, !no);
 			}
@@ -524,23 +524,23 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 	char buff[128] = "";
 	int lines = 0;
 
-	if (NULL != pcep_g->pcc_opts) {
+	if (pcep_g->pcc_opts != NULL) {
 		if (IS_IPADDR_V6(&pcep_g->pcc_opts->addr)) {
-			if (0
-			    != memcmp(&in6addr_any,
-				      &pcep_g->pcc_opts->addr.ipaddr_v6,
-				      sizeof(struct in6_addr))) {
+			if (memcmp(&in6addr_any,
+				   &pcep_g->pcc_opts->addr.ipaddr_v6,
+				   sizeof(struct in6_addr))
+			    != 0) {
 				csnprintfrr(buff, sizeof(buff), " ip %pI6",
 					    &pcep_g->pcc_opts->addr.ipaddr_v6);
 			}
 		} else {
-			if (INADDR_ANY
-			    != pcep_g->pcc_opts->addr.ipaddr_v4.s_addr) {
+			if (pcep_g->pcc_opts->addr.ipaddr_v4.s_addr
+			    != INADDR_ANY) {
 				csnprintfrr(buff, sizeof(buff), " ip %pI4",
 					    &pcep_g->pcc_opts->addr.ipaddr_v4);
 			}
 		}
-		if (PCEP_DEFAULT_PORT != pcep_g->pcc_opts->port)
+		if (pcep_g->pcc_opts->port != PCEP_DEFAULT_PORT)
 			csnprintfrr(buff, sizeof(buff), " port %d",
 				    pcep_g->pcc_opts->port);
 		vty_out(vty, "pcc%s\n", buff);
@@ -549,12 +549,12 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 
 		for (int i = 0; i < MAX_PCC; i++) {
 			struct pce_opts *pce_opts = pcep_g->pce_opts[i];
-			if (NULL != pce_opts) {
-				if (PCEP_DEFAULT_PORT != pce_opts->port) {
+			if (pce_opts != NULL) {
+				if (pce_opts->port != PCEP_DEFAULT_PORT) {
 					csnprintfrr(buff, sizeof(buff),
 						    " port %d", pce_opts->port);
 				}
-				if (true == pce_opts->draft07) {
+				if (pce_opts->draft07 == true) {
 					csnprintfrr(buff, sizeof(buff),
 						    " sr-draft07");
 				}
@@ -596,8 +596,8 @@ void pcep_cli_init(void)
 
 int pcep_module_late_init(struct thread_master *tm)
 {
-	assert(NULL == pcep_g->fpt);
-	assert(NULL == pcep_g->master);
+	assert(pcep_g->fpt == NULL);
+	assert(pcep_g->master == NULL);
 
 	struct frr_pthread *fpt;
 
@@ -626,10 +626,10 @@ int pcep_module_finish(void)
 	pcep_ctrl_finalize(&pcep_g->fpt);
 	pcep_lib_finalize();
 
-	if (NULL != pcep_g->pcc_opts)
+	if (pcep_g->pcc_opts != NULL)
 		XFREE(MTYPE_PCEP, pcep_g->pcc_opts);
 	for (int i = 0; i < MAX_PCC; i++)
-		if (NULL != pcep_g->pce_opts[i])
+		if (pcep_g->pce_opts[i] != NULL)
 			XFREE(MTYPE_PCEP, pcep_g->pce_opts[i]);
 
 	return 0;

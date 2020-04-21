@@ -617,7 +617,7 @@ const char *format_yang_dnode(struct lyd_node *dnode)
 
 void _format_pcc_opts(int ps, struct pcc_opts *opts)
 {
-	if (NULL == opts) {
+	if (opts == NULL) {
 		PCEP_FORMAT("NULL\n");
 	} else {
 		int ps2 = ps + DEBUG_IDENT_SIZE;
@@ -635,7 +635,7 @@ void _format_pcc_opts(int ps, struct pcc_opts *opts)
 
 void _format_pce_opts(int ps, struct pce_opts *opts)
 {
-	if (NULL == opts) {
+	if (opts == NULL) {
 		PCEP_FORMAT("NULL\n");
 	} else {
 		int ps2 = ps + DEBUG_IDENT_SIZE;
@@ -660,7 +660,7 @@ void _format_pcc_caps(int ps, struct pcep_caps *caps)
 
 void _format_pcc_state(int ps, struct pcc_state *state)
 {
-	if (NULL == state) {
+	if (state == NULL) {
 		PCEP_FORMAT("NULL\n");
 	} else {
 		int ps2 = ps + DEBUG_IDENT_SIZE;
@@ -671,7 +671,7 @@ void _format_pcc_state(int ps, struct pcc_state *state)
 		_format_pcc_opts(ps2, state->pcc_opts);
 		PCEP_FORMAT("%*spce_opts: ", ps2, "");
 		_format_pce_opts(ps2, state->pce_opts);
-		if (NULL == state->sess) {
+		if (state->sess == NULL) {
 			PCEP_FORMAT("%*ssess: NULL\n", ps2, "");
 		} else {
 			PCEP_FORMAT("%*ssess: <PCC SESSION %p>\n", ps2, "",
@@ -684,26 +684,26 @@ void _format_pcc_state(int ps, struct pcc_state *state)
 
 void _format_ctrl_state(int ps, struct ctrl_state *state)
 {
-	if (NULL == state) {
+	if (state == NULL) {
 		PCEP_FORMAT("NULL\n");
 	} else {
 		int i;
 		int ps2 = ps + DEBUG_IDENT_SIZE;
 		int ps3 = ps2 + DEBUG_IDENT_SIZE;
 		PCEP_FORMAT("\n");
-		if (NULL == state->main) {
+		if (state->main == NULL) {
 			PCEP_FORMAT("%*smain: NULL\n", ps2, "");
 		} else {
 			PCEP_FORMAT("%*smain: <THREAD MASTER %p>\n", ps2, "",
 				    state->main);
 		}
-		if (NULL == state->self) {
+		if (state->self == NULL) {
 			PCEP_FORMAT("%*sself: NULL\n", ps2, "");
 		} else {
 			PCEP_FORMAT("%*sself: <THREAD MASTER %p>\n", ps2, "",
 				    state->self);
 		}
-		if (NULL == state->t_poll) {
+		if (state->t_poll == NULL) {
 			PCEP_FORMAT("%*st_poll: NULL\n", ps2, "");
 		} else {
 			PCEP_FORMAT("%*st_poll: <THREAD %p>\n", ps2, "",
@@ -720,7 +720,7 @@ void _format_ctrl_state(int ps, struct ctrl_state *state)
 
 void _format_path(int ps, struct path *path)
 {
-	if (NULL == path) {
+	if (path == NULL) {
 		PCEP_FORMAT("NULL\n");
 	} else {
 		int ps2 = ps + DEBUG_IDENT_SIZE;
@@ -744,7 +744,7 @@ void _format_path(int ps, struct path *path)
 		PCEP_FORMAT("%*spreference: %u\n", ps3, "",
 			    path->nbkey.preference);
 		PCEP_FORMAT("%*splsp_id: %u\n", ps2, "", path->plsp_id);
-		if (NULL == path->name) {
+		if (path->name == NULL) {
 			PCEP_FORMAT("%*sname: NULL\n", ps2, "");
 		} else {
 			PCEP_FORMAT("%*sname: %s\n", ps2, "", path->name);
@@ -761,17 +761,17 @@ void _format_path(int ps, struct path *path)
 		PCEP_FORMAT("%*sis_delegated: %u\n", ps2, "",
 			    path->is_delegated);
 
-		if (NULL == path->first_hop) {
+		if (path->first_hop == NULL) {
 			PCEP_FORMAT("%*shops: []\n", ps2, "");
 		} else {
 			PCEP_FORMAT("%*shops: \n", ps2, "");
 			for (struct path_hop *hop = path->first_hop;
-			     NULL != hop; hop = hop->next) {
+			     hop != NULL; hop = hop->next) {
 				PCEP_FORMAT("%*s- ", ps3 - 2, "");
 				_format_path_hop(ps3, hop);
 			}
 		}
-		if (NULL == path->first_metric) {
+		if (path->first_metric == NULL) {
 			PCEP_FORMAT("%*smetrics: []\n", ps2, "");
 		} else {
 			PCEP_FORMAT("%*smetrics: \n", ps2, "");
@@ -857,7 +857,7 @@ void _format_path_hop(int ps, struct path_hop *hop)
 
 void _format_pcep_event(int ps, pcep_event *event)
 {
-	if (NULL == event) {
+	if (event == NULL) {
 		PCEP_FORMAT("NULL\n");
 	} else {
 		int ps2 = ps + DEBUG_IDENT_SIZE;
@@ -866,7 +866,7 @@ void _format_pcep_event(int ps, pcep_event *event)
 			    pcep_event_type_name(event->event_type));
 		PCEP_FORMAT("%*sevent_time: %s", ps2, "",
 			    ctime(&event->event_time));
-		if (NULL == event->session) {
+		if (event->session == NULL) {
 			PCEP_FORMAT("%*ssession: NULL\n", ps2, "");
 		} else {
 			PCEP_FORMAT("%*ssession: <PCC SESSION %p>\n", ps2, "",
@@ -879,7 +879,7 @@ void _format_pcep_event(int ps, pcep_event *event)
 
 void _format_pcep_message(int ps, struct pcep_message *msg)
 {
-	if (NULL == msg) {
+	if (msg == NULL) {
 		PCEP_FORMAT("NULL\n");
 	} else {
 		int ps2 = ps + DEBUG_IDENT_SIZE;
@@ -896,14 +896,14 @@ void _format_pcep_message(int ps, struct pcep_message *msg)
 
 void _format_pcep_objects(int ps, double_linked_list *objs)
 {
-	if (NULL == objs) {
+	if (objs == NULL) {
 		PCEP_FORMAT("NULL\n");
 	} else {
 		double_linked_list_node *node;
 		int ps2 = ps + DEBUG_IDENT_SIZE;
 		int i;
 
-		if (0 == objs->num_entries) {
+		if (objs->num_entries == 0) {
 			PCEP_FORMAT("[]\n");
 			return;
 		}
@@ -921,7 +921,7 @@ void _format_pcep_objects(int ps, double_linked_list *objs)
 
 void _format_pcep_object(int ps, struct pcep_object_header *obj)
 {
-	if (NULL == obj) {
+	if (obj == NULL) {
 		PCEP_FORMAT("NULL\n");
 	} else {
 		PCEP_FORMAT("object_class: %s (%u)\n",
@@ -1046,7 +1046,7 @@ void _format_pcep_object_ro(int ps, struct pcep_object_ro *obj)
 	int ps2 = ps + DEBUG_IDENT_SIZE;
 	int i;
 
-	if ((NULL == obj_list) || (0 == obj_list->num_entries)) {
+	if ((obj_list == NULL) || (obj_list->num_entries == 0)) {
 		PCEP_FORMAT("%*ssub_objects: []\n", ps, "");
 		return;
 	}
@@ -1119,10 +1119,10 @@ void _format_pcep_object_ro_sr(int ps, struct pcep_ro_subobj_sr *obj)
 		struct in_addr *laddr4, *raddr4;
 		struct in6_addr *laddr6, *raddr6;
 		uint32_t *liface, *riface;
-		assert(NULL != obj->nai_list);
+		assert(obj->nai_list != NULL);
 		double_linked_list_node *n = obj->nai_list->head;
-		assert(NULL != n);
-		assert(NULL != n->data);
+		assert(n != NULL);
+		assert(n->data != NULL);
 		switch (obj->nai_type) {
 		case PCEP_SR_SUBOBJ_NAI_IPV4_NODE:
 			laddr4 = (struct in_addr *)n->data;
@@ -1133,16 +1133,16 @@ void _format_pcep_object_ro_sr(int ps, struct pcep_ro_subobj_sr *obj)
 			PCEP_FORMAT("%*sNAI: %pI6\n", ps, "", laddr6);
 			break;
 		case PCEP_SR_SUBOBJ_NAI_IPV4_ADJACENCY:
-			assert(NULL != n->next_node);
-			assert(NULL != n->next_node->data);
+			assert(n->next_node != NULL);
+			assert(n->next_node->data != NULL);
 			laddr4 = (struct in_addr *)n->data;
 			raddr4 = (struct in_addr *)n->next_node->data;
 			PCEP_FORMAT("%*sNAI: %pI4/%pI4\n", ps, "", laddr4,
 				    raddr4);
 			break;
 		case PCEP_SR_SUBOBJ_NAI_IPV6_ADJACENCY:
-			assert(NULL != n->next_node);
-			assert(NULL != n->next_node->data);
+			assert(n->next_node != NULL);
+			assert(n->next_node->data != NULL);
 			laddr6 = (struct in6_addr *)n->data;
 			raddr6 = (struct in6_addr *)n->next_node->data;
 			PCEP_FORMAT("%*sNAI: %pI6/%pI6\n", ps, "", laddr6,
@@ -1151,15 +1151,15 @@ void _format_pcep_object_ro_sr(int ps, struct pcep_ro_subobj_sr *obj)
 		case PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY:
 			laddr4 = (struct in_addr *)n->data;
 			n = n->next_node;
-			assert(NULL != n);
-			assert(NULL != n->data);
+			assert(n != NULL);
+			assert(n->data != NULL);
 			liface = (uint32_t *)n->data;
 			n = n->next_node;
-			assert(NULL != n);
-			assert(NULL != n->data);
+			assert(n != NULL);
+			assert(n->data != NULL);
 			raddr4 = (struct in_addr *)n->data;
-			assert(NULL != n);
-			assert(NULL != n->data);
+			assert(n != NULL);
+			assert(n->data != NULL);
 			riface = (uint32_t *)n->data;
 			PCEP_FORMAT("%*sNAI: %pI4(%u)/%pI4(%u)\n", ps, "",
 				    laddr4, *liface, raddr4, *riface);
@@ -1179,9 +1179,9 @@ void _format_pcep_object_tlvs(int ps, struct pcep_object_header *obj)
 	int ps2 = ps + DEBUG_IDENT_SIZE;
 	int i = 0;
 
-	if (NULL == tlv_list)
+	if (tlv_list == NULL)
 		return;
-	if (0 == tlv_list->num_entries) {
+	if (tlv_list->num_entries == 0) {
 		PCEP_FORMAT("%*stlvs: []\n", ps, "");
 		return;
 	}

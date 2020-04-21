@@ -78,8 +78,8 @@ void pcep_lib_finalize(void)
 pcep_session *pcep_lib_connect(struct pcc_opts *pcc_opts,
 			       struct pce_opts *pce_opts)
 {
-	assert(NULL != pcc_opts);
-	assert(NULL != pce_opts);
+	assert(pcc_opts != NULL);
+	assert(pce_opts != NULL);
 
 	pcep_configuration *config;
 	pcep_session *sess;
@@ -119,7 +119,7 @@ pcep_session *pcep_lib_connect(struct pcc_opts *pcc_opts,
 
 void pcep_lib_disconnect(pcep_session *sess)
 {
-	assert(NULL != sess);
+	assert(sess != NULL);
 	disconnect_pce(sess);
 }
 
@@ -175,24 +175,24 @@ struct path *pcep_lib_parse_path(struct pcep_message *msg)
 		obj = (struct pcep_object_header *)node->data;
 		switch (CLASS_TYPE(obj->object_class, obj->object_type)) {
 		case CLASS_TYPE(PCEP_OBJ_CLASS_RP, PCEP_OBJ_TYPE_RP):
-			assert(NULL == rp);
+			assert(rp == NULL);
 			rp = (struct pcep_object_rp *)obj;
 			pcep_lib_parse_rp(path, rp);
 			break;
 		case CLASS_TYPE(PCEP_OBJ_CLASS_SRP, PCEP_OBJ_TYPE_SRP):
-			assert(NULL == srp);
+			assert(srp == NULL);
 			srp = (struct pcep_object_srp *)obj;
 			pcep_lib_parse_srp(path, srp);
 			break;
 		case CLASS_TYPE(PCEP_OBJ_CLASS_LSP, PCEP_OBJ_TYPE_LSP):
 			/* Only support single LSP per message */
-			assert(NULL == lsp);
+			assert(lsp == NULL);
 			lsp = (struct pcep_object_lsp *)obj;
 			pcep_lib_parse_lsp(path, lsp);
 			break;
 		case CLASS_TYPE(PCEP_OBJ_CLASS_ERO, PCEP_OBJ_TYPE_ERO):
 			/* Only support single ERO per message */
-			assert(NULL == ero);
+			assert(ero == NULL);
 			ero = (struct pcep_object_ro *)obj;
 			pcep_lib_parse_ero(path, ero);
 			break;
@@ -228,7 +228,7 @@ void pcep_lib_parse_capabilities(struct pcep_message *msg,
 		obj = (struct pcep_object_header *)node->data;
 		switch (CLASS_TYPE(obj->object_class, obj->object_type)) {
 		case CLASS_TYPE(PCEP_OBJ_CLASS_OPEN, PCEP_OBJ_TYPE_OPEN):
-			assert(NULL == open);
+			assert(open == NULL);
 			open = (struct pcep_object_open *)obj;
 			pcep_lib_parse_open(caps, open);
 			break;
@@ -290,22 +290,22 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 
 	objs = dll_initialize();
 
-	if (0 != path->plsp_id) {
+	if (path->plsp_id != 0) {
 		/* SRP object */
 		srp_tlvs = dll_initialize();
 		tlv = (struct pcep_object_tlv_header *)pcep_tlv_create_path_setup_type(
 			SR_TE_PST);
-		assert(NULL != tlv);
+		assert(tlv != NULL);
 		dll_append(srp_tlvs, tlv);
 		srp = pcep_obj_create_srp(path->do_remove, path->srp_id, srp_tlvs);
-		assert(NULL != srp);
+		assert(srp != NULL);
 		dll_append(objs, srp);
 	}
 
 	/* LSP object */
 	lsp_tlvs = dll_initialize();
 
-	if (0 == path->plsp_id) {
+	if (path->plsp_id == 0) {
 		tlv = (struct pcep_object_tlv_header *)
 			pcep_tlv_create_ipv4_lsp_identifiers(
 				&addr_null, &addr_null, 0, 0, &addr_null);
@@ -320,16 +320,16 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 				&path->nbkey.endpoint.ipaddr_v4, 0,
 				0, &path->sender.ipaddr_v4);
 	}
-	assert(NULL != tlv);
+	assert(tlv != NULL);
 	dll_append(lsp_tlvs, tlv);
-	if (NULL != path->name) {
+	if (path->name != NULL) {
 		tlv = (struct pcep_object_tlv_header *)
 			pcep_tlv_create_symbolic_path_name(path->name,
 							   strlen(path->name));
-		assert(NULL != tlv);
+		assert(tlv != NULL);
 		dll_append(lsp_tlvs, tlv);
 	}
-	if ((0 != path->plsp_id) && (MPLS_LABEL_NONE != path->binding_sid)) {
+	if ((path->plsp_id != 0) && (path->binding_sid != MPLS_LABEL_NONE)) {
 		memset(binding_sid_lsp_tlv_data, 0, 2);
 		encoded_binding_sid = htonl(path->binding_sid << 12);
 		memcpy(binding_sid_lsp_tlv_data + 2, &encoded_binding_sid, 4);
@@ -337,7 +337,7 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 			pcep_tlv_create_tlv_arbitrary(
 				binding_sid_lsp_tlv_data,
 				sizeof(binding_sid_lsp_tlv_data), 65505);
-		assert(NULL != tlv);
+		assert(tlv != NULL);
 		dll_append(lsp_tlvs, tlv);
 	}
 	lsp = pcep_obj_create_lsp(
@@ -345,11 +345,11 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 		path->go_active /* A Flag */, path->was_removed /* R Flag */,
 		path->is_synching /* S Flag */, path->is_delegated /* D Flag */,
 		lsp_tlvs);
-	assert(NULL != lsp);
+	assert(lsp != NULL);
 	dll_append(objs, lsp);
 	/*   ERO object */
 	ero_objs = dll_initialize();
-	for (struct path_hop *hop = path->first_hop; NULL != hop;
+	for (struct path_hop *hop = path->first_hop; hop != NULL;
 	     hop = hop->next) {
 		uint32_t sid;
 
@@ -368,10 +368,10 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 
 		ero_obj = NULL;
 		if (hop->has_nai) {
-			assert(PCEP_SR_SUBOBJ_NAI_ABSENT != hop->nai.type);
-			assert(PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY
-			       != hop->nai.type);
-			assert(PCEP_SR_SUBOBJ_NAI_UNKNOWN != hop->nai.type);
+			assert(hop->nai.type != PCEP_SR_SUBOBJ_NAI_ABSENT);
+			assert(hop->nai.type
+			       != PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY);
+			assert(hop->nai.type != PCEP_SR_SUBOBJ_NAI_UNKNOWN);
 			switch (hop->nai.type) {
 			case PCEP_SR_SUBOBJ_NAI_IPV4_NODE:
 				ero_obj = (struct pcep_object_ro_subobj *)
@@ -431,7 +431,7 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 				break;
 			}
 		}
-		if (NULL == ero_obj) {
+		if (ero_obj == NULL) {
 			ero_obj = (struct pcep_object_ro_subobj *)
 				pcep_obj_create_ro_subobj_sr_nonai(
 					hop->is_loose, sid,
@@ -441,19 +441,19 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 		dll_append(ero_objs, ero_obj);
 	}
 	ero = pcep_obj_create_ero(ero_objs);
-	assert(NULL != ero);
+	assert(ero != NULL);
 	dll_append(objs, ero);
 
-	if (0 == path->plsp_id) {
+	if (path->plsp_id == 0) {
 		return objs;
 	}
 
 	/* Metric Objects */
-	for (struct path_metric *m = path->first_metric; NULL != m;
+	for (struct path_metric *m = path->first_metric; m != NULL;
 	     m = m->next) {
 		metric = pcep_obj_create_metric(m->type, m->is_bound,
 						m->is_computed, m->value);
-		assert(NULL != metric);
+		assert(metric != NULL);
 		dll_append(objs, metric);
 	}
 
@@ -549,7 +549,7 @@ void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp)
 	path->is_synching = lsp->flag_a;
 	path->is_delegated = lsp->flag_d;
 
-	if (NULL == tlvs)
+	if (tlvs == NULL)
 		return;
 
 	for (node = tlvs->head; node != NULL; node = node->next_node) {
@@ -627,10 +627,10 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 		.nai = {.type = sr->nai_type}};
 
 	if (!sr->flag_f) {
-		assert(NULL != sr->nai_list);
+		assert(sr->nai_list != NULL);
 		double_linked_list_node *n = sr->nai_list->head;
-		assert(NULL != n);
-		assert(NULL != n->data);
+		assert(n != NULL);
+		assert(n->data != NULL);
 		switch (sr->nai_type) {
 		case PCEP_SR_SUBOBJ_NAI_IPV4_NODE:
 			hop->nai.local_addr.ipa_type = IPADDR_V4;
@@ -647,8 +647,8 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 			memcpy(&hop->nai.local_addr.ipaddr_v4, n->data,
 			       sizeof(struct in_addr));
 			n = n->next_node;
-			assert(NULL != n);
-			assert(NULL != n->data);
+			assert(n != NULL);
+			assert(n->data != NULL);
 			hop->nai.remote_addr.ipa_type = IPADDR_V4;
 			memcpy(&hop->nai.remote_addr.ipaddr_v4, n->data,
 			       sizeof(struct in_addr));
@@ -658,8 +658,8 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 			memcpy(&hop->nai.local_addr.ipaddr_v6, n->data,
 			       sizeof(struct in6_addr));
 			n = n->next_node;
-			assert(NULL != n);
-			assert(NULL != n->data);
+			assert(n != NULL);
+			assert(n->data != NULL);
 			hop->nai.remote_addr.ipa_type = IPADDR_V6;
 			memcpy(&hop->nai.remote_addr.ipaddr_v6, n->data,
 			       sizeof(struct in6_addr));
@@ -669,18 +669,18 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 			memcpy(&hop->nai.local_addr.ipaddr_v4, n->data,
 			       sizeof(struct in_addr));
 			n = n->next_node;
-			assert(NULL != n);
-			assert(NULL != n->data);
+			assert(n != NULL);
+			assert(n->data != NULL);
 			hop->nai.local_iface = *(uint32_t *)n->data;
 			n = n->next_node;
-			assert(NULL != n);
-			assert(NULL != n->data);
+			assert(n != NULL);
+			assert(n->data != NULL);
 			hop->nai.remote_addr.ipa_type = IPADDR_V4;
 			memcpy(&hop->nai.remote_addr.ipaddr_v4, n->data,
 			       sizeof(struct in_addr));
 			n = n->next_node;
-			assert(NULL != n);
-			assert(NULL != n->data);
+			assert(n != NULL);
+			assert(n->data != NULL);
 			hop->nai.remote_iface = *(uint32_t *)n->data;
 			break;
 		default:
@@ -700,7 +700,7 @@ struct counters_group *copy_counter_group(struct counters_group *from)
 {
 	int size, i;
 	struct counters_group *result;
-	if (NULL == from)
+	if (from == NULL)
 		return NULL;
 	assert(from->max_subgroups >= from->num_subgroups);
 	result = XCALLOC(MTYPE_PCEP, sizeof(*result));
@@ -717,7 +717,7 @@ struct counters_subgroup *copy_counter_subgroup(struct counters_subgroup *from)
 {
 	int size, i;
 	struct counters_subgroup *result;
-	if (NULL == from)
+	if (from == NULL)
 		return NULL;
 	assert(from->max_counters >= from->num_counters);
 	result = XCALLOC(MTYPE_PCEP, sizeof(*result));
@@ -732,7 +732,7 @@ struct counters_subgroup *copy_counter_subgroup(struct counters_subgroup *from)
 struct counter *copy_counter(struct counter *from)
 {
 	struct counter *result;
-	if (NULL == from)
+	if (from == NULL)
 		return NULL;
 	result = XCALLOC(MTYPE_PCEP, sizeof(*result));
 	memcpy(result, from, sizeof(*result));
@@ -742,7 +742,7 @@ struct counter *copy_counter(struct counter *from)
 void free_counter_group(struct counters_group *group)
 {
 	int i;
-	if (NULL == group)
+	if (group == NULL)
 		return;
 	for (i = 0; i <= group->num_subgroups; i++)
 		free_counter_subgroup(group->subgroups[i]);
@@ -752,7 +752,7 @@ void free_counter_group(struct counters_group *group)
 void free_counter_subgroup(struct counters_subgroup *subgroup)
 {
 	int i;
-	if (NULL == subgroup)
+	if (subgroup == NULL)
 		return;
 	for (i = 0; i <= subgroup->num_counters; i++)
 		free_counter(subgroup->counters[i]);
@@ -761,7 +761,7 @@ void free_counter_subgroup(struct counters_subgroup *subgroup)
 
 void free_counter(struct counter *counter)
 {
-	if (NULL == counter)
+	if (counter == NULL)
 		return;
 	XFREE(MTYPE_PCEP, counter);
 }

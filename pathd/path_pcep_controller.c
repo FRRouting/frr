@@ -151,7 +151,7 @@ int pcep_ctrl_initialize(struct thread_master *main_thread,
 			 struct frr_pthread **fpt,
 			 pcep_main_event_handler_t event_handler)
 {
-	assert(NULL != fpt);
+	assert(fpt != NULL);
 
 	int ret = 0;
 	struct ctrl_state *ctrl_state;
@@ -164,7 +164,7 @@ int pcep_ctrl_initialize(struct thread_master *main_thread,
 
 	/* Create and start the FRR pthread */
 	*fpt = frr_pthread_new(&attr, "PCEP thread", "pcep");
-	if (NULL == *fpt) {
+	if (*fpt == NULL) {
 		flog_err(EC_PATH_SYSTEM_CALL,
 			 "failed to initialize PCEP thread");
 		return 1;
@@ -201,13 +201,13 @@ int pcep_ctrl_initialize(struct thread_master *main_thread,
 
 int pcep_ctrl_finalize(struct frr_pthread **fpt)
 {
-	assert(NULL != fpt);
+	assert(fpt != NULL);
 
 	int ret = 0;
 
 	PCEP_DEBUG("Finalizing pcep module controller");
 
-	if (NULL != *fpt) {
+	if (*fpt != NULL) {
 		frr_pthread_stop(*fpt, NULL);
 		*fpt = NULL;
 	}
@@ -310,9 +310,9 @@ int pcep_thread_finish_event_handler(struct thread *thread)
 	struct frr_pthread *fpt = THREAD_ARG(thread);
 	struct ctrl_state *ctrl_state = fpt->data;
 
-	assert(NULL != ctrl_state);
+	assert(ctrl_state != NULL);
 
-	if (NULL != ctrl_state->t_poll) {
+	if (ctrl_state->t_poll != NULL) {
 		thread_cancel(ctrl_state->t_poll);
 	}
 
@@ -331,7 +331,7 @@ int pcep_thread_finish_event_handler(struct thread *thread)
 
 void pcep_thread_schedule_poll(struct ctrl_state *ctrl_state)
 {
-	assert(NULL == ctrl_state->t_poll);
+	assert(ctrl_state->t_poll == NULL);
 	schedule_thread(ctrl_state, 0, TM_POLL, POLL_INTERVAL, NULL,
 			&ctrl_state->t_poll);
 }
@@ -339,9 +339,9 @@ void pcep_thread_schedule_poll(struct ctrl_state *ctrl_state)
 int pcep_thread_get_counters_callback(struct thread *t)
 {
 	struct get_counters_args *args = THREAD_ARG(t);
-	assert(NULL != args);
+	assert(args != NULL);
 	struct ctrl_state *ctrl_state = args->ctrl_state;
-	assert(NULL != ctrl_state);
+	assert(ctrl_state != NULL);
 	struct pcc_state *pcc_state;
 
 	if (args->pcc_id <= ctrl_state->pcc_count) {
@@ -361,7 +361,7 @@ int schedule_thread(struct ctrl_state *ctrl_state, int pcc_id,
 		    enum pcep_ctrl_timer_type type, uint32_t delay,
 		    void *payload, struct thread **thread)
 {
-	assert(NULL != thread);
+	assert(thread != NULL);
 
 	struct pcep_ctrl_timer_data *data;
 
@@ -381,9 +381,9 @@ int pcep_thread_timer_handler(struct thread *thread)
 {
 	/* data unpacking */
 	struct pcep_ctrl_timer_data *data = THREAD_ARG(thread);
-	assert(NULL != data);
+	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
-	assert(NULL != ctrl_state);
+	assert(ctrl_state != NULL);
 	enum pcep_ctrl_timer_type type = data->type;
 	int pcc_id = data->pcc_id;
 	XFREE(MTYPE_PCEP, data);
@@ -414,9 +414,9 @@ int pcep_thread_timer_poll(struct ctrl_state *ctrl_state)
 	int i;
 	pcep_event *event;
 
-	assert(NULL == ctrl_state->t_poll);
+	assert(ctrl_state->t_poll == NULL);
 
-	while (NULL != (event = event_queue_get_event())) {
+	while ((event = event_queue_get_event()) != NULL) {
 		for (i = 0; i < ctrl_state->pcc_count; i++) {
 			struct pcc_state *pcc_state = ctrl_state->pcc[i];
 			if (pcc_state->sess != event->session)
@@ -458,9 +458,9 @@ int pcep_thread_event_handler(struct thread *thread)
 {
 	/* data unpacking */
 	struct pcep_ctrl_event_data *data = THREAD_ARG(thread);
-	assert(NULL != data);
+	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
-	assert(NULL != ctrl_state);
+	assert(ctrl_state != NULL);
 	enum pcep_ctrl_event_type type = data->type;
 	uint32_t sub_type = data->sub_type;
 	int pcc_id = data->pcc_id;
@@ -482,13 +482,13 @@ int pcep_thread_event_handler(struct thread *thread)
 		pcep_thread_schedule_poll(ctrl_state);
 		break;
 	case EV_UPDATE_PCC_OPTS:
-		assert(NULL != payload);
+		assert(payload != NULL);
 		pcc_opts = (struct pcc_opts *)payload;
 		ret = pcep_thread_event_update_pcc_options(ctrl_state,
 							   pcc_opts);
 		break;
 	case EV_UPDATE_PCE_OPTS:
-		assert(NULL != payload);
+		assert(payload != NULL);
 		pce_opts = (struct pce_opts *)payload;
 		ret = pcep_thread_event_update_pce_options(ctrl_state, pcc_id,
 							   pce_opts);
@@ -497,14 +497,14 @@ int pcep_thread_event_handler(struct thread *thread)
 		ret = pcep_thread_event_disconnect_pcc(ctrl_state, pcc_id);
 		break;
 	case EV_PATHD_EVENT:
-		assert(NULL != payload);
+		assert(payload != NULL);
 		path_event_type = (enum pcep_pathd_event_type)sub_type;
 		path = (struct path *)payload;
 		ret = pcep_thread_event_pathd_event(ctrl_state, path_event_type,
 						    path);
 		break;
 	case EV_SYNC_PATH:
-		assert(NULL != payload);
+		assert(payload != NULL);
 		path = (struct path *)payload;
 		ret = pcep_thread_event_sync_path(ctrl_state, pcc_id, path);
 		break;
@@ -524,8 +524,8 @@ int pcep_thread_event_handler(struct thread *thread)
 int pcep_thread_event_update_pcc_options(struct ctrl_state *ctrl_state,
 					 struct pcc_opts *opts)
 {
-	assert(NULL != opts);
-	if (NULL != ctrl_state->pcc_opts) {
+	assert(opts != NULL);
+	if (ctrl_state->pcc_opts != NULL) {
 		XFREE(MTYPE_PCEP, ctrl_state->pcc_opts);
 	}
 	ctrl_state->pcc_opts = opts;
@@ -624,7 +624,7 @@ int pcep_main_event_handler(struct thread *thread)
 {
 	/* data unpacking */
 	struct pcep_main_event_data *data = THREAD_ARG(thread);
-	assert(NULL != data);
+	assert(data != NULL);
 	pcep_main_event_handler_t handler = data->handler;
 	enum pcep_main_event_type type = data->type;
 	int pcc_id = data->pcc_id;
@@ -639,41 +639,41 @@ int pcep_main_event_handler(struct thread *thread)
 
 void set_ctrl_state(struct frr_pthread *fpt, struct ctrl_state *ctrl_state)
 {
-	assert(NULL != fpt);
+	assert(fpt != NULL);
 	fpt->data = ctrl_state;
 }
 
 struct ctrl_state *get_ctrl_state(struct frr_pthread *fpt)
 {
-	assert(NULL != fpt);
-	assert(NULL != fpt->data);
+	assert(fpt != NULL);
+	assert(fpt->data != NULL);
 
 	struct ctrl_state *ctrl_state;
 	ctrl_state = (struct ctrl_state *)fpt->data;
-	assert(NULL != ctrl_state);
+	assert(ctrl_state != NULL);
 	return ctrl_state;
 }
 
 struct pcc_state *get_pcc_state(struct ctrl_state *ctrl_state, int pcc_id)
 {
-	assert(NULL != ctrl_state);
-	assert(0 < pcc_id);
+	assert(ctrl_state != NULL);
+	assert(pcc_id >= 0);
 	assert(pcc_id <= MAX_PCC);
 	assert(pcc_id <= ctrl_state->pcc_count);
 
 	struct pcc_state *pcc_state;
 	pcc_state = ctrl_state->pcc[pcc_id - 1];
-	assert(NULL != pcc_state);
+	assert(pcc_state != NULL);
 	return pcc_state;
 }
 
 void set_pcc_state(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 {
-	assert(NULL != ctrl_state);
-	assert(0 < pcc_state->id);
+	assert(ctrl_state != NULL);
+	assert(pcc_state->id >= 0);
 	assert(pcc_state->id <= MAX_PCC);
 	assert(pcc_state->id > ctrl_state->pcc_count);
-	assert(NULL == ctrl_state->pcc[pcc_state->id - 1]);
+	assert(ctrl_state->pcc[pcc_state->id - 1] == NULL);
 
 	ctrl_state->pcc[pcc_state->id - 1] = pcc_state;
 	ctrl_state->pcc_count = pcc_state->id;
