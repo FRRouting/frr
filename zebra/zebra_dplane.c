@@ -3557,12 +3557,20 @@ bool dplane_is_in_shutdown(void)
  */
 void zebra_dplane_pre_finish(void)
 {
+	struct zebra_dplane_provider *dp;
+
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("Zebra dataplane pre-fini called");
 
 	zdplane_info.dg_is_shutdown = true;
 
-	/* TODO -- Notify provider(s) of pending shutdown */
+	/* Notify provider(s) of pending shutdown. */
+	TAILQ_FOREACH(dp, &zdplane_info.dg_providers_q, dp_prov_link) {
+		if (dp->dp_fini == NULL)
+			continue;
+
+		dp->dp_fini(dp, true);
+	}
 }
 
 /*
@@ -3863,6 +3871,8 @@ done:
  */
 void zebra_dplane_shutdown(void)
 {
+	struct zebra_dplane_provider *dp;
+
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("Zebra dataplane shutdown called");
 
@@ -3881,7 +3891,13 @@ void zebra_dplane_shutdown(void)
 	zdplane_info.dg_pthread = NULL;
 	zdplane_info.dg_master = NULL;
 
-	/* TODO -- Notify provider(s) of final shutdown */
+	/* Notify provider(s) of final shutdown. */
+	TAILQ_FOREACH(dp, &zdplane_info.dg_providers_q, dp_prov_link) {
+		if (dp->dp_fini == NULL)
+			continue;
+
+		dp->dp_fini(dp, false);
+	}
 
 	/* TODO -- Clean-up provider objects */
 
