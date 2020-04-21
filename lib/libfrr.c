@@ -753,10 +753,14 @@ struct thread_master *frr_init_fast(void)
 		 frr_dbdir, p_pathspace, di->name, p_instance);
 #endif
 #endif
-	zprivs_preinit(di->privs);
+	struct zprivs_ids_t ids;
 
-	openzlog(di->progname, di->logname, di->instance,
-		 LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
+	zprivs_preinit(di->privs);
+	zprivs_get_ids(&ids);
+
+	zlog_init(di->progname, di->logname, di->instance,
+		  ids.uid_normal, ids.gid_normal);
+	zlog_tls_buffer_init();
 
 	command_setup_early_logging(di->early_logging, di->early_loglevel);
 
