@@ -480,12 +480,29 @@ static int sharp_redistribute_route(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/* Handler for opaque messages */
+static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
+{
+	uint32_t type;
+	struct stream *s;
+
+	s = zclient->ibuf;
+
+	STREAM_GETL(s, type);
+
+	zlog_debug("%s: received opaque type %u", __func__, type);
+
+stream_failure:
+
+	return 0;
+}
+
 /*
  * Send OPAQUE messages, using subtype 'type'.
  */
 void sharp_opaque_send(uint32_t type, uint32_t count)
 {
-	uint8_t buf[100];
+	uint8_t buf[32];
 	int ret;
 	uint32_t i;
 
@@ -561,4 +578,5 @@ void sharp_zebra_init(void)
 
 	zclient->redistribute_route_add = sharp_redistribute_route;
 	zclient->redistribute_route_del = sharp_redistribute_route;
+	zclient->opaque_msg_handler = sharp_opaque_handler;
 }
