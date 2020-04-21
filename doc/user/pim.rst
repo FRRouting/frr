@@ -178,6 +178,14 @@ Certain signals have special meanings to *pimd*.
    the existing IGMP general query timer.If no version is provided in the cli,
    it will be considered as default v2 query.This is a hidden command.
 
+.. index:: [no] ip igmp watermark-warn (10-60000)
+.. clicmd:: [no] ip igmp watermark-warn (10-60000)
+
+   Configure watermark warning generation for an igmp group limit. Generates
+   warning once the configured group limit is reached while adding new groups.
+   'no' form of the command disables the warning generation. This command is
+   vrf aware. To configure per vrf, enter vrf submode.
+   
 .. _pim-interface-configuration:
 
 PIM Interface Configuration

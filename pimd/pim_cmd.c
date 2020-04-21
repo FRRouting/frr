@@ -3419,15 +3419,24 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 	time_t now;
 	json_object *json = NULL;
 	json_object *json_iface = NULL;
-	json_object *json_row = NULL;
+	json_object *json_group = NULL;
+	json_object *json_groups = NULL;
 
 	now = pim_time_monotonic_sec();
 
-	if (uj)
+	if (uj) {
 		json = json_object_new_object();
-	else
+		json_object_int_add(json, "totalGroups", pim->igmp_group_count);
+		json_object_int_add(json, "watermarkLimit",
+				    pim->igmp_watermark_limit);
+	} else {
+		vty_out(vty, "Total IGMP groups: %u\n", pim->igmp_group_count);
+		vty_out(vty, "Watermark warn limit(%s): %u\n",
+			pim->igmp_watermark_limit ? "Set" : "Not Set",
+			pim->igmp_watermark_limit);
 		vty_out(vty,
 			"Interface        Address         Group           Mode Timer    Srcs V Uptime  \n");
+	}
 
 	/* scan interfaces */
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
@@ -3474,37 +3483,44 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 						json_object_object_add(
 							json, ifp->name,
 							json_iface);
+						json_groups =
+							json_object_new_array();
+						json_object_object_add(
+								json_iface,
+								"groups",
+								json_groups);
 					}
 
-					json_row = json_object_new_object();
-					json_object_string_add(
-						json_row, "source", ifaddr_str);
-					json_object_string_add(
-						json_row, "group", group_str);
+					json_group = json_object_new_object();
+					json_object_string_add(json_group,
+							       "source",
+							       ifaddr_str);
+					json_object_string_add(json_group,
+							       "group",
+							       group_str);
 
 					if (grp->igmp_version == 3)
 						json_object_string_add(
-							json_row, "mode",
+							json_group, "mode",
 							grp->group_filtermode_isexcl
 								? "EXCLUDE"
 								: "INCLUDE");
 
-					json_object_string_add(json_row,
+					json_object_string_add(json_group,
 							       "timer", hhmmss);
 					json_object_int_add(
-						json_row, "sourcesCount",
+						json_group, "sourcesCount",
 						grp->group_source_list
 							? listcount(
 								  grp->group_source_list)
 							: 0);
-					json_object_int_add(json_row, "version",
-							    grp->igmp_version);
+					json_object_int_add(
+							json_group, "version",
+							grp->igmp_version);
 					json_object_string_add(
-						json_row, "uptime", uptime);
-					json_object_object_add(json_iface,
-							       group_str,
-							       json_row);
-
+						json_group, "uptime", uptime);
+					json_object_array_add(json_groups,
+							      json_group);
 				} else {
 					vty_out(vty,
 						"%-16s %-15s %-15s %4s %8s %4d %d %8s\n",
@@ -6862,6 +6878,35 @@ DEFUN (no_ip_pim_packets,
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
 	router->packet_process = PIM_DEFAULT_PACKET_PROCESS;
+	return CMD_SUCCESS;
+}
+
+DEFPY (igmp_group_watermark,
+       igmp_group_watermark_cmd,
+       "ip igmp watermark-warn (10-60000)$limit",
+       IP_STR
+       IGMP_STR
+       "Configure group limit for watermark warning\n"
+       "Group count to generate watermark warning\n")
+{
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	pim->igmp_watermark_limit = limit;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_igmp_group_watermark,
+       no_igmp_group_watermark_cmd,
+       "no ip igmp watermark-warn [(10-60000)$limit]",
+       NO_STR
+       IP_STR
+       IGMP_STR
+       "Unconfigure group limit for watermark warning\n"
+       "Group count to generate watermark warning\n")
+{
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	pim->igmp_watermark_limit = 0;
+
 	return CMD_SUCCESS;
 }
 
@@ -10910,6 +10955,10 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &no_ip_pim_ecmp_rebalance_cmd);
 	install_element(CONFIG_NODE, &ip_pim_mlag_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_mlag_cmd);
+	install_element(CONFIG_NODE, &igmp_group_watermark_cmd);
+	install_element(VRF_NODE, &igmp_group_watermark_cmd);
+	install_element(CONFIG_NODE, &no_igmp_group_watermark_cmd);
+	install_element(VRF_NODE, &no_igmp_group_watermark_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);
