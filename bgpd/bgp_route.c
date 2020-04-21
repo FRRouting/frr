@@ -3234,9 +3234,9 @@ static bool overlay_index_equal(afi_t afi, struct bgp_path_info *path,
 }
 
 /* Check if received nexthop is valid or not. */
-static bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
-				       uint8_t type, uint8_t stype,
-				       struct attr *attr, struct bgp_node *rn)
+bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
+				uint8_t type, uint8_t stype, struct attr *attr,
+				struct bgp_node *rn)
 {
 	bool ret = false;
 
