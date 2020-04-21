@@ -2,8 +2,8 @@
 !
 password frr
 log stdout
-pcc
- pce ip 127.0.0.1
+pcc ip 1.1.1.1
+ pce ip 127.0.0.1 sr-draft07
 !
 segment-list test1
  index 10 mpls label 123
@@ -22,5 +22,6 @@ sr-policy color 1 endpoint 1.1.1.1
 sr-policy color 2 endpoint 2.2.2.2
  name two
  binding-sid 101
- candidate-path preference 200 name default explicit segment-list test2
+ candidate-path preference 100 name def explicit segment-list test2
+ candidate-path preference 200 name dyn dynamic metrics bound abc 16 te
 !
