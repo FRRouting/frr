@@ -171,13 +171,12 @@ struct sync_mac_ip_ctx {
 };
 
 /**************************** SYNC MAC handling *****************************/
+/**************************** SYNC MAC handling *****************************/
 /* if the mac has been added of a mac-route from the peer
  * or if it is being referenced by a neigh added by the
  * peer we cannot let it age out i.e. we set the static bit
  * in the dataplane
  */
-void zebra_evpn_mac_stop_hold_timer(zebra_mac_t *mac);
-
 static inline bool zebra_evpn_mac_is_static(zebra_mac_t *mac)
 {
 	return ((mac->flags & ZEBRA_MAC_ALL_PEER_FLAGS) || mac->sync_neigh_cnt);
@@ -190,6 +189,8 @@ static inline bool zebra_evpn_mac_is_ready_for_bgp(uint32_t flags)
 	       && (!(flags & ZEBRA_MAC_LOCAL_INACTIVE)
 		   || (flags & ZEBRA_MAC_ES_PEER_ACTIVE));
 }
+
+void zebra_evpn_mac_stop_hold_timer(zebra_mac_t *mac);
 
 static inline void zebra_evpn_mac_clear_sync_info(zebra_mac_t *mac)
 {
@@ -244,6 +245,11 @@ void zebra_evpn_rem_mac_del(zebra_evpn_t *zevi, zebra_mac_t *mac);
 void zebra_evpn_print_dad_mac_hash(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_print_dad_mac_hash_detail(struct hash_bucket *bucket,
 					  void *ctxt);
+int process_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
+				 struct ethaddr *macaddr, uint16_t ipa_len,
+				 struct ipaddr *ipaddr, zebra_mac_t **macp,
+				 struct in_addr vtep_ip, uint8_t flags,
+				 uint32_t seq, esi_t *esi);
 
 // remove later
 void zebra_evpn_mac_send_add_del_to_client(zebra_mac_t *mac, bool old_bgp_ready,
