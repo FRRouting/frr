@@ -626,6 +626,14 @@ struct zclient_options {
 
 extern struct zclient_options zclient_options_default;
 
+/*
+ * Each client is going to get it's own nexthop group space
+ * and we'll separate them by 50 million, we'll figure out where
+ * to start based upon the route_types.h
+ */
+#define ZEBRA_NHG_SPACING 50000000
+extern uint32_t zclient_get_nhg_start(uint32_t proto);
+
 extern struct zclient *zclient_new(struct thread_master *m,
 				   struct zclient_options *opt);
 

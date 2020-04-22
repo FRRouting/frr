@@ -3736,3 +3736,13 @@ int32_t zapi_capabilities_decode(struct stream *s, struct zapi_cap *api)
 stream_failure:
 	return 0;
 }
+
+/*
+ * Get a starting nhg point for a routing protocol
+ */
+uint32_t zclient_get_nhg_start(uint32_t proto)
+{
+	assert(proto < ZEBRA_ROUTE_MAX);
+
+	return ZEBRA_NHG_SPACING * proto;
+}
