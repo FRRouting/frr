@@ -155,6 +155,8 @@ void zebra_evpn_process_neigh_on_local_mac_change(zebra_evpn_t *zevpn,
 void zebra_evpn_process_neigh_on_remote_mac_del(zebra_evpn_t *zevpn,
 						zebra_mac_t *zmac);
 
+void zebra_evpn_process_neigh_on_local_mac_del(zebra_evpn_t *zevpn,
+					       zebra_mac_t *zmac);
 #ifdef __cplusplus
 }
 #endif
