@@ -205,8 +205,6 @@ int zebra_evpn_rem_mac_uninstall(zebra_evpn_t *zevi, zebra_mac_t *mac);
 int zebra_evpn_rem_mac_install(zebra_evpn_t *zevi, zebra_mac_t *mac,
 			       bool was_static);
 void zebra_evpn_deref_ip2mac(zebra_evpn_t *zevi, zebra_mac_t *mac);
-void zebra_evpn_mac_get_access_info(zebra_mac_t *mac, struct interface **ifpP,
-				    vlanid_t *vid);
 zebra_mac_t *zebra_evpn_mac_lookup(zebra_evpn_t *zevi, struct ethaddr *mac);
 zebra_mac_t *zebra_evpn_mac_add(zebra_evpn_t *zevi, struct ethaddr *macaddr);
 int zebra_evpn_mac_del(zebra_evpn_t *zevi, zebra_mac_t *mac);
@@ -214,18 +212,14 @@ int zebra_evpn_macip_send_msg_to_client(uint32_t id, struct ethaddr *macaddr,
 					struct ipaddr *ip, uint8_t flags,
 					uint32_t seq, int state,
 					struct zebra_evpn_es *es, uint16_t cmd);
-void zebra_evpn_mac_send_add_del_to_client(zebra_mac_t *mac, bool old_bgp_ready,
-					   bool new_bgp_ready);
-void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
-					zebra_mac_t *mac,
-					struct in_addr vtep_ip, bool do_dad,
-					bool *is_dup_detect, bool is_local);
 void zebra_evpn_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json);
 void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_print_mac_hash_detail(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_sync_mac_dp_install(zebra_mac_t *mac, bool set_inactive,
 				    bool force_clear_static,
 				    const char *caller);
+void zebra_evpn_mac_send_add_del_to_client(zebra_mac_t *mac, bool old_bgp_ready,
+					   bool new_bgp_ready);
 
 void zebra_evpn_mac_del_all(zebra_evpn_t *zevi, int uninstall, int upd_client,
 			    uint32_t flags);
@@ -251,12 +245,11 @@ int process_mac_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 				 struct in_addr vtep_ip, uint8_t flags,
 				 uint32_t seq, esi_t *esi);
 
-// remove later
-void zebra_evpn_mac_send_add_del_to_client(zebra_mac_t *mac, bool old_bgp_ready,
-					   bool new_bgp_ready);
-bool zebra_evpn_local_mac_update_fwd_info(zebra_mac_t *mac,
-					  struct interface *ifp, vlanid_t vid);
-
+int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf, zebra_evpn_t *zevpn,
+				    struct interface *ifp,
+				    struct ethaddr *macaddr, vlanid_t vid,
+				    bool sticky, bool local_inactive,
+				    bool dp_static);
 #ifdef __cplusplus
 }
 #endif
