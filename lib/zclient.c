@@ -4001,3 +4001,13 @@ int zclient_send_neigh_discovery_req(struct zclient *zclient,
 	stream_putw_at(s, 0, stream_get_endp(s));
 	return zclient_send_message(zclient);
 }
+
+/*
+ * Get a starting nhg point for a routing protocol
+ */
+uint32_t zclient_get_nhg_start(uint32_t proto)
+{
+	assert(proto < ZEBRA_ROUTE_MAX);
+
+	return ZEBRA_NHG_SPACING * proto;
+}
