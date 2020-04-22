@@ -290,7 +290,7 @@ static inline int proto2zebra(int proto, int family, bool is_nexthop)
 /*
 Pending: create an efficient table_id (in a tree/hash) based lookup)
  */
-static vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
+vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;

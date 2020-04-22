@@ -275,7 +275,7 @@ static void netlink_determine_zebra_iftype(const char *kind,
 	netlink_parse_rtattr((tb), (max), RTA_DATA(rta), RTA_PAYLOAD(rta))
 
 static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
-			       const char *name)
+			       uint32_t ns_id, const char *name)
 {
 	struct ifinfomsg *ifi;
 	struct rtattr *linkinfo[IFLA_INFO_MAX + 1];
@@ -310,10 +310,22 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 	nl_table_id = *(uint32_t *)RTA_DATA(attr[IFLA_VRF_TABLE]);
 
 	if (h->nlmsg_type == RTM_NEWLINK) {
+		vrf_id_t exist_id;
+
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("RTM_NEWLINK for VRF %s(%u) table %u", name,
 				   ifi->ifi_index, nl_table_id);
 
+		exist_id = vrf_lookup_by_table(nl_table_id, ns_id);
+		if (exist_id != VRF_DEFAULT) {
+			vrf = vrf_lookup_by_id(exist_id);
+
+			flog_err(
+				EC_ZEBRA_VRF_MISCONFIGURED,
+				"VRF %s id %u table id overlaps existing vrf %s, misconfiguration exiting",
+				name, ifi->ifi_index, vrf->name);
+			exit(-1);
+		}
 		/*
 		 * vrf_get is implied creation if it does not exist
 		 */
@@ -664,7 +676,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	/* If VRF, create the VRF structure itself. */
 	if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns()) {
-		netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
+		netlink_vrf_change(h, tb[IFLA_LINKINFO], ns_id, name);
 		vrf_id = (vrf_id_t)ifi->ifi_index;
 	}
 
@@ -1226,7 +1238,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	/* If VRF, create or update the VRF structure itself. */
 	if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns()) {
-		netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
+		netlink_vrf_change(h, tb[IFLA_LINKINFO], ns_id, name);
 		vrf_id = (vrf_id_t)ifi->ifi_index;
 	}
 

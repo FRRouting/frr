@@ -786,6 +786,12 @@ static struct log_ref ferr_zebra_err[] = {
 			"See if the nexthop you are trying to add is already present in the fib."
 	},
 	{
+		.code = EC_ZEBRA_VRF_MISCONFIGURED,
+		.title = "Duplicate VRF table id detected",
+		.description = "Zebra has detected a situation where there are two vrf devices with the exact same tableid.  This is considered a complete misconfiguration of VRF devices and breaks a fundamental assumption in FRR about how VRF's work",
+		.suggestion = "Use different table id's for the VRF's in question"
+	},
+	{
 		.code = END_FERR,
 	}
 };
