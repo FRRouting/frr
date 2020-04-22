@@ -999,18 +999,6 @@ zebra Terminal Mode Commands
    total number of route nodes in the table.  Which will be higher than
    the actual number of routes that are held.
 
-.. index:: show zebra fpm stats
-.. clicmd:: show zebra fpm stats
-
-   Display statistics related to the zebra code that interacts with the
-   optional Forwarding Plane Manager (FPM) component.
-
-.. index:: clear zebra fpm stats
-.. clicmd:: clear zebra fpm stats
-
-   Reset statistics related to the zebra code that interacts with the
-   optional Forwarding Plane Manager (FPM) component.
-
 .. index:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]]
 .. clicmd:: show nexthop-group rib [ID] [vrf NAME]
 
