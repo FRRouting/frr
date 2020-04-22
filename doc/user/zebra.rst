@@ -831,7 +831,8 @@ FPM Commands
 .. index:: clear zebra fpm stats
 .. clicmd:: clear zebra fpm stats
 
-   Resets all FPM counters.
+   Reset statistics related to the zebra code that interacts with the
+   optional Forwarding Plane Manager (FPM) component.
 
 
 ``dplane_fpm_nl`` implementation
@@ -879,7 +880,8 @@ FPM Commands
 .. index:: clear fpm counters
 .. clicmd:: clear fpm counters
 
-   Resets all FPM counters.
+   Reset statistics related to the zebra code that interacts with the
+   optional Forwarding Plane Manager (FPM) component.
 
 
 .. _zebra-dplane:
