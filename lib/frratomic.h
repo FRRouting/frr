@@ -41,6 +41,7 @@ using std::memory_order_seq_cst;
 typedef std::atomic<bool>		atomic_bool;
 typedef std::atomic<size_t>		atomic_size_t;
 typedef std::atomic<uint_fast32_t>	atomic_uint_fast32_t;
+typedef std::atomic<uintptr_t>		atomic_uintptr_t;
 
 #elif defined(HAVE_STDATOMIC_H)
 #include <stdatomic.h>
@@ -230,6 +231,7 @@ typedef std::atomic<uint_fast32_t>	atomic_uint_fast32_t;
 typedef _Atomic bool		atomic_bool;
 typedef _Atomic size_t		atomic_size_t;
 typedef _Atomic uint_fast32_t	atomic_uint_fast32_t;
+typedef _Atomic uintptr_t	atomic_uintptr_t;
 #endif
 
 #endif /* _FRRATOMIC_H */

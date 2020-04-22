@@ -34,7 +34,11 @@
  * ATOMPTR_USER is currently unused (and available for atomic hash or skiplist
  * implementations.)
  */
-typedef uintptr_t atomptr_t;
+
+/* atomic_atomptr_t may look a bit odd, it's for the sake of C++ compat */
+typedef uintptr_t		atomptr_t;
+typedef atomic_uintptr_t	atomic_atomptr_t;
+
 #define ATOMPTR_MASK (UINTPTR_MAX - 3)
 #define ATOMPTR_LOCK (1)
 #define ATOMPTR_USER (2)
@@ -104,13 +108,13 @@ static inline bool atomptr_u(atomptr_t val)
 
 /* don't use these structs directly */
 struct atomlist_item {
-	_Atomic atomptr_t next;
+	atomic_uintptr_t next;
 };
 #define atomlist_itemp(val) ((struct atomlist_item *)atomptr_p(val))
 
 struct atomlist_head {
-	_Atomic atomptr_t first, last;
-	_Atomic size_t count;
+	atomic_uintptr_t first, last;
+	atomic_size_t count;
 };
 
 /* use as:
@@ -133,7 +137,7 @@ macro_inline void prefix ## _add_head(struct prefix##_head *h, type *item)     \
 macro_inline void prefix ## _add_tail(struct prefix##_head *h, type *item)     \
 {	atomlist_add_tail(&h->ah, &item->field.ai); }                          \
 macro_inline void prefix ## _del_hint(struct prefix##_head *h, type *item,     \
-		_Atomic atomptr_t *hint)                                       \
+		atomic_atomptr_t *hint)                                        \
 {	atomlist_del_hint(&h->ah, &item->field.ai, hint); }                    \
 macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 {	atomlist_del_hint(&h->ah, &item->field.ai, NULL);                      \
@@ -189,7 +193,7 @@ void atomlist_add_tail(struct atomlist_head *h, struct atomlist_item *item);
  * reads starting later.
  */
 void atomlist_del_hint(struct atomlist_head *h, struct atomlist_item *item,
-		_Atomic atomptr_t *hint);
+		atomic_atomptr_t *hint);
 
 /* pop:
  *
@@ -202,13 +206,13 @@ struct atomlist_item *atomlist_pop(struct atomlist_head *h);
 
 
 struct atomsort_item {
-	_Atomic atomptr_t next;
+	atomic_atomptr_t next;
 };
 #define atomsort_itemp(val) ((struct atomsort_item *)atomptr_p(val))
 
 struct atomsort_head {
-	_Atomic atomptr_t first;
-	_Atomic size_t count;
+	atomic_atomptr_t first;
+	atomic_size_t count;
 };
 
 #define _PREDECL_ATOMSORT(prefix)                                              \
@@ -271,7 +275,7 @@ macro_inline type *prefix ## _find_lt(struct prefix##_head *h,                 \
 	return prev;                                                           \
 }                                                                              \
 macro_inline void prefix ## _del_hint(struct prefix##_head *h, type *item,     \
-		_Atomic atomptr_t *hint)                                       \
+		atomic_atomptr_t *hint)                                        \
 {                                                                              \
 	atomsort_del_hint(&h->ah, &item->field.ai, hint);                      \
 }                                                                              \
@@ -353,7 +357,7 @@ struct atomsort_item *atomsort_add(struct atomsort_head *h,
 			const struct atomsort_item *));
 
 void atomsort_del_hint(struct atomsort_head *h,
-		struct atomsort_item *item, _Atomic atomptr_t *hint);
+		struct atomsort_item *item, atomic_atomptr_t *hint);
 
 struct atomsort_item *atomsort_pop(struct atomsort_head *h);
 

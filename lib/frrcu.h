@@ -19,7 +19,6 @@
 
 #include "memory.h"
 #include "atomlist.h"
-#include "seqlock.h"
 
 /* quick RCU primer:
  *   There's a global sequence counter.  Whenever a thread does a
