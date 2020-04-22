@@ -194,7 +194,7 @@ static void lib_interface_zebra_enabled_cli_write(struct vty *vty,
 
 DEFPY_YANG (bandwidth_if,
 	bandwidth_if_cmd,
-	"[no] bandwidth ![(1-100000)]$bw",
+	"[no] bandwidth ![(1-1000000)]$bw",
 	NO_STR
 	"Set bandwidth informational parameter\n"
 	"Bandwidth in megabits\n")
