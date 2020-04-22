@@ -28,6 +28,7 @@
 #include "lib_errors.h"
 #include "northbound.h"
 #include "northbound_db.h"
+#include "frr_pthread.h"
 
 #include <iostream>
 #include <sstream>
@@ -36,6 +37,8 @@
 
 #define GRPC_DEFAULT_PORT 50051
 
+static void *grpc_pthread_start(void *arg);
+
 /*
  * NOTE: we can't use the FRR debugging infrastructure here since it uses
  * atomics and C++ has a different atomics API. Enable gRPC debugging
@@ -43,7 +46,13 @@
  */
 static bool nb_dbg_client_grpc = 1;
 
-static pthread_t grpc_pthread;
+static struct frr_pthread *fpt;
+
+/* Default frr_pthread attributes */
+static const struct frr_pthread_attr attr = {
+	.start = grpc_pthread_start,
+	.stop = NULL,
+};
 
 class NorthboundImpl final : public frr::Northbound::Service
 {
@@ -844,9 +853,12 @@ class NorthboundImpl final : public frr::Northbound::Service
 
 static void *grpc_pthread_start(void *arg)
 {
-	unsigned long *port = static_cast<unsigned long *>(arg);
+	struct frr_pthread *fpt = static_cast<frr_pthread *>(arg);
+	unsigned long *port = static_cast<unsigned long *>(fpt->data);
 	NorthboundImpl service;
 	std::stringstream server_address;
+
+	frr_pthread_set_name(fpt);
 
 	server_address << "0.0.0.0:" << *port;
 
@@ -867,19 +879,24 @@ static void *grpc_pthread_start(void *arg)
 
 static int frr_grpc_init(unsigned long *port)
 {
+	fpt = frr_pthread_new(&attr, "frr-grpc", "frr-grpc");
+	fpt->data = static_cast<void *>(port);
+
 	/* Create a pthread for gRPC since it runs its own event loop. */
-	if (pthread_create(&grpc_pthread, NULL, grpc_pthread_start, port)) {
+	if (frr_pthread_run(fpt, NULL) < 0) {
 		flog_err(EC_LIB_SYSTEM_CALL, "%s: error creating pthread: %s",
 			 __func__, safe_strerror(errno));
 		return -1;
 	}
-	pthread_detach(grpc_pthread);
+	pthread_detach(fpt->thread);
 
 	return 0;
 }
 
 static int frr_grpc_finish(void)
 {
+	if (fpt)
+		frr_pthread_destroy(fpt);
 	// TODO: cancel the gRPC pthreads gracefully.
 
 	return 0;
