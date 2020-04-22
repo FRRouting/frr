@@ -2245,7 +2245,7 @@ DEFUN (no_shutdown_if,
 
 DEFUN (bandwidth_if,
        bandwidth_if_cmd,
-       "bandwidth (1-100000)",
+       "bandwidth (1-1000000)",
        "Set bandwidth informational parameter\n"
        "Bandwidth in megabits\n")
 {
@@ -2254,12 +2254,6 @@ DEFUN (bandwidth_if,
 	unsigned int bandwidth;
 
 	bandwidth = strtol(argv[idx_number]->arg, NULL, 10);
-
-	/* bandwidth range is <1-100000> */
-	if (bandwidth < 1 || bandwidth > 100000) {
-		vty_out(vty, "Bandwidth is invalid\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	ifp->bandwidth = bandwidth;
 
@@ -2272,7 +2266,7 @@ DEFUN (bandwidth_if,
 
 DEFUN (no_bandwidth_if,
        no_bandwidth_if_cmd,
-       "no bandwidth [(1-100000)]",
+       "no bandwidth [(1-1000000)]",
        NO_STR
        "Set bandwidth informational parameter\n"
        "Bandwidth in megabits\n")
