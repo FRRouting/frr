@@ -250,6 +250,9 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf, zebra_evpn_t *zevpn,
 				    struct ethaddr *macaddr, vlanid_t vid,
 				    bool sticky, bool local_inactive,
 				    bool dp_static);
+int zebra_evpn_del_local_mac(zebra_evpn_t *zevpn, struct ethaddr *macaddr,
+			     struct interface *ifp);
+
 #ifdef __cplusplus
 }
 #endif
