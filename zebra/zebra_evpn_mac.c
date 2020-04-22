@@ -2196,3 +2196,35 @@ int zebra_evpn_del_local_mac(zebra_evpn_t *zevpn, struct ethaddr *macaddr,
 
 	return 0;
 }
+
+int zebra_evpn_mac_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
+				struct ipaddr *ip, zebra_mac_t **macp,
+				struct ethaddr *macaddr, vlanid_t vlan_id)
+{
+	char buf[ETHER_ADDR_STRLEN];
+	zebra_mac_t *mac;
+
+	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+	if (!mac) {
+		mac = zebra_evpn_mac_add(zevpn, macaddr);
+		if (!mac) {
+			flog_err(EC_ZEBRA_MAC_ADD_FAILED,
+				 "Failed to add MAC %s intf %s(%u) VID %u",
+				 prefix_mac2str(macaddr, buf, sizeof(buf)),
+				 ifp->name, ifp->ifindex, vlan_id);
+			return -1;
+		}
+	}
+
+	/* Set "local" forwarding info. */
+	SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
+	SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
+	SET_FLAG(mac->flags, ZEBRA_MAC_DEF_GW);
+	memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
+	mac->fwd_info.local.ifindex = ifp->ifindex;
+	mac->fwd_info.local.vid = vlan_id;
+
+	*macp = mac;
+
+	return 0;
+}
