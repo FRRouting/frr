@@ -184,10 +184,9 @@ Standard Commands
    Enable or disable multicast flag for the interface.
 
 
-.. clicmd:: bandwidth (1-10000000)
+.. clicmd:: bandwidth (1-1000000)
 
-
-   Set bandwidth value of the interface in kilobits/sec. This is for
+   Set bandwidth value of the interface in Megabits/sec. This is for
    calculating OSPF cost. This command does not affect the actual device
    configuration.
 
