@@ -431,23 +431,18 @@ static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
 		}
 
 		encap = nhi->encap_info.encap_type;
-		if (encap > FPM_NH_ENCAP_NONE) {
+		switch (encap) {
+		case FPM_NH_ENCAP_NONE:
+		case FPM_NH_ENCAP_MAX:
+			break;
+		case FPM_NH_ENCAP_VXLAN:
 			addattr_l(&req->n, in_buf_len, RTA_ENCAP_TYPE, &encap,
 				  sizeof(uint16_t));
-			switch (encap) {
-			case FPM_NH_ENCAP_NONE:
-				break;
-			case FPM_NH_ENCAP_VXLAN:
-				vxlan = &nhi->encap_info.vxlan_encap;
-				nest = addattr_nest(&req->n, in_buf_len,
-						    RTA_ENCAP);
-				addattr32(&req->n, in_buf_len, VXLAN_VNI,
-					  vxlan->vni);
-				addattr_nest_end(&req->n, nest);
-				break;
-			case FPM_NH_ENCAP_MAX:
-				break;
-			}
+			vxlan = &nhi->encap_info.vxlan_encap;
+			nest = addattr_nest(&req->n, in_buf_len, RTA_ENCAP);
+			addattr32(&req->n, in_buf_len, VXLAN_VNI, vxlan->vni);
+			addattr_nest_end(&req->n, nest);
+			break;
 		}
 
 		goto done;
@@ -484,25 +479,22 @@ static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
 		}
 
 		encap = nhi->encap_info.encap_type;
-		if (encap > FPM_NH_ENCAP_NONE) {
+		switch (encap) {
+		case FPM_NH_ENCAP_NONE:
+		case FPM_NH_ENCAP_MAX:
+			break;
+		case FPM_NH_ENCAP_VXLAN:
 			rta_addattr_l(rta, sizeof(buf), RTA_ENCAP_TYPE,
 				      &encap, sizeof(uint16_t));
 			rtnh->rtnh_len += sizeof(struct rtattr) +
 					  sizeof(uint16_t);
-			switch (encap) {
-			case FPM_NH_ENCAP_NONE:
-				break;
-			case FPM_NH_ENCAP_VXLAN:
-				vxlan = &nhi->encap_info.vxlan_encap;
-				nest = rta_nest(rta, sizeof(buf), RTA_ENCAP);
-				rta_addattr_l(rta, sizeof(buf), VXLAN_VNI,
-					      &vxlan->vni, sizeof(uint32_t));
-				nest_len = rta_nest_end(rta, nest);
-				rtnh->rtnh_len += nest_len;
-				break;
-			case FPM_NH_ENCAP_MAX:
-				break;
-			}
+			vxlan = &nhi->encap_info.vxlan_encap;
+			nest = rta_nest(rta, sizeof(buf), RTA_ENCAP);
+			rta_addattr_l(rta, sizeof(buf), VXLAN_VNI, &vxlan->vni,
+				      sizeof(uint32_t));
+			nest_len = rta_nest_end(rta, nest);
+			rtnh->rtnh_len += nest_len;
+			break;
 		}
 
 		rtnh = RTNH_NEXT(rtnh);
