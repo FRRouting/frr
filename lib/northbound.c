@@ -62,11 +62,10 @@ static struct {
  */
 static bool transaction_in_progress;
 
+static int nb_callback_pre_validate(const struct nb_node *nb_node,
+				    const struct lyd_node *dnode);
 static int nb_callback_configuration(const enum nb_event event,
 				     struct nb_config_change *change);
-static void nb_log_callback(const enum nb_event event,
-			    enum nb_operation operation, const char *xpath,
-			    const char *value);
 static struct nb_transaction *nb_transaction_new(struct nb_config *config,
 						 struct nb_config_cbs *changes,
 						 enum nb_client client,
@@ -609,18 +608,7 @@ static int nb_candidate_validate_code(struct nb_config *candidate,
 			if (!nb_node->cbs.pre_validate)
 				goto next;
 
-			if (DEBUG_MODE_CHECK(&nb_dbg_cbs_config,
-					     DEBUG_MODE_ALL)) {
-				char xpath[XPATH_MAXLEN];
-
-				yang_dnode_get_path(child, xpath,
-						    sizeof(xpath));
-				nb_log_callback(NB_EV_VALIDATE,
-						NB_OP_PRE_VALIDATE, xpath,
-						NULL);
-			}
-
-			ret = (*nb_node->cbs.pre_validate)(child);
+			ret = nb_callback_pre_validate(nb_node, child);
 			if (ret != NB_OK)
 				return NB_ERR_VALIDATION;
 
@@ -791,103 +779,77 @@ int nb_running_lock_check(enum nb_client client, const void *user)
 	return ret;
 }
 
-static void nb_log_callback(const enum nb_event event,
-			    enum nb_operation operation, const char *xpath,
-			    const char *value)
+static void nb_log_config_callback(const enum nb_event event,
+				   enum nb_operation operation,
+				   const struct lyd_node *dnode)
 {
+	const char *value;
+	char xpath[XPATH_MAXLEN];
+
+	if (!DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL))
+		return;
+
+	yang_dnode_get_path(dnode, xpath, sizeof(xpath));
+	if (yang_snode_is_typeless_data(dnode->schema))
+		value = "(none)";
+	else
+		value = yang_dnode_get_string(dnode, NULL);
+
 	zlog_debug(
 		"northbound callback: event [%s] op [%s] xpath [%s] value [%s]",
 		nb_event_name(event), nb_operation_name(operation), xpath,
-		value ? value : "(NULL)");
+		value);
 }
 
-/*
- * Call the northbound configuration callback associated to a given
- * configuration change.
- */
-static int nb_callback_configuration(const enum nb_event event,
-				     struct nb_config_change *change)
+static int nb_callback_create(const struct nb_node *nb_node,
+			      enum nb_event event, const struct lyd_node *dnode,
+			      union nb_resource *resource)
 {
-	enum nb_operation operation = change->cb.operation;
-	char xpath[XPATH_MAXLEN];
-	const struct nb_node *nb_node = change->cb.nb_node;
-	const struct lyd_node *dnode = change->cb.dnode;
-	union nb_resource *resource;
-	int ret = NB_ERR;
+	nb_log_config_callback(event, NB_OP_CREATE, dnode);
 
-	if (DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL)) {
-		const char *value = "(none)";
+	return nb_node->cbs.create(event, dnode, resource);
+}
 
-		if (dnode && !yang_snode_is_typeless_data(dnode->schema))
-			value = yang_dnode_get_string(dnode, NULL);
+static int nb_callback_modify(const struct nb_node *nb_node,
+			      enum nb_event event, const struct lyd_node *dnode,
+			      union nb_resource *resource)
+{
+	nb_log_config_callback(event, NB_OP_MODIFY, dnode);
 
-		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
-		nb_log_callback(event, operation, xpath, value);
-	}
+	return nb_node->cbs.modify(event, dnode, resource);
+}
 
-	if (event == NB_EV_VALIDATE)
-		resource = NULL;
-	else
-		resource = &change->resource;
+static int nb_callback_destroy(const struct nb_node *nb_node,
+			       enum nb_event event,
+			       const struct lyd_node *dnode)
+{
+	nb_log_config_callback(event, NB_OP_DESTROY, dnode);
 
-	switch (operation) {
-	case NB_OP_CREATE:
-		ret = (*nb_node->cbs.create)(event, dnode, resource);
-		break;
-	case NB_OP_MODIFY:
-		ret = (*nb_node->cbs.modify)(event, dnode, resource);
-		break;
-	case NB_OP_DESTROY:
-		ret = (*nb_node->cbs.destroy)(event, dnode);
-		break;
-	case NB_OP_MOVE:
-		ret = (*nb_node->cbs.move)(event, dnode);
-		break;
-	default:
-		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
-		flog_err(EC_LIB_DEVELOPMENT,
-			 "%s: unknown operation (%u) [xpath %s]", __func__,
-			 operation, xpath);
-		exit(1);
-	}
+	return nb_node->cbs.destroy(event, dnode);
+}
 
-	if (ret != NB_OK) {
-		int priority;
-		enum lib_log_refs ref;
+static int nb_callback_move(const struct nb_node *nb_node, enum nb_event event,
+			    const struct lyd_node *dnode)
+{
+	nb_log_config_callback(event, NB_OP_MOVE, dnode);
 
-		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
+	return nb_node->cbs.move(event, dnode);
+}
 
-		switch (event) {
-		case NB_EV_VALIDATE:
-			priority = LOG_WARNING;
-			ref = EC_LIB_NB_CB_CONFIG_VALIDATE;
-			break;
-		case NB_EV_PREPARE:
-			priority = LOG_WARNING;
-			ref = EC_LIB_NB_CB_CONFIG_PREPARE;
-			break;
-		case NB_EV_ABORT:
-			priority = LOG_WARNING;
-			ref = EC_LIB_NB_CB_CONFIG_ABORT;
-			break;
-		case NB_EV_APPLY:
-			priority = LOG_ERR;
-			ref = EC_LIB_NB_CB_CONFIG_APPLY;
-			break;
-		default:
-			flog_err(EC_LIB_DEVELOPMENT,
-				 "%s: unknown event (%u) [xpath %s]",
-				 __func__, event, xpath);
-			exit(1);
-		}
+static int nb_callback_pre_validate(const struct nb_node *nb_node,
+				    const struct lyd_node *dnode)
+{
+	nb_log_config_callback(NB_EV_VALIDATE, NB_OP_PRE_VALIDATE, dnode);
 
-		flog(priority, ref,
-		     "%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
-		     __func__, nb_err_name(ret), nb_event_name(event),
-		     nb_operation_name(operation), xpath);
-	}
+	return nb_node->cbs.pre_validate(dnode);
+}
 
-	return ret;
+static void nb_callback_apply_finish(const struct nb_node *nb_node,
+				     const struct lyd_node *dnode)
+{
+	nb_log_config_callback(NB_EV_APPLY, NB_OP_APPLY_FINISH, dnode);
+
+	nb_node->cbs.apply_finish(dnode);
 }
 
 struct yang_data *nb_callback_get_elem(const struct nb_node *nb_node,
@@ -939,6 +901,86 @@ int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 	DEBUGD(&nb_dbg_cbs_rpc, "northbound RPC: %s", xpath);
 
 	return nb_node->cbs.rpc(xpath, input, output);
+}
+
+/*
+ * Call the northbound configuration callback associated to a given
+ * configuration change.
+ */
+static int nb_callback_configuration(const enum nb_event event,
+				     struct nb_config_change *change)
+{
+	enum nb_operation operation = change->cb.operation;
+	char xpath[XPATH_MAXLEN];
+	const struct nb_node *nb_node = change->cb.nb_node;
+	const struct lyd_node *dnode = change->cb.dnode;
+	union nb_resource *resource;
+	int ret = NB_ERR;
+
+
+	if (event == NB_EV_VALIDATE)
+		resource = NULL;
+	else
+		resource = &change->resource;
+
+	switch (operation) {
+	case NB_OP_CREATE:
+		ret = nb_callback_create(nb_node, event, dnode, resource);
+		break;
+	case NB_OP_MODIFY:
+		ret = nb_callback_modify(nb_node, event, dnode, resource);
+		break;
+	case NB_OP_DESTROY:
+		ret = nb_callback_destroy(nb_node, event, dnode);
+		break;
+	case NB_OP_MOVE:
+		ret = nb_callback_move(nb_node, event, dnode);
+		break;
+	default:
+		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
+		flog_err(EC_LIB_DEVELOPMENT,
+			 "%s: unknown operation (%u) [xpath %s]", __func__,
+			 operation, xpath);
+		exit(1);
+	}
+
+	if (ret != NB_OK) {
+		int priority;
+		enum lib_log_refs ref;
+
+		yang_dnode_get_path(dnode, xpath, sizeof(xpath));
+
+		switch (event) {
+		case NB_EV_VALIDATE:
+			priority = LOG_WARNING;
+			ref = EC_LIB_NB_CB_CONFIG_VALIDATE;
+			break;
+		case NB_EV_PREPARE:
+			priority = LOG_WARNING;
+			ref = EC_LIB_NB_CB_CONFIG_PREPARE;
+			break;
+		case NB_EV_ABORT:
+			priority = LOG_WARNING;
+			ref = EC_LIB_NB_CB_CONFIG_ABORT;
+			break;
+		case NB_EV_APPLY:
+			priority = LOG_ERR;
+			ref = EC_LIB_NB_CB_CONFIG_APPLY;
+			break;
+		default:
+			flog_err(EC_LIB_DEVELOPMENT,
+				 "%s: unknown event (%u) [xpath %s]",
+				 __func__, event, xpath);
+			exit(1);
+		}
+
+		flog(priority, ref,
+		     "%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
+		     __func__, nb_err_name(ret), nb_event_name(event),
+		     nb_operation_name(operation), xpath);
+	}
+
+	return ret;
 }
 
 static struct nb_transaction *
@@ -1058,7 +1100,6 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 {
 	struct nb_config_cbs cbs;
 	struct nb_config_cb *cb;
-	char xpath[XPATH_MAXLEN];
 
 	/* Initialize tree of 'apply_finish' callbacks. */
 	RB_INIT(nb_config_cbs, &cbs);
@@ -1075,6 +1116,8 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 		 * be called though).
 		 */
 		if (change->cb.operation == NB_OP_DESTROY) {
+			char xpath[XPATH_MAXLEN];
+
 			dnode = dnode->parent;
 			if (!dnode)
 				break;
@@ -1111,15 +1154,8 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 	}
 
 	/* Call the 'apply_finish' callbacks, sorted by their priorities. */
-	RB_FOREACH (cb, nb_config_cbs, &cbs) {
-		if (DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL)) {
-			yang_dnode_get_path(cb->dnode, xpath, sizeof(xpath));
-			nb_log_callback(NB_EV_APPLY, NB_OP_APPLY_FINISH, xpath,
-					NULL);
-		}
-
-		(*cb->nb_node->cbs.apply_finish)(cb->dnode);
-	}
+	RB_FOREACH (cb, nb_config_cbs, &cbs)
+		nb_callback_apply_finish(cb->nb_node, cb->dnode);
 
 	/* Release memory. */
 	while (!RB_EMPTY(nb_config_cbs, &cbs)) {

@@ -545,7 +545,8 @@ class NorthboundImpl final : public frr::Northbound::Service
 		}
 
 		// Execute callback registered for this XPath.
-		if (nb_node->cbs.rpc(xpath, input_list, output_list) != NB_OK) {
+		if (nb_callback_rpc(nb_node, xpath, input_list, output_list)
+		    != NB_OK) {
 			flog_warn(EC_LIB_NB_CB_RPC,
 				  "%s: rpc callback failed: %s", __func__,
 				  xpath);
