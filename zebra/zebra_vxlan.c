@@ -1860,8 +1860,8 @@ void zebra_evpn_process_neigh_on_local_mac_change(zebra_evpn_t *zevpn,
  * Process all neighbors associated with a local MAC upon the MAC being
  * deleted.
  */
-static void zevpn_process_neigh_on_local_mac_del(zebra_evpn_t *zevpn,
-						zebra_mac_t *zmac)
+void zebra_evpn_process_neigh_on_local_mac_del(zebra_evpn_t *zevpn,
+					       zebra_mac_t *zmac)
 {
 	zebra_neigh_t *n = NULL;
 	struct listnode *node = NULL;
@@ -7898,10 +7898,6 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 			      struct ethaddr *macaddr, vlanid_t vid)
 {
 	zebra_evpn_t *zevpn;
-	zebra_mac_t *mac;
-	char buf[ETHER_ADDR_STRLEN];
-	bool old_bgp_ready;
-	bool new_bgp_ready;
 
 	/* We are interested in MACs only on ports or (port, VLAN) that
 	 * map to a VNI.
@@ -7916,76 +7912,7 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 		return -1;
 	}
 
-	/* If entry doesn't exist, nothing to do. */
-	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
-	if (!mac)
-		return 0;
-
-	/* Is it a local entry? */
-	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
-		return 0;
-
-	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("DEL MAC %s intf %s(%u) VID %u -> VNI %u seq %u flags 0x%x nbr count %u",
-			   prefix_mac2str(macaddr, buf, sizeof(buf)), ifp->name,
-			   ifp->ifindex, vid, zevpn->vni, mac->loc_seq,
-			   mac->flags, listcount(mac->neigh_list));
-
-	old_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
-	if (zebra_evpn_mac_is_static(mac)) {
-		/* this is a synced entry and can only be removed when the
-		 * es-peers stop advertising it.
-		 */
-		memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
-
-		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
-			zlog_debug("re-add sync-mac vni %u mac %s es %s seq %d f 0x%x",
-					zevpn->vni,
-					prefix_mac2str(macaddr,
-						buf, sizeof(buf)),
-					mac->es ? mac->es->esi_str : "-",
-					mac->loc_seq,
-					mac->flags);
-
-		/* inform-bgp about change in local-activity if any */
-		if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE)) {
-			SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE);
-			new_bgp_ready =
-				zebra_evpn_mac_is_ready_for_bgp(mac->flags);
-			zebra_evpn_mac_send_add_del_to_client(
-				mac, old_bgp_ready, new_bgp_ready);
-		}
-
-		/* re-install the entry in the kernel */
-		zebra_evpn_sync_mac_dp_install(mac, false /* set_inactive */,
-					       false /* force_clear_static */,
-					       __func__);
-
-		return 0;
-	}
-
-	/* Update all the neigh entries associated with this mac */
-	zevpn_process_neigh_on_local_mac_del(zevpn, mac);
-
-	/* Remove MAC from BGP. */
-	zebra_evpn_mac_send_del_to_client(zevpn->vni, macaddr, mac->flags,
-					  false /* force */);
-
-	zebra_evpn_es_mac_deref_entry(mac);
-
-	/*
-	 * If there are no neigh associated with the mac delete the mac
-	 * else mark it as AUTO for forward reference
-	 */
-	if (!listcount(mac->neigh_list)) {
-		zebra_evpn_mac_del(zevpn, mac);
-	} else {
-		UNSET_FLAG(mac->flags, ZEBRA_MAC_ALL_LOCAL_FLAGS);
-		UNSET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
-		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
-	}
-
-	return 0;
+	return zebra_evpn_del_local_mac(zevpn, macaddr, ifp);
 }
 
 /*
