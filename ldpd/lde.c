@@ -56,7 +56,7 @@ static void		 lde_map_free(void *);
 static int		 lde_address_add(struct lde_nbr *, struct lde_addr *);
 static int		 lde_address_del(struct lde_nbr *, struct lde_addr *);
 static void		 lde_address_list_free(struct lde_nbr *);
-static void zclient_sync_init(unsigned short instance);
+static void              zclient_sync_init(void);
 static void		 lde_label_list_init(void);
 static int		 lde_get_label_chunk(void);
 static void		 on_get_label_chunk_response(uint32_t start, uint32_t end);
@@ -173,8 +173,7 @@ lde_init(struct ldpd_init *init)
 	/* Init synchronous zclient and label list */
 	frr_zclient_addr(&zclient_addr, &zclient_addr_len,
 			 init->zclient_serv_path);
-	zclient_sync_init(init->instance);
-	lde_label_list_init();
+	zclient_sync_init();
 }
 
 static void
@@ -1746,37 +1745,67 @@ lde_address_list_free(struct lde_nbr *ln)
 		free(lde_addr);
 }
 
-static void zclient_sync_init(unsigned short instance)
+/*
+ * Event callback used to retry the label-manager sync zapi session.
+ */
+static int zclient_sync_retry(struct thread *thread)
+{
+	zclient_sync_init();
+
+	return 0;
+}
+
+/*
+ * Initialize and open a synchronous zapi session. This is used by label chunk
+ * management code, which acquires and releases blocks of labels from the
+ * zebra label-manager module.
+ */
+static void zclient_sync_init(void)
 {
 	struct zclient_options options = zclient_options_default;
+
 	options.synchronous = true;
 
 	/* Initialize special zclient for synchronous message exchanges. */
 	zclient_sync = zclient_new(master, &options);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
-	zclient_sync->instance = instance;
 	zclient_sync->session_id = 1; /* Distinguish from main session */
 	zclient_sync->privs = &lde_privs;
 
-	while (zclient_socket_connect(zclient_sync) < 0) {
+	if (zclient_socket_connect(zclient_sync) < 0) {
 		log_warnx("Error connecting synchronous zclient!");
-		sleep(1);
+		goto retry;
 	}
 	/* make socket non-blocking */
 	sock_set_nonblock(zclient_sync->sock);
 
 	/* Send hello to notify zebra this is a synchronous client */
-	while (zclient_send_hello(zclient_sync) < 0) {
+	if (zclient_send_hello(zclient_sync) < 0) {
 		log_warnx("Error sending hello for synchronous zclient!");
-		sleep(1);
+		goto retry;
 	}
 
 	/* Connect to label manager */
-	while (lm_label_manager_connect(zclient_sync, 0) != 0) {
+	if (lm_label_manager_connect(zclient_sync, 0) != 0) {
 		log_warnx("Error connecting to label manager!");
-		sleep(1);
+		goto retry;
 	}
+
+	/* Finish label-manager init once the LM session is running */
+	lde_label_list_init();
+
+	return;
+
+retry:
+
+	/* Discard failed zclient object */
+	zclient_stop(zclient_sync);
+	zclient_free(zclient_sync);
+	zclient_sync = NULL;
+
+	/* Retry using a timer */
+	thread_add_timer(master, zclient_sync_retry, NULL, 1, NULL);
 }
 
 static void
