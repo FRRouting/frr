@@ -145,7 +145,8 @@ struct if_stats {
 #define LOSS_PRECISION          0.000003
 #define TE_KILO_BIT             1000
 #define TE_BYTE                 8
-#define DEFAULT_BANDWIDTH       10000
+#define DEFAULT_SPEED           10    /* Mbits/sec */
+#define DEFAULT_BANDWIDTH       10000 /* Kbits/sec */
 #define MAX_CLASS_TYPE          8
 #define MAX_PKT_LOSS            50.331642
 

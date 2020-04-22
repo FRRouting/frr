@@ -400,7 +400,7 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 			/* no vrf socket creation may probably mean vrf issue */
 			if (error)
 				*error = INTERFACE_SPEED_ERROR_READ;
-			return 0;
+			return DEFAULT_SPEED;
 		}
 	/* Get the current link state for the interface */
 		rc = vrf_ioctl(interface->vrf_id, sd, SIOCETHTOOL,
@@ -414,8 +414,7 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 		/* no device means interface unreachable */
 		if (errno == ENODEV && error)
 			*error = INTERFACE_SPEED_ERROR_READ;
-		ecmd.speed_hi = 0;
-		ecmd.speed = 0;
+		return DEFAULT_SPEED;
 	}
 
 	close(sd);
@@ -424,7 +423,7 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 	if (ret == UINT32_MAX) {
 		if (error)
 			*error = INTERFACE_SPEED_ERROR_UNKNOWN;
-		return 0;
+		return DEFAULT_SPEED;
 	}
 	return ret;
 }
