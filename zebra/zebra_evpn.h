@@ -29,6 +29,10 @@
 
 #include "if.h"
 #include "linklist.h"
+#include "bitfield.h"
+
+#include "zebra/zebra_l2.h"
+#include "zebra/interface.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -110,6 +114,28 @@ struct zebra_evpn_t_ {
 	/* List of local ESs */
 	struct list *local_es_evi_list;
 };
+
+struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if);
+
+static inline struct interface *zevpn_map_to_svi(zebra_evpn_t *zevpn)
+{
+	struct interface *ifp;
+	struct zebra_if *zif = NULL;
+	struct zebra_l2info_vxlan zl2_info;
+
+	ifp = zevpn->vxlan_if;
+	if (!ifp)
+		return NULL;
+	zif = ifp->info;
+	if (!zif)
+		return NULL;
+
+	/* If down or not mapped to a bridge, we're done. */
+	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+		return NULL;
+	zl2_info = zif->l2info.vxl;
+	return zvni_map_to_svi(zl2_info.access_vlan, zif->brslave_info.br_if);
+}
 
 #ifdef __cplusplus
 }
