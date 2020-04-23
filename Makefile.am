@@ -183,6 +183,7 @@ EXTRA_DIST += \
 	\
 	python/clidef.py \
 	python/clippy/__init__.py \
+	python/makevars.py \
 	\
 	redhat/frr.logrotate \
 	redhat/frr.pam \
