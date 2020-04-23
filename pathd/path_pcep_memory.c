@@ -23,3 +23,5 @@
 #include "pathd/path_pcep_memory.h"
 
 DEFINE_MTYPE(PATHD, PCEP, "PCEP module")
+DEFINE_MTYPE(PATHD, PCEPLIB_INFRA, "PCEPlib Infrastructure")
+DEFINE_MTYPE(PATHD, PCEPLIB_MESSAGES, "PCEPlib PCEP Messages")

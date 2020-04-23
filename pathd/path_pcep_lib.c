@@ -24,6 +24,7 @@
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_debug.h"
+#include "pathd/path_pcep_memory.h"
 
 #define CLASS_TYPE(CLASS, TYPE) (((CLASS) << 16) | (TYPE))
 
@@ -56,7 +57,19 @@ static void free_counter(struct counter *counter);
 int pcep_lib_initialize(void)
 {
 	PCEP_DEBUG("Initializing pceplib");
-	if (!initialize_pcc()) {
+
+	/* Its ok that this object goes out of scope, as it
+	 * wont be stored, and its values will be copied */
+	struct pceplib_infra_config infra = {
+		.pceplib_infra_mt = MTYPE_PCEPLIB_INFRA,
+		.pceplib_messages_mt = MTYPE_PCEPLIB_MESSAGES,
+		.mfunc = (pceplib_malloc_func)  qmalloc,
+		.cfunc = (pceplib_calloc_func)  qcalloc,
+		.rfunc = (pceplib_realloc_func) qrealloc,
+		.sfunc = (pceplib_strdup_func)  qstrdup,
+		.ffunc = (pceplib_free_func)    qfree
+	};
+	if (!initialize_pcc_infra(&infra)) {
 		flog_err(EC_PATH_PCEP_PCC_INIT, "failed to initialize pceplib");
 		return 1;
 	}

@@ -25,10 +25,10 @@
 #include "pathd/pathd.h"
 #include "pathd/path_memory.h"
 
-DEFINE_MTYPE_STATIC(PATHD, PATH_SEGMENT_LIST, "Segment List information")
-DEFINE_MTYPE_STATIC(PATHD, PATH_SR_POLICY, "SR Policy information")
+DEFINE_MTYPE_STATIC(PATHD, PATH_SEGMENT_LIST, "Segment List")
+DEFINE_MTYPE_STATIC(PATHD, PATH_SR_POLICY, "SR Policy")
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE,
-		    "SR Policy candidate path information")
+		    "SR Policy candidate path")
 
 DEFINE_HOOK(pathd_candidate_created, (struct srte_candidate * candidate),
 	    (candidate))
