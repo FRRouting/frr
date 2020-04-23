@@ -3,7 +3,7 @@ dnl 2019 David Lamparter for NetDEF, Inc.
 dnl SPDX-License-Identifier: GPL-2.0-or-later
 
 dnl the _ at the beginning will be cut off (to support the empty version string)
-m4_define_default([_FRR_PY_VERS], [_3 _ _2 _3.8 _3.7 _3.6 _3.5 _3.4 _3.3 _3.2 _2.7])
+m4_define_default([_FRR_PY_VERS], [_3 _3.10 _3.9 _3.8 _3.7 _3.6 _3.5 _3.4 _3.3 _3.2 _ _2 _2.7])
 
 dnl check basic interpreter properties (py2/py3)
 dnl doubles as simple check whether the interpreter actually works
