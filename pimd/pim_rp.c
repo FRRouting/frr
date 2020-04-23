@@ -1289,6 +1289,10 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 					json_rp_rows = json_object_new_array();
 
 				json_row = json_object_new_object();
+				json_object_string_add(
+					json_row, "rpAddress",
+					inet_ntoa(rp_info->rp.rpf_addr.u
+							  .prefix4));
 				if (rp_info->rp.source_nexthop.interface)
 					json_object_string_add(
 						json_row, "outboundInterface",
