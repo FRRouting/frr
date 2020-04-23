@@ -16,6 +16,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include <float.h>
+#include <math.h>
 #include <zebra.h>
 
 #include "log.h"
@@ -553,6 +555,18 @@ static int config_write_metric(const struct lyd_node *dnode, void *arg)
 	value = (float)yang_dnode_get_dec64(dnode, "./value");
 	if (yang_dnode_exists(dnode, "./is-bound"))
 		is_bound = yang_dnode_get_bool(dnode, "./is-bound");
+
+	if (fabs(value) <= FLT_EPSILON) {
+		vty_out(vty, " %s%s", is_bound ? "bound " : "",
+			metric_type_name(type));
+		return YANG_ITER_CONTINUE;
+	}
+
+	if (fabs(truncf(value) - value) < FLT_EPSILON) {
+		vty_out(vty, " %s%s %d", is_bound ? "bound " : "",
+			metric_type_name(type), (int)value);
+		return YANG_ITER_CONTINUE;
+	}
 
 	vty_out(vty, " %s%s %f", is_bound ? "bound " : "",
 		metric_type_name(type), value);
