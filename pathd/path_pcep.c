@@ -354,7 +354,22 @@ DEFUN_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN(pcep_cli_pce_opts, pcep_cli_pce_opts_cmd,
+DEFUN(pcep_cli_no_pcc, pcep_cli_no_pcc_cmd, "no pcc",
+      NO_STR "PCC configuration\n")
+{
+	pcep_ctrl_disconnect_pcc(pcep_g->fpt, 1);
+	if (pcep_g->pce_opts[0] != NULL) {
+		XFREE(MTYPE_PCEP, pcep_g->pce_opts[0]);
+		pcep_g->pce_opts[0] = NULL;
+	}
+	if (pcep_g->pcc_opts != NULL) {
+		XFREE(MTYPE_PCEP, pcep_g->pcc_opts);
+		pcep_g->pcc_opts = NULL;
+	}
+	return CMD_SUCCESS;
+}
+
+DEFUN(pcep_cli_pce, pcep_cli_pce_cmd,
       "pce <ip A.B.C.D | ipv6 X:X::X:X> [port (1024-65535)] [sr-draft07]",
       "PCE configuration\n"
       "PCE IPv4 address\n"
@@ -440,13 +455,24 @@ DEFUN(pcep_cli_pce_opts, pcep_cli_pce_opts_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN(pcep_cli_no_pce, pcep_cli_no_pce_cmd, "no pce", NO_STR "Disable pce\n")
+DEFUN(pcep_cli_no_pce, pcep_cli_no_pce_cmd,
+      "no pce <ip A.B.C.D | ipv6 X:X::X:X> [port (1024-65535)]",
+      NO_STR
+      "PCE configuration\n"
+      "PCE IPv4 address\n"
+      "Remote PCE server IPv4 address\n"
+      "PCE IPv6 address\n"
+      "Remote PCE server IPv6 address\n"
+      "Remote PCE server port\n"
+      "Remote PCE server port value\n")
 {
 	/* TODO: Add support for multiple PCE */
 
 	pcep_ctrl_disconnect_pcc(pcep_g->fpt, 1);
-	if (pcep_g->pce_opts[0] != NULL)
+	if (pcep_g->pce_opts[0] != NULL) {
 		XFREE(MTYPE_PCEP, pcep_g->pce_opts[0]);
+		pcep_g->pce_opts[0] = NULL;
+	}
 	return CMD_SUCCESS;
 }
 
@@ -588,7 +614,8 @@ void pcep_cli_init(void)
 	install_element(ENABLE_NODE, &pcep_cli_debug_cmd);
 	install_element(ENABLE_NODE, &show_pcep_counters_cmd);
 	install_element(CONFIG_NODE, &pcep_cli_pcc_cmd);
-	install_element(PCC_NODE, &pcep_cli_pce_opts_cmd);
+	install_element(CONFIG_NODE, &pcep_cli_no_pcc_cmd);
+	install_element(PCC_NODE, &pcep_cli_pce_cmd);
 	install_element(PCC_NODE, &pcep_cli_no_pce_cmd);
 }
 
