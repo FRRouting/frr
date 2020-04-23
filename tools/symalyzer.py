@@ -284,7 +284,7 @@ def write_html_report(syms):
         else:
             with open('jquery-3.4.1.min.js.tmp', 'w') as fd:
                 fd.write(r.text)
-            os.rename('jquery-3.4.1.min.js.tmp', 'jquery-3.4.1.min.js.tmp')
+            os.rename('jquery-3.4.1.min.js.tmp', 'jquery-3.4.1.min.js')
             sys.stderr.write('done.\n')
 
 def automake_escape(s):
