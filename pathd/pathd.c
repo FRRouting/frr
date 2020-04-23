@@ -42,7 +42,6 @@ static int trigger_pathd_candidate_created_event(struct thread *thread);
 static void trigger_pathd_candidate_updated(struct srte_candidate *candidate);
 static int trigger_pathd_candidate_updated_event(struct thread *thread);
 static void trigger_pathd_candidate_removed(struct srte_candidate *candidate);
-static int trigger_pathd_candidate_removed_event(struct thread *thread);
 static const char *
 srte_candidate_metric_name(enum srte_candidate_metric_type type);
 
@@ -468,6 +467,10 @@ const char *srte_origin2str(enum srte_protocol_origin origin)
 
 void trigger_pathd_candidate_created(struct srte_candidate *candidate)
 {
+	/* The hook is called asynchronously for now to let the PCEP module
+	time to send a response to the PCE before receiving any updates from
+	pathd. When using the new NB context to tie the configuration update
+	to a PCE message, this should go back to synchronous */
 	thread_add_event(master, trigger_pathd_candidate_created_event,
 			 (void *)candidate, 0, NULL);
 }
@@ -480,6 +483,10 @@ int trigger_pathd_candidate_created_event(struct thread *thread)
 
 void trigger_pathd_candidate_updated(struct srte_candidate *candidate)
 {
+	/* The hook is called asynchronously for now to let the PCEP module
+	time to send a response to the PCE before receiving any updates from
+	pathd. When using the new NB context to tie the configuration update
+	to a PCE message, this should go back to synchronous */
 	thread_add_event(master, trigger_pathd_candidate_updated_event,
 			 (void *)candidate, 0, NULL);
 }
@@ -492,14 +499,9 @@ int trigger_pathd_candidate_updated_event(struct thread *thread)
 
 void trigger_pathd_candidate_removed(struct srte_candidate *candidate)
 {
-	thread_add_event(master, trigger_pathd_candidate_removed_event,
-			 (void *)candidate, 0, NULL);
-}
-
-int trigger_pathd_candidate_removed_event(struct thread *thread)
-{
-	struct srte_candidate *candidate = THREAD_ARG(thread);
-	return hook_call(pathd_candidate_removed, candidate);
+	/* The hook needs to be call synchronously, otherwise the candidate
+	path will be already deleted when the handler is called */
+	hook_call(pathd_candidate_removed, candidate);
 }
 
 const char *srte_candidate_metric_name(enum srte_candidate_metric_type type)
