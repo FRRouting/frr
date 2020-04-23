@@ -963,11 +963,11 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 	return;
 }
 
+#ifdef FABRICD
 DEFINE_HOOK(isis_circuit_config_write,
 	    (struct isis_circuit *circuit, struct vty *vty),
 	    (circuit, vty))
 
-#ifdef FABRICD
 static int isis_interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -1196,7 +1196,6 @@ static int isis_interface_config_write(struct vty *vty)
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	int write = 0;
 	struct interface *ifp;
-	struct isis_circuit *circuit;
 	struct lyd_node *dnode;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
@@ -1209,10 +1208,6 @@ static int isis_interface_config_write(struct vty *vty)
 
 		write++;
 		nb_cli_show_dnode_cmds(vty, dnode, false);
-		circuit = circuit_scan_by_ifp(ifp);
-		if (circuit)
-			write += hook_call(isis_circuit_config_write, circuit,
-					   vty);
 	}
 	return write;
 }

@@ -391,6 +391,7 @@ void isis_bfd_circuit_param_set(struct isis_circuit *circuit,
 		isis_bfd_circuit_cmd(circuit, command);
 }
 
+#ifdef FABRICD
 static int bfd_circuit_write_settings(struct isis_circuit *circuit,
 				      struct vty *vty)
 {
@@ -402,6 +403,7 @@ static int bfd_circuit_write_settings(struct isis_circuit *circuit,
 	vty_out(vty, " %s bfd\n", PROTO_NAME);
 	return 1;
 }
+#endif
 
 void isis_bfd_init(void)
 {
@@ -413,6 +415,8 @@ void isis_bfd_init(void)
 	zclient->bfd_dest_replay = isis_bfd_nbr_replay;
 	hook_register(isis_adj_state_change_hook,
 		      bfd_handle_adj_state_change);
+#ifdef FABRICD
 	hook_register(isis_circuit_config_write,
 		      bfd_circuit_write_settings);
+#endif
 }
