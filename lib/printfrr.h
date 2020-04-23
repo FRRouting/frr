@@ -24,6 +24,10 @@
 #include "compiler.h"
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct fbuf {
 	char *buf;
 	char *pos;
@@ -155,5 +159,9 @@ void printfrr_ext_reg(const struct printfrr_ext *);
 		printfrr_ext_reg(&_printext_##print_fn);                       \
 	}                                                                      \
 	/* end */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

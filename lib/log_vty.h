@@ -23,6 +23,10 @@
 
 #include "lib/hook.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct vty;
 
 extern void log_cmd_init(void);
@@ -32,5 +36,9 @@ extern void log_show_syslog(struct vty *vty);
 
 DECLARE_HOOK(zlog_rotate, (), ())
 extern void zlog_rotate(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __LOG_VTY_H__ */

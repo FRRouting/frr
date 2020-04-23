@@ -20,6 +20,10 @@
 #include "typesafe.h"
 #include "frratomic.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* pointer with lock/deleted/invalid bit in lowest bit
  *
  * for atomlist/atomsort, "locked" means "this pointer can't be updated, the
@@ -360,5 +364,9 @@ void atomsort_del_hint(struct atomsort_head *h,
 		struct atomsort_item *item, atomic_atomptr_t *hint);
 
 struct atomsort_item *atomsort_pop(struct atomsort_head *h);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_ATOMLIST_H */

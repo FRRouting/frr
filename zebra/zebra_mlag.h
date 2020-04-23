@@ -30,6 +30,10 @@
 #include "mlag/mlag.pb-c.h"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define ZEBRA_MLAG_BUF_LIMIT 2048
 #define ZEBRA_MLAG_LEN_SIZE 4
 
@@ -73,4 +77,8 @@ int zebra_mlag_protobuf_encode_client_data(struct stream *s,
 					   uint32_t *msg_type);
 int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 				       uint32_t len);
+#ifdef __cplusplus
+}
+#endif
+
 #endif

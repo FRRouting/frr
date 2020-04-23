@@ -20,6 +20,10 @@
 #include "memory.h"
 #include "atomlist.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* quick RCU primer:
  *   There's a global sequence counter.  Whenever a thread does a
  *   rcu_read_lock(), it is marked as holding the current sequence counter.
@@ -169,5 +173,9 @@ extern void rcu_enqueue(struct rcu_head *head, const struct rcu_action *action);
 	} while (0)
 
 extern void rcu_close(struct rcu_head_close *head, int fd);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRRCU_H */

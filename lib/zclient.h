@@ -38,6 +38,10 @@
 
 #include "mlag.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Zebra types. Used in Zserv message header. */
 typedef uint16_t zebra_size_t;
 
@@ -825,5 +829,9 @@ extern void zclient_send_mlag_data(struct zclient *client,
  * Returns 0 for success or -1 on an I/O error.
  */
 extern int zclient_send_hello(struct zclient *client);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_ZCLIENT_H */

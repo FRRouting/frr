@@ -21,6 +21,10 @@
 
 #include "zlog.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* multiple file log targets can be active */
 
 struct zlt_fd;
@@ -62,5 +66,9 @@ extern int zlog_syslog_get_facility(void);
 /* use ZLOG_DISABLED to disable */
 extern void zlog_syslog_set_prio_min(int prio_min);
 extern int zlog_syslog_get_prio_min(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_ZLOG_TARGETS_H */

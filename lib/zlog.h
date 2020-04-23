@@ -30,6 +30,10 @@
 #include "memory.h"
 #include "hook.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern char zlog_prefix[];
 extern size_t zlog_prefixsz;
 extern int zlog_tmpdirfd;
@@ -182,5 +186,9 @@ extern void zlog_startup_end(void);
 extern void zlog_tls_buffer_init(void);
 extern void zlog_tls_buffer_flush(void);
 extern void zlog_tls_buffer_fini(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_ZLOG_H */
