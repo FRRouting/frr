@@ -99,7 +99,7 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim_msdp_init(pim, router->master);
 	pim_vxlan_init(pim);
 
-	snprintf(hash_name, 64, "PIM %s RPF Hash", vrf->name);
+	snprintf(hash_name, sizeof(hash_name), "PIM %s RPF Hash", vrf->name);
 	pim->rpf_hash = hash_create_size(256, pim_rpf_hash_key, pim_rpf_equal,
 					 hash_name);
 

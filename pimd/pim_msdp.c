@@ -1574,14 +1574,16 @@ void pim_msdp_init(struct pim_instance *pim, struct thread_master *master)
 	pim->msdp.master = master;
 	char hash_name[64];
 
-	snprintf(hash_name, 64, "PIM %s MSDP Peer Hash", pim->vrf->name);
+	snprintf(hash_name, sizeof(hash_name), "PIM %s MSDP Peer Hash",
+		 pim->vrf->name);
 	pim->msdp.peer_hash = hash_create(pim_msdp_peer_hash_key_make,
 					  pim_msdp_peer_hash_eq, hash_name);
 	pim->msdp.peer_list = list_new();
 	pim->msdp.peer_list->del = (void (*)(void *))pim_msdp_peer_free;
 	pim->msdp.peer_list->cmp = (int (*)(void *, void *))pim_msdp_peer_comp;
 
-	snprintf(hash_name, 64, "PIM %s MSDP SA Hash", pim->vrf->name);
+	snprintf(hash_name, sizeof(hash_name), "PIM %s MSDP SA Hash",
+		 pim->vrf->name);
 	pim->msdp.sa_hash = hash_create(pim_msdp_sa_hash_key_make,
 					pim_msdp_sa_hash_eq, hash_name);
 	pim->msdp.sa_list = list_new();

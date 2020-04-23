@@ -1321,7 +1321,8 @@ int bgp_stop(struct peer *peer)
 		if ((peer->status == OpenConfirm)
 		    || (peer->status == Established)) {
 			/* ORF received prefix-filter pnt */
-			sprintf(orf_name, "%s.%d.%d", peer->host, afi, safi);
+			snprintf(orf_name, sizeof(orf_name), "%s.%d.%d",
+				 peer->host, afi, safi);
 			prefix_bgp_orf_remove_all(afi, orf_name);
 		}
 	}

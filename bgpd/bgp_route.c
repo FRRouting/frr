@@ -2264,7 +2264,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 			bgp_path_info_path_with_addpath_rx_str(new_select,
 							       path_buf);
 		else
-			sprintf(path_buf, "NONE");
+			snprintf(path_buf, sizeof(path_buf), "NONE");
 		zlog_debug(
 			"%s: After path selection, newbest is %s oldbest was %s",
 			pfx_buf, path_buf,
@@ -7645,17 +7645,17 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 
 		switch (af) {
 		case AF_INET:
-			sprintf(nexthop, "%s",
-				inet_ntop(af, &attr->mp_nexthop_global_in, buf,
-					  BUFSIZ));
+			snprintf(nexthop, sizeof(nexthop), "%s",
+				 inet_ntop(af, &attr->mp_nexthop_global_in, buf,
+					   BUFSIZ));
 			break;
 		case AF_INET6:
-			sprintf(nexthop, "%s",
-				inet_ntop(af, &attr->mp_nexthop_global, buf,
-					  BUFSIZ));
+			snprintf(nexthop, sizeof(nexthop), "%s",
+				 inet_ntop(af, &attr->mp_nexthop_global, buf,
+					   BUFSIZ));
 			break;
 		default:
-			sprintf(nexthop, "?");
+			snprintf(nexthop, sizeof(nexthop), "?");
 			break;
 		}
 
@@ -12366,7 +12366,7 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
 		}
 	}
 
-	sprintf(name, "%s.%d.%d", peer->host, afi, safi);
+	snprintf(name, sizeof(name), "%s.%d.%d", peer->host, afi, safi);
 	count = prefix_bgp_show_prefix_list(NULL, afi, name, uj);
 	if (count) {
 		if (!uj)
@@ -13259,8 +13259,9 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 				inet_ntop(family,
 					  &p->u.prefix_evpn.prefix_addr.ip.ip.addr,
 					  local_buf, PREFIX_STRLEN);
-				sprintf(buf, "%s/%u", local_buf,
-					p->u.prefix_evpn.prefix_addr.ip_prefix_length);
+				snprintf(buf, sizeof(buf), "%s/%u", local_buf,
+					 p->u.prefix_evpn.prefix_addr
+						 .ip_prefix_length);
 			} else {
 				prefix2str(p, buf, sizeof(buf));
 			}

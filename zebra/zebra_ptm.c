@@ -132,7 +132,7 @@ void zebra_ptm_init(void)
 	ptm_cb.pid = getpid();
 	zebra_ptm_install_commands();
 
-	sprintf(buf, "%s", FRR_PTM_NAME);
+	snprintf(buf, sizeof(buf), "%s", FRR_PTM_NAME);
 	ptm_hdl = ptm_lib_register(buf, NULL, zebra_ptm_handle_msg_cb,
 				   zebra_ptm_handle_msg_cb);
 	ptm_cb.wb = buffer_new(0);
@@ -710,16 +710,17 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 	}
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
-	sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_START_CMD);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s", ZEBRA_PTM_BFD_START_CMD);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
-	sprintf(tmp_buf, "%s", zebra_route_string(client->proto));
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s",
+		 zebra_route_string(client->proto));
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
 			   tmp_buf);
 
 	s = msg;
 
 	STREAM_GETL(s, pid);
-	sprintf(tmp_buf, "%d", pid);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", pid);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD,
 			   tmp_buf);
 
@@ -742,21 +743,21 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 	}
 
 	STREAM_GETL(s, min_rx_timer);
-	sprintf(tmp_buf, "%d", min_rx_timer);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", min_rx_timer);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_MIN_RX_FIELD,
 			   tmp_buf);
 	STREAM_GETL(s, min_tx_timer);
-	sprintf(tmp_buf, "%d", min_tx_timer);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", min_tx_timer);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_MIN_TX_FIELD,
 			   tmp_buf);
 	STREAM_GETC(s, detect_mul);
-	sprintf(tmp_buf, "%d", detect_mul);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", detect_mul);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_DETECT_MULT_FIELD,
 			   tmp_buf);
 
 	STREAM_GETC(s, multi_hop);
 	if (multi_hop) {
-		sprintf(tmp_buf, "%d", 1);
+		snprintf(tmp_buf, sizeof(tmp_buf), "%d", 1);
 		ptm_lib_append_msg(ptm_hdl, out_ctxt,
 				   ZEBRA_PTM_BFD_MULTI_HOP_FIELD, tmp_buf);
 		STREAM_GETW(s, src_p.family);
@@ -778,7 +779,7 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 		}
 
 		STREAM_GETC(s, multi_hop_cnt);
-		sprintf(tmp_buf, "%d", multi_hop_cnt);
+		snprintf(tmp_buf, sizeof(tmp_buf), "%d", multi_hop_cnt);
 		ptm_lib_append_msg(ptm_hdl, out_ctxt,
 				   ZEBRA_PTM_BFD_MAX_HOP_CNT_FIELD, tmp_buf);
 
@@ -818,11 +819,11 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 				   ZEBRA_PTM_BFD_IFNAME_FIELD, if_name);
 	}
 	STREAM_GETC(s, cbit_set);
-	sprintf(tmp_buf, "%d", cbit_set);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", cbit_set);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt,
 			   ZEBRA_PTM_BFD_CBIT_FIELD, tmp_buf);
 
-	sprintf(tmp_buf, "%d", 1);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", 1);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEND_EVENT,
 			   tmp_buf);
 
@@ -869,17 +870,18 @@ void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
 
-	sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_STOP_CMD);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s", ZEBRA_PTM_BFD_STOP_CMD);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
 
-	sprintf(tmp_buf, "%s", zebra_route_string(client->proto));
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s",
+		 zebra_route_string(client->proto));
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
 			   tmp_buf);
 
 	s = msg;
 
 	STREAM_GETL(s, pid);
-	sprintf(tmp_buf, "%d", pid);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", pid);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD,
 			   tmp_buf);
 
@@ -900,7 +902,7 @@ void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
 
 	STREAM_GETC(s, multi_hop);
 	if (multi_hop) {
-		sprintf(tmp_buf, "%d", 1);
+		snprintf(tmp_buf, sizeof(tmp_buf), "%d", 1);
 		ptm_lib_append_msg(ptm_hdl, out_ctxt,
 				   ZEBRA_PTM_BFD_MULTI_HOP_FIELD, tmp_buf);
 
@@ -996,14 +998,15 @@ void zebra_ptm_bfd_client_register(ZAPI_HANDLER_ARGS)
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
 
-	sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_CLIENT_REG_CMD);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s", ZEBRA_PTM_BFD_CLIENT_REG_CMD);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
 
-	sprintf(tmp_buf, "%s", zebra_route_string(client->proto));
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s",
+		 zebra_route_string(client->proto));
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
 			   tmp_buf);
 
-	sprintf(tmp_buf, "%d", pid);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%d", pid);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD,
 			   tmp_buf);
 
@@ -1054,10 +1057,11 @@ int zebra_ptm_bfd_client_deregister(struct zserv *client)
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
 
-	sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_CLIENT_DEREG_CMD);
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s",
+		 ZEBRA_PTM_BFD_CLIENT_DEREG_CMD);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
 
-	sprintf(tmp_buf, "%s", zebra_route_string(proto));
+	snprintf(tmp_buf, sizeof(tmp_buf), "%s", zebra_route_string(proto));
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
 			   tmp_buf);
 

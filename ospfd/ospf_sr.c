@@ -2094,7 +2094,7 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 			json_obj = json_object_new_object();
 			char tmp[2];
 
-			snprintf(tmp, 2, "%u", i);
+			snprintf(tmp, sizeof(tmp), "%u", i);
 			json_object_string_add(json_obj, tmp,
 					       srn->algo[i] == SR_ALGORITHM_SPF
 						       ? "SPF"
@@ -2129,13 +2129,15 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 			"---------------------  ---------  ---------------\n");
 	}
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_prefix, node, srp)) {
-		snprintf(pref, 19, "%s/%u", inet_ntoa(srp->nhlfe.prefv4.prefix),
+		snprintf(pref, sizeof(pref), "%s/%u",
+			 inet_ntoa(srp->nhlfe.prefv4.prefix),
 			 srp->nhlfe.prefv4.prefixlen);
-		snprintf(sid, 22, "SR Pfx (idx %u)", srp->sid);
+		snprintf(sid, sizeof(sid), "SR Pfx (idx %u)", srp->sid);
 		if (srp->nhlfe.label_out == MPLS_LABEL_IMPLICIT_NULL)
-			sprintf(label, "pop");
+			snprintf(label, sizeof(label), "pop");
 		else
-			sprintf(label, "%u", srp->nhlfe.label_out);
+			snprintf(label, sizeof(label), "%u",
+				 srp->nhlfe.label_out);
 		itf = if_lookup_by_index(srp->nhlfe.ifindex, VRF_DEFAULT);
 		if (json) {
 			if (!json_prefix) {
@@ -2164,14 +2166,15 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_link, node, srl)) {
-		snprintf(pref, 19, "%s/%u",
+		snprintf(pref, sizeof(pref), "%s/%u",
 			 inet_ntoa(srl->nhlfe[0].prefv4.prefix),
 			 srl->nhlfe[0].prefv4.prefixlen);
-		snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[0]);
+		snprintf(sid, sizeof(sid), "SR Adj. (lbl %u)", srl->sid[0]);
 		if (srl->nhlfe[0].label_out == MPLS_LABEL_IMPLICIT_NULL)
-			sprintf(label, "pop");
+			snprintf(label, sizeof(label), "pop");
 		else
-			sprintf(label, "%u", srl->nhlfe[0].label_out);
+			snprintf(label, sizeof(label), "%u",
+				 srl->nhlfe[0].label_out);
 		itf = if_lookup_by_index(srl->nhlfe[0].ifindex, VRF_DEFAULT);
 		if (json) {
 			if (!json_link) {
@@ -2194,11 +2197,13 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 			json_object_array_add(json_link, json_obj);
 			/* Backup Link */
 			json_obj = json_object_new_object();
-			snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[1]);
+			snprintf(sid, sizeof(sid), "SR Adj. (lbl %u)",
+				 srl->sid[1]);
 			if (srl->nhlfe[1].label_out == MPLS_LABEL_IMPLICIT_NULL)
-				sprintf(label, "pop");
+				snprintf(label, sizeof(label), "pop");
 			else
-				sprintf(label, "%u", srl->nhlfe[0].label_out);
+				snprintf(label, sizeof(label), "%u",
+					 srl->nhlfe[0].label_out);
 			json_object_string_add(json_obj, "prefix", pref);
 			json_object_int_add(json_obj, "sid", srl->sid[1]);
 			json_object_int_add(json_obj, "inputLabel",
@@ -2215,11 +2220,13 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 				srl->nhlfe[0].label_in, label, sid,
 				itf ? itf->name : "-",
 				inet_ntoa(srl->nhlfe[0].nexthop));
-			snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[1]);
+			snprintf(sid, sizeof(sid), "SR Adj. (lbl %u)",
+				 srl->sid[1]);
 			if (srl->nhlfe[1].label_out == MPLS_LABEL_IMPLICIT_NULL)
-				sprintf(label, "pop");
+				snprintf(label, sizeof(label), "pop");
 			else
-				sprintf(label, "%u", srl->nhlfe[1].label_out);
+				snprintf(label, sizeof(label), "%u",
+					 srl->nhlfe[1].label_out);
 			vty_out(vty, "%18s  %8u  %9s  %21s  %9s  %15s\n", pref,
 				srl->nhlfe[1].label_in, label, sid,
 				itf ? itf->name : "-",

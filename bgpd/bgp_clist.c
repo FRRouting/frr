@@ -546,24 +546,20 @@ static char *lcommunity_str_get(struct lcommunity *lcom, int i)
 	uint32_t localdata2;
 	char *str;
 	const uint8_t *ptr;
-	char *pnt;
 
 	ptr = lcom->val + (i * LCOMMUNITY_SIZE);
 
 	memcpy(&lcomval, ptr, LCOMMUNITY_SIZE);
 
 	/* Allocate memory.  48 bytes taken off bgp_lcommunity.c */
-	str = pnt = XMALLOC(MTYPE_LCOMMUNITY_STR, 48);
-
 	ptr = (uint8_t *)lcomval.val;
 	ptr = ptr_get_be32(ptr, &globaladmin);
 	ptr = ptr_get_be32(ptr, &localdata1);
 	ptr = ptr_get_be32(ptr, &localdata2);
 	(void)ptr; /* consume value */
 
-	sprintf(pnt, "%u:%u:%u", globaladmin, localdata1, localdata2);
-	pnt += strlen(pnt);
-	*pnt = '\0';
+	str = XMALLOC(MTYPE_LCOMMUNITY_STR, 48);
+	snprintf(str, 48, "%u:%u:%u", globaladmin, localdata1, localdata2);
 
 	return str;
 }

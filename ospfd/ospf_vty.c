@@ -83,7 +83,8 @@ static void area_id2str(char *buf, int length, struct in_addr *area_id,
 	if (area_id_fmt == OSPF_AREA_ID_FMT_DOTTEDQUAD)
 		inet_ntop(AF_INET, area_id, buf, length);
 	else
-		sprintf(buf, "%lu", (unsigned long)ntohl(area_id->s_addr));
+		snprintf(buf, length, "%lu",
+			 (unsigned long)ntohl(area_id->s_addr));
 }
 
 static int str2metric(const char *str, int *metric)
@@ -9263,8 +9264,8 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 
 		char buf1[19];
 
-		snprintf(buf1, 19, "%s/%d", inet_ntoa(rn->p.u.prefix4),
-			 rn->p.prefixlen);
+		snprintf(buf1, sizeof(buf1), "%s/%d",
+			 inet_ntoa(rn->p.u.prefix4), rn->p.prefixlen);
 		json_route = json_object_new_object();
 		if (json) {
 			json_object_object_add(json, buf1, json_route);
@@ -9997,7 +9998,7 @@ static int config_write_interface(struct vty *vty)
 static int config_write_network_area(struct vty *vty, struct ospf *ospf)
 {
 	struct route_node *rn;
-	uint8_t buf[INET_ADDRSTRLEN];
+	char buf[INET_ADDRSTRLEN];
 
 	/* `network area' print. */
 	for (rn = route_top(ospf->networks); rn; rn = route_next(rn))
@@ -10006,12 +10007,12 @@ static int config_write_network_area(struct vty *vty, struct ospf *ospf)
 
 			/* Create Area ID string by specified Area ID format. */
 			if (n->area_id_fmt == OSPF_AREA_ID_FMT_DOTTEDQUAD)
-				inet_ntop(AF_INET, &n->area_id, (char *)buf,
+				inet_ntop(AF_INET, &n->area_id, buf,
 					  sizeof(buf));
 			else
-				sprintf((char *)buf, "%lu",
-					(unsigned long int)ntohl(
-						n->area_id.s_addr));
+				snprintf(buf, sizeof(buf), "%lu",
+					 (unsigned long int)ntohl(
+						 n->area_id.s_addr));
 
 			/* Network print. */
 			vty_out(vty, " network %s/%d area %s\n",
@@ -10026,13 +10027,13 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 {
 	struct listnode *node;
 	struct ospf_area *area;
-	uint8_t buf[INET_ADDRSTRLEN];
+	char buf[INET_ADDRSTRLEN];
 
 	/* Area configuration print. */
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
 		struct route_node *rn1;
 
-		area_id2str((char *)buf, sizeof(buf), &area->area_id,
+		area_id2str(buf, sizeof(buf), &area->area_id,
 			    area->area_id_fmt);
 
 		if (area->auth_type != OSPF_AUTH_NULL) {

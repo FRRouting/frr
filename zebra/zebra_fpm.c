@@ -760,8 +760,9 @@ static int zfpm_read_cb(struct thread *thread)
 			if (nbyte == -1) {
 				char buffer[1024];
 
-				sprintf(buffer, "closed socket in read(%d): %s",
-					errno, safe_strerror(errno));
+				snprintf(buffer, sizeof(buffer),
+					 "closed socket in read(%d): %s", errno,
+					 safe_strerror(errno));
 				zfpm_connection_down(buffer);
 			} else
 				zfpm_connection_down("closed socket in read");
@@ -797,8 +798,9 @@ static int zfpm_read_cb(struct thread *thread)
 			if (nbyte == -1) {
 				char buffer[1024];
 
-				sprintf(buffer, "failed to read message(%d) %s",
-					errno, safe_strerror(errno));
+				snprintf(buffer, sizeof(buffer),
+					 "failed to read message(%d) %s", errno,
+					 safe_strerror(errno));
 				zfpm_connection_down(buffer);
 			} else
 				zfpm_connection_down("failed to read message");

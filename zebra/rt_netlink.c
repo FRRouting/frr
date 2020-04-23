@@ -904,8 +904,8 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 			ifp = if_lookup_by_index(oif[count], vrf);
 			char temp[256];
 
-			sprintf(temp, "%s(%d) ", ifp ? ifp->name : "Unknown",
-				oif[count]);
+			snprintf(temp, sizeof(temp), "%s(%d) ",
+				 ifp ? ifp->name : "Unknown", oif[count]);
 			strlcat(oif_list, temp, sizeof(oif_list));
 		}
 		zvrf = zebra_vrf_lookup_by_id(vrf);
@@ -1087,7 +1087,8 @@ static int build_label_stack(struct mpls_label_stack *nh_label,
 				sprintf(label_buf, "label %u",
 					nh_label->label[i]);
 			else {
-				sprintf(label_buf1, "/%u", nh_label->label[i]);
+				snprintf(label_buf1, sizeof(label_buf1), "/%u",
+					 nh_label->label[i]);
 				strlcat(label_buf, label_buf1, label_buf_size);
 			}
 		}
@@ -2686,7 +2687,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	if ((NDA_VLAN <= NDA_MAX) && tb[NDA_VLAN]) {
 		vid_present = 1;
 		vid = *(uint16_t *)RTA_DATA(tb[NDA_VLAN]);
-		sprintf(vid_buf, " VLAN %u", vid);
+		snprintf(vid_buf, sizeof(vid_buf), " VLAN %u", vid);
 	}
 
 	if (tb[NDA_DST]) {
@@ -2694,7 +2695,8 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		dst_present = 1;
 		memcpy(&vtep_ip.s_addr, RTA_DATA(tb[NDA_DST]),
 		       IPV4_MAX_BYTELEN);
-		sprintf(dst_buf, " dst %s", inet_ntoa(vtep_ip));
+		snprintf(dst_buf, sizeof(dst_buf), " dst %s",
+			 inet_ntoa(vtep_ip));
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)

@@ -87,7 +87,7 @@ static void display_vrf_import_rt(struct vty *vty, struct vrf_irt_node *irt,
 		eas.as |= (*pnt++);
 		ptr_get_be32(pnt, &eas.val);
 
-		snprintf(rt_buf, RT_ADDRSTRLEN, "%u:%u", eas.as, eas.val);
+		snprintf(rt_buf, sizeof(rt_buf), "%u:%u", eas.as, eas.val);
 
 		if (json)
 			json_object_string_add(json_rt, "rt", rt_buf);
@@ -102,7 +102,7 @@ static void display_vrf_import_rt(struct vty *vty, struct vrf_irt_node *irt,
 		eip.val = (*pnt++ << 8);
 		eip.val |= (*pnt++);
 
-		snprintf(rt_buf, RT_ADDRSTRLEN, "%s:%u", inet_ntoa(eip.ip),
+		snprintf(rt_buf, sizeof(rt_buf), "%s:%u", inet_ntoa(eip.ip),
 			 eip.val);
 
 		if (json)
@@ -117,7 +117,7 @@ static void display_vrf_import_rt(struct vty *vty, struct vrf_irt_node *irt,
 		eas.val = (*pnt++ << 8);
 		eas.val |= (*pnt++);
 
-		snprintf(rt_buf, RT_ADDRSTRLEN, "%u:%u", eas.as, eas.val);
+		snprintf(rt_buf, sizeof(rt_buf), "%u:%u", eas.as, eas.val);
 
 		if (json)
 			json_object_string_add(json_rt, "rt", rt_buf);
@@ -197,7 +197,7 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 		eas.as |= (*pnt++);
 		ptr_get_be32(pnt, &eas.val);
 
-		snprintf(rt_buf, RT_ADDRSTRLEN, "%u:%u", eas.as, eas.val);
+		snprintf(rt_buf, sizeof(rt_buf), "%u:%u", eas.as, eas.val);
 
 		if (json)
 			json_object_string_add(json_rt, "rt", rt_buf);
@@ -212,7 +212,7 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 		eip.val = (*pnt++ << 8);
 		eip.val |= (*pnt++);
 
-		snprintf(rt_buf, RT_ADDRSTRLEN, "%s:%u", inet_ntoa(eip.ip),
+		snprintf(rt_buf, sizeof(rt_buf), "%s:%u", inet_ntoa(eip.ip),
 			 eip.val);
 
 		if (json)
@@ -227,7 +227,7 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 		eas.val = (*pnt++ << 8);
 		eas.val |= (*pnt++);
 
-		snprintf(rt_buf, RT_ADDRSTRLEN, "%u:%u", eas.as, eas.val);
+		snprintf(rt_buf, sizeof(rt_buf), "%u:%u", eas.as, eas.val);
 
 		if (json)
 			json_object_string_add(json_rt, "rt", rt_buf);
@@ -841,7 +841,7 @@ static void show_vni_routes_hash(struct hash_bucket *bucket, void *arg)
 	json_object *json_vni = NULL;
 	char vni_str[VNI_STR_LEN];
 
-	snprintf(vni_str, VNI_STR_LEN, "%d", vpn->vni);
+	snprintf(vni_str, sizeof(vni_str), "%d", vpn->vni);
 	if (json) {
 		json_vni = json_object_new_object();
 		json_object_int_add(json_vni, "vni", vpn->vni);
@@ -880,7 +880,7 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 
 	/* if an l3vni is present in bgp it is live */
 	buf1[0] = '\0';
-	sprintf(buf1, "*");
+	snprintf(buf1, sizeof(buf1), "*");
 
 	if (json) {
 		json_object_int_add(json_vni, "vni", bgp->l3vni);
@@ -921,9 +921,11 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 					      json_object_new_string(ecom_str));
 		} else {
 			if (listcount(bgp->vrf_import_rtl) > 1)
-				sprintf(rt_buf, "%s, ...", ecom_str);
+				snprintf(rt_buf, sizeof(rt_buf), "%s, ...",
+					 ecom_str);
 			else
-				sprintf(rt_buf, "%s", ecom_str);
+				snprintf(rt_buf, sizeof(rt_buf), "%s",
+					 ecom_str);
 			vty_out(vty, " %-25s", rt_buf);
 		}
 
@@ -947,9 +949,11 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 					      json_object_new_string(ecom_str));
 		} else {
 			if (listcount(bgp->vrf_export_rtl) > 1)
-				sprintf(rt_buf, "%s, ...", ecom_str);
+				snprintf(rt_buf, sizeof(rt_buf), "%s, ...",
+					 ecom_str);
 			else
-				sprintf(rt_buf, "%s", ecom_str);
+				snprintf(rt_buf, sizeof(rt_buf), "%s",
+					 ecom_str);
 			vty_out(vty, " %-25s", rt_buf);
 		}
 
@@ -968,7 +972,7 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 		char vni_str[VNI_STR_LEN];
 
 		json_object_object_add(json_vni, "exportRTs", json_export_rtl);
-		snprintf(vni_str, VNI_STR_LEN, "%u", bgp->l3vni);
+		snprintf(vni_str, sizeof(vni_str), "%u", bgp->l3vni);
 		json_object_object_add(json, vni_str, json_vni);
 	} else {
 		vty_out(vty, "\n");
@@ -1046,7 +1050,7 @@ static void show_vni_entry(struct hash_bucket *bucket, void *args[])
 
 	buf1[0] = '\0';
 	if (is_vni_live(vpn))
-		sprintf(buf1, "*");
+		snprintf(buf1, sizeof(buf1), "*");
 
 	if (json) {
 		json_object_int_add(json_vni, "vni", vpn->vni);
@@ -1098,9 +1102,11 @@ static void show_vni_entry(struct hash_bucket *bucket, void *args[])
 					      json_object_new_string(ecom_str));
 		} else {
 			if (listcount(vpn->import_rtl) > 1)
-				sprintf(rt_buf, "%s, ...", ecom_str);
+				snprintf(rt_buf, sizeof(rt_buf), "%s, ...",
+					 ecom_str);
 			else
-				sprintf(rt_buf, "%s", ecom_str);
+				snprintf(rt_buf, sizeof(rt_buf), "%s",
+					 ecom_str);
 			vty_out(vty, " %-25s", rt_buf);
 		}
 
@@ -1124,9 +1130,11 @@ static void show_vni_entry(struct hash_bucket *bucket, void *args[])
 					      json_object_new_string(ecom_str));
 		} else {
 			if (listcount(vpn->export_rtl) > 1)
-				sprintf(rt_buf, "%s, ...", ecom_str);
+				snprintf(rt_buf, sizeof(rt_buf), "%s, ...",
+					 ecom_str);
 			else
-				sprintf(rt_buf, "%s", ecom_str);
+				snprintf(rt_buf, sizeof(rt_buf), "%s",
+					 ecom_str);
 			vty_out(vty, " %-25s", rt_buf);
 		}
 
@@ -1145,7 +1153,7 @@ static void show_vni_entry(struct hash_bucket *bucket, void *args[])
 		char vni_str[VNI_STR_LEN];
 
 		json_object_object_add(json_vni, "exportRTs", json_export_rtl);
-		snprintf(vni_str, VNI_STR_LEN, "%u", vpn->vni);
+		snprintf(vni_str, sizeof(vni_str), "%u", vpn->vni);
 		json_object_object_add(json, vni_str, json_vni);
 	} else {
 		vty_out(vty, "\n");

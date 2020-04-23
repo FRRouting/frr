@@ -877,16 +877,15 @@ static void zebra_pbr_display_icmp(struct vty *vty,
 
 	/* range icmp type */
 	if (zpie->src_port_max || zpie->dst_port_max) {
-		vty_out(vty, ":icmp:[type <%d:%d>;code <%d:%d>",
+		vty_out(vty, ":icmp:[type <%u:%u>;code <%u:%u>",
 			zpie->src_port_min, zpie->src_port_max,
 			zpie->dst_port_min, zpie->dst_port_max);
 	} else {
 		port = ((zpie->src_port_min << 8) & 0xff00) +
 			(zpie->dst_port_min & 0xff);
 		memset(decoded_str, 0, sizeof(decoded_str));
-		sprintf(decoded_str, "%d/%d",
-			zpie->src_port_min,
-			zpie->dst_port_min);
+		snprintf(decoded_str, sizeof(decoded_str), "%u/%u",
+			 zpie->src_port_min, zpie->dst_port_min);
 		vty_out(vty, ":icmp:%s",
 			lookup_msg(icmp_typecode_str,
 				   port, decoded_str));
@@ -1129,7 +1128,7 @@ static void zebra_pbr_show_iptable_unit(struct zebra_pbr_iptable *iptable,
 	if (iptable->fragment) {
 		char val_str[10];
 
-		sprintf(val_str, "%d", iptable->fragment);
+		snprintf(val_str, sizeof(val_str), "%d", iptable->fragment);
 		vty_out(vty, "\t fragment%s %s\n",
 			iptable->filter_bm & MATCH_FRAGMENT_INVERSE_SET ?
 			" not" : "", lookup_msg(fragment_value_str,

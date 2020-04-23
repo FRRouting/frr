@@ -652,13 +652,16 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt)
 	as |= (*pnt++);
 	(void)ptr_get_be32(pnt, &bw);
 	if (bw >= ONE_GBPS_BYTES)
-		sprintf(bps_buf, "%.3f Gbps", (float)(bw/ONE_GBPS_BYTES));
+		snprintf(bps_buf, sizeof(bps_buf), "%.3f Gbps",
+			 (float)(bw / ONE_GBPS_BYTES));
 	else if (bw >= ONE_MBPS_BYTES)
-		sprintf(bps_buf, "%.3f Mbps", (float)(bw/ONE_MBPS_BYTES));
+		snprintf(bps_buf, sizeof(bps_buf), "%.3f Mbps",
+			 (float)(bw / ONE_MBPS_BYTES));
 	else if (bw >= ONE_KBPS_BYTES)
-		sprintf(bps_buf, "%.3f Kbps", (float)(bw/ONE_KBPS_BYTES));
+		snprintf(bps_buf, sizeof(bps_buf), "%.3f Kbps",
+			 (float)(bw / ONE_KBPS_BYTES));
 	else
-		sprintf(bps_buf, "%u bps", bw * 8);
+		snprintf(bps_buf, sizeof(bps_buf), "%u bps", bw * 8);
 
 	len = snprintf(buf, bufsz, "LB:%u:%u (%s)", as, bw, bps_buf);
 	return len;

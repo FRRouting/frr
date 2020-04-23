@@ -105,7 +105,7 @@ char *ospf_options_dump(uint8_t options)
 {
 	static char buf[OSPF_OPTION_STR_MAXLEN];
 
-	snprintf(buf, OSPF_OPTION_STR_MAXLEN, "*|%s|%s|%s|%s|%s|%s|%s",
+	snprintf(buf, sizeof(buf), "*|%s|%s|%s|%s|%s|%s|%s",
 		 (options & OSPF_OPTION_O) ? "O" : "-",
 		 (options & OSPF_OPTION_DC) ? "DC" : "-",
 		 (options & OSPF_OPTION_EA) ? "EA" : "-",

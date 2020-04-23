@@ -65,10 +65,10 @@ static csv_record_t *_ptm_lib_encode_header(csv_t *csv, csv_record_t *rec,
 	char client_buf[32];
 	csv_record_t *rec1;
 
-	sprintf(msglen_buf, "%4d", msglen);
-	sprintf(vers_buf, "%4d", version);
-	sprintf(type_buf, "%4d", type);
-	sprintf(cmdid_buf, "%4d", cmd_id);
+	snprintf(msglen_buf, sizeof(msglen_buf), "%4d", msglen);
+	snprintf(vers_buf, sizeof(vers_buf), "%4d", version);
+	snprintf(type_buf, sizeof(type_buf), "%4d", type);
+	snprintf(cmdid_buf, sizeof(cmdid_buf), "%4d", cmd_id);
 	snprintf(client_buf, 17, "%16.16s", client_name);
 	if (rec) {
 		rec1 = csv_encode_record(csv, rec, 5, msglen_buf, vers_buf,

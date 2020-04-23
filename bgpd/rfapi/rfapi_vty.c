@@ -1038,7 +1038,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	 * Prefix
 	 */
 	buf_pfx[0] = 0;
-	snprintf(buf_pfx, BUFSIZ, "%s/%d",
+	snprintf(buf_pfx, sizeof(buf_pfx), "%s/%d",
 		 rfapi_ntop(p->family, &p->u.prefix, buf_ntop, BUFSIZ),
 		 p->prefixlen);
 	buf_pfx[BUFSIZ - 1] = 0;
@@ -1049,7 +1049,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	 */
 	buf_un[0] = 0;
 	if (!rfapiGetUnAddrOfVpnBi(bpi, &pfx_un)) {
-		snprintf(buf_un, BUFSIZ, "%s",
+		snprintf(buf_un, sizeof(buf_un), "%s",
 			 inet_ntop(pfx_un.family, &pfx_un.u.prefix, buf_ntop,
 				   BUFSIZ));
 	}
@@ -1063,18 +1063,18 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	if (tun_type == BGP_ENCAP_TYPE_MPLS) {
 		/* MPLS carries un in nrli next hop (same as vn for IP tunnels)
 		 */
-		snprintf(buf_un, BUFSIZ, "%s",
+		snprintf(buf_un, sizeof(buf_un), "%s",
 			 inet_ntop(pfx_vn.family, &pfx_vn.u.prefix, buf_ntop,
 				   BUFSIZ));
 		if (bpi->extra) {
 			uint32_t l = decode_label(&bpi->extra->label[0]);
-			snprintf(buf_vn, BUFSIZ, "Label: %d", l);
+			snprintf(buf_vn, sizeof(buf_vn), "Label: %d", l);
 		} else /* should never happen */
 		{
-			snprintf(buf_vn, BUFSIZ, "Label: N/A");
+			snprintf(buf_vn, sizeof(buf_vn), "Label: N/A");
 		}
 	} else {
-		snprintf(buf_vn, BUFSIZ, "%s",
+		snprintf(buf_vn, sizeof(buf_vn), "%s",
 			 inet_ntop(pfx_vn.family, &pfx_vn.u.prefix, buf_ntop,
 				   BUFSIZ));
 	}

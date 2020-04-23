@@ -1882,7 +1882,7 @@ static void vty_serv_sock_addrinfo(const char *hostname, unsigned short port)
 	req.ai_flags = AI_PASSIVE;
 	req.ai_family = AF_UNSPEC;
 	req.ai_socktype = SOCK_STREAM;
-	sprintf(port_str, "%d", port);
+	snprintf(port_str, sizeof(port_str), "%d", port);
 	port_str[sizeof(port_str) - 1] = '\0';
 
 	ret = getaddrinfo(hostname, port_str, &req, &ainfo);
@@ -2380,7 +2380,7 @@ static FILE *vty_use_backup_config(const char *fullpath)
 	}
 
 	fullpath_tmp = malloc(strlen(fullpath) + 8);
-	sprintf(fullpath_tmp, "%s.XXXXXX", fullpath);
+	snprintf(fullpath_tmp, strlen(fullpath) + 8, "%s.XXXXXX", fullpath);
 
 	/* Open file to configuration write. */
 	tmp = mkstemp(fullpath_tmp);

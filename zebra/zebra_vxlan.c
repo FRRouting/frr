@@ -967,7 +967,7 @@ static void zvni_print_neigh_hash_all_vni(struct hash_bucket *bucket,
 	} else {
 		json_vni = json_object_new_object();
 		json_object_int_add(json_vni, "numArpNd", num_neigh);
-		snprintf(vni_str, VNI_STR_LEN, "%u", zvni->vni);
+		snprintf(vni_str, sizeof(vni_str), "%u", zvni->vni);
 	}
 
 	if (!num_neigh) {
@@ -1063,7 +1063,7 @@ static void zvni_print_neigh_hash_all_vni_detail(struct hash_bucket *bucket,
 	} else {
 		json_vni = json_object_new_object();
 		json_object_int_add(json_vni, "numArpNd", num_neigh);
-		snprintf(vni_str, VNI_STR_LEN, "%u", zvni->vni);
+		snprintf(vni_str, sizeof(vni_str), "%u", zvni->vni);
 	}
 	if (!num_neigh) {
 		if (json)
@@ -1534,7 +1534,7 @@ static void zvni_print_mac_hash_all_vni(struct hash_bucket *bucket, void *ctxt)
 	if (json) {
 		json_vni = json_object_new_object();
 		json_mac = json_object_new_object();
-		snprintf(vni_str, VNI_STR_LEN, "%u", zvni->vni);
+		snprintf(vni_str, sizeof(vni_str), "%u", zvni->vni);
 	}
 
 	if (!CHECK_FLAG(wctx->flags, SHOW_REMOTE_MAC_FROM_VTEP)) {
@@ -1610,7 +1610,7 @@ static void zvni_print_mac_hash_all_vni_detail(struct hash_bucket *bucket,
 	if (json) {
 		json_vni = json_object_new_object();
 		json_mac = json_object_new_object();
-		snprintf(vni_str, VNI_STR_LEN, "%u", zvni->vni);
+		snprintf(vni_str, sizeof(vni_str), "%u", zvni->vni);
 	}
 
 	if (!CHECK_FLAG(wctx->flags, SHOW_REMOTE_MAC_FROM_VTEP)) {
@@ -1693,7 +1693,7 @@ static void zl3vni_print_nh_hash_all_vni(struct hash_bucket *bucket,
 
 	if (json) {
 		json_vni = json_object_new_object();
-		snprintf(vni_str, VNI_STR_LEN, "%u", zl3vni->vni);
+		snprintf(vni_str, sizeof(vni_str), "%u", zl3vni->vni);
 	}
 
 	if (json == NULL) {
@@ -1732,7 +1732,7 @@ static void zl3vni_print_rmac_hash_all_vni(struct hash_bucket *bucket,
 
 	if (json) {
 		json_vni = json_object_new_object();
-		snprintf(vni_str, VNI_STR_LEN, "%u", zl3vni->vni);
+		snprintf(vni_str, sizeof(vni_str), "%u", zl3vni->vni);
 	}
 
 	if (json == NULL) {
@@ -1968,7 +1968,7 @@ static void zl3vni_print_hash(struct hash_bucket *bucket, void *ctx[])
 	} else {
 		char vni_str[VNI_STR_LEN];
 
-		snprintf(vni_str, VNI_STR_LEN, "%u", zl3vni->vni);
+		snprintf(vni_str, sizeof(vni_str), "%u", zl3vni->vni);
 		json_vni = json_object_new_object();
 		json_object_int_add(json_vni, "vni", zl3vni->vni);
 		json_object_string_add(json_vni, "vxlanIf",
@@ -2053,7 +2053,7 @@ static void zvni_print_hash(struct hash_bucket *bucket, void *ctxt[])
 			vrf_id_to_name(zvni->vrf_id));
 	else {
 		char vni_str[VNI_STR_LEN];
-		snprintf(vni_str, VNI_STR_LEN, "%u", zvni->vni);
+		snprintf(vni_str, sizeof(vni_str), "%u", zvni->vni);
 		json_vni = json_object_new_object();
 		json_object_int_add(json_vni, "vni", zvni->vni);
 		json_object_string_add(json_vni, "type", "L2");

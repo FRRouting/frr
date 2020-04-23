@@ -913,7 +913,7 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	igmp->igmp_group_list = list_new();
 	igmp->igmp_group_list->del = (void (*)(void *))igmp_group_free;
 
-	snprintf(hash_name, 64, "IGMP %s hash", ifp->name);
+	snprintf(hash_name, sizeof(hash_name), "IGMP %s hash", ifp->name);
 	igmp->igmp_group_hash = hash_create(igmp_group_hash_key,
 					    igmp_group_hash_equal, hash_name);
 

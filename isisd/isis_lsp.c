@@ -603,7 +603,7 @@ static void lsp_set_time(struct isis_lsp *lsp)
 void lspid_print(uint8_t *lsp_id, char *dest, char dynhost, char frag)
 {
 	struct isis_dynhn *dyn = NULL;
-	uint8_t id[SYSID_STRLEN];
+	char id[SYSID_STRLEN];
 
 	if (dynhost)
 		dyn = dynhn_find_by_id(lsp_id);
@@ -611,9 +611,9 @@ void lspid_print(uint8_t *lsp_id, char *dest, char dynhost, char frag)
 		dyn = NULL;
 
 	if (dyn)
-		sprintf((char *)id, "%.14s", dyn->hostname);
+		snprintf(id, sizeof(id), "%.14s", dyn->hostname);
 	else if (!memcmp(isis->sysid, lsp_id, ISIS_SYS_ID_LEN) && dynhost)
-		sprintf((char *)id, "%.14s", cmd_hostname_get());
+		snprintf(id, sizeof(id), "%.14s", cmd_hostname_get());
 	else
 		memcpy(id, sysid_print(lsp_id), 15);
 	if (frag)
@@ -659,7 +659,7 @@ void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost)
 	vty_out(vty, "0x%08" PRIx32 "  ", lsp->hdr.seqno);
 	vty_out(vty, "0x%04" PRIx16 "  ", lsp->hdr.checksum);
 	if (lsp->hdr.rem_lifetime == 0) {
-		snprintf(age_out, 8, "(%d)", lsp->age_out);
+		snprintf(age_out, sizeof(age_out), "(%d)", lsp->age_out);
 		age_out[7] = '\0';
 		vty_out(vty, "%7s   ", age_out);
 	} else

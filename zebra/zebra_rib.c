@@ -2456,11 +2456,12 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_BLACKHOLE:
-		sprintf(nhname, "Blackhole");
+		snprintf(nhname, sizeof(nhname), "Blackhole");
 		break;
 	case NEXTHOP_TYPE_IFINDEX:
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
-		sprintf(nhname, "%s", ifp ? ifp->name : "Unknown");
+		snprintf(nhname, sizeof(nhname), "%s",
+			 ifp ? ifp->name : "Unknown");
 		break;
 	case NEXTHOP_TYPE_IPV4:
 		/* fallthrough */

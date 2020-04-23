@@ -180,12 +180,14 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 
 					if (type == RD_TYPE_AS
 					    || type == RD_TYPE_AS4)
-						sprintf(rd_str, "%u:%d",
-							rd_as.as, rd_as.val);
+						snprintf(rd_str, sizeof(rd_str),
+							 "%u:%d", rd_as.as,
+							 rd_as.val);
 					else if (type == RD_TYPE_IP)
-						sprintf(rd_str, "%s:%d",
-							inet_ntoa(rd_ip.ip),
-							rd_ip.val);
+						snprintf(rd_str, sizeof(rd_str),
+							 "%s:%d",
+							 inet_ntoa(rd_ip.ip),
+							 rd_ip.val);
 					json_object_string_add(
 						json_routes,
 						"rd", rd_str);

@@ -306,7 +306,7 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 	}
 
 	if (IS_DEBUG_OSPF(lsa, LSA)) {
-		snprintf(buf1, INET_ADDRSTRLEN, "%s",
+		snprintf(buf1, sizeof(buf1), "%s",
 			 inet_ntoa(al->header.adv_router));
 		zlog_debug(
 			"Route[External]: Calculate AS-external-LSA to %s/%d adv_router %s",

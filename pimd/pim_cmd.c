@@ -2510,10 +2510,12 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		pim_upstream_state2brief_str(up->join_state, state_str, sizeof(state_str));
 		if (up->reg_state != PIM_REG_NOINFO) {
 			char tmp_str[PIM_REG_STATE_STR_LEN];
+			char tmp[sizeof(state_str) + 1];
 
-			sprintf(state_str + strlen(state_str), ",%s",
-				pim_reg_state2brief_str(up->reg_state, tmp_str,
-							sizeof(tmp_str)));
+			snprintf(tmp, sizeof(tmp), ",%s",
+				 pim_reg_state2brief_str(up->reg_state, tmp_str,
+							 sizeof(tmp_str)));
+			strlcat(state_str, tmp, sizeof(state_str));
 		}
 
 		if (uj) {

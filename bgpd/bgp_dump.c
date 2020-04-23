@@ -115,7 +115,8 @@ static FILE *bgp_dump_open_file(struct bgp_dump *bgp_dump)
 	localtime_r(&clock, &tm);
 
 	if (bgp_dump->filename[0] != DIRECTORY_SEP) {
-		sprintf(fullpath, "%s/%s", vty_get_cwd(), bgp_dump->filename);
+		snprintf(fullpath, sizeof(fullpath), "%s/%s", vty_get_cwd(),
+			 bgp_dump->filename);
 		ret = strftime(realpath, MAXPATHLEN, fullpath, &tm);
 	} else
 		ret = strftime(realpath, MAXPATHLEN, bgp_dump->filename, &tm);
@@ -785,32 +786,6 @@ static struct cmd_node bgp_dump_node = {
 	.prompt = "",
 	.config_write = config_write_bgp_dump,
 };
-
-#if 0
-char *
-config_time2str (unsigned int interval)
-{
-  static char buf[BUFSIZ];
-
-  buf[0] = '\0';
-
-  if (interval / 3600)
-    {
-      sprintf (buf, "%dh", interval / 3600);
-      interval %= 3600;
-    }
-  if (interval / 60)
-    {
-      sprintf (buf + strlen (buf), "%dm", interval /60);
-      interval %= 60;
-    }
-  if (interval)
-    {
-      sprintf (buf + strlen (buf), "%d", interval);
-    }
-  return buf;
-}
-#endif
 
 static int config_write_bgp_dump(struct vty *vty)
 {
