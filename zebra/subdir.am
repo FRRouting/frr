@@ -80,6 +80,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_gr.c \
 	zebra/zebra_l2.c \
 	zebra/zebra_evpn_mac.c \
+	zebra/zebra_evpn_neigh.c \
 	zebra/zebra_mlag.c \
 	zebra/zebra_mlag_vty.c \
 	zebra/zebra_memory.c \
