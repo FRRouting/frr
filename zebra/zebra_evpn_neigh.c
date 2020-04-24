@@ -574,9 +574,10 @@ bool zebra_evpn_neigh_is_bgp_seq_ok(zebra_evpn_t *zevpn, zebra_neigh_t *n,
 /*
  * Add neighbor entry.
  */
-zebra_neigh_t *zebra_evpn_neigh_add(zebra_evpn_t *zevpn, struct ipaddr *ip,
-				    struct ethaddr *mac, zebra_mac_t *zmac,
-				    uint32_t n_flags)
+static zebra_neigh_t *zebra_evpn_neigh_add(zebra_evpn_t *zevpn,
+					   struct ipaddr *ip,
+					   struct ethaddr *mac,
+					   zebra_mac_t *zmac, uint32_t n_flags)
 {
 	zebra_neigh_t tmp_n;
 	zebra_neigh_t *n = NULL;
@@ -853,7 +854,7 @@ zebra_evpn_proc_sync_neigh_update(zebra_evpn_t *zevpn, zebra_neigh_t *n,
 /*
  * Uninstall remote neighbor from the kernel.
  */
-int zebra_evpn_neigh_uninstall(zebra_evpn_t *zevpn, zebra_neigh_t *n)
+static int zebra_evpn_neigh_uninstall(zebra_evpn_t *zevpn, zebra_neigh_t *n)
 {
 	struct interface *vlan_if;
 
@@ -2342,4 +2343,42 @@ int zebra_evpn_neigh_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 	}
 
 	return 0;
+}
+
+void zebra_evpn_neigh_remote_uninstall(zebra_evpn_t *zevpn,
+				       struct zebra_vrf *zvrf, zebra_neigh_t *n,
+				       zebra_mac_t *mac, struct ipaddr *ipaddr)
+{
+	char buf1[INET6_ADDRSTRLEN];
+
+	if (zvrf->dad_freeze && CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE)
+	    && CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)
+	    && (memcmp(n->emac.octet, mac->macaddr.octet, ETH_ALEN) == 0)) {
+		struct interface *vlan_if;
+
+		vlan_if = zevpn_map_to_svi(zevpn);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"%s: IP %s (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
+				__func__,
+				ipaddr2str(ipaddr, buf1, sizeof(buf1)),
+				n->flags, vlan_if ? vlan_if->name : "Unknown");
+		if (vlan_if)
+			neigh_read_specific_ip(ipaddr, vlan_if);
+	}
+
+	/* When the MAC changes for an IP, it is possible the
+	 * client may update the new MAC before trying to delete the
+	 * "old" neighbor (as these are two different MACIP routes).
+	 * Do the delete only if the MAC matches.
+	 */
+	if (!memcmp(n->emac.octet, mac->macaddr.octet, ETH_ALEN)) {
+		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
+			zebra_evpn_sync_neigh_del(n);
+		} else if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
+			zebra_evpn_neigh_uninstall(zevpn, n);
+			zebra_evpn_neigh_del(zevpn, n);
+			zebra_evpn_deref_ip2mac(zevpn, mac);
+		}
+	}
 }
