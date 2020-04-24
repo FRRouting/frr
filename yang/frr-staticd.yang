@@ -39,6 +39,49 @@ module frr-staticd {
       "'Static' routing pseudo-protocol.";
   }
 
+  typedef optional-src-prefix {
+    type union {
+      type inet:ipv6-prefix;
+      type string {
+        pattern
+          '';
+      }
+    }
+  }
+
+  grouping staticd-prefix-attributes {
+
+    list path-list {
+      key "distance tag table-id";
+
+      leaf distance {
+        type frr-rt:administrative-distance;
+        description
+          "Admin distance associated with this route.";
+      }
+      leaf tag {
+        type uint32 {
+          range "0..4294967295";
+        }
+        description
+          "Route tag";
+      }
+
+      leaf table-id {
+        type uint32 {
+          range "0..4294967295";
+        }
+        description
+          "Table-id";
+      }
+      container frr-staticd-next-hop {
+        description
+          "Augment static route configuration 'nexthop-list'.";
+        uses frr-nexthop:frr-nexthop;
+      }
+    }
+  }
+
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/"
         + "frr-rt:control-plane-protocol" {
     container staticd {
@@ -51,34 +94,29 @@ module frr-staticd {
       "Support for a 'static' pseudo-protocol instance
        consists of a list of routes.";
 
-      list prefix-list {
+      list route-list {
         key "destination-prefix";
         description
           "List of static IP routes.";
 
         leaf destination-prefix {
-          type inet:ip-address;
+          type inet:ip-prefix;
           description
             "IP destination prefix.";
         }
 
-        leaf distance {
-          type frr-rt:administrative-distance;
-          description
-            "Admin distance associated with this route.";
-        }
+	uses staticd-prefix-attributes;
 
-        leaf tag {
-          type uint32 {
-            range "1..4294967295";
-          }
-          description
-            "Route tag";
-        }
-        container frr-staticd-next-hop {
-          description
-            "Augment static route configuration 'nexthop-list'.";
-          uses frr-nexthop:frr-nexthop;
+	list src-list {
+          key "src-prefix";
+
+          leaf src-prefix {
+            type optional-src-prefix;
+            description
+              "IPv6 source prefix";
+	  }
+
+	  uses staticd-prefix-attributes;
         }
       }
     }
