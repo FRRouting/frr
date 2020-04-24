@@ -3347,19 +3347,10 @@ static void process_remote_macip_add(vni_t vni,
 {
 	zebra_evpn_t *zevpn;
 	zebra_vtep_t *zvtep;
-	zebra_mac_t *mac = NULL, *old_mac = NULL;
-	zebra_neigh_t *n = NULL;
-	int update_neigh = 0;
-	char buf[ETHER_ADDR_STRLEN];
-	char buf1[INET6_ADDRSTRLEN];
+	zebra_mac_t *mac = NULL;
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_vrf *zvrf;
-	uint32_t tmp_seq;
-	bool is_router;
-	bool do_dad = false;
-	bool is_dup_detect = false;
-	bool old_static = false;
 
 	/* Locate EVPN hash entry - expected to exist. */
 	zevpn = zevpn_lookup(vni);
@@ -3412,8 +3403,6 @@ static void process_remote_macip_add(vni_t vni,
 		}
 	}
 
-	is_router = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
-
 	zvrf = vrf_info_lookup(zevpn->vxlan_if->vrf_id);
 	if (!zvrf)
 		return;
@@ -3424,147 +3413,8 @@ static void process_remote_macip_add(vni_t vni,
 	    != 0)
 		return;
 
-	/* Check if the remote neighbor itself is unknown or has a
-	 * change. If so, create or update and then install the entry.
-	 */
-	n = zebra_evpn_neigh_lookup(zevpn, ipaddr);
-	if (!n
-	    || !CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)
-	    || is_router != !!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG)
-	    || (memcmp(&n->emac, macaddr, sizeof(*macaddr)) != 0)
-	    || !IPV4_ADDR_SAME(&n->r_vtep_ip, &vtep_ip)
-	    || seq != n->rem_seq)
-		update_neigh = 1;
-
-	if (update_neigh) {
-		if (!n) {
-			n = zebra_evpn_neigh_add(zevpn, ipaddr, macaddr, mac,
-						 0);
-			if (!n) {
-				zlog_warn(
-					"Failed to add Neigh %s MAC %s VNI %u Remote VTEP %s",
-					ipaddr2str(ipaddr, buf1,
-						   sizeof(buf1)),
-					prefix_mac2str(macaddr, buf,
-						       sizeof(buf)),
-					vni, inet_ntoa(vtep_ip));
-				return;
-			}
-
-		} else {
-			const char *n_type;
-
-			/* When host moves but changes its (MAC,IP)
-			 * binding, BGP may install a MACIP entry that
-			 * corresponds to "older" location of the host
-			 * in transient situations (because {IP1,M1}
-			 * is a different route from {IP1,M2}). Check
-			 * the sequence number and ignore this update
-			 * if appropriate.
-			 */
-			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
-				tmp_seq = n->loc_seq;
-				n_type = "local";
-			} else {
-				tmp_seq = n->rem_seq;
-				n_type = "remote";
-			}
-			if (seq < tmp_seq) {
-				if (IS_ZEBRA_DEBUG_VXLAN)
-					zlog_debug("Ignore remote MACIP ADD VNI %u MAC %s%s%s as existing %s Neigh has higher seq %u",
-					vni,
-					prefix_mac2str(macaddr,
-						       buf, sizeof(buf)),
-					" IP ",
-					ipaddr2str(ipaddr, buf1, sizeof(buf1)),
-					n_type,
-					tmp_seq);
-				return;
-			}
-			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
-				old_static = zebra_evpn_neigh_is_static(n);
-				if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
-					zlog_debug("sync->remote neigh vni %u ip %s mac %s seq %d f0x%x",
-						n->zevpn->vni,
-						ipaddr2str(&n->ip, buf1,
-							sizeof(buf1)),
-						prefix_mac2str(&n->emac, buf,
-							sizeof(buf)),
-						seq, n->flags);
-				zebra_evpn_neigh_clear_sync_info(n);
-				if (IS_ZEBRA_NEIGH_ACTIVE(n))
-					zebra_evpn_mac_send_del_to_client(
-						zevpn->vni, macaddr, mac->flags,
-						false /*force*/);
-			}
-			if (memcmp(&n->emac, macaddr, sizeof(*macaddr)) != 0) {
-				/* update neigh list for macs */
-				old_mac =
-					zebra_evpn_mac_lookup(zevpn, &n->emac);
-				if (old_mac) {
-					listnode_delete(old_mac->neigh_list, n);
-					n->mac = NULL;
-					zebra_evpn_deref_ip2mac(zevpn, old_mac);
-				}
-				n->mac = mac;
-				listnode_add_sort(mac->neigh_list, n);
-				memcpy(&n->emac, macaddr, ETH_ALEN);
-
-				/* Check Neigh's curent state is local
-				 * (this is the case where neigh/host has  moved
-				 * from L->R) and check previous detction
-				 * started via local learning.
-				 *
-				 * RFC-7432: A PE/VTEP that detects a MAC
-				 * mobilit event via local learning starts
-				 * an M-second timer.
-				 * VTEP-IP or seq. change along is not
-				 * considered for dup. detection.
-				 *
-				 * Mobilty event scenario-B IP-MAC binding
-				 * changed.
-				 */
-				if ((!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
-				    && n->dad_count)
-					do_dad = true;
-
-			}
-		}
-
-		/* Set "remote" forwarding info. */
-		UNSET_FLAG(n->flags, ZEBRA_NEIGH_ALL_LOCAL_FLAGS);
-		n->r_vtep_ip = vtep_ip;
-		SET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE);
-
-		/* Set router flag (R-bit) to this Neighbor entry */
-		if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG))
-			SET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
-		else
-			UNSET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
-
-		/* Check old or new MAC detected as duplicate,
-		 * inherit duplicate flag to this neigh.
-		 */
-		if (zebra_evpn_ip_inherit_dad_from_mac(zvrf, old_mac, mac, n)) {
-			flog_warn(EC_ZEBRA_DUP_IP_INHERIT_DETECTED,
-				"VNI %u: MAC %s IP %s detected as duplicate during remote update, inherit duplicate from MAC",
-				zevpn->vni,
-				prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
-				ipaddr2str(&n->ip, buf1, sizeof(buf1)));
-		}
-
-		/* Check duplicate address detection for IP */
-		zebra_evpn_dup_addr_detect_for_neigh(
-			zvrf, n, n->r_vtep_ip, do_dad, &is_dup_detect, false);
-		/* Install the entry. */
-		if (!is_dup_detect)
-			zebra_evpn_rem_neigh_install(zevpn, n, old_static);
-	}
-
-	zebra_evpn_probe_neigh_on_mac_add(zevpn, mac);
-
-	/* Update seq number. */
-	n->rem_seq = seq;
+	process_neigh_remote_macip_add(zevpn, zvrf, ipaddr, mac, vtep_ip, flags,
+				       seq);
 }
 
 /* Process a remote MACIP delete from BGP. */
