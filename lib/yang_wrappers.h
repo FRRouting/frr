@@ -184,6 +184,11 @@ extern struct yang_data *yang_data_new_mac(const char *xpath,
 					   const struct ethaddr *mac);
 extern void yang_str2mac(const char *value, struct ethaddr *mac);
 
+/*data-and-time */
+extern struct yang_data *yang_data_new_date_and_time(const char *xpath,
+						     time_t time);
+
+/* nexthop enum2str */
 extern const char *yang_nexthop_type2str(uint32_t ntype);
 
 #ifdef __cplusplus
