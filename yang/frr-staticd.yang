@@ -1,11 +1,10 @@
 module frr-staticd {
-  yang-version "1.1";
+  yang-version 1.1;
   namespace "http://frrouting.org/yang/staticd";
-
   prefix frr-staticd;
 
   import frr-routing {
-    prefix "frr-rt";
+    prefix frr-rt;
   }
 
   import frr-nexthop {
@@ -18,11 +17,9 @@ module frr-staticd {
 
   organization
     "FRRouting";
-
   contact
     "FRR Users List: <mailto:frog@lists.frrouting.org>
      FRR Development List: <mailto:dev@lists.frrouting.org>";
-
   description
     "This module defines a model for managing FRR staticd information.
      This YANG module augments the ietf-routing with additional
@@ -58,52 +55,70 @@ module frr-staticd {
       "Initial revision.";
   }
 
-  identity static {
+  identity staticd {
     base frr-rt:routing-protocol;
     description
-      "'Static' routing pseudo-protocol.";
+      "'Staticd' routing pseudo-protocol.";
   }
 
-  augment "/frr-rt:routing/frr-rt:control-plane-protocols/"
-        + "frr-rt:control-plane-protocol" {
-    container staticd {
-      when "../frr-rt:type = 'frr-staticd:static'" {
+  grouping staticd-prefix-attributes {
+    list path-list {
+      key "distance";
+      leaf distance {
+        type frr-rt:administrative-distance;
         description
-          "This container is only valid for the 'static' routing
+          "Admin distance associated with this route.";
+      }
+
+      leaf tag {
+        type uint32;
+        default "0";
+        description
+          "Route tag";
+      }
+
+      leaf table-id {
+        type uint32;
+        default "0";
+        description
+          "Table-id";
+      }
+
+      uses frr-nexthop:frr-nexthop;
+    }
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol" {
+    container staticd {
+      when "../frr-rt:type = 'frr-staticd:staticd'" {
+        description
+          "This container is only valid for the 'staticd' routing
            protocol.";
       }
       description
-      "Support for a 'static' pseudo-protocol instance
-       consists of a list of routes.";
-
-      list prefix-list {
-        key "destination-prefix";
+        "Support for a 'staticd' pseudo-protocol instance
+         consists of a list of routes.";
+      list route-list {
+        key "prefix";
         description
-          "List of static IP routes.";
-
-        leaf destination-prefix {
-          type inet:ip-address;
+          "List of staticd IP routes.";
+        leaf prefix {
+          type inet:ip-prefix;
           description
-            "IP destination prefix.";
+            "IP prefix.";
         }
 
-        leaf distance {
-          type frr-rt:administrative-distance;
-          description
-            "Admin distance associated with this route.";
-        }
+        uses staticd-prefix-attributes;
 
-        leaf tag {
-          type uint32 {
-            range "1..4294967295";
+        list src-list {
+          key "src-prefix";
+          leaf src-prefix {
+            type inet:ipv6-prefix;
+            description
+              "IPv6 source prefix";
           }
-          description
-            "Route tag";
-        }
-        container frr-staticd-next-hop {
-          description
-            "Augment static route configuration 'nexthop-list'.";
-          uses frr-nexthop:frr-nexthop;
+
+          uses staticd-prefix-attributes;
         }
       }
     }
