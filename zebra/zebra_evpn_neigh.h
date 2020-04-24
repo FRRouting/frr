@@ -275,19 +275,14 @@ void zebra_evpn_print_neigh_hash_detail(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_print_dad_neigh_hash(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_print_dad_neigh_hash_detail(struct hash_bucket *bucket,
 					    void *ctxt);
+void process_neigh_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
+				    struct ipaddr *ipaddr, zebra_mac_t *mac,
+				    struct in_addr vtep_ip, uint8_t flags,
+				    uint32_t seq);
 
-void zebra_evpn_probe_neigh_on_mac_add(zebra_evpn_t *zevpn, zebra_mac_t *zmac);
 zebra_neigh_t *zebra_evpn_neigh_add(zebra_evpn_t *zevpn, struct ipaddr *ip,
 				    struct ethaddr *mac, zebra_mac_t *zmac,
 				    uint32_t n_flags);
-int zebra_evpn_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
-				       zebra_mac_t *old_zmac,
-				       zebra_mac_t *new_zmac,
-				       zebra_neigh_t *nbr);
-void zebra_evpn_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
-					  zebra_neigh_t *nbr,
-					  struct in_addr vtep_ip, bool do_dad,
-					  bool *is_dup_detect, bool is_local);
 int zebra_evpn_neigh_uninstall(zebra_evpn_t *zevpn, zebra_neigh_t *n);
 void zebra_evpn_neigh_send_add_del_to_client(zebra_neigh_t *n,
 					     bool old_bgp_ready,
