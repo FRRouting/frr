@@ -284,13 +284,8 @@ int zebra_evpn_neigh_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 void zebra_evpn_neigh_remote_uninstall(zebra_evpn_t *zevpn,
 				       struct zebra_vrf *zvrf, zebra_neigh_t *n,
 				       zebra_mac_t *mac, struct ipaddr *ipaddr);
+int zebra_evpn_neigh_del_ip(zebra_evpn_t *zevpn, struct ipaddr *ip);
 
-void zebra_evpn_neigh_send_add_del_to_client(zebra_neigh_t *n,
-					     bool old_bgp_ready,
-					     bool new_bgp_ready);
-void zebra_evpn_sync_neigh_dp_install(zebra_neigh_t *n, bool set_inactive,
-				      bool force_clear_static,
-				      const char *caller);
 
 #ifdef __cplusplus
 }
