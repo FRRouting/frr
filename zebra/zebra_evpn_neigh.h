@@ -281,11 +281,10 @@ void process_neigh_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 				    uint32_t seq);
 int zebra_evpn_neigh_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 				  struct ipaddr *ip, zebra_mac_t *mac);
+void zebra_evpn_neigh_remote_uninstall(zebra_evpn_t *zevpn,
+				       struct zebra_vrf *zvrf, zebra_neigh_t *n,
+				       zebra_mac_t *mac, struct ipaddr *ipaddr);
 
-zebra_neigh_t *zebra_evpn_neigh_add(zebra_evpn_t *zevpn, struct ipaddr *ip,
-				    struct ethaddr *mac, zebra_mac_t *zmac,
-				    uint32_t n_flags);
-int zebra_evpn_neigh_uninstall(zebra_evpn_t *zevpn, zebra_neigh_t *n);
 void zebra_evpn_neigh_send_add_del_to_client(zebra_neigh_t *n,
 					     bool old_bgp_ready,
 					     bool new_bgp_ready);

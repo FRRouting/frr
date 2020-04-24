@@ -3432,41 +3432,9 @@ static void process_remote_macip_del(vni_t vni,
 	}
 
 	/* Uninstall remote neighbor or MAC. */
-	if (n) {
-		if (zvrf->dad_freeze &&
-		    CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE) &&
-		    CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) &&
-		    (memcmp(n->emac.octet, macaddr->octet, ETH_ALEN) == 0)) {
-			struct interface *vlan_if;
-
-			vlan_if = zvni_map_to_svi(vxl->access_vlan,
-						  zif->brslave_info.br_if);
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug(
-					"%s: IP %s (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
-					__func__,
-					ipaddr2str(ipaddr, buf1, sizeof(buf1)),
-					n->flags,
-					vlan_if ? vlan_if->name : "Unknown");
-			if (vlan_if)
-				neigh_read_specific_ip(ipaddr, vlan_if);
-		}
-
-		/* When the MAC changes for an IP, it is possible the
-		 * client may update the new MAC before trying to delete the
-		 * "old" neighbor (as these are two different MACIP routes).
-		 * Do the delete only if the MAC matches.
-		 */
-		if (!memcmp(n->emac.octet, macaddr->octet, ETH_ALEN)) {
-			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
-				zebra_evpn_sync_neigh_del(n);
-			} else if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
-				zebra_evpn_neigh_uninstall(zevpn, n);
-				zebra_evpn_neigh_del(zevpn, n);
-				zebra_evpn_deref_ip2mac(zevpn, mac);
-			}
-		}
-	} else {
+	if (n)
+		zebra_evpn_neigh_remote_uninstall(zevpn, zvrf, n, mac, ipaddr);
+	else {
 		/* DAD: when MAC is freeze state as remote learn event,
 		 * remote mac-ip delete event is received will result in freeze
 		 * entry removal, first fetch kernel for the same entry present
