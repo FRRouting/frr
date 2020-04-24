@@ -9050,11 +9050,9 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					vty_out(vty, "EstdCnt DropCnt ResetTime Reason\n");
 				else
 					vty_out(vty,
-						"V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt\n");
+					"V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd\n");
 			}
 		}
-
-		paf = peer_af_find(peer, afi, pfx_rcd_safi);
 
 		count++;
 		/* Works for both failed & successful cases */
@@ -9111,6 +9109,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				json_object_int_add(json_peer, "pfxRcd",
 						    peer->pcount[afi][pfx_rcd_safi]);
 
+				paf = peer_af_find(peer, afi, pfx_rcd_safi);
 				if (paf && PAF_SUBGRP(paf))
 					json_object_int_add(json_peer,
 							    "pfxSnt",
@@ -9196,7 +9195,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					peer_uptime(peer->uptime, timebuf,
 						    BGP_UPTIME_LEN, 0, NULL));
 
-				if (peer->status == Established) {
+				if (peer->status == Established)
 					if (peer->afc_recv[afi][safi])
 						vty_out(vty, " %12" PRIu32,
 							peer->pcount
@@ -9204,12 +9203,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 								[pfx_rcd_safi]);
 					else
 						vty_out(vty, " NoNeg");
-
-					if (paf && PAF_SUBGRP(paf))
-						vty_out(vty, " %8" PRIu32,
-							(PAF_SUBGRP(paf))
-								->scount);
-				} else {
+				else {
 					if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
 						vty_out(vty, " Idle (Admin)");
 					else if (CHECK_FLAG(
@@ -9220,8 +9214,6 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						vty_out(vty, " %12s",
 							lookup_msg(bgp_status_msg,
 								   peer->status, NULL));
-
-					vty_out(vty, " %8" PRIu32, 0);
 				}
 				vty_out(vty, "\n");
 			}
