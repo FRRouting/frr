@@ -206,7 +206,7 @@ module frr-nexthop {
       description
         "FRR nexthop object.";
       list nexthop {
-        key "nh-type gateway interface";
+        key "nh-type gateway interface vrf";
         description
           "A list of nexthop objects.";
         uses frr-nexthop-attributes;
