@@ -108,6 +108,8 @@ lib_libfrr_la_SOURCES = \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
 	lib/printf/glue.c \
+	lib/routing_nb.c \
+	lib/routing_nb_config.c \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \
@@ -117,6 +119,7 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-route-types.yang.c \
 	yang/frr-vrf.yang.c \
 	yang/frr-routing.yang.c \
+	yang/frr-nexthop.yang.c \
 	yang/ietf/ietf-routing-types.yang.c \
 	yang/ietf/ietf-interfaces.yang.c \
 	yang/frr-module-translator.yang.c \
@@ -266,6 +269,7 @@ pkginclude_HEADERS += \
 	lib/zlog.h \
 	lib/zlog_targets.h \
 	lib/pbr.h \
+	lib/routing_nb.h \
 	# end
 
 
