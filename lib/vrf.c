@@ -1053,31 +1053,30 @@ vrf_id_t vrf_generate_id(void)
 /*
  * XPath: /frr-vrf:lib/vrf
  */
-static int lib_vrf_create(enum nb_event event, const struct lyd_node *dnode,
-			  union nb_resource *resource)
+static int lib_vrf_create(struct nb_cb_create_args *args)
 {
 	const char *vrfname;
 	struct vrf *vrfp;
 
-	vrfname = yang_dnode_get_string(dnode, "./name");
+	vrfname = yang_dnode_get_string(args->dnode, "./name");
 
-	if (event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	vrfp = vrf_get(VRF_UNKNOWN, vrfname);
 
-	nb_running_set_entry(dnode, vrfp);
+	nb_running_set_entry(args->dnode, vrfp);
 
 	return NB_OK;
 }
 
-static int lib_vrf_destroy(enum nb_event event, const struct lyd_node *dnode)
+static int lib_vrf_destroy(struct nb_cb_destroy_args *args)
 {
 	struct vrf *vrfp;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
-		vrfp = nb_running_get_entry(dnode, NULL, true);
+		vrfp = nb_running_get_entry(args->dnode, NULL, true);
 		if (CHECK_FLAG(vrfp->status, VRF_ACTIVE)) {
 			zlog_debug("%s Only inactive VRFs can be deleted",
 				   __func__);
@@ -1088,7 +1087,7 @@ static int lib_vrf_destroy(enum nb_event event, const struct lyd_node *dnode)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrfp = nb_running_unset_entry(dnode);
+		vrfp = nb_running_unset_entry(args->dnode);
 
 		/* Clear configured flag and invoke delete. */
 		UNSET_FLAG(vrfp->status, VRF_CONFIGURED);
@@ -1099,12 +1098,11 @@ static int lib_vrf_destroy(enum nb_event event, const struct lyd_node *dnode)
 	return NB_OK;
 }
 
-static const void *lib_vrf_get_next(const void *parent_list_entry,
-				    const void *list_entry)
+static const void *lib_vrf_get_next(struct nb_cb_get_next_args *args)
 {
-	struct vrf *vrfp = (struct vrf *)list_entry;
+	struct vrf *vrfp = (struct vrf *)args->list_entry;
 
-	if (list_entry == NULL) {
+	if (args->list_entry == NULL) {
 		vrfp = RB_MIN(vrf_name_head, &vrfs_by_name);
 	} else {
 		vrfp = RB_NEXT(vrf_name_head, vrfp);
@@ -1113,20 +1111,19 @@ static const void *lib_vrf_get_next(const void *parent_list_entry,
 	return vrfp;
 }
 
-static int lib_vrf_get_keys(const void *list_entry, struct yang_list_keys *keys)
+static int lib_vrf_get_keys(struct nb_cb_get_keys_args *args)
 {
-	struct vrf *vrfp = (struct vrf *)list_entry;
+	struct vrf *vrfp = (struct vrf *)args->list_entry;
 
-	keys->num = 1;
-	strlcpy(keys->key[0], vrfp->name, sizeof(keys->key[0]));
+	args->keys->num = 1;
+	strlcpy(args->keys->key[0], vrfp->name, sizeof(args->keys->key[0]));
 
 	return NB_OK;
 }
 
-static const void *lib_vrf_lookup_entry(const void *parent_list_entry,
-					const struct yang_list_keys *keys)
+static const void *lib_vrf_lookup_entry(struct nb_cb_lookup_entry_args *args)
 {
-	const char *vrfname = keys->key[0];
+	const char *vrfname = args->keys->key[0];
 
 	struct vrf *vrf = vrf_lookup_by_name(vrfname);
 
@@ -1136,25 +1133,25 @@ static const void *lib_vrf_lookup_entry(const void *parent_list_entry,
 /*
  * XPath: /frr-vrf:lib/vrf/id
  */
-static struct yang_data *lib_vrf_state_id_get_elem(const char *xpath,
-						   const void *list_entry)
+static struct yang_data *
+lib_vrf_state_id_get_elem(struct nb_cb_get_elem_args *args)
 {
-	struct vrf *vrfp = (struct vrf *)list_entry;
+	struct vrf *vrfp = (struct vrf *)args->list_entry;
 
-	return yang_data_new_uint32(xpath, vrfp->vrf_id);
+	return yang_data_new_uint32(args->xpath, vrfp->vrf_id);
 }
 
 /*
  * XPath: /frr-vrf:lib/vrf/active
  */
-static struct yang_data *lib_vrf_state_active_get_elem(const char *xpath,
-						       const void *list_entry)
+static struct yang_data *
+lib_vrf_state_active_get_elem(struct nb_cb_get_elem_args *args)
 {
-	struct vrf *vrfp = (struct vrf *)list_entry;
+	struct vrf *vrfp = (struct vrf *)args->list_entry;
 
 	if (vrfp->status == VRF_ACTIVE)
 		return yang_data_new_bool(
-			xpath, vrfp->status == VRF_ACTIVE ? true : false);
+			args->xpath, vrfp->status == VRF_ACTIVE ? true : false);
 
 	return NULL;
 }

@@ -27,38 +27,35 @@
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/up-count
  */
 struct yang_data *
-lib_interface_zebra_state_up_count_get_elem(const char *xpath,
-					    const void *list_entry)
+lib_interface_zebra_state_up_count_get_elem(struct nb_cb_get_elem_args *args)
 {
-	const struct interface *ifp = list_entry;
+	const struct interface *ifp = args->list_entry;
 	struct zebra_if *zebra_if;
 
 	zebra_if = ifp->info;
 
-	return yang_data_new_uint16(xpath, zebra_if->up_count);
+	return yang_data_new_uint16(args->xpath, zebra_if->up_count);
 }
 
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/down-count
  */
 struct yang_data *
-lib_interface_zebra_state_down_count_get_elem(const char *xpath,
-					      const void *list_entry)
+lib_interface_zebra_state_down_count_get_elem(struct nb_cb_get_elem_args *args)
 {
-	const struct interface *ifp = list_entry;
+	const struct interface *ifp = args->list_entry;
 	struct zebra_if *zebra_if;
 
 	zebra_if = ifp->info;
 
-	return yang_data_new_uint16(xpath, zebra_if->down_count);
+	return yang_data_new_uint16(args->xpath, zebra_if->down_count);
 }
 
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/zif-type
  */
 struct yang_data *
-lib_interface_zebra_state_zif_type_get_elem(const char *xpath,
-					    const void *list_entry)
+lib_interface_zebra_state_zif_type_get_elem(struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -68,8 +65,7 @@ lib_interface_zebra_state_zif_type_get_elem(const char *xpath,
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/ptm-status
  */
 struct yang_data *
-lib_interface_zebra_state_ptm_status_get_elem(const char *xpath,
-					      const void *list_entry)
+lib_interface_zebra_state_ptm_status_get_elem(struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -79,10 +75,9 @@ lib_interface_zebra_state_ptm_status_get_elem(const char *xpath,
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/vlan-id
  */
 struct yang_data *
-lib_interface_zebra_state_vlan_id_get_elem(const char *xpath,
-					   const void *list_entry)
+lib_interface_zebra_state_vlan_id_get_elem(struct nb_cb_get_elem_args *args)
 {
-	const struct interface *ifp = list_entry;
+	const struct interface *ifp = args->list_entry;
 	struct zebra_if *zebra_if;
 	struct zebra_l2info_vlan *vlan_info;
 
@@ -92,17 +87,16 @@ lib_interface_zebra_state_vlan_id_get_elem(const char *xpath,
 	zebra_if = ifp->info;
 	vlan_info = &zebra_if->l2info.vl;
 
-	return yang_data_new_uint16(xpath, vlan_info->vid);
+	return yang_data_new_uint16(args->xpath, vlan_info->vid);
 }
 
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/vni-id
  */
 struct yang_data *
-lib_interface_zebra_state_vni_id_get_elem(const char *xpath,
-					  const void *list_entry)
+lib_interface_zebra_state_vni_id_get_elem(struct nb_cb_get_elem_args *args)
 {
-	const struct interface *ifp = list_entry;
+	const struct interface *ifp = args->list_entry;
 	struct zebra_if *zebra_if;
 	struct zebra_l2info_vxlan *vxlan_info;
 
@@ -112,17 +106,16 @@ lib_interface_zebra_state_vni_id_get_elem(const char *xpath,
 	zebra_if = ifp->info;
 	vxlan_info = &zebra_if->l2info.vxl;
 
-	return yang_data_new_uint32(xpath, vxlan_info->vni);
+	return yang_data_new_uint32(args->xpath, vxlan_info->vni);
 }
 
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/remote-vtep
  */
 struct yang_data *
-lib_interface_zebra_state_remote_vtep_get_elem(const char *xpath,
-					       const void *list_entry)
+lib_interface_zebra_state_remote_vtep_get_elem(struct nb_cb_get_elem_args *args)
 {
-	const struct interface *ifp = list_entry;
+	const struct interface *ifp = args->list_entry;
 	struct zebra_if *zebra_if;
 	struct zebra_l2info_vxlan *vxlan_info;
 
@@ -132,17 +125,16 @@ lib_interface_zebra_state_remote_vtep_get_elem(const char *xpath,
 	zebra_if = ifp->info;
 	vxlan_info = &zebra_if->l2info.vxl;
 
-	return yang_data_new_ipv4(xpath, &vxlan_info->vtep_ip);
+	return yang_data_new_ipv4(args->xpath, &vxlan_info->vtep_ip);
 }
 
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/mcast-group
  */
 struct yang_data *
-lib_interface_zebra_state_mcast_group_get_elem(const char *xpath,
-					       const void *list_entry)
+lib_interface_zebra_state_mcast_group_get_elem(struct nb_cb_get_elem_args *args)
 {
-	const struct interface *ifp = list_entry;
+	const struct interface *ifp = args->list_entry;
 	struct zebra_if *zebra_if;
 	struct zebra_l2info_vxlan *vxlan_info;
 
@@ -152,25 +144,22 @@ lib_interface_zebra_state_mcast_group_get_elem(const char *xpath,
 	zebra_if = ifp->info;
 	vxlan_info = &zebra_if->l2info.vxl;
 
-	return yang_data_new_ipv4(xpath, &vxlan_info->mcast_grp);
+	return yang_data_new_ipv4(args->xpath, &vxlan_info->mcast_grp);
 }
 
-const void *lib_vrf_ribs_rib_get_next(const void *parent_list_entry,
-				      const void *list_entry)
+const void *lib_vrf_ribs_rib_get_next(struct nb_cb_get_next_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
 }
 
-int lib_vrf_ribs_rib_get_keys(const void *list_entry,
-			      struct yang_list_keys *keys)
+int lib_vrf_ribs_rib_get_keys(struct nb_cb_get_keys_args *args)
 {
 	/* TODO: implement me. */
 	return NB_OK;
 }
 
-const void *lib_vrf_ribs_rib_lookup_entry(const void *parent_list_entry,
-					  const struct yang_list_keys *keys)
+const void *lib_vrf_ribs_rib_lookup_entry(struct nb_cb_lookup_entry_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -179,23 +168,20 @@ const void *lib_vrf_ribs_rib_lookup_entry(const void *parent_list_entry,
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route
  */
-const void *lib_vrf_ribs_rib_route_get_next(const void *parent_list_entry,
-					    const void *list_entry)
+const void *lib_vrf_ribs_rib_route_get_next(struct nb_cb_get_next_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
 }
 
-int lib_vrf_ribs_rib_route_get_keys(const void *list_entry,
-				    struct yang_list_keys *keys)
+int lib_vrf_ribs_rib_route_get_keys(struct nb_cb_get_keys_args *args)
 {
 	/* TODO: implement me. */
 	return NB_OK;
 }
 
 const void *
-lib_vrf_ribs_rib_route_lookup_entry(const void *parent_list_entry,
-				    const struct yang_list_keys *keys)
+lib_vrf_ribs_rib_route_lookup_entry(struct nb_cb_lookup_entry_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -204,8 +190,8 @@ lib_vrf_ribs_rib_route_lookup_entry(const void *parent_list_entry,
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/prefix
  */
-struct yang_data *lib_vrf_ribs_rib_route_prefix_get_elem(const char *xpath,
-							 const void *list_entry)
+struct yang_data *
+lib_vrf_ribs_rib_route_prefix_get_elem(struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -215,22 +201,21 @@ struct yang_data *lib_vrf_ribs_rib_route_prefix_get_elem(const char *xpath,
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry
  */
 const void *
-lib_vrf_ribs_rib_route_route_entry_get_next(const void *parent_list_entry,
-					    const void *list_entry)
+lib_vrf_ribs_rib_route_route_entry_get_next(struct nb_cb_get_next_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
 }
 
-int lib_vrf_ribs_rib_route_route_entry_get_keys(const void *list_entry,
-						struct yang_list_keys *keys)
+int lib_vrf_ribs_rib_route_route_entry_get_keys(
+	struct nb_cb_get_keys_args *args)
 {
 	/* TODO: implement me. */
 	return NB_OK;
 }
 
 const void *lib_vrf_ribs_rib_route_route_entry_lookup_entry(
-	const void *parent_list_entry, const struct yang_list_keys *keys)
+	struct nb_cb_lookup_entry_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -239,9 +224,8 @@ const void *lib_vrf_ribs_rib_route_route_entry_lookup_entry(
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/protocol
  */
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_protocol_get_elem(const char *xpath,
-						     const void *list_entry)
+struct yang_data *lib_vrf_ribs_rib_route_route_entry_protocol_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -250,9 +234,8 @@ lib_vrf_ribs_rib_route_route_entry_protocol_get_elem(const char *xpath,
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/instance
  */
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_instance_get_elem(const char *xpath,
-						     const void *list_entry)
+struct yang_data *lib_vrf_ribs_rib_route_route_entry_instance_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -261,9 +244,8 @@ lib_vrf_ribs_rib_route_route_entry_instance_get_elem(const char *xpath,
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/distance
  */
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_distance_get_elem(const char *xpath,
-						     const void *list_entry)
+struct yang_data *lib_vrf_ribs_rib_route_route_entry_distance_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -272,9 +254,8 @@ lib_vrf_ribs_rib_route_route_entry_distance_get_elem(const char *xpath,
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/metric
  */
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_metric_get_elem(const char *xpath,
-						   const void *list_entry)
+struct yang_data *lib_vrf_ribs_rib_route_route_entry_metric_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -283,9 +264,8 @@ lib_vrf_ribs_rib_route_route_entry_metric_get_elem(const char *xpath,
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/tag
  */
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_tag_get_elem(const char *xpath,
-						const void *list_entry)
+struct yang_data *lib_vrf_ribs_rib_route_route_entry_tag_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -294,9 +274,8 @@ lib_vrf_ribs_rib_route_route_entry_tag_get_elem(const char *xpath,
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/selected
  */
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_selected_get_elem(const char *xpath,
-						     const void *list_entry)
+struct yang_data *lib_vrf_ribs_rib_route_route_entry_selected_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -305,9 +284,8 @@ lib_vrf_ribs_rib_route_route_entry_selected_get_elem(const char *xpath,
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/installed
  */
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_installed_get_elem(const char *xpath,
-						      const void *list_entry)
+struct yang_data *lib_vrf_ribs_rib_route_route_entry_installed_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -316,9 +294,8 @@ lib_vrf_ribs_rib_route_route_entry_installed_get_elem(const char *xpath,
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/failed
  */
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_failed_get_elem(const char *xpath,
-						   const void *list_entry)
+struct yang_data *lib_vrf_ribs_rib_route_route_entry_failed_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -327,9 +304,8 @@ lib_vrf_ribs_rib_route_route_entry_failed_get_elem(const char *xpath,
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/queued
  */
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_queued_get_elem(const char *xpath,
-						   const void *list_entry)
+struct yang_data *lib_vrf_ribs_rib_route_route_entry_queued_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -339,7 +315,7 @@ lib_vrf_ribs_rib_route_route_entry_queued_get_elem(const char *xpath,
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/internal-flags
  */
 struct yang_data *lib_vrf_ribs_rib_route_route_entry_internal_flags_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -349,7 +325,7 @@ struct yang_data *lib_vrf_ribs_rib_route_route_entry_internal_flags_get_elem(
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/internal-status
  */
 struct yang_data *lib_vrf_ribs_rib_route_route_entry_internal_status_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -358,9 +334,8 @@ struct yang_data *lib_vrf_ribs_rib_route_route_entry_internal_status_get_elem(
 /*
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/uptime
  */
-struct yang_data *
-lib_vrf_ribs_rib_route_route_entry_uptime_get_elem(const char *xpath,
-						   const void *list_entry)
+struct yang_data *lib_vrf_ribs_rib_route_route_entry_uptime_get_elem(
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -370,21 +345,21 @@ lib_vrf_ribs_rib_route_route_entry_uptime_get_elem(const char *xpath,
  * XPath: /frr-vrf:lib/vrf/frr-zebra:ribs/rib/route/route-entry/nexthop-group
  */
 const void *lib_vrf_ribs_rib_route_route_entry_nexthop_group_get_next(
-	const void *parent_list_entry, const void *list_entry)
+	struct nb_cb_get_next_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
 }
 
 int lib_vrf_ribs_rib_route_route_entry_nexthop_group_get_keys(
-	const void *list_entry, struct yang_list_keys *keys)
+	struct nb_cb_get_keys_args *args)
 {
 	/* TODO: implement me. */
 	return NB_OK;
 }
 
 const void *lib_vrf_ribs_rib_route_route_entry_nexthop_group_lookup_entry(
-	const void *parent_list_entry, const struct yang_list_keys *keys)
+	struct nb_cb_lookup_entry_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -396,7 +371,7 @@ const void *lib_vrf_ribs_rib_route_route_entry_nexthop_group_lookup_entry(
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_name_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -408,14 +383,14 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_name_get_elem(
  */
 const void *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_next(
-	const void *parent_list_entry, const void *list_entry)
+	struct nb_cb_get_next_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
 }
 
 int lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_keys(
-	const void *list_entry, struct yang_list_keys *keys)
+	struct nb_cb_get_keys_args *args)
 {
 	/* TODO: implement me. */
 	return NB_OK;
@@ -423,7 +398,7 @@ int lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_get_ke
 
 const void *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_lookup_entry(
-	const void *parent_list_entry, const struct yang_list_keys *keys)
+	struct nb_cb_lookup_entry_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -435,7 +410,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_lookup_ent
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_nh_type_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -447,7 +422,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_nh_type_ge
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_vrf_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -459,7 +434,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_vrf_get_el
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_gateway_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -471,7 +446,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_gateway_ge
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_interface_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -483,7 +458,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_interface_
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_bh_type_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -495,7 +470,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_bh_type_ge
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_onlink_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -507,14 +482,14 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_onlink_get
  */
 const void *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_next(
-	const void *parent_list_entry, const void *list_entry)
+	struct nb_cb_get_next_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
 }
 
 int lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_get_keys(
-	const void *list_entry, struct yang_list_keys *keys)
+	struct nb_cb_get_keys_args *args)
 {
 	/* TODO: implement me. */
 	return NB_OK;
@@ -522,7 +497,7 @@ int lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_l
 
 const void *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_lookup_entry(
-	const void *parent_list_entry, const struct yang_list_keys *keys)
+	struct nb_cb_lookup_entry_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -534,7 +509,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_id_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -546,7 +521,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_label_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -558,7 +533,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -570,7 +545,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -582,7 +557,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_mpls_label
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_duplicate_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -594,7 +569,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_duplicate_
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_recursive_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -606,7 +581,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_recursive_
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_active_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -618,7 +593,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_active_get
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_fib_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;
@@ -630,7 +605,7 @@ lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_fib_get_el
  */
 struct yang_data *
 lib_vrf_ribs_rib_route_route_entry_nexthop_group_frr_nexthops_nexthop_weight_get_elem(
-	const char *xpath, const void *list_entry)
+	struct nb_cb_get_elem_args *args)
 {
 	/* TODO: implement me. */
 	return NULL;

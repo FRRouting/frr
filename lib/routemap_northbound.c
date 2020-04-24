@@ -33,16 +33,15 @@
  * lib_route_map_entry_set_destroy: unset `set` commands.
  * lib_route_map_entry_match_destroy: unset `match` commands.
  */
-int lib_route_map_entry_match_destroy(enum nb_event event,
-				      const struct lyd_node *dnode)
+int lib_route_map_entry_match_destroy(struct nb_cb_destroy_args *args)
 {
 	struct routemap_hook_context *rhc;
 	int rv;
 
-	if (event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	rhc = nb_running_get_entry(dnode, NULL, true);
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
 	if (rhc->rhc_mhook == NULL)
 		return NB_OK;
 
@@ -54,16 +53,15 @@ int lib_route_map_entry_match_destroy(enum nb_event event,
 	return NB_OK;
 }
 
-int lib_route_map_entry_set_destroy(enum nb_event event,
-				    const struct lyd_node *dnode)
+int lib_route_map_entry_set_destroy(struct nb_cb_destroy_args *args)
 {
 	struct routemap_hook_context *rhc;
 	int rv;
 
-	if (event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	rhc = nb_running_get_entry(dnode, NULL, true);
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
 	if (rhc->rhc_shook == NULL)
 		return NB_OK;
 
@@ -89,8 +87,7 @@ routemap_hook_context_insert(struct route_map_index *rmi)
 	return rhc;
 }
 
-void
-routemap_hook_context_free(struct routemap_hook_context *rhc)
+void routemap_hook_context_free(struct routemap_hook_context *rhc)
 {
 	struct route_map_index *rmi = rhc->rhc_rmi;
 
@@ -101,42 +98,39 @@ routemap_hook_context_free(struct routemap_hook_context *rhc)
 /*
  * XPath: /frr-route-map:lib/route-map
  */
-static int lib_route_map_create(enum nb_event event,
-				const struct lyd_node *dnode,
-				union nb_resource *resource)
+static int lib_route_map_create(struct nb_cb_create_args *args)
 {
 	struct route_map *rm;
 	const char *rm_name;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rm_name = yang_dnode_get_string(dnode, "./name");
+		rm_name = yang_dnode_get_string(args->dnode, "./name");
 		rm = route_map_get(rm_name);
-		nb_running_set_entry(dnode, rm);
+		nb_running_set_entry(args->dnode, rm);
 		break;
 	}
 
 	return NB_OK;
 }
 
-static int lib_route_map_destroy(enum nb_event event,
-				 const struct lyd_node *dnode)
+static int lib_route_map_destroy(struct nb_cb_destroy_args *args)
 {
 	struct route_map *rm;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rm = nb_running_unset_entry(dnode);
+		rm = nb_running_unset_entry(args->dnode);
 		route_map_delete(rm);
 		break;
 	}
@@ -147,48 +141,45 @@ static int lib_route_map_destroy(enum nb_event event,
 /*
  * XPath: /frr-route-map:lib/route-map/entry
  */
-static int lib_route_map_entry_create(enum nb_event event,
-				      const struct lyd_node *dnode,
-				      union nb_resource *resource)
+static int lib_route_map_entry_create(struct nb_cb_create_args *args)
 {
 	struct route_map_index *rmi;
 	struct route_map *rm;
 	uint16_t sequence;
 	int action;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		sequence = yang_dnode_get_uint16(dnode, "./sequence");
-		action = yang_dnode_get_enum(dnode, "./action") == 0
+		sequence = yang_dnode_get_uint16(args->dnode, "./sequence");
+		action = yang_dnode_get_enum(args->dnode, "./action") == 0
 				 ? RMAP_PERMIT
 				 : RMAP_DENY;
-		rm = nb_running_get_entry(dnode, NULL, true);
+		rm = nb_running_get_entry(args->dnode, NULL, true);
 		rmi = route_map_index_get(rm, action, sequence);
-		nb_running_set_entry(dnode, rmi);
+		nb_running_set_entry(args->dnode, rmi);
 		break;
 	}
 
 	return NB_OK;
 }
 
-static int lib_route_map_entry_destroy(enum nb_event event,
-				       const struct lyd_node *dnode)
+static int lib_route_map_entry_destroy(struct nb_cb_destroy_args *args)
 {
 	struct route_map_index *rmi;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_unset_entry(dnode);
+		rmi = nb_running_unset_entry(args->dnode);
 		route_map_index_delete(rmi, 1);
 		break;
 	}
@@ -199,49 +190,48 @@ static int lib_route_map_entry_destroy(enum nb_event event,
 /*
  * XPath: /frr-route-map:lib/route-map/entry/description
  */
-static int lib_route_map_entry_description_modify(enum nb_event event,
-						  const struct lyd_node *dnode,
-						  union nb_resource *resource)
+static int
+lib_route_map_entry_description_modify(struct nb_cb_modify_args *args)
 {
 	struct route_map_index *rmi;
 	const char *description;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 		/* NOTHING */
 		break;
 	case NB_EV_PREPARE:
-		description = yang_dnode_get_string(dnode, NULL);
-		resource->ptr = XSTRDUP(MTYPE_TMP, description);
-		if (resource->ptr == NULL)
+		description = yang_dnode_get_string(args->dnode, NULL);
+		args->resource->ptr = XSTRDUP(MTYPE_TMP, description);
+		if (args->resource->ptr == NULL)
 			return NB_ERR_RESOURCE;
 		break;
 	case NB_EV_ABORT:
-		XFREE(MTYPE_TMP, resource->ptr);
+		XFREE(MTYPE_TMP, args->resource->ptr);
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(dnode, NULL, true);
+		rmi = nb_running_get_entry(args->dnode, NULL, true);
 		XFREE(MTYPE_TMP, rmi->description);
-		rmi->description = resource->ptr;
+		rmi->description = args->resource->ptr;
 		break;
 	}
 
 	return NB_OK;
 }
 
-static int lib_route_map_entry_description_destroy(enum nb_event event,
-						   const struct lyd_node *dnode)
+static int
+lib_route_map_entry_description_destroy(struct nb_cb_destroy_args *args)
 {
 	struct route_map_index *rmi;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(dnode, NULL, true);
+		rmi = nb_running_get_entry(args->dnode, NULL, true);
 		XFREE(MTYPE_TMP, rmi->description);
 		break;
 	}
@@ -252,21 +242,19 @@ static int lib_route_map_entry_description_destroy(enum nb_event event,
 /*
  * XPath: /frr-route-map:lib/route-map/entry/action
  */
-static int lib_route_map_entry_action_modify(enum nb_event event,
-					     const struct lyd_node *dnode,
-					     union nb_resource *resource)
+static int lib_route_map_entry_action_modify(struct nb_cb_modify_args *args)
 {
 	struct route_map_index *rmi;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(dnode, NULL, true);
-		rmi->type = yang_dnode_get_enum(dnode, NULL);
+		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		rmi->type = yang_dnode_get_enum(args->dnode, NULL);
 		/* TODO: notify? */
 		break;
 	}
@@ -277,17 +265,15 @@ static int lib_route_map_entry_action_modify(enum nb_event event,
 /*
  * XPath: /frr-route-map:lib/route-map/entry/call
  */
-static int lib_route_map_entry_call_modify(enum nb_event event,
-					   const struct lyd_node *dnode,
-					   union nb_resource *resource)
+static int lib_route_map_entry_call_modify(struct nb_cb_modify_args *args)
 {
 	struct route_map_index *rmi;
 	const char *rm_name, *rmn_name;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
-		rm_name = yang_dnode_get_string(dnode, "../../name");
-		rmn_name = yang_dnode_get_string(dnode, NULL);
+		rm_name = yang_dnode_get_string(args->dnode, "../../name");
+		rmn_name = yang_dnode_get_string(args->dnode, NULL);
 		/* Don't allow to jump to the same route map instance. */
 		if (strcmp(rm_name, rmn_name) == 0)
 			return NB_ERR_VALIDATION;
@@ -295,20 +281,20 @@ static int lib_route_map_entry_call_modify(enum nb_event event,
 		/* TODO: detect circular route map sequences. */
 		break;
 	case NB_EV_PREPARE:
-		rmn_name = yang_dnode_get_string(dnode, NULL);
-		resource->ptr = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmn_name);
+		rmn_name = yang_dnode_get_string(args->dnode, NULL);
+		args->resource->ptr = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmn_name);
 		break;
 	case NB_EV_ABORT:
-		XFREE(MTYPE_ROUTE_MAP_NAME, resource->ptr);
+		XFREE(MTYPE_ROUTE_MAP_NAME, args->resource->ptr);
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(dnode, NULL, true);
+		rmi = nb_running_get_entry(args->dnode, NULL, true);
 		if (rmi->nextrm) {
 			route_map_upd8_dependency(RMAP_EVENT_CALL_DELETED,
 						  rmi->nextrm, rmi->map->name);
 			XFREE(MTYPE_ROUTE_MAP_NAME, rmi->nextrm);
 		}
-		rmi->nextrm = resource->ptr;
+		rmi->nextrm = args->resource->ptr;
 		route_map_upd8_dependency(RMAP_EVENT_CALL_ADDED, rmi->nextrm,
 					  rmi->map->name);
 		break;
@@ -317,19 +303,18 @@ static int lib_route_map_entry_call_modify(enum nb_event event,
 	return NB_OK;
 }
 
-static int lib_route_map_entry_call_destroy(enum nb_event event,
-					    const struct lyd_node *dnode)
+static int lib_route_map_entry_call_destroy(struct nb_cb_destroy_args *args)
 {
 	struct route_map_index *rmi;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(dnode, NULL, true);
+		rmi = nb_running_get_entry(args->dnode, NULL, true);
 		route_map_upd8_dependency(RMAP_EVENT_CALL_DELETED, rmi->nextrm,
 					  rmi->map->name);
 		XFREE(MTYPE_ROUTE_MAP_NAME, rmi->nextrm);
@@ -343,24 +328,24 @@ static int lib_route_map_entry_call_destroy(enum nb_event event,
 /*
  * XPath: /frr-route-map:lib/route-map/entry/exit-policy
  */
-static int lib_route_map_entry_exit_policy_modify(enum nb_event event,
-						  const struct lyd_node *dnode,
-						  union nb_resource *resource)
+static int
+lib_route_map_entry_exit_policy_modify(struct nb_cb_modify_args *args)
 {
 	struct route_map_index *rmi;
 	int rm_action;
 	int policy;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
-		policy = yang_dnode_get_enum(dnode, NULL);
+		policy = yang_dnode_get_enum(args->dnode, NULL);
 		switch (policy) {
 		case 0: /* permit-or-deny */
 			break;
 		case 1: /* next */
 			/* FALLTHROUGH */
 		case 2: /* goto */
-			rm_action = yang_dnode_get_enum(dnode, "../action");
+			rm_action =
+				yang_dnode_get_enum(args->dnode, "../action");
 			if (rm_action == 1 /* deny */) {
 				/*
 				 * On deny it is not possible to 'goto'
@@ -375,8 +360,8 @@ static int lib_route_map_entry_exit_policy_modify(enum nb_event event,
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(dnode, NULL, true);
-		policy = yang_dnode_get_enum(dnode, NULL);
+		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		policy = yang_dnode_get_enum(args->dnode, NULL);
 
 		switch (policy) {
 		case 0: /* permit-or-deny */
@@ -398,18 +383,16 @@ static int lib_route_map_entry_exit_policy_modify(enum nb_event event,
 /*
  * XPath: /frr-route-map:lib/route-map/entry/goto-value
  */
-static int lib_route_map_entry_goto_value_modify(enum nb_event event,
-						 const struct lyd_node *dnode,
-						 union nb_resource *resource)
+static int lib_route_map_entry_goto_value_modify(struct nb_cb_modify_args *args)
 {
 	struct route_map_index *rmi;
 	uint16_t rmi_index;
 	uint16_t rmi_next;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
-		rmi_index = yang_dnode_get_uint16(dnode, "../sequence");
-		rmi_next = yang_dnode_get_uint16(dnode, NULL);
+		rmi_index = yang_dnode_get_uint16(args->dnode, "../sequence");
+		rmi_next = yang_dnode_get_uint16(args->dnode, NULL);
 		if (rmi_next <= rmi_index) {
 			/* Can't jump backwards on a route map. */
 			return NB_ERR_VALIDATION;
@@ -420,27 +403,27 @@ static int lib_route_map_entry_goto_value_modify(enum nb_event event,
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(dnode, NULL, true);
-		rmi->nextpref = yang_dnode_get_uint16(dnode, NULL);
+		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		rmi->nextpref = yang_dnode_get_uint16(args->dnode, NULL);
 		break;
 	}
 
 	return NB_OK;
 }
 
-static int lib_route_map_entry_goto_value_destroy(enum nb_event event,
-						  const struct lyd_node *dnode)
+static int
+lib_route_map_entry_goto_value_destroy(struct nb_cb_destroy_args *args)
 {
 	struct route_map_index *rmi;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(dnode, NULL, true);
+		rmi = nb_running_get_entry(args->dnode, NULL, true);
 		rmi->nextpref = 0;
 		break;
 	}
@@ -452,23 +435,21 @@ static int lib_route_map_entry_goto_value_destroy(enum nb_event event,
  * XPath: /frr-route-map:lib/route-map/entry/match-condition
  */
 static int
-lib_route_map_entry_match_condition_create(enum nb_event event,
-					   const struct lyd_node *dnode,
-					   union nb_resource *resource)
+lib_route_map_entry_match_condition_create(struct nb_cb_create_args *args)
 {
 	struct routemap_hook_context *rhc;
 	struct route_map_index *rmi;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(dnode, NULL, true);
+		rmi = nb_running_get_entry(args->dnode, NULL, true);
 		rhc = routemap_hook_context_insert(rmi);
-		nb_running_set_entry(dnode, rhc);
+		nb_running_set_entry(args->dnode, rhc);
 		break;
 	}
 
@@ -476,17 +457,16 @@ lib_route_map_entry_match_condition_create(enum nb_event event,
 }
 
 static int
-lib_route_map_entry_match_condition_destroy(enum nb_event event,
-					    const struct lyd_node *dnode)
+lib_route_map_entry_match_condition_destroy(struct nb_cb_destroy_args *args)
 {
 	struct routemap_hook_context *rhc;
 	int rv;
 
-	if (event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	rv = lib_route_map_entry_match_destroy(event, dnode);
-	rhc = nb_running_unset_entry(dnode);
+	rv = lib_route_map_entry_match_destroy(args);
+	rhc = nb_running_unset_entry(args->dnode);
 	routemap_hook_context_free(rhc);
 
 	return rv;
@@ -496,14 +476,13 @@ lib_route_map_entry_match_condition_destroy(enum nb_event event,
  * XPath: /frr-route-map:lib/route-map/entry/match-condition/interface
  */
 static int lib_route_map_entry_match_condition_interface_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource)
+	struct nb_cb_modify_args *args)
 {
 	struct routemap_hook_context *rhc;
 	const char *ifname;
 	int rv;
 
-	if (event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	/* Check for hook function. */
@@ -511,8 +490,8 @@ static int lib_route_map_entry_match_condition_interface_modify(
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(dnode, NULL, true);
-	ifname = yang_dnode_get_string(dnode, NULL);
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	ifname = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
 	rhc->rhc_mhook = rmap_match_set_hook.no_match_interface;
@@ -531,30 +510,29 @@ static int lib_route_map_entry_match_condition_interface_modify(
 }
 
 static int lib_route_map_entry_match_condition_interface_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
+	struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_match_destroy(event, dnode);
+	return lib_route_map_entry_match_destroy(args);
 }
 
 /*
  * XPath: /frr-route-map:lib/route-map/entry/match-condition/access-list-num
  */
 static int lib_route_map_entry_match_condition_access_list_num_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource)
+	struct nb_cb_modify_args *args)
 {
 	struct routemap_hook_context *rhc;
 	const char *acl;
 	int condition, rv;
 
-	if (event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	/* Check for hook function. */
 	rv = CMD_SUCCESS;
-	acl = yang_dnode_get_string(dnode, NULL);
-	rhc = nb_running_get_entry(dnode, NULL, true);
-	condition = yang_dnode_get_enum(dnode, "../condition");
+	acl = yang_dnode_get_string(args->dnode, NULL);
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	condition = yang_dnode_get_enum(args->dnode, "../condition");
 	switch (condition) {
 	case 1: /* ipv4-address-list */
 		if (rmap_match_set_hook.match_ip_address == NULL)
@@ -586,9 +564,9 @@ static int lib_route_map_entry_match_condition_access_list_num_modify(
 }
 
 static int lib_route_map_entry_match_condition_access_list_num_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
+	struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_match_destroy(event, dnode);
+	return lib_route_map_entry_match_destroy(args);
 }
 
 /*
@@ -596,39 +574,36 @@ static int lib_route_map_entry_match_condition_access_list_num_destroy(
  * /frr-route-map:lib/route-map/entry/match-condition/access-list-num-extended
  */
 static int lib_route_map_entry_match_condition_access_list_num_extended_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource)
+	struct nb_cb_modify_args *args)
 {
-	return lib_route_map_entry_match_condition_access_list_num_modify(
-		event, dnode, resource);
+	return lib_route_map_entry_match_condition_access_list_num_modify(args);
 }
 
 static int lib_route_map_entry_match_condition_access_list_num_extended_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
+	struct nb_cb_destroy_args *args)
 {
 	return lib_route_map_entry_match_condition_access_list_num_destroy(
-		event, dnode);
+		args);
 }
 
 /*
  * XPath: /frr-route-map:lib/route-map/entry/match-condition/list-name
  */
 static int lib_route_map_entry_match_condition_list_name_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource)
+	struct nb_cb_modify_args *args)
 {
 	struct routemap_hook_context *rhc;
 	const char *acl;
 	int condition;
 	int rv;
 
-	if (event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	/* Check for hook installation, otherwise we can just stop. */
-	acl = yang_dnode_get_string(dnode, NULL);
-	rhc = nb_running_get_entry(dnode, NULL, true);
-	condition = yang_dnode_get_enum(dnode, "../condition");
+	acl = yang_dnode_get_string(args->dnode, NULL);
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	condition = yang_dnode_get_enum(args->dnode, "../condition");
 	switch (condition) {
 	case 1: /* ipv4-address-list */
 		if (rmap_match_set_hook.match_ip_address == NULL)
@@ -706,23 +681,22 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 }
 
 static int lib_route_map_entry_match_condition_list_name_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
+	struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_match_destroy(event, dnode);
+	return lib_route_map_entry_match_destroy(args);
 }
 
 /*
  * XPath: /frr-route-map:lib/route-map/entry/match-condition/ipv4-next-hop-type
  */
 static int lib_route_map_entry_match_condition_ipv4_next_hop_type_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource)
+	struct nb_cb_modify_args *args)
 {
 	struct routemap_hook_context *rhc;
 	const char *type;
 	int rv;
 
-	if (event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	/* Check for hook function. */
@@ -730,8 +704,8 @@ static int lib_route_map_entry_match_condition_ipv4_next_hop_type_modify(
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(dnode, NULL, true);
-	type = yang_dnode_get_string(dnode, NULL);
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	type = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
 	rhc->rhc_mhook = rmap_match_set_hook.no_match_ip_next_hop_type;
@@ -750,23 +724,22 @@ static int lib_route_map_entry_match_condition_ipv4_next_hop_type_modify(
 }
 
 static int lib_route_map_entry_match_condition_ipv4_next_hop_type_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
+	struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_match_destroy(event, dnode);
+	return lib_route_map_entry_match_destroy(args);
 }
 
 /*
  * XPath: /frr-route-map:lib/route-map/entry/match-condition/ipv6-next-hop-type
  */
 static int lib_route_map_entry_match_condition_ipv6_next_hop_type_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource)
+	struct nb_cb_modify_args *args)
 {
 	struct routemap_hook_context *rhc;
 	const char *type;
 	int rv;
 
-	if (event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	/* Check for hook function. */
@@ -774,8 +747,8 @@ static int lib_route_map_entry_match_condition_ipv6_next_hop_type_modify(
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(dnode, NULL, true);
-	type = yang_dnode_get_string(dnode, NULL);
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	type = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
 	rhc->rhc_mhook = rmap_match_set_hook.no_match_ipv6_next_hop_type;
@@ -794,24 +767,22 @@ static int lib_route_map_entry_match_condition_ipv6_next_hop_type_modify(
 }
 
 static int lib_route_map_entry_match_condition_ipv6_next_hop_type_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
+	struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_match_destroy(event, dnode);
+	return lib_route_map_entry_match_destroy(args);
 }
 
 /*
  * XPath: /frr-route-map:lib/route-map/entry/match-condition/metric
  */
-static int
-lib_route_map_entry_match_condition_metric_modify(enum nb_event event,
-						  const struct lyd_node *dnode,
-						  union nb_resource *resource)
+static int lib_route_map_entry_match_condition_metric_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct routemap_hook_context *rhc;
 	const char *type;
 	int rv;
 
-	if (event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	/* Check for hook function. */
@@ -819,8 +790,8 @@ lib_route_map_entry_match_condition_metric_modify(enum nb_event event,
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(dnode, NULL, true);
-	type = yang_dnode_get_string(dnode, NULL);
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	type = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
 	rhc->rhc_mhook = rmap_match_set_hook.no_match_metric;
@@ -837,26 +808,23 @@ lib_route_map_entry_match_condition_metric_modify(enum nb_event event,
 	return NB_OK;
 }
 
-static int
-lib_route_map_entry_match_condition_metric_destroy(enum nb_event event,
-						   const struct lyd_node *dnode)
+static int lib_route_map_entry_match_condition_metric_destroy(
+	struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_match_destroy(event, dnode);
+	return lib_route_map_entry_match_destroy(args);
 }
 
 /*
  * XPath: /frr-route-map:lib/route-map/entry/match-condition/tag
  */
 static int
-lib_route_map_entry_match_condition_tag_modify(enum nb_event event,
-					       const struct lyd_node *dnode,
-					       union nb_resource *resource)
+lib_route_map_entry_match_condition_tag_modify(struct nb_cb_modify_args *args)
 {
 	struct routemap_hook_context *rhc;
 	const char *tag;
 	int rv;
 
-	if (event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	/* Check for hook function. */
@@ -864,8 +832,8 @@ lib_route_map_entry_match_condition_tag_modify(enum nb_event event,
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(dnode, NULL, true);
-	tag = yang_dnode_get_string(dnode, NULL);
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	tag = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
 	rhc->rhc_mhook = rmap_match_set_hook.no_match_tag;
@@ -883,34 +851,30 @@ lib_route_map_entry_match_condition_tag_modify(enum nb_event event,
 }
 
 static int
-lib_route_map_entry_match_condition_tag_destroy(enum nb_event event,
-						const struct lyd_node *dnode)
+lib_route_map_entry_match_condition_tag_destroy(struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_match_destroy(event, dnode);
+	return lib_route_map_entry_match_destroy(args);
 }
 
 /*
  * XPath: /frr-route-map:lib/route-map/entry/set-action
  */
-static int lib_route_map_entry_set_action_create(enum nb_event event,
-						 const struct lyd_node *dnode,
-						 union nb_resource *resource)
+static int lib_route_map_entry_set_action_create(struct nb_cb_create_args *args)
 {
-	return lib_route_map_entry_match_condition_create(event, dnode,
-							  resource);
+	return lib_route_map_entry_match_condition_create(args);
 }
 
-static int lib_route_map_entry_set_action_destroy(enum nb_event event,
-						  const struct lyd_node *dnode)
+static int
+lib_route_map_entry_set_action_destroy(struct nb_cb_destroy_args *args)
 {
 	struct routemap_hook_context *rhc;
 	int rv;
 
-	if (event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	rv = lib_route_map_entry_set_destroy(event, dnode);
-	rhc = nb_running_unset_entry(dnode);
+	rv = lib_route_map_entry_set_destroy(args);
+	rhc = nb_running_unset_entry(args->dnode);
 	routemap_hook_context_free(rhc);
 
 	return rv;
@@ -919,24 +883,22 @@ static int lib_route_map_entry_set_action_destroy(enum nb_event event,
 /*
  * XPath: /frr-route-map:lib/route-map/entry/set-action/ipv4-address
  */
-static int
-lib_route_map_entry_set_action_ipv4_address_modify(enum nb_event event,
-						   const struct lyd_node *dnode,
-						   union nb_resource *resource)
+static int lib_route_map_entry_set_action_ipv4_address_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct routemap_hook_context *rhc;
 	const char *address;
 	struct in_addr ia;
 	int rv;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 		/*
 		 * NOTE: validate if 'action' is 'ipv4-next-hop',
 		 * currently it is not necessary because this is the
 		 * only implemented action.
 		 */
-		yang_dnode_get_ipv4(&ia, dnode, NULL);
+		yang_dnode_get_ipv4(&ia, args->dnode, NULL);
 		if (ia.s_addr == INADDR_ANY || IPV4_CLASS_DE(ntohl(ia.s_addr)))
 			return NB_ERR_VALIDATION;
 		/* FALLTHROUGH */
@@ -952,8 +914,8 @@ lib_route_map_entry_set_action_ipv4_address_modify(enum nb_event event,
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(dnode, NULL, true);
-	address = yang_dnode_get_string(dnode, NULL);
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	address = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
 	rhc->rhc_shook = rmap_match_set_hook.no_set_ip_nexthop;
@@ -970,25 +932,23 @@ lib_route_map_entry_set_action_ipv4_address_modify(enum nb_event event,
 }
 
 static int lib_route_map_entry_set_action_ipv4_address_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
+	struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_set_destroy(event, dnode);
+	return lib_route_map_entry_set_destroy(args);
 }
 
 /*
  * XPath: /frr-route-map:lib/route-map/entry/set-action/ipv6-address
  */
-static int
-lib_route_map_entry_set_action_ipv6_address_modify(enum nb_event event,
-						   const struct lyd_node *dnode,
-						   union nb_resource *resource)
+static int lib_route_map_entry_set_action_ipv6_address_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct routemap_hook_context *rhc;
 	const char *address;
 	struct in6_addr i6a;
 	int rv;
 
-	switch (event) {
+	switch (args->event) {
 	case NB_EV_VALIDATE:
 		/*
 		 * NOTE: validate if 'action' is 'ipv6-next-hop',
@@ -996,7 +956,7 @@ lib_route_map_entry_set_action_ipv6_address_modify(enum nb_event event,
 		 * only implemented action. Other actions might have
 		 * different validations.
 		 */
-		yang_dnode_get_ipv6(&i6a, dnode, NULL);
+		yang_dnode_get_ipv6(&i6a, args->dnode, NULL);
 		if (!IN6_IS_ADDR_LINKLOCAL(&i6a))
 			return NB_ERR_VALIDATION;
 		/* FALLTHROUGH */
@@ -1012,8 +972,8 @@ lib_route_map_entry_set_action_ipv6_address_modify(enum nb_event event,
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(dnode, NULL, true);
-	address = yang_dnode_get_string(dnode, NULL);
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	address = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
 	rhc->rhc_shook = rmap_match_set_hook.no_set_ipv6_nexthop_local;
@@ -1030,9 +990,9 @@ lib_route_map_entry_set_action_ipv6_address_modify(enum nb_event event,
 }
 
 static int lib_route_map_entry_set_action_ipv6_address_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
+	struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_set_destroy(event, dnode);
+	return lib_route_map_entry_set_destroy(args);
 }
 
 /*
@@ -1074,111 +1034,105 @@ static int set_action_modify(enum nb_event event, const struct lyd_node *dnode,
 }
 
 static int
-lib_route_map_entry_set_action_value_modify(enum nb_event event,
-					    const struct lyd_node *dnode,
-					    union nb_resource *resource)
+lib_route_map_entry_set_action_value_modify(struct nb_cb_modify_args *args)
 {
-	const char *metric = yang_dnode_get_string(dnode, NULL);
+	const char *metric = yang_dnode_get_string(args->dnode, NULL);
 
-	return set_action_modify(event, dnode, resource, metric);
+	return set_action_modify(args->event, args->dnode, args->resource,
+				 metric);
 }
 
 static int
-lib_route_map_entry_set_action_value_destroy(enum nb_event event,
-					     const struct lyd_node *dnode)
+lib_route_map_entry_set_action_value_destroy(struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_set_destroy(event, dnode);
+	return lib_route_map_entry_set_destroy(args);
 }
 
 /*
  * XPath: /frr-route-map:lib/route-map/entry/set-action/add-metric
  */
 static int
-lib_route_map_entry_set_action_add_metric_modify(enum nb_event event,
-						 const struct lyd_node *dnode,
-						 union nb_resource *resource)
+lib_route_map_entry_set_action_add_metric_modify(struct nb_cb_modify_args *args)
 {
-	return set_action_modify(event, dnode, resource, "+metric");
+	return set_action_modify(args->event, args->dnode, args->resource,
+				 "+metric");
 }
 
-static int
-lib_route_map_entry_set_action_add_metric_destroy(enum nb_event event,
-						  const struct lyd_node *dnode)
+static int lib_route_map_entry_set_action_add_metric_destroy(
+	struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_set_action_value_destroy(event, dnode);
+	return lib_route_map_entry_set_action_value_destroy(args);
 }
 
 /*
  * XPath: /frr-route-map:lib/route-map/entry/set-action/subtract-metric
  */
 static int lib_route_map_entry_set_action_subtract_metric_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource)
+	struct nb_cb_modify_args *args)
 {
-	return set_action_modify(event, dnode, resource, "-metric");
+	return set_action_modify(args->event, args->dnode, args->resource,
+				 "-metric");
 }
 
 static int lib_route_map_entry_set_action_subtract_metric_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
+	struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_set_action_value_destroy(event, dnode);
+	return lib_route_map_entry_set_action_value_destroy(args);
 }
 
 /*
  * XPath: /frr-route-map:lib/route-map/entry/set-action/use-round-trip-time
  */
 static int lib_route_map_entry_set_action_use_round_trip_time_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource)
+	struct nb_cb_modify_args *args)
 {
-	return set_action_modify(event, dnode, resource, "rtt");
+	return set_action_modify(args->event, args->dnode, args->resource,
+				 "rtt");
 }
 
 static int lib_route_map_entry_set_action_use_round_trip_time_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
+	struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_set_action_value_destroy(event, dnode);
+	return lib_route_map_entry_set_action_value_destroy(args);
 }
 
 /*
  * XPath: /frr-route-map:lib/route-map/entry/set-action/add-round-trip-time
  */
 static int lib_route_map_entry_set_action_add_round_trip_time_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource)
+	struct nb_cb_modify_args *args)
 {
-	return set_action_modify(event, dnode, resource, "+rtt");
+	return set_action_modify(args->event, args->dnode, args->resource,
+				 "+rtt");
 }
 
 static int lib_route_map_entry_set_action_add_round_trip_time_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
+	struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_set_action_value_destroy(event, dnode);
+	return lib_route_map_entry_set_action_value_destroy(args);
 }
 
 /*
  * XPath: /frr-route-map:lib/route-map/entry/set-action/subtract-round-trip-time
  */
 static int lib_route_map_entry_set_action_subtract_round_trip_time_modify(
-	enum nb_event event, const struct lyd_node *dnode,
-	union nb_resource *resource)
+	struct nb_cb_modify_args *args)
 {
-	return set_action_modify(event, dnode, resource, "-rtt");
+	return set_action_modify(args->event, args->dnode, args->resource,
+				 "-rtt");
 }
 
 static int lib_route_map_entry_set_action_subtract_round_trip_time_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
+	struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_set_action_value_destroy(event, dnode);
+	return lib_route_map_entry_set_action_value_destroy(args);
 }
 
 /*
  * XPath: /frr-route-map:lib/route-map/entry/set-action/tag
  */
 static int
-lib_route_map_entry_set_action_tag_modify(enum nb_event event,
-					  const struct lyd_node *dnode,
-					  union nb_resource *resource)
+lib_route_map_entry_set_action_tag_modify(struct nb_cb_modify_args *args)
 {
 	struct routemap_hook_context *rhc;
 	const char *tag;
@@ -1189,7 +1143,7 @@ lib_route_map_entry_set_action_tag_modify(enum nb_event event,
 	 * necessary because this is the only implemented action. Other
 	 * actions might have different validations.
 	 */
-	if (event != NB_EV_APPLY)
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	/* Check for hook function. */
@@ -1197,8 +1151,8 @@ lib_route_map_entry_set_action_tag_modify(enum nb_event event,
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(dnode, NULL, true);
-	tag = yang_dnode_get_string(dnode, NULL);
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	tag = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
 	rhc->rhc_shook = rmap_match_set_hook.no_set_tag;
@@ -1214,10 +1168,9 @@ lib_route_map_entry_set_action_tag_modify(enum nb_event event,
 }
 
 static int
-lib_route_map_entry_set_action_tag_destroy(enum nb_event event,
-					   const struct lyd_node *dnode)
+lib_route_map_entry_set_action_tag_destroy(struct nb_cb_destroy_args *args)
 {
-	return lib_route_map_entry_set_destroy(event, dnode);
+	return lib_route_map_entry_set_destroy(args);
 }
 
 /* clang-format off */

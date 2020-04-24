@@ -681,10 +681,8 @@ struct routemap_hook_context {
 	TAILQ_ENTRY(routemap_hook_context) rhc_entry;
 };
 
-int lib_route_map_entry_match_destroy(enum nb_event event,
-				      const struct lyd_node *dnode);
-int lib_route_map_entry_set_destroy(enum nb_event event,
-				    const struct lyd_node *dnode);
+int lib_route_map_entry_match_destroy(struct nb_cb_destroy_args *args);
+int lib_route_map_entry_set_destroy(struct nb_cb_destroy_args *args);
 
 struct routemap_hook_context *
 routemap_hook_context_insert(struct route_map_index *rmi);
