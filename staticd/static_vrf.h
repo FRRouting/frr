@@ -26,6 +26,14 @@ struct static_vrf {
 	struct route_table *stable[AFI_MAX][SAFI_MAX];
 };
 
+struct stable_info {
+	struct static_vrf *svrf;
+	afi_t afi;
+	safi_t safi;
+};
+
+#define GET_STABLE_VRF_ID(info) info->svrf->vrf->vrf_id
+
 struct static_vrf *static_vrf_lookup_by_name(const char *vrf_name);
 struct static_vrf *static_vrf_lookup_by_id(vrf_id_t vrf_id);
 
@@ -36,4 +44,6 @@ void static_vrf_init(void);
 struct route_table *static_vrf_static_table(afi_t afi, safi_t safi,
 					    struct static_vrf *svrf);
 extern void static_vrf_terminate(void);
+
+struct static_vrf *static_vty_get_unknown_vrf(const char *vrf_name);
 #endif
