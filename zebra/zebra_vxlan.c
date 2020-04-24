@@ -152,8 +152,6 @@ static int zevpn_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 static int zevpn_gw_macip_del(struct interface *ifp, zebra_evpn_t *zevpn,
 			     struct ipaddr *ip);
 struct interface *zebra_get_vrr_intf_for_svi(struct interface *ifp);
-static int advertise_gw_macip_enabled(zebra_evpn_t *zevpn);
-static int advertise_svi_macip_enabled(zebra_evpn_t *zevpn);
 static unsigned int zebra_vxlan_sg_hash_key_make(const void *p);
 static bool zebra_vxlan_sg_hash_eq(const void *p1, const void *p2);
 static void zebra_vxlan_sg_do_deref(struct zebra_vrf *zvrf,
@@ -212,7 +210,7 @@ static uint32_t rb_host_count(struct host_rb_tree_entry *hrbe)
 	return count;
 }
 
-static int advertise_gw_macip_enabled(zebra_evpn_t *zevpn)
+int advertise_gw_macip_enabled(zebra_evpn_t *zevpn)
 {
 	struct zebra_vrf *zvrf;
 
@@ -226,7 +224,7 @@ static int advertise_gw_macip_enabled(zebra_evpn_t *zevpn)
 	return 0;
 }
 
-static int advertise_svi_macip_enabled(zebra_evpn_t *zevpn)
+int advertise_svi_macip_enabled(zebra_evpn_t *zevpn)
 {
 	struct zebra_vrf *zvrf;
 
@@ -1176,9 +1174,6 @@ static int zevpn_advertise_subnet(zebra_evpn_t *zevpn, struct interface *ifp,
 static int zevpn_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 			     struct ethaddr *macaddr, struct ipaddr *ip)
 {
-	char buf[ETHER_ADDR_STRLEN];
-	char buf2[INET6_ADDRSTRLEN];
-	zebra_neigh_t *n = NULL;
 	zebra_mac_t *mac = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
@@ -1194,59 +1189,7 @@ static int zevpn_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 	    != 0)
 		return -1;
 
-	n = zebra_evpn_neigh_lookup(zevpn, ip);
-	if (!n) {
-		n = zebra_evpn_neigh_add(zevpn, ip, macaddr, mac, 0);
-		if (!n) {
-			flog_err(
-				EC_ZEBRA_MAC_ADD_FAILED,
-				"Failed to add neighbor %s MAC %s intf %s(%u) -> VNI %u",
-				ipaddr2str(ip, buf2, sizeof(buf2)),
-				prefix_mac2str(macaddr, buf, sizeof(buf)),
-				ifp->name, ifp->ifindex, zevpn->vni);
-			return -1;
-		}
-	}
-
-	/* Set "local" forwarding info. */
-	SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
-	ZEBRA_NEIGH_SET_ACTIVE(n);
-	memcpy(&n->emac, macaddr, ETH_ALEN);
-	n->ifindex = ifp->ifindex;
-
-	/* Only advertise in BGP if the knob is enabled */
-	if (advertise_gw_macip_enabled(zevpn)) {
-
-		SET_FLAG(mac->flags, ZEBRA_MAC_DEF_GW);
-		SET_FLAG(n->flags, ZEBRA_NEIGH_DEF_GW);
-		/* Set Router flag (R-bit) */
-		if (ip->ipa_type == IPADDR_V6)
-			SET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
-
-		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug(
-			"SVI %s(%u) L2-VNI %u, sending GW MAC %s IP %s add to BGP with flags 0x%x",
-			ifp->name, ifp->ifindex, zevpn->vni,
-			prefix_mac2str(macaddr, buf, sizeof(buf)),
-			ipaddr2str(ip, buf2, sizeof(buf2)), n->flags);
-
-		zebra_evpn_neigh_send_add_to_client(
-			zevpn->vni, ip, &n->emac, n->mac, n->flags, n->loc_seq);
-	} else if (advertise_svi_macip_enabled(zevpn)) {
-
-		SET_FLAG(n->flags, ZEBRA_NEIGH_SVI_IP);
-		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug(
-			"SVI %s(%u) L2-VNI %u, sending SVI MAC %s IP %s add to BGP with flags 0x%x",
-			ifp->name, ifp->ifindex, zevpn->vni,
-			prefix_mac2str(macaddr, buf, sizeof(buf)),
-			ipaddr2str(ip, buf2, sizeof(buf2)), n->flags);
-
-		zebra_evpn_neigh_send_add_to_client(
-			zevpn->vni, ip, &n->emac, n->mac, n->flags, n->loc_seq);
-	}
-
-	return 0;
+	return zebra_evpn_neigh_gw_macip_add(ifp, zevpn, ip, mac);
 }
 
 /*
