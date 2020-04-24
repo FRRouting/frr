@@ -123,7 +123,7 @@ module frr-nexthop {
         "The nexthop type.";
     }
     leaf vrf {
-      type frr-vrf:vrf-ref;
+      type string;
       description
         "The nexthop vrf name, if different from the route.";
     }
@@ -133,7 +133,7 @@ module frr-nexthop {
         "The nexthop gateway address.";
     }
     leaf interface {
-      type frr-interface:interface-ref;
+      type string;
       description
         "The nexthop egress interface.";
     }
