@@ -29,19 +29,19 @@ test_bgp_multiview_topo1.py: Simple Quagga/FRR Route-Server Test
 |  peer1   | |  peer2   | |  peer3   | |  peer4   | |  peer5   |
 | AS 65001 | | AS 65002 | | AS 65003 | | AS 65004 | | AS 65005 |
 +-----+----+ +-----+----+ +-----+----+ +-----+----+ +-----+----+
-      | .1         | .2         | .3         | .4         | .5
+      | .1         | .2         | .3         | .4         | .5 
       |     ______/            /            /   _________/
-       \   /  ________________/            /   /
-        | |  /   _________________________/   /     +----------+
+       \   /  ________________/            /   /     
+        | |  /   _________________________/   /     +----------+  
         | | |  /   __________________________/   ___|  peer6   |
         | | | |  /  ____________________________/.6 | AS 65006 |
         | | | | |  /  _________________________     +----------+
-        | | | | | |  /  __________________     \    +----------+
+        | | | | | |  /  __________________     \    +----------+ 
         | | | | | | |  /                  \     \___|  peer7   |
         | | | | | | | |                    \     .7 | AS 65007 |
      ~~~~~~~~~~~~~~~~~~~~~                  \       +----------+
    ~~         SW1         ~~                 \      +----------+
-   ~~       Switch           ~~               \_____|  peer8   |
+   ~~       Switch           ~~               \_____|  peer8   |  
    ~~    172.16.1.0/24     ~~                    .8 | AS 65008 |
      ~~~~~~~~~~~~~~~~~~~~~                          +----------+
               |
@@ -49,7 +49,7 @@ test_bgp_multiview_topo1.py: Simple Quagga/FRR Route-Server Test
     +---------+---------+
     |      FRR R1       |
     |   BGP Multi-View  |
-    | Peer 1-3 > View 1 |
+    | Peer 1-3 > View 1 |       
     | Peer 4-5 > View 2 |
     | Peer 6-8 > View 3 |
     +---------+---------+
@@ -226,7 +226,7 @@ def test_bgp_converge():
         for i in range(1, 2):
             for view in range(1, 4):
                 notConverged = net["r%s" % i].cmd(
-                    'vtysh -c "show ip bgp view %s summary" 2> /dev/null | grep ^[0-9] | grep -vP " 11\s+(\d+)$"'
+                    'vtysh -c "show ip bgp view %s summary" 2> /dev/null | grep ^[0-9] | grep -v " 11$"'
                     % view
                 )
                 if notConverged:
