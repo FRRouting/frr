@@ -3003,6 +3003,10 @@ static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 	/* Note: For IPv6 nexthops, we only validate the global (1st) nexthop;
 	 * there is code in bgp_attr.c to ignore the link-local (2nd) nexthop if
 	 * it is not an IPv6 link-local address.
+	 *
+	 * If we receive an UPDATE with nexthop length set to 32 bytes
+	 * we shouldn't discard an UPDATE if it's set to (::).
+	 * The link-local (2st) is validated along the code path later.
 	 */
 	if (attr->mp_nexthop_len) {
 		switch (attr->mp_nexthop_len) {
@@ -3016,7 +3020,6 @@ static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 			break;
 
 		case BGP_ATTR_NHLEN_IPV6_GLOBAL:
-		case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
 		case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
 			ret = (IN6_IS_ADDR_UNSPECIFIED(&attr->mp_nexthop_global)
 			       || IN6_IS_ADDR_LOOPBACK(&attr->mp_nexthop_global)
@@ -3024,6 +3027,13 @@ static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 					  &attr->mp_nexthop_global)
 			       || bgp_nexthop_self(bgp, afi, type, stype,
 						   attr, rn));
+			break;
+		case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
+			ret = (IN6_IS_ADDR_LOOPBACK(&attr->mp_nexthop_global)
+			       || IN6_IS_ADDR_MULTICAST(
+				       &attr->mp_nexthop_global)
+			       || bgp_nexthop_self(bgp, afi, type, stype, attr,
+						   rn));
 			break;
 
 		default:
