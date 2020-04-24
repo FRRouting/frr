@@ -156,7 +156,7 @@ module frr-nexthop {
     }
 
     leaf vrf {
-      type frr-vrf:vrf-ref;
+      type string;
       description
         "The nexthop vrf name, if different from the route.";
     }
@@ -167,7 +167,7 @@ module frr-nexthop {
     }
 
     leaf interface {
-      type frr-interface:interface-ref;
+      type string;
       description
         "The nexthop egress interface.";
     }
