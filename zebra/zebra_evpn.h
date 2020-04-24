@@ -137,6 +137,9 @@ static inline struct interface *zevpn_map_to_svi(zebra_evpn_t *zevpn)
 	return zvni_map_to_svi(zl2_info.access_vlan, zif->brslave_info.br_if);
 }
 
+int advertise_gw_macip_enabled(zebra_evpn_t *zevpn);
+int advertise_svi_macip_enabled(zebra_evpn_t *zevpn);
+
 #ifdef __cplusplus
 }
 #endif
