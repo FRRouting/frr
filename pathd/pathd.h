@@ -94,6 +94,9 @@ struct srte_segment_list {
 	/* Name of the Segment List. */
 	char name[64];
 
+	/* The Protocol-Origin. */
+	enum srte_protocol_origin protocol_origin;
+
 	/* Nexthops. */
 	struct srte_segment_entry_head segments;
 

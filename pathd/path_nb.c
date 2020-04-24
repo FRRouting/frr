@@ -51,6 +51,13 @@ const struct frr_yang_module_info frr_pathd_info = {
 			.priority = NB_DFLT_PRIORITY - 1
 		},
 		{
+			.xpath = "/frr-pathd:pathd/segment-list/protocol-origin",
+			.cbs = {
+				.modify = pathd_te_segment_list_protocol_origin_modify,
+			},
+			.priority = NB_DFLT_PRIORITY - 1
+		},
+		{
 			.xpath = "/frr-pathd:pathd/segment-list/segment",
 			.cbs = {
 				.create = pathd_te_segment_list_segment_create,

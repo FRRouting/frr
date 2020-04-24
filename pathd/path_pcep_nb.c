@@ -538,11 +538,14 @@ void path_nb_add_segment_list_segment_nai_ipv4_unnumbered_adj(
 void path_nb_create_segment_list(struct nb_config *config,
 				 const char *segment_list_name)
 {
+	char xpath_base[XPATH_MAXLEN];
 	char xpath[XPATH_MAXLEN];
 
-	snprintf(xpath, sizeof(xpath),
+	snprintf(xpath_base, sizeof(xpath_base),
 		 "/frr-pathd:pathd/segment-list[name='%s']", segment_list_name);
-	path_nb_edit_candidate_config(config, xpath, NB_OP_CREATE, NULL);
+	path_nb_edit_candidate_config(config, xpath_base, NB_OP_CREATE, NULL);
+	snprintf(xpath, sizeof(xpath), "%s/protocol-origin", xpath_base);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, "pcep");
 }
 
 void path_nb_add_candidate_path(struct nb_config *config, uint32_t color,

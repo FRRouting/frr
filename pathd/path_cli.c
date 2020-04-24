@@ -199,6 +199,11 @@ DEFPY(no_te_path_segment_list, no_te_path_segment_list_cmd,
 void cli_show_te_path_segment_list(struct vty *vty, struct lyd_node *dnode,
 				   bool show_defaults)
 {
+	enum srte_protocol_origin origin;
+	origin = yang_dnode_get_enum(dnode, "./protocol-origin");
+	if (origin != SRTE_ORIGIN_LOCAL)
+		return;
+
 	vty_out(vty, "segment-list %s\n",
 		yang_dnode_get_string(dnode, "./name"));
 }
@@ -275,6 +280,11 @@ void cli_show_te_path_segment_list_segment(struct vty *vty,
 					   struct lyd_node *dnode,
 					   bool show_defaults)
 {
+	enum srte_protocol_origin origin;
+	origin = yang_dnode_get_enum(dnode, "../protocol-origin");
+	if (origin != SRTE_ORIGIN_LOCAL)
+		return;
+
 	vty_out(vty, " index %s mpls label %s",
 		yang_dnode_get_string(dnode, "./index"),
 		yang_dnode_get_string(dnode, "./sid-value"));

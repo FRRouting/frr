@@ -29,6 +29,25 @@ module frr-pathd {
       "Initial revision.";
   }
 
+  typedef protocol {
+    description
+      "Indication for the protocol origin of an object.";
+    type enumeration {
+      enum pcep {
+        value 1;
+        description "The object was created through PCEP";
+      }
+      enum bgp {
+        value 2;
+        description "The object was created through GBP";
+      }
+      enum local {
+        value 3;
+        description "The object was created through CLI, Yang model via Netconf, gRPC, etc";
+      }
+    }
+  }
+
   container pathd {
     list segment-list {
       key "name";
@@ -38,6 +57,12 @@ module frr-pathd {
           length "1..64";
         }
         description "Segment-list name";
+      }
+      leaf protocol-origin {
+        type protocol;
+        default "local";
+        description
+          "Indication for the protocol origin of the segment list.";
       }
       list segment {
         key "index";
@@ -157,23 +182,10 @@ module frr-pathd {
             "True if the candidate path is the best candidate path, False otherwise";
         }
         leaf protocol-origin {
+          type protocol;
+          mandatory true;
           description
             "Indication for the protocol origin of the Candidate Path.";
-          mandatory true;
-          type enumeration {
-            enum pcep {
-              value 1;
-              description "PCEP used as signalling mechanism for the candidate path";
-            }
-            enum bgp {
-              value 2;
-              description "BGP used as signalling mechanism for the candidate path";
-            }
-            enum local {
-              value 3;
-              description "CLI, Yang model via Netconf, gRPC, etc used for candidate path instantiation";
-            }
-          }
         }
         leaf originator {
           type inet:ip-address;

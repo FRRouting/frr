@@ -32,6 +32,8 @@ pathd_te_segment_list_lookup_entry(struct nb_cb_lookup_entry_args *args);
 
 int pathd_te_segment_list_segment_create(struct nb_cb_create_args *args);
 int pathd_te_segment_list_segment_destroy(struct nb_cb_destroy_args *args);
+int pathd_te_segment_list_protocol_origin_modify(
+	struct nb_cb_modify_args *args);
 int pathd_te_segment_list_segment_sid_value_modify(
 	struct nb_cb_modify_args *args);
 int pathd_te_segment_list_segment_nai_destroy(struct nb_cb_destroy_args *args);
