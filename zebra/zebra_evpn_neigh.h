@@ -279,6 +279,8 @@ void process_neigh_remote_macip_add(zebra_evpn_t *zevpn, struct zebra_vrf *zvrf,
 				    struct ipaddr *ipaddr, zebra_mac_t *mac,
 				    struct in_addr vtep_ip, uint8_t flags,
 				    uint32_t seq);
+int zebra_evpn_neigh_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
+				  struct ipaddr *ip, zebra_mac_t *mac);
 
 zebra_neigh_t *zebra_evpn_neigh_add(zebra_evpn_t *zevpn, struct ipaddr *ip,
 				    struct ethaddr *mac, zebra_mac_t *zmac,
