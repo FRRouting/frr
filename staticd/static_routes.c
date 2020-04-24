@@ -33,105 +33,201 @@
 #include "static_zebra.h"
 
 /* Install static route into rib. */
-static void static_install_route(struct route_node *rn,
-				 struct static_route *si_changed, safi_t safi)
+void static_install_route(struct route_node *rn, struct static_route_info *ri,
+			  safi_t safi, struct static_vrf *svrf)
 {
-	struct static_route *si;
+	struct static_nexthop *si;
 
-	for (si = rn->info; si; si = si->next)
+	for (si = ri->nh; si; si = si->next)
 		static_zebra_nht_register(rn, si, true);
 
-	si = rn->info;
-	if (si)
-		static_zebra_route_add(rn, si_changed, si->vrf_id, safi, true);
-
+	if (ri->nh && svrf && svrf->vrf)
+		static_zebra_route_add(rn, ri, svrf->vrf->vrf_id, safi, true);
 }
 
 /* Uninstall static route from RIB. */
-static void static_uninstall_route(vrf_id_t vrf_id, safi_t safi,
-				   struct route_node *rn,
-				   struct static_route *si_changed)
+static void static_uninstall_route(struct route_node *rn,
+				   struct static_route_info *ri, safi_t safi,
+				   struct static_vrf *svrf)
 {
+	struct static_nexthop *si;
 
-	if (rn->info)
-		static_zebra_route_add(rn, si_changed, vrf_id, safi, true);
+	si = ri->nh;
+
+	if (si)
+		static_zebra_route_add(rn, ri, svrf->vrf->vrf_id, safi, true);
 	else
-		static_zebra_route_add(rn, si_changed, vrf_id, safi, false);
+		static_zebra_route_add(rn, ri, svrf->vrf->vrf_id, safi, false);
 }
 
-int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
-		     struct prefix_ipv6 *src_p, union g_addr *gate,
-		     const char *ifname, enum static_blackhole_type bh_type,
-		     route_tag_t tag, uint8_t distance, struct static_vrf *svrf,
-		     struct static_vrf *nh_svrf,
-		     struct static_nh_label *snh_label, uint32_t table_id,
-		     bool onlink)
+struct route_node *static_add_route(afi_t afi, safi_t safi, struct prefix *p,
+				    struct prefix_ipv6 *src_p,
+				    struct static_vrf *svrf)
 {
 	struct route_node *rn;
-	struct static_route *si;
-	struct static_route *pp;
-	struct static_route *cp;
-	struct static_route *update = NULL;
 	struct route_table *stable = svrf->stable[afi][safi];
-	struct interface *ifp;
+	int ret;
+	bool negate = false;
 
 	if (!stable)
-		return -1;
-
-	if (!gate && (type == STATIC_IPV4_GATEWAY
-		      || type == STATIC_IPV4_GATEWAY_IFNAME
-		      || type == STATIC_IPV6_GATEWAY
-		      || type == STATIC_IPV6_GATEWAY_IFNAME))
-		return -1;
-
-	if (!ifname
-	    && (type == STATIC_IFNAME || type == STATIC_IPV4_GATEWAY_IFNAME
-		|| type == STATIC_IPV6_GATEWAY_IFNAME))
-		return -1;
+		return NULL;
 
 	/* Lookup static route prefix. */
 	rn = srcdest_rnode_get(stable, p, src_p);
 
-	/* Do nothing if there is a same static route.  */
-	for (si = rn->info; si; si = si->next) {
-		if (type == si->type
-		    && (!gate
-			|| ((afi == AFI_IP
-			     && IPV4_ADDR_SAME(&gate->ipv4, &si->addr.ipv4))
-			    || (afi == AFI_IP6
-				&& IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
-		    && (!strcmp(ifname ? ifname : "", si->ifname))
-		    && nh_svrf->vrf->vrf_id == si->nh_vrf_id) {
-			if ((distance == si->distance) && (tag == si->tag)
-			    && (table_id == si->table_id)
-			    && !memcmp(&si->snh_label, snh_label,
-				       sizeof(struct static_nh_label))
-			    && si->bh_type == bh_type && si->onlink == onlink) {
-				route_unlock_node(rn);
-				return 0;
-			}
-			update = si;
+	/* Mark as having FRR configuration */
+	vrf_set_user_cfged(svrf->vrf);
+
+	if (svrf->vrf->vrf_id == VRF_UNKNOWN) {
+		ret = zebra_static_route_holdem(rn, NULL, NULL, safi, svrf,
+						negate);
+		if (!ret) {
+			zlog_warn("rn creation failed");
+			return NULL;
 		}
 	}
 
-	/* Distance or tag or label changed, delete existing first. */
-	if (update)
-		static_delete_route(afi, safi, type, p, src_p, gate, ifname,
-				    update->tag, update->distance, svrf,
-				    &update->snh_label, table_id);
+	return rn;
+}
+
+void static_del_route(struct route_node *rn, safi_t safi,
+		      struct static_vrf *svrf)
+{
+	struct static_route_info *ri;
+	struct static_route_info *ri_next;
+	bool negate = true;
+	int ret;
+
+	if (svrf->vrf->vrf_id == VRF_UNKNOWN) {
+		ret = zebra_static_route_holdem(rn, NULL, NULL, safi, svrf,
+						negate);
+		if (!ret)
+			zlog_warn("rn deletion failed");
+	}
+
+	RNODE_FOREACH_PATH(rn, ri, ri_next)
+	{
+		static_del_route_info(rn, ri, safi, svrf);
+	}
+
+	XFREE(MTYPE_STATIC_ROUTE_INFO, rn->info);
+	route_unlock_node(rn);
+	/* If no other FRR config for this VRF, mark accordingly. */
+	if (!static_vrf_has_config(svrf))
+		vrf_reset_user_cfged(svrf->vrf);
+}
+
+bool static_add_nexthop_validate(struct static_vrf *svrf, static_types type,
+				 struct ipaddr *ipaddr)
+{
+	switch (type) {
+	case STATIC_IPV4_GATEWAY:
+	case STATIC_IPV4_GATEWAY_IFNAME:
+		if (if_lookup_exact_address(&ipaddr->ipaddr_v4, AF_INET,
+					    svrf->vrf->vrf_id))
+			return false;
+		break;
+	case STATIC_IPV6_GATEWAY:
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		if (if_lookup_exact_address(&ipaddr->ipaddr_v6, AF_INET6,
+					    svrf->vrf->vrf_id))
+			return false;
+		break;
+	default:
+		break;
+	}
+
+	return true;
+}
+
+struct static_route_info *static_add_route_info(struct route_node *rn,
+						uint8_t distance,
+						route_tag_t tag,
+						uint32_t table_id)
+{
+	struct static_route_info *ri;
+	struct static_route_info *head;
+
+	route_lock_node(rn);
 
 	/* Make new static route structure. */
-	si = XCALLOC(MTYPE_STATIC_ROUTE, sizeof(struct static_route));
+	ri = XCALLOC(MTYPE_STATIC_ROUTE_INFO, sizeof(struct static_route_info));
+
+	ri->distance = distance;
+	ri->tag = tag;
+	ri->table_id = table_id;
+
+	head = rn->info;
+
+	ri->next = head;
+	ri->prev = NULL;
+
+	if (head != NULL)
+		head->prev = ri;
+
+	rn->info = ri;
+
+	return ri;
+}
+
+bool static_del_route_info(struct route_node *rn, struct static_route_info *ri,
+			   safi_t safi, struct static_vrf *svrf)
+{
+	struct static_route_info *head;
+	struct static_nexthop *nh;
+	struct static_nexthop *nh_next;
+
+	head = rn->info;
+
+	if (head == ri)
+		rn->info = ri->next;
+
+	if (ri->next != NULL)
+		ri->next->prev = ri->prev;
+
+	if (ri->prev != NULL)
+		ri->prev->next = ri->next;
+
+	RNODE_FOREACH_PATH_NH(ri, nh, nh_next)
+	{
+		static_delete_nexthop(rn, ri, safi, svrf, nh);
+	}
+
+	route_unlock_node(rn);
+
+	free(ri);
+
+	return true;
+}
+
+struct static_nexthop *
+static_add_nexthop(struct route_node *rn, struct static_route_info *ri,
+		   safi_t safi, struct static_vrf *svrf, static_types type,
+		   struct ipaddr *ipaddr, const char *ifname,
+		   const char *nh_vrf)
+{
+	struct static_nexthop *si;
+	struct static_nexthop *pp;
+	struct static_nexthop *cp;
+	struct static_vrf *nh_svrf;
+	struct interface *ifp;
+	int ret;
+	bool negate = false;
+
+	route_lock_node(rn);
+
+	nh_svrf = static_vty_get_unknown_vrf(nh_vrf);
+
+	if (!nh_svrf)
+		return NULL;
+
+	/* Make new static route structure. */
+	si = XCALLOC(MTYPE_STATIC_ROUTE, sizeof(struct static_nexthop));
 
 	si->type = type;
-	si->distance = distance;
-	si->bh_type = bh_type;
-	si->tag = tag;
-	si->vrf_id = svrf->vrf->vrf_id;
+
 	si->nh_vrf_id = nh_svrf->vrf->vrf_id;
 	strlcpy(si->nh_vrfname, nh_svrf->vrf->name, sizeof(si->nh_vrfname));
-	si->table_id = table_id;
-	si->onlink = onlink;
 
 	if (ifname)
 		strlcpy(si->ifname, ifname, sizeof(si->ifname));
@@ -140,28 +236,21 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	switch (type) {
 	case STATIC_IPV4_GATEWAY:
 	case STATIC_IPV4_GATEWAY_IFNAME:
-		si->addr.ipv4 = gate->ipv4;
+		si->addr.ipv4 = ipaddr->ipaddr_v4;
 		break;
 	case STATIC_IPV6_GATEWAY:
 	case STATIC_IPV6_GATEWAY_IFNAME:
-		si->addr.ipv6 = gate->ipv6;
+		si->addr.ipv6 = ipaddr->ipaddr_v6;
 		break;
-	case STATIC_IFNAME:
+	default:
 		break;
 	}
 
-	/* Save labels, if any. */
-	memcpy(&si->snh_label, snh_label, sizeof(struct static_nh_label));
-
 	/*
 	 * Add new static route information to the tree with sort by
-	 * distance value and gateway address.
+	 * gateway address.
 	 */
-	for (pp = NULL, cp = rn->info; cp; pp = cp, cp = cp->next) {
-		if (si->distance < cp->distance)
-			break;
-		if (si->distance > cp->distance)
-			continue;
+	for (pp = NULL, cp = ri->nh; cp; pp = cp, cp = cp->next) {
 		if (si->type == STATIC_IPV4_GATEWAY
 		    && cp->type == STATIC_IPV4_GATEWAY) {
 			if (ntohl(si->addr.ipv4.s_addr)
@@ -177,11 +266,18 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	if (pp)
 		pp->next = si;
 	else
-		rn->info = si;
+		ri->nh = si;
 	if (cp)
 		cp->prev = si;
 	si->prev = pp;
 	si->next = cp;
+
+	if (nh_svrf->vrf->vrf_id == VRF_UNKNOWN) {
+		ret = zebra_static_route_holdem(rn, ri, si, safi, svrf, negate);
+		if (!ret)
+			zlog_warn("nh creation failed");
+		return si;
+	}
 
 	/* check whether interface exists in system & install if it does */
 	switch (si->type) {
@@ -191,97 +287,72 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 		break;
 	case STATIC_IPV4_GATEWAY_IFNAME:
 	case STATIC_IPV6_GATEWAY_IFNAME:
-		ifp =  if_lookup_by_name(ifname, nh_svrf->vrf->vrf_id);
+		ifp = if_lookup_by_name(ifname, nh_svrf->vrf->vrf_id);
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL)
 			si->ifindex = ifp->ifindex;
 		else
-			zlog_warn("Static Route using %s interface not installed because the interface does not exist in specified vrf",
-				  ifname);
+			zlog_warn(
+				"Static Route using %s interface not installed because the interface does not exist in specified vrf",
+				ifname);
 
 		static_zebra_nht_register(rn, si, true);
 		break;
 	case STATIC_BLACKHOLE:
-		static_install_route(rn, si, safi);
+		static_install_route(rn, ri, safi, svrf);
 		break;
 	case STATIC_IFNAME:
 		ifp = if_lookup_by_name(ifname, nh_svrf->vrf->vrf_id);
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL) {
 			si->ifindex = ifp->ifindex;
-			static_install_route(rn, si, safi);
+			static_install_route(rn, ri, safi, svrf);
 		} else
-			zlog_warn("Static Route using %s interface not installed because the interface does not exist in specified vrf",
-				  ifname);
+			zlog_warn(
+				"Static Route using %s interface not installed because the interface does not exist in specified vrf",
+				ifname);
 
 		break;
 	}
 
-	return 1;
+	return si;
 }
 
-int static_delete_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
-			struct prefix_ipv6 *src_p, union g_addr *gate,
-			const char *ifname, route_tag_t tag, uint8_t distance,
-			struct static_vrf *svrf,
-			struct static_nh_label *snh_label,
-			uint32_t table_id)
+int static_delete_nexthop(struct route_node *rn, struct static_route_info *ri,
+			  safi_t safi, struct static_vrf *svrf,
+			  struct static_nexthop *si)
 {
-	struct route_node *rn;
-	struct static_route *si;
-	struct route_table *stable;
+	struct static_vrf *nh_svrf;
+	int ret;
+	bool negate = true;
 
-	/* Lookup table.  */
-	stable = static_vrf_static_table(afi, safi, svrf);
-	if (!stable)
-		return -1;
-
-	/* Lookup static route prefix. */
-	rn = srcdest_rnode_lookup(stable, p, src_p);
-	if (!rn)
-		return 0;
-
-	/* Find same static route is the tree */
-	for (si = rn->info; si; si = si->next)
-		if (type == si->type
-		    && (!gate
-			|| ((afi == AFI_IP
-			     && IPV4_ADDR_SAME(&gate->ipv4, &si->addr.ipv4))
-			    || (afi == AFI_IP6
-				&& IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
-		    && (!strcmp(ifname ? ifname : "", si->ifname))
-		    && (!tag || (tag == si->tag))
-		    && (table_id == si->table_id)
-		    && (!snh_label->num_labels
-			|| !memcmp(&si->snh_label, snh_label,
-				   sizeof(struct static_nh_label))))
-			break;
-
-	/* Can't find static route. */
-	if (!si) {
-		route_unlock_node(rn);
-		return 0;
-	}
-
-	static_zebra_nht_register(rn, si, false);
+	nh_svrf = static_vrf_lookup_by_name(si->nh_vrfname);
 
 	/* Unlink static route from linked list. */
 	if (si->prev)
 		si->prev->next = si->next;
 	else
-		rn->info = si->next;
+		ri->nh = si->next;
 	if (si->next)
 		si->next->prev = si->prev;
 
+	if (nh_svrf->vrf->vrf_id == VRF_UNKNOWN) {
+		ret = zebra_static_route_holdem(rn, ri, si, safi, svrf, negate);
+		if (!ret)
+			zlog_warn("nh deletion failed");
+		goto EXIT;
+	}
+
+	static_zebra_nht_register(rn, si, false);
 	/*
 	 * If we have other si nodes then route replace
 	 * else delete the route
 	 */
-	static_uninstall_route(si->vrf_id, safi, rn, si);
+	static_uninstall_route(rn, ri, safi, svrf);
+
 	route_unlock_node(rn);
 
+EXIT:
 	/* Free static route configuration. */
 	XFREE(MTYPE_STATIC_ROUTE, si);
-
-	route_unlock_node(rn);
 
 	return 1;
 }
@@ -291,7 +362,8 @@ static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
 {
 	struct route_table *stable;
 	struct route_node *rn;
-	struct static_route *si;
+	struct static_nexthop *nh;
+	struct static_route_info *ri;
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
@@ -304,24 +376,32 @@ static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
 			continue;
 
 		for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
-			for (si = rn->info; si; si = si->next) {
-				if (!si->ifname[0])
-					continue;
-				if (up) {
-					if (strcmp(si->ifname, ifp->name))
+			RNODE_FOREACH_PATH_RO(rn, ri)
+			{
+				RNODE_FOREACH_PATH_NH_RO(ri, nh)
+				{
+					if (!nh->ifname[0])
 						continue;
-					if (si->nh_vrf_id != ifp->vrf_id)
-						continue;
-					si->ifindex = ifp->ifindex;
-				} else {
-					if (si->ifindex != ifp->ifindex)
-						continue;
-					if (si->nh_vrf_id != ifp->vrf_id)
-						continue;
-					si->ifindex = IFINDEX_INTERNAL;
-				}
+					if (up) {
+						if (strcmp(nh->ifname,
+							ifp->name))
+							continue;
+						if (nh->nh_vrf_id
+							!= ifp->vrf_id)
+							continue;
+						nh->ifindex = ifp->ifindex;
+					} else {
+						if (nh->ifindex != ifp->ifindex)
+							continue;
+						if (nh->nh_vrf_id
+							!= ifp->vrf_id)
+							continue;
+						nh->ifindex = IFINDEX_INTERNAL;
+					}
 
-				static_install_route(rn, si, safi);
+					static_install_route(rn, ri, safi,
+							     svrf);
+				}
 			}
 		}
 	}
@@ -343,26 +423,32 @@ static void static_fixup_vrf(struct static_vrf *svrf,
 			     struct route_table *stable, afi_t afi, safi_t safi)
 {
 	struct route_node *rn;
-	struct static_route *si;
+	struct static_nexthop *nh;
 	struct interface *ifp;
+	struct static_route_info *ri;
 
 	for (rn = route_top(stable); rn; rn = route_next(rn)) {
-		for (si = rn->info; si; si = si->next) {
-			if (strcmp(svrf->vrf->name, si->nh_vrfname) != 0)
-				continue;
-
-			si->nh_vrf_id = svrf->vrf->vrf_id;
-			si->nh_registered = false;
-			if (si->ifindex) {
-				ifp = if_lookup_by_name(si->ifname,
-							si->nh_vrf_id);
-				if (ifp)
-					si->ifindex = ifp->ifindex;
-				else
+		RNODE_FOREACH_PATH_RO(rn, ri)
+		{
+			RNODE_FOREACH_PATH_NH_RO(ri, nh)
+			{
+				if (strcmp(svrf->vrf->name, nh->nh_vrfname)
+				    != 0)
 					continue;
-			}
 
-			static_install_route(rn, si, safi);
+				nh->nh_vrf_id = svrf->vrf->vrf_id;
+				nh->nh_registered = false;
+				if (nh->ifindex) {
+					ifp = if_lookup_by_name(nh->ifname,
+								nh->nh_vrf_id);
+					if (ifp)
+						nh->ifindex = ifp->ifindex;
+					else
+						continue;
+				}
+
+				static_install_route(rn, ri, safi, svrf);
+			}
 		}
 	}
 }
@@ -377,26 +463,31 @@ static void static_fixup_vrf(struct static_vrf *svrf,
  * safi -> the safi in question
  */
 static void static_enable_vrf(struct static_vrf *svrf,
-			      struct route_table *stable,
-			      afi_t afi, safi_t safi)
+			      struct route_table *stable, afi_t afi,
+			      safi_t safi)
 {
 	struct route_node *rn;
-	struct static_route *si;
+	struct static_nexthop *nh;
 	struct interface *ifp;
+	struct static_route_info *ri;
 	struct vrf *vrf = svrf->vrf;
 
 	for (rn = route_top(stable); rn; rn = route_next(rn)) {
-		for (si = rn->info; si; si = si->next) {
-			si->vrf_id = vrf->vrf_id;
-			if (si->ifindex) {
-				ifp = if_lookup_by_name(si->ifname,
-							si->nh_vrf_id);
-				if (ifp)
-					si->ifindex = ifp->ifindex;
-				else
-					continue;
+		RNODE_FOREACH_PATH_RO(rn, ri)
+		{
+			RNODE_FOREACH_PATH_NH_RO(ri, nh)
+			{
+				nh->vrf_id = vrf->vrf_id;
+				if (nh->ifindex) {
+					ifp = if_lookup_by_name(nh->ifname,
+								nh->nh_vrf_id);
+					if (ifp)
+						nh->ifindex = ifp->ifindex;
+					else
+						continue;
+				}
+				static_install_route(rn, ri, safi, svrf);
 			}
-			static_install_route(rn, si, safi);
 		}
 	}
 }
@@ -448,18 +539,24 @@ void static_fixup_vrf_ids(struct static_vrf *enable_svrf)
  * safi -> the safi in question
  */
 static void static_cleanup_vrf(struct static_vrf *svrf,
-			       struct route_table *stable,
-			       afi_t afi, safi_t safi)
+			       struct route_table *stable, afi_t afi,
+			       safi_t safi)
 {
 	struct route_node *rn;
-	struct static_route *si;
+	struct static_nexthop *nh;
+	struct static_route_info *ri;
 
 	for (rn = route_top(stable); rn; rn = route_next(rn)) {
-		for (si = rn->info; si; si = si->next) {
-			if (strcmp(svrf->vrf->name, si->nh_vrfname) != 0)
-				continue;
+		RNODE_FOREACH_PATH_RO(rn, ri)
+		{
+			RNODE_FOREACH_PATH_NH_RO(ri, nh)
+			{
+				if (strcmp(svrf->vrf->name, nh->nh_vrfname)
+				    != 0)
+					continue;
 
-			static_uninstall_route(si->vrf_id, safi, rn, si);
+				static_uninstall_route(rn, ri, safi, svrf);
+			}
 		}
 	}
 }
@@ -472,15 +569,26 @@ static void static_cleanup_vrf(struct static_vrf *svrf,
  * afi -> The afi in question
  * safi -> the safi in question
  */
-static void static_disable_vrf(struct route_table *stable,
-			       afi_t afi, safi_t safi)
+static void static_disable_vrf(struct route_table *stable, afi_t afi,
+			       safi_t safi)
 {
 	struct route_node *rn;
-	struct static_route *si;
+	struct static_nexthop *nh;
+	struct static_route_info *ri;
+	struct stable_info *info;
 
-	for (rn = route_top(stable); rn; rn = route_next(rn))
-		for (si = rn->info; si; si = si->next)
-			static_uninstall_route(si->vrf_id, safi, rn, si);
+	info = route_table_get_info(stable);
+
+	for (rn = route_top(stable); rn; rn = route_next(rn)) {
+		RNODE_FOREACH_PATH_RO(rn, ri)
+		{
+			RNODE_FOREACH_PATH_NH_RO(ri, nh)
+			{
+				static_uninstall_route(rn, ri, safi,
+						       info->svrf);
+			}
+		}
+	}
 }
 
 /*
@@ -531,21 +639,28 @@ void static_cleanup_vrf_ids(struct static_vrf *disable_svrf)
  * safi -> the safi in question
  */
 static void static_fixup_intf_nh(struct route_table *stable,
-				 struct interface *ifp,
-				 afi_t afi, safi_t safi)
+				 struct interface *ifp, afi_t afi, safi_t safi)
 {
 	struct route_node *rn;
-	struct static_route *si;
+	struct stable_info *info;
+	struct static_nexthop *nh;
+	struct static_route_info *ri;
+
+	info = route_table_get_info(stable);
 
 	for (rn = route_top(stable); rn; rn = route_next(rn)) {
-		for (si = rn->info; si; si = si->next) {
-			if (si->nh_vrf_id != ifp->vrf_id)
-				continue;
+		RNODE_FOREACH_PATH_RO(rn, ri)
+		{
+			RNODE_FOREACH_PATH_NH_RO(ri, nh)
+			{
+				if (nh->nh_vrf_id != ifp->vrf_id)
+					continue;
 
-			if (si->ifindex != ifp->ifindex)
-				continue;
+				if (nh->ifindex != ifp->ifindex)
+					continue;
 
-			static_install_route(rn, si, safi);
+				static_install_route(rn, ri, safi, info->svrf);
+			}
 		}
 	}
 }
@@ -588,4 +703,245 @@ void static_ifindex_update(struct interface *ifp, bool up)
 	static_ifindex_update_af(ifp, up, AFI_IP, SAFI_MULTICAST);
 	static_ifindex_update_af(ifp, up, AFI_IP6, SAFI_UNICAST);
 	static_ifindex_update_af(ifp, up, AFI_IP6, SAFI_MULTICAST);
+}
+
+void static_get_nh_type(static_types stype, char *type, size_t size)
+{
+	switch (stype) {
+	case STATIC_IFNAME:
+		strlcpy(type, "ifindex", size);
+		break;
+	case STATIC_IPV4_GATEWAY:
+		strlcpy(type, "ip4", size);
+		break;
+	case STATIC_IPV4_GATEWAY_IFNAME:
+		strlcpy(type, "ip4-ifindex", size);
+		break;
+	case STATIC_BLACKHOLE:
+		strlcpy(type, "blackhole", size);
+		break;
+	case STATIC_IPV6_GATEWAY:
+		strlcpy(type, "ip6", size);
+		break;
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		strlcpy(type, "ip6-ifindex", size);
+		break;
+	};
+}
+
+/* This API is necessary as libyang does not support the auto deletion
+ * of node; if it's all child nodes gets deleted. like prefix is not
+ * deleted automatically if all it's nexthops gets deleted.
+ */
+bool static_get_route_delete(afi_t afi, safi_t safi, uint8_t type,
+			     struct prefix *p, struct prefix_ipv6 *src_p,
+			     const char *vrf)
+{
+	struct route_node *rn;
+	struct route_table *stable;
+	struct static_vrf *svrf;
+	unsigned int src_count;
+	bool ret = false;
+
+	svrf = static_vrf_lookup_by_name(vrf);
+
+	/* Lookup table.  */
+	stable = static_vrf_static_table(afi, safi, svrf);
+	if (!stable)
+		return ret;
+
+	/* Lookup static route prefix. */
+	rn = srcdest_rnode_lookup(stable, p, src_p);
+	if (!rn)
+		return ret;
+	src_count = (rn->lock) - 1;
+	if (src_count == 3)
+		ret = true;
+
+	route_unlock_node(rn);
+	return ret;
+}
+
+bool static_get_src_route_delete(afi_t afi, safi_t safi, uint8_t type,
+				 struct prefix *p, const char *vrf)
+{
+	struct route_node *rn;
+	struct route_table *stable;
+	struct static_vrf *svrf;
+	unsigned int src_count;
+	bool ret = false;
+
+	svrf = static_vrf_lookup_by_name(vrf);
+
+	/* Lookup table.  */
+	stable = static_vrf_static_table(afi, safi, svrf);
+	if (!stable)
+		return ret;
+
+	/* Lookup static route prefix. */
+	rn = route_node_lookup_maynull(stable, p);
+	if (!rn)
+		return ret;
+	src_count = (rn->lock) - 1;
+	if (src_count == 2)
+		ret = true;
+
+	route_unlock_node(rn);
+	return ret;
+}
+
+bool static_get_path_delete(afi_t afi, safi_t safi, uint8_t type,
+			    struct prefix *p, struct prefix_ipv6 *src_p,
+			    const char *vrf, uint8_t distance, route_tag_t tag,
+			    uint32_t table_id)
+{
+	struct route_node *rn;
+	struct route_table *stable;
+	struct static_route_info *ri;
+	struct static_vrf *svrf;
+	bool ret = false;
+
+	svrf = static_vrf_lookup_by_name(vrf);
+
+	/* Lookup table.  */
+	stable = static_vrf_static_table(afi, safi, svrf);
+	if (!stable)
+		return -1;
+
+	/* Lookup static route prefix. */
+	rn = srcdest_rnode_lookup(stable, p, src_p);
+	if (!rn)
+		return 0;
+
+	RNODE_FOREACH_PATH_RO(rn, ri)
+	{
+		if (ri->distance == distance && ri->tag == tag
+		    && ri->table_id == table_id)
+			break;
+	}
+
+	if (ri && ri->nh && ri->nh->next == NULL)
+		ret = true;
+
+	route_unlock_node(rn);
+	return ret;
+}
+
+struct static_hold_route {
+	struct static_vrf *svrf;
+	struct route_node *rn;
+	struct static_route_info *ri;
+	struct static_nexthop *nh;
+	safi_t safi;
+};
+
+static struct list *static_list;
+
+static void static_list_delete(struct static_hold_route *shr)
+{
+	XFREE(MTYPE_STATIC_ROUTE, shr);
+}
+
+static int static_list_compare(void *arg1, void *arg2)
+{
+	struct static_hold_route *shr1 = arg1;
+	struct static_hold_route *shr2 = arg2;
+
+	if (shr1->rn != shr2->rn)
+		return 1;
+	if (shr1->nh != shr2->nh)
+		return 1;
+	if (shr1->ri != shr2->ri)
+		return 1;
+
+	return 0;
+}
+
+void static_list_init(void)
+{
+	static_list = list_new();
+	static_list->cmp = (int (*)(void *, void *))static_list_compare;
+	static_list->del = (void (*)(void *))static_list_delete;
+}
+
+int zebra_static_route_holdem(struct route_node *rn,
+			      struct static_route_info *ri,
+			      struct static_nexthop *nh, safi_t safi,
+			      struct static_vrf *svrf, bool negate)
+{
+	struct static_hold_route *shr, *lookup;
+	struct listnode *node;
+
+	zlog_warn("Static Route to not installed currently because dependent config not fully available");
+
+	shr = XCALLOC(MTYPE_STATIC_ROUTE, sizeof(*shr));
+	shr->rn = rn;
+	shr->nh = nh;
+	shr->ri = ri;
+	shr->safi = safi;
+	shr->svrf = svrf;
+
+	for (ALL_LIST_ELEMENTS_RO(static_list, node, lookup)) {
+		if (static_list_compare(shr, lookup) == 0)
+			break;
+	}
+
+	if (lookup) {
+		if (negate) {
+			listnode_delete(static_list, lookup);
+			static_list_delete(shr);
+			static_list_delete(lookup);
+			return 1;
+		}
+
+		/*
+		 * If a person enters the same line again
+		 * we need to silently accept it
+		 */
+		goto shr_cleanup;
+	}
+
+	if (!negate) {
+		listnode_add_sort(static_list, shr);
+		return 1;
+	}
+
+shr_cleanup:
+	XFREE(MTYPE_STATIC_ROUTE, shr);
+
+	return 1;
+}
+
+void static_config_install_delayed_routes(struct static_vrf *svrf)
+{
+	struct listnode *node, *nnode;
+	struct static_hold_route *shr;
+	struct static_vrf *osvrf, *nh_svrf = NULL;
+	struct static_route_info *ri;
+
+	for (ALL_LIST_ELEMENTS(static_list, node, nnode, shr)) {
+		osvrf = shr->svrf;
+		if (shr->nh)
+			nh_svrf =
+				static_vrf_lookup_by_name(shr->nh->nh_vrfname);
+
+		if (osvrf != svrf && nh_svrf != svrf)
+			continue;
+
+		if ((osvrf && osvrf->vrf && osvrf->vrf->vrf_id == VRF_UNKNOWN)
+		    || (nh_svrf && nh_svrf->vrf->vrf_id == VRF_UNKNOWN))
+			continue;
+		if (shr->ri) {
+			static_install_route(shr->rn, shr->ri, shr->safi,
+					     shr->svrf);
+		} else {
+			RNODE_FOREACH_PATH_RO(shr->rn, ri)
+			{
+				static_install_route(shr->rn, ri, shr->safi,
+						     shr->svrf);
+			}
+		}
+		listnode_delete(static_list, shr);
+		static_list_delete(shr);
+	}
 }

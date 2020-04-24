@@ -31,12 +31,14 @@
 #include "vrf.h"
 #include "nexthop.h"
 #include "filter.h"
+#include "routing_nb.h"
 
 #include "static_vrf.h"
 #include "static_vty.h"
 #include "static_routes.h"
 #include "static_zebra.h"
 #include "static_debug.h"
+#include "static_nb.h"
 
 char backup_config_file[256];
 
@@ -104,7 +106,8 @@ struct quagga_signal_t static_signals[] = {
 };
 
 static const struct frr_yang_module_info *const staticd_yang_modules[] = {
-	&frr_vrf_info,
+	&frr_interface_info, &frr_vrf_info, &frr_routing_info,
+	&frr_staticd_info,
 };
 
 #define STATIC_VTY_PORT 2616

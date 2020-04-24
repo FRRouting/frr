@@ -33,19 +33,23 @@
 static void zebra_stable_node_cleanup(struct route_table *table,
 				      struct route_node *node)
 {
-	struct static_route *si, *next;
+	struct static_nexthop *si, *next;
+	struct static_route_info *ri;
 
-	if (node->info)
-		for (si = node->info; si; si = next) {
+	if (node->info) {
+		ri = node->info;
+		for (si = ri->nh; si; si = next) {
 			next = si->next;
 			XFREE(MTYPE_STATIC_ROUTE, si);
 		}
+	}
 }
 
 static struct static_vrf *static_vrf_alloc(void)
 {
 	struct route_table *table;
 	struct static_vrf *svrf;
+	struct stable_info *info;
 	safi_t safi;
 	afi_t afi;
 
@@ -57,6 +61,13 @@ static struct static_vrf *static_vrf_alloc(void)
 				table = srcdest_table_init();
 			else
 				table = route_table_init();
+
+			info = XCALLOC(MTYPE_TMP, sizeof(struct stable_info));
+			info->svrf = svrf;
+			info->afi = afi;
+			info->safi = safi;
+			route_table_set_info(table, info);
+
 			table->cleanup = zebra_stable_node_cleanup;
 			svrf->stable[afi][safi] = table;
 		}
@@ -102,12 +113,15 @@ static int static_vrf_delete(struct vrf *vrf)
 	struct static_vrf *svrf;
 	safi_t safi;
 	afi_t afi;
+	void *info;
 
 	svrf = vrf->info;
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
 			table = svrf->stable[afi][safi];
+			info = route_table_get_info(table);
 			route_table_finish(table);
+			XFREE(MTYPE_TMP, info);
 			svrf->stable[afi][safi] = NULL;
 		}
 	}
@@ -209,4 +223,26 @@ void static_vrf_init(void)
 void static_vrf_terminate(void)
 {
 	vrf_terminate();
+}
+
+struct static_vrf *static_vty_get_unknown_vrf(const char *vrf_name)
+{
+	struct static_vrf *svrf;
+	struct vrf *vrf;
+
+	svrf = static_vrf_lookup_by_name(vrf_name);
+
+	if (svrf)
+		return svrf;
+
+	vrf = vrf_get(VRF_UNKNOWN, vrf_name);
+	if (!vrf)
+		return NULL;
+	svrf = vrf->info;
+	if (!svrf)
+		return NULL;
+	/* Mark as having FRR configuration */
+	vrf_set_user_cfged(vrf);
+
+	return svrf;
 }

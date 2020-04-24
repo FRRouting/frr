@@ -265,16 +265,15 @@ static void static_nht_hash_free(void *data)
 	XFREE(MTYPE_TMP, nhtd);
 }
 
-void static_zebra_nht_register(struct route_node *rn,
-			       struct static_route *si, bool reg)
+void static_zebra_nht_register(struct route_node *rn, struct static_nexthop *si,
+			       bool reg)
 {
 	struct static_nht_data *nhtd, lookup;
 	uint32_t cmd;
 	struct prefix p;
 	afi_t afi = AFI_IP;
 
-	cmd = (reg) ?
-		ZEBRA_NEXTHOP_REGISTER : ZEBRA_NEXTHOP_UNREGISTER;
+	cmd = (reg) ? ZEBRA_NEXTHOP_REGISTER : ZEBRA_NEXTHOP_UNREGISTER;
 
 	if (si->nh_registered && reg)
 		return;
@@ -318,8 +317,8 @@ void static_zebra_nht_register(struct route_node *rn,
 			zlog_debug("Registered nexthop(%pFX) for %pRN %d", &p,
 				   rn, nhtd->nh_num);
 		if (nhtd->refcount > 1 && nhtd->nh_num) {
-			static_nht_update(&rn->p, nhtd->nh, nhtd->nh_num,
-					  afi, si->nh_vrf_id);
+			static_nht_update(&rn->p, nhtd->nh, nhtd->nh_num, afi,
+					  si->nh_vrf_id);
 			return;
 		}
 	} else {
@@ -340,10 +339,10 @@ void static_zebra_nht_register(struct route_node *rn,
 }
 
 extern void static_zebra_route_add(struct route_node *rn,
-				   struct static_route *si_changed,
+				   struct static_route_info *ri,
 				   vrf_id_t vrf_id, safi_t safi, bool install)
 {
-	struct static_route *si = rn->info;
+	struct static_nexthop *si;
 	const struct prefix *p, *src_pp;
 	struct zapi_nexthop *api_nh;
 	struct zapi_route api;
@@ -358,33 +357,29 @@ extern void static_zebra_route_add(struct route_node *rn,
 	api.safi = safi;
 	memcpy(&api.prefix, p, sizeof(api.prefix));
 
+	si = ri->nh;
+
 	if (src_pp) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_SRCPFX);
 		memcpy(&api.src_prefix, src_pp, sizeof(api.src_prefix));
 	}
 	SET_FLAG(api.flags, ZEBRA_FLAG_RR_USE_DISTANCE);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	if (si_changed->distance) {
+	if (ri->distance) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
-		api.distance = si_changed->distance;
+		api.distance = ri->distance;
 	}
-	if (si_changed->tag) {
+	if (ri->tag) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
-		api.tag = si_changed->tag;
+		api.tag = ri->tag;
 	}
-	if (si_changed->table_id != 0) {
+	if (ri->table_id != 0) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
-		api.tableid = si_changed->table_id;
+		api.tableid = ri->table_id;
 	}
 	for (/*loaded above*/; si; si = si->next) {
 		api_nh = &api.nexthops[nh_num];
 		if (si->nh_vrf_id == VRF_UNKNOWN)
-			continue;
-
-		if (si->distance != si_changed->distance)
-			continue;
-
-		if (si->table_id != si_changed->table_id)
 			continue;
 
 		api_nh->vrf_id = si->nh_vrf_id;
@@ -459,8 +454,7 @@ extern void static_zebra_route_add(struct route_node *rn,
 	if (!nh_num && install)
 		install = false;
 
-	zclient_route_send(install ?
-			   ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
+	zclient_route_send(install ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
 			   zclient, &api);
 }
 
@@ -481,9 +475,9 @@ void static_zebra_init(void)
 	zclient->route_notify_owner = route_notify_owner;
 	zclient->nexthop_update = static_zebra_nexthop_update;
 
-	static_nht_hash = hash_create(static_nht_hash_key,
-				      static_nht_hash_cmp,
+	static_nht_hash = hash_create(static_nht_hash_key, static_nht_hash_cmp,
 				      "Static Nexthop Tracking hash");
+	static_list_init();
 }
 
 void static_zebra_vrf_register(struct vrf *vrf)

@@ -22,10 +22,10 @@
 extern struct thread_master *master;
 
 extern void static_zebra_nht_register(struct route_node *rn,
-				      struct static_route *si, bool reg);
+				      struct static_nexthop *si, bool reg);
 
 extern void static_zebra_route_add(struct route_node *rn,
-				   struct static_route *si_changed,
+				   struct static_route_info *ri,
 				   vrf_id_t vrf_id, safi_t safi, bool install);
 extern void static_zebra_init(void);
 extern void static_zebra_vrf_register(struct vrf *vrf);

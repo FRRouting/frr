@@ -31,32 +31,34 @@
 #include "static_nht.h"
 
 static void static_nht_update_rn(struct route_node *rn,
+				 struct static_route_info *ri,
 				 struct prefix *nhp, uint32_t nh_num,
 				 vrf_id_t nh_vrf_id, struct vrf *vrf,
 				 safi_t safi)
 {
-	struct static_route *si;
+	struct static_nexthop *nh;
 
-	for (si = rn->info; si; si = si->next) {
-		if (si->nh_vrf_id != nh_vrf_id)
+	RNODE_FOREACH_PATH_NH_RO(ri, nh)
+	{
+		if (nh->nh_vrf_id != nh_vrf_id)
 			continue;
 
-		if (si->type != STATIC_IPV4_GATEWAY
-		    && si->type != STATIC_IPV4_GATEWAY_IFNAME
-		    && si->type != STATIC_IPV6_GATEWAY
-		    && si->type != STATIC_IPV6_GATEWAY_IFNAME)
+		if (nh->type != STATIC_IPV4_GATEWAY
+		    && nh->type != STATIC_IPV4_GATEWAY_IFNAME
+		    && nh->type != STATIC_IPV6_GATEWAY
+		    && nh->type != STATIC_IPV6_GATEWAY_IFNAME)
 			continue;
 
 		if (nhp->family == AF_INET
-		    && nhp->u.prefix4.s_addr == si->addr.ipv4.s_addr)
-			si->nh_valid = !!nh_num;
+		    && nhp->u.prefix4.s_addr == nh->addr.ipv4.s_addr)
+			nh->nh_valid = !!nh_num;
 
 		if (nhp->family == AF_INET6
-		    && memcmp(&nhp->u.prefix6, &si->addr.ipv6, 16) == 0)
-			si->nh_valid = !!nh_num;
+		    && memcmp(&nhp->u.prefix6, &nh->addr.ipv6, 16) == 0)
+			nh->nh_valid = !!nh_num;
 
-		if (si->state == STATIC_START)
-			static_zebra_route_add(rn, si, vrf->vrf_id, safi, true);
+		if (nh->state == STATIC_START)
+			static_zebra_route_add(rn, ri, vrf->vrf_id, safi, true);
 	}
 }
 
@@ -67,6 +69,7 @@ static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 	struct route_table *stable;
 	struct static_vrf *svrf;
 	struct route_node *rn;
+	struct static_route_info *ri;
 
 	svrf = vrf->info;
 	if (!svrf)
@@ -79,20 +82,27 @@ static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 	if (sp) {
 		rn = srcdest_rnode_lookup(stable, sp, NULL);
 		if (rn) {
-			static_nht_update_rn(rn, nhp, nh_num, nh_vrf_id,
-					     vrf, safi);
+			RNODE_FOREACH_PATH_RO(rn, ri)
+			{
+				static_nht_update_rn(rn, ri, nhp, nh_num,
+						     nh_vrf_id, vrf, safi);
+			}
 			route_unlock_node(rn);
 		}
 		return;
 	}
 
-	for (rn = route_top(stable); rn; rn = route_next(rn))
-		static_nht_update_rn(rn, nhp, nh_num, nh_vrf_id, vrf, safi);
-
+	for (rn = route_top(stable); rn; rn = route_next(rn)) {
+		RNODE_FOREACH_PATH_RO(rn, ri)
+		{
+			static_nht_update_rn(rn, ri, nhp, nh_num, nh_vrf_id,
+					     vrf, safi);
+		}
+	}
 }
 
-void static_nht_update(struct prefix *sp, struct prefix *nhp,
-		       uint32_t nh_num, afi_t afi, vrf_id_t nh_vrf_id)
+void static_nht_update(struct prefix *sp, struct prefix *nhp, uint32_t nh_num,
+		       afi_t afi, vrf_id_t nh_vrf_id)
 {
 
 	struct vrf *vrf;
@@ -111,7 +121,8 @@ static void static_nht_reset_start_safi(struct prefix *nhp, afi_t afi,
 {
 	struct static_vrf *svrf;
 	struct route_table *stable;
-	struct static_route *si;
+	struct static_nexthop *nh;
+	struct static_route_info *ri;
 	struct route_node *rn;
 
 	svrf = vrf->info;
@@ -123,25 +134,32 @@ static void static_nht_reset_start_safi(struct prefix *nhp, afi_t afi,
 		return;
 
 	for (rn = route_top(stable); rn; rn = route_next(rn)) {
-		for (si = rn->info; si; si = si->next) {
-			if (si->nh_vrf_id != nh_vrf_id)
-				continue;
+		RNODE_FOREACH_PATH_RO(rn, ri)
+		{
+			RNODE_FOREACH_PATH_NH_RO(ri, nh)
+			{
+				if (nh->nh_vrf_id != nh_vrf_id)
+					continue;
 
-			if (nhp->family == AF_INET
-			    && nhp->u.prefix4.s_addr != si->addr.ipv4.s_addr)
-				continue;
+				if (nhp->family == AF_INET
+				    && nhp->u.prefix4.s_addr
+					       != nh->addr.ipv4.s_addr)
+					continue;
 
-			if (nhp->family == AF_INET6
-			    && memcmp(&nhp->u.prefix6, &si->addr.ipv6, 16) != 0)
-				continue;
+				if (nhp->family == AF_INET6
+				    && memcmp(&nhp->u.prefix6, &nh->addr.ipv6,
+					      16)
+					       != 0)
+					continue;
 
-			/*
-			 * We've been told that a nexthop we depend
-			 * on has changed in some manner, so reset
-			 * the state machine to allow us to start
-			 * over.
-			 */
-			si->state = STATIC_START;
+				/*
+				 * We've been told that a nexthop we depend
+				 * on has changed in some manner, so reset
+				 * the state machine to allow us to start
+				 * over.
+				 */
+				nh->state = STATIC_START;
+			}
 		}
 	}
 }
@@ -164,8 +182,9 @@ static void static_nht_mark_state_safi(struct prefix *sp, afi_t afi,
 {
 	struct static_vrf *svrf;
 	struct route_table *stable;
-	struct static_route *si;
 	struct route_node *rn;
+	struct static_nexthop *nh;
+	struct static_route_info *ri;
 
 	svrf = vrf->info;
 	if (!svrf)
@@ -179,8 +198,13 @@ static void static_nht_mark_state_safi(struct prefix *sp, afi_t afi,
 	if (!rn)
 		return;
 
-	for (si = rn->info; si; si = si->next)
-		si->state = state;
+	RNODE_FOREACH_PATH_RO(rn, ri)
+	{
+		RNODE_FOREACH_PATH_NH_RO(ri, nh)
+		{
+			nh->state = state;
+		}
+	}
 
 	route_unlock_node(rn);
 }

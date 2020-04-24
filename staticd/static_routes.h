@@ -21,6 +21,7 @@
 #define __STATIC_ROUTES_H__
 
 #include "lib/mpls.h"
+#include "table.h"
 
 /* Static route label information */
 struct static_nh_label {
@@ -36,12 +37,12 @@ enum static_blackhole_type {
 };
 
 typedef enum {
-	STATIC_IFNAME,
+	STATIC_IFNAME = 1,
 	STATIC_IPV4_GATEWAY,
 	STATIC_IPV4_GATEWAY_IFNAME,
-	STATIC_BLACKHOLE,
 	STATIC_IPV6_GATEWAY,
 	STATIC_IPV6_GATEWAY_IFNAME,
+	STATIC_BLACKHOLE,
 } static_types;
 
 /*
@@ -64,11 +65,24 @@ enum static_install_states {
 	STATIC_NOT_INSTALLED,
 };
 
+struct static_route_info {
+	struct static_route_info *prev;
+	struct static_route_info *next;
+	/* Administrative distance. */
+	uint8_t distance;
+	/* Tag */
+	route_tag_t tag;
+	/* Table-id */
+	uint32_t table_id;
+	/* Nexthop list */
+	struct static_nexthop *nh;
+};
+
 /* Static route information. */
-struct static_route {
+struct static_nexthop {
 	/* For linked list. */
-	struct static_route *prev;
-	struct static_route *next;
+	struct static_nexthop *prev;
+	struct static_nexthop *next;
 
 	/* VRF identifier. */
 	vrf_id_t vrf_id;
@@ -80,12 +94,6 @@ struct static_route {
 	 * To know where we are.
 	 */
 	enum static_install_states state;
-
-	/* Administrative distance. */
-	uint8_t distance;
-
-	/* Tag */
-	route_tag_t tag;
 
 	/* Flag for this static route's type. */
 	static_types type;
@@ -104,8 +112,6 @@ struct static_route {
 	/* Label information */
 	struct static_nh_label snh_label;
 
-	uint32_t table_id;
-
 	/*
 	 * Whether to pretend the nexthop is directly attached to the specified
 	 * link. Only meaningful when both a gateway address and interface name
@@ -114,32 +120,96 @@ struct static_route {
 	bool onlink;
 };
 
+/*
+ * rib_dest_from_rnode
+ */
+static inline struct static_route_info *
+static_route_info_from_rnode(struct route_node *rn)
+{
+	return (struct static_route_info *)(rn->info);
+}
+
+#define NH_FOREACH_ROUTE_RO(info, ri) for ((ri) = info; (ri); (ri) = ri->next)
+
+#define RNODE_FOREACH_PATH_RO(rn, ri)                                          \
+	NH_FOREACH_ROUTE_RO(static_route_info_from_rnode(rn), ri)
+
+#define NH_FOREACH_ROUTE(info, ri, ri_next)                                    \
+	for ((ri) = info; (ri) != NULL && ((ri_next) = ri->next, 1);           \
+	     (ri) = ri_next)
+
+#define RNODE_FOREACH_PATH(rn, ri, ri_next)                                    \
+	NH_FOREACH_ROUTE(static_route_info_from_rnode(rn), ri, ri_next)
+
+#define RNODE_FOREACH_PATH_NH_RO(ri, nh)                                       \
+	for ((nh) = ri->nh; (nh); (nh) = nh->next)
+
+#define RNODE_FOREACH_PATH_NH(ri, nh, nh_next)                                 \
+	for ((nh) = ri->nh; (nh) != NULL && ((nh_next) = nh->next, 1);         \
+	     (nh) = nh_next)
+
 extern bool mpls_enabled;
 
 extern struct zebra_privs_t static_privs;
 
 void static_fixup_vrf_ids(struct static_vrf *svrf);
 
-extern int static_add_route(afi_t afi, safi_t safi, uint8_t type,
-			    struct prefix *p, struct prefix_ipv6 *src_p,
-			    union g_addr *gate, const char *ifname,
-			    enum static_blackhole_type bh_type, route_tag_t tag,
-			    uint8_t distance, struct static_vrf *svrf,
-			    struct static_vrf *nh_svrf,
-			    struct static_nh_label *snh_label,
-			    uint32_t table_id, bool onlink);
+extern struct static_nexthop *
+static_add_nexthop(struct route_node *rn, struct static_route_info *ri,
+		   safi_t safi, struct static_vrf *svrf, static_types type,
+		   struct ipaddr *ipaddr, const char *ifname,
+		   const char *nh_vrf);
 
-extern int static_delete_route(afi_t afi, safi_t safi, uint8_t type,
-			       struct prefix *p, struct prefix_ipv6 *src_p,
-			       union g_addr *gate, const char *ifname,
-			       route_tag_t tag, uint8_t distance,
-			       struct static_vrf *svrf,
-			       struct static_nh_label *snh_label,
-			       uint32_t table_id);
+extern int static_delete_nexthop(struct route_node *rn,
+				 struct static_route_info *ri, safi_t safi,
+				 struct static_vrf *svrf,
+				 struct static_nexthop *si);
 
 extern void static_cleanup_vrf_ids(struct static_vrf *disable_svrf);
 
 extern void static_install_intf_nh(struct interface *ifp);
 
 extern void static_ifindex_update(struct interface *ifp, bool up);
+
+extern void static_install_route(struct route_node *rn,
+				 struct static_route_info *ri, safi_t safi,
+				 struct static_vrf *svrf);
+
+extern struct route_node *static_add_route(afi_t afi, safi_t safi,
+					   struct prefix *p,
+					   struct prefix_ipv6 *src_p,
+					   struct static_vrf *svrf);
+extern void static_del_route(struct route_node *rn, safi_t safi,
+			     struct static_vrf *svrf);
+
+struct static_route_info *static_add_route_info(struct route_node *rn,
+						uint8_t distance,
+						route_tag_t tag,
+						uint32_t table_id);
+bool static_del_route_info(struct route_node *rn, struct static_route_info *ri,
+			   safi_t safi, struct static_vrf *svrf);
+
+void static_get_nh_type(static_types stype, char *type, size_t size);
+bool static_add_nexthop_validate(struct static_vrf *svrf, static_types type,
+				 struct ipaddr *ipaddr);
+bool static_get_route_delete(afi_t afi, safi_t safi, uint8_t type,
+			     struct prefix *p, struct prefix_ipv6 *src_p,
+			     const char *vrf);
+bool static_get_src_route_delete(afi_t afi, safi_t safi, uint8_t type,
+				 struct prefix *p, const char *vrf);
+
+bool static_get_path_delete(afi_t afi, safi_t safi, uint8_t type,
+			    struct prefix *p, struct prefix_ipv6 *src_p,
+			    const char *vrf, uint8_t distance, route_tag_t tag,
+			    uint32_t table_id);
+
+void static_list_init(void);
+
+int zebra_static_route_holdem(struct route_node *rn,
+			      struct static_route_info *ri,
+			      struct static_nexthop *nh, safi_t safi,
+			      struct static_vrf *svrf, bool negate);
+
+void static_config_install_delayed_routes(struct static_vrf *svrf);
+
 #endif

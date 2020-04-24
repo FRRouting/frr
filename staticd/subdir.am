@@ -18,6 +18,9 @@ staticd_libstatic_a_SOURCES = \
 	staticd/static_zebra.c \
 	staticd/static_vrf.c \
 	staticd/static_vty.c \
+	staticd/static_nb.c \
+	staticd/static_nb_config.c \
+	yang/frr-staticd.yang.c \
 	# end
 
 noinst_HEADERS += \
@@ -28,6 +31,7 @@ noinst_HEADERS += \
 	staticd/static_routes.h \
 	staticd/static_vty.h \
 	staticd/static_vrf.h \
+	staticd/static_nb.h \
 	# end
 
 staticd/static_vty_clippy.c: $(CLIPPY_DEPS)
