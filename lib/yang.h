@@ -34,7 +34,7 @@ extern "C" {
 #endif
 
 /* Maximum XPath length. */
-#define XPATH_MAXLEN 512
+#define XPATH_MAXLEN 1024
 
 /* Maximum list key length. */
 #define LIST_MAXKEYS 8
@@ -510,6 +510,9 @@ extern void yang_init(bool embedded_modules);
  * is exiting.
  */
 extern void yang_terminate(void);
+
+extern const struct lyd_node *yang_dnode_get_pleaf(const struct lyd_node *dnode,
+						   const char *lname);
 
 #ifdef __cplusplus
 }

@@ -695,3 +695,30 @@ void yang_terminate(void)
 
 	ly_ctx_destroy(ly_native_ctx, NULL);
 }
+
+
+/* API to return the parent dnonde for a given list name
+ * use caseOne has a list node, inside another list node
+ * from this leaf if one wants to access the top level
+ * list node's dnode.
+ */
+const struct lyd_node *yang_dnode_get_pleaf(const struct lyd_node *dnode,
+					    const char *lname)
+{
+	const struct lyd_node *orig_dnode = dnode;
+
+	while (orig_dnode) {
+		switch (orig_dnode->schema->nodetype) {
+		case LYS_LIST:
+			if (!strcmp(orig_dnode->schema->name, lname))
+				return orig_dnode;
+			break;
+		default:
+			break;
+		}
+
+		orig_dnode = orig_dnode->parent;
+	}
+
+	return NULL;
+}
