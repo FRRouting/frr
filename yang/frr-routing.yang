@@ -150,7 +150,7 @@ module frr-routing {
              instance.";
         }
         leaf vrf {
-          type frr-vrf:vrf-ref;
+          type string;
           description
             "vrf for control-plane protocol";
         }
