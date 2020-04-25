@@ -1431,8 +1431,8 @@ DEFPY (show_yang_operational_data,
        "Translate operational data\n"
        "YANG module translator\n")
 {
+	struct nb_oper_data_iter_input iter_input = {};
 	LYD_FORMAT format;
-	struct yang_translator *translator = NULL;
 	struct ly_ctx *ly_ctx;
 	struct lyd_node *dnode;
 	char *strp;
@@ -1443,22 +1443,23 @@ DEFPY (show_yang_operational_data,
 		format = LYD_JSON;
 
 	if (translator_family) {
-		translator = yang_translator_find(translator_family);
-		if (!translator) {
+		iter_input.translator = yang_translator_find(translator_family);
+		if (!iter_input.translator) {
 			vty_out(vty, "%% Module translator \"%s\" not found\n",
 				translator_family);
 			return CMD_WARNING;
 		}
 
-		ly_ctx = translator->ly_ctx;
+		ly_ctx = iter_input.translator->ly_ctx;
 	} else
 		ly_ctx = ly_native_ctx;
 
 	/* Obtain data. */
 	dnode = yang_dnode_new(ly_ctx, false);
-	if (nb_oper_data_iterate(xpath, translator, 0, nb_cli_oper_data_cb,
-				 dnode)
-	    != NB_OK) {
+	iter_input.xpath = xpath;
+	iter_input.cb = nb_cli_oper_data_cb;
+	iter_input.cb_arg = dnode;
+	if (nb_oper_data_iterate(&iter_input) != NB_OK) {
 		vty_out(vty, "%% Failed to fetch operational data.\n");
 		yang_dnode_free(dnode);
 		return CMD_WARNING;

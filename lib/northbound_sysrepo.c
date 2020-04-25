@@ -402,12 +402,15 @@ static int frr_sr_state_cb(sr_session_ctx_t *session, const char *module_name,
 			   uint32_t request_id, struct lyd_node **parent,
 			   void *private_ctx)
 {
+	struct nb_oper_data_iter_input iter_input = {};
 	struct lyd_node *dnode;
 
 	dnode = *parent;
-	if (nb_oper_data_iterate(request_xpath, NULL, 0,
-				 frr_sr_state_data_iter_cb, dnode)
-	    != NB_OK) {
+	iter_input.xpath = xpath;
+	iter_input.cb = frr_sr_state_data_iter_cb;
+	iter_input.cb_arg = dnode;
+	iter_input.flags = F_NB_OPER_DATA_ITER_NORECURSE;
+	if (nb_oper_data_iterate(&iter_input) != NB_OK) {
 		flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
 			  "%s: failed to obtain operational data [xpath %s]",
 			  __func__, xpath);

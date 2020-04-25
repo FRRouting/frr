@@ -656,8 +656,30 @@ typedef int (*nb_oper_data_cb)(const struct lys_node *snode,
 			       struct yang_translator *translator,
 			       struct yang_data *data, void *arg);
 
+/* Northbound operational-data iteration input parameters. */
+struct nb_oper_data_iter_input {
+	/* Data path of the YANG data we want to iterate over. */
+	const char *xpath;
+
+	/* Function to call for each retrieved state node. */
+	nb_oper_data_cb cb;
+
+	/*
+	 * Arbitrary argument passed as the fourth parameter in each call to
+	 * 'cb'.
+	 */
+	void *cb_arg;
+
+	/* YANG module translator (might be NULL). */
+	struct yang_translator *translator;
+
+	/*
+	 * F_NB_OPER_DATA_ITER_ flags to control how the iteration is performed.
+	 */
+	uint32_t flags;
+};
 /* Iterate over direct child nodes only. */
-#define NB_OPER_DATA_ITER_NORECURSE 0x0001
+#define F_NB_OPER_DATA_ITER_NORECURSE 0x0001
 
 /* Hooks. */
 DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
@@ -1039,27 +1061,13 @@ extern int nb_running_lock_check(enum nb_client client, const void *user);
 /*
  * Iterate over operational data.
  *
- * xpath
- *    Data path of the YANG data we want to iterate over.
- *
- * translator
- *    YANG module translator (might be NULL).
- *
- * flags
- *    NB_OPER_DATA_ITER_ flags to control how the iteration is performed.
- *
- * cb
- *    Function to call with each data node.
- *
- * arg
- *    Arbitrary argument passed as the fourth parameter in each call to 'cb'.
+ * input
+ *    Iteration input parameters.
  *
  * Returns:
  *    NB_OK on success, NB_ERR otherwise.
  */
-extern int nb_oper_data_iterate(const char *xpath,
-				struct yang_translator *translator,
-				uint32_t flags, nb_oper_data_cb cb, void *arg);
+extern int nb_oper_data_iterate(struct nb_oper_data_iter_input *input);
 
 /*
  * Validate if the northbound operation is valid for the given node.
