@@ -971,7 +971,7 @@ Route Aggregation-IPv4 Address Family
 .. clicmd:: aggregate-address A.B.C.D/M summary-only
 
    This command specifies an aggregate address. Aggregated routes will
-   not be announce.
+   not be announced.
 
 .. index:: no aggregate-address A.B.C.D/M
 .. clicmd:: no aggregate-address A.B.C.D/M
@@ -1023,7 +1023,7 @@ Route Aggregation-IPv6 Address Family
 .. clicmd:: aggregate-address X:X::X:X/M summary-only
 
    This command specifies an aggregate address. Aggregated routes will
-   not be announce.
+   not be announced.
 
 .. index:: no aggregate-address X:X::X:X/M
 .. clicmd:: no aggregate-address X:X::X:X/M
@@ -1776,7 +1776,7 @@ In :ref:`route-map` we can match on or set the BGP communities attribute. Using
 this feature network operator can implement their network policy based on BGP
 communities attribute.
 
-The ollowing commands can be used in route maps:
+The following commands can be used in route maps:
 
 .. index:: match community WORD exact-match [exact-match]
 .. clicmd:: match community WORD exact-match [exact-match]
