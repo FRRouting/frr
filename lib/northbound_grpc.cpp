@@ -672,13 +672,17 @@ class NorthboundImpl
 
 
 			// Execute the user request.
+			struct nb_context context = {};
+			context.client = NB_CLIENT_GRPC;
+
 			switch (phase) {
 			case frr::CommitRequest::VALIDATE:
-				ret = nb_candidate_validate(candidate->config);
+				ret = nb_candidate_validate(&context,
+							    candidate->config);
 				break;
 			case frr::CommitRequest::PREPARE:
 				ret = nb_candidate_commit_prepare(
-					candidate->config, NB_CLIENT_GRPC, NULL,
+					&context, candidate->config,
 					comment.c_str(),
 					&candidate->transaction);
 				break;
@@ -693,8 +697,8 @@ class NorthboundImpl
 				break;
 			case frr::CommitRequest::ALL:
 				ret = nb_candidate_commit(
-					candidate->config, NB_CLIENT_GRPC, NULL,
-					true, comment.c_str(), &transaction_id);
+					&context, candidate->config, true,
+					comment.c_str(), &transaction_id);
 				break;
 			}
 

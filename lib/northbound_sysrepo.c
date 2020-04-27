@@ -245,6 +245,7 @@ static int frr_sr_config_change_cb_verify(sr_session_ctx_t *session,
 	sr_change_oper_t sr_op;
 	sr_val_t *sr_old_val, *sr_new_val;
 	char xpath[XPATH_MAXLEN];
+	struct nb_context context = {};
 	struct nb_config *candidate;
 
 	snprintf(xpath, sizeof(xpath), "/%s:*", module_name);
@@ -276,21 +277,22 @@ static int frr_sr_config_change_cb_verify(sr_session_ctx_t *session,
 	}
 
 	transaction = NULL;
+	context.client = NB_CLIENT_SYSREPO;
 	if (startup_config) {
 		/*
 		 * sysrepod sends the entire startup configuration using a
 		 * single event (SR_EV_ENABLED). This means we need to perform
 		 * the full two-phase commit protocol in one go here.
 		 */
-		ret = nb_candidate_commit(candidate, NB_CLIENT_SYSREPO, NULL,
-					  true, NULL, NULL);
+		ret = nb_candidate_commit(&context, candidate, true, NULL,
+					  NULL);
 	} else {
 		/*
 		 * Validate the configuration changes and allocate all resources
 		 * required to apply them.
 		 */
-		ret = nb_candidate_commit_prepare(candidate, NB_CLIENT_SYSREPO,
-						  NULL, NULL, &transaction);
+		ret = nb_candidate_commit_prepare(&context, candidate, NULL,
+						  &transaction);
 	}
 
 	/* Map northbound return code to sysrepo return code. */

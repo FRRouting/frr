@@ -285,6 +285,7 @@ frr_confd_cdb_diff_iter(confd_hkeypath_t *kp, enum cdb_iter_op cdb_op,
 
 static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 {
+	struct nb_context context = {};
 	struct nb_config *candidate;
 	struct cdb_iter_args iter_args;
 	int ret;
@@ -321,8 +322,9 @@ static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 	 * required to apply them.
 	 */
 	transaction = NULL;
-	ret = nb_candidate_commit_prepare(candidate, NB_CLIENT_CONFD, NULL,
-					  NULL, &transaction);
+	context.client = NB_CLIENT_CONFD;
+	ret = nb_candidate_commit_prepare(&context, candidate, NULL,
+					  &transaction);
 	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
 		enum confd_errcode errcode;
 		const char *errmsg;
