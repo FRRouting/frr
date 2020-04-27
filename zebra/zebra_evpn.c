@@ -55,7 +55,6 @@
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_router.h"
-//comment for cloning
 
 DEFINE_MTYPE_STATIC(ZEBRA, HOST_PREFIX, "host prefix");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN, "EVPN hash");
@@ -4039,9 +4038,6 @@ void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf,
 	num_neigh = hashcount(zevpn->neigh_table);
 	if (!num_neigh)
 		return;
-
-	if (use_json)
-		json = json_object_new_object();
 
 	memset(&wctx, 0, sizeof(struct neigh_walk_ctx));
 	wctx.zevpn = zevpn;
