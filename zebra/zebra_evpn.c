@@ -55,7 +55,6 @@
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_router.h"
-//comment for cloning
 
 DEFINE_MTYPE_STATIC(ZEBRA, HOST_PREFIX, "host prefix");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN, "EVPN hash");
