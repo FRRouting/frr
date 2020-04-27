@@ -32,6 +32,9 @@ extern "C" {
 #define frr_each(prefix, head, item)                                           \
 	for (item = prefix##_first(head); item;                                \
 			item = prefix##_next(head, item))
+#define frr_each_const(prefix, head, item)                                     \
+	for (item = prefix##_first_const(head); item;                          \
+			item = prefix##_next_const(head, item))
 #define frr_each_safe(prefix, head, item)                                      \
 	for (typeof(prefix##_next_safe(head, NULL)) prefix##_safe =            \
 			prefix##_next_safe(head,                               \
@@ -137,9 +140,19 @@ macro_pure type *prefix ## _first(struct prefix##_head *h)                     \
 {                                                                              \
 	return container_of_null(h->sh.first, type, field.si);                 \
 }                                                                              \
+macro_pure const type *prefix ## _first_const(const struct prefix##_head *h)   \
+{                                                                              \
+	return container_of_null(h->sh.first, type, field.si);                 \
+}                                                                              \
 macro_pure type *prefix ## _next(struct prefix##_head * h, type *item)         \
 {                                                                              \
 	struct slist_item *sitem = &item->field.si;                            \
+	return container_of_null(sitem->next, type, field.si);                 \
+}                                                                              \
+macro_pure const type *prefix ## _next_const(const struct prefix##_head *h,    \
+					     const type *item)                 \
+{                                                                              \
+	const struct slist_item *sitem = &item->field.si;                      \
 	return container_of_null(sitem->next, type, field.si);                 \
 }                                                                              \
 macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
@@ -153,6 +166,10 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->sh.count;                                                    \
+}                                                                              \
+macro_pure bool prefix ## _is_empty(const struct prefix##_head *h)             \
+{                                                                              \
+	return (h->sh.first == NULL);                                          \
 }                                                                              \
 /* ... */
 
@@ -239,9 +256,24 @@ macro_pure type *prefix ## _first(struct prefix##_head *h)                     \
 		return NULL;                                                   \
 	return container_of(ditem, type, field.di);                            \
 }                                                                              \
+macro_pure const type *prefix ## _first_const(const struct prefix##_head *h)   \
+{                                                                              \
+	const struct dlist_item *ditem = h->dh.hitem.next;                     \
+	if (ditem == &h->dh.hitem)                                             \
+		return NULL;                                                   \
+	return container_of(ditem, type, field.di);                            \
+}                                                                              \
 macro_pure type *prefix ## _next(struct prefix##_head * h, type *item)         \
 {                                                                              \
 	struct dlist_item *ditem = &item->field.di;                            \
+	if (ditem->next == &h->dh.hitem)                                       \
+		return NULL;                                                   \
+	return container_of(ditem->next, type, field.di);                      \
+}                                                                              \
+macro_pure const type *prefix ## _next_const(const struct prefix##_head *h,    \
+					     const type *item)	               \
+{                                                                              \
+	const struct dlist_item *ditem = &item->field.di;                      \
 	if (ditem->next == &h->dh.hitem)                                       \
 		return NULL;                                                   \
 	return container_of(ditem->next, type, field.di);                      \
@@ -255,6 +287,11 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->dh.count;                                                    \
+}                                                                              \
+macro_inline bool prefix ## _is_empty(const struct prefix##_head *h)           \
+{                                                                              \
+	const struct dlist_item *ditem = h->dh.hitem.next;                     \
+	return (ditem == &h->dh.hitem);                                        \
 }                                                                              \
 /* ... */
 
@@ -476,9 +513,19 @@ macro_pure type *prefix ## _first(struct prefix##_head *h)                     \
 {                                                                              \
 	return container_of_null(h->sh.first, type, field.si);                 \
 }                                                                              \
+macro_pure const type *prefix ## _first_const(const struct prefix##_head *h)   \
+{                                                                              \
+	return container_of_null(h->sh.first, type, field.si);                 \
+}                                                                              \
 macro_pure type *prefix ## _next(struct prefix##_head *h, type *item)          \
 {                                                                              \
 	struct ssort_item *sitem = &item->field.si;                            \
+	return container_of_null(sitem->next, type, field.si);                 \
+}                                                                              \
+macro_pure const type *prefix ## _next_const(const struct prefix##_head *h,    \
+					     const type *item)		\
+{                                                                              \
+	const struct ssort_item *sitem = &item->field.si;                      \
 	return container_of_null(sitem->next, type, field.si);                 \
 }                                                                              \
 macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
@@ -497,7 +544,7 @@ macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 
 #define DECLARE_SORTLIST_UNIQ(prefix, type, field, cmpfn)                      \
 	_DECLARE_SORTLIST(prefix, type, field, cmpfn, cmpfn)                   \
-                                                                               \
+									       \
 macro_inline type *prefix ## _find(struct prefix##_head *h, const type *item)  \
 {                                                                              \
 	struct ssort_item *sitem = h->sh.first;                                \
@@ -663,13 +710,33 @@ macro_pure type *prefix ## _first(struct prefix##_head *h)                     \
 			return container_of(h->hh.entries[i], type, field.hi); \
 	return NULL;                                                           \
 }                                                                              \
+macro_pure const type *prefix ## _first_const(const struct prefix##_head *h)   \
+{                                                                              \
+	uint32_t i;                                                            \
+	for (i = 0; i < HASH_SIZE(h->hh); i++)                                 \
+		if (h->hh.entries[i])                                          \
+			return container_of(h->hh.entries[i], type, field.hi); \
+	return NULL;                                                           \
+}                                                                              \
 macro_pure type *prefix ## _next(struct prefix##_head *h, type *item)          \
 {                                                                              \
 	struct thash_item *hitem = &item->field.hi;                            \
 	if (hitem->next)                                                       \
 		return container_of(hitem->next, type, field.hi);              \
 	uint32_t i = HASH_KEY(h->hh, hitem->hashval) + 1;                      \
-        for (; i < HASH_SIZE(h->hh); i++)                                      \
+	for (; i < HASH_SIZE(h->hh); i++)				       \
+		if (h->hh.entries[i])                                          \
+			return container_of(h->hh.entries[i], type, field.hi); \
+	return NULL;                                                           \
+}                                                                              \
+macro_pure const type *prefix ## _next_const(const struct prefix##_head *h,    \
+                                             const type *item)                 \
+{                                                                              \
+	const struct thash_item *hitem = &item->field.hi;                      \
+	if (hitem->next)                                                       \
+		return container_of(hitem->next, type, field.hi);              \
+	uint32_t i = HASH_KEY(h->hh, hitem->hashval) + 1;                      \
+	for (; i < HASH_SIZE(h->hh); i++)				       \
 		if (h->hh.entries[i])                                          \
 			return container_of(h->hh.entries[i], type, field.hi); \
 	return NULL;                                                           \
@@ -772,9 +839,20 @@ macro_pure type *prefix ## _first(struct prefix##_head *h)                     \
 	struct sskip_item *first = h->sh.hitem.next[0];                        \
 	return container_of_null(first, type, field.si);                       \
 }                                                                              \
+macro_pure const type *prefix ## _first_const(const struct prefix##_head *h)   \
+{                                                                              \
+	const struct sskip_item *first = h->sh.hitem.next[0];                  \
+	return container_of_null(first, type, field.si);                       \
+}                                                                              \
 macro_pure type *prefix ## _next(struct prefix##_head *h, type *item)          \
 {                                                                              \
 	struct sskip_item *next = item->field.si.next[0];                      \
+	return container_of_null(next, type, field.si);                        \
+}                                                                              \
+macro_pure const type *prefix ## _next_const(const struct prefix##_head *h,    \
+					     const type *item)		       \
+{                                                                              \
+	const struct sskip_item *next = item->field.si.next[0];                \
 	return container_of_null(next, type, field.si);                        \
 }                                                                              \
 macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
@@ -792,7 +870,7 @@ macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 #define PREDECL_SKIPLIST_UNIQ(prefix)                                          \
 	_PREDECL_SKIPLIST(prefix)
 #define DECLARE_SKIPLIST_UNIQ(prefix, type, field, cmpfn)                      \
-                                                                               \
+									       \
 macro_inline int prefix ## __cmp(const struct sskip_item *a,                   \
 		const struct sskip_item *b)                                    \
 {                                                                              \

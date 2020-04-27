@@ -107,6 +107,8 @@ Functions provided:
 +------------------------------------+------+------+------+---------+------------+
 | _first, _next, _next_safe          | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
+| _first_const, _next_const          | yes  | yes  | yes  | --      | --         |
++------------------------------------+------+------+------+---------+------------+
 | _add_head, _add_tail, _add_after   | yes  | --   | --   | --      | --         |
 +------------------------------------+------+------+------+---------+------------+
 | _add                               | --   | yes  | yes  | yes     | yes        |
@@ -116,6 +118,8 @@ Functions provided:
 | _find                              | --   | --   | yes  | yes     | --         |
 +------------------------------------+------+------+------+---------+------------+
 | _find_lt, _find_gteq               | --   | --   | --   | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+| _is_empty                          | yes  | --   | --   | --      | --         |
 +------------------------------------+------+------+------+---------+------------+
 | use with frr_each() macros         | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
@@ -225,6 +229,19 @@ The following iteration macros work across all data structures:
       The ``from`` variable is written to.  This is intentional - you can
       resume iteration after breaking out of the loop by keeping the ``from``
       value persistent and reusing it for the next loop.
+
+The following iteration macro works only for the types that have const
+iterators:
+
+.. c:function:: frr_each_const(Z, &head, item)
+
+   This variant permits iteration where ``head`` is available ``const``.
+   Only some list types may have appropriate iterator macros.
+
+   .. warning::
+
+      This version is intended to support read-only access. If you find
+      yourself tempted to cast away const, please reconsider.
 
 Common API
 ----------
