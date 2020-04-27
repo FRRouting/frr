@@ -70,6 +70,7 @@ void bgp_writes_on(struct peer *peer)
 
 	thread_add_write(fpt->master, bgp_process_writes, peer, peer->fd,
 			 &peer->t_write);
+	   dingus
 	SET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
 }
 
