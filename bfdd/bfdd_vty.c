@@ -878,9 +878,12 @@ DEFUN_NOSH(show_debugging_bfd,
 	   "BFD daemon\n")
 {
 	vty_out(vty, "BFD debugging status:\n");
-	vty_out(vty, "  Peer events debugging.\n");
-	vty_out(vty, "  Zebra events debugging.\n");
-	vty_out(vty, "  Network layer debugging.\n");
+	if (bglobal.debug_peer_event)
+		vty_out(vty, "  Peer events debugging is on.\n");
+	if (bglobal.debug_zebra)
+		vty_out(vty, "  Zebra events debugging is on.\n");
+	if (bglobal.debug_network)
+		vty_out(vty, "  Network layer debugging is on.\n");
 
 	return CMD_SUCCESS;
 }
