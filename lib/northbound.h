@@ -616,6 +616,8 @@ struct nb_context {
 		} sysrepo;
 		struct {
 		} grpc;
+		struct {
+		} pcep;
 	} client_data;
 #endif
 };

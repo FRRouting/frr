@@ -362,8 +362,12 @@ int path_nb_update_path(struct path *path)
 int path_nb_commit_candidate_config(struct nb_config *candidate_config,
 				    const char *comment)
 {
-	int ret = nb_candidate_commit(candidate_config, NB_CLIENT_PCEP, NULL,
-				      false, comment, NULL);
+	struct nb_context context = {};
+	char errmsg[BUFSIZ] = {0};
+
+	context.client = NB_CLIENT_PCEP;
+	int ret = nb_candidate_commit(&context, candidate_config, false,
+				      comment, NULL, errmsg, sizeof(errmsg));
 	switch (ret) {
 	case NB_OK: return PATH_NB_OK;
 	case NB_ERR_NO_CHANGES: return PATH_NB_NO_CHANGE;
