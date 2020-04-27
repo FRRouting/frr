@@ -67,7 +67,7 @@ Some sysctls need to be changed in order to enable IPv4/IPv6 forwarding and
 MPLS (if supported by your platform). If your platform does not support MPLS,
 skip the MPLS related configuration in this section.
 
-Edit :file:`/etc/sysctl.conf`[*Create the file if it doesn't exist*] and 
+Edit :file:`/etc/sysctl.conf` [*Create the file if it doesn't exist*] and
 append the following values (ignore the other settings):
 
 ::
