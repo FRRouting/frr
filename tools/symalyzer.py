@@ -21,49 +21,9 @@ import sys, os, subprocess
 import re
 from collections import namedtuple
 
-class MakeVars(object):
-    '''
-    makevars['FOO_CFLAGS'] gets you "FOO_CFLAGS" from Makefile
-    '''
-    def __init__(self):
-        self._data = dict()
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'python'))
 
-    def getvars(self, varlist):
-        '''
-        get a batch list of variables from make.  faster than individual calls.
-        '''
-        rdfd, wrfd = os.pipe()
-
-        shvars = ['shvar-%s' % s for s in varlist]
-        make = subprocess.Popen(['make', '-s', 'VARFD=%d' % wrfd] + shvars, pass_fds = [wrfd])
-        os.close(wrfd)
-        data = b''
-
-        rdf = os.fdopen(rdfd, 'rb')
-        while True:
-            rdata = rdf.read()
-            if len(rdata) == 0:
-                break
-            data += rdata
-
-        del rdf
-        make.wait()
-
-        data = data.decode('US-ASCII').strip().split('\n')
-        for row in data:
-            k, v = row.split('=', 1)
-            v = v[1:-1]
-            self._data[k] = v
-
-    def __getitem__(self, k):
-        if k not in self._data:
-            self.getvars([k])
-        return self._data[k]
-
-    def get(self, k, defval = None):
-        if k not in self._data:
-            self.getvars([k])
-        return self._data[k] or defval
+from makevars import MakeVars
 
 SymRowBase = namedtuple('SymRow', ['target', 'object', 'name', 'address', 'klass', 'typ', 'size', 'line', 'section', 'loc'])
 class SymRow(SymRowBase):
@@ -324,7 +284,7 @@ def write_html_report(syms):
         else:
             with open('jquery-3.4.1.min.js.tmp', 'w') as fd:
                 fd.write(r.text)
-            os.rename('jquery-3.4.1.min.js.tmp', 'jquery-3.4.1.min.js.tmp')
+            os.rename('jquery-3.4.1.min.js.tmp', 'jquery-3.4.1.min.js')
             sys.stderr.write('done.\n')
 
 def automake_escape(s):

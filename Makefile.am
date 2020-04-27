@@ -110,6 +110,7 @@ dist_examples_DATA =
 dist_yangmodels_DATA =
 man_MANS =
 vtysh_scan =
+clippy_scan =
 
 ## libtool, the self-made GNU scourge
 ## ... this should fix relinking
@@ -183,6 +184,8 @@ EXTRA_DIST += \
 	\
 	python/clidef.py \
 	python/clippy/__init__.py \
+	python/makevars.py \
+	python/makefile.py \
 	\
 	redhat/frr.logrotate \
 	redhat/frr.pam \

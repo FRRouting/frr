@@ -6,7 +6,7 @@ if SHARPD
 noinst_LIBRARIES += sharpd/libsharp.a
 sbin_PROGRAMS += sharpd/sharpd
 dist_examples_DATA += sharpd/sharpd.conf.sample
-vtysh_scan += $(top_srcdir)/sharpd/sharp_vty.c
+vtysh_scan += sharpd/sharp_vty.c
 man8 += $(MANBUILD)/frr-sharpd.8
 endif
 
@@ -24,8 +24,9 @@ noinst_HEADERS += \
 	sharpd/sharp_zebra.h \
 	# end
 
-sharpd/sharp_vty_clippy.c: $(CLIPPY_DEPS)
-sharpd/sharp_vty.$(OBJEXT): sharpd/sharp_vty_clippy.c
+clippy_scan += \
+	sharpd/sharp_vty.c \
+	# end
 
 sharpd_sharpd_SOURCES = sharpd/sharp_main.c
 sharpd_sharpd_LDADD = sharpd/libsharp.a lib/libfrr.la $(LIBCAP)

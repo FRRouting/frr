@@ -7,9 +7,9 @@ noinst_LIBRARIES += ripd/librip.a
 sbin_PROGRAMS += ripd/ripd
 dist_examples_DATA += ripd/ripd.conf.sample
 vtysh_scan += \
-	$(top_srcdir)/ripd/rip_cli.c \
-	$(top_srcdir)/ripd/rip_debug.c \
-	$(top_srcdir)/ripd/ripd.c \
+	ripd/rip_cli.c \
+	ripd/rip_debug.c \
+	ripd/ripd.c \
 	# end
 
 if SNMP
@@ -35,8 +35,9 @@ ripd_librip_a_SOURCES = \
 	ripd/ripd.c \
 	# end
 
-ripd/rip_cli_clippy.c: $(CLIPPY_DEPS)
-ripd/rip_cli.$(OBJEXT): ripd/rip_cli_clippy.c
+clippy_scan += \
+	ripd/rip_cli.c \
+	# end
 
 noinst_HEADERS += \
 	ripd/rip_debug.h \

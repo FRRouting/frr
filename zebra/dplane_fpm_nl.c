@@ -19,6 +19,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h" /* Include this explicitly */
+#endif
+
 #include <arpa/inet.h>
 
 #include <sys/types.h>
@@ -27,7 +31,6 @@
 #include <errno.h>
 #include <string.h>
 
-#include "config.h" /* Include this explicitly */
 #include "lib/zebra.h"
 #include "lib/json.h"
 #include "lib/libfrr.h"

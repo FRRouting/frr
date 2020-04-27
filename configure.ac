@@ -428,6 +428,9 @@ LT_INIT
 _LT_CONFIG_LIBTOOL([
   patch -N -i "${srcdir}/m4/libtool-whole-archive.patch" libtool >&AS_MESSAGE_LOG_FD || \
     AC_MSG_WARN([Could not patch libtool for static linking support.  Loading modules into a statically linked daemon will fail.])
+  sed -e 's%func_warning "relinking%true #\0%' -i libtool || true
+  sed -e 's%func_warning "remember to run%true #\0%' -i libtool || true
+  sed -e 's%func_warning ".*has not been installed in%true #\0%' -i libtool || true
 ])
 if test "$enable_static_bin" = "yes"; then
   AC_LDFLAGS="-static"
@@ -2402,7 +2405,13 @@ AM_CONDITIONAL([STATICD], [test "$enable_staticd" != "no"])
 AM_CONDITIONAL([FABRICD], [test "$enable_fabricd" != "no"])
 AM_CONDITIONAL([VRRPD], [test "$enable_vrrpd" != "no"])
 
-AC_CONFIG_FILES([Makefile],[sed -e 's/^#AUTODERP# //' -i Makefile])
+AC_CONFIG_FILES([Makefile],[
+	test "$enable_dev_build" = "yes" && makefile_devbuild="--dev-build"
+	${PYTHON} "${ac_abs_top_srcdir}/python/makefile.py" ${makefile_devbuild} || exit 1
+], [
+	PYTHON="$PYTHON"
+	enable_dev_build="$enable_dev_build"
+])
 
 AC_CONFIG_FILES([
 	  config.version

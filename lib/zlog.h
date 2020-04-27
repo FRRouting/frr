@@ -47,7 +47,7 @@ extern int zlog_tmpdirfd;
 
 extern void vzlog(int prio, const char *fmt, va_list ap);
 
-__attribute__ ((format (printf, 2, 3)))
+PRINTFRR(2, 3)
 static inline void zlog(int prio, const char *fmt, ...)
 {
 	va_list ap;

@@ -12,29 +12,29 @@ dist_examples_DATA += \
 	bgpd/bgpd.conf.vnc.sample \
 	# end
 vtysh_scan += \
-	$(top_srcdir)/bgpd/bgp_bfd.c \
-	$(top_srcdir)/bgpd/bgp_debug.c \
-	$(top_srcdir)/bgpd/bgp_dump.c \
-	$(top_srcdir)/bgpd/bgp_evpn_vty.c \
-	$(top_srcdir)/bgpd/bgp_filter.c \
-	$(top_srcdir)/bgpd/bgp_mplsvpn.c \
-	$(top_srcdir)/bgpd/bgp_nexthop.c \
-	$(top_srcdir)/bgpd/bgp_route.c \
-	$(top_srcdir)/bgpd/bgp_routemap.c \
-	$(top_srcdir)/bgpd/bgp_vty.c \
-	$(top_srcdir)/bgpd/bgp_flowspec_vty.c \
+	bgpd/bgp_bfd.c \
+	bgpd/bgp_debug.c \
+	bgpd/bgp_dump.c \
+	bgpd/bgp_evpn_vty.c \
+	bgpd/bgp_filter.c \
+	bgpd/bgp_mplsvpn.c \
+	bgpd/bgp_nexthop.c \
+	bgpd/bgp_route.c \
+	bgpd/bgp_routemap.c \
+	bgpd/bgp_vty.c \
+	bgpd/bgp_flowspec_vty.c \
 	# end
 
 # can be loaded as DSO - always include for vtysh
-vtysh_scan += $(top_srcdir)/bgpd/bgp_rpki.c
-vtysh_scan += $(top_srcdir)/bgpd/bgp_bmp.c
+vtysh_scan += bgpd/bgp_rpki.c
+vtysh_scan += bgpd/bgp_bmp.c
 
 if ENABLE_BGP_VNC
 vtysh_scan += \
-	$(top_srcdir)/bgpd/rfapi/bgp_rfapi_cfg.c \
-	$(top_srcdir)/bgpd/rfapi/rfapi.c \
-	$(top_srcdir)/bgpd/rfapi/rfapi_vty.c \
-	$(top_srcdir)/bgpd/rfapi/vnc_debug.c \
+	bgpd/rfapi/bgp_rfapi_cfg.c \
+	bgpd/rfapi/rfapi.c \
+	bgpd/rfapi/rfapi_vty.c \
+	bgpd/rfapi/vnc_debug.c \
 	# end
 endif
 if SNMP
@@ -217,18 +217,12 @@ bgpd_bgpd_bmp_la_SOURCES = bgpd/bgp_bmp.c
 bgpd_bgpd_bmp_la_LIBADD = lib/libfrrcares.la
 bgpd_bgpd_bmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 
-bgpd/bgp_evpn_vty_clippy.c: $(CLIPPY_DEPS)
-bgpd/bgp_evpn_vty.$(OBJEXT): bgpd/bgp_evpn_vty_clippy.c
-bgpd/bgp_vty_clippy.c: $(CLIPPY_DEPS)
-bgpd/bgp_vty.$(OBJEXT): bgpd/bgp_vty_clippy.c
-bgpd/bgp_route_clippy.c: $(CLIPPY_DEPS)
-bgpd/bgp_route.$(OBJEXT): bgpd/bgp_route_clippy.c
-bgpd/bgp_debug_clippy.c: $(CLIPPY_DEPS)
-bgpd/bgp_debug.$(OBJEXT): bgpd/bgp_debug_clippy.c
-bgpd/bgp_routemap_clippy.c: $(CLIPPY_DEPS)
-bgpd/bgp_routemap.$(OBJEXT): bgpd/bgp_routemap_clippy.c
-bgpd/bgp_rpki_clippy.c: $(CLIPPY_DEPS)
-$(AUTOMAKE_DUMMY)bgpd/bgpd_bgpd_rpki_la-bgp_rpki.lo: bgpd/bgp_rpki_clippy.c
-$(AUTOMAKE_DUMMY)bgpd/bgpd_rpki_la-bgp_rpki.lo: bgpd/bgp_rpki_clippy.c
-bgpd/bgp_bmp_clippy.c: $(CLIPPY_DEPS)
-bgpd/bgp_bmp.lo: bgpd/bgp_bmp_clippy.c
+clippy_scan += \
+	bgpd/bgp_bmp.c \
+	bgpd/bgp_debug.c \
+	bgpd/bgp_evpn_vty.c \
+	bgpd/bgp_route.c \
+	bgpd/bgp_routemap.c \
+	bgpd/bgp_rpki.c \
+	bgpd/bgp_vty.c \
+	# end

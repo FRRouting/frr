@@ -7,21 +7,21 @@ noinst_LIBRARIES += ospf6d/libospf6.a
 sbin_PROGRAMS += ospf6d/ospf6d
 dist_examples_DATA += ospf6d/ospf6d.conf.sample
 vtysh_scan += \
-	$(top_srcdir)/ospf6d/ospf6_abr.c \
-	$(top_srcdir)/ospf6d/ospf6_asbr.c \
-	$(top_srcdir)/ospf6d/ospf6_area.c \
-	$(top_srcdir)/ospf6d/ospf6_bfd.c \
-	$(top_srcdir)/ospf6d/ospf6_flood.c \
-	$(top_srcdir)/ospf6d/ospf6_interface.c \
-	$(top_srcdir)/ospf6d/ospf6_intra.c \
-	$(top_srcdir)/ospf6d/ospf6_lsa.c \
-	$(top_srcdir)/ospf6d/ospf6_message.c \
-	$(top_srcdir)/ospf6d/ospf6_neighbor.c \
-	$(top_srcdir)/ospf6d/ospf6_route.c \
-	$(top_srcdir)/ospf6d/ospf6_spf.c \
-	$(top_srcdir)/ospf6d/ospf6_top.c \
-	$(top_srcdir)/ospf6d/ospf6_zebra.c \
-	$(top_srcdir)/ospf6d/ospf6d.c \
+	ospf6d/ospf6_abr.c \
+	ospf6d/ospf6_asbr.c \
+	ospf6d/ospf6_area.c \
+	ospf6d/ospf6_bfd.c \
+	ospf6d/ospf6_flood.c \
+	ospf6d/ospf6_interface.c \
+	ospf6d/ospf6_intra.c \
+	ospf6d/ospf6_lsa.c \
+	ospf6d/ospf6_message.c \
+	ospf6d/ospf6_neighbor.c \
+	ospf6d/ospf6_route.c \
+	ospf6d/ospf6_spf.c \
+	ospf6d/ospf6_top.c \
+	ospf6d/ospf6_zebra.c \
+	ospf6d/ospf6d.c \
 	# end
 if SNMP
 module_LTLIBRARIES += ospf6d/ospf6d_snmp.la

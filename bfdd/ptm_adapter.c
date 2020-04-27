@@ -24,6 +24,7 @@
 #include "lib/queue.h"
 #include "lib/stream.h"
 #include "lib/zclient.h"
+#include "lib/printfrr.h"
 
 #include "lib/bfd.h"
 
@@ -105,12 +106,12 @@ static void debug_printbpc(const struct bfd_peer_cfg *bpc, const char *fmt, ...)
 		snprintf(addr[2], sizeof(addr[2]), " vrf:%s", bpc->bpc_vrfname);
 
 	if (bpc->bpc_has_recvinterval)
-		snprintf(timers[0], sizeof(timers[0]), " rx:%" PRIu64,
-			 bpc->bpc_recvinterval);
+		snprintfrr(timers[0], sizeof(timers[0]), " rx:%" PRIu64,
+			   bpc->bpc_recvinterval);
 
 	if (bpc->bpc_has_txinterval)
-		snprintf(timers[1], sizeof(timers[1]), " tx:%" PRIu64,
-			 bpc->bpc_recvinterval);
+		snprintfrr(timers[1], sizeof(timers[1]), " tx:%" PRIu64,
+			   bpc->bpc_recvinterval);
 
 	if (bpc->bpc_has_detectmultiplier)
 		snprintf(timers[2], sizeof(timers[2]), " detect-multiplier:%d",
