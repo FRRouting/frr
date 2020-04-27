@@ -779,13 +779,14 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     bfd_search_string =  bfd_nbr + r' bfd (\S+) (\S+) (\S+)'
 
                     for (ctx_keys, add_line) in lines_to_add:
-                        re_add_nbr_bfd_timers = re.search(bfd_search_string, add_line)
+                        if ctx_keys[0].startswith('router bgp'):
+                            re_add_nbr_bfd_timers = re.search(bfd_search_string, add_line)
 
-                        if re_add_nbr_bfd_timers:
-                            found_add_bfd_nbr = line_exist(lines_to_add, ctx_keys, bfd_nbr, False)
+                            if re_add_nbr_bfd_timers:
+                                found_add_bfd_nbr = line_exist(lines_to_add, ctx_keys, bfd_nbr, False)
 
-                            if found_add_bfd_nbr:
-                                lines_to_del_to_del.append((ctx_keys, line))
+                                if found_add_bfd_nbr:
+                                    lines_to_del_to_del.append((ctx_keys, line))
 
                 '''
                 We changed how we display the neighbor interface command. Older
