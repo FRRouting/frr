@@ -920,6 +920,13 @@ zebra Terminal Mode Commands
    If you specify singleton you would like to see the singleton
    nexthop groups that do have an afi.
 
+.. index:: show <ip|ipv6> zebra route dump [<vrf> VRFNAME]
+.. clicmd:: show <ip|ipv6> zebra route dump [<vrf> VRFNAME]
+
+   It dumps all the routes from RIB with detailed information including
+   internal flags,status ..etc.This is defined as hidden command and
+   this is added to support_bundle_commands.conf command.
+
 
 Router-id
 =========
