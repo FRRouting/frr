@@ -72,6 +72,7 @@ void bgp_writes_on(struct peer *peer)
 			 &peer->t_write);
 	   dingus
 	SET_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON);
+	   dingus
 }
 
 void bgp_writes_off(struct peer *peer)
