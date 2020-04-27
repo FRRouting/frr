@@ -1077,6 +1077,13 @@ def compare_context_objects(newconf, running):
                 add_cmd = ('no ' + running_ctx_keys[0],)
                 lines_to_add.append((add_cmd, None))
 
+            # if this an interface sub-subcontext in an address-family block in ldpd and
+            # we are already deleting the whole context, then ignore this
+            elif (len(running_ctx_keys) > 2 and running_ctx_keys[0].startswith('mpls ldp') and
+                  running_ctx_keys[1].startswith('address-family') and
+                  (running_ctx_keys[:2], None) in lines_to_del):
+                continue
+
             # Non-global context
             elif running_ctx_keys and not any("address-family" in key for key in running_ctx_keys):
                 lines_to_del.append((running_ctx_keys, None))
