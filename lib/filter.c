@@ -437,12 +437,12 @@ static struct filter *filter_seq_check(struct access_list *access,
 }
 
 /* If access_list has no filter then return 1. */
-static int access_list_empty(struct access_list *access)
+static bool access_list_empty(struct access_list *access)
 {
 	if (access->head == NULL && access->tail == NULL)
-		return 1;
+		return true;
 	else
-		return 0;
+		return false;
 }
 
 /* Delete filter from specified access_list.  If there is hook
