@@ -533,10 +533,11 @@ def test_bgp_vrf_ldp_netns_leak():
         if '10.201.{}.0/24'.format(j) not in routes.keys():
             assert 0, "{0}, route 10.201.{1}.0/24 not found in BGP RIB".format(name, j)
         routeid = routes['10.101.{}.0/24'.format(j)]
-        if 'valid' in routeid[0].keys():
-            assert 0, "{0}, route 10.201.{1}.0/24 found in BGP RIB is valid".format(name, j)
-        if 'bestpath' in routeid[0].keys():
-            assert 0, "{0}, route 10.201.{1}.0/24 found in BGP RIB is bestpath".format(name, j)
+        if 'vrfReachableInactive' not in routeid[0].keys():
+            if 'valid' in routeid[0].keys():
+                assert 0, "{0}, route 10.201.{1}.0/24 found in BGP RIB is valid".format(name, j)
+            if 'bestpath' in routeid[0].keys():
+                assert 0, "{0}, route 10.201.{1}.0/24 found in BGP RIB is bestpath".format(name, j)
 
     output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ping 10.201.52.4 -I 10.101.51.1 -f -c 1000')
     logger.info(output)
