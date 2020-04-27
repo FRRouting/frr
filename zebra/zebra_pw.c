@@ -114,8 +114,6 @@ void zebra_pw_change(struct zebra_pw *pw, ifindex_t ifindex, int type, int af,
 		     uint32_t remote_label, uint8_t flags,
 		     union pw_protocol_fields *data)
 {
-	zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);
-
 	pw->ifindex = ifindex;
 	pw->type = type;
 	pw->af = af;
@@ -127,8 +125,11 @@ void zebra_pw_change(struct zebra_pw *pw, ifindex_t ifindex, int type, int af,
 
 	if (zebra_pw_enabled(pw))
 		zebra_register_rnh_pseudowire(pw->vrf_id, pw);
-	else
+	else {
+		if (pw->protocol == ZEBRA_ROUTE_STATIC)
+			zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);
 		zebra_pw_uninstall(pw);
+	}
 }
 
 struct zebra_pw *zebra_pw_find(struct zebra_vrf *zvrf, const char *ifname)
@@ -153,7 +154,6 @@ void zebra_pw_update(struct zebra_pw *pw)
 {
 	if (zebra_pw_check_reachability(pw) < 0) {
 		zebra_pw_uninstall(pw);
-		zebra_pw_install_failure(pw);
 		/* wait for NHT and try again later */
 	} else {
 		/*
