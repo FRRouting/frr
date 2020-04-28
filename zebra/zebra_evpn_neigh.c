@@ -1180,7 +1180,7 @@ static int zebra_evpn_dad_ip_auto_recovery_exp(struct thread *t)
 	if (!zvrf)
 		return 0;
 
-	zevpn = zevpn_lookup(nbr->zevpn->vni);
+	zevpn = zebra_evpn_lookup(nbr->zevpn->vni);
 	if (!zevpn)
 		return 0;
 

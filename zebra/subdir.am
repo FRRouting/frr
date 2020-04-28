@@ -73,6 +73,7 @@ zebra_zebra_SOURCES = \
 	zebra/rtread_sysctl.c \
 	zebra/rule_netlink.c \
 	zebra/rule_socket.c \
+	zebra/zebra_evpn.c \
 	zebra/zebra_evpn_mac.c \
 	zebra/zebra_evpn_neigh.c \
 	zebra/zebra_mlag.c \
@@ -152,6 +153,7 @@ noinst_HEADERS += \
 	zebra/zebra_evpn.h \
 	zebra/zebra_evpn_mac.h \
 	zebra/zebra_evpn_neigh.h \
+	zebra/zebra_evpn_vxlan.h \
 	zebra/zebra_mlag.h \
 	zebra/zebra_mlag_vty.h \
 	zebra/zebra_fpm_private.h \
