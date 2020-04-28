@@ -546,7 +546,7 @@ void pcep_lib_parse_lsp(struct path *path, struct pcep_object_lsp *lsp)
 	path->go_active = lsp->flag_a;
 	path->was_created = lsp->flag_c;
 	path->was_removed = lsp->flag_r;
-	path->is_synching = lsp->flag_a;
+	path->is_synching = lsp->flag_s;
 	path->is_delegated = lsp->flag_d;
 
 	if (tlvs == NULL)
