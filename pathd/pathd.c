@@ -100,6 +100,11 @@ struct srte_segment_list *srte_segment_list_add(const char *name)
 
 void srte_segment_list_del(struct srte_segment_list *segment_list)
 {
+	struct srte_segment_entry *segment, *safe_seg;
+	RB_FOREACH_SAFE (segment, srte_segment_entry_head,
+			 &segment_list->segments, safe_seg) {
+		srte_segment_entry_del(segment);
+	}
 	RB_REMOVE(srte_segment_list_head, &srte_segment_lists, segment_list);
 	XFREE(MTYPE_PATH_SEGMENT_LIST, segment_list);
 }

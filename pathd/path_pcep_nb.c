@@ -270,12 +270,13 @@ struct path_hop *path_nb_list_path_hops(struct srte_segment_list *segment_list)
 	return hop;
 }
 
-void path_nb_update_path(struct path *path)
+int path_nb_update_path(struct path *path)
 {
 	assert(path != NULL);
 	assert(path->nbkey.preference != 0);
 	assert(path->nbkey.endpoint.ipa_type == IPADDR_V4);
 
+	int ret;
 	struct path_hop *hop;
 	struct path_metric *metric;
 	int index;
@@ -353,8 +354,9 @@ void path_nb_update_path(struct path *path)
 			metric->is_bound, metric->is_computed);
 	}
 
-	path_nb_commit_candidate_config(config, "SR Policy Candidate Path");
+	ret = path_nb_commit_candidate_config(config, "SR Policy Candidate Path");
 	nb_config_free(config);
+	return ret;
 }
 
 int path_nb_commit_candidate_config(struct nb_config *candidate_config,
@@ -362,10 +364,11 @@ int path_nb_commit_candidate_config(struct nb_config *candidate_config,
 {
 	int ret = nb_candidate_commit(candidate_config, NB_CLIENT_PCEP, NULL,
 				      false, comment, NULL);
-	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	return CMD_SUCCESS;
+	switch (ret) {
+	case NB_OK: return PATH_NB_OK;
+	case NB_ERR_NO_CHANGES: return PATH_NB_NO_CHANGE;
+	default: return PATH_NB_ERR;
+	}
 }
 
 void path_nb_edit_candidate_config(struct nb_config *candidate_config,
@@ -399,7 +402,7 @@ void path_nb_delete_candidate_segment_list(struct nb_config *config,
 {
 	struct srte_candidate *candidate = lookup_candidate(key);
 	struct srte_segment_list *sl;
-	struct srte_segment_entry *segment, *safe_seg;
+	// struct srte_segment_entry *segment, *safe_seg;
 	char xpath_base[XPATH_MAXLEN];
 	char xpath[XPATH_MAXLEN];
 	char endpoint_str[INET_ADDRSTRLEN];
@@ -430,13 +433,6 @@ void path_nb_delete_candidate_segment_list(struct nb_config *config,
 	/* Destroy the segment list */
 	snprintf(xpath_base, sizeof(xpath_base),
 		 "/frr-pathd:pathd/segment-list[name='%s']", sl->name);
-	RB_FOREACH_SAFE (segment, srte_segment_entry_head,
-			 &sl->segments, safe_seg) {
-		snprintf(xpath, sizeof(xpath), "%s/segment[index='%u']",
-		         xpath_base, segment->index);
-		path_nb_edit_candidate_config(config, xpath, NB_OP_DESTROY,
-		                              NULL);
-	}
 	path_nb_edit_candidate_config(config, xpath_base, NB_OP_DESTROY, NULL);
 
 }

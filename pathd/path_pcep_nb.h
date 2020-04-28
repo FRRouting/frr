@@ -25,6 +25,10 @@
 
 #include "pathd/path_pcep.h"
 
+#define PATH_NB_NO_CHANGE 0
+#define PATH_NB_OK 1
+#define PATH_NB_ERR -1
+
 typedef int (*path_list_cb_t)(struct path *path, void *arg);
 
 /* Lookup the candidate path and fill up the missing path attributes like name
@@ -34,7 +38,7 @@ typedef int (*path_list_cb_t)(struct path *path, void *arg);
 void path_nb_lookup(struct path *path);
 struct path *path_nb_get_path(struct lsp_nb_key *key);
 void path_nb_list_path(path_list_cb_t cb, void *arg);
-void path_nb_update_path(struct path *path);
+int path_nb_update_path(struct path *path);
 struct path *candidate_to_path(struct srte_candidate *candidate);
 
 

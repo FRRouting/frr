@@ -154,15 +154,29 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 	case PCEP_MAIN_EVENT_UPDATE_CANDIDATE:
 		assert(payload != NULL);
 		path = (struct path *)payload;
-		path_nb_update_path(path);
-		if (0 != path->srp_id) {
+		ret = path_nb_update_path(path);
+		if (path->srp_id != 0) {
 			/* ODL and Cisco requires the first reported
-			   LSP to have a DOWN status, the later status changes
-			   will be comunicated through hook calls */
+			 * LSP to have a DOWN status, the later status changes
+			 * will be comunicated through hook calls.
+			 */
+			enum pcep_lsp_operational_status real_status;
 			resp = path_nb_get_path(&path->nbkey);
 			resp->srp_id = path->srp_id;
+			real_status = resp->status;
 			resp->status = PCEP_LSP_OPERATIONAL_DOWN;
 			pcep_ctrl_send_report(pcep_g->fpt, path->pcc_id, resp);
+			/* If the update did not have any effect and the real
+			 * status is not DOWN, we need to send a second report
+			 * so the PCE is aware of the real status. This is due
+			 * to the fact that NO notification will be received
+			 * if the update did not apply any changes */
+			if ((ret == PATH_NB_NO_CHANGE)
+			    && (real_status != PCEP_LSP_OPERATIONAL_DOWN)) {
+				resp->status = real_status;
+				resp->srp_id = 0;
+				pcep_ctrl_send_report(pcep_g->fpt, path->pcc_id, resp);
+			}
 			pcep_free_path(resp);
 		}
 		break;
