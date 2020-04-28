@@ -80,6 +80,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_errors.c \
 	zebra/zebra_gr.c \
 	zebra/zebra_l2.c \
+	zebra/zebra_evpn.c \
 	zebra/zebra_evpn_mac.c \
 	zebra/zebra_evpn_neigh.c \
 	zebra/zebra_mlag.c \
@@ -151,6 +152,7 @@ noinst_HEADERS += \
 	zebra/zebra_evpn.h \
 	zebra/zebra_evpn_mac.h \
 	zebra/zebra_evpn_neigh.h \
+	zebra/zebra_evpn_vxlan.h \
 	zebra/zebra_fpm_private.h \
 	zebra/zebra_l2.h \
 	zebra/zebra_memory.h \
