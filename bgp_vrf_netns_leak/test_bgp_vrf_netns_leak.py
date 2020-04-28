@@ -375,6 +375,17 @@ def test_bgp_vrf_netns_leak():
         assert ifacename == "r1-cust1", assertmsg
         assert fib == True, "FIB entry 10.101.{}.0/24 not present".format(i)
 
+    logger.info('Enabling redistribute connected in BGP VRF')
+    cmd1 = 'vtysh -c \"configure terminal\" -c \"router bgp 100 vrf r1-cust{0}\" -c \"address-family ipv4 unicast\" -c \"redistribute connected\"'
+    cmd2 = 'vtysh -c \"configure terminal\" -c \"router bgp 100 vrf r1-cust{0}\" -c \"address-family ipv4 unicast\" -c \"no redistribute connected\"'
+    output = tgen.net['r1'].cmd(cmd1.format('1'))
+    output = tgen.net['r1'].cmd(cmd2.format('1'))
+    output = tgen.net['r1'].cmd(cmd1.format('1'))
+    output = tgen.net['r1'].cmd(cmd1.format('2'))
+    output = tgen.net['r1'].cmd(cmd2.format('2'))
+    output = tgen.net['r1'].cmd(cmd1.format('2'))
+    topotest.sleep(1)
+
     output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ping 10.75.0.1 -f -c 1000')
     logger.info(output)
     if '1000 packets transmitted, 1000 received' not in output:
