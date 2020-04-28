@@ -492,7 +492,6 @@ static int vtysh_execute_func(const char *line, int pager)
 	 */
 	while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON
 	       && ret != CMD_WARNING && ret != CMD_WARNING_CONFIG_FAILED
-	       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 	       && vty->node > CONFIG_NODE) {
 		vty->node = node_parent(vty->node);
 		ret = cmd_execute(vty, line, &cmd, 1);
@@ -778,7 +777,6 @@ int vtysh_mark_file(const char *filename)
 		 */
 		while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON
 		       && ret != CMD_WARNING && ret != CMD_WARNING_CONFIG_FAILED
-		       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
 		       && vty->node > CONFIG_NODE) {
 			vty->node = node_parent(vty->node);
 			ret = cmd_execute_command_strict(vline, vty, &cmd);
