@@ -316,7 +316,7 @@ static int subgroup_coalesce_timer(struct thread *thread)
 		zlog_debug("u%" PRIu64 ":s%" PRIu64
 			   " announcing routes upon coalesce timer expiry(%u ms)",
 			   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id,
-			   subgrp->v_coalesce),
+			   subgrp->v_coalesce);
 	subgrp->t_coalesce = NULL;
 	subgrp->v_coalesce = 0;
 	subgroup_announce_route(subgrp);
