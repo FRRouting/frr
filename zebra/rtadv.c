@@ -265,7 +265,7 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 	rtadv->nd_ra_router_lifetime =
 		(stop == RA_SUPPRESS) ? htons(0) : htons(pkt_RouterLifetime);
 	rtadv->nd_ra_reachable = htonl(zif->rtadv.AdvReachableTime);
-	rtadv->nd_ra_retransmit = htonl(0);
+	rtadv->nd_ra_retransmit = htonl(zif->rtadv.AdvRetransTimer);
 
 	len = sizeof(struct nd_router_advert);
 
@@ -679,9 +679,8 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 			ifp->name, ifp->ifindex, addr_str);
 	}
 
-	if ((radvert->nd_ra_retransmit && zif->rtadv.AdvRetransTimer)
-	    && (ntohl(radvert->nd_ra_retransmit)
-		!= (unsigned int)zif->rtadv.AdvRetransTimer)) {
+	if ((ntohl(radvert->nd_ra_retransmit)
+	     != (unsigned int)zif->rtadv.AdvRetransTimer)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvRetransTimer doesn't agree with %s",
@@ -1278,6 +1277,53 @@ DEFPY (no_ipv6_nd_ra_hop_limit,
 	}
 
 	zif->rtadv.AdvCurHopLimit = RTADV_DEFAULT_HOPLIMIT;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (ipv6_nd_ra_retrans_interval,
+       ipv6_nd_ra_retrans_interval_cmd,
+       "ipv6 nd ra-retrans-interval (0-4294967295)$interval",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Advertisement Retransmit Interval\n"
+       "Advertisement Retransmit Interval in msec\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zif = ifp->info;
+
+	if (if_is_loopback(ifp)
+	    || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK)) {
+		vty_out(vty,
+			"Cannot configure IPv6 Router Advertisements on loopback interface\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	zif->rtadv.AdvRetransTimer = interval;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_ipv6_nd_ra_retrans_interval,
+       no_ipv6_nd_ra_retrans_interval_cmd,
+       "no ipv6 nd ra-retrans-interval [(0-4294967295)]",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Advertisement Retransmit Interval\n"
+       "Advertisement Retransmit Interval in msec\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zif = ifp->info;
+
+	if (if_is_loopback(ifp)
+	    || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK)) {
+		vty_out(vty,
+			"Cannot remove IPv6 Router Advertisements on loopback interface\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	zif->rtadv.AdvRetransTimer = 0;
 
 	return CMD_SUCCESS;
 }
@@ -2227,7 +2273,7 @@ static int nd_dump_vty(struct vty *vty, struct interface *ifp)
 			"  ND advertised reachable time is %d milliseconds\n",
 			rtadv->AdvReachableTime);
 		vty_out(vty,
-			"  ND advertised retransmit interval is %d milliseconds\n",
+			"  ND advertised retransmit interval is %u milliseconds\n",
 			rtadv->AdvRetransTimer);
 		vty_out(vty, "  ND advertised hop-count limit is %d hops\n",
 			rtadv->AdvCurHopLimit);
@@ -2321,6 +2367,10 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 
 	if (!zif->rtadv.UseFastRexmit)
 		vty_out(vty, " no ipv6 nd ra-fast-retrans\n");
+
+	if (zif->rtadv.AdvRetransTimer != 0)
+		vty_out(vty, " ipv6 nd ra-retrans-interval %u\n",
+			zif->rtadv.AdvRetransTimer);
 
 	if (zif->rtadv.AdvCurHopLimit != RTADV_DEFAULT_HOPLIMIT)
 		vty_out(vty, " ipv6 nd ra-hop-limit %d\n",
@@ -2494,6 +2544,8 @@ void rtadv_cmd_init(void)
 
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_fast_retrans_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_fast_retrans_cmd);
+	install_element(INTERFACE_NODE, &ipv6_nd_ra_retrans_interval_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_retrans_interval_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_hop_limit_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_ra_hop_limit_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_suppress_ra_cmd);
