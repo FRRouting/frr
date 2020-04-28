@@ -324,7 +324,9 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	dll_append(lsp_tlvs, tlv);
 	if (path->name != NULL) {
 		tlv = (struct pcep_object_tlv_header *)
-			pcep_tlv_create_symbolic_path_name(path->name,
+			/*FIXME: Remove the typecasty when pceplib is changed
+			to take a const char* */
+			pcep_tlv_create_symbolic_path_name((char *)path->name,
 							   strlen(path->name));
 		assert(tlv != NULL);
 		dll_append(lsp_tlvs, tlv);

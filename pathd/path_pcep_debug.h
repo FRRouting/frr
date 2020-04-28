@@ -28,6 +28,8 @@
 #include "pathd/path_pcep_lib.h"
 
 const char *pcc_status_name(enum pcc_status status);
+const char *srte_protocol_origin_name(enum srte_protocol_origin origin);
+const char *srte_candidate_type_name(enum srte_candidate_type type);
 
 const char *pcep_error_type_name(enum pcep_error_type error_type);
 const char *pcep_error_value_name(enum pcep_error_type error_type,

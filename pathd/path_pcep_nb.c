@@ -71,42 +71,66 @@ static void path_nb_add_segment_list_segment_nai_ipv4_unnumbered_adj(
 	struct ipaddr *local_ip, uint32_t local_iface, struct ipaddr *remote_ip,
 	uint32_t remote_iface);
 static void path_nb_create_segment_list(struct nb_config *config,
-					const char *segment_list_name);
-static void path_nb_add_candidate_path(struct nb_config *config, uint32_t color,
-				       struct ipaddr *endpoint,
-				       struct ipaddr *originator,
-				       uint32_t discriminator,
-				       uint32_t preference,
-				       const char *segment_list_name);
+					const char *segment_list_name,
+					enum srte_protocol_origin protocol,
+					const char *originator);
+static void path_nb_update_candidate_path(struct nb_config *config,
+					  uint32_t color,
+					  struct ipaddr *endpoint,
+					  uint32_t preference,
+					  const char *segment_list_name);
 static void
 path_nb_add_candidate_path_metric(struct nb_config *config, uint32_t color,
 				  struct ipaddr *endpoint, uint32_t preference,
 				  enum pcep_metric_types type, float value,
 				  bool is_bound, bool is_computed);
 
+static char *candidate_name(struct srte_candidate *candidate);
 static enum pcep_lsp_operational_status
 status_int_to_ext(enum srte_policy_status status);
 static const char *metric_name(enum pcep_metric_types type);
+static const char *protocol_origin_name(enum srte_protocol_origin origin);
 static enum pcep_sr_subobj_nai pcep_nai_type(enum srte_segment_nai_type type);
 
-struct path *path_nb_get_path(uint32_t color, struct ipaddr endpoint,
-			      uint32_t preference)
+
+void path_nb_lookup(struct path *path)
+{
+	struct srte_policy *policy = NULL;
+	struct srte_candidate *candidate = NULL;
+	policy = srte_policy_find(path->nbkey.color, &path->nbkey.endpoint);
+	if (policy == NULL)
+		return;
+	candidate = srte_candidate_find(policy, path->nbkey.preference);
+	if (candidate == NULL)
+		return;
+	if (path->name == NULL)
+		path->name = candidate_name(candidate);
+	if (path->type == SRTE_CANDIDATE_TYPE_UNDEFINED)
+		path->type = candidate->type;
+	if (path->create_origin == SRTE_ORIGIN_UNDEFINED)
+		path->create_origin = candidate->protocol_origin;
+	if ((path->update_origin == SRTE_ORIGIN_UNDEFINED)
+	    && (candidate->segment_list != NULL))
+		path->update_origin = candidate->segment_list->protocol_origin;
+}
+
+struct path *path_nb_get_path(struct lsp_nb_key *key)
 {
 	char xpath[XPATH_MAXLEN];
 	char endpoint_str[40];
 	struct srte_policy *policy;
 	struct srte_candidate *candidate;
 
-	ipaddr2str(&endpoint, endpoint_str, sizeof(endpoint_str));
+	ipaddr2str(&key->endpoint, endpoint_str, sizeof(endpoint_str));
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-pathd:pathd/sr-policy[color='%d'][endpoint='%s']", color,
-		 endpoint_str);
+		 "/frr-pathd:pathd/sr-policy[color='%d'][endpoint='%s']",
+		 key->color, endpoint_str);
 
 	policy = nb_running_get_entry(NULL, xpath, false);
 	if (policy == NULL)
 		return NULL;
 
-	candidate = srte_candidate_find(policy, preference);
+	candidate = srte_candidate_find(policy, key->preference);
 	if (candidate == NULL)
 		return NULL;
 
@@ -142,16 +166,15 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 {
 	char *name;
 	struct path *path;
-	struct path_hop *hop;
-	struct path_metric *metric;
+	struct path_hop *hop = NULL;
+	struct path_metric *metric = NULL;
 	struct srte_policy *policy;
 	struct srte_segment_list *segment_list, key = {};
 	enum pcep_lsp_operational_status status;
-	bool is_delegated;
+	enum srte_protocol_origin update_origin = 0;
+	char *originator = NULL;
 
 	policy = candidate->policy;
-	hop = NULL;
-	metric = NULL;
 
 	if (candidate->segment_list != NULL) {
 		strlcpy(key.name, candidate->segment_list->name,
@@ -160,22 +183,15 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 				       &srte_segment_lists, &key);
 		assert(segment_list != NULL);
 		hop = path_nb_list_path_hops(segment_list);
+		update_origin = segment_list->protocol_origin;
+		originator = XSTRDUP(MTYPE_PCEP, segment_list->originator);
 	}
 	path = pcep_new_path();
-	name = asprintfrr(MTYPE_PCEP, "%s-%s", policy->name, candidate->name);
+	name = candidate_name(candidate);
 	if (CHECK_FLAG(candidate->flags, F_CANDIDATE_BEST)) {
 		status = status_int_to_ext(policy->status);
 	} else {
 		status = PCEP_LSP_OPERATIONAL_DOWN;
-	}
-	switch (candidate->type) {
-	case SRTE_CANDIDATE_TYPE_DYNAMIC:
-		is_delegated = true;
-		break;
-	case SRTE_CANDIDATE_TYPE_EXPLICIT:
-	default:
-		is_delegated = false;
-		break;
 	}
 	if (CHECK_FLAG(candidate->flags, F_CANDIDATE_HAS_METRIC_ABC)) {
 		struct path_metric *new_metric = pcep_new_metric();
@@ -204,17 +220,22 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 					     .endpoint = policy->endpoint,
 					     .preference =
 						     candidate->preference},
+		.create_origin = candidate->protocol_origin,
+		.update_origin = update_origin,
+		.originator = originator,
 		.plsp_id = 0,
 		.name = name,
+		.type = candidate->type,
 		.srp_id = 0,
+		.req_id = 0,
 		.binding_sid = policy->binding_sid,
 		.status = status,
 		.do_remove = false,
-		.go_active = is_delegated,
-		.was_created = candidate->protocol_origin == SRTE_ORIGIN_PCEP,
+		.go_active = false,
+		.was_created = false,
 		.was_removed = false,
 		.is_synching = false,
-		.is_delegated = is_delegated,
+		.is_delegated = false,
 		.first_hop = hop,
 		.first_metric = metric};
 
@@ -277,15 +298,17 @@ void path_nb_update_path(struct path *path)
 	struct path_hop *hop;
 	struct path_metric *metric;
 	int index;
-	char segment_list_name_buff[11];
+	char segment_list_name_buff[64 + 1 + 64 + 1 + 11 + 1];
 	char *segment_list_name = NULL;
 	struct nb_config *config = nb_config_dup(running_config);
 
 	if (path->first_hop != NULL) {
 		snprintf(segment_list_name_buff, sizeof(segment_list_name_buff),
-			 "%u", (uint32_t)rand());
+			 "%s-%u", path->name, path->plsp_id);
 		segment_list_name = segment_list_name_buff;
-		path_nb_create_segment_list(config, segment_list_name);
+		path_nb_create_segment_list(config, segment_list_name,
+					    path->update_origin,
+					    path->originator);
 		for (hop = path->first_hop, index = 10; hop != NULL;
 		     hop = hop->next, index += 10) {
 			assert(hop->has_sid);
@@ -335,9 +358,9 @@ void path_nb_update_path(struct path *path)
 		}
 	}
 
-	path_nb_add_candidate_path(
-		config, path->nbkey.color, &path->nbkey.endpoint, &path->sender,
-		(uint32_t)rand(), path->nbkey.preference, segment_list_name);
+	path_nb_update_candidate_path(
+		config, path->nbkey.color, &path->nbkey.endpoint,
+		path->nbkey.preference, segment_list_name);
 
 	for (metric = path->first_metric; metric != NULL;
 	     metric = metric->next) {
@@ -536,7 +559,9 @@ void path_nb_add_segment_list_segment_nai_ipv4_unnumbered_adj(
 }
 
 void path_nb_create_segment_list(struct nb_config *config,
-				 const char *segment_list_name)
+				 const char *segment_list_name,
+				 enum srte_protocol_origin protocol,
+				 const char *originator)
 {
 	char xpath_base[XPATH_MAXLEN];
 	char xpath[XPATH_MAXLEN];
@@ -545,50 +570,30 @@ void path_nb_create_segment_list(struct nb_config *config,
 		 "/frr-pathd:pathd/segment-list[name='%s']", segment_list_name);
 	path_nb_edit_candidate_config(config, xpath_base, NB_OP_CREATE, NULL);
 	snprintf(xpath, sizeof(xpath), "%s/protocol-origin", xpath_base);
-	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, "pcep");
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
+				      protocol_origin_name(protocol));
+	snprintf(xpath, sizeof(xpath), "%s/originator", xpath_base);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, originator);
 }
 
-void path_nb_add_candidate_path(struct nb_config *config, uint32_t color,
-				struct ipaddr *endpoint,
-				struct ipaddr *originator,
-				uint32_t discriminator, uint32_t preference,
-				const char *segment_list_name)
+void path_nb_update_candidate_path(struct nb_config *config, uint32_t color,
+				   struct ipaddr *endpoint, uint32_t preference,
+				   const char *segment_list_name)
 {
 	char xpath[XPATH_MAXLEN];
 	char xpath_base[XPATH_MAXLEN];
 	char endpoint_str[INET_ADDRSTRLEN];
-	char originator_str[INET_ADDRSTRLEN];
-	char discriminator_str[(sizeof(uint32_t) * 8) + 1];
 
 	ipaddr2str(endpoint, endpoint_str, sizeof(endpoint_str));
-	ipaddr2str(originator, originator_str, sizeof(originator_str));
-	snprintf(discriminator_str, sizeof(discriminator_str), "%u",
-		 discriminator);
 
 	snprintf(
 		xpath_base, sizeof(xpath_base),
 		"/frr-pathd:pathd/sr-policy[color='%u'][endpoint='%s']/candidate-path[preference='%u']",
 		color, endpoint_str, preference);
 
-	path_nb_edit_candidate_config(config, xpath_base, NB_OP_CREATE, NULL);
-
 	snprintf(xpath, sizeof(xpath), "%s/segment-list-name", xpath_base);
 	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
 				      segment_list_name);
-
-	snprintf(xpath, sizeof(xpath), "%s/protocol-origin", xpath_base);
-	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, "pcep");
-
-	snprintf(xpath, sizeof(xpath), "%s/originator", xpath_base);
-	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
-				      originator_str);
-
-	snprintf(xpath, sizeof(xpath), "%s/discriminator", xpath_base);
-	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
-				      discriminator_str);
-
-	snprintf(xpath, sizeof(xpath), "%s/type", xpath_base);
-	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, "dynamic");
 }
 
 void path_nb_add_candidate_path_metric(struct nb_config *config, uint32_t color,
@@ -624,6 +629,12 @@ void path_nb_add_candidate_path_metric(struct nb_config *config, uint32_t color,
 				      is_computed ? "true" : "false");
 }
 
+char *candidate_name(struct srte_candidate *candidate)
+{
+	return asprintfrr(MTYPE_PCEP, "%s-%s", candidate->policy->name,
+			  candidate->name);
+}
+
 enum pcep_lsp_operational_status
 status_int_to_ext(enum srte_policy_status status)
 {
@@ -651,7 +662,21 @@ const char *metric_name(enum pcep_metric_types type)
 	case PCEP_METRIC_AGGREGATE_BW:
 		return "abc";
 	default:
-		return NULL;
+		return "unknown";
+	}
+}
+
+const char *protocol_origin_name(enum srte_protocol_origin origin)
+{
+	switch (origin) {
+	case SRTE_ORIGIN_PCEP:
+		return "pcep";
+	case SRTE_ORIGIN_BGP:
+		return "bgp";
+	case SRTE_ORIGIN_LOCAL:
+		return "local";
+	default:
+		return "unknown";
 	}
 }
 

@@ -29,7 +29,7 @@ module frr-pathd {
       "Initial revision.";
   }
 
-  typedef protocol {
+  typedef protocol-origin-type {
     description
       "Indication for the protocol origin of an object.";
     type enumeration {
@@ -48,6 +48,14 @@ module frr-pathd {
     }
   }
 
+  typedef originator-type {
+        type string {
+          length "1..64";
+        }
+        description
+          "Identifier of the originator of an object, could be 'config', '1.1.1.1:4189' or '2001:db8:85a3::8a2e:370:7334:4189'";
+      }
+
   container pathd {
     list segment-list {
       key "name";
@@ -59,10 +67,15 @@ module frr-pathd {
         description "Segment-list name";
       }
       leaf protocol-origin {
-        type protocol;
-        default "local";
+        type protocol-origin-type;
+        mandatory true;
         description
           "Indication for the protocol origin of the segment list.";
+      }
+      leaf originator {
+        type originator-type;
+        mandatory true;
+        description "Originator of the segment list";
       }
       list segment {
         key "index";
@@ -182,29 +195,32 @@ module frr-pathd {
             "True if the candidate path is the best candidate path, False otherwise";
         }
         leaf protocol-origin {
-          type protocol;
+          type protocol-origin-type;
           mandatory true;
           description
             "Indication for the protocol origin of the Candidate Path.";
         }
         leaf originator {
-          type inet:ip-address;
-          description
-            "Indication for the endpoint of the origin of the Candidate Path.";
+          type originator-type;
           mandatory true;
+          description "Originator of the candidate path";
         }
         leaf discriminator {
           type uint32;
-          description "Candidate path distinguisher";
           mandatory true;
+          description "Candidate path distinguisher";
         }
         leaf type {
           description
             "Type of the Candidate Path.";
           mandatory true;
           type enumeration {
-            enum explicit;
-            enum dynamic;
+            enum explicit {
+              value 1;
+            }
+            enum dynamic {
+              value 2;
+            }
           }
         }
         leaf segment-list-name {

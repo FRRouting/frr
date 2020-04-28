@@ -83,6 +83,27 @@ int pathd_te_segment_list_protocol_origin_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-pathd:pathd/segment-list/originator
+ */
+int pathd_te_segment_list_originator_modify(struct nb_cb_modify_args *args)
+{
+	struct srte_segment_list *segment_list;
+	const char *originator;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	segment_list = nb_running_get_entry(args->dnode, NULL, true);
+	originator = yang_dnode_get_string(args->dnode, NULL);
+	strlcpy(segment_list->originator, originator,
+		sizeof(segment_list->originator));
+	SET_FLAG(segment_list->flags, F_SEGMENT_LIST_MODIFIED);
+
+	return NB_OK;
+}
+
+
+/*
  * XPath: /frr-pathd:pathd/segment-list/segment
  */
 int pathd_te_segment_list_segment_create(struct nb_cb_create_args *args)
@@ -458,14 +479,15 @@ int pathd_te_sr_policy_candidate_path_originator_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct srte_candidate *candidate;
-	struct ipaddr originator;
+	const char *originator;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	candidate = nb_running_get_entry(args->dnode, NULL, true);
-	yang_dnode_get_ip(&originator, args->dnode, NULL);
-	candidate->originator = originator;
+	originator = yang_dnode_get_string(args->dnode, NULL);
+	strlcpy(candidate->originator, originator,
+		sizeof(candidate->originator));
 	SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
 
 	return NB_OK;
@@ -542,11 +564,12 @@ int pathd_te_sr_policy_candidate_path_segment_list_name_modify(
 	struct srte_candidate *candidate;
 	const char *segment_list_name;
 
+	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	segment_list_name = yang_dnode_get_string(args->dnode, NULL);
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
-	segment_list_name = yang_dnode_get_string(args->dnode, NULL);
 	candidate->segment_list = srte_segment_list_find(segment_list_name);
 	assert(candidate->segment_list);
 	SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);

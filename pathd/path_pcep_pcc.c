@@ -66,6 +66,8 @@ static void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 /* Internal Functions */
 static void update_tag(struct ctrl_state *ctrl_state,
 		       struct pcc_state *pcc_state);
+static void update_originator(struct ctrl_state *ctrl_state,
+			      struct pcc_state *pcc_state);
 static void schedule_reconnect(struct ctrl_state *ctrl_state,
 			       struct pcc_state *pcc_state);
 static void send_pcep_message(struct ctrl_state *ctrl_state,
@@ -73,6 +75,10 @@ static void send_pcep_message(struct ctrl_state *ctrl_state,
 			      struct pcep_message *msg);
 static void send_report(struct ctrl_state *ctrl_state,
 			struct pcc_state *pcc_state, struct path *path);
+static void specialize_output_path(struct pcc_state *pcc_state,
+				   struct path *path);
+static void specialize_input_path(struct pcc_state *pcc_state,
+				  struct path *path);
 static void send_comp_request(struct ctrl_state *ctrl_state,
 			      struct pcc_state *pcc_state,
 			      struct lsp_nb_key *nb_key);
@@ -114,6 +120,7 @@ struct pcc_state *pcep_pcc_initialize(struct ctrl_state *ctrl_state, int index)
 	pcc_state->next_plspid = 1;
 
 	update_tag(ctrl_state, pcc_state);
+	update_originator(ctrl_state, pcc_state);
 
 	PCEP_DEBUG("%s PCC initialized", pcc_state->tag);
 
@@ -134,6 +141,10 @@ void pcep_pcc_finalize(struct ctrl_state *ctrl_state,
 	if (pcc_state->pce_opts != NULL) {
 		XFREE(MTYPE_PCEP, pcc_state->pce_opts);
 		pcc_state->pce_opts = NULL;
+	}
+	if (pcc_state->originator != NULL) {
+		XFREE(MTYPE_PCEP, pcc_state->originator);
+		pcc_state->originator = NULL;
 	}
 	XFREE(MTYPE_PCEP, pcc_state);
 }
@@ -162,6 +173,7 @@ int pcep_pcc_update(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
 	pcc_state->pce_opts = pce_opts;
 
 	update_tag(ctrl_state, pcc_state);
+	update_originator(ctrl_state, pcc_state);
 
 	return pcep_pcc_enable(ctrl_state, pcc_state);
 }
@@ -406,20 +418,11 @@ void handle_pcep_lsp_update(struct ctrl_state *ctrl_state,
 {
 	struct path *path;
 	path = pcep_lib_parse_path(msg);
-	if (IS_IPADDR_V6(&pcc_state->pce_opts->addr)) {
-		path->sender.ipa_type = IPADDR_V6;
-		memcpy(&path->sender.ipaddr_v6,
-		       &pcc_state->pce_opts->addr.ipaddr_v6,
-		       sizeof(struct in6_addr));
-	} else {
-		path->sender.ipa_type = IPADDR_V4;
-		path->sender.ipaddr_v4 = pcc_state->pce_opts->addr.ipaddr_v4;
-	}
-	lookup_nbkey(pcc_state, path);
-
+	specialize_input_path(pcc_state, path);
+	path->update_origin = SRTE_ORIGIN_PCEP;
+	path->originator = pcc_state->originator;
 	PCEP_DEBUG("%s Received LSP update", pcc_state->tag);
 	PCEP_DEBUG_PATH("%s", format_path(path));
-
 	pcep_thread_update_path(ctrl_state, pcc_state->id, path);
 }
 
@@ -456,13 +459,46 @@ void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 void update_tag(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 {
 	if (pcc_state->pce_opts != NULL) {
-		snprintfrr(pcc_state->tag, sizeof(pcc_state->tag),
-			   "%pI4:%i (%u)", &pcc_state->pce_opts->addr,
-			   pcc_state->pce_opts->port, pcc_state->id);
+		assert(!IS_IPADDR_NONE(&pcc_state->pce_opts->addr));
+		if (IS_IPADDR_V6(&pcc_state->pce_opts->addr)) {
+			snprintfrr(pcc_state->tag, sizeof(pcc_state->tag),
+				   "%pI6:%i (%u)",
+				   &pcc_state->pce_opts->addr.ipaddr_v6,
+				   pcc_state->pce_opts->port, pcc_state->id);
+		} else {
+			snprintfrr(pcc_state->tag, sizeof(pcc_state->tag),
+				   "%pI4:%i (%u)",
+				   &pcc_state->pce_opts->addr.ipaddr_v4,
+				   pcc_state->pce_opts->port, pcc_state->id);
+		}
 	} else {
 		snprintfrr(pcc_state->tag, sizeof(pcc_state->tag), "(%u)",
 			   pcc_state->id);
 	}
+}
+
+void update_originator(struct ctrl_state *ctrl_state,
+		       struct pcc_state *pcc_state)
+{
+	char *originator;
+	if (pcc_state->originator != NULL) {
+		XFREE(MTYPE_PCEP, pcc_state->originator);
+		pcc_state->originator = NULL;
+	}
+	if (pcc_state->pce_opts == NULL)
+		return;
+	originator = XCALLOC(MTYPE_PCEP, 52);
+	assert(!IS_IPADDR_NONE(&pcc_state->pce_opts->addr));
+	if (IS_IPADDR_V6(&pcc_state->pce_opts->addr)) {
+		snprintfrr(originator, 52, "%pI6:%i",
+			   &pcc_state->pce_opts->addr.ipaddr_v6,
+			   pcc_state->pce_opts->port);
+	} else {
+		snprintfrr(originator, 52, "%pI4:%i",
+			   &pcc_state->pce_opts->addr.ipaddr_v4,
+			   pcc_state->pce_opts->port);
+	}
+	pcc_state->originator = originator;
 }
 
 void schedule_reconnect(struct ctrl_state *ctrl_state,
@@ -498,12 +534,46 @@ void send_report(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
 		path->sender.ipaddr_v4 = pcc_state->pcc_opts->addr.ipaddr_v4;
 	}
 
-	lookup_plspid(pcc_state, path);
-
+	specialize_output_path(pcc_state, path);
 	PCEP_DEBUG_PATH("%s Sending path %s: %s", pcc_state->tag, path->name,
 			format_path(path));
 	report = pcep_lib_format_report(path);
 	send_pcep_message(ctrl_state, pcc_state, report);
+}
+
+/* Updates the path for the PCE, updating the delegation and creation flags */
+void specialize_output_path(struct pcc_state *pcc_state, struct path *path)
+{
+	bool is_delegated = false;
+	bool was_created = false;
+	if ((path->originator == NULL)
+	    || (strcmp(path->originator, pcc_state->originator) == 0)) {
+		is_delegated = path->type == SRTE_CANDIDATE_TYPE_DYNAMIC;
+		/* it seems the PCE consider updating an LSP a creation ?!?
+		at least Cisco does... */
+		was_created = path->update_origin == SRTE_ORIGIN_PCEP;
+	}
+	path->go_active = is_delegated;
+	path->is_delegated = is_delegated;
+	path->was_created = was_created;
+	lookup_plspid(pcc_state, path);
+}
+
+/* Updates the path for the PCC */
+void specialize_input_path(struct pcc_state *pcc_state, struct path *path)
+{
+	if (IS_IPADDR_V6(&pcc_state->pce_opts->addr)) {
+		path->sender.ipa_type = IPADDR_V6;
+		memcpy(&path->sender.ipaddr_v6,
+		       &pcc_state->pce_opts->addr.ipaddr_v6,
+		       sizeof(struct in6_addr));
+
+	} else {
+		path->sender.ipa_type = IPADDR_V4;
+		path->sender.ipaddr_v4 = pcc_state->pce_opts->addr.ipaddr_v4;
+	}
+	lookup_nbkey(pcc_state, path);
+	path_nb_lookup(path);
 }
 
 void send_comp_request(struct ctrl_state *ctrl_state,

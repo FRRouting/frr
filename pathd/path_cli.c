@@ -167,16 +167,22 @@ DEFPY_NOSH(te_path_segment_list, te_path_segment_list_cmd,
 	   "Segment List\n"
 	   "Segment List Name\n")
 {
+	char xpath_base[XPATH_MAXLEN];
 	char xpath[XPATH_MAXLEN];
 	int ret;
 
-	snprintf(xpath, sizeof(xpath),
+	snprintf(xpath_base, sizeof(xpath_base),
 		 "/frr-pathd:pathd/segment-list[name='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, xpath_base, NB_OP_CREATE, NULL);
+
+	snprintf(xpath, sizeof(xpath), "%s/protocol-origin", xpath_base);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "local");
+	snprintf(xpath, sizeof(xpath), "%s/originator", xpath_base);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "config");
 
 	ret = nb_cli_apply_changes(vty, NULL);
 	if (ret == CMD_SUCCESS)
-		VTY_PUSH_XPATH(SEGMENT_LIST_NODE, xpath);
+		VTY_PUSH_XPATH(SEGMENT_LIST_NODE, xpath_base);
 
 	return ret;
 }
@@ -460,7 +466,7 @@ DEFPY(te_path_sr_policy_candidate_path, te_path_sr_policy_candidate_path_cmd,
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, preference_str);
 	nb_cli_enqueue_change(vty, "./name", NB_OP_MODIFY, name);
 	nb_cli_enqueue_change(vty, "./protocol-origin", NB_OP_MODIFY, "local");
-	nb_cli_enqueue_change(vty, "./originator", NB_OP_MODIFY, "127.0.0.1");
+	nb_cli_enqueue_change(vty, "./originator", NB_OP_MODIFY, "config");
 	nb_cli_enqueue_change(vty, "./type", NB_OP_MODIFY, type);
 
 	if (no_metrics != NULL) {

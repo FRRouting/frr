@@ -25,6 +25,7 @@
 #include <pcep_utils_logging.h>
 #include <pcep_pcc_api.h>
 #include "mpls.h"
+#include "pathd/pathd.h"
 #include "pathd/path_pcep_memory.h"
 
 #define PCEP_DEFAULT_PORT 4189
@@ -157,48 +158,68 @@ struct path_metric {
 };
 
 struct path {
-	/* The address the path is comming from (only work for the PCE for now)
-	 */
-	struct ipaddr sender;
+	/* Both the nbkey and the plspid are keys comming from the PCC,
+	but the PCE is only using the plspid. The missing key is looked up by
+	the PCC so we always have both */
+
 	/* The northbound key identifying this path */
 	struct lsp_nb_key nbkey;
 	/* The generated unique PLSP identifier for this path.
 	   See draft-ietf-pce-stateful-pce */
 	uint32_t plsp_id;
+
+	/* The address the path is comming from, PCE or PCC*/
+	struct ipaddr sender;
+	/* The origin of the path creation */
+	enum srte_protocol_origin create_origin;
+	/* The origin of the path modification */
+	enum srte_protocol_origin update_origin;
+	/* The identifier of the entity that originated the path */
+	const char *originator;
+	/* The type of the path, for PCE initiated or updated path it is always
+	SRTE_CANDIDATE_TYPE_DYNAMIC */
+	enum srte_candidate_type type;
+
+	/* The following data comes from either the PCC or the PCE if available
+	 */
+
+	/* Path's binding SID */
+	mpls_label_t binding_sid;
+	/* The name of the path */
+	const char *name;
 	/* The request identifier from the PCE, when getting a path from the
 	   PCE. See draft-ietf-pce-stateful-pce */
 	uint32_t srp_id;
 	/* The request identifier from the PCC , when getting a path from the
 	   PCE after a computation request. See rfc5440, section-7.4 */
 	uint32_t req_id;
-	/* Path's binding SID */
-	mpls_label_t binding_sid;
-	/* The name of the path */
-	char *name;
 	/* The operational status of the path */
 	enum pcep_lsp_operational_status status;
 	/* If true, the receiver (PCC) must remove the path.
 	   See draft-ietf-pce-pce-initiated-lsp */
 	bool do_remove;
-	/* Indicate if the PCE wants the path to get active.
-	   See draft-ietf-pce-stateful-pce, section-7.3, flag A */
-	bool go_active;
-	/* Indicate the given path was created by the PCE,
-	   See draft-ietf-pce-pce-initiated-lsp, section-5.3.1, flag C */
-	bool was_created;
 	/* Indicate the given path was removed by the PCC.
 	   See draft-ietf-pce-stateful-pce, section-7.3, flag R */
 	bool was_removed;
 	/* Indicate the path is part of the synchronization process.
 	   See draft-ietf-pce-stateful-pce, section-7.3, flag S */
 	bool is_synching;
-	/* Indicate the path is delegated to the PCE.
-	   See draft-ietf-pce-stateful-pce, section-7.3, flag D */
-	bool is_delegated;
 	/* Specify the list of hop defining the path */
 	struct path_hop *first_hop;
 	/* Specify the list of metrics */
 	struct path_metric *first_metric;
+
+	/* The following data need to be specialized for a given PCE */
+
+	/* Indicate the path is delegated to the PCE.
+	   See draft-ietf-pce-stateful-pce, section-7.3, flag D */
+	bool is_delegated;
+	/* Indicate if the PCE wants the path to get active.
+	   See draft-ietf-pce-stateful-pce, section-7.3, flag A */
+	bool go_active;
+	/* Indicate the given path was created by the PCE,
+	   See draft-ietf-pce-pce-initiated-lsp, section-5.3.1, flag C */
+	bool was_created;
 };
 
 struct pcep_glob {

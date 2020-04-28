@@ -25,6 +25,7 @@
 #include "lib/hook.h"
 
 enum srte_protocol_origin {
+	SRTE_ORIGIN_UNDEFINED = 0,
 	SRTE_ORIGIN_PCEP = 1,
 	SRTE_ORIGIN_BGP = 2,
 	SRTE_ORIGIN_LOCAL = 3,
@@ -39,9 +40,9 @@ enum srte_policy_status {
 };
 
 enum srte_candidate_type {
-	SRTE_CANDIDATE_TYPE_EXPLICIT = 0,
-	SRTE_CANDIDATE_TYPE_DYNAMIC = 1,
-	SRTE_CANDIDATE_TYPE_UNDEFINED = 2,
+	SRTE_CANDIDATE_TYPE_UNDEFINED = 0,
+	SRTE_CANDIDATE_TYPE_EXPLICIT = 1,
+	SRTE_CANDIDATE_TYPE_DYNAMIC = 2,
 };
 
 enum srte_candidate_metric_type {
@@ -97,6 +98,9 @@ struct srte_segment_list {
 	/* The Protocol-Origin. */
 	enum srte_protocol_origin protocol_origin;
 
+	/* The Originator */
+	char originator[64];
+
 	/* Nexthops. */
 	struct srte_segment_entry_head segments;
 
@@ -129,7 +133,7 @@ struct srte_candidate {
 	enum srte_protocol_origin protocol_origin;
 
 	/* The Originator */
-	struct ipaddr originator;
+	char originator[64];
 
 	/* The Discriminator */
 	uint32_t discriminator;

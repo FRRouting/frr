@@ -59,6 +59,7 @@ struct pcc_state {
 	enum pcc_status status;
 	struct pcc_opts *pcc_opts;
 	struct pce_opts *pce_opts;
+	char *originator;
 	pcep_session *sess;
 	uint32_t retry_count;
 	bool synchronized;

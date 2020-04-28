@@ -103,6 +103,7 @@ void pcep_free_path(struct path *path)
 {
 	struct path_hop *hop;
 	struct path_metric *metric;
+	char *tmp;
 
 	metric = path->first_metric;
 	while (metric != NULL) {
@@ -116,8 +117,21 @@ void pcep_free_path(struct path *path)
 		XFREE(MTYPE_PCEP, hop);
 		hop = next;
 	}
+	if (path->originator != NULL) {
+		/* The path own the memory, it is const so it is clear it
+		shouldn't be modified. XFREE macro do not support type casting
+		so we need a temporary variable */
+		tmp = (char *)path->originator;
+		XFREE(MTYPE_PCEP, tmp);
+		path->originator = NULL;
+	}
 	if (path->name != NULL) {
-		XFREE(MTYPE_PCEP, path->name);
+		/* The path own the memory, it is const so it is clear it
+		shouldn't be modified. XFREE macro do not support type casting
+		so we need a temporary variable */
+		tmp = (char *)path->name;
+		XFREE(MTYPE_PCEP, tmp);
+		path->name = NULL;
 	}
 	XFREE(MTYPE_PCEP, path);
 }
@@ -145,9 +159,7 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 			/* ODL and Cisco requires the first reported
 			   LSP to have a DOWN status, the later status changes
 			   will be comunicated through hook calls */
-			resp = path_nb_get_path(path->nbkey.color,
-						path->nbkey.endpoint,
-						path->nbkey.preference);
+			resp = path_nb_get_path(&path->nbkey);
 			resp->srp_id = path->srp_id;
 			resp->status = PCEP_LSP_OPERATIONAL_DOWN;
 			pcep_ctrl_pathd_event(pcep_g->fpt, PCEP_PATH_UPDATED,

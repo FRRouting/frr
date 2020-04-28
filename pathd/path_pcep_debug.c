@@ -103,6 +103,36 @@ const char *pcc_status_name(enum pcc_status status)
 	}
 }
 
+const char *srte_protocol_origin_name(enum srte_protocol_origin origin)
+{
+	switch (origin) {
+	case SRTE_ORIGIN_UNDEFINED:
+		return "UNDEFINED";
+	case SRTE_ORIGIN_PCEP:
+		return "PCEP";
+	case SRTE_ORIGIN_BGP:
+		return "BGP";
+	case SRTE_ORIGIN_LOCAL:
+		return "LOCAL";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+const char *srte_candidate_type_name(enum srte_candidate_type type)
+{
+	switch (type) {
+	case SRTE_CANDIDATE_TYPE_EXPLICIT:
+		return "EXPLICIT";
+	case SRTE_CANDIDATE_TYPE_DYNAMIC:
+		return "DYNAMIC";
+	case SRTE_CANDIDATE_TYPE_UNDEFINED:
+		return "UNDEFINED";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 const char *pcep_event_type_name(pcep_event_type event_type)
 {
 	switch (event_type) {
@@ -743,6 +773,30 @@ void _format_path(int ps, struct path *path)
 		}
 		PCEP_FORMAT("%*spreference: %u\n", ps3, "",
 			    path->nbkey.preference);
+
+		if (path->sender.ipa_type == IPADDR_V4) {
+			PCEP_FORMAT("%*ssender: %pI4\n", ps2, "",
+				    &path->sender.ipaddr_v4);
+		} else if (path->sender.ipa_type == IPADDR_V6) {
+			PCEP_FORMAT("%*ssender: %pI6\n", ps2, "",
+				    &path->sender.ipaddr_v6);
+		} else {
+			PCEP_FORMAT("%*ssender: UNKNOWN\n", ps2, "");
+		}
+		PCEP_FORMAT("%*screate_origin: %s (%u)\n", ps2, "",
+			    srte_protocol_origin_name(path->create_origin),
+			    path->create_origin);
+		PCEP_FORMAT("%*supdate_origin: %s (%u)\n", ps2, "",
+			    srte_protocol_origin_name(path->update_origin),
+			    path->update_origin);
+		if (path->originator != NULL) {
+			PCEP_FORMAT("%*soriginator: %s\n", ps2, "",
+				    path->originator);
+		} else {
+			PCEP_FORMAT("%*soriginator: UNKNOWN\n", ps2, "");
+		}
+		PCEP_FORMAT("%*stype: %s (%u)\n", ps2, "",
+			    srte_candidate_type_name(path->type), path->type);
 		PCEP_FORMAT("%*splsp_id: %u\n", ps2, "", path->plsp_id);
 		if (path->name == NULL) {
 			PCEP_FORMAT("%*sname: NULL\n", ps2, "");

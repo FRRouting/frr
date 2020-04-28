@@ -27,10 +27,15 @@
 
 typedef int (*path_list_cb_t)(struct path *path, void *arg);
 
-struct path *path_nb_get_path(uint32_t color, struct ipaddr endpoint,
-			      uint32_t preference);
+/* Lookup the candidate path and fill up the missing path attributes like name
+   and type. Used for path generated from PCEP message received from the PCE
+   so they contains more information about the candidate path. If no matching
+   policy or candidate path is found, nothing is changed */
+void path_nb_lookup(struct path *path);
+struct path *path_nb_get_path(struct lsp_nb_key *key);
 void path_nb_list_path(path_list_cb_t cb, void *arg);
 void path_nb_update_path(struct path *path);
 struct path *candidate_to_path(struct srte_candidate *candidate);
+
 
 #endif // _PATH_PCEP_NB_H_
