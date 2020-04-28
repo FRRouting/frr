@@ -93,6 +93,7 @@ struct zlog_msg {
 
 	const char *fmt;
 	va_list args;
+	const struct xref_logmsg *xref;
 
 	char *stackbuf;
 	size_t stackbufsz;
@@ -348,12 +349,13 @@ void zlog_tls_buffer_flush(void)
 }
 
 
-static void vzlog_notls(int prio, const char *fmt, va_list ap)
+static void vzlog_notls(const struct xref_logmsg *xref, int prio, const char *fmt, va_list ap)
 {
 	struct zlog_target *zt;
 	struct zlog_msg stackmsg = {
 		.prio = prio & LOG_PRIMASK,
 		.fmt = fmt,
+		.xref = xref,
 	}, *msg = &stackmsg;
 	char stackbuf[512];
 
@@ -378,8 +380,8 @@ static void vzlog_notls(int prio, const char *fmt, va_list ap)
 		XFREE(MTYPE_LOG_MESSAGE, msg->text);
 }
 
-static void vzlog_tls(struct zlog_tls *zlog_tls, int prio,
-		      const char *fmt, va_list ap)
+static void vzlog_tls(struct zlog_tls *zlog_tls, const struct xref_logmsg *xref,
+		      int prio, const char *fmt, va_list ap)
 {
 	struct zlog_target *zt;
 	struct zlog_msg *msg;
@@ -412,6 +414,7 @@ static void vzlog_tls(struct zlog_tls *zlog_tls, int prio,
 	msg->stackbufsz = TLS_LOG_BUF_SIZE - zlog_tls->bufpos - 1;
 	msg->fmt = fmt;
 	msg->prio = prio & LOG_PRIMASK;
+	msg->xref = xref;
 	if (msg->prio < LOG_INFO)
 		immediate = true;
 
@@ -446,14 +449,14 @@ static void vzlog_tls(struct zlog_tls *zlog_tls, int prio,
 		XFREE(MTYPE_LOG_MESSAGE, msg->text);
 }
 
-void vzlog(int prio, const char *fmt, va_list ap)
+void vzlogx(const struct xref_logmsg *xref, int prio, const char *fmt, va_list ap)
 {
 	struct zlog_tls *zlog_tls = zlog_tls_get();
 
 	if (zlog_tls)
-		vzlog_tls(zlog_tls, prio, fmt, ap);
+		vzlog_tls(zlog_tls, xref, prio, fmt, ap);
 	else
-		vzlog_notls(prio, fmt, ap);
+		vzlog_notls(xref, prio, fmt, ap);
 }
 
 void zlog_sigsafe(const char *text, size_t len)
@@ -485,6 +488,11 @@ void zlog_sigsafe(const char *text, size_t len)
 int zlog_msg_prio(struct zlog_msg *msg)
 {
 	return msg->prio;
+}
+
+const struct xref_logmsg *zlog_msg_xref(struct zlog_msg *msg)
+{
+	return msg->xref;
 }
 
 const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)

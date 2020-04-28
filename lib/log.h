@@ -62,16 +62,6 @@ struct message {
 	const char *str;
 };
 
-/* For logs which have error codes associated with them */
-#define flog_err(ferr_id, format, ...)                                        \
-	zlog_err("[EC %" PRIu32 "] " format, ferr_id, ##__VA_ARGS__)
-#define flog_err_sys(ferr_id, format, ...)                                     \
-	flog_err(ferr_id, format, ##__VA_ARGS__)
-#define flog_warn(ferr_id, format, ...)                                        \
-	zlog_warn("[EC %" PRIu32 "] " format, ferr_id, ##__VA_ARGS__)
-#define flog(priority, ferr_id, format, ...)                                   \
-	zlog(priority, "[EC %" PRIu32 "] " format, ferr_id, ##__VA_ARGS__)
-
 extern void zlog_thread_info(int log_level);
 
 #define ZLOG_FILTERS_MAX 100      /* Max # of filters at once */

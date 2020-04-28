@@ -107,7 +107,7 @@ int main(int argc, char **argv)
 #include "log.h"
 #include "zassert.h"
 
-void vzlog(int prio, const char *format, va_list args)
+void vzlogx(const struct xref_logmsg *xref, int prio, const char *format, va_list args)
 {
 	vfprintf(stderr, format, args);
 	fputs("\n", stderr);
