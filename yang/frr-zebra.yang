@@ -658,9 +658,7 @@ module frr-zebra {
           list route-entry {
             key "protocol";
             leaf protocol {
-               type frr-route-types:frr-route-types-v4;
-               //TODO: Use unified route types done in PR 5183 when it is merged.
-               //type frr-route-types:frr-route-types;
+               type frr-route-types:frr-route-types;
                description
                   "The protocol owning the route.";
             }
