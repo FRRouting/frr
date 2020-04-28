@@ -47,6 +47,9 @@ static void path_nb_edit_candidate_config(struct nb_config *candidate_config,
 					  const char *xpath,
 					  enum nb_operation operation,
 					  const char *value);
+static void path_nb_delete_candidate_segment_list(struct nb_config *config,
+                                                  struct lsp_nb_key *key,
+                                                  const char* originator);
 static void path_nb_add_segment_list_segment(struct nb_config *config,
 					     const char *segment_list_name,
 					     uint32_t index, uint32_t label);
@@ -75,9 +78,7 @@ static void path_nb_create_segment_list(struct nb_config *config,
 					enum srte_protocol_origin protocol,
 					const char *originator);
 static void path_nb_update_candidate_path(struct nb_config *config,
-					  uint32_t color,
-					  struct ipaddr *endpoint,
-					  uint32_t preference,
+					  struct lsp_nb_key *key,
 					  const char *segment_list_name);
 static void
 path_nb_add_candidate_path_metric(struct nb_config *config, uint32_t color,
@@ -85,6 +86,7 @@ path_nb_add_candidate_path_metric(struct nb_config *config, uint32_t color,
 				  enum pcep_metric_types type, float value,
 				  bool is_bound, bool is_computed);
 
+static struct srte_candidate* lookup_candidate(struct lsp_nb_key *key);
 static char *candidate_name(struct srte_candidate *candidate);
 static enum pcep_lsp_operational_status
 status_int_to_ext(enum srte_policy_status status);
@@ -92,15 +94,9 @@ static const char *metric_name(enum pcep_metric_types type);
 static const char *protocol_origin_name(enum srte_protocol_origin origin);
 static enum pcep_sr_subobj_nai pcep_nai_type(enum srte_segment_nai_type type);
 
-
 void path_nb_lookup(struct path *path)
 {
-	struct srte_policy *policy = NULL;
-	struct srte_candidate *candidate = NULL;
-	policy = srte_policy_find(path->nbkey.color, &path->nbkey.endpoint);
-	if (policy == NULL)
-		return;
-	candidate = srte_candidate_find(policy, path->nbkey.preference);
+	struct srte_candidate *candidate = lookup_candidate(&path->nbkey);
 	if (candidate == NULL)
 		return;
 	if (path->name == NULL)
@@ -116,24 +112,9 @@ void path_nb_lookup(struct path *path)
 
 struct path *path_nb_get_path(struct lsp_nb_key *key)
 {
-	char xpath[XPATH_MAXLEN];
-	char endpoint_str[40];
-	struct srte_policy *policy;
-	struct srte_candidate *candidate;
-
-	ipaddr2str(&key->endpoint, endpoint_str, sizeof(endpoint_str));
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-pathd:pathd/sr-policy[color='%d'][endpoint='%s']",
-		 key->color, endpoint_str);
-
-	policy = nb_running_get_entry(NULL, xpath, false);
-	if (policy == NULL)
-		return NULL;
-
-	candidate = srte_candidate_find(policy, key->preference);
+	struct srte_candidate *candidate = lookup_candidate(key);
 	if (candidate == NULL)
 		return NULL;
-
 	return candidate_to_path(candidate);
 }
 
@@ -303,6 +284,9 @@ void path_nb_update_path(struct path *path)
 	struct nb_config *config = nb_config_dup(running_config);
 
 	if (path->first_hop != NULL) {
+		path_nb_delete_candidate_segment_list(config, &path->nbkey,
+		                                      path->originator);
+
 		snprintf(segment_list_name_buff, sizeof(segment_list_name_buff),
 			 "%s-%u", path->name, path->plsp_id);
 		segment_list_name = segment_list_name_buff;
@@ -359,8 +343,7 @@ void path_nb_update_path(struct path *path)
 	}
 
 	path_nb_update_candidate_path(
-		config, path->nbkey.color, &path->nbkey.endpoint,
-		path->nbkey.preference, segment_list_name);
+		config, &path->nbkey, segment_list_name);
 
 	for (metric = path->first_metric; metric != NULL;
 	     metric = metric->next) {
@@ -406,6 +389,56 @@ void path_nb_edit_candidate_config(struct nb_config *candidate_config,
 			  data);
 
 	yang_data_free(data);
+}
+
+/* Delete the candidate path segment list if it was created through PCEP
+   and by the given originator */
+void path_nb_delete_candidate_segment_list(struct nb_config *config,
+                                           struct lsp_nb_key *key,
+                                           const char* originator)
+{
+	struct srte_candidate *candidate = lookup_candidate(key);
+	struct srte_segment_list *sl;
+	struct srte_segment_entry *segment, *safe_seg;
+	char xpath_base[XPATH_MAXLEN];
+	char xpath[XPATH_MAXLEN];
+	char endpoint_str[INET_ADDRSTRLEN];
+
+	if ((candidate == NULL) || (candidate->segment_list == NULL))
+		return;
+	sl = candidate->segment_list;
+
+	/* Removing the segment list from the candidate path */
+	ipaddr2str(&key->endpoint, endpoint_str, sizeof(endpoint_str));
+	snprintf(xpath, sizeof(xpath),
+		"/frr-pathd:pathd/sr-policy[color='%u'][endpoint='%s']/candidate-path[preference='%u']/segment-list-name",
+		key->color, endpoint_str, key->preference);
+	path_nb_edit_candidate_config(config, xpath, NB_OP_DESTROY, NULL);
+
+	/* Checks we can destroy the segment list */
+	if (sl->protocol_origin != SRTE_ORIGIN_PCEP) {
+		zlog_warn("Prevented from deleting segment list %s because it "
+		          "wasn't created through PCEP", sl->name);
+		return;
+	}
+	if (strcmp(originator, sl->originator) != 0) {
+	    	zlog_warn("Prevented from deleting segment list %s because it "
+	    	          "was created by a different originator", sl->name);
+		return;
+	}
+
+	/* Destroy the segment list */
+	snprintf(xpath_base, sizeof(xpath_base),
+		 "/frr-pathd:pathd/segment-list[name='%s']", sl->name);
+	RB_FOREACH_SAFE (segment, srte_segment_entry_head,
+			 &sl->segments, safe_seg) {
+		snprintf(xpath, sizeof(xpath), "%s/segment[index='%u']",
+		         xpath_base, segment->index);
+		path_nb_edit_candidate_config(config, xpath, NB_OP_DESTROY,
+		                              NULL);
+	}
+	path_nb_edit_candidate_config(config, xpath_base, NB_OP_DESTROY, NULL);
+
 }
 
 void path_nb_add_segment_list_segment(struct nb_config *config,
@@ -576,20 +609,20 @@ void path_nb_create_segment_list(struct nb_config *config,
 	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY, originator);
 }
 
-void path_nb_update_candidate_path(struct nb_config *config, uint32_t color,
-				   struct ipaddr *endpoint, uint32_t preference,
+void path_nb_update_candidate_path(struct nb_config *config,
+				   struct lsp_nb_key *key,
 				   const char *segment_list_name)
 {
 	char xpath[XPATH_MAXLEN];
 	char xpath_base[XPATH_MAXLEN];
 	char endpoint_str[INET_ADDRSTRLEN];
 
-	ipaddr2str(endpoint, endpoint_str, sizeof(endpoint_str));
+	ipaddr2str(&key->endpoint, endpoint_str, sizeof(endpoint_str));
 
 	snprintf(
 		xpath_base, sizeof(xpath_base),
 		"/frr-pathd:pathd/sr-policy[color='%u'][endpoint='%s']/candidate-path[preference='%u']",
-		color, endpoint_str, preference);
+		key->color, endpoint_str, key->preference);
 
 	snprintf(xpath, sizeof(xpath), "%s/segment-list-name", xpath_base);
 	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
@@ -627,6 +660,15 @@ void path_nb_add_candidate_path_metric(struct nb_config *config, uint32_t color,
 	snprintf(xpath, sizeof(xpath), "%s/is-computed", base_xpath);
 	path_nb_edit_candidate_config(config, xpath, NB_OP_MODIFY,
 				      is_computed ? "true" : "false");
+}
+
+struct srte_candidate* lookup_candidate(struct lsp_nb_key *key)
+{
+	struct srte_policy *policy = NULL;
+	policy = srte_policy_find(key->color, &key->endpoint);
+	if (policy == NULL)
+		return NULL;
+	return srte_candidate_find(policy, key->preference);
 }
 
 char *candidate_name(struct srte_candidate *candidate)
