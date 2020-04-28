@@ -74,7 +74,8 @@ int isis_run_dr(struct thread *thread)
 
 	if (circuit->circ_type != CIRCUIT_T_BROADCAST) {
 		zlog_warn("%s: scheduled for non broadcast circuit from %s:%d",
-			  __func__, thread->schedfrom, thread->schedfrom_line);
+			  __func__, thread->xref->xref.file,
+			  thread->xref->xref.line);
 		return ISIS_WARNING;
 	}
 

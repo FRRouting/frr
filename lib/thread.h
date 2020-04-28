@@ -27,6 +27,7 @@
 #include "monotime.h"
 #include "frratomic.h"
 #include "typesafe.h"
+#include "xref.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,6 +65,14 @@ struct cancel_req {
 	struct thread *thread;
 	void *eventobj;
 	struct thread **threadref;
+};
+
+struct xref_threadsched {
+	struct xref xref;
+
+	const char *funcname;
+	const char *dest;
+	uint32_t thread_type;
 };
 
 /* Master of the theads. */
@@ -107,9 +116,7 @@ struct thread {
 	struct timeval real;
 	struct cpu_thread_history *hist; /* cache pointer to cpu_history */
 	unsigned long yield;		 /* yield time in microseconds */
-	const char *funcname;		 /* name of thread function */
-	const char *schedfrom; /* source file thread was scheduled from */
-	int schedfrom_line;    /* line number of source file */
+	const struct xref_threadsched *xref;   /* origin location */
 	pthread_mutex_t mtx;   /* mutex for thread.c functions */
 };
 
@@ -157,17 +164,34 @@ struct cpu_thread_history {
 #define THREAD_WRITE_OFF(thread)  THREAD_OFF(thread)
 #define THREAD_TIMER_OFF(thread)  THREAD_OFF(thread)
 
-#define debugargdef  const char *funcname, const char *schedfrom, int fromln
+#include "lib/xref.h"
 
-#define thread_add_read(m,f,a,v,t) funcname_thread_add_read_write(THREAD_READ,m,f,a,v,t,#f,__FILE__,__LINE__)
-#define thread_add_write(m,f,a,v,t) funcname_thread_add_read_write(THREAD_WRITE,m,f,a,v,t,#f,__FILE__,__LINE__)
-#define thread_add_timer(m,f,a,v,t) funcname_thread_add_timer(m,f,a,v,t,#f,__FILE__,__LINE__)
-#define thread_add_timer_msec(m,f,a,v,t) funcname_thread_add_timer_msec(m,f,a,v,t,#f,__FILE__,__LINE__)
-#define thread_add_timer_tv(m,f,a,v,t) funcname_thread_add_timer_tv(m,f,a,v,t,#f,__FILE__,__LINE__)
-#define thread_add_event(m,f,a,v,t) funcname_thread_add_event(m,f,a,v,t,#f,__FILE__,__LINE__)
-#define thread_execute(m,f,a,v) funcname_thread_execute(m,f,a,v,#f,__FILE__,__LINE__)
-#define thread_execute_name(m, f, a, v, n)				\
-	funcname_thread_execute(m, f, a, v, n, __FILE__, __LINE__)
+#define xref_thread_add(addfn, type, m,f,a,v,t)                                \
+	({                                                                     \
+		DEFINE_XREF(xref, threadsched, NULL,                           \
+			.funcname = #f,                                        \
+			.dest = #t,                                            \
+			.thread_type = type,                                   \
+		);                                                             \
+		_xref_thread_add_ ## addfn(&xref, m, f, a, v, t);              \
+	}) /* end */
+
+#define thread_add_read(m,f,a,v,t)       xref_thread_add(read_write, THREAD_READ,  m,f,a,v,t)
+#define thread_add_write(m,f,a,v,t)      xref_thread_add(read_write, THREAD_WRITE, m,f,a,v,t)
+#define thread_add_timer(m,f,a,v,t)      xref_thread_add(timer,      THREAD_TIMER, m,f,a,v,t)
+#define thread_add_timer_msec(m,f,a,v,t) xref_thread_add(timer_msec, THREAD_TIMER, m,f,a,v,t)
+#define thread_add_timer_tv(m,f,a,v,t)   xref_thread_add(timer_tv,   THREAD_TIMER, m,f,a,v,t)
+#define thread_add_event(m,f,a,v,t)      xref_thread_add(event,      THREAD_TIMER, m,f,a,v,t)
+
+#define thread_execute(m,f,a,v)                                                \
+	({                                                                     \
+		DEFINE_XREF(xref, threadsched, NULL,                           \
+			.funcname = #f,                                        \
+			.dest = NULL,                                          \
+			.thread_type = THREAD_EXECUTE,                         \
+		);                                                             \
+		_xref_thread_execute(&xref, m, f, a, v);                       \
+	}) /* end */
 
 /* Prototypes. */
 extern struct thread_master *thread_master_create(const char *);
@@ -175,35 +199,29 @@ void thread_master_set_name(struct thread_master *master, const char *name);
 extern void thread_master_free(struct thread_master *);
 extern void thread_master_free_unused(struct thread_master *);
 
-extern struct thread *
-funcname_thread_add_read_write(int dir, struct thread_master *,
-			       int (*)(struct thread *), void *, int,
-			       struct thread **, debugargdef);
+extern struct thread *_xref_thread_add_read_write(
+	const struct xref_threadsched *, struct thread_master *, int (*)(struct thread *),
+	void *, int, struct thread **);
 
-extern struct thread *funcname_thread_add_timer(struct thread_master *,
-						int (*)(struct thread *),
-						void *, long, struct thread **,
-						debugargdef);
+extern struct thread *_xref_thread_add_timer(
+	const struct xref_threadsched *, struct thread_master *, int (*)(struct thread *),
+	void *, long, struct thread **);
 
-extern struct thread *
-funcname_thread_add_timer_msec(struct thread_master *, int (*)(struct thread *),
-			       void *, long, struct thread **, debugargdef);
+extern struct thread *_xref_thread_add_timer_msec(
+	const struct xref_threadsched *, struct thread_master *, int (*)(struct thread *),
+	void *, long, struct thread **);
 
-extern struct thread *funcname_thread_add_timer_tv(struct thread_master *,
-						   int (*)(struct thread *),
-						   void *, struct timeval *,
-						   struct thread **,
-						   debugargdef);
+extern struct thread *_xref_thread_add_timer_tv(
+	const struct xref_threadsched *, struct thread_master *, int (*)(struct thread *),
+	void *, struct timeval *tv, struct thread **);
 
-extern struct thread *funcname_thread_add_event(struct thread_master *,
-						int (*)(struct thread *),
-						void *, int, struct thread **,
-						debugargdef);
+extern struct thread *_xref_thread_add_event(
+	const struct xref_threadsched *, struct thread_master *, int (*)(struct thread *),
+	void *, int, struct thread **);
 
-extern void funcname_thread_execute(struct thread_master *,
-				    int (*)(struct thread *), void *, int,
-				    debugargdef);
-#undef debugargdef
+extern void _xref_thread_execute(const struct xref_threadsched *,
+				 struct thread_master *,
+				    int (*)(struct thread *), void *, int);
 
 extern void thread_cancel(struct thread *);
 extern void thread_cancel_async(struct thread_master *, struct thread **,

@@ -161,8 +161,9 @@ void zlog_signal(int signo, const char *action, void *siginfo_v,
 	if (!tc)
 		bprintfrr(&fb, "no thread information available\n");
 	else
-		bprintfrr(&fb, "in thread %s scheduled from %s:%d\n",
-			  tc->funcname, tc->schedfrom, tc->schedfrom_line);
+		bprintfrr(&fb, "in thread %s scheduled from %s:%d %s()\n",
+			  tc->xref->funcname, tc->xref->xref.file,
+			  tc->xref->xref.line, tc->xref->xref.func);
 
 	zlog_sigsafe(fb.buf, fb.pos - fb.buf);
 }
@@ -302,8 +303,9 @@ void zlog_thread_info(int log_level)
 	if (tc)
 		zlog(log_level,
 		     "Current thread function %s, scheduled from "
-		     "file %s, line %u",
-		     tc->funcname, tc->schedfrom, tc->schedfrom_line);
+		     "file %s, line %u in %s()",
+		     tc->xref->funcname, tc->xref->xref.file,
+		     tc->xref->xref.line, tc->xref->xref.func);
 	else
 		zlog(log_level, "Current thread not known/applicable");
 }

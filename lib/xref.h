@@ -25,6 +25,10 @@
 
 enum xref_type {
 	XREFT_NONE = 0,
+
+	XREFT_THREADSCHED,
+
+	XREFT_threadsched = XREFT_THREADSCHED,
 };
 
 /* struct xref is the "const" part;  struct xrefdata is the writable part. */
