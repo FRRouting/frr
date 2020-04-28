@@ -162,8 +162,8 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 			resp = path_nb_get_path(&path->nbkey);
 			resp->srp_id = path->srp_id;
 			resp->status = PCEP_LSP_OPERATIONAL_DOWN;
-			pcep_ctrl_pathd_event(pcep_g->fpt, PCEP_PATH_UPDATED,
-					      resp);
+			pcep_ctrl_send_report(pcep_g->fpt, path->pcc_id, resp);
+			pcep_free_path(resp);
 		}
 		break;
 	default:

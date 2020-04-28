@@ -291,6 +291,16 @@ void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 	PCEP_DEBUG("%s Synchronization done", pcc_state->tag);
 }
 
+void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
+			  struct pcc_state *pcc_state,
+			  struct path *path)
+{
+	if (pcc_state->caps.is_stateful) {
+		PCEP_DEBUG("%s Send report for candidate path %s",
+		           pcc_state->tag, path->name);
+		send_report(ctrl_state, pcc_state, path);
+	}
+}
 
 /* ------------ Pathd event handler ------------ */
 
@@ -523,17 +533,6 @@ void send_report(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
 {
 	struct pcep_message *report;
 
-	if (IS_IPADDR_V6(&pcc_state->pcc_opts->addr)) {
-		path->sender.ipa_type = IPADDR_V6;
-		memcpy(&path->sender.ipaddr_v6,
-		       &pcc_state->pcc_opts->addr.ipaddr_v6,
-		       sizeof(struct in6_addr));
-
-	} else {
-		path->sender.ipa_type = IPADDR_V4;
-		path->sender.ipaddr_v4 = pcc_state->pcc_opts->addr.ipaddr_v4;
-	}
-
 	specialize_output_path(pcc_state, path);
 	PCEP_DEBUG_PATH("%s Sending path %s: %s", pcc_state->tag, path->name,
 			format_path(path));
@@ -546,6 +545,20 @@ void specialize_output_path(struct pcc_state *pcc_state, struct path *path)
 {
 	bool is_delegated = false;
 	bool was_created = false;
+
+	lookup_plspid(pcc_state, path);
+
+	if (IS_IPADDR_V6(&pcc_state->pcc_opts->addr)) {
+		path->sender.ipa_type = IPADDR_V6;
+		memcpy(&path->sender.ipaddr_v6,
+		       &pcc_state->pcc_opts->addr.ipaddr_v6,
+		       sizeof(struct in6_addr));
+
+	} else {
+		path->sender.ipa_type = IPADDR_V4;
+		path->sender.ipaddr_v4 = pcc_state->pcc_opts->addr.ipaddr_v4;
+	}
+
 	if ((path->originator == NULL)
 	    || (strcmp(path->originator, pcc_state->originator) == 0)) {
 		is_delegated = path->type == SRTE_CANDIDATE_TYPE_DYNAMIC;
@@ -553,15 +566,19 @@ void specialize_output_path(struct pcc_state *pcc_state, struct path *path)
 		at least Cisco does... */
 		was_created = path->update_origin == SRTE_ORIGIN_PCEP;
 	}
+
+	path->pcc_id = pcc_state->id;
 	path->go_active = is_delegated;
 	path->is_delegated = is_delegated;
 	path->was_created = was_created;
-	lookup_plspid(pcc_state, path);
 }
 
 /* Updates the path for the PCC */
 void specialize_input_path(struct pcc_state *pcc_state, struct path *path)
 {
+	lookup_nbkey(pcc_state, path);
+	path_nb_lookup(path);
+
 	if (IS_IPADDR_V6(&pcc_state->pce_opts->addr)) {
 		path->sender.ipa_type = IPADDR_V6;
 		memcpy(&path->sender.ipaddr_v6,
@@ -572,8 +589,8 @@ void specialize_input_path(struct pcc_state *pcc_state, struct path *path)
 		path->sender.ipa_type = IPADDR_V4;
 		path->sender.ipaddr_v4 = pcc_state->pce_opts->addr.ipaddr_v4;
 	}
-	lookup_nbkey(pcc_state, path);
-	path_nb_lookup(path);
+
+	path->pcc_id = pcc_state->id;
 }
 
 void send_comp_request(struct ctrl_state *ctrl_state,

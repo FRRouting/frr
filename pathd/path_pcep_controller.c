@@ -93,6 +93,12 @@ struct get_counters_args {
 	struct counters_group *counters;
 };
 
+struct send_report_args {
+	struct ctrl_state *ctrl_state;
+	int pcc_id;
+	struct path *path;
+};
+
 
 /* Internal Functions Called From Main Thread */
 static int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res);
@@ -101,6 +107,7 @@ static int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res);
 static int pcep_thread_finish_event_handler(struct thread *thread);
 static void pcep_thread_schedule_poll(struct ctrl_state *ctrl_state);
 static int pcep_thread_get_counters_callback(struct thread *t);
+static int pcep_thread_send_report_callback(struct thread *t);
 
 /* Controller Thread Timer Handler */
 static int schedule_thread(struct ctrl_state *ctrl_state, int pcc_id,
@@ -264,6 +271,16 @@ struct counters_group *pcep_ctrl_get_counters(struct frr_pthread *fpt,
 	return args.counters;
 }
 
+void pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
+                           struct path *path)
+{
+	/* Sends a report stynchronously */
+	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
+	struct send_report_args args = {
+		.ctrl_state = ctrl_state, .pcc_id = pcc_id, .path = path};
+	thread_execute(ctrl_state->self, pcep_thread_send_report_callback,
+		       &args, 0);
+}
 
 /* ------------ Internal Functions Called from Main Thread ------------ */
 
@@ -351,6 +368,27 @@ int pcep_thread_get_counters_callback(struct thread *t)
 	}
 
 	args->counters = NULL;
+	return 0;
+}
+
+int pcep_thread_send_report_callback(struct thread *t)
+{
+	struct send_report_args *args = THREAD_ARG(t);
+	assert(args != NULL);
+	struct ctrl_state *ctrl_state = args->ctrl_state;
+	assert(ctrl_state != NULL);
+	struct pcc_state *pcc_state;
+
+	if (args->pcc_id == 0) {
+		for (int i = 0; i < ctrl_state->pcc_count; i++) {
+			pcep_pcc_send_report(ctrl_state, ctrl_state->pcc[i],
+			                     args->path);
+		}
+	} else {
+		pcc_state = get_pcc_state(ctrl_state, args->pcc_id);
+		pcep_pcc_send_report(ctrl_state, pcc_state, args->path);
+	}
+
 	return 0;
 }
 

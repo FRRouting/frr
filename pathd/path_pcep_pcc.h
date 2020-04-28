@@ -95,5 +95,9 @@ void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 			struct pcc_state *pcc_state, struct path *path);
 void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 			struct pcc_state *pcc_state);
+void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
+			  struct pcc_state *pcc_state,
+			  struct path *path);
+
 
 #endif // _PATH_PCEP_PCC_H_

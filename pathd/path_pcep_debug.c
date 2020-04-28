@@ -783,6 +783,7 @@ void _format_path(int ps, struct path *path)
 		} else {
 			PCEP_FORMAT("%*ssender: UNKNOWN\n", ps2, "");
 		}
+		PCEP_FORMAT("%*spcc_id: %u\n", ps2, "", path->pcc_id);
 		PCEP_FORMAT("%*screate_origin: %s (%u)\n", ps2, "",
 			    srte_protocol_origin_name(path->create_origin),
 			    path->create_origin);

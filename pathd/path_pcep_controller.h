@@ -65,6 +65,10 @@ int pcep_ctrl_sync_path(struct frr_pthread *fpt, int pcc_id, struct path *path);
 int pcep_ctrl_sync_done(struct frr_pthread *fpt, int pcc_id);
 struct counters_group *pcep_ctrl_get_counters(struct frr_pthread *fpt,
 					      int pcc_id);
+/* Synchronously send a report, the caller is responsible to free the path,
+ * If `pcc_id` is `0` the report is sent by all PCCs */
+void pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
+                           struct path *path);
 
 /* Functions called from the controller thread */
 void pcep_thread_start_sync(struct ctrl_state *ctrl_state, int pcc_id);

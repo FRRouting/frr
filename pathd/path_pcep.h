@@ -170,6 +170,10 @@ struct path {
 
 	/* The address the path is comming from, PCE or PCC*/
 	struct ipaddr sender;
+	/* The identifier of the PCC the path is for/from. If 0 it is undefined,
+	meaning it hasn't be set yet or is for all the PCC */
+	int pcc_id;
+
 	/* The origin of the path creation */
 	enum srte_protocol_origin create_origin;
 	/* The origin of the path modification */
