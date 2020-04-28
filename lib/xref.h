@@ -28,6 +28,7 @@ enum xref_type {
 
 	XREFT_THREADSCHED,
 	XREFT_LOGMSG,
+	XREFT_DEFUN,
 
 	XREFT_threadsched = XREFT_THREADSCHED,
 	XREFT_logmsg = XREFT_LOGMSG,

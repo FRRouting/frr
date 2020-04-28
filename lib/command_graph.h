@@ -31,6 +31,7 @@
 #include "memory.h"
 #include "vector.h"
 #include "graph.h"
+#include "xref.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -104,6 +105,7 @@ struct cmd_element {
 		    struct cmd_token *[]);
 
 	const char *name; /* symbol name for debugging */
+	struct xref xref;
 };
 
 /* text for <cr> command */
