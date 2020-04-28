@@ -239,7 +239,11 @@ struct cmd_node {
 		.attr = attrs,                                                 \
 		.daemon = dnum,                                                \
 		.name = #cmdname,                                              \
-	};
+		.xref = XREF_INIT(XREFT_DEFUN, NULL, #funcname),               \
+	};                                                                     \
+	XREF_LINK(cmdname.xref);                                               \
+	/* end */
+
 
 #define DEFUN_CMD_FUNC_DECL(funcname)                                          \
 	static int funcname(const struct cmd_element *, struct vty *, int,     \

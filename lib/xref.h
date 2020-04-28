@@ -29,6 +29,8 @@ enum xref_type {
 	XREFT_THREADSCHED = 0x100,
 
 	XREFT_LOGMSG = 0x200,
+
+	XREFT_DEFUN = 0x300,
 };
 
 /* struct xref is the "const" part;  struct xrefdata is the writable part. */
