@@ -59,6 +59,7 @@
 *.cg.json
 *.cg.dot
 *.cg.svg
+*.xref
 
 ### gcov outputs
 

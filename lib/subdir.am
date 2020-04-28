@@ -441,6 +441,26 @@ SUFFIXES += _clippy.c
 .c_clippy.c:
 	$(AM_V_CLIPPY) $(CLIPPY) $(top_srcdir)/python/clidef.py -o $@ $<
 
+# xrelfo, the ELF xref extractor
+
+AM_V_XRELFO = $(am__v_XRELFO_$(V))
+am__v_XRELFO_ = $(am__v_XRELFO_$(AM_DEFAULT_VERBOSITY))
+am__v_XRELFO_0 = @echo "  XRELFO  " $@;
+am__v_XRELFO_1 =
+
+SUFFIXES += .xref
+%.xref: % $(CLIPPY)
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -Wlog-format -o $@ $<
+
+# dependencies added in python/makefile.py
+frr.xref:
+	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py -o $@ $^
+all-am: frr.xref
+
+clean-xref:
+	-rm -rf $(xrefs) frr.xref
+clean-local: clean-xref
+
 ## automake's "ylwrap" is a great piece of GNU software... not.
 .l.c:
 	$(AM_V_LEX)$(am__skiplex) $(LEXCOMPILE) $<
