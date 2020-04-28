@@ -271,11 +271,10 @@ static uint32_t query_arrival_time(void)
 	struct timeval tv;
 	uint32_t qat;
 
-	char m_qat[] = "Query arrival time lookup failed: errno=%d: %s";
-
 	if (gettimeofday(&tv, NULL) < 0) {
 		if (PIM_DEBUG_MTRACE)
-			zlog_warn(m_qat, errno, safe_strerror(errno));
+			zlog_warn("Query arrival time lookup failed: errno=%d: %s",
+				  errno, safe_strerror(errno));
 		return 0;
 	}
 	/* not sure second offset correct, as I get different value */
