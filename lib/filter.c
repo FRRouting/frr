@@ -383,7 +383,6 @@ void access_list_filter_delete(struct access_list *access,
 			       struct filter *filter)
 {
 	struct access_master *master;
-	struct filter *replace = filter;
 
 	master = access->master;
 

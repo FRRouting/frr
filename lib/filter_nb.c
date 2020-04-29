@@ -415,7 +415,7 @@ static int lib_access_list_legacy_entry_destination_any_destroy(
  */
 static int lib_access_list_create(struct nb_cb_create_args *args)
 {
-	struct access_list *acl;
+	struct access_list *acl = NULL;
 	const char *acl_name;
 	int type;
 
@@ -685,7 +685,7 @@ static int lib_access_list_entry_any_destroy(struct nb_cb_destroy_args *args)
  */
 static int lib_prefix_list_create(struct nb_cb_create_args *args)
 {
-	struct prefix_list *pl;
+	struct prefix_list *pl = NULL;
 	const char *name;
 	int type;
 
