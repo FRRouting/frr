@@ -22,9 +22,10 @@
 
 #include <stdbool.h>
 #include <pcep_pcc_api.h>
+#include "frr_pthread.h"
 #include "pathd/path_pcep.h"
 
-int pcep_lib_initialize(void);
+int pcep_lib_initialize(struct frr_pthread *fpt);
 void pcep_lib_finalize(void);
 pcep_session *pcep_lib_connect(struct ipaddr *src_addr, int src_port,
 			       struct ipaddr *dst_addr, int dst_port,
@@ -39,5 +40,6 @@ void pcep_lib_parse_capabilities(struct pcep_message *msg,
 				 struct pcep_caps *caps);
 struct counters_group *pcep_lib_copy_counters(pcep_session *sess);
 void pcep_lib_free_counters(struct counters_group *counters);
+void pcep_lib_timer_expire(void *payload);
 
 #endif // _PATH_PCEP_LIB_H_

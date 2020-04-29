@@ -647,10 +647,10 @@ int pcep_module_late_init(struct thread_master *tm)
 
 	struct frr_pthread *fpt;
 
-	if (pcep_lib_initialize())
+	if (pcep_ctrl_initialize(tm, &fpt, pcep_main_event_handler))
 		return 1;
 
-	if (pcep_ctrl_initialize(tm, &fpt, pcep_main_event_handler))
+	if (pcep_lib_initialize(fpt))
 		return 1;
 
 	pcep_g->master = tm;

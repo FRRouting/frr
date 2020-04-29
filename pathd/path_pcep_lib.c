@@ -19,6 +19,7 @@
 
 #include <debug.h>
 #include <pcep_utils_counters.h>
+#include <pcep_timers.h>
 #include "pathd/path_errors.h"
 #include "pathd/path_memory.h"
 #include "pathd/path_pcep.h"
@@ -30,6 +31,9 @@
 
 /* pceplib logging callback */
 static int pceplib_logging_cb(int level, const char *fmt, va_list args);
+
+static void *pcep_lib_pceplib_timer_create_cb(void *fpt, int delay, void *payload);
+static void pcep_lib_pceplib_timer_cancel_cb(void *thread);
 
 /* Internal functions */
 static double_linked_list *pcep_lib_format_path(struct path *path);
@@ -54,28 +58,34 @@ static void free_counter(struct counter *counter);
 
 /* ------------ API Functions ------------ */
 
-int pcep_lib_initialize(void)
+int pcep_lib_initialize(struct frr_pthread *fpt)
 {
 	PCEP_DEBUG("Initializing pceplib");
+
+	/* Register pceplib logging callback */
+	register_logger(pceplib_logging_cb);
 
 	/* Its ok that this object goes out of scope, as it
 	 * wont be stored, and its values will be copied */
 	struct pceplib_infra_config infra = {
-		.pceplib_infra_mt = MTYPE_PCEPLIB_INFRA,
+            /* Memory infrastructure */
+		.pceplib_infra_mt    = MTYPE_PCEPLIB_INFRA,
 		.pceplib_messages_mt = MTYPE_PCEPLIB_MESSAGES,
-		.mfunc = (pceplib_malloc_func)  qmalloc,
-		.cfunc = (pceplib_calloc_func)  qcalloc,
-		.rfunc = (pceplib_realloc_func) qrealloc,
-		.sfunc = (pceplib_strdup_func)  qstrdup,
-		.ffunc = (pceplib_free_func)    qfree
+		.malloc_func =  (pceplib_malloc_func)  qmalloc,
+		.calloc_func =  (pceplib_calloc_func)  qcalloc,
+		.realloc_func = (pceplib_realloc_func) qrealloc,
+		.strdup_func =  (pceplib_strdup_func)  qstrdup,
+		.free_func =    (pceplib_free_func)    qfree,
+            /* Timers infrastructure */
+	    .external_timer_infra_data = fpt,
+	    .timer_create_func   = pcep_lib_pceplib_timer_create_cb,
+	    .timer_cancel_func   = pcep_lib_pceplib_timer_cancel_cb
 	};
 	if (!initialize_pcc_infra(&infra)) {
 		flog_err(EC_PATH_PCEP_PCC_INIT, "failed to initialize pceplib");
 		return 1;
 	}
 
-	/* Register pceplib logging callback */
-	register_logger(pceplib_logging_cb);
 	return 0;
 }
 
@@ -131,6 +141,26 @@ void pcep_lib_disconnect(pcep_session *sess)
 {
 	assert(sess != NULL);
 	disconnect_pce(sess);
+}
+
+void *pcep_lib_pceplib_timer_create_cb(void *fpt, int delay, void *payload)
+{
+	struct ctrl_state *ctrl_state = ((struct frr_pthread *) fpt)->data;
+    struct thread *thread = NULL;
+
+	pcep_thread_schedule_pceplib_timer(ctrl_state, delay, payload, &thread);
+
+    return thread;
+}
+
+void pcep_lib_pceplib_timer_cancel_cb(void *thread)
+{
+    pcep_thread_cancel_pceplib_timer(thread);
+}
+
+void pcep_lib_timer_expire(void *payload)
+{
+    pceplib_external_timer_expire_handler(payload);
 }
 
 struct pcep_message *pcep_lib_format_report(struct path *path)
@@ -293,7 +323,6 @@ int pceplib_logging_cb(int priority, const char *fmt, va_list args)
 	PCEP_DEBUG_PCEPLIB(priority, "pceplib: %s", buffer);
 	return 0;
 }
-
 
 /* ------------ Internal Functions ------------ */
 

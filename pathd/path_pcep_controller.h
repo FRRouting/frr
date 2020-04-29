@@ -77,4 +77,8 @@ void pcep_thread_update_path(struct ctrl_state *ctrl_state, int pcc_id,
 void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
 				    int retry_count, struct thread **thread);
 
+void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
+        int delay, void *payload, struct thread **thread);
+void pcep_thread_cancel_pceplib_timer(struct thread *thread);
+
 #endif // _PATH_PCEP_CONTROLLER_H_

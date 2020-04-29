@@ -76,7 +76,7 @@ struct pcep_main_event_data {
 
 /* Timer handling data structures */
 
-enum pcep_ctrl_timer_type { TM_POLL = 1, TM_RECONNECT_PCC };
+enum pcep_ctrl_timer_type { TM_POLL = 1, TM_RECONNECT_PCC, TM_PCEPLIB_TIMER };
 
 struct pcep_ctrl_timer_data {
 	struct ctrl_state *ctrl_state;
@@ -320,6 +320,18 @@ void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
 			thread);
 }
 
+void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
+				    int delay, void *payload, struct thread **thread)
+{
+	PCEP_DEBUG("Schedule pceplib timer for %us", delay);
+	schedule_thread(ctrl_state, 0, TM_PCEPLIB_TIMER, delay, payload, thread);
+}
+
+void pcep_thread_cancel_pceplib_timer(struct thread *thread)
+{
+	PCEP_DEBUG("Cancel pceplib timer");
+	thread_cancel_async(thread->master, &thread, NULL);
+}
 
 /* ------------ Internal Functions Called From Controller Thread ------------ */
 
@@ -426,6 +438,7 @@ int pcep_thread_timer_handler(struct thread *thread)
 	assert(ctrl_state != NULL);
 	enum pcep_ctrl_timer_type type = data->type;
 	int pcc_id = data->pcc_id;
+    void *payload = data->payload;
 	XFREE(MTYPE_PCEP, data);
 
 	int ret = 0;
@@ -439,6 +452,9 @@ int pcep_thread_timer_handler(struct thread *thread)
 		pcc_state = get_pcc_state(ctrl_state, pcc_id);
 		pcep_pcc_reconnect(ctrl_state, pcc_state);
 		break;
+	case TM_PCEPLIB_TIMER:
+        pcep_lib_timer_expire(payload);
+	    break;
 	default:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
 			  "Unknown controller timer triggered: %u", type);
