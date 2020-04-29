@@ -203,6 +203,9 @@ typedef enum {
 	ZEBRA_MLAG_CLIENT_REGISTER,
 	ZEBRA_MLAG_CLIENT_UNREGISTER,
 	ZEBRA_MLAG_FORWARD_MSG,
+	ZEBRA_NHG_ADD,
+	ZEBRA_NHG_DEL,
+	ZEBRA_NHG_NOTIFY_OWNER,
 	ZEBRA_ERROR,
 	ZEBRA_CLIENT_CAPABILITIES,
 	ZEBRA_OPAQUE_MESSAGE,
@@ -347,6 +350,7 @@ struct zclient {
 	int (*mlag_process_up)(void);
 	int (*mlag_process_down)(void);
 	int (*mlag_handle_msg)(struct stream *msg, int len);
+	int (*nhg_notify_owner)(ZAPI_CALLBACK_ARGS);
 	int (*handle_error)(enum zebra_error_types error);
 	int (*opaque_msg_handler)(ZAPI_CALLBACK_ARGS);
 	int (*opaque_register_handler)(ZAPI_CALLBACK_ARGS);
@@ -539,6 +543,13 @@ enum zapi_route_notify_owner {
 	ZAPI_ROUTE_INSTALLED,
 	ZAPI_ROUTE_REMOVED,
 	ZAPI_ROUTE_REMOVE_FAIL,
+};
+
+enum zapi_nhg_notify_owner {
+	ZAPI_NHG_FAIL_INSTALL,
+	ZAPI_NHG_INSTALLED,
+	ZAPI_NHG_REMOVED,
+	ZAPI_NHG_REMOVE_FAIL,
 };
 
 enum zapi_rule_notify_owner {
@@ -805,7 +816,11 @@ extern int zclient_send_rnh(struct zclient *zclient, int command,
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags);
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);
-extern int zapi_route_decode(struct stream *, struct zapi_route *);
+extern int zapi_route_decode(struct stream *s, struct zapi_route *api);
+extern int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
+			       uint32_t api_flags);
+bool zapi_nhg_notify_decode(struct stream *s, uint32_t *id,
+			    enum zapi_nhg_notify_owner *note);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      uint32_t *tableid,
 			      enum zapi_route_notify_owner *note);
@@ -816,6 +831,11 @@ bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 bool zapi_ipset_notify_decode(struct stream *s,
 			      uint32_t *unique,
 			     enum zapi_ipset_notify_owner *note);
+
+extern void zclient_nhg_add(struct zclient *zclient,
+			    uint32_t id, size_t nhops,
+			    struct zapi_nexthop *znh);
+extern void zclient_nhg_del(struct zclient *zclient, uint32_t id);
 
 #define ZEBRA_IPSET_NAME_SIZE   32
 
