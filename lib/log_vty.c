@@ -24,6 +24,7 @@
 #include "command.h"
 #include "lib/log.h"
 #include "lib/zlog_targets.h"
+#include "lib/zlog_5424.h"
 #include "lib/lib_errors.h"
 #include "lib/printfrr.h"
 
@@ -861,4 +862,6 @@ void log_cmd_init(void)
 
 	install_element(ENABLE_NODE, &debug_uid_backtrace_cmd);
 	install_element(CONFIG_NODE, &debug_uid_backtrace_cmd);
+
+	log_5424_cmd_init();
 }

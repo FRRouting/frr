@@ -93,6 +93,7 @@ enum node_type {
 	RMAP_DEBUG_NODE,         /* Route-map debug node */
 	RESOLVER_DEBUG_NODE,	 /* Resolver debug node */
 	AAA_NODE,		 /* AAA node. */
+	EXTLOG_NODE,		 /* RFC5424 & co. extended syslog */
 	KEYCHAIN_NODE,		 /* Key-chain node. */
 	KEYCHAIN_KEY_NODE,       /* Key-chain key node. */
 	IP_NODE,		 /* Static ip route node. */
