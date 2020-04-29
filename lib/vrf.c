@@ -726,7 +726,7 @@ DEFUN_NOSH(vrf_exit,
 {
 	/* We have to set vrf context to default vrf */
 	VTY_PUSH_CONTEXT(VRF_NODE, vrf_get(VRF_DEFAULT, VRF_DEFAULT_NAME));
-	vty->node = CONFIG_NODE;
+	cmd_exit(vty);
 	return CMD_SUCCESS;
 }
 
