@@ -35,4 +35,7 @@ struct sharp_nh_tracker {
 extern struct sharp_nh_tracker *sharp_nh_tracker_get(struct prefix *p);
 
 extern void sharp_nh_tracker_dump(struct vty *vty);
+
+extern uint32_t sharp_nhgroup_get_id(const char *name);
+extern void sharp_nhgroup_init(void);
 #endif
