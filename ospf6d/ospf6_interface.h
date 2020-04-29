@@ -164,7 +164,7 @@ extern const char *const ospf6_interface_state_str[];
 #define OSPF6_INTERFACE_TRANSDELAY     1
 #define OSPF6_INTERFACE_INSTANCE_ID    0
 #define OSPF6_INTERFACE_BANDWIDTH      10000   /* Mbps */
-#define OSPF6_REFERENCE_BANDWIDTH      100000  /* Mbps */
+#define OSPF6_REFERENCE_BANDWIDTH      100000  /* Kbps */
 #define OSPF6_INTERFACE_SSO_RETRY_INT  1
 #define OSPF6_INTERFACE_SSO_RETRY_MAX  5
 
