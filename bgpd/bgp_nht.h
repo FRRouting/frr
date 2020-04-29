@@ -87,6 +87,7 @@ extern void bgp_nht_register_nexthops(struct bgp *bgp);
  * this code can walk the registered nexthops and
  * register the important ones with zebra for RA.
  */
-extern void bgp_nht_register_enhe_capability_interfaces(struct peer *peer);
+extern void bgp_nht_reg_enhe_cap_intfs(struct peer *peer);
+extern void bgp_nht_dereg_enhe_cap_intfs(struct peer *peer);
 
 #endif /* _BGP_NHT_H */

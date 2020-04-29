@@ -3822,6 +3822,10 @@ DEFUN (no_neighbor,
 			}
 
 			other = peer->doppelganger;
+
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+				bgp_zebra_terminate_radv(peer->bgp, peer);
+
 			peer_notify_unconfig(peer);
 			peer_delete(peer);
 			if (other && other->status != Deleted) {
@@ -4241,6 +4245,9 @@ DEFUN (no_neighbor_set_peer_group,
 		vty_out(vty, "%% Configure the peer-group first\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+		bgp_zebra_terminate_radv(peer->bgp, peer);
 
 	peer_notify_unconfig(peer);
 	ret = peer_delete(peer);

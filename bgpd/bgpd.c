@@ -2490,6 +2490,11 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 						   : BGP_DEFAULT_EBGP_ROUTEADV;
 	}
 
+	/* capability extended-nexthop apply */
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE))
+		if (CHECK_FLAG(conf->flags, PEER_FLAG_CAPABILITY_ENHE))
+			SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE);
+
 	/* password apply */
 	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_PASSWORD))
 		PEER_STR_ATTR_INHERIT(peer, group, password,
@@ -2577,6 +2582,10 @@ int peer_group_delete(struct peer_group *group)
 
 	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 		other = peer->doppelganger;
+
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+			bgp_zebra_terminate_radv(bgp, peer);
+
 		peer_delete(peer);
 		if (other && other->status != Deleted) {
 			other->group = NULL;
@@ -2620,6 +2629,9 @@ int peer_group_remote_as_delete(struct peer_group *group)
 
 	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 		other = peer->doppelganger;
+
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+			bgp_zebra_terminate_radv(peer->bgp, peer);
 
 		peer_delete(peer);
 
@@ -4065,8 +4077,22 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 		/* Update flag override state accordingly. */
 		COND_FLAG(peer->flags_override, flag, set != invert);
 
-		if (set && flag == PEER_FLAG_CAPABILITY_ENHE)
-			bgp_nht_register_enhe_capability_interfaces(peer);
+		/*
+		 * For the extended next-hop encoding flag we need to turn RAs
+		 * on if flag is being set, but only turn RAs off if the flag
+		 * is being unset on this peer and if this peer is a member of a
+		 * peer-group, the peer-group also doesn't have the flag set.
+		 */
+		if (flag == PEER_FLAG_CAPABILITY_ENHE) {
+			if (set) {
+				bgp_zebra_initiate_radv(peer->bgp, peer);
+			} else if (peer_group_active(peer)) {
+				if (!CHECK_FLAG(peer->group->conf->flags, flag))
+					bgp_zebra_terminate_radv(peer->bgp,
+								 peer);
+			} else
+				bgp_zebra_terminate_radv(peer->bgp, peer);
+		}
 
 		/* Execute flag action on peer. */
 		if (action.type == peer_change_reset)
@@ -4099,8 +4125,9 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 		/* Update flag on peer-group member. */
 		COND_FLAG(member->flags, flag, set != member_invert);
 
-		if (set && flag == PEER_FLAG_CAPABILITY_ENHE)
-			bgp_nht_register_enhe_capability_interfaces(member);
+		if (flag == PEER_FLAG_CAPABILITY_ENHE)
+			set ? bgp_zebra_initiate_radv(member->bgp, member)
+			    : bgp_zebra_terminate_radv(member->bgp, member);
 
 		/* Execute flag action on peer-group member. */
 		if (action.type == peer_change_reset)
