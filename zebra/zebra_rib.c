@@ -1334,19 +1334,15 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 	 * we use the fib-specific nexthop-group to record the actual FIB
 	 * status.
 	 */
+	matched = false;
+	ctxnhg = dplane_ctx_get_ng(ctx);
 
 	/* Check both fib group and notif group for equivalence.
 	 *
 	 * Let's assume the nexthops are ordered here to save time.
 	 */
-	if (nexthop_group_equal(&re->fib_ng, dplane_ctx_get_ng(ctx)) == false) {
-		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug(
-				"%s(%u):%s update_from_ctx: notif nh and fib nh mismatch",
-				VRF_LOGNAME(vrf), re->vrf_id, dest_str);
-
-		matched = false;
-	} else
+	if (re->fib_ng.nexthop && ctxnhg->nexthop &&
+	    nexthop_group_equal(&re->fib_ng, ctxnhg))
 		matched = true;
 
 	/* If the new FIB set matches the existing FIB set, we're done. */
@@ -1387,7 +1383,7 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 	 */
 	matched = true;
 
-	ctx_nexthop = dplane_ctx_get_ng(ctx)->nexthop;
+	ctx_nexthop = ctxnhg->nexthop;
 
 	/* Nothing installed - we can skip some of the checking/comparison
 	 * of nexthops.
@@ -1470,8 +1466,6 @@ no_nexthops:
 			"%s(%u):%s update_from_ctx(): changed %s, adding new fib nhg",
 			VRF_LOGNAME(vrf), re->vrf_id, dest_str,
 			(changed_p ? "true" : "false"));
-
-	ctxnhg = dplane_ctx_get_ng(ctx);
 
 	if (ctxnhg->nexthop)
 		copy_nexthops(&(re->fib_ng.nexthop), ctxnhg->nexthop, NULL);
