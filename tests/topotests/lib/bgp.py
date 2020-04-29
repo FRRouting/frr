@@ -219,6 +219,7 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
     if router_id:
         config_data.append("bgp router-id {}".format(router_id))
 
+    config_data.append("no bgp network import-check")
     return config_data
 
 

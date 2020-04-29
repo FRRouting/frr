@@ -908,6 +908,17 @@ Networks
 .. index:: no network A.B.C.D/M
 .. clicmd:: no network A.B.C.D/M
 
+.. index:: [no] bgp network import-check
+.. clicmd:: [no] bgp network import-check
+
+   This configuration modifies the behavior of the network statement.
+   If you have this configured the underlying network must exist in
+   the rib.  If you have the [no] form configured then BGP will not
+   check for the networks existence in the rib.  For versions 7.3 and
+   before frr defaults for datacenter were the network must exist,
+   traditional did not check for existence.  For versions 7.4 and beyond
+   both traditional and datacenter the network must exist.
+
 .. _bgp-route-aggregation:
 
 Route Aggregation
